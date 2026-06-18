@@ -3,570 +3,1074 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <meta name="theme-color" content="#ffacd1" />
+  <title>HeroHealth • Rhythm Boxer AR Body</title>
+  <meta name="theme-color" content="#ff9dcf" />
   <meta name="color-scheme" content="light" />
-  <title>HeroHealth • Rhythm Boxer AR</title>
+
+  <!-- Body tracking: MediaPipe Pose. Touch/keyboard still works if CDN or camera fails. -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
 
   <style>
     :root{
-      --bg1:#fff1f8;
-      --bg2:#ffe3f2;
-      --bg3:#eef8ff;
-      --card:#ffffff;
-      --line:#f2d6e6;
-      --text:#433f3d;
-      --muted:#756b75;
-      --pink:#ff74b3;
-      --purple:#8f76f0;
-      --blue:#4aaef0;
-      --green:#55c955;
-      --gold:#ffd84a;
-      --red:#ff7f8d;
-      --shadow:0 14px 34px rgba(95,60,100,.13);
-      --safe-top:env(safe-area-inset-top,0px);
-      --safe-bottom:env(safe-area-inset-bottom,0px);
+      --pink:#ff9dcf; --pink2:#ff74b3; --purple:#9b7cff; --blue:#62c7ff;
+      --green:#55c955; --gold:#ffd84a; --red:#ff6b81; --ink:#423648;
+      --muted:#766b79; --card:rgba(255,255,255,.88); --line:rgba(255,255,255,.78);
+      --shadow:0 16px 42px rgba(94,60,104,.16);
     }
-
-    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
     html,body{
-      margin:0;
-      min-height:100%;
+      margin:0; min-height:100%; color:var(--ink);
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
-      color:var(--text);
       background:
-        radial-gradient(circle at 12% 10%,rgba(255,255,255,.92),transparent 24%),
-        radial-gradient(circle at 88% 8%,rgba(255,255,255,.78),transparent 22%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 50%,var(--bg3));
-      overscroll-behavior:none;
+        radial-gradient(circle at 10% 10%,rgba(255,255,255,.9),transparent 22%),
+        radial-gradient(circle at 90% 6%,rgba(255,255,255,.82),transparent 26%),
+        linear-gradient(180deg,#fff0f8,#ffe0ef 48%,#eef8ff);
+      overflow-x:hidden;
     }
-    button,input,select{ font:inherit; }
-    button{ cursor:pointer; }
-    .hidden{ display:none !important; }
-
-    .shell{
-      max-width:1180px;
-      margin:0 auto;
-      min-height:100vh;
-      padding:calc(10px + var(--safe-top)) 10px calc(12px + var(--safe-bottom));
-    }
-
+    button,input,select{font:inherit}
+    button{cursor:pointer}
+    .hidden{display:none!important}
+    .app{max-width:1200px;margin:0 auto;min-height:100vh;padding:12px}
     .topbar{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-      padding:14px;
-      border-radius:24px;
-      background:rgba(255,255,255,.84);
-      border:1px solid rgba(255,255,255,.88);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(12px);
+      display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;
+      padding:14px;border-radius:24px;background:var(--card);border:1px solid var(--line);
+      box-shadow:var(--shadow);backdrop-filter:blur(12px);
     }
-    .kicker{ font-size:.78rem; color:var(--muted); font-weight:1000; letter-spacing:.02em; }
-    h1{ margin:5px 0 4px; font-size:1.6rem; line-height:1.08; color:#513d53; }
-    .sub{ max-width:760px; color:#746874; font-size:.9rem; line-height:1.45; font-weight:760; }
-    .top-actions{ display:flex; gap:8px; flex-wrap:wrap; }
-    .link-btn,.btn{
-      min-height:42px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:7px;
-      padding:9px 13px;
-      border-radius:16px;
-      border:1px solid var(--line);
-      background:linear-gradient(180deg,#fff,#fff7fb);
-      color:#5d505e;
-      box-shadow:0 8px 18px rgba(95,60,100,.08);
-      font-weight:1000;
-      text-decoration:none;
-    }
-    .btn.primary{ background:linear-gradient(180deg,#8fe388,#58c33f); border-color:#71d35c; color:#fff; box-shadow:0 10px 22px rgba(88,195,63,.22); }
-    .btn.soft{ background:linear-gradient(180deg,#e7f7ff,#d5efff); border-color:#bee3f2; color:#47606d; }
-    .btn.warn{ background:linear-gradient(180deg,#ffd45c,#ffb83f); border-color:#f4bb39; color:#624400; }
-    .btn.ghost{ background:rgba(255,255,255,.52); box-shadow:none; }
-    .btn:disabled{ opacity:.48; cursor:not-allowed; }
-
-    .view{ margin-top:12px; }
-    .card{
-      border-radius:24px;
-      background:rgba(255,255,255,.86);
-      border:1px solid rgba(255,255,255,.9);
-      box-shadow:var(--shadow);
-      padding:16px;
-      backdrop-filter:blur(12px);
-    }
-    .section-title{ margin:0 0 10px; font-size:1.14rem; color:#544257; font-weight:1000; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    .grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:12px; }
-    .field{ display:flex; flex-direction:column; gap:6px; }
-    .label{ font-size:.82rem; color:#695e69; font-weight:950; }
-    .input{
-      width:100%; min-height:44px; padding:10px 12px; border-radius:14px;
-      border:1px solid var(--line); background:#fff; color:var(--text); outline:none;
-    }
+    .kicker{font-size:.82rem;color:var(--muted);font-weight:1000}
+    h1{margin:4px 0;font-size:1.58rem;line-height:1.08}
+    .sub{font-size:.9rem;color:#6d6270;font-weight:750;line-height:1.45;max-width:780px}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
     .chip{
-      min-height:36px; display:inline-flex; align-items:center; gap:6px; padding:7px 11px;
-      border-radius:999px; background:rgba(255,255,255,.9); border:1px solid var(--line);
-      color:#6d6170; font-size:.78rem; font-weight:1000;
+      min-height:36px;display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;
+      background:rgba(255,255,255,.84);border:1px solid rgba(255,255,255,.86);font-size:.78rem;font-weight:1000;color:#625766;
+      box-shadow:0 8px 18px rgba(94,60,104,.08);
     }
-    .choice{
-      position:relative; min-height:44px; padding:10px 14px; border-radius:16px;
-      border:1px solid var(--line); background:linear-gradient(180deg,#fff,#fff8fc);
-      color:#5f525f; font-weight:1000; box-shadow:0 8px 16px rgba(95,60,100,.07);
-      user-select:none;
+    .view{margin-top:12px}
+    .card{
+      border-radius:24px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);
+      backdrop-filter:blur(12px);padding:16px;
     }
-    .choice input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
-    .choice:has(input:checked){ background:linear-gradient(180deg,#ff9dcf,#ff74b3); color:#fff; border-color:#ff88bb; box-shadow:0 10px 24px rgba(255,116,179,.26); }
-    .note-box{ margin-top:12px; padding:12px 14px; border-radius:18px; background:linear-gradient(180deg,#fffdf4,#fff8fb); border:1px solid #f8e1a6; color:#75624a; font-size:.86rem; font-weight:850; line-height:1.5; }
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    label{font-size:.82rem;font-weight:1000;color:#655c67}
+    input,select{
+      width:100%;min-height:44px;padding:10px 12px;border-radius:15px;border:1px solid rgba(242,214,230,.95);
+      background:#fff;color:var(--ink);outline:none;
+    }
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .btn{
+      min-height:44px;border-radius:16px;border:1px solid rgba(242,214,230,.95);
+      background:linear-gradient(180deg,#fff,#fff7fc);color:#584d5c;font-weight:1000;padding:10px 14px;
+      box-shadow:0 10px 18px rgba(94,60,104,.08);
+    }
+    .btn.primary{background:linear-gradient(180deg,#91e983,#58c33f);border-color:#67d354;color:#fff}
+    .btn.soft{background:linear-gradient(180deg,#e8f7ff,#caefff);border-color:#c7eafa;color:#486373}
+    .btn.warn{background:linear-gradient(180deg,#ffd564,#ffb63f);border-color:#f5bd42;color:#6a4a00}
+    .note-box{
+      margin-top:12px;border-radius:18px;padding:12px 14px;border:1px solid #f7dda4;background:linear-gradient(180deg,#fffdf4,#fff8fb);
+      color:#705f4d;font-size:.88rem;font-weight:850;line-height:1.5;
+    }
 
-    .play-wrap{ display:grid; gap:12px; }
-    .play-head{ display:grid; grid-template-columns:1fr minmax(280px,360px); gap:12px; align-items:start; }
-    .hud-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
-    .stat{ border-radius:18px; background:rgba(255,255,255,.9); border:1px solid var(--line); box-shadow:0 8px 16px rgba(95,60,100,.06); padding:10px 12px; min-height:66px; }
-    .stat-k{ font-size:.72rem; color:#827683; font-weight:1000; }
-    .stat-v{ margin-top:3px; font-size:1.04rem; font-weight:1000; color:#514551; }
-    .side-stack{ display:grid; gap:10px; }
-    .bar-card,.mission-card,.boss-card{ border-radius:18px; background:rgba(255,255,255,.9); border:1px solid var(--line); box-shadow:0 8px 16px rgba(95,60,100,.06); padding:10px 12px; }
-    .bar-row,.mini-head{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:7px; color:#716672; font-size:.78rem; font-weight:1000; }
-    .track{ height:14px; border-radius:999px; overflow:hidden; background:#f4edf3; border:1px solid #ecd8e6; }
-    .fill{ height:100%; width:0%; transition:width .12s linear; border-radius:999px; }
-    #feverFill{ background:linear-gradient(90deg,#ffd84a,#ffb83f); }
-    #progressFill{ background:linear-gradient(90deg,#7fcfff,#4aaef0); }
-    #bossFill{ background:linear-gradient(90deg,#ffbf66,#ff7f8d); width:100%; }
-    .mission-list{ display:grid; gap:6px; }
-    .mission-item{ border-radius:12px; background:#fff; border:1px solid var(--line); padding:8px 10px; font-size:.8rem; font-weight:900; color:#746874; }
-    .mission-item.done{ background:linear-gradient(180deg,#f3fff0,#e5f9df); color:#3d7340; border-color:#cde9c8; }
-
-    .field-card{
-      position:relative;
-      border-radius:24px;
-      overflow:hidden;
-      min-height:620px;
-      isolation:isolate;
+    /* PLAY */
+    .play-wrap{display:grid;gap:12px}
+    .play-head{display:grid;grid-template-columns:1fr 330px;gap:12px;align-items:start}
+    .hud-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+    .stat{
+      border-radius:18px;background:rgba(255,255,255,.86);border:1px solid rgba(255,255,255,.85);
+      padding:10px 12px;min-height:66px;box-shadow:0 8px 16px rgba(94,60,104,.07);
+    }
+    .stat-k{font-size:.72rem;color:#796e7c;font-weight:1000}
+    .stat-v{margin-top:4px;font-size:1.04rem;font-weight:1000}
+    .side-stack{display:grid;gap:9px}
+    .bar-card{
+      border-radius:18px;background:rgba(255,255,255,.86);border:1px solid rgba(255,255,255,.85);
+      padding:10px 12px;box-shadow:0 8px 16px rgba(94,60,104,.07);
+    }
+    .bar-row{display:flex;justify-content:space-between;gap:8px;font-size:.78rem;font-weight:1000;color:#706776;margin-bottom:7px}
+    .track{height:14px;border-radius:999px;overflow:hidden;background:#f2e9f2;border:1px solid #eddbe9}
+    .fill{height:100%;width:0%;border-radius:999px;transition:width .12s linear}
+    #feverFill{background:linear-gradient(90deg,#ffd84a,#ffb53f)}
+    #progressFill{background:linear-gradient(90deg,#7fcfff,#4aaef0)}
+    #bossFill{background:linear-gradient(90deg,#ffbf66,#ff6b81)}
+    .arena-card{
+      position:relative;min-height:650px;border-radius:26px;overflow:hidden;background:
+        radial-gradient(circle at 50% 12%,rgba(255,255,255,.72),transparent 30%),
+        linear-gradient(180deg,#fff9fd 0%,#fff4fa 36%,#eef8ff 100%);
+      border:1px solid rgba(255,255,255,.92);box-shadow:var(--shadow);isolation:isolate;
+    }
+    video#cam{
+      position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:0;
+      transition:opacity .2s ease;background:#111;transform:scaleX(-1);
+    }
+    .arena-card.cam-on video#cam{opacity:.72}
+    .arena-card.back video#cam{transform:none}
+    canvas#poseCanvas{
+      position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;opacity:.92;
+    }
+    .ar-tint{
+      position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .2s ease;
       background:
-        radial-gradient(circle at 50% 12%, rgba(255,255,255,.72), transparent 30%),
-        linear-gradient(180deg,#fff9fd 0%, #fff4fa 32%, #eef7ff 100%);
-      border:1px solid rgba(255,255,255,.92);
-      box-shadow:var(--shadow);
+        radial-gradient(circle at 50% 18%,rgba(255,255,255,.22),transparent 32%),
+        linear-gradient(180deg,rgba(255,241,248,.28),rgba(238,248,255,.30));
     }
-    .ar-video{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; pointer-events:none; z-index:0; background:#111; transition:opacity .22s ease; transform:none; }
-    .field-card.camera-front .ar-video{ transform:scaleX(-1); }
-    .field-card.ar-on .ar-video{ opacity:.76; }
-    .field-card.ar-on::after{ content:""; position:absolute; inset:0; z-index:1; pointer-events:none; background:radial-gradient(circle at 50% 20%, rgba(255,255,255,.20), transparent 34%), linear-gradient(180deg, rgba(255,241,248,.32), rgba(238,247,255,.28)); }
-    .depth-grid{ position:absolute; left:8px; right:8px; bottom:8px; height:42%; z-index:1; pointer-events:none; opacity:0; background:linear-gradient(to right, rgba(255,255,255,.18) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.16) 1px, transparent 1px); background-size:42px 42px; transform:perspective(520px) rotateX(58deg); transform-origin:bottom center; mask-image:linear-gradient(to top, rgba(0,0,0,.75), transparent); transition:opacity .22s ease; }
-    .field-card.ar-on .depth-grid{ opacity:.55; }
-    .arena{ position:relative; z-index:2; min-height:620px; padding:12px; background:transparent; }
-    .arena.is-fever{ background:radial-gradient(circle at 50% 10%, rgba(255,216,74,.20), transparent 28%); }
-    .arena.safety-warn::before{ content:""; position:absolute; inset:0; z-index:4; pointer-events:none; background:radial-gradient(circle at 50% 18%, rgba(255,216,74,.15), transparent 38%); }
-    .arena.shake{ animation:fieldShake .20s ease; }
-    @keyframes fieldShake{ 0%,100%{ transform:translate3d(0,0,0); } 25%{ transform:translate3d(-3px,0,0); } 50%{ transform:translate3d(3px,0,0); } 75%{ transform:translate3d(-2px,0,0); } }
-
-    .ar-controls{ position:absolute; left:12px; right:12px; top:12px; z-index:6; display:flex; align-items:center; justify-content:space-between; gap:8px; pointer-events:none; }
-    .ar-left,.ar-right{ display:flex; gap:8px; flex-wrap:wrap; pointer-events:auto; }
-    .ar-mini-btn,.ar-status{ min-height:34px; padding:7px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.78); background:rgba(255,255,255,.84); color:#574958; box-shadow:0 8px 18px rgba(95,60,100,.12); font-size:.74rem; font-weight:1000; }
-    .ar-status.on{ color:#167a4a; background:rgba(236,255,243,.9); }
-    .ar-status.warn{ color:#9a5a00; background:rgba(255,250,222,.92); }
-    .ar-toast{ position:absolute; left:50%; top:58px; transform:translateX(-50%); z-index:7; max-width:min(88vw,520px); padding:9px 12px; border-radius:999px; border:1px solid rgba(255,255,255,.86); background:rgba(255,255,255,.92); color:#655a66; box-shadow:0 10px 22px rgba(95,60,100,.14); font-size:.8rem; font-weight:950; text-align:center; opacity:0; pointer-events:none; transition:.18s ease; }
-    .ar-toast.show{ opacity:1; transform:translateX(-50%) translateY(4px); }
-
-    .countdown{ position:absolute; inset:0; z-index:30; display:grid; place-items:center; pointer-events:none; background:rgba(255,255,255,.18); backdrop-filter:blur(2px); }
-    .countdown-num{ min-width:130px; min-height:130px; display:grid; place-items:center; border-radius:36px; background:rgba(255,255,255,.94); border:1px solid rgba(255,255,255,.96); box-shadow:0 18px 42px rgba(95,60,100,.20); font-size:3.4rem; font-weight:1000; color:var(--purple); animation:countPop .72s ease both; }
-    @keyframes countPop{ 0%{ opacity:0; transform:scale(.72); } 35%{ opacity:1; transform:scale(1.08); } 100%{ opacity:.96; transform:scale(1); } }
-
-    .safety-chip{ position:absolute; left:50%; bottom:12px; transform:translateX(-50%); z-index:18; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:34px; max-width:min(90%,560px); padding:7px 12px; border-radius:999px; background:rgba(255,255,255,.90); border:1px solid rgba(255,255,255,.85); box-shadow:0 10px 22px rgba(95,60,100,.12); color:#645a66; font-size:.74rem; font-weight:1000; pointer-events:none; text-align:center; }
-    .safety-chip.warn{ color:#9a5a00; background:rgba(255,248,221,.94); border-color:#f5d889; }
-    .safety-chip.danger{ color:#a73d4d; background:rgba(255,235,239,.94); border-color:#ffc2cd; }
-
-    .feedback{ position:absolute; left:50%; top:26px; transform:translateX(-50%) scale(.94); min-width:140px; text-align:center; padding:10px 14px; border-radius:999px; background:rgba(255,255,255,.95); border:1px solid rgba(255,255,255,.95); box-shadow:0 12px 26px rgba(95,60,100,.14); font-size:1rem; font-weight:1000; opacity:0; pointer-events:none; z-index:20; color:#5a4c5b; }
-    .feedback.show{ opacity:1; transform:translateX(-50%) scale(1); }
-    .feedback.perfect{ color:#997100; } .feedback.great{ color:#2e7b5f; } .feedback.good{ color:#3868a1; } .feedback.miss{ color:#b44e67; }
-    .flash{ position:absolute; inset:0; background:rgba(255,255,255,.18); opacity:0; pointer-events:none; z-index:5; transition:opacity .12s ease; }
-    .flash.active{ opacity:1; }
-
-    .round-banner,.combo-burst,.coach-callout,.hit-fx,.score-popup{ position:absolute; left:50%; transform:translateX(-50%); z-index:16; pointer-events:none; font-weight:1000; animation:fadePop .85s ease forwards; }
-    .round-banner{ top:72px; min-width:min(82vw,360px); padding:12px 14px; border-radius:18px; background:rgba(255,255,255,.94); border:1px solid var(--line); box-shadow:0 14px 26px rgba(95,60,100,.12); text-align:center; }
-    .round-title{ font-size:1rem; color:#534253; } .round-sub{ margin-top:4px; font-size:.8rem; color:#7a6d79; }
-    .combo-burst{ top:138px; font-size:1.16rem; color:var(--purple); text-shadow:0 4px 16px rgba(143,118,240,.22); }
-    .coach-callout{ top:188px; max-width:min(88%,560px); padding:8px 12px; border-radius:999px; background:rgba(255,255,255,.94); border:1px solid var(--line); box-shadow:0 10px 22px rgba(95,60,100,.1); font-size:.86rem; color:#5f525f; text-align:center; }
-    .coach-callout.good{ color:#2f7c55; } .coach-callout.great{ color:#7d52d8; } .coach-callout.miss{ color:#b44e67; }
-    .hit-fx{ top:236px; width:140px; height:140px; border-radius:50%; opacity:.55; filter:blur(6px); }
-    .hit-fx.perfect{ background:radial-gradient(circle,#ffd84a,transparent 70%); } .hit-fx.great{ background:radial-gradient(circle,#7bdc7b,transparent 70%); } .hit-fx.good{ background:radial-gradient(circle,#7fcfff,transparent 70%); } .hit-fx.miss{ background:radial-gradient(circle,#ff7f8d,transparent 70%); }
-    .score-popup{ top:300px; font-size:1.12rem; } .score-popup.perfect{ color:#b38700; } .score-popup.great{ color:#2f7c55; } .score-popup.good{ color:#416b9e; }
-    @keyframes fadePop{ 0%{ opacity:0; transform:translateX(-50%) scale(.86) translateY(8px); } 15%{ opacity:1; transform:translateX(-50%) scale(1) translateY(0); } 85%{ opacity:1; } 100%{ opacity:0; transform:translateX(-50%) scale(1.02) translateY(-16px); } }
-
-    .lanes{ position:absolute; inset:120px 14px 14px 14px; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; align-items:stretch; }
-    .field-card[data-lanes="3"] .lanes{ grid-template-columns:repeat(3,minmax(0,1fr)); }
-    .field-card[data-lanes="3"] .lane[data-lane="0"], .field-card[data-lanes="3"] .lane[data-lane="4"]{ display:none; }
-    .lane{ position:relative; border-radius:22px; background:linear-gradient(180deg,rgba(255,255,255,.70),rgba(255,255,255,.28)); border:1px solid rgba(255,255,255,.95); box-shadow:inset 0 0 0 1px rgba(242,214,230,.62); overflow:hidden; min-height:460px; touch-action:manipulation; }
-    .field-card.ar-on .lane{ background:rgba(255,255,255,.28); border-color:rgba(255,255,255,.55); backdrop-filter:blur(5px); }
-    .lane::before{ content:""; position:absolute; left:50%; top:0; bottom:0; width:2px; transform:translateX(-50%); background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.55),rgba(255,255,255,.1)); }
-    .lane.hit{ animation:laneHit .24s ease; } .lane.miss{ animation:laneMiss .26s ease; }
-    @keyframes laneHit{ 0%{ box-shadow:inset 0 0 0 1px rgba(242,214,230,.62); } 45%{ box-shadow:inset 0 0 0 4px rgba(123,220,123,.50),0 0 24px rgba(123,220,123,.24); } 100%{ box-shadow:inset 0 0 0 1px rgba(242,214,230,.62); } }
-    @keyframes laneMiss{ 0%{ box-shadow:inset 0 0 0 1px rgba(242,214,230,.62); } 45%{ box-shadow:inset 0 0 0 4px rgba(255,127,141,.48),0 0 24px rgba(255,127,141,.22); } 100%{ box-shadow:inset 0 0 0 1px rgba(242,214,230,.62); } }
-    .hitline{ position:absolute; left:10px; right:10px; bottom:108px; height:10px; border-radius:999px; background:linear-gradient(90deg,var(--pink),#b899ff,#7fcfff); box-shadow:0 0 0 8px rgba(255,255,255,.22),0 10px 22px rgba(95,60,100,.1); }
-    .arena[data-phase="boss"] .hitline{ background:linear-gradient(90deg,#ffd84a,#ff7f8d,#b899ff); box-shadow:0 0 0 8px rgba(255,255,255,.24),0 0 28px rgba(255,127,141,.35); }
-    .arena[data-phase="rush"] .hitline{ background:linear-gradient(90deg,#7fcfff,#b899ff,#ff9dcf); }
-    .lane-label{ position:absolute; left:50%; bottom:34px; transform:translateX(-50%); min-width:46px; text-align:center; padding:8px 10px; border-radius:999px; background:rgba(255,255,255,.92); border:1px solid var(--line); box-shadow:0 8px 16px rgba(95,60,100,.06); font-size:.78rem; font-weight:1000; color:#665a67; }
-    .note{ position:absolute; left:50%; top:0; width:64px; height:64px; margin-left:-32px; border-radius:20px; background:linear-gradient(180deg,#fff,#fff0f7); border:2px solid #fff; box-shadow:0 10px 24px rgba(95,60,100,.14); display:grid; place-items:center; will-change:transform; z-index:8; transform-style:preserve-3d; }
-    .note::after{ content:""; position:absolute; inset:-8px; border-radius:22px; border:2px solid rgba(255,255,255,.58); opacity:0; transform:scale(.92); transition:opacity .12s ease, transform .12s ease; }
-    .note.near::after{ opacity:.85; transform:scale(1); } .note.near{ box-shadow:0 12px 28px rgba(95,60,100,.18),0 0 0 5px rgba(255,255,255,.22); }
-    .note.side-left{ background:linear-gradient(180deg,#fff6fb,#ffe4f0); } .note.side-center{ background:linear-gradient(180deg,#fdfbff,#efe8ff); } .note.side-right{ background:linear-gradient(180deg,#f7fcff,#e4f3ff); }
-    .note.punch-jab .note-ico{ color:var(--pink); } .note.punch-hook{ border-radius:28px 18px 28px 18px; } .note.punch-hook .note-ico{ color:var(--purple); } .note.punch-uppercut{ border-radius:18px 18px 30px 30px; } .note.punch-uppercut .note-ico{ color:var(--blue); }
-    .note-ico{ font-size:1.5rem; line-height:1; font-weight:1000; }
-    .beat::after{ content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at 50% 18%,rgba(255,255,255,.28),transparent 34%); animation:pulse .22s ease; }
-    @keyframes pulse{ 0%{ opacity:0; transform:scale(.98); } 50%{ opacity:1; transform:scale(1); } 100%{ opacity:0; transform:scale(1.04); } }
-
-    .result-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
-    .result-card{ border-radius:18px; background:rgba(255,255,255,.92); border:1px solid var(--line); box-shadow:0 8px 16px rgba(95,60,100,.06); padding:12px; }
-    .result-k{ font-size:.76rem; color:#7a6e7b; font-weight:1000; } .result-v{ margin-top:6px; font-size:1.02rem; color:#514551; font-weight:1000; }
-    .reward{ margin:12px 0; padding:12px; border-radius:20px; background:linear-gradient(180deg,#fff8fc,#eef8ff); border:1px solid var(--line); }
-    .quality{ margin-top:10px; padding:11px 12px; border-radius:16px; background:#fffdf4; border:1px solid #f8e1a6; color:#6f5e44; font-size:.84rem; line-height:1.5; font-weight:850; }
-
-    @media (max-width:760px){
-      .shell{ padding:calc(8px + var(--safe-top)) 8px calc(10px + var(--safe-bottom)); }
-      h1{ font-size:1.34rem; }
-      .sub{ font-size:.8rem; }
-      .grid,.play-head{ grid-template-columns:1fr; }
-      .hud-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
-      .stat{ min-height:54px; padding:8px 9px; border-radius:15px; }
-      .stat-k{ font-size:.67rem; } .stat-v{ font-size:.92rem; }
-      .field-card,.arena{ min-height:68vh; }
-      .lanes{ inset:108px 8px 10px 8px; gap:7px; }
-      .lane{ min-height:420px; border-radius:18px; }
-      .note{ width:54px; height:54px; margin-left:-27px; }
-      .note-ico{ font-size:1.38rem; }
-      .countdown-num{ min-width:108px; min-height:108px; border-radius:30px; font-size:2.8rem; }
-      .safety-chip{ bottom:8px; font-size:.66rem; padding:6px 9px; }
-      .ar-controls{ top:8px; left:8px; right:8px; }
-      .ar-mini-btn,.ar-status{ min-height:31px; padding:6px 8px; font-size:.68rem; }
-      .round-banner{ top:58px; }
-      .coach-callout{ top:148px; font-size:.76rem; }
-      .hit-fx{ top:190px; width:112px; height:112px; }
-      .score-popup{ top:248px; }
-      .hitline{ bottom:92px; }
-      .lane-label{ bottom:24px; padding:6px 8px; min-width:38px; }
-      .result-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .arena-card.cam-on .ar-tint{opacity:1}
+    .depth-grid{
+      position:absolute;left:10px;right:10px;bottom:0;height:44%;z-index:1;pointer-events:none;opacity:.0;
+      background:
+        linear-gradient(to right,rgba(255,255,255,.18) 1px,transparent 1px),
+        linear-gradient(to bottom,rgba(255,255,255,.15) 1px,transparent 1px);
+      background-size:42px 42px;transform:perspective(540px) rotateX(58deg);transform-origin:bottom center;
+      mask-image:linear-gradient(to top,rgba(0,0,0,.74),transparent);
+    }
+    .arena-card.cam-on .depth-grid{opacity:.52}
+    .arena{
+      position:relative;z-index:4;min-height:650px;padding:12px;background:transparent;
+    }
+    .arena.beat::after{
+      content:"";position:absolute;inset:0;pointer-events:none;
+      background:radial-gradient(circle at 50% 18%,rgba(255,255,255,.28),transparent 34%);
+      animation:pulse .22s ease;
+    }
+    @keyframes pulse{0%{opacity:0;transform:scale(.98)}50%{opacity:1}100%{opacity:0;transform:scale(1.04)}}
+    .arena.shake{animation:shake .2s ease}
+    @keyframes shake{0%,100%{transform:translate3d(0,0,0)}25%{transform:translate3d(-3px,0,0)}50%{transform:translate3d(3px,0,0)}75%{transform:translate3d(-2px,0,0)}}
+    .ar-controls{
+      position:absolute;top:10px;left:10px;right:10px;z-index:10;display:flex;justify-content:space-between;gap:8px;pointer-events:none;
+    }
+    .ar-controls .row{pointer-events:auto}
+    .mini{
+      min-height:34px;padding:7px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.78);
+      background:rgba(255,255,255,.84);box-shadow:0 8px 18px rgba(94,60,104,.12);
+      color:#584e5b;font-size:.74rem;font-weight:1000;
+    }
+    .status{
+      display:inline-flex;align-items:center;min-height:34px;padding:7px 10px;border-radius:999px;
+      background:rgba(255,255,255,.86);border:1px solid rgba(255,255,255,.8);box-shadow:0 8px 18px rgba(94,60,104,.12);
+      font-size:.74rem;font-weight:1000;color:#655b68;
+    }
+    .status.on{color:#167a4a;background:rgba(236,255,243,.9)}
+    .status.warn{color:#9a5a00;background:rgba(255,250,222,.92)}
+    .countdown{
+      position:absolute;inset:0;z-index:30;display:grid;place-items:center;background:rgba(255,255,255,.18);backdrop-filter:blur(2px);pointer-events:none;
+    }
+    .countdown-num{
+      min-width:130px;min-height:130px;border-radius:36px;display:grid;place-items:center;
+      background:rgba(255,255,255,.94);border:1px solid rgba(255,255,255,.96);
+      box-shadow:0 18px 42px rgba(94,60,104,.20);font-size:3.4rem;font-weight:1000;color:var(--purple);
+      animation:countPop .7s ease both;
+    }
+    @keyframes countPop{0%{opacity:0;transform:scale(.72)}35%{opacity:1;transform:scale(1.08)}100%{opacity:.96;transform:scale(1)}}
+    .toast,.feedback,.coach,.banner,.scorepop,.hitfx{
+      position:absolute;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;font-weight:1000;
+    }
+    .toast{
+      top:56px;max-width:min(88vw,540px);padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.92);
+      border:1px solid rgba(255,255,255,.86);box-shadow:0 10px 22px rgba(94,60,104,.14);
+      color:#645c66;font-size:.78rem;text-align:center;opacity:0;transition:.18s ease;
+    }
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(4px)}
+    .feedback{
+      top:26px;min-width:130px;text-align:center;padding:9px 13px;border-radius:999px;background:rgba(255,255,255,.96);
+      border:1px solid rgba(255,255,255,.95);box-shadow:0 12px 26px rgba(94,60,104,.14);opacity:0;color:#584e5d;
+    }
+    .feedback.show{opacity:1;animation:fadePop .42s ease both}
+    .feedback.perfect{color:#997100}.feedback.great{color:#2e7b5f}.feedback.good{color:#3868a1}.feedback.miss{color:#b44e67}
+    .banner{
+      top:78px;min-width:min(82vw,360px);padding:11px 14px;border-radius:18px;text-align:center;
+      background:rgba(255,255,255,.94);border:1px solid rgba(242,214,230,.9);box-shadow:0 14px 26px rgba(94,60,104,.12);
+      animation:fadePop .95s ease forwards;
+    }
+    .banner-title{font-size:1rem}.banner-sub{margin-top:4px;font-size:.8rem;color:#786d79}
+    .coach{
+      top:188px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.94);
+      border:1px solid rgba(242,214,230,.9);box-shadow:0 10px 22px rgba(94,60,104,.10);
+      font-size:.86rem;color:#5f525f;animation:fadePop .95s ease forwards;text-align:center;max-width:min(86%,560px);
+    }
+    .coach.good{color:#2f7c55}.coach.great{color:#7d52d8}.coach.miss{color:#b44e67}
+    .hitfx{top:240px;width:140px;height:140px;border-radius:50%;opacity:.56;filter:blur(6px);animation:fadePop .36s ease forwards}
+    .hitfx.perfect{background:radial-gradient(circle,#ffd84a,transparent 70%)}
+    .hitfx.great{background:radial-gradient(circle,#7bdc7b,transparent 70%)}
+    .hitfx.good{background:radial-gradient(circle,#7fcfff,transparent 70%)}
+    .hitfx.miss{background:radial-gradient(circle,#ff7f8d,transparent 70%)}
+    .scorepop{top:304px;font-size:1.15rem;animation:fadePop .55s ease forwards}
+    @keyframes fadePop{
+      0%{opacity:0;transform:translateX(-50%) scale(.86) translateY(8px)}
+      15%{opacity:1;transform:translateX(-50%) scale(1)}
+      85%{opacity:1}
+      100%{opacity:0;transform:translateX(-50%) scale(1.02) translateY(-16px)}
+    }
+    .lanes{
+      position:absolute;inset:118px 14px 14px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;align-items:stretch;z-index:5;
+    }
+    .lanes[data-lanes="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .lanes[data-lanes="3"] .lane[data-lane="0"],.lanes[data-lanes="3"] .lane[data-lane="4"]{display:none}
+    .lane{
+      position:relative;min-height:462px;border-radius:22px;overflow:hidden;
+      background:linear-gradient(180deg,rgba(255,255,255,.58),rgba(255,255,255,.24));
+      border:1px solid rgba(255,255,255,.85);
+      box-shadow:inset 0 0 0 1px rgba(242,214,230,.54);
+      backdrop-filter:blur(4px);
+    }
+    .lane::before{
+      content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;transform:translateX(-50%);
+      background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.55),rgba(255,255,255,.1));
+    }
+    .lane.hit{animation:laneHit .24s ease}.lane.miss{animation:laneMiss .26s ease}
+    @keyframes laneHit{45%{box-shadow:inset 0 0 0 4px rgba(123,220,123,.50),0 0 24px rgba(123,220,123,.24)}}
+    @keyframes laneMiss{45%{box-shadow:inset 0 0 0 4px rgba(255,127,141,.48),0 0 24px rgba(255,127,141,.22)}}
+    .hitline{
+      position:absolute;left:10px;right:10px;bottom:108px;height:10px;border-radius:999px;
+      background:linear-gradient(90deg,var(--pink),var(--purple),var(--blue));
+      box-shadow:0 0 0 8px rgba(255,255,255,.22),0 10px 22px rgba(94,60,104,.1);
+    }
+    .lane-label{
+      position:absolute;left:50%;bottom:32px;transform:translateX(-50%);min-width:44px;text-align:center;
+      padding:7px 9px;border-radius:999px;background:rgba(255,255,255,.92);border:1px solid rgba(242,214,230,.9);
+      font-size:.78rem;font-weight:1000;color:#665a67;box-shadow:0 8px 16px rgba(94,60,104,.06);
+    }
+    .note{
+      position:absolute;left:50%;top:0;width:64px;height:64px;margin-left:-32px;border-radius:20px;
+      background:linear-gradient(180deg,#fff,#fff0f7);border:2px solid #fff;box-shadow:0 10px 24px rgba(94,60,104,.14);
+      display:grid;place-items:center;will-change:transform;z-index:8;transform-style:preserve-3d;
+    }
+    .note::after{
+      content:"";position:absolute;inset:-8px;border-radius:24px;border:2px solid rgba(255,255,255,.58);
+      opacity:0;transform:scale(.92);transition:.12s ease;
+    }
+    .note.near::after{opacity:.86;transform:scale(1)}
+    .note.left{background:linear-gradient(180deg,#fff6fb,#ffe4f0)}.note.center{background:linear-gradient(180deg,#fdfbff,#efe8ff)}.note.right{background:linear-gradient(180deg,#f7fcff,#e4f3ff)}
+    .note .ico{font-size:1.55rem;line-height:1}
+    .safety{
+      position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:18;
+      display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;max-width:min(90%,600px);
+      padding:7px 12px;border-radius:999px;background:rgba(255,255,255,.90);border:1px solid rgba(255,255,255,.85);
+      box-shadow:0 10px 22px rgba(94,60,104,.12);color:#645a66;font-size:.74rem;font-weight:1000;pointer-events:none;text-align:center;
+    }
+    .safety.warn{color:#9a5a00;background:rgba(255,248,221,.94);border-color:#f5d889}
+    .safety.danger{color:#a73d4d;background:rgba(255,235,239,.94);border-color:#ffc2cd}
+    .mission-list{display:grid;gap:6px}
+    .mission-item{border-radius:12px;background:#fff;border:1px solid rgba(242,214,230,.9);padding:8px 10px;font-size:.78rem;font-weight:900;color:#746874}
+    .mission-item.done{background:linear-gradient(180deg,#f3fff0,#e5f9df);color:#3d7340;border-color:#cde9c8}
+    .result-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .result-card{border-radius:18px;background:rgba(255,255,255,.92);border:1px solid rgba(242,214,230,.9);padding:12px}
+    .result-k{font-size:.76rem;color:#7a6e7b;font-weight:1000}.result-v{margin-top:6px;font-size:1.05rem;font-weight:1000}
+    .quality{margin-top:12px;border-radius:18px;background:#fffaf0;border:1px solid #f4d99a;color:#705f4d;padding:12px;line-height:1.5;font-weight:850;font-size:.86rem}
+    @media (max-width:820px){
+      .app{padding:8px}.grid{grid-template-columns:1fr}.play-head{grid-template-columns:1fr}.hud-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+      .stat{min-height:56px;padding:8px 9px;border-radius:15px}.stat-k{font-size:.68rem}.stat-v{font-size:.94rem}
+      .arena-card,.arena{min-height:70vh}.lanes{inset:108px 8px 10px;gap:7px}.lane{min-height:52vh}.note{width:54px;height:54px;margin-left:-27px}.note .ico{font-size:1.42rem}
+      .hitline{bottom:92px}.lane-label{bottom:24px;padding:6px 8px}.result-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .coach{top:148px;font-size:.76rem}.banner{top:58px}.hitfx{top:190px;width:112px;height:112px}.scorepop{top:248px}.safety{font-size:.66rem;padding:6px 9px}
+      .mini,.status{font-size:.68rem;min-height:31px;padding:6px 8px}
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <header class="topbar">
-      <div>
-        <div class="kicker">HeroHealth Fitness AR • Rhythm / Timing / Boxing</div>
-        <h1>Rhythm Boxer AR</h1>
-        <div class="sub">ชกตามจังหวะบนฉากจริงผ่านกล้อง AR ฝึก timing, สมาธิ, การตอบสนอง และความต่อเนื่องของการเคลื่อนไหว เหมาะสำหรับ PC / Mobile / Mobile AR</div>
+<div class="app">
+  <header class="topbar">
+    <div>
+      <div class="kicker">HeroHealth Fitness AR • Body Tracking</div>
+      <h1>🥊 Rhythm Boxer AR Body</h1>
+      <div class="sub">
+        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ
+        ถ้ากล้องหรือ Pose Tracking ใช้ไม่ได้ ยังเล่นด้วยการแตะจอ/คีย์บอร์ดได้
       </div>
-      <div class="top-actions">
-        <a class="link-btn" href="./">← Fitness Hub</a>
-        <button id="btnMute" class="btn ghost" type="button">🔊 Sound</button>
+    </div>
+    <div class="chips">
+      <span class="chip">Body: wrists / elbows / shoulders</span>
+      <span class="chip">PC: A S D J K</span>
+      <span class="chip">Mobile: touch + camera</span>
+    </div>
+  </header>
+
+  <main>
+    <section id="menuView" class="view card">
+      <h2 style="margin:0 0 10px">ตั้งค่าก่อนเล่น</h2>
+      <div class="grid">
+        <div class="field">
+          <label>ชื่อ / รหัสผู้เล่น</label>
+          <input id="pid" value="player01" />
+        </div>
+        <div class="field">
+          <label>ระดับความยาก</label>
+          <select id="diff">
+            <option value="easy">Easy — 3 lane / เหมาะเริ่มต้น</option>
+            <option value="normal" selected>Normal — 3 lane / จังหวะเร็วขึ้น</option>
+            <option value="hard">Hard — 5 lane / ท้าทาย</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>เวลาเล่น</label>
+          <select id="timeSec">
+            <option value="45">45 วินาที</option>
+            <option value="60" selected>60 วินาที</option>
+            <option value="80">80 วินาที</option>
+            <option value="120">120 วินาที</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>โหมดกล้อง</label>
+          <select id="camMode">
+            <option value="user" selected>กล้องหน้า — เห็นตัวเองและจับท่าชก</option>
+            <option value="environment">กล้องหลัง — AR ฉากจริง แต่จับร่างกายยากกว่า</option>
+          </select>
+        </div>
       </div>
-    </header>
+      <div class="note-box">
+        วิธีเล่นด้วยร่างกาย: วางมือถือให้เห็นช่วงลำตัวบน ยืนห่างประมาณ 1–2 เมตร ยกมือ guard แล้วชกซ้าย/ขวาเข้าหา lane ที่ note กำลังลงถึงเส้น hit line
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button id="btnStartBody" class="btn primary">📷 เริ่มแบบ Body Tracking AR</button>
+        <button id="btnStartTouch" class="btn soft">▶ เล่นแบบ Touch/Keyboard</button>
+      </div>
+    </section>
 
-    <main>
-      <section id="viewMenu" class="view card">
-        <h2 class="section-title">ตั้งค่าก่อนเริ่ม</h2>
-        <div class="row">
-          <label class="choice"><input type="radio" name="diff" value="easy" checked /> Easy • 3 lane</label>
-          <label class="choice"><input type="radio" name="diff" value="normal" /> Normal • 3 lane</label>
-          <label class="choice"><input type="radio" name="diff" value="hard" /> Hard • 5 lane</label>
-        </div>
-
-        <div class="grid">
-          <div class="field">
-            <label class="label" for="pid">รหัสผู้เล่น / Participant ID</label>
-            <input id="pid" class="input" value="test-rb-ar" />
+    <section id="playView" class="view hidden">
+      <div class="play-wrap">
+        <div class="play-head">
+          <div class="hud-grid">
+            <div class="stat"><div class="stat-k">Score</div><div id="hudScore" class="stat-v">0</div></div>
+            <div class="stat"><div class="stat-k">Combo</div><div id="hudCombo" class="stat-v">0</div></div>
+            <div class="stat"><div class="stat-k">Accuracy</div><div id="hudAcc" class="stat-v">0%</div></div>
+            <div class="stat"><div class="stat-k">Time</div><div id="hudTime" class="stat-v">0.0</div></div>
+            <div class="stat"><div class="stat-k">Body Input</div><div id="hudBody" class="stat-v">OFF</div></div>
+            <div class="stat"><div class="stat-k">Detected</div><div id="hudDetected" class="stat-v">—</div></div>
+            <div class="stat"><div class="stat-k">Perfect</div><div id="hudPerfect" class="stat-v">0</div></div>
+            <div class="stat"><div class="stat-k">Miss</div><div id="hudMiss" class="stat-v">0</div></div>
           </div>
-          <div class="field">
-            <label class="label" for="duration">เวลาเล่น</label>
-            <select id="duration" class="input">
-              <option value="45">45 วินาที</option>
-              <option value="60" selected>60 วินาที</option>
-              <option value="80">80 วินาที</option>
-              <option value="120">120 วินาที</option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="label" for="mode">โหมด</label>
-            <select id="mode" class="input">
-              <option value="normal" selected>Normal</option>
-              <option value="research">Research / CSV</option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="label" for="track">Track</label>
-            <select id="track" class="input">
-              <option value="warm">Warm-up Groove</option>
-              <option value="focus" selected>Focus Combo</option>
-              <option value="rush">Speed Rush</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="note-box">
-          วิธีเล่น: กดเปิด AR เพื่อใช้กล้องเป็นฉากหลัง หรือเล่นแบบปกติได้ทันที • แตะ lane ให้ตรงตอน note ถึงเส้น hit line • อย่ากดรัว • ช่วงท้ายมี Boss Round ให้ทำจังหวะแม่น ๆ เพื่อลด HP
-        </div>
-
-        <div class="row" style="margin-top:14px">
-          <button id="btnStart" class="btn primary" type="button">▶ เริ่มเล่น</button>
-          <button id="btnARMenu" class="btn soft" type="button">📷 เปิด AR ก่อนเล่น</button>
-          <button id="btnResetBest" class="btn warn" type="button">ล้าง Best</button>
-        </div>
-      </section>
-
-      <section id="viewPlay" class="view hidden">
-        <div class="play-wrap">
-          <div class="play-head">
-            <div class="hud-grid">
-              <div class="stat"><div class="stat-k">Score</div><div id="hudScore" class="stat-v">0</div></div>
-              <div class="stat"><div class="stat-k">Combo</div><div id="hudCombo" class="stat-v">0</div></div>
-              <div class="stat"><div class="stat-k">Accuracy</div><div id="hudAcc" class="stat-v">0%</div></div>
-              <div class="stat"><div class="stat-k">Time</div><div id="hudTime" class="stat-v">0.0</div></div>
-              <div class="stat"><div class="stat-k">Perfect</div><div id="hudPerfect" class="stat-v">0</div></div>
-              <div class="stat"><div class="stat-k">Great</div><div id="hudGreat" class="stat-v">0</div></div>
-              <div class="stat"><div class="stat-k">Good</div><div id="hudGood" class="stat-v">0</div></div>
-              <div class="stat"><div class="stat-k">Miss</div><div id="hudMiss" class="stat-v">0</div></div>
+          <div class="side-stack">
+            <div class="bar-card">
+              <div class="bar-row"><span>FEVER</span><span id="feverText">BUILD</span></div>
+              <div class="track"><div id="feverFill" class="fill"></div></div>
             </div>
-
-            <aside class="side-stack">
-              <div class="bar-card">
-                <div class="bar-row"><span>FEVER</span><span id="feverText">BUILD</span></div>
-                <div class="track"><div id="feverFill" class="fill"></div></div>
-              </div>
-              <div class="bar-card">
-                <div class="bar-row"><span>Progress</span><span id="progressText">0%</span></div>
-                <div class="track"><div id="progressFill" class="fill"></div></div>
-              </div>
-              <div id="bossCard" class="boss-card hidden">
-                <div class="mini-head"><span>🥊 Boss HP</span><span id="bossText">0/0</span></div>
-                <div class="track"><div id="bossFill" class="fill"></div></div>
-              </div>
-              <div class="mission-card">
-                <div class="mini-head"><span>Mission</span><span id="diffText">Easy</span></div>
-                <div class="mission-list">
-                  <div id="missionScore" class="mission-item">⭐ ทำคะแนน</div>
-                  <div id="missionCombo" class="mission-item">⭐ คอมโบ</div>
-                  <div id="missionAcc" class="mission-item">⭐ Accuracy</div>
-                </div>
-              </div>
-              <div class="row">
-                <button id="btnStop" class="btn warn" type="button">หยุด</button>
-                <button id="btnMenu" class="btn ghost" type="button">เมนู</button>
-              </div>
-            </aside>
-          </div>
-
-          <div id="fieldCard" class="field-card" data-lanes="3">
-            <video id="arVideo" class="ar-video" autoplay muted playsinline webkit-playsinline></video>
-            <div class="depth-grid"></div>
-            <div class="ar-controls">
-              <div class="ar-left">
-                <button id="btnARToggle" class="ar-mini-btn" type="button">📷 เปิด AR</button>
-                <button id="btnARFlip" class="ar-mini-btn" type="button">🔁 สลับกล้อง</button>
-              </div>
-              <div class="ar-right"><span id="arStatus" class="ar-status">AR OFF</span></div>
+            <div id="bossCard" class="bar-card hidden">
+              <div class="bar-row"><span>Boss HP</span><span id="bossText">24/24</span></div>
+              <div class="track"><div id="bossFill" class="fill"></div></div>
             </div>
-            <div id="arToast" class="ar-toast"></div>
-
-            <div id="arena" class="arena" data-phase="warmup">
-              <div id="countdown" class="countdown hidden"><div id="countNum" class="countdown-num">3</div></div>
-              <div id="safetyChip" class="safety-chip">🧍 ยืนให้มั่นคง • เว้นพื้นที่รอบตัว • เล่นรอบละ 45–60 วินาที</div>
-              <div id="feedback" class="feedback"></div>
-              <div id="flash" class="flash"></div>
-
-              <div id="lanes" class="lanes">
-                <div class="lane" data-lane="0"><div class="hitline"></div><div class="lane-label">A</div></div>
-                <div class="lane" data-lane="1"><div class="hitline"></div><div class="lane-label">S / ซ้าย</div></div>
-                <div class="lane" data-lane="2"><div class="hitline"></div><div class="lane-label">D / กลาง</div></div>
-                <div class="lane" data-lane="3"><div class="hitline"></div><div class="lane-label">J / ขวา</div></div>
-                <div class="lane" data-lane="4"><div class="hitline"></div><div class="lane-label">K</div></div>
+            <div class="bar-card">
+              <div class="bar-row"><span>Progress</span><span id="progressText">0%</span></div>
+              <div class="track"><div id="progressFill" class="fill"></div></div>
+            </div>
+            <div class="bar-card">
+              <div class="bar-row"><span>Mission</span><span id="missionStars">0/3</span></div>
+              <div class="mission-list">
+                <div id="mScore" class="mission-item">⭐ ทำคะแนน</div>
+                <div id="mCombo" class="mission-item">⭐ คอมโบ</div>
+                <div id="mAcc" class="mission-item">⭐ Accuracy</div>
               </div>
+            </div>
+            <div class="row">
+              <button id="btnStop" class="btn warn">หยุด</button>
+              <button id="btnBack" class="btn">กลับเมนู</button>
             </div>
           </div>
         </div>
-      </section>
 
-      <section id="viewResult" class="view card hidden">
-        <h2 class="section-title">สรุปผล Rhythm Boxer AR</h2>
-        <div class="reward">
-          <div class="row">
-            <span id="resStars" class="chip">⭐</span>
-            <span id="resRank" class="chip">Rank -</span>
-            <span id="resBadge" class="chip">Badge -</span>
-            <span id="resBest" class="chip">Best -</span>
+        <div id="arenaCard" class="arena-card">
+          <video id="cam" autoplay muted playsinline webkit-playsinline></video>
+          <canvas id="poseCanvas"></canvas>
+          <div class="ar-tint"></div>
+          <div class="depth-grid"></div>
+
+          <div class="ar-controls">
+            <div class="row">
+              <button id="btnCam" class="mini">📷 เปิดกล้อง</button>
+              <button id="btnFlip" class="mini">🔁 สลับกล้อง</button>
+            </div>
+            <span id="camStatus" class="status">CAM OFF</span>
           </div>
-          <div id="resPraise" style="margin-top:8px;font-weight:1000;color:#574b58">เยี่ยมมาก!</div>
+
+          <div id="arena" class="arena">
+            <div id="countdown" class="countdown hidden"><div id="countdownNum" class="countdown-num">3</div></div>
+            <div id="toast" class="toast"></div>
+            <div id="feedback" class="feedback"></div>
+            <div id="lanes" class="lanes" data-lanes="3">
+              <div class="lane" data-lane="0"><div class="hitline"></div><div class="lane-label">A</div></div>
+              <div class="lane" data-lane="1"><div class="hitline"></div><div class="lane-label">ซ้าย</div></div>
+              <div class="lane" data-lane="2"><div class="hitline"></div><div class="lane-label">กลาง</div></div>
+              <div class="lane" data-lane="3"><div class="hitline"></div><div class="lane-label">ขวา</div></div>
+              <div class="lane" data-lane="4"><div class="hitline"></div><div class="lane-label">K</div></div>
+            </div>
+            <div id="safety" class="safety">🧍 ยืนให้มั่นคง • ให้กล้องเห็นไหล่ ศอก และข้อมือทั้งสองข้าง</div>
+          </div>
         </div>
+      </div>
+    </section>
 
-        <div class="result-grid">
-          <div class="result-card"><div class="result-k">Score</div><div id="resScore" class="result-v">0</div></div>
-          <div class="result-card"><div class="result-k">Max Combo</div><div id="resCombo" class="result-v">0</div></div>
-          <div class="result-card"><div class="result-k">Accuracy</div><div id="resAcc" class="result-v">0%</div></div>
-          <div class="result-card"><div class="result-k">Hit Detail P/G/Gd/M</div><div id="resHit" class="result-v">0/0/0/0</div></div>
-          <div class="result-card"><div class="result-k">Duration</div><div id="resDur" class="result-v">0s</div></div>
-          <div class="result-card"><div class="result-k">Timing Avg</div><div id="resOffset" class="result-v">-</div></div>
-          <div class="result-card"><div class="result-k">Boss</div><div id="resBoss" class="result-v">-</div></div>
-          <div class="result-card"><div class="result-k">Spam Taps</div><div id="resSpam" class="result-v">0</div></div>
-        </div>
+    <section id="resultView" class="view card hidden">
+      <h2 style="margin:0 0 10px">สรุปผล Rhythm Boxer AR Body</h2>
+      <div class="result-grid">
+        <div class="result-card"><div class="result-k">Score</div><div id="resScore" class="result-v">0</div></div>
+        <div class="result-card"><div class="result-k">Rank</div><div id="resRank" class="result-v">—</div></div>
+        <div class="result-card"><div class="result-k">Stars</div><div id="resStars" class="result-v">—</div></div>
+        <div class="result-card"><div class="result-k">Accuracy</div><div id="resAcc" class="result-v">0%</div></div>
+        <div class="result-card"><div class="result-k">Max Combo</div><div id="resCombo" class="result-v">0</div></div>
+        <div class="result-card"><div class="result-k">Body Punches</div><div id="resBody" class="result-v">0</div></div>
+        <div class="result-card"><div class="result-k">Miss</div><div id="resMiss" class="result-v">0</div></div>
+        <div class="result-card"><div class="result-k">Boss</div><div id="resBoss" class="result-v">—</div></div>
+      </div>
+      <div id="quality" class="quality"></div>
+      <div class="row" style="margin-top:14px">
+        <button id="btnAgain" class="btn primary">เล่นอีกครั้ง</button>
+        <button id="btnMenu2" class="btn">กลับเมนู</button>
+        <button id="btnCsvSession" class="btn soft">Export Session CSV</button>
+        <button id="btnCsvEvents" class="btn soft">Export Event CSV</button>
+      </div>
+    </section>
+  </main>
+</div>
 
-        <div id="qualityNote" class="quality"></div>
+<script>
+'use strict';
 
-        <div class="row" style="margin-top:14px">
-          <button id="btnAgain" class="btn primary" type="button">เล่นอีกครั้ง</button>
-          <button id="btnBackResult" class="btn ghost" type="button">กลับเมนู</button>
-          <button id="btnCsvSession" class="btn soft" type="button">Export Session CSV</button>
-          <button id="btnCsvEvents" class="btn soft" type="button">Export Event CSV</button>
-        </div>
-      </section>
-    </main>
-  </div>
+(function(){
+  const D = document, W = window;
+  const $ = id => D.getElementById(id);
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
+  const nowMs = ()=> performance && performance.now ? performance.now() : Date.now();
+  const qs = (k,d='')=>{try{return new URL(location.href).searchParams.get(k) ?? d}catch(_){return d}};
+  const qbool = (k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
+  const fmt = n => Number(n||0).toFixed(1);
 
-  <script>
-  'use strict';
-  (function(){
-    const D=document, W=window;
-    const $=id=>D.getElementById(id);
-    const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
-    const now=()=>performance&&performance.now?performance.now():Date.now();
-    const iso=()=>new Date().toISOString();
-    const mean=a=>a&&a.length?a.reduce((s,x)=>s+x,0)/a.length:null;
-    const std=a=>{ if(!a||a.length<2) return null; const m=mean(a); return Math.sqrt(a.reduce((s,x)=>s+(x-m)*(x-m),0)/(a.length-1)); };
-    const qs=(k,d='')=>{ try{return new URL(location.href).searchParams.get(k)??d;}catch(_){return d;} };
-    const qbool=(k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
-    function rng(seed){ let x=(seed|0)||123456789; return ()=>{ x^=x<<13; x|=0; x^=x>>>17; x|=0; x^=x<<5; x|=0; return (x>>>0)/4294967296; }; }
-    function csvEscape(v){ v=v==null?'':String(v); return /[",\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v; }
-    function toCSV(rows,cols){ return cols.join(',')+'\n'+rows.map(r=>cols.map(c=>csvEscape(r[c])).join(',')).join('\n')+'\n'; }
-    function download(name,text){ const b=new Blob([text],{type:'text/csv;charset=utf-8'}); const a=D.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; D.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},900); }
-    function vibrate(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(_){} }
+  const els = {
+    menu:$('menuView'), play:$('playView'), result:$('resultView'),
+    pid:$('pid'), diff:$('diff'), timeSec:$('timeSec'), camMode:$('camMode'),
+    btnStartBody:$('btnStartBody'), btnStartTouch:$('btnStartTouch'), btnStop:$('btnStop'), btnBack:$('btnBack'),
+    btnCam:$('btnCam'), btnFlip:$('btnFlip'), camStatus:$('camStatus'),
+    arenaCard:$('arenaCard'), arena:$('arena'), cam:$('cam'), poseCanvas:$('poseCanvas'),
+    countdown:$('countdown'), countdownNum:$('countdownNum'), toast:$('toast'), feedback:$('feedback'),
+    lanes:$('lanes'), safety:$('safety'),
+    hudScore:$('hudScore'), hudCombo:$('hudCombo'), hudAcc:$('hudAcc'), hudTime:$('hudTime'),
+    hudBody:$('hudBody'), hudDetected:$('hudDetected'), hudPerfect:$('hudPerfect'), hudMiss:$('hudMiss'),
+    feverFill:$('feverFill'), feverText:$('feverText'), progressFill:$('progressFill'), progressText:$('progressText'),
+    bossCard:$('bossCard'), bossText:$('bossText'), bossFill:$('bossFill'),
+    mScore:$('mScore'), mCombo:$('mCombo'), mAcc:$('mAcc'), missionStars:$('missionStars'),
+    resScore:$('resScore'), resRank:$('resRank'), resStars:$('resStars'), resAcc:$('resAcc'),
+    resCombo:$('resCombo'), resBody:$('resBody'), resMiss:$('resMiss'), resBoss:$('resBoss'), quality:$('quality'),
+    btnAgain:$('btnAgain'), btnMenu2:$('btnMenu2'), btnCsvSession:$('btnCsvSession'), btnCsvEvents:$('btnCsvEvents')
+  };
 
-    const E={
-      viewMenu:$('viewMenu'),viewPlay:$('viewPlay'),viewResult:$('viewResult'),
-      btnStart:$('btnStart'),btnStop:$('btnStop'),btnMenu:$('btnMenu'),btnAgain:$('btnAgain'),btnBackResult:$('btnBackResult'),btnMute:$('btnMute'),btnResetBest:$('btnResetBest'),
-      pid:$('pid'),duration:$('duration'),mode:$('mode'),track:$('track'),
-      fieldCard:$('fieldCard'),arena:$('arena'),lanes:$('lanes'),feedback:$('feedback'),flash:$('flash'),countdown:$('countdown'),countNum:$('countNum'),safety:$('safetyChip'),
-      arVideo:$('arVideo'),arStatus:$('arStatus'),arToast:$('arToast'),btnARMenu:$('btnARMenu'),btnARToggle:$('btnARToggle'),btnARFlip:$('btnARFlip'),
-      hudScore:$('hudScore'),hudCombo:$('hudCombo'),hudAcc:$('hudAcc'),hudTime:$('hudTime'),hudPerfect:$('hudPerfect'),hudGreat:$('hudGreat'),hudGood:$('hudGood'),hudMiss:$('hudMiss'),
-      feverFill:$('feverFill'),feverText:$('feverText'),progressFill:$('progressFill'),progressText:$('progressText'),diffText:$('diffText'),
-      bossCard:$('bossCard'),bossFill:$('bossFill'),bossText:$('bossText'),missionScore:$('missionScore'),missionCombo:$('missionCombo'),missionAcc:$('missionAcc'),
-      resStars:$('resStars'),resRank:$('resRank'),resBadge:$('resBadge'),resBest:$('resBest'),resPraise:$('resPraise'),resScore:$('resScore'),resCombo:$('resCombo'),resAcc:$('resAcc'),resHit:$('resHit'),resDur:$('resDur'),resOffset:$('resOffset'),resBoss:$('resBoss'),resSpam:$('resSpam'),quality:$('qualityNote'),btnCsvSession:$('btnCsvSession'),btnCsvEvents:$('btnCsvEvents')
-    };
+  const S = {
+    running:false, mode:'touch', diff:'normal', timeSec:60, pid:'player01',
+    t0:0,tEnd:0,tLast:0,lastBeat:-1, rng:Math.random,
+    notes:[], nextId:1,
+    score:0, combo:0, maxCombo:0, shots:0, hits:0, perfect:0, great:0, good:0, miss:0,
+    blank:0, spam:0, bodyPunches:0, fever:0, feverOn:false, phase:'warmup',
+    boss:{active:false,hp:24,hpMax:24,clear:false,window:false,lastWindow:0},
+    events:[], sessions:[], offsets:[],
+    lastLaneTap:[0,0,0,0,0],
+    body:{visible:false,lastSeen:0, last:{left:null,right:null}, armed:{left:true,right:true}, lastPunch:{left:0,right:0}, facing:'user'}
+  };
 
-    const TRACKS={
-      warm:{name:'Warm-up Groove',bpm:100,density:.72,jitter:.10},
-      focus:{name:'Focus Combo',bpm:120,density:.90,jitter:.12},
-      rush:{name:'Speed Rush',bpm:140,density:1.10,jitter:.14}
-    };
-    const DIFF_CFG={
-      easy:{label:'Easy',lanes:3,travel:3150,win:138,score:1600,combo:12,acc:76,bossHp:20,missDmg:3,density:.85},
-      normal:{label:'Normal',lanes:3,travel:2700,win:116,score:2100,combo:18,acc:80,bossHp:26,missDmg:5,density:1.0},
-      hard:{label:'Hard',lanes:5,travel:2300,win:100,score:2600,combo:24,acc:84,bossHp:34,missDmg:7,density:1.15}
-    };
+  // query defaults
+  if(qs('pid')) els.pid.value = qs('pid');
+  if(['easy','normal','hard'].includes(qs('diff'))) els.diff.value = qs('diff');
+  if(qs('time')) els.timeSec.value = String(clamp(qs('time'),30,180));
 
-    const AUDIO={ctx:null,on:true};
-    function audioCtx(){ if(!AUDIO.on) return null; const AC=W.AudioContext||W.webkitAudioContext; if(!AC) return null; if(!AUDIO.ctx) AUDIO.ctx=new AC(); if(AUDIO.ctx.state==='suspended') AUDIO.ctx.resume().catch(()=>{}); return AUDIO.ctx; }
-    function tone(freq=440,dur=.06,type='sine',gain=.032){ const ctx=audioCtx(); if(!ctx) return; try{ const t0=ctx.currentTime, o=ctx.createOscillator(), g=ctx.createGain(); o.type=type; o.frequency.setValueAtTime(freq,t0); g.gain.setValueAtTime(.0001,t0); g.gain.exponentialRampToValueAtTime(gain,t0+.01); g.gain.exponentialRampToValueAtTime(.0001,t0+dur); o.connect(g); g.connect(ctx.destination); o.start(t0); o.stop(t0+dur+.02); }catch(_){} }
-    function sfx(k){ if(!AUDIO.on) return; if(k==='perfect'){ tone(720,.055,'sine'); setTimeout(()=>tone(960,.055,'sine',.028),42); } else if(k==='great') tone(620,.055,'triangle',.03); else if(k==='good') tone(480,.045,'triangle',.025); else if(k==='miss') tone(160,.07,'sawtooth',.02); else if(k==='boss'){ tone(220,.09,'square'); setTimeout(()=>tone(330,.075,'square',.025),70); } else if(k==='fever'){ tone(760,.06); setTimeout(()=>tone(980,.06),55); setTimeout(()=>tone(1220,.08,'sine',.026),110); } else if(k==='count') tone(520,.045,'sine',.025); else if(k==='go'){ tone(760,.07); setTimeout(()=>tone(1040,.08),62); } }
+  function show(name){
+    els.menu.classList.toggle('hidden', name !== 'menu');
+    els.play.classList.toggle('hidden', name !== 'play');
+    els.result.classList.toggle('hidden', name !== 'result');
+  }
 
-    const AR={stream:null,on:false,facing:'environment',busy:false,supported:!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)};
-    function arToast(msg){ if(!E.arToast) return; E.arToast.textContent=msg; E.arToast.classList.add('show'); clearTimeout(arToast.t); arToast.t=setTimeout(()=>E.arToast.classList.remove('show'),1800); }
-    function arStatus(msg,type=''){ if(!E.arStatus) return; E.arStatus.textContent=msg; E.arStatus.className='ar-status'+(type?' '+type:''); }
-    function arUi(){ E.fieldCard.classList.toggle('ar-on',AR.on); E.fieldCard.classList.toggle('camera-front',AR.facing==='user'); E.fieldCard.classList.toggle('camera-back',AR.facing==='environment'); E.btnARToggle.textContent=AR.on?'🚫 ปิด AR':'📷 เปิด AR'; E.btnARMenu.textContent=AR.on?'🚫 ปิด AR':'📷 เปิด AR ก่อนเล่น'; E.btnARFlip.disabled=!AR.on; E.btnARFlip.style.opacity=AR.on?'1':'.55'; }
-    function arStop(){ try{ if(AR.stream) AR.stream.getTracks().forEach(t=>t.stop()); }catch(_){} AR.stream=null; AR.on=false; if(E.arVideo){ try{E.arVideo.pause();}catch(_){} E.arVideo.srcObject=null; } arStatus('AR OFF'); arUi(); }
-    async function arStart(){ if(AR.busy) return; AR.busy=true; try{ if(!AR.supported){ arStatus('AR ไม่รองรับ','warn'); arToast('อุปกรณ์หรือ browser นี้ยังไม่รองรับกล้อง AR'); return; } if(location.protocol!=='https:'&&location.hostname!=='localhost'){ arStatus('ต้องใช้ HTTPS','warn'); arToast('กล้อง AR ต้องเปิดผ่าน HTTPS หรือ localhost'); return; } arStop(); const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:AR.facing},width:{ideal:1280},height:{ideal:720}}}); AR.stream=stream; E.arVideo.srcObject=stream; E.arVideo.muted=true; E.arVideo.playsInline=true; await E.arVideo.play().catch(()=>{}); AR.on=true; arStatus(AR.facing==='environment'?'AR BACK CAM':'AR FRONT CAM','on'); arToast('เปิด AR แล้ว เล่นโดยมอง note ทับบนฉากจริงได้เลย'); }catch(err){ console.warn('[RB AR] camera failed',err); AR.on=false; arStatus('เปิด AR ไม่สำเร็จ','warn'); arToast('เปิดกล้องไม่ได้ ระบบจะเล่นแบบปกติแทน'); }finally{ AR.busy=false; arUi(); } }
-    async function arToggle(){ if(AR.on){ arStop(); arToast('ปิด AR แล้ว'); } else await arStart(); }
-    async function arFlip(){ if(!AR.on) return; AR.facing=AR.facing==='environment'?'user':'environment'; await arStart(); }
+  function toast(msg){
+    if(!els.toast) return;
+    els.toast.textContent = msg || '';
+    els.toast.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>els.toast.classList.remove('show'), 1900);
+  }
 
-    const S={running:false,raf:0,t0:0,tEnd:0,tLast:0,lastBeat:-1,seed:Date.now(),rng:Math.random,diff:'easy',cfg:DIFF_CFG.easy,track:'focus',mode:'normal',pid:'test-rb-ar',duration:60,phase:'warmup',notes:[],nextId:1,score:0,combo:0,maxCombo:0,shots:0,hits:0,perfect:0,great:0,good:0,miss:0,blank:0,spam:0,lastLaneTap:[0,0,0,0,0],offsets:[],events:[],sessions:[],fever:0,feverOn:false,hp:100,boss:{active:false,hp:0,hpMax:0,clear:false,intro:false},lastSummary:null};
+  function feedback(msg,type=''){
+    els.feedback.textContent = msg;
+    els.feedback.className = 'feedback show' + (type ? ' '+type : '');
+    clearTimeout(feedback._t);
+    feedback._t = setTimeout(()=>els.feedback.className='feedback',260);
+  }
 
-    function show(name){ E.viewMenu.classList.toggle('hidden',name!=='menu'); E.viewPlay.classList.toggle('hidden',name!=='play'); E.viewResult.classList.toggle('hidden',name!=='result'); }
-    function laneEls(){ return Array.from(D.querySelectorAll('.lane')); }
-    function activeLanes(){ return S.cfg.lanes===5?[0,1,2,3,4]:[1,2,3]; }
-    function normLane(l){ l=Number(l); if(S.cfg.lanes===5) return clamp(Math.round(l),0,4); if(l<=1) return 1; if(l>=3) return 3; return 2; }
-    function applyLaneMode(){ E.fieldCard.setAttribute('data-lanes',S.cfg.lanes); laneEls().forEach(el=>{ const l=Number(el.dataset.lane); el.setAttribute('aria-hidden',activeLanes().includes(l)?'false':'true'); }); E.diffText.textContent=S.cfg.label; }
-    function setFeedback(msg,type=''){ E.feedback.textContent=msg; E.feedback.className='feedback show'+(type?' '+type:''); setTimeout(()=>{E.feedback.className='feedback';},220); }
-    function flash(){ E.flash.classList.add('active'); setTimeout(()=>E.flash.classList.remove('active'),90); }
-    function banner(title,sub='',type=''){ const el=D.createElement('div'); el.className='round-banner '+type; el.innerHTML=`<div class="round-title">${title}</div><div class="round-sub">${sub}</div>`; E.arena.appendChild(el); setTimeout(()=>el.remove(),980); }
-    function coach(txt,type=''){ const el=D.createElement('div'); el.className='coach-callout '+type; el.textContent=txt; E.arena.appendChild(el); setTimeout(()=>el.remove(),920); }
-    function comboBurst(txt){ const el=D.createElement('div'); el.className='combo-burst'; el.textContent=txt; E.arena.appendChild(el); setTimeout(()=>el.remove(),680); }
-    function hitFx(type='great'){ const el=D.createElement('div'); el.className='hit-fx '+String(type).toLowerCase(); E.arena.appendChild(el); setTimeout(()=>el.remove(),320); }
-    function scorePopup(txt,type='great'){ const el=D.createElement('div'); el.className='score-popup '+String(type).toLowerCase(); el.textContent=txt; E.arena.appendChild(el); setTimeout(()=>el.remove(),560); }
-    function laneFlash(l,type='hit'){ const el=laneEls()[l]; if(!el) return; el.classList.remove('hit','miss'); void el.offsetWidth; el.classList.add(type==='miss'?'miss':'hit'); setTimeout(()=>el.classList.remove('hit','miss'),300); }
-    function shake(){ E.arena.classList.remove('shake'); void E.arena.offsetWidth; E.arena.classList.add('shake'); setTimeout(()=>E.arena.classList.remove('shake'),240); }
-    function beatPulse(){ E.arena.classList.add('beat'); setTimeout(()=>E.arena.classList.remove('beat'),110); }
+  function coach(text,type=''){
+    const el = D.createElement('div');
+    el.className = 'coach ' + type;
+    el.textContent = text;
+    els.arena.appendChild(el);
+    setTimeout(()=>el.remove(),950);
+  }
 
-    function chooseLane(pattern){ const active=activeLanes(); if(pattern==='alternate') return normLane([1,3,1,3,2][S.nextId%5]); if(pattern==='zigzag') return normLane([0,2,4,2,1,3,2][S.nextId%7]); if(pattern==='stair') return normLane([2,1,2,3,2,1,2,3][S.nextId%8]); if(pattern==='boss') return normLane([2,0,2,4,1,3,2][S.nextId%7]); return active[Math.floor(S.rng()*active.length)]??2; }
-    function punch(pattern){ const r=S.rng(); if(pattern==='boss'&&r>.72) return 'hook'; if(r>.92) return 'uppercut'; if(r>.72) return 'hook'; return 'jab'; }
-    function side(l){ return l<=1?'left':l>=3?'right':'center'; }
-    function phaseAt(t,dur){ const p=t/dur; if(p<.18) return 'warmup'; if(p<.48) return 'groove'; if(p<.76) return 'rush'; return 'boss'; }
-    function patternFor(phase){ if(phase==='warmup') return 'basic'; if(phase==='groove') return S.diff==='hard'?'alternate':'basic'; if(phase==='rush') return S.diff==='hard'?'zigzag':'alternate'; return 'boss'; }
-    function buildSchedule(){ const t=TRACKS[S.track]||TRACKS.focus; const beat=60000/t.bpm, step=beat/2; const notes=[]; let tt=1400; while(tt<S.duration*1000-900){ const ph=phaseAt(tt,S.duration*1000); const pat=patternFor(ph); const density=clamp((t.density*S.cfg.density)*(ph==='warmup'?.76:ph==='rush'?1.10:ph==='boss'?1.12:1),.35,1.18); let primary=null; if(S.rng()<Math.min(.94,density)){ const lane=chooseLane(pat); primary=lane; let jitter=(S.rng()*2-1)*(t.jitter||.1)*step; if(ph==='boss') jitter*=.55; notes.push({lane,tHit:tt+jitter,punch:punch(pat),side:side(lane),phase:ph,pattern:pat}); }
-        if(primary!==null && ph!=='warmup' && S.diff!=='easy'){
-          const chance=S.diff==='hard'?(ph==='boss'?.12:.07):(ph==='boss'?.045:.025);
-          if(S.rng()<chance){ let lane2=chooseLane(pat), guard=0; while(lane2===primary && guard<6){ lane2=chooseLane(pat); guard++; } if(lane2!==primary) notes.push({lane:lane2,tHit:tt+(S.diff==='hard'?96:132),punch:punch(pat),side:side(lane2),phase:ph,pattern:pat}); }
+  function banner(title,sub=''){
+    const el = D.createElement('div');
+    el.className = 'banner';
+    el.innerHTML = `<div class="banner-title">${title}</div><div class="banner-sub">${sub}</div>`;
+    els.arena.appendChild(el);
+    setTimeout(()=>el.remove(),1000);
+  }
+
+  function hitFx(type='great'){
+    const el = D.createElement('div');
+    el.className = 'hitfx '+String(type).toLowerCase();
+    els.arena.appendChild(el);
+    setTimeout(()=>el.remove(),340);
+  }
+
+  function scorePop(txt,type='great'){
+    const el = D.createElement('div');
+    el.className = 'scorepop '+String(type).toLowerCase();
+    el.textContent = txt;
+    els.arena.appendChild(el);
+    setTimeout(()=>el.remove(),560);
+  }
+
+  function vibrate(p){try{if(navigator.vibrate) navigator.vibrate(p)}catch(_){}}
+
+  const Audio = {ctx:null, enabled:qbool('sound',true)};
+  function actx(){
+    if(!Audio.enabled) return null;
+    try{ const AC = W.AudioContext || W.webkitAudioContext; if(!AC) return null; if(!Audio.ctx) Audio.ctx = new AC(); if(Audio.ctx.state==='suspended') Audio.ctx.resume(); return Audio.ctx; }catch(_){return null}
+  }
+  function tone(freq=440,dur=.06,type='sine',gain=.035){
+    const c=actx(); if(!c) return;
+    try{
+      const t=c.currentTime,o=c.createOscillator(),g=c.createGain();
+      o.type=type;o.frequency.setValueAtTime(freq,t);
+      g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(gain,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+      o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+dur+.02);
+    }catch(_){}
+  }
+  function sfx(k){
+    if(k==='perfect'){tone(720,.055);setTimeout(()=>tone(960,.055),42)}
+    else if(k==='great') tone(620,.055,'triangle',.03);
+    else if(k==='good') tone(480,.045,'triangle',.025);
+    else if(k==='miss') tone(160,.07,'sawtooth',.02);
+    else if(k==='boss'){tone(220,.09,'square',.03);setTimeout(()=>tone(330,.075,'square',.025),70)}
+    else if(k==='fever'){tone(760,.06);setTimeout(()=>tone(980,.06),55);setTimeout(()=>tone(1220,.08),110)}
+    else if(k==='count') tone(520,.045);
+    else if(k==='go'){tone(760,.07);setTimeout(()=>tone(1040,.08),62)}
+  }
+
+  function activeLanes(){return S.diff==='hard' ? [0,1,2,3,4] : [1,2,3]}
+  function applyLaneMode(){
+    els.lanes.setAttribute('data-lanes', S.diff==='hard' ? '5' : '3');
+  }
+  function laneEls(){return Array.from(D.querySelectorAll('.lane'))}
+  function laneFlash(lane,type='hit'){
+    const el = laneEls()[lane]; if(!el) return;
+    el.classList.remove('hit','miss'); void el.offsetWidth; el.classList.add(type==='miss'?'miss':'hit');
+    setTimeout(()=>el.classList.remove('hit','miss'),300);
+  }
+  function xToLane(x){
+    const lanes = activeLanes();
+    const margin = .08;
+    const xx = clamp((x - margin) / (1 - margin*2), 0, 1);
+    const idx = Math.min(lanes.length-1, Math.max(0, Math.floor(xx * lanes.length)));
+    return lanes[idx];
+  }
+  function normLane(lane){
+    lane = Math.round(Number(lane)||2);
+    if(S.diff==='hard') return clamp(lane,0,4);
+    if(lane<=1) return 1; if(lane>=3) return 3; return 2;
+  }
+
+  function windows(){
+    if(S.diff==='easy') return {perfect:150,great:255,good:410};
+    if(S.diff==='hard') return {perfect:100,great:175,good:280};
+    return {perfect:122,great:210,good:340};
+  }
+
+  function travelMs(){
+    if(S.diff==='easy') return 3100;
+    if(S.diff==='hard') return 2200;
+    return 2600;
+  }
+
+  function buildSchedule(){
+    const dur = S.timeSec * 1000;
+    const bpm = S.diff==='easy' ? 100 : S.diff==='hard' ? 138 : 120;
+    const step = 60000 / bpm / 2;
+    const notes = [];
+    let t = 1400;
+    let lastLane = 2;
+    while(t < dur - 900){
+      const p = t / dur;
+      const phase = p < .18 ? 'warmup' : p < .48 ? 'groove' : p < .78 ? 'rush' : 'boss';
+      let density = S.diff==='easy' ? .62 : S.diff==='hard' ? .92 : .78;
+      if(phase==='warmup') density *= .78;
+      if(phase==='rush') density *= 1.05;
+      if(phase==='boss') density *= 1.10;
+      if(Math.random() < density){
+        const lanes = activeLanes();
+        let lane;
+        if(phase==='warmup') lane = lanes[Math.floor(lanes.length/2)];
+        else{
+          lane = lanes[Math.floor(Math.random()*lanes.length)];
+          if(Math.random()<.32) lane = lastLane;
         }
-        tt+=step;
+        lastLane = lane;
+        const punch = Math.random()>.90 ? '⬆️' : Math.random()>.72 ? '↩️' : '👊';
+        notes.push({id:S.nextId++, lane, tHit:t + (Math.random()*2-1)*70, punch, phase, spawned:false, hit:false, miss:false, el:null});
+        if(S.diff!=='easy' && (phase==='rush'||phase==='boss')){
+          const chance = S.diff==='hard' ? .11 : .035;
+          if(Math.random()<chance){
+            let lane2 = lanes[Math.floor(Math.random()*lanes.length)];
+            if(lane2!==lane) notes.push({id:S.nextId++, lane:lane2, tHit:t+(S.diff==='hard'?100:145), punch:'👊', phase, spawned:false, hit:false, miss:false, el:null});
+          }
+        }
       }
-      return notes.sort((a,b)=>a.tHit-b.tHit);
+      t += step;
     }
-    function makeNote(n){ const lane=laneEls()[n.lane]; if(!lane) return null; const el=D.createElement('div'); el.className=`note punch-${n.punch} side-${n.side}`; el.innerHTML=`<div class="note-ico">${n.punch==='uppercut'?'⬆️':n.punch==='hook'?'↩️':'👊'}</div>`; lane.appendChild(el); return el; }
-    function removeNote(n){ if(n&&n.el&&n.el.parentNode) n.el.parentNode.removeChild(n.el); n.el=null; }
-    function windows(){ const b=S.cfg.win; return {perfect:b,great:b*1.75,good:b*2.9}; }
-    function renderNotes(tNow){ const lanes=laneEls(); if(!lanes.length) return; const rect=(lanes[1]||lanes[0]).getBoundingClientRect(); const laneH=rect.height||420, hitY=laneH*.74, spawnLead=Math.max(120,laneH*.34), fullPath=hitY+spawnLead, travel=S.cfg.travel, tRel=tNow-S.t0, goodWin=windows().good;
-      for(const n of S.notes){ if(n.hit||n.miss) continue; const dt=n.tHit-tRel; if(!n.spawned && dt<travel+260){ n.spawned=true; n.el=makeNote(n); } if(n.el){ const prog=1-(dt/travel); const y=(prog*fullPath)-spawnLead; n.el.style.transform=`translate3d(-50%,${clamp(y,-spawnLead-48,hitY+84)}px,0)`; n.el.classList.toggle('near',Math.abs(dt)<=goodWin); if(dt<-goodWin){ n.miss=true; removeNote(n); S.shots++; S.miss++; S.combo=0; S.hp=clamp(S.hp-S.cfg.missDmg,0,100); setFeedback('MISS','miss'); hitFx('miss'); sfx('miss'); vibrate([18,35,18]); laneFlash(n.lane,'miss'); shake(); flash(); logEvent({kind:'event',action:'auto_miss',lane:n.lane,judge:'Miss',offsetMs:Math.round(dt)}); } } }
+    return notes.sort((a,b)=>a.tHit-b.tHit);
+  }
+
+  function makeNote(n){
+    const lane = laneEls()[n.lane]; if(!lane) return null;
+    const el = D.createElement('div');
+    const side = n.lane<=1?'left':n.lane>=3?'right':'center';
+    el.className = 'note '+side;
+    el.innerHTML = `<div class="ico">${n.punch}</div>`;
+    lane.appendChild(el);
+    return el;
+  }
+
+  function removeNote(n){if(n&&n.el&&n.el.parentNode)n.el.remove(); n.el=null}
+
+  function renderNotes(now){
+    const lanes = laneEls(); if(!lanes.length) return;
+    const rect = lanes.find(l=>l.offsetParent !== null)?.getBoundingClientRect() || lanes[0].getBoundingClientRect();
+    const laneH = rect.height || 440;
+    const hitY = laneH * .74;
+    const travel = travelMs();
+    const spawnLead = Math.max(115,laneH*.34);
+    const path = hitY + spawnLead;
+    const tRel = now - S.t0;
+    for(const n of S.notes){
+      if(n.hit||n.miss) continue;
+      const dt = n.tHit - tRel;
+      if(!n.spawned && dt < travel+260){n.spawned=true;n.el=makeNote(n)}
+      if(n.el){
+        const prog = 1 - dt/travel;
+        const y = clamp(prog*path - spawnLead, -spawnLead-50, hitY+90);
+        n.el.style.transform = `translate3d(-50%,${y}px,0)`;
+        n.el.classList.toggle('near', Math.abs(dt) <= windows().good);
+        if(dt < -windows().good){
+          n.miss=true; removeNote(n); S.shots++; S.miss++; S.combo=0;
+          feedback('MISS','miss'); sfx('miss'); vibrate([18,35,18]); hitFx('miss'); laneFlash(n.lane,'miss'); fieldShake();
+          logEvent('auto_miss',{lane:n.lane,judge:'Miss',offsetMs:Math.round(dt)});
+        }
+      }
     }
-    function nearest(lane,tNow){ const tRel=tNow-S.t0; let best=null,bestAbs=1e9; for(const n of S.notes){ if(n.lane!==lane||n.hit||n.miss||!n.spawned) continue; const dt=n.tHit-tRel, a=Math.abs(dt); if(a<bestAbs){ bestAbs=a; best={note:n,dt}; } } return best; }
-    function addScore(j){ const base=j==='Perfect'?120:j==='Great'?85:50; const comboBonus=Math.min(60,Math.floor(S.combo/10)*10); S.score+=Math.round((base+comboBonus)*(S.feverOn?1.25:1)); }
-    function addFever(j){ const inc=j==='Perfect'?9:j==='Great'?6:3; S.fever=clamp(S.fever+inc*(S.diff==='hard'?1.12:S.diff==='easy'?.92:1),0,100); if(S.fever>=100&&!S.feverOn){ S.feverOn=true; S.fever=100; E.arena.classList.add('is-fever'); sfx('fever'); coach('FEVER! จังหวะกำลังมาแล้ว','great'); } }
-    function drainFever(dt){ if(!S.feverOn) return; S.fever=clamp(S.fever-dt*.022,0,100); if(S.fever<=0){ S.feverOn=false; E.arena.classList.remove('is-fever'); } }
-    function hitBoss(j){ if(!S.boss.active) return; const dmg=j==='Perfect'?4:j==='Great'?3:j==='Good'?2:0; if(dmg>0){ S.boss.hp=clamp(S.boss.hp-dmg,0,S.boss.hpMax); if(S.boss.hp<=0&&!S.boss.clear){ S.boss.clear=true; banner('ชนะบอส!','จังหวะดีมาก ผ่าน Boss Round แล้ว','success'); comboBurst('BOSS CLEAR!'); } } }
-    function timingCoach(j,dt){ if(j==='Miss') return; const adt=Math.abs(dt); if(j==='Perfect'){ if(S.combo>0&&S.combo%15===0) coach('จังหวะดีมาก! รักษา tempo นี้ไว้','great'); return; } if(adt<70) return; coach(dt>0?'เร็วไปนิด รอให้ถึงเส้นก่อน':'ช้าไปนิด ลองกดให้ไวขึ้น','good'); }
-    function tap(lane,source){ if(!S.running) return; lane=normLane(lane); const tNow=now(); const last=S.lastLaneTap[lane]||0; if(tNow-last<105){ S.spam++; if(S.spam%4===0) coach('อย่ากดรัวนะ รอจังหวะ note ก่อน','miss'); return; } S.lastLaneTap[lane]=tNow; const found=nearest(lane,tNow); const win=windows(); let judge='Miss',dt=9999,blank=false;
-      if(found){ dt=found.dt; const a=Math.abs(dt); if(a<=win.perfect) judge='Perfect'; else if(a<=win.great) judge='Great'; else if(a<=win.good) judge='Good'; else judge='Miss'; if(judge!=='Miss'){ found.note.hit=true; removeNote(found.note); S.shots++; S.hits++; if(judge==='Perfect') S.perfect++; else if(judge==='Great') S.great++; else S.good++; S.combo++; S.maxCombo=Math.max(S.maxCombo,S.combo); addScore(judge); addFever(judge); hitBoss(judge); S.offsets.push(dt); setFeedback(judge.toUpperCase(),judge.toLowerCase()); timingCoach(judge,dt); vibrate(judge==='Perfect'?18:judge==='Great'?12:8); sfx(judge==='Perfect'?'perfect':judge==='Great'?'great':'good'); laneFlash(lane,'hit'); hitFx(judge); scorePopup(judge==='Perfect'?'+120':judge==='Great'?'+85':'+50',judge); flash(); if(S.combo>0&&S.combo%10===0) comboBurst(`${S.combo} COMBO!`); } else blank=true; } else blank=true;
-      if(blank){ S.blank++; S.shots++; S.combo=0; S.score=Math.max(0,S.score-8); if(S.blank>=6&&S.blank/Math.max(1,S.shots)>.25) S.hp=clamp(S.hp-1.2,0,100); setFeedback('MISS','miss'); vibrate([18,35,18]); sfx('miss'); laneFlash(lane,'miss'); hitFx('miss'); shake(); flash(); judge='Miss'; }
-      logEvent({kind:'event',action:blank?'blank_tap':'tap',source,lane,judge,offsetMs:dt===9999?'':Math.round(dt)}); updateMission(); }
+  }
 
-    function logEvent(extra){ if(S.mode!=='research') return; const base={tsIso:iso(),pid:S.pid,diff:S.diff,track:S.track,mode:S.mode,score:Math.round(S.score),combo:S.combo,hp:Math.round(S.hp),fever:Math.round(S.fever),phase:S.phase}; S.events.push({...base,...extra}); }
-    function updateMission(){ const acc=S.shots?S.hits/S.shots*100:0; const scoreOk=S.score>=S.cfg.score, comboOk=S.maxCombo>=S.cfg.combo, accOk=acc>=S.cfg.acc; E.missionScore.className='mission-item'+(scoreOk?' done':''); E.missionCombo.className='mission-item'+(comboOk?' done':''); E.missionAcc.className='mission-item'+(accOk?' done':''); E.missionScore.textContent=`${scoreOk?'✅':'⭐'} ทำคะแนน ${S.cfg.score}`; E.missionCombo.textContent=`${comboOk?'✅':'⭐'} คอมโบถึง ${S.cfg.combo}`; E.missionAcc.textContent=`${accOk?'✅':'⭐'} Accuracy ถึง ${S.cfg.acc}%`; }
-    function updateHUD(tNow){ const acc=S.shots?S.hits/S.shots*100:0; E.hudScore.textContent=Math.round(S.score); E.hudCombo.textContent=S.combo; E.hudAcc.textContent=acc.toFixed(1)+'%'; E.hudTime.textContent=((tNow-S.t0)/1000).toFixed(1); E.hudPerfect.textContent=S.perfect; E.hudGreat.textContent=S.great; E.hudGood.textContent=S.good; E.hudMiss.textContent=S.miss; E.feverFill.style.width=clamp(S.fever,0,100)+'%'; E.feverText.textContent=S.feverOn?'ON':S.fever>=100?'READY':'BUILD'; const prog=clamp((tNow-S.t0)/(S.tEnd-S.t0),0,1); E.progressFill.style.width=(prog*100).toFixed(0)+'%'; E.progressText.textContent=(prog*100).toFixed(0)+'%'; if(S.boss.active){ E.bossCard.classList.remove('hidden'); const pct=S.boss.hpMax?S.boss.hp/S.boss.hpMax*100:0; E.bossFill.style.width=clamp(pct,0,100)+'%'; E.bossText.textContent=`${Math.max(0,Math.round(S.boss.hp))}/${S.boss.hpMax}`; } else E.bossCard.classList.add('hidden'); }
-    function updateSafety(){ const acc=S.shots?S.hits/S.shots*100:100; const missRate=S.shots?S.miss/S.shots:0; let cls='safety-chip', msg='🧍 ยืนให้มั่นคง • เว้นพื้นที่รอบตัว • มองเส้น hit line แล้วค่อยชก'; if(S.hp<=35||missRate>.42){ cls+=' danger'; msg='⚠️ เริ่มล้าแล้ว ลดแรงชกและหายใจให้สม่ำเสมอ'; E.arena.classList.add('safety-warn'); } else if(missRate>=.34||S.spam>=8||acc<60){ cls+=' warn'; msg='💡 อย่ากดรัว รอ note ถึงเส้นก่อน จะได้คะแนนแม่นกว่า'; E.arena.classList.add('safety-warn'); } else E.arena.classList.remove('safety-warn'); E.safety.className=cls; E.safety.textContent=msg; }
-    function phaseUpdate(tNow){ const ph=phaseAt(tNow-S.t0,S.duration*1000); if(ph===S.phase) return; S.phase=ph; E.arena.dataset.phase=ph; if(ph==='warmup'){ banner('วอร์มอัปก่อนนะ','ค่อย ๆ จับจังหวะ','warmup'); coach('เริ่มเบา ๆ ใช้ข้อมือและหัวไหล่ให้สัมพันธ์กัน','good'); } else if(ph==='groove'){ banner('เริ่มเข้าจังหวะแล้ว!','รักษาคอมโบไว้','groove'); coach('ดีมาก! ตอนนี้เน้นความแม่นมากกว่าความเร็ว','great'); } else if(ph==='rush'){ banner('เร็วขึ้นอีกนิด!','มองเส้นแล้วกดให้พอดี','rush'); coach('ช่วงเร่งจังหวะ หายใจให้สม่ำเสมอ','great'); } else if(ph==='boss'){ banner('BOSS ROUND!','ตีให้แม่นเพื่อลดพลังบอส','final'); coach('ช่วงบอส อย่ากดรัว ให้เลือกจังหวะที่ชัวร์','great'); S.boss.active=true; S.boss.hpMax=S.cfg.bossHp; S.boss.hp=S.boss.hpMax; S.boss.clear=false; sfx('boss'); } }
-    function maybeBeat(tNow){ const track=TRACKS[S.track]||TRACKS.focus; const beat=60000/track.bpm; const bucket=Math.floor(Math.max(0,tNow-S.t0)/beat); if(bucket!==S.lastBeat){ S.lastBeat=bucket; beatPulse(); } }
-
-    function reset(){ cancelAnimationFrame(S.raf); Object.assign(S,{running:false,t0:0,tEnd:0,tLast:0,lastBeat:-1,phase:'warmup',notes:[],nextId:1,score:0,combo:0,maxCombo:0,shots:0,hits:0,perfect:0,great:0,good:0,miss:0,blank:0,spam:0,lastLaneTap:[0,0,0,0,0],offsets:[],events:[],fever:0,feverOn:false,hp:100,boss:{active:false,hp:0,hpMax:0,clear:false,intro:false}}); laneEls().forEach(l=>Array.from(l.querySelectorAll('.note')).forEach(n=>n.remove())); E.arena.classList.remove('is-fever','safety-warn'); E.arena.dataset.phase='warmup'; E.bossCard.classList.add('hidden'); updateMission(); updateHUD(now()); }
-    function readSettings(){ S.diff=D.querySelector('input[name="diff"]:checked')?.value||'easy'; S.cfg=DIFF_CFG[S.diff]||DIFF_CFG.easy; S.pid=(E.pid.value||'anon').trim(); S.duration=clamp(E.duration.value,20,180); S.mode=E.mode.value; S.track=E.track.value; S.seed=Date.now(); S.rng=rng(S.seed ^ S.pid.length ^ Math.floor(Math.random()*999999)); applyLaneMode(); }
-    function countdownThen(cb){ const seq=['3','2','1','GO!']; let i=0; show('play'); E.countdown.classList.remove('hidden'); const step=()=>{ const txt=seq[i]||'GO!'; E.countNum.textContent=txt; E.countNum.style.animation='none'; void E.countNum.offsetWidth; E.countNum.style.animation=''; sfx(txt==='GO!'?'go':'count'); i++; if(i>seq.length){ E.countdown.classList.add('hidden'); cb(); return; } setTimeout(step,txt==='GO!'?520:620); }; step(); }
-    function start(){ readSettings(); reset(); show('play'); S.notes=buildSchedule().map(n=>({...n,id:S.nextId++,spawned:false,hit:false,miss:false,el:null})); S.running=true; S.t0=now(); S.tLast=S.t0; S.tEnd=S.t0+S.duration*1000; banner('เริ่มเลย!','มองเส้นแล้วกดตามจังหวะ','warmup'); logEvent({kind:'marker',marker:'start',durationSec:S.duration,bpm:(TRACKS[S.track]||TRACKS.focus).bpm}); S.raf=requestAnimationFrame(tick); }
-    function stop(reason='stop'){ if(!S.running) return; S.endReason=reason; end(); }
-    function tick(){ if(!S.running) return; const tNow=now(), dt=tNow-S.tLast; S.tLast=tNow; if(tNow>=S.tEnd){ S.endReason='timeup'; end(); return; } if(S.hp<=0){ S.endReason='hp0'; end(); return; } phaseUpdate(tNow); maybeBeat(tNow); drainFever(dt); renderNotes(tNow); updateHUD(tNow); updateMission(); updateSafety(); S.raf=requestAnimationFrame(tick); }
-    function rank(){ const acc=S.shots?S.hits/S.shots:0; const score=.70*acc+.20*(S.hp/100)+.10*clamp(S.maxCombo/80,0,1); if(score>=.88) return 'S'; if(score>=.78) return 'A'; if(score>=.68) return 'B'; if(score>=.55) return 'C'; return 'D'; }
-    function reward(){ const acc=S.shots?S.hits/S.shots*100:0; let stars=0; if(S.score>=S.cfg.score) stars++; if(S.maxCombo>=S.cfg.combo) stars++; if(acc>=S.cfg.acc) stars++; if(stars<=0) stars=rank()==='S'||rank()==='A'?2:1; let badge='Timing Rookie'; if(S.boss.clear&&S.miss===0) badge='Boss No-Miss'; else if(S.boss.clear) badge='Boss Clear'; else if(S.maxCombo>=40) badge='Combo Hero'; else if(acc>=90) badge='Timing Star'; else if(S.feverOn||S.fever>=90) badge='Fever Kid'; return {stars,badge,rank:rank(),praise:stars>=3?'ได้ 3 ดาว! จังหวะแม่นมาก':stars===2?'ได้ 2 ดาว! เล่นได้ดีมาก':'ได้ 1 ดาว! เริ่มต้นดีแล้ว'}; }
-    function teacherRec(p){ const notes=[]; if(p.accPct>=85&&p.maxCombo>=20) notes.push('ผู้เรียนควบคุมจังหวะและสมาธิได้ดี เหมาะให้เพิ่มระดับความยากหรือเวลาเล่น'); else if(p.accPct>=70) notes.push('ผู้เรียนจับจังหวะได้ระดับดี ควรฝึกความต่อเนื่องของ combo'); else notes.push('ควรเริ่มจาก Easy และลดจำนวน lane เพื่อฝึก timing ก่อน'); if(p.offsetAbsMeanMs>110) notes.push('ค่า timing offset สูง แนะนำให้ครูเน้นการรอ hit line ก่อนแตะ'); if(p.spamTaps>=8) notes.push('พบการกดรัว ควรย้ำกติกา “ชกตามจังหวะ ไม่กดมั่ว”'); if(p.miss>=10||p.hpEnd<45) notes.push('มีสัญญาณล้าหรือพลาดบ่อย ควรพัก 30–60 วินาทีก่อนเล่นรอบถัดไป'); return notes.join(' · '); }
-    function end(){ S.running=false; cancelAnimationFrame(S.raf); S.notes.forEach(removeNote); if(qbool('arAutoStop',true)) arStop(); const dur=Math.max(0,(now()-S.t0)/1000); const acc=S.shots?S.hits/S.shots*100:0; const offAbs=S.offsets.filter(Number.isFinite).map(x=>Math.abs(x)); const r=reward(); const payload={tsIso:iso(),pid:S.pid,diff:S.diff,track:S.track,mode:S.mode,durationSec:dur.toFixed(2),endReason:S.endReason||'timeup',score:Math.round(S.score),maxCombo:S.maxCombo,shots:S.shots,hits:S.hits,accPct:Number(acc.toFixed(2)),perfect:S.perfect,great:S.great,good:S.good,miss:S.miss,blankTaps:S.blank,spamTaps:S.spam,hpEnd:Math.round(S.hp),feverEnd:Math.round(S.fever),bossClear:S.boss.clear?1:0,bossHpLeft:Math.round(S.boss.hp),offsetAbsMeanMs:mean(offAbs)==null?'':Number(mean(offAbs).toFixed(2)),offsetAbsStdMs:std(offAbs)==null?'':Number(std(offAbs).toFixed(2)),rank:r.rank,stars:r.stars,badge:r.badge}; payload.teacherRecommendation=teacherRec(payload); S.lastSummary=payload; S.sessions.push(payload); logEvent({kind:'marker',marker:'end',endReason:payload.endReason,score:payload.score,accPct:payload.accPct}); try{ const key='RB_AR_BEST_'+S.diff; const best=Number(localStorage.getItem(key)||0); if(payload.score>best) localStorage.setItem(key,String(payload.score)); }catch(_){}
-      E.resStars.textContent='⭐'.repeat(Math.max(1,r.stars)); E.resRank.textContent='Rank '+r.rank; E.resBadge.textContent='Badge '+r.badge; E.resPraise.textContent=r.praise; E.resScore.textContent=payload.score; E.resCombo.textContent=payload.maxCombo; E.resAcc.textContent=payload.accPct.toFixed(1)+'%'; E.resHit.textContent=`${payload.perfect}/${payload.great}/${payload.good}/${payload.miss}`; E.resDur.textContent=dur.toFixed(1)+'s'; E.resOffset.textContent=payload.offsetAbsMeanMs===''?'-':payload.offsetAbsMeanMs+' ms'; E.resBoss.textContent=payload.bossClear?'Clear':'HP '+payload.bossHpLeft; E.resSpam.textContent=payload.spamTaps; try{ E.resBest.textContent='Best '+(localStorage.getItem('RB_AR_BEST_'+S.diff)||payload.score); }catch(_){ E.resBest.textContent='Best '+payload.score; } E.quality.textContent='ข้อเสนอแนะครู: '+payload.teacherRecommendation; show('result'); }
-
-    const sessionCols=['tsIso','pid','diff','track','mode','durationSec','endReason','score','maxCombo','shots','hits','accPct','perfect','great','good','miss','blankTaps','spamTaps','hpEnd','feverEnd','bossClear','bossHpLeft','offsetAbsMeanMs','offsetAbsStdMs','rank','stars','badge','teacherRecommendation'];
-    const eventCols=['tsIso','pid','diff','track','mode','phase','kind','marker','action','source','lane','judge','offsetMs','score','combo','hp','fever'];
-    function exportSession(){ if(!S.sessions.length&&S.lastSummary) S.sessions.push(S.lastSummary); download(`rhythm_boxer_ar_session_${S.pid}_${Date.now()}.csv`,toCSV(S.sessions,sessionCols)); }
-    function exportEvents(){ download(`rhythm_boxer_ar_events_${S.pid}_${Date.now()}.csv`,toCSV(S.events,eventCols)); }
-
-    function bind(){
-      E.btnARMenu.addEventListener('click',arToggle); E.btnARToggle.addEventListener('click',arToggle); E.btnARFlip.addEventListener('click',arFlip);
-      E.btnStart.addEventListener('click',()=>{ audioCtx(); readSettings(); applyLaneMode(); countdownThen(start); });
-      E.btnStop.addEventListener('click',()=>stop('stop')); E.btnMenu.addEventListener('click',()=>{ stop('menu'); show('menu'); }); E.btnAgain.addEventListener('click',()=>{ countdownThen(start); }); E.btnBackResult.addEventListener('click',()=>show('menu'));
-      E.btnMute.addEventListener('click',()=>{ AUDIO.on=!AUDIO.on; E.btnMute.textContent=AUDIO.on?'🔊 Sound':'🔇 Muted'; });
-      E.btnResetBest.addEventListener('click',()=>{ try{ Object.keys(DIFF_CFG).forEach(k=>localStorage.removeItem('RB_AR_BEST_'+k)); }catch(_){} alert('ล้าง Best แล้ว'); });
-      E.btnCsvSession.addEventListener('click',exportSession); E.btnCsvEvents.addEventListener('click',exportEvents);
-      E.lanes.addEventListener('pointerdown',e=>{ const lane=e.target.closest('.lane'); if(!lane) return; e.preventDefault(); tap(Number(lane.dataset.lane),AR.on?'ar_touch':'pointer'); },{passive:false});
-      W.addEventListener('keydown',e=>{ const map={a:0,s:1,d:2,j:3,k:4}; const k=String(e.key||'').toLowerCase(); if(!(k in map)) return; e.preventDefault(); tap(map[k],'key'); },{passive:false});
-      W.addEventListener('beforeunload',()=>{ try{arStop();}catch(_){} });
-      D.querySelectorAll('input[name="diff"]').forEach(r=>r.addEventListener('change',()=>{ readSettings(); applyLaneMode(); updateMission(); }));
+  function findNearest(lane,now){
+    const tRel = now-S.t0; let best=null, ba=1e9;
+    for(const n of S.notes){
+      if(n.lane!==lane || n.hit || n.miss || !n.spawned) continue;
+      const dt=n.tHit-tRel, a=Math.abs(dt);
+      if(a<ba){ba=a;best={note:n,dt}};
     }
+    return best;
+  }
 
-    function boot(){ const urlDiff=qs('diff',''); if(DIFF_CFG[urlDiff]){ const r=D.querySelector(`input[name="diff"][value="${urlDiff}"]`); if(r) r.checked=true; } if(qs('time','')) E.duration.value=String(clamp(qs('time','60'),20,180)); if(qs('pid','')) E.pid.value=qs('pid','test-rb-ar'); if(qs('track','')&&TRACKS[qs('track','')]) E.track.value=qs('track',''); if(qs('mode','')) E.mode.value=qs('mode','normal'); AUDIO.on=qbool('sound',true); E.btnMute.textContent=AUDIO.on?'🔊 Sound':'🔇 Muted'; bind(); readSettings(); applyLaneMode(); updateMission(); arUi(); show('menu'); if(qbool('ar',false)) setTimeout(arStart,250); if(qbool('autostart',false)) setTimeout(()=>countdownThen(start),400); console.log('[Rhythm Boxer AR] ready v20260618-RB-AR-FINAL-PRODUCTION'); }
-    boot();
-  })();
-  </script>
+  function handleInput(lane,source='touch'){
+    if(!S.running) return;
+    lane = normLane(lane);
+    const tNow = nowMs();
+    const last = S.lastLaneTap[lane] || 0;
+    if(tNow-last < 105){S.spam++; if(S.spam%4===0) coach('อย่ากดรัว รอ note ถึงเส้นก่อน','miss'); return}
+    S.lastLaneTap[lane]=tNow;
+    if(source.startsWith('body')) S.bodyPunches++;
+
+    const found = findNearest(lane,tNow);
+    const win = windows();
+    let judge='Miss', dt=9999, blank=false;
+
+    if(found){
+      dt = found.dt;
+      const a = Math.abs(dt);
+      if(a<=win.perfect) judge='Perfect';
+      else if(a<=win.great) judge='Great';
+      else if(a<=win.good) judge='Good';
+      else judge='Miss';
+
+      if(judge!=='Miss'){
+        found.note.hit=true; removeNote(found.note);
+        S.shots++; S.hits++; S.combo++; S.maxCombo=Math.max(S.maxCombo,S.combo);
+        if(judge==='Perfect') S.perfect++; else if(judge==='Great') S.great++; else S.good++;
+        const base = judge==='Perfect'?120:judge==='Great'?85:50;
+        const comboBonus = Math.min(60, Math.floor(S.combo/10)*10);
+        S.score += Math.round((base+comboBonus)*(S.feverOn?1.25:1));
+        S.fever = clamp(S.fever + (judge==='Perfect'?9:judge==='Great'?6:3),0,100);
+        if(S.fever>=100 && !S.feverOn){S.feverOn=true;sfx('fever');coach('FEVER! จังหวะกำลังมาแล้ว','great')}
+        if(S.boss.active && S.boss.window){
+          const dmg = judge==='Perfect'?4:judge==='Great'?3:2;
+          S.boss.hp = Math.max(0,S.boss.hp-dmg); S.boss.window=false;
+          if(S.boss.hp<=0){S.boss.clear=true; banner('ชนะบอส!','จังหวะและแรงชกดีมาก')}
+        }
+        S.offsets.push(dt);
+        feedback(judge.toUpperCase(), judge.toLowerCase());
+        if(judge==='Perfect') vibrate(18); else if(judge==='Great') vibrate(12); else vibrate(8);
+        sfx(judge.toLowerCase()); hitFx(judge); scorePop(judge==='Perfect'?'+120':judge==='Great'?'+85':'+50',judge); laneFlash(lane,'hit');
+        if(Math.abs(dt)>80) coach(dt>0?'เร็วไปนิด รอให้ถึงเส้นก่อน':'ช้าไปนิด ลองชกให้ไวขึ้น','good');
+        if(S.combo>0 && S.combo%15===0) coach('ดีมาก! คอมโบกำลังสวย','great');
+      }else blank=true;
+    }else blank=true;
+
+    if(blank){
+      S.blank++; S.shots++; S.combo=0; S.score=Math.max(0,S.score-8);
+      feedback('MISS','miss'); sfx('miss'); vibrate([18,35,18]); hitFx('miss'); laneFlash(lane,'miss'); fieldShake();
+    }
+    logEvent(source,{lane,judge,offsetMs:dt===9999?'':Math.round(dt)});
+  }
+
+  function fieldShake(){
+    els.arena.classList.remove('shake'); void els.arena.offsetWidth; els.arena.classList.add('shake');
+    setTimeout(()=>els.arena.classList.remove('shake'),240);
+  }
+
+  function logEvent(action,extra={}){
+    S.events.push({tsIso:new Date().toISOString(),pid:S.pid,diff:S.diff,timeSec:S.timeSec,mode:S.mode,action,score:Math.round(S.score),combo:S.combo,accPct:accPct().toFixed(2),bodyPunches:S.bodyPunches,spam:S.spam,...extra});
+  }
+
+  function accPct(){return S.shots?S.hits/S.shots*100:0}
+
+  function updateMission(){
+    const scoreT = S.diff==='easy'?1500:S.diff==='hard'?2600:2100;
+    const comboT = S.diff==='easy'?10:S.diff==='hard'?24:18;
+    const accT = S.diff==='easy'?72:S.diff==='hard'?84:80;
+    const okScore=S.score>=scoreT, okCombo=S.maxCombo>=comboT, okAcc=accPct()>=accT;
+    els.mScore.className='mission-item '+(okScore?'done':''); els.mScore.textContent=(okScore?'✅':'⭐')+' ทำคะแนน '+scoreT;
+    els.mCombo.className='mission-item '+(okCombo?'done':''); els.mCombo.textContent=(okCombo?'✅':'⭐')+' คอมโบถึง '+comboT;
+    els.mAcc.className='mission-item '+(okAcc?'done':''); els.mAcc.textContent=(okAcc?'✅':'⭐')+' Accuracy ถึง '+accT+'%';
+    const stars = (okScore?1:0)+(okCombo?1:0)+(okAcc?1:0);
+    els.missionStars.textContent = stars+'/3';
+    return stars;
+  }
+
+  function phaseOf(now){
+    const p = clamp((now-S.t0)/(S.tEnd-S.t0),0,1);
+    if(p<.18)return 'warmup'; if(p<.48)return 'groove'; if(p<.78)return 'rush'; return 'boss';
+  }
+
+  function updatePhase(now){
+    const ph = phaseOf(now);
+    if(ph===S.phase) return;
+    S.phase=ph;
+    if(ph==='warmup'){banner('Warm-up','ยกมือ guard แล้วจับจังหวะ');coach('เริ่มเบา ๆ ให้กล้องเห็นข้อมือทั้งสองข้าง','good')}
+    if(ph==='groove'){banner('Groove','เริ่มรักษาคอมโบ');coach('ชกตามจังหวะ ไม่ต้องแรงมาก','great')}
+    if(ph==='rush'){banner('Rush','เร็วขึ้นอีกนิด');coach('หายใจให้สม่ำเสมอ แล้วชกให้ตรงเส้น','great')}
+    if(ph==='boss'){banner('BOSS ROUND','ชกแม่นเพื่อลด HP บอส');coach('ช่วงบอสอย่ากดรัว เลือกจังหวะที่ชัวร์','great');S.boss.active=true;S.boss.hp=S.boss.hpMax;S.boss.clear=false;sfx('boss')}
+  }
+
+  function bossTick(now){
+    if(!S.boss.active || S.boss.clear) return;
+    els.bossCard.classList.remove('hidden');
+    if(now-S.boss.lastWindow>1100){S.boss.lastWindow=now;S.boss.window=true;setTimeout(()=>S.boss.window=false,360)}
+    els.bossText.textContent = `${Math.round(S.boss.hp)}/${S.boss.hpMax}`;
+    els.bossFill.style.width = `${clamp(S.boss.hp/S.boss.hpMax*100,0,100)}%`;
+  }
+
+  function beatTick(now){
+    const bpm = S.diff==='easy'?100:S.diff==='hard'?138:120;
+    const b = Math.floor((now-S.t0)/(60000/bpm));
+    if(b!==S.lastBeat){S.lastBeat=b;els.arena.classList.add('beat');setTimeout(()=>els.arena.classList.remove('beat'),120)}
+  }
+
+  function updateSafety(){
+    let cls='safety', msg='🧍 ยืนให้มั่นคง • ให้กล้องเห็นไหล่ ศอก และข้อมือทั้งสองข้าง';
+    const visible = S.body.visible && (nowMs()-S.body.lastSeen<900);
+    if(S.mode==='body' && !visible){cls+=' warn'; msg='📷 ยังจับร่างกายไม่ชัด ถอยห่างและให้เห็นช่วงลำตัวบน'}
+    else if(S.spam>=8 || S.blank>=8){cls+=' warn'; msg='💡 อย่าชก/แตะรัว รอ note ถึงเส้นก่อน'}
+    else if(S.miss>=12 || accPct()<55 && S.shots>10){cls+=' danger'; msg='⚠️ พลาดบ่อยแล้ว ลดความเร็วหรือพักสั้น ๆ ก่อนเล่นต่อ'}
+    els.safety.className=cls; els.safety.textContent=msg;
+  }
+
+  function updateHUD(now){
+    els.hudScore.textContent=Math.round(S.score);
+    els.hudCombo.textContent=S.combo;
+    els.hudAcc.textContent=accPct().toFixed(1)+'%';
+    els.hudTime.textContent=((now-S.t0)/1000).toFixed(1);
+    els.hudBody.textContent=S.mode==='body'?'ON':'OFF';
+    els.hudDetected.textContent=S.body.visible?'เห็นร่างกาย':'—';
+    els.hudPerfect.textContent=S.perfect;
+    els.hudMiss.textContent=S.miss;
+    els.feverFill.style.width=clamp(S.fever,0,100)+'%';
+    els.feverText.textContent=S.feverOn?'ON':S.fever>=100?'READY':'BUILD';
+    const pr = clamp((now-S.t0)/(S.tEnd-S.t0),0,1);
+    els.progressFill.style.width=Math.round(pr*100)+'%';
+    els.progressText.textContent=Math.round(pr*100)+'%';
+    updateMission();
+  }
+
+  function tick(){
+    if(!S.running) return;
+    const now=nowMs();
+    if(now>=S.tEnd){end('timeup');return}
+    updatePhase(now); beatTick(now); bossTick(now); renderNotes(now); updateHUD(now); updateSafety();
+    requestAnimationFrame(tick);
+  }
+
+  function reset(){
+    S.running=false; S.t0=0; S.tEnd=0; S.lastBeat=-1; S.notes=[]; S.nextId=1;
+    S.score=0;S.combo=0;S.maxCombo=0;S.shots=0;S.hits=0;S.perfect=0;S.great=0;S.good=0;S.miss=0;S.blank=0;S.spam=0;S.bodyPunches=0;
+    S.fever=0;S.feverOn=false;S.phase='warmup';S.events=[];S.offsets=[];S.lastLaneTap=[0,0,0,0,0];
+    S.boss={active:false,hp:24,hpMax:24,clear:false,window:false,lastWindow:0};
+    laneEls().forEach(l=>Array.from(l.querySelectorAll('.note')).forEach(n=>n.remove()));
+    els.bossCard.classList.add('hidden');
+  }
+
+  function countdown(cb){
+    const seq=['3','2','1','GO!']; let i=0;
+    els.countdown.classList.remove('hidden');
+    const step=()=>{
+      const txt=seq[i]||'GO!';
+      els.countdownNum.textContent=txt; els.countdownNum.style.animation='none'; void els.countdownNum.offsetWidth; els.countdownNum.style.animation='';
+      sfx(txt==='GO!'?'go':'count');
+      i++;
+      if(i>seq.length){els.countdown.classList.add('hidden');cb();return}
+      setTimeout(step, txt==='GO!'?520:620);
+    };
+    step();
+  }
+
+  async function start(mode){
+    actx();
+    S.mode=mode; S.diff=els.diff.value; S.timeSec=Number(els.timeSec.value)||60; S.pid=els.pid.value.trim()||'player01';
+    applyLaneMode(); reset(); show('play');
+    if(mode==='body') await startCamera(true);
+    countdown(()=>{
+      S.notes=buildSchedule(); S.running=true; S.t0=nowMs(); S.tEnd=S.t0+S.timeSec*1000; S.tLast=S.t0;
+      banner('เริ่มเลย!','ใช้หมัดซ้าย/ขวาชกตาม lane หรือแตะจอได้');
+      logEvent('start',{});
+      requestAnimationFrame(tick);
+    });
+  }
+
+  function rankOf(){
+    const acc=accPct()/100, combo=clamp(S.maxCombo/60,0,1), body=S.mode==='body'?clamp(S.bodyPunches/Math.max(1,S.shots),0,1):.5;
+    const val=.62*acc+.23*combo+.15*body;
+    if(val>=.88)return 'S'; if(val>=.78)return 'A'; if(val>=.66)return 'B'; if(val>=.52)return 'C'; return 'D';
+  }
+
+  function teacherRec(){
+    const notes=[];
+    const acc=accPct();
+    if(S.mode!=='body') notes.push('รอบนี้ยังไม่ได้ใช้ Body Tracking เป็นหลัก จึงเหมาะเป็นรอบฝึกจังหวะก่อนเข้ากล้อง');
+    else if(S.bodyPunches<5) notes.push('ตรวจพบการชกจากร่างกายน้อย ควรจัดระยะกล้องให้เห็นข้อมือและไหล่ชัดขึ้น');
+    if(acc>=85 && S.maxCombo>=20) notes.push('ผู้เรียนควบคุมจังหวะและสมาธิได้ดี เหมาะเพิ่มระดับความยาก');
+    else if(acc>=70) notes.push('ผู้เรียนจับจังหวะได้ดี ควรฝึกความต่อเนื่องของ combo');
+    else notes.push('ควรเริ่มจาก Easy และลดความเร็ว เพื่อฝึก timing ก่อน');
+    if(S.spam>=8) notes.push('พบการกด/ชกรัว ควรย้ำกติกาชกตามจังหวะ ไม่กดมั่ว');
+    if(S.miss>=12) notes.push('พลาดบ่อย ควรพัก 30–60 วินาที หรือลดเวลาเล่น');
+    return notes.join(' · ');
+  }
+
+  function end(reason='stop'){
+    if(!S.running) return;
+    S.running=false;
+    S.notes.forEach(removeNote);
+    const stars=updateMission();
+    const rank=rankOf();
+    const payload=sessionPayload(reason,stars,rank);
+    S.sessions.push(payload);
+    els.resScore.textContent=payload.score;
+    els.resRank.textContent=rank;
+    els.resStars.textContent='⭐'.repeat(Math.max(1,stars));
+    els.resAcc.textContent=payload.accPct+'%';
+    els.resCombo.textContent=payload.maxCombo;
+    els.resBody.textContent=payload.bodyPunches;
+    els.resMiss.textContent=payload.miss;
+    els.resBoss.textContent=S.boss.clear?'Boss Clear':'—';
+    els.quality.textContent='ข้อเสนอแนะครู: '+payload.teacherRecommendation;
+    logEvent('end',{reason,rank,stars});
+    if(qbool('arAutoStop',true)) stopCamera();
+    show('result');
+  }
+
+  function sessionPayload(reason,stars,rank){
+    return {
+      tsIso:new Date().toISOString(), pid:S.pid, diff:S.diff, timeSec:S.timeSec, mode:S.mode,
+      reason, score:Math.round(S.score), rank, stars, maxCombo:S.maxCombo, shots:S.shots, hits:S.hits,
+      accPct:accPct().toFixed(2), perfect:S.perfect, great:S.great, good:S.good, miss:S.miss,
+      blank:S.blank, spam:S.spam, bodyPunches:S.bodyPunches, bossClear:S.boss.clear?1:0,
+      teacherRecommendation:teacherRec()
+    };
+  }
+
+  // --- Camera + Pose body tracking ---
+  let pose = null, poseLoopOn = false, stream = null;
+
+  async function setupPose(){
+    if(pose) return true;
+    if(typeof W.Pose === 'undefined'){toast('โหลด MediaPipe Pose ไม่ได้ เล่นแบบ Touch แทนได้'); return false}
+    pose = new W.Pose({
+      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`
+    });
+    pose.setOptions({
+      modelComplexity:0,
+      smoothLandmarks:true,
+      enableSegmentation:false,
+      minDetectionConfidence:.55,
+      minTrackingConfidence:.55
+    });
+    pose.onResults(onPose);
+    return true;
+  }
+
+  async function startCamera(forBody=false){
+    const ok = await setupPose();
+    S.body.facing = els.camMode.value || 'user';
+    try{
+      stopCamera();
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio:false,
+        video:{facingMode:{ideal:S.body.facing}, width:{ideal:960}, height:{ideal:540}}
+      });
+      els.cam.srcObject = stream;
+      await els.cam.play().catch(()=>{});
+      els.arenaCard.classList.add('cam-on');
+      els.arenaCard.classList.toggle('back',S.body.facing==='environment');
+      els.camStatus.textContent = forBody && ok ? 'BODY CAM ON' : 'CAM ON';
+      els.camStatus.className = 'status on';
+      toast(forBody?'เปิด Body Tracking แล้ว: ยืนให้เห็นไหล่ ศอก ข้อมือ':'เปิดกล้องแล้ว');
+      if(forBody && ok) startPoseLoop();
+      return true;
+    }catch(err){
+      els.camStatus.textContent='เปิดกล้องไม่ได้'; els.camStatus.className='status warn';
+      toast('เปิดกล้องไม่ได้ ระบบยังเล่นแบบ touch ได้');
+      console.warn(err);
+      return false;
+    }
+  }
+
+  function stopCamera(){
+    try{ if(stream) stream.getTracks().forEach(t=>t.stop()) }catch(_){}
+    stream=null; poseLoopOn=false;
+    if(els.cam){try{els.cam.pause()}catch(_){} els.cam.srcObject=null}
+    els.arenaCard.classList.remove('cam-on');
+    els.camStatus.textContent='CAM OFF'; els.camStatus.className='status';
+    clearPoseCanvas();
+  }
+
+  function startPoseLoop(){
+    if(poseLoopOn) return;
+    poseLoopOn = true;
+    const loop = async ()=>{
+      if(!poseLoopOn || !els.cam || els.cam.readyState < 2){ if(poseLoopOn) requestAnimationFrame(loop); return; }
+      try{ await pose.send({image:els.cam}); }catch(e){}
+      if(poseLoopOn) requestAnimationFrame(loop);
+    };
+    loop();
+  }
+
+  function clearPoseCanvas(){
+    const c=els.poseCanvas, ctx=c.getContext('2d');
+    ctx.clearRect(0,0,c.width,c.height);
+  }
+
+  function mirrorX(x){ return S.body.facing==='user' ? 1-x : x; }
+  function pt(lm){ return {x:mirrorX(lm.x),y:lm.y,v:lm.visibility ?? 1}; }
+  function dist(a,b){ const dx=a.x-b.x,dy=a.y-b.y; return Math.sqrt(dx*dx+dy*dy); }
+
+  function onPose(results){
+    const lms = results.poseLandmarks;
+    const c=els.poseCanvas, rect=els.arenaCard.getBoundingClientRect();
+    if(c.width!==Math.round(rect.width) || c.height!==Math.round(rect.height)){c.width=Math.round(rect.width);c.height=Math.round(rect.height)}
+    const ctx=c.getContext('2d'); ctx.clearRect(0,0,c.width,c.height);
+
+    if(!lms || lms.length<17){S.body.visible=false;return}
+
+    const ls=pt(lms[11]), rs=pt(lms[12]), le=pt(lms[13]), re=pt(lms[14]), lw=pt(lms[15]), rw=pt(lms[16]);
+    const visible = [ls,rs,le,re,lw,rw].filter(p=>p.v>.42).length >= 4;
+    S.body.visible=visible; if(visible) S.body.lastSeen=nowMs();
+
+    drawSkeleton(ctx,c,{ls,rs,le,re,lw,rw},visible);
+    if(S.mode==='body' && S.running && visible){
+      detectPunch('left',ls,le,lw);
+      detectPunch('right',rs,re,rw);
+    }
+  }
+
+  function drawSkeleton(ctx,c,p,visible){
+    const xy = q => [q.x*c.width,q.y*c.height];
+    ctx.save();
+    ctx.lineWidth=5; ctx.lineCap='round'; ctx.strokeStyle=visible?'rgba(123,220,123,.82)':'rgba(255,127,141,.72)';
+    function line(a,b){ctx.beginPath();ctx.moveTo(...xy(a));ctx.lineTo(...xy(b));ctx.stroke()}
+    line(p.ls,p.rs); line(p.ls,p.le); line(p.le,p.lw); line(p.rs,p.re); line(p.re,p.rw);
+    for(const k of ['ls','rs','le','re','lw','rw']){
+      const [x,y]=xy(p[k]); ctx.beginPath(); ctx.fillStyle = k.includes('w')?'rgba(255,216,74,.9)':'rgba(255,255,255,.86)'; ctx.arc(x,y,k.includes('w')?8:6,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function detectPunch(side,shoulder,elbow,wrist){
+    const now=nowMs();
+    const last=S.body.last[side];
+    const scale = Math.max(.12, Math.abs(ptToRaw(shoulder).x - (side==='left'?ptToRaw({x:1-shoulder.x,y:shoulder.y,v:shoulder.v}):ptToRaw({x:1-shoulder.x,y:shoulder.y,v:shoulder.v})).x)); // fallback-ish
+    const ext = dist(wrist,shoulder) / Math.max(.16, Math.abs(shoulder.x - (side==='left'?1-shoulder.x:1-shoulder.x)));
+    let speed=0;
+    if(last){
+      const dt=Math.max(16,now-last.t)/1000;
+      speed=dist(wrist,last)/dt;
+    }
+    S.body.last[side]={x:wrist.x,y:wrist.y,t:now};
+
+    // Re-arm when hand returns closer to shoulder/guard.
+    if(ext < 1.05 || wrist.y > shoulder.y + .36) S.body.armed[side]=true;
+
+    const cooldown = now - (S.body.lastPunch[side]||0);
+    const isPunch = S.body.armed[side] && cooldown>280 && ext>1.18 && speed>.55 && wrist.y < .86;
+
+    if(isPunch){
+      S.body.armed[side]=false;
+      S.body.lastPunch[side]=now;
+      const lane=xToLane(wrist.x);
+      handleInput(lane,'body_'+side);
+      toast((side==='left'?'หมัดซ้าย':'หมัดขวา')+' → lane '+lane);
+    }
+  }
+
+  function ptToRaw(p){return p}
+
+  // input bindings
+  els.lanes.addEventListener('pointerdown',e=>{
+    const laneEl=e.target.closest('.lane'); if(!laneEl)return;
+    handleInput(Number(laneEl.dataset.lane),'touch');
+  });
+  W.addEventListener('keydown',e=>{
+    const map={a:0,s:1,d:2,j:3,k:4};
+    const k=String(e.key||'').toLowerCase(); if(!(k in map))return;
+    e.preventDefault(); handleInput(map[k],'key');
+  },{passive:false});
+
+  els.btnStartBody.addEventListener('click',()=>start('body'));
+  els.btnStartTouch.addEventListener('click',()=>start('touch'));
+  els.btnStop.addEventListener('click',()=>end('stop'));
+  els.btnBack.addEventListener('click',()=>{S.running=false;stopCamera();show('menu')});
+  els.btnCam.addEventListener('click',()=> stream ? stopCamera() : startCamera(S.mode==='body'));
+  els.btnFlip.addEventListener('click',async()=>{
+    els.camMode.value = els.camMode.value==='user'?'environment':'user';
+    if(stream) await startCamera(S.mode==='body');
+  });
+  els.btnAgain.addEventListener('click',()=>start(S.mode));
+  els.btnMenu2.addEventListener('click',()=>show('menu'));
+
+  function csv(rows){
+    if(!rows.length) return '';
+    const cols=Array.from(rows.reduce((s,r)=>{Object.keys(r).forEach(k=>s.add(k));return s},new Set()));
+    const esc=v=>{v=v==null?'':String(v);return /[",\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v};
+    return cols.join(',')+'\n'+rows.map(r=>cols.map(c=>esc(r[c])).join(',')).join('\n')+'\n';
+  }
+  function download(name,text){
+    const blob=new Blob([text],{type:'text/csv;charset=utf-8'}),a=D.createElement('a');
+    a.href=URL.createObjectURL(blob);a.download=name;D.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+  }
+  els.btnCsvSession.addEventListener('click',()=>download(`rhythm_body_session_${S.pid}_${Date.now()}.csv`,csv(S.sessions)));
+  els.btnCsvEvents.addEventListener('click',()=>download(`rhythm_body_events_${S.pid}_${Date.now()}.csv`,csv(S.events)));
+  W.addEventListener('beforeunload',()=>stopCamera());
+
+  // final init
+  show('menu');
+  applyLaneMode();
+})();
+</script>
 </body>
 </html>
