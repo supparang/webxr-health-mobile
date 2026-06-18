@@ -2,767 +2,381 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunk Launcher</title>
-  <meta name="color-scheme" content="dark light" />
-  <meta name="robots" content="noindex" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#bbf7d0" />
+  <meta name="color-scheme" content="light" />
+  <title>GoodJunk Metaverse • Launcher</title>
+
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;900&display=swap');
+
     :root{
-      --bg1:#0f172a;
-      --bg2:#172554;
-      --bg3:#1d4ed8;
-
-      --panel:rgba(2,6,23,.64);
-      --panel-soft:rgba(255,255,255,.08);
-      --stroke:rgba(255,255,255,.16);
-
-      --text:#f8fafc;
-      --muted:#dbeafe;
-
-      --green:#22c55e;
+      --ink:#172033;
+      --muted:#64748b;
+      --green:#16a34a;
+      --green2:#22c55e;
+      --blue:#2563eb;
+      --red:#ef4444;
       --yellow:#facc15;
-      --blue:#38bdf8;
-      --pink:#f472b6;
-      --violet:#a78bfa;
-      --orange:#fb923c;
-
-      --shadow:0 18px 55px rgba(0,0,0,.28);
-      --shadow-big:0 24px 80px rgba(0,0,0,.34);
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
+      --card:rgba(255,255,255,.92);
+      --line:rgba(15,23,42,.12);
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+      --safe-left:env(safe-area-inset-left,0px);
+      --safe-right:env(safe-area-inset-right,0px);
     }
 
-    *{ box-sizing:border-box; }
+    *{
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
+      font-family:'Prompt',system-ui,sans-serif;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
+    }
 
     html,body{
+      width:100%;
       min-height:100%;
-      margin:0;
-      color:var(--text);
-      background:
-        radial-gradient(920px 620px at 6% 10%, rgba(34,197,94,.20), transparent 60%),
-        radial-gradient(860px 620px at 100% 0%, rgba(251,146,60,.16), transparent 56%),
-        radial-gradient(760px 520px at 50% 100%, rgba(250,204,21,.14), transparent 58%),
-        linear-gradient(180deg, var(--bg1), var(--bg2) 54%, var(--bg3));
+      overflow-x:hidden;
+      background:#dcfce7;
+      color:var(--ink);
     }
 
     body{
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial, sans-serif;
-      line-height:1.4;
-      overflow-x:hidden;
+      min-height:100svh;
+      padding:calc(18px + var(--safe-top)) calc(14px + var(--safe-right)) calc(18px + var(--safe-bottom)) calc(14px + var(--safe-left));
+      background:
+        radial-gradient(circle at 12% 12%,rgba(254,240,138,.95),transparent 30%),
+        radial-gradient(circle at 88% 18%,rgba(186,230,253,.92),transparent 34%),
+        radial-gradient(circle at 80% 88%,rgba(187,247,208,.95),transparent 40%),
+        linear-gradient(135deg,#fef9c3 0%,#bbf7d0 48%,#dbeafe 100%);
     }
 
-    button{ font:inherit; }
-    a{ color:inherit; text-decoration:none; }
-
     .wrap{
-      max-width:1120px;
+      width:min(1020px,100%);
       margin:0 auto;
-      padding:
-        calc(14px + var(--sat))
-        calc(14px + var(--sar))
-        calc(24px + var(--sab))
-        calc(14px + var(--sal));
+      min-height:calc(100svh - 36px - var(--safe-top) - var(--safe-bottom));
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:18px;
     }
 
     .hero{
-      position:relative;
+      background:var(--card);
+      border:5px solid rgba(74,222,128,.85);
+      border-radius:32px;
+      padding:clamp(20px,4vw,40px);
+      box-shadow:0 24px 60px rgba(15,23,42,.16);
       overflow:hidden;
-      border-radius:30px;
-      border:1px solid var(--stroke);
-      background:
-        linear-gradient(135deg, rgba(34,197,94,.16), rgba(251,146,60,.14)),
-        var(--panel);
-      backdrop-filter:blur(12px);
-      box-shadow:var(--shadow-big);
-      padding:18px;
+      position:relative;
     }
 
-    .hero::before{
+    .hero:before{
       content:"";
       position:absolute;
-      inset:auto -60px -80px auto;
-      width:260px;
-      height:260px;
+      inset:-80px -80px auto auto;
+      width:220px;
+      height:220px;
+      background:radial-gradient(circle,rgba(34,197,94,.2),transparent 72%);
       border-radius:999px;
-      background:radial-gradient(circle, rgba(250,204,21,.18), transparent 68%);
-      pointer-events:none;
-    }
-
-    .heroGrid{
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:16px;
-      align-items:stretch;
-      position:relative;
-      z-index:1;
-    }
-
-    @media (max-width:920px){
-      .heroGrid{ grid-template-columns:1fr; }
-    }
-
-    .heroMain{
-      display:flex;
-      gap:14px;
-      align-items:flex-start;
-    }
-
-    .heroIcon{
-      width:94px;
-      height:94px;
-      border-radius:26px;
-      flex:0 0 auto;
-      display:grid;
-      place-items:center;
-      font-size:46px;
-      border:1px solid rgba(255,255,255,.16);
-      background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), transparent 42%),
-        linear-gradient(135deg, rgba(34,197,94,.24), rgba(251,146,60,.18));
-      box-shadow:0 12px 30px rgba(0,0,0,.20);
     }
 
     .badge{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      min-height:36px;
-      padding:8px 12px;
+      padding:8px 14px;
       border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:#ecfccb;
-      font-size:12px;
-      font-weight:1000;
+      background:#ecfdf5;
+      border:2px solid #86efac;
+      color:#166534;
+      font-weight:900;
+      font-size:.95rem;
+      margin-bottom:14px;
     }
 
-    .title{
-      margin:10px 0 0;
-      font-size:clamp(28px,4.4vw,42px);
+    h1{
+      font-size:clamp(2rem,6vw,4.4rem);
       line-height:1.05;
-      font-weight:1100;
-      letter-spacing:-.02em;
-    }
-
-    .sub{
-      margin-top:10px;
-      font-size:15px;
       font-weight:900;
-      line-height:1.6;
-      color:var(--muted);
+      color:#15803d;
+      text-shadow:3px 3px 0 #fff;
+      letter-spacing:-.04em;
+      margin-bottom:14px;
     }
 
-    .missionRow{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .missionChip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:38px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#eff6ff;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .heroActions{
-      margin-top:14px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .btn{
-      cursor:pointer;
-      min-height:48px;
-      padding:11px 16px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      font-weight:1100;
-      box-shadow:0 10px 24px rgba(0,0,0,.16);
-      transition:transform .12s ease, filter .12s ease;
-    }
-
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.05);
-    }
-
-    .btn.primary{
-      border-color:rgba(34,197,94,.30);
-      background:linear-gradient(180deg, rgba(34,197,94,.24), rgba(34,197,94,.16));
-    }
-
-    .btn.cyan{
-      border-color:rgba(56,189,248,.30);
-      background:linear-gradient(180deg, rgba(56,189,248,.22), rgba(56,189,248,.14));
-    }
-
-    .btn.violet{
-      border-color:rgba(167,139,250,.30);
-      background:linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.14));
-    }
-
-    .btn.good{
-      border-color:rgba(251,146,60,.30);
-      background:linear-gradient(180deg, rgba(251,146,60,.22), rgba(251,146,60,.14));
-    }
-
-    .btn.ghost{
-      background:rgba(255,255,255,.04);
-      color:#e2e8f0;
-    }
-
-    .sidePanel{
-      display:grid;
-      gap:12px;
-      align-content:start;
-    }
-
-    .statCard,
-    .card,
-    .helpCard{
-      border-radius:22px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.56);
-      backdrop-filter:blur(10px);
-      box-shadow:var(--shadow);
-    }
-
-    .statCard{ padding:14px; }
-
-    .statTitle{
-      font-size:12px;
-      font-weight:1000;
-      color:#dbeafe;
-    }
-
-    .statValue{
-      margin-top:6px;
-      font-size:22px;
-      line-height:1;
-      font-weight:1100;
-    }
-
-    .statSub{
-      margin-top:6px;
-      font-size:12px;
-      line-height:1.45;
-      color:#cbd5e1;
-      font-weight:900;
+    .lead{
+      color:#1e3a8a;
+      font-size:clamp(1rem,2.8vw,1.35rem);
+      line-height:1.7;
+      max-width:780px;
+      font-weight:650;
     }
 
     .grid{
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:14px;
-      margin-top:14px;
+      grid-template-columns:1.1fr .9fr;
+      gap:18px;
+      align-items:stretch;
     }
 
-    @media (max-width:980px){
-      .grid{ grid-template-columns:1fr; }
+    .panel{
+      background:rgba(255,255,255,.88);
+      border:3px solid rgba(255,255,255,.7);
+      border-radius:28px;
+      padding:20px;
+      box-shadow:0 18px 44px rgba(15,23,42,.12);
     }
 
-    .card{ padding:16px; }
+    .panel h2{
+      font-size:1.35rem;
+      color:#0f172a;
+      margin-bottom:12px;
+      font-weight:900;
+    }
 
-    .cardTitle{
+    .mission-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .mission{
       display:flex;
-      align-items:center;
-      gap:10px;
-      margin:0;
-      font-size:18px;
-      font-weight:1100;
-    }
-
-    .cardSub{
-      margin-top:8px;
-      font-size:13px;
-      line-height:1.55;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .modeGrid{
-      display:grid;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .modeBtn{
-      cursor:pointer;
-      width:100%;
-      text-align:left;
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.05);
-      color:var(--text);
-      padding:14px;
-      box-shadow:0 10px 24px rgba(0,0,0,.16);
-      transition:transform .12s ease, filter .12s ease, border-color .12s ease;
-    }
-
-    .modeBtn:hover{
-      transform:translateY(-2px);
-      filter:brightness(1.04);
-    }
-
-    .modeBtn.active{
-      border-color:rgba(34,197,94,.34);
-      background:rgba(34,197,94,.12);
-    }
-
-    .modeName{
-      font-size:16px;
-      font-weight:1100;
-      line-height:1.2;
-    }
-
-    .modeDesc{
-      margin-top:6px;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.45;
-      font-weight:900;
-    }
-
-    .stepList{
-      display:grid;
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .step{
-      display:grid;
-      grid-template-columns:42px 1fr;
       gap:10px;
       align-items:flex-start;
+      background:#f8fafc;
+      border:2px solid #e2e8f0;
       border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.04);
       padding:12px;
+      color:#334155;
+      font-weight:750;
+      line-height:1.45;
     }
 
-    .stepNo{
-      width:42px;
-      height:42px;
-      border-radius:14px;
+    .mission .icon{
+      font-size:1.45rem;
+      line-height:1;
+      flex:0 0 auto;
+    }
+
+    .choices{
       display:grid;
-      place-items:center;
-      font-size:18px;
-      font-weight:1100;
-      background:rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.14);
+      gap:14px;
     }
 
-    .stepTitle{
-      font-size:15px;
-      font-weight:1100;
-      line-height:1.2;
-    }
-
-    .stepDesc{
-      margin-top:4px;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.5;
+    .choice-title{
       font-weight:900;
+      color:#334155;
+      margin-bottom:8px;
     }
 
-    .infoList{
+    .seg{
       display:grid;
-      gap:10px;
-      margin-top:12px;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
     }
 
-    .infoItem{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.04);
-      padding:12px;
-    }
-
-    .infoItemTitle{
-      font-size:14px;
-      font-weight:1100;
-      line-height:1.25;
-    }
-
-    .infoItemDesc{
-      margin-top:5px;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.5;
+    .seg button{
+      border:2px solid #cbd5e1;
+      background:#fff;
+      color:#334155;
+      border-radius:16px;
+      padding:11px 8px;
       font-weight:900;
+      cursor:pointer;
+      box-shadow:0 6px 0 #e2e8f0;
+      transition:.12s ease;
     }
 
-    .bottomBar{
-      margin-top:14px;
+    .seg button.active{
+      border-color:#22c55e;
+      background:#dcfce7;
+      color:#166534;
+      box-shadow:0 6px 0 #86efac;
+    }
+
+    .seg button:active{
+      transform:translateY(4px);
+      box-shadow:0 2px 0 #cbd5e1;
+    }
+
+    .start-row{
       display:flex;
-      gap:10px;
       flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
+      gap:12px;
+      margin-top:18px;
     }
 
-    .statusPill{
+    .btn{
+      border:0;
+      cursor:pointer;
+      border-radius:999px;
+      padding:14px 24px;
+      font-weight:900;
+      font-size:1.08rem;
+      color:white;
+      background:linear-gradient(180deg,#fb7185,#ef4444);
+      box-shadow:0 8px 0 #b91c1c,0 16px 28px rgba(15,23,42,.14);
+      transition:.12s ease;
+      text-decoration:none;
       display:inline-flex;
       align-items:center;
+      justify-content:center;
       gap:8px;
-      min-height:38px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#e0f2fe;
-      font-size:12px;
-      font-weight:1000;
+      min-height:54px;
     }
 
-    .helpCard{
-      margin-top:14px;
-      padding:16px;
-      display:none;
+    .btn:active{
+      transform:translateY(5px);
+      box-shadow:0 3px 0 #b91c1c,0 8px 18px rgba(15,23,42,.14);
     }
 
-    .helpTitle{
-      font-size:17px;
-      font-weight:1100;
-      line-height:1.2;
+    .btn.secondary{
+      background:linear-gradient(180deg,#38bdf8,#2563eb);
+      box-shadow:0 8px 0 #1d4ed8,0 16px 28px rgba(15,23,42,.14);
     }
 
-    .helpSub{
-      margin-top:8px;
-      font-size:13px;
-      line-height:1.55;
-      color:var(--muted);
-      font-weight:900;
+    .btn.secondary:active{
+      box-shadow:0 3px 0 #1d4ed8,0 8px 18px rgba(15,23,42,.14);
     }
 
-    .helpActions{
+    .note{
       margin-top:12px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .hint{
-      font-size:12px;
+      font-size:.95rem;
       color:var(--muted);
-      font-weight:900;
-      line-height:1.5;
+      line-height:1.55;
+      font-weight:650;
     }
 
-    @media (prefers-reduced-motion: reduce){
-      *,
-      *::before,
-      *::after{
-        transition:none !important;
-        animation:none !important;
+    @media(max-width:760px){
+      .grid{
+        grid-template-columns:1fr;
       }
-      .btn:hover,
-      .modeBtn:hover{
-        transform:none !important;
+
+      .hero{
+        border-radius:26px;
+      }
+
+      .seg{
+        grid-template-columns:1fr;
+      }
+
+      .btn{
+        width:100%;
       }
     }
   </style>
 </head>
+
 <body>
-  <div class="wrap">
+  <main class="wrap">
     <section class="hero">
-      <div class="heroGrid">
-        <div>
-          <div class="heroMain">
-            <div class="heroIcon">🥦</div>
-            <div>
-              <div class="badge">🍔🆚🥦 เกมเลือกอาหารดี</div>
-              <h1 class="title">เลือกอาหารที่ดีต่อสุขภาพ<br>แล้วหลบอาหารที่ไม่ดี</h1>
-              <div class="sub">
-                เริ่มจากโหมดเล่นคนเดียวก่อนก็ได้<br>
-                ถ้าเล่นเก่งขึ้นแล้ว ค่อยลองด่านท้าทายหรือแข่งกัน ✨
-              </div>
-
-              <div class="missionRow">
-                <span class="missionChip">🥦 เก็บอาหารดี</span>
-                <span class="missionChip">🍔 หลบอาหารไม่ดี</span>
-                <span class="missionChip">⭐ ทำคะแนน</span>
-                <span class="missionChip">🃏 สะสมการ์ด</span>
-              </div>
-
-              <div class="heroActions">
-                <button class="btn primary" id="btnStartGuide" type="button">▶ เริ่มแบบแนะนำ</button>
-                <button class="btn cyan" id="btnHow" type="button">📖 วิธีเล่น</button>
-                <button class="btn ghost" id="btnHub" type="button">🏠 กลับบ้านฮีโร่</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="sidePanel">
-          <div class="statCard">
-            <div class="statTitle">🧑‍🚀 รหัสผู้เล่น</div>
-            <div class="statValue" id="uiPid">anon</div>
-            <div class="statSub">ใช้สำหรับจำความก้าวหน้าและของสะสม</div>
-          </div>
-
-          <div class="statCard">
-            <div class="statTitle">🎯 โหมดที่เลือก</div>
-            <div class="statValue" id="uiMode">เล่นคนเดียว</div>
-            <div class="statSub">เริ่มจากแบบง่ายก่อน จะเล่นสนุกกว่า</div>
-          </div>
-
-          <div class="statCard">
-            <div class="statTitle">⏱ เวลาเล่น</div>
-            <div class="statValue" id="uiTime">80 วินาที</div>
-            <div class="statSub">รอบสั้น เล่นได้หลายครั้ง สนุกไม่เบื่อ</div>
-          </div>
-        </div>
-      </div>
+      <div class="badge">🥦 HeroHealth Nutrition Zone</div>
+      <h1>GoodJunk Metaverse</h1>
+      <p class="lead">
+        เข้าสู่สนาม GoodJunk Arena เก็บพลังจากอาหารดี หลบอาหารขยะ สะสม Combo เข้า Fever
+        และปราบ Junk Monster ให้สำเร็จ
+      </p>
     </section>
 
-    <div class="grid">
-      <section class="card">
-        <h2 class="cardTitle">🎮 เลือกโหมดเล่น</h2>
-        <div class="cardSub">เลือกแบบที่เหมาะกับตัวเองก่อนเริ่มเล่น</div>
-
-        <div class="modeGrid">
-          <button class="modeBtn active" data-mode="solo" type="button">
-            <div class="modeName">🎯 เล่นคนเดียว</div>
-            <div class="modeDesc">เริ่มง่ายที่สุด เหมาะกับการฝึกเล่นรอบแรก</div>
-          </button>
-
-          <button class="modeBtn" data-mode="pro" type="button">
-            <div class="modeName">🔥 ด่านท้าทาย</div>
-            <div class="modeDesc">เร็วขึ้น ยากขึ้น เหมาะกับคนที่อยากลองของ</div>
-          </button>
-
-          <button class="modeBtn" data-mode="battle" type="button">
-            <div class="modeName">⚔ แข่งกัน</div>
-            <div class="modeDesc">สนุกกับการแข่งคะแนนกับเพื่อน</div>
-          </button>
-        </div>
-
-        <div class="bottomBar">
-          <span class="statusPill" id="modeHint">เริ่มจาก “เล่นคนเดียว” จะง่ายที่สุด</span>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2 class="cardTitle">🧭 วิธีเล่นแบบง่าย</h2>
-        <div class="cardSub">จำแค่ 4 ขั้นตอนนี้ก็เริ่มเล่นได้เลย</div>
-
-        <div class="stepList">
-          <div class="step">
-            <div class="stepNo">1</div>
-            <div>
-              <div class="stepTitle">มองหาอาหารที่ดี</div>
-              <div class="stepDesc">พยายามเก็บอาหารที่ดีต่อสุขภาพให้ได้มากที่สุด</div>
-            </div>
+    <section class="grid">
+      <div class="panel">
+        <h2>🎯 ภารกิจในด่านนี้</h2>
+        <div class="mission-list">
+          <div class="mission">
+            <div class="icon">✅</div>
+            <div>เลือกอาหารดี เช่น ผลไม้ ผัก นม ปลา ไข่ เพื่อสะสมพลังสุขภาพ</div>
           </div>
-
-          <div class="step">
-            <div class="stepNo">2</div>
-            <div>
-              <div class="stepTitle">อย่าโดนอาหารที่ไม่ดี</div>
-              <div class="stepDesc">ถ้าโดนอาหารไม่ดีบ่อย คะแนนจะลดและเล่นยากขึ้น</div>
-            </div>
+          <div class="mission">
+            <div class="icon">⚠️</div>
+            <div>หลบอาหารขยะและอาหารหลอกสุขภาพ เพราะจะทำให้เสียคะแนนและคอมโบแตก</div>
           </div>
-
-          <div class="step">
-            <div class="stepNo">3</div>
-            <div>
-              <div class="stepTitle">ทำคะแนนให้สูง</div>
-              <div class="stepDesc">เก็บต่อเนื่องให้ดี จะได้คะแนนเยอะขึ้น</div>
-            </div>
+          <div class="mission">
+            <div class="icon">🔥</div>
+            <div>ตอบถูกต่อเนื่องเพื่อเข้า Fever และโจมตีบอสแรงขึ้น</div>
           </div>
-
-          <div class="step">
-            <div class="stepNo">4</div>
-            <div>
-              <div class="stepTitle">เล่นดีจะได้การ์ดสะสม</div>
-              <div class="stepDesc">ยิ่งเล่นดี เกรดยิ่งสูง และมีโอกาสได้การ์ดสวย ๆ</div>
-            </div>
+          <div class="mission">
+            <div class="icon">👾</div>
+            <div>ช่วงท้ายเกม Junk Monster จะปรากฏตัว ใช้อาหารดีปราบบอสให้ทันเวลา</div>
           </div>
         </div>
-      </section>
-
-      <section class="card">
-        <h2 class="cardTitle">✨ เล่นแล้วได้อะไร</h2>
-        <div class="cardSub">เกมนี้ไม่ได้มีแค่คะแนน แต่ยังมีของสะสมและความก้าวหน้าด้วย</div>
-
-        <div class="infoList">
-          <div class="infoItem">
-            <div class="infoItemTitle">⭐ คะแนน</div>
-            <div class="infoItemDesc">ยิ่งเก็บอาหารดีได้มาก คะแนนก็ยิ่งสูง</div>
-          </div>
-
-          <div class="infoItem">
-            <div class="infoItemTitle">🃏 การ์ดสะสม</div>
-            <div class="infoItemDesc">ถ้าเล่นดี จะได้การ์ดตามเกรด S / A / B / C</div>
-          </div>
-
-          <div class="infoItem">
-            <div class="infoItemTitle">🏆 ถ้วยรางวัล</div>
-            <div class="infoItemDesc">ความก้าวหน้าของเกมนี้จะช่วยปลดถ้วยโลกโภชนาการ</div>
-          </div>
-
-          <div class="infoItem">
-            <div class="infoItemTitle">💛 ฝึกเลือกอาหาร</div>
-            <div class="infoItemDesc">ช่วยให้คุ้นกับอาหารที่ดีต่อสุขภาพมากขึ้น</div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <section class="helpCard" id="howPanel">
-      <div class="helpTitle">📖 วิธีเล่นแบบสั้นมาก</div>
-      <div class="helpSub">
-        เก็บ <b>อาหารที่ดี</b> → หลบ <b>อาหารที่ไม่ดี</b> → ทำคะแนนให้สูง → เล่นดีแล้วจะได้ <b>การ์ดสะสม</b>
       </div>
-      <div class="helpActions">
-        <button class="btn primary" id="btnStartFromHelp" type="button">🟢 พร้อมแล้ว เริ่มเลย</button>
-        <button class="btn ghost" id="btnHideHow" type="button">✖ ปิด</button>
+
+      <div class="panel">
+        <h2>⚙️ ตั้งค่าก่อนเล่น</h2>
+
+        <div class="choices">
+          <div>
+            <div class="choice-title">ระดับความยาก</div>
+            <div class="seg" id="diffSeg">
+              <button data-diff="easy">Easy</button>
+              <button data-diff="normal" class="active">Normal</button>
+              <button data-diff="hard">Hard</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="choice-title">เวลาเล่น</div>
+            <div class="seg" id="timeSeg">
+              <button data-time="45">45 วิ</button>
+              <button data-time="60" class="active">60 วิ</button>
+              <button data-time="75">75 วิ</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="start-row">
+          <button class="btn" id="startBtn">เริ่ม Warm-up 🎮</button>
+          <a class="btn secondary" href="../nutrition-zone.html">กลับ Nutrition Zone</a>
+        </div>
+
+        <p class="note">
+          ตัวหลักของรอบนี้คือ Metaverse/WebXR Solo Boss ไม่ใช่ AR กล้องจับมือ
+          เพื่อให้ยังอยู่ใน concept HeroHealth World เดิม
+        </p>
       </div>
     </section>
-
-    <div class="bottomBar">
-      <span class="statusPill" id="statusLine">พร้อมเริ่มเล่นแล้ว</span>
-      <span class="hint">Tip: ถ้าเพิ่งเริ่มเล่น ให้เลือก “เล่นคนเดียว” ก่อน</span>
-    </div>
-  </div>
+  </main>
 
   <script>
-    (function(){
-      'use strict';
+    const state = {
+      diff: localStorage.getItem('goodjunk.diff') || 'normal',
+      time: localStorage.getItem('goodjunk.time') || '60'
+    };
 
-      function qs(k, d=''){
-        try{ return new URL(location.href).searchParams.get(k) ?? d; }
-        catch{ return d; }
-      }
-
-      function safeUrl(raw, fallback){
-        try{ return new URL(raw || fallback, location.href).toString(); }
-        catch{ return new URL(fallback, location.href).toString(); }
-      }
-
-      const pid  = String(qs('pid','anon')).trim() || 'anon';
-      const run  = String(qs('run','play')).toLowerCase() || 'play';
-      const diff = String(qs('diff','normal')).toLowerCase() || 'normal';
-      const time = String(qs('time','80')) || '80';
-      const view = String(qs('view','mobile')).toLowerCase() || 'mobile';
-      const hub  = safeUrl(qs('hub','./hub.html'), './hub.html');
-
-      let mode = 'solo';
-
-      const uiPid = document.getElementById('uiPid');
-      const uiMode = document.getElementById('uiMode');
-      const uiTime = document.getElementById('uiTime');
-      const modeHint = document.getElementById('modeHint');
-      const statusLine = document.getElementById('statusLine');
-      const howPanel = document.getElementById('howPanel');
-
-      uiPid.textContent = pid;
-      uiTime.textContent = `${time} วินาที`;
-
-      function modeText(v){
-        if(v === 'pro') return 'ด่านท้าทาย';
-        if(v === 'battle') return 'แข่งกัน';
-        return 'เล่นคนเดียว';
-      }
-
-      function modeHelp(v){
-        if(v === 'pro') return 'ด่านท้าทายจะเร็วขึ้นและยากขึ้น';
-        if(v === 'battle') return 'โหมดแข่งกันเหมาะกับการเล่นกับเพื่อน';
-        return 'เริ่มจาก “เล่นคนเดียว” จะง่ายที่สุด';
-      }
-
-      function renderMode(){
-        uiMode.textContent = modeText(mode);
-        modeHint.textContent = modeHelp(mode);
-        statusLine.textContent = `โหมดที่เลือก: ${modeText(mode)}`;
-      }
-
-      document.querySelectorAll('.modeBtn').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          document.querySelectorAll('.modeBtn').forEach(n=>n.classList.remove('active'));
-          btn.classList.add('active');
-          mode = String(btn.dataset.mode || 'solo');
-          renderMode();
-        });
+    function syncButtons(){
+      document.querySelectorAll('#diffSeg button').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.diff === state.diff);
       });
+      document.querySelectorAll('#timeSeg button').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.time === String(state.time));
+      });
+    }
 
-      function buildGoodjunkUrl(){
-        const u = new URL('./goodjunk-vr.html', location.href);
-        u.searchParams.set('pid', pid);
-        u.searchParams.set('run', run);
-        u.searchParams.set('time', time);
-        u.searchParams.set('view', view);
-        u.searchParams.set('hub', hub);
+    document.querySelectorAll('#diffSeg button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        state.diff = btn.dataset.diff;
+        localStorage.setItem('goodjunk.diff', state.diff);
+        syncButtons();
+      });
+    });
 
-        if(mode === 'solo'){
-          u.searchParams.set('mode', 'solo');
-          u.searchParams.set('diff', diff || 'normal');
-        }else if(mode === 'pro'){
-          u.searchParams.set('mode', 'solo');
-          u.searchParams.set('diff', 'hard');
-          u.searchParams.set('pro', '1');
-          u.searchParams.set('auto', '0');
-        }else if(mode === 'battle'){
-          const room = String(qs('room','P5A')) || 'P5A';
-          u.searchParams.set('mode', 'battle');
-          u.searchParams.set('room', room);
-          u.searchParams.set('auto', '1');
-          u.searchParams.set('diff', diff || 'normal');
-        }
+    document.querySelectorAll('#timeSeg button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        state.time = btn.dataset.time;
+        localStorage.setItem('goodjunk.time', state.time);
+        syncButtons();
+      });
+    });
 
-        return u.toString();
-      }
+    document.getElementById('startBtn').addEventListener('click', ()=>{
+      const url = `./warmup-gate.html?game=goodjunk&phase=warmup&diff=${encodeURIComponent(state.diff)}&time=${encodeURIComponent(state.time)}`;
+      location.href = url;
+    });
 
-      function startGame(){
-        location.href = buildGoodjunkUrl();
-      }
-
-      document.getElementById('btnStartGuide').onclick = ()=>{
-        mode = 'solo';
-        document.querySelectorAll('.modeBtn').forEach(n=>n.classList.remove('active'));
-        const first = document.querySelector('.modeBtn[data-mode="solo"]');
-        if(first) first.classList.add('active');
-        renderMode();
-        startGame();
-      };
-
-      document.getElementById('btnStartFromHelp').onclick = startGame;
-
-      document.getElementById('btnHow').onclick = ()=>{
-        howPanel.style.display = 'block';
-        howPanel.scrollIntoView({ behavior:'smooth', block:'start' });
-      };
-
-      document.getElementById('btnHideHow').onclick = ()=>{
-        howPanel.style.display = 'none';
-      };
-
-      document.getElementById('btnHub').onclick = ()=>{
-        location.href = hub;
-      };
-
-      renderMode();
-    })();
+    syncButtons();
   </script>
 </body>
 </html>
