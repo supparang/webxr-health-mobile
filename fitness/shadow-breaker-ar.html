@@ -7,10 +7,11 @@
   <meta name="color-scheme" content="dark" />
 
   <title>Fitness AR • Shadow Breaker</title>
+  <link rel="icon" href="data:," />
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-2-SHOWCASE-LOCK
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-3-RESULT-LOGIC-LOCK
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1295,7 +1296,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.2 SHOWCASE LOCK</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.3 RESULT LOGIC LOCK</div>
         </div>
 
         <div class="grid2">
@@ -2055,7 +2056,7 @@
       const missing = [];
       if(!state.challenge.combo) missing.push(state.lang==="th" ? `Combo ${d.comboGoal || 14}` : `Combo ${d.comboGoal || 14}`);
       if(!state.challenge.rush) missing.push(state.lang==="th" ? `Rush ${d.rushGoal || 3}` : `Rush ${d.rushGoal || 3}`);
-      if(!state.challenge.noBomb) missing.push(state.lang==="th" ? "No Bomb" : "No Bomb");
+      if(state.metrics.bomb > 0 || !state.challenge.noBomb) missing.push(state.lang==="th" ? "No Bomb" : "No Bomb");
       if(!state.challenge.boss) missing.push(state.lang==="th" ? "Boss 4/4" : "Boss 4/4");
 
       if(missing.length === 0){
@@ -2658,6 +2659,8 @@
       $("feverBar").querySelector("i").style.width = `${clamp(state.fever,0,100)}%`;
       $("feverText").textContent = state.feverActive ? "ACTIVE" : `${Math.round(state.fever)}%`;
 
+      finalizeMissions();
+
       const attempts = state.metrics.hit + state.metrics.miss + state.metrics.bomb;
       const accuracy = attempts ? Math.round((state.metrics.hit / attempts) * 100) : 0;
       $("scoreText").textContent = `${t("score")} ${state.score}`;
@@ -2735,6 +2738,32 @@
         logEvent("resume");
         state.raf = requestAnimationFrame(loop);
       }
+    }
+
+
+    function finalizeMissions(){
+      // v7.3: make result missions consistent with actual performance.
+      // If the player never hit a bomb, No Bomb must count as completed.
+      if(state.metrics.bomb === 0 && state.challenge && !state.challenge.noBomb){
+        state.challenge.noBomb = true;
+      }
+
+      const d = DIFF[state.diffKey] || DIFF.normal;
+      const comboGoal = d.comboGoal || 14;
+      const rushGoal = d.rushGoal || 3;
+
+      if(state.bestCombo >= comboGoal) state.challenge.combo = true;
+      if(state.rushHits >= rushGoal) state.challenge.rush = true;
+      if(state.metrics.clearedBoss >= 4) state.challenge.boss = true;
+
+      state.challenge.badges = [
+        state.challenge.combo,
+        state.challenge.rush,
+        state.challenge.noBomb,
+        state.challenge.boss
+      ].filter(Boolean).length;
+
+      updateChallengeHud();
     }
 
     function finishGame(reason){
@@ -2848,6 +2877,11 @@
         rush:state.metrics.rush,
         shield:state.metrics.shield,
         missionBadges:state.challenge.badges,
+        bombFree: state.metrics.bomb === 0 ? 1 : 0,
+        missionCombo: state.challenge.combo ? 1 : 0,
+        missionRush: state.challenge.rush ? 1 : 0,
+        missionNoBomb: state.challenge.noBomb ? 1 : 0,
+        missionBoss: state.challenge.boss ? 1 : 0,
         missionCombo:state.challenge.combo ? 1 : 0,
         missionRush:state.challenge.rush ? 1 : 0,
         missionNoBomb:state.challenge.noBomb ? 1 : 0,
@@ -2979,4 +3013,4 @@
   })();
   </script>
 </body>
-</html
+</html>
