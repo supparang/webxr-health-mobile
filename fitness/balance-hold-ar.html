@@ -95,11 +95,13 @@
     .stage{ position:relative; min-height:0; overflow:hidden; border-radius:34px; }
     .cameraFeed{
       position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
-      transform:scaleX(-1);
+      transform:none;
       opacity:0; transition:opacity .25s ease;
       background:#000;
     }
     .arOn .cameraFeed{ opacity:.82; }
+    .frontCam .cameraFeed{ transform:scaleX(-1); }
+    .rearCam .cameraFeed{ transform:none; }
     .arTint{
       position:absolute; inset:0;
       background:
@@ -206,6 +208,19 @@
     .cursor::after{ content:"⚖️"; font-size:18px; transform:translateY(-1px); }
     .cursor.in{ box-shadow:0 14px 28px rgba(16,185,129,.28), 0 0 0 12px rgba(52,211,153,.18); }
     .ghost{ width:74px; height:74px; border:2px dashed rgba(14,165,233,.26); opacity:.55; z-index:6; }
+
+    .headGuide{
+      position:absolute; right:14px; top:104px; z-index:19;
+      min-width:190px; max-width:min(280px,calc(100% - 28px));
+      display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:999px;
+      background:rgba(255,255,255,.88); border:2px solid rgba(167,139,250,.34);
+      box-shadow:var(--shadow); color:#4c1d95; font-size:12px; font-weight:1000;
+      pointer-events:none;
+    }
+    .headGuide .dot{ width:12px; height:12px; border-radius:50%; background:#cbd5e1; box-shadow:0 0 0 5px rgba(203,213,225,.24); }
+    .headGuide.active .dot{ background:#34d399; box-shadow:0 0 0 5px rgba(52,211,153,.22); }
+    .headGuide.warn .dot{ background:#fb923c; box-shadow:0 0 0 5px rgba(251,146,60,.22); }
 
     .wind{
       position:absolute; z-index:5; pointer-events:none; color:rgba(14,165,233,.42);
@@ -338,6 +353,7 @@
       .brandSub{ font-size:10px; }
       .hud{ top:8px; left:8px; right:8px; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
       .hudCard:nth-child(4),.hudCard:nth-child(5){ display:none; }
+      .headGuide{ top:72px; right:8px; min-width:156px; font-size:11px; padding:7px 9px; }
       .hudCard{ padding:8px; border-radius:16px; }
       .hudCard .v{ font-size:16px; }
       .coach{ bottom:8px; width:calc(100% - 16px); grid-template-columns:auto 1fr; padding:10px; }
@@ -403,6 +419,7 @@
           <div class="targetHint" id="targetHint">เข้าเป้าแล้วค้างให้นิ่ง</div>
         </div>
         <div class="ghost" id="ghost"></div>
+        <div class="headGuide hidden" id="headGuide"><span>🧠</span><b id="headStatus">Head: Ready</b><i class="dot"></i></div>
         <div class="cursor" id="cursor"></div>
         <div class="fxText" id="fxText">Good Hold!</div>
 
@@ -424,14 +441,15 @@
             <div class="modalIcon">⚖️</div>
             <div>
               <h1>Balance Hold AR</h1>
-              <p class="lead">เกมฝึกทรงตัวแบบปลอดภัยสำหรับเด็ก ป.5: คุมลูกสมดุลให้อยู่ในวงเป้าหมาย ค้างให้ครบเวลา และรับมือแรงกดดันจาก obstacle โดยไม่ใช้ Cardboard VR</p>
+              <p class="lead">เกมฝึกทรงตัวแบบปลอดภัยสำหรับเด็ก ป.5: คุมลูกสมดุลให้อยู่ในวงเป้าหมาย ค้างให้ครบเวลา และรับมือแรงกดดันจาก obstacle โดยไม่ใช้ Cardboard VR และมี Head Balance แบบ micro-control</p>
             </div>
           </div>
 
           <div class="tips">
             <div class="tip">✅ ใช้ PC / Mobile AR ได้</div>
-            <div class="tip">📱 Mobile ใช้เอียงเครื่องหรือแตะลาก</div>
-            <div class="tip">🖥️ PC ใช้เมาส์ / ลูกศร / WASD</div>
+            <div class="tip">📱 Mobile เลือก Tilt = เอียงเครื่องเบา ๆ</div>
+            <div class="tip">🧠 Head เป็นโหมดทดลอง ต้องเลือก Head ก่อนเริ่ม</div>
+            <div class="tip">🖥️ PC ค่าเริ่มต้นใช้เมาส์ / ลูกศร / WASD ไม่ใช้ Tilt</div>
             <div class="tip">🧘 ยืนสองเท้า ย่อเข่าเล็กน้อย ไม่ต้องยืนขาเดียว</div>
           </div>
 
@@ -440,11 +458,13 @@
             <div class="field"><label for="classGroup">กลุ่ม/ห้อง</label><input id="classGroup" value="P5" /></div>
             <div class="field"><label for="difficulty">ระดับ</label><select id="difficulty"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></div>
             <div class="field"><label for="duration">เวลา</label><select id="duration"><option value="45">45 วินาที</option><option value="60" selected>60 วินาที</option><option value="75">75 วินาที</option><option value="90">90 วินาที</option></select></div>
+            <div class="field"><label for="inputChoice">วิธีขยับ</label><select id="inputChoice"><option value="auto" selected>Auto ตามอุปกรณ์</option><option value="pointer">Mouse / Touch ลาก</option><option value="keyboard">Keyboard ลูกศร / WASD</option><option value="tilt">Tilt เอียงมือถือ</option><option value="head">Head micro-control</option></select></div>
           </div>
 
           <div class="toggles">
             <label class="toggle"><input id="useCamera" type="checkbox" checked /> เปิดกล้องเป็นพื้นหลัง AR</label>
-            <label class="toggle"><input id="useTilt" type="checkbox" checked /> ใช้เอียงเครื่องบนมือถือ</label>
+            <label class="toggle"><input id="useTilt" type="checkbox" /> ใช้เอียงเครื่องบนมือถือ / Mobile Tilt</label>
+            <label class="toggle"><input id="useHead" type="checkbox" /> ใช้ Head Balance micro-control (ทดลอง)</label>
             <label class="toggle"><input id="researchMode" type="checkbox" /> Research run / เก็บข้อมูลละเอียด</label>
             <label class="toggle"><input id="safeMode" type="checkbox" checked /> Safe mode สำหรับเด็ก</label>
           </div>
@@ -453,6 +473,7 @@
             <button class="btn primary" id="btnStart" type="button">▶ เริ่ม Balance Hold</button>
             <button class="btn blue" id="btnCamera" type="button">📷 ทดสอบกล้อง</button>
             <button class="btn" id="btnTilt" type="button">📱 ขอสิทธิ์ Motion</button>
+            <button class="btn" id="btnHead" type="button">🧠 ทดสอบ Head Balance</button>
             <button class="btn" id="btnDemo" type="button">⚡ Quick Demo</button>
           </div>
         </section>
@@ -467,26 +488,30 @@
   (() => {
     'use strict';
 
-    const VERSION = '20260618-BALANCE-HOLD-AR-V1';
+    const VERSION = '20260618-BALANCE-HOLD-AR-V3-CONTROL-CLARITY';
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
     const now = () => (performance && performance.now ? performance.now() : Date.now());
     const q = (k, d='') => qs.get(k) || d;
     const qNum = (k, d=0) => { const n = Number(q(k, d)); return Number.isFinite(n) ? n : d; };
+    const MOBILE_RE = /Android|iPhone|iPad|iPod|Mobile|Tablet/i;
+    const IS_MOBILE = MOBILE_RE.test(navigator.userAgent || '') || (navigator.maxTouchPoints > 1 && Math.min(screen.width || 9999, screen.height || 9999) <= 900);
+    const hasMotionAPI = () => typeof DeviceOrientationEvent !== 'undefined';
+    const hasExplicitQuery = (k) => qs.has(k);
 
     const el = {
       app:$('app'), stage:$('stage'), arena:$('arena'), video:$('cameraFeed'),
       target:$('target'), targetCore:$('targetCore'), targetLabel:$('targetLabel'), targetHint:$('targetHint'),
-      cursor:$('cursor'), ghost:$('ghost'), fxText:$('fxText'),
+      cursor:$('cursor'), ghost:$('ghost'), fxText:$('fxText'), headGuide:$('headGuide'), headStatus:$('headStatus'),
       hudTime:$('hudTime'), hudScore:$('hudScore'), hudHold:$('hudHold'), hudPost:$('hudPost'), hudStable:$('hudStable'),
       timeBar:$('timeBar'), scoreBar:$('scoreBar'), holdBar:$('holdBar'), postBar:$('postBar'), stableBar:$('stableBar'),
       coachLine:$('coachLine'), coachAvatar:$('coachAvatar'), coachBadge:$('coachBadge'),
       inputModePill:$('inputModePill'), safetyPill:$('safetyPill'),
       startOverlay:$('startOverlay'), resultOverlay:$('resultOverlay'), countdown:$('countdown'), toast:$('toast'),
-      playerName:$('playerName'), classGroup:$('classGroup'), difficulty:$('difficulty'), duration:$('duration'),
-      useCamera:$('useCamera'), useTilt:$('useTilt'), researchMode:$('researchMode'), safeMode:$('safeMode'),
-      btnStart:$('btnStart'), btnCamera:$('btnCamera'), btnTilt:$('btnTilt'), btnDemo:$('btnDemo'),
+      playerName:$('playerName'), classGroup:$('classGroup'), difficulty:$('difficulty'), duration:$('duration'), inputChoice:$('inputChoice'),
+      useCamera:$('useCamera'), useTilt:$('useTilt'), useHead:$('useHead'), researchMode:$('researchMode'), safeMode:$('safeMode'),
+      btnStart:$('btnStart'), btnCamera:$('btnCamera'), btnTilt:$('btnTilt'), btnHead:$('btnHead'), btnDemo:$('btnDemo'),
       btnPause:$('btnPause'), btnHome:$('btnHome'), btnRecenter:$('btnRecenter')
     };
 
@@ -515,9 +540,39 @@
       keys:{},
       cursor:{ x:0, y:0, vx:0, vy:0 },
       tilt:{ enabled:false, permission:false, baseBeta:null, baseGamma:null, beta:0, gamma:0, last:0 },
-      cameraOn:false, stream:null, arWanted:true, inputMode:'pointer',
+      head:{ wanted:false, supported:false, enabled:false, detecting:false, detector:null, baseX:null, baseY:null, x:0, y:0, rawX:0, rawY:0, last:0, lastDetect:0, quality:0, samples:0, safetyWarnAt:0, faceBox:null },
+      cameraOn:false, stream:null, cameraFacing:'environment', arWanted:true, inputMode:'pointer',
       ctx:{ player:'Hero', group:'P5', diff:'normal', run:'play', studyId:q('studyId',''), pid:q('pid',''), hub:q('hub','./index.html') }
     };
+
+    function requestedControl(){
+      const v = el.inputChoice?.value || 'auto';
+      if (v === 'auto') return IS_MOBILE && el.useTilt.checked ? 'tilt' : 'pointer';
+      return v;
+    }
+
+    function setInputPill(mode){
+      state.inputMode = mode;
+      const label = mode === 'head' ? '🧠 Input: Head'
+        : mode === 'tilt' ? '📱 Input: Tilt'
+        : mode === 'keyboard' ? '⌨️ Input: Keyboard'
+        : '👆 Input: Mouse/Touch';
+      el.inputModePill.textContent = label;
+    }
+
+    function inputHelp(mode=state.inputMode){
+      if (mode === 'head') return 'เลื่อนศีรษะนิดเดียว แล้วกลับมานิ่ง';
+      if (mode === 'tilt') return 'เอียงมือถือเบา ๆ 5–10°';
+      if (mode === 'keyboard') return 'ใช้ลูกศรหรือ WASD';
+      return 'ลากเมาส์/นิ้ว หรือใช้ลูกศร';
+    }
+
+    function setPointerFallback(reason=''){
+      state.tilt.enabled = false;
+      setInputPill(requestedControl() === 'keyboard' ? 'keyboard' : 'pointer');
+      const msg = reason ? `${reason} — ใช้ Mouse/Touch หรือ Keyboard แทน` : 'ใช้ Mouse/Touch หรือ Keyboard เพื่อคุมลูกสมดุล';
+      setCoach(msg, '🖥️', state.inputMode === 'keyboard' ? 'Keyboard' : 'Mouse');
+    }
 
     function toast(msg){
       el.toast.textContent = msg;
@@ -547,7 +602,7 @@
         ts:new Date().toISOString(), t:Math.round(now() - state.startedAt), kind,
         phase:state.phase, post:state.posts[state.postIndex]?.key || '', score:state.score,
         holdMs:Math.round(state.holdMs), stability:Math.round(state.stability),
-        x:Math.round(state.cursor.x), y:Math.round(state.cursor.y), ...extra
+        x:Math.round(state.cursor.x), y:Math.round(state.cursor.y), inputMode:state.inputMode, headQuality:Math.round(state.head.quality || 0), ...extra
       });
     }
 
@@ -578,29 +633,45 @@
       return base;
     }
 
-    async function startCamera(){
+    async function startCamera({facing='environment'}={}){
       try{
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia not supported');
         if (state.stream) state.stream.getTracks().forEach(t => t.stop());
-        const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
+        const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:facing, width:{ideal:960}, height:{ideal:540} }, audio:false });
         state.stream = stream;
+        state.cameraFacing = facing;
         el.video.srcObject = stream;
         await el.video.play().catch(()=>{});
         state.cameraOn = true;
         el.stage.classList.add('arOn');
-        toast('เปิดกล้อง AR แล้ว');
+        el.stage.classList.toggle('frontCam', facing === 'user');
+        el.stage.classList.toggle('rearCam', facing !== 'user');
+        toast(facing === 'user' ? 'เปิดกล้องหน้าเพื่อ Head Balance แล้ว' : 'เปิดกล้อง AR แล้ว');
         return true;
       } catch(err){
         console.warn(err);
         state.cameraOn = false;
-        el.stage.classList.remove('arOn');
+        el.stage.classList.remove('arOn','frontCam','rearCam');
         toast('เปิดกล้องไม่ได้ ใช้โหมดพื้นหลังแทน');
         return false;
       }
     }
 
-    async function requestTilt(){
+    async function requestTilt({force=false}={}){
       try{
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        if (!hasMotionAPI()) {
+          state.tilt.enabled = false;
+          toast('เครื่องนี้ไม่มี Motion sensor ใช้ Mouse/Touch แทน');
+          setPointerFallback('Tilt ใช้ได้ดีกับมือถือเท่านั้น');
+          return false;
+        }
+        if (!IS_MOBILE && !force) {
+          state.tilt.enabled = false;
+          toast('PC/Notebook ไม่ใช้ Tilt เป็นค่าเริ่มต้น');
+          setPointerFallback('บน PC ให้ลากเมาส์หรือกดลูกศร');
+          return false;
+        }
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
           const res = await DeviceOrientationEvent.requestPermission();
           state.tilt.permission = res === 'granted';
         } else {
@@ -608,14 +679,135 @@
         }
         state.tilt.enabled = state.tilt.permission;
         if (state.tilt.enabled) {
-          toast('เปิด Motion control แล้ว');
-          state.inputMode = 'tilt';
-          el.inputModePill.textContent = '📱 Input: Tilt';
-        } else toast('ไม่ได้รับสิทธิ์ Motion ใช้แตะลากแทน');
+          toast('เปิด Mobile Tilt แล้ว: เอียงเครื่องเบา ๆ');
+          setInputPill('tilt');
+          setCoach('Tilt mode: เอียงมือถือเบา ๆ ไปทางเป้าหมาย ไม่ต้องสะบัดเครื่อง', '📱', 'Tilt');
+          return true;
+        }
+        toast('ไม่ได้รับสิทธิ์ Motion ใช้ Mouse/Touch แทน');
+        setPointerFallback('ไม่ได้รับสิทธิ์ Motion');
+        return false;
       } catch(err){
         console.warn(err);
-        toast('Motion ไม่พร้อม ใช้แตะลากแทน');
+        state.tilt.enabled = false;
+        toast('Motion ไม่พร้อม ใช้ Mouse/Touch แทน');
+        setPointerFallback('Motion ไม่พร้อม');
+        return false;
       }
+    }
+
+    async function requestHead(){
+      state.head.wanted = true;
+      if (!el.useHead.checked) el.useHead.checked = true;
+      if (!('FaceDetector' in window)) {
+        state.head.supported = false;
+        state.head.enabled = false;
+        el.headGuide.classList.remove('hidden','active');
+        el.headGuide.classList.add('warn');
+        el.headStatus.textContent = 'Head: ใช้ไม่ได้บนเครื่องนี้';
+        toast('เครื่องนี้ยังไม่รองรับ Head Balance ใช้ Mouse/Touch แทน');
+        setPointerFallback('Head Balance ยังไม่รองรับบน browser นี้');
+        return false;
+      }
+      state.head.supported = true;
+      const camOk = await startCamera({ facing:'user' });
+      if (!camOk) return false;
+      try{
+        state.head.detector = state.head.detector || new FaceDetector({ fastMode:true, maxDetectedFaces:1 });
+        state.head.enabled = true;
+        state.head.baseX = null;
+        state.head.baseY = null;
+        state.head.samples = 0;
+        setInputPill('head');
+        el.headGuide.classList.remove('hidden','warn');
+        el.headGuide.classList.add('active');
+        el.headStatus.textContent = 'Head: กำลังหาใบหน้า';
+        setCoach('Head Balance เปิดแล้ว: ขยับศีรษะเพียงเล็กน้อย ไม่ต้องสะบัดคอ', '🧠', 'Head');
+        startHeadLoop();
+        return true;
+      } catch(err){
+        console.warn(err);
+        state.head.enabled = false;
+        el.headGuide.classList.remove('hidden','active');
+        el.headGuide.classList.add('warn');
+        el.headStatus.textContent = 'Head: เริ่มไม่ได้';
+        toast('Head Balance เริ่มไม่ได้ ใช้ Mouse/Touch แทน');
+        setPointerFallback('Head Balance เริ่มไม่ได้');
+        return false;
+      }
+    }
+
+    function startHeadLoop(){
+      const loop = async (t) => {
+        if (!state.head.enabled) return;
+        if (el.video.readyState >= 2 && !state.head.detecting && t - state.head.lastDetect > 110) {
+          state.head.detecting = true;
+          state.head.lastDetect = t;
+          try{
+            const faces = await state.head.detector.detect(el.video);
+            if (faces && faces.length) updateHeadFromFace(faces[0]);
+            else markHeadLost();
+          } catch(err){
+            console.warn(err);
+            markHeadLost();
+          } finally {
+            state.head.detecting = false;
+          }
+        }
+        requestAnimationFrame(loop);
+      };
+      requestAnimationFrame(loop);
+    }
+
+    function updateHeadFromFace(face){
+      const box = face.boundingBox || face;
+      const vw = el.video.videoWidth || el.video.clientWidth || 1;
+      const vh = el.video.videoHeight || el.video.clientHeight || 1;
+      const cx = (box.x + box.width/2) / vw;
+      const cy = (box.y + box.height/2) / vh;
+      const sizeRatio = Math.sqrt((box.width*box.height)/(vw*vh));
+      const rawX = (cx - .5) * 2;
+      const rawY = (cy - .5) * 2;
+      // กล้องหน้าแสดงแบบ mirror: กลับแกน X เพื่อให้ขยับจริงทางขวาแล้ว cursor ไปขวาในจอ
+      const visualX = state.cameraFacing === 'user' ? -rawX : rawX;
+      state.head.rawX = visualX;
+      state.head.rawY = rawY;
+      state.head.x = state.head.samples ? state.head.x*.72 + visualX*.28 : visualX;
+      state.head.y = state.head.samples ? state.head.y*.72 + rawY*.28 : rawY;
+      state.head.samples += 1;
+      if (state.head.baseX == null || state.head.baseY == null || state.head.samples < 8) {
+        state.head.baseX = state.head.x;
+        state.head.baseY = state.head.y;
+      }
+      state.head.last = now();
+      state.head.quality = clamp((sizeRatio-.12)/.22*100, 0, 100);
+      state.head.faceBox = { x:box.x, y:box.y, w:box.width, h:box.height };
+      el.headGuide.classList.remove('hidden','warn');
+      el.headGuide.classList.add('active');
+      el.headStatus.textContent = state.head.samples < 12 ? 'Head: Calibrating' : `Head: ${Math.round(state.head.quality)}%`;
+    }
+
+    function markHeadLost(){
+      state.head.quality = Math.max(0, state.head.quality - 8);
+      if (now() - state.head.last > 900) {
+        el.headGuide.classList.remove('hidden','active');
+        el.headGuide.classList.add('warn');
+        el.headStatus.textContent = 'Head: ไม่พบใบหน้า';
+      }
+    }
+
+    function headDelta(){
+      if (!state.head.enabled || !el.useHead.checked || now() - state.head.last > 900) return null;
+      const deadzone = el.safeMode.checked ? .055 : .035;
+      const dz = (v) => Math.abs(v) < deadzone ? 0 : (v - Math.sign(v)*deadzone) / (1-deadzone);
+      const dx = dz(state.head.x - (state.head.baseX ?? state.head.x));
+      const dy = dz(state.head.y - (state.head.baseY ?? state.head.y));
+      const mag = Math.hypot(dx,dy);
+      if (el.safeMode.checked && mag > .78 && now() - state.head.safetyWarnAt > 2200) {
+        state.head.safetyWarnAt = now();
+        setCoach('ขยับศีรษะให้น้อยลง ใช้แค่ไมโครมูฟเมนต์พอ', '🙂', 'Safe');
+      }
+      return { dx:clamp(dx,-1,1), dy:clamp(dy,-1,1), mag };
     }
 
     function onOrientation(e){
@@ -630,6 +822,7 @@
     function recenter(){
       state.tilt.baseBeta = state.tilt.beta || 0;
       state.tilt.baseGamma = state.tilt.gamma || 0;
+      if (state.head.enabled) { state.head.baseX = state.head.x || 0; state.head.baseY = state.head.y || 0; state.head.samples = Math.max(state.head.samples, 12); }
       const c = center();
       state.cursor.x = c.x; state.cursor.y = c.y; state.cursor.vx = 0; state.cursor.vy = 0;
       toast('ตั้งจุดกลางใหม่แล้ว');
@@ -646,7 +839,7 @@
         state.pointer.active = true; state.pointer.id = e.pointerId;
         el.arena.setPointerCapture?.(e.pointerId);
         Object.assign(state.pointer, pointerToArena(e));
-        state.inputMode = 'pointer'; el.inputModePill.textContent = '👆 Input: Touch/Mouse';
+        setInputPill('pointer');
       });
       el.arena.addEventListener('pointermove', (e)=>{
         if (!state.pointer.active && state.phase !== 'setup') return;
@@ -677,6 +870,7 @@
       state.postIndex = 0; state.holdMs = 0; state.posts = makePosts(); state.postMetrics = []; state.events = [];
       state.cursor = { x:c.x, y:c.y, vx:0, vy:0 };
       state.pointer.x = c.x; state.pointer.y = c.y;
+      if (state.head.enabled) { state.head.baseX = state.head.x || 0; state.head.baseY = state.head.y || 0; }
       renderHUD(); renderTarget(); renderCursor();
     }
 
@@ -689,12 +883,27 @@
       resetGame();
       el.startOverlay.classList.add('hidden');
       el.resultOverlay.classList.add('hidden');
-      if (el.useCamera.checked) await startCamera();
-      if (el.useTilt.checked) await requestTilt();
+      const control = requestedControl();
+      if (control === 'head') {
+        const ok = await requestHead();
+        if (!ok) {
+          if (el.useCamera.checked) await startCamera({ facing:'environment' });
+          setPointerFallback('Head ใช้ไม่ได้ในเครื่องนี้');
+        }
+      } else {
+        if (el.useCamera.checked) await startCamera({ facing:'environment' });
+        if (control === 'tilt') {
+          const ok = await requestTilt();
+          if (!ok) setPointerFallback('Tilt ใช้ไม่ได้ในเครื่องนี้');
+        } else {
+          setInputPill(control === 'keyboard' ? 'keyboard' : 'pointer');
+          setCoach(control === 'keyboard' ? 'ใช้ลูกศรหรือ WASD ค่อย ๆ ดันลูกสมดุลเข้าเป้า' : 'ลากเมาส์หรือนิ้วไปทางเป้า แล้วค้างให้นิ่ง', control === 'keyboard' ? '⌨️' : '👆', control === 'keyboard' ? 'Keyboard' : 'Mouse');
+        }
+      }
       recenter();
       await countdown();
       state.phase = 'play'; state.startedAt = now(); state.lastTs = now();
-      setCoach('เริ่มแล้ว! ค่อย ๆ คุมลูกสมดุลเข้าเป้าและค้างให้นิ่ง', '🧘', DIFF[state.ctx.diff].label);
+      setCoach(`เริ่มแล้ว! ${inputHelp()} → คุมลูกสมดุลเข้าเป้าและค้างให้นิ่ง`, '🧘', DIFF[state.ctx.diff].label);
       logEvent('start', { version:VERSION, diff:state.ctx.diff, duration:state.timeLimit });
       requestAnimationFrame(tick);
     }
@@ -723,29 +932,38 @@
       let tx = state.cursor.x;
       let ty = state.cursor.y;
 
-      if (state.tilt.enabled && el.useTilt.checked && now() - state.tilt.last < 1500) {
-        state.inputMode = 'tilt';
-        const b = (state.tilt.beta - (state.tilt.baseBeta ?? state.tilt.beta));
-        const g = (state.tilt.gamma - (state.tilt.baseGamma ?? state.tilt.gamma));
-        tx = r.width * .5 + clamp(g / 18, -1, 1) * r.width * .32;
-        ty = r.height * .55 + clamp(b / 22, -1, 1) * r.height * .28;
-      } else if (state.pointer.active) {
-        state.inputMode = 'pointer';
+      if (state.pointer.active) {
+        setInputPill('pointer');
         tx = state.pointer.x; ty = state.pointer.y;
       } else {
-        let dx = 0, dy = 0;
-        if (state.keys.arrowleft || state.keys.a) dx -= 1;
-        if (state.keys.arrowright || state.keys.d) dx += 1;
-        if (state.keys.arrowup || state.keys.w) dy -= 1;
-        if (state.keys.arrowdown || state.keys.s) dy += 1;
-        if (dx || dy) {
-          state.inputMode = 'keyboard';
-          state.cursor.vx += dx * dt * .045;
-          state.cursor.vy += dy * dt * .045;
+        const hd = headDelta();
+        if (hd) {
+          setInputPill('head');
+          const sx = el.safeMode.checked ? .24 : .32;
+          const sy = el.safeMode.checked ? .19 : .26;
+          tx = r.width * .5 + clamp(hd.dx/.42, -1, 1) * r.width * sx;
+          ty = r.height * .55 + clamp(hd.dy/.36, -1, 1) * r.height * sy;
+        } else if (state.tilt.enabled && el.useTilt.checked && now() - state.tilt.last < 1500) {
+          setInputPill('tilt');
+          const b = (state.tilt.beta - (state.tilt.baseBeta ?? state.tilt.beta));
+          const g = (state.tilt.gamma - (state.tilt.baseGamma ?? state.tilt.gamma));
+          tx = r.width * .5 + clamp(g / 18, -1, 1) * r.width * .32;
+          ty = r.height * .55 + clamp(b / 22, -1, 1) * r.height * .28;
         } else {
-          const c = center();
-          tx = state.cursor.x + (c.x - state.cursor.x) * .012;
-          ty = state.cursor.y + (c.y - state.cursor.y) * .012;
+          let dx = 0, dy = 0;
+          if (state.keys.arrowleft || state.keys.a) dx -= 1;
+          if (state.keys.arrowright || state.keys.d) dx += 1;
+          if (state.keys.arrowup || state.keys.w) dy -= 1;
+          if (state.keys.arrowdown || state.keys.s) dy += 1;
+          if (dx || dy) {
+            setInputPill('keyboard');
+            state.cursor.vx += dx * dt * .045;
+            state.cursor.vy += dy * dt * .045;
+          } else {
+            const c = center();
+            tx = state.cursor.x + (c.x - state.cursor.x) * .012;
+            ty = state.cursor.y + (c.y - state.cursor.y) * .012;
+          }
         }
       }
 
@@ -763,8 +981,6 @@
       state.cursor.vy *= .78;
       state.cursor.x = clamp(state.cursor.x + state.cursor.vx, 22, r.width-22);
       state.cursor.y = clamp(state.cursor.y + state.cursor.vy, 82, r.height-72);
-
-      el.inputModePill.textContent = state.inputMode === 'tilt' ? '📱 Input: Tilt' : state.inputMode === 'keyboard' ? '⌨️ Input: Keyboard' : '👆 Input: Touch/Mouse';
     }
 
     function spawnWind(){
@@ -861,7 +1077,7 @@
       el.target.classList.toggle('boss', !!post.boss);
       el.target.classList.toggle('in', !!state.cursor.in);
       el.targetLabel.textContent = `${post.icon} ${post.title}`;
-      el.targetHint.textContent = post.cue;
+      el.targetHint.textContent = `${post.cue} • ${inputHelp()}`;
       const progress = clamp(state.holdMs / post.holdMs, 0, 1);
       el.targetCore.style.setProperty('--p', `${progress*360}deg`);
       el.ghost.style.left = p.x + 'px'; el.ghost.style.top = p.y + 'px';
@@ -889,6 +1105,12 @@
       el.postBar.style.width = postPct*100 + '%';
       el.stableBar.style.width = state.stability + '%';
       el.safetyPill.textContent = el.safeMode.checked ? '🧘 Safe: ON' : '⚡ Challenge';
+      if (state.head.enabled && el.useHead.checked) {
+        el.headGuide.classList.remove('hidden');
+        if (now() - state.head.last > 900) { el.headGuide.classList.add('warn'); el.headGuide.classList.remove('active'); }
+      } else {
+        el.headGuide.classList.add('hidden');
+      }
     }
 
     function togglePause(){
@@ -912,7 +1134,7 @@
       const hardestPost = [...state.postMetrics].sort((a,b)=>b.outCount-a.outCount)[0];
       const summary = {
         version:VERSION, player:state.ctx.player, group:state.ctx.group, pid:state.ctx.pid, studyId:state.ctx.studyId,
-        game:'balancehold', mode:'AR', diff:state.ctx.diff, duration:state.timeLimit, reason,
+        game:'balancehold', mode:'AR', inputMode:state.inputMode, headSupported:state.head.supported ? 'yes' : 'no', headSamples:state.head.samples, diff:state.ctx.diff, duration:state.timeLimit, reason,
         score:state.score, scoreFinal:state.score, stars:state.stars, passedPosts:passed, totalPosts:total,
         accPct, validHoldRatio:Number(validRatio.toFixed(4)), focusScore, avgQuality,
         rank, grade, comboMax:state.bestCombo, hits:state.hits, misses:state.misses, outCount:state.outCount,
@@ -939,11 +1161,11 @@
     function downloadCSV(summary, detailed=false){
       const rows = [];
       if (!detailed) {
-        const headers = ['ts','player','group','game','mode','diff','duration','reason','score','stars','rank','grade','accPct','focusScore','avgQuality','comboMax','passedPosts','totalPosts','bestPost','hardestPost','teacherSuggestion'];
+        const headers = ['ts','player','group','game','mode','inputMode','headSupported','headSamples','diff','duration','reason','score','stars','rank','grade','accPct','focusScore','avgQuality','comboMax','passedPosts','totalPosts','bestPost','hardestPost','teacherSuggestion'];
         rows.push(headers.join(','));
         rows.push(headers.map(h => csvEscape(summary[h])).join(','));
       } else {
-        const headers = ['ts','player','group','eventT','kind','post','score','holdMs','stability','x','y','stars','quality','postScore','outCount'];
+        const headers = ['ts','player','group','eventT','kind','post','score','holdMs','stability','x','y','inputMode','headQuality','stars','quality','postScore','outCount'];
         rows.push(headers.join(','));
         state.events.forEach(e => rows.push(headers.map(h => csvEscape(h==='player'?summary.player:h==='group'?summary.group:h==='eventT'?e.t:e[h])).join(',')));
         summary.posts.forEach(p => rows.push(headers.map(h => csvEscape({ts:summary.ts,player:summary.player,group:summary.group,eventT:'',kind:'post_summary',post:p.key,score:summary.score,holdMs:Math.round(p.inMs),stability:p.quality,stars:p.stars,quality:p.quality,postScore:p.score,outCount:p.outCount}[h])).join(',')));
@@ -1043,7 +1265,15 @@
       const time = String(qNum('time',60)); if ([...el.duration.options].some(o=>o.value===time)) el.duration.value = time;
       if (q('run','') === 'research') el.researchMode.checked = true;
       if (q('ar','1') === '0') el.useCamera.checked = false;
-      if (q('tilt','1') === '0') el.useTilt.checked = false;
+      if (hasExplicitQuery('tilt')) el.useTilt.checked = q('tilt','1') !== '0';
+      else el.useTilt.checked = IS_MOBILE;
+      if (hasExplicitQuery('head')) el.useHead.checked = q('head','0') === '1';
+      else el.useHead.checked = false;
+      const inputQ = q('input', q('control','auto'));
+      if (['auto','pointer','keyboard','tilt','head'].includes(inputQ)) el.inputChoice.value = inputQ;
+      if (el.inputChoice.value === 'head') el.useHead.checked = true;
+      if (el.inputChoice.value === 'tilt') el.useTilt.checked = true;
+      setInputPill(requestedControl() === 'keyboard' ? 'keyboard' : requestedControl() === 'tilt' ? 'tilt' : requestedControl() === 'head' ? 'head' : 'pointer');
       if (q('quick','0') === '1' || q('run','') === 'play') {
         // Do not auto-start because camera/motion require user gesture on mobile.
       }
@@ -1052,11 +1282,19 @@
     function bindButtons(){
       el.btnStart.onclick = () => startGame();
       el.btnDemo.onclick = () => startGame({ quick:true });
-      el.btnCamera.onclick = () => startCamera();
-      el.btnTilt.onclick = () => requestTilt();
+      el.btnCamera.onclick = () => startCamera({ facing:el.useHead.checked ? 'user' : 'environment' });
+      el.btnTilt.onclick = () => { el.inputChoice.value = 'tilt'; el.useTilt.checked = true; requestTilt({force:true}); };
+      el.btnHead.onclick = () => { el.inputChoice.value = 'head'; el.useHead.checked = true; requestHead(); };
       el.btnPause.onclick = () => togglePause();
       el.btnHome.onclick = () => home();
       el.btnRecenter.onclick = () => recenter();
+      el.inputChoice.onchange = () => {
+        const mode = requestedControl();
+        if (mode === 'head') el.useHead.checked = true;
+        if (mode === 'tilt') el.useTilt.checked = true;
+        setInputPill(mode === 'keyboard' ? 'keyboard' : mode === 'tilt' ? 'tilt' : mode === 'head' ? 'head' : 'pointer');
+        setCoach(`เลือกวิธีขยับแล้ว: ${inputHelp(mode)}`, mode === 'head' ? '🧠' : mode === 'tilt' ? '📱' : mode === 'keyboard' ? '⌨️' : '👆', 'Control');
+      };
       window.addEventListener('resize', () => { if (state.phase !== 'setup') { state.posts = makePosts(); recenter(); renderTarget(); } });
     }
 
@@ -1064,7 +1302,7 @@
       initFromQuery();
       bindInput(); bindButtons();
       resetGame();
-      setCoach('พร้อมแล้ว: ยืนสองเท้า เว้นพื้นที่รอบตัว แล้วกดเริ่มเล่น', '🧘', 'Ready');
+      setCoach(IS_MOBILE ? 'พร้อมแล้ว: มือถือใช้ Tilt ได้ หรือแตะลากก็ได้' : 'พร้อมแล้ว: บน PC ใช้เมาส์ลาก หรือปุ่มลูกศร/WASD', IS_MOBILE ? '📱' : '🖥️', 'Ready');
       toast('Balance Hold AR พร้อมเล่น');
       console.info('[BalanceHoldAR]', VERSION);
     }
