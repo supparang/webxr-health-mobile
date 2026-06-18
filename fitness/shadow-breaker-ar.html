@@ -10,13 +10,13 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-PHASE1
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V3-READY
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
       - 4 bosses, HP, combo, FEVER, difficulty, time, TH/EN
       - Teacher / research CSV export
-      - No external JS dependency; safe for GitHub Pages
+      - MediaPipe Hands via CDN + fallback controls; safe for GitHub Pages over HTTPS
   -->
 
   <style>
@@ -402,6 +402,73 @@
       from{filter:brightness(1)}
       to{filter:brightness(1.7) saturate(1.5)}
     }
+
+
+
+    .handCursor{
+      position:absolute;
+      z-index:36;
+      left:50%;
+      top:50%;
+      width:68px;
+      height:68px;
+      margin-left:-34px;
+      margin-top:-34px;
+      border-radius:999px;
+      display:none;
+      place-items:center;
+      pointer-events:none;
+      border:3px solid rgba(255,255,255,.68);
+      background:radial-gradient(circle at 35% 25%, rgba(255,255,255,.46), transparent 26%), rgba(56,189,248,.18);
+      box-shadow:0 0 0 7px rgba(56,189,248,.14), 0 14px 34px rgba(0,0,0,.34), inset 0 0 22px rgba(255,255,255,.1);
+      transform:scale(.92);
+      transition:transform .08s linear, opacity .12s linear, filter .1s linear;
+      opacity:.92;
+    }
+
+    .handCursor.active{display:grid}
+    .handCursor.right{background:radial-gradient(circle at 35% 25%, rgba(255,255,255,.46), transparent 26%), rgba(167,139,250,.2);box-shadow:0 0 0 7px rgba(167,139,250,.14), 0 14px 34px rgba(0,0,0,.34), inset 0 0 22px rgba(255,255,255,.1)}
+    .handCursor.punching{transform:scale(1.18);filter:brightness(1.45) saturate(1.4)}
+    .handCursor .handEmoji{font-size:33px;filter:drop-shadow(0 5px 8px rgba(0,0,0,.35))}
+    .handCursor .handLabel{
+      position:absolute;
+      left:50%;
+      bottom:-20px;
+      transform:translateX(-50%);
+      padding:3px 7px;
+      border-radius:999px;
+      background:rgba(2,6,23,.72);
+      border:1px solid rgba(255,255,255,.16);
+      color:#fff;
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.04em;
+      white-space:nowrap;
+    }
+
+    .handHint{
+      position:absolute;
+      z-index:37;
+      left:50%;
+      top:12px;
+      transform:translateX(-50%);
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(15,23,42,.58);
+      color:#e2e8f0;
+      border-radius:999px;
+      padding:7px 11px;
+      font-size:12px;
+      font-weight:950;
+      pointer-events:none;
+      opacity:0;
+      transition:.2s ease;
+      backdrop-filter:blur(10px);
+      max-width:calc(100% - 24px);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .handHint.show{opacity:1}
 
     .floating{
       position:absolute;
@@ -1038,6 +1105,9 @@
       <div class="laneLabel left" id="leftLane">LEFT</div>
       <div class="laneLabel right" id="rightLane">RIGHT</div>
       <div class="centerBoss" id="centerBoss"><div class="bossEmoji" id="centerBossEmoji">🐣</div></div>
+      <div class="handHint" id="handHint">ยกมือให้อยู่ในกรอบกล้อง แล้วออกหมัดเร็ว ๆ เพื่อชกเป้า</div>
+      <div class="handCursor left" id="handCursorL"><span class="handEmoji">✊</span><span class="handLabel">L</span></div>
+      <div class="handCursor right" id="handCursorR"><span class="handEmoji">✊</span><span class="handLabel">R</span></div>
     </section>
 
     <section class="bottomBar">
@@ -1050,6 +1120,7 @@
       </div>
       <div class="controls">
         <button class="miniBtn" id="btnCamera">AR Camera</button>
+        <button class="miniBtn" id="btnHand">Hands</button>
         <button class="miniBtn" id="btnPause">Pause</button>
         <button class="miniBtn danger" id="btnEnd">End</button>
       </div>
@@ -1079,7 +1150,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Phase 1</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v3 READY</div>
         </div>
 
         <div class="grid2">
@@ -1141,6 +1212,7 @@
               <label class="toggle"><span id="lblCamera">เปิดกล้อง AR</span><input type="checkbox" id="cameraToggle" checked /></label>
               <label class="toggle"><span id="lblSound">เสียง FX</span><input type="checkbox" id="soundToggle" checked /></label>
               <label class="toggle"><span id="lblMotion">Motion punch</span><input type="checkbox" id="motionToggle" /></label>
+              <label class="toggle"><span id="lblHand">Hand tracking</span><input type="checkbox" id="handTrackingToggle" checked /></label>
               <label class="toggle"><span id="lblResearch">Research log</span><input type="checkbox" id="researchToggle" checked /></label>
             </div>
 
@@ -1193,6 +1265,8 @@
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
   <script>
   (() => {
     "use strict";
@@ -1228,6 +1302,7 @@
         cam:"เปิดกล้อง AR",
         sound:"เสียง FX",
         motion:"Motion punch",
+        hand:"Hand tracking",
         research:"Research log",
         safety:"ข้อควรระวัง: ยืนในพื้นที่โล่ง ถือโทรศัพท์ให้มั่นคง ไม่เล่นขณะเดิน และหยุดทันทีเมื่อเวียนศีรษะหรือเมื่อยล้ามากผิดปกติ",
         rules:[
@@ -1244,6 +1319,11 @@
         cameraFail:"เปิดกล้องไม่ได้ แต่ยังเล่นแบบ AR overlay ได้",
         motionOn:"เปิด Motion punch แล้ว เขย่า/ออกหมัดเบา ๆ เพื่อโจมตีเป้าที่ใกล้สุด",
         motionOff:"ปิด Motion punch",
+        handOn:"เปิด Hand Tracking แล้ว ยกมือให้อยู่ในกรอบกล้อง",
+        handOff:"ปิด Hand Tracking",
+        handFail:"เปิด Hand Tracking ไม่ได้ ใช้คลิก / J K / touch แทนได้",
+        handLoading:"กำลังโหลดระบบจับมือ...",
+        handHint:"ยกมือให้อยู่ในกรอบกล้อง แล้วออกหมัดเร็ว ๆ เพื่อชกเป้า",
         hit:"โดน!",
         perfect:"PERFECT",
         good:"GOOD",
@@ -1299,6 +1379,7 @@
         cam:"AR camera",
         sound:"Sound FX",
         motion:"Motion punch",
+        hand:"Hand tracking",
         research:"Research log",
         safety:"Safety: play in an open area, hold your phone firmly, do not walk while playing, and stop if you feel dizzy or unusually tired.",
         rules:[
@@ -1315,6 +1396,11 @@
         cameraFail:"Camera unavailable. Overlay mode is still playable.",
         motionOn:"Motion punch enabled. Light shake/punch hits the nearest target.",
         motionOff:"Motion punch disabled",
+        handOn:"Hand Tracking enabled. Keep your hands inside the camera frame.",
+        handOff:"Hand Tracking disabled",
+        handFail:"Hand Tracking unavailable. Use click / J K / touch instead.",
+        handLoading:"Loading hand tracking...",
+        handHint:"Keep hands in frame, then punch fast to hit targets.",
         hit:"Hit!",
         perfect:"PERFECT",
         good:"GOOD",
@@ -1395,9 +1481,17 @@
       events: [],
       raf: 0,
       cameraStream: null,
+      handsEngine: null,
+      handTracking: true,
+      handLoopActive: false,
+      handBusy: false,
+      handPointers: { left:null, right:null },
+      handLastSeen: 0,
       sound: true,
       research: true,
       motion: false,
+      handPunchThreshold: 420,
+      lastHandHitAt: 0,
       lastMotionHitAt: 0,
       lastAccel: 0
     };
@@ -1431,7 +1525,9 @@
       $("lblCamera").textContent = t("cam");
       $("lblSound").textContent = t("sound");
       $("lblMotion").textContent = t("motion");
+      $("lblHand").textContent = t("hand");
       $("lblResearch").textContent = t("research");
+      $("handHint").textContent = t("handHint");
       $("safetyNote").textContent = t("safety");
       $("rulesList").innerHTML = t("rules").map(x => `<li>${escapeHtml(x)}</li>`).join("");
       $("introDesc").textContent = t("bossDesc");
@@ -1543,6 +1639,178 @@
       }
     }
 
+
+    async function setHandTracking(on){
+      state.handTracking = !!on;
+      $("handTrackingToggle").checked = state.handTracking;
+
+      if(!state.handTracking){
+        hideHandCursors();
+        $("handHint").classList.remove("show");
+        toast(t("handOff"));
+        logEvent("hand_tracking_off");
+        return;
+      }
+
+      try{
+        if(!state.cameraStream){
+          $("cameraToggle").checked = true;
+          await setCamera(true);
+        }
+        if(!state.cameraStream) throw new Error("camera unavailable");
+        await initHandsEngine();
+        startHandLoop();
+        $("handHint").classList.add("show");
+        clearTimeout(setHandTracking._hintTo);
+        setHandTracking._hintTo = setTimeout(() => $("handHint").classList.remove("show"), 4200);
+        toast(t("handOn"), 1800);
+        logEvent("hand_tracking_on");
+      }catch(err){
+        state.handTracking = false;
+        $("handTrackingToggle").checked = false;
+        hideHandCursors();
+        toast(t("handFail"), 2100);
+        logEvent("hand_tracking_fail", { message: String(err && err.message || err) });
+      }
+    }
+
+    async function initHandsEngine(){
+      if(state.handsEngine) return;
+      if(typeof Hands === "undefined") throw new Error("MediaPipe Hands not loaded");
+      toast(t("handLoading"), 1200);
+      const hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      });
+      hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.62,
+        minTrackingConfidence: 0.58
+      });
+      hands.onResults(onHandsResults);
+      state.handsEngine = hands;
+    }
+
+    function startHandLoop(){
+      if(state.handLoopActive) return;
+      state.handLoopActive = true;
+      const tick = async () => {
+        if(!state.handLoopActive) return;
+        if(state.handTracking && state.handsEngine && state.cameraStream && cameraVideo.readyState >= 2 && !state.handBusy){
+          try{
+            state.handBusy = true;
+            await state.handsEngine.send({ image: cameraVideo });
+          }catch(err){
+            // Keep fallback controls alive even when one frame fails.
+          }finally{
+            state.handBusy = false;
+          }
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+
+    function onHandsResults(results){
+      if(!state.handTracking) return;
+      const hands = results.multiHandLandmarks || [];
+      const seenSides = new Set();
+      const ts = now();
+
+      if(hands.length > 0 && state.status === "playing"){
+        if(!state._lastHandCoach || ts - state._lastHandCoach > 1200){
+          state._lastHandCoach = ts;
+          updateCoach("✊", state.lang==="th" ? "เห็นมือแล้ว: ออกหมัดเร็ว ๆ ให้ชนเป้า" : "Hands detected: punch fast into a target", state.lang==="th" ? "ถ้าเห็น L/R ขยับตามมือ แปลว่าพร้อมชกแล้ว" : "If L/R follows your hand, punch is ready");
+        }
+      }else if(hands.length === 0 && state.status === "playing"){
+        if(!state._lastHandCoach || ts - state._lastHandCoach > 1600){
+          state._lastHandCoach = ts;
+          updateCoach("👋", state.lang==="th" ? "ยังไม่เห็นมือ: ยกมือให้อยู่หน้ากล้อง" : "No hand detected: raise your hands into the camera", state.lang==="th" ? "แสงต้องพอ และอย่าให้มือหลุดกรอบกล้อง" : "Use good lighting and keep hands in frame");
+        }
+      }
+
+      hands.slice(0,2).forEach((landmarks) => {
+        const p = palmPoint(landmarks);
+        const x = clamp((1 - p.x) * arena.clientWidth, 16, arena.clientWidth - 16);
+        const y = clamp(p.y * arena.clientHeight, 16, arena.clientHeight - 16);
+        const side = x < arena.clientWidth / 2 ? "left" : "right";
+        seenSides.add(side);
+
+        const prev = state.handPointers[side];
+        let speed = 0;
+        if(prev && prev.t){
+          const dt = Math.max(16, ts - prev.t) / 1000;
+          const dx = x - prev.x;
+          const dy = y - prev.y;
+          speed = Math.sqrt(dx*dx + dy*dy) / dt;
+        }
+
+        state.handPointers[side] = { x, y, speed, t: ts };
+        updateHandCursor(side, x, y, speed);
+
+        if(state.status === "playing"){
+          handCollisionHit(x, y, speed, side);
+        }
+      });
+
+      ["left","right"].forEach(side => {
+        if(!seenSides.has(side)){
+          const p = state.handPointers[side];
+          if(!p || ts - p.t > 240){
+            const el = side === "left" ? $("handCursorL") : $("handCursorR");
+            el.classList.remove("active", "punching");
+          }
+        }
+      });
+    }
+
+    function palmPoint(landmarks){
+      const ids = [0,5,9,13,17];
+      let x = 0, y = 0;
+      ids.forEach(i => { x += landmarks[i].x; y += landmarks[i].y; });
+      return { x: x / ids.length, y: y / ids.length };
+    }
+
+    function updateHandCursor(side, x, y, speed){
+      const el = side === "left" ? $("handCursorL") : $("handCursorR");
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.classList.add("active");
+      el.classList.toggle("punching", speed >= state.handPunchThreshold);
+      const label = el.querySelector(".handLabel");
+      if(label) label.textContent = `${side === "left" ? "L" : "R"} ${speed >= state.handPunchThreshold ? "PUNCH" : Math.round(speed)}`;
+    }
+
+    function hideHandCursors(){
+      ["handCursorL","handCursorR"].forEach(id => $(id).classList.remove("active", "punching"));
+    }
+
+    function handCollisionHit(x, y, speed, side){
+      const ts = now();
+      const threshold = state.feverActive ? state.handPunchThreshold * .78 : state.handPunchThreshold;
+      if(speed < threshold) return;
+      if(ts - state.lastHandHitAt < 185) return;
+
+      let best = null;
+      let bestDist = Infinity;
+      state.targets.forEach(target => {
+        const dx = target.x - x;
+        const dy = target.y - y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const radius = Math.max(76, (target.el.offsetWidth || DIFF[state.diffKey].size) * .95);
+        if(dist <= radius && dist < bestDist){
+          best = target;
+          bestDist = dist;
+        }
+      });
+
+      if(best){
+        state.lastHandHitAt = ts;
+        logEvent("hand_punch", { targetId: best.id, side, speed: Math.round(speed), distance: Math.round(bestDist) });
+        hitTarget(best.id, x, y, `hand-${side}`);
+      }
+    }
+
     async function setMotion(on){
       state.motion = !!on;
       if(!state.motion){
@@ -1574,6 +1842,7 @@
       state.sound = $("soundToggle").checked;
       state.research = $("researchToggle").checked;
       state.motion = $("motionToggle").checked;
+      state.handTracking = $("handTrackingToggle").checked;
       state.lang = $("langSelect").value || "th";
     }
 
@@ -1624,6 +1893,9 @@
       }
 
       await setMotion($("motionToggle").checked);
+      if($("handTrackingToggle").checked){
+        await setHandTracking(true);
+      }
       resetGame();
       logEvent("game_prepare", { userAgent:navigator.userAgent });
 
@@ -2147,6 +2419,7 @@
         good:state.metrics.good,
         okay:state.metrics.okay,
         feverCount:state.feverCount,
+        handTracking:state.handTracking ? 1 : 0,
         avgRtMs:avgRt,
         playerHp:Math.round(state.playerHp),
         userAgent:navigator.userAgent
@@ -2188,7 +2461,9 @@
         $("cameraToggle").checked = on;
         setCamera(on);
       });
+      $("btnHand").addEventListener("click", () => setHandTracking(!state.handTracking));
       $("cameraToggle").addEventListener("change", ev => setCamera(ev.target.checked));
+      $("handTrackingToggle").addEventListener("change", ev => setHandTracking(ev.target.checked));
       $("motionToggle").addEventListener("change", ev => setMotion(ev.target.checked));
       $("soundToggle").addEventListener("change", ev => {
         state.sound = ev.target.checked;
