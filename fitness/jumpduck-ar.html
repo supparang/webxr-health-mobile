@@ -213,6 +213,17 @@
           <button data-time="60" class="time-btn active">60s<br><span class="text-[10px] font-bold">Standard</span></button>
           <button data-time="90" class="time-btn">90s<br><span class="text-[10px] font-bold">Challenge</span></button>
         </div>
+
+        <details class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-left">
+          <summary class="cursor-pointer text-xs font-black text-slate-600">ข้อมูลส่งเข้า Sheet / นักเรียน</summary>
+          <div class="mt-2 grid grid-cols-2 gap-2">
+            <input id="input-class" class="meta-input" placeholder="ห้อง เช่น P5-1" autocomplete="off" />
+            <input id="input-student" class="meta-input" placeholder="รหัส/เลขที่" autocomplete="off" />
+            <input id="input-name" class="meta-input" placeholder="ชื่อเล่น" autocomplete="off" />
+            <input id="input-teacher" class="meta-input" placeholder="ครู/ผู้สอน" autocomplete="off" />
+          </div>
+          <p class="mt-1 text-[10px] font-semibold text-slate-400">ไม่จำเป็นต้องกรอกครบ แต่ถ้ากรอกจะถูกบันทึกลง Google Sheet อัตโนมัติ</p>
+        </details>
         <button id="btn-start" class="w-full rounded-3xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-3.5 text-xl font-black text-white shadow-xl border-b-4 border-emerald-700 active:scale-95 transition">
           <i class="fa-solid fa-play mr-2"></i> เริ่มเล่น
         </button>
@@ -220,7 +231,7 @@
           <button id="btn-teacher-mode" class="rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 active:scale-95 transition">Teacher Test: OFF</button>
           <button id="btn-home-start" class="rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 active:scale-95 transition">กลับ Hub</button>
         </div>
-        <p class="compact-note text-emerald-600 font-bold">v10 Auto Sheet • Compact UI • CSV Backup</p>
+        <p class="compact-note text-emerald-600 font-bold">v13 Final • Sports Science • Auto Sheet</p>
       </div>
     </div>
   </section>
@@ -495,6 +506,10 @@
     const leaderboardList = $('leaderboard-list');
     const btnClearLeader = $('btn-clear-leader');
     const sheetStatus = $('sheet-status');
+    const inputClass = $('input-class');
+    const inputStudent = $('input-student');
+    const inputName = $('input-name');
+    const inputTeacher = $('input-teacher');
 
     const DIFF = {
       // v8 Compact Start: Easy is intentionally forgiving; side moves still appear, but less often.
@@ -532,12 +547,36 @@
     if(params.get('key')) localStorage.setItem('jumpduckSheetKey', params.get('key'));
 
     const meta = {
-      sessionId: params.get('session') || params.get('sessionId') || '',
-      classId: params.get('class') || params.get('classId') || '',
-      studentId: params.get('student') || params.get('studentId') || '',
-      studentName: params.get('name') || params.get('studentName') || '',
-      teacherId: params.get('teacher') || params.get('teacherId') || ''
+      sessionId: params.get('session') || params.get('sessionId') || localStorage.getItem('jumpduckSessionId') || '',
+      classId: params.get('class') || params.get('classId') || localStorage.getItem('jumpduckClassId') || '',
+      studentId: params.get('student') || params.get('studentId') || localStorage.getItem('jumpduckStudentId') || '',
+      studentName: params.get('name') || params.get('studentName') || localStorage.getItem('jumpduckStudentName') || '',
+      teacherId: params.get('teacher') || params.get('teacherId') || localStorage.getItem('jumpduckTeacherId') || ''
     };
+
+    function initMetaInputs(){
+      if(inputClass) inputClass.value = meta.classId || '';
+      if(inputStudent) inputStudent.value = meta.studentId || '';
+      if(inputName) inputName.value = meta.studentName || '';
+      if(inputTeacher) inputTeacher.value = meta.teacherId || '';
+    }
+
+    function syncMetaFromForm(){
+      meta.classId = (inputClass?.value || meta.classId || '').trim();
+      meta.studentId = (inputStudent?.value || meta.studentId || '').trim();
+      meta.studentName = (inputName?.value || meta.studentName || '').trim();
+      meta.teacherId = (inputTeacher?.value || meta.teacherId || '').trim();
+      if(!meta.sessionId){
+        meta.sessionId = 'JD-' + new Date().toISOString().slice(0,10).replace(/-/g,'');
+      }
+      localStorage.setItem('jumpduckSessionId', meta.sessionId);
+      localStorage.setItem('jumpduckClassId', meta.classId);
+      localStorage.setItem('jumpduckStudentId', meta.studentId);
+      localStorage.setItem('jumpduckStudentName', meta.studentName);
+      localStorage.setItem('jumpduckTeacherId', meta.teacherId);
+    }
+
+    initMetaInputs();
 
     window.__jumpduckMuted = params.get('mute') === '1';
     let config = { ...DIFF[selectedDiff], time:selectedTime };
@@ -603,7 +642,7 @@
 
     function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
 
-    const LEADER_KEY = 'jumpduck_dash_v10_leaderboard';
+    const LEADER_KEY = 'jumpduck_dash_v13_sports_leaderboard';
 
     function loadLeaderboard(){
       try{ return JSON.parse(localStorage.getItem(LEADER_KEY) || '[]'); }
@@ -1146,6 +1185,7 @@
     }
 
     function startGame(){
+      syncMetaFromForm();
       playSound('success');
       resetState();
       isPlaying = true;
@@ -1167,6 +1207,26 @@
       return clean.length ? clean.reduce((a,b)=>a+b,0) / clean.length : 0;
     }
 
+    function median(arr){
+      const clean = arr.filter(Number.isFinite).slice().sort((a,b)=>a-b);
+      if(!clean.length) return 0;
+      const mid = Math.floor(clean.length / 2);
+      return clean.length % 2 ? clean[mid] : (clean[mid - 1] + clean[mid]) / 2;
+    }
+
+    function stddev(arr){
+      const clean = arr.filter(Number.isFinite);
+      if(clean.length < 2) return 0;
+      const m = mean(clean);
+      const variance = clean.reduce((sum, v)=> sum + Math.pow(v - m, 2), 0) / clean.length;
+      return Math.sqrt(variance);
+    }
+
+    function safePct(ok, miss){
+      const total = (Number(ok)||0) + (Number(miss)||0);
+      return total ? Number((((Number(ok)||0) / total) * 100).toFixed(3)) : '';
+    }
+
     function makeSummaryMetrics(endReason='timeup'){
       const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
       const avgRaw = responseTimes.length ? mean(responseTimes) : 0;
@@ -1179,6 +1239,26 @@
       const verticalMoves = actionCounts.jump + actionCounts.duck;
       const movementBalance = sideMoves === 0 ? 'ยังไม่ได้ทดสอบซ้าย/ขวา' : `แนวตั้ง ${verticalMoves} • ซ้าย/ขวา ${sideMoves}`;
       const poseQualityAvg = Math.round(mean(poseQualitySamples) * 100);
+
+      const cleanRt = responseTimes.filter(Number.isFinite);
+      const minReaction = cleanRt.length ? Math.min(...cleanRt) : 0;
+      const maxReaction = cleanRt.length ? Math.max(...cleanRt) : 0;
+      const medianReaction = median(cleanRt);
+      const reactionStd = stddev(cleanRt);
+      const reactionTrend = cleanRt.length < 2 ? 'insufficient' : (fatigueDelta > 0.20 ? 'slower_late' : fatigueDelta < -0.20 ? 'faster_late' : 'stable');
+
+      const jumpAttempt = actionCounts.jump + missCounts.jump;
+      const duckAttempt = actionCounts.duck + missCounts.duck;
+      const leftAttempt = actionCounts.left + missCounts.left;
+      const rightAttempt = actionCounts.right + missCounts.right;
+      const totalMoves = actionCounts.jump + actionCounts.duck + actionCounts.left + actionCounts.right;
+      const totalAttempts = totalMoves + totalMisses;
+      const sideAccuracy = safePct(actionCounts.left + actionCounts.right, missCounts.left + missCounts.right);
+      const verticalAccuracy = safePct(actionCounts.jump + actionCounts.duck, missCounts.jump + missCounts.duck);
+      const leftRightBalance = sideMoves ? Number((Math.abs(actionCounts.left - actionCounts.right) / sideMoves).toFixed(3)) : '';
+      const jumpDuckBalance = verticalMoves ? Number((Math.abs(actionCounts.jump - actionCounts.duck) / verticalMoves).toFixed(3)) : '';
+      const movementLoad = Number(((actionCounts.jump * 3) + (actionCounts.duck * 2) + (actionCounts.left * 1.5) + (actionCounts.right * 1.5)).toFixed(1));
+
       return {
         accuracy,
         avgReaction: Number(avgRaw.toFixed(3)) || 0,
@@ -1187,7 +1267,21 @@
         sideMoves,
         movementBalance,
         poseQualityAvg,
-        endReason
+        endReason,
+        minReaction: Number(minReaction.toFixed(3)) || 0,
+        maxReaction: Number(maxReaction.toFixed(3)) || 0,
+        medianReaction: Number(medianReaction.toFixed(3)) || 0,
+        reactionFirstHalf: Number(firstAvg.toFixed(3)) || 0,
+        reactionSecondHalf: Number(secondAvg.toFixed(3)) || 0,
+        reactionStd: Number(reactionStd.toFixed(3)) || 0,
+        reactionTrend,
+        movementLoad,
+        totalMoves,
+        totalAttempts,
+        sideAccuracy,
+        verticalAccuracy,
+        leftRightBalance,
+        jumpDuckBalance
       };
     }
 
@@ -1195,7 +1289,7 @@
       return {
         timestamp: new Date().toISOString(),
         game: 'jumpduck-dash-ar',
-        version: 'v11-timeup-sheet-fix',
+        version: 'v13-sports-science-final',
         sessionId: meta.sessionId,
         roundId: 'JD-' + Date.now().toString(36),
         classId: meta.classId,
@@ -1235,6 +1329,28 @@
         isNewHighScore: '',
         rank,
         mainFeedback: finalFeedback ? finalFeedback.textContent : '',
+
+        // v13 Sports Science fields
+        minReaction: metrics.minReaction,
+        maxReaction: metrics.maxReaction,
+        medianReaction: metrics.medianReaction,
+        reactionFirstHalf: metrics.reactionFirstHalf,
+        reactionSecondHalf: metrics.reactionSecondHalf,
+        reactionStd: metrics.reactionStd,
+        reactionTrend: metrics.reactionTrend,
+        movementLoad: metrics.movementLoad,
+        totalMoves: metrics.totalMoves,
+        totalAttempts: metrics.totalAttempts,
+        sideAccuracy: metrics.sideAccuracy,
+        verticalAccuracy: metrics.verticalAccuracy,
+        leftRightBalance: metrics.leftRightBalance,
+        jumpDuckBalance: metrics.jumpDuckBalance,
+        rpe: '',
+        enjoyment: '',
+        perceivedDifficulty: '',
+        userAgent: navigator.userAgent || '',
+        screenWidth: window.screen?.width || window.innerWidth || '',
+        screenHeight: window.screen?.height || window.innerHeight || '',
         accessKey: SHEET_ACCESS_KEY
       };
     }
@@ -1325,10 +1441,9 @@
     }
 
     function exportCSV(){
-      const header = ['timestamp','version','diff','duration','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss'];
-      const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
-      const avg = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length).toFixed(3) : '0.000';
-      const row = [new Date().toISOString(), 'v11-timeup-sheet-fix', selectedDiff, selectedTime, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
+      const header = ['timestamp','version','diff','duration','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss','minReaction','maxReaction','medianReaction','reactionFirstHalf','reactionSecondHalf','reactionStd','reactionTrend','movementLoad','totalMoves','totalAttempts','sideAccuracy','verticalAccuracy','leftRightBalance','jumpDuckBalance'];
+      const m = makeSummaryMetrics('csv_export');
+      const row = [new Date().toISOString(), 'v13-sports-science-final', selectedDiff, selectedTime, score, m.accuracy, totalDodges, totalMisses, bestCombo, m.avgReaction, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right, m.minReaction, m.maxReaction, m.medianReaction, m.reactionFirstHalf, m.reactionSecondHalf, m.reactionStd, m.reactionTrend, m.movementLoad, m.totalMoves, m.totalAttempts, m.sideAccuracy, m.verticalAccuracy, m.leftRightBalance, m.jumpDuckBalance];
       const csv = header.join(',') + '\n' + row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n';
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const url = URL.createObjectURL(blob);
