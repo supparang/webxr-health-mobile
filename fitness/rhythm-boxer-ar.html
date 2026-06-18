@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Rank Balance + Report Consistency | v20260618-rb-rank-balance -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Sport Science Complete | v20260618-rb-sportscience-complete -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -422,6 +422,71 @@
   font-weight:900;
 }
 
+
+/* === Sport Science Complete : v20260618-rb-sportscience-complete === */
+.sport-panel{
+  margin-top:14px;
+  border-radius:22px;
+  padding:14px;
+  background:linear-gradient(180deg,rgba(239,250,255,.94),rgba(246,255,248,.92));
+  border:1px solid #cfeaf7;
+  box-shadow:0 10px 22px rgba(94,60,104,.08);
+}
+.sport-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.sport-kicker{
+  color:#557082;
+  font-size:.75rem;
+  font-weight:1000;
+}
+.sport-head h3{
+  margin:2px 0 0;
+  font-size:1.05rem;
+  color:#3e5360;
+}
+.sport-index{
+  min-width:86px;
+  text-align:center;
+  border-radius:18px;
+  padding:10px 12px;
+  background:linear-gradient(180deg,#fffbe8,#fff1bd);
+  border:1px solid #f4d06c;
+  color:#8a5f00;
+  font-size:1rem;
+  font-weight:1000;
+}
+.sport-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:9px;
+}
+.sport-card{
+  border-radius:16px;
+  padding:10px 11px;
+  background:rgba(255,255,255,.88);
+  border:1px solid rgba(207,234,247,.95);
+}
+.sport-k{
+  font-size:.7rem;
+  color:#607280;
+  font-weight:1000;
+}
+.sport-v{
+  margin-top:5px;
+  color:#344854;
+  font-size:1.02rem;
+  font-weight:1000;
+}
+@media (max-width:820px){
+  .sport-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sport-head{align-items:flex-start}
+}
+
 </style>
 </head>
 <body>
@@ -431,7 +496,7 @@
       <div class="kicker">HeroHealth Fitness AR • Body Tracking</div>
       <h1>🥊 Rhythm Boxer AR</h1>
       <div class="sub">
-        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชัน Production Lock: Body Tracking + Challenge + XP + Boss + Best Score + Hub Return + CSV + Google Sheets auto-submit พร้อมใช้จริง • Rank Balance ปรับให้ 3 ดาวไม่ตกเกรดเกินจริง
+        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชัน Production Lock: Body Tracking + Challenge + XP + Boss + Best Score + Hub Return + CSV + Google Sheets auto-submit พร้อมใช้จริง • Sport Science Complete • Sport Science Complete: timing + symmetry + speed + fatigue + tracking quality
         ถ้ากล้องหรือ Pose Tracking ใช้ไม่ได้ ยังเล่นด้วยการแตะจอ/คีย์บอร์ดได้
       </div>
     </div>
@@ -442,6 +507,7 @@
       <span class="chip">Production Lock</span>
       <span class="chip">Sheets Default ON</span>
       <span class="chip">Rank Balance</span>
+      <span class="chip">Sport Science</span>
     </div>
   </header>
 
@@ -575,6 +641,26 @@
       </div>
       <div id="quality" class="quality"></div>
       <div id="submitStatus" class="quality hidden"></div>
+
+      <div id="sportSciencePanel" class="sport-panel">
+        <div class="sport-head">
+          <div>
+            <div class="sport-kicker">Sport Science Metrics</div>
+            <h3>ค่าประเมินเชิงวิทย์กีฬา</h3>
+          </div>
+          <div id="sportIndexBadge" class="sport-index">SSI 0</div>
+        </div>
+        <div class="sport-grid">
+          <div class="sport-card"><div class="sport-k">Rhythm Coordination</div><div id="ssRhythm" class="sport-v">0</div></div>
+          <div class="sport-card"><div class="sport-k">Movement Quality</div><div id="ssMovement" class="sport-v">0</div></div>
+          <div class="sport-card"><div class="sport-k">Bilateral Balance</div><div id="ssBalance" class="sport-v">0</div></div>
+          <div class="sport-card"><div class="sport-k">Fatigue Resistance</div><div id="ssFatigue" class="sport-v">0</div></div>
+          <div class="sport-card"><div class="sport-k">L/R Punches</div><div id="ssLR" class="sport-v">0 / 0</div></div>
+          <div class="sport-card"><div class="sport-k">Punch Speed</div><div id="ssSpeed" class="sport-v">0</div></div>
+          <div class="sport-card"><div class="sport-k">Fatigue Drop</div><div id="ssDrop" class="sport-v">0%</div></div>
+          <div class="sport-card"><div class="sport-k">Tracking Quality</div><div id="ssTracking" class="sport-v">0%</div></div>
+        </div>
+      </div>
       <div class="row" style="margin-top:14px">
         <button id="btnAgain" class="btn primary">เล่นอีกครั้ง</button>
         <button id="btnMenu2" class="btn">กลับ Hub</button>
@@ -724,7 +810,8 @@
     mScore:$('mScore'), mCombo:$('mCombo'), mAcc:$('mAcc'), missionStars:$('missionStars'),
     resScore:$('resScore'), resRank:$('resRank'), resStars:$('resStars'), resAcc:$('resAcc'),
     resCombo:$('resCombo'), resBody:$('resBody'), resMiss:$('resMiss'), resBoss:$('resBoss'), resFlowCombo:$('resFlowCombo'), resNoise:$('resNoise'), quality:$('quality'),
-    btnAgain:$('btnAgain'), btnMenu2:$('btnMenu2'), btnCsvSession:$('btnCsvSession'), btnCsvEvents:$('btnCsvEvents'), submitStatus:$('submitStatus')
+    btnAgain:$('btnAgain'), btnMenu2:$('btnMenu2'), btnCsvSession:$('btnCsvSession'), btnCsvEvents:$('btnCsvEvents'), submitStatus:$('submitStatus'),
+    sportIndexBadge:$('sportIndexBadge'), ssRhythm:$('ssRhythm'), ssMovement:$('ssMovement'), ssBalance:$('ssBalance'), ssFatigue:$('ssFatigue'), ssLR:$('ssLR'), ssSpeed:$('ssSpeed'), ssDrop:$('ssDrop'), ssTracking:$('ssTracking')
   };
 
   const S = {
@@ -732,6 +819,8 @@
     t0:0,tEnd:0,tLast:0,lastBeat:-1, rng:Math.random,
     notes:[], nextId:1,
     score:0, combo:0, maxCombo:0, flowCombo:0, maxFlowCombo:0, comboBreaks:0, shots:0, hits:0, perfect:0, great:0, good:0, miss:0,
+    leftAttempts:0,rightAttempts:0,leftHits:0,rightHits:0,leftMisses:0,rightMisses:0,earlyHits:0,lateHits:0,onTimeHits:0,
+    speedSamples:[],extensionSamples:[],hitRecords:[],poseFrames:0,poseVisibleFrames:0,trackingLostCount:0,lastPoseVisible:false,
     blank:0, spam:0, bodyPunches:0, fever:0, feverOn:false, phase:'warmup',
     xp:0, level:1, perfectChain:0, powerHits:0, bossHits:0, hypeLast:0, newBest:false,
     boss:{active:false,hp:24,hpMax:24,clear:false,window:false,lastWindow:0},
@@ -1019,6 +1108,7 @@
           if(S.missStreak >= 2) S.flowCombo=0;
           feedback('MISS','miss'); sfx('miss'); vibrate([18,35,18]); hitFx('miss'); laneFlash(n.lane,'miss'); fieldShake();
           if(S.missStreak === 1) coach('ไม่เป็นไร รักษาจังหวะต่อได้เลย','good');
+          recordSportMiss(n.lane, now, 'auto_miss');
           logEvent('auto_miss',{lane:n.lane,judge:'Miss',offsetMs:Math.round(dt),missStreak:S.missStreak});
         }
       }
@@ -1065,7 +1155,7 @@
     const last = S.lastLaneTap[lane] || 0;
     if(tNow-last < 105){S.spam++; if(S.spam%4===0) coach('อย่ากดรัว รอ note ถึงเส้นก่อน','miss'); return}
     S.lastLaneTap[lane]=tNow;
-    if(source.startsWith('body')) S.bodyAttempts++;
+    if(source.startsWith('body')){ S.bodyAttempts++; recordAttemptSide(source); }
 
     const found = String(source).startsWith('body')
       ? findNearestFlexible(lane,tNow)
@@ -1113,6 +1203,7 @@
           if(S.boss.hp<=0){S.boss.clear=true; addXP(120,'🏆 Boss Clear!'); banner('ชนะบอส!','จังหวะและแรงชกดีมาก'); hype('🏆 BOSS CLEAR! +120 XP','hot')}
         }
         S.offsets.push(dt);
+        recordSportHit(source, lane, dt, tNow);
         feedback(judge.toUpperCase(), judge.toLowerCase());
         if(judge==='Perfect') vibrate(18); else if(judge==='Great') vibrate(12); else vibrate(8);
         sfx(judge.toLowerCase()); hitFx(judge); scorePop(judge==='Perfect'?'+120':judge==='Great'?'+85':'+50',judge); laneFlash(lane,'hit');
@@ -1135,6 +1226,7 @@
 
       S.blank++; S.shots++; S.missStreak=(S.missStreak||0)+1; if(S.combo>0) S.comboBreaks=(S.comboBreaks||0)+1; S.combo=0; if(S.missStreak>=2) S.flowCombo=0; S.score=Math.max(0,S.score-8);
       feedback('MISS','miss'); sfx('miss'); vibrate([18,35,18]); hitFx('miss'); laneFlash(lane,'miss'); fieldShake();
+      recordSportMiss(lane, tNow, 'blank_miss');
     }
     logEvent(source,{lane,judge,offsetMs:dt===9999?'':Math.round(dt)});
   }
@@ -1143,6 +1235,248 @@
     els.arena.classList.remove('shake'); void els.arena.offsetWidth; els.arena.classList.add('shake');
     setTimeout(()=>els.arena.classList.remove('shake'),240);
   }
+
+
+  function bodySideFromSource(source){
+    source = String(source || '');
+    if(source.includes('left')) return 'left';
+    if(source.includes('right')) return 'right';
+    return '';
+  }
+
+  function laneSide(lane){
+    lane = Number(lane);
+    if(lane <= 1) return 'left';
+    if(lane >= 3) return 'right';
+    return 'center';
+  }
+
+  function lastBodyMetric(side){
+    try{
+      return (S.body && S.body.lastMetric && S.body.lastMetric[side]) || {};
+    }catch(_){
+      return {};
+    }
+  }
+
+  function recordAttemptSide(source){
+    const side = bodySideFromSource(source);
+    if(side === 'left') S.leftAttempts++;
+    else if(side === 'right') S.rightAttempts++;
+    return side;
+  }
+
+  function recordHitSide(source, lane){
+    const side = bodySideFromSource(source) || laneSide(lane);
+    if(side === 'left') S.leftHits++;
+    else if(side === 'right') S.rightHits++;
+    return side;
+  }
+
+  function recordMissSide(lane){
+    const side = laneSide(lane);
+    if(side === 'left') S.leftMisses++;
+    else if(side === 'right') S.rightMisses++;
+    return side;
+  }
+
+  function recordSportHit(source, lane, dt, tNow){
+    const side = recordHitSide(source, lane);
+    const m = lastBodyMetric(side);
+    const speed = Number(m.speed || 0);
+    const ext = Number(m.ext || 0);
+
+    if(speed > 0) S.speedSamples.push(speed);
+    if(ext > 0) S.extensionSamples.push(ext);
+
+    if(dt > 55) S.earlyHits++;
+    else if(dt < -55) S.lateHits++;
+    else S.onTimeHits++;
+
+    S.hitRecords.push({
+      tRel: Math.max(0, tNow - S.t0),
+      hit:1,
+      miss:0,
+      offsetMs:Number(dt || 0),
+      absOffsetMs:Math.abs(Number(dt || 0)),
+      side,
+      lane,
+      speed,
+      extension:ext
+    });
+  }
+
+  function recordSportMiss(lane, tNow, kind='miss'){
+    const side = recordMissSide(lane);
+    S.hitRecords.push({
+      tRel: Math.max(0, tNow - S.t0),
+      hit:0,
+      miss:1,
+      offsetMs:'',
+      absOffsetMs:'',
+      side,
+      lane,
+      speed:0,
+      extension:0,
+      kind
+    });
+  }
+
+  function avg(arr){
+    arr = (arr || []).filter(v=>Number.isFinite(Number(v)));
+    if(!arr.length) return 0;
+    return arr.reduce((a,b)=>a+Number(b),0)/arr.length;
+  }
+
+  function sd(arr){
+    arr = (arr || []).filter(v=>Number.isFinite(Number(v)));
+    if(arr.length < 2) return 0;
+    const m = avg(arr);
+    return Math.sqrt(arr.reduce((s,v)=>s+Math.pow(Number(v)-m,2),0)/(arr.length-1));
+  }
+
+  function pct(n,d){
+    return d ? (Number(n||0)/Number(d||0)*100) : 0;
+  }
+
+  function halfStats(first=true){
+    const split = (S.timeSec * 1000) / 2;
+    const rows = (S.hitRecords || []).filter(r => first ? r.tRel <= split : r.tRel > split);
+    const hits = rows.filter(r=>r.hit).length;
+    const misses = rows.filter(r=>r.miss).length;
+    const absOffsets = rows.filter(r=>r.hit && Number.isFinite(Number(r.absOffsetMs))).map(r=>Number(r.absOffsetMs));
+    return {
+      shots:hits+misses,
+      hits,
+      misses,
+      acc:pct(hits, hits+misses),
+      missRate:pct(misses, hits+misses),
+      meanAbsOffsetMs:avg(absOffsets)
+    };
+  }
+
+  function sportMetrics(){
+    const durationMin = Math.max(0.001, (S.timeSec || 60) / 60);
+    const valid = Number(S.bodyPunches || S.hits || 0);
+    const missed = Number(S.miss || 0);
+    const attempts = Number(S.bodyAttempts || 0);
+    const noise = Number(S.bodyNoise || 0);
+    const totalLR = Number(S.leftHits || 0) + Number(S.rightHits || 0);
+    const balanceIndex = totalLR ? Math.abs(Number(S.leftHits||0)-Number(S.rightHits||0)) / totalLR : 0;
+
+    const offsetMean = avg((S.hitRecords||[]).filter(r=>r.hit).map(r=>Math.abs(Number(r.offsetMs||0))));
+    const offsetSD = sd((S.hitRecords||[]).filter(r=>r.hit).map(r=>Number(r.offsetMs||0)));
+    const speedAvg = avg(S.speedSamples);
+    const speedMax = Math.max(0, ...(S.speedSamples||[0]).map(v=>Number(v)||0));
+    const speedSD = sd(S.speedSamples);
+    const extAvg = avg(S.extensionSamples);
+    const extMax = Math.max(0, ...(S.extensionSamples||[0]).map(v=>Number(v)||0));
+
+    const h1 = halfStats(true);
+    const h2 = halfStats(false);
+    const fatigueDrop = h1.acc - h2.acc;
+    const fatigueIndex = clamp(
+      (Math.max(0, fatigueDrop) * .55) +
+      (Math.max(0, h2.missRate - h1.missRate) * .25) +
+      (Math.max(0, h2.meanAbsOffsetMs - h1.meanAbsOffsetMs) / 4 * .20),
+      0, 100
+    );
+
+    const timingScore = clamp(100 - (offsetMean / 2.8), 0, 100);
+    const consistencyScore = clamp(100 - (offsetSD / 3.2), 0, 100);
+    const comboScore = clamp((S.maxCombo || 0) / Math.max(10, valid || 1) * 100, 0, 100);
+    const rhythmCoordinationScore = clamp((accPct()*.48) + (timingScore*.27) + (consistencyScore*.15) + (comboScore*.10), 0, 100);
+
+    const validRate = valid / durationMin;
+    const idealRateScore = clamp(100 - Math.abs(validRate - 70) * 1.25, 0, 100);
+    const speedConsistency = speedAvg > 0 ? clamp(100 - (speedSD / Math.max(speedAvg, .001) * 100), 0, 100) : 60;
+    const extensionScore = clamp((extAvg / 1.18) * 100, 0, 100);
+    const movementQualityScore = clamp((idealRateScore*.36) + (speedConsistency*.28) + (extensionScore*.24) + (pct(valid, attempts || valid)*.12), 0, 100);
+
+    const bilateralBalanceScore = clamp((1 - balanceIndex) * 100, 0, 100);
+    const fatigueResistanceScore = clamp(100 - fatigueIndex, 0, 100);
+    const trackingQuality = pct(S.poseVisibleFrames || 0, S.poseFrames || 0);
+    const trackingScore = clamp(trackingQuality - (noise / Math.max(1, attempts) * 35), 0, 100);
+
+    const sportScienceIndex = clamp(
+      rhythmCoordinationScore*.35 +
+      movementQualityScore*.25 +
+      bilateralBalanceScore*.20 +
+      fatigueResistanceScore*.15 +
+      trackingScore*.05,
+      0, 100
+    );
+
+    return {
+      validPunches:valid,
+      missedNotes:missed,
+      bodyAttempts:attempts,
+      ignoredNoise:noise,
+      noiseRatio:pct(noise, attempts),
+      punchRatePerMin:attempts/durationMin,
+      validPunchRatePerMin:valid/durationMin,
+
+      earlyHits:S.earlyHits||0,
+      lateHits:S.lateHits||0,
+      onTimeHits:S.onTimeHits||0,
+      meanAbsOffsetMs:offsetMean,
+      stdOffsetMs:offsetSD,
+
+      leftAttempts:S.leftAttempts||0,
+      rightAttempts:S.rightAttempts||0,
+      leftHits:S.leftHits||0,
+      rightHits:S.rightHits||0,
+      leftMisses:S.leftMisses||0,
+      rightMisses:S.rightMisses||0,
+      leftAccuracy:pct(S.leftHits||0, (S.leftHits||0)+(S.leftMisses||0)),
+      rightAccuracy:pct(S.rightHits||0, (S.rightHits||0)+(S.rightMisses||0)),
+      balanceIndex,
+
+      avgPunchSpeed:speedAvg,
+      maxPunchSpeed:speedMax,
+      punchSpeedSD:speedSD,
+      avgExtension:extAvg,
+      maxExtension:extMax,
+      extensionSD:sd(S.extensionSamples),
+
+      firstHalfAccuracy:h1.acc,
+      secondHalfAccuracy:h2.acc,
+      firstHalfPunchRate:(h1.hits)/Math.max(.001, (S.timeSec/2)/60),
+      secondHalfPunchRate:(h2.hits)/Math.max(.001, (S.timeSec/2)/60),
+      firstHalfOffsetMs:h1.meanAbsOffsetMs,
+      secondHalfOffsetMs:h2.meanAbsOffsetMs,
+      fatigueDrop,
+      fatigueIndex,
+
+      poseVisibleRate:trackingQuality,
+      poseFrames:S.poseFrames||0,
+      poseVisibleFrames:S.poseVisibleFrames||0,
+      trackingLostCount:S.trackingLostCount||0,
+      cameraMode:(S.body && S.body.facing) || '',
+      fpsApprox:(S.poseFrames||0)/Math.max(.001,S.timeSec||60),
+
+      rhythmCoordinationScore,
+      movementQualityScore,
+      bilateralBalanceScore,
+      fatigueResistanceScore,
+      trackingQualityScore:trackingScore,
+      sportScienceIndex
+    };
+  }
+
+  function updateSportPanel(metrics){
+    if(!metrics) return;
+    if(els.sportIndexBadge) els.sportIndexBadge.textContent = 'SSI ' + Math.round(metrics.sportScienceIndex||0);
+    if(els.ssRhythm) els.ssRhythm.textContent = Math.round(metrics.rhythmCoordinationScore||0);
+    if(els.ssMovement) els.ssMovement.textContent = Math.round(metrics.movementQualityScore||0);
+    if(els.ssBalance) els.ssBalance.textContent = Math.round(metrics.bilateralBalanceScore||0);
+    if(els.ssFatigue) els.ssFatigue.textContent = Math.round(metrics.fatigueResistanceScore||0);
+    if(els.ssLR) els.ssLR.textContent = `${metrics.leftHits||0} / ${metrics.rightHits||0}`;
+    if(els.ssSpeed) els.ssSpeed.textContent = `${(metrics.avgPunchSpeed||0).toFixed(2)} avg`;
+    if(els.ssDrop) els.ssDrop.textContent = `${(metrics.fatigueDrop||0).toFixed(1)}%`;
+    if(els.ssTracking) els.ssTracking.textContent = `${(metrics.poseVisibleRate||0).toFixed(0)}%`;
+  }
+
 
   function logEvent(action,extra={}){
     S.events.push({tsIso:new Date().toISOString(),pid:S.pid,diff:S.diff,timeSec:S.timeSec,mode:S.mode,action,score:Math.round(S.score),combo:S.combo,flowCombo:S.flowCombo||0,accPct:accPct().toFixed(2),bodyPunches:S.bodyPunches,spam:S.spam,...extra});
@@ -1229,7 +1563,7 @@
 
   function reset(){
     S.running=false; S.t0=0; S.tEnd=0; S.lastBeat=-1; S.notes=[]; S.nextId=1;
-    S.score=0;S.combo=0;S.maxCombo=0;S.flowCombo=0;S.maxFlowCombo=0;S.comboBreaks=0;S.shots=0;S.hits=0;S.perfect=0;S.great=0;S.good=0;S.miss=0;S.blank=0;S.spam=0;S.bodyPunches=0;
+    S.score=0;S.combo=0;S.maxCombo=0;S.flowCombo=0;S.maxFlowCombo=0;S.comboBreaks=0;S.shots=0;S.hits=0;S.perfect=0;S.great=0;S.good=0;S.miss=0;S.blank=0;S.spam=0;S.bodyPunches=0;S.leftAttempts=0;S.rightAttempts=0;S.leftHits=0;S.rightHits=0;S.leftMisses=0;S.rightMisses=0;S.earlyHits=0;S.lateHits=0;S.onTimeHits=0;S.speedSamples=[];S.extensionSamples=[];S.hitRecords=[];S.poseFrames=0;S.poseVisibleFrames=0;S.trackingLostCount=0;S.lastPoseVisible=false;
     S.fever=0;S.feverOn=false;S.phase='warmup';S.events=[];S.offsets=[];S.lastLaneTap=[0,0,0,0,0];S.missStreak=0;S.bodyAttempts=0;S.bodyNoise=0;S.missStreak=0;
     S.boss={active:false,hp:(S.diff==='easy'?8:S.diff==='hard'?22:14),hpMax:(S.diff==='easy'?8:S.diff==='hard'?22:14),clear:false,window:false,lastWindow:0};
     laneEls().forEach(l=>Array.from(l.querySelectorAll('.note')).forEach(n=>n.remove()));
@@ -1303,7 +1637,11 @@
     else notes.push('ควรเริ่มจาก Easy และลดความเร็ว เพื่อฝึก timing ก่อน');
     if(S.spam>=8 || (S.bodyNoise||0)>=10) notes.push('พบสัญญาณหมัดถี่/สัญญาณรบกวนจากกล้อง ควรย้ำให้ตั้ง guard แล้วชกเป็นจังหวะ ไม่แกว่งมือตลอดเวลา');
     if(S.miss>=20) notes.push('พลาดค่อนข้างบ่อย ควรพัก 30–60 วินาที หรือลดเวลาเล่น');
+    const sm = sportMetrics();
     if((S.maxFlowCombo||0) > S.maxCombo) notes.push('รายงานแยก Max Combo แบบ strict และ Flow Combo แบบมี grace เพื่อความยุติธรรมของ Body Tracking');
+    if(sm.balanceIndex > .25) notes.push('สมดุลซ้าย–ขวายังเอนข้าง ควรฝึกใช้แขนทั้งสองข้างให้ใกล้เคียงกัน');
+    if(sm.fatigueDrop > 15) notes.push('ครึ่งหลัง performance ลดลงชัดเจน อาจมีสัญญาณล้าหรือสมาธิลดลง');
+    if(sm.poseVisibleRate < 70) notes.push('คุณภาพการจับท่าทางต่ำ ควรปรับแสงหรือระยะกล้องก่อนใช้วิเคราะห์เชิงวิทย์กีฬา');
     return notes.join(' · ');
   }
 
@@ -1327,19 +1665,20 @@
     els.resBody.textContent=payload.bodyPunches;
     els.resMiss.textContent=payload.miss;
     els.resBoss.textContent=S.boss.clear?'Boss Clear':'—';
+    updateSportPanel(payload);
     els.quality.innerHTML =
       'ข้อเสนอแนะครู: ' + payload.teacherRecommendation +
       ' | Body signals: ' + (payload.bodyAttempts||0) +
       ' | Valid punches: ' + (payload.bodyPunches||0) +
       ' | Missed notes: ' + (payload.miss||0) +
       ' | Ignored noise: ' + (payload.bodyNoise||0) +
-      '<div class="metric-note">รายงานนี้แยกชัดเจน: <b>Max Combo</b> = combo แบบ strict ที่ตัดเมื่อ miss ทุกครั้ง, <b>Flow Combo</b> = combo แบบมี grace เพื่อแรงจูงใจในห้องเรียน, <b>Rank</b> ใช้ Accuracy + Stars + Boss/Combo เพื่อไม่ให้ 3 ดาวตกเกรดเกินจริง, <b>Accuracy</b> = Valid Punches ÷ (Valid Punches + Missed Notes)</div>' +
+      '<div class="metric-note">รายงานนี้แยกชัดเจน: <b>Max Combo</b> = combo แบบ strict ที่ตัดเมื่อ miss ทุกครั้ง, <b>Flow Combo</b> = combo แบบมี grace เพื่อแรงจูงใจในห้องเรียน, <b>Rank</b> ใช้ Accuracy + Stars + Boss/Combo เพื่อไม่ให้ 3 ดาวตกเกรดเกินจริง, <b>Accuracy</b> = Valid Punches ÷ (Valid Punches + Missed Notes), <b>SSI</b> = Rhythm Coordination + Movement Quality + Bilateral Balance + Fatigue Resistance + Tracking Quality</div>' +
       '<div class="pb-card ' + (payload.newBest ? 'new' : '') + '">' +
       (payload.newBest ? '🏆 New Best Score! ' : '🎯 Best Score: ') +
       Math.round(getBestScore()) +
       ' | XP: ' + Math.round(payload.xp||0) +
       ' | Power Notes: ' + (payload.powerHits||0) +
-      ' | Boss Hits: ' + (payload.bossHits||0) +
+      ' | Boss Hits: ' + (payload.bossHits||0) + ' | SSI: ' + Math.round(payload.sportScienceIndex||0) +
       '</div>';
     logEvent('end',{reason,rank,stars});
     if(qbool('arAutoStop',true)) stopCamera();
@@ -1347,12 +1686,16 @@
   }
 
   function sessionPayload(reason,stars,rank){
+    const sm = sportMetrics();
+    const sm = sportMetrics();
     return {
-      tsIso:new Date().toISOString(), pid:S.pid, diff:S.diff, timeSec:S.timeSec, mode:S.mode, version:RB_VERSION, gameId:RB_GAME_ID, section:qs('section',qs('sec','')), group:qs('group',''),
+      tsIso:new Date().toISOString(), pid:S.pid, diff:S.diff, timeSec:S.timeSec, mode:S.mode, version:RB_VERSION, gameId:RB_GAME_ID, section:qs('section',qs('sec','')), group:qs('group',''), version:RB_VERSION, gameId:RB_GAME_ID, section:qs('section',qs('sec','')), group:qs('group',''),
       reason, score:Math.round(S.score), rank, stars, maxCombo:S.maxCombo, maxFlowCombo:S.maxFlowCombo||0, comboBreaks:S.comboBreaks||0, shots:S.shots, hits:S.hits,
       accPct:accPct().toFixed(2), perfect:S.perfect, great:S.great, good:S.good, miss:S.miss,
       blank:S.blank, spam:S.spam, bodyPunches:S.bodyPunches, bodyAttempts:S.bodyAttempts||0, bodyNoise:S.bodyNoise||0, bossClear:S.boss.clear?1:0,
       xp:Math.round(S.xp||0), challengeLevel:S.level||1, powerHits:S.powerHits||0, bossHits:S.bossHits||0, bestScore:getBestScore(),
+      ...sm,
+      ...sm,
       teacherRecommendation:teacherRec(), pageUrl:location.href, hubUrl:rbHubUrl()
     };
   }
@@ -1438,11 +1781,12 @@
     if(c.width!==Math.round(rect.width) || c.height!==Math.round(rect.height)){c.width=Math.round(rect.width);c.height=Math.round(rect.height)}
     const ctx=c.getContext('2d'); ctx.clearRect(0,0,c.width,c.height);
 
-    if(!lms || lms.length<17){S.body.visible=false;return}
+    S.poseFrames=(S.poseFrames||0)+1;
+    if(!lms || lms.length<17){ if(S.lastPoseVisible) S.trackingLostCount=(S.trackingLostCount||0)+1; S.lastPoseVisible=false; S.body.visible=false; return; }
 
     const ls=pt(lms[11]), rs=pt(lms[12]), le=pt(lms[13]), re=pt(lms[14]), lw=pt(lms[15]), rw=pt(lms[16]);
     const visible = [ls,rs,le,re,lw,rw].filter(p=>p.v>.42).length >= 4;
-    S.body.visible=visible; if(visible) S.body.lastSeen=nowMs();
+    S.body.visible=visible; if(visible){ S.body.lastSeen=nowMs(); S.poseVisibleFrames=(S.poseVisibleFrames||0)+1; } if(S.lastPoseVisible && !visible) S.trackingLostCount=(S.trackingLostCount||0)+1; S.lastPoseVisible=visible;
 
     drawSkeleton(ctx,c,{ls,rs,le,re,lw,rw},visible);
     if(S.mode==='body' && S.running && visible){
@@ -1483,6 +1827,8 @@
       speed=dist(wrist,last)/dt;
     }
     S.body.last[side]={x:wrist.x,y:wrist.y,t:now};
+    if(!S.body.lastMetric) S.body.lastMetric={};
+    S.body.lastMetric[side]={speed,ext,t:now};
 
     // Re-arm when hand returns near guard or drops slightly.
     if(ext < .82 || wrist.y > shoulder.y + .32) S.body.armed[side]=true;
