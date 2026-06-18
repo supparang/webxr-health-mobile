@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#dff7ff" />
   <meta name="color-scheme" content="light" />
-  <title>Fitness AR • Balance Hold</title>
+  <title>Fitness AR • Balance Hold v6</title>
   <style>
     :root{
       --safe-top:env(safe-area-inset-top,0px);
@@ -251,6 +251,43 @@
     .meter{ height:8px; border-radius:999px; background:rgba(203,213,225,.55); overflow:hidden; margin-top:7px; }
     .meter>i{ display:block; height:100%; width:0%; border-radius:inherit; background:linear-gradient(90deg,var(--cyan),var(--mint),var(--lime)); transition:width .08s linear; }
 
+    .missionStrip{
+      position:absolute; z-index:17; left:50%; top:88px; transform:translateX(-50%);
+      width:min(760px,calc(100% - 24px)); display:flex; gap:8px; justify-content:center; flex-wrap:wrap;
+      pointer-events:none;
+    }
+    .missionChip{
+      border-radius:999px; padding:7px 10px;
+      background:rgba(255,255,255,.78); border:2px solid rgba(125,211,252,.32);
+      box-shadow:0 10px 22px rgba(14,165,233,.10);
+      font-weight:1000; font-size:12px; color:#075985;
+      backdrop-filter:blur(10px);
+    }
+    .missionChip.done{ background:linear-gradient(135deg,rgba(220,252,231,.94),rgba(236,253,245,.88)); color:#047857; border-color:rgba(52,211,153,.42); }
+    .feverHud{
+      position:absolute; z-index:18; left:14px; bottom:94px;
+      width:min(260px,calc(100% - 28px)); border-radius:999px; padding:8px 10px;
+      background:rgba(255,255,255,.82); border:2px solid rgba(253,224,71,.48);
+      box-shadow:0 14px 30px rgba(234,179,8,.14); display:grid; gap:5px;
+      pointer-events:none; backdrop-filter:blur(10px);
+    }
+    .feverTop{ display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; font-weight:1000; color:#854d0e; }
+    .feverMeter{ height:9px; border-radius:999px; background:rgba(203,213,225,.56); overflow:hidden; }
+    .feverMeter>i{ display:block; height:100%; width:0%; border-radius:inherit; background:linear-gradient(90deg,#fde047,#fb923c,#fb7185); transition:width .08s linear; }
+    .arena.focusFever .cursor{ box-shadow:0 14px 30px rgba(251,146,60,.34), 0 0 0 16px rgba(253,224,71,.18), 0 0 34px rgba(251,146,60,.45); }
+    .arena.focusFever .target.in{ box-shadow:0 0 0 18px rgba(253,224,71,.18), inset 0 0 30px rgba(255,255,255,.98), 0 22px 44px rgba(251,146,60,.24); }
+    .spark{
+      position:absolute; z-index:16; pointer-events:none; font-size:20px; font-weight:1000;
+      animation:sparkle .8s ease-out forwards; filter:drop-shadow(0 8px 12px rgba(255,255,255,.85));
+    }
+    @keyframes sparkle{ from{ transform:translate(-50%,-50%) scale(.75); opacity:0; } 25%{ opacity:1; } to{ transform:translate(calc(-50% + var(--sx,0px)), calc(-50% + var(--sy,-54px))) scale(1.16); opacity:0; } }
+    .challengeBanner{
+      margin-top:12px; border-radius:22px; padding:12px;
+      background:linear-gradient(135deg,rgba(255,251,235,.92),rgba(236,253,245,.86));
+      border:2px solid rgba(253,224,71,.42); font-weight:1000; color:#334155;
+    }
+
+
     .coach{
       position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
       z-index:18; width:min(760px,calc(100% - 24px));
@@ -355,6 +392,9 @@
       .hudCard:nth-child(4),.hudCard:nth-child(5){ display:none; }
       .headGuide{ top:72px; right:8px; min-width:156px; font-size:11px; padding:7px 9px; }
       .hudCard{ padding:8px; border-radius:16px; }
+      .missionStrip{ top:74px; width:calc(100% - 16px); justify-content:flex-start; overflow:hidden; flex-wrap:nowrap; }
+      .missionChip{ font-size:10px; padding:6px 8px; white-space:nowrap; }
+      .feverHud{ left:8px; bottom:92px; width:min(220px,calc(100% - 16px)); }
       .hudCard .v{ font-size:16px; }
       .coach{ bottom:8px; width:calc(100% - 16px); grid-template-columns:auto 1fr; padding:10px; }
       .coachBadge{ display:none; }
@@ -413,6 +453,12 @@
           <div class="hudCard"><span class="k">STABILITY</span><span class="v" id="hudStable">100%</span><div class="meter"><i id="stableBar"></i></div></div>
         </div>
 
+        <div class="missionStrip" id="missionStrip" aria-live="polite"></div>
+        <div class="feverHud" id="feverHud">
+          <div class="feverTop"><span>🔥 Focus Fever</span><b id="feverLabel">0%</b></div>
+          <div class="feverMeter"><i id="feverBar"></i></div>
+        </div>
+
         <div class="target" id="target">
           <div class="targetLabel" id="targetLabel">Center Hold</div>
           <div class="targetCore" id="targetCore"></div>
@@ -451,6 +497,7 @@
             <div class="tip">🧠 โหมดนี้ตั้งค่าเริ่มต้นเป็น Head: ขยับศีรษะนิดเดียว แล้วค้างให้นิ่ง</div>
             <div class="tip">🖥️ PC ค่าเริ่มต้นใช้เมาส์ / ลูกศร / WASD ไม่ใช้ Tilt</div>
             <div class="tip">🧘 ยืนสองเท้า ย่อเข่าเล็กน้อย ไม่ต้องยืนขาเดียว</div>
+            <div class="tip">🔥 มี Focus Fever / ภารกิจ / Personal Best เพื่อเล่นซ้ำ</div>
           </div>
 
           <div class="formGrid">
@@ -488,7 +535,7 @@
   (() => {
     'use strict';
 
-    const VERSION = '20260618-BALANCE-HOLD-AR-V5-HEAD-SCORE-SAFE';
+    const VERSION = '20260618-BALANCE-HOLD-AR-V6-FUN-REPLAY';
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -506,6 +553,7 @@
       cursor:$('cursor'), ghost:$('ghost'), fxText:$('fxText'), headGuide:$('headGuide'), headStatus:$('headStatus'),
       hudTime:$('hudTime'), hudScore:$('hudScore'), hudHold:$('hudHold'), hudPost:$('hudPost'), hudStable:$('hudStable'),
       timeBar:$('timeBar'), scoreBar:$('scoreBar'), holdBar:$('holdBar'), postBar:$('postBar'), stableBar:$('stableBar'),
+      missionStrip:$('missionStrip'), feverHud:$('feverHud'), feverBar:$('feverBar'), feverLabel:$('feverLabel'),
       coachLine:$('coachLine'), coachAvatar:$('coachAvatar'), coachBadge:$('coachBadge'),
       inputModePill:$('inputModePill'), safetyPill:$('safetyPill'),
       startOverlay:$('startOverlay'), resultOverlay:$('resultOverlay'), countdown:$('countdown'), toast:$('toast'),
@@ -535,6 +583,7 @@
       phase:'setup', paused:false, startedAt:0, lastTs:0, timeLimit:60, timeLeft:60,
       score:0, combo:0, bestCombo:0, stars:0, hits:0, misses:0,
       stability:100, totalInMs:0, totalOutMs:0, outCount:0,
+      fever:0, feverActive:false, feverUntil:0, feverCount:0, cleanPosts:0, nearSave:0,
       postIndex:0, holdMs:0, posts:[], postMetrics:[], events:[],
       pointer:{ active:false, id:null, x:0, y:0 },
       keys:{},
@@ -596,6 +645,60 @@
       void el.fxText.offsetWidth;
       el.fxText.classList.add('show');
     }
+
+    function spawnSpark(msg='✨', x=state.cursor.x, y=state.cursor.y){
+      const s = document.createElement('div');
+      s.className = 'spark';
+      s.textContent = msg;
+      s.style.left = x + 'px';
+      s.style.top = y + 'px';
+      s.style.setProperty('--sx', ((Math.random()-.5)*90).toFixed(0)+'px');
+      s.style.setProperty('--sy', (-34-Math.random()*56).toFixed(0)+'px');
+      el.arena.appendChild(s);
+      setTimeout(()=>s.remove(), 850);
+    }
+
+    function updateMissions(){
+      const total = state.posts.length || 1;
+      const m1 = state.postMetrics.some(p => p.stars >= 3);
+      const m2 = state.cleanPosts >= 2;
+      const m3 = state.feverCount >= 1;
+      const m4 = state.postMetrics.length >= Math.min(3,total);
+      const list = [
+        { done:m1, text:'3⭐ ฐานหนึ่ง' },
+        { done:m2, text:'Clean x2' },
+        { done:m3, text:'Fever x1' },
+        { done:m4, text:`ผ่าน ${Math.min(3,total)} ฐาน` }
+      ];
+      el.missionStrip.innerHTML = list.map(x => `<span class="missionChip ${x.done?'done':''}">${x.done?'✅':'⬜'} ${x.text}</span>`).join('');
+      return list.filter(x=>x.done).length;
+    }
+
+    function addFever(amount){
+      state.fever = clamp(state.fever + amount, 0, 100);
+      if (!state.feverActive && state.fever >= 100) activateFever();
+    }
+
+    function activateFever(){
+      state.feverActive = true;
+      state.feverUntil = now() + 6500;
+      state.fever = 100;
+      state.feverCount += 1;
+      setFx('🔥 FOCUS FEVER!');
+      setCoach('Focus Fever! เป้าให้อภัยมากขึ้นนิดหนึ่ง ค้างให้นิ่งเพื่อเก็บคะแนนโบนัส', '🔥', 'FEVER');
+      logEvent('focus_fever', { feverCount:state.feverCount });
+    }
+
+    function bestKey(){ return `fitness_balance_hold_best_${state.ctx.diff}_${state.timeLimit}_${state.inputMode || 'head'}`; }
+
+    function nextChallenge(summary){
+      if (summary.focusScore >= 82 && summary.diff === 'easy') return 'ปลดล็อกโจทย์ถัดไป: เล่น Normal 60 วินาที ด้วย Head Balance';
+      if (summary.focusScore >= 82 && summary.diff === 'normal') return 'โจทย์ถัดไป: Normal 75 วินาที หรือ Hard 45 วินาที เพื่อฝึก Final Boss';
+      if (summary.focusScore >= 82 && summary.diff === 'hard') return 'โจทย์ถัดไป: Hard 75–90 วินาที พยายามทำ Clean x2 + Fever x1';
+      if (summary.accPct < 65) return 'โจทย์ถัดไป: Easy 45 วินาที ฝึก Center/Left/Right ให้ Quality เกิน 70%';
+      return 'โจทย์ถัดไป: เล่นซ้ำเวลาเดิม แต่ตั้งเป้าเพิ่ม Valid Hold Ratio อีก 10%';
+    }
+
     function logEvent(kind, extra={}){
       if (!state.ctx.run.includes('research') && !el.researchMode.checked && kind === 'sample') return;
       state.events.push({
@@ -960,6 +1063,7 @@
       state.ctx.run = el.researchMode.checked ? 'research' : (q('run','play'));
       state.score = 0; state.combo = 0; state.bestCombo = 0; state.stars = 0; state.hits = 0; state.misses = 0;
       state.stability = 100; state.totalInMs = 0; state.totalOutMs = 0; state.outCount = 0;
+      state.fever = 0; state.feverActive = false; state.feverUntil = 0; state.feverCount = 0; state.cleanPosts = 0; state.nearSave = 0;
       state.postIndex = 0; state.holdMs = 0; state.posts = makePosts(); state.postMetrics = []; state.events = [];
       state.cursor = { x:c.x, y:c.y, vx:0, vy:0 };
       state.pointer.x = c.x; state.pointer.y = c.y;
@@ -1105,11 +1209,15 @@
       m.avgDist += d; m.samples++;
 
       if (inZone) {
-        state.holdMs += dt;
+        const feverBonus = state.feverActive ? 1.18 : 1;
+        state.holdMs += dt * feverBonus;
         m.inMs += dt; state.totalInMs += dt;
         m.wasInZone = true;
         state.cursor.in = true;
+        addFever(dt * (state.feverActive ? 0 : .018));
+        if (state.holdMs > 650 && !m.firstSpark) { m.firstSpark = true; spawnSpark('✨'); }
         if (state.holdMs > 850 && !m.goodShown) { m.goodShown = true; setFx('Good Hold!'); setCoach('นิ่งมาก ค้างต่ออีกนิดเดียว', '😄', 'Good'); }
+        if (state.holdMs > post.holdMs*.68 && !m.comboCue) { m.comboCue = true; setCoach('ใกล้สำเร็จแล้ว หายใจช้า ๆ อย่ารีบขยับ', '🌟', 'Almost'); }
       } else {
         // นับ Out เฉพาะจังหวะที่หลุดออกจากวงจริง ๆ ไม่ใช่นับทุก frame
         // เพื่อไม่ให้คะแนนติดลบหนัก ทั้งที่ผู้เล่นกำลังพยายามกู้สมดุลกลับมา
@@ -1120,13 +1228,23 @@
           m.wasInZone = false;
           setFx('Recover!');
         }
-        state.holdMs = Math.max(0, state.holdMs - dt * diff.drain);
+        const nearZone = d <= post.radius * 1.22;
+        const drainScale = nearZone ? .48 : 1;
+        state.holdMs = Math.max(0, state.holdMs - dt * diff.drain * drainScale);
         m.outMs += dt; state.totalOutMs += dt;
         state.cursor.in = false;
+        if (nearZone) {
+          state.nearSave += dt;
+          addFever(dt * .004);
+          if (state.nearSave > 1000 && !m.nearCue) { m.nearCue = true; setFx('Near Save!'); setCoach('เกือบเข้าเป้าแล้ว ค่อย ๆ ดึงกลับอีกนิด', '💫', 'Save'); }
+        } else {
+          state.fever = Math.max(0, state.fever - dt*.026);
+        }
         if (Math.random() < .02) setCoach('ค่อย ๆ กลับเข้าเป้า ไม่ต้องรีบเหวี่ยงตัว', '🙂', 'Recover');
       }
+      if (state.feverActive && now() > state.feverUntil) { state.feverActive = false; state.fever = 42; setCoach('Fever จบแล้ว คุมจังหวะต่อให้มั่น', '🧘', 'Focus'); }
       m.maxHoldMs = Math.max(m.maxHoldMs, state.holdMs);
-      state.stability = clamp(100 - (m.outCount*4) - (d/post.radius)*10, 0, 100);
+      state.stability = clamp(100 - (m.outCount*4) - (d/post.radius)*10 + (state.feverActive?8:0), 0, 100);
 
       if (state.holdMs >= post.holdMs) {
         clearPost(post);
@@ -1139,7 +1257,9 @@
       const avg = m.avgDist / Math.max(1,m.samples);
       m.quality = clamp(Math.round(104 - m.outCount*6 - avg*.28), 45, 100);
       m.stars = m.quality >= 88 ? 3 : m.quality >= 74 ? 2 : 1;
-      const rawPostScore = Math.round(180 + m.inMs*.075 + m.stars*120 + state.combo*30 - m.outCount*18);
+      if (m.outCount === 0) state.cleanPosts += 1;
+      const missionBonus = (m.outCount === 0 ? 90 : 0) + (state.feverActive ? 120 : 0);
+      const rawPostScore = Math.round(220 + m.inMs*.080 + m.stars*135 + state.combo*35 + missionBonus - m.outCount*12);
       m.score = Math.max(0, rawPostScore);
       state.postMetrics.push(m);
       state.score = Math.max(0, state.score + m.score);
@@ -1147,6 +1267,7 @@
       state.combo += 1;
       state.bestCombo = Math.max(state.bestCombo, state.combo);
       state.hits += 1;
+      spawnSpark(m.stars >= 3 ? '🌟' : '✨');
       setFx(post.boss ? 'BOSS CLEAR!' : `${m.stars}⭐ CLEAR!`);
       setCoach(post.boss ? 'สุดยอด ผ่าน Final Balance Boss แล้ว!' : `ผ่าน ${post.title} แล้ว ไปฐานต่อไป`, post.boss ? '🏆' : '🤩', `${m.stars}⭐`);
       logEvent('post_clear', { post:post.key, stars:m.stars, quality:m.quality, postScore:m.score, outCount:m.outCount });
@@ -1208,6 +1329,11 @@
       el.postBar.style.width = postPct*100 + '%';
       el.stableBar.style.width = state.stability + '%';
       el.safetyPill.textContent = el.safeMode.checked ? '🧘 Safe: ON' : '⚡ Challenge';
+      const feverPct = state.feverActive ? 100 : state.fever;
+      el.feverBar.style.width = clamp(feverPct,0,100) + '%';
+      el.feverLabel.textContent = state.feverActive ? Math.max(0, Math.ceil((state.feverUntil-now())/1000)) + 's' : Math.round(state.fever) + '%';
+      el.arena.classList.toggle('focusFever', !!state.feverActive);
+      updateMissions();
       if (state.head.enabled && el.useHead.checked) {
         el.headGuide.classList.remove('hidden');
         if (now() - state.head.last > 900) { el.headGuide.classList.add('warn'); el.headGuide.classList.remove('active'); }
@@ -1236,10 +1362,14 @@
       const bestPost = [...state.postMetrics].sort((a,b)=>b.quality-a.quality)[0];
       const hardestPost = [...state.postMetrics].sort((a,b)=>b.outCount-a.outCount)[0];
       const safeScore = Math.max(0, Math.round(state.score));
+      const missionDone = updateMissions();
+      let previousBest = 0;
+      try { previousBest = Number(localStorage.getItem(bestKey()) || 0) || 0; } catch(_){ }
       const summary = {
         version:VERSION, player:state.ctx.player, group:state.ctx.group, pid:state.ctx.pid, studyId:state.ctx.studyId,
         game:'balancehold', mode:'AR', inputMode:state.inputMode, headSupported:state.head.supported ? 'yes' : 'no', headSamples:state.head.samples, diff:state.ctx.diff, duration:state.timeLimit, reason,
-        score:safeScore, scoreFinal:safeScore, stars:state.stars, passedPosts:passed, totalPosts:total,
+        score:safeScore, scoreFinal:safeScore, previousBest, isNewBest:safeScore > previousBest ? 'yes' : 'no', missionDone, feverCount:state.feverCount, cleanPosts:state.cleanPosts,
+        stars:state.stars, passedPosts:passed, totalPosts:total,
         accPct, validHoldRatio:Number(validRatio.toFixed(4)), focusScore, avgQuality,
         rank, grade, comboMax:state.bestCombo, hits:state.hits, misses:state.misses, outCount:state.outCount,
         bestPost:bestPost?.title || '', hardestPost:hardestPost?.title || '',
@@ -1249,6 +1379,7 @@
         childMessage:focusScore >= 78 ? 'เยี่ยมมาก หนูคุมสมดุลได้ดีขึ้นชัดเจน!' : 'ทำได้ดีแล้ว รอบหน้าลองหายใจช้า ๆ แล้วค้างให้นิ่งขึ้นอีกนิด',
         ts:new Date().toISOString(), posts:state.postMetrics
       };
+      summary.nextChallenge = nextChallenge(summary);
       return summary;
     }
 
@@ -1257,7 +1388,10 @@
       state.phase = 'summary';
       logEvent('finish', { reason });
       const summary = calcSummary(reason);
-      try { localStorage.setItem('fitness_balance_hold_last', JSON.stringify(summary)); } catch(_){ }
+      try {
+        localStorage.setItem('fitness_balance_hold_last', JSON.stringify(summary));
+        if (summary.score > (Number(summary.previousBest)||0)) localStorage.setItem(bestKey(), String(summary.score));
+      } catch(_){ }
       renderSummary(summary);
     }
 
@@ -1265,11 +1399,11 @@
     function downloadCSV(summary, detailed=false){
       const rows = [];
       if (!detailed) {
-        const headers = ['ts','player','group','game','mode','inputMode','headSupported','headSamples','diff','duration','reason','score','stars','rank','grade','accPct','focusScore','avgQuality','comboMax','passedPosts','totalPosts','bestPost','hardestPost','teacherSuggestion'];
+        const headers = ['ts','player','group','game','mode','inputMode','headSupported','headSamples','diff','duration','reason','score','previousBest','isNewBest','missionDone','feverCount','cleanPosts','stars','rank','grade','accPct','focusScore','avgQuality','comboMax','passedPosts','totalPosts','bestPost','hardestPost','teacherSuggestion'];
         rows.push(headers.join(','));
         rows.push(headers.map(h => csvEscape(summary[h])).join(','));
       } else {
-        const headers = ['ts','player','group','eventT','kind','post','score','holdMs','stability','x','y','inputMode','headQuality','stars','quality','postScore','outCount'];
+        const headers = ['ts','player','group','eventT','kind','post','score','holdMs','stability','x','y','inputMode','headQuality','feverCount','cleanPosts','stars','quality','postScore','outCount'];
         rows.push(headers.join(','));
         state.events.forEach(e => rows.push(headers.map(h => csvEscape(h==='player'?summary.player:h==='group'?summary.group:h==='eventT'?e.t:e[h])).join(',')));
         summary.posts.forEach(p => rows.push(headers.map(h => csvEscape({ts:summary.ts,player:summary.player,group:summary.group,eventT:'',kind:'post_summary',post:p.key,score:summary.score,holdMs:Math.round(p.inMs),stability:p.quality,stars:p.stars,quality:p.quality,postScore:p.score,outCount:p.outCount}[h])).join(',')));
@@ -1304,6 +1438,7 @@
     function renderSummary(summary){
       const starText = '⭐'.repeat(clamp(Math.round(summary.stars / Math.max(1, summary.totalPosts)),0,3)) + '☆'.repeat(3-clamp(Math.round(summary.stars / Math.max(1, summary.totalPosts)),0,3));
       const rows = summary.posts.map(p => `<div class="postRow"><div>${p.id}. ${p.title}<small>Quality ${p.quality}% • Out ${p.outCount}</small></div><div>${p.stars}⭐</div><div>${p.score}</div></div>`).join('') || '<div class="postRow"><div>ยังไม่ผ่านฐาน</div><div>0⭐</div><div>0</div></div>';
+      const bestLine = summary.isNewBest === 'yes' ? '🏅 New Personal Best!' : `PB เดิม ${summary.previousBest || 0}`;
       el.resultOverlay.innerHTML = `
         <section class="modal" role="dialog" aria-modal="true" aria-label="Balance Hold Summary">
           <div class="modalHead">
@@ -1326,6 +1461,8 @@
               <div class="postRow"><div>ผ่านฐาน</div><div>${summary.passedPosts}/${summary.totalPosts}</div><div>${summary.reason}</div></div>
               <div class="postRow"><div>Valid Hold Ratio</div><div>${summary.accPct}%</div><div>Focus ${summary.focusScore}</div></div>
               <div class="postRow"><div>Best Combo</div><div>${summary.comboMax}</div><div>${summary.stars}⭐</div></div>
+              <div class="postRow"><div>ภารกิจสำเร็จ</div><div>${summary.missionDone}/4</div><div>${bestLine}</div></div>
+              <div class="postRow"><div>Focus Fever</div><div>${summary.feverCount} ครั้ง</div><div>Clean ${summary.cleanPosts}</div></div>
               <div class="postRow"><div>ฐานที่ดีที่สุด<small>${summary.bestPost || '-'}</small></div><div></div><div></div></div>
               <div class="postRow"><div>ฐานที่ควรฝึกเพิ่ม<small>${summary.hardestPost || '-'}</small></div><div></div><div></div></div>
             </div>
@@ -1335,12 +1472,13 @@
             <b>ควรฝึกเพิ่ม:</b> ${summary.supportLabel}<br>
             <b>คำแนะนำครู:</b> ${summary.teacherSuggestion}
           </div>
+          <div class="challengeBanner">🎮 ${summary.nextChallenge}</div>
           <div class="resultList" style="margin-top:12px">
             <div class="postRow head"><div>ฐาน</div><div>ดาว</div><div>คะแนน</div></div>
             ${rows}
           </div>
           <div class="actions">
-            <button class="btn primary" id="btnReplay" type="button">🔁 เล่นอีกครั้ง</button>
+            <button class="btn primary" id="btnReplay" type="button">🔁 เล่นอีกครั้ง / ล่า PB</button>
             <button class="btn blue" id="btnCsv" type="button">📄 Export CSV</button>
             <button class="btn orange" id="btnCsvResearch" type="button">🧪 Research CSV</button>
             <button class="btn" id="btnBackHub" type="button">🏠 กลับ Fitness</button>
