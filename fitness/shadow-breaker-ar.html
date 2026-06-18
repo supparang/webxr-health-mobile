@@ -10,7 +10,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V3-READY
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V4-EASY-HIT
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1150,7 +1150,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v3 READY</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v4 EASY HIT</div>
         </div>
 
         <div class="grid2">
@@ -1323,7 +1323,7 @@
         handOff:"ปิด Hand Tracking",
         handFail:"เปิด Hand Tracking ไม่ได้ ใช้คลิก / J K / touch แทนได้",
         handLoading:"กำลังโหลดระบบจับมือ...",
-        handHint:"ยกมือให้อยู่ในกรอบกล้อง แล้วออกหมัดเร็ว ๆ เพื่อชกเป้า",
+        handHint:"โหมดชกง่าย: ยกมือให้เห็นวง L/R แล้วขยับมือให้ชนเป้า ระบบจะนับ HIT ง่ายขึ้น",
         hit:"โดน!",
         perfect:"PERFECT",
         good:"GOOD",
@@ -1400,7 +1400,7 @@
         handOff:"Hand Tracking disabled",
         handFail:"Hand Tracking unavailable. Use click / J K / touch instead.",
         handLoading:"Loading hand tracking...",
-        handHint:"Keep hands in frame, then punch fast to hit targets.",
+        handHint:"Easy punch mode: show L/R cursors, then move your hand into a target to HIT.",
         hit:"Hit!",
         perfect:"PERFECT",
         good:"GOOD",
@@ -1490,7 +1490,7 @@
       sound: true,
       research: true,
       motion: false,
-      handPunchThreshold: 420,
+      handPunchThreshold: 90,
       lastHandHitAt: 0,
       lastMotionHitAt: 0,
       lastAccel: 0
@@ -1684,8 +1684,8 @@
       hands.setOptions({
         maxNumHands: 2,
         modelComplexity: 1,
-        minDetectionConfidence: 0.62,
-        minTrackingConfidence: 0.58
+        minDetectionConfidence: 0.45,
+        minTrackingConfidence: 0.45
       });
       hands.onResults(onHandsResults);
       state.handsEngine = hands;
@@ -1720,7 +1720,7 @@
       if(hands.length > 0 && state.status === "playing"){
         if(!state._lastHandCoach || ts - state._lastHandCoach > 1200){
           state._lastHandCoach = ts;
-          updateCoach("✊", state.lang==="th" ? "เห็นมือแล้ว: ออกหมัดเร็ว ๆ ให้ชนเป้า" : "Hands detected: punch fast into a target", state.lang==="th" ? "ถ้าเห็น L/R ขยับตามมือ แปลว่าพร้อมชกแล้ว" : "If L/R follows your hand, punch is ready");
+          updateCoach("✊", state.lang==="th" ? "เห็นมือแล้ว: ขยับวง L/R ให้ชนเป้าได้เลย" : "Hands detected: move L/R cursor into a target", state.lang==="th" ? "v4 โหมดชกง่าย: ชนเป้าแล้วนับ HIT ง่ายขึ้น" : "v4 easy hit: overlap target to HIT");
         }
       }else if(hands.length === 0 && state.status === "playing"){
         if(!state._lastHandCoach || ts - state._lastHandCoach > 1600){
@@ -1778,7 +1778,7 @@
       el.classList.add("active");
       el.classList.toggle("punching", speed >= state.handPunchThreshold);
       const label = el.querySelector(".handLabel");
-      if(label) label.textContent = `${side === "left" ? "L" : "R"} ${speed >= state.handPunchThreshold ? "PUNCH" : Math.round(speed)}`;
+      if(label) label.textContent = `${side === "left" ? "L" : "R"} ${speed >= state.handPunchThreshold ? "HIT" : Math.round(speed)}`;
     }
 
     function hideHandCursors(){
@@ -1787,27 +1787,49 @@
 
     function handCollisionHit(x, y, speed, side){
       const ts = now();
-      const threshold = state.feverActive ? state.handPunchThreshold * .78 : state.handPunchThreshold;
-      if(speed < threshold) return;
-      if(ts - state.lastHandHitAt < 185) return;
+
+      // v4 EASY HIT:
+      // เป้าหมายคือให้ทดสอบ "มือชกได้จริง" ก่อน จึงลด threshold และขยาย hit radius
+      // หลังจากยืนยันว่าใช้ได้แล้ว ค่อยปรับกลับเป็น Fitness Punch ที่เข้มขึ้นได้
+      const threshold = state.feverActive ? state.handPunchThreshold * .65 : state.handPunchThreshold;
+      if(ts - state.lastHandHitAt < 135) return;
 
       let best = null;
       let bestDist = Infinity;
+      let bestRadius = 0;
+
       state.targets.forEach(target => {
         const dx = target.x - x;
         const dy = target.y - y;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        const radius = Math.max(76, (target.el.offsetWidth || DIFF[state.diffKey].size) * .95);
+        const size = target.el.offsetWidth || DIFF[state.diffKey].size;
+        const radius = Math.max(118, size * 1.35);
+
         if(dist <= radius && dist < bestDist){
           best = target;
           bestDist = dist;
+          bestRadius = radius;
         }
       });
 
-      if(best){
+      if(!best) return;
+
+      // นับเป็น HIT เมื่อมือชนเป้าและมีการเคลื่อนที่เล็กน้อย
+      // หรือเข้าใกล้แกนกลางเป้ามากพอ เพื่อแก้ปัญหากล้อง PC บางตัวคำนวณ speed ต่ำ
+      const closeEnough = bestDist <= bestRadius * .72;
+      const movingEnough = speed >= threshold;
+
+      if(movingEnough || closeEnough){
         state.lastHandHitAt = ts;
-        logEvent("hand_punch", { targetId: best.id, side, speed: Math.round(speed), distance: Math.round(bestDist) });
-        hitTarget(best.id, x, y, `hand-${side}`);
+        logEvent("hand_punch_easy_v4", {
+          targetId: best.id,
+          side,
+          speed: Math.round(speed),
+          distance: Math.round(bestDist),
+          radius: Math.round(bestRadius),
+          closeEnough: closeEnough ? 1 : 0
+        });
+        hitTarget(best.id, x, y, `hand-${side}-easy`);
       }
     }
 
