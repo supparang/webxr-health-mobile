@@ -375,6 +375,10 @@
     .scoreNum{ font-size:58px; font-weight:1000; line-height:1; }
     .stars{ font-size:32px; letter-spacing:2px; margin-top:8px; }
     .rank{ margin-top:10px; font-weight:1000; color:#0f766e; }
+    .medalRack{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:12px; }
+    .medal{ border:1px solid rgba(125,211,252,.74); background:linear-gradient(135deg,#fff,#ecfeff); border-radius:999px; padding:7px 10px; font-size:12px; font-weight:1000; color:#075985; box-shadow:0 8px 18px rgba(14,165,233,.10); }
+    .medal.hot{ border-color:rgba(251,191,36,.75); background:linear-gradient(135deg,#fffbeb,#fff7ed); color:#92400e; }
+    .medal.win{ border-color:rgba(52,211,153,.66); background:linear-gradient(135deg,#ecfdf5,#f0fdfa); color:#047857; }
     .resultList{ display:grid; gap:8px; }
     .postRow{ display:grid; grid-template-columns:1.2fr .7fr .7fr; gap:8px; align-items:center; font-weight:900; }
     .postRow.head{ color:#0369a1; background:#ecfeff; font-weight:1000; }
@@ -497,7 +501,7 @@
             <div class="tip">🧠 โหมดนี้ตั้งค่าเริ่มต้นเป็น Head: ขยับศีรษะนิดเดียว แล้วค้างให้นิ่ง</div>
             <div class="tip">🖥️ PC ค่าเริ่มต้นใช้เมาส์ / ลูกศร / WASD ไม่ใช้ Tilt</div>
             <div class="tip">🧘 ยืนสองเท้า ย่อเข่าเล็กน้อย ไม่ต้องยืนขาเดียว</div>
-            <div class="tip">🔥 มี Focus Fever / ภารกิจ / Personal Best เพื่อเล่นซ้ำ</div>
+            <div class="tip">🔥 มี Focus Fever ที่ติดง่ายขึ้นสำหรับ Head / ภารกิจ / Personal Best เพื่อเล่นซ้ำ</div>
           </div>
 
           <div class="formGrid">
@@ -535,7 +539,7 @@
   (() => {
     'use strict';
 
-    const VERSION = '20260618-BALANCE-HOLD-AR-V6-FUN-REPLAY';
+    const VERSION = '20260618-BALANCE-HOLD-AR-V7-FINAL-POLISH';
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -662,21 +666,26 @@
       const total = state.posts.length || 1;
       const m1 = state.postMetrics.some(p => p.stars >= 3);
       const m2 = state.cleanPosts >= 2;
-      const m3 = state.feverCount >= 1;
+      const m3 = state.feverCount >= 1 || state.fever >= feverThreshold();
       const m4 = state.postMetrics.length >= Math.min(3,total);
       const list = [
         { done:m1, text:'3⭐ ฐานหนึ่ง' },
         { done:m2, text:'Clean x2' },
-        { done:m3, text:'Fever x1' },
+        { done:m3, text:'Fever/Flow x1' },
         { done:m4, text:`ผ่าน ${Math.min(3,total)} ฐาน` }
       ];
       el.missionStrip.innerHTML = list.map(x => `<span class="missionChip ${x.done?'done':''}">${x.done?'✅':'⬜'} ${x.text}</span>`).join('');
       return list.filter(x=>x.done).length;
     }
 
+    function feverThreshold(){
+      // Head control ต้องใช้สมาธิสูงกว่า touch/mouse จึงให้เข้า Fever ง่ายขึ้นเล็กน้อย
+      return state.inputMode === 'head' ? 72 : 84;
+    }
+
     function addFever(amount){
       state.fever = clamp(state.fever + amount, 0, 100);
-      if (!state.feverActive && state.fever >= 100) activateFever();
+      if (!state.feverActive && state.fever >= feverThreshold()) activateFever();
     }
 
     function activateFever(){
@@ -695,6 +704,7 @@
       if (summary.focusScore >= 82 && summary.diff === 'easy') return 'ปลดล็อกโจทย์ถัดไป: เล่น Normal 60 วินาที ด้วย Head Balance';
       if (summary.focusScore >= 82 && summary.diff === 'normal') return 'โจทย์ถัดไป: Normal 75 วินาที หรือ Hard 45 วินาที เพื่อฝึก Final Boss';
       if (summary.focusScore >= 82 && summary.diff === 'hard') return 'โจทย์ถัดไป: Hard 75–90 วินาที พยายามทำ Clean x2 + Fever x1';
+      if (summary.feverCount < 1 && summary.focusScore >= 55) return 'โจทย์ถัดไป: เล่นซ้ำเวลาเดิม ล่า Focus Fever x1 โดยค้างนิ่งต่อเนื่องในเป้า';
       if (summary.accPct < 65) return 'โจทย์ถัดไป: Easy 45 วินาที ฝึก Center/Left/Right ให้ Quality เกิน 70%';
       return 'โจทย์ถัดไป: เล่นซ้ำเวลาเดิม แต่ตั้งเป้าเพิ่ม Valid Hold Ratio อีก 10%';
     }
@@ -1214,7 +1224,7 @@
         m.inMs += dt; state.totalInMs += dt;
         m.wasInZone = true;
         state.cursor.in = true;
-        addFever(dt * (state.feverActive ? 0 : .018));
+        addFever(dt * (state.feverActive ? 0 : (state.inputMode === 'head' ? .034 : .026)));
         if (state.holdMs > 650 && !m.firstSpark) { m.firstSpark = true; spawnSpark('✨'); }
         if (state.holdMs > 850 && !m.goodShown) { m.goodShown = true; setFx('Good Hold!'); setCoach('นิ่งมาก ค้างต่ออีกนิดเดียว', '😄', 'Good'); }
         if (state.holdMs > post.holdMs*.68 && !m.comboCue) { m.comboCue = true; setCoach('ใกล้สำเร็จแล้ว หายใจช้า ๆ อย่ารีบขยับ', '🌟', 'Almost'); }
@@ -1235,10 +1245,10 @@
         state.cursor.in = false;
         if (nearZone) {
           state.nearSave += dt;
-          addFever(dt * .004);
+          addFever(dt * (state.inputMode === 'head' ? .012 : .007));
           if (state.nearSave > 1000 && !m.nearCue) { m.nearCue = true; setFx('Near Save!'); setCoach('เกือบเข้าเป้าแล้ว ค่อย ๆ ดึงกลับอีกนิด', '💫', 'Save'); }
         } else {
-          state.fever = Math.max(0, state.fever - dt*.026);
+          state.fever = Math.max(0, state.fever - dt*(state.inputMode === 'head' ? .010 : .016));
         }
         if (Math.random() < .02) setCoach('ค่อย ๆ กลับเข้าเป้า ไม่ต้องรีบเหวี่ยงตัว', '🙂', 'Recover');
       }
@@ -1259,6 +1269,7 @@
       m.stars = m.quality >= 88 ? 3 : m.quality >= 74 ? 2 : 1;
       if (m.outCount === 0) state.cleanPosts += 1;
       const missionBonus = (m.outCount === 0 ? 90 : 0) + (state.feverActive ? 120 : 0);
+      addFever((m.stars >= 2 ? 14 : 8) + (m.outCount === 0 ? 12 : 0));
       const rawPostScore = Math.round(220 + m.inMs*.080 + m.stars*135 + state.combo*35 + missionBonus - m.outCount*12);
       m.score = Math.max(0, rawPostScore);
       state.postMetrics.push(m);
@@ -1454,6 +1465,12 @@
                 <div class="scoreNum">${summary.score}</div>
                 <div class="stars">${starText}</div>
                 <div class="rank">${summary.rank} • Grade ${summary.grade}</div>
+                <div class="medalRack">
+                  <span class="medal win">${summary.passedPosts}/${summary.totalPosts} ฐาน</span>
+                  <span class="medal hot">🔥 Fever ${summary.feverCount}</span>
+                  <span class="medal">🧼 Clean ${summary.cleanPosts}</span>
+                  <span class="medal">🎯 Focus ${summary.focusScore}</span>
+                </div>
               </div>
             </div>
             <div class="resultList">
