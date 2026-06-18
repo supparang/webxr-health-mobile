@@ -11,7 +11,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-3-RESULT-LOGIC-LOCK
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-4-RESULT-CLARITY-LOCK
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1296,7 +1296,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.3 RESULT LOGIC LOCK</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.4 RESULT CLARITY LOCK</div>
         </div>
 
         <div class="grid2">
@@ -1405,6 +1405,7 @@
           <div class="stat"><span id="statComboLabel">คอมโบสูงสุด</span><b id="statCombo">0</b></div>
           <div class="stat"><span id="statHitLabel">Hit</span><b id="statHit">0</b></div>
           <div class="stat"><span id="statMissLabel">Miss</span><b id="statMiss">0</b></div>
+          <div class="stat"><span id="statBombLabel">Bomb Hit</span><b id="statBomb">0</b></div>
           <div class="stat"><span id="statPerfectLabel">Perfect</span><b id="statPerfect">0</b></div>
           <div class="stat"><span id="statFeverLabel">FEVER</span><b id="statFever">0</b></div>
         </div>
@@ -1505,6 +1506,8 @@
         statCombo:"คอมโบสูงสุด",
         statHit:"Hit",
         statMiss:"Miss",
+        statBomb:"Bomb Hit",
+        statBomb:"โดนระเบิด",
         statPerfect:"Perfect",
         statFever:"FEVER",
         adviceGreat:"ดีมาก เหมาะสำหรับใช้เป็นกิจกรรม Fitness AR สั้น ๆ นักเรียนได้ฝึกทั้งความไว สมาธิ และการควบคุมร่างกาย",
@@ -1714,6 +1717,7 @@
       $("statComboLabel").textContent = t("statCombo");
       $("statHitLabel").textContent = t("statHit");
       $("statMissLabel").textContent = t("statMiss");
+      $("statBombLabel").textContent = t("statBomb");
       $("statPerfectLabel").textContent = t("statPerfect");
       $("statFeverLabel").textContent = t("statFever");
       updateHud();
@@ -2056,7 +2060,7 @@
       const missing = [];
       if(!state.challenge.combo) missing.push(state.lang==="th" ? `Combo ${d.comboGoal || 14}` : `Combo ${d.comboGoal || 14}`);
       if(!state.challenge.rush) missing.push(state.lang==="th" ? `Rush ${d.rushGoal || 3}` : `Rush ${d.rushGoal || 3}`);
-      if(state.metrics.bomb > 0 || !state.challenge.noBomb) missing.push(state.lang==="th" ? "No Bomb" : "No Bomb");
+      if(state.metrics.bomb > 0) missing.push(state.lang==="th" ? "No Bomb" : "No Bomb");
       if(!state.challenge.boss) missing.push(state.lang==="th" ? "Boss 4/4" : "Boss 4/4");
 
       if(missing.length === 0){
@@ -2741,20 +2745,18 @@
     }
 
 
-    function finalizeMissions(){
-      // v7.3: make result missions consistent with actual performance.
-      // If the player never hit a bomb, No Bomb must count as completed.
-      if(state.metrics.bomb === 0 && state.challenge && !state.challenge.noBomb){
-        state.challenge.noBomb = true;
-      }
 
+    function finalizeMissions(){
+      // v7.4: separate Miss and Bomb clearly.
+      // No Bomb passes only when the player did not hit any bomb target.
       const d = DIFF[state.diffKey] || DIFF.normal;
       const comboGoal = d.comboGoal || 14;
       const rushGoal = d.rushGoal || 3;
 
-      if(state.bestCombo >= comboGoal) state.challenge.combo = true;
-      if(state.rushHits >= rushGoal) state.challenge.rush = true;
-      if(state.metrics.clearedBoss >= 4) state.challenge.boss = true;
+      state.challenge.combo = state.bestCombo >= comboGoal;
+      state.challenge.rush = state.rushHits >= rushGoal;
+      state.challenge.noBomb = state.metrics.bomb === 0;
+      state.challenge.boss = state.metrics.clearedBoss >= 4;
 
       state.challenge.badges = [
         state.challenge.combo,
@@ -2785,6 +2787,7 @@
       $("statCombo").textContent = state.bestCombo;
       $("statHit").textContent = state.metrics.hit;
       $("statMiss").textContent = state.metrics.miss;
+      $("statBomb").textContent = state.metrics.bomb;
       $("statPerfect").textContent = state.metrics.perfect;
       $("statFever").textContent = state.feverCount;
 
@@ -2798,8 +2801,8 @@
 
       const hitRate = state.timeLimit ? (state.metrics.hit / state.timeLimit * 60) : 0;
       const missionText = state.lang === "th"
-        ? `มิชชัน ${state.challenge.badges}/4 • Rush ${state.rushHits} • สลับซ้ายขวา ${state.sideSwitches} • Hit rate ${hitRate.toFixed(1)}/min • Best ${Math.max(state.score, oldBest)}`
-        : `Missions ${state.challenge.badges}/4 • Rush ${state.rushHits} • side switches ${state.sideSwitches} • Hit rate ${hitRate.toFixed(1)}/min • Best ${Math.max(state.score, oldBest)}`;
+        ? `มิชชัน ${state.challenge.badges}/4 • Rush ${state.rushHits} • Bomb ${state.metrics.bomb} • สลับซ้ายขวา ${state.sideSwitches} • Hit rate ${hitRate.toFixed(1)}/min • Best ${Math.max(state.score, oldBest)}`
+        : `Missions ${state.challenge.badges}/4 • Rush ${state.rushHits} • Bomb ${state.metrics.bomb} • side switches ${state.sideSwitches} • Hit rate ${hitRate.toFixed(1)}/min • Best ${Math.max(state.score, oldBest)}`;
       const advice = bossClear >= 4 && state.challenge.badges >= 3
         ? (state.lang==="th" ? "ดีมาก ระดับนี้พร้อมใช้เป็นรอบโชว์หรือรอบแข่งขันได้แล้ว" : "Excellent. This is ready for showcase or challenge play.")
         : bossClear >= 2
