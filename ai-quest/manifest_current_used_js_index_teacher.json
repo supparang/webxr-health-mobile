@@ -1,0 +1,292 @@
+{
+  "created": "2026-06-18 01:51:46",
+  "target_path": "/ai-quest/js/",
+  "included_policy": "Current v3.6.0 runtime JS from S6 patch + the v3.6.4 S1 AR files referenced by index.html",
+  "student_index_html_direct_scripts": [
+    "aiquest-ui-mode-v360.js",
+    "aiquest-label-consistency-v360.js",
+    "aiquest-teacher-accuracy-fix-v360.js",
+    "aiquest-submit-accuracy-payload-v360.js",
+    "aiquest-phase1-ready-cleanup-v360.js",
+    "aiquest-phase1-final-polish-v360.js",
+    "aiquest-phase1-final-dedupe-v360.js",
+    "aiquest-remedial-path-v360.js",
+    "aiquest-session-roadmap-v360.js",
+    "aiquest-card-click-native-v360.js",
+    "aiquest-b2-submit-return-fix-v360.js",
+    "aiquest-s1-ar-practice-v364.js",
+    "aiquest-s1-ar-hand-hotfix-v364.js"
+  ],
+  "teacher_html_direct_scripts": [
+    "aiquest-section-lock-v238.js",
+    "aiquest-data-contract-v22.js",
+    "aiquest-label-consistency-v360.js",
+    "aiquest-teacher-accuracy-fix-v360.js",
+    "aiquest-teacher-console-v360.js",
+    "aiquest-student-detail-v360.js",
+    "aiquest-production-v360.js",
+    "aiquest-teacher-only-dashboard-v360.js"
+  ],
+  "included_js_count": 37,
+  "included_files": [
+    {
+      "file": "aiquest-antirepeat-quality-v360.js",
+      "bytes": 7347,
+      "sha256_16": "fd4001183ad73115",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-b2-specific-bank-v360.js",
+      "bytes": 15493,
+      "sha256_16": "8045fb21d03d05e3",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-b2-submit-return-fix-v360.js",
+      "bytes": 3831,
+      "sha256_16": "9367998ee5d7125a",
+      "direct_student": true,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-card-click-native-v360.js",
+      "bytes": 7961,
+      "sha256_16": "144f6ab98fa68a05",
+      "direct_student": true,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-data-contract-v22.js",
+      "bytes": 10301,
+      "sha256_16": "1112a8f6ea5b10df",
+      "direct_student": false,
+      "direct_teacher": true
+    },
+    {
+      "file": "aiquest-deep-antirepeat-v360.js",
+      "bytes": 19917,
+      "sha256_16": "1420fdcae547960f",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-foundation-quality-audit-v360.js",
+      "bytes": 10361,
+      "sha256_16": "643b59401a0b66bf",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-hard-block-repeat-v360.js",
+      "bytes": 22325,
+      "sha256_16": "077a09025a77a0a4",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-label-consistency-v360.js",
+      "bytes": 1278,
+      "sha256_16": "6fa878fed34ba5b1",
+      "direct_student": true,
+      "direct_teacher": true
+    },
+    {
+      "file": "aiquest-max-question-banks-v360.js",
+      "bytes": 14729,
+      "sha256_16": "46917033cbdb0332",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-phase1-final-dedupe-v360.js",
+      "bytes": 4974,
+      "sha256_16": "c4344ff99050ff36",
+      "direct_student": true,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-phase1-final-polish-v360.js",
+      "bytes": 8305,
+      "sha256_16": "07aaf9986b3d8434",
+      "direct_student": true,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-phase1-ready-cleanup-v360.js",
+      "bytes": 7522,
+      "sha256_16": "4a5618093e8822a6",
+      "direct_student": true,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-production-v360.js",
+      "bytes": 13564,
+      "sha256_16": "f31b5e7945209e08",
+      "direct_student": false,
+      "direct_teacher": true
+    },
+    {
+      "file": "aiquest-remedial-path-v360.js",
+      "bytes": 32838,
+      "sha256_16": "7250fa9983e673af",
+      "direct_student": true,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-s1-ar-hand-hotfix-v364.js",
+      "bytes": 9494,
+      "sha256_16": "2fa2dd7faae10ead",
+      "direct_student": true,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-s1-ar-practice-v364.js",
+      "bytes": 21810,
+      "sha256_16": "62f0f2747ffc7718",
+      "direct_student": true,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-section-lock-v238.js",
+      "bytes": 3689,
+      "sha256_16": "7f8845c239bc3fed",
+      "direct_student": false,
+      "direct_teacher": true
+    },
+    {
+      "file": "aiquest-session-roadmap-v360.js",
+      "bytes": 18582,
+      "sha256_16": "09334482d8dfb585",
+      "direct_student": true,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-student-detail-v360.js",
+      "bytes": 24960,
+      "sha256_16": "8757dacf1b307fbd",
+      "direct_student": false,
+      "direct_teacher": true
+    },
+    {
+      "file": "aiquest-submit-accuracy-payload-v360.js",
+      "bytes": 3871,
+      "sha256_16": "97b70924c5e3de72",
+      "direct_student": true,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-teacher-accuracy-fix-v360.js",
+      "bytes": 5571,
+      "sha256_16": "d5f515dc6f1eba93",
+      "direct_student": true,
+      "direct_teacher": true
+    },
+    {
+      "file": "aiquest-teacher-console-v360.js",
+      "bytes": 50161,
+      "sha256_16": "e09ef5382dca5759",
+      "direct_student": false,
+      "direct_teacher": true
+    },
+    {
+      "file": "aiquest-teacher-dashboard-clean-v360.js",
+      "bytes": 7189,
+      "sha256_16": "da407c606299656f",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-teacher-dashboard-safe-restore-v360.js",
+      "bytes": 4923,
+      "sha256_16": "195d308731a0851b",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-teacher-only-dashboard-v360.js",
+      "bytes": 34154,
+      "sha256_16": "8e906ab3d22e9324",
+      "direct_student": false,
+      "direct_teacher": true
+    },
+    {
+      "file": "aiquest-teacher-risk-wording-v360.js",
+      "bytes": 5855,
+      "sha256_16": "d22fc32740808274",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-teacher-role-separation-v360.js",
+      "bytes": 6658,
+      "sha256_16": "e87d0c8f3130ce1a",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "aiquest-ui-mode-v360.js",
+      "bytes": 22091,
+      "sha256_16": "227be6bd63d4bd5a",
+      "direct_student": true,
+      "direct_teacher": false
+    },
+    {
+      "file": "astar5-bank-v360.js",
+      "bytes": 10098,
+      "sha256_16": "008fe3a0ff3dedf0",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "boss1-rookie-bank-v360.js",
+      "bytes": 371220,
+      "sha256_16": "6eb5a9271412f94b",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "boss2-search-arena-bank-v360.js",
+      "bytes": 3731,
+      "sha256_16": "4936683e3f351d7e",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "knowledge6-bank-v360.js",
+      "bytes": 17062,
+      "sha256_16": "db5b89c5cb65c17b",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "mission1-foundation-bank-v360.js",
+      "bytes": 231545,
+      "sha256_16": "407ba1841353464a",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "mission2-agent-bank-v360.js",
+      "bytes": 254573,
+      "sha256_16": "bafa8bc7a12ce90e",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "routecost4-bank-v360.js",
+      "bytes": 11924,
+      "sha256_16": "6f2a4e366e066721",
+      "direct_student": false,
+      "direct_teacher": false
+    },
+    {
+      "file": "search3-maze-bank-v360.js",
+      "bytes": 31900,
+      "sha256_16": "4416d0578d8f47c4",
+      "direct_student": false,
+      "direct_teacher": false
+    }
+  ]
+}
