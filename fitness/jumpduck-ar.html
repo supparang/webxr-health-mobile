@@ -550,6 +550,7 @@
     let isCalibrating = false;
     let gameLoopId = 0;
     let gameTimer = null;
+    let hasEnded = false;
     let lastSpawnAt = 0;
 
     let score = 0;
@@ -1092,9 +1093,12 @@
       updateHUD();
       gameTimer = setInterval(()=>{
         if(!isPlaying || isCalibrating) return;
-        timeLeft -= 1;
+        timeLeft = Math.max(0, timeLeft - 1);
         updateHUD();
-        if(timeLeft <= 0) endGame('timeup');
+        if(timeLeft <= 0){
+          clearInterval(gameTimer);
+          endGame('timeup');
+        }
       }, 1000);
     }
 
@@ -1125,6 +1129,7 @@
       lastSpawnAt = 0;
       lowPoseStartedAt = 0;
       currentSummaryPayload = null;
+      hasEnded = false;
       poseQualitySamples = [];
       poseLostCount = 0;
       cameraWarningCount = 0;
@@ -1169,7 +1174,7 @@
       const firstAvg = half ? mean(responseTimes.slice(0, half)) : 0;
       const secondList = responseTimes.slice(half);
       const secondAvg = secondList.length ? mean(secondList) : 0;
-      const fatigueDelta = metrics.fatigueDelta;
+      const fatigueDelta = (responseTimes.length >= 2 && Number.isFinite(firstAvg) && Number.isFinite(secondAvg)) ? (secondAvg - firstAvg) : 0;
       const sideMoves = actionCounts.left + actionCounts.right;
       const verticalMoves = actionCounts.jump + actionCounts.duck;
       const movementBalance = sideMoves === 0 ? 'ยังไม่ได้ทดสอบซ้าย/ขวา' : `แนวตั้ง ${verticalMoves} • ซ้าย/ขวา ${sideMoves}`;
@@ -1190,7 +1195,7 @@
       return {
         timestamp: new Date().toISOString(),
         game: 'jumpduck-dash-ar',
-        version: 'v10-auto-sheet-linked',
+        version: 'v11-timeup-sheet-fix',
         sessionId: meta.sessionId,
         roundId: 'JD-' + Date.now().toString(36),
         classId: meta.classId,
@@ -1260,6 +1265,8 @@
     }
 
     function endGame(endReason='timeup'){
+      if(hasEnded) return;
+      hasEnded = true;
       isPlaying = false;
       isCalibrating = false;
       clearInterval(gameTimer);
@@ -1321,7 +1328,7 @@
       const header = ['timestamp','version','diff','duration','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss'];
       const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
       const avg = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length).toFixed(3) : '0.000';
-      const row = [new Date().toISOString(), 'v9-compact-summary', selectedDiff, selectedTime, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
+      const row = [new Date().toISOString(), 'v11-timeup-sheet-fix', selectedDiff, selectedTime, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
       const csv = header.join(',') + '\n' + row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n';
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const url = URL.createObjectURL(blob);
