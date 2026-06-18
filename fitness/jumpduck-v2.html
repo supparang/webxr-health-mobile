@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>JumpDuck Dash • AR Fitness Movement Challenge v2 ScoreFix</title>
+  <title>JumpDuck Dash • AR Fitness Movement Challenge v3 Balance</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800;900&display=swap" rel="stylesheet" />
@@ -105,8 +105,8 @@
         <button id="btn-start" class="w-full rounded-3xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-4 text-2xl font-black text-white shadow-xl border-b-4 border-emerald-700 active:scale-95 transition">
           <i class="fa-solid fa-play mr-2"></i> เริ่มด่าน JumpDuck
         </button>
-        <p class="text-xs font-semibold text-emerald-600">พร้อมแล้ว: Camera + BlazePose + ScoreFix Gesture Hold</p>
-        <p class="text-[11px] font-bold text-slate-400">ทดสอบคะแนนได้ด้วยปุ่มลูกศรคีย์บอร์ด หรือแผง TEST/BACKUP ด้านซ้าย</p>
+        <p class="text-xs font-semibold text-emerald-600">พร้อมแล้ว: Camera + BlazePose + Balance v3 + Gesture Hold</p>
+        <p class="text-[11px] font-bold text-slate-400">v3 เพิ่ม Left/Right Mix, Judge Window กว้างขึ้น และทดสอบได้ด้วยปุ่มลูกศรหรือแผง TEST/BACKUP</p>
       </div>
     </div>
   </section>
@@ -327,9 +327,10 @@
     const rankNote = $('rank-note');
 
     const DIFF = {
-      easy:   { label:'Easy',   time:60, spawnMs:2550, speed:4.4, actions:['jump','duck'],                 judgeZone:230, hitDelay:0.55 },
-      normal: { label:'Normal', time:60, spawnMs:2050, speed:5.8, actions:['jump','duck','left','right'],  judgeZone:195, hitDelay:0.45 },
-      hard:   { label:'Hard',   time:60, spawnMs:1600, speed:7.0, actions:['jump','duck','left','right'],  judgeZone:165, hitDelay:0.36 }
+      // v3 Balance: Easy still starts with Jump/Duck, then injects side moves so Left/Right can be tested in class.
+      easy:   { label:'Easy',   time:60, spawnMs:2350, speed:4.2, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:5, sideEvery:7, forceFirstSideAfter:8, judgeZone:250, scoreZoneMultiplier:1.85, missZoneMultiplier:1.35, holdMs:1120, manualHoldMs:1250, gestureDebounceMs:70, minGestureScore:.82, jumpRatio:.030, duckRatio:.046, sideRatio:.044 },
+      normal: { label:'Normal', time:60, spawnMs:1850, speed:5.6, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:2, sideEvery:3, forceFirstSideAfter:4, judgeZone:220, scoreZoneMultiplier:1.72, missZoneMultiplier:1.28, holdMs:1030, manualHoldMs:1180, gestureDebounceMs:75, minGestureScore:.88, jumpRatio:.032, duckRatio:.048, sideRatio:.046 },
+      hard:   { label:'Hard',   time:60, spawnMs:1450, speed:6.8, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:1, sideEvery:2, forceFirstSideAfter:3, judgeZone:188, scoreZoneMultiplier:1.60, missZoneMultiplier:1.22, holdMs:920, manualHoldMs:1050, gestureDebounceMs:82, minGestureScore:.95, jumpRatio:.035, duckRatio:.052, sideRatio:.050 }
     };
 
     const ACTIONS = {
@@ -382,8 +383,14 @@
     // This prevents a correct jump/duck from being lost before the obstacle reaches the judge lane.
     let lastActiveGesture = 'stand';
     let lastActiveGestureAt = 0;
+    let lastActiveGestureHoldMs = 850;
     let manualGesture = 'stand';
     let manualGestureUntil = 0;
+
+    // v3 spawn balancer: prevents long random streaks and guarantees Left/Right appears during tests.
+    let spawnCount = 0;
+    let lastAction = null;
+    let sideToggle = 'left';
 
     function median(nums){
       if(!nums.length) return null;
@@ -476,16 +483,18 @@
         rawGesture = next;
         rawSince = now;
       }
-      if(next === 'stand' || now - rawSince >= 90){
+      const debounceMs = config?.gestureDebounceMs ?? 80;
+      if(next === 'stand' || now - rawSince >= debounceMs){
         currentGesture = next;
       }
     }
 
 
-    function rememberActiveGesture(g, holdMs = 850){
+    function rememberActiveGesture(g, holdMs = (config?.holdMs ?? 1050)){
       if(g && g !== 'stand'){
         lastActiveGesture = g;
         lastActiveGestureAt = Date.now();
+        lastActiveGestureHoldMs = holdMs;
       }
     }
 
@@ -502,7 +511,7 @@
       const now = Date.now();
       if(now < manualGestureUntil && manualGesture !== 'stand') return manualGesture;
       if(currentGesture !== 'stand') return currentGesture;
-      if(lastActiveGesture !== 'stand' && now - lastActiveGestureAt <= 850) return lastActiveGesture;
+      if(lastActiveGesture !== 'stand' && now - lastActiveGestureAt <= lastActiveGestureHoldMs) return lastActiveGesture;
       return 'stand';
     }
 
@@ -540,10 +549,10 @@
         baselineScreenX = m.screenX;
       }
 
-      // Thresholds in source/video units for vertical, canvas units for side movement
-      const jumpTh = webcam.videoHeight * 0.035;
-      const duckTh = webcam.videoHeight * 0.052;
-      const sideTh = gameCanvas.width * 0.065;
+      // v3 Balance thresholds: configured per difficulty so children do not need exaggerated movement.
+      const jumpTh = webcam.videoHeight * (config.jumpRatio ?? .033);
+      const duckTh = webcam.videoHeight * (config.duckRatio ?? .050);
+      const sideTh = gameCanvas.width * (config.sideRatio ?? .047);
 
       const jumpScore = (baselineHipY - m.hipY) / jumpTh;
       const duckScore = (m.hipY - baselineHipY) / duckTh;
@@ -558,9 +567,9 @@
       ].sort((a,b)=>b.v-a.v);
 
       const best = candidates[0];
-      const next = best.v >= 1 ? best.g : 'stand';
+      const next = best.v >= (config.minGestureScore ?? .90) ? best.g : 'stand';
       setGestureCandidate(next);
-      if(currentGesture !== 'stand') rememberActiveGesture(currentGesture);
+      if(currentGesture !== 'stand') rememberActiveGesture(currentGesture, config.holdMs ?? 1050);
       const effective = getEffectiveGesture();
       currentGestureDisplay.textContent = effective === currentGesture ? gestureText(currentGesture) : gestureText(effective) + ' • hold';
 
@@ -640,9 +649,31 @@
       obstacleDistanceText.textContent = 'กำลังมา...';
     }
 
+    function chooseNextAction(){
+      const basePool = config.actions || ['jump','duck'];
+      const sidePool = config.sideActions || [];
+      const sideReady = sidePool.length && spawnCount >= (config.sideStartAfter ?? 999);
+      const needFirstSide = sidePool.length && (actionCounts.left + actionCounts.right) === 0 && spawnCount >= (config.forceFirstSideAfter ?? 999);
+      const scheduledSide = sideReady && (spawnCount + 1) % (config.sideEvery ?? 999) === 0;
+      const useSide = needFirstSide || scheduledSide;
+      let pool = useSide ? sidePool : basePool;
+      let action = pool[Math.floor(Math.random() * pool.length)];
+
+      if(useSide){
+        action = sideToggle;
+        sideToggle = sideToggle === 'left' ? 'right' : 'left';
+      }else if(action === lastAction && pool.length > 1){
+        const alt = pool.filter(x => x !== lastAction);
+        action = alt[Math.floor(Math.random() * alt.length)];
+      }
+
+      lastAction = action;
+      spawnCount += 1;
+      return action;
+    }
+
     function spawnObstacle(){
-      const pool = config.actions;
-      const action = pool[Math.floor(Math.random() * pool.length)];
+      const action = chooseNextAction();
       const a = ACTIONS[action];
       updateMissionCard(action);
       const speedRamp = Math.min(3.2, Math.floor(totalJudged / 7) * .45);
@@ -654,6 +685,7 @@
         w: a.w,
         h: a.h,
         speed: (config.speed + speedRamp) * Math.max(1, gameCanvas.width / 1200),
+        isSideMove: action === 'left' || action === 'right',
         color: a.color,
         label: a.word,
         icon: a.icon,
@@ -760,8 +792,12 @@
       rawGesture = 'stand';
       lastActiveGesture = 'stand';
       lastActiveGestureAt = 0;
+      lastActiveGestureHoldMs = config.holdMs ?? 1050;
       manualGesture = 'stand';
       manualGestureUntil = 0;
+      spawnCount = 0;
+      lastAction = null;
+      sideToggle = 'left';
       lastSpawnAt = 0;
       updateMissionCard('jump');
       updateHUD();
@@ -813,10 +849,10 @@
     }
 
     function exportCSV(){
-      const header = ['timestamp','diff','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss'];
+      const header = ['timestamp','version','diff','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss'];
       const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
       const avg = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length).toFixed(3) : '0.000';
-      const row = [new Date().toISOString(), selectedDiff, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
+      const row = [new Date().toISOString(), 'v3-balance', selectedDiff, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
       const csv = header.join(',') + '\n' + row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n';
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const url = URL.createObjectURL(blob);
@@ -863,6 +899,14 @@
       ctx.beginPath();
       ctx.roundRect(laneX - config.judgeZone, gameCanvas.height*.25, config.judgeZone*2, gameCanvas.height*.54, 28);
       ctx.fill();
+
+      // v3 side guides: helps students understand that Left/Right means moving their body away from center.
+      ctx.globalAlpha = .52;
+      ctx.font = '900 28px Kanit, Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,255,255,.86)';
+      ctx.fillText('⬅️ LEFT', gameCanvas.width*.26, gameCanvas.height*.52);
+      ctx.fillText('RIGHT ➡️', gameCanvas.width*.74, gameCanvas.height*.52);
       ctx.restore();
     }
 
@@ -988,7 +1032,8 @@
           obstacleDistanceText.textContent = progress <= 18 ? 'ถึงจุดตัดสินแล้ว!' : `ใกล้เข้ามา ${Math.round(progress)}%`;
         }
 
-        const scoreZone = zone * 1.55;
+        const sideBonus = obs.isSideMove ? 1.10 : 1.00;
+        const scoreZone = zone * (config.scoreZoneMultiplier ?? 1.70) * sideBonus;
         const inWindow = center >= hitX - scoreZone && center <= hitX + zone;
         if(!obs.judged && inWindow && gestureMatches(obs.action)){
           obs.judged = true;
@@ -1008,7 +1053,7 @@
         }
 
         // Fair miss: judge only after obstacle has passed the center window
-        if(!obs.judged && center < hitX - (zone * 1.15)){
+        if(!obs.judged && center < hitX - (zone * (config.missZoneMultiplier ?? 1.25))){
           obs.judged = true;
           totalJudged++;
           totalMisses++;
@@ -1088,7 +1133,7 @@
       const g = keyToGesture[e.key];
       if(g && isPlaying && !isCalibrating){
         e.preventDefault();
-        setManualGesture(g, 950);
+        setManualGesture(g, config.manualHoldMs ?? 1150);
       }
     });
 
@@ -1097,7 +1142,7 @@
       const fire = (ev)=>{
         if(isPlaying && !isCalibrating){
           ev.preventDefault();
-          setManualGesture(g, 950);
+          setManualGesture(g, config.manualHoldMs ?? 1150);
         }
       };
       btn.addEventListener('pointerdown', fire);
