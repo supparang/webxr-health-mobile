@@ -10,7 +10,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-1-CLASSROOM-BALANCE-POLISH-FUN
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-2-SHOWCASE-LOCK
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1295,7 +1295,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.1 BALANCE POLISH</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.2 SHOWCASE LOCK</div>
         </div>
 
         <div class="grid2">
@@ -1340,6 +1340,16 @@
                   <option value="easy">Easy • ป.5 เริ่มต้น</option>
                   <option value="normal" selected>Normal • ท้าทาย</option>
                   <option value="hard">Hard • เร็วขึ้น</option>
+                </select>
+              </label>
+
+              <label>
+                <span id="lblProgram">โหมดกิจกรรม</span>
+                <select id="programSelect">
+                  <option value="practice">Practice • ฝึกมือ</option>
+                  <option value="classroom" selected>Classroom • ใช้จริง 60s</option>
+                  <option value="challenge">Challenge • แข่งคะแนน</option>
+                  <option value="bossrush">Boss Rush • 90s</option>
                 </select>
               </label>
 
@@ -1444,6 +1454,7 @@
         lang:"ภาษา",
         diff:"ระดับความยาก",
         time:"เวลาเล่น",
+        program:"โหมดกิจกรรม",
         cam:"เปิดกล้อง AR",
         sound:"เสียง FX",
         motion:"Motion punch",
@@ -1499,7 +1510,7 @@
         adviceMid:"มาถูกทางแล้ว รอบต่อไปให้ลดการโดนระเบิดและรักษาคอมโบต่อเนื่องขึ้น",
         adviceLow:"ควรลดความยากหรือเพิ่มเวลาฝึกก่อน เพื่อให้ผู้เล่นคุ้นกับจังหวะและพื้นที่การเคลื่อนไหว",
         exportDone:"ดาวน์โหลด CSV แล้ว",
-        howText:"วิธีเล่น: ยกมือให้เห็นวง L/R แล้วชกเป้า 🥊/🎯 เก็บ ⚡ Rush หลบ 💣 ทำมิชชันให้ครบ 4 อย่าง Normal เหมาะใช้จริงในห้องเรียน"
+        howText:"วิธีเล่น: ยกมือให้เห็นวง L/R แล้วชกเป้า 🥊/🎯 เก็บ ⚡ Rush หลบ 💣 ทำมิชชัน 4 อย่างให้ครบ โหมด Classroom คือค่าพร้อมใช้จริง 60 วินาที"
       },
       en: {
         player:"PLAYER HP",
@@ -1521,6 +1532,7 @@
         lang:"Language",
         diff:"Difficulty",
         time:"Play time",
+        program:"Activity mode",
         cam:"AR camera",
         sound:"Sound FX",
         motion:"Motion punch",
@@ -1576,7 +1588,7 @@
         adviceMid:"Good direction. Next round, avoid bombs and keep a longer combo.",
         adviceLow:"Lower the difficulty or add more practice time so players can learn the rhythm and movement space.",
         exportDone:"CSV downloaded",
-        howText:"How to play: show L/R fist cursors, punch 🥊/🎯 targets, collect ⚡ Rush, avoid 💣, and clear 4 missions. Normal is tuned for classroom play."
+        howText:"How to play: show L/R fist cursors, punch 🥊/🎯 targets, collect ⚡ Rush, avoid 💣, and clear 4 missions. Classroom preset is the 60s ready-to-use setting."
       }
     };
 
@@ -1600,6 +1612,7 @@
       status: "menu",
       playerName: "Hero",
       diffKey: "normal",
+      programKey: "classroom",
       timeLimit: 60,
       startAt: 0,
       pausedAt: 0,
@@ -1647,7 +1660,9 @@
       lastHitLane:"",
       bestScoreKey:"shadowBreakerBestV7",
       lastBossClearAt:0,
-      calibrationDone:false
+      calibrationDone:false,
+      comboMilestone:0,
+      presetApplied:false
     };
 
     const app = $("app");
@@ -1676,6 +1691,7 @@
       $("lblLang").textContent = t("lang");
       $("lblDiff").textContent = t("diff");
       $("lblTime").textContent = t("time");
+      $("lblProgram").textContent = t("program");
       $("lblCamera").textContent = t("cam");
       $("lblSound").textContent = t("sound");
       $("lblMotion").textContent = t("motion");
@@ -2003,8 +2019,69 @@
       }
     }
 
+
+    function applyProgramPreset(source="manual"){
+      const sel = $("programSelect");
+      if(!sel) return;
+      const val = sel.value || "classroom";
+      state.programKey = val;
+
+      const diff = $("diffSelect");
+      const time = $("timeSelect");
+
+      if(val === "practice"){
+        if(diff) diff.value = "easy";
+        if(time) time.value = "45";
+      }else if(val === "classroom"){
+        if(diff) diff.value = "normal";
+        if(time) time.value = "60";
+      }else if(val === "challenge"){
+        if(diff) diff.value = "hard";
+        if(time) time.value = "60";
+      }else if(val === "bossrush"){
+        if(diff) diff.value = "normal";
+        if(time) time.value = "90";
+      }
+
+      state.presetApplied = true;
+      if(source !== "boot"){
+        const label = val === "practice" ? "Practice" : val === "classroom" ? "Classroom" : val === "challenge" ? "Challenge" : "Boss Rush";
+        toast(state.lang === "th" ? `ตั้งค่าโหมด ${label} แล้ว` : `Preset applied: ${label}`, 1300);
+      }
+    }
+
+    function nextReplayGoal(){
+      const d = DIFF[state.diffKey] || DIFF.normal;
+      const missing = [];
+      if(!state.challenge.combo) missing.push(state.lang==="th" ? `Combo ${d.comboGoal || 14}` : `Combo ${d.comboGoal || 14}`);
+      if(!state.challenge.rush) missing.push(state.lang==="th" ? `Rush ${d.rushGoal || 3}` : `Rush ${d.rushGoal || 3}`);
+      if(!state.challenge.noBomb) missing.push(state.lang==="th" ? "No Bomb" : "No Bomb");
+      if(!state.challenge.boss) missing.push(state.lang==="th" ? "Boss 4/4" : "Boss 4/4");
+
+      if(missing.length === 0){
+        return state.lang==="th" ? "เป้าหมายรอบหน้า: ขยับเป็น Hard หรือทำ Best Score ใหม่" : "Next goal: try Hard or set a new best score.";
+      }
+      return state.lang==="th"
+        ? `เป้าหมายรอบหน้า: ${missing.slice(0,2).join(" + ")}`
+        : `Next goal: ${missing.slice(0,2).join(" + ")}`;
+    }
+
+    function checkComboMilestone(){
+      const milestones = [5, 10, 15, 20, 30, 40];
+      for(const m of milestones){
+        if(state.combo >= m && state.comboMilestone < m){
+          state.comboMilestone = m;
+          showRushBanner(state.lang === "th" ? `🔥 COMBO ${m}!` : `🔥 COMBO ${m}!`);
+          logEvent("combo_milestone", { combo:m });
+          if(m >= 20) beep("fever");
+          return;
+        }
+      }
+    }
+
     function configureFromUI(){
       state.playerName = ($("playerName").value || qs.get("name") || "Hero").trim().slice(0,30);
+      state.programKey = $("programSelect")?.value || "classroom";
       state.diffKey = $("diffSelect").value || "normal";
       state.timeLimit = parseInt($("timeSelect").value || "60", 10);
       state.sound = $("soundToggle").checked;
@@ -2142,6 +2219,7 @@
         perfect:0, good:0, okay:0,
         totalRt:0, clearedBoss:0
       };
+      state.comboMilestone = 0;
       state.handPunchThreshold = diff.punch || 60;
       state.lastBossClearAt = 0;
       resetChallenge();
@@ -2689,20 +2767,16 @@
       $("resultSubtitle").textContent = `${rank.label} • ${reasonLabel(reason)}${isNewBest ? " • NEW BEST" : ""}`;
       $("resultMode").textContent = `${DIFF[state.diffKey].label} • ${state.timeLimit}s • ${state.playerName}`;
 
+      const hitRate = state.timeLimit ? (state.metrics.hit / state.timeLimit * 60) : 0;
       const missionText = state.lang === "th"
-        ? `มิชชัน ${state.challenge.badges}/4 • Rush ${state.rushHits} • สลับซ้ายขวา ${state.sideSwitches} • Best ${Math.max(state.score, oldBest)}`
-        : `Missions ${state.challenge.badges}/4 • Rush ${state.rushHits} • side switches ${state.sideSwitches} • Best ${Math.max(state.score, oldBest)}`;
-      const missing = [];
-      if(!state.challenge.combo) missing.push(state.lang==="th" ? "Combo" : "Combo");
-      if(!state.challenge.rush) missing.push("Rush");
-      if(!state.challenge.noBomb) missing.push("No Bomb");
-      if(!state.challenge.boss) missing.push(state.lang==="th" ? "Boss 4/4" : "Boss 4/4");
-      const nextGoal = missing.length ? (state.lang==="th" ? `เป้าหมายรอบหน้า: ${missing[0]}` : `Next goal: ${missing[0]}`) : (state.lang==="th" ? "เป้าหมายรอบหน้า: ลอง Hard หรือทำคะแนนใหม่" : "Next goal: try Hard or beat your score");
+        ? `มิชชัน ${state.challenge.badges}/4 • Rush ${state.rushHits} • สลับซ้ายขวา ${state.sideSwitches} • Hit rate ${hitRate.toFixed(1)}/min • Best ${Math.max(state.score, oldBest)}`
+        : `Missions ${state.challenge.badges}/4 • Rush ${state.rushHits} • side switches ${state.sideSwitches} • Hit rate ${hitRate.toFixed(1)}/min • Best ${Math.max(state.score, oldBest)}`;
       const advice = bossClear >= 4 && state.challenge.badges >= 3
-        ? (state.lang==="th" ? "ดีมาก เล่นซ้ำเพื่อทำ 4/4 Missions หรือแข่ง Best Score ได้เลย" : "Excellent. Replay for 4/4 missions or a new best score.")
+        ? (state.lang==="th" ? "ดีมาก ระดับนี้พร้อมใช้เป็นรอบโชว์หรือรอบแข่งขันได้แล้ว" : "Excellent. This is ready for showcase or challenge play.")
         : bossClear >= 2
-          ? (state.lang==="th" ? "เริ่มเป็นเกมแล้ว รอบต่อไปให้เน้น Rush ⚡ และคุม Bomb 💣" : "Good run. Next, chase Rush ⚡ and control Bomb 💣.")
-          : (state.lang==="th" ? "ลอง Easy เพื่อจับจังหวะมือ แล้วค่อยกลับมา Normal" : "Practice on Easy, then return to Normal.");
+          ? (state.lang==="th" ? "เริ่มเป็นเกมจริงแล้ว รอบต่อไปให้เน้น Rush ⚡ และคุม Bomb 💣 เพื่อปลดมิชชัน" : "Good run. Next, focus on Rush ⚡ and avoid Bomb 💣 to clear missions.")
+          : (state.lang==="th" ? "ลอง Practice เพื่อจับจังหวะมือ แล้วกลับมา Classroom 60s" : "Try Practice to learn rhythm, then return to Classroom 60s.");
+      const nextGoal = nextReplayGoal();
       $("resultAdvice").innerHTML = `${escapeHtml(advice)}<br>${escapeHtml(nextGoal)}<br>${escapeHtml(missionText)}`;
       $("resultOverlay").classList.add("show");
     }
@@ -2761,6 +2835,7 @@
         player:state.playerName,
         diff:state.diffKey,
         timeLimit:state.timeLimit,
+        program:state.programKey,
         endReason:state.endReason,
         score:state.score,
         bossesCleared:state.metrics.clearedBoss,
@@ -2778,6 +2853,9 @@
         missionNoBomb:state.challenge.noBomb ? 1 : 0,
         missionBoss:state.challenge.boss ? 1 : 0,
         sideSwitches:state.sideSwitches,
+        comboMilestone:state.comboMilestone,
+        hitRatePerMin: state.timeLimit ? (state.metrics.hit / state.timeLimit * 60).toFixed(2) : "0.00",
+        scorePerMin: state.timeLimit ? (state.score / state.timeLimit * 60).toFixed(2) : "0.00",
         perfect:state.metrics.perfect,
         good:state.metrics.good,
         okay:state.metrics.okay,
@@ -2808,6 +2886,7 @@
 
     function bind(){
       $("langSelect").addEventListener("change", applyLang);
+      $("programSelect")?.addEventListener("change", () => applyProgramPreset("change"));
       $("btnStart").addEventListener("click", startGame);
       $("btnReplay").addEventListener("click", () => {
         $("resultOverlay").classList.remove("show");
@@ -2876,15 +2955,18 @@
       const name = qs.get("name");
       const diff = qs.get("diff");
       const time = qs.get("time");
+      const program = qs.get("program");
       const lang = qs.get("lang");
       if(name) $("playerName").value = name.slice(0,30);
       if(diff && DIFF[diff]) $("diffSelect").value = diff;
+      if(program && ["practice","classroom","challenge","bossrush"].includes(program)) $("programSelect").value = program;
       if(time && ["45","60","90"].includes(time)) $("timeSelect").value = time;
       if(lang && I18N[lang]) $("langSelect").value = lang;
     }
 
     function boot(){
       hydrateFromQuery();
+      if(!qs.get("diff") && !qs.get("time")) applyProgramPreset("boot");
       configureFromUI();
       bind();
       applyLang();
