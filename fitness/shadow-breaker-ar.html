@@ -1,0 +1,2261 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="color-scheme" content="dark" />
+
+  <title>Fitness AR • Shadow Breaker</title>
+
+  <!--
+    File: /fitness/shadow-breaker.html
+    Version: v20260618-SHADOW-BREAKER-AR-PHASE1
+    Scope:
+      - PC / Mobile AR-style fitness game
+      - Camera background with DOM gameplay overlay
+      - 4 bosses, HP, combo, FEVER, difficulty, time, TH/EN
+      - Teacher / research CSV export
+      - No external JS dependency; safe for GitHub Pages
+  -->
+
+  <style>
+    :root{
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+
+      --bg:#070b18;
+      --panel:rgba(15,23,42,.82);
+      --panel2:rgba(15,23,42,.68);
+      --card:rgba(255,255,255,.09);
+      --card2:rgba(255,255,255,.14);
+      --line:rgba(255,255,255,.18);
+      --line2:rgba(255,255,255,.28);
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --muted2:#94a3b8;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --blue:#38bdf8;
+      --purple:#a78bfa;
+      --pink:#fb7185;
+      --yellow:#facc15;
+      --emerald:#34d399;
+      --shadow:0 18px 55px rgba(0,0,0,.42);
+      --radius:22px;
+      --hud-h:86px;
+    }
+
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}
+    body{touch-action:none;user-select:none}
+
+    button,select,input{
+      font:inherit;
+    }
+
+    button{
+      border:0;
+      color:var(--text);
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+
+    .app{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 16% 12%, rgba(56,189,248,.34), transparent 32%),
+        radial-gradient(circle at 86% 20%, rgba(167,139,250,.32), transparent 30%),
+        radial-gradient(circle at 50% 95%, rgba(34,197,94,.18), transparent 35%),
+        linear-gradient(145deg,#070b18 0%,#111827 45%,#050816 100%);
+    }
+
+    .camera{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      background:
+        linear-gradient(120deg,rgba(8,13,28,.92),rgba(30,41,59,.7)),
+        radial-gradient(circle at center,rgba(56,189,248,.14),transparent 45%);
+    }
+
+    #cameraVideo{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      transform:scaleX(-1);
+      opacity:.7;
+      filter:saturate(1.18) contrast(1.08) brightness(.82);
+      display:none;
+    }
+
+    .camera.fx-on #cameraVideo{display:block}
+
+    .camera-grid{
+      position:absolute;
+      inset:-20%;
+      opacity:.22;
+      background-image:
+        linear-gradient(rgba(148,163,184,.28) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148,163,184,.28) 1px, transparent 1px);
+      background-size:42px 42px;
+      transform:perspective(700px) rotateX(58deg) translateY(18%);
+      transform-origin:center bottom;
+      pointer-events:none;
+    }
+
+    .scanline{
+      position:absolute;
+      inset:0;
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 7px);
+      mix-blend-mode:screen;
+      opacity:.18;
+      pointer-events:none;
+    }
+
+    .vignette{
+      position:absolute;
+      inset:0;
+      box-shadow:inset 0 0 160px rgba(0,0,0,.72);
+      pointer-events:none;
+    }
+
+    .hud{
+      position:absolute;
+      z-index:20;
+      top:calc(var(--safe-top) + 10px);
+      left:calc(var(--safe-left) + 10px);
+      right:calc(var(--safe-right) + 10px);
+      min-height:var(--hud-h);
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:linear-gradient(180deg, rgba(15,23,42,.86), rgba(15,23,42,.58));
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(14px);
+      padding:10px;
+      display:grid;
+      grid-template-columns: 1fr minmax(132px,.7fr) 1fr;
+      gap:10px;
+      align-items:center;
+    }
+
+    .hudBlock{
+      min-width:0;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:18px;
+      background:rgba(255,255,255,.065);
+      padding:9px 10px;
+    }
+
+    .hudTitle{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+
+    .bar{
+      position:relative;
+      height:12px;
+      margin-top:7px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(255,255,255,.13);
+      border:1px solid rgba(255,255,255,.08);
+    }
+
+    .bar>i{
+      position:absolute;
+      inset:0 auto 0 0;
+      width:50%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--good),#86efac);
+      transition:width .18s linear;
+    }
+
+    #bossBar>i{background:linear-gradient(90deg,#fb7185,#f43f5e,#ef4444)}
+    #feverBar>i{background:linear-gradient(90deg,#facc15,#fb7185,#a78bfa)}
+    #playerBar>i.low{background:linear-gradient(90deg,#ef4444,#fb7185)}
+
+    .hudCenter{
+      text-align:center;
+      padding:8px 8px;
+      border:1px solid rgba(255,255,255,.13);
+      border-radius:20px;
+      background:rgba(0,0,0,.22);
+    }
+
+    .time{
+      font-size:30px;
+      line-height:1;
+      font-weight:950;
+      letter-spacing:-.04em;
+      text-shadow:0 3px 16px rgba(0,0,0,.42);
+    }
+
+    .scoreLine{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      margin-top:5px;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      white-space:nowrap;
+    }
+
+    .bossName{
+      font-size:14px;
+      font-weight:950;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      color:#fff;
+    }
+
+    .feverText{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      margin-top:6px;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+    }
+
+    .arena{
+      position:absolute;
+      z-index:10;
+      left:calc(var(--safe-left) + 10px);
+      right:calc(var(--safe-right) + 10px);
+      top:calc(var(--safe-top) + var(--hud-h) + 28px);
+      bottom:calc(var(--safe-bottom) + 96px);
+      min-height:360px;
+      border-radius:30px;
+      border:1px solid rgba(255,255,255,.12);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(56,189,248,.12), transparent 40%),
+        linear-gradient(180deg, rgba(15,23,42,.12), rgba(15,23,42,.34));
+      overflow:hidden;
+      box-shadow:inset 0 0 60px rgba(0,0,0,.24);
+    }
+
+    .arena::before{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:0;
+      bottom:0;
+      width:1px;
+      background:linear-gradient(transparent,rgba(255,255,255,.22),transparent);
+      opacity:.65;
+    }
+
+    .laneLabel{
+      position:absolute;
+      top:12px;
+      font-size:12px;
+      color:rgba(255,255,255,.58);
+      font-weight:950;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      pointer-events:none;
+      z-index:2;
+      text-shadow:0 2px 8px rgba(0,0,0,.5);
+    }
+
+    .laneLabel.left{left:18px}
+    .laneLabel.right{right:18px}
+
+    .centerBoss{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      width:min(28vw,190px);
+      height:min(28vw,190px);
+      min-width:118px;
+      min-height:118px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:
+        radial-gradient(circle at 45% 35%, rgba(255,255,255,.35), transparent 20%),
+        radial-gradient(circle at center, rgba(56,189,248,.28), rgba(15,23,42,.4) 57%, rgba(0,0,0,.62));
+      border:2px solid rgba(255,255,255,.16);
+      box-shadow:0 22px 70px rgba(0,0,0,.38), inset 0 0 30px rgba(255,255,255,.08);
+      pointer-events:none;
+      opacity:.82;
+      transition:filter .18s, transform .18s;
+    }
+
+    .centerBoss.hit{
+      transform:translate(-50%,-50%) scale(1.06);
+      filter:brightness(1.45) saturate(1.35);
+    }
+
+    .bossEmoji{
+      font-size:clamp(58px,10vw,96px);
+      filter:drop-shadow(0 10px 16px rgba(0,0,0,.35));
+    }
+
+    .target{
+      position:absolute;
+      width:96px;
+      height:96px;
+      margin-left:-48px;
+      margin-top:-48px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      z-index:8;
+      cursor:pointer;
+      transform:scale(.2);
+      opacity:0;
+      animation:targetIn .14s cubic-bezier(.2,.9,.2,1) forwards;
+      will-change:transform,opacity,left,top;
+    }
+
+    .target::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:inherit;
+      background:
+        radial-gradient(circle at 35% 25%, rgba(255,255,255,.55), transparent 23%),
+        radial-gradient(circle at center, rgba(56,189,248,.7), rgba(14,165,233,.28) 57%, rgba(2,6,23,.45));
+      border:3px solid rgba(255,255,255,.65);
+      box-shadow:
+        0 0 0 6px rgba(56,189,248,.15),
+        0 12px 28px rgba(0,0,0,.28),
+        inset 0 -10px 16px rgba(0,0,0,.22);
+    }
+
+    .target::after{
+      content:"";
+      position:absolute;
+      inset:-10px;
+      border-radius:inherit;
+      border:2px dashed rgba(255,255,255,.28);
+      animation:ringSpin 1.8s linear infinite;
+    }
+
+    .target .emoji{
+      position:relative;
+      z-index:2;
+      font-size:44px;
+      filter:drop-shadow(0 5px 8px rgba(0,0,0,.32));
+    }
+
+    .target.bomb::before{
+      background:
+        radial-gradient(circle at 35% 25%, rgba(255,255,255,.42), transparent 22%),
+        radial-gradient(circle at center, rgba(239,68,68,.78), rgba(127,29,29,.58) 60%, rgba(2,6,23,.48));
+      box-shadow:
+        0 0 0 6px rgba(239,68,68,.15),
+        0 12px 30px rgba(0,0,0,.3),
+        inset 0 -10px 16px rgba(0,0,0,.25);
+    }
+
+    .target.power::before{
+      background:
+        radial-gradient(circle at 35% 25%, rgba(255,255,255,.55), transparent 22%),
+        radial-gradient(circle at center, rgba(250,204,21,.82), rgba(251,146,60,.55) 60%, rgba(2,6,23,.45));
+      box-shadow:
+        0 0 0 6px rgba(250,204,21,.17),
+        0 12px 30px rgba(0,0,0,.3),
+        inset 0 -10px 16px rgba(0,0,0,.18);
+    }
+
+    .target.left::before{border-color:rgba(125,211,252,.88)}
+    .target.right::before{border-color:rgba(216,180,254,.9)}
+
+    .target.expiring{
+      animation:pulseExpire .34s ease-in-out infinite alternate;
+    }
+
+    @keyframes targetIn{
+      from{transform:scale(.28);opacity:0}
+      to{transform:scale(1);opacity:1}
+    }
+
+    @keyframes ringSpin{
+      to{transform:rotate(360deg)}
+    }
+
+    @keyframes pulseExpire{
+      from{filter:brightness(1)}
+      to{filter:brightness(1.7) saturate(1.5)}
+    }
+
+    .floating{
+      position:absolute;
+      z-index:30;
+      transform:translate(-50%,-50%);
+      font-size:20px;
+      font-weight:1000;
+      text-shadow:0 4px 18px rgba(0,0,0,.5);
+      pointer-events:none;
+      animation:floatUp .75s ease-out forwards;
+      white-space:nowrap;
+    }
+
+    @keyframes floatUp{
+      0%{opacity:0;transform:translate(-50%,-18%) scale(.72)}
+      15%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+      100%{opacity:0;transform:translate(-50%,-142%) scale(.92)}
+    }
+
+    .burst{
+      position:absolute;
+      z-index:7;
+      width:14px;
+      height:14px;
+      border-radius:50%;
+      background:#fff;
+      box-shadow:0 0 18px rgba(255,255,255,.9);
+      pointer-events:none;
+      animation:burst .48s ease-out forwards;
+    }
+
+    @keyframes burst{
+      to{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.2)}
+    }
+
+    .bottomBar{
+      position:absolute;
+      z-index:22;
+      left:calc(var(--safe-left) + 10px);
+      right:calc(var(--safe-right) + 10px);
+      bottom:calc(var(--safe-bottom) + 10px);
+      min-height:74px;
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:linear-gradient(180deg, rgba(15,23,42,.84), rgba(15,23,42,.58));
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(14px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px;
+    }
+
+    .coach{
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:#fff;
+      font-weight:900;
+    }
+
+    .coachIcon{
+      flex:0 0 auto;
+      width:48px;
+      height:48px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:rgba(255,255,255,.1);
+      border:1px solid rgba(255,255,255,.14);
+      font-size:25px;
+    }
+
+    .coachText{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+
+    #coachMsg{
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .coachSub{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:750;
+    }
+
+    .controls{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .miniBtn{
+      min-height:44px;
+      border-radius:16px;
+      padding:0 13px;
+      background:rgba(255,255,255,.11);
+      border:1px solid rgba(255,255,255,.18);
+      color:#fff;
+      font-weight:950;
+    }
+
+    .miniBtn.primary{
+      background:linear-gradient(135deg,#38bdf8,#6366f1);
+      box-shadow:0 12px 26px rgba(56,189,248,.22);
+    }
+
+    .miniBtn.danger{background:linear-gradient(135deg,#ef4444,#fb7185)}
+    .miniBtn.good{background:linear-gradient(135deg,#22c55e,#14b8a6)}
+
+    .overlay{
+      position:absolute;
+      inset:0;
+      z-index:60;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:calc(var(--safe-top) + 18px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 18px) calc(var(--safe-left) + 16px);
+      background:
+        radial-gradient(circle at 20% 10%, rgba(56,189,248,.28), transparent 30%),
+        radial-gradient(circle at 85% 20%, rgba(167,139,250,.22), transparent 30%),
+        rgba(2,6,23,.72);
+      backdrop-filter:blur(12px);
+    }
+
+    .overlay.show{display:flex}
+
+    .modal{
+      width:min(980px,100%);
+      max-height:100%;
+      overflow:auto;
+      border-radius:32px;
+      border:1px solid rgba(255,255,255,.18);
+      background:
+        linear-gradient(180deg,rgba(15,23,42,.93),rgba(15,23,42,.82)),
+        radial-gradient(circle at 20% 10%, rgba(56,189,248,.14), transparent 30%);
+      box-shadow:0 28px 85px rgba(0,0,0,.52);
+      padding:22px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:16px;
+    }
+
+    .brandTitle{
+      display:flex;
+      align-items:center;
+      gap:13px;
+      min-width:0;
+    }
+
+    .logo{
+      width:62px;
+      height:62px;
+      border-radius:21px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#38bdf8,#a78bfa,#fb7185);
+      box-shadow:0 16px 35px rgba(56,189,248,.25);
+      font-size:32px;
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(28px,4vw,48px);
+      line-height:1;
+      letter-spacing:-.055em;
+    }
+
+    .subtitle{
+      margin-top:7px;
+      color:var(--muted);
+      font-weight:750;
+      line-height:1.45;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.08);
+      border-radius:999px;
+      padding:8px 12px;
+      color:#e2e8f0;
+      font-size:13px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .grid2{
+      display:grid;
+      grid-template-columns:1.08fr .92fr;
+      gap:14px;
+    }
+
+    .card{
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.07);
+      border-radius:24px;
+      padding:16px;
+    }
+
+    .sectionTitle{
+      font-size:15px;
+      font-weight:1000;
+      margin:0 0 10px;
+      color:#fff;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .bossList{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:9px;
+    }
+
+    .bossCard{
+      border:1px solid rgba(255,255,255,.13);
+      border-radius:18px;
+      padding:10px;
+      background:rgba(255,255,255,.06);
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+
+    .bossFace{
+      width:44px;
+      height:44px;
+      border-radius:15px;
+      display:grid;
+      place-items:center;
+      font-size:25px;
+      background:rgba(255,255,255,.1);
+    }
+
+    .bossCard b{
+      display:block;
+      font-size:13px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .bossCard span{
+      display:block;
+      margin-top:2px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:800;
+    }
+
+    .formGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    label{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:950;
+      letter-spacing:.02em;
+    }
+
+    select,input{
+      width:100%;
+      min-height:46px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(2,6,23,.45);
+      color:#fff;
+      padding:0 12px;
+      outline:0;
+      font-weight:850;
+    }
+
+    input::placeholder{color:#94a3b8}
+
+    .toggleRow{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .toggle{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      min-height:46px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.07);
+      padding:0 12px;
+      color:#fff;
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .toggle input{
+      width:20px;
+      height:20px;
+      min-height:0;
+      accent-color:#38bdf8;
+    }
+
+    .bigActions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .bigBtn{
+      min-height:58px;
+      border-radius:20px;
+      padding:0 16px;
+      font-weight:1000;
+      letter-spacing:-.02em;
+      background:rgba(255,255,255,.1);
+      border:1px solid rgba(255,255,255,.18);
+    }
+
+    .bigBtn.play{
+      background:linear-gradient(135deg,#22c55e,#38bdf8,#6366f1);
+      color:#fff;
+      box-shadow:0 18px 42px rgba(56,189,248,.25);
+    }
+
+    .bigBtn.ghost{
+      background:rgba(255,255,255,.08);
+      color:#e2e8f0;
+    }
+
+    .rules{
+      margin:0;
+      padding-left:20px;
+      color:#dbeafe;
+      line-height:1.62;
+      font-weight:760;
+      font-size:14px;
+    }
+
+    .rules li{margin:4px 0}
+
+    .countdown{
+      position:absolute;
+      z-index:70;
+      inset:0;
+      display:none;
+      place-items:center;
+      background:rgba(2,6,23,.28);
+      backdrop-filter:blur(4px);
+      pointer-events:none;
+    }
+
+    .countdown.show{display:grid}
+
+    .countNumber{
+      width:min(42vw,220px);
+      height:min(42vw,220px);
+      display:grid;
+      place-items:center;
+      border-radius:999px;
+      background:rgba(15,23,42,.58);
+      border:4px solid rgba(255,255,255,.28);
+      box-shadow:0 0 70px rgba(56,189,248,.45);
+      font-size:clamp(64px,16vw,132px);
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-.08em;
+      text-shadow:0 7px 32px rgba(0,0,0,.55);
+    }
+
+    .bossIntro{
+      position:absolute;
+      z-index:55;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      width:min(620px,92vw);
+      border-radius:30px;
+      border:1px solid rgba(255,255,255,.18);
+      background:linear-gradient(135deg,rgba(15,23,42,.95),rgba(30,41,59,.82));
+      box-shadow:0 28px 80px rgba(0,0,0,.52);
+      padding:20px;
+      display:none;
+      align-items:center;
+      gap:16px;
+      pointer-events:none;
+    }
+
+    .bossIntro.show{
+      display:flex;
+      animation:introPop 1.05s ease both;
+    }
+
+    @keyframes introPop{
+      0%{opacity:0;transform:translate(-50%,-44%) scale(.88)}
+      15%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+      78%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+      100%{opacity:0;transform:translate(-50%,-56%) scale(.96)}
+    }
+
+    .introFace{
+      width:96px;
+      height:96px;
+      border-radius:28px;
+      display:grid;
+      place-items:center;
+      font-size:58px;
+      background:rgba(255,255,255,.11);
+      border:1px solid rgba(255,255,255,.16);
+    }
+
+    .introText b{
+      font-size:28px;
+      line-height:1;
+      letter-spacing:-.04em;
+    }
+
+    .introText p{
+      margin:7px 0 0;
+      color:var(--muted);
+      font-weight:850;
+    }
+
+    .resultStats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin:12px 0 0;
+    }
+
+    .stat{
+      border:1px solid rgba(255,255,255,.13);
+      background:rgba(255,255,255,.07);
+      border-radius:18px;
+      padding:12px;
+      min-height:78px;
+    }
+
+    .stat span{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .stat b{
+      display:block;
+      margin-top:5px;
+      font-size:24px;
+      letter-spacing:-.04em;
+    }
+
+    .resultNote{
+      margin:12px 0 0;
+      color:#dbeafe;
+      line-height:1.55;
+      font-weight:760;
+    }
+
+    .toast{
+      position:absolute;
+      z-index:90;
+      left:50%;
+      bottom:calc(var(--safe-bottom) + 95px);
+      transform:translateX(-50%) translateY(20px);
+      max-width:min(92vw,680px);
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.17);
+      background:rgba(15,23,42,.9);
+      box-shadow:0 18px 45px rgba(0,0,0,.45);
+      padding:11px 14px;
+      color:#fff;
+      font-weight:900;
+      opacity:0;
+      pointer-events:none;
+      transition:.2s ease;
+      text-align:center;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .shake{animation:screenShake .22s linear 1}
+
+    @keyframes screenShake{
+      0%,100%{transform:translate(0,0)}
+      25%{transform:translate(5px,-3px)}
+      50%{transform:translate(-4px,3px)}
+      75%{transform:translate(3px,2px)}
+    }
+
+    .hidden{display:none!important}
+
+    @media (max-width:820px){
+      :root{--hud-h:116px}
+      .hud{
+        grid-template-columns:1fr 1fr;
+        min-height:var(--hud-h);
+        padding:8px;
+        gap:8px;
+      }
+      .hudCenter{
+        grid-column:1 / -1;
+        grid-row:1;
+        order:-1;
+        padding:7px;
+      }
+      .time{font-size:26px}
+      .hudBlock{padding:8px}
+      .hudTitle{font-size:11px}
+      .bar{height:10px}
+      .arena{
+        top:calc(var(--safe-top) + var(--hud-h) + 22px);
+        bottom:calc(var(--safe-bottom) + 98px);
+        min-height:300px;
+        border-radius:24px;
+      }
+      .target{
+        width:86px;
+        height:86px;
+        margin-left:-43px;
+        margin-top:-43px;
+      }
+      .target .emoji{font-size:39px}
+      .bottomBar{
+        min-height:78px;
+        border-radius:22px;
+      }
+      .coachIcon{width:44px;height:44px;border-radius:15px}
+      #coachMsg{font-size:14px}
+      .coachSub{font-size:11px}
+      .miniBtn{min-height:42px;padding:0 10px;border-radius:14px}
+      .grid2{grid-template-columns:1fr}
+      .brand{align-items:flex-start}
+      .brandTitle{align-items:flex-start}
+      .logo{width:54px;height:54px;border-radius:19px}
+      .bossList{grid-template-columns:1fr 1fr}
+      .resultStats{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .modal{padding:16px;border-radius:26px}
+    }
+
+    @media (max-width:520px){
+      .bossList{grid-template-columns:1fr}
+      .formGrid{grid-template-columns:1fr}
+      .toggleRow{grid-template-columns:1fr}
+      .bigActions{grid-template-columns:1fr}
+      .brand{flex-direction:column}
+      .pill{white-space:normal}
+      .controls{display:none}
+      .bottomBar{justify-content:center}
+      .coach{width:100%}
+      .arena{left:6px;right:6px}
+      .hud{left:6px;right:6px}
+      .target{
+        width:80px;
+        height:80px;
+        margin-left:-40px;
+        margin-top:-40px;
+      }
+      .target .emoji{font-size:36px}
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app" id="app">
+    <section class="camera" id="cameraLayer" aria-hidden="true">
+      <video id="cameraVideo" autoplay muted playsinline></video>
+      <div class="camera-grid"></div>
+      <div class="scanline"></div>
+      <div class="vignette"></div>
+    </section>
+
+    <section class="hud" aria-label="game status">
+      <div class="hudBlock">
+        <div class="hudTitle"><span id="txtPlayer">PLAYER HP</span><strong id="playerHpText">100%</strong></div>
+        <div class="bar" id="playerBar"><i style="width:100%"></i></div>
+        <div class="feverText"><span id="txtFever">FEVER</span><strong id="feverText">0%</strong></div>
+        <div class="bar" id="feverBar"><i style="width:0%"></i></div>
+      </div>
+
+      <div class="hudCenter">
+        <div class="time" id="timerText">60</div>
+        <div class="scoreLine">
+          <span id="scoreText">Score 0</span>
+          <span id="comboText">Combo 0</span>
+          <span id="accText">ACC 0%</span>
+        </div>
+      </div>
+
+      <div class="hudBlock">
+        <div class="hudTitle"><span class="bossName" id="bossName">Bubble Glove</span><strong id="bossHpText">100%</strong></div>
+        <div class="bar" id="bossBar"><i style="width:100%"></i></div>
+        <div class="feverText"><span id="txtBoss">BOSS 1/4</span><strong id="bossPhaseText">Warm-up</strong></div>
+      </div>
+    </section>
+
+    <section class="arena" id="arena" aria-label="Shadow Breaker arena">
+      <div class="laneLabel left" id="leftLane">LEFT</div>
+      <div class="laneLabel right" id="rightLane">RIGHT</div>
+      <div class="centerBoss" id="centerBoss"><div class="bossEmoji" id="centerBossEmoji">🐣</div></div>
+    </section>
+
+    <section class="bottomBar">
+      <div class="coach">
+        <div class="coachIcon" id="coachIcon">🥊</div>
+        <div class="coachText">
+          <div id="coachMsg">ตั้งค่าแล้วกดเริ่มเกม</div>
+          <div class="coachSub" id="coachSub">PC: คลิก/กด J K • Mobile: แตะเป้า • AR: เปิดกล้องได้</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="miniBtn" id="btnCamera">AR Camera</button>
+        <button class="miniBtn" id="btnPause">Pause</button>
+        <button class="miniBtn danger" id="btnEnd">End</button>
+      </div>
+    </section>
+
+    <div class="countdown" id="countdown"><div class="countNumber" id="countNumber">3</div></div>
+
+    <div class="bossIntro" id="bossIntro">
+      <div class="introFace" id="introFace">🐣</div>
+      <div class="introText">
+        <b id="introName">Bubble Glove</b>
+        <p id="introDesc">ชกเป้าให้ไว รักษาคอมโบ และอย่าโดนระเบิด</p>
+      </div>
+    </div>
+
+    <div class="toast" id="toast">Ready</div>
+
+    <section class="overlay show" id="startOverlay" role="dialog" aria-modal="true">
+      <div class="modal">
+        <div class="brand">
+          <div class="brandTitle">
+            <div class="logo">🥊</div>
+            <div>
+              <h1>Shadow Breaker AR</h1>
+              <div class="subtitle" id="startSubtitle">
+                เกม Fitness AR สำหรับฝึกการตอบสนอง ความคล่องตัว และสมาธิ เหมาะกับ PC / Mobile AR
+              </div>
+            </div>
+          </div>
+          <div class="pill" id="versionPill">v20260618 • Phase 1</div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <h2 class="sectionTitle" id="txtMissionTitle">🎯 ภารกิจเกม</h2>
+            <ul class="rules" id="rulesList">
+              <li>แตะหรือชกเป้าสีน้ำเงิน/ม่วงให้เร็วที่สุด เพื่อทำคะแนนและลด HP บอส</li>
+              <li>หลบระเบิด 💣 เพราะจะลดคะแนนและพลังชีวิตผู้เล่น</li>
+              <li>รักษา Combo เพื่อเร่ง FEVER เมื่อ FEVER ทำงาน คะแนนและความเสียหายจะเพิ่มขึ้น</li>
+              <li>ชนะบอส 4 ตัวให้ได้ภายในเวลาที่กำหนด</li>
+            </ul>
+
+            <h2 class="sectionTitle" style="margin-top:14px" id="txtBossTitle">👾 บอส 4 ระดับ</h2>
+            <div class="bossList">
+              <div class="bossCard"><div class="bossFace">🐣</div><div><b>Bubble Glove</b><span>Warm-up / Beginner</span></div></div>
+              <div class="bossCard"><div class="bossFace">🌀</div><div><b>Neon Knuckle</b><span>Speed & rhythm</span></div></div>
+              <div class="bossCard"><div class="bossFace">🛡️</div><div><b>Shadow Guard</b><span>Focus & control</span></div></div>
+              <div class="bossCard"><div class="bossFace">💀</div><div><b>Final Burst</b><span>Boss challenge</span></div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="sectionTitle" id="txtSetupTitle">⚙️ ตั้งค่าก่อนเล่น</h2>
+
+            <div class="formGrid">
+              <label>
+                <span id="lblName">ชื่อผู้เล่น / รหัส</span>
+                <input id="playerName" autocomplete="off" placeholder="Hero" maxlength="30" />
+              </label>
+
+              <label>
+                <span id="lblLang">ภาษา</span>
+                <select id="langSelect">
+                  <option value="th">ไทย</option>
+                  <option value="en">English</option>
+                </select>
+              </label>
+
+              <label>
+                <span id="lblDiff">ระดับความยาก</span>
+                <select id="diffSelect">
+                  <option value="easy">Easy • ป.5 เริ่มต้น</option>
+                  <option value="normal" selected>Normal • ท้าทาย</option>
+                  <option value="hard">Hard • เร็วขึ้น</option>
+                </select>
+              </label>
+
+              <label>
+                <span id="lblTime">เวลาเล่น</span>
+                <select id="timeSelect">
+                  <option value="45">45 วินาที</option>
+                  <option value="60" selected>60 วินาที</option>
+                  <option value="90">90 วินาที</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="toggleRow">
+              <label class="toggle"><span id="lblCamera">เปิดกล้อง AR</span><input type="checkbox" id="cameraToggle" checked /></label>
+              <label class="toggle"><span id="lblSound">เสียง FX</span><input type="checkbox" id="soundToggle" checked /></label>
+              <label class="toggle"><span id="lblMotion">Motion punch</span><input type="checkbox" id="motionToggle" /></label>
+              <label class="toggle"><span id="lblResearch">Research log</span><input type="checkbox" id="researchToggle" checked /></label>
+            </div>
+
+            <div class="bigActions">
+              <button class="bigBtn play" id="btnStart">เริ่มเกม</button>
+              <button class="bigBtn ghost" id="btnHow">วิธีเล่นสั้น ๆ</button>
+            </div>
+
+            <p class="resultNote" id="safetyNote">
+              ข้อควรระวัง: ยืนในพื้นที่โล่ง ถือโทรศัพท์ให้มั่นคง ไม่เล่นขณะเดิน และหยุดทันทีเมื่อเวียนศีรษะหรือเมื่อยล้ามากผิดปกติ
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="overlay" id="resultOverlay" role="dialog" aria-modal="true">
+      <div class="modal">
+        <div class="brand">
+          <div class="brandTitle">
+            <div class="logo" id="rankLogo">🏆</div>
+            <div>
+              <h1 id="resultTitle">สรุปผล</h1>
+              <div class="subtitle" id="resultSubtitle">ยอดเยี่ยมมาก</div>
+            </div>
+          </div>
+          <div class="pill" id="resultMode">Normal • 60s</div>
+        </div>
+
+        <div class="resultStats">
+          <div class="stat"><span id="statScoreLabel">คะแนน</span><b id="statScore">0</b></div>
+          <div class="stat"><span id="statBossLabel">บอสที่ชนะ</span><b id="statBoss">0/4</b></div>
+          <div class="stat"><span id="statAccLabel">ความแม่นยำ</span><b id="statAcc">0%</b></div>
+          <div class="stat"><span id="statComboLabel">คอมโบสูงสุด</span><b id="statCombo">0</b></div>
+          <div class="stat"><span id="statHitLabel">Hit</span><b id="statHit">0</b></div>
+          <div class="stat"><span id="statMissLabel">Miss</span><b id="statMiss">0</b></div>
+          <div class="stat"><span id="statPerfectLabel">Perfect</span><b id="statPerfect">0</b></div>
+          <div class="stat"><span id="statFeverLabel">FEVER</span><b id="statFever">0</b></div>
+        </div>
+
+        <p class="resultNote" id="resultAdvice">เล่นซ้ำเพื่อเพิ่มความเร็วและลด miss ให้ต่ำลง</p>
+
+        <div class="bigActions">
+          <button class="bigBtn play" id="btnReplay">เล่นอีกครั้ง</button>
+          <button class="bigBtn ghost" id="btnExport">Export CSV</button>
+          <button class="bigBtn ghost" id="btnMenu">กลับเมนู</button>
+          <button class="bigBtn ghost" id="btnHub">กลับ Fitness Hub</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+  (() => {
+    "use strict";
+
+    const $ = (id) => document.getElementById(id);
+    const clamp = (n,min,max) => Math.max(min, Math.min(max, n));
+    const rnd = (min,max) => Math.random() * (max-min) + min;
+    const now = () => performance.now();
+
+    const qs = new URLSearchParams(location.search);
+
+    const I18N = {
+      th: {
+        player:"PLAYER HP",
+        fever:"FEVER",
+        boss:"BOSS",
+        score:"คะแนน",
+        combo:"คอมโบ",
+        acc:"แม่นยำ",
+        ready:"ตั้งค่าแล้วกดเริ่มเกม",
+        sub:"PC: คลิก/กด J K • Mobile: แตะเป้า • AR: เปิดกล้องได้",
+        left:"LEFT",
+        right:"RIGHT",
+        start:"เริ่มเกม",
+        how:"วิธีเล่นสั้น ๆ",
+        missionTitle:"🎯 ภารกิจเกม",
+        bossTitle:"👾 บอส 4 ระดับ",
+        setupTitle:"⚙️ ตั้งค่าก่อนเล่น",
+        name:"ชื่อผู้เล่น / รหัส",
+        lang:"ภาษา",
+        diff:"ระดับความยาก",
+        time:"เวลาเล่น",
+        cam:"เปิดกล้อง AR",
+        sound:"เสียง FX",
+        motion:"Motion punch",
+        research:"Research log",
+        safety:"ข้อควรระวัง: ยืนในพื้นที่โล่ง ถือโทรศัพท์ให้มั่นคง ไม่เล่นขณะเดิน และหยุดทันทีเมื่อเวียนศีรษะหรือเมื่อยล้ามากผิดปกติ",
+        rules:[
+          "แตะหรือชกเป้าสีน้ำเงิน/ม่วงให้เร็วที่สุด เพื่อทำคะแนนและลด HP บอส",
+          "หลบระเบิด 💣 เพราะจะลดคะแนนและพลังชีวิตผู้เล่น",
+          "รักษา Combo เพื่อเร่ง FEVER เมื่อ FEVER ทำงาน คะแนนและความเสียหายจะเพิ่มขึ้น",
+          "ชนะบอส 4 ตัวให้ได้ภายในเวลาที่กำหนด"
+        ],
+        bossDesc:"ชกเป้าให้ไว รักษาคอมโบ และอย่าโดนระเบิด",
+        paused:"พักเกม",
+        resumed:"กลับเข้าเกม",
+        cameraOn:"เปิดกล้องแล้ว",
+        cameraOff:"ปิดกล้องแล้ว",
+        cameraFail:"เปิดกล้องไม่ได้ แต่ยังเล่นแบบ AR overlay ได้",
+        motionOn:"เปิด Motion punch แล้ว เขย่า/ออกหมัดเบา ๆ เพื่อโจมตีเป้าที่ใกล้สุด",
+        motionOff:"ปิด Motion punch",
+        hit:"โดน!",
+        perfect:"PERFECT",
+        good:"GOOD",
+        okay:"OKAY",
+        bomb:"โดนระเบิด!",
+        miss:"MISS",
+        feverOn:"FEVER ทำงาน!",
+        feverReady:"FEVER พร้อมแล้ว!",
+        bossClear:"ชนะบอส!",
+        finalWin:"เคลียร์ครบ 4 บอส!",
+        timeup:"หมดเวลา",
+        playerDown:"พลังหมด",
+        result:"สรุปผล",
+        great:"ยอดเยี่ยมมาก",
+        replay:"เล่นอีกครั้ง",
+        export:"Export CSV",
+        menu:"กลับเมนู",
+        hub:"กลับ Fitness Hub",
+        statScore:"คะแนน",
+        statBoss:"บอสที่ชนะ",
+        statAcc:"ความแม่นยำ",
+        statCombo:"คอมโบสูงสุด",
+        statHit:"Hit",
+        statMiss:"Miss",
+        statPerfect:"Perfect",
+        statFever:"FEVER",
+        adviceGreat:"ดีมาก เหมาะสำหรับใช้เป็นกิจกรรม Fitness AR สั้น ๆ นักเรียนได้ฝึกทั้งความไว สมาธิ และการควบคุมร่างกาย",
+        adviceMid:"มาถูกทางแล้ว รอบต่อไปให้ลดการโดนระเบิดและรักษาคอมโบต่อเนื่องขึ้น",
+        adviceLow:"ควรลดความยากหรือเพิ่มเวลาฝึกก่อน เพื่อให้ผู้เล่นคุ้นกับจังหวะและพื้นที่การเคลื่อนไหว",
+        exportDone:"ดาวน์โหลด CSV แล้ว",
+        howText:"วิธีเล่น: แตะเป้า 🥊/🎯 ให้เร็ว หลบ 💣 เก็บ ⭐ รักษาคอมโบเพื่อเข้า FEVER กด J/K บนคีย์บอร์ดเพื่อชกซ้าย/ขวาได้"
+      },
+      en: {
+        player:"PLAYER HP",
+        fever:"FEVER",
+        boss:"BOSS",
+        score:"Score",
+        combo:"Combo",
+        acc:"ACC",
+        ready:"Configure and start",
+        sub:"PC: click / J K • Mobile: tap targets • AR: camera optional",
+        left:"LEFT",
+        right:"RIGHT",
+        start:"Start Game",
+        how:"Quick Guide",
+        missionTitle:"🎯 Mission",
+        bossTitle:"👾 Four Bosses",
+        setupTitle:"⚙️ Setup",
+        name:"Player / ID",
+        lang:"Language",
+        diff:"Difficulty",
+        time:"Play time",
+        cam:"AR camera",
+        sound:"Sound FX",
+        motion:"Motion punch",
+        research:"Research log",
+        safety:"Safety: play in an open area, hold your phone firmly, do not walk while playing, and stop if you feel dizzy or unusually tired.",
+        rules:[
+          "Hit blue/purple targets quickly to score and damage the boss.",
+          "Avoid bombs 💣 because they reduce score and player HP.",
+          "Keep your combo to charge FEVER. During FEVER, score and damage increase.",
+          "Defeat all four bosses before time runs out."
+        ],
+        bossDesc:"Hit fast, keep combo, and avoid bombs.",
+        paused:"Paused",
+        resumed:"Resumed",
+        cameraOn:"Camera enabled",
+        cameraOff:"Camera disabled",
+        cameraFail:"Camera unavailable. Overlay mode is still playable.",
+        motionOn:"Motion punch enabled. Light shake/punch hits the nearest target.",
+        motionOff:"Motion punch disabled",
+        hit:"Hit!",
+        perfect:"PERFECT",
+        good:"GOOD",
+        okay:"OKAY",
+        bomb:"Bomb hit!",
+        miss:"MISS",
+        feverOn:"FEVER!",
+        feverReady:"FEVER ready!",
+        bossClear:"Boss cleared!",
+        finalWin:"All four bosses cleared!",
+        timeup:"Time up",
+        playerDown:"Player down",
+        result:"Results",
+        great:"Great work",
+        replay:"Replay",
+        export:"Export CSV",
+        menu:"Menu",
+        hub:"Fitness Hub",
+        statScore:"Score",
+        statBoss:"Bosses cleared",
+        statAcc:"Accuracy",
+        statCombo:"Best combo",
+        statHit:"Hit",
+        statMiss:"Miss",
+        statPerfect:"Perfect",
+        statFever:"FEVER",
+        adviceGreat:"Excellent. This works well as a short Fitness AR activity for reaction, focus, and body control.",
+        adviceMid:"Good direction. Next round, avoid bombs and keep a longer combo.",
+        adviceLow:"Lower the difficulty or add more practice time so players can learn the rhythm and movement space.",
+        exportDone:"CSV downloaded",
+        howText:"How to play: hit 🥊/🎯 targets quickly, avoid 💣, collect ⭐, keep combo for FEVER. Press J/K on keyboard for left/right punches."
+      }
+    };
+
+    const BOSSES = [
+      { id:"b1", name:"Bubble Glove", emoji:"🐣", phase:"Warm-up", color:"#38bdf8", hpMul:1.00, desc:"Warm-up / Beginner" },
+      { id:"b2", name:"Neon Knuckle", emoji:"🌀", phase:"Speed", color:"#a78bfa", hpMul:1.18, desc:"Speed & rhythm" },
+      { id:"b3", name:"Shadow Guard", emoji:"🛡️", phase:"Focus", color:"#34d399", hpMul:1.36, desc:"Focus & control" },
+      { id:"b4", name:"Final Burst", emoji:"💀", phase:"Boss", color:"#fb7185", hpMul:1.62, desc:"Boss challenge" }
+    ];
+
+    const DIFF = {
+      easy:   { label:"Easy",   spawnMin:780, spawnMax:1150, ttl:1300, size:106, decoy:.12, power:.10, baseBossHp:80,  playerDmg:4, missDmg:4, feverGain:{perfect:9,good:6,okay:3}, feverLoss:8 },
+      normal: { label:"Normal", spawnMin:620, spawnMax:940,  ttl:1080, size:96,  decoy:.20, power:.08, baseBossHp:110, playerDmg:6, missDmg:6, feverGain:{perfect:7,good:4,okay:2}, feverLoss:11 },
+      hard:   { label:"Hard",   spawnMin:480, spawnMax:760,  ttl:900,  size:84,  decoy:.28, power:.06, baseBossHp:140, playerDmg:8, missDmg:8, feverGain:{perfect:6,good:3,okay:2}, feverLoss:14 }
+    };
+
+    const state = {
+      lang: "th",
+      status: "menu",
+      playerName: "Hero",
+      diffKey: "normal",
+      timeLimit: 60,
+      startAt: 0,
+      pausedAt: 0,
+      pauseTotal: 0,
+      lastFrame: 0,
+      nextSpawnAt: 0,
+      endReason: "",
+      playerHp: 100,
+      score: 0,
+      combo: 0,
+      bestCombo: 0,
+      fever: 0,
+      feverActive: false,
+      feverUntil: 0,
+      feverCount: 0,
+      bossIndex: 0,
+      bossHp: 100,
+      bossMaxHp: 100,
+      targets: new Map(),
+      targetSeq: 0,
+      metrics: {
+        spawned:0, hit:0, miss:0, bomb:0, power:0,
+        perfect:0, good:0, okay:0,
+        totalRt:0, clearedBoss:0
+      },
+      events: [],
+      raf: 0,
+      cameraStream: null,
+      sound: true,
+      research: true,
+      motion: false,
+      lastMotionHitAt: 0,
+      lastAccel: 0
+    };
+
+    const app = $("app");
+    const arena = $("arena");
+    const cameraLayer = $("cameraLayer");
+    const cameraVideo = $("cameraVideo");
+
+    function t(key){
+      return (I18N[state.lang] && I18N[state.lang][key]) || I18N.th[key] || key;
+    }
+
+    function applyLang(){
+      state.lang = $("langSelect").value || "th";
+      $("txtPlayer").textContent = t("player");
+      $("txtFever").textContent = t("fever");
+      $("leftLane").textContent = t("left");
+      $("rightLane").textContent = t("right");
+      $("coachMsg").textContent = t("ready");
+      $("coachSub").textContent = t("sub");
+      $("btnStart").textContent = t("start");
+      $("btnHow").textContent = t("how");
+      $("txtMissionTitle").textContent = t("missionTitle");
+      $("txtBossTitle").textContent = t("bossTitle");
+      $("txtSetupTitle").textContent = t("setupTitle");
+      $("lblName").textContent = t("name");
+      $("lblLang").textContent = t("lang");
+      $("lblDiff").textContent = t("diff");
+      $("lblTime").textContent = t("time");
+      $("lblCamera").textContent = t("cam");
+      $("lblSound").textContent = t("sound");
+      $("lblMotion").textContent = t("motion");
+      $("lblResearch").textContent = t("research");
+      $("safetyNote").textContent = t("safety");
+      $("rulesList").innerHTML = t("rules").map(x => `<li>${escapeHtml(x)}</li>`).join("");
+      $("introDesc").textContent = t("bossDesc");
+      $("resultTitle").textContent = t("result");
+      $("resultSubtitle").textContent = t("great");
+      $("btnReplay").textContent = t("replay");
+      $("btnExport").textContent = t("export");
+      $("btnMenu").textContent = t("menu");
+      $("btnHub").textContent = t("hub");
+      $("statScoreLabel").textContent = t("statScore");
+      $("statBossLabel").textContent = t("statBoss");
+      $("statAccLabel").textContent = t("statAcc");
+      $("statComboLabel").textContent = t("statCombo");
+      $("statHitLabel").textContent = t("statHit");
+      $("statMissLabel").textContent = t("statMiss");
+      $("statPerfectLabel").textContent = t("statPerfect");
+      $("statFeverLabel").textContent = t("statFever");
+      updateHud();
+    }
+
+    function escapeHtml(str){
+      return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    }
+
+    function toast(msg, ms=1350){
+      const el = $("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      clearTimeout(toast._to);
+      toast._to = setTimeout(() => el.classList.remove("show"), ms);
+    }
+
+    function logEvent(kind, data={}){
+      if(!state.research) return;
+      const elapsed = state.status === "playing" || state.status === "paused"
+        ? Math.max(0, (now() - state.startAt - state.pauseTotal) / 1000)
+        : 0;
+      state.events.push({
+        ts: new Date().toISOString(),
+        elapsed: elapsed.toFixed(3),
+        kind,
+        player: state.playerName,
+        diff: state.diffKey,
+        timeLimit: state.timeLimit,
+        boss: BOSSES[state.bossIndex]?.name || "none",
+        score: state.score,
+        combo: state.combo,
+        fever: Math.round(state.fever),
+        playerHp: Math.round(state.playerHp),
+        bossHp: Math.round(state.bossHp),
+        ...data
+      });
+    }
+
+    function beep(type="hit"){
+      if(!state.sound) return;
+      try{
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if(!AudioCtx) return;
+        const ctx = beep.ctx || (beep.ctx = new AudioCtx());
+        if(ctx.state === "suspended") ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const cfg = {
+          hit:[620,.045,.05],
+          perfect:[920,.06,.07],
+          bomb:[120,.12,.11],
+          fever:[520,.18,.12],
+          miss:[190,.06,.055],
+          boss:[360,.18,.13],
+          power:[780,.1,.09]
+        }[type] || [440,.05,.05];
+        osc.frequency.value = cfg[0];
+        osc.type = type === "bomb" ? "sawtooth" : "sine";
+        gain.gain.setValueAtTime(cfg[2], ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + cfg[1]);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + cfg[1] + .02);
+      }catch(e){}
+    }
+
+    async function setCamera(on){
+      if(on){
+        try{
+          if(state.cameraStream) return;
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video:{ facingMode:{ideal:"user"}, width:{ideal:1280}, height:{ideal:720} },
+            audio:false
+          });
+          state.cameraStream = stream;
+          cameraVideo.srcObject = stream;
+          cameraLayer.classList.add("fx-on");
+          toast(t("cameraOn"));
+        }catch(err){
+          $("cameraToggle").checked = false;
+          cameraLayer.classList.remove("fx-on");
+          toast(t("cameraFail"), 1800);
+        }
+      }else{
+        if(state.cameraStream){
+          state.cameraStream.getTracks().forEach(tr => tr.stop());
+          state.cameraStream = null;
+          cameraVideo.srcObject = null;
+        }
+        cameraLayer.classList.remove("fx-on");
+        toast(t("cameraOff"));
+      }
+    }
+
+    async function setMotion(on){
+      state.motion = !!on;
+      if(!state.motion){
+        toast(t("motionOff"));
+        return;
+      }
+
+      try{
+        if(typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function"){
+          const res = await DeviceMotionEvent.requestPermission();
+          if(res !== "granted"){
+            $("motionToggle").checked = false;
+            state.motion = false;
+            return toast("Motion permission denied");
+          }
+        }
+        toast(t("motionOn"), 2000);
+      }catch(e){
+        $("motionToggle").checked = false;
+        state.motion = false;
+        toast("Motion unavailable");
+      }
+    }
+
+    function configureFromUI(){
+      state.playerName = ($("playerName").value || qs.get("name") || "Hero").trim().slice(0,30);
+      state.diffKey = $("diffSelect").value || "normal";
+      state.timeLimit = parseInt($("timeSelect").value || "60", 10);
+      state.sound = $("soundToggle").checked;
+      state.research = $("researchToggle").checked;
+      state.motion = $("motionToggle").checked;
+      state.lang = $("langSelect").value || "th";
+    }
+
+    function resetGame(){
+      const diff = DIFF[state.diffKey];
+      state.status = "ready";
+      state.startAt = 0;
+      state.pausedAt = 0;
+      state.pauseTotal = 0;
+      state.lastFrame = 0;
+      state.nextSpawnAt = 0;
+      state.endReason = "";
+      state.playerHp = 100;
+      state.score = 0;
+      state.combo = 0;
+      state.bestCombo = 0;
+      state.fever = 0;
+      state.feverActive = false;
+      state.feverUntil = 0;
+      state.feverCount = 0;
+      state.bossIndex = 0;
+      state.bossMaxHp = Math.round(diff.baseBossHp * BOSSES[0].hpMul);
+      state.bossHp = state.bossMaxHp;
+      state.targetSeq = 0;
+      state.targets.forEach(t => t.el.remove());
+      state.targets.clear();
+      state.events = [];
+      state.metrics = {
+        spawned:0, hit:0, miss:0, bomb:0, power:0,
+        perfect:0, good:0, okay:0,
+        totalRt:0, clearedBoss:0
+      };
+      updateBossUI();
+      updateHud();
+    }
+
+    async function startGame(){
+      configureFromUI();
+      applyLang();
+
+      $("startOverlay").classList.remove("show");
+      $("resultOverlay").classList.remove("show");
+
+      if($("cameraToggle").checked){
+        await setCamera(true);
+      }else{
+        await setCamera(false);
+      }
+
+      await setMotion($("motionToggle").checked);
+      resetGame();
+      logEvent("game_prepare", { userAgent:navigator.userAgent });
+
+      runCountdown(() => {
+        state.status = "playing";
+        state.startAt = now();
+        state.lastFrame = now();
+        state.nextSpawnAt = now() + 280;
+        updateCoach("🥊", state.lang==="th" ? "เริ่มชกเป้าได้เลย!" : "Break the targets!", state.lang==="th" ? "หลบระเบิด เก็บคอมโบ เข้า FEVER" : "Avoid bombs, keep combo, trigger FEVER");
+        showBossIntro();
+        logEvent("game_start");
+        cancelAnimationFrame(state.raf);
+        state.raf = requestAnimationFrame(loop);
+      });
+    }
+
+    function runCountdown(done){
+      const cd = $("countdown");
+      const num = $("countNumber");
+      cd.classList.add("show");
+      let arr = ["3","2","1", state.lang==="th" ? "ลุย!" : "GO!"];
+      let i = 0;
+      num.textContent = arr[i];
+      beep("boss");
+      const tick = () => {
+        i++;
+        if(i >= arr.length){
+          cd.classList.remove("show");
+          done();
+          return;
+        }
+        num.textContent = arr[i];
+        beep(i === arr.length - 1 ? "fever" : "boss");
+        setTimeout(tick, 720);
+      };
+      setTimeout(tick, 720);
+    }
+
+    function loop(ts){
+      if(state.status !== "playing") return;
+
+      const elapsed = (ts - state.startAt - state.pauseTotal) / 1000;
+      const remain = Math.max(0, state.timeLimit - elapsed);
+
+      if(remain <= 0){
+        finishGame("timeup");
+        return;
+      }
+
+      if(state.playerHp <= 0){
+        finishGame("playerDown");
+        return;
+      }
+
+      if(state.feverActive && ts >= state.feverUntil){
+        state.feverActive = false;
+        state.fever = 40;
+        updateCoach("🔥", state.lang==="th" ? "FEVER จบแล้ว รักษาจังหวะต่อ" : "FEVER ended. Keep rhythm.", "");
+      }
+
+      if(ts >= state.nextSpawnAt){
+        spawnTarget();
+        scheduleNextSpawn(ts);
+      }
+
+      updateTargets(ts);
+      updateHud(remain);
+
+      state.raf = requestAnimationFrame(loop);
+    }
+
+    function scheduleNextSpawn(ts){
+      const d = DIFF[state.diffKey];
+      const bossMul = 1 - (state.bossIndex * 0.045);
+      const feverMul = state.feverActive ? .78 : 1;
+      const gap = rnd(d.spawnMin, d.spawnMax) * bossMul * feverMul;
+      state.nextSpawnAt = ts + gap;
+    }
+
+    function spawnTarget(){
+      const d = DIFF[state.diffKey];
+      const rect = arena.getBoundingClientRect();
+      const margin = Math.max(d.size * .62, 48);
+      const lane = Math.random() < .5 ? "left" : "right";
+      const laneMin = lane === "left" ? margin : rect.width * .52;
+      const laneMax = lane === "left" ? rect.width * .48 : rect.width - margin;
+      const x = clamp(rnd(laneMin, laneMax), margin, rect.width - margin);
+      const y = clamp(rnd(margin + 12, rect.height - margin - 12), margin, rect.height - margin);
+
+      let type = "normal";
+      const r = Math.random();
+      if(r < d.decoy) type = "bomb";
+      else if(r < d.decoy + d.power) type = "power";
+
+      const id = "t" + (++state.targetSeq);
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = `target ${lane} ${type}`;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.width = `${d.size}px`;
+      el.style.height = `${d.size}px`;
+      el.style.marginLeft = `${-d.size/2}px`;
+      el.style.marginTop = `${-d.size/2}px`;
+
+      const emoji = type === "bomb" ? "💣" : type === "power" ? "⭐" : (lane === "left" ? "🥊" : "🎯");
+      el.innerHTML = `<span class="emoji">${emoji}</span>`;
+      arena.appendChild(el);
+
+      const createdAt = now();
+      const ttl = d.ttl * (1 - state.bossIndex * .035) * (state.feverActive ? .86 : 1);
+      const target = { id, el, x, y, lane, type, createdAt, expireAt: createdAt + ttl, ttl, hit:false };
+      state.targets.set(id, target);
+      state.metrics.spawned++;
+      logEvent("spawn", { targetId:id, type, lane, x:Math.round(x), y:Math.round(y), ttl:Math.round(ttl) });
+
+      el.addEventListener("pointerdown", (ev) => {
+        ev.preventDefault();
+        hitTarget(id, ev.clientX, ev.clientY, "tap");
+      }, {passive:false});
+    }
+
+    function updateTargets(ts){
+      state.targets.forEach((target, id) => {
+        const left = target.expireAt - ts;
+        if(left < target.ttl * .28) target.el.classList.add("expiring");
+        if(left <= 0){
+          expireTarget(id);
+        }
+      });
+    }
+
+    function expireTarget(id){
+      const target = state.targets.get(id);
+      if(!target || target.hit) return;
+      target.el.remove();
+      state.targets.delete(id);
+
+      if(target.type === "normal"){
+        state.metrics.miss++;
+        state.combo = 0;
+        state.fever = clamp(state.fever - DIFF[state.diffKey].feverLoss, 0, 100);
+        state.playerHp = clamp(state.playerHp - DIFF[state.diffKey].missDmg, 0, 100);
+        floatText(target.x, target.y, t("miss"), "#fb7185");
+        beep("miss");
+        shake();
+        updateCoach("⚠️", state.lang==="th" ? "พลาดเป้า ระวังคอมโบหลุด" : "Missed. Keep focus.", "");
+        logEvent("miss", { targetId:id, type:target.type, lane:target.lane });
+      }else{
+        logEvent("expire", { targetId:id, type:target.type, lane:target.lane });
+      }
+      updateHud();
+    }
+
+    function hitTarget(id, clientX=0, clientY=0, method="tap"){
+      if(state.status !== "playing") return;
+      const target = state.targets.get(id);
+      if(!target || target.hit) return;
+
+      target.hit = true;
+      const rt = now() - target.createdAt;
+      const timing = rt / target.ttl;
+      const isPerfect = timing <= .33;
+      const isGood = timing <= .68;
+      const grade = isPerfect ? "perfect" : isGood ? "good" : "okay";
+
+      target.el.remove();
+      state.targets.delete(id);
+
+      if(target.type === "bomb"){
+        state.score = Math.max(0, state.score - 60);
+        state.playerHp = clamp(state.playerHp - 10, 0, 100);
+        state.combo = 0;
+        state.fever = clamp(state.fever - DIFF[state.diffKey].feverLoss, 0, 100);
+        state.metrics.bomb++;
+        floatText(target.x, target.y, "💣 -60", "#fb7185");
+        burst(target.x, target.y, 14, "bomb");
+        beep("bomb");
+        shake();
+        updateCoach("💣", t("bomb"), state.lang==="th" ? "อย่าแตะระเบิด รอบต่อไปตั้งสมาธิใหม่" : "Avoid bombs. Reset and focus.");
+        logEvent("bomb_hit", { targetId:id, lane:target.lane, rt:Math.round(rt), method });
+        updateHud();
+        return;
+      }
+
+      if(target.type === "power"){
+        state.score += state.feverActive ? 120 : 80;
+        state.playerHp = clamp(state.playerHp + 5, 0, 100);
+        state.fever = clamp(state.fever + 16, 0, 100);
+        state.combo += 1;
+        state.bestCombo = Math.max(state.bestCombo, state.combo);
+        state.metrics.power++;
+        floatText(target.x, target.y, "⭐ +FEVER", "#facc15");
+        burst(target.x, target.y, 18, "power");
+        beep("power");
+        maybeStartFever();
+        logEvent("power_hit", { targetId:id, lane:target.lane, rt:Math.round(rt), method });
+        updateHud();
+        return;
+      }
+
+      const baseScore = grade === "perfect" ? 120 : grade === "good" ? 80 : 40;
+      const scoreGain = Math.round(baseScore * (state.feverActive ? 1.5 : 1) * (1 + Math.min(state.combo, 30) * .01));
+      const baseDmg = grade === "perfect" ? 8 : grade === "good" ? 5 : 3;
+      const dmg = Math.round(baseDmg * (state.feverActive ? 1.8 : 1) * (1 + state.bossIndex * .08));
+
+      state.score += scoreGain;
+      state.combo += 1;
+      state.bestCombo = Math.max(state.bestCombo, state.combo);
+      state.metrics.hit++;
+      state.metrics.totalRt += rt;
+      state.metrics[grade]++;
+
+      const d = DIFF[state.diffKey];
+      state.fever = clamp(state.fever + d.feverGain[grade], 0, 100);
+      state.bossHp = clamp(state.bossHp - dmg, 0, state.bossMaxHp);
+
+      const color = grade === "perfect" ? "#facc15" : grade === "good" ? "#38bdf8" : "#e2e8f0";
+      floatText(target.x, target.y, `${t(grade)} +${scoreGain}`, color);
+      burst(target.x, target.y, grade === "perfect" ? 18 : 12, grade);
+      bossHitFx();
+      beep(grade === "perfect" ? "perfect" : "hit");
+
+      updateCoach(
+        grade === "perfect" ? "⚡" : "🥊",
+        grade === "perfect" ? t("perfect") : grade === "good" ? t("good") : t("okay"),
+        state.lang==="th" ? `คอมโบ ${state.combo} • ทำดาเมจ ${dmg}` : `Combo ${state.combo} • Damage ${dmg}`
+      );
+
+      logEvent("hit", { targetId:id, lane:target.lane, grade, rt:Math.round(rt), scoreGain, dmg, method });
+
+      maybeStartFever();
+      if(state.bossHp <= 0){
+        clearBoss();
+      }
+
+      updateHud();
+    }
+
+    function hitNearest(side=null, method="keyboard"){
+      if(state.status !== "playing") return;
+      let best = null;
+      let bestScore = Infinity;
+      const centerX = arena.clientWidth / 2;
+      const centerY = arena.clientHeight / 2;
+
+      state.targets.forEach(target => {
+        if(side && target.lane !== side) return;
+        if(target.type === "bomb") return;
+        const dx = target.x - centerX;
+        const dy = target.y - centerY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const urgency = Math.max(0, target.expireAt - now()) / target.ttl;
+        const rank = dist + urgency * 70;
+        if(rank < bestScore){
+          bestScore = rank;
+          best = target;
+        }
+      });
+
+      if(best) hitTarget(best.id, 0, 0, method);
+    }
+
+    function maybeStartFever(){
+      if(state.fever >= 100 && !state.feverActive){
+        state.feverActive = true;
+        state.feverUntil = now() + 7000;
+        state.feverCount++;
+        beep("fever");
+        toast(t("feverOn"));
+        updateCoach("🔥", t("feverOn"), state.lang==="th" ? "คะแนนและดาเมจเพิ่ม 7 วินาที" : "Bonus score and damage for 7 seconds");
+        logEvent("fever_start", { feverCount: state.feverCount });
+      }else if(state.fever >= 96 && !state.feverActive){
+        updateCoach("🔥", t("feverReady"), "");
+      }
+    }
+
+    function clearBoss(){
+      state.metrics.clearedBoss = Math.max(state.metrics.clearedBoss, state.bossIndex + 1);
+      logEvent("boss_clear", { bossIndex: state.bossIndex + 1, bossName: BOSSES[state.bossIndex].name });
+      beep("boss");
+      toast(state.bossIndex >= BOSSES.length - 1 ? t("finalWin") : t("bossClear"));
+
+      state.score += 250 + state.bossIndex * 150;
+      state.playerHp = clamp(state.playerHp + 8, 0, 100);
+      state.targets.forEach(target => target.el.remove());
+      state.targets.clear();
+
+      if(state.bossIndex >= BOSSES.length - 1){
+        finishGame("win");
+        return;
+      }
+
+      state.bossIndex++;
+      const diff = DIFF[state.diffKey];
+      state.bossMaxHp = Math.round(diff.baseBossHp * BOSSES[state.bossIndex].hpMul);
+      state.bossHp = state.bossMaxHp;
+      updateBossUI();
+      showBossIntro();
+
+      state.nextSpawnAt = now() + 900;
+    }
+
+    function showBossIntro(){
+      const b = BOSSES[state.bossIndex];
+      $("introFace").textContent = b.emoji;
+      $("introName").textContent = b.name;
+      $("introDesc").textContent = b.desc + " • " + t("bossDesc");
+      $("bossIntro").classList.remove("show");
+      void $("bossIntro").offsetWidth;
+      $("bossIntro").classList.add("show");
+      setTimeout(() => $("bossIntro").classList.remove("show"), 1100);
+    }
+
+    function updateBossUI(){
+      const b = BOSSES[state.bossIndex] || BOSSES[0];
+      $("bossName").textContent = b.name;
+      $("centerBossEmoji").textContent = b.emoji;
+      $("txtBoss").textContent = `${t("boss")} ${state.bossIndex + 1}/4`;
+      $("bossPhaseText").textContent = b.phase;
+      $("centerBoss").style.boxShadow = `0 22px 70px rgba(0,0,0,.38), 0 0 44px ${b.color}55, inset 0 0 30px rgba(255,255,255,.08)`;
+    }
+
+    function updateHud(remain=null){
+      if(remain === null){
+        if(state.status === "playing" || state.status === "paused"){
+          const elapsed = (now() - state.startAt - state.pauseTotal) / 1000;
+          remain = Math.max(0, state.timeLimit - elapsed);
+        }else{
+          remain = state.timeLimit || 60;
+        }
+      }
+
+      $("timerText").textContent = Math.ceil(remain);
+      $("playerHpText").textContent = `${Math.round(state.playerHp)}%`;
+      const playerFill = $("playerBar").querySelector("i");
+      playerFill.style.width = `${clamp(state.playerHp,0,100)}%`;
+      playerFill.classList.toggle("low", state.playerHp < 34);
+
+      const bossPct = state.bossMaxHp ? (state.bossHp / state.bossMaxHp * 100) : 100;
+      $("bossHpText").textContent = `${Math.round(bossPct)}%`;
+      $("bossBar").querySelector("i").style.width = `${clamp(bossPct,0,100)}%`;
+
+      $("feverBar").querySelector("i").style.width = `${clamp(state.fever,0,100)}%`;
+      $("feverText").textContent = state.feverActive ? "ACTIVE" : `${Math.round(state.fever)}%`;
+
+      const attempts = state.metrics.hit + state.metrics.miss + state.metrics.bomb;
+      const accuracy = attempts ? Math.round((state.metrics.hit / attempts) * 100) : 0;
+      $("scoreText").textContent = `${t("score")} ${state.score}`;
+      $("comboText").textContent = `${t("combo")} ${state.combo}`;
+      $("accText").textContent = `${t("acc")} ${accuracy}%`;
+      updateBossUI();
+    }
+
+    function updateCoach(icon, msg, sub){
+      $("coachIcon").textContent = icon || "🥊";
+      $("coachMsg").textContent = msg || "";
+      $("coachSub").textContent = sub || t("sub");
+    }
+
+    function floatText(x,y,text,color="#fff"){
+      const el = document.createElement("div");
+      el.className = "floating";
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.color = color;
+      el.textContent = text;
+      arena.appendChild(el);
+      setTimeout(() => el.remove(), 800);
+    }
+
+    function burst(x,y,count=12,type="hit"){
+      const palette = {
+        perfect:["#facc15","#fff","#fb7185"],
+        good:["#38bdf8","#fff","#a78bfa"],
+        okay:["#e2e8f0","#fff","#38bdf8"],
+        bomb:["#ef4444","#fb7185","#fca5a5"],
+        power:["#facc15","#fde68a","#fff"]
+      }[type] || ["#fff"];
+      for(let i=0;i<count;i++){
+        const p = document.createElement("i");
+        p.className = "burst";
+        p.style.left = `${x}px`;
+        p.style.top = `${y}px`;
+        p.style.background = palette[i % palette.length];
+        p.style.setProperty("--dx", `${rnd(-86,86)}px`);
+        p.style.setProperty("--dy", `${rnd(-86,86)}px`);
+        arena.appendChild(p);
+        setTimeout(() => p.remove(), 520);
+      }
+    }
+
+    function bossHitFx(){
+      const el = $("centerBoss");
+      el.classList.add("hit");
+      clearTimeout(bossHitFx._to);
+      bossHitFx._to = setTimeout(() => el.classList.remove("hit"), 150);
+    }
+
+    function shake(){
+      app.classList.remove("shake");
+      void app.offsetWidth;
+      app.classList.add("shake");
+    }
+
+    function pauseGame(){
+      if(state.status === "playing"){
+        state.status = "paused";
+        state.pausedAt = now();
+        cancelAnimationFrame(state.raf);
+        toast(t("paused"));
+        $("btnPause").textContent = "Resume";
+        logEvent("pause");
+      }else if(state.status === "paused"){
+        state.status = "playing";
+        state.pauseTotal += now() - state.pausedAt;
+        state.lastFrame = now();
+        $("btnPause").textContent = "Pause";
+        toast(t("resumed"));
+        logEvent("resume");
+        state.raf = requestAnimationFrame(loop);
+      }
+    }
+
+    function finishGame(reason){
+      if(state.status === "finished") return;
+      state.status = "finished";
+      state.endReason = reason;
+      cancelAnimationFrame(state.raf);
+      state.targets.forEach(target => target.el.remove());
+      state.targets.clear();
+      logEvent("game_end", { reason });
+
+      const attempts = state.metrics.hit + state.metrics.miss + state.metrics.bomb;
+      const acc = attempts ? Math.round((state.metrics.hit / attempts) * 100) : 0;
+      const bossClear = state.metrics.clearedBoss;
+
+      $("statScore").textContent = state.score;
+      $("statBoss").textContent = `${bossClear}/4`;
+      $("statAcc").textContent = `${acc}%`;
+      $("statCombo").textContent = state.bestCombo;
+      $("statHit").textContent = state.metrics.hit;
+      $("statMiss").textContent = state.metrics.miss;
+      $("statPerfect").textContent = state.metrics.perfect;
+      $("statFever").textContent = state.feverCount;
+
+      const rank = getRank(acc, bossClear, state.score);
+      $("rankLogo").textContent = rank.emoji;
+      $("resultSubtitle").textContent = `${rank.label} • ${reasonLabel(reason)}`;
+      $("resultMode").textContent = `${DIFF[state.diffKey].label} • ${state.timeLimit}s • ${state.playerName}`;
+
+      const advice = bossClear >= 3 && acc >= 70 ? t("adviceGreat") : bossClear >= 1 && acc >= 45 ? t("adviceMid") : t("adviceLow");
+      $("resultAdvice").textContent = advice;
+      $("resultOverlay").classList.add("show");
+    }
+
+    function reasonLabel(reason){
+      if(reason === "win") return state.lang==="th" ? "ชนะครบทุกบอส" : "All bosses cleared";
+      if(reason === "timeup") return t("timeup");
+      if(reason === "playerDown") return t("playerDown");
+      if(reason === "manual") return state.lang==="th" ? "จบเกมเอง" : "Ended";
+      return reason;
+    }
+
+    function getRank(acc,boss,score){
+      if(boss >= 4) return { label: state.lang==="th" ? "Shadow Master" : "Shadow Master", emoji:"🏆" };
+      if(boss >= 3 && acc >= 70) return { label: state.lang==="th" ? "Fit Hero" : "Fit Hero", emoji:"🔥" };
+      if(boss >= 2 || score >= 1800) return { label: state.lang==="th" ? "Active Breaker" : "Active Breaker", emoji:"⚡" };
+      if(boss >= 1 || acc >= 45) return { label: state.lang==="th" ? "Rookie Fighter" : "Rookie Fighter", emoji:"🥊" };
+      return { label: state.lang==="th" ? "Training Mode" : "Training Mode", emoji:"🌱" };
+    }
+
+    function exportCsv(){
+      const summary = buildSummaryRows();
+      const eventRows = state.events;
+      const headers = Array.from(new Set([...summary, ...eventRows].flatMap(o => Object.keys(o))));
+      const rows = [headers.join(",")];
+      [...summary, ...eventRows].forEach(obj => {
+        rows.push(headers.map(h => csvCell(obj[h] ?? "")).join(","));
+      });
+      const blob = new Blob(["\ufeff" + rows.join("\n")], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      const stamp = new Date().toISOString().replace(/[:.]/g,"-");
+      a.href = URL.createObjectURL(blob);
+      a.download = `shadow-breaker-${state.playerName || "hero"}-${stamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 500);
+      toast(t("exportDone"));
+    }
+
+    function csvCell(v){
+      const s = String(v);
+      if(/[",\n\r]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
+      return s;
+    }
+
+    function buildSummaryRows(){
+      const attempts = state.metrics.hit + state.metrics.miss + state.metrics.bomb;
+      const acc = attempts ? Math.round((state.metrics.hit / attempts) * 100) : 0;
+      const avgRt = state.metrics.hit ? Math.round(state.metrics.totalRt / state.metrics.hit) : 0;
+      return [{
+        ts:new Date().toISOString(),
+        kind:"summary",
+        player:state.playerName,
+        diff:state.diffKey,
+        timeLimit:state.timeLimit,
+        endReason:state.endReason,
+        score:state.score,
+        bossesCleared:state.metrics.clearedBoss,
+        accuracy:acc,
+        bestCombo:state.bestCombo,
+        hit:state.metrics.hit,
+        miss:state.metrics.miss,
+        bomb:state.metrics.bomb,
+        power:state.metrics.power,
+        perfect:state.metrics.perfect,
+        good:state.metrics.good,
+        okay:state.metrics.okay,
+        feverCount:state.feverCount,
+        avgRtMs:avgRt,
+        playerHp:Math.round(state.playerHp),
+        userAgent:navigator.userAgent
+      }];
+    }
+
+    function showMenu(){
+      state.status = "menu";
+      cancelAnimationFrame(state.raf);
+      state.targets.forEach(target => target.el.remove());
+      state.targets.clear();
+      $("resultOverlay").classList.remove("show");
+      $("startOverlay").classList.add("show");
+      updateCoach("🥊", t("ready"), t("sub"));
+      updateHud();
+    }
+
+    function goHub(){
+      const hub = qs.get("hub") || "./index.html";
+      location.href = hub;
+    }
+
+    function bind(){
+      $("langSelect").addEventListener("change", applyLang);
+      $("btnStart").addEventListener("click", startGame);
+      $("btnReplay").addEventListener("click", () => {
+        $("resultOverlay").classList.remove("show");
+        startGame();
+      });
+      $("btnMenu").addEventListener("click", showMenu);
+      $("btnHub").addEventListener("click", goHub);
+      $("btnExport").addEventListener("click", exportCsv);
+      $("btnPause").addEventListener("click", pauseGame);
+      $("btnEnd").addEventListener("click", () => {
+        if(state.status === "playing" || state.status === "paused") finishGame("manual");
+      });
+      $("btnCamera").addEventListener("click", () => {
+        const on = !state.cameraStream;
+        $("cameraToggle").checked = on;
+        setCamera(on);
+      });
+      $("cameraToggle").addEventListener("change", ev => setCamera(ev.target.checked));
+      $("motionToggle").addEventListener("change", ev => setMotion(ev.target.checked));
+      $("soundToggle").addEventListener("change", ev => {
+        state.sound = ev.target.checked;
+        if(state.sound) beep("hit");
+      });
+      $("researchToggle").addEventListener("change", ev => state.research = ev.target.checked);
+      $("btnHow").addEventListener("click", () => toast(t("howText"), 3600));
+
+      window.addEventListener("keydown", ev => {
+        if(ev.repeat) return;
+        const k = ev.key.toLowerCase();
+        if(k === " "){
+          ev.preventDefault();
+          if(state.status === "playing" || state.status === "paused") pauseGame();
+        }
+        if(k === "j" || k === "arrowleft") hitNearest("left", "key-left");
+        if(k === "k" || k === "arrowright") hitNearest("right", "key-right");
+        if(k === "f") {
+          state.fever = 100;
+          maybeStartFever();
+          updateHud();
+        }
+        if(k === "escape" && (state.status === "playing" || state.status === "paused")) finishGame("manual");
+      });
+
+      window.addEventListener("devicemotion", ev => {
+        if(!state.motion || state.status !== "playing") return;
+        const a = ev.accelerationIncludingGravity;
+        if(!a) return;
+        const mag = Math.sqrt((a.x||0)**2 + (a.y||0)**2 + (a.z||0)**2);
+        const delta = Math.abs(mag - state.lastAccel);
+        state.lastAccel = mag;
+        const ts = now();
+        if(delta > 8.5 && ts - state.lastMotionHitAt > 420){
+          state.lastMotionHitAt = ts;
+          hitNearest(null, "motion");
+        }
+      }, {passive:true});
+
+      document.addEventListener("visibilitychange", () => {
+        if(document.hidden && state.status === "playing") pauseGame();
+      });
+    }
+
+    function hydrateFromQuery(){
+      const name = qs.get("name");
+      const diff = qs.get("diff");
+      const time = qs.get("time");
+      const lang = qs.get("lang");
+      if(name) $("playerName").value = name.slice(0,30);
+      if(diff && DIFF[diff]) $("diffSelect").value = diff;
+      if(time && ["45","60","90"].includes(time)) $("timeSelect").value = time;
+      if(lang && I18N[lang]) $("langSelect").value = lang;
+    }
+
+    function boot(){
+      hydrateFromQuery();
+      configureFromUI();
+      bind();
+      applyLang();
+      updateBossUI();
+      updateHud(state.timeLimit);
+      logEvent("page_load");
+    }
+
+    boot();
+  })();
+  </script>
+</body>
+</html>
