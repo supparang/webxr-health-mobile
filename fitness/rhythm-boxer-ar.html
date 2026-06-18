@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Sheets Forced ON | v20260618-rb-sheets-forced -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Report Consistency Lock | v20260618-rb-report-consistency -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -408,6 +408,20 @@
   color:#625766;
 }
 
+
+/* === Report Consistency Lock : v20260618-rb-report-consistency === */
+.metric-note{
+  margin-top:10px;
+  border-radius:16px;
+  border:1px solid #d9effb;
+  background:linear-gradient(180deg,#eefaff,#e6f7ff);
+  color:#486373;
+  padding:10px 12px;
+  font-size:.84rem;
+  line-height:1.45;
+  font-weight:900;
+}
+
 </style>
 </head>
 <body>
@@ -552,9 +566,11 @@
         <div class="result-card"><div class="result-k">Stars</div><div id="resStars" class="result-v">—</div></div>
         <div class="result-card"><div class="result-k">Accuracy</div><div id="resAcc" class="result-v">0%</div></div>
         <div class="result-card"><div class="result-k">Max Combo</div><div id="resCombo" class="result-v">0</div></div>
-        <div class="result-card"><div class="result-k">Body Punches</div><div id="resBody" class="result-v">0</div></div>
-        <div class="result-card"><div class="result-k">Miss</div><div id="resMiss" class="result-v">0</div></div>
+        <div class="result-card"><div class="result-k">Valid Punches</div><div id="resBody" class="result-v">0</div></div>
+        <div class="result-card"><div class="result-k">Missed Notes</div><div id="resMiss" class="result-v">0</div></div>
         <div class="result-card"><div class="result-k">Boss</div><div id="resBoss" class="result-v">—</div></div>
+        <div class="result-card"><div class="result-k">Flow Combo</div><div id="resFlowCombo" class="result-v">0</div></div>
+        <div class="result-card"><div class="result-k">Ignored Noise</div><div id="resNoise" class="result-v">0</div></div>
       </div>
       <div id="quality" class="quality"></div>
       <div id="submitStatus" class="quality hidden"></div>
@@ -706,7 +722,7 @@
     bossCard:$('bossCard'), bossText:$('bossText'), bossFill:$('bossFill'),
     mScore:$('mScore'), mCombo:$('mCombo'), mAcc:$('mAcc'), missionStars:$('missionStars'),
     resScore:$('resScore'), resRank:$('resRank'), resStars:$('resStars'), resAcc:$('resAcc'),
-    resCombo:$('resCombo'), resBody:$('resBody'), resMiss:$('resMiss'), resBoss:$('resBoss'), quality:$('quality'),
+    resCombo:$('resCombo'), resBody:$('resBody'), resMiss:$('resMiss'), resBoss:$('resBoss'), resFlowCombo:$('resFlowCombo'), resNoise:$('resNoise'), quality:$('quality'),
     btnAgain:$('btnAgain'), btnMenu2:$('btnMenu2'), btnCsvSession:$('btnCsvSession'), btnCsvEvents:$('btnCsvEvents'), submitStatus:$('submitStatus')
   };
 
@@ -714,7 +730,7 @@
     running:false, mode:'touch', diff:'normal', timeSec:60, pid:'player01',
     t0:0,tEnd:0,tLast:0,lastBeat:-1, rng:Math.random,
     notes:[], nextId:1,
-    score:0, combo:0, maxCombo:0, shots:0, hits:0, perfect:0, great:0, good:0, miss:0,
+    score:0, combo:0, maxCombo:0, flowCombo:0, maxFlowCombo:0, comboBreaks:0, shots:0, hits:0, perfect:0, great:0, good:0, miss:0,
     blank:0, spam:0, bodyPunches:0, fever:0, feverOn:false, phase:'warmup',
     xp:0, level:1, perfectChain:0, powerHits:0, bossHits:0, hypeLast:0, newBest:false,
     boss:{active:false,hp:24,hpMax:24,clear:false,window:false,lastWindow:0},
@@ -794,15 +810,15 @@
     const acc = accPct();
     const best = getBestScore();
     let level = 1;
-    if(S.combo >= 15 || acc >= 82) level = 2;
-    if(S.combo >= 35 || acc >= 90) level = 3;
-    if(S.combo >= 55 || (S.boss && S.boss.clear)) level = 4;
+    if((S.flowCombo||S.combo) >= 15 || acc >= 82) level = 2;
+    if((S.flowCombo||S.combo) >= 35 || acc >= 90) level = 3;
+    if((S.flowCombo||S.combo) >= 55 || (S.boss && S.boss.clear)) level = 4;
     S.level = level;
 
     const quest =
       S.boss && S.boss.clear ? 'Quest: Boss Clear ✅' :
-      S.combo >= 30 ? 'Quest: Combo 50' :
-      S.combo >= 10 ? 'Quest: Combo 30' : 'Quest: Combo 10';
+      (S.flowCombo||S.combo) >= 30 ? 'Quest: Flow 50' :
+      (S.flowCombo||S.combo) >= 10 ? 'Quest: Flow 30' : 'Quest: Flow 10';
 
     els.uLevel.textContent = '🔥 Challenge Lv.' + level;
     els.uLevel.className = 'ultimate-chip ' + (level >= 3 ? 'danger' : 'hot');
@@ -813,7 +829,7 @@
 
   function addXP(amount, why=''){
     S.xp = Math.max(0, (S.xp || 0) + Number(amount || 0));
-    if(why && S.combo > 0 && S.combo % 25 === 0) hype(why, 'hot');
+    if(why && (S.flowCombo||0) > 0 && S.flowCombo % 25 === 0) hype(why, 'hot');
   }
 
   function toast(msg){
@@ -995,9 +1011,11 @@
         n.el.classList.toggle('near', Math.abs(dt) <= windows().good);
         if(dt < -windows().good){
           n.miss=true; removeNote(n); S.shots++; S.miss++; S.missStreak=(S.missStreak||0)+1;
-          // School mode: do not break combo on the first occasional miss.
-          // This makes body tracking fairer and keeps children motivated.
-          if(S.missStreak >= 2) S.combo=0;
+          if(S.combo>0) S.comboBreaks=(S.comboBreaks||0)+1;
+          // Strict combo resets on every missed note for credible reporting.
+          S.combo=0;
+          // Flow combo keeps one-miss grace for classroom motivation.
+          if(S.missStreak >= 2) S.flowCombo=0;
           feedback('MISS','miss'); sfx('miss'); vibrate([18,35,18]); hitFx('miss'); laneFlash(n.lane,'miss'); fieldShake();
           if(S.missStreak === 1) coach('ไม่เป็นไร รักษาจังหวะต่อได้เลย','good');
           logEvent('auto_miss',{lane:n.lane,judge:'Miss',offsetMs:Math.round(dt),missStreak:S.missStreak});
@@ -1072,10 +1090,10 @@
 
       if(judge!=='Miss'){
         found.note.hit=true; removeNote(found.note);
-        S.shots++; S.hits++; S.missStreak=0; if(String(source).startsWith('body')) S.bodyPunches++; S.combo++; S.maxCombo=Math.max(S.maxCombo,S.combo);
+        S.shots++; S.hits++; S.missStreak=0; if(String(source).startsWith('body')) S.bodyPunches++; S.combo++; S.maxCombo=Math.max(S.maxCombo,S.combo); S.flowCombo++; S.maxFlowCombo=Math.max(S.maxFlowCombo,S.flowCombo);
         if(judge==='Perfect') S.perfect++; else if(judge==='Great') S.great++; else S.good++;
         const base = judge==='Perfect'?120:judge==='Great'?85:50;
-        const comboBonus = Math.min(60, Math.floor(S.combo/10)*10);
+        const comboBonus = Math.min(60, Math.floor((S.flowCombo||S.combo)/10)*10);
         let gain = Math.round((base+comboBonus)*(S.feverOn?1.25:1));
         if(found.note && found.note.kind === 'power'){
           gain += 160;
@@ -1098,10 +1116,10 @@
         if(judge==='Perfect') vibrate(18); else if(judge==='Great') vibrate(12); else vibrate(8);
         sfx(judge.toLowerCase()); hitFx(judge); scorePop(judge==='Perfect'?'+120':judge==='Great'?'+85':'+50',judge); laneFlash(lane,'hit');
         if(Math.abs(dt)>80) coach(dt>0?'เร็วไปนิด รอให้ถึงเส้นก่อน':'ช้าไปนิด ลองชกให้ไวขึ้น','good');
-        if(S.combo===10) hype('10 COMBO! เริ่มติดเครื่องแล้ว 🔥','hot');
-        if(S.combo===25) hype('25 COMBO! Rhythm Hero! ⚡','hot');
-        if(S.combo===50) hype('50 COMBO! ครองจังหวะได้แล้ว 🏆','hot');
-        if(S.combo>0 && S.combo%15===0) coach('ดีมาก! คอมโบกำลังสวย','great');
+        if(S.flowCombo===10) hype('10 FLOW COMBO! เริ่มติดเครื่องแล้ว 🔥','hot');
+        if(S.flowCombo===25) hype('25 FLOW COMBO! Rhythm Hero! ⚡','hot');
+        if(S.flowCombo===50) hype('50 FLOW COMBO! ครองจังหวะได้แล้ว 🏆','hot');
+        if(S.flowCombo>0 && S.flowCombo%15===0) coach('ดีมาก! flow combo กำลังสวย','great');
       }else blank=true;
     }else blank=true;
 
@@ -1114,7 +1132,7 @@
         return;
       }
 
-      S.blank++; S.shots++; S.missStreak=(S.missStreak||0)+1; if(S.missStreak>=2) S.combo=0; S.score=Math.max(0,S.score-8);
+      S.blank++; S.shots++; S.missStreak=(S.missStreak||0)+1; if(S.combo>0) S.comboBreaks=(S.comboBreaks||0)+1; S.combo=0; if(S.missStreak>=2) S.flowCombo=0; S.score=Math.max(0,S.score-8);
       feedback('MISS','miss'); sfx('miss'); vibrate([18,35,18]); hitFx('miss'); laneFlash(lane,'miss'); fieldShake();
     }
     logEvent(source,{lane,judge,offsetMs:dt===9999?'':Math.round(dt)});
@@ -1126,7 +1144,7 @@
   }
 
   function logEvent(action,extra={}){
-    S.events.push({tsIso:new Date().toISOString(),pid:S.pid,diff:S.diff,timeSec:S.timeSec,mode:S.mode,action,score:Math.round(S.score),combo:S.combo,accPct:accPct().toFixed(2),bodyPunches:S.bodyPunches,spam:S.spam,...extra});
+    S.events.push({tsIso:new Date().toISOString(),pid:S.pid,diff:S.diff,timeSec:S.timeSec,mode:S.mode,action,score:Math.round(S.score),combo:S.combo,flowCombo:S.flowCombo||0,accPct:accPct().toFixed(2),bodyPunches:S.bodyPunches,spam:S.spam,...extra});
   }
 
   function accPct(){return S.shots?S.hits/S.shots*100:0}
@@ -1184,7 +1202,7 @@
 
   function updateHUD(now){
     els.hudScore.textContent=Math.round(S.score);
-    els.hudCombo.textContent=S.combo;
+    els.hudCombo.textContent=String(S.combo) + ' / F' + String(S.flowCombo||0);
     els.hudAcc.textContent=accPct().toFixed(1)+'%';
     els.hudTime.textContent=((now-S.t0)/1000).toFixed(1);
     els.hudBody.textContent=S.mode==='body'?'ON':'OFF';
@@ -1210,7 +1228,7 @@
 
   function reset(){
     S.running=false; S.t0=0; S.tEnd=0; S.lastBeat=-1; S.notes=[]; S.nextId=1;
-    S.score=0;S.combo=0;S.maxCombo=0;S.shots=0;S.hits=0;S.perfect=0;S.great=0;S.good=0;S.miss=0;S.blank=0;S.spam=0;S.bodyPunches=0;
+    S.score=0;S.combo=0;S.maxCombo=0;S.flowCombo=0;S.maxFlowCombo=0;S.comboBreaks=0;S.shots=0;S.hits=0;S.perfect=0;S.great=0;S.good=0;S.miss=0;S.blank=0;S.spam=0;S.bodyPunches=0;
     S.fever=0;S.feverOn=false;S.phase='warmup';S.events=[];S.offsets=[];S.lastLaneTap=[0,0,0,0,0];S.missStreak=0;S.bodyAttempts=0;S.bodyNoise=0;S.missStreak=0;
     S.boss={active:false,hp:(S.diff==='easy'?12:S.diff==='hard'?22:16),hpMax:(S.diff==='easy'?12:S.diff==='hard'?22:16),clear:false,window:false,lastWindow:0};
     laneEls().forEach(l=>Array.from(l.querySelectorAll('.note')).forEach(n=>n.remove()));
@@ -1262,6 +1280,7 @@
     else notes.push('ควรเริ่มจาก Easy และลดความเร็ว เพื่อฝึก timing ก่อน');
     if(S.spam>=8 || (S.bodyNoise||0)>=10) notes.push('พบสัญญาณหมัดถี่/สัญญาณรบกวนจากกล้อง ควรย้ำให้ตั้ง guard แล้วชกเป็นจังหวะ ไม่แกว่งมือตลอดเวลา');
     if(S.miss>=20) notes.push('พลาดค่อนข้างบ่อย ควรพัก 30–60 วินาที หรือลดเวลาเล่น');
+    if((S.maxFlowCombo||0) > S.maxCombo) notes.push('รายงานแยก Max Combo แบบ strict และ Flow Combo แบบมี grace เพื่อความยุติธรรมของ Body Tracking');
     return notes.join(' · ');
   }
 
@@ -1281,14 +1300,17 @@
     els.resRank.textContent=rank;
     els.resStars.textContent='⭐'.repeat(Math.max(1,stars));
     els.resAcc.textContent=payload.accPct+'%';
-    els.resCombo.textContent=payload.maxCombo;
+    els.resCombo.textContent=payload.maxCombo; if(els.resFlowCombo) els.resFlowCombo.textContent=payload.maxFlowCombo||0; if(els.resNoise) els.resNoise.textContent=payload.bodyNoise||0;
     els.resBody.textContent=payload.bodyPunches;
     els.resMiss.textContent=payload.miss;
     els.resBoss.textContent=S.boss.clear?'Boss Clear':'—';
     els.quality.innerHTML =
       'ข้อเสนอแนะครู: ' + payload.teacherRecommendation +
-      ' | Body attempts: ' + (payload.bodyAttempts||0) +
-      ' | Body noise ignored: ' + (payload.bodyNoise||0) +
+      ' | Body signals: ' + (payload.bodyAttempts||0) +
+      ' | Valid punches: ' + (payload.bodyPunches||0) +
+      ' | Missed notes: ' + (payload.miss||0) +
+      ' | Ignored noise: ' + (payload.bodyNoise||0) +
+      '<div class="metric-note">รายงานนี้แยกชัดเจน: <b>Max Combo</b> = combo แบบ strict ที่ตัดเมื่อ miss ทุกครั้ง, <b>Flow Combo</b> = combo แบบมี grace เพื่อแรงจูงใจในห้องเรียน, <b>Accuracy</b> = Valid Punches ÷ (Valid Punches + Missed Notes)</div>' +
       '<div class="pb-card ' + (payload.newBest ? 'new' : '') + '">' +
       (payload.newBest ? '🏆 New Best Score! ' : '🎯 Best Score: ') +
       Math.round(getBestScore()) +
@@ -1304,7 +1326,7 @@
   function sessionPayload(reason,stars,rank){
     return {
       tsIso:new Date().toISOString(), pid:S.pid, diff:S.diff, timeSec:S.timeSec, mode:S.mode, version:RB_VERSION, gameId:RB_GAME_ID, section:qs('section',qs('sec','')), group:qs('group',''),
-      reason, score:Math.round(S.score), rank, stars, maxCombo:S.maxCombo, shots:S.shots, hits:S.hits,
+      reason, score:Math.round(S.score), rank, stars, maxCombo:S.maxCombo, maxFlowCombo:S.maxFlowCombo||0, comboBreaks:S.comboBreaks||0, shots:S.shots, hits:S.hits,
       accPct:accPct().toFixed(2), perfect:S.perfect, great:S.great, good:S.good, miss:S.miss,
       blank:S.blank, spam:S.spam, bodyPunches:S.bodyPunches, bodyAttempts:S.bodyAttempts||0, bodyNoise:S.bodyNoise||0, bossClear:S.boss.clear?1:0,
       xp:Math.round(S.xp||0), challengeLevel:S.level||1, powerHits:S.powerHits||0, bossHits:S.bossHits||0, bestScore:getBestScore(),
