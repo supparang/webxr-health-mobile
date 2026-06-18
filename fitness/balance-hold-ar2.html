@@ -595,7 +595,7 @@
   (() => {
     'use strict';
 
-    const VERSION = '20260618-BALANCE-HOLD-AR-V13-SYNTAX-HOTFIX-SHEET-LINKED';
+    const VERSION = '20260618-BALANCE-HOLD-AR-V14-SHEET-STATUS-HOTFIX';
     const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
@@ -1858,16 +1858,41 @@
       };
     }
 
+    function persistSummaryStatus(summary){
+      try { localStorage.setItem('fitness_balance_hold_last', JSON.stringify(summary)); } catch(_){}
+    }
+
+    function updateSheetStatusUI(summary){
+      const cell = $('sheetStatusCell');
+      if (cell) cell.textContent = summary.sheetStatus || 'pending';
+      const btn = $('btnSheet');
+      if (btn) {
+        if (String(summary.sheetStatus || '').indexOf('sent') === 0) {
+          btn.textContent = '☁️ ส่งแล้ว';
+        } else if (summary.sheetStatus === 'sending') {
+          btn.textContent = '☁️ กำลังส่ง...';
+        } else if (summary.sheetStatus === 'failed') {
+          btn.textContent = '☁️ ส่งอีกครั้ง';
+        }
+      }
+      persistSummaryStatus(summary);
+    }
+
     async function submitToSheet(summary){
       if (!summary || !state.ctx.sheetUrl) return false;
       const payload = sheetPayload(summary);
+      summary.sheetStatus = 'sending';
+      updateSheetStatusUI(summary);
       try {
         const body = new FormData();
         Object.entries(payload).forEach(([k,v]) => body.append(k, v == null ? '' : String(v)));
         if (navigator.sendBeacon) {
           const ok = navigator.sendBeacon(state.ctx.sheetUrl, body);
           if (ok) {
+            // sendBeacon ไม่มี response กลับมา แต่ถ้า return true แปลว่า browser รับคิวส่งแล้ว
+            // และจากการทดสอบข้อมูลลง Sheet ได้จริง จึงแสดงเป็น queued/sent แทน pending
             summary.sheetStatus = 'sent_beacon';
+            updateSheetStatusUI(summary);
             toast('ส่งผลไป Google Sheet แล้ว');
             logEvent('sheet_submit', { status:'sent_beacon' });
             return true;
@@ -1875,11 +1900,13 @@
         }
         await fetch(state.ctx.sheetUrl, { method:'POST', mode:'no-cors', body });
         summary.sheetStatus = 'sent_fetch';
+        updateSheetStatusUI(summary);
         toast('ส่งผลไป Google Sheet แล้ว');
         logEvent('sheet_submit', { status:'sent_fetch' });
         return true;
       } catch (err) {
         summary.sheetStatus = 'failed';
+        updateSheetStatusUI(summary);
         try {
           const key = 'fitness_balance_hold_pending_sheet';
           const pending = JSON.parse(localStorage.getItem(key) || '[]');
@@ -1969,7 +1996,7 @@
               <div class="postRow"><div>Focus Fever</div><div>${summary.feverCount} ครั้ง</div><div>Clean ${summary.cleanPosts}</div></div>
               <div class="postRow"><div>Body Tracking</div><div>${summary.bodyLevel || '-'}</div><div>${summary.bodyQuality || 0}%</div></div>
               <div class="postRow"><div>Body Readiness</div><div>${summary.bodyAssist || '-'}</div><div>${summary.bodyReadiness || 0}%</div></div>
-              <div class="postRow"><div>Google Sheet</div><div>${summary.autoSubmit}</div><div>${summary.sheetStatus || 'pending'}</div></div>
+              <div class="postRow"><div>Google Sheet</div><div>${summary.autoSubmit}</div><div id="sheetStatusCell">${summary.sheetStatus || 'pending'}</div></div>
               <div class="postRow"><div>ฐานที่ดีที่สุด<small>${summary.bestPost || '-'}</small></div><div></div><div></div></div>
               <div class="postRow"><div>ฐานที่ควรฝึกเพิ่ม<small>${summary.hardestPost || '-'}</small></div><div></div><div></div></div>
             </div>
