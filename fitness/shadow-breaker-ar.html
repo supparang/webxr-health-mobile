@@ -10,7 +10,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V4-EASY-HIT
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V5-CLASSROOM-HAND-TEST
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -410,10 +410,10 @@
       z-index:36;
       left:50%;
       top:50%;
-      width:68px;
-      height:68px;
-      margin-left:-34px;
-      margin-top:-34px;
+      width:96px;
+      height:96px;
+      margin-left:-48px;
+      margin-top:-48px;
       border-radius:999px;
       display:none;
       place-items:center;
@@ -429,18 +429,18 @@
     .handCursor.active{display:grid}
     .handCursor.right{background:radial-gradient(circle at 35% 25%, rgba(255,255,255,.46), transparent 26%), rgba(167,139,250,.2);box-shadow:0 0 0 7px rgba(167,139,250,.14), 0 14px 34px rgba(0,0,0,.34), inset 0 0 22px rgba(255,255,255,.1)}
     .handCursor.punching{transform:scale(1.18);filter:brightness(1.45) saturate(1.4)}
-    .handCursor .handEmoji{font-size:33px;filter:drop-shadow(0 5px 8px rgba(0,0,0,.35))}
+    .handCursor .handEmoji{font-size:46px;filter:drop-shadow(0 5px 8px rgba(0,0,0,.35))}
     .handCursor .handLabel{
       position:absolute;
       left:50%;
-      bottom:-20px;
+      bottom:-28px;
       transform:translateX(-50%);
       padding:3px 7px;
       border-radius:999px;
       background:rgba(2,6,23,.72);
       border:1px solid rgba(255,255,255,.16);
       color:#fff;
-      font-size:11px;
+      font-size:14px;
       font-weight:1000;
       letter-spacing:.04em;
       white-space:nowrap;
@@ -734,7 +734,7 @@
       display:block;
       margin-top:2px;
       color:var(--muted);
-      font-size:11px;
+      font-size:14px;
       font-weight:800;
     }
 
@@ -1150,7 +1150,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v4 EASY HIT</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v5 CLASSROOM TEST</div>
         </div>
 
         <div class="grid2">
@@ -1323,7 +1323,7 @@
         handOff:"ปิด Hand Tracking",
         handFail:"เปิด Hand Tracking ไม่ได้ ใช้คลิก / J K / touch แทนได้",
         handLoading:"กำลังโหลดระบบจับมือ...",
-        handHint:"โหมดชกง่าย: ยกมือให้เห็นวง L/R แล้วขยับมือให้ชนเป้า ระบบจะนับ HIT ง่ายขึ้น",
+        handHint:"v5 ทดสอบมือชก: เห็นวง L/R แล้วเอาวงหมัดชนเป้าได้เลย เป้าใหญ่ขึ้นและไม่ตายเร็ว",
         hit:"โดน!",
         perfect:"PERFECT",
         good:"GOOD",
@@ -1400,7 +1400,7 @@
         handOff:"Hand Tracking disabled",
         handFail:"Hand Tracking unavailable. Use click / J K / touch instead.",
         handLoading:"Loading hand tracking...",
-        handHint:"Easy punch mode: show L/R cursors, then move your hand into a target to HIT.",
+        handHint:"v5 hand test: show L/R cursors and move the fist cursor into a target. Bigger targets, slower penalty.",
         hit:"Hit!",
         perfect:"PERFECT",
         good:"GOOD",
@@ -1443,9 +1443,11 @@
     ];
 
     const DIFF = {
-      easy:   { label:"Easy",   spawnMin:780, spawnMax:1150, ttl:1300, size:106, decoy:.12, power:.10, baseBossHp:80,  playerDmg:4, missDmg:4, feverGain:{perfect:9,good:6,okay:3}, feverLoss:8 },
-      normal: { label:"Normal", spawnMin:620, spawnMax:940,  ttl:1080, size:96,  decoy:.20, power:.08, baseBossHp:110, playerDmg:6, missDmg:6, feverGain:{perfect:7,good:4,okay:2}, feverLoss:11 },
-      hard:   { label:"Hard",   spawnMin:480, spawnMax:760,  ttl:900,  size:84,  decoy:.28, power:.06, baseBossHp:140, playerDmg:8, missDmg:8, feverGain:{perfect:6,good:3,okay:2}, feverLoss:14 }
+      // v5 Classroom Hand Test:
+      // ทำให้พิสูจน์ hand tracking ก่อน: เป้าใหญ่ขึ้น อยู่ได้นานขึ้น ระเบิดน้อยลง และ miss ไม่ฆ่าผู้เล่นเร็ว
+      easy:   { label:"Easy",   spawnMin:1350, spawnMax:1750, ttl:3200, size:132, decoy:.03, power:.12, baseBossHp:70,  playerDmg:2, missDmg:0, feverGain:{perfect:12,good:8,okay:5}, feverLoss:2 },
+      normal: { label:"Normal", spawnMin:1150, spawnMax:1550, ttl:2800, size:126, decoy:.05, power:.10, baseBossHp:90,  playerDmg:3, missDmg:1, feverGain:{perfect:10,good:7,okay:4}, feverLoss:3 },
+      hard:   { label:"Hard",   spawnMin:900,  spawnMax:1250, ttl:2300, size:116, decoy:.08, power:.08, baseBossHp:120, playerDmg:5, missDmg:2, feverGain:{perfect:8,good:5,okay:3}, feverLoss:5 }
     };
 
     const state = {
@@ -1490,7 +1492,7 @@
       sound: true,
       research: true,
       motion: false,
-      handPunchThreshold: 90,
+      handPunchThreshold: 35,
       lastHandHitAt: 0,
       lastMotionHitAt: 0,
       lastAccel: 0
@@ -1788,11 +1790,10 @@
     function handCollisionHit(x, y, speed, side){
       const ts = now();
 
-      // v4 EASY HIT:
-      // เป้าหมายคือให้ทดสอบ "มือชกได้จริง" ก่อน จึงลด threshold และขยาย hit radius
-      // หลังจากยืนยันว่าใช้ได้แล้ว ค่อยปรับกลับเป็น Fitness Punch ที่เข้มขึ้นได้
-      const threshold = state.feverActive ? state.handPunchThreshold * .65 : state.handPunchThreshold;
-      if(ts - state.lastHandHitAt < 135) return;
+      // v5 CLASSROOM HAND TEST:
+      // มือชนเป้า = HIT ทันที เพื่อยืนยันว่ากล้องหน้า PC ใช้มือชกได้จริง
+      // หลังทดสอบผ่านแล้ว ค่อยกลับไปเพิ่มเงื่อนไข velocity สำหรับโหมด Fitness จริง
+      if(ts - state.lastHandHitAt < 120) return;
 
       let best = null;
       let bestDist = Infinity;
@@ -1803,7 +1804,7 @@
         const dy = target.y - y;
         const dist = Math.sqrt(dx*dx + dy*dy);
         const size = target.el.offsetWidth || DIFF[state.diffKey].size;
-        const radius = Math.max(118, size * 1.35);
+        const radius = Math.max(185, size * 1.85);
 
         if(dist <= radius && dist < bestDist){
           best = target;
@@ -1814,23 +1815,15 @@
 
       if(!best) return;
 
-      // นับเป็น HIT เมื่อมือชนเป้าและมีการเคลื่อนที่เล็กน้อย
-      // หรือเข้าใกล้แกนกลางเป้ามากพอ เพื่อแก้ปัญหากล้อง PC บางตัวคำนวณ speed ต่ำ
-      const closeEnough = bestDist <= bestRadius * .72;
-      const movingEnough = speed >= threshold;
-
-      if(movingEnough || closeEnough){
-        state.lastHandHitAt = ts;
-        logEvent("hand_punch_easy_v4", {
-          targetId: best.id,
-          side,
-          speed: Math.round(speed),
-          distance: Math.round(bestDist),
-          radius: Math.round(bestRadius),
-          closeEnough: closeEnough ? 1 : 0
-        });
-        hitTarget(best.id, x, y, `hand-${side}-easy`);
-      }
+      state.lastHandHitAt = ts;
+      logEvent("hand_overlap_hit_v5", {
+        targetId: best.id,
+        side,
+        speed: Math.round(speed),
+        distance: Math.round(bestDist),
+        radius: Math.round(bestRadius)
+      });
+      hitTarget(best.id, x, y, `hand-${side}-overlap-v5`);
     }
 
     async function setMotion(on){
@@ -2060,12 +2053,16 @@
         state.metrics.miss++;
         state.combo = 0;
         state.fever = clamp(state.fever - DIFF[state.diffKey].feverLoss, 0, 100);
-        state.playerHp = clamp(state.playerHp - DIFF[state.diffKey].missDmg, 0, 100);
-        floatText(target.x, target.y, t("miss"), "#fb7185");
-        beep("miss");
-        shake();
-        updateCoach("⚠️", state.lang==="th" ? "พลาดเป้า ระวังคอมโบหลุด" : "Missed. Keep focus.", "");
-        logEvent("miss", { targetId:id, type:target.type, lane:target.lane });
+
+        // v5: ถ้าใช้ Hand tracking ให้ miss เป็น feedback แต่ไม่ทำให้พลังหมดเร็ว
+        const missPenalty = state.handTracking ? Math.min(1, DIFF[state.diffKey].missDmg) : DIFF[state.diffKey].missDmg;
+        state.playerHp = clamp(state.playerHp - missPenalty, 0, 100);
+
+        floatText(target.x, target.y, state.handTracking ? "ลองอีกที" : t("miss"), "#fb7185");
+        if(!state.handTracking) beep("miss");
+        if(!state.handTracking) shake();
+        updateCoach("👋", state.lang==="th" ? "ขยับวงหมัด L/R ให้ชนเป้า" : "Move the L/R fist cursor into the target.", state.lang==="th" ? "v5 จะไม่ตายเร็ว เพื่อทดสอบมือชกก่อน" : "v5 slows penalties for hand testing.");
+        logEvent("miss", { targetId:id, type:target.type, lane:target.lane, missPenalty });
       }else{
         logEvent("expire", { targetId:id, type:target.type, lane:target.lane });
       }
@@ -2089,7 +2086,7 @@
 
       if(target.type === "bomb"){
         state.score = Math.max(0, state.score - 60);
-        state.playerHp = clamp(state.playerHp - 10, 0, 100);
+        state.playerHp = clamp(state.playerHp - (state.handTracking ? 3 : 10), 0, 100);
         state.combo = 0;
         state.fever = clamp(state.fever - DIFF[state.diffKey].feverLoss, 0, 100);
         state.metrics.bomb++;
