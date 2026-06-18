@@ -1,0 +1,71 @@
+<!-- Rhythm Boxer AR Hub Button Snippet
+     Place this inside /fitness/index.html or your Fitness Hub card grid.
+     Main game file: /fitness/rhythm-boxer-ar.html
+-->
+
+<a
+  class="fitness-game-card rhythm-boxer-card"
+  href="./rhythm-boxer-ar.html?diff=normal&time=60&hub=./&v=20260618-rb-production-lock"
+  data-game="rhythmboxer"
+>
+  <div class="game-icon">🥊</div>
+  <div class="game-title">Rhythm Boxer AR</div>
+  <div class="game-subtitle">
+    ชกตามจังหวะด้วย Body Tracking • Combo • XP • Boss Clear
+  </div>
+  <div class="game-tags">
+    <span>Body Tracking</span>
+    <span>AR</span>
+    <span>Fitness</span>
+  </div>
+</a>
+
+<style>
+  .rhythm-boxer-card{
+    text-decoration:none;
+    color:#423648;
+    border-radius:24px;
+    padding:18px;
+    display:block;
+    background:
+      radial-gradient(circle at 16% 12%,rgba(255,255,255,.95),transparent 22%),
+      linear-gradient(180deg,#fff0f8,#eef8ff);
+    border:1px solid rgba(255,255,255,.88);
+    box-shadow:0 16px 34px rgba(94,60,104,.14);
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .rhythm-boxer-card:hover{
+    transform:translateY(-3px);
+    box-shadow:0 20px 44px rgba(94,60,104,.18);
+  }
+  .rhythm-boxer-card .game-icon{
+    font-size:2rem;
+  }
+  .rhythm-boxer-card .game-title{
+    margin-top:8px;
+    font-size:1.18rem;
+    font-weight:1000;
+  }
+  .rhythm-boxer-card .game-subtitle{
+    margin-top:6px;
+    font-size:.88rem;
+    line-height:1.45;
+    font-weight:800;
+    color:#6d6270;
+  }
+  .rhythm-boxer-card .game-tags{
+    margin-top:12px;
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .rhythm-boxer-card .game-tags span{
+    border-radius:999px;
+    padding:6px 9px;
+    background:rgba(255,255,255,.88);
+    border:1px solid rgba(255,255,255,.86);
+    font-size:.72rem;
+    font-weight:1000;
+    color:#625766;
+  }
+</style>
