@@ -11,7 +11,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-4-RESULT-CLARITY-LOCK
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-5-SHEETS-SUBMIT-LOCK
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1296,7 +1296,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.4 RESULT CLARITY LOCK</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.5 SHEETS SUBMIT LOCK</div>
         </div>
 
         <div class="grid2">
@@ -1372,6 +1372,16 @@
               <label class="toggle"><span id="lblResearch">Research log</span><input type="checkbox" id="researchToggle" checked /></label>
             </div>
 
+            <label style="margin-top:10px">
+              <span id="lblSheetUrl">Google Sheet Web App URL</span>
+              <input id="sheetUrlInput" autocomplete="off" placeholder="วาง Web App URL หรือส่งผ่าน ?sheet=..." />
+            </label>
+
+            <div class="toggleRow">
+              <label class="toggle"><span id="lblAutoSubmit">Auto submit Sheet</span><input type="checkbox" id="autoSubmitToggle" checked /></label>
+              <label class="toggle"><span id="lblQueue">Offline queue</span><input type="checkbox" id="queueToggle" checked /></label>
+            </div>
+
             <div class="bigActions">
               <button class="bigBtn play" id="btnStart">เริ่มเกม</button>
               <button class="bigBtn ghost" id="btnHow">วิธีเล่นสั้น ๆ</button>
@@ -1414,6 +1424,7 @@
 
         <div class="bigActions">
           <button class="bigBtn play" id="btnReplay">เล่นอีกครั้ง</button>
+          <button class="bigBtn ghost" id="btnSubmitSheet">ส่ง Google Sheet</button>
           <button class="bigBtn ghost" id="btnExport">Export CSV</button>
           <button class="bigBtn ghost" id="btnMenu">กลับเมนู</button>
           <button class="bigBtn ghost" id="btnHub">กลับ Fitness Hub</button>
@@ -1462,6 +1473,21 @@
         motion:"Motion punch",
         hand:"Hand tracking",
         research:"Research log",
+        sheetUrl:"Google Sheet Web App URL",
+        autoSubmit:"Auto submit Sheet",
+        queue:"Offline queue",
+        submitSheet:"Submit Sheet",
+        sheetSaved:"Saved to Google Sheet",
+        sheetFail:"Sheet submit failed; saved to queue",
+        sheetMissing:"Please add Google Web App URL first",
+        queueSent:"Queued results sent",
+        autoSubmit:"Auto submit Sheet",
+        queue:"Offline queue",
+        submitSheet:"Submit Sheet",
+        sheetSaved:"Saved to Google Sheet",
+        sheetFail:"Sheet submit failed; saved to queue",
+        sheetMissing:"Please add Google Web App URL first",
+        queueSent:"Queued results sent",
         safety:"ข้อควรระวัง: ยืนในพื้นที่โล่ง ถือโทรศัพท์ให้มั่นคง ไม่เล่นขณะเดิน และหยุดทันทีเมื่อเวียนศีรษะหรือเมื่อยล้ามากผิดปกติ",
         rules:[
           "ชกเป้า 🥊/🎯 ให้เร็ว เก็บ Combo และลด HP บอส",
@@ -1653,6 +1679,11 @@
       handLastSeen: 0,
       sound: true,
       research: true,
+      sheetUrl: "",
+      autoSubmitSheet: true,
+      offlineQueue: true,
+      lastSummaryPayload: null,
+      sheetQueueKey: "shadowBreakerSheetQueueV75",
       motion: false,
       handPunchThreshold: 60,
       lastHandHitAt: 0,
@@ -1680,6 +1711,7 @@
 
     function applyLang(){
       state.lang = $("langSelect").value || "th";
+      saveSheetSettings();
       $("txtPlayer").textContent = t("player");
       $("txtFever").textContent = t("fever");
       $("leftLane").textContent = t("left");
@@ -1701,6 +1733,9 @@
       $("lblMotion").textContent = t("motion");
       $("lblHand").textContent = t("hand");
       $("lblResearch").textContent = t("research");
+      $("lblSheetUrl").textContent = t("sheetUrl");
+      $("lblAutoSubmit").textContent = t("autoSubmit");
+      $("lblQueue").textContent = t("queue");
       $("handHint").textContent = t("handHint");
       $("safetyNote").textContent = t("safety");
       $("rulesList").innerHTML = t("rules").map(x => `<li>${escapeHtml(x)}</li>`).join("");
@@ -1708,6 +1743,7 @@
       $("resultTitle").textContent = t("result");
       $("resultSubtitle").textContent = t("great");
       $("btnReplay").textContent = t("replay");
+      $("btnSubmitSheet").textContent = t("submitSheet");
       $("btnExport").textContent = t("export");
       $("btnMenu").textContent = t("menu");
       $("btnHub").textContent = t("hub");
@@ -2829,6 +2865,203 @@
       return { label: state.lang==="th" ? "Training Mode" : "Training Mode", emoji:"🌱" };
     }
 
+
+    function getSheetUrl(){
+      const fromInput = $("sheetUrlInput")?.value?.trim() || "";
+      const fromQuery = qs.get("sheet") || qs.get("gas") || qs.get("webapp") || "";
+      const url = fromInput || fromQuery || localStorage.getItem("shadowBreakerSheetUrl") || "";
+      if(url && $("sheetUrlInput")) $("sheetUrlInput").value = url;
+      return url;
+    }
+
+    function saveSheetSettings(){
+      state.sheetUrl = getSheetUrl();
+      state.autoSubmitSheet = $("autoSubmitToggle") ? $("autoSubmitToggle").checked : true;
+      state.offlineQueue = $("queueToggle") ? $("queueToggle").checked : true;
+      if(state.sheetUrl) localStorage.setItem("shadowBreakerSheetUrl", state.sheetUrl);
+      localStorage.setItem("shadowBreakerAutoSubmit", state.autoSubmitSheet ? "1" : "0");
+      localStorage.setItem("shadowBreakerOfflineQueue", state.offlineQueue ? "1" : "0");
+    }
+
+    function loadSheetSettings(){
+      const savedUrl = localStorage.getItem("shadowBreakerSheetUrl") || "";
+      const queryUrl = qs.get("sheet") || qs.get("gas") || qs.get("webapp") || "";
+      if($("sheetUrlInput")) $("sheetUrlInput").value = queryUrl || savedUrl;
+      if($("autoSubmitToggle")){
+        $("autoSubmitToggle").checked = localStorage.getItem("shadowBreakerAutoSubmit") !== "0";
+      }
+      if($("queueToggle")){
+        $("queueToggle").checked = localStorage.getItem("shadowBreakerOfflineQueue") !== "0";
+      }
+      saveSheetSettings();
+    }
+
+    function buildSheetPayload(){
+      const attempts = state.metrics.hit + state.metrics.miss + state.metrics.bomb;
+      const acc = attempts ? Math.round((state.metrics.hit / attempts) * 100) : 0;
+      const avgRt = state.metrics.hit ? Math.round(state.metrics.totalRt / state.metrics.hit) : 0;
+      const hitRate = state.timeLimit ? Number((state.metrics.hit / state.timeLimit * 60).toFixed(2)) : 0;
+      const scoreRate = state.timeLimit ? Number((state.score / state.timeLimit * 60).toFixed(2)) : 0;
+
+      const d = DIFF[state.diffKey] || DIFF.normal;
+      const missionCombo = state.bestCombo >= (d.comboGoal || 14) ? 1 : 0;
+      const missionRush = state.rushHits >= (d.rushGoal || 3) ? 1 : 0;
+      const missionNoBomb = state.metrics.bomb === 0 ? 1 : 0;
+      const missionBoss = state.metrics.clearedBoss >= 4 ? 1 : 0;
+      const missionBadges = [missionCombo, missionRush, missionNoBomb, missionBoss].filter(Boolean).length;
+
+      return {
+        game:"shadowbreaker",
+        gameVersion:$("versionPill")?.textContent || "Shadow Breaker AR",
+        sourceUrl:location.href,
+        clientTimestamp:new Date().toISOString(),
+
+        sessionId:`sb-${new Date().toISOString().slice(0,10)}-${state.playerName || "Hero"}`,
+        roundId:`sb-round-${Date.now().toString(36)}`,
+        classId:qs.get("class") || qs.get("classId") || "",
+        section:qs.get("section") || qs.get("sec") || "",
+        studentId:qs.get("studentId") || qs.get("sid") || "",
+        studentName:qs.get("studentName") || qs.get("name") || state.playerName || "Hero",
+        player:state.playerName || "Hero",
+        language:state.lang,
+        deviceType:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? "mobile" : "pc",
+        userAgent:navigator.userAgent,
+
+        mode: state.handTracking ? "hand-ar" : "touch-ar",
+        program:state.programKey || "",
+        difficulty:state.diffKey,
+        duration:state.timeLimit,
+        timeLimit:state.timeLimit,
+        endReason:state.endReason,
+
+        score:state.score,
+        bossesCleared:state.metrics.clearedBoss,
+        accuracy:acc,
+        bestCombo:state.bestCombo,
+        comboMilestone:state.comboMilestone || 0,
+        hit:state.metrics.hit,
+        miss:state.metrics.miss,
+        bomb:state.metrics.bomb,
+        bombFree:missionNoBomb,
+        power:state.metrics.power,
+        rush:state.rushHits || state.metrics.rush || 0,
+        shield:state.metrics.shield,
+        perfect:state.metrics.perfect,
+        good:state.metrics.good,
+        okay:state.metrics.okay,
+        feverCount:state.feverCount,
+        playerHp:Math.round(state.playerHp),
+
+        avgRtMs:avgRt,
+        hitRatePerMin:hitRate,
+        scorePerMin:scoreRate,
+        sideSwitches:state.sideSwitches || 0,
+
+        missionBadges,
+        missionCombo,
+        missionRush,
+        missionNoBomb,
+        missionBoss,
+
+        arCamera:state.cameraStream ? 1 : 0,
+        handTracking:state.handTracking ? 1 : 0,
+        motionPunch:state.motion ? 1 : 0,
+        calibrationDone:state.calibrationDone ? 1 : 0,
+        soundOn:state.sound ? 1 : 0,
+        researchLog:state.research ? 1 : 0,
+
+        rank:$("resultSubtitle")?.textContent?.split("•")?.[0]?.trim() || "",
+        resultLabel:$("resultSubtitle")?.textContent || "",
+        advice:$("resultAdvice")?.innerText || "",
+        notes:"",
+
+        events:state.research ? state.events : []
+      };
+    }
+
+    function getQueuedSheetPayloads(){
+      try{
+        return JSON.parse(localStorage.getItem(state.sheetQueueKey) || "[]");
+      }catch(e){
+        return [];
+      }
+    }
+
+    function setQueuedSheetPayloads(list){
+      localStorage.setItem(state.sheetQueueKey, JSON.stringify(list || []));
+    }
+
+    function queueSheetPayload(payload){
+      const list = getQueuedSheetPayloads();
+      list.push(payload);
+      while(list.length > 20) list.shift();
+      setQueuedSheetPayloads(list);
+    }
+
+    async function submitPayloadToSheet(payload, manual=false){
+      saveSheetSettings();
+      const url = state.sheetUrl || getSheetUrl();
+      if(!url){
+        if(manual) toast(t("sheetMissing"), 1800);
+        return {ok:false, error:"missing_url"};
+      }
+
+      try{
+        const res = await fetch(url, {
+          method:"POST",
+          mode:"no-cors",
+          headers:{"Content-Type":"text/plain;charset=utf-8"},
+          body:JSON.stringify(payload)
+        });
+
+        // Apps Script with no-cors returns opaque response, so no JSON body is readable.
+        logEvent("sheet_submit", { manual:manual ? 1 : 0, opaque:1 });
+        toast(t("sheetSaved"), 1600);
+        return {ok:true, opaque:true};
+      }catch(err){
+        if(state.offlineQueue){
+          queueSheetPayload(payload);
+          toast(t("sheetFail"), 2200);
+        }else{
+          toast(String(err.message || err), 2200);
+        }
+        logEvent("sheet_submit_failed", { error:String(err && err.message ? err.message : err) });
+        return {ok:false, error:String(err && err.message ? err.message : err)};
+      }
+    }
+
+    async function submitCurrentResultToSheet(manual=false){
+      if(!state.lastSummaryPayload){
+        state.lastSummaryPayload = buildSheetPayload();
+      }
+      return submitPayloadToSheet(state.lastSummaryPayload, manual);
+    }
+
+    async function flushSheetQueue(){
+      saveSheetSettings();
+      const url = state.sheetUrl || getSheetUrl();
+      if(!url) return;
+      const list = getQueuedSheetPayloads();
+      if(!list.length) return;
+
+      const remain = [];
+      for(const payload of list){
+        try{
+          await fetch(url, {
+            method:"POST",
+            mode:"no-cors",
+            headers:{"Content-Type":"text/plain;charset=utf-8"},
+            body:JSON.stringify(payload)
+          });
+        }catch(e){
+          remain.push(payload);
+        }
+      }
+      setQueuedSheetPayloads(remain);
+      if(list.length !== remain.length) toast(t("queueSent"), 1500);
+    }
+
+
     function exportCsv(){
       const summary = buildSummaryRows();
       const eventRows = state.events;
@@ -2931,6 +3164,7 @@
       });
       $("btnMenu").addEventListener("click", showMenu);
       $("btnHub").addEventListener("click", goHub);
+      $("btnSubmitSheet").addEventListener("click", () => submitCurrentResultToSheet(true));
       $("btnExport").addEventListener("click", exportCsv);
       $("btnPause").addEventListener("click", pauseGame);
       $("btnEnd").addEventListener("click", () => {
@@ -2950,6 +3184,9 @@
         if(state.sound) beep("hit");
       });
       $("researchToggle").addEventListener("change", ev => state.research = ev.target.checked);
+      $("sheetUrlInput")?.addEventListener("change", saveSheetSettings);
+      $("autoSubmitToggle")?.addEventListener("change", saveSheetSettings);
+      $("queueToggle")?.addEventListener("change", saveSheetSettings);
       $("btnHow").addEventListener("click", () => toast(t("howText"), 3600));
 
       window.addEventListener("keydown", ev => {
@@ -3003,6 +3240,7 @@
 
     function boot(){
       hydrateFromQuery();
+      loadSheetSettings();
       if(!qs.get("diff") && !qs.get("time")) applyProgramPreset("boot");
       configureFromUI();
       bind();
@@ -3010,6 +3248,7 @@
       updateBossUI();
       updateHud(state.timeLimit);
       logEvent("page_load");
+      flushSheetQueue();
     }
 
     boot();
