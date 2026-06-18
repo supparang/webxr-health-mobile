@@ -488,7 +488,7 @@
   (() => {
     'use strict';
 
-    const VERSION = '20260618-BALANCE-HOLD-AR-V4-HEAD-FIRST-MP';
+    const VERSION = '20260618-BALANCE-HOLD-AR-V5-HEAD-SCORE-SAFE';
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -891,7 +891,7 @@
 
     function headDelta(){
       if (!state.head.enabled || !el.useHead.checked || now() - state.head.last > 900) return null;
-      const deadzone = el.safeMode.checked ? .038 : .026;
+      const deadzone = el.safeMode.checked ? .026 : .018;
       const dz = (v) => Math.abs(v) < deadzone ? 0 : (v - Math.sign(v)*deadzone) / (1-deadzone);
       const dx = dz(state.head.x - (state.head.baseX ?? state.head.x));
       const dy = dz(state.head.y - (state.head.baseY ?? state.head.y));
@@ -1032,10 +1032,10 @@
         const hd = headDelta();
         if (hd) {
           setInputPill('head');
-          const sx = el.safeMode.checked ? .24 : .32;
-          const sy = el.safeMode.checked ? .19 : .26;
-          tx = r.width * .5 + clamp(hd.dx/.28, -1, 1) * r.width * sx;
-          ty = r.height * .55 + clamp(hd.dy/.26, -1, 1) * r.height * sy;
+          const sx = el.safeMode.checked ? .30 : .38;
+          const sy = el.safeMode.checked ? .24 : .31;
+          tx = r.width * .5 + clamp(hd.dx/.20, -1, 1) * r.width * sx;
+          ty = r.height * .55 + clamp(hd.dy/.19, -1, 1) * r.height * sy;
         } else if (state.tilt.enabled && el.useTilt.checked && now() - state.tilt.last < 1500) {
           setInputPill('tilt');
           const b = (state.tilt.beta - (state.tilt.baseBeta ?? state.tilt.beta));
@@ -1099,7 +1099,7 @@
       post._lastTarget = target;
 
       if (!post.metric) {
-        post.metric = { id:post.id, key:post.key, title:post.title, inMs:0, outMs:0, outCount:0, avgDist:0, samples:0, maxHoldMs:0, score:0, stars:0, quality:0, cleared:false };
+        post.metric = { id:post.id, key:post.key, title:post.title, inMs:0, outMs:0, outCount:0, avgDist:0, samples:0, maxHoldMs:0, score:0, stars:0, quality:0, cleared:false, wasInZone:false };
       }
       const m = post.metric;
       m.avgDist += d; m.samples++;
@@ -1107,17 +1107,26 @@
       if (inZone) {
         state.holdMs += dt;
         m.inMs += dt; state.totalInMs += dt;
+        m.wasInZone = true;
         state.cursor.in = true;
         if (state.holdMs > 850 && !m.goodShown) { m.goodShown = true; setFx('Good Hold!'); setCoach('นิ่งมาก ค้างต่ออีกนิดเดียว', '😄', 'Good'); }
       } else {
-        if (state.holdMs > 80) { m.outCount++; state.outCount++; state.misses++; if (m.outCount % 2 === 1) setFx('Recover!'); }
+        // นับ Out เฉพาะจังหวะที่หลุดออกจากวงจริง ๆ ไม่ใช่นับทุก frame
+        // เพื่อไม่ให้คะแนนติดลบหนัก ทั้งที่ผู้เล่นกำลังพยายามกู้สมดุลกลับมา
+        if (m.wasInZone && state.holdMs > 80) {
+          m.outCount++;
+          state.outCount++;
+          state.misses++;
+          m.wasInZone = false;
+          setFx('Recover!');
+        }
         state.holdMs = Math.max(0, state.holdMs - dt * diff.drain);
         m.outMs += dt; state.totalOutMs += dt;
         state.cursor.in = false;
         if (Math.random() < .02) setCoach('ค่อย ๆ กลับเข้าเป้า ไม่ต้องรีบเหวี่ยงตัว', '🙂', 'Recover');
       }
       m.maxHoldMs = Math.max(m.maxHoldMs, state.holdMs);
-      state.stability = clamp(100 - (m.outCount*5) - (d/post.radius)*12, 0, 100);
+      state.stability = clamp(100 - (m.outCount*4) - (d/post.radius)*10, 0, 100);
 
       if (state.holdMs >= post.holdMs) {
         clearPost(post);
@@ -1128,11 +1137,12 @@
       const m = post.metric;
       m.cleared = true;
       const avg = m.avgDist / Math.max(1,m.samples);
-      m.quality = clamp(Math.round(104 - m.outCount*8 - avg*.35), 45, 100);
+      m.quality = clamp(Math.round(104 - m.outCount*6 - avg*.28), 45, 100);
       m.stars = m.quality >= 88 ? 3 : m.quality >= 74 ? 2 : 1;
-      m.score = Math.round(120 + m.inMs*.06 + m.stars*90 + state.combo*24 - m.outCount*12);
+      const rawPostScore = Math.round(180 + m.inMs*.075 + m.stars*120 + state.combo*30 - m.outCount*18);
+      m.score = Math.max(0, rawPostScore);
       state.postMetrics.push(m);
-      state.score += m.score;
+      state.score = Math.max(0, state.score + m.score);
       state.stars += m.stars;
       state.combo += 1;
       state.bestCombo = Math.max(state.bestCombo, state.combo);
@@ -1225,10 +1235,11 @@
       const grade = focusScore >= 90 ? 'A' : focusScore >= 78 ? 'B+' : focusScore >= 62 ? 'B' : 'C';
       const bestPost = [...state.postMetrics].sort((a,b)=>b.quality-a.quality)[0];
       const hardestPost = [...state.postMetrics].sort((a,b)=>b.outCount-a.outCount)[0];
+      const safeScore = Math.max(0, Math.round(state.score));
       const summary = {
         version:VERSION, player:state.ctx.player, group:state.ctx.group, pid:state.ctx.pid, studyId:state.ctx.studyId,
         game:'balancehold', mode:'AR', inputMode:state.inputMode, headSupported:state.head.supported ? 'yes' : 'no', headSamples:state.head.samples, diff:state.ctx.diff, duration:state.timeLimit, reason,
-        score:state.score, scoreFinal:state.score, stars:state.stars, passedPosts:passed, totalPosts:total,
+        score:safeScore, scoreFinal:safeScore, stars:state.stars, passedPosts:passed, totalPosts:total,
         accPct, validHoldRatio:Number(validRatio.toFixed(4)), focusScore, avgQuality,
         rank, grade, comboMax:state.bestCombo, hits:state.hits, misses:state.misses, outCount:state.outCount,
         bestPost:bestPost?.title || '', hardestPost:hardestPost?.title || '',
@@ -1360,14 +1371,12 @@
       if (q('ar','1') === '0') el.useCamera.checked = false;
       if (hasExplicitQuery('tilt')) el.useTilt.checked = q('tilt','1') !== '0';
       else el.useTilt.checked = IS_MOBILE;
-      const explicitInput = hasExplicitQuery('input') || hasExplicitQuery('control');
       if (hasExplicitQuery('head')) el.useHead.checked = q('head','1') !== '0';
-      else el.useHead.checked = !explicitInput;
+      else el.useHead.checked = true;
       const inputQ = q('input', q('control', el.useHead.checked ? 'head' : 'auto'));
       if (['auto','pointer','keyboard','tilt','head'].includes(inputQ)) el.inputChoice.value = inputQ;
-      if (el.useHead.checked && !explicitInput) el.inputChoice.value = 'head';
+      if (el.useHead.checked) el.inputChoice.value = 'head';
       if (el.inputChoice.value === 'head') el.useHead.checked = true;
-      if (el.inputChoice.value !== 'head' && explicitInput && !hasExplicitQuery('head')) el.useHead.checked = false;
       if (el.inputChoice.value === 'tilt') el.useTilt.checked = true;
       setInputPill(requestedControl() === 'keyboard' ? 'keyboard' : requestedControl() === 'tilt' ? 'tilt' : requestedControl() === 'head' ? 'head' : 'pointer');
       if (q('quick','0') === '1' || q('run','') === 'play') {
