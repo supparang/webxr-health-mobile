@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <title>HeroHealth • Rhythm Boxer AR Body</title>
+  <title>HeroHealth • Rhythm Boxer AR Body FIX</title>
   <meta name="theme-color" content="#ff9dcf" />
   <meta name="color-scheme" content="light" />
 
@@ -271,9 +271,9 @@
   <header class="topbar">
     <div>
       <div class="kicker">HeroHealth Fitness AR • Body Tracking</div>
-      <h1>🥊 Rhythm Boxer AR Body</h1>
+      <h1>🥊 Rhythm Boxer AR Body FIX</h1>
       <div class="sub">
-        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ
+        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชันนี้แก้ให้ให้คะแนนจาก body punch ง่ายขึ้น
         ถ้ากล้องหรือ Pose Tracking ใช้ไม่ได้ ยังเล่นด้วยการแตะจอ/คีย์บอร์ดได้
       </div>
     </div>
@@ -669,6 +669,29 @@
     return best;
   }
 
+  function findNearestFlexible(lane,now){
+    // Body tracking is naturally less precise than touch.
+    // First try the predicted lane, then allow the nearest visible note in the active lane set.
+    const exact = findNearest(lane,now);
+    const goodWin = windows().good;
+    if(exact && Math.abs(exact.dt) <= goodWin + 80) return exact;
+
+    const tRel = now-S.t0;
+    let best=null, ba=1e9;
+    const allowed = activeLanes();
+    for(const n of S.notes){
+      if(!allowed.includes(n.lane) || n.hit || n.miss || !n.spawned) continue;
+      const dt = n.tHit - tRel;
+      const a = Math.abs(dt);
+      if(a < ba){
+        ba = a;
+        best = {note:n, dt};
+      }
+    }
+    if(best && Math.abs(best.dt) <= goodWin + 115) return best;
+    return exact;
+  }
+
   function handleInput(lane,source='touch'){
     if(!S.running) return;
     lane = normLane(lane);
@@ -678,16 +701,26 @@
     S.lastLaneTap[lane]=tNow;
     if(source.startsWith('body')) S.bodyPunches++;
 
-    const found = findNearest(lane,tNow);
+    const found = String(source).startsWith('body')
+      ? findNearestFlexible(lane,tNow)
+      : findNearest(lane,tNow);
+
+    // If a body punch is close to a real note but the lane estimate is slightly off,
+    // score against the note's true lane. This makes body play fair and playable.
+    if(found && String(source).startsWith('body')){
+      lane = found.note.lane;
+    }
+
     const win = windows();
     let judge='Miss', dt=9999, blank=false;
 
     if(found){
       dt = found.dt;
       const a = Math.abs(dt);
-      if(a<=win.perfect) judge='Perfect';
-      else if(a<=win.great) judge='Great';
-      else if(a<=win.good) judge='Good';
+      const bodyForgive = String(source).startsWith('body') ? 1.28 : 1.0;
+      if(a<=win.perfect*bodyForgive) judge='Perfect';
+      else if(a<=win.great*bodyForgive) judge='Great';
+      else if(a<=win.good*bodyForgive) judge='Good';
       else judge='Miss';
 
       if(judge!=='Miss'){
@@ -983,8 +1016,15 @@
 
     drawSkeleton(ctx,c,{ls,rs,le,re,lw,rw},visible);
     if(S.mode==='body' && S.running && visible){
-      detectPunch('left',ls,le,lw);
-      detectPunch('right',rs,re,rw);
+      const shoulderWidth = Math.max(.14, dist(ls,rs));
+      detectPunch('left',ls,le,lw,shoulderWidth);
+      detectPunch('right',rs,re,rw,shoulderWidth);
+
+      // Assistive body-hit layer:
+      // If a wrist is already in the note lane during the hit window, count it as a punch.
+      // This fixes the common mobile-camera case where a forward punch has little 2D movement.
+      tryBodyHitFromWrist('left', lw);
+      tryBodyHitFromWrist('right', rw);
     }
   }
 
@@ -1000,11 +1040,13 @@
     ctx.restore();
   }
 
-  function detectPunch(side,shoulder,elbow,wrist){
+  function detectPunch(side,shoulder,elbow,wrist,shoulderWidth){
     const now=nowMs();
     const last=S.body.last[side];
-    const scale = Math.max(.12, Math.abs(ptToRaw(shoulder).x - (side==='left'?ptToRaw({x:1-shoulder.x,y:shoulder.y,v:shoulder.v}):ptToRaw({x:1-shoulder.x,y:shoulder.y,v:shoulder.v})).x)); // fallback-ish
-    const ext = dist(wrist,shoulder) / Math.max(.16, Math.abs(shoulder.x - (side==='left'?1-shoulder.x:1-shoulder.x)));
+
+    // Normalize by shoulder width. This is far more stable than absolute screen distance.
+    const ext = dist(wrist,shoulder) / Math.max(.14, shoulderWidth || .22);
+
     let speed=0;
     if(last){
       const dt=Math.max(16,now-last.t)/1000;
@@ -1012,11 +1054,19 @@
     }
     S.body.last[side]={x:wrist.x,y:wrist.y,t:now};
 
-    // Re-arm when hand returns closer to shoulder/guard.
-    if(ext < 1.05 || wrist.y > shoulder.y + .36) S.body.armed[side]=true;
+    // Re-arm when hand returns near guard or drops slightly.
+    if(ext < .92 || wrist.y > shoulder.y + .30) S.body.armed[side]=true;
 
     const cooldown = now - (S.body.lastPunch[side]||0);
-    const isPunch = S.body.armed[side] && cooldown>280 && ext>1.18 && speed>.55 && wrist.y < .86;
+
+    // More playable thresholds for children / mobile webcam:
+    // arm extended + some wrist movement + not too low in the screen.
+    const isPunch =
+      S.body.armed[side] &&
+      cooldown > 230 &&
+      ext > 1.02 &&
+      speed > .32 &&
+      wrist.y < .90;
 
     if(isPunch){
       S.body.armed[side]=false;
@@ -1024,6 +1074,24 @@
       const lane=xToLane(wrist.x);
       handleInput(lane,'body_'+side);
       toast((side==='left'?'หมัดซ้าย':'หมัดขวา')+' → lane '+lane);
+    }
+  }
+
+  function tryBodyHitFromWrist(side,wrist){
+    const now = nowMs();
+    const cooldown = now - (S.body.lastPunch[side]||0);
+    if(cooldown < 360) return;
+    if(!wrist || wrist.v < .42) return;
+
+    const lane = xToLane(wrist.x);
+    const found = findNearestFlexible(lane, now);
+    if(!found) return;
+
+    const a = Math.abs(found.dt);
+    if(a <= windows().good * 1.18 && wrist.y < .88){
+      S.body.lastPunch[side] = now;
+      S.body.armed[side] = false;
+      handleInput(lane,'body_hold_'+side);
     }
   }
 
