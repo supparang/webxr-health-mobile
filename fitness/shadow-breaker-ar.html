@@ -11,7 +11,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-5-SHEETS-SUBMIT-LOCK
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-7-SHEETS-URL-LOCK
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1296,7 +1296,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.5 SHEETS SUBMIT LOCK</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.7 SHEETS URL LOCK</div>
         </div>
 
         <div class="grid2">
@@ -1374,7 +1374,7 @@
 
             <label style="margin-top:10px">
               <span id="lblSheetUrl">Google Sheet Web App URL</span>
-              <input id="sheetUrlInput" autocomplete="off" placeholder="วาง Web App URL หรือส่งผ่าน ?sheet=..." />
+              <input id="sheetUrlInput" autocomplete="off" placeholder="ฝัง URL แล้ว หรือวาง Web App URL ใหม่ได้" />
             </label>
 
             <div class="toggleRow">
@@ -1445,6 +1445,7 @@
     const now = () => performance.now();
 
     const qs = new URLSearchParams(location.search);
+    const DEFAULT_SHADOW_BREAKER_SHEET_URL = "https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec";
 
     const I18N = {
       th: {
@@ -1481,6 +1482,7 @@
         sheetFail:"Sheet submit failed; saved to queue",
         sheetMissing:"Please add Google Web App URL first",
         queueSent:"Queued results sent",
+        storageFull:"พื้นที่บันทึกใน browser เต็ม แต่เกมยังเล่นได้", 
         autoSubmit:"Auto submit Sheet",
         queue:"Offline queue",
         submitSheet:"Submit Sheet",
@@ -2866,10 +2868,64 @@
     }
 
 
+
+    function safeStorageGet(key, fallback=""){
+      try{
+        return localStorage.getItem(key) ?? fallback;
+      }catch(err){
+        try{ return sessionStorage.getItem(key) ?? fallback; }catch(e){}
+        return fallback;
+      }
+    }
+
+    function safeStorageSet(key, value){
+      try{
+        localStorage.setItem(key, value);
+        return true;
+      }catch(err){
+        try{
+          sessionStorage.setItem(key, value);
+          return true;
+        }catch(e){}
+        console.warn("ShadowBreaker storage set failed:", key, err);
+        return false;
+      }
+    }
+
+    function safeStorageRemove(key){
+      try{ localStorage.removeItem(key); }catch(err){}
+      try{ sessionStorage.removeItem(key); }catch(err){}
+    }
+
+    function compactPayloadForQueue(payload){
+      if(!payload) return payload;
+      const copy = {...payload};
+
+      // Offline queue ต้องไม่เก็บ event log ดิบจำนวนมาก ไม่งั้น localStorage เต็มเร็วมาก
+      copy.events = [];
+      copy.rawJson = undefined;
+      copy.queuedAt = new Date().toISOString();
+
+      return copy;
+    }
+
+    function estimateStorageTrouble(){
+      try{
+        const testKey = "__sb_storage_test__";
+        localStorage.setItem(testKey, "1");
+        localStorage.removeItem(testKey);
+        return false;
+      }catch(err){
+        return true;
+      }
+    }
+
     function getSheetUrl(){
       const fromInput = $("sheetUrlInput")?.value?.trim() || "";
       const fromQuery = qs.get("sheet") || qs.get("gas") || qs.get("webapp") || "";
-      const url = fromInput || fromQuery || localStorage.getItem("shadowBreakerSheetUrl") || "";
+      const saved = safeStorageGet("shadowBreakerSheetUrl", "");
+      const url = fromInput || fromQuery || saved || DEFAULT_SHADOW_BREAKER_SHEET_URL || "";
+
       if(url && $("sheetUrlInput")) $("sheetUrlInput").value = url;
       return url;
     }
@@ -2878,23 +2934,40 @@
       state.sheetUrl = getSheetUrl();
       state.autoSubmitSheet = $("autoSubmitToggle") ? $("autoSubmitToggle").checked : true;
       state.offlineQueue = $("queueToggle") ? $("queueToggle").checked : true;
-      if(state.sheetUrl) localStorage.setItem("shadowBreakerSheetUrl", state.sheetUrl);
-      localStorage.setItem("shadowBreakerAutoSubmit", state.autoSubmitSheet ? "1" : "0");
-      localStorage.setItem("shadowBreakerOfflineQueue", state.offlineQueue ? "1" : "0");
+
+      // v7.6: localStorage เต็มต้องไม่ทำให้เกมพัง
+      if(state.sheetUrl){
+        const ok = safeStorageSet("shadowBreakerSheetUrl", state.sheetUrl);
+        if(!ok) console.warn("ShadowBreaker: cannot persist sheet URL; using in-memory URL only.");
+      }
+
+      safeStorageSet("shadowBreakerAutoSubmit", state.autoSubmitSheet ? "1" : "0");
+      safeStorageSet("shadowBreakerOfflineQueue", state.offlineQueue ? "1" : "0");
     }
 
+
     function loadSheetSettings(){
-      const savedUrl = localStorage.getItem("shadowBreakerSheetUrl") || "";
+      const savedUrl = safeStorageGet("shadowBreakerSheetUrl", "");
       const queryUrl = qs.get("sheet") || qs.get("gas") || qs.get("webapp") || "";
-      if($("sheetUrlInput")) $("sheetUrlInput").value = queryUrl || savedUrl;
+
+      if($("sheetUrlInput")) $("sheetUrlInput").value = queryUrl || savedUrl || DEFAULT_SHADOW_BREAKER_SHEET_URL || "";
+
       if($("autoSubmitToggle")){
-        $("autoSubmitToggle").checked = localStorage.getItem("shadowBreakerAutoSubmit") !== "0";
+        $("autoSubmitToggle").checked = safeStorageGet("shadowBreakerAutoSubmit", "1") !== "0";
       }
       if($("queueToggle")){
-        $("queueToggle").checked = localStorage.getItem("shadowBreakerOfflineQueue") !== "0";
+        $("queueToggle").checked = safeStorageGet("shadowBreakerOfflineQueue", "1") !== "0";
       }
-      saveSheetSettings();
+
+      state.sheetUrl = $("sheetUrlInput")?.value?.trim() || "";
+      state.autoSubmitSheet = $("autoSubmitToggle") ? $("autoSubmitToggle").checked : true;
+      state.offlineQueue = $("queueToggle") ? $("queueToggle").checked : true;
+
+      if(estimateStorageTrouble()){
+        console.warn("ShadowBreaker: browser storage quota appears full. Queue persistence may be disabled.");
+      }
     }
+
 
     function buildSheetPayload(){
       const attempts = state.metrics.hit + state.metrics.miss + state.metrics.bomb;
@@ -2981,84 +3054,34 @@
 
     function getQueuedSheetPayloads(){
       try{
-        return JSON.parse(localStorage.getItem(state.sheetQueueKey) || "[]");
+        return JSON.parse(safeStorageGet(state.sheetQueueKey, "[]") || "[]");
       }catch(e){
+        safeStorageRemove(state.sheetQueueKey);
         return [];
       }
     }
 
+
     function setQueuedSheetPayloads(list){
-      localStorage.setItem(state.sheetQueueKey, JSON.stringify(list || []));
+      const compact = (list || []).map(compactPayloadForQueue).slice(-5);
+      const ok = safeStorageSet(state.sheetQueueKey, JSON.stringify(compact));
+
+      if(!ok){
+        // ถ้ายังเต็มอยู่ ให้เก็บเฉพาะรายการล่าสุดแบบ summary-only
+        const latest = compact.length ? [compact[compact.length - 1]] : [];
+        if(!safeStorageSet(state.sheetQueueKey, JSON.stringify(latest))){
+          safeStorageRemove(state.sheetQueueKey);
+          toast(t("storageFull"), 1800);
+        }
+      }
     }
+
 
     function queueSheetPayload(payload){
       const list = getQueuedSheetPayloads();
-      list.push(payload);
-      while(list.length > 20) list.shift();
+      list.push(compactPayloadForQueue(payload));
+      while(list.length > 5) list.shift();
       setQueuedSheetPayloads(list);
-    }
-
-    async function submitPayloadToSheet(payload, manual=false){
-      saveSheetSettings();
-      const url = state.sheetUrl || getSheetUrl();
-      if(!url){
-        if(manual) toast(t("sheetMissing"), 1800);
-        return {ok:false, error:"missing_url"};
-      }
-
-      try{
-        const res = await fetch(url, {
-          method:"POST",
-          mode:"no-cors",
-          headers:{"Content-Type":"text/plain;charset=utf-8"},
-          body:JSON.stringify(payload)
-        });
-
-        // Apps Script with no-cors returns opaque response, so no JSON body is readable.
-        logEvent("sheet_submit", { manual:manual ? 1 : 0, opaque:1 });
-        toast(t("sheetSaved"), 1600);
-        return {ok:true, opaque:true};
-      }catch(err){
-        if(state.offlineQueue){
-          queueSheetPayload(payload);
-          toast(t("sheetFail"), 2200);
-        }else{
-          toast(String(err.message || err), 2200);
-        }
-        logEvent("sheet_submit_failed", { error:String(err && err.message ? err.message : err) });
-        return {ok:false, error:String(err && err.message ? err.message : err)};
-      }
-    }
-
-    async function submitCurrentResultToSheet(manual=false){
-      if(!state.lastSummaryPayload){
-        state.lastSummaryPayload = buildSheetPayload();
-      }
-      return submitPayloadToSheet(state.lastSummaryPayload, manual);
-    }
-
-    async function flushSheetQueue(){
-      saveSheetSettings();
-      const url = state.sheetUrl || getSheetUrl();
-      if(!url) return;
-      const list = getQueuedSheetPayloads();
-      if(!list.length) return;
-
-      const remain = [];
-      for(const payload of list){
-        try{
-          await fetch(url, {
-            method:"POST",
-            mode:"no-cors",
-            headers:{"Content-Type":"text/plain;charset=utf-8"},
-            body:JSON.stringify(payload)
-          });
-        }catch(e){
-          remain.push(payload);
-        }
-      }
-      setQueuedSheetPayloads(remain);
-      if(list.length !== remain.length) toast(t("queueSent"), 1500);
     }
 
 
