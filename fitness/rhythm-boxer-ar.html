@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Production Lock + Sheets + Sheets Default | v20260618-rb-sheets-default -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Sheets Forced ON | v20260618-rb-sheets-forced -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -426,6 +426,7 @@
       <span class="chip">PC: A S D J K</span>
       <span class="chip">Mobile: touch + camera</span>
       <span class="chip">Production Lock</span>
+      <span class="chip">Sheets Default ON</span>
     </div>
   </header>
 
@@ -596,7 +597,8 @@
   }
 
   function rbApiUrl(){
-    return String(qs('api', qs('sheet', qs('submit', RB_DEFAULT_API))) || '').trim();
+    const override = qs('api', qs('sheet', qs('submit', '')));
+    return String(override || RB_DEFAULT_API || '').trim();
   }
 
   function rbMeta(){
@@ -653,6 +655,7 @@
 
   async function rbSubmitSession(payload){
     const api = rbApiUrl();
+    console.log('[RB][Sheets] api=', api);
     if(!api){
       rbSetSubmitStatus('บันทึกในเครื่องแล้ว • ยังไม่ได้ตั้งค่า Google Sheets auto submit', 'warn');
       return false;
