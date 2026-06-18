@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-  <title>JumpDuck Dash • PC/Mobile AR Fitness v4</title>
+  <title>JumpDuck Dash • PC/Mobile AR Fitness v5 Classroom Ready</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800;900&display=swap" rel="stylesheet" />
@@ -55,9 +55,19 @@
     .manual-btn:active{ transform:scale(.92); background:#d1fae5; }
     .scorefix-pill{ background:rgba(15,23,42,.72); color:#fff; backdrop-filter:blur(10px); }
 
+    .mini-action-btn{ pointer-events:auto; border-radius:999px; background:rgba(255,255,255,.90); border:2px solid rgba(255,255,255,.68); box-shadow:0 10px 24px rgba(2,6,23,.22); padding:.45rem .75rem; font-size:.72rem; font-weight:900; color:#0f172a; backdrop-filter:blur(12px); }
+    .mini-action-btn:active{ transform:scale(.94); }
+    .time-btn{ border-radius:1rem; border:2px solid #e2e8f0; background:white; padding:.55rem .4rem; font-weight:900; color:#475569; }
+    .time-btn.active{ border-color:#fb923c; background:#ffedd5; color:#c2410c; }
+    .quality-pill{ background:rgba(15,23,42,.72); color:#fff; backdrop-filter:blur(10px); }
+
     @media (max-width: 560px){
       .manual-btn{ width:44px; height:44px; border-radius:16px; font-size:20px; }
       #manual-pad{ left:8px; transform:translateY(-56%) scale(.92); transform-origin:left center; }
+      #target-en-word{ font-size:2.35rem; }
+      #target-emoji{ font-size:2.1rem; }
+      .mission-card-mobile{ padding:.85rem !important; border-radius:1.35rem !important; }
+      .mini-action-btn{ padding:.36rem .56rem; font-size:.66rem; }
     }
   </style>
 </head>
@@ -80,13 +90,13 @@
       <p class="mt-2 text-base md:text-lg font-semibold text-slate-600">ด่าน PC / Mobile AR หลบสิ่งกีดขวางด้วยร่างกายจริง ฝึกความไว ความคล่องตัว และการตอบสนอง</p>
 
       <div class="mt-5 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-left text-sm text-slate-700 space-y-2">
-        <div class="font-extrabold text-emerald-800"><i class="fa-solid fa-circle-info mr-1"></i> วิธีเล่น</div>
-        <p>1. ใช้บน <b>PC หรือ Mobile Browser</b> แล้วตั้งกล้องให้เห็นช่วงตัวและสะโพกชัด ๆ</p>
-        <p>2. ก่อนเริ่ม ระบบจะให้ยืนตรงเพื่อ <b>Calibrate 3 วินาที</b></p>
-        <p>3. ทำท่าให้ตรงกับสิ่งกีดขวาง: <b>Jump / Duck / Left / Right</b></p>
-        <p>4. ใช้มือซ้ายหรือขวาปัดเก็บ <b>Energy Star</b> เพื่อเพิ่มคะแนน</p>
-        <p>5. หลบต่อเนื่องเพื่อสร้าง Combo และเก็บ Reaction Time</p>
-        <p class="rounded-2xl bg-orange-50 border border-orange-200 p-2 text-orange-700"><b>หมายเหตุ:</b> เวอร์ชันนี้ไม่ทำ Cardboard VR เพราะเกมต้องใช้กล้องมองร่างกายผู้เล่น</p>
+        <div class="font-extrabold text-emerald-800"><i class="fa-solid fa-circle-info mr-1"></i> Camera Setup + Safety</div>
+        <p>1. ใช้บน <b>PC หรือ Mobile Browser</b> ตั้งกล้องให้เห็นศีรษะถึงสะโพก หรืออย่างน้อยช่วงลำตัวกับสะโพก</p>
+        <p>2. ยืนห่างกล้องประมาณ <b>1.5–2 เมตร</b> พื้นที่รอบตัวโล่ง ไม่มีโต๊ะ เก้าอี้ หรือสายไฟ</p>
+        <p>3. ก่อนเริ่มให้ยืนตรง <b>Calibrate 3 วินาที</b> แล้วค่อย Jump / Duck / Left / Right</p>
+        <p>4. ใช้มือปัดเก็บ <b>Energy Star</b> เพื่อเพิ่มคะแนน แต่ไม่ต้องกระโดดแรงเกินจำเป็น</p>
+        <p>5. รอบมาตรฐานสำหรับ ป.5 แนะนำ <b>60 วินาที</b> และพัก 45–60 วินาทีระหว่างรอบ</p>
+        <p class="rounded-2xl bg-orange-50 border border-orange-200 p-2 text-orange-700"><b>ล็อกแนวทาง:</b> เกมนี้เป็น PC/Mobile AR ไม่ใช่ Cardboard เพราะต้องใช้กล้องเห็นร่างกาย</p>
       </div>
 
       <div class="mt-5 grid grid-cols-3 gap-2 text-xs font-bold text-slate-600">
@@ -109,11 +119,20 @@
           <button data-diff="normal" class="diff-btn rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-slate-700">Normal</button>
           <button data-diff="hard" class="diff-btn rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-slate-700">Hard</button>
         </div>
+        <div class="grid grid-cols-3 gap-2 text-xs">
+          <button data-time="45" class="time-btn">45s<br><span class="text-[10px] font-bold">Warm-up</span></button>
+          <button data-time="60" class="time-btn active">60s<br><span class="text-[10px] font-bold">Standard</span></button>
+          <button data-time="90" class="time-btn">90s<br><span class="text-[10px] font-bold">Challenge</span></button>
+        </div>
         <button id="btn-start" class="w-full rounded-3xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-4 text-2xl font-black text-white shadow-xl border-b-4 border-emerald-700 active:scale-95 transition">
           <i class="fa-solid fa-play mr-2"></i> เริ่มด่าน JumpDuck
         </button>
-        <p class="text-xs font-semibold text-emerald-600">พร้อมแล้ว: PC/Mobile AR + Camera + BlazePose + Balance v4 + Gesture Hold</p>
-        <p class="text-[11px] font-bold text-slate-400">v4 ล็อกแนวทางเป็น PC/Mobile AR เท่านั้น: ใช้กล้อง + ปุ่ม Backup สำหรับทดสอบในห้องเรียน</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btn-teacher-mode" class="rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 active:scale-95 transition">Teacher Test: OFF</button>
+          <button id="btn-home-start" class="rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 active:scale-95 transition">กลับ Fitness Hub</button>
+        </div>
+        <p class="text-xs font-semibold text-emerald-600">พร้อมแล้ว: PC/Mobile AR + Camera + BlazePose + Classroom Ready v5 + Gesture Hold</p>
+        <p class="text-[11px] font-bold text-slate-400">v5 Classroom Ready: PC/Mobile AR • 45/60/90s • Safety Setup • Teacher Test Mode • Hub Return • CSV</p>
       </div>
     </div>
   </section>
@@ -124,6 +143,7 @@
       <div id="rank-emoji" class="text-7xl mb-2">🏆</div>
       <h2 id="rank-title" class="text-3xl font-black text-orange-600">จบด่านแล้ว!</h2>
       <p id="rank-note" class="mt-1 text-sm font-semibold text-slate-500">ยอดเยี่ยมมาก ฝึกความไวได้ดีขึ้นแล้ว</p>
+      <div id="final-feedback" class="mt-3 rounded-2xl bg-slate-50 border border-slate-200 p-3 text-sm font-bold text-slate-600">พร้อมสรุปผลการเคลื่อนไหว</div>
 
       <div class="mt-5 grid grid-cols-2 gap-3">
         <div class="rounded-3xl border-2 border-yellow-200 bg-yellow-50 p-3">
@@ -148,6 +168,8 @@
         <p class="text-sm font-bold text-slate-600">⚡ Reaction Time เฉลี่ย</p>
         <p id="avg-time" class="text-2xl font-black text-purple-700">0.00 วินาที</p>
         <p id="final-combo" class="mt-1 text-xs font-semibold text-slate-500">Best Combo: 0</p>
+        <p id="final-balance" class="mt-1 text-xs font-semibold text-slate-500">Balance: -</p>
+        <p id="final-fatigue" class="mt-1 text-xs font-semibold text-slate-500">Fatigue: -</p>
       </div>
 
       <div class="mt-5 grid grid-cols-2 gap-3">
@@ -158,6 +180,7 @@
           CSV
         </button>
       </div>
+      <button id="btn-home-over" class="mt-3 w-full rounded-3xl bg-emerald-50 py-3 text-sm font-black text-emerald-700 border-2 border-emerald-200 active:scale-95 transition">กลับ Fitness Hub</button>
     </div>
   </section>
 
@@ -191,6 +214,12 @@
     </div>
   </header>
 
+  <!-- QUICK CONTROLS -->
+  <nav class="absolute left-1/2 top-[calc(var(--safe-top)+12px)] z-30 flex -translate-x-1/2 gap-2">
+    <button id="btn-stop" class="mini-action-btn">จบก่อน</button>
+    <button id="btn-mute" class="mini-action-btn">🔊</button>
+  </nav>
+
   <!-- CENTER SYSTEM PROMPT -->
   <div class="pointer-events-none absolute inset-x-0 top-[95px] z-20 flex flex-col items-center gap-2 px-3 text-center">
     <div id="system-prompt" class="hidden rounded-full bg-slate-950/75 px-5 py-2 text-base md:text-xl font-black text-white shadow-2xl border-2 border-white/60">
@@ -203,8 +232,8 @@
 
 
   <!-- PC/Mobile AR backup controls: lets teacher test scoring when camera gesture is unstable -->
-  <div id="manual-pad" class="manual-pad absolute left-3 top-1/2 z-30 -translate-y-1/2 select-none">
-    <div class="mb-2 rounded-full scorefix-pill px-3 py-1 text-center text-[10px] font-black shadow-lg">PC/MOBILE BACKUP</div>
+  <div id="manual-pad" class="manual-pad hidden absolute left-3 top-1/2 z-30 -translate-y-1/2 select-none">
+    <div class="mb-2 rounded-full scorefix-pill px-3 py-1 text-center text-[10px] font-black shadow-lg">TEACHER TEST</div>
     <div class="grid grid-cols-3 gap-1">
       <span></span><button class="manual-btn" data-manual="jump" aria-label="Jump">⬆️</button><span></span>
       <button class="manual-btn" data-manual="left" aria-label="Left">⬅️</button><button class="manual-btn" data-manual="duck" aria-label="Duck">⬇️</button><button class="manual-btn" data-manual="right" aria-label="Right">➡️</button>
@@ -213,7 +242,7 @@
 
   <!-- BOTTOM MISSION CARD -->
   <section class="pointer-events-none absolute bottom-[calc(var(--safe-bottom)+16px)] left-3 right-3 z-20 flex flex-col items-center gap-3">
-    <div class="w-full max-w-xl rounded-[1.7rem] border-4 border-emerald-400 bg-white/95 p-4 text-center shadow-2xl backdrop-blur-md">
+    <div class="mission-card-mobile w-full max-w-xl rounded-[1.7rem] border-4 border-emerald-400 bg-white/95 p-4 text-center shadow-2xl backdrop-blur-md">
       <div class="text-[11px] font-black tracking-wider text-emerald-600">NEXT MOVEMENT MISSION</div>
       <div class="mt-1 flex items-center justify-center gap-2">
         <span id="target-emoji" class="text-4xl">⬆️</span>
@@ -232,7 +261,7 @@
 
     <div class="rounded-full bg-black/55 px-4 py-1.5 text-[11px] font-semibold text-white backdrop-blur-md">
       <span class="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-ping mr-2"></span>
-      PC/Mobile AR • AI ติดตามสะโพก ลำตัว และมือ • Jump / Duck / Left / Right
+      <span id="pose-quality-text">PC/Mobile AR • AI ติดตามสะโพก ลำตัว และมือ • Jump / Duck / Left / Right</span>
     </div>
   </section>
 
@@ -240,6 +269,7 @@
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     let audioCtx = null;
     function playSound(type){
+      if(window.__jumpduckMuted) return;
       try{
         if(!audioCtx) audioCtx = new AudioCtx();
         const now = audioCtx.currentTime;
@@ -291,7 +321,7 @@
 
   <script>
     // =============================================================
-    // JumpDuck Dash v4 • PC/Mobile AR Fitness Movement Challenge
+    // JumpDuck Dash v5 • PC/Mobile AR Classroom Ready
     // Scope: PC webcam + Mobile front camera AR only. No Cardboard/cVR body-tracking mode.
     // =============================================================
 
@@ -304,6 +334,11 @@
     const btnStart = $('btn-start');
     const btnRestart = $('btn-restart');
     const btnExport = $('btn-export');
+    const btnStop = $('btn-stop');
+    const btnMute = $('btn-mute');
+    const btnTeacherMode = $('btn-teacher-mode');
+    const btnHomeStart = $('btn-home-start');
+    const btnHomeOver = $('btn-home-over');
 
     const webcam = $('webcam');
     const gameCanvas = $('game-canvas');
@@ -332,6 +367,11 @@
     const rankEmoji = $('rank-emoji');
     const rankTitle = $('rank-title');
     const rankNote = $('rank-note');
+    const finalFeedback = $('final-feedback');
+    const finalBalance = $('final-balance');
+    const finalFatigue = $('final-fatigue');
+    const poseQualityText = $('pose-quality-text');
+    const manualPad = $('manual-pad');
 
     const DIFF = {
       // v3 Balance: Easy still starts with Jump/Duck, then injects side moves so Left/Right can be tested in class.
@@ -349,9 +389,15 @@
 
     const STAR_LABELS = ['ENERGY','BOOST','SHIELD','COMBO','POWER'];
 
-    let selectedDiff = new URLSearchParams(location.search).get('diff') || 'easy';
+    const params = new URLSearchParams(location.search);
+    let selectedDiff = params.get('diff') || 'easy';
     if(!DIFF[selectedDiff]) selectedDiff = 'easy';
-    let config = DIFF[selectedDiff];
+    let selectedTime = Number(params.get('time')) || 60;
+    if(![45,60,90].includes(selectedTime)) selectedTime = 60;
+    let teacherTestMode = params.get('test') === '1';
+    const HUB_URL = params.get('hub') || './';
+    window.__jumpduckMuted = params.get('mute') === '1';
+    let config = { ...DIFF[selectedDiff], time:selectedTime };
 
     let detector = null;
     let playerPose = null;
@@ -540,9 +586,14 @@
       if(!m){
         lastPoseQuality = 0;
         currentGestureDisplay.textContent = 'ไม่พบสะโพกชัดเจน ⚠️';
+        if(poseQualityText) poseQualityText.textContent = 'PC/Mobile AR • ไม่พบสะโพกชัดเจน: ถอยห่างกล้อง/เพิ่มแสง';
         return;
       }
       lastPoseQuality = m.score;
+      if(poseQualityText){
+        const q = Math.round((lastPoseQuality || 0) * 100);
+        poseQualityText.textContent = `PC/Mobile AR • Pose Quality ${q}% • ${q >= 45 ? 'พร้อมเล่น' : 'ขยับให้กล้องเห็นสะโพกชัดขึ้น'}`;
+      }
 
       if(isCalibrating){
         calibrationSamples.push({ hipY:m.hipY, screenX:m.screenX });
@@ -633,10 +684,22 @@
       });
     }
 
+    function updateTimeButtons(){
+      document.querySelectorAll('.time-btn').forEach(btn=>{
+        btn.classList.toggle('active', Number(btn.dataset.time) === selectedTime);
+      });
+    }
+
+    function setTeacherTestMode(on){
+      teacherTestMode = !!on;
+      if(manualPad) manualPad.classList.toggle('hidden', !teacherTestMode);
+      if(btnTeacherMode) btnTeacherMode.textContent = teacherTestMode ? 'Teacher Test: ON' : 'Teacher Test: OFF';
+    }
+
     document.querySelectorAll('.diff-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         selectedDiff = btn.dataset.diff;
-        config = DIFF[selectedDiff];
+        config = { ...DIFF[selectedDiff], time:selectedTime };
         timeLeft = config.time;
         updateSelectedDiffButtons();
         updateHUD();
@@ -644,6 +707,19 @@
       });
     });
     updateSelectedDiffButtons();
+    updateTimeButtons();
+    setTeacherTestMode(teacherTestMode);
+
+    document.querySelectorAll('.time-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        selectedTime = Number(btn.dataset.time) || 60;
+        config = { ...DIFF[selectedDiff], time:selectedTime };
+        timeLeft = config.time;
+        updateTimeButtons();
+        updateHUD();
+        playSound('success');
+      });
+    });
 
     function updateMissionCard(action){
       const a = ACTIONS[action];
@@ -829,7 +905,17 @@
       playSound('gameover');
 
       const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
-      const avg = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length).toFixed(2) : '0.00';
+      const avgRaw = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length) : 0;
+      const avg = responseTimes.length ? avgRaw.toFixed(2) : '0.00';
+      const half = Math.floor(responseTimes.length / 2);
+      const firstAvg = half ? responseTimes.slice(0, half).reduce((a,b)=>a+b,0) / half : 0;
+      const secondList = responseTimes.slice(half);
+      const secondAvg = secondList.length ? secondList.reduce((a,b)=>a+b,0) / secondList.length : 0;
+      const fatigueDelta = firstAvg && secondAvg ? (secondAvg - firstAvg) : 0;
+      const fatigueLabel = !responseTimes.length ? '-' : (fatigueDelta <= .05 ? 'คงที่ดี' : fatigueDelta <= .20 ? 'เริ่มช้าลงเล็กน้อย' : 'ควรพักก่อนเล่นรอบถัดไป');
+      const sideTotal = actionCounts.left + actionCounts.right;
+      const verticalTotal = actionCounts.jump + actionCounts.duck;
+      const balanceLabel = sideTotal === 0 ? 'ยังไม่ได้ทดสอบซ้าย/ขวา' : `แนวตั้ง ${verticalTotal} • ซ้าย/ขวา ${sideTotal}`;
 
       finalScore.textContent = score;
       finalAccuracy.textContent = accuracy + '%';
@@ -837,29 +923,34 @@
       finalMisses.textContent = totalMisses;
       avgTime.textContent = avg + ' วินาที';
       finalCombo.textContent = `Best Combo: ${bestCombo} • J:${actionCounts.jump} D:${actionCounts.duck} L:${actionCounts.left} R:${actionCounts.right}`;
+      finalBalance.textContent = 'Balance: ' + balanceLabel;
+      finalFatigue.textContent = `Fatigue: ${fatigueLabel}${fatigueDelta ? ' (' + fatigueDelta.toFixed(2) + 's)' : ''}`;
 
       if(accuracy >= 85 && score >= 35){
         rankEmoji.textContent = '🏆';
         rankTitle.textContent = 'Agility Hero!';
         rankNote.textContent = 'หลบไว แม่น และต่อคอมโบดีมาก';
+        finalFeedback.textContent = avgRaw && avgRaw <= 1.05 ? 'พร้อมขยับไป Normal/Hard หรือเล่น Challenge 90s ได้' : 'แม่นมากแล้ว รอบต่อไปลองลด Reaction Time ให้ต่ำกว่า 1.05 วินาที';
       }else if(accuracy >= 65){
         rankEmoji.textContent = '⭐';
         rankTitle.textContent = 'Active Hero!';
         rankNote.textContent = 'เริ่มควบคุมจังหวะได้ดี เล่นซ้ำจะไวขึ้นอีก';
+        finalFeedback.textContent = 'เหมาะกับการเล่นซ้ำอีก 1 รอบหลังพัก 45–60 วินาที เพื่อเพิ่มคอมโบและลด Miss';
       }else{
         rankEmoji.textContent = '💪';
         rankTitle.textContent = 'Training Mode ผ่านแล้ว';
         rankNote.textContent = 'ลองยืนให้กล้องเห็นสะโพกชัด ๆ แล้วเล่นซ้ำอีกครั้ง';
+        finalFeedback.textContent = 'เช็กระยะกล้อง แสง และพื้นที่ยืนก่อนเริ่มใหม่ ไม่ต้องกระโดดแรง เน้นจังหวะให้ตรง';
       }
 
       gameoverScreen.classList.remove('hidden');
     }
 
     function exportCSV(){
-      const header = ['timestamp','version','diff','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss'];
+      const header = ['timestamp','version','diff','duration','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss'];
       const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
       const avg = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length).toFixed(3) : '0.000';
-      const row = [new Date().toISOString(), 'v4-pc-mobile-ar', selectedDiff, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
+      const row = [new Date().toISOString(), 'v5-classroom-ready', selectedDiff, selectedTime, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
       const csv = header.join(',') + '\n' + row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n';
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const url = URL.createObjectURL(blob);
@@ -1151,10 +1242,16 @@
     btnStart.addEventListener('click', startGame);
     btnRestart.addEventListener('click', startGame);
     btnExport.addEventListener('click', exportCSV);
+    btnStop.addEventListener('click', ()=>{ if(isPlaying) endGame(); });
+    btnMute.addEventListener('click', ()=>{ window.__jumpduckMuted = !window.__jumpduckMuted; btnMute.textContent = window.__jumpduckMuted ? '🔇' : '🔊'; });
+    btnTeacherMode.addEventListener('click', ()=>{ setTeacherTestMode(!teacherTestMode); playSound('success'); });
+    btnHomeStart.addEventListener('click', ()=>{ location.href = HUB_URL; });
+    btnHomeOver.addEventListener('click', ()=>{ location.href = HUB_URL; });
 
     window.addEventListener('DOMContentLoaded', async ()=>{
       await setupWebcam();
       await initPoseDetection();
+      btnMute.textContent = window.__jumpduckMuted ? '🔇' : '🔊';
       updateMissionCard('jump');
       updateHUD();
     });
