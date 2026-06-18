@@ -1,15 +1,20 @@
 /* =========================================================
    CSAI2102 AI Quest
-   S1 AR Practice Mode — Inline Session UI
+   S1 AR Practice Mode — Inline Session UI SAFE INSERT
    File: /ai-quest/js/aiquest-s1-ar-practice-v364.js
-   Version: v3.6.4-s1-ar-inline-session-ui
+   Version: v3.6.5b-s1-ar-inline-safe-insert
    ใช้คู่กับ aiquest-s1-ar-hand-hotfix-v364.js
+
+   สำคัญ:
+   - ชื่อไฟล์ยังเป็น v364 เพื่อไม่ต้องแก้ index.html
+   - แต่ version ภายในเป็น v3.6.5b เพื่อเช็กว่าอัปโหลดทับสำเร็จ
+   - แก้ HierarchyRequestError จาก insertBefore
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION='v3.6.4-s1-ar-inline-session-ui';
-  const STORAGE_KEY='AIQUEST_S1_AR_PRACTICE_RESULT_V364';
+  const VERSION='v3.6.5b-s1-ar-inline-safe-insert';
+  const STORAGE_KEY='AIQUEST_S1_AR_PRACTICE_RESULT_V365B';
 
   const CATEGORIES=[
     {id:'ai',label:'AI',desc:'มีการรับรู้/เรียนรู้/ทำนาย/ตัดสินใจจากข้อมูล'},
@@ -34,7 +39,7 @@
     {id:'health_risk',object:'health risk prediction app',th:'แอปทำนายความเสี่ยงสุขภาพจากข้อมูลผู้ใช้',answer:'prediction',hint:'มีการคาดการณ์ความเสี่ยงจากข้อมูล',explain:'ระบบทำนาย risk ใช้ข้อมูลเพื่อ prediction จึงอยู่หมวด prediction/AI'}
   ];
 
-  let stream=null, round=[], idx=0, correct=0, wrong=0, help=0, startedAt=0, lastResult=null;
+  let stream=null, round=[], idx=0, correct=0, wrong=0, helpUsed=0, startedAt=0, lastResult=null;
 
   const $=id=>document.getElementById(id);
   const esc=v=>String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]));
@@ -43,101 +48,149 @@
   function beep(k){try{if(typeof window.beep==='function')window.beep(k==='ok'?'ok':'bad')}catch(e){}}
 
   function injectStyle(){
-    if($('s1ArStyleV364'))return;
+    if($('s1ArStyleV365B')) return;
     const css=document.createElement('style');
-    css.id='s1ArStyleV364';
+    css.id='s1ArStyleV365B';
     css.textContent=`
-      .s1-ar-inline-entry-v364{margin:14px 0;padding:14px;border-radius:20px;border:1px solid rgba(34,211,238,.28);background:radial-gradient(circle at 0% 0%,rgba(34,211,238,.18),transparent 35%),linear-gradient(135deg,rgba(14,116,144,.22),rgba(15,23,42,.76));box-shadow:0 14px 34px rgba(0,0,0,.20)}
-      .s1-ar-inline-row-v364{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.s1-ar-inline-title-v364{font-weight:1000;color:#e0f2fe;font-size:15px}.s1-ar-inline-desc-v364{color:#a7c6dd;font-size:12px;margin-top:3px;line-height:1.45}.s1-ar-inline-btn-v364{border:0;border-radius:999px;padding:10px 14px;font-weight:1000;color:#052e16;background:linear-gradient(135deg,#86efac,#67e8f9);cursor:pointer;box-shadow:0 10px 22px rgba(0,0,0,.25)}
-      .s1-ar-panel-v364{position:fixed;inset:0;z-index:10000;background:#020617;color:#e5eefc;display:none;overflow:hidden;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.s1-ar-panel-v364.open{display:block}.s1-ar-video-v364{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:.88;background:#0f172a}.s1-ar-fallback-bg-v364{position:absolute;inset:0;background:radial-gradient(circle at 15% 10%,rgba(34,211,238,.25),transparent 34%),radial-gradient(circle at 80% 30%,rgba(167,139,250,.22),transparent 35%),linear-gradient(135deg,#071426,#0f172a 55%,#111827)}
-      .s1-ar-overlay-v364{position:absolute;inset:0;padding:14px;padding-top:calc(14px + env(safe-area-inset-top,0px));padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;background:linear-gradient(to bottom,rgba(2,6,23,.72),rgba(2,6,23,.20),rgba(2,6,23,.78))}
-      .s1-ar-top-v364{display:flex;align-items:center;justify-content:space-between;gap:10px}.s1-ar-title-v364{font-weight:1000;font-size:18px;line-height:1.15}.s1-ar-sub-v364{font-size:12px;color:#bae6fd;margin-top:2px}.s1-ar-btn-v364{border:1px solid rgba(255,255,255,.18);background:rgba(15,23,42,.72);color:#f8fafc;border-radius:14px;padding:10px 12px;font-weight:900;cursor:pointer}.s1-ar-main-v364{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}.s1-ar-card-v364,.s1-ar-result-v364{width:min(92vw,560px);border:1px solid rgba(148,163,184,.24);background:rgba(15,23,42,.80);backdrop-filter:blur(14px);border-radius:24px;padding:18px;box-shadow:0 22px 54px rgba(0,0,0,.38)}
-      .s1-ar-badge-v364{display:inline-flex;border-radius:999px;padding:6px 10px;background:rgba(56,189,248,.18);border:1px solid rgba(56,189,248,.32);color:#bae6fd;font-size:12px;font-weight:900}.s1-ar-object-v364{margin:12px 0 4px;font-size:24px;font-weight:1000;line-height:1.2}.s1-ar-th-v364{font-size:16px;color:#fef9c3;line-height:1.45;margin-bottom:12px}.s1-ar-choices-v364{display:grid;grid-template-columns:1fr;gap:8px}.s1-ar-choice-v364{border:1px solid rgba(148,163,184,.24);background:rgba(30,41,59,.86);color:#f8fafc;border-radius:16px;padding:12px;text-align:left;font-weight:900;cursor:pointer;position:relative}.s1-ar-choice-v364 small{display:block;color:#9fb2cc;font-weight:700;margin-top:3px;line-height:1.35}.s1-ar-choice-v364.correct{border-color:rgba(34,197,94,.8);background:rgba(34,197,94,.22)}.s1-ar-choice-v364.wrong{border-color:rgba(239,68,68,.8);background:rgba(239,68,68,.22)}
-      .s1-ar-feedback-v364{margin-top:12px;padding:12px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.58);line-height:1.45}.s1-ar-feedback-v364.good{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.14)}.s1-ar-feedback-v364.bad{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.14)}.s1-ar-bottom-v364{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center}.s1-ar-meter-v364{color:#cbd5e1;font-size:13px;font-weight:800}.s1-ar-result-grid-v364{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.s1-ar-stat-v364{border:1px solid rgba(148,163,184,.20);background:rgba(30,41,59,.82);border-radius:16px;padding:12px}.s1-ar-stat-v364 b{display:block;font-size:22px}.s1-ar-stat-v364 span{color:#9fb2cc;font-size:12px;font-weight:800}
-      @media(min-width:720px){.s1-ar-choices-v364{grid-template-columns:1fr 1fr}}
+      .s1-ar-inline-entry-v365b{margin:14px 0;padding:14px;border-radius:20px;border:1px solid rgba(34,211,238,.28);background:radial-gradient(circle at 0% 0%,rgba(34,211,238,.18),transparent 35%),linear-gradient(135deg,rgba(14,116,144,.22),rgba(15,23,42,.76));box-shadow:0 14px 34px rgba(0,0,0,.20)}
+      .s1-ar-inline-row-v365b{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.s1-ar-inline-title-v365b{font-weight:1000;color:#e0f2fe;font-size:15px}.s1-ar-inline-desc-v365b{color:#a7c6dd;font-size:12px;margin-top:3px;line-height:1.45}.s1-ar-inline-btn-v365b{border:0;border-radius:999px;padding:10px 14px;font-weight:1000;color:#052e16;background:linear-gradient(135deg,#86efac,#67e8f9);cursor:pointer;box-shadow:0 10px 22px rgba(0,0,0,.25)}
+      .s1-ar-panel-v365b{position:fixed;inset:0;z-index:10000;background:#020617;color:#e5eefc;display:none;overflow:hidden;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.s1-ar-panel-v365b.open{display:block}.s1-ar-video-v365b{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:.88;background:#0f172a}.s1-ar-fallback-bg-v365b{position:absolute;inset:0;background:radial-gradient(circle at 15% 10%,rgba(34,211,238,.25),transparent 34%),radial-gradient(circle at 80% 30%,rgba(167,139,250,.22),transparent 35%),linear-gradient(135deg,#071426,#0f172a 55%,#111827)}
+      .s1-ar-overlay-v365b{position:absolute;inset:0;padding:14px;padding-top:calc(14px + env(safe-area-inset-top,0px));padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;background:linear-gradient(to bottom,rgba(2,6,23,.72),rgba(2,6,23,.20),rgba(2,6,23,.78))}
+      .s1-ar-top-v365b{display:flex;align-items:center;justify-content:space-between;gap:10px}.s1-ar-title-v365b{font-weight:1000;font-size:18px;line-height:1.15}.s1-ar-sub-v365b{font-size:12px;color:#bae6fd;margin-top:2px}.s1-ar-btn-v365b{border:1px solid rgba(255,255,255,.18);background:rgba(15,23,42,.72);color:#f8fafc;border-radius:14px;padding:10px 12px;font-weight:900;cursor:pointer}.s1-ar-main-v365b{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}.s1-ar-card-v365b,.s1-ar-result-v365b{width:min(92vw,560px);border:1px solid rgba(148,163,184,.24);background:rgba(15,23,42,.80);backdrop-filter:blur(14px);border-radius:24px;padding:18px;box-shadow:0 22px 54px rgba(0,0,0,.38)}
+      .s1-ar-badge-v365b{display:inline-flex;border-radius:999px;padding:6px 10px;background:rgba(56,189,248,.18);border:1px solid rgba(56,189,248,.32);color:#bae6fd;font-size:12px;font-weight:900}.s1-ar-object-v365b{margin:12px 0 4px;font-size:24px;font-weight:1000;line-height:1.2}.s1-ar-th-v365b{font-size:16px;color:#fef9c3;line-height:1.45;margin-bottom:12px}.s1-ar-choices-v365b{display:grid;grid-template-columns:1fr;gap:8px}.s1-ar-choice-v365b{border:1px solid rgba(148,163,184,.24);background:rgba(30,41,59,.86);color:#f8fafc;border-radius:16px;padding:12px;text-align:left;font-weight:900;cursor:pointer;position:relative}.s1-ar-choice-v365b small{display:block;color:#9fb2cc;font-weight:700;margin-top:3px;line-height:1.35}.s1-ar-choice-v365b.correct{border-color:rgba(34,197,94,.8);background:rgba(34,197,94,.22)}.s1-ar-choice-v365b.wrong{border-color:rgba(239,68,68,.8);background:rgba(239,68,68,.22)}
+      .s1-ar-feedback-v365b{margin-top:12px;padding:12px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.58);line-height:1.45}.s1-ar-feedback-v365b.good{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.14)}.s1-ar-feedback-v365b.bad{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.14)}.s1-ar-bottom-v365b{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;align-items:center}.s1-ar-meter-v365b{color:#cbd5e1;font-size:13px;font-weight:800}.s1-ar-result-grid-v365b{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.s1-ar-stat-v365b{border:1px solid rgba(148,163,184,.20);background:rgba(30,41,59,.82);border-radius:16px;padding:12px}.s1-ar-stat-v365b b{display:block;font-size:22px}.s1-ar-stat-v365b span{color:#9fb2cc;font-size:12px;font-weight:800}
+      @media(min-width:720px){.s1-ar-choices-v365b{grid-template-columns:1fr 1fr}}
     `;
     document.head.appendChild(css);
   }
 
-  function ensurePanel(){
-    injectStyle();
-    let panel=$('s1ArPanelV364'); if(panel)return panel;
-    panel=document.createElement('section');
-    panel.id='s1ArPanelV364'; panel.className='s1-ar-panel-v364';
-    panel.innerHTML=`
-      <div id="s1ArFallbackBgV364" class="s1-ar-fallback-bg-v364"></div>
-      <video id="s1ArVideoV364" class="s1-ar-video-v364" autoplay playsinline muted></video>
-      <div class="s1-ar-overlay-v364">
-        <div class="s1-ar-top-v364"><div><div class="s1-ar-title-v364">S1 AR Practice: AI Object Scanner</div><div class="s1-ar-sub-v364">ใช้กล้องและมือ เพื่อแยก AI / Automation / Sensor / Rule-based / Prediction</div></div><button id="s1ArExitV364" class="s1-ar-btn-v364">ออกจาก AR</button></div>
-        <div id="s1ArMainV364" class="s1-ar-main-v364"></div>
-        <div class="s1-ar-bottom-v364"><div id="s1ArMeterV364" class="s1-ar-meter-v364">Ready</div><div><button id="s1ArHelpV364" class="s1-ar-btn-v364">AI Help</button><button id="s1ArSkipV364" class="s1-ar-btn-v364">ข้าม AR</button></div></div>
-      </div>`;
-    document.body.appendChild(panel);
-    $('s1ArExitV364').onclick=closeAR; $('s1ArSkipV364').onclick=skipAR; $('s1ArHelpV364').onclick=showHint;
-    return panel;
+  function removeOld(){
+    [
+      's1ArFabV362','s1ArFabV363','s1ArFabV364',
+      's1ArInlineEntryV362','s1ArInlineEntryV364','s1ArInlineEntryV365','s1ArInlineEntryV365B'
+    ].forEach(id=>$(id)?.remove());
+    document.querySelectorAll('.s1-ar-fab-v362,.s1-ar-fab-v363,.s1-ar-fab-v364').forEach(e=>e.remove());
   }
 
-  function shouldShowInline(){
+  function findPhaseBar(){
+    return Array.from(document.querySelectorAll('*')).find(el=>{
+      const t=(el.textContent||'').toLowerCase();
+      return t.includes('card rush')&&t.includes('trick cards')&&(t.includes('mini boss')||t.includes('explain strike'));
+    });
+  }
+
+  function getHost(){
+    const candidates=[
+      $('gameArea'),
+      document.querySelector('.gameArea'),
+      document.querySelector('.missionArea'),
+      document.querySelector('main'),
+      document.querySelector('#app'),
+      document.body
+    ];
+    return candidates.find(el=>el&&el.nodeType===1&&el!==document.documentElement)||document.body;
+  }
+
+  function shouldShow(){
     const q=new URLSearchParams(location.search);
     const s=String(q.get('session')||q.get('mission')||'').toLowerCase();
-    if(s==='s1'||s==='m1')return true;
-    const t=(document.body&&document.body.innerText||'').toLowerCase();
+    if(s==='s1'||s==='m1') return true;
+    const t=(document.body?.innerText||'').toLowerCase();
     return t.includes('ai awakening') || t.includes('ai vs automation') || (t.includes('s1')&&t.includes('automation'));
   }
-  function removeOldFloating(){['s1ArFabV362','s1ArFabV363','s1ArFabV364'].forEach(id=>$(id)?.remove());document.querySelectorAll('.s1-ar-fab-v362,.s1-ar-fab-v363,.s1-ar-fab-v364').forEach(e=>e.remove())}
-  function findContainer(){return $('gameArea')||document.querySelector('.gameArea')||document.querySelector('.missionArea')||document.querySelector('main')||document.body}
-  function findPhaseBar(){return Array.from(document.querySelectorAll('*')).find(el=>{const t=(el.textContent||'').toLowerCase();return t.includes('card rush')&&t.includes('trick cards')&&(t.includes('mini boss')||t.includes('explain strike'))})}
+
+  function safeInsert(wrap){
+    try{
+      const phase=findPhaseBar();
+      if(phase && phase.parentElement && phase.parentElement.nodeType===1){
+        phase.parentElement.insertBefore(wrap, phase.nextSibling);
+        return true;
+      }
+      const host=getHost();
+      host.insertBefore(wrap, host.firstElementChild||null);
+      return true;
+    }catch(err){
+      console.warn('[AIQuest S1 AR] safe insert fallback',err);
+      try{ document.body.appendChild(wrap); return true; }catch(e){ return false; }
+    }
+  }
 
   function addInline(){
-    injectStyle(); removeOldFloating(); if($('s1ArInlineEntryV364'))return;
-    const container=findContainer(); if(!container)return;
-    const wrap=document.createElement('div'); wrap.id='s1ArInlineEntryV364'; wrap.className='s1-ar-inline-entry-v364';
-    wrap.innerHTML=`<div class="s1-ar-inline-row-v364"><div><div class="s1-ar-inline-title-v364">🖐️ S1 AR Practice: AI Object Scanner</div><div class="s1-ar-inline-desc-v364">ใช้กล้องและมือชี้/หนีบนิ้ว เพื่อแยก AI, Automation, Sensor-only, Rule-based, Prediction</div></div><button id="s1ArInlineStartV364" type="button" class="s1-ar-inline-btn-v364">เริ่ม AR Practice</button></div>`;
-    const phase=findPhaseBar();
-    if(phase&&phase.parentNode)phase.parentNode.insertBefore(wrap,phase.nextSibling); else container.insertBefore(wrap,container.firstChild);
-    $('s1ArInlineStartV364').onclick=e=>{e.preventDefault();e.stopPropagation();startAR()};
+    injectStyle();
+    if($('s1ArInlineEntryV365B')) return;
+
+    const wrap=document.createElement('div');
+    wrap.id='s1ArInlineEntryV365B';
+    wrap.className='s1-ar-inline-entry-v365b';
+    wrap.innerHTML=`<div class="s1-ar-inline-row-v365b"><div><div class="s1-ar-inline-title-v365b">🖐️ S1 AR Practice: AI Object Scanner</div><div class="s1-ar-inline-desc-v365b">ใช้กล้องและมือชี้/หนีบนิ้ว เพื่อแยก AI, Automation, Sensor-only, Rule-based, Prediction</div></div><button id="s1ArInlineStartV365B" type="button" class="s1-ar-inline-btn-v365b">เริ่ม AR Practice</button></div>`;
+    safeInsert(wrap);
+    const btn=$('s1ArInlineStartV365B');
+    if(btn) btn.onclick=e=>{e.preventDefault();e.stopPropagation();startAR();};
   }
-  function refreshInline(){removeOldFloating();const inline=$('s1ArInlineEntryV364');if(shouldShowInline()){if(!inline)addInline()}else if(inline)inline.remove()}
+
+  function refresh(){
+    removeOld();
+    if(shouldShow()) addInline();
+  }
+
+  function ensurePanel(){
+    injectStyle();
+    let p=$('s1ArPanelV365B'); if(p) return p;
+    p=document.createElement('section');
+    p.id='s1ArPanelV365B';
+    p.className='s1-ar-panel-v365b';
+    p.innerHTML=`<div id="s1ArFallbackBgV365B" class="s1-ar-fallback-bg-v365b"></div><video id="s1ArVideoV365B" class="s1-ar-video-v365b" autoplay playsinline muted></video><div class="s1-ar-overlay-v365b"><div class="s1-ar-top-v365b"><div><div class="s1-ar-title-v365b">S1 AR Practice: AI Object Scanner</div><div class="s1-ar-sub-v365b">ใช้กล้องและมือ เพื่อแยก AI / Automation / Sensor / Rule-based / Prediction</div></div><button id="s1ArExitV365B" class="s1-ar-btn-v365b">ออกจาก AR</button></div><div id="s1ArMainV365B" class="s1-ar-main-v365b"></div><div class="s1-ar-bottom-v365b"><div id="s1ArMeterV365B" class="s1-ar-meter-v365b">Ready</div><div><button id="s1ArHelpV365B" class="s1-ar-btn-v365b">AI Help</button><button id="s1ArSkipV365B" class="s1-ar-btn-v365b">ข้าม AR</button></div></div></div>`;
+    document.body.appendChild(p);
+    $('s1ArExitV365B').onclick=closeAR; $('s1ArSkipV365B').onclick=skipAR; $('s1ArHelpV365B').onclick=showHint;
+    return p;
+  }
 
   async function startCamera(){
-    const v=$('s1ArVideoV364'), bg=$('s1ArFallbackBgV364');
+    const v=$('s1ArVideoV365B'), bg=$('s1ArFallbackBgV365B');
     try{
-      if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera API not available');
+      if(!navigator.mediaDevices?.getUserMedia) throw new Error('Camera API not available');
       stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'user'},width:{ideal:1280},height:{ideal:720}},audio:false});
-      v.srcObject=stream;v.style.display='block';bg.style.display='none';await v.play().catch(()=>{});return true;
-    }catch(e){console.warn('[S1 AR] camera fallback',e);v.style.display='none';bg.style.display='block';toast('เปิดกล้องไม่ได้ ใช้ AR Card Overlay แทน');return false}
+      v.srcObject=stream; v.style.display='block'; bg.style.display='none'; await v.play().catch(()=>{}); return true;
+    }catch(e){
+      console.warn('[S1 AR] camera fallback',e);
+      v.style.display='none'; bg.style.display='block'; toast('เปิดกล้องไม่ได้ ใช้ AR Card Overlay แทน'); return false;
+    }
   }
-  async function startAR(){ensurePanel();round=shuffle(BANK).slice(0,8);idx=0;correct=0;wrong=0;help=0;startedAt=Date.now();lastResult=null;$('s1ArPanelV364').classList.add('open');await startCamera();renderCard();window.dispatchEvent(new CustomEvent('aiquest:s1-ar-start',{detail:{version:VERSION,total:round.length,inline:true}}))}
-  function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
-  function closeAR(){stopCamera();$('s1ArPanelV364')?.classList.remove('open');window.dispatchEvent(new CustomEvent('aiquest:s1-ar-close',{detail:{version:VERSION}}))}
-  function skipAR(){saveResult({version:VERSION,sessionId:'s1',missionId:'m1',arMode:true,arCompleted:false,arSkipped:true,arScore:0,correct,wrong,total:round.length||0,helpUsed:help,finishedAt:new Date().toISOString()});closeAR();toast('ข้าม AR Practice แล้ว')}
 
-  function labelOf(id){return (CATEGORIES.find(c=>c.id===id)||{}).label||id}
-  function item(){return round[idx]}
-  function meter(){const total=round.length||0,acc=(correct+wrong)?Math.round(correct/(correct+wrong)*100):0;const m=$('s1ArMeterV364');if(m)m.textContent=`ข้อ ${Math.min(idx+1,total)}/${total} • Correct ${correct} • Accuracy ${acc}%`}
+  async function startAR(){
+    ensurePanel(); round=shuffle(BANK).slice(0,8); idx=0; correct=0; wrong=0; helpUsed=0; startedAt=Date.now(); lastResult=null;
+    $('s1ArPanelV365B').classList.add('open');
+    await startCamera(); renderCard();
+    window.dispatchEvent(new CustomEvent('aiquest:s1-ar-start',{detail:{version:VERSION,total:round.length,inline:true}}));
+  }
+
+  function stopCamera(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } }
+  function closeAR(){ stopCamera(); $('s1ArPanelV365B')?.classList.remove('open'); window.dispatchEvent(new CustomEvent('aiquest:s1-ar-close',{detail:{version:VERSION}})); }
+  function skipAR(){ saveResult({version:VERSION,sessionId:'s1',missionId:'m1',arMode:true,arCompleted:false,arSkipped:true,arScore:0,correct,wrong,total:round.length||0,helpUsed,finishedAt:new Date().toISOString()}); closeAR(); toast('ข้าม AR Practice แล้ว'); }
+
+  function labelOf(id){ return (CATEGORIES.find(c=>c.id===id)||{}).label||id; }
+  function current(){ return round[idx]; }
+  function meter(){ const total=round.length||0,acc=(correct+wrong)?Math.round(correct/(correct+wrong)*100):0; const m=$('s1ArMeterV365B'); if(m)m.textContent=`ข้อ ${Math.min(idx+1,total)}/${total} • Correct ${correct} • Accuracy ${acc}%`; }
 
   function renderCard(){
-    const main=$('s1ArMainV364'), it=item(); if(!it){renderResult();return}
+    const main=$('s1ArMainV365B'), it=current(); if(!it){renderResult(); return;}
     meter();
-    main.innerHTML=`<div class="s1-ar-card-v364"><span class="s1-ar-badge-v364">Object ${idx+1}/${round.length}</span><div class="s1-ar-object-v364">${esc(it.object)}</div><div class="s1-ar-th-v364">${esc(it.th)}</div><div class="s1-ar-choices-v364">${CATEGORIES.map(c=>`<button class="s1-ar-choice-v364" data-cat="${esc(c.id)}">${esc(c.label)}<small>${esc(c.desc)}</small></button>`).join('')}</div><div id="s1ArFeedbackV364" class="s1-ar-feedback-v364" style="display:none"></div></div>`;
-    document.querySelectorAll('.s1-ar-choice-v364').forEach(b=>b.onclick=()=>answer(b.dataset.cat));
-    window.dispatchEvent(new CustomEvent('aiquest:s1-ar-card-rendered',{detail:{version:VERSION,index:idx,total:round.length,itemId:it.id}}));
+    main.innerHTML=`<div class="s1-ar-card-v365b"><span class="s1-ar-badge-v365b">Object ${idx+1}/${round.length}</span><div class="s1-ar-object-v365b">${esc(it.object)}</div><div class="s1-ar-th-v365b">${esc(it.th)}</div><div class="s1-ar-choices-v365b">${CATEGORIES.map(c=>`<button class="s1-ar-choice-v365b" data-cat="${esc(c.id)}">${esc(c.label)}<small>${esc(c.desc)}</small></button>`).join('')}</div><div id="s1ArFeedbackV365B" class="s1-ar-feedback-v365b" style="display:none"></div></div>`;
+    document.querySelectorAll('.s1-ar-choice-v365b').forEach(b=>b.onclick=()=>answer(b.dataset.cat));
   }
 
   function answer(cat){
-    const it=item(); if(!it)return; const ok=cat===it.answer;
-    document.querySelectorAll('.s1-ar-choice-v364').forEach(b=>{b.disabled=true;if(b.dataset.cat===it.answer)b.classList.add('correct');else if(b.dataset.cat===cat)b.classList.add('wrong')});
+    const it=current(); if(!it)return; const ok=cat===it.answer;
+    document.querySelectorAll('.s1-ar-choice-v365b').forEach(b=>{b.disabled=true;if(b.dataset.cat===it.answer)b.classList.add('correct');else if(b.dataset.cat===cat)b.classList.add('wrong');});
     ok?(correct++,beep('ok')):(wrong++,beep('bad'));
-    const fb=$('s1ArFeedbackV364');
-    if(fb){fb.style.display='block';fb.className='s1-ar-feedback-v364 '+(ok?'good':'bad');fb.innerHTML=`<b>${ok?'ถูกต้อง':'ยังไม่ถูก'}</b><br>คำตอบที่เหมาะที่สุด: <b>${esc(labelOf(it.answer))}</b><br>${esc(it.explain)}<div style="margin-top:10px"><button id="s1ArNextV364" class="s1-ar-btn-v364">${idx>=round.length-1?'สรุปผล AR':'ข้อต่อไป'}</button></div>`}
-    meter(); $('s1ArNextV364').onclick=()=>{idx++;renderCard()};
-    window.dispatchEvent(new CustomEvent('aiquest:s1-ar-answer',{detail:{version:VERSION,itemId:it.id,answer:cat,correctAnswer:it.answer,isCorrect:ok,index:idx,correct,wrong}}));
+    const fb=$('s1ArFeedbackV365B');
+    if(fb){fb.style.display='block';fb.className='s1-ar-feedback-v365b '+(ok?'good':'bad');fb.innerHTML=`<b>${ok?'ถูกต้อง':'ยังไม่ถูก'}</b><br>คำตอบที่เหมาะที่สุด: <b>${esc(labelOf(it.answer))}</b><br>${esc(it.explain)}<div style="margin-top:10px"><button id="s1ArNextV365B" class="s1-ar-btn-v365b">${idx>=round.length-1?'สรุปผล AR':'ข้อต่อไป'}</button></div>`;}
+    meter(); const next=$('s1ArNextV365B'); if(next) next.onclick=()=>{idx++;renderCard();};
   }
 
   function showHint(){
-    const it=item(); if(!it)return; help++;
-    const fb=$('s1ArFeedbackV364'); if(fb){fb.style.display='block';fb.className='s1-ar-feedback-v364';fb.innerHTML=`<b>AI Help</b><br>${esc(it.hint)}`}
-    window.dispatchEvent(new CustomEvent('aiquest:s1-ar-help',{detail:{version:VERSION,itemId:it.id,helpUsed:help}}));
+    const it=current(); if(!it)return; helpUsed++;
+    const fb=$('s1ArFeedbackV365B'); if(fb){fb.style.display='block';fb.className='s1-ar-feedback-v365b';fb.innerHTML=`<b>AI Help</b><br>${esc(it.hint)}`;}
   }
 
   function renderResult(){
@@ -145,18 +198,24 @@
     const total=round.length||0, acc=total?Math.round(correct/total*100):0, usedSec=Math.round((Date.now()-startedAt)/1000);
     const badge=acc>=85?'AI Scanner Master':acc>=70?'AI Scanner':'AR Practice Started';
     const bonus=acc>=85?3:acc>=70?2:correct>0?1:0;
-    const result={version:VERSION,sessionId:'s1',missionId:'m1',arMode:true,arCompleted:true,arSkipped:false,arScore:acc,correct,wrong,total,helpUsed:help,usedSec,badge,bonus,finishedAt:new Date().toISOString()};
+    const result={version:VERSION,sessionId:'s1',missionId:'m1',arMode:true,arCompleted:true,arSkipped:false,arScore:acc,correct,wrong,total,helpUsed,usedSec,badge,bonus,finishedAt:new Date().toISOString()};
     saveResult(result);
-    $('s1ArMainV364').innerHTML=`<div class="s1-ar-result-v364"><span class="s1-ar-badge-v364">AR Practice Complete</span><h2>${esc(badge)}</h2><p>สรุปผล S1 AR Practice: AI Object Scanner</p><div class="s1-ar-result-grid-v364"><div class="s1-ar-stat-v364"><span>AR Score</span><b>${acc}%</b></div><div class="s1-ar-stat-v364"><span>Correct</span><b>${correct}/${total}</b></div><div class="s1-ar-stat-v364"><span>Bonus</span><b>+${bonus}</b></div></div><div class="s1-ar-feedback-v364 good"><b>บันทึก AR result แล้ว</b><br>ผลนี้เก็บใน localStorage และพร้อมเชื่อม Result / Submit / Teacher Dashboard</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button id="s1ArReplayV364" class="s1-ar-btn-v364">เล่น AR อีกครั้ง</button><button id="s1ArBackV364" class="s1-ar-btn-v364">กลับ Mission</button></div></div>`;
-    $('s1ArReplayV364').onclick=startAR; $('s1ArBackV364').onclick=closeAR; meter();
-    window.dispatchEvent(new CustomEvent('aiquest:s1-ar-complete',{detail:result}));
+    $('s1ArMainV365B').innerHTML=`<div class="s1-ar-result-v365b"><span class="s1-ar-badge-v365b">AR Practice Complete</span><h2>${esc(badge)}</h2><p>สรุปผล S1 AR Practice: AI Object Scanner</p><div class="s1-ar-result-grid-v365b"><div class="s1-ar-stat-v365b"><span>AR Score</span><b>${acc}%</b></div><div class="s1-ar-stat-v365b"><span>Correct</span><b>${correct}/${total}</b></div><div class="s1-ar-stat-v365b"><span>Bonus</span><b>+${bonus}</b></div></div><div class="s1-ar-feedback-v365b good"><b>บันทึก AR result แล้ว</b><br>ผลนี้เก็บใน localStorage และพร้อมเชื่อม Result / Submit / Teacher Dashboard</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button id="s1ArReplayV365B" class="s1-ar-btn-v365b">เล่น AR อีกครั้ง</button><button id="s1ArBackV365B" class="s1-ar-btn-v365b">กลับ Mission</button></div></div>`;
+    $('s1ArReplayV365B').onclick=startAR; $('s1ArBackV365B').onclick=closeAR; meter();
   }
 
-  function saveResult(r){lastResult=r;window.AIQUEST_S1_AR_RESULT=r;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(r));const all=JSON.parse(localStorage.getItem('AIQUEST_AR_RESULTS')||'{}');all.s1=r;localStorage.setItem('AIQUEST_AR_RESULTS',JSON.stringify(all))}catch(e){}}
-  function loadResult(){try{const r=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(r&&r.sessionId==='s1'){lastResult=r;window.AIQUEST_S1_AR_RESULT=r;return r}}catch(e){}return null}
-  function getResult(){return lastResult||loadResult()}
+  function saveResult(r){ lastResult=r; window.AIQUEST_S1_AR_RESULT=r; try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(r)); const all=JSON.parse(localStorage.getItem('AIQUEST_AR_RESULTS')||'{}'); all.s1=r; localStorage.setItem('AIQUEST_AR_RESULTS',JSON.stringify(all)); }catch(e){} }
+  function loadResult(){ try{ const r=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); if(r&&r.sessionId==='s1'){lastResult=r; window.AIQUEST_S1_AR_RESULT=r; return r;} }catch(e){} return null; }
+  function getResult(){ return lastResult||loadResult(); }
 
-  function install(){refreshInline();const mo=new MutationObserver(refreshInline);mo.observe(document.body,{childList:true,subtree:true});setInterval(refreshInline,2000);const q=new URLSearchParams(location.search);const ar=String(q.get('ar')||'').toLowerCase();if(ar==='s1'||ar==='hand'||ar==='ar')setTimeout(startAR,500)}
+  function install(){
+    refresh();
+    const mo=new MutationObserver(()=>refresh()); mo.observe(document.body,{childList:true,subtree:true});
+    setInterval(refresh,2000);
+    const q=new URLSearchParams(location.search); const ar=String(q.get('ar')||'').toLowerCase();
+    if(ar==='s1'||ar==='hand'||ar==='ar') setTimeout(startAR,500);
+  }
+
   window.AIQUEST_S1_AR_PRACTICE={version:VERSION,start:startAR,close:closeAR,skip:skipAR,getResult,loadResult,categories:CATEGORIES,bank:BANK};
   document.readyState==='loading'?document.addEventListener('DOMContentLoaded',install):install();
   console.log('[AIQuest] '+VERSION+' loaded',window.AIQUEST_S1_AR_PRACTICE);
