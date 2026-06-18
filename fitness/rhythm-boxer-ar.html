@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Report Consistency Lock | v20260618-rb-report-consistency -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Rank Balance + Report Consistency | v20260618-rb-rank-balance -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -431,7 +431,7 @@
       <div class="kicker">HeroHealth Fitness AR • Body Tracking</div>
       <h1>🥊 Rhythm Boxer AR</h1>
       <div class="sub">
-        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชัน Production Lock: Body Tracking + Challenge + XP + Boss + Best Score + Hub Return + CSV + Google Sheets auto-submit พร้อมใช้จริง
+        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชัน Production Lock: Body Tracking + Challenge + XP + Boss + Best Score + Hub Return + CSV + Google Sheets auto-submit พร้อมใช้จริง • Rank Balance ปรับให้ 3 ดาวไม่ตกเกรดเกินจริง
         ถ้ากล้องหรือ Pose Tracking ใช้ไม่ได้ ยังเล่นด้วยการแตะจอ/คีย์บอร์ดได้
       </div>
     </div>
@@ -441,6 +441,7 @@
       <span class="chip">Mobile: touch + camera</span>
       <span class="chip">Production Lock</span>
       <span class="chip">Sheets Default ON</span>
+      <span class="chip">Rank Balance</span>
     </div>
   </header>
 
@@ -949,7 +950,7 @@
     let lastLane = 2;
     while(t < dur - 900){
       const p = t / dur;
-      const phase = p < .18 ? 'warmup' : p < .44 ? 'groove' : p < .68 ? 'rush' : 'boss';
+      const phase = p < .18 ? 'warmup' : p < .42 ? 'groove' : p < .62 ? 'rush' : 'boss';
       let density = S.diff==='easy' ? .46 : S.diff==='hard' ? .82 : .60;
       if(phase==='warmup') density *= .78;
       if(phase==='rush') density *= 1.05;
@@ -1164,7 +1165,7 @@
 
   function phaseOf(now){
     const p = clamp((now-S.t0)/(S.tEnd-S.t0),0,1);
-    if(p<.18)return 'warmup'; if(p<.44)return 'groove'; if(p<.68)return 'rush'; return 'boss';
+    if(p<.18)return 'warmup'; if(p<.42)return 'groove'; if(p<.62)return 'rush'; return 'boss';
   }
 
   function updatePhase(now){
@@ -1174,7 +1175,7 @@
     if(ph==='warmup'){banner('Warm-up','ยกมือ guard แล้วจับจังหวะ');coach('เริ่มเบา ๆ ให้กล้องเห็นข้อมือทั้งสองข้าง','good')}
     if(ph==='groove'){banner('Groove','เริ่มรักษาคอมโบ');coach('ชกตามจังหวะ ไม่ต้องแรงมาก','great')}
     if(ph==='rush'){banner('Rush','เร็วขึ้นอีกนิด');coach('หายใจให้สม่ำเสมอ แล้วชกให้ตรงเส้น','great')}
-    if(ph==='boss'){banner('BOSS ROUND','ชกแม่นเพื่อลด HP บอส');coach('ช่วงบอสอย่ากดรัว เลือกจังหวะที่ชัวร์','great');S.boss.hpMax=(S.diff==='easy'?12:S.diff==='hard'?22:16);S.boss.active=true;S.boss.hp=S.boss.hpMax;S.boss.clear=false;sfx('boss')}
+    if(ph==='boss'){banner('BOSS ROUND','ชกแม่นเพื่อลด HP บอส');coach('ช่วงบอสอย่ากดรัว เลือกจังหวะที่ชัวร์','great');S.boss.hpMax=(S.diff==='easy'?8:S.diff==='hard'?22:14);S.boss.active=true;S.boss.hp=S.boss.hpMax;S.boss.clear=false;sfx('boss')}
   }
 
   function bossTick(now){
@@ -1230,7 +1231,7 @@
     S.running=false; S.t0=0; S.tEnd=0; S.lastBeat=-1; S.notes=[]; S.nextId=1;
     S.score=0;S.combo=0;S.maxCombo=0;S.flowCombo=0;S.maxFlowCombo=0;S.comboBreaks=0;S.shots=0;S.hits=0;S.perfect=0;S.great=0;S.good=0;S.miss=0;S.blank=0;S.spam=0;S.bodyPunches=0;
     S.fever=0;S.feverOn=false;S.phase='warmup';S.events=[];S.offsets=[];S.lastLaneTap=[0,0,0,0,0];S.missStreak=0;S.bodyAttempts=0;S.bodyNoise=0;S.missStreak=0;
-    S.boss={active:false,hp:(S.diff==='easy'?12:S.diff==='hard'?22:16),hpMax:(S.diff==='easy'?12:S.diff==='hard'?22:16),clear:false,window:false,lastWindow:0};
+    S.boss={active:false,hp:(S.diff==='easy'?8:S.diff==='hard'?22:14),hpMax:(S.diff==='easy'?8:S.diff==='hard'?22:14),clear:false,window:false,lastWindow:0};
     laneEls().forEach(l=>Array.from(l.querySelectorAll('.note')).forEach(n=>n.remove()));
     els.bossCard.classList.add('hidden');
   }
@@ -1262,11 +1263,33 @@
     });
   }
 
+  function missionStarsValue(){
+    const scoreT = S.diff==='easy'?1500:S.diff==='hard'?2600:2100;
+    const comboT = S.diff==='easy'?10:S.diff==='hard'?20:14;
+    const accT = S.diff==='easy'?72:S.diff==='hard'?84:80;
+
+    return (S.score>=scoreT?1:0) + (S.maxCombo>=comboT?1:0) + (accPct()>=accT?1:0);
+  }
+
   function rankOf(){
-    const acc=accPct()/100, combo=clamp(S.maxCombo/60,0,1), body=S.mode==='body'?clamp(S.bodyPunches/Math.max(1,S.shots),0,1):.5;
-    const boss = S.boss && S.boss.clear ? .08 : 0;
-    const val=Math.min(1,.58*acc+.22*combo+.12*body+boss);
-    if(val>=.88)return 'S'; if(val>=.78)return 'A'; if(val>=.66)return 'B'; if(val>=.52)return 'C'; return 'D';
+    const acc = accPct();
+    const stars = missionStarsValue();
+    const bossClear = !!(S.boss && S.boss.clear);
+    const strictCombo = Number(S.maxCombo || 0);
+    const flowCombo = Number(S.maxFlowCombo || S.flowCombo || 0);
+
+    // Production report balance:
+    // Rank should not contradict stars. Strict combo remains credible,
+    // while flow combo and boss clear add replay value.
+    if(acc >= 95 && stars >= 3 && bossClear && strictCombo >= 18) return 'S';
+    if(acc >= 92 && stars >= 3 && (bossClear || flowCombo >= 55)) return 'S';
+
+    if(acc >= 86 && stars >= 3 && (bossClear || strictCombo >= 18 || flowCombo >= 45)) return 'A';
+    if(acc >= 80 && stars >= 3 && strictCombo >= 14) return 'A';
+
+    if(acc >= 72 && stars >= 2) return 'B';
+    if(acc >= 60 || stars >= 1) return 'C';
+    return 'D';
   }
 
   function teacherRec(){
@@ -1310,7 +1333,7 @@
       ' | Valid punches: ' + (payload.bodyPunches||0) +
       ' | Missed notes: ' + (payload.miss||0) +
       ' | Ignored noise: ' + (payload.bodyNoise||0) +
-      '<div class="metric-note">รายงานนี้แยกชัดเจน: <b>Max Combo</b> = combo แบบ strict ที่ตัดเมื่อ miss ทุกครั้ง, <b>Flow Combo</b> = combo แบบมี grace เพื่อแรงจูงใจในห้องเรียน, <b>Accuracy</b> = Valid Punches ÷ (Valid Punches + Missed Notes)</div>' +
+      '<div class="metric-note">รายงานนี้แยกชัดเจน: <b>Max Combo</b> = combo แบบ strict ที่ตัดเมื่อ miss ทุกครั้ง, <b>Flow Combo</b> = combo แบบมี grace เพื่อแรงจูงใจในห้องเรียน, <b>Rank</b> ใช้ Accuracy + Stars + Boss/Combo เพื่อไม่ให้ 3 ดาวตกเกรดเกินจริง, <b>Accuracy</b> = Valid Punches ÷ (Valid Punches + Missed Notes)</div>' +
       '<div class="pb-card ' + (payload.newBest ? 'new' : '') + '">' +
       (payload.newBest ? '🏆 New Best Score! ' : '🎯 Best Score: ') +
       Math.round(getBestScore()) +
