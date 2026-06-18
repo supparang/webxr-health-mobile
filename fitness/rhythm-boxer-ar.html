@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <title>HeroHealth • Rhythm Boxer AR Body CALIBRATED</title>
+  <title>HeroHealth • Rhythm Boxer AR Body SCHOOL FINAL</title>
   <meta name="theme-color" content="#ff9dcf" />
   <meta name="color-scheme" content="light" />
 
@@ -271,9 +271,9 @@
   <header class="topbar">
     <div>
       <div class="kicker">HeroHealth Fitness AR • Body Tracking</div>
-      <h1>🥊 Rhythm Boxer AR Body CALIBRATED</h1>
+      <h1>🥊 Rhythm Boxer AR Body SCHOOL FINAL</h1>
       <div class="sub">
-        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชันนี้ calibrate ใหม่: ลดการนับหมัดถี่เกินไป และนับคะแนนจาก body punch ที่เข้า note จริงมากขึ้น
+        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชันห้องเรียน: ลด note ถี่เกินไป เพิ่มโอกาสต่อ combo และทำให้ Boss มีโอกาส clear ได้จริงในรอบ 45–60 วินาที
         ถ้ากล้องหรือ Pose Tracking ใช้ไม่ได้ ยังเล่นด้วยการแตะจอ/คีย์บอร์ดได้
       </div>
     </div>
@@ -318,7 +318,7 @@
         </div>
       </div>
       <div class="note-box">
-        วิธีเล่นด้วยร่างกาย: วางมือถือให้เห็นช่วงลำตัวบน ยืนห่างประมาณ 1–2 เมตร ยกมือ guard แล้วชกซ้าย/ขวาเข้าหา lane ที่ note กำลังลงถึงเส้น hit line
+        วิธีเล่นด้วยร่างกาย: วางมือถือให้เห็นช่วงลำตัวบน ยืนห่างประมาณ 1–2 เมตร ยกมือ guard แล้วชกซ้าย/ขวาเข้าหา lane ที่ note กำลังลงถึงเส้น hit line • School Final ลด note ถี่เกินไปและไม่ตัด combo ง่ายเกินไป
       </div>
       <div class="row" style="margin-top:14px">
         <button id="btnStartBody" class="btn primary">📷 เริ่มแบบ Body Tracking AR</button>
@@ -592,7 +592,7 @@
     while(t < dur - 900){
       const p = t / dur;
       const phase = p < .18 ? 'warmup' : p < .48 ? 'groove' : p < .78 ? 'rush' : 'boss';
-      let density = S.diff==='easy' ? .62 : S.diff==='hard' ? .92 : .78;
+      let density = S.diff==='easy' ? .48 : S.diff==='hard' ? .80 : .62;
       if(phase==='warmup') density *= .78;
       if(phase==='rush') density *= 1.05;
       if(phase==='boss') density *= 1.10;
@@ -651,9 +651,13 @@
         n.el.style.transform = `translate3d(-50%,${y}px,0)`;
         n.el.classList.toggle('near', Math.abs(dt) <= windows().good);
         if(dt < -windows().good){
-          n.miss=true; removeNote(n); S.shots++; S.miss++; S.combo=0;
+          n.miss=true; removeNote(n); S.shots++; S.miss++; S.missStreak=(S.missStreak||0)+1;
+          // School mode: do not break combo on the first occasional miss.
+          // This makes body tracking fairer and keeps children motivated.
+          if(S.missStreak >= 2) S.combo=0;
           feedback('MISS','miss'); sfx('miss'); vibrate([18,35,18]); hitFx('miss'); laneFlash(n.lane,'miss'); fieldShake();
-          logEvent('auto_miss',{lane:n.lane,judge:'Miss',offsetMs:Math.round(dt)});
+          if(S.missStreak === 1) coach('ไม่เป็นไร รักษาจังหวะต่อได้เลย','good');
+          logEvent('auto_miss',{lane:n.lane,judge:'Miss',offsetMs:Math.round(dt),missStreak:S.missStreak});
         }
       }
     }
@@ -725,7 +729,7 @@
 
       if(judge!=='Miss'){
         found.note.hit=true; removeNote(found.note);
-        S.shots++; S.hits++; if(String(source).startsWith('body')) S.bodyPunches++; S.combo++; S.maxCombo=Math.max(S.maxCombo,S.combo);
+        S.shots++; S.hits++; S.missStreak=0; if(String(source).startsWith('body')) S.bodyPunches++; S.combo++; S.maxCombo=Math.max(S.maxCombo,S.combo);
         if(judge==='Perfect') S.perfect++; else if(judge==='Great') S.great++; else S.good++;
         const base = judge==='Perfect'?120:judge==='Great'?85:50;
         const comboBonus = Math.min(60, Math.floor(S.combo/10)*10);
@@ -755,7 +759,7 @@
         return;
       }
 
-      S.blank++; S.shots++; S.combo=0; S.score=Math.max(0,S.score-8);
+      S.blank++; S.shots++; S.missStreak=(S.missStreak||0)+1; if(S.missStreak>=2) S.combo=0; S.score=Math.max(0,S.score-8);
       feedback('MISS','miss'); sfx('miss'); vibrate([18,35,18]); hitFx('miss'); laneFlash(lane,'miss'); fieldShake();
     }
     logEvent(source,{lane,judge,offsetMs:dt===9999?'':Math.round(dt)});
@@ -774,7 +778,7 @@
 
   function updateMission(){
     const scoreT = S.diff==='easy'?1500:S.diff==='hard'?2600:2100;
-    const comboT = S.diff==='easy'?10:S.diff==='hard'?24:18;
+    const comboT = S.diff==='easy'?10:S.diff==='hard'?20:14;
     const accT = S.diff==='easy'?72:S.diff==='hard'?84:80;
     const okScore=S.score>=scoreT, okCombo=S.maxCombo>=comboT, okAcc=accPct()>=accT;
     els.mScore.className='mission-item '+(okScore?'done':''); els.mScore.textContent=(okScore?'✅':'⭐')+' ทำคะแนน '+scoreT;
@@ -787,7 +791,7 @@
 
   function phaseOf(now){
     const p = clamp((now-S.t0)/(S.tEnd-S.t0),0,1);
-    if(p<.18)return 'warmup'; if(p<.48)return 'groove'; if(p<.78)return 'rush'; return 'boss';
+    if(p<.18)return 'warmup'; if(p<.44)return 'groove'; if(p<.68)return 'rush'; return 'boss';
   }
 
   function updatePhase(now){
@@ -797,7 +801,7 @@
     if(ph==='warmup'){banner('Warm-up','ยกมือ guard แล้วจับจังหวะ');coach('เริ่มเบา ๆ ให้กล้องเห็นข้อมือทั้งสองข้าง','good')}
     if(ph==='groove'){banner('Groove','เริ่มรักษาคอมโบ');coach('ชกตามจังหวะ ไม่ต้องแรงมาก','great')}
     if(ph==='rush'){banner('Rush','เร็วขึ้นอีกนิด');coach('หายใจให้สม่ำเสมอ แล้วชกให้ตรงเส้น','great')}
-    if(ph==='boss'){banner('BOSS ROUND','ชกแม่นเพื่อลด HP บอส');coach('ช่วงบอสอย่ากดรัว เลือกจังหวะที่ชัวร์','great');S.boss.active=true;S.boss.hp=S.boss.hpMax;S.boss.clear=false;sfx('boss')}
+    if(ph==='boss'){banner('BOSS ROUND','ชกแม่นเพื่อลด HP บอส');coach('ช่วงบอสอย่ากดรัว เลือกจังหวะที่ชัวร์','great');S.boss.hpMax=(S.diff==='easy'?12:S.diff==='hard'?22:16);S.boss.active=true;S.boss.hp=S.boss.hpMax;S.boss.clear=false;sfx('boss')}
   }
 
   function bossTick(now){
@@ -851,8 +855,8 @@
   function reset(){
     S.running=false; S.t0=0; S.tEnd=0; S.lastBeat=-1; S.notes=[]; S.nextId=1;
     S.score=0;S.combo=0;S.maxCombo=0;S.shots=0;S.hits=0;S.perfect=0;S.great=0;S.good=0;S.miss=0;S.blank=0;S.spam=0;S.bodyPunches=0;
-    S.fever=0;S.feverOn=false;S.phase='warmup';S.events=[];S.offsets=[];S.lastLaneTap=[0,0,0,0,0];S.bodyAttempts=0;S.bodyNoise=0;
-    S.boss={active:false,hp:24,hpMax:24,clear:false,window:false,lastWindow:0};
+    S.fever=0;S.feverOn=false;S.phase='warmup';S.events=[];S.offsets=[];S.lastLaneTap=[0,0,0,0,0];S.missStreak=0;S.bodyAttempts=0;S.bodyNoise=0;S.missStreak=0;
+    S.boss={active:false,hp:(S.diff==='easy'?12:S.diff==='hard'?22:16),hpMax:(S.diff==='easy'?12:S.diff==='hard'?22:16),clear:false,window:false,lastWindow:0};
     laneEls().forEach(l=>Array.from(l.querySelectorAll('.note')).forEach(n=>n.remove()));
     els.bossCard.classList.add('hidden');
   }
@@ -899,7 +903,7 @@
     else if(acc>=70) notes.push('ผู้เรียนจับจังหวะได้ดี ควรฝึกความต่อเนื่องของ combo');
     else notes.push('ควรเริ่มจาก Easy และลดความเร็ว เพื่อฝึก timing ก่อน');
     if(S.spam>=8 || (S.bodyNoise||0)>=10) notes.push('พบสัญญาณหมัดถี่/สัญญาณรบกวนจากกล้อง ควรย้ำให้ตั้ง guard แล้วชกเป็นจังหวะ ไม่แกว่งมือตลอดเวลา');
-    if(S.miss>=12) notes.push('พลาดบ่อย ควรพัก 30–60 วินาที หรือลดเวลาเล่น');
+    if(S.miss>=20) notes.push('พลาดค่อนข้างบ่อย ควรพัก 30–60 วินาที หรือลดเวลาเล่น');
     return notes.join(' · ');
   }
 
