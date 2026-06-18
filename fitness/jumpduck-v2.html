@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>JumpDuck Dash • AR Fitness Movement Challenge v2 ScoreFix</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Locked versions: same working family as the uploaded prototype -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+
+  <style>
+    :root{
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html,body{ margin:0; width:100%; height:100%; overflow:hidden; }
+    body{
+      font-family:'Kanit',sans-serif;
+      background:#07111f;
+      user-select:none;
+      color:#0f172a;
+    }
+    @keyframes floatDuck{
+      0%,100%{ transform:translateY(0) rotate(-1deg); }
+      50%{ transform:translateY(-10px) rotate(2deg); }
+    }
+    @keyframes popIn{
+      0%{ transform:scale(.72); opacity:0; }
+      100%{ transform:scale(1); opacity:1; }
+    }
+    @keyframes energyPulse{
+      0%,100%{ box-shadow:0 0 0 rgba(250,204,21,0); }
+      50%{ box-shadow:0 0 28px rgba(250,204,21,.55); }
+    }
+    .float-animation{ animation:floatDuck 3.8s ease-in-out infinite; }
+    .pop-in{ animation:popIn .22s ease-out both; }
+    .energy-pulse{ animation:energyPulse 1.4s ease-in-out infinite; }
+    .hud-card{ background:rgba(255,255,255,.92); backdrop-filter:blur(12px); }
+    #game-canvas{ width:100vw; height:100vh; object-fit:cover; display:block; }
+    .no-scrollbar::-webkit-scrollbar{ display:none; }
+
+    .manual-pad{ pointer-events:auto; }
+    .manual-btn{ width:48px; height:48px; border-radius:18px; background:rgba(255,255,255,.88); border:2px solid rgba(16,185,129,.55); box-shadow:0 10px 24px rgba(2,6,23,.22); font-weight:900; font-size:22px; touch-action:none; }
+    .manual-btn:active{ transform:scale(.92); background:#d1fae5; }
+    .scorefix-pill{ background:rgba(15,23,42,.72); color:#fff; backdrop-filter:blur(10px); }
+  </style>
+</head>
+
+<body class="relative h-screen w-screen overflow-hidden bg-slate-950">
+
+  <!-- START SCREEN -->
+  <section id="start-screen" class="absolute inset-0 z-40 flex items-center justify-center p-5 text-center bg-gradient-to-br from-cyan-100 via-emerald-100 to-yellow-100">
+    <div class="w-full max-w-md rounded-[2rem] bg-white/95 p-6 shadow-2xl border-4 border-yellow-300 float-animation">
+      <div class="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full bg-yellow-300 border-4 border-yellow-500 shadow-lg">
+        <span class="text-6xl">🦆</span>
+      </div>
+
+      <div class="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1 text-xs font-extrabold text-emerald-700 mb-3">
+        <span>AR FITNESS • HEROHEALTH METAVERSE</span>
+      </div>
+
+      <h1 class="text-4xl md:text-5xl font-black tracking-tight text-emerald-600">JumpDuck Dash</h1>
+      <p class="mt-2 text-base md:text-lg font-semibold text-slate-600">ด่านหลบสิ่งกีดขวางด้วยร่างกายจริง ฝึกความไว ความคล่องตัว และการตอบสนอง</p>
+
+      <div class="mt-5 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-left text-sm text-slate-700 space-y-2">
+        <div class="font-extrabold text-emerald-800"><i class="fa-solid fa-circle-info mr-1"></i> วิธีเล่น</div>
+        <p>1. ยืนให้กล้องเห็นช่วงตัวและสะโพกชัด ๆ</p>
+        <p>2. ก่อนเริ่ม ระบบจะให้ยืนตรงเพื่อ <b>Calibrate 3 วินาที</b></p>
+        <p>3. ทำท่าให้ตรงกับสิ่งกีดขวาง: <b>Jump / Duck / Left / Right</b></p>
+        <p>4. ใช้มือซ้ายหรือขวาปัดเก็บ <b>Energy Star</b> เพื่อเพิ่มคะแนน</p>
+        <p>5. หลบต่อเนื่องเพื่อสร้าง Combo และเก็บ Reaction Time</p>
+      </div>
+
+      <div class="mt-5 grid grid-cols-3 gap-2 text-xs font-bold text-slate-600">
+        <div class="rounded-2xl bg-yellow-50 border border-yellow-200 p-2">⬆️ Jump</div>
+        <div class="rounded-2xl bg-blue-50 border border-blue-200 p-2">⬇️ Duck</div>
+        <div class="rounded-2xl bg-purple-50 border border-purple-200 p-2">↔️ Left/Right</div>
+      </div>
+
+      <div id="init-loading" class="mt-6 space-y-3">
+        <div class="flex items-center justify-center gap-3 text-emerald-600 font-bold">
+          <div class="h-6 w-6 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
+          <span>กำลังโหลด AI ตรวจจับร่างกาย...</span>
+        </div>
+        <p class="text-xs text-slate-400">โปรดอนุญาตกล้องเมื่อระบบร้องขอ</p>
+      </div>
+
+      <div id="start-controls" class="hidden mt-6 space-y-3">
+        <div class="grid grid-cols-3 gap-2 text-xs font-bold">
+          <button data-diff="easy" class="diff-btn rounded-2xl border-2 border-emerald-400 bg-emerald-100 px-3 py-2 text-emerald-800">Easy</button>
+          <button data-diff="normal" class="diff-btn rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-slate-700">Normal</button>
+          <button data-diff="hard" class="diff-btn rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-slate-700">Hard</button>
+        </div>
+        <button id="btn-start" class="w-full rounded-3xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-4 text-2xl font-black text-white shadow-xl border-b-4 border-emerald-700 active:scale-95 transition">
+          <i class="fa-solid fa-play mr-2"></i> เริ่มด่าน JumpDuck
+        </button>
+        <p class="text-xs font-semibold text-emerald-600">พร้อมแล้ว: Camera + BlazePose + ScoreFix Gesture Hold</p>
+        <p class="text-[11px] font-bold text-slate-400">ทดสอบคะแนนได้ด้วยปุ่มลูกศรคีย์บอร์ด หรือแผง TEST/BACKUP ด้านซ้าย</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAME OVER SCREEN -->
+  <section id="gameover-screen" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black/80 p-5 backdrop-blur-md">
+    <div class="w-full max-w-md rounded-[2rem] bg-white p-6 text-center shadow-2xl border-4 border-orange-400 pop-in">
+      <div id="rank-emoji" class="text-7xl mb-2">🏆</div>
+      <h2 id="rank-title" class="text-3xl font-black text-orange-600">จบด่านแล้ว!</h2>
+      <p id="rank-note" class="mt-1 text-sm font-semibold text-slate-500">ยอดเยี่ยมมาก ฝึกความไวได้ดีขึ้นแล้ว</p>
+
+      <div class="mt-5 grid grid-cols-2 gap-3">
+        <div class="rounded-3xl border-2 border-yellow-200 bg-yellow-50 p-3">
+          <p class="text-xs font-bold text-slate-500">คะแนน</p>
+          <p id="final-score" class="text-4xl font-black text-yellow-600">0</p>
+        </div>
+        <div class="rounded-3xl border-2 border-blue-200 bg-blue-50 p-3">
+          <p class="text-xs font-bold text-slate-500">Accuracy</p>
+          <p id="final-accuracy" class="text-4xl font-black text-blue-600">0%</p>
+        </div>
+        <div class="rounded-3xl border-2 border-emerald-200 bg-emerald-50 p-3">
+          <p class="text-xs font-bold text-slate-500">หลบสำเร็จ</p>
+          <p id="final-dodges" class="text-3xl font-black text-emerald-600">0</p>
+        </div>
+        <div class="rounded-3xl border-2 border-red-200 bg-red-50 p-3">
+          <p class="text-xs font-bold text-slate-500">พลาด</p>
+          <p id="final-misses" class="text-3xl font-black text-red-500">0</p>
+        </div>
+      </div>
+
+      <div class="mt-4 rounded-3xl border border-purple-200 bg-purple-50 p-4">
+        <p class="text-sm font-bold text-slate-600">⚡ Reaction Time เฉลี่ย</p>
+        <p id="avg-time" class="text-2xl font-black text-purple-700">0.00 วินาที</p>
+        <p id="final-combo" class="mt-1 text-xs font-semibold text-slate-500">Best Combo: 0</p>
+      </div>
+
+      <div class="mt-5 grid grid-cols-2 gap-3">
+        <button id="btn-restart" class="rounded-3xl bg-gradient-to-r from-orange-500 to-red-500 py-3 text-lg font-black text-white shadow-lg border-b-4 border-red-700 active:scale-95 transition">
+          เล่นอีกครั้ง
+        </button>
+        <button id="btn-export" class="rounded-3xl bg-slate-900 py-3 text-lg font-black text-white shadow-lg border-b-4 border-slate-700 active:scale-95 transition">
+          CSV
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CAMERA + CANVAS -->
+  <div class="absolute inset-0 z-0 bg-slate-950">
+    <video id="webcam" class="hidden" autoplay playsinline muted></video>
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <!-- TOP HUD -->
+  <header class="pointer-events-none absolute left-0 right-0 top-0 z-20 flex items-start justify-between gap-2 p-3 pt-[calc(var(--safe-top)+12px)]">
+    <div class="flex gap-2">
+      <div class="hud-card rounded-2xl border-2 border-yellow-300 px-3 py-2 shadow-lg">
+        <div class="text-[10px] font-black text-slate-500">SCORE</div>
+        <div id="score-display" class="text-2xl font-black leading-none text-slate-900">00</div>
+      </div>
+      <div id="combo-container" class="hidden rounded-2xl bg-gradient-to-r from-fuchsia-500 to-purple-600 px-3 py-2 text-white shadow-lg energy-pulse">
+        <div class="text-[10px] font-black">COMBO</div>
+        <div class="text-xl font-black leading-none">x<span id="combo-display">0</span></div>
+      </div>
+    </div>
+
+    <div class="hidden md:block hud-card rounded-full border-2 border-white/60 px-5 py-2 text-center shadow-lg">
+      <div class="text-[10px] font-black text-emerald-600">AI GESTURE</div>
+      <div id="current-gesture" class="text-sm font-black text-slate-900">ยืนปกติ 🧍</div>
+    </div>
+
+    <div class="hud-card rounded-2xl border-2 border-red-300 px-3 py-2 shadow-lg text-right">
+      <div class="text-[10px] font-black text-slate-500">TIME</div>
+      <div id="timer-display" class="text-2xl font-black leading-none text-red-600">60s</div>
+    </div>
+  </header>
+
+  <!-- CENTER SYSTEM PROMPT -->
+  <div class="pointer-events-none absolute inset-x-0 top-[95px] z-20 flex flex-col items-center gap-2 px-3 text-center">
+    <div id="system-prompt" class="hidden rounded-full bg-slate-950/75 px-5 py-2 text-base md:text-xl font-black text-white shadow-2xl border-2 border-white/60">
+      ยืนตรงเพื่อ Calibrate...
+    </div>
+    <div id="feedback-alert" class="scale-0 text-3xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.85)] transition-transform duration-150">
+      Perfect!
+    </div>
+  </div>
+
+
+  <!-- SCORE FIX TEST CONTROLS: lets teacher test scoring on PC/mobile even when camera gesture is unstable -->
+  <div id="manual-pad" class="manual-pad absolute left-3 top-1/2 z-30 -translate-y-1/2 select-none">
+    <div class="mb-2 rounded-full scorefix-pill px-3 py-1 text-center text-[10px] font-black shadow-lg">TEST / BACKUP</div>
+    <div class="grid grid-cols-3 gap-1">
+      <span></span><button class="manual-btn" data-manual="jump" aria-label="Jump">⬆️</button><span></span>
+      <button class="manual-btn" data-manual="left" aria-label="Left">⬅️</button><button class="manual-btn" data-manual="duck" aria-label="Duck">⬇️</button><button class="manual-btn" data-manual="right" aria-label="Right">➡️</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM MISSION CARD -->
+  <section class="pointer-events-none absolute bottom-[calc(var(--safe-bottom)+16px)] left-3 right-3 z-20 flex flex-col items-center gap-3">
+    <div class="w-full max-w-xl rounded-[1.7rem] border-4 border-emerald-400 bg-white/95 p-4 text-center shadow-2xl backdrop-blur-md">
+      <div class="text-[11px] font-black tracking-wider text-emerald-600">NEXT MOVEMENT MISSION</div>
+      <div class="mt-1 flex items-center justify-center gap-2">
+        <span id="target-emoji" class="text-4xl">⬆️</span>
+        <span id="target-en-word" class="text-4xl md:text-5xl font-black uppercase tracking-wide text-slate-900">JUMP</span>
+      </div>
+      <div id="target-th-word" class="text-base md:text-xl font-extrabold text-emerald-700">กระโดดข้ามสิ่งกีดขวางต่ำ</div>
+
+      <div class="mt-3 h-4 w-full overflow-hidden rounded-full bg-slate-200">
+        <div id="dodge-direction-indicator" class="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-500 transition-all duration-100" style="width:100%"></div>
+      </div>
+      <div class="mt-2 flex justify-between text-xs font-bold text-slate-500">
+        <span id="dodge-instruction-text">เตรียมหลบ</span>
+        <span id="obstacle-distance-text">รอสัญญาณ...</span>
+      </div>
+    </div>
+
+    <div class="rounded-full bg-black/55 px-4 py-1.5 text-[11px] font-semibold text-white backdrop-blur-md">
+      <span class="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-ping mr-2"></span>
+      AI ติดตามสะโพก ลำตัว และมือ • Jump / Duck / Left / Right
+    </div>
+  </section>
+
+  <script>
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+    function playSound(type){
+      try{
+        if(!audioCtx) audioCtx = new AudioCtx();
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        gain.gain.setValueAtTime(0.001, now);
+        if(type === 'success'){
+          osc.type='triangle';
+          osc.frequency.setValueAtTime(340, now);
+          osc.frequency.exponentialRampToValueAtTime(900, now+.16);
+          gain.gain.exponentialRampToValueAtTime(.18, now+.02);
+          gain.gain.exponentialRampToValueAtTime(.001, now+.18);
+          osc.start(now); osc.stop(now+.2);
+        }else if(type === 'dodge'){
+          osc.type='sine';
+          osc.frequency.setValueAtTime(720, now);
+          osc.frequency.exponentialRampToValueAtTime(210, now+.24);
+          gain.gain.exponentialRampToValueAtTime(.22, now+.02);
+          gain.gain.exponentialRampToValueAtTime(.001, now+.28);
+          osc.start(now); osc.stop(now+.3);
+        }else if(type === 'star'){
+          osc.type='sine';
+          osc.frequency.setValueAtTime(523.25, now);
+          osc.frequency.setValueAtTime(659.25, now+.08);
+          osc.frequency.setValueAtTime(783.99, now+.16);
+          gain.gain.exponentialRampToValueAtTime(.20, now+.02);
+          gain.gain.exponentialRampToValueAtTime(.001, now+.32);
+          osc.start(now); osc.stop(now+.34);
+        }else if(type === 'hit'){
+          osc.type='sawtooth';
+          osc.frequency.setValueAtTime(180, now);
+          osc.frequency.linearRampToValueAtTime(70, now+.35);
+          gain.gain.exponentialRampToValueAtTime(.24, now+.02);
+          gain.gain.exponentialRampToValueAtTime(.001, now+.38);
+          osc.start(now); osc.stop(now+.4);
+        }else{
+          osc.type='square';
+          osc.frequency.setValueAtTime(260, now);
+          osc.frequency.setValueAtTime(190, now+.18);
+          osc.frequency.setValueAtTime(130, now+.36);
+          gain.gain.exponentialRampToValueAtTime(.20, now+.02);
+          gain.gain.exponentialRampToValueAtTime(.001, now+.65);
+          osc.start(now); osc.stop(now+.7);
+        }
+      }catch(e){ console.warn('Audio blocked', e); }
+    }
+  </script>
+
+  <script>
+    // =============================================================
+    // JumpDuck Dash v2 • AR Fitness Movement Challenge
+    // Patch focus: ScoreFix + gesture hold + wider judge window + keyboard/touch fallback
+    // =============================================================
+
+    const $ = (id) => document.getElementById(id);
+
+    const startScreen = $('start-screen');
+    const gameoverScreen = $('gameover-screen');
+    const initLoading = $('init-loading');
+    const startControls = $('start-controls');
+    const btnStart = $('btn-start');
+    const btnRestart = $('btn-restart');
+    const btnExport = $('btn-export');
+
+    const webcam = $('webcam');
+    const gameCanvas = $('game-canvas');
+    const ctx = gameCanvas.getContext('2d');
+
+    const scoreDisplay = $('score-display');
+    const timerDisplay = $('timer-display');
+    const currentGestureDisplay = $('current-gesture');
+    const targetEmoji = $('target-emoji');
+    const targetEnWord = $('target-en-word');
+    const targetThWord = $('target-th-word');
+    const dodgeInstructionText = $('dodge-instruction-text');
+    const dodgeDirectionIndicator = $('dodge-direction-indicator');
+    const obstacleDistanceText = $('obstacle-distance-text');
+    const feedbackAlert = $('feedback-alert');
+    const comboContainer = $('combo-container');
+    const comboDisplay = $('combo-display');
+    const systemPrompt = $('system-prompt');
+
+    const finalScore = $('final-score');
+    const finalAccuracy = $('final-accuracy');
+    const finalDodges = $('final-dodges');
+    const finalMisses = $('final-misses');
+    const avgTime = $('avg-time');
+    const finalCombo = $('final-combo');
+    const rankEmoji = $('rank-emoji');
+    const rankTitle = $('rank-title');
+    const rankNote = $('rank-note');
+
+    const DIFF = {
+      easy:   { label:'Easy',   time:60, spawnMs:2550, speed:4.4, actions:['jump','duck'],                 judgeZone:230, hitDelay:0.55 },
+      normal: { label:'Normal', time:60, spawnMs:2050, speed:5.8, actions:['jump','duck','left','right'],  judgeZone:195, hitDelay:0.45 },
+      hard:   { label:'Hard',   time:60, spawnMs:1600, speed:7.0, actions:['jump','duck','left','right'],  judgeZone:165, hitDelay:0.36 }
+    };
+
+    const ACTIONS = {
+      jump:  { word:'JUMP',  th:'กระโดดข้ามสิ่งกีดขวางต่ำ',  short:'กระโดด ⬆️', emoji:'⬆️', color:'#f97316', y:()=>gameCanvas.height*.74, w:150, h:76, icon:'🪵' },
+      duck:  { word:'DUCK',  th:'หมอบหลบสิ่งกีดขวางสูง',     short:'หมอบ ⬇️',   emoji:'⬇️', color:'#0ea5e9', y:()=>gameCanvas.height*.30, w:150, h:76, icon:'⚡' },
+      left:  { word:'LEFT',  th:'เอน/ก้าวหลบไปทางซ้ายของจอ', short:'ซ้าย ⬅️',   emoji:'⬅️', color:'#8b5cf6', y:()=>gameCanvas.height*.50, w:136, h:86, icon:'🚧' },
+      right: { word:'RIGHT', th:'เอน/ก้าวหลบไปทางขวาของจอ',  short:'ขวา ➡️',   emoji:'➡️', color:'#ec4899', y:()=>gameCanvas.height*.50, w:148, h:86, icon:'🚧' }
+    };
+
+    const STAR_LABELS = ['ENERGY','BOOST','SHIELD','COMBO','POWER'];
+
+    let selectedDiff = new URLSearchParams(location.search).get('diff') || 'easy';
+    if(!DIFF[selectedDiff]) selectedDiff = 'easy';
+    let config = DIFF[selectedDiff];
+
+    let detector = null;
+    let playerPose = null;
+    let isEstimating = false;
+
+    let isPlaying = false;
+    let isCalibrating = false;
+    let gameLoopId = 0;
+    let gameTimer = null;
+    let lastSpawnAt = 0;
+
+    let score = 0;
+    let timeLeft = config.time;
+    let comboCount = 0;
+    let bestCombo = 0;
+    let totalDodges = 0;
+    let totalMisses = 0;
+    let totalJudged = 0;
+    let responseTimes = [];
+    let actionCounts = { jump:0, duck:0, left:0, right:0 };
+    let missCounts = { jump:0, duck:0, left:0, right:0 };
+    let eventLog = [];
+
+    let obstacles = [];
+    let stars = [];
+
+    let baselineHipY = null;
+    let baselineScreenX = null;
+    let calibrationSamples = [];
+    let currentGesture = 'stand';
+    let rawGesture = 'stand';
+    let rawSince = performance.now();
+    let lastPoseQuality = 0;
+
+    // ScoreFix: keep a short memory of the last detected gesture.
+    // This prevents a correct jump/duck from being lost before the obstacle reaches the judge lane.
+    let lastActiveGesture = 'stand';
+    let lastActiveGestureAt = 0;
+    let manualGesture = 'stand';
+    let manualGestureUntil = 0;
+
+    function median(nums){
+      if(!nums.length) return null;
+      const a = [...nums].sort((x,y)=>x-y);
+      return a[Math.floor(a.length/2)];
+    }
+
+    function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
+
+    function resizeCanvas(){
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      gameCanvas.width = Math.round(window.innerWidth * dpr);
+      gameCanvas.height = Math.round(window.innerHeight * dpr);
+      gameCanvas.style.width = window.innerWidth + 'px';
+      gameCanvas.style.height = window.innerHeight + 'px';
+      ctx.setTransform(1,0,0,1,0,0);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    async function setupWebcam(){
+      try{
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video:{ width:{ideal:640}, height:{ideal:480}, facingMode:'user' },
+          audio:false
+        });
+        webcam.srcObject = stream;
+        return new Promise((resolve)=>{
+          webcam.onloadedmetadata = () => resolve(webcam);
+        });
+      }catch(err){
+        console.error(err);
+        initLoading.innerHTML = '<div class="rounded-2xl bg-red-50 p-4 font-bold text-red-600">เปิดกล้องไม่สำเร็จ กรุณาอนุญาตสิทธิ์กล้องแล้วรีเฟรชหน้าเว็บ</div>';
+      }
+    }
+
+    async function initPoseDetection(){
+      try{
+        if(window.tf && tf.setBackend){
+          await tf.setBackend('webgl');
+          await tf.ready();
+        }
+        const model = poseDetection.SupportedModels.BlazePose;
+        detector = await poseDetection.createDetector(model, {
+          runtime:'mediapipe',
+          modelType:'lite',
+          solutionPath:'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404'
+        });
+        initLoading.classList.add('hidden');
+        startControls.classList.remove('hidden');
+      }catch(err){
+        console.error('AI Model Init failed', err);
+        initLoading.innerHTML = '<div class="rounded-2xl bg-red-50 p-4 font-bold text-red-600">โหลด AI ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วรีเฟรชอีกครั้ง</div>';
+      }
+    }
+
+    function screenXFromPoseX(x){
+      if(!webcam.videoWidth) return gameCanvas.width/2;
+      return gameCanvas.width - (x * (gameCanvas.width / webcam.videoWidth));
+    }
+    function screenYFromPoseY(y){
+      if(!webcam.videoHeight) return gameCanvas.height/2;
+      return y * (gameCanvas.height / webcam.videoHeight);
+    }
+
+    function getKeypoint(pose, idx, minScore=.35){
+      const kp = pose?.keypoints?.[idx];
+      return kp && (kp.score ?? 0) >= minScore ? kp : null;
+    }
+
+    function getBodyMetrics(pose){
+      const lh = getKeypoint(pose, 23, .35);
+      const rh = getKeypoint(pose, 24, .35);
+      const ls = getKeypoint(pose, 11, .30);
+      const rs = getKeypoint(pose, 12, .30);
+      if(!lh || !rh) return null;
+
+      const hipY = (lh.y + rh.y) / 2;
+      const hipSourceX = (lh.x + rh.x) / 2;
+      const torsoSourceX = (ls && rs) ? (lh.x + rh.x + ls.x + rs.x) / 4 : hipSourceX;
+      const screenX = screenXFromPoseX(torsoSourceX);
+      const screenHipY = screenYFromPoseY(hipY);
+      const score = ((lh.score||0) + (rh.score||0) + (ls?.score||0) + (rs?.score||0)) / (ls&&rs ? 4 : 2);
+      return { hipY, hipSourceX, torsoSourceX, screenX, screenHipY, score };
+    }
+
+    function setGestureCandidate(next){
+      const now = performance.now();
+      if(next !== rawGesture){
+        rawGesture = next;
+        rawSince = now;
+      }
+      if(next === 'stand' || now - rawSince >= 90){
+        currentGesture = next;
+      }
+    }
+
+
+    function rememberActiveGesture(g, holdMs = 850){
+      if(g && g !== 'stand'){
+        lastActiveGesture = g;
+        lastActiveGestureAt = Date.now();
+      }
+    }
+
+    function setManualGesture(g, holdMs = 900){
+      if(!ACTIONS[g]) return;
+      manualGesture = g;
+      manualGestureUntil = Date.now() + holdMs;
+      currentGestureDisplay.textContent = gestureText(g) + ' • backup input';
+      rememberActiveGesture(g, holdMs);
+      triggerFeedback('รับท่า ' + ACTIONS[g].word + ' ✅', 'success');
+    }
+
+    function getEffectiveGesture(){
+      const now = Date.now();
+      if(now < manualGestureUntil && manualGesture !== 'stand') return manualGesture;
+      if(currentGesture !== 'stand') return currentGesture;
+      if(lastActiveGesture !== 'stand' && now - lastActiveGestureAt <= 850) return lastActiveGesture;
+      return 'stand';
+    }
+
+    function gestureMatches(action){
+      return getEffectiveGesture() === action;
+    }
+
+    function gestureText(g){
+      if(g === 'jump') return 'กำลังกระโดด ⬆️';
+      if(g === 'duck') return 'กำลังหมอบ ⬇️';
+      if(g === 'left') return 'หลบซ้าย ⬅️';
+      if(g === 'right') return 'หลบขวา ➡️';
+      return 'ยืนปกติ 🧍';
+    }
+
+    function analyzePose(pose){
+      if(!pose || !webcam.videoWidth || !webcam.videoHeight) return;
+      const m = getBodyMetrics(pose);
+      if(!m){
+        lastPoseQuality = 0;
+        currentGestureDisplay.textContent = 'ไม่พบสะโพกชัดเจน ⚠️';
+        return;
+      }
+      lastPoseQuality = m.score;
+
+      if(isCalibrating){
+        calibrationSamples.push({ hipY:m.hipY, screenX:m.screenX });
+        currentGesture = 'stand';
+        currentGestureDisplay.textContent = 'กำลัง Calibrate ยืนตรง 🧍';
+        return;
+      }
+
+      if(baselineHipY == null || baselineScreenX == null){
+        baselineHipY = m.hipY;
+        baselineScreenX = m.screenX;
+      }
+
+      // Thresholds in source/video units for vertical, canvas units for side movement
+      const jumpTh = webcam.videoHeight * 0.035;
+      const duckTh = webcam.videoHeight * 0.052;
+      const sideTh = gameCanvas.width * 0.065;
+
+      const jumpScore = (baselineHipY - m.hipY) / jumpTh;
+      const duckScore = (m.hipY - baselineHipY) / duckTh;
+      const leftScore = (baselineScreenX - m.screenX) / sideTh;
+      const rightScore = (m.screenX - baselineScreenX) / sideTh;
+
+      const candidates = [
+        { g:'jump', v:jumpScore },
+        { g:'duck', v:duckScore },
+        { g:'left', v:leftScore },
+        { g:'right', v:rightScore }
+      ].sort((a,b)=>b.v-a.v);
+
+      const best = candidates[0];
+      const next = best.v >= 1 ? best.g : 'stand';
+      setGestureCandidate(next);
+      if(currentGesture !== 'stand') rememberActiveGesture(currentGesture);
+      const effective = getEffectiveGesture();
+      currentGestureDisplay.textContent = effective === currentGesture ? gestureText(currentGesture) : gestureText(effective) + ' • hold';
+
+      // Very slow re-center only while standing, keeps calibration stable without drifting during jumps/ducks
+      if(currentGesture === 'stand' && lastPoseQuality > .45){
+        baselineHipY = baselineHipY * .995 + m.hipY * .005;
+        baselineScreenX = baselineScreenX * .995 + m.screenX * .005;
+      }
+
+      collectStarsWithHands(pose);
+    }
+
+    function getHandPos(pose, side){
+      if(!pose?.keypoints) return null;
+      const wristIdx = side === 'left' ? 15 : 16;
+      const indexIdx = side === 'left' ? 19 : 20;
+      const pinkyIdx = side === 'left' ? 17 : 18;
+      const picks = [pose.keypoints[wristIdx], pose.keypoints[indexIdx], pose.keypoints[pinkyIdx]]
+        .filter(kp => kp && (kp.score ?? 0) > .20)
+        .sort((a,b)=>(b.score||0)-(a.score||0));
+      if(!picks.length) return null;
+      const kp = picks[0];
+      return { x:screenXFromPoseX(kp.x), y:screenYFromPoseY(kp.y), score:kp.score||0 };
+    }
+
+    function collectStarsWithHands(pose){
+      const hands = [getHandPos(pose,'left'), getHandPos(pose,'right')].filter(Boolean);
+      if(!hands.length) return;
+      for(const star of stars){
+        if(star.collected) continue;
+        for(const hand of hands){
+          const dist = Math.hypot(hand.x - star.x, hand.y - star.y);
+          if(dist < star.radius + 54){
+            star.collected = true;
+            score += 2;
+            comboCount += 1;
+            bestCombo = Math.max(bestCombo, comboCount);
+            eventLog.push({ t:Date.now(), type:'star', label:star.label, score });
+            playSound('star');
+            triggerFeedback('Energy +2 ⭐', 'success');
+            updateHUD();
+            break;
+          }
+        }
+      }
+    }
+
+    function updateSelectedDiffButtons(){
+      document.querySelectorAll('.diff-btn').forEach(btn=>{
+        const active = btn.dataset.diff === selectedDiff;
+        btn.className = active
+          ? 'diff-btn rounded-2xl border-2 border-emerald-400 bg-emerald-100 px-3 py-2 text-emerald-800'
+          : 'diff-btn rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-slate-700';
+      });
+    }
+
+    document.querySelectorAll('.diff-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        selectedDiff = btn.dataset.diff;
+        config = DIFF[selectedDiff];
+        timeLeft = config.time;
+        updateSelectedDiffButtons();
+        updateHUD();
+        playSound('success');
+      });
+    });
+    updateSelectedDiffButtons();
+
+    function updateMissionCard(action){
+      const a = ACTIONS[action];
+      targetEmoji.textContent = a.emoji;
+      targetEnWord.textContent = a.word;
+      targetThWord.textContent = a.th;
+      dodgeInstructionText.textContent = 'เตรียมหลบ: ' + a.short;
+      dodgeDirectionIndicator.style.background = `linear-gradient(to right, ${a.color}, #22d3ee)`;
+      dodgeDirectionIndicator.style.width = '100%';
+      obstacleDistanceText.textContent = 'กำลังมา...';
+    }
+
+    function spawnObstacle(){
+      const pool = config.actions;
+      const action = pool[Math.floor(Math.random() * pool.length)];
+      const a = ACTIONS[action];
+      updateMissionCard(action);
+      const speedRamp = Math.min(3.2, Math.floor(totalJudged / 7) * .45);
+      obstacles.push({
+        id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random()),
+        action,
+        x: gameCanvas.width + 60,
+        y: a.y(),
+        w: a.w,
+        h: a.h,
+        speed: (config.speed + speedRamp) * Math.max(1, gameCanvas.width / 1200),
+        color: a.color,
+        label: a.word,
+        icon: a.icon,
+        spawnAt: Date.now(),
+        judged:false,
+        success:false
+      });
+
+      if(Math.random() < .86) spawnStar();
+    }
+
+    function spawnStar(){
+      const label = STAR_LABELS[Math.floor(Math.random() * STAR_LABELS.length)];
+      stars.push({
+        x: gameCanvas.width * (.22 + Math.random() * .56),
+        y: gameCanvas.height * (.18 + Math.random() * .34),
+        radius: 34 + Math.random() * 8,
+        label,
+        collected:false,
+        born:Date.now()
+      });
+    }
+
+    function triggerFeedback(text, type='success'){
+      feedbackAlert.textContent = text;
+      const color = type === 'fail' ? 'text-red-400' : type === 'dodge' ? 'text-yellow-300' : 'text-emerald-300';
+      feedbackAlert.className = `scale-125 text-3xl font-black ${color} drop-shadow-[0_4px_4px_rgba(0,0,0,0.85)] transition-transform duration-150`;
+      clearTimeout(triggerFeedback._t);
+      triggerFeedback._t = setTimeout(()=>{
+        feedbackAlert.className = 'scale-0 text-3xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.85)] transition-transform duration-150';
+      }, 720);
+    }
+
+    function updateHUD(){
+      scoreDisplay.textContent = String(score).padStart(2,'0');
+      timerDisplay.textContent = timeLeft + 's';
+      if(comboCount >= 3){
+        comboContainer.classList.remove('hidden');
+        comboDisplay.textContent = comboCount;
+      }else{
+        comboContainer.classList.add('hidden');
+      }
+    }
+
+    function startCalibration(){
+      calibrationSamples = [];
+      baselineHipY = null;
+      baselineScreenX = null;
+      isCalibrating = true;
+      systemPrompt.classList.remove('hidden');
+      let remain = 3;
+      systemPrompt.textContent = `ยืนตรงเพื่อ Calibrate... ${remain}`;
+
+      const tick = setInterval(()=>{
+        remain -= 1;
+        if(remain > 0){
+          systemPrompt.textContent = `ยืนตรงเพื่อ Calibrate... ${remain}`;
+        }else{
+          clearInterval(tick);
+          finishCalibration();
+        }
+      }, 1000);
+    }
+
+    function finishCalibration(){
+      isCalibrating = false;
+      const hips = calibrationSamples.map(s=>s.hipY).filter(Number.isFinite);
+      const xs = calibrationSamples.map(s=>s.screenX).filter(Number.isFinite);
+      baselineHipY = median(hips) ?? baselineHipY ?? (webcam.videoHeight * .62);
+      baselineScreenX = median(xs) ?? baselineScreenX ?? (gameCanvas.width * .5);
+      systemPrompt.textContent = 'GO! หลบสิ่งกีดขวางเลย 🚀';
+      setTimeout(()=> systemPrompt.classList.add('hidden'), 850);
+      lastSpawnAt = Date.now() - config.spawnMs;
+      startTimer();
+    }
+
+    function startTimer(){
+      clearInterval(gameTimer);
+      timeLeft = config.time;
+      updateHUD();
+      gameTimer = setInterval(()=>{
+        if(!isPlaying || isCalibrating) return;
+        timeLeft -= 1;
+        updateHUD();
+        if(timeLeft <= 0) endGame();
+      }, 1000);
+    }
+
+    function resetState(){
+      score = 0;
+      timeLeft = config.time;
+      comboCount = 0;
+      bestCombo = 0;
+      totalDodges = 0;
+      totalMisses = 0;
+      totalJudged = 0;
+      responseTimes = [];
+      actionCounts = { jump:0, duck:0, left:0, right:0 };
+      missCounts = { jump:0, duck:0, left:0, right:0 };
+      eventLog = [];
+      obstacles = [];
+      stars = [];
+      currentGesture = 'stand';
+      rawGesture = 'stand';
+      lastActiveGesture = 'stand';
+      lastActiveGestureAt = 0;
+      manualGesture = 'stand';
+      manualGestureUntil = 0;
+      lastSpawnAt = 0;
+      updateMissionCard('jump');
+      updateHUD();
+    }
+
+    function startGame(){
+      playSound('success');
+      resetState();
+      isPlaying = true;
+      startScreen.classList.add('hidden');
+      gameoverScreen.classList.add('hidden');
+      startCalibration();
+      cancelAnimationFrame(gameLoopId);
+      runGameLoop();
+    }
+
+    function endGame(){
+      isPlaying = false;
+      isCalibrating = false;
+      clearInterval(gameTimer);
+      cancelAnimationFrame(gameLoopId);
+      playSound('gameover');
+
+      const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
+      const avg = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length).toFixed(2) : '0.00';
+
+      finalScore.textContent = score;
+      finalAccuracy.textContent = accuracy + '%';
+      finalDodges.textContent = totalDodges;
+      finalMisses.textContent = totalMisses;
+      avgTime.textContent = avg + ' วินาที';
+      finalCombo.textContent = `Best Combo: ${bestCombo} • J:${actionCounts.jump} D:${actionCounts.duck} L:${actionCounts.left} R:${actionCounts.right}`;
+
+      if(accuracy >= 85 && score >= 35){
+        rankEmoji.textContent = '🏆';
+        rankTitle.textContent = 'Agility Hero!';
+        rankNote.textContent = 'หลบไว แม่น และต่อคอมโบดีมาก';
+      }else if(accuracy >= 65){
+        rankEmoji.textContent = '⭐';
+        rankTitle.textContent = 'Active Hero!';
+        rankNote.textContent = 'เริ่มควบคุมจังหวะได้ดี เล่นซ้ำจะไวขึ้นอีก';
+      }else{
+        rankEmoji.textContent = '💪';
+        rankTitle.textContent = 'Training Mode ผ่านแล้ว';
+        rankNote.textContent = 'ลองยืนให้กล้องเห็นสะโพกชัด ๆ แล้วเล่นซ้ำอีกครั้ง';
+      }
+
+      gameoverScreen.classList.remove('hidden');
+    }
+
+    function exportCSV(){
+      const header = ['timestamp','diff','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss'];
+      const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
+      const avg = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length).toFixed(3) : '0.000';
+      const row = [new Date().toISOString(), selectedDiff, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
+      const csv = header.join(',') + '\n' + row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n';
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `jumpduck-dash-${selectedDiff}-${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function drawBackground(){
+      ctx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+
+      if(webcam.readyState >= 2){
+        ctx.save();
+        ctx.translate(gameCanvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(webcam, 0, 0, gameCanvas.width, gameCanvas.height);
+        ctx.restore();
+      }
+
+      // soft game overlay
+      const grad = ctx.createLinearGradient(0,0,0,gameCanvas.height);
+      grad.addColorStop(0,'rgba(2,6,23,.22)');
+      grad.addColorStop(.55,'rgba(2,6,23,.08)');
+      grad.addColorStop(1,'rgba(2,6,23,.45)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,gameCanvas.width,gameCanvas.height);
+
+      // player judge lane
+      const laneX = gameCanvas.width * .5;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,.30)';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([12, 12]);
+      ctx.beginPath();
+      ctx.moveTo(laneX, gameCanvas.height*.18);
+      ctx.lineTo(laneX, gameCanvas.height*.82);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(16,185,129,.16)';
+      ctx.beginPath();
+      ctx.roundRect(laneX - config.judgeZone, gameCanvas.height*.25, config.judgeZone*2, gameCanvas.height*.54, 28);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawSkeleton(pose){
+      if(!pose?.keypoints || !webcam.videoWidth || !webcam.videoHeight) return;
+      const links = [[11,12],[11,23],[12,24],[23,24],[11,13],[13,15],[12,14],[14,16]];
+      ctx.save();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(34,197,94,.85)';
+      ctx.fillStyle = 'rgba(34,197,94,.95)';
+      ctx.shadowBlur = 16;
+      ctx.shadowColor = 'rgba(34,197,94,.75)';
+      for(const [a,b] of links){
+        const ka = getKeypoint(pose,a,.25), kb = getKeypoint(pose,b,.25);
+        if(ka && kb){
+          ctx.beginPath();
+          ctx.moveTo(screenXFromPoseX(ka.x), screenYFromPoseY(ka.y));
+          ctx.lineTo(screenXFromPoseX(kb.x), screenYFromPoseY(kb.y));
+          ctx.stroke();
+        }
+      }
+      [11,12,23,24].forEach(i=>{
+        const kp = getKeypoint(pose,i,.25);
+        if(kp){
+          ctx.beginPath();
+          ctx.arc(screenXFromPoseX(kp.x), screenYFromPoseY(kp.y), 8, 0, Math.PI*2);
+          ctx.fill();
+        }
+      });
+
+      ['left','right'].forEach(side=>{
+        const h = getHandPos(pose,side);
+        if(h){
+          ctx.save();
+          ctx.shadowBlur = 22;
+          ctx.shadowColor = side === 'left' ? '#38bdf8' : '#ec4899';
+          ctx.fillStyle = side === 'left' ? 'rgba(56,189,248,.38)' : 'rgba(236,72,153,.38)';
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, 28, 0, Math.PI*2);
+          ctx.fill(); ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.font = '24px Kanit, Arial';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#fff';
+          ctx.fillText('🖐️', h.x, h.y + 8);
+          ctx.restore();
+        }
+      });
+      ctx.restore();
+    }
+
+    function drawObstacle(obs){
+      const a = ACTIONS[obs.action];
+      ctx.save();
+      ctx.shadowBlur = 22;
+      ctx.shadowColor = obs.color;
+      ctx.fillStyle = obs.color;
+      ctx.beginPath();
+      ctx.roundRect(obs.x, obs.y, obs.w, obs.h, 22);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255,255,255,.96)';
+      ctx.beginPath();
+      ctx.roundRect(obs.x+8, obs.y+8, obs.w-16, obs.h-16, 16);
+      ctx.fill();
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 26px Kanit, Arial';
+      ctx.fillText(a.word, obs.x + obs.w/2, obs.y + obs.h/2 + 9);
+      ctx.font = '18px Kanit, Arial';
+      ctx.fillStyle = obs.color;
+      ctx.fillText(a.emoji + ' ' + a.short, obs.x + obs.w/2, obs.y + 26);
+      ctx.font = '22px Arial';
+      ctx.fillText(a.icon, obs.x + obs.w/2, obs.y + obs.h - 14);
+      ctx.restore();
+    }
+
+    function drawStar(star, index){
+      const age = (Date.now() - star.born) / 1000;
+      const bob = Math.sin(age * 4 + index) * 5;
+      ctx.save();
+      ctx.shadowBlur = 24;
+      ctx.shadowColor = '#facc15';
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.arc(star.x, star.y + bob, star.radius, 0, Math.PI*2);
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#713f12';
+      ctx.textAlign = 'center';
+      ctx.font = '900 13px Kanit, Arial';
+      ctx.fillText(star.label, star.x, star.y + bob + 5);
+      ctx.font = '18px Arial';
+      ctx.fillText('⭐', star.x, star.y + bob - 17);
+      ctx.restore();
+    }
+
+    function updateObstacles(){
+      const now = Date.now();
+      if(!isCalibrating && obstacles.length === 0 && now - lastSpawnAt >= config.spawnMs){
+        spawnObstacle();
+        lastSpawnAt = now;
+      }
+
+      const hitX = gameCanvas.width * .5;
+      const zone = config.judgeZone;
+
+      for(const obs of obstacles){
+        obs.x -= obs.speed;
+        drawObstacle(obs);
+
+        const center = obs.x + obs.w/2;
+        const progress = clamp(((center - (hitX-zone)) / (gameCanvas.width - (hitX-zone))) * 100, 0, 100);
+        if(!obs.judged){
+          dodgeDirectionIndicator.style.width = progress + '%';
+          obstacleDistanceText.textContent = progress <= 18 ? 'ถึงจุดตัดสินแล้ว!' : `ใกล้เข้ามา ${Math.round(progress)}%`;
+        }
+
+        const scoreZone = zone * 1.55;
+        const inWindow = center >= hitX - scoreZone && center <= hitX + zone;
+        if(!obs.judged && inWindow && gestureMatches(obs.action)){
+          obs.judged = true;
+          obs.success = true;
+          totalJudged++;
+          totalDodges++;
+          actionCounts[obs.action]++;
+          comboCount++;
+          bestCombo = Math.max(bestCombo, comboCount);
+          const rt = (Date.now() - obs.spawnAt) / 1000;
+          responseTimes.push(rt);
+          score += comboCount >= 5 ? 7 : 5;
+          eventLog.push({ t:Date.now(), type:'dodge', action:obs.action, rt, combo:comboCount, score });
+          triggerFeedback(comboCount >= 5 ? 'Combo Dodge +7 🔥' : 'Dodge +5 ⚡', 'dodge');
+          playSound('dodge');
+          updateHUD();
+        }
+
+        // Fair miss: judge only after obstacle has passed the center window
+        if(!obs.judged && center < hitX - (zone * 1.15)){
+          obs.judged = true;
+          totalJudged++;
+          totalMisses++;
+          missCounts[obs.action]++;
+          comboCount = 0;
+          score = Math.max(0, score - 3);
+          eventLog.push({ t:Date.now(), type:'miss', action:obs.action, gesture:getEffectiveGesture(), score });
+          triggerFeedback('Miss -3 💥', 'fail');
+          playSound('hit');
+          updateHUD();
+        }
+      }
+
+      obstacles = obstacles.filter(o => o.x + o.w > -120 && Date.now() - o.spawnAt < 9000);
+      stars = stars.filter(s => !s.collected && Date.now() - s.born < 6500);
+    }
+
+    async function estimatePoseIfReady(){
+      if(!detector || isEstimating || webcam.readyState < 2) return;
+      isEstimating = true;
+      try{
+        const poses = await detector.estimatePoses(webcam, { maxPoses:1, flipHorizontal:false });
+        if(poses && poses[0]){
+          playerPose = poses[0];
+          analyzePose(playerPose);
+        }
+      }catch(err){
+        console.error('Pose loop error', err);
+      }finally{
+        isEstimating = false;
+      }
+    }
+
+    async function runGameLoop(){
+      if(!isPlaying) return;
+      drawBackground();
+      await estimatePoseIfReady();
+      if(playerPose) drawSkeleton(playerPose);
+
+      if(isCalibrating){
+        const count = calibrationSamples.length;
+        const quality = Math.round((lastPoseQuality || 0) * 100);
+        if(count < 8){
+          systemPrompt.textContent = 'ขยับให้กล้องเห็นสะโพกชัด ๆ';
+        }
+        // draw calibration target
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,255,255,.86)';
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.roundRect(gameCanvas.width*.32, gameCanvas.height*.36, gameCanvas.width*.36, gameCanvas.height*.28, 28);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'center';
+        ctx.font = '900 28px Kanit, Arial';
+        ctx.fillText('ยืนตรงในกรอบนี้', gameCanvas.width*.5, gameCanvas.height*.47);
+        ctx.font = '700 18px Kanit, Arial';
+        ctx.fillText(`Pose Quality ${quality}%`, gameCanvas.width*.5, gameCanvas.height*.53);
+        ctx.restore();
+      }else{
+        updateObstacles();
+        stars.forEach(drawStar);
+      }
+
+      gameLoopId = requestAnimationFrame(runGameLoop);
+    }
+
+    const keyToGesture = {
+      ArrowUp:'jump', w:'jump', W:'jump', ' ':'jump',
+      ArrowDown:'duck', s:'duck', S:'duck',
+      ArrowLeft:'left', a:'left', A:'left',
+      ArrowRight:'right', d:'right', D:'right'
+    };
+
+    document.addEventListener('keydown', (e)=>{
+      const g = keyToGesture[e.key];
+      if(g && isPlaying && !isCalibrating){
+        e.preventDefault();
+        setManualGesture(g, 950);
+      }
+    });
+
+    document.querySelectorAll('[data-manual]').forEach(btn=>{
+      const g = btn.dataset.manual;
+      const fire = (ev)=>{
+        if(isPlaying && !isCalibrating){
+          ev.preventDefault();
+          setManualGesture(g, 950);
+        }
+      };
+      btn.addEventListener('pointerdown', fire);
+      btn.addEventListener('touchstart', fire, {passive:false});
+    });
+
+    btnStart.addEventListener('click', startGame);
+    btnRestart.addEventListener('click', startGame);
+    btnExport.addEventListener('click', exportCSV);
+
+    window.addEventListener('DOMContentLoaded', async ()=>{
+      await setupWebcam();
+      await initPoseDetection();
+      updateMissionCard('jump');
+      updateHUD();
+    });
+  </script>
+</body>
+</html>
