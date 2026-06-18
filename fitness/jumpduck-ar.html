@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-  <title>JumpDuck Dash • PC/Mobile AR Fitness v6 Final Polish</title>
+  <title>JumpDuck Dash • PC/Mobile AR Fitness v7 Easy Tune</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800;900&display=swap" rel="stylesheet" />
@@ -152,7 +152,7 @@
           <button id="btn-home-start" class="rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 active:scale-95 transition">กลับ Fitness Hub</button>
         </div>
         <p class="text-xs font-semibold text-emerald-600">พร้อมแล้ว: PC/Mobile AR + Big Obstacles + Leaderboard + Badges + Camera Help + Gesture Hold</p>
-        <p class="text-[11px] font-bold text-slate-400">v6 Final Polish: Big Obstacles • Leaderboard • Badges • Camera Troubleshooting • Hub Ready • CSV</p>
+        <p class="text-[11px] font-bold text-slate-400">v7 Easy Tune: Big Obstacles • Early Gesture Memory • Kid-Friendly Easy • Leaderboard • CSV</p>
       </div>
     </div>
   </section>
@@ -353,7 +353,7 @@
 
   <script>
     // =============================================================
-    // JumpDuck Dash v6 • PC/Mobile AR Final Polish
+    // JumpDuck Dash v7 • PC/Mobile AR Easy Tune
     // Scope: PC webcam + Mobile front camera AR only. No Cardboard/cVR body-tracking mode.
     // =============================================================
 
@@ -410,14 +410,14 @@
     const btnClearLeader = $('btn-clear-leader');
 
     const DIFF = {
-      // v3 Balance: Easy still starts with Jump/Duck, then injects side moves so Left/Right can be tested in class.
-      easy:   { label:'Easy',   time:60, spawnMs:2350, speed:4.2, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:5, sideEvery:7, forceFirstSideAfter:8, judgeZone:250, scoreZoneMultiplier:1.85, missZoneMultiplier:1.35, holdMs:1120, manualHoldMs:1250, gestureDebounceMs:70, minGestureScore:.82, jumpRatio:.030, duckRatio:.046, sideRatio:.044 },
-      normal: { label:'Normal', time:60, spawnMs:1850, speed:5.6, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:2, sideEvery:3, forceFirstSideAfter:4, judgeZone:220, scoreZoneMultiplier:1.72, missZoneMultiplier:1.28, holdMs:1030, manualHoldMs:1180, gestureDebounceMs:75, minGestureScore:.88, jumpRatio:.032, duckRatio:.048, sideRatio:.046 },
-      hard:   { label:'Hard',   time:60, spawnMs:1450, speed:6.8, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:1, sideEvery:2, forceFirstSideAfter:3, judgeZone:188, scoreZoneMultiplier:1.60, missZoneMultiplier:1.22, holdMs:920, manualHoldMs:1050, gestureDebounceMs:82, minGestureScore:.95, jumpRatio:.035, duckRatio:.052, sideRatio:.050 }
+      // v7 Easy Tune: Easy is intentionally forgiving; side moves still appear, but less often.
+      easy:   { label:'Easy',   time:60, spawnMs:2650, speed:3.7, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:6, sideEvery:8, forceFirstSideAfter:9, judgeZone:315, scoreZoneMultiplier:2.35, missZoneMultiplier:1.75, holdMs:1680, manualHoldMs:1800, earlyGestureMemoryMs:2300, gestureDebounceMs:45, minGestureScore:.62, jumpRatio:.022, duckRatio:.034, sideRatio:.032 },
+      normal: { label:'Normal', time:60, spawnMs:2050, speed:5.0, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:3, sideEvery:4, forceFirstSideAfter:5, judgeZone:270, scoreZoneMultiplier:2.05, missZoneMultiplier:1.50, holdMs:1450, manualHoldMs:1600, earlyGestureMemoryMs:2000, gestureDebounceMs:55, minGestureScore:.72, jumpRatio:.026, duckRatio:.040, sideRatio:.038 },
+      hard:   { label:'Hard',   time:60, spawnMs:1650, speed:6.2, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:1, sideEvery:2, forceFirstSideAfter:3, judgeZone:225, scoreZoneMultiplier:1.78, missZoneMultiplier:1.34, holdMs:1220, manualHoldMs:1380, earlyGestureMemoryMs:1650, gestureDebounceMs:70, minGestureScore:.84, jumpRatio:.032, duckRatio:.048, sideRatio:.046 }
     };
 
     const ACTIONS = {
-      // v6: bigger obstacle cards for P.5 classroom visibility on projector/mobile.
+      // v7: bigger obstacle cards for P.5 classroom visibility on projector/mobile.
       jump:  { word:'JUMP',  th:'กระโดดข้ามสิ่งกีดขวางต่ำ',  short:'กระโดด ⬆️', emoji:'⬆️', color:'#f97316', y:()=>gameCanvas.height*.72, w:210, h:102, icon:'🪵' },
       duck:  { word:'DUCK',  th:'หมอบหลบสิ่งกีดขวางสูง',     short:'หมอบ ⬇️',   emoji:'⬇️', color:'#0ea5e9', y:()=>gameCanvas.height*.28, w:210, h:102, icon:'⚡' },
       left:  { word:'LEFT',  th:'เอน/ก้าวหลบไปทางซ้ายของจอ', short:'ซ้าย ⬅️',   emoji:'⬅️', color:'#8b5cf6', y:()=>gameCanvas.height*.49, w:190, h:112, icon:'🚧' },
@@ -491,7 +491,7 @@
 
     function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
 
-    const LEADER_KEY = 'jumpduck_dash_v6_leaderboard';
+    const LEADER_KEY = 'jumpduck_dash_v7_leaderboard';
 
     function loadLeaderboard(){
       try{ return JSON.parse(localStorage.getItem(LEADER_KEY) || '[]'); }
@@ -729,7 +729,7 @@
         baselineScreenX = m.screenX;
       }
 
-      // v6 thresholds: configured per difficulty so children do not need exaggerated movement.
+      // v7 thresholds: more forgiving for P.5; children can move early and still get credit.
       const jumpTh = webcam.videoHeight * (config.jumpRatio ?? .033);
       const duckTh = webcam.videoHeight * (config.duckRatio ?? .050);
       const sideTh = gameCanvas.width * (config.sideRatio ?? .047);
@@ -896,7 +896,9 @@
         icon: a.icon,
         spawnAt: Date.now(),
         judged:false,
-        success:false
+        success:false,
+        armed:false,
+        armedAt:0
       });
 
       if(Math.random() < .86) spawnStar();
@@ -1067,9 +1069,9 @@
         finalFeedback.textContent = 'เหมาะกับการเล่นซ้ำอีก 1 รอบหลังพัก 45–60 วินาที เพื่อเพิ่มคอมโบและลด Miss';
       }else{
         rankEmoji.textContent = '💪';
-        rankTitle.textContent = 'Training Mode ผ่านแล้ว';
-        rankNote.textContent = 'ลองยืนให้กล้องเห็นสะโพกชัด ๆ แล้วเล่นซ้ำอีกครั้ง';
-        finalFeedback.textContent = 'เช็กระยะกล้อง แสง และพื้นที่ยืนก่อนเริ่มใหม่ ไม่ต้องกระโดดแรง เน้นจังหวะให้ตรง';
+        rankTitle.textContent = 'Training Mode: ลองอีกครั้ง';
+        rankNote.textContent = 'ระบบยังเห็นท่าไม่สม่ำเสมอ ลองตั้งกล้องใหม่แล้วเล่นซ้ำ';
+        finalFeedback.textContent = 'เป้าหมายรอบ Easy คือ Accuracy 65% ขึ้นไป: ถอยห่างกล้อง 1.5–2 เมตร เพิ่มแสง และทำท่าให้ช้าชัดกว่าการกระโดดแรง';
       }
 
       gameoverScreen.classList.remove('hidden');
@@ -1079,7 +1081,7 @@
       const header = ['timestamp','version','diff','duration','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss'];
       const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
       const avg = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length).toFixed(3) : '0.000';
-      const row = [new Date().toISOString(), 'v6-final-polish', selectedDiff, selectedTime, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
+      const row = [new Date().toISOString(), 'v7-easy-tune', selectedDiff, selectedTime, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
       const csv = header.join(',') + '\n' + row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n';
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const url = URL.createObjectURL(blob);
@@ -1252,10 +1254,22 @@
           obstacleDistanceText.textContent = progress <= 18 ? 'ถึงจุดตัดสินแล้ว!' : `ใกล้เข้ามา ${Math.round(progress)}%`;
         }
 
-        const sideBonus = obs.isSideMove ? 1.10 : 1.00;
+        const sideBonus = obs.isSideMove ? 1.12 : 1.00;
         const scoreZone = zone * (config.scoreZoneMultiplier ?? 1.70) * sideBonus;
         const inWindow = center >= hitX - scoreZone && center <= hitX + zone;
-        if(!obs.judged && inWindow && gestureMatches(obs.action)){
+
+        // v7 Kid-Friendly Timing:
+        // If the child performs the correct action a little early, remember it for this obstacle.
+        // This is important on mobile because pose detection can flicker for a few frames.
+        const earlyMin = hitX - zone * 0.85;
+        const earlyMax = gameCanvas.width + obs.w;
+        if(!obs.judged && center >= earlyMin && center <= earlyMax && gestureMatches(obs.action)){
+          obs.armed = true;
+          obs.armedAt = Date.now();
+        }
+        const armedFresh = obs.armed && (Date.now() - obs.armedAt <= (config.earlyGestureMemoryMs ?? 1900));
+
+        if(!obs.judged && inWindow && (gestureMatches(obs.action) || armedFresh)){
           obs.judged = true;
           obs.success = true;
           totalJudged++;
