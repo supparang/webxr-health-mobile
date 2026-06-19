@@ -469,6 +469,15 @@
       transition:filter .12s ease, opacity .12s ease;
     }
 
+    .brush.hand-mode{
+      transform-origin:18px 50%;
+    }
+
+    .brush.hand-mode .brush-head{
+      outline:3px solid rgba(34,197,94,.22);
+      outline-offset:2px;
+    }
+
     .brush.fever{
       filter:
         drop-shadow(0 0 10px rgba(250,204,21,.80))
@@ -1167,7 +1176,7 @@
         <div class="hint-box">
           <b>Detect ที่ใช้:</b><br>
           1) FaceLandmarker จับปากจริงด้วย landmarks 61, 291, 13, 14<br>
-          2) HandLandmarker ใช้ปลายนิ้วชี้ landmark 8 เป็นแปรง<br>
+          2) HandLandmarker ใช้ปลายนิ้วชี้ landmark 8 เป็นหัวแปรง<br>
           3) Grip Brush Mode ใช้นิ้วโป้ง 4 + นิ้วชี้ 8 เพื่อจำลองการจับแปรง<br>
           4) Touch/Mouse fallback เล่นได้ทุกเครื่อง
         </div>
@@ -1256,7 +1265,7 @@
       FaceLandmarker
     } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
 
-    const VERSION = 'v20260619-TOOTHBRUSH-AR-V10-HAND-GRIP-BRUSH-MODE-FINAL';
+    const VERSION = 'v20260619-TOOTHBRUSH-AR-V10-1-REAL-HAND-BRUSH-FIX';
 
     const CONFIG = {
       hygieneZoneUrl: '../hygiene-zone-v2.html',
@@ -2015,7 +2024,7 @@
             state.hand.lastSeenAt = t;
 
             updateHandGrip(hand, t);
-            updateBrushPosition(state.hand.point.x, state.hand.point.y, state.hand.angle);
+            updateBrushPosition(state.hand.point.x, state.hand.point.y, state.hand.angle, 'head');
             updateBrushGripVisual();
 
             if(
@@ -2038,6 +2047,14 @@
           state.hand.gripQuality = 0;
           state.inputMode = 'touch_mouse';
           updateBrushGripVisual();
+
+          if(
+            (state.phase === 'playing' || state.phase === 'boss') &&
+            t - state.hand.lastNoGripCoachAt > CONFIG.hand.coachNoGripMs
+          ){
+            state.hand.lastNoGripCoachAt = t;
+            showCoach('ยังไม่เห็นมือในกล้อง ยกมือขึ้นมาใกล้ปากในจอ หรือใช้เมาส์/นิ้วลากแทนได้ ✋');
+          }
         }
       }catch(err){
         state.hand.quality = 0;
@@ -2089,7 +2106,7 @@
       renderReadyCheck();
     }
 
-    function updateBrushPosition(x, y, angleOverride = null){
+    function updateBrushPosition(x, y, angleOverride = null, anchorMode = 'center'){
       const t = now();
       const dt = Math.max(16, t - state.lastBrushAt);
       const dx = x - state.brushX;
@@ -2107,7 +2124,14 @@
 
       brush.style.left = state.brushX + 'px';
       brush.style.top = state.brushY + 'px';
-      brush.style.transform = `translate(-50%,-50%) rotate(${angle}deg)`;
+
+      if(anchorMode === 'head'){
+        brush.classList.add('hand-mode');
+        brush.style.transform = `translate(-17px,-50%) rotate(${angle}deg)`;
+      }else{
+        brush.classList.remove('hand-mode');
+        brush.style.transform = `translate(-50%,-50%) rotate(${angle}deg)`;
+      }
 
       if(gripRing){
         gripRing.style.left = state.brushX + 'px';
@@ -2994,7 +3018,7 @@
       showCoach('เริ่มจากแปรงให้ครบทุกโซนก่อน แล้วค่อยเร่งทำ Combo');
 
       if(state.hand.enabled){
-        showCoach('Hand Mode: หนีบนิ้วโป้งกับนิ้วชี้เหมือนจับแปรง แล้วขยับมือเพื่อขัดคราบ ✊🪥', 2600);
+        showCoach('Hand Mode: ยกมือเข้ากล้อง หัวแปรงจะติดปลายนิ้วชี้ แล้วหนีบนิ้วโป้งกับนิ้วชี้เพื่อขัดคราบ ✊🪥', 3000);
       }
     }
 
@@ -3630,7 +3654,10 @@
 
       window.addEventListener('pointerdown', e => {
         state.pointerActive = true;
-        state.inputMode = state.hand.enabled && state.hand.quality > 0 ? 'hand_tracking' : 'touch_mouse';
+
+        if(!(state.hand.enabled && state.hand.quality > 0)){
+          state.inputMode = 'touch_mouse';
+        }
 
         if(e.target.closest('.screen') || e.target.closest('.top-actions')) return;
         updateBrushPosition(e.clientX, e.clientY);
@@ -3669,7 +3696,13 @@
       startCamera().then(() => {
         initMediaPipe().then(() => {
           state.face.enabled = true;
+          state.hand.enabled = true;
+
           $('faceBtn').classList.add('on');
+          $('handBtn').classList.add('on');
+
+          showToast('Face + Hand Tracking พร้อมแล้ว 😀✋');
+          showCoach('ยกมือเข้ากล้อง แล้วหนีบนิ้วโป้งกับนิ้วชี้เหมือนจับแปรง ✊🪥', 2600);
         });
       });
 
