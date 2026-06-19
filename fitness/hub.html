@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#e0f7ff" />
   <meta name="color-scheme" content="light" />
   <title>Fitness AR Academy • Production Hub</title>
-  <link rel="icon" href="/webxr-health-mobile/herohealth/favicon.ico" />
-  <link rel="shortcut icon" href="/webxr-health-mobile/herohealth/favicon.ico" />
+  <link rel="icon" href="/webxr-health-mobile/herohealth/favicon.ico?v=20260618" />
+  <link rel="shortcut icon" href="/webxr-health-mobile/herohealth/favicon.ico?v=20260618" />
   <style>
     :root{
       --safe-top:env(safe-area-inset-top,0px);
@@ -322,10 +322,11 @@
   (() => {
     'use strict';
 
-    const VERSION = '20260618-FITNESS-HUB-PRODUCTION-V2-REALPATHS';
+    const VERSION = '20260618-FITNESS-HUB-PRODUCTION-V3-LOCALSTORAGE-SAFE';
     const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
     const STORE_KEY = 'fitness_ar_hub_profile_v1';
     const LOG_KEY = 'fitness_ar_hub_launch_log_v1';
+    const LOG_LIMIT = 20;
 
     const GAME_LIST = [
       {
@@ -386,10 +387,71 @@
       toast._t = setTimeout(() => el.classList.remove('show'), 2200);
     }
 
+    function safeStorageGet(key, fallback=''){
+      try{
+        const value = localStorage.getItem(key);
+        return value === null ? fallback : value;
+      }catch(err){
+        console.warn('[Fitness Hub] localStorage get skipped:', key, err);
+        return fallback;
+      }
+    }
+
+    function safeStorageRemove(key){
+      try{
+        localStorage.removeItem(key);
+        return true;
+      }catch(err){
+        console.warn('[Fitness Hub] localStorage remove skipped:', key, err);
+        return false;
+      }
+    }
+
+    function safeStorageSet(key, value){
+      try{
+        localStorage.setItem(key, value);
+        return true;
+      }catch(err){
+        console.warn('[Fitness Hub] localStorage quota/full, trying cleanup:', key, err);
+        try{
+          if(key !== LOG_KEY) localStorage.removeItem(LOG_KEY);
+          localStorage.setItem(key, value);
+          return true;
+        }catch(err2){
+          console.warn('[Fitness Hub] localStorage write skipped:', key, err2);
+          return false;
+        }
+      }
+    }
+
+    function readLaunchLog(){
+      try{
+        const raw = safeStorageGet(LOG_KEY, '[]');
+        const rows = JSON.parse(raw || '[]');
+        return Array.isArray(rows) ? rows : [];
+      }catch(_){
+        return [];
+      }
+    }
+
+    function writeLaunchLog(rows){
+      const slim = Array.isArray(rows) ? rows.slice(0, LOG_LIMIT) : [];
+      if(safeStorageSet(LOG_KEY, JSON.stringify(slim))) return true;
+
+      try{
+        localStorage.removeItem(LOG_KEY);
+        localStorage.setItem(LOG_KEY, JSON.stringify(slim.slice(0, 5)));
+        return true;
+      }catch(err){
+        console.warn('[Fitness Hub] launch log skipped because localStorage quota is full');
+        return false;
+      }
+    }
+
     function loadProfile(){
       const params = new URLSearchParams(location.search);
       let saved = {};
-      try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch(_) {}
+      try { saved = JSON.parse(safeStorageGet(STORE_KEY, '{}') || '{}'); } catch(_) {}
       const profile = Object.assign({
         playerName:'Hero',
         pid:'',
@@ -414,7 +476,7 @@
         duration:['time','duration'],
         lang:['lang'],
         inputPref:['input','inputPref'],
-        sheetUrl:['sheet','sheetUrl']
+        sheetUrl:['sheet','sheetUrl','api']
       };
       Object.entries(map).forEach(([key, aliases]) => {
         aliases.forEach(a => { if(params.has(a)) profile[key] = params.get(a); });
@@ -448,7 +510,7 @@
 
     function saveProfile(){
       const p = getProfile();
-      localStorage.setItem(STORE_KEY, JSON.stringify(p));
+      safeStorageSet(STORE_KEY, JSON.stringify(p));
       updateSheetPill();
       return p;
     }
@@ -479,8 +541,9 @@
       qp.set('autosheet',p.autoSheet ? '1' : '0');
       qp.set('sound',p.soundOn ? '1' : '0');
       qp.set('sheet',p.sheetUrl);
+      qp.set('api',p.sheetUrl);
       qp.set('return', './');
-      qp.set('v', '20260618-hub-v1');
+      qp.set('v', '20260618-hub-v3-localstorage-safe');
       return url.toString();
     }
 
@@ -549,8 +612,7 @@
 
     function logLaunch(game, status, note){
       const p = getProfile();
-      let rows = [];
-      try { rows = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(_) {}
+      const rows = readLaunchLog();
       rows.unshift({
         ts:new Date().toLocaleString('th-TH'),
         game:game.title,
@@ -563,8 +625,7 @@
         status:status || 'launch',
         note:note || ''
       });
-      rows = rows.slice(0,60);
-      localStorage.setItem(LOG_KEY, JSON.stringify(rows));
+      writeLaunchLog(rows);
       renderLocalDashboard();
     }
 
@@ -601,6 +662,7 @@
       url.searchParams.set('input',p.inputPref);
       url.searchParams.set('autosheet',p.autoSheet ? '1' : '0');
       url.searchParams.set('sheet',p.sheetUrl);
+      url.searchParams.set('api',p.sheetUrl);
       copyText(url.toString()).then(() => toast('คัดลอก Hub link พร้อมโปรไฟล์แล้ว'));
     }
 
@@ -625,8 +687,7 @@
     }
 
     function renderLocalDashboard(){
-      let rows = [];
-      try { rows = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(_) {}
+      const rows = readLaunchLog();
       const p = getProfile();
       const played = rows.length;
       const uniqueGames = new Set(rows.map(r => r.gameId)).size;
@@ -656,7 +717,7 @@
 
     function resetProfile(){
       if(!confirm('รีเซ็ตโปรไฟล์ Hub บนเครื่องนี้?')) return;
-      localStorage.removeItem(STORE_KEY);
+      safeStorageRemove(STORE_KEY);
       loadProfile();
       toast('รีเซ็ตโปรไฟล์แล้ว');
     }
@@ -681,7 +742,7 @@
       $('copyLinkBtn').addEventListener('click', copyHubLink);
       $('resetBtn').addEventListener('click', resetProfile);
       $('dashboardBtn').addEventListener('click', () => { $('dashboardPanel').classList.toggle('hidden'); renderLocalDashboard(); });
-      $('clearLocalBtn').addEventListener('click', () => { localStorage.removeItem(LOG_KEY); renderLocalDashboard(); toast('ล้าง local launch log แล้ว'); });
+      $('clearLocalBtn').addEventListener('click', () => { safeStorageRemove(LOG_KEY); renderLocalDashboard(); toast('ล้าง local launch log แล้ว'); });
       $('exportProfileBtn').addEventListener('click', exportProfile);
       $('quickStartBtn').addEventListener('click', () => requestLaunch('balance'));
       $('closeSafetyBtn').addEventListener('click', closeSafety);
