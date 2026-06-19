@@ -11,7 +11,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-9-SINGLE-SUBMIT-LOCK
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V8-AUTO-SHEET-ONLY-LOCK
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1296,7 +1296,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.9 SINGLE SUBMIT LOCK</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v8 AUTO SHEET ONLY</div>
         </div>
 
         <div class="grid2">
@@ -1374,10 +1374,10 @@
 
             <label style="margin-top:10px">
               <span id="lblSheetUrl">Google Sheet Web App URL</span>
-              <input id="sheetUrlInput" autocomplete="off" placeholder="ฝัง URL แล้ว หรือวาง Web App URL ใหม่ได้" />
+              <input id="sheetUrlInput" autocomplete="off" placeholder="ส่งเข้า Google Sheet อัตโนมัติแล้ว" />
             </label>
 
-            <div class="toggleRow">
+            <div class="toggleRow" style="display:none">
               <label class="toggle"><span id="lblAutoSubmit">Auto submit Sheet</span><input type="checkbox" id="autoSubmitToggle" checked /></label>
               <label class="toggle"><span id="lblQueue">Offline queue</span><input type="checkbox" id="queueToggle" checked /></label>
             </div>
@@ -1424,7 +1424,6 @@
 
         <div class="bigActions">
           <button class="bigBtn play" id="btnReplay">เล่นอีกครั้ง</button>
-          <button class="bigBtn ghost" id="btnSubmitSheet">ส่ง Google Sheet</button>
           <button class="bigBtn ghost" id="btnExport">Export CSV</button>
           <button class="bigBtn ghost" id="btnMenu">กลับเมนู</button>
           <button class="bigBtn ghost" id="btnHub">กลับ Fitness Hub</button>
@@ -1750,7 +1749,6 @@
       $("resultTitle").textContent = t("result");
       $("resultSubtitle").textContent = t("great");
       $("btnReplay").textContent = t("replay");
-      $("btnSubmitSheet").textContent = t("submitSheet");
       $("btnExport").textContent = t("export");
       $("btnMenu").textContent = t("menu");
       $("btnHub").textContent = t("hub");
@@ -2858,6 +2856,12 @@
       const nextGoal = nextReplayGoal();
       $("resultAdvice").innerHTML = `${escapeHtml(advice)}<br>${escapeHtml(nextGoal)}<br>${escapeHtml(missionText)}`;
       $("resultOverlay").classList.add("show");
+      if(typeof buildSheetPayload === "function"){
+        state.lastSummaryPayload = buildSheetPayload();
+      }
+      if(state.sheetUrl && typeof submitCurrentResultToSheet === "function"){
+        setTimeout(() => submitCurrentResultToSheet(false), 350);
+      } // AUTO_SHEET_ONLY_SENTINEL
     }
 
     function reasonLabel(reason){
@@ -2941,40 +2945,29 @@
 
     function saveSheetSettings(){
       state.sheetUrl = getSheetUrl();
-      state.autoSubmitSheet = $("autoSubmitToggle") ? $("autoSubmitToggle").checked : true;
-      state.offlineQueue = $("queueToggle") ? $("queueToggle").checked : true;
+      state.autoSubmitSheet = true;
+      state.offlineQueue = true;
 
-      // v7.6: localStorage เต็มต้องไม่ทำให้เกมพัง
-      if(state.sheetUrl){
-        const ok = safeStorageSet("shadowBreakerSheetUrl", state.sheetUrl);
-        if(!ok) console.warn("ShadowBreaker: cannot persist sheet URL; using in-memory URL only.");
-      }
+      if($("autoSubmitToggle")) $("autoSubmitToggle").checked = true;
+      if($("queueToggle")) $("queueToggle").checked = true;
 
-      safeStorageSet("shadowBreakerAutoSubmit", state.autoSubmitSheet ? "1" : "0");
-      safeStorageSet("shadowBreakerOfflineQueue", state.offlineQueue ? "1" : "0");
+      if(state.sheetUrl) safeStorageSet("shadowBreakerSheetUrl", state.sheetUrl);
+      safeStorageSet("shadowBreakerAutoSubmit", "1");
+      safeStorageSet("shadowBreakerOfflineQueue", "1");
     }
 
 
     function loadSheetSettings(){
       const savedUrl = safeStorageGet("shadowBreakerSheetUrl", "");
       const queryUrl = qs.get("sheet") || qs.get("gas") || qs.get("webapp") || "";
-
       if($("sheetUrlInput")) $("sheetUrlInput").value = queryUrl || savedUrl || DEFAULT_SHADOW_BREAKER_SHEET_URL || "";
 
-      if($("autoSubmitToggle")){
-        $("autoSubmitToggle").checked = safeStorageGet("shadowBreakerAutoSubmit", "1") !== "0";
-      }
-      if($("queueToggle")){
-        $("queueToggle").checked = safeStorageGet("shadowBreakerOfflineQueue", "1") !== "0";
-      }
+      if($("autoSubmitToggle")) $("autoSubmitToggle").checked = true;
+      if($("queueToggle")) $("queueToggle").checked = true;
 
       state.sheetUrl = $("sheetUrlInput")?.value?.trim() || DEFAULT_SHADOW_BREAKER_SHEET_URL || "";
-      state.autoSubmitSheet = $("autoSubmitToggle") ? $("autoSubmitToggle").checked : true;
-      state.offlineQueue = $("queueToggle") ? $("queueToggle").checked : true;
-
-      if(estimateStorageTrouble()){
-        console.warn("ShadowBreaker: browser storage quota appears full. Queue persistence may be disabled.");
-      }
+      state.autoSubmitSheet = true;
+      state.offlineQueue = true;
     }
 
 
@@ -3107,12 +3100,9 @@
     }
 
     function markSubmitButton(label, disabled){
-      const btn = $("btnSubmitSheet");
-      if(!btn) return;
-      btn.textContent = label || (t("submitSheet") || "Submit Sheet");
-      btn.disabled = !!disabled;
-      btn.style.opacity = disabled ? ".72" : "";
+      state.lastSubmitStatus = label || state.lastSubmitStatus || "";
     }
+
 
     function wasSubmitted(key){
       if(!key) return false;
@@ -3151,12 +3141,12 @@
       state.currentSubmitKey = key;
 
       if(state.submitInFlight){
-        if(manual) toast("กำลังส่งอยู่ รอสักครู่", 1400);
+        if(manual) toast("กำลังบันทึกเข้า Sheet อัตโนมัติ", 1400);
         return {ok:false, skipped:"in_flight"};
       }
 
       if(wasSubmitted(key)){
-        if(manual) toast("รอบนี้ส่งเข้า Sheet แล้ว", 1600);
+        if(manual) toast("รอบนี้บันทึกเข้า Sheet แล้ว", 1600);
         markSubmitButton("ส่งแล้ว", true);
         return {ok:true, skipped:"duplicate_local"};
       }
@@ -3175,7 +3165,7 @@
         rememberSubmitted(key);
         state.lastSubmitStatus = "sent";
         logEvent("sheet_submit", { manual:manual ? 1 : 0, noCors:1, submitKey:key });
-        toast(t("sheetSaved") || "Saved to Google Sheet", 1600);
+        toast("บันทึกเข้า Sheet อัตโนมัติแล้ว", 1600);
         markSubmitButton("ส่งแล้ว", true);
         return {ok:true, opaque:true};
       }catch(err){
@@ -3202,7 +3192,7 @@
       }
       const key = makeSubmitKey(state.lastSummaryPayload);
       if(wasSubmitted(key)){
-        if(manual) toast("รอบนี้ส่งเข้า Sheet แล้ว", 1500);
+        if(manual) toast("รอบนี้บันทึกเข้า Sheet แล้ว", 1500);
         markSubmitButton("ส่งแล้ว", true);
         return {ok:true, skipped:"duplicate_current"};
       }
@@ -3341,7 +3331,6 @@
       });
       $("btnMenu").addEventListener("click", showMenu);
       $("btnHub").addEventListener("click", goHub);
-      if($("btnSubmitSheet")) $("btnSubmitSheet").addEventListener("click", () => submitCurrentResultToSheet(true));
       $("btnExport").addEventListener("click", exportCsv);
       $("btnPause").addEventListener("click", pauseGame);
       $("btnEnd").addEventListener("click", () => {
