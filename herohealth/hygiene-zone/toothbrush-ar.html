@@ -1,0 +1,2432 @@
+<!-- =========================================================
+  /herohealth/hygiene-zone/toothbrush-ar.html
+  Hygiene Zone AR • Toothbrush Hero: Plaque Battle
+  Version: v20260619-TOOTHBRUSH-AR-V1-PLAYABLE-CORE
+
+  Core:
+  - Camera AR background
+  - Touch / Mouse toothbrush control
+  - Toothpaste charge mini-game
+  - 6 mouth zones
+  - Plaque cleaning mechanics
+  - Direction challenge
+  - Clean Score + Gum Health
+  - Combo + Fresh Fever
+  - Bubble Boost / Candy Bomb
+  - Plaque Monster Boss
+  - Summary + Badge
+========================================================= -->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no,maximum-scale=1"
+  />
+  <meta name="theme-color" content="#ecfeff" />
+  <meta name="color-scheme" content="light" />
+
+  <title>Hygiene Zone AR • Toothbrush Hero</title>
+
+  <style>
+    :root{
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+
+      --ink:#123047;
+      --muted:#64748b;
+      --cyan:#06b6d4;
+      --blue:#3b82f6;
+      --green:#22c55e;
+      --yellow:#facc15;
+      --orange:#fb923c;
+      --red:#ef4444;
+      --pink:#fb7185;
+      --card:rgba(255,255,255,.88);
+      --line:rgba(14,116,144,.18);
+      --shadow:0 18px 50px rgba(15,23,42,.16);
+      --radius:24px;
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
+    }
+
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family:
+        ui-rounded,
+        "SF Pro Rounded",
+        "Sarabun",
+        "Noto Sans Thai",
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 25% 20%, rgba(186,230,253,.95), transparent 35%),
+        radial-gradient(circle at 80% 10%, rgba(254,202,202,.85), transparent 30%),
+        linear-gradient(160deg,#ecfeff,#fdf2f8 54%,#fff7ed);
+    }
+
+    button,select,input{
+      font:inherit;
+    }
+
+    button{
+      border:0;
+      cursor:pointer;
+    }
+
+    .app{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      background:
+        linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,.08));
+    }
+
+    video#camera{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      transform:scaleX(-1);
+      filter:saturate(1.08) brightness(1.02);
+      background:#dff7ff;
+      z-index:0;
+    }
+
+    .camera-fallback{
+      position:absolute;
+      inset:0;
+      z-index:0;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(125,211,252,.55), transparent 34%),
+        radial-gradient(circle at 80% 25%, rgba(251,207,232,.55), transparent 30%),
+        linear-gradient(160deg,#e0f2fe,#fdf2f8 55%,#fff7ed);
+    }
+
+    .ar-tint{
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,.12)),
+        radial-gradient(circle at 50% 56%, rgba(255,255,255,.26), transparent 40%);
+      z-index:1;
+      pointer-events:none;
+    }
+
+    .topbar{
+      position:absolute;
+      top:calc(10px + var(--safe-top));
+      left:calc(10px + var(--safe-left));
+      right:calc(10px + var(--safe-right));
+      min-height:62px;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      z-index:10;
+      pointer-events:none;
+    }
+
+    .hud{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      pointer-events:none;
+    }
+
+    .pill{
+      min-height:34px;
+      padding:7px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.84);
+      border:1px solid rgba(255,255,255,.82);
+      box-shadow:0 10px 24px rgba(15,23,42,.10);
+      backdrop-filter:blur(12px);
+      display:flex;
+      gap:6px;
+      align-items:center;
+      font-weight:900;
+      font-size:13px;
+      white-space:nowrap;
+    }
+
+    .pill small{
+      color:var(--muted);
+      font-weight:800;
+    }
+
+    .barbox{
+      width:132px;
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(148,163,184,.22);
+      box-shadow:inset 0 0 0 1px rgba(15,23,42,.08);
+    }
+
+    .barfill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      transition:width .12s linear;
+      background:linear-gradient(90deg,#67e8f9,#22c55e);
+    }
+
+    #gumFill{
+      background:linear-gradient(90deg,#bbf7d0,#22c55e);
+    }
+
+    #feverFill{
+      background:linear-gradient(90deg,#fde68a,#fb7185,#a78bfa);
+    }
+
+    .top-actions{
+      display:flex;
+      align-items:flex-start;
+      gap:8px;
+      pointer-events:auto;
+    }
+
+    .icon-btn{
+      width:42px;
+      height:42px;
+      border-radius:16px;
+      background:rgba(255,255,255,.86);
+      color:#0f172a;
+      font-size:18px;
+      font-weight:1000;
+      box-shadow:0 12px 26px rgba(15,23,42,.14);
+      border:1px solid rgba(255,255,255,.9);
+    }
+
+    .stage{
+      position:absolute;
+      inset:0;
+      z-index:4;
+      touch-action:none;
+      overflow:hidden;
+    }
+
+    .mouth-wrap{
+      position:absolute;
+      left:50%;
+      top:53%;
+      width:min(84vw, 560px);
+      height:min(54vh, 385px);
+      transform:translate(-50%,-50%);
+      border-radius:42% 42% 48% 48% / 42% 42% 54% 54%;
+      pointer-events:none;
+      filter:drop-shadow(0 20px 28px rgba(15,23,42,.18));
+    }
+
+    .mouth{
+      position:absolute;
+      inset:0;
+      border-radius:42% 42% 48% 48% / 42% 42% 54% 54%;
+      background:
+        radial-gradient(circle at 50% 70%, rgba(190,24,93,.36), transparent 58%),
+        linear-gradient(180deg,#fb7185,#f43f5e 45%,#be123c);
+      box-shadow:
+        inset 0 0 0 10px rgba(255,255,255,.38),
+        inset 0 -18px 28px rgba(136,19,55,.24);
+      overflow:hidden;
+    }
+
+    .teeth-row{
+      position:absolute;
+      left:7%;
+      right:7%;
+      height:31%;
+      display:grid;
+      grid-template-columns:repeat(6,1fr);
+      gap:4px;
+      z-index:2;
+    }
+
+    .teeth-row.top{
+      top:12%;
+    }
+
+    .teeth-row.bottom{
+      bottom:12%;
+    }
+
+    .tooth{
+      position:relative;
+      border-radius:13px 13px 23px 23px;
+      background:
+        radial-gradient(circle at 48% 18%, rgba(255,255,255,.96), rgba(255,255,255,.75) 36%, rgba(224,242,254,.86) 100%);
+      box-shadow:
+        inset 0 -10px 16px rgba(14,116,144,.12),
+        inset 0 0 0 2px rgba(255,255,255,.84),
+        0 5px 10px rgba(15,23,42,.08);
+      opacity:.96;
+    }
+
+    .teeth-row.bottom .tooth{
+      border-radius:23px 23px 13px 13px;
+    }
+
+    .zone-label{
+      position:absolute;
+      z-index:4;
+      padding:4px 8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.78);
+      border:1px solid rgba(255,255,255,.88);
+      color:#0f172a;
+      font-size:11px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(15,23,42,.10);
+    }
+
+    .zl1{left:8%;top:4%;}
+    .zl2{left:50%;top:2%;transform:translateX(-50%);}
+    .zl3{right:8%;top:4%;}
+    .zl4{left:8%;bottom:4%;}
+    .zl5{left:50%;bottom:2%;transform:translateX(-50%);}
+    .zl6{right:8%;bottom:4%;}
+
+    .zone-clean{
+      position:absolute;
+      z-index:4;
+      left:8%;
+      right:8%;
+      top:46%;
+      display:grid;
+      grid-template-columns:repeat(6,1fr);
+      gap:5px;
+      pointer-events:none;
+    }
+
+    .zone-dot{
+      height:8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.28);
+      overflow:hidden;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.42);
+    }
+
+    .zone-dot > i{
+      display:block;
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#67e8f9,#22c55e);
+      border-radius:999px;
+      transition:width .18s ease;
+    }
+
+    .plaque{
+      position:absolute;
+      width:42px;
+      height:42px;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+      z-index:8;
+      display:grid;
+      place-items:center;
+      font-size:22px;
+      font-weight:1000;
+      pointer-events:none;
+      box-shadow:
+        0 8px 18px rgba(15,23,42,.16),
+        inset 0 0 0 2px rgba(255,255,255,.75);
+      transition:
+        opacity .12s linear,
+        transform .12s ease,
+        filter .12s ease;
+    }
+
+    .plaque.soft{
+      background:radial-gradient(circle at 35% 30%,#fef08a,#facc15 60%,#ca8a04);
+    }
+
+    .plaque.sticky{
+      background:radial-gradient(circle at 35% 30%,#fdba74,#fb923c 60%,#c2410c);
+    }
+
+    .plaque.germ{
+      background:radial-gradient(circle at 35% 30%,#86efac,#22c55e 62%,#15803d);
+    }
+
+    .plaque.sugar{
+      background:radial-gradient(circle at 35% 30%,#fbcfe8,#fb7185 62%,#be123c);
+    }
+
+    .plaque.tartar{
+      background:radial-gradient(circle at 35% 30%,#e2e8f0,#94a3b8 62%,#475569);
+    }
+
+    .plaque.boss{
+      width:52px;
+      height:52px;
+      background:radial-gradient(circle at 35% 30%,#fda4af,#e11d48 62%,#7f1d1d);
+      animation:pulseBoss .72s infinite alternate;
+    }
+
+    @keyframes pulseBoss{
+      from{ transform:translate(-50%,-50%) scale(1); }
+      to{ transform:translate(-50%,-50%) scale(1.1); }
+    }
+
+    .plaque .hp-ring{
+      position:absolute;
+      inset:-5px;
+      border-radius:999px;
+      border:3px solid rgba(255,255,255,.78);
+      opacity:.92;
+    }
+
+    .floating-item{
+      position:absolute;
+      width:46px;
+      height:46px;
+      transform:translate(-50%,-50%);
+      border-radius:18px;
+      z-index:7;
+      display:grid;
+      place-items:center;
+      font-size:27px;
+      font-weight:1000;
+      background:rgba(255,255,255,.86);
+      box-shadow:0 12px 24px rgba(15,23,42,.16);
+      border:1px solid rgba(255,255,255,.9);
+      pointer-events:none;
+      animation:itemBob 1.1s ease-in-out infinite alternate;
+    }
+
+    @keyframes itemBob{
+      from{ margin-top:-4px; }
+      to{ margin-top:6px; }
+    }
+
+    .brush{
+      position:absolute;
+      left:50%;
+      top:80%;
+      width:132px;
+      height:46px;
+      transform:translate(-24px,-24px) rotate(-22deg);
+      transform-origin:24px 24px;
+      z-index:20;
+      pointer-events:none;
+      filter:drop-shadow(0 10px 16px rgba(15,23,42,.22));
+      opacity:.98;
+    }
+
+    .brush-head{
+      position:absolute;
+      left:0;
+      top:6px;
+      width:48px;
+      height:34px;
+      border-radius:12px;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          #67e8f9 0 4px,
+          #fff 4px 7px,
+          #a7f3d0 7px 11px
+        );
+      box-shadow:inset 0 0 0 2px rgba(14,116,144,.28);
+    }
+
+    .brush-paste{
+      position:absolute;
+      left:5px;
+      top:-5px;
+      width:38px;
+      height:13px;
+      border-radius:999px;
+      background:linear-gradient(90deg,#f8fafc,#a7f3d0,#67e8f9);
+      box-shadow:0 3px 8px rgba(14,116,144,.16);
+      opacity:0;
+      transform:scaleX(.3);
+      transform-origin:left center;
+      transition:opacity .2s ease, transform .2s ease;
+    }
+
+    .brush.has-paste .brush-paste{
+      opacity:1;
+      transform:scaleX(1);
+    }
+
+    .brush-handle{
+      position:absolute;
+      left:42px;
+      top:15px;
+      width:94px;
+      height:16px;
+      border-radius:999px;
+      background:linear-gradient(90deg,#06b6d4,#3b82f6,#a78bfa);
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.38);
+    }
+
+    .brush-glow{
+      position:absolute;
+      left:-18px;
+      top:-14px;
+      width:80px;
+      height:80px;
+      border-radius:999px;
+      background:radial-gradient(circle,rgba(103,232,249,.35),transparent 62%);
+      opacity:.55;
+      display:none;
+    }
+
+    .brush.fever .brush-glow{
+      display:block;
+      animation:feverGlow .45s infinite alternate;
+    }
+
+    @keyframes feverGlow{
+      from{ transform:scale(.9); opacity:.45; }
+      to{ transform:scale(1.18); opacity:.78; }
+    }
+
+    .feedback{
+      position:absolute;
+      left:50%;
+      top:22%;
+      transform:translate(-50%,-50%);
+      z-index:30;
+      min-width:min(82vw,520px);
+      text-align:center;
+      pointer-events:none;
+    }
+
+    .toast{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.9);
+      border:1px solid rgba(255,255,255,.95);
+      box-shadow:0 14px 30px rgba(15,23,42,.16);
+      font-size:16px;
+      font-weight:1000;
+      opacity:0;
+      transform:translateY(-8px) scale(.96);
+      transition:opacity .18s ease, transform .18s ease;
+      backdrop-filter:blur(12px);
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateY(0) scale(1);
+    }
+
+    .boss-panel{
+      position:absolute;
+      left:50%;
+      top:calc(86px + var(--safe-top));
+      transform:translateX(-50%);
+      z-index:12;
+      width:min(88vw,520px);
+      padding:10px 12px;
+      border-radius:22px;
+      background:rgba(255,255,255,.88);
+      box-shadow:0 16px 38px rgba(15,23,42,.16);
+      border:1px solid rgba(255,255,255,.92);
+      display:none;
+      backdrop-filter:blur(12px);
+    }
+
+    .boss-panel.show{
+      display:block;
+    }
+
+    .boss-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      font-size:14px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .boss-hp{
+      width:100%;
+      height:13px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(148,163,184,.24);
+      box-shadow:inset 0 0 0 1px rgba(15,23,42,.08);
+    }
+
+    .boss-hp > i{
+      display:block;
+      width:100%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#fb7185,#ef4444,#7f1d1d);
+      transition:width .16s linear;
+    }
+
+    .screen{
+      position:absolute;
+      inset:0;
+      z-index:50;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:
+        calc(18px + var(--safe-top))
+        calc(14px + var(--safe-right))
+        calc(18px + var(--safe-bottom))
+        calc(14px + var(--safe-left));
+      background:
+        radial-gradient(circle at 20% 20%, rgba(103,232,249,.45), transparent 35%),
+        radial-gradient(circle at 80% 15%, rgba(251,207,232,.5), transparent 32%),
+        rgba(255,255,255,.54);
+      backdrop-filter:blur(10px);
+    }
+
+    .screen.show{
+      display:flex;
+    }
+
+    .card{
+      width:min(94vw,640px);
+      max-height:calc(100vh - 34px - var(--safe-top) - var(--safe-bottom));
+      overflow:auto;
+      border-radius:30px;
+      background:rgba(255,255,255,.9);
+      border:1px solid rgba(255,255,255,.92);
+      box-shadow:var(--shadow);
+      padding:20px;
+    }
+
+    .hero-title{
+      margin:0 0 8px;
+      font-size:clamp(26px,6vw,44px);
+      line-height:1.03;
+      letter-spacing:-.04em;
+      font-weight:1000;
+      color:#0f172a;
+    }
+
+    .hero-title span{
+      background:linear-gradient(90deg,#0891b2,#2563eb,#db2777);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+    }
+
+    .sub{
+      margin:0 0 14px;
+      color:#475569;
+      font-size:15px;
+      line-height:1.55;
+      font-weight:800;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin:14px 0;
+    }
+
+    .choice{
+      position:relative;
+      padding:13px 10px;
+      border-radius:20px;
+      background:#fff;
+      border:2px solid rgba(14,116,144,.12);
+      box-shadow:0 10px 22px rgba(15,23,42,.08);
+      text-align:left;
+      color:#0f172a;
+      font-weight:1000;
+    }
+
+    .choice b{
+      display:block;
+      font-size:16px;
+      margin-bottom:4px;
+    }
+
+    .choice small{
+      display:block;
+      font-size:12px;
+      line-height:1.35;
+      color:#64748b;
+      font-weight:900;
+    }
+
+    .choice.active{
+      border-color:#06b6d4;
+      box-shadow:0 12px 28px rgba(6,182,212,.22);
+      background:linear-gradient(180deg,#ecfeff,#ffffff);
+    }
+
+    .form-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin:10px 0;
+    }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:5px;
+      font-size:12px;
+      font-weight:1000;
+      color:#475569;
+    }
+
+    .field input{
+      width:100%;
+      padding:12px 13px;
+      border-radius:18px;
+      border:1px solid rgba(14,116,144,.18);
+      outline:0;
+      background:#fff;
+      color:#0f172a;
+      font-weight:900;
+    }
+
+    .btn-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .primary,
+    .secondary,
+    .danger{
+      min-height:48px;
+      border-radius:18px;
+      padding:0 18px;
+      font-weight:1000;
+      box-shadow:0 14px 28px rgba(15,23,42,.14);
+    }
+
+    .primary{
+      background:linear-gradient(90deg,#06b6d4,#3b82f6,#a78bfa);
+      color:#fff;
+    }
+
+    .secondary{
+      background:#fff;
+      color:#0f172a;
+      border:1px solid rgba(14,116,144,.18);
+    }
+
+    .danger{
+      background:#fff1f2;
+      color:#be123c;
+      border:1px solid rgba(251,113,133,.26);
+    }
+
+    .hint-box{
+      margin-top:12px;
+      padding:12px;
+      border-radius:20px;
+      background:linear-gradient(180deg,#f0fdfa,#ecfeff);
+      border:1px solid rgba(6,182,212,.16);
+      color:#155e75;
+      font-size:13px;
+      line-height:1.55;
+      font-weight:850;
+    }
+
+    .charge-area{
+      margin:16px 0 10px;
+      padding:16px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#ecfeff,#fff);
+      border:1px solid rgba(6,182,212,.16);
+    }
+
+    .meter{
+      position:relative;
+      height:24px;
+      border-radius:999px;
+      background:rgba(148,163,184,.18);
+      overflow:hidden;
+      box-shadow:inset 0 0 0 1px rgba(15,23,42,.08);
+    }
+
+    .meter-target{
+      position:absolute;
+      left:46%;
+      width:24%;
+      top:0;
+      bottom:0;
+      background:rgba(34,197,94,.24);
+      border-left:2px dashed rgba(22,163,74,.55);
+      border-right:2px dashed rgba(22,163,74,.55);
+      z-index:2;
+    }
+
+    .meter-fill{
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#bae6fd,#67e8f9,#22c55e,#facc15,#fb7185);
+      z-index:1;
+      transition:width .05s linear;
+    }
+
+    .charge-btn{
+      width:100%;
+      margin-top:12px;
+      min-height:58px;
+      border-radius:22px;
+      color:#fff;
+      background:linear-gradient(90deg,#14b8a6,#06b6d4,#3b82f6);
+      font-size:18px;
+      font-weight:1000;
+      box-shadow:0 16px 28px rgba(6,182,212,.22);
+    }
+
+    .result-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+      margin:14px 0;
+    }
+
+    .stat-card{
+      padding:13px;
+      border-radius:20px;
+      background:#fff;
+      border:1px solid rgba(14,116,144,.14);
+      box-shadow:0 10px 22px rgba(15,23,42,.07);
+    }
+
+    .stat-card small{
+      display:block;
+      color:#64748b;
+      font-size:12px;
+      font-weight:900;
+      margin-bottom:4px;
+    }
+
+    .stat-card b{
+      display:block;
+      font-size:24px;
+      line-height:1.1;
+      color:#0f172a;
+      font-weight:1000;
+    }
+
+    .mission-board{
+      position:absolute;
+      left:calc(10px + var(--safe-left));
+      bottom:calc(10px + var(--safe-bottom));
+      z-index:11;
+      width:min(92vw,430px);
+      padding:10px 12px;
+      border-radius:22px;
+      background:rgba(255,255,255,.86);
+      border:1px solid rgba(255,255,255,.9);
+      box-shadow:0 14px 30px rgba(15,23,42,.14);
+      backdrop-filter:blur(12px);
+      font-size:13px;
+      line-height:1.38;
+      font-weight:900;
+      color:#334155;
+      pointer-events:none;
+    }
+
+    .mission-board b{
+      color:#0f172a;
+    }
+
+    .particle{
+      position:absolute;
+      z-index:28;
+      transform:translate(-50%,-50%);
+      pointer-events:none;
+      font-size:22px;
+      font-weight:1000;
+      animation:particleUp .65s ease-out forwards;
+      text-shadow:0 4px 12px rgba(15,23,42,.18);
+    }
+
+    @keyframes particleUp{
+      from{ opacity:1; transform:translate(-50%,-50%) scale(.9); }
+      to{ opacity:0; transform:translate(-50%,-115%) scale(1.25); }
+    }
+
+    .screen-shake{
+      animation:shake .22s linear 1;
+    }
+
+    @keyframes shake{
+      0%,100%{ transform:translate3d(0,0,0); }
+      25%{ transform:translate3d(-5px,2px,0); }
+      50%{ transform:translate3d(4px,-3px,0); }
+      75%{ transform:translate3d(-3px,3px,0); }
+    }
+
+    .fever-banner{
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%,-50%) scale(.88);
+      z-index:35;
+      padding:14px 22px;
+      border-radius:999px;
+      background:linear-gradient(90deg,#fde68a,#fb7185,#a78bfa);
+      color:#fff;
+      font-size:clamp(24px,7vw,46px);
+      font-weight:1000;
+      letter-spacing:-.04em;
+      box-shadow:0 20px 50px rgba(15,23,42,.22);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    .fever-banner.show{
+      opacity:1;
+      transform:translate(-50%,-50%) scale(1);
+    }
+
+    @media (max-width:640px){
+      .topbar{
+        grid-template-columns:1fr;
+      }
+
+      .top-actions{
+        position:absolute;
+        right:0;
+        top:0;
+      }
+
+      .hud{
+        padding-right:94px;
+      }
+
+      .pill{
+        font-size:12px;
+        min-height:31px;
+        padding:6px 8px;
+      }
+
+      .barbox{
+        width:92px;
+        height:10px;
+      }
+
+      .mouth-wrap{
+        width:92vw;
+        height:52vh;
+        top:55%;
+      }
+
+      .grid{
+        grid-template-columns:1fr;
+      }
+
+      .form-row{
+        grid-template-columns:1fr;
+      }
+
+      .result-grid{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .mission-board{
+        font-size:12px;
+      }
+
+      .brush{
+        width:120px;
+      }
+    }
+
+    @media (max-height:650px){
+      .mouth-wrap{
+        height:48vh;
+        top:56%;
+      }
+
+      .mission-board{
+        display:none;
+      }
+
+      .card{
+        padding:16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main id="app" class="app">
+    <div class="camera-fallback" id="cameraFallback"></div>
+    <video id="camera" autoplay muted playsinline></video>
+    <div class="ar-tint"></div>
+
+    <section class="topbar">
+      <div class="hud">
+        <div class="pill">⏱ <span id="timeText">45</span>s</div>
+        <div class="pill">⭐ <span id="scoreText">0</span></div>
+        <div class="pill">🔥 Combo <span id="comboText">0</span></div>
+
+        <div class="pill">
+          🦷 <small>Clean</small>
+          <div class="barbox"><div class="barfill" id="cleanFill"></div></div>
+          <span id="cleanText">0%</span>
+        </div>
+
+        <div class="pill">
+          🌿 <small>Gum</small>
+          <div class="barbox"><div class="barfill" id="gumFill"></div></div>
+          <span id="gumText">100%</span>
+        </div>
+
+        <div class="pill">
+          🫧 <small>Fever</small>
+          <div class="barbox"><div class="barfill" id="feverFill"></div></div>
+          <span id="feverText">0%</span>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button id="pauseBtn" class="icon-btn" title="Pause">⏸</button>
+        <button id="muteBtn" class="icon-btn" title="Sound">🔈</button>
+      </div>
+    </section>
+
+    <section id="stage" class="stage">
+      <div id="mouthWrap" class="mouth-wrap">
+        <div class="mouth">
+          <div class="teeth-row top">
+            <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
+            <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
+          </div>
+
+          <div class="teeth-row bottom">
+            <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
+            <div class="tooth"></div><div class="tooth"></div><div class="tooth"></div>
+          </div>
+
+          <div class="zone-label zl1">บนซ้าย</div>
+          <div class="zone-label zl2">บนกลาง</div>
+          <div class="zone-label zl3">บนขวา</div>
+          <div class="zone-label zl4">ล่างซ้าย</div>
+          <div class="zone-label zl5">ล่างกลาง</div>
+          <div class="zone-label zl6">ล่างขวา</div>
+
+          <div class="zone-clean">
+            <div class="zone-dot"><i id="z0"></i></div>
+            <div class="zone-dot"><i id="z1"></i></div>
+            <div class="zone-dot"><i id="z2"></i></div>
+            <div class="zone-dot"><i id="z3"></i></div>
+            <div class="zone-dot"><i id="z4"></i></div>
+            <div class="zone-dot"><i id="z5"></i></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="brush" class="brush">
+        <div class="brush-glow"></div>
+        <div class="brush-paste"></div>
+        <div class="brush-head"></div>
+        <div class="brush-handle"></div>
+      </div>
+
+      <div class="feedback">
+        <div id="toast" class="toast">พร้อมแปรงฟัน!</div>
+      </div>
+
+      <div id="bossPanel" class="boss-panel">
+        <div class="boss-title">
+          <span>👾 Plaque Monster Boss</span>
+          <span id="bossHpText">100%</span>
+        </div>
+        <div class="boss-hp"><i id="bossHpFill"></i></div>
+      </div>
+
+      <div id="missionBoard" class="mission-board">
+        <b>ภารกิจ:</b> บีบยาสีฟันให้พอดี แล้วแปรงคราบให้ครบ 6 โซน
+      </div>
+
+      <div id="feverBanner" class="fever-banner">FRESH FEVER!</div>
+    </section>
+
+    <!-- START SCREEN -->
+    <section id="startScreen" class="screen show">
+      <div class="card">
+        <h1 class="hero-title">🦷 Toothbrush Hero<br><span>Plaque Battle AR</span></h1>
+        <p class="sub">
+          ภารกิจฮีโร่พิทักษ์รอยยิ้ม: บีบยาสีฟันให้พอดี แปรงให้ถูกโซน ถูกทิศ
+          รักษาเหงือก และพิชิต Plaque Monster ก่อนหมดเวลา
+        </p>
+
+        <div class="form-row">
+          <label class="field">
+            ชื่อผู้เล่น
+            <input id="playerName" value="Hero" maxlength="24" />
+          </label>
+          <label class="field">
+            ชั้น/กลุ่ม
+            <input id="classLevel" value="ป.5" maxlength="16" />
+          </label>
+        </div>
+
+        <div class="grid">
+          <button class="choice active" data-diff="easy">
+            <b>Easy</b>
+            <small>60 วิ • คราบน้อย • เหมาะสำหรับฝึก</small>
+          </button>
+          <button class="choice" data-diff="normal">
+            <b>Normal</b>
+            <small>45 วิ • มีบอส • ใช้เล่นจริง</small>
+          </button>
+          <button class="choice" data-diff="hard">
+            <b>Hard</b>
+            <small>40 วิ • คราบไว • บอสโหดขึ้น</small>
+          </button>
+        </div>
+
+        <div class="hint-box">
+          วิธีเล่น: ลากแปรงไปที่คราบฟัน 🟡 ให้ตรงจุดและถูกทิศ
+          ถ้าแปรงเร็วหรือถูซ้ำแรงเกินไป ค่า Gum Health จะลดลง
+        </div>
+
+        <div class="btn-row">
+          <button id="startBtn" class="primary">เริ่มภารกิจแปรงฟัน</button>
+          <button id="camBtn" class="secondary">เปิด/สลับกล้อง</button>
+          <button id="backZoneBtn" class="secondary">กลับ Hygiene Zone</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TOOTHPASTE SCREEN -->
+    <section id="toothpasteScreen" class="screen">
+      <div class="card">
+        <h1 class="hero-title">🪥 บีบยาสีฟันให้พอดี</h1>
+        <p class="sub">
+          กดค้างเพื่อบีบยาสีฟัน เป้าหมายคือให้อยู่ในแถบสีเขียว
+          ถ้าน้อยเกินไปพลังทำความสะอาดจะลดลง ถ้ามากเกินไปจะเสียเวลา
+        </p>
+
+        <div class="charge-area">
+          <div class="meter">
+            <div class="meter-target"></div>
+            <div id="chargeFill" class="meter-fill"></div>
+          </div>
+          <button id="chargeBtn" class="charge-btn">กดค้างเพื่อบีบยาสีฟัน</button>
+        </div>
+
+        <div id="chargeHint" class="hint-box">
+          เป้าหมาย: 46%–70% = Fresh Start Bonus
+        </div>
+
+        <div class="btn-row">
+          <button id="skipChargeBtn" class="secondary">ข้ามและเริ่มเล่น</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULT SCREEN -->
+    <section id="resultScreen" class="screen">
+      <div class="card">
+        <h1 class="hero-title" id="resultTitle">Fresh Hero 🫧</h1>
+        <p class="sub" id="resultSub">
+          สรุปผลภารกิจแปรงฟัน
+        </p>
+
+        <div class="result-grid">
+          <div class="stat-card"><small>Score</small><b id="rScore">0</b></div>
+          <div class="stat-card"><small>Clean Score</small><b id="rClean">0%</b></div>
+          <div class="stat-card"><small>Gum Health</small><b id="rGum">100%</b></div>
+          <div class="stat-card"><small>Coverage</small><b id="rCoverage">0/6</b></div>
+          <div class="stat-card"><small>Best Combo</small><b id="rCombo">0</b></div>
+          <div class="stat-card"><small>Boss Result</small><b id="rBoss">-</b></div>
+        </div>
+
+        <div id="resultAdvice" class="hint-box">
+          รอบหน้าลองแปรงให้ครบทุกโซน และรักษา Gum Health ให้สูงกว่า 80%
+        </div>
+
+        <div class="btn-row">
+          <button id="replayBtn" class="primary">เล่นอีกครั้ง</button>
+          <button id="resultBackBtn" class="secondary">กลับ Hygiene Zone</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const VERSION = 'v20260619-TOOTHBRUSH-AR-V1-PLAYABLE-CORE';
+
+      const CONFIG = {
+        hygieneZoneUrl: '../hygiene-zone.html',
+        sheetWebAppUrl: '',
+
+        difficulty: {
+          easy: {
+            label: 'Easy',
+            duration: 60,
+            plaqueCount: 13,
+            plaqueHp: 16,
+            spawnEvery: 3400,
+            itemEvery: 5200,
+            bossHp: 70,
+            gumDamage: 0.55,
+            scoreMul: 1.00
+          },
+          normal: {
+            label: 'Normal',
+            duration: 45,
+            plaqueCount: 17,
+            plaqueHp: 20,
+            spawnEvery: 2800,
+            itemEvery: 4800,
+            bossHp: 100,
+            gumDamage: 0.82,
+            scoreMul: 1.12
+          },
+          hard: {
+            label: 'Hard',
+            duration: 40,
+            plaqueCount: 22,
+            plaqueHp: 24,
+            spawnEvery: 2200,
+            itemEvery: 4300,
+            bossHp: 135,
+            gumDamage: 1.12,
+            scoreMul: 1.28
+          }
+        },
+
+        brushRadius: 42,
+        cleanPowerBase: 0.030,
+        feverDurationMs: 6500,
+        boostDurationMs: 6500
+      };
+
+      const ZONES = [
+        { id: 0, name: 'บนซ้าย',   xMin:  7, xMax: 36, yMin: 10, yMax: 45 },
+        { id: 1, name: 'บนกลาง',  xMin: 34, xMax: 66, yMin:  8, yMax: 45 },
+        { id: 2, name: 'บนขวา',   xMin: 64, xMax: 93, yMin: 10, yMax: 45 },
+        { id: 3, name: 'ล่างซ้าย', xMin:  7, xMax: 36, yMin: 55, yMax: 90 },
+        { id: 4, name: 'ล่างกลาง',xMin: 34, xMax: 66, yMin: 55, yMax: 92 },
+        { id: 5, name: 'ล่างขวา', xMin: 64, xMax: 93, yMin: 55, yMax: 90 }
+      ];
+
+      const PLAQUE_TYPES = [
+        { type: 'soft',   icon: '🟡', label: 'Soft Plaque',   hpMul: 1.00, score: 36 },
+        { type: 'sticky', icon: '🟠', label: 'Sticky Plaque', hpMul: 1.35, score: 50 },
+        { type: 'germ',   icon: '🦠', label: 'Germ Runner',   hpMul: 1.15, score: 44 },
+        { type: 'sugar',  icon: '🍬', label: 'Sugar Spot',    hpMul: 1.25, score: 42 },
+        { type: 'tartar', icon: '🧱', label: 'Tartar Shield', hpMul: 1.55, score: 58 }
+      ];
+
+      const DIRECTIONS = [
+        { id: 'vertical',   label: 'ขึ้น–ลง',   icon: '↕️' },
+        { id: 'horizontal', label: 'ซ้าย–ขวา', icon: '↔️' },
+        { id: 'gentle',     label: 'เบา ๆ',    icon: '🌿' }
+      ];
+
+      const $ = (id) => document.getElementById(id);
+
+      const app = $('app');
+      const video = $('camera');
+      const cameraFallback = $('cameraFallback');
+      const stage = $('stage');
+      const mouthWrap = $('mouthWrap');
+      const brush = $('brush');
+
+      const startScreen = $('startScreen');
+      const toothpasteScreen = $('toothpasteScreen');
+      const resultScreen = $('resultScreen');
+
+      const timeText = $('timeText');
+      const scoreText = $('scoreText');
+      const comboText = $('comboText');
+      const cleanText = $('cleanText');
+      const gumText = $('gumText');
+      const feverText = $('feverText');
+
+      const cleanFill = $('cleanFill');
+      const gumFill = $('gumFill');
+      const feverFill = $('feverFill');
+
+      const missionBoard = $('missionBoard');
+      const toast = $('toast');
+      const feverBanner = $('feverBanner');
+
+      const bossPanel = $('bossPanel');
+      const bossHpText = $('bossHpText');
+      const bossHpFill = $('bossHpFill');
+
+      const chargeFill = $('chargeFill');
+      const chargeBtn = $('chargeBtn');
+      const chargeHint = $('chargeHint');
+
+      const state = {
+        version: VERSION,
+        phase: 'start',
+        selectedDiff: 'easy',
+        profile: {
+          playerName: 'Hero',
+          classLevel: 'ป.5'
+        },
+
+        cameraFacing: 'environment',
+        cameraReady: false,
+        muted: false,
+        paused: false,
+
+        startAt: 0,
+        lastTick: 0,
+        remaining: 45,
+        duration: 45,
+
+        score: 0,
+        clean: 0,
+        gum: 100,
+        combo: 0,
+        bestCombo: 0,
+        fever: 0,
+        feverActiveUntil: 0,
+        boostActiveUntil: 0,
+
+        toothpasteCharge: 0,
+        toothpasteQuality: 'normal',
+        toothpastePowerMul: 1,
+
+        plaques: [],
+        items: [],
+        plaqueId: 1,
+        itemId: 1,
+
+        zoneClean: [0,0,0,0,0,0],
+        zoneHits: [0,0,0,0,0,0],
+        strongestZone: 0,
+        weakestZone: 0,
+
+        totalPerfect: 0,
+        totalGood: 0,
+        totalWeak: 0,
+        totalMiss: 0,
+        totalOverBrush: 0,
+
+        pointerDown: false,
+        brushX: window.innerWidth / 2,
+        brushY: window.innerHeight * .78,
+        lastBrushX: window.innerWidth / 2,
+        lastBrushY: window.innerHeight * .78,
+        lastBrushT: performance.now(),
+        brushSpeed: 0,
+        brushDir: 'none',
+        lastZone: -1,
+        repeatedZoneFrames: 0,
+
+        nextSpawnAt: 0,
+        nextItemAt: 0,
+
+        bossStarted: false,
+        bossDefeated: false,
+        bossHp: 0,
+        bossMaxHp: 100,
+
+        raf: 0,
+        resultSent: false
+      };
+
+      function clamp(n, min, max){
+        return Math.max(min, Math.min(max, n));
+      }
+
+      function rand(min, max){
+        return min + Math.random() * (max - min);
+      }
+
+      function pick(arr){
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
+      function now(){
+        return performance.now();
+      }
+
+      function showScreen(screen){
+        startScreen.classList.remove('show');
+        toothpasteScreen.classList.remove('show');
+        resultScreen.classList.remove('show');
+        if(screen) screen.classList.add('show');
+      }
+
+      function showToast(text, ms = 900){
+        toast.textContent = text;
+        toast.classList.add('show');
+        window.clearTimeout(showToast._t);
+        showToast._t = window.setTimeout(() => {
+          toast.classList.remove('show');
+        }, ms);
+      }
+
+      function particle(x, y, text){
+        const el = document.createElement('div');
+        el.className = 'particle';
+        el.textContent = text;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        stage.appendChild(el);
+        window.setTimeout(() => el.remove(), 700);
+      }
+
+      function shake(){
+        app.classList.remove('screen-shake');
+        void app.offsetWidth;
+        app.classList.add('screen-shake');
+      }
+
+      function playTone(type){
+        if(state.muted) return;
+
+        try{
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if(!AudioContext) return;
+
+          if(!playTone.ctx){
+            playTone.ctx = new AudioContext();
+          }
+
+          const ctx = playTone.ctx;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          const map = {
+            hit: [660, 0.045, 'sine'],
+            perfect: [880, 0.06, 'triangle'],
+            bad: [160, 0.09, 'sawtooth'],
+            fever: [990, 0.13, 'triangle'],
+            boss: [120, 0.16, 'sawtooth'],
+            win: [1040, 0.18, 'triangle']
+          };
+
+          const [freq, dur, wave] = map[type] || map.hit;
+
+          osc.frequency.value = freq;
+          osc.type = wave;
+          gain.gain.value = .045;
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + dur);
+          osc.stop(ctx.currentTime + dur + .02);
+        }catch(err){}
+      }
+
+      async function startCamera(){
+        if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+          state.cameraReady = false;
+          cameraFallback.style.display = 'block';
+          showToast('อุปกรณ์นี้ไม่รองรับกล้อง ใช้โหมดแตะเล่นได้เลย');
+          return;
+        }
+
+        try{
+          if(video.srcObject){
+            video.srcObject.getTracks().forEach(t => t.stop());
+            video.srcObject = null;
+          }
+
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              facingMode: state.cameraFacing,
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          });
+
+          video.srcObject = stream;
+          await video.play();
+
+          state.cameraReady = true;
+          cameraFallback.style.display = 'none';
+          showToast('กล้องพร้อมแล้ว ✨');
+        }catch(err){
+          console.warn('[camera]', err);
+          state.cameraReady = false;
+          cameraFallback.style.display = 'block';
+          showToast('เปิดกล้องไม่ได้ แต่ยังเล่นแบบแตะได้');
+        }
+      }
+
+      function toggleCameraFacing(){
+        state.cameraFacing = state.cameraFacing === 'environment' ? 'user' : 'environment';
+        startCamera();
+      }
+
+      function setDifficulty(diff){
+        state.selectedDiff = diff;
+
+        document.querySelectorAll('.choice').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.diff === diff);
+        });
+
+        const d = CONFIG.difficulty[diff];
+        state.duration = d.duration;
+        state.remaining = d.duration;
+        updateHud();
+      }
+
+      function resetGameData(){
+        const d = CONFIG.difficulty[state.selectedDiff];
+
+        state.phase = 'ready';
+        state.paused = false;
+        state.startAt = 0;
+        state.lastTick = 0;
+        state.remaining = d.duration;
+        state.duration = d.duration;
+
+        state.score = 0;
+        state.clean = 0;
+        state.gum = 100;
+        state.combo = 0;
+        state.bestCombo = 0;
+        state.fever = 0;
+        state.feverActiveUntil = 0;
+        state.boostActiveUntil = 0;
+
+        state.toothpasteCharge = 0;
+        state.toothpasteQuality = 'normal';
+        state.toothpastePowerMul = 1;
+
+        state.plaques.forEach(p => p.el?.remove());
+        state.items.forEach(i => i.el?.remove());
+        state.plaques = [];
+        state.items = [];
+        state.plaqueId = 1;
+        state.itemId = 1;
+
+        state.zoneClean = [0,0,0,0,0,0];
+        state.zoneHits = [0,0,0,0,0,0];
+
+        state.totalPerfect = 0;
+        state.totalGood = 0;
+        state.totalWeak = 0;
+        state.totalMiss = 0;
+        state.totalOverBrush = 0;
+
+        state.pointerDown = false;
+        state.brushSpeed = 0;
+        state.brushDir = 'none';
+        state.lastZone = -1;
+        state.repeatedZoneFrames = 0;
+
+        state.nextSpawnAt = 0;
+        state.nextItemAt = 0;
+
+        state.bossStarted = false;
+        state.bossDefeated = false;
+        state.bossHp = d.bossHp;
+        state.bossMaxHp = d.bossHp;
+
+        state.resultSent = false;
+
+        brush.classList.remove('fever');
+        bossPanel.classList.remove('show');
+
+        updateHud();
+        updateZones();
+        updateMission('ภารกิจ: บีบยาสีฟันให้พอดี แล้วเริ่มแปรงฟันให้ครบ 6 โซน');
+      }
+
+      function startToothpaste(){
+        state.profile.playerName = $('playerName').value.trim() || 'Hero';
+        state.profile.classLevel = $('classLevel').value.trim() || 'ป.5';
+
+        resetGameData();
+        state.phase = 'toothpaste';
+        showScreen(toothpasteScreen);
+        chargeFill.style.width = '0%';
+        chargeHint.textContent = 'เป้าหมาย: 46%–70% = Fresh Start Bonus';
+        showToast('เตรียมบีบยาสีฟันให้พอดี 🪥');
+      }
+
+      let chargeTimer = 0;
+      let charging = false;
+      let chargeDirection = 1;
+
+      function beginCharge(){
+        if(state.phase !== 'toothpaste') return;
+
+        charging = true;
+        chargeDirection = 1;
+
+        cancelAnimationFrame(chargeTimer);
+
+        const step = () => {
+          if(!charging) return;
+
+          state.toothpasteCharge += chargeDirection * 1.35;
+
+          if(state.toothpasteCharge >= 100){
+            state.toothpasteCharge = 100;
+            chargeDirection = -1;
+          }
+
+          if(state.toothpasteCharge <= 0){
+            state.toothpasteCharge = 0;
+            chargeDirection = 1;
+          }
+
+          chargeFill.style.width = state.toothpasteCharge + '%';
+          chargeTimer = requestAnimationFrame(step);
+        };
+
+        step();
+      }
+
+      function endCharge(){
+        if(!charging) return;
+
+        charging = false;
+        cancelAnimationFrame(chargeTimer);
+        evaluateToothpaste();
+      }
+
+      function evaluateToothpaste(){
+        const c = state.toothpasteCharge;
+
+        if(c >= 46 && c <= 70){
+          state.toothpasteQuality = 'perfect';
+          state.toothpastePowerMul = 1.18;
+          state.score += 120;
+          chargeHint.textContent = 'ยอดเยี่ยม! ยาสีฟันพอดี ได้ Fresh Start Bonus +120';
+          showToast('Fresh Start Bonus! 🫧');
+          playTone('perfect');
+        }else if(c < 30){
+          state.toothpasteQuality = 'low';
+          state.toothpastePowerMul = .88;
+          chargeHint.textContent = 'ยาสีฟันน้อยไปเล็กน้อย พลังทำความสะอาดลดลงนิดหน่อย';
+          showToast('น้อยไปนิด แต่ยังเริ่มได้');
+        }else if(c > 82){
+          state.toothpasteQuality = 'too_much';
+          state.toothpastePowerMul = .94;
+          state.remaining = Math.max(10, state.remaining - 3);
+          chargeHint.textContent = 'ยาสีฟันมากเกินไป เสียเวลา 3 วินาที';
+          showToast('มากไปนิด เสียเวลา 3 วิ ⚠️');
+          playTone('bad');
+        }else{
+          state.toothpasteQuality = 'normal';
+          state.toothpastePowerMul = 1;
+          chargeHint.textContent = 'ใช้ได้ เริ่มแปรงฟันได้เลย';
+          showToast('พร้อมเริ่มแปรงฟัน!');
+        }
+
+        brush.classList.add('has-paste');
+
+        window.setTimeout(() => {
+          beginPlay();
+        }, 850);
+      }
+
+      function beginPlay(){
+        const t = now();
+        const d = CONFIG.difficulty[state.selectedDiff];
+
+        state.phase = 'playing';
+        state.startAt = t;
+        state.lastTick = t;
+        state.nextSpawnAt = t + d.spawnEvery;
+        state.nextItemAt = t + d.itemEvery;
+
+        showScreen(null);
+
+        spawnInitialPlaques();
+        updateMission('ภารกิจ: แปรงคราบให้ครบ 6 โซน • ทำ Combo • ระวัง Gum Health');
+        showToast('เริ่มภารกิจ! ลากแปรงไปที่คราบฟัน 🦷');
+
+        cancelAnimationFrame(state.raf);
+        state.raf = requestAnimationFrame(tick);
+      }
+
+      function getMouthRect(){
+        return mouthWrap.getBoundingClientRect();
+      }
+
+      function normalizedToScreen(nx, ny){
+        const r = getMouthRect();
+        return {
+          x: r.left + (nx / 100) * r.width,
+          y: r.top + (ny / 100) * r.height
+        };
+      }
+
+      function spawnInitialPlaques(){
+        const d = CONFIG.difficulty[state.selectedDiff];
+        const count = d.plaqueCount;
+
+        for(let i = 0; i < count; i++){
+          spawnPlaque(false);
+        }
+      }
+
+      function spawnPlaque(isBoss = false){
+        const d = CONFIG.difficulty[state.selectedDiff];
+
+        const zone = pick(ZONES);
+        const nx = rand(zone.xMin + 2, zone.xMax - 2);
+        const ny = rand(zone.yMin + 3, zone.yMax - 3);
+
+        const ptype = isBoss
+          ? { type: 'boss', icon: '💥', label: 'Boss Weak Spot', hpMul: 1.35, score: 80 }
+          : pick(PLAQUE_TYPES);
+
+        const dir = isBoss
+          ? pick(DIRECTIONS)
+          : pick(DIRECTIONS);
+
+        const hp = d.plaqueHp * ptype.hpMul * (isBoss ? 1.2 : 1);
+
+        const el = document.createElement('div');
+        el.className = `plaque ${ptype.type}`;
+        el.dataset.id = String(state.plaqueId);
+        el.innerHTML = `<span>${ptype.icon}</span><i class="hp-ring"></i>`;
+
+        const pos = normalizedToScreen(nx, ny);
+        el.style.left = pos.x + 'px';
+        el.style.top = pos.y + 'px';
+
+        stage.appendChild(el);
+
+        const plaque = {
+          id: state.plaqueId++,
+          boss: isBoss,
+          type: ptype.type,
+          icon: ptype.icon,
+          label: ptype.label,
+          x: pos.x,
+          y: pos.y,
+          nx,
+          ny,
+          zone: zone.id,
+          direction: dir.id,
+          directionLabel: `${dir.icon} ${dir.label}`,
+          hp,
+          maxHp: hp,
+          score: ptype.score,
+          el
+        };
+
+        state.plaques.push(plaque);
+        return plaque;
+      }
+
+      function spawnItem(){
+        if(state.phase !== 'playing' && state.phase !== 'boss') return;
+
+        const kind = Math.random() < .62 ? 'boost' : 'trap';
+        const zone = pick(ZONES);
+        const pos = normalizedToScreen(rand(zone.xMin, zone.xMax), rand(zone.yMin, zone.yMax));
+
+        const el = document.createElement('div');
+        el.className = 'floating-item';
+        el.textContent = kind === 'boost' ? '🫧' : '🍭';
+        el.style.left = pos.x + 'px';
+        el.style.top = pos.y + 'px';
+
+        stage.appendChild(el);
+
+        state.items.push({
+          id: state.itemId++,
+          kind,
+          x: pos.x,
+          y: pos.y,
+          expiresAt: now() + 6500,
+          el
+        });
+      }
+
+      function updateBrushPosition(x, y){
+        state.lastBrushX = state.brushX;
+        state.lastBrushY = state.brushY;
+
+        state.brushX = clamp(x, 0, window.innerWidth);
+        state.brushY = clamp(y, 0, window.innerHeight);
+
+        const t = now();
+        const dt = Math.max(16, t - state.lastBrushT);
+        const dx = state.brushX - state.lastBrushX;
+        const dy = state.brushY - state.lastBrushY;
+
+        state.brushSpeed = Math.sqrt(dx * dx + dy * dy) / dt * 1000;
+
+        if(Math.abs(dx) > Math.abs(dy) * 1.25){
+          state.brushDir = 'horizontal';
+        }else if(Math.abs(dy) > Math.abs(dx) * 1.25){
+          state.brushDir = 'vertical';
+        }else{
+          state.brushDir = 'gentle';
+        }
+
+        state.lastBrushT = t;
+
+        brush.style.left = state.brushX + 'px';
+        brush.style.top = state.brushY + 'px';
+
+        const angle = clamp(dx * .35, -28, 28) - 22;
+        brush.style.transform = `translate(-24px,-24px) rotate(${angle}deg)`;
+      }
+
+      function pointerXY(ev){
+        if(ev.touches && ev.touches[0]){
+          return { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+        }
+        return { x: ev.clientX, y: ev.clientY };
+      }
+
+      function onPointerDown(ev){
+        const p = pointerXY(ev);
+        state.pointerDown = true;
+        updateBrushPosition(p.x, p.y);
+      }
+
+      function onPointerMove(ev){
+        const p = pointerXY(ev);
+        updateBrushPosition(p.x, p.y);
+      }
+
+      function onPointerUp(){
+        state.pointerDown = false;
+        state.combo = Math.max(0, state.combo - 1);
+        updateHud();
+      }
+
+      function distance(a, b, c, d){
+        const dx = a - c;
+        const dy = b - d;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      function directionScore(plaque){
+        if(plaque.direction === state.brushDir) return 'perfect';
+
+        if(plaque.direction === 'gentle' && state.brushSpeed < 560) return 'good';
+        if(state.brushSpeed >= 120 && state.brushSpeed <= 900) return 'good';
+
+        return 'weak';
+      }
+
+      function speedQuality(){
+        if(state.brushSpeed > 1450) return 'over';
+        if(state.brushSpeed >= 150 && state.brushSpeed <= 900) return 'nice';
+        if(state.brushSpeed < 80) return 'slow';
+        return 'rough';
+      }
+
+      function cleanPlaque(plaque, dt){
+        const d = CONFIG.difficulty[state.selectedDiff];
+        const q = directionScore(plaque);
+        const sq = speedQuality();
+        const t = now();
+
+        let power = CONFIG.cleanPowerBase * dt;
+        power *= state.toothpastePowerMul;
+
+        if(t < state.boostActiveUntil) power *= 1.65;
+        if(t < state.feverActiveUntil) power *= 1.9;
+
+        if(q === 'perfect') power *= 1.42;
+        if(q === 'good') power *= 1.05;
+        if(q === 'weak') power *= .62;
+
+        if(sq === 'over'){
+          power *= .72;
+          state.gum = clamp(state.gum - d.gumDamage * .055 * dt, 0, 100);
+          state.totalOverBrush += 1;
+        }else if(sq === 'rough'){
+          state.gum = clamp(state.gum - d.gumDamage * .018 * dt, 0, 100);
+        }
+
+        plaque.hp -= power;
+
+        const cleanGain = power * (plaque.boss ? .11 : .075);
+        state.clean = clamp(state.clean + cleanGain, 0, 100);
+        state.zoneClean[plaque.zone] = clamp(state.zoneClean[plaque.zone] + cleanGain * 4.2, 0, 100);
+        state.zoneHits[plaque.zone] += 1;
+
+        if(plaque.zone === state.lastZone){
+          state.repeatedZoneFrames++;
+          if(state.repeatedZoneFrames > 38 && state.brushSpeed > 900){
+            state.gum = clamp(state.gum - d.gumDamage * .032 * dt, 0, 100);
+          }
+        }else{
+          state.lastZone = plaque.zone;
+          state.repeatedZoneFrames = 0;
+        }
+
+        const hitScore = q === 'perfect' ? 9 : q === 'good' ? 6 : 3;
+        state.score += Math.round(hitScore * d.scoreMul * (t < state.feverActiveUntil ? 1.5 : 1));
+
+        if(q === 'perfect'){
+          state.totalPerfect++;
+          state.combo++;
+          state.fever = clamp(state.fever + .68, 0, 100);
+          if(Math.random() < .12) particle(plaque.x, plaque.y, 'Perfect ✨');
+        }else if(q === 'good'){
+          state.totalGood++;
+          state.combo++;
+          state.fever = clamp(state.fever + .38, 0, 100);
+        }else{
+          state.totalWeak++;
+          state.combo = Math.max(0, state.combo - .12);
+          state.fever = clamp(state.fever + .12, 0, 100);
+        }
+
+        state.bestCombo = Math.max(state.bestCombo, Math.floor(state.combo));
+
+        if(state.fever >= 100 && t >= state.feverActiveUntil){
+          activateFever();
+        }
+
+        if(plaque.boss){
+          state.bossHp = clamp(state.bossHp - power * 1.55, 0, state.bossMaxHp);
+          if(state.bossHp <= 0 && !state.bossDefeated){
+            defeatBoss();
+          }
+        }
+
+        if(plaque.hp <= 0){
+          destroyPlaque(plaque, q);
+        }else{
+          const opacity = clamp(plaque.hp / plaque.maxHp, .2, 1);
+          const scale = .78 + opacity * .25;
+          plaque.el.style.opacity = String(opacity);
+          plaque.el.style.transform = `translate(-50%,-50%) scale(${scale})`;
+        }
+
+        if(Math.random() < .09){
+          particle(plaque.x, plaque.y, q === 'perfect' ? '🫧' : '✨');
+        }
+      }
+
+      function destroyPlaque(plaque, quality){
+        const d = CONFIG.difficulty[state.selectedDiff];
+
+        state.score += Math.round(plaque.score * d.scoreMul * (quality === 'perfect' ? 1.45 : quality === 'good' ? 1.12 : .84));
+        state.clean = clamp(state.clean + (plaque.boss ? 2.2 : 1.3), 0, 100);
+        state.zoneClean[plaque.zone] = clamp(state.zoneClean[plaque.zone] + 7, 0, 100);
+
+        particle(plaque.x, plaque.y, quality === 'perfect' ? '💎' : '🫧');
+        playTone(quality === 'perfect' ? 'perfect' : 'hit');
+
+        plaque.el.remove();
+        state.plaques = state.plaques.filter(p => p.id !== plaque.id);
+      }
+
+      function activateFever(){
+        state.fever = 0;
+        state.feverActiveUntil = now() + CONFIG.feverDurationMs;
+        brush.classList.add('fever');
+        feverBanner.classList.add('show');
+
+        showToast('FRESH FEVER! คราบหายไวขึ้น 🔥', 1000);
+        playTone('fever');
+
+        window.setTimeout(() => feverBanner.classList.remove('show'), 900);
+      }
+
+      function updateItems(){
+        const t = now();
+
+        for(const item of [...state.items]){
+          if(t > item.expiresAt){
+            item.el.remove();
+            state.items = state.items.filter(i => i.id !== item.id);
+            continue;
+          }
+
+          const dist = distance(state.brushX, state.brushY, item.x, item.y);
+          if(dist <= CONFIG.brushRadius + 20){
+            if(item.kind === 'boost'){
+              state.boostActiveUntil = t + CONFIG.boostDurationMs;
+              state.score += 90;
+              showToast('Bubble Boost! ทำความสะอาดเร็วขึ้น 🫧');
+              particle(item.x, item.y, 'BOOST');
+              playTone('perfect');
+            }else{
+              state.gum = clamp(state.gum - 7, 0, 100);
+              state.clean = clamp(state.clean - 3, 0, 100);
+              state.combo = 0;
+              showToast('Candy Trap! คราบเพิ่ม ระวังเหงือก ⚠️');
+              particle(item.x, item.y, 'Oops!');
+              shake();
+              playTone('bad');
+
+              if(state.phase === 'playing' || state.phase === 'boss'){
+                spawnPlaque(false);
+              }
+            }
+
+            item.el.remove();
+            state.items = state.items.filter(i => i.id !== item.id);
+          }
+        }
+      }
+
+      function maybeSpawn(dt, t){
+        const d = CONFIG.difficulty[state.selectedDiff];
+
+        if(state.phase === 'playing' && t >= state.nextSpawnAt && state.plaques.length < d.plaqueCount + 5){
+          spawnPlaque(false);
+          state.nextSpawnAt = t + d.spawnEvery;
+        }
+
+        if((state.phase === 'playing' || state.phase === 'boss') && t >= state.nextItemAt){
+          spawnItem();
+          state.nextItemAt = t + d.itemEvery;
+        }
+      }
+
+      function shouldStartBoss(){
+        if(state.bossStarted) return false;
+        if(state.selectedDiff === 'easy' && state.clean < 55 && state.remaining > 8) return false;
+
+        return state.remaining <= 13 || state.clean >= 72;
+      }
+
+      function startBoss(){
+        state.phase = 'boss';
+        state.bossStarted = true;
+
+        const d = CONFIG.difficulty[state.selectedDiff];
+        state.bossHp = d.bossHp;
+        state.bossMaxHp = d.bossHp;
+
+        bossPanel.classList.add('show');
+        updateMission('Boss Phase: แปรงจุดอ่อนสีแดงให้ทัน แล้วหลบ Candy Trap');
+
+        showToast('Plaque Monster โผล่แล้ว! 👾', 1200);
+        playTone('boss');
+        shake();
+
+        for(let i = 0; i < 5; i++){
+          spawnPlaque(true);
+        }
+      }
+
+      function defeatBoss(){
+        state.bossDefeated = true;
+        state.score += 650;
+        state.clean = clamp(state.clean + 10, 0, 100);
+
+        showToast('ชนะ Plaque Monster! Smile Burst ✨', 1300);
+        particle(window.innerWidth / 2, window.innerHeight / 2, 'SMILE BURST!');
+        playTone('win');
+        shake();
+
+        state.plaques
+          .filter(p => p.boss)
+          .forEach(p => {
+            p.el.remove();
+          });
+
+        state.plaques = state.plaques.filter(p => !p.boss);
+      }
+
+      function tick(t){
+        state.raf = requestAnimationFrame(tick);
+
+        if(state.phase !== 'playing' && state.phase !== 'boss') return;
+        if(state.paused) return;
+
+        const dt = clamp(t - (state.lastTick || t), 0, 48);
+        state.lastTick = t;
+
+        const elapsed = (t - state.startAt) / 1000;
+        state.remaining = clamp(state.duration - elapsed, 0, state.duration);
+
+        if(t > state.feverActiveUntil){
+          brush.classList.remove('fever');
+        }
+
+        if(state.pointerDown){
+          let anyHit = false;
+
+          for(const plaque of [...state.plaques]){
+            const dist = distance(state.brushX, state.brushY, plaque.x, plaque.y);
+            if(dist <= CONFIG.brushRadius + 18){
+              cleanPlaque(plaque, dt);
+              anyHit = true;
+            }
+          }
+
+          if(!anyHit && state.brushSpeed > 300){
+            state.totalMiss += 1;
+            state.combo = Math.max(0, state.combo - .025);
+            state.fever = clamp(state.fever - .012 * dt, 0, 100);
+          }
+        }
+
+        updateItems();
+        maybeSpawn(dt, t);
+
+        if(state.phase === 'playing' && shouldStartBoss()){
+          startBoss();
+        }
+
+        if(state.phase === 'boss' && !state.bossDefeated && state.bossStarted){
+          if(Math.random() < .0045){
+            spawnPlaque(true);
+          }
+        }
+
+        if(state.remaining <= 0){
+          endGame('timeup');
+          return;
+        }
+
+        if(state.clean >= 100){
+          endGame('clean_complete');
+          return;
+        }
+
+        updateHud();
+        updateZones();
+        updateBossHud();
+      }
+
+      function updateHud(){
+        timeText.textContent = String(Math.ceil(state.remaining));
+        scoreText.textContent = String(Math.max(0, Math.round(state.score)));
+        comboText.textContent = String(Math.floor(state.combo));
+
+        cleanText.textContent = Math.round(state.clean) + '%';
+        gumText.textContent = Math.round(state.gum) + '%';
+        feverText.textContent = Math.round(state.fever) + '%';
+
+        cleanFill.style.width = clamp(state.clean,0,100) + '%';
+        gumFill.style.width = clamp(state.gum,0,100) + '%';
+        feverFill.style.width = clamp(state.fever,0,100) + '%';
+      }
+
+      function updateZones(){
+        for(let i = 0; i < 6; i++){
+          const el = $('z' + i);
+          if(el) el.style.width = clamp(state.zoneClean[i],0,100) + '%';
+        }
+      }
+
+      function updateBossHud(){
+        if(!state.bossStarted){
+          bossPanel.classList.remove('show');
+          return;
+        }
+
+        bossPanel.classList.add('show');
+
+        const pct = state.bossMaxHp > 0
+          ? clamp((state.bossHp / state.bossMaxHp) * 100, 0, 100)
+          : 0;
+
+        bossHpText.textContent = Math.round(pct) + '%';
+        bossHpFill.style.width = pct + '%';
+      }
+
+      function updateMission(text){
+        missionBoard.innerHTML = `<b>ภารกิจ:</b> ${text}`;
+      }
+
+      function calculateCoverage(){
+        return state.zoneClean.filter(v => v >= 55).length;
+      }
+
+      function getStrongWeakZones(){
+        let maxIdx = 0;
+        let minIdx = 0;
+
+        for(let i = 1; i < state.zoneClean.length; i++){
+          if(state.zoneClean[i] > state.zoneClean[maxIdx]) maxIdx = i;
+          if(state.zoneClean[i] < state.zoneClean[minIdx]) minIdx = i;
+        }
+
+        state.strongestZone = maxIdx;
+        state.weakestZone = minIdx;
+
+        return {
+          strongest: ZONES[maxIdx].name,
+          weakest: ZONES[minIdx].name
+        };
+      }
+
+      function getBadge(){
+        const coverage = calculateCoverage();
+
+        if(state.clean >= 92 && state.gum >= 88 && state.bossDefeated) return {
+          title: 'Toothbrush Master 👑',
+          sub: 'แปรงสะอาด อ่อนโยน และพิชิตบอสคราบฟันได้ยอดเยี่ยม'
+        };
+
+        if(state.bossDefeated && state.clean >= 80) return {
+          title: 'Plaque Slayer 🦷',
+          sub: 'กำจัด Plaque Monster สำเร็จ และทำความสะอาดได้ดีมาก'
+        };
+
+        if(state.gum >= 90 && coverage >= 4) return {
+          title: 'Gentle Gum Hero 🌿',
+          sub: 'แปรงได้อ่อนโยน เหงือกปลอดภัย และครอบคลุมหลายโซน'
+        };
+
+        if(state.clean >= 75) return {
+          title: 'Fresh Hero 🫧',
+          sub: 'ทำความสะอาดได้ดีมาก รอบหน้าลองเก็บครบทุกโซน'
+        };
+
+        if(coverage >= 3) return {
+          title: 'Bubble Cleaner 🫧',
+          sub: 'เริ่มควบคุมแปรงได้ดีแล้ว ค่อย ๆ เพิ่มความแม่นยำ'
+        };
+
+        return {
+          title: 'Smile Rookie 😊',
+          sub: 'เริ่มต้นดีแล้ว รอบหน้าลองแปรงให้ครบทุกโซน'
+        };
+      }
+
+      function getAdvice(){
+        const zones = getStrongWeakZones();
+        const coverage = calculateCoverage();
+
+        let advice = `โซนที่ทำดีที่สุด: ${zones.strongest} • โซนที่ควรฝึกเพิ่ม: ${zones.weakest}`;
+
+        if(state.gum < 70){
+          advice += '<br>คำแนะนำ: รอบหน้าลองลากแปรงช้าลงและอย่าถูซ้ำแรงเกินไป เพื่อรักษา Gum Health';
+        }else if(coverage < 6){
+          advice += '<br>คำแนะนำ: รอบหน้าลองไล่แปรงให้ครบ 6 โซนก่อนเข้าสู้บอส';
+        }else if(!state.bossDefeated){
+          advice += '<br>คำแนะนำ: ทำ Combo และเข้า Fresh Fever ให้ไวขึ้น จะช่วยชนะ Plaque Monster';
+        }else{
+          advice += '<br>คำแนะนำ: ดีมากแล้ว รอบหน้าลองเล่นระดับที่ยากขึ้นหรือทำ Perfect Brush ให้มากขึ้น';
+        }
+
+        return advice;
+      }
+
+      function endGame(reason){
+        if(state.phase === 'summary') return;
+
+        state.phase = 'summary';
+        cancelAnimationFrame(state.raf);
+
+        state.plaques.forEach(p => p.el?.remove());
+        state.items.forEach(i => i.el?.remove());
+        state.plaques = [];
+        state.items = [];
+
+        bossPanel.classList.remove('show');
+        brush.classList.remove('fever');
+
+        const coverage = calculateCoverage();
+        const badge = getBadge();
+
+        $('resultTitle').textContent = badge.title;
+        $('resultSub').textContent = badge.sub;
+        $('rScore').textContent = String(Math.max(0, Math.round(state.score)));
+        $('rClean').textContent = Math.round(state.clean) + '%';
+        $('rGum').textContent = Math.round(state.gum) + '%';
+        $('rCoverage').textContent = `${coverage}/6`;
+        $('rCombo').textContent = String(Math.floor(state.bestCombo));
+        $('rBoss').textContent = state.bossDefeated ? 'ชนะ' : state.bossStarted ? 'ยังไม่ชนะ' : 'ยังไม่เจอ';
+        $('resultAdvice').innerHTML = getAdvice();
+
+        saveLocalBest();
+        sendResult(reason);
+
+        showScreen(resultScreen);
+      }
+
+      function saveLocalBest(){
+        try{
+          const key = 'toothbrushHeroBest';
+          const oldBest = Number(localStorage.getItem(key) || 0);
+          if(state.score > oldBest){
+            localStorage.setItem(key, String(Math.round(state.score)));
+          }
+        }catch(err){}
+      }
+
+      function buildResultPayload(reason){
+        const zones = getStrongWeakZones();
+
+        return {
+          version: state.version,
+          game_id: 'hygiene-toothbrush-ar',
+          mode: 'toothbrush_hero_plaque_battle',
+          player_name: state.profile.playerName,
+          class_level: state.profile.classLevel,
+          difficulty: state.selectedDiff,
+          duration_sec: state.duration,
+          end_reason: reason,
+          score: Math.round(state.score),
+          clean_score: Math.round(state.clean),
+          gum_health: Math.round(state.gum),
+          coverage_zone_count: calculateCoverage(),
+          perfect_count: Math.round(state.totalPerfect),
+          good_count: Math.round(state.totalGood),
+          weak_count: Math.round(state.totalWeak),
+          miss_count: Math.round(state.totalMiss),
+          overbrush_count: Math.round(state.totalOverBrush),
+          best_combo: Math.floor(state.bestCombo),
+          boss_started: state.bossStarted ? 'yes' : 'no',
+          boss_defeated: state.bossDefeated ? 'yes' : 'no',
+          strongest_zone: zones.strongest,
+          weakest_zone: zones.weakest,
+          input_mode: 'touch_mouse',
+          toothpaste_quality: state.toothpasteQuality,
+          camera_ready: state.cameraReady ? 'yes' : 'no',
+          created_at: new Date().toISOString()
+        };
+      }
+
+      async function sendResult(reason){
+        if(state.resultSent) return;
+        state.resultSent = true;
+
+        const payload = buildResultPayload(reason);
+
+        window.__TOOTHBRUSH_LAST_RESULT__ = payload;
+        console.log('[ToothbrushResult]', payload);
+
+        if(!CONFIG.sheetWebAppUrl) return;
+
+        try{
+          await fetch(CONFIG.sheetWebAppUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+          });
+        }catch(err){
+          console.warn('[sheet send failed]', err);
+        }
+      }
+
+      function pauseToggle(){
+        if(state.phase !== 'playing' && state.phase !== 'boss') return;
+
+        state.paused = !state.paused;
+
+        if(state.paused){
+          showToast('พักเกมชั่วคราว ⏸');
+          $('pauseBtn').textContent = '▶️';
+        }else{
+          const t = now();
+          state.startAt = t - ((state.duration - state.remaining) * 1000);
+          state.lastTick = t;
+          $('pauseBtn').textContent = '⏸';
+          showToast('เล่นต่อ!');
+        }
+      }
+
+      function backToZone(){
+        location.href = CONFIG.hygieneZoneUrl;
+      }
+
+      function bindEvents(){
+        document.querySelectorAll('.choice').forEach(btn => {
+          btn.addEventListener('click', () => setDifficulty(btn.dataset.diff));
+        });
+
+        $('startBtn').addEventListener('click', startToothpaste);
+        $('camBtn').addEventListener('click', toggleCameraFacing);
+        $('backZoneBtn').addEventListener('click', backToZone);
+        $('resultBackBtn').addEventListener('click', backToZone);
+
+        $('replayBtn').addEventListener('click', () => {
+          showScreen(startScreen);
+          setDifficulty(state.selectedDiff);
+        });
+
+        $('pauseBtn').addEventListener('click', pauseToggle);
+
+        $('muteBtn').addEventListener('click', () => {
+          state.muted = !state.muted;
+          $('muteBtn').textContent = state.muted ? '🔇' : '🔈';
+          showToast(state.muted ? 'ปิดเสียงแล้ว' : 'เปิดเสียงแล้ว');
+        });
+
+        chargeBtn.addEventListener('pointerdown', beginCharge);
+        chargeBtn.addEventListener('pointerup', endCharge);
+        chargeBtn.addEventListener('pointercancel', endCharge);
+        chargeBtn.addEventListener('pointerleave', endCharge);
+
+        $('skipChargeBtn').addEventListener('click', () => {
+          state.toothpasteCharge = 52;
+          state.toothpastePowerMul = 1;
+          brush.classList.add('has-paste');
+          beginPlay();
+        });
+
+        stage.addEventListener('pointerdown', onPointerDown);
+        stage.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
+
+        window.addEventListener('resize', () => {
+          for(const p of state.plaques){
+            const pos = normalizedToScreen(p.nx, p.ny);
+            p.x = pos.x;
+            p.y = pos.y;
+            p.el.style.left = pos.x + 'px';
+            p.el.style.top = pos.y + 'px';
+          }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+          if(document.hidden && (state.phase === 'playing' || state.phase === 'boss')){
+            state.paused = true;
+            $('pauseBtn').textContent = '▶️';
+          }
+        });
+      }
+
+      function init(){
+        bindEvents();
+        setDifficulty('easy');
+        updateBrushPosition(window.innerWidth / 2, window.innerHeight * .78);
+        updateHud();
+        updateZones();
+
+        startCamera();
+
+        console.log('%cToothbrush Hero AR loaded', 'font-weight:bold;color:#0891b2', VERSION);
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
