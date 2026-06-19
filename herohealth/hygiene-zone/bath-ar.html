@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#dff8ff" />
   <meta name="color-scheme" content="light" />
-  <title>HeroHealth • Bath AR v4.2</title>
+  <title>HeroHealth • Bath AR v4.7</title>
   <link rel="icon" href="data:," />
 
   <style>
@@ -95,6 +95,52 @@
       pointer-events:none;
     }
 
+    .safeFrame{
+      position:absolute;
+      z-index:4;
+      left:calc(12px + var(--safeLeft));
+      right:calc(12px + var(--safeRight));
+      top:118px;
+      bottom:132px;
+      border-radius:24px;
+      border:2px dashed rgba(14,165,233,.22);
+      pointer-events:none;
+      display:none;
+      box-shadow:inset 0 0 0 9999px rgba(255,255,255,.02);
+    }
+
+    .safeFrame::before{
+      content:"อยู่ในกรอบนี้";
+      position:absolute;
+      left:14px;
+      top:10px;
+      padding:4px 9px;
+      border-radius:999px;
+      background:rgba(255,255,255,.72);
+      color:#0f5f86;
+      font-size:11px;
+      font-weight:950;
+      border:1px solid rgba(14,165,233,.18);
+    }
+
+    .compactToggle{
+      position:absolute;
+      z-index:8;
+      right:calc(10px + var(--safeRight));
+      bottom:calc(132px + var(--safeBottom));
+      min-width:44px;
+      min-height:38px;
+      border-radius:999px;
+      background:rgba(255,255,255,.88);
+      border:1px solid rgba(14,165,233,.22);
+      color:#16425d;
+      font-size:18px;
+      font-weight:950;
+      box-shadow:0 10px 28px rgba(15,54,80,.13);
+      backdrop-filter:blur(12px);
+      display:none;
+    }
+
     .hud{
       position:absolute;
       z-index:5;
@@ -151,6 +197,53 @@
       line-height:1.35;
       font-weight:800;
       color:#31546b;
+    }
+
+    .routineStepper{
+      display:flex;
+      flex-wrap:wrap;
+      gap:5px;
+      margin-top:8px;
+    }
+
+    .routineStepper span{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:24px;
+      padding:4px 8px;
+      border-radius:999px;
+      background:rgba(240,249,255,.86);
+      border:1px solid rgba(125,211,252,.28);
+      color:#64748b;
+      font-size:10px;
+      font-weight:950;
+      transition:.18s ease;
+    }
+
+    .routineStepper span.active{
+      color:#fff;
+      background:linear-gradient(135deg,#0ea5e9,#22c55e);
+      transform:translateY(-1px);
+      box-shadow:0 8px 20px rgba(14,165,233,.20);
+    }
+
+    .routineStepper span.done{
+      color:#166534;
+      background:rgba(220,252,231,.92);
+      border-color:rgba(34,197,94,.25);
+    }
+
+    .coachText{
+      margin-top:7px;
+      padding:8px 10px;
+      border-radius:15px;
+      background:rgba(255,251,235,.88);
+      border:1px solid rgba(251,191,36,.28);
+      color:#7c4a03;
+      font-size:12px;
+      line-height:1.35;
+      font-weight:850;
     }
 
     .dailyMission{
@@ -350,6 +443,16 @@
       font-size:42px;
       background:linear-gradient(135deg,#e0f2fe,#dcfce7);
       border:1px solid rgba(14,165,233,.22);
+    }
+
+    .badge.pop{
+      animation:badgePop .72s ease both;
+    }
+
+    @keyframes badgePop{
+      0%{transform:scale(.72) rotate(-8deg);opacity:.2}
+      55%{transform:scale(1.12) rotate(4deg);opacity:1}
+      100%{transform:scale(1) rotate(0deg);opacity:1}
     }
 
     h1{
@@ -564,9 +667,68 @@
       background:linear-gradient(90deg,#38bdf8,#22c55e);
     }
 
+    .heatGood{
+      background:rgba(220,252,231,.88)!important;
+      border-color:rgba(34,197,94,.28)!important;
+    }
+
+    .heatFair{
+      background:rgba(254,249,195,.88)!important;
+      border-color:rgba(250,204,21,.32)!important;
+    }
+
+    .heatMiss{
+      background:rgba(255,228,230,.88)!important;
+      border-color:rgba(244,63,94,.26)!important;
+    }
+
+    .app.compactHud .dailyMission,
+    .app.compactHud .bars .barline:nth-child(3),
+    .app.compactHud .bars .barline:nth-child(4),
+    .app.compactHud .coachText{
+      display:none;
+    }
+
+    .app.compactHud .mission{
+      padding:9px 11px;
+      border-radius:18px;
+    }
+
+    .app.compactHud .text{
+      font-size:12px;
+      margin-top:4px;
+    }
+
+    .app.compactHud .dock{
+      gap:6px;
+    }
+
+    .app.compactHud .tool{
+      min-height:46px;
+      border-radius:16px;
+    }
+
+    .app.compactHud .tool .e{
+      font-size:19px;
+    }
+
+    .app.compactHud .tool .t{
+      font-size:11px;
+    }
+
+    .app.compactHud .btn{
+      min-height:40px;
+      border-radius:15px;
+      font-size:13px;
+    }
+
     @media(max-width:540px){
       .hud{
         grid-template-columns:1fr;
+        gap:6px;
+        top:calc(6px + var(--safeTop));
+        left:calc(6px + var(--safeLeft));
+        right:calc(6px + var(--safeRight));
       }
 
       .stats{
@@ -579,6 +741,78 @@
 
       .barline{
         grid-template-columns:66px 1fr 34px;
+      }
+
+      .mission{
+        padding:9px 10px;
+        border-radius:18px;
+      }
+
+      .title{
+        font-size:13px;
+      }
+
+      .text{
+        font-size:11px;
+        margin-top:4px;
+      }
+
+      .routineStepper{
+        gap:4px;
+        margin-top:6px;
+      }
+
+      .routineStepper span{
+        min-height:21px;
+        padding:3px 6px;
+        font-size:9px;
+      }
+
+      .coachText{
+        font-size:11px;
+        padding:6px 8px;
+        margin-top:5px;
+      }
+
+      .dailyMission{
+        font-size:11px;
+        padding:6px 8px;
+        margin-top:5px;
+      }
+
+      .bars{
+        gap:4px;
+        margin-top:6px;
+      }
+
+      .bar{
+        height:8px;
+      }
+
+      .dock{
+        left:calc(6px + var(--safeLeft));
+        right:calc(6px + var(--safeRight));
+        bottom:calc(6px + var(--safeBottom));
+        gap:6px;
+      }
+
+      .tool{
+        min-height:46px;
+        border-radius:16px;
+      }
+
+      .tool .e{
+        font-size:19px;
+      }
+
+      .tool .t{
+        font-size:11px;
+      }
+
+      .btn{
+        min-height:40px;
+        border-radius:15px;
+        font-size:13px;
       }
 
       .actions{
@@ -601,6 +835,19 @@
         grid-template-columns:1fr;
       }
 
+      .safeFrame{
+        top:112px;
+        bottom:118px;
+        left:8px;
+        right:8px;
+        border-radius:20px;
+      }
+
+      .compactToggle{
+        bottom:calc(118px + var(--safeBottom));
+        right:calc(8px + var(--safeRight));
+      }
+
       h1{
         font-size:22px;
       }
@@ -621,14 +868,28 @@
     <div class="shade"></div>
   </section>
 
+  <div class="safeFrame" id="safeFrame"></div>
+  <button class="compactToggle" id="compactToggle" title="ย่อ HUD">↕</button>
+
   <section class="hud">
     <div class="card mission">
       <div class="row">
-        <div class="title">🛁 Bath AR v4.2 • Germ Wave Balance</div>
+        <div class="title">🛁 Bath AR v4.7 • Classroom Ready</div>
         <div class="pill" id="stagePill">READY</div>
       </div>
 
       <div class="text" id="missionText">กดเริ่มเกม แล้วยืนให้กล้องเห็นร่างกายช่วงบน</div>
+
+      <div class="routineStepper" id="routineStepper">
+        <span data-step="wet">🚿 Wet</span>
+        <span data-step="soap">🧼 Soap</span>
+        <span data-step="clean">🦠 Clean</span>
+        <span data-step="rinse">🚿 Rinse</span>
+        <span data-step="dry">🧻 Dry</span>
+        <span data-step="scan">✨ Scan</span>
+      </div>
+
+      <div class="coachText" id="coachText">💡 Tip: ยืนให้กล้องเห็นไหล่และลำตัว</div>
       <div class="dailyMission" id="dailyMissionText">🎴 Daily Mission: รอสุ่มภารกิจ</div>
 
       <div class="bars">
@@ -722,6 +983,7 @@
 
       <ul class="hints">
         <li>🧍 ยืนให้เห็นศีรษะ ไหล่ แขน และลำตัวชัด ๆ</li>
+        <li>🎯 ดูโซนเป้าหมาย แล้วใช้ Soap Hand ถูจนขึ้น ✅</li>
         <li>🧼 Germ / Sticky / Hidden Germ ต้องใช้ Soap Hand ถูจริง ๆ</li>
         <li>🟤 Mud Spot ต้องใช้น้ำก่อน แล้วค่อยสบู่</li>
         <li>🫧 Foam Ghost ต้องใช้ Water Hand ล้างออก</li>
@@ -730,7 +992,7 @@
       </ul>
 
       <div class="modalActions">
-        <button class="btn primary full" id="startBtn">เริ่ม Bath AR v4.2</button>
+        <button class="btn primary full" id="startBtn">เริ่ม Bath AR v4.7</button>
       </div>
     </div>
   </section>
@@ -748,6 +1010,7 @@
         <div class="resultBox"><b id="sumCombo">0</b><span>Best Combo</span></div>
         <div class="resultBox"><b id="sumHidden">0/0</b><span>Hidden Germs</span></div>
         <div class="resultBox"><b id="sumMission">No</b><span>Mission Clear</span></div>
+        <div class="resultBox"><b id="sumOutcome">-</b><span>Outcome</span></div>
       </div>
 
       <div class="feedback" id="feedbackText"></div>
@@ -797,6 +1060,10 @@ const canvas = $("canvas");
 const ctx = canvas.getContext("2d");
 
 const UI = {
+  app:document.querySelector(".app"),
+  safeFrame:$("safeFrame"),
+  compactToggle:$("compactToggle"),
+
   loadingOverlay:$("loadingOverlay"),
   loadingText:$("loadingText"),
   startOverlay:$("startOverlay"),
@@ -813,6 +1080,8 @@ const UI = {
 
   stagePill:$("stagePill"),
   missionText:$("missionText"),
+  routineStepper:$("routineStepper"),
+  coachText:$("coachText"),
   dailyMissionText:$("dailyMissionText"),
 
   cleanBar:$("cleanBar"),
@@ -841,6 +1110,7 @@ const UI = {
   sumCombo:$("sumCombo"),
   sumHidden:$("sumHidden"),
   sumMission:$("sumMission"),
+  sumOutcome:$("sumOutcome"),
 
   rankEmoji:$("rankEmoji"),
   rankTitle:$("rankTitle"),
@@ -942,29 +1212,32 @@ const DAILY_MISSIONS = [
     id:"hidden_hunt",
     title:"Hidden Hunt",
     emoji:"🔎",
-    desc:"หา Hidden Germ ให้ครบอย่างน้อย 2 ตัว",
-    check: ctx => ctx.hiddenFound >= Math.min(2, ctx.hiddenTotal)
+    desc:"หา Hidden Germ ให้ครบอย่างน้อย 1 ตัว",
+    check: ctx => ctx.hiddenFound >= Math.min(1, ctx.hiddenTotal)
   },
   {
     id:"boss_breaker",
     title:"Boss Breaker",
     emoji:"👑",
-    desc:"กำจัด Boss Germ ให้สำเร็จ",
-    check: ctx => ctx.bossDefeated === true
+    desc:"กำจัด Boss Germ หรือทำโซนเป้าหมายให้ครบ",
+    check: ctx => ctx.bossDefeated === true || ctx.targetZonesDone === true
   },
   {
     id:"combo_master",
     title:"Combo Master",
     emoji:"🔥",
-    desc:"ทำ Best Combo อย่างน้อย 12",
-    check: ctx => ctx.bestCombo >= 12
+    desc:"ทำ Best Combo ให้ถึงเป้าหมาย Easy 5 / Normal 8 / Hard 12",
+    check: ctx => {
+      const need = ctx.difficulty === "hard" ? 12 : ctx.difficulty === "normal" ? 8 : 5;
+      return ctx.bestCombo >= need;
+    }
   },
   {
     id:"no_foam_left",
     title:"No Foam Left",
     emoji:"🫧",
     desc:"จบเกมโดยมีฟองค้างเฉลี่ยไม่เกิน 10%",
-    check: ctx => ctx.foamAvg <= 10 && ctx.cleanScore >= 70
+    check: ctx => ctx.foamAvg <= 10 && ctx.cleanScore >= 55
   }
 ];
 
@@ -978,7 +1251,7 @@ const BADGES = {
   practice:"💪 Keep Practicing Hero"
 };
 
-const BATH_AR_VERSION = "v4.2-balance-wave-zone-hotfix";
+const BATH_AR_VERSION = "v4.7-classroom-freeze-dashboard-ready";
 
 const SHEET_ENDPOINT = "https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec";
 
@@ -987,7 +1260,8 @@ const PLAYER_META = {
   classGroup: new URLSearchParams(location.search).get("class") || safeLocalGet("bathAR_classGroup","P5"),
   studentId: new URLSearchParams(location.search).get("sid") || safeLocalGet("bathAR_studentId",""),
   playerId: safeLocalGet("bathAR_playerId",""),
-  sessionId: ""
+  sessionId: "",
+  resultId: ""
 };
 
 if(!PLAYER_META.playerId){
@@ -1020,6 +1294,7 @@ const game = {
   scan:0,
   wave:0,
   lastGermAt:0,
+
   poseOk:false,
   handOk:false,
   zones:{},
@@ -1027,19 +1302,31 @@ const game = {
   foam:{},
   dry:{},
   germs:[],
+
   boss:null,
   bossDefeated:false,
+
   dailyMission:null,
   missionClear:false,
+  targetZones:[],
+  targetZonesDone:false,
+  cleanAssistUsed:0,
+  successTriggered:false,
+
   hiddenGerms:[],
   hiddenFound:0,
   hiddenTotal:0,
   scanReveal:false,
+
   exportPayload:null,
   submitStatus:"idle",
   submitError:"",
   submitResponse:null,
+  submitLocked:false,
+  submitAttempt:0,
+
   missedHits:{},
+  zoneMilestones:{},
   handPrev:{left:null,right:null},
   particles:[],
   popups:[]
@@ -1080,17 +1367,63 @@ function ch(){
   return canvas.getBoundingClientRect().height;
 }
 
+function getSafeGameplayRect(){
+  const frame = UI.safeFrame?.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+
+  if(!frame || !canvasRect){
+    return {
+      left:12,
+      top:120,
+      right:cw()-12,
+      bottom:ch()-132,
+      width:cw()-24,
+      height:ch()-252
+    };
+  }
+
+  const left = clamp(frame.left - canvasRect.left, 0, cw());
+  const top = clamp(frame.top - canvasRect.top, 0, ch());
+  const right = clamp(frame.right - canvasRect.left, 0, cw());
+  const bottom = clamp(frame.bottom - canvasRect.top, 0, ch());
+
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width:Math.max(1,right-left),
+    height:Math.max(1,bottom-top)
+  };
+}
+
+function clampToSafeArea(x,y,pad=30){
+  const r = getSafeGameplayRect();
+
+  return {
+    x:clamp(x,r.left+pad,r.right-pad),
+    y:clamp(y,r.top+pad,r.bottom-pad)
+  };
+}
+
+function zoneCenterSafe(z,pad=34){
+  if(!z) return {x:cw()/2,y:ch()/2};
+  return clampToSafeArea(z.cx,z.cy,pad);
+}
+
 function resetMaps(){
   game.clean = {};
   game.foam = {};
   game.dry = {};
   game.missedHits = {};
+  game.zoneMilestones = {};
 
   keys().forEach(k=>{
     game.clean[k]=0;
     game.foam[k]=0;
     game.dry[k]=0;
     game.missedHits[k]=0;
+    game.zoneMilestones[k]=0;
   });
 }
 
@@ -1123,6 +1456,51 @@ function pickDailyMission(){
   }
 }
 
+function pickTargetZones(){
+  const pool = ["neck","leftShoulder","rightShoulder","leftArm","rightArm","body"];
+  const count = selectedDiff === "hard" ? 5 : selectedDiff === "normal" ? 4 : 3;
+  const shuffled = [...pool].sort(()=>Math.random()-.5);
+
+  game.targetZones = shuffled.slice(0,count);
+  game.targetZonesDone = false;
+
+  updateTargetMissionText();
+}
+
+function getTargetCleanNeed(){
+  return selectedDiff === "hard" ? 80 : selectedDiff === "normal" ? 70 : 60;
+}
+
+function updateTargetMissionText(){
+  if(!UI.dailyMissionText || !game.dailyMission) return;
+
+  const targetText = game.targetZones
+    .map(k=>{
+      const p = Math.round(game.clean[k] || 0);
+      const mark = p >= getTargetCleanNeed() ? "✅" : "⬜";
+      return `${mark}${ZONES[k]}`;
+    })
+    .join(" ");
+
+  UI.dailyMissionText.textContent =
+    `${game.dailyMission.emoji} Daily Mission: ${game.dailyMission.title} — ${game.dailyMission.desc} | 🎯 โซนเป้าหมาย: ${targetText}`;
+}
+
+function checkTargetZonesDone(){
+  if(!game.targetZones.length) return false;
+
+  const need = getTargetCleanNeed();
+  const done = game.targetZones.every(k => (game.clean[k] || 0) >= need);
+
+  if(done && !game.targetZonesDone){
+    game.targetZonesDone = true;
+    game.score += 220;
+    toast("🎯 ล้างโซนเป้าหมายครบแล้ว!");
+  }
+
+  return done;
+}
+
 function setTool(tool){
   game.tool = tool;
 
@@ -1153,7 +1531,7 @@ function setStage(stage){
   UI.missionText.textContent = ({
     [STAGE.READY]:"ยืนในกรอบ ให้เห็นศีรษะ ไหล่ แขน และลำตัวชัด ๆ",
     [STAGE.WET]:"ใช้ Water Hand ทำตัวให้เปียกก่อนฟอกสบู่",
-    [STAGE.SCRUB]:"กำจัด Germ Wave และ Hidden Germ ด้วยเครื่องมือที่ถูกต้อง",
+    [STAGE.SCRUB]:"ใช้ Soap Hand ถูโซนเป้าหมายและกำจัด Germ Wave",
     [STAGE.RINSE]:"ใช้ Water Hand ล้างฟองออกให้หมด",
     [STAGE.DRY]:"ใช้ Towel Hand เช็ดตัวก่อนสแกน",
     [STAGE.BOSS]:"Boss Germ มาแล้ว! ใช้ Soap / Water ให้ถูกจังหวะ",
@@ -1161,9 +1539,98 @@ function setStage(stage){
   })[stage] || "กดเริ่มเกม";
 }
 
+function routineStepForStage(stage){
+  if(stage === STAGE.WET) return "wet";
+  if(stage === STAGE.SCRUB || stage === STAGE.BOSS) return "clean";
+  if(stage === STAGE.RINSE) return "rinse";
+  if(stage === STAGE.DRY) return "dry";
+  if(stage === STAGE.SCAN) return "scan";
+  return "";
+}
+
+function updateRoutineStepper(){
+  if(!UI.routineStepper) return;
+
+  const active = routineStepForStage(game.stage);
+  const order = ["wet","soap","clean","rinse","dry","scan"];
+  const activeIndex = order.indexOf(active);
+
+  UI.routineStepper.querySelectorAll("span").forEach(el=>{
+    const step = el.dataset.step;
+    const idx = order.indexOf(step);
+
+    el.classList.toggle("active", step === active);
+    el.classList.toggle("done", activeIndex > idx && activeIndex >= 0);
+  });
+
+  const soapStep = UI.routineStepper.querySelector('[data-step="soap"]');
+  if(soapStep){
+    soapStep.classList.toggle("done", game.stage === STAGE.SCRUB || game.stage === STAGE.BOSS || activeIndex > 1);
+    soapStep.classList.toggle("active", game.stage === STAGE.SCRUB && game.wave <= 1);
+  }
+}
+
+function getCleanAverage(){
+  return keys().reduce((s,k)=>s+(game.clean[k] || 0),0) / keys().length;
+}
+
+function getFoamAverage(){
+  return keys().reduce((s,k)=>s+(game.foam[k] || 0),0) / keys().length;
+}
+
+function updateCoachText(){
+  if(!UI.coachText) return;
+
+  const cleanAvg = getCleanAverage();
+  const foamAvg = getFoamAverage();
+
+  let msg = "💡 Tip: ยืนให้กล้องเห็นไหล่และลำตัว";
+
+  if(game.stage === STAGE.READY){
+    msg = "💡 ยืนถอยหลังเล็กน้อย ให้เห็นศีรษะ ไหล่ แขน และลำตัว";
+  }else if(game.stage === STAGE.WET){
+    msg = "🚿 ใช้ Water Hand ขยับผ่านคอ ไหล่ แขน และลำตัวให้เปียกก่อน";
+  }else if(game.stage === STAGE.SCRUB){
+    const targetLeft = game.targetZones?.filter(k => (game.clean[k]||0) < getTargetCleanNeed()).map(k=>ZONES[k]) || [];
+    msg = targetLeft.length
+      ? `🧼 ถูโซนเป้าหมายต่อ: ${targetLeft.slice(0,3).join(", ")}`
+      : "🦠 โซนเป้าหมายดีแล้ว เก็บเชื้อที่เหลือเพื่อเพิ่มคะแนน";
+  }else if(game.stage === STAGE.BOSS){
+    msg = game.boss?.phase >= 2
+      ? "💨 Boss Phase 2: ใช้ Water Hand ช่วยล้างกลิ่น แล้วสลับ Soap ได้"
+      : "👑 Boss มาแล้ว ใช้ Soap Hand ถูตรง Boss ให้ต่อเนื่อง";
+  }else if(game.stage === STAGE.RINSE){
+    msg = foamAvg > 10
+      ? "🚿 ล้างฟองสีม่วงออกให้หมดก่อนเช็ดตัว"
+      : "✅ ฟองเหลือน้อยแล้ว เตรียมเช็ดตัว";
+  }else if(game.stage === STAGE.DRY){
+    msg = "🧻 ใช้ Towel Hand เช็ดคอ ไหล่ แขน และลำตัวให้แห้ง";
+  }else if(game.stage === STAGE.SCAN){
+    msg = "✨ ยืนนิ่ง ๆ เพื่อให้ระบบ Clean Scan สรุปผล";
+  }
+
+  if(cleanAvg < 25 && (game.stage === STAGE.SCRUB || game.stage === STAGE.BOSS)){
+    msg += " • ถูให้มือเคลื่อนจริง ไม่ใช่แตะค้าง";
+  }
+
+  UI.coachText.textContent = msg;
+}
+
+function updateSafeFrameVisibility(){
+  const visible = game.running && game.stage !== STAGE.SUMMARY;
+
+  if(UI.safeFrame){
+    UI.safeFrame.style.display = visible ? "block" : "none";
+  }
+
+  if(UI.compactToggle){
+    UI.compactToggle.style.display = visible ? "block" : "none";
+  }
+}
+
 function updateHud(){
-  const cleanAvg = keys().reduce((s,k)=>s+game.clean[k],0)/keys().length;
-  const foamAvg = keys().reduce((s,k)=>s+game.foam[k],0)/keys().length;
+  const cleanAvg = getCleanAverage();
+  const foamAvg = getFoamAverage();
   const bossHp = game.boss ? game.boss.hp : 0;
   const bossMax = game.boss ? game.boss.maxHp : cfg.bossHp;
 
@@ -1183,6 +1650,10 @@ function updateHud(){
   UI.scoreText.textContent = String(Math.round(game.score));
   UI.comboText.textContent = String(game.combo);
   UI.waveText.textContent = String(game.wave);
+
+  updateSafeFrameVisibility();
+  updateRoutineStepper();
+  updateCoachText();
 }
 
 async function boot(){
@@ -1271,6 +1742,29 @@ function inZone(p,z){
   }
 
   return Math.abs(p.x-z.cx)<=z.w/2 && Math.abs(p.y-z.cy)<=z.h/2;
+}
+
+function findZoneAtPoint(p){
+  if(!p || !game.zones) return null;
+
+  const order = [
+    "neck",
+    "leftShoulder",
+    "rightShoulder",
+    "leftArm",
+    "rightArm",
+    "body",
+    "legs",
+    "face"
+  ];
+
+  for(const k of order){
+    if(game.zones[k] && inZone(p, game.zones[k])){
+      return k;
+    }
+  }
+
+  return null;
 }
 
 function buildZones(lm){
@@ -1369,6 +1863,12 @@ function startGame(){
   cfg = DIFF[selectedDiff];
   resetMaps();
 
+  PLAYER_META.resultId =
+    "bath-result-" +
+    new Date().toISOString().slice(0,19).replaceAll(":","").replaceAll("-","").replace("T","-") +
+    "-" +
+    Math.random().toString(36).slice(2,8);
+
   game.running = true;
   game.timeLeft = cfg.time;
   game.lastTick = now();
@@ -1380,29 +1880,41 @@ function startGame(){
   game.scan = 0;
   game.wave = 0;
   game.lastGermAt = 0;
+
   game.germs = [];
   game.boss = null;
   game.bossDefeated = false;
+
+  game.targetZones = [];
+  game.targetZonesDone = false;
+  game.cleanAssistUsed = 0;
+  game.successTriggered = false;
+
   game.hiddenGerms = [];
   game.hiddenFound = 0;
   game.hiddenTotal = 0;
   game.scanReveal = false;
+
   game.exportPayload = null;
   game.submitStatus = "idle";
   game.submitError = "";
   game.submitResponse = null;
+  game.submitLocked = false;
+  game.submitAttempt = 0;
+
   game.handPrev = {left:null,right:null};
   game.particles = [];
   game.popups = [];
 
   pickDailyMission();
+  pickTargetZones();
 
   UI.startOverlay.classList.add("hidden");
   UI.summaryOverlay.classList.add("hidden");
 
   setTool("water");
   setStage(STAGE.READY);
-  toast("เริ่ม Bath AR v4.2!");
+  toast("เริ่ม Bath AR v4.7!");
 }
 
 function endGame(reason="completed"){
@@ -1462,6 +1974,74 @@ function particles(x,y,type="clean"){
   }
 }
 
+function applyCleanAssist(zone, motion){
+  if(!zone) return;
+  if(game.stage !== STAGE.SCRUB && game.stage !== STAGE.BOSS) return;
+
+  const current = game.clean[zone] || 0;
+
+  if(current >= 100) return;
+
+  const lowCleanBoost = current < 35 ? 1.8 : current < 60 ? 1.35 : 1;
+  const targetBoost = game.targetZones.includes(zone) ? 1.25 : 1;
+  const toolBoost = game.tool === "soap" ? 1 : 0.35;
+
+  const gain = motion * 0.11 * lowCleanBoost * targetBoost * toolBoost;
+
+  if(gain > 0){
+    game.clean[zone] = clamp(current + gain, 0, 100);
+    game.cleanAssistUsed += gain;
+  }
+}
+
+function applyScrubZoneProgress(hand, motion){
+  if(!game.running) return;
+  if(game.stage !== STAGE.SCRUB && game.stage !== STAGE.BOSS) return;
+  if(motion < 2.2) return;
+
+  const zone = findZoneAtPoint(hand.center);
+  if(!zone) return;
+
+  applyCleanAssist(zone, motion);
+
+  if(game.tool !== "soap") return;
+
+  const before = game.clean[zone] || 0;
+
+  const gainRate = selectedDiff === "hard"
+    ? 0.34
+    : selectedDiff === "normal"
+      ? 0.42
+      : 0.52;
+
+  const bossPenalty = game.stage === STAGE.BOSS ? 0.45 : 1;
+  const targetBoost = game.targetZones.includes(zone) ? 1.28 : 1;
+
+  const gain = motion * gainRate * bossPenalty * targetBoost;
+
+  game.clean[zone] = clamp(before + gain, 0, 100);
+  game.foam[zone] = clamp((game.foam[zone] || 0) + motion * 0.10, 0, 100);
+
+  const after = game.clean[zone];
+
+  const beforeMilestone = Math.floor(before / 25);
+  const afterMilestone = Math.floor(after / 25);
+
+  if(afterMilestone > beforeMilestone){
+    popup(`+${ZONES[zone]}`, hand.center.x, hand.center.y, "#22c55e");
+    game.score += 12;
+  }
+
+  if(before < 100 && after >= 100 && game.zoneMilestones[zone] < 100){
+    game.zoneMilestones[zone] = 100;
+    addScore(70);
+    toast(`✨ ${ZONES[zone]} สะอาดแล้ว`);
+  }
+
+  checkTargetZonesDone();
+  updateTargetMissionText();
+}
+
 function spawnGerm(){
   if(!Object.keys(game.zones).length) return;
   if(game.germs.length >= cfg.maxGerms) return;
@@ -1483,13 +2063,17 @@ function spawnGerm(){
     type = rnd(["basic","stinky","mud","sticky","foam"]);
   }
 
-  const gx = z.type==="circle"
+  let gx = z.type==="circle"
     ? z.cx + (Math.random()-.5)*z.r*.9
     : z.cx + (Math.random()-.5)*z.w*.65;
 
-  const gy = z.type==="circle"
+  let gy = z.type==="circle"
     ? z.cy + (Math.random()-.5)*z.r*.9
     : z.cy + (Math.random()-.5)*z.h*.65;
+
+  const safePoint = clampToSafeArea(gx, gy, 36);
+  gx = safePoint.x;
+  gy = safePoint.y;
 
   game.germs.push({
     id:crypto.randomUUID?.() || String(Math.random()),
@@ -1519,13 +2103,17 @@ function spawnHiddenGerms(){
     const z = game.zones[zone];
     if(!z) continue;
 
-    const x = z.type === "circle"
+    let x = z.type === "circle"
       ? z.cx + (Math.random()-.5)*z.r*.75
       : z.cx + (Math.random()-.5)*z.w*.58;
 
-    const y = z.type === "circle"
+    let y = z.type === "circle"
       ? z.cy + (Math.random()-.5)*z.r*.75
       : z.cy + (Math.random()-.5)*z.h*.58;
+
+    const safePoint = clampToSafeArea(x, y, 34);
+    x = safePoint.x;
+    y = safePoint.y;
 
     game.hiddenGerms.push({
       id:crypto.randomUUID?.() || String(Math.random()),
@@ -1601,13 +2189,17 @@ function updateHiddenGerms(hands){
 function startBoss(){
   const mostMissed = keys().sort((a,b)=>game.missedHits[b]-game.missedHits[a])[0] || "neck";
   const z = game.zones[mostMissed] || game.zones.body;
+  const safeBossPoint = zoneCenterSafe(z,64);
+
+  const bossMinTime = selectedDiff === "hard" ? 22 : selectedDiff === "normal" ? 26 : 30;
+  game.timeLeft = Math.max(game.timeLeft, bossMinTime);
 
   game.boss = {
     name:"Stinky Cloud King",
     emoji:"💨",
     zone:mostMissed,
-    x:z?.cx || cw()/2,
-    y:z?.cy || ch()/2,
+    x:safeBossPoint.x,
+    y:safeBossPoint.y,
     hp:cfg.bossHp,
     maxHp:cfg.bossHp,
     phase:1,
@@ -1659,8 +2251,10 @@ function updateGerms(dt,hands){
     }
 
     const bossWave = selectedDiff === "hard" ? 6 : selectedDiff === "normal" ? 5 : 4;
+    const bossTimeTrigger = selectedDiff === "hard" ? 24 : selectedDiff === "normal" ? 28 : 32;
 
-    if(game.wave >= bossWave && game.germs.length === 0){
+    if(game.wave >= bossWave && (game.germs.length === 0 || game.timeLeft <= bossTimeTrigger)){
+      game.germs = [];
       startBoss();
       return;
     }
@@ -1679,6 +2273,8 @@ function updateGerms(dt,hands){
 
     const motion = clamp(move,0,48)*cfg.motionScale;
     if(motion<2.2) continue;
+
+    applyScrubZoneProgress(hand, motion);
 
     for(const g of [...game.germs]){
       const d = Math.hypot(hand.center.x-g.x,hand.center.y-g.y);
@@ -1737,16 +2333,17 @@ function updateGerms(dt,hands){
 
     if(game.boss && game.stage===STAGE.BOSS){
       const d = Math.hypot(hand.center.x-game.boss.x,hand.center.y-game.boss.y);
+      const bossHitRadius = selectedDiff === "hard" ? 62 : selectedDiff === "normal" ? 72 : 82;
 
-      if(d<62){
+      if(d < bossHitRadius){
         let damage = 0;
 
         if(game.tool==="soap"){
-          damage = motion*.85;
+          damage = motion * (selectedDiff === "hard" ? .85 : selectedDiff === "normal" ? 1.05 : 1.25);
         }
 
         if(game.tool==="water" && game.boss.phase>=2){
-          damage = motion*.62;
+          damage = motion * (selectedDiff === "hard" ? .62 : selectedDiff === "normal" ? .78 : .95);
         }
 
         if(damage>0){
@@ -1776,6 +2373,47 @@ function updateGerms(dt,hands){
   }
 }
 
+function shouldTriggerSuccess(){
+  if(game.successTriggered) return false;
+  if(!game.running) return false;
+
+  const cleanAvg = getCleanAverage();
+  const targetDone = checkTargetZonesDone();
+
+  if(game.stage === STAGE.SCRUB){
+    const need = selectedDiff === "hard" ? 70 : selectedDiff === "normal" ? 62 : 52;
+
+    if(targetDone && cleanAvg >= need && game.wave >= 3){
+      return true;
+    }
+  }
+
+  if(game.stage === STAGE.BOSS){
+    if(game.bossDefeated){
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function triggerSuccessFlow(){
+  if(game.successTriggered) return;
+
+  game.successTriggered = true;
+
+  if(game.stage === STAGE.SCRUB && !game.boss){
+    startBoss();
+    game.timeLeft = Math.max(game.timeLeft, selectedDiff === "hard" ? 20 : selectedDiff === "normal" ? 24 : 28);
+    return;
+  }
+
+  if(game.stage === STAGE.BOSS && game.bossDefeated){
+    setStage(STAGE.RINSE);
+    setTool("water");
+  }
+}
+
 function updateCore(dt,hands){
   if(!game.running) return;
 
@@ -1784,6 +2422,28 @@ function updateCore(dt,hands){
 
     if(game.timeLeft<=0){
       game.timeLeft = 0;
+
+      const cleanAvg = getCleanAverage();
+
+      if(
+        (game.stage === STAGE.SCRUB || game.stage === STAGE.BOSS) &&
+        cleanAvg >= 45
+      ){
+        setStage(STAGE.RINSE);
+        setTool("water");
+        game.timeLeft = selectedDiff === "hard" ? 12 : 16;
+        toast("🚿 เข้าสู่ช่วงล้างฟองสุดท้าย!");
+        return;
+      }
+
+      if(game.stage === STAGE.RINSE){
+        setStage(STAGE.DRY);
+        setTool("towel");
+        game.timeLeft = 10;
+        toast("🧻 เช็ดตัวปิดท้าย!");
+        return;
+      }
+
       endGame("timeup");
       return;
     }
@@ -1851,6 +2511,11 @@ function updateCore(dt,hands){
 
   if(game.stage===STAGE.SCRUB || game.stage===STAGE.BOSS){
     updateGerms(dt,hands);
+
+    if(shouldTriggerSuccess()){
+      triggerSuccessFlow();
+    }
+
     return;
   }
 
@@ -2281,8 +2946,8 @@ function render(handRes){
 }
 
 function buildResultContext(){
-  const cleanAvg = keys().reduce((s,k)=>s+game.clean[k],0)/keys().length;
-  const foamAvg = keys().reduce((s,k)=>s+game.foam[k],0)/keys().length;
+  const cleanAvg = getCleanAverage();
+  const foamAvg = getFoamAverage();
   const dryAvg = keys().reduce((s,k)=>s+(game.dry[k]/cfg.dryNeed*100),0)/keys().length;
   const waterScore = Math.round(game.water);
 
@@ -2299,33 +2964,50 @@ function buildResultContext(){
     gameId:"bath-ar",
     version:BATH_AR_VERSION,
     hygieneZoneVersion:"hygiene-zone-v2",
+
     studentName:PLAYER_META.studentName,
     classGroup:PLAYER_META.classGroup,
     studentId:PLAYER_META.studentId,
     playerId:PLAYER_META.playerId,
     sessionId:PLAYER_META.sessionId,
+    resultId:PLAYER_META.resultId,
+
     difficulty:selectedDiff,
     mode:"mission",
+    routineCompleted:game.stage === STAGE.SUMMARY,
+    stageEnded:game.stage,
+
     duration:Math.round(cfg.time - Math.max(0,game.timeLeft)),
     timeLimit:cfg.time,
     timeLeft:Math.round(game.timeLeft),
+
     score:Math.round(game.score),
     cleanScore:Math.round(cleanAvg),
     dryScore:Math.round(dryAvg),
     foamAvg:Math.round(foamAvg),
     waterScore,
+
     bestCombo:game.bestCombo,
     wave:game.wave,
+
     bossDefeated:game.bossDefeated,
     bossType:game.boss ? game.boss.name : "Stinky Cloud King",
+
     hiddenFound:game.hiddenFound,
     hiddenTotal:game.hiddenTotal,
+
     dailyMissionId:game.dailyMission?.id || "",
     dailyMissionTitle:game.dailyMission?.title || "",
     dailyMissionDesc:game.dailyMission?.desc || "",
+
+    targetZones:game.targetZones.map(k=>ZONES[k]),
+    targetZonesDone:game.targetZonesDone,
+    cleanAssistUsed:Math.round(game.cleanAssistUsed),
+
     missedZones:keys().filter(k=>game.clean[k]<70).map(k=>ZONES[k]),
     foamLeftZones:keys().filter(k=>game.foam[k]>15).map(k=>ZONES[k]),
     zoneDetails,
+
     userAgent:navigator.userAgent,
     createdAt:new Date().toISOString(),
     createdAtLocal:new Date().toLocaleString("th-TH",{timeZone:"Asia/Bangkok"})
@@ -2345,35 +3027,59 @@ function evaluateDailyMission(ctxResult){
 
 function pickFinalBadge(ctxResult){
   if(
-    ctxResult.cleanScore >= 92 &&
-    ctxResult.bossDefeated &&
-    ctxResult.waterScore >= 55 &&
-    ctxResult.hiddenFound >= Math.min(2,ctxResult.hiddenTotal)
+    ctxResult.cleanScore >= 85 &&
+    (ctxResult.bossDefeated || ctxResult.targetZonesDone) &&
+    ctxResult.waterScore >= 45
   ){
     return BADGES.perfect;
   }
 
-  if(ctxResult.bossDefeated && ctxResult.cleanScore >= 78){
+  if((ctxResult.bossDefeated || ctxResult.targetZonesDone) && ctxResult.cleanScore >= 65){
     return BADGES.boss;
   }
 
-  if(ctxResult.waterScore >= 60 && ctxResult.cleanScore >= 72){
+  if(ctxResult.waterScore >= 60 && ctxResult.cleanScore >= 55){
     return BADGES.eco;
   }
 
-  if(ctxResult.hiddenFound >= Math.min(2,ctxResult.hiddenTotal)){
+  if(ctxResult.hiddenFound >= Math.min(1,ctxResult.hiddenTotal)){
     return BADGES.hidden;
   }
 
-  if(ctxResult.bestCombo >= 12){
+  if(ctxResult.bestCombo >= 5){
     return BADGES.combo;
   }
 
-  if(ctxResult.cleanScore >= 70){
+  if(ctxResult.cleanScore >= 45){
     return BADGES.soap;
   }
 
   return BADGES.practice;
+}
+
+function getOutcomeStatus(ctxResult){
+  if(ctxResult.cleanScore >= 80 && (ctxResult.bossDefeated || ctxResult.targetZonesDone)){
+    return "excellent";
+  }
+
+  if(ctxResult.cleanScore >= 60 || ctxResult.targetZonesDone){
+    return "passed";
+  }
+
+  if(ctxResult.cleanScore >= 40){
+    return "practice";
+  }
+
+  return "needs_support";
+}
+
+function getOutcomeLabel(ctxResult){
+  const status = getOutcomeStatus(ctxResult);
+
+  if(status === "excellent") return "Excellent";
+  if(status === "passed") return "Passed";
+  if(status === "practice") return "Practice More";
+  return "Needs Support";
 }
 
 function makeDashboardPayload(ctxResult){
@@ -2392,9 +3098,15 @@ function makeDashboardPayload(ctxResult){
     studentId:ctxResult.studentId,
     playerId:ctxResult.playerId,
     sessionId:ctxResult.sessionId,
+    resultId:ctxResult.resultId,
 
     difficulty:ctxResult.difficulty,
     mode:ctxResult.mode,
+    routineCompleted:ctxResult.routineCompleted ? "yes" : "no",
+    stageEnded:ctxResult.stageEnded,
+
+    outcomeStatus:getOutcomeStatus(ctxResult),
+    outcomeLabel:getOutcomeLabel(ctxResult),
 
     duration:ctxResult.duration,
     timeLimit:ctxResult.timeLimit,
@@ -2420,6 +3132,10 @@ function makeDashboardPayload(ctxResult){
     dailyMissionDesc:ctxResult.dailyMissionDesc,
     missionClear:game.missionClear ? "yes" : "no",
 
+    targetZones:ctxResult.targetZones.join(", "),
+    targetZonesDone:ctxResult.targetZonesDone ? "yes" : "no",
+    cleanAssistUsed:ctxResult.cleanAssistUsed,
+
     missedZones:ctxResult.missedZones.join(", "),
     foamLeftZones:ctxResult.foamLeftZones.join(", "),
     zoneDetailsJson:JSON.stringify(ctxResult.zoneDetails),
@@ -2428,8 +3144,32 @@ function makeDashboardPayload(ctxResult){
     finalRank:finalBadge,
     feedbackText:"",
     submitStatus:"pending",
+    submitAttempt:game.submitAttempt,
     userAgent:ctxResult.userAgent
   };
+}
+
+function makeTeacherNote(ctxResult){
+  const weak = ctxResult.missedZones || [];
+  const foam = ctxResult.foamLeftZones || [];
+
+  if(ctxResult.cleanScore >= 80){
+    return "ผู้เรียนควบคุมลำดับการอาบน้ำได้ดี ควรเพิ่มโจทย์เรื่องประหยัดน้ำและความต่อเนื่องของการถู";
+  }
+
+  if(ctxResult.targetZonesDone && ctxResult.cleanScore >= 55){
+    return "ผู้เรียนทำภารกิจโซนเป้าหมายได้ ควรฝึกเก็บรายละเอียดโซนที่ไม่ใช่เป้าหมายและล้างฟองให้ครบ";
+  }
+
+  if(weak.length){
+    return `ควรเน้นการถูบริเวณ ${weak.slice(0,3).join(", ")} และให้ผู้เรียนขยับมือเป็นวง/ขึ้นลงอย่างต่อเนื่อง`;
+  }
+
+  if(foam.length){
+    return `ควรย้ำขั้นตอน Rinse เพราะยังมีฟองค้างที่ ${foam.slice(0,3).join(", ")}`;
+  }
+
+  return "ควรให้ผู้เรียนลองซ้ำอีกครั้งโดยลดความเร็วและทำตามขั้นตอน Wet → Soap → Rinse → Dry";
 }
 
 function setSubmitStatus(status,message){
@@ -2445,10 +3185,15 @@ function setSubmitStatus(status,message){
   }
 }
 
-async function submitResultToSheet(payload){
+async function submitResultToSheet(payload, force=false){
   if(!payload){
     setSubmitStatus("failed","ไม่มีข้อมูลผลลัพธ์");
     return false;
+  }
+
+  if(game.submitLocked && !force){
+    setSubmitStatus("success","ผลลัพธ์รอบนี้ส่งแล้ว ไม่ส่งซ้ำ");
+    return true;
   }
 
   if(!SHEET_ENDPOINT){
@@ -2457,7 +3202,10 @@ async function submitResultToSheet(payload){
   }
 
   try{
-    setSubmitStatus("pending","กำลังส่งผลเข้า Google Sheet...");
+    game.submitAttempt += 1;
+    payload.submitAttempt = game.submitAttempt;
+
+    setSubmitStatus("pending",`กำลังส่งผลเข้า Google Sheet... ครั้งที่ ${game.submitAttempt}`);
 
     await fetch(SHEET_ENDPOINT,{
       method:"POST",
@@ -2472,7 +3220,13 @@ async function submitResultToSheet(payload){
     });
 
     payload.submitStatus = "submitted";
-    game.submitResponse = {ok:true,mode:"no-cors"};
+    game.submitResponse = {
+      ok:true,
+      mode:"no-cors",
+      attempt:game.submitAttempt
+    };
+
+    game.submitLocked = true;
     setSubmitStatus("success","ส่งคำขอไปยัง Google Sheet แล้ว");
     return true;
 
@@ -2496,10 +3250,14 @@ function showSummary(reason){
   game.exportPayload = makeDashboardPayload(ctxResult);
 
   UI.rankEmoji.textContent = badgeEmoji || "✨";
+  UI.rankEmoji.classList.remove("pop");
+  void UI.rankEmoji.offsetWidth;
+  UI.rankEmoji.classList.add("pop");
+
   UI.rankTitle.textContent = badgeTitle || "Clean Body Hero";
   UI.rankSubtitle.textContent = reason==="timeup"
     ? "หมดเวลาแล้ว มาดูจุดที่ควรพัฒนา"
-    : "ภารกิจ Bath AR v4.2 สำเร็จ";
+    : "ภารกิจ Bath AR v4.7 สำเร็จ";
 
   UI.sumClean.textContent = `${ctxResult.cleanScore}%`;
   UI.sumWater.textContent = String(ctxResult.waterScore);
@@ -2508,15 +3266,21 @@ function showSummary(reason){
   UI.sumHidden.textContent = `${ctxResult.hiddenFound}/${ctxResult.hiddenTotal}`;
   UI.sumMission.textContent = game.missionClear ? "Yes" : "No";
 
+  if(UI.sumOutcome){
+    UI.sumOutcome.textContent = getOutcomeLabel(ctxResult);
+  }
+
   let fb = "";
 
-  if(ctxResult.cleanScore >= 92 && ctxResult.bossDefeated && game.missionClear){
-    fb = `ยอดเยี่ยมมาก ทำความสะอาดได้ครบ ชนะ Boss Germ และผ่าน Daily Mission "${ctxResult.dailyMissionTitle}" เหมาะสำหรับลองระดับ Hard หรือ Boss Rush ต่อ`;
+  if(ctxResult.cleanScore >= 85 && (ctxResult.bossDefeated || ctxResult.targetZonesDone) && game.missionClear){
+    fb = `ยอดเยี่ยมมาก ล้างโซนเป้าหมายได้ดี ผ่าน Daily Mission "${ctxResult.dailyMissionTitle}" และควบคุมการใช้น้ำได้ดี`;
+  }else if(ctxResult.targetZonesDone && ctxResult.cleanScore >= 60){
+    fb = `ทำภารกิจหลักได้ดี ล้างโซนเป้าหมายครบแล้ว รอบต่อไปลองเพิ่ม combo และหา Hidden Germ ให้ครบเพื่ออัปเกรด badge`;
   }else if(!game.missionClear){
-    fb = `ยังไม่ผ่าน Daily Mission "${ctxResult.dailyMissionTitle}" รอบต่อไปให้เน้นเป้าหมายนี้เป็นพิเศษ: ${game.dailyMission?.desc || ""}`;
-  }else if(!ctxResult.bossDefeated){
-    fb = "ยังไม่ชนะ Boss Germ รอบต่อไปให้รักษา combo ระหว่าง Germ Wave และใช้ Soap / Water ให้ตรงกับชนิดของเชื้อโรค";
-  }else if(ctxResult.hiddenFound < Math.min(2,ctxResult.hiddenTotal)){
+    fb = `ยังไม่ผ่าน Daily Mission "${ctxResult.dailyMissionTitle}" รอบต่อไปให้เน้นเป้าหมายนี้: ${game.dailyMission?.desc || ""}`;
+  }else if(!ctxResult.bossDefeated && !ctxResult.targetZonesDone){
+    fb = "ยังล้างโซนเป้าหมายไม่ครบ รอบต่อไปให้ดูช่อง 🎯 โซนเป้าหมาย แล้วใช้ Soap Hand ถูซ้ำจนขึ้นเครื่องหมาย ✅";
+  }else if(ctxResult.hiddenFound < Math.min(1,ctxResult.hiddenTotal)){
     fb = "ล้างโซนหลักได้ดีแล้ว แต่ยังหา Hidden Germ ไม่ครบ รอบต่อไปกด Hint เพื่อสแกนจุดลับ แล้วจำตำแหน่งก่อนถู";
   }else if(ctxResult.missedZones.length){
     fb = `ทำได้ดีแล้ว แต่ยังควรเน้นบริเวณ ${ctxResult.missedZones.slice(0,3).join(", ")} โดยเฉพาะช่วง Germ Wave อย่าปล่อยให้เชื้อค้างนาน`;
@@ -2528,25 +3292,37 @@ function showSummary(reason){
     fb = "ภาพรวมดีมาก รอบต่อไปลองเพิ่มระดับความยาก เก็บ combo ให้สูงขึ้น และหา Hidden Germ ให้ครบทุกจุด";
   }
 
-  UI.feedbackText.textContent = fb;
-  game.exportPayload.feedbackText = fb;
+  const teacherNote = makeTeacherNote(ctxResult);
+  UI.feedbackText.innerHTML = `
+    <div>${fb}</div>
+    <div style="margin-top:8px;font-weight:950;color:#075985;">
+      📘 Teacher Note: ${teacherNote}
+    </div>
+  `;
+
+  game.exportPayload.feedbackText = `${fb} | Teacher Note: ${teacherNote}`;
   game.exportPayload.submitStatus = "pending";
 
   UI.summaryZones.innerHTML = keys().map(k=>{
     const p = Math.round(game.clean[k]);
     const f = Math.round(game.foam[k]);
     const d = Math.round(game.dry[k]/cfg.dryNeed*100);
-    const status = p>=80 && f<=15 ? "✅" : p>=55 ? "⚠️" : "🔴";
+    const status = p>=80 && f<=15 ? "✅" : p>=45 ? "⚠️" : "🔴";
+    const heatClass = p >= 80 && f <= 15
+      ? "heatGood"
+      : p >= 45
+        ? "heatFair"
+        : "heatMiss";
 
     return `
-      <div class="zoneItem">
+      <div class="zoneItem ${heatClass}">
         ${status} ${ZONES[k]} • Clean ${p}% • Foam ${f}% • Dry ${clamp(d,0,100)}%
         <i><b style="width:${clamp(p,0,100)}%"></b></i>
       </div>
     `;
   }).join("");
 
-  console.log("[Bath AR v4.2 Dashboard Payload]",game.exportPayload);
+  console.log("[Bath AR v4.7 Dashboard Payload]",game.exportPayload);
 
   UI.summaryOverlay.classList.remove("hidden");
   submitResultToSheet(game.exportPayload);
@@ -2625,7 +3401,7 @@ UI.hintBtn.addEventListener("click",()=>{
   const msg = {
     [STAGE.READY]:"ยืนให้เห็นศีรษะ ไหล่ แขน และลำตัว",
     [STAGE.WET]:"ใช้ Water Hand ขยับผ่านโซนร่างกาย",
-    [STAGE.SCRUB]:"ดูชนิดเชื้อ: 🦠🧫 ใช้สบู่, 🟤 ใช้น้ำก่อน, 🫧 ใช้น้ำ",
+    [STAGE.SCRUB]:"ดูโซนเป้าหมาย ใช้สบู่ถูต่อเนื่อง และกำจัดเชื้อที่ถูกชนิด",
     [STAGE.RINSE]:"ใช้ Water Hand ล้างฟองออก",
     [STAGE.DRY]:"ใช้ Towel Hand เช็ดตัว",
     [STAGE.BOSS]:"Boss ใช้ Soap เป็นหลัก และใช้น้ำช่วยตอน Phase 2",
@@ -2641,7 +3417,7 @@ UI.submitAgainBtn.addEventListener("click",()=>{
     return;
   }
 
-  submitResultToSheet(game.exportPayload);
+  submitResultToSheet(game.exportPayload, true);
 });
 
 UI.exportBtn.addEventListener("click",()=>{
@@ -2658,13 +3434,20 @@ UI.exportBtn.addEventListener("click",()=>{
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `bath-ar-result-${game.exportPayload.sessionId || Date.now()}.json`;
+  a.download = `bath-ar-result-${game.exportPayload.resultId || game.exportPayload.sessionId || Date.now()}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
 
   toast("Export JSON แล้ว");
+});
+
+UI.compactToggle.addEventListener("click",()=>{
+  UI.app.classList.toggle("compactHud");
+  const on = UI.app.classList.contains("compactHud");
+  UI.compactToggle.textContent = on ? "↔" : "↕";
+  toast(on ? "ย่อ HUD แล้ว" : "แสดง HUD เต็ม");
 });
 
 addEventListener("resize",resize);
@@ -2676,6 +3459,13 @@ if(UI.studentNameInput){
 
 if(UI.classGroupInput){
   UI.classGroupInput.value = PLAYER_META.classGroup;
+}
+
+if(innerWidth <= 540 && UI.app){
+  UI.app.classList.add("compactHud");
+  if(UI.compactToggle){
+    UI.compactToggle.textContent = "↔";
+  }
 }
 
 boot();
