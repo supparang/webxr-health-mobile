@@ -11,7 +11,6 @@
 
   <title>HeroHealth • Handwash Hero AR Simulator</title>
 
-  <!-- MediaPipe Hands: ใช้ตรวจมือจริง ไม่ใช่ full body -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
   <style>
@@ -364,6 +363,21 @@
     .ar-towel{
       right:calc(18px + var(--safe-right));
       bottom:calc(182px + var(--safe-bottom));
+    }
+
+    .ar-scrub{
+      left:50%;
+      top:54%;
+      transform:translate(-50%,-50%);
+      width:118px;
+      height:118px;
+      border-radius:34px;
+      font-size:42px;
+      opacity:.92;
+    }
+
+    .ar-scrub.active{
+      transform:translate(-50%,-50%) scale(1.08);
     }
 
     .sim-guide{
@@ -828,11 +842,6 @@
         gap:6px;
       }
 
-      .arena{
-        top:calc(186px + var(--safe-top));
-        bottom:calc(134px + var(--safe-bottom));
-      }
-
       .ar-water{
         top:calc(206px + var(--safe-top));
       }
@@ -842,6 +851,12 @@
         height:82px;
         font-size:32px;
         border-radius:24px;
+      }
+
+      .ar-scrub{
+        width:108px;
+        height:108px;
+        font-size:38px;
       }
 
       .sim-guide{
@@ -882,6 +897,7 @@
 
     <section class="ar-layer" aria-label="AR simulator objects">
       <div id="arWaterZone" class="ar-object ar-water">🚰<small>ก๊อกน้ำ</small></div>
+      <div id="arScrubZone" class="ar-object ar-scrub">🤲<small>ถูมือ</small></div>
       <div id="arSoapZone" class="ar-object ar-soap">🧴<small>สบู่</small></div>
       <div id="arTowelZone" class="ar-object ar-towel">🧻<small>ผ้า</small></div>
 
@@ -962,7 +978,7 @@
         <div class="brief-list">
           <div>1) ยื่นมือใต้ก๊อกน้ำ AR เพื่อทำมือเปียก</div>
           <div>2) เอามือออกจากก๊อกน้ำเพื่อปิดน้ำ แล้วแตะโซนสบู่</div>
-          <div>3) ถูมือสองข้างเข้าหากัน ระบบจะนับล้างมือ 7 ขั้นตอน</div>
+          <div>3) ถูมือในโซน 🤲 ถูมือ ระบบรองรับ 1 มือหรือ 2 มือ + การเคลื่อนไหว</div>
           <div>4) ยื่นมือใต้ก๊อกน้ำอีกครั้งเพื่อล้างฟอง แล้วเอามือออกเพื่อปิดน้ำ</div>
           <div>5) เอามือเข้าโซนผ้าเช็ดมือ แล้วกำจัด Germ Boss ก่อน Summary</div>
         </div>
@@ -1010,7 +1026,7 @@
     (function(){
       "use strict";
 
-      const VERSION = "20260619-HANDWASH-LAUNCHER-V2-AR-SIMULATOR-7-STEPS";
+      const VERSION = "20260619-HANDWASH-LAUNCHER-V2-AR-SIMULATOR-7-STEPS-SCRUB-ZONE";
       const GAME_ID = "handwash";
       const ZONE_ID = "hygiene";
 
@@ -1037,11 +1053,6 @@
         180
       );
 
-      /*
-        ล้างมือ 7 ขั้นตอน ตามบริบทไทย/กรมอนามัย
-        น้ำ/สบู่/ล้าง/เช็ด = process mechanic
-        7 ขั้นด้านล่าง = scrub mechanic
-      */
       const SCRUB = [
         {
           id:"palm",
@@ -1119,7 +1130,6 @@
       let handsModel = null;
       let handLoopRunning = false;
       let lastHandSeenAt = 0;
-      let lastAutoHitAt = 0;
 
       let lastPalmPoints = [];
 
@@ -1155,6 +1165,7 @@
         el.arWaterZone = document.getElementById("arWaterZone");
         el.arSoapZone = document.getElementById("arSoapZone");
         el.arTowelZone = document.getElementById("arTowelZone");
+        el.arScrubZone = document.getElementById("arScrubZone");
 
         el.stageText = document.getElementById("stageText");
         el.timerText = document.getElementById("timerText");
@@ -1226,10 +1237,6 @@
         el.btnStart.addEventListener("click", startGame);
         el.btnReplay.addEventListener("click", startGame);
 
-        /*
-          ปุ่มล่างเป็น fallback tap mode
-          ส่วน simulator จริงให้ใช้มือเข้า AR zones
-        */
         el.btnFaucet.addEventListener("click", onFaucetTap);
         el.btnSoap.addEventListener("click", onSoapTap);
         el.btnTowel.addEventListener("click", onTowelTap);
@@ -1374,9 +1381,6 @@
         }, 1000);
       }
 
-      /*
-        Fallback Tap Mode
-      */
       function onFaucetTap(){
         if(state.stage !== "main") return;
         state.tapHits += 1;
@@ -1451,9 +1455,6 @@
         completeDry();
       }
 
-      /*
-        Simulator Completion
-      */
       function completeWetHands(){
         setWater(true);
         passCheck("waterOpenStart", SCORE.waterOpenStart);
@@ -1483,7 +1484,7 @@
         state.phase = "scrub";
         state.scrubIndex = 0;
 
-        showToast("มีสบู่แล้ว! ถูมือสองข้างเพื่อทำ 7 ขั้นตอน");
+        showToast("มีสบู่แล้ว! ขยับมือในโซน 🤲 ถูมือ");
         resetHolds();
         updateMission();
         updateUI();
@@ -1704,7 +1705,7 @@
           return {
             icon:s.icon,
             title:s.label,
-            tip:s.tip + " • ถูมือสองข้างให้เคลื่อนไหวต่อเนื่อง"
+            tip:s.tip + " • เอามือเข้าโซน 🤲 แล้วขยับมือวน/ซ้าย–ขวา"
           };
         }
 
@@ -1751,9 +1752,25 @@
       }
 
       function updateZoneHighlights(){
-        el.arWaterZone.classList.toggle("active", state.stage === "main" && ["wet","rinseOpen"].includes(state.phase) && state.waterOn);
-        el.arSoapZone.classList.toggle("active", state.stage === "main" && state.phase === "soap");
-        el.arTowelZone.classList.toggle("active", state.stage === "main" && state.phase === "dry");
+        el.arWaterZone.classList.toggle(
+          "active",
+          state.stage === "main" && ["wet","rinseOpen"].includes(state.phase)
+        );
+
+        el.arSoapZone.classList.toggle(
+          "active",
+          state.stage === "main" && state.phase === "soap"
+        );
+
+        el.arTowelZone.classList.toggle(
+          "active",
+          state.stage === "main" && state.phase === "dry"
+        );
+
+        el.arScrubZone.classList.toggle(
+          "active",
+          state.stage === "main" && state.phase === "scrub"
+        );
       }
 
       function updateScrubGuide(){
@@ -1969,7 +1986,7 @@
           name,
           classLevel:qs.get("classLevel") || "P5",
           mode:handDetectReady ? "AR-hand-simulator+tap" : "AR-tap",
-          detectTarget:"hand_palm_landmark_9_two_hands_motion",
+          detectTarget:"hand_palm_landmark_9_one_or_two_hands_motion_scrub_zone",
           difficulty:DIFF,
           durationSec:state.duration,
           remainingSec:state.remaining,
@@ -2156,10 +2173,6 @@
 
         const hands = results.multiHandLandmarks.slice(0,2);
 
-        /*
-          Simulator ใช้ landmark 9 เป็นกลางฝ่ามือโดยประมาณ
-          ไม่ใช้ body/pose detection
-        */
         const palmPoints = hands
           .map(hand => handToScreenPoint(hand[9]))
           .filter(Boolean);
@@ -2223,6 +2236,7 @@
         const anyPalmInWater = palmPoints.some(p => pointInZone(p, zones.water));
         const anyPalmInSoap = palmPoints.some(p => pointInZone(p, zones.soap));
         const anyPalmInTowel = palmPoints.some(p => pointInZone(p, zones.towel));
+        const anyPalmInScrub = palmPoints.some(p => pointInZone(p, zones.scrub));
 
         const twoHandsClose = hands.length >= 2 && areTwoHandsClose(hands[0], hands[1]);
         const movingEnough = computePalmMotion(palmPoints) > 0.014;
@@ -2269,17 +2283,21 @@
         }
 
         else if(state.phase === "scrub"){
-          if(twoHandsClose && movingEnough){
+          const simulatorScrubOK =
+            (twoHandsClose && movingEnough) ||
+            (anyPalmInScrub && movingEnough);
+
+          if(simulatorScrubOK){
             hold.scrub += dt;
-            state.foam = clamp(state.foam + 0.48, 0, 100);
+            state.foam = clamp(state.foam + 0.55, 0, 100);
             state.simulatorHits += 1;
-            showToastSoft("กำลังถูมือจริง...");
+            showToastSoft("กำลังถูมือ... ขยับมือวนหรือซ้าย–ขวาต่อเนื่อง");
 
             if(hold.scrub >= 0.9){
               completeScrubStep();
             }
           }else{
-            hold.scrub = Math.max(0, hold.scrub - dt * 0.5);
+            hold.scrub = Math.max(0, hold.scrub - dt * 0.35);
           }
         }
 
@@ -2349,6 +2367,12 @@
             x2:app.left + app.width * 0.98,
             y1:app.top + app.height * 0.58,
             y2:app.top + app.height * 0.91
+          },
+          scrub:{
+            x1:app.left + app.width * 0.22,
+            x2:app.left + app.width * 0.78,
+            y1:app.top + app.height * 0.34,
+            y2:app.top + app.height * 0.72
           }
         };
       }
