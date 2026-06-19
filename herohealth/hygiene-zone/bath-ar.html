@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#dff8ff" />
   <meta name="color-scheme" content="light" />
-  <title>HeroHealth • Bath AR v4.1</title>
+  <title>HeroHealth • Bath AR v4.2</title>
+  <link rel="icon" href="data:," />
 
   <style>
     :root{
@@ -623,7 +624,7 @@
   <section class="hud">
     <div class="card mission">
       <div class="row">
-        <div class="title">🛁 Bath AR v4.1 • Germ Wave Battle</div>
+        <div class="title">🛁 Bath AR v4.2 • Germ Wave Balance</div>
         <div class="pill" id="stagePill">READY</div>
       </div>
 
@@ -729,7 +730,7 @@
       </ul>
 
       <div class="modalActions">
-        <button class="btn primary full" id="startBtn">เริ่ม Bath AR v4.1</button>
+        <button class="btn primary full" id="startBtn">เริ่ม Bath AR v4.2</button>
       </div>
     </div>
   </section>
@@ -778,7 +779,6 @@ function safeLocalGet(key, fallback=""){
   try{
     return localStorage.getItem(key) || fallback;
   }catch(err){
-    console.warn("[Bath AR] localStorage get failed:", key, err);
     return fallback;
   }
 }
@@ -788,7 +788,6 @@ function safeLocalSet(key, value){
     localStorage.setItem(key, String(value ?? ""));
     return true;
   }catch(err){
-    console.warn("[Bath AR] localStorage set failed:", key, err);
     return false;
   }
 }
@@ -880,39 +879,39 @@ const ZONES = {
 const DIFF = {
   easy:{
     time:80,
-    zoneScale:1.18,
-    scrubNeed:80,
-    dryNeed:40,
-    germEvery:2300,
-    maxGerms:4,
-    germHp:36,
-    bossHp:180,
-    waterDrain:.035,
-    motionScale:1.16
+    zoneScale:1.05,
+    scrubNeed:70,
+    dryNeed:35,
+    germEvery:4200,
+    maxGerms:3,
+    germHp:30,
+    bossHp:150,
+    waterDrain:.028,
+    motionScale:1.25
   },
   normal:{
-    time:65,
-    zoneScale:1,
-    scrubNeed:95,
-    dryNeed:52,
-    germEvery:1800,
-    maxGerms:6,
-    germHp:46,
-    bossHp:230,
-    waterDrain:.052,
-    motionScale:1
+    time:70,
+    zoneScale:.95,
+    scrubNeed:85,
+    dryNeed:45,
+    germEvery:3300,
+    maxGerms:4,
+    germHp:40,
+    bossHp:210,
+    waterDrain:.045,
+    motionScale:1.08
   },
   hard:{
-    time:55,
-    zoneScale:.86,
-    scrubNeed:115,
-    dryNeed:64,
-    germEvery:1350,
-    maxGerms:8,
-    germHp:58,
-    bossHp:300,
-    waterDrain:.075,
-    motionScale:.86
+    time:60,
+    zoneScale:.84,
+    scrubNeed:100,
+    dryNeed:55,
+    germEvery:2500,
+    maxGerms:6,
+    germHp:50,
+    bossHp:270,
+    waterDrain:.065,
+    motionScale:.95
   }
 };
 
@@ -979,7 +978,7 @@ const BADGES = {
   practice:"💪 Keep Practicing Hero"
 };
 
-const BATH_AR_VERSION = "v4.1-storage-model-hotfix";
+const BATH_AR_VERSION = "v4.2-balance-wave-zone-hotfix";
 
 const SHEET_ENDPOINT = "https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec";
 
@@ -1403,7 +1402,7 @@ function startGame(){
 
   setTool("water");
   setStage(STAGE.READY);
-  toast("เริ่ม Bath AR v4.1!");
+  toast("เริ่ม Bath AR v4.2!");
 }
 
 function endGame(reason="completed"){
@@ -1467,7 +1466,10 @@ function spawnGerm(){
   if(!Object.keys(game.zones).length) return;
   if(game.germs.length >= cfg.maxGerms) return;
 
-  const zone = rnd(keys());
+  const spawnZones = ["neck","leftShoulder","rightShoulder","leftArm","rightArm","body","legs"];
+  const availableSpawnZones = spawnZones.filter(k => game.zones[k]);
+  const zone = rnd(availableSpawnZones.length ? availableSpawnZones : keys());
+
   const z = game.zones[zone];
   if(!z) return;
 
@@ -1507,8 +1509,9 @@ function spawnHiddenGerms(){
   game.hiddenGerms = [];
   game.hiddenFound = 0;
 
-  const available = keys().filter(k=>game.zones[k]);
-  const total = selectedDiff === "hard" ? 4 : selectedDiff === "normal" ? 3 : 2;
+  const preferredHiddenZones = ["neck","leftShoulder","rightShoulder","leftArm","rightArm","body","legs"];
+  const available = preferredHiddenZones.filter(k=>game.zones[k]);
+  const total = selectedDiff === "hard" ? 3 : selectedDiff === "normal" ? 2 : 1;
   game.hiddenTotal = total;
 
   for(let i=0;i<total;i++){
@@ -1569,7 +1572,7 @@ function updateHiddenGerms(hands){
       if(g.found) continue;
 
       const d = Math.hypot(hand.center.x - g.x, hand.center.y - g.y);
-      if(d > 38) continue;
+      if(d > 36) continue;
 
       if(game.tool !== "soap"){
         popup("Soap!", hand.center.x, hand.center.y, "#ef4444");
@@ -1618,10 +1621,31 @@ function startBoss(){
   toast(`⚠️ Boss โผล่ที่ ${ZONES[mostMissed]}!`);
 }
 
+function cleanupOldGerms(){
+  if(!game.germs.length) return;
+
+  const maxAge = selectedDiff === "hard" ? 9000 : selectedDiff === "normal" ? 10500 : 12000;
+  const t = now();
+
+  game.germs = game.germs.filter(g => {
+    const tooOld = t - g.born > maxAge;
+
+    if(tooOld){
+      game.missedHits[g.zone] = (game.missedHits[g.zone] || 0) + 1;
+      game.clean[g.zone] = clamp(game.clean[g.zone] - 3, 0, 100);
+      popup("Missed", g.x, g.y, "#ef4444");
+      return false;
+    }
+
+    return true;
+  });
+}
+
 function updateGerms(dt,hands){
   if(game.stage !== STAGE.SCRUB && game.stage !== STAGE.BOSS) return;
 
   updateHiddenGerms(hands);
+  cleanupOldGerms();
 
   if(game.stage === STAGE.SCRUB){
     if(now()-game.lastGermAt > cfg.germEvery){
@@ -1634,7 +1658,9 @@ function updateGerms(dt,hands){
       }
     }
 
-    if(game.wave >= 7 && game.germs.length === 0){
+    const bossWave = selectedDiff === "hard" ? 6 : selectedDiff === "normal" ? 5 : 4;
+
+    if(game.wave >= bossWave && game.germs.length === 0){
       startBoss();
       return;
     }
@@ -1656,7 +1682,7 @@ function updateGerms(dt,hands){
 
     for(const g of [...game.germs]){
       const d = Math.hypot(hand.center.x-g.x,hand.center.y-g.y);
-      if(d>42) continue;
+      if(d>38) continue;
 
       const meta = GERM_TYPES[g.type];
       let ok = false;
@@ -2037,7 +2063,7 @@ function drawZone(k,z){
 function drawGerms(){
   for(const g of game.germs){
     const meta = GERM_TYPES[g.type];
-    const r = 28;
+    const r = 24;
 
     ctx.save();
 
@@ -2049,7 +2075,7 @@ function drawGerms(){
     ctx.strokeStyle = meta.color;
     ctx.stroke();
 
-    ctx.font = "25px system-ui";
+    ctx.font = "22px system-ui";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(meta.emoji,g.x,g.y+1);
@@ -2104,7 +2130,7 @@ function drawHiddenGerms(){
     if(!g.revealed && !game.scanReveal) continue;
 
     const alpha = g.found ? .95 : game.scanReveal ? .85 : .55;
-    const r = g.found ? 22 : 25;
+    const r = g.found ? 19 : 22;
 
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -2118,14 +2144,14 @@ function drawHiddenGerms(){
     ctx.strokeStyle = g.found ? "#22c55e" : "#a855f7";
     ctx.stroke();
 
-    ctx.font = "24px system-ui";
+    ctx.font = "21px system-ui";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(g.found ? "✅" : "🔎",g.x,g.y);
 
     if(!g.found){
-      rr(g.x-24,g.y+30,48,6,99,"rgba(148,163,184,.28)",null);
-      rr(g.x-24,g.y+30,48*(g.hp/g.maxHp),6,99,"#a855f7",null);
+      rr(g.x-22,g.y+27,44,6,99,"rgba(148,163,184,.28)",null);
+      rr(g.x-22,g.y+27,44*(g.hp/g.maxHp),6,99,"#a855f7",null);
     }
 
     ctx.restore();
@@ -2473,7 +2499,7 @@ function showSummary(reason){
   UI.rankTitle.textContent = badgeTitle || "Clean Body Hero";
   UI.rankSubtitle.textContent = reason==="timeup"
     ? "หมดเวลาแล้ว มาดูจุดที่ควรพัฒนา"
-    : "ภารกิจ Bath AR v4.1 สำเร็จ";
+    : "ภารกิจ Bath AR v4.2 สำเร็จ";
 
   UI.sumClean.textContent = `${ctxResult.cleanScore}%`;
   UI.sumWater.textContent = String(ctxResult.waterScore);
@@ -2520,7 +2546,7 @@ function showSummary(reason){
     `;
   }).join("");
 
-  console.log("[Bath AR v4.1 Dashboard Payload]",game.exportPayload);
+  console.log("[Bath AR v4.2 Dashboard Payload]",game.exportPayload);
 
   UI.summaryOverlay.classList.remove("hidden");
   submitResultToSheet(game.exportPayload);
