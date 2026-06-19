@@ -1,0 +1,1652 @@
+<!-- =========================================================
+  /herohealth/hygiene-zone/teacher-dashboard.html
+  HeroHealth • Hygiene Zone • Teacher Dashboard
+  Version: v20260619-HYGIENE-TEACHER-DASHBOARD-V1
+
+  รองรับ Hygiene Zone 6 เกม:
+  - handwash
+  - toothbrush
+  - germhunter
+  - mask
+  - cough
+  - nails
+
+  ใช้ดู:
+  - Total plays
+  - Avg score
+  - Avg Clean / Gum / Coverage
+  - Boss win rate
+  - Weakest zone
+  - Input mode
+  - Student records
+  - Export CSV
+
+  หมายเหตุ:
+  - ถ้าจะดึงจาก Google Sheets จริง ควรมี Apps Script doGet?action=list
+  - เวอร์ชันนี้เตรียมช่อง Web App URL ไว้แล้ว
+========================================================= -->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no"
+  />
+  <meta name="theme-color" content="#e0f7ff" />
+  <meta name="color-scheme" content="light" />
+
+  <title>Hygiene Zone • Teacher Dashboard</title>
+
+  <style>
+    :root{
+      --safe-top: env(safe-area-inset-top,0px);
+      --safe-bottom: env(safe-area-inset-bottom,0px);
+      --safe-left: env(safe-area-inset-left,0px);
+      --safe-right: env(safe-area-inset-right,0px);
+
+      --ink:#0f172a;
+      --muted:#64748b;
+      --line:rgba(14,116,144,.16);
+      --card:rgba(255,255,255,.86);
+      --cyan:#06b6d4;
+      --blue:#3b82f6;
+      --green:#22c55e;
+      --yellow:#facc15;
+      --orange:#fb923c;
+      --red:#ef4444;
+      --pink:#fb7185;
+      --purple:#8b5cf6;
+      --shadow:0 18px 48px rgba(15,23,42,.14);
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,
+    body{
+      margin:0;
+      width:100%;
+      min-height:100%;
+      font-family:
+        ui-rounded,
+        "SF Pro Rounded",
+        "Sarabun",
+        "Noto Sans Thai",
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 15% 8%, rgba(125,211,252,.72), transparent 28%),
+        radial-gradient(circle at 88% 12%, rgba(251,207,232,.74), transparent 30%),
+        radial-gradient(circle at 55% 100%, rgba(187,247,208,.78), transparent 30%),
+        linear-gradient(160deg,#ecfeff 0%,#fdf2f8 54%,#fff7ed 100%);
+      overflow-x:hidden;
+    }
+
+    button,
+    input,
+    select,
+    textarea{
+      font:inherit;
+    }
+
+    button{
+      border:0;
+      cursor:pointer;
+    }
+
+    .page{
+      min-height:100vh;
+      padding:
+        calc(16px + var(--safe-top))
+        calc(14px + var(--safe-right))
+        calc(22px + var(--safe-bottom))
+        calc(14px + var(--safe-left));
+      position:relative;
+      overflow:hidden;
+    }
+
+    .orb{
+      position:fixed;
+      border-radius:999px;
+      pointer-events:none;
+      z-index:0;
+      opacity:.75;
+    }
+
+    .orb.o1{
+      width:240px;
+      height:240px;
+      left:-90px;
+      top:90px;
+      background:radial-gradient(circle,rgba(103,232,249,.56),transparent 68%);
+    }
+
+    .orb.o2{
+      width:290px;
+      height:290px;
+      right:-120px;
+      bottom:60px;
+      background:radial-gradient(circle,rgba(251,113,133,.42),transparent 68%);
+    }
+
+    .wrap{
+      position:relative;
+      z-index:2;
+      width:min(1280px,100%);
+      margin:0 auto;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .logo{
+      width:56px;
+      height:56px;
+      border-radius:21px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#67e8f9,#3b82f6,#fb7185);
+      color:white;
+      font-size:30px;
+      box-shadow:0 16px 34px rgba(37,99,235,.20);
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(22px,4.2vw,42px);
+      line-height:1.02;
+      letter-spacing:-.04em;
+      font-weight:1000;
+    }
+
+    .brand h1 span{
+      display:block;
+      margin-top:3px;
+      font-size:.52em;
+      letter-spacing:0;
+      color:#0e7490;
+      font-weight:1000;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+
+    .small-btn{
+      min-height:42px;
+      padding:0 13px;
+      border-radius:16px;
+      background:rgba(255,255,255,.84);
+      border:1px solid rgba(255,255,255,.92);
+      color:#0f172a;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:0 12px 24px rgba(15,23,42,.10);
+      backdrop-filter:blur(12px);
+      white-space:nowrap;
+    }
+
+    .small-btn.primary{
+      background:linear-gradient(90deg,#06b6d4,#3b82f6);
+      color:#fff;
+      border:0;
+    }
+
+    .panel{
+      border-radius:30px;
+      background:rgba(255,255,255,.84);
+      border:1px solid rgba(255,255,255,.92);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(14px);
+      overflow:hidden;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:14px;
+      margin-bottom:14px;
+    }
+
+    .hero-main{
+      padding:22px;
+      position:relative;
+      min-height:230px;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      padding:7px 11px;
+      border-radius:999px;
+      background:rgba(236,254,255,.88);
+      color:#0e7490;
+      border:1px solid rgba(6,182,212,.18);
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:10px;
+    }
+
+    .hero-title{
+      margin:0;
+      font-size:clamp(31px,5vw,58px);
+      line-height:.96;
+      letter-spacing:-.055em;
+      font-weight:1000;
+      color:#0f172a;
+    }
+
+    .hero-title span{
+      background:linear-gradient(90deg,#0891b2,#2563eb,#db2777);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+    }
+
+    .hero-text{
+      margin:12px 0 0;
+      color:#475569;
+      line-height:1.68;
+      font-size:14px;
+      font-weight:850;
+      width:min(700px,100%);
+    }
+
+    .data-panel{
+      padding:16px;
+    }
+
+    .data-panel h2{
+      margin:0 0 8px;
+      font-size:20px;
+      line-height:1.1;
+      letter-spacing:-.03em;
+      font-weight:1000;
+    }
+
+    .data-panel p{
+      margin:0 0 10px;
+      color:#64748b;
+      font-size:13px;
+      line-height:1.5;
+      font-weight:850;
+    }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:5px;
+      font-size:12px;
+      color:#475569;
+      font-weight:1000;
+      margin-bottom:8px;
+    }
+
+    .field input,
+    .field select,
+    .field textarea{
+      width:100%;
+      border-radius:17px;
+      border:1px solid rgba(14,116,144,.16);
+      background:rgba(255,255,255,.9);
+      color:#0f172a;
+      outline:0;
+      padding:11px 12px;
+      font-weight:900;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.52);
+    }
+
+    .field textarea{
+      min-height:104px;
+      resize:vertical;
+      line-height:1.45;
+      font-size:12px;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      user-select:text;
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .filter-bar{
+      padding:12px;
+      margin-bottom:14px;
+      display:grid;
+      grid-template-columns:1.2fr .9fr .9fr .9fr auto;
+      gap:10px;
+      align-items:end;
+    }
+
+    .filter-bar .field{
+      margin:0;
+    }
+
+    .dash-grid{
+      display:grid;
+      grid-template-columns:repeat(6,1fr);
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .stat{
+      padding:13px;
+      border-radius:24px;
+      background:rgba(255,255,255,.84);
+      border:1px solid rgba(255,255,255,.92);
+      box-shadow:0 12px 28px rgba(15,23,42,.09);
+      min-height:108px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .stat:after{
+      content:"";
+      position:absolute;
+      right:-28px;
+      bottom:-30px;
+      width:92px;
+      height:92px;
+      border-radius:999px;
+      background:var(--glow,rgba(103,232,249,.25));
+      pointer-events:none;
+    }
+
+    .stat small{
+      display:block;
+      color:#64748b;
+      font-size:12px;
+      font-weight:1000;
+      margin-bottom:5px;
+      position:relative;
+      z-index:1;
+    }
+
+    .stat b{
+      display:block;
+      color:#0f172a;
+      font-size:clamp(22px,3vw,34px);
+      line-height:1;
+      font-weight:1000;
+      position:relative;
+      z-index:1;
+    }
+
+    .stat span{
+      display:block;
+      margin-top:5px;
+      color:#475569;
+      font-size:12px;
+      font-weight:850;
+      line-height:1.25;
+      position:relative;
+      z-index:1;
+    }
+
+    .content-grid{
+      display:grid;
+      grid-template-columns:.95fr 1.05fr;
+      gap:14px;
+      margin-bottom:14px;
+    }
+
+    .card{
+      padding:16px;
+    }
+
+    .card h2{
+      margin:0 0 10px;
+      font-size:22px;
+      line-height:1.1;
+      letter-spacing:-.03em;
+      font-weight:1000;
+    }
+
+    .chart{
+      display:grid;
+      gap:8px;
+    }
+
+    .bar-row{
+      display:grid;
+      grid-template-columns:110px 1fr 54px;
+      gap:8px;
+      align-items:center;
+      font-size:13px;
+      color:#334155;
+      font-weight:900;
+    }
+
+    .bar-name{
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .bar-track{
+      height:13px;
+      border-radius:999px;
+      background:rgba(148,163,184,.18);
+      overflow:hidden;
+      box-shadow:inset 0 0 0 1px rgba(15,23,42,.06);
+    }
+
+    .bar-fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#67e8f9,#3b82f6,#a78bfa);
+      transition:width .25s ease;
+    }
+
+    .bar-value{
+      text-align:right;
+      color:#64748b;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .insights{
+      display:grid;
+      gap:10px;
+    }
+
+    .insight{
+      padding:11px 12px;
+      border-radius:20px;
+      background:linear-gradient(180deg,#f8fafc,#ffffff);
+      border:1px solid rgba(14,116,144,.12);
+      color:#334155;
+      font-size:13px;
+      line-height:1.45;
+      font-weight:850;
+    }
+
+    .insight b{
+      color:#0f172a;
+      font-weight:1000;
+    }
+
+    .table-panel{
+      padding:0;
+      overflow:hidden;
+    }
+
+    .table-head{
+      padding:14px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      border-bottom:1px solid rgba(14,116,144,.12);
+    }
+
+    .table-head h2{
+      margin:0;
+      font-size:22px;
+      letter-spacing:-.03em;
+      font-weight:1000;
+    }
+
+    .table-wrap{
+      width:100%;
+      overflow:auto;
+      max-height:430px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:1100px;
+      background:rgba(255,255,255,.62);
+    }
+
+    th,
+    td{
+      padding:10px 11px;
+      border-bottom:1px solid rgba(14,116,144,.10);
+      text-align:left;
+      vertical-align:middle;
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    th{
+      position:sticky;
+      top:0;
+      z-index:2;
+      background:rgba(236,254,255,.96);
+      color:#0e7490;
+      font-weight:1000;
+      box-shadow:0 1px 0 rgba(14,116,144,.12);
+    }
+
+    td{
+      color:#334155;
+      font-weight:850;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      padding:5px 8px;
+      border-radius:999px;
+      background:#f8fafc;
+      border:1px solid rgba(15,23,42,.07);
+      color:#334155;
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .badge.good{
+      background:#ecfdf5;
+      color:#047857;
+      border-color:rgba(16,185,129,.18);
+    }
+
+    .badge.warn{
+      background:#fffbeb;
+      color:#92400e;
+      border-color:rgba(245,158,11,.18);
+    }
+
+    .badge.bad{
+      background:#fff1f2;
+      color:#be123c;
+      border-color:rgba(251,113,133,.20);
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(18px + var(--safe-bottom));
+      transform:translateX(-50%) translateY(18px);
+      z-index:50;
+      max-width:min(92vw,620px);
+      padding:12px 15px;
+      border-radius:999px;
+      background:rgba(255,255,255,.94);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:0 18px 44px rgba(15,23,42,.18);
+      color:#0f172a;
+      font-size:14px;
+      font-weight:1000;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      backdrop-filter:blur(14px);
+      text-align:center;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .empty{
+      padding:24px;
+      color:#64748b;
+      font-weight:900;
+      text-align:center;
+    }
+
+    @media (max-width:1120px){
+      .hero,
+      .content-grid{
+        grid-template-columns:1fr;
+      }
+
+      .dash-grid{
+        grid-template-columns:repeat(3,1fr);
+      }
+
+      .filter-bar{
+        grid-template-columns:1fr 1fr 1fr;
+      }
+    }
+
+    @media (max-width:720px){
+      .page{
+        padding:
+          calc(12px + var(--safe-top))
+          calc(10px + var(--safe-right))
+          calc(18px + var(--safe-bottom))
+          calc(10px + var(--safe-left));
+      }
+
+      .topbar{
+        align-items:flex-start;
+      }
+
+      .logo{
+        width:49px;
+        height:49px;
+        border-radius:18px;
+      }
+
+      .top-actions{
+        flex-direction:column;
+      }
+
+      .small-btn{
+        min-height:38px;
+        padding:0 10px;
+        font-size:12px;
+      }
+
+      .hero-main,
+      .data-panel,
+      .card{
+        padding:14px;
+      }
+
+      .dash-grid{
+        grid-template-columns:repeat(2,1fr);
+      }
+
+      .filter-bar{
+        grid-template-columns:1fr;
+      }
+
+      .row{
+        grid-template-columns:1fr;
+      }
+
+      .bar-row{
+        grid-template-columns:90px 1fr 48px;
+      }
+    }
+
+    @media (max-width:420px){
+      .dash-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <div class="orb o1"></div>
+    <div class="orb o2"></div>
+
+    <div class="wrap">
+      <header class="topbar">
+        <div class="brand">
+          <div class="logo">📊</div>
+          <h1>
+            Hygiene Dashboard
+            <span>Teacher View • 6 Games</span>
+          </h1>
+        </div>
+
+        <div class="top-actions">
+          <button id="zoneBtn" class="small-btn">🧼 Hygiene Zone</button>
+          <button id="toothBtn" class="small-btn">🦷 Toothbrush</button>
+          <button id="exportBtn" class="small-btn primary">⬇️ Export CSV</button>
+        </div>
+      </header>
+
+      <section class="hero">
+        <article class="panel hero-main">
+          <div class="kicker">✨ Teacher Analytics</div>
+          <h2 class="hero-title">
+            ดูผลการเรียนรู้<br>
+            <span>Hygiene Zone</span>
+          </h2>
+          <p class="hero-text">
+            Dashboard นี้ช่วยครูดูภาพรวมผลการเล่นเกมสุขอนามัย เช่น จำนวนครั้งที่เล่น
+            คะแนนเฉลี่ย Clean Score, Gum Health, Coverage, Boss Result,
+            โซนที่ควรฝึกเพิ่ม และข้อมูล input mode เพื่อใช้ประเมินการเรียนรู้หรือทำวิจัยต่อได้
+          </p>
+        </article>
+
+        <aside class="panel data-panel">
+          <h2>แหล่งข้อมูล</h2>
+          <p>
+            ใช้ข้อมูลตัวอย่างก่อน หรือวาง JSON/CSV จากผลเกมได้ทันที
+            ส่วนการดึงจาก Google Sheets จะใช้ได้เมื่อ Apps Script รองรับ doGet JSON
+          </p>
+
+          <label class="field">
+            Sheet Web App URL
+            <input id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec" />
+          </label>
+
+          <div class="row">
+            <button id="loadApiBtn" class="small-btn primary">โหลดจาก Sheet</button>
+            <button id="demoBtn" class="small-btn">ใช้ข้อมูลตัวอย่าง</button>
+          </div>
+
+          <label class="field">
+            วาง JSON Array หรือ CSV
+            <textarea id="pasteBox" placeholder='เช่น [{"game_id":"hygiene-toothbrush-ar","player_name":"Hero","score":1200}]'></textarea>
+          </label>
+
+          <div class="row">
+            <button id="importBtn" class="small-btn primary">Import Data</button>
+            <button id="clearBtn" class="small-btn">ล้างข้อมูล</button>
+          </div>
+        </aside>
+      </section>
+
+      <section class="panel filter-bar">
+        <label class="field">
+          ค้นหานักเรียน
+          <input id="searchInput" placeholder="ชื่อ / ชั้น / เกม" />
+        </label>
+
+        <label class="field">
+          เกม
+          <select id="gameFilter">
+            <option value="all">ทุกเกม</option>
+            <option value="handwash">Handwash Hero</option>
+            <option value="toothbrush">Toothbrush Hero</option>
+            <option value="germhunter">Germ Hunter</option>
+            <option value="mask">Mask Shield</option>
+            <option value="cough">Cough Guard</option>
+            <option value="nails">Clean Nails</option>
+          </select>
+        </label>
+
+        <label class="field">
+          ระดับ
+          <select id="diffFilter">
+            <option value="all">ทุกระดับ</option>
+            <option value="easy">Easy</option>
+            <option value="normal">Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+
+        <label class="field">
+          เรียงตาม
+          <select id="sortBy">
+            <option value="created_desc">ล่าสุดก่อน</option>
+            <option value="score_desc">คะแนนสูงสุด</option>
+            <option value="clean_desc">Clean สูงสุด</option>
+            <option value="gum_asc">Gum ต่ำสุด</option>
+            <option value="coverage_asc">Coverage ต่ำสุด</option>
+          </select>
+        </label>
+
+        <button id="applyBtn" class="small-btn primary">Apply</button>
+      </section>
+
+      <section class="dash-grid">
+        <div class="stat" style="--glow:rgba(103,232,249,.28)">
+          <small>Total Plays</small>
+          <b id="statPlays">0</b>
+          <span>จำนวนรอบที่มีข้อมูล</span>
+        </div>
+        <div class="stat" style="--glow:rgba(59,130,246,.24)">
+          <small>Avg Score</small>
+          <b id="statScore">0</b>
+          <span>คะแนนเฉลี่ยรวม</span>
+        </div>
+        <div class="stat" style="--glow:rgba(34,197,94,.24)">
+          <small>Avg Clean</small>
+          <b id="statClean">0%</b>
+          <span>ความสะอาดเฉลี่ย</span>
+        </div>
+        <div class="stat" style="--glow:rgba(187,247,208,.28)">
+          <small>Avg Gum</small>
+          <b id="statGum">0%</b>
+          <span>สุขภาพเหงือกเฉลี่ย</span>
+        </div>
+        <div class="stat" style="--glow:rgba(251,191,36,.25)">
+          <small>Coverage</small>
+          <b id="statCoverage">0/6</b>
+          <span>โซนครอบคลุมเฉลี่ย</span>
+        </div>
+        <div class="stat" style="--glow:rgba(251,113,133,.24)">
+          <small>Boss Win</small>
+          <b id="statBoss">0%</b>
+          <span>อัตราชนะบอส</span>
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel card">
+          <h2>ผลเฉลี่ยรายเกม</h2>
+          <div id="gameChart" class="chart"></div>
+        </article>
+
+        <article class="panel card">
+          <h2>ข้อสังเกตสำหรับครู</h2>
+          <div id="insights" class="insights"></div>
+        </article>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="table-head">
+          <h2>Student Records</h2>
+          <span id="recordCount" class="badge">0 records</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>เวลา</th>
+                <th>ผู้เล่น</th>
+                <th>ชั้น</th>
+                <th>เกม</th>
+                <th>ระดับ</th>
+                <th>Score</th>
+                <th>Clean</th>
+                <th>Gum</th>
+                <th>Coverage</th>
+                <th>Combo</th>
+                <th>Boss</th>
+                <th>Weak Zone</th>
+                <th>Input</th>
+                <th>Badge</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr>
+                <td colspan="14" class="empty">ยังไม่มีข้อมูล</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div id="toast" class="toast">พร้อมใช้งาน Teacher Dashboard</div>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const VERSION = 'v20260619-HYGIENE-TEACHER-DASHBOARD-V1';
+
+      const CONFIG = {
+        zoneUrl: '../hygiene-zone-v2.html',
+        toothbrushUrl: './toothbrush-ar.html',
+        storageKey: 'herohealth_hygiene_teacher_records_v1',
+
+        gameMap: {
+          handwash: {
+            label: 'Handwash Hero',
+            icon: '🧼',
+            aliases: ['handwash', 'hygiene-handwash-ar', 'handwash-hero', 'handwash_hero']
+          },
+          toothbrush: {
+            label: 'Toothbrush Hero',
+            icon: '🦷',
+            aliases: ['toothbrush', 'hygiene-toothbrush-ar', 'toothbrush_hero_plaque_battle']
+          },
+          germhunter: {
+            label: 'Germ Hunter',
+            icon: '🦠',
+            aliases: ['germhunter', 'germ-hunter', 'hygiene-germhunter-ar']
+          },
+          mask: {
+            label: 'Mask Shield',
+            icon: '😷',
+            aliases: ['mask', 'mask-shield', 'hygiene-mask-ar']
+          },
+          cough: {
+            label: 'Cough Guard',
+            icon: '🤧',
+            aliases: ['cough', 'cough-guard', 'hygiene-cough-ar']
+          },
+          nails: {
+            label: 'Clean Nails',
+            icon: '✋',
+            aliases: ['nails', 'clean-nails', 'hygiene-nails-ar']
+          }
+        }
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      const state = {
+        records: [],
+        filtered: []
+      };
+
+      function showToast(text, ms = 1300){
+        const toast = $('toast');
+        toast.textContent = text;
+        toast.classList.add('show');
+
+        window.clearTimeout(showToast._t);
+        showToast._t = window.setTimeout(() => {
+          toast.classList.remove('show');
+        }, ms);
+      }
+
+      function num(v, fallback = 0){
+        const n = Number(v);
+        return Number.isFinite(n) ? n : fallback;
+      }
+
+      function fmtPct(v){
+        return `${Math.round(num(v))}%`;
+      }
+
+      function fmtTime(v){
+        if(!v) return '-';
+
+        try{
+          const d = new Date(v);
+          if(Number.isNaN(d.getTime())) return String(v);
+          return d.toLocaleString('th-TH', {
+            month:'short',
+            day:'2-digit',
+            hour:'2-digit',
+            minute:'2-digit'
+          });
+        }catch(err){
+          return String(v);
+        }
+      }
+
+      function escapeHtml(s){
+        return String(s ?? '')
+          .replace(/&/g,'&amp;')
+          .replace(/</g,'&lt;')
+          .replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;')
+          .replace(/'/g,'&#039;');
+      }
+
+      function normalizeGameId(raw){
+        const s = String(raw || '').toLowerCase();
+
+        for(const [id, game] of Object.entries(CONFIG.gameMap)){
+          if(game.aliases.some(a => s.includes(a))) return id;
+        }
+
+        return s || 'unknown';
+      }
+
+      function gameLabel(id){
+        const key = normalizeGameId(id);
+        const game = CONFIG.gameMap[key];
+        return game ? `${game.icon} ${game.label}` : id || 'Unknown';
+      }
+
+      function normalizeRecord(r){
+        const gameId = normalizeGameId(r.game || r.game_id || r.mode || r.gameId);
+
+        const coverageRaw =
+          r.coverage_zone_count ??
+          r.coverage ??
+          r.coverage_count ??
+          r.coveragePercent ??
+          r.coverage_percent;
+
+        let coverage = num(coverageRaw);
+        if(coverage > 6 && coverage <= 100) coverage = Math.round((coverage / 100) * 6);
+
+        const clean =
+          r.clean_score ??
+          r.clean ??
+          r.cleanScore ??
+          r.clean_percent ??
+          r.accuracy ??
+          0;
+
+        const gum =
+          r.gum_health ??
+          r.gum ??
+          r.gumHealth ??
+          100;
+
+        const created =
+          r.created_at ??
+          r.timestamp ??
+          r.time ??
+          r.date ??
+          new Date().toISOString();
+
+        const bossRaw =
+          r.boss_defeated ??
+          r.boss_result ??
+          r.boss ??
+          r.bossWin ??
+          '';
+
+        const bossDefeated = String(bossRaw).toLowerCase().includes('yes') ||
+          String(bossRaw).includes('ชนะ') ||
+          String(bossRaw).toLowerCase() === 'true' ||
+          bossRaw === true;
+
+        return {
+          version: r.version || '',
+          created_at: created,
+          player_name: r.player_name || r.name || r.playerName || r.student_name || 'Hero',
+          class_level: r.class_level || r.classLevel || r.class || r.grade || 'ป.5',
+          game_id: gameId,
+          difficulty: r.difficulty || r.diff || 'normal',
+          duration_sec: num(r.duration_sec || r.duration || r.time, 0),
+          score: num(r.score, 0),
+          clean_score: clamp(num(clean, 0), 0, 100),
+          gum_health: clamp(num(gum, 100), 0, 100),
+          coverage_zone_count: clamp(num(coverage, 0), 0, 6),
+          perfect_count: num(r.perfect_count || r.perfect || 0, 0),
+          good_count: num(r.good_count || r.good || 0, 0),
+          weak_count: num(r.weak_count || r.weak || 0, 0),
+          miss_count: num(r.miss_count || r.miss || 0, 0),
+          overbrush_count: num(r.overbrush_count || r.overBrush || 0, 0),
+          best_combo: num(r.best_combo || r.combo_best || r.combo || 0, 0),
+          boss_started: r.boss_started || '',
+          boss_defeated: bossDefeated ? 'yes' : 'no',
+          strongest_zone: r.strongest_zone || r.best_zone || '-',
+          weakest_zone: r.weakest_zone || r.weak_zone || '-',
+          input_mode: r.input_mode || r.inputMode || '-',
+          badge: r.badge || inferBadge(r)
+        };
+      }
+
+      function clamp(n,min,max){
+        return Math.max(min, Math.min(max, n));
+      }
+
+      function inferBadge(r){
+        const clean = num(r.clean_score || r.clean || 0);
+        const gum = num(r.gum_health || r.gum || 100);
+        const boss = String(r.boss_defeated || '').toLowerCase() === 'yes';
+
+        if(clean >= 90 && gum >= 85 && boss) return 'Master';
+        if(clean >= 80) return 'Fresh Hero';
+        if(gum >= 90) return 'Gentle Hero';
+        if(clean >= 60) return 'Practice Hero';
+        return 'Rookie';
+      }
+
+      function avg(arr, key){
+        if(!arr.length) return 0;
+        return arr.reduce((sum, r) => sum + num(r[key]), 0) / arr.length;
+      }
+
+      function sum(arr, key){
+        return arr.reduce((s, r) => s + num(r[key]), 0);
+      }
+
+      function saveLocal(){
+        try{
+          localStorage.setItem(CONFIG.storageKey, JSON.stringify(state.records));
+        }catch(err){}
+      }
+
+      function loadLocal(){
+        try{
+          const raw = localStorage.getItem(CONFIG.storageKey);
+          if(!raw) return [];
+          const arr = JSON.parse(raw);
+          return Array.isArray(arr) ? arr.map(normalizeRecord) : [];
+        }catch(err){
+          return [];
+        }
+      }
+
+      function setRecords(records, persist = true){
+        state.records = records.map(normalizeRecord);
+        if(persist) saveLocal();
+        applyFilters();
+      }
+
+      function appendRecords(records){
+        state.records = [...state.records, ...records.map(normalizeRecord)];
+        saveLocal();
+        applyFilters();
+      }
+
+      function applyFilters(){
+        const search = $('searchInput').value.trim().toLowerCase();
+        const game = $('gameFilter').value;
+        const diff = $('diffFilter').value;
+        const sort = $('sortBy').value;
+
+        let arr = [...state.records];
+
+        if(search){
+          arr = arr.filter(r => {
+            const hay = [
+              r.player_name,
+              r.class_level,
+              r.game_id,
+              gameLabel(r.game_id),
+              r.difficulty,
+              r.weakest_zone,
+              r.input_mode,
+              r.badge
+            ].join(' ').toLowerCase();
+
+            return hay.includes(search);
+          });
+        }
+
+        if(game !== 'all'){
+          arr = arr.filter(r => r.game_id === game);
+        }
+
+        if(diff !== 'all'){
+          arr = arr.filter(r => String(r.difficulty).toLowerCase() === diff);
+        }
+
+        arr.sort((a,b) => {
+          if(sort === 'score_desc') return b.score - a.score;
+          if(sort === 'clean_desc') return b.clean_score - a.clean_score;
+          if(sort === 'gum_asc') return a.gum_health - b.gum_health;
+          if(sort === 'coverage_asc') return a.coverage_zone_count - b.coverage_zone_count;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+
+        state.filtered = arr;
+        render();
+      }
+
+      function render(){
+        renderStats();
+        renderGameChart();
+        renderInsights();
+        renderTable();
+      }
+
+      function renderStats(){
+        const arr = state.filtered;
+        const plays = arr.length;
+
+        const bossGames = arr.filter(r => r.boss_started || r.game_id === 'toothbrush');
+        const bossWin = bossGames.length
+          ? bossGames.filter(r => r.boss_defeated === 'yes').length / bossGames.length * 100
+          : 0;
+
+        $('statPlays').textContent = String(plays);
+        $('statScore').textContent = String(Math.round(avg(arr,'score')));
+        $('statClean').textContent = fmtPct(avg(arr,'clean_score'));
+        $('statGum').textContent = fmtPct(avg(arr,'gum_health'));
+        $('statCoverage').textContent = `${avg(arr,'coverage_zone_count').toFixed(1)}/6`;
+        $('statBoss').textContent = fmtPct(bossWin);
+      }
+
+      function groupByGame(){
+        const out = {};
+
+        for(const id of Object.keys(CONFIG.gameMap)){
+          out[id] = [];
+        }
+
+        for(const r of state.filtered){
+          if(!out[r.game_id]) out[r.game_id] = [];
+          out[r.game_id].push(r);
+        }
+
+        return out;
+      }
+
+      function renderGameChart(){
+        const box = $('gameChart');
+        const groups = groupByGame();
+
+        const values = Object.entries(groups).map(([id, arr]) => ({
+          id,
+          label: gameLabel(id),
+          plays: arr.length,
+          score: Math.round(avg(arr,'score')),
+          clean: Math.round(avg(arr,'clean_score'))
+        }));
+
+        const maxScore = Math.max(1, ...values.map(v => v.score));
+
+        box.innerHTML = values.map(v => {
+          const pct = v.plays ? clamp(v.score / maxScore * 100, 4, 100) : 2;
+          return `
+            <div class="bar-row">
+              <div class="bar-name">${escapeHtml(v.label)}</div>
+              <div class="bar-track">
+                <div class="bar-fill" style="width:${pct}%"></div>
+              </div>
+              <div class="bar-value">${v.plays ? v.score : '-'}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function mostFrequent(arr, key){
+        const count = new Map();
+
+        for(const r of arr){
+          const v = String(r[key] || '-');
+          count.set(v, (count.get(v) || 0) + 1);
+        }
+
+        let best = '-';
+        let bestN = 0;
+
+        for(const [k,v] of count.entries()){
+          if(k !== '-' && v > bestN){
+            best = k;
+            bestN = v;
+          }
+        }
+
+        return { value: best, count: bestN };
+      }
+
+      function renderInsights(){
+        const arr = state.filtered;
+        const box = $('insights');
+
+        if(!arr.length){
+          box.innerHTML = `
+            <div class="insight">
+              <b>ยังไม่มีข้อมูล:</b> กด “ใช้ข้อมูลตัวอย่าง” หรือ import JSON/CSV ก่อน
+            </div>
+          `;
+          return;
+        }
+
+        const lowGum = arr.filter(r => r.gum_health < 75).length;
+        const lowCoverage = arr.filter(r => r.coverage_zone_count < 4).length;
+        const weakZone = mostFrequent(arr, 'weakest_zone');
+        const inputMode = mostFrequent(arr, 'input_mode');
+        const bestGame = Object.entries(groupByGame())
+          .map(([id, rows]) => ({ id, rows, avg: avg(rows, 'score') }))
+          .sort((a,b) => b.avg - a.avg)[0];
+
+        const text = [];
+
+        text.push(`
+          <div class="insight">
+            <b>ภาพรวม:</b> มีข้อมูลทั้งหมด ${arr.length} รอบ
+            ค่า Clean เฉลี่ย ${fmtPct(avg(arr,'clean_score'))}
+            และ Gum Health เฉลี่ย ${fmtPct(avg(arr,'gum_health'))}
+          </div>
+        `);
+
+        if(lowCoverage > 0){
+          text.push(`
+            <div class="insight">
+              <b>ประเด็นฝึกเพิ่ม:</b> มี ${lowCoverage} รอบที่ Coverage ต่ำกว่า 4/6
+              ควรให้เด็กฝึกไล่ทำให้ครบทุกโซนก่อนเน้นความเร็ว
+            </div>
+          `);
+        }
+
+        if(lowGum > 0){
+          text.push(`
+            <div class="insight">
+              <b>พฤติกรรมที่ควรเตือน:</b> มี ${lowGum} รอบที่ Gum Health ต่ำกว่า 75%
+              อาจเกิดจากลากเร็วหรือถูซ้ำแรงเกินไป ควรเน้น “สะอาดและอ่อนโยน”
+            </div>
+          `);
+        }
+
+        if(weakZone.value !== '-'){
+          text.push(`
+            <div class="insight">
+              <b>โซนที่อ่อนบ่อย:</b> ${escapeHtml(weakZone.value)}
+              พบ ${weakZone.count} รอบ ควรใช้เป็น feedback เฉพาะกลุ่ม/รายบุคคล
+            </div>
+          `);
+        }
+
+        if(inputMode.value !== '-'){
+          text.push(`
+            <div class="insight">
+              <b>Input Mode ที่ใช้บ่อย:</b> ${escapeHtml(inputMode.value)}
+              ช่วยครูดูว่าเด็กเล่นด้วย touch/mouse หรือ hand tracking เป็นหลัก
+            </div>
+          `);
+        }
+
+        if(bestGame && bestGame.rows.length){
+          text.push(`
+            <div class="insight">
+              <b>เกมที่ทำคะแนนเฉลี่ยดีที่สุด:</b> ${gameLabel(bestGame.id)}
+              คะแนนเฉลี่ย ${Math.round(bestGame.avg)}
+            </div>
+          `);
+        }
+
+        box.innerHTML = text.join('');
+      }
+
+      function badgeClass(r){
+        if(r.clean_score >= 80 && r.gum_health >= 80) return 'good';
+        if(r.clean_score < 60 || r.gum_health < 70) return 'bad';
+        return 'warn';
+      }
+
+      function renderTable(){
+        const tbody = $('tbody');
+        const arr = state.filtered;
+
+        $('recordCount').textContent = `${arr.length} records`;
+
+        if(!arr.length){
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="14" class="empty">ยังไม่มีข้อมูลตามเงื่อนไขที่เลือก</td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = arr.map(r => `
+          <tr>
+            <td>${escapeHtml(fmtTime(r.created_at))}</td>
+            <td>${escapeHtml(r.player_name)}</td>
+            <td>${escapeHtml(r.class_level)}</td>
+            <td>${escapeHtml(gameLabel(r.game_id))}</td>
+            <td><span class="badge">${escapeHtml(r.difficulty)}</span></td>
+            <td>${Math.round(r.score)}</td>
+            <td>${Math.round(r.clean_score)}%</td>
+            <td>${Math.round(r.gum_health)}%</td>
+            <td>${Number(r.coverage_zone_count).toFixed(1)}/6</td>
+            <td>${Math.round(r.best_combo)}</td>
+            <td>
+              <span class="badge ${r.boss_defeated === 'yes' ? 'good' : 'warn'}">
+                ${r.boss_defeated === 'yes' ? 'ชนะ' : 'ยังไม่ชนะ'}
+              </span>
+            </td>
+            <td>${escapeHtml(r.weakest_zone)}</td>
+            <td>${escapeHtml(r.input_mode)}</td>
+            <td><span class="badge ${badgeClass(r)}">${escapeHtml(r.badge)}</span></td>
+          </tr>
+        `).join('');
+      }
+
+      function parseImport(text){
+        const raw = text.trim();
+        if(!raw) return [];
+
+        if(raw.startsWith('[') || raw.startsWith('{')){
+          const json = JSON.parse(raw);
+          return Array.isArray(json) ? json : [json];
+        }
+
+        return parseCSV(raw);
+      }
+
+      function parseCSV(text){
+        const rows = csvToRows(text);
+        if(rows.length < 2) return [];
+
+        const headers = rows[0].map(h => h.trim());
+        const out = [];
+
+        for(let i = 1; i < rows.length; i++){
+          const obj = {};
+          headers.forEach((h, idx) => {
+            obj[h] = rows[i][idx] ?? '';
+          });
+          out.push(obj);
+        }
+
+        return out;
+      }
+
+      function csvToRows(text){
+        const rows = [];
+        let row = [];
+        let cur = '';
+        let inside = false;
+
+        for(let i = 0; i < text.length; i++){
+          const ch = text[i];
+          const next = text[i + 1];
+
+          if(ch === '"' && inside && next === '"'){
+            cur += '"';
+            i++;
+            continue;
+          }
+
+          if(ch === '"'){
+            inside = !inside;
+            continue;
+          }
+
+          if(ch === ',' && !inside){
+            row.push(cur);
+            cur = '';
+            continue;
+          }
+
+          if((ch === '\n' || ch === '\r') && !inside){
+            if(ch === '\r' && next === '\n') i++;
+            row.push(cur);
+            rows.push(row);
+            row = [];
+            cur = '';
+            continue;
+          }
+
+          cur += ch;
+        }
+
+        row.push(cur);
+        rows.push(row);
+
+        return rows.filter(r => r.some(c => String(c).trim() !== ''));
+      }
+
+      function toCSV(records){
+        const headers = [
+          'created_at','player_name','class_level','game_id','difficulty','duration_sec',
+          'score','clean_score','gum_health','coverage_zone_count','perfect_count',
+          'good_count','weak_count','miss_count','overbrush_count','best_combo',
+          'boss_started','boss_defeated','strongest_zone','weakest_zone','input_mode','badge','version'
+        ];
+
+        const lines = [headers.join(',')];
+
+        for(const r of records){
+          const line = headers.map(h => csvCell(r[h] ?? '')).join(',');
+          lines.push(line);
+        }
+
+        return lines.join('\n');
+      }
+
+      function csvCell(v){
+        const s = String(v ?? '');
+        if(/[",\n\r]/.test(s)){
+          return `"${s.replace(/"/g,'""')}"`;
+        }
+        return s;
+      }
+
+      function downloadCSV(){
+        const csv = toCSV(state.filtered.length ? state.filtered : state.records);
+        const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+        a.href = url;
+        a.download = `hygiene-zone-dashboard-${stamp}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        URL.revokeObjectURL(url);
+        showToast('Export CSV แล้ว');
+      }
+
+      async function loadFromApi(){
+        const base = $('apiUrl').value.trim();
+
+        if(!base){
+          showToast('กรุณาวาง Sheet Web App URL ก่อน');
+          return;
+        }
+
+        try{
+          const url = new URL(base);
+          url.searchParams.set('action', 'list');
+          url.searchParams.set('zone', 'hygiene');
+          url.searchParams.set('v', VERSION);
+
+          showToast('กำลังโหลดข้อมูลจาก Sheet...');
+
+          const res = await fetch(url.toString(), {
+            method:'GET',
+            cache:'no-store'
+          });
+
+          if(!res.ok){
+            throw new Error(`HTTP ${res.status}`);
+          }
+
+          const data = await res.json();
+          const rows = Array.isArray(data) ? data : (data.records || data.data || []);
+
+          if(!Array.isArray(rows)){
+            throw new Error('รูปแบบ JSON ไม่ใช่ array');
+          }
+
+          setRecords(rows, true);
+          showToast(`โหลดข้อมูลจาก Sheet สำเร็จ ${rows.length} records`);
+        }catch(err){
+          console.warn('[load api failed]', err);
+          showToast('โหลดจาก Sheet ไม่สำเร็จ อาจต้องเพิ่ม doGet?action=list ใน Apps Script');
+        }
+      }
+
+      function demoRecords(){
+        const nowIso = new Date().toISOString();
+        const names = ['Hero','Mali','Korn','Beam','Nam','Tawan','Ploy','Ken','Fah','Mint'];
+        const games = ['toothbrush','handwash','toothbrush','toothbrush','handwash','germhunter','mask','cough','nails'];
+        const zones = ['บนซ้าย','บนกลาง','บนขวา','ล่างซ้าย','ล่างกลาง','ล่างขวา','ฝ่ามือ','ซอกนิ้ว'];
+
+        const rows = [];
+
+        for(let i = 0; i < 28; i++){
+          const game = games[i % games.length];
+          const clean = Math.round(55 + Math.random() * 42);
+          const gum = Math.round(62 + Math.random() * 36);
+          const coverage = game === 'toothbrush'
+            ? Math.round((2.5 + Math.random() * 3.5) * 10) / 10
+            : Math.round((3.0 + Math.random() * 3.0) * 10) / 10;
+
+          rows.push({
+            version: VERSION,
+            created_at: new Date(Date.now() - i * 1000 * 60 * 18).toISOString(),
+            player_name: names[i % names.length],
+            class_level: 'ป.5',
+            game_id: game === 'toothbrush' ? 'hygiene-toothbrush-ar' : game,
+            difficulty: ['easy','normal','hard'][i % 3],
+            duration_sec: [40,45,60][i % 3],
+            score: Math.round(700 + clean * 12 + Math.random() * 520),
+            clean_score: clean,
+            gum_health: gum,
+            coverage_zone_count: coverage,
+            perfect_count: Math.round(Math.random() * 18),
+            good_count: Math.round(Math.random() * 25),
+            weak_count: Math.round(Math.random() * 10),
+            miss_count: Math.round(Math.random() * 8),
+            overbrush_count: Math.round(Math.random() * 5),
+            best_combo: Math.round(3 + Math.random() * 18),
+            boss_started: game === 'toothbrush' ? 'yes' : '',
+            boss_defeated: game === 'toothbrush' && clean > 78 ? 'yes' : 'no',
+            strongest_zone: zones[(i + 2) % zones.length],
+            weakest_zone: zones[i % zones.length],
+            input_mode: i % 4 === 0 ? 'hand_tracking' : 'touch_mouse',
+            badge: clean > 85 && gum > 82 ? 'Master' : clean > 75 ? 'Fresh Hero' : 'Practice Hero'
+          });
+        }
+
+        return rows;
+      }
+
+      function bindEvents(){
+        $('zoneBtn').addEventListener('click', () => {
+          location.href = CONFIG.zoneUrl;
+        });
+
+        $('toothBtn').addEventListener('click', () => {
+          location.href = CONFIG.toothbrushUrl;
+        });
+
+        $('exportBtn').addEventListener('click', downloadCSV);
+        $('loadApiBtn').addEventListener('click', loadFromApi);
+
+        $('demoBtn').addEventListener('click', () => {
+          setRecords(demoRecords(), true);
+          showToast('โหลดข้อมูลตัวอย่างแล้ว');
+        });
+
+        $('importBtn').addEventListener('click', () => {
+          try{
+            const rows = parseImport($('pasteBox').value);
+            if(!rows.length){
+              showToast('ไม่พบข้อมูลสำหรับ import');
+              return;
+            }
+
+            appendRecords(rows);
+            $('pasteBox').value = '';
+            showToast(`Import สำเร็จ ${rows.length} records`);
+          }catch(err){
+            console.warn('[import failed]', err);
+            showToast('Import ไม่สำเร็จ ตรวจรูปแบบ JSON/CSV อีกครั้ง');
+          }
+        });
+
+        $('clearBtn').addEventListener('click', () => {
+          setRecords([], true);
+          $('pasteBox').value = '';
+          showToast('ล้างข้อมูลแล้ว');
+        });
+
+        ['searchInput','gameFilter','diffFilter','sortBy'].forEach(id => {
+          $(id).addEventListener('input', applyFilters);
+          $(id).addEventListener('change', applyFilters);
+        });
+
+        $('applyBtn').addEventListener('click', applyFilters);
+      }
+
+      function init(){
+        bindEvents();
+
+        const local = loadLocal();
+        if(local.length){
+          setRecords(local, false);
+          showToast(`โหลดข้อมูลเดิม ${local.length} records`);
+        }else{
+          setRecords([], false);
+        }
+
+        console.log('%cHygiene Teacher Dashboard loaded', 'font-weight:bold;color:#0891b2', VERSION);
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
