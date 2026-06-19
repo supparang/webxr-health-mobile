@@ -846,9 +846,14 @@
 
     @media (min-width:760px){
       .app{
-        max-width:540px;
+        width:min(100vw,820px);
+        max-width:none;
         margin:0 auto;
         border-inline:1px solid rgba(14,165,233,.14);
+      }
+
+      .modal{
+        width:min(92%,680px);
       }
 
       .summary-grid{
@@ -857,6 +862,22 @@
 
       .actions.three{
         grid-template-columns:1fr 1fr 1fr;
+      }
+
+      .sim-guide{
+        width:min(68%,500px);
+      }
+
+      .boss-target{
+        width:118px;
+        height:118px;
+        font-size:58px;
+      }
+    }
+
+    @media (min-width:1180px){
+      .app{
+        width:min(72vw,920px);
       }
     }
 
@@ -1061,7 +1082,7 @@
     (function(){
       "use strict";
 
-      const VERSION = "20260619-HANDWASH-LAUNCHER-V2-HYGIENE-ZONE-FOLDER";
+      const VERSION = "20260619-HANDWASH-LAUNCHER-V2-WIDE-GAMEPLAY";
       const ZONE_ID = "hygiene";
 
       const qs = new URLSearchParams(location.search);
