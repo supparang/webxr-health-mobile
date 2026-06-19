@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Post Survey Result Only | v20260619-rb-postsurvey-result-only -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Post Survey Submit Fix | v20260619-rb-postsurvey-submit-fix -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -814,7 +814,7 @@
   const qs = (k,d='')=>{try{return new URL(location.href).searchParams.get(k) ?? d}catch(_){return d}};
   const qbool = (k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
 
-  const RB_VERSION = 'v20260619-rb-postsurvey-result-only';
+  const RB_VERSION = 'v20260619-rb-postsurvey-submit-fix';
   const RB_GAME_ID = 'rhythmboxer';
   const RB_DEFAULT_HUB = './';
   const RB_DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
@@ -1862,26 +1862,61 @@
   }
 
   async function sendPostSurvey(){
-    const rank = rankOf();
-    const stars = missionStarsValue ? missionStarsValue() : updateMission();
-    const payload = sessionPayload('postSurvey', stars, rank);
-    payload.postSurveySubmitted = 1;
-    payload.postSurveyTsIso = new Date().toISOString();
+    if(sendPostSurvey._busy) return false;
+    sendPostSurvey._busy = true;
+    try{
+    const ps = postSurveyPayload();
+    const base = S.sessions && S.sessions.length
+      ? {...S.sessions[S.sessions.length - 1]}
+      : sessionPayload('postSurvey', missionStarsValue(), rankOf());
 
-    if(S.sessions.length) S.sessions[S.sessions.length-1] = payload;
+    const payload = {
+      ...base,
+      ...ps,
+      reason:'postSurvey',
+      postSurveySubmitted:1,
+      postSurveyTsIso:new Date().toISOString(),
+      pageUrl:location.href,
+      hubUrl:rbHubUrl()
+    };
+
+    if(S.sessions && S.sessions.length) S.sessions[S.sessions.length - 1] = payload;
     else S.sessions.push(payload);
+
+    rbStoreLastSummary(payload);
 
     if(els.surveyStatus){
       els.surveyStatus.classList.remove('hidden');
-      els.surveyStatus.textContent = 'กำลังบันทึกแบบประเมินหลังเล่น...';
+      els.surveyStatus.classList.remove('done');
+      els.surveyStatus.textContent = 'กำลังบันทึกแบบประเมินหลังเล่นไป Google Sheets...';
+    }
+    if(els.surveyBadge){
+      els.surveyBadge.textContent = 'กำลังบันทึก...';
+      els.surveyBadge.classList.remove('done');
     }
 
-    try{
-      await rbSubmitSession(payload);
+    console.log('[RB][Survey] submit payload', {
+      rpe: payload.rpe,
+      painAny: payload.painAny,
+      painCount: payload.painCount,
+      safetyFlag: payload.safetyFlag,
+      reason: payload.reason,
+      postSurveySubmitted: payload.postSurveySubmitted
+    });
+
+    const ok = await rbSubmitSession(payload);
+
+    if(ok){
       setSurveySavedUI(true);
       feedback('SURVEY SAVED','perfect');
-    }catch(_){
-      if(els.surveyStatus) els.surveyStatus.textContent = 'บันทึกแบบประเมินไว้ใน CSV แล้ว แต่ส่ง Sheet ไม่สำเร็จ';
+    }else{
+      if(els.surveyStatus) els.surveyStatus.textContent = 'ส่ง Sheet ไม่สำเร็จ ระบบเก็บคิวไว้แล้ว ลองเช็กอินเทอร์เน็ต/Apps Script';
+      if(els.surveyBadge) els.surveyBadge.textContent = 'รอส่งใหม่';
+    }
+
+    return ok;
+    }finally{
+      setTimeout(()=>{ sendPostSurvey._busy = false; }, 900);
     }
   }
 
@@ -2127,6 +2162,16 @@
     els.sendSurveyBtn.addEventListener('click', sendPostSurvey);
   }
   setSurveySavedUI(false);
+
+
+  // Force-bind post-game survey button even if DOM was re-rendered or listener was missed.
+  window.RB_sendPostSurvey = sendPostSurvey;
+  document.addEventListener('click', function(ev){
+    const btn = ev.target && ev.target.closest ? ev.target.closest('#sendSurveyBtn') : null;
+    if(!btn) return;
+    ev.preventDefault();
+    sendPostSurvey();
+  }, {passive:false});
 
   els.btnStartBody.addEventListener('click',()=>start('body'));
   els.btnStartTouch.addEventListener('click',()=>start('touch'));
