@@ -1,17 +1,18 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Research Polish Final | v20260618-rb-research-polish-final -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Post Survey Force | v20260619-rb-postsurvey-force -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <title>HeroHealth • Rhythm Boxer AR</title>
-  <link rel="icon" href="/webxr-health-mobile/herohealth/favicon.ico?v=20260618" />
+  <link rel="icon" href="/webxr-health-mobile/herohealth/favicon.ico?v=20260619" />
   <link rel="shortcut icon" href="/webxr-health-mobile/herohealth/favicon.ico?v=20260618" />
   <meta name="theme-color" content="#ff9dcf" />
   <meta name="color-scheme" content="light" />
 
   <!-- Body tracking: MediaPipe Pose. Touch/keyboard still works if CDN or camera fails. -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous">  initPostSurveyUI();
+</script>
 
   <style>
     :root{
@@ -523,6 +524,21 @@
 #painNoteInput{width:100%;resize:vertical;border-radius:14px;border:1px solid rgba(253,186,116,.85);padding:9px 10px;font-weight:850;background:#fffaf7}
 @media (max-width:820px){.survey-grid{grid-template-columns:1fr}.pain-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+
+/* === Post-game Survey Force Patch v20260619 === */
+.post-survey{display:block!important;margin-top:14px;border-radius:24px;padding:14px;background:linear-gradient(180deg,rgba(255,253,244,.98),rgba(255,247,237,.96));border:2px solid #fed7aa;box-shadow:0 12px 26px rgba(124,45,18,.10)}
+.post-survey.force-show{outline:3px solid rgba(251,146,60,.12)}
+.survey-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.survey-head h3{margin:2px 0 2px;font-size:1.1rem;color:#4b3b31}.survey-sub{margin:0;color:#7c5a44;font-size:.78rem;font-weight:900}
+.survey-badge{border-radius:999px;padding:9px 12px;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-weight:1000;white-space:nowrap}.survey-badge.done{background:#dcfce7;border-color:#86efac;color:#166534}
+.survey-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.survey-card{border-radius:17px;padding:11px;background:rgba(255,255,255,.90);border:1px solid rgba(253,186,116,.78)}.survey-card.wide{grid-column:1/-1}
+.survey-card label{display:block;margin:0 0 7px;font-weight:1000;color:#5b4639;font-size:.8rem}.rpe-row{display:flex;align-items:center;gap:10px;margin-top:6px;color:#6b4d38;font-weight:900}
+.rpe-row b{min-width:42px;border-radius:14px;text-align:center;padding:6px 8px;background:#fff7ed;border:1px solid #fdba74;font-size:1.1rem}.rpe-row span{font-size:.75rem;color:#7c5a44}
+.pain-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.pain-grid label{display:flex;align-items:center;gap:5px;margin:0;padding:7px 8px;border-radius:12px;background:#fffaf3;border:1px solid rgba(253,186,116,.55);font-size:.72rem}.pain-grid input{width:auto;min-height:auto}
+#painNoteInput{width:100%;resize:vertical;border-radius:14px;border:1px solid rgba(253,186,116,.85);padding:9px 10px;font-weight:850;background:#fffaf7}
+.survey-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}.survey-btn{border-radius:999px;padding:11px 15px;background:linear-gradient(135deg,#fb923c,#facc15);color:#51330a;border:1px solid #fdba74;font-weight:1000;box-shadow:0 8px 18px rgba(251,146,60,.20)}.survey-status{font-weight:1000;color:#7c5a44;font-size:.82rem}.survey-status.done{color:#166534}
+@media (max-width:820px){.survey-grid{grid-template-columns:1fr}.pain-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.survey-head{flex-direction:column}}
+
 </style>
 </head>
 <body>
@@ -546,6 +562,7 @@
       <span class="chip">Sport Science</span>
       <span class="chip">Syntax Stable</span>
       <span class="chip">Research Polish</span>
+      <span class="chip">Post Survey Required</span>
     </div>
   </header>
 
@@ -753,7 +770,7 @@
   const qs = (k,d='')=>{try{return new URL(location.href).searchParams.get(k) ?? d}catch(_){return d}};
   const qbool = (k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
 
-  const RB_VERSION = 'v20260618-rb-research-polish-final';
+  const RB_VERSION = 'v20260619-rb-postsurvey-force';
   const RB_GAME_ID = 'rhythmboxer';
   const RB_DEFAULT_HUB = './';
   const RB_DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
