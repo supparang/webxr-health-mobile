@@ -513,7 +513,7 @@
 
     const DIFF = {
       // v8 Compact Start: Easy is intentionally forgiving; side moves still appear, but less often.
-      // v14 DetectFix: forgiving thresholds + longer gesture memory for real classroom camera distance.
+      // v15 StorageFix + DetectFix: forgiving thresholds and safe localStorage so summary never freezes.
       easy:   { label:'Easy',   time:60, spawnMs:2750, speed:3.45, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:7, sideEvery:9, forceFirstSideAfter:10, judgeZone:340, scoreZoneMultiplier:2.65, missZoneMultiplier:1.95, holdMs:2050, manualHoldMs:2100, earlyGestureMemoryMs:2850, gestureDebounceMs:25, minGestureScore:.48, jumpRatio:.018, duckRatio:.026, sideRatio:.024 },
       normal: { label:'Normal', time:60, spawnMs:2250, speed:4.55, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:5, sideEvery:5, forceFirstSideAfter:7, judgeZone:315, scoreZoneMultiplier:2.40, missZoneMultiplier:1.75, holdMs:1850, manualHoldMs:1950, earlyGestureMemoryMs:2550, gestureDebounceMs:30, minGestureScore:.54, jumpRatio:.020, duckRatio:.030, sideRatio:.027 },
       hard:   { label:'Hard',   time:60, spawnMs:1800, speed:5.75, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:2, sideEvery:3, forceFirstSideAfter:4, judgeZone:255, scoreZoneMultiplier:2.05, missZoneMultiplier:1.50, holdMs:1550, manualHoldMs:1700, earlyGestureMemoryMs:2200, gestureDebounceMs:45, minGestureScore:.68, jumpRatio:.026, duckRatio:.038, sideRatio:.036 }
@@ -529,30 +529,60 @@
 
     const STAR_LABELS = ['ENERGY','BOOST','SHIELD','COMBO','POWER'];
 
+    // v15 StorageFix: localStorage can throw QuotaExceededError on shared GitHub Pages origin.
+    // Never let leaderboard/cache storage stop the game summary or Sheet submission.
+    function safeLocalGet(key, fallback=''){
+      try{ return localStorage.getItem(key) ?? fallback; }
+      catch(err){ console.warn('localStorage get skipped', key, err); return fallback; }
+    }
+    function safeLocalSet(key, value){
+      try{
+        localStorage.setItem(key, value);
+        return true;
+      }catch(err){
+        console.warn('localStorage set failed, trying cleanup', key, err);
+        try{
+          // Remove only JumpDuck leaderboard/cache keys first, not other project data.
+          ['jumpduck_dash_v14_detectfix_leaderboard','jumpduck_dash_v15_storagefix_leaderboard'].forEach(k=>{
+            try{ if(k !== key) localStorage.removeItem(k); }catch(e){}
+          });
+          localStorage.setItem(key, value);
+          return true;
+        }catch(err2){
+          console.warn('localStorage set skipped after cleanup', key, err2);
+          return false;
+        }
+      }
+    }
+    function safeLocalRemove(key){
+      try{ localStorage.removeItem(key); return true; }
+      catch(err){ console.warn('localStorage remove skipped', key, err); return false; }
+    }
+
     const params = new URLSearchParams(location.search);
     let selectedDiff = params.get('diff') || 'easy';
     if(!DIFF[selectedDiff]) selectedDiff = 'easy';
     let selectedTime = Number(params.get('time')) || 60;
     if(![45,60,90].includes(selectedTime)) selectedTime = 60;
     let teacherTestMode = params.get('test') === '1';
-    const HUB_URL = params.get('hub') || localStorage.getItem('jumpduckHubUrl') || './';
-    localStorage.setItem('jumpduckHubUrl', HUB_URL);
+    const HUB_URL = params.get('hub') || safeLocalGet('jumpduckHubUrl', './') || './';
+    safeLocalSet('jumpduckHubUrl', HUB_URL);
 
     // v10 Auto Sheet: set once by URL ?sheet=<encoded Apps Script Web App URL>
     // or edit SHEET_ENDPOINT_FALLBACK below after deploying Apps Script.
     const SHEET_ENDPOINT_FALLBACK = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
     const sheetParam = params.get('sheet') || '';
-    if(sheetParam) localStorage.setItem('jumpduckSheetEndpoint', sheetParam);
-    const SHEET_ENDPOINT = sheetParam || localStorage.getItem('jumpduckSheetEndpoint') || SHEET_ENDPOINT_FALLBACK;
-    const SHEET_ACCESS_KEY = params.get('key') || localStorage.getItem('jumpduckSheetKey') || '';
-    if(params.get('key')) localStorage.setItem('jumpduckSheetKey', params.get('key'));
+    if(sheetParam) safeLocalSet('jumpduckSheetEndpoint', sheetParam);
+    const SHEET_ENDPOINT = sheetParam || safeLocalGet('jumpduckSheetEndpoint', '') || SHEET_ENDPOINT_FALLBACK;
+    const SHEET_ACCESS_KEY = params.get('key') || safeLocalGet('jumpduckSheetKey', '') || '';
+    if(params.get('key')) safeLocalSet('jumpduckSheetKey', params.get('key'));
 
     const meta = {
-      sessionId: params.get('session') || params.get('sessionId') || localStorage.getItem('jumpduckSessionId') || '',
-      classId: params.get('class') || params.get('classId') || localStorage.getItem('jumpduckClassId') || '',
-      studentId: params.get('student') || params.get('studentId') || localStorage.getItem('jumpduckStudentId') || '',
-      studentName: params.get('name') || params.get('studentName') || localStorage.getItem('jumpduckStudentName') || '',
-      teacherId: params.get('teacher') || params.get('teacherId') || localStorage.getItem('jumpduckTeacherId') || ''
+      sessionId: params.get('session') || params.get('sessionId') || safeLocalGet('jumpduckSessionId', '') || '',
+      classId: params.get('class') || params.get('classId') || safeLocalGet('jumpduckClassId', '') || '',
+      studentId: params.get('student') || params.get('studentId') || safeLocalGet('jumpduckStudentId', '') || '',
+      studentName: params.get('name') || params.get('studentName') || safeLocalGet('jumpduckStudentName', '') || '',
+      teacherId: params.get('teacher') || params.get('teacherId') || safeLocalGet('jumpduckTeacherId', '') || ''
     };
 
     function initMetaInputs(){
@@ -570,11 +600,11 @@
       if(!meta.sessionId){
         meta.sessionId = 'JD-' + new Date().toISOString().slice(0,10).replace(/-/g,'');
       }
-      localStorage.setItem('jumpduckSessionId', meta.sessionId);
-      localStorage.setItem('jumpduckClassId', meta.classId);
-      localStorage.setItem('jumpduckStudentId', meta.studentId);
-      localStorage.setItem('jumpduckStudentName', meta.studentName);
-      localStorage.setItem('jumpduckTeacherId', meta.teacherId);
+      safeLocalSet('jumpduckSessionId', meta.sessionId);
+      safeLocalSet('jumpduckClassId', meta.classId);
+      safeLocalSet('jumpduckStudentId', meta.studentId);
+      safeLocalSet('jumpduckStudentName', meta.studentName);
+      safeLocalSet('jumpduckTeacherId', meta.teacherId);
     }
 
     initMetaInputs();
@@ -643,15 +673,15 @@
 
     function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
 
-    const LEADER_KEY = 'jumpduck_dash_v14_detectfix_leaderboard';
+    const LEADER_KEY = 'jumpduck_dash_v15_storagefix_leaderboard';
 
     function loadLeaderboard(){
-      try{ return JSON.parse(localStorage.getItem(LEADER_KEY) || '[]'); }
+      try{ return JSON.parse(safeLocalGet(LEADER_KEY, '[]') || '[]'); }
       catch(e){ return []; }
     }
 
     function saveLeaderboard(list){
-      localStorage.setItem(LEADER_KEY, JSON.stringify(list.slice(0,5)));
+      return safeLocalSet(LEADER_KEY, JSON.stringify(list.slice(0,5)));
     }
 
     function updateLeaderboardRecord(summary){
@@ -722,7 +752,7 @@
     }
 
     function goHub(){
-      localStorage.setItem('jumpduckHubUrl', HUB_URL);
+      safeLocalSet('jumpduckHubUrl', HUB_URL);
       location.href = HUB_URL;
     }
 
@@ -789,7 +819,7 @@
     }
 
     function getBodyMetrics(pose){
-      // v14 DetectFix:
+      // v14/v15 DetectFix:
       // 1) Prefer hip tracking when the camera sees the body clearly.
       // 2) Fall back to shoulder/nose tracking when a notebook/mobile camera only sees upper body.
       //    This keeps Jump/Duck/Left/Right usable in classrooms without requiring full-body framing every time.
@@ -1322,7 +1352,7 @@
       return {
         timestamp: new Date().toISOString(),
         game: 'jumpduck-dash-ar',
-        version: 'v14-detectfix',
+        version: 'v15-storagefix',
         sessionId: meta.sessionId,
         roundId: 'JD-' + Date.now().toString(36),
         classId: meta.classId,
@@ -1447,7 +1477,11 @@
 
       const summary = { score, accuracy, bestCombo, avgReaction: Number(avg) || 0, actionCounts:{...actionCounts} };
       renderBadges(summary);
-      updateLeaderboardRecord(summary);
+      try{
+        updateLeaderboardRecord(summary);
+      }catch(err){
+        console.warn('Leaderboard skipped so summary can continue', err);
+      }
 
       if(accuracy >= 85 && score >= 35){
         rankEmoji.textContent = '🏆';
@@ -1476,7 +1510,7 @@
     function exportCSV(){
       const header = ['timestamp','version','diff','duration','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss','minReaction','maxReaction','medianReaction','reactionFirstHalf','reactionSecondHalf','reactionStd','reactionTrend','movementLoad','totalMoves','totalAttempts','sideAccuracy','verticalAccuracy','leftRightBalance','jumpDuckBalance'];
       const m = makeSummaryMetrics('csv_export');
-      const row = [new Date().toISOString(), 'v14-detectfix', selectedDiff, selectedTime, score, m.accuracy, totalDodges, totalMisses, bestCombo, m.avgReaction, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right, m.minReaction, m.maxReaction, m.medianReaction, m.reactionFirstHalf, m.reactionSecondHalf, m.reactionStd, m.reactionTrend, m.movementLoad, m.totalMoves, m.totalAttempts, m.sideAccuracy, m.verticalAccuracy, m.leftRightBalance, m.jumpDuckBalance];
+      const row = [new Date().toISOString(), 'v15-storagefix', selectedDiff, selectedTime, score, m.accuracy, totalDodges, totalMisses, bestCombo, m.avgReaction, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right, m.minReaction, m.maxReaction, m.medianReaction, m.reactionFirstHalf, m.reactionSecondHalf, m.reactionStd, m.reactionTrend, m.movementLoad, m.totalMoves, m.totalAttempts, m.sideAccuracy, m.verticalAccuracy, m.leftRightBalance, m.jumpDuckBalance];
       const csv = header.join(',') + '\n' + row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n';
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const url = URL.createObjectURL(blob);
@@ -1786,7 +1820,7 @@
     btnTeacherMode.addEventListener('click', ()=>{ setTeacherTestMode(!teacherTestMode); playSound('success'); });
     btnHomeStart.addEventListener('click', goHub);
     btnHomeOver.addEventListener('click', goHub);
-    if(btnClearLeader){ btnClearLeader.addEventListener('click', ()=>{ localStorage.removeItem(LEADER_KEY); renderLeaderboard(); playSound('success'); }); }
+    if(btnClearLeader){ btnClearLeader.addEventListener('click', ()=>{ safeLocalRemove(LEADER_KEY); renderLeaderboard(); playSound('success'); }); }
 
     window.addEventListener('DOMContentLoaded', async ()=>{
       await setupWebcam();
