@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#ecfeff" />
   <meta name="color-scheme" content="light" />
+  <link rel="icon" href="data:," />
   <title>Hygiene Zone AR • Toothbrush Hero</title>
 
   <style>
@@ -23,17 +24,26 @@
     }
 
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
     html,body{
-      width:100%;height:100%;margin:0;overflow:hidden;
-      touch-action:none;user-select:none;
+      width:100%;
+      height:100%;
+      margin:0;
+      overflow:hidden;
+      touch-action:none;
+      user-select:none;
       font-family:ui-rounded,"Noto Sans Thai",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:#cffafe;color:var(--ink);
+      background:#cffafe;
+      color:var(--ink);
     }
+
     button,input{font:inherit}
     button{border:0;cursor:pointer}
 
     .stage{
-      position:fixed;inset:0;overflow:hidden;
+      position:fixed;
+      inset:0;
+      overflow:hidden;
       background:
         radial-gradient(circle at 18% 12%,rgba(255,255,255,.78),transparent 34%),
         radial-gradient(circle at 80% 70%,rgba(236,253,245,.72),transparent 34%),
@@ -41,14 +51,22 @@
     }
 
     #camera{
-      position:absolute;inset:0;width:100%;height:100%;
-      object-fit:cover;transform:scaleX(-1);
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      transform:scaleX(-1);
       filter:saturate(1.04) brightness(1.06);
-      opacity:.86;background:#dff7ff;
+      opacity:.86;
+      background:#dff7ff;
     }
 
     .ar-tint{
-      position:absolute;inset:0;pointer-events:none;z-index:1;
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:1;
       background:
         radial-gradient(circle at 50% 48%,rgba(255,255,255,.08),transparent 32%),
         linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.02));
@@ -59,119 +77,271 @@
       top:calc(10px + var(--safe-top));
       left:calc(10px + var(--safe-left));
       right:calc(10px + var(--safe-right));
-      z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+      z-index:40;
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:8px;
       pointer-events:none;
     }
 
     .pill{
-      min-height:36px;padding:8px 12px;border-radius:999px;
+      min-height:36px;
+      padding:8px 12px;
+      border-radius:999px;
       background:rgba(255,255,255,.92);
       border:1px solid rgba(255,255,255,.88);
       box-shadow:0 10px 26px rgba(15,23,42,.10);
-      color:#1e293b;display:flex;align-items:center;gap:7px;
-      font-size:12px;font-weight:1000;white-space:nowrap;
+      color:#1e293b;
+      display:flex;
+      align-items:center;
+      gap:7px;
+      font-size:12px;
+      font-weight:1000;
+      white-space:nowrap;
       backdrop-filter:blur(14px);
     }
 
     .meter{
-      width:114px;height:10px;border-radius:999px;background:#e2e8f0;
-      overflow:hidden;box-shadow:inset 0 0 0 1px rgba(15,23,42,.05);
+      width:114px;
+      height:10px;
+      border-radius:999px;
+      background:#e2e8f0;
+      overflow:hidden;
+      box-shadow:inset 0 0 0 1px rgba(15,23,42,.05);
     }
+
     .meter>i{
-      display:block;height:100%;width:0%;border-radius:999px;
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
       background:linear-gradient(90deg,#67e8f9,#22c55e);
       transition:width .16s ease;
     }
+
     .meter.gum>i{background:linear-gradient(90deg,#bbf7d0,#22c55e)}
     .meter.fever>i{background:linear-gradient(90deg,#facc15,#fb7185,#8b5cf6)}
 
     .top-actions{
-      position:absolute;top:calc(10px + var(--safe-top));right:calc(10px + var(--safe-right));
-      z-index:45;display:flex;gap:8px;align-items:center;
+      position:absolute;
+      top:calc(10px + var(--safe-top));
+      right:calc(10px + var(--safe-right));
+      z-index:45;
+      display:flex;
+      gap:8px;
+      align-items:center;
     }
+
     .icon-btn{
-      width:44px;height:44px;border-radius:17px;
-      background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.88);
+      width:44px;
+      height:44px;
+      border-radius:17px;
+      background:rgba(255,255,255,.92);
+      border:1px solid rgba(255,255,255,.88);
       box-shadow:0 12px 28px rgba(15,23,42,.12);
-      display:grid;place-items:center;font-size:18px;font-weight:1000;color:#0f172a;
+      display:grid;
+      place-items:center;
+      font-size:18px;
+      font-weight:1000;
+      color:#0f172a;
       backdrop-filter:blur(12px);
     }
+
     .icon-btn.on{
       background:linear-gradient(135deg,#dcfce7,#cffafe);
       box-shadow:0 0 0 3px rgba(34,197,94,.15),0 12px 28px rgba(15,23,42,.12);
     }
 
     .boss-panel{
-      position:absolute;top:calc(76px + var(--safe-top));left:50%;transform:translateX(-50%);
-      z-index:35;width:min(520px,86vw);padding:12px 14px;border-radius:22px;
-      background:rgba(255,255,255,.90);box-shadow:0 14px 30px rgba(15,23,42,.13);
-      border:1px solid rgba(255,255,255,.86);backdrop-filter:blur(14px);display:none;
+      position:absolute;
+      top:calc(76px + var(--safe-top));
+      left:50%;
+      transform:translateX(-50%);
+      z-index:35;
+      width:min(520px,86vw);
+      padding:12px 14px;
+      border-radius:22px;
+      background:rgba(255,255,255,.90);
+      box-shadow:0 14px 30px rgba(15,23,42,.13);
+      border:1px solid rgba(255,255,255,.86);
+      backdrop-filter:blur(14px);
+      display:none;
     }
+
     .boss-panel.show{display:block;animation:pop .24s ease both}
+
     .boss-row{
-      display:flex;justify-content:space-between;align-items:center;gap:12px;
-      font-size:13px;font-weight:1000;color:#1e293b;margin-bottom:7px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      font-size:13px;
+      font-weight:1000;
+      color:#1e293b;
+      margin-bottom:7px;
     }
+
     .boss-bar{
-      height:12px;border-radius:999px;background:#e2e8f0;overflow:hidden;
+      height:12px;
+      border-radius:999px;
+      background:#e2e8f0;
+      overflow:hidden;
       box-shadow:inset 0 0 0 1px rgba(15,23,42,.05);
     }
+
     .boss-bar i{
-      display:block;height:100%;width:0%;border-radius:999px;
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
       background:linear-gradient(90deg,#a78bfa,#fb7185,#f97316);
       transition:width .18s ease;
     }
 
     .mission-board{
-      position:absolute;left:calc(10px + var(--safe-left));bottom:calc(14px + var(--safe-bottom));
-      z-index:36;max-width:min(560px,92vw);padding:12px 14px;border-radius:22px;
-      background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.90);
-      box-shadow:0 14px 30px rgba(15,23,42,.14);backdrop-filter:blur(14px);
-      font-size:13px;line-height:1.4;font-weight:900;color:#334155;pointer-events:none;
+      position:absolute;
+      left:calc(10px + var(--safe-left));
+      bottom:calc(14px + var(--safe-bottom));
+      z-index:36;
+      max-width:min(560px,92vw);
+      padding:12px 14px;
+      border-radius:22px;
+      background:rgba(255,255,255,.92);
+      border:1px solid rgba(255,255,255,.90);
+      box-shadow:0 14px 30px rgba(15,23,42,.14);
+      backdrop-filter:blur(14px);
+      font-size:13px;
+      line-height:1.4;
+      font-weight:900;
+      color:#334155;
+      pointer-events:none;
     }
+
     .mission-board b{color:#0f172a;font-weight:1000}
 
     .coach-bubble{
-      position:absolute;left:50%;top:calc(136px + var(--safe-top));
+      position:absolute;
+      left:50%;
+      top:calc(136px + var(--safe-top));
       transform:translateX(-50%) translateY(-8px) scale(.98);
-      z-index:37;width:min(90vw,520px);padding:11px 14px;border-radius:22px;
-      background:rgba(255,255,255,.92);border:1px solid rgba(255,255,255,.92);
-      box-shadow:0 14px 34px rgba(15,23,42,.15);backdrop-filter:blur(14px);
-      color:#334155;font-size:13px;line-height:1.42;font-weight:900;text-align:center;
-      pointer-events:none;opacity:0;transition:opacity .18s ease,transform .18s ease;
+      z-index:37;
+      width:min(90vw,520px);
+      padding:11px 14px;
+      border-radius:22px;
+      background:rgba(255,255,255,.92);
+      border:1px solid rgba(255,255,255,.92);
+      box-shadow:0 14px 34px rgba(15,23,42,.15);
+      backdrop-filter:blur(14px);
+      color:#334155;
+      font-size:13px;
+      line-height:1.42;
+      font-weight:900;
+      text-align:center;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .18s ease,transform .18s ease;
     }
+
     .coach-bubble.show{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
     .coach-bubble b{color:#0f172a;font-weight:1000}
 
+    .danger-banner{
+      position:absolute;
+      left:50%;
+      top:calc(190px + var(--safe-top));
+      transform:translateX(-50%) scale(.96);
+      z-index:46;
+      width:min(560px,90vw);
+      padding:12px 16px;
+      border-radius:22px;
+      background:rgba(255,255,255,.94);
+      border:2px solid rgba(251,113,133,.34);
+      box-shadow:0 18px 42px rgba(127,29,29,.18);
+      color:#7f1d1d;
+      font-size:14px;
+      line-height:1.35;
+      font-weight:1000;
+      text-align:center;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      backdrop-filter:blur(14px);
+    }
+
+    .danger-banner.show{opacity:1;transform:translateX(-50%) scale(1)}
+
+    .danger-banner.danger{
+      background:linear-gradient(135deg,rgba(255,241,242,.96),rgba(255,247,237,.96));
+      border-color:rgba(251,113,133,.60);
+    }
+
+    .danger-banner.critical{
+      background:linear-gradient(135deg,rgba(254,226,226,.97),rgba(255,237,213,.97));
+      border-color:rgba(239,68,68,.78);
+      animation:dangerPulse .72s ease-in-out infinite;
+    }
+
+    @keyframes dangerPulse{
+      0%,100%{box-shadow:0 18px 42px rgba(127,29,29,.16)}
+      50%{box-shadow:0 0 0 6px rgba(239,68,68,.16),0 18px 42px rgba(127,29,29,.22)}
+    }
+
     .mouth-wrap{
-      position:absolute;left:50%;top:55%;width:min(460px,76vw);height:min(320px,52vw);
-      transform:translate(-50%,-50%);z-index:20;pointer-events:none;
+      position:absolute;
+      left:50%;
+      top:55%;
+      width:min(460px,76vw);
+      height:min(320px,52vw);
+      transform:translate(-50%,-50%);
+      z-index:20;
+      pointer-events:none;
       filter:drop-shadow(0 22px 34px rgba(15,23,42,.22));
       transition:width .10s linear,height .10s linear,left .10s linear,top .10s linear;
     }
+
     .mouth-shell{
-      position:absolute;inset:0;border-radius:50% / 44%;overflow:hidden;
+      position:absolute;
+      inset:0;
+      border-radius:50% / 44%;
+      overflow:hidden;
       background:
         radial-gradient(circle at 50% 32%,rgba(255,255,255,.22),transparent 20%),
         linear-gradient(180deg,#fb7185 0%,#f43f5e 46%,#be123c 100%);
       border:9px solid rgba(255,255,255,.45);
       box-shadow:inset 0 -28px 40px rgba(136,19,55,.36);
     }
+
     .mouth-label{
-      position:absolute;left:50%;transform:translateX(-50%);z-index:5;
-      padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.92);
-      font-size:10px;font-weight:1000;color:#8a1230;
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:5;
+      padding:4px 9px;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      font-size:10px;
+      font-weight:1000;
+      color:#8a1230;
       box-shadow:0 6px 16px rgba(15,23,42,.12);
     }
+
     .mouth-label.top{top:10px}
     .mouth-label.bottom{bottom:8px}
 
     .teeth{
-      position:absolute;left:8%;right:8%;display:grid;grid-template-columns:repeat(6,1fr);
-      gap:5px;z-index:2;
+      position:absolute;
+      left:8%;
+      right:8%;
+      display:grid;
+      grid-template-columns:repeat(6,1fr);
+      gap:5px;
+      z-index:2;
     }
+
     .teeth.top{top:24%;height:31%}
     .teeth.bottom{bottom:17%;height:31%}
+
     .tooth{
       border-radius:14px;
       background:
@@ -182,249 +352,514 @@
     }
 
     .gum-line{
-      position:absolute;left:8%;right:8%;height:8px;border-radius:999px;
-      background:rgba(255,255,255,.42);z-index:3;overflow:hidden;
-      display:flex;gap:8px;padding:0 2px;
+      position:absolute;
+      left:8%;
+      right:8%;
+      height:8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.42);
+      z-index:3;
+      overflow:hidden;
+      display:flex;
+      gap:8px;
+      padding:0 2px;
     }
+
     .gum-line.top{top:50%}
     .gum-line.bottom{top:52.5%}
+
     .gum-seg{
-      flex:1;border-radius:999px;background:#14b8a6;opacity:.9;
-      transform-origin:left center;transform:scaleX(.4);
+      flex:1;
+      border-radius:999px;
+      background:#14b8a6;
+      opacity:.9;
+      transform-origin:left center;
+      transform:scaleX(.4);
     }
 
     .plaque-layer{position:absolute;inset:0;z-index:8;pointer-events:none}
+
     .plaque{
-      position:absolute;width:42px;height:42px;margin-left:-21px;margin-top:-21px;
-      border-radius:18px;display:grid;place-items:center;font-size:25px;
-      background:rgba(255,255,255,.76);border:2px solid rgba(255,255,255,.88);
+      position:absolute;
+      width:42px;
+      height:42px;
+      margin-left:-21px;
+      margin-top:-21px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:25px;
+      background:rgba(255,255,255,.76);
+      border:2px solid rgba(255,255,255,.88);
       box-shadow:0 10px 18px rgba(15,23,42,.18);
-      transform:scale(1);transition:transform .09s ease,opacity .16s ease;
+      transform:scale(1);
+      transition:transform .09s ease,opacity .16s ease;
       will-change:transform,opacity;
     }
+
     .plaque.hit{transform:scale(1.14) rotate(-5deg)}
+
     .plaque.boss{
-      width:50px;height:50px;margin-left:-25px;margin-top:-25px;border-radius:20px;
+      width:50px;
+      height:50px;
+      margin-left:-25px;
+      margin-top:-25px;
+      border-radius:20px;
       background:linear-gradient(135deg,#fff1f2,#fae8ff);
       box-shadow:0 0 0 5px rgba(251,113,133,.18),0 14px 26px rgba(15,23,42,.20);
       animation:pulse 1s ease-in-out infinite;
     }
+
     .hp-ring{
-      position:absolute;left:6px;right:6px;bottom:4px;height:5px;border-radius:999px;
-      background:rgba(15,23,42,.12);overflow:hidden;
+      position:absolute;
+      left:6px;
+      right:6px;
+      bottom:4px;
+      height:5px;
+      border-radius:999px;
+      background:rgba(15,23,42,.12);
+      overflow:hidden;
     }
+
     .hp-ring::before{
-      content:"";display:block;width:var(--hp,100%);height:100%;border-radius:999px;
+      content:"";
+      display:block;
+      width:var(--hp,100%);
+      height:100%;
+      border-radius:999px;
       background:linear-gradient(90deg,#22c55e,#facc15,#fb7185);
     }
 
     .brush{
-      position:absolute;left:50%;top:76%;width:88px;height:42px;
+      position:absolute;
+      left:50%;
+      top:76%;
+      width:88px;
+      height:42px;
       transform:translate(-50%,-50%) rotate(-24deg);
-      z-index:30;pointer-events:none;transform-origin:30% 50%;
+      z-index:30;
+      pointer-events:none;
+      transform-origin:30% 50%;
       filter:drop-shadow(0 12px 16px rgba(15,23,42,.22));
       transition:filter .12s ease,opacity .12s ease;
     }
+
     .brush.hand-mode{transform-origin:18px 50%}
     .brush.hand-mode .brush-head{outline:3px solid rgba(34,197,94,.22);outline-offset:2px}
+
     .brush.fever{
       filter:drop-shadow(0 0 10px rgba(250,204,21,.80)) drop-shadow(0 16px 20px rgba(15,23,42,.22));
     }
+
     .brush.hover{
       opacity:.68;
       filter:grayscale(.18) drop-shadow(0 10px 14px rgba(15,23,42,.14));
     }
+
     .brush.gripping{
       opacity:1;
       filter:drop-shadow(0 0 10px rgba(34,197,94,.55)) drop-shadow(0 14px 18px rgba(15,23,42,.24));
     }
+
     .brush.gripping .brush-head{
       box-shadow:inset 0 -4px 8px rgba(15,23,42,.12),0 0 0 5px rgba(34,197,94,.18);
     }
+
     .brush.hover .brush-head{
       background:repeating-linear-gradient(90deg,#cbd5e1 0 4px,#e2e8f0 4px 8px);
     }
+
     .brush-head{
-      position:absolute;left:0;top:8px;width:34px;height:28px;border-radius:9px;
+      position:absolute;
+      left:0;
+      top:8px;
+      width:34px;
+      height:28px;
+      border-radius:9px;
       background:repeating-linear-gradient(90deg,#a7f3d0 0 4px,#67e8f9 4px 8px);
       border:2px solid rgba(255,255,255,.70);
       box-shadow:inset 0 -4px 8px rgba(15,23,42,.12);
     }
+
     .brush-foam{
-      position:absolute;left:6px;top:-4px;width:22px;height:14px;border-radius:999px;
+      position:absolute;
+      left:6px;
+      top:-4px;
+      width:22px;
+      height:14px;
+      border-radius:999px;
       background:rgba(255,255,255,.88);
       box-shadow:11px 5px 0 rgba(255,255,255,.60),4px 10px 0 rgba(255,255,255,.52);
       display:none;
     }
+
     .brush.loaded .brush-foam{display:block}
+
     .brush-handle{
-      position:absolute;left:28px;top:15px;width:66px;height:12px;border-radius:999px;
+      position:absolute;
+      left:28px;
+      top:15px;
+      width:66px;
+      height:12px;
+      border-radius:999px;
       background:linear-gradient(90deg,#06b6d4,#6366f1);
       box-shadow:inset 0 -2px 3px rgba(15,23,42,.18);
     }
+
     .grip-ring{
-      position:absolute;left:50%;top:50%;width:78px;height:78px;margin-left:-39px;margin-top:-39px;
-      border-radius:999px;z-index:29;pointer-events:none;
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:78px;
+      height:78px;
+      margin-left:-39px;
+      margin-top:-39px;
+      border-radius:999px;
+      z-index:29;
+      pointer-events:none;
       border:3px dashed rgba(34,197,94,.45);
-      opacity:0;transform:scale(.85);transition:opacity .14s ease,transform .14s ease;
+      opacity:0;
+      transform:scale(.85);
+      transition:opacity .14s ease,transform .14s ease;
     }
+
     .grip-ring.show{opacity:1;transform:scale(1)}
     .grip-ring.wait{border-color:rgba(245,158,11,.48)}
 
     .screen{
-      position:absolute;inset:0;z-index:80;display:none;align-items:center;justify-content:center;
+      position:absolute;
+      inset:0;
+      z-index:80;
+      display:none;
+      align-items:center;
+      justify-content:center;
       padding:calc(20px + var(--safe-top)) calc(16px + var(--safe-right)) calc(20px + var(--safe-bottom)) calc(16px + var(--safe-left));
       background:
         radial-gradient(circle at 20% 15%,rgba(255,255,255,.90),transparent 32%),
         linear-gradient(135deg,rgba(224,247,255,.90),rgba(255,247,237,.88));
       backdrop-filter:blur(14px);
     }
+
     .screen.show{display:flex}
+
     .card{
-      width:min(760px,94vw);max-height:92vh;overflow:auto;
-      border-radius:34px;padding:24px;background:rgba(255,255,255,.92);
+      width:min(760px,94vw);
+      max-height:92vh;
+      overflow:auto;
+      border-radius:34px;
+      padding:24px;
+      background:rgba(255,255,255,.92);
       border:1px solid rgba(255,255,255,.92);
-      box-shadow:0 28px 70px rgba(15,23,42,.18);text-align:center;
+      box-shadow:0 28px 70px rgba(15,23,42,.18);
+      text-align:center;
     }
+
     .hero-title{
-      margin:0;font-size:clamp(28px,5vw,52px);line-height:1.05;
-      letter-spacing:-.05em;font-weight:1000;color:#0f172a;
+      margin:0;
+      font-size:clamp(28px,5vw,52px);
+      line-height:1.05;
+      letter-spacing:-.05em;
+      font-weight:1000;
+      color:#0f172a;
     }
+
     .sub{
-      margin:10px auto 18px;max-width:620px;color:#475569;
-      font-size:15px;line-height:1.55;font-weight:800;
+      margin:10px auto 18px;
+      max-width:620px;
+      color:#475569;
+      font-size:15px;
+      line-height:1.55;
+      font-weight:800;
     }
-    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px auto;max-width:620px}
+
+    .form-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin:16px auto;
+      max-width:620px;
+    }
+
     .input{
-      width:100%;min-height:48px;border-radius:18px;border:1px solid rgba(15,23,42,.11);
-      background:#fff;padding:0 14px;outline:none;color:#0f172a;font-weight:900;
+      width:100%;
+      min-height:48px;
+      border-radius:18px;
+      border:1px solid rgba(15,23,42,.11);
+      background:#fff;
+      padding:0 14px;
+      outline:none;
+      color:#0f172a;
+      font-weight:900;
       box-shadow:0 8px 18px rgba(15,23,42,.06);
     }
-    .diff-row,.btn-row{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:14px 0}
+
+    .diff-row,.btn-row{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:10px;
+      margin:14px 0;
+    }
+
     .diff-btn,.primary,.secondary{
-      min-height:48px;padding:0 18px;border-radius:19px;font-weight:1000;
+      min-height:48px;
+      padding:0 18px;
+      border-radius:19px;
+      font-weight:1000;
       box-shadow:0 12px 24px rgba(15,23,42,.10);
     }
+
     .primary{color:white;background:linear-gradient(135deg,#06b6d4,#22c55e)}
     .secondary,.diff-btn{color:#0f172a;background:#fff;border:1px solid rgba(15,23,42,.08)}
+
     .diff-btn.active{
-      color:#075985;background:linear-gradient(135deg,#ecfeff,#dcfce7);
+      color:#075985;
+      background:linear-gradient(135deg,#ecfeff,#dcfce7);
       box-shadow:0 0 0 3px rgba(6,182,212,.14),0 12px 24px rgba(15,23,42,.10);
     }
+
     .hint-box{
-      margin:12px auto;max-width:650px;border-radius:22px;padding:12px 14px;
-      background:#f8fafc;border:1px solid rgba(15,23,42,.08);
-      color:#475569;font-size:13px;line-height:1.5;font-weight:850;text-align:left;
+      margin:12px auto;
+      max-width:650px;
+      border-radius:22px;
+      padding:12px 14px;
+      background:#f8fafc;
+      border:1px solid rgba(15,23,42,.08);
+      color:#475569;
+      font-size:13px;
+      line-height:1.5;
+      font-weight:850;
+      text-align:left;
     }
+
     .ready-list{display:grid;gap:9px;margin:14px 0}
+
     .ready-item{
-      display:grid;grid-template-columns:42px 1fr auto;gap:10px;align-items:center;
-      padding:10px 12px;border-radius:20px;background:#fff;border:1px solid rgba(14,116,144,.14);
-      box-shadow:0 10px 22px rgba(15,23,42,.07);text-align:left;
+      display:grid;
+      grid-template-columns:42px 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:10px 12px;
+      border-radius:20px;
+      background:#fff;
+      border:1px solid rgba(14,116,144,.14);
+      box-shadow:0 10px 22px rgba(15,23,42,.07);
+      text-align:left;
     }
+
     .ready-icon{
-      width:42px;height:42px;border-radius:16px;display:grid;place-items:center;
-      background:linear-gradient(135deg,#ecfeff,#f0fdfa);font-size:22px;
+      width:42px;
+      height:42px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#ecfeff,#f0fdfa);
+      font-size:22px;
     }
+
     .ready-text b{display:block;color:#0f172a;font-size:14px;font-weight:1000;margin-bottom:2px}
     .ready-text span{display:block;color:#64748b;font-size:12px;font-weight:850;line-height:1.35}
+
     .ready-badge{
-      padding:6px 9px;border-radius:999px;font-size:11px;font-weight:1000;white-space:nowrap;
-      background:#f8fafc;color:#475569;border:1px solid rgba(15,23,42,.07);
+      padding:6px 9px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:1000;
+      white-space:nowrap;
+      background:#f8fafc;
+      color:#475569;
+      border:1px solid rgba(15,23,42,.07);
     }
+
     .ready-badge.good{background:#ecfdf5;color:#047857;border-color:rgba(16,185,129,.18)}
     .ready-badge.warn{background:#fffbeb;color:#92400e;border-color:rgba(245,158,11,.20)}
 
     .toothpaste-box{
-      margin:18px auto;width:min(560px,88vw);border-radius:26px;
+      margin:18px auto;
+      width:min(560px,88vw);
+      border-radius:26px;
       background:linear-gradient(135deg,#f8fafc,#ecfeff);
-      border:1px solid rgba(15,23,42,.08);padding:18px;
+      border:1px solid rgba(15,23,42,.08);
+      padding:18px;
       box-shadow:inset 0 0 0 1px rgba(255,255,255,.72),0 14px 30px rgba(15,23,42,.09);
     }
+
     .paste-meter{
-      position:relative;height:28px;border-radius:999px;background:#e2e8f0;overflow:hidden;
+      position:relative;
+      height:28px;
+      border-radius:999px;
+      background:#e2e8f0;
+      overflow:hidden;
       box-shadow:inset 0 0 0 2px rgba(15,23,42,.04);
     }
+
     .paste-target{
-      position:absolute;top:0;bottom:0;left:46%;width:24%;
+      position:absolute;
+      top:0;
+      bottom:0;
+      left:46%;
+      width:24%;
       background:rgba(34,197,94,.22);
       border-left:2px dashed rgba(22,163,74,.56);
       border-right:2px dashed rgba(22,163,74,.56);
       z-index:1;
     }
+
     .paste-fill{
-      position:absolute;top:0;left:0;bottom:0;width:0%;z-index:2;border-radius:999px;
+      position:absolute;
+      top:0;
+      left:0;
+      bottom:0;
+      width:0%;
+      z-index:2;
+      border-radius:999px;
       background:linear-gradient(90deg,#67e8f9,#22c55e,#facc15);
     }
 
     .toast{
-      position:absolute;left:50%;bottom:calc(92px + var(--safe-bottom));
+      position:absolute;
+      left:50%;
+      bottom:calc(92px + var(--safe-bottom));
       transform:translateX(-50%) translateY(12px);
-      z-index:90;max-width:min(560px,88vw);padding:11px 15px;border-radius:999px;
-      background:rgba(15,23,42,.90);color:#fff;font-size:13px;font-weight:900;
-      opacity:0;pointer-events:none;box-shadow:0 16px 32px rgba(15,23,42,.22);
+      z-index:90;
+      max-width:min(560px,88vw);
+      padding:11px 15px;
+      border-radius:999px;
+      background:rgba(15,23,42,.90);
+      color:#fff;
+      font-size:13px;
+      font-weight:900;
+      opacity:0;
+      pointer-events:none;
+      box-shadow:0 16px 32px rgba(15,23,42,.22);
       transition:opacity .18s ease,transform .18s ease;
     }
+
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-    .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin:16px 0;
+    }
+
     .summary-card{
-      border-radius:22px;padding:12px;background:#fff;border:1px solid rgba(15,23,42,.08);
+      border-radius:22px;
+      padding:12px;
+      background:#fff;
+      border:1px solid rgba(15,23,42,.08);
       box-shadow:0 10px 20px rgba(15,23,42,.06);
     }
+
     .summary-card small{display:block;color:#64748b;font-size:12px;font-weight:900;margin-bottom:4px}
     .summary-card b{display:block;color:#0f172a;font-size:22px;font-weight:1000;line-height:1.1}
 
     .summary-upgrade{display:grid;gap:12px;margin-top:14px}
+
     .summary-panel{
-      border-radius:24px;background:rgba(255,255,255,.88);
+      border-radius:24px;
+      background:rgba(255,255,255,.88);
       border:1px solid rgba(14,116,144,.13);
       box-shadow:0 12px 28px rgba(15,23,42,.08);
-      padding:13px;text-align:left;
+      padding:13px;
+      text-align:left;
     }
+
     .summary-panel h3{margin:0 0 8px;font-size:16px;line-height:1.15;color:#0f172a;font-weight:1000}
     .summary-panel p{margin:4px 0;color:#475569;font-size:13px;line-height:1.52;font-weight:850}
 
     .badge-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+
     .result-badge{
-      min-height:64px;border-radius:20px;background:linear-gradient(180deg,#f8fafc,#fff);
-      border:1px solid rgba(15,23,42,.07);padding:10px;display:flex;gap:9px;align-items:center;
+      min-height:64px;
+      border-radius:20px;
+      background:linear-gradient(180deg,#f8fafc,#fff);
+      border:1px solid rgba(15,23,42,.07);
+      padding:10px;
+      display:flex;
+      gap:9px;
+      align-items:center;
     }
+
     .result-badge i{
-      width:38px;height:38px;border-radius:15px;display:grid;place-items:center;
-      font-style:normal;font-size:21px;background:linear-gradient(135deg,#ecfeff,#fdf2f8);
+      width:38px;
+      height:38px;
+      border-radius:15px;
+      display:grid;
+      place-items:center;
+      font-style:normal;
+      font-size:21px;
+      background:linear-gradient(135deg,#ecfeff,#fdf2f8);
       flex:0 0 auto;
     }
+
     .result-badge b{display:block;font-size:13px;font-weight:1000;color:#0f172a;margin-bottom:2px}
     .result-badge span{display:block;font-size:11px;font-weight:850;color:#64748b;line-height:1.28}
+
     .zone-summary{display:grid;gap:8px}
+
     .zone-line{
-      display:grid;grid-template-columns:86px 1fr 46px;gap:8px;align-items:center;
-      font-size:12px;font-weight:900;color:#334155;
+      display:grid;
+      grid-template-columns:86px 1fr 46px;
+      gap:8px;
+      align-items:center;
+      font-size:12px;
+      font-weight:900;
+      color:#334155;
     }
+
     .zone-track{
-      height:10px;border-radius:999px;background:rgba(148,163,184,.20);overflow:hidden;
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.20);
+      overflow:hidden;
       box-shadow:inset 0 0 0 1px rgba(15,23,42,.04);
     }
+
     .zone-fill{
-      display:block;height:100%;width:0%;border-radius:999px;
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
       background:linear-gradient(90deg,#67e8f9,#22c55e,#facc15);
     }
+
     .next-challenge{
-      display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:22px;
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      padding:12px;
+      border-radius:22px;
       background:linear-gradient(135deg,#ecfeff,#fff7ed);
-      border:1px solid rgba(6,182,212,.15);text-align:left;
+      border:1px solid rgba(6,182,212,.15);
+      text-align:left;
     }
+
     .next-challenge .icon{
-      width:44px;height:44px;border-radius:17px;display:grid;place-items:center;background:#fff;
-      box-shadow:0 8px 18px rgba(15,23,42,.08);font-size:24px;flex:0 0 auto;
+      width:44px;
+      height:44px;
+      border-radius:17px;
+      display:grid;
+      place-items:center;
+      background:#fff;
+      box-shadow:0 8px 18px rgba(15,23,42,.08);
+      font-size:24px;
+      flex:0 0 auto;
     }
+
     .next-challenge b{display:block;color:#0f172a;font-size:14px;font-weight:1000;margin-bottom:3px}
     .next-challenge span{display:block;color:#475569;font-size:12px;line-height:1.42;font-weight:850}
 
     .fx-pop{
-      position:absolute;z-index:60;pointer-events:none;font-size:22px;font-weight:1000;color:white;
-      text-shadow:0 2px 8px rgba(15,23,42,.45);animation:floatUp .72s ease forwards;
+      position:absolute;
+      z-index:60;
+      pointer-events:none;
+      font-size:22px;
+      font-weight:1000;
+      color:white;
+      text-shadow:0 2px 8px rgba(15,23,42,.45);
+      animation:floatUp .72s ease forwards;
     }
 
     @keyframes floatUp{
@@ -432,9 +867,19 @@
       20%{opacity:1}
       to{opacity:0;transform:translate(-50%,-130%) scale(1.12)}
     }
-    @keyframes pop{from{opacity:0;transform:translateX(-50%) scale(.92)}to{opacity:1;transform:translateX(-50%) scale(1)}}
-    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+
+    @keyframes pop{
+      from{opacity:0;transform:translateX(-50%) scale(.92)}
+      to{opacity:1;transform:translateX(-50%) scale(1)}
+    }
+
+    @keyframes pulse{
+      0%,100%{transform:scale(1)}
+      50%{transform:scale(1.08)}
+    }
+
     .shake{animation:shake .24s ease both}
+
     @keyframes shake{
       0%,100%{transform:translate3d(0,0,0)}
       25%{transform:translate3d(-5px,0,0)}
@@ -463,11 +908,12 @@
     <div class="ar-tint"></div>
 
     <section class="hud" aria-label="HUD">
-      <div class="pill">⏱️ <span id="timeText">60s</span></div>
+      <div class="pill">⏱️ <span id="timeText">55s</span></div>
       <div class="pill">⭐ <span id="scoreText">0</span></div>
       <div class="pill">🔥 Combo <span id="comboText">0</span></div>
       <div class="pill">🦷 Clean <span class="meter clean"><i id="cleanBar"></i></span> <span id="cleanText">0%</span></div>
       <div class="pill">🌿 Gum <span class="meter gum"><i id="gumBar"></i></span> <span id="gumText">100%</span></div>
+      <div class="pill">🧠 Technique <span id="techniqueText">100%</span></div>
       <div class="pill" id="feverPill" style="display:none">🫧 Fever <span class="meter fever"><i id="feverBar"></i></span></div>
       <div class="pill" id="gripPill" style="display:none">✊ Grip <span id="gripText">Hover</span></div>
     </section>
@@ -512,6 +958,10 @@
 
     <div id="coachBubble" class="coach-bubble"><b>AR Coach:</b> พร้อมเริ่มภารกิจ</div>
 
+    <div id="dangerBanner" class="danger-banner">
+      ⚠️ Gum Warning: ลดแรงแปรงและคุมจังหวะให้ช้าลง
+    </div>
+
     <section id="missionBoard" class="mission-board">
       <b>ภารกิจ:</b> เตรียมพร้อมก่อนเริ่ม
     </section>
@@ -520,7 +970,7 @@
       <div class="card">
         <h1 class="hero-title">🪥 Toothbrush Hero AR</h1>
         <p class="sub">
-          เกมแปรงฟัน AR แบบใช้กล้องจริง วางฟันตามปาก คุมแปรงด้วยมือ และตัดสินผ่านจาก Clean + Gum + Coverage + Boss
+          เกมแปรงฟัน AR แบบใช้กล้องจริง วางฟันตามปาก คุมแปรงด้วยมือ และตัดสินผ่านจาก Clean + Gum + Coverage + Technique + Boss
         </p>
 
         <div class="form-grid">
@@ -540,7 +990,8 @@
           2) HandLandmarker ใช้ปลายนิ้วชี้ landmark 8 เป็นหัวแปรง<br>
           3) Hand Stabilizer ช่วยกันแปรงหลุดเมื่อมือสะดุด<br>
           4) Grip Brush Mode ใช้นิ้วโป้ง 4 + นิ้วชี้ 8 เพื่อจำลองการจับแปรง<br>
-          5) Touch/Mouse fallback เล่นได้ทุกเครื่อง
+          5) Technique Score วัดจังหวะและแรงในการแปรง<br>
+          6) Touch/Mouse fallback เล่นได้ทุกเครื่อง
         </div>
 
         <div class="btn-row">
@@ -603,7 +1054,7 @@
           <div class="summary-card"><small>Clean</small><b id="rClean">0%</b></div>
           <div class="summary-card"><small>Gum</small><b id="rGum">0%</b></div>
           <div class="summary-card"><small>Coverage</small><b id="rCoverage">0/6</b></div>
-          <div class="summary-card"><small>Best Combo</small><b id="rCombo">0</b></div>
+          <div class="summary-card"><small>Technique</small><b id="rTechnique">0%</b></div>
           <div class="summary-card"><small>Result</small><b id="rBoss">-</b></div>
         </div>
 
@@ -627,7 +1078,7 @@
       FaceLandmarker
     } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
 
-    const VERSION = 'v20260619-TOOTHBRUSH-AR-V10-3-CHALLENGE-BALANCE-HAND-STABLE';
+    const VERSION = 'v20260619-TOOTHBRUSH-AR-V10-4-GUM-DANGER-TECHNIQUE-SCORE';
 
     const CONFIG = {
       hygieneZoneUrl: '../hygiene-zone-v2.html',
@@ -720,23 +1171,40 @@
         sugarGumPenalty: 2.2,
         weakBrushGumPenalty: 0.35,
 
+        technique: {
+          start: 100,
+          min: 0,
+          max: 100,
+          weakPenalty: 0.18,
+          overSpeedPenalty: 0.52,
+          noGripPenalty: 0.12,
+          goodRecover: 0.045,
+          perfectRecover: 0.075,
+          warning50: 50,
+          warning30: 30,
+          warning15: 15
+        },
+
         passRules: {
           easy: {
             minClean: 70,
             minGum: 45,
             minCoverage: 4,
+            minTechnique: 45,
             bossRequired: false
           },
           normal: {
             minClean: 80,
             minGum: 55,
             minCoverage: 5,
+            minTechnique: 60,
             bossRequired: true
           },
           hard: {
             minClean: 88,
             minGum: 65,
             minCoverage: 6,
+            minTechnique: 70,
             bossRequired: true
           }
         }
@@ -794,6 +1262,7 @@
 
     const toast = $('toast');
     const coachBubble = $('coachBubble');
+    const dangerBanner = $('dangerBanner');
     const readyList = $('readyList');
     const readyAdvice = $('readyAdvice');
 
@@ -863,6 +1332,10 @@
       score: 0,
       clean: 0,
       gum: 100,
+      technique: 100,
+      gumDangerStage: 0,
+      lastTechniqueQuality: 'none',
+
       combo: 0,
       bestCombo: 0,
       fever: 0,
@@ -967,11 +1440,25 @@
       showCoach._t = setTimeout(() => coachBubble.classList.remove('show'), ms);
     }
 
+    function showDangerBanner(message, level = 'danger', ms = 1700){
+      if(!dangerBanner) return;
+
+      dangerBanner.textContent = message;
+      dangerBanner.classList.remove('danger','critical');
+      dangerBanner.classList.add('show', level);
+
+      clearTimeout(showDangerBanner._t);
+      showDangerBanner._t = setTimeout(() => {
+        dangerBanner.classList.remove('show','danger','critical');
+      }, ms);
+    }
+
     function playTone(kind){
       if(state.audioMuted) return;
       try{
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if(!AudioContext) return;
+
         const ctx = playTone.ctx || new AudioContext();
         playTone.ctx = ctx;
 
@@ -1165,6 +1652,7 @@
       const centerY = (upper.y + lower.y) / 2;
 
       const mouthWidthPx = Math.max(80, Math.hypot(right.x - left.x, right.y - left.y));
+
       const overlayW = clamp(
         mouthWidthPx * CONFIG.face.widthScale,
         CONFIG.face.minMouthWidth,
@@ -1557,7 +2045,6 @@
 
     function normalizedToScreen(nx, ny){
       const rect = mouthWrap.getBoundingClientRect();
-
       return {
         x: rect.left + rect.width * nx / 100,
         y: rect.top + rect.height * ny / 100
@@ -1571,6 +2058,7 @@
 
       $('cleanText').textContent = Math.round(state.clean) + '%';
       $('gumText').textContent = Math.round(state.gum) + '%';
+      $('techniqueText').textContent = Math.round(state.technique) + '%';
 
       $('cleanBar').style.width = clamp(state.clean,0,100) + '%';
       $('gumBar').style.width = clamp(state.gum,0,100) + '%';
@@ -1678,9 +2166,7 @@
     function getBestWeakZoneFromPerformance(){
       const rows = getZonePerformanceRows().filter(r => r.spawned > 0);
 
-      if(!rows.length){
-        return { best:'-', weak:'-' };
-      }
+      if(!rows.length) return { best:'-', weak:'-' };
 
       const best = [...rows].sort((a,b) => b.percent - a.percent)[0];
       const weak = [...rows].sort((a,b) => a.percent - b.percent)[0];
@@ -1693,7 +2179,6 @@
 
     function getStrongWeakZones(){
       const z = getBestWeakZoneFromPerformance();
-
       return {
         strongest: z.best,
         weakest: z.weak
@@ -1908,6 +2393,52 @@
       return 'weak';
     }
 
+    function updateTechniqueScore(quality, dt){
+      const cfg = CONFIG.gameplay.technique;
+      const unit = dt / 16.67;
+
+      if(quality === 'perfect'){
+        state.technique = clamp(state.technique + cfg.perfectRecover * unit, cfg.min, cfg.max);
+      }else if(quality === 'good'){
+        state.technique = clamp(state.technique + cfg.goodRecover * unit, cfg.min, cfg.max);
+      }else if(quality === 'weak'){
+        state.technique = clamp(state.technique - cfg.weakPenalty * unit, cfg.min, cfg.max);
+      }
+
+      if(state.brushSpeed > 1500){
+        state.technique = clamp(state.technique - cfg.overSpeedPenalty * unit, cfg.min, cfg.max);
+      }
+
+      state.lastTechniqueQuality = quality;
+    }
+
+    function updateGumDanger(){
+      if(state.phase !== 'playing' && state.phase !== 'boss') return;
+
+      const g = state.gum;
+
+      if(g <= CONFIG.gameplay.technique.warning15 && state.gumDangerStage < 3){
+        state.gumDangerStage = 3;
+        showDangerBanner('🚨 Gum Critical! เหงือกใกล้เสียหาย หยุดถูแรงและลากช้าลงทันที', 'critical', 2600);
+        showCoach('Gum Critical! ต้องลดแรงและลดความเร็ว ไม่อย่างนั้นเกมจะหยุดเพราะเหงือกเสียหาย');
+        playTone('miss');
+        return;
+      }
+
+      if(g <= CONFIG.gameplay.technique.warning30 && state.gumDangerStage < 2){
+        state.gumDangerStage = 2;
+        showDangerBanner('⚠️ Gum Danger! แปรงแรงเกินไป ลดความเร็วและอย่าถูซ้ำจุดเดิม', 'danger', 2300);
+        showCoach('เหงือกเริ่มอันตรายแล้ว เป้าหมายคือสะอาดและไม่ทำร้ายเหงือก');
+        return;
+      }
+
+      if(g <= CONFIG.gameplay.technique.warning50 && state.gumDangerStage < 1){
+        state.gumDangerStage = 1;
+        showDangerBanner('🌿 Gum Warning: เหงือกเริ่มต่ำ คุมจังหวะแปรงให้เบาลง', 'danger', 1900);
+        showCoach('Gum Warning: ลองขยับแปรงช้าลงและอย่าถูแรงเกินไป');
+      }
+    }
+
     function hitPlaques(t, dt){
       if(state.phase !== 'playing' && state.phase !== 'boss') return;
 
@@ -1915,6 +2446,15 @@
 
       if(!brushActive){
         state.combo = Math.max(0, state.combo - .012 * (dt / 16.67));
+
+        if(state.inputMode === 'hand_tracking'){
+          state.technique = clamp(
+            state.technique - CONFIG.gameplay.technique.noGripPenalty * (dt / 16.67),
+            0,
+            100
+          );
+        }
+
         updateBrushGripVisual();
         return;
       }
@@ -1931,6 +2471,8 @@
           hitAny = true;
 
           const quality = getBrushQuality();
+          updateTechniqueScore(quality, dt);
+
           const feverOn = state.feverActiveUntil > t;
           const d = CONFIG.difficulty[state.selectedDiff];
           const speedFactor = quality === 'perfect' ? 1.55 : quality === 'good' ? 1.0 : .54;
@@ -2029,7 +2571,11 @@
         state.bossHp = clamp(state.bossHp - bossDamage, 0, state.bossMaxHp);
       }
 
-      floatingText(plaqueScreenPoint(plaque).x, plaqueScreenPoint(plaque).y, quality === 'perfect' ? `Perfect +${scoreAdd}` : `+${scoreAdd}`);
+      floatingText(
+        plaqueScreenPoint(plaque).x,
+        plaqueScreenPoint(plaque).y,
+        quality === 'perfect' ? `Perfect +${scoreAdd}` : `+${scoreAdd}`
+      );
 
       plaque.el.style.opacity = '0';
       plaque.el.style.transform = 'scale(.3) rotate(18deg)';
@@ -2047,7 +2593,7 @@
         state.clean = clamp(state.clean + 4, 0, 100);
 
         showToast('พิชิต Plaque Monster แล้ว! แต่ยังต้องรักษา Gum และ Coverage 👾✨', 1700);
-        showCoach('Boss ถูกกำจัดแล้ว แต่จะผ่านจริงต้องมี Clean / Gum / Coverage ถึงเกณฑ์ด้วย');
+        showCoach('Boss ถูกกำจัดแล้ว แต่จะผ่านจริงต้องมี Clean / Gum / Coverage / Technique ถึงเกณฑ์ด้วย');
         playTone('perfect');
       }
 
@@ -2201,21 +2747,23 @@
       const cleanOk = state.clean >= rule.minClean;
       const gumOk = state.gum >= rule.minGum;
       const coverageOk = coverage >= rule.minCoverage;
+      const techniqueOk = state.technique >= rule.minTechnique;
       const bossOk = !rule.bossRequired || state.bossDefeated;
 
-      const passed = cleanOk && gumOk && coverageOk && bossOk;
+      const passed = cleanOk && gumOk && coverageOk && techniqueOk && bossOk;
 
       const reasons = [];
 
       if(!cleanOk) reasons.push(`Clean ต้องถึง ${rule.minClean}%`);
       if(!gumOk) reasons.push(`Gum ต้องไม่ต่ำกว่า ${rule.minGum}%`);
       if(!coverageOk) reasons.push(`Coverage ต้องครบอย่างน้อย ${rule.minCoverage}/6`);
+      if(!techniqueOk) reasons.push(`Technique ต้องไม่ต่ำกว่า ${rule.minTechnique}%`);
       if(!bossOk) reasons.push('ต้องพิชิต Boss ให้สำเร็จ');
 
       let level = 'not_passed';
 
       if(passed){
-        if(state.clean >= 92 && state.gum >= 82 && coverage >= 6 && state.bossDefeated){
+        if(state.clean >= 92 && state.gum >= 82 && coverage >= 6 && state.technique >= 82 && state.bossDefeated){
           level = 'master';
         }else{
           level = 'passed';
@@ -2230,6 +2778,7 @@
         cleanOk,
         gumOk,
         coverageOk,
+        techniqueOk,
         bossOk,
         reasons,
         rule,
@@ -2242,9 +2791,10 @@
 
       if(status.level === 'master') return 'Toothbrush Master';
       if(status.passed && state.bossDefeated) return 'Plaque Slayer';
-      if(status.passed && state.gum >= 80) return 'Fresh Hero';
+      if(status.passed && state.gum >= 80 && state.technique >= 80) return 'Fresh Hero';
       if(status.passed) return 'Smile Mission Clear';
       if(!status.gumOk && state.clean >= 85) return 'Overbrush Alert';
+      if(!status.techniqueOk && state.clean >= 85) return 'Technique Alert';
       if(status.level === 'near_pass') return 'Almost Fresh Hero';
       if(calculateCoverage() >= 4) return 'Practice Cleaner';
       return 'Smile Rookie';
@@ -2265,6 +2815,12 @@
         advice += 'และคุมแรงแปรงได้ดี เหงือกยังปลอดภัย';
       }
 
+      if(state.technique < 70){
+        advice += '<br>Technique Score ยังต่ำ แปลว่าจังหวะ/แรงแปรงยังต้องคุมให้ดีขึ้น';
+      }else{
+        advice += '<br>Technique Score ดี แสดงว่าคุมจังหวะและแรงแปรงได้เหมาะสม';
+      }
+
       const perf = getBestWeakZoneFromPerformance();
 
       if(perf.best !== '-' && perf.weak !== '-'){
@@ -2282,7 +2838,7 @@
       if(!challenge.passed){
         advice += `<br><b>ยังไม่ผ่าน:</b> ${challenge.reasons.join(' • ')}`;
       }else{
-        advice += `<br><b>ผ่านภารกิจแล้ว:</b> รักษาความสะอาด เหงือก และ Coverage ได้ตามเกณฑ์`;
+        advice += `<br><b>ผ่านภารกิจแล้ว:</b> รักษาความสะอาด เหงือก Coverage และ Technique ได้ตามเกณฑ์`;
       }
 
       return advice;
@@ -2310,6 +2866,10 @@
       state.score = 0;
       state.clean = 0;
       state.gum = 100;
+      state.technique = CONFIG.gameplay.technique.start;
+      state.gumDangerStage = 0;
+      state.lastTechniqueQuality = 'none';
+
       state.combo = 0;
       state.bestCombo = 0;
       state.fever = 0;
@@ -2365,6 +2925,10 @@
       state.coach.lastCoverageHintAt = 0;
       state.coach.lastGumHintAt = 0;
       state.coach.lastSpeedHintAt = 0;
+
+      if(dangerBanner){
+        dangerBanner.classList.remove('show','danger','critical');
+      }
 
       updateBrushGripVisual();
       initZonePerformance();
@@ -2432,6 +2996,12 @@
             ? 'ถ้าหนีบนิ้วโป้งกับนิ้วชี้ แปรงจะเข้าสู่โหมด Brushing และขัดคราบได้'
             : 'ใช้เมื่อเปิด Hand Tracking ถ้าไม่เปิดยังเล่นด้วย touch/mouse ได้',
           status:state.hand.enabled ? 'good' : 'warn'
+        },
+        {
+          icon:'🧠',
+          title:'Technique Score',
+          desc:'เกมจะดูทั้งความสะอาด เหงือก Coverage และเทคนิค ไม่ใช่แค่ถูคราบให้หมด',
+          status:'good'
         },
         {
           icon:'👆',
@@ -2551,7 +3121,7 @@
       updateHud();
 
       showToast('เริ่มภารกิจ! ลากแปรงไปที่คราบฟัน 🦷');
-      showCoach('เริ่มจากแปรงให้ครบทุกโซนก่อน แล้วค่อยเร่งทำ Combo');
+      showCoach('เริ่มจากแปรงให้ครบทุกโซนก่อน แล้วคุมจังหวะให้ Technique ดี');
 
       if(state.hand.enabled){
         showCoach('Hand Mode: ยกมือเข้ากล้อง หัวแปรงจะติดปลายนิ้วชี้ แล้วหนีบนิ้วโป้งกับนิ้วชี้เพื่อขัดคราบ ✊🪥', 3000);
@@ -2614,9 +3184,11 @@
       updateBossPhase();
       checkMissionComplete();
       updateCoachHints(t);
+      updateGumDanger();
 
       if(state.gum <= 0){
-        endGame('gum_zero');
+        showDangerBanner('🛑 Gum Damage Stop! เหงือกเสียหายจากการแปรงแรงเกินไป', 'critical', 2600);
+        endGame('gum_damage_stop');
         return;
       }
 
@@ -2671,7 +3243,8 @@
       $('rClean').textContent = Math.round(state.clean) + '%';
       $('rGum').textContent = Math.round(state.gum) + '%';
       $('rCoverage').textContent = coverage + '/6';
-      $('rCombo').textContent = Math.floor(state.bestCombo);
+      $('rTechnique').textContent = Math.round(state.technique) + '%';
+
       $('rBoss').textContent = challenge.passed
         ? 'Pass'
         : state.bossDefeated
@@ -2716,6 +3289,9 @@
         score: Math.round(state.score),
         clean_score: Math.round(state.clean),
         gum_health: Math.round(state.gum),
+        technique_score: Math.round(state.technique),
+        technique_quality_last: state.lastTechniqueQuality,
+
         coverage_zone_count: calculateCoverage(),
         coverage_percent: Math.round((calculateCoverage() / 6) * 100),
         accuracy: Math.round(state.clean),
@@ -2775,10 +3351,11 @@
         pass_min_clean: challenge.rule.minClean,
         pass_min_gum: challenge.rule.minGum,
         pass_min_coverage: challenge.rule.minCoverage,
+        pass_min_technique: challenge.rule.minTechnique,
         pass_boss_required: challenge.rule.bossRequired ? 'yes' : 'no',
 
         badge: getBadge(),
-        advice: getAdvice().replace(/<br>/g, ' | '),
+        advice: getAdvice().replace(/<br>/g, ' | ').replace(/<b>|<\/b>/g, ''),
 
         source_url: location.href,
         device: /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
@@ -2939,6 +3516,7 @@
           score: payload.score,
           clean_score: payload.clean_score,
           gum_health: payload.gum_health,
+          technique_score: payload.technique_score,
           coverage_zone_count: payload.coverage_zone_count,
           boss_defeated: payload.boss_defeated,
           mission_completed: payload.mission_completed,
@@ -2960,7 +3538,7 @@
       const badges = [];
 
       if(payload.challenge_passed === 'yes'){
-        badges.push({ icon:'✅', title:'Mission Pass', desc:'ผ่านเกณฑ์ Clean / Gum / Coverage' });
+        badges.push({ icon:'✅', title:'Mission Pass', desc:'ผ่านเกณฑ์ Clean / Gum / Coverage / Technique' });
       }else{
         badges.push({ icon:'🔁', title:'Mission Retry', desc:payload.challenge_fail_reasons || 'ยังไม่ผ่านเกณฑ์รอบนี้' });
       }
@@ -2981,10 +3559,13 @@
         badges.push({ icon:'⚠️', title:'Gum Care Alert', desc:'รอบหน้าลองลากแปรงช้าลง' });
       }
 
-      if(payload.boss_defeated === 'yes' && payload.challenge_passed === 'yes'){
-        badges.push({ icon:'👾', title:'Plaque Slayer', desc:'พิชิต Boss และผ่านภารกิจ' });
+      if(payload.technique_score >= 80){
+        badges.push({ icon:'🧠', title:'Technique Hero', desc:'คุมจังหวะและแรงแปรงได้ดี' });
+      }else if(payload.boss_defeated === 'yes' && payload.challenge_passed !== 'yes'){
+        badges.push({ icon:'💥', title:'Boss Win / Mission Fail', desc:'ชนะ Boss แต่ยังไม่ผ่านเกณฑ' });
+      }else if(payload.boss_defeated === 'yes' && payload.challenge_passed !== 'yes์สุขภาพ' });
       }else if(payload.boss_defeated === 'yes'){
-        badges.push({ icon:'💥', title:'Boss Win / Mission Fail', desc:'ชนะ Boss แต่ยังไม่ผ่านเกณฑ์สุขภาพ' });
+        badges.push({ icon:'👾', title:'Plaque Slayer', desc:'พิชิต Boss และผ่านภารกิจ' });
       }else{
         badges.push({ icon:'🚀', title:'Boss Ready', desc:'รอบหน้าลองเก็บ Clean ให้ถึง Boss' });
       }
@@ -3005,7 +3586,7 @@
       }
 
       if(payload.challenge_passed === 'yes'){
-        parts.push('ผ่านภารกิจแล้ว เพราะ Clean / Gum / Coverage ถึงเกณฑ์');
+        parts.push('ผ่านภารกิจแล้ว เพราะ Clean / Gum / Coverage / Technique ถึงเกณฑ์');
       }else{
         parts.push(`ยังไม่ผ่านภารกิจ: ${payload.challenge_fail_reasons || 'ต้องปรับวิธีแปรงอีกนิด'}`);
       }
@@ -3022,6 +3603,12 @@
         parts.push('Gum Health อยู่ในเกณฑ์ดี แปลว่าคุมแรงแปรงได้เหมาะสม');
       }
 
+      if(Number(payload.technique_score || 0) < Number(payload.pass_min_technique || 0)){
+        parts.push(`Technique Score ยังต่ำกว่าเกณฑ์ ${payload.pass_min_technique}% แปลว่าจังหวะ/แรงแปรงยังต้องคุมให้ดีกว่านี้`);
+      }else{
+        parts.push('Technique Score ผ่านเกณฑ์ แสดงว่าคุมจังหวะและแรงแปรงได้ดี');
+      }
+
       if(zone.best !== '-' && zone.weak !== '-'){
         parts.push(`โซนที่เด่นคือ ${zone.best} ส่วนโซนที่ควรฝึกเพิ่มคือ ${zone.weak}`);
       }
@@ -3036,6 +3623,14 @@
             icon:'🌿',
             title:'Next Challenge: Gentle Mode',
             desc:`รอบหน้าให้ตั้งเป้า Gum Health มากกว่า ${payload.pass_min_gum}% โดยลากแปรงให้ช้าลง`
+          };
+        }
+
+        if(payload.technique_score < payload.pass_min_technique){
+          return {
+            icon:'🧠',
+            title:'Next Challenge: Technique Control',
+            desc:`รอบหน้าตั้งเป้า Technique อย่างน้อย ${payload.pass_min_technique}% โดยคุมจังหวะและแรงแปรง`
           };
         }
 
@@ -3058,7 +3653,7 @@
         return {
           icon:'👾',
           title:'Next Challenge: Beat the Boss',
-          desc:'รอบหน้าต้องพิชิต Boss พร้อมรักษา Clean / Gum / Coverage ให้ถึงเกณฑ์'
+          desc:'รอบหน้าต้องพิชิต Boss พร้อมรักษา Clean / Gum / Coverage / Technique ให้ถึงเกณฑ์'
         };
       }
 
@@ -3172,6 +3767,7 @@
       });
 
       $('pauseBtn').addEventListener('click', togglePause);
+
       $('muteBtn').addEventListener('click', () => {
         state.audioMuted = !state.audioMuted;
         $('muteBtn').textContent = state.audioMuted ? '🔇' : '🔊';
