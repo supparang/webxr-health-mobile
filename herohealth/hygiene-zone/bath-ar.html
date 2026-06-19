@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#dff8ff" />
   <meta name="color-scheme" content="light" />
-  <title>HeroHealth • Bath AR v2</title>
+  <title>HeroHealth • Bath AR v4</title>
 
   <style>
     :root{
@@ -26,10 +26,18 @@
       --safeRight:env(safe-area-inset-right,0px);
     }
 
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{
-      margin:0;width:100%;height:100%;overflow:hidden;
-      font-family:ui-rounded,"Segoe UI",system-ui,-apple-system,sans-serif;
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,
+    body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family:ui-rounded,"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
       color:var(--ink);
       background:
         radial-gradient(circle at 10% 10%,#fff,transparent 32%),
@@ -37,19 +45,65 @@
         linear-gradient(180deg,#e0f7ff,#f8fdff);
     }
 
-    button{font:inherit;border:0;cursor:pointer}
-    .app{position:fixed;inset:0;overflow:hidden}
-    .cam{position:absolute;inset:0;background:#dbeafe;overflow:hidden}
-    #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-    #canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-    .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.24),transparent 40%,rgba(255,255,255,.44));pointer-events:none}
+    button{
+      font:inherit;
+      border:0;
+      cursor:pointer;
+    }
+
+    input{
+      font:inherit;
+    }
+
+    .app{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+    }
+
+    .cam{
+      position:absolute;
+      inset:0;
+      background:#dbeafe;
+      overflow:hidden;
+    }
+
+    #video{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      transform:scaleX(-1);
+      filter:saturate(1.06) contrast(1.03);
+    }
+
+    #canvas{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      pointer-events:none;
+    }
+
+    .shade{
+      position:absolute;
+      inset:0;
+      background:
+        linear-gradient(180deg,rgba(255,255,255,.24),transparent 40%,rgba(255,255,255,.44));
+      pointer-events:none;
+    }
 
     .hud{
-      position:absolute;z-index:5;
+      position:absolute;
+      z-index:5;
       left:calc(10px + var(--safeLeft));
       right:calc(10px + var(--safeRight));
       top:calc(10px + var(--safeTop));
-      display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:start;
     }
 
     .card{
@@ -60,113 +114,500 @@
       backdrop-filter:blur(14px);
     }
 
-    .mission{padding:12px 13px}
-    .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-    .title{font-size:15px;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .pill{
-      padding:5px 10px;border-radius:999px;
-      font-size:11px;font-weight:950;color:#075985;background:#e0f2fe;
-      border:1px solid rgba(14,165,233,.22);white-space:nowrap
+    .mission{
+      padding:12px 13px;
     }
-    .text{margin-top:6px;font-size:13px;line-height:1.35;font-weight:800;color:#31546b}
-    .bars{display:grid;gap:6px;margin-top:9px}
-    .barline{display:grid;grid-template-columns:76px 1fr 40px;gap:7px;align-items:center;font-size:11px;font-weight:950;color:#466174}
-    .bar{height:10px;border-radius:999px;background:rgba(148,163,184,.25);overflow:hidden;border:1px solid rgba(15,54,80,.08)}
-    .bar i{display:block;height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,#38bdf8,#22c55e);transition:width .15s}
-    .bar.water i{background:linear-gradient(90deg,#38bdf8,#0ea5e9)}
-    .bar.foam i{background:linear-gradient(90deg,#d8b4fe,#9333ea)}
-    .bar.boss i{background:linear-gradient(90deg,#fb7185,#ef4444)}
 
-    .stats{padding:9px;display:grid;grid-template-columns:repeat(2,58px);gap:7px}
-    .stat{border-radius:16px;background:rgba(240,249,255,.82);border:1px solid rgba(125,211,252,.24);text-align:center;padding:7px 4px}
-    .stat b{display:block;font-size:17px;line-height:1;font-weight:950}
-    .stat span{display:block;margin-top:3px;font-size:9px;font-weight:950;color:#64748b}
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+    }
+
+    .title{
+      font-size:15px;
+      font-weight:950;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .pill{
+      padding:5px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:950;
+      color:#075985;
+      background:#e0f2fe;
+      border:1px solid rgba(14,165,233,.22);
+      white-space:nowrap;
+    }
+
+    .text{
+      margin-top:6px;
+      font-size:13px;
+      line-height:1.35;
+      font-weight:800;
+      color:#31546b;
+    }
+
+    .dailyMission{
+      margin-top:7px;
+      padding:8px 10px;
+      border-radius:15px;
+      background:rgba(240,253,250,.88);
+      border:1px solid rgba(45,212,191,.24);
+      color:#0f766e;
+      font-size:12px;
+      line-height:1.35;
+      font-weight:850;
+    }
+
+    .bars{
+      display:grid;
+      gap:6px;
+      margin-top:9px;
+    }
+
+    .barline{
+      display:grid;
+      grid-template-columns:76px 1fr 40px;
+      gap:7px;
+      align-items:center;
+      font-size:11px;
+      font-weight:950;
+      color:#466174;
+    }
+
+    .bar{
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.25);
+      overflow:hidden;
+      border:1px solid rgba(15,54,80,.08);
+    }
+
+    .bar i{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#38bdf8,#22c55e);
+      transition:width .15s;
+    }
+
+    .bar.water i{
+      background:linear-gradient(90deg,#38bdf8,#0ea5e9);
+    }
+
+    .bar.foam i{
+      background:linear-gradient(90deg,#d8b4fe,#9333ea);
+    }
+
+    .bar.boss i{
+      background:linear-gradient(90deg,#fb7185,#ef4444);
+    }
+
+    .stats{
+      padding:9px;
+      display:grid;
+      grid-template-columns:repeat(2,58px);
+      gap:7px;
+    }
+
+    .stat{
+      border-radius:16px;
+      background:rgba(240,249,255,.82);
+      border:1px solid rgba(125,211,252,.24);
+      text-align:center;
+      padding:7px 4px;
+    }
+
+    .stat b{
+      display:block;
+      font-size:17px;
+      line-height:1;
+      font-weight:950;
+    }
+
+    .stat span{
+      display:block;
+      margin-top:3px;
+      font-size:9px;
+      font-weight:950;
+      color:#64748b;
+    }
 
     .dock{
-      position:absolute;z-index:6;
+      position:absolute;
+      z-index:6;
       left:calc(10px + var(--safeLeft));
       right:calc(10px + var(--safeRight));
       bottom:calc(10px + var(--safeBottom));
-      display:grid;gap:8px;
+      display:grid;
+      gap:8px;
     }
-    .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-    .tool{
-      min-height:56px;border-radius:20px;background:rgba(255,255,255,.9);
-      border:1px solid var(--line);
-      color:#16425d;font-weight:950;
-      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-      box-shadow:0 10px 28px rgba(15,54,80,.13);backdrop-filter:blur(14px)
-    }
-    .tool .e{font-size:22px;line-height:1}
-    .tool .t{font-size:12px;line-height:1}
-    .tool.active{color:#fff;background:linear-gradient(135deg,#0ea5e9,#22c55e)}
 
-    .actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-    .btn{
-      min-height:46px;border-radius:18px;font-weight:950;
-      box-shadow:0 10px 28px rgba(15,54,80,.13)
+    .tools{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
     }
-    .primary{color:#fff;background:linear-gradient(135deg,#0ea5e9,#22c55e)}
-    .secondary{color:#16425d;background:rgba(255,255,255,.92);border:1px solid var(--line)}
-    .danger{color:#fff;background:linear-gradient(135deg,#fb7185,#ef4444)}
+
+    .tool{
+      min-height:56px;
+      border-radius:20px;
+      background:rgba(255,255,255,.9);
+      border:1px solid var(--line);
+      color:#16425d;
+      font-weight:950;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:2px;
+      box-shadow:0 10px 28px rgba(15,54,80,.13);
+      backdrop-filter:blur(14px);
+    }
+
+    .tool .e{
+      font-size:22px;
+      line-height:1;
+    }
+
+    .tool .t{
+      font-size:12px;
+      line-height:1;
+    }
+
+    .tool.active{
+      color:#fff;
+      background:linear-gradient(135deg,#0ea5e9,#22c55e);
+    }
+
+    .actions{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:8px;
+    }
+
+    .btn{
+      min-height:46px;
+      border-radius:18px;
+      font-weight:950;
+      box-shadow:0 10px 28px rgba(15,54,80,.13);
+    }
+
+    .primary{
+      color:#fff;
+      background:linear-gradient(135deg,#0ea5e9,#22c55e);
+    }
+
+    .secondary{
+      color:#16425d;
+      background:rgba(255,255,255,.92);
+      border:1px solid var(--line);
+    }
+
+    .danger{
+      color:#fff;
+      background:linear-gradient(135deg,#fb7185,#ef4444);
+    }
 
     .overlay{
-      position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
-      padding:22px;background:rgba(224,247,255,.56);backdrop-filter:blur(9px)
+      position:absolute;
+      inset:0;
+      z-index:20;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:22px;
+      background:rgba(224,247,255,.56);
+      backdrop-filter:blur(9px);
     }
+
     .modal{
-      width:min(570px,100%);max-height:min(88vh,780px);overflow:auto;
-      border-radius:30px;padding:22px;background:rgba(255,255,255,.94);
+      width:min(570px,100%);
+      max-height:min(88vh,780px);
+      overflow:auto;
+      border-radius:30px;
+      padding:22px;
+      background:rgba(255,255,255,.94);
       border:1px solid rgba(14,165,233,.22);
-      box-shadow:0 25px 80px rgba(15,54,80,.24)
+      box-shadow:0 25px 80px rgba(15,54,80,.24);
     }
+
     .badge{
-      width:82px;height:82px;margin:0 auto 12px;border-radius:28px;
-      display:flex;align-items:center;justify-content:center;font-size:42px;
+      width:82px;
+      height:82px;
+      margin:0 auto 12px;
+      border-radius:28px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:42px;
       background:linear-gradient(135deg,#e0f2fe,#dcfce7);
-      border:1px solid rgba(14,165,233,.22)
+      border:1px solid rgba(14,165,233,.22);
     }
-    h1{margin:0;text-align:center;font-size:25px;line-height:1.12;color:#10344e}
-    p{margin:10px 0 0;text-align:center;font-size:14px;line-height:1.55;font-weight:750;color:#486579}
-    .choices{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
-    .choice{min-height:56px;border-radius:18px;background:#f0f9ff;border:1px solid rgba(14,165,233,.22);color:#16425d;font-weight:950}
-    .choice.active{color:#fff;background:linear-gradient(135deg,#0ea5e9,#22c55e)}
-    .hints{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:7px}
-    .hints li{padding:9px 10px;border-radius:16px;background:rgba(240,249,255,.85);border:1px solid rgba(125,211,252,.25);font-size:13px;font-weight:780;color:#31546b;line-height:1.35}
-    .modalActions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}
-    .full{grid-column:1/-1}
+
+    h1{
+      margin:0;
+      text-align:center;
+      font-size:25px;
+      line-height:1.12;
+      color:#10344e;
+    }
+
+    p{
+      margin:10px 0 0;
+      text-align:center;
+      font-size:14px;
+      line-height:1.55;
+      font-weight:750;
+      color:#486579;
+    }
+
+    .metaGrid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .metaGrid label{
+      display:grid;
+      gap:5px;
+      font-size:12px;
+      font-weight:900;
+      color:#31546b;
+    }
+
+    .metaGrid input{
+      width:100%;
+      min-height:42px;
+      border-radius:15px;
+      border:1px solid rgba(14,165,233,.25);
+      padding:0 12px;
+      font-weight:850;
+      color:#123047;
+      background:#f8fdff;
+      outline:none;
+    }
+
+    .choices{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+      margin-top:16px;
+    }
+
+    .choice{
+      min-height:56px;
+      border-radius:18px;
+      background:#f0f9ff;
+      border:1px solid rgba(14,165,233,.22);
+      color:#16425d;
+      font-weight:950;
+    }
+
+    .choice.active{
+      color:#fff;
+      background:linear-gradient(135deg,#0ea5e9,#22c55e);
+    }
+
+    .hints{
+      list-style:none;
+      padding:0;
+      margin:14px 0 0;
+      display:grid;
+      gap:7px;
+    }
+
+    .hints li{
+      padding:9px 10px;
+      border-radius:16px;
+      background:rgba(240,249,255,.85);
+      border:1px solid rgba(125,211,252,.25);
+      font-size:13px;
+      font-weight:780;
+      color:#31546b;
+      line-height:1.35;
+    }
+
+    .modalActions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:9px;
+      margin-top:16px;
+    }
+
+    .full{
+      grid-column:1/-1;
+    }
 
     .toast{
-      position:absolute;z-index:40;left:50%;top:50%;transform:translate(-50%,-50%) scale(.96);
-      min-width:min(320px,86vw);max-width:86vw;padding:14px 16px;border-radius:22px;
-      background:rgba(15,54,80,.9);color:white;text-align:center;font-weight:950;
+      position:absolute;
+      z-index:40;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%) scale(.96);
+      min-width:min(320px,86vw);
+      max-width:86vw;
+      padding:14px 16px;
+      border-radius:22px;
+      background:rgba(15,54,80,.9);
+      color:white;
+      text-align:center;
+      font-weight:950;
       box-shadow:0 18px 50px rgba(15,54,80,.26);
-      opacity:0;pointer-events:none;transition:.16s
+      opacity:0;
+      pointer-events:none;
+      transition:.16s;
     }
-    .toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
-    .hidden{display:none!important}
 
-    .resultGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:16px}
-    .resultBox{padding:12px;border-radius:18px;background:rgba(240,249,255,.88);border:1px solid rgba(125,211,252,.28);text-align:center}
-    .resultBox b{display:block;font-size:22px;font-weight:950;color:#10344e}
-    .resultBox span{display:block;margin-top:4px;font-size:12px;font-weight:950;color:#64748b}
-    .feedback{margin-top:14px;padding:13px;border-radius:18px;background:#fef9c3;border:1px solid rgba(250,204,21,.34);color:#4f3d02;font-weight:820;line-height:1.45;font-size:13px}
-    .zoneList{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
-    .zoneItem{padding:10px;border-radius:16px;background:rgba(240,249,255,.82);border:1px solid rgba(125,211,252,.25);font-size:12px;font-weight:900;color:#31546b}
-    .zoneItem i{display:block;height:8px;margin-top:7px;border-radius:999px;background:rgba(148,163,184,.24);overflow:hidden}
-    .zoneItem i b{display:block;height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,#38bdf8,#22c55e)}
+    .toast.show{
+      opacity:1;
+      transform:translate(-50%,-50%) scale(1);
+    }
+
+    .hidden{
+      display:none!important;
+    }
+
+    .resultGrid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:9px;
+      margin-top:16px;
+    }
+
+    .resultBox{
+      padding:12px;
+      border-radius:18px;
+      background:rgba(240,249,255,.88);
+      border:1px solid rgba(125,211,252,.28);
+      text-align:center;
+    }
+
+    .resultBox b{
+      display:block;
+      font-size:22px;
+      font-weight:950;
+      color:#10344e;
+    }
+
+    .resultBox span{
+      display:block;
+      margin-top:4px;
+      font-size:12px;
+      font-weight:950;
+      color:#64748b;
+    }
+
+    .feedback{
+      margin-top:14px;
+      padding:13px;
+      border-radius:18px;
+      background:#fef9c3;
+      border:1px solid rgba(250,204,21,.34);
+      color:#4f3d02;
+      font-weight:820;
+      line-height:1.45;
+      font-size:13px;
+    }
+
+    .submitStatus{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      background:rgba(240,249,255,.88);
+      border:1px solid rgba(125,211,252,.28);
+      color:#31546b;
+      font-size:12px;
+      font-weight:850;
+      line-height:1.35;
+    }
+
+    .zoneList{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .zoneItem{
+      padding:10px;
+      border-radius:16px;
+      background:rgba(240,249,255,.82);
+      border:1px solid rgba(125,211,252,.25);
+      font-size:12px;
+      font-weight:900;
+      color:#31546b;
+    }
+
+    .zoneItem i{
+      display:block;
+      height:8px;
+      margin-top:7px;
+      border-radius:999px;
+      background:rgba(148,163,184,.24);
+      overflow:hidden;
+    }
+
+    .zoneItem i b{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#38bdf8,#22c55e);
+    }
 
     @media(max-width:540px){
-      .hud{grid-template-columns:1fr}
-      .stats{grid-template-columns:repeat(4,1fr)}
-      .stat b{font-size:15px}
-      .barline{grid-template-columns:66px 1fr 34px}
-      .actions{grid-template-columns:1fr 1fr}
-      .danger{grid-column:1/-1}
-      .choices{grid-template-columns:1fr}
-      .zoneList{grid-template-columns:1fr}
-      h1{font-size:22px}
-      .modal{padding:18px;border-radius:26px}
+      .hud{
+        grid-template-columns:1fr;
+      }
+
+      .stats{
+        grid-template-columns:repeat(4,1fr);
+      }
+
+      .stat b{
+        font-size:15px;
+      }
+
+      .barline{
+        grid-template-columns:66px 1fr 34px;
+      }
+
+      .actions{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .danger{
+        grid-column:1/-1;
+      }
+
+      .choices{
+        grid-template-columns:1fr;
+      }
+
+      .metaGrid{
+        grid-template-columns:1fr;
+      }
+
+      .zoneList{
+        grid-template-columns:1fr;
+      }
+
+      h1{
+        font-size:22px;
+      }
+
+      .modal{
+        padding:18px;
+        border-radius:26px;
+      }
     }
   </style>
 </head>
@@ -182,10 +623,12 @@
   <section class="hud">
     <div class="card mission">
       <div class="row">
-        <div class="title">🛁 Bath AR v2 • Germ Wave Battle</div>
+        <div class="title">🛁 Bath AR v4 • Germ Wave Battle</div>
         <div class="pill" id="stagePill">READY</div>
       </div>
+
       <div class="text" id="missionText">กดเริ่มเกม แล้วยืนให้กล้องเห็นร่างกายช่วงบน</div>
+      <div class="dailyMission" id="dailyMissionText">🎴 Daily Mission: รอสุ่มภารกิจ</div>
 
       <div class="bars">
         <div class="barline">
@@ -221,10 +664,20 @@
 
   <section class="dock">
     <div class="tools">
-      <button class="tool" id="soapBtn" data-tool="soap"><span class="e">🧼</span><span class="t">Soap</span></button>
-      <button class="tool" id="waterBtn" data-tool="water"><span class="e">🚿</span><span class="t">Water</span></button>
-      <button class="tool" id="towelBtn" data-tool="towel"><span class="e">🧻</span><span class="t">Towel</span></button>
+      <button class="tool" id="soapBtn" data-tool="soap">
+        <span class="e">🧼</span>
+        <span class="t">Soap</span>
+      </button>
+      <button class="tool" id="waterBtn" data-tool="water">
+        <span class="e">🚿</span>
+        <span class="t">Water</span>
+      </button>
+      <button class="tool" id="towelBtn" data-tool="towel">
+        <span class="e">🧻</span>
+        <span class="t">Towel</span>
+      </button>
     </div>
+
     <div class="actions">
       <button class="btn primary" id="scanBtn">Clean Scan</button>
       <button class="btn secondary" id="hintBtn">Hint</button>
@@ -246,8 +699,19 @@
       <h1>Bath AR: Germ Wave Battle</h1>
       <p>
         ใช้มือเลือกสบู่ น้ำ และผ้าขนหนู ล้างโซนบนร่างกายให้สะอาด
-        ระวังเชื้อโรคหลายชนิดและ Boss Germ ที่จะโผล่ท้ายเกม
+        ระวังเชื้อโรคหลายชนิด Hidden Germ และ Boss Germ ท้ายเกม
       </p>
+
+      <div class="metaGrid">
+        <label>
+          ชื่อผู้เล่น
+          <input id="studentNameInput" placeholder="Hero" />
+        </label>
+        <label>
+          ชั้น/กลุ่ม
+          <input id="classGroupInput" placeholder="P5" />
+        </label>
+      </div>
 
       <div class="choices">
         <button class="choice active" data-diff="easy">Easy<br><small>โซนใหญ่ เชื้อช้า</small></button>
@@ -257,14 +721,15 @@
 
       <ul class="hints">
         <li>🧍 ยืนให้เห็นศีรษะ ไหล่ แขน และลำตัวชัด ๆ</li>
-        <li>🧼 Germ / Sticky ต้องใช้ Soap Hand ถูจริง ๆ</li>
+        <li>🧼 Germ / Sticky / Hidden Germ ต้องใช้ Soap Hand ถูจริง ๆ</li>
         <li>🟤 Mud Spot ต้องใช้น้ำก่อน แล้วค่อยสบู่</li>
         <li>🫧 Foam Ghost ต้องใช้ Water Hand ล้างออก</li>
+        <li>🔎 กด Hint เพื่อเผย Hidden Germ ชั่วคราว</li>
         <li>💨 Boss จะเลือกจากจุดที่พลาดมากที่สุด</li>
       </ul>
 
       <div class="modalActions">
-        <button class="btn primary full" id="startBtn">เริ่ม Bath AR v2</button>
+        <button class="btn primary full" id="startBtn">เริ่ม Bath AR v4</button>
       </div>
     </div>
   </section>
@@ -280,14 +745,19 @@
         <div class="resultBox"><b id="sumWater">0</b><span>Water Saving</span></div>
         <div class="resultBox"><b id="sumBoss">No</b><span>Boss Defeated</span></div>
         <div class="resultBox"><b id="sumCombo">0</b><span>Best Combo</span></div>
+        <div class="resultBox"><b id="sumHidden">0/0</b><span>Hidden Germs</span></div>
+        <div class="resultBox"><b id="sumMission">No</b><span>Mission Clear</span></div>
       </div>
 
       <div class="feedback" id="feedbackText"></div>
+      <div class="submitStatus" id="submitStatus">📡 Result submit: waiting</div>
       <div class="zoneList" id="summaryZones"></div>
 
       <div class="modalActions">
         <button class="btn primary" id="replayBtn">เล่นอีกครั้ง</button>
         <button class="btn secondary" id="backBtn">กลับ Hygiene Zone</button>
+        <button class="btn secondary" id="submitAgainBtn">Submit Again</button>
+        <button class="btn secondary" id="exportBtn">Export JSON</button>
       </div>
     </div>
   </section>
@@ -313,14 +783,20 @@ const UI = {
   loadingText:$("loadingText"),
   startOverlay:$("startOverlay"),
   summaryOverlay:$("summaryOverlay"),
+
   startBtn:$("startBtn"),
   replayBtn:$("replayBtn"),
   backBtn:$("backBtn"),
   stopBtn:$("stopBtn"),
   scanBtn:$("scanBtn"),
   hintBtn:$("hintBtn"),
+  exportBtn:$("exportBtn"),
+  submitAgainBtn:$("submitAgainBtn"),
+
   stagePill:$("stagePill"),
   missionText:$("missionText"),
+  dailyMissionText:$("dailyMissionText"),
+
   cleanBar:$("cleanBar"),
   cleanText:$("cleanText"),
   waterBar:$("waterBar"),
@@ -329,23 +805,34 @@ const UI = {
   foamText:$("foamText"),
   bossBar:$("bossBar"),
   bossText:$("bossText"),
+
   timeText:$("timeText"),
   scoreText:$("scoreText"),
   comboText:$("comboText"),
   waveText:$("waveText"),
+
   soapBtn:$("soapBtn"),
   waterBtn:$("waterBtn"),
   towelBtn:$("towelBtn"),
+
   toast:$("toast"),
+
   sumClean:$("sumClean"),
   sumWater:$("sumWater"),
   sumBoss:$("sumBoss"),
   sumCombo:$("sumCombo"),
+  sumHidden:$("sumHidden"),
+  sumMission:$("sumMission"),
+
   rankEmoji:$("rankEmoji"),
   rankTitle:$("rankTitle"),
   rankSubtitle:$("rankSubtitle"),
   feedbackText:$("feedbackText"),
-  summaryZones:$("summaryZones")
+  submitStatus:$("submitStatus"),
+  summaryZones:$("summaryZones"),
+
+  studentNameInput:$("studentNameInput"),
+  classGroupInput:$("classGroupInput")
 };
 
 const STAGE = {
@@ -418,6 +905,89 @@ const GERM_TYPES = {
   foam:{ emoji:"🫧", name:"Foam Ghost", tool:"water", score:70, color:"#38bdf8" }
 };
 
+const DAILY_MISSIONS = [
+  {
+    id:"speed_clean",
+    title:"Speed Clean",
+    emoji:"⚡",
+    desc:"จบเกมให้ทันเวลาอย่างน้อย 20 วินาที",
+    check: ctx => ctx.timeLeft >= 20 && ctx.cleanScore >= 70
+  },
+  {
+    id:"eco_shower",
+    title:"Eco Shower",
+    emoji:"💧",
+    desc:"เหลือน้ำอย่างน้อย 55 คะแนน",
+    check: ctx => ctx.waterScore >= 55 && ctx.cleanScore >= 70
+  },
+  {
+    id:"hidden_hunt",
+    title:"Hidden Hunt",
+    emoji:"🔎",
+    desc:"หา Hidden Germ ให้ครบอย่างน้อย 2 ตัว",
+    check: ctx => ctx.hiddenFound >= Math.min(2, ctx.hiddenTotal)
+  },
+  {
+    id:"boss_breaker",
+    title:"Boss Breaker",
+    emoji:"👑",
+    desc:"กำจัด Boss Germ ให้สำเร็จ",
+    check: ctx => ctx.bossDefeated === true
+  },
+  {
+    id:"combo_master",
+    title:"Combo Master",
+    emoji:"🔥",
+    desc:"ทำ Best Combo อย่างน้อย 12",
+    check: ctx => ctx.bestCombo >= 12
+  },
+  {
+    id:"no_foam_left",
+    title:"No Foam Left",
+    emoji:"🫧",
+    desc:"จบเกมโดยมีฟองค้างเฉลี่ยไม่เกิน 10%",
+    check: ctx => ctx.foamAvg <= 10 && ctx.cleanScore >= 70
+  }
+];
+
+const BADGES = {
+  perfect:"🏆 Perfect Bath Hero",
+  boss:"👑 Germ Boss Breaker",
+  eco:"💧 Eco Clean Hero",
+  hidden:"🔎 Hidden Germ Hunter",
+  combo:"🔥 Combo Master",
+  soap:"🧼 Soap Master",
+  practice:"💪 Keep Practicing Hero"
+};
+
+const BATH_AR_VERSION = "v4-sheet-submit-dashboard-ready";
+
+/*
+  ใส่ Web App URL ของ Apps Script ตรงนี้หลัง Deploy
+  ตัวอย่าง:
+  const SHEET_ENDPOINT = "https://script.google.com/macros/s/XXXXX/exec";
+*/
+const SHEET_ENDPOINT = "";
+
+const PLAYER_META = {
+  studentName: new URLSearchParams(location.search).get("name") || localStorage.getItem("bathAR_studentName") || "Hero",
+  classGroup: new URLSearchParams(location.search).get("class") || localStorage.getItem("bathAR_classGroup") || "P5",
+  studentId: new URLSearchParams(location.search).get("sid") || localStorage.getItem("bathAR_studentId") || "",
+  playerId: localStorage.getItem("bathAR_playerId") || "",
+  sessionId: ""
+};
+
+if(!PLAYER_META.playerId){
+  PLAYER_META.playerId = "bath-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,8);
+  localStorage.setItem("bathAR_playerId", PLAYER_META.playerId);
+}
+
+PLAYER_META.sessionId =
+  "bath-ar-" +
+  new Date().toISOString().slice(0,10).replaceAll("-","") +
+  "-" +
+  Math.random().toString(36).slice(2,8);
+
 let poseLandmarker = null;
 let handLandmarker = null;
 let selectedDiff = "easy";
@@ -446,26 +1016,63 @@ const game = {
   germs:[],
   boss:null,
   bossDefeated:false,
+  dailyMission:null,
+  missionClear:false,
+  hiddenGerms:[],
+  hiddenFound:0,
+  hiddenTotal:0,
+  scanReveal:false,
+  exportPayload:null,
+  submitStatus:"idle",
+  submitError:"",
+  submitResponse:null,
   missedHits:{},
   handPrev:{left:null,right:null},
   particles:[],
   popups:[]
 };
 
-function keys(){ return Object.keys(ZONES); }
-function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
-function mid(a,b){ return {x:(a.x+b.x)/2,y:(a.y+b.y)/2}; }
-function rnd(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-function now(){ return performance.now(); }
-function cw(){ return canvas.getBoundingClientRect().width; }
-function ch(){ return canvas.getBoundingClientRect().height; }
+function keys(){
+  return Object.keys(ZONES);
+}
+
+function clamp(n,a,b){
+  return Math.max(a, Math.min(b,n));
+}
+
+function dist(a,b){
+  return Math.hypot(a.x-b.x,a.y-b.y);
+}
+
+function mid(a,b){
+  return {
+    x:(a.x+b.x)/2,
+    y:(a.y+b.y)/2
+  };
+}
+
+function rnd(arr){
+  return arr[Math.floor(Math.random()*arr.length)];
+}
+
+function now(){
+  return performance.now();
+}
+
+function cw(){
+  return canvas.getBoundingClientRect().width;
+}
+
+function ch(){
+  return canvas.getBoundingClientRect().height;
+}
 
 function resetMaps(){
   game.clean = {};
   game.foam = {};
   game.dry = {};
   game.missedHits = {};
+
   keys().forEach(k=>{
     game.clean[k]=0;
     game.foam[k]=0;
@@ -489,11 +1096,27 @@ function toast(t){
   toast.tid = setTimeout(()=>UI.toast.classList.remove("show"),1050);
 }
 
-function setLoading(t){ UI.loadingText.textContent=t; }
+function setLoading(t){
+  UI.loadingText.textContent = t;
+}
+
+function pickDailyMission(){
+  const mission = rnd(DAILY_MISSIONS);
+  game.dailyMission = mission;
+  game.missionClear = false;
+
+  if(UI.dailyMissionText){
+    UI.dailyMissionText.textContent = `${mission.emoji} Daily Mission: ${mission.title} — ${mission.desc}`;
+  }
+}
 
 function setTool(tool){
   game.tool = tool;
-  [UI.soapBtn,UI.waterBtn,UI.towelBtn].forEach(b=>b.classList.toggle("active",b.dataset.tool===tool));
+
+  [UI.soapBtn,UI.waterBtn,UI.towelBtn].forEach(b=>{
+    b.classList.toggle("active",b.dataset.tool===tool);
+  });
+
   if(tool==="soap") toast("🧼 Soap Hand");
   if(tool==="water") toast("🚿 Water Hand");
   if(tool==="towel") toast("🧻 Towel Hand");
@@ -501,6 +1124,7 @@ function setTool(tool){
 
 function setStage(stage){
   game.stage = stage;
+
   UI.stagePill.textContent = ({
     [STAGE.IDLE]:"READY",
     [STAGE.READY]:"SCAN",
@@ -516,7 +1140,7 @@ function setStage(stage){
   UI.missionText.textContent = ({
     [STAGE.READY]:"ยืนในกรอบ ให้เห็นศีรษะ ไหล่ แขน และลำตัวชัด ๆ",
     [STAGE.WET]:"ใช้ Water Hand ทำตัวให้เปียกก่อนฟอกสบู่",
-    [STAGE.SCRUB]:"กำจัด Germ Wave ด้วยเครื่องมือที่ถูกต้อง",
+    [STAGE.SCRUB]:"กำจัด Germ Wave และ Hidden Germ ด้วยเครื่องมือที่ถูกต้อง",
     [STAGE.RINSE]:"ใช้ Water Hand ล้างฟองออกให้หมด",
     [STAGE.DRY]:"ใช้ Towel Hand เช็ดตัวก่อนสแกน",
     [STAGE.BOSS]:"Boss Germ มาแล้ว! ใช้ Soap / Water ให้ถูกจังหวะ",
@@ -532,10 +1156,13 @@ function updateHud(){
 
   UI.cleanBar.style.width = `${clamp(cleanAvg,0,100)}%`;
   UI.cleanText.textContent = `${Math.round(cleanAvg)}%`;
+
   UI.waterBar.style.width = `${clamp(game.water,0,100)}%`;
   UI.waterText.textContent = `${Math.round(game.water)}`;
+
   UI.foamBar.style.width = `${clamp(foamAvg,0,100)}%`;
   UI.foamText.textContent = `${Math.round(foamAvg)}`;
+
   UI.bossBar.style.width = `${game.boss ? clamp(bossHp/bossMax*100,0,100) : 0}%`;
   UI.bossText.textContent = game.boss ? String(Math.ceil(bossHp)) : "0";
 
@@ -548,6 +1175,7 @@ function updateHud(){
 async function boot(){
   try{
     resize();
+
     setLoading("กำลังโหลด MediaPipe Tasks Vision...");
     const vision = await FilesetResolver.forVisionTasks(
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
@@ -581,15 +1209,21 @@ async function boot(){
 
     setLoading("กำลังเปิดกล้อง...");
     const stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}},
+      video:{
+        facingMode:"user",
+        width:{ideal:1280},
+        height:{ideal:720}
+      },
       audio:false
     });
+
     video.srcObject = stream;
     await video.play();
 
     UI.loadingOverlay.classList.add("hidden");
     setTool("water");
     requestAnimationFrame(loop);
+
   }catch(e){
     console.error(e);
     setLoading("เปิดกล้องหรือโหลด MediaPipe ไม่สำเร็จ กรุณาอนุญาตกล้องแล้วลองใหม่");
@@ -597,28 +1231,55 @@ async function boot(){
 }
 
 function lmPoint(lm){
-  return {x:(1-lm.x)*cw(), y:lm.y*ch(), v:lm.visibility ?? 1};
+  return {
+    x:(1-lm.x)*cw(),
+    y:lm.y*ch(),
+    v:lm.visibility ?? 1
+  };
 }
-function good(p){ return p && Number.isFinite(p.x) && Number.isFinite(p.y) && p.v>.35; }
 
-function circle(id,c,r){ return {id,type:"circle",cx:c.x,cy:c.y,r}; }
-function rect(id,c,w,h){ return {id,type:"rect",cx:c.x,cy:c.y,w,h}; }
+function good(p){
+  return p && Number.isFinite(p.x) && Number.isFinite(p.y) && p.v>.35;
+}
+
+function circle(id,c,r){
+  return {id,type:"circle",cx:c.x,cy:c.y,r};
+}
+
+function rect(id,c,w,h){
+  return {id,type:"rect",cx:c.x,cy:c.y,w,h};
+}
 
 function inZone(p,z){
-  if(!p||!z) return false;
-  if(z.type==="circle") return Math.hypot(p.x-z.cx,p.y-z.cy)<=z.r;
+  if(!p || !z) return false;
+
+  if(z.type==="circle"){
+    return Math.hypot(p.x-z.cx,p.y-z.cy)<=z.r;
+  }
+
   return Math.abs(p.x-z.cx)<=z.w/2 && Math.abs(p.y-z.cy)<=z.h/2;
 }
 
 function buildZones(lm){
   if(!lm || lm.length<27) return {};
+
   const P = lm.map(lmPoint);
-  const nose=P[0], ls=P[11], rs=P[12], le=P[13], re=P[14], lh=P[23], rh=P[24], lk=P[25], rk=P[26];
-  if(!good(nose)||!good(ls)||!good(rs)) return {};
-  const sm=mid(ls,rs);
-  const sw=clamp(dist(ls,rs),110,360);
-  const sc=cfg.zoneScale;
-  const out={};
+  const nose = P[0];
+  const ls = P[11];
+  const rs = P[12];
+  const le = P[13];
+  const re = P[14];
+  const lh = P[23];
+  const rh = P[24];
+  const lk = P[25];
+  const rk = P[26];
+
+  if(!good(nose) || !good(ls) || !good(rs)) return {};
+
+  const sm = mid(ls,rs);
+  const sw = clamp(dist(ls,rs),110,360);
+  const sc = cfg.zoneScale;
+  const out = {};
 
   out.face = circle("face",{x:nose.x,y:nose.y+sw*.05},sw*.22*sc);
   out.neck = rect("neck",{x:sm.x,y:sm.y-sw*.18},sw*.46*sc,sw*.24*sc);
@@ -633,22 +1294,27 @@ function buildZones(lm){
     ? rect("rightArm",mid(rs,re),sw*.27*sc,clamp(dist(rs,re),70,220)*1.05*sc)
     : rect("rightArm",{x:rs.x-sw*.14,y:rs.y+sw*.38},sw*.28*sc,sw*.58*sc);
 
-  let bodyC={x:sm.x,y:sm.y+sw*.55};
-  let bodyH=sw*.85;
-  if(good(lh)&&good(rh)){
-    const hm=mid(lh,rh);
-    bodyC=mid(sm,hm);
-    bodyH=clamp(dist(sm,hm),95,260)*1.08;
+  let bodyC = {x:sm.x,y:sm.y+sw*.55};
+  let bodyH = sw*.85;
+
+  if(good(lh) && good(rh)){
+    const hm = mid(lh,rh);
+    bodyC = mid(sm,hm);
+    bodyH = clamp(dist(sm,hm),95,260)*1.08;
   }
+
   out.body = rect("body",bodyC,sw*.72*sc,bodyH*sc);
 
-  let legsC={x:bodyC.x,y:bodyC.y+bodyH*.72};
-  let legsH=sw*.78;
-  if(good(lh)&&good(rh)&&good(lk)&&good(rk)){
-    const hm=mid(lh,rh), km=mid(lk,rk);
-    legsC=mid(hm,km);
-    legsH=clamp(dist(hm,km),90,260)*1.05;
+  let legsC = {x:bodyC.x,y:bodyC.y+bodyH*.72};
+  let legsH = sw*.78;
+
+  if(good(lh) && good(rh) && good(lk) && good(rk)){
+    const hm = mid(lh,rh);
+    const km = mid(lk,rk);
+    legsC = mid(hm,km);
+    legsH = clamp(dist(hm,km),90,260)*1.05;
   }
+
   out.legs = rect("legs",legsC,sw*.74*sc,legsH*sc);
 
   return out;
@@ -656,56 +1322,80 @@ function buildZones(lm){
 
 function handCenter(lm){
   if(!lm) return null;
-  const idx=[0,5,9,13,17];
-  const pts=idx.map(i=>lmPoint(lm[i]));
-  return {x:pts.reduce((s,p)=>s+p.x,0)/pts.length,y:pts.reduce((s,p)=>s+p.y,0)/pts.length};
+
+  const idx = [0,5,9,13,17];
+  const pts = idx.map(i=>lmPoint(lm[i]));
+
+  return {
+    x:pts.reduce((s,p)=>s+p.x,0)/pts.length,
+    y:pts.reduce((s,p)=>s+p.y,0)/pts.length
+  };
 }
 
 function parseHands(res){
-  const out=[];
-  const list=res?.landmarks || [];
+  const out = [];
+  const list = res?.landmarks || [];
+
   for(let i=0;i<list.length;i++){
-    const name=res.handednesses?.[i]?.[0]?.categoryName || "Hand";
-    const side=name.toLowerCase().includes("left") ? "left" : "right";
-    const c=handCenter(list[i]);
+    const name = res.handednesses?.[i]?.[0]?.categoryName || "Hand";
+    const side = name.toLowerCase().includes("left") ? "left" : "right";
+    const c = handCenter(list[i]);
     if(c) out.push({side,center:c,landmarks:list[i]});
   }
+
   return out;
 }
 
 function startGame(){
+  PLAYER_META.studentName = UI.studentNameInput?.value?.trim() || "Hero";
+  PLAYER_META.classGroup = UI.classGroupInput?.value?.trim() || "P5";
+
+  localStorage.setItem("bathAR_studentName", PLAYER_META.studentName);
+  localStorage.setItem("bathAR_classGroup", PLAYER_META.classGroup);
+
   cfg = DIFF[selectedDiff];
   resetMaps();
 
-  game.running=true;
-  game.timeLeft=cfg.time;
-  game.lastTick=now();
-  game.score=0;
-  game.combo=0;
-  game.bestCombo=0;
-  game.water=100;
-  game.wet=0;
-  game.scan=0;
-  game.wave=0;
-  game.lastGermAt=0;
-  game.germs=[];
-  game.boss=null;
-  game.bossDefeated=false;
-  game.handPrev={left:null,right:null};
-  game.particles=[];
-  game.popups=[];
+  game.running = true;
+  game.timeLeft = cfg.time;
+  game.lastTick = now();
+  game.score = 0;
+  game.combo = 0;
+  game.bestCombo = 0;
+  game.water = 100;
+  game.wet = 0;
+  game.scan = 0;
+  game.wave = 0;
+  game.lastGermAt = 0;
+  game.germs = [];
+  game.boss = null;
+  game.bossDefeated = false;
+  game.hiddenGerms = [];
+  game.hiddenFound = 0;
+  game.hiddenTotal = 0;
+  game.scanReveal = false;
+  game.exportPayload = null;
+  game.submitStatus = "idle";
+  game.submitError = "";
+  game.submitResponse = null;
+  game.handPrev = {left:null,right:null};
+  game.particles = [];
+  game.popups = [];
+
+  pickDailyMission();
 
   UI.startOverlay.classList.add("hidden");
   UI.summaryOverlay.classList.add("hidden");
 
   setTool("water");
   setStage(STAGE.READY);
-  toast("เริ่ม Bath AR v2!");
+  toast("เริ่ม Bath AR v4!");
 }
 
 function endGame(reason="completed"){
   if(!game.running) return;
-  game.running=false;
+
+  game.running = false;
   setStage(STAGE.SUMMARY);
   showSummary(reason);
 }
@@ -714,26 +1404,41 @@ function addScore(n){
   game.score += n;
   game.combo += 1;
   game.bestCombo = Math.max(game.bestCombo,game.combo);
+
   if(game.combo>0 && game.combo%8===0){
     game.score += 100;
     toast(`🔥 Combo x${game.combo}`);
   }
 }
+
 function miss(){
   game.combo = Math.max(0,game.combo-1);
 }
 
 function popup(text,x,y,color="#22c55e"){
-  game.popups.push({text,x,y,color,born:now(),life:750});
+  game.popups.push({
+    text,
+    x,
+    y,
+    color,
+    born:now(),
+    life:750
+  });
 }
+
 function particles(x,y,type="clean"){
-  const colors = type==="water" ? ["#38bdf8","#7dd3fc","#bae6fd"]
-    : type==="foam" ? ["#c084fc","#e9d5ff","#f0abfc"]
-    : type==="boss" ? ["#fb7185","#ef4444","#fecaca"]
-    : ["#22c55e","#bbf7d0","#facc15"];
+  const colors = type==="water"
+    ? ["#38bdf8","#7dd3fc","#bae6fd"]
+    : type==="foam"
+      ? ["#c084fc","#e9d5ff","#f0abfc"]
+      : type==="boss"
+        ? ["#fb7185","#ef4444","#fecaca"]
+        : ["#22c55e","#bbf7d0","#facc15"];
+
   for(let i=0;i<12;i++){
     game.particles.push({
-      x,y,
+      x,
+      y,
       vx:(Math.random()-.5)*3.4,
       vy:(Math.random()-.8)*3.2,
       r:2+Math.random()*4,
@@ -753,12 +1458,19 @@ function spawnGerm(){
   if(!z) return;
 
   let type = "basic";
-  if(game.wave>=2) type = rnd(["basic","stinky","mud"]);
-  if(game.wave>=3) type = rnd(["basic","stinky","mud","sticky","foam"]);
+
+  if(game.wave>=2){
+    type = rnd(["basic","stinky","mud"]);
+  }
+
+  if(game.wave>=3){
+    type = rnd(["basic","stinky","mud","sticky","foam"]);
+  }
 
   const gx = z.type==="circle"
     ? z.cx + (Math.random()-.5)*z.r*.9
     : z.cx + (Math.random()-.5)*z.w*.65;
+
   const gy = z.type==="circle"
     ? z.cy + (Math.random()-.5)*z.r*.9
     : z.cy + (Math.random()-.5)*z.h*.65;
@@ -777,9 +1489,102 @@ function spawnGerm(){
   });
 }
 
+function spawnHiddenGerms(){
+  game.hiddenGerms = [];
+  game.hiddenFound = 0;
+
+  const available = keys().filter(k=>game.zones[k]);
+  const total = selectedDiff === "hard" ? 4 : selectedDiff === "normal" ? 3 : 2;
+  game.hiddenTotal = total;
+
+  for(let i=0;i<total;i++){
+    const zone = available[i % available.length] || "body";
+    const z = game.zones[zone];
+    if(!z) continue;
+
+    const x = z.type === "circle"
+      ? z.cx + (Math.random()-.5)*z.r*.75
+      : z.cx + (Math.random()-.5)*z.w*.58;
+
+    const y = z.type === "circle"
+      ? z.cy + (Math.random()-.5)*z.r*.75
+      : z.cy + (Math.random()-.5)*z.h*.58;
+
+    game.hiddenGerms.push({
+      id:crypto.randomUUID?.() || String(Math.random()),
+      zone,
+      x,
+      y,
+      found:false,
+      revealed:false,
+      hp:34,
+      maxHp:34
+    });
+  }
+}
+
+function revealHiddenGerms(ms=1200){
+  if(!game.hiddenGerms.length) return;
+
+  game.scanReveal = true;
+  game.hiddenGerms.forEach(g=>g.revealed = true);
+  toast("🔎 Hidden Germ โผล่แล้ว จำตำแหน่งให้ดี!");
+
+  setTimeout(()=>{
+    game.scanReveal = false;
+
+    game.hiddenGerms.forEach(g=>{
+      if(!g.found) g.revealed = false;
+    });
+  }, ms);
+}
+
+function updateHiddenGerms(hands){
+  if(!game.running) return;
+  if(game.stage !== STAGE.SCRUB && game.stage !== STAGE.BOSS) return;
+  if(!game.hiddenGerms.length) return;
+
+  for(const hand of hands){
+    const prev = game.handPrev[hand.side];
+    const move = prev ? dist(prev, hand.center) : 0;
+    const motion = clamp(move,0,48)*cfg.motionScale;
+
+    if(motion < 2.2) continue;
+
+    for(const g of game.hiddenGerms){
+      if(g.found) continue;
+
+      const d = Math.hypot(hand.center.x - g.x, hand.center.y - g.y);
+      if(d > 38) continue;
+
+      if(game.tool !== "soap"){
+        popup("Soap!", hand.center.x, hand.center.y, "#ef4444");
+        miss();
+        continue;
+      }
+
+      g.hp -= motion * .85;
+      g.revealed = true;
+      particles(hand.center.x, hand.center.y, "foam");
+      popup("Hidden!", hand.center.x, hand.center.y, "#a855f7");
+
+      if(g.hp <= 0){
+        g.found = true;
+        g.revealed = true;
+        game.hiddenFound += 1;
+        game.score += 130;
+        addScore(30);
+        particles(g.x, g.y, "clean");
+        toast(`🔎 พบ Hidden Germ ${game.hiddenFound}/${game.hiddenTotal}`);
+      }
+    }
+  }
+}
+
 function startBoss(){
   const mostMissed = keys().sort((a,b)=>game.missedHits[b]-game.missedHits[a])[0] || "neck";
   const z = game.zones[mostMissed] || game.zones.body;
+
   game.boss = {
     name:"Stinky Cloud King",
     emoji:"💨",
@@ -792,6 +1597,7 @@ function startBoss(){
     born:now(),
     lastSpawn:0
   };
+
   game.germs = [];
   setStage(STAGE.BOSS);
   setTool("soap");
@@ -801,12 +1607,17 @@ function startBoss(){
 function updateGerms(dt,hands){
   if(game.stage !== STAGE.SCRUB && game.stage !== STAGE.BOSS) return;
 
+  updateHiddenGerms(hands);
+
   if(game.stage === STAGE.SCRUB){
     if(now()-game.lastGermAt > cfg.germEvery){
-      game.lastGermAt=now();
+      game.lastGermAt = now();
       game.wave += 1;
       spawnGerm();
-      if(game.wave % 2 === 0) spawnGerm();
+
+      if(game.wave % 2 === 0){
+        spawnGerm();
+      }
     }
 
     if(game.wave >= 7 && game.germs.length === 0){
@@ -825,6 +1636,7 @@ function updateGerms(dt,hands){
     const prev = game.handPrev[hand.side];
     const move = prev ? dist(prev,hand.center) : 0;
     game.handPrev[hand.side] = hand.center;
+
     const motion = clamp(move,0,48)*cfg.motionScale;
     if(motion<2.2) continue;
 
@@ -862,11 +1674,16 @@ function updateGerms(dt,hands){
         g.hp -= motion * (g.type==="sticky" ? .7 : 1.05);
       }
 
-      g.lastHit=now();
+      g.lastHit = now();
       game.clean[g.zone] = clamp(game.clean[g.zone] + motion*.18,0,100);
 
-      if(game.tool==="soap") game.foam[g.zone] = clamp(game.foam[g.zone] + motion*.16,0,100);
-      if(game.tool==="water") game.foam[g.zone] = clamp(game.foam[g.zone] - motion*.28,0,100);
+      if(game.tool==="soap"){
+        game.foam[g.zone] = clamp(game.foam[g.zone] + motion*.16,0,100);
+      }
+
+      if(game.tool==="water"){
+        game.foam[g.zone] = clamp(game.foam[g.zone] - motion*.28,0,100);
+      }
 
       particles(hand.center.x,hand.center.y,game.tool==="water"?"water":"foam");
 
@@ -880,22 +1697,31 @@ function updateGerms(dt,hands){
 
     if(game.boss && game.stage===STAGE.BOSS){
       const d = Math.hypot(hand.center.x-game.boss.x,hand.center.y-game.boss.y);
+
       if(d<62){
         let damage = 0;
-        if(game.tool==="soap") damage = motion*.85;
-        if(game.tool==="water" && game.boss.phase>=2) damage = motion*.62;
+
+        if(game.tool==="soap"){
+          damage = motion*.85;
+        }
+
+        if(game.tool==="water" && game.boss.phase>=2){
+          damage = motion*.62;
+        }
 
         if(damage>0){
           game.boss.hp -= damage;
           particles(hand.center.x,hand.center.y,"boss");
           popup("BOSS HIT!",hand.center.x,hand.center.y,"#ef4444");
+
           if(game.boss.hp <= game.boss.maxHp*.45 && game.boss.phase===1){
-            game.boss.phase=2;
+            game.boss.phase = 2;
             toast("💨 Boss Phase 2: ใช้น้ำช่วยล้างกลิ่น!");
           }
+
           if(game.boss.hp<=0){
-            game.boss.hp=0;
-            game.bossDefeated=true;
+            game.boss.hp = 0;
+            game.bossDefeated = true;
             game.score += 350;
             toast("🏆 Boss Defeated!");
             setStage(STAGE.RINSE);
@@ -915,8 +1741,9 @@ function updateCore(dt,hands){
 
   if(game.stage!==STAGE.SUMMARY){
     game.timeLeft -= dt/1000;
+
     if(game.timeLeft<=0){
-      game.timeLeft=0;
+      game.timeLeft = 0;
       endGame("timeup");
       return;
     }
@@ -925,6 +1752,7 @@ function updateCore(dt,hands){
   if(game.stage===STAGE.READY){
     if(game.poseOk && game.handOk){
       game.scan += dt;
+
       if(game.scan>900){
         setStage(STAGE.WET);
         setTool("water");
@@ -932,6 +1760,7 @@ function updateCore(dt,hands){
     }else{
       game.scan = Math.max(0,game.scan-dt*.7);
     }
+
     return;
   }
 
@@ -941,17 +1770,19 @@ function updateCore(dt,hands){
 
   if(game.stage===STAGE.WET){
     for(const h of hands){
-      const prev=game.handPrev[h.side];
-      const move=prev?dist(prev,h.center):0;
-      game.handPrev[h.side]=h.center;
-      const motion=clamp(move,0,48)*cfg.motionScale;
+      const prev = game.handPrev[h.side];
+      const move = prev ? dist(prev,h.center) : 0;
+      game.handPrev[h.side] = h.center;
+
+      const motion = clamp(move,0,48)*cfg.motionScale;
       if(motion<2.2) continue;
 
-      let hit=false;
+      let hit = false;
+
       for(const k of keys()){
         if(inZone(h.center,game.zones[k])){
-          hit=true;
-          game.clean[k]=clamp(game.clean[k]+motion*.08,0,35);
+          hit = true;
+          game.clean[k] = clamp(game.clean[k]+motion*.08,0,35);
           particles(h.center.x,h.center.y,"water");
         }
       }
@@ -966,8 +1797,15 @@ function updateCore(dt,hands){
       setStage(STAGE.SCRUB);
       setTool("soap");
       game.lastGermAt = now()-cfg.germEvery;
+
+      if(!game.hiddenGerms.length){
+        spawnHiddenGerms();
+        setTimeout(()=>revealHiddenGerms(1300),600);
+      }
+
       toast("🦠 Germ Wave เริ่มแล้ว!");
     }
+
     return;
   }
 
@@ -978,10 +1816,11 @@ function updateCore(dt,hands){
 
   if(game.stage===STAGE.RINSE){
     for(const h of hands){
-      const prev=game.handPrev[h.side];
-      const move=prev?dist(prev,h.center):0;
-      game.handPrev[h.side]=h.center;
-      const motion=clamp(move,0,48)*cfg.motionScale;
+      const prev = game.handPrev[h.side];
+      const move = prev ? dist(prev,h.center) : 0;
+      game.handPrev[h.side] = h.center;
+
+      const motion = clamp(move,0,48)*cfg.motionScale;
       if(motion<2.2) continue;
 
       for(const k of keys()){
@@ -991,27 +1830,31 @@ function updateCore(dt,hands){
             miss();
             continue;
           }
-          game.foam[k]=clamp(game.foam[k]-motion*.55,0,100);
-          game.water=clamp(game.water-cfg.waterDrain*motion*1.15,0,100);
+
+          game.foam[k] = clamp(game.foam[k]-motion*.55,0,100);
+          game.water = clamp(game.water-cfg.waterDrain*motion*1.15,0,100);
           particles(h.center.x,h.center.y,"water");
         }
       }
     }
 
-    const foamLeft=keys().reduce((s,k)=>s+game.foam[k],0);
+    const foamLeft = keys().reduce((s,k)=>s+game.foam[k],0);
+
     if(foamLeft<=8){
       setStage(STAGE.DRY);
       setTool("towel");
     }
+
     return;
   }
 
   if(game.stage===STAGE.DRY){
     for(const h of hands){
-      const prev=game.handPrev[h.side];
-      const move=prev?dist(prev,h.center):0;
-      game.handPrev[h.side]=h.center;
-      const motion=clamp(move,0,48)*cfg.motionScale;
+      const prev = game.handPrev[h.side];
+      const move = prev ? dist(prev,h.center) : 0;
+      game.handPrev[h.side] = h.center;
+
+      const motion = clamp(move,0,48)*cfg.motionScale;
       if(motion<2.2) continue;
 
       for(const k of keys()){
@@ -1020,25 +1863,32 @@ function updateCore(dt,hands){
             popup("Towel!",h.center.x,h.center.y,"#ef4444");
             continue;
           }
-          game.dry[k]=clamp(game.dry[k]+motion*.46,0,cfg.dryNeed);
+
+          game.dry[k] = clamp(game.dry[k]+motion*.46,0,cfg.dryNeed);
           particles(h.center.x,h.center.y,"clean");
-          if(game.dry[k]>=cfg.dryNeed) addScore(2);
+
+          if(game.dry[k]>=cfg.dryNeed){
+            addScore(2);
+          }
         }
       }
     }
 
-    const dryAvg=keys().reduce((s,k)=>s+game.dry[k],0)/(keys().length*cfg.dryNeed)*100;
+    const dryAvg = keys().reduce((s,k)=>s+game.dry[k],0)/(keys().length*cfg.dryNeed)*100;
+
     if(dryAvg>=72){
       setStage(STAGE.SCAN);
-      game.scan=0;
+      game.scan = 0;
       toast("✨ Clean Scan!");
     }
+
     return;
   }
 
   if(game.stage===STAGE.SCAN){
     if(game.poseOk){
       game.scan += dt;
+
       if(game.scan>=1900){
         game.score += 180;
         endGame("completed");
@@ -1049,16 +1899,22 @@ function updateCore(dt,hands){
 
 function updatePoseAndHands(poseRes,handRes,dt){
   const lm = poseRes?.landmarks?.[0] || null;
-  if(lm){
-    const z=buildZones(lm);
-    if(Object.keys(z).length>=5){
-      game.zones=z;
-      game.poseOk=true;
-    }else game.poseOk=false;
-  }else game.poseOk=false;
 
-  const hands=parseHands(handRes);
-  game.handOk=hands.length>0;
+  if(lm){
+    const z = buildZones(lm);
+
+    if(Object.keys(z).length>=5){
+      game.zones = z;
+      game.poseOk = true;
+    }else{
+      game.poseOk = false;
+    }
+  }else{
+    game.poseOk = false;
+  }
+
+  const hands = parseHands(handRes);
+  game.handOk = hands.length>0;
 
   updateCore(dt,hands);
 }
@@ -1066,35 +1922,99 @@ function updatePoseAndHands(poseRes,handRes,dt){
 function rr(x,y,w,h,r,fill,stroke,lw=2){
   ctx.beginPath();
   ctx.roundRect(x,y,w,h,r);
-  if(fill){ctx.fillStyle=fill;ctx.fill();}
-  if(stroke){ctx.lineWidth=lw;ctx.strokeStyle=stroke;ctx.stroke();}
+
+  if(fill){
+    ctx.fillStyle = fill;
+    ctx.fill();
+  }
+
+  if(stroke){
+    ctx.lineWidth = lw;
+    ctx.strokeStyle = stroke;
+    ctx.stroke();
+  }
 }
 
 function drawZone(k,z){
-  const p=game.clean[k]||0;
-  const f=game.foam[k]||0;
-  const d=game.dry[k]||0;
+  const p = game.clean[k] || 0;
+  const f = game.foam[k] || 0;
+  const d = game.dry[k] || 0;
 
-  let stroke="rgba(56,189,248,.78)", fill="rgba(56,189,248,.11)";
-  if(game.stage===STAGE.SCRUB){ stroke=p>=85?"rgba(34,197,94,.9)":"rgba(250,204,21,.95)"; fill=p>=85?"rgba(34,197,94,.16)":"rgba(250,204,21,.14)"; }
-  if(game.stage===STAGE.RINSE){ stroke=f<=8?"rgba(34,197,94,.85)":"rgba(168,85,247,.9)"; fill=f<=8?"rgba(34,197,94,.13)":"rgba(168,85,247,.15)"; }
-  if(game.stage===STAGE.DRY){ stroke=d>=cfg.dryNeed?"rgba(34,197,94,.85)":"rgba(251,146,60,.9)"; fill=d>=cfg.dryNeed?"rgba(34,197,94,.13)":"rgba(251,146,60,.14)"; }
-  if(game.stage===STAGE.SCAN){ stroke=p>=75?"rgba(34,197,94,.9)":"rgba(239,68,68,.9)"; fill=p>=75?"rgba(34,197,94,.15)":"rgba(239,68,68,.14)"; }
+  let stroke = "rgba(56,189,248,.78)";
+  let fill = "rgba(56,189,248,.11)";
+
+  if(game.stage===STAGE.SCRUB){
+    stroke = p>=85 ? "rgba(34,197,94,.9)" : "rgba(250,204,21,.95)";
+    fill = p>=85 ? "rgba(34,197,94,.16)" : "rgba(250,204,21,.14)";
+  }
+
+  if(game.stage===STAGE.RINSE){
+    stroke = f<=8 ? "rgba(34,197,94,.85)" : "rgba(168,85,247,.9)";
+    fill = f<=8 ? "rgba(34,197,94,.13)" : "rgba(168,85,247,.15)";
+  }
+
+  if(game.stage===STAGE.DRY){
+    stroke = d>=cfg.dryNeed ? "rgba(34,197,94,.85)" : "rgba(251,146,60,.9)";
+    fill = d>=cfg.dryNeed ? "rgba(34,197,94,.13)" : "rgba(251,146,60,.14)";
+  }
+
+  if(game.stage===STAGE.SCAN){
+    stroke = p>=75 ? "rgba(34,197,94,.9)" : "rgba(239,68,68,.9)";
+    fill = p>=75 ? "rgba(34,197,94,.15)" : "rgba(239,68,68,.14)";
+  }
 
   ctx.save();
 
   if(z.type==="circle"){
-    ctx.beginPath();ctx.arc(z.cx,z.cy,z.r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=stroke;ctx.stroke();
-    ctx.beginPath();ctx.arc(z.cx,z.cy,z.r+5,-Math.PI/2,-Math.PI/2+Math.PI*2*(clamp(p,0,100)/100));ctx.lineWidth=5;ctx.strokeStyle="rgba(34,197,94,.92)";ctx.stroke();
-    if(f>8){ctx.font=`${Math.max(16,z.r*.44)}px system-ui`;ctx.textAlign="center";ctx.fillText("🫧",z.cx,z.cy+6);}
-    ctx.font="900 11px system-ui";ctx.fillStyle="#0f344d";ctx.textAlign="center";ctx.fillText(ZONES[k],z.cx,z.cy+z.r+16);
+    ctx.beginPath();
+    ctx.arc(z.cx,z.cy,z.r,0,Math.PI*2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = stroke;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(
+      z.cx,
+      z.cy,
+      z.r+5,
+      -Math.PI/2,
+      -Math.PI/2+Math.PI*2*(clamp(p,0,100)/100)
+    );
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "rgba(34,197,94,.92)";
+    ctx.stroke();
+
+    if(f>8){
+      ctx.font = `${Math.max(16,z.r*.44)}px system-ui`;
+      ctx.textAlign = "center";
+      ctx.fillText("🫧",z.cx,z.cy+6);
+    }
+
+    ctx.font = "900 11px system-ui";
+    ctx.fillStyle = "#0f344d";
+    ctx.textAlign = "center";
+    ctx.fillText(ZONES[k],z.cx,z.cy+z.r+16);
+
   }else{
-    const x=z.cx-z.w/2,y=z.cy-z.h/2;
+    const x = z.cx-z.w/2;
+    const y = z.cy-z.h/2;
+
     rr(x,y,z.w,z.h,18,fill,stroke,3);
     rr(x,y-10,z.w,6,99,"rgba(148,163,184,.25)",null);
     rr(x,y-10,z.w*(clamp(p,0,100)/100),6,99,"rgba(34,197,94,.92)",null);
-    if(f>8){ctx.font=`${Math.max(16,Math.min(z.w,z.h)*.28)}px system-ui`;ctx.textAlign="center";ctx.fillText("🫧",z.cx,z.cy+7);}
-    ctx.font="900 11px system-ui";ctx.fillStyle="#0f344d";ctx.textAlign="center";ctx.fillText(ZONES[k],z.cx,y+z.h+15);
+
+    if(f>8){
+      ctx.font = `${Math.max(16,Math.min(z.w,z.h)*.28)}px system-ui`;
+      ctx.textAlign = "center";
+      ctx.fillText("🫧",z.cx,z.cy+7);
+    }
+
+    ctx.font = "900 11px system-ui";
+    ctx.fillStyle = "#0f344d";
+    ctx.textAlign = "center";
+    ctx.fillText(ZONES[k],z.cx,y+z.h+15);
   }
 
   ctx.restore();
@@ -1102,99 +2022,163 @@ function drawZone(k,z){
 
 function drawGerms(){
   for(const g of game.germs){
-    const meta=GERM_TYPES[g.type];
-    const r=28;
+    const meta = GERM_TYPES[g.type];
+    const r = 28;
+
     ctx.save();
+
     ctx.beginPath();
     ctx.arc(g.x,g.y,r,0,Math.PI*2);
-    ctx.fillStyle="rgba(255,255,255,.88)";
+    ctx.fillStyle = "rgba(255,255,255,.88)";
     ctx.fill();
-    ctx.lineWidth=4;
-    ctx.strokeStyle=meta.color;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = meta.color;
     ctx.stroke();
 
-    ctx.font="25px system-ui";
-    ctx.textAlign="center";
-    ctx.textBaseline="middle";
+    ctx.font = "25px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillText(meta.emoji,g.x,g.y+1);
 
     rr(g.x-r,g.y+r+6,r*2,6,99,"rgba(148,163,184,.28)",null);
     rr(g.x-r,g.y+r+6,r*2*(g.hp/g.maxHp),6,99,meta.color,null);
 
     if(g.type==="mud" && g.wet){
-      ctx.font="900 10px system-ui";
-      ctx.fillStyle="#075985";
+      ctx.font = "900 10px system-ui";
+      ctx.fillStyle = "#075985";
       ctx.fillText("WET",g.x,g.y-r-8);
     }
+
     ctx.restore();
   }
 
   if(game.boss){
-    const b=game.boss;
-    const pulse=1+Math.sin(now()/120)*.04;
-    const r=54*pulse;
+    const b = game.boss;
+    const pulse = 1+Math.sin(now()/120)*.04;
+    const r = 54*pulse;
+
     ctx.save();
+
     ctx.beginPath();
     ctx.arc(b.x,b.y,r,0,Math.PI*2);
-    ctx.fillStyle="rgba(254,202,202,.84)";
+    ctx.fillStyle = "rgba(254,202,202,.84)";
     ctx.fill();
-    ctx.lineWidth=6;
-    ctx.strokeStyle="#ef4444";
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "#ef4444";
     ctx.stroke();
 
-    ctx.font="44px system-ui";
-    ctx.textAlign="center";
-    ctx.textBaseline="middle";
+    ctx.font = "44px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillText(b.emoji,b.x,b.y);
 
-    ctx.font="950 13px system-ui";
-    ctx.fillStyle="#7f1d1d";
+    ctx.font = "950 13px system-ui";
+    ctx.fillStyle = "#7f1d1d";
     ctx.fillText(b.name,b.x,b.y+r+20);
 
     rr(b.x-58,b.y-r-20,116,9,99,"rgba(148,163,184,.28)",null);
     rr(b.x-58,b.y-r-20,116*(b.hp/b.maxHp),9,99,"#ef4444",null);
+
+    ctx.restore();
+  }
+}
+
+function drawHiddenGerms(){
+  if(!game.hiddenGerms.length) return;
+
+  for(const g of game.hiddenGerms){
+    if(!g.revealed && !game.scanReveal) continue;
+
+    const alpha = g.found ? .95 : game.scanReveal ? .85 : .55;
+    const r = g.found ? 22 : 25;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    ctx.beginPath();
+    ctx.arc(g.x,g.y,r,0,Math.PI*2);
+    ctx.fillStyle = g.found ? "rgba(220,252,231,.92)" : "rgba(243,232,255,.92)";
+    ctx.fill();
+
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = g.found ? "#22c55e" : "#a855f7";
+    ctx.stroke();
+
+    ctx.font = "24px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(g.found ? "✅" : "🔎",g.x,g.y);
+
+    if(!g.found){
+      rr(g.x-24,g.y+30,48,6,99,"rgba(148,163,184,.28)",null);
+      rr(g.x-24,g.y+30,48*(g.hp/g.maxHp),6,99,"#a855f7",null);
+    }
+
     ctx.restore();
   }
 }
 
 function drawHands(hands){
   for(const h of hands){
-    const color=game.tool==="soap"?"#a855f7":game.tool==="water"?"#0ea5e9":"#f59e0b";
-    const icon=game.tool==="soap"?"🧼":game.tool==="water"?"🚿":"🧻";
+    const color = game.tool==="soap" ? "#a855f7" : game.tool==="water" ? "#0ea5e9" : "#f59e0b";
+    const icon = game.tool==="soap" ? "🧼" : game.tool==="water" ? "🚿" : "🧻";
+
     ctx.save();
-    ctx.beginPath();ctx.arc(h.center.x,h.center.y,18,0,Math.PI*2);
-    ctx.fillStyle="rgba(255,255,255,.86)";ctx.fill();
-    ctx.lineWidth=4;ctx.strokeStyle=color;ctx.stroke();
-    ctx.font="20px system-ui";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(icon,h.center.x,h.center.y);
+
+    ctx.beginPath();
+    ctx.arc(h.center.x,h.center.y,18,0,Math.PI*2);
+    ctx.fillStyle = "rgba(255,255,255,.86)";
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+
+    ctx.font = "20px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(icon,h.center.x,h.center.y);
+
     ctx.restore();
   }
 }
 
 function drawEffects(){
-  const t=now();
+  const t = now();
 
   game.particles = game.particles.filter(p=>t-p.born<p.life);
+
   for(const p of game.particles){
-    const age=t-p.born, k=age/p.life;
+    const age = t-p.born;
+    const k = age/p.life;
+
     ctx.save();
-    ctx.globalAlpha=1-k;
-    ctx.fillStyle=p.c;
+    ctx.globalAlpha = 1-k;
+    ctx.fillStyle = p.c;
     ctx.beginPath();
-    ctx.arc(p.x+p.vx*age/16,p.y+p.vy*age/16,p.r*(1-k*.45),0,Math.PI*2);
+    ctx.arc(
+      p.x+p.vx*age/16,
+      p.y+p.vy*age/16,
+      p.r*(1-k*.45),
+      0,
+      Math.PI*2
+    );
     ctx.fill();
     ctx.restore();
   }
 
   game.popups = game.popups.filter(p=>t-p.born<p.life);
+
   for(const p of game.popups){
-    const age=t-p.born, k=age/p.life;
+    const age = t-p.born;
+    const k = age/p.life;
+
     ctx.save();
-    ctx.globalAlpha=1-k;
-    ctx.font="950 17px system-ui";
-    ctx.textAlign="center";
-    ctx.lineWidth=4;
-    ctx.strokeStyle="rgba(255,255,255,.92)";
-    ctx.fillStyle=p.color;
+    ctx.globalAlpha = 1-k;
+    ctx.font = "950 17px system-ui";
+    ctx.textAlign = "center";
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "rgba(255,255,255,.92)";
+    ctx.fillStyle = p.color;
     ctx.strokeText(p.text,p.x,p.y-36*k);
     ctx.fillText(p.text,p.x,p.y-36*k);
     ctx.restore();
@@ -1203,15 +2187,26 @@ function drawEffects(){
 
 function drawScan(){
   if(game.stage!==STAGE.SCAN) return;
-  const t=(now()%1500)/1500;
-  const y=ch()*(.18+t*.64);
+
+  const t = (now()%1500)/1500;
+  const y = ch()*(.18+t*.64);
+
   ctx.save();
-  ctx.fillStyle="rgba(34,211,238,.18)";
+  ctx.fillStyle = "rgba(34,211,238,.18)";
   ctx.fillRect(0,y-18,cw(),36);
-  ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cw(),y);
-  ctx.lineWidth=3;ctx.strokeStyle="rgba(34,211,238,.95)";ctx.stroke();
-  ctx.font="900 16px system-ui";ctx.textAlign="center";ctx.fillStyle="#075985";
+
+  ctx.beginPath();
+  ctx.moveTo(0,y);
+  ctx.lineTo(cw(),y);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(34,211,238,.95)";
+  ctx.stroke();
+
+  ctx.font = "900 16px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#075985";
   ctx.fillText("CLEAN SCAN",cw()/2,y-24);
+
   ctx.restore();
 }
 
@@ -1223,63 +2218,286 @@ function render(handRes){
   }
 
   drawGerms();
+  drawHiddenGerms();
   drawHands(parseHands(handRes));
   drawScan();
   drawEffects();
 
   if(game.running && !game.poseOk){
     ctx.save();
+
     rr(cw()/2-150,ch()/2-40,300,80,22,"rgba(15,54,80,.84)",null);
-    ctx.fillStyle="#fff";ctx.textAlign="center";ctx.font="900 16px system-ui";
+
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.font = "900 16px system-ui";
     ctx.fillText("ยืนให้เห็นร่างกายชัดขึ้น",cw()/2,ch()/2-5);
-    ctx.font="800 12px system-ui";
+
+    ctx.font = "800 12px system-ui";
     ctx.fillText("ถอยหลังนิดนึง หรือเพิ่มแสงด้านหน้า",cw()/2,ch()/2+18);
+
     ctx.restore();
   }
 }
 
-function showSummary(reason){
-  const cleanAvg=keys().reduce((s,k)=>s+game.clean[k],0)/keys().length;
-  const foamAvg=keys().reduce((s,k)=>s+game.foam[k],0)/keys().length;
-  const waterScore=Math.round(game.water);
-  const missedZones=keys().filter(k=>game.clean[k]<70).map(k=>ZONES[k]);
-  const cleanScore=Math.round(cleanAvg);
+function buildResultContext(){
+  const cleanAvg = keys().reduce((s,k)=>s+game.clean[k],0)/keys().length;
+  const foamAvg = keys().reduce((s,k)=>s+game.foam[k],0)/keys().length;
+  const dryAvg = keys().reduce((s,k)=>s+(game.dry[k]/cfg.dryNeed*100),0)/keys().length;
+  const waterScore = Math.round(game.water);
 
-  let emoji="✨", title="Clean Body Hero";
-  if(cleanScore>=90 && game.bossDefeated && waterScore>=50){emoji="🏆";title="Perfect Bath Boss Hero";}
-  else if(game.bossDefeated && cleanScore>=78){emoji="🌟";title="Germ Boss Breaker";}
-  else if(cleanScore>=70){emoji="🧼";title="Soap Master";}
-  else{emoji="💪";title="Keep Practicing Hero";}
+  const zoneDetails = keys().map(k=>({
+    zoneId:k,
+    zoneName:ZONES[k],
+    clean:Math.round(game.clean[k]),
+    foam:Math.round(game.foam[k]),
+    dry:Math.round(clamp(game.dry[k]/cfg.dryNeed*100,0,100)),
+    status:game.clean[k] >= 80 && game.foam[k] <= 15 ? "good" : game.clean[k] >= 55 ? "fair" : "missed"
+  }));
 
-  UI.rankEmoji.textContent=emoji;
-  UI.rankTitle.textContent=title;
-  UI.rankSubtitle.textContent=reason==="timeup" ? "หมดเวลาแล้ว มาดูจุดที่ควรพัฒนา" : "ภารกิจ Bath AR v2 สำเร็จ";
+  return {
+    gameId:"bath-ar",
+    version:BATH_AR_VERSION,
+    hygieneZoneVersion:"hygiene-zone-v2",
+    studentName:PLAYER_META.studentName,
+    classGroup:PLAYER_META.classGroup,
+    studentId:PLAYER_META.studentId,
+    playerId:PLAYER_META.playerId,
+    sessionId:PLAYER_META.sessionId,
+    difficulty:selectedDiff,
+    mode:"mission",
+    duration:Math.round(cfg.time - Math.max(0,game.timeLeft)),
+    timeLimit:cfg.time,
+    timeLeft:Math.round(game.timeLeft),
+    score:Math.round(game.score),
+    cleanScore:Math.round(cleanAvg),
+    dryScore:Math.round(dryAvg),
+    foamAvg:Math.round(foamAvg),
+    waterScore,
+    bestCombo:game.bestCombo,
+    wave:game.wave,
+    bossDefeated:game.bossDefeated,
+    bossType:game.boss ? game.boss.name : "Stinky Cloud King",
+    hiddenFound:game.hiddenFound,
+    hiddenTotal:game.hiddenTotal,
+    dailyMissionId:game.dailyMission?.id || "",
+    dailyMissionTitle:game.dailyMission?.title || "",
+    dailyMissionDesc:game.dailyMission?.desc || "",
+    missedZones:keys().filter(k=>game.clean[k]<70).map(k=>ZONES[k]),
+    foamLeftZones:keys().filter(k=>game.foam[k]>15).map(k=>ZONES[k]),
+    zoneDetails,
+    userAgent:navigator.userAgent,
+    createdAt:new Date().toISOString(),
+    createdAtLocal:new Date().toLocaleString("th-TH",{timeZone:"Asia/Bangkok"})
+  };
+}
 
-  UI.sumClean.textContent=`${cleanScore}%`;
-  UI.sumWater.textContent=String(waterScore);
-  UI.sumBoss.textContent=game.bossDefeated ? "Yes" : "No";
-  UI.sumCombo.textContent=String(game.bestCombo);
+function evaluateDailyMission(ctxResult){
+  if(!game.dailyMission) return false;
 
-  let fb="";
-  if(cleanScore>=90 && game.bossDefeated){
-    fb="ยอดเยี่ยมมาก ล้างโซนหลักได้ดี กำจัด Boss Germ ได้ และควบคุมน้ำได้ดี รอบต่อไปลอง Hard เพื่อเพิ่มความท้าทาย";
-  }else if(!game.bossDefeated){
-    fb="ยังไม่ชนะ Boss Germ รอบต่อไปให้ถูเชื้อตามเครื่องมือที่ถูกต้อง และรักษา combo ระหว่าง Germ Wave ให้ต่อเนื่อง";
-  }else if(missedZones.length){
-    fb=`ทำได้ดีแล้ว แต่ยังควรเน้นบริเวณ ${missedZones.slice(0,3).join(", ")} โดยเฉพาะช่วง Germ Wave อย่าปล่อยให้เชื้อค้างนาน`;
-  }else if(foamAvg>12){
-    fb="ล้างโซนหลักได้ดี แต่ยังมีฟองค้างอยู่ รอบต่อไปให้ใช้ Water Hand ล้างปิดท้ายก่อน Clean Scan";
-  }else{
-    fb="ภาพรวมดีมาก รอบต่อไปลองประหยัดน้ำให้มากขึ้น และเก็บ combo ให้สูงกว่าเดิม";
+  try{
+    return !!game.dailyMission.check(ctxResult);
+  }catch(e){
+    console.warn("mission check error",e);
+    return false;
+  }
+}
+
+function pickFinalBadge(ctxResult){
+  if(
+    ctxResult.cleanScore >= 92 &&
+    ctxResult.bossDefeated &&
+    ctxResult.waterScore >= 55 &&
+    ctxResult.hiddenFound >= Math.min(2,ctxResult.hiddenTotal)
+  ){
+    return BADGES.perfect;
   }
 
-  UI.feedbackText.textContent=fb;
+  if(ctxResult.bossDefeated && ctxResult.cleanScore >= 78){
+    return BADGES.boss;
+  }
+
+  if(ctxResult.waterScore >= 60 && ctxResult.cleanScore >= 72){
+    return BADGES.eco;
+  }
+
+  if(ctxResult.hiddenFound >= Math.min(2,ctxResult.hiddenTotal)){
+    return BADGES.hidden;
+  }
+
+  if(ctxResult.bestCombo >= 12){
+    return BADGES.combo;
+  }
+
+  if(ctxResult.cleanScore >= 70){
+    return BADGES.soap;
+  }
+
+  return BADGES.practice;
+}
+
+function makeDashboardPayload(ctxResult){
+  const finalBadge = pickFinalBadge(ctxResult);
+
+  return {
+    timestamp:ctxResult.createdAt,
+    timestampLocal:ctxResult.createdAtLocal,
+
+    gameId:ctxResult.gameId,
+    version:ctxResult.version,
+    hygieneZoneVersion:ctxResult.hygieneZoneVersion,
+
+    studentName:ctxResult.studentName,
+    classGroup:ctxResult.classGroup,
+    studentId:ctxResult.studentId,
+    playerId:ctxResult.playerId,
+    sessionId:ctxResult.sessionId,
+
+    difficulty:ctxResult.difficulty,
+    mode:ctxResult.mode,
+
+    duration:ctxResult.duration,
+    timeLimit:ctxResult.timeLimit,
+    timeLeft:ctxResult.timeLeft,
+
+    score:ctxResult.score,
+    cleanPercent:ctxResult.cleanScore,
+    dryPercent:ctxResult.dryScore,
+    waterSaveScore:ctxResult.waterScore,
+    foamAvg:ctxResult.foamAvg,
+
+    wave:ctxResult.wave,
+    comboMax:ctxResult.bestCombo,
+
+    bossType:ctxResult.bossType,
+    bossDefeated:ctxResult.bossDefeated ? "yes" : "no",
+
+    hiddenGermsFound:ctxResult.hiddenFound,
+    hiddenGermsTotal:ctxResult.hiddenTotal,
+
+    dailyMissionId:ctxResult.dailyMissionId,
+    dailyMissionTitle:ctxResult.dailyMissionTitle,
+    dailyMissionDesc:ctxResult.dailyMissionDesc,
+    missionClear:game.missionClear ? "yes" : "no",
+
+    missedZones:ctxResult.missedZones.join(", "),
+    foamLeftZones:ctxResult.foamLeftZones.join(", "),
+    zoneDetailsJson:JSON.stringify(ctxResult.zoneDetails),
+
+    finalBadge,
+    finalRank:finalBadge,
+    feedbackText:"",
+    submitStatus:"pending",
+    userAgent:ctxResult.userAgent
+  };
+}
+
+function setSubmitStatus(status,message){
+  game.submitStatus = status;
+
+  if(UI.submitStatus){
+    const icon = status === "success" ? "✅"
+      : status === "failed" ? "⚠️"
+        : status === "pending" ? "📡"
+          : "ℹ️";
+
+    UI.submitStatus.textContent = `${icon} Result submit: ${message}`;
+  }
+}
+
+async function submitResultToSheet(payload){
+  if(!payload){
+    setSubmitStatus("failed","ไม่มีข้อมูลผลลัพธ์");
+    return false;
+  }
+
+  if(!SHEET_ENDPOINT){
+    setSubmitStatus("failed","ยังไม่ได้ตั้งค่า SHEET_ENDPOINT — ใช้ Export JSON แทนได้");
+    return false;
+  }
+
+  try{
+    setSubmitStatus("pending","กำลังส่งผลเข้า Google Sheet...");
+
+    await fetch(SHEET_ENDPOINT,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{
+        "Content-Type":"text/plain;charset=utf-8"
+      },
+      body:JSON.stringify({
+        action:"saveBathARResult",
+        payload
+      })
+    });
+
+    payload.submitStatus = "submitted";
+    game.submitResponse = {ok:true,mode:"no-cors"};
+    setSubmitStatus("success","ส่งคำขอไปยัง Google Sheet แล้ว");
+    return true;
+
+  }catch(err){
+    console.error("[Bath AR submit failed]",err);
+    game.submitError = String(err?.message || err);
+    payload.submitStatus = "failed";
+    setSubmitStatus("failed","ส่งไม่สำเร็จ กรุณา Export JSON สำรอง");
+    return false;
+  }
+}
+
+function showSummary(reason){
+  const ctxResult = buildResultContext();
+  game.missionClear = evaluateDailyMission(ctxResult);
+
+  const badge = pickFinalBadge(ctxResult);
+  const [badgeEmoji,...badgeTextParts] = badge.split(" ");
+  const badgeTitle = badgeTextParts.join(" ");
+
+  game.exportPayload = makeDashboardPayload(ctxResult);
+
+  UI.rankEmoji.textContent = badgeEmoji || "✨";
+  UI.rankTitle.textContent = badgeTitle || "Clean Body Hero";
+  UI.rankSubtitle.textContent = reason==="timeup"
+    ? "หมดเวลาแล้ว มาดูจุดที่ควรพัฒนา"
+    : "ภารกิจ Bath AR v4 สำเร็จ";
+
+  UI.sumClean.textContent = `${ctxResult.cleanScore}%`;
+  UI.sumWater.textContent = String(ctxResult.waterScore);
+  UI.sumBoss.textContent = ctxResult.bossDefeated ? "Yes" : "No";
+  UI.sumCombo.textContent = String(ctxResult.bestCombo);
+  UI.sumHidden.textContent = `${ctxResult.hiddenFound}/${ctxResult.hiddenTotal}`;
+  UI.sumMission.textContent = game.missionClear ? "Yes" : "No";
+
+  let fb = "";
+
+  if(ctxResult.cleanScore >= 92 && ctxResult.bossDefeated && game.missionClear){
+    fb = `ยอดเยี่ยมมาก ทำความสะอาดได้ครบ ชนะ Boss Germ และผ่าน Daily Mission "${ctxResult.dailyMissionTitle}" เหมาะสำหรับลองระดับ Hard หรือ Boss Rush ต่อ`;
+  }else if(!game.missionClear){
+    fb = `ยังไม่ผ่าน Daily Mission "${ctxResult.dailyMissionTitle}" รอบต่อไปให้เน้นเป้าหมายนี้เป็นพิเศษ: ${game.dailyMission?.desc || ""}`;
+  }else if(!ctxResult.bossDefeated){
+    fb = "ยังไม่ชนะ Boss Germ รอบต่อไปให้รักษา combo ระหว่าง Germ Wave และใช้ Soap / Water ให้ตรงกับชนิดของเชื้อโรค";
+  }else if(ctxResult.hiddenFound < Math.min(2,ctxResult.hiddenTotal)){
+    fb = "ล้างโซนหลักได้ดีแล้ว แต่ยังหา Hidden Germ ไม่ครบ รอบต่อไปกด Hint เพื่อสแกนจุดลับ แล้วจำตำแหน่งก่อนถู";
+  }else if(ctxResult.missedZones.length){
+    fb = `ทำได้ดีแล้ว แต่ยังควรเน้นบริเวณ ${ctxResult.missedZones.slice(0,3).join(", ")} โดยเฉพาะช่วง Germ Wave อย่าปล่อยให้เชื้อค้างนาน`;
+  }else if(ctxResult.foamAvg > 12){
+    fb = "โซนหลักสะอาดแล้ว แต่ยังมีฟองค้างอยู่ รอบต่อไปให้ใช้ Water Hand ล้างปิดท้ายให้หมดก่อน Clean Scan";
+  }else if(ctxResult.waterScore < 45){
+    fb = "ความสะอาดดีแล้ว แต่ใช้น้ำค่อนข้างมาก รอบต่อไปลองปิดน้ำระหว่างฟอกสบู่เพื่อเก็บ Eco Clean Hero";
+  }else{
+    fb = "ภาพรวมดีมาก รอบต่อไปลองเพิ่มระดับความยาก เก็บ combo ให้สูงขึ้น และหา Hidden Germ ให้ครบทุกจุด";
+  }
+
+  UI.feedbackText.textContent = fb;
+  game.exportPayload.feedbackText = fb;
+  game.exportPayload.submitStatus = "pending";
 
   UI.summaryZones.innerHTML = keys().map(k=>{
-    const p=Math.round(game.clean[k]);
-    const f=Math.round(game.foam[k]);
-    const d=Math.round(game.dry[k]/cfg.dryNeed*100);
-    const status=p>=80 && f<=15 ? "✅" : p>=55 ? "⚠️" : "🔴";
+    const p = Math.round(game.clean[k]);
+    const f = Math.round(game.foam[k]);
+    const d = Math.round(game.dry[k]/cfg.dryNeed*100);
+    const status = p>=80 && f<=15 ? "✅" : p>=55 ? "⚠️" : "🔴";
+
     return `
       <div class="zoneItem">
         ${status} ${ZONES[k]} • Clean ${p}% • Foam ${f}% • Dry ${clamp(d,0,100)}%
@@ -1288,20 +2506,26 @@ function showSummary(reason){
     `;
   }).join("");
 
+  console.log("[Bath AR v4 Dashboard Payload]",game.exportPayload);
+
   UI.summaryOverlay.classList.remove("hidden");
+  submitResultToSheet(game.exportPayload);
 }
 
 function loop(){
   resize();
-  const t=now();
-  const dt=game.lastTick ? t-game.lastTick : 16;
-  game.lastTick=t;
 
-  let poseRes=null, handRes=null;
+  const t = now();
+  const dt = game.lastTick ? t-game.lastTick : 16;
+  game.lastTick = t;
+
+  let poseRes = null;
+  let handRes = null;
+
   if(video.readyState>=2 && poseLandmarker && handLandmarker){
     try{
-      poseRes=poseLandmarker.detectForVideo(video,t);
-      handRes=handLandmarker.detectForVideo(video,t);
+      poseRes = poseLandmarker.detectForVideo(video,t);
+      handRes = handLandmarker.detectForVideo(video,t);
     }catch(e){
       console.warn(e);
     }
@@ -1318,8 +2542,8 @@ document.querySelectorAll(".choice").forEach(btn=>{
   btn.addEventListener("click",()=>{
     document.querySelectorAll(".choice").forEach(b=>b.classList.remove("active"));
     btn.classList.add("active");
-    selectedDiff=btn.dataset.diff;
-    cfg=DIFF[selectedDiff];
+    selectedDiff = btn.dataset.diff;
+    cfg = DIFF[selectedDiff];
     toast(`Difficulty: ${selectedDiff}`);
   });
 });
@@ -1330,18 +2554,34 @@ document.querySelectorAll(".choice").forEach(btn=>{
 
 UI.startBtn.addEventListener("click",startGame);
 UI.replayBtn.addEventListener("click",startGame);
-UI.backBtn.addEventListener("click",()=>{ location.href="./hygiene-zone-v2.html"; });
-UI.stopBtn.addEventListener("click",()=> game.running ? endGame("manual") : toast("ยังไม่ได้เริ่มเกม"));
+
+UI.backBtn.addEventListener("click",()=>{
+  location.href = "./hygiene-zone-v2.html";
+});
+
+UI.stopBtn.addEventListener("click",()=>{
+  game.running ? endGame("manual") : toast("ยังไม่ได้เริ่มเกม");
+});
+
 UI.scanBtn.addEventListener("click",()=>{
-  if(!game.running) return toast("กดเริ่มเกมก่อน");
+  if(!game.running){
+    toast("กดเริ่มเกมก่อน");
+    return;
+  }
+
   if(game.stage===STAGE.DRY){
     setStage(STAGE.SCAN);
-    game.scan=0;
+    game.scan = 0;
   }else{
     toast("Clean Scan ใช้หลังเช็ดตัว");
   }
 });
+
 UI.hintBtn.addEventListener("click",()=>{
+  if(game.stage === STAGE.SCRUB && game.hiddenGerms.some(g=>!g.found)){
+    revealHiddenGerms(950);
+  }
+
   const msg = {
     [STAGE.READY]:"ยืนให้เห็นศีรษะ ไหล่ แขน และลำตัว",
     [STAGE.WET]:"ใช้ Water Hand ขยับผ่านโซนร่างกาย",
@@ -1351,11 +2591,52 @@ UI.hintBtn.addEventListener("click",()=>{
     [STAGE.BOSS]:"Boss ใช้ Soap เป็นหลัก และใช้น้ำช่วยตอน Phase 2",
     [STAGE.SCAN]:"ยืนนิ่ง ๆ ให้ระบบสแกน"
   }[game.stage] || "กดเริ่มเกมก่อน";
+
   toast(msg);
+});
+
+UI.submitAgainBtn.addEventListener("click",()=>{
+  if(!game.exportPayload){
+    toast("ยังไม่มีข้อมูลผลลัพธ์");
+    return;
+  }
+
+  submitResultToSheet(game.exportPayload);
+});
+
+UI.exportBtn.addEventListener("click",()=>{
+  if(!game.exportPayload){
+    toast("ยังไม่มีข้อมูลผลลัพธ์");
+    return;
+  }
+
+  const blob = new Blob(
+    [JSON.stringify(game.exportPayload,null,2)],
+    {type:"application/json"}
+  );
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `bath-ar-result-${game.exportPayload.sessionId || Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+
+  toast("Export JSON แล้ว");
 });
 
 addEventListener("resize",resize);
 addEventListener("orientationchange",()=>setTimeout(resize,250));
+
+if(UI.studentNameInput){
+  UI.studentNameInput.value = PLAYER_META.studentName;
+}
+
+if(UI.classGroupInput){
+  UI.classGroupInput.value = PLAYER_META.classGroup;
+}
 
 boot();
 </script>
