@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#dff8ff" />
   <meta name="color-scheme" content="light" />
-  <title>HeroHealth • Bath AR v4</title>
+  <title>HeroHealth • Bath AR v4.1</title>
 
   <style>
     :root{
@@ -623,7 +623,7 @@
   <section class="hud">
     <div class="card mission">
       <div class="row">
-        <div class="title">🛁 Bath AR v4 • Germ Wave Battle</div>
+        <div class="title">🛁 Bath AR v4.1 • Germ Wave Battle</div>
         <div class="pill" id="stagePill">READY</div>
       </div>
 
@@ -729,7 +729,7 @@
       </ul>
 
       <div class="modalActions">
-        <button class="btn primary full" id="startBtn">เริ่ม Bath AR v4</button>
+        <button class="btn primary full" id="startBtn">เริ่ม Bath AR v4.1</button>
       </div>
     </div>
   </section>
@@ -773,6 +773,25 @@ import {
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
 const $ = id => document.getElementById(id);
+
+function safeLocalGet(key, fallback=""){
+  try{
+    return localStorage.getItem(key) || fallback;
+  }catch(err){
+    console.warn("[Bath AR] localStorage get failed:", key, err);
+    return fallback;
+  }
+}
+
+function safeLocalSet(key, value){
+  try{
+    localStorage.setItem(key, String(value ?? ""));
+    return true;
+  }catch(err){
+    console.warn("[Bath AR] localStorage set failed:", key, err);
+    return false;
+  }
+}
 
 const video = $("video");
 const canvas = $("canvas");
@@ -960,26 +979,21 @@ const BADGES = {
   practice:"💪 Keep Practicing Hero"
 };
 
-const BATH_AR_VERSION = "v4-sheet-submit-dashboard-ready";
+const BATH_AR_VERSION = "v4.1-storage-model-hotfix";
 
-/*
-  ใส่ Web App URL ของ Apps Script ตรงนี้หลัง Deploy
-  ตัวอย่าง:
-  const SHEET_ENDPOINT = "https://script.google.com/macros/s/XXXXX/exec";
-*/
 const SHEET_ENDPOINT = "https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec";
 
 const PLAYER_META = {
-  studentName: new URLSearchParams(location.search).get("name") || localStorage.getItem("bathAR_studentName") || "Hero",
-  classGroup: new URLSearchParams(location.search).get("class") || localStorage.getItem("bathAR_classGroup") || "P5",
-  studentId: new URLSearchParams(location.search).get("sid") || localStorage.getItem("bathAR_studentId") || "",
-  playerId: localStorage.getItem("bathAR_playerId") || "",
+  studentName: new URLSearchParams(location.search).get("name") || safeLocalGet("bathAR_studentName","Hero"),
+  classGroup: new URLSearchParams(location.search).get("class") || safeLocalGet("bathAR_classGroup","P5"),
+  studentId: new URLSearchParams(location.search).get("sid") || safeLocalGet("bathAR_studentId",""),
+  playerId: safeLocalGet("bathAR_playerId",""),
   sessionId: ""
 };
 
 if(!PLAYER_META.playerId){
   PLAYER_META.playerId = "bath-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,8);
-  localStorage.setItem("bathAR_playerId", PLAYER_META.playerId);
+  safeLocalSet("bathAR_playerId", PLAYER_META.playerId);
 }
 
 PLAYER_META.sessionId =
@@ -1185,7 +1199,7 @@ async function boot(){
     poseLandmarker = await PoseLandmarker.createFromOptions(vision,{
       baseOptions:{
         modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
-        delegate:"GPU"
+        delegate:"CPU"
       },
       runningMode:"VIDEO",
       numPoses:1,
@@ -1197,8 +1211,8 @@ async function boot(){
     setLoading("กำลังโหลด HandLandmarker...");
     handLandmarker = await HandLandmarker.createFromOptions(vision,{
       baseOptions:{
-        modelAssetPath:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker.task",
-        delegate:"GPU"
+        modelAssetPath:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task",
+        delegate:"CPU"
       },
       runningMode:"VIDEO",
       numHands:2,
@@ -1350,8 +1364,8 @@ function startGame(){
   PLAYER_META.studentName = UI.studentNameInput?.value?.trim() || "Hero";
   PLAYER_META.classGroup = UI.classGroupInput?.value?.trim() || "P5";
 
-  localStorage.setItem("bathAR_studentName", PLAYER_META.studentName);
-  localStorage.setItem("bathAR_classGroup", PLAYER_META.classGroup);
+  safeLocalSet("bathAR_studentName", PLAYER_META.studentName);
+  safeLocalSet("bathAR_classGroup", PLAYER_META.classGroup);
 
   cfg = DIFF[selectedDiff];
   resetMaps();
@@ -1389,7 +1403,7 @@ function startGame(){
 
   setTool("water");
   setStage(STAGE.READY);
-  toast("เริ่ม Bath AR v4!");
+  toast("เริ่ม Bath AR v4.1!");
 }
 
 function endGame(reason="completed"){
@@ -2459,7 +2473,7 @@ function showSummary(reason){
   UI.rankTitle.textContent = badgeTitle || "Clean Body Hero";
   UI.rankSubtitle.textContent = reason==="timeup"
     ? "หมดเวลาแล้ว มาดูจุดที่ควรพัฒนา"
-    : "ภารกิจ Bath AR v4 สำเร็จ";
+    : "ภารกิจ Bath AR v4.1 สำเร็จ";
 
   UI.sumClean.textContent = `${ctxResult.cleanScore}%`;
   UI.sumWater.textContent = String(ctxResult.waterScore);
@@ -2506,7 +2520,7 @@ function showSummary(reason){
     `;
   }).join("");
 
-  console.log("[Bath AR v4 Dashboard Payload]",game.exportPayload);
+  console.log("[Bath AR v4.1 Dashboard Payload]",game.exportPayload);
 
   UI.summaryOverlay.classList.remove("hidden");
   submitResultToSheet(game.exportPayload);
