@@ -11,7 +11,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-8-SUBMIT-FUNCTION-GUARD-LOCK
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-9-SINGLE-SUBMIT-LOCK
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1296,7 +1296,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.8 SUBMIT GUARD LOCK</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.9 SINGLE SUBMIT LOCK</div>
         </div>
 
         <div class="grid2">
@@ -1685,7 +1685,12 @@
       autoSubmitSheet: true,
       offlineQueue: true,
       lastSummaryPayload: null,
-      sheetQueueKey: "shadowBreakerSheetQueueV78",
+      sheetQueueKey: "shadowBreakerSheetQueueV79",
+      currentSubmitKey: "",
+      currentRoundId: "",
+      submittedKeys: new Set(),
+      submitInFlight: false,
+      lastSubmitStatus: "",
       motion: false,
       handPunchThreshold: 60,
       lastHandHitAt: 0,
@@ -2242,6 +2247,10 @@
       state.lastFrame = 0;
       state.nextSpawnAt = 0;
       state.endReason = "";
+      state.currentRoundId = "";
+      state.currentSubmitKey = "";
+      state.lastSummaryPayload = null;
+      state.submitInFlight = false;
       state.playerHp = 100;
       state.score = 0;
       state.combo = 0;
@@ -2990,7 +2999,7 @@
         clientTimestamp:new Date().toISOString(),
 
         sessionId:`sb-${new Date().toISOString().slice(0,10)}-${state.playerName || "Hero"}`,
-        roundId:`sb-round-${Date.now().toString(36)}`,
+        roundId:(state.currentRoundId || (state.currentRoundId = `sb-round-${Date.now().toString(36)}`)),
         classId:qs.get("class") || qs.get("classId") || "",
         section:qs.get("section") || qs.get("sec") || "",
         studentId:qs.get("studentId") || qs.get("sid") || "",
@@ -3085,6 +3094,50 @@
     }
 
 
+
+    function makeSubmitKey(payload){
+      if(!payload) return "";
+      return [
+        payload.roundId || "",
+        payload.score || 0,
+        payload.hit || 0,
+        payload.bomb || 0,
+        payload.endReason || ""
+      ].join("|");
+    }
+
+    function markSubmitButton(label, disabled){
+      const btn = $("btnSubmitSheet");
+      if(!btn) return;
+      btn.textContent = label || (t("submitSheet") || "Submit Sheet");
+      btn.disabled = !!disabled;
+      btn.style.opacity = disabled ? ".72" : "";
+    }
+
+    function wasSubmitted(key){
+      if(!key) return false;
+      if(state.submittedKeys && state.submittedKeys.has(key)) return true;
+      const saved = safeStorageGet("shadowBreakerSubmittedKeysV79", "[]");
+      try{
+        const arr = JSON.parse(saved || "[]");
+        return arr.indexOf(key) !== -1;
+      }catch(e){
+        return false;
+      }
+    }
+
+    function rememberSubmitted(key){
+      if(!key) return;
+      if(!state.submittedKeys) state.submittedKeys = new Set();
+      state.submittedKeys.add(key);
+
+      let arr = [];
+      try{ arr = JSON.parse(safeStorageGet("shadowBreakerSubmittedKeysV79", "[]") || "[]"); }catch(e){}
+      if(arr.indexOf(key) === -1) arr.push(key);
+      arr = arr.slice(-30);
+      safeStorageSet("shadowBreakerSubmittedKeysV79", JSON.stringify(arr));
+    }
+
     async function submitPayloadToSheet(payload, manual=false){
       saveSheetSettings();
       const url = state.sheetUrl || getSheetUrl();
@@ -3094,7 +3147,24 @@
         return {ok:false, error:"missing_url"};
       }
 
+      const key = makeSubmitKey(payload);
+      state.currentSubmitKey = key;
+
+      if(state.submitInFlight){
+        if(manual) toast("กำลังส่งอยู่ รอสักครู่", 1400);
+        return {ok:false, skipped:"in_flight"};
+      }
+
+      if(wasSubmitted(key)){
+        if(manual) toast("รอบนี้ส่งเข้า Sheet แล้ว", 1600);
+        markSubmitButton("ส่งแล้ว", true);
+        return {ok:true, skipped:"duplicate_local"};
+      }
+
       try{
+        state.submitInFlight = true;
+        markSubmitButton("กำลังส่ง...", true);
+
         await fetch(url, {
           method:"POST",
           mode:"no-cors",
@@ -3102,24 +3172,39 @@
           body:JSON.stringify(payload)
         });
 
-        logEvent("sheet_submit", { manual:manual ? 1 : 0, noCors:1 });
-        toast(t("sheetSaved") || "บันทึกลง Google Sheet แล้ว", 1600);
+        rememberSubmitted(key);
+        state.lastSubmitStatus = "sent";
+        logEvent("sheet_submit", { manual:manual ? 1 : 0, noCors:1, submitKey:key });
+        toast(t("sheetSaved") || "Saved to Google Sheet", 1600);
+        markSubmitButton("ส่งแล้ว", true);
         return {ok:true, opaque:true};
       }catch(err){
+        state.lastSubmitStatus = "failed";
+
         if(state.offlineQueue){
-          queueSheetPayload(payload);
-          toast(t("sheetFail") || "ส่ง Sheet ไม่สำเร็จ เก็บเข้าคิวสำรองแล้ว", 2200);
+          // queue เฉพาะเมื่อไม่เคยส่ง key นี้สำเร็จ
+          if(!wasSubmitted(key)) queueSheetPayload(payload);
+          toast(t("sheetFail") || "Sheet submit failed; queued", 2200);
         }else{
           toast(String(err.message || err), 2200);
         }
-        logEvent("sheet_submit_failed", { error:String(err && err.message ? err.message : err) });
+        markSubmitButton(t("submitSheet") || "Submit Sheet", false);
+        logEvent("sheet_submit_failed", { error:String(err && err.message ? err.message : err), submitKey:key });
         return {ok:false, error:String(err && err.message ? err.message : err)};
+      }finally{
+        state.submitInFlight = false;
       }
     }
 
     async function submitCurrentResultToSheet(manual=false){
       if(!state.lastSummaryPayload){
         state.lastSummaryPayload = buildSheetPayload();
+      }
+      const key = makeSubmitKey(state.lastSummaryPayload);
+      if(wasSubmitted(key)){
+        if(manual) toast("รอบนี้ส่งเข้า Sheet แล้ว", 1500);
+        markSubmitButton("ส่งแล้ว", true);
+        return {ok:true, skipped:"duplicate_current"};
       }
       return submitPayloadToSheet(state.lastSummaryPayload, manual);
     }
@@ -3134,6 +3219,9 @@
 
       const remain = [];
       for(const payload of list){
+        const key = makeSubmitKey(payload);
+        if(wasSubmitted(key)) continue;
+
         try{
           await fetch(url, {
             method:"POST",
@@ -3141,12 +3229,13 @@
             headers:{"Content-Type":"text/plain;charset=utf-8"},
             body:JSON.stringify(payload)
           });
+          rememberSubmitted(key);
         }catch(e){
           remain.push(payload);
         }
       }
       setQueuedSheetPayloads(remain);
-      if(list.length !== remain.length) toast(t("queueSent") || "ส่งคิวค้างสำเร็จ", 1500);
+      if(list.length !== remain.length) toast(t("queueSent") || "Queued results sent", 1500);
     }
 
 
