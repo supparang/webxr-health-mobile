@@ -466,13 +466,38 @@
       pointer-events:none;
       transform-origin:30% 50%;
       filter:drop-shadow(0 12px 16px rgba(15,23,42,.22));
-      transition:filter .12s ease;
+      transition:filter .12s ease, opacity .12s ease;
     }
 
     .brush.fever{
       filter:
         drop-shadow(0 0 10px rgba(250,204,21,.80))
         drop-shadow(0 16px 20px rgba(15,23,42,.22));
+    }
+
+    .brush.hover{
+      opacity:.68;
+      filter:
+        grayscale(.18)
+        drop-shadow(0 10px 14px rgba(15,23,42,.14));
+    }
+
+    .brush.gripping{
+      opacity:1;
+      filter:
+        drop-shadow(0 0 10px rgba(34,197,94,.55))
+        drop-shadow(0 14px 18px rgba(15,23,42,.24));
+    }
+
+    .brush.gripping .brush-head{
+      box-shadow:
+        inset 0 -4px 8px rgba(15,23,42,.12),
+        0 0 0 5px rgba(34,197,94,.18);
+    }
+
+    .brush.hover .brush-head{
+      background:
+        repeating-linear-gradient(90deg,#cbd5e1 0 4px,#e2e8f0 4px 8px);
     }
 
     .brush-head{
@@ -515,6 +540,32 @@
       border-radius:999px;
       background:linear-gradient(90deg,#06b6d4,#6366f1);
       box-shadow:inset 0 -2px 3px rgba(15,23,42,.18);
+    }
+
+    .grip-ring{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:78px;
+      height:78px;
+      margin-left:-39px;
+      margin-top:-39px;
+      border-radius:999px;
+      z-index:29;
+      pointer-events:none;
+      border:3px dashed rgba(34,197,94,.45);
+      opacity:0;
+      transform:scale(.85);
+      transition:opacity .14s ease, transform .14s ease;
+    }
+
+    .grip-ring.show{
+      opacity:1;
+      transform:scale(1);
+    }
+
+    .grip-ring.wait{
+      border-color:rgba(245,158,11,.48);
     }
 
     .screen{
@@ -1047,6 +1098,7 @@
       <div class="pill">🦷 Clean <span class="meter clean"><i id="cleanBar"></i></span> <span id="cleanText">0%</span></div>
       <div class="pill">🌿 Gum <span class="meter gum"><i id="gumBar"></i></span> <span id="gumText">100%</span></div>
       <div class="pill" id="feverPill" style="display:none">🫧 Fever <span class="meter fever"><i id="feverBar"></i></span></div>
+      <div class="pill" id="gripPill" style="display:none">✊ Grip <span id="gripText">Hover</span></div>
     </section>
 
     <nav class="top-actions">
@@ -1085,6 +1137,8 @@
       <div class="brush-handle"></div>
     </div>
 
+    <div id="gripRing" class="grip-ring"></div>
+
     <div id="coachBubble" class="coach-bubble"><b>AR Coach:</b> พร้อมเริ่มภารกิจ</div>
 
     <section id="missionBoard" class="mission-board">
@@ -1114,7 +1168,8 @@
           <b>Detect ที่ใช้:</b><br>
           1) FaceLandmarker จับปากจริงด้วย landmarks 61, 291, 13, 14<br>
           2) HandLandmarker ใช้ปลายนิ้วชี้ landmark 8 เป็นแปรง<br>
-          3) Touch/Mouse fallback เล่นได้ทุกเครื่อง
+          3) Grip Brush Mode ใช้นิ้วโป้ง 4 + นิ้วชี้ 8 เพื่อจำลองการจับแปรง<br>
+          4) Touch/Mouse fallback เล่นได้ทุกเครื่อง
         </div>
 
         <div class="btn-row">
@@ -1201,7 +1256,7 @@
       FaceLandmarker
     } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
 
-    const VERSION = 'v20260619-TOOTHBRUSH-AR-V9-MEDIAPIPE-FACE-HAND-MOUTH-ANCHOR-FINAL';
+    const VERSION = 'v20260619-TOOTHBRUSH-AR-V10-HAND-GRIP-BRUSH-MODE-FINAL';
 
     const CONFIG = {
       hygieneZoneUrl: '../hygiene-zone-v2.html',
@@ -1267,7 +1322,12 @@
 
       hand: {
         lostFallbackMs: 1400,
-        smooth: 0.30
+        smooth: 0.30,
+        requireGripToBrush: true,
+        gripEnterRatio: 0.78,
+        gripExitRatio: 1.05,
+        minPalmPx: 34,
+        coachNoGripMs: 4200
       },
 
       gameplay: {
@@ -1321,6 +1381,7 @@
     const mouthWrap = $('mouthWrap');
     const plaqueLayer = $('plaqueLayer');
     const brush = $('brush');
+    const gripRing = $('gripRing');
 
     const startScreen = $('startScreen');
     const readyScreen = $('readyScreen');
@@ -1375,7 +1436,14 @@
         quality: 0,
         lastSeenAt: 0,
         point: null,
-        lastVideoTime: -1
+        angle: null,
+        lastVideoTime: -1,
+        gripActive: false,
+        gripRatio: 99,
+        gripQuality: 0,
+        lastGripAt: 0,
+        lastNoGripCoachAt: 0,
+        totalGripMs: 0
       },
 
       duration: 60,
@@ -1699,12 +1767,6 @@
       };
     }
 
-    function landmarkDistance(a,b){
-      const dx = a.x - b.x;
-      const dy = a.y - b.y;
-      return Math.sqrt(dx * dx + dy * dy);
-    }
-
     function estimateMouthAnchorFromFace(landmarks){
       const leftMouth = landmarks[61];
       const rightMouth = landmarks[291];
@@ -1763,7 +1825,6 @@
       const cx = (1 - ((minX + maxX) / 2)) * window.innerWidth;
       const cy = ((minY + maxY) / 2) * window.innerHeight;
       const faceW = (maxX - minX) * window.innerWidth;
-
       const w = clamp(faceW * .68, 240, Math.min(500, window.innerWidth * .76));
 
       return {
@@ -1822,9 +1883,116 @@
       }
     }
 
+    function handPointToScreen(hand, index){
+      const lm = hand && hand[index];
+      return lm ? mapLandmarkToScreen(lm) : null;
+    }
+
+    function getHandAngle(hand){
+      const tip = handPointToScreen(hand, 8);
+      const mcp = handPointToScreen(hand, 5);
+
+      if(!tip || !mcp) return null;
+
+      const deg = Math.atan2(tip.y - mcp.y, tip.x - mcp.x) * 180 / Math.PI;
+      return deg - 8;
+    }
+
+    function estimatePalmSizePx(hand){
+      const wrist = handPointToScreen(hand, 0);
+      const middleMcp = handPointToScreen(hand, 9);
+
+      if(!wrist || !middleMcp) return 0;
+
+      return Math.hypot(middleMcp.x - wrist.x, middleMcp.y - wrist.y);
+    }
+
+    function updateHandGrip(hand, t){
+      const thumb = handPointToScreen(hand, 4);
+      const index = handPointToScreen(hand, 8);
+      const palmPx = estimatePalmSizePx(hand);
+
+      if(!thumb || !index || palmPx < CONFIG.hand.minPalmPx){
+        state.hand.gripActive = false;
+        state.hand.gripRatio = 99;
+        state.hand.gripQuality = 0;
+        return false;
+      }
+
+      const pinchPx = Math.hypot(index.x - thumb.x, index.y - thumb.y);
+      const ratio = pinchPx / Math.max(1, palmPx);
+
+      state.hand.gripRatio = ratio;
+
+      if(!state.hand.gripActive && ratio <= CONFIG.hand.gripEnterRatio){
+        state.hand.gripActive = true;
+      }else if(state.hand.gripActive && ratio >= CONFIG.hand.gripExitRatio){
+        state.hand.gripActive = false;
+      }
+
+      state.hand.gripQuality = clamp(
+        Math.round((1 - ratio / CONFIG.hand.gripExitRatio) * 100),
+        0,
+        100
+      );
+
+      if(state.hand.gripActive){
+        state.hand.lastGripAt = t;
+      }
+
+      return state.hand.gripActive;
+    }
+
+    function isBrushActive(){
+      if(
+        state.inputMode === 'hand_tracking' &&
+        state.hand.enabled &&
+        state.hand.quality > 0 &&
+        CONFIG.hand.requireGripToBrush
+      ){
+        return !!state.hand.gripActive;
+      }
+
+      return true;
+    }
+
+    function updateBrushGripVisual(){
+      const handMode = state.inputMode === 'hand_tracking' && state.hand.enabled && state.hand.quality > 0;
+      const gripNeeded = handMode && CONFIG.hand.requireGripToBrush;
+      const active = isBrushActive();
+
+      brush.classList.toggle('hover', gripNeeded && !active);
+      brush.classList.toggle('gripping', gripNeeded && active);
+
+      if(gripRing){
+        gripRing.classList.toggle('show', gripNeeded);
+        gripRing.classList.toggle('wait', gripNeeded && !active);
+      }
+
+      const gripPill = $('gripPill');
+      const gripText = $('gripText');
+
+      if(gripPill && gripText){
+        gripPill.style.display = gripNeeded ? '' : 'none';
+
+        if(active){
+          gripText.textContent = `Brushing ${Math.round(state.hand.gripQuality)}%`;
+        }else{
+          gripText.textContent = 'Hover';
+        }
+      }
+    }
+
     function updateHandTracking(t){
-      if(!state.hand.enabled || !state.handLandmarker || !state.cameraReady) return;
-      if(camera.readyState < 2 || !camera.videoWidth) return;
+      if(!state.hand.enabled || !state.handLandmarker || !state.cameraReady){
+        updateBrushGripVisual();
+        return;
+      }
+
+      if(camera.readyState < 2 || !camera.videoWidth){
+        updateBrushGripVisual();
+        return;
+      }
 
       try{
         const res = state.handLandmarker.detectForVideo(camera, t);
@@ -1835,23 +2003,48 @@
 
           if(indexTip){
             const point = mapLandmarkToScreen(indexTip);
+            const angle = getHandAngle(hand);
+
             state.hand.point = smoothPoint(state.hand.point, point, CONFIG.hand.smooth);
+            state.hand.angle = Number.isFinite(angle)
+              ? smoothValue(state.hand.angle || angle, angle, .24)
+              : state.hand.angle;
+
             state.inputMode = 'hand_tracking';
             state.hand.quality = 100;
             state.hand.lastSeenAt = t;
 
-            updateBrushPosition(state.hand.point.x, state.hand.point.y);
+            updateHandGrip(hand, t);
+            updateBrushPosition(state.hand.point.x, state.hand.point.y, state.hand.angle);
+            updateBrushGripVisual();
+
+            if(
+              CONFIG.hand.requireGripToBrush &&
+              !state.hand.gripActive &&
+              (state.phase === 'playing' || state.phase === 'boss') &&
+              t - state.hand.lastNoGripCoachAt > CONFIG.hand.coachNoGripMs
+            ){
+              state.hand.lastNoGripCoachAt = t;
+              showCoach('หนีบนิ้วโป้งกับนิ้วชี้เหมือนจับแปรง เพื่อเริ่มขัดคราบ ✊🪥');
+            }
+
             return;
           }
         }
 
         if(t - state.hand.lastSeenAt > CONFIG.hand.lostFallbackMs){
           state.hand.quality = 0;
+          state.hand.gripActive = false;
+          state.hand.gripQuality = 0;
           state.inputMode = 'touch_mouse';
+          updateBrushGripVisual();
         }
       }catch(err){
         state.hand.quality = 0;
+        state.hand.gripActive = false;
+        state.hand.gripQuality = 0;
         state.inputMode = 'touch_mouse';
+        updateBrushGripVisual();
       }
     }
 
@@ -1885,15 +2078,18 @@
       }else{
         state.hand.enabled = false;
         state.hand.quality = 0;
+        state.hand.gripActive = false;
+        state.hand.gripQuality = 0;
         state.inputMode = 'touch_mouse';
         $('handBtn').classList.remove('on');
+        updateBrushGripVisual();
         showToast('Hand Tracking ปิดแล้ว');
       }
 
       renderReadyCheck();
     }
 
-    function updateBrushPosition(x,y){
+    function updateBrushPosition(x, y, angleOverride = null){
       const t = now();
       const dt = Math.max(16, t - state.lastBrushAt);
       const dx = x - state.brushX;
@@ -1906,10 +2102,17 @@
       state.brushSpeed = Math.hypot(dx, dy) / dt * 1000;
       state.lastBrushAt = t;
 
-      const angle = clamp(dx * .18, -32, 32) - 22;
+      const motionAngle = clamp(dx * .18, -32, 32) - 22;
+      const angle = Number.isFinite(angleOverride) ? angleOverride : motionAngle;
+
       brush.style.left = state.brushX + 'px';
       brush.style.top = state.brushY + 'px';
       brush.style.transform = `translate(-50%,-50%) rotate(${angle}deg)`;
+
+      if(gripRing){
+        gripRing.style.left = state.brushX + 'px';
+        gripRing.style.top = state.brushY + 'px';
+      }
     }
 
     function normalizedToScreen(nx, ny){
@@ -1947,6 +2150,8 @@
       $('bossBar').style.width = bossPct + '%';
 
       $('bossPanel').classList.toggle('show', state.bossStarted && !state.bossDefeated);
+
+      updateBrushGripVisual();
     }
 
     function updateMission(text){
@@ -2266,6 +2471,14 @@
     function hitPlaques(t, dt){
       if(state.phase !== 'playing' && state.phase !== 'boss') return;
 
+      const brushActive = isBrushActive();
+
+      if(!brushActive){
+        state.combo = Math.max(0, state.combo - .012 * (dt / 16.67));
+        updateBrushGripVisual();
+        return;
+      }
+
       let hitAny = false;
 
       state.plaques.forEach(plaque => {
@@ -2580,12 +2793,20 @@
 
       state.resultSent = false;
 
+      state.hand.gripActive = false;
+      state.hand.gripRatio = 99;
+      state.hand.gripQuality = 0;
+      state.hand.lastGripAt = 0;
+      state.hand.lastNoGripCoachAt = 0;
+      state.hand.totalGripMs = 0;
+
       state.coach.lastMessage = '';
       state.coach.lastAt = 0;
       state.coach.lastCoverageHintAt = 0;
       state.coach.lastGumHintAt = 0;
       state.coach.lastSpeedHintAt = 0;
 
+      updateBrushGripVisual();
       initZonePerformance();
       updateHud();
       updateMission('แปรงคราบให้ครบทุกโซน');
@@ -2643,6 +2864,14 @@
           title:'HandLandmarker',
           desc:state.hand.enabled ? 'ใช้ปลายนิ้วชี้ landmark 8 เป็นหัวแปรง' : 'ยังไม่เปิด Hand Tracking ใช้แตะ/ลากแทนได้',
           status:handStatus
+        },
+        {
+          icon:'✊',
+          title:'Grip Brush Mode',
+          desc:state.hand.enabled
+            ? 'ถ้าหนีบนิ้วโป้งกับนิ้วชี้ แปรงจะเข้าสู่โหมด Brushing และขัดคราบได้'
+            : 'ใช้เมื่อเปิด Hand Tracking ถ้าไม่เปิดยังเล่นด้วย touch/mouse ได้',
+          status:state.hand.enabled ? 'good' : 'warn'
         },
         {
           icon:'👆',
@@ -2763,6 +2992,10 @@
 
       showToast('เริ่มภารกิจ! ลากแปรงไปที่คราบฟัน 🦷');
       showCoach('เริ่มจากแปรงให้ครบทุกโซนก่อน แล้วค่อยเร่งทำ Combo');
+
+      if(state.hand.enabled){
+        showCoach('Hand Mode: หนีบนิ้วโป้งกับนิ้วชี้เหมือนจับแปรง แล้วขยับมือเพื่อขัดคราบ ✊🪥', 2600);
+      }
     }
 
     function togglePause(){
@@ -2798,6 +3031,15 @@
 
       const dt = Math.min(80, t - state.lastTick || 16.67);
       state.lastTick = t;
+
+      if(
+        state.inputMode === 'hand_tracking' &&
+        state.hand.enabled &&
+        state.hand.gripActive &&
+        (state.phase === 'playing' || state.phase === 'boss')
+      ){
+        state.hand.totalGripMs += dt;
+      }
 
       const elapsed = (t - state.startedAt - state.pauseTotal) / 1000;
       state.remaining = clamp(state.duration - elapsed, 0, state.duration);
@@ -2951,6 +3193,12 @@
         input_mode: state.inputMode,
         hand_tracking_enabled: state.hand.enabled ? 'yes' : 'no',
         hand_tracking_quality: Math.round(state.hand.quality || 0),
+        hand_grip_required: CONFIG.hand.requireGripToBrush ? 'yes' : 'no',
+        hand_grip_active: state.hand.gripActive ? 'yes' : 'no',
+        hand_grip_quality: Math.round(state.hand.gripQuality || 0),
+        hand_grip_ratio: Math.round((state.hand.gripRatio || 0) * 1000) / 1000,
+        hand_grip_total_sec: Math.round((state.hand.totalGripMs || 0) / 1000),
+
         face_anchor_enabled: state.face.enabled ? 'yes' : 'no',
         face_anchor_quality: Math.round(state.face.quality || 0),
         face_anchor_fallback: state.face.usingFallback ? 'yes' : 'no',
