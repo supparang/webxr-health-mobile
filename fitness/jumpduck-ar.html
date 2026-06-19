@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-  <title>JumpDuck Dash • PC/Mobile AR Fitness v10 Auto Sheet Linked</title>
+  <title>JumpDuck Dash • Student Auto Sheet v17</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800;900&display=swap" rel="stylesheet" />
@@ -295,14 +295,14 @@
       </details>
 
       <div id="sheet-status" class="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-500">
-        Sheet: ยังไม่ได้ตั้งค่า endpoint • ใช้ CSV สำรองได้
+        Sheet: ยังไม่ได้ตั้งค่า endpoint • แจ้งครู
       </div>
 
-      <div class="result-action-grid mt-3">
+      <div id="result-action-grid" class="result-action-grid mt-3">
         <button id="btn-restart" class="rounded-3xl bg-gradient-to-r from-orange-500 to-red-500 py-3 text-lg font-black text-white shadow-lg border-b-4 border-red-700 active:scale-95 transition">
           เล่นอีกครั้ง
         </button>
-        <button id="btn-export" class="rounded-3xl bg-slate-900 py-3 text-lg font-black text-white shadow-lg border-b-4 border-slate-700 active:scale-95 transition">
+        <button id="btn-export" class="hidden rounded-3xl bg-slate-900 py-3 text-lg font-black text-white shadow-lg border-b-4 border-slate-700 active:scale-95 transition">
           CSV
         </button>
       </div>
@@ -513,7 +513,7 @@
 
     const DIFF = {
       // v8 Compact Start: Easy is intentionally forgiving; side moves still appear, but less often.
-      // v15 StorageFix + DetectFix: forgiving thresholds and safe localStorage so summary never freezes.
+      // v17 StudentAutoSheet: forgiving detection, safe storage, forced no CSV/export on student screen, explicit fitness api payload.
       easy:   { label:'Easy',   time:60, spawnMs:2750, speed:3.45, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:7, sideEvery:9, forceFirstSideAfter:10, judgeZone:340, scoreZoneMultiplier:2.65, missZoneMultiplier:1.95, holdMs:2050, manualHoldMs:2100, earlyGestureMemoryMs:2850, gestureDebounceMs:25, minGestureScore:.48, jumpRatio:.018, duckRatio:.026, sideRatio:.024 },
       normal: { label:'Normal', time:60, spawnMs:2250, speed:4.55, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:5, sideEvery:5, forceFirstSideAfter:7, judgeZone:315, scoreZoneMultiplier:2.40, missZoneMultiplier:1.75, holdMs:1850, manualHoldMs:1950, earlyGestureMemoryMs:2550, gestureDebounceMs:30, minGestureScore:.54, jumpRatio:.020, duckRatio:.030, sideRatio:.027 },
       hard:   { label:'Hard',   time:60, spawnMs:1800, speed:5.75, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:2, sideEvery:3, forceFirstSideAfter:4, judgeZone:255, scoreZoneMultiplier:2.05, missZoneMultiplier:1.50, holdMs:1550, manualHoldMs:1700, earlyGestureMemoryMs:2200, gestureDebounceMs:45, minGestureScore:.68, jumpRatio:.026, duckRatio:.038, sideRatio:.036 }
@@ -529,7 +529,7 @@
 
     const STAR_LABELS = ['ENERGY','BOOST','SHIELD','COMBO','POWER'];
 
-    // v15 StorageFix: localStorage can throw QuotaExceededError on shared GitHub Pages origin.
+    // v17 StudentAutoSheet: localStorage can throw QuotaExceededError on shared GitHub Pages origin.
     // Never let leaderboard/cache storage stop the game summary or Sheet submission.
     function safeLocalGet(key, fallback=''){
       try{ return localStorage.getItem(key) ?? fallback; }
@@ -543,7 +543,7 @@
         console.warn('localStorage set failed, trying cleanup', key, err);
         try{
           // Remove only JumpDuck leaderboard/cache keys first, not other project data.
-          ['jumpduck_dash_v14_detectfix_leaderboard','jumpduck_dash_v15_storagefix_leaderboard'].forEach(k=>{
+          ['jumpduck_dash_v14_detectfix_leaderboard','jumpduck_dash_v16_student_auto_sheet_leaderboard'].forEach(k=>{
             try{ if(k !== key) localStorage.removeItem(k); }catch(e){}
           });
           localStorage.setItem(key, value);
@@ -565,6 +565,8 @@
     let selectedTime = Number(params.get('time')) || 60;
     if(![45,60,90].includes(selectedTime)) selectedTime = 60;
     let teacherTestMode = params.get('test') === '1';
+    // Student screen: no export button. CSV appears only for teacher/debug URL flags.
+    const allowExportMode = false; // v17: student page never shows CSV/export. Teacher uses Sheet/Dashboard only.
     const HUB_URL = params.get('hub') || safeLocalGet('jumpduckHubUrl', './') || './';
     safeLocalSet('jumpduckHubUrl', HUB_URL);
 
@@ -584,6 +586,18 @@
       studentName: params.get('name') || params.get('studentName') || safeLocalGet('jumpduckStudentName', '') || '',
       teacherId: params.get('teacher') || params.get('teacherId') || safeLocalGet('jumpduckTeacherId', '') || ''
     };
+
+    function applyStudentResultMode(){
+      const grid = $('result-action-grid');
+      if(btnExport){
+        btnExport.classList.add('hidden');
+        btnExport.style.display = 'none';
+        btnExport.setAttribute('aria-hidden', 'true');
+      }
+      if(grid){
+        grid.style.gridTemplateColumns = '1fr';
+      }
+    }
 
     function initMetaInputs(){
       if(inputClass) inputClass.value = meta.classId || '';
@@ -673,7 +687,7 @@
 
     function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
 
-    const LEADER_KEY = 'jumpduck_dash_v15_storagefix_leaderboard';
+    const LEADER_KEY = 'jumpduck_dash_v17_student_auto_sheet_leaderboard';
 
     function loadLeaderboard(){
       try{ return JSON.parse(safeLocalGet(LEADER_KEY, '[]') || '[]'); }
@@ -1049,6 +1063,7 @@
     updateSelectedDiffButtons();
     updateTimeButtons();
     setTeacherTestMode(teacherTestMode);
+    applyStudentResultMode();
 
     document.querySelectorAll('.time-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -1238,7 +1253,7 @@
       cameraWarningActive = false;
       calibrationQuality = 0;
       if(sheetStatus){
-        sheetStatus.textContent = SHEET_ENDPOINT ? 'Sheet: พร้อมส่งอัตโนมัติเมื่อจบรอบ' : 'Sheet: ยังไม่ได้ตั้งค่า endpoint • ใช้ CSV สำรองได้';
+        sheetStatus.textContent = SHEET_ENDPOINT ? 'Sheet: พร้อมส่งอัตโนมัติเมื่อจบรอบ' : 'Sheet: ยังไม่ได้ตั้งค่า endpoint • แจ้งครู';
         sheetStatus.className = 'mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-500';
       }
       if(cameraWarning) cameraWarning.classList.add('hidden');
@@ -1352,7 +1367,10 @@
       return {
         timestamp: new Date().toISOString(),
         game: 'jumpduck-dash-ar',
-        version: 'v15-storagefix',
+        version: 'v17-student-auto-sheet',
+        api: 'fitness',
+        source: 'fitness-jumpduck-ar',
+        sourceUrl: location.href,
         sessionId: meta.sessionId,
         roundId: 'JD-' + Date.now().toString(36),
         classId: meta.classId,
@@ -1421,7 +1439,7 @@
     async function autoSubmitToSheet(payload){
       if(!sheetStatus) return;
       if(!SHEET_ENDPOINT){
-        sheetStatus.textContent = 'Sheet: ยังไม่ได้ตั้งค่า endpoint • กด CSV สำรองได้';
+        sheetStatus.textContent = 'Sheet: ยังไม่ได้ตั้งค่า endpoint • แจ้งครู';
         sheetStatus.className = 'mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-500';
         return;
       }
@@ -1431,14 +1449,16 @@
         await fetch(SHEET_ENDPOINT, {
           method: 'POST',
           mode: 'no-cors',
+          cache: 'no-store',
+          keepalive: true,
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
-        sheetStatus.textContent = 'Sheet: ส่งผลอัตโนมัติแล้ว ✅';
+        sheetStatus.textContent = 'Sheet: ส่งข้อมูลอัตโนมัติแล้ว ✅';
         sheetStatus.className = 'mt-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700';
       }catch(err){
         console.warn('Auto Sheet submit failed', err);
-        sheetStatus.textContent = 'Sheet: ส่งอัตโนมัติไม่สำเร็จ • กด CSV สำรอง';
+        sheetStatus.textContent = 'Sheet: ส่งอัตโนมัติไม่สำเร็จ • แจ้งครู';
         sheetStatus.className = 'mt-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-600';
       }
     }
@@ -1508,9 +1528,10 @@
     }
 
     function exportCSV(){
+      if(!allowExportMode) return;
       const header = ['timestamp','version','diff','duration','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss','minReaction','maxReaction','medianReaction','reactionFirstHalf','reactionSecondHalf','reactionStd','reactionTrend','movementLoad','totalMoves','totalAttempts','sideAccuracy','verticalAccuracy','leftRightBalance','jumpDuckBalance'];
       const m = makeSummaryMetrics('csv_export');
-      const row = [new Date().toISOString(), 'v15-storagefix', selectedDiff, selectedTime, score, m.accuracy, totalDodges, totalMisses, bestCombo, m.avgReaction, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right, m.minReaction, m.maxReaction, m.medianReaction, m.reactionFirstHalf, m.reactionSecondHalf, m.reactionStd, m.reactionTrend, m.movementLoad, m.totalMoves, m.totalAttempts, m.sideAccuracy, m.verticalAccuracy, m.leftRightBalance, m.jumpDuckBalance];
+      const row = [new Date().toISOString(), 'v17-student-auto-sheet', selectedDiff, selectedTime, score, m.accuracy, totalDodges, totalMisses, bestCombo, m.avgReaction, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right, m.minReaction, m.maxReaction, m.medianReaction, m.reactionFirstHalf, m.reactionSecondHalf, m.reactionStd, m.reactionTrend, m.movementLoad, m.totalMoves, m.totalAttempts, m.sideAccuracy, m.verticalAccuracy, m.leftRightBalance, m.jumpDuckBalance];
       const csv = header.join(',') + '\n' + row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n';
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const url = URL.createObjectURL(blob);
@@ -1814,7 +1835,7 @@
 
     btnStart.addEventListener('click', startGame);
     btnRestart.addEventListener('click', startGame);
-    btnExport.addEventListener('click', exportCSV);
+    if(btnExport){ btnExport.addEventListener('click', exportCSV); }
     btnStop.addEventListener('click', ()=>{ if(isPlaying) endGame('early_stop'); });
     btnMute.addEventListener('click', ()=>{ window.__jumpduckMuted = !window.__jumpduckMuted; btnMute.textContent = window.__jumpduckMuted ? '🔇' : '🔊'; });
     btnTeacherMode.addEventListener('click', ()=>{ setTeacherTestMode(!teacherTestMode); playSound('success'); });
