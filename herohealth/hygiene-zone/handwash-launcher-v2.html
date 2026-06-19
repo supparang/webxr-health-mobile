@@ -1,0 +1,1017 @@
+<!-- =========================================================
+  /herohealth/hygiene-zone/handwash-launcher-v2.html
+  HeroHealth • Hygiene Zone • Handwash Launcher v2
+  Version: v20260619-HANDWASH-LAUNCHER-V2-HYGIENE-FLOW
+
+  หน้าที่:
+  - Launcher สำหรับเข้าเกม Handwash Hero
+  - ใช้ร่วมกับ /herohealth/hygiene-zone-v2.html
+  - ส่ง query name/classLevel/diff/time ต่อไปยังไฟล์เกมจริง
+  - มี fallback ตรวจชื่อไฟล์เกมที่เป็นไปได้
+  - ไม่ค้างจอขาวถ้าไฟล์เกมหลักยังไม่พบ
+
+  หมายเหตุ:
+  - ถ้าไฟล์เกม Handwash ตัวจริงมีชื่อแน่นอนแล้ว
+    ให้แก้ HANDWASH_CANDIDATES ให้เอาชื่อนั้นไว้ตัวแรก
+========================================================= -->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no"
+  />
+  <meta name="theme-color" content="#e0f7ff" />
+  <meta name="color-scheme" content="light" />
+
+  <title>Hygiene Zone • Handwash Hero Launcher</title>
+
+  <style>
+    :root{
+      --safe-top: env(safe-area-inset-top,0px);
+      --safe-bottom: env(safe-area-inset-bottom,0px);
+      --safe-left: env(safe-area-inset-left,0px);
+      --safe-right: env(safe-area-inset-right,0px);
+
+      --ink:#0f172a;
+      --muted:#64748b;
+      --cyan:#06b6d4;
+      --blue:#3b82f6;
+      --green:#22c55e;
+      --yellow:#facc15;
+      --pink:#fb7185;
+      --red:#ef4444;
+      --card:rgba(255,255,255,.86);
+      --line:rgba(14,116,144,.16);
+      --shadow:0 18px 48px rgba(15,23,42,.15);
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
+    }
+
+    html,
+    body{
+      margin:0;
+      width:100%;
+      min-height:100%;
+      overflow-x:hidden;
+      font-family:
+        ui-rounded,
+        "SF Pro Rounded",
+        "Sarabun",
+        "Noto Sans Thai",
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 18% 10%, rgba(125,211,252,.78), transparent 30%),
+        radial-gradient(circle at 84% 16%, rgba(187,247,208,.76), transparent 28%),
+        radial-gradient(circle at 55% 100%, rgba(251,207,232,.68), transparent 30%),
+        linear-gradient(160deg,#ecfeff 0%,#f0fdfa 45%,#fdf2f8 100%);
+    }
+
+    button,
+    input,
+    select{
+      font:inherit;
+    }
+
+    button{
+      border:0;
+      cursor:pointer;
+    }
+
+    .page{
+      min-height:100vh;
+      padding:
+        calc(18px + var(--safe-top))
+        calc(14px + var(--safe-right))
+        calc(18px + var(--safe-bottom))
+        calc(14px + var(--safe-left));
+      display:grid;
+      place-items:center;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .bubble{
+      position:fixed;
+      border-radius:999px;
+      pointer-events:none;
+      z-index:0;
+      filter:blur(.5px);
+      opacity:.78;
+    }
+
+    .b1{
+      width:220px;
+      height:220px;
+      left:-70px;
+      top:80px;
+      background:radial-gradient(circle,rgba(103,232,249,.58),transparent 68%);
+      animation:float 6s ease-in-out infinite alternate;
+    }
+
+    .b2{
+      width:270px;
+      height:270px;
+      right:-110px;
+      bottom:70px;
+      background:radial-gradient(circle,rgba(134,239,172,.52),transparent 68%);
+      animation:float 7s ease-in-out infinite alternate-reverse;
+    }
+
+    .b3{
+      width:160px;
+      height:160px;
+      left:58%;
+      top:8%;
+      background:radial-gradient(circle,rgba(255,255,255,.88),transparent 65%);
+      animation:float 5.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes float{
+      from{ transform:translate3d(0,0,0) scale(1); }
+      to{ transform:translate3d(0,-18px,0) scale(1.04); }
+    }
+
+    .wrap{
+      position:relative;
+      z-index:2;
+      width:min(980px,100%);
+    }
+
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .logo{
+      width:54px;
+      height:54px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      color:white;
+      font-size:30px;
+      background:linear-gradient(135deg,#67e8f9,#14b8a6,#22c55e);
+      box-shadow:0 16px 34px rgba(20,184,166,.22);
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(21px,4.4vw,38px);
+      line-height:1.02;
+      letter-spacing:-.04em;
+      font-weight:1000;
+    }
+
+    .brand h1 span{
+      display:block;
+      margin-top:3px;
+      font-size:.52em;
+      letter-spacing:0;
+      color:#0e7490;
+      font-weight:1000;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+
+    .small-btn{
+      min-height:42px;
+      padding:0 14px;
+      border-radius:16px;
+      background:rgba(255,255,255,.82);
+      border:1px solid rgba(255,255,255,.92);
+      color:#0f172a;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:0 12px 24px rgba(15,23,42,.10);
+      backdrop-filter:blur(12px);
+    }
+
+    .main{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:16px;
+      align-items:stretch;
+    }
+
+    .hero,
+    .setup{
+      border-radius:32px;
+      background:rgba(255,255,255,.82);
+      border:1px solid rgba(255,255,255,.92);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(14px);
+      overflow:hidden;
+    }
+
+    .hero{
+      min-height:460px;
+      padding:24px;
+      position:relative;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .hero:after{
+      content:"";
+      position:absolute;
+      right:-82px;
+      bottom:-90px;
+      width:340px;
+      height:340px;
+      border-radius:999px;
+      background:
+        radial-gradient(circle at 36% 30%, rgba(255,255,255,.95), transparent 12%),
+        radial-gradient(circle at 60% 58%, rgba(255,255,255,.82), transparent 18%),
+        radial-gradient(circle,rgba(103,232,249,.62),rgba(34,197,94,.27) 55%,transparent 72%);
+      pointer-events:none;
+    }
+
+    .kicker{
+      width:max-content;
+      max-width:100%;
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      padding:7px 11px;
+      border-radius:999px;
+      background:rgba(236,254,255,.9);
+      color:#0e7490;
+      border:1px solid rgba(6,182,212,.18);
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:12px;
+    }
+
+    .title{
+      position:relative;
+      z-index:1;
+      margin:0;
+      font-size:clamp(34px,7vw,68px);
+      line-height:.95;
+      letter-spacing:-.06em;
+      font-weight:1000;
+      color:#0f172a;
+    }
+
+    .title span{
+      background:linear-gradient(90deg,#0891b2,#14b8a6,#22c55e);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+    }
+
+    .desc{
+      position:relative;
+      z-index:1;
+      margin:14px 0 0;
+      color:#475569;
+      font-size:15px;
+      line-height:1.68;
+      font-weight:850;
+      width:min(620px,100%);
+    }
+
+    .step-board{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:8px;
+      margin-top:18px;
+    }
+
+    .step{
+      min-height:66px;
+      border-radius:20px;
+      padding:10px;
+      background:rgba(255,255,255,.74);
+      border:1px solid rgba(14,116,144,.10);
+      box-shadow:0 10px 22px rgba(15,23,42,.07);
+      display:flex;
+      gap:9px;
+      align-items:center;
+    }
+
+    .step i{
+      width:38px;
+      height:38px;
+      flex:0 0 auto;
+      border-radius:15px;
+      display:grid;
+      place-items:center;
+      font-style:normal;
+      font-size:21px;
+      background:linear-gradient(135deg,#ecfeff,#dcfce7);
+      border:1px solid rgba(6,182,212,.12);
+    }
+
+    .step b{
+      display:block;
+      font-size:13px;
+      line-height:1.25;
+      font-weight:1000;
+      color:#0f172a;
+    }
+
+    .step small{
+      display:block;
+      color:#64748b;
+      font-size:11px;
+      font-weight:900;
+      margin-top:2px;
+    }
+
+    .hero-footer{
+      position:relative;
+      z-index:1;
+      margin-top:auto;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      padding-top:18px;
+    }
+
+    .pill{
+      min-height:32px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.76);
+      border:1px solid rgba(14,116,144,.12);
+      color:#334155;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(15,23,42,.07);
+    }
+
+    .setup{
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .setup h2{
+      margin:0;
+      font-size:24px;
+      line-height:1.05;
+      letter-spacing:-.035em;
+      font-weight:1000;
+    }
+
+    .setup p{
+      margin:0;
+      color:#64748b;
+      font-size:13px;
+      line-height:1.52;
+      font-weight:850;
+    }
+
+    .form{
+      display:grid;
+      gap:10px;
+    }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:5px;
+      color:#475569;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .field input,
+    .field select{
+      width:100%;
+      min-height:45px;
+      border-radius:18px;
+      border:1px solid rgba(14,116,144,.16);
+      outline:0;
+      background:rgba(255,255,255,.9);
+      color:#0f172a;
+      padding:0 12px;
+      font-weight:900;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.52);
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .btn{
+      width:100%;
+      min-height:52px;
+      border-radius:20px;
+      padding:0 16px;
+      font-weight:1000;
+      box-shadow:0 15px 28px rgba(15,23,42,.14);
+    }
+
+    .primary{
+      background:linear-gradient(90deg,#06b6d4,#14b8a6,#22c55e);
+      color:white;
+    }
+
+    .secondary{
+      background:#fff;
+      border:1px solid rgba(14,116,144,.18);
+      color:#0f172a;
+    }
+
+    .ghost{
+      background:rgba(255,255,255,.68);
+      border:1px solid rgba(255,255,255,.92);
+      color:#334155;
+      box-shadow:0 10px 22px rgba(15,23,42,.08);
+    }
+
+    .status{
+      min-height:62px;
+      border-radius:22px;
+      padding:12px;
+      background:linear-gradient(180deg,#ecfeff,#ffffff);
+      border:1px solid rgba(6,182,212,.15);
+      color:#155e75;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.52;
+    }
+
+    .status b{
+      color:#0f172a;
+      font-weight:1000;
+    }
+
+    .candidate-list{
+      display:none;
+      margin:0;
+      padding:0;
+      list-style:none;
+      border-radius:20px;
+      overflow:hidden;
+      border:1px solid rgba(14,116,144,.12);
+      background:rgba(255,255,255,.76);
+    }
+
+    .candidate-list.show{
+      display:block;
+    }
+
+    .candidate-list li{
+      padding:9px 11px;
+      border-bottom:1px solid rgba(14,116,144,.08);
+      font-size:12px;
+      font-weight:900;
+      color:#475569;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .candidate-list li:last-child{
+      border-bottom:0;
+    }
+
+    .candidate-list code{
+      color:#0f172a;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .candidate-list span{
+      color:#64748b;
+      flex:0 0 auto;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(18px + var(--safe-bottom));
+      transform:translateX(-50%) translateY(18px);
+      z-index:40;
+      max-width:min(92vw,560px);
+      padding:12px 15px;
+      border-radius:999px;
+      background:rgba(255,255,255,.93);
+      border:1px solid rgba(255,255,255,.96);
+      box-shadow:0 18px 44px rgba(15,23,42,.18);
+      color:#0f172a;
+      font-size:14px;
+      font-weight:1000;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      backdrop-filter:blur(14px);
+      text-align:center;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .loading{
+      display:inline-block;
+      width:14px;
+      height:14px;
+      border-radius:999px;
+      border:3px solid rgba(6,182,212,.18);
+      border-top-color:#06b6d4;
+      vertical-align:-2px;
+      animation:spin .8s linear infinite;
+      margin-right:6px;
+    }
+
+    @keyframes spin{
+      to{ transform:rotate(360deg); }
+    }
+
+    @media (max-width:860px){
+      .main{
+        grid-template-columns:1fr;
+      }
+
+      .hero{
+        min-height:auto;
+      }
+    }
+
+    @media (max-width:640px){
+      .page{
+        align-items:start;
+        padding:
+          calc(12px + var(--safe-top))
+          calc(10px + var(--safe-right))
+          calc(18px + var(--safe-bottom))
+          calc(10px + var(--safe-left));
+      }
+
+      .topbar{
+        align-items:flex-start;
+      }
+
+      .logo{
+        width:48px;
+        height:48px;
+        border-radius:18px;
+      }
+
+      .top-actions{
+        flex-direction:column;
+      }
+
+      .small-btn{
+        min-height:38px;
+        padding:0 10px;
+        font-size:12px;
+      }
+
+      .hero,
+      .setup{
+        border-radius:26px;
+      }
+
+      .hero{
+        padding:18px;
+      }
+
+      .step-board{
+        grid-template-columns:1fr;
+      }
+
+      .row{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <div class="bubble b1"></div>
+    <div class="bubble b2"></div>
+    <div class="bubble b3"></div>
+
+    <div class="wrap">
+      <header class="topbar">
+        <div class="brand">
+          <div class="logo">🧼</div>
+          <h1>
+            Handwash Hero
+            <span>Hygiene Zone Launcher</span>
+          </h1>
+        </div>
+
+        <div class="top-actions">
+          <button id="zoneBtn" class="small-btn">🧼 Zone</button>
+          <button id="toothBtn" class="small-btn">🦷 Toothbrush</button>
+          <button id="homeBtn" class="small-btn">🏠 Hub</button>
+        </div>
+      </header>
+
+      <section class="main">
+        <article class="hero">
+          <div class="kicker">✨ Hygiene Zone • AR Skill Mission</div>
+
+          <h2 class="title">
+            ล้างมือให้ครบ<br>
+            <span>ชนะเชื้อโรค</span>
+          </h2>
+
+          <p class="desc">
+            เกม Handwash Hero ฝึกการล้างมืออย่างเป็นลำดับขั้น
+            ให้เด็กเข้าใจว่าการล้างมือที่ดีต้องล้างให้ครบจุด ไม่ใช่แค่เปิดน้ำผ่านมือ
+            เหมาะสำหรับใช้คู่กับเกม Toothbrush Hero ใน Hygiene Zone
+          </p>
+
+          <div class="step-board">
+            <div class="step"><i>💧</i><div><b>เปิดน้ำ / ทำมือให้เปียก</b><small>เริ่มภารกิจอย่างถูกขั้นตอน</small></div></div>
+            <div class="step"><i>🫧</i><div><b>ถูสบู่ให้ทั่ว</b><small>สร้าง Clean Power</small></div></div>
+            <div class="step"><i>✋</i><div><b>ถูฝ่ามือ หลังมือ ซอกนิ้ว</b><small>เก็บ Coverage Score</small></div></div>
+            <div class="step"><i>🦠</i><div><b>กำจัดเชื้อโรค</b><small>ทำ Combo และรับ Badge</small></div></div>
+          </div>
+
+          <div class="hero-footer">
+            <span class="pill">PC / Mobile</span>
+            <span class="pill">AR Camera Ready</span>
+            <span class="pill">Clean Score</span>
+            <span class="pill">Teacher Metrics</span>
+          </div>
+        </article>
+
+        <aside class="setup">
+          <h2>ตั้งค่าก่อนเข้าเกม</h2>
+          <p>
+            Launcher นี้จะค้นหาไฟล์เกม Handwash ที่มีอยู่จริง แล้วส่งค่าผู้เล่นและระดับไปให้เกมอัตโนมัติ
+          </p>
+
+          <div class="form">
+            <label class="field">
+              ชื่อผู้เล่น
+              <input id="playerName" value="Hero" maxlength="24" />
+            </label>
+
+            <label class="field">
+              ชั้น/กลุ่ม
+              <input id="classLevel" value="ป.5" maxlength="18" />
+            </label>
+
+            <div class="row">
+              <label class="field">
+                ระดับ
+                <select id="difficulty">
+                  <option value="easy">Easy</option>
+                  <option value="normal" selected>Normal</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </label>
+
+              <label class="field">
+                เวลา
+                <select id="duration">
+                  <option value="40">40 วินาที</option>
+                  <option value="45" selected>45 วินาที</option>
+                  <option value="60">60 วินาที</option>
+                </select>
+              </label>
+            </div>
+
+            <button id="startBtn" class="btn primary">เริ่ม Handwash Hero 🧼</button>
+            <button id="checkBtn" class="btn secondary">ตรวจไฟล์เกม Handwash</button>
+            <button id="manualBtn" class="btn ghost">แสดงรายชื่อไฟล์ที่ launcher จะค้นหา</button>
+          </div>
+
+          <div id="status" class="status">
+            <b>สถานะ:</b> พร้อมค้นหาไฟล์เกม Handwash
+          </div>
+
+          <ul id="candidateList" class="candidate-list"></ul>
+        </aside>
+      </section>
+    </div>
+
+    <div id="toast" class="toast">พร้อมเข้า Handwash Hero</div>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const VERSION = 'v20260619-HANDWASH-LAUNCHER-V2-HYGIENE-FLOW';
+
+      const CONFIG = {
+        hygieneZoneUrl: '../hygiene-zone-v2.html',
+        homeUrl: '../hub.html',
+        toothbrushUrl: './toothbrush-ar.html',
+
+        /*
+          ลำดับนี้สำคัญ:
+          - ถ้ารู้ชื่อไฟล์ Handwash ตัวจริงแล้ว ให้เอาไว้ลำดับแรก
+          - launcher จะตรวจจากบนลงล่าง
+        */
+        handwashCandidates: [
+          './handwash-ar.html',
+          './handwash-hero-ar.html',
+          './handwash-v2.html',
+          './handwash.html',
+          './handwash-main.html',
+          './handwash-game.html',
+          './handwash/index.html',
+          './handwash/handwash-ar.html',
+          './handwash/handwash.html',
+          '../handwash-ar.html',
+          '../handwash.html'
+        ]
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      const state = {
+        lastFoundUrl: '',
+        checking: false,
+        muted: false
+      };
+
+      function params(){
+        return new URLSearchParams(location.search);
+      }
+
+      function initFromQuery(){
+        const p = params();
+
+        const name = p.get('name') || p.get('player') || p.get('playerName');
+        const classLevel = p.get('classLevel') || p.get('class') || p.get('grade');
+        const diff = p.get('diff') || p.get('difficulty');
+        const time = p.get('time') || p.get('duration');
+
+        if(name) $('playerName').value = name;
+        if(classLevel) $('classLevel').value = classLevel;
+        if(diff && ['easy','normal','hard'].includes(diff)) $('difficulty').value = diff;
+        if(time && ['40','45','60'].includes(time)) $('duration').value = time;
+      }
+
+      function makeUrl(path){
+        const url = new URL(path, location.href);
+
+        const name = $('playerName').value.trim() || 'Hero';
+        const classLevel = $('classLevel').value.trim() || 'ป.5';
+        const diff = $('difficulty').value || 'normal';
+        const time = $('duration').value || '45';
+
+        url.searchParams.set('name', name);
+        url.searchParams.set('classLevel', classLevel);
+        url.searchParams.set('diff', diff);
+        url.searchParams.set('time', time);
+        url.searchParams.set('from', 'handwash-launcher-v2');
+        url.searchParams.set('v', VERSION);
+
+        return url;
+      }
+
+      function showToast(text, ms = 1300){
+        const toast = $('toast');
+        toast.textContent = text;
+        toast.classList.add('show');
+
+        window.clearTimeout(showToast._t);
+        showToast._t = window.setTimeout(() => {
+          toast.classList.remove('show');
+        }, ms);
+      }
+
+      function setStatus(html){
+        $('status').innerHTML = html;
+      }
+
+      function playTone(type){
+        if(state.muted) return;
+
+        try{
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if(!AudioContext) return;
+
+          if(!playTone.ctx){
+            playTone.ctx = new AudioContext();
+          }
+
+          const ctx = playTone.ctx;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          const map = {
+            click: [660, .045, 'sine'],
+            start: [880, .08, 'triangle'],
+            warn: [220, .09, 'sawtooth'],
+            ok: [760, .07, 'triangle']
+          };
+
+          const [freq, dur, wave] = map[type] || map.click;
+
+          osc.frequency.value = freq;
+          osc.type = wave;
+          gain.gain.value = .04;
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          gain.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + dur);
+          osc.stop(ctx.currentTime + dur + .02);
+        }catch(err){}
+      }
+
+      async function probeUrl(url){
+        /*
+          ใช้ fetch แบบ GET แทน HEAD เพราะบาง static host ตอบ HEAD ไม่สม่ำเสมอ
+          cache:no-store เพื่อเลี่ยง browser cache ตอน patch ไฟล์บน GitHub Pages
+        */
+        try{
+          const res = await fetch(url.toString(), {
+            method: 'GET',
+            cache: 'no-store'
+          });
+
+          if(!res.ok) return false;
+
+          const text = await res.text();
+
+          /*
+            กันกรณี GitHub Pages ส่งหน้า 404 HTML ที่ status อาจไม่ใช่ 404 ในบาง routing
+          */
+          if(/404|File not found|There isn't a GitHub Pages site here/i.test(text.slice(0, 500))) {
+            return false;
+          }
+
+          return true;
+        }catch(err){
+          return false;
+        }
+      }
+
+      async function findHandwashGame(showList = false){
+        if(state.checking) return state.lastFoundUrl;
+
+        state.checking = true;
+        state.lastFoundUrl = '';
+
+        const list = $('candidateList');
+        list.innerHTML = '';
+
+        if(showList){
+          list.classList.add('show');
+        }
+
+        setStatus('<span class="loading"></span><b>สถานะ:</b> กำลังค้นหาไฟล์เกม Handwash...');
+        showToast('กำลังตรวจไฟล์เกม Handwash...');
+
+        for(const path of CONFIG.handwashCandidates){
+          const url = makeUrl(path);
+
+          const li = document.createElement('li');
+          li.innerHTML = `<code>${path}</code><span>checking...</span>`;
+          list.appendChild(li);
+
+          const ok = await probeUrl(url);
+
+          if(ok){
+            li.innerHTML = `<code>${path}</code><span>found ✅</span>`;
+
+            state.lastFoundUrl = url.toString();
+            state.checking = false;
+
+            setStatus(`<b>สถานะ:</b> พบไฟล์เกม Handwash แล้ว<br>${path}`);
+            showToast('พบไฟล์ Handwash แล้ว พร้อมเข้าเกม');
+            playTone('ok');
+
+            return state.lastFoundUrl;
+          }
+
+          li.innerHTML = `<code>${path}</code><span>not found</span>`;
+        }
+
+        state.checking = false;
+
+        setStatus(`
+          <b>สถานะ:</b> ยังไม่พบไฟล์เกม Handwash ที่ launcher ค้นหา<br>
+          ให้ตรวจชื่อไฟล์เกมจริงในโฟลเดอร์ <b>/herohealth/hygiene-zone/</b>
+          แล้วนำชื่อไฟล์มาไว้ลำดับแรกใน <b>handwashCandidates</b>
+        `);
+
+        showToast('ยังไม่พบไฟล์ Handwash ตัวจริง');
+        playTone('warn');
+
+        return '';
+      }
+
+      async function launchHandwash(){
+        playTone('click');
+
+        const found = state.lastFoundUrl || await findHandwashGame(false);
+
+        if(!found){
+          $('candidateList').classList.add('show');
+          await findHandwashGame(true);
+          return;
+        }
+
+        setStatus('<span class="loading"></span><b>สถานะ:</b> กำลังเข้า Handwash Hero...');
+        showToast('กำลังเข้า Handwash Hero...');
+
+        window.setTimeout(() => {
+          location.href = found;
+        }, 220);
+      }
+
+      function renderCandidateList(){
+        const list = $('candidateList');
+        list.innerHTML = '';
+
+        for(const path of CONFIG.handwashCandidates){
+          const li = document.createElement('li');
+          li.innerHTML = `<code>${path}</code><span>candidate</span>`;
+          list.appendChild(li);
+        }
+
+        list.classList.toggle('show');
+
+        showToast(
+          list.classList.contains('show')
+            ? 'แสดงรายชื่อไฟล์ที่ launcher จะค้นหา'
+            : 'ซ่อนรายชื่อไฟล์แล้ว'
+        );
+      }
+
+      function goZone(){
+        const url = makeUrl(CONFIG.hygieneZoneUrl);
+        location.href = url.toString();
+      }
+
+      function goToothbrush(){
+        const url = makeUrl(CONFIG.toothbrushUrl);
+        location.href = url.toString();
+      }
+
+      function goHome(){
+        location.href = CONFIG.homeUrl;
+      }
+
+      function bindEvents(){
+        $('startBtn').addEventListener('click', launchHandwash);
+
+        $('checkBtn').addEventListener('click', async () => {
+          $('candidateList').classList.add('show');
+          await findHandwashGame(true);
+        });
+
+        $('manualBtn').addEventListener('click', renderCandidateList);
+
+        $('zoneBtn').addEventListener('click', goZone);
+        $('toothBtn').addEventListener('click', goToothbrush);
+        $('homeBtn').addEventListener('click', goHome);
+
+        document.addEventListener('keydown', (ev) => {
+          if(ev.key === 'Enter') launchHandwash();
+          if(ev.key === 'Escape') goZone();
+        });
+      }
+
+      function init(){
+        initFromQuery();
+        bindEvents();
+
+        console.log('%cHandwash Launcher loaded', 'font-weight:bold;color:#0891b2', VERSION);
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
