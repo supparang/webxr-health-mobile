@@ -1,0 +1,1840 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no"
+  />
+  <meta name="theme-color" content="#dff8ff" />
+  <meta name="color-scheme" content="light" />
+
+  <title>HeroHealth • Handwash Hero AR</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root{
+      --ink:#12314a;
+      --muted:#64798c;
+      --blue:#0ea5e9;
+      --green:#22c55e;
+      --teal:#0f8f86;
+      --yellow:#ffe16b;
+      --red:#ef4444;
+      --card:rgba(255,255,255,.86);
+      --line:rgba(158,239,255,.72);
+      --shadow:0 18px 48px rgba(15,70,110,.18);
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+      --safe-left:env(safe-area-inset-left,0px);
+      --safe-right:env(safe-area-inset-right,0px);
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family:
+        ui-rounded,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 14% 8%,rgba(255,255,255,.95),transparent 30%),
+        radial-gradient(circle at 86% 16%,rgba(205,246,255,.95),transparent 30%),
+        linear-gradient(160deg,#dff8ff,#f6fdff 50%,#fff7d6);
+    }
+
+    button{
+      font:inherit;
+      cursor:pointer;
+    }
+
+    .app{
+      position:relative;
+      width:100vw;
+      height:100dvh;
+      overflow:hidden;
+      isolation:isolate;
+    }
+
+    .camera{
+      position:absolute;
+      inset:0;
+      z-index:0;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 20% 10%,rgba(255,255,255,.86),transparent 28%),
+        linear-gradient(160deg,#c8f5ff,#f8ffff 52%,#fff7d8);
+    }
+
+    video{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      transform:scaleX(-1);
+      opacity:.66;
+    }
+
+    .camera-fallback{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      color:rgba(18,49,74,.42);
+      font-size:20px;
+      font-weight:1000;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .water{
+      position:absolute;
+      top:0;
+      left:50%;
+      width:130px;
+      height:100%;
+      transform:translateX(-50%);
+      background:linear-gradient(180deg,rgba(56,189,248,.82),rgba(56,189,248,.22),transparent);
+      filter:blur(8px);
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .app.water-on .water{
+      opacity:.72;
+      animation:waterPulse .55s linear infinite;
+    }
+
+    @keyframes waterPulse{
+      0%,100%{transform:translateX(-50%) scaleY(.98);}
+      50%{transform:translateX(-50%) scaleY(1.05);}
+    }
+
+    .foam{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:0;
+      background-image:
+        radial-gradient(circle,rgba(255,255,255,.9) 0 8px,transparent 9px),
+        radial-gradient(circle,rgba(224,242,254,.9) 0 6px,transparent 7px),
+        radial-gradient(circle,rgba(255,255,255,.75) 0 5px,transparent 6px);
+      background-size:90px 90px,130px 130px,160px 160px;
+    }
+
+    .app.foamy .foam{
+      opacity:.65;
+      animation:bubble 1.8s linear infinite;
+    }
+
+    @keyframes bubble{
+      from{background-position:0 90px,40px 130px,80px 160px;}
+      to{background-position:0 -40px,40px -80px,80px -120px;}
+    }
+
+    .hud{
+      position:absolute;
+      z-index:4;
+      top:calc(10px + var(--safe-top));
+      left:calc(10px + var(--safe-left));
+      right:calc(10px + var(--safe-right));
+      display:grid;
+      gap:8px;
+    }
+
+    .topbar{
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+
+    .back{
+      width:46px;
+      height:46px;
+      border:2px solid var(--line);
+      border-radius:16px;
+      color:var(--ink);
+      background:var(--card);
+      font-size:24px;
+      font-weight:1000;
+      box-shadow:0 8px 22px rgba(15,70,110,.1);
+    }
+
+    .title{
+      flex:1;
+      min-width:0;
+      padding:10px 12px;
+      border:2px solid var(--line);
+      border-radius:18px;
+      background:var(--card);
+      box-shadow:0 8px 22px rgba(15,70,110,.1);
+      backdrop-filter:blur(14px);
+    }
+
+    .title small{
+      display:block;
+      color:var(--blue);
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .title strong{
+      display:block;
+      margin-top:1px;
+      font-size:clamp(18px,4vw,24px);
+      line-height:1.05;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .detect-pill{
+      min-width:96px;
+      height:46px;
+      display:grid;
+      place-items:center;
+      padding:0 10px;
+      border:2px solid var(--line);
+      border-radius:16px;
+      color:#0f766e;
+      background:var(--card);
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 8px 22px rgba(15,70,110,.1);
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:7px;
+    }
+
+    .stat{
+      min-height:52px;
+      padding:7px 8px;
+      border:2px solid var(--line);
+      border-radius:16px;
+      background:rgba(255,255,255,.78);
+      text-align:center;
+      box-shadow:0 8px 18px rgba(15,70,110,.08);
+    }
+
+    .stat span{
+      display:block;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+    }
+
+    .stat strong{
+      display:block;
+      margin-top:1px;
+      font-size:clamp(16px,4.8vw,24px);
+      line-height:1.05;
+      font-weight:1000;
+    }
+
+    .mission{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding:10px;
+      border:2px solid var(--line);
+      border-radius:20px;
+      background:rgba(255,255,255,.78);
+      box-shadow:0 8px 22px rgba(15,70,110,.1);
+      backdrop-filter:blur(14px);
+    }
+
+    .mission-icon{
+      width:46px;
+      height:46px;
+      display:grid;
+      place-items:center;
+      flex:none;
+      border-radius:16px;
+      background:linear-gradient(160deg,#e0f2fe,#dcfce7);
+      font-size:27px;
+    }
+
+    .mission h2{
+      margin:0;
+      font-size:clamp(16px,4vw,21px);
+      line-height:1.15;
+    }
+
+    .mission p{
+      margin:2px 0 0;
+      color:var(--muted);
+      font-size:clamp(12px,3vw,14px);
+      line-height:1.25;
+      font-weight:800;
+    }
+
+    .arena{
+      position:absolute;
+      z-index:2;
+      top:calc(214px + var(--safe-top));
+      left:10px;
+      right:10px;
+      bottom:calc(154px + var(--safe-bottom));
+      display:grid;
+      place-items:center;
+      pointer-events:none;
+    }
+
+    .hand{
+      position:relative;
+      width:min(72vw,330px);
+      height:min(52vh,380px);
+      min-height:290px;
+      pointer-events:auto;
+      display:grid;
+      place-items:center;
+    }
+
+    .glow{
+      position:absolute;
+      width:92%;
+      height:84%;
+      border-radius:999px;
+      background:radial-gradient(circle,rgba(255,255,255,.78),rgba(56,189,248,.2),transparent 70%);
+      filter:blur(2px);
+    }
+
+    .palm{
+      position:relative;
+      width:205px;
+      height:260px;
+      transform:translateY(28px);
+      border:5px solid rgba(14,116,144,.22);
+      border-radius:72px 72px 88px 88px;
+      background:
+        radial-gradient(circle at 50% 45%,rgba(255,255,255,.88),transparent 44%),
+        linear-gradient(180deg,#fff2cf,#ffddb3);
+      box-shadow:0 22px 44px rgba(15,70,110,.18);
+    }
+
+    .finger{
+      position:absolute;
+      bottom:235px;
+      width:40px;
+      border:5px solid rgba(14,116,144,.2);
+      border-bottom:0;
+      border-radius:28px 28px 10px 10px;
+      background:linear-gradient(180deg,#fff2cf,#ffddb3);
+    }
+
+    .f1{left:14px;height:100px;}
+    .f2{left:57px;height:130px;}
+    .f3{left:100px;height:138px;}
+    .f4{left:143px;height:110px;}
+
+    .thumb{
+      position:absolute;
+      left:-52px;
+      top:80px;
+      width:78px;
+      height:45px;
+      border:5px solid rgba(14,116,144,.2);
+      border-radius:30px;
+      background:linear-gradient(160deg,#fff2cf,#ffddb3);
+      transform:rotate(-42deg);
+    }
+
+    .target{
+      position:absolute;
+      width:84px;
+      height:48px;
+      display:grid;
+      place-items:center;
+      border:2px solid rgba(14,165,233,.44);
+      border-radius:999px;
+      color:#075985;
+      background:rgba(255,255,255,.86);
+      box-shadow:0 8px 20px rgba(14,116,144,.18);
+      font-size:12px;
+      font-weight:1000;
+      opacity:.45;
+      transform:scale(.92);
+      transition:.16s ease;
+    }
+
+    .target.active{
+      opacity:1;
+      transform:scale(1.12);
+      border-color:rgba(34,197,94,.8);
+      background:#ecfeff;
+      animation:pulse .7s ease-in-out infinite alternate;
+    }
+
+    .target.done{
+      opacity:.9;
+      color:#166534;
+      border-color:rgba(34,197,94,.55);
+      background:#dcfce7;
+    }
+
+    @keyframes pulse{
+      from{box-shadow:0 8px 20px rgba(14,116,144,.18),0 0 0 0 rgba(34,197,94,.38);}
+      to{box-shadow:0 12px 26px rgba(14,116,144,.2),0 0 0 12px rgba(34,197,94,0);}
+    }
+
+    .t-palm{left:61px;top:128px;}
+    .t-back{left:61px;top:74px;}
+    .t-between{left:61px;top:24px;}
+    .t-backfingers{left:61px;top:-28px;}
+    .t-thumbs{left:-70px;top:88px;}
+    .t-fingertips{left:61px;top:-82px;}
+    .t-foam{left:61px;top:184px;}
+
+    .boss-target{
+      position:absolute;
+      width:78px;
+      height:78px;
+      display:none;
+      place-items:center;
+      border:3px solid #fecaca;
+      border-radius:999px;
+      background:#fff1f2;
+      box-shadow:0 14px 30px rgba(239,68,68,.2);
+      font-size:40px;
+      pointer-events:auto;
+    }
+
+    .boss-target.show{
+      display:grid;
+      animation:pulseBoss .5s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulseBoss{
+      from{transform:scale(.96);}
+      to{transform:scale(1.08);}
+    }
+
+    .foam-meter{
+      position:absolute;
+      left:50%;
+      bottom:0;
+      width:min(88vw,330px);
+      height:14px;
+      transform:translateX(-50%);
+      border:2px solid rgba(14,116,144,.18);
+      border-radius:999px;
+      background:rgba(255,255,255,.72);
+      overflow:hidden;
+    }
+
+    .foam-meter span{
+      display:block;
+      width:0%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#bae6fd,#67e8f9,#dcfce7);
+      transition:width .18s ease;
+    }
+
+    .pointer{
+      position:absolute;
+      z-index:8;
+      width:28px;
+      height:28px;
+      display:none;
+      border:4px solid rgba(34,197,94,.95);
+      border-radius:999px;
+      background:rgba(255,255,255,.6);
+      transform:translate(-50%,-50%);
+      pointer-events:none;
+      box-shadow:0 0 0 8px rgba(34,197,94,.14);
+    }
+
+    .pointer.show{
+      display:block;
+    }
+
+    .controls{
+      position:absolute;
+      z-index:5;
+      left:calc(10px + var(--safe-left));
+      right:calc(10px + var(--safe-right));
+      bottom:calc(72px + var(--safe-bottom));
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:9px;
+    }
+
+    .control{
+      min-height:72px;
+      border:2px solid var(--line);
+      border-radius:22px;
+      color:var(--ink);
+      background:rgba(255,255,255,.82);
+      box-shadow:0 12px 30px rgba(15,70,110,.14);
+      font-weight:1000;
+    }
+
+    .control:disabled{
+      opacity:.44;
+      filter:grayscale(.4);
+      cursor:not-allowed;
+    }
+
+    .control span{
+      display:block;
+      font-size:27px;
+      margin-bottom:2px;
+    }
+
+    .process{
+      position:absolute;
+      z-index:5;
+      left:calc(10px + var(--safe-left));
+      right:calc(10px + var(--safe-right));
+      bottom:calc(12px + var(--safe-bottom));
+      display:flex;
+      gap:6px;
+      overflow-x:auto;
+      scrollbar-width:none;
+    }
+
+    .process::-webkit-scrollbar{
+      display:none;
+    }
+
+    .chip{
+      flex:0 0 auto;
+      padding:8px 10px;
+      border:2px solid rgba(158,239,255,.72);
+      border-radius:999px;
+      color:#526b7c;
+      background:rgba(255,255,255,.78);
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .chip.done{
+      color:#166534;
+      border-color:rgba(34,197,94,.4);
+      background:#dcfce7;
+    }
+
+    .overlay{
+      position:absolute;
+      inset:0;
+      z-index:30;
+      display:none;
+      place-items:center;
+      padding:
+        calc(18px + var(--safe-top))
+        calc(14px + var(--safe-right))
+        calc(18px + var(--safe-bottom))
+        calc(14px + var(--safe-left));
+      background:rgba(18,49,74,.34);
+      backdrop-filter:blur(14px);
+    }
+
+    .overlay.show{
+      display:grid;
+    }
+
+    .modal{
+      width:min(94vw,560px);
+      max-height:calc(100dvh - 34px - var(--safe-top) - var(--safe-bottom));
+      overflow-y:auto;
+      padding:24px;
+      border:2px solid rgba(255,255,255,.72);
+      border-radius:30px;
+      background:rgba(255,255,255,.94);
+      box-shadow:var(--shadow);
+      text-align:center;
+    }
+
+    .badge{
+      width:76px;
+      height:76px;
+      display:grid;
+      place-items:center;
+      margin:0 auto 12px;
+      border-radius:28px;
+      background:linear-gradient(160deg,#e0f2fe,#dcfce7);
+      font-size:42px;
+    }
+
+    .modal h1,.modal h2{
+      margin:0 0 8px;
+      font-size:clamp(28px,8vw,42px);
+      line-height:1.04;
+      font-weight:1000;
+    }
+
+    .modal p{
+      margin:0 0 14px;
+      color:var(--muted);
+      font-weight:850;
+      line-height:1.45;
+    }
+
+    .brief-list{
+      display:grid;
+      gap:8px;
+      margin:14px 0;
+      text-align:left;
+    }
+
+    .brief-list div{
+      padding:12px 14px;
+      border:2px solid #d8f7ff;
+      border-radius:18px;
+      background:#f0fbff;
+      font-weight:850;
+      line-height:1.35;
+    }
+
+    .actions{
+      display:grid;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .primary,.secondary,.ghost{
+      min-height:52px;
+      border:0;
+      border-radius:18px;
+      font-weight:1000;
+    }
+
+    .primary{
+      color:#fff;
+      background:linear-gradient(135deg,#0ea5e9,#22c55e);
+      box-shadow:0 12px 28px rgba(14,165,233,.22);
+    }
+
+    .secondary{
+      color:#075985;
+      background:#e0f2fe;
+    }
+
+    .ghost{
+      color:#64748b;
+      border:2px solid #e2e8f0;
+      background:transparent;
+    }
+
+    .countdown{
+      position:absolute;
+      inset:0;
+      z-index:35;
+      display:none;
+      place-items:center;
+      color:#fff;
+      background:rgba(14,116,144,.35);
+      backdrop-filter:blur(8px);
+      font-size:clamp(72px,22vw,128px);
+      font-weight:1000;
+    }
+
+    .countdown.show{
+      display:grid;
+    }
+
+    .summary-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:9px;
+      margin:12px 0;
+    }
+
+    .sum-box{
+      padding:12px;
+      border:2px solid #d8f7ff;
+      border-radius:18px;
+      background:#f0fbff;
+    }
+
+    .sum-box span{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .sum-box strong{
+      display:block;
+      margin-top:3px;
+      font-size:22px;
+      font-weight:1000;
+    }
+
+    .badge-list{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:8px;
+      margin:12px 0;
+    }
+
+    .mini-badge{
+      padding:8px 10px;
+      border-radius:999px;
+      color:#166534;
+      background:#dcfce7;
+      border:2px solid rgba(34,197,94,.26);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .toast{
+      position:absolute;
+      z-index:50;
+      left:50%;
+      bottom:calc(158px + var(--safe-bottom));
+      width:min(92vw,480px);
+      padding:12px 16px;
+      border-radius:18px;
+      color:#fff;
+      background:rgba(18,49,74,.94);
+      box-shadow:0 16px 34px rgba(18,49,74,.22);
+      text-align:center;
+      font-weight:950;
+      opacity:0;
+      pointer-events:none;
+      transform:translate(-50%,18px);
+      transition:opacity .18s ease,transform .18s ease;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translate(-50%,0);
+    }
+
+    @media (min-width:760px){
+      .app{
+        max-width:540px;
+        margin:0 auto;
+        border-inline:1px solid rgba(14,165,233,.14);
+      }
+
+      .summary-grid{
+        grid-template-columns:repeat(4,1fr);
+      }
+
+      .actions.three{
+        grid-template-columns:1fr 1fr 1fr;
+      }
+    }
+
+    @media (max-height:720px){
+      .arena{
+        top:calc(196px + var(--safe-top));
+        bottom:calc(142px + var(--safe-bottom));
+      }
+
+      .hand{
+        transform:scale(.88);
+      }
+
+      .control{
+        min-height:62px;
+      }
+
+      .controls{
+        bottom:calc(66px + var(--safe-bottom));
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main id="app" class="app">
+    <section class="camera" aria-label="AR camera">
+      <video id="video" autoplay muted playsinline></video>
+      <div id="cameraFallback" class="camera-fallback">AR Tap Mode</div>
+      <div class="water"></div>
+      <div class="foam"></div>
+    </section>
+
+    <div id="fingerPointer" class="pointer"></div>
+
+    <header class="hud">
+      <div class="topbar">
+        <button id="btnBackZone" class="back" type="button" aria-label="กลับ Hygiene Zone">←</button>
+        <div class="title">
+          <small>Hygiene Zone</small>
+          <strong>Handwash Hero AR</strong>
+        </div>
+        <div id="detectStatus" class="detect-pill">Tap Mode</div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span>Stage</span><strong id="stageText">Warmup</strong></div>
+        <div class="stat"><span>เวลา</span><strong id="timerText">45</strong></div>
+        <div class="stat"><span>คะแนน</span><strong id="scoreText">0</strong></div>
+        <div class="stat"><span>ขั้น</span><strong id="stepText">0/7</strong></div>
+      </div>
+
+      <section class="mission">
+        <div id="missionIcon" class="mission-icon">🧼</div>
+        <div>
+          <h2 id="missionTitle">ภารกิจล้างมือพิชิตเชื้อโรค</h2>
+          <p id="missionTip">ผ่าน Warmup, Main Game, Boss และ Summary</p>
+        </div>
+      </section>
+    </header>
+
+    <section class="arena">
+      <div class="hand">
+        <div class="glow"></div>
+
+        <div class="palm">
+          <div class="finger f1"></div>
+          <div class="finger f2"></div>
+          <div class="finger f3"></div>
+          <div class="finger f4"></div>
+          <div class="thumb"></div>
+
+          <button class="target t-palm" data-step="palm" type="button">ฝ่ามือ</button>
+          <button class="target t-back" data-step="backHand" type="button">หลังมือ</button>
+          <button class="target t-between" data-step="betweenFingers" type="button">ซอกนิ้ว</button>
+          <button class="target t-backfingers" data-step="backFingers" type="button">หลังนิ้ว</button>
+          <button class="target t-thumbs" data-step="thumbs" type="button">หัวแม่มือ</button>
+          <button class="target t-fingertips" data-step="fingertips" type="button">ปลายนิ้ว</button>
+          <button class="target t-foam" data-step="fullFoamCoverage" type="button">ฟองทั่วมือ</button>
+
+          <button id="bossTarget" class="boss-target" type="button">🦠</button>
+        </div>
+
+        <div class="foam-meter"><span id="foamFill"></span></div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <button id="btnFaucet" class="control" type="button"><span>🚰</span><b id="faucetLabel">เปิดน้ำ</b></button>
+      <button id="btnSoap" class="control" type="button"><span>🧴</span><b>กดสบู่</b></button>
+      <button id="btnTowel" class="control" type="button"><span>🧻</span><b>เช็ดมือ</b></button>
+    </section>
+
+    <section class="process">
+      <div class="chip" data-check="warmup">Warmup</div>
+      <div class="chip" data-check="waterOpenStart">เปิดน้ำ</div>
+      <div class="chip" data-check="waterCloseBeforeSoap">ปิดน้ำ</div>
+      <div class="chip" data-check="soapApplied">สบู่</div>
+      <div class="chip" data-check="scrubComplete">ถูครบ</div>
+      <div class="chip" data-check="rinsedSoap">ล้างฟอง</div>
+      <div class="chip" data-check="waterCloseAfterRinse">ปิดน้ำ</div>
+      <div class="chip" data-check="driedHands">เช็ดมือ</div>
+      <div class="chip" data-check="bossClear">Boss</div>
+    </section>
+
+    <section id="brief" class="overlay show">
+      <div class="modal">
+        <div class="badge">🧼</div>
+        <h1>Handwash Hero AR</h1>
+        <p>เกมล้างมือแบบ AR สำหรับ Hygiene Zone มี Warmup, Main Game, Germ Boss และ Summary</p>
+
+        <div class="brief-list">
+          <div>1) Warmup: จำลำดับ Water → Soap → Scrub → Rinse → Dry</div>
+          <div>2) Main Game: เปิดน้ำ ปิดน้ำ กดสบู่ ถูมือ ล้างฟอง เช็ดมือ</div>
+          <div>3) Boss: กำจัดเชื้อโรคสุดท้ายก่อนสรุปผล</div>
+          <div>4) เล่นได้ทั้ง Tap Mode และ Hand Detect ถ้ากล้อง/เครื่องรองรับ</div>
+        </div>
+
+        <div class="actions">
+          <button id="btnStart" class="primary" type="button">เริ่มภารกิจ</button>
+          <button id="btnBackZone2" class="secondary" type="button">กลับ Hygiene Zone</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="countdown" class="countdown">3</div>
+
+    <section id="summary" class="overlay">
+      <div class="modal">
+        <div id="summaryIcon" class="badge">🏆</div>
+        <h2 id="summaryTitle">ภารกิจสำเร็จ!</h2>
+        <p id="summarySub">คุณคือ Hygiene Hero</p>
+
+        <div class="summary-grid">
+          <div class="sum-box"><span>คะแนน</span><strong id="sumScore">0</strong></div>
+          <div class="sum-box"><span>ดาว</span><strong id="sumStars">-</strong></div>
+          <div class="sum-box"><span>Accuracy</span><strong id="sumAcc">0%</strong></div>
+          <div class="sum-box"><span>ถูมือ</span><strong id="sumSteps">0/7</strong></div>
+        </div>
+
+        <div id="badgeList" class="badge-list"></div>
+
+        <div class="brief-list">
+          <div id="recommend">ลองเล่นอีกครั้งเพื่อพัฒนาให้ครบทุกขั้นตอน</div>
+        </div>
+
+        <div class="actions three">
+          <button id="btnReplay" class="primary" type="button">เล่นอีกครั้ง</button>
+          <button id="btnBackZone3" class="secondary" type="button">กลับ Zone</button>
+          <button id="btnHub" class="ghost" type="button">กลับ Hub</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </main>
+
+  <script>
+    (function(){
+      "use strict";
+
+      const VERSION = "20260619-HANDWASH-LAUNCHER-HYGIENE-ZONE-V2-PATCH";
+      const GAME_ID = "handwash";
+      const ZONE_ID = "hygiene";
+
+      const qs = new URLSearchParams(location.search);
+
+      const ROUTES = {
+        zone: qs.get("zone") || "./hygiene-zone-v2.html",
+        hub: qs.get("hub") || "./hub.html"
+      };
+
+      const STORAGE = {
+        profile: "herohealth:hygiene:profile",
+        progress: "herohealth:hygiene:progress",
+        best: "herohealth:hygiene:handwash:best",
+        attempts: "herohealth:hygiene:handwash:attempts"
+      };
+
+      const SHEET_ENDPOINT = qs.get("sheet") || window.HH_HANDWASH_SHEET_ENDPOINT || "";
+
+      const DIFF = String(qs.get("diff") || "normal").toLowerCase();
+      const DURATION = clamp(Number(qs.get("time") || (DIFF === "easy" ? 60 : DIFF === "hard" ? 35 : 45)), 20, 180);
+
+      const SCRUB = [
+        {id:"palm", label:"ถูฝ่ามือ", icon:"🖐", tip:"ถูฝ่ามือให้ทั่ว เพื่อเริ่มกระจายฟองสบู่"},
+        {id:"backHand", label:"ถูหลังมือ", icon:"🤚", tip:"เชื้อโรคอาจอยู่บนหลังมือ ต้องถูให้สะอาด"},
+        {id:"betweenFingers", label:"ถูซอกนิ้ว", icon:"🦠", tip:"ซอกนิ้วเป็นจุดที่มักถูกลืม"},
+        {id:"backFingers", label:"ถูหลังนิ้ว", icon:"✨", tip:"ถูหลังนิ้วให้ครบ"},
+        {id:"thumbs", label:"ถูนิ้วหัวแม่มือ", icon:"👍", tip:"นิ้วหัวแม่มือใช้จับสิ่งของบ่อย ต้องถูเป็นพิเศษ"},
+        {id:"fingertips", label:"ถูปลายนิ้วและเล็บ", icon:"💅", tip:"ปลายนิ้วและเล็บเป็นจุดสำคัญ"},
+        {id:"fullFoamCoverage", label:"ถูให้ฟองครอบคลุมทั่วมือ", icon:"🫧", tip:"ตรวจให้แน่ใจว่าฟองสบู่ครอบคลุมทั่วมือ"}
+      ];
+
+      const SCORE = {
+        warmup:100,
+        waterOpenStart:50,
+        wetHands:50,
+        waterCloseBeforeSoap:100,
+        soapApplied:80,
+        scrubStep:100,
+        combo:20,
+        scrubComplete:300,
+        waterOpenRinse:80,
+        rinsedSoap:80,
+        waterCloseAfterRinse:100,
+        driedHands:100,
+        bossHit:120,
+        bossClear:300,
+        perfect:500,
+        wrong:-30,
+        waterWrong:-100,
+        dryMissing:-150
+      };
+
+      const el = {};
+      let state = null;
+      let timer = null;
+      let bossTimer = null;
+      let toastTimer = null;
+      let handDetectReady = false;
+      let lastAutoHitAt = 0;
+
+      document.addEventListener("DOMContentLoaded", init);
+
+      function init(){
+        cache();
+        bind();
+        resetState();
+        updateUI();
+        startCamera();
+        initHandDetect();
+      }
+
+      function cache(){
+        el.app = document.getElementById("app");
+        el.video = document.getElementById("video");
+        el.cameraFallback = document.getElementById("cameraFallback");
+        el.pointer = document.getElementById("fingerPointer");
+        el.detectStatus = document.getElementById("detectStatus");
+
+        el.stageText = document.getElementById("stageText");
+        el.timerText = document.getElementById("timerText");
+        el.scoreText = document.getElementById("scoreText");
+        el.stepText = document.getElementById("stepText");
+
+        el.missionIcon = document.getElementById("missionIcon");
+        el.missionTitle = document.getElementById("missionTitle");
+        el.missionTip = document.getElementById("missionTip");
+
+        el.btnBackZone = document.getElementById("btnBackZone");
+        el.btnBackZone2 = document.getElementById("btnBackZone2");
+        el.btnBackZone3 = document.getElementById("btnBackZone3");
+        el.btnHub = document.getElementById("btnHub");
+
+        el.btnStart = document.getElementById("btnStart");
+        el.btnReplay = document.getElementById("btnReplay");
+
+        el.brief = document.getElementById("brief");
+        el.countdown = document.getElementById("countdown");
+        el.summary = document.getElementById("summary");
+
+        el.btnFaucet = document.getElementById("btnFaucet");
+        el.faucetLabel = document.getElementById("faucetLabel");
+        el.btnSoap = document.getElementById("btnSoap");
+        el.btnTowel = document.getElementById("btnTowel");
+
+        el.targets = Array.from(document.querySelectorAll(".target"));
+        el.bossTarget = document.getElementById("bossTarget");
+        el.foamFill = document.getElementById("foamFill");
+        el.chips = Array.from(document.querySelectorAll(".chip"));
+
+        el.sumScore = document.getElementById("sumScore");
+        el.sumStars = document.getElementById("sumStars");
+        el.sumAcc = document.getElementById("sumAcc");
+        el.sumSteps = document.getElementById("sumSteps");
+        el.summaryIcon = document.getElementById("summaryIcon");
+        el.summaryTitle = document.getElementById("summaryTitle");
+        el.summarySub = document.getElementById("summarySub");
+        el.badgeList = document.getElementById("badgeList");
+        el.recommend = document.getElementById("recommend");
+        el.toast = document.getElementById("toast");
+      }
+
+      function bind(){
+        el.btnBackZone.addEventListener("click", goZone);
+        el.btnBackZone2.addEventListener("click", goZone);
+        el.btnBackZone3.addEventListener("click", goZone);
+        el.btnHub.addEventListener("click", () => location.href = ROUTES.hub);
+
+        el.btnStart.addEventListener("click", startGame);
+        el.btnReplay.addEventListener("click", startGame);
+
+        el.btnFaucet.addEventListener("click", onFaucet);
+        el.btnSoap.addEventListener("click", onSoap);
+        el.btnTowel.addEventListener("click", onTowel);
+
+        el.targets.forEach(t => t.addEventListener("click", () => onScrub(t.dataset.step)));
+        el.bossTarget.addEventListener("click", hitBoss);
+      }
+
+      function resetState(){
+        clearInterval(timer);
+        clearInterval(bossTimer);
+        timer = null;
+        bossTimer = null;
+
+        state = {
+          stage:"brief",
+          phase:"brief",
+          duration:DURATION,
+          remaining:DURATION,
+          score:0,
+          combo:0,
+          bestCombo:0,
+          foam:0,
+          waterOn:false,
+          scrubIndex:0,
+          bossHp:5,
+          startedAt:"",
+          endedAt:"",
+          endReason:"",
+          pass:0,
+          mistakes:0,
+          waterMistakes:0,
+          soapMistakes:0,
+          orderMistakes:0,
+          scrubMistakes:0,
+          checks:{
+            warmup:false,
+            waterOpenStart:false,
+            wetHands:false,
+            waterCloseBeforeSoap:false,
+            soapApplied:false,
+            foamCreated:false,
+            palm:false,
+            backHand:false,
+            betweenFingers:false,
+            backFingers:false,
+            thumbs:false,
+            fingertips:false,
+            fullFoamCoverage:false,
+            scrubComplete:false,
+            waterOpenRinse:false,
+            rinsedSoap:false,
+            waterCloseAfterRinse:false,
+            driedHands:false,
+            bossClear:false
+          },
+          badges:[],
+          accuracy:0,
+          stars:0,
+          grade:"Starter",
+          recommendation:""
+        };
+
+        setWater(false);
+        el.summary.classList.remove("show");
+        el.bossTarget.classList.remove("show");
+      }
+
+      async function startGame(){
+        resetState();
+        state.stage = "warmup";
+        state.phase = "warmup";
+        state.startedAt = new Date().toISOString();
+
+        el.brief.classList.remove("show");
+        updateMission();
+        updateUI();
+
+        await runCountdown();
+
+        passCheck("warmup", SCORE.warmup);
+        showToast("Warmup ผ่านแล้ว เริ่มจากเปิดน้ำให้มือเปียก");
+        state.stage = "main";
+        state.phase = "wet";
+        startTimer();
+        updateMission();
+        updateUI();
+      }
+
+      function runCountdown(){
+        return new Promise(resolve => {
+          const seq = ["3","2","1","ลุย!"];
+          let i = 0;
+          el.countdown.textContent = seq[i];
+          el.countdown.classList.add("show");
+
+          const id = setInterval(() => {
+            i += 1;
+            if(i >= seq.length){
+              clearInterval(id);
+              el.countdown.classList.remove("show");
+              resolve();
+              return;
+            }
+            el.countdown.textContent = seq[i];
+          }, 680);
+        });
+      }
+
+      function startTimer(){
+        clearInterval(timer);
+        timer = setInterval(() => {
+          if(!state || ["brief","summary","done"].includes(state.stage)) return;
+          state.remaining -= 1;
+
+          if(state.remaining <= 0){
+            state.remaining = 0;
+            endGame("timeup");
+            return;
+          }
+
+          updateUI();
+        }, 1000);
+      }
+
+      function onFaucet(){
+        if(state.stage !== "main") return;
+
+        switch(state.phase){
+          case "wet":
+            setWater(true);
+            passCheck("waterOpenStart", SCORE.waterOpenStart);
+            passCheck("wetHands", SCORE.wetHands);
+            state.phase = "closeBeforeSoap";
+            showToast("ดีมาก! ปิดน้ำก่อนกดสบู่");
+            break;
+
+          case "closeBeforeSoap":
+            if(!state.waterOn) return wrong("ต้องเปิดน้ำให้มือเปียกก่อน", "water");
+            setWater(false);
+            passCheck("waterCloseBeforeSoap", SCORE.waterCloseBeforeSoap);
+            state.phase = "soap";
+            showToast("ยอดเยี่ยม ต่อไปกดสบู่");
+            break;
+
+          case "soap":
+            wrong("ตอนนี้ต้องกดสบู่ ยังไม่ต้องเปิดน้ำ", "water");
+            break;
+
+          case "scrub":
+            wrong("ยังถูมือไม่ครบ อย่าเพิ่งเปิดน้ำล้าง", "water");
+            break;
+
+          case "rinseOpen":
+            setWater(true);
+            passCheck("waterOpenRinse", SCORE.waterOpenRinse);
+            state.phase = "rinsing";
+            showToast("กำลังล้างฟองสบู่ออก");
+            setTimeout(() => {
+              if(state.phase !== "rinsing") return;
+              state.foam = 0;
+              passCheck("rinsedSoap", SCORE.rinsedSoap);
+              state.phase = "closeAfterRinse";
+              showToast("ล้างฟองแล้ว อย่าลืมปิดน้ำ");
+              updateMission();
+              updateUI();
+            }, 900);
+            break;
+
+          case "closeAfterRinse":
+            setWater(false);
+            passCheck("waterCloseAfterRinse", SCORE.waterCloseAfterRinse);
+            state.phase = "dry";
+            showToast("ดีมาก ขั้นสุดท้ายเช็ดมือให้แห้ง");
+            break;
+
+          case "dry":
+            wrong("ตอนนี้ต้องเช็ดมือ ไม่ต้องเปิดน้ำแล้ว", "water");
+            break;
+
+          default:
+            wrong("ยังไม่ถึงขั้นใช้ก๊อกน้ำ", "water");
+        }
+
+        updateMission();
+        updateUI();
+      }
+
+      function onSoap(){
+        if(state.stage !== "main") return;
+
+        if(state.phase !== "soap"){
+          if(!state.checks.wetHands) wrong("ต้องเปิดน้ำให้มือเปียกก่อน", "soap");
+          else if(!state.checks.waterCloseBeforeSoap) wrong("ควรปิดน้ำก่อนกดสบู่", "soap");
+          else wrong("ยังไม่ถึงขั้นกดสบู่", "soap");
+          updateUI();
+          return;
+        }
+
+        passCheck("soapApplied", SCORE.soapApplied);
+        passCheck("foamCreated", 0);
+        state.foam = 30;
+        state.phase = "scrub";
+        state.scrubIndex = 0;
+        showToast("เริ่มถูมือให้ครบ 7 จุด");
+        updateMission();
+        updateUI();
+      }
+
+      function onScrub(stepId){
+        if(state.stage !== "main") return;
+
+        if(state.phase !== "scrub"){
+          if(!state.checks.soapApplied) wrong("ต้องกดสบู่ก่อนถูมือ", "order");
+          else wrong("ยังไม่ถึงขั้นถูมือ", "order");
+          updateUI();
+          return;
+        }
+
+        const current = SCRUB[state.scrubIndex];
+        if(!current) return;
+
+        if(stepId !== current.id){
+          state.scrubMistakes += 1;
+          wrong("ยังไม่ใช่จุดนี้ ตอนนี้ต้องทำ: " + current.label, "scrub");
+          updateUI();
+          return;
+        }
+
+        if(state.checks[stepId]) return;
+
+        passCheck(stepId, SCORE.scrubStep);
+        state.combo += 1;
+        state.bestCombo = Math.max(state.bestCombo, state.combo);
+        state.score += state.combo * SCORE.combo;
+        state.foam = clamp(state.foam + 12, 0, 100);
+
+        state.scrubIndex += 1;
+
+        if(state.scrubIndex >= SCRUB.length){
+          passCheck("scrubComplete", SCORE.scrubComplete);
+          state.phase = "rinseOpen";
+          showToast("ถูครบทุกจุดแล้ว เปิดน้ำล้างฟอง");
+        }else{
+          showToast("ต่อไป: " + SCRUB[state.scrubIndex].label);
+        }
+
+        updateMission();
+        updateUI();
+      }
+
+      function onTowel(){
+        if(state.stage !== "main") return;
+
+        if(state.phase !== "dry"){
+          wrong("ยังเช็ดมือไม่ได้ ต้องล้างฟองและปิดน้ำก่อน", "order");
+          updateUI();
+          return;
+        }
+
+        passCheck("driedHands", SCORE.driedHands);
+        startBoss();
+      }
+
+      function startBoss(){
+        state.stage = "boss";
+        state.phase = "boss";
+        state.bossHp = 5;
+        showToast("Germ Boss มาแล้ว! กำจัดเชื้อโรค 5 ครั้ง");
+        placeBoss();
+
+        clearInterval(bossTimer);
+        bossTimer = setInterval(placeBoss, 900);
+
+        updateMission();
+        updateUI();
+      }
+
+      function placeBoss(){
+        if(state.stage !== "boss") return;
+
+        const arena = document.querySelector(".arena").getBoundingClientRect();
+        const x = Math.random() * Math.max(120, arena.width - 100) + 20;
+        const y = Math.random() * Math.max(120, arena.height - 100) + 20;
+
+        el.bossTarget.style.left = x + "px";
+        el.bossTarget.style.top = y + "px";
+        el.bossTarget.classList.add("show");
+      }
+
+      function hitBoss(){
+        if(state.stage !== "boss") return;
+
+        state.bossHp -= 1;
+        state.score += SCORE.bossHit;
+        state.pass += 1;
+        showToast("กำจัดเชื้อโรค! เหลือ " + Math.max(0,state.bossHp));
+
+        if(state.bossHp <= 0){
+          clearInterval(bossTimer);
+          el.bossTarget.classList.remove("show");
+          passCheck("bossClear", SCORE.bossClear);
+          endGame("completed");
+        }else{
+          placeBoss();
+        }
+
+        updateUI();
+      }
+
+      function passCheck(name, score){
+        if(!state.checks[name]){
+          state.checks[name] = true;
+          state.score += score;
+          state.pass += 1;
+        }
+      }
+
+      function wrong(message,type){
+        let penalty = Math.abs(SCORE.wrong);
+        if(type === "water") penalty = Math.abs(SCORE.waterWrong);
+
+        state.mistakes += 1;
+        state.orderMistakes += 1;
+        state.combo = 0;
+        state.score = Math.max(0, state.score - penalty);
+
+        if(type === "water") state.waterMistakes += 1;
+        if(type === "soap") state.soapMistakes += 1;
+
+        showToast(message + " (-" + penalty + ")");
+      }
+
+      function setWater(on){
+        state.waterOn = !!on;
+        el.app.classList.toggle("water-on", state.waterOn);
+      }
+
+      function updateMission(){
+        const data = getMissionData();
+        el.missionIcon.textContent = data.icon;
+        el.missionTitle.textContent = data.title;
+        el.missionTip.textContent = data.tip;
+      }
+
+      function getMissionData(){
+        if(state.stage === "warmup"){
+          return {icon:"🧠", title:"Warmup: จำลำดับก่อนเล่น", tip:"Water → Soap → Scrub → Rinse → Dry"};
+        }
+
+        if(state.stage === "boss"){
+          return {icon:"🦠", title:"Germ Boss", tip:"แตะเชื้อโรคให้ครบ 5 ครั้งก่อนหมดเวลา"};
+        }
+
+        const map = {
+          wet:{icon:"🚰", title:"เปิดน้ำให้มือเปียก", tip:"เริ่มจากเปิดน้ำให้มือเปียกก่อน"},
+          closeBeforeSoap:{icon:"💧", title:"ปิดน้ำก่อนกดสบู่", tip:"ปิดน้ำเพื่อไม่ให้น้ำไหลทิ้ง"},
+          soap:{icon:"🧴", title:"กดสบู่", tip:"ใช้สบู่ก่อนถูมือ"},
+          rinseOpen:{icon:"💦", title:"เปิดน้ำล้างฟอง", tip:"ถูครบแล้ว เปิดน้ำล้างฟองออก"},
+          rinsing:{icon:"🫧", title:"กำลังล้างฟอง", tip:"รอสักครู่ให้ฟองสบู่ออก"},
+          closeAfterRinse:{icon:"🚰", title:"ปิดน้ำหลังล้าง", tip:"อย่าลืมปิดน้ำหลังล้างมือ"},
+          dry:{icon:"🧻", title:"เช็ดมือให้แห้ง", tip:"ขั้นสุดท้าย เช็ดมือให้แห้ง"}
+        };
+
+        if(state.phase === "scrub"){
+          const s = SCRUB[state.scrubIndex] || SCRUB[SCRUB.length - 1];
+          return {icon:s.icon, title:s.label, tip:s.tip};
+        }
+
+        return map[state.phase] || {icon:"🧼", title:"Handwash Hero AR", tip:"ทำตามขั้นตอนให้ครบ"};
+      }
+
+      function updateUI(){
+        el.stageText.textContent =
+          state.stage === "warmup" ? "Warmup" :
+          state.stage === "main" ? "Main" :
+          state.stage === "boss" ? "Boss" :
+          state.stage === "summary" ? "Summary" : "Ready";
+
+        el.timerText.textContent = String(state.remaining);
+        el.scoreText.textContent = String(state.score);
+        el.stepText.textContent = completedScrubs() + "/7";
+        el.faucetLabel.textContent = state.waterOn ? "ปิดน้ำ" : "เปิดน้ำ";
+        el.foamFill.style.width = clamp(state.foam,0,100) + "%";
+
+        el.app.classList.toggle("water-on", state.waterOn);
+        el.app.classList.toggle("foamy", state.foam > 0 && !state.checks.rinsedSoap);
+
+        el.btnFaucet.disabled = !(state.stage === "main" && ["wet","closeBeforeSoap","rinseOpen","closeAfterRinse"].includes(state.phase));
+        el.btnSoap.disabled = !(state.stage === "main" && state.phase === "soap");
+        el.btnTowel.disabled = !(state.stage === "main" && state.phase === "dry");
+
+        const active = SCRUB[state.scrubIndex];
+
+        el.targets.forEach(t => {
+          const id = t.dataset.step;
+          t.classList.toggle("done", !!state.checks[id]);
+          t.classList.toggle("active", state.stage === "main" && state.phase === "scrub" && active && active.id === id);
+          t.disabled = !(state.stage === "main" && state.phase === "scrub");
+        });
+
+        el.chips.forEach(c => {
+          const k = c.dataset.check;
+          c.classList.toggle("done", !!state.checks[k]);
+        });
+      }
+
+      function completedScrubs(){
+        return SCRUB.reduce((sum,s) => sum + (state.checks[s.id] ? 1 : 0), 0);
+      }
+
+      function endGame(reason){
+        clearInterval(timer);
+        clearInterval(bossTimer);
+
+        if(reason === "timeup" && !state.checks.driedHands){
+          state.score = Math.max(0, state.score + SCORE.dryMissing);
+        }
+
+        state.endReason = reason;
+        state.endedAt = new Date().toISOString();
+
+        setWater(false);
+        state.stage = "summary";
+        state.phase = "summary";
+
+        finalize();
+        renderSummary();
+        saveResult();
+        sendSheet();
+
+        updateUI();
+        el.summary.classList.add("show");
+      }
+
+      function finalize(){
+        if(isComplete() && state.mistakes === 0){
+          state.score += SCORE.perfect;
+        }
+
+        const total = state.pass + state.mistakes;
+        state.accuracy = total ? Math.round((state.pass / total) * 100) : 0;
+
+        const scrubs = completedScrubs();
+
+        if(state.accuracy >= 90 && scrubs >= 7 && isComplete()) state.stars = 3;
+        else if(state.accuracy >= 75 && scrubs >= 6) state.stars = 2;
+        else if(state.accuracy >= 60 && scrubs >= 5) state.stars = 1;
+        else state.stars = 0;
+
+        state.grade =
+          state.stars === 3 && isComplete() && state.accuracy >= 95 ? "Hygiene Master" :
+          state.stars === 3 ? "Clean Hero" :
+          state.stars === 2 ? "Good Washer" :
+          state.stars === 1 ? "Try Again Hero" :
+          "Need Practice";
+
+        state.badges = [];
+
+        if(state.checks.waterCloseBeforeSoap && state.checks.waterCloseAfterRinse && state.waterMistakes === 0){
+          state.badges.push("🚰 Water Saver");
+        }
+        if(state.checks.soapApplied && state.soapMistakes === 0){
+          state.badges.push("🧼 Soap Starter");
+        }
+        if(scrubs >= 7){
+          state.badges.push("🫧 Foam Master");
+          state.badges.push("🦠 Germ Hunter");
+        }
+        if(state.checks.driedHands){
+          state.badges.push("🧻 Dry Hand Hero");
+        }
+        if(state.checks.bossClear){
+          state.badges.push("👾 Germ Boss Clear");
+        }
+        if(isComplete() && state.orderMistakes === 0){
+          state.badges.push("🏆 Hygiene Master");
+        }
+
+        state.recommendation = recommendation();
+      }
+
+      function isComplete(){
+        return !!(
+          state.checks.warmup &&
+          state.checks.waterOpenStart &&
+          state.checks.wetHands &&
+          state.checks.waterCloseBeforeSoap &&
+          state.checks.soapApplied &&
+          state.checks.scrubComplete &&
+          state.checks.waterOpenRinse &&
+          state.checks.rinsedSoap &&
+          state.checks.waterCloseAfterRinse &&
+          state.checks.driedHands &&
+          state.checks.bossClear
+        );
+      }
+
+      function recommendation(){
+        if(isComplete() && state.orderMistakes === 0){
+          return "ยอดเยี่ยม! ล้างมือครบขั้นตอน ใช้สบู่ ปิดน้ำ เช็ดมือ และผ่าน Germ Boss โดยไม่ผิดลำดับ";
+        }
+        if(!state.checks.waterCloseBeforeSoap || !state.checks.waterCloseAfterRinse){
+          return "รอบต่อไปอย่าลืมปิดน้ำทั้งก่อนถูสบู่และหลังล้างมือ";
+        }
+        if(!state.checks.soapApplied){
+          return "ต้องกดสบู่ก่อนถูมือ เพื่อให้การล้างมือมีประสิทธิภาพ";
+        }
+        if(completedScrubs() < 7){
+          const miss = SCRUB.find(s => !state.checks[s.id]);
+          return "จุดที่ควรฝึกเพิ่มคือ " + (miss ? miss.label : "ถูมือให้ทั่ว");
+        }
+        if(!state.checks.driedHands){
+          return "อย่าลืมเช็ดมือให้แห้งหลังล้างมือ";
+        }
+        if(!state.checks.bossClear){
+          return "ผ่านขั้นตอนล้างมือแล้ว รอบต่อไปกำจัด Germ Boss ให้สำเร็จ";
+        }
+        return "ทำได้ดีแล้ว รอบต่อไปลองลดความผิดพลาดและเพิ่มความแม่นยำ";
+      }
+
+      function renderSummary(){
+        el.sumScore.textContent = String(state.score);
+        el.sumStars.textContent = state.stars ? "⭐".repeat(state.stars) : "-";
+        el.sumAcc.textContent = state.accuracy + "%";
+        el.sumSteps.textContent = completedScrubs() + "/7";
+        el.summaryTitle.textContent = state.endReason === "completed" ? "ภารกิจสำเร็จ!" : "หมดเวลาแล้ว";
+        el.summarySub.textContent = state.grade;
+        el.summaryIcon.textContent = state.stars >= 3 ? "🏆" : state.stars >= 2 ? "🧼" : "💪";
+        el.recommend.textContent = state.recommendation;
+
+        el.badgeList.innerHTML = "";
+
+        if(!state.badges.length){
+          const b = document.createElement("span");
+          b.className = "mini-badge";
+          b.textContent = "ลองอีกครั้งเพื่อปลดล็อก Badge";
+          el.badgeList.appendChild(b);
+        }else{
+          state.badges.forEach(x => {
+            const b = document.createElement("span");
+            b.className = "mini-badge";
+            b.textContent = x;
+            el.badgeList.appendChild(b);
+          });
+        }
+      }
+
+      function payload(){
+        const pid = qs.get("pid") || "anon";
+        const name = qs.get("name") || "Hero";
+        const sessionId = qs.get("session") || createSessionId();
+
+        return {
+          game:"handwash-ar",
+          gameShort:"handwash",
+          zone:ZONE_ID,
+          version:VERSION,
+          timestamp:state.endedAt,
+          startedAt:state.startedAt,
+          sessionId,
+          studyId:qs.get("studyId") || "HYGIENE-P5-2026",
+          participantId:pid,
+          name,
+          classLevel:qs.get("classLevel") || "P5",
+          mode:handDetectReady ? "AR-hand-detect+tap" : "AR-tap",
+          difficulty:DIFF,
+          durationSec:state.duration,
+          remainingSec:state.remaining,
+          endReason:state.endReason,
+
+          score:state.score,
+          accuracy:state.accuracy,
+          completedSteps:completedScrubs(),
+          totalSteps:7,
+          wrongSteps:state.scrubMistakes,
+          bestCombo:state.bestCombo,
+          stars:state.stars,
+          grade:state.grade,
+
+          warmup:pf(state.checks.warmup),
+          waterOpenStart:pf(state.checks.waterOpenStart),
+          wetHands:pf(state.checks.wetHands),
+          waterCloseBeforeSoap:pf(state.checks.waterCloseBeforeSoap),
+          soapApplied:pf(state.checks.soapApplied),
+          foamCreated:pf(state.checks.foamCreated),
+          palmStep:pf(state.checks.palm),
+          backHandStep:pf(state.checks.backHand),
+          betweenFingersStep:pf(state.checks.betweenFingers),
+          backFingersStep:pf(state.checks.backFingers),
+          thumbsStep:pf(state.checks.thumbs),
+          fingertipsStep:pf(state.checks.fingertips),
+          fullFoamCoverage:pf(state.checks.fullFoamCoverage),
+          waterOpenRinse:pf(state.checks.waterOpenRinse),
+          rinsedSoap:pf(state.checks.rinsedSoap),
+          waterCloseAfterRinse:pf(state.checks.waterCloseAfterRinse),
+          driedHands:pf(state.checks.driedHands),
+          bossClear:pf(state.checks.bossClear),
+
+          waterMistakes:state.waterMistakes,
+          soapMistakes:state.soapMistakes,
+          orderMistakes:state.orderMistakes,
+          scrubMistakes:state.scrubMistakes,
+          badges:state.badges.join("|"),
+          recommendation:state.recommendation,
+          hygieneProcessComplete:isComplete() ? "yes" : "no",
+          userAgent:navigator.userAgent
+        };
+      }
+
+      function saveResult(){
+        const p = payload();
+
+        const attempts = readJson(STORAGE.attempts, []);
+        attempts.unshift(p);
+        writeJson(STORAGE.attempts, attempts.slice(0,30));
+
+        const best = readJson(STORAGE.best, null);
+        if(!best || Number(p.score) > Number(best.score || 0)){
+          writeJson(STORAGE.best, p);
+        }
+
+        const progress = readJson(STORAGE.progress, {});
+        const old = progress.handwash || {};
+
+        progress.handwash = {
+          status:p.stars > 0 ? "completed" : "attempted",
+          stars:Math.max(Number(old.stars || 0), Number(p.stars || 0)),
+          bestScore:Math.max(Number(old.bestScore || 0), Number(p.score || 0)),
+          accuracy:Math.max(Number(old.accuracy || 0), Number(p.accuracy || 0)),
+          grade:p.grade,
+          badge:p.badges,
+          lastPlayedAt:p.timestamp,
+          source:"handwash-launcher"
+        };
+
+        writeJson(STORAGE.progress, progress);
+      }
+
+      function sendSheet(){
+        if(!SHEET_ENDPOINT) return;
+
+        try{
+          fetch(SHEET_ENDPOINT, {
+            method:"POST",
+            mode:"no-cors",
+            headers:{"Content-Type":"text/plain;charset=utf-8"},
+            body:JSON.stringify(payload())
+          }).catch(()=>{});
+        }catch(e){}
+      }
+
+      async function startCamera(){
+        if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+          el.cameraFallback.style.display = "grid";
+          return;
+        }
+
+        try{
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video:{facingMode:"environment",width:{ideal:1280},height:{ideal:720}},
+            audio:false
+          });
+
+          el.video.srcObject = stream;
+          await el.video.play();
+          el.cameraFallback.style.display = "none";
+        }catch(e){
+          el.cameraFallback.style.display = "grid";
+        }
+      }
+
+      function initHandDetect(){
+        if(!window.Hands || !window.Camera){
+          el.detectStatus.textContent = "Tap Mode";
+          return;
+        }
+
+        try{
+          const hands = new Hands({
+            locateFile: file => "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file
+          });
+
+          hands.setOptions({
+            maxNumHands:1,
+            modelComplexity:0,
+            minDetectionConfidence:.62,
+            minTrackingConfidence:.58
+          });
+
+          hands.onResults(onHands);
+
+          const camera = new Camera(el.video, {
+            onFrame: async () => {
+              if(el.video.readyState >= 2){
+                await hands.send({image:el.video});
+              }
+            },
+            width:640,
+            height:480
+          });
+
+          camera.start();
+          handDetectReady = true;
+          el.detectStatus.textContent = "Hand Detect";
+        }catch(e){
+          handDetectReady = false;
+          el.detectStatus.textContent = "Tap Mode";
+        }
+      }
+
+      function onHands(results){
+        if(!results || !results.multiHandLandmarks || !results.multiHandLandmarks.length){
+          el.pointer.classList.remove("show");
+          return;
+        }
+
+        const tip = results.multiHandLandmarks[0][8];
+        if(!tip) return;
+
+        const x = (1 - tip.x) * window.innerWidth;
+        const y = tip.y * window.innerHeight;
+
+        el.pointer.style.left = x + "px";
+        el.pointer.style.top = y + "px";
+        el.pointer.classList.add("show");
+
+        autoHitByPointer(x,y);
+      }
+
+      function autoHitByPointer(x,y){
+        const now = performance.now();
+        if(now - lastAutoHitAt < 520) return;
+
+        if(state.stage === "main" && state.phase === "scrub"){
+          const active = document.querySelector(".target.active");
+          if(active && pointInRect(x,y,active.getBoundingClientRect())){
+            lastAutoHitAt = now;
+            onScrub(active.dataset.step);
+          }
+        }
+
+        if(state.stage === "boss"){
+          const r = el.bossTarget.getBoundingClientRect();
+          if(el.bossTarget.classList.contains("show") && pointInRect(x,y,r)){
+            lastAutoHitAt = now;
+            hitBoss();
+          }
+        }
+      }
+
+      function pointInRect(x,y,r){
+        return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+      }
+
+      function goZone(){
+        location.href = ROUTES.zone;
+      }
+
+      function pf(v){
+        return v ? "pass" : "fail";
+      }
+
+      function readJson(k,f){
+        try{
+          const raw = localStorage.getItem(k);
+          return raw ? JSON.parse(raw) : f;
+        }catch(e){
+          return f;
+        }
+      }
+
+      function writeJson(k,v){
+        try{
+          localStorage.setItem(k, JSON.stringify(v));
+        }catch(e){}
+      }
+
+      function createSessionId(){
+        const d = new Date();
+        const stamp =
+          d.getFullYear() +
+          pad(d.getMonth()+1) +
+          pad(d.getDate()) + "-" +
+          pad(d.getHours()) +
+          pad(d.getMinutes()) +
+          pad(d.getSeconds());
+        return "handwash-" + stamp + "-" + Math.random().toString(16).slice(2,8);
+      }
+
+      function pad(n){
+        return String(n).padStart(2,"0");
+      }
+
+      function clamp(v,min,max){
+        v = Number(v);
+        if(!Number.isFinite(v)) v = min;
+        return Math.max(min, Math.min(max, v));
+      }
+
+      function showToast(msg){
+        clearTimeout(toastTimer);
+        el.toast.textContent = msg;
+        el.toast.classList.add("show");
+        toastTimer = setTimeout(() => el.toast.classList.remove("show"), 1800);
+      }
+    })();
+  </script>
+</body>
+</html>
