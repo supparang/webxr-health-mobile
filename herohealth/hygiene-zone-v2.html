@@ -34,7 +34,8 @@
       -webkit-tap-highlight-color:transparent;
     }
 
-    html,body{
+    html,
+    body{
       margin:0;
       min-height:100%;
       font-family:
@@ -55,7 +56,9 @@
       overflow-x:hidden;
     }
 
-    button,input,select{
+    button,
+    input,
+    select{
       font:inherit;
     }
 
@@ -403,19 +406,15 @@
     (function(){
       "use strict";
 
-      const VERSION = "20260619-HYGIENE-ZONE-V2-PATCH6";
+      const VERSION = "20260619-HYGIENE-ZONE-V2-PATCH6-HANDWASH-V2";
 
       const qs = new URLSearchParams(location.search);
 
       const ROUTES = {
         hub: qs.get("hub") || "./hub.html",
 
-        handwash: "./handwash-launcher.html",
+        handwash: "./handwash-launcher-v2.html",
 
-        /*
-          ถ้าไฟล์เกมอื่นใน repo ใช้ชื่อไม่ตรง ให้แก้เฉพาะ 5 บรรทัดนี้
-          หน้า Hygiene Zone และระบบ progress ไม่ต้องแก้อีก
-        */
         brush: "./brush-hero.html",
         bath: "./bath-time.html",
         germ: "./germ-detective.html",
@@ -436,7 +435,7 @@
           icon:"🧼",
           title:"Handwash",
           desc:"ฝึกล้างมือให้ถูกขั้นตอน WHO ผ่าน Warmup, Main Game, Boss และ Summary",
-          tags:["ใช้ handwash-launcher.html"],
+          tags:["ใช้ handwash-launcher-v2.html","Hand Detect: ปลายนิ้วชี้"],
           cta:"▶ เริ่ม Handwash",
           featured:true
         },
@@ -503,9 +502,11 @@
         document.getElementById("btnReset").addEventListener("click", () => {
           const ok = confirm("ล้างผล Hygiene Zone ในเครื่องนี้หรือไม่?");
           if(!ok) return;
+
           localStorage.removeItem(STORAGE.progress);
           localStorage.removeItem(STORAGE.handwashBest);
           localStorage.removeItem(STORAGE.handwashAttempts);
+
           showToast("Reset ผล Hygiene Zone แล้ว");
           render();
         });
@@ -565,7 +566,11 @@
         GAMES.forEach(game => {
           const p = progress[game.id] || {};
           const s = Number(p.stars || 0);
-          if(s > 0 || p.status === "completed" || p.status === "attempted") played += 1;
+
+          if(s > 0 || p.status === "completed" || p.status === "attempted"){
+            played += 1;
+          }
+
           stars += s;
         });
 
@@ -575,12 +580,14 @@
       }
 
       function launchGame(id){
-        const diff = qs.get("diff") || "normal";
+        const profile = readJson(STORAGE.profile, {});
+        const diff = qs.get("diff") || profile.difficulty || "normal";
         const time = qs.get("time") || (diff === "easy" ? "60" : diff === "hard" ? "35" : "45");
-        const pid = qs.get("pid") || readJson(STORAGE.profile, {}).participantId || "anon";
-        const name = qs.get("name") || readJson(STORAGE.profile, {}).name || "Hero";
+        const pid = qs.get("pid") || profile.participantId || "anon";
+        const name = qs.get("name") || profile.name || "Hero";
 
         const params = new URLSearchParams();
+
         params.set("zone", "./hygiene-zone-v2.html");
         params.set("hub", ROUTES.hub);
         params.set("game", id);
@@ -609,6 +616,7 @@
 
         if(best){
           const old = progress.handwash || {};
+
           progress.handwash = {
             status: Number(best.stars || 0) > 0 ? "completed" : "attempted",
             stars: Math.max(Number(old.stars || 0), Number(best.stars || 0)),
@@ -617,8 +625,9 @@
             grade: best.grade || old.grade || "",
             badge: best.badges || old.badge || "",
             lastPlayedAt: best.timestamp || old.lastPlayedAt || "",
-            source: "handwash-launcher"
+            source: "handwash-launcher-v2"
           };
+
           writeJson(STORAGE.progress, progress);
         }
 
@@ -637,8 +646,10 @@
         const blob = new Blob([JSON.stringify(bundle,null,2)], {
           type:"application/json;charset=utf-8"
         });
+
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
+
         a.href = url;
         a.download = "hygiene-zone-v2-results.json";
         document.body.appendChild(a);
@@ -678,9 +689,13 @@
 
       function showToast(msg){
         clearTimeout(toastTimer);
+
         el.toast.textContent = msg;
         el.toast.classList.add("show");
-        toastTimer = setTimeout(() => el.toast.classList.remove("show"), 1800);
+
+        toastTimer = setTimeout(() => {
+          el.toast.classList.remove("show");
+        }, 1800);
       }
     })();
   </script>
