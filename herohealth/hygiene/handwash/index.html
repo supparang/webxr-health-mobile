@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no"
+  />
+  <meta name="theme-color" content="#dff8ff" />
+  <meta name="color-scheme" content="light" />
+
+  <title>HeroHealth • Handwash Hero AR</title>
+
+  <link rel="stylesheet" href="./handwash.css?v=20260619-HANDWASH-AR-V1" />
+</head>
+
+<body>
+  <main id="app" class="app" data-phase="brief">
+    <!-- Camera / AR background -->
+    <section class="camera-stage" aria-label="AR camera area">
+      <video id="cameraVideo" class="camera-video" autoplay muted playsinline></video>
+      <div id="cameraFallback" class="camera-fallback">
+        <div class="fallback-orb orb-a"></div>
+        <div class="fallback-orb orb-b"></div>
+        <div class="fallback-orb orb-c"></div>
+        <p>AR Tap Mode</p>
+      </div>
+      <div id="waterFx" class="water-fx" aria-hidden="true"></div>
+      <div id="bubbleFx" class="bubble-fx" aria-hidden="true"></div>
+    </section>
+
+    <!-- Top HUD -->
+    <header class="top-hud">
+      <button id="btnBackZoneTop" class="icon-btn" type="button" aria-label="กลับ Hygiene Zone">←</button>
+
+      <div class="title-box">
+        <div class="eyebrow">Hygiene Zone</div>
+        <h1>Handwash Hero AR</h1>
+      </div>
+
+      <div class="hud-pill">
+        <span id="difficultyLabel">Normal</span>
+      </div>
+    </header>
+
+    <section class="stat-row" aria-label="game status">
+      <div class="stat-card">
+        <span class="stat-label">เวลา</span>
+        <strong id="timerText">45</strong>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">คะแนน</span>
+        <strong id="scoreText">0</strong>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Combo</span>
+        <strong id="comboText">0</strong>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">ขั้น</span>
+        <strong id="stepText">0/7</strong>
+      </div>
+    </section>
+
+    <!-- Mission panel -->
+    <section class="mission-card">
+      <div class="mission-icon" id="missionIcon">🧼</div>
+      <div>
+        <h2 id="missionTitle">ภารกิจล้างมือพิชิตเชื้อโรค</h2>
+        <p id="missionTip">ทำตามขั้นตอนให้ครบ ถูกลำดับ และอย่าลืมปิดน้ำ</p>
+      </div>
+    </section>
+
+    <!-- Gameplay arena -->
+    <section class="play-arena" aria-label="handwash gameplay area">
+      <div id="handModel" class="hand-model" aria-label="hand model">
+        <div class="hand-glow"></div>
+
+        <div class="palm-shape">
+          <div class="finger finger-1"></div>
+          <div class="finger finger-2"></div>
+          <div class="finger finger-3"></div>
+          <div class="finger finger-4"></div>
+          <div class="thumb"></div>
+
+          <button class="scrub-spot palm" data-step="palm" type="button">
+            <span>ฝ่ามือ</span>
+          </button>
+
+          <button class="scrub-spot backhand" data-step="backHand" type="button">
+            <span>หลังมือ</span>
+          </button>
+
+          <button class="scrub-spot between" data-step="betweenFingers" type="button">
+            <span>ซอกนิ้ว</span>
+          </button>
+
+          <button class="scrub-spot backfingers" data-step="backFingers" type="button">
+            <span>หลังนิ้ว</span>
+          </button>
+
+          <button class="scrub-spot thumbs" data-step="thumbs" type="button">
+            <span>หัวแม่มือ</span>
+          </button>
+
+          <button class="scrub-spot fingertips" data-step="fingertips" type="button">
+            <span>ปลายนิ้ว</span>
+          </button>
+
+          <button class="scrub-spot fullfoam" data-step="fullFoamCoverage" type="button">
+            <span>ฟองทั่วมือ</span>
+          </button>
+        </div>
+
+        <div id="foamMeter" class="foam-meter" aria-label="foam coverage">
+          <span id="foamFill"></span>
+        </div>
+      </div>
+
+      <div id="floatingFeedback" class="floating-feedback" aria-live="polite"></div>
+    </section>
+
+    <!-- Main controls -->
+    <section class="control-deck" aria-label="handwash controls">
+      <button id="btnFaucet" class="control-btn faucet" type="button">
+        <span class="control-emoji">🚰</span>
+        <strong id="faucetLabel">เปิดน้ำ</strong>
+      </button>
+
+      <button id="btnSoap" class="control-btn soap" type="button">
+        <span class="control-emoji">🧴</span>
+        <strong>กดสบู่</strong>
+      </button>
+
+      <button id="btnTowel" class="control-btn towel" type="button">
+        <span class="control-emoji">🧻</span>
+        <strong>เช็ดมือ</strong>
+      </button>
+    </section>
+
+    <!-- Progress checklist -->
+    <section class="process-strip" aria-label="handwash process checklist">
+      <div class="process-item" data-check="waterOpenStart">เปิดน้ำ</div>
+      <div class="process-item" data-check="wetHands">มือเปียก</div>
+      <div class="process-item" data-check="waterCloseBeforeSoap">ปิดน้ำ</div>
+      <div class="process-item" data-check="soapApplied">สบู่</div>
+      <div class="process-item" data-check="scrubComplete">ถูครบ</div>
+      <div class="process-item" data-check="rinsedSoap">ล้างฟอง</div>
+      <div class="process-item" data-check="waterCloseAfterRinse">ปิดน้ำ</div>
+      <div class="process-item" data-check="driedHands">เช็ดมือ</div>
+    </section>
+
+    <!-- Brief / Start overlay -->
+    <section id="briefOverlay" class="overlay active" aria-modal="true" role="dialog">
+      <div class="modal-card">
+        <div class="hero-badge">🧼</div>
+        <h2>Handwash Hero AR</h2>
+        <p class="lead">
+          ล้างมือให้ครบขั้นตอน ถูกลำดับ ใช้สบู่ ล้างฟอง ปิดน้ำ และเช็ดมือให้แห้ง
+        </p>
+
+        <div class="brief-grid">
+          <div>
+            <strong>เป้าหมาย</strong>
+            <span>ทำครบ Water → Soap → Scrub → Rinse → Dry</span>
+          </div>
+          <div>
+            <strong>รางวัล</strong>
+            <span>Badge, ดาว และ Hygiene Grade</span>
+          </div>
+          <div>
+            <strong>โหมด</strong>
+            <span id="briefDiffText">Normal • 45 วินาที</span>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button id="btnStart" class="primary-btn" type="button">เริ่มภารกิจ</button>
+          <button id="btnBackZoneBrief" class="secondary-btn" type="button">กลับ Hygiene Zone</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Countdown overlay -->
+    <section id="countdownOverlay" class="countdown-overlay" aria-live="assertive">
+      <div id="countdownText">3</div>
+    </section>
+
+    <!-- Summary overlay -->
+    <section id="summaryOverlay" class="overlay" aria-modal="true" role="dialog">
+      <div class="modal-card summary-card">
+        <div id="summaryBadgeIcon" class="hero-badge">🏆</div>
+        <h2 id="summaryTitle">ภารกิจสำเร็จ!</h2>
+        <p id="summarySubtitle" class="lead">คุณคือ Hygiene Hero</p>
+
+        <div class="summary-score">
+          <strong id="summaryScore">0</strong>
+          <span id="summaryStars">⭐</span>
+        </div>
+
+        <div class="summary-grid">
+          <div>
+            <span>ความแม่นยำ</span>
+            <strong id="summaryAccuracy">0%</strong>
+          </div>
+          <div>
+            <span>ถูมือครบ</span>
+            <strong id="summaryScrub">0/7</strong>
+          </div>
+          <div>
+            <span>เปิด–ปิดน้ำ</span>
+            <strong id="summaryWater">0/2</strong>
+          </div>
+          <div>
+            <span>ผิดลำดับ</span>
+            <strong id="summaryMistakes">0</strong>
+          </div>
+        </div>
+
+        <div class="badge-list" id="badgeList"></div>
+
+        <div class="recommend-box">
+          <strong>คำแนะนำ</strong>
+          <p id="summaryRecommend">ลองเล่นอีกครั้งเพื่อพัฒนาให้ครบทุกขั้นตอน</p>
+        </div>
+
+        <div class="modal-actions">
+          <button id="btnReplay" class="primary-btn" type="button">เล่นอีกครั้ง</button>
+          <button id="btnBackZoneSummary" class="secondary-btn" type="button">กลับ Hygiene Zone</button>
+          <button id="btnBackHub" class="ghost-btn" type="button">กลับ Hub</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </main>
+
+  <script src="./handwash.js?v=20260619-HANDWASH-AR-V1"></script>
+</body>
+</html>
