@@ -1,20 +1,13 @@
 <!-- =========================================================
   /herohealth/hygiene-zone/toothbrush-ar.html
   Hygiene Zone AR • Toothbrush Hero: Plaque Battle
-  Version: v20260619-TOOTHBRUSH-AR-V1-PLAYABLE-CORE
+  Version: v20260619-TOOTHBRUSH-AR-V3-HAND-FACE-FINAL
 
-  Core:
-  - Camera AR background
-  - Touch / Mouse toothbrush control
-  - Toothpaste charge mini-game
-  - 6 mouth zones
-  - Plaque cleaning mechanics
-  - Direction challenge
-  - Clean Score + Gum Health
-  - Combo + Fresh Fever
-  - Bubble Boost / Candy Bomb
-  - Plaque Monster Boss
-  - Summary + Badge
+  รวมล่าสุด:
+  - v1 Playable Core
+  - v2 Optional Hand Tracking
+  - v3 Optional Face Anchor
+  - Touch / Mouse fallback เสมอ
 ========================================================= -->
 <!doctype html>
 <html lang="th">
@@ -222,6 +215,26 @@
       overflow:hidden;
     }
 
+    .face-anchor-ring{
+      position:absolute;
+      left:50%;
+      top:53%;
+      width:min(84vw,560px);
+      height:min(54vh,385px);
+      transform:translate(-50%,-50%);
+      border-radius:42% 42% 48% 48% / 42% 42% 54% 54%;
+      z-index:3;
+      pointer-events:none;
+      border:2px dashed rgba(6,182,212,.26);
+      box-shadow:0 0 0 8px rgba(103,232,249,.08);
+      opacity:0;
+      transition:opacity .2s ease;
+    }
+
+    .face-anchor-ring.show{
+      opacity:1;
+    }
+
     .mouth-wrap{
       position:absolute;
       left:50%;
@@ -415,6 +428,29 @@
       to{ margin-top:6px; }
     }
 
+    .hand-cursor{
+      position:absolute;
+      width:26px;
+      height:26px;
+      border-radius:999px;
+      z-index:19;
+      transform:translate(-50%,-50%);
+      background:radial-gradient(circle,#ffffff 0 28%,#67e8f9 30% 58%,rgba(6,182,212,.25) 60% 100%);
+      box-shadow:
+        0 0 0 4px rgba(103,232,249,.28),
+        0 10px 24px rgba(15,23,42,.18);
+      pointer-events:none;
+      display:none;
+    }
+
+    .hand-cursor.show{
+      display:block;
+    }
+
+    .hand-cursor.lost{
+      background:radial-gradient(circle,#ffffff 0 28%,#facc15 30% 58%,rgba(250,204,21,.25) 60% 100%);
+    }
+
     .brush{
       position:absolute;
       left:50%;
@@ -579,6 +615,58 @@
       border-radius:999px;
       background:linear-gradient(90deg,#fb7185,#ef4444,#7f1d1d);
       transition:width .16s linear;
+    }
+
+    .face-status,
+    .hand-status{
+      position:absolute;
+      right:calc(10px + var(--safe-right));
+      z-index:12;
+      max-width:min(82vw,330px);
+      padding:9px 11px;
+      border-radius:20px;
+      background:rgba(255,255,255,.86);
+      border:1px solid rgba(255,255,255,.92);
+      box-shadow:0 14px 30px rgba(15,23,42,.14);
+      backdrop-filter:blur(12px);
+      color:#334155;
+      font-size:12px;
+      font-weight:900;
+      line-height:1.35;
+      pointer-events:none;
+      display:none;
+    }
+
+    .hand-status{
+      bottom:calc(10px + var(--safe-bottom));
+    }
+
+    .face-status{
+      bottom:calc(78px + var(--safe-bottom));
+    }
+
+    .face-status.show,
+    .hand-status.show{
+      display:block;
+    }
+
+    .face-status b,
+    .hand-status b{
+      color:#0f172a;
+    }
+
+    .face-status.good,
+    .hand-status.good{
+      background:rgba(240,253,250,.90);
+      border-color:rgba(20,184,166,.28);
+      color:#115e59;
+    }
+
+    .face-status.warn,
+    .hand-status.warn{
+      background:rgba(255,251,235,.92);
+      border-color:rgba(245,158,11,.30);
+      color:#92400e;
     }
 
     .screen{
@@ -921,7 +1009,7 @@
       }
 
       .hud{
-        padding-right:94px;
+        padding-right:196px;
       }
 
       .pill{
@@ -935,7 +1023,8 @@
         height:10px;
       }
 
-      .mouth-wrap{
+      .mouth-wrap,
+      .face-anchor-ring{
         width:92vw;
         height:52vh;
         top:55%;
@@ -963,7 +1052,8 @@
     }
 
     @media (max-height:650px){
-      .mouth-wrap{
+      .mouth-wrap,
+      .face-anchor-ring{
         height:48vh;
         top:56%;
       }
@@ -974,6 +1064,11 @@
 
       .card{
         padding:16px;
+      }
+
+      .face-status,
+      .hand-status{
+        display:none !important;
       }
     }
   </style>
@@ -1011,12 +1106,16 @@
       </div>
 
       <div class="top-actions">
+        <button id="faceBtn" class="icon-btn" title="Face Anchor">😀</button>
+        <button id="handBtn" class="icon-btn" title="Hand Tracking">✋</button>
         <button id="pauseBtn" class="icon-btn" title="Pause">⏸</button>
         <button id="muteBtn" class="icon-btn" title="Sound">🔈</button>
       </div>
     </section>
 
     <section id="stage" class="stage">
+      <div id="faceAnchorRing" class="face-anchor-ring"></div>
+
       <div id="mouthWrap" class="mouth-wrap">
         <div class="mouth">
           <div class="teeth-row top">
@@ -1047,6 +1146,16 @@
         </div>
       </div>
 
+      <div id="handCursor" class="hand-cursor"></div>
+
+      <div id="faceStatus" class="face-status">
+        <b>Face Anchor:</b> ยังไม่ได้เปิด
+      </div>
+
+      <div id="handStatus" class="hand-status">
+        <b>Hand Tracking:</b> ยังไม่ได้เปิด
+      </div>
+
       <div id="brush" class="brush">
         <div class="brush-glow"></div>
         <div class="brush-paste"></div>
@@ -1073,7 +1182,6 @@
       <div id="feverBanner" class="fever-banner">FRESH FEVER!</div>
     </section>
 
-    <!-- START SCREEN -->
     <section id="startScreen" class="screen show">
       <div class="card">
         <h1 class="hero-title">🦷 Toothbrush Hero<br><span>Plaque Battle AR</span></h1>
@@ -1109,7 +1217,8 @@
         </div>
 
         <div class="hint-box">
-          วิธีเล่น: ลากแปรงไปที่คราบฟัน 🟡 ให้ตรงจุดและถูกทิศ
+          วิธีเล่น: แตะ/ลากแปรงไปที่คราบฟัน 🟡 ให้ตรงจุดและถูกทิศ
+          กด ✋ เพื่อใช้ปลายนิ้วชี้เป็นหัวแปรง และกด 😀 เพื่อให้ปาก/ฟัน AR ตามตำแหน่งใบหน้า
           ถ้าแปรงเร็วหรือถูซ้ำแรงเกินไป ค่า Gum Health จะลดลง
         </div>
 
@@ -1121,7 +1230,6 @@
       </div>
     </section>
 
-    <!-- TOOTHPASTE SCREEN -->
     <section id="toothpasteScreen" class="screen">
       <div class="card">
         <h1 class="hero-title">🪥 บีบยาสีฟันให้พอดี</h1>
@@ -1148,7 +1256,6 @@
       </div>
     </section>
 
-    <!-- RESULT SCREEN -->
     <section id="resultScreen" class="screen">
       <div class="card">
         <h1 class="hero-title" id="resultTitle">Fresh Hero 🫧</h1>
@@ -1177,15 +1284,54 @@
     </section>
   </main>
 
+  <script type="module">
+    import {
+      HandLandmarker,
+      FaceLandmarker,
+      FilesetResolver
+    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
+
+    window.HygieneMP = {
+      HandLandmarker,
+      FaceLandmarker,
+      FilesetResolver
+    };
+
+    window.dispatchEvent(new Event("hygiene-mp-ready"));
+  </script>
+
   <script>
     (() => {
       'use strict';
 
-      const VERSION = 'v20260619-TOOTHBRUSH-AR-V1-PLAYABLE-CORE';
+      const VERSION = 'v20260619-TOOTHBRUSH-AR-V3-HAND-FACE-FINAL';
 
       const CONFIG = {
         hygieneZoneUrl: '../hygiene-zone.html',
         sheetWebAppUrl: '',
+
+        handTracking: {
+          wasmBase: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm',
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+          minDetectionConfidence: 0.45,
+          minPresenceConfidence: 0.45,
+          minTrackingConfidence: 0.45,
+          smoothing: 0.36,
+          lostFallbackMs: 1800
+        },
+
+        faceTracking: {
+          wasmBase: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm',
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task',
+          minFaceDetectionConfidence: 0.45,
+          minFacePresenceConfidence: 0.45,
+          minTrackingConfidence: 0.45,
+          throttleMs: 110,
+          smoothing: 0.24,
+          lostFallbackMs: 1800,
+          minMouthWidth: 270,
+          maxMouthWidth: 560
+        },
 
         difficulty: {
           easy: {
@@ -1284,6 +1430,14 @@
       const bossHpText = $('bossHpText');
       const bossHpFill = $('bossHpFill');
 
+      const faceBtn = $('faceBtn');
+      const faceStatus = $('faceStatus');
+      const faceAnchorRing = $('faceAnchorRing');
+
+      const handBtn = $('handBtn');
+      const handStatus = $('handStatus');
+      const handCursor = $('handCursor');
+
       const chargeFill = $('chargeFill');
       const chargeBtn = $('chargeBtn');
       const chargeHint = $('chargeHint');
@@ -1301,6 +1455,41 @@
         cameraReady: false,
         muted: false,
         paused: false,
+
+        inputMode: 'touch_mouse',
+
+        hand: {
+          available: false,
+          enabled: false,
+          loading: false,
+          landmarker: null,
+          lastVideoTime: -1,
+          lastSeenAt: 0,
+          lostFrames: 0,
+          quality: 0,
+          smoothedX: null,
+          smoothedY: null,
+          rawX: null,
+          rawY: null,
+          pinch: false
+        },
+
+        face: {
+          available: false,
+          enabled: false,
+          loading: false,
+          landmarker: null,
+          lastVideoTime: -1,
+          lastRunAt: 0,
+          lastSeenAt: 0,
+          lostFrames: 0,
+          quality: 0,
+          smoothedX: null,
+          smoothedY: null,
+          smoothedW: null,
+          smoothedH: null,
+          usingFallback: true
+        },
 
         startAt: 0,
         lastTick: 0,
@@ -1482,9 +1671,593 @@
         }
       }
 
-      function toggleCameraFacing(){
+      function setHandStatus(text, mode = ''){
+        if(!handStatus) return;
+
+        handStatus.innerHTML = text;
+        handStatus.classList.add('show');
+        handStatus.classList.remove('good', 'warn');
+
+        if(mode) handStatus.classList.add(mode);
+      }
+
+      function hideHandStatusSoon(){
+        window.clearTimeout(hideHandStatusSoon._t);
+        hideHandStatusSoon._t = window.setTimeout(() => {
+          if(handStatus && state.inputMode !== 'hand_tracking'){
+            handStatus.classList.remove('show');
+          }
+        }, 1800);
+      }
+
+      async function waitForMediaPipe(maxMs = 3500){
+        const started = performance.now();
+
+        while(!window.HygieneMP){
+          if(performance.now() - started > maxMs){
+            throw new Error('MediaPipe loader timeout');
+          }
+          await new Promise(resolve => setTimeout(resolve, 80));
+        }
+
+        return window.HygieneMP;
+      }
+
+      async function initHandTracking(){
+        if(state.hand.landmarker) return state.hand.landmarker;
+        if(state.hand.loading) return null;
+
+        state.hand.loading = true;
+        handBtn.textContent = '⏳';
+        setHandStatus('<b>Hand Tracking:</b> กำลังโหลดระบบจับมือ...', 'warn');
+
+        try{
+          const mp = await waitForMediaPipe();
+
+          const vision = await mp.FilesetResolver.forVisionTasks(
+            CONFIG.handTracking.wasmBase
+          );
+
+          const landmarker = await mp.HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: CONFIG.handTracking.modelAssetPath,
+              delegate: 'GPU'
+            },
+            runningMode: 'VIDEO',
+            numHands: 1,
+            minHandDetectionConfidence: CONFIG.handTracking.minDetectionConfidence,
+            minHandPresenceConfidence: CONFIG.handTracking.minPresenceConfidence,
+            minTrackingConfidence: CONFIG.handTracking.minTrackingConfidence
+          });
+
+          state.hand.landmarker = landmarker;
+          state.hand.available = true;
+          state.hand.loading = false;
+
+          handBtn.textContent = '✋';
+          setHandStatus('<b>Hand Tracking:</b> พร้อมใช้งาน ยกนิ้วชี้ให้กล้องเห็น', 'good');
+
+          return landmarker;
+        }catch(err){
+          console.warn('[hand tracking init failed]', err);
+
+          state.hand.available = false;
+          state.hand.enabled = false;
+          state.hand.loading = false;
+          state.inputMode = 'touch_mouse';
+
+          handBtn.textContent = '✋';
+          setHandStatus('<b>Hand Tracking:</b> โหลดไม่ได้ ใช้โหมดแตะหน้าจอแทน', 'warn');
+          hideHandStatusSoon();
+
+          return null;
+        }
+      }
+
+      async function toggleHandTracking(){
+        if(state.hand.enabled){
+          disableHandTracking('ปิด Hand Tracking แล้ว ใช้โหมดแตะหน้าจอ');
+          return;
+        }
+
+        if(!state.cameraReady){
+          await startCamera();
+        }
+
+        const landmarker = await initHandTracking();
+        if(!landmarker){
+          disableHandTracking('เปิด Hand Tracking ไม่สำเร็จ ใช้โหมดแตะหน้าจอ');
+          return;
+        }
+
+        state.hand.enabled = true;
+        state.inputMode = 'hand_tracking';
+        state.pointerDown = true;
+
+        state.hand.smoothedX = null;
+        state.hand.smoothedY = null;
+        state.hand.lastSeenAt = performance.now();
+        state.hand.lostFrames = 0;
+
+        handBtn.textContent = '🖐️';
+        handCursor.classList.add('show');
+        handCursor.classList.remove('lost');
+
+        setHandStatus('<b>Hand Tracking:</b> เปิดแล้ว ใช้ปลายนิ้วชี้เป็นหัวแปรง', 'good');
+        showToast('เปิด Hand Tracking แล้ว ✋');
+      }
+
+      function disableHandTracking(message){
+        state.hand.enabled = false;
+        state.inputMode = 'touch_mouse';
+        state.pointerDown = false;
+
+        if(handCursor){
+          handCursor.classList.remove('show');
+          handCursor.classList.remove('lost');
+        }
+
+        if(handBtn) handBtn.textContent = '✋';
+
+        if(message){
+          setHandStatus(`<b>Hand Tracking:</b> ${message}`, 'warn');
+          showToast(message);
+          hideHandStatusSoon();
+        }
+      }
+
+      function mapHandPointToScreen(landmark){
+        const x = (1 - landmark.x) * window.innerWidth;
+        const y = landmark.y * window.innerHeight;
+
+        return {
+          x: clamp(x, 0, window.innerWidth),
+          y: clamp(y, 0, window.innerHeight)
+        };
+      }
+
+      function smoothHandPoint(x, y){
+        const s = CONFIG.handTracking.smoothing;
+
+        if(state.hand.smoothedX == null || state.hand.smoothedY == null){
+          state.hand.smoothedX = x;
+          state.hand.smoothedY = y;
+        }else{
+          state.hand.smoothedX = state.hand.smoothedX + (x - state.hand.smoothedX) * s;
+          state.hand.smoothedY = state.hand.smoothedY + (y - state.hand.smoothedY) * s;
+        }
+
+        return {
+          x: state.hand.smoothedX,
+          y: state.hand.smoothedY
+        };
+      }
+
+      function isPinching(landmarks){
+        const thumb = landmarks[4];
+        const index = landmarks[8];
+
+        const dx = thumb.x - index.x;
+        const dy = thumb.y - index.y;
+        const dz = (thumb.z || 0) - (index.z || 0);
+
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        return dist < 0.055;
+      }
+
+      function updateHandTracking(t){
+        if(!state.hand.enabled) return;
+        if(!state.hand.landmarker) return;
+        if(!state.cameraReady) return;
+        if(!video || video.readyState < 2) return;
+
+        const videoTime = video.currentTime;
+        if(videoTime === state.hand.lastVideoTime) return;
+
+        state.hand.lastVideoTime = videoTime;
+
+        let result = null;
+
+        try{
+          result = state.hand.landmarker.detectForVideo(video, t);
+        }catch(err){
+          console.warn('[hand detect failed]', err);
+          disableHandTracking('ตรวจจับมือผิดพลาด ใช้โหมดแตะหน้าจอแทน');
+          return;
+        }
+
+        const hands = result && result.landmarks ? result.landmarks : [];
+
+        if(!hands.length){
+          state.hand.lostFrames += 1;
+
+          if(handCursor){
+            handCursor.classList.add('lost');
+          }
+
+          const lostMs = performance.now() - state.hand.lastSeenAt;
+
+          if(lostMs > CONFIG.handTracking.lostFallbackMs){
+            disableHandTracking('กล้องจับมือไม่ชัด กลับไปใช้โหมดแตะหน้าจอ');
+          }else{
+            setHandStatus('<b>Hand Tracking:</b> มองไม่เห็นมือ ลองยกนิ้วชี้เข้ากล้อง', 'warn');
+          }
+
+          return;
+        }
+
+        const landmarks = hands[0];
+        const indexTip = landmarks[8];
+
+        const raw = mapHandPointToScreen(indexTip);
+        const smoothed = smoothHandPoint(raw.x, raw.y);
+
+        state.hand.rawX = raw.x;
+        state.hand.rawY = raw.y;
+        state.hand.lastSeenAt = performance.now();
+        state.hand.lostFrames = 0;
+        state.hand.quality = 100;
+        state.hand.pinch = isPinching(landmarks);
+
+        if(handCursor){
+          handCursor.style.left = smoothed.x + 'px';
+          handCursor.style.top = smoothed.y + 'px';
+          handCursor.classList.add('show');
+          handCursor.classList.remove('lost');
+        }
+
+        state.pointerDown = true;
+        updateBrushPosition(smoothed.x, smoothed.y);
+
+        if(state.phase === 'playing' || state.phase === 'boss'){
+          setHandStatus('<b>Hand Tracking:</b> จับมือได้ดี ✋ ใช้นิ้วชี้แปรงฟัน', 'good');
+        }
+      }
+
+      function setFaceStatus(text, mode = ''){
+        if(!faceStatus) return;
+
+        faceStatus.innerHTML = text;
+        faceStatus.classList.add('show');
+        faceStatus.classList.remove('good', 'warn');
+
+        if(mode) faceStatus.classList.add(mode);
+      }
+
+      function hideFaceStatusSoon(){
+        window.clearTimeout(hideFaceStatusSoon._t);
+        hideFaceStatusSoon._t = window.setTimeout(() => {
+          if(faceStatus && !state.face.enabled){
+            faceStatus.classList.remove('show');
+          }
+        }, 1800);
+      }
+
+      async function initFaceAnchor(){
+        if(state.face.landmarker) return state.face.landmarker;
+        if(state.face.loading) return null;
+
+        state.face.loading = true;
+        faceBtn.textContent = '⏳';
+        setFaceStatus('<b>Face Anchor:</b> กำลังโหลดระบบจับใบหน้า...', 'warn');
+
+        try{
+          const mp = await waitForMediaPipe();
+
+          const vision = await mp.FilesetResolver.forVisionTasks(
+            CONFIG.faceTracking.wasmBase
+          );
+
+          const landmarker = await mp.FaceLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: CONFIG.faceTracking.modelAssetPath,
+              delegate: 'GPU'
+            },
+            runningMode: 'VIDEO',
+            numFaces: 1,
+            outputFaceBlendshapes: false,
+            outputFacialTransformationMatrixes: false,
+            minFaceDetectionConfidence: CONFIG.faceTracking.minFaceDetectionConfidence,
+            minFacePresenceConfidence: CONFIG.faceTracking.minFacePresenceConfidence,
+            minTrackingConfidence: CONFIG.faceTracking.minTrackingConfidence
+          });
+
+          state.face.landmarker = landmarker;
+          state.face.available = true;
+          state.face.loading = false;
+
+          faceBtn.textContent = '😀';
+          setFaceStatus('<b>Face Anchor:</b> พร้อมใช้งาน มองกล้องให้เห็นใบหน้า', 'good');
+
+          return landmarker;
+        }catch(err){
+          console.warn('[face anchor init failed]', err);
+
+          state.face.available = false;
+          state.face.enabled = false;
+          state.face.loading = false;
+          state.face.usingFallback = true;
+
+          faceBtn.textContent = '😀';
+          setFaceStatus('<b>Face Anchor:</b> โหลดไม่ได้ ใช้ปากกลางจอแทน', 'warn');
+          hideFaceStatusSoon();
+
+          resetMouthAnchor();
+
+          return null;
+        }
+      }
+
+      async function toggleFaceAnchor(){
+        if(state.face.enabled){
+          disableFaceAnchor('ปิด Face Anchor แล้ว ใช้ปากกลางจอ');
+          return;
+        }
+
+        if(!state.cameraReady){
+          await startCamera();
+        }
+
+        const landmarker = await initFaceAnchor();
+        if(!landmarker){
+          disableFaceAnchor('เปิด Face Anchor ไม่สำเร็จ ใช้ปากกลางจอ');
+          return;
+        }
+
+        state.face.enabled = true;
+        state.face.usingFallback = false;
+        state.face.smoothedX = null;
+        state.face.smoothedY = null;
+        state.face.smoothedW = null;
+        state.face.smoothedH = null;
+        state.face.lastSeenAt = performance.now();
+        state.face.lostFrames = 0;
+
+        faceBtn.textContent = '😄';
+
+        if(faceAnchorRing){
+          faceAnchorRing.classList.add('show');
+        }
+
+        setFaceStatus('<b>Face Anchor:</b> เปิดแล้ว ปาก/ฟันจะตามใบหน้า', 'good');
+        showToast('เปิด Face Anchor แล้ว 😀');
+      }
+
+      function disableFaceAnchor(message){
+        state.face.enabled = false;
+        state.face.usingFallback = true;
+
+        if(faceBtn) faceBtn.textContent = '😀';
+
+        if(faceAnchorRing){
+          faceAnchorRing.classList.remove('show');
+        }
+
+        resetMouthAnchor();
+
+        if(message){
+          setFaceStatus(`<b>Face Anchor:</b> ${message}`, 'warn');
+          showToast(message);
+          hideFaceStatusSoon();
+        }
+      }
+
+      function resetMouthAnchor(){
+        mouthWrap.style.left = '';
+        mouthWrap.style.top = '';
+        mouthWrap.style.width = '';
+        mouthWrap.style.height = '';
+        mouthWrap.style.transform = '';
+
+        if(faceAnchorRing){
+          faceAnchorRing.style.left = '';
+          faceAnchorRing.style.top = '';
+          faceAnchorRing.style.width = '';
+          faceAnchorRing.style.height = '';
+          faceAnchorRing.style.transform = '';
+        }
+
+        repositionPlaquesFromNormalized();
+      }
+
+      function applyMouthAnchor(x, y, w, h){
+        const minW = CONFIG.faceTracking.minMouthWidth;
+        const maxW = Math.min(CONFIG.faceTracking.maxMouthWidth, window.innerWidth * .92);
+
+        const width = clamp(w, minW, maxW);
+        const height = clamp(h, 190, window.innerHeight * .58);
+
+        mouthWrap.style.left = x + 'px';
+        mouthWrap.style.top = y + 'px';
+        mouthWrap.style.width = width + 'px';
+        mouthWrap.style.height = height + 'px';
+        mouthWrap.style.transform = 'translate(-50%,-50%)';
+
+        if(faceAnchorRing){
+          faceAnchorRing.style.left = x + 'px';
+          faceAnchorRing.style.top = y + 'px';
+          faceAnchorRing.style.width = width + 'px';
+          faceAnchorRing.style.height = height + 'px';
+          faceAnchorRing.style.transform = 'translate(-50%,-50%)';
+        }
+
+        repositionPlaquesFromNormalized();
+      }
+
+      function smoothFaceAnchor(x, y, w, h){
+        const s = CONFIG.faceTracking.smoothing;
+
+        if(state.face.smoothedX == null){
+          state.face.smoothedX = x;
+          state.face.smoothedY = y;
+          state.face.smoothedW = w;
+          state.face.smoothedH = h;
+        }else{
+          state.face.smoothedX += (x - state.face.smoothedX) * s;
+          state.face.smoothedY += (y - state.face.smoothedY) * s;
+          state.face.smoothedW += (w - state.face.smoothedW) * s;
+          state.face.smoothedH += (h - state.face.smoothedH) * s;
+        }
+
+        return {
+          x: state.face.smoothedX,
+          y: state.face.smoothedY,
+          w: state.face.smoothedW,
+          h: state.face.smoothedH
+        };
+      }
+
+      function facePointToScreen(landmark){
+        return {
+          x: clamp((1 - landmark.x) * window.innerWidth, 0, window.innerWidth),
+          y: clamp(landmark.y * window.innerHeight, 0, window.innerHeight)
+        };
+      }
+
+      function getFaceBounds(landmarks){
+        let minX = 1, minY = 1, maxX = 0, maxY = 0;
+
+        for(const lm of landmarks){
+          minX = Math.min(minX, lm.x);
+          minY = Math.min(minY, lm.y);
+          maxX = Math.max(maxX, lm.x);
+          maxY = Math.max(maxY, lm.y);
+        }
+
+        const left = (1 - maxX) * window.innerWidth;
+        const right = (1 - minX) * window.innerWidth;
+        const top = minY * window.innerHeight;
+        const bottom = maxY * window.innerHeight;
+
+        return {
+          left,
+          right,
+          top,
+          bottom,
+          width: Math.max(1, right - left),
+          height: Math.max(1, bottom - top)
+        };
+      }
+
+      function estimateMouthAnchorFromFace(landmarks){
+        const faceBounds = getFaceBounds(landmarks);
+
+        const leftMouth = landmarks[61];
+        const rightMouth = landmarks[291];
+        const upperLip = landmarks[13];
+        const lowerLip = landmarks[14];
+
+        if(!leftMouth || !rightMouth || !upperLip || !lowerLip){
+          const fallbackX = faceBounds.left + faceBounds.width * .5;
+          const fallbackY = faceBounds.top + faceBounds.height * .63;
+
+          return {
+            x: fallbackX,
+            y: fallbackY,
+            w: faceBounds.width * 1.08,
+            h: faceBounds.width * .72
+          };
+        }
+
+        const pL = facePointToScreen(leftMouth);
+        const pR = facePointToScreen(rightMouth);
+        const pU = facePointToScreen(upperLip);
+        const pD = facePointToScreen(lowerLip);
+
+        const mouthCenterX = (pL.x + pR.x) / 2;
+        const mouthCenterY = ((pU.y + pD.y) / 2) + faceBounds.height * .05;
+
+        const targetW = faceBounds.width * 1.18;
+        const targetH = targetW * .68;
+
+        return {
+          x: mouthCenterX,
+          y: mouthCenterY,
+          w: targetW,
+          h: targetH
+        };
+      }
+
+      function updateFaceAnchor(t){
+        if(!state.face.enabled) return;
+        if(!state.face.landmarker) return;
+        if(!state.cameraReady) return;
+        if(!video || video.readyState < 2) return;
+
+        if(t - state.face.lastRunAt < CONFIG.faceTracking.throttleMs) return;
+        state.face.lastRunAt = t;
+
+        const videoTime = video.currentTime;
+        if(videoTime === state.face.lastVideoTime) return;
+
+        state.face.lastVideoTime = videoTime;
+
+        let result = null;
+
+        try{
+          result = state.face.landmarker.detectForVideo(video, t);
+        }catch(err){
+          console.warn('[face detect failed]', err);
+          disableFaceAnchor('ตรวจจับใบหน้าผิดพลาด ใช้ปากกลางจอแทน');
+          return;
+        }
+
+        const faces = result && result.faceLandmarks ? result.faceLandmarks : [];
+
+        if(!faces.length){
+          state.face.lostFrames += 1;
+          state.face.quality = 0;
+
+          const lostMs = performance.now() - state.face.lastSeenAt;
+
+          if(lostMs > CONFIG.faceTracking.lostFallbackMs){
+            state.face.usingFallback = true;
+            resetMouthAnchor();
+            setFaceStatus('<b>Face Anchor:</b> มองไม่เห็นใบหน้า ใช้ปากกลางจอชั่วคราว', 'warn');
+          }else{
+            setFaceStatus('<b>Face Anchor:</b> กำลังหาตำแหน่งใบหน้า...', 'warn');
+          }
+
+          return;
+        }
+
+        const landmarks = faces[0];
+        const anchor = estimateMouthAnchorFromFace(landmarks);
+        const smooth = smoothFaceAnchor(anchor.x, anchor.y, anchor.w, anchor.h);
+
+        state.face.lastSeenAt = performance.now();
+        state.face.lostFrames = 0;
+        state.face.quality = 100;
+        state.face.usingFallback = false;
+
+        applyMouthAnchor(smooth.x, smooth.y, smooth.w, smooth.h);
+
+        setFaceStatus('<b>Face Anchor:</b> จับใบหน้าได้ดี 😀 ปาก/ฟันตามตำแหน่งแล้ว', 'good');
+      }
+
+      async function toggleCameraFacing(){
+        const wasHand = state.hand.enabled;
+        const wasFace = state.face.enabled;
+
+        if(wasHand){
+          disableHandTracking('กำลังสลับกล้อง รอสักครู่');
+        }
+
+        if(wasFace){
+          disableFaceAnchor('กำลังสลับกล้อง รอสักครู่');
+        }
+
         state.cameraFacing = state.cameraFacing === 'environment' ? 'user' : 'environment';
-        startCamera();
+        await startCamera();
+
+        if(wasFace && state.cameraReady){
+          await toggleFaceAnchor();
+        }
+
+        if(wasHand && state.cameraReady){
+          await toggleHandTracking();
+        }
       }
 
       function setDifficulty(diff){
@@ -1539,8 +2312,19 @@
         state.totalMiss = 0;
         state.totalOverBrush = 0;
 
-        state.pointerDown = false;
+        state.pointerDown = state.inputMode === 'hand_tracking';
         state.brushSpeed = 0;
+
+        state.hand.smoothedX = null;
+        state.hand.smoothedY = null;
+        state.hand.lostFrames = 0;
+
+        state.face.smoothedX = null;
+        state.face.smoothedY = null;
+        state.face.smoothedW = null;
+        state.face.smoothedH = null;
+        state.face.lostFrames = 0;
+
         state.brushDir = 'none';
         state.lastZone = -1;
         state.repeatedZoneFrames = 0;
@@ -1556,11 +2340,12 @@
         state.resultSent = false;
 
         brush.classList.remove('fever');
+        brush.classList.remove('has-paste');
         bossPanel.classList.remove('show');
 
         updateHud();
         updateZones();
-        updateMission('ภารกิจ: บีบยาสีฟันให้พอดี แล้วเริ่มแปรงฟันให้ครบ 6 โซน');
+        updateMission('บีบยาสีฟันให้พอดี แล้วเริ่มแปรงฟันให้ครบ 6 โซน');
       }
 
       function startToothpaste(){
@@ -1571,6 +2356,7 @@
         state.phase = 'toothpaste';
         showScreen(toothpasteScreen);
         chargeFill.style.width = '0%';
+        state.toothpasteCharge = 0;
         chargeHint.textContent = 'เป้าหมาย: 46%–70% = Fresh Start Bonus';
         showToast('เตรียมบีบยาสีฟันให้พอดี 🪥');
       }
@@ -1666,7 +2452,7 @@
         showScreen(null);
 
         spawnInitialPlaques();
-        updateMission('ภารกิจ: แปรงคราบให้ครบ 6 โซน • ทำ Combo • ระวัง Gum Health');
+        updateMission('แปรงคราบให้ครบ 6 โซน • ทำ Combo • ระวัง Gum Health');
         showToast('เริ่มภารกิจ! ลากแปรงไปที่คราบฟัน 🦷');
 
         cancelAnimationFrame(state.raf);
@@ -1683,6 +2469,31 @@
           x: r.left + (nx / 100) * r.width,
           y: r.top + (ny / 100) * r.height
         };
+      }
+
+      function repositionPlaquesFromNormalized(){
+        for(const p of state.plaques){
+          const pos = normalizedToScreen(p.nx, p.ny);
+          p.x = pos.x;
+          p.y = pos.y;
+          if(p.el){
+            p.el.style.left = pos.x + 'px';
+            p.el.style.top = pos.y + 'px';
+          }
+        }
+
+        for(const item of state.items){
+          if(item.nx == null || item.ny == null) continue;
+
+          const pos = normalizedToScreen(item.nx, item.ny);
+          item.x = pos.x;
+          item.y = pos.y;
+
+          if(item.el){
+            item.el.style.left = pos.x + 'px';
+            item.el.style.top = pos.y + 'px';
+          }
+        }
       }
 
       function spawnInitialPlaques(){
@@ -1705,10 +2516,7 @@
           ? { type: 'boss', icon: '💥', label: 'Boss Weak Spot', hpMul: 1.35, score: 80 }
           : pick(PLAQUE_TYPES);
 
-        const dir = isBoss
-          ? pick(DIRECTIONS)
-          : pick(DIRECTIONS);
-
+        const dir = pick(DIRECTIONS);
         const hp = d.plaqueHp * ptype.hpMul * (isBoss ? 1.2 : 1);
 
         const el = document.createElement('div');
@@ -1750,7 +2558,9 @@
 
         const kind = Math.random() < .62 ? 'boost' : 'trap';
         const zone = pick(ZONES);
-        const pos = normalizedToScreen(rand(zone.xMin, zone.xMax), rand(zone.yMin, zone.yMax));
+        const nx = rand(zone.xMin, zone.xMax);
+        const ny = rand(zone.yMin, zone.yMax);
+        const pos = normalizedToScreen(nx, ny);
 
         const el = document.createElement('div');
         el.className = 'floating-item';
@@ -1763,6 +2573,8 @@
         state.items.push({
           id: state.itemId++,
           kind,
+          nx,
+          ny,
           x: pos.x,
           y: pos.y,
           expiresAt: now() + 6500,
@@ -1809,17 +2621,23 @@
       }
 
       function onPointerDown(ev){
+        if(state.inputMode === 'hand_tracking') return;
+
         const p = pointerXY(ev);
         state.pointerDown = true;
         updateBrushPosition(p.x, p.y);
       }
 
       function onPointerMove(ev){
+        if(state.inputMode === 'hand_tracking') return;
+
         const p = pointerXY(ev);
         updateBrushPosition(p.x, p.y);
       }
 
       function onPointerUp(){
+        if(state.inputMode === 'hand_tracking') return;
+
         state.pointerDown = false;
         state.combo = Math.max(0, state.combo - 1);
         updateHud();
@@ -2063,6 +2881,9 @@
         if(state.phase !== 'playing' && state.phase !== 'boss') return;
         if(state.paused) return;
 
+        updateFaceAnchor(t);
+        updateHandTracking(t);
+
         const dt = clamp(t - (state.lastTick || t), 0, 48);
         state.lastTick = t;
 
@@ -2304,7 +3125,12 @@
           boss_defeated: state.bossDefeated ? 'yes' : 'no',
           strongest_zone: zones.strongest,
           weakest_zone: zones.weakest,
-          input_mode: 'touch_mouse',
+          input_mode: state.inputMode,
+          hand_tracking_enabled: state.hand.enabled ? 'yes' : 'no',
+          hand_tracking_quality: Math.round(state.hand.quality || 0),
+          face_anchor_enabled: state.face.enabled ? 'yes' : 'no',
+          face_anchor_quality: Math.round(state.face.quality || 0),
+          face_anchor_fallback: state.face.usingFallback ? 'yes' : 'no',
           toothpaste_quality: state.toothpasteQuality,
           camera_ready: state.cameraReady ? 'yes' : 'no',
           created_at: new Date().toISOString()
@@ -2370,6 +3196,9 @@
           setDifficulty(state.selectedDiff);
         });
 
+        $('faceBtn').addEventListener('click', toggleFaceAnchor);
+        $('handBtn').addEventListener('click', toggleHandTracking);
+
         $('pauseBtn').addEventListener('click', pauseToggle);
 
         $('muteBtn').addEventListener('click', () => {
@@ -2385,6 +3214,7 @@
 
         $('skipChargeBtn').addEventListener('click', () => {
           state.toothpasteCharge = 52;
+          state.toothpasteQuality = 'normal';
           state.toothpastePowerMul = 1;
           brush.classList.add('has-paste');
           beginPlay();
@@ -2396,13 +3226,7 @@
         window.addEventListener('pointercancel', onPointerUp);
 
         window.addEventListener('resize', () => {
-          for(const p of state.plaques){
-            const pos = normalizedToScreen(p.nx, p.ny);
-            p.x = pos.x;
-            p.y = pos.y;
-            p.el.style.left = pos.x + 'px';
-            p.el.style.top = pos.y + 'px';
-          }
+          repositionPlaquesFromNormalized();
         });
 
         document.addEventListener('visibilitychange', () => {
