@@ -2,361 +2,104 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no"
-  />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
   <meta name="theme-color" content="#e8fbff" />
   <meta name="color-scheme" content="light" />
-
   <title>HeroHealth • Hygiene Zone</title>
 
   <style>
     :root{
-      --ink:#12314a;
-      --muted:#667f91;
-      --teal:#0f8f86;
-      --cyan:#9eefff;
-      --cyan2:#dff9ff;
-      --yellow:#ffe675;
-      --yellow2:#fff4b0;
-      --card:#ffffff;
-      --line:#bff3ff;
+      --ink:#12314a;--muted:#667f91;--teal:#0f8f86;--line:#bff3ff;
       --shadow:0 14px 36px rgba(15,80,120,.12);
-      --safe-top:env(safe-area-inset-top,0px);
-      --safe-bottom:env(safe-area-inset-bottom,0px);
-      --safe-left:env(safe-area-inset-left,0px);
-      --safe-right:env(safe-area-inset-right,0px);
+      --safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);
+      --safe-left:env(safe-area-inset-left,0px);--safe-right:env(safe-area-inset-right,0px);
     }
-
-    *{
-      box-sizing:border-box;
-      -webkit-tap-highlight-color:transparent;
-    }
-
-    html,
-    body{
-      margin:0;
-      min-height:100%;
-      font-family:
-        ui-rounded,
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{
+      margin:0;min-height:100%;
+      font-family:ui-rounded,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--ink);
-      background:
-        radial-gradient(circle at 16% 8%,rgba(255,255,255,.95),transparent 28%),
-        radial-gradient(circle at 88% 22%,rgba(210,247,255,.95),transparent 28%),
-        linear-gradient(160deg,#f7fdff,#f9ffff 46%,#fff9db);
+      background:radial-gradient(circle at 16% 8%,rgba(255,255,255,.95),transparent 28%),
+      radial-gradient(circle at 88% 22%,rgba(210,247,255,.95),transparent 28%),
+      linear-gradient(160deg,#f7fdff,#f9ffff 46%,#fff9db);
     }
-
-    body{
-      overflow-x:hidden;
-    }
-
-    button,
-    input,
-    select{
-      font:inherit;
-    }
-
+    body{overflow-x:hidden} button{font:inherit}
     .app{
-      width:100%;
-      min-height:100dvh;
-      padding:
-        calc(18px + var(--safe-top))
-        calc(16px + var(--safe-right))
-        calc(24px + var(--safe-bottom))
-        calc(16px + var(--safe-left));
+      width:100%;min-height:100dvh;
+      padding:calc(18px + var(--safe-top)) calc(16px + var(--safe-right))
+      calc(24px + var(--safe-bottom)) calc(16px + var(--safe-left));
     }
-
-    .shell{
-      width:min(1220px,100%);
-      margin:0 auto;
-    }
-
-    .top{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:16px;
-      margin-bottom:18px;
-    }
-
-    .title h1{
-      margin:0;
-      font-size:clamp(28px,4vw,42px);
-      line-height:1.08;
-      font-weight:1000;
-      letter-spacing:-.04em;
-    }
-
-    .title p{
-      margin:4px 0 0;
-      color:#60798d;
-      font-size:clamp(14px,2vw,18px);
-      line-height:1.35;
-      font-weight:850;
-    }
-
-    .top-actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-
+    .shell{width:min(1220px,100%);margin:0 auto}
+    .top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}
+    .title h1{margin:0;font-size:clamp(28px,4vw,42px);line-height:1.08;font-weight:1000;letter-spacing:-.04em}
+    .title p{margin:4px 0 0;color:#60798d;font-size:clamp(14px,2vw,18px);line-height:1.35;font-weight:850}
+    .top-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .small-btn{
-      min-height:40px;
-      padding:0 14px;
-      border:2px solid var(--line);
-      border-radius:999px;
-      color:#0f766e;
-      background:rgba(255,255,255,.72);
-      font-weight:1000;
-      cursor:pointer;
+      min-height:40px;padding:0 14px;border:2px solid var(--line);border-radius:999px;
+      color:#0f766e;background:rgba(255,255,255,.72);font-weight:1000;cursor:pointer;
       box-shadow:0 8px 20px rgba(15,80,120,.08);
     }
-
-    .small-btn.danger{
-      color:#9f1239;
-      border-color:#fecdd3;
-      background:#fff1f2;
-    }
-
-    .zone-summary{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:12px;
-      margin-bottom:16px;
-    }
-
+    .small-btn.danger{color:#9f1239;border-color:#fecdd3;background:#fff1f2}
+    .zone-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
     .summary-card{
-      padding:14px;
-      border:3px solid #d1f6ff;
-      border-radius:22px;
-      background:rgba(255,255,255,.8);
-      box-shadow:var(--shadow);
+      padding:14px;border:3px solid #d1f6ff;border-radius:22px;
+      background:rgba(255,255,255,.8);box-shadow:var(--shadow)
     }
-
-    .summary-card span{
-      display:block;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .summary-card strong{
-      display:block;
-      margin-top:3px;
-      font-size:clamp(18px,3vw,28px);
-      font-weight:1000;
-      line-height:1.05;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:18px;
-    }
-
+    .summary-card span{display:block;color:var(--muted);font-size:12px;font-weight:900}
+    .summary-card strong{display:block;margin-top:3px;font-size:clamp(18px,3vw,28px);font-weight:1000;line-height:1.05}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
     .game-card{
-      position:relative;
-      min-height:305px;
-      display:flex;
-      flex-direction:column;
-      overflow:hidden;
-      padding:24px;
-      border:4px solid #d2f4ff;
-      border-radius:34px;
-      background:
-        radial-gradient(circle at 88% 14%,rgba(202,246,255,.72),transparent 34%),
-        radial-gradient(circle at 88% 70%,rgba(228,252,255,.46),transparent 36%),
-        rgba(255,255,255,.88);
+      position:relative;min-height:305px;display:flex;flex-direction:column;overflow:hidden;
+      padding:24px;border:4px solid #d2f4ff;border-radius:34px;
+      background:radial-gradient(circle at 88% 14%,rgba(202,246,255,.72),transparent 34%),
+      radial-gradient(circle at 88% 70%,rgba(228,252,255,.46),transparent 36%),
+      rgba(255,255,255,.88);
       box-shadow:var(--shadow);
     }
-
     .game-card.featured{
       border-color:#88eaff;
-      background:
-        radial-gradient(circle at 86% 14%,rgba(255,249,215,.82),transparent 36%),
-        radial-gradient(circle at 80% 72%,rgba(255,236,120,.34),transparent 38%),
-        rgba(255,255,255,.9);
+      background:radial-gradient(circle at 86% 14%,rgba(255,249,215,.82),transparent 36%),
+      radial-gradient(circle at 80% 72%,rgba(255,236,120,.34),transparent 38%),
+      rgba(255,255,255,.9);
     }
-
     .icon{
-      width:70px;
-      height:70px;
-      display:grid;
-      place-items:center;
-      border:2px dashed #b2e9f4;
-      border-radius:24px;
-      background:#dff9ff;
-      font-size:38px;
-      box-shadow:inset 0 -10px 18px rgba(14,165,233,.08);
+      width:70px;height:70px;display:grid;place-items:center;border:2px dashed #b2e9f4;
+      border-radius:24px;background:#dff9ff;font-size:38px;box-shadow:inset 0 -10px 18px rgba(14,165,233,.08);
       margin-bottom:18px;
     }
-
-    .game-card h2{
-      margin:0;
-      font-size:clamp(28px,3.2vw,38px);
-      line-height:1.05;
-      font-weight:1000;
-      letter-spacing:-.04em;
-    }
-
-    .game-card p{
-      margin:12px 0 14px;
-      color:#637b8f;
-      font-size:clamp(15px,1.6vw,18px);
-      font-weight:850;
-      line-height:1.45;
-    }
-
-    .tags{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-bottom:14px;
-    }
-
+    .game-card h2{margin:0;font-size:clamp(28px,3.2vw,38px);line-height:1.05;font-weight:1000;letter-spacing:-.04em}
+    .game-card p{margin:12px 0 14px;color:#637b8f;font-size:clamp(15px,1.6vw,18px);font-weight:850;line-height:1.45}
+    .tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
     .tag{
-      display:inline-flex;
-      align-items:center;
-      min-height:34px;
-      padding:0 13px;
-      border:2px solid #ffe083;
-      border-radius:999px;
-      color:#805a00;
-      background:#fff9dc;
-      font-size:14px;
-      font-weight:1000;
+      display:inline-flex;align-items:center;min-height:34px;padding:0 13px;
+      border:2px solid #ffe083;border-radius:999px;color:#805a00;background:#fff9dc;font-size:14px;font-weight:1000;
     }
-
     .result{
-      display:none;
-      margin:0 0 14px;
-      padding:12px 14px;
-      border:2px solid rgba(34,197,94,.28);
-      border-radius:18px;
-      color:#166534;
-      background:rgba(220,252,231,.78);
-      font-weight:950;
-      line-height:1.35;
+      display:none;margin:0 0 14px;padding:12px 14px;border:2px solid rgba(34,197,94,.28);
+      border-radius:18px;color:#166534;background:rgba(220,252,231,.78);font-weight:950;line-height:1.35;
     }
-
-    .result.show{
-      display:block;
-    }
-
-    .spacer{
-      flex:1;
-    }
-
+    .result.show{display:block}.spacer{flex:1}
     .play-btn{
-      width:100%;
-      min-height:60px;
-      border:3px solid #b6f5ff;
-      border-radius:22px;
-      color:#0f7e76;
-      background:rgba(255,255,255,.72);
-      font-size:clamp(17px,2vw,22px);
-      font-weight:1000;
-      cursor:pointer;
-      transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
+      width:100%;min-height:60px;border:3px solid #b6f5ff;border-radius:22px;color:#0f7e76;
+      background:rgba(255,255,255,.72);font-size:clamp(17px,2vw,22px);font-weight:1000;cursor:pointer;
+      transition:transform .12s ease,box-shadow .12s ease,background .12s ease;
     }
-
-    .play-btn:hover{
-      background:#effcff;
-      box-shadow:0 10px 26px rgba(15,80,120,.1);
-    }
-
-    .play-btn:active{
-      transform:scale(.98);
-    }
-
-    .game-card.featured .play-btn{
-      border-color:#ffe675;
-      color:#6b4b00;
-      background:linear-gradient(180deg,#fff08a,#ffe16b);
-    }
-
+    .play-btn:hover{background:#effcff;box-shadow:0 10px 26px rgba(15,80,120,.1)}
+    .play-btn:active{transform:scale(.98)}
+    .game-card.featured .play-btn{border-color:#ffe675;color:#6b4b00;background:linear-gradient(180deg,#fff08a,#ffe16b)}
     .toast{
-      position:fixed;
-      z-index:50;
-      left:50%;
-      bottom:calc(20px + var(--safe-bottom));
-      width:min(92vw,520px);
-      padding:13px 16px;
-      border-radius:18px;
-      color:#fff;
-      background:rgba(18,49,74,.94);
-      box-shadow:0 16px 34px rgba(18,49,74,.22);
-      text-align:center;
-      font-weight:950;
-      opacity:0;
-      pointer-events:none;
-      transform:translate(-50%,18px);
-      transition:opacity .18s ease,transform .18s ease;
+      position:fixed;z-index:50;left:50%;bottom:calc(20px + var(--safe-bottom));width:min(92vw,520px);
+      padding:13px 16px;border-radius:18px;color:#fff;background:rgba(18,49,74,.94);
+      box-shadow:0 16px 34px rgba(18,49,74,.22);text-align:center;font-weight:950;
+      opacity:0;pointer-events:none;transform:translate(-50%,18px);transition:opacity .18s ease,transform .18s ease;
     }
-
-    .toast.show{
-      opacity:1;
-      transform:translate(-50%,0);
-    }
-
-    @media (max-width:980px){
-      .grid{
-        grid-template-columns:repeat(2,1fr);
-      }
-
-      .zone-summary{
-        grid-template-columns:repeat(2,1fr);
-      }
-    }
-
-    @media (max-width:640px){
-      .app{
-        padding-left:calc(10px + var(--safe-left));
-        padding-right:calc(10px + var(--safe-right));
-      }
-
-      .top{
-        flex-direction:column;
-      }
-
-      .top-actions{
-        justify-content:flex-start;
-      }
-
-      .grid{
-        grid-template-columns:1fr;
-        gap:14px;
-      }
-
-      .zone-summary{
-        grid-template-columns:1fr 1fr;
-        gap:9px;
-      }
-
-      .game-card{
-        min-height:auto;
-        padding:20px;
-        border-radius:28px;
-      }
-
-      .icon{
-        width:64px;
-        height:64px;
-        font-size:34px;
-        margin-bottom:14px;
-      }
-
-      .play-btn{
-        min-height:56px;
-      }
+    .toast.show{opacity:1;transform:translate(-50%,0)}
+    @media(max-width:980px){.grid{grid-template-columns:repeat(2,1fr)}.zone-summary{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:640px){
+      .app{padding-left:calc(10px + var(--safe-left));padding-right:calc(10px + var(--safe-right))}
+      .top{flex-direction:column}.top-actions{justify-content:flex-start}.grid{grid-template-columns:1fr;gap:14px}
+      .zone-summary{grid-template-columns:1fr 1fr;gap:9px}.game-card{min-height:auto;padding:20px;border-radius:28px}
+      .icon{width:64px;height:64px;font-size:34px;margin-bottom:14px}.play-btn{min-height:56px}
     }
   </style>
 </head>
@@ -378,22 +121,10 @@
       </header>
 
       <section class="zone-summary" aria-label="Hygiene Zone summary">
-        <div class="summary-card">
-          <span>เกมทั้งหมด</span>
-          <strong>6</strong>
-        </div>
-        <div class="summary-card">
-          <span>เล่นแล้ว</span>
-          <strong id="sumPlayed">0/6</strong>
-        </div>
-        <div class="summary-card">
-          <span>ดาวรวม</span>
-          <strong id="sumStars">0</strong>
-        </div>
-        <div class="summary-card">
-          <span>Best Handwash</span>
-          <strong id="sumBest">0</strong>
-        </div>
+        <div class="summary-card"><span>เกมทั้งหมด</span><strong>6</strong></div>
+        <div class="summary-card"><span>เล่นแล้ว</span><strong id="sumPlayed">0/6</strong></div>
+        <div class="summary-card"><span>ดาวรวม</span><strong id="sumStars">0</strong></div>
+        <div class="summary-card"><span>Best Handwash</span><strong id="sumBest">0</strong></div>
       </section>
 
       <section id="gameGrid" class="grid" aria-label="Hygiene games"></section>
@@ -406,15 +137,12 @@
     (function(){
       "use strict";
 
-      const VERSION = "20260619-HYGIENE-ZONE-V2-PATCH6-HANDWASH-V2";
-
+      const VERSION = "20260619-HYGIENE-ZONE-V2-PATCH6-HANDWASH-V2-SCRUB-FIX";
       const qs = new URLSearchParams(location.search);
 
       const ROUTES = {
         hub: qs.get("hub") || "./hub.html",
-
         handwash: "./handwash-launcher-v2.html",
-
         brush: "./brush-hero.html",
         bath: "./bath-time.html",
         germ: "./germ-detective.html",
@@ -434,51 +162,16 @@
           id:"handwash",
           icon:"🧼",
           title:"Handwash",
-          desc:"ฝึกล้างมือให้ถูกขั้นตอน WHO ผ่าน Warmup, Main Game, Boss และ Summary",
-          tags:["ใช้ handwash-launcher-v2.html","Hand Detect: ปลายนิ้วชี้"],
+          desc:"ฝึกล้างมือให้ถูกขั้นตอน 7 ขั้น ผ่าน Warmup, Main Game, Boss และ Summary",
+          tags:["ใช้ handwash-launcher-v2.html","AR Simulator + Tap fallback"],
           cta:"▶ เริ่ม Handwash",
           featured:true
         },
-        {
-          id:"brush",
-          icon:"🪥",
-          title:"Brush Hero",
-          desc:"ฝึกแปรงฟันแบบ child-friendly เห็นเป้าหมายชัดและเล่นง่าย",
-          tags:["ผ่าน Warmup ก่อนเล่น"],
-          cta:"▶ เริ่ม Brush"
-        },
-        {
-          id:"bath",
-          icon:"🛁",
-          title:"Bath Time",
-          desc:"ฝึกอาบน้ำและดูแลร่างกายให้สะอาดผ่านภารกิจสั้น ๆ",
-          tags:["Daily Habit"],
-          cta:"▶ เริ่ม Bath"
-        },
-        {
-          id:"germ",
-          icon:"🦠",
-          title:"Germ Detective",
-          desc:"ตามหาเชื้อโรคและจุดปนเปื้อน ฝึกการสังเกตอย่างรวดเร็ว",
-          tags:["Observation"],
-          cta:"▶ เริ่ม Germ"
-        },
-        {
-          id:"clean",
-          icon:"🧽",
-          title:"Clean Objects",
-          desc:"ฝึกแยกของสะอาด/ของสกปรก และทำความสะอาดสิ่งของรอบตัว",
-          tags:["Clean Habit"],
-          cta:"▶ เริ่ม Clean"
-        },
-        {
-          id:"mask",
-          icon:"😷",
-          title:"Mask & Cough",
-          desc:"ฝึกสวมหน้ากากและมารยาทการไอ/จามในสถานการณ์จำลอง",
-          tags:["Safety"],
-          cta:"▶ เริ่ม Mask"
-        }
+        {id:"brush",icon:"🪥",title:"Brush Hero",desc:"ฝึกแปรงฟันแบบ child-friendly เห็นเป้าหมายชัดและเล่นง่าย",tags:["ผ่าน Warmup ก่อนเล่น"],cta:"▶ เริ่ม Brush"},
+        {id:"bath",icon:"🛁",title:"Bath Time",desc:"ฝึกอาบน้ำและดูแลร่างกายให้สะอาดผ่านภารกิจสั้น ๆ",tags:["Daily Habit"],cta:"▶ เริ่ม Bath"},
+        {id:"germ",icon:"🦠",title:"Germ Detective",desc:"ตามหาเชื้อโรคและจุดปนเปื้อน ฝึกการสังเกตอย่างรวดเร็ว",tags:["Observation"],cta:"▶ เริ่ม Germ"},
+        {id:"clean",icon:"🧽",title:"Clean Objects",desc:"ฝึกแยกของสะอาด/ของสกปรก และทำความสะอาดสิ่งของรอบตัว",tags:["Clean Habit"],cta:"▶ เริ่ม Clean"},
+        {id:"mask",icon:"😷",title:"Mask & Cough",desc:"ฝึกสวมหน้ากากและมารยาทการไอ/จามในสถานการณ์จำลอง",tags:["Safety"],cta:"▶ เริ่ม Mask"}
       ];
 
       const el = {};
@@ -502,11 +195,9 @@
         document.getElementById("btnReset").addEventListener("click", () => {
           const ok = confirm("ล้างผล Hygiene Zone ในเครื่องนี้หรือไม่?");
           if(!ok) return;
-
           localStorage.removeItem(STORAGE.progress);
           localStorage.removeItem(STORAGE.handwashBest);
           localStorage.removeItem(STORAGE.handwashAttempts);
-
           showToast("Reset ผล Hygiene Zone แล้ว");
           render();
         });
@@ -517,7 +208,6 @@
 
       function render(){
         const progress = syncHandwashBestToProgress();
-
         el.grid.innerHTML = "";
 
         GAMES.forEach(game => {
@@ -535,20 +225,14 @@
             <div class="icon">${game.icon}</div>
             <h2>${escapeHtml(game.title)}</h2>
             <p>${escapeHtml(game.desc)}</p>
-
-            <div class="tags">
-              ${game.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("")}
-            </div>
-
+            <div class="tags">${game.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
             <div class="result ${stars > 0 || score > 0 ? "show" : ""}">
               ${stars > 0 ? "เล่นแล้ว: " + "⭐".repeat(stars) + "<br>" : ""}
               ${score > 0 ? "Best Score: " + score + " • Accuracy: " + acc + "%<br>" : ""}
               ${grade ? "Grade: " + escapeHtml(grade) + "<br>" : ""}
               ${badge ? "Badge: " + escapeHtml(String(badge).split("|")[0]) : ""}
             </div>
-
             <div class="spacer"></div>
-
             <button class="play-btn" type="button">${escapeHtml(game.cta)}</button>
           `;
 
@@ -566,11 +250,7 @@
         GAMES.forEach(game => {
           const p = progress[game.id] || {};
           const s = Number(p.stars || 0);
-
-          if(s > 0 || p.status === "completed" || p.status === "attempted"){
-            played += 1;
-          }
-
+          if(s > 0 || p.status === "completed" || p.status === "attempted") played += 1;
           stars += s;
         });
 
@@ -587,7 +267,6 @@
         const name = qs.get("name") || profile.name || "Hero";
 
         const params = new URLSearchParams();
-
         params.set("zone", "./hygiene-zone-v2.html");
         params.set("hub", ROUTES.hub);
         params.set("game", id);
@@ -601,7 +280,6 @@
         params.set("v", VERSION);
 
         const url = ROUTES[id];
-
         if(!url){
           showToast("ยังไม่ได้กำหนด path ของเกมนี้");
           return;
@@ -616,7 +294,6 @@
 
         if(best){
           const old = progress.handwash || {};
-
           progress.handwash = {
             status: Number(best.stars || 0) > 0 ? "completed" : "attempted",
             stars: Math.max(Number(old.stars || 0), Number(best.stars || 0)),
@@ -627,7 +304,6 @@
             lastPlayedAt: best.timestamp || old.lastPlayedAt || "",
             source: "handwash-launcher-v2"
           };
-
           writeJson(STORAGE.progress, progress);
         }
 
@@ -643,13 +319,9 @@
           handwashAttempts: readJson(STORAGE.handwashAttempts, [])
         };
 
-        const blob = new Blob([JSON.stringify(bundle,null,2)], {
-          type:"application/json;charset=utf-8"
-        });
-
+        const blob = new Blob([JSON.stringify(bundle,null,2)], {type:"application/json;charset=utf-8"});
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-
         a.href = url;
         a.download = "hygiene-zone-v2-results.json";
         document.body.appendChild(a);
@@ -689,13 +361,9 @@
 
       function showToast(msg){
         clearTimeout(toastTimer);
-
         el.toast.textContent = msg;
         el.toast.classList.add("show");
-
-        toastTimer = setTimeout(() => {
-          el.toast.classList.remove("show");
-        }, 1800);
+        toastTimer = setTimeout(() => el.toast.classList.remove("show"), 1800);
       }
     })();
   </script>
