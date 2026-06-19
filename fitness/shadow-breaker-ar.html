@@ -11,7 +11,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V8-AUTO-SHEET-ONLY-LOCK
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V8-1-STUDENT-CLEAN-UI-LOCK
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1296,7 +1296,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v8 AUTO SHEET ONLY</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v8.1 STUDENT CLEAN UI</div>
         </div>
 
         <div class="grid2">
@@ -1372,7 +1372,7 @@
               <label class="toggle"><span id="lblResearch">Research log</span><input type="checkbox" id="researchToggle" checked /></label>
             </div>
 
-            <label style="margin-top:10px">
+            <label style="margin-top:10px; display:none">
               <span id="lblSheetUrl">Google Sheet Web App URL</span>
               <input id="sheetUrlInput" autocomplete="off" placeholder="ส่งเข้า Google Sheet อัตโนมัติแล้ว" />
             </label>
@@ -1424,7 +1424,6 @@
 
         <div class="bigActions">
           <button class="bigBtn play" id="btnReplay">เล่นอีกครั้ง</button>
-          <button class="bigBtn ghost" id="btnExport">Export CSV</button>
           <button class="bigBtn ghost" id="btnMenu">กลับเมนู</button>
           <button class="bigBtn ghost" id="btnHub">กลับ Fitness Hub</button>
         </div>
@@ -1749,7 +1748,7 @@
       $("resultTitle").textContent = t("result");
       $("resultSubtitle").textContent = t("great");
       $("btnReplay").textContent = t("replay");
-      $("btnExport").textContent = t("export");
+      if($("btnExport")) $("btnExport").textContent = t("export");
       $("btnMenu").textContent = t("menu");
       $("btnHub").textContent = t("hub");
       $("statScoreLabel").textContent = t("statScore");
@@ -3331,7 +3330,7 @@
       });
       $("btnMenu").addEventListener("click", showMenu);
       $("btnHub").addEventListener("click", goHub);
-      $("btnExport").addEventListener("click", exportCsv);
+      if($("btnExport")) $("btnExport").addEventListener("click", exportCsv);
       $("btnPause").addEventListener("click", pauseGame);
       $("btnEnd").addEventListener("click", () => {
         if(state.status === "playing" || state.status === "paused") finishGame("manual");
