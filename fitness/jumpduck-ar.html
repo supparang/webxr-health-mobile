@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+<!-- CANONICAL FILE: /fitness/jump-duck.html | Student Context + Auto Sheet | v20260620-jd-student-context-v18 -->
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-  <title>JumpDuck Dash • Student Auto Sheet v17</title>
+  <title>JumpDuck Dash • Student Context + Auto Sheet v18</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800;900&display=swap" rel="stylesheet" />
@@ -231,7 +232,7 @@
           <button id="btn-teacher-mode" class="rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 active:scale-95 transition">Teacher Test: OFF</button>
           <button id="btn-home-start" class="rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 active:scale-95 transition">กลับ Hub</button>
         </div>
-        <p class="compact-note text-emerald-600 font-bold">v13 Final • Sports Science • Auto Sheet</p>
+        <p class="compact-note text-emerald-600 font-bold">v18 • Student Context • Auto Sheet</p>
       </div>
     </div>
   </section>
@@ -394,6 +395,8 @@
     </div>
   </section>
 
+  <script src="./fitness-student-context-bridge.js?v=20260620-v2"></script>
+
   <script>
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     let audioCtx = null;
@@ -450,7 +453,7 @@
 
   <script>
     // =============================================================
-    // JumpDuck Dash v10 • PC/Mobile AR Compact UI + Auto Google Sheet
+    // JumpDuck Dash v18 • PC/Mobile AR + Student Context + Auto Google Sheet
     // Scope: PC webcam + Mobile front camera AR only. No Cardboard/cVR body-tracking mode.
     // =============================================================
 
@@ -559,6 +562,60 @@
       catch(err){ console.warn('localStorage remove skipped', key, err); return false; }
     }
 
+    // v18 Student Context: shared identity bridge used by all Fitness AR games.
+    function jdBridgeContext(){
+      try{
+        return (window.FitnessStudentContext && typeof window.FitnessStudentContext.get === 'function')
+          ? (window.FitnessStudentContext.get() || {})
+          : {};
+      }catch(_){
+        return {};
+      }
+    }
+
+    function jdBangkokTimestamp(){
+      try{
+        return new Date().toLocaleString('sv-SE', {
+          timeZone:'Asia/Bangkok',
+          hour12:false
+        }).replace(' ', 'T');
+      }catch(_){
+        return new Date().toISOString();
+      }
+    }
+
+    function jdApplyStudentContext(payload){
+      try{
+        if(window.FitnessStudentContext && typeof window.FitnessStudentContext.apply === 'function'){
+          return window.FitnessStudentContext.apply(payload || {});
+        }
+      }catch(err){
+        console.warn('JumpDuck student context apply skipped', err);
+      }
+
+      const copy = Object.assign({}, payload || {});
+      copy.timestamp = copy.timestamp || new Date().toISOString();
+      copy.timestampLocal = copy.timestampLocal || jdBangkokTimestamp();
+      copy.identitySource = copy.studentId ? 'studentId' : (copy.playerId ? 'playerId' : 'nameOnly');
+      return copy;
+    }
+
+    function jdSaveStudentContext(){
+      try{
+        if(window.FitnessStudentContext && typeof window.FitnessStudentContext.save === 'function'){
+          window.FitnessStudentContext.save({
+            studentId: meta.studentId || '',
+            studentName: meta.studentName || '',
+            classId: meta.classId || '',
+            section: meta.section || '',
+            playerId: meta.playerId || meta.studentId || ''
+          });
+        }
+      }catch(err){
+        console.warn('JumpDuck student context save skipped', err);
+      }
+    }
+
     const params = new URLSearchParams(location.search);
     let selectedDiff = params.get('diff') || 'easy';
     if(!DIFF[selectedDiff]) selectedDiff = 'easy';
@@ -579,11 +636,14 @@
     const SHEET_ACCESS_KEY = params.get('key') || safeLocalGet('jumpduckSheetKey', '') || '';
     if(params.get('key')) safeLocalSet('jumpduckSheetKey', params.get('key'));
 
+    const bridgeContext = jdBridgeContext();
     const meta = {
       sessionId: params.get('session') || params.get('sessionId') || safeLocalGet('jumpduckSessionId', '') || '',
-      classId: params.get('class') || params.get('classId') || safeLocalGet('jumpduckClassId', '') || '',
-      studentId: params.get('student') || params.get('studentId') || safeLocalGet('jumpduckStudentId', '') || '',
-      studentName: params.get('name') || params.get('studentName') || safeLocalGet('jumpduckStudentName', '') || '',
+      classId: params.get('class') || params.get('classId') || params.get('classGroup') || bridgeContext.classId || safeLocalGet('jumpduckClassId', '') || '',
+      section: params.get('section') || params.get('sec') || bridgeContext.section || safeLocalGet('jumpduckSection', '') || '',
+      studentId: params.get('student') || params.get('studentId') || params.get('sid') || bridgeContext.studentId || safeLocalGet('jumpduckStudentId', '') || '',
+      studentName: params.get('name') || params.get('studentName') || bridgeContext.studentName || safeLocalGet('jumpduckStudentName', '') || '',
+      playerId: params.get('playerId') || params.get('pid') || bridgeContext.playerId || safeLocalGet('jumpduckPlayerId', '') || '',
       teacherId: params.get('teacher') || params.get('teacherId') || safeLocalGet('jumpduckTeacherId', '') || ''
     };
 
@@ -607,21 +667,31 @@
     }
 
     function syncMetaFromForm(){
-      meta.classId = (inputClass?.value || meta.classId || '').trim();
-      meta.studentId = (inputStudent?.value || meta.studentId || '').trim();
-      meta.studentName = (inputName?.value || meta.studentName || '').trim();
+      const context = jdBridgeContext();
+      meta.classId = (inputClass?.value || meta.classId || context.classId || '').trim();
+      meta.studentId = (inputStudent?.value || meta.studentId || context.studentId || '').trim();
+      meta.studentName = (inputName?.value || meta.studentName || context.studentName || '').trim();
+      meta.playerId = (meta.playerId || context.playerId || meta.studentId || '').trim();
+      meta.section = (meta.section || context.section || '').trim();
       meta.teacherId = (inputTeacher?.value || meta.teacherId || '').trim();
+
       if(!meta.sessionId){
         meta.sessionId = 'JD-' + new Date().toISOString().slice(0,10).replace(/-/g,'');
       }
+
       safeLocalSet('jumpduckSessionId', meta.sessionId);
       safeLocalSet('jumpduckClassId', meta.classId);
+      safeLocalSet('jumpduckSection', meta.section);
       safeLocalSet('jumpduckStudentId', meta.studentId);
       safeLocalSet('jumpduckStudentName', meta.studentName);
+      safeLocalSet('jumpduckPlayerId', meta.playerId);
       safeLocalSet('jumpduckTeacherId', meta.teacherId);
+
+      jdSaveStudentContext();
     }
 
     initMetaInputs();
+    syncMetaFromForm();
 
     window.__jumpduckMuted = params.get('mute') === '1';
     let config = { ...DIFF[selectedDiff], time:selectedTime };
@@ -766,8 +836,34 @@
     }
 
     function goHub(){
+      syncMetaFromForm();
       safeLocalSet('jumpduckHubUrl', HUB_URL);
-      location.href = HUB_URL;
+
+      try{
+        const u = new URL(HUB_URL, location.href);
+        u.searchParams.set('fromGame', 'jumpduck');
+        u.searchParams.set('game', 'jumpduck');
+        u.searchParams.set('return', '1');
+        u.searchParams.set('v', 'v18-student-context-auto-sheet');
+
+        const carry = {
+          session: meta.sessionId,
+          classId: meta.classId,
+          section: meta.section,
+          studentId: meta.studentId,
+          studentName: meta.studentName,
+          playerId: meta.playerId,
+          teacherId: meta.teacherId
+        };
+
+        Object.keys(carry).forEach(function(key){
+          if(carry[key]) u.searchParams.set(key, String(carry[key]));
+        });
+
+        location.href = u.toString();
+      }catch(_){
+        location.href = HUB_URL;
+      }
     }
 
 
@@ -1364,10 +1460,12 @@
     }
 
     function buildSheetPayload(metrics, badgesText='', rank=''){
-      return {
+      const payload = {
         timestamp: new Date().toISOString(),
+        timestampLocal: jdBangkokTimestamp(),
         game: 'jumpduck-dash-ar',
-        version: 'v17-student-auto-sheet',
+        gameId: 'jumpduck',
+        version: 'v18-student-context-auto-sheet',
         api: 'fitness',
         source: 'fitness-jumpduck-ar',
         sourceUrl: location.href,
@@ -1376,6 +1474,9 @@
         classId: meta.classId,
         studentId: meta.studentId,
         studentName: meta.studentName,
+        playerId: meta.playerId || meta.studentId || '',
+        identitySource: meta.studentId ? 'studentId' : ((meta.playerId || meta.studentId) ? 'playerId' : 'nameOnly'),
+        section: meta.section || '',
         teacherId: meta.teacherId,
         deviceType: getDeviceType(),
         mode: 'PC/Mobile AR',
@@ -1434,9 +1535,13 @@
         screenHeight: window.screen?.height || window.innerHeight || '',
         accessKey: SHEET_ACCESS_KEY
       };
+
+      return jdApplyStudentContext(payload);
     }
 
     async function autoSubmitToSheet(payload){
+      payload = jdApplyStudentContext(payload);
+      currentSummaryPayload = payload;
       if(!sheetStatus) return;
       if(!SHEET_ENDPOINT){
         sheetStatus.textContent = 'Sheet: ยังไม่ได้ตั้งค่า endpoint • แจ้งครู';
@@ -1852,6 +1957,5 @@
       renderLeaderboard();
     });
   </script>
-  <script src="./fitness-student-context-bridge.js"></script>
 </body>
 </html>
