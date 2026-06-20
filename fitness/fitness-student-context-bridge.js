@@ -1,25 +1,23 @@
 /**
  * HeroHealth Fitness • Student Context Bridge
  * File: /fitness/fitness-student-context-bridge.js
- * Version: v20260620-STUDENT-CONTEXT-BRIDGE-V1
+ * Version: v20260620-STUDENT-CONTEXT-BRIDGE-V2-AUTO-SUBMIT
  *
- * Include once in each Fitness game page:
- * <script src="./fitness-student-context-bridge.js"></script>
- *
- * Before sending a result:
- * payload = window.FitnessStudentContext.apply(payload);
+ * Load this file BEFORE each Fitness game script.
+ * It automatically adds identity + Bangkok timestamp to Fitness result payloads
+ * sent through fetch() or navigator.sendBeacon().
  */
-
 (function (global) {
   'use strict';
 
-  const STORAGE_KEY = 'herohealth:fitness:student-context:v1';
+  const STORAGE_KEY = 'herohealth:fitness:student-context:v2';
+  const FITNESS_RE = /jumpduck|jump-duck|balancehold|balance-hold|rhythmboxer|rhythm-boxer|shadowbreaker|shadow-breaker|\/fitness\//i;
 
   function clean(value) {
     return String(value == null ? '' : value).trim();
   }
 
-  function params() {
+  function query() {
     try {
       return new URLSearchParams(global.location.search || '');
     } catch (_) {
@@ -29,14 +27,14 @@
 
   function loadSaved() {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {};
+      return JSON.parse(global.localStorage.getItem(STORAGE_KEY) || '{}') || {};
     } catch (_) {
       return {};
     }
   }
 
   function fromQuery() {
-    const q = params();
+    const q = query();
     return {
       studentId: clean(q.get('studentId') || q.get('sid') || q.get('student_id')),
       studentName: clean(q.get('studentName') || q.get('name') || q.get('student_name')),
@@ -46,60 +44,155 @@
     };
   }
 
-  function merge() {
+  function get() {
     const saved = loadSaved();
-    const query = fromQuery();
+    const q = fromQuery();
 
     return {
-      studentId: query.studentId || clean(saved.studentId),
-      studentName: query.studentName || clean(saved.studentName),
-      classId: query.classId || clean(saved.classId),
-      section: query.section || clean(saved.section),
-      playerId: query.playerId || clean(saved.playerId)
+      studentId: q.studentId || clean(saved.studentId),
+      studentName: q.studentName || clean(saved.studentName),
+      classId: q.classId || clean(saved.classId),
+      section: q.section || clean(saved.section),
+      playerId: q.playerId || clean(saved.playerId)
     };
   }
 
-  function identityStatus(ctx) {
-    if (ctx.studentId) return 'student_id';
-    if (ctx.playerId) return 'player_id';
-    if (ctx.studentName) return 'name_only';
-    return 'missing';
-  }
-
   function save(next) {
-    const old = loadSaved();
-    const value = Object.assign({}, old, next || {});
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    const value = Object.assign({}, loadSaved(), next || {});
+    global.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
     return value;
   }
 
-  function get() {
-    return merge();
+  function bangkokTimestamp() {
+    try {
+      return new Date().toLocaleString('sv-SE', {
+        timeZone: 'Asia/Bangkok',
+        hour12: false
+      }).replace(' ', 'T');
+    } catch (_) {
+      return new Date().toISOString();
+    }
   }
 
   function apply(payload) {
-    const ctx = merge();
-    payload = Object.assign({}, payload || {});
+    const ctx = get();
+    const out = Object.assign({}, payload || {});
 
-    payload.studentId = clean(payload.studentId || payload.student_id || ctx.studentId);
-    payload.studentName = clean(payload.studentName || payload.student_name || payload.player || payload.name || ctx.studentName);
-    payload.classId = clean(payload.classId || payload.class_id || payload.classGroup || ctx.classId);
-    payload.section = clean(payload.section || payload.sec || ctx.section);
-    payload.playerId = clean(payload.playerId || payload.player_id || payload.pid || ctx.playerId);
+    out.studentId = clean(out.studentId || out.student_id || ctx.studentId);
+    out.studentName = clean(
+      out.studentName || out.student_name || out.playerName || out.player_name ||
+      out.player || out.name || ctx.studentName
+    );
+    out.classId = clean(
+      out.classId || out.class_id || out.classGroup || out.class_group ||
+      out.class || out.group || ctx.classId
+    );
+    out.section = clean(out.section || out.sec || ctx.section);
+    out.playerId = clean(out.playerId || out.player_id || out.pid || out.uid || ctx.playerId);
 
-    payload.identitySource = payload.studentId ? 'studentId' : (payload.playerId ? 'playerId' : 'nameOnly');
-    payload.timestamp = payload.timestamp || new Date().toISOString();
-    payload.timestampLocal = payload.timestampLocal || new Date().toLocaleString('sv-SE', {
-      timeZone: 'Asia/Bangkok',
-      hour12: false
-    }).replace(' ', 'T');
+    out.identitySource = out.studentId
+      ? 'studentId'
+      : (out.playerId ? 'playerId' : 'nameOnly');
 
-    return payload;
+    out.timestamp = out.timestamp || new Date().toISOString();
+    out.timestampLocal = out.timestampLocal || out.localTimestamp || bangkokTimestamp();
+
+    return out;
+  }
+
+  function looksLikeFitness(payload, url) {
+    const p = payload || {};
+    const source = [
+      url,
+      p.api,
+      p.game,
+      p.gameId,
+      p.game_id,
+      p.routeName,
+      p.sourceUrl,
+      p.version,
+      p.app
+    ].map(clean).join(' ');
+
+    if (String(p.api || '').toLowerCase() === 'fitness' || String(p.api || '').toLowerCase() === 'fitness_ar') {
+      return true;
+    }
+
+    return FITNESS_RE.test(source);
+  }
+
+  function decorateBodyObject(body, url) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
+
+    if (looksLikeFitness(body, url)) return apply(body);
+
+    const out = Object.assign({}, body);
+
+    if (out.payload && typeof out.payload === 'object' && looksLikeFitness(out.payload, url)) {
+      out.payload = apply(out.payload);
+      return out;
+    }
+
+    if (out.row && typeof out.row === 'object' && looksLikeFitness(out.row, url)) {
+      out.row = apply(out.row);
+      return out;
+    }
+
+    return body;
+  }
+
+  function decorateTextBody(body, url) {
+    if (typeof body !== 'string') return body;
+
+    try {
+      const parsed = JSON.parse(body);
+      const decorated = decorateBodyObject(parsed, url);
+      return decorated === parsed ? body : JSON.stringify(decorated);
+    } catch (_) {
+      return body;
+    }
+  }
+
+  function installFetchInterceptor() {
+    if (typeof global.fetch !== 'function' || global.__fitnessStudentContextFetchPatched) return;
+
+    const originalFetch = global.fetch.bind(global);
+
+    global.fetch = function (input, init) {
+      const url = typeof input === 'string'
+        ? input
+        : (input && input.url ? input.url : '');
+
+      if (init && init.body !== undefined) {
+        const next = Object.assign({}, init);
+        next.body = decorateTextBody(next.body, url);
+        return originalFetch(input, next);
+      }
+
+      return originalFetch(input, init);
+    };
+
+    global.__fitnessStudentContextFetchPatched = true;
+  }
+
+  function installBeaconInterceptor() {
+    if (!global.navigator || typeof global.navigator.sendBeacon !== 'function' || global.__fitnessStudentContextBeaconPatched) return;
+
+    const originalBeacon = global.navigator.sendBeacon.bind(global.navigator);
+
+    global.navigator.sendBeacon = function (url, data) {
+      if (typeof data === 'string') {
+        return originalBeacon(url, decorateTextBody(data, url));
+      }
+      return originalBeacon(url, data);
+    };
+
+    global.__fitnessStudentContextBeaconPatched = true;
   }
 
   function isReady() {
-    const ctx = merge();
-    return !!(ctx.studentId || ctx.playerId) && !!ctx.studentName;
+    const ctx = get();
+    return !!ctx.studentName && !!(ctx.studentId || ctx.playerId);
   }
 
   global.FitnessStudentContext = {
@@ -107,7 +200,13 @@
     save: save,
     apply: apply,
     isReady: isReady,
-    identityStatus: function () { return identityStatus(merge()); },
-    clear: function () { localStorage.removeItem(STORAGE_KEY); }
+    clear: function () {
+      try {
+        global.localStorage.removeItem(STORAGE_KEY);
+      } catch (_) {}
+    }
   };
+
+  installFetchInterceptor();
+  installBeaconInterceptor();
 })(window);
