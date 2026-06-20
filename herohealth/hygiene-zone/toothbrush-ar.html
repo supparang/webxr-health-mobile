@@ -36,7 +36,7 @@
     .brush{position:absolute;z-index:25;width:88px;height:42px;left:50%;top:78%;pointer-events:none;transform:translate(-50%,-50%) rotate(-24deg);transform-origin:18px 50%;filter:drop-shadow(0 12px 16px rgba(15,23,42,.24));transition:opacity .12s}.brush.ghost{opacity:.55;filter:grayscale(.15) drop-shadow(0 8px 12px rgba(15,23,42,.15))}.head{position:absolute;left:0;top:8px;width:34px;height:28px;border-radius:9px;border:2px solid rgba(255,255,255,.78);background:repeating-linear-gradient(90deg,#a7f3d0 0 4px,#67e8f9 4px 8px)}.handle{position:absolute;left:28px;top:15px;width:64px;height:12px;border-radius:999px;background:linear-gradient(90deg,#06b6d4,#6366f1)}.foam{display:none;position:absolute;left:5px;top:-4px;width:23px;height:13px;border-radius:999px;background:#fff;box-shadow:11px 5px 0 rgba(255,255,255,.7),4px 10px 0 rgba(255,255,255,.55)}.brush.loaded .foam{display:block}
     .mission{position:absolute;z-index:27;left:calc(10px + var(--safe-left));bottom:calc(14px + var(--safe-bottom));max-width:min(530px,90vw);padding:10px 13px;border-radius:20px;background:rgba(255,255,255,.92);box-shadow:0 12px 26px rgba(15,23,42,.13);font-size:12px;font-weight:900;line-height:1.4;pointer-events:none}
     .screen{position:absolute;inset:0;z-index:80;display:none;align-items:center;justify-content:center;padding:calc(18px + var(--safe-top)) calc(14px + var(--safe-right)) calc(18px + var(--safe-bottom)) calc(14px + var(--safe-left));background:radial-gradient(circle at 20% 15%,rgba(255,255,255,.92),transparent 33%),linear-gradient(135deg,rgba(224,247,255,.92),rgba(255,247,237,.9));backdrop-filter:blur(14px)}.screen.show{display:flex}.card{width:min(760px,94vw);max-height:92vh;overflow:auto;padding:24px;border-radius:32px;background:rgba(255,255,255,.94);box-shadow:0 28px 70px rgba(15,23,42,.18);text-align:center}.title{margin:0;font-size:clamp(30px,5vw,52px);letter-spacing:-.05em;line-height:1.03}.sub{margin:10px auto 17px;max-width:620px;color:#475569;font-size:15px;line-height:1.5;font-weight:800}.row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:13px 0}.field{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:620px;margin:13px auto}.input,.button{min-height:48px;padding:0 15px;border-radius:18px;font-weight:1000}.input{border:1px solid rgba(15,23,42,.1);background:#fff;box-shadow:0 8px 18px rgba(15,23,42,.06)}.button{background:#fff;color:var(--ink);box-shadow:0 10px 22px rgba(15,23,42,.1)}.button.primary{color:#fff;background:linear-gradient(135deg,#06b6d4,#22c55e)}.button.active{outline:3px solid rgba(34,197,94,.16);background:linear-gradient(135deg,#ecfeff,#dcfce7);color:#065f46}.note{max-width:650px;margin:12px auto;padding:12px 14px;border-radius:20px;background:#f8fafc;color:#475569;border:1px solid rgba(15,23,42,.08);font-size:13px;line-height:1.5;text-align:left;font-weight:850}
-    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:15px 0}.sum{padding:12px;border-radius:20px;background:#fff;border:1px solid rgba(15,23,42,.08);box-shadow:0 8px 18px rgba(15,23,42,.05)}.sum small{display:block;color:var(--muted);font-weight:900}.sum b{display:block;font-size:24px;margin-top:3px}.next{margin-top:12px;padding:13px;border-radius:20px;background:linear-gradient(135deg,#ecfeff,#fff7ed);text-align:left}.next b{display:block;font-size:15px}.next span{display:block;margin-top:3px;color:#475569;font-size:13px;font-weight:800}.zones{display:grid;gap:8px;margin-top:12px;text-align:left}.zone-line{display:grid;grid-template-columns:78px 1fr 42px;gap:8px;align-items:center;font-size:12px;font-weight:1000}.zone-line i{display:block;height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden}.zone-line i::before{content:"";display:block;height:100%;width:var(--w);background:linear-gradient(90deg,#67e8f9,#22c55e,#facc15);border-radius:inherit}
+    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:15px 0}.sum{padding:12px;border-radius:20px;background:#fff;border:1px solid rgba(15,23,42,.08);box-shadow:0 8px 18px rgba(15,23,42,.05)}.sum small{display:block;color:var(--muted);font-weight:900}.sum b{display:block;font-size:24px;margin-top:3px}.next{margin-top:12px;padding:13px;border-radius:20px;background:linear-gradient(135deg,#ecfeff,#fff7ed);text-align:left}.next b{display:block;font-size:15px}.next span{display:block;margin-top:3px;color:#475569;font-size:13px;font-weight:800}.zones{display:grid;gap:8px;margin-top:12px;text-align:left}.zones h3{margin:2px 0 4px;font-size:15px}.zone-line{display:grid;grid-template-columns:78px 1fr 106px;gap:8px;align-items:center;font-size:12px;font-weight:1000}.zone-line i{display:block;height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden}.zone-line i::before{content:"";display:block;height:100%;width:var(--w);background:linear-gradient(90deg,#67e8f9,#22c55e,#facc15);border-radius:inherit}.zone-line b{font-size:11px;text-align:right;white-space:nowrap}.zone-line b.good{color:#15803d}.zone-line b.warn{color:#b45309}
     @keyframes pulse{50%{box-shadow:0 0 0 11px rgba(34,197,94,.16)}}@media(max-width:720px){.hud{right:62px}.pill{font-size:11px;min-height:30px;padding:6px 8px}.bar{width:64px}.actions{gap:5px}.icon{width:37px;height:37px;border-radius:13px}.status{grid-template-columns:repeat(2,1fr);bottom:calc(95px + var(--safe-bottom))}.learning{top:calc(63px + var(--safe-top))}.coach{top:calc(142px + var(--safe-top))}.field,.summary{grid-template-columns:1fr}.card{padding:18px;border-radius:26px}}
   </style>
 </head>
@@ -61,13 +61,14 @@
 <script type="module">
 import { FilesetResolver, HandLandmarker, FaceLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
 
-const VERSION="v20260620-TOOTHBRUSH-AR-V10-7-ZONE-PASS-FIX";
+const VERSION="v20260620-TOOTHBRUSH-AR-V10-8-CHALLENGE-DIRECTION-GATE";
 const CONFIG={
   hygieneZoneUrl:"../hygiene-zone-v2.html",
   sheetWebAppUrl:"https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec",
   wasm:"https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm",
   handModel:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
   faceModel:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
+  challenge:{directionCooldownMs:260,activeStrokeMs:340,wrongDirectionDamageMultiplier:.38,minDirectionAccuracy:{easy:45,normal:55,hard:65}},
   guided:{minDwellMs:500,minStrokeCount:3,minDirectionAccuracy:60,correctStrokeProgress:34,directionWindowMs:220,directionThresholdPx:8,strokeMinTravelPx:16,strokeCooldownMs:260,strokeActiveMs:340,learningGumPenaltyFactor:.08,learningGumFloor:58,targetPlaqueCount:2},
   difficulty:{easy:{duration:55,plaqueHp:18,damage:4.8},normal:{duration:45,plaqueHp:25,damage:4.1},hard:{duration:38,plaqueHp:32,damage:3.5}},
   pass:{easy:{clean:70,gum:45,coverage:4,technique:45},normal:{clean:80,gum:55,coverage:5,technique:60},hard:{clean:88,gum:65,coverage:6,technique:70}}
@@ -85,7 +86,7 @@ const state={
  score:0,clean:0,gum:100,technique:100,combo:0,bestCombo:0,brush:{x:innerWidth/2,y:innerHeight*.78,lastX:innerWidth/2,lastY:innerHeight*.78,lastT:now(),speed:0,active:true,angle:-24},
  faceAnchor:{x:innerWidth/2,y:innerHeight*.56,w:Math.min(460,innerWidth*.76),h:Math.min(320,innerWidth*.52),last:0},
  handState:{last:0,point:null,angle:-24,grip:false,ghost:false,quality:0,totalGrip:0},
- plaques:[],nextPlaque:1,spawnAt:0,clearedZones:[],runId:"",recordId:"",resultSent:false,
+ plaques:[],nextPlaque:1,spawnAt:0,clearedZones:[],challenge:{zones:{},totalGood:0,totalAttempts:0,lastCoachAt:0},runId:"",recordId:"",resultSent:false,
  guided:{targetIndex:0,targetId:"top_left",currentId:"",currentLabel:"-",direction:"none",directionOK:false,progress:{},completed:{},dwell:{},strokes:{},qualified:{},good:{},total:{},samples:[],lastSample:0,lastStroke:0,lastValid:0,complete:false},
  audioMuted:false
 };
@@ -172,7 +173,25 @@ function updateGuides(){
   $("skillText").textContent=Math.round(state.guided.progress[z.id]||0)+"%";
 }
 function clearPlaques(){for(const p of state.plaques)p.el.remove();state.plaques=[]}
-function spawnPlaque(zoneId=null){const z=zoneId?zoneById(zoneId):pick(ZONES),d=CONFIG.difficulty[state.diff],type=pick(TYPES),el=document.createElement("div"),hp=d.plaqueHp*type[2];el.className="plaque";el.style.left=(z.x1+Math.random()*(z.x2-z.x1))+"%";el.style.top=(z.y1+Math.random()*(z.y2-z.y1))+"%";el.innerHTML=`<span>${type[0]}</span><span class="hp"><i></i></span>`;D.layer.appendChild(el);const p={id:state.nextPlaque++,zone:z.id,hp,max:hp,score:type[3],type:type[1],el};state.plaques.push(p);return p}
+function spawnPlaque(zoneId=null){
+  const z=zoneId?zoneById(zoneId):pick(ZONES);
+  const d=CONFIG.difficulty[state.diff];
+  const type=pick(TYPES);
+  const el=document.createElement("div");
+  const hp=d.plaqueHp*type[2];
+
+  el.className="plaque";
+  el.style.left=(z.x1+Math.random()*(z.x2-z.x1))+"%";
+  el.style.top=(z.y1+Math.random()*(z.y2-z.y1))+"%";
+  el.innerHTML=`<span>${type[0]}</span><span class="hp"><i></i></span>`;
+  D.layer.appendChild(el);
+
+  const p={id:state.nextPlaque++,zone:z.id,hp,max:hp,score:type[3],type:type[1],el};
+  state.plaques.push(p);
+
+  if(state.mode==="challenge") noteChallengeSpawn(z.id);
+  return p;
+}
 function ensureTargetPlaques(){if(!isLearning())return;const n=state.plaques.filter(p=>p.zone===state.guided.targetId).length;for(let i=n;i<CONFIG.guided.targetPlaqueCount;i++)spawnPlaque(state.guided.targetId)}
 function finishZone(zid){const g=state.guided;if(g.completed[zid])return;g.completed[zid]=true;state.score+=120;state.clean=clamp(state.clean+16.7,0,100);state.technique=clamp(state.technique+3,35,100);tone("win");strokeFlash(`ผ่านโซน ${zoneById(zid).label}!`,"good");let n=g.targetIndex+1;if(n>=ZONES.length){g.complete=true;showCoach("🏆 เรียนครบ 6 โซนแล้ว! ตอนนี้แปรงได้อิสระเพื่อเก็บคะแนน");clearPlaques();for(let i=0;i<5;i++)spawnPlaque()}else{g.targetIndex=n;g.targetId=ZONES[n].id;clearPlaques();ensureTargetPlaques();showCoach(`ดีมาก! ต่อไป ${zoneById(g.targetId).label} — ${directionName(expected(g.targetId))}`)}}
 function updateGuided(t,dt){
@@ -184,18 +203,20 @@ function updateGuided(t,dt){
   g.currentId=z?.id||"";
   g.currentLabel=z?.label||"-";
 
+  // Challenge Mode direction is counted only in hitPlaques(), while brushing a plaque.
+  if(!isLearning()){
+    g.directionOK=false;
+    updateGuides();
+    return;
+  }
+
   const inTarget=!!(z && z.id===g.targetId);
-  if(isLearning() && inTarget){
+  if(inTarget){
     g.dwell[g.targetId]=(g.dwell[g.targetId]||0)+dt;
   }
 
   const stroke=z ? countStroke(z,dir,t) : null;
   g.directionOK=!!(stroke && stroke.zoneId===g.targetId && stroke.ok);
-
-  if(!isLearning()){
-    updateGuides();
-    return;
-  }
 
   if(stroke){
     if(stroke.zoneId!==g.targetId){
@@ -208,21 +229,22 @@ function updateGuided(t,dt){
         100
       );
       state.technique=clamp(state.technique+.10,35,100);
-      strokeFlash(`✓ ${directionName(stroke.dir)} ถูกทิศ (${g.qualified[g.targetId]}/${CONFIG.guided.minStrokeCount})`,"good");
+      strokeFlash(
+        `✓ ${directionName(stroke.dir)} ถูกทิศ (${g.qualified[g.targetId]}/${CONFIG.guided.minStrokeCount})`,
+        "good"
+      );
     }else{
       state.technique=clamp(state.technique-.18,35,100);
       strokeFlash(`↪ ลอง${directionName(expected(g.targetId))}`,"warn");
     }
   }
 
-  // Critical fix: check completion on every frame, not only on the stroke event.
   const qualified=g.qualified[g.targetId]||0;
   const dwell=g.dwell[g.targetId]||0;
-  const ready=
+  if(
     qualified>=CONFIG.guided.minStrokeCount &&
-    dwell>=CONFIG.guided.minDwellMs;
-
-  if(ready){
+    dwell>=CONFIG.guided.minDwellMs
+  ){
     g.progress[g.targetId]=100;
     finishZone(g.targetId);
   }
@@ -230,24 +252,361 @@ function updateGuided(t,dt){
   updateGuides();
 }
 function applyGum(amount){const learning=isLearning(),factor=learning?CONFIG.guided.learningGumPenaltyFactor:1,floor=learning?CONFIG.guided.learningGumFloor:0;state.gum=clamp(state.gum-amount*factor,floor,100)}
-function hitPlaques(t,dt){if(!state.brush.active)return;const learning=isLearning();for(const p of [...state.plaques]){const r=D.mouth.getBoundingClientRect(),x=r.left+r.width*(parseFloat(p.el.style.left)/100),y=r.top+r.height*(parseFloat(p.el.style.top)/100);if(Math.hypot(state.brush.x-x,state.brush.y-y)>36)continue;if(learning){const valid=currentZone()?.id===state.guided.targetId&&p.zone===state.guided.targetId&&t-state.guided.lastValid<=CONFIG.guided.strokeActiveMs;if(!valid)continue}const q=state.brush.speed>=220&&state.brush.speed<=1000?"perfect":state.brush.speed>=100&&state.brush.speed<=1450?"good":"weak",mul=q==="perfect"?1.55:q==="good"?1:.55;p.hp-=CONFIG.difficulty[state.diff].damage*mul*dt/16.67;p.el.querySelector(".hp i").style.width=clamp(p.hp/p.max*100,0,100)+"%";state.score+=q==="perfect"?1.1:q==="good"?.55:.16;if(q==="weak")applyGum(.22);if(state.brush.speed>1500)applyGum(.34);if(p.hp<=0){p.el.remove();state.plaques=state.plaques.filter(x=>x!==p);if(!learning&&!state.clearedZones.includes(p.zone))state.clearedZones.push(p.zone);if(!learning) state.clean=clamp(state.clean+2.1,0,100);state.combo++;state.bestCombo=Math.max(state.bestCombo,state.combo);tone("good")}else state.combo=Math.max(0,state.combo-.005)}}
-function maybeSpawn(t){if(isLearning()){if(t-state.spawnAt>850){state.spawnAt=t;ensureTargetPlaques()}return}if(t-state.spawnAt>700){state.spawnAt=t;if(state.plaques.length<8)spawnPlaque()}}
+function hitPlaques(t,dt){
+  if(!state.brush.active) return;
+
+  const learning=isLearning();
+
+  for(const p of [...state.plaques]){
+    const r=D.mouth.getBoundingClientRect();
+    const x=r.left+r.width*(parseFloat(p.el.style.left)/100);
+    const y=r.top+r.height*(parseFloat(p.el.style.top)/100);
+
+    if(Math.hypot(state.brush.x-x,state.brush.y-y)>36) continue;
+
+    let challengeStroke=null;
+    let directionMultiplier=1;
+
+    if(learning){
+      const valid=
+        currentZone()?.id===state.guided.targetId &&
+        p.zone===state.guided.targetId &&
+        t-state.guided.lastValid<=CONFIG.guided.strokeActiveMs;
+
+      if(!valid) continue;
+    }else{
+      challengeStroke=recordChallengeBrushStroke(p.zone,t);
+      const row=challengeRow(p.zone);
+      const activeCorrect=t-row.lastCorrectAt<=CONFIG.challenge.activeStrokeMs;
+
+      directionMultiplier=activeCorrect
+        ? 1
+        : CONFIG.challenge.wrongDirectionDamageMultiplier;
+
+      if(challengeStroke){
+        if(challengeStroke.correct){
+          strokeFlash(`✓ ${directionName(challengeStroke.dir)} ถูกทิศ`,"good");
+        }else{
+          strokeFlash(
+            `↪ ${zoneById(p.zone).label} ต้อง${directionName(expected(p.zone))}`,
+            "warn"
+          );
+
+          if(t-state.challenge.lastCoachAt>1300){
+            state.challenge.lastCoachAt=t;
+            showCoach(
+              `${zoneById(p.zone).label}: ${directionName(expected(p.zone))} เพื่อทำความสะอาดได้เต็มประสิทธิภาพ`
+            );
+          }
+        }
+      }
+    }
+
+    const q=
+      state.brush.speed>=220 && state.brush.speed<=1000 ? "perfect" :
+      state.brush.speed>=100 && state.brush.speed<=1450 ? "good" : "weak";
+
+    const qualityMultiplier=q==="perfect" ? 1.55 : q==="good" ? 1 : .55;
+    const damage=
+      CONFIG.difficulty[state.diff].damage*
+      qualityMultiplier*
+      directionMultiplier*
+      dt/16.67;
+
+    p.hp-=damage;
+    p.el.querySelector(".hp i").style.width=clamp(p.hp/p.max*100,0,100)+"%";
+
+    state.score+=(
+      q==="perfect" ? 1.1 :
+      q==="good" ? .55 : .16
+    )*directionMultiplier;
+
+    if(q==="weak") applyGum(.22);
+    if(state.brush.speed>1500) applyGum(.34);
+
+    if(p.hp<=0){
+      p.el.remove();
+      state.plaques=state.plaques.filter(item=>item!==p);
+
+      if(!learning){
+        noteChallengeClear(p.zone);
+        if(!state.clearedZones.includes(p.zone)) state.clearedZones.push(p.zone);
+        state.clean=clamp(state.clean+2.1,0,100);
+      }
+
+      state.combo++;
+      state.bestCombo=Math.max(state.bestCombo,state.combo);
+      tone("good");
+    }else{
+      state.combo=Math.max(0,state.combo-.005);
+    }
+  }
+}
+function maybeSpawn(t){
+  if(isLearning()){
+    if(t-state.spawnAt>850){
+      state.spawnAt=t;
+      ensureTargetPlaques();
+    }
+    return;
+  }
+
+  if(t-state.spawnAt>760 && state.plaques.length<6){
+    state.spawnAt=t;
+    spawnPlaque();
+  }
+}
 function coverage(){return state.mode==="learning"?ZONES.filter(z=>state.guided.completed[z.id]).length:state.clearedZones.length}
 function cleanedCoverage(){return coverage()}
 function updateHud(){ $("time").textContent=Math.ceil(state.left)+"s";$("score").textContent=Math.round(state.score);$("combo").textContent=Math.floor(state.combo);$("clean").textContent=Math.round(state.clean)+"%";$("gum").textContent=Math.round(state.gum)+"%";$("technique").textContent=Math.round(state.technique)+"%";$("cleanBar").style.width=state.clean+"%";$("gumBar").style.width=state.gum+"%" }
-function status(){const rule=CONFIG.pass[state.diff],cov=cleanedCoverage(),learnOK=state.mode!=="learning"||state.guided.complete,pass=state.clean>=rule.clean&&state.gum>=rule.gum&&cov>=rule.coverage&&state.technique>=rule.technique&&learnOK;const why=[];if(state.clean<rule.clean)why.push(`Clean ต้องถึง ${rule.clean}%`);if(state.gum<rule.gum)why.push(`Gum ต้องไม่ต่ำกว่า ${rule.gum}%`);if(cov<rule.coverage)why.push(`Coverage ต้องอย่างน้อย ${rule.coverage}/6`);if(state.technique<rule.technique)why.push(`Technique ต้องไม่ต่ำกว่า ${rule.technique}%`);if(!learnOK)why.push("ต้องผ่าน Learning ครบ 6 โซน");return{rule,cov,learnOK,pass,why}}
-function strongestWeak(){const rows=ZONES.map(z=>({z,p:state.mode==="learning"?(state.guided.progress[z.id]||0):0})).sort((a,b)=>b.p-a.p);return{best:rows[0]?.z.label||"-",weak:rows.at(-1)?.z.label||"-"}}
-function end(reason){if(state.phase==="result")return;state.phase="result";const s=status(),dir=directionAcc(),sw=strongestWeak();$("resultTitle").textContent=s.pass?"Fresh Smile Hero ✨":"Zone Learning Retry 💪";$("resultSub").textContent=s.pass?"ผ่านภารกิจแล้ว! สะอาดและแปรงถูกวิธี":"สิ่งที่ต้องฝึกก่อน: "+s.why.join(" • ");$("rClean").textContent=Math.round(state.clean)+"%";$("rGum").textContent=Math.round(state.gum)+"%";$("rTechnique").textContent=Math.round(state.technique)+"%";$("rCoverage").textContent=`${s.cov}/6`;$("rDirection").textContent=dir+"%";$("rPass").textContent=s.pass?"Pass":"Retry";$("learnResult").innerHTML=state.mode==="learning"?`<b>Learning Progress ${progressPercent()}% • Direction Accuracy ${dir}%</b><br>ทำได้ดี: ${sw.best} • ฝึกเพิ่ม: ${sw.weak}`:`<b>Challenge Mode</b><br>ฝึก Learning Mode เพื่อดูทิศทางและลำดับโซน`;const next=!state.guided.complete&&state.mode==="learning"?`เริ่มที่ ${zoneById(state.guided.targetId).label} แล้ว${directionName(expected(state.guided.targetId))} ให้ถูก 3 ครั้ง และค้างในโซนอย่างน้อย 0.5 วินาที`:state.gum<CONFIG.pass[state.diff].gum?"ลากแปรงช้าลง อย่าถูแรงซ้ำจุดเดิม":"ลองเพิ่มระดับหรือทำคะแนนให้สูงขึ้น";$("nextText").textContent=next;$("zones").innerHTML=ZONES.map(z=>{const p=state.mode==="learning"?Math.round(state.guided.progress[z.id]||0):0;return`<div class="zone-line"><span>${z.label}</span><i style="--w:${p}%"></i><b>${p}%</b></div>`}).join("");showScreen($("resultScreen"));send(reason,s)}
-function payload(reason,s){return{api:"hygiene",zone:"hygiene",record_id:state.recordId,run_id:state.runId,version:VERSION,game_id:"hygiene-toothbrush-ar",game_key:"toothbrush",player_name:state.profile.name,class_level:state.profile.level,difficulty:state.diff,play_mode:state.mode,duration_sec:state.time,end_reason:reason,score:Math.round(state.score),clean_score:Math.round(state.clean),gum_health:Math.round(state.gum),technique_score:Math.round(state.technique),coverage_zone_count:s.cov,learning_complete:state.guided.complete?"yes":"no",learning_progress_percent:progressPercent(),direction_accuracy:directionAcc(),guided_target_zone:state.guided.targetId,guided_current_zone:state.guided.currentId,guided_zone_progress_json:JSON.stringify({progress:state.guided.progress,completed:state.guided.completed,dwell_ms:state.guided.dwell,strokes:state.guided.strokes,qualified_strokes:state.guided.qualified,direction_good:state.guided.good,direction_total:state.guided.total}),hand_tracking_enabled:state.handOn?"yes":"no",hand_grip_total_sec:Math.round(state.handState.totalGrip/1000),face_anchor_enabled:state.faceOn?"yes":"no",camera_ready:state.cameraReady?"yes":"no",challenge_passed:s.pass?"yes":"no",challenge_fail_reasons:s.why.join(" | "),pass_min_clean:s.rule.clean,pass_min_gum:s.rule.gum,pass_min_coverage:s.rule.coverage,pass_min_technique:s.rule.technique,badge:s.pass?"Fresh Smile Hero":"Zone Learning Retry",created_at:new Date().toISOString(),source_url:location.href,user_agent:navigator.userAgent}}
+function status(){
+  const rule=CONFIG.pass[state.diff];
+  const cov=cleanedCoverage();
+  const learnOK=state.mode!=="learning" || state.guided.complete;
+  const direction=state.mode==="challenge"
+    ? challengeDirectionAcc()
+    : directionAcc();
+  const directionTarget=state.mode==="challenge"
+    ? CONFIG.challenge.minDirectionAccuracy[state.diff]
+    : CONFIG.guided.minDirectionAccuracy;
+  const directionOK=state.mode!=="challenge" || direction>=directionTarget;
+
+  const baseClear=
+    state.clean>=rule.clean &&
+    state.gum>=rule.gum &&
+    cov>=rule.coverage &&
+    state.technique>=rule.technique &&
+    learnOK;
+
+  const pass=baseClear && directionOK;
+  const directionPractice=state.mode==="challenge" && baseClear && !directionOK;
+
+  const why=[];
+  if(state.clean<rule.clean) why.push(`Clean ต้องถึง ${rule.clean}%`);
+  if(state.gum<rule.gum) why.push(`Gum ต้องไม่ต่ำกว่า ${rule.gum}%`);
+  if(cov<rule.coverage) why.push(`Coverage ต้องอย่างน้อย ${rule.coverage}/6`);
+  if(state.technique<rule.technique) why.push(`Technique ต้องไม่ต่ำกว่า ${rule.technique}%`);
+  if(!learnOK) why.push("ต้องผ่าน Learning ครบ 6 โซน");
+  if(state.mode==="challenge" && !directionOK){
+    why.push(`Direction ต้องอย่างน้อย ${directionTarget}%`);
+  }
+
+  return {
+    rule,cov,learnOK,direction,directionTarget,directionOK,
+    baseClear,directionPractice,pass,why
+  };
+}
+function strongestWeak(){
+  const rows=ZONES.map(z=>{
+    if(state.mode==="learning"){
+      return {z,p:state.guided.progress[z.id]||0};
+    }
+
+    const clean=challengeCleanPercent(z.id);
+    const direction=challengeDirectionAcc(z.id);
+    return {z,p:clean*.65+direction*.35};
+  }).sort((a,b)=>b.p-a.p);
+
+  return {
+    best:rows[0]?.z.label||"-",
+    weak:rows.at(-1)?.z.label||"-"
+  };
+}
+function end(reason){
+  if(state.phase==="result") return;
+
+  state.phase="result";
+  const s=status();
+  const sw=strongestWeak();
+
+  const title=s.pass
+    ? "Fresh Smile Hero ✨"
+    : s.directionPractice
+      ? "Challenge Clear • Direction Practice 🧭"
+      : state.mode==="learning"
+        ? "Zone Learning Retry 💪"
+        : "Challenge Retry 💪";
+
+  $("resultTitle").textContent=title;
+
+  $("resultSub").textContent=s.pass
+    ? "ผ่านภารกิจแล้ว! สะอาด เหงือกปลอดภัย และแปรงถูกทิศทาง"
+    : s.directionPractice
+      ? `Clean และ Coverage ผ่านแล้ว แต่ Direction ${s.direction}% ยังต่ำกว่าเกณฑ์ ${s.directionTarget}%`
+      : "สิ่งที่ต้องฝึกก่อน: "+s.why.join(" • ");
+
+  $("rClean").textContent=Math.round(state.clean)+"%";
+  $("rGum").textContent=Math.round(state.gum)+"%";
+  $("rTechnique").textContent=Math.round(state.technique)+"%";
+  $("rCoverage").textContent=`${s.cov}/6`;
+  $("rDirection").textContent=s.direction+"%";
+  $("rPass").textContent=s.pass ? "Pass" : s.directionPractice ? "Practice" : "Retry";
+
+  if(state.mode==="learning"){
+    $("learnResult").innerHTML=
+      `<b>Learning Progress ${progressPercent()}% • Direction Accuracy ${s.direction}%</b><br>`+
+      `ทำได้ดี: ${sw.best} • ฝึกเพิ่ม: ${sw.weak}`;
+  }else{
+    $("learnResult").innerHTML=
+      `<b>Challenge Direction ${s.direction}% / เป้าหมาย ${s.directionTarget}%</b><br>`+
+      `Direction จะนับเฉพาะตอนแปรงโดนคราบจริง • ทำได้ดี: ${sw.best} • ฝึกเพิ่ม: ${sw.weak}`;
+  }
+
+  let next="";
+  if(state.mode==="challenge" && s.directionPractice){
+    next="ฝึกฟันบนปัดลง และฟันล่างปัดขึ้นขณะโดนคราบจริง ให้ Direction ถึง "+s.directionTarget+"%";
+  }else if(!state.guided.complete && state.mode==="learning"){
+    next=`เริ่มที่ ${zoneById(state.guided.targetId).label} แล้ว${directionName(expected(state.guided.targetId))} ให้ถูก 3 ครั้ง และค้างในโซนอย่างน้อย 0.5 วินาที`;
+  }else if(state.gum<CONFIG.pass[state.diff].gum){
+    next="ลากแปรงช้าลง อย่าถูแรงซ้ำจุดเดิม";
+  }else{
+    next="ลองเพิ่มระดับหรือทำคะแนนให้สูงขึ้น";
+  }
+
+  $("nextText").textContent=next;
+
+  const heading=state.mode==="challenge"
+    ? "🦷 Challenge Zone Clean • Direction"
+    : "🗺️ Learning Zone Skill";
+
+  $("zones").innerHTML=
+    `<h3>${heading}</h3>`+
+    ZONES.map(z=>{
+      const p=state.mode==="learning"
+        ? Math.round(state.guided.progress[z.id]||0)
+        : challengeCleanPercent(z.id);
+
+      const dir=state.mode==="learning"
+        ? directionAcc(z.id)
+        : challengeDirectionAcc(z.id);
+
+      const right=state.mode==="challenge"
+        ? `Clean ${p}% • ↕ ${dir}%`
+        : `${p}%`;
+
+      const grade=state.mode==="challenge" && dir>=s.directionTarget
+        ? "good"
+        : state.mode==="challenge"
+          ? "warn"
+          : "";
+
+      return `<div class="zone-line"><span>${z.label}</span><i style="--w:${p}%"></i><b class="${grade}">${right}</b></div>`;
+    }).join("");
+
+  showScreen($("resultScreen"));
+  send(reason,s);
+}
+function payload(reason,s){
+  const challengeZones=Object.fromEntries(
+    ZONES.map(z=>[z.id,{
+      clean_percent:challengeCleanPercent(z.id),
+      spawned:challengeRow(z.id).spawned,
+      cleared:challengeRow(z.id).cleared,
+      direction_accuracy:challengeDirectionAcc(z.id),
+      direction_good:challengeRow(z.id).directionGood,
+      direction_total:challengeRow(z.id).directionTotal
+    }])
+  );
+
+  return {
+    api:"hygiene",
+    zone:"hygiene",
+    record_id:state.recordId,
+    run_id:state.runId,
+    version:VERSION,
+    game_id:"hygiene-toothbrush-ar",
+    game_key:"toothbrush",
+    player_name:state.profile.name,
+    class_level:state.profile.level,
+    difficulty:state.diff,
+    play_mode:state.mode,
+    duration_sec:state.time,
+    end_reason:reason,
+
+    score:Math.round(state.score),
+    clean_score:Math.round(state.clean),
+    gum_health:Math.round(state.gum),
+    technique_score:Math.round(state.technique),
+    coverage_zone_count:s.cov,
+
+    learning_complete:state.guided.complete?"yes":"no",
+    learning_progress_percent:progressPercent(),
+    direction_accuracy:s.direction,
+    direction_threshold:s.directionTarget,
+    direction_passed:s.directionOK?"yes":"no",
+
+    challenge_base_clear:s.baseClear?"yes":"no",
+    challenge_result:s.pass
+      ? "fresh_smile_hero"
+      : s.directionPractice
+        ? "direction_practice_needed"
+        : "retry",
+
+    guided_target_zone:state.guided.targetId,
+    guided_current_zone:state.guided.currentId,
+    guided_zone_progress_json:JSON.stringify({
+      progress:state.guided.progress,
+      completed:state.guided.completed,
+      dwell_ms:state.guided.dwell,
+      strokes:state.guided.strokes,
+      qualified_strokes:state.guided.qualified,
+      direction_good:state.guided.good,
+      direction_total:state.guided.total
+    }),
+
+    challenge_zone_performance_json:JSON.stringify(challengeZones),
+
+    hand_tracking_enabled:state.handOn?"yes":"no",
+    hand_grip_total_sec:Math.round(state.handState.totalGrip/1000),
+    face_anchor_enabled:state.faceOn?"yes":"no",
+    camera_ready:state.cameraReady?"yes":"no",
+
+    challenge_passed:s.pass?"yes":"no",
+    challenge_fail_reasons:s.why.join(" | "),
+    pass_min_clean:s.rule.clean,
+    pass_min_gum:s.rule.gum,
+    pass_min_coverage:s.rule.coverage,
+    pass_min_technique:s.rule.technique,
+
+    badge:s.pass
+      ? "Fresh Smile Hero"
+      : s.directionPractice
+        ? "Challenge Direction Practice"
+        : state.mode==="learning"
+          ? "Zone Learning Retry"
+          : "Challenge Retry",
+
+    created_at:new Date().toISOString(),
+    source_url:location.href,
+    user_agent:navigator.userAgent
+  };
+}
 async function send(reason,s){if(state.resultSent)return;state.resultSent=true;const p=payload(reason,s);window.__TOOTHBRUSH_LAST_RESULT__=p;try{await fetch(CONFIG.sheetWebAppUrl,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(p)})}catch(e){localStorage.setItem("toothbrush_pending_result",JSON.stringify(p))}}
 function showScreen(el){for(const x of document.querySelectorAll(".screen"))x.classList.remove("show");el?.classList.add("show")}
-function reset(){state.phase="ready";state.profile.name=$("playerName").value.trim()||"Hero";state.profile.level=$("classLevel").value.trim()||"ป.5";state.time=CONFIG.difficulty[state.diff].duration;state.left=state.time;state.score=0;state.clean=0;state.gum=100;state.technique=100;state.combo=0;state.bestCombo=0;state.runId=uid("TOOTHBRUSH-RUN");state.recordId=uid("HZ-TOOTHBRUSH");state.resultSent=false;state.nextPlaque=1;state.clearedZones=[];state.pauseMs=0;clearPlaques();initGuided();updateHud();updateGuides()}
-function start(){reset();D.brush.classList.add("loaded");showScreen(null);state.phase="playing";state.start=now();state.last=now();state.spawnAt=0;showCoach(state.mode==="learning"?"เริ่มบนซ้าย: ปัดลงตามลูกศร 3 ครั้ง":"Challenge Mode: กำจัดคราบให้ครบทุกโซน");if(isLearning())ensureTargetPlaques();else for(let i=0;i<5;i++)spawnPlaque()}
+function reset(){state.phase="ready";state.profile.name=$("playerName").value.trim()||"Hero";state.profile.level=$("classLevel").value.trim()||"ป.5";state.time=CONFIG.difficulty[state.diff].duration;state.left=state.time;state.score=0;state.clean=0;state.gum=100;state.technique=100;state.combo=0;state.bestCombo=0;state.runId=uid("TOOTHBRUSH-RUN");state.recordId=uid("HZ-TOOTHBRUSH");state.resultSent=false;state.nextPlaque=1;state.clearedZones=[];state.pauseMs=0;clearPlaques();initGuided();initChallenge();updateHud();updateGuides()}
+function start(){
+  reset();
+  D.brush.classList.add("loaded");
+  showScreen(null);
+
+  state.phase="playing";
+  state.start=now();
+  state.last=now();
+  state.spawnAt=0;
+
+  if(isLearning()){
+    showCoach("เริ่มบนซ้าย: ปัดลงตามลูกศร 3 ครั้ง");
+    ensureTargetPlaques();
+  }else{
+    showCoach("Challenge Mode: แปรงให้ครบทุกโซน และฟันบนปัดลง / ฟันล่างปัดขึ้น");
+    spawnChallengeStarterPlaques();
+  }
+}
 function loop(t){requestAnimationFrame(loop);runFace(t);runHand(t);if(state.phase!=="playing")return;const dt=Math.min(80,t-state.last||16);state.last=t;state.left=clamp(state.time-(t-state.start-state.pauseMs)/1000,0,state.time);updateGuided(t,dt);maybeSpawn(t);hitPlaques(t,dt);if(state.gum<=0&&!isLearning())end("gum_damage_stop");if(state.left<=0)end("timeup");updateHud()}
 async function initVision(){try{const v=await FilesetResolver.forVisionTasks(CONFIG.wasm);state.hand=await HandLandmarker.createFromOptions(v,{baseOptions:{modelAssetPath:CONFIG.handModel,delegate:"GPU"},runningMode:"VIDEO",numHands:1,minHandDetectionConfidence:.35,minHandPresenceConfidence:.35,minTrackingConfidence:.35});state.face=await FaceLandmarker.createFromOptions(v,{baseOptions:{modelAssetPath:CONFIG.faceModel,delegate:"GPU"},runningMode:"VIDEO",numFaces:1,minFaceDetectionConfidence:.45,minFacePresenceConfidence:.45,minTrackingConfidence:.45});state.visionReady=true}catch(e){state.handOn=false;state.faceOn=false;$("handBtn").classList.remove("on");$("faceBtn").classList.remove("on")}}
 async function initCamera(){try{const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}},audio:false});D.camera.srcObject=stream;await D.camera.play();state.cameraReady=true}catch(e){state.cameraReady=false}}
 function bind(){document.querySelectorAll("[data-diff]").forEach(b=>b.onclick=()=>{state.diff=b.dataset.diff;document.querySelectorAll("[data-diff]").forEach(x=>x.classList.toggle("active",x===b))});document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;document.querySelectorAll("[data-mode]").forEach(x=>x.classList.toggle("active",x===b))});$("startBtn").onclick=start;$("replayBtn").onclick=()=>showScreen($("startScreen"));$("zoneBtn").onclick=$("resultZoneBtn").onclick=()=>location.href=CONFIG.hygieneZoneUrl;$("pauseBtn").onclick=()=>{if(state.phase==="playing"){state.phase="pause";state.pausedAt=now();$("pauseBtn").textContent="▶"}else if(state.phase==="pause"){state.pauseMs+=now()-state.pausedAt;state.phase="playing";$("pauseBtn").textContent="⏸"}};$("muteBtn").onclick=()=>{state.audioMuted=!state.audioMuted;$("muteBtn").textContent=state.audioMuted?"🔇":"🔊"};$("faceBtn").onclick=()=>{state.faceOn=!state.faceOn;$("faceBtn").classList.toggle("on",state.faceOn)};$("handBtn").onclick=()=>{state.handOn=!state.handOn;$("handBtn").classList.toggle("on",state.handOn)};for(const ev of ["pointerdown","pointermove"]){addEventListener(ev,e=>{if(e.target.closest(".screen")||e.target.closest(".actions"))return;if(e.pointerType==="mouse" || !state.handOn || !state.handState.quality){state.brush.active=true;moveBrush(e.clientX,e.clientY)}})}addEventListener("resize",()=>updateMouthAnchor(state.faceAnchor))}
-async function boot(){initTeeth();bind();initGuided();updateMouthAnchor(state.faceAnchor);updateHud();updateGuides();await initCamera();await initVision();requestAnimationFrame(loop);showCoach("กล้องพร้อมแล้ว เลือก Learning Mode เพื่อฝึกทีละโซน")}
+async function boot(){initTeeth();bind();initGuided();initChallenge();updateMouthAnchor(state.faceAnchor);updateHud();updateGuides();await initCamera();await initVision();requestAnimationFrame(loop);showCoach("กล้องพร้อมแล้ว เลือก Learning Mode เพื่อฝึกทีละโซน")}
 boot();
 </script>
 </body>
