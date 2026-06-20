@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#dff7ff" />
+  <meta name="color-scheme" content="light" />
+  <title>HeroHealth • Fitness Planner AR</title>
+  <style>
+    :root{
+      --ink:#18324a; --muted:#597083; --card:#ffffff; --line:#d9eaf4;
+      --blue:#3b9fe8; --purple:#7a61ef; --green:#20a66c; --orange:#f29b43;
+      --red:#e86470; --bg1:#eaf8ff; --bg2:#fff7e7; --shadow:0 18px 42px rgba(31,79,116,.12);
+      --radius:24px;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;min-height:100%;font-family:ui-rounded,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;color:var(--ink);background:linear-gradient(150deg,var(--bg1),#f7fbff 45%,var(--bg2));}
+    button,input,select{font:inherit}
+    button{cursor:pointer}
+    .app{width:min(1200px,100%);margin:0 auto;padding:clamp(12px,2.2vw,26px) max(14px,env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));}
+    .hero{background:linear-gradient(135deg,#2f8bd6,#705ee6 60%,#a25ee6);color:#fff;border-radius:30px;padding:clamp(18px,3.4vw,34px);box-shadow:var(--shadow);position:relative;overflow:hidden;}
+    .hero:after{content:"";position:absolute;width:260px;height:260px;border:44px solid rgba(255,255,255,.12);border-radius:50%;right:-100px;top:-125px}
+    .hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:start}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:900;letter-spacing:.04em;text-transform:uppercase;background:rgba(255,255,255,.17);border:1px solid rgba(255,255,255,.25);padding:8px 12px;border-radius:999px}
+    h1{font-size:clamp(1.72rem,4vw,2.65rem);line-height:1.05;margin:12px 0 8px;letter-spacing:-.04em}
+    .hero p{margin:0;max-width:710px;line-height:1.58;font-weight:650;color:rgba(255,255,255,.94)}
+    .hero-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .mini-btn{border:1px solid rgba(255,255,255,.36);background:rgba(255,255,255,.14);color:#fff;min-height:38px;border-radius:13px;padding:7px 11px;font-weight:900}
+    .identity{position:relative;z-index:1;display:flex;gap:8px;flex-wrap:wrap;margin-top:17px}
+    .pill{display:inline-flex;gap:6px;align-items:center;padding:8px 11px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.23);border-radius:999px;font-weight:800;font-size:.86rem}
+    .layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(290px,.65fr);gap:16px;margin-top:16px}
+    .card{background:rgba(255,255,255,.95);border:1px solid rgba(255,255,255,.9);box-shadow:var(--shadow);border-radius:var(--radius);padding:clamp(15px,2.2vw,22px)}
+    .section-head{display:flex;justify-content:space-between;align-items:start;gap:12px;margin-bottom:12px}
+    .section-title{font-size:1.18rem;font-weight:1000;letter-spacing:-.02em;margin:0}.section-sub{font-size:.9rem;line-height:1.5;color:var(--muted);font-weight:650;margin:4px 0 0}
+    .goal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .goal{border:1px solid var(--line);border-radius:18px;background:#fff;padding:13px;text-align:left;display:flex;gap:10px;align-items:flex-start;transition:.18s ease;min-height:90px}
+    .goal:hover{transform:translateY(-2px);box-shadow:0 9px 18px rgba(41,100,141,.10)}.goal.is-selected{outline:3px solid rgba(68,159,232,.24);border-color:#77bde8;background:linear-gradient(180deg,#fbfeff,#f0f9ff)}
+    .goal .gicon{font-size:1.55rem}.goal b{display:block;font-size:.94rem}.goal small{display:block;color:var(--muted);line-height:1.35;margin-top:2px;font-weight:650}
+    label{display:block;font-size:.82rem;font-weight:900;color:#496477;margin-bottom:5px}.control{width:100%;height:42px;border-radius:13px;border:1px solid var(--line);padding:0 10px;background:#fff;color:var(--ink);font-weight:760;outline:none}.control:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,159,232,.14)}
+    .form-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:10px;margin-top:13px}
+    .summary-card{display:flex;flex-direction:column;gap:13px}.summary-big{display:flex;align-items:center;gap:12px}.progress-ring{width:62px;height:62px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--green) calc(var(--pct)*1%),#e6f0f5 0);position:relative;flex:0 0 auto}.progress-ring:before{content:"";position:absolute;inset:7px;border-radius:50%;background:#fff}.progress-ring b{position:relative;font-size:.92rem}.summary-big strong{font-size:1.06rem}.summary-big span{display:block;color:var(--muted);font-size:.86rem;margin-top:2px;font-weight:650}
+    .stat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.stat{background:#f7fbfe;border:1px solid #e6f1f8;border-radius:15px;padding:10px}.stat b{font-size:1.12rem;display:block}.stat span{font-size:.75rem;color:var(--muted);font-weight:800;line-height:1.25;display:block;margin-top:2px}
+    .coach{padding:12px;border-radius:17px;background:linear-gradient(135deg,#fff7e8,#fffdf7);border:1px solid #f8dfb7;color:#6d532b;font-size:.88rem;line-height:1.48;font-weight:700}
+    .game-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:16px}.game-chip{border-radius:17px;padding:10px;background:#fff;border:1px solid var(--line);min-height:105px}.game-chip .icon{font-size:1.48rem}.game-chip b{display:block;font-size:.82rem;margin-top:4px}.game-chip span{display:block;font-size:.72rem;font-weight:650;color:var(--muted);line-height:1.32;margin-top:2px}
+    .planner-card{margin-top:16px}.planner-toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:12px}.btn-row{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:15px;min-height:42px;padding:9px 12px;font-weight:950;transition:.18s ease}.btn:hover{transform:translateY(-1px);box-shadow:0 8px 16px rgba(31,79,116,.1)}.btn.primary{background:linear-gradient(180deg,#45b7f2,#208bd3);border-color:#2a9ad9;color:#fff}.btn.success{background:linear-gradient(180deg,#62d993,#2fae6c);border-color:#36b16d;color:#fff}.btn.warn{background:linear-gradient(180deg,#fff6df,#ffebbd);border-color:#f5d68b;color:#77541c}.btn.ghost{background:#f3f9fd}
+    .notice{font-size:.83rem;color:var(--muted);font-weight:700;line-height:1.45;margin:8px 0 0}
+    .week-grid{margin-top:16px;display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px;overflow-x:auto;padding-bottom:4px}.day-card{min-width:150px;border:1px solid var(--line);background:#fff;border-radius:20px;padding:11px;position:relative;transition:.18s ease}.day-card.is-active{border-color:#83c7ee;box-shadow:0 0 0 3px rgba(74,174,240,.15)}.day-card.is-done{background:linear-gradient(180deg,#f5fff9,#fff)}.day-card.is-rest{opacity:.67;background:#fbfcfd}.day-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:9px}.day-title{font-size:.94rem;font-weight:1000}.day-sub{font-size:.71rem;color:var(--muted);font-weight:800;margin-top:1px}.switch{appearance:none;width:39px;height:23px;border-radius:999px;background:#dce9f1;position:relative;outline:none;border:0;flex:0 0 auto}.switch:after{content:"";position:absolute;width:17px;height:17px;border-radius:50%;background:#fff;left:3px;top:3px;box-shadow:0 2px 4px rgba(0,0,0,.18);transition:.18s ease}.switch:checked{background:var(--green)}.switch:checked:after{left:19px}
+    .field{margin-top:8px}.field label{font-size:.71rem;margin-bottom:3px}.field .control{height:34px;border-radius:10px;padding:0 7px;font-size:.78rem}.day-card.is-rest .field,.day-card.is-rest .day-actions{display:none}.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.phase-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.phase{background:#f7fbfe;border:1px solid #e4eff6;border-radius:11px;padding:7px}.phase-row label{display:flex;align-items:center;gap:4px;margin:0;font-size:.67rem}.phase select{width:100%;border:0;background:transparent;color:#496477;font-size:.7rem;font-weight:900;outline:none;margin-top:4px}.day-actions{margin-top:10px;display:grid;gap:6px}.start-btn{width:100%;border:0;border-radius:11px;background:linear-gradient(180deg,#6bdca1,#32ad70);color:#fff;font-size:.8rem;min-height:35px;font-weight:1000}.status-badge{display:block;text-align:center;border-radius:9px;padding:5px;background:#f0f7fb;color:#537084;font-size:.67rem;font-weight:950}.status-badge.running{background:#e8f7ff;color:#207eb7}.status-badge.done{background:#eaf9ef;color:#258653}.status-badge.pending{background:#f5f7f9;color:#697b88}
+    .bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.history-list{display:grid;gap:8px;margin-top:10px}.history-row{display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;border:1px solid #e4eff6;border-radius:14px;padding:9px}.history-row .hicon{font-size:1.25rem}.history-row b{font-size:.87rem}.history-row span{display:block;color:var(--muted);font-size:.75rem;line-height:1.35;font-weight:650;margin-top:1px}.history-row .hscore{text-align:right;font-size:.78rem;color:#33566e;font-weight:900}.empty{color:var(--muted);font-size:.87rem;font-weight:650;background:#f8fbfd;border-radius:14px;padding:12px;line-height:1.45}
+    .flow-card{background:linear-gradient(135deg,#effaff,#fcfaff);border:1px solid #dcebf7}.flow-line{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:12px}.flow-step{padding:8px 10px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:.78rem;font-weight:950}.arrow{color:#7a9bb0;font-weight:1000}.flow-status{margin-top:12px;border-radius:14px;background:#fff;padding:10px 11px;border:1px solid var(--line);font-size:.86rem;font-weight:850;line-height:1.45}
+    .toast{position:fixed;z-index:100;left:50%;bottom:22px;transform:translate(-50%,115px);background:#1f3a53;color:#fff;padding:11px 14px;border-radius:14px;box-shadow:0 12px 28px rgba(0,0,0,.25);font-weight:850;font-size:.88rem;max-width:min(92vw,560px);text-align:center;transition:.25s ease}.toast.show{transform:translate(-50%,0)}
+    .safety{margin-top:13px;border-top:1px solid #e3eef5;padding-top:11px;color:#6a7f8e;font-size:.78rem;line-height:1.42;font-weight:650}
+    @media(max-width:920px){.layout,.bottom-grid{grid-template-columns:1fr}.game-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.week-grid{grid-template-columns:repeat(7,164px)}}
+    @media(max-width:620px){.app{padding:12px}.hero{border-radius:24px}.hero-grid{grid-template-columns:1fr}.hero-tools{justify-content:flex-start}.form-grid{grid-template-columns:1fr}.goal-grid{grid-template-columns:1fr}.stat-grid{grid-template-columns:repeat(3,1fr)}.planner-toolbar{align-items:stretch}.btn-row{display:grid;grid-template-columns:1fr 1fr}.btn-row .btn{width:100%}.game-strip{grid-template-columns:1fr 1fr}.week-grid{margin-left:-2px}.section-head{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero" aria-label="Fitness Planner AR">
+      <div class="hero-grid">
+        <div>
+          <span class="eyebrow">🗓️ HEROHEALTH • FITNESS PLANNER AR</span>
+          <h1 id="heroTitle">วางแผนฝึกเอง เล่นจริงครบ 4 เกม</h1>
+          <p id="heroSub">ผู้เรียนเลือกวัน เกม ระดับ และเวลาได้ด้วยตนเอง ระบบจะพาเข้าสู่ Warm-up → เกมหลัก → Cool-down และเก็บผลการฝึกกลับมาที่แผนเดียวกัน</p>
+        </div>
+        <div class="hero-tools"><button class="mini-btn" id="langBtn" type="button">EN</button><button class="mini-btn" id="btnHub" type="button">⌂ Fitness Hub</button></div>
+      </div>
+      <div class="identity">
+        <span class="pill">👤 <span id="pidChip">anon</span></span>
+        <span class="pill">🏫 <span id="groupChip">—</span></span>
+        <span class="pill">🧾 Plan: <span id="planChip">—</span></span>
+        <span class="pill">📱 <span id="viewChip">mobile</span></span>
+      </div>
+    </section>
+
+    <section class="layout" aria-label="Plan setup">
+      <article class="card">
+        <div class="section-head"><div><h2 class="section-title" id="goalTitle">1. เลือกเป้าหมายของสัปดาห์</h2><p class="section-sub" id="goalSub">เลือกแนวฝึกก่อน แล้วปรับตารางให้เหมาะกับตนเองได้ทุกช่อง</p></div></div>
+        <div class="goal-grid" id="goalGrid"></div>
+        <div class="form-grid">
+          <div><label for="planName" id="planNameLabel">ชื่อแผนฝึก</label><input class="control" id="planName" maxlength="54" placeholder="เช่น My Hero Week" /></div>
+          <div><label for="planIdInput" id="planIdLabel">รหัสแผน</label><input class="control" id="planIdInput" maxlength="42" /></div>
+        </div>
+      </article>
+
+      <aside class="card summary-card">
+        <div class="section-head"><div><h2 class="section-title" id="summaryTitle">สรุปแผนของฉัน</h2><p class="section-sub" id="summarySub">วางแผนได้พอดีและติดตามได้จริง</p></div></div>
+        <div class="summary-big"><div class="progress-ring" id="progressRing" style="--pct:0"><b id="progressPct">0%</b></div><div><strong id="progressText">ยังไม่เริ่มแผน</strong><span id="progressSub">0 จาก 0 วันฝึก</span></div></div>
+        <div class="stat-grid"><div class="stat"><b id="workoutCount">0</b><span id="workoutLabel">วันฝึก</span></div><div class="stat"><b id="totalMin">0</b><span id="minuteLabel">นาทีโดยประมาณ</span></div><div class="stat"><b id="heroPts">0</b><span id="pointLabel">Hero Points</span></div></div>
+        <div class="coach" id="coachText">เริ่มจาก 3–4 วันต่อสัปดาห์ ใช้ระดับ Easy หรือ Normal และให้มีวันพักคั่นระหว่างวันที่ใช้แรงมาก</div>
+      </aside>
+    </section>
+
+    <section class="game-strip" id="gameStrip" aria-label="Four Fitness Games"></section>
+
+    <section class="card planner-card">
+      <div class="section-head"><div><h2 class="section-title" id="weeklyTitle">2. ตารางฝึกของฉัน</h2><p class="section-sub" id="weeklySub">เปิดสวิตช์เฉพาะวันที่ต้องการฝึก แล้วเลือกเกม ความยาก เวลาหลัก และเวลาวอร์ม/คูลดาวน์</p></div></div>
+      <div class="planner-toolbar">
+        <div class="btn-row"><button class="btn primary" id="btnFullPlan" type="button">✨ วางครบ 4 เกม</button><button class="btn ghost" id="btnLightPlan" type="button">🌱 แผนเริ่มต้น 3 วัน</button><button class="btn ghost" id="btnSave" type="button">💾 บันทึกแผน</button></div>
+        <div class="btn-row"><button class="btn success" id="btnStartNext" type="button">▶ เริ่มรายการถัดไป</button><button class="btn warn" id="btnResume" type="button">↻ ทำต่อ</button></div>
+      </div>
+      <p class="notice" id="weeklyNotice">การกด “เริ่ม” จะทำลำดับครบ: Warm-up → เกมหลัก → Cool-down → กลับมายืนยันผลในตาราง</p>
+      <div class="week-grid" id="weekGrid"></div>
+      <div class="safety" id="safetyText">เพื่อความปลอดภัย ให้มีพื้นที่ว่างรอบตัว สวมรองเท้าที่เหมาะสม และหยุดพักทันทีเมื่อเวียนศีรษะ เจ็บ หรือเหนื่อยผิดปกติ</div>
+    </section>
+
+    <section class="bottom-grid">
+      <article class="card flow-card"><div class="section-head"><div><h2 class="section-title" id="flowTitle">สถานะการฝึกปัจจุบัน</h2><p class="section-sub" id="flowSub">Planner เป็นผู้ควบคุมลำดับทั้งหมด ไม่ให้ Warm-up หรือ Cool-down ซ้อนจากตัวเกม</p></div></div><div class="flow-line"><span class="flow-step">1. Warm-up</span><span class="arrow">→</span><span class="flow-step">2. Main Game</span><span class="arrow">→</span><span class="flow-step">3. Cool-down</span><span class="arrow">→</span><span class="flow-step">4. Plan Complete</span></div><div class="flow-status" id="flowStatus">ยังไม่ได้เริ่มแผน</div></article>
+      <article class="card"><div class="section-head"><div><h2 class="section-title" id="historyTitle">ผลการฝึกล่าสุด</h2><p class="section-sub" id="historySub">เก็บในอุปกรณ์นี้ และดาวน์โหลดไฟล์สรุปแผนได้</p></div><button class="btn ghost" id="btnExport" type="button">⇩ CSV</button></div><div class="history-list" id="historyList"></div><div class="btn-row" style="margin-top:12px"><button class="btn ghost" id="btnClearResults" type="button">ล้างเฉพาะผลการฝึก</button><button class="btn warn" id="btnResetPlan" type="button">รีเซ็ตทั้งแผน</button></div></article>
+    </section>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const ROOT_PATH = '/webxr-health-mobile';
+  const PATHS = {
+    planner: `${ROOT_PATH}/herohealth/fitness-planner.html`,
+    hub: `${ROOT_PATH}/fitness/`,
+    gate: `${ROOT_PATH}/herohealth/warmup-gate.html`,
+    games: {
+      shadowbreaker: `${ROOT_PATH}/fitness/shadow-breaker.html`,
+      rhythmboxer: `${ROOT_PATH}/fitness/rhythm-boxer.html`,
+      jumpduck: `${ROOT_PATH}/fitness/jump-duck.html`,
+      balancehold: `${ROOT_PATH}/fitness/balance-hold.html`
+    }
+  };
+
+  const q = (k, d = '') => {
+    try { const v = new URL(location.href).searchParams.get(k); return v == null || v === '' ? d : v; }
+    catch (_) { return d; }
+  };
+  const qBool = (k, d = false) => ['1','true','yes','y','on'].includes(String(q(k, d ? '1' : '0')).toLowerCase());
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const safeText = (v, fallback = '') => String(v == null ? fallback : v).replace(/[<>]/g, '').trim();
+  const nowIso = () => new Date().toISOString();
+  const shortDate = () => new Date().toLocaleDateString('th-TH', { day:'numeric', month:'short' });
+  const $ = (sel, root = document) => root.querySelector(sel);
+
+  const ctx = {
+    pid: safeText(q('pid', 'anon'), 'anon'),
+    name: safeText(q('name', q('nickName', q('nick', 'Hero'))), 'Hero'),
+    group: safeText(q('group', q('section', q('classId', '—'))), '—'),
+    section: safeText(q('section', ''), ''),
+    classId: safeText(q('classId', ''), ''),
+    studyId: safeText(q('studyId', ''), ''),
+    conditionGroup: safeText(q('conditionGroup', ''), ''),
+    view: safeText(q('view', 'mobile'), 'mobile'),
+    run: safeText(q('run', 'play'), 'play'),
+    language: safeText(q('lang', 'th'), 'th').toLowerCase() === 'en' ? 'en' : 'th'
+  };
+
+  const GAMES = {
+    shadowbreaker: { icon:'🥊', th:'Shadow Breaker', en:'Shadow Breaker', thDesc:'ชกเป้าให้แม่น ฝึกแรงและการตอบสนอง', enDesc:'Punch accuracy, force, and reaction', focus:'power' },
+    rhythmboxer: { icon:'🎵', th:'Rhythm Boxer', en:'Rhythm Boxer', thDesc:'ออกหมัดตามบีต ฝึกจังหวะและการประสานงาน', enDesc:'Beat timing and coordination', focus:'rhythm' },
+    jumpduck: { icon:'🦘', th:'JumpDuck', en:'JumpDuck', thDesc:'กระโดด ก้ม และหลบ ฝึกความคล่องตัว', enDesc:'Jump, duck, and agility reaction', focus:'agility' },
+    balancehold: { icon:'⚖️', th:'Balance Hold', en:'Balance Hold', thDesc:'คุมท่าค้าง ฝึกสมาธิและการทรงตัว', enDesc:'Postural control and balance focus', focus:'balance' }
+  };
+
+  const DAYS = [
+    { id:'mon', th:'จันทร์', en:'Mon', fullEn:'Monday' }, { id:'tue', th:'อังคาร', en:'Tue', fullEn:'Tuesday' },
+    { id:'wed', th:'พุธ', en:'Wed', fullEn:'Wednesday' }, { id:'thu', th:'พฤหัสบดี', en:'Thu', fullEn:'Thursday' },
+    { id:'fri', th:'ศุกร์', en:'Fri', fullEn:'Friday' }, { id:'sat', th:'เสาร์', en:'Sat', fullEn:'Saturday' },
+    { id:'sun', th:'อาทิตย์', en:'Sun', fullEn:'Sunday' }
+  ];
+
+  const GOALS = {
+    all: { icon:'⭐', th:'All-round Hero', en:'All-round Hero', thDesc:'ครบทั้งแรง จังหวะ ความคล่องตัว และสมดุล', enDesc:'Power, rhythm, agility, and balance', message:'ใช้ 4 เกมหมุนเวียนตลอดสัปดาห์ เพื่อให้ได้ทั้งแรง การควบคุมจังหวะ ความคล่องตัว และการทรงตัว' },
+    power: { icon:'🥊', th:'Punch & Rhythm', en:'Punch & Rhythm', thDesc:'เน้นหมัด การตอบสนอง และจังหวะ', enDesc:'Punch control, reaction, and timing', message:'เริ่ม Shadow Breaker และ Rhythm Boxer แบบ Easy/Normal ก่อน แล้วค่อยเพิ่มความยากเมื่อความแม่นยำดีขึ้น' },
+    agility: { icon:'⚡', th:'Speed & Agility', en:'Speed & Agility', thDesc:'เน้นการเคลื่อนที่และตัดสินใจให้ทัน', enDesc:'Movement speed and quick decisions', message:'สลับ JumpDuck กับเกมชกเพื่อฝึกการตอบสนองโดยไม่ใช้กล้ามเนื้อส่วนเดิมหนักต่อเนื่อง' },
+    balance: { icon:'🧘', th:'Balance & Focus', en:'Balance & Focus', thDesc:'เน้นท่าทาง การหายใจ และการควบคุมตัว', enDesc:'Posture, breathing, and control', message:'ให้มีวันพักคั่น และเริ่ม Balance Hold เวลาสั้นก่อนเพิ่มระยะเวลาเมื่อคุมท่าได้มั่นคง' }
+  };
+
+  const T = {
+    th: {
+      heroTitle:'วางแผนฝึกเอง เล่นจริงครบ 4 เกม', heroSub:'ผู้เรียนเลือกวัน เกม ระดับ และเวลาได้ด้วยตนเอง ระบบจะพาเข้าสู่ Warm-up → เกมหลัก → Cool-down และเก็บผลการฝึกกลับมาที่แผนเดียวกัน',
+      goalTitle:'1. เลือกเป้าหมายของสัปดาห์', goalSub:'เลือกแนวฝึกก่อน แล้วปรับตารางให้เหมาะกับตนเองได้ทุกช่อง', planName:'ชื่อแผนฝึก', planId:'รหัสแผน',
+      summaryTitle:'สรุปแผนของฉัน', summarySub:'วางแผนได้พอดีและติดตามได้จริง', workout:'วันฝึก', mins:'นาทีโดยประมาณ', pts:'Hero Points',
+      weeklyTitle:'2. ตารางฝึกของฉัน', weeklySub:'เปิดสวิตช์เฉพาะวันที่ต้องการฝึก แล้วเลือกเกม ความยาก เวลาหลัก และเวลาวอร์ม/คูลดาวน์',
+      notice:'การกด “เริ่ม” จะทำลำดับครบ: Warm-up → เกมหลัก → Cool-down → กลับมายืนยันผลในตาราง',
+      flowTitle:'สถานะการฝึกปัจจุบัน', flowSub:'Planner เป็นผู้ควบคุมลำดับทั้งหมด ไม่ให้ Warm-up หรือ Cool-down ซ้อนจากตัวเกม', historyTitle:'ผลการฝึกล่าสุด', historySub:'เก็บในอุปกรณ์นี้ และดาวน์โหลดไฟล์สรุปแผนได้',
+      noPlan:'ยังไม่ได้เริ่มแผน', rest:'พัก', train:'ฝึก', game:'เกม', level:'ระดับ', main:'เกมหลัก', warmup:'Warm-up', cooldown:'Cool-down', start:'เริ่ม', restart:'เล่นซ้ำ',
+      easy:'Easy', normal:'Normal', hard:'Hard', min:'วิ', save:'บันทึกแผนแล้ว', first:'เริ่มรายการถัดไป', none:'ยังไม่มีวันฝึกในแผน', complete:'ครบแผนแล้ว เยี่ยมมาก!',
+      safety:'เพื่อความปลอดภัย ให้มีพื้นที่ว่างรอบตัว สวมรองเท้าที่เหมาะสม และหยุดพักทันทีเมื่อเวียนศีรษะ เจ็บ หรือเหนื่อยผิดปกติ',
+      active:'กำลังทำ', pending:'รอเริ่ม', done:'สำเร็จ', export:'ดาวน์โหลด CSV สรุปแผนแล้ว', clear:'ล้างผลการฝึกแล้ว แต่ตารางยังอยู่', reset:'รีเซ็ตแผนและผลทั้งหมดแล้ว',
+      resumed:'กลับสู่รายการที่กำลังทำ', noActive:'ยังไม่มีรายการที่ค้างอยู่', completeRecord:'บันทึกผลสำเร็จแล้ว', returnMain:'กลับจากเกมหลัก กำลังไป Cool-down',
+      flowIdle:'ยังไม่ได้เริ่มแผน', flowWarm:'กำลังทำ Warm-up ก่อนเล่น', flowMain:'กำลังเล่นเกมหลัก', flowCool:'กำลังทำ Cool-down หลังเล่น', flowDone:'ทำรายการนี้ครบแล้ว',
+      historyEmpty:'ยังไม่มีผลการเล่น เมื่อจบแต่ละเกม Planner จะเก็บคะแนน ความแม่นยำ และคอมโบไว้ที่นี่', result:'ผล', score:'คะแนน', accuracy:'แม่นยำ', combo:'คอมโบ',
+      required:'เลือกอย่างน้อย 1 วันฝึกก่อน', preserved:'เปลี่ยนรูปแบบแผนแล้ว ผลเดิมของวันอื่นยังคงอยู่', hub:'กลับ Fitness Hub'
+    },
+    en: {
+      heroTitle:'Build Your Own 4-Game Fitness Plan', heroSub:'Choose your training days, games, difficulty, and duration. The Planner guides Warm-up → Main Game → Cool-down and reunites every result in one plan.',
+      goalTitle:'1. Choose your weekly focus', goalSub:'Pick a training direction first; every schedule cell remains editable.', planName:'Plan name', planId:'Plan ID',
+      summaryTitle:'My plan summary', summarySub:'A realistic plan you can follow', workout:'training days', mins:'estimated minutes', pts:'Hero Points',
+      weeklyTitle:'2. My weekly schedule', weeklySub:'Turn on only the days you want, then choose game, difficulty, main duration, warm-up, and cool-down.',
+      notice:'Start always follows: Warm-up → Main Game → Cool-down → Planner confirmation.',
+      flowTitle:'Current training status', flowSub:'The Planner owns the whole sequence so game pages do not add duplicate gates.', historyTitle:'Recent results', historySub:'Stored on this device; export a plan summary any time.',
+      noPlan:'No active plan yet', rest:'Rest', train:'Train', game:'Game', level:'Level', main:'Main game', warmup:'Warm-up', cooldown:'Cool-down', start:'Start', restart:'Replay',
+      easy:'Easy', normal:'Normal', hard:'Hard', min:'sec', save:'Plan saved', first:'Start next workout', none:'No training day selected', complete:'Plan complete — excellent work!',
+      safety:'For safety, keep clear space around you, wear suitable shoes, and stop immediately for dizziness, pain, or unusual fatigue.',
+      active:'In progress', pending:'Pending', done:'Complete', export:'Plan summary CSV downloaded', clear:'Results cleared; your schedule remains', reset:'Plan and results reset',
+      resumed:'Returning to your active workout', noActive:'There is no unfinished workout', completeRecord:'Result recorded', returnMain:'Back from main game; moving to cool-down',
+      flowIdle:'No active workout yet', flowWarm:'Doing warm-up before', flowMain:'Playing main game', flowCool:'Doing cool-down after', flowDone:'This workout is complete',
+      historyEmpty:'No game result yet. Scores, accuracy, and combo will appear here after each game.', result:'Result', score:'Score', accuracy:'Accuracy', combo:'Combo',
+      required:'Select at least one training day first', preserved:'Plan style updated; other stored results remain', hub:'Back to Fitness Hub'
+    }
+  };
+
+  function tx(key){ return (T[ctx.language] && T[ctx.language][key]) || T.th[key] || key; }
+  function gameName(id){ const g = GAMES[id] || GAMES.shadowbreaker; return ctx.language === 'en' ? g.en : g.th; }
+  function gameDesc(id){ const g = GAMES[id] || GAMES.shadowbreaker; return ctx.language === 'en' ? g.enDesc : g.thDesc; }
+  function dayName(day){ return ctx.language === 'en' ? day.en : day.th; }
+  function statusText(status){ return tx(status === 'running' ? 'active' : status === 'done' ? 'done' : 'pending'); }
+
+  function cleanId(raw, fallback){
+    const x = String(raw || '').trim().replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g,'-').replace(/^-|-$/g,'');
+    return x.slice(0,42) || fallback;
+  }
+  const queryPlanId = cleanId(q('planId', ''), '');
+  function defaultPlanId(){ return `fitness-${new Date().toISOString().slice(0,10).replaceAll('-','')}`; }
+  function storageKey(planId){ return `HH_FITNESS_PLANNER_AR_V4::${ctx.pid}::${cleanId(planId, defaultPlanId())}`; }
+
+  function defaultDays(){
+    const map = {
+      mon:{active:true,game:'shadowbreaker',diff:'normal',time:60}, tue:{active:true,game:'rhythmboxer',diff:'normal',time:60},
+      wed:{active:false,game:'jumpduck',diff:'easy',time:45}, thu:{active:true,game:'jumpduck',diff:'normal',time:60},
+      fri:{active:false,game:'balancehold',diff:'easy',time:45}, sat:{active:true,game:'balancehold',diff:'normal',time:60}, sun:{active:false,game:'shadowbreaker',diff:'easy',time:45}
+    };
+    return DAYS.map(d => ({ id:d.id, active:map[d.id].active, game:map[d.id].game, diff:map[d.id].diff, time:map[d.id].time, warmup:true, warmupDur:20, cooldown:true, cooldownDur:25, status:'pending', attempts:0, result:null, completedAt:'' }));
+  }
+  function makeDefaultState(){
+    const id = queryPlanId || defaultPlanId();
+    return { version:'fitness-planner-ar-v4', planId:id, planName:'My Hero Week', goal:'all', language:ctx.language, createdAt:nowIso(), updatedAt:nowIso(), activeDayId:'', activePhase:'idle', days:defaultDays(), history:[] };
+  }
+  function readState(){
+    const id = queryPlanId || defaultPlanId();
+    try {
+      const raw = localStorage.getItem(storageKey(id));
+      if (!raw) return makeDefaultState();
+      const parsed = JSON.parse(raw);
+      const base = makeDefaultState();
+      const state = { ...base, ...parsed };
+      state.planId = cleanId(state.planId || id, id);
+      state.days = DAYS.map(d => ({ ...base.days.find(x => x.id === d.id), ...(Array.isArray(parsed.days) ? parsed.days.find(x => x.id === d.id) : {}) }));
+      state.history = Array.isArray(parsed.history) ? parsed.history.slice(0,50) : [];
+      return state;
+    } catch (_) { return makeDefaultState(); }
+  }
+  let state = readState();
+
+  function saveState(){
+    state.updatedAt = nowIso();
+    try { localStorage.setItem(storageKey(state.planId), JSON.stringify(state)); }
+    catch (_) { toast('ไม่สามารถบันทึกในอุปกรณ์นี้ได้'); }
+  }
+
+  function absUrl(path){ return new URL(path, location.origin).toString(); }
+  function plannerSelfUrl(extra = {}){
+    const u = new URL(absUrl(PATHS.planner));
+    const passthrough = ['pid','name','nick','nickName','group','section','classId','studyId','conditionGroup','view','run'];
+    passthrough.forEach(k => { const v = q(k,''); if (v !== '') u.searchParams.set(k,v); });
+    u.searchParams.set('planId', state.planId);
+    u.searchParams.set('lang', ctx.language);
+    Object.entries(extra).forEach(([k,v]) => { if (v !== undefined && v !== null && String(v) !== '') u.searchParams.set(k,String(v)); });
+    return u.toString();
+  }
+  function appendContext(u, day){
+    const pairs = {
+      pid:ctx.pid, name:ctx.name, group:ctx.group === '—' ? '' : ctx.group, section:ctx.section, classId:ctx.classId, studyId:ctx.studyId, conditionGroup:ctx.conditionGroup,
+      planId:state.planId, planDay:day.id, planSlot:day.id, planName:state.planName, view:ctx.view, run:ctx.run,
+      diff:day.diff, time:day.time, seed:String(Date.now()), zone:'fitness', cat:'fitness', game:day.game, gameId:day.game, theme:day.game,
+      plannerFlow:'1', fpStrict:'1', plannerAuto:'1', cooldown:'0', returnPhase:'planner'
+    };
+    Object.entries(pairs).forEach(([k,v]) => { if (v !== '') u.searchParams.set(k,String(v)); });
+    return u;
+  }
+  function buildMainUrl(day){
+    const u = new URL(absUrl(PATHS.games[day.game] || PATHS.games.shadowbreaker));
+    appendContext(u, day);
+    u.searchParams.set('hub', plannerSelfUrl({ planSlot:day.id, activeDay:day.id }));
+    u.searchParams.set('autostart','1');
+    u.searchParams.set('wgskip','1');
+    return u.toString();
+  }
+  function buildGateUrl(day, phase){
+    const u = new URL(absUrl(PATHS.gate));
+    appendContext(u, day);
+    u.searchParams.set('phase',phase);
+    u.searchParams.set('gatePhase',phase);
+    u.searchParams.set('cdur',String(phase === 'warmup' ? day.warmupDur : day.cooldownDur));
+    const plannerReturn = plannerSelfUrl({ plannerReturn:'1', phaseDone:'cooldown', completedGame:day.game, game:day.game, gameId:day.game, planSlot:day.id });
+    u.searchParams.set('next', phase === 'warmup' ? buildMainUrl(day) : plannerReturn);
+    u.searchParams.set('cdnext', plannerReturn);
+    u.searchParams.set('hub', plannerSelfUrl({ planSlot:day.id, activeDay:day.id }));
+    return u.toString();
+  }
+  function navigate(url){ location.href = url; }
+
+  function getDay(id){ return state.days.find(x => x.id === id) || null; }
+  function nextPending(){ return state.days.find(d => d.active && d.status !== 'done') || null; }
+  function activeDay(){ return getDay(state.activeDayId); }
+  function anyActive(){ return state.days.some(d => d.active); }
+
+  function startDay(day, replay = false){
+    if (!day || !day.active) return;
+    const current = activeDay();
+    if (current && current.id !== day.id && current.status === 'running'){
+      const ok = window.confirm(ctx.language === 'en' ? 'Another workout is in progress. Start this one instead?' : 'มีรายการอื่นกำลังทำอยู่ ต้องการเริ่มรายการนี้แทนหรือไม่?');
+      if (!ok) return;
+      current.status = 'pending';
+    }
+    day.status = 'running'; day.attempts = Number(day.attempts || 0) + 1;
+    day.result = replay ? null : day.result;
+    state.activeDayId = day.id;
+    state.activePhase = day.warmup ? 'warmup' : 'main';
+    saveState(); renderAll();
+    navigate(day.warmup ? buildGateUrl(day,'warmup') : buildMainUrl(day));
+  }
+  function resumeActive(){
+    const day = activeDay();
+    if (!day || day.status !== 'running'){ toast(tx('noActive')); return; }
+    toast(tx('resumed'));
+    if (state.activePhase === 'cooldown') navigate(buildGateUrl(day,'cooldown'));
+    else if (state.activePhase === 'warmup') navigate(buildGateUrl(day,'warmup'));
+    else navigate(buildMainUrl(day));
+  }
+  function recordFinish(day){
+    day.status = 'done'; day.completedAt = nowIso();
+    state.activePhase = 'done'; state.activeDayId = day.id;
+    const r = day.result || {};
+    state.history.unshift({ id:`${day.id}-${Date.now()}`, dayId:day.id, game:day.game, when:nowIso(), score:Number(r.score || 0), acc:Number(r.acc || 0), combo:Number(r.combo || 0), stars:Number(r.stars || 0), rank:String(r.rank || r.grade || ''), result:String(r.result || 'completed') });
+    state.history = state.history.slice(0,50);
+    saveState(); renderAll(); toast(tx('completeRecord'));
+  }
+  function handlePlannerReturn(){
+    if (!qBool('plannerReturn', false)) return;
+    const day = getDay(q('planSlot','') || q('planDay','') || state.activeDayId);
+    if (!day){ cleanReturnQuery(); return; }
+    const phaseDone = String(q('phaseDone','')).toLowerCase();
+    const completedGame = String(q('completedGame',q('gameId',q('game','')))).toLowerCase();
+    if (phaseDone === 'cooldown'){
+      recordFinish(day); cleanReturnQuery(); return;
+    }
+    if (completedGame){
+      day.result = { score:Number(q('score','0') || 0), acc:Number(q('acc','0') || 0), combo:Number(q('combo','0') || 0), stars:Number(q('stars','0') || 0), rank:safeText(q('rank','')), grade:safeText(q('grade','')), result:safeText(q('result','completed')) };
+      state.activeDayId = day.id;
+      state.activePhase = day.cooldown ? 'cooldown' : 'done';
+      saveState(); renderAll(); cleanReturnQuery();
+      if (day.cooldown){ toast(tx('returnMain')); setTimeout(() => navigate(buildGateUrl(day,'cooldown')), 280); }
+      else recordFinish(day);
+      return;
+    }
+    cleanReturnQuery();
+  }
+  function cleanReturnQuery(){
+    try {
+      const u = new URL(location.href);
+      ['plannerReturn','completedGame','game','gameId','phaseDone','score','rank','grade','acc','combo','result','stars','planSlot','planDay','activeDay'].forEach(k => u.searchParams.delete(k));
+      history.replaceState({},'',u.toString());
+    } catch (_) {}
+  }
+
+  function goalSchedule(goal){
+    const base = defaultDays();
+    base.forEach(d => { d.active=false; d.status='pending'; d.result=null; d.completedAt=''; d.attempts=0; });
+    const set = (id, game, diff='normal', time=60) => { const d = base.find(x => x.id===id); if (!d) return; d.active=true; d.game=game; d.diff=diff; d.time=time; };
+    if (goal === 'power'){ set('mon','shadowbreaker','normal',60); set('wed','rhythmboxer','normal',60); set('sat','shadowbreaker','hard',60); }
+    else if (goal === 'agility'){ set('mon','jumpduck','easy',45); set('wed','rhythmboxer','normal',60); set('fri','jumpduck','normal',60); set('sun','shadowbreaker','normal',60); }
+    else if (goal === 'balance'){ set('tue','balancehold','easy',45); set('thu','rhythmboxer','easy',45); set('sat','balancehold','normal',60); }
+    else { set('mon','shadowbreaker','normal',60); set('tue','rhythmboxer','normal',60); set('thu','jumpduck','normal',60); set('sat','balancehold','normal',60); }
+    return base;
+  }
+  function applyPreset(goal, keepResults = true){
+    const prior = new Map(state.days.map(d => [d.id,d]));
+    state.days = goalSchedule(goal).map(d => {
+      const old = prior.get(d.id);
+      if (keepResults && old && old.status === 'done') return { ...d, status:old.status, result:old.result, completedAt:old.completedAt, attempts:old.attempts };
+      return d;
+    });
+    state.goal = goal; state.activeDayId=''; state.activePhase='idle'; saveState(); renderAll(); toast(tx('preserved'));
+  }
+
+  function toast(message){
+    const el = $('#toast'); if (!el) return;
+    el.textContent = message; el.classList.add('show'); clearTimeout(toast._timer); toast._timer=setTimeout(()=>el.classList.remove('show'),2400);
+  }
+  function number(v){ return Number(v || 0); }
+  function planMetrics(){
+    const active = state.days.filter(d => d.active);
+    const done = active.filter(d => d.status==='done');
+    const seconds = active.reduce((s,d)=>s + number(d.time) + (d.warmup?number(d.warmupDur):0) + (d.cooldown?number(d.cooldownDur):0),0);
+    const points = done.reduce((sum,d)=>{ const r=d.result||{}; return sum + 100 + Math.round(number(r.acc)*.4) + number(r.stars)*25; },0);
+    return { total:active.length, done:done.length, seconds, points, pct: active.length ? Math.round(done.length/active.length*100) : 0 };
+  }
+  function coachMessage(){
+    const active=state.days.filter(d=>d.active); const m=planMetrics();
+    if (!active.length) return ctx.language === 'en' ? 'Select a training day to create a plan that you can start immediately.' : 'เลือกวันฝึกอย่างน้อย 1 วัน เพื่อสร้างแผนที่เริ่มได้ทันที';
+    if (m.done === m.total && m.total) return ctx.language === 'en' ? 'Great consistency. Review the results and raise only one variable next week: difficulty or duration.' : 'ทำได้สม่ำเสมอมาก สัปดาห์หน้าค่อยเพิ่มทีละอย่าง เช่น ความยากหรือเวลา ไม่ต้องเพิ่มพร้อมกัน';
+    const current=activeDay();
+    if (current && current.status==='running') return ctx.language === 'en' ? `Continue ${gameName(current.game)} to preserve the full training sequence.` : `ทำ ${gameName(current.game)} ต่อให้ครบลำดับ เพื่อรักษาผล Warm-up เกมหลัก และ Cool-down ในครั้งเดียว`;
+    return GOALS[state.goal]?.message || GOALS.all.message;
+  }
+
+  function setStaticLabels(){
+    $('#heroTitle').textContent=tx('heroTitle'); $('#heroSub').textContent=tx('heroSub'); $('#btnHub').textContent=`⌂ ${tx('hub')}`; $('#langBtn').textContent=ctx.language === 'th' ? 'EN' : 'TH';
+    $('#goalTitle').textContent=tx('goalTitle'); $('#goalSub').textContent=tx('goalSub'); $('#planNameLabel').textContent=tx('planName'); $('#planIdLabel').textContent=tx('planId');
+    $('#summaryTitle').textContent=tx('summaryTitle'); $('#summarySub').textContent=tx('summarySub'); $('#workoutLabel').textContent=tx('workout'); $('#minuteLabel').textContent=tx('mins'); $('#pointLabel').textContent=tx('pts');
+    $('#weeklyTitle').textContent=tx('weeklyTitle'); $('#weeklySub').textContent=tx('weeklySub'); $('#weeklyNotice').textContent=tx('notice'); $('#safetyText').textContent=tx('safety');
+    $('#flowTitle').textContent=tx('flowTitle'); $('#flowSub').textContent=tx('flowSub'); $('#historyTitle').textContent=tx('historyTitle'); $('#historySub').textContent=tx('historySub');
+  }
+  function renderGoals(){
+    const root=$('#goalGrid'); root.innerHTML='';
+    Object.entries(GOALS).forEach(([id,g])=>{
+      const b=document.createElement('button'); b.type='button'; b.className=`goal${state.goal===id?' is-selected':''}`;
+      b.innerHTML=`<span class="gicon">${g.icon}</span><span><b>${ctx.language==='en'?g.en:g.th}</b><small>${ctx.language==='en'?g.enDesc:g.thDesc}</small></span>`;
+      b.addEventListener('click',()=>applyPreset(id,true)); root.appendChild(b);
+    });
+  }
+  function renderGameStrip(){
+    const root=$('#gameStrip'); root.innerHTML='';
+    Object.entries(GAMES).forEach(([id,g])=>{
+      const card=document.createElement('div'); card.className='game-chip';
+      card.innerHTML=`<div class="icon">${g.icon}</div><b>${gameName(id)}</b><span>${gameDesc(id)}</span>`; root.appendChild(card);
+    });
+  }
+  function gameOptions(selected){ return Object.keys(GAMES).map(id=>`<option value="${id}"${selected===id?' selected':''}>${GAMES[id].icon} ${gameName(id)}</option>`).join(''); }
+  function optionList(values, selected, suffix=''){ return values.map(v=>`<option value="${v}"${Number(selected)===Number(v)?' selected':''}>${v}${suffix}</option>`).join(''); }
+  function renderWeek(){
+    const root=$('#weekGrid'); root.innerHTML='';
+    state.days.forEach(day=>{
+      const meta=DAYS.find(x=>x.id===day.id); const done=day.status==='done'; const running=day.status==='running';
+      const card=document.createElement('article'); card.className=`day-card${!day.active?' is-rest':''}${done?' is-done':''}${running?' is-active':''}`;
+      const resultLine = done && day.result ? `${tx('score')} ${number(day.result.score)} • ${tx('accuracy')} ${number(day.result.acc)}%` : '';
+      card.innerHTML=`
+        <div class="day-top"><div><div class="day-title">${dayName(meta)}</div><div class="day-sub">${day.active ? (done ? '✅ '+resultLine : `${gameName(day.game)} • ${day.time}${tx('min')}`) : tx('rest')}</div></div><input class="switch" type="checkbox" ${day.active?'checked':''} aria-label="${dayName(meta)} ${tx('train')}"></div>
+        <div class="field"><label>${tx('game')}</label><select class="control" data-field="game">${gameOptions(day.game)}</select></div>
+        <div class="mini-grid"><div class="field"><label>${tx('level')}</label><select class="control" data-field="diff"><option value="easy"${day.diff==='easy'?' selected':''}>${tx('easy')}</option><option value="normal"${day.diff==='normal'?' selected':''}>${tx('normal')}</option><option value="hard"${day.diff==='hard'?' selected':''}>${tx('hard')}</option></select></div><div class="field"><label>${tx('main')}</label><select class="control" data-field="time">${optionList([45,60,90,120],day.time,tx('min'))}</select></div></div>
+        <div class="phase-row"><div class="phase"><label><input type="checkbox" data-field="warmup" ${day.warmup?'checked':''}> ${tx('warmup')}</label><select data-field="warmupDur">${optionList([15,20,30],day.warmupDur,tx('min'))}</select></div><div class="phase"><label><input type="checkbox" data-field="cooldown" ${day.cooldown?'checked':''}> ${tx('cooldown')}</label><select data-field="cooldownDur">${optionList([15,20,30],day.cooldownDur,tx('min'))}</select></div></div>
+        <div class="day-actions"><button class="start-btn" type="button">${done?tx('restart'):tx('start')} ${GAMES[day.game].icon}</button><span class="status-badge ${day.status}">${statusText(day.status)}</span></div>`;
+      const sw=$('.switch',card); sw.addEventListener('change',()=>{ day.active=sw.checked; if(!day.active && day.status==='running'){ state.activeDayId=''; state.activePhase='idle'; day.status='pending'; } saveState(); renderAll(); });
+      card.querySelectorAll('[data-field]').forEach(el=>el.addEventListener('change',()=>{ const f=el.dataset.field; day[f]=el.type==='checkbox'?el.checked:(f.includes('Dur')||f==='time'?Number(el.value):el.value); if(f==='game' && day.status==='done'){ day.status='pending'; day.result=null; day.completedAt=''; } saveState(); renderAll(); }));
+      $('.start-btn',card).addEventListener('click',()=>startDay(day,done)); root.appendChild(card);
+    });
+  }
+  function renderSummary(){
+    const m=planMetrics();
+    $('#planName').value=state.planName; $('#planIdInput').value=state.planId;
+    $('#progressRing').style.setProperty('--pct',m.pct); $('#progressPct').textContent=`${m.pct}%`;
+    $('#progressText').textContent=m.total ? (m.done===m.total?tx('complete'):`${m.done}/${m.total} ${tx('workout')}`) : tx('noPlan');
+    $('#progressSub').textContent=m.total ? `${m.done} / ${m.total}` : tx('none');
+    $('#workoutCount').textContent=m.total; $('#totalMin').textContent=Math.max(0,Math.ceil(m.seconds/60)); $('#heroPts').textContent=m.points;
+    $('#coachText').textContent=coachMessage();
+  }
+  function renderFlow(){
+    const day=activeDay(); let message=tx('flowIdle');
+    if(day){
+      const g=gameName(day.game);
+      if(state.activePhase==='warmup') message=`${tx('flowWarm')} ${g}`;
+      else if(state.activePhase==='main') message=`${tx('flowMain')} ${g}`;
+      else if(state.activePhase==='cooldown') message=`${tx('flowCool')} ${g}`;
+      else if(day.status==='done') message=`${tx('flowDone')} • ${g}`;
+    }
+    $('#flowStatus').textContent=message;
+  }
+  function renderHistory(){
+    const root=$('#historyList'); root.innerHTML='';
+    if(!state.history.length){ root.innerHTML=`<div class="empty">${tx('historyEmpty')}</div>`; return; }
+    state.history.slice(0,4).forEach(h=>{
+      const row=document.createElement('div'); row.className='history-row'; const g=GAMES[h.game]||GAMES.shadowbreaker;
+      const when=new Date(h.when); const date=Number.isNaN(when.getTime())?shortDate():when.toLocaleDateString(ctx.language==='en'?'en-GB':'th-TH',{day:'numeric',month:'short'});
+      row.innerHTML=`<div class="hicon">${g.icon}</div><div><b>${gameName(h.game)}</b><span>${date} • ${h.rank || h.result || tx('done')}</span></div><div class="hscore">${tx('score')} ${number(h.score)}<br>${tx('accuracy')} ${number(h.acc)}%</div>`; root.appendChild(row);
+    });
+  }
+  function renderIdentity(){ $('#pidChip').textContent=ctx.pid; $('#groupChip').textContent=ctx.group; $('#planChip').textContent=state.planId; $('#viewChip').textContent=ctx.view; }
+  function renderAll(){ setStaticLabels(); renderIdentity(); renderGoals(); renderGameStrip(); renderWeek(); renderSummary(); renderFlow(); renderHistory(); }
+
+  function savePlanInputs(){
+    const name=safeText($('#planName').value,'My Hero Week').slice(0,54); const newId=cleanId($('#planIdInput').value,state.planId);
+    const oldKey=storageKey(state.planId); state.planName=name; state.planId=newId; state.language=ctx.language; saveState(); if(oldKey!==storageKey(state.planId)) try{localStorage.removeItem(oldKey);}catch(_){}
+    try { const u = new URL(location.href); u.searchParams.set('planId', state.planId); history.replaceState({}, '', u.toString()); } catch (_) {}
+    renderAll(); toast(tx('save'));
+  }
+  function exportCSV(){
+    const rows=[]; const headers=['exportedAt','pid','name','group','planId','planName','goal','day','active','game','difficulty','mainSec','warmup','warmupSec','cooldown','cooldownSec','status','completedAt','score','accuracyPct','combo','stars','rank','result']; rows.push(headers);
+    state.days.forEach(d=>{ const r=d.result||{}; rows.push([nowIso(),ctx.pid,ctx.name,ctx.group,state.planId,state.planName,state.goal,d.id,d.active, d.game,d.diff,d.time,d.warmup,d.warmupDur,d.cooldown,d.cooldownDur,d.status,d.completedAt||'',r.score||'',r.acc||'',r.combo||'',r.stars||'',r.rank||r.grade||'',r.result||'']); });
+    const esc=v=>'"'+String(v??'').replaceAll('"','""')+'"'; const csv=rows.map(r=>r.map(esc).join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`fitness-planner-${state.planId}-${Date.now()}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),500); toast(tx('export'));
+  }
+  function clearResults(){
+    if(!window.confirm(ctx.language==='en'?'Clear all recorded workout results but keep the schedule?':'ล้างผลการฝึกทั้งหมด แต่เก็บตารางเดิมไว้ใช่หรือไม่?')) return;
+    state.days.forEach(d=>{d.status='pending';d.result=null;d.completedAt='';d.attempts=0;}); state.history=[];state.activeDayId='';state.activePhase='idle';saveState();renderAll();toast(tx('clear'));
+  }
+  function resetPlan(){
+    if(!window.confirm(ctx.language==='en'?'Reset the full plan and all results?':'รีเซ็ตแผนและผลทั้งหมดใช่หรือไม่?')) return;
+    try{localStorage.removeItem(storageKey(state.planId));}catch(_){} state=makeDefaultState();saveState();renderAll();toast(tx('reset'));
+  }
+
+  function bind(){
+    $('#btnFullPlan').addEventListener('click',()=>applyPreset('all',true)); $('#btnLightPlan').addEventListener('click',()=>applyPreset('balance',true)); $('#btnSave').addEventListener('click',savePlanInputs);
+    $('#btnStartNext').addEventListener('click',()=>{ if(!anyActive()){toast(tx('required'));return;} const day=nextPending(); if(!day){toast(tx('complete'));return;} startDay(day,false); }); $('#btnResume').addEventListener('click',resumeActive);
+    $('#btnExport').addEventListener('click',exportCSV); $('#btnClearResults').addEventListener('click',clearResults); $('#btnResetPlan').addEventListener('click',resetPlan);
+    $('#btnHub').addEventListener('click',()=>{ location.href=absUrl(PATHS.hub); });
+    $('#langBtn').addEventListener('click',()=>{ ctx.language=ctx.language==='th'?'en':'th'; state.language=ctx.language; saveState(); const u=new URL(location.href);u.searchParams.set('lang',ctx.language);history.replaceState({},'',u.toString());renderAll(); });
+    $('#planName').addEventListener('change',()=>{state.planName=safeText($('#planName').value,'My Hero Week').slice(0,54);saveState();renderIdentity();});
+  }
+
+  handlePlannerReturn();
+  bind();
+  renderAll();
+})();
+</script>
+</body>
+</html>
