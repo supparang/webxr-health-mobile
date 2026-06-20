@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Student Context + Identity Payload | v20260620-rb-single-session-postsurvey-lock -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Student Context + Identity Payload | v20260620-rb-student-no-export-lock -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -36,6 +36,20 @@
     button,input,select{font:inherit}
     button{cursor:pointer}
     .hidden{display:none!important}
+    /* Student mode: CSV belongs to the teacher dashboard/research workflow, not the learner screen. */
+    .teacherOnly{display:none!important}
+    .studentResultNotice{
+      margin-top:12px;
+      border-radius:16px;
+      padding:10px 12px;
+      background:linear-gradient(180deg,#eefaf5,#eaf7ff);
+      border:1px solid #bfe9d1;
+      color:#2f6d53;
+      font-size:.84rem;
+      line-height:1.45;
+      font-weight:900;
+      text-align:center;
+    }
     .app{max-width:1200px;margin:0 auto;min-height:100vh;padding:12px}
     .topbar{
       display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;
@@ -598,7 +612,7 @@
       <span class="chip">Sport Science</span>
       <span class="chip">Syntax Stable</span>
       <span class="chip">Research Polish</span>
-      <span class="chip">Post Survey • Single Sheet Row</span>
+      <span class="chip">Student View • Canonical Identity</span>
     </div>
   </header>
 
@@ -796,11 +810,16 @@
         </div>
       </div>
 
+      <div class="studentResultNotice">
+        ✅ ผลเกมและแบบประเมินหลังเล่นจะส่งเข้า Google Sheets ให้ครูอัตโนมัติแล้ว<br>
+        นักเรียนไม่ต้อง Export CSV — ครูดูรายงานและส่งออกข้อมูลจาก Teacher Dashboard
+      </div>
+
       <div class="row" style="margin-top:14px">
         <button id="btnAgain" class="btn primary">เล่นอีกครั้ง</button>
         <button id="btnMenu2" class="btn">กลับ Hub</button>
-        <button id="btnCsvSession" class="btn soft">Export Session CSV</button>
-        <button id="btnCsvEvents" class="btn soft">Export Event CSV</button>
+        <button id="btnCsvSession" class="btn soft teacherOnly" type="button" disabled aria-hidden="true" tabindex="-1">Export Session CSV</button>
+        <button id="btnCsvEvents" class="btn soft teacherOnly" type="button" disabled aria-hidden="true" tabindex="-1">Export Event CSV</button>
       </div>
     </section>
   </main>
@@ -817,7 +836,7 @@
   const qs = (k,d='')=>{try{return new URL(location.href).searchParams.get(k) ?? d}catch(_){return d}};
   const qbool = (k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
 
-  const RB_VERSION = 'v20260620-rb-student-context-v1';
+  const RB_VERSION = 'v20260620-rb-canonical-identity-router-v2';
   const RB_GAME_ID = 'rhythmboxer';
   const RB_DEFAULT_HUB = './';
   const RB_DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
@@ -921,6 +940,43 @@
   }
 
 
+  /*
+   * The Apps Script receiver may read either body.payload or body top-level.
+   * Normalize BOTH forms so an old helper cannot fall back to player01.
+   */
+  function rbCanonicalSheetPayload(payload={}){
+    const applied = rbApplyStudentContext(payload || {});
+    const studentId = rbClean(applied.studentId || '');
+    const studentName = rbClean(applied.studentName || applied.playerName || applied.player || applied.name || '');
+    const playerId = rbClean(applied.playerId || studentId || applied.pid || '');
+    const classId = rbClean(applied.classId || applied.classGroup || '');
+    const section = rbClean(applied.section || '');
+    const legacyInput = rbClean(applied.legacyPlayerInput || applied.pid || S.pid || '');
+
+    return Object.assign({}, applied, {
+      // Canonical classroom identity
+      studentId,
+      studentName,
+      playerId,
+      classId,
+      classGroup: classId,
+      section,
+      identitySource: studentId ? 'studentId' : (playerId ? 'playerId' : 'nameOnly'),
+
+      // Legacy helper compatibility: player is display name; pid is stable identity, never player01.
+      player: studentName || playerId || legacyInput || 'Hero',
+      playerName: studentName || playerId || legacyInput || 'Hero',
+      name: studentName || playerId || legacyInput || 'Hero',
+      pid: studentId || playerId || legacyInput || 'anon',
+      participantId: studentId || playerId || '',
+      legacyPlayerInput: legacyInput,
+
+      timestamp: applied.timestamp || new Date().toISOString(),
+      timestampLocal: applied.timestampLocal || rbBangkokNow()
+    });
+  }
+
+
   function rbAbsUrl(raw, fallback=RB_DEFAULT_HUB){
     try{
       return new URL(String(raw || fallback || RB_DEFAULT_HUB), location.href).toString();
@@ -993,7 +1049,7 @@
 
   function rbStoreLastSummary(payload){
     try{
-      payload = rbApplyStudentContext(payload || {});
+      payload = rbCanonicalSheetPayload(payload || {});
       const summary = {
         ...payload,
         game: RB_GAME_ID,
@@ -1009,10 +1065,12 @@
   }
 
   async function rbSubmitSession(payload){
-    payload = rbApplyStudentContext(payload || {});
+    payload = rbCanonicalSheetPayload(payload || {});
     const api = rbApiUrl();
     console.log('[RB][Sheets] api=', api, {
       studentId:payload.studentId || '',
+      studentName:payload.studentName || '',
+      player:payload.player || '',
       playerId:payload.playerId || '',
       classId:payload.classId || '',
       timestampLocal:payload.timestampLocal || ''
@@ -1022,16 +1080,32 @@
       return false;
     }
 
-    const body = {
+    // Flatten identity + metrics at top level AND retain the nested payload.
+    // This is compatible with both the router fallback and legacy Rhythm helper receivers.
+    const meta = Object.assign({}, rbMeta(), {
+      studentId:payload.studentId,
+      studentName:payload.studentName,
+      playerId:payload.playerId,
+      player:payload.player,
+      pid:payload.pid,
+      classId:payload.classId,
+      classGroup:payload.classGroup,
+      section:payload.section,
+      identitySource:payload.identitySource,
+      timestamp:payload.timestamp,
+      timestampLocal:payload.timestampLocal
+    });
+
+    const body = Object.assign({}, payload, {
       type:'rhythm_boxer_session',
       api:'fitness',
       action:'saveFitnessResult',
       game: RB_GAME_ID,
       gameId: RB_GAME_ID,
       version: RB_VERSION,
-      meta: rbMeta(),
+      meta,
       payload
-    };
+    });
 
     try{
       await fetch(api, {
@@ -1093,9 +1167,11 @@
     body:{visible:false,lastSeen:0, last:{left:null,right:null}, armed:{left:true,right:true}, lastPunch:{left:0,right:0}, facing:'user'}
   };
 
-  // query defaults
-  if(qs('pid')) els.pid.value = qs('pid');
-  if(qs('name') && !qs('pid')) els.pid.value = qs('name');
+  // Query / Hub defaults: show the student's display name, never the legacy player01 placeholder.
+  const rbBootContext = rbStudentContext();
+  if(rbBootContext.studentName) els.pid.value = rbBootContext.studentName;
+  else if(qs('name')) els.pid.value = qs('name');
+  else if(qs('pid') && !/^player\d+$/i.test(qs('pid'))) els.pid.value = qs('pid');
   if(['easy','normal','hard'].includes(qs('diff'))) els.diff.value = qs('diff');
   if(qs('time')) els.timeSec.value = String(clamp(qs('time'),30,180));
 
@@ -2089,7 +2165,7 @@
     const ctx = rbPersistStudentContext(S.pid);
     const timestamp = new Date().toISOString();
 
-    return rbApplyStudentContext({
+    return rbCanonicalSheetPayload({
       timestamp,
       timestampLocal:rbBangkokNow(),
       tsIso:timestamp,
@@ -2102,8 +2178,11 @@
       sessionId:S.sessionId || rbMakeId('RBSESSION'),
       roundId:S.roundId || rbMakeId('RBROUND'),
       studentId:ctx.studentId,
-      studentName:ctx.studentName,
-      playerId:ctx.playerId || S.pid,
+      studentName:ctx.studentName || (!/^player\d+$/i.test(S.pid) ? S.pid : ''),
+      playerId:ctx.playerId || ctx.studentId || S.pid,
+      player:(ctx.studentName || (!/^player\d+$/i.test(S.pid) ? S.pid : '') || ctx.playerId || S.pid),
+      playerName:(ctx.studentName || (!/^player\d+$/i.test(S.pid) ? S.pid : '') || ctx.playerId || S.pid),
+      name:(ctx.studentName || (!/^player\d+$/i.test(S.pid) ? S.pid : '') || ctx.playerId || S.pid),
       classId:ctx.classId,
       classGroup:ctx.classId || qs('group',''),
       section:ctx.section || qs('section',qs('sec','')),
@@ -2366,6 +2445,16 @@
   function rbSurveyRequiredBeforeLeave(){
     const pending = String(S.pendingSubmitRoundId || '');
     return !!pending && S.submittedRoundId !== pending;
+  }
+
+  // Student screen never exposes local CSV. Teacher uses the dashboard / research export instead.
+  if(els.btnCsvSession){
+    els.btnCsvSession.disabled = true;
+    els.btnCsvSession.classList.add('teacherOnly');
+  }
+  if(els.btnCsvEvents){
+    els.btnCsvEvents.disabled = true;
+    els.btnCsvEvents.classList.add('teacherOnly');
   }
 
   els.btnAgain.addEventListener('click',()=>{
