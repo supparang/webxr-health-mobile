@@ -7,6 +7,8 @@
   <meta name="color-scheme" content="dark" />
   <title>HeroHealth • Germ Detective AR: Outbreak Zero</title>
 
+  <!-- FULL PATCH v20260620-GERM-DETECTIVE-PHASE1-CORE-STABLE -->
+
   <style>
     :root{
       --ink:#eef6ff;
@@ -33,7 +35,8 @@
       -webkit-tap-highlight-color:transparent;
     }
 
-    html,body{
+    html,
+    body{
       width:100%;
       min-height:100%;
       margin:0;
@@ -43,8 +46,14 @@
       overscroll-behavior:none;
     }
 
-    button,select{font:inherit}
-    button{cursor:pointer}
+    button,
+    select{
+      font:inherit;
+    }
+
+    button{
+      cursor:pointer;
+    }
 
     .app{
       min-height:100dvh;
@@ -97,7 +106,10 @@
       box-shadow:0 0 22px rgba(84,210,255,.45);
     }
 
-    .brand-copy{min-width:0}
+    .brand-copy{
+      min-width:0;
+    }
+
     .brand-copy b{
       display:block;
       font-size:14px;
@@ -120,7 +132,8 @@
       align-items:center;
     }
 
-    .chip,.icon-btn{
+    .chip,
+    .icon-btn{
       border:1px solid var(--line);
       background:rgba(255,255,255,.06);
       color:var(--ink);
@@ -196,7 +209,9 @@
       z-index:0;
     }
 
-    .camera-on #camera{opacity:.66}
+    .camera-on #camera{
+      opacity:.66;
+    }
 
     .camera-tint{
       position:absolute;
@@ -261,7 +276,9 @@
       transition:opacity .2s;
     }
 
-    .scanner-vignette.active{opacity:1}
+    .scanner-vignette.active{
+      opacity:1;
+    }
 
     .scanner-vignette::after{
       content:"UV";
@@ -291,7 +308,9 @@
       box-shadow:0 0 22px rgba(255,231,135,.85);
     }
 
-    .hand-cursor.active{opacity:1}
+    .hand-cursor.active{
+      opacity:1;
+    }
 
     .hand-cursor.pinch{
       background:rgba(255,231,135,.28);
@@ -527,7 +546,9 @@
       text-align:center;
     }
 
-    .boss-hud.show{display:block}
+    .boss-hud.show{
+      display:block;
+    }
 
     .boss-title{
       font-weight:1000;
@@ -604,8 +625,13 @@
       box-shadow:0 0 18px rgba(84,210,255,.5);
     }
 
-    .tool.cooldown{opacity:.53}
-    .tool.cooldown .cool{display:block}
+    .tool.cooldown{
+      opacity:.53;
+    }
+
+    .tool.cooldown .cool{
+      display:block;
+    }
 
     .status-card{
       max-width:270px;
@@ -620,7 +646,9 @@
       color:#d6e9f8;
     }
 
-    .status-card b{color:#fff}
+    .status-card b{
+      color:#fff;
+    }
 
     .overlay{
       position:absolute;
@@ -634,7 +662,9 @@
       backdrop-filter:blur(5px);
     }
 
-    .overlay.show{display:flex}
+    .overlay.show{
+      display:flex;
+    }
 
     .card{
       width:min(560px,100%);
@@ -662,7 +692,8 @@
       text-transform:uppercase;
     }
 
-    .card h1,.card h2{
+    .card h1,
+    .card h2{
       margin:3px 0 8px;
       font-size:clamp(25px,5vw,40px);
       line-height:1.06;
@@ -735,7 +766,9 @@
       color:#fff;
     }
 
-    .primary,.secondary,.danger{
+    .primary,
+    .secondary,
+    .danger{
       border:0;
       border-radius:15px;
       padding:12px 16px;
@@ -786,7 +819,9 @@
       color:#dceaf6;
     }
 
-    .feature span{font-size:20px}
+    .feature span{
+      font-size:20px;
+    }
 
     .feature b{
       display:block;
@@ -841,7 +876,9 @@
       gap:8px;
     }
 
-    .decision-option span{font-size:27px}
+    .decision-option span{
+      font-size:27px;
+    }
 
     .decision-option:hover{
       border-color:#8ceeff;
@@ -876,7 +913,9 @@
       letter-spacing:.05em;
     }
 
-    .result-stat b{font-size:22px}
+    .result-stat b{
+      font-size:22px;
+    }
 
     .rank-badge{
       display:inline-flex;
@@ -952,7 +991,9 @@
       font-size:11px;
     }
 
-    .objective:last-child{border-bottom:0}
+    .objective:last-child{
+      border-bottom:0;
+    }
 
     .objective .check{
       width:22px;
@@ -993,6 +1034,7 @@
         opacity:0;
         transform:translate(-50%,-50%) scale(.35) rotate(-22deg);
       }
+
       to{
         opacity:1;
         transform:translate(-50%,-50%) scale(1) rotate(0);
@@ -1010,10 +1052,12 @@
         opacity:0;
         transform:translate(-50%,-40%) scale(.6);
       }
+
       20%{
         opacity:1;
         transform:translate(-50%,-55%) scale(1.1);
       }
+
       100%{
         opacity:0;
         transform:translate(-50%,-130%) scale(1);
@@ -1021,15 +1065,30 @@
     }
 
     @media(max-width:900px){
-      .layout{grid-template-columns:1fr}
+      .layout{
+        grid-template-columns:1fr;
+      }
+
       .side{
         display:grid;
         grid-template-columns:1fr 1fr;
       }
-      .play-shell{min-height:min(76dvh,720px)}
-      .side-card:last-child{grid-column:span 2}
-      .topbar{border-radius:16px}
-      .brand-copy small{display:none}
+
+      .play-shell{
+        min-height:min(76dvh,720px);
+      }
+
+      .side-card:last-child{
+        grid-column:span 2;
+      }
+
+      .topbar{
+        border-radius:16px;
+      }
+
+      .brand-copy small{
+        display:none;
+      }
     }
 
     @media(max-width:600px){
@@ -1053,7 +1112,9 @@
         font-size:19px;
       }
 
-      .brand-copy b{font-size:12px}
+      .brand-copy b{
+        font-size:12px;
+      }
 
       .top-actions .chip{
         padding:0 8px;
@@ -1080,8 +1141,13 @@
         border-radius:13px;
       }
 
-      .hud-value{font-size:15px}
-      .hud-label{font-size:8px}
+      .hud-value{
+        font-size:15px;
+      }
+
+      .hud-label{
+        font-size:8px;
+      }
 
       .bottom-hud{
         padding:7px 8px 9px;
@@ -1089,7 +1155,9 @@
         align-items:end;
       }
 
-      .tool-row{gap:4px}
+      .tool-row{
+        gap:4px;
+      }
 
       .tool{
         min-width:47px;
@@ -1098,9 +1166,17 @@
         font-size:8px;
       }
 
-      .tool .tool-icon{font-size:18px}
-      .status-card{display:none}
-      .scene-prop .prop-icon{font-size:25px}
+      .tool .tool-icon{
+        font-size:18px;
+      }
+
+      .status-card{
+        display:none;
+      }
+
+      .scene-prop .prop-icon{
+        font-size:25px;
+      }
 
       .scene-prop .prop-card{
         padding:4px;
@@ -1112,7 +1188,9 @@
         height:55px;
       }
 
-      .target .glyph{font-size:27px}
+      .target .glyph{
+        font-size:27px;
+      }
 
       .target .tool-tag{
         bottom:-14px;
@@ -1126,15 +1204,26 @@
         padding:6px 8px;
       }
 
-      .side{display:none}
-      .settings{grid-template-columns:1fr}
+      .side{
+        display:none;
+      }
+
+      .settings{
+        grid-template-columns:1fr;
+      }
+
       .card{
         padding:16px;
         border-radius:22px;
       }
 
-      .card h1{font-size:29px}
-      .decision-options{grid-template-columns:1fr}
+      .card h1{
+        font-size:29px;
+      }
+
+      .decision-options{
+        grid-template-columns:1fr;
+      }
 
       .decision-option{
         min-height:58px;
@@ -1142,9 +1231,17 @@
         font-size:12px;
       }
 
-      .result-grid{gap:6px}
-      .result-stat{padding:8px}
-      .result-stat b{font-size:18px}
+      .result-grid{
+        gap:6px;
+      }
+
+      .result-stat{
+        padding:8px;
+      }
+
+      .result-stat b{
+        font-size:18px;
+      }
     }
   </style>
 </head>
@@ -1220,7 +1317,9 @@
                 <b id="infection-value">0%</b>
                 <small id="infection-status">SAFE</small>
               </div>
-              <div class="meter"><i id="infection-meter"></i></div>
+              <div class="meter">
+                <i id="infection-meter"></i>
+              </div>
             </div>
 
             <div class="hud-panel center">
@@ -1244,7 +1343,9 @@
 
           <div id="boss-hud" class="boss-hud">
             <div class="boss-title">👾 CAPTAIN GERM — CHAIN REACTION</div>
-            <div class="boss-meter"><i id="boss-meter"></i></div>
+            <div class="boss-meter">
+              <i id="boss-meter"></i>
+            </div>
           </div>
 
           <div class="bottom-hud">
@@ -1455,10 +1556,25 @@
           <h3>🧠 <span data-t="howToPlay">How to play</span></h3>
 
           <div class="key-list">
-            <div class="key"><kbd>1</kbd><span>🔦 <span data-t="key1">Scan hidden germs.</span></span></div>
-            <div class="key"><kbd>2</kbd><span>🧽 <span data-t="key2">Drag over sticky stains.</span></span></div>
-            <div class="key"><kbd>3</kbd><span>🧼 <span data-t="key3">Clean germs on hands.</span></span></div>
-            <div class="key"><kbd>4</kbd><span>🛡️ <span data-t="key4">Shield fast jump germs.</span></span></div>
+            <div class="key">
+              <kbd>1</kbd>
+              <span>🔦 <span data-t="key1">Scan hidden germs.</span></span>
+            </div>
+
+            <div class="key">
+              <kbd>2</kbd>
+              <span>🧽 <span data-t="key2">Drag over sticky stains.</span></span>
+            </div>
+
+            <div class="key">
+              <kbd>3</kbd>
+              <span>🧼 <span data-t="key3">Clean germs on hands.</span></span>
+            </div>
+
+            <div class="key">
+              <kbd>4</kbd>
+              <span>🛡️ <span data-t="key4">Shield fast jump germs.</span></span>
+            </div>
           </div>
         </section>
 
@@ -1482,7 +1598,6 @@
 
     const $ = (sel, root=document) => root.querySelector(sel);
     const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
-
     const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
     const rand = (min,max) => min + Math.random() * (max-min);
     const now = () => performance.now();
@@ -1653,7 +1768,8 @@
         life:[6800,8900],
         infectionHit:8,
         bossAt:27,
-        bossTargets:4
+        bossTargets:4,
+        decisionEvery:22
       },
 
       normal:{
@@ -1663,7 +1779,8 @@
         life:[5200,7200],
         infectionHit:11,
         bossAt:24,
-        bossTargets:6
+        bossTargets:6,
+        decisionEvery:18
       },
 
       hard:{
@@ -1673,7 +1790,8 @@
         life:[4100,5900],
         infectionHit:14,
         bossAt:22,
-        bossTargets:8
+        bossTargets:8,
+        decisionEvery:15
       }
     };
 
@@ -1847,8 +1965,11 @@
         correctActions:0,
         decisionTotal:0,
         decisionsCorrect:0,
+        decisionBursts:0,
         targetHits:0,
         expired:0,
+        bossDefeated:false,
+        bossEscaped:false,
         toolUsage:{
           scanner:0,
           wipe:0,
@@ -1865,11 +1986,12 @@
       },
 
       sound:true,
-
       handLandmarker:null,
       handReady:false,
       lastHandDetect:0,
+      lastVideoTime:-1,
       pinchDown:false,
+      handState:null,
       stream:null
     };
 
@@ -1885,8 +2007,11 @@
         }
       });
 
-      $("#language-btn").textContent = game.lang === "th" ? "TH / EN" : "EN / TH";
-      $("#brand-sub").textContent = "OUTBREAK ZERO • HeroHealth Hygiene Zone";
+      $("#language-btn").textContent =
+        game.lang === "th" ? "TH / EN" : "EN / TH";
+
+      $("#brand-sub").textContent =
+        "OUTBREAK ZERO • HeroHealth Hygiene Zone";
 
       updateHUD();
     }
@@ -1896,8 +2021,8 @@
 
       try{
         const ctx = beep.ctx || (beep.ctx = new AudioContext());
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
 
         const map = {
           good:[660,.06],
@@ -1907,19 +2032,19 @@
           scan:[780,.05]
         };
 
-        const [freq,duration] = map[type] || map.good;
+        const [freq,dur] = map[type] || map.good;
 
-        oscillator.frequency.value = freq;
-        oscillator.type = type === "bad" ? "sawtooth" : "sine";
+        o.frequency.value = freq;
+        o.type = type === "bad" ? "sawtooth" : "sine";
 
-        gain.gain.setValueAtTime(.045,ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime + duration);
+        g.gain.setValueAtTime(.045,ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime + dur);
 
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
+        o.connect(g);
+        g.connect(ctx.destination);
 
-        oscillator.start();
-        oscillator.stop(ctx.currentTime + duration);
+        o.start();
+        o.stop(ctx.currentTime + dur);
       }catch(error){}
     }
 
@@ -1928,6 +2053,7 @@
       toastEl.classList.add("show");
 
       clearTimeout(toast.timer);
+
       toast.timer = setTimeout(() => {
         toastEl.classList.remove("show");
       },2100);
@@ -1947,18 +2073,18 @@
       $("#time-value").textContent = formatTime(game.time);
       $("#score-value").textContent = Math.max(0,Math.round(game.score)).toLocaleString();
       $("#combo-value").textContent = `x${game.combo}`;
-      $("#combo-meter").style.width = `${clamp((game.combo / 30) * 100,0,100)}%`;
+      $("#combo-meter").style.width = `${clamp(game.combo / 30 * 100,0,100)}%`;
 
       $("#infection-value").textContent = `${Math.round(game.infection)}%`;
       $("#infection-meter").style.width = `${game.infection}%`;
 
-      const infectionStatus =
+      const status =
         game.infection < 26 ? t("statusSafe") :
         game.infection < 51 ? t("statusWatch") :
         game.infection < 76 ? t("statusDanger") :
         t("statusCritical");
 
-      $("#infection-status").textContent = infectionStatus;
+      $("#infection-status").textContent = status;
       $("#boss-meter").style.width = `${Math.max(0,game.bossHp)}%`;
 
       $$(".tool").forEach((btn) => {
@@ -1968,8 +2094,8 @@
         btn.classList.toggle("active",tool === game.tool);
         btn.classList.toggle("cooldown",remaining > 0);
 
-        const cooldownText = $(".cool",btn);
-        cooldownText.textContent = remaining > 0 ? `${remaining.toFixed(1)}s` : "";
+        const cool = $(".cool",btn);
+        cool.textContent = remaining > 0 ? `${remaining.toFixed(1)}s` : "";
       });
     }
 
@@ -1983,15 +2109,15 @@
     }
 
     function randomTargetKind(){
-      const roll = Math.random();
+      const r = Math.random();
       const hard = game.difficulty === "hard";
       const normal = game.difficulty === "normal";
 
-      if(roll < .10 + (hard ? .07 : 0)) return "decoy";
-      if(roll < .18 + (normal ? .03 : 0) + (hard ? .05 : 0)) return "gold";
-      if(roll < .42) return "sneaky";
-      if(roll < .67) return "sticky";
-      if(roll < .85) return "zippy";
+      if(r < .10 + (hard ? .07 : 0)) return "decoy";
+      if(r < .18 + (normal ? .03 : 0) + (hard ? .05 : 0)) return "gold";
+      if(r < .42) return "sneaky";
+      if(r < .67) return "sticky";
+      if(r < .85) return "zippy";
 
       return "hand";
     }
@@ -2005,8 +2131,8 @@
 
         let safe = true;
 
-        for(const target of game.targets.values()){
-          if(Math.hypot(target.x - x,target.y - y) < 13){
+        for(const tar of game.targets.values()){
+          if(Math.hypot(tar.x - x,tar.y - y) < 13){
             safe = false;
             break;
           }
@@ -2031,14 +2157,14 @@
         gold:[50,12,"BONUS"]
       };
 
-      const [targetX,targetY,label] = endpoints[kind] || [82,72,"→ risk"];
-
-      const dx = targetX - x;
-      const dy = targetY - y;
+      const [tx,ty,label] = endpoints[kind] || [82,72,"→ risk"];
+      const dx = tx - x;
+      const dy = ty - y;
       const length = Math.hypot(dx,dy);
       const angle = Math.atan2(dy,dx) * 180 / Math.PI;
 
       const el = document.createElement("div");
+
       el.className = "trail";
       el.style.left = `${x}%`;
       el.style.top = `${y}%`;
@@ -2070,6 +2196,7 @@
         (game.boss ? .82 : 1);
 
       const el = document.createElement("button");
+
       el.type = "button";
       el.className = `target ${meta.kindClass}${kind === "boss" ? " boss" : ""}`;
       el.dataset.id = id;
@@ -2100,7 +2227,8 @@
         wipeProgress:0,
         boss:kind === "boss",
         vx:kind === "zippy" || kind === "boss" ? rand(-.018,.018) : 0,
-        vy:kind === "zippy" || kind === "boss" ? rand(-.014,.014) : 0
+        vy:kind === "zippy" || kind === "boss" ? rand(-.014,.014) : 0,
+        scanProgress:0
       };
 
       game.targets.set(id,target);
@@ -2118,9 +2246,9 @@
     }
 
     function clearTargets(){
-      for(const target of game.targets.values()){
-        target.el.remove();
-        target.trail?.remove();
+      for(const tar of game.targets.values()){
+        tar.el.remove();
+        tar.trail?.remove();
       }
 
       game.targets.clear();
@@ -2144,26 +2272,26 @@
       const rect = stage.getBoundingClientRect();
 
       return {
-        x:clamp(((event.clientX - rect.left) / rect.width) * 100,0,100),
-        y:clamp(((event.clientY - rect.top) / rect.height) * 100,0,100)
+        x:clamp((event.clientX - rect.left) / rect.width * 100,0,100),
+        y:clamp((event.clientY - rect.top) / rect.height * 100,0,100)
       };
     }
 
-    function hitAt(point){
+    function hitAt(point,source="pointer"){
       let chosen = null;
-      let minDistance = 8.2;
+      let min = 8.2;
 
-      for(const target of game.targets.values()){
-        const distance = Math.hypot(target.x - point.x,target.y - point.y);
+      for(const tar of game.targets.values()){
+        const distance = Math.hypot(tar.x - point.x,tar.y - point.y);
 
-        if(distance < minDistance){
-          minDistance = distance;
-          chosen = target;
+        if(distance < min){
+          min = distance;
+          chosen = tar;
         }
       }
 
       if(chosen){
-        interactTarget(chosen,point);
+        interactTarget(chosen,point,source);
       }
     }
 
@@ -2171,16 +2299,16 @@
       if(game.tool !== "wipe") return;
 
       let chosen = null;
-      let minDistance = 10;
+      let min = 10;
 
-      for(const target of game.targets.values()){
-        if(target.kind !== "sticky") continue;
+      for(const tar of game.targets.values()){
+        if(tar.kind !== "sticky") continue;
 
-        const distance = Math.hypot(target.x - point.x,target.y - point.y);
+        const distance = Math.hypot(tar.x - point.x,tar.y - point.y);
 
-        if(distance < minDistance){
-          minDistance = distance;
-          chosen = target;
+        if(distance < min){
+          min = distance;
+          chosen = tar;
         }
       }
 
@@ -2192,70 +2320,77 @@
     }
 
     function updateWipe(point,delta=16){
-      const target = game.activeWipe;
+      const tar = game.activeWipe;
 
-      if(!target || !game.targets.has(target.id)) return;
+      if(!tar || !game.targets.has(tar.id)) return;
 
-      const distance = Math.hypot(target.x - point.x,target.y - point.y);
+      const distance = Math.hypot(tar.x - point.x,tar.y - point.y);
 
       if(distance < 12){
-        target.wipeProgress = clamp(target.wipeProgress + (delta / 600) * 100,0,100);
+        tar.wipeProgress = clamp(tar.wipeProgress + delta / 600 * 100,0,100);
 
-        target.el.querySelector(".life i").style.width = `${100 - target.wipeProgress}%`;
+        tar.el.querySelector(".life i").style.width =
+          `${100 - tar.wipeProgress}%`;
 
-        if(target.wipeProgress >= 100){
-          resolveTarget(target,point,"perfect");
+        if(tar.wipeProgress >= 100){
+          resolveTarget(tar,point,"perfect");
         }
       }else if(distance > 18){
         game.activeWipe = null;
-        target.el.classList.remove("wiped");
+        tar.el.classList.remove("wiped");
       }
     }
 
-    function interactTarget(target,point){
-      if(!game.running || game.paused || !game.targets.has(target.id)) return;
+    function interactTarget(tar,point,source="pointer"){
+      if(!game.running || game.paused || !game.targets.has(tar.id)) return;
 
-      if(target.kind === "sticky"){
+      if((game.cooldowns[game.tool] || 0) > 0){
+        toast(game.lang === "th" ? "อุปกรณ์กำลังชาร์จ" : "Tool is recharging");
+        return;
+      }
+
+      if(tar.kind === "sticky"){
         if(game.tool === "wipe"){
           startWipe(point);
           return;
         }
 
-        wrongAction(target,point);
-        return;
+        return wrongAction(tar,point);
       }
 
-      if(target.kind === "decoy"){
-        wrongAction(target,point,true);
-        return;
+      if(tar.kind === "decoy"){
+        return wrongAction(tar,point,true);
       }
 
-      if(target.kind === "boss"){
-        if(game.tool !== target.requiredTool){
-          wrongAction(target,point);
-          return;
+      if(tar.kind === "boss"){
+        if(game.tool !== tar.requiredTool){
+          return wrongAction(tar,point);
         }
 
-        resolveTarget(target,point,"boss");
-        return;
+        return resolveTarget(tar,point,"boss");
       }
 
-      const meta = TARGETS[target.kind];
+      const meta = TARGETS[tar.kind];
 
       if(game.tool === meta.tool){
-        resolveTarget(target,point,target.kind === "gold" ? "gold" : "good");
+        resolveTarget(tar,point,tar.kind === "gold" ? "gold" : "good");
       }else{
-        wrongAction(target,point);
+        wrongAction(tar,point);
       }
     }
 
-    function wrongAction(target,point,isDecoy=false){
+    function wrongAction(tar,point,isDecoy=false){
       game.stats.falseActions++;
       game.combo = Math.max(0,game.combo - 3);
       game.score = Math.max(0,game.score - 40);
       game.infection = clamp(game.infection + (isDecoy ? 6 : 3),0,100);
 
-      createPop(point.x,point.y,isDecoy ? "DECOY!" : "WRONG TOOL","bad");
+      createPop(
+        point.x,
+        point.y,
+        isDecoy ? "DECOY!" : "WRONG TOOL",
+        "bad"
+      );
 
       setStatus(
         isDecoy ? `❌ ${t("wrong")}` : `⚠ ${t("wrong")}`,
@@ -2265,25 +2400,37 @@
       beep("bad");
 
       if(isDecoy){
-        removeTarget(target);
+        removeTarget(tar);
       }
 
       updateHUD();
     }
 
-    function resolveTarget(target,point,grade="good"){
-      if(!game.targets.has(target.id)) return;
+    function resolveTarget(tar,point,grade="good"){
+      if(!game.targets.has(tar.id)) return;
 
-      const meta = TARGETS[target.kind];
+      const meta = TARGETS[tar.kind];
+      const usedTool = tar.kind === "boss" ? tar.requiredTool : meta.tool;
+
+      const cooldownMap = {
+        scanner:.18,
+        wipe:.08,
+        clean:.28,
+        shield:1.15
+      };
+
+      if(usedTool && cooldownMap[usedTool]){
+        game.cooldowns[usedTool] = cooldownMap[usedTool];
+      }
+
       const comboBonus = game.combo >= 10 ? 30 : 0;
-
       let points = meta.score + comboBonus;
 
       if(grade === "gold"){
         points += 100;
       }
 
-      if(target.kind === "gold"){
+      if(tar.kind === "gold"){
         game.infection = Math.max(0,game.infection - 4);
       }
 
@@ -2294,11 +2441,11 @@
       game.stats.targetHits++;
       game.stats.toolUsage[game.tool]++;
 
-      if(target.kind === "sneaky"){
+      if(tar.kind === "sneaky"){
         game.stats.scanHits++;
       }
 
-      if(target.kind === "zippy" || target.kind === "boss"){
+      if(tar.kind === "zippy" || tar.kind === "boss"){
         game.stats.chainStops++;
       }
 
@@ -2311,13 +2458,13 @@
         grade === "gold" ? "gold" : "good"
       );
 
-      beep(target.kind === "sneaky" ? "scan" : "good");
+      beep(tar.kind === "sneaky" ? "scan" : "good");
 
-      removeTarget(target);
+      removeTarget(tar);
 
-      if(target.kind === "boss"){
+      if(tar.kind === "boss"){
         game.bossHp = clamp(
-          game.bossHp - (100 / CONFIG[game.difficulty].bossTargets),
+          game.bossHp - 100 / CONFIG[game.difficulty].bossTargets,
           0,
           100
         );
@@ -2326,6 +2473,7 @@
 
         if(game.bossNeeded <= 0){
           game.boss = false;
+          game.stats.bossDefeated = true;
 
           $("#boss-hud").classList.remove("show");
 
@@ -2348,36 +2496,64 @@
       updateHUD();
     }
 
-    function expireTarget(target){
-      if(!game.targets.has(target.id)) return;
+    function expireTarget(tar){
+      if(!game.targets.has(tar.id)) return;
 
       game.stats.expired++;
       game.combo = 0;
 
       const hit =
-        target.kind === "gold"
+        tar.kind === "gold"
           ? 0
-          : CONFIG[game.difficulty].infectionHit + (target.kind === "boss" ? 4 : 0);
+          : CONFIG[game.difficulty].infectionHit + (tar.kind === "boss" ? 4 : 0);
 
       game.infection = clamp(game.infection + hit,0,100);
 
       createPop(
-        target.x,
-        target.y,
-        target.kind === "gold" ? "MISSED BONUS" : "CHAIN SPREAD!",
+        tar.x,
+        tar.y,
+        tar.kind === "gold" ? "MISSED BONUS" : "CHAIN SPREAD!",
         "bad"
       );
 
       beep("bad");
+      removeTarget(tar);
 
-      removeTarget(target);
+      if(tar.kind === "boss"){
+        game.bossNeeded--;
 
-      setStatus(
-        `🦠 ${game.lang === "th" ? "เชื้อแพร่ต่อแล้ว!" : "The chain spread!"}`,
-        game.lang === "th"
-          ? "หยุดจุดเสี่ยงก่อนถึงอาหารหรือใบหน้า"
-          : "Stop risks before food or face alerts."
-      );
+        if(game.bossNeeded <= 0){
+          game.boss = false;
+          game.stats.bossEscaped = true;
+
+          $("#boss-hud").classList.remove("show");
+
+          game.infection = clamp(game.infection + 6,0,100);
+
+          setStatus(
+            `👾 ${game.lang === "th" ? "Captain Germ หนีไปได้" : "Captain Germ escaped"}`,
+            game.lang === "th"
+              ? "ภารกิจยังดำเนินต่อจนหมดเวลา"
+              : "The mission continues until time is up."
+          );
+        }else{
+          setStatus(
+            `👾 ${game.lang === "th" ? "Boss สร้างสายใหม่!" : "Boss created another chain!"}`,
+            game.lang === "th"
+              ? "เลือกเครื่องมือให้ถูก แล้วหยุดให้ทัน"
+              : "Choose the correct tool and stop it quickly."
+          );
+
+          setTimeout(() => spawnBossTarget(),430);
+        }
+      }else{
+        setStatus(
+          `🦠 ${game.lang === "th" ? "เชื้อแพร่ต่อแล้ว!" : "The chain spread!"}`,
+          game.lang === "th"
+            ? "หยุดจุดเสี่ยงก่อนถึงอาหารหรือใบหน้า"
+            : "Stop risks before food or face alerts."
+        );
+      }
 
       updateHUD();
     }
@@ -2392,19 +2568,26 @@
           (CONFIG[game.difficulty].bossTargets - game.bossNeeded) % order.length
         ];
 
-      const target = spawnTarget("boss",true);
+      const kindMap = {
+        scanner:"sneaky",
+        wipe:"sticky",
+        clean:"hand",
+        shield:"zippy"
+      };
 
-      if(!target) return;
+      const tar = spawnTarget("boss",true);
 
-      target.requiredTool = requiredTool;
+      if(!tar) return;
 
-      target.el.querySelector(".glyph").textContent = "👾";
-      target.el.querySelector(".tool-tag").textContent =
+      tar.requiredTool = requiredTool;
+      tar.el.querySelector(".glyph").textContent = "👾";
+      tar.el.querySelector(".tool-tag").textContent =
         `${t("boss")} • ${toolLabel(requiredTool)}`;
 
-      target.life *= .88;
-      target.maxLife = target.life;
-      target.expiresAt = now() + target.life;
+      tar.life *= .88;
+      tar.maxLife = tar.life;
+      tar.expiresAt = now() + tar.life;
+      tar.bossKind = kindMap[requiredTool];
     }
 
     function triggerBoss(){
@@ -2433,6 +2616,8 @@
       if(!game.running || game.paused) return;
 
       game.paused = true;
+      game.lastDecision = game.time;
+      game.stats.decisionBursts++;
 
       const decision =
         DECISIONS[Math.floor(Math.random() * DECISIONS.length)];
@@ -2518,7 +2703,6 @@
       $("#decision-overlay").classList.remove("show");
 
       game.paused = false;
-
       updateHUD();
     }
 
@@ -2552,39 +2736,51 @@
         triggerBoss();
       }
 
+      const elapsed = cfg.duration - game.time;
+
+      if(
+        !game.boss &&
+        elapsed > 11 &&
+        (game.lastDecision - game.time) >= cfg.decisionEvery
+      ){
+        game.lastDecision = game.time;
+        pauseForDecision();
+        return;
+      }
+
       if(game.time <= 0 || game.infection >= 100){
         endGame(game.infection >= 100 ? "outbreak" : "time");
         return;
       }
 
-      for(const target of [...game.targets.values()]){
-        if(target.kind === "zippy" || target.kind === "boss"){
-          target.x += target.vx * delta;
-          target.y += target.vy * delta;
+      for(const tar of [...game.targets.values()]){
+        if(tar.kind === "zippy" || tar.kind === "boss"){
+          tar.x += tar.vx * delta;
+          tar.y += tar.vy * delta;
 
-          if(target.x < 7 || target.x > 93) target.vx *= -1;
-          if(target.y < 18 || target.y > 83) target.vy *= -1;
+          if(tar.x < 7 || tar.x > 93) tar.vx *= -1;
+          if(tar.y < 18 || tar.y > 83) tar.vy *= -1;
 
-          target.el.style.left = `${target.x}%`;
-          target.el.style.top = `${target.y}%`;
+          tar.el.style.left = `${tar.x}%`;
+          tar.el.style.top = `${tar.y}%`;
 
-          if(target.trail){
-            target.trail.remove();
-            target.trail = trailTo(target.kind,target.x,target.y);
+          if(tar.trail){
+            tar.trail.remove();
+            tar.trail = trailTo(tar.kind,tar.x,tar.y);
           }
         }
 
         const remaining =
-          (target.expiresAt - timestamp) / target.maxLife;
+          (tar.expiresAt - timestamp) / tar.maxLife;
 
-        const lifeBar = target.el.querySelector(".life i");
+        const bar = tar.el.querySelector(".life i");
 
-        if(lifeBar){
-          lifeBar.style.width = `${clamp(remaining * 100,0,100)}%`;
+        if(bar){
+          bar.style.width = `${clamp(remaining * 100,0,100)}%`;
         }
 
-        if(timestamp >= target.expiresAt){
-          expireTarget(target);
+        if(timestamp >= tar.expiresAt){
+          expireTarget(tar);
         }
       }
 
@@ -2617,12 +2813,11 @@
         targetId:0,
         lastFrame:now(),
         lastSpawn:now() - 300,
-
+        lastDecision:cfg.duration,
         boss:false,
         bossStarted:false,
         bossHp:100,
         bossNeeded:0,
-
         activeWipe:null,
         tool:"scanner",
 
@@ -2633,8 +2828,11 @@
           correctActions:0,
           decisionTotal:0,
           decisionsCorrect:0,
+          decisionBursts:0,
           targetHits:0,
           expired:0,
+          bossDefeated:false,
+          bossEscaped:false,
           toolUsage:{
             scanner:0,
             wipe:0,
@@ -2711,11 +2909,16 @@
 
       const decisionRate =
         game.stats.decisionTotal
-          ? Math.round((game.stats.decisionsCorrect / game.stats.decisionTotal) * 100)
+          ? Math.round(
+              game.stats.decisionsCorrect /
+              game.stats.decisionTotal *
+              100
+            )
           : 0;
 
       const controlled =
-        game.infection < 55 && reason !== "outbreak";
+        game.infection < 55 &&
+        reason !== "outbreak";
 
       let rank;
       let hero;
@@ -2725,29 +2928,34 @@
       if(controlled && game.infection < 25 && game.bestCombo >= 12){
         rank = "🏆 Outbreak Zero Hero";
         hero = "🏆";
-        title = game.lang === "th"
-          ? "คุณควบคุมการระบาดได้ยอดเยี่ยม!"
-          : "Outbreak Zero achieved!";
 
-        summary = game.lang === "th"
-          ? "คุณจัดลำดับจุดเสี่ยงได้ดี และหยุดสายการแพร่เชื้อได้ทันเวลา"
-          : "You prioritized dangerous chains and stopped them in time.";
+        title =
+          game.lang === "th"
+            ? "คุณควบคุมการระบาดได้ยอดเยี่ยม!"
+            : "Outbreak Zero achieved!";
+
+        summary =
+          game.lang === "th"
+            ? "คุณจัดลำดับจุดเสี่ยงได้ดี และหยุดสายการแพร่เชื้อได้ทันเวลา"
+            : "You prioritized dangerous chains and stopped them in time.";
       }else if(controlled){
         rank = "🛡️ Clean Guardian";
         hero = "🛡️";
         title = t("controlled");
 
-        summary = game.lang === "th"
-          ? "คุณช่วยป้องกันไม่ให้เชื้อส่วนใหญ่ไปถึงจุดอันตราย"
-          : "You prevented most germs from reaching risky endpoints.";
+        summary =
+          game.lang === "th"
+            ? "คุณช่วยป้องกันไม่ให้เชื้อส่วนใหญ่ไปถึงจุดอันตราย"
+            : "You prevented most germs from reaching risky endpoints.";
       }else{
         rank = "🔎 Field Detective";
         hero = "🔎";
         title = t("failed");
 
-        summary = game.lang === "th"
-          ? "รอบหน้าให้หยุดเชื้อที่มุ่งไปหาอาหารและใบหน้าก่อนเก็บคะแนนโบนัส"
-          : "Next round, stop chains headed for food and face before chasing bonuses.";
+        summary =
+          game.lang === "th"
+            ? "รอบหน้าให้หยุดเชื้อที่มุ่งไปหาอาหารและใบหน้าก่อนเก็บคะแนนโบนัส"
+            : "Next round, stop chains headed for food and face before chasing bonuses.";
       }
 
       game.result = {
@@ -2772,16 +2980,20 @@
         correctActionRate:
           game.stats.targetHits
             ? Math.round(
-                (game.stats.targetHits /
-                  (game.stats.targetHits + game.stats.falseActions)) * 100
+                game.stats.targetHits /
+                (game.stats.targetHits + game.stats.falseActions) *
+                100
               )
             : 0,
 
         decisionRate,
         decisionsCorrect:game.stats.decisionsCorrect,
         decisionTotal:game.stats.decisionTotal,
+        decisionBursts:game.stats.decisionBursts,
         targetsHandled:game.stats.targetHits,
         targetsExpired:game.stats.expired,
+        bossDefeated:game.stats.bossDefeated,
+        bossEscaped:game.stats.bossEscaped,
         toolUsage:game.stats.toolUsage,
         rank
       };
@@ -2790,14 +3002,10 @@
       $("#rank-badge").textContent = rank;
       $("#result-title").textContent = title;
       $("#result-summary").textContent = summary;
-
-      $("#result-score").textContent =
-        Math.round(game.score).toLocaleString();
-
+      $("#result-score").textContent = Math.round(game.score).toLocaleString();
       $("#result-combo").textContent = `x${game.bestCombo}`;
       $("#result-decisions").textContent = `${decisionRate}%`;
       $("#result-infection").textContent = `${Math.round(100 - game.infection)}%`;
-
       $("#sync-note").textContent = saveResult(game.result);
 
       $("#result-overlay").classList.add("show");
@@ -2868,6 +3076,7 @@
       });
 
       const anchor = document.createElement("a");
+
       anchor.href = URL.createObjectURL(blob);
       anchor.download =
         `germ-detective-${new Date().toISOString().slice(0,10)}.csv`;
@@ -2881,7 +3090,12 @@
 
     async function enableCamera(){
       if(game.cameraOn){
-        toast(game.lang === "th" ? "กล้องพร้อมใช้งานแล้ว" : "Camera is already ready");
+        toast(
+          game.lang === "th"
+            ? "กล้องพร้อมใช้งานแล้ว"
+            : "Camera is already ready"
+        );
+
         return true;
       }
 
@@ -2915,15 +3129,16 @@
     }
 
     async function startHandTracking(){
-      const cameraReady = await enableCamera();
+      const cameraOK = await enableCamera();
 
-      if(!cameraReady) return;
+      if(!cameraOK) return;
 
       try{
         if(!game.handLandmarker){
-          const vision = await FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-          );
+          const vision =
+            await FilesetResolver.forVisionTasks(
+              "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+            );
 
           game.handLandmarker =
             await HandLandmarker.createFromOptions(vision,{
@@ -3019,7 +3234,7 @@
           if(game.tool === "wipe"){
             startWipe(point);
           }else{
-            hitAt(point);
+            hitAt(point,"hand");
           }
         }
 
@@ -3037,7 +3252,7 @@
           scanner.style.top = `${point.y}%`;
         }
       }catch(error){
-        /* Ignore occasional camera/video frame errors */
+        /* transient model/video frame errors are ignored */
       }
     }
 
@@ -3056,20 +3271,28 @@
 
       const hint =
         tool === "scanner"
-          ? (game.lang === "th"
-              ? "เล็งและแตะเชื้อที่ซ่อน"
-              : "Aim and tap hidden germs")
+          ? (
+              game.lang === "th"
+                ? "เล็งและแตะเชื้อที่ซ่อน"
+                : "Aim and tap hidden germs"
+            )
           : tool === "wipe"
-            ? (game.lang === "th"
-                ? "ลากบนคราบเหนียวจนแถบหมด"
-                : "Drag across sticky stains until cleared")
+            ? (
+                game.lang === "th"
+                  ? "ลากบนคราบเหนียวจนแถบหมด"
+                  : "Drag across sticky stains until cleared"
+              )
             : tool === "clean"
-              ? (game.lang === "th"
-                  ? "แตะเชื้อที่อยู่บนมือ"
-                  : "Tap germs on hands")
-              : (game.lang === "th"
-                  ? "แตะเชื้อกระโดดให้ทัน"
-                  : "Tap fast jump germs in time");
+              ? (
+                  game.lang === "th"
+                    ? "แตะเชื้อที่อยู่บนมือ"
+                    : "Tap germs on hands"
+                )
+              : (
+                  game.lang === "th"
+                    ? "แตะเชื้อกระโดดให้ทัน"
+                    : "Tap fast jump germs in time"
+                );
 
       setStatus(`${icons[tool]} ${toolLabel(tool)}`,hint);
 
@@ -3131,7 +3354,9 @@
 
     window.addEventListener("keydown",(event) => {
       if(event.key >= "1" && event.key <= "4"){
-        setTool(["scanner","wipe","clean","shield"][Number(event.key) - 1]);
+        setTool(
+          ["scanner","wipe","clean","shield"][Number(event.key) - 1]
+        );
       }
 
       if(event.key === "Escape" && game.running && !game.paused){
