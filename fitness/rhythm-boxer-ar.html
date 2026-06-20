@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Post Survey Submit Fix | v20260619-rb-postsurvey-submit-fix -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Student Context + Identity Payload | v20260620-rb-student-context-v1 -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -9,6 +9,9 @@
   <link rel="shortcut icon" href="/webxr-health-mobile/herohealth/favicon.ico?v=20260619" />
   <meta name="theme-color" content="#ff9dcf" />
   <meta name="color-scheme" content="light" />
+
+  <!-- Student identity + Bangkok timestamp bridge. Load before game code. -->
+  <script src="./fitness-student-context-bridge.js?v=20260620-v2"></script>
 
   <!-- Body tracking: MediaPipe Pose. Touch/keyboard still works if CDN or camera fails. -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
@@ -814,10 +817,109 @@
   const qs = (k,d='')=>{try{return new URL(location.href).searchParams.get(k) ?? d}catch(_){return d}};
   const qbool = (k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
 
-  const RB_VERSION = 'v20260619-rb-postsurvey-submit-fix';
+  const RB_VERSION = 'v20260620-rb-student-context-v1';
   const RB_GAME_ID = 'rhythmboxer';
   const RB_DEFAULT_HUB = './';
   const RB_DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
+
+  /* =========================================================
+   * Student Identity Context
+   * Priority:
+   * 1) URL / Fitness Hub context: studentId, studentName, classId, playerId
+   * 2) Stored FitnessStudentContext
+   * 3) Existing player input as stable playerId fallback
+   * ========================================================= */
+  const rbClean = value => String(value == null ? '' : value).trim();
+
+  function rbBangkokNow(){
+    try{
+      return new Date().toLocaleString('sv-SE', {
+        timeZone:'Asia/Bangkok',
+        hour12:false
+      }).replace(' ', 'T');
+    }catch(_){
+      return new Date().toISOString();
+    }
+  }
+
+  function rbMakeId(prefix='RB'){
+    try{
+      if(W.crypto && typeof W.crypto.randomUUID === 'function'){
+        return prefix + '-' + W.crypto.randomUUID();
+      }
+    }catch(_){}
+    return prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,10);
+  }
+
+  function rbStudentContext(){
+    let saved = {};
+    try{
+      if(W.FitnessStudentContext && typeof W.FitnessStudentContext.get === 'function'){
+        saved = W.FitnessStudentContext.get() || {};
+      }
+    }catch(_){}
+
+    return {
+      studentId: rbClean(saved.studentId || qs('studentId', qs('sid',''))),
+      studentName: rbClean(saved.studentName || qs('studentName', qs('name',''))),
+      classId: rbClean(saved.classId || qs('classId', qs('class', qs('classGroup', qs('group',''))))),
+      section: rbClean(saved.section || qs('section', qs('sec',''))),
+      playerId: rbClean(saved.playerId || qs('playerId', qs('pid','')))
+    };
+  }
+
+  function rbPersistStudentContext(playerInput=''){
+    const ctx = rbStudentContext();
+    const typed = rbClean(playerInput || (els && els.pid ? els.pid.value : '') || S.pid);
+    const patch = {
+      studentId: ctx.studentId,
+      studentName: ctx.studentName || (/^player\d+$/i.test(typed) ? '' : typed),
+      classId: ctx.classId,
+      section: ctx.section,
+      playerId: ctx.playerId || typed
+    };
+
+    try{
+      if(W.FitnessStudentContext && typeof W.FitnessStudentContext.save === 'function'){
+        W.FitnessStudentContext.save(patch);
+      }
+    }catch(_){}
+
+    return Object.assign({}, ctx, patch);
+  }
+
+  function rbApplyStudentContext(payload={}){
+    const ctx = rbPersistStudentContext(payload.pid || payload.playerId || S.pid || '');
+    const timestamp = rbClean(payload.timestamp || payload.tsIso) || new Date().toISOString();
+
+    const seeded = Object.assign({}, payload, {
+      game: payload.game || RB_GAME_ID,
+      gameId: payload.gameId || RB_GAME_ID,
+      timestamp,
+      timestampLocal: rbClean(payload.timestampLocal || payload.localTimestamp) || rbBangkokNow(),
+      studentId: rbClean(payload.studentId || ctx.studentId),
+      studentName: rbClean(payload.studentName || ctx.studentName || (/^player\d+$/i.test(ctx.playerId) ? '' : ctx.playerId)),
+      playerId: rbClean(payload.playerId || ctx.playerId || payload.pid || S.pid),
+      classId: rbClean(payload.classId || ctx.classId),
+      classGroup: rbClean(payload.classGroup || payload.group || ctx.classId),
+      section: rbClean(payload.section || ctx.section)
+    });
+
+    try{
+      if(W.FitnessStudentContext && typeof W.FitnessStudentContext.apply === 'function'){
+        const applied = W.FitnessStudentContext.apply(seeded) || seeded;
+        return Object.assign({}, seeded, applied, {
+          game: applied.game || RB_GAME_ID,
+          gameId: applied.gameId || RB_GAME_ID,
+          timestamp: applied.timestamp || timestamp,
+          timestampLocal: applied.timestampLocal || rbBangkokNow()
+        });
+      }
+    }catch(_){}
+
+    return seeded;
+  }
+
 
   function rbAbsUrl(raw, fallback=RB_DEFAULT_HUB){
     try{
@@ -837,15 +939,22 @@
   }
 
   function rbMeta(){
+    const ctx = rbStudentContext();
     return {
       version: RB_VERSION,
       gameId: RB_GAME_ID,
+      game: RB_GAME_ID,
       url: location.href,
       hub: rbHubUrl(),
       userAgent: navigator.userAgent || '',
-      section: qs('section', qs('sec','')),
+      studentId: ctx.studentId,
+      studentName: ctx.studentName,
+      playerId: ctx.playerId,
+      identitySource: ctx.studentId ? 'studentId' : (ctx.playerId ? 'playerId' : 'nameOnly'),
+      section: ctx.section,
       group: qs('group',''),
-      classId: qs('classId', qs('class','')),
+      classId: ctx.classId,
+      classGroup: ctx.classId,
       planDay: qs('planDay',''),
       planSlot: qs('planSlot','')
     };
@@ -853,13 +962,21 @@
 
   function rbGoHub(extra={}){
     try{
+      const ctx = rbStudentContext();
+      const carry = Object.assign({
+        studentId:ctx.studentId,
+        studentName:ctx.studentName,
+        playerId:ctx.playerId || S.pid,
+        classId:ctx.classId,
+        section:ctx.section
+      }, extra || {});
       const u = new URL(rbHubUrl(), location.href);
       u.searchParams.set('fromGame', RB_GAME_ID);
       u.searchParams.set('game', RB_GAME_ID);
       u.searchParams.set('return', '1');
       u.searchParams.set('v', RB_VERSION);
-      Object.keys(extra || {}).forEach(k=>{
-        if(extra[k] !== undefined && extra[k] !== null && extra[k] !== '') u.searchParams.set(k, String(extra[k]));
+      Object.keys(carry).forEach(k=>{
+        if(carry[k] !== undefined && carry[k] !== null && carry[k] !== '') u.searchParams.set(k, String(carry[k]));
       });
       location.href = u.toString();
     }catch(_){
@@ -876,21 +993,30 @@
 
   function rbStoreLastSummary(payload){
     try{
+      payload = rbApplyStudentContext(payload || {});
       const summary = {
         ...payload,
         game: RB_GAME_ID,
-        timestampIso: new Date().toISOString(),
+        gameId: RB_GAME_ID,
+        timestampIso: payload.timestamp || new Date().toISOString(),
+        timestampLocal: payload.timestampLocal || rbBangkokNow(),
         __extraJson: JSON.stringify(rbMeta())
       };
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      localStorage.setItem('HHA_LAST_SUMMARY:rhythmboxer:' + (payload.pid || 'anon'), JSON.stringify(summary));
+      localStorage.setItem('HHA_LAST_SUMMARY:rhythmboxer:' + (payload.playerId || payload.pid || 'anon'), JSON.stringify(summary));
       window.parent && window.parent.postMessage({type:'HHA_GAME_RESULT', game:RB_GAME_ID, payload:summary}, '*');
     }catch(_){}
   }
 
   async function rbSubmitSession(payload){
+    payload = rbApplyStudentContext(payload || {});
     const api = rbApiUrl();
-    console.log('[RB][Sheets] api=', api);
+    console.log('[RB][Sheets] api=', api, {
+      studentId:payload.studentId || '',
+      playerId:payload.playerId || '',
+      classId:payload.classId || '',
+      timestampLocal:payload.timestampLocal || ''
+    });
     if(!api){
       rbSetSubmitStatus('บันทึกในเครื่องแล้ว • ยังไม่ได้ตั้งค่า Google Sheets auto submit', 'warn');
       return false;
@@ -898,7 +1024,10 @@
 
     const body = {
       type:'rhythm_boxer_session',
+      api:'fitness',
+      action:'saveFitnessResult',
       game: RB_GAME_ID,
+      gameId: RB_GAME_ID,
       version: RB_VERSION,
       meta: rbMeta(),
       payload
@@ -949,6 +1078,7 @@
 
   const S = {
     running:false, mode:'touch', diff:'normal', timeSec:60, pid:'player01',
+    sessionId:'', roundId:'',
     t0:0,tEnd:0,tLast:0,lastBeat:-1, rng:Math.random,
     notes:[], nextId:1,
     score:0, combo:0, maxCombo:0, flowCombo:0, maxFlowCombo:0, comboBreaks:0, shots:0, hits:0, perfect:0, great:0, good:0, miss:0,
@@ -1720,6 +1850,9 @@
   async function start(mode){
     actx();
     S.mode=mode; S.diff=els.diff.value; S.timeSec=Number(els.timeSec.value)||60; S.pid=els.pid.value.trim()||'player01';
+    rbPersistStudentContext(S.pid);
+    S.sessionId=rbMakeId('RBSESSION');
+    S.roundId=rbMakeId('RBROUND');
     applyLaneMode(); reset(); show('play'); initUltimateHud(); updateUltimateHud();
     if(mode==='body') await startCamera(true);
     countdown(()=>{
@@ -1924,30 +2057,51 @@
   function sessionPayload(reason,stars,rank){
     const sm = sportMetrics();
     const ps = postSurveyPayload();
-    return {
-      tsIso:new Date().toISOString(),
+    const ctx = rbPersistStudentContext(S.pid);
+    const timestamp = new Date().toISOString();
+
+    return rbApplyStudentContext({
+      timestamp,
+      timestampLocal:rbBangkokNow(),
+      tsIso:timestamp,
+      game:RB_GAME_ID,
+      gameId:RB_GAME_ID,
+      version:RB_VERSION,
+      sourceUrl:location.href,
+      pageUrl:location.href,
+      hubUrl:rbHubUrl(),
+      sessionId:S.sessionId || rbMakeId('RBSESSION'),
+      roundId:S.roundId || rbMakeId('RBROUND'),
+      studentId:ctx.studentId,
+      studentName:ctx.studentName,
+      playerId:ctx.playerId || S.pid,
+      classId:ctx.classId,
+      classGroup:ctx.classId || qs('group',''),
+      section:ctx.section || qs('section',qs('sec','')),
       pid:S.pid,
       diff:S.diff,
+      difficulty:S.diff,
       timeSec:S.timeSec,
+      duration:S.timeSec,
       mode:S.mode,
-      version:RB_VERSION,
-      gameId:RB_GAME_ID,
-      section:qs('section',qs('sec','')),
-      group:qs('group',''),
       reason,
+      endReason:reason,
       score:Math.round(S.score),
       rank,
       stars,
+      accuracy:Number(accPct().toFixed(2)),
+      accPct:accPct().toFixed(2),
       maxCombo:S.maxCombo,
+      bestCombo:S.maxCombo,
       maxFlowCombo:S.maxFlowCombo||0,
       comboBreaks:S.comboBreaks||0,
       shots:S.shots,
       hits:S.hits,
-      accPct:accPct().toFixed(2),
       perfect:S.perfect,
       great:S.great,
       good:S.good,
       miss:S.miss,
+      misses:S.miss,
       blank:S.blank,
       spam:S.spam,
       bodyPunches:S.bodyPunches,
@@ -1963,10 +2117,8 @@
       ...ps,
       postSurveySubmitted:0,
       postSurveyTsIso:'',
-      teacherRecommendation:teacherRec(),
-      pageUrl:location.href,
-      hubUrl:rbHubUrl()
-    };
+      teacherRecommendation:teacherRec()
+    });
   }
 
   // --- Camera + Pose body tracking ---
@@ -2212,6 +2364,5 @@
   }
 })();
 </script>
-  <script src="./fitness-student-context-bridge.js"></script>
 </body>
 </html>
