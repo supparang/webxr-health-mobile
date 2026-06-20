@@ -1,12 +1,12 @@
 <!doctype html>
+<!-- CANONICAL FILE: /fitness/balance-hold.html | Student Context + Auto Sheet | v20260620-bh-student-context-v9 -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#dff7ff" />
   <meta name="color-scheme" content="light" />
-  <title>Fitness AR • Balance Hold v12 Production Sheet</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%2322d3ee%27/%3E%3Ctext x=%2732%27 y=%2743%27 text-anchor=%27middle%27 font-size=%2734%27%3E%E2%9A%96%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+  <title>Fitness AR • Balance Hold v9 • Student Context</title>
   <style>
     :root{
       --safe-top:env(safe-area-inset-top,0px);
@@ -222,9 +222,6 @@
     .headGuide .dot{ width:12px; height:12px; border-radius:50%; background:#cbd5e1; box-shadow:0 0 0 5px rgba(203,213,225,.24); }
     .headGuide.active .dot{ background:#34d399; box-shadow:0 0 0 5px rgba(52,211,153,.22); }
     .headGuide.warn .dot{ background:#fb923c; box-shadow:0 0 0 5px rgba(251,146,60,.22); }
-    .bodyGuide{ top:150px; border-color:rgba(52,211,153,.42); color:#065f46; }
-    .bodyGuide.active .dot{ background:#22c55e; box-shadow:0 0 0 5px rgba(34,197,94,.22); }
-    .bodyGuide.warn .dot{ background:#f97316; box-shadow:0 0 0 5px rgba(249,115,22,.22); }
 
     .wind{
       position:absolute; z-index:5; pointer-events:none; color:rgba(14,165,233,.42);
@@ -374,6 +371,16 @@
     }
     .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
+
+    .sheetSubmitStatus{
+      margin-top:12px; border-radius:18px; padding:11px 12px;
+      background:#f8fafc; border:2px solid #cbd5e1; color:#475569;
+      font-size:13px; font-weight:1000; text-align:center;
+    }
+    .sheetSubmitStatus.sending{ background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; }
+    .sheetSubmitStatus.ok{ background:#ecfdf5; border-color:#86efac; color:#047857; }
+    .sheetSubmitStatus.warn{ background:#fff7ed; border-color:#fdba74; color:#9a3412; }
+
     .summaryGrid{ display:grid; grid-template-columns:1fr 1.2fr; gap:12px; margin-top:14px; }
     .bigScore{ display:grid; place-items:center; min-height:210px; text-align:center; }
     .scoreNum{ font-size:58px; font-weight:1000; line-height:1; }
@@ -388,32 +395,6 @@
     .postRow.head{ color:#0369a1; background:#ecfeff; font-weight:1000; }
     .postRow small{ display:block; color:var(--muted); font-weight:900; margin-top:2px; }
 
-    .skeletonCanvas{
-      position:absolute; inset:0; z-index:9; width:100%; height:100%; pointer-events:none;
-      opacity:.90; mix-blend-mode:multiply;
-    }
-    .readinessPanel{
-      margin:12px 0 6px; border-radius:24px; padding:12px;
-      border:2px solid rgba(125,211,252,.48);
-      background:linear-gradient(135deg,rgba(236,254,255,.92),rgba(255,255,255,.86));
-      box-shadow:0 12px 30px rgba(14,165,233,.10);
-    }
-    .readinessTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; font-weight:1000; }
-    .readinessTitle{ display:flex; align-items:center; gap:8px; color:#075985; }
-    .readinessBadge{ border-radius:999px; padding:7px 10px; background:#fff; border:1px solid rgba(125,211,252,.58); color:#0f766e; font-weight:1000; white-space:nowrap; }
-    .qualityBar{ height:12px; border-radius:999px; background:#e2e8f0; overflow:hidden; margin:10px 0 8px; }
-    .qualityBar i{ display:block; height:100%; width:0%; border-radius:inherit; background:linear-gradient(90deg,var(--cyan),var(--lime)); transition:width .22s ease; }
-    .readinessGrid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
-    .readinessCard{ border:1px solid rgba(125,211,252,.44); border-radius:18px; padding:9px; background:rgba(255,255,255,.72); font-weight:1000; min-height:58px; }
-    .readinessCard small{ display:block; color:var(--muted); font-size:11px; font-weight:900; margin-top:2px; }
-    .readinessAdvice{ margin-top:9px; color:#334155; font-weight:900; line-height:1.35; }
-    .readinessPanel.ready{ border-color:rgba(52,211,153,.72); background:linear-gradient(135deg,#ecfdf5,#f0fdfa); }
-    .readinessPanel.lite{ border-color:rgba(251,191,36,.72); background:linear-gradient(135deg,#fffbeb,#ecfeff); }
-    .readinessPanel.low{ border-color:rgba(251,113,133,.60); background:linear-gradient(135deg,#fff1f2,#ecfeff); }
-    .bodyGuide.ready{ border-color:rgba(52,211,153,.7); }
-    .bodyGuide.lite{ border-color:rgba(251,191,36,.75); }
-    .bodyGuide.low{ border-color:rgba(251,113,133,.65); }
-
     @media (max-width:760px){
       :root{ --arena-h:78vh; }
       .app{ gap:8px; padding:calc(8px + var(--safe-top)) calc(8px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(8px + var(--safe-left)); }
@@ -425,7 +406,6 @@
       .hud{ top:8px; left:8px; right:8px; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
       .hudCard:nth-child(4),.hudCard:nth-child(5){ display:none; }
       .headGuide{ top:72px; right:8px; min-width:156px; font-size:11px; padding:7px 9px; }
-      .bodyGuide{ top:118px; }
       .hudCard{ padding:8px; border-radius:16px; }
       .missionStrip{ top:74px; width:calc(100% - 16px); justify-content:flex-start; overflow:hidden; flex-wrap:nowrap; }
       .missionChip{ font-size:10px; padding:6px 8px; white-space:nowrap; }
@@ -438,8 +418,6 @@
       .formGrid{ grid-template-columns:1fr 1fr; }
       .summaryGrid{ grid-template-columns:1fr; }
       .postRow{ grid-template-columns:1fr .55fr .65fr; font-size:13px; }
-      .readinessGrid{ grid-template-columns:1fr 1fr; }
-      .readinessTop{ align-items:flex-start; flex-direction:column; }
       .targetLabel{ top:-38px; min-width:136px; font-size:12px; }
       .targetHint{ display:none; }
     }
@@ -479,7 +457,6 @@
       <div class="arTint"></div>
       <div class="arena" id="arena" aria-label="Balance Hold Game Area">
         <div class="gridLines"></div>
-        <canvas class="skeletonCanvas hidden" id="skeletonCanvas" aria-hidden="true"></canvas>
         <div class="safeZone"></div>
         <div class="balanceLine"></div>
         <div class="balanceLine v"></div>
@@ -504,7 +481,6 @@
         </div>
         <div class="ghost" id="ghost"></div>
         <div class="headGuide hidden" id="headGuide"><span>🧠</span><b id="headStatus">Head: Ready</b><i class="dot"></i></div>
-        <div class="headGuide bodyGuide hidden" id="bodyGuide"><span>🧍</span><b id="bodyStatus">Body: Ready</b><i class="dot"></i></div>
         <div class="cursor" id="cursor"></div>
         <div class="fxText" id="fxText">Good Hold!</div>
 
@@ -526,60 +502,41 @@
             <div class="modalIcon">⚖️</div>
             <div>
               <h1>Balance Hold AR</h1>
-              <p class="lead">เกมฝึกทรงตัวแบบปลอดภัยสำหรับเด็ก ป.5: คุมลูกสมดุลให้อยู่ในวงเป้าหมาย ค้างให้ครบเวลา และเพิ่ม Body Readiness, Skeleton Guide และส่งผลเข้า Google Sheet/CSV สำหรับครู</p>
+              <p class="lead">เกมฝึกทรงตัวแบบปลอดภัยสำหรับเด็ก ป.5: คุมลูกสมดุลให้อยู่ในวงเป้าหมาย ค้างให้ครบเวลา และรับมือแรงกดดันจาก obstacle โดยไม่ใช้ Cardboard VR และมี Head Balance แบบ micro-control</p>
             </div>
           </div>
 
           <div class="tips">
             <div class="tip">✅ ใช้ PC / Mobile AR ได้</div>
             <div class="tip">📱 Mobile เลือก Tilt = เอียงเครื่องเบา ๆ</div>
-            <div class="tip">🧍 Body Readiness: มีตัวชี้วัดเฟรม + Skeleton Guide บอกว่าพร้อมเล่นหรือควรถอยกล้อง</div>
-            <div class="tip">🧠 ถ้ากล้องเห็นตัวไม่ครบ ระบบ fallback เป็น Head Balance ได้</div>
+            <div class="tip">🧠 โหมดนี้ตั้งค่าเริ่มต้นเป็น Head: ขยับศีรษะนิดเดียว แล้วค้างให้นิ่ง</div>
             <div class="tip">🖥️ PC ค่าเริ่มต้นใช้เมาส์ / ลูกศร / WASD ไม่ใช้ Tilt</div>
             <div class="tip">🧘 ยืนสองเท้า ย่อเข่าเล็กน้อย ไม่ต้องยืนขาเดียว</div>
-            <div class="tip">🔥 มี Focus Fever ที่ปรับตาม Body/Head / ภารกิจ / Personal Best เพื่อเล่นซ้ำ</div>
-            <div class="tip">☁️ ส่งผลอัตโนมัติไป Google Sheet ได้ พร้อม fallback เป็น CSV</div>
+            <div class="tip">🔥 มี Focus Fever ที่ติดง่ายขึ้นสำหรับ Head / ภารกิจ / Personal Best เพื่อเล่นซ้ำ</div>
           </div>
 
           <div class="formGrid">
             <div class="field"><label for="playerName">ชื่อผู้เล่น</label><input id="playerName" autocomplete="name" value="Hero" /></div>
+            <div class="field"><label for="studentId">รหัสนักเรียน</label><input id="studentId" autocomplete="off" placeholder="เช่น 65010001" /></div>
             <div class="field"><label for="classGroup">กลุ่ม/ห้อง</label><input id="classGroup" value="P5" /></div>
+            <div class="field"><label for="section">Section</label><input id="section" autocomplete="off" placeholder="เช่น 101 / P5-1" /></div>
             <div class="field"><label for="difficulty">ระดับ</label><select id="difficulty"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></div>
             <div class="field"><label for="duration">เวลา</label><select id="duration"><option value="45">45 วินาที</option><option value="60" selected>60 วินาที</option><option value="75">75 วินาที</option><option value="90">90 วินาที</option></select></div>
-            <div class="field"><label for="inputChoice">วิธีขยับ</label><select id="inputChoice"><option value="body" selected>Body Lite / Full Body</option><option value="head">Head micro-control</option><option value="pointer">Mouse / Touch ลาก</option><option value="keyboard">Keyboard ลูกศร / WASD</option><option value="tilt">Tilt เอียงมือถือ</option><option value="auto">Auto ตามอุปกรณ์</option></select></div>
-          </div>
-
-
-          <div class="readinessPanel low" id="readinessPanel" aria-live="polite">
-            <div class="readinessTop">
-              <div class="readinessTitle">🧍 Body Readiness / Skeleton Guide</div>
-              <div class="readinessBadge" id="bodyReadyBadge">ยังไม่ได้เช็กเฟรม</div>
-            </div>
-            <div class="qualityBar"><i id="bodyReadyBar"></i></div>
-            <div class="readinessGrid">
-              <div class="readinessCard"><span id="bodyReadyScore">0%</span><small>ความพร้อม</small></div>
-              <div class="readinessCard"><span id="bodyReadyLevel">none</span><small>ระดับที่เห็น</small></div>
-              <div class="readinessCard"><span id="bodyReadyFrame">ยังไม่เห็นตัว</span><small>เฟรมกล้อง</small></div>
-              <div class="readinessCard"><span id="bodyReadyAssist">Head Assist</span><small>ระบบสำรอง</small></div>
-            </div>
-            <div class="readinessAdvice" id="bodyReadyAdvice">กด “ทดสอบ Body Detection” แล้วถอยให้กล้องเห็นไหล่–สะโพก ถ้าเห็นถึงเข่าจะนิ่งขึ้น</div>
+            <div class="field"><label for="inputChoice">วิธีขยับ</label><select id="inputChoice"><option value="head" selected>Head micro-control</option><option value="pointer">Mouse / Touch ลาก</option><option value="keyboard">Keyboard ลูกศร / WASD</option><option value="tilt">Tilt เอียงมือถือ</option><option value="auto">Auto ตามอุปกรณ์</option></select></div>
           </div>
 
           <div class="toggles">
             <label class="toggle"><input id="useCamera" type="checkbox" checked /> เปิดกล้องเป็นพื้นหลัง AR</label>
             <label class="toggle"><input id="useTilt" type="checkbox" /> ใช้เอียงเครื่องบนมือถือ / Mobile Tilt</label>
-            <label class="toggle"><input id="useBody" type="checkbox" checked /> ใช้ Body Lite / Full Body Detection (ทดลอง)</label>
-            <label class="toggle"><input id="useHead" type="checkbox" checked /> ใช้ Head Balance micro-control สำรอง</label>
+            <label class="toggle"><input id="useHead" type="checkbox" checked /> ใช้ Head Balance micro-control (แนะนำ)</label>
             <label class="toggle"><input id="researchMode" type="checkbox" /> Research run / เก็บข้อมูลละเอียด</label>
-            <label class="toggle"><input id="autoSubmit" type="checkbox" checked /> ส่งผลอัตโนมัติ Google Sheet</label>
             <label class="toggle"><input id="safeMode" type="checkbox" checked /> Safe mode สำหรับเด็ก</label>
           </div>
 
           <div class="actions">
-            <button class="btn primary" id="btnStart" type="button">🧍 เช็กเฟรมแล้วเริ่ม Body</button>
+            <button class="btn primary" id="btnStart" type="button">🧠 เริ่มด้วย Head Balance</button>
             <button class="btn blue" id="btnCamera" type="button">📷 ทดสอบกล้อง</button>
             <button class="btn" id="btnTilt" type="button">📱 ขอสิทธิ์ Motion</button>
-            <button class="btn" id="btnBody" type="button">🧍 เช็ก Body Readiness</button>
             <button class="btn" id="btnHead" type="button">🧠 ทดสอบ Head Balance</button>
             <button class="btn" id="btnDemo" type="button">⚡ Quick Demo</button>
           </div>
@@ -591,12 +548,13 @@
   </main>
   <div class="toast" id="toast">พร้อมเล่น</div>
 
+  <script src="./fitness-student-context-bridge.js?v=20260620-v2"></script>
+
   <script>
   (() => {
     'use strict';
 
-    const VERSION = '20260618-BALANCE-HOLD-AR-V14-SHEET-STATUS-HOTFIX';
-    const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
+    const VERSION = '20260620-BALANCE-HOLD-AR-V9-STUDENT-CONTEXT-AUTO-SHEET';
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -608,20 +566,216 @@
     const hasMotionAPI = () => typeof DeviceOrientationEvent !== 'undefined';
     const hasExplicitQuery = (k) => qs.has(k);
 
+
+    const BALANCE_SHEET_ENDPOINT_DEFAULT = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
+    const BALANCE_SHEET_ENDPOINT = q('api', q('sheet', q('submit', BALANCE_SHEET_ENDPOINT_DEFAULT))) || BALANCE_SHEET_ENDPOINT_DEFAULT;
+    const BALANCE_QUEUE_KEY = 'fitness_balance_hold_sheet_queue_v9';
+
+    function bhClean(v){ return String(v == null ? '' : v).trim(); }
+
+    function bhBangkokTimestamp(){
+      try{
+        return new Date().toLocaleString('sv-SE', {
+          timeZone:'Asia/Bangkok',
+          hour12:false
+        }).replace(' ', 'T');
+      }catch(_){
+        return new Date().toISOString();
+      }
+    }
+
+    function bhStableId(prefix){
+      try{
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+          return prefix + '-' + window.crypto.randomUUID();
+        }
+      }catch(_){}
+      return prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,10);
+    }
+
+    function bhBridgeContext(){
+      try{
+        return (window.FitnessStudentContext && typeof window.FitnessStudentContext.get === 'function')
+          ? (window.FitnessStudentContext.get() || {})
+          : {};
+      }catch(_){
+        return {};
+      }
+    }
+
+    function bhApplyStudentContext(payload){
+      try{
+        if(window.FitnessStudentContext && typeof window.FitnessStudentContext.apply === 'function'){
+          return window.FitnessStudentContext.apply(payload || {});
+        }
+      }catch(err){
+        console.warn('Balance student context apply skipped', err);
+      }
+
+      const out = Object.assign({}, payload || {});
+      out.timestamp = out.timestamp || new Date().toISOString();
+      out.timestampLocal = out.timestampLocal || bhBangkokTimestamp();
+      out.identitySource = out.studentId ? 'studentId' : (out.playerId ? 'playerId' : 'nameOnly');
+      return out;
+    }
+
+    function bhSafeGet(key, fallback){
+      try{ return localStorage.getItem(key) || fallback; }
+      catch(_){ return fallback; }
+    }
+
+    function bhSafeSet(key, value){
+      try{ localStorage.setItem(key, value); return true; }
+      catch(_){ return false; }
+    }
+
+    function bhQueuePayload(payload){
+      try{
+        const list = JSON.parse(bhSafeGet(BALANCE_QUEUE_KEY, '[]') || '[]');
+        list.push(payload);
+        bhSafeSet(BALANCE_QUEUE_KEY, JSON.stringify(list.slice(-10)));
+      }catch(_){}
+    }
+
+    function bhSetSheetStatus(text, kind){
+      const node = document.getElementById('balanceSheetStatus');
+      if(!node) return;
+      node.textContent = text || '';
+      node.className = 'sheetSubmitStatus' + (kind ? ' ' + kind : '');
+    }
+
+    function bhSyncStudentContext(){
+      const bridge = bhBridgeContext();
+
+      state.ctx.player = bhClean(el.playerName?.value || state.ctx.player || bridge.studentName || 'Hero');
+      state.ctx.group = bhClean(el.classGroup?.value || state.ctx.group || bridge.classId || 'P5');
+
+      state.ctx.classId = bhClean(el.classGroup?.value || state.ctx.classId || bridge.classId || state.ctx.group);
+      state.ctx.section = bhClean(el.section?.value || state.ctx.section || bridge.section || '');
+      state.ctx.studentId = bhClean(el.studentId?.value || state.ctx.studentId || bridge.studentId || '');
+      state.ctx.studentName = bhClean(el.playerName?.value || state.ctx.studentName || bridge.studentName || state.ctx.player);
+      state.ctx.playerId = bhClean(state.ctx.playerId || bridge.playerId || state.ctx.studentId || state.ctx.pid || '');
+      state.ctx.teacherId = bhClean(state.ctx.teacherId || q('teacherId', q('teacher','')));
+
+      if(!state.ctx.sessionId) state.ctx.sessionId = q('session', q('sessionId','')) || bhStableId('BHSESSION');
+
+      try{
+        if(window.FitnessStudentContext && typeof window.FitnessStudentContext.save === 'function'){
+          window.FitnessStudentContext.save({
+            studentId: state.ctx.studentId,
+            studentName: state.ctx.studentName,
+            classId: state.ctx.classId,
+            section: state.ctx.section,
+            playerId: state.ctx.playerId
+          });
+        }
+      }catch(err){
+        console.warn('Balance student context save skipped', err);
+      }
+    }
+
+    function bhBuildSheetPayload(summary){
+      const p = {
+        api:'fitness',
+        type:'balance_hold_summary',
+        action:'save_balance_hold_summary',
+        routeName:'balancehold',
+        game:'balancehold',
+        gameId:'balancehold',
+        version:VERSION,
+        sourceUrl:location.href,
+
+        timestamp:summary.ts || new Date().toISOString(),
+        timestampLocal:summary.timestampLocal || bhBangkokTimestamp(),
+        sessionId:summary.sessionId || state.ctx.sessionId || '',
+        roundId:summary.roundId || state.ctx.roundId || '',
+        classId:summary.classId || state.ctx.classId || state.ctx.group || '',
+        section:summary.section || state.ctx.section || '',
+        studentId:summary.studentId || state.ctx.studentId || '',
+        studentName:summary.studentName || state.ctx.studentName || summary.player || '',
+        playerId:summary.playerId || state.ctx.playerId || state.ctx.studentId || '',
+        teacherId:summary.teacherId || state.ctx.teacherId || '',
+
+        player:summary.player || state.ctx.player || '',
+        group:summary.group || state.ctx.group || '',
+        mode:'PC/Mobile AR',
+        inputMode:summary.inputMode || '',
+        difficulty:summary.diff || state.ctx.diff || 'normal',
+        duration:Number(summary.duration || state.timeLimit || 0),
+        timeLimit:Number(summary.duration || state.timeLimit || 0),
+        endReason:summary.reason || '',
+
+        score:Number(summary.score || 0),
+        accuracy:Number(summary.accPct || 0),
+        completionRate:summary.totalPosts ? Math.round((Number(summary.passedPosts || 0) / Number(summary.totalPosts || 1)) * 100) : 0,
+        bestCombo:Number(summary.comboMax || 0),
+        hit:Number(summary.hits || 0),
+        miss:Number(summary.misses || 0),
+        misses:Number(summary.misses || 0),
+        feverCount:Number(summary.feverCount || 0),
+
+        focusScore:Number(summary.focusScore || 0),
+        controlScore:Number(summary.avgQuality || 0),
+        coordinationScore:Number(summary.accPct || 0),
+        intensityLevel:summary.inputMode || '',
+        rank:summary.rank || '',
+        grade:summary.grade || '',
+        advice:summary.teacherSuggestion || '',
+        notes:summary.nextChallenge || '',
+        deviceType:IS_MOBILE ? 'mobile' : 'pc',
+        userAgent:navigator.userAgent || '',
+        screenWidth:window.screen?.width || window.innerWidth || '',
+        screenHeight:window.screen?.height || window.innerHeight || '',
+        rawJson:JSON.stringify(summary || {})
+      };
+
+      return bhApplyStudentContext(p);
+    }
+
+    async function bhSubmitSummary(summary){
+      const payload = bhBuildSheetPayload(summary);
+      state.lastSummaryPayload = payload;
+
+      if(!BALANCE_SHEET_ENDPOINT){
+        bhSetSheetStatus('📌 เก็บผลบนหน้าจอแล้ว • ยังไม่ได้ตั้งค่า Sheet endpoint', 'warn');
+        return false;
+      }
+
+      bhSetSheetStatus('📤 กำลังส่งผลเข้า Google Sheets...', 'sending');
+
+      try{
+        await fetch(BALANCE_SHEET_ENDPOINT, {
+          method:'POST',
+          mode:'no-cors',
+          cache:'no-store',
+          keepalive:true,
+          headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+          body:JSON.stringify(payload)
+        });
+
+        bhSetSheetStatus('✅ ส่งผลเข้า Google Sheets แล้ว', 'ok');
+        return true;
+      }catch(err){
+        console.warn('Balance auto submit failed', err);
+        bhQueuePayload(payload);
+        bhSetSheetStatus('⚠️ ส่งไม่สำเร็จ จึงเก็บคิวในเครื่องไว้ก่อน', 'warn');
+        return false;
+      }
+    }
+
     const el = {
       app:$('app'), stage:$('stage'), arena:$('arena'), video:$('cameraFeed'),
       target:$('target'), targetCore:$('targetCore'), targetLabel:$('targetLabel'), targetHint:$('targetHint'),
-      cursor:$('cursor'), ghost:$('ghost'), fxText:$('fxText'), headGuide:$('headGuide'), headStatus:$('headStatus'), bodyGuide:$('bodyGuide'), bodyStatus:$('bodyStatus'), skeletonCanvas:$('skeletonCanvas'),
-      readinessPanel:$('readinessPanel'), bodyReadyBadge:$('bodyReadyBadge'), bodyReadyBar:$('bodyReadyBar'), bodyReadyScore:$('bodyReadyScore'), bodyReadyLevel:$('bodyReadyLevel'), bodyReadyFrame:$('bodyReadyFrame'), bodyReadyAssist:$('bodyReadyAssist'), bodyReadyAdvice:$('bodyReadyAdvice'),
+      cursor:$('cursor'), ghost:$('ghost'), fxText:$('fxText'), headGuide:$('headGuide'), headStatus:$('headStatus'),
       hudTime:$('hudTime'), hudScore:$('hudScore'), hudHold:$('hudHold'), hudPost:$('hudPost'), hudStable:$('hudStable'),
       timeBar:$('timeBar'), scoreBar:$('scoreBar'), holdBar:$('holdBar'), postBar:$('postBar'), stableBar:$('stableBar'),
       missionStrip:$('missionStrip'), feverHud:$('feverHud'), feverBar:$('feverBar'), feverLabel:$('feverLabel'),
       coachLine:$('coachLine'), coachAvatar:$('coachAvatar'), coachBadge:$('coachBadge'),
       inputModePill:$('inputModePill'), safetyPill:$('safetyPill'),
       startOverlay:$('startOverlay'), resultOverlay:$('resultOverlay'), countdown:$('countdown'), toast:$('toast'),
-      playerName:$('playerName'), classGroup:$('classGroup'), difficulty:$('difficulty'), duration:$('duration'), inputChoice:$('inputChoice'),
-      useCamera:$('useCamera'), useTilt:$('useTilt'), useBody:$('useBody'), useHead:$('useHead'), researchMode:$('researchMode'), autoSubmit:$('autoSubmit'), safeMode:$('safeMode'),
-      btnStart:$('btnStart'), btnCamera:$('btnCamera'), btnTilt:$('btnTilt'), btnBody:$('btnBody'), btnHead:$('btnHead'), btnDemo:$('btnDemo'),
+      playerName:$('playerName'), studentId:$('studentId'), classGroup:$('classGroup'), section:$('section'), difficulty:$('difficulty'), duration:$('duration'), inputChoice:$('inputChoice'),
+      useCamera:$('useCamera'), useTilt:$('useTilt'), useHead:$('useHead'), researchMode:$('researchMode'), safeMode:$('safeMode'),
+      btnStart:$('btnStart'), btnCamera:$('btnCamera'), btnTilt:$('btnTilt'), btnHead:$('btnHead'), btnDemo:$('btnDemo'),
       btnPause:$('btnPause'), btnHome:$('btnHome'), btnRecenter:$('btnRecenter')
     };
 
@@ -630,8 +784,6 @@
       normal: { label:'Normal', radius:66, holdMs:2550, drain:.45, damping:.14, wind:.52, targetMove:.34,   posts:6, boss:true  },
       hard:   { label:'Hard',   radius:54, holdMs:3050, drain:.62, damping:.11, wind:.82, targetMove:.62,   posts:7, boss:true  }
     };
-
-    const LEVEL_ORDER = { none:0, shoulder:1, upper:2, knee:3, full:4 };
 
     const text = {
       center:{ title:'Center Hold', cue:'คุมให้อยู่กลางวง', icon:'🎯' },
@@ -654,21 +806,31 @@
       cursor:{ x:0, y:0, vx:0, vy:0 },
       tilt:{ enabled:false, permission:false, baseBeta:null, baseGamma:null, beta:0, gamma:0, last:0 },
       head:{ wanted:false, supported:false, enabled:false, detecting:false, detector:null, detectorType:'', mp:null, mpLoaded:false, mpLastSend:0, baseX:null, baseY:null, x:0, y:0, rawX:0, rawY:0, last:0, lastDetect:0, quality:0, samples:0, safetyWarnAt:0, faceBox:null },
-      body:{ wanted:false, supported:false, enabled:false, detecting:false, pose:null, loaded:false, lastSend:0, baseX:null, baseY:null, x:0, y:0, rawX:0, rawY:0, last:0, lastDetect:0, quality:0, bestQuality:0, samples:0, level:'none', bestLevel:'none', safetyWarnAt:0, landmarks:null, visibility:0, shoulderTilt:0, hipTilt:0, readiness:0, readinessLabel:'low', frameAdvice:'ยังไม่เห็นตัว', assistMode:'head_assist', lastReadyUI:0 },
       cameraOn:false, stream:null, cameraFacing:'environment', arWanted:true, inputMode:'pointer',
-      ctx:{ player:'Hero', group:'P5', diff:'normal', run:'play', studyId:q('studyId',''), pid:q('pid',''), hub:q('hub','./'), sheetUrl:q('sheet', DEFAULT_SHEET_URL), autoSubmit:q('submit','1') !== '0' }
+      lastSummaryPayload:null,
+      ctx:{
+        player:'Hero', group:'P5', diff:'normal', run:'play',
+        studyId:q('studyId',''), pid:q('pid',''), hub:q('hub','./index.html'),
+        sessionId:q('session', q('sessionId','')),
+        roundId:'',
+        classId:q('classId', q('class', q('group',''))),
+        section:q('section', q('sec','')),
+        studentId:q('studentId', q('sid', q('student',''))),
+        studentName:q('studentName', q('name', q('nick',''))),
+        playerId:q('playerId', q('pid','')),
+        teacherId:q('teacherId', q('teacher',''))
+      }
     };
 
     function requestedControl(){
       const v = el.inputChoice?.value || 'auto';
-      if (v === 'auto') return el.useBody.checked ? 'body' : (el.useHead.checked ? 'head' : (IS_MOBILE && el.useTilt.checked ? 'tilt' : 'pointer'));
+      if (v === 'auto') return IS_MOBILE && el.useTilt.checked ? 'tilt' : 'pointer';
       return v;
     }
 
     function setInputPill(mode){
       state.inputMode = mode;
-      const label = mode === 'body' ? '🧍 Input: Body'
-        : mode === 'head' ? '🧠 Input: Head'
+      const label = mode === 'head' ? '🧠 Input: Head'
         : mode === 'tilt' ? '📱 Input: Tilt'
         : mode === 'keyboard' ? '⌨️ Input: Keyboard'
         : '👆 Input: Mouse/Touch';
@@ -676,7 +838,6 @@
     }
 
     function inputHelp(mode=state.inputMode){
-      if (mode === 'body') return 'ยืนให้เห็นครึ่งตัว/ทั้งตัว แล้วเอนลำตัวเบา ๆ';
       if (mode === 'head') return 'เลื่อนศีรษะซ้าย/ขวาเบา ๆ แล้วกลับมานิ่ง';
       if (mode === 'tilt') return 'เอียงมือถือเบา ๆ 5–10°';
       if (mode === 'keyboard') return 'ใช้ลูกศรหรือ WASD';
@@ -727,10 +888,10 @@
 
     function updateMissions(){
       const total = state.posts.length || 1;
-      const isBodyOrHead = (state.inputMode === 'head' || state.inputMode === 'body');
-      // v9: ภารกิจต้องให้เด็ก ป.5 รู้สึก "ทำได้อีกนิดก็สำเร็จ" ไม่ใช่ล็อกไว้ที่ 3 ดาวยากเกินไป
+      const isHead = (state.inputMode === 'head');
+      // v8: ภารกิจต้องให้เด็ก ป.5 รู้สึก "ทำได้อีกนิดก็สำเร็จ" ไม่ใช่ล็อกไว้ที่ 3 ดาวยากเกินไป
       const m1 = state.postMetrics.some(p => p.stars >= 2 || p.quality >= 70);
-      const cleanTarget = isBodyOrHead || state.ctx.diff === 'easy' ? 1 : 2;
+      const cleanTarget = isHead || state.ctx.diff === 'easy' ? 1 : 2;
       const m2 = state.cleanPosts >= cleanTarget;
       const m3 = state.feverCount >= 1 || state.fever >= feverThreshold();
       const m4 = state.postMetrics.length >= Math.min(3,total);
@@ -746,7 +907,7 @@
 
     function feverThreshold(){
       // Head control ต้องใช้สมาธิสูงกว่า touch/mouse จึงให้เข้า Fever ง่ายขึ้นเล็กน้อย
-      return state.inputMode === 'body' ? 76 : (state.inputMode === 'head' ? 72 : 84);
+      return state.inputMode === 'head' ? 72 : 84;
     }
 
     function addFever(amount){
@@ -769,8 +930,8 @@
     function nextChallenge(summary){
       const complete = summary.passedPosts >= summary.totalPosts;
       const oneStarPosts = summary.posts.filter(p => p.stars <= 1).length;
-      if (complete && summary.focusScore >= 84 && summary.diff === 'easy') return 'ปลดล็อกโจทย์ถัดไป: Normal 60 วินาที ด้วย Body/Head Balance + ล่า Clean x2';
-      if (complete && summary.focusScore >= 84 && summary.diff === 'normal') return 'โจทย์ถัดไป: Hard 45–60 วินาที ฝึก Final Boss แบบ Body/Head Control';
+      if (complete && summary.focusScore >= 84 && summary.diff === 'easy') return 'ปลดล็อกโจทย์ถัดไป: Normal 60 วินาที ด้วย Head Balance + ล่า Clean x2';
+      if (complete && summary.focusScore >= 84 && summary.diff === 'normal') return 'โจทย์ถัดไป: Hard 45–60 วินาที ฝึก Final Boss แบบ Head Control';
       if (complete && summary.focusScore >= 84 && summary.diff === 'hard') return 'โจทย์ถัดไป: Hard 75–90 วินาที ล่า 3⭐ อย่างน้อย 1 ฐาน';
       if (complete && oneStarPosts >= 3) return 'โจทย์ถัดไป: เล่นซ้ำเวลาเดิม ล่า 2⭐ ให้ได้อย่างน้อย 3 ฐาน โดยค้างนิ่งก่อนเอียง';
       if (summary.feverCount >= 1 && summary.accPct < 65) return 'โจทย์ถัดไป: คุมจุดให้อยู่ในเป้านานขึ้นอีกนิด เป้าหมาย Valid Hold Ratio 60%';
@@ -784,30 +945,22 @@
         ts:new Date().toISOString(), t:Math.round(now() - state.startedAt), kind,
         phase:state.phase, post:state.posts[state.postIndex]?.key || '', score:state.score,
         holdMs:Math.round(state.holdMs), stability:Math.round(state.stability),
-        x:Math.round(state.cursor.x), y:Math.round(state.cursor.y), inputMode:state.inputMode, headQuality:Math.round(state.head.quality || 0), bodyQuality:Math.round(state.body.quality || 0), bodyLevel:state.body.level || '', ...extra
+        x:Math.round(state.cursor.x), y:Math.round(state.cursor.y), inputMode:state.inputMode, headQuality:Math.round(state.head.quality || 0), ...extra
       });
     }
 
     function makePosts(){
       const diff = DIFF[state.ctx.diff];
-      // v10: Body Lite มี jitter มากกว่า Head/Touch และต้องยืนห่างกล้อง
-      // จึงให้ "Body Assist" เล็กน้อย: เป้าใหญ่ขึ้นและเวลาค้างต่อฐานสั้นลงนิดเดียว
-      // เพื่อให้เด็กจบ flow ได้โดยยังต้องคุมลำตัวจริง
-      const bodyAssist = requestedControl() === 'body' || state.inputMode === 'body';
-      const rBoost = bodyAssist ? 10 : 0;
-      const hMul = bodyAssist ? .86 : 1;
-      const H = (ms) => Math.max(1500, Math.round(ms * hMul));
-      const R = (px, extra=0) => Math.max(42, px + rBoost + extra);
       const base = [
-        { key:'center', ...text.center, p:[.50,.55], radius:R(diff.radius), holdMs:H(diff.holdMs+200) },
-        { key:'left', ...text.left, p:[.34,.55], radius:R(diff.radius), holdMs:H(diff.holdMs) },
-        { key:'right', ...text.right, p:[.66,.55], radius:R(diff.radius), holdMs:H(diff.holdMs) },
-        { key:'forward', ...text.forward, p:[.50,.40], radius:R(diff.radius-4), holdMs:H(diff.holdMs) },
-        { key:'diagL', ...text.diagL, p:[.36,.42], radius:R(diff.radius-6), holdMs:H(diff.holdMs) },
-        { key:'diagR', ...text.diagR, p:[.64,.42], radius:R(diff.radius-6), holdMs:H(diff.holdMs) }
+        { key:'center', ...text.center, p:[.50,.55], radius:diff.radius, holdMs:diff.holdMs+200 },
+        { key:'left', ...text.left, p:[.34,.55], radius:diff.radius, holdMs:diff.holdMs },
+        { key:'right', ...text.right, p:[.66,.55], radius:diff.radius, holdMs:diff.holdMs },
+        { key:'forward', ...text.forward, p:[.50,.40], radius:diff.radius-4, holdMs:diff.holdMs },
+        { key:'diagL', ...text.diagL, p:[.36,.42], radius:diff.radius-6, holdMs:diff.holdMs },
+        { key:'diagR', ...text.diagR, p:[.64,.42], radius:diff.radius-6, holdMs:diff.holdMs }
       ];
       const posts = base.slice(0, diff.posts);
-      if (diff.boss) posts.push({ key:'boss', ...text.boss, p:[.50,.45], radius:R(diff.radius-8), holdMs:H(diff.holdMs+650), boss:true });
+      if (diff.boss) posts.push({ key:'boss', ...text.boss, p:[.50,.45], radius:Math.max(42,diff.radius-8), holdMs:diff.holdMs+650, boss:true });
       return posts.map((p,i) => ({ ...p, id:i+1, metric:null }));
     }
 
@@ -1093,291 +1246,6 @@
       return { dx:clamp(dx,-1,1), dy:clamp(dy,-1,1), mag };
     }
 
-
-    function bodyLevelLabel(level){
-      return level === 'full' ? 'Full Body' : level === 'knee' ? 'เห็นถึงเข่า' : level === 'upper' ? 'Upper Body' : level === 'shoulder' ? 'Shoulder Only' : 'none';
-    }
-
-    function readinessClass(score, level){
-      if (score >= 66 && (LEVEL_ORDER[level] || 0) >= LEVEL_ORDER.upper) return 'ready';
-      if (score >= 42) return 'lite';
-      return 'low';
-    }
-
-    function readinessAdvice(score, level){
-      if (score >= 72 && (LEVEL_ORDER[level] || 0) >= LEVEL_ORDER.upper) return 'พร้อมเล่น Body Balance: ยืนสองเท้า เอนลำตัวเล็กน้อย และค้างให้นิ่ง';
-      if (score >= 42) return 'เล่นแบบ Body Lite ได้ แต่ควรถอย/ปรับกล้องให้เห็นสะโพกชัดขึ้น ระบบจะเปิด Head Assist ช่วยเมื่อสัญญาณหลุด';
-      return 'ยังไม่พร้อมสำหรับ Body: ถอยหลังอีกนิด เปิดไฟหน้าให้สว่าง และให้เห็นไหล่–สะโพกก่อนเริ่ม';
-    }
-
-    function frameCue(level, score){
-      if ((LEVEL_ORDER[level] || 0) >= LEVEL_ORDER.knee) return 'เฟรมดี';
-      if (level === 'upper') return score >= 60 ? 'เห็นครึ่งตัว' : 'เห็นครึ่งตัวแต่ยังไกล/มืด';
-      if (level === 'shoulder') return 'เห็นแค่ไหล่';
-      return 'ยังไม่เห็นตัว';
-    }
-
-    function updateBodyReadinessUI(){
-      if (!el.readinessPanel) return;
-      const score = Math.round(state.body.readiness || state.body.quality || 0);
-      const level = state.body.level || 'none';
-      const cls = readinessClass(score, level);
-      state.body.readinessLabel = cls;
-      state.body.frameAdvice = frameCue(level, score);
-      state.body.assistMode = cls === 'ready' ? 'body' : (cls === 'lite' ? 'body+head' : 'head_assist');
-      el.readinessPanel.classList.remove('ready','lite','low');
-      el.readinessPanel.classList.add(cls);
-      el.bodyGuide?.classList.remove('ready','lite','low');
-      if (!el.bodyGuide?.classList.contains('hidden')) el.bodyGuide?.classList.add(cls);
-      const badge = cls === 'ready' ? 'พร้อมเล่น Body' : cls === 'lite' ? 'Body Lite + Assist' : 'จัดเฟรมก่อน';
-      el.bodyReadyBadge.textContent = badge;
-      el.bodyReadyScore.textContent = score + '%';
-      el.bodyReadyLevel.textContent = bodyLevelLabel(level);
-      el.bodyReadyFrame.textContent = state.body.frameAdvice;
-      el.bodyReadyAssist.textContent = state.body.assistMode === 'body' ? 'Body หลัก' : state.body.assistMode === 'body+head' ? 'Body + Head' : 'Head Assist';
-      el.bodyReadyAdvice.textContent = readinessAdvice(score, level);
-      el.bodyReadyBar.style.width = clamp(score,0,100) + '%';
-    }
-
-    function resizeSkeletonCanvas(){
-      const canvas = el.skeletonCanvas;
-      if (!canvas) return null;
-      const r = arenaRect();
-      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      const w = Math.max(1, Math.round(r.width*dpr));
-      const h = Math.max(1, Math.round(r.height*dpr));
-      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-      canvas.style.width = r.width + 'px';
-      canvas.style.height = r.height + 'px';
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(dpr,0,0,dpr,0,0);
-      return { ctx, w:r.width, h:r.height };
-    }
-
-    function drawSkeleton(lm){
-      const pack = resizeSkeletonCanvas();
-      if (!pack) return;
-      const {ctx,w,h} = pack;
-      ctx.clearRect(0,0,w,h);
-      if (!lm || !lm.length) return;
-      const project = (p) => ({ x:(state.cameraFacing === 'user' ? (1-p.x) : p.x) * w, y:p.y * h });
-      const drawLine = (a,b,alpha=.72) => {
-        if (!lmVisible(lm[a],.18) || !lmVisible(lm[b],.18)) return;
-        const p1 = project(lm[a]), p2 = project(lm[b]);
-        ctx.globalAlpha = alpha; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.strokeStyle = '#06b6d4';
-        ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
-        ctx.globalAlpha = .28; ctx.lineWidth = 12; ctx.strokeStyle = '#a7f3d0';
-        ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
-      };
-      [[11,12],[11,23],[12,24],[23,24],[23,25],[24,26],[25,27],[26,28]].forEach(pair=>drawLine(pair[0],pair[1]));
-      [11,12,23,24,25,26,27,28].forEach((i)=>{
-        if (!lmVisible(lm[i],.18)) return;
-        const p = project(lm[i]);
-        ctx.globalAlpha = .95; ctx.fillStyle = i < 23 ? '#22d3ee' : '#34d399';
-        ctx.beginPath(); ctx.arc(p.x,p.y,7,0,Math.PI*2); ctx.fill();
-        ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.stroke();
-      });
-    }
-
-    async function initMediaPipePose(){
-      if (state.body.loaded && state.body.pose) return true;
-      const base = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose';
-      await loadScriptOnce(base + '/pose.js');
-      if (typeof Pose === 'undefined') throw new Error('MediaPipe Pose global missing');
-      const pose = new Pose({ locateFile:(file) => `${base}/${file}` });
-      pose.setOptions({
-        modelComplexity:0,
-        smoothLandmarks:true,
-        enableSegmentation:false,
-        smoothSegmentation:false,
-        minDetectionConfidence:0.52,
-        minTrackingConfidence:0.46
-      });
-      pose.onResults((results) => {
-        state.body.detecting = false;
-        if (results?.poseLandmarks?.length) updateBodyFromPose(results.poseLandmarks);
-        else markBodyLost();
-      });
-      state.body.pose = pose;
-      state.body.loaded = true;
-      return true;
-    }
-
-    async function requestBody(){
-      state.body.wanted = true;
-      if (!el.useBody.checked) el.useBody.checked = true;
-      el.inputChoice.value = 'body';
-      setInputPill('body');
-      el.bodyGuide.classList.remove('hidden','warn');
-      el.bodyGuide.classList.add('active');
-      el.bodyStatus.textContent = 'Body: เปิดกล้องหน้า...';
-      const camOk = await startCamera({ facing:'user' });
-      if (!camOk) {
-        state.body.enabled = false;
-        setPointerFallback('เปิดกล้องหน้าไม่ได้');
-        return false;
-      }
-      try{
-        el.bodyStatus.textContent = 'Body: โหลด Pose detector...';
-        await initMediaPipePose();
-        state.body.supported = true;
-        state.body.enabled = true;
-        state.body.detecting = false;
-        state.body.baseX = null;
-        state.body.baseY = null;
-        state.body.samples = 0;
-        state.body.last = 0;
-        state.body.quality = 0;
-        state.body.bestQuality = 0;
-        state.body.level = 'none';
-        state.body.bestLevel = 'none';
-        state.body.readiness = 0;
-        state.body.assistMode = 'head_assist';
-        el.skeletonCanvas?.classList.remove('hidden');
-        updateBodyReadinessUI();
-        el.bodyGuide.classList.remove('hidden','warn','ready','lite','low');
-        el.bodyGuide.classList.add('active');
-        el.bodyStatus.textContent = 'Body: ยืนให้เห็นไหล่/สะโพก';
-        setCoach('Body Balance เปิดแล้ว: ถอยให้กล้องเห็นอย่างน้อยครึ่งตัว แล้วเอนลำตัวเบา ๆ ไม่ต้องยกเท้า', '🧍', 'Body');
-        startBodyLoop();
-        return true;
-      } catch(err){
-        console.warn(err);
-        state.body.enabled = false;
-        el.bodyGuide.classList.remove('hidden','active');
-        el.bodyGuide.classList.add('warn');
-        el.bodyStatus.textContent = 'Body: โหลด Pose ไม่ได้';
-        toast('Body Detection ใช้ไม่ได้ จะลองใช้ Head Balance แทน');
-        return false;
-      }
-    }
-
-    function startBodyLoop(){
-      const loop = async (t) => {
-        if (!state.body.enabled) return;
-        if (el.video.readyState >= 2 && !state.body.detecting && t - state.body.lastDetect > 105) {
-          state.body.detecting = true;
-          state.body.lastDetect = t;
-          try{
-            await state.body.pose.send({ image:el.video });
-          } catch(err){
-            console.warn(err);
-            state.body.detecting = false;
-            markBodyLost();
-          }
-        }
-        requestAnimationFrame(loop);
-      };
-      requestAnimationFrame(loop);
-    }
-
-    function waitForBodyCalibration(ms=2200){
-      return new Promise(resolve => {
-        const end = now() + ms;
-        const loop = () => {
-          const score = Math.max(state.body.readiness || 0, state.body.quality || 0);
-          const levelOK = (LEVEL_ORDER[state.body.level] || 0) >= LEVEL_ORDER.upper;
-          const enough = state.body.samples >= 14 && score >= 55 && levelOK;
-          if (enough || now() >= end) return resolve(score || 0);
-          requestAnimationFrame(loop);
-        };
-        loop();
-      });
-    }
-
-    function lmVisible(p, min=.30){ return !!p && (p.visibility == null || p.visibility >= min); }
-    function lmAvgVisibility(list){
-      const vals = list.filter(Boolean).map(p => p.visibility == null ? 1 : p.visibility);
-      return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
-    }
-
-    function updateBodyFromPose(lm){
-      const ls = lm[11], rs = lm[12], lh = lm[23], rh = lm[24], lk = lm[25], rk = lm[26], la = lm[27], ra = lm[28];
-      const shoulderOK = lmVisible(ls,.35) && lmVisible(rs,.35);
-      const hipOK = lmVisible(lh,.25) && lmVisible(rh,.25);
-      const kneeOK = lmVisible(lk,.20) && lmVisible(rk,.20);
-      const ankleOK = lmVisible(la,.18) && lmVisible(ra,.18);
-      if (!shoulderOK) return markBodyLost();
-
-      const sx = (ls.x + rs.x) / 2;
-      const sy = (ls.y + rs.y) / 2;
-      const hx = hipOK ? (lh.x + rh.x) / 2 : sx;
-      const hy = hipOK ? (lh.y + rh.y) / 2 : sy + .18;
-      const cx = hipOK ? (sx*.45 + hx*.55) : sx;
-      const cy = hipOK ? (sy*.44 + hy*.56) : sy + .16;
-      const shoulderSpan = Math.abs(ls.x - rs.x);
-      const hipSpan = hipOK ? Math.abs(lh.x - rh.x) : shoulderSpan*.82;
-      const level = ankleOK ? 'full' : (kneeOK ? 'knee' : (hipOK ? 'upper' : 'shoulder'));
-      // v10: ถ้ากล้องเห็นแค่ upper body ไม่ควรถูกลงโทษด้วย visibility ของเข่า/ข้อเท้าที่อยู่นอกเฟรม
-      const visCore = hipOK ? [ls,rs,lh,rh] : [ls,rs];
-      const vis = lmAvgVisibility(visCore);
-
-      const rawX = (cx - .5) * 2;
-      const rawY = (cy - .5) * 2;
-      const visualX = state.cameraFacing === 'user' ? -rawX : rawX;
-      state.body.rawX = visualX;
-      state.body.rawY = rawY;
-      state.body.x = state.body.samples ? state.body.x*.74 + visualX*.26 : visualX;
-      state.body.y = state.body.samples ? state.body.y*.74 + rawY*.26 : rawY;
-      state.body.samples += 1;
-      if (state.body.baseX == null || state.body.baseY == null || state.body.samples < 12) {
-        state.body.baseX = state.body.x;
-        state.body.baseY = state.body.y;
-      }
-      state.body.last = now();
-      state.body.level = level;
-      state.body.visibility = vis;
-      state.body.shoulderTilt = shoulderSpan ? (ls.y - rs.y) / shoulderSpan : 0;
-      state.body.hipTilt = hipOK && hipSpan ? (lh.y - rh.y) / hipSpan : 0;
-      const sizeScore = clamp((shoulderSpan - .045) / .16 * 100, 0, 100);
-      const frameScore = level === 'full' ? 96 : (level === 'knee' ? 88 : (level === 'upper' ? 76 : 58));
-      state.body.quality = clamp(Math.round(sizeScore*.22 + vis*100*.52 + frameScore*.26), 0, 100);
-      state.body.bestQuality = Math.max(state.body.bestQuality || 0, state.body.quality || 0);
-      if ((LEVEL_ORDER[level] || 0) > (LEVEL_ORDER[state.body.bestLevel] || 0)) state.body.bestLevel = level;
-      state.body.landmarks = lm;
-      const levelBonus = level === 'full' ? 10 : level === 'knee' ? 7 : level === 'upper' ? 4 : 0;
-      state.body.readiness = clamp(Math.round(state.body.quality*.82 + levelBonus + Math.min(8, state.body.samples/3)), 0, 100);
-      drawSkeleton(lm);
-      updateBodyReadinessUI();
-
-      el.bodyGuide.classList.remove('hidden','warn');
-      el.bodyGuide.classList.add('active');
-      const levelText = level === 'full' ? 'Full' : level === 'knee' ? 'Knee' : level === 'upper' ? 'Upper' : 'Shoulder';
-      el.bodyStatus.textContent = state.body.samples < 14 ? 'Body: Calibrating' : `Body ${levelText}: ${Math.round(state.body.readiness || state.body.quality)}%`;
-      if (el.safeMode.checked && state.body.quality < 45 && now() - state.body.safetyWarnAt > 2600) {
-        state.body.safetyWarnAt = now();
-        setCoach('ถอยหรือปรับกล้องให้เห็นไหล่และสะโพกชัดขึ้น เพื่อให้ Body Detection นิ่งกว่าเดิม', '🧍', 'Frame');
-      }
-    }
-
-    function markBodyLost(){
-      state.body.quality = Math.max(0, state.body.quality - 7);
-      if (now() - state.body.last > 900) {
-        el.bodyGuide.classList.remove('hidden','active');
-        el.bodyGuide.classList.add('warn');
-        el.bodyStatus.textContent = 'Body: ไม่เห็นลำตัว';
-        const pack = resizeSkeletonCanvas(); if (pack) pack.ctx.clearRect(0,0,pack.w,pack.h);
-      }
-      state.body.readiness = Math.max(0, (state.body.readiness || 0) - 8);
-      updateBodyReadinessUI();
-    }
-
-    function bodyDelta(){
-      if (!state.body.enabled || !el.useBody.checked || now() - state.body.last > 900) return null;
-      // ถ้า Body quality ต่ำมาก ให้ระบบถอยไปใช้ Head/Keyboard แทน ไม่ฝืนใช้สัญญาณลำตัวที่ไม่นิ่ง
-      if (state.body.samples > 14 && Math.max(state.body.readiness || 0, state.body.quality || 0) < 34) return null;
-      const deadzone = el.safeMode.checked ? .020 : .014;
-      const dz = (v) => Math.abs(v) < deadzone ? 0 : (v - Math.sign(v)*deadzone) / (1-deadzone);
-      const dx = dz(state.body.x - (state.body.baseX ?? state.body.x));
-      const dy = dz(state.body.y - (state.body.baseY ?? state.body.y));
-      const mag = Math.hypot(dx,dy);
-      if (el.safeMode.checked && mag > .72 && now() - state.body.safetyWarnAt > 2200) {
-        state.body.safetyWarnAt = now();
-        setCoach('เอนลำตัวให้น้อยลง ยืนสองเท้าและคุมแกนกลาง ไม่ต้องโยกแรง', '🙂', 'Safe');
-      }
-      return { dx:clamp(dx,-1,1), dy:clamp(dy,-1,1), mag, level:state.body.level };
-    }
-
     function onOrientation(e){
       if (!state.tilt.enabled) return;
       if (typeof e.beta !== 'number' || typeof e.gamma !== 'number') return;
@@ -1391,7 +1259,6 @@
       state.tilt.baseBeta = state.tilt.beta || 0;
       state.tilt.baseGamma = state.tilt.gamma || 0;
       if (state.head.enabled) { state.head.baseX = state.head.x || 0; state.head.baseY = state.head.y || 0; state.head.samples = Math.max(state.head.samples, 12); }
-      if (state.body.enabled) { state.body.baseX = state.body.x || 0; state.body.baseY = state.body.y || 0; state.body.samples = Math.max(state.body.samples, 12); }
       const c = center();
       state.cursor.x = c.x; state.cursor.y = c.y; state.cursor.vx = 0; state.cursor.vy = 0;
       toast('ตั้งจุดกลางใหม่แล้ว');
@@ -1434,8 +1301,7 @@
       state.ctx.group = el.classGroup.value.trim() || q('group','P5');
       state.ctx.diff = el.difficulty.value || q('diff','normal');
       state.ctx.run = el.researchMode.checked ? 'research' : (q('run','play'));
-      state.ctx.autoSubmit = !!el.autoSubmit.checked;
-      state.ctx.sheetUrl = q('sheet', DEFAULT_SHEET_URL);
+      bhSyncStudentContext();
       state.score = 0; state.combo = 0; state.bestCombo = 0; state.stars = 0; state.hits = 0; state.misses = 0;
       state.stability = 100; state.totalInMs = 0; state.totalOutMs = 0; state.outCount = 0;
       state.fever = 0; state.feverActive = false; state.feverUntil = 0; state.feverCount = 0; state.cleanPosts = 0; state.nearSave = 0;
@@ -1443,11 +1309,12 @@
       state.cursor = { x:c.x, y:c.y, vx:0, vy:0 };
       state.pointer.x = c.x; state.pointer.y = c.y;
       if (state.head.enabled) { state.head.baseX = state.head.x || 0; state.head.baseY = state.head.y || 0; }
-      if (state.body.enabled) { state.body.baseX = state.body.x || 0; state.body.baseY = state.body.y || 0; }
       renderHUD(); renderTarget(); renderCursor();
     }
 
     async function startGame({quick=false}={}){
+      bhSyncStudentContext();
+      state.ctx.roundId = bhStableId('BHROUND');
       if (quick) {
         el.duration.value = '45';
         el.difficulty.value = 'easy';
@@ -1457,28 +1324,7 @@
       el.startOverlay.classList.add('hidden');
       el.resultOverlay.classList.add('hidden');
       const control = requestedControl();
-      if (control === 'body') {
-        const ok = await requestBody();
-        if (ok) {
-          const q = await waitForBodyCalibration(2400);
-          const levelOK = (LEVEL_ORDER[state.body.level] || 0) >= LEVEL_ORDER.upper;
-          if ((q < 40 || !levelOK) && el.useHead.checked) {
-            setCoach('Body ยังไม่พร้อมเต็มที่ ระบบเปิด Head Assist ช่วยก่อน: ถอยให้เห็นสะโพก/เข่า แล้วกด Recenter ในรอบถัดไป', '🧠', 'Assist');
-            await requestHead();
-          } else if (q < 66) {
-            setCoach('Body Lite พร้อมเล่น: เห็นช่วงบนแล้ว เกมจะใช้ Body + Head Assist เมื่อสัญญาณแกว่ง', '🧍', 'Lite');
-          } else {
-            setCoach('Body Ready! ยืนสองเท้า เอนลำตัวเบา ๆ ไปทางเป้า ไม่ต้องยกเท้า', '🧍', 'Ready');
-          }
-        }
-        if (!ok) {
-          const headOk = el.useHead.checked ? await requestHead() : false;
-          if (!headOk) {
-            if (el.useCamera.checked) await startCamera({ facing:'environment' });
-            setPointerFallback('Body/Head ใช้ไม่ได้ในเครื่องนี้');
-          }
-        }
-      } else if (control === 'head') {
+      if (control === 'head') {
         const ok = await requestHead();
         if (!ok) {
           if (el.useCamera.checked) await startCamera({ facing:'environment' });
@@ -1530,27 +1376,14 @@
         setInputPill('pointer');
         tx = state.pointer.x; ty = state.pointer.y;
       } else {
-        const bd = bodyDelta();
-        if (bd) {
-          const bodyReady = Math.max(state.body.readiness || 0, state.body.quality || 0);
-          setInputPill(bodyReady < 58 && state.head.enabled ? 'head' : 'body');
-          const sx = el.safeMode.checked ? .36 : .44;
-          const sy = el.safeMode.checked ? .27 : .34;
-          const qAssist = bodyReady < 58 ? 1.22 : 1;
-          let dx = bd.dx, dy = bd.dy;
-          const hdAssist = bodyReady < 58 ? headDelta() : null;
-          if (hdAssist) { dx = dx*.62 + hdAssist.dx*.38; dy = dy*.62 + hdAssist.dy*.38; }
-          tx = r.width * .5 + clamp((dx*qAssist)/.145, -1, 1) * r.width * sx;
-          ty = r.height * .55 + clamp((dy*qAssist)/.165, -1, 1) * r.height * sy;
-        } else {
-          const hd = headDelta();
-          if (hd) {
-            setInputPill('head');
-            const sx = el.safeMode.checked ? .30 : .38;
-            const sy = el.safeMode.checked ? .24 : .31;
-            tx = r.width * .5 + clamp(hd.dx/.20, -1, 1) * r.width * sx;
-            ty = r.height * .55 + clamp(hd.dy/.19, -1, 1) * r.height * sy;
-          } else if (state.tilt.enabled && el.useTilt.checked && now() - state.tilt.last < 1500) {
+        const hd = headDelta();
+        if (hd) {
+          setInputPill('head');
+          const sx = el.safeMode.checked ? .30 : .38;
+          const sy = el.safeMode.checked ? .24 : .31;
+          tx = r.width * .5 + clamp(hd.dx/.20, -1, 1) * r.width * sx;
+          ty = r.height * .55 + clamp(hd.dy/.19, -1, 1) * r.height * sy;
+        } else if (state.tilt.enabled && el.useTilt.checked && now() - state.tilt.last < 1500) {
           setInputPill('tilt');
           const b = (state.tilt.beta - (state.tilt.baseBeta ?? state.tilt.beta));
           const g = (state.tilt.gamma - (state.tilt.baseGamma ?? state.tilt.gamma));
@@ -1573,7 +1406,6 @@
           }
         }
       }
-    }
 
       const diff = DIFF[state.ctx.diff] || DIFF.normal;
       if (state.phase === 'play') {
@@ -1625,7 +1457,7 @@
         m.inMs += dt; state.totalInMs += dt;
         m.wasInZone = true;
         state.cursor.in = true;
-        addFever(dt * (state.feverActive ? 0 : ((state.inputMode === 'head' || state.inputMode === 'body') ? .034 : .026)));
+        addFever(dt * (state.feverActive ? 0 : (state.inputMode === 'head' ? .034 : .026)));
         if (state.holdMs > 650 && !m.firstSpark) { m.firstSpark = true; spawnSpark('✨'); }
         if (state.holdMs > 850 && !m.goodShown) { m.goodShown = true; setFx('Good Hold!'); setCoach('นิ่งมาก ค้างต่ออีกนิดเดียว', '😄', 'Good'); }
         if (state.holdMs > post.holdMs*.68 && !m.comboCue) { m.comboCue = true; setCoach('ใกล้สำเร็จแล้ว หายใจช้า ๆ อย่ารีบขยับ', '🌟', 'Almost'); }
@@ -1646,10 +1478,10 @@
         state.cursor.in = false;
         if (nearZone) {
           state.nearSave += dt;
-          addFever(dt * ((state.inputMode === 'head' || state.inputMode === 'body') ? .012 : .007));
+          addFever(dt * (state.inputMode === 'head' ? .012 : .007));
           if (state.nearSave > 1000 && !m.nearCue) { m.nearCue = true; setFx('Near Save!'); setCoach('เกือบเข้าเป้าแล้ว ค่อย ๆ ดึงกลับอีกนิด', '💫', 'Save'); }
         } else {
-          state.fever = Math.max(0, state.fever - dt*((state.inputMode === 'head' || state.inputMode === 'body') ? .010 : .016));
+          state.fever = Math.max(0, state.fever - dt*(state.inputMode === 'head' ? .010 : .016));
         }
         if (Math.random() < .02) setCoach('ค่อย ๆ กลับเข้าเป้า ไม่ต้องรีบเหวี่ยงตัว', '🙂', 'Recover');
       }
@@ -1666,9 +1498,9 @@
       const m = post.metric;
       m.cleared = true;
       const avg = m.avgDist / Math.max(1,m.samples);
-      // v10: Head/Body ใช้สัญญาณกล้อง จึงมี jitter มากกว่า Touch/Mouse ให้เกณฑ์ดาวยืดหยุ่นขึ้นอย่างควบคุมได้
-      const sensorForgiveness = state.inputMode === 'head' ? 4 : (state.inputMode === 'body' ? 7 : 0);
-      m.quality = clamp(Math.round(108 + sensorForgiveness - m.outCount*5 - avg*.22), 45, 100);
+      // v8: Head control มี jitter ตามกล้องและตำแหน่งใบหน้า จึงให้เกณฑ์ดาวยืดหยุ่นกว่าเดิมเล็กน้อย
+      const headForgiveness = state.inputMode === 'head' ? 4 : 0;
+      m.quality = clamp(Math.round(108 + headForgiveness - m.outCount*5 - avg*.24), 45, 100);
       m.stars = m.quality >= 86 ? 3 : m.quality >= 68 ? 2 : 1;
       if (m.outCount === 0) state.cleanPosts += 1;
       const missionBonus = (m.outCount === 0 ? 90 : 0) + (state.feverActive ? 120 : 0);
@@ -1748,12 +1580,6 @@
       el.feverLabel.textContent = state.feverActive ? Math.max(0, Math.ceil((state.feverUntil-now())/1000)) + 's' : Math.round(state.fever) + '%';
       el.arena.classList.toggle('focusFever', !!state.feverActive);
       updateMissions();
-      if (state.body.enabled && el.useBody.checked) {
-        el.bodyGuide.classList.remove('hidden');
-        if (now() - state.body.last > 900) { el.bodyGuide.classList.add('warn'); el.bodyGuide.classList.remove('active'); }
-      } else {
-        el.bodyGuide.classList.add('hidden');
-      }
       if (state.head.enabled && el.useHead.checked) {
         el.headGuide.classList.remove('hidden');
         if (now() - state.head.last > 900) { el.headGuide.classList.add('warn'); el.headGuide.classList.remove('active'); }
@@ -1779,11 +1605,7 @@
       // v8: สรุปผลต้องสะท้อน "ความสำเร็จเชิงเกม" ด้วย ไม่ใช่วัด Valid Hold Ratio อย่างเดียว
       // โดยเฉพาะ Head mode ซึ่งยากกว่า Touch/Mouse และมี jitter จากกล้อง
       const completionPct = total ? (passed/total*100) : 0;
-      const bodyQ = Math.round(Math.max(state.body.bestQuality || 0, state.body.quality || 0, state.body.readiness || 0));
-      const bodyLevel = state.body.bestLevel || state.body.level || '';
-      const bodyReadiness = Math.round(Math.max(state.body.readiness || 0, bodyQ));
-      const bodyAssist = state.body.assistMode || (bodyReadiness >= 66 ? 'body' : 'body+head');
-      const headBonus = state.inputMode === 'head' ? 6 : (state.inputMode === 'body' ? (bodyQ >= 50 ? 8 : 5) : 0);
+      const headBonus = state.inputMode === 'head' ? 6 : 0;
       const feverBonus = Math.min(8, state.feverCount * 2);
       const cleanBonus = Math.min(5, state.cleanPosts * 2);
       const focusScore = clamp(Math.round(
@@ -1798,8 +1620,19 @@
       let previousBest = 0;
       try { previousBest = Number(localStorage.getItem(bestKey()) || 0) || 0; } catch(_){ }
       const summary = {
-        version:VERSION, player:state.ctx.player, group:state.ctx.group, pid:state.ctx.pid, studyId:state.ctx.studyId,
-        game:'balancehold', mode:'AR', sheetUrl:state.ctx.sheetUrl, autoSubmit:state.ctx.autoSubmit ? 'yes' : 'no', sheetStatus:'pending', inputMode:state.inputMode, headSupported:state.head.supported ? 'yes' : 'no', headSamples:state.head.samples, bodySupported:state.body.supported ? 'yes' : 'no', bodySamples:state.body.samples, bodyQuality:bodyQ, bodyReadiness, bodyAssist, bodyLevel, diff:state.ctx.diff, duration:state.timeLimit, reason,
+        version:VERSION,
+        ts:new Date().toISOString(),
+        timestampLocal:bhBangkokTimestamp(),
+        sessionId:state.ctx.sessionId || '',
+        roundId:state.ctx.roundId || '',
+        classId:state.ctx.classId || state.ctx.group || '',
+        section:state.ctx.section || '',
+        studentId:state.ctx.studentId || '',
+        studentName:state.ctx.studentName || state.ctx.player || '',
+        playerId:state.ctx.playerId || state.ctx.studentId || state.ctx.pid || '',
+        teacherId:state.ctx.teacherId || '',
+        player:state.ctx.player, group:state.ctx.group, pid:state.ctx.pid, studyId:state.ctx.studyId,
+        game:'balancehold', gameId:'balancehold', mode:'AR', inputMode:state.inputMode, headSupported:state.head.supported ? 'yes' : 'no', headSamples:state.head.samples, diff:state.ctx.diff, duration:state.timeLimit, reason,
         score:safeScore, scoreFinal:safeScore, previousBest, isNewBest:safeScore > previousBest ? 'yes' : 'no', missionDone, feverCount:state.feverCount, cleanPosts:state.cleanPosts,
         stars:state.stars, passedPosts:passed, totalPosts:total,
         accPct, validHoldRatio:Number(validRatio.toFixed(4)), focusScore, avgQuality,
@@ -1807,9 +1640,9 @@
         bestPost:bestPost?.title || '', hardestPost:hardestPost?.title || '',
         strengthLabel:focusScore >= 78 ? 'คุมสมดุลได้ต่อเนื่องและฟื้นตัวเร็ว' : (state.feverCount >= 1 ? 'เข้าสู่จังหวะ Flow ได้แล้ว เหลือเพิ่มความนิ่งในเป้า' : 'เริ่มจับจังหวะสมดุลได้แล้ว'),
         supportLabel:accPct < 65 ? 'ควรฝึกค้างในเป้ากลางให้นานขึ้น แล้วค่อยเพิ่มเป้าเฉียง' : 'ลองเพิ่มระดับหรือเพิ่มเวลาเล่นอีกเล็กน้อย',
-        teacherSuggestion:focusScore >= 78 ? 'พร้อมเพิ่มโจทย์ Normal/Hard หรือเพิ่มเวลาเล่น เพื่อพัฒนาการควบคุมลำตัว' : 'ให้ใช้ Easy 45–60 วินาที เน้นฐาน Center/Left/Right ก่อน แล้วล่า 2 ดาวอย่างน้อย 3 ฐาน',
+        teacherSuggestion:focusScore >= 78 ? 'พร้อมเพิ่มโจทย์ Normal หรือเพิ่มเวลาเล่น เพื่อพัฒนาการควบคุมลำตัว' : 'ให้ใช้ Easy 45–60 วินาที เน้นฐาน Center/Left/Right ก่อน แล้วล่า 2 ดาวอย่างน้อย 3 ฐาน',
         childMessage:focusScore >= 78 ? 'เยี่ยมมาก หนูคุมสมดุลได้ดีขึ้นชัดเจน!' : (passed >= total ? 'ผ่านครบทุกฐานแล้ว รอบหน้าลองค้างนิ่งให้นานขึ้นเพื่อเก็บดาวเพิ่ม!' : 'ทำได้ดีแล้ว รอบหน้าลองหายใจช้า ๆ แล้วค้างให้นิ่งขึ้นอีกนิด'),
-        ts:new Date().toISOString(), posts:state.postMetrics
+        posts:state.postMetrics
       };
       summary.nextChallenge = nextChallenge(summary);
       return summary;
@@ -1825,112 +1658,21 @@
         if (summary.score > (Number(summary.previousBest)||0)) localStorage.setItem(bestKey(), String(summary.score));
       } catch(_){ }
       renderSummary(summary);
-      if (state.ctx.autoSubmit && state.ctx.sheetUrl) submitToSheet(summary);
-    }
-
-
-    function compactPostSummary(summary){
-      return summary.posts.map(p => ({
-        id:p.id, key:p.key, title:p.title, quality:p.quality, stars:p.stars,
-        score:p.score, outCount:p.outCount, inMs:Math.round(p.inMs || 0)
-      }));
-    }
-
-    function sheetPayload(summary){
-      return {
-        source:'fitness-balance-hold-ar', version:summary.version, ts:summary.ts,
-        player:summary.player, group:summary.group, pid:summary.pid, studyId:summary.studyId,
-        game:summary.game, mode:summary.mode, inputMode:summary.inputMode,
-        diff:summary.diff, duration:summary.duration, reason:summary.reason,
-        score:summary.score, previousBest:summary.previousBest, isNewBest:summary.isNewBest,
-        rank:summary.rank, grade:summary.grade, stars:summary.stars,
-        passedPosts:summary.passedPosts, totalPosts:summary.totalPosts,
-        validHoldRatio:summary.validHoldRatio, accPct:summary.accPct, focusScore:summary.focusScore, avgQuality:summary.avgQuality,
-        comboMax:summary.comboMax, hits:summary.hits, misses:summary.misses, outCount:summary.outCount,
-        feverCount:summary.feverCount, cleanPosts:summary.cleanPosts, missionDone:summary.missionDone,
-        headSupported:summary.headSupported, headSamples:summary.headSamples,
-        bodySupported:summary.bodySupported, bodySamples:summary.bodySamples,
-        bodyQuality:summary.bodyQuality, bodyReadiness:summary.bodyReadiness, bodyAssist:summary.bodyAssist, bodyLevel:summary.bodyLevel,
-        bestPost:summary.bestPost, hardestPost:summary.hardestPost,
-        teacherSuggestion:summary.teacherSuggestion, nextChallenge:summary.nextChallenge,
-        posts:JSON.stringify(compactPostSummary(summary)),
-        eventsCount:state.events.length
-      };
-    }
-
-    function persistSummaryStatus(summary){
-      try { localStorage.setItem('fitness_balance_hold_last', JSON.stringify(summary)); } catch(_){}
-    }
-
-    function updateSheetStatusUI(summary){
-      const cell = $('sheetStatusCell');
-      if (cell) cell.textContent = summary.sheetStatus || 'pending';
-      const btn = $('btnSheet');
-      if (btn) {
-        if (String(summary.sheetStatus || '').indexOf('sent') === 0) {
-          btn.textContent = '☁️ ส่งแล้ว';
-        } else if (summary.sheetStatus === 'sending') {
-          btn.textContent = '☁️ กำลังส่ง...';
-        } else if (summary.sheetStatus === 'failed') {
-          btn.textContent = '☁️ ส่งอีกครั้ง';
-        }
-      }
-      persistSummaryStatus(summary);
-    }
-
-    async function submitToSheet(summary){
-      if (!summary || !state.ctx.sheetUrl) return false;
-      const payload = sheetPayload(summary);
-      summary.sheetStatus = 'sending';
-      updateSheetStatusUI(summary);
-      try {
-        const body = new FormData();
-        Object.entries(payload).forEach(([k,v]) => body.append(k, v == null ? '' : String(v)));
-        if (navigator.sendBeacon) {
-          const ok = navigator.sendBeacon(state.ctx.sheetUrl, body);
-          if (ok) {
-            // sendBeacon ไม่มี response กลับมา แต่ถ้า return true แปลว่า browser รับคิวส่งแล้ว
-            // และจากการทดสอบข้อมูลลง Sheet ได้จริง จึงแสดงเป็น queued/sent แทน pending
-            summary.sheetStatus = 'sent_beacon';
-            updateSheetStatusUI(summary);
-            toast('ส่งผลไป Google Sheet แล้ว');
-            logEvent('sheet_submit', { status:'sent_beacon' });
-            return true;
-          }
-        }
-        await fetch(state.ctx.sheetUrl, { method:'POST', mode:'no-cors', body });
-        summary.sheetStatus = 'sent_fetch';
-        updateSheetStatusUI(summary);
-        toast('ส่งผลไป Google Sheet แล้ว');
-        logEvent('sheet_submit', { status:'sent_fetch' });
-        return true;
-      } catch (err) {
-        summary.sheetStatus = 'failed';
-        updateSheetStatusUI(summary);
-        try {
-          const key = 'fitness_balance_hold_pending_sheet';
-          const pending = JSON.parse(localStorage.getItem(key) || '[]');
-          pending.push(payload);
-          localStorage.setItem(key, JSON.stringify(pending.slice(-20)));
-        } catch(_){}
-        toast('ส่ง Sheet ไม่สำเร็จ เก็บสำรองไว้ในเครื่อง');
-        logEvent('sheet_submit', { status:'failed', message:String(err && err.message || err) });
-        return false;
-      }
+      bhSubmitSummary(summary);
     }
 
     function csvEscape(v){ return '"' + String(v ?? '').replaceAll('"','""') + '"'; }
     function downloadCSV(summary, detailed=false){
       const rows = [];
       if (!detailed) {
-        const headers = ['ts','version','player','group','pid','studyId','game','mode','inputMode','headSupported','headSamples','bodySupported','bodySamples','bodyQuality','bodyReadiness','bodyAssist','bodyLevel','diff','duration','reason','score','previousBest','isNewBest','missionDone','feverCount','cleanPosts','stars','rank','grade','accPct','validHoldRatio','focusScore','avgQuality','comboMax','hits','misses','outCount','passedPosts','totalPosts','bestPost','hardestPost','teacherSuggestion','nextChallenge','autoSubmit','sheetStatus'];
+        const headers = ['ts','player','group','game','mode','inputMode','headSupported','headSamples','diff','duration','reason','score','previousBest','isNewBest','missionDone','feverCount','cleanPosts','stars','rank','grade','accPct','focusScore','avgQuality','comboMax','passedPosts','totalPosts','bestPost','hardestPost','teacherSuggestion'];
         rows.push(headers.join(','));
         rows.push(headers.map(h => csvEscape(summary[h])).join(','));
       } else {
-        const headers = ['ts','version','player','group','pid','studyId','eventT','kind','post','score','holdMs','stability','x','y','inputMode','headQuality','bodyQuality','bodyReadiness','bodyAssist','bodyLevel','feverCount','cleanPosts','stars','quality','postScore','outCount'];
+        const headers = ['ts','player','group','eventT','kind','post','score','holdMs','stability','x','y','inputMode','headQuality','feverCount','cleanPosts','stars','quality','postScore','outCount'];
         rows.push(headers.join(','));
-        state.events.forEach(e => rows.push(headers.map(h => csvEscape(h==='version'?summary.version:h==='player'?summary.player:h==='group'?summary.group:h==='pid'?summary.pid:h==='studyId'?summary.studyId:h==='bodyReadiness'?summary.bodyReadiness:h==='bodyAssist'?summary.bodyAssist:h==='eventT'?e.t:e[h])).join(',')));
-        summary.posts.forEach(p => rows.push(headers.map(h => csvEscape({ts:summary.ts,version:summary.version,player:summary.player,group:summary.group,pid:summary.pid,studyId:summary.studyId,eventT:'',kind:'post_summary',post:p.key,score:summary.score,holdMs:Math.round(p.inMs),stability:p.quality,inputMode:summary.inputMode,bodyReadiness:summary.bodyReadiness,bodyAssist:summary.bodyAssist,bodyLevel:summary.bodyLevel,stars:p.stars,quality:p.quality,postScore:p.score,outCount:p.outCount}[h])).join(',')));
+        state.events.forEach(e => rows.push(headers.map(h => csvEscape(h==='player'?summary.player:h==='group'?summary.group:h==='eventT'?e.t:e[h])).join(',')));
+        summary.posts.forEach(p => rows.push(headers.map(h => csvEscape({ts:summary.ts,player:summary.player,group:summary.group,eventT:'',kind:'post_summary',post:p.key,score:summary.score,holdMs:Math.round(p.inMs),stability:p.quality,stars:p.stars,quality:p.quality,postScore:p.score,outCount:p.outCount}[h])).join(',')));
       }
       const blob = new Blob([rows.join('\n')], { type:'text/csv;charset=utf-8' });
       const a = document.createElement('a');
@@ -1940,7 +1682,7 @@
     }
 
     function plannerReturn(summary){
-      const raw = state.ctx.hub || q('hub','./');
+      const raw = state.ctx.hub || q('hub','./index.html');
       try{
         const u = new URL(raw, location.href);
         u.searchParams.set('plannerReturn','1');
@@ -1955,6 +1697,22 @@
         u.searchParams.set('combo', String(summary.comboMax));
         u.searchParams.set('result', summary.reason);
         u.searchParams.set('stars', String(summary.stars));
+
+        const carry = {
+          session:summary.sessionId || state.ctx.sessionId,
+          classId:summary.classId || state.ctx.classId,
+          section:summary.section || state.ctx.section,
+          studentId:summary.studentId || state.ctx.studentId,
+          studentName:summary.studentName || state.ctx.studentName,
+          playerId:summary.playerId || state.ctx.playerId,
+          teacherId:summary.teacherId || state.ctx.teacherId
+        };
+        Object.keys(carry).forEach(function(key){
+          if(carry[key] !== undefined && carry[key] !== null && String(carry[key]).trim() !== ''){
+            u.searchParams.set(key, String(carry[key]));
+          }
+        });
+
         location.href = u.toString();
       }catch(_){ location.href = raw; }
     }
@@ -1994,9 +1752,6 @@
               <div class="postRow"><div>Best Combo</div><div>${summary.comboMax}</div><div>${summary.stars}⭐</div></div>
               <div class="postRow"><div>ภารกิจสำเร็จ</div><div>${summary.missionDone}/4</div><div>${bestLine}</div></div>
               <div class="postRow"><div>Focus Fever</div><div>${summary.feverCount} ครั้ง</div><div>Clean ${summary.cleanPosts}</div></div>
-              <div class="postRow"><div>Body Tracking</div><div>${summary.bodyLevel || '-'}</div><div>${summary.bodyQuality || 0}%</div></div>
-              <div class="postRow"><div>Body Readiness</div><div>${summary.bodyAssist || '-'}</div><div>${summary.bodyReadiness || 0}%</div></div>
-              <div class="postRow"><div>Google Sheet</div><div>${summary.autoSubmit}</div><div id="sheetStatusCell">${summary.sheetStatus || 'pending'}</div></div>
               <div class="postRow"><div>ฐานที่ดีที่สุด<small>${summary.bestPost || '-'}</small></div><div></div><div></div></div>
               <div class="postRow"><div>ฐานที่ควรฝึกเพิ่ม<small>${summary.hardestPost || '-'}</small></div><div></div><div></div></div>
             </div>
@@ -2007,13 +1762,13 @@
             <b>คำแนะนำครู:</b> ${summary.teacherSuggestion}
           </div>
           <div class="challengeBanner">🎮 ${summary.nextChallenge}</div>
+          <div id="balanceSheetStatus" class="sheetSubmitStatus sending">📤 กำลังเตรียมส่งผลเข้า Google Sheets...</div>
           <div class="resultList" style="margin-top:12px">
             <div class="postRow head"><div>ฐาน</div><div>ดาว</div><div>คะแนน</div></div>
             ${rows}
           </div>
           <div class="actions">
             <button class="btn primary" id="btnReplay" type="button">🔁 เล่นอีกครั้ง / ล่า PB</button>
-            <button class="btn blue" id="btnSheet" type="button">☁️ ส่ง Sheet</button>
             <button class="btn blue" id="btnCsv" type="button">📄 Export CSV</button>
             <button class="btn orange" id="btnCsvResearch" type="button">🧪 Research CSV</button>
             <button class="btn" id="btnBackHub" type="button">🏠 กลับ Fitness</button>
@@ -2021,7 +1776,6 @@
         </section>`;
       el.resultOverlay.classList.remove('hidden');
       $('btnReplay').onclick = () => startGame();
-      $('btnSheet').onclick = () => submitToSheet(summary);
       $('btnCsv').onclick = () => downloadCSV(summary, false);
       $('btnCsvResearch').onclick = () => downloadCSV(summary, true);
       $('btnBackHub').onclick = () => plannerReturn(summary);
@@ -2032,32 +1786,30 @@
         const ok = confirm('ออกจากเกม Balance Hold ตอนนี้หรือไม่?');
         if (!ok) return;
       }
-      const hub = q('hub','./');
+      const hub = q('hub','./index.html');
       location.href = hub;
     }
 
     function initFromQuery(){
-      el.playerName.value = q('name', q('nick','Hero'));
-      el.classGroup.value = q('group', q('section','P5'));
+      const bridge = bhBridgeContext();
+      el.playerName.value = q('studentName', q('name', q('nick', bridge.studentName || 'Hero')));
+      el.studentId.value = q('studentId', q('sid', q('student', bridge.studentId || '')));
+      el.classGroup.value = q('classId', q('class', q('group', bridge.classId || q('section','P5'))));
+      el.section.value = q('section', q('sec', bridge.section || ''));
       const diff = q('diff','normal'); if (DIFF[diff]) el.difficulty.value = diff;
       const time = String(qNum('time',60)); if ([...el.duration.options].some(o=>o.value===time)) el.duration.value = time;
       if (q('run','') === 'research') el.researchMode.checked = true;
-      if (hasExplicitQuery('submit')) el.autoSubmit.checked = q('submit','1') !== '0';
       if (q('ar','1') === '0') el.useCamera.checked = false;
       if (hasExplicitQuery('tilt')) el.useTilt.checked = q('tilt','1') !== '0';
       else el.useTilt.checked = IS_MOBILE;
-      if (hasExplicitQuery('body')) el.useBody.checked = q('body','1') !== '0';
-      else el.useBody.checked = true;
       if (hasExplicitQuery('head')) el.useHead.checked = q('head','1') !== '0';
       else el.useHead.checked = true;
-      const inputQ = q('input', q('control', el.useBody.checked ? 'body' : (el.useHead.checked ? 'head' : 'auto')));
-      if (['auto','pointer','keyboard','tilt','head','body'].includes(inputQ)) el.inputChoice.value = inputQ;
-      if (el.useBody.checked && !hasExplicitQuery('input') && !hasExplicitQuery('control')) el.inputChoice.value = 'body';
-      if (el.inputChoice.value === 'body') el.useBody.checked = true;
+      const inputQ = q('input', q('control', el.useHead.checked ? 'head' : 'auto'));
+      if (['auto','pointer','keyboard','tilt','head'].includes(inputQ)) el.inputChoice.value = inputQ;
+      if (el.useHead.checked) el.inputChoice.value = 'head';
       if (el.inputChoice.value === 'head') el.useHead.checked = true;
       if (el.inputChoice.value === 'tilt') el.useTilt.checked = true;
-      const rc = requestedControl();
-      setInputPill(rc === 'body' ? 'body' : rc === 'keyboard' ? 'keyboard' : rc === 'tilt' ? 'tilt' : rc === 'head' ? 'head' : 'pointer');
+      setInputPill(requestedControl() === 'keyboard' ? 'keyboard' : requestedControl() === 'tilt' ? 'tilt' : requestedControl() === 'head' ? 'head' : 'pointer');
       if (q('quick','0') === '1' || q('run','') === 'play') {
         // Do not auto-start because camera/motion require user gesture on mobile.
       }
@@ -2066,24 +1818,18 @@
     function bindButtons(){
       el.btnStart.onclick = () => startGame();
       el.btnDemo.onclick = () => startGame({ quick:true });
-      el.btnCamera.onclick = () => startCamera({ facing:(el.useBody.checked || el.useHead.checked) ? 'user' : 'environment' });
+      el.btnCamera.onclick = () => startCamera({ facing:el.useHead.checked ? 'user' : 'environment' });
       el.btnTilt.onclick = () => { el.inputChoice.value = 'tilt'; el.useTilt.checked = true; requestTilt({force:true}); };
-      el.btnBody.onclick = () => { el.inputChoice.value = 'body'; el.useBody.checked = true; requestBody(); };
       el.btnHead.onclick = () => { el.inputChoice.value = 'head'; el.useHead.checked = true; requestHead(); };
       el.btnPause.onclick = () => togglePause();
       el.btnHome.onclick = () => home();
       el.btnRecenter.onclick = () => recenter();
       el.inputChoice.onchange = () => {
         const mode = requestedControl();
-        if (mode === 'body') el.useBody.checked = true;
         if (mode === 'head') el.useHead.checked = true;
         if (mode === 'tilt') el.useTilt.checked = true;
-        setInputPill(mode === 'body' ? 'body' : mode === 'keyboard' ? 'keyboard' : mode === 'tilt' ? 'tilt' : mode === 'head' ? 'head' : 'pointer');
-        setCoach(`เลือกวิธีขยับแล้ว: ${inputHelp(mode)}`, mode === 'body' ? '🧍' : mode === 'head' ? '🧠' : mode === 'tilt' ? '📱' : mode === 'keyboard' ? '⌨️' : '👆', 'Control');
-      };
-      el.useBody.onchange = () => {
-        if (el.useBody.checked) { el.inputChoice.value = 'body'; setInputPill('body'); setCoach('ใช้ Body Detection แล้ว: ถอยให้กล้องเห็นครึ่งตัว/ทั้งตัวก่อนเริ่ม', '🧍', 'Body'); }
-        else if (el.inputChoice.value === 'body') { el.inputChoice.value = el.useHead.checked ? 'head' : 'pointer'; setInputPill(el.inputChoice.value); }
+        setInputPill(mode === 'keyboard' ? 'keyboard' : mode === 'tilt' ? 'tilt' : mode === 'head' ? 'head' : 'pointer');
+        setCoach(`เลือกวิธีขยับแล้ว: ${inputHelp(mode)}`, mode === 'head' ? '🧠' : mode === 'tilt' ? '📱' : mode === 'keyboard' ? '⌨️' : '👆', 'Control');
       };
       el.useHead.onchange = () => {
         if (el.useHead.checked) { el.inputChoice.value = 'head'; setInputPill('head'); setCoach('ใช้ศีรษะแล้ว: กดเริ่ม จากนั้นมองตรงเพื่อ calibration', '🧠', 'Head'); }
@@ -2095,8 +1841,9 @@
     function boot(){
       initFromQuery();
       bindInput(); bindButtons();
+      bhSyncStudentContext();
       resetGame();
-      setCoach('พร้อมใช้ Body Readiness: กดทดสอบ Body เพื่อดู Skeleton Guide / ถอยให้เห็นอย่างน้อยไหล่–สะโพก', '🧍', 'Ready');
+      setCoach('พร้อมใช้ Head Balance: กดเริ่ม แล้วมองตรง 1–2 วินาที จากนั้นเลื่อนศีรษะเบา ๆ ไปทางเป้า', '🧠', 'Ready');
       toast('Balance Hold AR พร้อมเล่น');
       console.info('[BalanceHoldAR]', VERSION);
     }
@@ -2104,6 +1851,5 @@
     boot();
   })();
   </script>
-  <script src="./fitness-student-context-bridge.js"></script>
 </body>
 </html>
