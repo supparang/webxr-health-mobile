@@ -11,7 +11,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V8-1-STUDENT-CLEAN-UI-LOCK
+    Version: v20260620-SHADOW-BREAKER-AR-HAND-PUNCH-V8-2-STUDENT-CONTEXT-LOCK
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1296,7 +1296,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v8.1 STUDENT CLEAN UI</div>
+          <div class="pill" id="versionPill">v20260620 • Hand Punch v8.2 STUDENT CONTEXT</div>
         </div>
 
         <div class="grid2">
@@ -1430,6 +1430,10 @@
       </div>
     </section>
   </main>
+
+
+  <!-- STUDENT_CONTEXT_APPLY_LOCK • load before the game code -->
+  <script src="./fitness-student-context-bridge.js?v=20260620-v2"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
@@ -2970,6 +2974,30 @@
     }
 
 
+
+    function applyStudentContextToPayload(payload){
+      const out = Object.assign({}, payload || {});
+
+      if(window.FitnessStudentContext && typeof window.FitnessStudentContext.apply === "function"){
+        return window.FitnessStudentContext.apply(out);
+      }
+
+      // Safe fallback when the bridge file is unavailable: still preserve query identity fields.
+      out.studentId = out.studentId || qs.get("studentId") || qs.get("sid") || qs.get("pid") || qs.get("playerId") || "";
+      out.playerId = out.playerId || qs.get("playerId") || qs.get("pid") || qs.get("player_id") || "";
+      out.studentName = out.studentName || qs.get("studentName") || qs.get("name") || qs.get("player") || state.playerName || "Hero";
+      out.classId = out.classId || qs.get("classId") || qs.get("class") || qs.get("studyId") || qs.get("classGroup") || qs.get("group") || "";
+      out.section = out.section || qs.get("section") || qs.get("sec") || qs.get("group") || "";
+      out.identitySource = out.studentId ? "studentId" : (out.playerId ? "playerId" : "nameOnly");
+      out.timestamp = out.timestamp || new Date().toISOString();
+      out.timestampLocal = out.timestampLocal || new Date().toLocaleString("sv-SE", {
+        timeZone:"Asia/Bangkok",
+        hour12:false
+      }).replace(" ", "T");
+
+      return out;
+    }
+
     function buildSheetPayload(){
       const attempts = state.metrics.hit + state.metrics.miss + state.metrics.bomb;
       const acc = attempts ? Math.round((state.metrics.hit / attempts) * 100) : 0;
@@ -2984,18 +3012,20 @@
       const missionBoss = state.metrics.clearedBoss >= 4 ? 1 : 0;
       const missionBadges = [missionCombo, missionRush, missionNoBomb, missionBoss].filter(Boolean).length;
 
-      return {
+      const payload = {
         game:"shadowbreaker",
         gameVersion:$("versionPill")?.textContent || "Shadow Breaker AR",
         sourceUrl:location.href,
         clientTimestamp:new Date().toISOString(),
+        timestamp:new Date().toISOString(),
 
         sessionId:`sb-${new Date().toISOString().slice(0,10)}-${state.playerName || "Hero"}`,
         roundId:(state.currentRoundId || (state.currentRoundId = `sb-round-${Date.now().toString(36)}`)),
-        classId:qs.get("class") || qs.get("classId") || "",
-        section:qs.get("section") || qs.get("sec") || "",
-        studentId:qs.get("studentId") || qs.get("sid") || "",
-        studentName:qs.get("studentName") || qs.get("name") || state.playerName || "Hero",
+        classId:qs.get("classId") || qs.get("class") || qs.get("studyId") || qs.get("classGroup") || qs.get("group") || "",
+        section:qs.get("section") || qs.get("sec") || qs.get("group") || "",
+        studentId:qs.get("studentId") || qs.get("sid") || qs.get("pid") || qs.get("playerId") || "",
+        playerId:qs.get("playerId") || qs.get("pid") || qs.get("player_id") || "",
+        studentName:qs.get("studentName") || qs.get("name") || qs.get("player") || state.playerName || "Hero",
         player:state.playerName || "Hero",
         language:state.lang,
         deviceType:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? "mobile" : "pc",
@@ -3051,6 +3081,9 @@
 
         events:state.research ? state.events : []
       };
+
+      // Explicit call: this is the real caller requested for the Sheet payload.
+      return applyStudentContextToPayload(payload);
     }
 
     function getQueuedSheetPayloads(){
@@ -3128,6 +3161,8 @@
     }
 
     async function submitPayloadToSheet(payload, manual=false){
+      // Required identity/timestamp enrichment before any Google Sheets POST.
+      payload = applyStudentContextToPayload(payload);
       saveSheetSettings();
       const url = state.sheetUrl || getSheetUrl();
 
@@ -3207,7 +3242,8 @@
       if(!list.length) return;
 
       const remain = [];
-      for(const payload of list){
+      for(const queuedPayload of list){
+        const payload = applyStudentContextToPayload(queuedPayload);
         const key = makeSubmitKey(payload);
         if(wasSubmitted(key)) continue;
 
@@ -3401,6 +3437,17 @@
       if(program && ["practice","classroom","challenge","bossrush"].includes(program)) $("programSelect").value = program;
       if(time && ["45","60","90"].includes(time)) $("timeSelect").value = time;
       if(lang && I18N[lang]) $("langSelect").value = lang;
+
+      // Save the classroom identity so replay / queued submit keeps the same student context.
+      if(window.FitnessStudentContext && typeof window.FitnessStudentContext.save === "function"){
+        window.FitnessStudentContext.save({
+          studentId: qs.get("studentId") || qs.get("sid") || qs.get("pid") || qs.get("playerId") || "",
+          studentName: qs.get("studentName") || qs.get("name") || qs.get("player") || $("playerName").value || "",
+          classId: qs.get("classId") || qs.get("class") || qs.get("studyId") || qs.get("classGroup") || qs.get("group") || "",
+          section: qs.get("section") || qs.get("sec") || qs.get("group") || "",
+          playerId: qs.get("playerId") || qs.get("pid") || qs.get("player_id") || ""
+        });
+      }
     }
 
     function boot(){
@@ -3419,6 +3466,5 @@
     boot();
   })();
   </script>
-  <script src="./fitness-student-context-bridge.js"></script>
 </body>
 </html>
