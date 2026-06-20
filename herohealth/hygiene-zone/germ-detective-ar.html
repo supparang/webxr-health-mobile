@@ -1,0 +1,3220 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#13253d" />
+  <meta name="color-scheme" content="dark" />
+  <title>HeroHealth • Germ Detective AR: Outbreak Zero</title>
+
+  <style>
+    :root{
+      --ink:#eef6ff;
+      --muted:#b5c5da;
+      --line:rgba(214,234,255,.22);
+      --panel:rgba(12,27,48,.84);
+      --panel-solid:#102640;
+      --blue:#54d2ff;
+      --cyan:#41f0dc;
+      --lime:#b8f572;
+      --yellow:#ffd766;
+      --pink:#ff7fcf;
+      --red:#ff6978;
+      --purple:#9b8cff;
+      --shadow:0 18px 50px rgba(0,0,0,.34);
+      --safe-top:env(safe-area-inset-top, 0px);
+      --safe-bottom:env(safe-area-inset-bottom, 0px);
+      --safe-left:env(safe-area-inset-left, 0px);
+      --safe-right:env(safe-area-inset-right, 0px);
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,body{
+      width:100%;
+      min-height:100%;
+      margin:0;
+      background:#061323;
+      color:var(--ink);
+      font-family:"Noto Sans Thai",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      overscroll-behavior:none;
+    }
+
+    button,select{font:inherit}
+    button{cursor:pointer}
+
+    .app{
+      min-height:100dvh;
+      background:
+        radial-gradient(circle at 18% 12%,rgba(76,208,255,.18),transparent 30%),
+        radial-gradient(circle at 82% 8%,rgba(155,140,255,.17),transparent 32%),
+        linear-gradient(160deg,#07172c 0%,#08182d 45%,#030d18 100%);
+      padding:
+        calc(8px + var(--safe-top))
+        calc(8px + var(--safe-right))
+        calc(8px + var(--safe-bottom))
+        calc(8px + var(--safe-left));
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .topbar{
+      width:min(1180px,100%);
+      margin:0 auto;
+      min-height:54px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:6px 8px;
+      border:1px solid var(--line);
+      background:rgba(5,18,33,.76);
+      border-radius:20px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(18px);
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      padding-left:4px;
+    }
+
+    .brand-badge{
+      width:38px;
+      height:38px;
+      border-radius:13px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#72e6ff,#8374ff);
+      font-size:22px;
+      box-shadow:0 0 22px rgba(84,210,255,.45);
+    }
+
+    .brand-copy{min-width:0}
+    .brand-copy b{
+      display:block;
+      font-size:14px;
+      letter-spacing:.02em;
+      white-space:nowrap;
+    }
+
+    .brand-copy small{
+      display:block;
+      color:var(--muted);
+      font-size:10px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .top-actions{
+      display:flex;
+      gap:6px;
+      align-items:center;
+    }
+
+    .chip,.icon-btn{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--ink);
+      border-radius:12px;
+      min-height:36px;
+      padding:0 11px;
+      font-weight:800;
+      font-size:12px;
+    }
+
+    .icon-btn{
+      width:38px;
+      padding:0;
+      display:grid;
+      place-items:center;
+      font-size:17px;
+    }
+
+    .layout{
+      width:min(1180px,100%);
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 290px;
+      gap:10px;
+      flex:1;
+      min-height:0;
+    }
+
+    .play-shell{
+      position:relative;
+      min-height:620px;
+      border:1px solid var(--line);
+      border-radius:28px;
+      overflow:hidden;
+      background:#0b2139;
+      box-shadow:var(--shadow);
+    }
+
+    .game-stage{
+      position:absolute;
+      inset:0;
+      isolation:isolate;
+      overflow:hidden;
+      touch-action:none;
+      background:
+        radial-gradient(circle at 14% 10%,rgba(80,231,255,.17),transparent 24%),
+        linear-gradient(145deg,rgba(37,74,112,.78),rgba(8,29,51,.94));
+    }
+
+    .game-stage::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      opacity:.42;
+      background-image:
+        linear-gradient(rgba(172,231,255,.12) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(172,231,255,.12) 1px,transparent 1px);
+      background-size:30px 30px;
+      mask-image:linear-gradient(to bottom,black,transparent 86%);
+      pointer-events:none;
+      z-index:1;
+    }
+
+    #camera{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      opacity:0;
+      transform:scaleX(-1);
+      transition:opacity .35s ease;
+      z-index:0;
+    }
+
+    .camera-on #camera{opacity:.66}
+
+    .camera-tint{
+      position:absolute;
+      inset:0;
+      z-index:1;
+      pointer-events:none;
+      background:linear-gradient(180deg,rgba(3,17,31,.12),rgba(2,15,29,.52));
+      mix-blend-mode:screen;
+      opacity:.7;
+    }
+
+    .scene-prop{
+      position:absolute;
+      z-index:2;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      color:#e5f5ff;
+      font-weight:900;
+      font-size:11px;
+      letter-spacing:.02em;
+      text-align:center;
+      opacity:.88;
+      filter:drop-shadow(0 8px 10px rgba(0,0,0,.24));
+      pointer-events:none;
+    }
+
+    .scene-prop .prop-icon{
+      font-size:35px;
+      display:block;
+    }
+
+    .scene-prop .prop-card{
+      padding:6px 8px;
+      border-radius:12px;
+      border:1px dashed rgba(223,246,255,.42);
+      background:rgba(4,20,38,.28);
+      backdrop-filter:blur(5px);
+    }
+
+    .prop-door{left:6%;top:14%}
+    .prop-desk{left:42%;top:68%}
+    .prop-food{right:8%;bottom:12%}
+    .prop-face{right:12%;top:26%}
+    .prop-phone{left:19%;bottom:21%}
+
+    .scanner-vignette{
+      position:absolute;
+      z-index:6;
+      width:170px;
+      height:170px;
+      border-radius:50%;
+      border:2px solid rgba(133,249,255,.98);
+      box-shadow:
+        0 0 0 9999px rgba(2,13,26,.43),
+        0 0 32px rgba(74,235,255,.85),
+        inset 0 0 24px rgba(74,235,255,.48);
+      pointer-events:none;
+      transform:translate(-50%,-50%);
+      opacity:0;
+      transition:opacity .2s;
+    }
+
+    .scanner-vignette.active{opacity:1}
+
+    .scanner-vignette::after{
+      content:"UV";
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      font-weight:1000;
+      color:#d8feff;
+      letter-spacing:.1em;
+      font-size:15px;
+      text-shadow:0 0 10px #54d2ff;
+    }
+
+    .hand-cursor{
+      position:absolute;
+      z-index:18;
+      left:50%;
+      top:50%;
+      width:42px;
+      height:42px;
+      border:2px solid #ffe987;
+      border-radius:50%;
+      transform:translate(-50%,-50%);
+      pointer-events:none;
+      opacity:0;
+      box-shadow:0 0 22px rgba(255,231,135,.85);
+    }
+
+    .hand-cursor.active{opacity:1}
+
+    .hand-cursor.pinch{
+      background:rgba(255,231,135,.28);
+      transform:translate(-50%,-50%) scale(.82);
+    }
+
+    .target-layer{
+      position:absolute;
+      z-index:12;
+      inset:0;
+    }
+
+    .target{
+      position:absolute;
+      width:62px;
+      height:62px;
+      transform:translate(-50%,-50%);
+      border:0;
+      background:transparent;
+      display:grid;
+      place-items:center;
+      filter:drop-shadow(0 10px 9px rgba(0,0,0,.4));
+      padding:0;
+      animation:targetIn .26s cubic-bezier(.2,.8,.2,1) both;
+    }
+
+    .target::before{
+      content:"";
+      position:absolute;
+      inset:2px;
+      border-radius:50%;
+      border:2px solid rgba(240,255,255,.88);
+      background:
+        radial-gradient(
+          circle at 34% 28%,
+          rgba(255,255,255,.8),
+          rgba(255,255,255,.04) 48%,
+          rgba(0,0,0,.18)
+        );
+      box-shadow:0 0 22px currentColor;
+    }
+
+    .target .glyph{
+      position:relative;
+      z-index:2;
+      font-size:31px;
+      line-height:1;
+    }
+
+    .target .tool-tag{
+      position:absolute;
+      bottom:-16px;
+      min-width:68px;
+      padding:2px 5px;
+      border-radius:99px;
+      border:1px solid rgba(255,255,255,.38);
+      background:rgba(4,20,38,.82);
+      color:#fff;
+      font-size:9px;
+      font-weight:950;
+      letter-spacing:.03em;
+      white-space:nowrap;
+    }
+
+    .target .life{
+      position:absolute;
+      top:-9px;
+      left:50%;
+      height:5px;
+      width:51px;
+      transform:translateX(-50%);
+      border-radius:99px;
+      background:rgba(0,0,0,.44);
+      overflow:hidden;
+    }
+
+    .target .life i{
+      display:block;
+      height:100%;
+      width:100%;
+      background:linear-gradient(90deg,#5cf7de,#eaff8d);
+      transform-origin:left;
+      transition:width .12s linear;
+    }
+
+    .target.sticky{color:#ff83d7}
+    .target.zippy{color:#ffe36e}
+    .target.sneaky{color:#59e8ff}
+    .target.hand{color:#8bffb7}
+    .target.decoy{color:#ff6f7f}
+    .target.gold{color:#ffe28c}
+    .target.boss{
+      color:#ae91ff;
+      width:72px;
+      height:72px;
+    }
+
+    .target.exposed::before{
+      animation:pulseGlow .55s infinite alternate;
+    }
+
+    .target.wiped::before{
+      border-style:dashed;
+    }
+
+    .trail{
+      position:absolute;
+      z-index:8;
+      height:4px;
+      border-radius:99px;
+      transform-origin:left center;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          rgba(255,107,123,.94) 0 10px,
+          rgba(255,255,255,.16) 10px 18px
+        );
+      filter:drop-shadow(0 0 8px rgba(255,91,109,.9));
+      pointer-events:none;
+      opacity:.85;
+    }
+
+    .trail .trail-label{
+      position:absolute;
+      top:-18px;
+      right:-10px;
+      padding:2px 5px;
+      border-radius:7px;
+      background:rgba(75,9,25,.72);
+      color:#fff;
+      font-size:9px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .hit-pop{
+      position:absolute;
+      z-index:30;
+      transform:translate(-50%,-50%);
+      font-weight:1000;
+      pointer-events:none;
+      text-shadow:0 3px 12px rgba(0,0,0,.52);
+      animation:popFloat .65s ease-out forwards;
+    }
+
+    .hit-pop.good{color:#baff89}
+    .hit-pop.bad{color:#ff9aa8}
+    .hit-pop.gold{color:#ffe589}
+    .hit-pop.info{color:#9eeeff}
+
+    .hud{
+      position:absolute;
+      z-index:20;
+      top:0;
+      left:0;
+      right:0;
+      padding:12px;
+      display:grid;
+      grid-template-columns:1fr auto 1fr;
+      gap:8px;
+      pointer-events:none;
+    }
+
+    .hud-panel{
+      min-width:0;
+      border:1px solid rgba(229,247,255,.25);
+      border-radius:16px;
+      background:linear-gradient(180deg,rgba(7,27,48,.92),rgba(7,23,40,.72));
+      padding:8px 10px;
+      backdrop-filter:blur(12px);
+      box-shadow:0 8px 25px rgba(0,0,0,.2);
+    }
+
+    .hud-panel.center{
+      text-align:center;
+      min-width:96px;
+    }
+
+    .hud-label{
+      display:block;
+      font-size:9px;
+      color:#c2d6e8;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .hud-value{
+      display:flex;
+      align-items:baseline;
+      gap:6px;
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .hud-value small{
+      font-size:10px;
+      color:var(--muted);
+    }
+
+    .meter{
+      height:8px;
+      margin-top:6px;
+      border-radius:99px;
+      overflow:hidden;
+      background:rgba(255,255,255,.12);
+    }
+
+    .meter i{
+      height:100%;
+      display:block;
+      border-radius:99px;
+      width:0;
+      background:linear-gradient(90deg,#60eed3,#efff88 55%,#ff7a87);
+      transition:width .18s ease;
+    }
+
+    .boss-hud{
+      position:absolute;
+      z-index:21;
+      left:50%;
+      bottom:90px;
+      transform:translateX(-50%);
+      width:min(440px,72%);
+      padding:8px 10px;
+      border-radius:16px;
+      border:1px solid rgba(203,180,255,.5);
+      background:rgba(24,10,56,.78);
+      box-shadow:0 0 28px rgba(155,120,255,.38);
+      backdrop-filter:blur(10px);
+      display:none;
+      text-align:center;
+    }
+
+    .boss-hud.show{display:block}
+
+    .boss-title{
+      font-weight:1000;
+      color:#dfd5ff;
+      font-size:12px;
+    }
+
+    .boss-meter{
+      height:9px;
+      border-radius:99px;
+      background:rgba(255,255,255,.12);
+      overflow:hidden;
+      margin-top:6px;
+    }
+
+    .boss-meter i{
+      display:block;
+      height:100%;
+      width:100%;
+      background:linear-gradient(90deg,#a88cff,#ff91e2);
+      transition:width .2s;
+    }
+
+    .bottom-hud{
+      position:absolute;
+      z-index:25;
+      left:0;
+      right:0;
+      bottom:0;
+      padding:10px 12px 12px;
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:8px;
+      pointer-events:none;
+    }
+
+    .tool-row{
+      display:flex;
+      gap:7px;
+      pointer-events:auto;
+    }
+
+    .tool{
+      min-width:60px;
+      border:1px solid rgba(224,244,255,.34);
+      background:rgba(5,22,41,.86);
+      color:#effaff;
+      border-radius:16px;
+      padding:6px 8px;
+      display:grid;
+      gap:1px;
+      justify-items:center;
+      box-shadow:0 7px 18px rgba(0,0,0,.24);
+      font-size:9px;
+      font-weight:1000;
+    }
+
+    .tool .tool-icon{
+      font-size:22px;
+      line-height:1;
+    }
+
+    .tool .cool{
+      display:none;
+      font-size:8px;
+      color:#ffd76a;
+    }
+
+    .tool.active{
+      border-color:#91f5ff;
+      background:linear-gradient(160deg,rgba(50,167,205,.86),rgba(15,65,100,.91));
+      transform:translateY(-3px);
+      box-shadow:0 0 18px rgba(84,210,255,.5);
+    }
+
+    .tool.cooldown{opacity:.53}
+    .tool.cooldown .cool{display:block}
+
+    .status-card{
+      max-width:270px;
+      text-align:right;
+      background:rgba(5,22,41,.8);
+      border:1px solid var(--line);
+      padding:8px 10px;
+      border-radius:15px;
+      backdrop-filter:blur(10px);
+      font-size:11px;
+      font-weight:850;
+      color:#d6e9f8;
+    }
+
+    .status-card b{color:#fff}
+
+    .overlay{
+      position:absolute;
+      inset:0;
+      z-index:50;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:linear-gradient(180deg,rgba(2,12,23,.40),rgba(3,12,22,.83));
+      backdrop-filter:blur(5px);
+    }
+
+    .overlay.show{display:flex}
+
+    .card{
+      width:min(560px,100%);
+      max-height:96%;
+      overflow:auto;
+      border:1px solid rgba(224,246,255,.26);
+      border-radius:26px;
+      padding:20px;
+      background:linear-gradient(150deg,rgba(20,52,82,.97),rgba(7,25,45,.97));
+      box-shadow:0 24px 80px rgba(0,0,0,.5);
+      text-align:center;
+    }
+
+    .card .hero{
+      font-size:55px;
+      filter:drop-shadow(0 10px 16px rgba(0,0,0,.36));
+    }
+
+    .eyebrow{
+      margin:6px 0;
+      color:#8eeaff;
+      font-size:11px;
+      letter-spacing:.14em;
+      font-weight:1000;
+      text-transform:uppercase;
+    }
+
+    .card h1,.card h2{
+      margin:3px 0 8px;
+      font-size:clamp(25px,5vw,40px);
+      line-height:1.06;
+    }
+
+    .card p{
+      margin:0 auto 14px;
+      max-width:480px;
+      color:#d5e4f3;
+      font-size:13px;
+      line-height:1.55;
+    }
+
+    .settings{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:9px;
+      margin:14px 0;
+      text-align:left;
+    }
+
+    .setting{
+      border:1px solid rgba(224,246,255,.2);
+      padding:10px;
+      border-radius:15px;
+      background:rgba(3,18,33,.35);
+    }
+
+    .setting label{
+      display:block;
+      font-size:10px;
+      font-weight:1000;
+      color:#a9c6dc;
+      letter-spacing:.05em;
+      margin-bottom:6px;
+      text-transform:uppercase;
+    }
+
+    .setting select{
+      width:100%;
+      border:1px solid rgba(229,247,255,.25);
+      background:#112d49;
+      color:#fff;
+      border-radius:10px;
+      padding:8px;
+      font-weight:900;
+    }
+
+    .mode-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+
+    .mode-btn{
+      flex:1;
+      min-width:92px;
+      border:1px solid rgba(225,247,255,.26);
+      border-radius:11px;
+      padding:8px;
+      background:rgba(255,255,255,.06);
+      color:#eaf6ff;
+      font-size:11px;
+      font-weight:900;
+    }
+
+    .mode-btn.selected{
+      background:rgba(70,213,247,.22);
+      border-color:#82efff;
+      color:#fff;
+    }
+
+    .primary,.secondary,.danger{
+      border:0;
+      border-radius:15px;
+      padding:12px 16px;
+      font-weight:1000;
+      font-size:14px;
+      box-shadow:0 10px 22px rgba(0,0,0,.24);
+    }
+
+    .primary{
+      background:linear-gradient(135deg,#55e2f5,#7984ff);
+      color:#07192d;
+    }
+
+    .secondary{
+      background:rgba(255,255,255,.1);
+      color:#eff7ff;
+      border:1px solid rgba(255,255,255,.2);
+    }
+
+    .danger{
+      background:linear-gradient(135deg,#ff8592,#ff7ec5);
+      color:#2c0b17;
+    }
+
+    .card-actions{
+      display:flex;
+      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:13px;
+    }
+
+    .feature-list{
+      display:grid;
+      gap:7px;
+      text-align:left;
+      margin:13px 0;
+    }
+
+    .feature{
+      display:flex;
+      gap:9px;
+      align-items:flex-start;
+      border-radius:13px;
+      padding:8px;
+      background:rgba(255,255,255,.055);
+      font-size:12px;
+      color:#dceaf6;
+    }
+
+    .feature span{font-size:20px}
+
+    .feature b{
+      display:block;
+      color:#fff;
+      margin-bottom:1px;
+    }
+
+    .mini-note{
+      font-size:10px;
+      color:#afc4d6;
+      margin-top:9px;
+      line-height:1.45;
+    }
+
+    .count{
+      font-size:80px;
+      font-weight:1000;
+      line-height:.9;
+      color:#eafff7;
+      text-shadow:0 0 26px rgba(87,235,245,.72);
+    }
+
+    .decision-card{
+      width:min(640px,100%);
+      text-align:left;
+    }
+
+    .decision-card .hero{
+      font-size:44px;
+      text-align:center;
+    }
+
+    .decision-options{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .decision-option{
+      border:1px solid rgba(219,244,255,.25);
+      background:rgba(255,255,255,.06);
+      border-radius:16px;
+      padding:11px;
+      text-align:left;
+      color:#edf8ff;
+      font-size:13px;
+      font-weight:950;
+      min-height:70px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .decision-option span{font-size:27px}
+
+    .decision-option:hover{
+      border-color:#8ceeff;
+      background:rgba(80,214,248,.16);
+    }
+
+    .decision-option:active{
+      transform:scale(.98);
+    }
+
+    .result-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:8px;
+      margin:14px 0;
+      text-align:left;
+    }
+
+    .result-stat{
+      padding:10px;
+      border-radius:13px;
+      border:1px solid rgba(225,247,255,.19);
+      background:rgba(255,255,255,.05);
+    }
+
+    .result-stat small{
+      display:block;
+      color:#b6cde0;
+      font-size:9px;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+    }
+
+    .result-stat b{font-size:22px}
+
+    .rank-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      padding:7px 12px;
+      border-radius:99px;
+      background:rgba(184,245,114,.16);
+      border:1px solid rgba(184,245,114,.45);
+      color:#e6ffbc;
+      font-weight:1000;
+      margin-bottom:8px;
+    }
+
+    .toast{
+      position:fixed;
+      z-index:99;
+      left:50%;
+      bottom:18px;
+      transform:translate(-50%,20px);
+      padding:10px 13px;
+      border-radius:12px;
+      background:#09213b;
+      border:1px solid rgba(221,244,255,.28);
+      box-shadow:var(--shadow);
+      font-size:12px;
+      font-weight:900;
+      color:#eef8ff;
+      opacity:0;
+      pointer-events:none;
+      transition:.25s;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translate(-50%,0);
+    }
+
+    .side{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .side-card{
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:13px;
+      background:rgba(8,27,47,.78);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(14px);
+    }
+
+    .side-card h3{
+      font-size:14px;
+      margin:0 0 8px;
+    }
+
+    .side-card p{
+      font-size:11px;
+      line-height:1.5;
+      color:#c9d9e7;
+      margin:0;
+    }
+
+    .objective{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:8px;
+      align-items:center;
+      padding:8px 0;
+      border-bottom:1px solid rgba(231,247,255,.1);
+      font-size:11px;
+    }
+
+    .objective:last-child{border-bottom:0}
+
+    .objective .check{
+      width:22px;
+      height:22px;
+      display:grid;
+      place-items:center;
+      border-radius:8px;
+      background:rgba(255,255,255,.08);
+      font-size:13px;
+    }
+
+    .key-list{
+      display:grid;
+      gap:6px;
+    }
+
+    .key{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      font-size:11px;
+      color:#d7e6f3;
+    }
+
+    .key kbd{
+      min-width:25px;
+      border:1px solid rgba(229,247,255,.28);
+      border-radius:7px;
+      padding:2px 4px;
+      text-align:center;
+      color:#fff;
+      background:#102f4e;
+      font-weight:1000;
+    }
+
+    @keyframes targetIn{
+      from{
+        opacity:0;
+        transform:translate(-50%,-50%) scale(.35) rotate(-22deg);
+      }
+      to{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1) rotate(0);
+      }
+    }
+
+    @keyframes pulseGlow{
+      to{
+        box-shadow:0 0 36px currentColor,0 0 10px #fff;
+      }
+    }
+
+    @keyframes popFloat{
+      0%{
+        opacity:0;
+        transform:translate(-50%,-40%) scale(.6);
+      }
+      20%{
+        opacity:1;
+        transform:translate(-50%,-55%) scale(1.1);
+      }
+      100%{
+        opacity:0;
+        transform:translate(-50%,-130%) scale(1);
+      }
+    }
+
+    @media(max-width:900px){
+      .layout{grid-template-columns:1fr}
+      .side{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+      }
+      .play-shell{min-height:min(76dvh,720px)}
+      .side-card:last-child{grid-column:span 2}
+      .topbar{border-radius:16px}
+      .brand-copy small{display:none}
+    }
+
+    @media(max-width:600px){
+      .app{
+        padding:
+          calc(4px + var(--safe-top))
+          calc(4px + var(--safe-right))
+          calc(4px + var(--safe-bottom))
+          calc(4px + var(--safe-left));
+        gap:4px;
+      }
+
+      .topbar{
+        min-height:48px;
+        padding:4px 6px;
+      }
+
+      .brand-badge{
+        width:34px;
+        height:34px;
+        font-size:19px;
+      }
+
+      .brand-copy b{font-size:12px}
+
+      .top-actions .chip{
+        padding:0 8px;
+        min-height:32px;
+      }
+
+      .icon-btn{
+        width:34px;
+        min-height:32px;
+      }
+
+      .play-shell{
+        min-height:calc(100dvh - 65px);
+        border-radius:22px;
+      }
+
+      .hud{
+        padding:8px;
+        gap:5px;
+      }
+
+      .hud-panel{
+        padding:6px 7px;
+        border-radius:13px;
+      }
+
+      .hud-value{font-size:15px}
+      .hud-label{font-size:8px}
+
+      .bottom-hud{
+        padding:7px 8px 9px;
+        gap:4px;
+        align-items:end;
+      }
+
+      .tool-row{gap:4px}
+
+      .tool{
+        min-width:47px;
+        border-radius:13px;
+        padding:5px 4px;
+        font-size:8px;
+      }
+
+      .tool .tool-icon{font-size:18px}
+      .status-card{display:none}
+      .scene-prop .prop-icon{font-size:25px}
+
+      .scene-prop .prop-card{
+        padding:4px;
+        font-size:9px;
+      }
+
+      .target{
+        width:55px;
+        height:55px;
+      }
+
+      .target .glyph{font-size:27px}
+
+      .target .tool-tag{
+        bottom:-14px;
+        font-size:8px;
+        min-width:58px;
+      }
+
+      .boss-hud{
+        bottom:72px;
+        width:78%;
+        padding:6px 8px;
+      }
+
+      .side{display:none}
+      .settings{grid-template-columns:1fr}
+      .card{
+        padding:16px;
+        border-radius:22px;
+      }
+
+      .card h1{font-size:29px}
+      .decision-options{grid-template-columns:1fr}
+
+      .decision-option{
+        min-height:58px;
+        padding:8px;
+        font-size:12px;
+      }
+
+      .result-grid{gap:6px}
+      .result-stat{padding:8px}
+      .result-stat b{font-size:18px}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge">🕵️</div>
+        <div class="brand-copy">
+          <b>Germ Detective AR</b>
+          <small id="brand-sub">OUTBREAK ZERO • HeroHealth Hygiene Zone</small>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button class="chip" id="language-btn" type="button">TH / EN</button>
+        <button class="icon-btn" id="sound-btn" type="button" aria-label="Sound">🔊</button>
+        <button class="icon-btn" id="help-btn" type="button" aria-label="Help">?</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="play-shell" aria-label="Germ Detective game area">
+        <div id="stage" class="game-stage">
+          <video id="camera" autoplay muted playsinline></video>
+          <div class="camera-tint"></div>
+
+          <div class="scene-prop prop-door">
+            <div>
+              <span class="prop-icon">🚪</span>
+              <span class="prop-card" data-t="riskDoor">Door handle</span>
+            </div>
+          </div>
+
+          <div class="scene-prop prop-desk">
+            <div>
+              <span class="prop-icon">🪑</span>
+              <span class="prop-card" data-t="riskDesk">Shared desk</span>
+            </div>
+          </div>
+
+          <div class="scene-prop prop-food">
+            <div>
+              <span class="prop-icon">🍪</span>
+              <span class="prop-card" data-t="riskFood">Snack zone</span>
+            </div>
+          </div>
+
+          <div class="scene-prop prop-face">
+            <div>
+              <span class="prop-icon">🙂</span>
+              <span class="prop-card" data-t="riskFace">Face alert</span>
+            </div>
+          </div>
+
+          <div class="scene-prop prop-phone">
+            <div>
+              <span class="prop-icon">📱</span>
+              <span class="prop-card" data-t="riskPhone">Shared phone</span>
+            </div>
+          </div>
+
+          <div id="trail-layer"></div>
+          <div id="target-layer" class="target-layer"></div>
+          <div id="scanner" class="scanner-vignette"></div>
+          <div id="hand-cursor" class="hand-cursor"></div>
+
+          <div class="hud">
+            <div class="hud-panel">
+              <span class="hud-label" data-t="infection">Infection control</span>
+              <div class="hud-value">
+                <b id="infection-value">0%</b>
+                <small id="infection-status">SAFE</small>
+              </div>
+              <div class="meter"><i id="infection-meter"></i></div>
+            </div>
+
+            <div class="hud-panel center">
+              <span class="hud-label" data-t="time">Time</span>
+              <div class="hud-value" style="justify-content:center">
+                <b id="time-value">01:15</b>
+              </div>
+            </div>
+
+            <div class="hud-panel" style="text-align:right">
+              <span class="hud-label" data-t="score">Detective score</span>
+              <div class="hud-value" style="justify-content:flex-end">
+                <b id="score-value">0</b>
+                <small id="combo-value">x0</small>
+              </div>
+              <div class="meter">
+                <i id="combo-meter" style="width:0;background:linear-gradient(90deg,#54d2ff,#b8f572)"></i>
+              </div>
+            </div>
+          </div>
+
+          <div id="boss-hud" class="boss-hud">
+            <div class="boss-title">👾 CAPTAIN GERM — CHAIN REACTION</div>
+            <div class="boss-meter"><i id="boss-meter"></i></div>
+          </div>
+
+          <div class="bottom-hud">
+            <div class="tool-row" role="group" aria-label="Tools">
+              <button class="tool active" type="button" data-tool="scanner">
+                <span class="tool-icon">🔦</span>
+                <span data-t="toolScanner">SCAN</span>
+                <span class="cool"></span>
+              </button>
+
+              <button class="tool" type="button" data-tool="wipe">
+                <span class="tool-icon">🧽</span>
+                <span data-t="toolWipe">WIPE</span>
+                <span class="cool"></span>
+              </button>
+
+              <button class="tool" type="button" data-tool="clean">
+                <span class="tool-icon">🧼</span>
+                <span data-t="toolClean">CLEAN</span>
+                <span class="cool"></span>
+              </button>
+
+              <button class="tool" type="button" data-tool="shield">
+                <span class="tool-icon">🛡️</span>
+                <span data-t="toolShield">SHIELD</span>
+                <span class="cool"></span>
+              </button>
+            </div>
+
+            <div class="status-card" id="status-card">
+              <b data-t="ready">Ready for a new case.</b><br>
+              <span data-t="hintStart">Choose a tool, then stop the germ chain.</span>
+            </div>
+          </div>
+
+          <div id="start-overlay" class="overlay show">
+            <div class="card">
+              <div class="hero">🕵️‍♀️🦠</div>
+              <div class="eyebrow">HEROHEALTH HYGIENE ZONE</div>
+
+              <h1 data-t="title">
+                Germ Detective AR:<br>
+                Outbreak Zero
+              </h1>
+
+              <p data-t="intro">
+                ค้นหาเชื้อจำลอง หยุดเส้นทางการแพร่เชื้อ และป้องกันไม่ให้เชื้อถึงอาหารหรือใบหน้า
+              </p>
+
+              <div class="settings">
+                <div class="setting">
+                  <label data-t="difficulty">Difficulty</label>
+
+                  <select id="difficulty-select">
+                    <option value="easy">Easy • Junior Detective</option>
+                    <option value="normal" selected>Normal • Field Detective</option>
+                    <option value="hard">Hard • Outbreak Commander</option>
+                  </select>
+                </div>
+
+                <div class="setting">
+                  <label data-t="inputMode">Input mode</label>
+
+                  <div class="mode-row">
+                    <button class="mode-btn selected" type="button" data-mode="touch">👆 Touch</button>
+                    <button class="mode-btn" type="button" data-mode="camera">📷 Camera</button>
+                    <button class="mode-btn" type="button" data-mode="hands">✋ Hands</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="feature-list">
+                <div class="feature">
+                  <span>🔦</span>
+                  <div>
+                    <b data-t="feat1b">Scan, then act</b>
+                    <span data-t="feat1">Use the correct tool; tapping everything will break your combo.</span>
+                  </div>
+                </div>
+
+                <div class="feature">
+                  <span>🛡️</span>
+                  <div>
+                    <b data-t="feat2b">Stop the chain</b>
+                    <span data-t="feat2">Protect food and face alerts before the outbreak gets worse.</span>
+                  </div>
+                </div>
+
+                <div class="feature">
+                  <span>👾</span>
+                  <div>
+                    <b data-t="feat3b">Boss reaction</b>
+                    <span data-t="feat3">Captain Germ appears near the end with multiple chains at once.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-actions">
+                <button id="start-btn" class="primary" type="button">
+                  ▶ <span data-t="startMission">Start mission</span>
+                </button>
+
+                <button id="camera-btn" class="secondary" type="button">
+                  📷 <span data-t="enableCamera">Enable camera</span>
+                </button>
+              </div>
+
+              <div class="mini-note" data-t="cameraNote">
+                Camera and hand tracking are optional. Touch and mouse always remain available.
+              </div>
+            </div>
+          </div>
+
+          <div id="briefing-overlay" class="overlay">
+            <div class="card">
+              <div class="hero">🚨</div>
+              <div class="eyebrow" id="briefing-eyebrow">CASE 01</div>
+              <h2 id="briefing-title">Classroom Mystery</h2>
+              <p id="briefing-text">Stop the chain before germs reach snack time.</p>
+              <div id="countdown" class="count">3</div>
+              <div class="mini-note" id="briefing-tip">
+                🔦 Scan sneaky germs • 🧽 Wipe sticky stains • 🛡️ Shield fast jump germs
+              </div>
+            </div>
+          </div>
+
+          <div id="decision-overlay" class="overlay">
+            <div class="card decision-card">
+              <div class="hero">⚡</div>
+              <div class="eyebrow">HYGIENE DECISION BURST</div>
+              <h2 id="decision-question">Question</h2>
+              <p id="decision-context">Choose the best action before the chain continues.</p>
+              <div id="decision-options" class="decision-options"></div>
+            </div>
+          </div>
+
+          <div id="result-overlay" class="overlay">
+            <div class="card">
+              <div class="hero" id="result-hero">🏆</div>
+              <div class="eyebrow" data-t="caseClosed">CASE CLOSED</div>
+              <div class="rank-badge" id="rank-badge">🛡️ Clean Guardian</div>
+              <h2 id="result-title">Outbreak Controlled!</h2>
+              <p id="result-summary">You stopped the most dangerous chains.</p>
+
+              <div class="result-grid">
+                <div class="result-stat">
+                  <small data-t="score">Detective score</small>
+                  <b id="result-score">0</b>
+                </div>
+
+                <div class="result-stat">
+                  <small data-t="bestCombo">Best combo</small>
+                  <b id="result-combo">0</b>
+                </div>
+
+                <div class="result-stat">
+                  <small data-t="decisionRate">Correct decisions</small>
+                  <b id="result-decisions">0%</b>
+                </div>
+
+                <div class="result-stat">
+                  <small data-t="infection">Infection control</small>
+                  <b id="result-infection">0%</b>
+                </div>
+              </div>
+
+              <div class="card-actions">
+                <button id="replay-btn" class="primary" type="button">
+                  ↻ <span data-t="playAgain">Play again</span>
+                </button>
+
+                <button id="csv-btn" class="secondary" type="button">
+                  ⇩ <span data-t="exportCsv">Export result</span>
+                </button>
+
+                <button id="home-btn" class="secondary" type="button">
+                  ⌂ <span data-t="home">Mission select</span>
+                </button>
+              </div>
+
+              <div class="mini-note" id="sync-note"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="side-card">
+          <h3>🎯 <span data-t="mission">Mission brief</span></h3>
+
+          <div class="objective">
+            <span class="check">🔦</span>
+            <span data-t="obj1">Find hidden risks before they spread.</span>
+          </div>
+
+          <div class="objective">
+            <span class="check">🧽</span>
+            <span data-t="obj2">Use the right tool for each germ type.</span>
+          </div>
+
+          <div class="objective">
+            <span class="check">🛡️</span>
+            <span data-t="obj3">Keep germs away from food and face alerts.</span>
+          </div>
+        </section>
+
+        <section class="side-card">
+          <h3>🧠 <span data-t="howToPlay">How to play</span></h3>
+
+          <div class="key-list">
+            <div class="key"><kbd>1</kbd><span>🔦 <span data-t="key1">Scan hidden germs.</span></span></div>
+            <div class="key"><kbd>2</kbd><span>🧽 <span data-t="key2">Drag over sticky stains.</span></span></div>
+            <div class="key"><kbd>3</kbd><span>🧼 <span data-t="key3">Clean germs on hands.</span></span></div>
+            <div class="key"><kbd>4</kbd><span>🛡️ <span data-t="key4">Shield fast jump germs.</span></span></div>
+          </div>
+        </section>
+
+        <section class="side-card">
+          <h3>📚 <span data-t="learningNote">Learning link</span></h3>
+          <p data-t="learningText">
+            The game simulates risk paths, not real germs. The key idea is to stop the path from shared surfaces to hands, food, or face.
+          </p>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module">
+    import {
+      FilesetResolver,
+      HandLandmarker
+    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs";
+
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
+
+    const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
+    const rand = (min,max) => min + Math.random() * (max-min);
+    const now = () => performance.now();
+
+    const I18N = {
+      th:{
+        title:"Germ Detective AR:<br>Outbreak Zero",
+        intro:"ค้นหาเชื้อจำลอง หยุดเส้นทางการแพร่เชื้อ และป้องกันไม่ให้เชื้อถึงอาหารหรือใบหน้า",
+        startMission:"เริ่มภารกิจ",
+        enableCamera:"เปิดกล้อง",
+        cameraNote:"กล้องและ Hand Tracking เป็นตัวเลือกเสริม — Touch และเมาส์เล่นได้เสมอ",
+        difficulty:"ระดับความยาก",
+        inputMode:"รูปแบบควบคุม",
+        feat1b:"สแกน แล้วจัดการให้ถูก",
+        feat1:"ใช้เครื่องมือให้เหมาะ เพราะกดมั่ว Combo จะขาด",
+        feat2b:"ตัดสายการแพร่เชื้อ",
+        feat2:"ปกป้องอาหารและจุดใบหน้าก่อนสถานการณ์รุนแรง",
+        feat3b:"Boss Chain Reaction",
+        feat3:"Captain Germ จะมาพร้อมหลายสายการแพร่เชื้อช่วงท้าย",
+        infection:"ควบคุมการระบาด",
+        time:"เวลา",
+        score:"คะแนนนักสืบ",
+        toolScanner:"สแกน",
+        toolWipe:"เช็ด",
+        toolClean:"ล้าง",
+        toolShield:"โล่",
+        ready:"พร้อมรับคดีใหม่",
+        hintStart:"เลือกเครื่องมือ แล้วหยุดสายการแพร่เชื้อ",
+        riskDoor:"ลูกบิดประตู",
+        riskDesk:"โต๊ะร่วม",
+        riskFood:"จุดอาหาร",
+        riskFace:"จุดใบหน้า",
+        riskPhone:"โทรศัพท์ร่วม",
+        mission:"ภารกิจ",
+        obj1:"ค้นหาจุดเสี่ยงก่อนเชื้อแพร่",
+        obj2:"ใช้เครื่องมือให้ตรงชนิดเชื้อ",
+        obj3:"กันเชื้อไม่ให้ถึงอาหารและใบหน้า",
+        howToPlay:"วิธีเล่น",
+        key1:"สแกนหาเชื้อซ่อน",
+        key2:"ลากเช็ดคราบเหนียว",
+        key3:"กำจัดเชื้อบนมือ",
+        key4:"กันเชื้อกระโดดเร็ว",
+        learningNote:"เชื่อมโยงการเรียนรู้",
+        learningText:"เกมจำลองเส้นทางความเสี่ยง ไม่ใช่การมองเห็นเชื้อจริง หัวใจคือหยุดเส้นทางจากของใช้ร่วมกัน → มือ → อาหารหรือใบหน้า",
+        caseClosed:"ปิดคดีแล้ว",
+        bestCombo:"Combo สูงสุด",
+        decisionRate:"ตัดสินใจถูก",
+        playAgain:"เล่นอีกครั้ง",
+        exportCsv:"ส่งออกผล",
+        home:"เลือกภารกิจ",
+        cameraReady:"เปิดกล้องแล้ว",
+        cameraFail:"เปิดกล้องไม่ได้ — เล่นด้วย Touch/Mouse ได้ตามปกติ",
+        handsReady:"Hand Tracking พร้อมแล้ว",
+        handsFail:"ยังเปิด Hand Tracking ไม่ได้ — ใช้ Touch/Mouse แทนได้",
+        pausing:"กำลังวิเคราะห์สถานการณ์...",
+        controlled:"ควบคุมการระบาดได้!",
+        failed:"การระบาดยังสูงเกินไป",
+        bossIncoming:"⚠ CAPTAIN GERM IS HERE!",
+        correct:"ถูกต้อง!",
+        wrong:"ยังไม่ใช่ ลองคิดถึงการหยุดเส้นทางความเสี่ยงก่อน",
+        scan:"สแกน",
+        wipe:"เช็ด",
+        clean:"ล้างมือ",
+        shield:"ป้องกัน",
+        scanTag:"สแกน",
+        wipeTag:"เช็ด",
+        cleanTag:"ล้าง",
+        shieldTag:"กัน",
+        hidden:"ซ่อน",
+        sticky:"เหนียว",
+        fast:"เร็ว",
+        hand:"บนมือ",
+        decoy:"หลอก",
+        evidence:"หลักฐาน",
+        boss:"BOSS",
+        tutorialTip:"🔦 เชื้อซ่อนต้องสแกน • 🧽 คราบเหนียวต้องลากเช็ด • 🛡️ เชื้อเร็วต้องกันทันที",
+        decisionLead:"เลือกการกระทำที่ช่วยตัดความเสี่ยงได้ดีที่สุด",
+        statusSafe:"ปลอดภัย",
+        statusWatch:"เฝ้าระวัง",
+        statusDanger:"อันตราย",
+        statusCritical:"วิกฤต"
+      },
+
+      en:{
+        title:"Germ Detective AR:<br>Outbreak Zero",
+        intro:"Find simulated germs, break transmission chains, and protect food and face alerts.",
+        startMission:"Start mission",
+        enableCamera:"Enable camera",
+        cameraNote:"Camera and hand tracking are optional. Touch and mouse always remain available.",
+        difficulty:"Difficulty",
+        inputMode:"Input mode",
+        feat1b:"Scan, then act",
+        feat1:"Use the correct tool; tapping everything will break your combo.",
+        feat2b:"Stop the chain",
+        feat2:"Protect food and face alerts before the outbreak gets worse.",
+        feat3b:"Boss reaction",
+        feat3:"Captain Germ appears near the end with multiple chains at once.",
+        infection:"Infection control",
+        time:"Time",
+        score:"Detective score",
+        toolScanner:"SCAN",
+        toolWipe:"WIPE",
+        toolClean:"CLEAN",
+        toolShield:"SHIELD",
+        ready:"Ready for a new case.",
+        hintStart:"Choose a tool, then stop the germ chain.",
+        riskDoor:"Door handle",
+        riskDesk:"Shared desk",
+        riskFood:"Snack zone",
+        riskFace:"Face alert",
+        riskPhone:"Shared phone",
+        mission:"Mission brief",
+        obj1:"Find hidden risks before they spread.",
+        obj2:"Use the right tool for each germ type.",
+        obj3:"Keep germs away from food and face alerts.",
+        howToPlay:"How to play",
+        key1:"Scan hidden germs.",
+        key2:"Drag over sticky stains.",
+        key3:"Clean germs on hands.",
+        key4:"Shield fast jump germs.",
+        learningNote:"Learning link",
+        learningText:"The game simulates risk paths, not real germs. The key idea is to stop the path from shared surfaces to hands, food, or face.",
+        caseClosed:"CASE CLOSED",
+        bestCombo:"Best combo",
+        decisionRate:"Correct decisions",
+        playAgain:"Play again",
+        exportCsv:"Export result",
+        home:"Mission select",
+        cameraReady:"Camera is ready",
+        cameraFail:"Camera could not start — Touch/Mouse still works.",
+        handsReady:"Hand tracking is ready",
+        handsFail:"Hand tracking could not start — Touch/Mouse still works.",
+        pausing:"Analysing the situation...",
+        controlled:"Outbreak controlled!",
+        failed:"The outbreak is still too high",
+        bossIncoming:"⚠ CAPTAIN GERM IS HERE!",
+        correct:"Correct!",
+        wrong:"Not quite. Stop the risk path first.",
+        scan:"Scan",
+        wipe:"Wipe",
+        clean:"Clean",
+        shield:"Shield",
+        scanTag:"SCAN",
+        wipeTag:"WIPE",
+        cleanTag:"CLEAN",
+        shieldTag:"SHIELD",
+        hidden:"hidden",
+        sticky:"sticky",
+        fast:"fast",
+        hand:"on hand",
+        decoy:"decoy",
+        evidence:"evidence",
+        boss:"BOSS",
+        tutorialTip:"🔦 Scan hidden germs • 🧽 Wipe sticky stains • 🛡️ Shield fast jump germs",
+        decisionLead:"Choose the action that breaks the risk path best.",
+        statusSafe:"SAFE",
+        statusWatch:"WATCH",
+        statusDanger:"DANGER",
+        statusCritical:"CRITICAL"
+      }
+    };
+
+    const CONFIG = {
+      easy:{
+        duration:85,
+        spawnMs:1050,
+        maxTargets:5,
+        life:[6800,8900],
+        infectionHit:8,
+        bossAt:27,
+        bossTargets:4
+      },
+
+      normal:{
+        duration:75,
+        spawnMs:790,
+        maxTargets:7,
+        life:[5200,7200],
+        infectionHit:11,
+        bossAt:24,
+        bossTargets:6
+      },
+
+      hard:{
+        duration:65,
+        spawnMs:620,
+        maxTargets:9,
+        life:[4100,5900],
+        infectionHit:14,
+        bossAt:22,
+        bossTargets:8
+      }
+    };
+
+    const TARGETS = {
+      sneaky:{
+        glyph:"🟦",
+        tool:"scanner",
+        labelKey:"hidden",
+        score:85,
+        kindClass:"sneaky",
+        lifeScale:1.05
+      },
+
+      sticky:{
+        glyph:"🟣",
+        tool:"wipe",
+        labelKey:"sticky",
+        score:110,
+        kindClass:"sticky",
+        lifeScale:1.12
+      },
+
+      zippy:{
+        glyph:"🟡",
+        tool:"shield",
+        labelKey:"fast",
+        score:120,
+        kindClass:"zippy",
+        lifeScale:.78
+      },
+
+      hand:{
+        glyph:"🦠",
+        tool:"clean",
+        labelKey:"hand",
+        score:100,
+        kindClass:"hand",
+        lifeScale:.92
+      },
+
+      decoy:{
+        glyph:"❌",
+        tool:"none",
+        labelKey:"decoy",
+        score:-70,
+        kindClass:"decoy",
+        lifeScale:1
+      },
+
+      gold:{
+        glyph:"⭐",
+        tool:"scanner",
+        labelKey:"evidence",
+        score:210,
+        kindClass:"gold",
+        lifeScale:.75
+      },
+
+      boss:{
+        glyph:"👾",
+        tool:null,
+        labelKey:"boss",
+        score:180,
+        kindClass:"boss",
+        lifeScale:.8
+      }
+    };
+
+    const DECISIONS = [
+      {
+        qTh:"เพิ่งจับโทรศัพท์ส่วนกลาง แล้วกำลังจะหยิบขนม ควรทำอะไรก่อน?",
+        qEn:"You used a shared phone and are about to eat a snack. What should you do first?",
+        contextTh:"ตัดสาย โทรศัพท์ → มือ → อาหาร",
+        contextEn:"Break the path: phone → hand → food.",
+        correct:"clean",
+        options:[
+          {id:"clean",emoji:"🧼",th:"ล้างหรือทำความสะอาดมือ",en:"Clean your hands"},
+          {id:"share",emoji:"🥤",th:"ใช้แก้วน้ำร่วมกับเพื่อน",en:"Share a drink"},
+          {id:"face",emoji:"🙂",th:"จับหน้าแล้วกินต่อ",en:"Touch your face then eat"},
+          {id:"wait",emoji:"⏳",th:"รอเฉย ๆ",en:"Just wait"}
+        ]
+      },
+
+      {
+        qTh:"พบคราบเสี่ยงบนโต๊ะที่ทุกคนใช้ร่วมกัน ควรทำอะไร?",
+        qEn:"You find a risk stain on a shared desk. What is best?",
+        contextTh:"จัดการต้นทางก่อนเชื้อย้ายไปมือ",
+        contextEn:"Handle the source before it reaches hands.",
+        correct:"wipe",
+        options:[
+          {id:"wipe",emoji:"🧽",th:"เช็ดพื้นผิวให้สะอาด",en:"Wipe the surface"},
+          {id:"snack",emoji:"🍪",th:"วางขนมลงบนโต๊ะ",en:"Put snacks on it"},
+          {id:"ignore",emoji:"🙈",th:"ไม่ต้องทำอะไร",en:"Ignore it"},
+          {id:"share",emoji:"✋",th:"ส่งของต่อให้เพื่อน",en:"Pass objects around"}
+        ]
+      },
+
+      {
+        qTh:"เชื้อกำลังกระโดดจากลูกบิดประตูไปยังมือเพื่อน ควรทำอะไรทันที?",
+        qEn:"A fast germ is jumping from a door handle toward a friend's hand. What should you do now?",
+        contextTh:"นี่คือจังหวะตัดสายการแพร่เชื้อ",
+        contextEn:"This is the moment to cut the chain.",
+        correct:"shield",
+        options:[
+          {id:"shield",emoji:"🛡️",th:"ใช้โล่หยุดเชื้อก่อนย้าย",en:"Use shield before it jumps"},
+          {id:"gold",emoji:"⭐",th:"เก็บคะแนนโบนัสก่อน",en:"Chase bonus points"},
+          {id:"face",emoji:"🙂",th:"จับหน้าเพื่อคิด",en:"Touch your face"},
+          {id:"wait",emoji:"⏳",th:"รอดูต่อไป",en:"Wait and see"}
+        ]
+      },
+
+      {
+        qTh:"มีสิ่งเรืองแสงที่ยังไม่แน่ใจว่าเป็นเชื้อจริงหรือคราบหลอก ควรใช้เครื่องมือใด?",
+        qEn:"Something glows, but you are not sure it is a real risk. Which tool should you use?",
+        contextTh:"อย่ารีบกดมั่วจนเสียเวลา",
+        contextEn:"Do not tap randomly and lose time.",
+        correct:"scanner",
+        options:[
+          {id:"scanner",emoji:"🔦",th:"สแกนเพื่อดูหลักฐาน",en:"Scan for evidence"},
+          {id:"wipe",emoji:"🧽",th:"เช็ดทันทีทุกอย่าง",en:"Wipe everything immediately"},
+          {id:"clean",emoji:"🧼",th:"ล้างมือโดยยังไม่รู้ต้นทาง",en:"Clean hands before checking"},
+          {id:"ignore",emoji:"🙈",th:"ปล่อยไว้",en:"Leave it"}
+        ]
+      }
+    ];
+
+    const stage = $("#stage");
+    const targetLayer = $("#target-layer");
+    const trailLayer = $("#trail-layer");
+    const camera = $("#camera");
+    const scanner = $("#scanner");
+    const handCursor = $("#hand-cursor");
+    const statusCard = $("#status-card");
+    const toastEl = $("#toast");
+
+    const game = {
+      lang:"th",
+      input:"touch",
+      difficulty:"normal",
+      running:false,
+      paused:false,
+      cameraOn:false,
+
+      time:75,
+      score:0,
+      combo:0,
+      bestCombo:0,
+      infection:0,
+
+      targets:new Map(),
+      targetId:0,
+
+      lastFrame:0,
+      lastSpawn:0,
+      lastDecision:0,
+
+      boss:false,
+      bossStarted:false,
+      bossHp:100,
+      bossNeeded:0,
+
+      lastPointer:{x:0,y:0,down:false},
+      activeWipe:null,
+      tool:"scanner",
+      result:null,
+
+      stats:{
+        scanHits:0,
+        falseActions:0,
+        chainStops:0,
+        correctActions:0,
+        decisionTotal:0,
+        decisionsCorrect:0,
+        targetHits:0,
+        expired:0,
+        toolUsage:{
+          scanner:0,
+          wipe:0,
+          clean:0,
+          shield:0
+        }
+      },
+
+      cooldowns:{
+        scanner:0,
+        wipe:0,
+        clean:0,
+        shield:0
+      },
+
+      sound:true,
+
+      handLandmarker:null,
+      handReady:false,
+      lastHandDetect:0,
+      pinchDown:false,
+      stream:null
+    };
+
+    const t = (key) => I18N[game.lang][key] ?? key;
+
+    function applyLanguage(){
+      document.documentElement.lang = game.lang;
+
+      $$("[data-t]").forEach((el) => {
+        const key = el.dataset.t;
+        if(I18N[game.lang][key]){
+          el.innerHTML = I18N[game.lang][key];
+        }
+      });
+
+      $("#language-btn").textContent = game.lang === "th" ? "TH / EN" : "EN / TH";
+      $("#brand-sub").textContent = "OUTBREAK ZERO • HeroHealth Hygiene Zone";
+
+      updateHUD();
+    }
+
+    function beep(type="good"){
+      if(!game.sound || !window.AudioContext) return;
+
+      try{
+        const ctx = beep.ctx || (beep.ctx = new AudioContext());
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        const map = {
+          good:[660,.06],
+          bad:[160,.10],
+          boss:[240,.14],
+          ui:[470,.04],
+          scan:[780,.05]
+        };
+
+        const [freq,duration] = map[type] || map.good;
+
+        oscillator.frequency.value = freq;
+        oscillator.type = type === "bad" ? "sawtooth" : "sine";
+
+        gain.gain.setValueAtTime(.045,ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime + duration);
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + duration);
+      }catch(error){}
+    }
+
+    function toast(message){
+      toastEl.textContent = message;
+      toastEl.classList.add("show");
+
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => {
+        toastEl.classList.remove("show");
+      },2100);
+    }
+
+    function setStatus(title,hint=""){
+      statusCard.innerHTML = `<b>${title}</b><br><span>${hint}</span>`;
+    }
+
+    function formatTime(seconds){
+      seconds = Math.max(0,Math.ceil(seconds));
+
+      return `${String(Math.floor(seconds / 60)).padStart(2,"0")}:${String(seconds % 60).padStart(2,"0")}`;
+    }
+
+    function updateHUD(){
+      $("#time-value").textContent = formatTime(game.time);
+      $("#score-value").textContent = Math.max(0,Math.round(game.score)).toLocaleString();
+      $("#combo-value").textContent = `x${game.combo}`;
+      $("#combo-meter").style.width = `${clamp((game.combo / 30) * 100,0,100)}%`;
+
+      $("#infection-value").textContent = `${Math.round(game.infection)}%`;
+      $("#infection-meter").style.width = `${game.infection}%`;
+
+      const infectionStatus =
+        game.infection < 26 ? t("statusSafe") :
+        game.infection < 51 ? t("statusWatch") :
+        game.infection < 76 ? t("statusDanger") :
+        t("statusCritical");
+
+      $("#infection-status").textContent = infectionStatus;
+      $("#boss-meter").style.width = `${Math.max(0,game.bossHp)}%`;
+
+      $$(".tool").forEach((btn) => {
+        const tool = btn.dataset.tool;
+        const remaining = game.cooldowns[tool] || 0;
+
+        btn.classList.toggle("active",tool === game.tool);
+        btn.classList.toggle("cooldown",remaining > 0);
+
+        const cooldownText = $(".cool",btn);
+        cooldownText.textContent = remaining > 0 ? `${remaining.toFixed(1)}s` : "";
+      });
+    }
+
+    function toolLabel(tool){
+      return t({
+        scanner:"scanTag",
+        wipe:"wipeTag",
+        clean:"cleanTag",
+        shield:"shieldTag"
+      }[tool] || "scanTag");
+    }
+
+    function randomTargetKind(){
+      const roll = Math.random();
+      const hard = game.difficulty === "hard";
+      const normal = game.difficulty === "normal";
+
+      if(roll < .10 + (hard ? .07 : 0)) return "decoy";
+      if(roll < .18 + (normal ? .03 : 0) + (hard ? .05 : 0)) return "gold";
+      if(roll < .42) return "sneaky";
+      if(roll < .67) return "sticky";
+      if(roll < .85) return "zippy";
+
+      return "hand";
+    }
+
+    function pickPos(){
+      const tries = 16;
+
+      for(let i=0;i<tries;i++){
+        const x = rand(11,89);
+        const y = rand(22,80);
+
+        let safe = true;
+
+        for(const target of game.targets.values()){
+          if(Math.hypot(target.x - x,target.y - y) < 13){
+            safe = false;
+            break;
+          }
+        }
+
+        if(safe) return {x,y};
+      }
+
+      return {
+        x:rand(10,90),
+        y:rand(25,80)
+      };
+    }
+
+    function trailTo(kind,x,y){
+      const endpoints = {
+        sneaky:[83,33,"→ face"],
+        sticky:[79,76,"→ snack"],
+        zippy:[72,55,"→ hand"],
+        hand:[87,76,"→ food"],
+        boss:[84,38,"→ face"],
+        gold:[50,12,"BONUS"]
+      };
+
+      const [targetX,targetY,label] = endpoints[kind] || [82,72,"→ risk"];
+
+      const dx = targetX - x;
+      const dy = targetY - y;
+      const length = Math.hypot(dx,dy);
+      const angle = Math.atan2(dy,dx) * 180 / Math.PI;
+
+      const el = document.createElement("div");
+      el.className = "trail";
+      el.style.left = `${x}%`;
+      el.style.top = `${y}%`;
+      el.style.width = `${length}%`;
+      el.style.transform = `rotate(${angle}deg)`;
+      el.innerHTML = `<span class="trail-label">${label}</span>`;
+
+      trailLayer.append(el);
+
+      return el;
+    }
+
+    function spawnTarget(kind=null,forced=false){
+      if(!game.running || game.paused) return;
+
+      const cfg = CONFIG[game.difficulty];
+
+      if(!forced && game.targets.size >= cfg.maxTargets) return;
+
+      kind ||= randomTargetKind();
+
+      const meta = TARGETS[kind];
+      const {x,y} = pickPos();
+      const id = ++game.targetId;
+
+      const life =
+        rand(...cfg.life) *
+        (meta.lifeScale || 1) *
+        (game.boss ? .82 : 1);
+
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = `target ${meta.kindClass}${kind === "boss" ? " boss" : ""}`;
+      el.dataset.id = id;
+      el.style.left = `${x}%`;
+      el.style.top = `${y}%`;
+
+      el.innerHTML = `
+        <span class="life"><i></i></span>
+        <span class="glyph">${meta.glyph}</span>
+        <span class="tool-tag">
+          ${kind === "boss" ? `⚡ ${t("boss")}` : meta.tool ? toolLabel(meta.tool) : t(meta.labelKey)}
+        </span>
+      `;
+
+      targetLayer.append(el);
+
+      const target = {
+        id,
+        kind,
+        x,
+        y,
+        el,
+        life,
+        maxLife:life,
+        created:now(),
+        expiresAt:now() + life,
+        trail:kind === "decoy" || kind === "gold" ? null : trailTo(kind,x,y),
+        wipeProgress:0,
+        boss:kind === "boss",
+        vx:kind === "zippy" || kind === "boss" ? rand(-.018,.018) : 0,
+        vy:kind === "zippy" || kind === "boss" ? rand(-.014,.014) : 0
+      };
+
+      game.targets.set(id,target);
+
+      return target;
+    }
+
+    function removeTarget(target){
+      if(!target) return;
+
+      target.el?.remove();
+      target.trail?.remove();
+
+      game.targets.delete(target.id);
+    }
+
+    function clearTargets(){
+      for(const target of game.targets.values()){
+        target.el.remove();
+        target.trail?.remove();
+      }
+
+      game.targets.clear();
+      trailLayer.innerHTML = "";
+    }
+
+    function createPop(x,y,text,type="good"){
+      const el = document.createElement("div");
+
+      el.className = `hit-pop ${type}`;
+      el.style.left = `${x}%`;
+      el.style.top = `${y}%`;
+      el.textContent = text;
+
+      stage.append(el);
+
+      setTimeout(() => el.remove(),700);
+    }
+
+    function pointPercent(event){
+      const rect = stage.getBoundingClientRect();
+
+      return {
+        x:clamp(((event.clientX - rect.left) / rect.width) * 100,0,100),
+        y:clamp(((event.clientY - rect.top) / rect.height) * 100,0,100)
+      };
+    }
+
+    function hitAt(point){
+      let chosen = null;
+      let minDistance = 8.2;
+
+      for(const target of game.targets.values()){
+        const distance = Math.hypot(target.x - point.x,target.y - point.y);
+
+        if(distance < minDistance){
+          minDistance = distance;
+          chosen = target;
+        }
+      }
+
+      if(chosen){
+        interactTarget(chosen,point);
+      }
+    }
+
+    function startWipe(point){
+      if(game.tool !== "wipe") return;
+
+      let chosen = null;
+      let minDistance = 10;
+
+      for(const target of game.targets.values()){
+        if(target.kind !== "sticky") continue;
+
+        const distance = Math.hypot(target.x - point.x,target.y - point.y);
+
+        if(distance < minDistance){
+          minDistance = distance;
+          chosen = target;
+        }
+      }
+
+      if(chosen){
+        game.activeWipe = chosen;
+        chosen.el.classList.add("wiped");
+        beep("ui");
+      }
+    }
+
+    function updateWipe(point,delta=16){
+      const target = game.activeWipe;
+
+      if(!target || !game.targets.has(target.id)) return;
+
+      const distance = Math.hypot(target.x - point.x,target.y - point.y);
+
+      if(distance < 12){
+        target.wipeProgress = clamp(target.wipeProgress + (delta / 600) * 100,0,100);
+
+        target.el.querySelector(".life i").style.width = `${100 - target.wipeProgress}%`;
+
+        if(target.wipeProgress >= 100){
+          resolveTarget(target,point,"perfect");
+        }
+      }else if(distance > 18){
+        game.activeWipe = null;
+        target.el.classList.remove("wiped");
+      }
+    }
+
+    function interactTarget(target,point){
+      if(!game.running || game.paused || !game.targets.has(target.id)) return;
+
+      if(target.kind === "sticky"){
+        if(game.tool === "wipe"){
+          startWipe(point);
+          return;
+        }
+
+        wrongAction(target,point);
+        return;
+      }
+
+      if(target.kind === "decoy"){
+        wrongAction(target,point,true);
+        return;
+      }
+
+      if(target.kind === "boss"){
+        if(game.tool !== target.requiredTool){
+          wrongAction(target,point);
+          return;
+        }
+
+        resolveTarget(target,point,"boss");
+        return;
+      }
+
+      const meta = TARGETS[target.kind];
+
+      if(game.tool === meta.tool){
+        resolveTarget(target,point,target.kind === "gold" ? "gold" : "good");
+      }else{
+        wrongAction(target,point);
+      }
+    }
+
+    function wrongAction(target,point,isDecoy=false){
+      game.stats.falseActions++;
+      game.combo = Math.max(0,game.combo - 3);
+      game.score = Math.max(0,game.score - 40);
+      game.infection = clamp(game.infection + (isDecoy ? 6 : 3),0,100);
+
+      createPop(point.x,point.y,isDecoy ? "DECOY!" : "WRONG TOOL","bad");
+
+      setStatus(
+        isDecoy ? `❌ ${t("wrong")}` : `⚠ ${t("wrong")}`,
+        t("decisionLead")
+      );
+
+      beep("bad");
+
+      if(isDecoy){
+        removeTarget(target);
+      }
+
+      updateHUD();
+    }
+
+    function resolveTarget(target,point,grade="good"){
+      if(!game.targets.has(target.id)) return;
+
+      const meta = TARGETS[target.kind];
+      const comboBonus = game.combo >= 10 ? 30 : 0;
+
+      let points = meta.score + comboBonus;
+
+      if(grade === "gold"){
+        points += 100;
+      }
+
+      if(target.kind === "gold"){
+        game.infection = Math.max(0,game.infection - 4);
+      }
+
+      game.score += points;
+      game.combo++;
+      game.bestCombo = Math.max(game.bestCombo,game.combo);
+
+      game.stats.targetHits++;
+      game.stats.toolUsage[game.tool]++;
+
+      if(target.kind === "sneaky"){
+        game.stats.scanHits++;
+      }
+
+      if(target.kind === "zippy" || target.kind === "boss"){
+        game.stats.chainStops++;
+      }
+
+      createPop(
+        point.x,
+        point.y,
+        grade === "gold"
+          ? `+${points} BONUS!`
+          : `+${points} ${game.combo >= 10 ? "CHAIN!" : "CLEAN!"}`,
+        grade === "gold" ? "gold" : "good"
+      );
+
+      beep(target.kind === "sneaky" ? "scan" : "good");
+
+      removeTarget(target);
+
+      if(target.kind === "boss"){
+        game.bossHp = clamp(
+          game.bossHp - (100 / CONFIG[game.difficulty].bossTargets),
+          0,
+          100
+        );
+
+        game.bossNeeded--;
+
+        if(game.bossNeeded <= 0){
+          game.boss = false;
+
+          $("#boss-hud").classList.remove("show");
+
+          game.score += 500;
+          game.infection = Math.max(0,game.infection - 12);
+
+          createPop(50,47,"BOSS CHAIN STOPPED! +500","gold");
+
+          setStatus(
+            "🏆 Captain Germ stopped!",
+            game.lang === "th"
+              ? "รักษา Combo ให้ต่อเนื่อง"
+              : "Keep your chain going!"
+          );
+        }else{
+          setTimeout(() => spawnBossTarget(),430);
+        }
+      }
+
+      updateHUD();
+    }
+
+    function expireTarget(target){
+      if(!game.targets.has(target.id)) return;
+
+      game.stats.expired++;
+      game.combo = 0;
+
+      const hit =
+        target.kind === "gold"
+          ? 0
+          : CONFIG[game.difficulty].infectionHit + (target.kind === "boss" ? 4 : 0);
+
+      game.infection = clamp(game.infection + hit,0,100);
+
+      createPop(
+        target.x,
+        target.y,
+        target.kind === "gold" ? "MISSED BONUS" : "CHAIN SPREAD!",
+        "bad"
+      );
+
+      beep("bad");
+
+      removeTarget(target);
+
+      setStatus(
+        `🦠 ${game.lang === "th" ? "เชื้อแพร่ต่อแล้ว!" : "The chain spread!"}`,
+        game.lang === "th"
+          ? "หยุดจุดเสี่ยงก่อนถึงอาหารหรือใบหน้า"
+          : "Stop risks before food or face alerts."
+      );
+
+      updateHUD();
+    }
+
+    function spawnBossTarget(){
+      if(!game.running || !game.boss) return;
+
+      const order = ["scanner","wipe","clean","shield"];
+
+      const requiredTool =
+        order[
+          (CONFIG[game.difficulty].bossTargets - game.bossNeeded) % order.length
+        ];
+
+      const target = spawnTarget("boss",true);
+
+      if(!target) return;
+
+      target.requiredTool = requiredTool;
+
+      target.el.querySelector(".glyph").textContent = "👾";
+      target.el.querySelector(".tool-tag").textContent =
+        `${t("boss")} • ${toolLabel(requiredTool)}`;
+
+      target.life *= .88;
+      target.maxLife = target.life;
+      target.expiresAt = now() + target.life;
+    }
+
+    function triggerBoss(){
+      if(game.boss) return;
+
+      game.boss = true;
+      game.bossHp = 100;
+      game.bossNeeded = CONFIG[game.difficulty].bossTargets;
+
+      $("#boss-hud").classList.add("show");
+
+      setStatus(
+        t("bossIncoming"),
+        game.lang === "th"
+          ? "เลือกเครื่องมือให้ถูกในทุกจังหวะ"
+          : "Use the correct tool every time."
+      );
+
+      toast(t("bossIncoming"));
+      beep("boss");
+
+      spawnBossTarget();
+    }
+
+    function pauseForDecision(){
+      if(!game.running || game.paused) return;
+
+      game.paused = true;
+
+      const decision =
+        DECISIONS[Math.floor(Math.random() * DECISIONS.length)];
+
+      game.currentDecision = decision;
+
+      $("#decision-question").textContent =
+        game.lang === "th" ? decision.qTh : decision.qEn;
+
+      $("#decision-context").textContent =
+        game.lang === "th" ? decision.contextTh : decision.contextEn;
+
+      const box = $("#decision-options");
+      box.innerHTML = "";
+
+      decision.options
+        .sort(() => Math.random() - .5)
+        .forEach((option) => {
+          const btn = document.createElement("button");
+
+          btn.className = "decision-option";
+          btn.type = "button";
+
+          btn.innerHTML = `
+            <span>${option.emoji}</span>
+            <span>${game.lang === "th" ? option.th : option.en}</span>
+          `;
+
+          btn.addEventListener("click",() => answerDecision(option.id));
+
+          box.append(btn);
+        });
+
+      $("#decision-overlay").classList.add("show");
+
+      setStatus(
+        `⚡ ${t("pausing")}`,
+        t("decisionLead")
+      );
+    }
+
+    function answerDecision(id){
+      const decision = game.currentDecision;
+
+      if(!decision) return;
+
+      game.stats.decisionTotal++;
+
+      if(id === decision.correct){
+        game.stats.decisionsCorrect++;
+        game.stats.correctActions++;
+
+        game.score += 180 + game.combo * 8;
+        game.combo += 2;
+        game.bestCombo = Math.max(game.bestCombo,game.combo);
+
+        game.infection = Math.max(0,game.infection - 5);
+
+        createPop(50,45,`+180 ${t("correct")}`,"good");
+        beep("good");
+
+        setStatus(
+          `✅ ${t("correct")}`,
+          game.lang === "th"
+            ? "คุณตัดสายความเสี่ยงได้ถูกต้อง"
+            : "You broke the risk path correctly."
+        );
+      }else{
+        game.combo = 0;
+        game.infection = clamp(game.infection + 8,0,100);
+
+        createPop(50,45,t("wrong"),"bad");
+        beep("bad");
+
+        setStatus(
+          `❌ ${t("wrong")}`,
+          game.lang === "th"
+            ? "จำไว้: สิ่งของร่วมกัน → มือ → อาหาร/ใบหน้า"
+            : "Remember: shared surface → hand → food/face."
+        );
+      }
+
+      $("#decision-overlay").classList.remove("show");
+
+      game.paused = false;
+
+      updateHUD();
+    }
+
+    function gameLoop(timestamp){
+      requestAnimationFrame(gameLoop);
+
+      if(!game.running) return;
+
+      const delta = Math.min(100,timestamp - game.lastFrame || 16);
+      game.lastFrame = timestamp;
+
+      if(game.paused) return;
+
+      const cfg = CONFIG[game.difficulty];
+
+      game.time -= delta / 1000;
+
+      for(const [name,value] of Object.entries(game.cooldowns)){
+        if(value > 0){
+          game.cooldowns[name] = Math.max(0,value - delta / 1000);
+        }
+      }
+
+      if(timestamp - game.lastSpawn > cfg.spawnMs){
+        spawnTarget();
+        game.lastSpawn = timestamp;
+      }
+
+      if(game.time <= cfg.bossAt && !game.bossStarted){
+        game.bossStarted = true;
+        triggerBoss();
+      }
+
+      if(game.time <= 0 || game.infection >= 100){
+        endGame(game.infection >= 100 ? "outbreak" : "time");
+        return;
+      }
+
+      for(const target of [...game.targets.values()]){
+        if(target.kind === "zippy" || target.kind === "boss"){
+          target.x += target.vx * delta;
+          target.y += target.vy * delta;
+
+          if(target.x < 7 || target.x > 93) target.vx *= -1;
+          if(target.y < 18 || target.y > 83) target.vy *= -1;
+
+          target.el.style.left = `${target.x}%`;
+          target.el.style.top = `${target.y}%`;
+
+          if(target.trail){
+            target.trail.remove();
+            target.trail = trailTo(target.kind,target.x,target.y);
+          }
+        }
+
+        const remaining =
+          (target.expiresAt - timestamp) / target.maxLife;
+
+        const lifeBar = target.el.querySelector(".life i");
+
+        if(lifeBar){
+          lifeBar.style.width = `${clamp(remaining * 100,0,100)}%`;
+        }
+
+        if(timestamp >= target.expiresAt){
+          expireTarget(target);
+        }
+      }
+
+      if(game.tool === "scanner"){
+        scanner.classList.add("active");
+      }else{
+        scanner.classList.remove("active");
+      }
+
+      updateHUD();
+
+      if(game.handReady && game.input === "hands"){
+        runHandFrame(timestamp);
+      }
+    }
+
+    function beginGame(){
+      game.difficulty = $("#difficulty-select").value;
+
+      const cfg = CONFIG[game.difficulty];
+
+      Object.assign(game,{
+        running:true,
+        paused:false,
+        time:cfg.duration,
+        score:0,
+        combo:0,
+        bestCombo:0,
+        infection:0,
+        targetId:0,
+        lastFrame:now(),
+        lastSpawn:now() - 300,
+
+        boss:false,
+        bossStarted:false,
+        bossHp:100,
+        bossNeeded:0,
+
+        activeWipe:null,
+        tool:"scanner",
+
+        stats:{
+          scanHits:0,
+          falseActions:0,
+          chainStops:0,
+          correctActions:0,
+          decisionTotal:0,
+          decisionsCorrect:0,
+          targetHits:0,
+          expired:0,
+          toolUsage:{
+            scanner:0,
+            wipe:0,
+            clean:0,
+            shield:0
+          }
+        },
+
+        cooldowns:{
+          scanner:0,
+          wipe:0,
+          clean:0,
+          shield:0
+        }
+      });
+
+      clearTargets();
+
+      $("#boss-hud").classList.remove("show");
+      $("#briefing-overlay").classList.add("show");
+
+      $("#briefing-eyebrow").textContent =
+        game.lang === "th"
+          ? "CASE 01 • ห้องเรียนก่อนพัก"
+          : "CASE 01 • BEFORE SNACK TIME";
+
+      $("#briefing-title").textContent = "Classroom Mystery";
+
+      $("#briefing-text").textContent =
+        game.lang === "th"
+          ? "หยุดเชื้อก่อนเดินทางถึงอาหารและใบหน้า"
+          : "Stop the germs before they reach food or face alerts.";
+
+      $("#briefing-tip").textContent = t("tutorialTip");
+
+      let count = 3;
+
+      $("#countdown").textContent = count;
+
+      const timer = setInterval(() => {
+        count--;
+
+        $("#countdown").textContent = count > 0 ? count : "GO!";
+
+        if(count < 0){
+          clearInterval(timer);
+
+          $("#briefing-overlay").classList.remove("show");
+
+          setStatus(
+            `🕵️ ${game.lang === "th" ? "เริ่มสืบคดี!" : "Case started!"}`,
+            game.lang === "th"
+              ? "รักษา Infection Meter ให้ต่ำ"
+              : "Keep Infection Meter low."
+          );
+
+          spawnTarget("sneaky",true);
+          spawnTarget("sticky",true);
+
+          updateHUD();
+        }
+      },760);
+    }
+
+    function endGame(reason){
+      if(!game.running) return;
+
+      game.running = false;
+      game.paused = true;
+
+      clearTargets();
+
+      $("#boss-hud").classList.remove("show");
+
+      const decisionRate =
+        game.stats.decisionTotal
+          ? Math.round((game.stats.decisionsCorrect / game.stats.decisionTotal) * 100)
+          : 0;
+
+      const controlled =
+        game.infection < 55 && reason !== "outbreak";
+
+      let rank;
+      let hero;
+      let title;
+      let summary;
+
+      if(controlled && game.infection < 25 && game.bestCombo >= 12){
+        rank = "🏆 Outbreak Zero Hero";
+        hero = "🏆";
+        title = game.lang === "th"
+          ? "คุณควบคุมการระบาดได้ยอดเยี่ยม!"
+          : "Outbreak Zero achieved!";
+
+        summary = game.lang === "th"
+          ? "คุณจัดลำดับจุดเสี่ยงได้ดี และหยุดสายการแพร่เชื้อได้ทันเวลา"
+          : "You prioritized dangerous chains and stopped them in time.";
+      }else if(controlled){
+        rank = "🛡️ Clean Guardian";
+        hero = "🛡️";
+        title = t("controlled");
+
+        summary = game.lang === "th"
+          ? "คุณช่วยป้องกันไม่ให้เชื้อส่วนใหญ่ไปถึงจุดอันตราย"
+          : "You prevented most germs from reaching risky endpoints.";
+      }else{
+        rank = "🔎 Field Detective";
+        hero = "🔎";
+        title = t("failed");
+
+        summary = game.lang === "th"
+          ? "รอบหน้าให้หยุดเชื้อที่มุ่งไปหาอาหารและใบหน้าก่อนเก็บคะแนนโบนัส"
+          : "Next round, stop chains headed for food and face before chasing bonuses.";
+      }
+
+      game.result = {
+        version:"germ-detective-ar-v1",
+        gameId:"germ-detective-ar",
+        caseId:"classroom-mystery",
+        timestamp:new Date().toISOString(),
+        timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
+        language:game.lang,
+        inputMode:game.input,
+        difficulty:game.difficulty,
+        durationSeconds:CONFIG[game.difficulty].duration,
+        endReason:reason,
+        score:Math.round(game.score),
+        bestCombo:game.bestCombo,
+        infectionControl:Math.round(100 - game.infection),
+        infectionRemaining:Math.round(game.infection),
+        scanHits:game.stats.scanHits,
+        falseActions:game.stats.falseActions,
+        chainStops:game.stats.chainStops,
+
+        correctActionRate:
+          game.stats.targetHits
+            ? Math.round(
+                (game.stats.targetHits /
+                  (game.stats.targetHits + game.stats.falseActions)) * 100
+              )
+            : 0,
+
+        decisionRate,
+        decisionsCorrect:game.stats.decisionsCorrect,
+        decisionTotal:game.stats.decisionTotal,
+        targetsHandled:game.stats.targetHits,
+        targetsExpired:game.stats.expired,
+        toolUsage:game.stats.toolUsage,
+        rank
+      };
+
+      $("#result-hero").textContent = hero;
+      $("#rank-badge").textContent = rank;
+      $("#result-title").textContent = title;
+      $("#result-summary").textContent = summary;
+
+      $("#result-score").textContent =
+        Math.round(game.score).toLocaleString();
+
+      $("#result-combo").textContent = `x${game.bestCombo}`;
+      $("#result-decisions").textContent = `${decisionRate}%`;
+      $("#result-infection").textContent = `${Math.round(100 - game.infection)}%`;
+
+      $("#sync-note").textContent = saveResult(game.result);
+
+      $("#result-overlay").classList.add("show");
+    }
+
+    function saveResult(payload){
+      try{
+        const all = JSON.parse(
+          localStorage.getItem("herohealth.germDetective.results") || "[]"
+        );
+
+        all.unshift(payload);
+
+        localStorage.setItem(
+          "herohealth.germDetective.results",
+          JSON.stringify(all.slice(0,30))
+        );
+      }catch(error){}
+
+      try{
+        let finalPayload = payload;
+
+        if(window.HeroHealthStudentContext?.apply){
+          finalPayload =
+            window.HeroHealthStudentContext.apply({...payload});
+        }
+
+        window.dispatchEvent(
+          new CustomEvent("herohealth:game-result",{
+            detail:finalPayload
+          })
+        );
+
+        if(window.HeroHealthResultSync?.send){
+          window.HeroHealthResultSync.send(finalPayload);
+        }
+      }catch(error){
+        console.warn("Result bridge not available",error);
+      }
+
+      return game.lang === "th"
+        ? "บันทึกผลไว้ในเครื่องแล้ว พร้อมเชื่อม Student Context / Google Sheets ในไฟล์ bridge ถัดไป"
+        : "Saved locally. Ready for Student Context / Google Sheets bridge integration.";
+    }
+
+    function exportCSV(){
+      if(!game.result){
+        toast(game.lang === "th" ? "ยังไม่มีผลการเล่น" : "No result to export");
+        return;
+      }
+
+      const flat = {
+        ...game.result,
+        toolUsage:JSON.stringify(game.result.toolUsage)
+      };
+
+      const keys = Object.keys(flat);
+
+      const escapeCell = (value) =>
+        `"${String(value ?? "").replaceAll('"','""')}"`;
+
+      const csv =
+        `${keys.join(",")}\n` +
+        `${keys.map((key) => escapeCell(flat[key])).join(",")}\n`;
+
+      const blob = new Blob([csv],{
+        type:"text/csv;charset=utf-8"
+      });
+
+      const anchor = document.createElement("a");
+      anchor.href = URL.createObjectURL(blob);
+      anchor.download =
+        `germ-detective-${new Date().toISOString().slice(0,10)}.csv`;
+
+      anchor.click();
+
+      URL.revokeObjectURL(anchor.href);
+
+      toast(game.lang === "th" ? "ส่งออกผลแล้ว" : "Result exported");
+    }
+
+    async function enableCamera(){
+      if(game.cameraOn){
+        toast(game.lang === "th" ? "กล้องพร้อมใช้งานแล้ว" : "Camera is already ready");
+        return true;
+      }
+
+      try{
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video:{
+            facingMode:{ideal:"user"},
+            width:{ideal:1280},
+            height:{ideal:720}
+          },
+          audio:false
+        });
+
+        game.stream = stream;
+        camera.srcObject = stream;
+
+        await camera.play();
+
+        game.cameraOn = true;
+        stage.classList.add("camera-on");
+
+        toast(t("cameraReady"));
+
+        return true;
+      }catch(error){
+        console.warn(error);
+        toast(t("cameraFail"));
+
+        return false;
+      }
+    }
+
+    async function startHandTracking(){
+      const cameraReady = await enableCamera();
+
+      if(!cameraReady) return;
+
+      try{
+        if(!game.handLandmarker){
+          const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+          );
+
+          game.handLandmarker =
+            await HandLandmarker.createFromOptions(vision,{
+              baseOptions:{
+                modelAssetPath:
+                  "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                delegate:"GPU"
+              },
+
+              runningMode:"VIDEO",
+              numHands:1,
+              minHandDetectionConfidence:.55,
+              minHandPresenceConfidence:.5,
+              minTrackingConfidence:.5
+            });
+        }
+
+        game.handReady = true;
+
+        toast(t("handsReady"));
+
+        setStatus(
+          "✋ Hand Tracking",
+          game.lang === "th"
+            ? "ใช้นิ้วชี้เล็ง และบีบนิ้วเพื่อกด"
+            : "Point to aim; pinch to tap."
+        );
+      }catch(error){
+        console.warn(error);
+
+        game.handReady = false;
+        game.input = "touch";
+
+        $$(".mode-btn").forEach((btn) => {
+          btn.classList.toggle("selected",btn.dataset.mode === "touch");
+        });
+
+        toast(t("handsFail"));
+      }
+    }
+
+    function runHandFrame(timestamp){
+      if(
+        !game.handLandmarker ||
+        camera.readyState < 2 ||
+        timestamp - game.lastHandDetect < 55
+      ){
+        return;
+      }
+
+      game.lastHandDetect = timestamp;
+
+      try{
+        const result =
+          game.handLandmarker.detectForVideo(camera,timestamp);
+
+        const landmarks = result.landmarks?.[0];
+
+        if(!landmarks?.length){
+          handCursor.classList.remove("active");
+          game.pinchDown = false;
+          return;
+        }
+
+        const indexFinger = landmarks[8];
+        const thumb = landmarks[4];
+
+        const point = {
+          x:clamp((1 - indexFinger.x) * 100,0,100),
+          y:clamp(indexFinger.y * 100,0,100)
+        };
+
+        handCursor.classList.add("active");
+        handCursor.style.left = `${point.x}%`;
+        handCursor.style.top = `${point.y}%`;
+
+        const pinch =
+          Math.hypot(
+            indexFinger.x - thumb.x,
+            indexFinger.y - thumb.y
+          ) < .06;
+
+        handCursor.classList.toggle("pinch",pinch);
+
+        if(pinch && !game.pinchDown){
+          game.pinchDown = true;
+
+          game.lastPointer = {
+            ...point,
+            down:true
+          };
+
+          if(game.tool === "wipe"){
+            startWipe(point);
+          }else{
+            hitAt(point);
+          }
+        }
+
+        if(pinch && game.tool === "wipe"){
+          updateWipe(point,65);
+        }
+
+        if(!pinch){
+          game.pinchDown = false;
+          game.activeWipe = null;
+        }
+
+        if(game.tool === "scanner"){
+          scanner.style.left = `${point.x}%`;
+          scanner.style.top = `${point.y}%`;
+        }
+      }catch(error){
+        /* Ignore occasional camera/video frame errors */
+      }
+    }
+
+    function setTool(tool){
+      if(!["scanner","wipe","clean","shield"].includes(tool)) return;
+
+      game.tool = tool;
+      game.activeWipe = null;
+
+      const icons = {
+        scanner:"🔦",
+        wipe:"🧽",
+        clean:"🧼",
+        shield:"🛡️"
+      };
+
+      const hint =
+        tool === "scanner"
+          ? (game.lang === "th"
+              ? "เล็งและแตะเชื้อที่ซ่อน"
+              : "Aim and tap hidden germs")
+          : tool === "wipe"
+            ? (game.lang === "th"
+                ? "ลากบนคราบเหนียวจนแถบหมด"
+                : "Drag across sticky stains until cleared")
+            : tool === "clean"
+              ? (game.lang === "th"
+                  ? "แตะเชื้อที่อยู่บนมือ"
+                  : "Tap germs on hands")
+              : (game.lang === "th"
+                  ? "แตะเชื้อกระโดดให้ทัน"
+                  : "Tap fast jump germs in time");
+
+      setStatus(`${icons[tool]} ${toolLabel(tool)}`,hint);
+
+      updateHUD();
+    }
+
+    stage.addEventListener("pointerdown",(event) => {
+      if(!game.running || game.paused) return;
+      if(event.target.closest("button:not(.target)")) return;
+
+      const point = pointPercent(event);
+
+      game.lastPointer = {
+        ...point,
+        down:true
+      };
+
+      if(game.tool === "scanner"){
+        scanner.style.left = `${point.x}%`;
+        scanner.style.top = `${point.y}%`;
+      }
+
+      if(game.tool === "wipe"){
+        startWipe(point);
+      }else{
+        hitAt(point);
+      }
+
+      stage.setPointerCapture?.(event.pointerId);
+    });
+
+    stage.addEventListener("pointermove",(event) => {
+      const point = pointPercent(event);
+
+      game.lastPointer = {
+        ...point,
+        down:game.lastPointer.down
+      };
+
+      if(game.tool === "scanner"){
+        scanner.style.left = `${point.x}%`;
+        scanner.style.top = `${point.y}%`;
+      }
+
+      if(game.lastPointer.down && game.tool === "wipe"){
+        updateWipe(point,18);
+      }
+    });
+
+    stage.addEventListener("pointerup",() => {
+      game.lastPointer.down = false;
+      game.activeWipe = null;
+    });
+
+    stage.addEventListener("pointercancel",() => {
+      game.lastPointer.down = false;
+      game.activeWipe = null;
+    });
+
+    window.addEventListener("keydown",(event) => {
+      if(event.key >= "1" && event.key <= "4"){
+        setTool(["scanner","wipe","clean","shield"][Number(event.key) - 1]);
+      }
+
+      if(event.key === "Escape" && game.running && !game.paused){
+        pauseForDecision();
+      }
+    });
+
+    $$(".tool").forEach((btn) => {
+      btn.addEventListener("click",() => {
+        setTool(btn.dataset.tool);
+      });
+    });
+
+    $$(".mode-btn").forEach((btn) => {
+      btn.addEventListener("click",async() => {
+        game.input = btn.dataset.mode;
+
+        $$(".mode-btn").forEach((button) => {
+          button.classList.toggle("selected",button === btn);
+        });
+
+        if(game.input === "camera"){
+          await enableCamera();
+        }
+
+        if(game.input === "hands"){
+          await startHandTracking();
+        }
+      });
+    });
+
+    $("#language-btn").addEventListener("click",() => {
+      game.lang = game.lang === "th" ? "en" : "th";
+      applyLanguage();
+    });
+
+    $("#sound-btn").addEventListener("click",() => {
+      game.sound = !game.sound;
+
+      $("#sound-btn").textContent = game.sound ? "🔊" : "🔇";
+
+      toast(
+        game.sound
+          ? (game.lang === "th" ? "เปิดเสียงแล้ว" : "Sound on")
+          : (game.lang === "th" ? "ปิดเสียงแล้ว" : "Sound off")
+      );
+    });
+
+    $("#help-btn").addEventListener("click",() => {
+      if(game.running && !game.paused){
+        pauseForDecision();
+      }else{
+        toast(
+          game.lang === "th"
+            ? "กด 1–4 เพื่อเลือกอุปกรณ์ หรือใช้ Touch/Mouse/Hand Tracking"
+            : "Press 1–4 for tools, or use Touch/Mouse/Hand Tracking."
+        );
+      }
+    });
+
+    $("#camera-btn").addEventListener("click",enableCamera);
+
+    $("#start-btn").addEventListener("click",() => {
+      $("#start-overlay").classList.remove("show");
+      beginGame();
+    });
+
+    $("#replay-btn").addEventListener("click",() => {
+      $("#result-overlay").classList.remove("show");
+      beginGame();
+    });
+
+    $("#csv-btn").addEventListener("click",exportCSV);
+
+    $("#home-btn").addEventListener("click",() => {
+      $("#result-overlay").classList.remove("show");
+      $("#start-overlay").classList.add("show");
+      game.paused = false;
+    });
+
+    applyLanguage();
+    updateHUD();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
