@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Survey Validation Final | v20260620-rb-survey-validation-final -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Student Context + Identity Payload | v20260620-rb-single-session-postsurvey-lock -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -9,6 +9,9 @@
   <link rel="shortcut icon" href="/webxr-health-mobile/herohealth/favicon.ico?v=20260619" />
   <meta name="theme-color" content="#ff9dcf" />
   <meta name="color-scheme" content="light" />
+
+  <!-- Student identity + Bangkok timestamp bridge. Load before game code. -->
+  <script src="./fitness-student-context-bridge.js?v=20260620-v2"></script>
 
   <!-- Body tracking: MediaPipe Pose. Touch/keyboard still works if CDN or camera fails. -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
@@ -572,45 +575,6 @@
 .survey-status.done{color:#166534}
 @media (max-width:820px){.survey-grid{grid-template-columns:1fr}.pain-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.survey-head{flex-direction:column}}
 
-
-/* === Survey Validation Final v20260620 === */
-.survey-confirm-card{
-  background:linear-gradient(180deg,#fffdf5,#fff9ed);
-}
-.confirm-zero-row{
-  display:flex!important;
-  align-items:flex-start;
-  gap:9px;
-  cursor:pointer;
-  line-height:1.38;
-}
-.confirm-zero-row input{
-  width:auto!important;
-  min-height:auto!important;
-  margin-top:2px;
-  transform:scale(1.16);
-}
-.survey-validation{
-  margin-top:8px;
-  border-radius:12px;
-  padding:8px 10px;
-  color:#9a3412;
-  background:#fff7ed;
-  border:1px solid #fed7aa;
-  font-size:.78rem;
-  font-weight:900;
-}
-.survey-validation.ok{
-  color:#166534;
-  background:#f0fdf4;
-  border-color:#86efac;
-}
-.survey-validation.error{
-  color:#b91c1c;
-  background:#fef2f2;
-  border-color:#fecaca;
-}
-
 </style>
 </head>
 <body>
@@ -634,7 +598,7 @@
       <span class="chip">Sport Science</span>
       <span class="chip">Syntax Stable</span>
       <span class="chip">Research Polish</span>
-      <span class="chip">Post Survey Required</span>
+      <span class="chip">Post Survey • Single Sheet Row</span>
     </div>
   </header>
 
@@ -820,17 +784,6 @@
             </div>
           </div>
 
-
-          <div class="survey-card wide survey-confirm-card">
-            <label class="confirm-zero-row">
-              <input type="checkbox" id="noSymptomsConfirmed" />
-              <span><b>ยืนยันว่าไม่เหนื่อยและไม่มีอาการผิดปกติ</b> ใช้กรณีเลือก RPE = 0 และไม่ติ๊กอาการปวดเท่านั้น</span>
-            </label>
-            <div id="surveyValidationHint" class="survey-validation">
-              โปรดเลื่อน RPE อย่างน้อย 1 ครั้ง หรือเลือกยืนยันว่า “ไม่เหนื่อยและไม่มีอาการผิดปกติ” ก่อนบันทึก
-            </div>
-          </div>
-
           <div class="survey-card wide">
             <label for="painNoteInput">หมายเหตุครู/ผู้เล่น</label>
             <textarea id="painNoteInput" rows="2" placeholder="เช่น เหนื่อยเล็กน้อย, กล้องจับไม่เต็มตัว, ปวดไหล่, ควรพักก่อนเล่นรอบถัดไป"></textarea>
@@ -864,10 +817,109 @@
   const qs = (k,d='')=>{try{return new URL(location.href).searchParams.get(k) ?? d}catch(_){return d}};
   const qbool = (k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
 
-  const RB_VERSION = 'v20260620-rb-survey-validation-final';
+  const RB_VERSION = 'v20260620-rb-student-context-v1';
   const RB_GAME_ID = 'rhythmboxer';
   const RB_DEFAULT_HUB = './';
   const RB_DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
+
+  /* =========================================================
+   * Student Identity Context
+   * Priority:
+   * 1) URL / Fitness Hub context: studentId, studentName, classId, playerId
+   * 2) Stored FitnessStudentContext
+   * 3) Existing player input as stable playerId fallback
+   * ========================================================= */
+  const rbClean = value => String(value == null ? '' : value).trim();
+
+  function rbBangkokNow(){
+    try{
+      return new Date().toLocaleString('sv-SE', {
+        timeZone:'Asia/Bangkok',
+        hour12:false
+      }).replace(' ', 'T');
+    }catch(_){
+      return new Date().toISOString();
+    }
+  }
+
+  function rbMakeId(prefix='RB'){
+    try{
+      if(W.crypto && typeof W.crypto.randomUUID === 'function'){
+        return prefix + '-' + W.crypto.randomUUID();
+      }
+    }catch(_){}
+    return prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,10);
+  }
+
+  function rbStudentContext(){
+    let saved = {};
+    try{
+      if(W.FitnessStudentContext && typeof W.FitnessStudentContext.get === 'function'){
+        saved = W.FitnessStudentContext.get() || {};
+      }
+    }catch(_){}
+
+    return {
+      studentId: rbClean(saved.studentId || qs('studentId', qs('sid',''))),
+      studentName: rbClean(saved.studentName || qs('studentName', qs('name',''))),
+      classId: rbClean(saved.classId || qs('classId', qs('class', qs('classGroup', qs('group',''))))),
+      section: rbClean(saved.section || qs('section', qs('sec',''))),
+      playerId: rbClean(saved.playerId || qs('playerId', qs('pid','')))
+    };
+  }
+
+  function rbPersistStudentContext(playerInput=''){
+    const ctx = rbStudentContext();
+    const typed = rbClean(playerInput || (els && els.pid ? els.pid.value : '') || S.pid);
+    const patch = {
+      studentId: ctx.studentId,
+      studentName: ctx.studentName || (/^player\d+$/i.test(typed) ? '' : typed),
+      classId: ctx.classId,
+      section: ctx.section,
+      playerId: ctx.playerId || typed
+    };
+
+    try{
+      if(W.FitnessStudentContext && typeof W.FitnessStudentContext.save === 'function'){
+        W.FitnessStudentContext.save(patch);
+      }
+    }catch(_){}
+
+    return Object.assign({}, ctx, patch);
+  }
+
+  function rbApplyStudentContext(payload={}){
+    const ctx = rbPersistStudentContext(payload.pid || payload.playerId || S.pid || '');
+    const timestamp = rbClean(payload.timestamp || payload.tsIso) || new Date().toISOString();
+
+    const seeded = Object.assign({}, payload, {
+      game: payload.game || RB_GAME_ID,
+      gameId: payload.gameId || RB_GAME_ID,
+      timestamp,
+      timestampLocal: rbClean(payload.timestampLocal || payload.localTimestamp) || rbBangkokNow(),
+      studentId: rbClean(payload.studentId || ctx.studentId),
+      studentName: rbClean(payload.studentName || ctx.studentName || (/^player\d+$/i.test(ctx.playerId) ? '' : ctx.playerId)),
+      playerId: rbClean(payload.playerId || ctx.playerId || payload.pid || S.pid),
+      classId: rbClean(payload.classId || ctx.classId),
+      classGroup: rbClean(payload.classGroup || payload.group || ctx.classId),
+      section: rbClean(payload.section || ctx.section)
+    });
+
+    try{
+      if(W.FitnessStudentContext && typeof W.FitnessStudentContext.apply === 'function'){
+        const applied = W.FitnessStudentContext.apply(seeded) || seeded;
+        return Object.assign({}, seeded, applied, {
+          game: applied.game || RB_GAME_ID,
+          gameId: applied.gameId || RB_GAME_ID,
+          timestamp: applied.timestamp || timestamp,
+          timestampLocal: applied.timestampLocal || rbBangkokNow()
+        });
+      }
+    }catch(_){}
+
+    return seeded;
+  }
+
 
   function rbAbsUrl(raw, fallback=RB_DEFAULT_HUB){
     try{
@@ -887,15 +939,22 @@
   }
 
   function rbMeta(){
+    const ctx = rbStudentContext();
     return {
       version: RB_VERSION,
       gameId: RB_GAME_ID,
+      game: RB_GAME_ID,
       url: location.href,
       hub: rbHubUrl(),
       userAgent: navigator.userAgent || '',
-      section: qs('section', qs('sec','')),
+      studentId: ctx.studentId,
+      studentName: ctx.studentName,
+      playerId: ctx.playerId,
+      identitySource: ctx.studentId ? 'studentId' : (ctx.playerId ? 'playerId' : 'nameOnly'),
+      section: ctx.section,
       group: qs('group',''),
-      classId: qs('classId', qs('class','')),
+      classId: ctx.classId,
+      classGroup: ctx.classId,
       planDay: qs('planDay',''),
       planSlot: qs('planSlot','')
     };
@@ -903,13 +962,21 @@
 
   function rbGoHub(extra={}){
     try{
+      const ctx = rbStudentContext();
+      const carry = Object.assign({
+        studentId:ctx.studentId,
+        studentName:ctx.studentName,
+        playerId:ctx.playerId || S.pid,
+        classId:ctx.classId,
+        section:ctx.section
+      }, extra || {});
       const u = new URL(rbHubUrl(), location.href);
       u.searchParams.set('fromGame', RB_GAME_ID);
       u.searchParams.set('game', RB_GAME_ID);
       u.searchParams.set('return', '1');
       u.searchParams.set('v', RB_VERSION);
-      Object.keys(extra || {}).forEach(k=>{
-        if(extra[k] !== undefined && extra[k] !== null && extra[k] !== '') u.searchParams.set(k, String(extra[k]));
+      Object.keys(carry).forEach(k=>{
+        if(carry[k] !== undefined && carry[k] !== null && carry[k] !== '') u.searchParams.set(k, String(carry[k]));
       });
       location.href = u.toString();
     }catch(_){
@@ -926,21 +993,30 @@
 
   function rbStoreLastSummary(payload){
     try{
+      payload = rbApplyStudentContext(payload || {});
       const summary = {
         ...payload,
         game: RB_GAME_ID,
-        timestampIso: new Date().toISOString(),
+        gameId: RB_GAME_ID,
+        timestampIso: payload.timestamp || new Date().toISOString(),
+        timestampLocal: payload.timestampLocal || rbBangkokNow(),
         __extraJson: JSON.stringify(rbMeta())
       };
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      localStorage.setItem('HHA_LAST_SUMMARY:rhythmboxer:' + (payload.pid || 'anon'), JSON.stringify(summary));
+      localStorage.setItem('HHA_LAST_SUMMARY:rhythmboxer:' + (payload.playerId || payload.pid || 'anon'), JSON.stringify(summary));
       window.parent && window.parent.postMessage({type:'HHA_GAME_RESULT', game:RB_GAME_ID, payload:summary}, '*');
     }catch(_){}
   }
 
   async function rbSubmitSession(payload){
+    payload = rbApplyStudentContext(payload || {});
     const api = rbApiUrl();
-    console.log('[RB][Sheets] api=', api);
+    console.log('[RB][Sheets] api=', api, {
+      studentId:payload.studentId || '',
+      playerId:payload.playerId || '',
+      classId:payload.classId || '',
+      timestampLocal:payload.timestampLocal || ''
+    });
     if(!api){
       rbSetSubmitStatus('บันทึกในเครื่องแล้ว • ยังไม่ได้ตั้งค่า Google Sheets auto submit', 'warn');
       return false;
@@ -948,7 +1024,10 @@
 
     const body = {
       type:'rhythm_boxer_session',
+      api:'fitness',
+      action:'saveFitnessResult',
       game: RB_GAME_ID,
+      gameId: RB_GAME_ID,
       version: RB_VERSION,
       meta: rbMeta(),
       payload
@@ -994,11 +1073,12 @@
     resCombo:$('resCombo'), resBody:$('resBody'), resMiss:$('resMiss'), resBoss:$('resBoss'), resFlowCombo:$('resFlowCombo'), resNoise:$('resNoise'), quality:$('quality'),
     btnAgain:$('btnAgain'), btnMenu2:$('btnMenu2'), btnCsvSession:$('btnCsvSession'), btnCsvEvents:$('btnCsvEvents'), submitStatus:$('submitStatus'),
     sportIndexBadge:$('sportIndexBadge'), ssRhythm:$('ssRhythm'), ssMovement:$('ssMovement'), ssBalance:$('ssBalance'), ssFatigue:$('ssFatigue'), ssLR:$('ssLR'), ssSpeed:$('ssSpeed'), ssDrop:$('ssDrop'), ssTracking:$('ssTracking'),
-    rpeInput:$('rpeInput'), rpeValue:$('rpeValue'), painShoulder:$('painShoulder'), painArm:$('painArm'), painWrist:$('painWrist'), painBack:$('painBack'), painKnee:$('painKnee'), dizzy:$('dizzy'), painNoteInput:$('painNoteInput'), sendSurveyBtn:$('sendSurveyBtn'), surveyStatus:$('surveyStatus'), surveyBadge:$('surveyBadge'), noSymptomsConfirmed:$('noSymptomsConfirmed'), surveyValidationHint:$('surveyValidationHint')
+    rpeInput:$('rpeInput'), rpeValue:$('rpeValue'), painShoulder:$('painShoulder'), painArm:$('painArm'), painWrist:$('painWrist'), painBack:$('painBack'), painKnee:$('painKnee'), dizzy:$('dizzy'), painNoteInput:$('painNoteInput'), sendSurveyBtn:$('sendSurveyBtn'), surveyStatus:$('surveyStatus'), surveyBadge:$('surveyBadge')
   };
 
   const S = {
     running:false, mode:'touch', diff:'normal', timeSec:60, pid:'player01',
+    sessionId:'', roundId:'',
     t0:0,tEnd:0,tLast:0,lastBeat:-1, rng:Math.random,
     notes:[], nextId:1,
     score:0, combo:0, maxCombo:0, flowCombo:0, maxFlowCombo:0, comboBreaks:0, shots:0, hits:0, perfect:0, great:0, good:0, miss:0,
@@ -1007,7 +1087,8 @@
     blank:0, spam:0, bodyPunches:0, fever:0, feverOn:false, phase:'warmup',
     xp:0, level:1, perfectChain:0, powerHits:0, bossHits:0, hypeLast:0, newBest:false,
     boss:{active:false,hp:24,hpMax:24,clear:false,window:false,lastWindow:0},
-    events:[], sessions:[], offsets:[], survey:{rpeTouched:false,saved:false},
+    events:[], sessions:[], offsets:[],
+    pendingSubmitRoundId:'', submittedRoundId:'',
     lastLaneTap:[0,0,0,0,0],
     body:{visible:false,lastSeen:0, last:{left:null,right:null}, armed:{left:true,right:true}, lastPunch:{left:0,right:0}, facing:'user'}
   };
@@ -1747,7 +1828,7 @@
   function reset(){
     S.running=false; S.t0=0; S.tEnd=0; S.lastBeat=-1; S.notes=[]; S.nextId=1;
     S.score=0;S.combo=0;S.maxCombo=0;S.flowCombo=0;S.maxFlowCombo=0;S.comboBreaks=0;S.shots=0;S.hits=0;S.perfect=0;S.great=0;S.good=0;S.miss=0;S.blank=0;S.spam=0;S.bodyPunches=0;S.leftAttempts=0;S.rightAttempts=0;S.leftHits=0;S.rightHits=0;S.leftMisses=0;S.rightMisses=0;S.earlyHits=0;S.lateHits=0;S.onTimeHits=0;S.speedSamples=[];S.extensionSamples=[];S.hitRecords=[];S.poseFrames=0;S.poseVisibleFrames=0;S.trackingLostCount=0;S.lastPoseVisible=false;
-    S.survey={rpeTouched:false,saved:false};S.fever=0;S.feverOn=false;S.phase='warmup';S.events=[];S.offsets=[];S.lastLaneTap=[0,0,0,0,0];S.missStreak=0;S.bodyAttempts=0;S.bodyNoise=0;S.missStreak=0;
+    S.fever=0;S.feverOn=false;S.phase='warmup';S.events=[];S.offsets=[];S.pendingSubmitRoundId='';S.submittedRoundId='';S.lastLaneTap=[0,0,0,0,0];S.missStreak=0;S.bodyAttempts=0;S.bodyNoise=0;S.missStreak=0;
     S.boss={active:false,hp:(S.diff==='easy'?8:S.diff==='hard'?22:14),hpMax:(S.diff==='easy'?8:S.diff==='hard'?22:14),clear:false,window:false,lastWindow:0};
     laneEls().forEach(l=>Array.from(l.querySelectorAll('.note')).forEach(n=>n.remove()));
     els.bossCard.classList.add('hidden');
@@ -1770,6 +1851,9 @@
   async function start(mode){
     actx();
     S.mode=mode; S.diff=els.diff.value; S.timeSec=Number(els.timeSec.value)||60; S.pid=els.pid.value.trim()||'player01';
+    rbPersistStudentContext(S.pid);
+    S.sessionId=rbMakeId('RBSESSION');
+    S.roundId=rbMakeId('RBROUND');
     applyLaneMode(); reset(); show('play'); initUltimateHud(); updateUltimateHud();
     if(mode==='body') await startCamera(true);
     countdown(()=>{
@@ -1839,7 +1923,20 @@
     payload.newBest = S.newBest ? 1 : 0;
     S.sessions.push(payload);
     rbStoreLastSummary(payload);
-    rbSubmitSession(payload);
+
+    // One game = one Sheets row. The final POST happens only after RPE/Pain is saved.
+    S.pendingSubmitRoundId = String(payload.roundId || '');
+    S.submittedRoundId = '';
+    rbSetSubmitStatus('กรอก RPE/Pain แล้วกด “บันทึกแบบประเมินหลังเล่น” เพื่อส่งผลเพียง 1 แถว', 'warn');
+    if(els.surveyStatus){
+      els.surveyStatus.classList.remove('hidden','done');
+      els.surveyStatus.textContent = 'ต้องบันทึก RPE/Pain ก่อน ระบบจะส่งผลรอบนี้เพียง 1 แถว';
+    }
+    if(els.surveyBadge){
+      els.surveyBadge.textContent = 'รอบันทึกแบบประเมิน';
+      els.surveyBadge.classList.remove('done');
+    }
+
     els.resScore.textContent=payload.score;
     els.resRank.textContent=rank;
     els.resStars.textContent='⭐'.repeat(Math.max(1,stars));
@@ -1865,7 +1962,6 @@
       '</div>';
     logEvent('end',{reason,rank,stars});
     if(qbool('arAutoStop',true)) stopCamera();
-    resetPostSurveyUI();
     show('result');
   }
 
@@ -1879,23 +1975,10 @@
       knee: !!(els.painKnee && els.painKnee.checked),
       dizzy: !!(els.dizzy && els.dizzy.checked)
     };
-
     const painCount = Object.values(pain).filter(Boolean).length;
     const rpe = els.rpeInput ? Number(els.rpeInput.value || 0) : 0;
-    const rpeTouched = !!(S.survey && S.survey.rpeTouched);
-    const noSymptomsConfirmed = !!(els.noSymptomsConfirmed && els.noSymptomsConfirmed.checked);
-    const rpeAnswered = rpeTouched || noSymptomsConfirmed;
-
     return {
       rpe,
-      rpeAnswered: rpeAnswered ? 1 : 0,
-      noSymptomsConfirmed: noSymptomsConfirmed ? 1 : 0,
-      surveyResponseState: noSymptomsConfirmed
-        ? 'confirmed_zero'
-        : rpeTouched
-          ? 'scale_selected'
-          : 'unanswered',
-      surveyComplete: rpeAnswered ? 1 : 0,
       painShoulder: pain.shoulder ? 1 : 0,
       painArm: pain.arm ? 1 : 0,
       painWrist: pain.wrist ? 1 : 0,
@@ -1910,125 +1993,46 @@
   }
 
 
-
-  function surveyPainCount(){
-    return [
-      els.painShoulder, els.painArm, els.painWrist,
-      els.painBack, els.painKnee, els.dizzy
-    ].filter(el => !!(el && el.checked)).length;
-  }
-
-  function updateSurveyValidationUI(forceMessage=''){
-    if(!els.surveyValidationHint) return;
-
-    const ps = postSurveyPayload();
-    let message = forceMessage;
-    let state = '';
-
-    if(!message){
-      if(ps.noSymptomsConfirmed && (ps.rpe !== 0 || ps.painAny)){
-        message = 'การยืนยันว่าไม่เหนื่อย ใช้ได้เมื่อ RPE = 0 และไม่มีอาการปวด/เวียนหัวเท่านั้น';
-        state = 'error';
-      }else if(ps.rpeAnswered){
-        message = ps.noSymptomsConfirmed
-          ? 'ยืนยันคำตอบแล้ว: RPE = 0 และไม่มีอาการผิดปกติ'
-          : 'ตอบ RPE แล้ว พร้อมบันทึกแบบประเมิน';
-        state = 'ok';
-      }else{
-        message = 'โปรดเลื่อน RPE อย่างน้อย 1 ครั้ง หรือเลือกยืนยันว่า “ไม่เหนื่อยและไม่มีอาการผิดปกติ” ก่อนบันทึก';
-      }
-    }else{
-      state = forceMessage.includes('กรุณา') || forceMessage.includes('ใช้ได้') ? 'error' : '';
-    }
-
-    els.surveyValidationHint.textContent = message;
-    els.surveyValidationHint.classList.toggle('ok', state === 'ok');
-    els.surveyValidationHint.classList.toggle('error', state === 'error');
-  }
-
-  function validatePostSurvey(){
-    const ps = postSurveyPayload();
-
-    if(ps.noSymptomsConfirmed && (ps.rpe !== 0 || ps.painAny)){
-      const message = 'การยืนยันว่าไม่เหนื่อย ใช้ได้เมื่อ RPE = 0 และไม่มีอาการปวด/เวียนหัวเท่านั้น';
-      updateSurveyValidationUI(message);
-      return {ok:false, message, ps};
-    }
-
-    if(!ps.rpeAnswered){
-      const message = 'กรุณาเลื่อน RPE เพื่อยืนยันคำตอบ หรือเลือก “ยืนยันว่าไม่เหนื่อยและไม่มีอาการผิดปกติ”';
-      updateSurveyValidationUI(message);
-      return {ok:false, message, ps};
-    }
-
-    updateSurveyValidationUI();
-    return {ok:true, message:'', ps};
-  }
-
-  function resetPostSurveyUI(){
-    if(!S.survey) S.survey = {rpeTouched:false,saved:false};
-    S.survey.rpeTouched = false;
-    S.survey.saved = false;
-
-    if(els.rpeInput) els.rpeInput.value = '0';
-    if(els.rpeValue) els.rpeValue.textContent = '0';
-    if(els.noSymptomsConfirmed) els.noSymptomsConfirmed.checked = false;
-    [els.painShoulder, els.painArm, els.painWrist, els.painBack, els.painKnee, els.dizzy]
-      .forEach(el => { if(el) el.checked = false; });
-    if(els.painNoteInput) els.painNoteInput.value = '';
-
-    setSurveySavedUI(false);
-    updateSurveyValidationUI();
-  }
-
   function setSurveySavedUI(saved){
     if(els.surveyBadge){
       els.surveyBadge.textContent = saved ? 'บันทึกแล้ว' : 'ยังไม่บันทึก';
       els.surveyBadge.classList.toggle('done', !!saved);
     }
     if(els.surveyStatus){
-      els.surveyStatus.textContent = saved ? 'บันทึก RPE/Pain เข้า Google Sheets แล้ว หรือถูกส่งแบบ no-cors แล้ว' : 'ยังไม่ได้บันทึก RPE/Pain';
+      els.surveyStatus.textContent = saved ? 'บันทึก RPE/Pain รวมอยู่ในผลเกมแถวเดียวบน Google Sheets แล้ว' : 'ยังไม่ได้บันทึก RPE/Pain';
       els.surveyStatus.classList.toggle('done', !!saved);
     }
   }
 
-  function updateRpeUI(markTouched=false){
-    if(markTouched && S.survey) S.survey.rpeTouched = true;
+  function updateRpeUI(){
     if(els.rpeValue && els.rpeInput) els.rpeValue.textContent = String(els.rpeInput.value || 0);
-
-    if(els.rpeInput && Number(els.rpeInput.value || 0) !== 0 && els.noSymptomsConfirmed){
-      els.noSymptomsConfirmed.checked = false;
-    }
-    updateSurveyValidationUI();
   }
 
   async function sendPostSurvey(){
     if(sendPostSurvey._busy) return false;
-    sendPostSurvey._busy = true;
-    try{
-    const validation = validatePostSurvey();
-    if(!validation.ok){
-      if(els.surveyStatus){
-        els.surveyStatus.textContent = validation.message;
-        els.surveyStatus.classList.remove('done');
-      }
-      if(els.surveyBadge){
-        els.surveyBadge.textContent = 'ตอบก่อนบันทึก';
-        els.surveyBadge.classList.remove('done');
-      }
-      feedback('ตอบแบบประเมินก่อน','miss');
-      return false;
+
+    const last = S.sessions && S.sessions.length ? S.sessions[S.sessions.length - 1] : null;
+    const existingRoundId = String((last && last.roundId) || S.pendingSubmitRoundId || '');
+
+    // Do not create a second row when a student taps the survey button again.
+    if(existingRoundId && S.submittedRoundId === existingRoundId){
+      setSurveySavedUI(true);
+      rbSetSubmitStatus('รอบนี้ส่ง Google Sheets แล้ว • ไม่สร้างแถวซ้ำ', 'ok');
+      return true;
     }
 
-    const ps = validation.ps;
-    const base = S.sessions && S.sessions.length
-      ? {...S.sessions[S.sessions.length - 1]}
-      : sessionPayload('postSurvey', missionStarsValue(), rankOf());
+    sendPostSurvey._busy = true;
+    try{
+    const ps = postSurveyPayload();
+    const base = last ? {...last} : sessionPayload('completed', missionStarsValue(), rankOf());
+    const gameEndReason = base.endReason || base.reason || 'completed';
 
     const payload = {
       ...base,
       ...ps,
-      reason:'postSurvey',
+      reason:gameEndReason,
+      endReason:gameEndReason,
+      submissionKind:'final_session_with_post_survey',
       postSurveySubmitted:1,
       postSurveyTsIso:new Date().toISOString(),
       pageUrl:location.href,
@@ -2062,8 +2066,10 @@
     const ok = await rbSubmitSession(payload);
 
     if(ok){
-      if(S.survey) S.survey.saved = true;
+      S.submittedRoundId = String(payload.roundId || existingRoundId || '');
+      S.pendingSubmitRoundId = '';
       setSurveySavedUI(true);
+      rbSetSubmitStatus('✅ บันทึกผลเกม + RPE/Pain เข้า Google Sheets แล้ว • 1 รอบ = 1 แถว', 'ok');
       feedback('SURVEY SAVED','perfect');
     }else{
       if(els.surveyStatus) els.surveyStatus.textContent = 'ส่ง Sheet ไม่สำเร็จ ระบบเก็บคิวไว้แล้ว ลองเช็กอินเทอร์เน็ต/Apps Script';
@@ -2080,30 +2086,51 @@
   function sessionPayload(reason,stars,rank){
     const sm = sportMetrics();
     const ps = postSurveyPayload();
-    return {
-      tsIso:new Date().toISOString(),
+    const ctx = rbPersistStudentContext(S.pid);
+    const timestamp = new Date().toISOString();
+
+    return rbApplyStudentContext({
+      timestamp,
+      timestampLocal:rbBangkokNow(),
+      tsIso:timestamp,
+      game:RB_GAME_ID,
+      gameId:RB_GAME_ID,
+      version:RB_VERSION,
+      sourceUrl:location.href,
+      pageUrl:location.href,
+      hubUrl:rbHubUrl(),
+      sessionId:S.sessionId || rbMakeId('RBSESSION'),
+      roundId:S.roundId || rbMakeId('RBROUND'),
+      studentId:ctx.studentId,
+      studentName:ctx.studentName,
+      playerId:ctx.playerId || S.pid,
+      classId:ctx.classId,
+      classGroup:ctx.classId || qs('group',''),
+      section:ctx.section || qs('section',qs('sec','')),
       pid:S.pid,
       diff:S.diff,
+      difficulty:S.diff,
       timeSec:S.timeSec,
+      duration:S.timeSec,
       mode:S.mode,
-      version:RB_VERSION,
-      gameId:RB_GAME_ID,
-      section:qs('section',qs('sec','')),
-      group:qs('group',''),
       reason,
+      endReason:reason,
       score:Math.round(S.score),
       rank,
       stars,
+      accuracy:Number(accPct().toFixed(2)),
+      accPct:accPct().toFixed(2),
       maxCombo:S.maxCombo,
+      bestCombo:S.maxCombo,
       maxFlowCombo:S.maxFlowCombo||0,
       comboBreaks:S.comboBreaks||0,
       shots:S.shots,
       hits:S.hits,
-      accPct:accPct().toFixed(2),
       perfect:S.perfect,
       great:S.great,
       good:S.good,
       miss:S.miss,
+      misses:S.miss,
       blank:S.blank,
       spam:S.spam,
       bodyPunches:S.bodyPunches,
@@ -2119,10 +2146,8 @@
       ...ps,
       postSurveySubmitted:0,
       postSurveyTsIso:'',
-      teacherRecommendation:teacherRec(),
-      pageUrl:location.href,
-      hubUrl:rbHubUrl()
-    };
+      teacherRecommendation:teacherRec()
+    });
   }
 
   // --- Camera + Pose body tracking ---
@@ -2311,34 +2336,13 @@
 
 
   if(els.rpeInput){
-    els.rpeInput.addEventListener('input', () => updateRpeUI(true));
-    els.rpeInput.addEventListener('change', () => updateRpeUI(true));
+    els.rpeInput.addEventListener('input', updateRpeUI);
+    updateRpeUI();
   }
-
-  if(els.noSymptomsConfirmed){
-    els.noSymptomsConfirmed.addEventListener('change', () => {
-      if(els.noSymptomsConfirmed.checked){
-        if(els.rpeInput) els.rpeInput.value = '0';
-        if(S.survey) S.survey.rpeTouched = false;
-      }
-      updateRpeUI(false);
-      updateSurveyValidationUI();
-    });
-  }
-
-  [els.painShoulder, els.painArm, els.painWrist, els.painBack, els.painKnee, els.dizzy]
-    .filter(Boolean)
-    .forEach(el => el.addEventListener('change', () => {
-      if(surveyPainCount() > 0 && els.noSymptomsConfirmed){
-        els.noSymptomsConfirmed.checked = false;
-      }
-      updateSurveyValidationUI();
-    }));
-
   if(els.sendSurveyBtn){
     els.sendSurveyBtn.addEventListener('click', sendPostSurvey);
   }
-  resetPostSurveyUI();
+  setSurveySavedUI(false);
 
 
   // Force-bind post-game survey button even if DOM was re-rendered or listener was missed.
@@ -2359,8 +2363,28 @@
     els.camMode.value = els.camMode.value==='user'?'environment':'user';
     if(stream) await startCamera(S.mode==='body');
   });
-  els.btnAgain.addEventListener('click',()=>start(S.mode));
-  els.btnMenu2.addEventListener('click',()=>rbGoHub({pid:S.pid||els.pid.value||'player01',score:Math.round(S.score||0),rank:rankOf ? rankOf() : ''}));
+  function rbSurveyRequiredBeforeLeave(){
+    const pending = String(S.pendingSubmitRoundId || '');
+    return !!pending && S.submittedRoundId !== pending;
+  }
+
+  els.btnAgain.addEventListener('click',()=>{
+    if(rbSurveyRequiredBeforeLeave()){
+      rbSetSubmitStatus('กรุณาบันทึก RPE/Pain ก่อนเริ่มรอบใหม่ เพื่อไม่ให้ผลรอบนี้หาย', 'warn');
+      if(els.postSurveyPanel) els.postSurveyPanel.scrollIntoView({behavior:'smooth', block:'center'});
+      return;
+    }
+    start(S.mode);
+  });
+
+  els.btnMenu2.addEventListener('click',()=>{
+    if(rbSurveyRequiredBeforeLeave()){
+      rbSetSubmitStatus('กรุณาบันทึก RPE/Pain ก่อนกลับ Hub เพื่อให้ผลรอบนี้ส่งเข้า Sheet', 'warn');
+      if(els.postSurveyPanel) els.postSurveyPanel.scrollIntoView({behavior:'smooth', block:'center'});
+      return;
+    }
+    rbGoHub({pid:S.pid||els.pid.value||'player01',score:Math.round(S.score||0),rank:rankOf ? rankOf() : ''});
+  });
 
   function csv(rows){
     if(!rows.length) return '';
