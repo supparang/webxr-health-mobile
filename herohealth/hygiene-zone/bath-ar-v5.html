@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#dff8ff" />
-  <title>HeroHealth • Bath AR v5.4 Learning Flow</title>
+  <title>HeroHealth • Bath AR v5.4.1</title>
   <link rel="icon" href="data:," />
 
   <style>
@@ -60,34 +60,27 @@
       top:calc(9px + var(--safe-top));
       left:calc(9px + var(--safe-left));
       right:calc(9px + var(--safe-right));
-      display:grid;
-      grid-template-columns:minmax(0,1fr) auto;
-      gap:8px;
-      align-items:start;
-      pointer-events:none;
+      display:grid;grid-template-columns:minmax(0,1fr) auto;
+      gap:8px;align-items:start;pointer-events:none;
     }
 
     .glass{
-      background:var(--panel);
-      border:1px solid var(--line);
+      background:var(--panel);border:1px solid var(--line);
       box-shadow:0 15px 40px rgba(8,47,73,.16);
-      backdrop-filter:blur(14px);
-      border-radius:22px;
+      backdrop-filter:blur(14px);border-radius:22px;
     }
 
     .mission{padding:11px}
     .headrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
-
     .title{
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
       font-size:15px;font-weight:950;color:#123047;
     }
 
     .badge{
-      padding:5px 10px;border-radius:999px;
-      color:#075985;background:#e0f2fe;
-      border:1px solid rgba(14,165,233,.24);
-      font-size:11px;font-weight:950;white-space:nowrap;
+      padding:5px 10px;border-radius:999px;color:#075985;background:#e0f2fe;
+      border:1px solid rgba(14,165,233,.24);font-size:11px;font-weight:950;
+      white-space:nowrap;
     }
 
     .coach{
@@ -97,10 +90,8 @@
     }
 
     .focus-card{
-      margin-top:8px;padding:9px 10px;
-      display:flex;align-items:center;gap:9px;
-      border-radius:17px;background:#eff6ff;
-      border:1px solid rgba(14,165,233,.23);
+      margin-top:8px;padding:9px 10px;display:flex;align-items:center;gap:9px;
+      border-radius:17px;background:#eff6ff;border:1px solid rgba(14,165,233,.23);
     }
 
     .focus-icon{
@@ -115,67 +106,47 @@
     .focus-text span{display:block;margin-top:2px;font-size:11px;font-weight:800;color:#64748b}
 
     .mini-progress{
-      height:8px;margin-top:7px;border-radius:999px;
-      overflow:hidden;background:rgba(148,163,184,.23);
+      height:8px;margin-top:7px;border-radius:999px;overflow:hidden;
+      background:rgba(148,163,184,.23);
     }
 
     .mini-progress i{
-      display:block;height:100%;width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#0ea5e9,#22c55e);
-      transition:width .12s linear;
+      display:block;height:100%;width:0%;border-radius:999px;
+      background:linear-gradient(90deg,#0ea5e9,#22c55e);transition:width .12s linear;
     }
 
     .steps{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-
     .steps span{
       min-height:24px;padding:4px 8px;border-radius:999px;
       display:inline-flex;align-items:center;justify-content:center;
-      background:#f0f9ff;color:#64748b;
-      border:1px solid rgba(125,211,252,.30);
+      background:#f0f9ff;color:#64748b;border:1px solid rgba(125,211,252,.30);
       font-size:10px;font-weight:950;
     }
 
-    .steps span.active{
-      color:#fff;background:linear-gradient(135deg,#0ea5e9,#22c55e);
-    }
-
-    .steps span.done{
-      color:#166534;background:#dcfce7;
-      border-color:rgba(34,197,94,.28);
-    }
+    .steps span.active{color:#fff;background:linear-gradient(135deg,#0ea5e9,#22c55e)}
+    .steps span.done{color:#166534;background:#dcfce7;border-color:rgba(34,197,94,.28)}
 
     .status-grid{
-      display:grid;grid-template-columns:repeat(3,1fr);
-      gap:6px;margin-top:8px;
+      display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;
     }
 
     .status{
-      padding:7px 6px;border-radius:14px;
-      background:#f0f9ff;border:1px solid rgba(125,211,252,.25);
+      padding:7px 6px;border-radius:14px;background:#f0f9ff;
+      border:1px solid rgba(125,211,252,.25);
       color:#31546b;text-align:center;font-size:10px;font-weight:950;
     }
 
     .status.good{
-      color:#166534;background:#dcfce7;
-      border-color:rgba(34,197,94,.30);
-    }
-
-    .status.warn{
-      color:#854d0e;background:#fef9c3;
-      border-color:rgba(250,204,21,.35);
+      color:#166534;background:#dcfce7;border-color:rgba(34,197,94,.30);
     }
 
     .stats{
-      padding:8px;
-      display:grid;grid-template-columns:repeat(2,58px);
-      gap:7px;
+      padding:8px;display:grid;grid-template-columns:repeat(2,58px);gap:7px;
     }
 
     .stat{
-      padding:7px 4px;border-radius:16px;
-      background:#f0f9ff;border:1px solid rgba(125,211,252,.25);
-      text-align:center;
+      padding:7px 4px;border-radius:16px;background:#f0f9ff;
+      border:1px solid rgba(125,211,252,.25);text-align:center;
     }
 
     .stat b{display:block;font-size:17px;line-height:1;font-weight:950}
@@ -192,13 +163,9 @@
     .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 
     .tool{
-      min-height:51px;border-radius:18px;
-      color:#16425d;background:rgba(255,255,255,.94);
-      border:1px solid var(--line);
-      box-shadow:0 10px 27px rgba(8,47,73,.14);
-      font-weight:950;
-      display:flex;flex-direction:column;
-      align-items:center;justify-content:center;gap:2px;
+      min-height:51px;border-radius:18px;color:#16425d;background:rgba(255,255,255,.94);
+      border:1px solid var(--line);box-shadow:0 10px 27px rgba(8,47,73,.14);
+      font-weight:950;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
     }
 
     .tool .emoji{font-size:20px;line-height:1}
@@ -206,7 +173,6 @@
     .tool.active{color:#fff;background:linear-gradient(135deg,#0ea5e9,#22c55e)}
 
     .actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-
     .btn{
       min-height:43px;border-radius:16px;font-weight:950;
       box-shadow:0 10px 27px rgba(8,47,73,.14);
@@ -217,70 +183,51 @@
     .danger{color:#fff;background:linear-gradient(135deg,#fb7185,#ef4444)}
 
     .overlay{
-      position:absolute;z-index:20;inset:0;
-      display:flex;align-items:center;justify-content:center;
-      padding:20px;background:rgba(224,247,255,.62);
-      backdrop-filter:blur(10px);
+      position:absolute;z-index:20;inset:0;display:flex;align-items:center;justify-content:center;
+      padding:20px;background:rgba(224,247,255,.62);backdrop-filter:blur(10px);
     }
 
     .hidden{display:none!important}
 
     .modal{
-      width:min(630px,100%);
-      max-height:min(90vh,790px);
-      overflow:auto;padding:20px;
-      background:rgba(255,255,255,.96);
-      border:1px solid rgba(14,165,233,.22);
-      box-shadow:0 25px 80px rgba(8,47,73,.25);
-      border-radius:30px;
+      width:min(650px,100%);max-height:min(90vh,800px);overflow:auto;
+      padding:20px;background:rgba(255,255,255,.96);border:1px solid rgba(14,165,233,.22);
+      box-shadow:0 25px 80px rgba(8,47,73,.25);border-radius:30px;
     }
 
     .hero-icon{
       width:82px;height:82px;margin:0 auto 12px;
       display:flex;align-items:center;justify-content:center;
-      border-radius:28px;
-      background:linear-gradient(135deg,#e0f2fe,#dcfce7);
-      border:1px solid rgba(14,165,233,.24);
-      font-size:43px;
+      border-radius:28px;background:linear-gradient(135deg,#e0f2fe,#dcfce7);
+      border:1px solid rgba(14,165,233,.24);font-size:43px;
     }
 
-    h1{
-      margin:0;text-align:center;
-      font-size:25px;line-height:1.15;color:#10344e;
-    }
-
+    h1{margin:0;text-align:center;font-size:25px;line-height:1.15;color:#10344e}
     p{
-      margin:10px 0 0;text-align:center;
-      line-height:1.55;font-size:14px;font-weight:750;color:#486579;
+      margin:10px 0 0;text-align:center;line-height:1.55;
+      font-size:14px;font-weight:750;color:#486579;
     }
 
     .meta-grid{
-      margin-top:14px;
-      display:grid;grid-template-columns:1fr 1fr;gap:8px;
+      margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:8px;
     }
 
     .meta-grid label{
-      display:grid;gap:5px;
-      font-size:12px;font-weight:900;color:#31546b;
+      display:grid;gap:5px;font-size:12px;font-weight:900;color:#31546b;
     }
 
     .meta-grid input{
-      min-height:42px;border-radius:15px;
-      padding:0 12px;color:#123047;font-weight:850;
-      background:#f8fdff;border:1px solid rgba(14,165,233,.25);
-      outline:none;
+      min-height:42px;border-radius:15px;padding:0 12px;color:#123047;font-weight:850;
+      background:#f8fdff;border:1px solid rgba(14,165,233,.25);outline:none;
     }
 
     .difficulty{
-      display:grid;grid-template-columns:repeat(3,1fr);
-      gap:8px;margin-top:14px;
+      display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;
     }
 
     .difficulty button{
-      min-height:58px;border-radius:18px;
-      background:#f0f9ff;color:#16425d;
-      border:1px solid rgba(14,165,233,.22);
-      font-weight:950;
+      min-height:58px;border-radius:18px;background:#f0f9ff;color:#16425d;
+      border:1px solid rgba(14,165,233,.22);font-weight:950;
     }
 
     .difficulty button.active{
@@ -288,80 +235,93 @@
     }
 
     .rules{
-      list-style:none;margin:14px 0 0;padding:0;
-      display:grid;gap:7px;
+      list-style:none;margin:14px 0 0;padding:0;display:grid;gap:7px;
     }
 
     .rules li{
-      padding:9px 10px;border-radius:16px;
-      color:#31546b;font-size:13px;line-height:1.35;font-weight:820;
-      background:#f0f9ff;border:1px solid rgba(125,211,252,.25);
+      padding:9px 10px;border-radius:16px;color:#31546b;font-size:13px;
+      line-height:1.35;font-weight:820;background:#f0f9ff;
+      border:1px solid rgba(125,211,252,.25);
     }
 
     .calibration{display:grid;gap:8px;margin-top:15px}
-
     .cal-row{
-      padding:10px 11px;border-radius:15px;
-      background:#f0f9ff;border:1px solid rgba(125,211,252,.26);
-      color:#31546b;font-size:13px;font-weight:900;
+      padding:10px 11px;border-radius:15px;background:#f0f9ff;
+      border:1px solid rgba(125,211,252,.26);color:#31546b;font-size:13px;font-weight:900;
     }
 
     .cal-row.ok{
-      background:#dcfce7;color:#166534;
-      border-color:rgba(34,197,94,.30);
+      background:#dcfce7;color:#166534;border-color:rgba(34,197,94,.30);
     }
 
     .modal-actions{
-      display:grid;grid-template-columns:1fr 1fr;
-      gap:9px;margin-top:16px;
+      display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px;
     }
 
     .full{grid-column:1/-1}
 
     .result-grid{
-      display:grid;grid-template-columns:repeat(2,1fr);
-      gap:9px;margin-top:16px;
+      display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:16px;
     }
 
     .result-box{
-      padding:12px;border-radius:18px;text-align:center;
-      background:#f0f9ff;border:1px solid rgba(125,211,252,.28);
+      padding:12px;border-radius:18px;text-align:center;background:#f0f9ff;
+      border:1px solid rgba(125,211,252,.28);
     }
 
     .result-box b{display:block;font-size:22px;font-weight:950;color:#10344e}
     .result-box span{display:block;margin-top:4px;font-size:12px;color:#64748b;font-weight:950}
 
     .feedback{
-      margin-top:14px;padding:13px;border-radius:18px;
-      white-space:pre-line;background:#fef9c3;color:#4f3d02;
-      border:1px solid rgba(250,204,21,.34);
+      margin-top:14px;padding:13px;border-radius:18px;white-space:pre-line;
+      background:#fef9c3;color:#4f3d02;border:1px solid rgba(250,204,21,.34);
       font-size:13px;font-weight:820;line-height:1.45;
     }
 
-    .zone-list{
-      display:grid;grid-template-columns:1fr 1fr;
-      gap:8px;margin-top:14px;
+    .summary-section{
+      margin-top:14px;padding:12px;border-radius:18px;background:#f0f9ff;
+      border:1px solid rgba(125,211,252,.25);
     }
 
-    .zone-item{
-      padding:10px;border-radius:16px;
-      background:#f0f9ff;border:1px solid rgba(125,211,252,.25);
-      color:#31546b;font-size:12px;font-weight:900;
+    .summary-section h3{
+      margin:0 0 9px;font-size:14px;color:#10344e;
     }
 
-    .zone-item.good{background:#dcfce7;border-color:rgba(34,197,94,.30)}
-    .zone-item.warn{background:#fef9c3;border-color:rgba(250,204,21,.35)}
-    .zone-item.bad{background:#ffe4e6;border-color:rgba(244,63,94,.27)}
+    .summary-items{display:grid;gap:7px}
+
+    .summary-item{
+      padding:9px 10px;border-radius:14px;background:#fff;
+      border:1px solid rgba(125,211,252,.24);font-size:12px;font-weight:900;color:#31546b;
+    }
+
+    .summary-item.good{background:#dcfce7;color:#166534;border-color:rgba(34,197,94,.30)}
+    .summary-item.bonus{background:#fef9c3;color:#854d0e;border-color:rgba(250,204,21,.35)}
+    .summary-item.locked{background:#f1f5f9;color:#64748b;border-color:rgba(148,163,184,.25)}
+
+    .quiz-question{
+      margin-top:15px;padding:14px;border-radius:20px;background:#eff6ff;
+      border:1px solid rgba(14,165,233,.25);font-size:18px;font-weight:950;color:#10344e;
+      text-align:center;line-height:1.45;
+    }
+
+    .quiz-choices{
+      display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;
+    }
+
+    .quiz-choice{
+      min-height:60px;border-radius:18px;background:#fff;border:1px solid rgba(14,165,233,.25);
+      color:#16425d;font-weight:950;font-size:14px;
+    }
+
+    .quiz-choice.correct{background:#dcfce7;color:#166534;border-color:rgba(34,197,94,.35)}
+    .quiz-choice.wrong{background:#ffe4e6;color:#9f1239;border-color:rgba(244,63,94,.30)}
 
     .toast{
       position:absolute;z-index:40;top:50%;left:50%;
       transform:translate(-50%,-50%) scale(.96);
-      min-width:min(320px,86vw);max-width:86vw;
-      padding:14px 16px;border-radius:22px;
-      color:#fff;background:rgba(8,47,73,.9);
-      box-shadow:0 18px 50px rgba(8,47,73,.3);
-      text-align:center;font-weight:950;
-      opacity:0;pointer-events:none;transition:.16s;
+      min-width:min(320px,86vw);max-width:86vw;padding:14px 16px;border-radius:22px;
+      color:#fff;background:rgba(8,47,73,.9);box-shadow:0 18px 50px rgba(8,47,73,.3);
+      text-align:center;font-weight:950;opacity:0;pointer-events:none;transition:.16s;
     }
 
     .toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
@@ -376,7 +336,7 @@
       .status-grid{grid-template-columns:repeat(2,1fr)}
       .tool{min-height:46px;border-radius:16px}
       .btn{min-height:40px;font-size:13px}
-      .meta-grid,.difficulty,.zone-list{grid-template-columns:1fr}
+      .meta-grid,.difficulty,.quiz-choices{grid-template-columns:1fr}
       .modal{padding:18px;border-radius:26px}
       h1{font-size:22px}
     }
@@ -394,7 +354,7 @@
   <section class="hud">
     <div class="glass mission">
       <div class="headrow">
-        <div class="title">🛁 Bath AR v5.4 • Learning Flow</div>
+        <div class="title">🛁 Bath AR v5.4.1 • Learning Flow</div>
         <div class="badge" id="stageBadge">CALIBRATE</div>
       </div>
 
@@ -434,7 +394,7 @@
       <div class="stat"><b id="timeText">180</b><span>TIME</span></div>
       <div class="stat"><b id="scoreText">0</b><span>SCORE</span></div>
       <div class="stat"><b id="cleanText">0%</b><span>CLEAN</span></div>
-      <div class="stat"><b id="zoneText">0/5</b><span>ZONES</span></div>
+      <div class="stat"><b id="zoneText">0/3</b><span>MISSION</span></div>
     </div>
   </section>
 
@@ -460,7 +420,7 @@
   <section class="overlay" id="loadingOverlay">
     <div class="modal">
       <div class="hero-icon">🛁</div>
-      <h1>กำลังเตรียม Bath AR v5.4</h1>
+      <h1>กำลังเตรียม Bath AR v5.4.1</h1>
       <p id="loadingText">กำลังโหลดกล้องและระบบตรวจจับร่างกาย...</p>
     </div>
   </section>
@@ -472,26 +432,14 @@
       <p>ใช้มือเปล่าถูตามวง AR ทีละจุด ระบบตรวจจากตำแหน่งร่างกายและมือจริง</p>
 
       <div class="meta-grid">
-        <label>
-          ชื่อผู้เล่น
-          <input id="nameInput" placeholder="Hero" />
-        </label>
-        <label>
-          ชั้น/กลุ่ม
-          <input id="classInput" placeholder="P5" />
-        </label>
+        <label>ชื่อผู้เล่น<input id="nameInput" placeholder="Hero" /></label>
+        <label>ชั้น/กลุ่ม<input id="classInput" placeholder="P5" /></label>
       </div>
 
       <div class="difficulty">
-        <button class="active" data-difficulty="easy">
-          Easy<br><small>180 วินาที</small>
-        </button>
-        <button data-difficulty="normal">
-          Normal<br><small>145 วินาที</small>
-        </button>
-        <button data-difficulty="hard">
-          Hard<br><small>125 วินาที</small>
-        </button>
+        <button class="active" data-difficulty="easy">Easy<br><small>180 วินาที</small></button>
+        <button data-difficulty="normal">Normal<br><small>145 วินาที</small></button>
+        <button data-difficulty="hard">Hard<br><small>125 วินาที</small></button>
       </div>
 
       <ul class="rules">
@@ -514,6 +462,17 @@
     </div>
   </section>
 
+  <section class="overlay hidden" id="quizOverlay">
+    <div class="modal">
+      <div class="hero-icon">🔎</div>
+      <h1>Hygiene Smart Check</h1>
+      <p>จุดนี้กล้องไม่ควรตรวจโดยตรง แต่เราต้องรู้วิธีดูแลตนเอง</p>
+      <div class="quiz-question" id="quizQuestion"></div>
+      <div class="quiz-choices" id="quizChoices"></div>
+      <div class="feedback hidden" id="quizFeedback"></div>
+    </div>
+  </section>
+
   <section class="overlay hidden" id="summaryOverlay">
     <div class="modal">
       <div class="hero-icon" id="rankIcon">✨</div>
@@ -523,12 +482,26 @@
       <div class="result-grid">
         <div class="result-box"><b id="sumClean">0%</b><span>Clean Score</span></div>
         <div class="result-box"><b id="sumSteps">0/5</b><span>Routine Steps</span></div>
-        <div class="result-box"><b id="sumZones">0/5</b><span>Zones Completed</span></div>
+        <div class="result-box"><b id="sumZones">0/3</b><span>Mission Zones</span></div>
         <div class="result-box"><b id="sumOutcome">-</b><span>Outcome</span></div>
       </div>
 
       <div class="feedback" id="feedbackText"></div>
-      <div class="zone-list" id="zoneList"></div>
+
+      <div class="summary-section">
+        <h3>🎯 Mission Zones</h3>
+        <div class="summary-items" id="missionList"></div>
+      </div>
+
+      <div class="summary-section">
+        <h3>⭐ Bonus Practice</h3>
+        <div class="summary-items" id="bonusList"></div>
+      </div>
+
+      <div class="summary-section">
+        <h3>🔒 Unlock in Next Level</h3>
+        <div class="summary-items" id="lockedList"></div>
+      </div>
 
       <div class="modal-actions">
         <button class="btn primary" id="replayBtn">เล่นอีกครั้ง</button>
@@ -548,7 +521,6 @@ import {
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
 const $ = id => document.getElementById(id);
-
 const video = $("video");
 const canvas = $("canvas");
 const ctx = canvas.getContext("2d");
@@ -557,39 +529,36 @@ const UI = {
   loadingOverlay:$("loadingOverlay"),
   loadingText:$("loadingText"),
   startOverlay:$("startOverlay"),
+  quizOverlay:$("quizOverlay"),
   summaryOverlay:$("summaryOverlay"),
-
   stageBadge:$("stageBadge"),
   coachText:$("coachText"),
   focusIcon:$("focusIcon"),
   focusTitle:$("focusTitle"),
   focusHint:$("focusHint"),
   focusBar:$("focusBar"),
-
   poseStatus:$("poseStatus"),
   handStatus:$("handStatus"),
   contactStatus:$("contactStatus"),
   motionStatus:$("motionStatus"),
   stepStatus:$("stepStatus"),
-
   timeText:$("timeText"),
   scoreText:$("scoreText"),
   cleanText:$("cleanText"),
   zoneText:$("zoneText"),
-
   stepBtn:$("stepBtn"),
   stopBtn:$("stopBtn"),
   startBtn:$("startBtn"),
   replayBtn:$("replayBtn"),
   backBtn:$("backBtn"),
-
   nameInput:$("nameInput"),
   classInput:$("classInput"),
-
   calBody:$("calBody"),
   calHand:$("calHand"),
   calDistance:$("calDistance"),
-
+  quizQuestion:$("quizQuestion"),
+  quizChoices:$("quizChoices"),
+  quizFeedback:$("quizFeedback"),
   rankIcon:$("rankIcon"),
   rankTitle:$("rankTitle"),
   rankSub:$("rankSub"),
@@ -598,13 +567,14 @@ const UI = {
   sumZones:$("sumZones"),
   sumOutcome:$("sumOutcome"),
   feedbackText:$("feedbackText"),
-  zoneList:$("zoneList"),
-
+  missionList:$("missionList"),
+  bonusList:$("bonusList"),
+  lockedList:$("lockedList"),
   toast:$("toast"),
   steps:$("steps")
 };
 
-const VERSION = "v5.4-learning-flow-stage-zones";
+const VERSION = "v5.4.1-summary-fairness-hygiene-card";
 
 const STAGE = {
   CALIBRATE:"calibrate",
@@ -614,6 +584,7 @@ const STAGE = {
   RINSE:"rinse",
   DRY:"dry",
   SCAN:"scan",
+  QUIZ:"quiz",
   SUMMARY:"summary"
 };
 
@@ -628,36 +599,11 @@ const ZONE_NAMES = {
 };
 
 const STAGE_META = {
-  wet:{
-    label:"ทำตัวเปียก",
-    emoji:"🚿",
-    tool:"water",
-    mode:"sweep"
-  },
-  soap:{
-    label:"ฟอกสบู่",
-    emoji:"🧼",
-    tool:"soap",
-    mode:"lightScrub"
-  },
-  scrub:{
-    label:"ถูให้สะอาด",
-    emoji:"👐",
-    tool:"soap",
-    mode:"scrub"
-  },
-  rinse:{
-    label:"ล้างฟอง",
-    emoji:"🚿",
-    tool:"water",
-    mode:"sweep"
-  },
-  dry:{
-    label:"เช็ดตัว",
-    emoji:"🧻",
-    tool:"towel",
-    mode:"lightScrub"
-  }
+  wet:{label:"ทำตัวเปียก",emoji:"🚿",tool:"water",mode:"sweep"},
+  soap:{label:"ฟอกสบู่",emoji:"🧼",tool:"soap",mode:"lightScrub"},
+  scrub:{label:"ถูให้สะอาด",emoji:"👐",tool:"soap",mode:"scrub"},
+  rinse:{label:"ล้างฟอง",emoji:"🚿",tool:"water",mode:"sweep"},
+  dry:{label:"เช็ดตัว",emoji:"🧻",tool:"towel",mode:"lightScrub"}
 };
 
 const ROUTINE = {
@@ -668,7 +614,10 @@ const ROUTINE = {
     soap:["neck","leftShoulder","rightShoulder","body","face"],
     scrub:["neck","leftShoulder","body"],
     rinse:["neck","leftShoulder","rightShoulder","body","face"],
-    dry:["neck","rightShoulder","body"]
+    dry:["neck","rightShoulder","body"],
+    mission:["neck","leftShoulder","body"],
+    bonus:["face","rightShoulder"],
+    locked:["leftArm","rightArm"]
   },
   normal:{
     time:145,
@@ -677,7 +626,10 @@ const ROUTINE = {
     soap:["neck","leftShoulder","rightShoulder","leftArm","rightArm","body"],
     scrub:["neck","leftShoulder","rightShoulder","leftArm","rightArm","body"],
     rinse:["neck","leftShoulder","rightShoulder","leftArm","rightArm","body"],
-    dry:["neck","leftShoulder","rightShoulder","body"]
+    dry:["neck","leftShoulder","rightShoulder","body"],
+    mission:["neck","leftShoulder","rightShoulder","leftArm","rightArm","body"],
+    bonus:["face"],
+    locked:[]
   },
   hard:{
     time:125,
@@ -686,7 +638,10 @@ const ROUTINE = {
     soap:["face","neck","leftShoulder","rightShoulder","leftArm","rightArm","body"],
     scrub:["face","neck","leftShoulder","rightShoulder","leftArm","rightArm","body"],
     rinse:["face","neck","leftShoulder","rightShoulder","leftArm","rightArm","body"],
-    dry:["face","neck","leftShoulder","rightShoulder","leftArm","rightArm","body"]
+    dry:["face","neck","leftShoulder","rightShoulder","leftArm","rightArm","body"],
+    mission:["face","neck","leftShoulder","rightShoulder","leftArm","rightArm","body"],
+    bonus:[],
+    locked:[]
   }
 };
 
@@ -708,6 +663,33 @@ const REQUIREMENTS = {
   }
 };
 
+const HYGIENE_CARDS = [
+  {
+    question:"หลังหูควรล้างไหม?",
+    answers:["ควรล้าง","ไม่จำเป็น"],
+    correct:0,
+    explain:"ถูกต้อง! หลังหูเป็นจุดที่มักลืมล้าง ควรทำความสะอาดอย่างอ่อนโยน"
+  },
+  {
+    question:"หลังฟอกสบู่แล้วควรทำอะไร?",
+    answers:["ล้างฟองออกด้วยน้ำ","ปล่อยให้ฟองแห้งเอง"],
+    correct:0,
+    explain:"ถูกต้อง! หลังฟอกสบู่ควรล้างฟองออกด้วยน้ำให้หมด"
+  },
+  {
+    question:"หลังอาบน้ำเสร็จควรทำอะไร?",
+    answers:["เช็ดตัวให้แห้ง","ใส่เสื้อผ้าทันทีทั้งที่ตัวยังเปียก"],
+    correct:0,
+    explain:"ถูกต้อง! ควรเช็ดตัวให้แห้ง โดยเฉพาะบริเวณซอกพับ"
+  },
+  {
+    question:"ซอกนิ้วควรทำความสะอาดไหม?",
+    answers:["ควรทำความสะอาด","ไม่ต้องทำ"],
+    correct:0,
+    explain:"ถูกต้อง! ซอกนิ้วเป็นจุดที่ควรทำความสะอาดให้ทั่วถึง"
+  }
+];
+
 let poseLandmarker = null;
 let handLandmarker = null;
 let difficultyName = "easy";
@@ -720,11 +702,9 @@ const game = {
   timeLeft:180,
   score:0,
   lastFrame:0,
-
   zones:{},
   poseOk:false,
   handOk:false,
-
   currentIndex:0,
   currentProgress:0,
   currentContactMs:0,
@@ -734,271 +714,170 @@ const game = {
   lastContactPoint:null,
   graceMs:0,
   scanStart:0,
-
-  stageDone:{
-    wet:[],
-    soap:[],
-    scrub:[],
-    rinse:[],
-    dry:[]
-  },
-
+  endReason:"completed",
+  hygieneCard:null,
+  hygieneAnswered:false,
+  hygieneCorrect:false,
+  hygieneBonus:0,
+  stageDone:{wet:[],soap:[],scrub:[],rinse:[],dry:[]},
   zoneScores:{},
   popups:[],
   particles:[],
-
-  meta:{
-    name:"Hero",
-    classGroup:"P5"
-  }
+  meta:{name:"Hero",classGroup:"P5"}
 };
 
-function allZones(){ return Object.keys(ZONE_NAMES); }
-function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
-function distance(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
-function midpoint(a,b){ return {x:(a.x+b.x)/2,y:(a.y+b.y)/2}; }
-function now(){ return performance.now(); }
-function width(){ return canvas.getBoundingClientRect().width; }
-function height(){ return canvas.getBoundingClientRect().height; }
+function allZones(){return Object.keys(ZONE_NAMES)}
+function clamp(v,min,max){return Math.max(min,Math.min(max,v))}
+function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function midpoint(a,b){return {x:(a.x+b.x)/2,y:(a.y+b.y)/2}}
+function now(){return performance.now()}
+function width(){return canvas.getBoundingClientRect().width}
+function height(){return canvas.getBoundingClientRect().height}
 
 function activeZonesForStage(stage=game.stage){
-  if(!["wet","soap","scrub","rinse","dry"].includes(stage)) return [];
-  return routine[stage] || [];
+  return ["wet","soap","scrub","rinse","dry"].includes(stage) ? (routine[stage] || []) : [];
 }
 
-function currentStageZoneCount(){
-  return activeZonesForStage().length;
-}
-
-function getCurrentZoneId(){
-  return activeZonesForStage()[game.currentIndex] || null;
-}
-
-function getCurrentZone(){
-  const id = getCurrentZoneId();
-  return id ? game.zones[id] : null;
-}
-
-function getStageMeta(){
-  return STAGE_META[game.stage] || null;
-}
-
+function currentStageZoneCount(){return activeZonesForStage().length}
+function getCurrentZoneId(){return activeZonesForStage()[game.currentIndex] || null}
+function getCurrentZone(){const id=getCurrentZoneId();return id ? game.zones[id] : null}
+function getStageMeta(){return STAGE_META[game.stage] || null}
 function getRequirement(){
-  const meta = getStageMeta();
-  if(!meta) return null;
-  return REQUIREMENTS[difficultyName][meta.mode];
+  const meta=getStageMeta();
+  return meta ? REQUIREMENTS[difficultyName][meta.mode] : null;
 }
 
 function toast(text){
-  UI.toast.textContent = text;
+  UI.toast.textContent=text;
   UI.toast.classList.add("show");
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(()=>UI.toast.classList.remove("show"),1250);
+  toast.timer=setTimeout(()=>UI.toast.classList.remove("show"),1250);
 }
 
-function setLoading(text){
-  UI.loadingText.textContent = text;
-}
+function setLoading(text){UI.loadingText.textContent=text}
 
 function resizeCanvas(){
-  const rect = canvas.getBoundingClientRect();
-  const dpr = Math.min(devicePixelRatio || 1,2);
-
-  canvas.width = Math.round(rect.width*dpr);
-  canvas.height = Math.round(rect.height*dpr);
+  const rect=canvas.getBoundingClientRect();
+  const dpr=Math.min(devicePixelRatio || 1,2);
+  canvas.width=Math.round(rect.width*dpr);
+  canvas.height=Math.round(rect.height*dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 
 function resetCurrentFocus(){
-  game.currentProgress = 0;
-  game.currentContactMs = 0;
-  game.currentMotionPx = 0;
-  game.currentDirectionChanges = 0;
-  game.previousMotionVector = null;
-  game.lastContactPoint = null;
-  game.graceMs = 0;
+  game.currentProgress=0;
+  game.currentContactMs=0;
+  game.currentMotionPx=0;
+  game.currentDirectionChanges=0;
+  game.previousMotionVector=null;
+  game.lastContactPoint=null;
+  game.graceMs=0;
 }
 
 function resetRun(){
-  game.running = false;
-  game.stage = STAGE.CALIBRATE;
-  game.tool = "water";
-  game.timeLeft = routine.time;
-  game.score = 0;
-  game.currentIndex = 0;
-  game.scanStart = 0;
-
+  game.running=false;
+  game.stage=STAGE.CALIBRATE;
+  game.tool="water";
+  game.timeLeft=routine.time;
+  game.score=0;
+  game.currentIndex=0;
+  game.scanStart=0;
+  game.endReason="completed";
+  game.hygieneCard=null;
+  game.hygieneAnswered=false;
+  game.hygieneCorrect=false;
+  game.hygieneBonus=0;
   resetCurrentFocus();
 
-  game.stageDone = {
-    wet:[],
-    soap:[],
-    scrub:[],
-    rinse:[],
-    dry:[]
-  };
-
-  game.zoneScores = {};
+  game.stageDone={wet:[],soap:[],scrub:[],rinse:[],dry:[]};
+  game.zoneScores={};
 
   allZones().forEach(zone=>{
-    game.zoneScores[zone] = {
-      wet:0,
-      soap:0,
-      scrub:0,
-      rinse:0,
-      dry:0
-    };
+    game.zoneScores[zone]={wet:0,soap:0,scrub:0,rinse:0,dry:0};
   });
 
-  game.popups = [];
-  game.particles = [];
+  game.popups=[];
+  game.particles=[];
 }
 
 function lmPoint(lm){
-  return {
-    x:(1-lm.x) * width(),
-    y:lm.y * height(),
-    v:lm.visibility ?? 1
-  };
+  return {x:(1-lm.x)*width(),y:lm.y*height(),v:lm.visibility ?? 1};
 }
 
 function validPoint(point){
-  return point &&
-    Number.isFinite(point.x) &&
-    Number.isFinite(point.y) &&
-    point.v > .25;
+  return point && Number.isFinite(point.x) && Number.isFinite(point.y) && point.v>.25;
 }
 
-function circle(id,center,r){
-  return {id,type:"circle",cx:center.x,cy:center.y,r};
-}
-
-function rect(id,center,w,h){
-  return {id,type:"rect",cx:center.x,cy:center.y,w,h};
-}
+function circle(id,center,r){return {id,type:"circle",cx:center.x,cy:center.y,r}}
+function rect(id,center,w,h){return {id,type:"rect",cx:center.x,cy:center.y,w,h}}
 
 function pointInZone(point,zone,scale=1){
   if(!point || !zone) return false;
 
   if(zone.type==="circle"){
-    return distance(point,{x:zone.cx,y:zone.cy}) <= zone.r*scale;
+    return distance(point,{x:zone.cx,y:zone.cy})<=zone.r*scale;
   }
 
-  return (
-    Math.abs(point.x-zone.cx) <= zone.w*.5*scale &&
-    Math.abs(point.y-zone.cy) <= zone.h*.5*scale
-  );
+  return Math.abs(point.x-zone.cx)<=zone.w*.5*scale &&
+    Math.abs(point.y-zone.cy)<=zone.h*.5*scale;
 }
 
 function buildPoseZones(landmarks){
-  if(!landmarks || landmarks.length < 25) return {};
+  if(!landmarks || landmarks.length<25) return {};
 
-  const points = landmarks.map(lmPoint);
+  const p=landmarks.map(lmPoint);
+  const nose=p[0];
+  const ls=p[11];
+  const rs=p[12];
+  const le=p[13];
+  const re=p[14];
+  const lh=p[23];
+  const rh=p[24];
 
-  const nose = points[0];
-  const leftShoulder = points[11];
-  const rightShoulder = points[12];
-  const leftElbow = points[13];
-  const rightElbow = points[14];
-  const leftHip = points[23];
-  const rightHip = points[24];
+  if(!validPoint(nose) || !validPoint(ls) || !validPoint(rs)) return {};
 
-  if(!validPoint(nose) || !validPoint(leftShoulder) || !validPoint(rightShoulder)){
-    return {};
+  const sm=midpoint(ls,rs);
+  const sw=clamp(distance(ls,rs),115,380);
+  const scale=routine.zoneScale;
+  const out={};
+
+  out.face=circle("face",{x:nose.x,y:nose.y+sw*.03},sw*.235*scale);
+  out.neck=rect("neck",{x:sm.x,y:sm.y-sw*.17},sw*.48*scale,sw*.28*scale);
+  out.leftShoulder=circle("leftShoulder",ls,sw*.20*scale);
+  out.rightShoulder=circle("rightShoulder",rs,sw*.20*scale);
+
+  out.leftArm=validPoint(le)
+    ? rect("leftArm",midpoint(ls,le),sw*.30*scale,clamp(distance(ls,le),80,260)*1.10*scale)
+    : rect("leftArm",{x:ls.x+sw*.16,y:ls.y+sw*.36},sw*.34*scale,sw*.62*scale);
+
+  out.rightArm=validPoint(re)
+    ? rect("rightArm",midpoint(rs,re),sw*.30*scale,clamp(distance(rs,re),80,260)*1.10*scale)
+    : rect("rightArm",{x:rs.x-sw*.16,y:rs.y+sw*.36},sw*.34*scale,sw*.62*scale);
+
+  let bodyCenter={x:sm.x,y:sm.y+sw*.56};
+  let bodyHeight=sw*.95;
+
+  if(validPoint(lh) && validPoint(rh)){
+    const hm=midpoint(lh,rh);
+    bodyCenter=midpoint(sm,hm);
+    bodyHeight=clamp(distance(sm,hm),100,300)*1.12;
   }
 
-  const shoulderMid = midpoint(leftShoulder,rightShoulder);
-  const shoulderWidth = clamp(distance(leftShoulder,rightShoulder),115,380);
-  const scale = routine.zoneScale;
-
-  const out = {};
-
-  out.face = circle(
-    "face",
-    {x:nose.x,y:nose.y+shoulderWidth*.03},
-    shoulderWidth*.235*scale
-  );
-
-  out.neck = rect(
-    "neck",
-    {x:shoulderMid.x,y:shoulderMid.y-shoulderWidth*.17},
-    shoulderWidth*.48*scale,
-    shoulderWidth*.28*scale
-  );
-
-  out.leftShoulder = circle(
-    "leftShoulder",
-    leftShoulder,
-    shoulderWidth*.20*scale
-  );
-
-  out.rightShoulder = circle(
-    "rightShoulder",
-    rightShoulder,
-    shoulderWidth*.20*scale
-  );
-
-  out.leftArm = validPoint(leftElbow)
-    ? rect(
-        "leftArm",
-        midpoint(leftShoulder,leftElbow),
-        shoulderWidth*.30*scale,
-        clamp(distance(leftShoulder,leftElbow),80,260)*1.10*scale
-      )
-    : rect(
-        "leftArm",
-        {x:leftShoulder.x+shoulderWidth*.16,y:leftShoulder.y+shoulderWidth*.36},
-        shoulderWidth*.34*scale,
-        shoulderWidth*.62*scale
-      );
-
-  out.rightArm = validPoint(rightElbow)
-    ? rect(
-        "rightArm",
-        midpoint(rightShoulder,rightElbow),
-        shoulderWidth*.30*scale,
-        clamp(distance(rightShoulder,rightElbow),80,260)*1.10*scale
-      )
-    : rect(
-        "rightArm",
-        {x:rightShoulder.x-shoulderWidth*.16,y:rightShoulder.y+shoulderWidth*.36},
-        shoulderWidth*.34*scale,
-        shoulderWidth*.62*scale
-      );
-
-  let bodyCenter = {x:shoulderMid.x,y:shoulderMid.y+shoulderWidth*.56};
-  let bodyHeight = shoulderWidth*.95;
-
-  if(validPoint(leftHip) && validPoint(rightHip)){
-    const hipMid = midpoint(leftHip,rightHip);
-    bodyCenter = midpoint(shoulderMid,hipMid);
-    bodyHeight = clamp(distance(shoulderMid,hipMid),100,300)*1.12;
-  }
-
-  out.body = rect(
-    "body",
-    bodyCenter,
-    shoulderWidth*.82*scale,
-    bodyHeight*scale
-  );
-
+  out.body=rect("body",bodyCenter,sw*.82*scale,bodyHeight*scale);
   return out;
 }
 
 function getHandContactPoints(handLandmarks){
-  const point = index => {
-    const raw = handLandmarks[index];
-    return {
-      x:(1-raw.x)*width(),
-      y:raw.y*height()
-    };
+  const point=i=>{
+    const raw=handLandmarks[i];
+    return {x:(1-raw.x)*width(),y:raw.y*height()};
   };
 
-  const wrist = point(0);
-  const indexMcp = point(5);
-  const middleMcp = point(9);
-  const ringMcp = point(13);
-  const pinkyMcp = point(17);
+  const wrist=point(0);
+  const indexMcp=point(5);
+  const middleMcp=point(9);
+  const ringMcp=point(13);
+  const pinkyMcp=point(17);
 
   return {
     wrist,
@@ -1013,172 +892,160 @@ function getHandContactPoints(handLandmarks){
 }
 
 function parseHands(result){
-  const hands = [];
-  const landmarks = result?.landmarks || [];
-
-  for(let i=0;i<landmarks.length;i++){
-    hands.push({
-      contactPoints:getHandContactPoints(landmarks[i])
-    });
-  }
-
-  return hands;
+  return (result?.landmarks || []).map(hand=>({
+    contactPoints:getHandContactPoints(hand)
+  }));
 }
 
 function setTool(tool){
-  game.tool = tool;
-
+  game.tool=tool;
   [$("waterBtn"),$("soapBtn"),$("towelBtn")].forEach(btn=>{
     btn.classList.toggle("active",btn.dataset.tool===tool);
   });
 }
 
 function setStage(stage){
-  game.stage = stage;
+  game.stage=stage;
 
-  const meta = getStageMeta();
+  const meta=getStageMeta();
   if(meta) setTool(meta.tool);
 
-  UI.stageBadge.textContent = ({
-    [STAGE.CALIBRATE]:"CALIBRATE",
-    [STAGE.WET]:"WET",
-    [STAGE.SOAP]:"SOAP",
-    [STAGE.SCRUB]:"SCRUB",
-    [STAGE.RINSE]:"RINSE",
-    [STAGE.DRY]:"DRY",
-    [STAGE.SCAN]:"SCAN",
-    [STAGE.SUMMARY]:"SUMMARY"
+  UI.stageBadge.textContent=({
+    calibrate:"CALIBRATE",
+    wet:"WET",
+    soap:"SOAP",
+    scrub:"SCRUB",
+    rinse:"RINSE",
+    dry:"DRY",
+    scan:"SCAN",
+    quiz:"QUIZ",
+    summary:"SUMMARY"
   })[stage] || "READY";
 }
 
 function stageCompletedCount(){
   return ["wet","soap","scrub","rinse","dry"].filter(stage=>{
-    return game.stageDone[stage].length >= activeZonesForStage(stage).length;
+    return game.stageDone[stage].length>=activeZonesForStage(stage).length;
   }).length;
 }
 
+function zoneAverage(zone){
+  const s=game.zoneScores[zone];
+  return Math.round(
+    s.wet*.13+
+    s.soap*.20+
+    s.scrub*.38+
+    s.rinse*.19+
+    s.dry*.10
+  );
+}
+
 function cleanScore(){
-  const allRequired = new Set([
-    ...routine.wet,
-    ...routine.soap,
-    ...routine.scrub,
-    ...routine.rinse,
-    ...routine.dry
+  const required=new Set([
+    ...routine.wet,...routine.soap,...routine.scrub,...routine.rinse,...routine.dry
   ]);
 
-  if(!allRequired.size) return 0;
+  if(!required.size) return 0;
 
-  let total = 0;
+  return [...required].reduce((sum,zone)=>sum+zoneAverage(zone),0)/required.size;
+}
 
-  [...allRequired].forEach(zone=>{
-    const s = game.zoneScores[zone];
+function missionCompletion(){
+  const mission=routine.mission || [];
+  if(!mission.length) return {done:0,total:0};
 
-    total += (
-      clamp(s.wet,0,100)*.13 +
-      clamp(s.soap,0,100)*.20 +
-      clamp(s.scrub,0,100)*.38 +
-      clamp(s.rinse,0,100)*.19 +
-      clamp(s.dry,0,100)*.10
-    );
-  });
-
-  return total/allRequired.size;
+  return {
+    done:mission.filter(zone=>zoneAverage(zone)>=75).length,
+    total:mission.length
+  };
 }
 
 function updateCalibrationUi(){
-  const bodyReady = game.poseOk;
-  const handReady = game.handOk;
-  const distanceReady = game.poseOk && Object.keys(game.zones).length >= 5;
+  const bodyReady=game.poseOk;
+  const handReady=game.handOk;
+  const distanceReady=game.poseOk && Object.keys(game.zones).length>=5;
 
   UI.calBody.classList.toggle("ok",bodyReady);
   UI.calHand.classList.toggle("ok",handReady);
   UI.calDistance.classList.toggle("ok",distanceReady);
 
-  UI.calBody.textContent = bodyReady
-    ? "✅ เห็นหน้า ไหล่ และลำตัวแล้ว"
-    : "🟡 รอเห็นหน้า ไหล่ และลำตัว";
+  UI.calBody.textContent=bodyReady ? "✅ เห็นหน้า ไหล่ และลำตัวแล้ว" : "🟡 รอเห็นหน้า ไหล่ และลำตัว";
+  UI.calHand.textContent=handReady ? "✅ เห็นมือแล้ว" : "🟡 ยกฝ่ามือไว้ระดับอกหรือไหล่ 1–2 วินาที";
+  UI.calDistance.textContent=distanceReady ? "✅ ระยะกล้องเหมาะสม" : "🟡 ถอยหลังเล็กน้อย ให้เห็นช่วงบนของร่างกาย";
 
-  UI.calHand.textContent = handReady
-    ? "✅ เห็นมือแล้ว"
-    : "🟡 ยกฝ่ามือไว้ระดับอกหรือไหล่ 1–2 วินาที";
-
-  UI.calDistance.textContent = distanceReady
-    ? "✅ ระยะกล้องเหมาะสม"
-    : "🟡 ถอยหลังเล็กน้อย ให้เห็นช่วงบนของร่างกาย";
-
-  const ready = bodyReady && handReady && distanceReady;
-
-  UI.startBtn.disabled = !ready;
-  UI.startBtn.style.opacity = ready ? "1" : ".58";
-  UI.startBtn.textContent = ready ? "เริ่ม Bath AR" : "รอ Calibration...";
+  const ready=bodyReady && handReady && distanceReady;
+  UI.startBtn.disabled=!ready;
+  UI.startBtn.style.opacity=ready ? "1" : ".58";
+  UI.startBtn.textContent=ready ? "เริ่ม Bath AR" : "รอ Calibration...";
 }
 
 function updateStepChips(){
-  const order = ["wet","soap","scrub","rinse","dry","scan"];
-  const active = game.stage==="scan" ? "scan" : game.stage;
-  const activeIndex = order.indexOf(active);
+  const order=["wet","soap","scrub","rinse","dry","scan"];
+  const active=game.stage==="quiz" ? "scan" : game.stage;
+  const activeIndex=order.indexOf(active);
 
   UI.steps.querySelectorAll("span").forEach(el=>{
-    const idx = order.indexOf(el.dataset.stage);
+    const idx=order.indexOf(el.dataset.stage);
     el.classList.toggle("active",el.dataset.stage===active);
     el.classList.toggle("done",activeIndex>idx && activeIndex>=0);
   });
 }
 
 function updateHud(){
-  const zoneId = getCurrentZoneId();
-  const meta = getStageMeta();
-  const stageCount = currentStageZoneCount();
+  const zoneId=getCurrentZoneId();
+  const meta=getStageMeta();
+  const count=currentStageZoneCount();
+  const mission=missionCompletion();
 
-  UI.timeText.textContent = Math.max(0,Math.ceil(game.timeLeft));
-  UI.scoreText.textContent = Math.round(game.score);
-  UI.cleanText.textContent = `${Math.round(cleanScore())}%`;
-  UI.zoneText.textContent = `${game.currentIndex}/${stageCount || 0}`;
+  UI.timeText.textContent=Math.max(0,Math.ceil(game.timeLeft));
+  UI.scoreText.textContent=Math.round(game.score);
+  UI.cleanText.textContent=`${Math.round(cleanScore())}%`;
+  UI.zoneText.textContent=`${mission.done}/${mission.total}`;
 
-  UI.poseStatus.className = `status${game.poseOk ? " good" : ""}`;
-  UI.handStatus.className = `status${game.handOk ? " good" : ""}`;
+  UI.poseStatus.className=`status${game.poseOk ? " good" : ""}`;
+  UI.handStatus.className=`status${game.handOk ? " good" : ""}`;
+  UI.poseStatus.textContent=game.poseOk ? "🟢 Body" : "🟡 Body";
+  UI.handStatus.textContent=game.handOk ? "🟢 Hand" : "🟡 Hand";
 
-  UI.poseStatus.textContent = game.poseOk ? "🟢 Body" : "🟡 Body";
-  UI.handStatus.textContent = game.handOk ? "🟢 Hand" : "🟡 Hand";
+  const touching=game.currentContactMs>60;
+  const moving=game.currentMotionPx>7;
 
-  const touching = game.currentContactMs > 60;
-  const moving = game.currentMotionPx > 7;
-
-  UI.contactStatus.className = `status${touching ? " good" : ""}`;
-  UI.motionStatus.className = `status${moving ? " good" : ""}`;
-
-  UI.contactStatus.textContent = touching ? "🟢 Contact" : "⚪ Contact";
-  UI.motionStatus.textContent = moving ? "🟢 Motion" : "⚪ Motion";
-  UI.stepStatus.textContent = `${game.currentIndex}/${stageCount || 0} จุด`;
+  UI.contactStatus.className=`status${touching ? " good" : ""}`;
+  UI.motionStatus.className=`status${moving ? " good" : ""}`;
+  UI.contactStatus.textContent=touching ? "🟢 Contact" : "⚪ Contact";
+  UI.motionStatus.textContent=moving ? "🟢 Motion" : "⚪ Motion";
+  UI.stepStatus.textContent=`${game.currentIndex}/${count || 0} จุด`;
 
   if(game.stage===STAGE.CALIBRATE){
-    UI.focusIcon.textContent = "🎯";
-    UI.focusTitle.textContent = "กำลังตรวจ Calibration";
-    UI.focusHint.textContent = "ยืนให้เห็นร่างกายและยกมือเข้ากล้อง";
-    UI.focusBar.style.width = "0%";
-    UI.stepBtn.textContent = "รอ Calibration";
+    UI.focusIcon.textContent="🎯";
+    UI.focusTitle.textContent="กำลังตรวจ Calibration";
+    UI.focusHint.textContent="ยืนให้เห็นร่างกายและยกมือเข้ากล้อง";
+    UI.focusBar.style.width="0%";
+    UI.stepBtn.textContent="รอ Calibration";
   }else if(meta && zoneId){
-    UI.focusIcon.textContent = meta.emoji;
-    UI.focusTitle.textContent = `${meta.label}: ${ZONE_NAMES[zoneId]}`;
-    UI.focusHint.textContent = `ทำให้แถบเต็ม • ${Math.round(game.currentProgress)}%`;
-    UI.focusBar.style.width = `${game.currentProgress}%`;
-    UI.stepBtn.textContent = `${meta.label} ${game.currentIndex}/${stageCount}`;
-  }else if(game.stage===STAGE.SCAN){
-    UI.focusIcon.textContent = "✨";
-    UI.focusTitle.textContent = "Clean Scan";
-    UI.focusHint.textContent = "ยืนนิ่ง ๆ ให้ระบบตรวจผล";
-    UI.focusBar.style.width = "100%";
-    UI.stepBtn.textContent = "กำลัง Scan...";
+    UI.focusIcon.textContent=meta.emoji;
+    UI.focusTitle.textContent=`${meta.label}: ${ZONE_NAMES[zoneId]}`;
+    UI.focusHint.textContent=`ทำให้แถบเต็ม • ${Math.round(game.currentProgress)}%`;
+    UI.focusBar.style.width=`${game.currentProgress}%`;
+    UI.stepBtn.textContent=`${meta.label} ${game.currentIndex}/${count}`;
+  }else if(game.stage===STAGE.SCAN || game.stage===STAGE.QUIZ){
+    UI.focusIcon.textContent=game.stage===STAGE.QUIZ ? "🔎" : "✨";
+    UI.focusTitle.textContent=game.stage===STAGE.QUIZ ? "Hygiene Smart Check" : "Clean Scan";
+    UI.focusHint.textContent=game.stage===STAGE.QUIZ ? "ตอบคำถามสุขอนามัย" : "ยืนนิ่ง ๆ ให้ระบบตรวจผล";
+    UI.focusBar.style.width="100%";
+    UI.stepBtn.textContent=game.stage===STAGE.QUIZ ? "กำลังตอบคำถาม..." : "กำลัง Scan...";
   }
 
   if(game.stage===STAGE.CALIBRATE){
-    UI.coachText.textContent = game.poseOk && game.handOk
+    UI.coachText.textContent=game.poseOk && game.handOk
       ? "✅ พร้อมแล้ว กดเริ่มเพื่อเข้าสู่ขั้นตอนอาบน้ำ"
       : "💡 ถอยหลังเล็กน้อย ให้เห็นหน้า คอ ไหล่ แขน ลำตัว และยกมือเข้ากล้อง";
   }else if(meta && zoneId){
-    UI.coachText.textContent = `🎯 ตอนนี้: ${meta.label}บริเวณ “${ZONE_NAMES[zoneId]}” ด้วยมือจริงตามวง AR`;
+    UI.coachText.textContent=`🎯 ตอนนี้: ${meta.label}บริเวณ “${ZONE_NAMES[zoneId]}” ด้วยมือจริงตามวง AR`;
   }else if(game.stage===STAGE.SCAN){
-    UI.coachText.textContent = "✨ ตรวจลำดับการอาบน้ำและจุดที่ทำครบแล้ว";
+    UI.coachText.textContent="✨ ตรวจลำดับการอาบน้ำและจุดที่ทำครบแล้ว";
+  }else if(game.stage===STAGE.QUIZ){
+    UI.coachText.textContent="🔎 ตอบคำถามเรื่องจุดสุขอนามัยที่กล้องไม่ควรตรวจโดยตรง";
   }
 
   updateStepChips();
@@ -1195,15 +1062,13 @@ function addParticles(x,y,color){
       vx:(Math.random()-.5)*3.1,
       vy:(Math.random()-.85)*3.2,
       radius:2+Math.random()*4,
-      color,
-      born:now(),
-      life:520+Math.random()*250
+      color,born:now(),life:520+Math.random()*250
     });
   }
 }
 
 function isCorrectTool(){
-  const meta = getStageMeta();
+  const meta=getStageMeta();
   return !meta || game.tool===meta.tool;
 }
 
@@ -1212,9 +1077,7 @@ function getContactPointForCurrentZone(hands,currentZone){
 
   for(const hand of hands){
     for(const point of Object.values(hand.contactPoints)){
-      if(pointInZone(point,currentZone,1.28)){
-        return point;
-      }
+      if(pointInZone(point,currentZone,1.28)) return point;
     }
   }
 
@@ -1225,126 +1088,103 @@ function evaluateMotion(point){
   if(!point) return;
 
   if(game.lastContactPoint){
-    const dx = point.x-game.lastContactPoint.x;
-    const dy = point.y-game.lastContactPoint.y;
-    const stepDistance = Math.hypot(dx,dy);
+    const dx=point.x-game.lastContactPoint.x;
+    const dy=point.y-game.lastContactPoint.y;
+    const step=Math.hypot(dx,dy);
 
-    if(stepDistance>.6 && stepDistance<58){
-      game.currentMotionPx += stepDistance;
+    if(step>.6 && step<58){
+      game.currentMotionPx+=step;
 
-      const vector = {
-        x:dx/stepDistance,
-        y:dy/stepDistance
-      };
+      const vector={x:dx/step,y:dy/step};
 
       if(game.previousMotionVector){
-        const dot =
-          vector.x*game.previousMotionVector.x +
-          vector.y*game.previousMotionVector.y;
-
-        if(dot<.48) game.currentDirectionChanges += 1;
+        const dot=vector.x*game.previousMotionVector.x+vector.y*game.previousMotionVector.y;
+        if(dot<.48) game.currentDirectionChanges+=1;
       }
 
-      game.previousMotionVector = vector;
+      game.previousMotionVector=vector;
     }
   }
 
-  game.lastContactPoint = point;
+  game.lastContactPoint=point;
 }
 
 function updateFocusProgress(dt,hands){
   if(!game.running) return;
 
-  const meta = getStageMeta();
-  const requirement = getRequirement();
-  const zoneId = getCurrentZoneId();
-  const currentZone = getCurrentZone();
+  const meta=getStageMeta();
+  const req=getRequirement();
+  const zoneId=getCurrentZoneId();
+  const zone=getCurrentZone();
 
-  if(!meta || !requirement || !zoneId || !currentZone) return;
+  if(!meta || !req || !zoneId || !zone) return;
 
   if(!game.poseOk || !game.handOk || !isCorrectTool()){
-    game.graceMs += dt;
+    game.graceMs+=dt;
     return;
   }
 
-  const contact = getContactPointForCurrentZone(hands,currentZone);
+  const contact=getContactPointForCurrentZone(hands,zone);
 
   if(!contact){
-    game.graceMs += dt;
+    game.graceMs+=dt;
 
     if(game.graceMs>280){
-      game.currentContactMs = Math.max(0,game.currentContactMs-dt*.35);
-      game.currentMotionPx = Math.max(0,game.currentMotionPx-dt*.02);
-      game.lastContactPoint = null;
+      game.currentContactMs=Math.max(0,game.currentContactMs-dt*.35);
+      game.currentMotionPx=Math.max(0,game.currentMotionPx-dt*.02);
+      game.lastContactPoint=null;
     }
 
     return;
   }
 
-  game.graceMs = 0;
-  game.currentContactMs += dt;
+  game.graceMs=0;
+  game.currentContactMs+=dt;
   evaluateMotion(contact);
 
-  const contactRatio = clamp(game.currentContactMs/requirement.contactNeed,0,1);
-  const motionRatio = clamp(game.currentMotionPx/requirement.motionNeed,0,1);
-  const directionRatio = requirement.directionNeed<=0
-    ? 1
-    : clamp(game.currentDirectionChanges/requirement.directionNeed,0,1);
+  const contactRatio=clamp(game.currentContactMs/req.contactNeed,0,1);
+  const motionRatio=clamp(game.currentMotionPx/req.motionNeed,0,1);
+  const directionRatio=req.directionNeed<=0 ? 1 : clamp(game.currentDirectionChanges/req.directionNeed,0,1);
 
   if(meta.mode==="sweep"){
-    game.currentProgress = clamp(
-      contactRatio*48 + motionRatio*52,
-      0,100
-    );
+    game.currentProgress=clamp(contactRatio*48+motionRatio*52,0,100);
   }else if(meta.mode==="lightScrub"){
-    game.currentProgress = clamp(
-      contactRatio*34 + motionRatio*51 + directionRatio*15,
-      0,100
-    );
+    game.currentProgress=clamp(contactRatio*34+motionRatio*51+directionRatio*15,0,100);
   }else{
-    game.currentProgress = clamp(
-      contactRatio*25 + motionRatio*56 + directionRatio*19,
-      0,100
-    );
+    game.currentProgress=clamp(contactRatio*25+motionRatio*56+directionRatio*19,0,100);
   }
 
-  const color = meta.tool==="soap"
-    ? "#a855f7"
-    : meta.tool==="towel"
-      ? "#f59e0b"
-      : "#0ea5e9";
+  const color=meta.tool==="soap" ? "#a855f7" : meta.tool==="towel" ? "#f59e0b" : "#0ea5e9";
 
   if(game.currentMotionPx>7){
-    game.score += dt*.011;
+    game.score+=dt*.011;
     addParticles(contact.x,contact.y,color);
   }
 
-  if(game.currentProgress>=100){
-    completeCurrentZone(contact);
-  }
+  if(game.currentProgress>=100) completeCurrentZone(contact);
 }
 
 function completeCurrentZone(point){
-  const zoneId = getCurrentZoneId();
-  const stage = game.stage;
-  const stageTargets = activeZonesForStage(stage);
+  const zoneId=getCurrentZoneId();
+  const stage=game.stage;
+  const targets=activeZonesForStage(stage);
 
-  if(!zoneId || !stageTargets.length || !game.stageDone[stage]) return;
+  if(!zoneId || !targets.length || !game.stageDone[stage]) return;
 
   if(!game.stageDone[stage].includes(zoneId)){
     game.stageDone[stage].push(zoneId);
   }
 
-  game.zoneScores[zoneId][stage] = 100;
-  game.score += 45;
+  game.zoneScores[zoneId][stage]=100;
+  game.score+=45;
 
   addPopup(`✅ ${ZONE_NAMES[zoneId]} ครบแล้ว`,point.x,point.y,"#22c55e");
   addParticles(point.x,point.y,"#22c55e");
 
-  game.currentIndex += 1;
+  game.currentIndex+=1;
   resetCurrentFocus();
 
-  if(game.currentIndex>=stageTargets.length){
+  if(game.currentIndex>=targets.length){
     setTimeout(advanceStage,600);
   }else{
     toast(`ต่อไป: ${ZONE_NAMES[getCurrentZoneId()]}`);
@@ -1354,163 +1194,263 @@ function completeCurrentZone(point){
 function advanceStage(){
   if(!game.running) return;
 
-  const order = [STAGE.WET,STAGE.SOAP,STAGE.SCRUB,STAGE.RINSE,STAGE.DRY];
-  const current = order.indexOf(game.stage);
+  const order=[STAGE.WET,STAGE.SOAP,STAGE.SCRUB,STAGE.RINSE,STAGE.DRY];
+  const current=order.indexOf(game.stage);
 
   if(current<0) return;
 
   if(current===order.length-1){
     setStage(STAGE.SCAN);
-    game.currentIndex = 0;
+    game.currentIndex=0;
     resetCurrentFocus();
-    game.scanStart = now();
+    game.scanStart=now();
     toast("✨ Clean Scan");
     return;
   }
 
   setStage(order[current+1]);
-  game.currentIndex = 0;
+  game.currentIndex=0;
   resetCurrentFocus();
 
-  const meta = getStageMeta();
+  const meta=getStageMeta();
   toast(`${meta.emoji} ขั้นต่อไป: ${meta.label}`);
 }
 
 function startGame(){
-  game.meta.name = UI.nameInput.value.trim() || "Hero";
-  game.meta.classGroup = UI.classInput.value.trim() || "P5";
+  game.meta.name=UI.nameInput.value.trim() || "Hero";
+  game.meta.classGroup=UI.classInput.value.trim() || "P5";
 
   resetRun();
-  game.running = true;
-  game.lastFrame = now();
+  game.running=true;
+  game.lastFrame=now();
 
   setStage(STAGE.WET);
   UI.startOverlay.classList.add("hidden");
   UI.summaryOverlay.classList.add("hidden");
+  UI.quizOverlay.classList.add("hidden");
 
   toast("เริ่ม: ทำตัวเปียกที่คอ 🚿");
 }
 
-function outcome(){
-  const clean = cleanScore();
-  const steps = stageCompletedCount();
+function pickHygieneCard(){
+  return HYGIENE_CARDS[Math.floor(Math.random()*HYGIENE_CARDS.length)];
+}
 
-  if(clean>=84 && steps>=5) return "Excellent";
-  if(clean>=64 && steps>=4) return "Passed";
-  if(clean>=38 && steps>=2) return "Practice More";
+function openHygieneQuiz(){
+  game.running=false;
+  game.endReason="completed";
+  game.hygieneCard=pickHygieneCard();
+  game.hygieneAnswered=false;
+  game.hygieneCorrect=false;
+  game.hygieneBonus=0;
+
+  setStage(STAGE.QUIZ);
+  UI.quizFeedback.classList.add("hidden");
+  UI.quizFeedback.textContent="";
+  UI.quizQuestion.textContent=game.hygieneCard.question;
+  UI.quizChoices.innerHTML="";
+
+  game.hygieneCard.answers.forEach((answer,index)=>{
+    const btn=document.createElement("button");
+    btn.className="quiz-choice";
+    btn.textContent=answer;
+    btn.addEventListener("click",()=>answerHygieneQuiz(index));
+    UI.quizChoices.appendChild(btn);
+  });
+
+  UI.quizOverlay.classList.remove("hidden");
+}
+
+function answerHygieneQuiz(choiceIndex){
+  if(game.hygieneAnswered) return;
+
+  game.hygieneAnswered=true;
+  const correct=choiceIndex===game.hygieneCard.correct;
+  game.hygieneCorrect=correct;
+
+  const choices=[...UI.quizChoices.querySelectorAll("button")];
+  choices.forEach((btn,index)=>{
+    btn.disabled=true;
+    if(index===game.hygieneCard.correct) btn.classList.add("correct");
+    if(index===choiceIndex && !correct) btn.classList.add("wrong");
+  });
+
+  if(correct){
+    game.hygieneBonus=20;
+    game.score+=20;
+    UI.quizFeedback.textContent=`✅ ${game.hygieneCard.explain}\n\n+20 Hygiene Bonus • Hygiene Smart Hero`;
+  }else{
+    game.hygieneBonus=0;
+    UI.quizFeedback.textContent=`💡 ${game.hygieneCard.explain}\n\nลองจำไว้นะ รอบหน้าจะได้โบนัสเพิ่ม`;
+  }
+
+  UI.quizFeedback.classList.remove("hidden");
+
+  setTimeout(()=>{
+    UI.quizOverlay.classList.add("hidden");
+    showSummary();
+  },2200);
+}
+
+function outcome(){
+  const clean=cleanScore();
+  const steps=stageCompletedCount();
+  const mission=missionCompletion();
+
+  if(clean>=84 && steps>=5 && mission.done>=mission.total && game.hygieneCorrect){
+    return "Excellent";
+  }
+
+  if(clean>=64 && steps>=4 && mission.done>=Math.max(1,mission.total-1)){
+    return "Passed";
+  }
+
+  if(clean>=38 && steps>=2){
+    return "Practice More";
+  }
+
   return "Needs Support";
 }
 
 function endGame(reason="completed"){
   if(!game.running) return;
 
-  game.running = false;
+  game.endReason=reason;
+  game.running=false;
+
+  if(reason==="completed"){
+    openHygieneQuiz();
+  }else{
+    showSummary();
+  }
+}
+
+function itemHtml(zone,type){
+  const score=zoneAverage(zone);
+
+  if(type==="mission"){
+    const ok=score>=75;
+    return `<div class="summary-item ${ok ? "good" : ""}">
+      ${ok ? "✅" : "⚠️"} ${ZONE_NAMES[zone]} • ${score}%
+    </div>`;
+  }
+
+  if(type==="bonus"){
+    return `<div class="summary-item bonus">
+      ⭐ ${ZONE_NAMES[zone]} • ${score}% • ฝึกเพิ่มเพื่อโบนัส
+    </div>`;
+  }
+
+  return `<div class="summary-item locked">
+    🔒 ${ZONE_NAMES[zone]} • ปลดล็อกใน Normal
+  </div>`;
+}
+
+function showSummary(){
   setStage(STAGE.SUMMARY);
 
-  const clean = Math.round(cleanScore());
-  const steps = stageCompletedCount();
-  const scrubZones = game.stageDone.scrub.length;
-  const scrubTargets = activeZonesForStage(STAGE.SCRUB).length;
-  const label = outcome();
+  const clean=Math.round(cleanScore());
+  const steps=stageCompletedCount();
+  const mission=missionCompletion();
+  const label=outcome();
 
-  UI.sumClean.textContent = `${clean}%`;
-  UI.sumSteps.textContent = `${steps}/5`;
-  UI.sumZones.textContent = `${scrubZones}/${scrubTargets}`;
-  UI.sumOutcome.textContent = label;
+  UI.sumClean.textContent=`${clean}%`;
+  UI.sumSteps.textContent=`${steps}/5`;
+  UI.sumZones.textContent=`${mission.done}/${mission.total}`;
+  UI.sumOutcome.textContent=label;
 
-  UI.rankIcon.textContent =
+  UI.rankIcon.textContent=
     label==="Excellent" ? "🏆" :
     label==="Passed" ? "✅" :
     label==="Practice More" ? "💪" : "🛁";
 
-  UI.rankTitle.textContent =
+  UI.rankTitle.textContent=
     label==="Excellent" ? "Bath Routine Master" :
     label==="Passed" ? "Clean Body Hero" :
     label==="Practice More" ? "Keep Practicing Hero" :
     "Try Again Hero";
 
-  UI.rankSub.textContent = reason==="timeup"
+  UI.rankSub.textContent=game.endReason==="timeup"
     ? "หมดเวลาก่อนจบลำดับการอาบน้ำ"
-    : "สรุปผลจากการตรวจจับการถูตามโซน";
+    : game.hygieneAnswered
+      ? `Hygiene Card ${game.hygieneCorrect ? "✅" : "💡"}`
+      : "สรุปผลการอาบน้ำ";
 
-  const unfinished = [];
+  const incomplete=[];
 
   ["wet","soap","scrub","rinse","dry"].forEach(stage=>{
     if(game.stageDone[stage].length<activeZonesForStage(stage).length){
-      unfinished.push(STAGE_META[stage].label);
+      incomplete.push(STAGE_META[stage].label);
     }
   });
 
-  let feedback = "";
+  let feedback="";
 
   if(label==="Excellent"){
-    feedback = "ยอดเยี่ยม! ทำตามลำดับการอาบน้ำครบ และถูจุดสำคัญได้ต่อเนื่อง";
+    feedback="ยอดเยี่ยม! ทำครบลำดับอาบน้ำ Mission ครบ และตอบ Hygiene Card ถูกต้อง";
   }else if(label==="Passed"){
-    feedback = "ทำได้ดี เข้าใจลำดับการอาบน้ำแล้ว รอบต่อไปลองถูให้ต่อเนื่องขึ้น";
+    feedback="ทำได้ดี! ผ่านภารกิจหลักของระดับนี้แล้ว";
   }else if(label==="Practice More"){
-    feedback = "เริ่มทำได้แล้ว แต่ยังมีบางขั้นตอนที่ไม่ครบ ค่อย ๆ ทำตามวง AR ทีละจุด";
+    feedback="เริ่มทำได้แล้ว แต่ยังมีบางขั้นตอนที่ไม่ครบ ค่อย ๆ ทำตามวง AR ทีละจุด";
   }else{
-    feedback = "ลองใหม่โดยยืนให้เห็นร่างกายชัด และถูมือบนวง AR จนแถบ Progress เต็ม";
+    feedback="ลองใหม่โดยยืนให้เห็นร่างกายชัด และถูมือบนวง AR จนแถบ Progress เต็ม";
   }
 
-  if(unfinished.length){
-    feedback += `\n\n📌 ขั้นที่ยังต้องฝึก: ${unfinished.join(" → ")}`;
+  if(game.hygieneAnswered){
+    feedback+=game.hygieneCorrect
+      ? `\n\n⭐ Hygiene Bonus +${game.hygieneBonus}: ตอบคำถามสุขอนามัยถูกต้อง`
+      : "\n\n💡 Hygiene Card: อ่านคำอธิบายแล้วลองจำไว้สำหรับรอบหน้า";
   }
 
-  feedback += "\n\n🔎 จุดที่ควรจำแม้เกมไม่ได้ detect โดยตรง: หลังหู รักแร้ ซอกนิ้ว เท้า และหลัง";
+  if(incomplete.length){
+    feedback+=`\n\n📌 ขั้นที่ยังต้องฝึก: ${incomplete.join(" → ")}`;
+  }
 
-  UI.feedbackText.textContent = feedback;
+  feedback+="\n\n🔎 จุดที่ควรจำแม้เกมไม่ได้ detect โดยตรง: หลังหู รักแร้ ซอกนิ้ว เท้า และหลัง";
 
-  UI.zoneList.innerHTML = allZones().map(zone=>{
-    const score = game.zoneScores[zone];
-    const avg = Math.round(
-      score.wet*.13 +
-      score.soap*.20 +
-      score.scrub*.38 +
-      score.rinse*.19 +
-      score.dry*.10
-    );
+  UI.feedbackText.textContent=feedback;
 
-    const cls = avg>=80 ? "good" : avg>=40 ? "warn" : "bad";
+  UI.missionList.innerHTML=(routine.mission || [])
+    .map(zone=>itemHtml(zone,"mission")).join("") || `<div class="summary-item good">✅ Mission ครบทุกโซน</div>`;
 
-    return `
-      <div class="zone-item ${cls}">
-        ${avg>=80 ? "✅" : avg>=40 ? "⚠️" : "🔴"}
-        ${ZONE_NAMES[zone]} • ${avg}%
-      </div>
-    `;
-  }).join("");
+  UI.bonusList.innerHTML=(routine.bonus || []).length
+    ? routine.bonus.map(zone=>itemHtml(zone,"bonus")).join("")
+    : `<div class="summary-item bonus">⭐ ระดับนี้ไม่มี Bonus Zone</div>`;
+
+  UI.lockedList.innerHTML=(routine.locked || []).length
+    ? routine.locked.map(zone=>itemHtml(zone,"locked")).join("")
+    : `<div class="summary-item locked">🔓 ปลดล็อกโซนครบแล้วในระดับนี้</div>`;
 
   UI.summaryOverlay.classList.remove("hidden");
 }
 
 function updatePoseAndHands(poseResult,handResult,dt){
-  const pose = poseResult?.landmarks?.[0] || null;
+  const pose=poseResult?.landmarks?.[0] || null;
 
   if(pose){
-    const zones = buildPoseZones(pose);
+    const zones=buildPoseZones(pose);
 
     if(Object.keys(zones).length>=5){
-      game.zones = zones;
-      game.poseOk = true;
+      game.zones=zones;
+      game.poseOk=true;
     }else{
-      game.poseOk = false;
+      game.poseOk=false;
     }
   }else{
-    game.poseOk = false;
+    game.poseOk=false;
   }
 
-  const hands = parseHands(handResult);
-  game.handOk = hands.length>0;
+  const hands=parseHands(handResult);
+  game.handOk=hands.length>0;
 
   updateCalibrationUi();
 
   if(!game.running) return;
 
-  game.timeLeft -= dt/1000;
+  game.timeLeft-=dt/1000;
 
   if(game.timeLeft<=0){
-    game.timeLeft = 0;
+    game.timeLeft=0;
     endGame("timeup");
     return;
   }
@@ -1530,13 +1470,13 @@ function roundedRect(x,y,w,h,r,fill,stroke,lineWidth=2){
   ctx.roundRect(x,y,w,h,r);
 
   if(fill){
-    ctx.fillStyle = fill;
+    ctx.fillStyle=fill;
     ctx.fill();
   }
 
   if(stroke){
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle=stroke;
+    ctx.lineWidth=lineWidth;
     ctx.stroke();
   }
 }
@@ -1551,107 +1491,80 @@ function currentZoneColor(){
 }
 
 function drawZone(zoneId,zone,isFocus){
-  const color = isFocus ? currentZoneColor() : "#94a3b8";
-  const pulse = isFocus ? 1+Math.sin(now()/150)*.06 : 1;
+  const color=isFocus ? currentZoneColor() : "#94a3b8";
+  const pulse=isFocus ? 1+Math.sin(now()/150)*.06 : 1;
 
   ctx.save();
-  ctx.globalAlpha = isFocus ? 1 : .40;
+  ctx.globalAlpha=isFocus ? 1 : .40;
 
   if(zone.type==="circle"){
     ctx.beginPath();
     ctx.arc(zone.cx,zone.cy,zone.r*pulse,0,Math.PI*2);
-    ctx.fillStyle = `${color}30`;
+    ctx.fillStyle=`${color}30`;
     ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = isFocus ? 4 : 2;
+    ctx.strokeStyle=color;
+    ctx.lineWidth=isFocus ? 4 : 2;
     ctx.stroke();
 
     if(isFocus){
       ctx.beginPath();
-      ctx.arc(
-        zone.cx,
-        zone.cy,
-        zone.r+8,
-        -Math.PI/2,
-        -Math.PI/2+Math.PI*2*(game.currentProgress/100)
-      );
-      ctx.strokeStyle = "#22c55e";
-      ctx.lineWidth = 6;
+      ctx.arc(zone.cx,zone.cy,zone.r+8,-Math.PI/2,-Math.PI/2+Math.PI*2*(game.currentProgress/100));
+      ctx.strokeStyle="#22c55e";
+      ctx.lineWidth=6;
       ctx.stroke();
     }
 
-    ctx.font = isFocus ? "950 14px system-ui" : "850 11px system-ui";
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#0f344d";
-    ctx.fillText(
-      `${isFocus ? "🎯 " : ""}${ZONE_NAMES[zoneId]}`,
-      zone.cx,
-      zone.cy+zone.r+17
-    );
+    ctx.font=isFocus ? "950 14px system-ui" : "850 11px system-ui";
+    ctx.textAlign="center";
+    ctx.fillStyle="#0f344d";
+    ctx.fillText(`${isFocus ? "🎯 " : ""}${ZONE_NAMES[zoneId]}`,zone.cx,zone.cy+zone.r+17);
   }else{
-    const x = zone.cx-zone.w/2;
-    const y = zone.cy-zone.h/2;
+    const x=zone.cx-zone.w/2;
+    const y=zone.cy-zone.h/2;
 
-    roundedRect(
-      x,y,zone.w,zone.h,18,
-      `${color}28`,
-      color,
-      isFocus ? 4 : 2
-    );
+    roundedRect(x,y,zone.w,zone.h,18,`${color}28`,color,isFocus ? 4 : 2);
 
     if(isFocus){
       roundedRect(x,y-11,zone.w,7,99,"rgba(148,163,184,.27)",null);
-      roundedRect(
-        x,y-11,
-        zone.w*(game.currentProgress/100),
-        7,99,
-        "#22c55e",
-        null
-      );
+      roundedRect(x,y-11,zone.w*(game.currentProgress/100),7,99,"#22c55e",null);
     }
 
-    ctx.font = isFocus ? "950 14px system-ui" : "850 11px system-ui";
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#0f344d";
-    ctx.fillText(
-      `${isFocus ? "🎯 " : ""}${ZONE_NAMES[zoneId]}`,
-      zone.cx,
-      y+zone.h+17
-    );
+    ctx.font=isFocus ? "950 14px system-ui" : "850 11px system-ui";
+    ctx.textAlign="center";
+    ctx.fillStyle="#0f344d";
+    ctx.fillText(`${isFocus ? "🎯 " : ""}${ZONE_NAMES[zoneId]}`,zone.cx,y+zone.h+17);
   }
 
   ctx.restore();
 }
 
 function drawHands(handResult){
-  const hands = parseHands(handResult);
-
-  hands.forEach(hand=>{
-    const points = hand.contactPoints;
+  parseHands(handResult).forEach(hand=>{
+    const points=hand.contactPoints;
 
     ctx.save();
 
     Object.values(points).forEach(point=>{
       ctx.beginPath();
       ctx.arc(point.x,point.y,5,0,Math.PI*2);
-      ctx.fillStyle = "rgba(255,255,255,.92)";
+      ctx.fillStyle="rgba(255,255,255,.92)";
       ctx.fill();
-      ctx.strokeStyle = "#0ea5e9";
-      ctx.lineWidth = 2;
+      ctx.strokeStyle="#0ea5e9";
+      ctx.lineWidth=2;
       ctx.stroke();
     });
 
     ctx.beginPath();
     ctx.arc(points.palmCenter.x,points.palmCenter.y,18,0,Math.PI*2);
-    ctx.fillStyle = "rgba(255,255,255,.76)";
+    ctx.fillStyle="rgba(255,255,255,.76)";
     ctx.fill();
-    ctx.strokeStyle = currentZoneColor();
-    ctx.lineWidth = 4;
+    ctx.strokeStyle=currentZoneColor();
+    ctx.lineWidth=4;
     ctx.stroke();
 
-    ctx.font = "19px system-ui";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    ctx.font="19px system-ui";
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
     ctx.fillText("✋",points.palmCenter.x,points.palmCenter.y);
 
     ctx.restore();
@@ -1659,42 +1572,34 @@ function drawHands(handResult){
 }
 
 function drawEffects(){
-  const t = now();
+  const t=now();
 
-  game.particles = game.particles.filter(p=>t-p.born<p.life);
-
+  game.particles=game.particles.filter(p=>t-p.born<p.life);
   game.particles.forEach(p=>{
-    const age = t-p.born;
-    const ratio = age/p.life;
+    const age=t-p.born;
+    const ratio=age/p.life;
 
     ctx.save();
-    ctx.globalAlpha = 1-ratio;
-    ctx.fillStyle = p.color;
+    ctx.globalAlpha=1-ratio;
+    ctx.fillStyle=p.color;
     ctx.beginPath();
-    ctx.arc(
-      p.x+p.vx*age/16,
-      p.y+p.vy*age/16,
-      p.radius,
-      0,
-      Math.PI*2
-    );
+    ctx.arc(p.x+p.vx*age/16,p.y+p.vy*age/16,p.radius,0,Math.PI*2);
     ctx.fill();
     ctx.restore();
   });
 
-  game.popups = game.popups.filter(p=>t-p.born<p.life);
-
+  game.popups=game.popups.filter(p=>t-p.born<p.life);
   game.popups.forEach(p=>{
-    const age = t-p.born;
-    const ratio = age/p.life;
+    const age=t-p.born;
+    const ratio=age/p.life;
 
     ctx.save();
-    ctx.globalAlpha = 1-ratio;
-    ctx.font = "950 17px system-ui";
-    ctx.textAlign = "center";
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = "rgba(255,255,255,.93)";
-    ctx.fillStyle = p.color;
+    ctx.globalAlpha=1-ratio;
+    ctx.font="950 17px system-ui";
+    ctx.textAlign="center";
+    ctx.lineWidth=4;
+    ctx.strokeStyle="rgba(255,255,255,.93)";
+    ctx.fillStyle=p.color;
     ctx.strokeText(p.text,p.x,p.y-34*ratio);
     ctx.fillText(p.text,p.x,p.y-34*ratio);
     ctx.restore();
@@ -1704,32 +1609,31 @@ function drawEffects(){
 function drawScan(){
   if(game.stage!==STAGE.SCAN) return;
 
-  const wave = (now()%1450)/1450;
-  const y = height()*(.18+wave*.64);
+  const wave=(now()%1450)/1450;
+  const y=height()*(.18+wave*.64);
 
   ctx.save();
-  ctx.fillStyle = "rgba(34,211,238,.18)";
+  ctx.fillStyle="rgba(34,211,238,.18)";
   ctx.fillRect(0,y-18,width(),36);
 
   ctx.beginPath();
   ctx.moveTo(0,y);
   ctx.lineTo(width(),y);
-  ctx.strokeStyle = "rgba(34,211,238,.98)";
-  ctx.lineWidth = 3;
+  ctx.strokeStyle="rgba(34,211,238,.98)";
+  ctx.lineWidth=3;
   ctx.stroke();
 
-  ctx.font = "950 16px system-ui";
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#075985";
+  ctx.font="950 16px system-ui";
+  ctx.textAlign="center";
+  ctx.fillStyle="#075985";
   ctx.fillText("CLEAN SCAN",width()/2,y-24);
-
   ctx.restore();
 }
 
 function render(handResult){
   ctx.clearRect(0,0,width(),height());
 
-  const focus = getCurrentZoneId();
+  const focus=getCurrentZoneId();
 
   allZones().forEach(zone=>{
     if(game.zones[zone]){
@@ -1744,24 +1648,15 @@ function render(handResult){
   if(game.running && !game.poseOk){
     ctx.save();
 
-    roundedRect(
-      width()/2-150,
-      height()/2-46,
-      300,
-      92,
-      22,
-      "rgba(8,47,73,.86)",
-      null
-    );
+    roundedRect(width()/2-150,height()/2-46,300,92,22,"rgba(8,47,73,.86)",null);
 
-    ctx.fillStyle = "#fff";
-    ctx.textAlign = "center";
-    ctx.font = "950 16px system-ui";
+    ctx.fillStyle="#fff";
+    ctx.textAlign="center";
+    ctx.font="950 16px system-ui";
     ctx.fillText("ปรับตำแหน่งร่างกาย",width()/2,height()/2-8);
 
-    ctx.font = "800 12px system-ui";
+    ctx.font="800 12px system-ui";
     ctx.fillText("ให้เห็นหน้า ไหล่ แขน และลำตัว",width()/2,height()/2+19);
-
     ctx.restore();
   }
 }
@@ -1771,12 +1666,12 @@ async function boot(){
     resizeCanvas();
 
     setLoading("กำลังโหลด MediaPipe Tasks Vision...");
-    const vision = await FilesetResolver.forVisionTasks(
+    const vision=await FilesetResolver.forVisionTasks(
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
     );
 
     setLoading("กำลังโหลด PoseLandmarker...");
-    poseLandmarker = await PoseLandmarker.createFromOptions(vision,{
+    poseLandmarker=await PoseLandmarker.createFromOptions(vision,{
       baseOptions:{
         modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
         delegate:"CPU"
@@ -1789,7 +1684,7 @@ async function boot(){
     });
 
     setLoading("กำลังโหลด HandLandmarker...");
-    handLandmarker = await HandLandmarker.createFromOptions(vision,{
+    handLandmarker=await HandLandmarker.createFromOptions(vision,{
       baseOptions:{
         modelAssetPath:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task",
         delegate:"CPU"
@@ -1802,16 +1697,12 @@ async function boot(){
     });
 
     setLoading("กำลังเปิดกล้อง...");
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video:{
-        facingMode:"user",
-        width:{ideal:1280},
-        height:{ideal:720}
-      },
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}},
       audio:false
     });
 
-    video.srcObject = stream;
+    video.srcObject=stream;
     await video.play();
 
     resetRun();
@@ -1829,17 +1720,17 @@ async function boot(){
 function loop(){
   resizeCanvas();
 
-  const timestamp = now();
-  const dt = game.lastFrame ? timestamp-game.lastFrame : 16;
-  game.lastFrame = timestamp;
+  const timestamp=now();
+  const dt=game.lastFrame ? timestamp-game.lastFrame : 16;
+  game.lastFrame=timestamp;
 
-  let poseResult = null;
-  let handResult = null;
+  let poseResult=null;
+  let handResult=null;
 
   if(video.readyState>=2 && poseLandmarker && handLandmarker){
     try{
-      poseResult = poseLandmarker.detectForVideo(video,timestamp);
-      handResult = handLandmarker.detectForVideo(video,timestamp);
+      poseResult=poseLandmarker.detectForVideo(video,timestamp);
+      handResult=handLandmarker.detectForVideo(video,timestamp);
     }catch(error){
       console.warn(error);
     }
@@ -1854,14 +1745,11 @@ function loop(){
 
 document.querySelectorAll("[data-difficulty]").forEach(button=>{
   button.addEventListener("click",()=>{
-    document.querySelectorAll("[data-difficulty]").forEach(btn=>{
-      btn.classList.remove("active");
-    });
-
+    document.querySelectorAll("[data-difficulty]").forEach(btn=>btn.classList.remove("active"));
     button.classList.add("active");
 
-    difficultyName = button.dataset.difficulty;
-    routine = ROUTINE[difficultyName];
+    difficultyName=button.dataset.difficulty;
+    routine=ROUTINE[difficultyName];
 
     resetRun();
     toast(`Difficulty: ${difficultyName}`);
@@ -1871,7 +1759,6 @@ document.querySelectorAll("[data-difficulty]").forEach(button=>{
 document.querySelectorAll("[data-tool]").forEach(button=>{
   button.addEventListener("click",()=>{
     if(!game.running) return;
-
     setTool(button.dataset.tool);
     toast(`เลือก ${button.dataset.tool}`);
   });
@@ -1898,15 +1785,14 @@ UI.stepBtn.addEventListener("click",()=>{
     return;
   }
 
-  const zone = getCurrentZoneId();
-
+  const zone=getCurrentZoneId();
   if(zone){
     toast(`${ZONE_NAMES[zone]} • ${Math.round(game.currentProgress)}%`);
   }
 });
 
 UI.backBtn.addEventListener("click",()=>{
-  location.href = "./hygiene-zone-v2.html";
+  location.href="./hygiene-zone-v2.html";
 });
 
 addEventListener("resize",resizeCanvas);
