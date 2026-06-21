@@ -1,11 +1,18 @@
+```js
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-RUNTIME-FIX-V8
+// FULL PATCH v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-RUNTIME-FIX-V8-CANONICAL-AR-RUNFILES
 // ✅ GoodJunk canonical Solo Boss flow remains unchanged.
 // ✅ Shared HeroHealth warmup-gate.html and gate-core.js remain the only Gate shell/router.
 // ✅ All 4 Fitness games use ONE shared Pose-based Readiness & Recovery phase module.
 // ✅ Fitness Planner can force a fresh gate per planned slot without duplicating Gate files.
+// ✅ Canonical Fitness AR main-game files:
+//    - /fitness/shadow-breaker-ar.html
+//    - /fitness/rhythm-boxer-ar.html
+//    - /fitness/jumpduck-ar.html
+//    - /fitness/balance-hold-ar2.html
 
-const PATCH = 'v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-RUNTIME-FIX-V8';
+const PATCH =
+  'v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-RUNTIME-FIX-V8-CANONICAL-AR-RUNFILES';
 
 const FITNESS_READINESS_RECOVERY_MODULE =
   './games/fitness/fitness-readiness-recovery.js?v=20260621-frr-v8-runtime-fix';
@@ -89,6 +96,7 @@ function compactId(id = ''){
 
 function defaultPhaseFile(gameId = '', phase = 'warmup'){
   const key = compactId(gameId);
+
   const p = String(phase || 'warmup').trim().toLowerCase() === 'cooldown'
     ? 'cooldown'
     : 'warmup';
@@ -100,7 +108,9 @@ function defaultPhaseFile(gameId = '', phase = 'warmup'){
 
 function defaultStyleFile(gameId = ''){
   const key = compactId(gameId);
+
   if(!key) return '';
+
   return `./games/${key}/style.css`;
 }
 
@@ -123,6 +133,7 @@ function makeMeta(id, cfg = {}){
     title: base.title || prettyTitle(key),
     label: base.label || base.title || prettyTitle(key),
     emoji: base.emoji || '🎮',
+
     zone: base.zone || inferZoneFromId(key),
     cat: base.cat || inferZoneFromId(key),
     theme: base.theme || key,
@@ -144,6 +155,7 @@ function makeMeta(id, cfg = {}){
 
 function inferLooseMeta(id = ''){
   const key = compactId(id);
+
   if(!key) return null;
 
   const zone = inferZoneFromId(key);
@@ -151,19 +163,24 @@ function inferLooseMeta(id = ''){
   return makeMeta(key, {
     title: prettyTitle(key),
     label: prettyTitle(key),
+
     emoji:
       zone === 'nutrition' ? '🍎' :
       zone === 'fitness' ? '🏃' :
       zone === 'hygiene' ? '🧼' :
       '🎮',
+
     zone,
     cat: zone,
     theme: key,
+
     runFile: '',
     runCandidates: [],
+
     warmupFile: '',
     cooldownFile: '',
     styleFile: '',
+
     summaryPath: ''
   });
 }
@@ -173,18 +190,23 @@ export const GAME_REGISTRY = {
     title: 'Hydration Hero',
     label: 'Hydration Hero',
     emoji: '💧',
+
     zone: 'nutrition',
     cat: 'nutrition',
     theme: 'hydration',
+
     warmupFile: './games/hydration/warmup.js?v=20260518-pack26',
     cooldownFile: './games/hydration/cooldown.js?v=20260518-pack26',
     styleFile: './games/hydration/style.css?v=20260518-pack26',
+
     runFile: '../hydration-vr/hydration-vr.html',
+
     runCandidates: [
       '../hydration-vr/hydration-vr.html',
       '../hydration-v2.html',
       '../vr-hydration-v2/index.html'
     ],
+
     summaryPath: '../nutrition-zone.html'
   }),
 
@@ -192,18 +214,24 @@ export const GAME_REGISTRY = {
     title: 'GoodJunk Solo Boss',
     label: 'GoodJunk Solo Boss',
     emoji: '🍎',
+
     zone: 'nutrition',
     cat: 'nutrition',
     theme: 'goodjunk',
+
     runFile: '../vr-goodjunk/goodjunk-solo-boss.html',
+
     runCandidates: [
       '../vr-goodjunk/goodjunk-solo-boss.html'
     ],
+
     warmupFile: './games/goodjunk/warmup.js',
     cooldownFile: './games/goodjunk/cooldown.js',
     styleFile: './games/goodjunk/style.css',
+
     warmupTitle: 'GoodJunk Warmup',
     cooldownTitle: 'GoodJunk Cooldown',
+
     summaryPath: '../goodjunk-launcher.html'
   }),
 
@@ -211,15 +239,19 @@ export const GAME_REGISTRY = {
     title: 'Plate VR',
     label: 'Plate VR',
     emoji: '🍽️',
+
     zone: 'nutrition',
     cat: 'nutrition',
     theme: 'plate',
+
     runFile: '../plate/plate-vr.html',
+
     runCandidates: [
       '../plate/plate-vr.html',
       '../plate-v1.html',
       '../plate-vr.html'
     ],
+
     summaryPath: '../nutrition-zone.html'
   }),
 
@@ -227,15 +259,19 @@ export const GAME_REGISTRY = {
     title: 'Food Groups VR',
     label: 'Food Groups VR',
     emoji: '🥦',
+
     zone: 'nutrition',
     cat: 'nutrition',
     theme: 'groups',
+
     runFile: '../vr-groups/groups.html',
+
     runCandidates: [
       '../vr-groups/groups.html',
       '../groups-v1.html',
       '../groups-vr.html'
     ],
+
     summaryPath: '../nutrition-zone.html'
   }),
 
@@ -243,15 +279,19 @@ export const GAME_REGISTRY = {
     title: 'Brush VR',
     label: 'Brush VR',
     emoji: '🪥',
+
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'brush',
+
     runFile: '../brush-vr.html',
+
     runCandidates: [
       '../brush-vr.html',
       '../brush-vr-kids.html',
       '../vr-brush-kids/brush.html'
     ],
+
     summaryPath: '../hygiene-zone.html'
   }),
 
@@ -259,14 +299,18 @@ export const GAME_REGISTRY = {
     title: 'Handwash',
     label: 'Handwash',
     emoji: '🧼',
+
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'handwash',
+
     runFile: '../vr-handwash/handwash-vr.html',
+
     runCandidates: [
       '../vr-handwash/handwash-vr.html',
       '../handwash-vr.html'
     ],
+
     summaryPath: '../hygiene-zone.html'
   }),
 
@@ -274,15 +318,19 @@ export const GAME_REGISTRY = {
     title: 'Germ Detective',
     label: 'Germ Detective',
     emoji: '🦠',
+
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'germ-detective',
+
     runFile: '../germ-detective.html',
+
     runCandidates: [
       '../germ-detective.html',
       '../germ-detective-v2.html',
       '../germ-detective/germ-detective-vr.html'
     ],
+
     summaryPath: '../hygiene-zone.html'
   }),
 
@@ -290,15 +338,19 @@ export const GAME_REGISTRY = {
     title: 'Bath Hero',
     label: 'Bath Hero',
     emoji: '🛁',
+
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'bath',
+
     runFile: '../bath.html',
+
     runCandidates: [
       '../bath.html',
       '../bath-vr.html',
       '../vr-bath/bath.html'
     ],
+
     summaryPath: '../hygiene-zone.html'
   }),
 
@@ -306,75 +358,45 @@ export const GAME_REGISTRY = {
     title: 'Mask & Cough',
     label: 'Mask & Cough',
     emoji: '😷',
+
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'maskcough',
+
     runFile: '../maskcough-v2.html',
+
     runCandidates: [
       '../maskcough-v2.html',
       '../vr-maskcough/maskcough-v2.html'
     ],
+
     summaryPath: '../hygiene-zone.html'
   }),
 
   'shadow-breaker': makeMeta('shadow-breaker', {
-    title: 'Shadow Breaker',
-    label: 'Shadow Breaker',
+    title: 'Shadow Breaker AR',
+    label: 'Shadow Breaker AR',
     emoji: '🥊',
+
     zone: 'fitness',
     cat: 'fitness',
     theme: 'shadow-breaker',
+
     warmupFile: FITNESS_READINESS_RECOVERY_MODULE,
     cooldownFile: FITNESS_READINESS_RECOVERY_MODULE,
     styleFile: FITNESS_READINESS_RECOVERY_STYLE,
+
     warmupTitle: 'Hero Ready Mission • Punch Power',
     cooldownTitle: 'Hero Recovery Mission • Arms & Shoulders',
-    runFile: '../fitness/shadow-breaker.html',
+
+    runFile: '../fitness/shadow-breaker-ar.html',
+
     runCandidates: [
+      '../fitness/shadow-breaker-ar.html',
       '../fitness/shadow-breaker.html',
       '../shadow-breaker-vr.html'
     ],
-    summaryPath: '../fitness-zone.html'
-  }),
 
-  'jump-duck': makeMeta('jump-duck', {
-    title: 'JumpDuck Dash',
-    label: 'JumpDuck Dash',
-    emoji: '🐶',
-    zone: 'fitness',
-    cat: 'fitness',
-    theme: 'jump-duck',
-    warmupFile: FITNESS_READINESS_RECOVERY_MODULE,
-    cooldownFile: FITNESS_READINESS_RECOVERY_MODULE,
-    styleFile: FITNESS_READINESS_RECOVERY_STYLE,
-    warmupTitle: 'Hero Ready Mission • Agility',
-    cooldownTitle: 'Hero Recovery Mission • Legs & Ankles',
-    runFile: '../fitness/jump-duck.html',
-    runCandidates: [
-      '../fitness/jump-duck.html',
-      '../fitness/jumpduck.html',
-      '../jump-duck-vr.html'
-    ],
-    summaryPath: '../fitness-zone.html'
-  }),
-
-  'balance-hold': makeMeta('balance-hold', {
-    title: 'Balance Hold',
-    label: 'Balance Hold',
-    emoji: '🧘',
-    zone: 'fitness',
-    cat: 'fitness',
-    theme: 'balance-hold',
-    warmupFile: FITNESS_READINESS_RECOVERY_MODULE,
-    cooldownFile: FITNESS_READINESS_RECOVERY_MODULE,
-    styleFile: FITNESS_READINESS_RECOVERY_STYLE,
-    warmupTitle: 'Hero Ready Mission • Stability',
-    cooldownTitle: 'Hero Recovery Mission • Calm Balance',
-    runFile: '../fitness/balance-hold.html',
-    runCandidates: [
-      '../fitness/balance-hold.html',
-      '../balance-hold.html'
-    ],
     summaryPath: '../fitness-zone.html'
   }),
 
@@ -382,22 +404,81 @@ export const GAME_REGISTRY = {
     title: 'Rhythm Boxer AR',
     label: 'Rhythm Boxer AR',
     emoji: '🥁',
+
     zone: 'fitness',
     cat: 'fitness',
     theme: 'rhythm-boxer',
+
     warmupFile: FITNESS_READINESS_RECOVERY_MODULE,
     cooldownFile: FITNESS_READINESS_RECOVERY_MODULE,
     styleFile: FITNESS_READINESS_RECOVERY_STYLE,
+
     warmupTitle: 'Hero Ready Mission • Beat Control',
     cooldownTitle: 'Hero Recovery Mission • Rhythm Reset',
 
-    // Canonical deployed file from the Rhythm Boxer source header.
     runFile: '../fitness/rhythm-boxer-ar.html',
+
     runCandidates: [
       '../fitness/rhythm-boxer-ar.html',
       '../fitness/rhythm-boxer.html',
       '../rhythm-boxer-vr.html'
     ],
+
+    summaryPath: '../fitness-zone.html'
+  }),
+
+  'jump-duck': makeMeta('jump-duck', {
+    title: 'JumpDuck AR',
+    label: 'JumpDuck AR',
+    emoji: '🐶',
+
+    zone: 'fitness',
+    cat: 'fitness',
+    theme: 'jump-duck',
+
+    warmupFile: FITNESS_READINESS_RECOVERY_MODULE,
+    cooldownFile: FITNESS_READINESS_RECOVERY_MODULE,
+    styleFile: FITNESS_READINESS_RECOVERY_STYLE,
+
+    warmupTitle: 'Hero Ready Mission • Agility',
+    cooldownTitle: 'Hero Recovery Mission • Legs & Ankles',
+
+    runFile: '../fitness/jumpduck-ar.html',
+
+    runCandidates: [
+      '../fitness/jumpduck-ar.html',
+      '../fitness/jump-duck.html',
+      '../fitness/jumpduck.html',
+      '../jump-duck-vr.html'
+    ],
+
+    summaryPath: '../fitness-zone.html'
+  }),
+
+  'balance-hold': makeMeta('balance-hold', {
+    title: 'Balance Hold AR',
+    label: 'Balance Hold AR',
+    emoji: '🧘',
+
+    zone: 'fitness',
+    cat: 'fitness',
+    theme: 'balance-hold',
+
+    warmupFile: FITNESS_READINESS_RECOVERY_MODULE,
+    cooldownFile: FITNESS_READINESS_RECOVERY_MODULE,
+    styleFile: FITNESS_READINESS_RECOVERY_STYLE,
+
+    warmupTitle: 'Hero Ready Mission • Stability',
+    cooldownTitle: 'Hero Recovery Mission • Calm Balance',
+
+    runFile: '../fitness/balance-hold-ar2.html',
+
+    runCandidates: [
+      '../fitness/balance-hold-ar2.html',
+      '../fitness/balance-hold.html',
+      '../balance-hold.html'
+    ],
+
     summaryPath: '../fitness-zone.html'
   }),
 
@@ -405,14 +486,18 @@ export const GAME_REGISTRY = {
     title: 'Fitness Planner',
     label: 'Fitness Planner',
     emoji: '📅',
+
     zone: 'fitness',
     cat: 'fitness',
     theme: 'fitness-planner',
+
     runFile: '../fitness-planner.html',
+
     runCandidates: [
       '../fitness-planner.html',
       '../fitness-planner/index.html'
     ],
+
     summaryPath: '../fitness-zone.html'
   })
 };
@@ -470,21 +555,28 @@ const GAME_ALIAS = {
   'mask-cough': 'maskcough',
 
   'shadow-breaker': 'shadow-breaker',
+  'shadow-breaker-ar': 'shadow-breaker',
   shadowbreaker: 'shadow-breaker',
+  shadowbreakerar: 'shadow-breaker',
   shadow: 'shadow-breaker',
-
-  'jump-duck': 'jump-duck',
-  jumpduck: 'jump-duck',
-  'jumpduck-vr': 'jump-duck',
-  'jump-duck-vr': 'jump-duck',
-
-  'balance-hold': 'balance-hold',
-  balancehold: 'balance-hold',
 
   'rhythm-boxer': 'rhythm-boxer',
   'rhythm-boxer-ar': 'rhythm-boxer',
   rhythmboxer: 'rhythm-boxer',
   rhythmboxerar: 'rhythm-boxer',
+
+  'jump-duck': 'jump-duck',
+  'jumpduck-ar': 'jump-duck',
+  'jump-duck-ar': 'jump-duck',
+  jumpduck: 'jump-duck',
+  jumpducker: 'jump-duck',
+  'jumpduck-vr': 'jump-duck',
+  'jump-duck-vr': 'jump-duck',
+
+  'balance-hold': 'balance-hold',
+  'balance-hold-ar2': 'balance-hold',
+  balancehold: 'balance-hold',
+  balanceholdar2: 'balance-hold',
 
   'fitness-planner': 'fitness-planner',
   fitnessplanner: 'fitness-planner'
@@ -492,6 +584,7 @@ const GAME_ALIAS = {
 
 export function normalizeGameId(id = ''){
   const raw = String(id || '').trim().toLowerCase();
+
   if(!raw) return '';
 
   const compact = compactId(raw);
@@ -541,6 +634,7 @@ export function getGameStyleFile(id = ''){
 
 export function getRunFile(id = ''){
   const meta = getGameMeta(id);
+
   return meta?.runFile || '';
 }
 
@@ -558,6 +652,7 @@ export function getRunCandidates(id = ''){
 
 export function getSummaryPath(id = ''){
   const meta = getGameMeta(id);
+
   return meta?.summaryPath || meta?.defaults?.summaryPath || '';
 }
 
