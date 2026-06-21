@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#101936" />
+  <title>AR-1 Signal Hunt • UX Quest</title>
+  <link rel="stylesheet" href="../css/uxq-core.css" />
+  <link rel="stylesheet" href="../css/uxq-mobile.css" />
+</head>
+<body>
+  <main class="app-shell field-shell">
+    <header class="topbar game-topbar">
+      <a class="brand" href="../index.html"><span class="brand-mark">UX</span><span><strong>UX Quest</strong><small>AR Field Ops • Pilot 01</small></span></a>
+      <div class="field-hud" aria-label="สถานะภาคสนาม">
+        <span class="hud-chip pulse-safe" id="pulseChip">⚡ Friction Pulse <b id="pulseValue">25</b></span>
+        <span class="hud-chip score">✦ Field Score <b id="fieldScore">0</b></span>
+        <span class="hud-chip combo">◈ Evidence <b id="evidenceCount">0</b>/4</span>
+      </div>
+    </header>
+
+    <section class="field-hero">
+      <div><p class="eyebrow">AR-1 // SIGNAL HUNT: COGNITIVE FRICTION EMERGENCY</p><h1>ระบบยังทำงานได้<br>แต่ผู้ใช้กำลัง <span>ใช้ไม่รอด</span></h1><p id="modifierText">กำลังรับสัญญาณภาคสนาม…</p></div>
+      <a class="ghost-btn" href="./ar1-mission-cards.html" target="_blank">เปิด QR Mission Cards</a>
+    </section>
+
+    <nav class="field-rail" aria-label="ความคืบหน้ากิจกรรม"><div class="field-phase active" data-rail="0">1. Deploy</div><div class="field-phase" data-rail="1">2. Capture Evidence</div><div class="field-phase" data-rail="2">3. War Room</div><div class="field-phase" data-rail="3">4. Explain</div></nav>
+    <section id="fieldStage" class="game-stage" aria-live="polite"></section>
+  </main>
+
+  <dialog id="howDialog" class="modal-dialog"><button class="modal-close" data-close="howDialog" aria-label="ปิด">×</button><p class="eyebrow">FIELD OPS</p><h2>วิธีเล่น AR-1 Signal Hunt</h2><ol class="how-list"><li>เลือกโหมด Camera AR, Mock AR หรือ Virtual Campus</li><li>เข้า Station A–D เพื่อเก็บหลักฐาน UX Friction</li><li>แก้ Mini Challenge ให้ครบทุก Station</li><li>จัดลำดับสิ่งที่ควรแก้ภายใต้ Design Energy จำกัด</li><li>ตอบ Explain Check รายบุคคลเพื่อรับ Token ไปช่วย B1</li></ol><p class="muted">Camera AR ใช้ QR Code เป็น Beacon; หากสแกนไม่ได้ สามารถกดเลือก Station ด้วยตนเองได้เสมอ</p></dialog>
+
+  <script src="../js/uxq-core.js"></script>
+  <script src="./ar1-data.js"></script>
+  <script src="./ar1-signal-hunt.js"></script>
+</body>
+</html>

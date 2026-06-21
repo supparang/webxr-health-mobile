@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#101936" />
+  <title>W1 UX Detective • UX Quest</title>
+  <link rel="stylesheet" href="./css/uxq-core.css" />
+  <link rel="stylesheet" href="./css/uxq-mobile.css" />
+</head>
+<body>
+  <main class="app-shell game-shell">
+    <header class="topbar game-topbar">
+      <a class="brand" href="./index.html"><span class="brand-mark">UX</span><span><strong>UX Quest</strong><small>W1 • UX Detective</small></span></a>
+      <div class="game-hud" aria-label="สถานะเกม">
+        <span class="hud-chip stability">⚡ Stability <b id="stabilityValue">100</b></span>
+        <span class="hud-chip combo">🔥 Combo <b id="comboValue">0</b></span>
+        <span class="hud-chip score">✦ Score <b id="scoreValue">0</b></span>
+      </div>
+    </header>
+
+    <section class="mission-banner">
+      <div><p class="eyebrow">MISSION 01 // UX DETECTIVE</p><h1 id="missionTitle">Help Center Meltdown</h1><p id="missionIntro">ช่วยนักศึกษาที่กำลังใช้ Help Center แล้วหลงทางก่อน Experience Stability จะหมด</p></div>
+      <button id="howBtn" class="ghost-btn" type="button">วิธีเล่น</button>
+    </section>
+
+    <nav class="phase-rail" aria-label="ความคืบหน้าแต่ละ phase">
+      <button data-phase="0" class="phase active" type="button"><span>1</span> Observe</button>
+      <button data-phase="1" class="phase" type="button" disabled><span>2</span> Diagnose</button>
+      <button data-phase="2" class="phase" type="button" disabled><span>3</span> Design Fix</button>
+      <button data-phase="3" class="phase" type="button" disabled><span>4</span> User Test</button>
+      <button data-phase="4" class="phase" type="button" disabled><span>5</span> Explain</button>
+    </nav>
+
+    <section id="gameStage" class="game-stage" aria-live="polite"></section>
+  </main>
+
+  <dialog id="howDialog" class="modal-dialog">
+    <button class="modal-close" data-close="howDialog" aria-label="ปิด">×</button>
+    <p class="eyebrow">HOW TO PLAY</p>
+    <h2>กู้ระบบด้วยหลัก UX/UI</h2>
+    <ol class="how-list">
+      <li>อ่านคำพูดของผู้ใช้และดูหน้าจอจำลอง</li>
+      <li>แตะจุดที่คิดว่าเป็น UX Friction ให้ครบ</li>
+      <li>จัดประเภทปัญหาและเลือกวิธีแก้</li>
+      <li>ตรวจผลจากผู้ใช้จำลอง และอธิบายเหตุผล</li>
+    </ol>
+    <p class="muted">ผ่าน 1 ดาวเมื่อได้ 60% ขึ้นไป แก้ Critical Error ครบ และผ่าน Explain Check</p>
+  </dialog>
+
+  <script src="./js/uxq-core.js"></script>
+  <script src="./js/uxq-w1-data.js"></script>
+  <script src="./js/uxq-w1.js"></script>
+</body>
+</html>
