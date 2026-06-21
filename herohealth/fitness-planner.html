@@ -122,7 +122,7 @@
     gate: `${ROOT_PATH}/herohealth/warmup-gate.html`,
     games: {
       shadowbreaker: `${ROOT_PATH}/fitness/shadow-breaker.html`,
-      rhythmboxer: `${ROOT_PATH}/fitness/rhythm-boxer.html`,
+      rhythmboxer: `${ROOT_PATH}/fitness/rhythm-boxer-ar.html`,
       jumpduck: `${ROOT_PATH}/fitness/jump-duck.html`,
       balancehold: `${ROOT_PATH}/fitness/balance-hold.html`
     }
@@ -139,12 +139,20 @@
   const shortDate = () => new Date().toLocaleDateString('th-TH', { day:'numeric', month:'short' });
   const $ = (sel, root = document) => root.querySelector(sel);
 
+  const ctxPlayerId = safeText(q('playerId', q('pid', q('studentId', q('sid', 'anon')))), 'anon');
+  const ctxStudentId = safeText(q('studentId', q('sid', /^\d{6,}$/.test(ctxPlayerId) ? ctxPlayerId : '')), '');
+  const ctxStudentName = safeText(q('studentName', q('name', q('nickName', q('nick', 'Hero')))), 'Hero');
+  const ctxClassId = safeText(q('classId', q('class', q('classGroup', q('group', '')))), '');
+
   const ctx = {
-    pid: safeText(q('pid', 'anon'), 'anon'),
-    name: safeText(q('name', q('nickName', q('nick', 'Hero'))), 'Hero'),
-    group: safeText(q('group', q('section', q('classId', '—'))), '—'),
-    section: safeText(q('section', ''), ''),
-    classId: safeText(q('classId', ''), ''),
+    pid: ctxPlayerId || ctxStudentId || 'anon',
+    playerId: ctxPlayerId || ctxStudentId || 'anon',
+    studentId: ctxStudentId,
+    studentName: ctxStudentName,
+    name: ctxStudentName,
+    group: safeText(q('group', q('section', ctxClassId || '—')), '—'),
+    section: safeText(q('section', q('sec', q('group', ''))), ''),
+    classId: ctxClassId,
     studyId: safeText(q('studyId', ''), ''),
     conditionGroup: safeText(q('conditionGroup', ''), ''),
     view: safeText(q('view', 'mobile'), 'mobile'),
@@ -280,7 +288,7 @@
   function absUrl(path){ return new URL(path, location.origin).toString(); }
   function plannerSelfUrl(extra = {}){
     const u = new URL(absUrl(PATHS.planner));
-    const passthrough = ['pid','name','nick','nickName','group','section','classId','studyId','conditionGroup','view','run'];
+    const passthrough = ['pid','playerId','studentId','sid','name','studentName','nick','nickName','group','section','classId','studyId','conditionGroup','view','run'];
     passthrough.forEach(k => { const v = q(k,''); if (v !== '') u.searchParams.set(k,v); });
     u.searchParams.set('planId', state.planId);
     u.searchParams.set('lang', ctx.language);
@@ -289,7 +297,7 @@
   }
   function appendContext(u, day){
     const pairs = {
-      pid:ctx.pid, name:ctx.name, group:ctx.group === '—' ? '' : ctx.group, section:ctx.section, classId:ctx.classId, studyId:ctx.studyId, conditionGroup:ctx.conditionGroup,
+      pid:ctx.pid, playerId:ctx.playerId, studentId:ctx.studentId, studentName:ctx.studentName, name:ctx.name, group:ctx.group === '—' ? '' : ctx.group, section:ctx.section, classId:ctx.classId, studyId:ctx.studyId, conditionGroup:ctx.conditionGroup,
       planId:state.planId, planDay:day.id, planSlot:day.id, planName:state.planName, view:ctx.view, run:ctx.run,
       diff:day.diff, time:day.time, seed:String(Date.now()), zone:'fitness', cat:'fitness', game:day.game, gameId:day.game, theme:day.game,
       plannerFlow:'1', fpStrict:'1', plannerAuto:'1', cooldown:'0', returnPhase:'planner'
@@ -312,6 +320,7 @@
     u.searchParams.set('hub', day.cooldown ? buildGateUrl(day,'cooldown') : plannerReturnUrl);
     u.searchParams.set('autostart','1');
     u.searchParams.set('wgskip','1');
+    if (day.game === 'rhythmboxer') u.searchParams.set('v','20260621-rb-identity-planner-v2');
     return u.toString();
   }
   function buildGateUrl(day, phase){
