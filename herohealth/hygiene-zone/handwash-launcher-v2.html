@@ -24,7 +24,7 @@
       --card:rgba(255,255,255,.88);
       --line:rgba(158,239,255,.72);
       --shadow:0 18px 48px rgba(15,70,110,.18);
-      --safe-top:env(safe-area-inset-top,0px);
+      --safe-top:env(safe-area-inset,0px);
       --safe-bottom:env(safe-area-inset-bottom,0px);
       --safe-left:env(safe-area-inset-left,0px);
       --safe-right:env(safe-area-inset-right,0px);
@@ -37,15 +37,15 @@
 
     html,
     body{
-      margin:0;
       width:100%;
       height:100%;
+      margin:0;
       overflow:hidden;
+      color:var(--ink);
       background:
         radial-gradient(circle at 12% 8%,rgba(255,255,255,.95),transparent 31%),
         radial-gradient(circle at 88% 20%,rgba(203,244,255,.92),transparent 32%),
         linear-gradient(160deg,#dff8ff,#f7feff 48%,#fff7d8);
-      color:var(--ink);
       font-family:
         ui-rounded,
         system-ui,
@@ -112,6 +112,7 @@
       left:50%;
       width:160px;
       height:44%;
+      opacity:0;
       transform:translateX(-50%);
       background:linear-gradient(
         180deg,
@@ -120,7 +121,6 @@
         transparent
       );
       filter:blur(8px);
-      opacity:0;
     }
 
     .app.water-on .water-stream{
@@ -129,12 +129,8 @@
     }
 
     @keyframes waterPulse{
-      0%,100%{
-        transform:translateX(-50%) scaleY(.98);
-      }
-      50%{
-        transform:translateX(-50%) scaleY(1.06);
-      }
+      0%,100%{ transform:translateX(-50%) scaleY(.98); }
+      50%{ transform:translateX(-50%) scaleY(1.06); }
     }
 
     .foam-fx{
@@ -166,8 +162,8 @@
       position:absolute;
       z-index:20;
       top:calc(10px + var(--safe-top));
-      left:calc(10px + var(--safe-left));
       right:calc(10px + var(--safe-right));
+      left:calc(10px + var(--safe-left));
       display:grid;
       gap:8px;
       pointer-events:none;
@@ -196,8 +192,8 @@
     }
 
     .title{
-      flex:1;
       min-width:0;
+      flex:1;
       padding:10px 12px;
       border:2px solid var(--line);
       border-radius:18px;
@@ -350,8 +346,8 @@
     }
 
     .ar-water{
-      left:50%;
       top:calc(224px + var(--safe-top));
+      left:50%;
       transform:translateX(-50%);
     }
 
@@ -360,11 +356,12 @@
     }
 
     .ar-soap{
-      left:calc(22px + var(--safe-left));
       bottom:calc(184px + var(--safe-bottom));
+      left:calc(22px + var(--safe-left));
     }
 
-    .ar-soap.active{
+    .ar-soap.active,
+    .ar-towel.active{
       transform:scale(1.08);
     }
 
@@ -373,19 +370,15 @@
       bottom:calc(184px + var(--safe-bottom));
     }
 
-    .ar-towel.active{
-      transform:scale(1.08);
-    }
-
     .ar-scrub{
-      left:50%;
       top:55%;
+      left:50%;
       width:126px;
       height:126px;
-      transform:translate(-50%,-50%);
       border-radius:36px;
-      font-size:45px;
       opacity:.92;
+      transform:translate(-50%,-50%);
+      font-size:45px;
     }
 
     .ar-scrub.active{
@@ -410,7 +403,7 @@
       z-index:10;
       top:210px;
       right:18px;
-      width:min(340px,34vw);
+      width:min(350px,35vw);
       padding:14px;
       border:2px solid rgba(158,239,255,.75);
       border-radius:24px;
@@ -506,6 +499,178 @@
       font-weight:900;
     }
 
+    .visual-coach{
+      margin-top:8px;
+      padding:9px;
+      border:2px solid #d7f4ff;
+      border-radius:16px;
+      background:linear-gradient(135deg,#f0fbff,#f7fff9);
+    }
+
+    .visual-coach.near-pass{
+      border-color:rgba(34,197,94,.55);
+      background:linear-gradient(135deg,#ecfdf5,#f0fdf4);
+    }
+
+    .visual-coach.warn{
+      border-color:rgba(250,204,21,.65);
+      background:linear-gradient(135deg,#fffbeb,#fffdf5);
+    }
+
+    .visual-coach-top{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      margin-bottom:7px;
+      color:#075985;
+      font-size:10px;
+      font-weight:1000;
+    }
+
+    .visual-coach-top span:last-child{
+      color:#64748b;
+    }
+
+    .visual-coach-demo{
+      position:relative;
+      height:66px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:16px;
+      overflow:hidden;
+      border-radius:13px;
+      background:rgba(255,255,255,.72);
+    }
+
+    .demo-hand{
+      font-size:39px;
+      line-height:1;
+      filter:drop-shadow(0 4px 4px rgba(15,70,110,.12));
+    }
+
+    .demo-arrow{
+      position:absolute;
+      color:#0ea5e9;
+      font-size:27px;
+      font-weight:1000;
+    }
+
+    .visual-coach-tip{
+      margin-top:7px;
+      color:#0f4c6a;
+      font-size:11px;
+      line-height:1.35;
+      font-weight:900;
+    }
+
+    .palm-demo .demo-hand-a{
+      animation:palmMoveA 1s ease-in-out infinite alternate;
+    }
+
+    .palm-demo .demo-hand-b{
+      animation:palmMoveB 1s ease-in-out infinite alternate;
+    }
+
+    .palm-demo .demo-arrow{
+      animation:arrowSlide 1s ease-in-out infinite alternate;
+    }
+
+    .backhand-demo .demo-hand-a{
+      transform:rotate(-18deg);
+      animation:backHandRub 1s ease-in-out infinite alternate;
+    }
+
+    .backhand-demo .demo-hand-b{
+      transform:rotate(20deg);
+    }
+
+    .fingers-demo .demo-hand-a,
+    .fingers-demo .demo-hand-b{
+      animation:interlaceMove .9s ease-in-out infinite alternate;
+    }
+
+    .knuckles-demo .demo-hand-a{
+      transform:rotate(12deg);
+      animation:knuckleMove 1s ease-in-out infinite alternate;
+    }
+
+    .knuckles-demo .demo-hand-b{
+      transform:rotate(-12deg);
+    }
+
+    .thumb-demo .demo-hand-a{
+      animation:thumbRotate 1s linear infinite;
+    }
+
+    .thumb-demo .demo-hand-b{
+      transform:scaleX(-1);
+    }
+
+    .fingertip-demo .demo-hand-a{
+      animation:fingertipCircle 1s linear infinite;
+    }
+
+    .fingertip-demo .demo-hand-b{
+      transform:rotate(180deg);
+    }
+
+    .wrist-demo .demo-hand-a{
+      animation:wristCircle 1.1s linear infinite;
+    }
+
+    .wrist-demo .demo-hand-b{
+      transform:rotate(-22deg);
+    }
+
+    @keyframes palmMoveA{
+      from{ transform:translateX(-7px); }
+      to{ transform:translateX(7px); }
+    }
+
+    @keyframes palmMoveB{
+      from{ transform:translateX(7px); }
+      to{ transform:translateX(-7px); }
+    }
+
+    @keyframes arrowSlide{
+      from{ transform:translateX(-9px); }
+      to{ transform:translateX(9px); }
+    }
+
+    @keyframes backHandRub{
+      from{ transform:translate(-8px,2px) rotate(-18deg); }
+      to{ transform:translate(8px,-2px) rotate(-18deg); }
+    }
+
+    @keyframes interlaceMove{
+      from{ transform:translateX(-6px) rotate(-8deg); }
+      to{ transform:translateX(6px) rotate(8deg); }
+    }
+
+    @keyframes knuckleMove{
+      from{ transform:translateX(-7px) rotate(12deg); }
+      to{ transform:translateX(7px) rotate(12deg); }
+    }
+
+    @keyframes thumbRotate{
+      from{ transform:rotate(0deg) scale(1); }
+      to{ transform:rotate(360deg) scale(1.05); }
+    }
+
+    @keyframes fingertipCircle{
+      from{ transform:translate(-8px,4px) rotate(0deg); }
+      25%{ transform:translate(2px,-7px) rotate(90deg); }
+      50%{ transform:translate(9px,2px) rotate(180deg); }
+      75%{ transform:translate(-2px,8px) rotate(270deg); }
+      to{ transform:translate(-8px,4px) rotate(360deg); }
+    }
+
+    @keyframes wristCircle{
+      from{ transform:rotate(0deg) translateX(9px) rotate(0deg); }
+      to{ transform:rotate(360deg) translateX(9px) rotate(-360deg); }
+    }
+
     .step-list{
       display:grid;
       gap:5px;
@@ -580,11 +745,11 @@
       position:absolute;
       top:37px;
       left:50%;
-      transform:translateX(-50%);
       padding:3px 7px;
       border-radius:999px;
       color:#166534;
       background:rgba(220,252,231,.92);
+      transform:translateX(-50%);
       font-size:10px;
       font-weight:1000;
       white-space:nowrap;
@@ -625,12 +790,8 @@
     }
 
     @keyframes pulseBoss{
-      from{
-        transform:scale(.94) rotate(-5deg);
-      }
-      to{
-        transform:scale(1.08) rotate(5deg);
-      }
+      from{ transform:scale(.94) rotate(-5deg); }
+      to{ transform:scale(1.08) rotate(5deg); }
     }
 
     .meters{
@@ -848,8 +1009,8 @@
     }
 
     .ghost{
-      color:#475569;
       border:2px solid #dbe4ef;
+      color:#475569;
       background:#fff;
     }
 
@@ -975,10 +1136,10 @@
       color:#fff;
       background:rgba(18,49,74,.94);
       text-align:center;
+      transform:translate(-50%,18px);
       font-weight:950;
       opacity:0;
       pointer-events:none;
-      transform:translate(-50%,18px);
       transition:opacity .18s ease,transform .18s ease;
       box-shadow:0 16px 34px rgba(18,49,74,.22);
     }
@@ -1035,8 +1196,12 @@
     @media (max-height:760px){
       .gesture-card{
         top:190px;
-        max-height:270px;
+        max-height:290px;
         overflow:hidden;
+      }
+
+      .visual-coach{
+        display:none;
       }
 
       .ar-water{
@@ -1104,7 +1269,9 @@
         </div>
       </div>
 
-      <div class="evidence-bar"><span id="gestureFill"></span></div>
+      <div class="evidence-bar">
+        <span id="gestureFill"></span>
+      </div>
 
       <div class="gesture-meta">
         <span id="gesturePercent">0%</span>
@@ -1117,6 +1284,23 @@
 
       <div id="gestureDiagnostic" class="gesture-diagnostic">
         ระบบจะบอกสาเหตุเมื่อ Gesture Evidence ยังไม่พอ
+      </div>
+
+      <div id="visualCoach" class="visual-coach">
+        <div class="visual-coach-top">
+          <span id="visualCoachLabel">ทำแบบนี้</span>
+          <span id="visualCoachSide">เตรียมมือ</span>
+        </div>
+
+        <div id="visualCoachDemo" class="visual-coach-demo palm-demo">
+          <div class="demo-hand demo-hand-a">🖐️</div>
+          <div class="demo-hand demo-hand-b">🤚</div>
+          <div class="demo-arrow">↔</div>
+        </div>
+
+        <div id="visualCoachTip" class="visual-coach-tip">
+          ประกบฝ่ามือ แล้วถูไป–มา
+        </div>
       </div>
 
       <div id="stepList" class="step-list"></div>
@@ -1157,26 +1341,33 @@
         <span>Gesture Evidence</span>
         <span id="actionMeterText">0%</span>
       </div>
-      <div class="meter"><span id="actionFill" class="action-fill"></span></div>
+      <div class="meter">
+        <span id="actionFill" class="action-fill"></span>
+      </div>
 
       <div class="meter-label">
         <span>Foam Level</span>
         <span id="foamMeterText">0%</span>
       </div>
-      <div class="meter"><span id="foamFill" class="foam-fill"></span></div>
+      <div class="meter">
+        <span id="foamFill" class="foam-fill"></span>
+      </div>
     </section>
 
     <section class="controls">
       <button id="btnFaucet" class="control" type="button">
-        <span>🚰</span><b id="faucetLabel">เปิดน้ำ</b>
+        <span>🚰</span>
+        <b id="faucetLabel">เปิดน้ำ</b>
       </button>
 
       <button id="btnCoach" class="control" type="button">
-        <span>🤖</span><b id="coachButtonLabel">AI Coach</b>
+        <span>🤖</span>
+        <b id="coachButtonLabel">AI Coach</b>
       </button>
 
       <button id="btnTowel" class="control" type="button">
-        <span>🧻</span><b>เช็ดมือ</b>
+        <span>🧻</span>
+        <b>เช็ดมือ</b>
       </button>
     </section>
 
@@ -1196,15 +1387,15 @@
       <div class="modal">
         <div class="badge">🧼</div>
         <h1>Handwash AR Gesture Simulator</h1>
-        <p>ระบบจะประเมินท่าล้างมือจากตำแหน่งมือ นิ้ว การเข้าใกล้ การสลับมือ และรูปแบบการเคลื่อนไหว</p>
+        <p>เกมจะให้เด็กฝึกท่าล้างมือ 7 ขั้นตอน โดยใช้กล้องตรวจตำแหน่งมือ การขยับ และการสลับมือ</p>
 
         <div class="brief-list">
           <div>1) Easy 90 วินาที • Normal 75 วินาที • Hard 60 วินาที</div>
           <div>2) ตั้งมือถือบนขาตั้งหรือพิงโต๊ะ ห่างประมาณ 50–70 ซม.</div>
           <div>3) ใช้กล้องหน้า ให้เห็นมือสองข้างเต็มเฟรม</div>
-          <div>4) แต่ละขั้นต้องมี Gesture Evidence จึงผ่าน ไม่ใช่แค่แกว่งมือ</div>
-          <div>5) หากระบบเห็นหลักฐานใกล้เคียงต่อเนื่อง AI Coach จะช่วยผ่อนเกณฑ์เล็กน้อยหลังพยายามเกิน 8 วินาที</div>
-          <div>6) AI Coach ให้คำแนะนำ ไม่สามารถกดข้าม 7 ขั้นได้</div>
+          <div>4) ทำท่าตามภาพเคลื่อนไหวในกล่อง AI Coach</div>
+          <div>5) ขั้นที่ต้องสลับมือ จะขึ้นคำว่า “เหลือมือซ้าย/ขวา”</div>
+          <div>6) AI Coach ช่วยแนะนำได้ แต่ไม่สามารถกดข้าม 7 ขั้นได้</div>
         </div>
 
         <div class="actions">
@@ -1229,7 +1420,7 @@
           <div class="sum-box"><span>ล้างมือ</span><strong id="sumSteps">0/7</strong></div>
         </div>
 
-        <div id="performanceBreakdown" class="performance-breakdown">
+        <div class="performance-breakdown">
           <div class="performance-item">
             <span>7 ขั้นล้างมือ</span>
             <strong id="sumStepAccuracy">0%</strong>
@@ -1270,12 +1461,11 @@
   </main>
 
   <script>
-    (function(){
+    (() => {
       "use strict";
 
-      const VERSION = "20260621-HANDWASH-AR-7STEP-FINAL-DIAGNOSTIC-GRACE";
+      const VERSION = "20260621-HANDWASH-AR-7STEP-LIVE-VISUAL-COACH";
       const ZONE_ID = "hygiene";
-
       const qs = new URLSearchParams(location.search);
 
       const ROUTES = {
@@ -1293,10 +1483,11 @@
       const DIFF = String(qs.get("diff") || "normal").toLowerCase();
 
       const DURATION = clamp(
-        Number(
-          qs.get("time") ||
-          (DIFF === "easy" ? 90 : DIFF === "hard" ? 60 : 75)
-        ),
+        Number(qs.get("time") || (
+          DIFF === "easy" ? 90 :
+          DIFF === "hard" ? 60 :
+          75
+        )),
         30,
         180
       );
@@ -1420,114 +1611,58 @@
       }
 
       function cache(){
-        el.app = document.getElementById("app");
-        el.video = document.getElementById("video");
-        el.cameraFallback = document.getElementById("cameraFallback");
+        [
+          "app","video","cameraFallback","palmPointer","palmPointer2","detectStatus",
+          "arWaterZone","arSoapZone","arScrubZone","arTowelZone",
+          "gestureCard","gestureIcon","gestureTitle","gestureNeed","gestureFill",
+          "gesturePercent","gestureStatus","gestureCoach","gestureDiagnostic","stepList",
+          "stageText","timerText","scoreText","stepText",
+          "missionIcon","missionTitle","missionTip",
+          "actionFill","actionMeterText","foamFill","foamMeterText",
+          "btnBackZone","btnBackZone2","btnBackZone3","btnHub",
+          "btnStart","btnReplay","btnFaucet","faucetLabel","btnCoach",
+          "coachButtonLabel","btnTowel","bossTarget","brief","countdown","summary",
+          "summaryIcon","summaryTitle","summarySub","sumScore","sumStars","sumAcc",
+          "sumSteps","sumStepAccuracy","sumProcessAccuracy","sumGestureQuality",
+          "sumBossAccuracy","badgeList","diagnosticList","recommend","toast",
+          "visualCoach","visualCoachLabel","visualCoachSide","visualCoachDemo","visualCoachTip"
+        ].forEach(id => {
+          el[id] = document.getElementById(id);
+        });
 
-        el.palmPointer = document.getElementById("palmPointer");
-        el.palmPointer2 = document.getElementById("palmPointer2");
-        el.detectStatus = document.getElementById("detectStatus");
-
-        el.arWaterZone = document.getElementById("arWaterZone");
-        el.arSoapZone = document.getElementById("arSoapZone");
-        el.arScrubZone = document.getElementById("arScrubZone");
-        el.arTowelZone = document.getElementById("arTowelZone");
-
-        el.gestureCard = document.getElementById("gestureCard");
-        el.gestureIcon = document.getElementById("gestureIcon");
-        el.gestureTitle = document.getElementById("gestureTitle");
-        el.gestureNeed = document.getElementById("gestureNeed");
-        el.gestureFill = document.getElementById("gestureFill");
-        el.gesturePercent = document.getElementById("gesturePercent");
-        el.gestureStatus = document.getElementById("gestureStatus");
-        el.gestureCoach = document.getElementById("gestureCoach");
-        el.gestureDiagnostic = document.getElementById("gestureDiagnostic");
-        el.stepList = document.getElementById("stepList");
-
-        el.stageText = document.getElementById("stageText");
-        el.timerText = document.getElementById("timerText");
-        el.scoreText = document.getElementById("scoreText");
-        el.stepText = document.getElementById("stepText");
-
-        el.missionIcon = document.getElementById("missionIcon");
-        el.missionTitle = document.getElementById("missionTitle");
-        el.missionTip = document.getElementById("missionTip");
-
-        el.actionFill = document.getElementById("actionFill");
-        el.actionMeterText = document.getElementById("actionMeterText");
-        el.foamFill = document.getElementById("foamFill");
-        el.foamMeterText = document.getElementById("foamMeterText");
-
-        el.btnBackZone = document.getElementById("btnBackZone");
-        el.btnBackZone2 = document.getElementById("btnBackZone2");
-        el.btnBackZone3 = document.getElementById("btnBackZone3");
-        el.btnHub = document.getElementById("btnHub");
-
-        el.btnStart = document.getElementById("btnStart");
-        el.btnReplay = document.getElementById("btnReplay");
-
-        el.btnFaucet = document.getElementById("btnFaucet");
-        el.faucetLabel = document.getElementById("faucetLabel");
-        el.btnCoach = document.getElementById("btnCoach");
-        el.coachButtonLabel = document.getElementById("coachButtonLabel");
-        el.btnTowel = document.getElementById("btnTowel");
-
-        el.bossTarget = document.getElementById("bossTarget");
         el.chips = Array.from(document.querySelectorAll(".chip"));
-
-        el.brief = document.getElementById("brief");
-        el.countdown = document.getElementById("countdown");
-        el.summary = document.getElementById("summary");
-
-        el.summaryIcon = document.getElementById("summaryIcon");
-        el.summaryTitle = document.getElementById("summaryTitle");
-        el.summarySub = document.getElementById("summarySub");
-
-        el.sumScore = document.getElementById("sumScore");
-        el.sumStars = document.getElementById("sumStars");
-        el.sumAcc = document.getElementById("sumAcc");
-        el.sumSteps = document.getElementById("sumSteps");
-
-        el.sumStepAccuracy = document.getElementById("sumStepAccuracy");
-        el.sumProcessAccuracy = document.getElementById("sumProcessAccuracy");
-        el.sumGestureQuality = document.getElementById("sumGestureQuality");
-        el.sumBossAccuracy = document.getElementById("sumBossAccuracy");
-
-        el.badgeList = document.getElementById("badgeList");
-        el.diagnosticList = document.getElementById("diagnosticList");
-        el.recommend = document.getElementById("recommend");
-        el.toast = document.getElementById("toast");
       }
 
       function buildStepList(){
         el.stepList.innerHTML = "";
 
-        SCRUB.forEach((step, index) => {
+        SCRUB.forEach((step,index) => {
           const row = document.createElement("div");
           row.className = "step-row";
           row.dataset.step = step.id;
           row.innerHTML = `
             <b>${index + 1}</b>
-            <span>${step.label.replace(/^\d+\.\s*/, "")}</span>
+            <span>${step.label.replace(/^\d+\.\s*/,"")}</span>
           `;
           el.stepList.appendChild(row);
         });
       }
 
       function bind(){
-        el.btnBackZone.addEventListener("click", goZone);
-        el.btnBackZone2.addEventListener("click", goZone);
-        el.btnBackZone3.addEventListener("click", goZone);
-        el.btnHub.addEventListener("click", () => location.href = ROUTES.hub);
+        el.btnBackZone.addEventListener("click",goZone);
+        el.btnBackZone2.addEventListener("click",goZone);
+        el.btnBackZone3.addEventListener("click",goZone);
+        el.btnHub.addEventListener("click",() => {
+          location.href = ROUTES.hub;
+        });
 
-        el.btnStart.addEventListener("click", startGame);
-        el.btnReplay.addEventListener("click", startGame);
+        el.btnStart.addEventListener("click",startGame);
+        el.btnReplay.addEventListener("click",startGame);
+        el.btnFaucet.addEventListener("click",onFaucetTap);
+        el.btnCoach.addEventListener("click",onCoachTap);
+        el.btnTowel.addEventListener("click",onTowelTap);
 
-        el.btnFaucet.addEventListener("click", onFaucetTap);
-        el.btnCoach.addEventListener("click", onCoachTap);
-        el.btnTowel.addEventListener("click", onTowelTap);
-
-        el.bossTarget.addEventListener("pointerdown", event => {
+        el.bossTarget.addEventListener("pointerdown",event => {
           event.preventDefault();
           hitBoss("tap");
         });
@@ -1536,7 +1671,6 @@
       function resetState(){
         clearInterval(timer);
         clearInterval(bossTimer);
-
         tracking.clear();
 
         state = {
@@ -1547,7 +1681,6 @@
           score:0,
           foam:0,
           waterOn:false,
-
           scrubIndex:0,
           bossHp:DIFF === "easy" ? 3 : DIFF === "hard" ? 6 : 5,
 
@@ -1561,7 +1694,6 @@
           waterMistakes:0,
           soapMistakes:0,
           orderMistakes:0,
-
           simulatorHits:0,
           tapHits:0,
           bossCooldownAt:0,
@@ -1594,7 +1726,6 @@
             waterCloseBeforeSoap:false,
             soapApplied:false,
             foamCreated:false,
-
             palm:false,
             backHand:false,
             betweenFingers:false,
@@ -1602,7 +1733,6 @@
             thumbs:false,
             fingertips:false,
             wrists:false,
-
             scrubComplete:false,
             waterOpenRinse:false,
             rinsedSoap:false,
@@ -1655,8 +1785,7 @@
 
         await runCountdown();
 
-        passCheck("warmup", SCORE.warmup);
-
+        passCheck("warmup",SCORE.warmup);
         state.stage = "main";
         state.phase = "wet";
 
@@ -1674,18 +1803,18 @@
           el.countdown.textContent = sequence[index];
           el.countdown.classList.add("show");
 
-          const countdownTimer = setInterval(() => {
+          const id = setInterval(() => {
             index += 1;
 
             if(index >= sequence.length){
-              clearInterval(countdownTimer);
+              clearInterval(id);
               el.countdown.classList.remove("show");
               resolve();
               return;
             }
 
             el.countdown.textContent = sequence[index];
-          }, 700);
+          },700);
         });
       }
 
@@ -1704,11 +1833,11 @@
           }
 
           updateUI();
-        }, 1000);
+        },1000);
       }
 
       async function startCamera(){
-        if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        if(!navigator.mediaDevices?.getUserMedia){
           el.cameraFallback.style.display = "grid";
           el.detectStatus.textContent = "Tap Mode";
           return;
@@ -1793,7 +1922,6 @@
       function onHands(results){
         const now = performance.now();
         const dt = clamp((now - lastFrameAt) / 1000 || .033,.012,.12);
-
         lastFrameAt = now;
 
         if(!results?.multiHandLandmarks?.length){
@@ -1804,7 +1932,7 @@
           }
 
           if(state?.stage === "main" && state?.phase === "scrub"){
-            registerDiagnostic("noHands", dt);
+            registerDiagnostic("noHands",dt);
           }
 
           return;
@@ -1903,17 +2031,11 @@
         const fistScore = clamp((1.35 - extension) / .65,0,1);
 
         const previous = tracking.get(key);
-
         const speed = previous
           ? distance(palm,previous.palm) / Math.max(dt,.016)
           : 0;
 
-        tracking.set(key,{
-          palm,
-          thumbTip,
-          wrist,
-          at:performance.now()
-        });
+        tracking.set(key,{palm,at:performance.now()});
 
         return {
           key,
@@ -1960,21 +2082,14 @@
           }else{
             state.processHold.water = Math.max(0,state.processHold.water - dt * .3);
           }
-        }
-
-        else if(state.phase === "closeBeforeSoap"){
+        }else if(state.phase === "closeBeforeSoap"){
           if(hands.length && !anyPalmInWater){
             state.processHold.close += dt;
-
-            if(state.processHold.close >= .5){
-              completeCloseBeforeSoap();
-            }
+            if(state.processHold.close >= .5) completeCloseBeforeSoap();
           }else{
             state.processHold.close = 0;
           }
-        }
-
-        else if(state.phase === "soap"){
+        }else if(state.phase === "soap"){
           if(anyPalmInSoap){
             state.processHold.soap += dt;
             state.simulatorHits += 1;
@@ -1985,13 +2100,9 @@
           }else{
             state.processHold.soap = Math.max(0,state.processHold.soap - dt * .25);
           }
-        }
-
-        else if(state.phase === "scrub"){
+        }else if(state.phase === "scrub"){
           updateGestureEvidence(hands,dt,zones);
-        }
-
-        else if(state.phase === "rinseOpen"){
+        }else if(state.phase === "rinseOpen"){
           if(anyPalmInWater){
             state.processHold.rinse += dt;
             state.foam = clamp(state.foam - 1.25,0,100);
@@ -2004,21 +2115,14 @@
           }else{
             state.processHold.rinse = Math.max(0,state.processHold.rinse - dt * .25);
           }
-        }
-
-        else if(state.phase === "closeAfterRinse"){
+        }else if(state.phase === "closeAfterRinse"){
           if(hands.length && !anyPalmInWater){
             state.processHold.close += dt;
-
-            if(state.processHold.close >= .5){
-              completeCloseAfterRinse();
-            }
+            if(state.processHold.close >= .5) completeCloseAfterRinse();
           }else{
             state.processHold.close = 0;
           }
-        }
-
-        else if(state.phase === "dry"){
+        }else if(state.phase === "dry"){
           if(anyPalmInTowel){
             state.processHold.dry += dt;
             state.simulatorHits += 1;
@@ -2036,7 +2140,6 @@
 
       function setupGestureStep(){
         const step = SCRUB[state.scrubIndex];
-
         if(!step) return;
 
         state.gesture = {
@@ -2058,7 +2161,6 @@
 
       function updateGestureEvidence(hands,dt,zones){
         const step = SCRUB[state.scrubIndex];
-
         if(!step) return;
 
         if(!state.gesture || state.gesture.stepId !== step.id){
@@ -2071,8 +2173,11 @@
         if(hands.length < 2){
           gesture.signal = 0;
           gesture.status = "ต้องเห็น 2 มือ";
-          gesture.coach = "ยกมือทั้งสองข้างให้เห็นเต็มเฟรม";
-          gesture.diagnostic = "ระบบเห็นมือไม่ครบสองข้าง";
+          setChildGestureCoach(
+            step,
+            "noHands",
+            "ยกมือสองข้างให้กล้องเห็นชัด ๆ ก่อนนะ"
+          );
           registerDiagnostic("noHands",dt);
           decayGestureEvidence(dt);
           return;
@@ -2082,23 +2187,21 @@
 
         if(step.requiresSides && gesture.slots.length < 2){
           gesture.signal = 0;
-          gesture.status = "กำลังแยกมือ";
-          gesture.coach = "แยกมือออกจากกันเล็กน้อยเพื่อให้ระบบรู้ว่าต้องสลับมือ";
-          gesture.diagnostic = "ระบบยังแยกมือซ้าย–ขวาไม่ได้";
+          gesture.status = "ต้องสลับมือ";
+          setChildGestureCoach(
+            step,
+            "needOtherHand",
+            "ขยับมือออกจากกันนิดหนึ่ง แล้วสลับทำอีกข้าง"
+          );
           registerDiagnostic("needOtherHand",dt);
           return;
         }
 
-        const candidates = evaluateGesture(step,hands,zones,dt);
-
-        const validCandidates = candidates
+        const candidates = evaluateGesture(step,hands,zones,dt)
           .filter(candidate => !gesture.done[candidate.slot])
           .sort((a,b) => b.score - a.score);
 
-        const best = validCandidates[0];
-        const threshold = gesture.graceActive
-          ? step.graceThreshold
-          : step.threshold;
+        const best = candidates[0];
 
         if(elapsed >= 8 && !gesture.graceActive){
           const nearEvidence = getGestureOverallPercent();
@@ -2107,9 +2210,13 @@
             gesture.graceActive = true;
             state.stepDiagnostics[step.id].adaptiveGrace = true;
 
-            showToast("AI Coach ช่วยปรับเกณฑ์เล็กน้อย: ทำช้าและชัดขึ้น");
+            showToast("AI Coach: ทำช้า ๆ และให้มืออยู่กลางจออีกนิดนะ");
           }
         }
+
+        const threshold = gesture.graceActive
+          ? step.graceThreshold
+          : step.threshold;
 
         gesture.signal = best ? best.score : 0;
         gesture.activeSlot = best ? best.slot : null;
@@ -2117,27 +2224,32 @@
         recordStepQuality(step.id,best?.score || 0);
 
         if(!best){
-          gesture.status = "กำลังหา gesture";
-          gesture.coach = step.tip;
-          gesture.diagnostic = "ยังไม่พบรูปแบบมือที่ตรงกับขั้นนี้";
+          gesture.status = "ลองทำใหม่";
+          setChildGestureCoach(step,"weakPose");
           registerDiagnostic("weakPose",dt);
           decayGestureEvidence(dt);
           return;
         }
 
         if(!best.inZone){
-          gesture.status = "มืออยู่นอกโซน";
-          gesture.coach = "เลื่อนมือเข้ากลางสัญลักษณ์ 🤲";
-          gesture.diagnostic = "มืออยู่นอกพื้นที่ตรวจท่าล้างมือ";
+          gesture.status = "ขยับเข้ากลางจอ";
+          setChildGestureCoach(
+            step,
+            "outsideZone",
+            "เลื่อนมือมาไว้ตรงสัญลักษณ์ 🤲 กลางจอ"
+          );
           registerDiagnostic("outsideZone",dt);
           decayGestureEvidence(dt);
           return;
         }
 
         if(best.motionTooLow){
-          gesture.status = "ต้องขยับต่อเนื่อง";
-          gesture.coach = "ทำท่าเดิมต่อเนื่องช้า ๆ อีกนิด";
-          gesture.diagnostic = "ตรวจพบตำแหน่งใกล้เคียง แต่การเคลื่อนไหวยังน้อย";
+          gesture.status = "ลองถูต่ออีกนิด";
+          setChildGestureCoach(
+            step,
+            "lowMotion",
+            "ทำท่านี้ช้า ๆ ต่อเนื่องอีกนิด"
+          );
           registerDiagnostic("lowMotion",dt);
           decayGestureEvidence(dt);
           return;
@@ -2145,13 +2257,15 @@
 
         if(best.score >= threshold){
           gesture.evidence[best.slot] += dt * (.38 + .62 * best.score);
+
           gesture.coach = best.coach;
           gesture.status = gesture.graceActive
-            ? "AI Assist กำลังยืนยัน"
+            ? "AI Coach ช่วยแล้ว"
             : "กำลังตรวจท่า";
+
           gesture.diagnostic = gesture.graceActive
-            ? "ระบบใช้ Adaptive Grace เพราะพยายามต่อเนื่องแล้ว"
-            : "พบหลักฐานท่าใกล้เคียง กำลังสะสม Evidence";
+            ? "ทำช้า ๆ ให้ชัดขึ้นอีกนิด"
+            : "เจอท่าใกล้เคียงแล้ว ทำต่ออีกนิด";
 
           state.foam = clamp(state.foam + .18,0,100);
 
@@ -2181,42 +2295,44 @@
         }else{
           const diagnostic = inferWeakDiagnostic(best,step);
 
-          gesture.status = "กำลังหา gesture";
-          gesture.coach = diagnostic.coach;
-          gesture.diagnostic = diagnostic.message;
-
+          gesture.status = "ลองทำใหม่";
+          setChildGestureCoach(step,diagnostic.key,diagnostic.coach);
           registerDiagnostic(diagnostic.key,dt);
           decayGestureEvidence(dt);
         }
+      }
+
+      function setChildGestureCoach(step,reason,extra = ""){
+        if(!state.gesture) return;
+
+        const childMessage = getChildDiagnosticText(step.id,reason);
+        state.gesture.diagnostic = childMessage;
+        state.gesture.coach = extra || childMessage;
       }
 
       function inferWeakDiagnostic(best,step){
         if(best.motionScore < .18){
           return {
             key:"lowMotion",
-            coach:"ทำท่านี้ช้า ๆ ต่อเนื่องประมาณ 1–2 วินาที",
-            message:"ตำแหน่งมือใกล้เคียงแล้ว แต่การเคลื่อนไหวยังไม่ต่อเนื่อง"
+            coach:"ทำท่านี้ช้า ๆ ต่อเนื่องอีกนิด"
           };
         }
 
         if(step.requiresSides && !best.slot){
           return {
             key:"needOtherHand",
-            coach:"ให้เห็นมือทั้งสองข้างและสลับมือ",
-            message:"ขั้นนี้ต้องทำครบทั้งสองมือ"
+            coach:"ให้เห็นมือทั้งสองข้างและสลับมือ"
           };
         }
 
         return {
           key:"weakPose",
-          coach:step.tip,
-          message:"ระบบเห็นมือครบ แต่รูปแบบนิ้วหรือมุมมือยังไม่ใกล้เคียงพอ"
+          coach:getChildDiagnosticText(step.id,"weakPose")
         };
       }
 
       function registerDiagnostic(key,dt){
         const step = SCRUB[state.scrubIndex];
-
         if(!step || !state.stepDiagnostics[step.id]) return;
 
         state.stepDiagnostics[step.id][key] += dt;
@@ -2225,7 +2341,6 @@
 
       function recordStepQuality(stepId,score){
         const quality = state.stepQuality[stepId];
-
         if(!quality) return;
 
         quality.totalSignal += clamp(score,0,1);
@@ -2259,7 +2374,6 @@
 
       function decayGestureEvidence(dt){
         const gesture = state.gesture;
-
         if(!gesture) return;
 
         gesture.slots.forEach(slot => {
@@ -2343,7 +2457,6 @@
 
       function buildPair(a,b,zones,dt){
         const averageScale = Math.max((a.scale + b.scale) / 2,.05);
-
         const palmDistance = distance(a.palm,b.palm) / averageScale;
 
         const midpointScreen = {
@@ -2357,7 +2470,6 @@
         };
 
         const previous = state.gesture?.pairLast;
-
         const relativeSpeed = previous
           ? distance(relative,previous) / Math.max(dt,.016)
           : 0;
@@ -2575,13 +2687,7 @@
 
         if(state.phase === "scrub"){
           const step = SCRUB[state.scrubIndex];
-
-          showToast(
-            step
-              ? "AI Coach: " + step.tip
-              : "ทำท่าตามคำแนะนำบนหน้าจอ"
-          );
-
+          showToast(step ? "AI Coach: " + step.tip : "ทำตามคำแนะนำบนหน้าจอ");
           return;
         }
 
@@ -2642,7 +2748,6 @@
 
       function completeScrubStep(){
         const step = SCRUB[state.scrubIndex];
-
         if(!step) return;
 
         passCheck(step.id,SCORE.scrubStep);
@@ -2667,7 +2772,6 @@
 
       function completeRinse(){
         setWater(true);
-
         passCheck("waterOpenRinse",SCORE.waterOpenRinse);
         passCheck("rinsedSoap",SCORE.rinsedSoap);
 
@@ -2692,7 +2796,6 @@
 
       function completeDry(){
         passCheck("driedHands",SCORE.driedHands);
-
         showToast("มือแห้งแล้ว! Germ Boss กำลังมา");
         startBoss();
       }
@@ -2746,7 +2849,6 @@
         if(!el.bossTarget.classList.contains("show")) return;
 
         const now = performance.now();
-
         if(now - state.bossCooldownAt < 420) return;
 
         const rect = el.bossTarget.getBoundingClientRect();
@@ -2816,7 +2918,7 @@
         if(type === "water") state.waterMistakes += 1;
         if(type === "soap") state.soapMistakes += 1;
 
-        showToast(message + " (-" + penalty + ")");
+        showToast(`${message} (-${penalty})`);
       }
 
       function setWater(on){
@@ -2846,6 +2948,16 @@
             icon:"🦠",
             title:"Germ Boss",
             tip:"ใช้ฝ่ามือหรือปลายนิ้วชี้ชนเป้าเชื้อโรค"
+          };
+        }
+
+        if(state.phase === "scrub"){
+          const step = SCRUB[state.scrubIndex];
+
+          return {
+            icon:step?.icon || "🤲",
+            title:step?.label || "ตรวจท่าล้างมือ",
+            tip:(step?.tip || "") + " • ดูภาพตัวอย่างใน AI Coach"
           };
         }
 
@@ -2882,16 +2994,6 @@
           }
         };
 
-        if(state.phase === "scrub"){
-          const step = SCRUB[state.scrubIndex];
-
-          return {
-            icon:step?.icon || "🤲",
-            title:step?.label || "ตรวจท่าล้างมือ",
-            tip:(step?.tip || "") + " • ทำตาม AI Coach จน Evidence เต็ม"
-          };
-        }
-
         return process[state.phase] || {
           icon:"🧼",
           title:"Handwash AR Simulator",
@@ -2909,17 +3011,16 @@
 
         el.timerText.textContent = String(state.remaining);
         el.scoreText.textContent = String(state.score);
-        el.stepText.textContent = completedScrubs() + "/7";
-
+        el.stepText.textContent = `${completedScrubs()}/7`;
         el.faucetLabel.textContent = state.waterOn ? "ปิดน้ำ" : "เปิดน้ำ";
 
         const gesturePercent = getGestureOverallPercent();
 
-        el.actionFill.style.width = gesturePercent + "%";
-        el.actionMeterText.textContent = gesturePercent + "%";
+        el.actionFill.style.width = `${gesturePercent}%`;
+        el.actionMeterText.textContent = `${gesturePercent}%`;
 
-        el.foamFill.style.width = clamp(state.foam,0,100) + "%";
-        el.foamMeterText.textContent = Math.round(clamp(state.foam,0,100)) + "%";
+        el.foamFill.style.width = `${clamp(state.foam,0,100)}%`;
+        el.foamMeterText.textContent = `${Math.round(clamp(state.foam,0,100))}%`;
 
         el.app.classList.toggle(
           "foamy",
@@ -2945,13 +3046,11 @@
 
         updateZoneHighlights();
         updateGestureCard();
+        updateVisualCoach();
         updateStepRows();
 
         el.chips.forEach(chip => {
-          chip.classList.toggle(
-            "done",
-            !!state.checks[chip.dataset.check]
-          );
+          chip.classList.toggle("done",!!state.checks[chip.dataset.check]);
         });
       }
 
@@ -3005,11 +3104,92 @@
         el.gestureIcon.textContent = step.icon;
         el.gestureTitle.textContent = step.label;
         el.gestureNeed.textContent = gestureNeedText(step);
-        el.gestureFill.style.width = percent + "%";
-        el.gesturePercent.textContent = percent + "%";
+        el.gestureFill.style.width = `${percent}%`;
+        el.gesturePercent.textContent = `${percent}%`;
         el.gestureStatus.textContent = gesture.status || "กำลังตรวจ";
         el.gestureCoach.textContent = gesture.coach || step.tip;
         el.gestureDiagnostic.textContent = gesture.diagnostic || "";
+      }
+
+      function updateVisualCoach(){
+        const active = state.stage === "main" && state.phase === "scrub";
+        const step = SCRUB[state.scrubIndex];
+        const gesture = state.gesture;
+
+        if(!el.visualCoach) return;
+
+        if(!active || !step || !gesture){
+          el.visualCoach.className = "visual-coach";
+          el.visualCoachLabel.textContent = "ทำแบบนี้";
+          el.visualCoachSide.textContent = "เตรียมมือ";
+          el.visualCoachTip.textContent = "ยกมือสองข้างให้กล้องเห็นชัด ๆ";
+          el.visualCoachDemo.className = "visual-coach-demo palm-demo";
+          return;
+        }
+
+        const percent = getGestureOverallPercent();
+
+        const demoClass = {
+          palm:"palm-demo",
+          backHand:"backhand-demo",
+          betweenFingers:"fingers-demo",
+          backFingers:"knuckles-demo",
+          thumbs:"thumb-demo",
+          fingertips:"fingertip-demo",
+          wrists:"wrist-demo"
+        }[step.id] || "palm-demo";
+
+        el.visualCoachDemo.className = `visual-coach-demo ${demoClass}`;
+
+        el.visualCoach.classList.toggle("near-pass",percent >= 70);
+        el.visualCoach.classList.toggle(
+          "warn",
+          ["ต้องเห็น 2 มือ","ขยับเข้ากลางจอ","ต้องสลับมือ"].includes(gesture.status)
+        );
+
+        if(percent >= 70){
+          el.visualCoachLabel.textContent = "เกือบผ่านแล้ว!";
+          el.visualCoachTip.textContent = "ทำต่ออีกนิด อย่าเพิ่งหยุด";
+        }else{
+          el.visualCoachLabel.textContent = "ทำแบบนี้";
+          el.visualCoachTip.textContent = getChildDiagnosticText(
+            step.id,
+            getMainDiagnosticReason(step.id)
+          );
+        }
+
+        if(!step.requiresSides){
+          el.visualCoachSide.textContent = "ทำพร้อมกัน";
+          return;
+        }
+
+        const slots = gesture.slots || [];
+        const pending = slots.filter(slot => !gesture.done[slot]);
+
+        if(!slots.length){
+          el.visualCoachSide.textContent = "ให้เห็น 2 มือ";
+        }else if(pending.length === 1){
+          el.visualCoachSide.textContent = "เหลือ " + slotLabel(pending[0]);
+        }else if(pending.length === 0){
+          el.visualCoachSide.textContent = "ครบทั้งสองมือ ✓";
+        }else{
+          el.visualCoachSide.textContent = "สลับมือ";
+        }
+      }
+
+      function getMainDiagnosticReason(stepId){
+        const diagnostic = state.stepDiagnostics?.[stepId];
+        if(!diagnostic) return "weakPose";
+
+        return [
+          "noHands",
+          "outsideZone",
+          "needOtherHand",
+          "lowMotion",
+          "weakPose"
+        ].sort((a,b) => {
+          return (diagnostic[b] || 0) - (diagnostic[a] || 0);
+        })[0] || "weakPose";
       }
 
       function updateStepRows(){
@@ -3027,9 +3207,7 @@
             index === state.scrubIndex
           );
 
-          marker.textContent = state.checks[step.id]
-            ? "✓"
-            : String(index + 1);
+          marker.textContent = state.checks[step.id] ? "✓" : String(index + 1);
         });
       }
 
@@ -3037,8 +3215,8 @@
         const gesture = state.gesture;
 
         if(!step.requiresSides){
-          return gesture.graceActive
-            ? "Adaptive Grace ทำช้าและชัดขึ้น"
+          return gesture?.graceActive
+            ? "AI Coach ช่วยแล้ว ทำช้า ๆ ให้ชัดขึ้น"
             : "ทำท่าต่อเนื่องจน Evidence เต็ม";
         }
 
@@ -3050,7 +3228,7 @@
 
         if(pending.length === 2){
           return gesture.graceActive
-            ? "Adaptive Grace: ทำครบทั้งสองมือ"
+            ? "AI Coach ช่วยแล้ว ทำให้ครบทั้งสองมือ"
             : "ต้องทำครบทั้งสองมือ";
         }
 
@@ -3238,23 +3416,11 @@
           state.score += SCORE.perfect;
         }
 
-        if(
-          complete &&
-          steps === 7 &&
-          state.checks.bossClear &&
-          state.accuracy >= 90
-        ){
+        if(complete && steps === 7 && state.checks.bossClear && state.accuracy >= 90){
           state.stars = 3;
-        }else if(
-          steps >= 6 &&
-          state.checks.driedHands &&
-          state.accuracy >= 72
-        ){
+        }else if(steps >= 6 && state.checks.driedHands && state.accuracy >= 72){
           state.stars = 2;
-        }else if(
-          steps >= 4 &&
-          state.accuracy >= 48
-        ){
+        }else if(steps >= 4 && state.accuracy >= 48){
           state.stars = 1;
         }else{
           state.stars = 0;
@@ -3273,33 +3439,13 @@
 
         state.badges = [];
 
-        if(steps >= 4){
-          state.badges.push("🤲 AR Gesture Player");
-        }
-
-        if(steps === 7){
-          state.badges.push("🫧 Seven-Step Washer");
-        }
-
-        if(state.checks.thumbs){
-          state.badges.push("👍 Thumb Cleaner");
-        }
-
-        if(state.checks.fingertips){
-          state.badges.push("💅 Nail Cleaner");
-        }
-
-        if(state.checks.wrists){
-          state.badges.push("⌚ Wrist Cleaner");
-        }
-
-        if(state.checks.driedHands){
-          state.badges.push("🧻 Dry Hand Hero");
-        }
-
-        if(state.checks.bossClear){
-          state.badges.push("👾 Germ Boss Clear");
-        }
+        if(steps >= 4) state.badges.push("🤲 AR Gesture Player");
+        if(steps === 7) state.badges.push("🫧 Seven-Step Washer");
+        if(state.checks.thumbs) state.badges.push("👍 Thumb Cleaner");
+        if(state.checks.fingertips) state.badges.push("💅 Nail Cleaner");
+        if(state.checks.wrists) state.badges.push("⌚ Wrist Cleaner");
+        if(state.checks.driedHands) state.badges.push("🧻 Dry Hand Hero");
+        if(state.checks.bossClear) state.badges.push("👾 Germ Boss Clear");
 
         if(
           state.checks.waterCloseBeforeSoap &&
@@ -3385,7 +3531,7 @@
         el.sumScore.textContent = String(state.score);
         el.sumStars.textContent = state.stars ? "⭐".repeat(state.stars) : "-";
         el.sumAcc.textContent = state.accuracy + "%";
-        el.sumSteps.textContent = completedScrubs() + "/7";
+        el.sumSteps.textContent = `${completedScrubs()}/7`;
 
         el.sumStepAccuracy.textContent = metrics.stepAccuracy + "%";
         el.sumProcessAccuracy.textContent = metrics.processAccuracy + "%";
@@ -3431,16 +3577,14 @@
         el.diagnosticList.innerHTML = "";
 
         const missing = SCRUB.filter(step => !state.checks[step.id]);
-
         if(!missing.length) return;
 
         missing.slice(0,3).forEach(step => {
           const diagnostic = state.stepDiagnostics[step.id];
-          const message = getDiagnosticSummary(step,diagnostic);
-
           const item = document.createElement("div");
+
           item.className = "diagnostic-item";
-          item.textContent = `${step.label}: ${message}`;
+          item.textContent = `${step.label}: ${getDiagnosticSummary(step,diagnostic)}`;
 
           el.diagnosticList.appendChild(item);
         });
@@ -3457,13 +3601,67 @@
           return (diagnostic[b[0]] || 0) - (diagnostic[a[0]] || 0);
         });
 
-        const main = ranked[0];
+        const technicalReason = ranked[0]?.[0] || "weakPose";
+        return getChildDiagnosticText(step.id,technicalReason);
+      }
 
-        if(diagnostic.adaptiveGrace){
-          return `${main[1]} • AI Coach ปรับเกณฑ์ช่วยแล้ว แต่หลักฐานยังไม่พอ`;
-        }
+      function getChildDiagnosticText(stepId,reason){
+        const childText = {
+          palm:{
+            noHands:"ยกมือสองข้างให้กล้องเห็นชัด ๆ",
+            outsideZone:"เลื่อนมือมาไว้กลางสัญลักษณ์มือ",
+            lowMotion:"ประกบฝ่ามือแล้วถูไป–มาต่อเนื่อง",
+            weakPose:"ประกบฝ่ามือทั้งสองข้างให้ชิดกัน",
+            needOtherHand:"ใช้มือทั้งสองข้างประกบกัน"
+          },
+          backHand:{
+            noHands:"ยกมือสองข้างให้กล้องเห็นชัด ๆ",
+            outsideZone:"เลื่อนมือมาไว้กลางสัญลักษณ์มือ",
+            lowMotion:"ถูหลังมือช้า ๆ ต่อเนื่องอีกนิด",
+            weakPose:"เอาฝ่ามือหนึ่งวางบนหลังมืออีกข้าง",
+            needOtherHand:"สลับถูหลังมืออีกข้างด้วย"
+          },
+          betweenFingers:{
+            noHands:"ยกมือสองข้างให้กล้องเห็นชัด ๆ",
+            outsideZone:"เลื่อนมือมาไว้กลางสัญลักษณ์มือ",
+            lowMotion:"ประสานนิ้วแล้วถูไป–มาต่อเนื่อง",
+            weakPose:"ประสานนิ้วสองมือให้ชิดกัน",
+            needOtherHand:"ใช้มือทั้งสองข้างประสานนิ้วกัน"
+          },
+          backFingers:{
+            noHands:"ยกมือสองข้างให้กล้องเห็นชัด ๆ",
+            outsideZone:"เลื่อนมือมาไว้กลางสัญลักษณ์มือ",
+            lowMotion:"งอนิ้วแล้วถูข้อนิ้วต่อเนื่อง",
+            weakPose:"งอนิ้วเป็นกำหลวม ๆ แล้วถูบนฝ่ามือ",
+            needOtherHand:"สลับทำอีกมือให้ครบ"
+          },
+          thumbs:{
+            noHands:"ยกมือสองข้างให้กล้องเห็นชัด ๆ",
+            outsideZone:"เลื่อนมือมาไว้กลางสัญลักษณ์มือ",
+            lowMotion:"หมุนถูนิ้วโป้งช้า ๆ ต่อเนื่อง",
+            weakPose:"กำมือรอบนิ้วโป้งแล้วหมุนถู",
+            needOtherHand:"สลับถูนิ้วโป้งอีกข้างด้วย"
+          },
+          fingertips:{
+            noHands:"ยกมือสองข้างให้กล้องเห็นชัด ๆ",
+            outsideZone:"เลื่อนมือมาไว้กลางสัญลักษณ์มือ",
+            lowMotion:"วนปลายนิ้วบนฝ่ามือต่อเนื่อง",
+            weakPose:"รวมปลายนิ้วแล้ววนถูบนฝ่ามือ",
+            needOtherHand:"สลับทำปลายนิ้วอีกข้างด้วย"
+          },
+          wrists:{
+            noHands:"ยกมือสองข้างให้กล้องเห็นชัด ๆ",
+            outsideZone:"เลื่อนมือมาไว้กลางสัญลักษณ์มือ",
+            lowMotion:"หมุนถูรอบข้อมือต่อเนื่อง",
+            weakPose:"กำมือรอบข้อมือแล้วหมุนถู",
+            needOtherHand:"สลับทำข้อมืออีกข้างด้วย"
+          }
+        };
 
-        return main[1];
+        return (
+          childText[stepId]?.[reason] ||
+          "ลองทำท่านี้ช้า ๆ ให้กล้องเห็นมือทั้งสองข้าง"
+        );
       }
 
       function payload(){
@@ -3474,7 +3672,6 @@
           gameShort:"handwash",
           zone:ZONE_ID,
           version:VERSION,
-
           timestamp:state.endedAt,
           startedAt:state.startedAt,
           sessionId:qs.get("session") || state.sessionId,
@@ -3485,7 +3682,7 @@
           classLevel:qs.get("classLevel") || "P5",
 
           mode:handDetectReady
-            ? "AR-7step-gesture-evidence-diagnostic"
+            ? "AR-7step-gesture-evidence-live-visual-coach"
             : "tap-process-only",
 
           detectTarget:"two_hands_landmarks_0_4_5_8_9_12_16_20_gesture_evidence",
@@ -3496,7 +3693,6 @@
 
           score:state.score,
           accuracy:state.accuracy,
-
           stepAccuracy:state.stepAccuracy,
           processAccuracy:state.processAccuracy,
           gestureQuality:state.gestureQuality,
@@ -3505,7 +3701,6 @@
 
           completedSteps:completedScrubs(),
           totalSteps:7,
-
           completedProcessSteps:metrics.completedProcessCount,
           totalProcessSteps:metrics.totalProcessCount,
 
@@ -3676,10 +3871,10 @@
       }
 
       function normalizeHandKey(label,index){
-        const value = String(label || "").toLowerCase();
+        const text = String(label || "").toLowerCase();
 
-        if(value.includes("left")) return "left";
-        if(value.includes("right")) return "right";
+        if(text.includes("left")) return "left";
+        if(text.includes("right")) return "right";
 
         return "hand-" + index;
       }
@@ -3687,7 +3882,6 @@
       function slotLabel(slot){
         if(slot === "left") return "มือซ้าย";
         if(slot === "right") return "มือขวา";
-
         return "อีกมือ";
       }
 
