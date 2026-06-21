@@ -1,11 +1,11 @@
 // === /herohealth/gate/games/fitness/fitness-readiness-recovery.js ===
-// FULL MODULE v20260621-FITNESS-READINESS-RECOVERY-POSE-ADAPTIVE-FRAMING-V7
+// FULL MODULE v20260621-FITNESS-READINESS-RECOVERY-POSE-ADAPTIVE-FRAMING-V8-RUNTIME-FIX
 // Shared Fitness Gate phase module for:
 //   shadow-breaker, rhythm-boxer, jump-duck, balance-hold
 // Uses the existing /herohealth/warmup-gate.html -> gate-core.js architecture.
 // Do not import this module directly from a game page; register it in gate-games.js.
 
-const PATCH = 'v20260621-FITNESS-READINESS-RECOVERY-POSE-ADAPTIVE-FRAMING-V7';
+const PATCH = 'v20260621-FITNESS-READINESS-RECOVERY-POSE-ADAPTIVE-FRAMING-V8-RUNTIME-FIX';
 
 /*
   STABLE CDN POLICY
@@ -821,7 +821,9 @@ function stableMovement(metrics, runtime) {
 
 function updateTaskFromPose(task, metrics, runtime, dt, now) {
   const state = taskState(runtime, task);
-  const frame = taskFrameProfile(game, phase, task);
+  // game/phase are mount-scoped values. Keep them in runtime so this shared
+  // helper never reaches for undeclared variables during the first pose frame.
+  const frame = taskFrameProfile(runtime.game, runtime.phase, task);
   const coverage = frameCoverage(runtime.landmarks);
   const frameQuality = profileQuality(runtime.landmarks, frame);
   const framingOk = profileReady(coverage, frame);
@@ -1087,6 +1089,9 @@ export async function mount(stage, ctx, api) {
   let completed = false;
 
   const runtime = {
+    // Retain mount context for helpers that run outside mount() lexical scope.
+    game,
+    phase,
     startedAt: performance.now(),
     lastInferenceAt: 0,
     lastFrameAt: performance.now(),
