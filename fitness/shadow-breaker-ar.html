@@ -11,7 +11,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260620-SHADOW-BREAKER-AR-HAND-PUNCH-V8-2-STUDENT-CONTEXT-LOCK
+    Version: v20260621-SHADOW-BREAKER-AR-HAND-PUNCH-V8-3-FITNESS-PLANNER-COOLDOWN
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -947,6 +947,13 @@
       color:#e2e8f0;
     }
 
+    /* Fitness Planner flow: result must continue through AR Cool-down. */
+    #btnHub.play{
+      background:linear-gradient(135deg,#22c55e,#38bdf8,#6366f1);
+      color:#fff;
+      box-shadow:0 18px 42px rgba(56,189,248,.25);
+    }
+
     .rules{
       margin:0;
       padding-left:20px;
@@ -1296,7 +1303,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260620 • Hand Punch v8.2 STUDENT CONTEXT</div>
+          <div class="pill" id="versionPill">v20260621 • Hand Punch v8.3 • Planner Cooldown</div>
         </div>
 
         <div class="grid2">
@@ -1447,6 +1454,61 @@
     const now = () => performance.now();
 
     const qs = new URLSearchParams(location.search);
+
+    const FITNESS_PLANNER_FLOW =
+      qs.get("plannerReturn") === "1" ||
+      Boolean(qs.get("plannerReturnUrl")) ||
+      Boolean(qs.get("planId")) ||
+      Boolean(qs.get("planSlot"));
+
+    function safeQueryUrl(raw, fallback=""){
+      try{
+        if(!String(raw || "").trim()) return fallback;
+        return new URL(String(raw), location.href).href;
+      }catch(err){
+        return fallback;
+      }
+    }
+
+    function isCooldownGateHref(raw){
+      const href = safeQueryUrl(raw, "");
+      if(!href) return false;
+
+      try{
+        const u = new URL(href);
+        const phase = String(u.searchParams.get("phase") || u.searchParams.get("gatePhase") || "").toLowerCase();
+        return /\/herohealth\/warmup-gate\.html$/i.test(u.pathname) && phase === "cooldown";
+      }catch(err){
+        return false;
+      }
+    }
+
+    function isPlannerFlow(){
+      return FITNESS_PLANNER_FLOW;
+    }
+
+    function resolvePostGameHref(){
+      const hub = String(qs.get("hub") || "").trim();
+      const cdnext = String(qs.get("cdnext") || "").trim();
+
+      // Fitness Planner always injects the Cool-down Gate as `hub`.
+      // Keep generic game behavior unchanged when the game was not launched by Planner.
+      if(hub) return safeQueryUrl(hub, "./index.html");
+      if(cdnext) return safeQueryUrl(cdnext, "./index.html");
+      return "./index.html";
+    }
+
+    function plannerMeta(){
+      return {
+        plannerReturn: qs.get("plannerReturn") || "",
+        plannerReturnUrl: qs.get("plannerReturnUrl") || "",
+        plannerForceGate: qs.get("plannerForceGate") || "",
+        planId: qs.get("planId") || "",
+        planDay: qs.get("planDay") || "",
+        planSlot: qs.get("planSlot") || "",
+        plannerFlow: isPlannerFlow() ? 1 : 0
+      };
+    }
     const DEFAULT_SHADOW_BREAKER_SHEET_URL = "https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec";
 
     const I18N = {
@@ -1718,6 +1780,36 @@
       return (I18N[state.lang] && I18N[state.lang][key]) || I18N.th[key] || key;
     }
 
+
+    function syncPlannerReturnUi(){
+      const menuBtn = $("btnMenu");
+      const hubBtn = $("btnHub");
+      if(!menuBtn || !hubBtn) return;
+
+      if(isPlannerFlow()){
+        // A planned session must leave the main game through the Cool-down Gate,
+        // not through the legacy Fitness Hub button.
+        menuBtn.classList.add("hidden");
+        hubBtn.classList.remove("ghost");
+        hubBtn.classList.add("play");
+        hubBtn.textContent = state.lang === "th"
+          ? "ทำ Cool-down AR ต่อ"
+          : "Continue to Cool-down AR";
+        hubBtn.setAttribute(
+          "aria-label",
+          state.lang === "th"
+            ? "ไปทำ Cool-down AR ก่อนกลับ Fitness Planner"
+            : "Continue to AR Cool-down before returning to Fitness Planner"
+        );
+      }else{
+        menuBtn.classList.remove("hidden");
+        hubBtn.classList.remove("play");
+        hubBtn.classList.add("ghost");
+        hubBtn.textContent = t("hub");
+        hubBtn.removeAttribute("aria-label");
+      }
+    }
+
     function applyLang(){
       state.lang = $("langSelect").value || "th";
       saveSheetSettings();
@@ -1764,6 +1856,7 @@
       $("statBombLabel").textContent = t("statBomb");
       $("statPerfectLabel").textContent = t("statPerfect");
       $("statFeverLabel").textContent = t("statFever");
+      syncPlannerReturnUi();
       updateHud();
     }
 
@@ -2862,6 +2955,16 @@
       if(typeof buildSheetPayload === "function"){
         state.lastSummaryPayload = buildSheetPayload();
       }
+
+      const gateSummary = saveGateCompletionSummary();
+      logEvent("gate_cooldown_ready", {
+        plannerFlow: gateSummary.plannerFlow,
+        planId: gateSummary.planId,
+        planDay: gateSummary.planDay,
+        planSlot: gateSummary.planSlot,
+        nextHref: gateSummary.gateReturnHref
+      });
+
       if(state.sheetUrl && typeof submitCurrentResultToSheet === "function"){
         setTimeout(() => submitCurrentResultToSheet(false), 350);
       } // AUTO_SHEET_ONLY_SENTINEL
@@ -2998,6 +3101,49 @@
       return out;
     }
 
+
+    function saveGateCompletionSummary(){
+      const attempts = state.metrics.hit + state.metrics.miss + state.metrics.bomb;
+      const acc = attempts ? Math.round((state.metrics.hit / attempts) * 100) : 0;
+      const pid = qs.get("pid") || qs.get("studentId") || qs.get("playerId") || "";
+      const payload = state.lastSummaryPayload || (typeof buildSheetPayload === "function" ? buildSheetPayload() : {});
+
+      const record = {
+        source: "shadow-breaker",
+        game: "shadow-breaker",
+        gameId: "shadow-breaker",
+        pid,
+        studentId: qs.get("studentId") || qs.get("sid") || pid,
+        playerId: qs.get("playerId") || pid,
+        player: state.playerName || "Hero",
+        scoreFinal: state.score,
+        score: state.score,
+        misses: state.metrics.miss,
+        miss: state.metrics.miss,
+        accPct: acc,
+        accuracy: acc,
+        durationSec: state.timeLimit,
+        endReason: state.endReason,
+        combo: state.bestCombo,
+        bestCombo: state.bestCombo,
+        hit: state.metrics.hit,
+        bomb: state.metrics.bomb,
+        feverCount: state.feverCount,
+        bossesCleared: state.metrics.clearedBoss,
+        savedAt: new Date().toISOString(),
+        gateReturnHref: resolvePostGameHref(),
+        ...plannerMeta(),
+        payload
+      };
+
+      safeStorageSet("HHA_LAST_SUMMARY", JSON.stringify(record));
+      if(pid){
+        safeStorageSet(`HHA_LAST_SUMMARY:shadow-breaker:${pid}`, JSON.stringify(record));
+      }
+
+      return record;
+    }
+
     function buildSheetPayload(){
       const attempts = state.metrics.hit + state.metrics.miss + state.metrics.bomb;
       const acc = attempts ? Math.round((state.metrics.hit / attempts) * 100) : 0;
@@ -3018,6 +3164,9 @@
         sourceUrl:location.href,
         clientTimestamp:new Date().toISOString(),
         timestamp:new Date().toISOString(),
+
+        gateHub:resolvePostGameHref(),
+        ...plannerMeta(),
 
         sessionId:`sb-${new Date().toISOString().slice(0,10)}-${state.playerName || "Hero"}`,
         roundId:(state.currentRoundId || (state.currentRoundId = `sb-round-${Date.now().toString(36)}`)),
@@ -3299,6 +3448,7 @@
       return [{
         ts:new Date().toISOString(),
         kind:"summary",
+        ...plannerMeta(),
         player:state.playerName,
         diff:state.diffKey,
         timeLimit:state.timeLimit,
@@ -3352,8 +3502,21 @@
     }
 
     function goHub(){
-      const hub = qs.get("hub") || "./index.html";
-      location.href = hub;
+      const target = resolvePostGameHref();
+
+      // Ensure the Cool-down Gate can display the just-finished game snapshot,
+      // even if the player reaches this button before the optional Sheet POST settles.
+      if(state.status === "finished"){
+        saveGateCompletionSummary();
+      }
+
+      logEvent("leave_game", {
+        destination: target,
+        plannerFlow: isPlannerFlow() ? 1 : 0,
+        destinationIsCooldownGate: isCooldownGateHref(target) ? 1 : 0
+      });
+
+      location.href = target;
     }
 
     function bind(){
@@ -3364,7 +3527,13 @@
         $("resultOverlay").classList.remove("show");
         startGame();
       });
-      $("btnMenu").addEventListener("click", showMenu);
+      $("btnMenu").addEventListener("click", () => {
+        if(isPlannerFlow() && state.status === "finished"){
+          goHub();
+          return;
+        }
+        showMenu();
+      });
       $("btnHub").addEventListener("click", goHub);
       if($("btnExport")) $("btnExport").addEventListener("click", exportCsv);
       $("btnPause").addEventListener("click", pauseGame);
