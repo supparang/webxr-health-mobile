@@ -1,7 +1,7 @@
 <!-- =========================================================
  /herohealth/hygiene-zone/teacher-dashboard.html
  HeroHealth Hygiene Zone Teacher Dashboard V2
- Version: v20260621-HYGIENE-TEACHER-DASHBOARD-V2-TOOTHBRUSH-LEARNING
+ Version: v20260621-HYGIENE-TEACHER-DASHBOARD-V2-1-STORAGE-SAFE
 ========================================================= -->
 <!doctype html>
 <html lang="th">
@@ -27,7 +27,7 @@ button,input,select,textarea{font:inherit}button{border:0;cursor:pointer}
 .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-bottom:14px}.hero-main,.connection,.card{padding:17px}.hero-main{min-height:235px;padding:22px}.eyebrow,.chip,.tag{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;font-size:11px;font-weight:1000}.eyebrow{gap:7px;padding:7px 11px;margin-bottom:10px;border:1px solid rgba(6,182,212,.18);background:#ecfeff;color:#0e7490}
 .hero-title{margin:0;font-size:clamp(32px,5.4vw,62px);line-height:.96;letter-spacing:-.06em;font-weight:1000}.hero-title b{color:transparent;background:linear-gradient(90deg,#0891b2,#2563eb,#db2777);-webkit-background-clip:text;background-clip:text}.copy{width:min(720px,100%);margin:12px 0 0;color:#475569;line-height:1.65;font-size:14px;font-weight:850}.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.chip{padding:7px 10px;background:#fff;border:1px solid var(--line);color:#334155;box-shadow:0 8px 18px rgba(15,23,42,.06)}
 h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-weight:1000}.muted{margin:0 0 10px;color:var(--muted);font-size:13px;line-height:1.5;font-weight:850}
-.field{display:flex;flex-direction:column;gap:5px;color:#475569;font-size:12px;font-weight:1000}.field input,.field select,.field textarea{width:100%;padding:10px 11px;border:1px solid rgba(14,116,144,.16);border-radius:16px;outline:0;background:rgba(255,255,255,.92);color:var(--ink);font-weight:900}.field textarea{min-height:82px;resize:vertical;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;user-select:text}.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.status{min-height:28px;margin-top:10px;padding:7px 9px;border-radius:13px;background:#f8fafc;color:#475569;font-size:12px;line-height:1.35;font-weight:900}.status.ok{background:#ecfdf5;color:#166534}.status.bad{background:#fef2f2;color:#991b1b}
+.field{display:flex;flex-direction:column;gap:5px;color:#475569;font-size:12px;font-weight:1000}.field input,.field select,.field textarea{width:100%;padding:10px 11px;border:1px solid rgba(14,116,144,.16);border-radius:16px;outline:0;background:rgba(255,255,255,.92);color:var(--ink);font-weight:900}.field textarea{min-height:82px;resize:vertical;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;user-select:text}.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.status{min-height:28px;margin-top:10px;padding:7px 9px;border-radius:13px;background:#f8fafc;color:#475569;font-size:12px;line-height:1.35;font-weight:900}.status.ok{background:#ecfdf5;color:#166534}.status.warn{background:#fffbeb;color:#92400e}.status.bad{background:#fef2f2;color:#991b1b}
 .filters{display:grid;grid-template-columns:1.1fr .75fr .7fr .72fr .82fr .8fr auto;gap:10px;align-items:end;padding:13px;margin-bottom:14px}.filters .field{margin:0}
 .kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:11px;margin-bottom:14px}.kpi{position:relative;overflow:hidden;min-height:113px;padding:13px;border:1px solid rgba(255,255,255,.92);border-radius:24px;background:rgba(255,255,255,.84);box-shadow:0 12px 28px rgba(15,23,42,.09)}.kpi:after{content:"";position:absolute;right:-28px;bottom:-30px;width:92px;height:92px;border-radius:50%;background:var(--glow,rgba(103,232,249,.28))}.kpi small,.kpi b,.kpi span{position:relative;z-index:1}.kpi small{display:block;margin-bottom:6px;color:var(--muted);font-size:12px;font-weight:1000}.kpi b{display:block;font-size:clamp(23px,2.8vw,33px);line-height:1;font-weight:1000}.kpi span{display:block;margin-top:6px;color:#475569;font-size:11px;line-height:1.25;font-weight:850}
 .grid{display:grid;grid-template-columns:.97fr 1.03fr;gap:14px;margin-bottom:14px}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}.head h2{margin-bottom:3px}.mini{padding:6px 9px;border-radius:999px;background:#f8fafc;color:#475569;border:1px solid var(--line);font-size:11px;font-weight:1000;white-space:nowrap}
@@ -96,7 +96,7 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
 <script>
 (()=>{
 'use strict';
-const VERSION='v20260621-HYGIENE-TEACHER-DASHBOARD-V2-TOOTHBRUSH-LEARNING';
+const VERSION='v20260621-HYGIENE-TEACHER-DASHBOARD-V2-1-STORAGE-SAFE';
 const CFG={
  home:'../hygiene-zone-v2.html',
  api:'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec',
@@ -139,7 +139,42 @@ function metric(label,value){return`<div class="metric"><small>${esc(label)}</sm
 function detail(){const r=S.shown.find(x=>x.__key===S.selected);if(!r){$('detailTag').className='mini';$('detailTag').textContent='เลือกแถว';$('modeTag').textContent='-';$('detail').className='empty-detail';$('detail').textContent='เลือกแถวจากตารางเพื่อดูรายละเอียด';$('detailZones').className='empty-detail';$('detailZones').textContent='รายละเอียดรายโซนจะแสดงที่นี่';return}const x=result(r),dir=direction(r),mas=mastery(r);$('detailTag').className=`tag ${x.css}`;$('detailTag').textContent=x.label;$('modeTag').textContent=mode(r.play_mode);$('detail').className='';$('detail').innerHTML=`<div class="student"><div class="avatar">${r.play_mode==='learning'?'🗺️':'🪥'}</div><div><h3>${esc(r.player_name)}</h3><p>${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'ไม่ระบุรหัส/ชั้น')}<br>${esc(date(r.created_at))} • ${esc(game(r.game_key))} • ${esc(mode(r.play_mode))}</p></div></div><div class="metrics">${metric('Score',Math.round(n(r.score)))}${metric('Clean',Math.round(n(r.clean_score))+'%')}${metric('Gum',Math.round(n(r.gum_health))+'%')}${metric('Technique',Math.round(n(r.technique_score))+'%')}${metric('Coverage',Math.round(n(r.coverage_zone_count))+'/6')}${metric(r.play_mode==='learning'?'Learning Mastery':'Direction',(r.play_mode==='learning'?mas:dir)+'%')}</div><div class="note"><strong>${r.play_mode==='learning'?'Learning Summary':'Challenge Summary'}</strong><br>${r.play_mode==='learning'?`Learning Progress ${Math.round(n(r.learning_progress_percent))}% • Pass Strokes ${Math.round(n(r.learning_qualified_strokes))}/${Math.round(n(r.learning_required_strokes)||18)} • Overall Direction ${dir}%`:`Direction ${dir}% / เป้าหมาย ${Math.round(n(r.direction_threshold))||'-'}% • ${esc(x.detail)}`}<br><br><strong>Coach Note</strong><br>${esc(r.advice||r.challenge_fail_reasons||'ไม่มีข้อผิดพลาดที่บันทึก')}<br><br><strong>Strong / Weak Zone</strong><br>${esc(r.strongest_zone||'-')} / ${esc(r.weakest_zone||'-')}</div>`;zones(r)}
 function zones(r){$('detailZones').className='zone-board';if(r.play_mode==='learning'){const p=json(r.guided_zone_progress_json),prog=p.progress||{},q=p.qualified_strokes||p.qualified||{},good=p.direction_good||{},total=p.direction_total||{};$('detailZones').innerHTML=CFG.zones.map(([id,label])=>{const skill=n(prog[id]),st=n(q[id]),dir=total[id]?Math.round(n(good[id])/n(total[id])*100):0;return`<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill blue" style="width:${clamp(skill,0,100)}%"></i></div></div><span class="zone-num">Skill ${Math.round(skill)}%<br>✓ ${Math.round(st)}/3 • Dir ${dir}%</span></div>`}).join('')}else{const p=json(r.challenge_zone_performance_json);$('detailZones').innerHTML=CFG.zones.map(([id,label])=>{const z=p[id]||{},clean=n(z.clean_percent),dir=n(z.direction_accuracy);return`<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill" style="width:${clamp(clean,0,100)}%"></i></div><div class="track"><i class="fill pink" style="width:${clamp(dir,0,100)}%"></i></div></div><span class="zone-num">Clean ${Math.round(clean)}%<br>Direction ${Math.round(dir)}%</span></div>`}).join('')}}
 function render(){renderKpis();renderInsights();board();table();detail()}
-function set(recs,source,persist=true){S.all=(recs||[]).map(norm);S.source=source||'ข้อมูลในเครื่อง';if(persist)try{localStorage.setItem(CFG.dataKey,JSON.stringify(S.all))}catch(e){}filters();apply()}
+const Storage={
+  lastError:'',
+  get(key,fallback=''){
+    try{
+      const value=localStorage.getItem(key);
+      return value===null?fallback:value;
+    }catch(error){
+      this.lastError=String(error?.message||error);
+      return fallback;
+    }
+  },
+  set(key,value){
+    try{
+      localStorage.setItem(key,value);
+      this.lastError='';
+      return true;
+    }catch(error){
+      this.lastError=String(error?.message||error);
+      return false;
+    }
+  },
+  remove(key){
+    try{
+      localStorage.removeItem(key);
+      this.lastError='';
+      return true;
+    }catch(error){
+      this.lastError=String(error?.message||error);
+      return false;
+    }
+  }
+};
+function storageNote(){
+  return 'Browser Storage เต็ม — Dashboard ยังทำงานได้ตามปกติ แต่จะไม่จำ URL/ข้อมูลไว้ในเครื่อง';
+}
+function set(recs,source,persist=false){S.all=(recs||[]).map(norm);S.source=source||'ข้อมูลในเครื่อง';if(persist)Storage.set(CFG.dataKey,JSON.stringify(S.all));filters();apply()}
 function status(text,type=''){const e=$('apiStatus');e.textContent=text;e.className=`status ${type}`.trim()}
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),1800)}
 function apiUrl(v){const x=new URL(String(v||'').trim());return x.toString()}
@@ -147,13 +182,34 @@ function url(base){const u=new URL(base);u.searchParams.set('action','list');u.s
 async function fetchJSON(u){const r=await fetch(u.toString(),{method:'GET',cache:'no-store',credentials:'omit'});if(!r.ok)throw Error('HTTP '+r.status);return r.json()}
 function jsonp(u){return new Promise((resolve,reject)=>{const cb=`__hz_${Date.now()}_${Math.random().toString(16).slice(2)}`,s=document.createElement('script');const timer=setTimeout(()=>done(Error('JSONP timeout')),12000);function done(err,data){clearTimeout(timer);delete window[cb];s.remove();err?reject(err):resolve(data)}window[cb]=d=>done(null,d);u.searchParams.set('callback',cb);s.src=u.toString();s.onerror=()=>done(Error('JSONP load failed'));document.head.appendChild(s)})}
 function extract(x){return Array.isArray(x)?x:Array.isArray(x?.records)?x.records:Array.isArray(x?.data)?x.data:Array.isArray(x?.items)?x.items:[]}
-async function load(){try{const base=apiUrl($('apiUrl').value);localStorage.setItem(CFG.apiKey,base);status('กำลังโหลดข้อมูลจาก Google Sheets...');$('loadBtn').disabled=true;let data,how='JSON';try{data=await fetchJSON(new URL(url(base).toString()))}catch(e){how='JSONP';data=await jsonp(new URL(url(base).toString()))}if(data?.ok===false)throw Error(data.error||'API returned ok:false');const recs=extract(data);set(recs,`Google Sheets (${how})`);status(recs.length?`โหลด ${recs.length} records สำเร็จผ่าน ${how}`:`เชื่อมต่อสำเร็จผ่าน ${how} แต่ยังไม่มี records`, 'ok');toast(recs.length?`โหลด ${recs.length} รายการแล้ว`:'ยังไม่มีข้อมูลใน Sheet')}catch(e){console.warn(e);status(`โหลดไม่สำเร็จ: ${e.message||e}`,'bad');toast('โหลดจาก Sheet ไม่สำเร็จ — ใช้ Demo ได้')}finally{$('loadBtn').disabled=false}}
+async function load(){
+  let storageOk=true;
+  try{
+    const base=apiUrl($('apiUrl').value);
+    storageOk=Storage.set(CFG.apiKey,base);
+    status(storageOk?'กำลังโหลดข้อมูลจาก Google Sheets...':storageNote(),'warn');
+    $('loadBtn').disabled=true;
+    let data,how='JSON';
+    try{data=await fetchJSON(new URL(url(base).toString()))}
+    catch(e){how='JSONP';data=await jsonp(new URL(url(base).toString()))}
+    if(data?.ok===false)throw Error(data.error||'API returned ok:false');
+    const recs=extract(data);
+    set(recs,`Google Sheets (${how})`,false);
+    const success=recs.length?`โหลด ${recs.length} records สำเร็จผ่าน ${how}`:`เชื่อมต่อสำเร็จผ่าน ${how} แต่ยังไม่มี records`;
+    status(storageOk?success:`${success} • ${storageNote()}`,storageOk?'ok':'warn');
+    toast(recs.length?`โหลดข้อมูล ${recs.length} รายการแล้ว`:'ยังไม่มีข้อมูลใน Sheet');
+  }catch(e){
+    console.warn(e);
+    status(`โหลดไม่สำเร็จ: ${e.message||e}`,'bad');
+    toast('โหลดจาก Sheet ไม่สำเร็จ — ใช้ Demo ได้');
+  }finally{$('loadBtn').disabled=false}
+}
 function parseCSV(t){const lines=String(t||'').trim().split(/\r?\n/).filter(Boolean);if(lines.length<2)return[];const split=l=>{const a=[];let cur='',q=false;for(let i=0;i<l.length;i++){const c=l[i],nx=l[i+1];if(c==='"'&&q&&nx==='"'){cur+='"';i++}else if(c==='"')q=!q;else if(c===','&&!q){a.push(cur.trim());cur=''}else cur+=c}a.push(cur.trim());return a},head=split(lines[0]);return lines.slice(1).map(l=>{const c=split(l),o={};head.forEach((h,i)=>o[h]=c[i]??'');return o})}
 function importData(){const t=$('importBox').value.trim();if(!t){toast('วาง JSON หรือ CSV ก่อน');return}try{let a;if(t.startsWith('[')||t.startsWith('{')){const x=JSON.parse(t);a=extract(x);if(!a.length&&x&&typeof x==='object'&&!Array.isArray(x))a=[x]}else a=parseCSV(t);if(!a.length)throw Error('ไม่พบ records');set(a,'ข้อมูลที่วางเอง');status(`นำเข้าข้อมูล ${a.length} records แล้ว`,'ok');toast(`นำเข้าข้อมูล ${a.length} รายการแล้ว`)}catch(e){status(`นำเข้าไม่สำเร็จ: ${e.message||e}`,'bad');toast('รูปแบบ JSON / CSV ไม่ถูกต้อง')}}
 function exportCSV(){const a=S.shown;if(!a.length){toast('ไม่มีข้อมูลสำหรับ export');return}const heads=['created_at','player_name','student_id','class_level','section','game_key','play_mode','difficulty','challenge_result','challenge_passed','score','clean_score','gum_health','technique_score','coverage_zone_count','learning_progress_percent','learning_direction_mastery','overall_direction_accuracy','direction_threshold','direction_passed','strongest_zone','weakest_zone','input_mode','challenge_fail_reasons'],cell=v=>`"${String(v??'').replace(/"/g,'""')}"`,csv='\uFEFF'+[heads,...a.map(r=>heads.map(h=>r[h]??''))].map(row=>row.map(cell).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),href=URL.createObjectURL(blob),x=document.createElement('a');x.href=href;x.download=`hygiene-teacher-dashboard-${new Date().toISOString().slice(0,10)}.csv`;x.click();setTimeout(()=>URL.revokeObjectURL(href),0);toast('Export CSV แล้ว')}
 function reset(){['search','game','class','mode','result'].forEach(id=>$(id).value='');$('sort').value='latest';apply()}
-function bind(){$('homeBtn').onclick=()=>location.href=CFG.home;$('printBtn').onclick=()=>print();$('exportBtn').onclick=exportCSV;$('loadBtn').onclick=load;$('demoBtn').onclick=()=>{set(demo(),'Demo Data');status('กำลังใช้ Demo Data สำหรับสาธิต Dashboard','ok');toast('เปลี่ยนเป็น Demo Data แล้ว')};$('clearUrlBtn').onclick=()=>{localStorage.removeItem(CFG.apiKey);$('apiUrl').value='';status('ล้าง URL ที่จำแล้ว');toast('ล้าง URL ที่จำแล้ว')};$('importBtn').onclick=importData;$('resetBtn').onclick=reset;['search','game','class','mode','result','sort'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',apply))}
-function boot(){bind();$('apiUrl').value=localStorage.getItem(CFG.apiKey)||CFG.api;let cache=[];try{cache=JSON.parse(localStorage.getItem(CFG.dataKey)||'[]')}catch(e){}if(Array.isArray(cache)&&cache.length){set(cache,'ข้อมูลที่จำไว้ในเครื่อง',false);status(`ใช้ข้อมูลที่จำไว้ ${cache.length} records`)}else{set(demo(),'Demo Data',false);status('กำลังใช้ Demo Data — กด “โหลดจาก Sheet” เพื่อใช้ข้อมูลจริง')}console.log('[Hygiene Teacher Dashboard]',VERSION)}
+function bind(){$('homeBtn').onclick=()=>location.href=CFG.home;$('printBtn').onclick=()=>print();$('exportBtn').onclick=exportCSV;$('loadBtn').onclick=load;$('demoBtn').onclick=()=>{set(demo(),'Demo Data');status('กำลังใช้ Demo Data สำหรับสาธิต Dashboard','ok');toast('เปลี่ยนเป็น Demo Data แล้ว')};$('clearUrlBtn').onclick=()=>{const removed=Storage.remove(CFG.apiKey);$('apiUrl').value='';status(removed?'ล้าง URL ที่จำแล้ว':'ล้างช่อง URL แล้ว (Browser Storage ถูกจำกัด)',removed?'ok':'warn');toast(removed?'ล้าง URL ที่จำแล้ว':'ล้างช่อง URL แล้ว')};$('importBtn').onclick=importData;$('resetBtn').onclick=reset;['search','game','class','mode','result','sort'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',apply))}
+function boot(){bind();$('apiUrl').value=Storage.get(CFG.apiKey,CFG.api)||CFG.api;set(demo(),'Demo Data',false);status(Storage.lastError?storageNote():'กำลังใช้ Demo Data — กด “โหลดจาก Sheet” เพื่อใช้ข้อมูลจริง',Storage.lastError?'warn':'');console.log('[Hygiene Teacher Dashboard]',VERSION)}
 boot()
 })();
 </script>
