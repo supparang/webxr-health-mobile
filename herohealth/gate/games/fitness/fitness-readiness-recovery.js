@@ -1,11 +1,11 @@
 // === /herohealth/gate/games/fitness/fitness-readiness-recovery.js ===
-// FULL MODULE v20260621-FITNESS-READINESS-RECOVERY-POSE-STABLE-CDN-FRAMING-V5
+// FULL MODULE v20260621-FITNESS-READINESS-RECOVERY-POSE-WIDE-ARENA-V6
 // Shared Fitness Gate phase module for:
 //   shadow-breaker, rhythm-boxer, jump-duck, balance-hold
 // Uses the existing /herohealth/warmup-gate.html -> gate-core.js architecture.
 // Do not import this module directly from a game page; register it in gate-games.js.
 
-const PATCH = 'v20260621-FITNESS-READINESS-RECOVERY-POSE-STABLE-CDN-FRAMING-V5';
+const PATCH = 'v20260621-FITNESS-READINESS-RECOVERY-POSE-WIDE-ARENA-V6';
 
 /*
   STABLE CDN POLICY
@@ -449,15 +449,15 @@ function makeMarkup(meta, phase, duration) {
 
           <div class="frr-breath-orb" data-breath-orb aria-hidden="true"><span></span></div>
           <div class="frr-safety-note">หยุดทันทีเมื่อเวียนศีรษะ เจ็บหน้าอก ปวดข้อ หรือเหนื่อยผิดปกติ และแจ้งครู/ผู้ดูแล</div>
+          <footer class="frr-controls frr-controls-in-card">
+            <button type="button" class="frr-btn frr-btn-primary" data-start>📷 เปิดกล้องและเริ่ม</button>
+            <button type="button" class="frr-btn frr-btn-soft" data-guide hidden>ทำตามคำแนะนำโดยไม่ใช้กล้อง</button>
+            <button type="button" class="frr-btn frr-btn-soft" data-retry hidden>ลองตรวจใหม่</button>
+            <button type="button" class="frr-btn frr-btn-ghost" data-exit>กลับ Fitness Hub</button>
+          </footer>
         </aside>
       </div>
 
-      <footer class="frr-controls">
-        <button type="button" class="frr-btn frr-btn-primary" data-start>📷 เปิดกล้องและเริ่ม</button>
-        <button type="button" class="frr-btn frr-btn-soft" data-guide hidden>ทำตามคำแนะนำโดยไม่ใช้กล้อง</button>
-        <button type="button" class="frr-btn frr-btn-soft" data-retry hidden>ลองตรวจใหม่</button>
-        <button type="button" class="frr-btn frr-btn-ghost" data-exit>กลับ Fitness Hub</button>
-      </footer>
       <p class="frr-engine-note" data-engine-note>Engine: camera + Pose ready</p>
     </section>
   `;
@@ -893,6 +893,14 @@ export async function mount(stage, ctx, api) {
 
   stage.innerHTML = makeMarkup(meta, phase, duration);
   const root = stage.querySelector('[data-frr-root]');
+
+  // Scope the larger desktop layout to Fitness Pose only. The shared Gate
+  // shell remains unchanged for Nutrition and Hygiene mini-games.
+  const gateCard = stage.closest('.gate-card');
+  const gateShell = stage.closest('.gate-shell');
+  gateCard?.classList.add('gate-card-fitness-pose');
+  gateShell?.classList.add('gate-shell-fitness-pose');
+
   const video = root.querySelector('[data-video]');
   const canvas = root.querySelector('[data-canvas]');
   const cameraEmpty = root.querySelector('[data-camera-empty]');
@@ -1348,6 +1356,8 @@ export async function mount(stage, ctx, api) {
   return () => {
     destroyed = true;
     stopDetection();
+    gateCard?.classList.remove('gate-card-fitness-pose');
+    gateShell?.classList.remove('gate-shell-fitness-pose');
     try { stage.innerHTML = ''; } catch {}
   };
 }
