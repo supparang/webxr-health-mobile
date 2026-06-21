@@ -56,12 +56,12 @@
   <div id="brush" class="brush"><div class="foam"></div><div class="head"></div><div class="handle"></div></div>
   <div id="coach" class="coach"><b>AR Coach:</b> พร้อมเริ่มภารกิจ</div><div id="mission" class="mission"><b>ภารกิจ:</b> เตรียมพร้อม</div>
   <section id="startScreen" class="screen show"><div class="card"><h1 class="title">🪥 Toothbrush Hero AR</h1><p class="sub">เรียนรู้การแปรงฟันทีละโซนด้วย AR: ฟันบนปัดลง • ฟันล่างปัดขึ้น</p><div class="field"><input id="playerName" class="input" value="Hero" placeholder="ชื่อนักเรียน"><input id="classLevel" class="input" value="ป.5" placeholder="ชั้น"></div><div class="row"><button class="button active" data-diff="easy">Easy • 55s</button><button class="button" data-diff="normal">Normal • 45s</button><button class="button" data-diff="hard">Hard • 38s</button></div><div class="row"><button class="button active" data-mode="learning">Learning Mode • สอนทีละโซน</button><button class="button" data-mode="challenge">Challenge Mode • เล่นเต็มรูปแบบ</button></div><div class="note"><b>Learning Mode:</b> คราบจะเกิดเฉพาะโซนเป้าหมาย ปัดผิดทิศหรือผิดโซน คราบจะไม่ลด<br><b>Hand Mode:</b> ใช้ปลายนิ้วชี้เป็นหัวแปรง และหนีบนิ้วโป้งกับนิ้วชี้เพื่อเริ่มแปรง<br><b>Fallback:</b> เมาส์/นิ้วลากหน้าจอเล่นได้เสมอ</div><div class="row"><button id="startBtn" class="button primary">เริ่ม AR Coach 🧠</button><button id="zoneBtn" class="button">กลับ Hygiene Zone</button></div></div></section>
-  <section id="resultScreen" class="screen"><div class="card"><h1 id="resultTitle" class="title">สรุปผล</h1><p id="resultSub" class="sub"></p><div class="summary"><div class="sum"><small>Clean</small><b id="rClean">0%</b></div><div class="sum"><small>Gum</small><b id="rGum">0%</b></div><div class="sum"><small>Technique</small><b id="rTechnique">0%</b></div><div class="sum"><small>Coverage</small><b id="rCoverage">0/6</b></div><div class="sum"><small>Direction</small><b id="rDirection">0%</b></div><div class="sum"><small>Result</small><b id="rPass">-</b></div></div><div id="learnResult" class="note"></div><div class="next"><b id="nextTitle">รอบหน้าฝึกอะไร</b><span id="nextText"></span></div><div id="zones" class="zones"></div><div class="row"><button id="replayBtn" class="button primary">เล่นอีกครั้ง</button><button id="resultZoneBtn" class="button">กลับ Hygiene Zone</button></div></div></section>
+  <section id="resultScreen" class="screen"><div class="card"><h1 id="resultTitle" class="title">สรุปผล</h1><p id="resultSub" class="sub"></p><div class="summary"><div class="sum"><small>Clean</small><b id="rClean">0%</b></div><div class="sum"><small>Gum</small><b id="rGum">0%</b></div><div class="sum"><small>Technique</small><b id="rTechnique">0%</b></div><div class="sum"><small>Coverage</small><b id="rCoverage">0/6</b></div><div class="sum"><small id="rDirectionLabel">Direction</small><b id="rDirection">0%</b></div><div class="sum"><small>Result</small><b id="rPass">-</b></div></div><div id="learnResult" class="note"></div><div class="next"><b id="nextTitle">รอบหน้าฝึกอะไร</b><span id="nextText"></span></div><div id="zones" class="zones"></div><div class="row"><button id="replayBtn" class="button primary">เล่นอีกครั้ง</button><button id="resultZoneBtn" class="button">กลับ Hygiene Zone</button></div></div></section>
 </main>
 <script type="module">
 import { FilesetResolver, HandLandmarker, FaceLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
 
-const VERSION="v20260621-TOOTHBRUSH-AR-V10-8-1-INIT-CHALLENGE-HOTFIX";
+const VERSION="v20260621-TOOTHBRUSH-AR-V10-9-LEARNING-MASTERY-RESULTS";
 const CONFIG={
   hygieneZoneUrl:"../hygiene-zone-v2.html",
   sheetWebAppUrl:"https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec",
@@ -69,7 +69,7 @@ const CONFIG={
   handModel:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
   faceModel:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
   challenge:{directionCooldownMs:260,activeStrokeMs:340,wrongDirectionDamageMultiplier:.38,minDirectionAccuracy:{easy:45,normal:55,hard:65}},
-  guided:{minDwellMs:500,minStrokeCount:3,minDirectionAccuracy:60,correctStrokeProgress:34,directionWindowMs:220,directionThresholdPx:8,strokeMinTravelPx:16,strokeCooldownMs:260,strokeActiveMs:340,learningGumPenaltyFactor:.08,learningGumFloor:58,targetPlaqueCount:2},
+  guided:{minDwellMs:500,minStrokeCount:3,minDirectionAccuracy:60,overallDirectionTarget:60,correctStrokeProgress:34,directionWindowMs:220,directionThresholdPx:8,strokeMinTravelPx:16,strokeCooldownMs:260,strokeActiveMs:340,learningGumPenaltyFactor:.08,learningGumFloor:58,targetPlaqueCount:2},
   difficulty:{easy:{duration:55,plaqueHp:18,damage:4.8},normal:{duration:45,plaqueHp:25,damage:4.1},hard:{duration:38,plaqueHp:32,damage:3.5}},
   pass:{easy:{clean:70,gum:45,coverage:4,technique:45},normal:{clean:80,gum:55,coverage:5,technique:60},hard:{clean:88,gum:65,coverage:6,technique:70}}
 };
@@ -136,7 +136,61 @@ function countStroke(zone,dir,t){
   return {zoneId:zone.id,dir,ok,targetAttempt,travel};
 }
 function progressPercent(){return Math.round(ZONES.reduce((s,z)=>s+clamp(state.guided.progress[z.id]||0,0,100),0)/6)}
-function directionAcc(zoneId=null){const g=state.guided;if(zoneId){const t=Math.max(1,g.total[zoneId]||0);return Math.round((g.good[zoneId]||0)/t*100)}const t=Math.max(1,ZONES.reduce((s,z)=>s+(g.total[z.id]||0),0));return Math.round(ZONES.reduce((s,z)=>s+(g.good[z.id]||0),0)/t*100)}
+function directionAcc(zoneId=null){
+  const g=state.guided;
+
+  if(zoneId){
+    const total=Math.max(1,g.total[zoneId]||0);
+    return Math.round((g.good[zoneId]||0)/total*100);
+  }
+
+  const total=Math.max(
+    1,
+    ZONES.reduce((sum,zone)=>sum+(g.total[zone.id]||0),0)
+  );
+
+  const good=ZONES.reduce(
+    (sum,zone)=>sum+(g.good[zone.id]||0),
+    0
+  );
+
+  return Math.round(good/total*100);
+}
+
+function learningDirectionMastery(zoneId=null){
+  const g=state.guided;
+  const requiredPerZone=CONFIG.guided.minStrokeCount;
+
+  if(zoneId){
+    const qualified=clamp(
+      Number(g.qualified[zoneId]||0),
+      0,
+      requiredPerZone
+    );
+
+    return {
+      percent:Math.round(qualified/requiredPerZone*100),
+      qualified,
+      required:requiredPerZone
+    };
+  }
+
+  const required=ZONES.length*requiredPerZone;
+  const qualified=ZONES.reduce(
+    (sum,zone)=>sum+clamp(
+      Number(g.qualified[zone.id]||0),
+      0,
+      requiredPerZone
+    ),
+    0
+  );
+
+  return {
+    percent:Math.round(qualified/Math.max(1,required)*100),
+    qualified,
+    required
+  };
+}
 function updateGuides(){
   const learning=isLearning();
   D.learning.classList.toggle("show",learning);
@@ -472,14 +526,25 @@ function updateHud(){ $("time").textContent=Math.ceil(state.left)+"s";$("score")
 function status(){
   const rule=CONFIG.pass[state.diff];
   const cov=cleanedCoverage();
-  const learnOK=state.mode!=="learning" || state.guided.complete;
-  const direction=state.mode==="challenge"
-    ? challengeDirectionAcc()
-    : directionAcc();
-  const directionTarget=state.mode==="challenge"
-    ? CONFIG.challenge.minDirectionAccuracy[state.diff]
-    : CONFIG.guided.minDirectionAccuracy;
-  const directionOK=state.mode!=="challenge" || direction>=directionTarget;
+  const learning=state.mode==="learning";
+  const learnOK=!learning || state.guided.complete;
+
+  const overallDirection=learning
+    ? directionAcc()
+    : challengeDirectionAcc();
+
+  const mastery=learning
+    ? learningDirectionMastery()
+    : {percent:0,qualified:0,required:0};
+
+  const direction=learning ? mastery.percent : overallDirection;
+  const directionTarget=learning
+    ? 100
+    : CONFIG.challenge.minDirectionAccuracy[state.diff];
+
+  const directionOK=learning
+    ? (learnOK && mastery.percent>=100)
+    : overallDirection>=directionTarget;
 
   const baseClear=
     state.clean>=rule.clean &&
@@ -496,14 +561,34 @@ function status(){
   if(state.gum<rule.gum) why.push(`Gum ต้องไม่ต่ำกว่า ${rule.gum}%`);
   if(cov<rule.coverage) why.push(`Coverage ต้องอย่างน้อย ${rule.coverage}/6`);
   if(state.technique<rule.technique) why.push(`Technique ต้องไม่ต่ำกว่า ${rule.technique}%`);
-  if(!learnOK) why.push("ต้องผ่าน Learning ครบ 6 โซน");
-  if(state.mode==="challenge" && !directionOK){
+
+  if(learning && !learnOK){
+    why.push("ต้องผ่าน Learning ครบ 6 โซน");
+  }
+
+  if(learning && learnOK && !directionOK){
+    why.push("ต้องทำ Pass Stroke ถูกทิศให้ครบ 18/18");
+  }
+
+  if(!learning && !directionOK){
     why.push(`Direction ต้องอย่างน้อย ${directionTarget}%`);
   }
 
   return {
-    rule,cov,learnOK,direction,directionTarget,directionOK,
-    baseClear,directionPractice,pass,why
+    rule,
+    cov,
+    learnOK,
+    direction,
+    overallDirection,
+    learningMastery:mastery.percent,
+    learningQualifiedStrokes:mastery.qualified,
+    learningRequiredStrokes:mastery.required,
+    directionTarget,
+    directionOK,
+    baseClear,
+    directionPractice,
+    pass,
+    why
   };
 }
 function strongestWeak(){
@@ -528,47 +613,82 @@ function end(reason){
   state.phase="result";
   const s=status();
   const sw=strongestWeak();
+  const learning=state.mode==="learning";
 
   const title=s.pass
-    ? "Fresh Smile Hero ✨"
+    ? (learning
+      ? "Fresh Smile Hero • Learning Complete ✨"
+      : "Fresh Smile Hero ✨")
     : s.directionPractice
       ? "Challenge Clear • Direction Practice 🧭"
-      : state.mode==="learning"
+      : learning
         ? "Zone Learning Retry 💪"
         : "Challenge Retry 💪";
 
   $("resultTitle").textContent=title;
 
-  $("resultSub").textContent=s.pass
-    ? "ผ่านภารกิจแล้ว! สะอาด เหงือกปลอดภัย และแปรงถูกทิศทาง"
-    : s.directionPractice
-      ? `Clean และ Coverage ผ่านแล้ว แต่ Direction ${s.direction}% ยังต่ำกว่าเกณฑ์ ${s.directionTarget}%`
-      : "สิ่งที่ต้องฝึกก่อน: "+s.why.join(" • ");
+  if(s.pass && learning){
+    $("resultSub").textContent=
+      `เรียนครบ 6 โซนแล้ว • Learning Direction Mastery ${s.learningMastery}% `+
+      `(${s.learningQualifiedStrokes}/${s.learningRequiredStrokes} pass strokes ถูกทิศ)`;
+  }else if(s.pass){
+    $("resultSub").textContent=
+      "ผ่านภารกิจแล้ว! สะอาด เหงือกปลอดภัย และ Direction ถึงเกณฑ์";
+  }else if(s.directionPractice){
+    $("resultSub").textContent=
+      `Clean และ Coverage ผ่านแล้ว แต่ Direction ${s.overallDirection}% `+
+      `ยังต่ำกว่าเกณฑ์ ${s.directionTarget}%`;
+  }else{
+    $("resultSub").textContent="สิ่งที่ต้องฝึกก่อน: "+s.why.join(" • ");
+  }
 
   $("rClean").textContent=Math.round(state.clean)+"%";
   $("rGum").textContent=Math.round(state.gum)+"%";
   $("rTechnique").textContent=Math.round(state.technique)+"%";
   $("rCoverage").textContent=`${s.cov}/6`;
-  $("rDirection").textContent=s.direction+"%";
-  $("rPass").textContent=s.pass ? "Pass" : s.directionPractice ? "Practice" : "Retry";
 
-  if(state.mode==="learning"){
+  $("rDirectionLabel").textContent=learning
+    ? "Learning Mastery"
+    : "Direction";
+
+  $("rDirection").textContent=(learning
+    ? s.learningMastery
+    : s.overallDirection)+"%";
+
+  $("rPass").textContent=s.pass
+    ? "Pass"
+    : s.directionPractice
+      ? "Practice"
+      : "Retry";
+
+  if(learning){
+    const overallNote=s.overallDirection<CONFIG.guided.overallDirectionTarget
+      ? `ยังมีการปัดผิดระหว่างฝึก ${100-s.overallDirection}% — รอบหน้าลดการลองผิดทิศ เพื่อให้ Overall Direction ถึง ${CONFIG.guided.overallDirectionTarget}%`
+      : `Overall Direction ระหว่างฝึก ${s.overallDirection}% ดีมากแล้ว`;
+
     $("learnResult").innerHTML=
-      `<b>Learning Progress ${progressPercent()}% • Direction Accuracy ${s.direction}%</b><br>`+
+      `<b>Learning Complete 6/6 • Learning Direction Mastery ${s.learningMastery}%</b><br>`+
+      `Pass Strokes ถูกทิศ: ${s.learningQualifiedStrokes}/${s.learningRequiredStrokes} • `+
+      `Overall Direction Accuracy ระหว่างฝึก: ${s.overallDirection}%<br>`+
+      `${overallNote}<br>`+
       `ทำได้ดี: ${sw.best} • ฝึกเพิ่ม: ${sw.weak}`;
   }else{
     $("learnResult").innerHTML=
-      `<b>Challenge Direction ${s.direction}% / เป้าหมาย ${s.directionTarget}%</b><br>`+
+      `<b>Challenge Direction ${s.overallDirection}% / เป้าหมาย ${s.directionTarget}%</b><br>`+
       `Direction จะนับเฉพาะตอนแปรงโดนคราบจริง • ทำได้ดี: ${sw.best} • ฝึกเพิ่ม: ${sw.weak}`;
   }
 
   let next="";
   if(state.mode==="challenge" && s.directionPractice){
     next="ฝึกฟันบนปัดลง และฟันล่างปัดขึ้นขณะโดนคราบจริง ให้ Direction ถึง "+s.directionTarget+"%";
-  }else if(!state.guided.complete && state.mode==="learning"){
+  }else if(learning && !state.guided.complete){
     next=`เริ่มที่ ${zoneById(state.guided.targetId).label} แล้ว${directionName(expected(state.guided.targetId))} ให้ถูก 3 ครั้ง และค้างในโซนอย่างน้อย 0.5 วินาที`;
+  }else if(learning && s.overallDirection<CONFIG.guided.overallDirectionTarget){
+    next=`รอบหน้าลดการปัดผิดระหว่างฝึก เพื่อให้ Overall Direction จาก ${s.overallDirection}% ถึง ${CONFIG.guided.overallDirectionTarget}%`;
   }else if(state.gum<CONFIG.pass[state.diff].gum){
     next="ลากแปรงช้าลง อย่าถูแรงซ้ำจุดเดิม";
+  }else if(learning){
+    next="พร้อมแล้ว! ลอง Challenge Mode เพื่อใช้ทักษะที่เรียนไปในสถานการณ์เต็มรูปแบบ";
   }else{
     next="ลองเพิ่มระดับหรือทำคะแนนให้สูงขึ้น";
   }
@@ -577,26 +697,22 @@ function end(reason){
 
   const heading=state.mode==="challenge"
     ? "🦷 Challenge Zone Clean • Direction"
-    : "🗺️ Learning Zone Skill";
+    : "🗺️ Learning Zone Skill • Pass Strokes";
 
   $("zones").innerHTML=
     `<h3>${heading}</h3>`+
     ZONES.map(z=>{
-      const p=state.mode==="learning"
+      const p=learning
         ? Math.round(state.guided.progress[z.id]||0)
         : challengeCleanPercent(z.id);
 
-      const dir=state.mode==="learning"
-        ? directionAcc(z.id)
-        : challengeDirectionAcc(z.id);
+      const right=learning
+        ? `Skill ${p}% • ✓ ${learningDirectionMastery(z.id).qualified}/${CONFIG.guided.minStrokeCount}`
+        : `Clean ${p}% • ↕ ${challengeDirectionAcc(z.id)}%`;
 
-      const right=state.mode==="challenge"
-        ? `Clean ${p}% • ↕ ${dir}%`
-        : `${p}%`;
-
-      const grade=state.mode==="challenge" && dir>=s.directionTarget
+      const grade=!learning && challengeDirectionAcc(z.id)>=s.directionTarget
         ? "good"
-        : state.mode==="challenge"
+        : !learning
           ? "warn"
           : "";
 
@@ -617,6 +733,8 @@ function payload(reason,s){
       direction_total:challengeRow(z.id).directionTotal
     }])
   );
+
+  const learning=state.mode==="learning";
 
   return {
     api:"hygiene",
@@ -641,16 +759,30 @@ function payload(reason,s){
 
     learning_complete:state.guided.complete?"yes":"no",
     learning_progress_percent:progressPercent(),
-    direction_accuracy:s.direction,
+
+    // direction_accuracy remains the honest overall practice metric.
+    direction_accuracy:s.overallDirection,
+    overall_direction_accuracy:s.overallDirection,
+    overall_direction_target:learning
+      ? CONFIG.guided.overallDirectionTarget
+      : s.directionTarget,
+
+    // learning_direction_mastery is only the required pass-strokes.
+    learning_direction_mastery:learning ? s.learningMastery : 0,
+    learning_qualified_strokes:learning ? s.learningQualifiedStrokes : 0,
+    learning_required_strokes:learning ? s.learningRequiredStrokes : 0,
+
     direction_threshold:s.directionTarget,
     direction_passed:s.directionOK?"yes":"no",
 
     challenge_base_clear:s.baseClear?"yes":"no",
-    challenge_result:s.pass
-      ? "fresh_smile_hero"
-      : s.directionPractice
-        ? "direction_practice_needed"
-        : "retry",
+    challenge_result:learning
+      ? (s.pass ? "learning_complete" : "learning_retry")
+      : s.pass
+        ? "fresh_smile_hero"
+        : s.directionPractice
+          ? "direction_practice_needed"
+          : "retry",
 
     guided_target_zone:state.guided.targetId,
     guided_current_zone:state.guided.currentId,
@@ -661,7 +793,9 @@ function payload(reason,s){
       strokes:state.guided.strokes,
       qualified_strokes:state.guided.qualified,
       direction_good:state.guided.good,
-      direction_total:state.guided.total
+      direction_total:state.guided.total,
+      learning_direction_mastery:learning ? s.learningMastery : 0,
+      overall_direction_accuracy:learning ? s.overallDirection : 0
     }),
 
     challenge_zone_performance_json:JSON.stringify(challengeZones),
@@ -679,10 +813,10 @@ function payload(reason,s){
     pass_min_technique:s.rule.technique,
 
     badge:s.pass
-      ? "Fresh Smile Hero"
+      ? (learning ? "Fresh Smile Hero • Learning Complete" : "Fresh Smile Hero")
       : s.directionPractice
         ? "Challenge Direction Practice"
-        : state.mode==="learning"
+        : learning
           ? "Zone Learning Retry"
           : "Challenge Retry",
 
