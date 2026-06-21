@@ -1,41 +1,27 @@
 // === /herohealth/gate/games/fitness/fitness-readiness-recovery.js ===
-// FULL MODULE v20260621-FITNESS-READINESS-RECOVERY-POSE-CDN-FIX-V3
+// FULL MODULE v20260621-FITNESS-READINESS-RECOVERY-POSE-STABLE-CDN-FRAMING-V5
 // Shared Fitness Gate phase module for:
 //   shadow-breaker, rhythm-boxer, jump-duck, balance-hold
 // Uses the existing /herohealth/warmup-gate.html -> gate-core.js architecture.
 // Do not import this module directly from a game page; register it in gate-games.js.
 
-const PATCH = 'v20260621-FITNESS-READINESS-RECOVERY-POSE-CDN-FIX-V3';
+const PATCH = 'v20260621-FITNESS-READINESS-RECOVERY-POSE-STABLE-CDN-FRAMING-V5';
 
 /*
-  IMPORTANT CDN FIX
-  The package root is NOT an ES module entry point in browsers:
-  https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@VERSION
+  STABLE CDN POLICY
+  The former list tried non-existent 0.10.22 paths and unpkg dynamic imports.
+  That produced 404/CORS console noise even when a later fallback happened to work.
 
-  Import the explicit ESM bundle instead. Keep two CDNs and a stable 0.10.15
-  fallback so the AR gate can still start when one CDN or one pinned release is
-  unavailable on a school network.
+  Use one pinned browser ESM bundle from jsDelivr. The version exists in the npm
+  package registry and the path explicitly targets vision_bundle.mjs. When a
+  school network cannot reach this CDN, the Gate intentionally moves to Guided
+  Mode instead of running a chain of failing remote imports.
 */
 const MP_SOURCES = Object.freeze([
   {
-    name: 'jsDelivr 0.10.22',
-    module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs',
-    wasm: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
-  },
-  {
-    name: 'unpkg 0.10.22',
-    module: 'https://unpkg.com/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs',
-    wasm: 'https://unpkg.com/@mediapipe/tasks-vision@0.10.22/wasm'
-  },
-  {
-    name: 'jsDelivr 0.10.15 fallback',
-    module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/vision_bundle.mjs',
-    wasm: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/wasm'
-  },
-  {
-    name: 'unpkg 0.10.15 fallback',
-    module: 'https://unpkg.com/@mediapipe/tasks-vision@0.10.15/vision_bundle.mjs',
-    wasm: 'https://unpkg.com/@mediapipe/tasks-vision@0.10.15/wasm'
+    name: 'jsDelivr MediaPipe Tasks Vision 0.10.35',
+    module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs',
+    wasm: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
   }
 ]);
 const POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
@@ -227,6 +213,34 @@ function poseMetrics(landmarks) {
   };
 }
 
+function frameCoverage(landmarks) {
+  const isVisible = (index, threshold = 0.42) => visibility(point(landmarks, index)) >= threshold;
+  const parts = {
+    head: isVisible(IDX.NOSE, 0.42),
+    shoulders: isVisible(IDX.L_SHOULDER, 0.42) && isVisible(IDX.R_SHOULDER, 0.42),
+    hips: isVisible(IDX.L_HIP, 0.40) && isVisible(IDX.R_HIP, 0.40),
+    knees: isVisible(IDX.L_KNEE, 0.38) && isVisible(IDX.R_KNEE, 0.38),
+    ankles: isVisible(IDX.L_ANKLE, 0.36) && isVisible(IDX.R_ANKLE, 0.36)
+  };
+  const count = Object.values(parts).filter(Boolean).length;
+  return {
+    ...parts,
+    count,
+    full: count === 5,
+    missing: Object.entries(parts).filter(([, ok]) => !ok).map(([key]) => key)
+  };
+}
+
+function coverageLabel(key) {
+  return ({
+    head: 'ศีรษะ',
+    shoulders: 'ไหล่',
+    hips: 'สะโพก',
+    knees: 'เข่า',
+    ankles: 'ข้อเท้า'
+  })[key] || key;
+}
+
 function scaleForDuration(seconds) {
   return clamp(seconds / 60, 0.76, 1.42);
 }
@@ -382,6 +396,17 @@ function makeMarkup(meta, phase, duration) {
           <div class="frr-camera-wrap" data-camera-wrap>
             <video class="frr-video" data-video autoplay muted playsinline></video>
             <canvas class="frr-canvas" data-canvas></canvas>
+            <div class="frr-frame-guide" data-frame-guide aria-hidden="true">
+              <div class="frr-frame-silhouette"></div>
+              <div class="frr-frame-floor"></div>
+            </div>
+            <div class="frr-frame-checks" data-frame-checks aria-live="polite">
+              <span data-frame-part="head">ศีรษะ</span>
+              <span data-frame-part="shoulders">ไหล่</span>
+              <span data-frame-part="hips">สะโพก</span>
+              <span data-frame-part="knees">เข่า</span>
+              <span data-frame-part="ankles">ข้อเท้า</span>
+            </div>
             <div class="frr-camera-empty" data-camera-empty>
               <div class="frr-camera-empty-icon">📷</div>
               <strong>พร้อมตรวจท่าทาง</strong>
@@ -389,7 +414,7 @@ function makeMarkup(meta, phase, duration) {
             </div>
             <div class="frr-status-pill" data-camera-status>กล้องยังไม่เริ่ม</div>
           </div>
-          <div class="frr-camera-hint">ยืนห่างกล้องประมาณ 1.5–2.5 เมตร ให้เห็นตั้งแต่ศีรษะถึงข้อเท้า</div>
+          <div class="frr-camera-hint">ใช้เส้นร่างคนเป็นกรอบ: ให้ศีรษะ–ข้อเท้าอยู่ในภาพ แล้วรอให้แถบตรวจครบ 5 ส่วน</div>
         </section>
 
         <aside class="frr-task-card">
@@ -433,7 +458,7 @@ function makeMarkup(meta, phase, duration) {
         <button type="button" class="frr-btn frr-btn-soft" data-retry hidden>ลองตรวจใหม่</button>
         <button type="button" class="frr-btn frr-btn-ghost" data-exit>กลับ Fitness Hub</button>
       </footer>
-      <p class="frr-engine-note" data-engine-note>Engine: Ready to initialize</p>
+      <p class="frr-engine-note" data-engine-note>Engine: camera + Pose ready</p>
     </section>
   `;
 }
@@ -937,19 +962,55 @@ export async function mount(stage, ctx, api) {
     setWidth(root, '[data-step-progress]', result.ratio || 0);
   }
 
+  function updateFrameGuide(landmarks = null, metrics = null) {
+    const coverage = frameCoverage(landmarks);
+    const parts = ['head', 'shoulders', 'hips', 'knees', 'ankles'];
+    parts.forEach(key => {
+      const node = root.querySelector(`[data-frame-part="${key}"]`);
+      if (!node) return;
+      const ok = !!coverage[key];
+      node.classList.toggle('is-ready', ok);
+      node.classList.toggle('is-missing', !ok && !!landmarks);
+      node.textContent = `${ok ? '✓' : '○'} ${coverageLabel(key)}`;
+    });
+
+    const guide = root.querySelector('[data-frame-guide]');
+    if (guide) {
+      guide.classList.toggle('is-full', coverage.full && !!metrics?.centered);
+      guide.classList.toggle('is-partial', !!landmarks && !coverage.full);
+    }
+
+    return coverage;
+  }
+
   function updateQuality(metrics = null, hint = '') {
     const quality = metrics?.quality || 0;
+    const coverage = updateFrameGuide(runtime.landmarks, metrics);
     const label = guided
       ? 'Guided mode'
-      : quality >= 0.74 ? 'ดีมาก' : quality >= 0.57 ? 'ใช้ได้' : 'ต้องปรับตำแหน่ง';
+      : coverage.full && metrics?.centered && quality >= 0.74 ? 'ดีมาก'
+      : coverage.full && quality >= 0.57 ? 'ใช้ได้'
+      : 'จัดตำแหน่ง';
     setText(root, '[data-quality]', label);
 
-    const detail = guided
-      ? 'กล้องไม่พร้อม จึงใช้โหมดทำตามคำแนะนำ ผลนี้จะถูกบันทึกเป็น guided'
-      : hint || (quality >= 0.57 && metrics?.fullBody && metrics?.centered
-        ? 'เห็นร่างกายครบแล้ว ทำท่าช้า ๆ ให้กล้องติดตามได้'
-        : 'ถอยให้เห็นตั้งแต่ศีรษะถึงข้อเท้า และยืนกลางกรอบกล้อง');
-    setText(root, '[data-quality-detail]', detail);
+    let detail = hint;
+    if (!guided && !detail) {
+      if (!runtime.landmarks) {
+        detail = 'ยังไม่พบร่างกาย: เพิ่มแสง ยืนให้ตัวไม่ถูกบัง และอยู่กลางภาพ';
+      } else if (!coverage.full) {
+        const missing = coverage.missing.map(coverageLabel).join(' / ');
+        detail = `ในกรอบแล้ว ${coverage.count}/5 ส่วน • ถอยกล้องหรือถอยตัว เพื่อให้เห็น ${missing}`;
+      } else if (!metrics?.centered) {
+        detail = 'เห็นร่างกายครบแล้ว แต่ขยับตัวมาอยู่กลางเส้นร่างคนอีกเล็กน้อย';
+      } else {
+        detail = 'เห็นร่างกายครบแล้ว ทำท่าช้า ๆ ให้กล้องติดตามได้';
+      }
+    }
+
+    if (guided) {
+      detail = 'กล้องไม่พร้อม จึงใช้โหมดทำตามคำแนะนำ ผลนี้จะถูกบันทึกเป็น guided';
+    }
+    setText(root, '[data-quality-detail]', detail || 'ตรวจเห็นร่างกายครบและอยู่กลางกรอบก่อน');
   }
 
   function setCameraStatus(message) {
@@ -1057,6 +1118,7 @@ export async function mount(stage, ctx, api) {
     guideButton.hidden = true;
     setCameraStatus('Guided mode');
     engineNote.textContent = 'Pose engine unavailable • guided fallback enabled';
+    updateFrameGuide(null, null);
     updateQuality(null, 'ทำตามท่าอย่างช้า ๆ แล้วกดปุ่มยืนยันแต่ละภารกิจ');
     updateHeroStats();
     updateStep({ progress: 0, target: currentTask()?.target || 1, ratio: 0, detail: 'กด “ยืนยันว่าทำท่านี้แล้ว” เมื่อเสร็จ' });
@@ -1096,7 +1158,7 @@ export async function mount(stage, ctx, api) {
         return { module, vision, source };
       } catch (error) {
         lastError = error;
-        console.warn('[FRR] MediaPipe CDN source failed', source.name, error);
+        console.warn('[FRR] MediaPipe Pose source failed', source.name, error);
       }
     }
 
@@ -1161,6 +1223,7 @@ export async function mount(stage, ctx, api) {
     drawPose(canvas, video, landmarks);
 
     if (!landmarks) {
+      updateFrameGuide(null, null);
       updateQuality(null, 'ยังไม่พบร่างกาย ลองเพิ่มแสงหรือถอยห่างจากกล้อง');
       setCameraStatus('กำลังค้นหาร่างกาย');
       return;
@@ -1202,7 +1265,6 @@ export async function mount(stage, ctx, api) {
         throw new Error('อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับกล้องสำหรับ MediaPipe');
       }
 
-      await initializePose();
       stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -1216,6 +1278,9 @@ export async function mount(stage, ctx, api) {
       video.srcObject = stream;
       await video.play();
       cameraEmpty.hidden = true;
+      setCameraStatus('กล้องพร้อม • กำลังโหลด Pose');
+      engineNote.textContent = 'Camera ready • Loading MediaPipe Pose…';
+      await initializePose();
       running = true;
       runtime.startedAt = performance.now();
       runtime.lastFrameAt = performance.now();
@@ -1225,6 +1290,8 @@ export async function mount(stage, ctx, api) {
       updateHeroStats();
       detectLoop();
     } catch (error) {
+      cleanupStream(stream);
+      stream = null;
       console.error('[FRR] start camera failed', error);
       startButton.hidden = true;
       guideButton.hidden = false;
@@ -1248,6 +1315,8 @@ export async function mount(stage, ctx, api) {
     runtime.visibleFrames = 0;
     runtime.validFrames = 0;
     runtime.previousCenter = null;
+    runtime.landmarks = null;
+    updateFrameGuide(null, null);
     runtime.startedAt = performance.now();
     cameraEmpty.hidden = false;
     cameraEmpty.innerHTML = `
@@ -1260,7 +1329,7 @@ export async function mount(stage, ctx, api) {
     guideButton.hidden = true;
     retryButton.hidden = true;
     setCameraStatus('กล้องยังไม่เริ่ม');
-    engineNote.textContent = 'Engine: Ready to initialize';
+    engineNote.textContent = 'Engine: camera + Pose ready';
     updateHeroStats();
   }
 

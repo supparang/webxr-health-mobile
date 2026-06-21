@@ -1,5 +1,5 @@
 /* === /herohealth/gate/games/fitness/fitness-readiness-recovery.css === */
-/* FULL STYLE v20260620-FITNESS-READINESS-RECOVERY-POSE-V1 */
+/* FULL STYLE v20260621-FITNESS-READINESS-RECOVERY-POSE-STABLE-CDN-FRAMING-V5 */
 
 .frr-shell{
   --frr-ink:#eaf5ff;
@@ -28,6 +28,22 @@
 .frr-video,.frr-canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 .frr-video{background:#030712}
 .frr-canvas{pointer-events:none;z-index:3}
+
+/* Full-body framing coach: it makes the Safety Scan requirement visible before any movement is scored. */
+.frr-frame-guide{position:absolute;inset:20px 15%;z-index:2;pointer-events:none;opacity:.64;transition:opacity .2s ease,filter .2s ease}
+.frr-frame-guide::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;transform:translateX(-50%);background:linear-gradient(transparent,rgba(125,211,252,.32),transparent)}
+.frr-frame-guide::after{content:"";position:absolute;left:17%;right:17%;top:6%;bottom:7%;border:2px dashed rgba(186,230,253,.42);border-radius:46% 46% 18% 18% / 20% 20% 10% 10%;box-shadow:inset 0 0 38px rgba(56,189,248,.06)}
+.frr-frame-silhouette{position:absolute;left:50%;top:8%;width:30%;height:79%;transform:translateX(-50%);border:2px solid rgba(186,230,253,.42);border-radius:44% 44% 18% 18% / 12% 12% 9% 9%;clip-path:polygon(32% 0,68% 0,80% 10%,68% 27%,84% 47%,72% 49%,66% 41%,65% 73%,84% 100%,68% 100%,50% 75%,32% 100%,16% 100%,35% 73%,34% 41%,28% 49%,16% 47%,32% 27%,20% 10%);opacity:.34}
+.frr-frame-floor{position:absolute;left:17%;right:17%;bottom:7%;height:2px;border-radius:999px;background:linear-gradient(90deg,transparent,rgba(125,211,252,.82),transparent);box-shadow:0 0 20px rgba(56,189,248,.44)}
+.frr-frame-guide.is-partial{opacity:.9;filter:drop-shadow(0 0 10px rgba(250,204,21,.25))}
+.frr-frame-guide.is-full{opacity:1;filter:drop-shadow(0 0 14px rgba(74,222,128,.36))}
+.frr-frame-guide.is-full::after,.frr-frame-guide.is-full .frr-frame-silhouette{border-color:rgba(134,239,172,.78)}
+.frr-frame-guide.is-full .frr-frame-floor{background:linear-gradient(90deg,transparent,rgba(134,239,172,.95),transparent)}
+.frr-frame-checks{position:absolute;z-index:6;top:12px;right:12px;display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 24px);pointer-events:none}
+.frr-frame-checks span{display:inline-flex;align-items:center;min-height:25px;padding:4px 7px;border-radius:999px;border:1px solid rgba(186,230,253,.22);background:rgba(2,6,23,.68);color:#cbd5e1;font-size:10px;font-weight:900;backdrop-filter:blur(8px)}
+.frr-frame-checks span.is-ready{color:#dcfce7;border-color:rgba(134,239,172,.55);background:rgba(20,83,45,.72)}
+.frr-frame-checks span.is-missing{color:#fef3c7;border-color:rgba(250,204,21,.40);background:rgba(113,63,18,.66)}
+
 .frr-camera-empty{z-index:4;position:absolute;inset:0;display:grid;place-content:center;text-align:center;padding:30px;color:#e0f2fe;background:linear-gradient(180deg,rgba(2,6,23,.26),rgba(2,6,23,.58))}
 .frr-camera-empty[hidden]{display:none}
 .frr-camera-empty-icon{font-size:48px;line-height:1;margin-bottom:11px}
@@ -77,6 +93,7 @@
   .frr-task-card{padding:15px}
 }
 @media (max-width:520px){
+  .frr-frame-guide{inset:16px 11%}.frr-frame-checks{top:8px;right:8px;gap:4px}.frr-frame-checks span{min-height:23px;padding:3px 6px;font-size:9px}
   .frr-hero{align-items:flex-start}.frr-icon{width:48px;height:48px;border-radius:16px;font-size:27px}
   .frr-title{font-size:23px}.frr-sub{font-size:12px}.frr-camera-card{padding:8px}.frr-camera-wrap{min-height:48vh}
   .frr-controls{display:grid;grid-template-columns:1fr}.frr-btn{width:100%}.frr-task-topline{justify-content:flex-start}

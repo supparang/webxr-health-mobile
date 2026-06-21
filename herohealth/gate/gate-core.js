@@ -1,5 +1,5 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260621-GATE-CORE-FITNESS-PLANNER-CDN-FIX-V4
+// FULL PATCH v20260621-GATE-CORE-FITNESS-PLANNER-STABLE-CDN-FRAMING-V5
 // ✅ Shared warmup-gate.html remains the only Gate shell.
 // ✅ Existing GoodJunk / Nutrition / Hygiene return flow is preserved.
 // ✅ Fitness Planner can run warmup + cooldown for every chosen plan slot.
@@ -7,7 +7,7 @@
 
 import * as GateGames from './gate-games.js?v=20260621-frr-v4-cdnfix';
 
-const PATCH = 'v20260621-GATE-CORE-FITNESS-PLANNER-CDN-FIX-V4';
+const PATCH = 'v20260621-GATE-CORE-FITNESS-PLANNER-STABLE-CDN-FRAMING-V5';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
