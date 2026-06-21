@@ -1,11 +1,11 @@
 // === /herohealth/gate/games/fitness/fitness-readiness-recovery.js ===
-// FULL MODULE v20260621-FITNESS-READINESS-RECOVERY-POSE-WIDE-ARENA-V6
+// FULL MODULE v20260621-FITNESS-READINESS-RECOVERY-POSE-ADAPTIVE-FRAMING-V7
 // Shared Fitness Gate phase module for:
 //   shadow-breaker, rhythm-boxer, jump-duck, balance-hold
 // Uses the existing /herohealth/warmup-gate.html -> gate-core.js architecture.
 // Do not import this module directly from a game page; register it in gate-games.js.
 
-const PATCH = 'v20260621-FITNESS-READINESS-RECOVERY-POSE-WIDE-ARENA-V6';
+const PATCH = 'v20260621-FITNESS-READINESS-RECOVERY-POSE-ADAPTIVE-FRAMING-V7';
 
 /*
   STABLE CDN POLICY
@@ -68,6 +68,118 @@ const GAME = Object.freeze({
     cooldownTitle: 'Hero Recovery • Calm Balance'
   }
 });
+
+
+/*
+  ADAPTIVE FRAMING POLICY
+  ------------------------
+  Warm-up and cool-down should not force a learner to stand several metres
+  from a laptop camera before a movement actually needs the lower body.
+
+  - Upper-body: Shadow Breaker / Rhythm Boxer (head, shoulders, hips).
+  - Mid-body: JumpDuck / Balance Hold readiness (adds knees).
+  - Full-body: only a bonus/checkpoint when a task truly benefits from feet.
+
+  The main AR games keep their own native body requirements. This Gate only
+  coaches the framing needed for the current readiness/recovery task.
+*/
+const FRAME_PROFILES = Object.freeze({
+  upper: {
+    id: 'upper',
+    label: 'Upper-body Frame',
+    thai: 'กรอบช่วงบน',
+    distance: 'ยืนห่างกล้องประมาณ 0.8–1.5 ม. ให้เห็นศีรษะ ไหล่ และสะโพก',
+    required: ['head', 'shoulders', 'hips'],
+    optional: ['knees', 'ankles'],
+    minQuality: 0.46
+  },
+  mid: {
+    id: 'mid',
+    label: 'Mid-body Frame',
+    thai: 'กรอบครึ่งตัวถึงเข่า',
+    distance: 'ยืนห่างกล้องประมาณ 1.0–1.8 ม. ให้เห็นศีรษะ ไหล่ สะโพก และเข่า',
+    required: ['head', 'shoulders', 'hips', 'knees'],
+    optional: ['ankles'],
+    minQuality: 0.44
+  },
+  full: {
+    id: 'full',
+    label: 'Full-body Frame',
+    thai: 'กรอบเต็มตัว',
+    distance: 'ถอยหลัง 1–2 ก้าวชั่วคราว ให้เห็นตั้งแต่ศีรษะถึงข้อเท้า',
+    required: ['head', 'shoulders', 'hips', 'knees', 'ankles'],
+    optional: [],
+    minQuality: 0.42
+  }
+});
+
+const PART_LANDMARKS = Object.freeze({
+  head: [IDX.NOSE],
+  shoulders: [IDX.L_SHOULDER, IDX.R_SHOULDER],
+  hips: [IDX.L_HIP, IDX.R_HIP],
+  knees: [IDX.L_KNEE, IDX.R_KNEE],
+  ankles: [IDX.L_ANKLE, IDX.R_ANKLE]
+});
+
+function getFrameProfile(value = 'mid') {
+  const key = String(value || '').trim().toLowerCase();
+  return FRAME_PROFILES[key] || FRAME_PROFILES.mid;
+}
+
+function taskFrameProfile(game, phase, task = null) {
+  if (task?.frame) return getFrameProfile(task.frame);
+  const type = String(task?.type || '').toLowerCase();
+  if (type === 'punch' || type === 'arm-activate' || type === 'cross-stretch' || type === 'side-reach' || type === 'breath') {
+    return FRAME_PROFILES.upper;
+  }
+  if (type === 'wide-stance') return FRAME_PROFILES.full;
+  if (game === 'shadow-breaker' || game === 'rhythm-boxer') return FRAME_PROFILES.upper;
+  return FRAME_PROFILES.mid;
+}
+
+
+/* A full-body checkpoint may award richer leg data, yet never blocks a learner
+   who only has safe classroom space for the mid-body frame. */
+function displayFrameProfile(game, phase, task = null) {
+  if (task?.allowMidFallback) return FRAME_PROFILES.mid;
+  return taskFrameProfile(game, phase, task);
+}
+
+function profileQuality(landmarks, profile) {
+  const p = getFrameProfile(profile?.id || profile);
+  const ids = p.required.flatMap(key => PART_LANDMARKS[key] || []);
+  return avg(ids.map(index => visibility(point(landmarks, index))));
+}
+
+function profileReady(coverage, profile) {
+  const p = getFrameProfile(profile?.id || profile);
+  return p.required.every(key => !!coverage?.[key]);
+}
+
+function profileMissing(coverage, profile) {
+  const p = getFrameProfile(profile?.id || profile);
+  return p.required.filter(key => !coverage?.[key]);
+}
+
+function profileOptionalMissing(coverage, profile) {
+  const p = getFrameProfile(profile?.id || profile);
+  return p.optional.filter(key => !coverage?.[key]);
+}
+
+function profileCoverageCount(coverage, profile) {
+  const p = getFrameProfile(profile?.id || profile);
+  return p.required.filter(key => !!coverage?.[key]).length;
+}
+
+function taskFramingHint(profile, task = null) {
+  const p = getFrameProfile(profile?.id || profile);
+  if (task?.type === 'wide-stance') {
+    return 'Full-body bonus: ถอยหลัง 1–2 ก้าวเพื่อเห็นข้อเท้า; หากพื้นที่จำกัด ระบบยังใช้กรอบครึ่งตัวเพื่อทำ Recovery ต่อได้';
+  }
+  if (p.id === 'upper') return 'ไม่ต้องเห็นขาเต็มตัว • ให้เห็นศีรษะ ไหล่ สะโพก และมืออยู่ในกรอบ';
+  if (p.id === 'mid') return 'ไม่ต้องเห็นข้อเท้าเต็มเวลา • ให้เห็นศีรษะ ไหล่ สะโพก และเข่า';
+  return p.distance;
+}
 
 function normalizeGameId(value = '') {
   const key = String(value || '').trim().toLowerCase().replace(/[_\s]+/g, '-');
@@ -250,59 +362,65 @@ function makeWarmupTasks(game, seconds) {
   const reps = Math.max(4, Math.round(7 * scale));
   const holds = Math.round(3 * scale);
 
-  const common = [
-    {
-      id: 'safety-scan',
-      type: 'safety',
-      title: 'Safety Scan',
-      cue: 'ยืนให้เห็นศีรษะ ไหล่ สะโพก เข่า และข้อเท้าครบ อยู่กลางกรอบกล้อง',
-      target: clamp(2.1 * scale, 1.8, 3.4),
-      measure: 'sec'
-    },
-    {
-      id: 'march',
-      type: 'march',
-      title: 'Activate Body',
-      cue: 'ย่ำเท้าเบา ๆ สลับซ้าย–ขวา โดยให้ลำตัวตั้งตรง',
-      target: reps,
-      measure: 'reps'
-    }
-  ];
+  const upperSafety = {
+    id: 'safety-scan', type: 'safety', frame: 'upper',
+    title: 'Safety Scan',
+    cue: 'จัดกรอบช่วงบน: เห็นศีรษะ ไหล่ และสะโพกอยู่กลางภาพ ไม่ต้องเห็นขาเต็มตัว',
+    target: clamp(2.0 * scale, 1.7, 3.2), measure: 'sec'
+  };
+
+  const midSafety = {
+    id: 'safety-scan', type: 'safety', frame: 'mid',
+    title: 'Safety Scan',
+    cue: 'จัดกรอบครึ่งตัว: เห็นศีรษะ ไหล่ สะโพก และเข่า ไม่ต้องเห็นข้อเท้าเต็มเวลา',
+    target: clamp(2.0 * scale, 1.7, 3.2), measure: 'sec'
+  };
+
+  const upperActivation = {
+    id: 'arm-activate', type: 'arm-activate', frame: 'upper',
+    title: 'Activate Arms',
+    cue: 'เปิดแขนหรือยกมือสลับซ้าย–ขวาอย่างนุ่มนวล เพื่อปลุกหัวไหล่และแขน',
+    target: reps, measure: 'reps'
+  };
 
   if (game === 'shadow-breaker') {
-    return [...common, {
-      id: 'punch', type: 'punch', title: 'Punch Ready',
+    return [upperSafety, upperActivation, {
+      id: 'punch', type: 'punch', frame: 'upper', title: 'Punch Ready',
       cue: 'ยกการ์ดระดับอก แล้วชกช้า ๆ สลับแขน โดยไม่เหยียดศอกกระแทก',
       target: reps, measure: 'reps'
     }];
   }
 
   if (game === 'rhythm-boxer') {
-    return [...common, {
-      id: 'beat-punch', type: 'punch', title: 'Beat Ready',
-      cue: 'ย่ำเท้าตามจังหวะ แล้วออกหมัดสลับซ้าย–ขวาอย่างคุมแรง',
+    return [upperSafety, upperActivation, {
+      id: 'beat-punch', type: 'punch', frame: 'upper', title: 'Beat Ready',
+      cue: 'ขยับมือสลับซ้าย–ขวาตามจังหวะ แล้วออกหมัดอย่างคุมแรง',
       target: reps + 2, measure: 'reps', beat: true
     }];
   }
 
   if (game === 'jump-duck') {
-    return [...common, {
-      id: 'side-step', type: 'side-step', title: 'Side-Step Ready',
-      cue: 'ก้าวซ้าย–ขวาเบา ๆ โดยไม่ไขว้เท้า',
+    return [midSafety, {
+      id: 'march', type: 'march', frame: 'mid', title: 'Activate Legs',
+      cue: 'ยกเข่าหรือย่ำเท้าเบา ๆ สลับซ้าย–ขวา โดยให้ลำตัวตั้งตรง',
       target: reps, measure: 'reps'
     }, {
-      id: 'shallow-duck', type: 'duck', title: 'Duck Ready',
+      id: 'side-step', type: 'side-step', frame: 'mid', title: 'Side-Step Ready',
+      cue: 'ขยับลำตัวและก้าวซ้าย–ขวาเบา ๆ โดยไม่ไขว้เท้า',
+      target: reps, measure: 'reps'
+    }, {
+      id: 'shallow-duck', type: 'duck', frame: 'mid', title: 'Duck Ready',
       cue: 'ย่อเข่าเล็กน้อยและยืดตัวกลับ ไม่ก้มคออย่างเดียว',
       target: Math.max(3, Math.round(4 * scale)), measure: 'reps'
     }];
   }
 
-  return [...common, {
-    id: 'weight-shift', type: 'weight-shift', title: 'Balance Ready',
+  return [midSafety, {
+    id: 'weight-shift', type: 'weight-shift', frame: 'mid', title: 'Balance Ready',
     cue: 'ถ่ายน้ำหนักซ้าย–ขวาช้า ๆ โดยมองตรงและไม่เอียงไหล่มากเกินไป',
     target: reps, measure: 'reps'
   }, {
-    id: 'posture-hold', type: 'recovery-hold', title: 'Posture Check',
+    id: 'posture-hold', type: 'recovery-hold', frame: 'mid', title: 'Posture Check',
     cue: 'ยืนสองเท้า ลำตัวตั้งตรงและนิ่งอย่างผ่อนคลาย',
     target: Math.max(2, holds), measure: 'sec'
   }];
@@ -313,58 +431,63 @@ function makeCooldownTasks(game, seconds) {
   const slowHold = clamp(4.0 * scale, 3, 6.5);
   const stretchHold = clamp(3.5 * scale, 2.5, 5.5);
 
-  const common = [{
-    id: 'slow-down', type: 'recovery-hold', title: 'Slow Down',
+  const upperSlowDown = [{
+    id: 'slow-down', type: 'recovery-hold', frame: 'upper', title: 'Slow Down',
+    cue: 'ลดการเคลื่อนไหวของแขน แล้วหยุดยืนอย่างนิ่งก่อนเริ่มยืดเหยียด',
+    target: slowHold, measure: 'sec'
+  }];
+  const midSlowDown = [{
+    id: 'slow-down', type: 'recovery-hold', frame: 'mid', title: 'Slow Down',
     cue: 'เดินอยู่กับที่ช้า ๆ แล้วหยุดยืนอย่างนิ่งก่อนเริ่มยืดเหยียด',
     target: slowHold, measure: 'sec'
   }];
 
   if (game === 'shadow-breaker') {
-    return [...common, {
-      id: 'cross-stretch', type: 'cross-stretch', title: 'Shoulder Stretch',
+    return [...upperSlowDown, {
+      id: 'cross-stretch', type: 'cross-stretch', frame: 'upper', title: 'Shoulder Stretch',
       cue: 'พาดแขนข้ามลำตัว ยืดหัวไหล่ ค้างทั้งสองข้างอย่างนุ่มนวล',
       target: stretchHold, measure: 'sec', sides: 2
     }, {
-      id: 'breath', type: 'breath', title: 'Calm Breath',
+      id: 'breath', type: 'breath', frame: 'upper', title: 'Calm Breath',
       cue: 'หายใจเข้าตามวงแสง 3 จังหวะ และหายใจออก 4 จังหวะ',
       target: clamp(7 * scale, 5, 10), measure: 'sec'
     }];
   }
 
   if (game === 'rhythm-boxer') {
-    return [...common, {
-      id: 'side-reach', type: 'side-reach', title: 'Side Reach',
+    return [...upperSlowDown, {
+      id: 'side-reach', type: 'side-reach', frame: 'upper', title: 'Side Reach',
       cue: 'ยกแขนเหนือไหล่แล้วเอียงลำตัวเล็กน้อย ค้างสลับทั้งสองข้าง',
       target: stretchHold, measure: 'sec', sides: 2
     }, {
-      id: 'breath', type: 'breath', title: 'Slow Beat Breath',
-      cue: 'เดินช้า ๆ ตามวงแสง แล้วค่อยหายใจให้จังหวะช้าลง',
+      id: 'breath', type: 'breath', frame: 'upper', title: 'Slow Beat Breath',
+      cue: 'ขยับแขนช้า ๆ ตามวงแสง แล้วค่อยหายใจให้จังหวะช้าลง',
       target: clamp(7 * scale, 5, 10), measure: 'sec'
     }];
   }
 
   if (game === 'jump-duck') {
-    return [...common, {
-      id: 'wide-stance', type: 'wide-stance', title: 'Leg & Ankle Recovery',
-      cue: 'ก้าวเท้าให้มั่นคง กดส้นเท้าเบา ๆ และค้างอย่างไม่ฝืน',
+    return [...midSlowDown, {
+      id: 'wide-stance', type: 'wide-stance', frame: 'full', allowMidFallback: true, title: 'Leg & Ankle Recovery',
+      cue: 'Full-body bonus: ถอยหลัง 1–2 ก้าวเพื่อก้าวเท้ากว้างและกดส้นเท้าเบา ๆ; ถ้าพื้นที่จำกัดให้ยืนมั่นคงในกรอบครึ่งตัว',
       target: stretchHold + 1, measure: 'sec'
     }, {
-      id: 'side-reach', type: 'side-reach', title: 'Side Stretch',
+      id: 'side-reach', type: 'side-reach', frame: 'mid', title: 'Side Stretch',
       cue: 'ยืดลำตัวเอียงซ้าย–ขวาอย่างช้า ๆ ค้างสลับทั้งสองด้าน',
       target: stretchHold, measure: 'sec', sides: 2
     }];
   }
 
-  return [...common, {
-    id: 'recovery-hold', type: 'recovery-hold', title: 'Recovery Hold',
+  return [...midSlowDown, {
+    id: 'recovery-hold', type: 'recovery-hold', frame: 'mid', title: 'Recovery Hold',
     cue: 'ยืนสองเท้า ผ่อนหัวไหล่ ลำตัวนิ่งและหายใจสบาย ๆ',
     target: stretchHold + 1, measure: 'sec'
   }, {
-    id: 'side-reach', type: 'side-reach', title: 'Side Stretch',
+    id: 'side-reach', type: 'side-reach', frame: 'mid', title: 'Side Stretch',
     cue: 'ยกแขนแล้วเอียงลำตัวเล็กน้อย ค้างสลับทั้งสองด้าน',
     target: stretchHold, measure: 'sec', sides: 2
   }, {
-    id: 'breath', type: 'breath', title: 'Calm Breath',
+    id: 'breath', type: 'breath', frame: 'upper', title: 'Calm Breath',
     cue: 'หายใจเข้า 3 จังหวะ และออก 4 จังหวะตามวงแสง',
     target: clamp(7 * scale, 5, 10), measure: 'sec'
   }];
@@ -400,6 +523,7 @@ function makeMarkup(meta, phase, duration) {
               <div class="frr-frame-silhouette"></div>
               <div class="frr-frame-floor"></div>
             </div>
+            <div class="frr-frame-mode" data-frame-mode aria-live="polite">กรอบช่วงบน</div>
             <div class="frr-frame-checks" data-frame-checks aria-live="polite">
               <span data-frame-part="head">ศีรษะ</span>
               <span data-frame-part="shoulders">ไหล่</span>
@@ -410,11 +534,11 @@ function makeMarkup(meta, phase, duration) {
             <div class="frr-camera-empty" data-camera-empty>
               <div class="frr-camera-empty-icon">📷</div>
               <strong>พร้อมตรวจท่าทาง</strong>
-              <span>กด “เปิดกล้องและเริ่ม” แล้วถอยให้เห็นร่างกายครบ</span>
+              <span>กด “เปิดกล้องและเริ่ม” แล้วจัดกรอบตามภารกิจ ระบบจะบอกทันทีว่าต้องเห็นส่วนใด</span>
             </div>
             <div class="frr-status-pill" data-camera-status>กล้องยังไม่เริ่ม</div>
           </div>
-          <div class="frr-camera-hint">ใช้เส้นร่างคนเป็นกรอบ: ให้ศีรษะ–ข้อเท้าอยู่ในภาพ แล้วรอให้แถบตรวจครบ 5 ส่วน</div>
+          <div class="frr-camera-hint" data-camera-hint>เริ่มด้วยกรอบที่พอดีกับภารกิจ ไม่ต้องถอยจนเห็นทั้งตัวเสมอไป</div>
         </section>
 
         <aside class="frr-task-card">
@@ -697,7 +821,11 @@ function stableMovement(metrics, runtime) {
 
 function updateTaskFromPose(task, metrics, runtime, dt, now) {
   const state = taskState(runtime, task);
-  const qualityOk = metrics.quality >= 0.54 && metrics.fullBody;
+  const frame = taskFrameProfile(game, phase, task);
+  const coverage = frameCoverage(runtime.landmarks);
+  const frameQuality = profileQuality(runtime.landmarks, frame);
+  const framingOk = profileReady(coverage, frame);
+  const qualityOk = framingOk && frameQuality >= frame.minQuality;
   const shoulderMid = metrics.shoulderMid;
   const hipMid = metrics.hipMid;
   const ankleMid = metrics.ankleMid;
@@ -709,18 +837,40 @@ function updateTaskFromPose(task, metrics, runtime, dt, now) {
     valid = qualityOk && metrics.centered;
     state.hold = valid ? state.hold + dt : 0;
     state.progress = state.hold;
-    detail = valid ? 'เห็นร่างกายครบและอยู่กลางกรอบ' : 'ถอยให้เห็นศีรษะถึงข้อเท้า และยืนกลางกรอบ';
+    detail = valid
+      ? `พร้อมแล้ว • ${frame.thai} อยู่กลางภาพ`
+      : `${frame.thai}: ${taskFramingHint(frame, task)}`;
   }
 
   if (task.type === 'march') {
-    const left = metrics.leftAnkle;
-    const right = metrics.rightAnkle;
-    const footDiff = left && right ? left.y - right.y : 0;
-    const side = Math.abs(footDiff) > 0.052 ? (footDiff > 0 ? 'left' : 'right') : '';
+    const leftFoot = metrics.leftAnkle;
+    const rightFoot = metrics.rightAnkle;
+    const leftKnee = metrics.leftKnee;
+    const rightKnee = metrics.rightKnee;
+    const footDiff = leftFoot && rightFoot
+      ? leftFoot.y - rightFoot.y
+      : (leftKnee && rightKnee ? leftKnee.y - rightKnee.y : 0);
+    const side = Math.abs(footDiff) > 0.038 ? (footDiff > 0 ? 'left' : 'right') : '';
     valid = qualityOk && !!side;
     if (valid) countAlternating(state, side, now, 300);
     state.progress = state.reps;
-    detail = `${state.reps}/${task.target} สลับเท้า`;
+    detail = `${state.reps}/${task.target} สลับขา`;
+  }
+
+  if (task.type === 'arm-activate') {
+    const leftOpen = metrics.leftWrist && metrics.leftShoulder && (
+      metrics.leftWrist.y < metrics.leftShoulder.y - 0.05 ||
+      Math.abs(metrics.leftWrist.x - metrics.leftShoulder.x) > metrics.shoulderWidth * 0.88
+    );
+    const rightOpen = metrics.rightWrist && metrics.rightShoulder && (
+      metrics.rightWrist.y < metrics.rightShoulder.y - 0.05 ||
+      Math.abs(metrics.rightWrist.x - metrics.rightShoulder.x) > metrics.shoulderWidth * 0.88
+    );
+    const side = leftOpen ? 'left' : (rightOpen ? 'right' : '');
+    valid = qualityOk && !!side;
+    if (valid) countAlternating(state, side, now, 280);
+    state.progress = state.reps;
+    detail = `${state.reps}/${task.target} เปิดแขนสลับ`;
   }
 
   if (task.type === 'punch') {
@@ -759,7 +909,10 @@ function updateTaskFromPose(task, metrics, runtime, dt, now) {
       state.baseline.noseY = state.baseline.noseY * 0.996 + nose.y * 0.004;
       state.baseline.hipY = state.baseline.hipY * 0.996 + hip.y * 0.004;
       const lower = (nose.y - state.baseline.noseY) > 0.035 && (hip.y - state.baseline.hipY) > 0.025;
-      const kneesBent = Math.min(metrics.leftKneeAngle, metrics.rightKneeAngle) < 165;
+      const ankleAnglesAvailable = coverage.knees && coverage.ankles && metrics.leftKneeAngle > 0 && metrics.rightKneeAngle > 0;
+      const kneesBent = ankleAnglesAvailable
+        ? Math.min(metrics.leftKneeAngle, metrics.rightKneeAngle) < 165
+        : coverage.knees;
       valid = qualityOk && lower && kneesBent;
       if (valid && state.phase !== 'ducked') {
         state.phase = 'ducked';
@@ -820,12 +973,22 @@ function updateTaskFromPose(task, metrics, runtime, dt, now) {
   }
 
   if (task.type === 'wide-stance') {
+    const fullProfile = FRAME_PROFILES.full;
+    const midProfile = FRAME_PROFILES.mid;
+    const fullReady = profileReady(coverage, fullProfile) && profileQuality(runtime.landmarks, fullProfile) >= fullProfile.minQuality;
+    const midReady = profileReady(coverage, midProfile) && profileQuality(runtime.landmarks, midProfile) >= midProfile.minQuality;
     const stance = distance(metrics.leftAnkle, metrics.rightAnkle) > metrics.shoulderWidth * 1.24;
     const movement = stableMovement(metrics, runtime);
-    valid = qualityOk && stance && movement < 0.019;
+    const fullBodyBonus = fullReady && stance && movement < 0.019;
+    const midBodyRecovery = !!task.allowMidFallback && midReady && movement < 0.017;
+    valid = fullBodyBonus || midBodyRecovery;
     state.hold = valid ? state.hold + dt : Math.max(0, state.hold - dt * 1.8);
     state.progress = state.hold;
-    detail = valid ? 'ก้าวเท้ามั่นคงและค้างอย่างนุ่มนวล' : 'ก้าวเท้าให้มั่นคง แล้วลดการแกว่งลำตัว';
+    detail = fullBodyBonus
+      ? 'Full-body bonus: ก้าวเท้ามั่นคงและค้างอย่างนุ่มนวล'
+      : midBodyRecovery
+        ? 'Recovery frame: ยังไม่เห็นข้อเท้า แต่ลำตัวนิ่งและผ่อนคลาย'
+        : 'ถ้าไหว ถอยหลัง 1–2 ก้าวเพื่อเห็นเท้า หรือยืนกลางกรอบครึ่งตัวให้มั่นคง';
   }
 
   if (task.type === 'recovery-hold') {
@@ -839,7 +1002,7 @@ function updateTaskFromPose(task, metrics, runtime, dt, now) {
   }
 
   if (task.type === 'breath') {
-    valid = metrics.quality >= 0.42;
+    valid = qualityOk;
     state.hold = valid ? state.hold + dt : state.hold;
     state.progress = state.hold;
     detail = 'ระบบนำจังหวะเท่านั้น ไม่วัดการหายใจจากกล้อง';
@@ -954,6 +1117,9 @@ export async function mount(stage, ctx, api) {
     setText(root, '[data-task-title]', task.title);
     setText(root, '[data-task-cue]', task.cue);
     setText(root, '[data-task-count]', String(index).padStart(2, '0'));
+    const frame = displayFrameProfile(game, phase, task);
+    setText(root, '[data-frame-mode]', `${frame.thai}${task?.allowMidFallback ? ' • Full-body bonus' : ''}`);
+    setText(root, '[data-camera-hint]', taskFramingHint(task?.allowMidFallback ? FRAME_PROFILES.full : frame, task));
     if (breathOrb) breathOrb.classList.toggle('is-breath', task.type === 'breath');
   }
 
@@ -971,54 +1137,70 @@ export async function mount(stage, ctx, api) {
   }
 
   function updateFrameGuide(landmarks = null, metrics = null) {
+    const task = currentTask();
+    const frame = displayFrameProfile(game, phase, task);
     const coverage = frameCoverage(landmarks);
     const parts = ['head', 'shoulders', 'hips', 'knees', 'ankles'];
+    const required = new Set(frame.required);
+
     parts.forEach(key => {
       const node = root.querySelector(`[data-frame-part="${key}"]`);
       if (!node) return;
       const ok = !!coverage[key];
+      const optional = !required.has(key);
       node.classList.toggle('is-ready', ok);
-      node.classList.toggle('is-missing', !ok && !!landmarks);
-      node.textContent = `${ok ? '✓' : '○'} ${coverageLabel(key)}`;
+      node.classList.toggle('is-missing', !ok && !!landmarks && !optional);
+      node.classList.toggle('is-required', !optional);
+      node.classList.toggle('is-optional', optional);
+      node.textContent = `${ok ? '✓' : '○'} ${coverageLabel(key)}${optional ? ' · bonus' : ''}`;
     });
 
     const guide = root.querySelector('[data-frame-guide]');
+    const ready = profileReady(coverage, frame) && !!metrics?.centered;
     if (guide) {
-      guide.classList.toggle('is-full', coverage.full && !!metrics?.centered);
-      guide.classList.toggle('is-partial', !!landmarks && !coverage.full);
+      guide.dataset.frameMode = frame.id;
+      guide.classList.toggle('is-full', ready);
+      guide.classList.toggle('is-partial', !!landmarks && !ready);
     }
 
-    return coverage;
+    return { coverage, frame, ready };
   }
 
   function updateQuality(metrics = null, hint = '') {
-    const quality = metrics?.quality || 0;
-    const coverage = updateFrameGuide(runtime.landmarks, metrics);
+    const frameData = updateFrameGuide(runtime.landmarks, metrics);
+    const { coverage, frame, ready } = frameData;
+    const quality = runtime.landmarks ? profileQuality(runtime.landmarks, frame) : 0;
+    const qualityOk = quality >= frame.minQuality;
     const label = guided
       ? 'Guided mode'
-      : coverage.full && metrics?.centered && quality >= 0.74 ? 'ดีมาก'
-      : coverage.full && quality >= 0.57 ? 'ใช้ได้'
+      : ready && quality >= 0.74 ? 'ดีมาก'
+      : ready && qualityOk ? 'ใช้ได้'
       : 'จัดตำแหน่ง';
     setText(root, '[data-quality]', label);
 
     let detail = hint;
     if (!guided && !detail) {
       if (!runtime.landmarks) {
-        detail = 'ยังไม่พบร่างกาย: เพิ่มแสง ยืนให้ตัวไม่ถูกบัง และอยู่กลางภาพ';
-      } else if (!coverage.full) {
-        const missing = coverage.missing.map(coverageLabel).join(' / ');
-        detail = `ในกรอบแล้ว ${coverage.count}/5 ส่วน • ถอยกล้องหรือถอยตัว เพื่อให้เห็น ${missing}`;
+        detail = `ยังไม่พบร่างกาย: ${frame.distance}`;
+      } else if (!profileReady(coverage, frame)) {
+        const missing = profileMissing(coverage, frame).map(coverageLabel).join(' / ');
+        detail = `${frame.thai} ${profileCoverageCount(coverage, frame)}/${frame.required.length} ส่วน • ปรับให้เห็น ${missing}`;
       } else if (!metrics?.centered) {
-        detail = 'เห็นร่างกายครบแล้ว แต่ขยับตัวมาอยู่กลางเส้นร่างคนอีกเล็กน้อย';
+        detail = `เห็น ${frame.thai} แล้ว • ขยับตัวมาอยู่กลางกรอบอีกเล็กน้อย`;
+      } else if (!qualityOk) {
+        detail = 'ภาพยังไม่ชัดพอ: เพิ่มแสง ลดการย้อนแสง และอยู่นิ่งสักครู่';
       } else {
-        detail = 'เห็นร่างกายครบแล้ว ทำท่าช้า ๆ ให้กล้องติดตามได้';
+        const optionalMissing = profileOptionalMissing(coverage, frame);
+        detail = optionalMissing.length
+          ? `พร้อมแล้ว • ${optionalMissing.map(coverageLabel).join(' / ')} เป็นข้อมูลโบนัส ไม่บล็อกการเล่น`
+          : 'พร้อมแล้ว • ทำท่าช้า ๆ ให้กล้องติดตามได้';
       }
     }
 
     if (guided) {
       detail = 'กล้องไม่พร้อม จึงใช้โหมดทำตามคำแนะนำ ผลนี้จะถูกบันทึกเป็น guided';
     }
-    setText(root, '[data-quality-detail]', detail || 'ตรวจเห็นร่างกายครบและอยู่กลางกรอบก่อน');
+    setText(root, '[data-quality-detail]', detail || taskFramingHint(currentTask()?.allowMidFallback ? FRAME_PROFILES.full : frame, currentTask()));
   }
 
   function setCameraStatus(message) {
@@ -1238,14 +1420,17 @@ export async function mount(stage, ctx, api) {
     }
 
     const metrics = poseMetrics(landmarks);
-    runtime.visibleFrames += 1;
-    runtime.poseQualitySamples.push(metrics.quality);
-    if (runtime.poseQualitySamples.length > 180) runtime.poseQualitySamples.shift();
-    if (metrics.quality >= 0.54 && metrics.fullBody) runtime.validFrames += 1;
-    runtime.lastPoseAt = now;
-
     const task = currentTask();
     if (!task) return;
+    const frame = displayFrameProfile(game, phase, task);
+    const coverage = frameCoverage(landmarks);
+    const trackingQuality = profileQuality(landmarks, frame);
+    runtime.visibleFrames += 1;
+    runtime.poseQualitySamples.push(trackingQuality);
+    if (runtime.poseQualitySamples.length > 180) runtime.poseQualitySamples.shift();
+    if (profileReady(coverage, frame) && metrics.centered && trackingQuality >= frame.minQuality) runtime.validFrames += 1;
+    runtime.lastPoseAt = now;
+
     const status = updateTaskFromPose(task, metrics, runtime, dt, now);
     updateQuality(metrics);
     updateStep(status);
@@ -1330,7 +1515,7 @@ export async function mount(stage, ctx, api) {
     cameraEmpty.innerHTML = `
       <div class="frr-camera-empty-icon">📷</div>
       <strong>พร้อมตรวจท่าทาง</strong>
-      <span>กด “เปิดกล้องและเริ่ม” แล้วถอยให้เห็นร่างกายครบ</span>
+      <span>กด “เปิดกล้องและเริ่ม” แล้วจัดกรอบตามภารกิจ ระบบจะบอกทันทีว่าต้องเห็นส่วนใด</span>
     `;
     root.querySelector('[data-guide-next]')?.remove();
     startButton.hidden = false;

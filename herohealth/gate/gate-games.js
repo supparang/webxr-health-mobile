@@ -1,11 +1,11 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-WIDE-ARENA-V6
+// FULL PATCH v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-ADAPTIVE-FRAMING-V7
 // ✅ GoodJunk canonical Solo Boss flow remains unchanged.
 // ✅ Shared HeroHealth warmup-gate.html and gate-core.js remain the only Gate shell/router.
 // ✅ All 4 Fitness games use ONE shared Pose-based Readiness & Recovery phase module.
 // ✅ Fitness Planner can force a fresh gate per planned slot without duplicating Gate files.
 
-const PATCH = 'v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-WIDE-ARENA-V6';
+const PATCH = 'v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-ADAPTIVE-FRAMING-V7';
 
 const FITNESS_READINESS_RECOVERY_MODULE =
   './games/fitness/fitness-readiness-recovery.js?v=20260621-frr-v6-wide-arena';

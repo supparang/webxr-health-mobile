@@ -1,5 +1,5 @@
 /* === /herohealth/gate/games/fitness/fitness-readiness-recovery.css === */
-/* FULL STYLE v20260621-FITNESS-READINESS-RECOVERY-POSE-WIDE-ARENA-V6 */
+/* FULL STYLE v20260621-FITNESS-READINESS-RECOVERY-POSE-ADAPTIVE-FRAMING-V7 */
 
 .frr-shell{
   --frr-ink:#eaf5ff;
@@ -29,7 +29,7 @@
 .frr-video{background:#030712}
 .frr-canvas{pointer-events:none;z-index:3}
 
-/* Full-body framing coach: it makes the Safety Scan requirement visible before any movement is scored. */
+/* Adaptive framing coach: shows only the body range required by the current task. */
 .frr-frame-guide{position:absolute;inset:20px 15%;z-index:2;pointer-events:none;opacity:.64;transition:opacity .2s ease,filter .2s ease}
 .frr-frame-guide::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;transform:translateX(-50%);background:linear-gradient(transparent,rgba(125,211,252,.32),transparent)}
 .frr-frame-guide::after{content:"";position:absolute;left:17%;right:17%;top:6%;bottom:7%;border:2px dashed rgba(186,230,253,.42);border-radius:46% 46% 18% 18% / 20% 20% 10% 10%;box-shadow:inset 0 0 38px rgba(56,189,248,.06)}
@@ -43,6 +43,21 @@
 .frr-frame-checks span{display:inline-flex;align-items:center;min-height:25px;padding:4px 7px;border-radius:999px;border:1px solid rgba(186,230,253,.22);background:rgba(2,6,23,.68);color:#cbd5e1;font-size:10px;font-weight:900;backdrop-filter:blur(8px)}
 .frr-frame-checks span.is-ready{color:#dcfce7;border-color:rgba(134,239,172,.55);background:rgba(20,83,45,.72)}
 .frr-frame-checks span.is-missing{color:#fef3c7;border-color:rgba(250,204,21,.40);background:rgba(113,63,18,.66)}
+
+.frr-frame-mode{position:absolute;z-index:7;left:12px;top:12px;display:inline-flex;align-items:center;min-height:25px;padding:4px 8px;border-radius:999px;border:1px solid rgba(125,211,252,.30);background:rgba(2,6,23,.72);color:#e0f2fe;font-size:10px;font-weight:1000;backdrop-filter:blur(8px);pointer-events:none}
+.frr-frame-checks span.is-optional{opacity:.66;border-style:dashed;color:#bfdbfe}
+.frr-frame-checks span.is-required{opacity:1}
+/* Upper-body tasks deliberately keep the guide tall enough for arms but do not require feet. */
+.frr-frame-guide[data-frame-mode="upper"]{inset:10% 15% 25%}
+.frr-frame-guide[data-frame-mode="upper"]::after{left:20%;right:20%;top:8%;bottom:5%;border-radius:46% 46% 32% 32% / 18% 18% 20% 20%}
+.frr-frame-guide[data-frame-mode="upper"] .frr-frame-silhouette{top:9%;height:73%;width:37%;clip-path:polygon(32% 0,68% 0,82% 11%,70% 31%,92% 58%,74% 59%,65% 47%,65% 100%,35% 100%,35% 47%,26% 59%,8% 58%,30% 31%,18% 11%)}
+.frr-frame-guide[data-frame-mode="upper"] .frr-frame-floor{display:none}
+/* Mid-body tasks include knees but keep ankles as optional information. */
+.frr-frame-guide[data-frame-mode="mid"]{inset:10% 15% 16%}
+.frr-frame-guide[data-frame-mode="mid"]::after{left:18%;right:18%;top:7%;bottom:6%;border-radius:46% 46% 24% 24% / 18% 18% 14% 14%}
+.frr-frame-guide[data-frame-mode="mid"] .frr-frame-silhouette{top:8%;height:84%;width:33%;clip-path:polygon(32% 0,68% 0,80% 10%,68% 27%,84% 48%,72% 50%,65% 43%,62% 83%,78% 100%,61% 100%,50% 84%,39% 100%,22% 100%,38% 83%,35% 43%,28% 50%,16% 48%,32% 27%,20% 10%)}
+/* Full-body is intentionally reserved for optional/leg-specific checkpoints. */
+.frr-frame-guide[data-frame-mode="full"]{inset:20px 15%}
 
 .frr-camera-empty{z-index:4;position:absolute;inset:0;display:grid;place-content:center;text-align:center;padding:30px;color:#e0f2fe;background:linear-gradient(180deg,rgba(2,6,23,.26),rgba(2,6,23,.58))}
 .frr-camera-empty[hidden]{display:none}
@@ -93,7 +108,7 @@
   .frr-task-card{padding:15px}
 }
 @media (max-width:520px){
-  .frr-frame-guide{inset:16px 11%}.frr-frame-checks{top:8px;right:8px;gap:4px}.frr-frame-checks span{min-height:23px;padding:3px 6px;font-size:9px}
+  .frr-frame-guide{inset:16px 11%}.frr-frame-guide[data-frame-mode="upper"]{inset:10% 10% 25%}.frr-frame-guide[data-frame-mode="mid"]{inset:10% 10% 15%}.frr-frame-checks{top:8px;right:8px;gap:4px}.frr-frame-checks span{min-height:23px;padding:3px 6px;font-size:9px}.frr-frame-mode{left:8px;top:8px;font-size:9px;min-height:23px;padding:3px 6px}
   .frr-hero{align-items:flex-start}.frr-icon{width:48px;height:48px;border-radius:16px;font-size:27px}
   .frr-title{font-size:23px}.frr-sub{font-size:12px}.frr-camera-card{padding:8px}.frr-camera-wrap{min-height:48vh}
   .frr-controls{display:grid;grid-template-columns:1fr}.frr-btn{width:100%}.frr-task-topline{justify-content:flex-start}
@@ -101,7 +116,7 @@
 
 
 /* =============================================================
-   FITNESS POSE WIDE ARENA V6
+   FITNESS POSE ADAPTIVE FRAMING V7
    Scope: only when the shared Gate shell contains Fitness Pose.
    Camera has priority on Desktop; controls stay in the visible task panel.
    ============================================================= */
