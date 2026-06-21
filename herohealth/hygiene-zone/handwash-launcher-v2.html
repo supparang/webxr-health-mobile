@@ -24,7 +24,7 @@
       --card:rgba(255,255,255,.88);
       --line:rgba(158,239,255,.72);
       --shadow:0 18px 48px rgba(15,70,110,.18);
-      --safe-top:env(safe-area-inset,0px);
+      --safe-top:env(safe-area-inset-top,0px);
       --safe-bottom:env(safe-area-inset-bottom,0px);
       --safe-left:env(safe-area-inset-left,0px);
       --safe-right:env(safe-area-inset-right,0px);
@@ -564,26 +564,16 @@
       font-weight:900;
     }
 
-    .palm-demo .demo-hand-a{
-      animation:palmMoveA 1s ease-in-out infinite alternate;
-    }
-
-    .palm-demo .demo-hand-b{
-      animation:palmMoveB 1s ease-in-out infinite alternate;
-    }
-
-    .palm-demo .demo-arrow{
-      animation:arrowSlide 1s ease-in-out infinite alternate;
-    }
+    .palm-demo .demo-hand-a{ animation:palmMoveA 1s ease-in-out infinite alternate; }
+    .palm-demo .demo-hand-b{ animation:palmMoveB 1s ease-in-out infinite alternate; }
+    .palm-demo .demo-arrow{ animation:arrowSlide 1s ease-in-out infinite alternate; }
 
     .backhand-demo .demo-hand-a{
       transform:rotate(-18deg);
       animation:backHandRub 1s ease-in-out infinite alternate;
     }
 
-    .backhand-demo .demo-hand-b{
-      transform:rotate(20deg);
-    }
+    .backhand-demo .demo-hand-b{ transform:rotate(20deg); }
 
     .fingers-demo .demo-hand-a,
     .fingers-demo .demo-hand-b{
@@ -595,33 +585,16 @@
       animation:knuckleMove 1s ease-in-out infinite alternate;
     }
 
-    .knuckles-demo .demo-hand-b{
-      transform:rotate(-12deg);
-    }
+    .knuckles-demo .demo-hand-b{ transform:rotate(-12deg); }
 
-    .thumb-demo .demo-hand-a{
-      animation:thumbRotate 1s linear infinite;
-    }
+    .thumb-demo .demo-hand-a{ animation:thumbRotate 1s linear infinite; }
+    .thumb-demo .demo-hand-b{ transform:scaleX(-1); }
 
-    .thumb-demo .demo-hand-b{
-      transform:scaleX(-1);
-    }
+    .fingertip-demo .demo-hand-a{ animation:fingertipCircle 1s linear infinite; }
+    .fingertip-demo .demo-hand-b{ transform:rotate(180deg); }
 
-    .fingertip-demo .demo-hand-a{
-      animation:fingertipCircle 1s linear infinite;
-    }
-
-    .fingertip-demo .demo-hand-b{
-      transform:rotate(180deg);
-    }
-
-    .wrist-demo .demo-hand-a{
-      animation:wristCircle 1.1s linear infinite;
-    }
-
-    .wrist-demo .demo-hand-b{
-      transform:rotate(-22deg);
-    }
+    .wrist-demo .demo-hand-a{ animation:wristCircle 1.1s linear infinite; }
+    .wrist-demo .demo-hand-b{ transform:rotate(-22deg); }
 
     @keyframes palmMoveA{
       from{ transform:translateX(-7px); }
@@ -736,9 +709,7 @@
       box-shadow:0 0 0 8px rgba(34,197,94,.14);
     }
 
-    .pointer.show{
-      display:block;
-    }
+    .pointer.show{ display:block; }
 
     .pointer::after{
       content:"ฝ่ามือ";
@@ -887,9 +858,7 @@
       scrollbar-width:none;
     }
 
-    .process::-webkit-scrollbar{
-      display:none;
-    }
+    .process::-webkit-scrollbar{ display:none; }
 
     .chip{
       flex:0 0 auto;
@@ -924,9 +893,7 @@
       backdrop-filter:blur(14px);
     }
 
-    .overlay.show{
-      display:grid;
-    }
+    .overlay.show{ display:grid; }
 
     .modal{
       width:min(94vw,760px);
@@ -1027,9 +994,7 @@
       font-weight:1000;
     }
 
-    .countdown.show{
-      display:grid;
-    }
+    .countdown.show{ display:grid; }
 
     .summary-grid{
       display:grid;
@@ -1182,9 +1147,7 @@
         transform:translateX(-50%);
       }
 
-      .step-list{
-        display:none;
-      }
+      .step-list{ display:none; }
     }
 
     @media (max-width:560px){
@@ -1200,9 +1163,7 @@
         overflow:hidden;
       }
 
-      .visual-coach{
-        display:none;
-      }
+      .visual-coach{ display:none; }
 
       .ar-water{
         top:calc(194px + var(--safe-top));
@@ -1231,9 +1192,7 @@
         bottom:calc(66px + var(--safe-bottom));
       }
 
-      .control{
-        min-height:60px;
-      }
+      .control{ min-height:60px; }
     }
   </style>
 </head>
@@ -1269,9 +1228,7 @@
         </div>
       </div>
 
-      <div class="evidence-bar">
-        <span id="gestureFill"></span>
-      </div>
+      <div class="evidence-bar"><span id="gestureFill"></span></div>
 
       <div class="gesture-meta">
         <span id="gesturePercent">0%</span>
@@ -1341,33 +1298,26 @@
         <span>Gesture Evidence</span>
         <span id="actionMeterText">0%</span>
       </div>
-      <div class="meter">
-        <span id="actionFill" class="action-fill"></span>
-      </div>
+      <div class="meter"><span id="actionFill" class="action-fill"></span></div>
 
       <div class="meter-label">
         <span>Foam Level</span>
         <span id="foamMeterText">0%</span>
       </div>
-      <div class="meter">
-        <span id="foamFill" class="foam-fill"></span>
-      </div>
+      <div class="meter"><span id="foamFill" class="foam-fill"></span></div>
     </section>
 
     <section class="controls">
       <button id="btnFaucet" class="control" type="button">
-        <span>🚰</span>
-        <b id="faucetLabel">เปิดน้ำ</b>
+        <span>🚰</span><b id="faucetLabel">เปิดน้ำ</b>
       </button>
 
       <button id="btnCoach" class="control" type="button">
-        <span>🤖</span>
-        <b id="coachButtonLabel">AI Coach</b>
+        <span>🤖</span><b id="coachButtonLabel">AI Coach</b>
       </button>
 
       <button id="btnTowel" class="control" type="button">
-        <span>🧻</span>
-        <b>เช็ดมือ</b>
+        <span>🧻</span><b>เช็ดมือ</b>
       </button>
     </section>
 
@@ -1387,14 +1337,14 @@
       <div class="modal">
         <div class="badge">🧼</div>
         <h1>Handwash AR Gesture Simulator</h1>
-        <p>เกมจะให้เด็กฝึกท่าล้างมือ 7 ขั้นตอน โดยใช้กล้องตรวจตำแหน่งมือ การขยับ และการสลับมือ</p>
+        <p>เกมจะฝึกท่าล้างมือ 7 ขั้นตอน โดยใช้กล้องตรวจตำแหน่งมือ การขยับ และการสลับมือ</p>
 
         <div class="brief-list">
           <div>1) Easy 90 วินาที • Normal 75 วินาที • Hard 60 วินาที</div>
           <div>2) ตั้งมือถือบนขาตั้งหรือพิงโต๊ะ ห่างประมาณ 50–70 ซม.</div>
           <div>3) ใช้กล้องหน้า ให้เห็นมือสองข้างเต็มเฟรม</div>
           <div>4) ทำท่าตามภาพเคลื่อนไหวในกล่อง AI Coach</div>
-          <div>5) ขั้นที่ต้องสลับมือ จะขึ้นคำว่า “เหลือมือซ้าย/ขวา”</div>
+          <div>5) เมื่อทำ 7 ขั้นครบ จะได้เวลา Germ Boss แยกต่างหาก</div>
           <div>6) AI Coach ช่วยแนะนำได้ แต่ไม่สามารถกดข้าม 7 ขั้นได้</div>
         </div>
 
@@ -1425,17 +1375,14 @@
             <span>7 ขั้นล้างมือ</span>
             <strong id="sumStepAccuracy">0%</strong>
           </div>
-
           <div class="performance-item">
             <span>กระบวนการ</span>
             <strong id="sumProcessAccuracy">0%</strong>
           </div>
-
           <div class="performance-item">
             <span>Gesture Quality</span>
             <strong id="sumGestureQuality">0%</strong>
           </div>
-
           <div class="performance-item">
             <span>Germ Boss</span>
             <strong id="sumBossAccuracy">0%</strong>
@@ -1464,7 +1411,7 @@
     (() => {
       "use strict";
 
-      const VERSION = "20260621-HANDWASH-AR-7STEP-LIVE-VISUAL-COACH";
+      const VERSION = "20260621-HANDWASH-AR-7STEP-LIVE-COACH-BOSS-TIMER-FAIR";
       const ZONE_ID = "hygiene";
       const qs = new URLSearchParams(location.search);
 
@@ -1491,6 +1438,11 @@
         30,
         180
       );
+
+      const BOSS_DURATION =
+        DIFF === "easy" ? 15 :
+        DIFF === "hard" ? 10 :
+        12;
 
       const SCORE = {
         warmup:100,
@@ -1640,10 +1592,12 @@
           const row = document.createElement("div");
           row.className = "step-row";
           row.dataset.step = step.id;
+
           row.innerHTML = `
             <b>${index + 1}</b>
             <span>${step.label.replace(/^\d+\.\s*/,"")}</span>
           `;
+
           el.stepList.appendChild(row);
         });
       }
@@ -1652,12 +1606,14 @@
         el.btnBackZone.addEventListener("click",goZone);
         el.btnBackZone2.addEventListener("click",goZone);
         el.btnBackZone3.addEventListener("click",goZone);
+
         el.btnHub.addEventListener("click",() => {
           location.href = ROUTES.hub;
         });
 
         el.btnStart.addEventListener("click",startGame);
         el.btnReplay.addEventListener("click",startGame);
+
         el.btnFaucet.addEventListener("click",onFaucetTap);
         el.btnCoach.addEventListener("click",onCoachTap);
         el.btnTowel.addEventListener("click",onTowelTap);
@@ -1678,6 +1634,11 @@
           phase:"brief",
           duration:DURATION,
           remaining:DURATION,
+
+          bossDuration:BOSS_DURATION,
+          bossRemaining:BOSS_DURATION,
+          bossEndReason:"",
+
           score:0,
           foam:0,
           waterOn:false,
@@ -1786,6 +1747,7 @@
         await runCountdown();
 
         passCheck("warmup",SCORE.warmup);
+
         state.stage = "main";
         state.phase = "wet";
 
@@ -1822,7 +1784,7 @@
         clearInterval(timer);
 
         timer = setInterval(() => {
-          if(!state || ["brief","summary"].includes(state.stage)) return;
+          if(!state || ["brief","summary","boss"].includes(state.stage)) return;
 
           state.remaining -= 1;
 
@@ -2031,6 +1993,7 @@
         const fistScore = clamp((1.35 - extension) / .65,0,1);
 
         const previous = tracking.get(key);
+
         const speed = previous
           ? distance(palm,previous.palm) / Math.max(dt,.016)
           : 0;
@@ -2173,11 +2136,13 @@
         if(hands.length < 2){
           gesture.signal = 0;
           gesture.status = "ต้องเห็น 2 มือ";
+
           setChildGestureCoach(
             step,
             "noHands",
             "ยกมือสองข้างให้กล้องเห็นชัด ๆ ก่อนนะ"
           );
+
           registerDiagnostic("noHands",dt);
           decayGestureEvidence(dt);
           return;
@@ -2188,11 +2153,13 @@
         if(step.requiresSides && gesture.slots.length < 2){
           gesture.signal = 0;
           gesture.status = "ต้องสลับมือ";
+
           setChildGestureCoach(
             step,
             "needOtherHand",
             "ขยับมือออกจากกันนิดหนึ่ง แล้วสลับทำอีกข้าง"
           );
+
           registerDiagnostic("needOtherHand",dt);
           return;
         }
@@ -2209,7 +2176,6 @@
           if(nearEvidence >= 20 || (best && best.score >= step.graceThreshold)){
             gesture.graceActive = true;
             state.stepDiagnostics[step.id].adaptiveGrace = true;
-
             showToast("AI Coach: ทำช้า ๆ และให้มืออยู่กลางจออีกนิดนะ");
           }
         }
@@ -2233,11 +2199,13 @@
 
         if(!best.inZone){
           gesture.status = "ขยับเข้ากลางจอ";
+
           setChildGestureCoach(
             step,
             "outsideZone",
             "เลื่อนมือมาไว้ตรงสัญลักษณ์ 🤲 กลางจอ"
           );
+
           registerDiagnostic("outsideZone",dt);
           decayGestureEvidence(dt);
           return;
@@ -2245,11 +2213,13 @@
 
         if(best.motionTooLow){
           gesture.status = "ลองถูต่ออีกนิด";
+
           setChildGestureCoach(
             step,
             "lowMotion",
             "ทำท่านี้ช้า ๆ ต่อเนื่องอีกนิด"
           );
+
           registerDiagnostic("lowMotion",dt);
           decayGestureEvidence(dt);
           return;
@@ -2306,6 +2276,7 @@
         if(!state.gesture) return;
 
         const childMessage = getChildDiagnosticText(step.id,reason);
+
         state.gesture.diagnostic = childMessage;
         state.gesture.coach = extra || childMessage;
       }
@@ -2470,6 +2441,7 @@
         };
 
         const previous = state.gesture?.pairLast;
+
         const relativeSpeed = previous
           ? distance(relative,previous) / Math.max(dt,.016)
           : 0;
@@ -2796,7 +2768,7 @@
 
       function completeDry(){
         passCheck("driedHands",SCORE.driedHands);
-        showToast("มือแห้งแล้ว! Germ Boss กำลังมา");
+        showToast("ล้างมือครบแล้ว! Germ Boss กำลังมา");
         startBoss();
       }
 
@@ -2813,17 +2785,38 @@
       function startBoss(){
         state.stage = "boss";
         state.phase = "boss";
+        state.bossRemaining = state.bossDuration;
+        state.bossEndReason = "";
 
-        showToast("ใช้ฝ่ามือหรือปลายนิ้วชี้ชน Germ Boss");
+        clearInterval(timer);
+
+        showToast(
+          `ล้างมือครบแล้ว! กำจัด Germ Boss ภายใน ${state.bossDuration} วินาที`
+        );
 
         placeBoss();
 
         clearInterval(bossTimer);
 
-        bossTimer = setInterval(
-          placeBoss,
-          DIFF === "hard" ? 950 : 1450
-        );
+        bossTimer = setInterval(() => {
+          if(state.stage !== "boss") return;
+
+          state.bossRemaining -= 1;
+
+          if(state.bossRemaining <= 0){
+            state.bossRemaining = 0;
+            state.bossEndReason = "boss-timeup";
+
+            clearInterval(bossTimer);
+            el.bossTarget.classList.remove("show");
+
+            endGame("boss-timeup");
+            return;
+          }
+
+          updateMission();
+          updateUI();
+        },1000);
 
         updateMission();
         updateUI();
@@ -2887,6 +2880,8 @@
 
         if(state.bossHp <= 0){
           clearInterval(bossTimer);
+          state.bossEndReason = "boss-cleared";
+
           el.bossTarget.classList.remove("show");
 
           passCheck("bossClear",SCORE.bossClear);
@@ -2946,8 +2941,8 @@
         if(state.stage === "boss"){
           return {
             icon:"🦠",
-            title:"Germ Boss",
-            tip:"ใช้ฝ่ามือหรือปลายนิ้วชี้ชนเป้าเชื้อโรค"
+            title:`Germ Boss • ${state.bossRemaining}s`,
+            tip:"ล้างมือครบแล้ว! ใช้ฝ่ามือหรือปลายนิ้วชี้ชน Germ Boss"
           };
         }
 
@@ -3009,7 +3004,11 @@
           state.stage === "summary" ? "Summary" :
           "Ready";
 
-        el.timerText.textContent = String(state.remaining);
+        el.timerText.textContent =
+          state.stage === "boss"
+            ? `B${state.bossRemaining}`
+            : String(state.remaining);
+
         el.scoreText.textContent = String(state.score);
         el.stepText.textContent = `${completedScrubs()}/7`;
         el.faucetLabel.textContent = state.waterOn ? "ปิดน้ำ" : "เปิดน้ำ";
@@ -3142,6 +3141,7 @@
         el.visualCoachDemo.className = `visual-coach-demo ${demoClass}`;
 
         el.visualCoach.classList.toggle("near-pass",percent >= 70);
+
         el.visualCoach.classList.toggle(
           "warn",
           ["ต้องเห็น 2 มือ","ขยับเข้ากลางจอ","ต้องสลับมือ"].includes(gesture.status)
@@ -3200,6 +3200,7 @@
           const marker = row.querySelector("b");
 
           row.classList.toggle("done",!!state.checks[step.id]);
+
           row.classList.toggle(
             "active",
             state.stage === "main" &&
@@ -3508,6 +3509,10 @@
           return "ยอดเยี่ยม! ทำครบ 7 ขั้น ล้างฟอง เช็ดมือ ปิดน้ำ และกำจัด Germ Boss สำเร็จ";
         }
 
+        if(state.endReason === "boss-timeup"){
+          return "ยอดเยี่ยม! ทำครบ 7 ขั้น ล้างฟอง เช็ดมือ และปิดน้ำแล้ว เหลือฝึกกำจัด Germ Boss ให้ทันเวลา";
+        }
+
         if(state.endReason === "timeup" && missingSteps.length){
           const preview = missingSteps.slice(0,3).join(" • ");
 
@@ -3541,16 +3546,23 @@
         el.summaryTitle.textContent =
           state.endReason === "completed"
             ? "ภารกิจสำเร็จ!"
-            : "หมดเวลาแล้ว";
+            : state.endReason === "boss-timeup"
+              ? "ล้างมือครบแล้ว!"
+              : "หมดเวลาแล้ว";
 
-        el.summarySub.textContent = state.grade;
+        el.summarySub.textContent =
+          state.endReason === "boss-timeup"
+            ? "Germ Boss ยังไม่หมด"
+            : state.grade;
 
         el.summaryIcon.textContent =
-          state.stars >= 3
-            ? "🏆"
-            : state.stars >= 2
-              ? "🧼"
-              : "💪";
+          state.endReason === "boss-timeup"
+            ? "🧼"
+            : state.stars >= 3
+              ? "🏆"
+              : state.stars >= 2
+                ? "🧼"
+                : "💪";
 
         el.recommend.textContent = state.recommendation;
 
@@ -3672,6 +3684,7 @@
           gameShort:"handwash",
           zone:ZONE_ID,
           version:VERSION,
+
           timestamp:state.endedAt,
           startedAt:state.startedAt,
           sessionId:qs.get("session") || state.sessionId,
@@ -3682,13 +3695,19 @@
           classLevel:qs.get("classLevel") || "P5",
 
           mode:handDetectReady
-            ? "AR-7step-gesture-evidence-live-visual-coach"
+            ? "AR-7step-gesture-evidence-live-coach-boss-timer"
             : "tap-process-only",
 
           detectTarget:"two_hands_landmarks_0_4_5_8_9_12_16_20_gesture_evidence",
           difficulty:DIFF,
+
           durationSec:state.duration,
           remainingSec:state.remaining,
+
+          bossDurationSec:state.bossDuration,
+          bossRemainingSec:state.bossRemaining,
+          bossEndReason:state.bossEndReason,
+
           endReason:state.endReason,
 
           score:state.score,
@@ -3701,6 +3720,7 @@
 
           completedSteps:completedScrubs(),
           totalSteps:7,
+
           completedProcessSteps:metrics.completedProcessCount,
           totalProcessSteps:metrics.totalProcessCount,
 
