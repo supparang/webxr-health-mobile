@@ -8,9 +8,13 @@
   />
   <meta name="theme-color" content="#dff8ff" />
   <meta name="color-scheme" content="light" />
+
   <title>HeroHealth • Handwash AR Gesture Simulator</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"
+    crossorigin="anonymous"
+  ></script>
 
   <style>
     :root{
@@ -21,7 +25,7 @@
       --yellow:#facc15;
       --red:#ef4444;
       --card:rgba(255,255,255,.88);
-      --line:rgba(158,239,255,.78);
+      --line:rgba(158,239,255,.76);
       --shadow:0 18px 48px rgba(15,70,110,.18);
       --safe-top:env(safe-area-inset-top,0px);
       --safe-bottom:env(safe-area-inset-bottom,0px);
@@ -36,16 +40,22 @@
 
     html,
     body{
-      margin:0;
       width:100%;
       height:100%;
+      margin:0;
       overflow:hidden;
-      font-family:ui-rounded,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--ink);
+      font-family:
+        ui-rounded,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
       background:
-        radial-gradient(circle at 12% 8%,rgba(255,255,255,.95),transparent 30%),
-        radial-gradient(circle at 88% 18%,rgba(202,246,255,.88),transparent 30%),
-        linear-gradient(160deg,#dff8ff,#f8feff 55%,#fff8d8);
+        radial-gradient(circle at 12% 8%,rgba(255,255,255,.96),transparent 28%),
+        radial-gradient(circle at 86% 14%,rgba(203,246,255,.92),transparent 30%),
+        linear-gradient(160deg,#dff8ff,#f6fdff 52%,#fff7d6);
     }
 
     button{
@@ -68,7 +78,7 @@
       z-index:0;
       overflow:hidden;
       background:
-        radial-gradient(circle at 20% 10%,rgba(255,255,255,.86),transparent 28%),
+        radial-gradient(circle at 20% 10%,rgba(255,255,255,.85),transparent 28%),
         linear-gradient(160deg,#c8f5ff,#f8ffff 52%,#fff7d8);
     }
 
@@ -77,7 +87,7 @@
       height:100%;
       object-fit:cover;
       transform:scaleX(-1);
-      opacity:.72;
+      opacity:.74;
     }
 
     .camera-fallback{
@@ -85,7 +95,7 @@
       inset:0;
       display:grid;
       place-items:center;
-      color:rgba(18,49,74,.45);
+      color:rgba(18,49,74,.42);
       font-size:18px;
       font-weight:1000;
       letter-spacing:.06em;
@@ -105,25 +115,31 @@
       left:50%;
       width:150px;
       height:44%;
+      opacity:0;
+      filter:blur(8px);
       transform:translateX(-50%);
       background:linear-gradient(
         180deg,
-        rgba(56,189,248,.86),
-        rgba(56,189,248,.26),
+        rgba(56,189,248,.88),
+        rgba(56,189,248,.28),
         transparent
       );
-      filter:blur(8px);
-      opacity:0;
+      transition:opacity .2s ease;
     }
 
     .app.water-on .water-stream{
-      opacity:.78;
+      opacity:.8;
       animation:waterPulse .55s linear infinite;
     }
 
     @keyframes waterPulse{
-      0%,100%{transform:translateX(-50%) scaleY(.98)}
-      50%{transform:translateX(-50%) scaleY(1.06)}
+      0%,100%{
+        transform:translateX(-50%) scaleY(.98);
+      }
+
+      50%{
+        transform:translateX(-50%) scaleY(1.06);
+      }
     }
 
     .foam-fx{
@@ -131,20 +147,26 @@
       inset:0;
       opacity:0;
       background-image:
-        radial-gradient(circle,rgba(255,255,255,.9) 0 8px,transparent 9px),
-        radial-gradient(circle,rgba(224,242,254,.88) 0 6px,transparent 7px),
-        radial-gradient(circle,rgba(255,255,255,.76) 0 5px,transparent 6px);
+        radial-gradient(circle,rgba(255,255,255,.93) 0 8px,transparent 9px),
+        radial-gradient(circle,rgba(224,242,254,.92) 0 6px,transparent 7px),
+        radial-gradient(circle,rgba(255,255,255,.78) 0 5px,transparent 6px);
       background-size:90px 90px,130px 130px,160px 160px;
+      transition:opacity .25s ease;
     }
 
     .app.foamy .foam-fx{
-      opacity:.55;
+      opacity:.58;
       animation:bubble 1.8s linear infinite;
     }
 
     @keyframes bubble{
-      from{background-position:0 90px,40px 130px,80px 160px}
-      to{background-position:0 -40px,40px -80px,80px -120px}
+      from{
+        background-position:0 90px,40px 130px,80px 160px;
+      }
+
+      to{
+        background-position:0 -40px,40px -80px,80px -120px;
+      }
     }
 
     .hud{
@@ -203,16 +225,16 @@
     .title strong{
       display:block;
       margin-top:1px;
-      font-size:clamp(18px,3vw,24px);
-      line-height:1.05;
-      font-weight:1000;
-      white-space:nowrap;
       overflow:hidden;
+      font-size:clamp(18px,3vw,24px);
+      font-weight:1000;
+      line-height:1.05;
       text-overflow:ellipsis;
+      white-space:nowrap;
     }
 
     .detect-pill{
-      min-width:124px;
+      min-width:120px;
       height:46px;
       display:grid;
       place-items:center;
@@ -223,8 +245,8 @@
       background:var(--card);
       font-size:12px;
       font-weight:1000;
-      text-align:center;
       line-height:1.15;
+      text-align:center;
       box-shadow:0 8px 22px rgba(15,70,110,.1);
     }
 
@@ -239,7 +261,7 @@
       padding:7px 8px;
       border:2px solid var(--line);
       border-radius:16px;
-      background:rgba(255,255,255,.78);
+      background:rgba(255,255,255,.8);
       text-align:center;
       box-shadow:0 8px 18px rgba(15,70,110,.08);
       backdrop-filter:blur(12px);
@@ -256,18 +278,18 @@
       display:block;
       margin-top:1px;
       font-size:clamp(16px,4vw,24px);
-      line-height:1.05;
       font-weight:1000;
+      line-height:1.05;
     }
 
     .mission{
       display:flex;
-      gap:10px;
       align-items:center;
+      gap:10px;
       padding:10px;
       border:2px solid var(--line);
       border-radius:20px;
-      background:rgba(255,255,255,.78);
+      background:rgba(255,255,255,.8);
       box-shadow:0 8px 22px rgba(15,70,110,.1);
       backdrop-filter:blur(14px);
     }
@@ -293,8 +315,8 @@
       margin:2px 0 0;
       color:var(--muted);
       font-size:clamp(12px,2vw,14px);
-      line-height:1.25;
       font-weight:800;
+      line-height:1.25;
     }
 
     .ar-layer{
@@ -306,18 +328,21 @@
 
     .ar-object{
       position:absolute;
-      display:grid;
-      place-items:center;
       width:102px;
       height:102px;
+      display:grid;
+      place-items:center;
       border:3px solid rgba(158,239,255,.92);
       border-radius:28px;
-      background:rgba(255,255,255,.76);
-      box-shadow:0 14px 34px rgba(15,70,110,.15);
-      backdrop-filter:blur(12px);
+      background:rgba(255,255,255,.78);
       font-size:40px;
       font-weight:1000;
-      transition:transform .15s ease,background .15s ease,border-color .15s ease;
+      box-shadow:0 14px 34px rgba(15,70,110,.15);
+      backdrop-filter:blur(12px);
+      transition:
+        transform .15s ease,
+        background .15s ease,
+        border-color .15s ease;
     }
 
     .ar-object small{
@@ -329,9 +354,8 @@
     }
 
     .ar-object.active{
-      transform:scale(1.08);
-      background:rgba(220,252,231,.88);
       border-color:rgba(34,197,94,.75);
+      background:rgba(220,252,231,.9);
       animation:zonePulse .65s ease-in-out infinite alternate;
     }
 
@@ -341,6 +365,7 @@
           0 14px 34px rgba(15,70,110,.15),
           0 0 0 0 rgba(34,197,94,.28);
       }
+
       to{
         box-shadow:
           0 18px 40px rgba(15,70,110,.18),
@@ -349,8 +374,8 @@
     }
 
     .ar-water{
-      left:50%;
       top:calc(224px + var(--safe-top));
+      left:50%;
       transform:translateX(-50%);
     }
 
@@ -363,31 +388,39 @@
       bottom:calc(184px + var(--safe-bottom));
     }
 
-    .ar-towel{
-      right:calc(22px + var(--safe-right));
-      bottom:calc(184px + var(--safe-bottom));
+    .ar-soap.active{
+      transform:scale(1.08);
     }
 
     .ar-scrub{
-      left:50%;
       top:55%;
+      left:50%;
       width:126px;
       height:126px;
-      transform:translate(-50%,-50%);
       border-radius:36px;
       font-size:45px;
-      opacity:.9;
+      opacity:.92;
+      transform:translate(-50%,-50%);
     }
 
     .ar-scrub.active{
       transform:translate(-50%,-50%) scale(1.08);
     }
 
+    .ar-towel{
+      right:calc(22px + var(--safe-right));
+      bottom:calc(184px + var(--safe-bottom));
+    }
+
+    .ar-towel.active{
+      transform:scale(1.08);
+    }
+
     .gesture-card{
       position:absolute;
-      z-index:10;
-      right:18px;
+      z-index:12;
       top:210px;
+      right:18px;
       width:min(330px,33vw);
       padding:14px;
       border:2px solid rgba(158,239,255,.75);
@@ -395,7 +428,7 @@
       background:rgba(255,255,255,.8);
       box-shadow:0 16px 36px rgba(15,70,110,.13);
       backdrop-filter:blur(14px);
-      transition:opacity .18s ease;
+      transition:opacity .18s ease,transform .18s ease;
     }
 
     .gesture-card.idle{
@@ -404,8 +437,8 @@
 
     .gesture-head{
       display:flex;
-      gap:10px;
       align-items:center;
+      gap:10px;
     }
 
     .gesture-emoji{
@@ -413,10 +446,10 @@
       height:48px;
       display:grid;
       place-items:center;
+      flex:none;
       border-radius:16px;
       background:#e0f2fe;
       font-size:28px;
-      flex:none;
     }
 
     .gesture-head strong{
@@ -436,10 +469,10 @@
     .evidence-bar{
       height:14px;
       margin:12px 0 7px;
+      overflow:hidden;
       border:2px solid rgba(14,116,144,.18);
       border-radius:999px;
-      overflow:hidden;
-      background:rgba(255,255,255,.74);
+      background:rgba(255,255,255,.72);
     }
 
     .evidence-bar span{
@@ -468,8 +501,8 @@
       color:#075985;
       background:#eefcff;
       font-size:12px;
-      line-height:1.35;
       font-weight:900;
+      line-height:1.35;
     }
 
     .step-list{
@@ -480,13 +513,13 @@
 
     .step-row{
       display:flex;
-      gap:7px;
       align-items:center;
+      gap:7px;
       min-height:25px;
       padding:4px 8px;
       border-radius:10px;
       color:#64798c;
-      background:rgba(255,255,255,.52);
+      background:rgba(255,255,255,.5);
       font-size:11px;
       font-weight:900;
     }
@@ -532,8 +565,8 @@
       border:4px solid rgba(34,197,94,.95);
       border-radius:999px;
       background:rgba(255,255,255,.62);
-      transform:translate(-50%,-50%);
       pointer-events:none;
+      transform:translate(-50%,-50%);
       box-shadow:0 0 0 8px rgba(34,197,94,.14);
     }
 
@@ -542,17 +575,17 @@
     }
 
     .pointer::after{
-      content:"ฝ่ามือ";
       position:absolute;
-      left:50%;
       top:37px;
-      transform:translateX(-50%);
+      left:50%;
       padding:3px 7px;
       border-radius:999px;
       color:#166534;
       background:rgba(220,252,231,.92);
       font-size:10px;
       font-weight:1000;
+      content:"ฝ่ามือ";
+      transform:translateX(-50%);
       white-space:nowrap;
     }
 
@@ -562,9 +595,9 @@
     }
 
     .pointer.second::after{
-      content:"มือที่ 2";
       color:#075985;
       background:rgba(224,242,254,.92);
+      content:"มือที่ 2";
     }
 
     .boss-target{
@@ -576,13 +609,13 @@
       place-items:center;
       border:4px solid #fecaca;
       border-radius:999px;
+      color:#b91c1c;
       background:#fff1f2;
+      font-size:60px;
+      touch-action:manipulation;
       box-shadow:
         0 16px 34px rgba(239,68,68,.24),
         inset 0 0 0 8px rgba(255,255,255,.52);
-      color:#b91c1c;
-      font-size:60px;
-      touch-action:manipulation;
     }
 
     .boss-target.show{
@@ -591,16 +624,21 @@
     }
 
     @keyframes pulseBoss{
-      from{transform:scale(.94) rotate(-5deg)}
-      to{transform:scale(1.08) rotate(5deg)}
+      from{
+        transform:scale(.94) rotate(-5deg);
+      }
+
+      to{
+        transform:scale(1.08) rotate(5deg);
+      }
     }
 
     .meters{
       position:absolute;
       z-index:15;
-      left:calc(14px + var(--safe-left));
       right:calc(14px + var(--safe-right));
       bottom:calc(148px + var(--safe-bottom));
+      left:calc(14px + var(--safe-left));
       display:grid;
       gap:7px;
       pointer-events:none;
@@ -645,9 +683,9 @@
     .controls{
       position:absolute;
       z-index:21;
-      left:calc(10px + var(--safe-left));
       right:calc(10px + var(--safe-right));
       bottom:calc(72px + var(--safe-bottom));
+      left:calc(10px + var(--safe-left));
       display:grid;
       grid-template-columns:repeat(3,1fr);
       gap:9px;
@@ -659,15 +697,15 @@
       border-radius:22px;
       color:var(--ink);
       background:rgba(255,255,255,.84);
-      box-shadow:0 12px 30px rgba(15,70,110,.14);
       font-weight:1000;
+      box-shadow:0 12px 30px rgba(15,70,110,.14);
       backdrop-filter:blur(12px);
     }
 
     .control:disabled{
       opacity:.42;
-      filter:grayscale(.4);
       cursor:not-allowed;
+      filter:grayscale(.4);
     }
 
     .control span{
@@ -679,9 +717,9 @@
     .process{
       position:absolute;
       z-index:21;
-      left:calc(10px + var(--safe-left));
       right:calc(10px + var(--safe-right));
       bottom:calc(12px + var(--safe-bottom));
+      left:calc(10px + var(--safe-left));
       display:flex;
       gap:6px;
       overflow-x:auto;
@@ -705,8 +743,8 @@
     }
 
     .chip.done{
-      color:#166534;
       border-color:rgba(34,197,94,.4);
+      color:#166534;
       background:#dcfce7;
     }
 
@@ -737,8 +775,8 @@
       border:2px solid rgba(255,255,255,.72);
       border-radius:30px;
       background:rgba(255,255,255,.95);
-      box-shadow:var(--shadow);
       text-align:center;
+      box-shadow:var(--shadow);
     }
 
     .badge{
@@ -756,8 +794,8 @@
     .modal h2{
       margin:0 0 8px;
       font-size:clamp(28px,7vw,42px);
-      line-height:1.04;
       font-weight:1000;
+      line-height:1.04;
     }
 
     .modal p{
@@ -810,8 +848,8 @@
     }
 
     .ghost{
-      color:#64748b;
       border:2px solid #e2e8f0;
+      color:#475569;
       background:transparent;
     }
 
@@ -823,9 +861,9 @@
       place-items:center;
       color:#fff;
       background:rgba(14,116,144,.35);
-      backdrop-filter:blur(8px);
       font-size:clamp(72px,22vw,128px);
       font-weight:1000;
+      backdrop-filter:blur(8px);
     }
 
     .countdown.show{
@@ -881,20 +919,20 @@
     .toast{
       position:absolute;
       z-index:50;
-      left:50%;
       bottom:calc(156px + var(--safe-bottom));
+      left:50%;
       width:min(92vw,520px);
       padding:12px 16px;
       border-radius:18px;
       color:#fff;
       background:rgba(18,49,74,.94);
-      box-shadow:0 16px 34px rgba(18,49,74,.22);
-      text-align:center;
       font-weight:950;
-      opacity:0;
+      text-align:center;
       pointer-events:none;
+      opacity:0;
       transform:translate(-50%,18px);
       transition:opacity .18s ease,transform .18s ease;
+      box-shadow:0 16px 34px rgba(18,49,74,.22);
     }
 
     .toast.show{
@@ -909,12 +947,85 @@
         border-inline:1px solid rgba(14,165,233,.14);
       }
 
+      .modal{
+        width:min(92vw,880px);
+        max-height:calc(100dvh - 40px - var(--safe-top) - var(--safe-bottom));
+        padding:34px;
+        border-radius:36px;
+      }
+
+      .badge{
+        width:92px;
+        height:92px;
+        margin-bottom:16px;
+        border-radius:30px;
+        font-size:50px;
+      }
+
+      .modal h1,
+      .modal h2{
+        margin-bottom:10px;
+        font-size:clamp(38px,4vw,58px);
+      }
+
+      .modal p{
+        font-size:17px;
+      }
+
       .summary-grid{
         grid-template-columns:repeat(4,1fr);
+        gap:14px;
+        margin:18px 0;
+      }
+
+      .sum-box{
+        min-height:112px;
+        display:grid;
+        align-content:center;
+        padding:16px;
+        border-radius:22px;
+      }
+
+      .sum-box span{
+        font-size:14px;
+      }
+
+      .sum-box strong{
+        margin-top:6px;
+        font-size:30px;
+      }
+
+      .badge-list{
+        gap:10px;
+        margin:16px 0;
+      }
+
+      .mini-badge{
+        padding:10px 14px;
+        font-size:14px;
+      }
+
+      .brief-list{
+        margin:18px 0;
+      }
+
+      .brief-list div{
+        padding:16px 18px;
+        border-radius:20px;
+        font-size:17px;
       }
 
       .actions.three{
         grid-template-columns:repeat(3,1fr);
+        gap:14px;
+      }
+
+      .primary,
+      .secondary,
+      .ghost{
+        min-height:62px;
+        border-radius:20px;
+        font-size:18px;
       }
     }
 
@@ -922,17 +1033,31 @@
       .app{
         width:min(78vw,1120px);
       }
+
+      .modal{
+        width:min(88vw,960px);
+        padding:40px;
+      }
+
+      .modal h1,
+      .modal h2{
+        font-size:clamp(46px,4vw,64px);
+      }
+
+      .sum-box strong{
+        font-size:34px;
+      }
     }
 
     @media (max-width:759px){
       .gesture-card{
         top:230px;
-        left:50%;
         right:auto;
+        left:50%;
         width:min(90vw,390px);
-        transform:translateX(-50%);
         padding:11px;
-        opacity:.88;
+        opacity:.9;
+        transform:translateX(-50%);
       }
 
       .step-list{
@@ -1012,7 +1137,9 @@
         </div>
       </div>
 
-      <div class="evidence-bar"><span id="gestureFill"></span></div>
+      <div class="evidence-bar">
+        <span id="gestureFill"></span>
+      </div>
 
       <div class="gesture-meta">
         <span id="gesturePercent">0%</span>
@@ -1020,17 +1147,27 @@
       </div>
 
       <div id="gestureCoach" class="gesture-coach">
-        ตั้งมือถือบนขาตั้ง ให้กล้องเห็นมือสองข้างเต็มเฟรม
+        ตั้งมือถือให้กล้องเห็นมือสองข้างเต็มเฟรม
       </div>
 
       <div id="stepList" class="step-list"></div>
     </aside>
 
-    <button id="bossTarget" class="boss-target" type="button" aria-label="Germ Boss">🦠</button>
+    <button
+      id="bossTarget"
+      class="boss-target"
+      type="button"
+      aria-label="Germ Boss"
+    >🦠</button>
 
     <header class="hud">
       <div class="topbar">
-        <button id="btnBackZone" class="back" type="button" aria-label="กลับ Hygiene Zone">←</button>
+        <button
+          id="btnBackZone"
+          class="back"
+          type="button"
+          aria-label="กลับ Hygiene Zone"
+        >←</button>
 
         <div class="title">
           <small>Hygiene Zone</small>
@@ -1042,7 +1179,7 @@
 
       <div class="stats">
         <div class="stat"><span>Stage</span><strong id="stageText">Ready</strong></div>
-        <div class="stat"><span>เวลา</span><strong id="timerText">90</strong></div>
+        <div class="stat"><span>เวลา</span><strong id="timerText">60</strong></div>
         <div class="stat"><span>คะแนน</span><strong id="scoreText">0</strong></div>
         <div class="stat"><span>ขั้น</span><strong id="stepText">0/7</strong></div>
       </div>
@@ -1051,7 +1188,7 @@
         <div id="missionIcon" class="mission-icon">🧼</div>
         <div>
           <h2 id="missionTitle">ภารกิจล้างมือ 7 ขั้นตอน</h2>
-          <p id="missionTip">ตั้งมือถือให้เห็นมือสองข้าง ก่อนเริ่มตรวจท่าล้างมือ</p>
+          <p id="missionTip">ตั้งมือถือให้เห็นมือสองข้างก่อนเริ่มเล่น</p>
         </div>
       </section>
     </header>
@@ -1061,26 +1198,35 @@
         <span>Gesture Evidence</span>
         <span id="actionMeterText">0%</span>
       </div>
-      <div class="meter"><span id="actionFill" class="action-fill"></span></div>
+
+      <div class="meter">
+        <span id="actionFill" class="action-fill"></span>
+      </div>
 
       <div class="meter-label">
         <span>Foam Level</span>
         <span id="foamMeterText">0%</span>
       </div>
-      <div class="meter"><span id="foamFill" class="foam-fill"></span></div>
+
+      <div class="meter">
+        <span id="foamFill" class="foam-fill"></span>
+      </div>
     </section>
 
     <section class="controls">
       <button id="btnFaucet" class="control" type="button">
-        <span>🚰</span><b id="faucetLabel">เปิดน้ำ</b>
+        <span>🚰</span>
+        <b id="faucetLabel">เปิดน้ำ</b>
       </button>
 
       <button id="btnCoach" class="control" type="button">
-        <span>🤖</span><b id="coachButtonLabel">AI Coach</b>
+        <span>🤖</span>
+        <b id="coachButtonLabel">AI Coach</b>
       </button>
 
       <button id="btnTowel" class="control" type="button">
-        <span>🧻</span><b>เช็ดมือ</b>
+        <span>🧻</span>
+        <b>เช็ดมือ</b>
       </button>
     </section>
 
@@ -1100,14 +1246,18 @@
       <div class="modal">
         <div class="badge">🧼</div>
         <h1>Handwash AR Gesture Simulator</h1>
-        <p>ระบบใช้ Gesture Evidence เพื่อประเมินว่าทำท่าใกล้เคียงขั้นล้างมือจริง ไม่ใช่แค่แกว่งมือผ่าน</p>
+
+        <p>
+          ระบบตรวจจากตำแหน่งมือ นิ้ว การเข้าใกล้ การสลับมือ
+          และรูปแบบการเคลื่อนไหวของแต่ละขั้น
+        </p>
 
         <div class="brief-list">
-          <div>1) ตั้งมือถือบนขาตั้งหรือพิงโต๊ะ ห่างประมาณ 50–70 ซม.</div>
-          <div>2) ใช้กล้องหน้า และให้เห็นมือทั้งสองข้างเต็มเฟรม</div>
-          <div>3) Gesture ที่ใกล้เคียงจะสะสมได้ช้ากว่า แต่ไม่รีเซ็ตจนเริ่มใหม่ทั้งหมด</div>
-          <div>4) ขั้น 2, 4, 5, 6 และ 7 ต้องทำสลับมือซ้าย–ขวา</div>
-          <div>5) ปุ่ม AI Coach ช่วยแนะนำ แต่ไม่ใช้กดข้าม 7 ขั้น</div>
+          <div>1) ตั้งมือถือบนขาตั้งหรือพิงโต๊ะ ให้กล้องเห็นมือสองข้างเต็มเฟรม</div>
+          <div>2) เริ่มจากทำมือเปียก ปิดน้ำ ใส่สบู่ แล้วเข้าสู่ 7 ขั้นตอน</div>
+          <div>3) แต่ละขั้นต้องสะสม Gesture Evidence ไม่ผ่านจากการแกว่งมือทั่วไป</div>
+          <div>4) ขั้นหลังมือ นิ้วหัวแม่มือ ปลายนิ้ว และข้อมือ ต้องทำให้ครบสองมือ</div>
+          <div>5) AI Coach ช่วยบอกท่าที่ควรทำ แต่ไม่ใช้กดข้ามขั้นตอน</div>
         </div>
 
         <div class="actions">
@@ -1123,7 +1273,7 @@
       <div class="modal">
         <div id="summaryIcon" class="badge">🏆</div>
         <h2 id="summaryTitle">ภารกิจสำเร็จ!</h2>
-        <p id="summarySub">Hygiene Hero</p>
+        <p id="summarySub">Hygiene Master</p>
 
         <div class="summary-grid">
           <div class="sum-box"><span>คะแนน</span><strong id="sumScore">0</strong></div>
@@ -1153,7 +1303,7 @@
     (() => {
       "use strict";
 
-      const VERSION = "20260621-HANDWASH-AR-7STEP-GRACE-EVIDENCE-V2";
+      const VERSION = "20260621-HANDWASH-AR-7STEP-GESTURE-SUMMARY-DESKTOP";
       const ZONE_ID = "hygiene";
 
       const qs = new URLSearchParams(location.search);
@@ -1169,18 +1319,20 @@
         attempts: "herohealth:hygiene:handwash:attempts"
       };
 
-      const SHEET_ENDPOINT = qs.get("sheet") || window.HH_HANDWASH_SHEET_ENDPOINT || "";
+      const SHEET_ENDPOINT =
+        qs.get("sheet") ||
+        window.HH_HANDWASH_SHEET_ENDPOINT ||
+        "";
+
       const DIFF = String(qs.get("diff") || "normal").toLowerCase();
 
       const DURATION = clamp(
-        Number(
-          qs.get("time") || (
-            DIFF === "easy" ? 110 :
-            DIFF === "hard" ? 75 :
-            90
-          )
-        ),
-        45,
+        Number(qs.get("time") || (
+          DIFF === "easy" ? 75 :
+          DIFF === "hard" ? 50 :
+          60
+        )),
+        30,
         180
       );
 
@@ -1189,71 +1341,64 @@
           id:"palm",
           label:"1. ถูฝ่ามือ",
           icon:"🖐",
-          tip:"ประกบฝ่ามือสองข้าง แล้วถูไป–มา",
-          seconds:.95,
+          tip:"ประกบฝ่ามือทั้งสองข้าง แล้วถูไป–มา",
+          seconds:1.35,
           requiresSides:false,
-          strictThreshold:.48,
-          graceThreshold:.28
+          threshold:.54
         },
         {
           id:"backHand",
           label:"2. ถูหลังมือและซอกนิ้ว",
           icon:"🤚",
-          tip:"ใช้มือหนึ่งถูบนหลังมืออีกข้าง แล้วสลับมือ",
-          seconds:.62,
+          tip:"ใช้ฝ่ามือถูบนหลังมืออีกข้าง แล้วสลับมือ",
+          seconds:1.0,
           requiresSides:true,
-          strictThreshold:.44,
-          graceThreshold:.24
+          threshold:.5
         },
         {
           id:"betweenFingers",
           label:"3. ถูฝ่ามือและซอกนิ้ว",
           icon:"🖐️",
-          tip:"ประสานนิ้วสองมือเข้าหากัน แล้วถูซอกนิ้ว",
-          seconds:.9,
+          tip:"ประสานนิ้วเข้าหากัน แล้วถูซอกนิ้วไป–มา",
+          seconds:1.25,
           requiresSides:false,
-          strictThreshold:.46,
-          graceThreshold:.25
+          threshold:.52
         },
         {
           id:"backFingers",
-          label:"4. ถูหลังนิ้วมือกับฝ่ามือ",
+          label:"4. ถูหลังนิ้วกับฝ่ามือ",
           icon:"✊",
           tip:"งอนิ้วเป็นกำหลวม ๆ แล้วถูข้อนิ้วกับฝ่ามืออีกข้าง",
-          seconds:.65,
+          seconds:1.05,
           requiresSides:true,
-          strictThreshold:.40,
-          graceThreshold:.22
+          threshold:.5
         },
         {
           id:"thumbs",
           label:"5. ถูนิ้วหัวแม่มือ",
           icon:"👍",
           tip:"กำมืออีกข้างรอบนิ้วหัวแม่มือ แล้วหมุนถู",
-          seconds:.7,
+          seconds:1.1,
           requiresSides:true,
-          strictThreshold:.39,
-          graceThreshold:.21
+          threshold:.5
         },
         {
           id:"fingertips",
           label:"6. ถูปลายนิ้วและเล็บ",
           icon:"💅",
-          tip:"รวมปลายนิ้ว แล้ววนถูบนฝ่ามืออีกข้าง",
-          seconds:.65,
+          tip:"รวมปลายนิ้วและเล็บ แล้ววนถูบนฝ่ามืออีกข้าง",
+          seconds:1.0,
           requiresSides:true,
-          strictThreshold:.39,
-          graceThreshold:.21
+          threshold:.48
         },
         {
           id:"wrists",
           label:"7. ถูรอบข้อมือ",
           icon:"⌚",
-          tip:"ใช้มือหนึ่งกำรอบข้อมืออีกข้าง แล้วหมุนถู",
-          seconds:.65,
+          tip:"กำรอบข้อมืออีกข้าง แล้วหมุนถูให้ทั่ว",
+          seconds:1.0,
           requiresSides:true,
-          strictThreshold:.38,
-          graceThreshold:.20
+          threshold:.48
         }
       ];
 
@@ -1272,12 +1417,14 @@
         bossHit:120,
         bossClear:300,
         perfect:500,
-        wrong:-30,
-        waterWrong:-100,
-        dryMissing:-150
+        wrong:30,
+        waterWrong:100,
+        dryMissing:150
       };
 
       const el = {};
+      const tracking = new Map();
+
       let state = null;
       let timer = null;
       let bossTimer = null;
@@ -1287,21 +1434,20 @@
       let handDetectReady = false;
       let lastFrameAt = 0;
       let lastHandSeenAt = 0;
-
-      const tracking = new Map();
+      let softToastAt = 0;
 
       document.addEventListener("DOMContentLoaded", init);
 
       function init(){
-        cache();
+        cacheElements();
         buildStepList();
-        bind();
+        bindEvents();
         resetState();
         updateUI();
         startCamera();
       }
 
-      function cache(){
+      function cacheElements(){
         el.app = document.getElementById("app");
         el.video = document.getElementById("video");
         el.cameraFallback = document.getElementById("cameraFallback");
@@ -1373,26 +1519,14 @@
         el.toast = document.getElementById("toast");
       }
 
-      function buildStepList(){
-        el.stepList.innerHTML = "";
-
-        SCRUB.forEach((step, index) => {
-          const row = document.createElement("div");
-          row.className = "step-row";
-          row.dataset.step = step.id;
-          row.innerHTML = `
-            <b>${index + 1}</b>
-            <span>${step.label.replace(/^\d+\.\s*/, "")}</span>
-          `;
-          el.stepList.appendChild(row);
-        });
-      }
-
-      function bind(){
+      function bindEvents(){
         el.btnBackZone.addEventListener("click", goZone);
         el.btnBackZone2.addEventListener("click", goZone);
         el.btnBackZone3.addEventListener("click", goZone);
-        el.btnHub.addEventListener("click", () => location.href = ROUTES.hub);
+
+        el.btnHub.addEventListener("click", () => {
+          location.href = ROUTES.hub;
+        });
 
         el.btnStart.addEventListener("click", startGame);
         el.btnReplay.addEventListener("click", startGame);
@@ -1404,6 +1538,23 @@
         el.bossTarget.addEventListener("pointerdown", event => {
           event.preventDefault();
           hitBoss("tap");
+        });
+      }
+
+      function buildStepList(){
+        el.stepList.innerHTML = "";
+
+        SCRUB.forEach((step, index) => {
+          const row = document.createElement("div");
+          row.className = "step-row";
+          row.dataset.step = step.id;
+
+          row.innerHTML = `
+            <b>${index + 1}</b>
+            <span>${step.label.replace(/^\d+\.\s*/, "")}</span>
+          `;
+
+          el.stepList.appendChild(row);
         });
       }
 
@@ -1420,22 +1571,33 @@
           phase:"brief",
           duration:DURATION,
           remaining:DURATION,
+
           score:0,
           foam:0,
           waterOn:false,
+
           scrubIndex:0,
-          bossHp:DIFF === "hard" ? 6 : DIFF === "easy" ? 3 : 5,
+          bossHp:
+            DIFF === "easy" ? 3 :
+            DIFF === "hard" ? 6 :
+            5,
+
           startedAt:"",
           endedAt:"",
           endReason:"",
+
           pass:0,
           mistakes:0,
           waterMistakes:0,
           soapMistakes:0,
           orderMistakes:0,
+
           simulatorHits:0,
           tapHits:0,
           bossCooldownAt:0,
+
+          gesture:null,
+
           processHold:{
             water:0,
             soap:0,
@@ -1443,7 +1605,7 @@
             dry:0,
             close:0
           },
-          gesture:null,
+
           checks:{
             warmup:false,
             waterOpenStart:false,
@@ -1465,6 +1627,7 @@
             driedHands:false,
             bossClear:false
           },
+
           badges:[],
           accuracy:0,
           stars:0,
@@ -1473,8 +1636,8 @@
         };
 
         setWater(false);
-        el.summary.classList.remove("show");
         el.bossTarget.classList.remove("show");
+        el.summary.classList.remove("show");
       }
 
       async function startGame(){
@@ -1485,6 +1648,7 @@
         state.startedAt = new Date().toISOString();
 
         el.brief.classList.remove("show");
+
         updateMission();
         updateUI();
 
@@ -1503,23 +1667,23 @@
 
       function runCountdown(){
         return new Promise(resolve => {
-          const sequence = ["3","2","1","ลุย!"];
+          const steps = ["3","2","1","ลุย!"];
           let index = 0;
 
-          el.countdown.textContent = sequence[index];
+          el.countdown.textContent = steps[index];
           el.countdown.classList.add("show");
 
           const interval = setInterval(() => {
             index += 1;
 
-            if(index >= sequence.length){
+            if(index >= steps.length){
               clearInterval(interval);
               el.countdown.classList.remove("show");
               resolve();
               return;
             }
 
-            el.countdown.textContent = sequence[index];
+            el.countdown.textContent = steps[index];
           }, 700);
         });
       }
@@ -1543,7 +1707,7 @@
       }
 
       async function startCamera(){
-        if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        if(!navigator.mediaDevices?.getUserMedia){
           el.cameraFallback.style.display = "grid";
           el.detectStatus.textContent = "Tap Mode";
           return;
@@ -1556,8 +1720,8 @@
             stream = await navigator.mediaDevices.getUserMedia({
               video:{
                 facingMode:"user",
-                width:{ideal:1280},
-                height:{ideal:720}
+                width:{ ideal:1280 },
+                height:{ ideal:720 }
               },
               audio:false
             });
@@ -1572,14 +1736,14 @@
           await el.video.play();
 
           el.cameraFallback.style.display = "none";
-          initHandDetect();
+          initHandDetection();
         }catch(error){
           el.cameraFallback.style.display = "grid";
           el.detectStatus.textContent = "เปิดกล้องไม่ได้";
         }
       }
 
-      function initHandDetect(){
+      function initHandDetection(){
         if(!window.Hands){
           handDetectReady = false;
           el.detectStatus.textContent = "Tap Mode";
@@ -1596,8 +1760,8 @@
           handsModel.setOptions({
             maxNumHands:2,
             modelComplexity:1,
-            minDetectionConfidence:.60,
-            minTrackingConfidence:.56
+            minDetectionConfidence:.64,
+            minTrackingConfidence:.60
           });
 
           handsModel.onResults(onHands);
@@ -1628,7 +1792,11 @@
 
       function onHands(results){
         const now = performance.now();
-        const dt = clamp((now - lastFrameAt) / 1000 || .033, .012, .12);
+        const dt = clamp(
+          ((now - lastFrameAt) / 1000) || .033,
+          .012,
+          .12
+        );
 
         lastFrameAt = now;
 
@@ -1649,7 +1817,7 @@
 
         const hands = rawHands
           .map((landmarks, index) => {
-            const label = handedness[index]?.label || "Hand-" + index;
+            const label = handedness[index]?.label || `Hand${index}`;
             return buildHandFeature(landmarks, label, index, dt);
           })
           .filter(Boolean);
@@ -1715,19 +1883,27 @@
           .05
         );
 
-        const fingerTips = [indexTip,middleTip,ringTip,pinkyTip];
+        const fingerTips = [
+          indexTip,
+          middleTip,
+          ringTip,
+          pinkyTip
+        ];
 
-        const extension =
-          fingerTips.reduce((sum, tip) => sum + distance(tip, palm) / scale, 0) /
-          fingerTips.length;
+        const extension = fingerTips.reduce((sum, tip) => {
+          return sum + distance(tip, palm) / scale;
+        }, 0) / fingerTips.length;
 
-        const compactness =
-          1 - clamp(
-            fingerTips.reduce((sum, tip) => sum + distance(tip, tipsCenter) / scale, 0) /
-            fingerTips.length / 1.1,
-            0,
-            1
-          );
+        const compactness = 1 - clamp(
+          fingerTips.reduce((sum, tip) => {
+            return sum + distance(tip, tipsCenter) / scale;
+          }, 0) / fingerTips.length / 1.1,
+          0,
+          1
+        );
+
+        const openScore = clamp((extension - .95) / .9, 0, 1);
+        const fistScore = clamp((1.35 - extension) / .65, 0, 1);
 
         const previous = tracking.get(key);
 
@@ -1735,28 +1911,39 @@
           ? distance(palm, previous.palm) / Math.max(dt, .016)
           : 0;
 
-        tracking.set(key, { palm });
+        tracking.set(key, {
+          palm,
+          thumbTip,
+          wrist,
+          indexTip,
+          at:performance.now()
+        });
 
         return {
           key,
           label,
           index,
           landmarks,
+
           wrist,
           thumbTip,
           indexTip,
           middleTip,
           ringTip,
           pinkyTip,
+
           palm,
           knuckles,
           tipsCenter,
+
           scale,
-          openScore:clamp((extension - .82) / .92, 0, 1),
-          fistScore:clamp((1.38 - extension) / .78, 0, 1),
+          openScore,
+          fistScore,
           compactness,
+
           speed,
-          motionScore:clamp((speed - .025) / .20, 0, 1),
+          motionScore:clamp((speed - .035) / .24, 0, 1),
+
           palmScreen:landmarkToScreen(palm),
           indexScreen:landmarkToScreen(indexTip)
         };
@@ -1776,11 +1963,14 @@
             setWater(true);
             state.simulatorHits += 1;
 
-            if(state.processHold.water >= .8){
+            if(state.processHold.water >= 1.1){
               completeWetHands();
             }
           }else{
-            state.processHold.water = Math.max(0, state.processHold.water - dt * .18);
+            state.processHold.water = Math.max(
+              0,
+              state.processHold.water - dt * .3
+            );
           }
         }
 
@@ -1788,7 +1978,7 @@
           if(hands.length && !anyPalmInWater){
             state.processHold.close += dt;
 
-            if(state.processHold.close >= .36){
+            if(state.processHold.close >= .5){
               completeCloseBeforeSoap();
             }
           }else{
@@ -1801,11 +1991,14 @@
             state.processHold.soap += dt;
             state.simulatorHits += 1;
 
-            if(state.processHold.soap >= .65){
+            if(state.processHold.soap >= .9){
               completeSoap();
             }
           }else{
-            state.processHold.soap = Math.max(0, state.processHold.soap - dt * .15);
+            state.processHold.soap = Math.max(
+              0,
+              state.processHold.soap - dt * .25
+            );
           }
         }
 
@@ -1816,15 +2009,21 @@
         else if(state.phase === "rinseOpen"){
           if(anyPalmInWater){
             state.processHold.rinse += dt;
-            state.foam = clamp(state.foam - 1.55, 0, 100);
+            state.foam = clamp(state.foam - 1.25, 0, 100);
             setWater(true);
             state.simulatorHits += 1;
 
-            if(state.processHold.rinse >= 1.0 || state.foam <= 2){
+            if(
+              state.processHold.rinse >= 1.45 ||
+              state.foam <= 2
+            ){
               completeRinse();
             }
           }else{
-            state.processHold.rinse = Math.max(0, state.processHold.rinse - dt * .15);
+            state.processHold.rinse = Math.max(
+              0,
+              state.processHold.rinse - dt * .25
+            );
           }
         }
 
@@ -1832,7 +2031,7 @@
           if(hands.length && !anyPalmInWater){
             state.processHold.close += dt;
 
-            if(state.processHold.close >= .36){
+            if(state.processHold.close >= .5){
               completeCloseAfterRinse();
             }
           }else{
@@ -1845,11 +2044,14 @@
             state.processHold.dry += dt;
             state.simulatorHits += 1;
 
-            if(state.processHold.dry >= .75){
+            if(state.processHold.dry >= 1.1){
               completeDry();
             }
           }else{
-            state.processHold.dry = Math.max(0, state.processHold.dry - dt * .18);
+            state.processHold.dry = Math.max(
+              0,
+              state.processHold.dry - dt * .3
+            );
           }
         }
 
@@ -1887,7 +2089,7 @@
         if(hands.length < 2){
           gesture.signal = 0;
           gesture.status = "ต้องเห็น 2 มือ";
-          gesture.coach = "ยกมือทั้งสองข้างให้เห็นเต็มเฟรม";
+          gesture.coach = "ตั้งมือถือให้เห็นมือสองข้างเต็มเฟรม แล้วทำท่าต่อ";
           decayGestureEvidence(dt);
           return;
         }
@@ -1904,16 +2106,18 @@
         const candidates = evaluateGesture(step, hands, zones, dt)
           .filter(candidate => !gesture.done[candidate.slot]);
 
-        const best = candidates.sort((a, b) => b.score - a.score)[0];
+        const best = candidates
+          .sort((a, b) => b.score - a.score)[0];
 
         gesture.signal = best ? best.score : 0;
         gesture.activeSlot = best ? best.slot : null;
 
-        if(best && best.score >= step.strictThreshold){
-          gesture.evidence[best.slot] += dt * (.72 + .78 * best.score);
+        if(best && best.score >= step.threshold){
+          gesture.evidence[best.slot] += dt * (.38 + .62 * best.score);
           gesture.coach = best.coach;
-          gesture.status = "ตรวจพบ gesture";
-          state.foam = clamp(state.foam + .22, 0, 100);
+          gesture.status = "กำลังตรวจท่า";
+
+          state.foam = clamp(state.foam + .18, 0, 100);
 
           if(gesture.evidence[best.slot] >= step.seconds){
             gesture.evidence[best.slot] = step.seconds;
@@ -1921,7 +2125,7 @@
 
             showToast(
               step.requiresSides
-                ? "ผ่าน " + slotLabel(best.slot) + " แล้ว"
+                ? `ผ่าน ${slotLabel(best.slot)} แล้ว`
                 : "ผ่านขั้นนี้แล้ว"
             );
 
@@ -1933,16 +2137,7 @@
             gesture.coach = "ดีมาก! สลับทำอีกมือให้ครบ";
             gesture.status = "ต้องสลับมือ";
           }
-        }
-
-        else if(best && best.score >= step.graceThreshold){
-          gesture.evidence[best.slot] += dt * (.16 + .28 * best.score);
-          gesture.coach = "ใกล้ถูกแล้ว — " + best.coach;
-          gesture.status = "เกือบถูกแล้ว";
-          state.foam = clamp(state.foam + .08, 0, 100);
-        }
-
-        else{
+        }else{
           decayGestureEvidence(dt);
           gesture.status = "กำลังหา gesture";
           gesture.coach = step.tip;
@@ -1950,14 +2145,15 @@
       }
 
       function ensureGestureSlots(hands){
-        const step = SCRUB[state.scrubIndex];
         const gesture = state.gesture;
+        const step = SCRUB[state.scrubIndex];
 
-        if(!step.requiresSides || gesture.slots.length >= 2) return;
+        if(!step.requiresSides) return;
+        if(gesture.slots.length >= 2) return;
 
-        const unique = [...new Set(hands.map(hand => hand.key))].slice(0, 2);
+        const uniqueHands = [...new Set(hands.map(hand => hand.key))].slice(0, 2);
 
-        unique.forEach(key => {
+        uniqueHands.forEach(key => {
           if(!gesture.slots.includes(key)){
             gesture.slots.push(key);
             gesture.evidence[key] = 0;
@@ -1968,18 +2164,23 @@
 
       function allGestureSlotsDone(){
         const gesture = state.gesture;
-        return gesture.slots.length > 0 && gesture.slots.every(slot => gesture.done[slot]);
+
+        return (
+          gesture.slots.length > 0 &&
+          gesture.slots.every(slot => gesture.done[slot])
+        );
       }
 
       function decayGestureEvidence(dt){
         const gesture = state.gesture;
+
         if(!gesture) return;
 
         gesture.slots.forEach(slot => {
           if(!gesture.done[slot]){
             gesture.evidence[slot] = Math.max(
               0,
-              (gesture.evidence[slot] || 0) - dt * .075
+              gesture.evidence[slot] - dt * .24
             );
           }
         });
@@ -1989,60 +2190,62 @@
         const [a, b] = hands;
         const pair = buildPair(a, b, zones, dt);
 
-        if(!pair.inScrubZone) return [];
+        if(!pair.inScrubZone){
+          return [];
+        }
 
         switch(step.id){
           case "palm":
             return [{
               slot:"both",
               score:pair.inZoneScore * (
-                .35 * pair.proximity +
-                .25 * pair.bothOpen +
-                .40 * pair.relativeMotion
+                .34 * pair.proximity +
+                .30 * pair.bothOpen +
+                .36 * pair.relativeMotion
               ),
-              coach:"ประกบฝ่ามือทั้งสองข้าง แล้วถูไป–มากลางจอ"
+              coach:"ประกบฝ่ามือสองข้าง แล้วถูไป–มากลางจอ"
             }];
 
           case "backHand":
             return [
-              backHandCandidate(a, b, pair),
-              backHandCandidate(b, a, pair)
+              roleBackHandCandidate(a, b, pair),
+              roleBackHandCandidate(b, a, pair)
             ];
 
           case "betweenFingers":
             return [{
               slot:"both",
               score:pair.inZoneScore * (
-                .30 * pair.proximity +
-                .28 * pair.interlace +
+                .28 * pair.proximity +
+                .34 * pair.interlace +
                 .18 * pair.bothOpen +
-                .24 * pair.relativeMotion
+                .20 * pair.relativeMotion
               ),
-              coach:"ประสานนิ้วสองมือเข้าหากัน แล้วถูซอกนิ้ว"
+              coach:"ประสานนิ้วสองมือเข้าหากัน แล้วถูซอกนิ้วไป–มา"
             }];
 
           case "backFingers":
             return [
-              backFingerCandidate(a, b, pair),
-              backFingerCandidate(b, a, pair)
+              roleBackFingerCandidate(a, b, pair),
+              roleBackFingerCandidate(b, a, pair)
             ];
 
           case "thumbs":
             return [
-              thumbCandidate(a, b, pair),
-              thumbCandidate(b, a, pair)
+              roleThumbCandidate(a, b, pair),
+              roleThumbCandidate(b, a, pair)
             ];
 
           case "fingertips":
             return [
-              fingertipCandidate(a, b, pair),
-              fingertipCandidate(b, a, pair)
+              roleFingertipCandidate(a, b, pair),
+              roleFingertipCandidate(b, a, pair)
             ];
 
           case "wrists":
             return [
-              wristCandidate(a, b, pair),
-              wristCandidate(b, a, pair)
+              roleWristCandidate(a, b, pair),
+              roleWristCandidate(b, a, pair)
             ];
 
           default:
@@ -2051,11 +2254,12 @@
       }
 
       function buildPair(a, b, zones, dt){
-        const scale = Math.max((a.scale + b.scale) / 2, .05);
+        const averageScale = Math.max((a.scale + b.scale) / 2, .05);
 
-        const palmDistance = distance(a.palm, b.palm) / scale;
+        const palmDistance =
+          distance(a.palm, b.palm) / averageScale;
 
-        const mid = {
+        const midpointScreen = {
           x:(a.palmScreen.x + b.palmScreen.x) / 2,
           y:(a.palmScreen.y + b.palmScreen.y) / 2
         };
@@ -2065,10 +2269,10 @@
           y:a.palm.y - b.palm.y
         };
 
-        const previous = state.gesture?.pairLast;
+        const last = state.gesture?.pairLast;
 
-        const relativeSpeed = previous
-          ? distance(relative, previous) / Math.max(dt, .016)
+        const relativeSpeed = last
+          ? distance(relative, last) / Math.max(dt, .016)
           : 0;
 
         if(state.gesture){
@@ -2080,146 +2284,167 @@
           distance(a.middleTip, b.middleTip) +
           distance(a.ringTip, b.ringTip) +
           distance(a.pinkyTip, b.pinkyTip)
-        ) / 4 / scale;
+        ) / 4 / averageScale;
 
         return {
-          scale,
-          inScrubZone:pointInZone(mid, zones.scrub),
-          inZoneScore:pointInZone(mid, zones.scrub) ? 1 : 0,
-          proximity:inverseScore(palmDistance, .45, 2.35),
+          scale:averageScale,
+          inScrubZone:pointInZone(midpointScreen, zones.scrub),
+          inZoneScore:pointInZone(midpointScreen, zones.scrub) ? 1 : 0,
+          proximity:inverseScore(palmDistance, .45, 2.05),
           bothOpen:(a.openScore + b.openScore) / 2,
-          relativeMotion:clamp((relativeSpeed - .025) / .24, 0, 1),
-          interlace:inverseScore(interlaceDistance, .20, 2.0)
+          relativeMotion:clamp((relativeSpeed - .04) / .3, 0, 1),
+          interlace:inverseScore(interlaceDistance, .22, 1.75)
         };
       }
 
-      function backHandCandidate(target, support, pair){
+      function roleBackHandCandidate(target, support, pair){
         const contact = inverseScore(
           distance(target.palm, support.knuckles) / pair.scale,
-          .20,
-          1.95
+          .25,
+          1.65
+        );
+
+        const score = pair.inZoneScore * (
+          .40 * contact +
+          .18 * ((target.openScore + support.openScore) / 2) +
+          .22 * target.motionScore +
+          .20 * pair.relativeMotion
         );
 
         return {
           slot:target.key,
-          score:pair.inZoneScore * (
-            .42 * contact +
-            .18 * ((target.openScore + support.openScore) / 2) +
-            .20 * target.motionScore +
-            .20 * pair.relativeMotion
-          ),
+          score,
           coach:"ใช้ฝ่ามือถูบนหลังมืออีกข้าง แล้วสลับมือ"
         };
       }
 
-      function backFingerCandidate(target, support, pair){
+      function roleBackFingerCandidate(target, support, pair){
         const contact = inverseScore(
           distance(target.knuckles, support.palm) / pair.scale,
-          .18,
-          1.85
+          .22,
+          1.6
+        );
+
+        const score = pair.inZoneScore * (
+          .36 * contact +
+          .30 * target.fistScore +
+          .16 * support.openScore +
+          .18 * target.motionScore
         );
 
         return {
           slot:target.key,
-          score:pair.inZoneScore * (
-            .34 * contact +
-            .30 * target.fistScore +
-            .16 * support.openScore +
-            .20 * target.motionScore
-          ),
+          score,
           coach:"งอนิ้วเป็นกำหลวม ๆ แล้วถูข้อนิ้วกับฝ่ามืออีกข้าง"
         };
       }
 
-      function thumbCandidate(target, support, pair){
+      function roleThumbCandidate(target, support, pair){
         const contact = inverseScore(
           distance(target.thumbTip, support.palm) / pair.scale,
-          .13,
-          1.7
+          .16,
+          1.5
         );
 
         const turn = angularMotion(
-          "thumb-" + target.key,
+          `thumb-${target.key}`,
           target.thumbTip,
           support.palm
         );
 
+        const score = pair.inZoneScore * (
+          .42 * contact +
+          .28 * turn +
+          .18 * target.motionScore +
+          .12 * support.openScore
+        );
+
         return {
           slot:target.key,
-          score:pair.inZoneScore * (
-            .42 * contact +
-            .22 * turn +
-            .20 * target.motionScore +
-            .16 * support.openScore
-          ),
+          score,
           coach:"กำมืออีกข้างรอบนิ้วหัวแม่มือ แล้วหมุนถู"
         };
       }
 
-      function fingertipCandidate(target, support, pair){
+      function roleFingertipCandidate(target, support, pair){
         const contact = inverseScore(
           distance(target.tipsCenter, support.palm) / pair.scale,
-          .13,
-          1.7
+          .16,
+          1.45
         );
 
         const turn = angularMotion(
-          "tips-" + target.key,
+          `tips-${target.key}`,
           target.tipsCenter,
           support.palm
         );
 
+        const score = pair.inZoneScore * (
+          .40 * contact +
+          .24 * target.compactness +
+          .20 * turn +
+          .16 * target.motionScore
+        );
+
         return {
           slot:target.key,
-          score:pair.inZoneScore * (
-            .38 * contact +
-            .24 * target.compactness +
-            .18 * turn +
-            .20 * target.motionScore
-          ),
+          score,
           coach:"รวมปลายนิ้วและเล็บ แล้ววนถูบนฝ่ามืออีกข้าง"
         };
       }
 
-      function wristCandidate(target, support, pair){
+      function roleWristCandidate(target, support, pair){
         const contact = inverseScore(
           distance(target.wrist, support.palm) / pair.scale,
-          .18,
-          2.0
+          .22,
+          1.85
         );
 
         const turn = angularMotion(
-          "wrist-" + target.key,
+          `wrist-${target.key}`,
           target.wrist,
           support.palm
         );
 
+        const score = pair.inZoneScore * (
+          .42 * contact +
+          .28 * turn +
+          .18 * target.motionScore +
+          .12 * support.openScore
+        );
+
         return {
           slot:target.key,
-          score:pair.inZoneScore * (
-            .40 * contact +
-            .22 * turn +
-            .20 * target.motionScore +
-            .18 * support.openScore
-          ),
+          score,
           coach:"กำรอบข้อมืออีกข้าง แล้วหมุนถูให้ทั่ว"
         };
       }
 
-      function angularMotion(key, target, center){
+      function angularMotion(key, pointValue, center){
         if(!state.gesture) return 0;
 
-        const angle = Math.atan2(target.y - center.y, target.x - center.x);
-        const memory = state.gesture.angleMemory[key] || { angle, energy:0 };
+        const angle = Math.atan2(
+          pointValue.y - center.y,
+          pointValue.x - center.x
+        );
+
+        const memory = state.gesture.angleMemory[key] || {
+          angle,
+          energy:0
+        };
 
         const delta = angularDelta(angle, memory.angle);
 
         memory.angle = angle;
-        memory.energy = clamp(memory.energy * .84 + delta * 3.6, 0, 1);
+        memory.energy = clamp(
+          memory.energy * .82 + delta * 3.4,
+          0,
+          1
+        );
 
         state.gesture.angleMemory[key] = memory;
 
-        return clamp(memory.energy / .24, 0, 1);
+        return clamp(memory.energy / .28, 0, 1);
       }
 
       function onFaucetTap(){
@@ -2262,7 +2487,13 @@
 
         if(state.phase === "scrub"){
           const step = SCRUB[state.scrubIndex];
-          showToast("AI Coach: " + (step?.tip || "ทำตามคำแนะนำบนหน้าจอ"));
+
+          showToast(
+            step
+              ? `AI Coach: ${step.tip}`
+              : "ทำตามคำแนะนำบนหน้าจอ"
+          );
+
           return;
         }
 
@@ -2285,24 +2516,26 @@
 
       function completeWetHands(){
         setWater(true);
+
         passCheck("waterOpenStart", SCORE.waterOpenStart);
         passCheck("wetHands", SCORE.wetHands);
 
         state.phase = "closeBeforeSoap";
-        resetProcessHold();
 
+        resetProcessHold();
         showToast("มือเปียกแล้ว! เอามือออกจากก๊อกน้ำเพื่อปิดน้ำ");
         updateMission();
       }
 
       function completeCloseBeforeSoap(){
         setWater(false);
+
         passCheck("waterCloseBeforeSoap", SCORE.waterCloseBeforeSoap);
 
         state.phase = "soap";
-        resetProcessHold();
 
-        showToast("ปิดน้ำแล้ว ต่อไปใส่สบู่");
+        resetProcessHold();
+        showToast("ปิดน้ำแล้ว ต่อไปเอามือเข้าโซนสบู่");
         updateMission();
       }
 
@@ -2316,13 +2549,14 @@
 
         setupGestureStep();
 
-        showToast("เริ่ม Gesture Step 1: ถูฝ่ามือ");
+        showToast("เริ่มตรวจ Gesture Step 1: ถูฝ่ามือ");
         updateMission();
         updateUI();
       }
 
       function completeScrubStep(){
         const step = SCRUB[state.scrubIndex];
+
         if(!step) return;
 
         passCheck(step.id, SCORE.scrubStep);
@@ -2332,13 +2566,14 @@
 
         if(state.scrubIndex >= SCRUB.length){
           passCheck("scrubComplete", SCORE.scrubComplete);
+
           state.phase = "rinseOpen";
           state.gesture = null;
 
           showToast("ครบ 7 ขั้นแล้ว! ยื่นมือใต้ก๊อกน้ำเพื่อล้างฟอง");
         }else{
           setupGestureStep();
-          showToast("ดีมาก! ต่อไป " + SCRUB[state.scrubIndex].label);
+          showToast(`ดีมาก! ต่อไป ${SCRUB[state.scrubIndex].label}`);
         }
 
         updateMission();
@@ -2347,24 +2582,26 @@
 
       function completeRinse(){
         setWater(true);
+
         passCheck("waterOpenRinse", SCORE.waterOpenRinse);
         passCheck("rinsedSoap", SCORE.rinsedSoap);
 
         state.foam = 0;
         state.phase = "closeAfterRinse";
-        resetProcessHold();
 
+        resetProcessHold();
         showToast("ล้างฟองแล้ว! เอามือออกจากก๊อกน้ำเพื่อปิดน้ำ");
         updateMission();
       }
 
       function completeCloseAfterRinse(){
         setWater(false);
+
         passCheck("waterCloseAfterRinse", SCORE.waterCloseAfterRinse);
 
         state.phase = "dry";
-        resetProcessHold();
 
+        resetProcessHold();
         showToast("ปิดน้ำแล้ว! นำมือเข้าโซนผ้าเช็ดมือ");
         updateMission();
       }
@@ -2396,10 +2633,9 @@
 
         clearInterval(bossTimer);
 
-        bossTimer = setInterval(
-          placeBoss,
-          DIFF === "hard" ? 1000 : 1500
-        );
+        bossTimer = setInterval(() => {
+          placeBoss();
+        }, DIFF === "hard" ? 950 : 1450);
 
         updateMission();
         updateUI();
@@ -2410,18 +2646,25 @@
 
         el.bossTarget.classList.add("show");
 
-        const rect = el.app.getBoundingClientRect();
+        const appRect = el.app.getBoundingClientRect();
         const size = el.bossTarget.offsetWidth || 118;
 
-        const x = randomBetween(rect.width * .18, rect.width * .82);
-        const y = randomBetween(rect.height * .34, rect.height * .66);
+        const x = randomBetween(
+          appRect.width * .18,
+          appRect.width * .82
+        );
 
-        el.bossTarget.style.left = (x - size / 2) + "px";
-        el.bossTarget.style.top = (y - size / 2) + "px";
+        const y = randomBetween(
+          appRect.height * .34,
+          appRect.height * .66
+        );
+
+        el.bossTarget.style.left = `${x - size / 2}px`;
+        el.bossTarget.style.top = `${y - size / 2}px`;
       }
 
       function updateBossHandHit(hands){
-        if(!state || state.stage !== "boss") return;
+        if(state.stage !== "boss") return;
         if(!el.bossTarget.classList.contains("show")) return;
 
         const now = performance.now();
@@ -2435,11 +2678,11 @@
           hand.indexScreen
         ]);
 
-        const hit = hitPoints.some(p => (
-          p.x >= rect.left - 30 &&
-          p.x <= rect.right + 30 &&
-          p.y >= rect.top - 30 &&
-          p.y <= rect.bottom + 30
+        const hit = hitPoints.some(pointValue => (
+          pointValue.x >= rect.left - 30 &&
+          pointValue.x <= rect.right + 30 &&
+          pointValue.y >= rect.top - 30 &&
+          pointValue.y <= rect.bottom + 30
         ));
 
         if(hit){
@@ -2458,13 +2701,15 @@
 
         showToast(
           source === "hand"
-            ? "AR Hit! เหลือเชื้อโรค " + Math.max(0, state.bossHp)
-            : "Hit! เหลือเชื้อโรค " + Math.max(0, state.bossHp)
+            ? `AR Hit! เหลือเชื้อโรค ${Math.max(0, state.bossHp)}`
+            : `Hit! เหลือเชื้อโรค ${Math.max(0, state.bossHp)}`
         );
 
         if(state.bossHp <= 0){
           clearInterval(bossTimer);
+
           el.bossTarget.classList.remove("show");
+
           passCheck("bossClear", SCORE.bossClear);
           endGame("completed");
         }else{
@@ -2475,17 +2720,18 @@
       }
 
       function passCheck(name, score){
-        if(!state.checks[name]){
-          state.checks[name] = true;
-          state.score += score;
-          state.pass += 1;
-        }
+        if(state.checks[name]) return;
+
+        state.checks[name] = true;
+        state.score += score;
+        state.pass += 1;
       }
 
       function wrong(message, type){
-        const penalty = type === "water"
-          ? Math.abs(SCORE.waterWrong)
-          : Math.abs(SCORE.wrong);
+        const penalty =
+          type === "water"
+            ? SCORE.waterWrong
+            : SCORE.wrong;
 
         state.mistakes += 1;
         state.orderMistakes += 1;
@@ -2494,7 +2740,7 @@
         if(type === "water") state.waterMistakes += 1;
         if(type === "soap") state.soapMistakes += 1;
 
-        showToast(message + " (-" + penalty + ")");
+        showToast(`${message} (-${penalty})`);
       }
 
       function setWater(on){
@@ -2527,32 +2773,47 @@
           };
         }
 
-        const process = {
+        if(state.phase === "scrub"){
+          const step = SCRUB[state.scrubIndex];
+
+          return {
+            icon:step?.icon || "🤲",
+            title:step?.label || "ตรวจท่าล้างมือ",
+            tip:`${step?.tip || ""} • ทำตาม AI Coach จน Evidence เต็ม`
+          };
+        }
+
+        const processMap = {
           wet:{
             icon:"🚰",
             title:"ยื่นมือใต้ก๊อกน้ำ",
             tip:"วางฝ่ามือในโซนก๊อกน้ำ AR ค้างไว้ให้มือเปียก"
           },
+
           closeBeforeSoap:{
             icon:"💧",
             title:"เอามือออกเพื่อปิดน้ำ",
             tip:"ขยับมือออกจากโซนก๊อกน้ำ"
           },
+
           soap:{
             icon:"🧴",
             title:"ใส่สบู่",
             tip:"ยื่นมือเข้าโซนสบู่ หรือกดปุ่ม AI Coach"
           },
+
           rinseOpen:{
             icon:"💦",
             title:"ล้างฟองสบู่",
             tip:"ยื่นมือเข้าโซนก๊อกน้ำ จนฟองลดลงหมด"
           },
+
           closeAfterRinse:{
             icon:"🚰",
             title:"เอามือออกเพื่อปิดน้ำ",
             tip:"หลังล้างฟองแล้ว ขยับมือออกจากก๊อกน้ำ"
           },
+
           dry:{
             icon:"🧻",
             title:"เช็ดมือให้แห้ง",
@@ -2560,17 +2821,7 @@
           }
         };
 
-        if(state.phase === "scrub"){
-          const step = SCRUB[state.scrubIndex];
-
-          return {
-            icon:step?.icon || "🤲",
-            title:step?.label || "ตรวจท่าล้างมือ",
-            tip:(step?.tip || "") + " • ทำตาม AI Coach จน Evidence เต็ม"
-          };
-        }
-
-        return process[state.phase] || {
+        return processMap[state.phase] || {
           icon:"🧼",
           title:"Handwash AR Simulator",
           tip:"ใช้มือจริงเข้าโซน AR"
@@ -2587,16 +2838,19 @@
 
         el.timerText.textContent = String(state.remaining);
         el.scoreText.textContent = String(state.score);
-        el.stepText.textContent = completedScrubs() + "/7";
-        el.faucetLabel.textContent = state.waterOn ? "ปิดน้ำ" : "เปิดน้ำ";
+        el.stepText.textContent = `${completedScrubs()}/7`;
+
+        el.faucetLabel.textContent =
+          state.waterOn ? "ปิดน้ำ" : "เปิดน้ำ";
 
         const gesturePercent = getGestureOverallPercent();
 
-        el.actionFill.style.width = gesturePercent + "%";
-        el.actionMeterText.textContent = gesturePercent + "%";
+        el.actionFill.style.width = `${gesturePercent}%`;
+        el.actionMeterText.textContent = `${gesturePercent}%`;
 
-        el.foamFill.style.width = clamp(state.foam, 0, 100) + "%";
-        el.foamMeterText.textContent = Math.round(clamp(state.foam, 0, 100)) + "%";
+        el.foamFill.style.width = `${clamp(state.foam, 0, 100)}%`;
+        el.foamMeterText.textContent =
+          `${Math.round(clamp(state.foam, 0, 100))}%`;
 
         el.app.classList.toggle(
           "foamy",
@@ -2605,10 +2859,11 @@
 
         el.btnFaucet.disabled = !(
           state.stage === "main" &&
-          ["wet","closeBeforeSoap","rinseOpen","closeAfterRinse"].includes(state.phase)
+          ["wet","closeBeforeSoap","rinseOpen","closeAfterRinse"]
+            .includes(state.phase)
         );
 
-        el.btnCoach.disabled = !(state.stage === "main");
+        el.btnCoach.disabled = state.stage !== "main";
 
         el.btnTowel.disabled = !(
           state.stage === "main" &&
@@ -2616,15 +2871,19 @@
         );
 
         el.coachButtonLabel.textContent =
-          state.phase === "soap" ? "กดสบู่" :
-          "AI Coach";
+          state.phase === "soap"
+            ? "กดสบู่"
+            : "AI Coach";
 
         updateZoneHighlights();
         updateGestureCard();
         updateStepRows();
 
         el.chips.forEach(chip => {
-          chip.classList.toggle("done", !!state.checks[chip.dataset.check]);
+          chip.classList.toggle(
+            "done",
+            !!state.checks[chip.dataset.check]
+          );
         });
       }
 
@@ -2655,7 +2914,10 @@
       }
 
       function updateGestureCard(){
-        const active = state.stage === "main" && state.phase === "scrub";
+        const active =
+          state.stage === "main" &&
+          state.phase === "scrub";
+
         const step = SCRUB[state.scrubIndex];
         const gesture = state.gesture;
 
@@ -2668,7 +2930,8 @@
           el.gestureFill.style.width = "0%";
           el.gesturePercent.textContent = "0%";
           el.gestureStatus.textContent = "AI Coach พร้อม";
-          el.gestureCoach.textContent = "ตั้งมือถือให้เห็นมือสองข้างเต็มเฟรม";
+          el.gestureCoach.textContent =
+            "ตั้งมือถือให้เห็นมือสองข้างเต็มเฟรม";
           return;
         }
 
@@ -2677,20 +2940,23 @@
         el.gestureIcon.textContent = step.icon;
         el.gestureTitle.textContent = step.label;
         el.gestureNeed.textContent = gestureNeedText(step);
-        el.gestureFill.style.width = percent + "%";
-        el.gesturePercent.textContent = percent + "%";
+        el.gestureFill.style.width = `${percent}%`;
+        el.gesturePercent.textContent = `${percent}%`;
         el.gestureStatus.textContent = gesture.status || "กำลังตรวจ";
         el.gestureCoach.textContent = gesture.coach || step.tip;
       }
 
       function updateStepRows(){
-        const rows = Array.from(el.stepList.querySelectorAll(".step-row"));
+        const rows = Array.from(
+          el.stepList.querySelectorAll(".step-row")
+        );
 
         rows.forEach((row, index) => {
           const step = SCRUB[index];
           const marker = row.querySelector("b");
 
           row.classList.toggle("done", !!state.checks[step.id]);
+
           row.classList.toggle(
             "active",
             state.stage === "main" &&
@@ -2698,7 +2964,10 @@
             index === state.scrubIndex
           );
 
-          marker.textContent = state.checks[step.id] ? "✓" : String(index + 1);
+          marker.textContent =
+            state.checks[step.id]
+              ? "✓"
+              : String(index + 1);
         });
       }
 
@@ -2720,7 +2989,7 @@
         }
 
         if(pending.length === 1){
-          return "เหลือ " + slotLabel(pending[0]);
+          return `เหลือ ${slotLabel(pending[0])}`;
         }
 
         return "ผ่านทั้งสองมือแล้ว";
@@ -2741,24 +3010,32 @@
 
         const slots = gesture.slots.length
           ? gesture.slots
-          : (step.requiresSides ? [] : ["both"]);
+          : step.requiresSides
+            ? []
+            : ["both"];
 
         if(!slots.length) return 0;
 
-        const amount = slots.reduce((sum, slot) => {
-          return sum + Math.min(gesture.evidence[slot] || 0, step.seconds);
+        const value = slots.reduce((sum, slot) => {
+          return sum + Math.min(
+            gesture.evidence[slot] || 0,
+            step.seconds
+          );
         }, 0);
 
         return Math.round(
-          clamp(amount / (step.seconds * slots.length), 0, 1) * 100
+          clamp(
+            value / (step.seconds * slots.length),
+            0,
+            1
+          ) * 100
         );
       }
 
       function completedScrubs(){
-        return SCRUB.reduce(
-          (sum, step) => sum + (state.checks[step.id] ? 1 : 0),
-          0
-        );
+        return SCRUB.reduce((sum, step) => {
+          return sum + (state.checks[step.id] ? 1 : 0);
+        }, 0);
       }
 
       function endGame(reason){
@@ -2766,7 +3043,10 @@
         clearInterval(bossTimer);
 
         if(reason === "timeup" && !state.checks.driedHands){
-          state.score = Math.max(0, state.score + SCORE.dryMissing);
+          state.score = Math.max(
+            0,
+            state.score - SCORE.dryMissing
+          );
         }
 
         state.endReason = reason;
@@ -2791,42 +3071,38 @@
           state.score += SCORE.perfect;
         }
 
-        const completed = completedScrubs();
-        const expected = 7;
+        const total = state.pass + state.mistakes;
 
-        const stepAccuracy = expected
-          ? (completed / expected) * 100
+        state.accuracy = total
+          ? Math.round((state.pass / total) * 100)
           : 0;
 
-        const mistakePenalty = Math.min(35, state.mistakes * 4);
+        const steps = completedScrubs();
 
-        state.accuracy = Math.round(
-          clamp(stepAccuracy - mistakePenalty, 0, 100)
-        );
-
-        if(isComplete() && state.accuracy >= 88){
+        if(state.accuracy >= 90 && steps >= 7 && isComplete()){
           state.stars = 3;
-        }else if(completed >= 6){
+        }else if(state.accuracy >= 75 && steps >= 6){
           state.stars = 2;
-        }else if(completed >= 5){
+        }else if(state.accuracy >= 60 && steps >= 5){
           state.stars = 1;
         }else{
           state.stars = 0;
         }
 
         state.grade =
-          state.stars === 3 && isComplete() ? "Hygiene Master" :
-          state.stars === 2 ? "Good Washer" :
-          state.stars === 1 ? "Growing Washer" :
-          "Need Practice";
+          state.stars === 3 && isComplete() && state.accuracy >= 95
+            ? "Hygiene Master"
+            : state.stars === 3
+              ? "Clean Hero"
+              : state.stars === 2
+                ? "Good Washer"
+                : state.stars === 1
+                  ? "Try Again Hero"
+                  : "Need Practice";
 
         state.badges = [];
 
-        if(completed >= 5){
-          state.badges.push("🤲 AR Gesture Player");
-        }
-
-        if(completed >= 7){
+        if(steps >= 7){
           state.badges.push("🫧 Seven-Step Washer");
         }
 
@@ -2840,6 +3116,10 @@
 
         if(state.checks.bossClear){
           state.badges.push("👾 Germ Boss Clear");
+        }
+
+        if(state.simulatorHits > state.tapHits){
+          state.badges.push("🙌 AR Gesture Player");
         }
 
         if(isComplete() && state.orderMistakes === 0){
@@ -2866,34 +3146,38 @@
       }
 
       function recommendation(){
-        const completed = completedScrubs();
-
-        if(isComplete()){
+        if(isComplete() && state.orderMistakes === 0){
           return "ยอดเยี่ยม! ทำครบ 7 ขั้น ล้างฟอง เช็ดมือ และกำจัด Germ Boss สำเร็จ";
         }
 
-        if(completed < 5){
+        if(completedScrubs() < 7){
           const missing = SCRUB.find(step => !state.checks[step.id]);
-          return "ฝึกเพิ่มที่ " + (missing?.label || "ท่าล้างมือ 7 ขั้นตอน");
+
+          return `จุดที่ควรฝึกเพิ่มคือ ${
+            missing ? missing.label : "ล้างมือ 7 ขั้นตอน"
+          }`;
         }
 
-        if(completed < 7){
-          const missing = SCRUB.find(step => !state.checks[step.id]);
-          return "ทำได้ดีแล้ว เหลือฝึกเพิ่มที่ " + (missing?.label || "ขั้นที่เหลือ");
+        if(!state.checks.driedHands){
+          return "อย่าลืมเช็ดมือให้แห้งหลังล้างมือ";
         }
 
         if(!state.checks.bossClear){
-          return "ล้างมือครบแล้ว รอบต่อไปกำจัด Germ Boss ให้สำเร็จ";
+          return "ผ่านขั้นตอนล้างมือแล้ว รอบต่อไปกำจัด Germ Boss ให้สำเร็จ";
         }
 
-        return "รอบต่อไปลองทำให้ต่อเนื่องและแม่นยำยิ่งขึ้น";
+        return "ทำได้ดีแล้ว รอบต่อไปลองลดความผิดพลาดและเพิ่มความต่อเนื่อง";
       }
 
       function renderSummary(){
         el.sumScore.textContent = String(state.score);
-        el.sumStars.textContent = state.stars ? "⭐".repeat(state.stars) : "-";
-        el.sumAcc.textContent = state.accuracy + "%";
-        el.sumSteps.textContent = completedScrubs() + "/7";
+        el.sumStars.textContent =
+          state.stars
+            ? "⭐".repeat(state.stars)
+            : "-";
+
+        el.sumAcc.textContent = `${state.accuracy}%`;
+        el.sumSteps.textContent = `${completedScrubs()}/7`;
 
         el.summaryTitle.textContent =
           state.endReason === "completed"
@@ -2903,22 +3187,23 @@
         el.summarySub.textContent = state.grade;
 
         el.summaryIcon.textContent =
-          state.stars >= 3 ? "🏆" :
-          state.stars >= 2 ? "🧼" :
-          state.stars >= 1 ? "💪" :
-          "🌱";
+          state.stars >= 3
+            ? "🏆"
+            : state.stars >= 2
+              ? "🧼"
+              : "💪";
 
         el.recommend.textContent = state.recommendation;
         el.badgeList.innerHTML = "";
 
         const badges = state.badges.length
           ? state.badges
-          : ["ลองอีกครั้งเพื่อปลดล็อก Badge"];
+          : ["ฝึกอีกครั้งเพื่อปลดล็อก Badge"];
 
-        badges.forEach(text => {
+        badges.forEach(value => {
           const badge = document.createElement("span");
           badge.className = "mini-badge";
-          badge.textContent = text;
+          badge.textContent = value;
           el.badgeList.appendChild(badge);
         });
       }
@@ -2929,15 +3214,38 @@
           gameShort:"handwash",
           zone:ZONE_ID,
           version:VERSION,
+
           timestamp:state.endedAt,
           startedAt:state.startedAt,
-          sessionId:qs.get("session") || createSessionId(),
-          studyId:qs.get("studyId") || "HYGIENE-P5-2026",
-          participantId:qs.get("pid") || "anon",
-          name:qs.get("name") || "Hero",
-          classLevel:qs.get("classLevel") || "P5",
-          mode:handDetectReady ? "AR-7step-grace-evidence" : "tap-process-only",
-          detectTarget:"two_hands_landmarks_0_4_5_8_9_12_16_20_relaxed_gesture_evidence",
+
+          sessionId:
+            qs.get("session") ||
+            createSessionId(),
+
+          studyId:
+            qs.get("studyId") ||
+            "HYGIENE-P5-2026",
+
+          participantId:
+            qs.get("pid") ||
+            "anon",
+
+          name:
+            qs.get("name") ||
+            "Hero",
+
+          classLevel:
+            qs.get("classLevel") ||
+            "P5",
+
+          mode:
+            handDetectReady
+              ? "AR-7step-gesture-evidence"
+              : "tap-process-only",
+
+          detectTarget:
+            "two_hands_landmarks_0_4_5_8_9_12_16_20_gesture_evidence",
+
           difficulty:DIFF,
           durationSec:state.duration,
           remainingSec:state.remaining,
@@ -2950,17 +3258,18 @@
           stars:state.stars,
           grade:state.grade,
 
-          palmStep:pf(state.checks.palm),
-          backHandStep:pf(state.checks.backHand),
-          betweenFingersStep:pf(state.checks.betweenFingers),
-          backFingersStep:pf(state.checks.backFingers),
-          thumbsStep:pf(state.checks.thumbs),
-          fingertipsStep:pf(state.checks.fingertips),
-          wristsStep:pf(state.checks.wrists),
+          palmStep:passFail(state.checks.palm),
+          backHandStep:passFail(state.checks.backHand),
+          betweenFingersStep:passFail(state.checks.betweenFingers),
+          backFingersStep:passFail(state.checks.backFingers),
+          thumbsStep:passFail(state.checks.thumbs),
+          fingertipsStep:passFail(state.checks.fingertips),
+          wristsStep:passFail(state.checks.wrists),
 
           waterMistakes:state.waterMistakes,
           soapMistakes:state.soapMistakes,
           orderMistakes:state.orderMistakes,
+
           simulatorHits:state.simulatorHits,
           tapHits:state.tapHits,
 
@@ -2976,7 +3285,11 @@
 
         const attempts = readJson(STORAGE.attempts, []);
         attempts.unshift(result);
-        writeJson(STORAGE.attempts, attempts.slice(0, 30));
+
+        writeJson(
+          STORAGE.attempts,
+          attempts.slice(0, 30)
+        );
 
         const best = readJson(STORAGE.best, null);
 
@@ -2989,9 +3302,18 @@
 
         progress.handwash = {
           status:result.stars > 0 ? "completed" : "attempted",
-          stars:Math.max(Number(old.stars || 0), Number(result.stars || 0)),
-          bestScore:Math.max(Number(old.bestScore || 0), Number(result.score || 0)),
-          accuracy:Math.max(Number(old.accuracy || 0), Number(result.accuracy || 0)),
+          stars:Math.max(
+            Number(old.stars || 0),
+            Number(result.stars || 0)
+          ),
+          bestScore:Math.max(
+            Number(old.bestScore || 0),
+            Number(result.score || 0)
+          ),
+          accuracy:Math.max(
+            Number(old.accuracy || 0),
+            Number(result.accuracy || 0)
+          ),
           grade:result.grade,
           badge:result.badges,
           lastPlayedAt:result.timestamp,
@@ -3018,8 +3340,17 @@
       }
 
       function renderPointers(hands){
-        setPointer(el.palmPointer, hands[0]?.palmScreen, !!hands[0]);
-        setPointer(el.palmPointer2, hands[1]?.palmScreen, !!hands[1]);
+        setPointer(
+          el.palmPointer,
+          hands[0]?.palmScreen,
+          !!hands[0]
+        );
+
+        setPointer(
+          el.palmPointer2,
+          hands[1]?.palmScreen,
+          !!hands[1]
+        );
       }
 
       function setPointer(node, position, visible){
@@ -3027,8 +3358,8 @@
 
         if(!visible || !position) return;
 
-        node.style.left = position.localX + "px";
-        node.style.top = position.localY + "px";
+        node.style.left = `${position.localX}px`;
+        node.style.top = `${position.localY}px`;
       }
 
       function hidePointers(){
@@ -3037,60 +3368,63 @@
       }
 
       function landmarkToScreen(landmark){
-        const app = el.app.getBoundingClientRect();
+        const appRect = el.app.getBoundingClientRect();
 
-        const videoWidth = el.video.videoWidth || app.width;
-        const videoHeight = el.video.videoHeight || app.height;
+        const videoWidth = el.video.videoWidth || appRect.width;
+        const videoHeight = el.video.videoHeight || appRect.height;
 
-        const scale = Math.max(app.width / videoWidth, app.height / videoHeight);
+        const scale = Math.max(
+          appRect.width / videoWidth,
+          appRect.height / videoHeight
+        );
 
         const renderWidth = videoWidth * scale;
         const renderHeight = videoHeight * scale;
 
-        const offsetX = (app.width - renderWidth) / 2;
-        const offsetY = (app.height - renderHeight) / 2;
+        const offsetX = (appRect.width - renderWidth) / 2;
+        const offsetY = (appRect.height - renderHeight) / 2;
 
         const rawX = landmark.x * renderWidth + offsetX;
         const rawY = landmark.y * renderHeight + offsetY;
 
-        const localX = app.width - rawX;
-        const localY = rawY;
-
         return {
-          localX,
-          localY,
-          x:app.left + localX,
-          y:app.top + localY
+          localX:appRect.width - rawX,
+          localY:rawY,
+          x:appRect.left + appRect.width - rawX,
+          y:appRect.top + rawY
         };
       }
 
       function getSimulatorZones(){
-        const app = el.app.getBoundingClientRect();
+        const appRect = el.app.getBoundingClientRect();
 
         return {
           water:{
-            x1:app.left + app.width * .30,
-            x2:app.left + app.width * .70,
-            y1:app.top + app.height * .12,
-            y2:app.top + app.height * .46
+            x1:appRect.left + appRect.width * .34,
+            x2:appRect.left + appRect.width * .66,
+            y1:appRect.top + appRect.height * .14,
+            y2:appRect.top + appRect.height * .44
           },
+
           soap:{
-            x1:app.left,
-            x2:app.left + app.width * .38,
-            y1:app.top + app.height * .52,
-            y2:app.top + app.height
+            x1:appRect.left + appRect.width * .01,
+            x2:appRect.left + appRect.width * .34,
+            y1:appRect.top + appRect.height * .56,
+            y2:appRect.top + appRect.height * .94
           },
+
           towel:{
-            x1:app.left + app.width * .62,
-            x2:app.left + app.width,
-            y1:app.top + app.height * .52,
-            y2:app.top + app.height
+            x1:appRect.left + appRect.width * .66,
+            x2:appRect.left + appRect.width * .99,
+            y1:appRect.top + appRect.height * .56,
+            y2:appRect.top + appRect.height * .94
           },
+
           scrub:{
-            x1:app.left + app.width * .10,
-            x2:app.left + app.width * .90,
-            y1:app.top + app.height * .24,
-            y2:app.top + app.height * .80
+            x1:appRect.left + appRect.width * .17,
+            x2:appRect.left + appRect.width * .83,
+            y1:appRect.top + appRect.height * .28,
+            y2:appRect.top + appRect.height * .76
           }
         };
       }
@@ -3100,12 +3434,12 @@
       }
 
       function normalizeHandKey(label, index){
-        const value = String(label || "").toLowerCase();
+        const normalized = String(label || "").toLowerCase();
 
-        if(value.includes("left")) return "left";
-        if(value.includes("right")) return "right";
+        if(normalized.includes("left")) return "left";
+        if(normalized.includes("right")) return "right";
 
-        return "hand-" + index;
+        return `hand-${index}`;
       }
 
       function slotLabel(slot){
@@ -3116,9 +3450,9 @@
 
       function point(value){
         return {
-          x:Number(value.x || 0),
-          y:Number(value.y || 0),
-          z:Number(value.z || 0)
+          x:Number(value?.x || 0),
+          y:Number(value?.y || 0),
+          z:Number(value?.z || 0)
         };
       }
 
@@ -3140,20 +3474,25 @@
       function distance(a, b){
         const dx = a.x - b.x;
         const dy = a.y - b.y;
+
         return Math.sqrt(dx * dx + dy * dy);
       }
 
-      function pointInZone(p, zone){
+      function pointInZone(pointValue, zone){
         return (
-          p.x >= zone.x1 &&
-          p.x <= zone.x2 &&
-          p.y >= zone.y1 &&
-          p.y <= zone.y2
+          pointValue.x >= zone.x1 &&
+          pointValue.x <= zone.x2 &&
+          pointValue.y >= zone.y1 &&
+          pointValue.y <= zone.y2
         );
       }
 
       function inverseScore(value, good, bad){
-        return clamp((bad - value) / Math.max(.0001, bad - good), 0, 1);
+        return clamp(
+          (bad - value) / Math.max(.0001, bad - good),
+          0,
+          1
+        );
       }
 
       function angularDelta(a, b){
@@ -3170,7 +3509,7 @@
         return min + Math.random() * (max - min);
       }
 
-      function pf(value){
+      function passFail(value){
         return value ? "pass" : "fail";
       }
 
@@ -3190,17 +3529,17 @@
       }
 
       function createSessionId(){
-        const d = new Date();
+        const date = new Date();
 
         const stamp =
-          d.getFullYear() +
-          pad(d.getMonth() + 1) +
-          pad(d.getDate()) + "-" +
-          pad(d.getHours()) +
-          pad(d.getMinutes()) +
-          pad(d.getSeconds());
+          date.getFullYear() +
+          pad(date.getMonth() + 1) +
+          pad(date.getDate()) + "-" +
+          pad(date.getHours()) +
+          pad(date.getMinutes()) +
+          pad(date.getSeconds());
 
-        return "handwash-" + stamp + "-" + Math.random().toString(16).slice(2, 8);
+        return `handwash-${stamp}-${Math.random().toString(16).slice(2, 8)}`;
       }
 
       function pad(value){
@@ -3208,13 +3547,13 @@
       }
 
       function clamp(value, min, max){
-        value = Number(value);
+        const numeric = Number(value);
 
-        if(!Number.isFinite(value)){
-          value = min;
+        if(!Number.isFinite(numeric)){
+          return min;
         }
 
-        return Math.max(min, Math.min(max, value));
+        return Math.max(min, Math.min(max, numeric));
       }
 
       function showToast(message){
@@ -3226,6 +3565,15 @@
         toastTimer = setTimeout(() => {
           el.toast.classList.remove("show");
         }, 1900);
+      }
+
+      function showToastSoft(message){
+        const now = performance.now();
+
+        if(now - softToastAt < 900) return;
+
+        softToastAt = now;
+        showToast(message);
       }
     })();
   </script>
