@@ -1,15 +1,43 @@
 // === /herohealth/gate/games/fitness/fitness-readiness-recovery.js ===
-// FULL MODULE v20260620-FITNESS-READINESS-RECOVERY-POSE-V1
+// FULL MODULE v20260621-FITNESS-READINESS-RECOVERY-POSE-CDN-FIX-V3
 // Shared Fitness Gate phase module for:
 //   shadow-breaker, rhythm-boxer, jump-duck, balance-hold
 // Uses the existing /herohealth/warmup-gate.html -> gate-core.js architecture.
 // Do not import this module directly from a game page; register it in gate-games.js.
 
-const PATCH = 'v20260620-FITNESS-READINESS-RECOVERY-POSE-V1';
+const PATCH = 'v20260621-FITNESS-READINESS-RECOVERY-POSE-CDN-FIX-V3';
 
-const MP_VERSION = '0.10.22';
-const MP_MODULE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}`;
-const MP_WASM = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/wasm`;
+/*
+  IMPORTANT CDN FIX
+  The package root is NOT an ES module entry point in browsers:
+  https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@VERSION
+
+  Import the explicit ESM bundle instead. Keep two CDNs and a stable 0.10.15
+  fallback so the AR gate can still start when one CDN or one pinned release is
+  unavailable on a school network.
+*/
+const MP_SOURCES = Object.freeze([
+  {
+    name: 'jsDelivr 0.10.22',
+    module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs',
+    wasm: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
+  },
+  {
+    name: 'unpkg 0.10.22',
+    module: 'https://unpkg.com/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs',
+    wasm: 'https://unpkg.com/@mediapipe/tasks-vision@0.10.22/wasm'
+  },
+  {
+    name: 'jsDelivr 0.10.15 fallback',
+    module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/vision_bundle.mjs',
+    wasm: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.15/wasm'
+  },
+  {
+    name: 'unpkg 0.10.15 fallback',
+    module: 'https://unpkg.com/@mediapipe/tasks-vision@0.10.15/vision_bundle.mjs',
+    wasm: 'https://unpkg.com/@mediapipe/tasks-vision@0.10.15/wasm'
+  }
+]);
 const POSE_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
 
 const IDX = Object.freeze({
@@ -856,6 +884,8 @@ export async function mount(stage, ctx, api) {
   let landmarker = null;
   let rafId = 0;
   let mediaModule = null;
+  let mediaVision = null;
+  let mediaSource = null;
   let running = false;
   let guided = false;
   let completed = false;
@@ -1050,14 +1080,44 @@ export async function mount(stage, ctx, api) {
     }
   }
 
+  async function importVisionBundle() {
+    let lastError = null;
+
+    for (const source of MP_SOURCES) {
+      try {
+        engineNote.textContent = `Loading MediaPipe Pose Landmarker… (${source.name})`;
+        const module = await import(/* @vite-ignore */ source.module);
+
+        if (!module?.FilesetResolver || !module?.PoseLandmarker) {
+          throw new Error(`Invalid MediaPipe vision bundle from ${source.name}`);
+        }
+
+        const vision = await module.FilesetResolver.forVisionTasks(source.wasm);
+        return { module, vision, source };
+      } catch (error) {
+        lastError = error;
+        console.warn('[FRR] MediaPipe CDN source failed', source.name, error);
+      }
+    }
+
+    const details = safeText(lastError?.message || lastError || 'unknown CDN error');
+    throw new Error(`โหลด MediaPipe Pose ไม่สำเร็จ (${details})`);
+  }
+
   async function initializePose() {
-    if (mediaModule) return mediaModule;
-    engineNote.textContent = 'Loading MediaPipe Pose Landmarker…';
-    const module = await import(MP_MODULE);
-    const vision = await module.FilesetResolver.forVisionTasks(MP_WASM);
+    // A retry closes only the landmarker. Keep the loaded ESM/WASM runtime and
+    // create a fresh PoseLandmarker instance when the user presses Retry.
+    if (!mediaModule || !mediaVision || !mediaSource) {
+      const loaded = await importVisionBundle();
+      mediaModule = loaded.module;
+      mediaVision = loaded.vision;
+      mediaSource = loaded.source;
+    }
+
+    if (landmarker) return mediaModule;
 
     async function create(delegate) {
-      return module.PoseLandmarker.createFromOptions(vision, {
+      return mediaModule.PoseLandmarker.createFromOptions(mediaVision, {
         baseOptions: { modelAssetPath: POSE_MODEL, delegate },
         runningMode: 'VIDEO',
         numPoses: 1,
@@ -1069,12 +1129,12 @@ export async function mount(stage, ctx, api) {
 
     try {
       landmarker = await create('GPU');
-    } catch {
+    } catch (gpuError) {
+      console.warn('[FRR] GPU delegate unavailable; retrying with CPU', gpuError);
       landmarker = await create('CPU');
     }
 
-    mediaModule = module;
-    return module;
+    return mediaModule;
   }
 
   function detectLoop() {
@@ -1119,7 +1179,7 @@ export async function mount(stage, ctx, api) {
     updateQuality(metrics);
     updateStep(status);
     setCameraStatus(status.valid ? 'กำลังตรวจท่าทาง' : 'ปรับท่าเล็กน้อย');
-    engineNote.textContent = `MediaPipe Pose active • ${PATCH}`;
+    engineNote.textContent = `MediaPipe Pose active • ${mediaSource?.name || 'CDN'} • ${PATCH}`;
 
     if (status.complete) {
       setCameraStatus('ผ่านภารกิจแล้ว');
@@ -1160,7 +1220,7 @@ export async function mount(stage, ctx, api) {
       runtime.startedAt = performance.now();
       runtime.lastFrameAt = performance.now();
       setCameraStatus('กล้องพร้อม • ยืนในกรอบ');
-      engineNote.textContent = `MediaPipe Pose active • ${PATCH}`;
+      engineNote.textContent = `MediaPipe Pose active • ${mediaSource?.name || 'CDN'} • ${PATCH}`;
       startButton.hidden = true;
       updateHeroStats();
       detectLoop();
