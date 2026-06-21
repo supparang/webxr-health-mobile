@@ -61,7 +61,7 @@
 <script type="module">
 import { FilesetResolver, HandLandmarker, FaceLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
 
-const VERSION="v20260620-TOOTHBRUSH-AR-V10-8-CHALLENGE-DIRECTION-GATE";
+const VERSION="v20260621-TOOTHBRUSH-AR-V10-8-1-INIT-CHALLENGE-HOTFIX";
 const CONFIG={
   hygieneZoneUrl:"../hygiene-zone-v2.html",
   sheetWebAppUrl:"https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec",
@@ -356,6 +356,116 @@ function maybeSpawn(t){
     spawnPlaque();
   }
 }
+
+function initChallenge(){
+  state.challenge={
+    zones:{},
+    totalGood:0,
+    totalAttempts:0,
+    lastCoachAt:0
+  };
+
+  for(const z of ZONES){
+    state.challenge.zones[z.id]={
+      spawned:0,
+      cleared:0,
+      directionGood:0,
+      directionTotal:0,
+      lastStrokeAt:0,
+      lastCorrectAt:0
+    };
+  }
+}
+
+function challengeRow(zoneId){
+  if(!state.challenge || !state.challenge.zones){
+    initChallenge();
+  }
+
+  if(!state.challenge.zones[zoneId]){
+    state.challenge.zones[zoneId]={
+      spawned:0,
+      cleared:0,
+      directionGood:0,
+      directionTotal:0,
+      lastStrokeAt:0,
+      lastCorrectAt:0
+    };
+  }
+
+  return state.challenge.zones[zoneId];
+}
+
+function noteChallengeSpawn(zoneId){
+  challengeRow(zoneId).spawned++;
+}
+
+function noteChallengeClear(zoneId){
+  challengeRow(zoneId).cleared++;
+}
+
+function challengeDirectionAcc(zoneId=null){
+  if(zoneId){
+    const row=challengeRow(zoneId);
+    return Math.round(
+      (row.directionGood||0) /
+      Math.max(1,row.directionTotal||0) *
+      100
+    );
+  }
+
+  return Math.round(
+    (state.challenge.totalGood||0) /
+    Math.max(1,state.challenge.totalAttempts||0) *
+    100
+  );
+}
+
+function challengeCleanPercent(zoneId){
+  const row=challengeRow(zoneId);
+  return Math.round(
+    (row.cleared||0) /
+    Math.max(1,row.spawned||0) *
+    100
+  );
+}
+
+function recordChallengeBrushStroke(zoneId,t){
+  const row=challengeRow(zoneId);
+
+  if(t-row.lastStrokeAt<CONFIG.challenge.directionCooldownMs){
+    return null;
+  }
+
+  const dir=state.guided.direction;
+
+  if(dir==="none" || dir==="horizontal"){
+    return null;
+  }
+
+  row.lastStrokeAt=t;
+  row.directionTotal++;
+  state.challenge.totalAttempts++;
+
+  const correct=expected(zoneId)===dir;
+
+  if(correct){
+    row.directionGood++;
+    row.lastCorrectAt=t;
+    state.challenge.totalGood++;
+  }
+
+  return {dir,correct,row};
+}
+
+function spawnChallengeStarterPlaques(){
+  clearPlaques();
+
+  for(const z of ZONES){
+    spawnPlaque(z.id);
+  }
+}
+
 function coverage(){return state.mode==="learning"?ZONES.filter(z=>state.guided.completed[z.id]).length:state.clearedZones.length}
 function cleanedCoverage(){return coverage()}
 function updateHud(){ $("time").textContent=Math.ceil(state.left)+"s";$("score").textContent=Math.round(state.score);$("combo").textContent=Math.floor(state.combo);$("clean").textContent=Math.round(state.clean)+"%";$("gum").textContent=Math.round(state.gum)+"%";$("technique").textContent=Math.round(state.technique)+"%";$("cleanBar").style.width=state.clean+"%";$("gumBar").style.width=state.gum+"%" }
