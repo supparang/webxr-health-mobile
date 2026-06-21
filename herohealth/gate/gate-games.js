@@ -1,11 +1,17 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260503v-GATE-GAMES-GOODJUNK-SOLO-BOSS-CANONICAL-FLOW
-// ✅ GoodJunk runFile/runCandidates ชี้ไป /herohealth/vr-goodjunk/goodjunk-solo-boss.html
-// ✅ warmup/cooldown ใช้ /herohealth/gate/games/goodjunk/*.js
-// ✅ summaryPath ของ GoodJunk กลับ launcher ได้ แต่ cooldown จบควรใช้ cdnext/next จาก URL ก่อน
-// ✅ รองรับ nutrition / fitness / hygiene registry เดิม
+// FULL PATCH v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-CANONICAL
+// ✅ GoodJunk canonical Solo Boss flow remains unchanged.
+// ✅ Shared HeroHealth warmup-gate.html and gate-core.js remain the only Gate shell/router.
+// ✅ All 4 Fitness games use ONE shared Pose-based Readiness & Recovery phase module.
+// ✅ Fitness Planner can force a fresh gate per planned slot without duplicating Gate files.
 
-const PATCH = 'v20260503v-GATE-GAMES-GOODJUNK-SOLO-BOSS-CANONICAL-FLOW';
+const PATCH = 'v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-CANONICAL';
+
+const FITNESS_READINESS_RECOVERY_MODULE =
+  './games/fitness/fitness-readiness-recovery.js?v=20260621-frr-v2';
+
+const FITNESS_READINESS_RECOVERY_STYLE =
+  './games/fitness/fitness-readiness-recovery.css?v=20260621-frr-v2';
 
 const DEFAULTS = {
   title: '',
@@ -164,25 +170,23 @@ function inferLooseMeta(id = ''){
 
 export const GAME_REGISTRY = {
   hydration: makeMeta('hydration', {
-  title: 'Hydration Hero',
-  label: 'Hydration Hero',
-  emoji: '💧',
-  zone: 'nutrition',
-  cat: 'nutrition',
-  theme: 'hydration',
-
-  warmupFile: './games/hydration/warmup.js?v=20260518-pack26',
-  cooldownFile: './games/hydration/cooldown.js?v=20260518-pack26',
-  styleFile: './games/hydration/style.css?v=20260518-pack26',
-
-  runFile: '../hydration-vr/hydration-vr.html',
-  runCandidates: [
-    '../hydration-vr/hydration-vr.html',
-    '../hydration-v2.html',
-    '../vr-hydration-v2/index.html'
-  ],
-  summaryPath: '../nutrition-zone.html'
-}),
+    title: 'Hydration Hero',
+    label: 'Hydration Hero',
+    emoji: '💧',
+    zone: 'nutrition',
+    cat: 'nutrition',
+    theme: 'hydration',
+    warmupFile: './games/hydration/warmup.js?v=20260518-pack26',
+    cooldownFile: './games/hydration/cooldown.js?v=20260518-pack26',
+    styleFile: './games/hydration/style.css?v=20260518-pack26',
+    runFile: '../hydration-vr/hydration-vr.html',
+    runCandidates: [
+      '../hydration-vr/hydration-vr.html',
+      '../hydration-v2.html',
+      '../vr-hydration-v2/index.html'
+    ],
+    summaryPath: '../nutrition-zone.html'
+  }),
 
   goodjunk: makeMeta('goodjunk', {
     title: 'GoodJunk Solo Boss',
@@ -191,22 +195,15 @@ export const GAME_REGISTRY = {
     zone: 'nutrition',
     cat: 'nutrition',
     theme: 'goodjunk',
-
-    // สำคัญ: หน้านี้คือหน้าเล่นเกมจริงของ Solo Boss
     runFile: '../vr-goodjunk/goodjunk-solo-boss.html',
     runCandidates: [
       '../vr-goodjunk/goodjunk-solo-boss.html'
     ],
-
-    // Gate mini-games
     warmupFile: './games/goodjunk/warmup.js',
     cooldownFile: './games/goodjunk/cooldown.js',
     styleFile: './games/goodjunk/style.css',
-
     warmupTitle: 'GoodJunk Warmup',
     cooldownTitle: 'GoodJunk Cooldown',
-
-    // fallback เท่านั้น ปกติ cooldown จบควรใช้ next/cdnext/hub จาก URL
     summaryPath: '../goodjunk-launcher.html'
   }),
 
@@ -327,6 +324,11 @@ export const GAME_REGISTRY = {
     zone: 'fitness',
     cat: 'fitness',
     theme: 'shadow-breaker',
+    warmupFile: FITNESS_READINESS_RECOVERY_MODULE,
+    cooldownFile: FITNESS_READINESS_RECOVERY_MODULE,
+    styleFile: FITNESS_READINESS_RECOVERY_STYLE,
+    warmupTitle: 'Hero Ready Mission • Punch Power',
+    cooldownTitle: 'Hero Recovery Mission • Arms & Shoulders',
     runFile: '../fitness/shadow-breaker.html',
     runCandidates: [
       '../fitness/shadow-breaker.html',
@@ -336,14 +338,20 @@ export const GAME_REGISTRY = {
   }),
 
   'jump-duck': makeMeta('jump-duck', {
-    title: 'JumpDuck',
-    label: 'JumpDuck',
+    title: 'JumpDuck Dash',
+    label: 'JumpDuck Dash',
     emoji: '🐶',
     zone: 'fitness',
     cat: 'fitness',
     theme: 'jump-duck',
-    runFile: '../fitness/jumpduck.html',
+    warmupFile: FITNESS_READINESS_RECOVERY_MODULE,
+    cooldownFile: FITNESS_READINESS_RECOVERY_MODULE,
+    styleFile: FITNESS_READINESS_RECOVERY_STYLE,
+    warmupTitle: 'Hero Ready Mission • Agility',
+    cooldownTitle: 'Hero Recovery Mission • Legs & Ankles',
+    runFile: '../fitness/jump-duck.html',
     runCandidates: [
+      '../fitness/jump-duck.html',
       '../fitness/jumpduck.html',
       '../jump-duck-vr.html'
     ],
@@ -357,10 +365,15 @@ export const GAME_REGISTRY = {
     zone: 'fitness',
     cat: 'fitness',
     theme: 'balance-hold',
-    runFile: '../balance-hold.html',
+    warmupFile: FITNESS_READINESS_RECOVERY_MODULE,
+    cooldownFile: FITNESS_READINESS_RECOVERY_MODULE,
+    styleFile: FITNESS_READINESS_RECOVERY_STYLE,
+    warmupTitle: 'Hero Ready Mission • Stability',
+    cooldownTitle: 'Hero Recovery Mission • Calm Balance',
+    runFile: '../fitness/balance-hold.html',
     runCandidates: [
-      '../balance-hold.html',
-      '../fitness/balance-hold.html'
+      '../fitness/balance-hold.html',
+      '../balance-hold.html'
     ],
     summaryPath: '../fitness-zone.html'
   }),
@@ -372,6 +385,11 @@ export const GAME_REGISTRY = {
     zone: 'fitness',
     cat: 'fitness',
     theme: 'rhythm-boxer',
+    warmupFile: FITNESS_READINESS_RECOVERY_MODULE,
+    cooldownFile: FITNESS_READINESS_RECOVERY_MODULE,
+    styleFile: FITNESS_READINESS_RECOVERY_STYLE,
+    warmupTitle: 'Hero Ready Mission • Beat Control',
+    cooldownTitle: 'Hero Recovery Mission • Rhythm Reset',
     runFile: '../fitness/rhythm-boxer.html',
     runCandidates: [
       '../fitness/rhythm-boxer.html',
@@ -387,10 +405,10 @@ export const GAME_REGISTRY = {
     zone: 'fitness',
     cat: 'fitness',
     theme: 'fitness-planner',
-    runFile: '../fitness-planner/index.html',
+    runFile: '../fitness-planner.html',
     runCandidates: [
-      '../fitness-planner/index.html',
-      '../fitness-planner.html'
+      '../fitness-planner.html',
+      '../fitness-planner/index.html'
     ],
     summaryPath: '../fitness-zone.html'
   })
