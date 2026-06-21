@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Planner Identity Lock + Survey Validation + Single-Row Lock | v20260621-rb-identity-planner-v2 -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Canonical Identity Lock | v20260621-rb-identity-lock-v3 -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -637,7 +637,7 @@
       <span class="chip">Sport Science</span>
       <span class="chip">Syntax Stable</span>
       <span class="chip">Research Polish</span>
-      <span class="chip">Post Survey • Single Sheet Row • Identity Lock</span>
+      <span class="chip">Post Survey • Single Sheet Row</span>
     </div>
   </header>
 
@@ -646,8 +646,8 @@
       <h2 style="margin:0 0 10px">ตั้งค่าก่อนเล่น</h2>
       <div class="grid">
         <div class="field">
-          <label>รหัสผู้เรียน / ชื่อแสดงผล</label>
-          <input id="pid" value="" autocomplete="off" inputmode="text" placeholder="เช่น 65010001" />
+          <label>ชื่อ / รหัสผู้เล่น</label>
+          <input id="pid" value="player01" />
         </div>
         <div class="field">
           <label>ระดับความยาก</label>
@@ -675,7 +675,7 @@
         </div>
       </div>
       <div class="note-box">
-        สำหรับชั้นเรียน: ใส่รหัสผู้เรียนจริงก่อนเริ่ม เพื่อส่งผลเข้า Teacher Dashboard • วิธีเล่นด้วยร่างกาย: วางมือถือให้เห็นช่วงลำตัวบน ยืนห่างประมาณ 1–2 เมตร ยกมือ guard แล้วชกซ้าย/ขวาเข้าหา lane ที่ note กำลังลงถึงเส้น hit line • Ultimate เพิ่ม Power Note, XP, Challenge Level, Best Score และ Boss Rush ให้เล่นซ้ำสนุกขึ้น
+        วิธีเล่นด้วยร่างกาย: วางมือถือให้เห็นช่วงลำตัวบน ยืนห่างประมาณ 1–2 เมตร ยกมือ guard แล้วชกซ้าย/ขวาเข้าหา lane ที่ note กำลังลงถึงเส้น hit line • Ultimate เพิ่ม Power Note, XP, Challenge Level, Best Score และ Boss Rush ให้เล่นซ้ำสนุกขึ้น
       </div>
 
 
@@ -870,7 +870,7 @@
   const qs = (k,d='')=>{try{return new URL(location.href).searchParams.get(k) ?? d}catch(_){return d}};
   const qbool = (k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
 
-  const RB_VERSION = 'v20260621-rb-identity-planner-v2';
+  const RB_VERSION = 'v20260621-rb-identity-lock-v3';
   const RB_GAME_ID = 'rhythmboxer';
   const RB_DEFAULT_HUB = './';
   const RB_DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
@@ -883,6 +883,45 @@
    * 3) Existing player input as stable playerId fallback
    * ========================================================= */
   const rbClean = value => String(value == null ? '' : value).trim();
+
+  const rbIsPlaceholderIdentity = value => /^(player0*1|player|guest|anonymous|anon|test|demo)$/i.test(rbClean(value));
+
+  function rbCanonicalIdentity(input=''){
+    const ctx = rbStudentContext();
+    const typed = rbClean(input || (els && els.pid ? els.pid.value : '') || S.pid);
+
+    const studentId = rbClean(ctx.studentId);
+    const studentName = rbClean(ctx.studentName || (!rbIsPlaceholderIdentity(typed) ? typed : ''));
+    const playerId = rbClean(
+      ctx.playerId ||
+      studentId ||
+      (!rbIsPlaceholderIdentity(typed) ? typed : '')
+    );
+
+    return {
+      studentId,
+      studentName,
+      playerId,
+      classId: rbClean(ctx.classId),
+      section: rbClean(ctx.section),
+      valid: !!(studentId || studentName || playerId)
+    };
+  }
+
+  function rbApplyIdentityToMenu(){
+    const identity = rbCanonicalIdentity('');
+    if(!els || !els.pid) return;
+
+    const current = rbClean(els.pid.value);
+    if(rbIsPlaceholderIdentity(current) || !current){
+      const visible = identity.studentName || identity.studentId || identity.playerId || '';
+      if(visible) els.pid.value = visible;
+    }
+
+    els.pid.placeholder = 'ชื่อผู้เรียน หรือ Student ID';
+  }
+
+
 
   function rbBangkokNow(){
     try{
@@ -904,25 +943,6 @@
     return prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,10);
   }
 
-  function rbIdentityFromUrl(){
-    return {
-      studentId: rbClean(qs('studentId', qs('sid', qs('student_id','')))),
-      studentName: rbClean(qs('studentName', qs('name', qs('player','')))),
-      classId: rbClean(qs('classId', qs('class', qs('classGroup', qs('group',''))))),
-      section: rbClean(qs('section', qs('sec', qs('group','')))),
-      playerId: rbClean(qs('playerId', qs('pid', qs('player_id',''))))
-    };
-  }
-
-  function rbLooksStudentId(value=''){
-    return /^[0-9]{6,}$/.test(rbClean(value));
-  }
-
-  function rbIsDemoIdentity(value=''){
-    const id = rbClean(value).toLowerCase();
-    return !id || /^(player0*1|player\d+|anon|guest|demo|test)$/i.test(id);
-  }
-
   function rbStudentContext(){
     let saved = {};
     try{
@@ -931,36 +951,26 @@
       }
     }catch(_){}
 
-    // Identity from the current launch URL must always win over an older device session.
-    const url = rbIdentityFromUrl();
-    const savedPlayerId = rbClean(saved.playerId || saved.pid || '');
-    const playerId = url.playerId || savedPlayerId || url.studentId || rbClean(saved.studentId || '');
-    const studentId = url.studentId || rbClean(saved.studentId || '') || (rbLooksStudentId(url.playerId) ? url.playerId : '');
-
     return {
-      studentId,
-      studentName: url.studentName || rbClean(saved.studentName || saved.name || ''),
-      classId: url.classId || rbClean(saved.classId || saved.classGroup || saved.group || ''),
-      section: url.section || rbClean(saved.section || saved.sec || ''),
-      playerId
+      studentId: rbClean(saved.studentId || qs('studentId', qs('sid',''))),
+      studentName: rbClean(saved.studentName || qs('studentName', qs('name',''))),
+      classId: rbClean(saved.classId || qs('classId', qs('class', qs('classGroup', qs('group',''))))),
+      section: rbClean(saved.section || qs('section', qs('sec',''))),
+      playerId: rbClean(saved.playerId || qs('playerId', qs('pid','')))
     };
   }
 
   function rbPersistStudentContext(playerInput=''){
-    const url = rbIdentityFromUrl();
-    const current = rbStudentContext();
+    const base = rbStudentContext();
     const typed = rbClean(playerInput || (els && els.pid ? els.pid.value : '') || S.pid);
+    const typedIsPlaceholder = rbIsPlaceholderIdentity(typed);
 
-    // Current URL is authoritative; otherwise honor the fresh menu input before any stale local value.
-    const playerId = url.playerId || typed || current.playerId || current.studentId;
-    const studentId = url.studentId || current.studentId || (rbLooksStudentId(playerId) ? playerId : '');
-    const studentName = url.studentName || current.studentName || (rbLooksStudentId(typed) ? '' : typed);
     const patch = {
-      studentId,
-      studentName,
-      classId: url.classId || current.classId,
-      section: url.section || current.section,
-      playerId
+      studentId: rbClean(base.studentId),
+      studentName: rbClean(base.studentName || (!typedIsPlaceholder ? typed : '')),
+      classId: rbClean(base.classId),
+      section: rbClean(base.section),
+      playerId: rbClean(base.playerId || base.studentId || (!typedIsPlaceholder ? typed : ''))
     };
 
     try{
@@ -969,12 +979,14 @@
       }
     }catch(_){}
 
-    return patch;
+    return Object.assign({}, base, patch);
   }
 
   function rbApplyStudentContext(payload={}){
     const ctx = rbPersistStudentContext(payload.pid || payload.playerId || S.pid || '');
     const timestamp = rbClean(payload.timestamp || payload.tsIso) || new Date().toISOString();
+    const payloadPid = rbClean(payload.pid || S.pid);
+    const safePid = rbIsPlaceholderIdentity(payloadPid) ? '' : payloadPid;
 
     const seeded = Object.assign({}, payload, {
       game: payload.game || RB_GAME_ID,
@@ -982,42 +994,33 @@
       timestamp,
       timestampLocal: rbClean(payload.timestampLocal || payload.localTimestamp) || rbBangkokNow(),
       studentId: rbClean(payload.studentId || ctx.studentId),
-      studentName: rbClean(payload.studentName || ctx.studentName || (rbLooksStudentId(ctx.playerId) ? '' : ctx.playerId)),
-      playerId: rbClean(payload.playerId || ctx.playerId || payload.pid || S.pid),
-      participantId: rbClean(payload.participantId || ctx.studentId || ctx.playerId || payload.pid || S.pid),
-      pid: rbClean(payload.pid || ctx.playerId || S.pid),
-      name: rbClean(payload.name || ctx.studentName || ctx.playerId || S.pid),
+      studentName: rbClean(payload.studentName || ctx.studentName || safePid),
+      playerId: rbClean(payload.playerId || ctx.playerId || ctx.studentId || safePid),
       classId: rbClean(payload.classId || ctx.classId),
       classGroup: rbClean(payload.classGroup || payload.group || ctx.classId),
       section: rbClean(payload.section || ctx.section),
-      identitySource: rbClean(payload.identitySource || (ctx.studentId ? 'studentId' : (ctx.playerId ? 'playerId' : 'nameOnly')))
+      pid: rbClean(payload.pid || ctx.playerId || ctx.studentId || safePid)
     });
 
     try{
       if(W.FitnessStudentContext && typeof W.FitnessStudentContext.apply === 'function'){
-        const applied = W.FitnessStudentContext.apply(seeded) || {};
-        // Keep the current launch identity authoritative even when an old bridge cache exists.
+        const applied = W.FitnessStudentContext.apply(seeded) || seeded;
         return Object.assign({}, seeded, applied, {
-          game: seeded.game,
-          gameId: seeded.gameId,
-          timestamp: seeded.timestamp,
-          timestampLocal: seeded.timestampLocal,
-          studentId: seeded.studentId || rbClean(applied.studentId),
-          studentName: seeded.studentName || rbClean(applied.studentName),
-          playerId: seeded.playerId || rbClean(applied.playerId),
-          participantId: seeded.participantId || rbClean(applied.participantId),
-          pid: seeded.pid || rbClean(applied.pid),
-          name: seeded.name || rbClean(applied.name),
-          classId: seeded.classId || rbClean(applied.classId),
-          classGroup: seeded.classGroup || rbClean(applied.classGroup),
-          section: seeded.section || rbClean(applied.section),
-          identitySource: seeded.identitySource || rbClean(applied.identitySource)
+          game: applied.game || RB_GAME_ID,
+          gameId: applied.gameId || RB_GAME_ID,
+          timestamp: applied.timestamp || timestamp,
+          timestampLocal: applied.timestampLocal || rbBangkokNow(),
+          studentId: rbClean(applied.studentId || seeded.studentId),
+          studentName: rbClean(applied.studentName || seeded.studentName),
+          playerId: rbClean(applied.playerId || seeded.playerId),
+          pid: rbClean(applied.pid || seeded.pid)
         });
       }
     }catch(_){}
 
     return seeded;
   }
+
 
   function rbAbsUrl(raw, fallback=RB_DEFAULT_HUB){
     try{
@@ -1029,38 +1032,6 @@
 
   function rbHubUrl(){
     return rbAbsUrl(qs('hub', RB_DEFAULT_HUB), RB_DEFAULT_HUB);
-  }
-
-
-  function rbPlannerReturnUrl(){
-    const raw = rbClean(qs('plannerReturnUrl',''));
-    if(!raw) return '';
-    try{
-      const url = new URL(raw, location.href);
-      return url.origin === location.origin ? url.toString() : '';
-    }catch(_){
-      return '';
-    }
-  }
-
-  function rbIsPlannerFlow(){
-    return qbool('plannerFlow', false) ||
-      qbool('fpStrict', false) ||
-      qbool('plannerAuto', false) ||
-      !!rbPlannerReturnUrl() ||
-      !!rbClean(qs('planId',''));
-  }
-
-  function rbPlannerContext(){
-    return {
-      plannerFlow: rbIsPlannerFlow() ? '1' : '',
-      plannerReturnUrl: rbPlannerReturnUrl(),
-      plannerForceGate: rbClean(qs('plannerForceGate','')),
-      planId: rbClean(qs('planId','')),
-      planDay: rbClean(qs('planDay','')),
-      planSlot: rbClean(qs('planSlot','')),
-      planName: rbClean(qs('planName',''))
-    };
   }
 
   function rbApiUrl(){
@@ -1080,15 +1051,13 @@
       studentId: ctx.studentId,
       studentName: ctx.studentName,
       playerId: ctx.playerId,
-      participantId: ctx.studentId || ctx.playerId,
-      pid: ctx.playerId || ctx.studentId,
-      name: ctx.studentName || ctx.playerId,
       identitySource: ctx.studentId ? 'studentId' : (ctx.playerId ? 'playerId' : 'nameOnly'),
       section: ctx.section,
       group: qs('group',''),
       classId: ctx.classId,
       classGroup: ctx.classId,
-      ...rbPlannerContext()
+      planDay: qs('planDay',''),
+      planSlot: qs('planSlot','')
     };
   }
 
@@ -1134,12 +1103,8 @@
         timestampLocal: payload.timestampLocal || rbBangkokNow(),
         __extraJson: JSON.stringify(rbMeta())
       };
-      const raw = JSON.stringify(summary);
-      const owner = payload.playerId || payload.pid || payload.studentId || 'anon';
-      localStorage.setItem('HHA_LAST_SUMMARY', raw);
-      // Keep both spellings: Sheets uses rhythmboxer; the shared Gate registry normalizes to rhythm-boxer.
-      localStorage.setItem('HHA_LAST_SUMMARY:rhythmboxer:' + owner, raw);
-      localStorage.setItem('HHA_LAST_SUMMARY:rhythm-boxer:' + owner, raw);
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      localStorage.setItem('HHA_LAST_SUMMARY:rhythmboxer:' + (payload.playerId || payload.pid || 'anon'), JSON.stringify(summary));
       window.parent && window.parent.postMessage({type:'HHA_GAME_RESULT', game:RB_GAME_ID, payload:summary}, '*');
     }catch(_){}
   }
@@ -1213,7 +1178,7 @@
   };
 
   const S = {
-    running:false, mode:'touch', diff:'normal', timeSec:60, pid:'',
+    running:false, mode:'touch', diff:'normal', timeSec:60, pid:'player01',
     sessionId:'', roundId:'',
     t0:0,tEnd:0,tLast:0,lastBeat:-1, rng:Math.random,
     notes:[], nextId:1,
@@ -1229,30 +1194,12 @@
     body:{visible:false,lastSeen:0, last:{left:null,right:null}, armed:{left:true,right:true}, lastPunch:{left:0,right:0}, facing:'user'}
   };
 
-  function rbApplyIdentityToMenu(){
-    const ctx = rbStudentContext();
-    const preferred = rbClean(ctx.playerId || ctx.studentId || qs('pid','') || qs('name',''));
-    if(preferred) els.pid.value = preferred;
-    if(['easy','normal','hard'].includes(qs('diff'))) els.diff.value = qs('diff');
-    if(qs('time')) els.timeSec.value = String(clamp(qs('time'),30,180));
-  }
-
-  function rbApplyPlannerLabels(){
-    if(!rbIsPlannerFlow()) return;
-    if(els.btnBack){
-      els.btnBack.textContent = 'จบเกมและทำ Cool-down';
-      els.btnBack.title = 'สรุปผลก่อน แล้วเข้าสู่ Hero Recovery Mission';
-      els.btnBack.classList.add('warn');
-    }
-    if(els.btnMenu2){
-      els.btnMenu2.textContent = '🧘 ทำ Cool-down AR ต่อ';
-      els.btnMenu2.title = 'เข้าสู่ Hero Recovery Mission ก่อนกลับ Fitness Planner';
-      els.btnMenu2.classList.add('primary');
-    }
-  }
-
+  // query defaults
+  if(qs('pid')) els.pid.value = qs('pid');
+  if(qs('name') && !qs('pid')) els.pid.value = qs('name');
+  if(['easy','normal','hard'].includes(qs('diff'))) els.diff.value = qs('diff');
+  if(qs('time')) els.timeSec.value = String(clamp(qs('time'),30,180));
   rbApplyIdentityToMenu();
-  rbApplyPlannerLabels();
 
   function show(name){
     els.menu.classList.toggle('hidden', name !== 'menu');
@@ -2004,18 +1951,24 @@
   }
 
   async function start(mode){
-    const identity = rbPersistStudentContext(els.pid.value);
-    const resolvedPid = rbClean(identity.playerId || identity.studentId || els.pid.value);
-    if(rbIsDemoIdentity(resolvedPid)){
-      const msg = 'กรุณากรอกรหัสผู้เรียนหรือชื่อผู้เล่นจริงก่อนเริ่ม เพื่อบันทึกเข้า Teacher Dashboard ได้ถูกคน';
-      toast(msg);
-      if(els.pid){ els.pid.focus(); els.pid.select(); }
+    actx();
+
+    const identity = rbCanonicalIdentity(els.pid.value);
+    if(!identity.valid){
+      toast('กรุณากรอกชื่อผู้เรียนหรือ Student ID ก่อนเริ่มเล่น');
+      if(els.pid){
+        els.pid.focus();
+        els.pid.select();
+      }
       return;
     }
 
-    actx();
-    S.mode=mode; S.diff=els.diff.value; S.timeSec=Number(els.timeSec.value)||60; S.pid=resolvedPid;
-    if(els.pid) els.pid.value = resolvedPid;
+    S.mode=mode;
+    S.diff=els.diff.value;
+    S.timeSec=Number(els.timeSec.value)||60;
+    // Canonical ID priority: Student ID > Hub playerId > entered non-placeholder name.
+    S.pid = identity.studentId || identity.playerId || identity.studentName;
+    if(els.pid && !els.pid.value.trim()) els.pid.value = identity.studentName || identity.studentId || identity.playerId;
     rbPersistStudentContext(S.pid);
     S.sessionId=rbMakeId('RBSESSION');
     S.roundId=rbMakeId('RBROUND');
@@ -2381,16 +2334,12 @@
       sessionId:S.sessionId || rbMakeId('RBSESSION'),
       roundId:S.roundId || rbMakeId('RBROUND'),
       studentId:ctx.studentId,
-      studentName:ctx.studentName,
-      playerId:ctx.playerId || S.pid,
-      participantId:ctx.studentId || ctx.playerId || S.pid,
-      name:ctx.studentName || ctx.playerId || S.pid,
-      identitySource:ctx.studentId ? 'studentId' : (ctx.playerId ? 'playerId' : 'nameOnly'),
+      studentName:ctx.studentName || (!rbIsPlaceholderIdentity(S.pid) ? S.pid : ''),
+      playerId:ctx.playerId || ctx.studentId || (!rbIsPlaceholderIdentity(S.pid) ? S.pid : ''),
       classId:ctx.classId,
       classGroup:ctx.classId || qs('group',''),
       section:ctx.section || qs('section',qs('sec','')),
-      pid:S.pid,
-      ...rbPlannerContext(),
+      pid:ctx.playerId || ctx.studentId || (!rbIsPlaceholderIdentity(S.pid) ? S.pid : ''),
       diff:S.diff,
       difficulty:S.diff,
       timeSec:S.timeSec,
@@ -2666,16 +2615,7 @@
   els.btnStartBody.addEventListener('click',()=>start('body'));
   els.btnStartTouch.addEventListener('click',()=>start('touch'));
   els.btnStop.addEventListener('click',()=>end('stop'));
-  els.btnBack.addEventListener('click',()=>{
-    if(S.running && rbIsPlannerFlow()){
-      end('planner_early_end');
-      return;
-    }
-    if(S.running && !confirm('ออกจากเกมและกลับ Hub ใช่ไหม?')) return;
-    S.running=false;
-    stopCamera();
-    rbGoHub({pid:S.pid||els.pid.value||'', ...rbPlannerContext()});
-  });
+  els.btnBack.addEventListener('click',()=>{ if(S.running && !confirm('ออกจากเกมและกลับ Hub ใช่ไหม?')) return; S.running=false;stopCamera();rbGoHub({pid:S.pid||els.pid.value||'player01'}); });
   els.btnCam.addEventListener('click',()=> stream ? stopCamera() : startCamera(S.mode==='body'));
   els.btnFlip.addEventListener('click',async()=>{
     els.camMode.value = els.camMode.value==='user'?'environment':'user';
@@ -2701,7 +2641,7 @@
       if(els.postSurveyPanel) els.postSurveyPanel.scrollIntoView({behavior:'smooth', block:'center'});
       return;
     }
-    rbGoHub({pid:S.pid||els.pid.value||'',score:Math.round(S.score||0),rank:rankOf ? rankOf() : '', ...rbPlannerContext()});
+    rbGoHub({pid:S.pid||els.pid.value||'player01',score:Math.round(S.score||0),rank:rankOf ? rankOf() : ''});
   });
 
   function csv(rows){
