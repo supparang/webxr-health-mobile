@@ -1,11 +1,11 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-CANONICAL
+// FULL PATCH v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-RHYTHM-AR-PATH-SYNC
 // ✅ GoodJunk canonical Solo Boss flow remains unchanged.
 // ✅ Shared HeroHealth warmup-gate.html and gate-core.js remain the only Gate shell/router.
 // ✅ All 4 Fitness games use ONE shared Pose-based Readiness & Recovery phase module.
 // ✅ Fitness Planner can force a fresh gate per planned slot without duplicating Gate files.
 
-const PATCH = 'v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-CANONICAL';
+const PATCH = 'v20260621-GATE-GAMES-FITNESS-READINESS-RECOVERY-RHYTHM-AR-PATH-SYNC';
 
 const FITNESS_READINESS_RECOVERY_MODULE =
   './games/fitness/fitness-readiness-recovery.js?v=20260621-frr-v2';
@@ -379,8 +379,8 @@ export const GAME_REGISTRY = {
   }),
 
   'rhythm-boxer': makeMeta('rhythm-boxer', {
-    title: 'Rhythm Boxer',
-    label: 'Rhythm Boxer',
+    title: 'Rhythm Boxer AR',
+    label: 'Rhythm Boxer AR',
     emoji: '🥁',
     zone: 'fitness',
     cat: 'fitness',
@@ -390,8 +390,11 @@ export const GAME_REGISTRY = {
     styleFile: FITNESS_READINESS_RECOVERY_STYLE,
     warmupTitle: 'Hero Ready Mission • Beat Control',
     cooldownTitle: 'Hero Recovery Mission • Rhythm Reset',
-    runFile: '../fitness/rhythm-boxer.html',
+
+    // Canonical deployed file from the Rhythm Boxer source header.
+    runFile: '../fitness/rhythm-boxer-ar.html',
     runCandidates: [
+      '../fitness/rhythm-boxer-ar.html',
       '../fitness/rhythm-boxer.html',
       '../rhythm-boxer-vr.html'
     ],
@@ -479,7 +482,9 @@ const GAME_ALIAS = {
   balancehold: 'balance-hold',
 
   'rhythm-boxer': 'rhythm-boxer',
+  'rhythm-boxer-ar': 'rhythm-boxer',
   rhythmboxer: 'rhythm-boxer',
+  rhythmboxerar: 'rhythm-boxer',
 
   'fitness-planner': 'fitness-planner',
   fitnessplanner: 'fitness-planner'

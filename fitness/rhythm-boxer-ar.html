@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Student Context + Survey Validation + Single-Row Lock | v20260620-rb-student-context-survey-v2 -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Fitness Planner Cooldown Flow + Student Context + Survey Validation + Single-Row Lock | v20260621-rb-fitness-planner-cooldown-v1 -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -870,7 +870,7 @@
   const qs = (k,d='')=>{try{return new URL(location.href).searchParams.get(k) ?? d}catch(_){return d}};
   const qbool = (k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
 
-  const RB_VERSION = 'v20260620-rb-student-context-survey-v2';
+  const RB_VERSION = 'v20260621-rb-fitness-planner-cooldown-v1';
   const RB_GAME_ID = 'rhythmboxer';
   const RB_DEFAULT_HUB = './';
   const RB_DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
@@ -982,6 +982,43 @@
     }
   }
 
+  /*
+   * Fitness Planner flow:
+   * Planner → warmup gate → Rhythm Boxer → cooldown gate → Planner.
+   * The game itself never rebuilds the route. It only trusts the `hub`
+   * URL provided by gate-core, which is the cooldown gate during Planner runs.
+   */
+  function rbPlannerReturnUrl(){
+    const raw = rbClean(qs('plannerReturnUrl',''));
+    if(!raw) return '';
+    try{
+      return new URL(raw, location.href).toString();
+    }catch(_){
+      return '';
+    }
+  }
+
+  function rbIsPlannerFlow(){
+    return (
+      qbool('plannerReturn', false) ||
+      !!rbPlannerReturnUrl() ||
+      !!rbClean(qs('planId','')) ||
+      !!rbClean(qs('planSlot',''))
+    );
+  }
+
+  function rbPlannerContext(){
+    return {
+      plannerFlow: rbIsPlannerFlow() ? 1 : 0,
+      plannerReturn: rbClean(qs('plannerReturn','')) || (rbIsPlannerFlow() ? '1' : ''),
+      plannerReturnUrl: rbPlannerReturnUrl(),
+      plannerForceGate: rbClean(qs('plannerForceGate','')),
+      planId: rbClean(qs('planId','')),
+      planDay: rbClean(qs('planDay','')),
+      planSlot: rbClean(qs('planSlot',''))
+    };
+  }
+
   function rbHubUrl(){
     return rbAbsUrl(qs('hub', RB_DEFAULT_HUB), RB_DEFAULT_HUB);
   }
@@ -1008,29 +1045,38 @@
       group: qs('group',''),
       classId: ctx.classId,
       classGroup: ctx.classId,
-      planDay: qs('planDay',''),
-      planSlot: qs('planSlot','')
+      ...rbPlannerContext()
     };
   }
 
   function rbGoHub(extra={}){
     try{
       const ctx = rbStudentContext();
+      const planner = rbPlannerContext();
       const carry = Object.assign({
         studentId:ctx.studentId,
         studentName:ctx.studentName,
         playerId:ctx.playerId || S.pid,
         classId:ctx.classId,
         section:ctx.section
-      }, extra || {});
+      }, planner, extra || {});
+
+      /*
+       * During Planner flow `hub` is intentionally the Cool-down Gate URL.
+       * Outside Planner flow it remains the existing Fitness Hub URL.
+       */
       const u = new URL(rbHubUrl(), location.href);
       u.searchParams.set('fromGame', RB_GAME_ID);
       u.searchParams.set('game', RB_GAME_ID);
-      u.searchParams.set('return', '1');
+      u.searchParams.set('return', planner.plannerFlow ? 'planner-game-complete' : '1');
       u.searchParams.set('v', RB_VERSION);
+
       Object.keys(carry).forEach(k=>{
-        if(carry[k] !== undefined && carry[k] !== null && carry[k] !== '') u.searchParams.set(k, String(carry[k]));
+        if(carry[k] !== undefined && carry[k] !== null && carry[k] !== '') {
+          u.searchParams.set(k, String(carry[k]));
+        }
       });
+
       location.href = u.toString();
     }catch(_){
       location.href = rbHubUrl();
@@ -1047,17 +1093,37 @@
   function rbStoreLastSummary(payload){
     try{
       payload = rbApplyStudentContext(payload || {});
+
       const summary = {
         ...payload,
         game: RB_GAME_ID,
         gameId: RB_GAME_ID,
+
+        // Gate snapshot compatibility: gate-core reads these names first.
+        scoreFinal: Number(payload.scoreFinal ?? payload.score ?? 0),
+        durationSec: Number(payload.durationSec ?? payload.duration ?? payload.timeSec ?? 0),
+        accPct: payload.accPct ?? payload.accuracy ?? 0,
+        misses: Number(payload.misses ?? payload.miss ?? 0),
+
         timestampIso: payload.timestamp || new Date().toISOString(),
         timestampLocal: payload.timestampLocal || rbBangkokNow(),
         __extraJson: JSON.stringify(rbMeta())
       };
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      localStorage.setItem('HHA_LAST_SUMMARY:rhythmboxer:' + (payload.playerId || payload.pid || 'anon'), JSON.stringify(summary));
-      window.parent && window.parent.postMessage({type:'HHA_GAME_RESULT', game:RB_GAME_ID, payload:summary}, '*');
+
+      const owner = payload.playerId || payload.pid || 'anon';
+      const raw = JSON.stringify(summary);
+
+      localStorage.setItem('HHA_LAST_SUMMARY', raw);
+
+      // Preserve the original compact game key and add the Gate registry key.
+      localStorage.setItem('HHA_LAST_SUMMARY:rhythmboxer:' + owner, raw);
+      localStorage.setItem('HHA_LAST_SUMMARY:rhythm-boxer:' + owner, raw);
+
+      window.parent && window.parent.postMessage({
+        type:'HHA_GAME_RESULT',
+        game:RB_GAME_ID,
+        payload:summary
+      }, '*');
     }catch(_){}
   }
 
@@ -1126,6 +1192,7 @@
     resCombo:$('resCombo'), resBody:$('resBody'), resMiss:$('resMiss'), resBoss:$('resBoss'), resFlowCombo:$('resFlowCombo'), resNoise:$('resNoise'), quality:$('quality'),
     btnAgain:$('btnAgain'), btnMenu2:$('btnMenu2'), btnCsvSession:$('btnCsvSession'), btnCsvEvents:$('btnCsvEvents'), submitStatus:$('submitStatus'),
     sportIndexBadge:$('sportIndexBadge'), ssRhythm:$('ssRhythm'), ssMovement:$('ssMovement'), ssBalance:$('ssBalance'), ssFatigue:$('ssFatigue'), ssLR:$('ssLR'), ssSpeed:$('ssSpeed'), ssDrop:$('ssDrop'), ssTracking:$('ssTracking'),
+    postSurveyPanel:$('postSurveyPanel'),
     rpeInput:$('rpeInput'), rpeValue:$('rpeValue'), painShoulder:$('painShoulder'), painArm:$('painArm'), painWrist:$('painWrist'), painBack:$('painBack'), painKnee:$('painKnee'), dizzy:$('dizzy'), painNoteInput:$('painNoteInput'), sendSurveyBtn:$('sendSurveyBtn'), surveyStatus:$('surveyStatus'), surveyBadge:$('surveyBadge'), noSymptomsConfirmed:$('noSymptomsConfirmed'), surveyValidationHint:$('surveyValidationHint')
   };
 
@@ -1145,6 +1212,25 @@
     lastLaneTap:[0,0,0,0,0],
     body:{visible:false,lastSeen:0, last:{left:null,right:null}, armed:{left:true,right:true}, lastPunch:{left:0,right:0}, facing:'user'}
   };
+
+  function rbApplyPlannerFlowUi(){
+    if(!rbIsPlannerFlow()) return;
+
+    document.documentElement.dataset.fitnessPlannerFlow = '1';
+    document.title = 'HeroHealth • Rhythm Boxer AR • Fitness Planner';
+
+    if(els.btnBack){
+      els.btnBack.textContent = 'จบเกมและทำ Cool-down';
+      els.btnBack.title = 'จบเกมรอบนี้ แล้วเข้าสู่ Cool-down AR';
+      els.btnBack.classList.add('warn');
+    }
+
+    if(els.btnMenu2){
+      els.btnMenu2.textContent = '🧘 ทำ Cool-down AR ต่อ';
+      els.btnMenu2.title = 'เข้าสู่ Hero Recovery Mission ก่อนกลับ Fitness Planner';
+      els.btnMenu2.classList.add('primary');
+    }
+  }
 
   // query defaults
   if(qs('pid')) els.pid.value = qs('pid');
@@ -2266,6 +2352,8 @@
       sourceUrl:location.href,
       pageUrl:location.href,
       hubUrl:rbHubUrl(),
+      cooldownHref: rbIsPlannerFlow() ? rbHubUrl() : '',
+      ...rbPlannerContext(),
       sessionId:S.sessionId || rbMakeId('RBSESSION'),
       roundId:S.roundId || rbMakeId('RBROUND'),
       studentId:ctx.studentId,
@@ -2550,7 +2638,22 @@
   els.btnStartBody.addEventListener('click',()=>start('body'));
   els.btnStartTouch.addEventListener('click',()=>start('touch'));
   els.btnStop.addEventListener('click',()=>end('stop'));
-  els.btnBack.addEventListener('click',()=>{ if(S.running && !confirm('ออกจากเกมและกลับ Hub ใช่ไหม?')) return; S.running=false;stopCamera();rbGoHub({pid:S.pid||els.pid.value||'player01'}); });
+  els.btnBack.addEventListener('click',()=>{
+    if(rbIsPlannerFlow()){
+      if(!S.running){
+        toast('กำลังเตรียมเกมอยู่ กรุณารอให้เกมเริ่มก่อน');
+        return;
+      }
+      if(!confirm('จบเกมรอบนี้ และไปทำ Cool-down AR ต่อใช่ไหม?')) return;
+      end('manual');
+      return;
+    }
+
+    if(S.running && !confirm('ออกจากเกมและกลับ Hub ใช่ไหม?')) return;
+    S.running=false;
+    stopCamera();
+    rbGoHub({pid:S.pid||els.pid.value||'player01'});
+  });
   els.btnCam.addEventListener('click',()=> stream ? stopCamera() : startCamera(S.mode==='body'));
   els.btnFlip.addEventListener('click',async()=>{
     els.camMode.value = els.camMode.value==='user'?'environment':'user';
@@ -2572,11 +2675,22 @@
 
   els.btnMenu2.addEventListener('click',()=>{
     if(rbSurveyRequiredBeforeLeave()){
-      rbSetSubmitStatus('กรุณาบันทึก RPE/Pain ก่อนกลับ Hub เพื่อให้ผลรอบนี้ส่งเข้า Sheet', 'warn');
+      rbSetSubmitStatus(
+        rbIsPlannerFlow()
+          ? 'กรุณาบันทึก RPE/Pain ก่อนทำ Cool-down AR เพื่อให้ผลรอบนี้ส่งเข้า Sheet'
+          : 'กรุณาบันทึก RPE/Pain ก่อนกลับ Hub เพื่อให้ผลรอบนี้ส่งเข้า Sheet',
+        'warn'
+      );
       if(els.postSurveyPanel) els.postSurveyPanel.scrollIntoView({behavior:'smooth', block:'center'});
       return;
     }
-    rbGoHub({pid:S.pid||els.pid.value||'player01',score:Math.round(S.score||0),rank:rankOf ? rankOf() : ''});
+
+    rbGoHub({
+      pid:S.pid||els.pid.value||'player01',
+      score:Math.round(S.score||0),
+      rank:rankOf ? rankOf() : '',
+      gameCompleted:'1'
+    });
   });
 
   function csv(rows){
@@ -2595,6 +2709,7 @@
   W.addEventListener('beforeunload',()=>stopCamera());
 
   // final init
+  rbApplyPlannerFlowUi();
   show('menu');
   applyLaneMode();
 
