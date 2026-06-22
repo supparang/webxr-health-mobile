@@ -1,7 +1,7 @@
 <!-- =========================================================
  /herohealth/hygiene-zone/teacher-dashboard.html
  HeroHealth Hygiene Zone Teacher Dashboard V2
- Version: v20260622-HYGIENE-TEACHER-DASHBOARD-V2-8-QUEUE-COMMAND-CENTER
+ Version: v20260622-HYGIENE-TEACHER-DASHBOARD-V2-9-CURRENT-FIRST-DEFAULT
 ========================================================= -->
 <!doctype html>
 <html lang="th">
@@ -295,7 +295,7 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
 </section>
 
 <section class="details">
-  <article class="panel card"><div class="head"><div><h2>🔎 Selected Attempt</h2><p class="muted">สรุปรายบุคคลจากการเล่นครั้งที่เลือก</p></div><span id="detailTag" class="mini">เลือกแถว</span></div><div id="detail" class="empty-detail">เลือกแถวจากตารางเพื่อดู Learning Mastery, Overall Direction, ค่า Gum และข้อเสนอแนะเฉพาะคน</div></article>
+  <article class="panel card"><div class="head"><div><h2>🔎 Selected Attempt</h2><p class="muted">สรุปรายบุคคลจากการเล่นครั้งที่เลือก • เปิดหน้าใหม่จะเลือกผล Current ล่าสุดก่อน</p></div><span id="detailTag" class="mini">เลือกแถว</span></div><div id="detail" class="empty-detail">เลือกแถวจากตารางเพื่อดู Learning Mastery, Overall Direction, ค่า Gum และข้อเสนอแนะเฉพาะคน</div></article>
   <article class="panel card"><div class="head"><div><h2>🧩 Zone Drilldown</h2><p class="muted">ดูข้อมูล pass strokes หรือ Challenge Clean / Direction รายโซน</p></div><span id="modeTag" class="mini">-</span></div><div id="detailZones" class="empty-detail">รายละเอียดรายโซนจะแสดงที่นี่</div></article>
 </section>
 </div></main>
@@ -304,7 +304,7 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
 <script>
 (()=>{
 'use strict';
-const VERSION='v20260622-HYGIENE-TEACHER-DASHBOARD-V2-8-QUEUE-COMMAND-CENTER';
+const VERSION='v20260622-HYGIENE-TEACHER-DASHBOARD-V2-9-CURRENT-FIRST-DEFAULT';
 const CFG={
  home:'../hygiene-zone-v2.html',
  api:'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec',
@@ -520,6 +520,28 @@ function currentStudentName(){
   return studentValue?(S.all.find(r=>r._studentKey===studentValue)?._studentLabel||'นักเรียนที่เลือก'):'ทุกคน / ภาพรวมทั้งชั้น';
 }
 
+
+function latestCurrentAttempt(records){
+  return [...records]
+    .filter(record=>record._isCurrent)
+    .sort((a,b)=>ts(b)-ts(a))[0]||null;
+}
+
+function defaultAttemptKey(records){
+  // Default to the most recent Current Tracking result. Legacy remains
+  // selectable in history and is only used as a fallback when no Current
+  // record exists in the filtered result set.
+  return latestCurrentAttempt(records)?.__key||records[0]?.__key||'';
+}
+
+function selectDefaultCurrent(records,force=false){
+  const selectedStillVisible=records.some(record=>record.__key===S.selected);
+
+  if(force||!selectedStillVisible){
+    S.selected=defaultAttemptKey(records);
+  }
+}
+
 function apply(){
   const q=$('search').value.trim().toLowerCase();
   const student=$('student').value;
@@ -550,7 +572,7 @@ function apply(){
   );
 
   S.shown=a;
-  if(!a.some(r=>r.__key===S.selected))S.selected=a[0]?.__key||'';
+  selectDefaultCurrent(a,false);
   render();
 }
 function avg(a,f){return a.length?Math.round(a.reduce((s,x)=>s+f(x),0)/a.length):0}
@@ -647,7 +669,7 @@ function detail(){
   zones(r);
 }
 function zones(r){
-  if(r._isLegacy){$('detailZones').className='empty-detail';$('detailZones').textContent='Legacy / Unknown attempt: บันทึกนี้ยังไม่มี Learning + Challenge zone analytics แบบใหม่ จึงไม่แสดงค่า 0% ที่อาจทำให้ตีความผิด';return}
+  if(r._isLegacy){$('detailZones').className='empty-detail';$('detailZones').textContent='Legacy / Unknown attempt: บันทึกนี้ยังไม่มี Learning + Challenge zone analytics แบบใหม่ จึงไม่แสดงค่า 0% ที่อาจทำให้ตีความผิด และ Dashboard จะเลือกผล Current ล่าสุดก่อนเมื่อเปิดหน้า';return}
   $('detailZones').className='zone-board';
   if(r.play_mode==='learning'){
     const p=json(r.guided_zone_progress_json,{}),prog=p.progress||{},q=p.qualified_strokes||p.qualified||{},good=p.direction_good||{},total=p.direction_total||{};
@@ -1253,7 +1275,7 @@ const Storage={
 function storageNote(){
   return 'Browser Storage เต็ม — Dashboard ยังทำงานได้ตามปกติ แต่จะไม่จำ URL/ข้อมูลไว้ในเครื่อง';
 }
-function set(recs,source,persist=false){S.all=(recs||[]).map(norm);S.source=source||'ข้อมูลในเครื่อง';if(persist)Storage.set(CFG.dataKey,JSON.stringify(S.all));filters();apply()}
+function set(recs,source,persist=false){S.all=(recs||[]).map(norm);S.source=source||'ข้อมูลในเครื่อง';S.selected='';if(persist)Storage.set(CFG.dataKey,JSON.stringify(S.all));filters();apply()}
 function status(text,type=''){const e=$('apiStatus');e.textContent=text;e.className=`status ${type}`.trim()}
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),1800)}
 function apiUrl(v){const x=new URL(String(v||'').trim());return x.toString()}
@@ -1318,7 +1340,7 @@ async function load(){
 function parseCSV(t){const lines=String(t||'').trim().split(/\r?\n/).filter(Boolean);if(lines.length<2)return[];const split=l=>{const a=[];let cur='',q=false;for(let i=0;i<l.length;i++){const c=l[i],nx=l[i+1];if(c==='"'&&q&&nx==='"'){cur+='"';i++}else if(c==='"')q=!q;else if(c===','&&!q){a.push(cur.trim());cur=''}else cur+=c}a.push(cur.trim());return a},head=split(lines[0]);return lines.slice(1).map(l=>{const c=split(l),o={};head.forEach((h,i)=>o[h]=c[i]??'');return o})}
 function importData(){const t=$('importBox').value.trim();if(!t){toast('วาง JSON หรือ CSV ก่อน');return}try{let a;if(t.startsWith('[')||t.startsWith('{')){const x=JSON.parse(t);a=extract(x);if(!a.length&&x&&typeof x==='object'&&!Array.isArray(x))a=[x]}else a=parseCSV(t);if(!a.length)throw Error('ไม่พบ records');set(a,'ข้อมูลที่วางเอง');status(`นำเข้าข้อมูล ${a.length} records แล้ว`,'ok');toast(`นำเข้าข้อมูล ${a.length} รายการแล้ว`)}catch(e){status(`นำเข้าไม่สำเร็จ: ${e.message||e}`,'bad');toast('รูปแบบ JSON / CSV ไม่ถูกต้อง')}}
 function exportCSV(){const a=S.shown;if(!a.length){toast('ไม่มีข้อมูลสำหรับ export');return}const heads=['created_at','player_name','student_id','class_level','section','game_key','play_mode','difficulty','challenge_result','challenge_passed','score','clean_score','gum_health','technique_score','coverage_zone_count','learning_progress_percent','learning_direction_mastery','overall_direction_accuracy','direction_threshold','direction_passed','strongest_zone','weakest_zone','input_mode','challenge_fail_reasons'],cell=v=>`"${String(v??'').replace(/"/g,'""')}"`,csv='\uFEFF'+[heads,...a.map(r=>heads.map(h=>r[h]??''))].map(row=>row.map(cell).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),href=URL.createObjectURL(blob),x=document.createElement('a');x.href=href;x.download=`hygiene-teacher-dashboard-${new Date().toISOString().slice(0,10)}.csv`;x.click();setTimeout(()=>URL.revokeObjectURL(href),0);toast('Export CSV แล้ว')}
-function reset(){['search','student','game','class','mode','era','result'].forEach(id=>$(id).value='');$('range').value='all';$('sort').value='latest';apply()}
+function reset(){['search','student','game','class','mode','era','result'].forEach(id=>$(id).value='');$('range').value='all';$('sort').value='latest';S.selected='';apply()}
 function bind(){$('homeBtn').onclick=()=>location.href=CFG.home;$('printBtn').onclick=()=>print();$('exportBtn').onclick=exportCSV;$('loadBtn').onclick=load;$('demoBtn').onclick=()=>{set(demo(),'Demo Data');status('กำลังใช้ Demo Data สำหรับสาธิต Dashboard','ok');toast('เปลี่ยนเป็น Demo Data แล้ว')};$('clearUrlBtn').onclick=()=>{const removed=Storage.remove(CFG.apiKey);$('apiUrl').value='';status(removed?'ล้าง URL ที่จำแล้ว':'ล้างช่อง URL แล้ว (Browser Storage ถูกจำกัด)',removed?'ok':'warn');toast(removed?'ล้าง URL ที่จำแล้ว':'ล้างช่อง URL แล้ว')};$('importBtn').onclick=importData;$('resetBtn').onclick=reset;['search','student','range','game','class','mode','era','result','sort'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',apply))}
 function boot(){bind();$('apiUrl').value=Storage.get(CFG.apiKey,CFG.api)||CFG.api;set(demo(),'Demo Data',false);status(Storage.lastError?storageNote():'กำลังใช้ Demo Data — กด “โหลดจาก Sheet” เพื่อใช้ข้อมูลจริง',Storage.lastError?'warn':'');console.log('[Hygiene Teacher Dashboard]',VERSION)}
 boot()
