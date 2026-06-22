@@ -1,3530 +1,868 @@
 <!-- =========================================================
  /herohealth/hygiene-zone/teacher-dashboard.html
- HeroHealth Hygiene Zone Teacher Dashboard
- Version: v20260622-HYGIENE-TEACHER-DASHBOARD-V2-5-STUDENT-DROPDOWN
+ HeroHealth Hygiene Zone Teacher Dashboard V2
+ Version: v20260622-HYGIENE-TEACHER-DASHBOARD-V2-6-GROWTH-NEXT-MISSION
 ========================================================= -->
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#e0f7ff" />
-  <meta name="color-scheme" content="light" />
-  <link rel="icon" href="data:," />
-  <title>HeroHealth • Hygiene Zone • Teacher Dashboard</title>
-
-  <style>
-    :root{
-      --ink:#0f172a;
-      --muted:#64748b;
-      --line:rgba(15,23,42,.10);
-      --cyan:#06b6d4;
-      --blue:#2563eb;
-      --green:#16a34a;
-      --amber:#f59e0b;
-      --red:#ef4444;
-      --pink:#ec4899;
-      --safe-top:env(safe-area-inset-top,0px);
-      --safe-right:env(safe-area-inset-right,0px);
-      --safe-bottom:env(safe-area-inset-bottom,0px);
-      --safe-left:env(safe-area-inset-left,0px);
-    }
-
-    *{
-      box-sizing:border-box;
-      -webkit-tap-highlight-color:transparent;
-    }
-
-    html,
-    body{
-      margin:0;
-      min-height:100%;
-      color:var(--ink);
-      font-family:ui-rounded,"Sarabun","Noto Sans Thai",system-ui,sans-serif;
-      background:
-        radial-gradient(circle at 10% 4%,rgba(103,232,249,.56),transparent 28%),
-        radial-gradient(circle at 89% 10%,rgba(251,207,232,.62),transparent 28%),
-        linear-gradient(155deg,#ecfeff,#fdf2f8 54%,#fff7ed);
-    }
-
-    button,
-    input,
-    select,
-    textarea{
-      font:inherit;
-    }
-
-    button{
-      border:0;
-      cursor:pointer;
-    }
-
-    .page{
-      min-height:100vh;
-      padding:
-        calc(16px + var(--safe-top))
-        calc(14px + var(--safe-right))
-        calc(24px + var(--safe-bottom))
-        calc(14px + var(--safe-left));
-    }
-
-    .wrap{
-      width:min(1440px,100%);
-      margin:auto;
-    }
-
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:14px;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-
-    .brand-icon{
-      display:grid;
-      place-items:center;
-      width:58px;
-      height:58px;
-      border-radius:22px;
-      color:#fff;
-      font-size:30px;
-      background:linear-gradient(135deg,#67e8f9,#2563eb,#ec4899);
-      box-shadow:0 17px 35px rgba(37,99,235,.22);
-    }
-
-    h1{
-      margin:0;
-      font-size:clamp(23px,4vw,43px);
-      line-height:1.02;
-      letter-spacing:-.045em;
-      font-weight:1000;
-    }
-
-    h1 span{
-      display:block;
-      margin-top:4px;
-      color:#0e7490;
-      font-size:.51em;
-      letter-spacing:0;
-    }
-
-    .actions{
-      display:flex;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      gap:8px;
-    }
-
-    .btn{
-      min-height:42px;
-      padding:0 13px;
-      border:1px solid rgba(255,255,255,.9);
-      border-radius:16px;
-      background:rgba(255,255,255,.90);
-      color:var(--ink);
-      box-shadow:0 11px 24px rgba(15,23,42,.10);
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .btn.primary{
-      color:#fff;
-      border:0;
-      background:linear-gradient(90deg,#06b6d4,#2563eb);
-    }
-
-    .btn.green{
-      color:#fff;
-      border:0;
-      background:linear-gradient(90deg,#14b8a6,#22c55e);
-    }
-
-    .btn.warn{
-      color:#78350f;
-      background:#fffbeb;
-      border-color:rgba(245,158,11,.28);
-    }
-
-    .panel{
-      border:1px solid rgba(255,255,255,.92);
-      border-radius:29px;
-      background:rgba(255,255,255,.84);
-      box-shadow:0 18px 50px rgba(15,23,42,.13);
-      backdrop-filter:blur(14px);
-    }
-
-    .hero{
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:14px;
-      margin-bottom:14px;
-    }
-
-    .hero-main,
-    .connection,
-    .card{
-      padding:17px;
-    }
-
-    .hero-main{
-      min-height:230px;
-      padding:22px;
-    }
-
-    .eyebrow,
-    .chip,
-    .tag,
-    .mini{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      border-radius:999px;
-      font-size:11px;
-      font-weight:1000;
-    }
-
-    .eyebrow{
-      gap:7px;
-      padding:7px 11px;
-      margin-bottom:10px;
-      color:#0e7490;
-      border:1px solid rgba(6,182,212,.18);
-      background:#ecfeff;
-    }
-
-    .hero-title{
-      margin:0;
-      max-width:100%;
-      font-size:clamp(30px,4.15vw,54px);
-      line-height:1.02;
-      letter-spacing:-.052em;
-      font-weight:1000;
-      overflow-wrap:anywhere;
-    }
-
-    .hero-title strong{
-      color:transparent;
-      background:linear-gradient(90deg,#0891b2,#2563eb,#db2777);
-      -webkit-background-clip:text;
-      background-clip:text;
-    }
-
-    .hero-copy{
-      width:min(720px,100%);
-      margin:12px 0 0;
-      color:#475569;
-      font-size:14px;
-      line-height:1.65;
-      font-weight:850;
-    }
-
-    .chips{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:16px;
-    }
-
-    .chip{
-      padding:7px 10px;
-      color:#334155;
-      border:1px solid var(--line);
-      background:#fff;
-      box-shadow:0 8px 18px rgba(15,23,42,.06);
-    }
-
-    h2{
-      margin:0 0 7px;
-      font-size:20px;
-      line-height:1.12;
-      letter-spacing:-.03em;
-      font-weight:1000;
-    }
-
-    .muted{
-      margin:0 0 10px;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.5;
-      font-weight:850;
-    }
-
-    .field{
-      display:flex;
-      flex-direction:column;
-      gap:5px;
-      color:#475569;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .field input,
-    .field select,
-    .field textarea{
-      width:100%;
-      padding:10px 11px;
-      border:1px solid rgba(14,116,144,.16);
-      border-radius:16px;
-      outline:0;
-      background:rgba(255,255,255,.92);
-      color:var(--ink);
-      font-weight:900;
-    }
-
-    .field textarea{
-      min-height:82px;
-      resize:vertical;
-      font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      user-select:text;
-    }
-
-    .connection-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:10px;
-    }
-
-    .status{
-      min-height:29px;
-      margin-top:10px;
-      padding:7px 9px;
-      border-radius:13px;
-      background:#f8fafc;
-      color:#475569;
-      font-size:12px;
-      line-height:1.35;
-      font-weight:900;
-    }
-
-    .status.ok{
-      color:#166534;
-      background:#ecfdf5;
-    }
-
-    .status.warn{
-      color:#92400e;
-      background:#fffbeb;
-    }
-
-    .status.bad{
-      color:#991b1b;
-      background:#fef2f2;
-    }
-
-    .filters{
-      display:grid;
-      grid-template-columns:1.15fr 1fr .72fr .68fr .68fr .72fr .72fr .72fr auto;
-      gap:10px;
-      align-items:end;
-      padding:13px;
-      margin-bottom:14px;
-    }
-
-    .kpis{
-      display:grid;
-      grid-template-columns:repeat(8,1fr);
-      gap:11px;
-      margin-bottom:14px;
-    }
-
-    .kpi{
-      position:relative;
-      overflow:hidden;
-      min-height:113px;
-      padding:13px;
-      border:1px solid rgba(255,255,255,.92);
-      border-radius:24px;
-      background:rgba(255,255,255,.84);
-      box-shadow:0 12px 28px rgba(15,23,42,.09);
-    }
-
-    .kpi::after{
-      content:"";
-      position:absolute;
-      right:-28px;
-      bottom:-30px;
-      width:92px;
-      height:92px;
-      border-radius:999px;
-      background:var(--glow,rgba(103,232,249,.28));
-    }
-
-    .kpi small,
-    .kpi b,
-    .kpi span{
-      position:relative;
-      z-index:1;
-    }
-
-    .kpi small{
-      display:block;
-      margin-bottom:6px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .kpi b{
-      display:block;
-      font-size:clamp(23px,2.8vw,33px);
-      line-height:1;
-      font-weight:1000;
-    }
-
-    .kpi span{
-      display:block;
-      margin-top:6px;
-      color:#475569;
-      font-size:10px;
-      line-height:1.28;
-      font-weight:850;
-    }
-
-    .dashboard-grid{
-      display:grid;
-      grid-template-columns:.97fr 1.03fr;
-      gap:14px;
-      margin-bottom:14px;
-    }
-
-    .card-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:10px;
-      margin-bottom:10px;
-    }
-
-    .card-head h2{
-      margin-bottom:3px;
-    }
-
-    .mini{
-      padding:6px 9px;
-      color:#475569;
-      border:1px solid var(--line);
-      background:#f8fafc;
-      white-space:nowrap;
-    }
-
-    .insights{
-      display:grid;
-      gap:9px;
-    }
-
-    .insight{
-      display:grid;
-      grid-template-columns:44px 1fr;
-      gap:10px;
-      align-items:center;
-      padding:10px;
-      border:1px solid var(--line);
-      border-radius:20px;
-      background:linear-gradient(180deg,#fff,#f8fafc);
-    }
-
-    .insight-icon{
-      display:grid;
-      place-items:center;
-      width:44px;
-      height:44px;
-      border-radius:16px;
-      background:linear-gradient(135deg,#ecfeff,#fdf2f8);
-      font-size:22px;
-    }
-
-    .insight b{
-      display:block;
-      margin-bottom:2px;
-      color:#0f172a;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .insight span{
-      display:block;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.35;
-      font-weight:850;
-    }
-
-    .zone-board{
-      display:grid;
-      gap:11px;
-    }
-
-    .zone-row{
-      display:grid;
-      grid-template-columns:78px 1fr 86px;
-      gap:8px;
-      align-items:center;
-      color:#334155;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .zone-stack{
-      display:grid;
-      gap:5px;
-    }
-
-    .track{
-      height:10px;
-      overflow:hidden;
-      border-radius:999px;
-      background:#e2e8f0;
-    }
-
-    .fill{
-      display:block;
-      width:0%;
-      height:100%;
-      border-radius:inherit;
-      background:linear-gradient(90deg,#67e8f9,#22c55e,#facc15);
-    }
-
-    .fill.blue{
-      background:linear-gradient(90deg,#60a5fa,#2563eb,#8b5cf6);
-    }
-
-    .fill.pink{
-      background:linear-gradient(90deg,#fb7185,#f97316,#facc15);
-    }
-
-    .zone-number{
-      color:#475569;
-      text-align:right;
-      font-size:11px;
-      line-height:1.3;
-      font-weight:1000;
-    }
-
-    .legend{
-      display:flex;
-      flex-wrap:wrap;
-      gap:7px;
-      margin-top:10px;
-    }
-
-    .legend span{
-      padding:5px 8px;
-      border:1px solid var(--line);
-      border-radius:999px;
-      background:#f8fafc;
-      color:#475569;
-      font-size:11px;
-      font-weight:1000;
-    }
-
-    .table-card{
-      padding:0;
-      margin-bottom:14px;
-    }
-
-    .table-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:10px;
-      padding:16px 16px 10px;
-    }
-
-    .table-head h2{
-      margin:0 0 3px;
-      font-size:21px;
-    }
-
-    .table-head p{
-      margin:0;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.42;
-      font-weight:850;
-    }
-
-    .table-scroll{
-      max-height:500px;
-      overflow:auto;
-      border-top:1px solid var(--line);
-    }
-
-    table{
-      width:100%;
-      min-width:1180px;
-      border-collapse:collapse;
-      background:rgba(255,255,255,.56);
-    }
-
-    th,
-    td{
-      padding:11px 10px;
-      border-bottom:1px solid rgba(15,23,42,.06);
-      color:#334155;
-      text-align:left;
-      vertical-align:middle;
-      white-space:nowrap;
-      font-size:12px;
-      line-height:1.35;
-      font-weight:850;
-    }
-
-    th{
-      position:sticky;
-      top:0;
-      z-index:1;
-      background:rgba(248,250,252,.98);
-      color:#475569;
-      font-size:11px;
-      font-weight:1000;
-    }
-
-    tbody tr{
-      cursor:pointer;
-    }
-
-    tbody tr:hover{
-      background:rgba(236,254,255,.8);
-    }
-
-    tbody tr.selected{
-      background:rgba(219,234,254,.72);
-      box-shadow:inset 4px 0 0 #2563eb;
-    }
-
-    .name-cell{
-      color:#0f172a;
-      font-weight:1000;
-    }
-
-    .sub{
-      display:block;
-      margin-top:2px;
-      overflow:hidden;
-      color:var(--muted);
-      font-size:10px;
-      font-weight:850;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-    }
-
-    .tag{
-      min-height:25px;
-      padding:4px 8px;
-      color:#475569;
-      border:1px solid var(--line);
-      background:#f8fafc;
-    }
-
-    .tag.pass{
-      color:#166534;
-      border-color:rgba(34,197,94,.2);
-      background:#ecfdf5;
-    }
-
-    .tag.learning{
-      color:#0e7490;
-      border-color:rgba(6,182,212,.2);
-      background:#ecfeff;
-    }
-
-    .tag.practice{
-      color:#92400e;
-      border-color:rgba(245,158,11,.24);
-      background:#fffbeb;
-    }
-
-    .tag.retry{
-      color:#991b1b;
-      border-color:rgba(239,68,68,.2);
-      background:#fef2f2;
-    }
-
-    .tag.legacy{
-      color:#475569;
-      border-color:rgba(100,116,139,.24);
-      background:#f1f5f9;
-    }
-
-    .empty-row,
-    .mobile-empty{
-      padding:28px;
-      color:var(--muted);
-      text-align:center;
-      font-weight:900;
-    }
-
-    .mobile-records{
-      display:none;
-    }
-
-    .detail-grid{
-      display:grid;
-      grid-template-columns:.85fr 1.15fr;
-      gap:14px;
-    }
-
-    .detail-empty{
-      display:grid;
-      min-height:260px;
-      place-items:center;
-      padding:18px;
-      color:var(--muted);
-      text-align:center;
-      line-height:1.5;
-      font-weight:900;
-    }
-
-    .student-head{
-      display:flex;
-      align-items:center;
-      gap:11px;
-      padding-bottom:12px;
-      margin-bottom:12px;
-      border-bottom:1px solid var(--line);
-    }
-
-    .avatar{
-      display:grid;
-      place-items:center;
-      width:53px;
-      height:53px;
-      border-radius:19px;
-      background:linear-gradient(135deg,#ecfeff,#fce7f3);
-      font-size:26px;
-    }
-
-    .student-head h3{
-      margin:0 0 3px;
-      font-size:21px;
-      line-height:1.05;
-      letter-spacing:-.03em;
-      font-weight:1000;
-    }
-
-    .student-head p{
-      margin:0;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.35;
-      font-weight:850;
-    }
-
-    .metric-grid{
-      display:grid;
-      grid-template-columns:repeat(2,1fr);
-      gap:8px;
-    }
-
-    .metric{
-      padding:10px;
-      border:1px solid var(--line);
-      border-radius:18px;
-      background:#f8fafc;
-    }
-
-    .metric small{
-      display:block;
-      margin-bottom:3px;
-      color:var(--muted);
-      font-size:10px;
-      font-weight:1000;
-    }
-
-    .metric b{
-      color:#0f172a;
-      font-size:18px;
-      line-height:1;
-      font-weight:1000;
-    }
-
-    .detail-note{
-      margin-top:11px;
-      padding:11px;
-      border-radius:18px;
-      background:#f8fafc;
-      color:#475569;
-      font-size:12px;
-      line-height:1.5;
-      font-weight:850;
-      white-space:pre-line;
-    }
-
-    .detail-note strong{
-      color:#0f172a;
-      font-weight:1000;
-    }
-
-    .record-card{
-      padding:13px;
-      border:1px solid var(--line);
-      border-radius:22px;
-      background:linear-gradient(180deg,#fff,#f8fafc);
-      box-shadow:0 8px 18px rgba(15,23,42,.05);
-    }
-
-    .record-card.selected{
-      border-color:rgba(37,99,235,.36);
-      box-shadow:inset 4px 0 0 #2563eb,0 8px 18px rgba(15,23,42,.07);
-    }
-
-    .record-card-top,
-    .record-card-bottom{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-    }
-
-    .record-card-top{
-      align-items:flex-start;
-      margin-bottom:8px;
-    }
-
-    .record-card time{
-      color:#64748b;
-      font-size:11px;
-      line-height:1.35;
-      font-weight:1000;
-    }
-
-    .record-card h3{
-      margin:0;
-      color:#0f172a;
-      font-size:18px;
-      line-height:1.08;
-      letter-spacing:-.025em;
-      font-weight:1000;
-    }
-
-    .record-card p{
-      margin:3px 0 0;
-      color:#64748b;
-      font-size:12px;
-      line-height:1.35;
-      font-weight:850;
-    }
-
-    .record-card-metrics{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:7px;
-      margin:11px 0;
-    }
-
-    .record-card-metric{
-      padding:8px;
-      border:1px solid rgba(15,23,42,.06);
-      border-radius:14px;
-      background:#fff;
-    }
-
-    .record-card-metric small{
-      display:block;
-      color:#64748b;
-      font-size:10px;
-      font-weight:1000;
-    }
-
-    .record-card-metric b{
-      display:block;
-      margin-top:2px;
-      color:#0f172a;
-      font-size:16px;
-      line-height:1;
-      font-weight:1000;
-    }
-
-    .record-open{
-      min-height:35px;
-      padding:0 10px;
-      border-radius:13px;
-      background:#ecfeff;
-      color:#0e7490;
-      font-size:11px;
-      font-weight:1000;
-    }
-
-    .toast{
-      position:fixed;
-      z-index:999;
-      left:50%;
-      bottom:calc(20px + var(--safe-bottom));
-      max-width:min(92vw,620px);
-      padding:11px 14px;
-      border-radius:999px;
-      transform:translate(-50%,16px);
-      background:rgba(15,23,42,.92);
-      color:#fff;
-      box-shadow:0 18px 40px rgba(15,23,42,.26);
-      font-size:13px;
-      font-weight:900;
-      opacity:0;
-      pointer-events:none;
-      transition:.18s;
-    }
-
-    .toast.show{
-      opacity:1;
-      transform:translate(-50%,0);
-    }
-
-    @media(max-width:1180px){
-      .filters{
-        grid-template-columns:repeat(3,1fr);
-      }
-
-      .kpis{
-        grid-template-columns:repeat(4,1fr);
-      }
-    }
-
-    @media(max-width:880px){
-      .topbar,
-      .hero,
-      .dashboard-grid,
-      .detail-grid{
-        display:grid;
-        grid-template-columns:1fr;
-      }
-
-      .actions{
-        justify-content:flex-start;
-      }
-
-      .kpis{
-        grid-template-columns:repeat(2,1fr);
-      }
-
-      .filters{
-        grid-template-columns:repeat(2,1fr);
-      }
-    }
-
-    @media(max-width:700px){
-      .table-scroll{
-        display:none;
-      }
-
-      .mobile-records{
-        display:grid;
-        gap:10px;
-        padding:12px;
-      }
-    }
-
-    @media(max-width:580px){
-      .page{
-        padding-right:10px;
-        padding-left:10px;
-      }
-
-      .brand-icon{
-        width:48px;
-        height:48px;
-        border-radius:18px;
-        font-size:25px;
-      }
-
-      h1{
-        font-size:26px;
-      }
-
-      .hero-main,
-      .connection,
-      .card{
-        padding:14px;
-      }
-
-      .hero-title{
-        font-size:38px;
-      }
-
-      .filters{
-        grid-template-columns:1fr;
-      }
-
-      .filters .btn{
-        width:100%;
-      }
-
-      .zone-row{
-        grid-template-columns:68px 1fr 76px;
-      }
-    }
-
-    @media print{
-      .actions,
-      .connection,
-      .filters,
-      .btn,
-      .mobile-records{
-        display:none!important;
-      }
-
-      .page{
-        padding:0;
-      }
-
-      body{
-        background:#fff;
-      }
-
-      .panel,
-      .kpi,
-      .card{
-        box-shadow:none;
-        border:1px solid #dbe3ec;
-      }
-
-      .table-scroll{
-        display:block!important;
-        max-height:none;
-        overflow:visible;
-      }
-
-      table{
-        min-width:0;
-      }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#e0f7ff">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:,">
+<title>HeroHealth • Hygiene Zone • Teacher Dashboard</title>
+<style>
+:root{--ink:#0f172a;--muted:#64748b;--cyan:#06b6d4;--blue:#2563eb;--green:#16a34a;--amber:#f59e0b;--red:#ef4444;--pink:#ec4899;--line:rgba(15,23,42,.09);--safe-top:env(safe-area-inset-top,0px);--safe-right:env(safe-area-inset-right,0px);--safe-bottom:env(safe-area-inset-bottom,0px);--safe-left:env(safe-area-inset-left,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;font-family:ui-rounded,"Sarabun","Noto Sans Thai",system-ui,sans-serif;color:var(--ink);background:radial-gradient(circle at 10% 4%,rgba(103,232,249,.58),transparent 28%),radial-gradient(circle at 89% 10%,rgba(251,207,232,.62),transparent 28%),linear-gradient(155deg,#ecfeff,#fdf2f8 54%,#fff7ed)}
+button,input,select,textarea{font:inherit}button{border:0;cursor:pointer}
+.page{min-height:100vh;padding:calc(16px + var(--safe-top)) calc(14px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(14px + var(--safe-left))}
+.wrap{width:min(1380px,100%);margin:auto}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:12px}.logo{display:grid;place-items:center;width:58px;height:58px;border-radius:22px;color:#fff;font-size:30px;background:linear-gradient(135deg,#67e8f9,#2563eb,#ec4899);box-shadow:0 17px 35px rgba(37,99,235,.22)}h1{margin:0;font-size:clamp(23px,4vw,43px);line-height:1.02;letter-spacing:-.045em;font-weight:1000}h1 span{display:block;margin-top:4px;color:#0e7490;font-size:.51em;letter-spacing:0}
+.actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.btn{min-height:42px;padding:0 13px;border:1px solid rgba(255,255,255,.9);border-radius:16px;background:rgba(255,255,255,.88);color:var(--ink);box-shadow:0 11px 24px rgba(15,23,42,.10);font-size:13px;font-weight:1000}.btn.primary{color:#fff;border:0;background:linear-gradient(90deg,#06b6d4,#2563eb)}.btn.green{color:#fff;border:0;background:linear-gradient(90deg,#14b8a6,#22c55e)}.btn.warn{background:#fffbeb;border-color:rgba(245,158,11,.28);color:#78350f}
+.panel{border:1px solid rgba(255,255,255,.92);border-radius:29px;background:rgba(255,255,255,.84);box-shadow:0 18px 50px rgba(15,23,42,.13);backdrop-filter:blur(14px)}
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-bottom:14px}.hero-main,.connection,.card{padding:17px}.hero-main{min-height:235px;padding:22px}.eyebrow,.chip,.tag{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;font-size:11px;font-weight:1000}.eyebrow{gap:7px;padding:7px 11px;margin-bottom:10px;border:1px solid rgba(6,182,212,.18);background:#ecfeff;color:#0e7490}
+.hero-title{margin:0;max-width:100%;font-size:clamp(30px,4.15vw,54px);line-height:1.02;letter-spacing:-.052em;font-weight:1000;overflow-wrap:anywhere}.hero-title b{color:transparent;background:linear-gradient(90deg,#0891b2,#2563eb,#db2777);-webkit-background-clip:text;background-clip:text}.copy{width:min(720px,100%);margin:12px 0 0;color:#475569;line-height:1.65;font-size:14px;font-weight:850}.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.chip{padding:7px 10px;background:#fff;border:1px solid var(--line);color:#334155;box-shadow:0 8px 18px rgba(15,23,42,.06)}
+h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-weight:1000}.muted{margin:0 0 10px;color:var(--muted);font-size:13px;line-height:1.5;font-weight:850}
+.field{display:flex;flex-direction:column;gap:5px;color:#475569;font-size:12px;font-weight:1000}.field input,.field select,.field textarea{width:100%;padding:10px 11px;border:1px solid rgba(14,116,144,.16);border-radius:16px;outline:0;background:rgba(255,255,255,.92);color:var(--ink);font-weight:900}.field textarea{min-height:82px;resize:vertical;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;user-select:text}.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.status{min-height:28px;margin-top:10px;padding:7px 9px;border-radius:13px;background:#f8fafc;color:#475569;font-size:12px;line-height:1.35;font-weight:900}.status.ok{background:#ecfdf5;color:#166534}.status.warn{background:#fffbeb;color:#92400e}.status.bad{background:#fef2f2;color:#991b1b}
+.filters{display:grid;grid-template-columns:1.16fr 1fr .68fr .62fr .62fr .62fr .68fr .68fr .68fr auto;gap:10px;align-items:end;padding:13px;margin-bottom:14px}.filters .field{margin:0}
+.kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:11px;margin-bottom:14px}.kpi{position:relative;overflow:hidden;min-height:113px;padding:13px;border:1px solid rgba(255,255,255,.92);border-radius:24px;background:rgba(255,255,255,.84);box-shadow:0 12px 28px rgba(15,23,42,.09)}.kpi:after{content:"";position:absolute;right:-28px;bottom:-30px;width:92px;height:92px;border-radius:50%;background:var(--glow,rgba(103,232,249,.28))}.kpi small,.kpi b,.kpi span{position:relative;z-index:1}.kpi small{display:block;margin-bottom:6px;color:var(--muted);font-size:12px;font-weight:1000}.kpi b{display:block;font-size:clamp(23px,2.8vw,33px);line-height:1;font-weight:1000}.kpi span{display:block;margin-top:6px;color:#475569;font-size:11px;line-height:1.25;font-weight:850}
+.grid{display:grid;grid-template-columns:.97fr 1.03fr;gap:14px;margin-bottom:14px}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}.head h2{margin-bottom:3px}.mini{padding:6px 9px;border-radius:999px;background:#f8fafc;color:#475569;border:1px solid var(--line);font-size:11px;font-weight:1000;white-space:nowrap}
+.insights{display:grid;gap:9px}.insight{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(180deg,#fff,#f8fafc)}.icon{display:grid;place-items:center;width:44px;height:44px;border-radius:16px;background:linear-gradient(135deg,#ecfeff,#fdf2f8);font-size:22px}.insight b{display:block;margin-bottom:2px;font-size:13px;font-weight:1000}.insight span{display:block;color:var(--muted);font-size:12px;line-height:1.35;font-weight:850}
+.zone-board{display:grid;gap:11px}.zone-row{display:grid;grid-template-columns:78px 1fr 82px;gap:8px;align-items:center;color:#334155;font-size:12px;font-weight:1000}.stack{display:grid;gap:5px}.track{height:10px;overflow:hidden;border-radius:999px;background:#e2e8f0}.fill{display:block;height:100%;width:0%;border-radius:inherit;background:linear-gradient(90deg,#67e8f9,#22c55e,#facc15)}.fill.blue{background:linear-gradient(90deg,#60a5fa,#2563eb,#8b5cf6)}.fill.pink{background:linear-gradient(90deg,#fb7185,#f97316,#facc15)}.zone-num{text-align:right;font-size:11px;line-height:1.3;color:#475569}.legend{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.legend span{padding:5px 8px;border:1px solid var(--line);border-radius:999px;background:#f8fafc;color:#475569;font-size:11px;font-weight:1000}
+.table-card{padding:0;margin-bottom:14px}.table-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px 16px 10px}.table-head h2{margin:0 0 3px;font-size:21px}.table-head p{margin:0;color:var(--muted);font-size:12px;font-weight:850}.scroll{max-height:500px;overflow:auto;border-top:1px solid var(--line)}table{width:100%;min-width:1150px;border-collapse:collapse;background:rgba(255,255,255,.56)}th,td{padding:11px 10px;border-bottom:1px solid rgba(15,23,42,.06);color:#334155;text-align:left;vertical-align:middle;white-space:nowrap;font-size:12px;line-height:1.35;font-weight:850}th{position:sticky;top:0;z-index:1;background:rgba(248,250,252,.98);color:#475569;font-size:11px;font-weight:1000}tbody tr{cursor:pointer}tbody tr:hover{background:rgba(236,254,255,.8)}tbody tr.selected{background:rgba(219,234,254,.72);box-shadow:inset 4px 0 0 #2563eb}.name{color:#0f172a;font-weight:1000}.sub{display:block;margin-top:2px;color:var(--muted);font-size:10px;font-weight:850}.tag{min-height:25px;padding:4px 8px;border:1px solid var(--line);background:#f8fafc;color:#475569}.tag.pass{background:#ecfdf5;border-color:rgba(34,197,94,.2);color:#166534}.tag.learning{background:#ecfeff;border-color:rgba(6,182,212,.2);color:#0e7490}.tag.practice{background:#fffbeb;border-color:rgba(245,158,11,.24);color:#92400e}.tag.retry{background:#fef2f2;border-color:rgba(239,68,68,.2);color:#991b1b}.empty{padding:32px;text-align:center;color:var(--muted);font-weight:900}
+.details{display:grid;grid-template-columns:.85fr 1.15fr;gap:14px}.empty-detail{display:grid;min-height:260px;place-items:center;padding:18px;text-align:center;color:var(--muted);font-weight:900;line-height:1.5}.student{display:flex;align-items:center;gap:11px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--line)}.avatar{display:grid;place-items:center;width:53px;height:53px;border-radius:19px;background:linear-gradient(135deg,#ecfeff,#fce7f3);font-size:26px}.student h3{margin:0 0 3px;font-size:21px;line-height:1.05;letter-spacing:-.03em;font-weight:1000}.student p{margin:0;color:var(--muted);font-size:12px;line-height:1.35;font-weight:850}.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.metric{padding:10px;border:1px solid var(--line);border-radius:18px;background:#f8fafc}.metric small{display:block;margin-bottom:3px;color:var(--muted);font-size:10px;font-weight:1000}.metric b{font-size:18px;line-height:1;font-weight:1000}.note{margin-top:11px;padding:11px;border-radius:18px;background:#f8fafc;color:#475569;font-size:12px;line-height:1.5;font-weight:850;white-space:pre-line}.note strong{color:var(--ink)}
+.toast{position:fixed;z-index:999;left:50%;bottom:calc(20px + var(--safe-bottom));max-width:min(92vw,620px);padding:11px 14px;border-radius:999px;transform:translate(-50%,16px);background:rgba(15,23,42,.92);color:#fff;box-shadow:0 18px 40px rgba(15,23,42,.26);font-size:13px;font-weight:900;opacity:0;pointer-events:none;transition:.18s}.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:1180px){.kpis{grid-template-columns:repeat(4,1fr)}.filters{grid-template-columns:repeat(3,1fr)}}@media(max-width:880px){.top,.hero,.grid,.details{display:grid;grid-template-columns:1fr}.actions{justify-content:flex-start}.kpis{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:repeat(2,1fr)}}@media(max-width:580px){.page{padding-left:10px;padding-right:10px}.logo{width:48px;height:48px;border-radius:18px;font-size:25px}h1{font-size:26px}.hero-main,.connection,.card{padding:14px}.hero-title{font-size:38px}.filters{grid-template-columns:1fr}.filters .btn{width:100%}.kpis{gap:8px}.kpi{min-height:103px;padding:11px}.zone-row{grid-template-columns:68px 1fr 74px}}@media print{.actions,.connection,.filters,.btn{display:none!important}.page{padding:0}body{background:#fff}.panel,.kpi,.card{box-shadow:none;border:1px solid #dbe3ec}.scroll{max-height:none;overflow:visible}table{min-width:0}}
+
+/* V2.4 Legacy-aware metrics + mobile record cards */
+.tag.legacy{background:#f1f5f9;border-color:rgba(100,116,139,.24);color:#475569}
+.mobile-records{display:none}
+.mobile-record-empty{padding:24px;text-align:center;color:var(--muted);font-weight:900}
+.record-card{padding:13px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(180deg,#fff,#f8fafc);box-shadow:0 8px 18px rgba(15,23,42,.05)}
+.record-card.selected{border-color:rgba(37,99,235,.36);box-shadow:inset 4px 0 0 #2563eb,0 8px 18px rgba(15,23,42,.07)}
+.record-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+.record-card time{display:block;color:#64748b;font-size:11px;line-height:1.35;font-weight:1000}
+.record-card h3{margin:0;color:#0f172a;font-size:18px;line-height:1.08;letter-spacing:-.025em;font-weight:1000}
+.record-card p{margin:3px 0 0;color:#64748b;font-size:12px;line-height:1.35;font-weight:850}
+.record-card-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:11px 0}
+.record-card-metric{padding:8px;border-radius:14px;background:#fff;border:1px solid rgba(15,23,42,.06)}
+.record-card-metric small{display:block;color:#64748b;font-size:10px;font-weight:1000}
+.record-card-metric b{display:block;margin-top:2px;color:#0f172a;font-size:16px;line-height:1;font-weight:1000}
+.record-card-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.record-card-bottom .sub{margin:0;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.record-open{min-height:35px;padding:0 10px;border:0;border-radius:13px;background:#ecfeff;color:#0e7490;font-size:11px;font-weight:1000}
+@media(min-width:1181px){.filters{grid-template-columns:1.05fr .66fr .62fr .66fr .7fr .72fr .72fr auto}}
+@media(max-width:700px){.scroll{display:none}.mobile-records{display:grid;gap:10px;padding:12px}.table-card{padding-bottom:0}}
+@media print{.mobile-records{display:none!important}.scroll{display:block!important}}
+
+/* V2.5 Individual Student Focus */
+@media(min-width:1181px){.filters{grid-template-columns:1.16fr 1.02fr .72fr .62fr .62fr .62fr .67fr .67fr .67fr auto}}
+
+/* V2.6 • time-range, growth card, and next-mission planner */
+.growth-grid{display:grid;grid-template-columns:1.04fr .96fr;gap:14px;margin-bottom:14px}
+.growth-card,.mission-card{min-height:250px}
+.growth-empty,.mission-empty{display:grid;min-height:185px;place-items:center;padding:22px;text-align:center;color:var(--muted);font-weight:900;line-height:1.55}
+.growth-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--line)}
+.growth-person{display:flex;align-items:center;gap:10px;min-width:0}
+.growth-person .avatar{width:46px;height:46px;border-radius:17px;font-size:22px}
+.growth-person h3{margin:0 0 3px;font-size:19px;line-height:1.05;letter-spacing:-.03em;font-weight:1000;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.growth-person p{margin:0;color:var(--muted);font-size:11px;line-height:1.35;font-weight:850}
+.growth-status{padding:6px 9px;border-radius:999px;background:#ecfeff;color:#0e7490;border:1px solid rgba(6,182,212,.18);font-size:10px;font-weight:1000;white-space:nowrap}
+.growth-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:13px}
+.growth-stat{padding:10px;border:1px solid var(--line);border-radius:18px;background:#f8fafc}
+.growth-stat small{display:block;color:var(--muted);font-size:10px;font-weight:1000}
+.growth-stat b{display:block;margin-top:4px;font-size:20px;line-height:1;font-weight:1000}
+.growth-stat span{display:block;margin-top:4px;color:#475569;font-size:10px;line-height:1.3;font-weight:850}
+.trend-list{display:grid;gap:8px}
+.trend-row{display:grid;grid-template-columns:96px 1fr auto;gap:8px;align-items:center}
+.trend-label{color:#334155;font-size:11px;font-weight:1000}
+.trend-track{height:10px;overflow:hidden;border-radius:999px;background:#e2e8f0}
+.trend-fill{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#38bdf8,#2563eb,#8b5cf6)}
+.trend-fill.good{background:linear-gradient(90deg,#5eead4,#22c55e,#84cc16)}
+.trend-fill.warn{background:linear-gradient(90deg,#fb7185,#f97316,#facc15)}
+.trend-delta{min-width:74px;text-align:right;font-size:10px;font-weight:1000}
+.trend-delta.up{color:#15803d}.trend-delta.down{color:#b45309}.trend-delta.flat{color:#64748b}
+.mission-banner{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:21px;background:linear-gradient(135deg,#ecfeff,#f8fafc)}
+.mission-icon{display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;border-radius:17px;background:#fff;font-size:24px;box-shadow:0 7px 16px rgba(15,23,42,.06)}
+.mission-banner h3{margin:0 0 4px;font-size:18px;line-height:1.1;letter-spacing:-.025em;font-weight:1000}
+.mission-banner p{margin:0;color:#475569;font-size:12px;line-height:1.42;font-weight:850}
+.mission-goals{display:flex;flex-wrap:wrap;gap:7px;margin:11px 0}
+.mission-goal{padding:6px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#334155;font-size:10px;font-weight:1000}
+.mission-steps{display:grid;gap:7px}
+.mission-step{display:grid;grid-template-columns:24px 1fr;gap:8px;align-items:start;padding:8px 0;border-top:1px solid rgba(15,23,42,.06);color:#475569;font-size:12px;line-height:1.4;font-weight:850}
+.mission-step:first-child{border-top:0}
+.mission-step b{display:grid;place-items:center;width:22px;height:22px;border-radius:999px;background:#e0f2fe;color:#0369a1;font-size:11px}
+.mission-footer{margin-top:10px;padding:9px 10px;border-radius:15px;background:#f8fafc;color:#475569;font-size:11px;line-height:1.4;font-weight:850}
+@media(max-width:880px){.growth-grid{grid-template-columns:1fr}}
+@media(max-width:580px){.growth-stats{grid-template-columns:repeat(2,1fr)}.trend-row{grid-template-columns:82px 1fr 66px}.growth-card,.mission-card{min-height:0}}
+
+</style>
 </head>
-
 <body>
-  <main class="page">
-    <div class="wrap">
+<main class="page"><div class="wrap">
+<header class="top">
+  <div class="brand"><div class="logo">🪥</div><h1>Hygiene Zone<span>Teacher Dashboard • Learning + Challenge Analytics</span></h1></div>
+  <div class="actions"><button id="homeBtn" class="btn">← Hygiene Zone</button><button id="printBtn" class="btn">🖨️ Print / Save PDF</button><button id="exportBtn" class="btn primary">⬇ Export CSV</button></div>
+</header>
 
-      <header class="topbar">
-        <div class="brand">
-          <div class="brand-icon">🪥</div>
-          <h1>
-            Hygiene Zone
-            <span>Teacher Dashboard • Learning + Challenge Analytics</span>
-          </h1>
-        </div>
+<section class="hero">
+  <div class="panel hero-main">
+    <div class="eyebrow">📊 Teacher Insight Center</div>
+    <h2 class="hero-title">ดูว่าเด็ก <b>แปรงสะอาด</b><br>และแปรงถูกวิธีจริงไหม</h2>
+    <p class="copy">Dashboard แยก Learning Mode กับ Challenge Mode ชัดเจน: Learning Mastery คือ pass strokes ที่ใช้ผ่านโซน ส่วน Overall Direction คือความแม่นระหว่างฝึก เพื่อให้ครูเห็นทั้ง “ผ่านทักษะ” และ “จุดที่ควรโค้ชต่อ”</p>
+    <div class="pills"><span class="chip">🗺️ Learning Mastery</span><span class="chip">🧭 Overall Direction</span><span class="chip">🌿 Gum Safety</span><span class="chip">🦷 Zone Performance</span></div>
+  </div>
+  <div class="panel connection">
+    <h2>เชื่อม Google Sheets</h2>
+    <p class="muted">ใส่ Web App URL ของ Code.gs หลักที่ deploy ล่าสุด แล้วกดโหลดข้อมูล Dashboard จะลอง JSON ก่อน และ fallback เป็น JSONP อัตโนมัติ</p>
+    <label class="field">Apps Script Web App URL (/exec)<input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label>
+    <div class="row"><button id="loadBtn" class="btn green">↻ โหลดจาก Sheet</button><button id="demoBtn" class="btn">✨ Demo Data</button><button id="clearUrlBtn" class="btn warn">ล้าง URL</button></div>
+    <div id="apiStatus" class="status">กำลังใช้ข้อมูลตัวอย่างในเครื่อง</div>
+    <label class="field" style="margin-top:10px">วาง JSON / CSV สำหรับทดสอบ<textarea id="importBox" placeholder='[{"player_name":"Hero","game_key":"toothbrush",...}]'></textarea></label>
+    <div class="row"><button id="importBtn" class="btn">นำเข้าข้อมูลที่วาง</button></div>
+  </div>
+</section>
 
-        <div class="actions">
-          <button id="homeBtn" class="btn">← Hygiene Zone</button>
-          <button id="printBtn" class="btn">🖨️ Print / Save PDF</button>
-          <button id="exportBtn" class="btn primary">⬇ Export CSV</button>
-        </div>
-      </header>
+<section class="panel filters">
+  <label class="field">ค้นหานักเรียน / รหัส / ผลลัพธ์<input id="search" type="search" placeholder="เช่น Hero, ป.5, direction..."></label>
+  <label class="field">👤 ดูข้อมูลรายบุคคล<select id="student"></select></label>
+  <label class="field">🗓️ ช่วงเวลา (อิงผลล่าสุด)<select id="range"><option value="all">ทั้งหมด</option><option value="today">วันนี้</option><option value="7d">7 วันล่าสุด</option><option value="30d">30 วันล่าสุด</option></select></label>
+  <label class="field">เกม<select id="game"></select></label>
+  <label class="field">ชั้น<select id="class"></select></label>
+  <label class="field">โหมด<select id="mode"></select></label>
+  <label class="field">ข้อมูล<select id="era"></select></label>
+  <label class="field">ผลลัพธ์<select id="result"></select></label>
+  <label class="field">เรียงตาม<select id="sort"><option value="latest">ล่าสุด</option><option value="score">คะแนนสูงสุด</option><option value="direction">Direction ต่ำสุด</option><option value="gum">Gum ต่ำสุด</option><option value="technique">Technique ต่ำสุด</option></select></label>
+  <button id="resetBtn" class="btn">ล้าง Filter</button>
+</section>
 
-      <section class="hero">
-        <article class="panel hero-main">
-          <div class="eyebrow">📊 Teacher Insight Center</div>
+<section id="kpis" class="kpis"></section>
 
-          <h2 class="hero-title">
-            ดูว่าเด็ก <strong>แปรงสะอาด</strong><br>
-            และแปรงถูกวิธีจริงไหม
-          </h2>
+<section class="grid">
+  <article class="panel card"><div class="head"><div><h2>🎯 Teacher Action Center</h2><p class="muted">สิ่งที่ควรจัดกิจกรรมหรือ coaching ต่อจากข้อมูลที่เลือก</p></div><span id="insightCount" class="mini">0 records</span></div><div id="insights" class="insights"></div></article>
+  <article class="panel card"><div class="head"><div><h2>🗺️ Zone Learning & Challenge Map</h2><p class="muted">Learning Skill / Challenge Clean / Challenge Direction รายโซน</p></div><span class="mini">6 zones</span></div><div id="zoneBoard" class="zone-board"></div><div class="legend"><span>🟦 Learning Skill</span><span>🟩 Challenge Clean</span><span>🟨 Challenge Direction</span></div></article>
+</section>
 
-          <p class="hero-copy">
-            แยก Learning Mode กับ Challenge Mode ชัดเจน:
-            Learning Mastery คือ pass strokes ที่ใช้ผ่านโซน ส่วน Overall Direction
-            คือความแม่นระหว่างฝึก เพื่อให้ครูเห็นทั้ง “ผ่านทักษะ” และ “จุดที่ควรโค้ชต่อ”
-          </p>
-
-          <div class="chips">
-            <span class="chip">🗺️ Learning Mastery</span>
-            <span class="chip">🧭 Overall Direction</span>
-            <span class="chip">🌿 Gum Safety</span>
-            <span class="chip">🦷 Zone Performance</span>
-          </div>
-        </article>
-
-        <article class="panel connection">
-          <h2>เชื่อม Google Sheets</h2>
-
-          <p class="muted">
-            ใส่ Web App URL ของ Code.gs หลัก แล้วกดโหลดข้อมูล
-            ระบบจะลอง JSON ก่อน และ fallback เป็น JSONP อัตโนมัติ
-          </p>
-
-          <label class="field">
-            Apps Script Web App URL (/exec)
-            <input
-              id="apiUrl"
-              type="url"
-              placeholder="https://script.google.com/macros/s/.../exec"
-            />
-          </label>
-
-          <div class="connection-actions">
-            <button id="loadBtn" class="btn green">↻ โหลดจาก Sheet</button>
-            <button id="demoBtn" class="btn">✨ Demo Data</button>
-            <button id="clearUrlBtn" class="btn warn">ล้าง URL</button>
-          </div>
-
-          <div id="apiStatus" class="status">
-            กำลังใช้ข้อมูลตัวอย่างในเครื่อง
-          </div>
-
-          <label class="field" style="margin-top:10px">
-            วาง JSON / CSV สำหรับทดสอบ
-            <textarea
-              id="importBox"
-              placeholder='[{"player_name":"Hero","game_key":"toothbrush",...}]'
-            ></textarea>
-          </label>
-
-          <div class="connection-actions">
-            <button id="importBtn" class="btn">นำเข้าข้อมูลที่วาง</button>
-          </div>
-        </article>
-      </section>
-
-      <section class="panel filters">
-        <label class="field">
-          ค้นหานักเรียน / รหัส / ผลลัพธ์
-          <input id="searchInput" type="search" placeholder="เช่น Hero, ป.5, direction..." />
-        </label>
-
-        <label class="field">
-          👤 ดูข้อมูลรายบุคคล
-          <select id="studentFilter"></select>
-        </label>
-
-        <label class="field">
-          เกม
-          <select id="gameFilter"></select>
-        </label>
-
-        <label class="field">
-          ชั้น
-          <select id="classFilter"></select>
-        </label>
-
-        <label class="field">
-          โหมด
-          <select id="modeFilter"></select>
-        </label>
-
-        <label class="field">
-          ข้อมูล
-          <select id="eraFilter"></select>
-        </label>
-
-        <label class="field">
-          ผลลัพธ์
-          <select id="resultFilter"></select>
-        </label>
-
-        <label class="field">
-          เรียงตาม
-          <select id="sortFilter">
-            <option value="latest">ล่าสุด</option>
-            <option value="score">คะแนนสูงสุด</option>
-            <option value="direction">Direction ต่ำสุด</option>
-            <option value="gum">Gum ต่ำสุด</option>
-            <option value="technique">Technique ต่ำสุด</option>
-          </select>
-        </label>
-
-        <button id="resetBtn" class="btn">ล้าง Filter</button>
-      </section>
-
-      <section id="kpiGrid" class="kpis"></section>
-
-      <section class="dashboard-grid">
-        <article class="panel card">
-          <div class="card-head">
-            <div>
-              <h2>🎯 Teacher Action Center</h2>
-              <p class="muted">สิ่งที่ควรจัดกิจกรรมหรือ coaching ต่อจากข้อมูลที่เลือก</p>
-            </div>
-            <span id="insightCount" class="mini">0 records</span>
-          </div>
-
-          <div id="insightList" class="insights"></div>
-        </article>
-
-        <article class="panel card">
-          <div class="card-head">
-            <div>
-              <h2>🗺️ Zone Learning & Challenge Map</h2>
-              <p class="muted">Learning Skill / Challenge Clean / Challenge Direction รายโซน</p>
-            </div>
-            <span class="mini">6 zones</span>
-          </div>
-
-          <div id="zoneBoard" class="zone-board"></div>
-
-          <div class="legend">
-            <span>🟦 Learning Skill</span>
-            <span>🟩 Challenge Clean</span>
-            <span>🟨 Challenge Direction</span>
-          </div>
-        </article>
-      </section>
-
-      <section class="panel table-card">
-        <div class="table-head">
-          <div>
-            <h2>👩‍🎓 Student Records</h2>
-            <p id="recordCaption">เลือกแถวเพื่อดูรายละเอียดรายโซนและ feedback</p>
-          </div>
-          <span id="recordCount" class="mini">0 records</span>
-        </div>
-
-        <div class="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>เวลา</th>
-                <th>นักเรียน</th>
-                <th>เกม / โหมด</th>
-                <th>ผล</th>
-                <th>Score</th>
-                <th>Clean</th>
-                <th>Gum</th>
-                <th>Technique</th>
-                <th>Coverage</th>
-                <th>Learning</th>
-                <th>Mastery</th>
-                <th>Overall Direction</th>
-                <th>Weak Zone</th>
-                <th>Input</th>
-              </tr>
-            </thead>
-            <tbody id="recordsBody"></tbody>
-          </table>
-        </div>
-
-        <div id="mobileRecords" class="mobile-records"></div>
-      </section>
-
-      <section class="detail-grid">
-        <article class="panel card">
-          <div class="card-head">
-            <div>
-              <h2>🔎 Selected Attempt</h2>
-              <p class="muted">สรุปรายบุคคลจากการเล่นครั้งที่เลือก</p>
-            </div>
-            <span id="detailTag" class="mini">เลือกแถว</span>
-          </div>
-
-          <div id="detailSummary" class="detail-empty">
-            เลือกแถวจากตารางหรือการ์ด เพื่อดูรายละเอียดรายบุคคล
-          </div>
-        </article>
-
-        <article class="panel card">
-          <div class="card-head">
-            <div>
-              <h2>🧩 Zone Drilldown</h2>
-              <p class="muted">ดู pass strokes หรือ Challenge Clean / Direction รายโซน</p>
-            </div>
-            <span id="detailModeTag" class="mini">-</span>
-          </div>
-
-          <div id="detailZones" class="detail-empty">
-            รายละเอียดรายโซนจะแสดงที่นี่
-          </div>
-        </article>
-      </section>
-
+<section class="growth-grid">
+  <article class="panel card growth-card">
+    <div class="head">
+      <div><h2>📈 Student Growth Card</h2><p class="muted">เทียบครั้งแรก → ล่าสุด ภายใต้ filter และช่วงเวลาที่เลือก</p></div>
+      <span id="growthRangeTag" class="mini">เลือกนักเรียน</span>
     </div>
-  </main>
-
-  <div id="toast" class="toast"></div>
-
-  <script>
-    (() => {
-      'use strict';
-
-      const VERSION = 'v20260622-HYGIENE-TEACHER-DASHBOARD-V2-5-STUDENT-DROPDOWN';
-
-      const CONFIG = {
-        homeUrl: '../hygiene-zone-v2.html',
-        defaultApiUrl: 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec',
-        apiStorageKey: 'herohealth_hygiene_teacher_api_v2',
-        zones: [
-          { id: 'top_left', label: 'บนซ้าย' },
-          { id: 'top_mid', label: 'บนกลาง' },
-          { id: 'top_right', label: 'บนขวา' },
-          { id: 'bottom_left', label: 'ล่างซ้าย' },
-          { id: 'bottom_mid', label: 'ล่างกลาง' },
-          { id: 'bottom_right', label: 'ล่างขวา' }
-        ]
-      };
-
-      const CURRENT_MODES = new Set(['learning', 'challenge']);
-
-      const state = {
-        all: [],
-        shown: [],
-        selectedKey: '',
-        source: 'Demo Data'
-      };
-
-      const $ = id => document.getElementById(id);
-
-      const toNumber = (value, fallback = 0) => {
-        const number = Number(value);
-        return Number.isFinite(number) ? number : fallback;
-      };
-
-      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-
-      const escapeHtml = value => String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-
-      const yes = value => [
-        'yes',
-        'true',
-        '1',
-        'y'
-      ].includes(String(value ?? '').trim().toLowerCase());
-
-      function pick(object, keys, fallback = '') {
-        for (const key of keys) {
-          if (
-            object &&
-            object[key] !== undefined &&
-            object[key] !== null &&
-            object[key] !== ''
-          ) {
-            return object[key];
-          }
-        }
-
-        return fallback;
-      }
-
-      function safeJson(value, fallback = {}) {
-        if (!value) return fallback;
-        if (typeof value === 'object') return value;
-
-        try {
-          return JSON.parse(String(value));
-        } catch (error) {
-          return fallback;
-        }
-      }
-
-      function hasField(object, keys) {
-        return keys.some(key =>
-          object &&
-          Object.prototype.hasOwnProperty.call(object, key) &&
-          object[key] !== undefined &&
-          object[key] !== null &&
-          String(object[key]).trim() !== ''
-        );
-      }
-
-      function cleanText(value) {
-        return String(value ?? '')
-          .trim()
-          .replace(/\s+/g, ' ');
-      }
-
-      function studentKeyFrom(record) {
-        const studentId = cleanText(
-          pick(record, ['student_id', 'studentId', 'pid'], '')
-        );
-
-        if (studentId) {
-          return `id:${studentId.toLowerCase()}`;
-        }
-
-        const name = cleanText(
-          pick(record, ['player_name', 'playerName', 'name'], 'Unknown')
-        ).toLowerCase();
-
-        const classLevel = cleanText(
-          pick(record, ['class_level', 'classLevel', 'grade'], '')
-        ).toLowerCase();
-
-        const section = cleanText(
-          pick(record, ['section', 'group'], '')
-        ).toLowerCase();
-
-        return `name:${name}|class:${classLevel}|section:${section}`;
-      }
-
-      function studentLabelFrom(record) {
-        const name = cleanText(
-          pick(record, ['player_name', 'playerName', 'name'], 'Unknown')
-        );
-
-        const studentId = cleanText(
-          pick(record, ['student_id', 'studentId', 'pid'], '')
-        );
-
-        const classLevel = cleanText(
-          pick(record, ['class_level', 'classLevel', 'grade'], '')
-        );
-
-        const section = cleanText(
-          pick(record, ['section', 'group'], '')
-        );
-
-        const meta = [studentId, classLevel, section]
-          .filter(Boolean)
-          .join(' • ');
-
-        return meta ? `${name} — ${meta}` : name;
-      }
-
-      function percentDisplay(hasValue, value) {
-        return hasValue ? `${Math.round(toNumber(value))}%` : '—';
-      }
-
-      function meanMeasured(records, getter) {
-        const values = records
-          .map(getter)
-          .filter(value =>
-            value !== null &&
-            value !== undefined &&
-            Number.isFinite(Number(value))
-          )
-          .map(Number);
-
-        return {
-          value: values.length
-            ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
-            : null,
-          count: values.length
-        };
-      }
-
-      function metricText(metric, suffix = '%') {
-        return metric.count ? `${metric.value}${suffix}` : '—';
-      }
-
-      function normalizeRecord(raw, index = 0) {
-        const source = { ...(raw || {}) };
-
-        const embeddedPayload = safeJson(
-          pick(source, ['raw_json', 'rawJson'], ''),
-          {}
-        );
-
-        const record = {
-          ...source,
-          ...(
-            embeddedPayload &&
-            typeof embeddedPayload === 'object' &&
-            !Array.isArray(embeddedPayload)
-              ? embeddedPayload
-              : {}
-          )
-        };
-
-        const playMode = String(
-          pick(record, ['play_mode', 'playMode'], '')
-        ).toLowerCase();
-
-        const isCurrent = CURRENT_MODES.has(playMode);
-
-        const guidedJson = pick(
-          record,
-          ['guided_zone_progress_json', 'guidedZoneProgressJson'],
-          ''
-        );
-
-        const challengeJson = pick(
-          record,
-          ['challenge_zone_performance_json', 'challengeZonePerformanceJson'],
-          ''
-        );
-
-        const guidedPayload = safeJson(guidedJson, {});
-        const challengePayload = safeJson(challengeJson, {});
-
-        const recordId = String(
-          pick(
-            record,
-            ['record_id', 'recordId', 'run_id', 'runId'],
-            `local-${index}`
-          )
-        );
-
-        return {
-          ...record,
-
-          __key: `${recordId}-${index}`,
-          record_id: recordId,
-
-          created_at: pick(record, [
-            'created_at',
-            'createdAt',
-            'received_at',
-            'receivedAt'
-          ]),
-
-          player_name: pick(
-            record,
-            ['player_name', 'playerName', 'name'],
-            'Unknown'
-          ),
-
-          student_id: pick(record, ['student_id', 'studentId', 'pid']),
-          class_level: pick(record, ['class_level', 'classLevel', 'grade']),
-          section: pick(record, ['section', 'group']),
-
-          game_key: String(
-            pick(
-              record,
-              ['game_key', 'gameKey', 'game_id', 'gameId'],
-              'other'
-            )
-          ).toLowerCase(),
-
-          play_mode: playMode,
-          difficulty: String(
-            pick(record, ['difficulty', 'diff'], '')
-          ).toLowerCase(),
-
-          score: toNumber(pick(record, ['score'])),
-          clean_score: toNumber(pick(record, ['clean_score', 'cleanScore'])),
-          gum_health: toNumber(pick(record, ['gum_health', 'gumHealth'])),
-          technique_score: toNumber(
-            pick(record, ['technique_score', 'techniqueScore'])
-          ),
-
-          coverage_zone_count: toNumber(
-            pick(record, ['coverage_zone_count', 'coverageZoneCount'])
-          ),
-
-          learning_complete: yes(
-            pick(record, ['learning_complete', 'learningComplete'])
-          ),
-
-          learning_progress_percent: toNumber(
-            pick(record, [
-              'learning_progress_percent',
-              'learningProgressPercent'
-            ])
-          ),
-
-          learning_direction_mastery: toNumber(
-            pick(record, [
-              'learning_direction_mastery',
-              'learningDirectionMastery'
-            ])
-          ),
-
-          learning_qualified_strokes: toNumber(
-            pick(record, [
-              'learning_qualified_strokes',
-              'learningQualifiedStrokes'
-            ])
-          ),
-
-          learning_required_strokes: toNumber(
-            pick(record, [
-              'learning_required_strokes',
-              'learningRequiredStrokes'
-            ])
-          ),
-
-          overall_direction_accuracy: toNumber(
-            pick(record, [
-              'overall_direction_accuracy',
-              'overallDirectionAccuracy',
-              'direction_accuracy',
-              'directionAccuracy'
-            ])
-          ),
-
-          direction_accuracy: toNumber(
-            pick(record, ['direction_accuracy', 'directionAccuracy'])
-          ),
-
-          direction_threshold: toNumber(
-            pick(record, ['direction_threshold', 'directionThreshold'])
-          ),
-
-          direction_passed: yes(
-            pick(record, ['direction_passed', 'directionPassed'])
-          ),
-
-          challenge_result: String(
-            pick(record, ['challenge_result', 'challengeResult'], '')
-          ).toLowerCase(),
-
-          challenge_passed: yes(
-            pick(record, ['challenge_passed', 'challengePassed'])
-          ),
-
-          challenge_fail_reasons: String(
-            pick(record, [
-              'challenge_fail_reasons',
-              'challengeFailReasons'
-            ], '')
-          ),
-
-          strongest_zone: String(
-            pick(record, [
-              'strongest_zone',
-              'best_zone_from_summary',
-              'strongestZone'
-            ], '')
-          ),
-
-          weakest_zone: String(
-            pick(record, [
-              'weakest_zone',
-              'weak_zone_from_summary',
-              'weakestZone'
-            ], '')
-          ),
-
-          input_mode: String(
-            pick(record, ['input_mode', 'inputMode'], '')
-          ),
-
-          hand_tracking_enabled: yes(
-            pick(record, [
-              'hand_tracking_enabled',
-              'handTrackingEnabled'
-            ])
-          ),
-
-          advice: String(pick(record, ['advice'], '')),
-          badge: String(pick(record, ['badge'], '')),
-
-          guided_zone_progress_json: guidedJson,
-          challenge_zone_performance_json: challengeJson,
-
-          _studentKey: studentKeyFrom(record),
-          _studentLabel: studentLabelFrom(record),
-
-          _isCurrent: isCurrent,
-          _isLegacy: !isCurrent,
-
-          _hasClean: isCurrent && hasField(record, ['clean_score', 'cleanScore']),
-          _hasGum: isCurrent && hasField(record, ['gum_health', 'gumHealth']),
-          _hasTechnique: isCurrent && hasField(
-            record,
-            ['technique_score', 'techniqueScore']
-          ),
-
-          _hasCoverage: isCurrent && hasField(
-            record,
-            ['coverage_zone_count', 'coverageZoneCount']
-          ),
-
-          _hasDirection: isCurrent && hasField(record, [
-            'overall_direction_accuracy',
-            'overallDirectionAccuracy',
-            'direction_accuracy',
-            'directionAccuracy'
-          ]),
-
-          _hasLearningProgress: isCurrent && hasField(record, [
-            'learning_progress_percent',
-            'learningProgressPercent'
-          ]),
-
-          _hasLearningMastery: isCurrent && hasField(record, [
-            'learning_direction_mastery',
-            'learningDirectionMastery'
-          ]),
-
-          _hasGuidedZones: isCurrent && Boolean(
-            guidedPayload &&
-            guidedPayload.progress &&
-            Object.keys(guidedPayload.progress).length
-          ),
-
-          _hasChallengeZones: isCurrent && Boolean(
-            challengePayload &&
-            typeof challengePayload === 'object' &&
-            Object.keys(challengePayload).length
-          )
-        };
-      }
-
-      function formatDate(value) {
-        const timestamp = Date.parse(value || '');
-
-        if (!Number.isFinite(timestamp)) return '-';
-
-        return new Intl.DateTimeFormat('th-TH', {
-          dateStyle: 'short',
-          timeStyle: 'short',
-          timeZone: 'Asia/Bangkok'
-        }).format(new Date(timestamp));
-      }
-
-      function timestamp(record) {
-        const value = Date.parse(record.created_at || '');
-        return Number.isFinite(value) ? value : 0;
-      }
-
-      function gameLabel(gameKey) {
-        return {
-          toothbrush: '🪥 Toothbrush',
-          handwash: '🧼 Handwash',
-          germhunter: '🔍 Germ Hunter',
-          mask: '😷 Mask',
-          cough: '🤧 Cough',
-          nails: '💅 Nails'
-        }[gameKey] || gameKey || 'Other';
-      }
-
-      function modeLabel(mode) {
-        if (mode === 'learning') return 'Learning';
-        if (mode === 'challenge') return 'Challenge';
-        return mode || '-';
-      }
-
-      function directionValue(record) {
-        return record.play_mode === 'learning'
-          ? toNumber(
-              record.overall_direction_accuracy,
-              toNumber(record.direction_accuracy)
-            )
-          : toNumber(
-              record.direction_accuracy,
-              toNumber(record.overall_direction_accuracy)
-            );
-      }
-
-      function masteryValue(record) {
-        return toNumber(
-          record.learning_direction_mastery,
-          record.learning_complete ? 100 : 0
-        );
-      }
-
-      function inputLabel(record) {
-        if (record.input_mode === 'hand_tracking') return '✋ Hand';
-        if (record.input_mode === 'touch_mouse') return '👆 Touch';
-        if (record.hand_tracking_enabled) return '✋ Hand';
-        return record.input_mode || '-';
-      }
-
-      function resultInfo(record) {
-        if (record._isLegacy) {
-          return {
-            label: 'Legacy / Unknown',
-            css: 'legacy',
-            detail: 'ข้อมูลก่อน Learning + Challenge analytics'
-          };
-        }
-
-        if (
-          record.play_mode === 'learning' &&
-          (
-            record.learning_complete ||
-            record.challenge_result === 'learning_complete'
-          )
-        ) {
-          return {
-            label: 'Learning Pass',
-            css: 'learning',
-            detail: '6 zones complete'
-          };
-        }
-
-        if (
-          record.play_mode === 'challenge' &&
-          (
-            record.challenge_result === 'fresh_smile_hero' ||
-            record.challenge_passed
-          )
-        ) {
-          return {
-            label: 'Pass',
-            css: 'pass',
-            detail: 'Fresh Smile Hero'
-          };
-        }
-
-        if (record.challenge_result === 'direction_practice_needed') {
-          return {
-            label: 'Direction Practice',
-            css: 'practice',
-            detail: 'Clean ผ่าน แต่ทิศยังต่ำ'
-          };
-        }
-
-        return {
-          label: 'Retry',
-          css: 'retry',
-          detail: record.challenge_fail_reasons || 'ต้องฝึกเพิ่ม'
-        };
-      }
-
-      function currentStudentLabel() {
-        const key = $('studentFilter').value;
-
-        if (!key) return 'ทุกคน / ภาพรวมทั้งชั้น';
-
-        return state.all.find(record => record._studentKey === key)
-          ?._studentLabel || 'นักเรียนที่เลือก';
-      }
-
-      function fillOptions(id, values, firstLabel) {
-        const element = $(id);
-        const previous = element.value;
-
-        const options = [
-          ...new Set(
-            values
-              .filter(Boolean)
-              .map(value => String(value))
-          )
-        ].sort((a, b) => a.localeCompare(b, 'th'));
-
-        element.innerHTML = [
-          `<option value="">${escapeHtml(firstLabel)}</option>`,
-          ...options.map(value =>
-            `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`
-          )
-        ].join('');
-
-        if (options.includes(previous)) {
-          element.value = previous;
-        }
-      }
-
-      function populateStudentDropdown() {
-        const element = $('studentFilter');
-        const previous = element.value;
-        const unique = new Map();
-
-        state.all.forEach(record => {
-          if (!unique.has(record._studentKey)) {
-            unique.set(record._studentKey, record._studentLabel);
-          }
-        });
-
-        const entries = [...unique.entries()]
-          .sort((a, b) => a[1].localeCompare(b[1], 'th'));
-
-        element.innerHTML = [
-          '<option value="">ทุกคน / ภาพรวมทั้งชั้น</option>',
-          ...entries.map(([key, label]) =>
-            `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`
-          )
-        ].join('');
-
-        if (unique.has(previous)) {
-          element.value = previous;
-        }
-      }
-
-      function populateFilters() {
-        populateStudentDropdown();
-
-        fillOptions(
-          'gameFilter',
-          state.all.map(record => record.game_key),
-          'ทุกเกม'
-        );
-
-        fillOptions(
-          'classFilter',
-          state.all.map(record => record.class_level),
-          'ทุกชั้น'
-        );
-
-        const mode = $('modeFilter');
-        const previousMode = mode.value;
-
-        mode.innerHTML = [
-          '<option value="">ทุกโหมด</option>',
-          '<option value="learning">Learning</option>',
-          '<option value="challenge">Challenge</option>'
-        ].join('');
-
-        mode.value = CURRENT_MODES.has(previousMode) ? previousMode : '';
-
-        const era = $('eraFilter');
-        const previousEra = era.value;
-
-        era.innerHTML = [
-          '<option value="">ทุกข้อมูล</option>',
-          '<option value="current">Current Tracking</option>',
-          '<option value="legacy">Legacy / Unknown</option>'
-        ].join('');
-
-        era.value = ['current', 'legacy'].includes(previousEra)
-          ? previousEra
-          : '';
-
-        const result = $('resultFilter');
-        const previousResult = result.value;
-
-        result.innerHTML = [
-          '<option value="">ทุกผลลัพธ์</option>',
-          '<option value="pass">Pass</option>',
-          '<option value="learning">Learning Pass</option>',
-          '<option value="practice">Direction Practice</option>',
-          '<option value="retry">Retry</option>',
-          '<option value="legacy">Legacy / Unknown</option>'
-        ].join('');
-
-        result.value = [
-          'pass',
-          'learning',
-          'practice',
-          'retry',
-          'legacy'
-        ].includes(previousResult)
-          ? previousResult
-          : '';
-      }
-
-      function compareMeasured(a, b, getter) {
-        const aValue = getter(a);
-        const bValue = getter(b);
-
-        const aHasValue =
-          aValue !== null &&
-          aValue !== undefined &&
-          Number.isFinite(Number(aValue));
-
-        const bHasValue =
-          bValue !== null &&
-          bValue !== undefined &&
-          Number.isFinite(Number(bValue));
-
-        if (aHasValue && !bHasValue) return -1;
-        if (!aHasValue && bHasValue) return 1;
-        if (!aHasValue && !bHasValue) return 0;
-
-        return Number(aValue) - Number(bValue);
-      }
-
-      function applyFilters() {
-        const query = $('searchInput').value.trim().toLowerCase();
-        const student = $('studentFilter').value;
-        const game = $('gameFilter').value;
-        const classLevel = $('classFilter').value;
-        const mode = $('modeFilter').value;
-        const era = $('eraFilter').value;
-        const result = $('resultFilter').value;
-        const sort = $('sortFilter').value;
-
-        const records = state.all.filter(record => {
-          const outcome = resultInfo(record);
-
-          const searchable = [
-            record.player_name,
-            record.student_id,
-            record.class_level,
-            record.section,
-            record.game_key,
-            record.play_mode,
-            record.challenge_result,
-            record.challenge_fail_reasons,
-            record.badge,
-            record.weakest_zone,
-            record._isLegacy ? 'legacy unknown' : 'current'
-          ].join(' ').toLowerCase();
-
-          return (
-            (!student || record._studentKey === student) &&
-            (!game || record.game_key === game) &&
-            (!classLevel || record.class_level === classLevel) &&
-            (!mode || record.play_mode === mode) &&
-            (
-              !era ||
-              (
-                era === 'current'
-                  ? record._isCurrent
-                  : record._isLegacy
-              )
-            ) &&
-            (!result || outcome.css === result) &&
-            (!query || searchable.includes(query))
-          );
-        });
-
-        records.sort((a, b) => {
-          if (sort === 'score') {
-            return toNumber(b.score) - toNumber(a.score);
-          }
-
-          if (sort === 'direction') {
-            return compareMeasured(
-              a,
-              b,
-              record => record._hasDirection
-                ? directionValue(record)
-                : null
-            );
-          }
-
-          if (sort === 'gum') {
-            return compareMeasured(
-              a,
-              b,
-              record => record._hasGum
-                ? toNumber(record.gum_health)
-                : null
-            );
-          }
-
-          if (sort === 'technique') {
-            return compareMeasured(
-              a,
-              b,
-              record => record._hasTechnique
-                ? toNumber(record.technique_score)
-                : null
-            );
-          }
-
-          return timestamp(b) - timestamp(a);
-        });
-
-        state.shown = records;
-
-        if (!records.some(record => record.__key === state.selectedKey)) {
-          state.selectedKey = records[0]?.__key || '';
-        }
-
-        render();
-      }
-
-      function calculateMetrics(records) {
-        const current = records.filter(record => record._isCurrent);
-        const legacy = records.filter(record => record._isLegacy);
-
-        const learning = current.filter(
-          record => record.play_mode === 'learning'
-        );
-
-        const challenge = current.filter(
-          record => record.play_mode === 'challenge'
-        );
-
-        const challengePass = challenge.filter(
-          record => resultInfo(record).css === 'pass'
-        ).length;
-
-        const learningComplete = learning.filter(
-          record => record.learning_complete
-        ).length;
-
-        const directionPractice = challenge.filter(
-          record => resultInfo(record).css === 'practice'
-        ).length;
-
-        const clean = meanMeasured(
-          current.filter(record => record._hasClean),
-          record => record.clean_score
-        );
-
-        const toothbrush = current.filter(
-          record => record.game_key === 'toothbrush'
-        );
-
-        const gum = meanMeasured(
-          toothbrush.filter(record => record._hasGum),
-          record => record.gum_health
-        );
-
-        const technique = meanMeasured(
-          toothbrush.filter(record => record._hasTechnique),
-          record => record.technique_score
-        );
-
-        const direction = meanMeasured(
-          challenge.filter(
-            record =>
-              record.game_key === 'toothbrush' &&
-              record._hasDirection
-          ),
-          record => directionValue(record)
-        );
-
-        const mastery = meanMeasured(
-          learning.filter(
-            record =>
-              record.game_key === 'toothbrush' &&
-              record._hasLearningMastery
-          ),
-          record => masteryValue(record)
-        );
-
-        return {
-          total: records.length,
-          current: current.length,
-          legacy: legacy.length,
-
-          learning: learning.length,
-          learningComplete,
-          learningRate: learning.length
-            ? Math.round((learningComplete / learning.length) * 100)
-            : null,
-
-          challenge: challenge.length,
-          challengePass,
-          challengePassRate: challenge.length
-            ? Math.round((challengePass / challenge.length) * 100)
-            : null,
-
-          clean,
-          gum,
-          technique,
-          direction,
-          mastery,
-          directionPractice
-        };
-      }
-
-      function kpiTemplate(label, value, sub, glow) {
-        return `
-          <article class="kpi" style="--glow:${glow}">
-            <small>${escapeHtml(label)}</small>
-            <b>${escapeHtml(value)}</b>
-            <span>${escapeHtml(sub)}</span>
-          </article>
-        `;
-      }
-
-      function renderKpis() {
-        const metrics = calculateMetrics(state.shown);
-
-        $('kpiGrid').innerHTML = [
-          kpiTemplate(
-            'Total Plays',
-            metrics.total,
-            `${metrics.current} Current • ${metrics.legacy} Legacy`,
-            'rgba(103,232,249,.30)'
-          ),
-
-          kpiTemplate(
-            'Challenge Pass',
-            metrics.challenge ? `${metrics.challengePassRate}%` : '—',
-            `${metrics.challengePass}/${metrics.challenge} Fresh Smile Hero`,
-            'rgba(34,197,94,.28)'
-          ),
-
-          kpiTemplate(
-            'Learning Complete',
-            metrics.learning ? `${metrics.learningRate}%` : '—',
-            `${metrics.learningComplete}/${metrics.learning} completed`,
-            'rgba(59,130,246,.25)'
-          ),
-
-          kpiTemplate(
-            'Avg Clean (Current)',
-            metricText(metrics.clean),
-            `${metrics.clean.count} current records`,
-            'rgba(250,204,21,.27)'
-          ),
-
-          kpiTemplate(
-            'Avg Gum (Current)',
-            metricText(metrics.gum),
-            metrics.gum.count
-              ? `Toothbrush • ${metrics.gum.count} measured`
-              : 'ยังไม่มีข้อมูล Gum',
-            'rgba(34,197,94,.25)'
-          ),
-
-          kpiTemplate(
-            'Avg Technique (Current)',
-            metricText(metrics.technique),
-            metrics.technique.count
-              ? `Toothbrush • ${metrics.technique.count} measured`
-              : 'ยังไม่มีข้อมูล Technique',
-            'rgba(139,92,246,.23)'
-          ),
-
-          kpiTemplate(
-            'Challenge Direction',
-            metricText(metrics.direction),
-            metrics.direction.count
-              ? `Challenge • ${metrics.direction.count} measured`
-              : 'ยังไม่มีข้อมูล Direction',
-            'rgba(251,146,60,.25)'
-          ),
-
-          kpiTemplate(
-            'Direction Practice',
-            metrics.directionPractice,
-            'Current Challenge only',
-            'rgba(251,113,133,.25)'
-          )
-        ].join('');
-      }
-
-      function renderInsights() {
-        const records = state.shown;
-        const metrics = calculateMetrics(records);
-        const studentName = currentStudentLabel();
-
-        const current = records.filter(record => record._isCurrent);
-        const legacy = records.filter(record => record._isLegacy);
-
-        const practices = current.filter(
-          record =>
-            record.play_mode === 'challenge' &&
-            resultInfo(record).css === 'practice'
-        );
-
-        const incomplete = current.filter(
-          record =>
-            record.play_mode === 'learning' &&
-            !record.learning_complete
-        );
-
-        const gumRisk = current.filter(
-          record =>
-            record.game_key === 'toothbrush' &&
-            record._hasGum &&
-            toNumber(record.gum_health) < 65
-        );
-
-        const techniqueRisk = current.filter(
-          record =>
-            record.game_key === 'toothbrush' &&
-            record._hasTechnique &&
-            toNumber(record.technique_score) <
-              toNumber(pick(record, ['pass_min_technique'], 45), 45)
-        );
-
-        const touchFallback = current.filter(
-          record => record.input_mode === 'touch_mouse'
-        );
-
-        const insights = [];
-
-        if (legacy.length) {
-          insights.push({
-            icon: '🗃️',
-            title: `${legacy.length} แถวเป็น Legacy / Unknown`,
-            text: 'ไม่นับรวมใน KPI Current เพราะยังไม่มี Learning/Challenge tracking แบบใหม่'
-          });
-        }
-
-        if (practices.length) {
-          insights.push({
-            icon: '🧭',
-            title: `${practices.length} ครั้งต้องฝึก Direction เพิ่ม`,
-            text: 'ฟันบนปัดลง • ฟันล่างปัดขึ้น โดยเริ่มช้า ๆ ในโซนเป้าหมาย'
-          });
-        }
-
-        if (incomplete.length) {
-          insights.push({
-            icon: '🗺️',
-            title: `${incomplete.length} ครั้งยังไม่ครบ Learning 6 โซน`,
-            text: 'ให้เริ่ม Learning Mode ที่โซนค้าง และเก็บ pass strokes ทีละโซน'
-          });
-        }
-
-        if (gumRisk.length) {
-          insights.push({
-            icon: '🌿',
-            title: `${gumRisk.length} Current attempts มี Gum ต่ำกว่า 65%`,
-            text: 'โค้ชเรื่อง gentle brushing: ลดแรง ลดความเร็ว และไม่ถูซ้ำจุดเดิม'
-          });
-        }
-
-        if (techniqueRisk.length) {
-          insights.push({
-            icon: '🧠',
-            title: `${techniqueRisk.length} Current attempts มี Technique ต่ำกว่าเกณฑ์`,
-            text: 'ทำ warm-up ความเร็วระดับกลางก่อนเข้าสู่ Challenge Mode'
-          });
-        }
-
-        if (touchFallback.length) {
-          insights.push({
-            icon: '👆',
-            title: `${touchFallback.length} Current attempts ใช้ Touch / Mouse fallback`,
-            text: 'ผลยังใช้ได้ แต่ถ้าประเมินท่าทางให้เปิดกล้องและ Hand Tracking'
-          });
-        }
-
-        if (!insights.length) {
-          insights.push({
-            icon: '✨',
-            title: 'ผลรวม Current Tracking อยู่ในเกณฑ์ดี',
-            text:
-              `${studentName}: ` +
-              `Clean ${metricText(metrics.clean)} • ` +
-              `Gum ${metricText(metrics.gum)} • ` +
-              `Technique ${metricText(metrics.technique)}`
-          });
-        }
-
-        $('insightCount').textContent =
-          `${studentName} • ${records.length} records • ${metrics.legacy} legacy`;
-
-        $('insightList').innerHTML = insights
-          .slice(0, 5)
-          .map(item => `
-            <div class="insight">
-              <div class="insight-icon">${item.icon}</div>
-              <div>
-                <b>${escapeHtml(item.title)}</b>
-                <span>${escapeHtml(item.text)}</span>
-              </div>
-            </div>
-          `)
-          .join('');
-      }
-
-      function zoneMetric(records, payloadKey, zoneId, metricKey) {
-        return meanMeasured(records, record => {
-          const payload = safeJson(record[payloadKey], {});
-
-          if (payloadKey === 'guided_zone_progress_json') {
-            const progress = payload.progress || {};
-            return hasField(progress, [zoneId])
-              ? toNumber(progress[zoneId])
-              : null;
-          }
-
-          const zone = payload[zoneId] || {};
-
-          return hasField(zone, [metricKey])
-            ? toNumber(zone[metricKey])
-            : null;
-        });
-      }
-
-      function renderZoneBoard() {
-        const learning = state.shown.filter(
-          record =>
-            record._isCurrent &&
-            record.play_mode === 'learning' &&
-            record._hasGuidedZones
-        );
-
-        const challenge = state.shown.filter(
-          record =>
-            record._isCurrent &&
-            record.play_mode === 'challenge' &&
-            record._hasChallengeZones
-        );
-
-        $('zoneBoard').innerHTML = CONFIG.zones.map(zone => {
-          const learningMetric = zoneMetric(
-            learning,
-            'guided_zone_progress_json',
-            zone.id,
-            ''
-          );
-
-          const cleanMetric = zoneMetric(
-            challenge,
-            'challenge_zone_performance_json',
-            zone.id,
-            'clean_percent'
-          );
-
-          const directionMetric = zoneMetric(
-            challenge,
-            'challenge_zone_performance_json',
-            zone.id,
-            'direction_accuracy'
-          );
-
-          return `
-            <div class="zone-row">
-              <span>${zone.label}</span>
-
-              <div class="zone-stack">
-                <div class="track">
-                  <i
-                    class="fill blue"
-                    style="width:${clamp(learningMetric.value ?? 0, 0, 100)}%"
-                  ></i>
-                </div>
-
-                <div class="track">
-                  <i
-                    class="fill"
-                    style="width:${clamp(cleanMetric.value ?? 0, 0, 100)}%"
-                  ></i>
-                </div>
-
-                <div class="track">
-                  <i
-                    class="fill pink"
-                    style="width:${clamp(directionMetric.value ?? 0, 0, 100)}%"
-                  ></i>
-                </div>
-              </div>
-
-              <span class="zone-number">
-                L ${metricText(learningMetric)}<br>
-                C ${metricText(cleanMetric)} • D ${metricText(directionMetric)}
-              </span>
-            </div>
-          `;
-        }).join('');
-      }
-
-      function displayMetric(record, available, value) {
-        return record._isLegacy
-          ? '—'
-          : percentDisplay(available, value);
-      }
-
-      function selectRecord(key, scrollToDetails = false) {
-        state.selectedKey = key;
-        renderRecords();
-        renderDetail();
-
-        if (scrollToDetails) {
-          document.querySelector('.detail-grid')?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-          });
-        }
-      }
-
-      function renderMobileRecords(records) {
-        const holder = $('mobileRecords');
-
-        if (!records.length) {
-          holder.innerHTML = '<div class="mobile-empty">ยังไม่มีข้อมูลที่ตรงกับ filter นี้</div>';
-          return;
-        }
-
-        holder.innerHTML = records.map(record => {
-          const outcome = resultInfo(record);
-
-          const thirdMetric = record._isLegacy
-            ? 'Legacy'
-            : record.play_mode === 'learning'
-              ? displayMetric(
-                  record,
-                  record._hasLearningMastery,
-                  masteryValue(record)
-                )
-              : displayMetric(
-                  record,
-                  record._hasDirection,
-                  directionValue(record)
-                );
-
-          return `
-            <article
-              class="record-card ${record.__key === state.selectedKey ? 'selected' : ''}"
-              data-mobile-key="${escapeHtml(record.__key)}"
-            >
-              <div class="record-card-top">
-                <time>${escapeHtml(formatDate(record.created_at))}</time>
-                <span class="tag ${outcome.css}">
-                  ${escapeHtml(outcome.label)}
-                </span>
-              </div>
-
-              <h3>${escapeHtml(record.player_name)}</h3>
-
-              <p>
-                ${escapeHtml(gameLabel(record.game_key))} •
-                ${escapeHtml(
-                  record._isLegacy
-                    ? 'Legacy / Unknown'
-                    : `${modeLabel(record.play_mode)} • ${record.difficulty || '-'}`
-                )}
-              </p>
-
-              <div class="record-card-metrics">
-                <div class="record-card-metric">
-                  <small>Clean</small>
-                  <b>${displayMetric(record, record._hasClean, record.clean_score)}</b>
-                </div>
-
-                <div class="record-card-metric">
-                  <small>Gum</small>
-                  <b>${displayMetric(record, record._hasGum, record.gum_health)}</b>
-                </div>
-
-                <div class="record-card-metric">
-                  <small>
-                    ${record.play_mode === 'learning' ? 'Mastery' : 'Direction'}
-                  </small>
-                  <b>${thirdMetric}</b>
-                </div>
-              </div>
-
-              <div class="record-card-bottom">
-                <span class="sub">
-                  ${escapeHtml(
-                    record._isLegacy
-                      ? 'ไม่รวมใน KPI Current'
-                      : record.weakest_zone
-                        ? `ฝึกเพิ่ม: ${record.weakest_zone}`
-                        : outcome.detail
-                  )}
-                </span>
-
-                <button class="record-open" type="button">
-                  ดูรายละเอียด
-                </button>
-              </div>
-            </article>
-          `;
-        }).join('');
-
-        holder.querySelectorAll('[data-mobile-key]').forEach(card => {
-          card.addEventListener('click', () => {
-            selectRecord(card.dataset.mobileKey, true);
-          });
-        });
-      }
-
-      function renderRecords() {
-        const records = state.shown;
-        const metrics = calculateMetrics(records);
-        const studentName = currentStudentLabel();
-
-        $('recordCount').textContent =
-          `${studentName} • ${records.length} records • ${metrics.legacy} legacy`;
-
-        $('recordCaption').textContent = records.length
-          ? `${state.source} • โฟกัส: ${studentName} • Current metrics ไม่รวม ${metrics.legacy} Legacy / Unknown records`
-          : 'ไม่พบข้อมูลที่ตรงกับ filter';
-
-        if (!records.length) {
-          $('recordsBody').innerHTML = `
-            <tr>
-              <td colspan="14" class="empty-row">
-                ยังไม่มีข้อมูลที่ตรงกับ filter นี้
-              </td>
-            </tr>
-          `;
-
-          renderMobileRecords([]);
-          return;
-        }
-
-        $('recordsBody').innerHTML = records.map(record => {
-          const outcome = resultInfo(record);
-
-          const learningValue = record.play_mode === 'learning'
-            ? `${record._hasLearningProgress
-                ? Math.round(toNumber(record.learning_progress_percent))
-                : '—'
-              }% ${record.learning_complete ? '✓' : ''}`
-            : '-';
-
-          return `
-            <tr
-              data-record-key="${escapeHtml(record.__key)}"
-              class="${record.__key === state.selectedKey ? 'selected' : ''}"
-            >
-              <td>${escapeHtml(formatDate(record.created_at))}</td>
-
-              <td class="name-cell">
-                ${escapeHtml(record.player_name)}
-                <span class="sub">
-                  ${escapeHtml(
-                    [record.student_id, record.class_level, record.section]
-                      .filter(Boolean)
-                      .join(' • ') || '-'
-                  )}
-                </span>
-              </td>
-
-              <td>
-                ${escapeHtml(gameLabel(record.game_key))}
-                <span class="sub">
-                  ${escapeHtml(
-                    record._isLegacy
-                      ? 'Legacy / Unknown'
-                      : `${modeLabel(record.play_mode)} • ${record.difficulty || '-'}`
-                  )}
-                </span>
-              </td>
-
-              <td>
-                <span class="tag ${outcome.css}">
-                  ${escapeHtml(outcome.label)}
-                </span>
-                <span class="sub">${escapeHtml(outcome.detail)}</span>
-              </td>
-
-              <td>${Math.round(toNumber(record.score))}</td>
-              <td>${displayMetric(record, record._hasClean, record.clean_score)}</td>
-              <td>${displayMetric(record, record._hasGum, record.gum_health)}</td>
-              <td>${displayMetric(record, record._hasTechnique, record.technique_score)}</td>
-
-              <td>
-                ${record._isLegacy
-                  ? '—'
-                  : record._hasCoverage
-                    ? `${Math.round(toNumber(record.coverage_zone_count))}/6`
-                    : '—'
-                }
-              </td>
-
-              <td>${record._isLegacy ? '—' : escapeHtml(learningValue)}</td>
-
-              <td>
-                ${record._isLegacy
-                  ? '-'
-                  : record.play_mode === 'learning'
-                    ? percentDisplay(
-                        record._hasLearningMastery,
-                        masteryValue(record)
-                      )
-                    : '-'
-                }
-              </td>
-
-              <td>
-                ${displayMetric(
-                  record,
-                  record._hasDirection,
-                  directionValue(record)
-                )}
-              </td>
-
-              <td>
-                ${escapeHtml(
-                  record._isLegacy
-                    ? '—'
-                    : record.weakest_zone || '-'
-                )}
-              </td>
-
-              <td>
-                ${escapeHtml(
-                  record._isLegacy
-                    ? '—'
-                    : inputLabel(record)
-                )}
-              </td>
-            </tr>
-          `;
-        }).join('');
-
-        document.querySelectorAll('[data-record-key]').forEach(row => {
-          row.addEventListener('click', () => {
-            selectRecord(row.dataset.recordKey);
-          });
-        });
-
-        renderMobileRecords(records);
-      }
-
-      function metricCard(label, value) {
-        return `
-          <div class="metric">
-            <small>${escapeHtml(label)}</small>
-            <b>${escapeHtml(value)}</b>
-          </div>
-        `;
-      }
-
-      function renderDetailZones(record) {
-        if (record._isLegacy) {
-          $('detailZones').className = 'detail-empty';
-          $('detailZones').textContent =
-            'Legacy / Unknown attempt: บันทึกนี้ยังไม่มี Learning + Challenge zone analytics แบบใหม่ จึงไม่แสดงค่า 0% ที่อาจทำให้ตีความผิด';
-          return;
-        }
-
-        $('detailZones').className = 'zone-board';
-
-        if (record.play_mode === 'learning') {
-          const payload = safeJson(
-            record.guided_zone_progress_json,
-            {}
-          );
-
-          const progress = payload.progress || {};
-          const qualified = payload.qualified_strokes || payload.qualified || {};
-          const directionGood = payload.direction_good || {};
-          const directionTotal = payload.direction_total || {};
-
-          $('detailZones').innerHTML = CONFIG.zones.map(zone => {
-            const skill = hasField(progress, [zone.id])
-              ? toNumber(progress[zone.id])
-              : null;
-
-            const passStrokes = hasField(qualified, [zone.id])
-              ? toNumber(qualified[zone.id])
-              : null;
-
-            const direction = hasField(directionTotal, [zone.id])
-              ? Math.round(
-                  toNumber(directionGood[zone.id]) /
-                  Math.max(1, toNumber(directionTotal[zone.id])) *
-                  100
-                )
-              : null;
-
-            return `
-              <div class="zone-row">
-                <span>${zone.label}</span>
-
-                <div class="zone-stack">
-                  <div class="track">
-                    <i
-                      class="fill blue"
-                      style="width:${clamp(skill ?? 0, 0, 100)}%"
-                    ></i>
-                  </div>
-                </div>
-
-                <span class="zone-number">
-                  Skill ${skill === null ? '—' : `${Math.round(skill)}%`}<br>
-                  ✓ ${passStrokes === null ? '—' : Math.round(passStrokes)}/3 •
-                  Dir ${direction === null ? '—' : `${direction}%`}
-                </span>
-              </div>
-            `;
-          }).join('');
-
-          return;
-        }
-
-        const payload = safeJson(
-          record.challenge_zone_performance_json,
-          {}
-        );
-
-        $('detailZones').innerHTML = CONFIG.zones.map(zone => {
-          const zoneData = payload[zone.id] || {};
-
-          const clean = hasField(zoneData, ['clean_percent'])
-            ? toNumber(zoneData.clean_percent)
-            : null;
-
-          const direction = hasField(zoneData, ['direction_accuracy'])
-            ? toNumber(zoneData.direction_accuracy)
-            : null;
-
-          return `
-            <div class="zone-row">
-              <span>${zone.label}</span>
-
-              <div class="zone-stack">
-                <div class="track">
-                  <i
-                    class="fill"
-                    style="width:${clamp(clean ?? 0, 0, 100)}%"
-                  ></i>
-                </div>
-
-                <div class="track">
-                  <i
-                    class="fill pink"
-                    style="width:${clamp(direction ?? 0, 0, 100)}%"
-                  ></i>
-                </div>
-              </div>
-
-              <span class="zone-number">
-                Clean ${clean === null ? '—' : `${Math.round(clean)}%`}<br>
-                Direction ${direction === null ? '—' : `${Math.round(direction)}%`}
-              </span>
-            </div>
-          `;
-        }).join('');
-      }
-
-      function renderDetail() {
-        const record = state.shown.find(
-          item => item.__key === state.selectedKey
-        );
-
-        if (!record) {
-          $('detailTag').className = 'mini';
-          $('detailTag').textContent = 'เลือกแถว';
-          $('detailModeTag').textContent = '-';
-
-          $('detailSummary').className = 'detail-empty';
-          $('detailSummary').textContent =
-            'เลือกแถวจากตารางหรือการ์ด เพื่อดูรายละเอียดรายบุคคล';
-
-          $('detailZones').className = 'detail-empty';
-          $('detailZones').textContent =
-            'รายละเอียดรายโซนจะแสดงที่นี่';
-
-          return;
-        }
-
-        const outcome = resultInfo(record);
-        const legacy = record._isLegacy;
-        const direction = directionValue(record);
-        const mastery = masteryValue(record);
-
-        $('detailTag').className = `tag ${outcome.css}`;
-        $('detailTag').textContent = outcome.label;
-
-        $('detailModeTag').textContent = legacy
-          ? 'Legacy / Unknown'
-          : modeLabel(record.play_mode);
-
-        $('detailSummary').className = '';
-
-        $('detailSummary').innerHTML = `
-          <div class="student-head">
-            <div class="avatar">
-              ${legacy ? '🗃️' : record.play_mode === 'learning' ? '🗺️' : '🪥'}
-            </div>
-
-            <div>
-              <h3>${escapeHtml(record.player_name)}</h3>
-              <p>
-                ${escapeHtml(
-                  [record.student_id, record.class_level, record.section]
-                    .filter(Boolean)
-                    .join(' • ') || 'ไม่ระบุรหัส/ชั้น'
-                )}
-                <br>
-                ${escapeHtml(formatDate(record.created_at))} •
-                ${escapeHtml(gameLabel(record.game_key))} •
-                ${escapeHtml(
-                  legacy
-                    ? 'Legacy / Unknown'
-                    : modeLabel(record.play_mode)
-                )}
-              </p>
-            </div>
-          </div>
-
-          <div class="metric-grid">
-            ${metricCard('Score', Math.round(toNumber(record.score)))}
-            ${metricCard('Clean', legacy ? '—' : percentDisplay(record._hasClean, record.clean_score))}
-            ${metricCard('Gum', legacy ? '—' : percentDisplay(record._hasGum, record.gum_health))}
-            ${metricCard('Technique', legacy ? '—' : percentDisplay(record._hasTechnique, record.technique_score))}
-            ${metricCard(
-              'Coverage',
-              legacy
-                ? '—'
-                : record._hasCoverage
-                  ? `${Math.round(toNumber(record.coverage_zone_count))}/6`
-                  : '—'
-            )}
-            ${metricCard(
-              legacy
-                ? 'Tracking'
-                : record.play_mode === 'learning'
-                  ? 'Learning Mastery'
-                  : 'Direction',
-              legacy
-                ? 'Legacy'
-                : record.play_mode === 'learning'
-                  ? percentDisplay(record._hasLearningMastery, mastery)
-                  : percentDisplay(record._hasDirection, direction)
-            )}
-          </div>
-
-          <div class="detail-note">
-            <strong>
-              ${legacy
-                ? 'Legacy / Unknown Summary'
-                : record.play_mode === 'learning'
-                  ? 'Learning Summary'
-                  : 'Challenge Summary'
-              }
-            </strong>
-            <br>
-            ${
-              legacy
-                ? 'บันทึกนี้เกิดก่อนระบบ Learning + Challenge telemetry รุ่นปัจจุบัน จึงเก็บไว้เป็นประวัติ แต่ไม่นำค่าเดิมมาคำนวณ KPI และ Zone analytics ของระบบใหม่'
-                : record.play_mode === 'learning'
-                  ? `Learning Progress ${percentDisplay(
-                      record._hasLearningProgress,
-                      record.learning_progress_percent
-                    )} • Pass Strokes ${Math.round(
-                      toNumber(record.learning_qualified_strokes)
-                    )}/${Math.round(
-                      toNumber(record.learning_required_strokes) || 18
-                    )} • Overall Direction ${percentDisplay(
-                      record._hasDirection,
-                      direction
-                    )}`
-                  : `Direction ${percentDisplay(
-                      record._hasDirection,
-                      direction
-                    )} / เป้าหมาย ${
-                      Math.round(toNumber(record.direction_threshold)) || '-'
-                    }% • ${escapeHtml(outcome.detail)}`
-            }
-
-            <br><br>
-
-            <strong>Coach Note</strong>
-            <br>
-            ${escapeHtml(
-              legacy
-                ? 'เริ่มใช้ Current Tracking ตั้งแต่ Toothbrush AR v10.9 เป็นต้นไป'
-                : record.advice ||
-                  record.challenge_fail_reasons ||
-                  'ไม่มีข้อผิดพลาดที่บันทึก'
-            )}
-
-            <br><br>
-
-            <strong>Strong / Weak Zone</strong>
-            <br>
-            ${escapeHtml(
-              legacy
-                ? '— / —'
-                : `${record.strongest_zone || '-'} / ${record.weakest_zone || '-'}`
-            )}
-          </div>
-        `;
-
-        renderDetailZones(record);
-      }
-
-      function render() {
-        renderKpis();
-        renderInsights();
-        renderZoneBoard();
-        renderRecords();
-        renderDetail();
-      }
-
-      const Storage = {
-        lastError: '',
-
-        get(key, fallback = '') {
-          try {
-            const value = localStorage.getItem(key);
-            return value === null ? fallback : value;
-          } catch (error) {
-            this.lastError = String(error?.message || error);
-            return fallback;
-          }
-        },
-
-        set(key, value) {
-          try {
-            localStorage.setItem(key, value);
-            this.lastError = '';
-            return true;
-          } catch (error) {
-            this.lastError = String(error?.message || error);
-            return false;
-          }
-        },
-
-        remove(key) {
-          try {
-            localStorage.removeItem(key);
-            this.lastError = '';
-            return true;
-          } catch (error) {
-            this.lastError = String(error?.message || error);
-            return false;
-          }
-        }
-      };
-
-      function storageNote() {
-        return 'Browser Storage เต็ม — Dashboard ยังทำงานได้ตามปกติ แต่จะไม่จำ URL/ข้อมูลไว้ในเครื่อง';
-      }
-
-      function setRecords(records, source) {
-        state.all = (records || []).map(normalizeRecord);
-        state.source = source || 'ข้อมูลในเครื่อง';
-
-        populateFilters();
-        applyFilters();
-      }
-
-      function setStatus(text, type = '') {
-        const element = $('apiStatus');
-        element.textContent = text;
-        element.className = `status ${type}`.trim();
-      }
-
-      function toast(message) {
-        const element = $('toast');
-
-        element.textContent = message;
-        element.classList.add('show');
-
-        clearTimeout(toast.timer);
-
-        toast.timer = setTimeout(() => {
-          element.classList.remove('show');
-        }, 1800);
-      }
-
-      function normalizeApiUrl(value) {
-        return new URL(String(value || '').trim()).toString();
-      }
-
-      function buildApiUrl(baseUrl) {
-        const url = new URL(baseUrl);
-
-        url.searchParams.set('api', 'hygiene');
-        url.searchParams.set('type', 'list');
-        url.searchParams.set('action', 'list');
-        url.searchParams.set('zone', 'hygiene');
-        url.searchParams.set('limit', '1000');
-        url.searchParams.set('v', VERSION);
-
-        return url;
-      }
-
-      async function fetchJson(url) {
-        const response = await fetch(url.toString(), {
-          method: 'GET',
-          cache: 'no-store',
-          credentials: 'omit'
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        return response.json();
-      }
-
-      function fetchJsonp(url) {
-        return new Promise((resolve, reject) => {
-          const callbackName =
-            `__hygieneJsonp_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-          const script = document.createElement('script');
-
-          const cleanup = () => {
-            clearTimeout(timer);
-            delete window[callbackName];
-            script.remove();
-          };
-
-          const timer = setTimeout(() => {
-            cleanup();
-            reject(new Error('JSONP timeout'));
-          }, 12000);
-
-          window[callbackName] = payload => {
-            cleanup();
-            resolve(payload);
-          };
-
-          url.searchParams.set('callback', callbackName);
-          script.src = url.toString();
-          script.async = true;
-
-          script.onerror = () => {
-            cleanup();
-            reject(new Error('JSONP load failed'));
-          };
-
-          document.head.appendChild(script);
-        });
-      }
-
-      function extractRecords(payload) {
-        if (Array.isArray(payload)) return payload;
-        if (Array.isArray(payload?.records)) return payload.records;
-        if (Array.isArray(payload?.data)) return payload.data;
-        if (Array.isArray(payload?.items)) return payload.items;
-        return [];
-      }
-
-      function describeApiError(error) {
-        const message = String(error?.message || error || '');
-
-        if (/Missing SPREADSHEET_ID/i.test(message)) {
-          return 'Code.gs ยังไม่รู้ว่าใช้ Google Sheet ใด: ตั้ง Script Property ชื่อ SPREADSHEET_ID เป็น ID ของ Google Sheet แล้ว Deploy ใหม่';
-        }
-
-        if (/permission|authorization|not authorized/i.test(message)) {
-          return 'Apps Script ยังไม่มีสิทธิ์เข้าถึง Google Sheet: เปิด Apps Script แล้ว Run HZ_testSetup() หนึ่งครั้งเพื่ออนุมัติสิทธิ์';
-        }
-
-        if (/doGet_exception/i.test(message)) {
-          return 'Code.gs doGet() มีข้อผิดพลาด: ใช้ Code.gs V10 Reader-Safe แล้ว Run HZ_testDashboardReader()';
-        }
-
-        return message || 'ไม่ทราบสาเหตุ';
-      }
-
-      async function loadFromSheet() {
-        let storageAvailable = true;
-
-        try {
-          const baseUrl = normalizeApiUrl($('apiUrl').value);
-
-          storageAvailable = Storage.set(
-            CONFIG.apiStorageKey,
-            baseUrl
-          );
-
-          setStatus(
-            storageAvailable
-              ? 'กำลังโหลดข้อมูลจาก Google Sheets...'
-              : storageNote(),
-            'warn'
-          );
-
-          $('loadBtn').disabled = true;
-
-          const requestUrl = buildApiUrl(baseUrl);
-
-          let payload;
-          let mode = 'JSON';
-
-          try {
-            payload = await fetchJson(
-              new URL(requestUrl.toString())
-            );
-          } catch (error) {
-            mode = 'JSONP';
-            payload = await fetchJsonp(
-              new URL(requestUrl.toString())
-            );
-          }
-
-          if (payload?.ok === false) {
-            const detail = [
-              payload.error,
-              payload.message,
-              payload.hint
-            ].filter(Boolean).join(' • ');
-
-            throw new Error(detail || 'API returned ok:false');
-          }
-
-          const records = extractRecords(payload);
-
-          setRecords(records, `Google Sheets (${mode})`);
-
-          const success = records.length
-            ? `โหลด ${records.length} records สำเร็จผ่าน ${mode}`
-            : `เชื่อมต่อสำเร็จผ่าน ${mode} แต่ยังไม่มี records`;
-
-          setStatus(
-            storageAvailable
-              ? success
-              : `${success} • ${storageNote()}`,
-            storageAvailable ? 'ok' : 'warn'
-          );
-
-          toast(
-            records.length
-              ? `โหลดข้อมูล ${records.length} รายการแล้ว`
-              : 'ยังไม่มีข้อมูลใน Sheet'
-          );
-        } catch (error) {
-          console.warn('[Hygiene Dashboard API]', error);
-
-          setStatus(
-            `โหลดไม่สำเร็จ: ${describeApiError(error)}`,
-            'bad'
-          );
-
-          toast('โหลดจาก Sheet ไม่สำเร็จ — ดูข้อความสีแดง');
-        } finally {
-          $('loadBtn').disabled = false;
-        }
-      }
-
-      function parseCsvLine(line) {
-        const cells = [];
-        let current = '';
-        let quoted = false;
-
-        for (let index = 0; index < line.length; index++) {
-          const char = line[index];
-          const next = line[index + 1];
-
-          if (char === '"' && quoted && next === '"') {
-            current += '"';
-            index++;
-          } else if (char === '"') {
-            quoted = !quoted;
-          } else if (char === ',' && !quoted) {
-            cells.push(current.trim());
-            current = '';
-          } else {
-            current += char;
-          }
-        }
-
-        cells.push(current.trim());
-        return cells;
-      }
-
-      function parseCsv(text) {
-        const lines = String(text || '')
-          .trim()
-          .split(/\r?\n/)
-          .filter(Boolean);
-
-        if (lines.length < 2) return [];
-
-        const headers = parseCsvLine(lines[0]);
-
-        return lines.slice(1).map(line => {
-          const values = parseCsvLine(line);
-          const row = {};
-
-          headers.forEach((header, index) => {
-            row[header] = values[index] ?? '';
-          });
-
-          return row;
-        });
-      }
-
-      function importPastedData() {
-        const text = $('importBox').value.trim();
-
-        if (!text) {
-          toast('วาง JSON หรือ CSV ก่อน');
-          return;
-        }
-
-        try {
-          let records;
-
-          if (text.startsWith('[') || text.startsWith('{')) {
-            const parsed = JSON.parse(text);
-            records = extractRecords(parsed);
-
-            if (
-              !records.length &&
-              parsed &&
-              typeof parsed === 'object' &&
-              !Array.isArray(parsed)
-            ) {
-              records = [parsed];
-            }
-          } else {
-            records = parseCsv(text);
-          }
-
-          if (!records.length) {
-            throw new Error('ไม่พบ records');
-          }
-
-          setRecords(records, 'ข้อมูลที่วางเอง');
-          setStatus(`นำเข้าข้อมูล ${records.length} records แล้ว`, 'ok');
-          toast(`นำเข้าข้อมูล ${records.length} รายการแล้ว`);
-        } catch (error) {
-          setStatus(
-            `นำเข้าไม่สำเร็จ: ${error.message || error}`,
-            'bad'
-          );
-
-          toast('รูปแบบ JSON / CSV ไม่ถูกต้อง');
-        }
-      }
-
-      function exportCsv() {
-        const records = state.shown;
-
-        if (!records.length) {
-          toast('ไม่มีข้อมูลสำหรับ export');
-          return;
-        }
-
-        const headers = [
-          'created_at',
-          'player_name',
-          'student_id',
-          'class_level',
-          'section',
-          'game_key',
-          'play_mode',
-          'difficulty',
-          'challenge_result',
-          'challenge_passed',
-          'score',
-          'clean_score',
-          'gum_health',
-          'technique_score',
-          'coverage_zone_count',
-          'learning_progress_percent',
-          'learning_direction_mastery',
-          'overall_direction_accuracy',
-          'direction_threshold',
-          'direction_passed',
-          'strongest_zone',
-          'weakest_zone',
-          'input_mode',
-          'challenge_fail_reasons'
-        ];
-
-        const quote = value =>
-          `"${String(value ?? '').replace(/"/g, '""')}"`;
-
-        const csv = '\uFEFF' + [
-          headers,
-          ...records.map(record =>
-            headers.map(header => record[header] ?? '')
-          )
-        ].map(row => row.map(quote).join(',')).join('\n');
-
-        const blob = new Blob(
-          [csv],
-          { type: 'text/csv;charset=utf-8' }
-        );
-
-        const href = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-
-        anchor.href = href;
-        anchor.download =
-          `hygiene-teacher-dashboard-${new Date().toISOString().slice(0, 10)}.csv`;
-
-        anchor.click();
-
-        setTimeout(() => URL.revokeObjectURL(href), 0);
-
-        toast('Export CSV แล้ว');
-      }
-
-      function makeDemoRecords() {
-        const base = new Date();
-
-        const make = (minutesAgo, data) => ({
-          record_id: `DEMO-${minutesAgo}-${data.player_name}`,
-          created_at: new Date(
-            base.getTime() - minutesAgo * 60000
-          ).toISOString(),
-
-          zone: 'hygiene',
-          game_key: 'toothbrush',
-          class_level: 'ป.5',
-          section: 'A',
-          difficulty: 'easy',
-          ...data
-        });
-
-        return [
-          make(5, {
-            player_name: 'Hero',
-            student_id: 'P5-001',
-            play_mode: 'learning',
-            score: 4680,
-            clean_score: 100,
-            gum_health: 94,
-            technique_score: 100,
-            coverage_zone_count: 6,
-            learning_complete: 'yes',
-            learning_progress_percent: 100,
-            learning_direction_mastery: 100,
-            learning_qualified_strokes: 18,
-            learning_required_strokes: 18,
-            overall_direction_accuracy: 38,
-            direction_accuracy: 38,
-            challenge_result: 'learning_complete',
-            challenge_passed: 'yes',
-            strongest_zone: 'บนซ้าย',
-            weakest_zone: 'ล่างขวา',
-            input_mode: 'hand_tracking',
-            guided_zone_progress_json: JSON.stringify({
-              progress: {
-                top_left: 100,
-                top_mid: 100,
-                top_right: 100,
-                bottom_left: 100,
-                bottom_mid: 100,
-                bottom_right: 100
-              },
-              qualified_strokes: {
-                top_left: 3,
-                top_mid: 3,
-                top_right: 3,
-                bottom_left: 3,
-                bottom_mid: 3,
-                bottom_right: 3
-              },
-              direction_good: {
-                top_left: 3,
-                top_mid: 3,
-                top_right: 3,
-                bottom_left: 3,
-                bottom_mid: 3,
-                bottom_right: 3
-              },
-              direction_total: {
-                top_left: 8,
-                top_mid: 7,
-                top_right: 8,
-                bottom_left: 7,
-                bottom_mid: 9,
-                bottom_right: 8
-              }
-            })
-          }),
-
-          make(10, {
-            player_name: 'Hero',
-            student_id: 'P5-001',
-            play_mode: 'challenge',
-            score: 5110,
-            clean_score: 100,
-            gum_health: 89,
-            technique_score: 100,
-            coverage_zone_count: 6,
-            direction_accuracy: 36,
-            overall_direction_accuracy: 36,
-            direction_threshold: 45,
-            direction_passed: 'no',
-            challenge_result: 'direction_practice_needed',
-            challenge_passed: 'no',
-            challenge_fail_reasons: 'Direction ต้องอย่างน้อย 45%',
-            strongest_zone: 'บนขวา',
-            weakest_zone: 'ล่างขวา',
-            input_mode: 'hand_tracking',
-            challenge_zone_performance_json: JSON.stringify({
-              top_left: { clean_percent: 100, direction_accuracy: 67 },
-              top_mid: { clean_percent: 100, direction_accuracy: 53 },
-              top_right: { clean_percent: 100, direction_accuracy: 71 },
-              bottom_left: { clean_percent: 100, direction_accuracy: 23 },
-              bottom_mid: { clean_percent: 100, direction_accuracy: 25 },
-              bottom_right: { clean_percent: 92, direction_accuracy: 0 }
-            })
-          }),
-
-          make(24, {
-            player_name: 'Mook',
-            student_id: 'P5-002',
-            play_mode: 'challenge',
-            score: 6100,
-            clean_score: 100,
-            gum_health: 91,
-            technique_score: 96,
-            coverage_zone_count: 6,
-            direction_accuracy: 68,
-            overall_direction_accuracy: 68,
-            direction_threshold: 45,
-            direction_passed: 'yes',
-            challenge_result: 'fresh_smile_hero',
-            challenge_passed: 'yes',
-            strongest_zone: 'บนกลาง',
-            weakest_zone: 'ล่างซ้าย',
-            input_mode: 'touch_mouse',
-            challenge_zone_performance_json: JSON.stringify({
-              top_left: { clean_percent: 100, direction_accuracy: 70 },
-              top_mid: { clean_percent: 100, direction_accuracy: 80 },
-              top_right: { clean_percent: 100, direction_accuracy: 75 },
-              bottom_left: { clean_percent: 100, direction_accuracy: 62 },
-              bottom_mid: { clean_percent: 100, direction_accuracy: 60 },
-              bottom_right: { clean_percent: 100, direction_accuracy: 58 }
-            })
-          }),
-
-          make(50, {
-            player_name: 'Legacy Hero',
-            student_id: 'P5-OLD',
-            score: 800,
-            clean_score: 0
-          })
-        ];
-      }
-
-      function resetFilters() {
-        [
-          'searchInput',
-          'studentFilter',
-          'gameFilter',
-          'classFilter',
-          'modeFilter',
-          'eraFilter',
-          'resultFilter'
-        ].forEach(id => {
-          $(id).value = '';
-        });
-
-        $('sortFilter').value = 'latest';
-        applyFilters();
-      }
-
-      function bindEvents() {
-        $('homeBtn').addEventListener('click', () => {
-          location.href = CONFIG.homeUrl;
-        });
-
-        $('printBtn').addEventListener('click', () => {
-          window.print();
-        });
-
-        $('exportBtn').addEventListener('click', exportCsv);
-        $('loadBtn').addEventListener('click', loadFromSheet);
-
-        $('demoBtn').addEventListener('click', () => {
-          setRecords(makeDemoRecords(), 'Demo Data');
-          setStatus('กำลังใช้ Demo Data สำหรับสาธิต Dashboard', 'ok');
-          toast('เปลี่ยนเป็น Demo Data แล้ว');
-        });
-
-        $('clearUrlBtn').addEventListener('click', () => {
-          const removed = Storage.remove(CONFIG.apiStorageKey);
-
-          $('apiUrl').value = '';
-
-          setStatus(
-            removed
-              ? 'ล้าง URL ที่จำแล้ว'
-              : 'ล้างช่อง URL แล้ว (Browser Storage ถูกจำกัด)',
-            removed ? 'ok' : 'warn'
-          );
-
-          toast(
-            removed
-              ? 'ล้าง URL ที่จำแล้ว'
-              : 'ล้างช่อง URL แล้ว'
-          );
-        });
-
-        $('importBtn').addEventListener('click', importPastedData);
-        $('resetBtn').addEventListener('click', resetFilters);
-
-        [
-          'searchInput',
-          'studentFilter',
-          'gameFilter',
-          'classFilter',
-          'modeFilter',
-          'eraFilter',
-          'resultFilter',
-          'sortFilter'
-        ].forEach(id => {
-          $(id).addEventListener(
-            id === 'searchInput' ? 'input' : 'change',
-            applyFilters
-          );
-        });
-      }
-
-      function boot() {
-        bindEvents();
-
-        $('apiUrl').value =
-          Storage.get(
-            CONFIG.apiStorageKey,
-            CONFIG.defaultApiUrl
-          ) || CONFIG.defaultApiUrl;
-
-        setRecords(makeDemoRecords(), 'Demo Data');
-
-        setStatus(
-          Storage.lastError
-            ? storageNote()
-            : 'กำลังใช้ Demo Data — กด “โหลดจาก Sheet” เพื่อใช้ข้อมูลจริง',
-          Storage.lastError ? 'warn' : ''
-        );
-
-        console.log('[Hygiene Teacher Dashboard]', VERSION);
-      }
-
-      boot();
-    })();
-  </script>
+    <div id="growthCard" class="growth-empty">เลือกชื่อจาก “ดูข้อมูลรายบุคคล” เพื่อดูแนวโน้มการพัฒนา</div>
+  </article>
+
+  <article class="panel card mission-card">
+    <div class="head">
+      <div><h2>🚀 Next Mission</h2><p class="muted">คำสั่งฝึกต่ออัตโนมัติจากผลเล่นล่าสุด</p></div>
+      <span id="missionTag" class="mini">พร้อมวางแผน</span>
+    </div>
+    <div id="nextMission" class="mission-empty">เลือกชื่อจาก “ดูข้อมูลรายบุคคล” เพื่อสร้างภารกิจต่อไป</div>
+  </article>
+</section>
+
+<section class="panel table-card">
+  <div class="table-head"><div><h2>👩‍🎓 Student Records</h2><p id="caption">เลือกแถวเพื่อดูรายละเอียดรายโซนและ feedback</p></div><span id="recordCount" class="mini">0 records</span></div>
+  <div class="scroll"><table><thead><tr><th>เวลา</th><th>นักเรียน</th><th>เกม / โหมด</th><th>ผล</th><th>Score</th><th>Clean</th><th>Gum</th><th>Technique</th><th>Coverage</th><th>Learning</th><th>Mastery</th><th>Overall Direction</th><th>Weak Zone</th><th>Input</th></tr></thead><tbody id="tbody"></tbody></table></div>
+  <div id="mobileRecords" class="mobile-records"></div>
+</section>
+
+<section class="details">
+  <article class="panel card"><div class="head"><div><h2>🔎 Selected Attempt</h2><p class="muted">สรุปรายบุคคลจากการเล่นครั้งที่เลือก</p></div><span id="detailTag" class="mini">เลือกแถว</span></div><div id="detail" class="empty-detail">เลือกแถวจากตารางเพื่อดู Learning Mastery, Overall Direction, ค่า Gum และข้อเสนอแนะเฉพาะคน</div></article>
+  <article class="panel card"><div class="head"><div><h2>🧩 Zone Drilldown</h2><p class="muted">ดูข้อมูล pass strokes หรือ Challenge Clean / Direction รายโซน</p></div><span id="modeTag" class="mini">-</span></div><div id="detailZones" class="empty-detail">รายละเอียดรายโซนจะแสดงที่นี่</div></article>
+</section>
+</div></main>
+<div id="toast" class="toast"></div>
+
+<script>
+(()=>{
+'use strict';
+const VERSION='v20260622-HYGIENE-TEACHER-DASHBOARD-V2-6-GROWTH-NEXT-MISSION';
+const CFG={
+ home:'../hygiene-zone-v2.html',
+ api:'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec',
+ apiKey:'herohealth_hygiene_teacher_api_v2',
+ dataKey:'herohealth_hygiene_teacher_records_v2',
+ limit:1000,
+ zones:[['top_left','บนซ้าย'],['top_mid','บนกลาง'],['top_right','บนขวา'],['bottom_left','ล่างซ้าย'],['bottom_mid','ล่างกลาง'],['bottom_right','ล่างขวา']]
+};
+const $=id=>document.getElementById(id),n=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f,yes=v=>['yes','true','1','y'].includes(String(v??'').trim().toLowerCase()),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+const S={all:[],shown:[],selected:'',source:'Demo Data'};
+const CURRENT_MODES=new Set(['learning','challenge']);
+function pick(o,keys,f=''){for(const k of keys)if(o&&o[k]!==undefined&&o[k]!==null&&o[k]!=='')return o[k];return f}
+function json(v,f={}){if(!v)return f;if(typeof v==='object')return v;try{return JSON.parse(v)}catch(e){return f}}
+function has(o,keys){
+  return keys.some(k=>
+    o && Object.prototype.hasOwnProperty.call(o,k) &&
+    o[k]!==undefined && o[k]!==null && String(o[k]).trim()!==''
+  );
+}
+function shownPercent(hasValue,value){return hasValue?`${Math.round(n(value))}%`:'—'}
+function meanMeasured(records,getter){
+  const values=records.map(getter).filter(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))).map(Number);
+  return {value:values.length?Math.round(values.reduce((sum,value)=>sum+value,0)/values.length):null,count:values.length};
+}
+function metricLabel(metric,suffix='%'){return metric.count?`${metric.value}${suffix}`:'—'}
+function zoneMetric(records,payloadKey,zoneId,metricKey){
+  return meanMeasured(records,record=>{
+    const payload=json(record[payloadKey],{});
+    if(payloadKey==='guided_zone_progress_json'){
+      const progress=payload.progress||{};
+      return has(progress,[zoneId])?n(progress[zoneId]):null;
+    }
+    const zone=payload[zoneId]||{};
+    return has(zone,[metricKey])?n(zone[metricKey]):null;
+  });
+}
+
+function studentKeyFrom(r){
+  const sid=String(pick(r,['student_id','studentId','pid'],'')).trim();
+  if(sid)return `id:${sid.toLowerCase()}`;
+  const name=String(pick(r,['player_name','playerName','name'],'Unknown')).trim().toLowerCase();
+  const level=String(pick(r,['class_level','classLevel','grade'],'')).trim().toLowerCase();
+  const section=String(pick(r,['section','group'],'')).trim().toLowerCase();
+  return `name:${name}|class:${level}|section:${section}`;
+}
+function studentLabelFrom(r){
+  const name=String(pick(r,['player_name','playerName','name'],'Unknown')).trim();
+  const sid=String(pick(r,['student_id','studentId','pid'],'')).trim();
+  const level=String(pick(r,['class_level','classLevel','grade'],'')).trim();
+  const section=String(pick(r,['section','group'],'')).trim();
+  const meta=[sid,level,section].filter(Boolean).join(' • ');
+  return meta?`${name} — ${meta}`:name;
+}
+function studentOptions(){
+  const select=$('student');
+  const previous=select.value;
+  const entries=new Map();
+  S.all.forEach(r=>{
+    const key=r._studentKey||studentKeyFrom(r);
+    if(!entries.has(key))entries.set(key,r._studentLabel||studentLabelFrom(r));
+  });
+  const list=[...entries.entries()].sort((a,b)=>a[1].localeCompare(b[1],'th'));
+  select.innerHTML='<option value="">ทุกคน / ภาพรวมทั้งชั้น</option>'+list.map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('');
+  select.value=entries.has(previous)?previous:'';
+}
+function norm(raw,i=0){
+  const source={...(raw||{})};
+  const embedded=json(pick(source,['raw_json','rawJson']),{});
+  const r={...source,...(embedded&&typeof embedded==='object'&&!Array.isArray(embedded)?embedded:{})};
+  const mode=String(pick(r,['play_mode','playMode'],'')).toLowerCase();
+  const current=CURRENT_MODES.has(mode);
+  const legacy=!current;
+  const id=String(pick(r,['record_id','recordId','run_id','runId'],`local-${i}`));
+  const guidedJson=pick(r,['guided_zone_progress_json','guidedZoneProgressJson'],'');
+  const challengeJson=pick(r,['challenge_zone_performance_json','challengeZonePerformanceJson'],'');
+  const guidedPayload=json(guidedJson,{});
+  const challengePayload=json(challengeJson,{});
+
+  /* Legacy zero-filled placeholders are excluded from current KPIs.
+     A real numeric zero from a CURRENT run remains measured data. */
+  const hasClean=current&&has(r,['clean_score','cleanScore']);
+  const hasGum=current&&has(r,['gum_health','gumHealth']);
+  const hasTechnique=current&&has(r,['technique_score','techniqueScore']);
+  const hasCoverage=current&&has(r,['coverage_zone_count','coverageZoneCount']);
+  const hasDirection=current&&has(r,['overall_direction_accuracy','overallDirectionAccuracy','direction_accuracy','directionAccuracy']);
+  const hasLearningProgress=current&&has(r,['learning_progress_percent','learningProgressPercent']);
+  const hasLearningMastery=current&&has(r,['learning_direction_mastery','learningDirectionMastery']);
+  const hasGuidedZones=current&&!!(guidedPayload&&guidedPayload.progress&&Object.keys(guidedPayload.progress).length);
+  const hasChallengeZones=current&&!!(challengePayload&&typeof challengePayload==='object'&&Object.keys(challengePayload).length);
+
+  return {...r,
+    __key:`${id}-${i}`,record_id:id,
+    created_at:pick(r,['created_at','createdAt','received_at','receivedAt']),
+    player_name:pick(r,['player_name','playerName','name'],'Unknown'),
+    student_id:pick(r,['student_id','studentId','pid']),
+    class_level:pick(r,['class_level','classLevel','grade']),
+    section:pick(r,['section','group']),
+    _studentKey:studentKeyFrom(r),
+    _studentLabel:studentLabelFrom(r),
+    game_key:String(pick(r,['game_key','gameKey','game_id','gameId'],'other')).toLowerCase(),
+    play_mode:mode,difficulty:String(pick(r,['difficulty','diff'],'')).toLowerCase(),
+    score:n(pick(r,['score'])),clean_score:n(pick(r,['clean_score','cleanScore'])),gum_health:n(pick(r,['gum_health','gumHealth'])),technique_score:n(pick(r,['technique_score','techniqueScore'])),coverage_zone_count:n(pick(r,['coverage_zone_count','coverageZoneCount'])),
+    learning_complete:yes(pick(r,['learning_complete','learningComplete'])),learning_progress_percent:n(pick(r,['learning_progress_percent','learningProgressPercent'])),learning_direction_mastery:n(pick(r,['learning_direction_mastery','learningDirectionMastery'])),learning_qualified_strokes:n(pick(r,['learning_qualified_strokes','learningQualifiedStrokes'])),learning_required_strokes:n(pick(r,['learning_required_strokes','learningRequiredStrokes'])),
+    overall_direction_accuracy:n(pick(r,['overall_direction_accuracy','overallDirectionAccuracy','direction_accuracy','directionAccuracy'])),direction_accuracy:n(pick(r,['direction_accuracy','directionAccuracy'])),direction_threshold:n(pick(r,['direction_threshold','directionThreshold'])),direction_passed:yes(pick(r,['direction_passed','directionPassed'])),
+    challenge_result:String(pick(r,['challenge_result','challengeResult'],'')).toLowerCase(),challenge_passed:yes(pick(r,['challenge_passed','challengePassed'])),challenge_fail_reasons:String(pick(r,['challenge_fail_reasons','challengeFailReasons'],'')),
+    strongest_zone:String(pick(r,['strongest_zone','best_zone_from_summary','strongestZone'],'')),weakest_zone:String(pick(r,['weakest_zone','weak_zone_from_summary','weakestZone'],'')),input_mode:String(pick(r,['input_mode','inputMode'],'')),hand_tracking_enabled:yes(pick(r,['hand_tracking_enabled','handTrackingEnabled'])),badge:String(pick(r,['badge'],'')),advice:String(pick(r,['advice'],'')),
+    guided_zone_progress_json:guidedJson,challenge_zone_performance_json:challengeJson,
+    _isCurrent:current,_isLegacy:legacy,_hasClean:hasClean,_hasGum:hasGum,_hasTechnique:hasTechnique,_hasCoverage:hasCoverage,_hasDirection:hasDirection,_hasLearningProgress:hasLearningProgress,_hasLearningMastery:hasLearningMastery,_hasGuidedZones:hasGuidedZones,_hasChallengeZones:hasChallengeZones
+  };
+}
+function demo(){const base=new Date(),mk=(m,x)=>({record_id:`D-${m}-${x.player_name}`,created_at:new Date(base-m*60000).toISOString(),zone:'hygiene',game_key:'toothbrush',class_level:'ป.5',section:'A',difficulty:'easy',...x});return[
+mk(4,{player_name:'Hero',play_mode:'learning',score:4680,clean_score:100,gum_health:94,technique_score:100,coverage_zone_count:6,learning_complete:'yes',learning_progress_percent:100,learning_direction_mastery:100,learning_qualified_strokes:18,learning_required_strokes:18,overall_direction_accuracy:38,direction_accuracy:38,challenge_result:'learning_complete',challenge_passed:'yes',strongest_zone:'บนซ้าย',weakest_zone:'ล่างขวา',input_mode:'hand_tracking',guided_zone_progress_json:JSON.stringify({progress:{top_left:100,top_mid:100,top_right:100,bottom_left:100,bottom_mid:100,bottom_right:100},qualified_strokes:{top_left:3,top_mid:3,top_right:3,bottom_left:3,bottom_mid:3,bottom_right:3},direction_good:{top_left:3,top_mid:3,top_right:3,bottom_left:3,bottom_mid:3,bottom_right:3},direction_total:{top_left:8,top_mid:7,top_right:8,bottom_left:7,bottom_mid:9,bottom_right:8}})}),
+mk(12,{player_name:'Mook',play_mode:'challenge',score:5110,clean_score:100,gum_health:89,technique_score:100,coverage_zone_count:6,direction_accuracy:36,overall_direction_accuracy:36,direction_threshold:45,direction_passed:'no',challenge_result:'direction_practice_needed',challenge_passed:'no',challenge_fail_reasons:'Direction ต้องอย่างน้อย 45%',strongest_zone:'บนขวา',weakest_zone:'ล่างขวา',input_mode:'hand_tracking',challenge_zone_performance_json:JSON.stringify({top_left:{clean_percent:100,direction_accuracy:67},top_mid:{clean_percent:100,direction_accuracy:53},top_right:{clean_percent:100,direction_accuracy:71},bottom_left:{clean_percent:100,direction_accuracy:23},bottom_mid:{clean_percent:100,direction_accuracy:25},bottom_right:{clean_percent:92,direction_accuracy:0}})}),
+mk(31,{player_name:'Beam',play_mode:'learning',score:2800,clean_score:67,gum_health:82,technique_score:74,coverage_zone_count:4,learning_complete:'no',learning_progress_percent:56,learning_direction_mastery:67,learning_qualified_strokes:12,learning_required_strokes:18,overall_direction_accuracy:42,direction_accuracy:42,challenge_result:'learning_retry',challenge_passed:'no',challenge_fail_reasons:'ต้องผ่าน Learning ครบ 6 โซน',strongest_zone:'บนกลาง',weakest_zone:'ล่างซ้าย',input_mode:'touch_mouse',guided_zone_progress_json:JSON.stringify({progress:{top_left:100,top_mid:100,top_right:100,bottom_left:36,bottom_mid:0,bottom_right:0},qualified_strokes:{top_left:3,top_mid:3,top_right:3,bottom_left:1,bottom_mid:0,bottom_right:0}})}),
+mk(48,{player_name:'Nina',play_mode:'challenge',score:3950,clean_score:84,gum_health:54,technique_score:61,coverage_zone_count:5,direction_accuracy:58,overall_direction_accuracy:58,direction_threshold:55,direction_passed:'yes',challenge_result:'retry',challenge_passed:'no',challenge_fail_reasons:'Gum ต้องไม่ต่ำกว่า 55%',strongest_zone:'บนกลาง',weakest_zone:'ล่างกลาง',input_mode:'touch_mouse',challenge_zone_performance_json:JSON.stringify({top_left:{clean_percent:100,direction_accuracy:70},top_mid:{clean_percent:100,direction_accuracy:80},top_right:{clean_percent:90,direction_accuracy:60},bottom_left:{clean_percent:80,direction_accuracy:50},bottom_mid:{clean_percent:60,direction_accuracy:40},bottom_right:{clean_percent:70,direction_accuracy:50}})}),
+mk(70,{player_name:'Ploy',play_mode:'learning',score:4630,clean_score:100,gum_health:91,technique_score:96,coverage_zone_count:6,learning_complete:'yes',learning_progress_percent:100,learning_direction_mastery:100,learning_qualified_strokes:18,learning_required_strokes:18,overall_direction_accuracy:69,direction_accuracy:69,challenge_result:'learning_complete',challenge_passed:'yes',strongest_zone:'ล่างกลาง',weakest_zone:'บนซ้าย',input_mode:'hand_tracking',guided_zone_progress_json:JSON.stringify({progress:{top_left:100,top_mid:100,top_right:100,bottom_left:100,bottom_mid:100,bottom_right:100},qualified_strokes:{top_left:3,top_mid:3,top_right:3,bottom_left:3,bottom_mid:3,bottom_right:3}})})
+]}
+function ts(r){const t=Date.parse(r.created_at||'');return Number.isFinite(t)?t:0}
+function date(v){const t=Date.parse(v||'');return Number.isFinite(t)?new Intl.DateTimeFormat('th-TH',{dateStyle:'short',timeStyle:'short',timeZone:'Asia/Bangkok'}).format(new Date(t)):'-'}
+function game(k){return({toothbrush:'🪥 Toothbrush',handwash:'🧼 Handwash',germhunter:'🔍 Germ Hunter',mask:'😷 Mask',cough:'🤧 Cough',nails:'💅 Nails'})[k]||k||'Other'}
+function mode(m){return m==='learning'?'Learning':m==='challenge'?'Challenge':m||'-'}
+function result(r){
+  if(r._isLegacy)return{label:'Legacy / Unknown',css:'legacy',detail:'ข้อมูลก่อน Learning + Challenge analytics'};
+  const x=r.challenge_result;
+  if(x==='fresh_smile_hero'||(r.challenge_passed&&r.play_mode==='challenge'))return{label:'Pass',css:'pass',detail:'Fresh Smile Hero'};
+  if(x==='learning_complete'||(r.challenge_passed&&r.play_mode==='learning'))return{label:'Learning Pass',css:'learning',detail:'6 zones complete'};
+  if(x==='direction_practice_needed')return{label:'Direction Practice',css:'practice',detail:'Clean ผ่าน แต่ทิศยังต่ำ'};
+  return{label:'Retry',css:'retry',detail:r.challenge_fail_reasons||'ต้องฝึกเพิ่ม'};
+}
+function direction(r){return r.play_mode==='learning'?n(r.overall_direction_accuracy,n(r.direction_accuracy)):n(r.direction_accuracy,n(r.overall_direction_accuracy))}
+function mastery(r){return n(r.learning_direction_mastery,r.learning_complete?100:0)}
+function input(r){return r.input_mode==='hand_tracking'?'✋ Hand':r.input_mode==='touch_mouse'?'👆 Touch':r.hand_tracking_enabled?'✋ Hand':r.input_mode||'-'}
+function opts(id,vals,label){const e=$(id),old=e.value,u=[...new Set(vals.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b,'th'));e.innerHTML=`<option value="">${esc(label)}</option>`+u.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');if(u.includes(old))e.value=old}
+function filters(){
+  studentOptions();
+  opts('game',S.all.map(r=>r.game_key),'ทุกเกม');
+  opts('class',S.all.map(r=>r.class_level),'ทุกชั้น');
+  const e=$('mode'),v=e.value;
+  e.innerHTML='<option value="">ทุกโหมด</option><option value="learning">Learning</option><option value="challenge">Challenge</option>';
+  e.value=CURRENT_MODES.has(v)?v:'';
+  const era=$('era'),ev=era.value;
+  era.innerHTML='<option value="">ทุกข้อมูล</option><option value="current">Current Tracking</option><option value="legacy">Legacy / Unknown</option>';
+  era.value=['current','legacy'].includes(ev)?ev:'';
+  const q=$('result'),w=q.value;
+  q.innerHTML='<option value="">ทุกผลลัพธ์</option><option value="pass">Pass</option><option value="learning">Learning Pass</option><option value="practice">Direction Practice</option><option value="retry">Retry</option><option value="legacy">Legacy / Unknown</option>';
+  q.value=['pass','learning','practice','retry','legacy'].includes(w)?w:'';
+}
+function compareMeasured(a,b,getter){
+  const av=getter(a),bv=getter(b);
+  const aOk=av!==null&&av!==undefined&&Number.isFinite(Number(av));
+  const bOk=bv!==null&&bv!==undefined&&Number.isFinite(Number(bv));
+  if(aOk&&!bOk)return-1;if(!aOk&&bOk)return 1;if(!aOk&&!bOk)return 0;
+  return Number(av)-Number(bv);
+}
+
+function latestDataTs(){
+  return S.all.reduce((latest,r)=>Math.max(latest,ts(r)),0)||Date.now();
+}
+function startOfLocalDay(time){
+  const d=new Date(time);
+  d.setHours(0,0,0,0);
+  return d.getTime();
+}
+function rangeLabel(range){
+  return ({all:'ทั้งหมด',today:'วันนี้', '7d':'7 วันล่าสุด','30d':'30 วันล่าสุด'})[range]||'ทั้งหมด';
+}
+function inRange(record,range,anchor){
+  if(range==='all')return true;
+  const value=ts(record);
+  if(!value)return false;
+  const day=startOfLocalDay(anchor);
+  const end=day+86400000-1;
+  if(range==='today')return value>=day&&value<=end;
+  const days=range==='7d'?7:30;
+  const start=day-(days-1)*86400000;
+  return value>=start&&value<=end;
+}
+function currentStudentName(){
+  const studentValue=$('student').value;
+  return studentValue?(S.all.find(r=>r._studentKey===studentValue)?._studentLabel||'นักเรียนที่เลือก'):'ทุกคน / ภาพรวมทั้งชั้น';
+}
+
+function apply(){
+  const q=$('search').value.trim().toLowerCase();
+  const student=$('student').value;
+  const range=$('range').value;
+  const anchor=latestDataTs();
+  const g=$('game').value,c=$('class').value,m=$('mode').value,era=$('era').value,res=$('result').value,sort=$('sort').value;
+
+  let a=S.all.filter(r=>{
+    const info=result(r);
+    const text=[r.player_name,r.student_id,r.class_level,r.section,r.game_key,r.play_mode,r.challenge_result,r.challenge_fail_reasons,r.badge,r.weakest_zone,r._isLegacy?'legacy unknown':'current'].join(' ').toLowerCase();
+
+    return inRange(r,range,anchor)&&
+      (!student||r._studentKey===student)&&
+      (!g||r.game_key===g)&&
+      (!c||r.class_level===c)&&
+      (!m||r.play_mode===m)&&
+      (!era||(era==='current'?r._isCurrent:r._isLegacy))&&
+      (!res||info.css===res)&&
+      (!q||text.includes(q));
+  });
+
+  a.sort((x,y)=>
+    sort==='score'?n(y.score)-n(x.score):
+    sort==='direction'?compareMeasured(x,y,r=>r._hasDirection?direction(r):null):
+    sort==='gum'?compareMeasured(x,y,r=>r._hasGum?n(r.gum_health):null):
+    sort==='technique'?compareMeasured(x,y,r=>r._hasTechnique?n(r.technique_score):null):
+    ts(y)-ts(x)
+  );
+
+  S.shown=a;
+  if(!a.some(r=>r.__key===S.selected))S.selected=a[0]?.__key||'';
+  render();
+}
+function avg(a,f){return a.length?Math.round(a.reduce((s,x)=>s+f(x),0)/a.length):0}
+function metrics(a){
+  const current=a.filter(r=>r._isCurrent),legacy=a.filter(r=>r._isLegacy);
+  const learn=current.filter(r=>r.play_mode==='learning'),challenge=current.filter(r=>r.play_mode==='challenge');
+  const pass=challenge.filter(r=>result(r).css==='pass').length,complete=learn.filter(r=>r.learning_complete).length,practice=challenge.filter(r=>result(r).css==='practice').length;
+  const clean=meanMeasured(current.filter(r=>r._hasClean),r=>r.clean_score);
+  const toothbrush=current.filter(r=>r.game_key==='toothbrush');
+  const gum=meanMeasured(toothbrush.filter(r=>r._hasGum),r=>r.gum_health);
+  const tech=meanMeasured(toothbrush.filter(r=>r._hasTechnique),r=>r.technique_score);
+  const dir=meanMeasured(challenge.filter(r=>r.game_key==='toothbrush'&&r._hasDirection),r=>direction(r));
+  const learningMasteryMetric=meanMeasured(learn.filter(r=>r.game_key==='toothbrush'&&r._hasLearningMastery),r=>mastery(r));
+  return{total:a.length,current:current.length,legacy:legacy.length,challenge:challenge.length,pass,passRate:challenge.length?Math.round(pass/challenge.length*100):null,learn:learn.length,complete,learnRate:learn.length?Math.round(complete/learn.length*100):null,clean,gum,tech,dir,mastery:learningMasteryMetric,practice};
+}
+function kp(label,value,sub,glow){return`<article class="kpi" style="--glow:${glow}"><small>${esc(label)}</small><b>${esc(value)}</b><span>${esc(sub)}</span></article>`}
+function renderKpis(){
+  const x=metrics(S.shown);
+  $('kpis').innerHTML=[
+    kp('Total Plays',x.total,`${x.current} Current • ${x.legacy} Legacy`,'rgba(103,232,249,.30)'),
+    kp('Challenge Pass',x.challenge?`${x.passRate}%`:'—',`${x.pass}/${x.challenge} Fresh Smile Hero`,'rgba(34,197,94,.28)'),
+    kp('Learning Complete',x.learn?`${x.learnRate}%`:'—',`${x.complete}/${x.learn} completed`,'rgba(59,130,246,.25)'),
+    kp('Avg Clean (Current)',metricLabel(x.clean),`${x.clean.count} current records`,'rgba(250,204,21,.27)'),
+    kp('Avg Gum (Current)',metricLabel(x.gum),x.gum.count?`Toothbrush • ${x.gum.count} measured`:'ยังไม่มีข้อมูล Gum','rgba(34,197,94,.25)'),
+    kp('Avg Technique (Current)',metricLabel(x.tech),x.tech.count?`Toothbrush • ${x.tech.count} measured`:'ยังไม่มีข้อมูล Technique','rgba(139,92,246,.23)'),
+    kp('Challenge Direction',metricLabel(x.dir),x.dir.count?`Challenge • ${x.dir.count} measured`:'ยังไม่มีข้อมูล Direction','rgba(251,146,60,.25)'),
+    kp('Direction Practice',x.practice,'Current Challenge only','rgba(251,113,133,.25)')
+  ].join('');
+}
+function renderInsights(){
+  const all=S.shown,current=all.filter(r=>r._isCurrent),legacy=all.filter(r=>r._isLegacy),x=metrics(all),list=[];
+  const practice=current.filter(r=>r.play_mode==='challenge'&&result(r).css==='practice');
+  const incomplete=current.filter(r=>r.play_mode==='learning'&&!r.learning_complete);
+  const gum=current.filter(r=>r.game_key==='toothbrush'&&r._hasGum&&n(r.gum_health)<65);
+  const tech=current.filter(r=>r.game_key==='toothbrush'&&r._hasTechnique&&n(r.technique_score)<n(pick(r,['pass_min_technique'],45),45));
+  const touch=current.filter(r=>r.input_mode==='touch_mouse');
+  if(legacy.length)list.push(['🗃️',`${legacy.length} แถวเป็น Legacy / Unknown`,'ไม่นับรวมใน KPI Current เพราะยังไม่มี Learning/Challenge tracking แบบใหม่']);
+  if(practice.length)list.push(['🧭',`${practice.length} ครั้งต้องฝึก Direction เพิ่ม`,'ฟันบนปัดลง • ฟันล่างปัดขึ้น โดยเริ่มช้า ๆ ในโซนเป้าหมาย']);
+  if(incomplete.length)list.push(['🗺️',`${incomplete.length} ครั้งยังไม่ครบ Learning 6 โซน`,'ให้เริ่ม Learning Mode ที่โซนค้าง และเก็บ pass strokes ทีละโซน']);
+  if(gum.length)list.push(['🌿',`${gum.length} Current attempts มี Gum ต่ำกว่า 65%`,'โค้ชเรื่อง gentle brushing: ลดแรง ลดความเร็ว และไม่ถูซ้ำจุดเดิม']);
+  if(tech.length)list.push(['🧠',`${tech.length} Current attempts มี Technique ต่ำกว่าเกณฑ์`,'ทำ warm-up ความเร็วระดับกลางก่อนเข้าสู่ Challenge Mode']);
+  if(touch.length)list.push(['👆',`${touch.length} Current attempts ใช้ Touch / Mouse fallback`,'ผลยังใช้ได้ แต่ถ้าประเมินท่าทางให้เปิดกล้องและ Hand Tracking']);
+  if(!list.length)list.push(['✨','ผลรวม Current Tracking อยู่ในเกณฑ์ดี',`Clean ${metricLabel(x.clean)} • Gum ${metricLabel(x.gum)} • Technique ${metricLabel(x.tech)} พร้อมเพิ่มความยากได้`]);
+  $('insightCount').textContent=`${all.length} records • ${x.legacy} legacy`;
+  $('insights').innerHTML=list.slice(0,5).map(i=>`<div class="insight"><div class="icon">${i[0]}</div><div><b>${esc(i[1])}</b><span>${esc(i[2])}</span></div></div>`).join('');
+}
+function board(){
+  const learn=S.shown.filter(r=>r.play_mode==='learning'&&r._hasGuidedZones);
+  const challenge=S.shown.filter(r=>r.play_mode==='challenge'&&r._hasChallengeZones);
+  $('zoneBoard').innerHTML=CFG.zones.map(([id,label])=>{
+    const l=zoneMetric(learn,'guided_zone_progress_json',id,'');
+    const c=zoneMetric(challenge,'challenge_zone_performance_json',id,'clean_percent');
+    const d=zoneMetric(challenge,'challenge_zone_performance_json',id,'direction_accuracy');
+    return `<div class="zone-row"><span>${label}</span><div class="stack">
+      <div class="track"><i class="fill blue" style="width:${clamp(l.value??0,0,100)}%"></i></div>
+      <div class="track"><i class="fill" style="width:${clamp(c.value??0,0,100)}%"></i></div>
+      <div class="track"><i class="fill pink" style="width:${clamp(d.value??0,0,100)}%"></i></div>
+    </div><span class="zone-num">L ${metricLabel(l)}<br>C ${metricLabel(c)} • D ${metricLabel(d)}</span></div>`;
+  }).join('');
+}
+function measuredForDisplay(record,flag,value){return record._isLegacy?'—':shownPercent(flag,value)}
+function selectRecord(key,scrollToDetails=false){S.selected=key;table();detail();if(scrollToDetails)document.querySelector('.details')?.scrollIntoView({behavior:'smooth',block:'start'})}
+function mobileCards(records){
+  const holder=$('mobileRecords');
+  if(!records.length){holder.innerHTML='<div class="mobile-record-empty">ยังไม่มีข้อมูลที่ตรงกับ filter นี้</div>';return}
+  holder.innerHTML=records.map(r=>{
+    const info=result(r);
+    const primary=r._isLegacy?'Legacy data':r.play_mode==='learning'?`Mastery ${measuredForDisplay(r,r._hasLearningMastery,mastery(r))}`:`Direction ${measuredForDisplay(r,r._hasDirection,direction(r))}`;
+    return `<article class="record-card ${r.__key===S.selected?'selected':''}" data-mobile-key="${esc(r.__key)}"><div class="record-card-top"><time>${esc(date(r.created_at))}</time><span class="tag ${info.css}">${esc(info.label)}</span></div><h3>${esc(r.player_name)}</h3><p>${esc(game(r.game_key))} • ${esc(r._isLegacy?'Legacy / Unknown':`${mode(r.play_mode)} • ${r.difficulty||'-'}`)}</p><div class="record-card-metrics"><div class="record-card-metric"><small>Clean</small><b>${measuredForDisplay(r,r._hasClean,r.clean_score)}</b></div><div class="record-card-metric"><small>Gum</small><b>${measuredForDisplay(r,r._hasGum,r.gum_health)}</b></div><div class="record-card-metric"><small>${r.play_mode==='learning'?'Mastery':'Direction'}</small><b>${primary.replace(/^(Mastery |Direction )/,'')}</b></div></div><div class="record-card-bottom"><span class="sub">${esc(r._isLegacy?'ไม่รวมใน KPI Current':(r.weakest_zone?`ฝึกเพิ่ม: ${r.weakest_zone}`:primary))}</span><button class="record-open" type="button">ดูรายละเอียด</button></div></article>`;
+  }).join('');
+  holder.querySelectorAll('[data-mobile-key]').forEach(card=>card.addEventListener('click',()=>selectRecord(card.dataset.mobileKey,true)));
+}
+function table(){
+  const a=S.shown,x=metrics(a);
+  const studentValue=$('student').value;
+  const studentName=studentValue?(S.all.find(r=>r._studentKey===studentValue)?._studentLabel||'นักเรียนที่เลือก'):'ทุกคน';
+  $('recordCount').textContent=`${studentName} • ${a.length} records • ${x.legacy} legacy`;
+  $('caption').textContent=a.length?`${S.source} • โฟกัส: ${studentName} • Current metrics ไม่รวม ${x.legacy} Legacy / Unknown records`:'ไม่พบข้อมูลที่ตรงกับ filter';
+  if(!a.length){$('tbody').innerHTML='<tr><td colspan="14" class="empty">ยังไม่มีข้อมูลที่ตรงกับ filter นี้</td></tr>';mobileCards([]);return}
+  $('tbody').innerHTML=a.map(r=>{
+    const info=result(r),learning=r.play_mode==='learning'?`${r._hasLearningProgress?Math.round(n(r.learning_progress_percent)):'—'}% ${r.learning_complete?'✓':''}`:'-';
+    return `<tr data-k="${esc(r.__key)}" class="${r.__key===S.selected?'selected':''}"><td>${esc(date(r.created_at))}</td><td class="name">${esc(r.player_name)}<span class="sub">${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'-')}</span></td><td>${esc(game(r.game_key))}<span class="sub">${esc(r._isLegacy?'Legacy / Unknown':`${mode(r.play_mode)} • ${r.difficulty||'-'}`)}</span></td><td><span class="tag ${info.css}">${esc(info.label)}</span><span class="sub">${esc(info.detail)}</span></td><td>${Math.round(n(r.score))}</td><td>${measuredForDisplay(r,r._hasClean,r.clean_score)}</td><td>${measuredForDisplay(r,r._hasGum,r.gum_health)}</td><td>${measuredForDisplay(r,r._hasTechnique,r.technique_score)}</td><td>${r._isLegacy?'—':(r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—')}</td><td>${r._isLegacy?'—':esc(learning)}</td><td>${r._isLegacy?'-':(r.play_mode==='learning'?shownPercent(r._hasLearningMastery,mastery(r)):'-')}</td><td>${measuredForDisplay(r,r._hasDirection,direction(r))}</td><td>${esc(r._isLegacy?'—':(r.weakest_zone||'-'))}</td><td>${esc(r._isLegacy?'—':input(r))}</td></tr>`;
+  }).join('');
+  document.querySelectorAll('[data-k]').forEach(row=>row.addEventListener('click',()=>selectRecord(row.dataset.k,false)));
+  mobileCards(a);
+}
+function metric(label,value){return`<div class="metric"><small>${esc(label)}</small><b>${esc(value)}</b></div>`}
+function detail(){
+  const r=S.shown.find(x=>x.__key===S.selected);
+  if(!r){$('detailTag').className='mini';$('detailTag').textContent='เลือกแถว';$('modeTag').textContent='-';$('detail').className='empty-detail';$('detail').textContent='เลือกแถวจากตารางเพื่อดูรายละเอียด';$('detailZones').className='empty-detail';$('detailZones').textContent='รายละเอียดรายโซนจะแสดงที่นี่';return}
+  const x=result(r),dir=direction(r),mas=mastery(r),legacy=r._isLegacy;
+  $('detailTag').className=`tag ${x.css}`;$('detailTag').textContent=x.label;$('modeTag').textContent=legacy?'Legacy / Unknown':mode(r.play_mode);$('detail').className='';
+  $('detail').innerHTML=`<div class="student"><div class="avatar">${legacy?'🗃️':r.play_mode==='learning'?'🗺️':'🪥'}</div><div><h3>${esc(r.player_name)}</h3><p>${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'ไม่ระบุรหัส/ชั้น')}<br>${esc(date(r.created_at))} • ${esc(game(r.game_key))} • ${esc(legacy?'Legacy / Unknown':mode(r.play_mode))}</p></div></div><div class="metrics">${metric('Score',Math.round(n(r.score)))}${metric('Clean',legacy?'—':shownPercent(r._hasClean,r.clean_score))}${metric('Gum',legacy?'—':shownPercent(r._hasGum,r.gum_health))}${metric('Technique',legacy?'—':shownPercent(r._hasTechnique,r.technique_score))}${metric('Coverage',legacy?'—':(r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—'))}${metric(legacy?'Tracking':r.play_mode==='learning'?'Learning Mastery':'Direction',legacy?'Legacy':r.play_mode==='learning'?shownPercent(r._hasLearningMastery,mas):shownPercent(r._hasDirection,dir))}</div><div class="note"><strong>${legacy?'Legacy / Unknown Summary':r.play_mode==='learning'?'Learning Summary':'Challenge Summary'}</strong><br>${legacy?'บันทึกนี้เกิดก่อนระบบ Learning + Challenge telemetry รุ่นปัจจุบัน จึงเก็บไว้เป็นประวัติ แต่ไม่นำค่าเดิมมาคำนวณ KPI และ Zone analytics ของระบบใหม่':r.play_mode==='learning'?`Learning Progress ${shownPercent(r._hasLearningProgress,r.learning_progress_percent)} • Pass Strokes ${Math.round(n(r.learning_qualified_strokes))}/${Math.round(n(r.learning_required_strokes)||18)} • Overall Direction ${shownPercent(r._hasDirection,dir)}`:`Direction ${shownPercent(r._hasDirection,dir)} / เป้าหมาย ${Math.round(n(r.direction_threshold))||'-'}% • ${esc(x.detail)}`}<br><br><strong>Coach Note</strong><br>${esc(legacy?'เริ่มใช้ Current Tracking ตั้งแต่ Toothbrush AR v10.9 เป็นต้นไป':(r.advice||r.challenge_fail_reasons||'ไม่มีข้อผิดพลาดที่บันทึก'))}<br><br><strong>Strong / Weak Zone</strong><br>${esc(legacy?'— / —':`${r.strongest_zone||'-'} / ${r.weakest_zone||'-'}`)}</div>`;
+  zones(r);
+}
+function zones(r){
+  if(r._isLegacy){$('detailZones').className='empty-detail';$('detailZones').textContent='Legacy / Unknown attempt: บันทึกนี้ยังไม่มี Learning + Challenge zone analytics แบบใหม่ จึงไม่แสดงค่า 0% ที่อาจทำให้ตีความผิด';return}
+  $('detailZones').className='zone-board';
+  if(r.play_mode==='learning'){
+    const p=json(r.guided_zone_progress_json,{}),prog=p.progress||{},q=p.qualified_strokes||p.qualified||{},good=p.direction_good||{},total=p.direction_total||{};
+    $('detailZones').innerHTML=CFG.zones.map(([id,label])=>{const skill=has(prog,[id])?n(prog[id]):null,st=has(q,[id])?n(q[id]):null,dir=has(total,[id])?Math.round(n(good[id])/Math.max(1,n(total[id]))*100):null;return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill blue" style="width:${clamp(skill??0,0,100)}%"></i></div></div><span class="zone-num">Skill ${skill===null?'—':Math.round(skill)+'%'}<br>✓ ${st===null?'—':Math.round(st)}/3 • Dir ${dir===null?'—':dir+'%'}</span></div>`}).join('');
+  }else{
+    const p=json(r.challenge_zone_performance_json,{});
+    $('detailZones').innerHTML=CFG.zones.map(([id,label])=>{const z=p[id]||{},clean=has(z,['clean_percent'])?n(z.clean_percent):null,dir=has(z,['direction_accuracy'])?n(z.direction_accuracy):null;return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill" style="width:${clamp(clean??0,0,100)}%"></i></div><div class="track"><i class="fill pink" style="width:${clamp(dir??0,0,100)}%"></i></div></div><span class="zone-num">Clean ${clean===null?'—':Math.round(clean)+'%'}<br>Direction ${dir===null?'—':Math.round(dir)+'%'}</span></div>`}).join('');
+  }
+}
+
+function ordered(records){
+  return [...records].sort((a,b)=>ts(a)-ts(b));
+}
+function latest(records){
+  return ordered(records).at(-1)||null;
+}
+function best(records,getter){
+  const measured=records.filter(r=>{
+    const value=getter(r);
+    return value!==null&&value!==undefined&&Number.isFinite(Number(value));
+  });
+  return measured.length?measured.reduce((winner,r)=>Number(getter(r))>Number(getter(winner))?r:winner):null;
+}
+function trend(records,getter){
+  const items=ordered(records).filter(r=>{
+    const value=getter(r);
+    return value!==null&&value!==undefined&&Number.isFinite(Number(value));
+  });
+  if(!items.length)return{count:0,first:null,last:null,best:null,delta:null};
+  const first=items[0],last=items.at(-1);
+  return {
+    count:items.length,
+    first:Number(getter(first)),
+    last:Number(getter(last)),
+    best:Math.max(...items.map(r=>Number(getter(r)))),
+    delta:items.length>1?Number(getter(last))-Number(getter(first)):null
+  };
+}
+function trendDelta(t,suffix='%'){
+  if(!t.count)return {text:'ยังไม่มีข้อมูล',css:'flat'};
+  if(t.delta===null)return {text:'รอบแรก',css:'flat'};
+  if(t.delta>0)return {text:`↗ +${Math.round(t.delta)}${suffix}`,css:'up'};
+  if(t.delta<0)return {text:`↘ ${Math.round(t.delta)}${suffix}`,css:'down'};
+  return {text:'→ คงที่',css:'flat'};
+}
+function percentWidth(value,max=100){
+  return clamp(Number(value)||0,0,max)/max*100;
+}
+function difficultyNext(value){
+  const current=String(value||'easy').toLowerCase();
+  if(current==='easy')return 'Normal';
+  if(current==='normal')return 'Hard';
+  return 'Hard Boss';
+}
+function growthTrendRow(label,t,kind='metric'){
+  const suffix=kind==='score'?'':'%';
+  const max=kind==='score'?Math.max(1,t.best||0):100;
+  const delta=trendDelta(t,suffix);
+  const fillClass=kind==='direction'?'warn':kind==='mastery'?'good':'';
+  const latestText=t.count?`${Math.round(t.last)}${suffix}`:'—';
+  return `<div class="trend-row">
+    <span class="trend-label">${esc(label)}</span>
+    <div class="trend-track"><i class="trend-fill ${fillClass}" style="width:${percentWidth(t.last,max)}%"></i></div>
+    <span class="trend-delta ${delta.css}">${esc(latestText)} • ${esc(delta.text)}</span>
+  </div>`;
+}
+function renderGrowth(){
+  const selected=$('student').value;
+  const range=$('range').value;
+  const box=$('growthCard');
+  const tag=$('growthRangeTag');
+
+  if(!selected){
+    tag.textContent='เลือกนักเรียน';
+    box.className='growth-empty';
+    box.textContent='เลือกชื่อจาก “ดูข้อมูลรายบุคคล” เพื่อดูแนวโน้มการพัฒนา';
+    return;
+  }
+
+  const current=S.shown.filter(r=>r._isCurrent);
+  const studentName=currentStudentName();
+
+  if(!current.length){
+    tag.textContent=rangeLabel(range);
+    box.className='growth-empty';
+    box.textContent='ยังไม่มี Current Tracking ในช่วงเวลาหรือ filter ที่เลือก';
+    return;
+  }
+
+  const latestCurrent=latest(current);
+  const challenges=current.filter(r=>r.play_mode==='challenge');
+  const learnings=current.filter(r=>r.play_mode==='learning');
+  const scoreTrend=trend(current,r=>r.score);
+  const directionTrend=trend(challenges.filter(r=>r._hasDirection),r=>direction(r));
+  const masteryTrend=trend(learnings.filter(r=>r._hasLearningMastery),r=>mastery(r));
+  const bestScore=best(current,r=>r.score);
+  const freshCount=challenges.filter(r=>result(r).css==='pass').length;
+  const latestDirection=latest(challenges.filter(r=>r._hasDirection));
+  const latestMastery=latest(learnings.filter(r=>r._hasLearningMastery));
+
+  tag.textContent=rangeLabel(range);
+  box.className='';
+
+  box.innerHTML=`<div class="growth-top">
+    <div class="growth-person">
+      <div class="avatar">📈</div>
+      <div>
+        <h3>${esc(studentName)}</h3>
+        <p>ล่าสุด ${esc(date(latestCurrent.created_at))} • ${esc(mode(latestCurrent.play_mode))} • ${esc(latestCurrent.difficulty||'-')}</p>
+      </div>
+    </div>
+    <span class="growth-status">${current.length} Current plays</span>
+  </div>
+
+  <div class="growth-stats">
+    <div class="growth-stat"><small>Latest Score</small><b>${Math.round(n(latestCurrent.score))}</b><span>Best ${bestScore?Math.round(n(bestScore.score)):'—'}</span></div>
+    <div class="growth-stat"><small>Fresh Smile</small><b>${freshCount}</b><span>${challenges.length} Challenge</span></div>
+    <div class="growth-stat"><small>Latest Direction</small><b>${latestDirection?Math.round(direction(latestDirection))+'%':'—'}</b><span>Best ${directionTrend.count?Math.round(directionTrend.best)+'%':'—'}</span></div>
+    <div class="growth-stat"><small>Latest Mastery</small><b>${latestMastery?Math.round(mastery(latestMastery))+'%':'—'}</b><span>Best ${masteryTrend.count?Math.round(masteryTrend.best)+'%':'—'}</span></div>
+  </div>
+
+  <div class="trend-list">
+    ${growthTrendRow('Score',scoreTrend,'score')}
+    ${growthTrendRow('Challenge Direction',directionTrend,'direction')}
+    ${growthTrendRow('Learning Mastery',masteryTrend,'mastery')}
+  </div>`;
+}
+function missionFor(records){
+  const current=ordered(records.filter(r=>r._isCurrent));
+  if(!current.length)return null;
+
+  const latestCurrent=current.at(-1);
+  const zone=latestCurrent.weakest_zone||latestCurrent.guided_current_zone||latestCurrent.guided_target_zone||'โซนที่ผลยังต่ำ';
+  const gumTarget=Math.max(65,n(pick(latestCurrent,['pass_min_gum'],45)));
+  const techniqueTarget=Math.max(45,n(pick(latestCurrent,['pass_min_technique'],45)));
+  const coverageTarget=Math.max(4,n(pick(latestCurrent,['pass_min_coverage'],4)));
+
+  if(latestCurrent.play_mode==='learning'&&!latestCurrent.learning_complete){
+    const required=Math.max(18,n(latestCurrent.learning_required_strokes)||18);
+    return {
+      icon:'🗺️',
+      label:'Learning Recovery',
+      title:`เก็บ Learning ให้ครบก่อนเข้าสู่ Challenge`,
+      text:`กลับไปฝึก ${zone} และสะสม pass strokes ให้ครบทุกโซน`,
+      goals:[`Progress ${Math.round(n(latestCurrent.learning_progress_percent))}% → 100%`,`Pass Strokes ${Math.round(n(latestCurrent.learning_qualified_strokes))}/${required}`,`Coverage ≥ 6/6`],
+      steps:[
+        'เริ่มที่โซนที่ยังไม่ผ่าน และขยับช้า ๆ ตามทิศแปรง',
+        'เก็บ pass strokes ให้ครบโซนละ 3 ครั้ง',
+        'เมื่อ Learning Complete แล้วจึงเปิด Challenge รอบใหม่'
+      ],
+      footer:'เป้าหมายรอบนี้คือความสม่ำเสมอ ไม่ต้องเร่งเวลา'
+    };
+  }
+
+  if(latestCurrent.play_mode==='challenge'&&result(latestCurrent).css==='practice'){
+    const target=Math.max(45,n(latestCurrent.direction_threshold)||45);
+    return {
+      icon:'🧭',
+      label:'Direction Recovery',
+      title:`ดัน Direction จาก ${Math.round(direction(latestCurrent))}% ให้ถึง ${target}%`,
+      text:`Clean ผ่านแล้ว เหลือฝึกทิศทางโดยเน้น ${zone}`,
+      goals:[`Direction ≥ ${target}%`,`ฟันบนปัดลง`,`ฟันล่างปัดขึ้น`],
+      steps:[
+        'เริ่มช้า ๆ ขณะหัวแปรงแตะคราบจริง ไม่ปัดกลางอากาศ',
+        'ลดแรงและรักษาจังหวะสั้น ๆ ให้เป็นทิศเดียว',
+        'เล่น Challenge Easy ซ้ำจนผ่าน Direction ก่อนเพิ่มความเร็ว'
+      ],
+      footer:'จุดสำคัญ: ระบบนับ Direction เฉพาะตอนแปรงโดนคราบ'
+    };
+  }
+
+  if(latestCurrent._hasGum&&n(latestCurrent.gum_health)<gumTarget){
+    return {
+      icon:'🌿',
+      label:'Gentle Brush Rescue',
+      title:`ฟื้น Gum Safety ให้ถึง ${gumTarget}%`,
+      text:`รอบล่าสุด Gum ${Math.round(n(latestCurrent.gum_health))}% จึงควรลดแรงและลดความเร็ว`,
+      goals:[`Gum ≥ ${gumTarget}%`,`Technique ≥ ${techniqueTarget}%`,`Coverage ≥ ${coverageTarget}/6`],
+      steps:[
+        'ใช้จังหวะสั้น เบา และไม่ถูซ้ำที่เดิม',
+        'พักครึ่งวินาทีเมื่อเปลี่ยนโซน เพื่อให้การเคลื่อนที่นุ่มขึ้น',
+        'เริ่ม Learning หรือ Easy Challenge ก่อนกลับไปเป้าหมายคะแนน'
+      ],
+      footer:'ความสะอาดต้องมาพร้อมความปลอดภัยของเหงือก'
+    };
+  }
+
+  if(latestCurrent._hasTechnique&&n(latestCurrent.technique_score)<techniqueTarget){
+    return {
+      icon:'🧠',
+      label:'Technique Reset',
+      title:`ปรับ Technique ให้ถึง ${techniqueTarget}%`,
+      text:`รอบล่าสุด Technique ${Math.round(n(latestCurrent.technique_score))}% ให้โฟกัสจังหวะก่อนความเร็ว`,
+      goals:[`Technique ≥ ${techniqueTarget}%`,`Direction ตามเป้าหมาย`,`Coverage ≥ ${coverageTarget}/6`],
+      steps:[
+        'เริ่มจาก 2 โซนแรกด้วยความเร็วระดับกลาง',
+        'คงทิศทางให้ถูกก่อนรีบเคลื่อนระหว่างโซน',
+        'เมื่อ Technique ผ่านแล้ว ค่อยเพิ่ม tempo ใน Challenge'
+      ],
+      footer:'วัดทักษะจากรูปแบบการแปรง ไม่ใช่เพียงคะแนนรวม'
+    };
+  }
+
+  if(latestCurrent.play_mode==='challenge'&&result(latestCurrent).css==='pass'){
+    const next=difficultyNext(latestCurrent.difficulty);
+    return {
+      icon:'🏆',
+      label:'Level Up',
+      title:`ผ่านแล้ว! เปิดภารกิจ ${next} ต่อได้`,
+      text:`Fresh Smile Hero รอบล่าสุด พร้อมทดลองความท้าทายระดับถัดไป`,
+      goals:[`Clean ≥ ${Math.round(n(latestCurrent.clean_score))}%`,`Gum ปลอดภัย`,`Direction รักษาเหนือเป้าหมาย`],
+      steps:[
+        `เริ่ม ${next} ด้วย tempo ที่ยังควบคุมทิศได้`,
+        'ให้ความสำคัญกับ weak zone เดิมก่อนเพิ่มความเร็ว',
+        'ถ้า Direction ลดลง ให้กลับมาฝึก Easy 1 รอบเพื่อรีเซ็ตจังหวะ'
+      ],
+      footer:'เลื่อนระดับเมื่อยังรักษาคุณภาพได้ ไม่ใช่แค่ทำเวลาเร็ว'
+    };
+  }
+
+  return {
+    icon:'🪥',
+    label:'Ready for Challenge',
+    title:'พร้อมสร้าง Challenge Record รอบใหม่',
+    text:'Learning ผ่านแล้ว ลองเก็บผล Challenge เพื่อดู Direction และการคุมเหงือกจริง',
+    goals:['Coverage 6/6','Gum ปลอดภัย','Direction ผ่านเกณฑ์'],
+    steps:[
+      'เลือก Challenge Easy และตั้งกล้อง/มือให้อยู่ในเฟรม',
+      'เริ่มจากโซนที่มั่นใจ แล้วเก็บความสะอาดให้ครบ 6 โซน',
+      'ดูผลรายโซนหลังจบ และใช้ Next Mission เป็นแผนรอบต่อไป'
+    ],
+    footer:'ผล Challenge จะช่วยให้เห็นการใช้ทักษะภายใต้เวลาจำกัด'
+  };
+}
+function renderMission(){
+  const selected=$('student').value;
+  const box=$('nextMission');
+  const tag=$('missionTag');
+
+  if(!selected){
+    tag.textContent='เลือกนักเรียน';
+    box.className='mission-empty';
+    box.textContent='เลือกชื่อจาก “ดูข้อมูลรายบุคคล” เพื่อสร้างภารกิจต่อไป';
+    return;
+  }
+
+  const mission=missionFor(S.shown);
+  if(!mission){
+    tag.textContent='ยังไม่มี Current';
+    box.className='mission-empty';
+    box.textContent='ยังไม่มี Current Tracking ในช่วงเวลาหรือ filter ที่เลือก';
+    return;
+  }
+
+  tag.textContent=mission.label;
+  box.className='';
+  box.innerHTML=`<div class="mission-banner">
+    <div class="mission-icon">${mission.icon}</div>
+    <div><h3>${esc(mission.title)}</h3><p>${esc(mission.text)}</p></div>
+  </div>
+  <div class="mission-goals">${mission.goals.map(goal=>`<span class="mission-goal">${esc(goal)}</span>`).join('')}</div>
+  <div class="mission-steps">${mission.steps.map((step,index)=>`<div class="mission-step"><b>${index+1}</b><span>${esc(step)}</span></div>`).join('')}</div>
+  <div class="mission-footer">${esc(mission.footer)}</div>`;
+}
+
+function render(){renderKpis();renderInsights();renderGrowth();renderMission();board();table();detail()}
+const Storage={
+  lastError:'',
+  get(key,fallback=''){
+    try{
+      const value=localStorage.getItem(key);
+      return value===null?fallback:value;
+    }catch(error){
+      this.lastError=String(error?.message||error);
+      return fallback;
+    }
+  },
+  set(key,value){
+    try{
+      localStorage.setItem(key,value);
+      this.lastError='';
+      return true;
+    }catch(error){
+      this.lastError=String(error?.message||error);
+      return false;
+    }
+  },
+  remove(key){
+    try{
+      localStorage.removeItem(key);
+      this.lastError='';
+      return true;
+    }catch(error){
+      this.lastError=String(error?.message||error);
+      return false;
+    }
+  }
+};
+function storageNote(){
+  return 'Browser Storage เต็ม — Dashboard ยังทำงานได้ตามปกติ แต่จะไม่จำ URL/ข้อมูลไว้ในเครื่อง';
+}
+function set(recs,source,persist=false){S.all=(recs||[]).map(norm);S.source=source||'ข้อมูลในเครื่อง';if(persist)Storage.set(CFG.dataKey,JSON.stringify(S.all));filters();apply()}
+function status(text,type=''){const e=$('apiStatus');e.textContent=text;e.className=`status ${type}`.trim()}
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),1800)}
+function apiUrl(v){const x=new URL(String(v||'').trim());return x.toString()}
+function url(base){
+  const u=new URL(base);
+  // Supports both the legacy action route and the combined Hygiene API route.
+  u.searchParams.set('api','hygiene');
+  u.searchParams.set('type','list');
+  u.searchParams.set('action','list');
+  u.searchParams.set('zone','hygiene');
+  u.searchParams.set('limit',String(CFG.limit));
+  u.searchParams.set('v',VERSION);
+  return u
+}
+async function fetchJSON(u){const r=await fetch(u.toString(),{method:'GET',cache:'no-store',credentials:'omit'});if(!r.ok)throw Error('HTTP '+r.status);return r.json()}
+function jsonp(u){return new Promise((resolve,reject)=>{const cb=`__hz_${Date.now()}_${Math.random().toString(16).slice(2)}`,s=document.createElement('script');const timer=setTimeout(()=>done(Error('JSONP timeout')),12000);function done(err,data){clearTimeout(timer);delete window[cb];s.remove();err?reject(err):resolve(data)}window[cb]=d=>done(null,d);u.searchParams.set('callback',cb);s.src=u.toString();s.onerror=()=>done(Error('JSONP load failed'));document.head.appendChild(s)})}
+function extract(x){return Array.isArray(x)?x:Array.isArray(x?.records)?x.records:Array.isArray(x?.data)?x.data:Array.isArray(x?.items)?x.items:[]}
+
+function describeApiError(error){
+  const message=String(error?.message||error||'');
+
+  if(/Missing SPREADSHEET_ID/i.test(message)){
+    return 'Code.gs ยังไม่รู้ว่าใช้ Google Sheet ใด: ตั้ง Script Property ชื่อ SPREADSHEET_ID เป็น ID ของ Google Sheet แล้ว Deploy ใหม่';
+  }
+
+  if(/permission|authorization|not authorized/i.test(message)){
+    return 'Apps Script ยังไม่มีสิทธิ์เข้าถึง Google Sheet: เปิด Apps Script แล้ว Run HZ_testSetup() หนึ่งครั้งเพื่ออนุมัติสิทธิ์';
+  }
+
+  if(/doGet_exception/i.test(message)){
+    return 'Code.gs doGet() มีข้อผิดพลาด: ใช้ Code.gs V10 Reader-Safe ที่แนบมา แล้ว Run HZ_testDashboardReader()';
+  }
+
+  return message||'ไม่ทราบสาเหตุ';
+}
+async function load(){
+  let storageOk=true;
+  try{
+    const base=apiUrl($('apiUrl').value);
+    storageOk=Storage.set(CFG.apiKey,base);
+    status(storageOk?'กำลังโหลดข้อมูลจาก Google Sheets...':storageNote(),'warn');
+    $('loadBtn').disabled=true;
+    let data,how='JSON';
+    try{data=await fetchJSON(new URL(url(base).toString()))}
+    catch(e){how='JSONP';data=await jsonp(new URL(url(base).toString()))}
+    if(data?.ok===false){
+      const detail=[data.error,data.message,data.hint].filter(Boolean).join(' • ');
+      throw Error(detail||'API returned ok:false');
+    }
+    const recs=extract(data);
+    set(recs,`Google Sheets (${how})`,false);
+    const success=recs.length?`โหลด ${recs.length} records สำเร็จผ่าน ${how}`:`เชื่อมต่อสำเร็จผ่าน ${how} แต่ยังไม่มี records`;
+    status(storageOk?success:`${success} • ${storageNote()}`,storageOk?'ok':'warn');
+    toast(recs.length?`โหลดข้อมูล ${recs.length} รายการแล้ว`:'ยังไม่มีข้อมูลใน Sheet');
+  }catch(e){
+    console.warn('[Hygiene Dashboard API]',e);
+    const detail=describeApiError(e);
+    status(`โหลดไม่สำเร็จ: ${detail}`,'bad');
+    toast('โหลดจาก Sheet ไม่สำเร็จ — ดูข้อความสีแดง');
+  }finally{$('loadBtn').disabled=false}
+}
+function parseCSV(t){const lines=String(t||'').trim().split(/\r?\n/).filter(Boolean);if(lines.length<2)return[];const split=l=>{const a=[];let cur='',q=false;for(let i=0;i<l.length;i++){const c=l[i],nx=l[i+1];if(c==='"'&&q&&nx==='"'){cur+='"';i++}else if(c==='"')q=!q;else if(c===','&&!q){a.push(cur.trim());cur=''}else cur+=c}a.push(cur.trim());return a},head=split(lines[0]);return lines.slice(1).map(l=>{const c=split(l),o={};head.forEach((h,i)=>o[h]=c[i]??'');return o})}
+function importData(){const t=$('importBox').value.trim();if(!t){toast('วาง JSON หรือ CSV ก่อน');return}try{let a;if(t.startsWith('[')||t.startsWith('{')){const x=JSON.parse(t);a=extract(x);if(!a.length&&x&&typeof x==='object'&&!Array.isArray(x))a=[x]}else a=parseCSV(t);if(!a.length)throw Error('ไม่พบ records');set(a,'ข้อมูลที่วางเอง');status(`นำเข้าข้อมูล ${a.length} records แล้ว`,'ok');toast(`นำเข้าข้อมูล ${a.length} รายการแล้ว`)}catch(e){status(`นำเข้าไม่สำเร็จ: ${e.message||e}`,'bad');toast('รูปแบบ JSON / CSV ไม่ถูกต้อง')}}
+function exportCSV(){const a=S.shown;if(!a.length){toast('ไม่มีข้อมูลสำหรับ export');return}const heads=['created_at','player_name','student_id','class_level','section','game_key','play_mode','difficulty','challenge_result','challenge_passed','score','clean_score','gum_health','technique_score','coverage_zone_count','learning_progress_percent','learning_direction_mastery','overall_direction_accuracy','direction_threshold','direction_passed','strongest_zone','weakest_zone','input_mode','challenge_fail_reasons'],cell=v=>`"${String(v??'').replace(/"/g,'""')}"`,csv='\uFEFF'+[heads,...a.map(r=>heads.map(h=>r[h]??''))].map(row=>row.map(cell).join(',')).join('\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),href=URL.createObjectURL(blob),x=document.createElement('a');x.href=href;x.download=`hygiene-teacher-dashboard-${new Date().toISOString().slice(0,10)}.csv`;x.click();setTimeout(()=>URL.revokeObjectURL(href),0);toast('Export CSV แล้ว')}
+function reset(){['search','student','game','class','mode','era','result'].forEach(id=>$(id).value='');$('range').value='all';$('sort').value='latest';apply()}
+function bind(){$('homeBtn').onclick=()=>location.href=CFG.home;$('printBtn').onclick=()=>print();$('exportBtn').onclick=exportCSV;$('loadBtn').onclick=load;$('demoBtn').onclick=()=>{set(demo(),'Demo Data');status('กำลังใช้ Demo Data สำหรับสาธิต Dashboard','ok');toast('เปลี่ยนเป็น Demo Data แล้ว')};$('clearUrlBtn').onclick=()=>{const removed=Storage.remove(CFG.apiKey);$('apiUrl').value='';status(removed?'ล้าง URL ที่จำแล้ว':'ล้างช่อง URL แล้ว (Browser Storage ถูกจำกัด)',removed?'ok':'warn');toast(removed?'ล้าง URL ที่จำแล้ว':'ล้างช่อง URL แล้ว')};$('importBtn').onclick=importData;$('resetBtn').onclick=reset;['search','student','range','game','class','mode','era','result','sort'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',apply))}
+function boot(){bind();$('apiUrl').value=Storage.get(CFG.apiKey,CFG.api)||CFG.api;set(demo(),'Demo Data',false);status(Storage.lastError?storageNote():'กำลังใช้ Demo Data — กด “โหลดจาก Sheet” เพื่อใช้ข้อมูลจริง',Storage.lastError?'warn':'');console.log('[Hygiene Teacher Dashboard]',VERSION)}
+boot()
+})();
+</script>
 </body>
 </html>
