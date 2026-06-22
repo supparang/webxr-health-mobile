@@ -1,10 +1,10 @@
 // === /herohealth/gate/games/fitness/fitness-readiness-recovery.js ===
-// FULL MODULE v20260622-FITNESS-READINESS-RECOVERY-BRIDGE-COMPATIBLE-V20
+// FULL MODULE v20260622-FITNESS-READINESS-RECOVERY-COOLDOWN-ZERO-STUCK-V21
 // Full replacement: Fitness Gate warmup/cooldown with MediaPipe Pose + preview canvas.
 // The preview canvas draws camera frames directly, avoiding black <video> rendering
 // in some Chrome/WebXR environments.
 
-const PATCH = 'v20260622-FITNESS-READINESS-RECOVERY-BRIDGE-COMPATIBLE-V20';
+const PATCH = 'v20260622-FITNESS-READINESS-RECOVERY-COOLDOWN-ZERO-STUCK-V21';
 
 const MP = {
   module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs',
@@ -49,11 +49,11 @@ function taskList(game, phase, duration){
   const scale=clamp(duration/60,.75,1.4);
   const reps=Math.max(5,Math.round(7*scale));
   const hold=clamp(3.5*scale,2.5,6);
-  const safety={id:'safety',type:'safety',title:'Safety Scan',cue:'ยืนให้เห็นศีรษะ ไหล่ และสะโพกอยู่กลางกรอบ',target:2.2,unit:'วิ'};
+  const safety={id:'safety',type:'safety',title:'Safety Scan',cue:'ยืนให้เห็นศีรษะ ไหล่ และสะโพกอยู่กลางกรอบ',target:1.2,unit:'วิ'};
   if(phase==='cooldown'){
     if(game==='rhythm-boxer') return [safety,{id:'reach',type:'reach',title:'Side Reach',cue:'ยกแขนเหนือไหล่แล้วเอียงตัวเบา ๆ สลับซ้าย–ขวา',target:2,unit:'ด้าน',hold},{id:'breath',type:'breath',title:'Slow Beat Breath',cue:'หายใจเข้า 3 จังหวะ ออก 4 จังหวะ',target:clamp(7*scale,5,10),unit:'วิ'}];
     if(game==='jump-duck') return [safety,{id:'stance',type:'stance',title:'Leg Recovery',cue:'ยืนมั่นคง ผ่อนหัวไหล่และเข่า',target:hold+1,unit:'วิ'},{id:'reach',type:'reach',title:'Side Stretch',cue:'ยืดลำตัวซ้าย–ขวาช้า ๆ',target:2,unit:'ด้าน',hold}];
-    return [safety,{id:'cross',type:'cross',title:'Shoulder Stretch',cue:'พาดแขนข้ามลำตัว ค้างสลับสองข้าง',target:2,unit:'ด้าน',hold},{id:'breath',type:'breath',title:'Calm Breath',cue:'หายใจช้า ๆ ตามวงแสง',target:clamp(7*scale,5,10),unit:'วิ'}];
+    return [safety,{id:'shoulder',type:'shoulder',title:'Shoulder Reset',cue:'ผ่อนหัวไหล่ 1 วินาที ระบบไปต่อเอง หรือกด “ทำท่าแล้ว”',target:1,unit:'วิ'},{id:'breath',type:'breath',title:'Calm Breath',cue:'หายใจช้า ๆ ตามวงแสง',target:clamp(7*scale,5,10),unit:'วิ'}];
   }
   if(game==='rhythm-boxer') return [safety,{id:'arms',type:'arms',title:'Activate Arms',cue:'เปิดแขนหรือยกมือสลับซ้าย–ขวา',target:reps,unit:'ครั้ง'},{id:'punch',type:'punch',title:'Beat Ready',cue:'ขยับมือซ้าย–ขวาสลับจังหวะอย่างนุ่มนวล ไม่ต้องเหยียดศอกสุด',target:reps+2,unit:'ครั้ง'}];
   if(game==='shadow-breaker') return [safety,{id:'arms',type:'arms',title:'Activate Arms',cue:'เปิดแขนสลับซ้าย–ขวา',target:reps,unit:'ครั้ง'},{id:'punch',type:'punch',title:'Punch Ready',cue:'ยกการ์ดแล้วชกช้า ๆ สลับแขน',target:reps,unit:'ครั้ง'}];
@@ -166,7 +166,7 @@ export async function mount(stage, ctx, api){
     set('[data-no]',String(index+1).padStart(2,'0'));
     set('[data-title]',t.title);
     set('[data-cue]',t.cue);
-    if(refs.cameraTask) refs.cameraTask.textContent=`Warm-up ${index+1}/${tasks.length} • ${t.title}`;
+    if(refs.cameraTask) refs.cameraTask.textContent=`${phase==='cooldown'?'Cool-down':'Warm-up'} ${index+1}/${tasks.length} • ${t.title}`;
     const head=vis(p(lm,IDX.NOSE))>.4, sh=vis(p(lm,IDX.LS))>.4&&vis(p(lm,IDX.RS))>.4, hips=vis(p(lm,IDX.LH))>.38&&vis(p(lm,IDX.RH))>.38;
     [['head',head],['shoulders',sh],['hips',hips]].forEach(x=>{const n=q(`[data-check="${x[0]}"]`);if(n){n.textContent=`${x[1]?'✓':'○'} ${x[0]==='head'?'ศีรษะ':x[0]==='shoulders'?'ไหล่':'สะโพก'}`;n.classList.toggle('is-ready',x[1]);}});
     const ready=head&&sh&&hips;
@@ -195,7 +195,7 @@ export async function mount(stage, ctx, api){
     const shown=`${t.unit==='วิ'?progress.toFixed(1):Math.round(progress)} / ${target} ${t.unit}`;
     set('[data-value]',shown);
     bar('[data-bar]',r);
-    if(refs.cameraTask) refs.cameraTask.textContent=`Warm-up ${index+1}/${tasks.length} • ${t.title} • ${shown}`;
+    if(refs.cameraTask) refs.cameraTask.textContent=`${phase==='cooldown'?'Cool-down':'Warm-up'} ${index+1}/${tasks.length} • ${t.title} • ${shown}`;
   }
   function clearFinalWatchdog(){
     if(finalWatchdog){
@@ -213,8 +213,8 @@ export async function mount(stage, ctx, api){
 
     if(refs.skip) refs.skip.hidden=true;
     if(refs.cameraConfirm) refs.cameraConfirm.hidden=true;
-    if(refs.status) refs.status.textContent='Warm-up complete • preparing game';
-    if(refs.cameraTask) refs.cameraTask.textContent='✓ Warm-up complete • เข้าเกมหลัก';
+    if(refs.status) refs.status.textContent=phase==='cooldown'?'Cooldown complete • returning':'Warm-up complete • preparing game';
+    if(refs.cameraTask) refs.cameraTask.textContent=phase==='cooldown'?'✓ Cooldown complete • กำลังกลับ':'✓ Warm-up complete • เข้าเกมหลัก';
 
     // Defensive watchdog: even if a timer is throttled or a frame arrives late,
     // final completion is forced without leaving a completed task on screen.
@@ -242,6 +242,17 @@ export async function mount(stage, ctx, api){
     wristAnchor={L:null,R:null};
     advanceQueued=false;
     taskStartedAt=now();
+
+    // V22 hard timer: Shoulder Reset is a recovery pause, so it MUST advance
+    // even if the pose loop pauses, landmarks drop, or the tab is throttled.
+    if(task() && task().type==='shoulder'){
+      const shoulderIndex=index;
+      window.setTimeout(()=>{
+        if(!destroyed && !done && !finalizing && !advanceQueued && index===shoulderIndex && task() && task().type==='shoulder'){
+          completeTask({progress:task().target,target:task().target,detail:'Shoulder Reset ผ่านอัตโนมัติ'});
+        }
+      }, 1150);
+    }
 
     if(refs.skip) refs.skip.hidden=true;
     if(refs.cameraConfirm) refs.cameraConfirm.hidden=true;
@@ -365,6 +376,18 @@ export async function mount(stage, ctx, api){
       let side='';if(t.type==='march'&&la&&ra){side=Math.abs(la.y-ra.y)>.035?(la.y>ra.y?'L':'R'):'';} else if(t.type==='duck'&&sm&&hm){side=(sm.y-hm.y)>.17?'D':'';} else side=Math.abs(center-baseline)>sw*.3?(center>baseline?'R':'L'):'';
       if(ready&&side&&(side!==lastSide||t.type==='duck')&&time>cooldown){reps++;lastSide=side;cooldown=time+320;}
       prog=reps;detail=`${reps}/${t.target} ${t.type==='duck'?'ย่อเข่า':'สลับ'}`;
+    } else if(t.type==='shoulder'){
+      // V22 ABSOLUTE ZERO-STUCK: Shoulder Reset is a guided recovery pause,
+      // not a pose-assessment. It must complete even when hips are cropped,
+      // a learner sits close to the camera, or landmark confidence fluctuates.
+      // Count real elapsed task time, never reset it from pose quality.
+      const elapsed=Math.max(0,(time-taskStartedAt)/1000);
+      prog=elapsed;
+      detail='ผ่อนหัวไหล่ หายใจช้า ๆ 1 วินาที แล้วไปต่ออัตโนมัติ';
+      if(elapsed>=0.95){
+        completeTask({progress:t.target,target:t.target,detail:'Shoulder Reset ผ่านอัตโนมัติแบบปลอดภัย'});
+        return;
+      }
     } else if(t.type==='reach'||t.type==='cross'){
       const left=lw&&lw.y<ls.y-.06, right=rw&&rw.y<rs.y-.06; const side=left?'L':right?'R':'';
       if(ready&&side){if(side!==lastSide){lastSide=side;hold=0;}hold+=dt;if(hold>=t.hold&&!sides.has(side)){sides.add(side);hold=0;lastSide='';}}
