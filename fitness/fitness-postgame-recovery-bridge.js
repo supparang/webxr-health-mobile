@@ -1,11 +1,11 @@
 /* HeroHealth Fitness Post-Game Recovery Bridge
    File: /fitness/fitness-postgame-recovery-bridge.js
-   Version: v20260622-FITNESS-WARMUP-GAME-COOLDOWN-RPE-V1
+   Version: v20260622-FITNESS-WARMUP-GAME-COOLDOWN-RPE-V2-STORAGE-SAFE
 */
 (() => {
   "use strict";
 
-  const PATCH = "v20260622-FITNESS-WARMUP-GAME-COOLDOWN-RPE-V1";
+  const PATCH = "v20260622-FITNESS-WARMUP-GAME-COOLDOWN-RPE-V2-STORAGE-SAFE";
   const q = new URLSearchParams(location.search);
   const GAME = String(q.get("game") || q.get("gameId") || "shadow-breaker").replace(/-ar$/,"");
   const CANONICAL = {
@@ -150,7 +150,27 @@
       cooldownOffered:"yes", cooldownDone:done, cooldownSkipped:skipped,
       sourceUrl:location.href
     };
-    localStorage.setItem(key,JSON.stringify(data));
+    // Storage must never block the recovery flow. Some devices already have
+    // localStorage full from prior game logs, so use a tiny summary and fall back
+    // to sessionStorage; Sheet POST can still continue even if both fail.
+    const compact = {
+      game: data.game,
+      timestamp: data.timestamp,
+      rpe: data.rpe,
+      painArea: data.painArea,
+      dizzy: data.dizzy,
+      cooldownDone: data.cooldownDone,
+      cooldownSkipped: data.cooldownSkipped
+    };
+    try {
+      localStorage.setItem(key, JSON.stringify(compact));
+    } catch (storageErr) {
+      try {
+        sessionStorage.setItem(key, JSON.stringify(compact));
+      } catch (_) {
+        console.warn("[HHA_RECOVERY] storage unavailable; continuing without cache", storageErr);
+      }
+    }
     saved = true;
     const endpoint = q.get("sheet") || q.get("gas") || q.get("webapp") ||
       "https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec";
