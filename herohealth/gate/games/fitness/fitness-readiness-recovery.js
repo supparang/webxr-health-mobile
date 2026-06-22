@@ -1,10 +1,10 @@
 // === /herohealth/gate/games/fitness/fitness-readiness-recovery.js ===
-// FULL MODULE v20260622-FITNESS-READINESS-RECOVERY-MOTION-TAP-V15
+// FULL MODULE v20260622-FITNESS-READINESS-RECOVERY-SLOW-MOTION-ASSIST-V16
 // Full replacement: Fitness Gate warmup/cooldown with MediaPipe Pose + preview canvas.
 // The preview canvas draws camera frames directly, avoiding black <video> rendering
 // in some Chrome/WebXR environments.
 
-const PATCH = 'v20260622-FITNESS-READINESS-RECOVERY-MOTION-TAP-V15';
+const PATCH = 'v20260622-FITNESS-READINESS-RECOVERY-SLOW-MOTION-ASSIST-V16';
 
 const MP = {
   module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs',
@@ -355,15 +355,11 @@ function markup(meta, phase, duration) {
           <span class="frr-badge frr-badge-muted">เป้าหมาย ${duration} วิ</span>
         </div>
 
-        <div class="frr-progress-track">
-          <span data-allbar></span>
-        </div>
-
+        <div class="frr-progress-track"><span data-allbar></span></div>
         <div class="frr-overall" data-alllabel>ภารกิจ 1 / 3</div>
 
         <div class="frr-task-live">
           <div class="frr-task-count" data-no>01</div>
-
           <div>
             <h3 data-title>เตรียมเริ่ม</h3>
             <p data-cue>เปิดกล้องเพื่อเริ่ม</p>
@@ -375,7 +371,6 @@ function markup(meta, phase, duration) {
             <span data-step>รอเริ่ม</span>
             <strong data-value>0%</strong>
           </div>
-
           <div class="frr-step-progress-track">
             <span data-bar></span>
           </div>
@@ -386,11 +381,11 @@ function markup(meta, phase, duration) {
           <strong data-quality>รอ Pose</strong>
         </div>
 
-        <div class="frr-quality-detail" data-detail>เริ่มด้วยการเปิดกล้อง</div>
-
-        <div class="frr-breath-orb" data-orb>
-          <span></span>
+        <div class="frr-quality-detail" data-detail>
+          เริ่มด้วยการเปิดกล้อง
         </div>
+
+        <div class="frr-breath-orb" data-orb><span></span></div>
 
         <div class="frr-safety-note">
           หยุดทันทีเมื่อเวียนศีรษะ เจ็บหน้าอก ปวดข้อ หรือเหนื่อยผิดปกติ
@@ -400,6 +395,10 @@ function markup(meta, phase, duration) {
         <footer class="frr-controls frr-controls-in-card">
           <button class="frr-btn frr-btn-primary" data-start>
             📷 เปิดกล้องและเริ่ม
+          </button>
+
+          <button class="frr-btn frr-btn-soft" data-skip hidden>
+            ✓ ผ่านภารกิจนี้
           </button>
 
           <button class="frr-btn frr-btn-soft" data-guided hidden>
@@ -442,6 +441,7 @@ function drawPreview(preview, video) {
 
   const { w, h } = fit(preview);
   const c = preview.getContext('2d');
+
   if (!c) return;
 
   c.clearRect(0, 0, w, h);
@@ -453,9 +453,11 @@ function drawPose(canvas, preview, video, lm) {
 
   const { w, h } = fit(canvas);
   const c = canvas.getContext('2d');
+
   if (!c) return;
 
   c.clearRect(0, 0, w, h);
+
   if (!lm) return;
 
   const links = [
@@ -506,6 +508,7 @@ function drawPose(canvas, preview, video, lm) {
     28
   ].forEach(i => {
     const a = p(lm, i);
+
     if (!a || vis(a) < 0.32) return;
 
     c.beginPath();
@@ -562,7 +565,7 @@ export async function mount(stage, ctx, api) {
   const game = normGame(ctx && ctx.game);
 
   const phase =
-    String(ctx && ctx.phase || 'warmup').toLowerCase() === 'cooldown'
+    String((ctx && ctx.phase) || 'warmup').toLowerCase() === 'cooldown'
       ? 'cooldown'
       : 'warmup';
 
@@ -576,7 +579,6 @@ export async function mount(stage, ctx, api) {
   const video = root.querySelector('[data-video]');
   const preview = root.querySelector('[data-preview]');
   const canvas = root.querySelector('[data-canvas]');
-
   const q = s => root.querySelector(s);
 
   const refs = {
@@ -585,6 +587,7 @@ export async function mount(stage, ctx, api) {
     start: q('[data-start]'),
     guided: q('[data-guided]'),
     retry: q('[data-retry]'),
+    skip: q('[data-skip]'),
     exit: q('[data-exit]'),
     engine: q('[data-engine]')
   };
@@ -593,13 +596,11 @@ export async function mount(stage, ctx, api) {
   let destroyed = false;
   let guided = false;
   let done = false;
-
   let stream = null;
   let landmarker = null;
   let vision = null;
   let module = null;
   let raf = 0;
-
   let last = 0;
   let index = 0;
   let lastSide = '';
@@ -612,10 +613,11 @@ export async function mount(stage, ctx, api) {
   let valid = 0;
   let frames = 0;
 
-  let previousWrist = {
-    L: null,
-    R: null
-  };
+  let previousWrist = { L: null, R: null };
+  let wristAnchor = { L: null, R: null };
+  let advanceQueued = false;
+  let taskStartedAt = 0;
+  let assistedTasks = 0;
 
   function task() {
     return tasks[index];
@@ -626,9 +628,9 @@ export async function mount(stage, ctx, api) {
     if (n) n.textContent = val;
   }
 
-  function bar(sel, r) {
+  function bar(sel, ratio) {
     const n = q(sel);
-    if (n) n.style.width = (clamp(r, 0, 1) * 100) + '%';
+    if (n) n.style.width = `${clamp(ratio, 0, 1) * 100}%`;
   }
 
   function update(lm) {
@@ -642,7 +644,7 @@ export async function mount(stage, ctx, api) {
     set('[data-cue]', t.cue);
 
     const head = vis(p(lm, IDX.NOSE)) > 0.4;
-    const sh =
+    const shoulders =
       vis(p(lm, IDX.LS)) > 0.4 &&
       vis(p(lm, IDX.RS)) > 0.4;
 
@@ -652,32 +654,33 @@ export async function mount(stage, ctx, api) {
 
     [
       ['head', head],
-      ['shoulders', sh],
+      ['shoulders', shoulders],
       ['hips', hips]
-    ].forEach(x => {
-      const n = q(`[data-check="${x[0]}"]`);
-      if (!n) return;
+    ].forEach(([key, isReady]) => {
+      const node = q(`[data-check="${key}"]`);
 
-      n.textContent = `${x[1] ? '✓' : '○'} ${
-        x[0] === 'head'
+      if (!node) return;
+
+      const label =
+        key === 'head'
           ? 'ศีรษะ'
-          : x[0] === 'shoulders'
+          : key === 'shoulders'
             ? 'ไหล่'
-            : 'สะโพก'
-      }`;
+            : 'สะโพก';
 
-      n.classList.toggle('is-ready', x[1]);
+      node.textContent = `${isReady ? '✓' : '○'} ${label}`;
+      node.classList.toggle('is-ready', isReady);
     });
 
-    const ready = head && sh && hips;
+    const ready = head && shoulders && hips;
 
     const quality = lm
       ? avg([
-          vis(p(lm, 0)),
-          vis(p(lm, 11)),
-          vis(p(lm, 12)),
-          vis(p(lm, 23)),
-          vis(p(lm, 24))
+          vis(p(lm, IDX.NOSE)),
+          vis(p(lm, IDX.LS)),
+          vis(p(lm, IDX.RS)),
+          vis(p(lm, IDX.LH)),
+          vis(p(lm, IDX.RH))
         ])
       : 0;
 
@@ -701,12 +704,18 @@ export async function mount(stage, ctx, api) {
           : 'ให้เห็นศีรษะ ไหล่ และสะโพกอยู่กลางกรอบ'
     );
 
-    q('[data-orb]').classList.toggle('is-breath', t.type === 'breath');
+    const orb = q('[data-orb]');
+    if (orb) orb.classList.toggle('is-breath', t.type === 'breath');
+
+    // Never trap a learner. After an attempted task, reveal a safe assist.
+    if (running && !guided && !advanceQueued && refs.skip) {
+      refs.skip.hidden = (now() - taskStartedAt) < 6500;
+    }
   }
 
   function step(progress, target, detail) {
     const t = task();
-    const r = clamp(progress / Math.max(0.001, target), 0, 1);
+    const ratio = clamp(progress / Math.max(0.001, target), 0, 1);
 
     set('[data-step]', detail);
 
@@ -715,7 +724,7 @@ export async function mount(stage, ctx, api) {
       `${t.unit === 'วิ' ? progress.toFixed(1) : Math.round(progress)} / ${target} ${t.unit}`
     );
 
-    bar('[data-bar]', r);
+    bar('[data-bar]', ratio);
   }
 
   function next() {
@@ -726,6 +735,11 @@ export async function mount(stage, ctx, api) {
     sides = new Set();
     baseline = null;
     previousWrist = { L: null, R: null };
+    wristAnchor = { L: null, R: null };
+    advanceQueued = false;
+    taskStartedAt = now();
+
+    if (refs.skip) refs.skip.hidden = true;
 
     if (index >= tasks.length) {
       finish();
@@ -737,10 +751,19 @@ export async function mount(stage, ctx, api) {
   }
 
   function completeTask(result) {
+    if (!result) return;
+
     step(result.progress, result.target, result.detail);
 
-    if (result.progress >= result.target) {
-      setTimeout(next, 320);
+    // Only one completion transition per task.
+    if (result.progress >= result.target && !advanceQueued) {
+      advanceQueued = true;
+
+      if (refs.skip) refs.skip.hidden = true;
+
+      window.setTimeout(() => {
+        if (!destroyed && !done) next();
+      }, 360);
     }
   }
 
@@ -758,27 +781,25 @@ export async function mount(stage, ctx, api) {
     const re = p(lm, IDX.RE);
     const la = p(lm, IDX.LA);
     const ra = p(lm, IDX.RA);
-    const lk = p(lm, IDX.LK);
-    const rk = p(lm, IDX.RK);
 
     const ready = !!(
-      p(lm, 0) &&
+      p(lm, IDX.NOSE) &&
       ls &&
       rs &&
       lh &&
       rh &&
-      vis(p(lm, 0)) > 0.4 &&
+      vis(p(lm, IDX.NOSE)) > 0.4 &&
       vis(ls) > 0.4 &&
       vis(rs) > 0.4 &&
       vis(lh) > 0.35 &&
       vis(rh) > 0.35
     );
 
-    const sm = mid(ls, rs);
-    const hm = mid(lh, rh);
-    const sw = dist(ls, rs) || 0.001;
+    const shoulderMid = mid(ls, rs);
+    const hipMid = mid(lh, rh);
+    const shoulderWidth = dist(ls, rs) || 0.001;
 
-    let prog = 0;
+    let progress = 0;
     let detail = '';
 
     if (
@@ -789,95 +810,111 @@ export async function mount(stage, ctx, api) {
       const stable = ready;
 
       hold = stable ? hold + dt : 0;
-      prog = hold;
+      progress = hold;
 
       detail = stable
         ? 'ลำตัวนิ่งและอยู่ในกรอบ'
         : 'จัดตัวให้อยู่กลางกรอบ';
     } else if (t.type === 'arms' || t.type === 'punch') {
       /*
-        Motion Tap v15:
-        Warmup is not a boxing assessment. Count a clear visible wrist movement
-        instead of demanding a fully extended elbow. This prevents children from
-        being stuck when they use a safe, soft-elbow movement.
+        Slow Motion Accumulator:
+        Hold a wrist anchor up to 950 ms, so gentle intentional arm movement
+        counts even if no individual 90 ms camera frame moves far enough.
       */
-      const wristMotion = (side, wrist) => {
-        if (!wrist || vis(wrist) < 0.34) return 0;
+      const upperReady = !!(
+        p(lm, IDX.NOSE) &&
+        ls &&
+        rs &&
+        vis(p(lm, IDX.NOSE)) > 0.34 &&
+        vis(ls) > 0.34 &&
+        vis(rs) > 0.34
+      );
 
-        const before = previousWrist[side];
+      const moveFromAnchor = (side, wrist) => {
+        if (!wrist || vis(wrist) < 0.30) return 0;
 
-        previousWrist[side] = {
-          x: wrist.x,
-          y: wrist.y,
-          at: time
-        };
+        const anchor = wristAnchor[side];
 
-        if (!before) return 0;
+        if (!anchor) {
+          wristAnchor[side] = {
+            x: wrist.x,
+            y: wrist.y,
+            at: time
+          };
 
-        const age = Math.max(1, time - before.at);
+          return 0;
+        }
 
-        if (age > 420) return 0;
-
-        return Math.hypot(
-          wrist.x - before.x,
-          wrist.y - before.y
+        const age = time - anchor.at;
+        const moved = Math.hypot(
+          wrist.x - anchor.x,
+          wrist.y - anchor.y
         );
+
+        if (age > 950 && moved < 0.010) {
+          wristAnchor[side] = {
+            x: wrist.x,
+            y: wrist.y,
+            at: time
+          };
+
+          return 0;
+        }
+
+        return moved;
       };
 
-      const leftMotion = wristMotion('L', lw);
-      const rightMotion = wristMotion('R', rw);
+      const leftMove = moveFromAnchor('L', lw);
+      const rightMove = moveFromAnchor('R', rw);
+      const threshold = t.type === 'punch' ? 0.018 : 0.015;
 
-      // Deliberately permissive on a warmup: 1.2% of frame movement is enough.
-      const threshold = t.type === 'punch' ? 0.012 : 0.010;
-
-      const left = !!(lw && leftMotion >= threshold);
-      const right = !!(rw && rightMotion >= threshold);
+      const left = !!(lw && leftMove >= threshold);
+      const right = !!(rw && rightMove >= threshold);
 
       let side = '';
-      let strength = 0;
 
       if (left && right) {
-        side = leftMotion >= rightMotion ? 'L' : 'R';
-        strength = Math.max(leftMotion, rightMotion);
+        side = leftMove >= rightMove ? 'L' : 'R';
       } else if (left) {
         side = 'L';
-        strength = leftMotion;
       } else if (right) {
         side = 'R';
-        strength = rightMotion;
       }
 
-      const canCount = ready && side && time > cooldown;
-
-      if (canCount) {
-        /*
-          Prefer alternating hands, but never hard-lock one side. After 620 ms,
-          a deliberate repeat with the same hand is accepted so the gate stays
-          accessible with partial tracking or limited space.
-        */
+      if (upperReady && side && time > cooldown) {
         const alternate = side !== lastSide;
-        const delayedRepeat =
+        const repeatAfterBeat =
           side === lastSide &&
-          time > (cooldown + 330);
+          time > cooldown + 380;
 
-        if (alternate || delayedRepeat) {
+        if (alternate || repeatAfterBeat) {
           reps++;
           lastSide = side;
-          cooldown = time + (t.type === 'punch' ? 250 : 210);
+          cooldown = time + (t.type === 'punch' ? 300 : 250);
+
+          const wrist = side === 'L' ? lw : rw;
+
+          if (wrist) {
+            wristAnchor[side] = {
+              x: wrist.x,
+              y: wrist.y,
+              at: time
+            };
+          }
         }
       }
 
-      prog = reps;
+      progress = reps;
 
       detail = reps
         ? `${reps}/${t.target} จังหวะมือ`
-        : 'ขยับมือซ้ายหรือขวาให้เห็นชัด 1 ครั้ง แล้วสลับอีกข้าง';
+        : 'ยกหรือเลื่อนมือซ้าย/ขวาช้า ๆ หนึ่งครั้ง';
     } else if (
       t.type === 'march' ||
       t.type === 'duck' ||
       t.type === 'shift'
     ) {
-      const center = hm ? hm.x : 0.5;
+      const center = hipMid ? hipMid.x : 0.5;
 
       if (baseline == null) baseline = center;
       baseline = baseline * 0.99 + center * 0.01;
@@ -885,15 +922,21 @@ export async function mount(stage, ctx, api) {
       let side = '';
 
       if (t.type === 'march' && la && ra) {
-        side = Math.abs(la.y - ra.y) > 0.035
-          ? (la.y > ra.y ? 'L' : 'R')
-          : '';
-      } else if (t.type === 'duck' && sm && hm) {
-        side = (sm.y - hm.y) > 0.17 ? 'D' : '';
+        side =
+          Math.abs(la.y - ra.y) > 0.035
+            ? la.y > ra.y
+              ? 'L'
+              : 'R'
+            : '';
+      } else if (t.type === 'duck' && shoulderMid && hipMid) {
+        side = shoulderMid.y - hipMid.y > 0.17 ? 'D' : '';
       } else {
-        side = Math.abs(center - baseline) > sw * 0.3
-          ? (center > baseline ? 'R' : 'L')
-          : '';
+        side =
+          Math.abs(center - baseline) > shoulderWidth * 0.3
+            ? center > baseline
+              ? 'R'
+              : 'L'
+            : '';
       }
 
       if (
@@ -907,11 +950,11 @@ export async function mount(stage, ctx, api) {
         cooldown = time + 320;
       }
 
-      prog = reps;
+      progress = reps;
       detail = `${reps}/${t.target} ${t.type === 'duck' ? 'ย่อเข่า' : 'สลับ'}`;
     } else if (t.type === 'reach' || t.type === 'cross') {
-      const left = lw && lw.y < ls.y - 0.06;
-      const right = rw && rw.y < rs.y - 0.06;
+      const left = lw && ls && lw.y < ls.y - 0.06;
+      const right = rw && rs && rw.y < rs.y - 0.06;
       const side = left ? 'L' : right ? 'R' : '';
 
       if (ready && side) {
@@ -931,12 +974,12 @@ export async function mount(stage, ctx, api) {
         hold = 0;
       }
 
-      prog = sides.size;
-      detail = `ค้าง ${prog}/2 ด้าน`;
+      progress = sides.size;
+      detail = `ค้าง ${progress}/2 ด้าน`;
     }
 
     completeTask({
-      progress: prog,
+      progress,
       target: t.target,
       detail
     });
@@ -945,20 +988,19 @@ export async function mount(stage, ctx, api) {
   function stop() {
     running = false;
 
-    if (raf) {
-      cancelAnimationFrame(raf);
-    }
-
+    if (raf) cancelAnimationFrame(raf);
     raf = 0;
 
     try {
-      stream && stream.getTracks().forEach(t => t.stop());
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
     } catch (_) {}
 
     stream = null;
 
     try {
-      landmarker && landmarker.close();
+      if (landmarker) landmarker.close();
     } catch (_) {}
 
     landmarker = null;
@@ -981,21 +1023,25 @@ export async function mount(stage, ctx, api) {
           : 1;
 
     api.complete({
-      title: phase === 'cooldown'
-        ? 'Hero Recovery Mission สำเร็จ'
-        : 'Hero Ready Mission สำเร็จ',
+      title:
+        phase === 'cooldown'
+          ? 'Hero Recovery Mission สำเร็จ'
+          : 'Hero Ready Mission สำเร็จ',
 
-      subtitle: phase === 'cooldown'
-        ? 'ค่อย ๆ ลดความหนักเรียบร้อยแล้ว'
-        : 'ร่างกายพร้อมเข้าสู่เกมหลักแล้ว',
+      subtitle:
+        phase === 'cooldown'
+          ? 'ค่อย ๆ ลดความหนักเรียบร้อยแล้ว'
+          : 'ร่างกายพร้อมเข้าสู่เกมหลักแล้ว',
 
       gateStars: stars,
 
       gateQuality: guided
         ? 'guided-fallback'
-        : stars === 3
-          ? 'pose-verified'
-          : 'pose-assisted',
+        : assistedTasks > 0
+          ? 'pose-assisted'
+          : stars === 3
+            ? 'pose-verified'
+            : 'pose-assisted',
 
       gatePoseQuality: Math.round(quality * 100),
 
@@ -1011,7 +1057,6 @@ export async function mount(stage, ctx, api) {
     stop();
 
     guided = true;
-
     refs.empty.hidden = false;
 
     refs.empty.innerHTML = `
@@ -1028,17 +1073,17 @@ export async function mount(stage, ctx, api) {
 
     update(null);
 
-    let b = q('[data-confirm]');
+    let button = q('[data-confirm]');
 
-    if (!b) {
-      b = document.createElement('button');
-      b.className = 'frr-btn frr-btn-primary';
-      b.dataset.confirm = '1';
-      b.textContent = '✓ ยืนยันว่าทำท่านี้แล้ว';
+    if (!button) {
+      button = document.createElement('button');
+      button.className = 'frr-btn frr-btn-primary';
+      button.dataset.confirm = '1';
+      button.textContent = '✓ ยืนยันว่าทำท่านี้แล้ว';
 
-      q('.frr-controls').prepend(b);
+      q('.frr-controls').prepend(button);
 
-      b.onclick = () => {
+      button.onclick = () => {
         completeTask({
           progress: task().target,
           target: task().target,
@@ -1076,7 +1121,8 @@ export async function mount(stage, ctx, api) {
 
       await new Promise(resolve => {
         if (video.readyState >= 2 && video.videoWidth) {
-          return resolve();
+          resolve();
+          return;
         }
 
         video.addEventListener('loadeddata', resolve, { once: true });
@@ -1124,6 +1170,10 @@ export async function mount(stage, ctx, api) {
 
       running = true;
       last = now();
+      taskStartedAt = now();
+      advanceQueued = false;
+
+      if (refs.skip) refs.skip.hidden = true;
 
       let lastInfer = 0;
       let lastFrame = now();
@@ -1139,37 +1189,37 @@ export async function mount(stage, ctx, api) {
 
         raf = requestAnimationFrame(loop);
 
-        const t = now();
+        const time = now();
 
-        if (video.readyState < 2 || t - lastInfer < 90) return;
+        if (video.readyState < 2 || time - lastInfer < 90) return;
 
         const dt = Math.min(
           0.25,
-          Math.max(0.016, (t - lastFrame) / 1000)
+          Math.max(0.016, (time - lastFrame) / 1000)
         );
 
-        lastInfer = t;
-        lastFrame = t;
+        lastInfer = time;
+        lastFrame = time;
 
-        let res;
+        let result;
 
         try {
-          res = landmarker.detectForVideo(video, t);
+          result = landmarker.detectForVideo(video, time);
         } catch (_) {
           return;
         }
 
-        const lm =
-          res &&
-          res.landmarks &&
-          res.landmarks[0]
-            ? res.landmarks[0]
+        const landmarks =
+          result &&
+          result.landmarks &&
+          result.landmarks[0]
+            ? result.landmarks[0]
             : null;
 
-        drawPose(canvas, preview, video, lm);
-        update(lm);
+        drawPose(canvas, preview, video, landmarks);
+        update(landmarks);
 
-        if (!lm) {
+        if (!landmarks) {
           refs.status.textContent = 'กำลังค้นหาร่างกาย';
           return;
         }
@@ -1177,11 +1227,11 @@ export async function mount(stage, ctx, api) {
         frames++;
 
         const quality = avg([
-          vis(p(lm, 0)),
-          vis(p(lm, 11)),
-          vis(p(lm, 12)),
-          vis(p(lm, 23)),
-          vis(p(lm, 24))
+          vis(p(landmarks, IDX.NOSE)),
+          vis(p(landmarks, IDX.LS)),
+          vis(p(landmarks, IDX.RS)),
+          vis(p(landmarks, IDX.LH)),
+          vis(p(landmarks, IDX.RH))
         ]);
 
         poseQuality.push(quality);
@@ -1196,18 +1246,18 @@ export async function mount(stage, ctx, api) {
 
         refs.status.textContent = 'กำลังตรวจท่าทาง';
 
-        score(lm, dt, t);
+        score(landmarks, dt, time);
       };
 
       loop();
-    } catch (e) {
-      console.warn('[FRR] start failed', e);
+    } catch (error) {
+      console.warn('[FRR] start failed', error);
 
       refs.start.hidden = true;
       refs.guided.hidden = false;
       refs.retry.hidden = false;
       refs.status.textContent = 'เปิดกล้องไม่สำเร็จ';
-      refs.engine.textContent = `Camera unavailable: ${clean(e && e.message || e)}`;
+      refs.engine.textContent = `Camera unavailable: ${clean(error && error.message || error)}`;
 
       update(null);
     } finally {
@@ -1231,11 +1281,16 @@ export async function mount(stage, ctx, api) {
     sides = new Set();
     baseline = null;
     previousWrist = { L: null, R: null };
+    wristAnchor = { L: null, R: null };
+    advanceQueued = false;
+    taskStartedAt = 0;
+    assistedTasks = 0;
     poseQuality = [];
     valid = 0;
     frames = 0;
 
-    q('[data-confirm]') && q('[data-confirm]').remove();
+    const confirmButton = q('[data-confirm]');
+    if (confirmButton) confirmButton.remove();
 
     refs.empty.hidden = false;
 
@@ -1248,6 +1303,9 @@ export async function mount(stage, ctx, api) {
     refs.start.hidden = false;
     refs.guided.hidden = true;
     refs.retry.hidden = true;
+
+    if (refs.skip) refs.skip.hidden = true;
+
     refs.status.textContent = 'กล้องยังไม่เริ่ม';
     refs.engine.textContent = 'Engine: camera + Pose ready';
 
@@ -1262,9 +1320,35 @@ export async function mount(stage, ctx, api) {
 
   refs.retry.onclick = retry;
 
+  if (refs.skip) {
+    refs.skip.onclick = () => {
+      if (done || !task()) return;
+
+      assistedTasks++;
+
+      completeTask({
+        progress: task().target,
+        target: task().target,
+        detail: 'ผ่านด้วย Task Assist'
+      });
+    };
+  }
+
   refs.exit.onclick = () => {
     stop();
-    api.goHub();
+
+    if (typeof api.goHub === 'function') {
+      api.goHub();
+      return;
+    }
+
+    if (typeof api.complete === 'function') {
+      api.complete({
+        skipped: true,
+        title: 'กลับ Fitness Hub',
+        subtitle: 'ผู้เรียนออกจาก Fitness Gate'
+      });
+    }
   };
 
   update(null);
