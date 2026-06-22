@@ -1,7 +1,7 @@
 <!-- =========================================================
  /herohealth/hygiene-zone/teacher-dashboard.html
  HeroHealth Hygiene Zone Teacher Dashboard V2
- Version: v20260622-HYGIENE-TEACHER-DASHBOARD-V2-3-1-MASTERY-TDZ-HOTFIX
+ Version: v20260622-HYGIENE-TEACHER-DASHBOARD-V2-4-LEGACY-MOBILE
 ========================================================= -->
 <!doctype html>
 <html lang="th">
@@ -12,92 +12,1271 @@
 <meta name="color-scheme" content="light">
 <link rel="icon" href="data:,">
 <title>HeroHealth • Hygiene Zone • Teacher Dashboard</title>
+
 <style>
-:root{--ink:#0f172a;--muted:#64748b;--cyan:#06b6d4;--blue:#2563eb;--green:#16a34a;--amber:#f59e0b;--red:#ef4444;--pink:#ec4899;--line:rgba(15,23,42,.09);--safe-top:env(safe-area-inset-top,0px);--safe-right:env(safe-area-inset-right,0px);--safe-bottom:env(safe-area-inset-bottom,0px);--safe-left:env(safe-area-inset-left,0px)}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;min-height:100%;font-family:ui-rounded,"Sarabun","Noto Sans Thai",system-ui,sans-serif;color:var(--ink);background:radial-gradient(circle at 10% 4%,rgba(103,232,249,.58),transparent 28%),radial-gradient(circle at 89% 10%,rgba(251,207,232,.62),transparent 28%),linear-gradient(155deg,#ecfeff,#fdf2f8 54%,#fff7ed)}
-button,input,select,textarea{font:inherit}button{border:0;cursor:pointer}
-.page{min-height:100vh;padding:calc(16px + var(--safe-top)) calc(14px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(14px + var(--safe-left))}
-.wrap{width:min(1380px,100%);margin:auto}
-.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
-.brand{display:flex;align-items:center;gap:12px}.logo{display:grid;place-items:center;width:58px;height:58px;border-radius:22px;color:#fff;font-size:30px;background:linear-gradient(135deg,#67e8f9,#2563eb,#ec4899);box-shadow:0 17px 35px rgba(37,99,235,.22)}h1{margin:0;font-size:clamp(23px,4vw,43px);line-height:1.02;letter-spacing:-.045em;font-weight:1000}h1 span{display:block;margin-top:4px;color:#0e7490;font-size:.51em;letter-spacing:0}
-.actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
-.btn{min-height:42px;padding:0 13px;border:1px solid rgba(255,255,255,.9);border-radius:16px;background:rgba(255,255,255,.88);color:var(--ink);box-shadow:0 11px 24px rgba(15,23,42,.10);font-size:13px;font-weight:1000}.btn.primary{color:#fff;border:0;background:linear-gradient(90deg,#06b6d4,#2563eb)}.btn.green{color:#fff;border:0;background:linear-gradient(90deg,#14b8a6,#22c55e)}.btn.warn{background:#fffbeb;border-color:rgba(245,158,11,.28);color:#78350f}
-.panel{border:1px solid rgba(255,255,255,.92);border-radius:29px;background:rgba(255,255,255,.84);box-shadow:0 18px 50px rgba(15,23,42,.13);backdrop-filter:blur(14px)}
-.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-bottom:14px}.hero-main,.connection,.card{padding:17px}.hero-main{min-height:235px;padding:22px}.eyebrow,.chip,.tag{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;font-size:11px;font-weight:1000}.eyebrow{gap:7px;padding:7px 11px;margin-bottom:10px;border:1px solid rgba(6,182,212,.18);background:#ecfeff;color:#0e7490}
-.hero-title{margin:0;max-width:100%;font-size:clamp(30px,4.15vw,54px);line-height:1.02;letter-spacing:-.052em;font-weight:1000;overflow-wrap:anywhere}.hero-title b{color:transparent;background:linear-gradient(90deg,#0891b2,#2563eb,#db2777);-webkit-background-clip:text;background-clip:text}.copy{width:min(720px,100%);margin:12px 0 0;color:#475569;line-height:1.65;font-size:14px;font-weight:850}.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.chip{padding:7px 10px;background:#fff;border:1px solid var(--line);color:#334155;box-shadow:0 8px 18px rgba(15,23,42,.06)}
-h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-weight:1000}.muted{margin:0 0 10px;color:var(--muted);font-size:13px;line-height:1.5;font-weight:850}
-.field{display:flex;flex-direction:column;gap:5px;color:#475569;font-size:12px;font-weight:1000}.field input,.field select,.field textarea{width:100%;padding:10px 11px;border:1px solid rgba(14,116,144,.16);border-radius:16px;outline:0;background:rgba(255,255,255,.92);color:var(--ink);font-weight:900}.field textarea{min-height:82px;resize:vertical;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;user-select:text}.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.status{min-height:28px;margin-top:10px;padding:7px 9px;border-radius:13px;background:#f8fafc;color:#475569;font-size:12px;line-height:1.35;font-weight:900}.status.ok{background:#ecfdf5;color:#166534}.status.warn{background:#fffbeb;color:#92400e}.status.bad{background:#fef2f2;color:#991b1b}
-.filters{display:grid;grid-template-columns:1.1fr .75fr .7fr .72fr .82fr .8fr auto;gap:10px;align-items:end;padding:13px;margin-bottom:14px}.filters .field{margin:0}
-.kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:11px;margin-bottom:14px}.kpi{position:relative;overflow:hidden;min-height:113px;padding:13px;border:1px solid rgba(255,255,255,.92);border-radius:24px;background:rgba(255,255,255,.84);box-shadow:0 12px 28px rgba(15,23,42,.09)}.kpi:after{content:"";position:absolute;right:-28px;bottom:-30px;width:92px;height:92px;border-radius:50%;background:var(--glow,rgba(103,232,249,.28))}.kpi small,.kpi b,.kpi span{position:relative;z-index:1}.kpi small{display:block;margin-bottom:6px;color:var(--muted);font-size:12px;font-weight:1000}.kpi b{display:block;font-size:clamp(23px,2.8vw,33px);line-height:1;font-weight:1000}.kpi span{display:block;margin-top:6px;color:#475569;font-size:11px;line-height:1.25;font-weight:850}
-.grid{display:grid;grid-template-columns:.97fr 1.03fr;gap:14px;margin-bottom:14px}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}.head h2{margin-bottom:3px}.mini{padding:6px 9px;border-radius:999px;background:#f8fafc;color:#475569;border:1px solid var(--line);font-size:11px;font-weight:1000;white-space:nowrap}
-.insights{display:grid;gap:9px}.insight{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(180deg,#fff,#f8fafc)}.icon{display:grid;place-items:center;width:44px;height:44px;border-radius:16px;background:linear-gradient(135deg,#ecfeff,#fdf2f8);font-size:22px}.insight b{display:block;margin-bottom:2px;font-size:13px;font-weight:1000}.insight span{display:block;color:var(--muted);font-size:12px;line-height:1.35;font-weight:850}
-.zone-board{display:grid;gap:11px}.zone-row{display:grid;grid-template-columns:78px 1fr 82px;gap:8px;align-items:center;color:#334155;font-size:12px;font-weight:1000}.stack{display:grid;gap:5px}.track{height:10px;overflow:hidden;border-radius:999px;background:#e2e8f0}.fill{display:block;height:100%;width:0%;border-radius:inherit;background:linear-gradient(90deg,#67e8f9,#22c55e,#facc15)}.fill.blue{background:linear-gradient(90deg,#60a5fa,#2563eb,#8b5cf6)}.fill.pink{background:linear-gradient(90deg,#fb7185,#f97316,#facc15)}.zone-num{text-align:right;font-size:11px;line-height:1.3;color:#475569}.legend{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.legend span{padding:5px 8px;border:1px solid var(--line);border-radius:999px;background:#f8fafc;color:#475569;font-size:11px;font-weight:1000}
-.table-card{padding:0;margin-bottom:14px}.table-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px 16px 10px}.table-head h2{margin:0 0 3px;font-size:21px}.table-head p{margin:0;color:var(--muted);font-size:12px;font-weight:850}.scroll{max-height:500px;overflow:auto;border-top:1px solid var(--line)}table{width:100%;min-width:1150px;border-collapse:collapse;background:rgba(255,255,255,.56)}th,td{padding:11px 10px;border-bottom:1px solid rgba(15,23,42,.06);color:#334155;text-align:left;vertical-align:middle;white-space:nowrap;font-size:12px;line-height:1.35;font-weight:850}th{position:sticky;top:0;z-index:1;background:rgba(248,250,252,.98);color:#475569;font-size:11px;font-weight:1000}tbody tr{cursor:pointer}tbody tr:hover{background:rgba(236,254,255,.8)}tbody tr.selected{background:rgba(219,234,254,.72);box-shadow:inset 4px 0 0 #2563eb}.name{color:#0f172a;font-weight:1000}.sub{display:block;margin-top:2px;color:var(--muted);font-size:10px;font-weight:850}.tag{min-height:25px;padding:4px 8px;border:1px solid var(--line);background:#f8fafc;color:#475569}.tag.pass{background:#ecfdf5;border-color:rgba(34,197,94,.2);color:#166534}.tag.learning{background:#ecfeff;border-color:rgba(6,182,212,.2);color:#0e7490}.tag.practice{background:#fffbeb;border-color:rgba(245,158,11,.24);color:#92400e}.tag.retry{background:#fef2f2;border-color:rgba(239,68,68,.2);color:#991b1b}.empty{padding:32px;text-align:center;color:var(--muted);font-weight:900}
-.details{display:grid;grid-template-columns:.85fr 1.15fr;gap:14px}.empty-detail{display:grid;min-height:260px;place-items:center;padding:18px;text-align:center;color:var(--muted);font-weight:900;line-height:1.5}.student{display:flex;align-items:center;gap:11px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--line)}.avatar{display:grid;place-items:center;width:53px;height:53px;border-radius:19px;background:linear-gradient(135deg,#ecfeff,#fce7f3);font-size:26px}.student h3{margin:0 0 3px;font-size:21px;line-height:1.05;letter-spacing:-.03em;font-weight:1000}.student p{margin:0;color:var(--muted);font-size:12px;line-height:1.35;font-weight:850}.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.metric{padding:10px;border:1px solid var(--line);border-radius:18px;background:#f8fafc}.metric small{display:block;margin-bottom:3px;color:var(--muted);font-size:10px;font-weight:1000}.metric b{font-size:18px;line-height:1;font-weight:1000}.note{margin-top:11px;padding:11px;border-radius:18px;background:#f8fafc;color:#475569;font-size:12px;line-height:1.5;font-weight:850;white-space:pre-line}.note strong{color:var(--ink)}
-.toast{position:fixed;z-index:999;left:50%;bottom:calc(20px + var(--safe-bottom));max-width:min(92vw,620px);padding:11px 14px;border-radius:999px;transform:translate(-50%,16px);background:rgba(15,23,42,.92);color:#fff;box-shadow:0 18px 40px rgba(15,23,42,.26);font-size:13px;font-weight:900;opacity:0;pointer-events:none;transition:.18s}.toast.show{opacity:1;transform:translate(-50%,0)}
-@media(max-width:1180px){.kpis{grid-template-columns:repeat(4,1fr)}.filters{grid-template-columns:repeat(3,1fr)}}@media(max-width:880px){.top,.hero,.grid,.details{display:grid;grid-template-columns:1fr}.actions{justify-content:flex-start}.kpis{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:repeat(2,1fr)}}@media(max-width:580px){.page{padding-left:10px;padding-right:10px}.logo{width:48px;height:48px;border-radius:18px;font-size:25px}h1{font-size:26px}.hero-main,.connection,.card{padding:14px}.hero-title{font-size:38px}.filters{grid-template-columns:1fr}.filters .btn{width:100%}.kpis{gap:8px}.kpi{min-height:103px;padding:11px}.zone-row{grid-template-columns:68px 1fr 74px}}@media print{.actions,.connection,.filters,.btn{display:none!important}.page{padding:0}body{background:#fff}.panel,.kpi,.card{box-shadow:none;border:1px solid #dbe3ec}.scroll{max-height:none;overflow:visible}table{min-width:0}}
+:root{
+  --ink:#0f172a;
+  --muted:#64748b;
+  --cyan:#06b6d4;
+  --blue:#2563eb;
+  --green:#16a34a;
+  --amber:#f59e0b;
+  --red:#ef4444;
+  --pink:#ec4899;
+  --line:rgba(15,23,42,.09);
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-right:env(safe-area-inset-right,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-left:env(safe-area-inset-left,0px);
+}
+
+*{
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+}
+
+html,
+body{
+  margin:0;
+  min-height:100%;
+  font-family:ui-rounded,"Sarabun","Noto Sans Thai",system-ui,sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(circle at 10% 4%,rgba(103,232,249,.58),transparent 28%),
+    radial-gradient(circle at 89% 10%,rgba(251,207,232,.62),transparent 28%),
+    linear-gradient(155deg,#ecfeff,#fdf2f8 54%,#fff7ed);
+}
+
+button,
+input,
+select,
+textarea{
+  font:inherit;
+}
+
+button{
+  border:0;
+  cursor:pointer;
+}
+
+.page{
+  min-height:100vh;
+  padding:
+    calc(16px + var(--safe-top))
+    calc(14px + var(--safe-right))
+    calc(24px + var(--safe-bottom))
+    calc(14px + var(--safe-left));
+}
+
+.wrap{
+  width:min(1380px,100%);
+  margin:auto;
+}
+
+.top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.logo{
+  display:grid;
+  place-items:center;
+  width:58px;
+  height:58px;
+  border-radius:22px;
+  color:#fff;
+  font-size:30px;
+  background:linear-gradient(135deg,#67e8f9,#2563eb,#ec4899);
+  box-shadow:0 17px 35px rgba(37,99,235,.22);
+}
+
+h1{
+  margin:0;
+  font-size:clamp(23px,4vw,43px);
+  line-height:1.02;
+  letter-spacing:-.045em;
+  font-weight:1000;
+}
+
+h1 span{
+  display:block;
+  margin-top:4px;
+  color:#0e7490;
+  font-size:.51em;
+  letter-spacing:0;
+}
+
+.actions{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+.btn{
+  min-height:42px;
+  padding:0 13px;
+  border:1px solid rgba(255,255,255,.9);
+  border-radius:16px;
+  background:rgba(255,255,255,.88);
+  color:var(--ink);
+  box-shadow:0 11px 24px rgba(15,23,42,.10);
+  font-size:13px;
+  font-weight:1000;
+}
+
+.btn.primary{
+  color:#fff;
+  border:0;
+  background:linear-gradient(90deg,#06b6d4,#2563eb);
+}
+
+.btn.green{
+  color:#fff;
+  border:0;
+  background:linear-gradient(90deg,#14b8a6,#22c55e);
+}
+
+.btn.warn{
+  background:#fffbeb;
+  border-color:rgba(245,158,11,.28);
+  color:#78350f;
+}
+
+.panel{
+  border:1px solid rgba(255,255,255,.92);
+  border-radius:29px;
+  background:rgba(255,255,255,.84);
+  box-shadow:0 18px 50px rgba(15,23,42,.13);
+  backdrop-filter:blur(14px);
+}
+
+.hero{
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:14px;
+  margin-bottom:14px;
+}
+
+.hero-main,
+.connection,
+.card{
+  padding:17px;
+}
+
+.hero-main{
+  min-height:235px;
+  padding:22px;
+}
+
+.eyebrow,
+.chip,
+.tag{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:1000;
+}
+
+.eyebrow{
+  gap:7px;
+  padding:7px 11px;
+  margin-bottom:10px;
+  border:1px solid rgba(6,182,212,.18);
+  background:#ecfeff;
+  color:#0e7490;
+}
+
+.hero-title{
+  margin:0;
+  max-width:100%;
+  font-size:clamp(30px,4.15vw,54px);
+  line-height:1.02;
+  letter-spacing:-.052em;
+  font-weight:1000;
+  overflow-wrap:anywhere;
+}
+
+.hero-title b{
+  color:transparent;
+  background:linear-gradient(90deg,#0891b2,#2563eb,#db2777);
+  -webkit-background-clip:text;
+  background-clip:text;
+}
+
+.copy{
+  width:min(720px,100%);
+  margin:12px 0 0;
+  color:#475569;
+  line-height:1.65;
+  font-size:14px;
+  font-weight:850;
+}
+
+.pills{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:16px;
+}
+
+.chip{
+  padding:7px 10px;
+  background:#fff;
+  border:1px solid var(--line);
+  color:#334155;
+  box-shadow:0 8px 18px rgba(15,23,42,.06);
+}
+
+h2{
+  margin:0 0 7px;
+  font-size:20px;
+  line-height:1.12;
+  letter-spacing:-.03em;
+  font-weight:1000;
+}
+
+.muted{
+  margin:0 0 10px;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.5;
+  font-weight:850;
+}
+
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  color:#475569;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.field input,
+.field select,
+.field textarea{
+  width:100%;
+  padding:10px 11px;
+  border:1px solid rgba(14,116,144,.16);
+  border-radius:16px;
+  outline:0;
+  background:rgba(255,255,255,.92);
+  color:var(--ink);
+  font-weight:900;
+}
+
+.field textarea{
+  min-height:82px;
+  resize:vertical;
+  font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  user-select:text;
+}
+
+.row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+}
+
+.status{
+  min-height:28px;
+  margin-top:10px;
+  padding:7px 9px;
+  border-radius:13px;
+  background:#f8fafc;
+  color:#475569;
+  font-size:12px;
+  line-height:1.35;
+  font-weight:900;
+}
+
+.status.ok{
+  background:#ecfdf5;
+  color:#166534;
+}
+
+.status.warn{
+  background:#fffbeb;
+  color:#92400e;
+}
+
+.status.bad{
+  background:#fef2f2;
+  color:#991b1b;
+}
+
+.filters{
+  display:grid;
+  grid-template-columns:1.1fr .75fr .7fr .72fr .82fr .8fr auto;
+  gap:10px;
+  align-items:end;
+  padding:13px;
+  margin-bottom:14px;
+}
+
+.filters .field{
+  margin:0;
+}
+
+.kpis{
+  display:grid;
+  grid-template-columns:repeat(8,1fr);
+  gap:11px;
+  margin-bottom:14px;
+}
+
+.kpi{
+  position:relative;
+  overflow:hidden;
+  min-height:113px;
+  padding:13px;
+  border:1px solid rgba(255,255,255,.92);
+  border-radius:24px;
+  background:rgba(255,255,255,.84);
+  box-shadow:0 12px 28px rgba(15,23,42,.09);
+}
+
+.kpi:after{
+  content:"";
+  position:absolute;
+  right:-28px;
+  bottom:-30px;
+  width:92px;
+  height:92px;
+  border-radius:50%;
+  background:var(--glow,rgba(103,232,249,.28));
+}
+
+.kpi small,
+.kpi b,
+.kpi span{
+  position:relative;
+  z-index:1;
+}
+
+.kpi small{
+  display:block;
+  margin-bottom:6px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:1000;
+}
+
+.kpi b{
+  display:block;
+  font-size:clamp(23px,2.8vw,33px);
+  line-height:1;
+  font-weight:1000;
+}
+
+.kpi span{
+  display:block;
+  margin-top:6px;
+  color:#475569;
+  font-size:11px;
+  line-height:1.25;
+  font-weight:850;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:.97fr 1.03fr;
+  gap:14px;
+  margin-bottom:14px;
+}
+
+.head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.head h2{
+  margin-bottom:3px;
+}
+
+.mini{
+  padding:6px 9px;
+  border-radius:999px;
+  background:#f8fafc;
+  color:#475569;
+  border:1px solid var(--line);
+  font-size:11px;
+  font-weight:1000;
+  white-space:nowrap;
+}
+
+.insights{
+  display:grid;
+  gap:9px;
+}
+
+.insight{
+  display:grid;
+  grid-template-columns:44px 1fr;
+  gap:10px;
+  align-items:center;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:linear-gradient(180deg,#fff,#f8fafc);
+}
+
+.icon{
+  display:grid;
+  place-items:center;
+  width:44px;
+  height:44px;
+  border-radius:16px;
+  background:linear-gradient(135deg,#ecfeff,#fdf2f8);
+  font-size:22px;
+}
+
+.insight b{
+  display:block;
+  margin-bottom:2px;
+  font-size:13px;
+  font-weight:1000;
+}
+
+.insight span{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.35;
+  font-weight:850;
+}
+
+.zone-board{
+  display:grid;
+  gap:11px;
+}
+
+.zone-row{
+  display:grid;
+  grid-template-columns:78px 1fr 82px;
+  gap:8px;
+  align-items:center;
+  color:#334155;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.stack{
+  display:grid;
+  gap:5px;
+}
+
+.track{
+  height:10px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#e2e8f0;
+}
+
+.fill{
+  display:block;
+  height:100%;
+  width:0%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#67e8f9,#22c55e,#facc15);
+}
+
+.fill.blue{
+  background:linear-gradient(90deg,#60a5fa,#2563eb,#8b5cf6);
+}
+
+.fill.pink{
+  background:linear-gradient(90deg,#fb7185,#f97316,#facc15);
+}
+
+.zone-num{
+  text-align:right;
+  font-size:11px;
+  line-height:1.3;
+  color:#475569;
+}
+
+.legend{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-top:10px;
+}
+
+.legend span{
+  padding:5px 8px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:#f8fafc;
+  color:#475569;
+  font-size:11px;
+  font-weight:1000;
+}
+
+.table-card{
+  padding:0;
+  margin-bottom:14px;
+}
+
+.table-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+  padding:16px 16px 10px;
+}
+
+.table-head h2{
+  margin:0 0 3px;
+  font-size:21px;
+}
+
+.table-head p{
+  margin:0;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:850;
+}
+
+.scroll{
+  max-height:500px;
+  overflow:auto;
+  border-top:1px solid var(--line);
+}
+
+table{
+  width:100%;
+  min-width:1150px;
+  border-collapse:collapse;
+  background:rgba(255,255,255,.56);
+}
+
+th,
+td{
+  padding:11px 10px;
+  border-bottom:1px solid rgba(15,23,42,.06);
+  color:#334155;
+  text-align:left;
+  vertical-align:middle;
+  white-space:nowrap;
+  font-size:12px;
+  line-height:1.35;
+  font-weight:850;
+}
+
+th{
+  position:sticky;
+  top:0;
+  z-index:1;
+  background:rgba(248,250,252,.98);
+  color:#475569;
+  font-size:11px;
+  font-weight:1000;
+}
+
+tbody tr{
+  cursor:pointer;
+}
+
+tbody tr:hover{
+  background:rgba(236,254,255,.8);
+}
+
+tbody tr.selected{
+  background:rgba(219,234,254,.72);
+  box-shadow:inset 4px 0 0 #2563eb;
+}
+
+.name{
+  color:#0f172a;
+  font-weight:1000;
+}
+
+.sub{
+  display:block;
+  margin-top:2px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:850;
+}
+
+.tag{
+  min-height:25px;
+  padding:4px 8px;
+  border:1px solid var(--line);
+  background:#f8fafc;
+  color:#475569;
+}
+
+.tag.pass{
+  background:#ecfdf5;
+  border-color:rgba(34,197,94,.2);
+  color:#166534;
+}
+
+.tag.learning{
+  background:#ecfeff;
+  border-color:rgba(6,182,212,.2);
+  color:#0e7490;
+}
+
+.tag.practice{
+  background:#fffbeb;
+  border-color:rgba(245,158,11,.24);
+  color:#92400e;
+}
+
+.tag.retry{
+  background:#fef2f2;
+  border-color:rgba(239,68,68,.2);
+  color:#991b1b;
+}
+
+.empty{
+  padding:32px;
+  text-align:center;
+  color:var(--muted);
+  font-weight:900;
+}
+
+.details{
+  display:grid;
+  grid-template-columns:.85fr 1.15fr;
+  gap:14px;
+}
+
+.empty-detail{
+  display:grid;
+  min-height:260px;
+  place-items:center;
+  padding:18px;
+  text-align:center;
+  color:var(--muted);
+  font-weight:900;
+  line-height:1.5;
+}
+
+.student{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding-bottom:12px;
+  margin-bottom:12px;
+  border-bottom:1px solid var(--line);
+}
+
+.avatar{
+  display:grid;
+  place-items:center;
+  width:53px;
+  height:53px;
+  border-radius:19px;
+  background:linear-gradient(135deg,#ecfeff,#fce7f3);
+  font-size:26px;
+}
+
+.student h3{
+  margin:0 0 3px;
+  font-size:21px;
+  line-height:1.05;
+  letter-spacing:-.03em;
+  font-weight:1000;
+}
+
+.student p{
+  margin:0;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.35;
+  font-weight:850;
+}
+
+.metrics{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:8px;
+}
+
+.metric{
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:#f8fafc;
+}
+
+.metric small{
+  display:block;
+  margin-bottom:3px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:1000;
+}
+
+.metric b{
+  font-size:18px;
+  line-height:1;
+  font-weight:1000;
+}
+
+.note{
+  margin-top:11px;
+  padding:11px;
+  border-radius:18px;
+  background:#f8fafc;
+  color:#475569;
+  font-size:12px;
+  line-height:1.5;
+  font-weight:850;
+  white-space:pre-line;
+}
+
+.note strong{
+  color:var(--ink);
+}
+
+.toast{
+  position:fixed;
+  z-index:999;
+  left:50%;
+  bottom:calc(20px + var(--safe-bottom));
+  max-width:min(92vw,620px);
+  padding:11px 14px;
+  border-radius:999px;
+  transform:translate(-50%,16px);
+  background:rgba(15,23,42,.92);
+  color:#fff;
+  box-shadow:0 18px 40px rgba(15,23,42,.26);
+  font-size:13px;
+  font-weight:900;
+  opacity:0;
+  pointer-events:none;
+  transition:.18s;
+}
+
+.toast.show{
+  opacity:1;
+  transform:translate(-50%,0);
+}
+
+@media(max-width:1180px){
+  .kpis{grid-template-columns:repeat(4,1fr)}
+  .filters{grid-template-columns:repeat(3,1fr)}
+}
+
+@media(max-width:880px){
+  .top,
+  .hero,
+  .grid,
+  .details{
+    display:grid;
+    grid-template-columns:1fr;
+  }
+
+  .actions{
+    justify-content:flex-start;
+  }
+
+  .kpis{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+  .filters{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+
+@media(max-width:580px){
+  .page{
+    padding-left:10px;
+    padding-right:10px;
+  }
+
+  .logo{
+    width:48px;
+    height:48px;
+    border-radius:18px;
+    font-size:25px;
+  }
+
+  h1{
+    font-size:26px;
+  }
+
+  .hero-main,
+  .connection,
+  .card{
+    padding:14px;
+  }
+
+  .hero-title{
+    font-size:38px;
+  }
+
+  .filters{
+    grid-template-columns:1fr;
+  }
+
+  .filters .btn{
+    width:100%;
+  }
+
+  .kpis{
+    gap:8px;
+  }
+
+  .kpi{
+    min-height:103px;
+    padding:11px;
+  }
+
+  .zone-row{
+    grid-template-columns:68px 1fr 74px;
+  }
+}
+
+@media print{
+  .actions,
+  .connection,
+  .filters,
+  .btn{
+    display:none!important;
+  }
+
+  .page{
+    padding:0;
+  }
+
+  body{
+    background:#fff;
+  }
+
+  .panel,
+  .kpi,
+  .card{
+    box-shadow:none;
+    border:1px solid #dbe3ec;
+  }
+
+  .scroll{
+    max-height:none;
+    overflow:visible;
+  }
+
+  table{
+    min-width:0;
+  }
+}
+
+/* V2.4 Legacy-aware metrics + mobile record cards */
+.tag.legacy{
+  background:#f1f5f9;
+  border-color:rgba(100,116,139,.24);
+  color:#475569;
+}
+
+.mobile-records{
+  display:none;
+}
+
+.mobile-record-empty{
+  padding:24px;
+  text-align:center;
+  color:var(--muted);
+  font-weight:900;
+}
+
+.record-card{
+  padding:13px;
+  border:1px solid var(--line);
+  border-radius:22px;
+  background:linear-gradient(180deg,#fff,#f8fafc);
+  box-shadow:0 8px 18px rgba(15,23,42,.05);
+}
+
+.record-card.selected{
+  border-color:rgba(37,99,235,.36);
+  box-shadow:inset 4px 0 0 #2563eb,0 8px 18px rgba(15,23,42,.07);
+}
+
+.record-card-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+}
+
+.record-card time{
+  display:block;
+  color:#64748b;
+  font-size:11px;
+  line-height:1.35;
+  font-weight:1000;
+}
+
+.record-card h3{
+  margin:0;
+  color:#0f172a;
+  font-size:18px;
+  line-height:1.08;
+  letter-spacing:-.025em;
+  font-weight:1000;
+}
+
+.record-card p{
+  margin:3px 0 0;
+  color:#64748b;
+  font-size:12px;
+  line-height:1.35;
+  font-weight:850;
+}
+
+.record-card-metrics{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:7px;
+  margin:11px 0;
+}
+
+.record-card-metric{
+  padding:8px;
+  border-radius:14px;
+  background:#fff;
+  border:1px solid rgba(15,23,42,.06);
+}
+
+.record-card-metric small{
+  display:block;
+  color:#64748b;
+  font-size:10px;
+  font-weight:1000;
+}
+
+.record-card-metric b{
+  display:block;
+  margin-top:2px;
+  color:#0f172a;
+  font-size:16px;
+  line-height:1;
+  font-weight:1000;
+}
+
+.record-card-bottom{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+
+.record-card-bottom .sub{
+  margin:0;
+  max-width:70%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.record-open{
+  min-height:35px;
+  padding:0 10px;
+  border:0;
+  border-radius:13px;
+  background:#ecfeff;
+  color:#0e7490;
+  font-size:11px;
+  font-weight:1000;
+}
+
+@media(min-width:1181px){
+  .filters{
+    grid-template-columns:1.05fr .66fr .62fr .66fr .7fr .72fr .72fr auto;
+  }
+}
+
+@media(max-width:700px){
+  .scroll{
+    display:none;
+  }
+
+  .mobile-records{
+    display:grid;
+    gap:10px;
+    padding:12px;
+  }
+
+  .table-card{
+    padding-bottom:0;
+  }
+}
+
+@media print{
+  .mobile-records{
+    display:none!important;
+  }
+
+  .scroll{
+    display:block!important;
+  }
+}
 </style>
 </head>
+
 <body>
-<main class="page"><div class="wrap">
-<header class="top">
-  <div class="brand"><div class="logo">🪥</div><h1>Hygiene Zone<span>Teacher Dashboard • Learning + Challenge Analytics</span></h1></div>
-  <div class="actions"><button id="homeBtn" class="btn">← Hygiene Zone</button><button id="printBtn" class="btn">🖨️ Print / Save PDF</button><button id="exportBtn" class="btn primary">⬇ Export CSV</button></div>
-</header>
+<main class="page">
+  <div class="wrap">
 
-<section class="hero">
-  <div class="panel hero-main">
-    <div class="eyebrow">📊 Teacher Insight Center</div>
-    <h2 class="hero-title">ดูว่าเด็ก <b>แปรงสะอาด</b><br>และแปรงถูกวิธีจริงไหม</h2>
-    <p class="copy">Dashboard แยก Learning Mode กับ Challenge Mode ชัดเจน: Learning Mastery คือ pass strokes ที่ใช้ผ่านโซน ส่วน Overall Direction คือความแม่นระหว่างฝึก เพื่อให้ครูเห็นทั้ง “ผ่านทักษะ” และ “จุดที่ควรโค้ชต่อ”</p>
-    <div class="pills"><span class="chip">🗺️ Learning Mastery</span><span class="chip">🧭 Overall Direction</span><span class="chip">🌿 Gum Safety</span><span class="chip">🦷 Zone Performance</span></div>
+    <header class="top">
+      <div class="brand">
+        <div class="logo">🪥</div>
+        <h1>
+          Hygiene Zone
+          <span>Teacher Dashboard • Learning + Challenge Analytics</span>
+        </h1>
+      </div>
+
+      <div class="actions">
+        <button id="homeBtn" class="btn">← Hygiene Zone</button>
+        <button id="printBtn" class="btn">🖨️ Print / Save PDF</button>
+        <button id="exportBtn" class="btn primary">⬇ Export CSV</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="panel hero-main">
+        <div class="eyebrow">📊 Teacher Insight Center</div>
+
+        <h2 class="hero-title">
+          ดูว่าเด็ก <b>แปรงสะอาด</b><br>
+          และแปรงถูกวิธีจริงไหม
+        </h2>
+
+        <p class="copy">
+          Dashboard แยก Learning Mode กับ Challenge Mode ชัดเจน:
+          Learning Mastery คือ pass strokes ที่ใช้ผ่านโซน ส่วน Overall Direction
+          คือความแม่นระหว่างฝึก เพื่อให้ครูเห็นทั้ง “ผ่านทักษะ” และ “จุดที่ควรโค้ชต่อ”
+        </p>
+
+        <div class="pills">
+          <span class="chip">🗺️ Learning Mastery</span>
+          <span class="chip">🧭 Overall Direction</span>
+          <span class="chip">🌿 Gum Safety</span>
+          <span class="chip">🦷 Zone Performance</span>
+        </div>
+      </div>
+
+      <div class="panel connection">
+        <h2>เชื่อม Google Sheets</h2>
+
+        <p class="muted">
+          ใส่ Web App URL ของ Code.gs หลักที่ deploy ล่าสุด แล้วกดโหลดข้อมูล
+          Dashboard จะลอง JSON ก่อน และ fallback เป็น JSONP อัตโนมัติ
+        </p>
+
+        <label class="field">
+          Apps Script Web App URL (/exec)
+          <input
+            id="apiUrl"
+            type="url"
+            placeholder="https://script.google.com/macros/s/.../exec"
+          >
+        </label>
+
+        <div class="row">
+          <button id="loadBtn" class="btn green">↻ โหลดจาก Sheet</button>
+          <button id="demoBtn" class="btn">✨ Demo Data</button>
+          <button id="clearUrlBtn" class="btn warn">ล้าง URL</button>
+        </div>
+
+        <div id="apiStatus" class="status">
+          กำลังใช้ข้อมูลตัวอย่างในเครื่อง
+        </div>
+
+        <label class="field" style="margin-top:10px">
+          วาง JSON / CSV สำหรับทดสอบ
+          <textarea
+            id="importBox"
+            placeholder='[{"player_name":"Hero","game_key":"toothbrush",...}]'
+          ></textarea>
+        </label>
+
+        <div class="row">
+          <button id="importBtn" class="btn">นำเข้าข้อมูลที่วาง</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel filters">
+      <label class="field">
+        ค้นหานักเรียน / รหัส / ผลลัพธ์
+        <input id="search" type="search" placeholder="เช่น Hero, ป.5, direction...">
+      </label>
+
+      <label class="field">
+        เกม
+        <select id="game"></select>
+      </label>
+
+      <label class="field">
+        ชั้น
+        <select id="class"></select>
+      </label>
+
+      <label class="field">
+        โหมด
+        <select id="mode"></select>
+      </label>
+
+      <label class="field">
+        ข้อมูล
+        <select id="era"></select>
+      </label>
+
+      <label class="field">
+        ผลลัพธ์
+        <select id="result"></select>
+      </label>
+
+      <label class="field">
+        เรียงตาม
+        <select id="sort">
+          <option value="latest">ล่าสุด</option>
+          <option value="score">คะแนนสูงสุด</option>
+          <option value="direction">Direction ต่ำสุด</option>
+          <option value="gum">Gum ต่ำสุด</option>
+          <option value="technique">Technique ต่ำสุด</option>
+        </select>
+      </label>
+
+      <button id="resetBtn" class="btn">ล้าง Filter</button>
+    </section>
+
+    <section id="kpis" class="kpis"></section>
+
+    <section class="grid">
+      <article class="panel card">
+        <div class="head">
+          <div>
+            <h2>🎯 Teacher Action Center</h2>
+            <p class="muted">สิ่งที่ควรจัดกิจกรรมหรือ coaching ต่อจากข้อมูลที่เลือก</p>
+          </div>
+          <span id="insightCount" class="mini">0 records</span>
+        </div>
+
+        <div id="insights" class="insights"></div>
+      </article>
+
+      <article class="panel card">
+        <div class="head">
+          <div>
+            <h2>🗺️ Zone Learning & Challenge Map</h2>
+            <p class="muted">Learning Skill / Challenge Clean / Challenge Direction รายโซน</p>
+          </div>
+          <span class="mini">6 zones</span>
+        </div>
+
+        <div id="zoneBoard" class="zone-board"></div>
+
+        <div class="legend">
+          <span>🟦 Learning Skill</span>
+          <span>🟩 Challenge Clean</span>
+          <span>🟨 Challenge Direction</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel table-card">
+      <div class="table-head">
+        <div>
+          <h2>👩‍🎓 Student Records</h2>
+          <p id="caption">เลือกแถวเพื่อดูรายละเอียดรายโซนและ feedback</p>
+        </div>
+        <span id="recordCount" class="mini">0 records</span>
+      </div>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>เวลา</th>
+              <th>นักเรียน</th>
+              <th>เกม / โหมด</th>
+              <th>ผล</th>
+              <th>Score</th>
+              <th>Clean</th>
+              <th>Gum</th>
+              <th>Technique</th>
+              <th>Coverage</th>
+              <th>Learning</th>
+              <th>Mastery</th>
+              <th>Overall Direction</th>
+              <th>Weak Zone</th>
+              <th>Input</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <div id="mobileRecords" class="mobile-records"></div>
+    </section>
+
+    <section class="details">
+      <article class="panel card">
+        <div class="head">
+          <div>
+            <h2>🔎 Selected Attempt</h2>
+            <p class="muted">สรุปรายบุคคลจากการเล่นครั้งที่เลือก</p>
+          </div>
+          <span id="detailTag" class="mini">เลือกแถว</span>
+        </div>
+
+        <div id="detail" class="empty-detail">
+          เลือกแถวจากตารางเพื่อดู Learning Mastery, Overall Direction,
+          ค่า Gum และข้อเสนอแนะเฉพาะคน
+        </div>
+      </article>
+
+      <article class="panel card">
+        <div class="head">
+          <div>
+            <h2>🧩 Zone Drilldown</h2>
+            <p class="muted">ดูข้อมูล pass strokes หรือ Challenge Clean / Direction รายโซน</p>
+          </div>
+          <span id="modeTag" class="mini">-</span>
+        </div>
+
+        <div id="detailZones" class="empty-detail">
+          รายละเอียดรายโซนจะแสดงที่นี่
+        </div>
+      </article>
+    </section>
+
   </div>
-  <div class="panel connection">
-    <h2>เชื่อม Google Sheets</h2>
-    <p class="muted">ใส่ Web App URL ของ Code.gs หลักที่ deploy ล่าสุด แล้วกดโหลดข้อมูล Dashboard จะลอง JSON ก่อน และ fallback เป็น JSONP อัตโนมัติ</p>
-    <label class="field">Apps Script Web App URL (/exec)<input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label>
-    <div class="row"><button id="loadBtn" class="btn green">↻ โหลดจาก Sheet</button><button id="demoBtn" class="btn">✨ Demo Data</button><button id="clearUrlBtn" class="btn warn">ล้าง URL</button></div>
-    <div id="apiStatus" class="status">กำลังใช้ข้อมูลตัวอย่างในเครื่อง</div>
-    <label class="field" style="margin-top:10px">วาง JSON / CSV สำหรับทดสอบ<textarea id="importBox" placeholder='[{"player_name":"Hero","game_key":"toothbrush",...}]'></textarea></label>
-    <div class="row"><button id="importBtn" class="btn">นำเข้าข้อมูลที่วาง</button></div>
-  </div>
-</section>
+</main>
 
-<section class="panel filters">
-  <label class="field">ค้นหานักเรียน / รหัส / ผลลัพธ์<input id="search" type="search" placeholder="เช่น Hero, ป.5, direction..."></label>
-  <label class="field">เกม<select id="game"></select></label>
-  <label class="field">ชั้น<select id="class"></select></label>
-  <label class="field">โหมด<select id="mode"></select></label>
-  <label class="field">ผลลัพธ์<select id="result"></select></label>
-  <label class="field">เรียงตาม<select id="sort"><option value="latest">ล่าสุด</option><option value="score">คะแนนสูงสุด</option><option value="direction">Direction ต่ำสุด</option><option value="gum">Gum ต่ำสุด</option><option value="technique">Technique ต่ำสุด</option></select></label>
-  <button id="resetBtn" class="btn">ล้าง Filter</button>
-</section>
-
-<section id="kpis" class="kpis"></section>
-
-<section class="grid">
-  <article class="panel card"><div class="head"><div><h2>🎯 Teacher Action Center</h2><p class="muted">สิ่งที่ควรจัดกิจกรรมหรือ coaching ต่อจากข้อมูลที่เลือก</p></div><span id="insightCount" class="mini">0 records</span></div><div id="insights" class="insights"></div></article>
-  <article class="panel card"><div class="head"><div><h2>🗺️ Zone Learning & Challenge Map</h2><p class="muted">Learning Skill / Challenge Clean / Challenge Direction รายโซน</p></div><span class="mini">6 zones</span></div><div id="zoneBoard" class="zone-board"></div><div class="legend"><span>🟦 Learning Skill</span><span>🟩 Challenge Clean</span><span>🟨 Challenge Direction</span></div></article>
-</section>
-
-<section class="panel table-card">
-  <div class="table-head"><div><h2>👩‍🎓 Student Records</h2><p id="caption">เลือกแถวเพื่อดูรายละเอียดรายโซนและ feedback</p></div><span id="recordCount" class="mini">0 records</span></div>
-  <div class="scroll"><table><thead><tr><th>เวลา</th><th>นักเรียน</th><th>เกม / โหมด</th><th>ผล</th><th>Score</th><th>Clean</th><th>Gum</th><th>Technique</th><th>Coverage</th><th>Learning</th><th>Mastery</th><th>Overall Direction</th><th>Weak Zone</th><th>Input</th></tr></thead><tbody id="tbody"></tbody></table></div>
-</section>
-
-<section class="details">
-  <article class="panel card"><div class="head"><div><h2>🔎 Selected Attempt</h2><p class="muted">สรุปรายบุคคลจากการเล่นครั้งที่เลือก</p></div><span id="detailTag" class="mini">เลือกแถว</span></div><div id="detail" class="empty-detail">เลือกแถวจากตารางเพื่อดู Learning Mastery, Overall Direction, ค่า Gum และข้อเสนอแนะเฉพาะคน</div></article>
-  <article class="panel card"><div class="head"><div><h2>🧩 Zone Drilldown</h2><p class="muted">ดูข้อมูล pass strokes หรือ Challenge Clean / Direction รายโซน</p></div><span id="modeTag" class="mini">-</span></div><div id="detailZones" class="empty-detail">รายละเอียดรายโซนจะแสดงที่นี่</div></article>
-</section>
-</div></main>
 <div id="toast" class="toast"></div>
 
 <script>
 (()=>{
 'use strict';
 
-const VERSION='v20260622-HYGIENE-TEACHER-DASHBOARD-V2-3-1-MASTERY-TDZ-HOTFIX';
+const VERSION='v20260622-HYGIENE-TEACHER-DASHBOARD-V2-4-LEGACY-MOBILE';
 
 const CFG={
   home:'../hygiene-zone-v2.html',
@@ -116,9 +1295,18 @@ const CFG={
 };
 
 const $=id=>document.getElementById(id);
+
 const n=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
-const yes=v=>['yes','true','1','y'].includes(String(v??'').trim().toLowerCase());
+
+const yes=v=>[
+  'yes',
+  'true',
+  '1',
+  'y'
+].includes(String(v??'').trim().toLowerCase());
+
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
 const esc=v=>String(v??'')
   .replace(/&/g,'&amp;')
   .replace(/</g,'&lt;')
@@ -126,18 +1314,34 @@ const esc=v=>String(v??'')
   .replace(/"/g,'&quot;')
   .replace(/'/g,'&#039;');
 
-const S={all:[],shown:[],selected:'',source:'Demo Data'};
+const S={
+  all:[],
+  shown:[],
+  selected:'',
+  source:'Demo Data'
+};
+
+const CURRENT_MODES=new Set(['learning','challenge']);
 
 function pick(o,keys,f=''){
   for(const k of keys){
-    if(o&&o[k]!==undefined&&o[k]!==null&&o[k]!=='') return o[k];
+    if(
+      o &&
+      o[k]!==undefined &&
+      o[k]!==null &&
+      o[k]!==''
+    ){
+      return o[k];
+    }
   }
+
   return f;
 }
 
 function json(v,f={}){
   if(!v) return f;
   if(typeof v==='object') return v;
+
   try{
     return JSON.parse(v);
   }catch(e){
@@ -162,10 +1366,14 @@ function shownPercent(hasValue,value){
 function meanMeasured(records,getter){
   const values=records
     .map(getter)
-    .filter(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v)))
+    .filter(v=>
+      v!==null &&
+      v!==undefined &&
+      Number.isFinite(Number(v))
+    )
     .map(Number);
 
-  return {
+  return{
     value:values.length
       ?Math.round(values.reduce((sum,value)=>sum+value,0)/values.length)
       :null,
@@ -207,13 +1415,23 @@ function norm(raw,i=0){
     )
   };
 
-  const mode=String(pick(r,['play_mode','playMode'],'')).toLowerCase();
+  const mode=String(
+    pick(r,['play_mode','playMode'],'')
+  ).toLowerCase();
+
+  const current=CURRENT_MODES.has(mode);
+  const legacy=!current;
 
   const id=String(
     pick(r,['record_id','recordId','run_id','runId'],`local-${i}`)
   );
 
-  const guidedJson=pick(r,['guided_zone_progress_json','guidedZoneProgressJson'],'');
+  const guidedJson=pick(
+    r,
+    ['guided_zone_progress_json','guidedZoneProgressJson'],
+    ''
+  );
+
   const challengeJson=pick(
     r,
     ['challenge_zone_performance_json','challengeZonePerformanceJson'],
@@ -223,47 +1441,53 @@ function norm(raw,i=0){
   const guidedPayload=json(guidedJson,{});
   const challengePayload=json(challengeJson,{});
 
-  const hasClean=has(r,['clean_score','cleanScore']);
-  const hasGum=has(r,['gum_health','gumHealth']);
-  const hasTechnique=has(r,['technique_score','techniqueScore']);
-  const hasCoverage=has(r,['coverage_zone_count','coverageZoneCount']);
+  const hasClean=current&&has(r,['clean_score','cleanScore']);
+  const hasGum=current&&has(r,['gum_health','gumHealth']);
+  const hasTechnique=current&&has(r,['technique_score','techniqueScore']);
+  const hasCoverage=current&&has(r,['coverage_zone_count','coverageZoneCount']);
 
-  const hasDirection=has(r,[
+  const hasDirection=current&&has(r,[
     'overall_direction_accuracy',
     'overallDirectionAccuracy',
     'direction_accuracy',
     'directionAccuracy'
   ]);
 
-  const hasLearningProgress=has(r,[
+  const hasLearningProgress=current&&has(r,[
     'learning_progress_percent',
     'learningProgressPercent'
   ]);
 
-  const hasLearningMastery=has(r,[
+  const hasLearningMastery=current&&has(r,[
     'learning_direction_mastery',
     'learningDirectionMastery'
   ]);
 
-  const hasGuidedZones=!!(
+  const hasGuidedZones=current&&!!(
     guidedPayload &&
     guidedPayload.progress &&
     Object.keys(guidedPayload.progress).length
   );
 
-  const hasChallengeZones=!!(
+  const hasChallengeZones=current&&!!(
     challengePayload &&
     typeof challengePayload==='object' &&
     Object.keys(challengePayload).length
   );
 
-  return {
+  return{
     ...r,
 
     __key:`${id}-${i}`,
     record_id:id,
 
-    created_at:pick(r,['created_at','createdAt','received_at','receivedAt']),
+    created_at:pick(r,[
+      'created_at',
+      'createdAt',
+      'received_at',
+      'receivedAt'
+    ]),
+
     player_name:pick(r,['player_name','playerName','name'],'Unknown'),
     student_id:pick(r,['student_id','studentId','pid']),
     class_level:pick(r,['class_level','classLevel','grade']),
@@ -283,6 +1507,7 @@ function norm(raw,i=0){
     coverage_zone_count:n(pick(r,['coverage_zone_count','coverageZoneCount'])),
 
     learning_complete:yes(pick(r,['learning_complete','learningComplete'])),
+
     learning_progress_percent:n(
       pick(r,['learning_progress_percent','learningProgressPercent'])
     ),
@@ -340,7 +1565,9 @@ function norm(raw,i=0){
       pick(r,['weakest_zone','weak_zone_from_summary','weakestZone'],'')
     ),
 
-    input_mode:String(pick(r,['input_mode','inputMode'],'')),
+    input_mode:String(
+      pick(r,['input_mode','inputMode'],'')
+    ),
 
     hand_tracking_enabled:yes(
       pick(r,['hand_tracking_enabled','handTrackingEnabled'])
@@ -351,6 +1578,9 @@ function norm(raw,i=0){
 
     guided_zone_progress_json:guidedJson,
     challenge_zone_performance_json:challengeJson,
+
+    _isCurrent:current,
+    _isLegacy:legacy,
 
     _hasClean:hasClean,
     _hasGum:hasGum,
@@ -611,18 +1841,44 @@ function mode(m){
 }
 
 function result(r){
-  const x=r.challenge_result;
-
-  if(x==='fresh_smile_hero'||(r.challenge_passed&&r.play_mode==='challenge')){
-    return{label:'Pass',css:'pass',detail:'Fresh Smile Hero'};
+  if(r._isLegacy){
+    return{
+      label:'Legacy / Unknown',
+      css:'legacy',
+      detail:'ข้อมูลก่อน Learning + Challenge analytics'
+    };
   }
 
-  if(x==='learning_complete'||(r.challenge_passed&&r.play_mode==='learning')){
-    return{label:'Learning Pass',css:'learning',detail:'6 zones complete'};
+  const x=r.challenge_result;
+
+  if(
+    x==='fresh_smile_hero' ||
+    (r.challenge_passed&&r.play_mode==='challenge')
+  ){
+    return{
+      label:'Pass',
+      css:'pass',
+      detail:'Fresh Smile Hero'
+    };
+  }
+
+  if(
+    x==='learning_complete' ||
+    (r.challenge_passed&&r.play_mode==='learning')
+  ){
+    return{
+      label:'Learning Pass',
+      css:'learning',
+      detail:'6 zones complete'
+    };
   }
 
   if(x==='direction_practice_needed'){
-    return{label:'Direction Practice',css:'practice',detail:'Clean ผ่าน แต่ทิศยังต่ำ'};
+    return{
+      label:'Direction Practice',
+      css:'practice',
+      detail:'Clean ผ่าน แต่ทิศยังต่ำ'
+    };
   }
 
   return{
@@ -670,27 +1926,65 @@ function filters(){
   opts('game',S.all.map(r=>r.game_key),'ทุกเกม');
   opts('class',S.all.map(r=>r.class_level),'ทุกชั้น');
 
-  const e=$('mode');
-  const v=e.value;
+  const modeSelect=$('mode');
+  const oldMode=modeSelect.value;
 
-  e.innerHTML=
+  modeSelect.innerHTML=
     '<option value="">ทุกโหมด</option>'+
     '<option value="learning">Learning</option>'+
     '<option value="challenge">Challenge</option>';
 
-  e.value=['learning','challenge'].includes(v)?v:'';
+  modeSelect.value=CURRENT_MODES.has(oldMode)?oldMode:'';
 
-  const q=$('result');
-  const w=q.value;
+  const eraSelect=$('era');
+  const oldEra=eraSelect.value;
 
-  q.innerHTML=
+  eraSelect.innerHTML=
+    '<option value="">ทุกข้อมูล</option>'+
+    '<option value="current">Current Tracking</option>'+
+    '<option value="legacy">Legacy / Unknown</option>';
+
+  eraSelect.value=['current','legacy'].includes(oldEra)?oldEra:'';
+
+  const resultSelect=$('result');
+  const oldResult=resultSelect.value;
+
+  resultSelect.innerHTML=
     '<option value="">ทุกผลลัพธ์</option>'+
     '<option value="pass">Pass</option>'+
     '<option value="learning">Learning Pass</option>'+
     '<option value="practice">Direction Practice</option>'+
-    '<option value="retry">Retry</option>';
+    '<option value="retry">Retry</option>'+
+    '<option value="legacy">Legacy / Unknown</option>';
 
-  q.value=['pass','learning','practice','retry'].includes(w)?w:'';
+  resultSelect.value=[
+    'pass',
+    'learning',
+    'practice',
+    'retry',
+    'legacy'
+  ].includes(oldResult)?oldResult:'';
+}
+
+function compareMeasured(a,b,getter){
+  const av=getter(a);
+  const bv=getter(b);
+
+  const aOk=
+    av!==null &&
+    av!==undefined &&
+    Number.isFinite(Number(av));
+
+  const bOk=
+    bv!==null &&
+    bv!==undefined &&
+    Number.isFinite(Number(bv));
+
+  if(aOk&&!bOk) return-1;
+  if(!aOk&&bOk) return 1;
+  if(!aOk&&!bOk) return 0;
+
+  return Number(av)-Number(bv);
 }
 
 function apply(){
@@ -698,6 +1992,7 @@ function apply(){
   const g=$('game').value;
   const c=$('class').value;
   const m=$('mode').value;
+  const era=$('era').value;
   const res=$('result').value;
   const sort=$('sort').value;
 
@@ -714,25 +2009,29 @@ function apply(){
       r.challenge_result,
       r.challenge_fail_reasons,
       r.badge,
-      r.weakest_zone
+      r.weakest_zone,
+      r._isLegacy?'legacy unknown':'current'
     ].join(' ').toLowerCase();
 
-    return(!g||r.game_key===g)&&
-      (!c||r.class_level===c)&&
-      (!m||r.play_mode===m)&&
-      (!res||info.css===res)&&
-      (!q||text.includes(q));
+    return(
+      (!g||r.game_key===g) &&
+      (!c||r.class_level===c) &&
+      (!m||r.play_mode===m) &&
+      (!era||(era==='current'?r._isCurrent:r._isLegacy)) &&
+      (!res||info.css===res) &&
+      (!q||text.includes(q))
+    );
   });
 
   a.sort((x,y)=>
     sort==='score'
       ?n(y.score)-n(x.score)
       :sort==='direction'
-        ?direction(x)-direction(y)
+        ?compareMeasured(x,y,r=>r._hasDirection?direction(r):null)
         :sort==='gum'
-          ?n(x.gum_health)-n(y.gum_health)
+          ?compareMeasured(x,y,r=>r._hasGum?n(r.gum_health):null)
           :sort==='technique'
-            ?n(x.technique_score)-n(y.technique_score)
+            ?compareMeasured(x,y,r=>r._hasTechnique?n(r.technique_score):null)
             :ts(y)-ts(x)
   );
 
@@ -752,19 +2051,22 @@ function avg(a,f){
 }
 
 function metrics(a){
-  const learn=a.filter(r=>r.play_mode==='learning');
-  const challenge=a.filter(r=>r.play_mode==='challenge');
+  const current=a.filter(r=>r._isCurrent);
+  const legacy=a.filter(r=>r._isLegacy);
+
+  const learn=current.filter(r=>r.play_mode==='learning');
+  const challenge=current.filter(r=>r.play_mode==='challenge');
 
   const pass=challenge.filter(r=>result(r).css==='pass').length;
   const complete=learn.filter(r=>r.learning_complete).length;
   const practice=challenge.filter(r=>result(r).css==='practice').length;
 
   const clean=meanMeasured(
-    a.filter(r=>r._hasClean),
+    current.filter(r=>r._hasClean),
     r=>r.clean_score
   );
 
-  const toothbrush=a.filter(r=>r.game_key==='toothbrush');
+  const toothbrush=current.filter(r=>r.game_key==='toothbrush');
 
   const gum=meanMeasured(
     toothbrush.filter(r=>r._hasGum),
@@ -777,17 +2079,26 @@ function metrics(a){
   );
 
   const dir=meanMeasured(
-    challenge.filter(r=>r.game_key==='toothbrush'&&r._hasDirection),
+    challenge.filter(r=>
+      r.game_key==='toothbrush'&&
+      r._hasDirection
+    ),
     r=>direction(r)
   );
 
   const learningMasteryMetric=meanMeasured(
-    learn.filter(r=>r.game_key==='toothbrush'&&r._hasLearningMastery),
+    learn.filter(r=>
+      r.game_key==='toothbrush'&&
+      r._hasLearningMastery
+    ),
     r=>mastery(r)
   );
 
   return{
     total:a.length,
+    current:current.length,
+    legacy:legacy.length,
+
     challenge:challenge.length,
     pass,
     passRate:challenge.length
@@ -826,7 +2137,7 @@ function renderKpis(){
     kp(
       'Total Plays',
       x.total,
-      `${x.learn} Learning • ${x.challenge} Challenge`,
+      `${x.current} Current • ${x.legacy} Legacy`,
       'rgba(103,232,249,.30)'
     ),
 
@@ -845,14 +2156,14 @@ function renderKpis(){
     ),
 
     kp(
-      'Avg Clean',
+      'Avg Clean (Current)',
       metricLabel(x.clean),
-      `${x.clean.count} records measured`,
+      `${x.clean.count} current records`,
       'rgba(250,204,21,.27)'
     ),
 
     kp(
-      'Avg Gum',
+      'Avg Gum (Current)',
       metricLabel(x.gum),
       x.gum.count
         ?`Toothbrush • ${x.gum.count} measured`
@@ -861,7 +2172,7 @@ function renderKpis(){
     ),
 
     kp(
-      'Avg Technique',
+      'Avg Technique (Current)',
       metricLabel(x.tech),
       x.tech.count
         ?`Toothbrush • ${x.tech.count} measured`
@@ -881,40 +2192,53 @@ function renderKpis(){
     kp(
       'Direction Practice',
       x.practice,
-      'Clean ผ่าน แต่ทิศยังไม่ถึงเกณฑ์',
+      'Current Challenge only',
       'rgba(251,113,133,.25)'
     )
   ].join('');
 }
 
 function renderInsights(){
-  const a=S.shown;
-  const x=metrics(a);
+  const all=S.shown;
+  const current=all.filter(r=>r._isCurrent);
+  const legacy=all.filter(r=>r._isLegacy);
+  const x=metrics(all);
   const list=[];
 
-  const practice=a.filter(r=>
+  const practice=current.filter(r=>
     r.play_mode==='challenge'&&
     result(r).css==='practice'
   );
 
-  const incomplete=a.filter(r=>
+  const incomplete=current.filter(r=>
     r.play_mode==='learning'&&
     !r.learning_complete
   );
 
-  const gum=a.filter(r=>
+  const gum=current.filter(r=>
     r.game_key==='toothbrush'&&
     r._hasGum&&
     n(r.gum_health)<65
   );
 
-  const tech=a.filter(r=>
+  const tech=current.filter(r=>
     r.game_key==='toothbrush'&&
     r._hasTechnique&&
-    n(r.technique_score)<n(pick(r,['pass_min_technique'],45),45)
+    n(r.technique_score)<n(
+      pick(r,['pass_min_technique'],45),
+      45
+    )
   );
 
-  const touch=a.filter(r=>r.input_mode==='touch_mouse');
+  const touch=current.filter(r=>r.input_mode==='touch_mouse');
+
+  if(legacy.length){
+    list.push([
+      '🗃️',
+      `${legacy.length} แถวเป็น Legacy / Unknown`,
+      'ไม่นับรวมใน KPI Current เพราะยังไม่มี Learning/Challenge tracking แบบใหม่'
+    ]);
+  }
 
   if(practice.length){
     list.push([
@@ -935,7 +2259,7 @@ function renderInsights(){
   if(gum.length){
     list.push([
       '🌿',
-      `${gum.length} ครั้งมี Gum ต่ำกว่า 65%`,
+      `${gum.length} Current attempts มี Gum ต่ำกว่า 65%`,
       'โค้ชเรื่อง gentle brushing: ลดแรง ลดความเร็ว และไม่ถูซ้ำจุดเดิม'
     ]);
   }
@@ -943,7 +2267,7 @@ function renderInsights(){
   if(tech.length){
     list.push([
       '🧠',
-      `${tech.length} ครั้ง Technique ต่ำกว่าเกณฑ์`,
+      `${tech.length} Current attempts มี Technique ต่ำกว่าเกณฑ์`,
       'ทำ warm-up ความเร็วระดับกลางก่อนเข้าสู่ Challenge Mode'
     ]);
   }
@@ -951,7 +2275,7 @@ function renderInsights(){
   if(touch.length){
     list.push([
       '👆',
-      `${touch.length} ครั้งใช้ Touch / Mouse fallback`,
+      `${touch.length} Current attempts ใช้ Touch / Mouse fallback`,
       'ผลยังใช้ได้ แต่ถ้าประเมินท่าทางให้เปิดกล้องและ Hand Tracking'
     ]);
   }
@@ -959,12 +2283,13 @@ function renderInsights(){
   if(!list.length){
     list.push([
       '✨',
-      'ผลรวมอยู่ในเกณฑ์ดี',
+      'ผลรวม Current Tracking อยู่ในเกณฑ์ดี',
       `Clean ${metricLabel(x.clean)} • Gum ${metricLabel(x.gum)} • Technique ${metricLabel(x.tech)} พร้อมเพิ่มความยากได้`
     ]);
   }
 
-  $('insightCount').textContent=`${a.length} records`;
+  $('insightCount').textContent=
+    `${all.length} records • ${x.legacy} legacy`;
 
   $('insights').innerHTML=list
     .slice(0,5)
@@ -1016,17 +2341,21 @@ function board(){
     return`
       <div class="zone-row">
         <span>${label}</span>
+
         <div class="stack">
           <div class="track">
             <i class="fill blue" style="width:${clamp(l.value??0,0,100)}%"></i>
           </div>
+
           <div class="track">
             <i class="fill" style="width:${clamp(c.value??0,0,100)}%"></i>
           </div>
+
           <div class="track">
             <i class="fill pink" style="width:${clamp(d.value??0,0,100)}%"></i>
           </div>
         </div>
+
         <span class="zone-num">
           L ${metricLabel(l)}<br>
           C ${metricLabel(c)} • D ${metricLabel(d)}
@@ -1036,13 +2365,125 @@ function board(){
   }).join('');
 }
 
+function measuredForDisplay(record,flag,value){
+  return record._isLegacy
+    ?'—'
+    :shownPercent(flag,value);
+}
+
+function selectRecord(key,scrollToDetails=false){
+  S.selected=key;
+  table();
+  detail();
+
+  if(scrollToDetails){
+    document.querySelector('.details')?.scrollIntoView({
+      behavior:'smooth',
+      block:'start'
+    });
+  }
+}
+
+function mobileCards(records){
+  const holder=$('mobileRecords');
+
+  if(!records.length){
+    holder.innerHTML=`
+      <div class="mobile-record-empty">
+        ยังไม่มีข้อมูลที่ตรงกับ filter นี้
+      </div>
+    `;
+    return;
+  }
+
+  holder.innerHTML=records.map(r=>{
+    const info=result(r);
+
+    const primary=r._isLegacy
+      ?'Legacy data'
+      :r.play_mode==='learning'
+        ?`Mastery ${measuredForDisplay(
+          r,
+          r._hasLearningMastery,
+          mastery(r)
+        )}`
+        :`Direction ${measuredForDisplay(
+          r,
+          r._hasDirection,
+          direction(r)
+        )}`;
+
+    return`
+      <article
+        class="record-card ${r.__key===S.selected?'selected':''}"
+        data-mobile-key="${esc(r.__key)}"
+      >
+        <div class="record-card-top">
+          <time>${esc(date(r.created_at))}</time>
+          <span class="tag ${info.css}">${esc(info.label)}</span>
+        </div>
+
+        <h3>${esc(r.player_name)}</h3>
+
+        <p>
+          ${esc(game(r.game_key))} •
+          ${esc(
+            r._isLegacy
+              ?'Legacy / Unknown'
+              :`${mode(r.play_mode)} • ${r.difficulty||'-'}`
+          )}
+        </p>
+
+        <div class="record-card-metrics">
+          <div class="record-card-metric">
+            <small>Clean</small>
+            <b>${measuredForDisplay(r,r._hasClean,r.clean_score)}</b>
+          </div>
+
+          <div class="record-card-metric">
+            <small>Gum</small>
+            <b>${measuredForDisplay(r,r._hasGum,r.gum_health)}</b>
+          </div>
+
+          <div class="record-card-metric">
+            <small>${r.play_mode==='learning'?'Mastery':'Direction'}</small>
+            <b>${primary.replace(/^(Mastery |Direction )/,'')}</b>
+          </div>
+        </div>
+
+        <div class="record-card-bottom">
+          <span class="sub">
+            ${esc(
+              r._isLegacy
+                ?'ไม่รวมใน KPI Current'
+                :(r.weakest_zone?`ฝึกเพิ่ม: ${r.weakest_zone}`:primary)
+            )}
+          </span>
+
+          <button class="record-open" type="button">
+            ดูรายละเอียด
+          </button>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  holder.querySelectorAll('[data-mobile-key]').forEach(card=>{
+    card.addEventListener('click',()=>{
+      selectRecord(card.dataset.mobileKey,true);
+    });
+  });
+}
+
 function table(){
   const a=S.shown;
+  const x=metrics(a);
 
-  $('recordCount').textContent=`${a.length} records`;
+  $('recordCount').textContent=
+    `${a.length} records • ${x.legacy} legacy`;
 
   $('caption').textContent=a.length
-    ?`${S.source} • เลือกแถวเพื่อดูรายโซน`
+    ?`${S.source} • Current metrics ไม่รวม ${x.legacy} Legacy / Unknown records`
     :'ไม่พบข้อมูลที่ตรงกับ filter';
 
   if(!a.length){
@@ -1053,52 +2494,93 @@ function table(){
         </td>
       </tr>
     `;
+
+    mobileCards([]);
     return;
   }
 
   $('tbody').innerHTML=a.map(r=>{
-    const x=result(r);
+    const info=result(r);
 
-    const learn=r.play_mode==='learning'
-      ?`${r._hasLearningProgress?Math.round(n(r.learning_progress_percent)):'—'}% ${r.learning_complete?'✓':''}`
+    const learning=r.play_mode==='learning'
+      ?`${r._hasLearningProgress
+        ?Math.round(n(r.learning_progress_percent))
+        :'—'
+      }% ${r.learning_complete?'✓':''}`
       :'-';
 
     return`
       <tr data-k="${esc(r.__key)}" class="${r.__key===S.selected?'selected':''}">
         <td>${esc(date(r.created_at))}</td>
+
         <td class="name">
           ${esc(r.player_name)}
-          <span class="sub">${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'-')}</span>
+          <span class="sub">
+            ${esc(
+              [r.student_id,r.class_level,r.section]
+                .filter(Boolean)
+                .join(' • ')||'-'
+            )}
+          </span>
         </td>
+
         <td>
           ${esc(game(r.game_key))}
-          <span class="sub">${esc(mode(r.play_mode))} • ${esc(r.difficulty||'-')}</span>
+          <span class="sub">
+            ${esc(
+              r._isLegacy
+                ?'Legacy / Unknown'
+                :`${mode(r.play_mode)} • ${r.difficulty||'-'}`
+            )}
+          </span>
         </td>
+
         <td>
-          <span class="tag ${x.css}">${esc(x.label)}</span>
-          <span class="sub">${esc(x.detail)}</span>
+          <span class="tag ${info.css}">${esc(info.label)}</span>
+          <span class="sub">${esc(info.detail)}</span>
         </td>
+
         <td>${Math.round(n(r.score))}</td>
-        <td>${shownPercent(r._hasClean,r.clean_score)}</td>
-        <td>${shownPercent(r._hasGum,r.gum_health)}</td>
-        <td>${shownPercent(r._hasTechnique,r.technique_score)}</td>
-        <td>${r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—'}</td>
-        <td>${esc(learn)}</td>
-        <td>${r.play_mode==='learning'?shownPercent(r._hasLearningMastery,mastery(r)):'-'}</td>
-        <td>${shownPercent(r._hasDirection,direction(r))}</td>
-        <td>${esc(r.weakest_zone||'-')}</td>
-        <td>${esc(input(r))}</td>
+        <td>${measuredForDisplay(r,r._hasClean,r.clean_score)}</td>
+        <td>${measuredForDisplay(r,r._hasGum,r.gum_health)}</td>
+        <td>${measuredForDisplay(r,r._hasTechnique,r.technique_score)}</td>
+
+        <td>
+          ${r._isLegacy
+            ?'—'
+            :(r._hasCoverage
+              ?`${Math.round(n(r.coverage_zone_count))}/6`
+              :'—'
+            )
+          }
+        </td>
+
+        <td>${r._isLegacy?'—':esc(learning)}</td>
+
+        <td>
+          ${r._isLegacy
+            ?'-'
+            :(r.play_mode==='learning'
+              ?shownPercent(r._hasLearningMastery,mastery(r))
+              :'-'
+            )
+          }
+        </td>
+
+        <td>${measuredForDisplay(r,r._hasDirection,direction(r))}</td>
+        <td>${esc(r._isLegacy?'—':(r.weakest_zone||'-'))}</td>
+        <td>${esc(r._isLegacy?'—':input(r))}</td>
       </tr>
     `;
   }).join('');
 
-  document.querySelectorAll('[data-k]').forEach(e=>{
-    e.onclick=()=>{
-      S.selected=e.dataset.k;
-      table();
-      detail();
-    };
+  document.querySelectorAll('[data-k]').forEach(row=>{
+    row.addEventListener('click',()=>{
+      selectRecord(row.dataset.k,false);
+    });
   });
+
+  mobileCards(a);
 }
 
 function metric(label,value){
@@ -1129,52 +2611,116 @@ function detail(){
   const x=result(r);
   const dir=direction(r);
   const mas=mastery(r);
+  const legacy=r._isLegacy;
 
   $('detailTag').className=`tag ${x.css}`;
   $('detailTag').textContent=x.label;
-  $('modeTag').textContent=mode(r.play_mode);
-
+  $('modeTag').textContent=legacy?'Legacy / Unknown':mode(r.play_mode);
   $('detail').className='';
 
   $('detail').innerHTML=`
     <div class="student">
-      <div class="avatar">${r.play_mode==='learning'?'🗺️':'🪥'}</div>
+      <div class="avatar">
+        ${legacy?'🗃️':r.play_mode==='learning'?'🗺️':'🪥'}
+      </div>
+
       <div>
         <h3>${esc(r.player_name)}</h3>
         <p>
-          ${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'ไม่ระบุรหัส/ชั้น')}<br>
-          ${esc(date(r.created_at))} • ${esc(game(r.game_key))} • ${esc(mode(r.play_mode))}
+          ${esc(
+            [r.student_id,r.class_level,r.section]
+              .filter(Boolean)
+              .join(' • ')||'ไม่ระบุรหัส/ชั้น'
+          )}
+          <br>
+          ${esc(date(r.created_at))} •
+          ${esc(game(r.game_key))} •
+          ${esc(legacy?'Legacy / Unknown':mode(r.play_mode))}
         </p>
       </div>
     </div>
 
     <div class="metrics">
       ${metric('Score',Math.round(n(r.score)))}
-      ${metric('Clean',shownPercent(r._hasClean,r.clean_score))}
-      ${metric('Gum',shownPercent(r._hasGum,r.gum_health))}
-      ${metric('Technique',shownPercent(r._hasTechnique,r.technique_score))}
-      ${metric('Coverage',r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—')}
+      ${metric('Clean',legacy?'—':shownPercent(r._hasClean,r.clean_score))}
+      ${metric('Gum',legacy?'—':shownPercent(r._hasGum,r.gum_health))}
+      ${metric('Technique',legacy?'—':shownPercent(r._hasTechnique,r.technique_score))}
       ${metric(
-        r.play_mode==='learning'?'Learning Mastery':'Direction',
-        r.play_mode==='learning'
-          ?shownPercent(r._hasLearningMastery,mas)
-          :shownPercent(r._hasDirection,dir)
+        'Coverage',
+        legacy
+          ?'—'
+          :(r._hasCoverage
+            ?`${Math.round(n(r.coverage_zone_count))}/6`
+            :'—'
+          )
+      )}
+      ${metric(
+        legacy
+          ?'Tracking'
+          :r.play_mode==='learning'
+            ?'Learning Mastery'
+            :'Direction',
+        legacy
+          ?'Legacy'
+          :r.play_mode==='learning'
+            ?shownPercent(r._hasLearningMastery,mas)
+            :shownPercent(r._hasDirection,dir)
       )}
     </div>
 
     <div class="note">
-      <strong>${r.play_mode==='learning'?'Learning Summary':'Challenge Summary'}</strong><br>
+      <strong>
+        ${legacy
+          ?'Legacy / Unknown Summary'
+          :r.play_mode==='learning'
+            ?'Learning Summary'
+            :'Challenge Summary'
+        }
+      </strong>
+      <br>
+
       ${
-        r.play_mode==='learning'
-          ?`Learning Progress ${shownPercent(r._hasLearningProgress,r.learning_progress_percent)} • Pass Strokes ${Math.round(n(r.learning_qualified_strokes))}/${Math.round(n(r.learning_required_strokes)||18)} • Overall Direction ${shownPercent(r._hasDirection,dir)}`
-          :`Direction ${shownPercent(r._hasDirection,dir)} / เป้าหมาย ${Math.round(n(r.direction_threshold))||'-'}% • ${esc(x.detail)}`
+        legacy
+          ?'บันทึกนี้เกิดก่อนระบบ Learning + Challenge telemetry รุ่นปัจจุบัน จึงเก็บไว้เป็นประวัติ แต่ไม่นำค่าเดิมมาคำนวณ KPI และ Zone analytics ของระบบใหม่'
+          :r.play_mode==='learning'
+            ?`Learning Progress ${shownPercent(
+                r._hasLearningProgress,
+                r.learning_progress_percent
+              )} • Pass Strokes ${Math.round(
+                n(r.learning_qualified_strokes)
+              )}/${Math.round(
+                n(r.learning_required_strokes)||18
+              )} • Overall Direction ${shownPercent(
+                r._hasDirection,
+                dir
+              )}`
+            :`Direction ${shownPercent(
+                r._hasDirection,
+                dir
+              )} / เป้าหมาย ${
+                Math.round(n(r.direction_threshold))||'-'
+              }% • ${esc(x.detail)}`
       }
+
       <br><br>
-      <strong>Coach Note</strong><br>
-      ${esc(r.advice||r.challenge_fail_reasons||'ไม่มีข้อผิดพลาดที่บันทึก')}
+
+      <strong>Coach Note</strong>
+      <br>
+      ${esc(
+        legacy
+          ?'เริ่มใช้ Current Tracking ตั้งแต่ Toothbrush AR v10.9 เป็นต้นไป'
+          :(r.advice||r.challenge_fail_reasons||'ไม่มีข้อผิดพลาดที่บันทึก')
+      )}
+
       <br><br>
-      <strong>Strong / Weak Zone</strong><br>
-      ${esc(r.strongest_zone||'-')} / ${esc(r.weakest_zone||'-')}
+
+      <strong>Strong / Weak Zone</strong>
+      <br>
+      ${esc(
+        legacy
+          ?'— / —'
+          :`${r.strongest_zone||'-'} / ${r.weakest_zone||'-'}`
+      )}
     </div>
   `;
 
@@ -1182,6 +2728,13 @@ function detail(){
 }
 
 function zones(r){
+  if(r._isLegacy){
+    $('detailZones').className='empty-detail';
+    $('detailZones').textContent=
+      'Legacy / Unknown attempt: บันทึกนี้ยังไม่มี Learning + Challenge zone analytics แบบใหม่ จึงไม่แสดงค่า 0% ที่อาจทำให้ตีความผิด';
+    return;
+  }
+
   $('detailZones').className='zone-board';
 
   if(r.play_mode==='learning'){
@@ -1202,14 +2755,21 @@ function zones(r){
       return`
         <div class="zone-row">
           <span>${label}</span>
+
           <div class="stack">
             <div class="track">
-              <i class="fill blue" style="width:${clamp(skill??0,0,100)}%"></i>
+              <i
+                class="fill blue"
+                style="width:${clamp(skill??0,0,100)}%"
+              ></i>
             </div>
           </div>
+
           <span class="zone-num">
-            Skill ${skill===null?'—':Math.round(skill)+'%'}<br>
-            ✓ ${st===null?'—':Math.round(st)}/3 • Dir ${dir===null?'—':dir+'%'}
+            Skill ${skill===null?'—':Math.round(skill)+'%'}
+            <br>
+            ✓ ${st===null?'—':Math.round(st)}/3 •
+            Dir ${dir===null?'—':dir+'%'}
           </span>
         </div>
       `;
@@ -1219,28 +2779,32 @@ function zones(r){
 
     $('detailZones').innerHTML=CFG.zones.map(([id,label])=>{
       const z=p[id]||{};
-
-      const clean=has(z,['clean_percent'])
-        ?n(z.clean_percent)
-        :null;
-
-      const dir=has(z,['direction_accuracy'])
-        ?n(z.direction_accuracy)
-        :null;
+      const clean=has(z,['clean_percent'])?n(z.clean_percent):null;
+      const dir=has(z,['direction_accuracy'])?n(z.direction_accuracy):null;
 
       return`
         <div class="zone-row">
           <span>${label}</span>
+
           <div class="stack">
             <div class="track">
-              <i class="fill" style="width:${clamp(clean??0,0,100)}%"></i>
+              <i
+                class="fill"
+                style="width:${clamp(clean??0,0,100)}%"
+              ></i>
             </div>
+
             <div class="track">
-              <i class="fill pink" style="width:${clamp(dir??0,0,100)}%"></i>
+              <i
+                class="fill pink"
+                style="width:${clamp(dir??0,0,100)}%"
+              ></i>
             </div>
           </div>
+
           <span class="zone-num">
-            Clean ${clean===null?'—':Math.round(clean)+'%'}<br>
+            Clean ${clean===null?'—':Math.round(clean)+'%'}
+            <br>
             Direction ${dir===null?'—':Math.round(dir)+'%'}
           </span>
         </div>
@@ -1349,7 +2913,9 @@ async function fetchJSON(u){
     credentials:'omit'
   });
 
-  if(!r.ok) throw Error('HTTP '+r.status);
+  if(!r.ok){
+    throw Error('HTTP '+r.status);
+  }
 
   return r.json();
 }
@@ -1540,14 +3106,21 @@ function importData(){
       const x=JSON.parse(t);
       a=extract(x);
 
-      if(!a.length&&x&&typeof x==='object'&&!Array.isArray(x)){
+      if(
+        !a.length &&
+        x &&
+        typeof x==='object' &&
+        !Array.isArray(x)
+      ){
         a=[x];
       }
     }else{
       a=parseCSV(t);
     }
 
-    if(!a.length) throw Error('ไม่พบ records');
+    if(!a.length){
+      throw Error('ไม่พบ records');
+    }
 
     set(a,'ข้อมูลที่วางเอง');
 
@@ -1601,7 +3174,10 @@ function exportCSV(){
     ...a.map(r=>heads.map(h=>r[h]??''))
   ].map(row=>row.map(cell).join(',')).join('\n');
 
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const blob=new Blob([csv],{
+    type:'text/csv;charset=utf-8'
+  });
+
   const href=URL.createObjectURL(blob);
   const x=document.createElement('a');
 
@@ -1615,7 +3191,14 @@ function exportCSV(){
 }
 
 function reset(){
-  ['search','game','class','mode','result'].forEach(id=>{
+  [
+    'search',
+    'game',
+    'class',
+    'mode',
+    'era',
+    'result'
+  ].forEach(id=>{
     $(id).value='';
   });
 
@@ -1624,19 +3207,23 @@ function reset(){
 }
 
 function bind(){
-  $('homeBtn').onclick=()=>location.href=CFG.home;
-  $('printBtn').onclick=()=>print();
+  $('homeBtn').onclick=()=>{
+    location.href=CFG.home;
+  };
+
+  $('printBtn').onclick=()=>{
+    print();
+  };
+
   $('exportBtn').onclick=exportCSV;
   $('loadBtn').onclick=load;
 
   $('demoBtn').onclick=()=>{
     set(demo(),'Demo Data');
-
     status(
       'กำลังใช้ Demo Data สำหรับสาธิต Dashboard',
       'ok'
     );
-
     toast('เปลี่ยนเป็น Demo Data แล้ว');
   };
 
@@ -1667,6 +3254,7 @@ function bind(){
     'game',
     'class',
     'mode',
+    'era',
     'result',
     'sort'
   ].forEach(id=>{
@@ -1680,7 +3268,8 @@ function bind(){
 function boot(){
   bind();
 
-  $('apiUrl').value=Storage.get(CFG.apiKey,CFG.api)||CFG.api;
+  $('apiUrl').value=
+    Storage.get(CFG.apiKey,CFG.api)||CFG.api;
 
   set(demo(),'Demo Data',false);
 
