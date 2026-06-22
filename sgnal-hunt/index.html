@@ -14,208 +14,201 @@
     <header class="hub-topbar" aria-label="UX Quest navigation">
       <a class="hub-brand" href="./index.html" aria-label="กลับหน้า UX Quest Mission Control">
         <span class="hub-brand__mark" aria-hidden="true">UX</span>
-        <span>
+        <span class="hub-brand__copy">
           <strong>UX Quest</strong>
           <small>Human Interface Rescue</small>
         </span>
       </a>
 
-      <div class="hub-topbar__actions">
-        <span class="course-chip">CSAI2601 • Year 2</span>
-        <button id="resetProgressBtn" class="reset-link" type="button" title="ล้างความคืบหน้า W1 ในเครื่องนี้">
-          ↺ รีเซ็ต W1
-        </button>
-      </div>
+      <button
+        id="resetProgressBtn"
+        class="reset-link"
+        type="button"
+        title="ล้างความคืบหน้า W1 ในเครื่องนี้"
+      >
+        ↺ <span>รีเซ็ต W1</span>
+      </button>
     </header>
 
-    <section class="hub-hero" aria-labelledby="actTitle">
-      <div class="hub-hero__copy">
-        <p class="eyebrow hub-hero__eyebrow">ACT I • HUMAN-CENTERED DESIGN</p>
+    <section class="overview-grid" aria-labelledby="actTitle">
+      <div class="act-intro">
+        <p class="eyebrow act-intro__eyebrow">ACT I • HUMAN-CENTERED DESIGN</p>
         <h1 id="actTitle">Understand Humans</h1>
-        <p class="hub-hero__lede">
-          เริ่มจากการเข้าใจเป้าหมาย ความสับสน และผลกระทบที่เกิดกับผู้ใช้
-          ก่อนตัดสินใจว่า interface ควรเปลี่ยนอะไร
+        <p class="act-intro__lede">
+          เข้าใจผู้ใช้ก่อนแก้ interface
         </p>
 
-        <div class="hero-stat-row" aria-label="ความก้าวหน้า Act I">
-          <div class="hero-stat">
-            <span>Act Progress</span>
-            <b id="actProgressText">0 / 4 nodes</b>
-          </div>
-          <div class="hero-stat">
-            <span>Mastery</span>
-            <b id="heroStars">☆☆☆</b>
-          </div>
-          <div class="hero-stat">
-            <span>Best Score</span>
-            <b id="heroScore">0</b>
-          </div>
+        <div class="quick-progress" aria-label="ความก้าวหน้า Act I">
+          <span><b id="actProgressText">0/4</b> nodes</span>
+          <span><b id="heroStars">☆☆☆</b> mastery</span>
+          <span><b id="heroScore">0</b> best score</span>
         </div>
       </div>
 
-      <aside class="now-card" aria-label="ภารกิจปัจจุบัน">
-        <div class="now-card__topline">
+      <article class="current-card" id="nodeW1" aria-labelledby="w1Title">
+        <div class="current-card__status">
           <span class="status-dot" id="nowStatusDot" aria-hidden="true"></span>
           <span id="nowStatus">MISSION READY</span>
+          <span class="current-card__week">W1 • FOUNDATION</span>
         </div>
-        <p class="now-card__week">W1 • FOUNDATION</p>
-        <h2 id="nowTitle">UX Detective</h2>
-        <p id="nowDescription">
-          สืบว่าอะไรทำให้ผู้ใช้ทำเป้าหมายไม่สำเร็จ แล้วเลือกวิธีแก้ที่ช่วยได้จริง
-        </p>
-        <div class="now-card__meta">
+
+        <div class="current-card__main">
+          <div class="current-card__icon" aria-hidden="true">⌕</div>
+          <div>
+            <h2 id="w1Title">UX Detective</h2>
+            <p id="nowSummary">
+              สืบว่าอะไรทำให้ผู้ใช้ทำเป้าหมายไม่สำเร็จ แล้วเลือกวิธีแก้ที่ช่วยได้จริง
+            </p>
+          </div>
+        </div>
+
+        <div class="current-card__meta">
           <span>⏱ 8–10 นาที</span>
           <span id="nowReward">★ 1 ดาวเพื่อเปิดเส้นทางต่อ</span>
         </div>
-        <a id="nowLaunch" class="now-card__cta" href="./w1-ux-detective.html">
-          <span id="nowLaunchText">เริ่ม W1 UX Detective</span>
+
+        <a id="nowLaunch" class="current-card__cta" href="./w1-ux-detective.html">
+          <span id="nowLaunchText">เริ่มภารกิจ</span>
           <span aria-hidden="true">→</span>
         </a>
-      </aside>
+      </article>
     </section>
 
-    <section class="act-progress" aria-label="เส้นทาง Act I">
-      <div class="act-progress__heading">
+    <section class="mission-path" aria-labelledby="pathTitle">
+      <div class="mission-path__heading">
         <div>
           <p class="eyebrow">MISSION PATH</p>
-          <h2>เส้นทางการเรียนรู้ Act I</h2>
+          <h2 id="pathTitle">เส้นทาง Act I</h2>
         </div>
-        <p id="pathHint" class="act-progress__hint">เริ่มจาก W1 เพื่อสร้างพื้นฐานการคิดแบบ UX Designer</p>
+        <p id="pathHint">เริ่ม W1 เพื่อปลดล็อก Mission ถัดไป</p>
       </div>
 
-      <ol class="path-rail" aria-label="ลำดับภารกิจ">
+      <ol class="path-rail" aria-label="ลำดับภารกิจ Act I">
         <li class="path-step path-step--available" id="pathW1">
           <span class="path-step__dot">1</span>
-          <span>
-            <b>W1</b>
-            <small>UX Detective</small>
+          <span class="path-step__copy">
+            <b>W1 • UX Detective</b>
+            <small id="pathW1State">Available</small>
           </span>
         </li>
+
         <li class="path-step" id="pathW2">
           <span class="path-step__dot">2</span>
-          <span>
-            <b>W2</b>
-            <small>Design Thinking</small>
+          <span class="path-step__copy">
+            <b>W2 • Design Thinking</b>
+            <small id="pathW2State">Pass W1</small>
           </span>
         </li>
+
         <li class="path-step" id="pathW3">
           <span class="path-step__dot">3</span>
-          <span>
-            <b>W3</b>
-            <small>Cognitive Load</small>
+          <span class="path-step__copy">
+            <b>W3 • Cognitive Load</b>
+            <small id="pathW3State">Pass W2</small>
           </span>
         </li>
+
         <li class="path-step path-step--boss" id="pathB1">
           <span class="path-step__dot">B</span>
-          <span>
-            <b>B1</b>
-            <small>Cognitive Storm</small>
+          <span class="path-step__copy">
+            <b>B1 • Cognitive Storm</b>
+            <small>Boss Gate</small>
           </span>
         </li>
       </ol>
     </section>
 
-    <section class="mission-section" aria-labelledby="missionMapTitle">
+    <section class="up-next" aria-labelledby="upNextTitle">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">CHOOSE YOUR MISSION</p>
-          <h2 id="missionMapTitle">Mission Control</h2>
+          <p class="eyebrow">UP NEXT</p>
+          <h2 id="upNextTitle">ภารกิจถัดไป</h2>
         </div>
-        <p>หนึ่งการ์ด = หนึ่งสิ่งที่ทำได้ชัดเจน</p>
+        <p>ปลดล็อกตามการเรียน ไม่ต้องไล่หาเมนู</p>
       </div>
 
-      <div class="mission-grid">
-        <article class="stage-card stage-card--live" id="nodeW1">
-          <div class="stage-card__header">
-            <span class="stage-number">W1</span>
-            <span class="stage-state" id="w1State">AVAILABLE</span>
-          </div>
-
-          <div class="stage-card__icon" aria-hidden="true">⌕</div>
-          <p class="stage-card__type">FOUNDATION</p>
-          <h3>UX Detective</h3>
-          <p class="stage-card__summary">
-            อ่าน User Goal และ User Signal แล้วเลือกสิ่งที่ควรแก้ก่อน เพื่อให้ผู้ใช้ทำงานสำเร็จจริง
-          </p>
-
-          <div class="stage-card__chips">
-            <span>User Goal</span>
-            <span>UI → UX</span>
-            <span>Design Fix</span>
-          </div>
-
-          <div class="stage-card__footer">
-            <div class="star-readout" aria-label="ดาวที่ได้รับ">
-              <span id="w1Stars" aria-hidden="true">☆☆☆</span>
-              <small id="w1StarCaption">เก็บ 1 ดาวเพื่อเปิดเส้นทางต่อ</small>
-            </div>
-            <a id="w1Launch" class="stage-play" href="./w1-ux-detective.html">
-              <span id="w1LaunchText">เริ่มภารกิจ</span>
-              <span aria-hidden="true">→</span>
-            </a>
-          </div>
-        </article>
-
-        <article class="stage-card stage-card--locked" id="nodeW2" aria-label="Week 2 mission locked">
-          <div class="stage-card__header">
+      <div class="up-next-grid">
+        <article class="compact-stage compact-stage--locked" id="nodeW2">
+          <div class="compact-stage__top">
             <span class="stage-number">W2</span>
             <span class="stage-state" id="w2State">LOCKED</span>
           </div>
-          <div class="stage-card__icon" aria-hidden="true">↺</div>
-          <p class="stage-card__type">PROCESS</p>
-          <h3>Design Thinking Sprint</h3>
-          <p class="stage-card__summary">
-            พาทีมแก้ปัญหาด้วย Empathize → Define → Ideate → Prototype → Test
-          </p>
-          <div class="stage-card__lock-note" id="w2Note">ต้องผ่าน W1 อย่างน้อย 1 ดาว</div>
-          <button class="stage-card__disabled" type="button" disabled>Mission Pack กำลังเตรียม</button>
+
+          <div class="compact-stage__content">
+            <span class="compact-stage__icon" aria-hidden="true">↺</span>
+            <div>
+              <p class="compact-stage__type">PROCESS</p>
+              <h3>Design Thinking Sprint</h3>
+              <p>Empathize → Define → Ideate → Prototype → Test</p>
+            </div>
+          </div>
+
+          <div class="compact-stage__footer">
+            <span id="w2Note">ผ่าน W1 อย่างน้อย 1 ดาว</span>
+            <button type="button" disabled>Mission Pack กำลังเตรียม</button>
+          </div>
         </article>
 
-        <article class="stage-card stage-card--locked" id="nodeW3" aria-label="Week 3 mission locked">
-          <div class="stage-card__header">
+        <article class="compact-stage compact-stage--locked" id="nodeW3">
+          <div class="compact-stage__top">
             <span class="stage-number">W3</span>
             <span class="stage-state">LOCKED</span>
           </div>
-          <div class="stage-card__icon" aria-hidden="true">◌</div>
-          <p class="stage-card__type">PSYCHOLOGY</p>
-          <h3>Cognitive Load Escape</h3>
-          <p class="stage-card__summary">
-            ลดความรก จัดลำดับความสนใจ และทำให้ผู้ใช้คิดน้อยลง
-          </p>
-          <div class="stage-card__lock-note">ต้องผ่าน W2 ก่อน</div>
-          <button class="stage-card__disabled" type="button" disabled>ล็อกอยู่</button>
+
+          <div class="compact-stage__content">
+            <span class="compact-stage__icon" aria-hidden="true">◌</span>
+            <div>
+              <p class="compact-stage__type">PSYCHOLOGY</p>
+              <h3>Cognitive Load Escape</h3>
+              <p>ลดความรก จัดความสนใจ และทำให้ผู้ใช้คิดน้อยลง</p>
+            </div>
+          </div>
+
+          <div class="compact-stage__footer">
+            <span>ผ่าน W2 ก่อน</span>
+            <button type="button" disabled>ล็อกอยู่</button>
+          </div>
         </article>
 
-        <article class="stage-card stage-card--boss" id="nodeB1" aria-label="Boss B1 locked">
-          <div class="stage-card__header">
+        <article class="boss-preview" id="nodeB1">
+          <div class="boss-preview__top">
             <span class="stage-number">B1</span>
             <span class="stage-state">BOSS GATE</span>
           </div>
-          <div class="stage-card__icon" aria-hidden="true">⚠</div>
-          <p class="stage-card__type">SYNTHESIS</p>
-          <h3>Cognitive Storm</h3>
-          <p class="stage-card__summary">
-            กู้ AI Help Kiosk ที่ผู้ใช้หาเมนูไม่เจอ เข้าใจสถานะผิด และเลิกใช้งานกลางทาง
-          </p>
-          <div class="stage-card__lock-note">ต้องผ่าน W1–W3 ก่อนเข้าสู่ Boss</div>
-          <button class="stage-card__disabled" type="button" disabled>Friction Core Locked</button>
+
+          <div class="boss-preview__body">
+            <span class="boss-preview__icon" aria-hidden="true">⚠</span>
+            <div>
+              <p class="compact-stage__type">SYNTHESIS</p>
+              <h3>Cognitive Storm</h3>
+              <p>กู้ AI Help Kiosk ที่ผู้ใช้หาเมนูไม่เจอ เข้าใจสถานะผิด และเลิกใช้งานกลางทาง</p>
+            </div>
+          </div>
+
+          <div class="boss-preview__footer">
+            <span>ต้องผ่าน W1–W3 ก่อนเข้าสู่ Boss</span>
+            <button type="button" disabled>Friction Core Locked</button>
+          </div>
         </article>
       </div>
     </section>
 
-    <section class="learning-loop" aria-labelledby="loopTitle">
-      <div class="learning-loop__copy">
-        <p class="eyebrow">HOW YOU LEARN</p>
-        <h2 id="loopTitle">อย่าจำว่าอะไร “สวย”<br />ให้คิดว่าผู้ใช้ “สำเร็จ” หรือไม่</h2>
-      </div>
+    <details class="how-card">
+      <summary>
+        <span>
+          <b>วิธีเล่น UX Quest</b>
+          <small>Observe → Diagnose → Design Fix → User Test</small>
+        </span>
+        <span class="how-card__chevron" aria-hidden="true">⌄</span>
+      </summary>
 
-      <ol class="loop-steps">
+      <ol class="how-card__steps">
         <li><b>1</b><span><strong>Observe</strong><small>อ่าน User Goal และ User Signal</small></span></li>
         <li><b>2</b><span><strong>Diagnose</strong><small>เชื่อม UI symptom กับ UX impact</small></span></li>
         <li><b>3</b><span><strong>Design Fix</strong><small>เลือกการแก้ที่ช่วยผู้ใช้จริง</small></span></li>
         <li><b>4</b><span><strong>User Test</strong><small>ดูผลก่อน–หลัง แล้วอธิบายเหตุผล</small></span></li>
       </ol>
-    </section>
+    </details>
   </main>
 
   <script src="./js/uxq-hub.js"></script>
