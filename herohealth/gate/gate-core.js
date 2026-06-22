@@ -4,9 +4,9 @@
 // Designed to be safe when a game phase module fails:
 // it always shows a usable fallback.
 
-import * as GateGames from './gate-games.js?v=20260622-gate-games-frr-v17-loader';
+import * as GateGames from './gate-games.js?v=20260622-gate-games-frr-v18-loader';
 
-const PATCH = 'v20260622-GATE-CORE-FRR-V17-LOADER';
+const PATCH = 'v20260622-GATE-CORE-FRR-V18-LOADER';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const MAX_HISTORY = 40;
