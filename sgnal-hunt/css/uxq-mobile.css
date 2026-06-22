@@ -1,149 +1,408 @@
-@media (max-width:900px){
-  .case-layout{grid-template-columns:1fr}
-  .screen-card{order:-1}
-  .screen-shell{min-height:390px}
-  .mission-card,.screen-card{padding:22px}
-  .wide{padding:24px}
-  .phase{font-size:12px;padding:10px 6px}
-  .phase b{display:none}
-  .mission-banner{padding:22px}
-  .topbar{align-items:flex-start}
-  .top-hud{max-width:60%}
+/* === /sgnal-hunt/css/uxq-mobile.css === */
+/* UX Quest W1 • Mobile-first Case Investigation */
+
+@media (max-width: 900px) {
+  .case-layout {
+    grid-template-columns: 1fr;
+  }
+
+  /*
+    สำคัญ:
+    ให้ Case Brief + ตัวเลือก A/B/C อยู่ก่อน
+    แล้วค่อยแสดงหน้าจอจำลองเป็นหลักฐานด้านล่าง
+  */
+  .mission-card {
+    order: 1;
+  }
+
+  .screen-card {
+    order: 2;
+  }
+
+  .screen-shell {
+    min-height: 360px;
+  }
+
+  .mission-card,
+  .screen-card {
+    padding: 22px;
+  }
+
+  .wide {
+    padding: 24px;
+  }
+
+  .phase {
+    font-size: 12px;
+    padding: 10px 7px;
+  }
+
+  .mission-banner {
+    padding: 22px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+  }
+
+  .top-hud {
+    max-width: 62%;
+  }
 }
 
-@media (max-width:640px){
-  .app-shell{
-    width:min(100% - 20px,1220px);
-    padding-top:12px
+@media (max-width: 640px) {
+  :root {
+    --radius: 20px;
   }
 
-  .topbar{
-    gap:10px;
-    flex-direction:column
+  body {
+    min-height: 100dvh;
   }
 
-  .top-hud{
-    max-width:none;
-    width:100%;
-    justify-content:flex-start
+  .app-shell {
+    width: min(100% - 20px, 1220px);
+    padding-top: 12px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .top-hud {
+    width: 100%;
+    max-width: none;
+    justify-content: flex-start;
+    gap: 6px;
   }
 
   .hud-pill,
-  .reset-btn{
-    font-size:12px;
-    padding:7px 9px
+  .reset-btn {
+    font-size: 12px;
+    padding: 7px 9px;
   }
 
-  .brand-mark{
-    width:37px;
-    height:37px;
-    border-radius:12px
+  .brand-mark {
+    width: 37px;
+    height: 37px;
+    border-radius: 12px;
   }
 
-  .mission-banner{
-    align-items:flex-start;
-    flex-direction:column;
-    padding:20px 18px
+  .mission-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    padding: 19px 18px;
+    margin-bottom: 14px;
   }
 
-  .mission-banner h1{font-size:32px}
-
-  .phase-rail{
-    overflow-x:auto;
-    padding-bottom:2px
+  .mission-banner h1 {
+    font-size: 31px;
   }
 
-  .phase{
-    flex:0 0 auto;
-    white-space:nowrap
+  .mission-banner p:not(.eyebrow) {
+    font-size: 14px;
+    line-height: 1.55;
   }
 
-  .case-layout{gap:12px}
+  .ghost-btn {
+    min-height: 42px;
+    padding: 10px 13px;
+  }
+
+  .phase-rail {
+    gap: 6px;
+    margin: 12px 0;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+  }
+
+  .phase-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .phase {
+    flex: 0 0 auto;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .phase b {
+    display: none;
+  }
+
+  .case-layout {
+    gap: 13px;
+  }
 
   .mission-card,
-  .screen-card{
-    border-radius:20px;
-    padding:18px
+  .screen-card {
+    border-radius: 20px;
+    padding: 18px;
   }
 
-  .wide{padding:20px}
-
-  .screen-shell{
-    border-width:7px;
-    border-radius:18px;
-    min-height:350px
+  .wide {
+    padding: 20px 18px;
   }
 
-  .screen-top{
-    font-size:10px;
-    padding:0 11px
+  .case-kicker {
+    gap: 6px;
+    margin-bottom: 10px;
   }
 
-  .screen-top span{display:none}
-
-  .screen-body{padding:17px}
-
-  .screen-body h3{font-size:20px}
-
-  .screen-body > p{
-    max-width:100%;
-    font-size:13px
+  .case-kicker span {
+    font-size: 10px;
+    padding: 5px 8px;
   }
 
-  .screen-canvas{gap:9px}
-
-  .suspect-zone{
-    min-height:84px;
-    padding:11px
+  .mission-card h2,
+  .screen-card h2,
+  .complete-card h2 {
+    font-size: 29px;
+    line-height: 1.18;
+    margin-bottom: 12px;
   }
 
-  .suspect-zone small{font-size:12px}
+  .goal-card {
+    margin: 14px 0 11px;
+    padding: 13px 14px;
+    border-radius: 15px;
+  }
+
+  .goal-card span {
+    font-size: 10px;
+  }
+
+  .goal-card b {
+    font-size: 16px;
+    line-height: 1.48;
+  }
+
+  .evidence-detail {
+    font-size: 14px;
+    line-height: 1.55;
+    padding: 12px 13px;
+    border-radius: 14px;
+  }
+
+  .mission-card > .muted.tiny {
+    margin: 10px 2px 0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .question-title {
+    font-size: 18px;
+    line-height: 1.45;
+    margin: 19px 0 12px;
+  }
+
+  .answer-list {
+    gap: 9px;
+  }
+
+  .answer-option {
+    min-height: 74px;
+    gap: 10px;
+    padding: 13px 14px;
+    border-radius: 14px;
+    font-size: 14px;
+  }
+
+  .answer-option strong {
+    display: inline-block;
+    color: #1d2d5d;
+    font-size: 15px;
+    line-height: 1.4;
+    margin-bottom: 3px;
+  }
+
+  .answer-option small {
+    color: #637095;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .radio-dot {
+    width: 19px;
+    height: 19px;
+    min-width: 19px;
+  }
+
+  .stage-actions {
+    margin-top: 13px;
+  }
+
+  .stage-actions .primary-btn,
+  .full-btn {
+    width: 100%;
+    min-height: 50px;
+  }
+
+  .primary-btn {
+    font-size: 15px;
+    padding: 13px 16px;
+  }
+
+  /*
+    หน้าจอจำลองต้องเป็นหลักฐานเสริม
+    จึงอยู่หลังคำตอบเสมอบนมือถือ
+  */
+  .screen-card {
+    margin-top: 0;
+    padding: 15px;
+  }
+
+  .screen-card::before {
+    content: "หลักฐานประกอบ";
+    display: block;
+    color: #5368c6;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.09em;
+    margin: 1px 2px 10px;
+  }
+
+  .screen-shell {
+    border-width: 7px;
+    border-radius: 18px;
+    min-height: 330px;
+  }
+
+  .screen-top {
+    font-size: 10px;
+    padding: 0 11px;
+  }
+
+  .screen-top span {
+    display: none;
+  }
+
+  .screen-body {
+    padding: 16px;
+  }
+
+  .screen-body h3 {
+    font-size: 20px;
+  }
+
+  .screen-body > p {
+    max-width: 100%;
+    font-size: 13px;
+  }
+
+  .screen-canvas {
+    gap: 9px;
+  }
+
+  .suspect-zone {
+    min-height: 82px;
+    padding: 10px;
+  }
+
+  .suspect-zone small {
+    font-size: 12px;
+  }
 
   .suspect-zone > span,
-  .chip-stack span{
-    font-size:10px
+  .chip-stack span {
+    font-size: 10px;
   }
 
-  .instruction-card{padding:12px}
+  .screen-caption {
+    font-size: 12px;
+    line-height: 1.45;
+    margin-top: 2px;
+  }
 
-  .instruction-card p{font-size:13px}
+  .instruction-card {
+    gap: 10px;
+    padding: 12px;
+  }
 
-  .goal-card b{font-size:15px}
+  .instruction-card p {
+    font-size: 13px;
+  }
 
-  blockquote{font-size:15px}
+  .step-badge {
+    min-width: 46px;
+    height: 28px;
+  }
+
+  blockquote {
+    font-size: 15px;
+    line-height: 1.55;
+    padding: 14px;
+  }
 
   .choice-grid,
   .metric-grid,
   .complete-metrics,
-  .launcher-points{
-    grid-template-columns:1fr
+  .launcher-points {
+    grid-template-columns: 1fr;
   }
 
-  .metric-card{padding:13px}
-
-  .test-insight{
-    display:grid;
-    gap:4px
+  .metric-card {
+    padding: 13px;
   }
 
-  .test-insight b{min-width:0}
-
-  .stage-actions{width:100%}
-
-  .stage-actions .primary-btn{width:100%}
-
-  .complete-card{padding:34px 22px}
-
-  .launcher-card{
-    padding:36px 22px;
-    border-radius:25px
+  .test-insight {
+    display: grid;
+    gap: 4px;
   }
 
-  .launcher-points{gap:8px}
+  .test-insight b {
+    min-width: 0;
+  }
 
-  .modal-dialog{padding:25px 20px}
+  .complete-card {
+    padding: 34px 20px;
+  }
 
-  .evidence-detail{font-size:13px}
+  .launcher-card {
+    padding: 36px 22px;
+    border-radius: 25px;
+  }
 
-  .question-title{font-size:18px}
+  .launcher-points {
+    gap: 8px;
+  }
+
+  .modal-dialog {
+    padding: 25px 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  .app-shell {
+    width: min(100% - 16px, 1220px);
+  }
+
+  .mission-card,
+  .screen-card {
+    padding: 16px;
+  }
+
+  .mission-card h2,
+  .screen-card h2 {
+    font-size: 27px;
+  }
+
+  .answer-option {
+    padding: 12px;
+  }
+
+  .answer-option strong {
+    font-size: 14px;
+  }
+
+  .answer-option small {
+    font-size: 11px;
+  }
+
+  .hud-pill:nth-of-type(2) {
+    display: none;
+  }
 }
