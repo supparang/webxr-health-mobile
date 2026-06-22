@@ -1,224 +1,655 @@
 <!doctype html>
 <html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#071426" />
-  <title>CSAI2102: AI Quest • Teacher Dashboard</title>
-  <script>
-  window.AIQUEST_PAGE_ROLE = 'teacher';
-  window.AIQUEST_FORCE_TEACHER_PAGE = true;
-  (function(){
-    try{
-      var url = new URL(location.href);
-      if(url.searchParams.get('teacher') !== '1'){
-        url.searchParams.set('teacher','1');
-        if(!url.searchParams.get('v')) url.searchParams.set('v','20260614-detailfinal346');
-        history.replaceState(null,'',url.toString());
-      }
-    }catch(e){}
-  })();
-  </script>
-  <style>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>Teacher Dashboard v9.9 • Feedback Center</title>
+    <meta name="theme-color" content="#0f172a" />
+    <style>
     :root{
-      --bg:#071426;
-      --panel:#111c31;
-      --panel2:#14243a;
-      --line:rgba(148,163,184,.18);
-      --text:#e5eefc;
-      --muted:#9fb2cc;
-      --good:#10b981;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --blue:#38bdf8;
-      --purple:#a78bfa;
+      --bg:#f6fbff;--card:#fff;--ink:#14324a;--muted:#64748b;--line:#dbe8f6;
+      --blue:#2487ff;--green:#10a66d;--amber:#f59e0b;--red:#ef4444;--violet:#7c3aed;
+      --shadow:0 16px 42px rgba(15,23,42,.10);--r:22px;
     }
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      min-height:100vh;
-      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at 12% 10%, rgba(56,189,248,.18), transparent 32%),
-        radial-gradient(circle at 80% 0%, rgba(167,139,250,.20), transparent 34%),
-        linear-gradient(135deg,#06101f,#08162a 48%,#0a1023);
-    }
-    a{color:inherit}
-    .wrap{max-width:1120px;margin:0 auto;padding:20px 16px 56px}
-    .top{
-      position:sticky;top:0;z-index:20;
-      margin:0 auto 16px;
-      display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;
-      background:rgba(15,23,42,.86);
-      border:1px solid var(--line);
-      border-radius:22px;
-      padding:14px;
-      backdrop-filter:blur(14px);
-      box-shadow:0 18px 40px rgba(0,0,0,.25);
-    }
-    .logo{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;font-size:28px;background:linear-gradient(135deg,#60a5fa,#a78bfa)}
-    h1{font-size:28px;line-height:1.05;margin:0}
-    .sub{color:var(--muted);font-size:13px;margin-top:4px}
-    .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-    .btn{
-      appearance:none;border:1px solid var(--line);background:#1e293b;color:#f8fafc;
-      border-radius:12px;padding:9px 12px;font-weight:800;cursor:pointer;text-decoration:none;font-size:13px;
-    }
-    .btn.primary{background:linear-gradient(135deg,#0ea5e9,#8b5cf6);border-color:transparent}
-    .btn.good{background:rgba(16,185,129,.18);border-color:rgba(16,185,129,.35);color:#bbf7d0}
-    .grid{display:grid;gap:14px}
-    .cols2{grid-template-columns:1fr 1fr}
-    .cols3{grid-template-columns:repeat(3,1fr)}
-    .card{
-      background:rgba(15,23,42,.76);
-      border:1px solid var(--line);
-      border-radius:18px;
-      padding:16px;
-      box-shadow:0 10px 28px rgba(0,0,0,.18);
-    }
-    .card h2,.card h3{margin:0 0 10px}
-    .muted{color:var(--muted)}
-    .pill{
-      display:inline-flex;align-items:center;gap:6px;border-radius:999px;
-      padding:6px 10px;font-size:12px;font-weight:800;background:rgba(148,163,184,.13);border:1px solid var(--line);
-      margin:3px;
-    }
-    .pill.good{background:rgba(16,185,129,.16);border-color:rgba(16,185,129,.3);color:#bbf7d0}
-    .pill.warn{background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.3);color:#fde68a}
-    .pill.blue{background:rgba(59,130,246,.16);border-color:rgba(59,130,246,.3);color:#bfdbfe}
-    .metric{background:rgba(30,41,59,.78);border:1px solid var(--line);border-radius:16px;padding:14px}
-    .metric b{font-size:28px;display:block}
-    table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:14px}
-    th,td{padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.12);font-size:13px;text-align:left;vertical-align:top}
-    th{color:#bae6fd;background:rgba(15,23,42,.75)}
-    tbody tr:hover{background:rgba(56,189,248,.06)}
-    input,select{
-      width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line);
-      background:#1e293b;color:var(--text);outline:none;
-    }
-    .bar{height:9px;background:rgba(148,163,184,.18);border-radius:999px;overflow:hidden;margin-top:6px}
-    .bar>i{display:block;height:100%;background:linear-gradient(90deg,#38bdf8,#a78bfa);border-radius:999px}
-    .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-    .loading{padding:14px;border-radius:14px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.20)}
-    .modal{
-      position:fixed;inset:0;z-index:100;background:rgba(2,6,23,.72);display:none;align-items:center;justify-content:center;padding:18px;
-    }
-    .modal.open{display:flex}
-    .modal-panel{max-width:980px;width:100%;max-height:88vh;overflow:auto;background:#111c31;border:1px solid var(--line);border-radius:20px;padding:16px}
-    .right{float:right}
-    @media(max-width:800px){.top{grid-template-columns:auto 1fr}.actions{grid-column:1/-1;justify-content:flex-start}.cols2,.cols3,.two{grid-template-columns:1fr}h1{font-size:24px}}
+    html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:linear-gradient(180deg,#eaf6ff,#f9fcff 46%,#fff)}
+    button,input,select,textarea{font:inherit}button{cursor:pointer}
+    .app{width:min(1240px,100%);margin:0 auto;padding:18px clamp(12px,2vw,24px) 52px}
+    .top{position:sticky;top:0;z-index:20;background:rgba(246,251,255,.92);border-bottom:1px solid rgba(219,232,246,.8);backdrop-filter:blur(14px);margin:-18px calc(clamp(12px,2vw,24px)*-1) 18px;padding:12px clamp(12px,2vw,24px)}
+    .topin{width:min(1240px,100%);margin:0 auto;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:10px}.logo{width:44px;height:44px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,#2487ff,#7c3aed);color:#fff;font-size:24px;box-shadow:0 12px 26px rgba(36,135,255,.22)}
+    h1{font-size:clamp(25px,3vw,38px);margin:0 0 8px;letter-spacing:-.03em;line-height:1.08}h2{font-size:20px;margin:0 0 10px}h3{font-size:16px;margin:0 0 8px}
+    p{margin:0;color:var(--muted);line-height:1.55}.small{font-size:13px}.muted{color:var(--muted)}.hidden{display:none!important}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.btn{border:0;border-radius:16px;padding:11px 14px;min-height:42px;font-weight:950;color:#fff;background:linear-gradient(135deg,#2487ff,#5b5cf6);box-shadow:0 10px 22px rgba(36,135,255,.18)}
+    .btn.secondary{background:#fff;color:#244761;border:1px solid var(--line);box-shadow:none}.btn.ghost{background:transparent;color:#244761;border:1px dashed var(--line);box-shadow:none}.btn.green{background:linear-gradient(135deg,#10a66d,#22c55e)}.btn.amber{background:linear-gradient(135deg,#f59e0b,#f97316)}.btn.red{background:linear-gradient(135deg,#ef4444,#f97316)}.btn.small{padding:7px 10px;min-height:34px;border-radius:12px;font-size:13px}
+    .card{background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:18px}.hero{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(300px,.92fr);gap:16px}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.twocol{display:grid;grid-template-columns:1fr 1fr;gap:14px}.threecol{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.top-space{margin-top:16px}
+    .pill,.tag{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;background:#fff;padding:7px 10px;font-size:13px;font-weight:850;color:#3b4d63;white-space:nowrap}.tag{padding:5px 8px;font-size:12px}.tag.red{background:#fff1f1;color:#b42318;border-color:#fecaca}.tag.amber{background:#fff8e8;color:#985400;border-color:#fde68a}.tag.green{background:#ecfff5;color:#08744f;border-color:#bbf7d0}.tag.violet{background:#f5f0ff;color:#5b21b6;border-color:#ddd6fe}.tag.blue{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}.tag.gray{background:#f8fafc;color:#475569}
+    .kpi{border:1px solid var(--line);background:linear-gradient(180deg,#fff,#f4f9ff);border-radius:20px;padding:15px;min-height:92px}.kpi b{display:block;font-size:32px;letter-spacing:-.04em}.kpi span{font-size:13px;color:var(--muted);font-weight:850}.kpi.danger{border-color:rgba(239,68,68,.35);background:#fff4f4}.kpi.warn{border-color:rgba(245,158,11,.36);background:#fff9ec}.kpi.good{border-color:rgba(16,166,109,.35);background:#f2fff8}.kpi.violet{border-color:rgba(124,58,237,.32);background:#f8f5ff}
+    .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.formgrid.three{grid-template-columns:1fr 1fr 1fr}.field label{display:block;font-size:12px;font-weight:950;color:#475569;margin-bottom:5px}input,select,textarea{width:100%;border:1px solid var(--line);border-radius:16px;padding:11px 12px;background:white;min-height:42px;color:var(--ink);outline:none}textarea{min-height:128px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}input:focus,select:focus,textarea:focus{border-color:rgba(36,135,255,.72);box-shadow:0 0 0 3px rgba(36,135,255,.12)}
+    .steps{display:grid;gap:8px;margin-top:10px}.step{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:16px;padding:10px;background:#fbfdff}.num{width:26px;height:26px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-weight:1000;display:grid;place-items:center;flex:0 0 auto}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:18px;background:#fff}table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #eef3f9;vertical-align:top;white-space:nowrap}th{position:sticky;top:0;background:#edf6ff;z-index:1;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#476179}tr:hover td{background:#fbfdff}.empty{border:1px dashed var(--line);background:#fbfdff;border-radius:18px;padding:16px;color:var(--muted)}
+    .loader{width:15px;height:15px;border:2px solid rgba(36,135,255,.22);border-top-color:var(--blue);border-radius:50%;display:inline-block;vertical-align:-3px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+    details{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden}summary{cursor:pointer;padding:14px 16px;font-weight:1000;background:#f3f9ff}.details-body{padding:14px 16px}.notice{border:1px solid #bfe0ff;background:linear-gradient(180deg,#f1f9ff,#fff);border-radius:20px;padding:16px}.student-mini{display:flex;justify-content:space-between;gap:8px;border-top:1px dashed rgba(100,116,139,.25);padding:8px 0}.copybox{display:flex;gap:8px;align-items:center}.copybox input{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.tabbtn{border:1px solid var(--line);background:#fff;color:#244761;border-radius:999px;padding:8px 12px;font-weight:900}.tabbtn.active{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8}.section-panel{display:none}.section-panel.show{display:block}.footer-status{font-size:13px;color:var(--muted);margin-top:10px}.nowrap{white-space:nowrap}
+    @media(max-width:900px){.hero,.twocol,.threecol,.formgrid,.formgrid.three{grid-template-columns:1fr}.grid4{grid-template-columns:1fr 1fr}}@media(max-width:560px){.grid4{grid-template-columns:1fr}.app{padding-bottom:32px}.actions{width:100%}.btn{flex:1}.topin{align-items:flex-start}th,td{padding:9px}.card{padding:14px}}
   </style>
-</head>
-<body>
-  <main class="wrap">
-    <section class="top">
-      <div class="logo">🧠</div>
-      <div>
-        <h1>CSAI2102: AI Quest</h1>
-        <div class="sub">v3.4.6 • Teacher Dashboard • Section 101</div>
-        <div style="margin-top:8px">
-          <span class="pill good">✓ Teacher-only page</span>
-          <span class="pill good">✓ Phase 1 Ready: S1–S5 + B1–B2</span>
-          <span class="pill blue">Section 101</span>
+  </head>
+  <body>
+    <div class="top">
+      <div class="topin">
+        <div class="brand">
+          <div class="logo">📊</div>
+          <div>
+            <b>Teacher Dashboard v9.9</b>
+            <br>
+              <span class="muted small">Start/End Class • Weekly Report • Feedback Center • Follow-up</span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn" id="updateBtn">Update Dashboard</button>
+            <button class="btn secondary" id="startClassTabBtn">Start Class</button>
+            <button class="btn secondary" id="endClassTabBtn">End Class</button>
+            <button class="btn secondary" id="weeklyTabBtn">Weekly Report</button>
+            <button class="btn secondary" id="feedbackTabBtn">Feedback</button>
+          </div>
         </div>
       </div>
-      <div class="actions">
-        <a class="btn" href="./index.html?v=20260614-detailfinal346">Student Page</a>
-        <button class="btn primary" id="refreshBtn">Refresh</button>
-        <button class="btn" id="previewBtn">Preview Student</button>
-      </div>
-    </section>
+      <main class="app">
+        <section class="hero">
+          <div class="card">
+            <h1>ใช้ทั้งเทอมแบบเห็นภาพรวมเร็วขึ้น</h1>
+            <p>v9.9 เพิ่ม Feedback Center และ Follow-up Actions เพื่อให้ครูส่งคำแนะนำรายกลุ่ม/รายคนได้ทันที ไม่ต้องไล่ดูทีละคนทั้งหมด</p>
+            <div class="steps">
+              <div class="step">
+                <div class="num">1</div>
+                <div>
+                  <b>Start Class</b>
+                  <br>
+                    <span class="muted small">สร้าง Join Link พร้อม session code</span>
+                  </div>
+                </div>
+                <div class="step">
+                  <div class="num">2</div>
+                  <div>
+                    <b>End Class</b>
+                    <br>
+                      <span class="muted small">ดู active/missing/weak terms แล้ว copy summary</span>
+                    </div>
+                  </div>
+                  <div class="step">
+                    <div class="num">3</div>
+                    <div>
+                      <b>Weekly Report</b>
+                      <br>
+                        <span class="muted small">รวมหลาย session ในสัปดาห์เดียว พร้อม archive/report text</span>
+                      </div>
+                    </div>
+                    <div class="step">
+                      <div class="num">4</div>
+                      <div>
+                        <b>Feedback Center</b>
+                        <br>
+                          <span class="muted small">สร้าง feedback รายกลุ่ม/รายคนและ follow-up list</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card">
+                    <h2>System</h2>
+                    <div class="field">
+                      <label>Apps Script Endpoint</label>
+                      <input id="endpointInput" value="https://script.google.com/macros/s/AKfycbwsW0ffV5W_A81bNdcj32TDvgVBEUOk6IDPqqmqpePCVhY0X56dEv1XIOh2ygu0AG7i/exec" />
+                    </div>
+                    <div class="actions top-space">
+                      <button class="btn secondary small" id="saveEndpointBtn">Save Endpoint</button>
+                      <button class="btn secondary small" id="refreshViewsBtn">Refresh Views</button>
+                      <button class="btn secondary small" id="openApiBtn">Open API</button>
+                    </div>
+                    <p class="footer-status" id="statusText">พร้อมใช้งาน</p>
+                  </div>
+                </section>
+                <div class="tabs">
+                  <button class="tabbtn active" data-tab="startPanel">Start Class</button>
+                  <button class="tabbtn" data-tab="endPanel">End Class</button>
+                  <button class="tabbtn" data-tab="weeklyPanel">Weekly Report</button>
+                  <button class="tabbtn" data-tab="feedbackPanel">Feedback Center</button>
+                  <button class="tabbtn" data-tab="studentsPanel">Students</button>
+                  <button class="tabbtn" data-tab="analyticsPanel">Analytics</button>
+                </div>
+                <section id="startPanel" class="section-panel show">
+                  <div class="twocol">
+                    <div class="card">
+                      <h2>Start Class</h2>
+                      <p>สร้างลิงก์กิจกรรมคาบนี้ให้นักศึกษาเข้าเล่นด้วยค่าที่กำหนดไว้</p>
+                      <div class="formgrid top-space">
+                        <div class="field">
+                          <label>Session Code</label>
+                          <input id="sessionCodeInput" placeholder="เช่น VOCAB-WEEK3" />
+                        </div>
+                        <div class="field">
+                          <label>Section</label>
+                          <input id="sectionInput" placeholder="เช่น CS-A" />
+                        </div>
+                        <div class="field">
+                          <label>Bank</label>
+                          <select id="bankInput">
+                            <option value="A">Bank A • Software</option>
+                            <option value="B">Bank B • Data/AI</option>
+                            <option value="C">Bank C • Workplace</option>
+                          </select>
+                        </div>
+                        <div class="field">
+                          <label>Mode</label>
+                          <select id="modeInput">
+                            <option value="learn">AI Training</option>
+                            <option value="speed">Speed Run</option>
+                            <option value="mission">Debug Mission</option>
+                            <option value="battle">Boss Battle</option>
+                            <option value="bossrush">Boss Rush</option>
+                          </select>
+                        </div>
+                        <div class="field">
+                          <label>Difficulty</label>
+                          <select id="diffInput">
+                            <option value="easy">Easy</option>
+                            <option value="normal" selected>Normal</option>
+                            <option value="hard">Hard</option>
+                            <option value="challenge">Challenge</option>
+                          </select>
+                        </div>
+                        <div class="field">
+                          <label>Time</label>
+                          <select id="timeInput">
+                            <option value="120">2 min</option>
+                            <option value="180" selected>3 min</option>
+                            <option value="300">5 min</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="actions top-space">
+                        <button class="btn green" id="buildLinkBtn">Build Join Link</button>
+                        <button class="btn secondary" id="copyLinkBtn">Copy Link</button>
+                        <button class="btn secondary" id="openGameBtn">Open Game</button>
+                      </div>
+                    </div>
+                    <div class="card">
+                      <h2>Join Link</h2>
+                      <div class="copybox">
+                        <input id="joinLinkBox" readonly />
+                        <button class="btn small" id="copyLinkBtn2">Copy</button>
+                      </div>
+                      <p class="small top-space">ส่งลิงก์นี้ใน Google Classroom / Line / LMS เพื่อให้ข้อมูลเข้า session code เดียวกัน</p>
+                      <div class="notice top-space">
+                        <b>Tip</b>
+                        <p>ใช้ session code เดิมทั้งคาบ เช่น VOCAB-WEEK3-A เพื่อทำ Missing Report และ Weekly Report ได้แม่นขึ้น</p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+                <section id="endPanel" class="section-panel">
+                  <div class="card">
+                    <h2>End Class Summary</h2>
+                    <div class="formgrid three">
+                      <div class="field">
+                        <label>Session Code</label>
+                        <input id="endSessionFilter" placeholder="VOCAB-WEEK3" />
+                      </div>
+                      <div class="field">
+                        <label>Section</label>
+                        <input id="endSectionFilter" placeholder="CS-A" />
+                      </div>
+                      <div class="field">
+                        <label>Action</label>
+                        <button class="btn green" id="endUpdateBtn">Update End Class</button>
+                      </div>
+                    </div>
+                    <div class="grid4 top-space" id="kpiGrid">
+                    </div>
+                  </div>
+                  <div class="twocol top-space">
+                    <div class="card">
+                      <h2>Missing Students</h2>
+                      <p>เทียบจาก class_roster กับนักศึกษาที่มี session ในคาบนี้</p>
+                      <div id="missingBox" class="top-space">
+                      </div>
+                      <div class="actions top-space">
+                        <button class="btn secondary small" id="copyMissingBtn">Copy Missing List</button>
+                      </div>
+                    </div>
+                    <div class="card">
+                      <h2>What to Teach Next</h2>
+                      <div id="teachNextBox" class="notice">
+                      </div>
+                      <div class="top-space">
+                        <h3>Priority Follow-up</h3>
+                        <div id="priorityBox">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card top-space">
+                    <h2>End Class Report</h2>
+                    <textarea id="summaryBox" readonly>
+                    </textarea>
+                    <div class="actions top-space">
+                      <button class="btn secondary" id="copyEndSummaryBtn">Copy End Class Summary</button>
+                      <button class="btn amber" id="archiveBtn">Archive Report</button>
+                    </div>
+                  </div>
+                </section>
+                <section id="weeklyPanel" class="section-panel">
+                  <div class="card">
+                    <h2>Weekly Report</h2>
+                    <p>สรุปหลาย session ในช่วงเวลาเดียว เพื่อใช้รายงานประจำสัปดาห์และวางแผนคาบถัดไป</p>
+                    <div class="formgrid three top-space">
+                      <div class="field">
+                        <label>Week / Report Code</label>
+                        <input id="weeklyCodeInput" placeholder="เช่น VOCAB-WEEK3" />
+                      </div>
+                      <div class="field">
+                        <label>Section</label>
+                        <input id="weeklySectionInput" placeholder="CS-A หรือเว้นว่างทุก section" />
+                      </div>
+                      <div class="field">
+                        <label>Session Code Contains</label>
+                        <input id="weeklySessionContains" placeholder="เช่น WEEK3" />
+                      </div>
+                      <div class="field">
+                        <label>Start Date</label>
+                        <input id="weeklyStartDate" type="date" />
+                      </div>
+                      <div class="field">
+                        <label>End Date</label>
+                        <input id="weeklyEndDate" type="date" />
+                      </div>
+                      <div class="field">
+                        <label>Action</label>
+                        <button class="btn green" id="weeklyUpdateBtn">Build Weekly Report</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="grid4 top-space" id="weeklyKpiGrid">
+                  </div>
+                  <div class="twocol top-space">
+                    <div class="card">
+                      <h2>Weekly Weak Terms</h2>
+                      <div class="table-wrap">
+                        <table id="weeklyWeakTable">
+                        </table>
+                      </div>
+                    </div>
+                    <div class="card">
+                      <h2>Weekly Missing / Inactive</h2>
+                      <div id="weeklyMissingBox">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="twocol top-space">
+                    <div class="card">
+                      <h2>Cohort Summary</h2>
+                      <div id="weeklyCohortBox">
+                      </div>
+                    </div>
+                    <div class="card">
+                      <h2>Weekly Teaching Plan</h2>
+                      <div id="weeklyTeachBox" class="notice">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card top-space">
+                    <h2>Weekly Report Text</h2>
+                    <textarea id="weeklyReportBox" readonly>
+                    </textarea>
+                    <div class="actions top-space">
+                      <button class="btn secondary" id="copyWeeklyBtn">Copy Weekly Report</button>
+                      <button class="btn amber" id="archiveWeeklyBtn">Archive Weekly Report</button>
+                      <button class="btn secondary" id="exportWeeklyBtn">Export Weekly CSV</button>
+                    </div>
+                  </div>
+                </section>
+                <section id="feedbackPanel" class="section-panel">
+                  <div class="card">
+                    <h2>Feedback Center</h2>
+                    <p>สร้างข้อความ feedback สำหรับนักศึกษาหลายคนในครั้งเดียว และสร้างรายการติดตามสำหรับกลุ่มที่ต้องช่วยเพิ่ม</p>
+                    <div class="formgrid three top-space">
+                      <div class="field">
+                        <label>Target Group</label>
+                        <select id="feedbackCohort">
+                          <option value="need_help">Need Help</option>
+                          <option value="review">Needs Review</option>
+                          <option value="need_help_review">Need Help + Review</option>
+                          <option value="on_track">On Track</option>
+                          <option value="advanced">Advanced</option>
+                          <option value="all">All Active</option>
+                        </select>
+                      </div>
+                      <div class="field">
+                        <label>Section</label>
+                        <input id="feedbackSection" placeholder="เช่น CS-A หรือเว้นว่างทุก section" />
+                      </div>
+                      <div class="field">
+                        <label>Tone</label>
+                        <select id="feedbackTone">
+                          <option value="supportive">Supportive</option>
+                          <option value="short">Short</option>
+                          <option value="formal">Formal</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="actions top-space">
+                      <button class="btn green" id="buildFeedbackBtn">Build Feedback</button>
+                      <button class="btn secondary" id="copyFeedbackBtn">Copy Feedback Text</button>
+                      <button class="btn secondary" id="exportFeedbackBtn">Export Feedback CSV</button>
+                      <button class="btn amber" id="createFollowupBtn">Create Follow-up Rows</button>
+                    </div>
+                  </div>
+                  <div class="twocol top-space">
+                    <div class="card">
+                      <h2>Group Feedback Text</h2>
+                      <textarea id="feedbackBox" readonly>
+                      </textarea>
+                    </div>
+                    <div class="card">
+                      <h2>Action List</h2>
+                      <div id="feedbackActionBox" class="notice">
+                      </div>
+                      <div class="table-wrap top-space">
+                        <table id="feedbackTable">
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+                <section id="studentsPanel" class="section-panel">
+                  <div class="card">
+                    <h2>Students</h2>
+                    <div class="formgrid three">
+                      <div class="field">
+                        <label>Search</label>
+                        <input id="searchInput" placeholder="ชื่อ / รหัส / section" />
+                      </div>
+                      <div class="field">
+                        <label>Cohort</label>
+                        <select id="cohortFilter">
+                          <option value="all">All</option>
+                          <option value="need_help">Need Help</option>
+                          <option value="review">Needs Review</option>
+                          <option value="on_track">On Track</option>
+                          <option value="advanced">Advanced</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      </div>
+                      <div class="field">
+                        <label>Sort</label>
+                        <select id="sortFilter">
+                          <option value="risk">Risk first</option>
+                          <option value="accuracy">Accuracy low first</option>
+                          <option value="recent">Recent first</option>
+                          <option value="score">Score high first</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="table-wrap top-space">
+                      <table id="studentsTable">
+                      </table>
+                    </div>
+                  </div>
+                </section>
+                <section id="analyticsPanel" class="section-panel">
+                  <div class="twocol">
+                    <div class="card">
+                      <h2>Weak Terms Insight</h2>
+                      <div class="table-wrap">
+                        <table id="weakTable">
+                        </table>
+                      </div>
+                    </div>
+                    <div class="card">
+                      <h2>Mode Stats</h2>
+                      <div class="table-wrap">
+                        <table id="modeTable">
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="twocol top-space">
+                    <div class="card">
+                      <h2>Leaderboard</h2>
+                      <div class="table-wrap">
+                        <table id="leaderboardTable">
+                        </table>
+                      </div>
+                    </div>
+                    <div class="card">
+                      <h2>Recent Sessions</h2>
+                      <div class="table-wrap">
+                        <table id="sessionsTable">
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                  <details class="top-space">
+                    <summary>Debug JSON</summary>
+                    <div class="details-body">
+                      <textarea id="debugBox" readonly>
+                      </textarea>
+                    </div>
+                  </details>
+                </section>
+              </main>
+              <script>
+(function(){
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const LS_ENDPOINT = 'VOCAB_TEACHER_ENDPOINT_V99';
+  const VOCAB_URL = 'https://supparang.github.io/webxr-health-mobile/vocab.html';
+  let raw = null;
+  let model = emptyModel();
+  let weekly = null;
+  let feedback = null;
 
-    <section class="grid cols3" id="overview">
-      <div class="metric"><span class="muted">Students</span><b id="mStudents">-</b></div>
-      <div class="metric"><span class="muted">Attempts</span><b id="mAttempts">-</b></div>
-      <div class="metric"><span class="muted">Avg Latest</span><b id="mAvg">-</b></div>
-    </section>
+  function emptyModel(){return {sessions:[],terms:[],profiles:[],leaderboard:[],roster:[],students:[],active:[],missing:[],weakTerms:[],modeStats:[]};}
+  function esc(s){return String(s ?? '').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+  function clean(s){return decodeURIComponent(String(s ?? '').replace(/\+/g,' ')).trim();}
+  function num(v){const n=Number(String(v ?? '').replace(/,/g,'').trim());return Number.isFinite(n)?n:0;}
+  function dateVal(v){const t=Date.parse(v || '');return Number.isFinite(t)?t:0;}
+  function pct(v){return `${Math.round(num(v))}%`;}
+  function endpoint(action, extra){const base=($('endpointInput').value||'').trim();const u=new URL(base);u.searchParams.set('api','vocab');if(action)u.searchParams.set('action',action);Object.entries(extra||{}).forEach(([k,v])=>{if(v!==undefined&&v!==null&&String(v).trim()!=='')u.searchParams.set(k,v)});return u.toString();}
+  function setStatus(txt, loading){$('statusText').innerHTML = loading ? `<span class="loader"></span> ${esc(txt)}` : esc(txt);}
+  async function getJson(url){const r=await fetch(url,{cache:'no-store'});const t=await r.text();try{return JSON.parse(t)}catch(e){throw new Error(t.slice(0,220)||r.statusText)}}
+  async function postJson(payload){const r=await fetch(endpoint(''),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});const t=await r.text();try{return JSON.parse(t)}catch(e){return {ok:false,text:t}}}
+  async function refreshViews(){setStatus('กำลัง Refresh Views...',true);const j=await getJson(endpoint('refresh_views'));setStatus(`Refresh Views แล้ว (${Object.values(j.counts||{}).join(', ')})`);return j;}
+  async function loadDashboard(){setStatus('กำลังโหลด Dashboard...',true);const j=await getJson(endpoint('teacher_dashboard_get'));raw=j;model=buildModel(j);renderAll();setStatus(`โหลดข้อมูลแล้ว • sessions ${model.sessions.length} • terms ${model.terms.length}`);return j;}
+  async function updateDashboard(){try{await refreshViews();await loadDashboard();}catch(e){setStatus(`Update ไม่สำเร็จ: ${e.message}`);}}
 
-    <section class="card">
-      <h2>All Students Detail</h2>
-      <p class="muted">ดูสถานะนักศึกษาทุกคนจาก Google Sheets เฉพาะ Section 101</p>
-      <div class="two" style="margin:10px 0">
-        <button class="btn primary" id="loadStudent12Btn">Load Student 12 / KK</button>
-        <button class="btn" id="showRawTopBtn">Show raw response</button>
-      </div>
-      <div class="two" style="margin:10px 0">
-        <input id="studentSearch" placeholder="ค้นหา studentId / ชื่อ / section" />
-        <select id="studentFilter">
-          <option value="all">ทั้งหมด</option>
-          <option value="review">Students to Review</option>
-          <option value="mastery">Mastery</option>
-        </select>
-      </div>
-      <div id="studentsBox" class="loading">กำลังโหลดข้อมูลนักศึกษา...</div>
-    </section>
+  function dataArr(j, keys){for(const k of keys){const v=k.split('.').reduce((o,x)=>o&&o[x],j);if(Array.isArray(v))return v;}return [];}
+  function buildModel(j){
+    const d=j.data||{};
+    const sessions=dataArr(j,['data.vocab_sessions_view','data.sessions_view','data.sessions','data.vocab_sessions']);
+    const terms=dataArr(j,['data.vocab_terms_view','data.term_answers_view','data.term_answers','data.vocab_terms']);
+    const profiles=dataArr(j,['data.students_profile_view','data.student_profiles_view','data.student_profiles','data.students_profile']);
+    const leaderboard=dataArr(j,['data.vocab_leaderboard_view','data.leaderboard_view','data.leaderboard','data.vocab_leaderboard']);
+    const roster=dataArr(j,['data.class_roster_view','data.class_roster','data.roster']);
+    const students=buildStudents(profiles,sessions,terms,roster,leaderboard);
+    const filterSession=($('endSessionFilter').value||$('sessionCodeInput').value||'').trim().toLowerCase();
+    const filterSection=($('endSectionFilter').value||$('sectionInput').value||'').trim().toLowerCase();
+    const scopedSessions=sessions.filter(r=>matchesScope(r,filterSession,filterSection));
+    const activeIds=new Set(scopedSessions.map(studentKey).filter(Boolean));
+    const missing=roster.filter(r=>{
+      if(filterSection && String(r.section||'').toLowerCase().indexOf(filterSection)<0)return false;
+      return !activeIds.has(studentKey(r));
+    });
+    const active=students.filter(s=>activeIds.has(studentKey(s)) || (!filterSession && !filterSection));
+    return {sessions:scopedSessions.length?scopedSessions:sessions,terms,profiles,leaderboard,roster,students,active,missing,weakTerms:buildWeakTermInsights(terms),modeStats:buildModeStats(sessions)};
+  }
+  function matchesScope(r,session,section){const sc=String(r.session_code||'').toLowerCase();const sec=String(r.section||'').toLowerCase();return (!session || sc.indexOf(session)>=0) && (!section || sec.indexOf(section)>=0);}
+  function studentKey(r){return String(r.student_id||r.display_name||'').trim().toLowerCase();}
+  function buildStudents(profiles,sessions,terms,roster,leaderboard){
+    const map={};
+    function ensure(r){const k=studentKey(r);if(!k)return null;if(!map[k])map[k]={student_id:r.student_id||'',display_name:r.display_name||'Hero',section:r.section||'',sessions:0,last_score:0,last_accuracy:0,last_combo_max:0,ai_help_used:0,recommended_mode:'',recommended_difficulty:'',ai_reason:'',last_seen_at:'',weakTerms:[],risk:0,cohort:'inactive'};return map[k];}
+    roster.forEach(r=>{const s=ensure(r);if(s){s.email=r.email||'';s.section=s.section||r.section||'';}});
+    profiles.forEach(r=>{const s=ensure(r);if(!s)return;Object.assign(s,{display_name:r.display_name||s.display_name,section:r.section||s.section,last_score:num(r.last_score||r.score),last_accuracy:num(r.last_accuracy||r.accuracy),last_combo_max:num(r.last_combo_max||r.combo_max),ai_help_used:num(r.ai_help_used),recommended_mode:r.recommended_mode||r.ai_recommended_mode||'',recommended_difficulty:r.recommended_difficulty||r.ai_recommended_difficulty||'',ai_reason:r.ai_reason||'',last_seen_at:r.last_seen_at||r.timestamp||'',personal_best:num(r.personal_best),improvement:num(r.improvement)});});
+    sessions.forEach(r=>{const s=ensure(r);if(!s)return;s.sessions++;if(dateVal(r.timestamp)>=dateVal(s.last_seen_at)){s.last_seen_at=r.timestamp||r.ended_at||s.last_seen_at;s.last_score=num(r.score);s.last_accuracy=num(r.accuracy);s.last_combo_max=Math.max(s.last_combo_max,num(r.combo_max));s.ai_help_used+=num(r.ai_help_used);s.recommended_mode=r.ai_recommended_mode||s.recommended_mode;s.recommended_difficulty=r.ai_recommended_difficulty||s.recommended_difficulty;s.ai_reason=r.ai_reason||s.ai_reason;}});
+    terms.forEach(r=>{const s=ensure(r);if(!s)return;if(!isCorrect(r.is_correct)){s.weakTerms.push(clean(r.term||r.term_id));}});
+    Object.values(map).forEach(s=>{const weakCount=s.weakTerms.length;let risk=0;if(!s.sessions)risk+=35;if(num(s.last_accuracy)<60)risk+=35;else if(num(s.last_accuracy)<75)risk+=18;if(num(s.ai_help_used)>=2)risk+=12;if(weakCount>=3)risk+=12;if(dateVal(s.last_seen_at)===0)risk+=10;s.risk=risk;if(!s.sessions)s.cohort='inactive';else if(risk>=55)s.cohort='need_help';else if(risk>=28)s.cohort='review';else if(num(s.last_accuracy)>=90 && num(s.ai_help_used)===0)s.cohort='advanced';else s.cohort='on_track';});
+    return Object.values(map).sort((a,b)=>b.risk-a.risk);
+  }
+  function isCorrect(v){const s=String(v??'').toLowerCase().trim();return v===true||v===1||s==='1'||s==='true'||s==='yes'||s==='ถูก'||s==='correct';}
+  function buildWeakTermInsights(terms){const map={};(terms||[]).forEach(r=>{if(isCorrect(r.is_correct))return;const term=clean(r.term||r.term_id);if(!term)return;if(!map[term])map[term]={term,wrong:0,students:new Set(),stages:{},examples:[],ai_help:0,slow:0};const x=map[term];x.wrong++;x.students.add(studentKey(r)||'unknown');const st=clean(r.stage_name||r.stage_id||r.stage_index||'Unknown');x.stages[st]=(x.stages[st]||0)+1;if(num(r.response_ms)>=8000)x.slow++;if(num(r.ai_help_used_on_question)>0)x.ai_help++;if(x.examples.length<2)x.examples.push({selected:clean(r.selected||''),answer:clean(r.answer||''),prompt:clean(r.prompt||r.shown||'')});});return Object.values(map).map(x=>{const top=Object.entries(x.stages).sort((a,b)=>b[1]-a[1])[0];return {term:x.term,wrong:x.wrong,students:x.students.size,top_stage:top?top[0]:'-',ai_help:x.ai_help,slow:x.slow,example:x.examples[0]?`${x.examples[0].selected||'-'} → ${x.examples[0].answer||'-'}`:'-',recommendation:recommendTerm(x.term,top?top[0]:'')}}).sort((a,b)=>b.wrong-a.wrong).slice(0,20);}
+  function recommendTerm(term,stage){const t=String(term||'').toLowerCase();if(t.includes('library')||t.includes('package')||t.includes('framework'))return 'ทบทวน library / package / framework ด้วยตัวอย่างโค้ด';if(t.includes('testing')||t.includes('debug')||t.includes('bug'))return 'ฝึก Debug Mission และเรียง testing → debug → deploy';if(t.includes('dataset')||t.includes('model')||t.includes('training'))return 'ฝึกคำศัพท์ Data/AI ผ่านโจทย์บริบท';if(String(stage||'').toLowerCase().includes('boss'))return 'ลดระดับมาฝึก Mission ก่อนกลับไป Boss';return 'ใช้ Weak Rescue 5 ข้อ แล้วสรุปความหมายสั้น ๆ';}
+  function buildModeStats(sessions){const map={};sessions.forEach(r=>{const m=normalizeMode(r.mode_label||r.mode);if(!map[m])map[m]={mode:m,count:0,score:0,acc:0,accN:0,best:0};const x=map[m];x.count++;x.score+=num(r.score);x.best=Math.max(x.best,num(r.score));if(num(r.accuracy)>0){x.acc+=num(r.accuracy);x.accN++;}});return Object.values(map).map(x=>({mode:x.mode,count:x.count,avg_score:x.count?Math.round(x.score/x.count):0,avg_accuracy:x.accN?Math.round(x.acc/x.accN):0,best_score:x.best}));}
+  function normalizeMode(v){const r=clean(v).toLowerCase();if(!r)return'';if(r.includes('ai training')||r==='learn'||r.includes('learning'))return'AI Training';if(r.includes('speed run')||r==='speed')return'Speed Run';if(r.includes('debug mission')||r==='mission')return'Debug Mission';if(r.includes('boss rush')||r==='bossrush')return'Boss Rush';if(r.includes('battle'))return'Boss Battle';return clean(v);}
 
-    <section class="two">
-      <section class="card">
-        <h2>Phase Analytics</h2>
-        <p class="muted">ใช้ดูหัวข้อที่ควรทบทวนก่อนสอนครั้งถัดไป</p>
-        <div id="phaseBox" class="loading">กำลังโหลด phase analytics...</div>
-      </section>
-      <section class="card">
-        <h2>Students to Review / Support</h2>
-        <p class="muted">เป็นจุดทบทวน ไม่ใช่สถานะตก</p>
-        <div id="reviewBox" class="loading">กำลังโหลด students to review...</div>
-      </section>
-    </section>
+  function renderAll(){renderKpi();renderMissing();renderWeak();renderPriority();renderTeachNext();renderTables();renderSummary();renderWeekly(false);renderFeedback(false);$('debugBox').value=JSON.stringify(raw,null,2);}
+  function renderKpi(){const avg=model.active.length?Math.round(model.active.reduce((s,x)=>s+num(x.last_accuracy),0)/model.active.length):0;$('kpiGrid').innerHTML=`<div class="kpi good"><b>${model.active.length}</b><span>Active Students</span></div><div class="kpi danger"><b>${model.missing.length}</b><span>Missing Students</span></div><div class="kpi warn"><b>${model.students.filter(s=>s.cohort==='need_help'||s.cohort==='review').length}</b><span>Need Follow-up</span></div><div class="kpi violet"><b>${avg}%</b><span>Avg Accuracy</span></div>`;}
+  function renderMissing(){if(!model.missing.length){$('missingBox').innerHTML='<div class="empty">ไม่พบ missing students หรือยังไม่ได้ใส่ class roster</div>';return;}$('missingBox').innerHTML=`<div class="table-wrap"><table>${table(['student_id','display_name','section','email'],model.missing.slice(0,100))}</table></div>`;}
+  function renderWeak(){$('weakTable').innerHTML=table(['term','wrong','students','top_stage','ai_help','slow','example','recommendation'],model.weakTerms.slice(0,10));}
+  function renderPriority(){const rows=model.students.filter(s=>s.cohort==='need_help'||s.cohort==='review').slice(0,10);$('priorityBox').innerHTML=rows.length?rows.map(s=>`<div class="student-mini"><div><b>${esc(s.display_name)}</b><br><span class="small muted">${esc(s.student_id)} • ${esc(s.section)} • ${cohortTag(s.cohort)}</span></div><div><span class="tag red">Risk ${s.risk}</span> <span class="tag blue">${pct(s.last_accuracy)}</span></div></div>`).join(''):'<div class="empty">ยังไม่มีคนที่ต้อง follow-up</div>';}
+  function renderTeachNext(){const top=model.weakTerms.slice(0,3);const terms=top.map(x=>x.term).join(', ')||'-';$('teachNextBox').innerHTML=`<b>Next Teaching Move</b><p>ทบทวนคำหลัก: <b>${esc(terms)}</b><br>${esc(top[0]?.recommendation||'ยังไม่มีข้อมูลคำผิด ให้เล่นครบ 1 รอบก่อน')}<br>กิจกรรมแนะนำ: Weak Rescue → Debug Mission Normal → Boss Rush เฉพาะกลุ่มพร้อม</p>`;}
+  function renderTables(){$('modeTable').innerHTML=table(['mode','count','avg_score','avg_accuracy','best_score'],model.modeStats);const lb=model.leaderboard.slice().sort((a,b)=>num(b.fair_score||b.best_score||b.score)-num(a.fair_score||a.best_score||a.score)).slice(0,30).map((r,i)=>({rank:i+1,display_name:r.display_name,section:r.section,bank:r.bank,mode:normalizeMode(r.mode_label||r.mode),difficulty:r.difficulty,fair_score:num(r.fair_score||r.best_score||r.score),accuracy:num(r.accuracy||r.best_accuracy),runs:num(r.runs)}));$('leaderboardTable').innerHTML=table(['rank','display_name','section','bank','mode','difficulty','fair_score','accuracy','runs'],lb);$('sessionsTable').innerHTML=table(['timestamp','display_name','section','bank','mode_label','difficulty','score','accuracy','ai_help_used'],model.sessions.slice().sort((a,b)=>dateVal(b.timestamp)-dateVal(a.timestamp)).slice(0,40));renderStudents();}
+  function renderStudents(){let rows=model.students.slice();const q=($('searchInput').value||'').toLowerCase();const cf=$('cohortFilter').value;if(q)rows=rows.filter(s=>[s.display_name,s.student_id,s.section].join(' ').toLowerCase().includes(q));if(cf!=='all')rows=rows.filter(s=>s.cohort===cf);const sort=$('sortFilter').value;rows.sort((a,b)=>sort==='accuracy'?num(a.last_accuracy)-num(b.last_accuracy):sort==='score'?num(b.last_score)-num(a.last_score):sort==='recent'?dateVal(b.last_seen_at)-dateVal(a.last_seen_at):b.risk-a.risk);$('studentsTable').innerHTML=table(['cohort','display_name','student_id','section','sessions','last_score','last_accuracy','ai_help_used','recommended_mode'],rows.map(s=>({...s,cohort:cohortTag(s.cohort)})));}
+  function renderSummary(){const weak=model.weakTerms.slice(0,5).map(w=>`${w.term}(${w.wrong})`).join(', ')||'-';const text=`End Class Summary\nSession: ${$('endSessionFilter').value||$('sessionCodeInput').value||'-'}\nSection: ${$('endSectionFilter').value||$('sectionInput').value||'-'}\nActive students: ${model.active.length}\nMissing students: ${model.missing.length}\nNeed follow-up: ${model.students.filter(s=>s.cohort==='need_help'||s.cohort==='review').length}\nTop weak terms: ${weak}\nNext teaching move: ${model.weakTerms[0]?.recommendation||'-'}\nGenerated: ${new Date().toLocaleString('th-TH')}`;$('summaryBox').value=text;}
 
-    <section class="two">
-      <section class="card">
-        <h2>Misconception / Review Focus Summary</h2>
-        <div id="misBox" class="loading">กำลังโหลด misconception summary...</div>
-      </section>
-      <section class="card">
-        <h2>Teaching Decision</h2>
-        <div id="decisionBox">
-          <p>Phase 1 พร้อมใช้งาน: S1–S5 + B1–B2</p>
-          <p class="muted">Next: เริ่ม S6 Knowledge Base Forge ใน Phase 2</p>
-        </div>
-      </section>
-    </section>
+  function buildWeeklyModel(){
+    const code=($('weeklySessionContains').value||$('weeklyCodeInput').value||'').trim().toLowerCase();
+    const section=($('weeklySectionInput').value||'').trim().toLowerCase();
+    const start=$('weeklyStartDate').value?Date.parse($('weeklyStartDate').value+'T00:00:00+07:00'):0;
+    const end=$('weeklyEndDate').value?Date.parse($('weeklyEndDate').value+'T23:59:59+07:00'):Infinity;
+    const sessions=(model.sessions.length?model.sessions:(raw?.data?.sessions||[])).filter(r=>{
+      const t=dateVal(r.timestamp||r.ended_at||r.started_at);
+      const sc=String(r.session_code||'').toLowerCase();const sec=String(r.section||'').toLowerCase();
+      return (!code||sc.includes(code)) && (!section||sec.includes(section)) && (!start||t>=start) && (!end||t<=end);
+    });
+    const keys=new Set(sessions.map(studentKey).filter(Boolean));
+    const roster=model.roster.filter(r=>!section||String(r.section||'').toLowerCase().includes(section));
+    const active=model.students.filter(s=>keys.has(studentKey(s)));
+    const missing=roster.filter(r=>!keys.has(studentKey(r)));
+    const terms=model.terms.filter(r=>{
+      const t=dateVal(r.timestamp);const sc=String(r.session_code||'').toLowerCase();const sec=String(r.section||'').toLowerCase();
+      return (!code||sc.includes(code)) && (!section||sec.includes(section)) && (!start||t>=start) && (!end||t<=end);
+    });
+    const weak=buildWeakTermInsights(terms);
+    const need=active.filter(s=>s.cohort==='need_help').length;
+    const review=active.filter(s=>s.cohort==='review').length;
+    const advanced=active.filter(s=>s.cohort==='advanced').length;
+    const avgAcc=active.length?Math.round(active.reduce((sum,s)=>sum+num(s.last_accuracy),0)/active.length):0;
+    const avgScore=active.length?Math.round(active.reduce((sum,s)=>sum+num(s.last_score),0)/active.length):0;
+    return {code:code||$('weeklyCodeInput').value||'-',section:section||$('weeklySectionInput').value||'-',sessions,terms,active,missing,weak,need,review,advanced,avgAcc,avgScore,roster};
+  }
+  function renderWeekly(force){if(!raw&&!force)return;weekly=buildWeeklyModel();$('weeklyKpiGrid').innerHTML=`<div class="kpi good"><b>${weekly.active.length}</b><span>Active This Week</span></div><div class="kpi danger"><b>${weekly.missing.length}</b><span>Missing / Inactive</span></div><div class="kpi warn"><b>${weekly.need+weekly.review}</b><span>Need Support</span></div><div class="kpi violet"><b>${weekly.avgAcc}%</b><span>Avg Accuracy</span></div>`;$('weeklyWeakTable').innerHTML=table(['term','wrong','students','top_stage','recommendation'],weekly.weak.slice(0,10));$('weeklyMissingBox').innerHTML=weekly.missing.length?`<div class="table-wrap"><table>${table(['student_id','display_name','section','email'],weekly.missing.slice(0,100))}</table></div>`:'<div class="empty">ไม่พบผู้เรียนที่ขาดข้อมูลในช่วงนี้</div>';$('weeklyCohortBox').innerHTML=`<div class="student-mini"><b>Need Help</b><span class="tag red">${weekly.need}</span></div><div class="student-mini"><b>Needs Review</b><span class="tag amber">${weekly.review}</span></div><div class="student-mini"><b>On Track</b><span class="tag green">${Math.max(0,weekly.active.length-weekly.need-weekly.review-weekly.advanced)}</span></div><div class="student-mini"><b>Advanced</b><span class="tag violet">${weekly.advanced}</span></div>`;const topTerms=weekly.weak.slice(0,3).map(w=>w.term).join(', ')||'-';$('weeklyTeachBox').innerHTML=`<b>Weekly Teaching Plan</b><p>ควรทบทวนคำ: <b>${esc(topTerms)}</b><br>${esc(weekly.weak[0]?.recommendation||'ยังไม่มีข้อมูล weak terms')}<br>แนะนำ: แบ่งกลุ่ม Need Help ทำ Weak Rescue, กลุ่ม On Track ทำ Debug Mission, กลุ่ม Advanced ทำ Boss Rush</p>`;$('weeklyReportBox').value=buildWeeklyText(weekly);}
+  function buildWeeklyText(w){const weak=w.weak.slice(0,5).map(x=>`${x.term}(${x.wrong})`).join(', ')||'-';const missing=w.missing.slice(0,20).map(x=>`${x.display_name||x.student_id}`).join(', ')||'-';return `Weekly Vocab Report\nReport code: ${$('weeklyCodeInput').value||'-'}\nSection: ${$('weeklySectionInput').value||'All'}\nSession filter: ${$('weeklySessionContains').value||'-'}\nPeriod: ${$('weeklyStartDate').value||'-'} to ${$('weeklyEndDate').value||'-'}\n\nActive students: ${w.active.length}\nMissing / inactive: ${w.missing.length}\nAvg score: ${w.avgScore}\nAvg accuracy: ${w.avgAcc}%\nNeed Help: ${w.need}\nNeeds Review: ${w.review}\nAdvanced: ${w.advanced}\n\nTop weak terms: ${weak}\nMissing students: ${missing}\n\nNext teaching move:\n${w.weak[0]?.recommendation||'-'}\n\nSuggested grouping:\n- Need Help: Weak Rescue + teacher-guided review\n- Needs Review: Debug Mission Normal\n- On Track: Boss Battle Hard\n- Advanced: Boss Rush Challenge\n\nGenerated: ${new Date().toLocaleString('th-TH')}`;}
 
-    <section class="two">
-      <section class="card">
-        <h2>Production Classroom Checklist</h2>
-        <div id="checklistBox">
-          <span class="pill good">✓ Section 101</span>
-          <span class="pill good">✓ Class ID 101</span>
-          <span class="pill good">✓ Apps Script URL</span>
-          <span class="pill good">✓ Accuracy: correct/total</span>
-          <span class="pill warn">S6 เปิดใน Phase 2</span>
-        </div>
-      </section>
-      <section class="card">
-        <h2>Google Sheets Status</h2>
-        <div id="sheetBox" class="loading">กำลังตรวจ Google Sheets...</div>
-      </section>
-    </section>
-  </main>
 
-  <div class="modal" id="detailModal">
-    <div class="modal-panel">
-      <button class="btn right" id="closeDetail">ปิด</button>
-      <h2>Student Detail</h2>
-      <div id="detailBox">-</div>
-    </div>
-  </div>
+  function buildFeedbackModel(){
+    const cohort=$('feedbackCohort').value||'need_help';
+    const section=String($('feedbackSection').value||'').trim().toLowerCase();
+    let students=model.students.filter(s=>s.sessions>0);
+    if(section)students=students.filter(s=>String(s.section||'').toLowerCase().includes(section));
+    if(cohort==='need_help_review')students=students.filter(s=>s.cohort==='need_help'||s.cohort==='review');
+    else if(cohort!=='all')students=students.filter(s=>s.cohort===cohort);
+    students.sort((a,b)=>b.risk-a.risk);
+    const rows=students.map(s=>{
+      const weak=studentWeakTerms(s).slice(0,3);
+      const weakText=weak.map(x=>x.term).join(', ')||'-';
+      const next=recommendStudentNextPractice(s,weak);
+      return {cohort:s.cohort,display_name:s.display_name,student_id:s.student_id,section:s.section,accuracy:num(s.last_accuracy),ai_help_used:num(s.ai_help_used),weak_terms:weakText,next_practice:next,feedback:buildStudentFeedbackText(s,weak,next)};
+    });
+    const groupWeak=model.weakTerms.slice(0,5).map(x=>x.term).join(', ')||'-';
+    return {cohort,section,rows,groupWeak};
+  }
+  function studentWeakTerms(s){
+    const key=studentKey(s);
+    const map={};
+    (model.terms||[]).forEach(r=>{
+      if(studentKey(r)!==key)return;
+      if(isCorrect(r.is_correct))return;
+      const term=clean(r.term||r.term_id);if(!term)return;
+      if(!map[term])map[term]={term,wrong:0,selected:{},slow:0,ai:0};
+      map[term].wrong++;
+      const selected=clean(r.selected||r.answer||'-');
+      map[term].selected[selected]=(map[term].selected[selected]||0)+1;
+      if(num(r.response_ms)>=8000)map[term].slow++;
+      if(num(r.ai_help_used_on_question)>0)map[term].ai++;
+    });
+    return Object.values(map).sort((a,b)=>b.wrong-a.wrong);
+  }
+  function recommendStudentNextPractice(s,weak){
+    const acc=num(s.last_accuracy), ai=num(s.ai_help_used);
+    const terms=(weak||[]).map(x=>String(x.term||'').toLowerCase()).join(' ');
+    if(acc<60)return 'Weak Rescue + AI Training Easy/Normal';
+    if(ai>=2)return 'AI Training Normal แบบลด AI Help ทีละรอบ';
+    if(terms.includes('library')||terms.includes('package')||terms.includes('framework'))return 'Debug Mission: library/package/framework';
+    if(terms.includes('dataset')||terms.includes('model'))return 'Data/AI Context Practice';
+    if(acc>=90&&ai===0)return 'Boss Rush Challenge';
+    return 'Debug Mission Normal → Boss Battle Hard';
+  }
+  function buildStudentFeedbackText(s,weak,next){
+    const tone=$('feedbackTone').value||'supportive';
+    const weakText=(weak||[]).map(x=>x.term).join(', ')||'ยังไม่พบคำที่พลาดซ้ำ';
+    if(tone==='short')return `${s.display_name}: Accuracy ${pct(s.last_accuracy)} | Weak: ${weakText} | Next: ${next}`;
+    if(tone==='formal')return `เรียน ${s.display_name}\nผลการฝึกศัพท์ล่าสุด: Accuracy ${pct(s.last_accuracy)}, Score ${num(s.last_score)}\nคำที่ควรทบทวน: ${weakText}\nข้อเสนอแนะ: ${next}\n`;
+    return `คุณ ${s.display_name} ทำกิจกรรมแล้ว คะแนนล่าสุด ${num(s.last_score)} และความถูกต้อง ${pct(s.last_accuracy)}\nคำที่ควรทบทวน: ${weakText}\nแนะนำรอบต่อไป: ${next}\nพยายามตอบด้วยตนเองก่อนใช้ AI Help เพื่อเพิ่มความคล่องค่ะ`;
+  }
+  function renderFeedback(force){
+    if(!model.students.length&&!force)return;
+    feedback=buildFeedbackModel();
+    const top=feedback.rows.slice(0,25);
+    $('feedbackTable').innerHTML=table(['cohort','display_name','student_id','section','accuracy','ai_help_used','weak_terms','next_practice'],top.map(r=>({...r,cohort:cohortTag(r.cohort)})));
+    const groupTitle={need_help:'Need Help',review:'Needs Review',need_help_review:'Need Help + Review',on_track:'On Track',advanced:'Advanced',all:'All Active'}[feedback.cohort]||feedback.cohort;
+    $('feedbackActionBox').innerHTML=`<b>${esc(groupTitle)}</b><p>พบ ${feedback.rows.length} คนในกลุ่มนี้<br>คำอ่อนภาพรวม: <b>${esc(feedback.groupWeak)}</b><br>แนวทาง: ส่ง feedback รายคน + จัดกิจกรรมกลุ่มตาม next practice</p>`;
+    $('feedbackBox').value=buildGroupFeedbackText(feedback);
+  }
+  function buildGroupFeedbackText(f){
+    if(!f||!f.rows.length)return 'ยังไม่มีนักศึกษาในกลุ่มที่เลือก';
+    const lines=[];
+    lines.push(`Vocab Feedback • ${new Date().toLocaleString('th-TH')}`);
+    lines.push(`Target: ${f.cohort} ${f.section?`• Section ${f.section}`:''}`);
+    lines.push(`Class weak terms: ${f.groupWeak}`);
+    lines.push('');
+    f.rows.slice(0,40).forEach((r,i)=>{lines.push(`${i+1}. ${r.feedback}`);lines.push('');});
+    return lines.join('\n');
+  }
+  function exportFeedback(){
+    if(!feedback)renderFeedback(true);
+    const headers=['cohort','student_id','display_name','section','accuracy','ai_help_used','weak_terms','next_practice','feedback'];
+    const csv=[headers.join(','),...feedback.rows.map(r=>headers.map(h=>csvEscape(r[h])).join(','))].join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`vocab_feedback_${Date.now()}.csv`;a.click();URL.revokeObjectURL(a.href);
+  }
+  async function createFollowupRows(){
+    if(!feedback)renderFeedback(true);
+    const targets=feedback.rows.filter(r=>r.cohort==='need_help'||r.cohort==='review').slice(0,60);
+    if(!targets.length){setStatus('ไม่พบกลุ่มที่ต้อง follow-up');return;}
+    setStatus(`กำลังสร้าง follow-up ${targets.length} รายการ...`,true);
+    let ok=0;
+    for(const r of targets){
+      const payload={api:'vocab',source:'teacher_v99',schema:'teacher-followup-v99',action:'teacher_followup_save',payload:{followup_id:`FUP-${Date.now()}-${ok}`,student_id:r.student_id,display_name:r.display_name,section:r.section,risk_level:r.cohort,reason:`Accuracy ${r.accuracy}%, weak: ${r.weak_terms}, AI help: ${r.ai_help_used}`,teacher_action:r.next_practice,recommended_bank:'',recommended_mode:r.next_practice,status:'pending',teacher_note:r.feedback,created_by:'teacher.html v9.9'}};
+      try{const res=await postJson(payload);if(res.ok)ok++;}catch(e){console.warn(e);}
+    }
+    setStatus(`สร้าง follow-up สำเร็จ ${ok}/${targets.length} รายการ`);
+  }
 
-  <script>
-  window.AIQUEST_PAGE_ROLE = 'teacher';
-  window.AIQUEST_CONFIG = window.AIQUEST_CONFIG || {};
-  window.AIQUEST_TEACHER_ONLY_PAGE = true;
-  </script>
-  <script src="./js/aiquest-section-lock-v238.js"></script>
-  <script src="./js/aiquest-data-contract-v22.js"></script>
-  <script src="./js/aiquest-label-consistency-v346.js"></script>
-  <script src="./js/aiquest-teacher-accuracy-fix-v346.js"></script>
-  <script src="./js/aiquest-teacher-console-v346.js"></script>
-  <script src="./js/aiquest-student-detail-v346.js"></script>
-  <script src="./js/aiquest-production-v346.js"></script>
-  <script src="./js/aiquest-teacher-only-dashboard-v346.js"></script>
-</body>
-</html>
+  function table(headers,rows){if(!rows||!rows.length)return'<tbody><tr><td class="empty">ยังไม่มีข้อมูล</td></tr></tbody>';return`<thead><tr>${headers.map(h=>`<th>${esc(h.replace(/_/g,' '))}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${headers.map(h=>`<td>${String(r[h]??'').includes('<span')?r[h]:esc(r[h]??'')}</td>`).join('')}</tr>`).join('')}</tbody>`;}
+  function cohortTag(c){const cls=c==='need_help'?'red':c==='review'?'amber':c==='advanced'?'violet':c==='inactive'?'gray':'green';const txt={need_help:'Need Help',review:'Review',on_track:'On Track',advanced:'Advanced',inactive:'Inactive'}[c]||c;return`<span class="tag ${cls}">${txt}</span>`;}
+  function buildJoinLink(){const u=new URL(VOCAB_URL);u.searchParams.set('session_code',$('sessionCodeInput').value.trim()||`VOCAB-${new Date().toISOString().slice(0,10)}`);u.searchParams.set('section',$('sectionInput').value.trim());u.searchParams.set('bank',$('bankInput').value);u.searchParams.set('mode',$('modeInput').value);u.searchParams.set('difficulty',$('diffInput').value);u.searchParams.set('diff',$('diffInput').value);u.searchParams.set('time',$('timeInput').value);u.searchParams.set('api','vocab');u.searchParams.set('source','teacher_v99');$('joinLinkBox').value=u.toString();$('endSessionFilter').value=u.searchParams.get('session_code');$('endSectionFilter').value=u.searchParams.get('section')||'';$('weeklyCodeInput').value=$('weeklyCodeInput').value||u.searchParams.get('session_code');$('weeklySectionInput').value=$('weeklySectionInput').value||u.searchParams.get('section')||'';return u.toString();}
+  function copy(text){navigator.clipboard?.writeText(text).then(()=>setStatus('Copied')).catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();setStatus('Copied');});}
+  function copyMissing(){const list=model.missing.map(s=>`${s.student_id||''}\t${s.display_name||''}\t${s.section||''}\t${s.email||''}`).join('\n')||'No missing students';copy(list);}
+  function csvEscape(v){const s=String(v??'');return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
+  function exportWeekly(){if(!weekly)renderWeekly(true);const rows=[...weekly.active.map(s=>({type:'active',student_id:s.student_id,display_name:s.display_name,section:s.section,accuracy:s.last_accuracy,score:s.last_score,cohort:s.cohort})),...weekly.missing.map(s=>({type:'missing',student_id:s.student_id,display_name:s.display_name,section:s.section,accuracy:'',score:'',cohort:'missing'}))];const headers=['type','student_id','display_name','section','accuracy','score','cohort'];const csv=[headers.join(','),...rows.map(r=>headers.map(h=>csvEscape(r[h])).join(','))].join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`vocab_weekly_${Date.now()}.csv`;a.click();URL.revokeObjectURL(a.href);}
+  async function archiveReport(kind){try{if(!raw)await updateDashboard();if(kind==='weekly')renderWeekly(true);const payload={api:'vocab',source:'teacher_v99',schema:kind==='weekly'?'teacher-weekly-archive-v98':'teacher-archive-v98',action:'teacher_archive_save',payload:{archive_id:`ARCH-${Date.now()}`,session_code:kind==='weekly'?($('weeklyCodeInput').value||$('weeklySessionContains').value):($('endSessionFilter').value||$('sessionCodeInput').value),section:kind==='weekly'?$('weeklySectionInput').value:($('endSectionFilter').value||$('sectionInput').value),total_students:kind==='weekly'?weekly.roster.length:model.roster.length,active_students:kind==='weekly'?weekly.active.length:model.active.length,missing_students:kind==='weekly'?weekly.missing.length:model.missing.length,total_sessions:kind==='weekly'?weekly.sessions.length:model.sessions.length,total_answers:kind==='weekly'?weekly.terms.length:model.terms.length,avg_score:kind==='weekly'?weekly.avgScore:(model.active.length?Math.round(model.active.reduce((s,x)=>s+num(x.last_score),0)/model.active.length):0),avg_accuracy:kind==='weekly'?weekly.avgAcc:(model.active.length?Math.round(model.active.reduce((s,x)=>s+num(x.last_accuracy),0)/model.active.length):0),risk_count:kind==='weekly'?weekly.need:model.students.filter(s=>s.cohort==='need_help').length,support_count:kind==='weekly'?(weekly.need+weekly.review):model.students.filter(s=>s.cohort==='need_help'||s.cohort==='review').length,top_weak_terms_json:JSON.stringify(kind==='weekly'?weekly.weak.slice(0,10):model.weakTerms.slice(0,10)),summary_note:kind==='weekly'?$('weeklyReportBox').value:$('summaryBox').value,created_by:'teacher.html v9.9'}};setStatus('กำลังบันทึก archive...',true);const res=await postJson(payload);setStatus(res.ok?'บันทึก Archive Report แล้ว':'Archive อาจไม่สำเร็จ');}catch(e){setStatus(`Archive ไม่สำเร็จ: ${e.message}`);}}
+  function showTab(id){document.querySelectorAll('.section-panel').forEach(x=>x.classList.remove('show'));$(id).classList.add('show');document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));}
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab);});
+  $('startClassTabBtn').onclick=()=>showTab('startPanel');$('endClassTabBtn').onclick=()=>showTab('endPanel');$('weeklyTabBtn').onclick=()=>showTab('weeklyPanel');
+  $('buildLinkBtn').onclick=buildJoinLink;$('copyLinkBtn').onclick=()=>copy(buildJoinLink());$('copyLinkBtn2').onclick=()=>copy($('joinLinkBox').value||buildJoinLink());$('openGameBtn').onclick=()=>window.open($('joinLinkBox').value||buildJoinLink(),'_blank');
+  $('updateBtn').onclick=updateDashboard;$('endUpdateBtn').onclick=updateDashboard;$('refreshViewsBtn').onclick=async()=>{try{await refreshViews();}catch(e){setStatus(`refresh views ไม่สำเร็จ: ${e.message}`);}};$('openApiBtn').onclick=()=>window.open(endpoint('teacher_dashboard_get'),'_blank');$('saveEndpointBtn').onclick=()=>{localStorage.setItem(LS_ENDPOINT,$('endpointInput').value.trim());setStatus('Saved endpoint');};
+  $('copyEndSummaryBtn').onclick=()=>copy($('summaryBox').value);$('archiveBtn').onclick=()=>archiveReport('end');$('copyMissingBtn').onclick=copyMissing;
+  $('weeklyUpdateBtn').onclick=()=>{renderWeekly(true);showTab('weeklyPanel');};$('copyWeeklyBtn').onclick=()=>copy($('weeklyReportBox').value);$('archiveWeeklyBtn').onclick=()=>archiveReport('weekly');$('exportWeeklyBtn').onclick=exportWeekly;
+  $('feedbackTabBtn').onclick=()=>showTab('feedbackPanel');$('buildFeedbackBtn').onclick=()=>{renderFeedback(true);showTab('feedbackPanel');};$('copyFeedbackBtn').onclick=()=>copy($('feedbackBox').value);$('exportFeedbackBtn').onclick=exportFeedback;$('createFollowupBtn').onclick=createFollowupRows;
+  ['searchInput','cohortFilter','sortFilter'].forEach(id=>$(id).addEventListener('input',renderStudents));
+  ['feedbackCohort','feedbackSection','feedbackTone'].forEach(id=>$(id).addEventListener('input',()=>renderFeedback(true)));
+  const saved=localStorage.getItem(LS_ENDPOINT);if(saved)$('endpointInput').value=saved;
+  const today=new Date();const day=today.getDay()||7;const monday=new Date(today);monday.setDate(today.getDate()-day+1);const sunday=new Date(monday);sunday.setDate(monday.getDate()+6);$('weeklyStartDate').value=monday.toISOString().slice(0,10);$('weeklyEndDate').value=sunday.toISOString().slice(0,10);
+  buildJoinLink();updateDashboard();
+})();
+</script>
+            </body>
+          </html>
