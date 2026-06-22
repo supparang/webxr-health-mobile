@@ -1,3 +1,149 @@
-@media (max-width:900px){.mission-map{grid-template-columns:repeat(2,1fr)}.route-line{display:none}.hero{grid-template-columns:1fr}.stage-grid{grid-template-columns:1fr}.mock-screen{min-height:370px}.game-stage{min-height:auto}.how-to-play{grid-template-columns:1fr}.simulation-result{grid-template-columns:repeat(2,1fr)}}
-@media (max-width:620px){.app-shell{padding:12px 14px 34px}.topbar{align-items:flex-start}.player-chip{padding-right:7px}.player-copy,.dxp-pill{display:none}.hero{padding-top:18px}.hero h1{font-size:2.35rem}.skill-row{gap:6px}.skill-card{padding:9px}.mission-map{grid-template-columns:1fr}.mission-node,.boss-node{min-height:0}.map-heading{align-items:flex-start;flex-direction:column}.phase-rail{display:flex;overflow:auto;padding-bottom:3px}.phase{min-width:122px}.game-topbar{gap:8px}.game-hud{gap:4px}.hud-chip{font-size:.68rem;padding:7px}.mission-banner{padding-top:17px}.mission-banner .ghost-btn{padding:9px 10px;font-size:.75rem}.stage-card{padding:14px}.mock-screen{border-width:7px;min-height:360px}.mock-side-menu{width:105px;font-size:.62rem}.hs-menu{width:109px}.hs-mobile{width:160px}.hs-cta{left:48%;width:104px}.simulation-result{grid-template-columns:1fr 1fr}.summary-grid{grid-template-columns:1fr}.primary-btn,.ghost-btn,.choice-btn,.chip-btn{min-height:44px}.button-row{gap:6px}.stage-actions{align-items:stretch;flex-direction:column-reverse}.stage-actions>*{width:100%}}
-@media(max-width:760px){.ar-pilot{display:block}.ar-pilot .primary-btn{margin-top:15px}.mode-grid{grid-template-columns:1fr}.field-hero{display:block}.field-hero .ghost-btn{margin-top:14px}.field-rail{grid-template-columns:repeat(2,1fr)}.task-grid,.warroom-grid{grid-template-columns:1fr}.station-map{min-height:450px}.station-beacon{width:126px}.station-a{left:6%;top:35%}.station-b{right:5%;top:50%}.station-c{left:7%;bottom:7%}.station-d{right:7%;bottom:6%}.qr-grid{grid-template-columns:1fr}.qr-card{grid-template-columns:104px 1fr;gap:12px}.qr-card img{width:104px;height:104px}}
+@media (max-width:900px){
+  .case-layout{grid-template-columns:1fr}
+  .screen-card{order:-1}
+  .screen-shell{min-height:390px}
+  .mission-card,.screen-card{padding:22px}
+  .wide{padding:24px}
+  .phase{font-size:12px;padding:10px 6px}
+  .phase b{display:none}
+  .mission-banner{padding:22px}
+  .topbar{align-items:flex-start}
+  .top-hud{max-width:60%}
+}
+
+@media (max-width:640px){
+  .app-shell{
+    width:min(100% - 20px,1220px);
+    padding-top:12px
+  }
+
+  .topbar{
+    gap:10px;
+    flex-direction:column
+  }
+
+  .top-hud{
+    max-width:none;
+    width:100%;
+    justify-content:flex-start
+  }
+
+  .hud-pill,
+  .reset-btn{
+    font-size:12px;
+    padding:7px 9px
+  }
+
+  .brand-mark{
+    width:37px;
+    height:37px;
+    border-radius:12px
+  }
+
+  .mission-banner{
+    align-items:flex-start;
+    flex-direction:column;
+    padding:20px 18px
+  }
+
+  .mission-banner h1{font-size:32px}
+
+  .phase-rail{
+    overflow-x:auto;
+    padding-bottom:2px
+  }
+
+  .phase{
+    flex:0 0 auto;
+    white-space:nowrap
+  }
+
+  .case-layout{gap:12px}
+
+  .mission-card,
+  .screen-card{
+    border-radius:20px;
+    padding:18px
+  }
+
+  .wide{padding:20px}
+
+  .screen-shell{
+    border-width:7px;
+    border-radius:18px;
+    min-height:350px
+  }
+
+  .screen-top{
+    font-size:10px;
+    padding:0 11px
+  }
+
+  .screen-top span{display:none}
+
+  .screen-body{padding:17px}
+
+  .screen-body h3{font-size:20px}
+
+  .screen-body > p{
+    max-width:100%;
+    font-size:13px
+  }
+
+  .screen-canvas{gap:9px}
+
+  .suspect-zone{
+    min-height:84px;
+    padding:11px
+  }
+
+  .suspect-zone small{font-size:12px}
+
+  .suspect-zone > span,
+  .chip-stack span{
+    font-size:10px
+  }
+
+  .instruction-card{padding:12px}
+
+  .instruction-card p{font-size:13px}
+
+  .goal-card b{font-size:15px}
+
+  blockquote{font-size:15px}
+
+  .choice-grid,
+  .metric-grid,
+  .complete-metrics,
+  .launcher-points{
+    grid-template-columns:1fr
+  }
+
+  .metric-card{padding:13px}
+
+  .test-insight{
+    display:grid;
+    gap:4px
+  }
+
+  .test-insight b{min-width:0}
+
+  .stage-actions{width:100%}
+
+  .stage-actions .primary-btn{width:100%}
+
+  .complete-card{padding:34px 22px}
+
+  .launcher-card{
+    padding:36px 22px;
+    border-radius:25px
+  }
+
+  .launcher-points{gap:8px}
+
+  .modal-dialog{padding:25px 20px}
+
+  .evidence-detail{font-size:13px}
+
+  .question-title{font-size:18px}
+}
