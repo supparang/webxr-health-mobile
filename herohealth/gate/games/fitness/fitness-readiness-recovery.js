@@ -1,10 +1,10 @@
 // === /herohealth/gate/games/fitness/fitness-readiness-recovery.js ===
-// FULL MODULE v20260622-FITNESS-READINESS-RECOVERY-REAL-CAMERA-V13
+// FULL MODULE v20260622-FITNESS-READINESS-RECOVERY-BEAT-READY-FIX-V14
 // Full replacement: Fitness Gate warmup/cooldown with MediaPipe Pose + preview canvas.
 // The preview canvas draws camera frames directly, avoiding black <video> rendering
 // in some Chrome/WebXR environments.
 
-const PATCH = 'v20260622-FITNESS-READINESS-RECOVERY-REAL-CAMERA-V13';
+const PATCH = 'v20260622-FITNESS-READINESS-RECOVERY-BEAT-READY-FIX-V14';
 
 const MP = {
   module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs',
@@ -55,7 +55,7 @@ function taskList(game, phase, duration){
     if(game==='jump-duck') return [safety,{id:'stance',type:'stance',title:'Leg Recovery',cue:'ยืนมั่นคง ผ่อนหัวไหล่และเข่า',target:hold+1,unit:'วิ'},{id:'reach',type:'reach',title:'Side Stretch',cue:'ยืดลำตัวซ้าย–ขวาช้า ๆ',target:2,unit:'ด้าน',hold}];
     return [safety,{id:'cross',type:'cross',title:'Shoulder Stretch',cue:'พาดแขนข้ามลำตัว ค้างสลับสองข้าง',target:2,unit:'ด้าน',hold},{id:'breath',type:'breath',title:'Calm Breath',cue:'หายใจช้า ๆ ตามวงแสง',target:clamp(7*scale,5,10),unit:'วิ'}];
   }
-  if(game==='rhythm-boxer') return [safety,{id:'arms',type:'arms',title:'Activate Arms',cue:'เปิดแขนหรือยกมือสลับซ้าย–ขวา',target:reps,unit:'ครั้ง'},{id:'punch',type:'punch',title:'Beat Ready',cue:'ชกช้า ๆ สลับซ้าย–ขวาอย่างคุมแรง',target:reps+2,unit:'ครั้ง'}];
+  if(game==='rhythm-boxer') return [safety,{id:'arms',type:'arms',title:'Activate Arms',cue:'เปิดแขนหรือยกมือสลับซ้าย–ขวา',target:reps,unit:'ครั้ง'},{id:'punch',type:'punch',title:'Beat Ready',cue:'ชกช้า ๆ สลับซ้าย–ขวา โดยยื่นมือออกจากลำตัวและไม่ต้องเหยียดศอกสุด',target:reps+2,unit:'ครั้ง'}];
   if(game==='shadow-breaker') return [safety,{id:'arms',type:'arms',title:'Activate Arms',cue:'เปิดแขนสลับซ้าย–ขวา',target:reps,unit:'ครั้ง'},{id:'punch',type:'punch',title:'Punch Ready',cue:'ยกการ์ดแล้วชกช้า ๆ สลับแขน',target:reps,unit:'ครั้ง'}];
   if(game==='jump-duck') return [safety,{id:'march',type:'march',title:'Activate Legs',cue:'ยกเข่าหรือย่ำเท้าสลับเบา ๆ',target:reps,unit:'ครั้ง'},{id:'duck',type:'duck',title:'Duck Ready',cue:'ย่อเข่าเล็กน้อยแล้วกลับขึ้นตรง',target:Math.max(3,Math.round(4*scale)),unit:'ครั้ง'}];
   return [safety,{id:'shift',type:'shift',title:'Balance Ready',cue:'ถ่ายน้ำหนักซ้าย–ขวาช้า ๆ',target:reps,unit:'ครั้ง'},{id:'stance',type:'stance',title:'Posture Check',cue:'ยืนสองเท้า ลำตัวตั้งตรงและนิ่ง',target:hold,unit:'วิ'}];
@@ -134,7 +134,8 @@ export async function mount(stage, ctx, api){
   const root=stage.querySelector('[data-root]'), video=root.querySelector('[data-video]'), preview=root.querySelector('[data-preview]'), canvas=root.querySelector('[data-canvas]');
   const q=s=>root.querySelector(s);
   const refs={empty:q('[data-empty]'),status:q('[data-status]'),start:q('[data-start]'),guided:q('[data-guided]'),retry:q('[data-retry]'),exit:q('[data-exit]'),engine:q('[data-engine]')};
-  let running=false,destroyed=false,guided=false,done=false,stream=null,landmarker=null,vision=null,module=null,raf=0,last=0,index=0,lastSide='',cooldown=0,hold=0,reps=0,sides=new Set(),baseline=null,poseQuality=[],valid=0,frames=0;
+  let running=false,destroyed=false,guided=false,done=false,stream=null,landmarker=null,vision=null,module=null,raf=0,last=0,index=0,lastSide='',cooldown=0,hold=0,reps=0,sides=new Set(),baseline=null,poseQuality=[],valid=0,frames=0,
+    previousWrist={L:null,R:null};
 
   function task(){return tasks[index];}
   function set(sel,val){const n=q(sel);if(n)n.textContent=val;}
@@ -155,7 +156,7 @@ export async function mount(stage, ctx, api){
     set('[data-step]',detail);set('[data-value]',`${t.unit==='วิ'?progress.toFixed(1):Math.round(progress)} / ${target} ${t.unit}`);bar('[data-bar]',r);
   }
   function next(){
-    index++;lastSide='';hold=0;reps=0;sides=new Set();baseline=null;
+    index++;lastSide='';hold=0;reps=0;sides=new Set();baseline=null;previousWrist={L:null,R:null};
     if(index>=tasks.length){finish();return;} update(null);step(0,task().target,'เริ่มทำท่าตามคำแนะนำ');
   }
   function completeTask(result){step(result.progress,result.target,result.detail);if(result.progress>=result.target)setTimeout(next,320);}
@@ -166,11 +167,60 @@ export async function mount(stage, ctx, api){
     const sm=mid(ls,rs),hm=mid(lh,rh), sw=dist(ls,rs)||.001; let prog=0,detail='';
     if(t.type==='safety'||t.type==='stance'||t.type==='breath'){const stable=ready;hold=stable?hold+dt:0;prog=hold;detail=stable?'ลำตัวนิ่งและอยู่ในกรอบ':'จัดตัวให้อยู่กลางกรอบ';}
     else if(t.type==='arms'||t.type==='punch'){
-      const left=lw&&le&&angle(ls,le,lw)>135&&dist(ls,lw)>sw*1.05;
-      const right=rw&&re&&angle(rs,re,rw)>135&&dist(rs,rw)>sw*1.05;
-      const side=left?'L':right?'R':'';
-      if(ready&&side&&side!==lastSide&&time>cooldown){reps++;lastSide=side;cooldown=time+(t.type==='punch'?360:270);}
-      prog=reps;detail=`${reps}/${t.target} สลับแขน`;
+      /*
+        Classroom-tolerant beat/punch detector:
+        counts a deliberate alternating hand extension or a forward/down-to-up
+        wrist movement. It does not require a perfect straight elbow, because
+        children often keep a soft elbow for safety.
+      */
+      const wristMotion = (side, wrist) => {
+        if(!wrist) return 0;
+        const before = previousWrist[side];
+        previousWrist[side] = { x:wrist.x, y:wrist.y, at:time };
+        if(!before) return 0;
+        return Math.hypot(wrist.x-before.x, wrist.y-before.y);
+      };
+
+      const leftMotion = wristMotion('L', lw);
+      const rightMotion = wristMotion('R', rw);
+
+      const leftExtension = lw && ls && (
+        dist(ls,lw) > sw*0.88 ||
+        Math.abs(lw.x-ls.x) > sw*0.72 ||
+        lw.y < (ls.y||1)-0.04
+      );
+      const rightExtension = rw && rs && (
+        dist(rs,rw) > sw*0.88 ||
+        Math.abs(rw.x-rs.x) > sw*0.72 ||
+        rw.y < (rs.y||1)-0.04
+      );
+
+      const leftElbowSafe = !le || angle(ls,le,lw) > 105;
+      const rightElbowSafe = !re || angle(rs,re,rw) > 105;
+      const moveThreshold = t.type==='punch' ? 0.030 : 0.024;
+
+      const left = !!(lw && leftElbowSafe && leftExtension && leftMotion >= moveThreshold);
+      const right = !!(rw && rightElbowSafe && rightExtension && rightMotion >= moveThreshold);
+
+      let side='';
+      if(left && right) {
+        side = leftMotion >= rightMotion ? 'L' : 'R';
+      } else if(left) {
+        side='L';
+      } else if(right) {
+        side='R';
+      }
+
+      if(ready && side && side!==lastSide && time>cooldown){
+        reps++;
+        lastSide=side;
+        cooldown=time+(t.type==='punch'?290:230);
+      }
+
+      prog=reps;
+      detail = reps
+        ? `${reps}/${t.target} หมัดสลับ`
+        : 'เริ่มชกช้า ๆ สลับซ้าย–ขวา โดยยื่นมือออกจากลำตัว';
     } else if(t.type==='march'||t.type==='duck'||t.type==='shift'){
       const center=hm?hm.x:.5;if(baseline==null)baseline=center;baseline=baseline*.99+center*.01;
       let side='';if(t.type==='march'&&la&&ra){side=Math.abs(la.y-ra.y)>.035?(la.y>ra.y?'L':'R'):'';} else if(t.type==='duck'&&sm&&hm){side=(sm.y-hm.y)>.17?'D':'';} else side=Math.abs(center-baseline)>sw*.3?(center>baseline?'R':'L'):'';
@@ -210,7 +260,7 @@ export async function mount(stage, ctx, api){
     }catch(e){console.warn('[FRR] start failed',e);refs.start.hidden=true;refs.guided.hidden=false;refs.retry.hidden=false;refs.status.textContent='เปิดกล้องไม่สำเร็จ';refs.engine.textContent='Camera unavailable: '+clean(e&&e.message||e);update(null);}
     finally{refs.start.disabled=false;if(!refs.start.hidden)refs.start.textContent='📷 เปิดกล้องและเริ่ม';}
   }
-  function retry(){stop();guided=false;done=false;index=0;lastSide='';hold=0;reps=0;sides=new Set();baseline=null;poseQuality=[];valid=0;frames=0;q('[data-confirm]')&&q('[data-confirm]').remove();refs.empty.hidden=false;refs.empty.innerHTML='<div class="frr-camera-empty-icon">📷</div><strong>พร้อมตรวจท่าทาง</strong><span>กดเปิดกล้องแล้วจัดตัวให้อยู่ในกรอบ</span>';refs.start.hidden=false;refs.guided.hidden=true;refs.retry.hidden=true;refs.status.textContent='กล้องยังไม่เริ่ม';refs.engine.textContent='Engine: camera + Pose ready';update(null);}
+  function retry(){stop();guided=false;done=false;index=0;lastSide='';hold=0;reps=0;sides=new Set();baseline=null;previousWrist={L:null,R:null};poseQuality=[];valid=0;frames=0;q('[data-confirm]')&&q('[data-confirm]').remove();refs.empty.hidden=false;refs.empty.innerHTML='<div class="frr-camera-empty-icon">📷</div><strong>พร้อมตรวจท่าทาง</strong><span>กดเปิดกล้องแล้วจัดตัวให้อยู่ในกรอบ</span>';refs.start.hidden=false;refs.guided.hidden=true;refs.retry.hidden=true;refs.status.textContent='กล้องยังไม่เริ่ม';refs.engine.textContent='Engine: camera + Pose ready';update(null);}
   refs.start.onclick=start;refs.guided.onclick=()=>guidedMode('ผู้เรียนเลือกใช้โหมดทำตามคำแนะนำ');refs.retry.onclick=retry;refs.exit.onclick=()=>{stop();api.goHub();};update(null);
   return ()=>{destroyed=true;stop();try{stage.innerHTML='';}catch(_){}};
 }
