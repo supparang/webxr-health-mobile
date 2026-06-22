@@ -1,6 +1,6 @@
 // === /sgnal-hunt/js/uxq-w1.js ===
 // UX Quest • W1 UX Detective
-// V5 — Tutorial + Random Replay + Challenge + Progress Memory
+// V6 — Tutorial + 60-core Replay Scheduler + 720 Scenario Variants + Transfer Challenge
 // Mobile-first Case Investigation
 
 (function () {
@@ -10,49 +10,64 @@
     ? window.UXQ_W1_CASE_BANK
     : [];
 
-  const FIRST_RUN = Array.isArray(window.UXQ_W1_FIRST_RUN)
-    ? window.UXQ_W1_FIRST_RUN
-    : (Array.isArray(window.UXQ_W1_CASES) ? window.UXQ_W1_CASES : []);
+  const TUTORIAL_CASES = Array.isArray(window.UXQ_W1_TUTORIAL_CASES)
+    ? window.UXQ_W1_TUTORIAL_CASES
+    : [];
 
+  const REPLAY_CORES = Array.isArray(window.UXQ_W1_REPLAY_CORE_CASES)
+    ? window.UXQ_W1_REPLAY_CORE_CASES
+    : [];
+
+  const REPLAY_SCENARIOS = Array.isArray(window.UXQ_W1_REPLAY_SCENARIOS)
+    ? window.UXQ_W1_REPLAY_SCENARIOS
+    : [];
+
+  const SKILL_META = window.UXQ_W1_SKILL_META || {};
   const ROUND_SIZE = 5;
-  const SESSION_KEY = 'uxquest-w1-session-v5';
-  const PROGRESS_KEY = 'uxquest-w1-progress-v5';
-  const LEGACY_SESSION_KEY = 'uxquest-w1-case-investigation-v4';
+  const SESSION_KEY = 'uxquest-w1-session-v6';
+  const PROGRESS_KEY = 'uxquest-w1-progress-v6';
+  const LEGACY_KEYS = [
+    'uxquest-w1-session-v5',
+    'uxquest-w1-progress-v5',
+    'uxquest-w1-case-investigation-v4'
+  ];
 
   const MODE_META = {
     tutorial: {
       short: 'Tutorial',
       label: 'First Run Tutorial',
       title: 'Tutorial Run',
-      description: '5 เคสเรียงลำดับเพื่อฝึกวิธีคิด User Goal → UX Impact → Design Fix',
-      badge: 'FOUNDATION'
+      badge: 'FOUNDATION',
+      icon: '◎',
+      description: '5 เคสเรียงลำดับเพื่อฝึก User Goal → UX Impact → Design Fix'
     },
     replay: {
       short: 'Replay',
       label: 'Random Replay',
       title: 'Random Replay',
-      description: 'สุ่ม 5 เคสจากคลัง 36 เคส โดยพยายามไม่ซ้ำกับ 2 รอบล่าสุด',
-      badge: 'PRACTICE'
+      badge: 'PRACTICE',
+      icon: '↻',
+      description: 'สุ่ม 5 เคสจาก 60 Core Cases โดยไม่ซ้ำ Core Case จนครบ 12 รอบ'
     },
     challenge: {
       short: 'Challenge',
       label: 'Transfer Challenge',
       title: 'Transfer Challenge',
-      description: 'เคสต่างบริบทเพื่อพิสูจน์ว่าเข้าใจหลัก ไม่ได้จำเฉลย',
-      badge: 'MASTERY'
+      badge: 'MASTERY',
+      icon: '⚡',
+      description: 'ใช้หลัก UX กับบริบทใหม่ โดยไม่มี Principle Hint ระหว่าง Retry'
     }
   };
 
-  const FAMILY_META = {
-    'entry-navigation': 'Entry & Navigation',
-    'information-label': 'Information Label',
-    'cta-action-clarity': 'CTA Clarity',
-    'feedback-system-status': 'Feedback & Status',
-    'information-priority': 'Information Priority',
-    'confirmation-predictability': 'Confirmation'
-  };
-
   const CASE_BY_ID = new Map(CASE_BANK.map((item) => [item.id, item]));
+  const SCENARIOS_BY_CORE = new Map();
+
+  REPLAY_SCENARIOS.forEach((scenario) => {
+    const existing = SCENARIOS_BY_CORE.get(scenario.coreId) || [];
+    existing.push(scenario);
+    SCENARIOS_BY_CORE.set(scenario.coreId, existing);
+  });
+
   const $ = (selector) => document.querySelector(selector);
 
   const stage = $('#gameStage');
@@ -63,9 +78,17 @@
   let progress = freshProgress();
   let state = freshState();
 
+  function freshReplayCycle() {
+    return {
+      number: 1,
+      seenCoreIds: [],
+      familyCounts: {}
+    };
+  }
+
   function freshProgress() {
     return {
-      version: 5,
+      version: 6,
       tutorialComplete: false,
       tutorialBestStars: 0,
       bestStars: 0,
@@ -73,18 +96,21 @@
       totalRounds: 0,
       replayWins: 0,
       challengeWins: 0,
-      roundHistory: [],
+      replayCycle: freshReplayCycle(),
+      scenarioUsage: {},
       caseStats: {},
       familyStats: {},
+      roundHistory: [],
       lastUpdated: null
     };
   }
 
   function freshState() {
     return {
-      version: 5,
+      version: 6,
       mode: null,
       caseIds: [],
+      coreIds: [],
       caseVariants: {},
       caseIndex: 0,
       step: 0,
@@ -102,16 +128,16 @@
     };
   }
 
+  function safeParse(raw, fallback) {
+    try {
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
-  }
-
-  function current() {
-    return CASE_BY_ID.get(state.caseIds[state.caseIndex]) || null;
-  }
-
-  function currentMode() {
-    return MODE_META[state.mode] || MODE_META.tutorial;
   }
 
   function escapeHtml(input) {
@@ -124,12 +150,27 @@
     }[character]));
   }
 
-  function safeParse(raw, fallback) {
-    try {
-      return raw ? JSON.parse(raw) : fallback;
-    } catch (error) {
-      return fallback;
+  function shuffle(items) {
+    const clone = [...items];
+
+    for (let index = clone.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(Math.random() * (index + 1));
+      [clone[index], clone[target]] = [clone[target], clone[index]];
     }
+
+    return clone;
+  }
+
+  function unique(items) {
+    return [...new Set(items)];
+  }
+
+  function current() {
+    return CASE_BY_ID.get(state.caseIds[state.caseIndex]) || null;
+  }
+
+  function currentMode() {
+    return MODE_META[state.mode] || MODE_META.tutorial;
   }
 
   function saveProgress() {
@@ -159,107 +200,83 @@
   }
 
   function loadProgress() {
-    try {
-      const saved = safeParse(localStorage.getItem(PROGRESS_KEY), null);
+    const saved = safeParse(localStorage.getItem(PROGRESS_KEY), null);
 
-      if (saved && typeof saved === 'object') {
-        progress = {
-          ...freshProgress(),
-          ...saved,
-          caseStats: saved.caseStats || {},
-          familyStats: saved.familyStats || {},
-          roundHistory: Array.isArray(saved.roundHistory)
-            ? saved.roundHistory
-            : []
-        };
-      }
-    } catch (error) {
-      console.warn('Could not load UX Quest progress.', error);
-    }
-  }
-
-  function migrateLegacySession() {
-    const legacy = safeParse(localStorage.getItem(LEGACY_SESSION_KEY), null);
-
-    if (!legacy || legacy.complete || typeof legacy.caseIndex !== 'number') {
-      return null;
+    if (!saved || typeof saved !== 'object') {
+      return;
     }
 
-    return {
-      ...freshState(),
-      mode: 'tutorial',
-      caseIds: FIRST_RUN.map((item) => item.id),
-      caseVariants: buildCaseVariants(FIRST_RUN.map((item) => item.id)),
-      caseIndex: clamp(
-        legacy.caseIndex,
-        0,
-        Math.max(FIRST_RUN.length - 1, 0)
-      ),
-      step: clamp(legacy.step || 0, 0, 4),
-      score: Number(legacy.score) || 0,
-      stability: clamp(Number(legacy.stability) || 100, 0, 100),
-      selectedSuspect: legacy.selectedSuspect || null,
-      selectedDiagnosis: legacy.selectedDiagnosis || null,
-      selectedFix: legacy.selectedFix || null,
-      selectedExplain: Array.isArray(legacy.selectedExplain)
-        ? legacy.selectedExplain
-        : [],
-      attempts: Number(legacy.attempts) || 0,
-      answered: Array.isArray(legacy.answered) ? legacy.answered : [],
-      startedAt: legacy.startedAt || Date.now()
+    progress = {
+      ...freshProgress(),
+      ...saved,
+      replayCycle: {
+        ...freshReplayCycle(),
+        ...(saved.replayCycle || {})
+      },
+      scenarioUsage: saved.scenarioUsage || {},
+      caseStats: saved.caseStats || {},
+      familyStats: saved.familyStats || {},
+      roundHistory: Array.isArray(saved.roundHistory)
+        ? saved.roundHistory
+        : []
     };
   }
 
   function loadSession() {
-    try {
-      const saved = safeParse(localStorage.getItem(SESSION_KEY), null);
+    const saved = safeParse(localStorage.getItem(SESSION_KEY), null);
 
-      if (
-        saved &&
-        saved.mode &&
-        Array.isArray(saved.caseIds) &&
-        saved.caseIds.length
-      ) {
-        const validIds = saved.caseIds.filter((id) => CASE_BY_ID.has(id));
-
-        if (validIds.length) {
-          state = {
-            ...freshState(),
-            ...saved,
-            caseIds: validIds,
-            caseVariants: saved.caseVariants || buildCaseVariants(validIds),
-            caseIndex: clamp(
-              Number(saved.caseIndex) || 0,
-              0,
-              Math.max(validIds.length - 1, 0)
-            ),
-            step: clamp(Number(saved.step) || 0, 0, 4),
-            selectedExplain: Array.isArray(saved.selectedExplain)
-              ? saved.selectedExplain
-              : [],
-            answered: Array.isArray(saved.answered)
-              ? saved.answered
-              : []
-          };
-
-          return;
-        }
-      }
-
-      const legacy = migrateLegacySession();
-
-      if (legacy) {
-        state = legacy;
-        saveSession();
-      }
-    } catch (error) {
-      console.warn('Could not load UX Quest session.', error);
+    if (
+      !saved ||
+      !saved.mode ||
+      !Array.isArray(saved.caseIds) ||
+      !saved.caseIds.length
+    ) {
+      return;
     }
+
+    const validCaseIds = saved.caseIds.filter((id) => CASE_BY_ID.has(id));
+
+    if (!validCaseIds.length) {
+      clearSession();
+      return;
+    }
+
+    state = {
+      ...freshState(),
+      ...saved,
+      caseIds: validCaseIds,
+      coreIds: Array.isArray(saved.coreIds)
+        ? saved.coreIds
+        : validCaseIds.map((id) => CASE_BY_ID.get(id).coreId),
+      caseVariants: saved.caseVariants || buildCaseVariants(validCaseIds),
+      caseIndex: clamp(
+        Number(saved.caseIndex) || 0,
+        0,
+        Math.max(validCaseIds.length - 1, 0)
+      ),
+      step: clamp(Number(saved.step) || 0, 0, 4),
+      selectedExplain: Array.isArray(saved.selectedExplain)
+        ? saved.selectedExplain
+        : [],
+      answered: Array.isArray(saved.answered)
+        ? saved.answered
+        : []
+    };
+  }
+
+  function clearLegacyData() {
+    LEGACY_KEYS.forEach((key) => {
+      try {
+        localStorage.removeItem(key);
+      } catch (error) {
+        // Optional cleanup only.
+      }
+    });
   }
 
   function resetAllW1() {
     const confirmed = confirm(
-      'ล้างความคืบหน้า W1 ทั้งหมด? Tutorial, ดาว, Replay และสถิติในเครื่องนี้จะถูกลบ'
+      'ล้างความคืบหน้า W1 ทั้งหมด? Tutorial, ดาว, Replay, Challenge และสถิติในเครื่องนี้จะถูกลบ'
     );
 
     if (!confirmed) {
@@ -272,49 +289,30 @@
     try {
       localStorage.removeItem(PROGRESS_KEY);
       localStorage.removeItem(SESSION_KEY);
-      localStorage.removeItem(LEGACY_SESSION_KEY);
     } catch (error) {
       console.warn('Could not reset UX Quest data.', error);
     }
 
+    clearLegacyData();
     render();
+    scrollToTop();
   }
 
-  function abandonRoundToModeSelect() {
-    if (!state.mode) {
-      return;
-    }
-
-    const confirmed = confirm(
-      'ออกจากรอบปัจจุบัน? ระบบจะเก็บเฉพาะประวัติที่เล่นจบแล้ว'
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+  function returnToModeSelect() {
     state = freshState();
     clearSession();
     render();
+    scrollToTop();
   }
 
-  function shuffle(items) {
-    const clone = [...items];
+  function leaveRound() {
+    const confirmed = confirm(
+      'ออกจากรอบปัจจุบัน? ระบบจะไม่บันทึกความคืบหน้าของรอบที่ยังเล่นไม่จบ'
+    );
 
-    for (let index = clone.length - 1; index > 0; index -= 1) {
-      const target = Math.floor(Math.random() * (index + 1));
-
-      [clone[index], clone[target]] = [
-        clone[target],
-        clone[index]
-      ];
+    if (confirmed) {
+      returnToModeSelect();
     }
-
-    return clone;
-  }
-
-  function unique(items) {
-    return [...new Set(items)];
   }
 
   function buildCaseVariants(caseIds) {
@@ -341,9 +339,9 @@
   }
 
   function currentVariant(caseData) {
-    if (!state.caseVariants || !state.caseVariants[caseData.id]) {
+    if (!state.caseVariants[caseData.id]) {
       state.caseVariants = {
-        ...(state.caseVariants || {}),
+        ...state.caseVariants,
         ...buildCaseVariants([caseData.id])
       };
 
@@ -353,9 +351,9 @@
     return state.caseVariants[caseData.id];
   }
 
-  function orderById(items, ids) {
-    const byId = new Map(items.map((item) => [item.id, item]));
-    const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
+  function orderByIds(items, ids) {
+    const lookup = new Map(items.map((item) => [item.id, item]));
+    const ordered = ids.map((id) => lookup.get(id)).filter(Boolean);
 
     return ordered.length === items.length ? ordered : items;
   }
@@ -363,7 +361,7 @@
   function orderedAreas(caseData) {
     const variant = currentVariant(caseData);
 
-    return orderById(caseData.screen.areas, variant.areaIds).map(
+    return orderByIds(caseData.screen.areas, variant.areaIds).map(
       (area, index) => ({
         ...area,
         label: ['A', 'B', 'C'][index] || String(index + 1)
@@ -372,120 +370,192 @@
   }
 
   function orderedDiagnosisOptions(caseData) {
-    const variant = currentVariant(caseData);
-
-    return orderById(
+    return orderByIds(
       caseData.diagnosis.options,
-      variant.diagnosisIds
+      currentVariant(caseData).diagnosisIds
     );
   }
 
   function orderedFixOptions(caseData) {
-    const variant = currentVariant(caseData);
-
-    return orderById(caseData.fixes, variant.fixIds);
+    return orderByIds(
+      caseData.fixes,
+      currentVariant(caseData).fixIds
+    );
   }
 
   function orderedExplainChoices(caseData) {
-    const variant = currentVariant(caseData);
-    const choices = variant.explainChoices || [];
+    const ordered = currentVariant(caseData).explainChoices || [];
 
-    return choices.length === caseData.explain.choices.length
-      ? choices
+    return ordered.length === caseData.explain.choices.length
+      ? ordered
       : caseData.explain.choices;
   }
 
-  function recentCaseIds() {
+  function familyQuality(skill) {
+    const record = progress.familyStats[skill];
+
+    return record && record.plays
+      ? record.totalQuality / record.plays
+      : 0;
+  }
+
+  function recentScenarioIds(mode, rounds = 6) {
     return unique(
       progress.roundHistory
-        .filter((round) => round.mode !== 'tutorial')
-        .slice(-2)
+        .filter((round) => round.mode === mode)
+        .slice(-rounds)
         .flatMap((round) => round.caseIds || [])
     );
   }
 
-  function familyAverage(skill) {
-    const family = progress.familyStats[skill];
-
-    if (!family || !family.plays) {
-      return 0;
-    }
-
-    return family.totalQuality / family.plays;
-  }
-
-  function buildRandomRound(mode) {
-    const allSkills = unique(CASE_BANK.map((item) => item.skill));
-    const recent = new Set(recentCaseIds());
-
-    let selectedSkills;
-
-    if (mode === 'challenge') {
-      const ranked = [...allSkills].sort(
-        (a, b) => familyAverage(a) - familyAverage(b)
-      );
-
-      const weakFirst = ranked.slice(0, 3);
-      const remaining = shuffle(ranked.slice(3));
-
-      selectedSkills = unique([
-        ...weakFirst,
-        ...remaining
-      ]).slice(0, ROUND_SIZE);
-    } else {
-      selectedSkills = shuffle(allSkills).slice(0, ROUND_SIZE);
-    }
-
-    const selected = [];
-
-    selectedSkills.forEach((skill) => {
-      const familyCases = CASE_BANK.filter(
-        (item) => item.skill === skill
-      );
-
-      const unseenRecently = familyCases.filter(
-        (item) =>
-          !recent.has(item.id) &&
-          !selected.includes(item.id)
-      );
-
-      const candidates = unseenRecently.length
-        ? unseenRecently
-        : familyCases.filter(
-          (item) => !selected.includes(item.id)
-        );
-
-      const picked = shuffle(candidates)[0];
-
-      if (picked) {
-        selected.push(picked.id);
-      }
-    });
-
-    if (selected.length < ROUND_SIZE) {
-      const fallback = shuffle(
-        CASE_BANK.filter(
-          (item) => !selected.includes(item.id)
-        )
-      );
-
-      fallback
-        .slice(0, ROUND_SIZE - selected.length)
-        .forEach((item) => selected.push(item.id));
-    }
-
-    return shuffle(selected).slice(0, ROUND_SIZE);
-  }
-
-  function challengeUnlocked() {
-    return (
-      progress.tutorialBestStars >= 2 ||
-      progress.replayWins >= 1
+  function recentChallengeCoreIds(rounds = 2) {
+    return unique(
+      progress.roundHistory
+        .filter((round) => round.mode === 'challenge')
+        .slice(-rounds)
+        .flatMap((round) => round.coreIds || [])
     );
   }
 
+  function ensureReplayCycle() {
+    const currentCycle = progress.replayCycle;
+    const seen = new Set(currentCycle.seenCoreIds || []);
+    const remaining = REPLAY_CORES.filter((core) => !seen.has(core.coreId));
+
+    if (remaining.length >= ROUND_SIZE) {
+      return remaining;
+    }
+
+    progress.replayCycle = {
+      number: (currentCycle.number || 1) + 1,
+      seenCoreIds: [],
+      familyCounts: {}
+    };
+
+    saveProgress();
+    return [...REPLAY_CORES];
+  }
+
+  function chooseBalancedSkills(availableCores, familyCounts, preferWeakness) {
+    const grouped = availableCores.reduce((groups, core) => {
+      groups[core.skill] = groups[core.skill] || [];
+      groups[core.skill].push(core);
+      return groups;
+    }, {});
+
+    const skills = Object.keys(grouped);
+    const selected = [];
+
+    while (selected.length < ROUND_SIZE && selected.length < skills.length) {
+      const candidates = skills.filter((skill) => !selected.includes(skill));
+
+      const sorted = candidates.sort((a, b) => {
+        const aCount = familyCounts[a] || 0;
+        const bCount = familyCounts[b] || 0;
+
+        if (aCount !== bCount) {
+          return aCount - bCount;
+        }
+
+        if (preferWeakness) {
+          return familyQuality(a) - familyQuality(b);
+        }
+
+        return Math.random() - 0.5;
+      });
+
+      selected.push(sorted[0]);
+    }
+
+    return selected;
+  }
+
+  function chooseScenarioForCore(coreId, mode) {
+    const all = SCENARIOS_BY_CORE.get(coreId) || [];
+    const recent = new Set(recentScenarioIds(mode, 6));
+    const used = new Set(progress.scenarioUsage[coreId] || []);
+
+    let candidates = all.filter(
+      (scenario) => !used.has(scenario.id) && !recent.has(scenario.id)
+    );
+
+    if (!candidates.length) {
+      candidates = all.filter((scenario) => !recent.has(scenario.id));
+    }
+
+    if (!candidates.length) {
+      candidates = all;
+    }
+
+    return shuffle(candidates)[0] || null;
+  }
+
+  function buildReplayRound() {
+    const availableCores = ensureReplayCycle();
+    const familyCounts = progress.replayCycle.familyCounts || {};
+    const skills = chooseBalancedSkills(
+      availableCores,
+      familyCounts,
+      false
+    );
+
+    const coreIds = skills.map((skill) => {
+      const candidates = availableCores.filter(
+        (core) => core.skill === skill
+      );
+
+      return shuffle(candidates)[0].coreId;
+    });
+
+    const caseIds = coreIds
+      .map((coreId) => chooseScenarioForCore(coreId, 'replay'))
+      .filter(Boolean)
+      .map((scenario) => scenario.id);
+
+    return {
+      coreIds,
+      caseIds: shuffle(caseIds)
+    };
+  }
+
+  function buildChallengeRound() {
+    const recentCores = new Set(recentChallengeCoreIds(2));
+    const candidates = REPLAY_CORES.filter(
+      (core) => !recentCores.has(core.coreId)
+    );
+
+    const availableCores = candidates.length >= ROUND_SIZE
+      ? candidates
+      : REPLAY_CORES;
+
+    const skills = chooseBalancedSkills(
+      availableCores,
+      {},
+      true
+    );
+
+    const coreIds = skills.map((skill) => {
+      const pool = availableCores.filter((core) => core.skill === skill);
+      return shuffle(pool)[0].coreId;
+    });
+
+    const caseIds = coreIds
+      .map((coreId) => chooseScenarioForCore(coreId, 'challenge'))
+      .filter(Boolean)
+      .map((scenario) => scenario.id);
+
+    return {
+      coreIds,
+      caseIds: shuffle(caseIds)
+    };
+  }
+
+  function challengeUnlocked() {
+    return progress.tutorialBestStars >= 2 || progress.replayWins >= 1;
+  }
+
   function startRound(mode) {
-    if (mode !== 'tutorial' && !progress.tutorialComplete) {
+    if (mode === 'replay' && !progress.tutorialComplete) {
       return;
     }
 
@@ -493,15 +563,30 @@
       return;
     }
 
-    const caseIds = mode === 'tutorial'
-      ? FIRST_RUN.map((item) => item.id)
-      : buildRandomRound(mode);
+    let round;
+
+    if (mode === 'tutorial') {
+      round = {
+        caseIds: TUTORIAL_CASES.map((item) => item.id),
+        coreIds: TUTORIAL_CASES.map((item) => item.coreId)
+      };
+    } else if (mode === 'replay') {
+      round = buildReplayRound();
+    } else {
+      round = buildChallengeRound();
+    }
+
+    if (!round.caseIds.length) {
+      alert('ยังเตรียม Case Bank ไม่สำเร็จ กรุณารีเฟรชหน้าแล้วลองใหม่');
+      return;
+    }
 
     state = {
       ...freshState(),
       mode,
-      caseIds,
-      caseVariants: buildCaseVariants(caseIds),
+      caseIds: round.caseIds,
+      coreIds: round.coreIds,
+      caseVariants: buildCaseVariants(round.caseIds),
       startedAt: Date.now()
     };
 
@@ -511,97 +596,71 @@
   }
 
   function updateHud() {
-    const isPlaying = Boolean(
-      state.mode &&
-      state.caseIds.length &&
-      !state.complete
+    const resetButton = $('#resetBtn');
+    const playing = Boolean(
+      state.mode && state.caseIds.length && !state.complete
     );
 
-    const mode = currentMode();
+    if (state.complete) {
+      $('#caseValue').textContent = 'จบรอบ';
+      $('#scoreValue').textContent = state.score;
+      $('#stabilityValue').textContent = state.stability;
+      resetButton.textContent = 'เลือกโหมด';
+      resetButton.dataset.action = 'mode-select';
+      return;
+    }
 
-    $('#caseValue').textContent = isPlaying
-      ? `${mode.short} ${state.caseIndex + 1}/${state.caseIds.length}`
-      : 'เลือกโหมด';
-
-    $('#scoreValue').textContent = isPlaying
-      ? state.score
-      : progress.bestScore || 0;
-
-    $('#stabilityValue').textContent = isPlaying
-      ? state.stability
-      : 100;
-
-    const resetButton = $('#resetBtn');
-
-    if (isPlaying) {
+    if (playing) {
+      $('#caseValue').textContent = `${currentMode().short} ${state.caseIndex + 1}/${state.caseIds.length}`;
+      $('#scoreValue').textContent = state.score;
+      $('#stabilityValue').textContent = state.stability;
       resetButton.textContent = 'ออกจากรอบ';
       resetButton.dataset.action = 'leave-round';
-    } else {
-      resetButton.textContent = 'ล้าง W1';
-      resetButton.dataset.action = 'reset-all';
+      return;
     }
+
+    $('#caseValue').textContent = 'เลือกโหมด';
+    $('#scoreValue').textContent = progress.bestScore || 0;
+    $('#stabilityValue').textContent = 100;
+    resetButton.textContent = 'ล้าง W1';
+    resetButton.dataset.action = 'reset-all';
   }
 
   function updateRail() {
     const playing = Boolean(
-      state.mode &&
-      state.caseIds.length &&
-      !state.complete
+      state.mode && state.caseIds.length && !state.complete
     );
 
-    document
-      .querySelectorAll('#phaseRail .phase')
-      .forEach((node, index) => {
-        node.classList.toggle(
-          'active',
-          playing && index === state.step
-        );
-
-        node.classList.toggle(
-          'done',
-          playing && index < state.step
-        );
-      });
+    document.querySelectorAll('#phaseRail .phase').forEach((node, index) => {
+      node.classList.toggle('active', playing && index === state.step);
+      node.classList.toggle('done', playing && index < state.step);
+    });
   }
 
-  function showFeedback({
-    title,
-    verdict,
-    message,
-    principle,
-    continueLabel = 'ทำขั้นตอนถัดไป →'
-  }) {
-    const showPrinciple = Boolean(
-      principle && state.mode !== 'challenge'
-    );
+  function showFeedback({ title, verdict, message, principle, continueLabel }) {
+    const showPrinciple = Boolean(principle && state.mode !== 'challenge');
 
     feedbackContent.innerHTML = `
       <p class="eyebrow">CASE FEEDBACK</p>
       <h2>${escapeHtml(title)}</h2>
 
       <div class="verdict ${verdict === 'correct' ? 'good' : 'retry'}">
-        ${
-          verdict === 'correct'
-            ? '✓ วิเคราะห์ได้ตรงประเด็น'
-            : '↻ ลองคิดจากเป้าหมายผู้ใช้อีกครั้ง'
-        }
+        ${verdict === 'correct'
+          ? '✓ วิเคราะห์ได้ตรงประเด็น'
+          : '↻ ลองคิดจากเป้าหมายผู้ใช้อีกครั้ง'}
       </div>
 
       <p>${escapeHtml(message)}</p>
 
-      ${
-        showPrinciple
-          ? `
-            <div class="principle-card">
-              <b>Principle</b>
-              <span>${escapeHtml(principle)}</span>
-            </div>
-          `
-          : ''
-      }
+      ${showPrinciple ? `
+        <div class="principle-card">
+          <b>Principle</b>
+          <span>${escapeHtml(principle)}</span>
+        </div>
+      ` : ''}
 
       <button id="feedbackContinue" class="primary-btn full-btn" type="button">
-        ${escapeHtml(continueLabel)}
+        ${escapeHtml(continueLabel || 'ทำขั้นตอนถัดไป →')}
       </button>
     `;
 
@@ -614,16 +673,12 @@
     );
   }
 
-  function penalty(base) {
+  function addMistake(basePenalty) {
     const multiplier = state.mode === 'challenge' ? 1.25 : 1;
 
-    return Math.ceil(base * multiplier);
-  }
-
-  function addMistake(basePenalty) {
     state.attempts += 1;
     state.stability = clamp(
-      state.stability - penalty(basePenalty),
+      state.stability - Math.ceil(basePenalty * multiplier),
       0,
       100
     );
@@ -633,36 +688,32 @@
 
   function caseModeKicker(caseData) {
     const mode = currentMode();
-    const family = FAMILY_META[caseData.skill] || 'UX Investigation';
-
-    const familyChip = state.mode === 'challenge'
+    const skillChip = state.mode === 'challenge'
       ? ''
-      : `<span>${escapeHtml(family)}</span>`;
+      : `<span>${escapeHtml(SKILL_META[caseData.skill] || caseData.skill)}</span>`;
 
     return `
       <div class="case-kicker">
-        <span>${mode.badge}</span>
+        <span>${escapeHtml(mode.badge)}</span>
         <span>CASE ${state.caseIndex + 1} / ${state.caseIds.length}</span>
-        ${familyChip}
+        ${skillChip}
       </div>
     `;
   }
 
   function suspectOption(area) {
-    const isSelected = state.selectedSuspect === area.id;
-
+    const selected = state.selectedSuspect === area.id;
     const detail = Array.isArray(area.detail)
       ? area.detail.join(' • ')
       : area.detail;
 
     return `
       <button
-        class="answer-option ${isSelected ? 'selected' : ''}"
+        class="answer-option ${selected ? 'selected' : ''}"
         data-suspect="${escapeHtml(area.id)}"
         type="button"
       >
         <span class="radio-dot"></span>
-
         <span>
           <strong>${escapeHtml(area.label)}. ${escapeHtml(area.name)}</strong>
           <br />
@@ -672,26 +723,16 @@
     `;
   }
 
-  function cardScreen(
-    caseData,
-    displayAreas = orderedAreas(caseData)
-  ) {
+  function cardScreen(caseData, displayAreas) {
     const area = (item) => {
-      const isSelected = state.selectedSuspect === item.id;
-
+      const selected = state.selectedSuspect === item.id;
       const detail = Array.isArray(item.detail)
-        ? `
-          <div class="chip-stack">
-            ${item.detail
-              .map((value) => `<span>${escapeHtml(value)}</span>`)
-              .join('')}
-          </div>
-        `
+        ? `<div class="chip-stack">${item.detail.map((value) => `<span>${escapeHtml(value)}</span>`).join('')}</div>`
         : `<span>${escapeHtml(item.detail)}</span>`;
 
       return `
         <button
-          class="suspect-zone ${isSelected ? 'selected' : ''}"
+          class="suspect-zone ${selected ? 'selected' : ''}"
           data-suspect="${escapeHtml(item.id)}"
           type="button"
         >
@@ -703,10 +744,7 @@
     };
 
     return `
-      <div
-        class="screen-shell"
-        aria-label="หน้าจอจำลองของบริการ ${escapeHtml(caseData.service)}"
-      >
+      <div class="screen-shell" aria-label="หน้าจอจำลองของบริการ ${escapeHtml(caseData.service)}">
         <div class="screen-top">
           <strong>Smart Campus</strong>
           <span>บริการ • ช่วยเหลือ • บัญชี</span>
@@ -736,117 +774,73 @@
   }
 
   function renderModeSelect() {
-    const tutorialDone = progress.tutorialComplete;
-    const challengeOpen = challengeUnlocked();
-
-    const replayHistory = progress.roundHistory.filter(
-      (round) => round.mode === 'replay'
-    );
-
-    const bestLabel = progress.bestStars
-      ? `${'★'.repeat(progress.bestStars)}${'☆'.repeat(3 - progress.bestStars)}`
-      : '☆☆☆';
+    const replayLocked = !progress.tutorialComplete;
+    const challengeLocked = !challengeUnlocked();
+    const cycle = progress.replayCycle || freshReplayCycle();
+    const coresRemaining = REPLAY_CORES.length - (cycle.seenCoreIds || []).length;
 
     stage.innerHTML = `
-      <section class="complete-card">
+      <section class="complete-card mode-select-card">
         <p class="eyebrow">W1 • UX DETECTIVE</p>
         <h2>เลือกโหมดภารกิจ</h2>
 
         <p>
-          รอบแรกจะสอนวิธีคิดทีละขั้น ส่วน Replay จะสุ่มเคสใหม่จากคลัง 36 เคส
-          เพื่อให้คุณฝึกใช้หลัก UX กับบริบทที่ไม่ซ้ำเดิม
+          รอบแรกสอนวิธีคิดทีละขั้น ส่วน Replay จะไม่ซ้ำ Core Case จนครบ 12 รอบ
+          และแต่ละ Core มี 12 Scenario Variant ที่เปลี่ยนหลักฐาน ผู้ใช้ และตัวลวงการตัดสินใจ
         </p>
 
         <div class="complete-metrics">
-          <div>
-            <span>Case Bank</span>
-            <b>${CASE_BANK.length}</b>
-          </div>
-
-          <div>
-            <span>Best Stars</span>
-            <b>${bestLabel}</b>
-          </div>
-
-          <div>
-            <span>Rounds Finished</span>
-            <b>${progress.totalRounds}</b>
-          </div>
+          <div><span>Replay Core Cases</span><b>60</b></div>
+          <div><span>Replay Scenarios</span><b>720</b></div>
+          <div><span>Core ก่อนวนซ้ำ</span><b>${coresRemaining}/60</b></div>
         </div>
 
-        <div class="answer-list">
-          <button id="startTutorial" class="answer-option" type="button">
-            <span class="radio-dot"></span>
+        <div class="mode-action-grid">
+          <button id="startTutorial" class="mode-action tutorial-action" type="button">
+            <span class="mode-action-icon">◎</span>
             <span>
-              <strong>1. ${tutorialDone ? 'Review Tutorial' : 'First Run Tutorial'}</strong>
-              <br />
-              <small>5 เคสสาธิตแบบมีโครงช่วยคิด เหมาะสำหรับเริ่มเรียน W1</small>
+              <strong>${progress.tutorialComplete ? 'Review Tutorial' : 'First Run Tutorial'}</strong>
+              <small>5 เคส Scaffolded เพื่อฝึก User Goal → Diagnose → Fix → Test</small>
             </span>
+            <b>เริ่ม →</b>
           </button>
 
-          <button
-            id="startReplay"
-            class="answer-option"
-            type="button"
-            ${tutorialDone ? '' : 'disabled'}
-          >
-            <span class="radio-dot"></span>
+          <button id="startReplay" class="mode-action replay-action" type="button" ${replayLocked ? 'disabled' : ''}>
+            <span class="mode-action-icon">↻</span>
             <span>
-              <strong>2. Random Replay</strong>
-              <br />
-              <small>
-                ${
-                  tutorialDone
-                    ? `สุ่ม 5 เคสจาก 36 เคส • จบรอบ Replay แล้ว ${replayHistory.length} รอบ`
-                    : 'ผ่าน Tutorial ก่อนจึงจะเปิด Replay'
-                }
-              </small>
+              <strong>Random Replay</strong>
+              <small>${replayLocked ? 'ผ่าน Tutorial อย่างน้อย 1 ดาวเพื่อปลดล็อก' : `สุ่ม 5 เคสใหม่ • รอบ Replay ที่ผ่านแล้ว ${progress.replayWins} รอบ`}</small>
             </span>
+            <b>${replayLocked ? 'ล็อก' : 'เล่น →'}</b>
           </button>
 
-          <button
-            id="startChallenge"
-            class="answer-option"
-            type="button"
-            ${challengeOpen ? '' : 'disabled'}
-          >
-            <span class="radio-dot"></span>
+          <button id="startChallenge" class="mode-action challenge-action" type="button" ${challengeLocked ? 'disabled' : ''}>
+            <span class="mode-action-icon">⚡</span>
             <span>
-              <strong>3. Transfer Challenge</strong>
-              <br />
-              <small>
-                ${
-                  challengeOpen
-                    ? 'สุ่มเคสต่างบริบท เน้นตัดสินใจจาก User Goal โดยไม่มี Principle Hint ระหว่างผิด'
-                    : 'ปลดล็อกเมื่อ Tutorial ได้อย่างน้อย 2 ดาว หรือผ่าน Replay 1 รอบ'
-                }
-              </small>
+              <strong>Transfer Challenge</strong>
+              <small>${challengeLocked ? 'ปลดล็อกเมื่อ Tutorial ได้ 2 ดาว หรือผ่าน Replay 1 รอบ' : 'เน้นบริบทใหม่ เลือกจากทักษะที่ควรฝึกเพิ่ม และไม่มี Principle Hint'}</small>
             </span>
+            <b>${challengeLocked ? 'ล็อก' : 'ท้าทาย →'}</b>
           </button>
         </div>
 
         <div class="principle-stack">
-          <b>W1 Learning Loop</b>
-          <span>
-            User Goal → UI Symptom → UX Impact → Design Fix → User Test → Explain
-          </span>
+          <b>Learning Loop</b>
+          <span>User Goal → UI Symptom → UX Impact → Design Fix → User Test → Explain</span>
         </div>
       </section>
     `;
 
-    $('#startTutorial').addEventListener(
-      'click',
-      () => startRound('tutorial')
-    );
+    $('#startTutorial').addEventListener('click', () => startRound('tutorial'));
 
     $('#startReplay').addEventListener('click', () => {
-      if (progress.tutorialComplete) {
+      if (!replayLocked) {
         startRound('replay');
       }
     });
 
     $('#startChallenge').addEventListener('click', () => {
-      if (challengeUnlocked()) {
+      if (!challengeLocked) {
         startRound('challenge');
       }
     });
@@ -856,13 +850,12 @@
     const caseData = current();
 
     if (!caseData) {
-      state = freshState();
-      clearSession();
-      render();
+      returnToModeSelect();
       return;
     }
 
     const displayAreas = orderedAreas(caseData);
+    const evidenceTitle = caseData.evidence ? caseData.evidence.title : 'USER SIGNAL';
 
     stage.innerHTML = `
       <section class="case-layout">
@@ -875,44 +868,29 @@
             <b>${escapeHtml(caseData.goal)}</b>
           </div>
 
-          <p class="evidence-detail">“${escapeHtml(caseData.quote)}”</p>
+          <p class="evidence-label">${escapeHtml(evidenceTitle)}</p>
+          <p class="evidence-detail">${escapeHtml(caseData.quote)}</p>
 
-          <p class="muted tiny">
-            <b>ผู้ใช้:</b> ${escapeHtml(caseData.persona)}
-          </p>
+          <p class="muted tiny"><b>ผู้ใช้:</b> ${escapeHtml(caseData.persona)}</p>
 
-          <h3 class="question-title">
-            จากเป้าหมายและคำพูดของผู้ใช้ จุดใดควรตรวจสอบก่อน?
-          </h3>
+          <h3 class="question-title">จากเป้าหมายและหลักฐานนี้ จุดใดควรตรวจสอบก่อน?</h3>
 
           <div class="answer-list">
             ${displayAreas.map(suspectOption).join('')}
           </div>
 
           <div class="stage-actions">
-            <button
-              id="observeNext"
-              class="primary-btn full-btn"
-              type="button"
-              ${state.selectedSuspect ? '' : 'disabled'}
-            >
+            <button id="observeNext" class="primary-btn full-btn" type="button" ${state.selectedSuspect ? '' : 'disabled'}>
               เก็บหลักฐานและวิเคราะห์ →
             </button>
           </div>
 
-          <p class="muted tiny">
-            เลือกคำตอบจากรายการด้านบนได้ทันที
-            ไม่ต้องเลื่อนหาปุ่ม A/B/C ในหน้าจอจำลอง
-          </p>
+          <p class="muted tiny">เลือกคำตอบจากรายการด้านบนได้ทันที ไม่ต้องเลื่อนหาปุ่ม A/B/C ในหน้าจอจำลอง</p>
         </article>
 
         <article class="screen-card">
           ${cardScreen(caseData, displayAreas)}
-
-          <div class="screen-caption">
-            หน้าจอจำลองสำหรับดูบริบทเพิ่มเติม
-            หรือแตะ A/B/C บนจอนี้ได้เช่นกัน
-          </div>
+          <div class="screen-caption">หน้าจอจำลองสำหรับดูบริบทเพิ่มเติม หรือแตะ A/B/C บนจอนี้ได้เช่นกัน</div>
         </article>
       </section>
     `;
@@ -930,21 +908,16 @@
         showFeedback({
           title: 'จุดนี้ยังไม่ใช่ต้นเหตุหลัก',
           verdict: 'retry',
-          message:
-            'ลองย้อนกลับไปดู User Goal: ผู้ใช้ต้องการทำอะไรให้สำเร็จ และส่วนใดขวางเป้าหมายนั้นมากที่สุด?',
+          message: 'ลองย้อนกลับไปดู User Goal: ผู้ใช้ต้องการทำอะไรให้สำเร็จ และส่วนใดขวางเป้าหมายนั้นมากที่สุด?',
           principle: 'Start from the user goal',
           continueLabel: 'เลือกคำตอบใหม่'
         });
 
-        feedbackDialog.addEventListener(
-          'close',
-          () => {
-            state.selectedSuspect = null;
-            saveSession();
-            renderObserve();
-          },
-          { once: true }
-        );
+        feedbackDialog.addEventListener('close', () => {
+          state.selectedSuspect = null;
+          saveSession();
+          renderObserve();
+        }, { once: true });
 
         return;
       }
@@ -960,11 +933,7 @@
     const selected = state[stateKey] === option.id;
 
     return `
-      <button
-        class="answer-option ${selected ? 'selected' : ''}"
-        data-answer="${escapeHtml(option.id)}"
-        type="button"
-      >
+      <button class="answer-option ${selected ? 'selected' : ''}" data-answer="${escapeHtml(option.id)}" type="button">
         <span class="radio-dot"></span>
         <span>${escapeHtml(option.text)}</span>
       </button>
@@ -973,11 +942,7 @@
 
   function renderDiagnose() {
     const caseData = current();
-
-    const suspectArea = orderedAreas(caseData).find(
-      (item) => item.id === caseData.suspectId
-    );
-
+    const suspectArea = orderedAreas(caseData).find((item) => item.id === caseData.suspectId);
     const suspectDetail = Array.isArray(suspectArea.detail)
       ? suspectArea.detail.join(' • ')
       : suspectArea.detail;
@@ -986,44 +951,21 @@
       <section class="single-layout">
         <article class="mission-card wide">
           <p class="eyebrow">EVIDENCE COLLECTED</p>
-
           <h2>${escapeHtml(suspectArea.name)}</h2>
-
           <p class="evidence-detail">${escapeHtml(suspectDetail)}</p>
 
           <div class="instruction-card">
             <span class="step-badge">STEP 2</span>
-
-            <div>
-              <b>วิเคราะห์ UI → UX</b>
-              <p>
-                เลือกคำอธิบายที่เชื่อมสิ่งที่เห็นบนหน้าจอ
-                กับผลที่เกิดกับเป้าหมายของผู้ใช้ได้ดีที่สุด
-              </p>
-            </div>
+            <div><b>วิเคราะห์ UI → UX</b><p>เลือกคำอธิบายที่เชื่อมสิ่งที่เห็นบนหน้าจอกับผลที่เกิดกับเป้าหมายของผู้ใช้ได้ดีที่สุด</p></div>
           </div>
 
-          <h3 class="question-title">
-            ${escapeHtml(caseData.diagnosis.prompt)}
-          </h3>
-
-          <div class="answer-list">
-            ${orderedDiagnosisOptions(caseData)
-              .map((option) => radioOption(option, 'selectedDiagnosis'))
-              .join('')}
-          </div>
+          <h3 class="question-title">${escapeHtml(caseData.diagnosis.prompt)}</h3>
+          <div class="answer-list">${orderedDiagnosisOptions(caseData).map((option) => radioOption(option, 'selectedDiagnosis')).join('')}</div>
         </article>
       </section>
 
       <div class="stage-actions left-actions">
-        <button
-          id="diagnoseNext"
-          class="primary-btn"
-          type="button"
-          ${state.selectedDiagnosis ? '' : 'disabled'}
-        >
-          ยืนยันการวิเคราะห์ →
-        </button>
+        <button id="diagnoseNext" class="primary-btn" type="button" ${state.selectedDiagnosis ? '' : 'disabled'}>ยืนยันการวิเคราะห์ →</button>
       </div>
     `;
 
@@ -1036,9 +978,7 @@
     });
 
     $('#diagnoseNext').addEventListener('click', () => {
-      const picked = caseData.diagnosis.options.find(
-        (option) => option.id === state.selectedDiagnosis
-      );
+      const picked = caseData.diagnosis.options.find((option) => option.id === state.selectedDiagnosis);
 
       if (!picked) {
         return;
@@ -1050,21 +990,16 @@
         showFeedback({
           title: 'ยังเชื่อมกับผู้ใช้ไม่พอ',
           verdict: 'retry',
-          message:
-            'คำตอบที่แข็งแรงต้องอธิบายได้ทั้ง UI symptom และ UX impact ไม่ใช่เพียงบอกว่าสิ่งใดดูสวยหรือไม่สวย',
+          message: 'คำตอบที่แข็งแรงต้องอธิบายได้ทั้ง UI symptom และ UX impact ไม่ใช่เพียงบอกว่าสิ่งใดดูสวยหรือไม่สวย',
           principle: 'UI affects UX',
           continueLabel: 'เลือกคำตอบใหม่'
         });
 
-        feedbackDialog.addEventListener(
-          'close',
-          () => {
-            state.selectedDiagnosis = null;
-            saveSession();
-            renderDiagnose();
-          },
-          { once: true }
-        );
+        feedbackDialog.addEventListener('close', () => {
+          state.selectedDiagnosis = null;
+          saveSession();
+          renderDiagnose();
+        }, { once: true });
 
         return;
       }
@@ -1084,43 +1019,20 @@
       <section class="single-layout">
         <article class="mission-card wide">
           <p class="eyebrow">DESIGN DECISION</p>
-
           <h2>เลือกการแก้ที่ช่วยผู้ใช้ทำงานสำเร็จ</h2>
-
-          <p class="muted">
-            เลือกวิธีแก้ที่ตอบ User Goal มากที่สุด
-            ไม่ใช่วิธีที่ดูสวยเพียงอย่างเดียว
-          </p>
+          <p class="muted">เลือกวิธีแก้ที่ตอบ User Goal มากที่สุด ไม่ใช่วิธีที่ดูสวยเพียงอย่างเดียว</p>
 
           <div class="instruction-card">
             <span class="step-badge">STEP 3</span>
-
-            <div>
-              <b>เลือก Design Fix</b>
-              <p>
-                ทุกทางเลือกทำได้ในเชิงเทคนิค
-                แต่มีเพียงหนึ่งแนวทางที่แก้ต้นเหตุของความติดขัด
-              </p>
-            </div>
+            <div><b>เลือก Design Fix</b><p>ทุกทางเลือกทำได้ในเชิงเทคนิค แต่มีเพียงหนึ่งแนวทางที่แก้ต้นเหตุของความติดขัด</p></div>
           </div>
 
-          <div class="answer-list fix-list">
-            ${orderedFixOptions(caseData)
-              .map((option) => radioOption(option, 'selectedFix'))
-              .join('')}
-          </div>
+          <div class="answer-list fix-list">${orderedFixOptions(caseData).map((option) => radioOption(option, 'selectedFix')).join('')}</div>
         </article>
       </section>
 
       <div class="stage-actions left-actions">
-        <button
-          id="fixNext"
-          class="primary-btn"
-          type="button"
-          ${state.selectedFix ? '' : 'disabled'}
-        >
-          ทดสอบกับผู้ใช้ →
-        </button>
+        <button id="fixNext" class="primary-btn" type="button" ${state.selectedFix ? '' : 'disabled'}>ทดสอบกับผู้ใช้ →</button>
       </div>
     `;
 
@@ -1133,9 +1045,7 @@
     });
 
     $('#fixNext').addEventListener('click', () => {
-      const picked = caseData.fixes.find(
-        (option) => option.id === state.selectedFix
-      );
+      const picked = caseData.fixes.find((option) => option.id === state.selectedFix);
 
       if (!picked) {
         return;
@@ -1147,21 +1057,16 @@
         showFeedback({
           title: 'การแก้นี้ยังไม่ตรงต้นเหตุ',
           verdict: 'retry',
-          message:
-            'ลองกลับมาถามว่า วิธีนี้ทำให้ผู้ใช้บรรลุ User Goal ได้ชัดเจนขึ้นจริงหรือไม่?',
+          message: 'ลองกลับมาถามว่า วิธีนี้ทำให้ผู้ใช้บรรลุ User Goal ได้ชัดเจนขึ้นจริงหรือไม่?',
           principle: caseData.diagnosis.principle,
           continueLabel: 'เลือกวิธีแก้ใหม่'
         });
 
-        feedbackDialog.addEventListener(
-          'close',
-          () => {
-            state.selectedFix = null;
-            saveSession();
-            renderFix();
-          },
-          { once: true }
-        );
+        feedbackDialog.addEventListener('close', () => {
+          state.selectedFix = null;
+          saveSession();
+          renderFix();
+        }, { once: true });
 
         return;
       }
@@ -1178,12 +1083,7 @@
     return `
       <div class="metric-card">
         <span>${escapeHtml(label)}</span>
-
-        <div>
-          <b class="before">${escapeHtml(String(before))}${symbol}</b>
-          <i>→</i>
-          <b class="after">${escapeHtml(String(after))}${symbol}</b>
-        </div>
+        <div><b class="before">${escapeHtml(String(before))}${symbol}</b><i>→</i><b class="after">${escapeHtml(String(after))}${symbol}</b></div>
       </div>
     `;
   }
@@ -1196,59 +1096,25 @@
       <section class="single-layout">
         <article class="mission-card wide">
           <p class="eyebrow">USER TEST SIMULATION</p>
-
           <h2>ผลลัพธ์หลังปรับการออกแบบ</h2>
-
           <p>${escapeHtml(result.text)}</p>
 
           <div class="instruction-card">
             <span class="step-badge">STEP 4</span>
-
-            <div>
-              <b>ดูผลที่เกิดกับผู้ใช้</b>
-              <p>
-                การแก้ที่ดีไม่ใช่เพียงหน้าจอดูดีขึ้น
-                แต่ต้องช่วยให้ผู้ใช้สำเร็จเร็วขึ้นและมั่นใจขึ้น
-              </p>
-            </div>
+            <div><b>ดูผลที่เกิดกับผู้ใช้</b><p>การแก้ที่ดีไม่ใช่เพียงหน้าจอดูดีขึ้น แต่ต้องช่วยให้ผู้ใช้สำเร็จเร็วขึ้นและมั่นใจขึ้น</p></div>
           </div>
 
           <div class="metric-grid">
-            ${metric(
-              'Task success',
-              result.before.success,
-              result.after.success,
-              '%'
-            )}
-
-            ${metric(
-              'Time to finish',
-              result.before.time,
-              result.after.time
-            )}
-
-            ${metric(
-              'User confidence',
-              result.before.confidence,
-              result.after.confidence,
-              '%'
-            )}
+            ${metric('Task success', result.before.success, result.after.success, '%')}
+            ${metric('Time to finish', result.before.time, result.after.time)}
+            ${metric('User confidence', result.before.confidence, result.after.confidence, '%')}
           </div>
 
-          <div class="test-insight">
-            <b>สิ่งที่ควรจำ</b>
-            <span>
-              Design decision ต้องเชื่อมกับผลลัพธ์ที่ผู้ใช้สัมผัสได้
-            </span>
-          </div>
+          <div class="test-insight"><b>สิ่งที่ควรจำ</b><span>Design decision ต้องเชื่อมกับผลลัพธ์ที่ผู้ใช้สัมผัสได้</span></div>
         </article>
       </section>
 
-      <div class="stage-actions left-actions">
-        <button id="testNext" class="primary-btn" type="button">
-          อธิบายเหตุผล →
-        </button>
-      </div>
+      <div class="stage-actions left-actions"><button id="testNext" class="primary-btn" type="button">อธิบายเหตุผล →</button></div>
     `;
 
     $('#testNext').addEventListener('click', () => {
@@ -1268,61 +1134,28 @@
       <section class="single-layout">
         <article class="mission-card wide">
           <p class="eyebrow">EXPLAIN CHECK</p>
-
           <h2>สรุปด้วยเหตุผลของคุณ</h2>
 
           <div class="instruction-card">
             <span class="step-badge">STEP 5</span>
-
-            <div>
-              <b>เลือก 2 ผลลัพธ์ที่เกิดกับผู้ใช้จริง</b>
-              <p>
-                ไม่ใช่คำที่ฟังดูดี
-                แต่เป็นผลลัพธ์ที่ตามมาจาก Design Fix ของคุณ
-              </p>
-            </div>
+            <div><b>เลือก 2 ผลลัพธ์ที่เกิดกับผู้ใช้จริง</b><p>ไม่ใช่คำที่ฟังดูดี แต่เป็นผลลัพธ์ที่ตามมาจาก Design Fix ของคุณ</p></div>
           </div>
 
-          <h3 class="question-title">
-            ${escapeHtml(caseData.explain.prompt)}
-          </h3>
+          <h3 class="question-title">${escapeHtml(caseData.explain.prompt)}</h3>
 
           <div class="choice-grid">
-            ${orderedExplainChoices(caseData)
-              .map(
-                (choice) => `
-                  <button
-                    class="explain-chip ${
-                      selected.has(choice) ? 'selected' : ''
-                    }"
-                    data-explain="${escapeHtml(choice)}"
-                    type="button"
-                  >
-                    ${escapeHtml(choice)}
-                  </button>
-                `
-              )
-              .join('')}
+            ${orderedExplainChoices(caseData).map((choice) => `
+              <button class="explain-chip ${selected.has(choice) ? 'selected' : ''}" data-explain="${escapeHtml(choice)}" type="button">${escapeHtml(choice)}</button>
+            `).join('')}
           </div>
 
-          <p class="selection-note">
-            เลือกแล้ว ${state.selectedExplain.length}/2
-          </p>
+          <p class="selection-note">เลือกแล้ว ${state.selectedExplain.length}/2</p>
         </article>
       </section>
 
       <div class="stage-actions left-actions">
-        <button
-          id="explainNext"
-          class="primary-btn"
-          type="button"
-          ${state.selectedExplain.length === 2 ? '' : 'disabled'}
-        >
-          ${
-            state.caseIndex === state.caseIds.length - 1
-              ? 'สรุปผลภารกิจ →'
-              : 'ไป Case ถัดไป →'
-          }
+        <button id="explainNext" class="primary-btn" type="button" ${state.selectedExplain.length === 2 ? '' : 'disabled'}>
+          ${state.caseIndex === state.caseIds.length - 1 ? 'สรุปผลภารกิจ →' : 'ไป Case ถัดไป →'}
         </button>
       </div>
     `;
@@ -1330,15 +1163,15 @@
     document.querySelectorAll('[data-explain]').forEach((button) => {
       button.addEventListener('click', () => {
         const value = button.dataset.explain;
-        const selectedChoices = new Set(state.selectedExplain);
+        const choices = new Set(state.selectedExplain);
 
-        if (selectedChoices.has(value)) {
-          selectedChoices.delete(value);
-        } else if (selectedChoices.size < 2) {
-          selectedChoices.add(value);
+        if (choices.has(value)) {
+          choices.delete(value);
+        } else if (choices.size < 2) {
+          choices.add(value);
         }
 
-        state.selectedExplain = Array.from(selectedChoices);
+        state.selectedExplain = Array.from(choices);
         saveSession();
         renderExplain();
       });
@@ -1349,13 +1182,8 @@
         return;
       }
 
-      const correct =
-        state.selectedExplain.every((choice) =>
-          caseData.explain.correct.includes(choice)
-        ) &&
-        caseData.explain.correct.every((choice) =>
-          state.selectedExplain.includes(choice)
-        );
+      const correct = state.selectedExplain.every((choice) => caseData.explain.correct.includes(choice)) &&
+        caseData.explain.correct.every((choice) => state.selectedExplain.includes(choice));
 
       if (!correct) {
         addMistake(5);
@@ -1363,36 +1191,27 @@
         showFeedback({
           title: 'ลองเชื่อมกับผล User Test',
           verdict: 'retry',
-          message:
-            'เลือกคำที่อธิบายว่าผู้ใช้ทำเป้าหมายได้ดีขึ้นอย่างไร จากผลการทดสอบที่คุณเพิ่งเห็น',
+          message: 'เลือกคำที่อธิบายว่าผู้ใช้ทำเป้าหมายได้ดีขึ้นอย่างไร จากผลการทดสอบที่คุณเพิ่งเห็น',
           principle: caseData.diagnosis.principle,
           continueLabel: 'เลือกคำตอบใหม่'
         });
 
-        feedbackDialog.addEventListener(
-          'close',
-          () => {
-            state.selectedExplain = [];
-            saveSession();
-            renderExplain();
-          },
-          { once: true }
-        );
+        feedbackDialog.addEventListener('close', () => {
+          state.selectedExplain = [];
+          saveSession();
+          renderExplain();
+        }, { once: true });
 
         return;
       }
 
       state.score += 20;
-
       state.answered.push({
-        caseId: caseData.id,
+        scenarioId: caseData.id,
+        coreId: caseData.coreId,
         skill: caseData.skill,
         attempts: state.attempts,
-        quality: clamp(
-          100 - (state.attempts * 16),
-          35,
-          100
-        )
+        quality: clamp(100 - (state.attempts * 16), 35, 100)
       });
 
       if (state.caseIndex >= state.caseIds.length - 1) {
@@ -1407,7 +1226,6 @@
       state.selectedFix = null;
       state.selectedExplain = [];
       state.attempts = 0;
-
       saveSession();
       render();
       scrollToTop();
@@ -1415,80 +1233,51 @@
   }
 
   function stars() {
-    const thresholds = state.mode === 'challenge'
+    const stabilityGate = state.mode === 'challenge'
       ? { three: 86, two: 70, one: 52 }
       : { three: 80, two: 60, one: 38 };
 
-    if (
-      state.score >= 320 &&
-      state.stability >= thresholds.three
-    ) {
+    if (state.score >= 320 && state.stability >= stabilityGate.three) {
       return 3;
     }
 
-    if (
-      state.score >= 260 &&
-      state.stability >= thresholds.two
-    ) {
+    if (state.score >= 260 && state.stability >= stabilityGate.two) {
       return 2;
     }
 
-    if (
-      state.score >= 200 &&
-      state.stability >= thresholds.one
-    ) {
+    if (state.score >= 200 && state.stability >= stabilityGate.one) {
       return 1;
     }
 
     return 0;
   }
 
-  function updateProgressFromRound(starCount) {
-    if (state.roundRecorded) {
+  function recordReplayCycle() {
+    if (state.mode !== 'replay') {
       return;
     }
 
-    const round = {
-      id: `w1-${Date.now()}`,
-      mode: state.mode,
-      score: state.score,
-      stability: state.stability,
-      stars: starCount,
-      caseIds: [...state.caseIds],
-      completedAt: new Date().toISOString()
-    };
-
-    progress.totalRounds += 1;
-    progress.bestScore = Math.max(
-      progress.bestScore || 0,
-      state.score
-    );
-
-    progress.bestStars = Math.max(
-      progress.bestStars || 0,
-      starCount
-    );
-
-    if (state.mode === 'tutorial') {
-      progress.tutorialComplete =
-        progress.tutorialComplete || starCount >= 1;
-
-      progress.tutorialBestStars = Math.max(
-        progress.tutorialBestStars || 0,
-        starCount
-      );
-    }
-
-    if (state.mode === 'replay' && starCount >= 1) {
-      progress.replayWins += 1;
-    }
-
-    if (state.mode === 'challenge' && starCount >= 1) {
-      progress.challengeWins += 1;
-    }
+    const seen = new Set(progress.replayCycle.seenCoreIds || []);
 
     state.answered.forEach((answer) => {
-      const caseRecord = progress.caseStats[answer.caseId] || {
+      seen.add(answer.coreId);
+      progress.replayCycle.familyCounts[answer.skill] = (progress.replayCycle.familyCounts[answer.skill] || 0) + 1;
+    });
+
+    progress.replayCycle.seenCoreIds = [...seen];
+  }
+
+  function recordScenarioUsage() {
+    state.answered.forEach((answer) => {
+      const used = new Set(progress.scenarioUsage[answer.coreId] || []);
+      used.add(answer.scenarioId);
+      progress.scenarioUsage[answer.coreId] = [...used].slice(-12);
+    });
+  }
+
+  function updateLearningStats() {
+    state.answered.forEach((answer) => {
+      const caseRecord = progress.caseStats[answer.coreId] || {
         plays: 0,
         totalQuality: 0,
         bestQuality: 0,
@@ -1498,15 +1287,10 @@
 
       caseRecord.plays += 1;
       caseRecord.totalQuality += answer.quality;
-      caseRecord.bestQuality = Math.max(
-        caseRecord.bestQuality,
-        answer.quality
-      );
-
+      caseRecord.bestQuality = Math.max(caseRecord.bestQuality, answer.quality);
       caseRecord.totalAttempts += answer.attempts;
-      caseRecord.lastPlayed = round.completedAt;
-
-      progress.caseStats[answer.caseId] = caseRecord;
+      caseRecord.lastPlayed = new Date().toISOString();
+      progress.caseStats[answer.coreId] = caseRecord;
 
       const familyRecord = progress.familyStats[answer.skill] || {
         plays: 0,
@@ -1517,57 +1301,93 @@
       familyRecord.plays += 1;
       familyRecord.totalQuality += answer.quality;
       familyRecord.totalAttempts += answer.attempts;
-
       progress.familyStats[answer.skill] = familyRecord;
     });
+  }
+
+  function updateProgressFromRound(starCount) {
+    if (state.roundRecorded) {
+      return;
+    }
+
+    progress.totalRounds += 1;
+    progress.bestScore = Math.max(progress.bestScore || 0, state.score);
+    progress.bestStars = Math.max(progress.bestStars || 0, starCount);
+
+    if (state.mode === 'tutorial') {
+      progress.tutorialComplete = progress.tutorialComplete || starCount >= 1;
+      progress.tutorialBestStars = Math.max(progress.tutorialBestStars || 0, starCount);
+    }
+
+    if (state.mode === 'replay' && starCount >= 1) {
+      progress.replayWins += 1;
+    }
+
+    if (state.mode === 'challenge' && starCount >= 1) {
+      progress.challengeWins += 1;
+    }
+
+    recordReplayCycle();
+    recordScenarioUsage();
+    updateLearningStats();
 
     progress.roundHistory = [
       ...progress.roundHistory,
-      round
-    ].slice(-12);
+      {
+        id: `w1-${Date.now()}`,
+        mode: state.mode,
+        score: state.score,
+        stability: state.stability,
+        stars: starCount,
+        caseIds: [...state.caseIds],
+        coreIds: [...state.coreIds],
+        completedAt: new Date().toISOString()
+      }
+    ].slice(-24);
 
     state.roundRecorded = true;
-
     saveProgress();
     saveSession();
 
     try {
-      window.dispatchEvent(
-        new CustomEvent('uxquest:w1-complete', {
-          detail: {
-            stars: starCount,
-            score: state.score,
-            stability: state.stability,
-            mode: state.mode
-          }
-        })
-      );
+      window.dispatchEvent(new CustomEvent('uxquest:w1-complete', {
+        detail: {
+          stars: starCount,
+          score: state.score,
+          stability: state.stability,
+          mode: state.mode,
+          coreIds: [...state.coreIds]
+        }
+      }));
     } catch (error) {
-      // ใช้ได้แม้เป็น standalone prototype
+      // Standalone play remains fully functional without an external bridge.
     }
   }
 
-  function skillSummary() {
-    const playedSkills = Object.keys(progress.familyStats);
+  function learningProfileText() {
+    const skills = Object.keys(progress.familyStats);
 
-    if (!playedSkills.length) {
-      return 'ยังไม่มีข้อมูลทักษะสะสม — เริ่ม Tutorial เพื่อสร้าง Learning Profile';
+    if (!skills.length) {
+      return 'เริ่ม Tutorial เพื่อสร้าง Learning Profile ของคุณ';
     }
 
-    const weakest = [...playedSkills]
-      .sort((a, b) => familyAverage(a) - familyAverage(b))
+    const weakest = [...skills]
+      .sort((a, b) => familyQuality(a) - familyQuality(b))
       .slice(0, 2)
-      .map((skill) => FAMILY_META[skill] || skill);
+      .map((skill) => SKILL_META[skill] || skill);
 
-    return `โหมด Challenge จะเลือกเคสจากจุดที่ควรฝึกเพิ่ม เช่น ${weakest.join(' และ ')}`;
+    const allStrong = skills.length >= 4 && weakest.every((skill) => familyQuality(Object.keys(SKILL_META).find((key) => SKILL_META[key] === skill)) >= 84);
+
+    if (allStrong) {
+      return 'ยังไม่พบจุดอ่อนชัดเจน — ลอง Transfer Challenge เพื่อพิสูจน์การใช้หลัก UX ในบริบทใหม่';
+    }
+
+    return `Challenge จะเลือกเคสจากทักษะที่ควรฝึกเพิ่ม เช่น ${weakest.join(' และ ')}`;
   }
 
   function completeRound() {
     state.complete = true;
-
-    const starCount = stars();
-
-    updateProgressFromRound(starCount);
+    updateProgressFromRound(stars());
     render();
     scrollToTop();
   }
@@ -1575,15 +1395,8 @@
   function renderComplete() {
     const starCount = stars();
     const mode = currentMode();
-
-    const starsHtml = Array.from(
-      { length: 3 },
-      (_, index) => `
-        <span class="final-star ${
-          index < starCount ? 'earned' : ''
-        }">★</span>
-      `
-    ).join('');
+    const challengeOpen = challengeUnlocked();
+    const starsHtml = Array.from({ length: 3 }, (_, index) => `<span class="final-star ${index < starCount ? 'earned' : ''}">★</span>`).join('');
 
     const title = starCount === 3
       ? `${mode.title}: Expert`
@@ -1593,128 +1406,59 @@
           ? `${mode.title}: Clear`
           : 'ต้องทบทวนอีกเล็กน้อย';
 
-    const challengeOpen = challengeUnlocked();
-
     stage.innerHTML = `
       <section class="complete-card">
-        <p class="eyebrow">
-          MISSION COMPLETE • ${escapeHtml(mode.badge)}
-        </p>
-
+        <p class="eyebrow">MISSION COMPLETE • ${escapeHtml(mode.badge)}</p>
         <div class="final-stars">${starsHtml}</div>
-
         <h2>${escapeHtml(title)}</h2>
-
-        <p>
-          คุณผ่าน ${state.caseIds.length} Case โดยฝึกเชื่อม
-          User Goal → UI Symptom → UX Impact → Design Fix → User Test
-        </p>
+        <p>คุณผ่าน ${state.caseIds.length} Case โดยฝึกเชื่อม User Goal → UI Symptom → UX Impact → Design Fix → User Test</p>
 
         <div class="complete-metrics">
-          <div>
-            <span>Final Score</span>
-            <b>${state.score}</b>
-          </div>
-
-          <div>
-            <span>Stability</span>
-            <b>${state.stability}</b>
-          </div>
-
-          <div>
-            <span>Best Stars</span>
-            <b>
-              ${'★'.repeat(progress.bestStars)}
-              ${'☆'.repeat(3 - progress.bestStars)}
-            </b>
-          </div>
+          <div><span>Final Score</span><b>${state.score}</b></div>
+          <div><span>Stability</span><b>${state.stability}</b></div>
+          <div><span>Best Stars</span><b>${'★'.repeat(progress.bestStars)}${'☆'.repeat(3 - progress.bestStars)}</b></div>
         </div>
 
         <div class="principle-stack">
           <b>Learning Profile</b>
-          <span>${escapeHtml(skillSummary())}</span>
+          <span>${escapeHtml(learningProfileText())}</span>
         </div>
 
-        <div class="answer-list">
-          <button
-            id="nextReplayBtn"
-            class="answer-option"
-            type="button"
-          >
-            <span class="radio-dot"></span>
-
-            <span>
-              <strong>Random Replay</strong>
-              <br />
-              <small>
-                สุ่ม 5 เคสใหม่ โดยพยายามไม่ให้ซ้ำกับ 2 รอบล่าสุด
-              </small>
-            </span>
+        <div class="completion-action-grid">
+          <button id="nextReplayBtn" class="completion-action replay" type="button">
+            <span>↻</span><strong>เล่น Random Replay</strong><small>สุ่ม 5 เคสใหม่ • Core Case จะไม่วนซ้ำจนกว่าครบ 12 รอบ</small>
           </button>
 
-          <button
-            id="nextChallengeBtn"
-            class="answer-option"
-            type="button"
-            ${challengeOpen ? '' : 'disabled'}
-          >
-            <span class="radio-dot"></span>
-
-            <span>
-              <strong>Transfer Challenge</strong>
-              <br />
-              <small>
-                ${
-                  challengeOpen
-                    ? 'ฝึกใช้หลัก UX กับบริบทใหม่และมี Stability Gate ที่เข้มขึ้น'
-                    : 'ปลดล็อกเมื่อ Tutorial ได้อย่างน้อย 2 ดาว หรือผ่าน Replay 1 รอบ'
-                }
-              </small>
-            </span>
+          <button id="nextChallengeBtn" class="completion-action challenge" type="button" ${challengeOpen ? '' : 'disabled'}>
+            <span>⚡</span><strong>เริ่ม Transfer Challenge</strong><small>${challengeOpen ? 'เปลี่ยนบริบทและตัด Principle Hint เพื่อพิสูจน์ความเข้าใจ' : 'ปลดล็อกเมื่อ Tutorial ได้ 2 ดาว หรือผ่าน Replay 1 รอบ'}</small>
           </button>
         </div>
 
-        <div class="stage-actions center-actions">
-          <button
-            id="backModeBtn"
-            class="ghost-btn"
-            type="button"
-          >
-            กลับเลือกโหมด
-          </button>
-
-          <a class="ghost-btn" href="./index.html">
-            กลับ Mission Control
-          </a>
+        <div class="stage-actions center-actions completion-footer">
+          <button id="backModeBtn" class="secondary-btn" type="button">เลือกโหมด</button>
+          <a class="secondary-btn" href="./index.html">กลับ Mission Control</a>
         </div>
       </section>
     `;
 
-    $('#nextReplayBtn').addEventListener(
-      'click',
-      () => startRound('replay')
-    );
+    $('#nextReplayBtn').addEventListener('click', () => {
+      if (progress.tutorialComplete) {
+        startRound('replay');
+      }
+    });
 
     $('#nextChallengeBtn').addEventListener('click', () => {
-      if (challengeUnlocked()) {
+      if (challengeOpen) {
         startRound('challenge');
       }
     });
 
-    $('#backModeBtn').addEventListener('click', () => {
-      state = freshState();
-      clearSession();
-      render();
-      scrollToTop();
-    });
+    $('#backModeBtn').addEventListener('click', returnToModeSelect);
   }
 
   function scrollToTop() {
     window.requestAnimationFrame(() => {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   }
 
@@ -1732,27 +1476,23 @@
       return;
     }
 
-    const renderSteps = [
+    const renderStep = [
       renderObserve,
       renderDiagnose,
       renderFix,
       renderUserTest,
       renderExplain
-    ];
+    ][state.step] || renderObserve;
 
-    const renderStep = renderSteps[state.step] || renderObserve;
     renderStep();
   }
 
   function wireStaticEvents() {
-    $('#howBtn').addEventListener('click', () => {
-      howDialog.showModal();
-    });
+    $('#howBtn').addEventListener('click', () => howDialog.showModal());
 
     document.querySelectorAll('[data-close]').forEach((button) => {
       button.addEventListener('click', () => {
         const dialog = $(`#${button.dataset.close}`);
-
         if (dialog) {
           dialog.close();
         }
@@ -1763,10 +1503,10 @@
       const action = $('#resetBtn').dataset.action;
 
       if (action === 'leave-round') {
-        abandonRoundToModeSelect();
-      }
-
-      if (action === 'reset-all') {
+        leaveRound();
+      } else if (action === 'mode-select') {
+        returnToModeSelect();
+      } else {
         resetAllW1();
       }
     });
@@ -1774,14 +1514,9 @@
     [howDialog, feedbackDialog].forEach((dialog) => {
       dialog.addEventListener('click', (event) => {
         const bounds = dialog.getBoundingClientRect();
+        const inside = event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
 
-        const clickedInsideDialog =
-          event.clientX >= bounds.left &&
-          event.clientX <= bounds.right &&
-          event.clientY >= bounds.top &&
-          event.clientY <= bounds.bottom;
-
-        if (!clickedInsideDialog) {
+        if (!inside) {
           dialog.close();
         }
       });
