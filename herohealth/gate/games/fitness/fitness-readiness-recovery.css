@@ -392,3 +392,33 @@
   }
   .frr-task-card{ min-height:480px; }
 }
+/* === REAL CAMERA PREVIEW CANVAS v13 ===
+   Required for fitness-readiness-recovery.js preview canvas patch. */
+
+.frr-preview{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+  transform:scaleX(-1);
+  background:#020617;
+}
+
+.frr-video{
+  z-index:0 !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+.frr-canvas{
+  z-index:3 !important;
+  background:transparent !important;
+}
+
+.frr-frame-guide{z-index:4 !important;}
+.frr-frame-checks,
+.frr-frame-mode,
+.frr-status-pill,
+.frr-camera-empty{z-index:6 !important;}
