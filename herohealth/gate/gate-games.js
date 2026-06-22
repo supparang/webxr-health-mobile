@@ -5,7 +5,7 @@
 export const PATCH = 'v20260622-GATE-GAMES-FRR-V19-LOADER';
 
 const FITNESS_MODULE =
-  './games/fitness/fitness-readiness-recovery.js?v=20260622-frr-v20-bridge-compatible';
+  './games/fitness/fitness-readiness-recovery.js?v=20260622-frr-v21-cooldown-zero-stuck';
 
 const FITNESS_STYLE =
   './games/fitness/fitness-readiness-recovery.css?v=20260622-frr-v19-direct-exit';
