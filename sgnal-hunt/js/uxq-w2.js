@@ -8,7 +8,18 @@
   const CASE_BANK = Array.isArray(window.UXQ_W2_CASE_BANK) ? window.UXQ_W2_CASE_BANK : [];
   const FIRST_RUN = Array.isArray(window.UXQ_W2_FIRST_RUN) ? window.UXQ_W2_FIRST_RUN : [];
 
+  // Accept valid W1 completion from V4/V5/V6 and repair the canonical V6 record.
   const W1_PROGRESS_KEY = 'uxquest-w1-progress-v6';
+  const W1_PROGRESS_KEYS = [
+    'uxquest-w1-progress-v6',
+    'uxquest-w1-progress-v5',
+    'uxquest-w1-progress-v4'
+  ];
+  const W1_SESSION_KEYS = [
+    'uxquest-w1-session-v6',
+    'uxquest-w1-session-v5',
+    'uxquest-w1-case-investigation-v4'
+  ];
   const W2_PROGRESS_KEY = 'uxquest-w2-progress-v1';
   const W2_SESSION_KEY = 'uxquest-w2-session-v1';
   const ROUND_SIZE = 5;
@@ -88,9 +99,86 @@
   function unique(items) { return [...new Set(items)]; }
   function current() { return BY_ID.get(state.caseIds[state.caseIndex]) || null; }
   function modeMeta() { return MODE[state.mode] || MODE.tutorial; }
+  function readCompatW1Records(keys) {
+    return keys
+      .map((key) => safeParse(localStorage.getItem(key), null))
+      .filter((item) => item && typeof item === 'object' && !Array.isArray(item));
+  }
+
+  function isCompletedW1Progress(progress, sessions) {
+    const starClear = Math.max(
+      Number(progress.bestStars) || 0,
+      Number(progress.tutorialBestStars) || 0
+    ) >= 1;
+
+    const tutorialClear = Boolean(progress.tutorialComplete);
+
+    const historyClear = Array.isArray(progress.roundHistory) &&
+      progress.roundHistory.some((round) =>
+        Number(round?.stars) >= 1 ||
+        (round?.mode === 'tutorial' && Number(round?.score) >= 200)
+      );
+
+    const sessionClear = sessions.some((session) =>
+      session && session.complete === true &&
+      (Number(session.score) >= 200 || Number(session.bestStars) >= 1)
+    );
+
+    return starClear || tutorialClear || historyClear || sessionClear;
+  }
+
+  function readW1UnlockState() {
+    const progressRecords = readCompatW1Records(W1_PROGRESS_KEYS);
+    const sessionRecords = readCompatW1Records(W1_SESSION_KEYS);
+
+    const bestStars = Math.max(0, ...progressRecords.map((item) => Math.max(
+      Number(item.bestStars) || 0,
+      Number(item.tutorialBestStars) || 0
+    )));
+
+    const bestScore = Math.max(0, ...progressRecords.map((item) => Number(item.bestScore) || 0));
+    const totalRounds = Math.max(0, ...progressRecords.map((item) => Number(item.totalRounds) || 0));
+
+    const mergedHistory = progressRecords.flatMap((item) =>
+      Array.isArray(item.roundHistory) ? item.roundHistory : []
+    );
+
+    const merged = {
+      bestStars,
+      tutorialBestStars: bestStars,
+      bestScore,
+      totalRounds,
+      tutorialComplete: progressRecords.some((item) => Boolean(item.tutorialComplete)),
+      roundHistory: mergedHistory
+    };
+
+    const unlocked = isCompletedW1Progress(merged, sessionRecords);
+
+    if (unlocked) {
+      try {
+        const canonical = safeParse(localStorage.getItem(W1_PROGRESS_KEY), {}) || {};
+        if (!canonical.tutorialComplete || Number(canonical.bestStars) < bestStars) {
+          localStorage.setItem(W1_PROGRESS_KEY, JSON.stringify({
+            ...canonical,
+            version: 6,
+            tutorialComplete: true,
+            tutorialBestStars: Math.max(Number(canonical.tutorialBestStars) || 0, bestStars, 1),
+            bestStars: Math.max(Number(canonical.bestStars) || 0, bestStars, 1),
+            bestScore: Math.max(Number(canonical.bestScore) || 0, bestScore),
+            totalRounds: Math.max(Number(canonical.totalRounds) || 0, totalRounds),
+            migratedAt: new Date().toISOString()
+          }));
+        }
+      } catch (error) {
+        // Storage errors should not block a valid W1 completion.
+      }
+    }
+
+    return { unlocked, bestStars: clamp(bestStars, 0, 3) };
+  }
+
   function isW1Unlocked() {
-    const w1 = safeParse(localStorage.getItem(W1_PROGRESS_KEY), {});
-    return Boolean(w1.tutorialComplete || Number(w1.bestStars) >= 1);
+    return readW1UnlockState().unlocked;
   }
 
   function saveProgress() {

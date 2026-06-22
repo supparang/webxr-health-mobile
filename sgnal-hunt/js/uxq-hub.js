@@ -4,9 +4,23 @@
 (function () {
   'use strict';
 
+  // W1 has evolved through several builds. Read and safely migrate any valid
+  // completed W1 record so W2 is not locked by a storage-key version mismatch.
   const W1 = { progress: 'uxquest-w1-progress-v6', session: 'uxquest-w1-session-v6' };
+  const W1_COMPAT = {
+    progressKeys: [
+      'uxquest-w1-progress-v6',
+      'uxquest-w1-progress-v5',
+      'uxquest-w1-progress-v4'
+    ],
+    sessionKeys: [
+      'uxquest-w1-session-v6',
+      'uxquest-w1-session-v5',
+      'uxquest-w1-case-investigation-v4'
+    ]
+  };
   const W2 = { progress: 'uxquest-w2-progress-v1', session: 'uxquest-w2-session-v1' };
-  const LEGACY = ['uxquest-w1-progress-v5', 'uxquest-w1-session-v5', 'uxquest-w1-case-investigation-v4'];
+  const LEGACY = ['uxquest-w1-progress-v5', 'uxquest-w1-session-v5', 'uxquest-w1-progress-v4', 'uxquest-w1-case-investigation-v4'];
   const $ = (selector) => document.querySelector(selector);
 
   function parse(key, fallback) { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch (error) { return fallback; } }
@@ -16,16 +30,107 @@
   function attr(selector, name, value) { const el = $(selector); if (el) el.setAttribute(name, value); }
   function classToggle(selector, className, on) { const el = $(selector); if (el) el.classList.toggle(className, on); }
 
-  function readMission(keys) {
-    const progress = parse(keys.progress, {});
-    const session = parse(keys.session, null);
-    const active = Boolean(session && session.mode && Array.isArray(session.caseIds) && session.caseIds.length && !session.complete);
+  function validObject(value) {
+    return value && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  function collectRecords(keys) {
+    return keys
+      .map((key) => ({ key, value: parse(key, null) }))
+      .filter((record) => validObject(record.value));
+  }
+
+  function completedFrom(progress, sessions) {
+    const hasStar = Math.max(
+      Number(progress.bestStars) || 0,
+      Number(progress.tutorialBestStars) || 0
+    ) >= 1;
+
+    const hasTutorial = Boolean(progress.tutorialComplete);
+
+    const finishedLegacyRound = Array.isArray(progress.roundHistory) &&
+      progress.roundHistory.some((round) =>
+        Number(round?.stars) >= 1 ||
+        (round?.mode === 'tutorial' && Number(round?.score) >= 200)
+      );
+
+    const finishedLegacySession = sessions.some((session) =>
+      session && session.complete === true &&
+      (Number(session.score) >= 200 || Number(session.bestStars) >= 1)
+    );
+
+    return hasStar || hasTutorial || finishedLegacyRound || finishedLegacySession;
+  }
+
+  function normalizeCompatProgress(records, sessions) {
+    const values = records.map((record) => record.value);
+    const bestStars = clamp(Math.max(0, ...values.map((item) => Math.max(
+      Number(item.bestStars) || 0,
+      Number(item.tutorialBestStars) || 0
+    ))), 0, 3);
+    const bestScore = Math.max(0, ...values.map((item) => Number(item.bestScore) || 0));
+    const totalRounds = Math.max(0, ...values.map((item) => Number(item.totalRounds) || 0));
+    const tutorialComplete = values.some((item) => Boolean(item.tutorialComplete)) ||
+      completedFrom({ bestStars, tutorialBestStars: bestStars, roundHistory: values.flatMap((item) => Array.isArray(item.roundHistory) ? item.roundHistory : []) }, sessions);
+
     return {
-      bestStars: clamp(Number(progress.bestStars) || 0, 0, 3),
+      version: 6,
+      tutorialComplete,
+      tutorialBestStars: bestStars,
+      bestStars,
+      bestScore,
+      totalRounds
+    };
+  }
+
+  function migrateW1IfNeeded(progress, records) {
+    const canonical = records.find((record) => record.key === W1.progress)?.value;
+    const needsMigration = progress.tutorialComplete && (
+      !canonical ||
+      Number(canonical.bestStars) < progress.bestStars ||
+      !canonical.tutorialComplete
+    );
+
+    if (!needsMigration) return;
+
+    try {
+      localStorage.setItem(W1.progress, JSON.stringify({
+        ...(canonical || {}),
+        ...progress,
+        migratedAt: new Date().toISOString()
+      }));
+    } catch (error) {
+      // Private mode/storage quota should not block access to W2.
+    }
+  }
+
+  function readMission(keys, compat) {
+    const progressRecords = compat
+      ? collectRecords(compat.progressKeys)
+      : [{ key: keys.progress, value: parse(keys.progress, {}) }];
+
+    const sessionRecords = compat
+      ? collectRecords(compat.sessionKeys)
+      : [{ key: keys.session, value: parse(keys.session, null) }];
+
+    const progress = compat
+      ? normalizeCompatProgress(progressRecords, sessionRecords.map((record) => record.value))
+      : (progressRecords[0]?.value || {});
+
+    if (compat) migrateW1IfNeeded(progress, progressRecords);
+
+    const session = sessionRecords
+      .map((record) => record.value)
+      .find((item) => item && item.mode && Array.isArray(item.caseIds) && item.caseIds.length && !item.complete) || null;
+
+    const active = Boolean(session);
+
+    return {
+      bestStars: clamp(Math.max(Number(progress.bestStars) || 0, Number(progress.tutorialBestStars) || 0), 0, 3),
       bestScore: Number(progress.bestScore) || 0,
       totalRounds: Number(progress.totalRounds) || 0,
       tutorialComplete: Boolean(progress.tutorialComplete),
-      cleared: Boolean(progress.tutorialComplete || Number(progress.bestStars) >= 1),
+      cleared: completedFrom(progress, sessionRecords.map((record) => record.value)),
       active,
       activeMode: active ? session.mode : null,
       activeCase: active ? (Number(session.caseIndex) || 0) + 1 : 0,
@@ -56,7 +161,7 @@
   }
 
   function updateHub() {
-    const w1 = readMission(W1);
+    const w1 = readMission(W1, W1_COMPAT);
     const w2 = readMission(W2);
     const actProgress = (w1.cleared ? 1 : 0) + (w2.cleared ? 1 : 0);
     const masterStars = Math.max(w1.bestStars, w2.bestStars);
@@ -105,7 +210,7 @@
 
   function resetAct() {
     if (!confirm('ล้างความคืบหน้า Act I ในเครื่องนี้ทั้งหมด? W1, W2, ดาว, Replay, Challenge และสถิติจะถูกลบ')) return;
-    [W1.progress, W1.session, W2.progress, W2.session, ...LEGACY].forEach((key) => { try { localStorage.removeItem(key); } catch (error) {} });
+    [...new Set([W1.progress, W1.session, W2.progress, W2.session, ...W1_COMPAT.progressKeys, ...W1_COMPAT.sessionKeys, ...LEGACY])].forEach((key) => { try { localStorage.removeItem(key); } catch (error) {} });
     const menu = $('#progressMenu'); if (menu) menu.open = false;
     updateHub();
   }
@@ -115,7 +220,7 @@
     $('#w2Launch')?.addEventListener('click', (event) => { if (event.currentTarget.getAttribute('aria-disabled') === 'true') event.preventDefault(); });
     const menu = $('#progressMenu'); document.addEventListener('click', (event) => { if (menu && menu.open && !menu.contains(event.target)) menu.open = false; });
     window.addEventListener('focus', updateHub);
-    window.addEventListener('storage', (event) => { if ([W1.progress, W1.session, W2.progress, W2.session].includes(event.key)) updateHub(); });
+    window.addEventListener('storage', (event) => { if ([...W1_COMPAT.progressKeys, ...W1_COMPAT.sessionKeys, W2.progress, W2.session].includes(event.key)) updateHub(); });
   }
 
   wire(); updateHub();
