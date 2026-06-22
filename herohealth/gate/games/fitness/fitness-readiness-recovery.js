@@ -1,10 +1,10 @@
 // === /herohealth/gate/games/fitness/fitness-readiness-recovery.js ===
-// FULL MODULE v20260622-FITNESS-READINESS-RECOVERY-DIRECT-EXIT-V19
+// FULL MODULE v20260622-FITNESS-READINESS-RECOVERY-BRIDGE-COMPATIBLE-V20
 // Full replacement: Fitness Gate warmup/cooldown with MediaPipe Pose + preview canvas.
 // The preview canvas draws camera frames directly, avoiding black <video> rendering
 // in some Chrome/WebXR environments.
 
-const PATCH = 'v20260622-FITNESS-READINESS-RECOVERY-DIRECT-EXIT-V19';
+const PATCH = 'v20260622-FITNESS-READINESS-RECOVERY-BRIDGE-COMPATIBLE-V20';
 
 const MP = {
   module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs',
@@ -392,7 +392,22 @@ export async function mount(stage, ctx, api){
     };
 
     const explicit = safe(ctx && ctx.next);
-    if(explicit) return explicit;
+    if(explicit){
+      const u = new URL(explicit, location.href);
+      // Recovery bridge needs an explicit completion flag so solo launch does not
+      // re-open Warm-up after the gate returns to the game.
+      if(phase === 'warmup'){
+        u.searchParams.set('warmupDone', '1');
+        u.searchParams.set('gateWarmupDone', '1');
+      }
+      if(phase === 'cooldown'){
+        u.searchParams.set('cooldownDone', '1');
+        u.searchParams.set('gateCooldownDone', '1');
+      }
+      u.searchParams.set('fromGate', '1');
+      u.searchParams.set('gatePatch', PATCH);
+      return u.toString();
+    }
 
     const canonical = {
       'shadow-breaker':'/webxr-health-mobile/fitness/shadow-breaker-ar.html',
