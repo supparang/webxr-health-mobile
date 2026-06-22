@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Canonical Identity Lock | v20260621-rb-identity-lock-v3 -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Warmup-Game-Cooldown Flow + RPE/Pain | v20260622-rb-wgc-flow-v1 -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -849,11 +849,17 @@
         </div>
       </div>
 
+      <div id="recoveryChoice" class="note-box" style="margin-top:14px">
+        <b>🧘 Recovery Choice</b><br />
+        เล่นจบและบันทึก RPE/Pain แล้ว เลือกทำ Cooldown สั้น ๆ ก่อนกลับ Hub หรือข้ามได้เมื่อเข้าเล่นแบบเกมเดี่ยว
+      </div>
+
       <div class="row" style="margin-top:14px">
-        <button id="btnAgain" class="btn primary">เล่นอีกครั้ง</button>
-        <button id="btnMenu2" class="btn">กลับ Hub</button>
-        <button id="btnCsvSession" class="btn soft">Export Session CSV</button>
-        <button id="btnCsvEvents" class="btn soft">Export Event CSV</button>
+        <button id="btnAgain" class="btn primary" type="button">เล่นอีกครั้ง</button>
+        <button id="btnCooldown" class="btn warn" type="button">🧘 ทำ Cooldown 30 วินาที</button>
+        <button id="btnMenu2" class="btn" type="button">กลับ Hub</button>
+        <button id="btnCsvSession" class="btn soft" type="button">Export Session CSV</button>
+        <button id="btnCsvEvents" class="btn soft" type="button">Export Event CSV</button>
       </div>
     </section>
   </main>
@@ -870,7 +876,7 @@
   const qs = (k,d='')=>{try{return new URL(location.href).searchParams.get(k) ?? d}catch(_){return d}};
   const qbool = (k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
 
-  const RB_VERSION = 'v20260621-rb-identity-lock-v3';
+  const RB_VERSION = 'v20260622-rb-wgc-flow-v1';
   const RB_GAME_ID = 'rhythmboxer';
   const RB_DEFAULT_HUB = './';
   const RB_DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
@@ -1085,6 +1091,109 @@
     }
   }
 
+
+  /* =========================================================
+   * Warm-up → Game → Cooldown routing
+   * Solo: optional cooldown, return to Fitness Hub allowed.
+   * Planner: cooldown is the required next step, then return planner.
+   * ========================================================= */
+  function rbEntryMode(){
+    const entry = String(qs('entry','')).toLowerCase();
+    const from = String(qs('from','')).toLowerCase();
+    const plannerSignals = [
+      qs('plannerReturnUrl',''),
+      qs('plannerReturn',''),
+      qs('planId',''),
+      qs('planDay',''),
+      qs('planSlot',''),
+      qs('plannerForceGate',''),
+      entry === 'planner',
+      from === 'planner',
+      entry.includes('planner'),
+      from.includes('planner')
+    ];
+    return plannerSignals.some(Boolean) ? 'planner' : 'solo';
+  }
+
+  function rbPlannerReturnUrl(){
+    const raw = qs('plannerReturnUrl', qs('plannerReturn', ''));
+    return raw ? rbAbsUrl(raw, '') : '';
+  }
+
+  function rbCooldownUrl(){
+    const ctx = rbStudentContext();
+    const mode = rbEntryMode();
+    const plannerReturn = rbPlannerReturnUrl();
+    const hub = rbHubUrl();
+    const u = new URL('/webxr-health-mobile/herohealth/warmup-gate.html', location.origin);
+
+    [
+      ['phase','cooldown'],
+      ['game','rhythm-boxer'],
+      ['gameId','rhythm-boxer'],
+      ['theme','rhythm-boxer'],
+      ['zone','fitness'],
+      ['cat','fitness'],
+      ['entry', mode === 'planner' ? 'planner-cooldown' : 'solo-cooldown'],
+      ['mode', mode],
+      ['fromGame','rhythm-boxer'],
+      ['cooldownOffered','yes'],
+      ['pid', ctx.playerId || S.pid || els.pid.value || 'anon'],
+      ['playerId', ctx.playerId || S.pid || els.pid.value || 'anon'],
+      ['studentId', ctx.studentId || ''],
+      ['name', ctx.studentName || qs('name','Hero') || 'Hero'],
+      ['studentName', ctx.studentName || qs('name','Hero') || 'Hero'],
+      ['classId', ctx.classId || ''],
+      ['section', ctx.section || ''],
+      ['diff', S.diff || qs('diff','normal') || 'normal'],
+      ['time','30'],
+      ['view', qs('view','mobile') || 'mobile'],
+      ['api', rbApiUrl() || '']
+    ].forEach(([key,value])=>{
+      if(value !== undefined && value !== null && String(value) !== '') u.searchParams.set(key, String(value));
+    });
+
+    if(mode === 'planner' && plannerReturn){
+      u.searchParams.set('plannerReturnUrl', plannerReturn);
+      u.searchParams.set('plannerReturn', plannerReturn);
+      u.searchParams.set('plannerForceGate','1');
+      u.searchParams.set('next', plannerReturn);
+      u.searchParams.set('cdnext', plannerReturn);
+      u.searchParams.set('hub', plannerReturn);
+    }else{
+      u.searchParams.set('hub', hub);
+      u.searchParams.set('next', hub);
+      u.searchParams.set('cdnext', hub);
+    }
+
+    return u.toString();
+  }
+
+  function rbSyncRecoveryChoice(){
+    const planner = rbEntryMode() === 'planner';
+    if(els.btnMenu2) els.btnMenu2.hidden = planner;
+    if(els.btnCooldown){
+      els.btnCooldown.textContent = planner
+        ? '🧘 ทำ Cooldown AR ต่อ'
+        : '🧘 ทำ Cooldown 30 วินาที';
+    }
+    if(els.recoveryChoice){
+      els.recoveryChoice.innerHTML = planner
+        ? '<b>🧘 Planner Recovery Required</b><br />กิจกรรมนี้มาจาก Fitness Planner: บันทึก RPE/Pain แล้วทำ Cooldown ต่อเพื่อปิดแผนให้ครบ'
+        : '<b>🧘 Recovery Choice</b><br />เล่นจบและบันทึก RPE/Pain แล้ว เลือกทำ Cooldown สั้น ๆ ก่อนกลับ Hub หรือข้ามได้';
+    }
+  }
+
+  function rbGoCooldown(){
+    if(rbSurveyRequiredBeforeLeave()){
+      rbSetSubmitStatus('กรุณาบันทึก RPE/Pain ก่อนทำ Cooldown เพื่อให้ผลรอบนี้ส่งเข้า Sheet', 'warn');
+      if(els.postSurveyPanel) els.postSurveyPanel.scrollIntoView({behavior:'smooth', block:'center'});
+      return;
+    }
+    try{ localStorage.setItem('HHA_COOLDOWN_OFFERED:rhythm-boxer:' + (S.pid || 'anon'), JSON.stringify({ts:Date.now(), mode:rbEntryMode()})); }catch(_){}
+    location.href = rbCooldownUrl();
+  }
+
   function rbSetSubmitStatus(text, kind='warn'){
     if(!els.submitStatus) return;
     els.submitStatus.className = 'quality ' + kind;
@@ -1172,7 +1281,7 @@
     mScore:$('mScore'), mCombo:$('mCombo'), mAcc:$('mAcc'), missionStars:$('missionStars'),
     resScore:$('resScore'), resRank:$('resRank'), resStars:$('resStars'), resAcc:$('resAcc'),
     resCombo:$('resCombo'), resBody:$('resBody'), resMiss:$('resMiss'), resBoss:$('resBoss'), resFlowCombo:$('resFlowCombo'), resNoise:$('resNoise'), quality:$('quality'),
-    btnAgain:$('btnAgain'), btnMenu2:$('btnMenu2'), btnCsvSession:$('btnCsvSession'), btnCsvEvents:$('btnCsvEvents'), submitStatus:$('submitStatus'),
+    btnAgain:$('btnAgain'), btnCooldown:$('btnCooldown'), btnMenu2:$('btnMenu2'), recoveryChoice:$('recoveryChoice'), btnCsvSession:$('btnCsvSession'), btnCsvEvents:$('btnCsvEvents'), submitStatus:$('submitStatus'),
     sportIndexBadge:$('sportIndexBadge'), ssRhythm:$('ssRhythm'), ssMovement:$('ssMovement'), ssBalance:$('ssBalance'), ssFatigue:$('ssFatigue'), ssLR:$('ssLR'), ssSpeed:$('ssSpeed'), ssDrop:$('ssDrop'), ssTracking:$('ssTracking'),
     rpeInput:$('rpeInput'), rpeValue:$('rpeValue'), painShoulder:$('painShoulder'), painArm:$('painArm'), painWrist:$('painWrist'), painBack:$('painBack'), painKnee:$('painKnee'), dizzy:$('dizzy'), painNoteInput:$('painNoteInput'), sendSurveyBtn:$('sendSurveyBtn'), surveyStatus:$('surveyStatus'), surveyBadge:$('surveyBadge'), noSymptomsConfirmed:$('noSymptomsConfirmed'), surveyValidationHint:$('surveyValidationHint')
   };
@@ -2635,6 +2744,10 @@
     start(S.mode);
   });
 
+  if(els.btnCooldown){
+    els.btnCooldown.addEventListener('click', rbGoCooldown);
+  }
+
   els.btnMenu2.addEventListener('click',()=>{
     if(rbSurveyRequiredBeforeLeave()){
       rbSetSubmitStatus('กรุณาบันทึก RPE/Pain ก่อนกลับ Hub เพื่อให้ผลรอบนี้ส่งเข้า Sheet', 'warn');
@@ -2660,6 +2773,7 @@
   W.addEventListener('beforeunload',()=>stopCamera());
 
   // final init
+  rbSyncRecoveryChoice();
   show('menu');
   applyLaneMode();
 
