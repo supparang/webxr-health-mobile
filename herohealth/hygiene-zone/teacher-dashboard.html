@@ -1,7 +1,7 @@
 <!-- =========================================================
  /herohealth/hygiene-zone/teacher-dashboard.html
  HeroHealth Hygiene Zone Teacher Dashboard V2
- Version: v20260621-HYGIENE-TEACHER-DASHBOARD-V2-2-API-DIAGNOSTIC
+ Version: v20260622-HYGIENE-TEACHER-DASHBOARD-V2-3-METRIC-TRUTHFUL
 ========================================================= -->
 <!doctype html>
 <html lang="th">
@@ -109,7 +109,86 @@ const $=id=>document.getElementById(id),n=(v,f=0)=>Number.isFinite(Number(v))?Nu
 const S={all:[],shown:[],selected:'',source:'Demo Data'};
 function pick(o,keys,f=''){for(const k of keys)if(o&&o[k]!==undefined&&o[k]!==null&&o[k]!=='')return o[k];return f}
 function json(v,f={}){if(!v)return f;if(typeof v==='object')return v;try{return JSON.parse(v)}catch(e){return f}}
-function norm(raw,i=0){const r={...(raw||{})},mode=String(pick(r,['play_mode','playMode'],'')).toLowerCase(),id=String(pick(r,['record_id','recordId','run_id','runId'],`local-${i}`));return {...r,__key:`${id}-${i}`,record_id:id,created_at:pick(r,['created_at','createdAt','received_at','receivedAt']),player_name:pick(r,['player_name','playerName','name'],'Unknown'),student_id:pick(r,['student_id','studentId','pid']),class_level:pick(r,['class_level','classLevel','grade']),section:pick(r,['section','group']),game_key:String(pick(r,['game_key','gameKey','game_id','gameId'],'other')).toLowerCase(),play_mode:mode,difficulty:String(pick(r,['difficulty','diff'],'')).toLowerCase(),score:n(pick(r,['score'])),clean_score:n(pick(r,['clean_score','cleanScore'])),gum_health:n(pick(r,['gum_health','gumHealth'])),technique_score:n(pick(r,['technique_score','techniqueScore'])),coverage_zone_count:n(pick(r,['coverage_zone_count','coverageZoneCount'])),learning_complete:yes(pick(r,['learning_complete','learningComplete'])),learning_progress_percent:n(pick(r,['learning_progress_percent','learningProgressPercent'])),learning_direction_mastery:n(pick(r,['learning_direction_mastery','learningDirectionMastery'])),learning_qualified_strokes:n(pick(r,['learning_qualified_strokes','learningQualifiedStrokes'])),learning_required_strokes:n(pick(r,['learning_required_strokes','learningRequiredStrokes'])),overall_direction_accuracy:n(pick(r,['overall_direction_accuracy','overallDirectionAccuracy','direction_accuracy','directionAccuracy'])),direction_accuracy:n(pick(r,['direction_accuracy','directionAccuracy'])),direction_threshold:n(pick(r,['direction_threshold','directionThreshold'])),direction_passed:yes(pick(r,['direction_passed','directionPassed'])),challenge_result:String(pick(r,['challenge_result','challengeResult'],'')).toLowerCase(),challenge_passed:yes(pick(r,['challenge_passed','challengePassed'])),challenge_fail_reasons:String(pick(r,['challenge_fail_reasons','challengeFailReasons'],'')),strongest_zone:String(pick(r,['strongest_zone','best_zone_from_summary','strongestZone'],'')),weakest_zone:String(pick(r,['weakest_zone','weak_zone_from_summary','weakestZone'],'')),input_mode:String(pick(r,['input_mode','inputMode'],'')),hand_tracking_enabled:yes(pick(r,['hand_tracking_enabled','handTrackingEnabled'])),badge:String(pick(r,['badge'],'')),advice:String(pick(r,['advice'],'')),guided_zone_progress_json:pick(r,['guided_zone_progress_json','guidedZoneProgressJson'],''),challenge_zone_performance_json:pick(r,['challenge_zone_performance_json','challengeZonePerformanceJson'],'')}}
+function has(o,keys){
+  return keys.some(k=>
+    o && Object.prototype.hasOwnProperty.call(o,k) &&
+    o[k]!==undefined && o[k]!==null && String(o[k]).trim()!==''
+  );
+}
+function shownPercent(hasValue,value){return hasValue?`${Math.round(n(value))}%`:'—'}
+function meanMeasured(records,getter){
+  const values=records.map(getter).filter(v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))).map(Number);
+  return {value:values.length?Math.round(values.reduce((sum,value)=>sum+value,0)/values.length):null,count:values.length};
+}
+function metricLabel(metric,suffix='%'){return metric.count?`${metric.value}${suffix}`:'—'}
+function zoneMetric(records,payloadKey,zoneId,metricKey){
+  return meanMeasured(records,record=>{
+    const payload=json(record[payloadKey],{});
+    if(payloadKey==='guided_zone_progress_json'){
+      const progress=payload.progress||{};
+      return has(progress,[zoneId])?n(progress[zoneId]):null;
+    }
+    const zone=payload[zoneId]||{};
+    return has(zone,[metricKey])?n(zone[metricKey]):null;
+  });
+}
+function norm(raw,i=0){
+  const source={...(raw||{})};
+  const embedded=json(pick(source,['raw_json','rawJson']),{});
+  const r={...source,...(embedded&&typeof embedded==='object'&&!Array.isArray(embedded)?embedded:{})};
+  const mode=String(pick(r,['play_mode','playMode'],'')).toLowerCase();
+  const id=String(pick(r,['record_id','recordId','run_id','runId'],`local-${i}`));
+  const guidedJson=pick(r,['guided_zone_progress_json','guidedZoneProgressJson'],'');
+  const challengeJson=pick(r,['challenge_zone_performance_json','challengeZonePerformanceJson'],'');
+  const guidedPayload=json(guidedJson,{});
+  const challengePayload=json(challengeJson,{});
+  const hasClean=has(r,['clean_score','cleanScore']);
+  const hasGum=has(r,['gum_health','gumHealth']);
+  const hasTechnique=has(r,['technique_score','techniqueScore']);
+  const hasCoverage=has(r,['coverage_zone_count','coverageZoneCount']);
+  const hasDirection=has(r,['overall_direction_accuracy','overallDirectionAccuracy','direction_accuracy','directionAccuracy']);
+  const hasLearningProgress=has(r,['learning_progress_percent','learningProgressPercent']);
+  const hasLearningMastery=has(r,['learning_direction_mastery','learningDirectionMastery']);
+  const hasGuidedZones=!!(guidedPayload&&guidedPayload.progress&&Object.keys(guidedPayload.progress).length);
+  const hasChallengeZones=!!(challengePayload&&typeof challengePayload==='object'&&Object.keys(challengePayload).length);
+  return {...r,
+    __key:`${id}-${i}`,record_id:id,
+    created_at:pick(r,['created_at','createdAt','received_at','receivedAt']),
+    player_name:pick(r,['player_name','playerName','name'],'Unknown'),
+    student_id:pick(r,['student_id','studentId','pid']),
+    class_level:pick(r,['class_level','classLevel','grade']),
+    section:pick(r,['section','group']),
+    game_key:String(pick(r,['game_key','gameKey','game_id','gameId'],'other')).toLowerCase(),
+    play_mode:mode,difficulty:String(pick(r,['difficulty','diff'],'')).toLowerCase(),
+    score:n(pick(r,['score'])),clean_score:n(pick(r,['clean_score','cleanScore'])),
+    gum_health:n(pick(r,['gum_health','gumHealth'])),
+    technique_score:n(pick(r,['technique_score','techniqueScore'])),
+    coverage_zone_count:n(pick(r,['coverage_zone_count','coverageZoneCount'])),
+    learning_complete:yes(pick(r,['learning_complete','learningComplete'])),
+    learning_progress_percent:n(pick(r,['learning_progress_percent','learningProgressPercent'])),
+    learning_direction_mastery:n(pick(r,['learning_direction_mastery','learningDirectionMastery'])),
+    learning_qualified_strokes:n(pick(r,['learning_qualified_strokes','learningQualifiedStrokes'])),
+    learning_required_strokes:n(pick(r,['learning_required_strokes','learningRequiredStrokes'])),
+    overall_direction_accuracy:n(pick(r,['overall_direction_accuracy','overallDirectionAccuracy','direction_accuracy','directionAccuracy'])),
+    direction_accuracy:n(pick(r,['direction_accuracy','directionAccuracy'])),
+    direction_threshold:n(pick(r,['direction_threshold','directionThreshold'])),
+    direction_passed:yes(pick(r,['direction_passed','directionPassed'])),
+    challenge_result:String(pick(r,['challenge_result','challengeResult'],'')).toLowerCase(),
+    challenge_passed:yes(pick(r,['challenge_passed','challengePassed'])),
+    challenge_fail_reasons:String(pick(r,['challenge_fail_reasons','challengeFailReasons'],'')),
+    strongest_zone:String(pick(r,['strongest_zone','best_zone_from_summary','strongestZone'],'')),
+    weakest_zone:String(pick(r,['weakest_zone','weak_zone_from_summary','weakestZone'],'')),
+    input_mode:String(pick(r,['input_mode','inputMode'],'')),
+    hand_tracking_enabled:yes(pick(r,['hand_tracking_enabled','handTrackingEnabled'])),
+    badge:String(pick(r,['badge'],'')),advice:String(pick(r,['advice'],'')),
+    guided_zone_progress_json:guidedJson,
+    challenge_zone_performance_json:challengeJson,
+    _hasClean:hasClean,_hasGum:hasGum,_hasTechnique:hasTechnique,_hasCoverage:hasCoverage,
+    _hasDirection:hasDirection,_hasLearningProgress:hasLearningProgress,
+    _hasLearningMastery:hasLearningMastery,_hasGuidedZones:hasGuidedZones,
+    _hasChallengeZones:hasChallengeZones
+  };
+}
 function demo(){const base=new Date(),mk=(m,x)=>({record_id:`D-${m}-${x.player_name}`,created_at:new Date(base-m*60000).toISOString(),zone:'hygiene',game_key:'toothbrush',class_level:'ป.5',section:'A',difficulty:'easy',...x});return[
 mk(4,{player_name:'Hero',play_mode:'learning',score:4680,clean_score:100,gum_health:94,technique_score:100,coverage_zone_count:6,learning_complete:'yes',learning_progress_percent:100,learning_direction_mastery:100,learning_qualified_strokes:18,learning_required_strokes:18,overall_direction_accuracy:38,direction_accuracy:38,challenge_result:'learning_complete',challenge_passed:'yes',strongest_zone:'บนซ้าย',weakest_zone:'ล่างขวา',input_mode:'hand_tracking',guided_zone_progress_json:JSON.stringify({progress:{top_left:100,top_mid:100,top_right:100,bottom_left:100,bottom_mid:100,bottom_right:100},qualified_strokes:{top_left:3,top_mid:3,top_right:3,bottom_left:3,bottom_mid:3,bottom_right:3},direction_good:{top_left:3,top_mid:3,top_right:3,bottom_left:3,bottom_mid:3,bottom_right:3},direction_total:{top_left:8,top_mid:7,top_right:8,bottom_left:7,bottom_mid:9,bottom_right:8}})}),
 mk(12,{player_name:'Mook',play_mode:'challenge',score:5110,clean_score:100,gum_health:89,technique_score:100,coverage_zone_count:6,direction_accuracy:36,overall_direction_accuracy:36,direction_threshold:45,direction_passed:'no',challenge_result:'direction_practice_needed',challenge_passed:'no',challenge_fail_reasons:'Direction ต้องอย่างน้อย 45%',strongest_zone:'บนขวา',weakest_zone:'ล่างขวา',input_mode:'hand_tracking',challenge_zone_performance_json:JSON.stringify({top_left:{clean_percent:100,direction_accuracy:67},top_mid:{clean_percent:100,direction_accuracy:53},top_right:{clean_percent:100,direction_accuracy:71},bottom_left:{clean_percent:100,direction_accuracy:23},bottom_mid:{clean_percent:100,direction_accuracy:25},bottom_right:{clean_percent:92,direction_accuracy:0}})}),
@@ -129,15 +208,106 @@ function opts(id,vals,label){const e=$(id),old=e.value,u=[...new Set(vals.filter
 function filters(){opts('game',S.all.map(r=>r.game_key),'ทุกเกม');opts('class',S.all.map(r=>r.class_level),'ทุกชั้น');const e=$('mode'),v=e.value;e.innerHTML='<option value="">ทุกโหมด</option><option value="learning">Learning</option><option value="challenge">Challenge</option>';e.value=['learning','challenge'].includes(v)?v:'';const q=$('result'),w=q.value;q.innerHTML='<option value="">ทุกผลลัพธ์</option><option value="pass">Pass</option><option value="learning">Learning Pass</option><option value="practice">Direction Practice</option><option value="retry">Retry</option>';q.value=['pass','learning','practice','retry'].includes(w)?w:''}
 function apply(){const q=$('search').value.trim().toLowerCase(),g=$('game').value,c=$('class').value,m=$('mode').value,res=$('result').value,sort=$('sort').value;let a=S.all.filter(r=>{const info=result(r),text=[r.player_name,r.student_id,r.class_level,r.section,r.game_key,r.play_mode,r.challenge_result,r.challenge_fail_reasons,r.badge,r.weakest_zone].join(' ').toLowerCase();return(!g||r.game_key===g)&&(!c||r.class_level===c)&&(!m||r.play_mode===m)&&(!res||info.css===res)&&(!q||text.includes(q))});a.sort((x,y)=>sort==='score'?n(y.score)-n(x.score):sort==='direction'?direction(x)-direction(y):sort==='gum'?n(x.gum_health)-n(y.gum_health):sort==='technique'?n(x.technique_score)-n(y.technique_score):ts(y)-ts(x));S.shown=a;if(!a.some(r=>r.__key===S.selected))S.selected=a[0]?.__key||'';render()}
 function avg(a,f){return a.length?Math.round(a.reduce((s,x)=>s+f(x),0)/a.length):0}
-function metrics(a){const learn=a.filter(r=>r.play_mode==='learning'),pass=a.filter(r=>result(r).css==='pass').length,complete=learn.filter(r=>r.learning_complete).length,practice=a.filter(r=>result(r).css==='practice').length;return{total:a.length,pass,passRate:a.length?Math.round(pass/a.length*100):0,learn:learn.length,complete,learnRate:learn.length?Math.round(complete/learn.length*100):0,clean:avg(a,r=>n(r.clean_score)),gum:avg(a,r=>n(r.gum_health)),tech:avg(a,r=>n(r.technique_score)),dir:avg(a,direction),practice,mastery:learn.length?avg(learn,mastery):0}}
+function metrics(a){
+  const learn=a.filter(r=>r.play_mode==='learning');
+  const challenge=a.filter(r=>r.play_mode==='challenge');
+  const pass=challenge.filter(r=>result(r).css==='pass').length;
+  const complete=learn.filter(r=>r.learning_complete).length;
+  const practice=challenge.filter(r=>result(r).css==='practice').length;
+  const clean=meanMeasured(a.filter(r=>r._hasClean),r=>r.clean_score);
+  const toothbrush=a.filter(r=>r.game_key==='toothbrush');
+  const gum=meanMeasured(toothbrush.filter(r=>r._hasGum),r=>r.gum_health);
+  const tech=meanMeasured(toothbrush.filter(r=>r._hasTechnique),r=>r.technique_score);
+  const dir=meanMeasured(challenge.filter(r=>r.game_key==='toothbrush'&&r._hasDirection),r=>direction(r));
+  const mastery=meanMeasured(learn.filter(r=>r.game_key==='toothbrush'&&r._hasLearningMastery),r=>mastery(r));
+  return {total:a.length,challenge:challenge.length,pass,passRate:challenge.length?Math.round(pass/challenge.length*100):null,
+    learn:learn.length,complete,learnRate:learn.length?Math.round(complete/learn.length*100):null,
+    clean,gum,tech,dir,mastery,practice};
+}
 function kp(label,value,sub,glow){return`<article class="kpi" style="--glow:${glow}"><small>${esc(label)}</small><b>${esc(value)}</b><span>${esc(sub)}</span></article>`}
-function renderKpis(){const x=metrics(S.shown);$('kpis').innerHTML=[kp('Total Plays',x.total,`${x.learn} Learning • ${x.total-x.learn} Challenge`,'rgba(103,232,249,.30)'),kp('Challenge Pass',`${x.passRate}%`,`${x.pass} Fresh Smile Hero`,'rgba(34,197,94,.28)'),kp('Learning Complete',`${x.learnRate}%`,`${x.complete}/${x.learn||0} completed`,'rgba(59,130,246,.25)'),kp('Avg Clean',`${x.clean}%`,'ความสะอาดเฉลี่ย','rgba(250,204,21,.27)'),kp('Avg Gum',`${x.gum}%`,x.gum>=75?'อยู่ในเกณฑ์ปลอดภัย':'ควรเน้น gentle brushing','rgba(34,197,94,.25)'),kp('Avg Technique',`${x.tech}%`,'จังหวะและแรงแปรง','rgba(139,92,246,.23)'),kp('Avg Direction',`${x.dir}%`,'ความแม่นทิศทางระหว่างเล่น','rgba(251,146,60,.25)'),kp('Direction Practice',x.practice,'Clean ผ่าน แต่ทิศยังไม่ถึงเกณฑ์','rgba(251,113,133,.25)')].join('')}
-function renderInsights(){const a=S.shown,x=metrics(a),list=[],practice=a.filter(r=>result(r).css==='practice'),incomplete=a.filter(r=>r.play_mode==='learning'&&!r.learning_complete),gum=a.filter(r=>n(r.gum_health)<65),tech=a.filter(r=>n(r.technique_score)<n(pick(r,['pass_min_technique'],45),45)),touch=a.filter(r=>r.input_mode==='touch_mouse');if(practice.length)list.push(['🧭',`${practice.length} ครั้งต้องฝึก Direction เพิ่ม`,'ฟันบนปัดลง • ฟันล่างปัดขึ้น โดยเริ่มช้า ๆ ในโซนเป้าหมาย']);if(incomplete.length)list.push(['🗺️',`${incomplete.length} ครั้งยังไม่ครบ Learning 6 โซน`,'ให้เริ่ม Learning Mode ที่โซนค้าง และเก็บ pass strokes ทีละโซน']);if(gum.length)list.push(['🌿',`${gum.length} ครั้งมี Gum ต่ำกว่า 65%`,'โค้ชเรื่อง gentle brushing: ลดแรง ลดความเร็ว และไม่ถูซ้ำจุดเดิม']);if(tech.length)list.push(['🧠',`${tech.length} ครั้ง Technique ต่ำกว่าเกณฑ์`,'ทำ warm-up ความเร็วระดับกลางก่อนเข้าสู่ Challenge Mode']);if(touch.length)list.push(['👆',`${touch.length} ครั้งใช้ Touch / Mouse fallback`,'ผลยังใช้ได้ แต่ถ้าประเมินท่าทางให้เปิดกล้องและ Hand Tracking']);if(!list.length)list.push(['✨','ผลรวมอยู่ในเกณฑ์ดี',`Clean ${x.clean}% • Gum ${x.gum}% • Technique ${x.tech}% พร้อมเพิ่มความยากได้`]);$('insightCount').textContent=`${a.length} records`;$('insights').innerHTML=list.slice(0,5).map(i=>`<div class="insight"><div class="icon">${i[0]}</div><div><b>${esc(i[1])}</b><span>${esc(i[2])}</span></div></div>`).join('')}
-function board(){const learn=S.shown.filter(r=>r.play_mode==='learning'),challenge=S.shown.filter(r=>r.play_mode==='challenge');$('zoneBoard').innerHTML=CFG.zones.map(([id,label])=>{const l=avg(learn,r=>n(json(r.guided_zone_progress_json).progress?.[id],0)),c=avg(challenge,r=>n(json(r.challenge_zone_performance_json)?.[id]?.clean_percent,0)),d=avg(challenge,r=>n(json(r.challenge_zone_performance_json)?.[id]?.direction_accuracy,0));return`<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill blue" style="width:${clamp(l,0,100)}%"></i></div><div class="track"><i class="fill" style="width:${clamp(c,0,100)}%"></i></div><div class="track"><i class="fill pink" style="width:${clamp(d,0,100)}%"></i></div></div><span class="zone-num">L ${l}%<br>C ${c}% • D ${d}%</span></div>`}).join('')}
-function table(){const a=S.shown;$('recordCount').textContent=`${a.length} records`;$('caption').textContent=a.length?`${S.source} • เลือกแถวเพื่อดูรายโซน`:'ไม่พบข้อมูลที่ตรงกับ filter';if(!a.length){$('tbody').innerHTML='<tr><td colspan="14" class="empty">ยังไม่มีข้อมูลที่ตรงกับ filter นี้</td></tr>';return}$('tbody').innerHTML=a.map(r=>{const x=result(r),learn=r.play_mode==='learning'?`${r.learning_progress_percent}% ${r.learning_complete?'✓':''}`:'-';return`<tr data-k="${esc(r.__key)}" class="${r.__key===S.selected?'selected':''}"><td>${esc(date(r.created_at))}</td><td class="name">${esc(r.player_name)}<span class="sub">${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'-')}</span></td><td>${esc(game(r.game_key))}<span class="sub">${esc(mode(r.play_mode))} • ${esc(r.difficulty||'-')}</span></td><td><span class="tag ${x.css}">${esc(x.label)}</span><span class="sub">${esc(x.detail)}</span></td><td>${Math.round(n(r.score))}</td><td>${Math.round(n(r.clean_score))}%</td><td>${Math.round(n(r.gum_health))}%</td><td>${Math.round(n(r.technique_score))}%</td><td>${Math.round(n(r.coverage_zone_count))}/6</td><td>${esc(learn)}</td><td>${r.play_mode==='learning'?mastery(r)+'%':'-'}</td><td>${direction(r)}%</td><td>${esc(r.weakest_zone||'-')}</td><td>${esc(input(r))}</td></tr>`}).join('');document.querySelectorAll('[data-k]').forEach(e=>e.onclick=()=>{S.selected=e.dataset.k;table();detail()})}
+function renderKpis(){
+  const x=metrics(S.shown);
+  $('kpis').innerHTML=[
+    kp('Total Plays',x.total,`${x.learn} Learning • ${x.challenge} Challenge`,'rgba(103,232,249,.30)'),
+    kp('Challenge Pass',x.challenge?`${x.passRate}%`:'—',`${x.pass}/${x.challenge} Fresh Smile Hero`,'rgba(34,197,94,.28)'),
+    kp('Learning Complete',x.learn?`${x.learnRate}%`:'—',`${x.complete}/${x.learn} completed`,'rgba(59,130,246,.25)'),
+    kp('Avg Clean',metricLabel(x.clean),`${x.clean.count} records measured`,'rgba(250,204,21,.27)'),
+    kp('Avg Gum',metricLabel(x.gum),x.gum.count?`Toothbrush • ${x.gum.count} measured`:'ยังไม่มีข้อมูล Gum','rgba(34,197,94,.25)'),
+    kp('Avg Technique',metricLabel(x.tech),x.tech.count?`Toothbrush • ${x.tech.count} measured`:'ยังไม่มีข้อมูล Technique','rgba(139,92,246,.23)'),
+    kp('Challenge Direction',metricLabel(x.dir),x.dir.count?`Challenge • ${x.dir.count} measured`:'ยังไม่มีข้อมูล Direction','rgba(251,146,60,.25)'),
+    kp('Direction Practice',x.practice,'Clean ผ่าน แต่ทิศยังไม่ถึงเกณฑ์','rgba(251,113,133,.25)')
+  ].join('');
+}
+function renderInsights(){
+  const a=S.shown,x=metrics(a),list=[];
+  const practice=a.filter(r=>r.play_mode==='challenge'&&result(r).css==='practice');
+  const incomplete=a.filter(r=>r.play_mode==='learning'&&!r.learning_complete);
+  const gum=a.filter(r=>r.game_key==='toothbrush'&&r._hasGum&&n(r.gum_health)<65);
+  const tech=a.filter(r=>r.game_key==='toothbrush'&&r._hasTechnique&&n(r.technique_score)<n(pick(r,['pass_min_technique'],45),45));
+  const touch=a.filter(r=>r.input_mode==='touch_mouse');
+  if(practice.length)list.push(['🧭',`${practice.length} ครั้งต้องฝึก Direction เพิ่ม`,'ฟันบนปัดลง • ฟันล่างปัดขึ้น โดยเริ่มช้า ๆ ในโซนเป้าหมาย']);
+  if(incomplete.length)list.push(['🗺️',`${incomplete.length} ครั้งยังไม่ครบ Learning 6 โซน`,'ให้เริ่ม Learning Mode ที่โซนค้าง และเก็บ pass strokes ทีละโซน']);
+  if(gum.length)list.push(['🌿',`${gum.length} ครั้งมี Gum ต่ำกว่า 65%`,'โค้ชเรื่อง gentle brushing: ลดแรง ลดความเร็ว และไม่ถูซ้ำจุดเดิม']);
+  if(tech.length)list.push(['🧠',`${tech.length} ครั้ง Technique ต่ำกว่าเกณฑ์`,'ทำ warm-up ความเร็วระดับกลางก่อนเข้าสู่ Challenge Mode']);
+  if(touch.length)list.push(['👆',`${touch.length} ครั้งใช้ Touch / Mouse fallback`,'ผลยังใช้ได้ แต่ถ้าประเมินท่าทางให้เปิดกล้องและ Hand Tracking']);
+  if(!list.length)list.push(['✨','ผลรวมอยู่ในเกณฑ์ดี',`Clean ${metricLabel(x.clean)} • Gum ${metricLabel(x.gum)} • Technique ${metricLabel(x.tech)} พร้อมเพิ่มความยากได้`]);
+  $('insightCount').textContent=`${a.length} records`;
+  $('insights').innerHTML=list.slice(0,5).map(i=>`<div class="insight"><div class="icon">${i[0]}</div><div><b>${esc(i[1])}</b><span>${esc(i[2])}</span></div></div>`).join('');
+}
+function board(){
+  const learn=S.shown.filter(r=>r.play_mode==='learning'&&r._hasGuidedZones);
+  const challenge=S.shown.filter(r=>r.play_mode==='challenge'&&r._hasChallengeZones);
+  $('zoneBoard').innerHTML=CFG.zones.map(([id,label])=>{
+    const l=zoneMetric(learn,'guided_zone_progress_json',id,'');
+    const c=zoneMetric(challenge,'challenge_zone_performance_json',id,'clean_percent');
+    const d=zoneMetric(challenge,'challenge_zone_performance_json',id,'direction_accuracy');
+    return `<div class="zone-row"><span>${label}</span><div class="stack">
+      <div class="track"><i class="fill blue" style="width:${clamp(l.value??0,0,100)}%"></i></div>
+      <div class="track"><i class="fill" style="width:${clamp(c.value??0,0,100)}%"></i></div>
+      <div class="track"><i class="fill pink" style="width:${clamp(d.value??0,0,100)}%"></i></div>
+    </div><span class="zone-num">L ${metricLabel(l)}<br>C ${metricLabel(c)} • D ${metricLabel(d)}</span></div>`;
+  }).join('');
+}
+function table(){
+  const a=S.shown;
+  $('recordCount').textContent=`${a.length} records`;
+  $('caption').textContent=a.length?`${S.source} • เลือกแถวเพื่อดูรายโซน`:'ไม่พบข้อมูลที่ตรงกับ filter';
+  if(!a.length){$('tbody').innerHTML='<tr><td colspan="14" class="empty">ยังไม่มีข้อมูลที่ตรงกับ filter นี้</td></tr>';return}
+  $('tbody').innerHTML=a.map(r=>{
+    const x=result(r);
+    const learn=r.play_mode==='learning'?`${r._hasLearningProgress?Math.round(n(r.learning_progress_percent)):'—'}% ${r.learning_complete?'✓':''}`:'-';
+    return `<tr data-k="${esc(r.__key)}" class="${r.__key===S.selected?'selected':''}"><td>${esc(date(r.created_at))}</td><td class="name">${esc(r.player_name)}<span class="sub">${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'-')}</span></td><td>${esc(game(r.game_key))}<span class="sub">${esc(mode(r.play_mode))} • ${esc(r.difficulty||'-')}</span></td><td><span class="tag ${x.css}">${esc(x.label)}</span><span class="sub">${esc(x.detail)}</span></td><td>${Math.round(n(r.score))}</td><td>${shownPercent(r._hasClean,r.clean_score)}</td><td>${shownPercent(r._hasGum,r.gum_health)}</td><td>${shownPercent(r._hasTechnique,r.technique_score)}</td><td>${r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—'}</td><td>${esc(learn)}</td><td>${r.play_mode==='learning'?shownPercent(r._hasLearningMastery,mastery(r)):'-'}</td><td>${shownPercent(r._hasDirection,direction(r))}</td><td>${esc(r.weakest_zone||'-')}</td><td>${esc(input(r))}</td></tr>`;
+  }).join('');
+  document.querySelectorAll('[data-k]').forEach(e=>e.onclick=()=>{S.selected=e.dataset.k;table();detail()});
+}
 function metric(label,value){return`<div class="metric"><small>${esc(label)}</small><b>${esc(value)}</b></div>`}
-function detail(){const r=S.shown.find(x=>x.__key===S.selected);if(!r){$('detailTag').className='mini';$('detailTag').textContent='เลือกแถว';$('modeTag').textContent='-';$('detail').className='empty-detail';$('detail').textContent='เลือกแถวจากตารางเพื่อดูรายละเอียด';$('detailZones').className='empty-detail';$('detailZones').textContent='รายละเอียดรายโซนจะแสดงที่นี่';return}const x=result(r),dir=direction(r),mas=mastery(r);$('detailTag').className=`tag ${x.css}`;$('detailTag').textContent=x.label;$('modeTag').textContent=mode(r.play_mode);$('detail').className='';$('detail').innerHTML=`<div class="student"><div class="avatar">${r.play_mode==='learning'?'🗺️':'🪥'}</div><div><h3>${esc(r.player_name)}</h3><p>${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'ไม่ระบุรหัส/ชั้น')}<br>${esc(date(r.created_at))} • ${esc(game(r.game_key))} • ${esc(mode(r.play_mode))}</p></div></div><div class="metrics">${metric('Score',Math.round(n(r.score)))}${metric('Clean',Math.round(n(r.clean_score))+'%')}${metric('Gum',Math.round(n(r.gum_health))+'%')}${metric('Technique',Math.round(n(r.technique_score))+'%')}${metric('Coverage',Math.round(n(r.coverage_zone_count))+'/6')}${metric(r.play_mode==='learning'?'Learning Mastery':'Direction',(r.play_mode==='learning'?mas:dir)+'%')}</div><div class="note"><strong>${r.play_mode==='learning'?'Learning Summary':'Challenge Summary'}</strong><br>${r.play_mode==='learning'?`Learning Progress ${Math.round(n(r.learning_progress_percent))}% • Pass Strokes ${Math.round(n(r.learning_qualified_strokes))}/${Math.round(n(r.learning_required_strokes)||18)} • Overall Direction ${dir}%`:`Direction ${dir}% / เป้าหมาย ${Math.round(n(r.direction_threshold))||'-'}% • ${esc(x.detail)}`}<br><br><strong>Coach Note</strong><br>${esc(r.advice||r.challenge_fail_reasons||'ไม่มีข้อผิดพลาดที่บันทึก')}<br><br><strong>Strong / Weak Zone</strong><br>${esc(r.strongest_zone||'-')} / ${esc(r.weakest_zone||'-')}</div>`;zones(r)}
-function zones(r){$('detailZones').className='zone-board';if(r.play_mode==='learning'){const p=json(r.guided_zone_progress_json),prog=p.progress||{},q=p.qualified_strokes||p.qualified||{},good=p.direction_good||{},total=p.direction_total||{};$('detailZones').innerHTML=CFG.zones.map(([id,label])=>{const skill=n(prog[id]),st=n(q[id]),dir=total[id]?Math.round(n(good[id])/n(total[id])*100):0;return`<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill blue" style="width:${clamp(skill,0,100)}%"></i></div></div><span class="zone-num">Skill ${Math.round(skill)}%<br>✓ ${Math.round(st)}/3 • Dir ${dir}%</span></div>`}).join('')}else{const p=json(r.challenge_zone_performance_json);$('detailZones').innerHTML=CFG.zones.map(([id,label])=>{const z=p[id]||{},clean=n(z.clean_percent),dir=n(z.direction_accuracy);return`<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill" style="width:${clamp(clean,0,100)}%"></i></div><div class="track"><i class="fill pink" style="width:${clamp(dir,0,100)}%"></i></div></div><span class="zone-num">Clean ${Math.round(clean)}%<br>Direction ${Math.round(dir)}%</span></div>`}).join('')}}
+function detail(){
+  const r=S.shown.find(x=>x.__key===S.selected);
+  if(!r){$('detailTag').className='mini';$('detailTag').textContent='เลือกแถว';$('modeTag').textContent='-';$('detail').className='empty-detail';$('detail').textContent='เลือกแถวจากตารางเพื่อดูรายละเอียด';$('detailZones').className='empty-detail';$('detailZones').textContent='รายละเอียดรายโซนจะแสดงที่นี่';return}
+  const x=result(r),dir=direction(r),mas=mastery(r);
+  $('detailTag').className=`tag ${x.css}`;$('detailTag').textContent=x.label;$('modeTag').textContent=mode(r.play_mode);
+  $('detail').className='';
+  $('detail').innerHTML=`<div class="student"><div class="avatar">${r.play_mode==='learning'?'🗺️':'🪥'}</div><div><h3>${esc(r.player_name)}</h3><p>${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'ไม่ระบุรหัส/ชั้น')}<br>${esc(date(r.created_at))} • ${esc(game(r.game_key))} • ${esc(mode(r.play_mode))}</p></div></div><div class="metrics">${metric('Score',Math.round(n(r.score)))}${metric('Clean',shownPercent(r._hasClean,r.clean_score))}${metric('Gum',shownPercent(r._hasGum,r.gum_health))}${metric('Technique',shownPercent(r._hasTechnique,r.technique_score))}${metric('Coverage',r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—')}${metric(r.play_mode==='learning'?'Learning Mastery':'Direction',r.play_mode==='learning'?shownPercent(r._hasLearningMastery,mas):shownPercent(r._hasDirection,dir))}</div><div class="note"><strong>${r.play_mode==='learning'?'Learning Summary':'Challenge Summary'}</strong><br>${r.play_mode==='learning'?`Learning Progress ${shownPercent(r._hasLearningProgress,r.learning_progress_percent)} • Pass Strokes ${Math.round(n(r.learning_qualified_strokes))}/${Math.round(n(r.learning_required_strokes)||18)} • Overall Direction ${shownPercent(r._hasDirection,dir)}`:`Direction ${shownPercent(r._hasDirection,dir)} / เป้าหมาย ${Math.round(n(r.direction_threshold))||'-'}% • ${esc(x.detail)}`}<br><br><strong>Coach Note</strong><br>${esc(r.advice||r.challenge_fail_reasons||'ไม่มีข้อผิดพลาดที่บันทึก')}<br><br><strong>Strong / Weak Zone</strong><br>${esc(r.strongest_zone||'-')} / ${esc(r.weakest_zone||'-')}</div>`;
+  zones(r);
+}
+function zones(r){
+  $('detailZones').className='zone-board';
+  if(r.play_mode==='learning'){
+    const p=json(r.guided_zone_progress_json,{}),prog=p.progress||{},q=p.qualified_strokes||p.qualified||{},good=p.direction_good||{},total=p.direction_total||{};
+    $('detailZones').innerHTML=CFG.zones.map(([id,label])=>{
+      const skill=has(prog,[id])?n(prog[id]):null;
+      const st=has(q,[id])?n(q[id]):null;
+      const dir=has(total,[id])?Math.round(n(good[id])/Math.max(1,n(total[id]))*100):null;
+      return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill blue" style="width:${clamp(skill??0,0,100)}%"></i></div></div><span class="zone-num">Skill ${skill===null?'—':Math.round(skill)+'%'}<br>✓ ${st===null?'—':Math.round(st)}/3 • Dir ${dir===null?'—':dir+'%'}</span></div>`;
+    }).join('');
+  }else{
+    const p=json(r.challenge_zone_performance_json,{});
+    $('detailZones').innerHTML=CFG.zones.map(([id,label])=>{
+      const z=p[id]||{},clean=has(z,['clean_percent'])?n(z.clean_percent):null,dir=has(z,['direction_accuracy'])?n(z.direction_accuracy):null;
+      return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill" style="width:${clamp(clean??0,0,100)}%"></i></div><div class="track"><i class="fill pink" style="width:${clamp(dir??0,0,100)}%"></i></div></div><span class="zone-num">Clean ${clean===null?'—':Math.round(clean)+'%'}<br>Direction ${dir===null?'—':Math.round(dir)+'%'}</span></div>`;
+    }).join('');
+  }
+}
 function render(){renderKpis();renderInsights();board();table();detail()}
 const Storage={
   lastError:'',
