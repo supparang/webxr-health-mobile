@@ -1,7 +1,7 @@
 <!-- =========================================================
  /herohealth/hygiene-zone/teacher-dashboard.html
  HeroHealth Hygiene Zone Teacher Dashboard V2
- Version: v20260621-HYGIENE-TEACHER-DASHBOARD-V2-1-STORAGE-SAFE
+ Version: v20260621-HYGIENE-TEACHER-DASHBOARD-V2-2-API-DIAGNOSTIC
 ========================================================= -->
 <!doctype html>
 <html lang="th">
@@ -25,7 +25,7 @@ button,input,select,textarea{font:inherit}button{border:0;cursor:pointer}
 .btn{min-height:42px;padding:0 13px;border:1px solid rgba(255,255,255,.9);border-radius:16px;background:rgba(255,255,255,.88);color:var(--ink);box-shadow:0 11px 24px rgba(15,23,42,.10);font-size:13px;font-weight:1000}.btn.primary{color:#fff;border:0;background:linear-gradient(90deg,#06b6d4,#2563eb)}.btn.green{color:#fff;border:0;background:linear-gradient(90deg,#14b8a6,#22c55e)}.btn.warn{background:#fffbeb;border-color:rgba(245,158,11,.28);color:#78350f}
 .panel{border:1px solid rgba(255,255,255,.92);border-radius:29px;background:rgba(255,255,255,.84);box-shadow:0 18px 50px rgba(15,23,42,.13);backdrop-filter:blur(14px)}
 .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-bottom:14px}.hero-main,.connection,.card{padding:17px}.hero-main{min-height:235px;padding:22px}.eyebrow,.chip,.tag{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;font-size:11px;font-weight:1000}.eyebrow{gap:7px;padding:7px 11px;margin-bottom:10px;border:1px solid rgba(6,182,212,.18);background:#ecfeff;color:#0e7490}
-.hero-title{margin:0;font-size:clamp(32px,5.4vw,62px);line-height:.96;letter-spacing:-.06em;font-weight:1000}.hero-title b{color:transparent;background:linear-gradient(90deg,#0891b2,#2563eb,#db2777);-webkit-background-clip:text;background-clip:text}.copy{width:min(720px,100%);margin:12px 0 0;color:#475569;line-height:1.65;font-size:14px;font-weight:850}.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.chip{padding:7px 10px;background:#fff;border:1px solid var(--line);color:#334155;box-shadow:0 8px 18px rgba(15,23,42,.06)}
+.hero-title{margin:0;max-width:100%;font-size:clamp(30px,4.15vw,54px);line-height:1.02;letter-spacing:-.052em;font-weight:1000;overflow-wrap:anywhere}.hero-title b{color:transparent;background:linear-gradient(90deg,#0891b2,#2563eb,#db2777);-webkit-background-clip:text;background-clip:text}.copy{width:min(720px,100%);margin:12px 0 0;color:#475569;line-height:1.65;font-size:14px;font-weight:850}.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.chip{padding:7px 10px;background:#fff;border:1px solid var(--line);color:#334155;box-shadow:0 8px 18px rgba(15,23,42,.06)}
 h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-weight:1000}.muted{margin:0 0 10px;color:var(--muted);font-size:13px;line-height:1.5;font-weight:850}
 .field{display:flex;flex-direction:column;gap:5px;color:#475569;font-size:12px;font-weight:1000}.field input,.field select,.field textarea{width:100%;padding:10px 11px;border:1px solid rgba(14,116,144,.16);border-radius:16px;outline:0;background:rgba(255,255,255,.92);color:var(--ink);font-weight:900}.field textarea{min-height:82px;resize:vertical;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;user-select:text}.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.status{min-height:28px;margin-top:10px;padding:7px 9px;border-radius:13px;background:#f8fafc;color:#475569;font-size:12px;line-height:1.35;font-weight:900}.status.ok{background:#ecfdf5;color:#166534}.status.warn{background:#fffbeb;color:#92400e}.status.bad{background:#fef2f2;color:#991b1b}
 .filters{display:grid;grid-template-columns:1.1fr .75fr .7fr .72fr .82fr .8fr auto;gap:10px;align-items:end;padding:13px;margin-bottom:14px}.filters .field{margin:0}
@@ -96,7 +96,7 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
 <script>
 (()=>{
 'use strict';
-const VERSION='v20260621-HYGIENE-TEACHER-DASHBOARD-V2-1-STORAGE-SAFE';
+const VERSION='v20260621-HYGIENE-TEACHER-DASHBOARD-V2-2-API-DIAGNOSTIC';
 const CFG={
  home:'../hygiene-zone-v2.html',
  api:'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec',
@@ -178,10 +178,38 @@ function set(recs,source,persist=false){S.all=(recs||[]).map(norm);S.source=sour
 function status(text,type=''){const e=$('apiStatus');e.textContent=text;e.className=`status ${type}`.trim()}
 function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('show'),1800)}
 function apiUrl(v){const x=new URL(String(v||'').trim());return x.toString()}
-function url(base){const u=new URL(base);u.searchParams.set('action','list');u.searchParams.set('zone','hygiene');u.searchParams.set('limit',String(CFG.limit));u.searchParams.set('v',VERSION);return u}
+function url(base){
+  const u=new URL(base);
+  // Supports both the legacy action route and the combined Hygiene API route.
+  u.searchParams.set('api','hygiene');
+  u.searchParams.set('type','list');
+  u.searchParams.set('action','list');
+  u.searchParams.set('zone','hygiene');
+  u.searchParams.set('limit',String(CFG.limit));
+  u.searchParams.set('v',VERSION);
+  return u
+}
 async function fetchJSON(u){const r=await fetch(u.toString(),{method:'GET',cache:'no-store',credentials:'omit'});if(!r.ok)throw Error('HTTP '+r.status);return r.json()}
 function jsonp(u){return new Promise((resolve,reject)=>{const cb=`__hz_${Date.now()}_${Math.random().toString(16).slice(2)}`,s=document.createElement('script');const timer=setTimeout(()=>done(Error('JSONP timeout')),12000);function done(err,data){clearTimeout(timer);delete window[cb];s.remove();err?reject(err):resolve(data)}window[cb]=d=>done(null,d);u.searchParams.set('callback',cb);s.src=u.toString();s.onerror=()=>done(Error('JSONP load failed'));document.head.appendChild(s)})}
 function extract(x){return Array.isArray(x)?x:Array.isArray(x?.records)?x.records:Array.isArray(x?.data)?x.data:Array.isArray(x?.items)?x.items:[]}
+
+function describeApiError(error){
+  const message=String(error?.message||error||'');
+
+  if(/Missing SPREADSHEET_ID/i.test(message)){
+    return 'Code.gs ยังไม่รู้ว่าใช้ Google Sheet ใด: ตั้ง Script Property ชื่อ SPREADSHEET_ID เป็น ID ของ Google Sheet แล้ว Deploy ใหม่';
+  }
+
+  if(/permission|authorization|not authorized/i.test(message)){
+    return 'Apps Script ยังไม่มีสิทธิ์เข้าถึง Google Sheet: เปิด Apps Script แล้ว Run HZ_testSetup() หนึ่งครั้งเพื่ออนุมัติสิทธิ์';
+  }
+
+  if(/doGet_exception/i.test(message)){
+    return 'Code.gs doGet() มีข้อผิดพลาด: ใช้ Code.gs V10 Reader-Safe ที่แนบมา แล้ว Run HZ_testDashboardReader()';
+  }
+
+  return message||'ไม่ทราบสาเหตุ';
+}
 async function load(){
   let storageOk=true;
   try{
@@ -192,16 +220,20 @@ async function load(){
     let data,how='JSON';
     try{data=await fetchJSON(new URL(url(base).toString()))}
     catch(e){how='JSONP';data=await jsonp(new URL(url(base).toString()))}
-    if(data?.ok===false)throw Error(data.error||'API returned ok:false');
+    if(data?.ok===false){
+      const detail=[data.error,data.message,data.hint].filter(Boolean).join(' • ');
+      throw Error(detail||'API returned ok:false');
+    }
     const recs=extract(data);
     set(recs,`Google Sheets (${how})`,false);
     const success=recs.length?`โหลด ${recs.length} records สำเร็จผ่าน ${how}`:`เชื่อมต่อสำเร็จผ่าน ${how} แต่ยังไม่มี records`;
     status(storageOk?success:`${success} • ${storageNote()}`,storageOk?'ok':'warn');
     toast(recs.length?`โหลดข้อมูล ${recs.length} รายการแล้ว`:'ยังไม่มีข้อมูลใน Sheet');
   }catch(e){
-    console.warn(e);
-    status(`โหลดไม่สำเร็จ: ${e.message||e}`,'bad');
-    toast('โหลดจาก Sheet ไม่สำเร็จ — ใช้ Demo ได้');
+    console.warn('[Hygiene Dashboard API]',e);
+    const detail=describeApiError(e);
+    status(`โหลดไม่สำเร็จ: ${detail}`,'bad');
+    toast('โหลดจาก Sheet ไม่สำเร็จ — ดูข้อความสีแดง');
   }finally{$('loadBtn').disabled=false}
 }
 function parseCSV(t){const lines=String(t||'').trim().split(/\r?\n/).filter(Boolean);if(lines.length<2)return[];const split=l=>{const a=[];let cur='',q=false;for(let i=0;i<l.length;i++){const c=l[i],nx=l[i+1];if(c==='"'&&q&&nx==='"'){cur+='"';i++}else if(c==='"')q=!q;else if(c===','&&!q){a.push(cur.trim());cur=''}else cur+=c}a.push(cur.trim());return a},head=split(lines[0]);return lines.slice(1).map(l=>{const c=split(l),o={};head.forEach((h,i)=>o[h]=c[i]??'');return o})}
