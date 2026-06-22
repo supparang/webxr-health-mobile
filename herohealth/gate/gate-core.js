@@ -1,11 +1,11 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL REPLACEMENT v20260621-GATE-CORE-SYNTAX-STABLE-V9
+// FULL REPLACEMENT v20260621-GATE-CORE-SYNTAX-STABLE-V10
 // Shared HeroHealth Warmup/Cooldown Gate runtime.
 // Designed to be safe when a game phase module fails: it always shows a usable fallback.
 
-import * as GateGames from './gate-games.js?v=20260621-gate-core-v9';
+import * as GateGames from './gate-games.js?v=20260621-gate-games-syntax-stable-v10';
 
-const PATCH = 'v20260621-GATE-CORE-SYNTAX-STABLE-V9';
+const PATCH = 'v20260621-GATE-CORE-SYNTAX-STABLE-V10';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const MAX_HISTORY = 40;
