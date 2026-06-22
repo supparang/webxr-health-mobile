@@ -296,3 +296,99 @@
     min-height:480px;
   }
 }
+/* === /herohealth/gate/games/fitness/fitness-readiness-recovery.css === */
+/* FIX: REAL CAMERA VISIBLE + FULL-BODY TALL MODE v20260622-FRR-CAMERA-VISIBLE-V12
+   Paste this entire block at the END of the existing CSS.
+   This overrides the earlier Full-body Tall patch safely.
+*/
+
+/* Keep tall camera area. */
+.frr-camera-card{
+  min-height:clamp(590px,72dvh,840px);
+}
+
+.frr-camera-wrap{
+  min-height:clamp(560px,67dvh,800px);
+  height:clamp(560px,67dvh,800px);
+  aspect-ratio:9 / 14;
+  max-width:min(100%,560px);
+  margin-inline:auto;
+  background:#020617;
+}
+
+/* Video must be visible. */
+.frr-video{
+  z-index:1 !important;
+  object-fit:contain !important;
+  background:#020617 !important;
+  opacity:1 !important;
+  visibility:visible !important;
+}
+
+/* Critical fix: canvas is transparent overlay only.
+   Do NOT give it a background color, otherwise it covers the real camera. */
+.frr-canvas{
+  z-index:3 !important;
+  object-fit:contain !important;
+  background:transparent !important;
+  opacity:1 !important;
+  visibility:visible !important;
+}
+
+/* Guide remains above video/canvas but does not block them. */
+.frr-frame-guide{ z-index:2 !important; }
+.frr-frame-checks,
+.frr-frame-mode,
+.frr-status-pill,
+.frr-camera-empty{ z-index:6 !important; }
+
+.frr-frame-guide,
+.frr-frame-guide[data-frame-mode="full"],
+.frr-frame-guide[data-frame-mode="upper"]{
+  inset:18px 10% !important;
+}
+
+.frr-frame-guide::after,
+.frr-frame-guide[data-frame-mode="full"]::after,
+.frr-frame-guide[data-frame-mode="upper"]::after{
+  left:12%;
+  right:12%;
+  top:3%;
+  bottom:4%;
+  border-radius:44% 44% 18% 18% / 15% 15% 8% 8%;
+}
+
+.frr-frame-silhouette,
+.frr-frame-guide[data-frame-mode="full"] .frr-frame-silhouette,
+.frr-frame-guide[data-frame-mode="upper"] .frr-frame-silhouette{
+  top:4%;
+  width:35%;
+  height:91%;
+}
+
+.frr-task-card{
+  min-height:clamp(590px,72dvh,840px);
+}
+
+@media (max-width:780px){
+  .frr-grid{ grid-template-columns:1fr; }
+  .frr-camera-card{ min-height:74dvh; padding:8px; }
+  .frr-camera-wrap{
+    height:70dvh;
+    min-height:70dvh;
+    width:min(100%,440px);
+    max-width:100%;
+    aspect-ratio:9 / 16;
+  }
+  .frr-task-card{ min-height:auto; }
+}
+
+@media (max-height:620px) and (orientation:landscape){
+  .frr-camera-card{ min-height:480px; }
+  .frr-camera-wrap{
+    height:470px;
+    min-height:470px;
+    aspect-ratio:3 / 4;
+  }
+  .frr-task-card{ min-height:480px; }
+}
