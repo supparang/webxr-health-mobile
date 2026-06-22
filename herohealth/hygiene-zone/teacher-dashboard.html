@@ -1,7 +1,7 @@
 <!-- =========================================================
  /herohealth/hygiene-zone/teacher-dashboard.html
  HeroHealth Hygiene Zone Teacher Dashboard V2
- Version: v20260622-HYGIENE-TEACHER-DASHBOARD-V2-9-CURRENT-FIRST-DEFAULT
+ Version: v20260622-HYGIENE-TEACHER-DASHBOARD-V3-0-AUTO-ZONE-INSIGHT
 ========================================================= -->
 <!doctype html>
 <html lang="th">
@@ -208,6 +208,36 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
   .queue-guide{font-size:10px}
 }
 
+
+/* V3.0 • Auto Zone Insight */
+.zone-insight-note{
+  margin-top:10px;
+  padding:10px 11px;
+  border:1px solid rgba(20,184,166,.16);
+  border-radius:16px;
+  background:linear-gradient(90deg,#f0fdfa,#f8fafc);
+  color:#475569;
+  font-size:11px;
+  line-height:1.45;
+  font-weight:850;
+}
+.zone-insight-note strong{
+  color:#0f766e;
+  font-weight:1000;
+}
+.zone-insight-note .basis{
+  display:inline-flex;
+  align-items:center;
+  margin-left:5px;
+  padding:3px 6px;
+  border-radius:999px;
+  background:#fff;
+  color:#0e7490;
+  border:1px solid rgba(6,182,212,.14);
+  font-size:9px;
+  font-weight:1000;
+}
+
 </style>
 </head>
 <body>
@@ -304,7 +334,7 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
 <script>
 (()=>{
 'use strict';
-const VERSION='v20260622-HYGIENE-TEACHER-DASHBOARD-V2-9-CURRENT-FIRST-DEFAULT';
+const VERSION='v20260622-HYGIENE-TEACHER-DASHBOARD-V3-0-AUTO-ZONE-INSIGHT';
 const CFG={
  home:'../hygiene-zone-v2.html',
  api:'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec',
@@ -448,13 +478,208 @@ function zoneLabel(value){
   return map[key]||raw;
 }
 
-function weakZoneLabel(record){
-  return zoneLabel(
+
+function zoneMetricValue(row,keys){
+  return has(row,keys)?n(pick(row,keys)):null;
+}
+
+function derivedChallengeDirection(row){
+  if(has(row,['direction_accuracy','directionAccuracy'])){
+    return n(pick(row,['direction_accuracy','directionAccuracy']));
+  }
+
+  if(
+    has(row,['direction_good','directionGood']) &&
+    has(row,['direction_total','directionTotal'])
+  ){
+    return Math.round(
+      n(pick(row,['direction_good','directionGood'])) /
+      Math.max(1,n(pick(row,['direction_total','directionTotal'])))*100
+    );
+  }
+
+  return null;
+}
+
+function zoneEvidence(record){
+  if(record._isLegacy){
+    return {
+      mode:'legacy',
+      basis:'Legacy',
+      zones:[],
+      strongest:null,
+      weakest:null,
+      uniform:false
+    };
+  }
+
+  const zones=[];
+
+  if(record.play_mode==='challenge'){
+    const payload=json(record.challenge_zone_performance_json,{});
+
+    CFG.zones.forEach(([id,label],index)=>{
+      const row=payload[id]||{};
+      const directionValue=derivedChallengeDirection(row);
+      const cleanValue=zoneMetricValue(row,['clean_percent','cleanPercent']);
+
+      if(directionValue!==null){
+        zones.push({
+          id,
+          label,
+          index,
+          basis:'Direction',
+          value:directionValue,
+          clean:cleanValue
+        });
+      }else if(cleanValue!==null){
+        zones.push({
+          id,
+          label,
+          index,
+          basis:'Clean',
+          value:cleanValue,
+          clean:cleanValue
+        });
+      }
+    });
+  }else if(record.play_mode==='learning'){
+    const payload=json(record.guided_zone_progress_json,{});
+    const progress=payload.progress||{};
+    const qualified=payload.qualified_strokes||payload.qualified||{};
+    const directionGood=payload.direction_good||{};
+    const directionTotal=payload.direction_total||{};
+
+    CFG.zones.forEach(([id,label],index)=>{
+      let value=null;
+      let basis='Learning Skill';
+
+      if(has(progress,[id])){
+        value=n(progress[id]);
+      }else if(has(qualified,[id])){
+        value=Math.round(n(qualified[id])/3*100);
+        basis='Pass Strokes';
+      }else if(has(directionGood,[id])&&has(directionTotal,[id])){
+        value=Math.round(
+          n(directionGood[id]) /
+          Math.max(1,n(directionTotal[id]))*100
+        );
+        basis='Direction';
+      }
+
+      if(value!==null){
+        zones.push({
+          id,
+          label,
+          index,
+          basis,
+          value
+        });
+      }
+    });
+  }
+
+  const measured=zones.filter(zone=>
+    zone.value!==null &&
+    zone.value!==undefined &&
+    Number.isFinite(Number(zone.value))
+  );
+
+  if(measured.length){
+    const ordered=[...measured].sort((a,b)=>
+      Number(b.value)-Number(a.value) ||
+      (Number(b.clean??-1)-Number(a.clean??-1)) ||
+      a.index-b.index
+    );
+
+    const strongest=ordered[0];
+    const weakest=ordered[ordered.length-1];
+
+    return {
+      mode:record.play_mode,
+      basis:strongest.basis,
+      zones:ordered,
+      strongest,
+      weakest,
+      uniform:Number(strongest.value)===Number(weakest.value)
+    };
+  }
+
+  const rawStrong=zoneLabel(record.strongest_zone||'—');
+  const rawWeak=zoneLabel(
     record.weakest_zone||
     record.guided_current_zone||
     record.guided_target_zone||
     '—'
   );
+
+  return {
+    mode:record.play_mode||'unknown',
+    basis:'Recorded',
+    zones:[],
+    strongest:rawStrong!=='—'?{label:rawStrong,value:null}:null,
+    weakest:rawWeak!=='—'?{label:rawWeak,value:null}:null,
+    uniform:false
+  };
+}
+
+function strongZoneLabel(record){
+  const insight=zoneEvidence(record);
+  return insight.strongest?.label||'—';
+}
+
+function weakZoneLabel(record){
+  const insight=zoneEvidence(record);
+  return insight.weakest?.label||'—';
+}
+
+function zoneInsightText(record){
+  const insight=zoneEvidence(record);
+
+  if(record._isLegacy){
+    return 'Legacy / Unknown: ยังไม่มี Learning + Challenge zone analytics สำหรับสรุปรายโซน';
+  }
+
+  if(!insight.strongest&&!insight.weakest){
+    return 'ยังไม่มีข้อมูลรายโซนเพียงพอสำหรับสรุปจุดเด่นและจุดที่ต้องฝึก';
+  }
+
+  const basis=insight.basis==='Learning Skill'
+    ?'Learning Skill'
+    :insight.basis==='Pass Strokes'
+      ?'Pass Strokes'
+      :insight.basis==='Clean'
+        ?'Clean'
+        :insight.basis==='Recorded'
+          ?'ข้อมูลที่บันทึก'
+          :'Direction';
+
+  const formatZone=zone=>{
+    if(!zone) return '—';
+
+    return zone.value===null||zone.value===undefined
+      ?zone.label
+      :`${zone.label} ${Math.round(Number(zone.value))}%`;
+  };
+
+  if(insight.uniform&&insight.strongest){
+    const value=Math.round(Number(insight.strongest.value));
+    return `จาก ${basis} รายโซน: ทั้ง ${insight.zones.length} โซนที่วัดได้อยู่ที่ ${value}%`;
+  }
+
+  return `จาก ${basis} รายโซน: เด่น ${formatZone(insight.strongest)} • ต้องฝึก ${formatZone(insight.weakest)}`;
+}
+
+function zoneInsightBasis(record){
+  const insight=zoneEvidence(record);
+  if(record._isLegacy) return 'Legacy';
+  return insight.basis||'Zone';
+}
+
+function zoneInsightHtml(record){
+  if(record._isLegacy) return '';
+
+  return `<div class="zone-insight-note"><strong>Zone Focus</strong><span class="basis">${esc(zoneInsightBasis(record))}</span><br>${esc(zoneInsightText(record))}</div>`;
 }
 
 function game(k){return({toothbrush:'🪥 Toothbrush',handwash:'🧼 Handwash',germhunter:'🔍 Germ Hunter',mask:'😷 Mask',cough:'🤧 Cough',nails:'💅 Nails'})[k]||k||'Other'}
@@ -641,7 +866,7 @@ function mobileCards(records){
   holder.innerHTML=records.map(r=>{
     const info=result(r);
     const primary=r._isLegacy?'Legacy data':r.play_mode==='learning'?`Mastery ${measuredForDisplay(r,r._hasLearningMastery,mastery(r))}`:`Direction ${measuredForDisplay(r,r._hasDirection,direction(r))}`;
-    return `<article class="record-card ${r.__key===S.selected?'selected':''}" data-mobile-key="${esc(r.__key)}"><div class="record-card-top"><time>${esc(date(r.created_at))}</time><span class="tag ${info.css}">${esc(info.label)}</span></div><h3>${esc(r.player_name)}</h3><p>${esc(game(r.game_key))} • ${esc(r._isLegacy?'Legacy / Unknown':`${mode(r.play_mode)} • ${r.difficulty||'-'}`)}</p><div class="record-card-metrics"><div class="record-card-metric"><small>Clean</small><b>${measuredForDisplay(r,r._hasClean,r.clean_score)}</b></div><div class="record-card-metric"><small>Gum</small><b>${measuredForDisplay(r,r._hasGum,r.gum_health)}</b></div><div class="record-card-metric"><small>${r.play_mode==='learning'?'Mastery':'Direction'}</small><b>${primary.replace(/^(Mastery |Direction )/,'')}</b></div></div><div class="record-card-bottom"><span class="sub">${esc(r._isLegacy?'ไม่รวมใน KPI Current':(r.weakest_zone?`ฝึกเพิ่ม: ${zoneLabel(r.weakest_zone)}`:primary))}</span><button class="record-open" type="button">ดูรายละเอียด</button></div></article>`;
+    return `<article class="record-card ${r.__key===S.selected?'selected':''}" data-mobile-key="${esc(r.__key)}"><div class="record-card-top"><time>${esc(date(r.created_at))}</time><span class="tag ${info.css}">${esc(info.label)}</span></div><h3>${esc(r.player_name)}</h3><p>${esc(game(r.game_key))} • ${esc(r._isLegacy?'Legacy / Unknown':`${mode(r.play_mode)} • ${r.difficulty||'-'}`)}</p><div class="record-card-metrics"><div class="record-card-metric"><small>Clean</small><b>${measuredForDisplay(r,r._hasClean,r.clean_score)}</b></div><div class="record-card-metric"><small>Gum</small><b>${measuredForDisplay(r,r._hasGum,r.gum_health)}</b></div><div class="record-card-metric"><small>${r.play_mode==='learning'?'Mastery':'Direction'}</small><b>${primary.replace(/^(Mastery |Direction )/,'')}</b></div></div><div class="record-card-bottom"><span class="sub">${esc(r._isLegacy?'ไม่รวมใน KPI Current':(weakZoneLabel(r)!=='—'?`ฝึกเพิ่ม: ${weakZoneLabel(r)}`:primary))}</span><button class="record-open" type="button">ดูรายละเอียด</button></div></article>`;
   }).join('');
   holder.querySelectorAll('[data-mobile-key]').forEach(card=>card.addEventListener('click',()=>selectRecord(card.dataset.mobileKey,true)));
 }
@@ -654,7 +879,7 @@ function table(){
   if(!a.length){$('tbody').innerHTML='<tr><td colspan="14" class="empty">ยังไม่มีข้อมูลที่ตรงกับ filter นี้</td></tr>';mobileCards([]);return}
   $('tbody').innerHTML=a.map(r=>{
     const info=result(r),learning=r.play_mode==='learning'?`${r._hasLearningProgress?Math.round(n(r.learning_progress_percent)):'—'}% ${r.learning_complete?'✓':''}`:'-';
-    return `<tr data-k="${esc(r.__key)}" class="${r.__key===S.selected?'selected':''}"><td>${esc(date(r.created_at))}</td><td class="name">${esc(r.player_name)}<span class="sub">${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'-')}</span></td><td>${esc(game(r.game_key))}<span class="sub">${esc(r._isLegacy?'Legacy / Unknown':`${mode(r.play_mode)} • ${r.difficulty||'-'}`)}</span></td><td><span class="tag ${info.css}">${esc(info.label)}</span><span class="sub">${esc(info.detail)}</span></td><td>${Math.round(n(r.score))}</td><td>${measuredForDisplay(r,r._hasClean,r.clean_score)}</td><td>${measuredForDisplay(r,r._hasGum,r.gum_health)}</td><td>${measuredForDisplay(r,r._hasTechnique,r.technique_score)}</td><td>${r._isLegacy?'—':(r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—')}</td><td>${r._isLegacy?'—':esc(learning)}</td><td>${r._isLegacy?'-':(r.play_mode==='learning'?shownPercent(r._hasLearningMastery,mastery(r)):'-')}</td><td>${measuredForDisplay(r,r._hasDirection,direction(r))}</td><td>${esc(r._isLegacy?'—':zoneLabel(r.weakest_zone||'-'))}</td><td>${esc(r._isLegacy?'—':input(r))}</td></tr>`;
+    return `<tr data-k="${esc(r.__key)}" class="${r.__key===S.selected?'selected':''}"><td>${esc(date(r.created_at))}</td><td class="name">${esc(r.player_name)}<span class="sub">${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'-')}</span></td><td>${esc(game(r.game_key))}<span class="sub">${esc(r._isLegacy?'Legacy / Unknown':`${mode(r.play_mode)} • ${r.difficulty||'-'}`)}</span></td><td><span class="tag ${info.css}">${esc(info.label)}</span><span class="sub">${esc(info.detail)}</span></td><td>${Math.round(n(r.score))}</td><td>${measuredForDisplay(r,r._hasClean,r.clean_score)}</td><td>${measuredForDisplay(r,r._hasGum,r.gum_health)}</td><td>${measuredForDisplay(r,r._hasTechnique,r.technique_score)}</td><td>${r._isLegacy?'—':(r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—')}</td><td>${r._isLegacy?'—':esc(learning)}</td><td>${r._isLegacy?'-':(r.play_mode==='learning'?shownPercent(r._hasLearningMastery,mastery(r)):'-')}</td><td>${measuredForDisplay(r,r._hasDirection,direction(r))}</td><td>${esc(r._isLegacy?'—':weakZoneLabel(r))}</td><td>${esc(r._isLegacy?'—':input(r))}</td></tr>`;
   }).join('');
   document.querySelectorAll('[data-k]').forEach(row=>row.addEventListener('click',()=>selectRecord(row.dataset.k,false)));
   mobileCards(a);
@@ -665,7 +890,7 @@ function detail(){
   if(!r){$('detailTag').className='mini';$('detailTag').textContent='เลือกแถว';$('modeTag').textContent='-';$('detail').className='empty-detail';$('detail').textContent='เลือกแถวจากตารางเพื่อดูรายละเอียด';$('detailZones').className='empty-detail';$('detailZones').textContent='รายละเอียดรายโซนจะแสดงที่นี่';return}
   const x=result(r),dir=direction(r),mas=mastery(r),legacy=r._isLegacy;
   $('detailTag').className=`tag ${x.css}`;$('detailTag').textContent=x.label;$('modeTag').textContent=legacy?'Legacy / Unknown':mode(r.play_mode);$('detail').className='';
-  $('detail').innerHTML=`<div class="student"><div class="avatar">${legacy?'🗃️':r.play_mode==='learning'?'🗺️':'🪥'}</div><div><h3>${esc(r.player_name)}</h3><p>${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'ไม่ระบุรหัส/ชั้น')}<br>${esc(date(r.created_at))} • ${esc(game(r.game_key))} • ${esc(legacy?'Legacy / Unknown':mode(r.play_mode))}</p></div></div><div class="metrics">${metric('Score',Math.round(n(r.score)))}${metric('Clean',legacy?'—':shownPercent(r._hasClean,r.clean_score))}${metric('Gum',legacy?'—':shownPercent(r._hasGum,r.gum_health))}${metric('Technique',legacy?'—':shownPercent(r._hasTechnique,r.technique_score))}${metric('Coverage',legacy?'—':(r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—'))}${metric(legacy?'Tracking':r.play_mode==='learning'?'Learning Mastery':'Direction',legacy?'Legacy':r.play_mode==='learning'?shownPercent(r._hasLearningMastery,mas):shownPercent(r._hasDirection,dir))}</div><div class="note"><strong>${legacy?'Legacy / Unknown Summary':r.play_mode==='learning'?'Learning Summary':'Challenge Summary'}</strong><br>${legacy?'บันทึกนี้เกิดก่อนระบบ Learning + Challenge telemetry รุ่นปัจจุบัน จึงเก็บไว้เป็นประวัติ แต่ไม่นำค่าเดิมมาคำนวณ KPI และ Zone analytics ของระบบใหม่':r.play_mode==='learning'?`Learning Progress ${shownPercent(r._hasLearningProgress,r.learning_progress_percent)} • Pass Strokes ${Math.round(n(r.learning_qualified_strokes))}/${Math.round(n(r.learning_required_strokes)||18)} • Overall Direction ${shownPercent(r._hasDirection,dir)}`:`Direction ${shownPercent(r._hasDirection,dir)} / เป้าหมาย ${Math.round(n(r.direction_threshold))||'-'}% • ${esc(x.detail)}`}<br><br><strong>Coach Note</strong><br>${esc(legacy?'เริ่มใช้ Current Tracking ตั้งแต่ Toothbrush AR v10.9 เป็นต้นไป':(r.advice||r.challenge_fail_reasons||'ไม่มีข้อผิดพลาดที่บันทึก'))}<br><br><strong>Strong / Weak Zone</strong><br>${esc(legacy?'— / —':`${zoneLabel(r.strongest_zone||'-')} / ${zoneLabel(r.weakest_zone||'-')}`)}</div>`;
+  $('detail').innerHTML=`<div class="student"><div class="avatar">${legacy?'🗃️':r.play_mode==='learning'?'🗺️':'🪥'}</div><div><h3>${esc(r.player_name)}</h3><p>${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'ไม่ระบุรหัส/ชั้น')}<br>${esc(date(r.created_at))} • ${esc(game(r.game_key))} • ${esc(legacy?'Legacy / Unknown':mode(r.play_mode))}</p></div></div><div class="metrics">${metric('Score',Math.round(n(r.score)))}${metric('Clean',legacy?'—':shownPercent(r._hasClean,r.clean_score))}${metric('Gum',legacy?'—':shownPercent(r._hasGum,r.gum_health))}${metric('Technique',legacy?'—':shownPercent(r._hasTechnique,r.technique_score))}${metric('Coverage',legacy?'—':(r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—'))}${metric(legacy?'Tracking':r.play_mode==='learning'?'Learning Mastery':'Direction',legacy?'Legacy':r.play_mode==='learning'?shownPercent(r._hasLearningMastery,mas):shownPercent(r._hasDirection,dir))}</div>${zoneInsightHtml(r)}<div class="note"><strong>${legacy?'Legacy / Unknown Summary':r.play_mode==='learning'?'Learning Summary':'Challenge Summary'}</strong><br>${legacy?'บันทึกนี้เกิดก่อนระบบ Learning + Challenge telemetry รุ่นปัจจุบัน จึงเก็บไว้เป็นประวัติ แต่ไม่นำค่าเดิมมาคำนวณ KPI และ Zone analytics ของระบบใหม่':r.play_mode==='learning'?`Learning Progress ${shownPercent(r._hasLearningProgress,r.learning_progress_percent)} • Pass Strokes ${Math.round(n(r.learning_qualified_strokes))}/${Math.round(n(r.learning_required_strokes)||18)} • Overall Direction ${shownPercent(r._hasDirection,dir)}`:`Direction ${shownPercent(r._hasDirection,dir)} / เป้าหมาย ${Math.round(n(r.direction_threshold))||'-'}% • ${esc(x.detail)}`}<br><br><strong>Coach Note</strong><br>${esc(legacy?'เริ่มใช้ Current Tracking ตั้งแต่ Toothbrush AR v10.9 เป็นต้นไป':(r.advice||r.challenge_fail_reasons||'ไม่มีข้อผิดพลาดที่บันทึก'))}<br><br><strong>Auto Zone Insight</strong><br>${esc(legacy?'— / —':zoneInsightText(r))}</div>`;
   zones(r);
 }
 function zones(r){
