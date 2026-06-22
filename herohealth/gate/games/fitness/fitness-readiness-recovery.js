@@ -1,10 +1,10 @@
 // === /herohealth/gate/games/fitness/fitness-readiness-recovery.js ===
-// FULL MODULE v20260622-FITNESS-READINESS-RECOVERY-FINALIZER-HARDLOCK-V18
+// FULL MODULE v20260622-FITNESS-READINESS-RECOVERY-DIRECT-EXIT-V19
 // Full replacement: Fitness Gate warmup/cooldown with MediaPipe Pose + preview canvas.
 // The preview canvas draws camera frames directly, avoiding black <video> rendering
 // in some Chrome/WebXR environments.
 
-const PATCH = 'v20260622-FITNESS-READINESS-RECOVERY-FINALIZER-HARDLOCK-V18';
+const PATCH = 'v20260622-FITNESS-READINESS-RECOVERY-DIRECT-EXIT-V19';
 
 const MP = {
   module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs',
@@ -382,18 +382,98 @@ export async function mount(stage, ctx, api){
     landmarker=null;
   }
 
+  function directRunHref(){
+    const safe = raw => {
+      try{
+        const u = new URL(String(raw || ''), location.href);
+        if(/warmup-gate\.html/i.test(u.pathname)) return '';
+        return u.toString();
+      }catch(_){ return ''; }
+    };
+
+    const explicit = safe(ctx && ctx.next);
+    if(explicit) return explicit;
+
+    const canonical = {
+      'shadow-breaker':'/webxr-health-mobile/fitness/shadow-breaker-ar.html',
+      'rhythm-boxer':'/webxr-health-mobile/fitness/rhythm-boxer-ar.html',
+      'jump-duck':'/webxr-health-mobile/fitness/jumpduck-ar.html',
+      'balance-hold':'/webxr-health-mobile/fitness/balance-hold-ar2.html'
+    };
+
+    const path = canonical[String(game || '')] || '/webxr-health-mobile/fitness/hub.html';
+    const u = new URL(path, location.origin);
+
+    [
+      'pid','name','studentId','playerId','classId','section',
+      'diff','time','view','mode','cat','zone','hub','hubRoot',
+      'launcher','plannerReturn'
+    ].forEach(key => {
+      const value = ctx && ctx[key];
+      if(value) u.searchParams.set(key, value);
+    });
+
+    u.searchParams.set('fromGate', '1');
+    u.searchParams.set('gatePatch', PATCH);
+    return u.toString();
+  }
+
   function finish(source='finish'){
     if(done) return;
     done=true;
     finalizing=true;
     clearFinalWatchdog();
     stop();
-    const quality=avg(poseQuality), stars=guided?1:quality>.75&&valid/Math.max(1,frames)>.7?3:quality>.55?2:1;
-    api.complete({title:phase==='cooldown'?'Hero Recovery Mission สำเร็จ':'Hero Ready Mission สำเร็จ',subtitle:phase==='cooldown'?'ค่อย ๆ ลดความหนักเรียบร้อยแล้ว':'ร่างกายพร้อมเข้าสู่เกมหลักแล้ว',gateStars:stars,gateQuality:guided?'guided-fallback':assistedTasks>0?'pose-assisted':stars===3?'pose-verified':'pose-assisted',gatePoseQuality:Math.round(quality*100),gateDurationSec:Math.round((now()-last)/1000)||duration,
+
+    const quality=avg(poseQuality);
+    const stars=guided
+      ? 1
+      : quality>.75&&valid/Math.max(1,frames)>.7
+        ? 3
+        : quality>.55
+          ? 2
+          : 1;
+
+    const payload={
+      title:phase==='cooldown'?'Hero Recovery Mission สำเร็จ':'Hero Ready Mission สำเร็จ',
+      subtitle:phase==='cooldown'
+        ? 'ค่อย ๆ ลดความหนักเรียบร้อยแล้ว'
+        : 'ร่างกายพร้อมเข้าสู่เกมหลักแล้ว',
+      gateStars:stars,
+      gateQuality:guided
+        ? 'guided-fallback'
+        : assistedTasks>0
+          ? 'pose-assisted'
+          : stars===3
+            ? 'pose-verified'
+            : 'pose-assisted',
+      gatePoseQuality:Math.round(quality*100),
+      gateDurationSec:Math.round((now()-last)/1000)||duration,
       gateAssistedTasks:assistedTasks,
       warmupDone:phase==='warmup'?1:0,
       cooldownDone:phase==='cooldown'?1:0,
-      gateFinalizer:source});
+      gateFinalizer:source
+    };
+
+    const target=directRunHref();
+
+    // Core keeps score/local history. Direct exit below guarantees the learner
+    // leaves the completed screen even if a browser blocks a nested redirect.
+    try{
+      if(api && typeof api.complete==='function') api.complete(payload);
+    }catch(error){
+      console.warn('[FRR] core completion failed; direct exit will continue', error);
+    }
+
+    window.setTimeout(()=>{
+      if(destroyed) return;
+      try{
+        const here=String(location.pathname || '');
+        if(/warmup-gate\.html/i.test(here) && target){
+          location.replace(target);
+        }
+      }catch(_){}
+    }, 420);
   }
   function guidedMode(reason){
     stop();guided=true;refs.empty.hidden=false;refs.empty.innerHTML='<div class="frr-camera-empty-icon">🧭</div><strong>โหมดทำตามคำแนะนำ</strong><span>'+esc(reason||'กล้องไม่พร้อม')+'</span>';refs.start.hidden=true;refs.guided.hidden=true;refs.retry.hidden=false;refs.status.textContent='Guided mode';refs.engine.textContent='Pose unavailable • guided fallback';update(null);
