@@ -1399,30 +1399,26 @@
   </script>
 
   <script type="module">
-    
-    import bootGate from './gate/gate-core.js?v=20260621-frr-v8-runtime-fix';
-    
-    const root = document.getElementById('gate-app');
-    const status = document.getElementById('gateBootStatusText');
+  import bootGate from './gate/gate-core.js?v=20260622-gate-core-frr-v17-loader';
 
-    try{
-      if(status) status.textContent = 'Starting gate-core...';
+  const root = document.getElementById('gate-app');
+  const status = document.getElementById('gateBootStatusText');
 
-      await bootGate(root);
+  try{
+    if(status) status.textContent = 'Starting Fitness Gate V17...';
 
-      if(window.HHA_GATE_HIDE_BOOT){
-        window.HHA_GATE_HIDE_BOOT();
-      }
-    }catch(err){
-      console.error('[warmup-gate] boot failed', err);
+    await bootGate(root);
 
-      if(window.HHA_GATE_SHOW_ERROR){
-        window.HHA_GATE_SHOW_ERROR(err);
-      }
+    if(window.HHA_GATE_HIDE_BOOT){
+      window.HHA_GATE_HIDE_BOOT();
     }
-  </script>
+  }catch(err){
+    console.error('[warmup-gate] boot failed', err);
 
-  <!-- ปิดไฟล์เก่า เพราะเคย override path GoodJunk ผิด -->
-  <!-- <script src="./goodjunk-mobile-cooldown-gate-summary-return-final.js?v=20260526"></script> -->
+    if(window.HHA_GATE_SHOW_ERROR){
+      window.HHA_GATE_SHOW_ERROR(err);
+    }
+  }
+</script>
 </body>
 </html>
