@@ -1,7 +1,7 @@
 <!-- =========================================================
  /herohealth/hygiene-zone/teacher-dashboard.html
  HeroHealth Hygiene Zone Teacher Dashboard V2
- Version: v20260622-HYGIENE-TEACHER-DASHBOARD-V2-6-GROWTH-NEXT-MISSION
+ Version: v20260622-HYGIENE-TEACHER-DASHBOARD-V2-7-INTERVENTION-QUEUE
 ========================================================= -->
 <!doctype html>
 <html lang="th">
@@ -59,6 +59,7 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
 @media(max-width:700px){.scroll{display:none}.mobile-records{display:grid;gap:10px;padding:12px}.table-card{padding-bottom:0}}
 @media print{.mobile-records{display:none!important}.scroll{display:block!important}}
 
+
 /* V2.5 Individual Student Focus */
 @media(min-width:1181px){.filters{grid-template-columns:1.16fr 1.02fr .72fr .62fr .62fr .62fr .67fr .67fr .67fr auto}}
 
@@ -99,6 +100,45 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
 .mission-footer{margin-top:10px;padding:9px 10px;border-radius:15px;background:#f8fafc;color:#475569;font-size:11px;line-height:1.4;font-weight:850}
 @media(max-width:880px){.growth-grid{grid-template-columns:1fr}}
 @media(max-width:580px){.growth-stats{grid-template-columns:repeat(2,1fr)}.trend-row{grid-template-columns:82px 1fr 66px}.growth-card,.mission-card{min-height:0}}
+
+
+/* V2.7 • Teacher Intervention Queue */
+.queue-card{margin-bottom:14px}
+.queue-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}
+.queue-count{padding:11px;border:1px solid var(--line);border-radius:19px;background:#f8fafc}
+.queue-count small{display:block;font-size:11px;font-weight:1000}
+.queue-count b{display:block;margin-top:4px;font-size:27px;line-height:1;font-weight:1000}
+.queue-count span{display:block;margin-top:4px;color:#64748b;font-size:10px;line-height:1.3;font-weight:850}
+.queue-count.urgent{background:#fff1f2;border-color:rgba(239,68,68,.18);color:#9f1239}
+.queue-count.practice{background:#fffbeb;border-color:rgba(245,158,11,.22);color:#92400e}
+.queue-count.ready{background:#ecfdf5;border-color:rgba(34,197,94,.18);color:#166534}
+.queue-columns{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.queue-group{overflow:hidden;border:1px solid var(--line);border-radius:22px;background:linear-gradient(180deg,#fff,#f8fafc)}
+.queue-group-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:12px 12px 9px;border-bottom:1px solid rgba(15,23,42,.07)}
+.queue-group-head h3{margin:0 0 3px;font-size:15px;line-height:1.1;font-weight:1000}
+.queue-group-head p{margin:0;color:#64748b;font-size:10px;line-height:1.35;font-weight:850}
+.queue-group.urgent .queue-group-head{background:#fff7f7}
+.queue-group.practice .queue-group-head{background:#fffcf2}
+.queue-group.ready .queue-group-head{background:#f3fff7}
+.queue-list{display:grid;gap:8px;padding:9px}
+.queue-item{padding:10px;border:1px solid var(--line);border-radius:17px;background:#fff;cursor:pointer;box-shadow:0 5px 12px rgba(15,23,42,.04)}
+.queue-item:hover{border-color:rgba(37,99,235,.34);background:#f8fbff}
+.queue-item.selected{border-color:rgba(37,99,235,.52);box-shadow:inset 3px 0 0 #2563eb,0 6px 15px rgba(15,23,42,.06)}
+.queue-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.queue-item-top b{display:block;color:#0f172a;font-size:14px;line-height:1.15;font-weight:1000}
+.queue-item-top time{display:block;margin-top:3px;color:#64748b;font-size:10px;font-weight:850}
+.queue-priority{padding:4px 6px;border-radius:999px;font-size:9px;font-weight:1000;white-space:nowrap}
+.queue-priority.urgent{background:#ffe4e6;color:#9f1239}
+.queue-priority.practice{background:#fef3c7;color:#92400e}
+.queue-priority.ready{background:#dcfce7;color:#166534}
+.queue-reason{margin:8px 0 0;color:#334155;font-size:11px;line-height:1.4;font-weight:900}
+.queue-action{margin:6px 0 0;color:#64748b;font-size:10px;line-height:1.38;font-weight:850}
+.queue-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.queue-meta span{padding:4px 6px;border:1px solid var(--line);border-radius:999px;background:#f8fafc;color:#475569;font-size:9px;font-weight:1000}
+.queue-open{width:100%;min-height:33px;margin-top:9px;border:0;border-radius:12px;background:#ecfeff;color:#0e7490;font-size:10px;font-weight:1000}
+.queue-empty{padding:18px 10px;color:#94a3b8;text-align:center;font-size:11px;line-height:1.45;font-weight:850}
+@media(max-width:980px){.queue-columns{grid-template-columns:1fr}}
+@media(max-width:580px){.queue-summary{grid-template-columns:repeat(3,1fr);gap:6px}.queue-count{padding:9px}.queue-count b{font-size:22px}.queue-count small{font-size:10px}.queue-count span{font-size:9px}}
 
 </style>
 </head>
@@ -165,6 +205,20 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
   </article>
 </section>
 
+
+<section class="panel card queue-card">
+  <div class="head">
+    <div>
+      <h2>🚦 Teacher Intervention Queue</h2>
+      <p class="muted">สรุปจากผล Current ล่าสุดของแต่ละคนภายใต้ filter ที่เลือก — แตะการ์ดเพื่อเปิดรายละเอียด</p>
+    </div>
+    <span id="queueScopeTag" class="mini">Current only</span>
+  </div>
+
+  <div id="queueSummary" class="queue-summary"></div>
+  <div id="interventionQueue" class="queue-columns"></div>
+</section>
+
 <section class="panel table-card">
   <div class="table-head"><div><h2>👩‍🎓 Student Records</h2><p id="caption">เลือกแถวเพื่อดูรายละเอียดรายโซนและ feedback</p></div><span id="recordCount" class="mini">0 records</span></div>
   <div class="scroll"><table><thead><tr><th>เวลา</th><th>นักเรียน</th><th>เกม / โหมด</th><th>ผล</th><th>Score</th><th>Clean</th><th>Gum</th><th>Technique</th><th>Coverage</th><th>Learning</th><th>Mastery</th><th>Overall Direction</th><th>Weak Zone</th><th>Input</th></tr></thead><tbody id="tbody"></tbody></table></div>
@@ -181,7 +235,7 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
 <script>
 (()=>{
 'use strict';
-const VERSION='v20260622-HYGIENE-TEACHER-DASHBOARD-V2-6-GROWTH-NEXT-MISSION';
+const VERSION='v20260622-HYGIENE-TEACHER-DASHBOARD-V2-7-INTERVENTION-QUEUE';
 const CFG={
  home:'../hygiene-zone-v2.html',
  api:'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec',
@@ -757,7 +811,261 @@ function renderMission(){
   <div class="mission-footer">${esc(mission.footer)}</div>`;
 }
 
-function render(){renderKpis();renderInsights();renderGrowth();renderMission();board();table();detail()}
+
+function latestCurrentAttemptByStudent(records){
+  const latestByStudent=new Map();
+
+  records
+    .filter(record=>record._isCurrent)
+    .forEach(record=>{
+      const key=record._studentKey||studentKeyFrom(record);
+      const previous=latestByStudent.get(key);
+
+      if(!previous||ts(record)>ts(previous)){
+        latestByStudent.set(key,record);
+      }
+    });
+
+  return [...latestByStudent.values()].sort((a,b)=>ts(b)-ts(a));
+}
+
+function interventionFor(record){
+  const gumTarget=Math.max(65,n(pick(record,['pass_min_gum'],45)));
+  const techniqueTarget=Math.max(45,n(pick(record,['pass_min_technique'],45)));
+  const coverageTarget=Math.max(4,n(pick(record,['pass_min_coverage'],4)));
+  const outcome=result(record);
+
+  const base={
+    record,
+    student:record._studentLabel||studentLabelFrom(record),
+    time:date(record.created_at),
+    play:`${game(record.game_key)} • ${mode(record.play_mode)} • ${record.difficulty||'-'}`,
+    score:Math.round(n(record.score)),
+    clean:record._hasClean?Math.round(n(record.clean_score)):null,
+    gum:record._hasGum?Math.round(n(record.gum_health)):null,
+    direction:record._hasDirection?Math.round(direction(record)):null,
+    weak:record.weakest_zone||record.guided_current_zone||record.guided_target_zone||'—'
+  };
+
+  if(record.play_mode==='learning'&&!record.learning_complete){
+    return {
+      ...base,
+      bucket:'urgent',
+      badge:'ต้องช่วยก่อน',
+      reason:`Learning ยังไม่ครบ ${Math.round(n(record.learning_progress_percent))}%`,
+      action:`พาเก็บ pass strokes ที่ ${base.weak} ให้ครบ 6 โซน`,
+      priority:10
+    };
+  }
+
+  if(record._hasGum&&n(record.gum_health)<gumTarget){
+    return {
+      ...base,
+      bucket:'urgent',
+      badge:'ต้องช่วยก่อน',
+      reason:`Gum ${Math.round(n(record.gum_health))}% ต่ำกว่าเป้าหมาย ${gumTarget}%`,
+      action:'ทำ Gentle Brush Rescue: ลดแรง ลดความเร็ว และไม่ถูซ้ำจุดเดิม',
+      priority:9
+    };
+  }
+
+  if(record._hasTechnique&&n(record.technique_score)<techniqueTarget){
+    return {
+      ...base,
+      bucket:'urgent',
+      badge:'ต้องช่วยก่อน',
+      reason:`Technique ${Math.round(n(record.technique_score))}% ยังต่ำกว่า ${techniqueTarget}%`,
+      action:'เริ่ม Learning/Challenge Easy แบบช้า ๆ เพื่อรีเซ็ตจังหวะแปรง',
+      priority:8
+    };
+  }
+
+  if(record._hasCoverage&&n(record.coverage_zone_count)<coverageTarget){
+    return {
+      ...base,
+      bucket:'urgent',
+      badge:'ต้องช่วยก่อน',
+      reason:`Coverage ${Math.round(n(record.coverage_zone_count))}/6 ยังไม่ครบ`,
+      action:`กลับไปเก็บโซนที่ขาด โดยเริ่มจาก ${base.weak}`,
+      priority:7
+    };
+  }
+
+  if(record.play_mode==='challenge'&&outcome.css==='practice'){
+    const target=Math.max(45,n(record.direction_threshold)||45);
+
+    return {
+      ...base,
+      bucket:'practice',
+      badge:'ฝึกเพิ่ม',
+      reason:`Direction ${Math.round(direction(record))}% / เป้าหมาย ${target}%`,
+      action:`ฝึกฟันบนปัดลง ฟันล่างปัดขึ้น โดยเน้น ${base.weak}`,
+      priority:6
+    };
+  }
+
+  if(record.play_mode==='challenge'&&outcome.css==='retry'){
+    return {
+      ...base,
+      bucket:'practice',
+      badge:'ติดตาม',
+      reason:outcome.detail||'Challenge ยังไม่ผ่าน',
+      action:`เปิดรายละเอียดแล้วโค้ช weak zone: ${base.weak}`,
+      priority:5
+    };
+  }
+
+  if(record.play_mode==='challenge'&&outcome.css==='pass'){
+    return {
+      ...base,
+      bucket:'ready',
+      badge:'พร้อมเลื่อนระดับ',
+      reason:'Fresh Smile Hero ผ่าน Challenge แล้ว',
+      action:`เปิด ${difficultyNext(record.difficulty)} และรักษา Direction ให้ผ่านเกณฑ์`,
+      priority:2
+    };
+  }
+
+  if(record.play_mode==='learning'&&record.learning_complete){
+    return {
+      ...base,
+      bucket:'ready',
+      badge:'พร้อม Challenge',
+      reason:'Learning ครบ 6 โซนแล้ว',
+      action:'ให้ลอง Challenge Easy เพื่อวัด Direction และ Gum Safety จริง',
+      priority:3
+    };
+  }
+
+  return {
+    ...base,
+    bucket:'practice',
+    badge:'ติดตาม',
+    reason:'มี Current Tracking แต่ยังต้องเก็บผล Challenge เพิ่ม',
+    action:'ให้เล่น Challenge Easy รอบใหม่แล้วตรวจ Direction / Gum / Coverage',
+    priority:4
+  };
+}
+
+function buildInterventionQueue(records){
+  const queue={urgent:[],practice:[],ready:[]};
+
+  latestCurrentAttemptByStudent(records)
+    .map(interventionFor)
+    .forEach(item=>queue[item.bucket].push(item));
+
+  Object.values(queue).forEach(items=>{
+    items.sort((a,b)=>b.priority-a.priority||ts(b.record)-ts(a.record));
+  });
+
+  return queue;
+}
+
+function queueGroupTemplate(type,title,description,items){
+  const empty={
+    urgent:'ยังไม่มีคนที่ต้องช่วยเร่งด่วน',
+    practice:'ยังไม่มีคนที่ต้องฝึกเพิ่ม',
+    ready:'ยังไม่มีคนที่พร้อมเลื่อนระดับ'
+  }[type];
+
+  const body=items.length
+    ?items.map(item=>`
+      <article class="queue-item ${item.record.__key===S.selected?'selected':''}" data-queue-key="${esc(item.record.__key)}">
+        <div class="queue-item-top">
+          <div>
+            <b>${esc(item.student)}</b>
+            <time>${esc(item.time)} • ${esc(item.play)}</time>
+          </div>
+          <span class="queue-priority ${type}">${esc(item.badge)}</span>
+        </div>
+
+        <p class="queue-reason">${esc(item.reason)}</p>
+        <p class="queue-action">→ ${esc(item.action)}</p>
+
+        <div class="queue-meta">
+          <span>Score ${item.score}</span>
+          ${item.clean!==null?`<span>Clean ${item.clean}%</span>`:''}
+          ${item.gum!==null?`<span>Gum ${item.gum}%</span>`:''}
+          ${item.direction!==null?`<span>Dir ${item.direction}%</span>`:''}
+          ${item.weak!=='—'?`<span>Weak ${esc(item.weak)}</span>`:''}
+        </div>
+
+        <button class="queue-open" type="button">เปิดผลรายบุคคล</button>
+      </article>
+    `).join('')
+    :`<div class="queue-empty">${empty}</div>`;
+
+  return `
+    <section class="queue-group ${type}">
+      <div class="queue-group-head">
+        <div>
+          <h3>${title}</h3>
+          <p>${description}</p>
+        </div>
+        <span class="mini">${items.length}</span>
+      </div>
+      <div class="queue-list">${body}</div>
+    </section>
+  `;
+}
+
+function renderInterventionQueue(){
+  const queue=buildInterventionQueue(S.shown);
+  const selected=$('student').value;
+  const range=$('range').value;
+  const scope=selected?currentStudentName():'ทั้งชั้น';
+
+  $('queueScopeTag').textContent=`${scope} • ${rangeLabel(range)} • Current`;
+
+  $('queueSummary').innerHTML=`
+    <div class="queue-count urgent">
+      <small>🔴 ต้องช่วยก่อน</small>
+      <b>${queue.urgent.length}</b>
+      <span>Learning / Gum / Technique / Coverage</span>
+    </div>
+
+    <div class="queue-count practice">
+      <small>🟡 ฝึกเพิ่ม</small>
+      <b>${queue.practice.length}</b>
+      <span>Direction Practice หรือ Challenge Retry</span>
+    </div>
+
+    <div class="queue-count ready">
+      <small>🟢 พร้อมต่อ</small>
+      <b>${queue.ready.length}</b>
+      <span>Learning Complete หรือ Fresh Smile Hero</span>
+    </div>
+  `;
+
+  $('interventionQueue').innerHTML=[
+    queueGroupTemplate(
+      'urgent',
+      '🔴 ต้องช่วยก่อน',
+      'เรียกมาฝึกหรือช่วยโค้ชก่อนเริ่มรอบใหม่',
+      queue.urgent
+    ),
+    queueGroupTemplate(
+      'practice',
+      '🟡 ฝึกเพิ่ม',
+      'เล่นซ้ำแบบมีเป้าหมายและตรวจ weak zone',
+      queue.practice
+    ),
+    queueGroupTemplate(
+      'ready',
+      '🟢 พร้อมต่อ',
+      'ให้เปิด Challenge หรือเลื่อนระดับถัดไป',
+      queue.ready
+    )
+  ].join('');
+
+  document.querySelectorAll('[data-queue-key]').forEach(card=>{
+    card.addEventListener('click',()=>{
+      selectRecord(card.dataset.queueKey,true);
+    });
+  });
+}
+
+function render(){renderKpis();renderInsights();renderGrowth();renderMission();renderInterventionQueue();board();table();detail()}
 const Storage={
   lastError:'',
   get(key,fallback=''){
