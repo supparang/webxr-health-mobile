@@ -1475,6 +1475,27 @@ export async function mount(stage, ctx, api) {
 
       video.srcObject = stream;
       await video.play();
+      await new Promise(resolve => {
+  if (video.readyState >= 2 && video.videoWidth > 0) {
+    resolve();
+    return;
+  }
+
+  video.addEventListener('loadeddata', resolve, { once:true });
+  setTimeout(resolve, 1200);
+});
+
+video.style.display = 'block';
+video.style.visibility = 'visible';
+video.style.opacity = '1';
+video.style.zIndex = '1';
+video.style.background = 'transparent';
+
+canvas.style.display = 'block';
+canvas.style.visibility = 'visible';
+canvas.style.opacity = '1';
+canvas.style.zIndex = '3';
+canvas.style.background = 'transparent';
       cameraEmpty.hidden = true;
       setCameraStatus('กล้องพร้อม • กำลังโหลด Pose');
       engineNote.textContent = 'Camera ready • Loading MediaPipe Pose…';
