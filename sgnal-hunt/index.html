@@ -20,23 +20,26 @@
         </span>
       </a>
 
-      <button
-        id="resetProgressBtn"
-        class="reset-link"
-        type="button"
-        title="ล้างความคืบหน้า W1 ในเครื่องนี้"
-      >
-        ↺ <span>รีเซ็ต W1</span>
-      </button>
+      <details id="progressMenu" class="hub-menu">
+        <summary aria-label="เมนูความคืบหน้า">
+          <span class="hub-menu__label">Progress</span>
+          <span class="hub-menu__dots" aria-hidden="true">•••</span>
+        </summary>
+
+        <div class="hub-menu__panel">
+          <p class="hub-menu__eyebrow">W1 PROGRESS</p>
+          <strong id="menuProgressText">0/4 nodes • ☆☆☆</strong>
+          <small id="menuScoreText">Best score 0</small>
+          <button id="resetProgressBtn" type="button">รีเซ็ตความคืบหน้า W1</button>
+        </div>
+      </details>
     </header>
 
     <section class="overview-grid" aria-labelledby="actTitle">
       <div class="act-intro">
         <p class="eyebrow act-intro__eyebrow">ACT I • HUMAN-CENTERED DESIGN</p>
         <h1 id="actTitle">Understand Humans</h1>
-        <p class="act-intro__lede">
-          เข้าใจผู้ใช้ก่อนแก้ interface
-        </p>
+        <p class="act-intro__lede">เข้าใจผู้ใช้ก่อนแก้ interface</p>
 
         <div class="quick-progress" aria-label="ความก้าวหน้า Act I">
           <span><b id="actProgressText">0/4</b> nodes</span>
@@ -56,9 +59,7 @@
           <div class="current-card__icon" aria-hidden="true">⌕</div>
           <div>
             <h2 id="w1Title">UX Detective</h2>
-            <p id="nowSummary">
-              สืบว่าอะไรทำให้ผู้ใช้ทำเป้าหมายไม่สำเร็จ แล้วเลือกวิธีแก้ที่ช่วยได้จริง
-            </p>
+            <p id="nowSummary">สืบว่าอะไรทำให้ผู้ใช้ทำเป้าหมายไม่สำเร็จ แล้วเลือกวิธีแก้ที่ช่วยได้จริง</p>
           </div>
         </div>
 
@@ -80,7 +81,7 @@
           <p class="eyebrow">MISSION PATH</p>
           <h2 id="pathTitle">เส้นทาง Act I</h2>
         </div>
-        <p id="pathHint">เริ่ม W1 เพื่อปลดล็อก Mission ถัดไป</p>
+        <p id="pathHint">ผ่าน W1 อย่างน้อย 1★ เพื่อปลดล็อก W2</p>
       </div>
 
       <ol class="path-rail" aria-label="ลำดับภารกิจ Act I">
@@ -91,15 +92,13 @@
             <small id="pathW1State">Available</small>
           </span>
         </li>
-
         <li class="path-step" id="pathW2">
           <span class="path-step__dot">2</span>
           <span class="path-step__copy">
             <b>W2 • Design Thinking</b>
-            <small id="pathW2State">Pass W1</small>
+            <small id="pathW2State">Pass W1 1★</small>
           </span>
         </li>
-
         <li class="path-step" id="pathW3">
           <span class="path-step__dot">3</span>
           <span class="path-step__copy">
@@ -107,7 +106,6 @@
             <small id="pathW3State">Pass W2</small>
           </span>
         </li>
-
         <li class="path-step path-step--boss" id="pathB1">
           <span class="path-step__dot">B</span>
           <span class="path-step__copy">
@@ -133,7 +131,6 @@
             <span class="stage-number">W2</span>
             <span class="stage-state" id="w2State">LOCKED</span>
           </div>
-
           <div class="compact-stage__content">
             <span class="compact-stage__icon" aria-hidden="true">↺</span>
             <div>
@@ -142,7 +139,6 @@
               <p>Empathize → Define → Ideate → Prototype → Test</p>
             </div>
           </div>
-
           <div class="compact-stage__footer">
             <span id="w2Note">ผ่าน W1 อย่างน้อย 1 ดาว</span>
             <button type="button" disabled>Mission Pack กำลังเตรียม</button>
@@ -154,7 +150,6 @@
             <span class="stage-number">W3</span>
             <span class="stage-state">LOCKED</span>
           </div>
-
           <div class="compact-stage__content">
             <span class="compact-stage__icon" aria-hidden="true">◌</span>
             <div>
@@ -163,7 +158,6 @@
               <p>ลดความรก จัดความสนใจ และทำให้ผู้ใช้คิดน้อยลง</p>
             </div>
           </div>
-
           <div class="compact-stage__footer">
             <span>ผ่าน W2 ก่อน</span>
             <button type="button" disabled>ล็อกอยู่</button>
@@ -175,7 +169,6 @@
             <span class="stage-number">B1</span>
             <span class="stage-state">BOSS GATE</span>
           </div>
-
           <div class="boss-preview__body">
             <span class="boss-preview__icon" aria-hidden="true">⚠</span>
             <div>
@@ -184,7 +177,6 @@
               <p>กู้ AI Help Kiosk ที่ผู้ใช้หาเมนูไม่เจอ เข้าใจสถานะผิด และเลิกใช้งานกลางทาง</p>
             </div>
           </div>
-
           <div class="boss-preview__footer">
             <span>ต้องผ่าน W1–W3 ก่อนเข้าสู่ Boss</span>
             <button type="button" disabled>Friction Core Locked</button>
@@ -201,7 +193,6 @@
         </span>
         <span class="how-card__chevron" aria-hidden="true">⌄</span>
       </summary>
-
       <ol class="how-card__steps">
         <li><b>1</b><span><strong>Observe</strong><small>อ่าน User Goal และ User Signal</small></span></li>
         <li><b>2</b><span><strong>Diagnose</strong><small>เชื่อม UI symptom กับ UX impact</small></span></li>

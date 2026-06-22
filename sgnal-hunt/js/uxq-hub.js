@@ -1,5 +1,5 @@
 // === /sgnal-hunt/js/uxq-hub.js ===
-// UX Quest Mission Control v2 • compact mobile-first hub
+// UX Quest Mission Control v3 • desktop complete + mobile action-first hub
 // Reads W1 V6 progress without changing W1 gameplay.
 
 (function () {
@@ -71,17 +71,20 @@
     const w1 = readW1();
     const w1Cleared = w1.tutorialComplete || w1.bestStars >= 1;
     const actProgress = w1Cleared ? 1 : 0;
+    const progressLabel = `${actProgress}/4 nodes • ${stars(w1.bestStars)}`;
 
     setText('#actProgressText', `${actProgress}/4`);
     setText('#heroStars', stars(w1.bestStars));
     setText('#heroScore', w1.bestScore || '0');
+    setText('#menuProgressText', progressLabel);
+    setText('#menuScoreText', `Best score ${w1.bestScore || 0}`);
 
     if (w1.hasActiveSession) {
       setText('#nowStatus', `RESUME • CASE ${w1.activeCase}/${w1.activeTotal}`);
       setText('#nowSummary', 'มีภารกิจค้างอยู่ กลับไปทำต่อจากจุดเดิมได้ทันที');
       setText('#nowReward', `↺ ${w1.activeMode || 'mission'} • ระบบบันทึกไว้ในเครื่องนี้`);
       setText('#nowLaunchText', 'ทำภารกิจต่อ');
-      setText('#pathHint', 'กลับไปทำ W1 ให้จบก่อน แล้วค่อยปลดล็อก Mission ถัดไป');
+      setText('#pathHint', 'ทำ W1 ต่อให้จบ • ผ่าน 1★ เพื่อปลดล็อก W2');
       setText('#pathW1State', 'In progress');
       setClass('#nowStatusDot', 'is-resume', true);
       setClass('#nowStatusDot', 'is-complete', false);
@@ -99,7 +102,7 @@
       setText('#nowSummary', 'สืบว่าอะไรทำให้ผู้ใช้ทำเป้าหมายไม่สำเร็จ แล้วเลือกวิธีแก้ที่ช่วยได้จริง');
       setText('#nowReward', '★ 1 ดาวเพื่อเปิดเส้นทางต่อ');
       setText('#nowLaunchText', 'เริ่มภารกิจ');
-      setText('#pathHint', 'เริ่ม W1 เพื่อปลดล็อก Mission ถัดไป');
+      setText('#pathHint', 'ผ่าน W1 อย่างน้อย 1★ เพื่อปลดล็อก W2');
       setText('#pathW1State', 'Available');
       setClass('#nowStatusDot', 'is-complete', false);
       setClass('#nowStatusDot', 'is-resume', false);
@@ -116,9 +119,14 @@
     } else {
       setText('#w2State', 'LOCKED');
       setText('#w2Note', 'ผ่าน W1 อย่างน้อย 1 ดาว');
-      setText('#pathW2State', 'Pass W1');
+      setText('#pathW2State', 'Pass W1 1★');
       setClass('#nodeW2', 'compact-stage--ready', false);
     }
+  }
+
+  function closeMenu() {
+    const menu = $('#progressMenu');
+    if (menu) menu.open = false;
   }
 
   function resetW1() {
@@ -136,6 +144,7 @@
       }
     });
 
+    closeMenu();
     updateHub();
   }
 
@@ -143,8 +152,14 @@
     const resetButton = $('#resetProgressBtn');
     if (resetButton) resetButton.addEventListener('click', resetW1);
 
-    window.addEventListener('focus', updateHub);
+    const menu = $('#progressMenu');
+    document.addEventListener('click', (event) => {
+      if (menu && menu.open && !menu.contains(event.target)) {
+        menu.open = false;
+      }
+    });
 
+    window.addEventListener('focus', updateHub);
     window.addEventListener('storage', (event) => {
       if ([W1_PROGRESS_KEY, W1_SESSION_KEY].includes(event.key)) {
         updateHub();
