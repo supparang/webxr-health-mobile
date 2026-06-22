@@ -1,14 +1,58 @@
 // === /sgnal-hunt/js/uxq-w1.js ===
 // UX Quest • W1 UX Detective
-// Case-by-Case UX Investigation
-// Mobile-first Observe → Diagnose → Fix → Test → Explain
+// V5 — Tutorial + Random Replay + Challenge + Progress Memory
+// Mobile-first Case Investigation
 
 (function () {
   'use strict';
 
-  const CASES = window.UXQ_W1_CASES || [];
-  const STORAGE_KEY = 'uxquest-w1-case-investigation-v4';
+  const CASE_BANK = Array.isArray(window.UXQ_W1_CASE_BANK)
+    ? window.UXQ_W1_CASE_BANK
+    : [];
 
+  const FIRST_RUN = Array.isArray(window.UXQ_W1_FIRST_RUN)
+    ? window.UXQ_W1_FIRST_RUN
+    : (Array.isArray(window.UXQ_W1_CASES) ? window.UXQ_W1_CASES : []);
+
+  const ROUND_SIZE = 5;
+  const SESSION_KEY = 'uxquest-w1-session-v5';
+  const PROGRESS_KEY = 'uxquest-w1-progress-v5';
+  const LEGACY_SESSION_KEY = 'uxquest-w1-case-investigation-v4';
+
+  const MODE_META = {
+    tutorial: {
+      short: 'Tutorial',
+      label: 'First Run Tutorial',
+      title: 'Tutorial Run',
+      description: '5 เคสเรียงลำดับเพื่อฝึกวิธีคิด User Goal → UX Impact → Design Fix',
+      badge: 'FOUNDATION'
+    },
+    replay: {
+      short: 'Replay',
+      label: 'Random Replay',
+      title: 'Random Replay',
+      description: 'สุ่ม 5 เคสจากคลัง 36 เคส โดยพยายามไม่ซ้ำกับ 2 รอบล่าสุด',
+      badge: 'PRACTICE'
+    },
+    challenge: {
+      short: 'Challenge',
+      label: 'Transfer Challenge',
+      title: 'Transfer Challenge',
+      description: 'เคสต่างบริบทเพื่อพิสูจน์ว่าเข้าใจหลัก ไม่ได้จำเฉลย',
+      badge: 'MASTERY'
+    }
+  };
+
+  const FAMILY_META = {
+    'entry-navigation': 'Entry & Navigation',
+    'information-label': 'Information Label',
+    'cta-action-clarity': 'CTA Clarity',
+    'feedback-system-status': 'Feedback & Status',
+    'information-priority': 'Information Priority',
+    'confirmation-predictability': 'Confirmation'
+  };
+
+  const CASE_BY_ID = new Map(CASE_BANK.map((item) => [item.id, item]));
   const $ = (selector) => document.querySelector(selector);
 
   const stage = $('#gameStage');
@@ -16,91 +60,508 @@
   const feedbackContent = $('#feedbackContent');
   const howDialog = $('#howDialog');
 
+  let progress = freshProgress();
   let state = freshState();
+
+  function freshProgress() {
+    return {
+      version: 5,
+      tutorialComplete: false,
+      tutorialBestStars: 0,
+      bestStars: 0,
+      bestScore: 0,
+      totalRounds: 0,
+      replayWins: 0,
+      challengeWins: 0,
+      roundHistory: [],
+      caseStats: {},
+      familyStats: {},
+      lastUpdated: null
+    };
+  }
 
   function freshState() {
     return {
+      version: 5,
+      mode: null,
+      caseIds: [],
+      caseVariants: {},
       caseIndex: 0,
       step: 0,
       score: 0,
       stability: 100,
-
       selectedSuspect: null,
       selectedDiagnosis: null,
       selectedFix: null,
       selectedExplain: [],
-
       attempts: 0,
       answered: [],
       startedAt: Date.now(),
-      complete: false
+      complete: false,
+      roundRecorded: false
     };
-  }
-
-  function current() {
-    return CASES[state.caseIndex];
   }
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
   }
 
+  function current() {
+    return CASE_BY_ID.get(state.caseIds[state.caseIndex]) || null;
+  }
+
+  function currentMode() {
+    return MODE_META[state.mode] || MODE_META.tutorial;
+  }
+
   function escapeHtml(input) {
-    return String(input).replace(/[&<>'"]/g, (character) => {
-      const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#39;',
-        '"': '&quot;'
-      };
-
-      return map[character];
-    });
+    return String(input).replace(/[&<>'"]/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[character]));
   }
 
-  function save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }
-
-  function restore() {
+  function safeParse(raw, fallback) {
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-
-      if (
-        saved &&
-        typeof saved.caseIndex === 'number' &&
-        !saved.complete
-      ) {
-        state = {
-          ...freshState(),
-          ...saved
-        };
-      }
+      return raw ? JSON.parse(raw) : fallback;
     } catch (error) {
-      console.warn('Could not restore UX Quest progress.', error);
+      return fallback;
     }
   }
 
-  function reset() {
-    localStorage.removeItem(STORAGE_KEY);
+  function saveProgress() {
+    progress.lastUpdated = new Date().toISOString();
+
+    try {
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+    } catch (error) {
+      console.warn('Could not save UX Quest progress.', error);
+    }
+  }
+
+  function saveSession() {
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(state));
+    } catch (error) {
+      console.warn('Could not save UX Quest session.', error);
+    }
+  }
+
+  function clearSession() {
+    try {
+      localStorage.removeItem(SESSION_KEY);
+    } catch (error) {
+      console.warn('Could not clear UX Quest session.', error);
+    }
+  }
+
+  function loadProgress() {
+    try {
+      const saved = safeParse(localStorage.getItem(PROGRESS_KEY), null);
+
+      if (saved && typeof saved === 'object') {
+        progress = {
+          ...freshProgress(),
+          ...saved,
+          caseStats: saved.caseStats || {},
+          familyStats: saved.familyStats || {},
+          roundHistory: Array.isArray(saved.roundHistory)
+            ? saved.roundHistory
+            : []
+        };
+      }
+    } catch (error) {
+      console.warn('Could not load UX Quest progress.', error);
+    }
+  }
+
+  function migrateLegacySession() {
+    const legacy = safeParse(localStorage.getItem(LEGACY_SESSION_KEY), null);
+
+    if (!legacy || legacy.complete || typeof legacy.caseIndex !== 'number') {
+      return null;
+    }
+
+    return {
+      ...freshState(),
+      mode: 'tutorial',
+      caseIds: FIRST_RUN.map((item) => item.id),
+      caseVariants: buildCaseVariants(FIRST_RUN.map((item) => item.id)),
+      caseIndex: clamp(
+        legacy.caseIndex,
+        0,
+        Math.max(FIRST_RUN.length - 1, 0)
+      ),
+      step: clamp(legacy.step || 0, 0, 4),
+      score: Number(legacy.score) || 0,
+      stability: clamp(Number(legacy.stability) || 100, 0, 100),
+      selectedSuspect: legacy.selectedSuspect || null,
+      selectedDiagnosis: legacy.selectedDiagnosis || null,
+      selectedFix: legacy.selectedFix || null,
+      selectedExplain: Array.isArray(legacy.selectedExplain)
+        ? legacy.selectedExplain
+        : [],
+      attempts: Number(legacy.attempts) || 0,
+      answered: Array.isArray(legacy.answered) ? legacy.answered : [],
+      startedAt: legacy.startedAt || Date.now()
+    };
+  }
+
+  function loadSession() {
+    try {
+      const saved = safeParse(localStorage.getItem(SESSION_KEY), null);
+
+      if (
+        saved &&
+        saved.mode &&
+        Array.isArray(saved.caseIds) &&
+        saved.caseIds.length
+      ) {
+        const validIds = saved.caseIds.filter((id) => CASE_BY_ID.has(id));
+
+        if (validIds.length) {
+          state = {
+            ...freshState(),
+            ...saved,
+            caseIds: validIds,
+            caseVariants: saved.caseVariants || buildCaseVariants(validIds),
+            caseIndex: clamp(
+              Number(saved.caseIndex) || 0,
+              0,
+              Math.max(validIds.length - 1, 0)
+            ),
+            step: clamp(Number(saved.step) || 0, 0, 4),
+            selectedExplain: Array.isArray(saved.selectedExplain)
+              ? saved.selectedExplain
+              : [],
+            answered: Array.isArray(saved.answered)
+              ? saved.answered
+              : []
+          };
+
+          return;
+        }
+      }
+
+      const legacy = migrateLegacySession();
+
+      if (legacy) {
+        state = legacy;
+        saveSession();
+      }
+    } catch (error) {
+      console.warn('Could not load UX Quest session.', error);
+    }
+  }
+
+  function resetAllW1() {
+    const confirmed = confirm(
+      'ล้างความคืบหน้า W1 ทั้งหมด? Tutorial, ดาว, Replay และสถิติในเครื่องนี้จะถูกลบ'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    progress = freshProgress();
     state = freshState();
+
+    try {
+      localStorage.removeItem(PROGRESS_KEY);
+      localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(LEGACY_SESSION_KEY);
+    } catch (error) {
+      console.warn('Could not reset UX Quest data.', error);
+    }
+
     render();
   }
 
-  function updateHud() {
-    $('#caseValue').textContent =
-      `${Math.min(state.caseIndex + 1, CASES.length)}/${CASES.length}`;
+  function abandonRoundToModeSelect() {
+    if (!state.mode) {
+      return;
+    }
 
-    $('#scoreValue').textContent = state.score;
-    $('#stabilityValue').textContent = state.stability;
+    const confirmed = confirm(
+      'ออกจากรอบปัจจุบัน? ระบบจะเก็บเฉพาะประวัติที่เล่นจบแล้ว'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    state = freshState();
+    clearSession();
+    render();
+  }
+
+  function shuffle(items) {
+    const clone = [...items];
+
+    for (let index = clone.length - 1; index > 0; index -= 1) {
+      const target = Math.floor(Math.random() * (index + 1));
+
+      [clone[index], clone[target]] = [
+        clone[target],
+        clone[index]
+      ];
+    }
+
+    return clone;
+  }
+
+  function unique(items) {
+    return [...new Set(items)];
+  }
+
+  function buildCaseVariants(caseIds) {
+    const variants = {};
+
+    caseIds.forEach((id) => {
+      const caseData = CASE_BY_ID.get(id);
+
+      if (!caseData) {
+        return;
+      }
+
+      variants[id] = {
+        areaIds: shuffle(caseData.screen.areas.map((area) => area.id)),
+        diagnosisIds: shuffle(
+          caseData.diagnosis.options.map((option) => option.id)
+        ),
+        fixIds: shuffle(caseData.fixes.map((option) => option.id)),
+        explainChoices: shuffle(caseData.explain.choices)
+      };
+    });
+
+    return variants;
+  }
+
+  function currentVariant(caseData) {
+    if (!state.caseVariants || !state.caseVariants[caseData.id]) {
+      state.caseVariants = {
+        ...(state.caseVariants || {}),
+        ...buildCaseVariants([caseData.id])
+      };
+
+      saveSession();
+    }
+
+    return state.caseVariants[caseData.id];
+  }
+
+  function orderById(items, ids) {
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
+
+    return ordered.length === items.length ? ordered : items;
+  }
+
+  function orderedAreas(caseData) {
+    const variant = currentVariant(caseData);
+
+    return orderById(caseData.screen.areas, variant.areaIds).map(
+      (area, index) => ({
+        ...area,
+        label: ['A', 'B', 'C'][index] || String(index + 1)
+      })
+    );
+  }
+
+  function orderedDiagnosisOptions(caseData) {
+    const variant = currentVariant(caseData);
+
+    return orderById(
+      caseData.diagnosis.options,
+      variant.diagnosisIds
+    );
+  }
+
+  function orderedFixOptions(caseData) {
+    const variant = currentVariant(caseData);
+
+    return orderById(caseData.fixes, variant.fixIds);
+  }
+
+  function orderedExplainChoices(caseData) {
+    const variant = currentVariant(caseData);
+    const choices = variant.explainChoices || [];
+
+    return choices.length === caseData.explain.choices.length
+      ? choices
+      : caseData.explain.choices;
+  }
+
+  function recentCaseIds() {
+    return unique(
+      progress.roundHistory
+        .filter((round) => round.mode !== 'tutorial')
+        .slice(-2)
+        .flatMap((round) => round.caseIds || [])
+    );
+  }
+
+  function familyAverage(skill) {
+    const family = progress.familyStats[skill];
+
+    if (!family || !family.plays) {
+      return 0;
+    }
+
+    return family.totalQuality / family.plays;
+  }
+
+  function buildRandomRound(mode) {
+    const allSkills = unique(CASE_BANK.map((item) => item.skill));
+    const recent = new Set(recentCaseIds());
+
+    let selectedSkills;
+
+    if (mode === 'challenge') {
+      const ranked = [...allSkills].sort(
+        (a, b) => familyAverage(a) - familyAverage(b)
+      );
+
+      const weakFirst = ranked.slice(0, 3);
+      const remaining = shuffle(ranked.slice(3));
+
+      selectedSkills = unique([
+        ...weakFirst,
+        ...remaining
+      ]).slice(0, ROUND_SIZE);
+    } else {
+      selectedSkills = shuffle(allSkills).slice(0, ROUND_SIZE);
+    }
+
+    const selected = [];
+
+    selectedSkills.forEach((skill) => {
+      const familyCases = CASE_BANK.filter(
+        (item) => item.skill === skill
+      );
+
+      const unseenRecently = familyCases.filter(
+        (item) =>
+          !recent.has(item.id) &&
+          !selected.includes(item.id)
+      );
+
+      const candidates = unseenRecently.length
+        ? unseenRecently
+        : familyCases.filter(
+          (item) => !selected.includes(item.id)
+        );
+
+      const picked = shuffle(candidates)[0];
+
+      if (picked) {
+        selected.push(picked.id);
+      }
+    });
+
+    if (selected.length < ROUND_SIZE) {
+      const fallback = shuffle(
+        CASE_BANK.filter(
+          (item) => !selected.includes(item.id)
+        )
+      );
+
+      fallback
+        .slice(0, ROUND_SIZE - selected.length)
+        .forEach((item) => selected.push(item.id));
+    }
+
+    return shuffle(selected).slice(0, ROUND_SIZE);
+  }
+
+  function challengeUnlocked() {
+    return (
+      progress.tutorialBestStars >= 2 ||
+      progress.replayWins >= 1
+    );
+  }
+
+  function startRound(mode) {
+    if (mode !== 'tutorial' && !progress.tutorialComplete) {
+      return;
+    }
+
+    if (mode === 'challenge' && !challengeUnlocked()) {
+      return;
+    }
+
+    const caseIds = mode === 'tutorial'
+      ? FIRST_RUN.map((item) => item.id)
+      : buildRandomRound(mode);
+
+    state = {
+      ...freshState(),
+      mode,
+      caseIds,
+      caseVariants: buildCaseVariants(caseIds),
+      startedAt: Date.now()
+    };
+
+    saveSession();
+    render();
+    scrollToTop();
+  }
+
+  function updateHud() {
+    const isPlaying = Boolean(
+      state.mode &&
+      state.caseIds.length &&
+      !state.complete
+    );
+
+    const mode = currentMode();
+
+    $('#caseValue').textContent = isPlaying
+      ? `${mode.short} ${state.caseIndex + 1}/${state.caseIds.length}`
+      : 'เลือกโหมด';
+
+    $('#scoreValue').textContent = isPlaying
+      ? state.score
+      : progress.bestScore || 0;
+
+    $('#stabilityValue').textContent = isPlaying
+      ? state.stability
+      : 100;
+
+    const resetButton = $('#resetBtn');
+
+    if (isPlaying) {
+      resetButton.textContent = 'ออกจากรอบ';
+      resetButton.dataset.action = 'leave-round';
+    } else {
+      resetButton.textContent = 'ล้าง W1';
+      resetButton.dataset.action = 'reset-all';
+    }
   }
 
   function updateRail() {
-    document.querySelectorAll('#phaseRail .phase').forEach((node, index) => {
-      node.classList.toggle('active', index === state.step);
-      node.classList.toggle('done', index < state.step);
-    });
+    const playing = Boolean(
+      state.mode &&
+      state.caseIds.length &&
+      !state.complete
+    );
+
+    document
+      .querySelectorAll('#phaseRail .phase')
+      .forEach((node, index) => {
+        node.classList.toggle(
+          'active',
+          playing && index === state.step
+        );
+
+        node.classList.toggle(
+          'done',
+          playing && index < state.step
+        );
+      });
   }
 
   function showFeedback({
@@ -110,9 +571,12 @@
     principle,
     continueLabel = 'ทำขั้นตอนถัดไป →'
   }) {
+    const showPrinciple = Boolean(
+      principle && state.mode !== 'challenge'
+    );
+
     feedbackContent.innerHTML = `
       <p class="eyebrow">CASE FEEDBACK</p>
-
       <h2>${escapeHtml(title)}</h2>
 
       <div class="verdict ${verdict === 'correct' ? 'good' : 'retry'}">
@@ -126,7 +590,7 @@
       <p>${escapeHtml(message)}</p>
 
       ${
-        principle
+        showPrinciple
           ? `
             <div class="principle-card">
               <b>Principle</b>
@@ -148,6 +612,40 @@
       () => feedbackDialog.close(),
       { once: true }
     );
+  }
+
+  function penalty(base) {
+    const multiplier = state.mode === 'challenge' ? 1.25 : 1;
+
+    return Math.ceil(base * multiplier);
+  }
+
+  function addMistake(basePenalty) {
+    state.attempts += 1;
+    state.stability = clamp(
+      state.stability - penalty(basePenalty),
+      0,
+      100
+    );
+
+    saveSession();
+  }
+
+  function caseModeKicker(caseData) {
+    const mode = currentMode();
+    const family = FAMILY_META[caseData.skill] || 'UX Investigation';
+
+    const familyChip = state.mode === 'challenge'
+      ? ''
+      : `<span>${escapeHtml(family)}</span>`;
+
+    return `
+      <div class="case-kicker">
+        <span>${mode.badge}</span>
+        <span>CASE ${state.caseIndex + 1} / ${state.caseIds.length}</span>
+        ${familyChip}
+      </div>
+    `;
   }
 
   function suspectOption(area) {
@@ -174,26 +672,11 @@
     `;
   }
 
-  function cardScreen(caseData) {
+  function cardScreen(
+    caseData,
+    displayAreas = orderedAreas(caseData)
+  ) {
     const area = (item) => {
-      const styles = {
-        menu: 'area-menu',
-        notice: 'area-notice',
-        profile: 'area-profile',
-        cta: 'area-cta',
-        terms: 'area-terms',
-        chat: 'area-chat',
-        feedback: 'area-feedback',
-        upload: 'area-upload',
-        help: 'area-help',
-        priority: 'area-priority',
-        faq: 'area-faq',
-        avatar: 'area-avatar',
-        transfer: 'area-transfer',
-        calendar: 'area-calendar',
-        room: 'area-room'
-      };
-
       const isSelected = state.selectedSuspect === item.id;
 
       const detail = Array.isArray(item.detail)
@@ -208,9 +691,7 @@
 
       return `
         <button
-          class="suspect-zone ${styles[item.id] || ''} ${
-            isSelected ? 'selected' : ''
-          }"
+          class="suspect-zone ${isSelected ? 'selected' : ''}"
           data-suspect="${escapeHtml(item.id)}"
           type="button"
         >
@@ -233,13 +714,11 @@
 
         <div class="screen-body">
           <h3>${escapeHtml(caseData.screen.heading)}</h3>
-
           <p>${escapeHtml(caseData.screen.subheading)}</p>
-
           <div class="wire-line"></div>
 
           <div class="screen-canvas">
-            ${caseData.screen.areas.map(area).join('')}
+            ${displayAreas.map(area).join('')}
           </div>
         </div>
       </div>
@@ -250,63 +729,145 @@
     document.querySelectorAll('[data-suspect]').forEach((button) => {
       button.addEventListener('click', () => {
         state.selectedSuspect = button.dataset.suspect;
-        save();
+        saveSession();
         renderObserve();
       });
     });
   }
 
-  function continueObserve() {
-    if (!state.selectedSuspect) {
-      return;
-    }
+  function renderModeSelect() {
+    const tutorialDone = progress.tutorialComplete;
+    const challengeOpen = challengeUnlocked();
 
-    const caseData = current();
+    const replayHistory = progress.roundHistory.filter(
+      (round) => round.mode === 'replay'
+    );
 
-    if (state.selectedSuspect !== caseData.suspectId) {
-      state.attempts += 1;
-      state.stability = clamp(state.stability - 6, 0, 100);
+    const bestLabel = progress.bestStars
+      ? `${'★'.repeat(progress.bestStars)}${'☆'.repeat(3 - progress.bestStars)}`
+      : '☆☆☆';
 
-      save();
+    stage.innerHTML = `
+      <section class="complete-card">
+        <p class="eyebrow">W1 • UX DETECTIVE</p>
+        <h2>เลือกโหมดภารกิจ</h2>
 
-      showFeedback({
-        title: 'จุดนี้ยังไม่ใช่ต้นเหตุหลัก',
-        verdict: 'retry',
-        message:
-          'ลองย้อนกลับไปดู User Goal อีกครั้ง: ผู้ใช้ต้องการทำอะไรให้สำเร็จ และจุดใดขวางเป้าหมายนั้นมากที่สุด?',
-        principle: 'Start from the user goal',
-        continueLabel: 'เลือกคำตอบใหม่'
-      });
+        <p>
+          รอบแรกจะสอนวิธีคิดทีละขั้น ส่วน Replay จะสุ่มเคสใหม่จากคลัง 36 เคส
+          เพื่อให้คุณฝึกใช้หลัก UX กับบริบทที่ไม่ซ้ำเดิม
+        </p>
 
-      feedbackDialog.addEventListener(
-        'close',
-        () => {
-          state.selectedSuspect = null;
-          save();
-          renderObserve();
-        },
-        { once: true }
-      );
+        <div class="complete-metrics">
+          <div>
+            <span>Case Bank</span>
+            <b>${CASE_BANK.length}</b>
+          </div>
 
-      return;
-    }
+          <div>
+            <span>Best Stars</span>
+            <b>${bestLabel}</b>
+          </div>
 
-    state.step = 1;
-    save();
-    render();
+          <div>
+            <span>Rounds Finished</span>
+            <b>${progress.totalRounds}</b>
+          </div>
+        </div>
+
+        <div class="answer-list">
+          <button id="startTutorial" class="answer-option" type="button">
+            <span class="radio-dot"></span>
+            <span>
+              <strong>1. ${tutorialDone ? 'Review Tutorial' : 'First Run Tutorial'}</strong>
+              <br />
+              <small>5 เคสสาธิตแบบมีโครงช่วยคิด เหมาะสำหรับเริ่มเรียน W1</small>
+            </span>
+          </button>
+
+          <button
+            id="startReplay"
+            class="answer-option"
+            type="button"
+            ${tutorialDone ? '' : 'disabled'}
+          >
+            <span class="radio-dot"></span>
+            <span>
+              <strong>2. Random Replay</strong>
+              <br />
+              <small>
+                ${
+                  tutorialDone
+                    ? `สุ่ม 5 เคสจาก 36 เคส • จบรอบ Replay แล้ว ${replayHistory.length} รอบ`
+                    : 'ผ่าน Tutorial ก่อนจึงจะเปิด Replay'
+                }
+              </small>
+            </span>
+          </button>
+
+          <button
+            id="startChallenge"
+            class="answer-option"
+            type="button"
+            ${challengeOpen ? '' : 'disabled'}
+          >
+            <span class="radio-dot"></span>
+            <span>
+              <strong>3. Transfer Challenge</strong>
+              <br />
+              <small>
+                ${
+                  challengeOpen
+                    ? 'สุ่มเคสต่างบริบท เน้นตัดสินใจจาก User Goal โดยไม่มี Principle Hint ระหว่างผิด'
+                    : 'ปลดล็อกเมื่อ Tutorial ได้อย่างน้อย 2 ดาว หรือผ่าน Replay 1 รอบ'
+                }
+              </small>
+            </span>
+          </button>
+        </div>
+
+        <div class="principle-stack">
+          <b>W1 Learning Loop</b>
+          <span>
+            User Goal → UI Symptom → UX Impact → Design Fix → User Test → Explain
+          </span>
+        </div>
+      </section>
+    `;
+
+    $('#startTutorial').addEventListener(
+      'click',
+      () => startRound('tutorial')
+    );
+
+    $('#startReplay').addEventListener('click', () => {
+      if (progress.tutorialComplete) {
+        startRound('replay');
+      }
+    });
+
+    $('#startChallenge').addEventListener('click', () => {
+      if (challengeUnlocked()) {
+        startRound('challenge');
+      }
+    });
   }
 
   function renderObserve() {
     const caseData = current();
 
+    if (!caseData) {
+      state = freshState();
+      clearSession();
+      render();
+      return;
+    }
+
+    const displayAreas = orderedAreas(caseData);
+
     stage.innerHTML = `
       <section class="case-layout">
         <article class="mission-card">
-          <div class="case-kicker">
-            <span>CASE ${state.caseIndex + 1} / ${CASES.length}</span>
-            <span>${escapeHtml(caseData.service)}</span>
-          </div>
-
+          ${caseModeKicker(caseData)}
           <h2>${escapeHtml(caseData.title)}</h2>
 
           <div class="goal-card">
@@ -314,21 +875,18 @@
             <b>${escapeHtml(caseData.goal)}</b>
           </div>
 
-          <p class="evidence-detail">
-            “${escapeHtml(caseData.quote.replace(/[“”]/g, ''))}”
-          </p>
+          <p class="evidence-detail">“${escapeHtml(caseData.quote)}”</p>
 
           <p class="muted tiny">
             <b>ผู้ใช้:</b> ${escapeHtml(caseData.persona)}
           </p>
 
           <h3 class="question-title">
-            จากเป้าหมายและคำพูดของผู้ใช้
-            จุดใดควรตรวจสอบก่อน?
+            จากเป้าหมายและคำพูดของผู้ใช้ จุดใดควรตรวจสอบก่อน?
           </h3>
 
           <div class="answer-list">
-            ${caseData.screen.areas.map(suspectOption).join('')}
+            ${displayAreas.map(suspectOption).join('')}
           </div>
 
           <div class="stage-actions">
@@ -349,11 +907,11 @@
         </article>
 
         <article class="screen-card">
-          ${cardScreen(caseData)}
+          ${cardScreen(caseData, displayAreas)}
 
           <div class="screen-caption">
             หน้าจอจำลองสำหรับดูบริบทเพิ่มเติม
-            หรือแตะ A/B/C บนหน้าจอนี้ได้เช่นกัน
+            หรือแตะ A/B/C บนจอนี้ได้เช่นกัน
           </div>
         </article>
       </section>
@@ -361,7 +919,41 @@
 
     attachSuspectEvents();
 
-    $('#observeNext').addEventListener('click', continueObserve);
+    $('#observeNext').addEventListener('click', () => {
+      if (!state.selectedSuspect) {
+        return;
+      }
+
+      if (state.selectedSuspect !== caseData.suspectId) {
+        addMistake(6);
+
+        showFeedback({
+          title: 'จุดนี้ยังไม่ใช่ต้นเหตุหลัก',
+          verdict: 'retry',
+          message:
+            'ลองย้อนกลับไปดู User Goal: ผู้ใช้ต้องการทำอะไรให้สำเร็จ และส่วนใดขวางเป้าหมายนั้นมากที่สุด?',
+          principle: 'Start from the user goal',
+          continueLabel: 'เลือกคำตอบใหม่'
+        });
+
+        feedbackDialog.addEventListener(
+          'close',
+          () => {
+            state.selectedSuspect = null;
+            saveSession();
+            renderObserve();
+          },
+          { once: true }
+        );
+
+        return;
+      }
+
+      state.step = 1;
+      saveSession();
+      render();
+      scrollToTop();
+    });
   }
 
   function radioOption(option, stateKey) {
@@ -382,7 +974,7 @@
   function renderDiagnose() {
     const caseData = current();
 
-    const suspectArea = caseData.screen.areas.find(
+    const suspectArea = orderedAreas(caseData).find(
       (item) => item.id === caseData.suspectId
     );
 
@@ -397,16 +989,13 @@
 
           <h2>${escapeHtml(suspectArea.name)}</h2>
 
-          <p class="evidence-detail">
-            ${escapeHtml(suspectDetail)}
-          </p>
+          <p class="evidence-detail">${escapeHtml(suspectDetail)}</p>
 
           <div class="instruction-card">
             <span class="step-badge">STEP 2</span>
 
             <div>
               <b>วิเคราะห์ UI → UX</b>
-
               <p>
                 เลือกคำอธิบายที่เชื่อมสิ่งที่เห็นบนหน้าจอ
                 กับผลที่เกิดกับเป้าหมายของผู้ใช้ได้ดีที่สุด
@@ -419,7 +1008,7 @@
           </h3>
 
           <div class="answer-list">
-            ${caseData.diagnosis.options
+            ${orderedDiagnosisOptions(caseData)
               .map((option) => radioOption(option, 'selectedDiagnosis'))
               .join('')}
           </div>
@@ -441,7 +1030,7 @@
     document.querySelectorAll('[data-answer]').forEach((button) => {
       button.addEventListener('click', () => {
         state.selectedDiagnosis = button.dataset.answer;
-        save();
+        saveSession();
         renderDiagnose();
       });
     });
@@ -456,16 +1045,13 @@
       }
 
       if (!picked.correct) {
-        state.attempts += 1;
-        state.stability = clamp(state.stability - 5, 0, 100);
-
-        save();
+        addMistake(5);
 
         showFeedback({
           title: 'ยังเชื่อมกับผู้ใช้ไม่พอ',
           verdict: 'retry',
           message:
-            'คำตอบที่แข็งแรงต้องเชื่อมได้ทั้ง UI symptom และ UX impact ไม่ใช่เพียงบอกว่าสิ่งใดดูสวยหรือไม่สวย',
+            'คำตอบที่แข็งแรงต้องอธิบายได้ทั้ง UI symptom และ UX impact ไม่ใช่เพียงบอกว่าสิ่งใดดูสวยหรือไม่สวย',
           principle: 'UI affects UX',
           continueLabel: 'เลือกคำตอบใหม่'
         });
@@ -474,7 +1060,7 @@
           'close',
           () => {
             state.selectedDiagnosis = null;
-            save();
+            saveSession();
             renderDiagnose();
           },
           { once: true }
@@ -485,9 +1071,9 @@
 
       state.score += 18;
       state.step = 2;
-
-      save();
+      saveSession();
       render();
+      scrollToTop();
     });
   }
 
@@ -511,7 +1097,6 @@
 
             <div>
               <b>เลือก Design Fix</b>
-
               <p>
                 ทุกทางเลือกทำได้ในเชิงเทคนิค
                 แต่มีเพียงหนึ่งแนวทางที่แก้ต้นเหตุของความติดขัด
@@ -520,7 +1105,7 @@
           </div>
 
           <div class="answer-list fix-list">
-            ${caseData.fixes
+            ${orderedFixOptions(caseData)
               .map((option) => radioOption(option, 'selectedFix'))
               .join('')}
           </div>
@@ -542,7 +1127,7 @@
     document.querySelectorAll('[data-answer]').forEach((button) => {
       button.addEventListener('click', () => {
         state.selectedFix = button.dataset.answer;
-        save();
+        saveSession();
         renderFix();
       });
     });
@@ -557,10 +1142,7 @@
       }
 
       if (!picked.correct) {
-        state.attempts += 1;
-        state.stability = clamp(state.stability - 7, 0, 100);
-
-        save();
+        addMistake(7);
 
         showFeedback({
           title: 'การแก้นี้ยังไม่ตรงต้นเหตุ',
@@ -575,7 +1157,7 @@
           'close',
           () => {
             state.selectedFix = null;
-            save();
+            saveSession();
             renderFix();
           },
           { once: true }
@@ -586,9 +1168,9 @@
 
       state.score += 22;
       state.step = 3;
-
-      save();
+      saveSession();
       render();
+      scrollToTop();
     });
   }
 
@@ -624,7 +1206,6 @@
 
             <div>
               <b>ดูผลที่เกิดกับผู้ใช้</b>
-
               <p>
                 การแก้ที่ดีไม่ใช่เพียงหน้าจอดูดีขึ้น
                 แต่ต้องช่วยให้ผู้ใช้สำเร็จเร็วขึ้นและมั่นใจขึ้น
@@ -656,7 +1237,6 @@
 
           <div class="test-insight">
             <b>สิ่งที่ควรจำ</b>
-
             <span>
               Design decision ต้องเชื่อมกับผลลัพธ์ที่ผู้ใช้สัมผัสได้
             </span>
@@ -674,9 +1254,9 @@
     $('#testNext').addEventListener('click', () => {
       state.score += 10;
       state.step = 4;
-
-      save();
+      saveSession();
       render();
+      scrollToTop();
     });
   }
 
@@ -696,7 +1276,6 @@
 
             <div>
               <b>เลือก 2 ผลลัพธ์ที่เกิดกับผู้ใช้จริง</b>
-
               <p>
                 ไม่ใช่คำที่ฟังดูดี
                 แต่เป็นผลลัพธ์ที่ตามมาจาก Design Fix ของคุณ
@@ -709,7 +1288,7 @@
           </h3>
 
           <div class="choice-grid">
-            ${caseData.explain.choices
+            ${orderedExplainChoices(caseData)
               .map(
                 (choice) => `
                   <button
@@ -740,7 +1319,7 @@
           ${state.selectedExplain.length === 2 ? '' : 'disabled'}
         >
           ${
-            state.caseIndex === CASES.length - 1
+            state.caseIndex === state.caseIds.length - 1
               ? 'สรุปผลภารกิจ →'
               : 'ไป Case ถัดไป →'
           }
@@ -760,8 +1339,7 @@
         }
 
         state.selectedExplain = Array.from(selectedChoices);
-
-        save();
+        saveSession();
         renderExplain();
       });
     });
@@ -780,10 +1358,7 @@
         );
 
       if (!correct) {
-        state.attempts += 1;
-        state.stability = clamp(state.stability - 5, 0, 100);
-
-        save();
+        addMistake(5);
 
         showFeedback({
           title: 'ลองเชื่อมกับผล User Test',
@@ -798,7 +1373,7 @@
           'close',
           () => {
             state.selectedExplain = [];
-            save();
+            saveSession();
             renderExplain();
           },
           { once: true }
@@ -810,14 +1385,18 @@
       state.score += 20;
 
       state.answered.push({
-        id: caseData.id,
-        attempts: state.attempts
+        caseId: caseData.id,
+        skill: caseData.skill,
+        attempts: state.attempts,
+        quality: clamp(
+          100 - (state.attempts * 16),
+          35,
+          100
+        )
       });
 
-      if (state.caseIndex >= CASES.length - 1) {
-        state.complete = true;
-        save();
-        renderComplete();
+      if (state.caseIndex >= state.caseIds.length - 1) {
+        completeRound();
         return;
       }
 
@@ -829,58 +1408,205 @@
       state.selectedExplain = [];
       state.attempts = 0;
 
-      save();
+      saveSession();
       render();
+      scrollToTop();
     });
   }
 
   function stars() {
-    if (state.score >= 320 && state.stability >= 80) {
+    const thresholds = state.mode === 'challenge'
+      ? { three: 86, two: 70, one: 52 }
+      : { three: 80, two: 60, one: 38 };
+
+    if (
+      state.score >= 320 &&
+      state.stability >= thresholds.three
+    ) {
       return 3;
     }
 
-    if (state.score >= 260 && state.stability >= 60) {
+    if (
+      state.score >= 260 &&
+      state.stability >= thresholds.two
+    ) {
       return 2;
     }
 
-    if (state.score >= 200) {
+    if (
+      state.score >= 200 &&
+      state.stability >= thresholds.one
+    ) {
       return 1;
     }
 
     return 0;
   }
 
+  function updateProgressFromRound(starCount) {
+    if (state.roundRecorded) {
+      return;
+    }
+
+    const round = {
+      id: `w1-${Date.now()}`,
+      mode: state.mode,
+      score: state.score,
+      stability: state.stability,
+      stars: starCount,
+      caseIds: [...state.caseIds],
+      completedAt: new Date().toISOString()
+    };
+
+    progress.totalRounds += 1;
+    progress.bestScore = Math.max(
+      progress.bestScore || 0,
+      state.score
+    );
+
+    progress.bestStars = Math.max(
+      progress.bestStars || 0,
+      starCount
+    );
+
+    if (state.mode === 'tutorial') {
+      progress.tutorialComplete =
+        progress.tutorialComplete || starCount >= 1;
+
+      progress.tutorialBestStars = Math.max(
+        progress.tutorialBestStars || 0,
+        starCount
+      );
+    }
+
+    if (state.mode === 'replay' && starCount >= 1) {
+      progress.replayWins += 1;
+    }
+
+    if (state.mode === 'challenge' && starCount >= 1) {
+      progress.challengeWins += 1;
+    }
+
+    state.answered.forEach((answer) => {
+      const caseRecord = progress.caseStats[answer.caseId] || {
+        plays: 0,
+        totalQuality: 0,
+        bestQuality: 0,
+        totalAttempts: 0,
+        lastPlayed: null
+      };
+
+      caseRecord.plays += 1;
+      caseRecord.totalQuality += answer.quality;
+      caseRecord.bestQuality = Math.max(
+        caseRecord.bestQuality,
+        answer.quality
+      );
+
+      caseRecord.totalAttempts += answer.attempts;
+      caseRecord.lastPlayed = round.completedAt;
+
+      progress.caseStats[answer.caseId] = caseRecord;
+
+      const familyRecord = progress.familyStats[answer.skill] || {
+        plays: 0,
+        totalQuality: 0,
+        totalAttempts: 0
+      };
+
+      familyRecord.plays += 1;
+      familyRecord.totalQuality += answer.quality;
+      familyRecord.totalAttempts += answer.attempts;
+
+      progress.familyStats[answer.skill] = familyRecord;
+    });
+
+    progress.roundHistory = [
+      ...progress.roundHistory,
+      round
+    ].slice(-12);
+
+    state.roundRecorded = true;
+
+    saveProgress();
+    saveSession();
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent('uxquest:w1-complete', {
+          detail: {
+            stars: starCount,
+            score: state.score,
+            stability: state.stability,
+            mode: state.mode
+          }
+        })
+      );
+    } catch (error) {
+      // ใช้ได้แม้เป็น standalone prototype
+    }
+  }
+
+  function skillSummary() {
+    const playedSkills = Object.keys(progress.familyStats);
+
+    if (!playedSkills.length) {
+      return 'ยังไม่มีข้อมูลทักษะสะสม — เริ่ม Tutorial เพื่อสร้าง Learning Profile';
+    }
+
+    const weakest = [...playedSkills]
+      .sort((a, b) => familyAverage(a) - familyAverage(b))
+      .slice(0, 2)
+      .map((skill) => FAMILY_META[skill] || skill);
+
+    return `โหมด Challenge จะเลือกเคสจากจุดที่ควรฝึกเพิ่ม เช่น ${weakest.join(' และ ')}`;
+  }
+
+  function completeRound() {
+    state.complete = true;
+
+    const starCount = stars();
+
+    updateProgressFromRound(starCount);
+    render();
+    scrollToTop();
+  }
+
   function renderComplete() {
     const starCount = stars();
+    const mode = currentMode();
 
     const starsHtml = Array.from(
       { length: 3 },
       (_, index) => `
-        <span class="final-star ${index < starCount ? 'earned' : ''}">
-          ★
-        </span>
+        <span class="final-star ${
+          index < starCount ? 'earned' : ''
+        }">★</span>
       `
     ).join('');
 
-    const title =
-      starCount === 3
-        ? 'UX Detective: Expert'
-        : starCount === 2
-          ? 'UX Detective: Mastery'
-          : starCount === 1
-            ? 'UX Detective: Clear'
-            : 'ต้องทบทวนอีกเล็กน้อย';
+    const title = starCount === 3
+      ? `${mode.title}: Expert`
+      : starCount === 2
+        ? `${mode.title}: Mastery`
+        : starCount === 1
+          ? `${mode.title}: Clear`
+          : 'ต้องทบทวนอีกเล็กน้อย';
+
+    const challengeOpen = challengeUnlocked();
 
     stage.innerHTML = `
       <section class="complete-card">
-        <p class="eyebrow">MISSION COMPLETE</p>
+        <p class="eyebrow">
+          MISSION COMPLETE • ${escapeHtml(mode.badge)}
+        </p>
 
         <div class="final-stars">${starsHtml}</div>
 
-        <h2>${title}</h2>
+        <h2>${escapeHtml(title)}</h2>
 
         <p>
-          คุณผ่าน 5 Case โดยฝึกเชื่อม
+          คุณผ่าน ${state.caseIds.length} Case โดยฝึกเชื่อม
           User Goal → UI Symptom → UX Impact → Design Fix → User Test
         </p>
 
@@ -896,24 +1622,65 @@
           </div>
 
           <div>
-            <span>Cases Cleared</span>
-            <b>${CASES.length}/${CASES.length}</b>
+            <span>Best Stars</span>
+            <b>
+              ${'★'.repeat(progress.bestStars)}
+              ${'☆'.repeat(3 - progress.bestStars)}
+            </b>
           </div>
         </div>
 
         <div class="principle-stack">
-          <b>W1 Takeaway</b>
+          <b>Learning Profile</b>
+          <span>${escapeHtml(skillSummary())}</span>
+        </div>
 
-          <span>
-            UI คือสิ่งที่ผู้ใช้เห็นและโต้ตอบ
-            ส่วน UX คือผลของการออกแบบต่อความสามารถของผู้ใช้
-            ในการทำเป้าหมายให้สำเร็จ
-          </span>
+        <div class="answer-list">
+          <button
+            id="nextReplayBtn"
+            class="answer-option"
+            type="button"
+          >
+            <span class="radio-dot"></span>
+
+            <span>
+              <strong>Random Replay</strong>
+              <br />
+              <small>
+                สุ่ม 5 เคสใหม่ โดยพยายามไม่ให้ซ้ำกับ 2 รอบล่าสุด
+              </small>
+            </span>
+          </button>
+
+          <button
+            id="nextChallengeBtn"
+            class="answer-option"
+            type="button"
+            ${challengeOpen ? '' : 'disabled'}
+          >
+            <span class="radio-dot"></span>
+
+            <span>
+              <strong>Transfer Challenge</strong>
+              <br />
+              <small>
+                ${
+                  challengeOpen
+                    ? 'ฝึกใช้หลัก UX กับบริบทใหม่และมี Stability Gate ที่เข้มขึ้น'
+                    : 'ปลดล็อกเมื่อ Tutorial ได้อย่างน้อย 2 ดาว หรือผ่าน Replay 1 รอบ'
+                }
+              </small>
+            </span>
+          </button>
         </div>
 
         <div class="stage-actions center-actions">
-          <button id="replayBtn" class="primary-btn" type="button">
-            เล่นใหม่เพื่อเก็บดาว →
+          <button
+            id="backModeBtn"
+            class="ghost-btn"
+            type="button"
+          >
+            กลับเลือกโหมด
           </button>
 
           <a class="ghost-btn" href="./index.html">
@@ -923,12 +1690,42 @@
       </section>
     `;
 
-    $('#replayBtn').addEventListener('click', reset);
+    $('#nextReplayBtn').addEventListener(
+      'click',
+      () => startRound('replay')
+    );
+
+    $('#nextChallengeBtn').addEventListener('click', () => {
+      if (challengeUnlocked()) {
+        startRound('challenge');
+      }
+    });
+
+    $('#backModeBtn').addEventListener('click', () => {
+      state = freshState();
+      clearSession();
+      render();
+      scrollToTop();
+    });
+  }
+
+  function scrollToTop() {
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    });
   }
 
   function render() {
     updateHud();
     updateRail();
+
+    if (!state.mode) {
+      renderModeSelect();
+      return;
+    }
 
     if (state.complete) {
       renderComplete();
@@ -943,7 +1740,8 @@
       renderExplain
     ];
 
-    renderSteps[state.step]();
+    const renderStep = renderSteps[state.step] || renderObserve;
+    renderStep();
   }
 
   function wireStaticEvents() {
@@ -962,12 +1760,14 @@
     });
 
     $('#resetBtn').addEventListener('click', () => {
-      const confirmed = confirm(
-        'เริ่มภารกิจใหม่? ความคืบหน้าของ W1 ในเครื่องนี้จะถูกล้าง'
-      );
+      const action = $('#resetBtn').dataset.action;
 
-      if (confirmed) {
-        reset();
+      if (action === 'leave-round') {
+        abandonRoundToModeSelect();
+      }
+
+      if (action === 'reset-all') {
+        resetAllW1();
       }
     });
 
@@ -988,7 +1788,8 @@
     });
   }
 
-  restore();
+  loadProgress();
+  loadSession();
   wireStaticEvents();
   render();
 })();
