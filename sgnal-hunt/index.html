@@ -3,117 +3,221 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#101936" />
-  <title>UX Quest: Human Interface Rescue</title>
+  <meta name="theme-color" content="#0b1230" />
+  <title>UX Quest • Mission Control</title>
+
   <link rel="stylesheet" href="./css/uxq-core.css" />
-  <link rel="stylesheet" href="./css/uxq-mobile.css" />
+  <link rel="stylesheet" href="./css/uxq-hub.css" />
 </head>
-<body class="map-page">
-  <main class="app-shell map-shell">
-    <header class="topbar" aria-label="ข้อมูลผู้เล่น">
-      <a class="brand" href="./index.html" aria-label="UX Quest Home">
-        <span class="brand-mark">UX</span>
+<body class="uxq-hub-page">
+  <main class="hub-shell">
+    <header class="hub-topbar" aria-label="UX Quest navigation">
+      <a class="hub-brand" href="./index.html" aria-label="กลับหน้า UX Quest Mission Control">
+        <span class="hub-brand__mark" aria-hidden="true">UX</span>
         <span>
           <strong>UX Quest</strong>
           <small>Human Interface Rescue</small>
         </span>
       </a>
-      <section class="player-chip" aria-label="ข้อมูลผู้เล่น">
-        <span class="avatar" id="avatarInitial">U</span>
-        <span class="player-copy"><strong id="playerName">Designer</strong><small id="playerLevel">Signal Scout • Lv.1</small></span>
-        <span class="dxp-pill"><b id="dxpValue">0</b> DXP</span>
-      </section>
+
+      <div class="hub-topbar__actions">
+        <span class="course-chip">CSAI2601 • Year 2</span>
+        <button id="resetProgressBtn" class="reset-link" type="button" title="ล้างความคืบหน้า W1 ในเครื่องนี้">
+          ↺ รีเซ็ต W1
+        </button>
+      </div>
     </header>
 
-    <section class="hero hero-map">
-      <div>
-        <p class="eyebrow">SMART CAMPUS // HUMAN INTERFACE RESPONSE UNIT</p>
-        <h1>ระบบกำลังฉลาดขึ้น<br><span>แต่ผู้ใช้กำลังหลงทาง</span></h1>
-        <p class="lede">ฝึกมองปัญหาอย่างนักออกแบบ: เข้าใจผู้ใช้ ค้นหา UX Friction และกู้ประสบการณ์ให้คนทำงานสำเร็จจริง</p>
-        <div class="skill-row" aria-label="ความก้าวหน้าทักษะ">
-          <article class="skill-card empathy"><span>Empathy</span><b id="empathyValue">0</b><i><em id="empathyBar"></em></i></article>
-          <article class="skill-card clarity"><span>Clarity</span><b id="clarityValue">0</b><i><em id="clarityBar"></em></i></article>
-          <article class="skill-card flow"><span>Flow</span><b id="flowValue">0</b><i><em id="flowBar"></em></i></article>
+    <section class="hub-hero" aria-labelledby="actTitle">
+      <div class="hub-hero__copy">
+        <p class="eyebrow hub-hero__eyebrow">ACT I • HUMAN-CENTERED DESIGN</p>
+        <h1 id="actTitle">Understand Humans</h1>
+        <p class="hub-hero__lede">
+          เริ่มจากการเข้าใจเป้าหมาย ความสับสน และผลกระทบที่เกิดกับผู้ใช้
+          ก่อนตัดสินใจว่า interface ควรเปลี่ยนอะไร
+        </p>
+
+        <div class="hero-stat-row" aria-label="ความก้าวหน้า Act I">
+          <div class="hero-stat">
+            <span>Act Progress</span>
+            <b id="actProgressText">0 / 4 nodes</b>
+          </div>
+          <div class="hero-stat">
+            <span>Mastery</span>
+            <b id="heroStars">☆☆☆</b>
+          </div>
+          <div class="hero-stat">
+            <span>Best Score</span>
+            <b id="heroScore">0</b>
+          </div>
         </div>
       </div>
-      <aside class="mission-brief">
-        <p class="eyebrow">TODAY'S SIGNAL</p>
-        <h2>Help Center Meltdown</h2>
-        <p>นักศึกษาหาเมนูไม่เจอ กดส่งแล้วไม่รู้ว่าสำเร็จหรือไม่ และอ่านหน้าจอบนมือถือได้ยาก</p>
-        <div class="brief-meta"><span>⏱ 8–10 นาที</span><span>🎯 1 ดาวเพื่อเปิดด่านถัดไป</span></div>
+
+      <aside class="now-card" aria-label="ภารกิจปัจจุบัน">
+        <div class="now-card__topline">
+          <span class="status-dot" id="nowStatusDot" aria-hidden="true"></span>
+          <span id="nowStatus">MISSION READY</span>
+        </div>
+        <p class="now-card__week">W1 • FOUNDATION</p>
+        <h2 id="nowTitle">UX Detective</h2>
+        <p id="nowDescription">
+          สืบว่าอะไรทำให้ผู้ใช้ทำเป้าหมายไม่สำเร็จ แล้วเลือกวิธีแก้ที่ช่วยได้จริง
+        </p>
+        <div class="now-card__meta">
+          <span>⏱ 8–10 นาที</span>
+          <span id="nowReward">★ 1 ดาวเพื่อเปิดเส้นทางต่อ</span>
+        </div>
+        <a id="nowLaunch" class="now-card__cta" href="./w1-ux-detective.html">
+          <span id="nowLaunchText">เริ่ม W1 UX Detective</span>
+          <span aria-hidden="true">→</span>
+        </a>
       </aside>
     </section>
 
-    <section class="map-heading">
-      <div><p class="eyebrow">ACT I</p><h2>Understand Humans</h2><p>เข้าใจ UI/UX กระบวนการออกแบบ และหลักจิตวิทยาของผู้ใช้</p></div>
-      <button class="ghost-btn" id="resetProgressBtn" type="button">รีเซ็ต Progress</button>
-    </section>
-
-    <section class="mission-map" aria-label="Mission Map Unit 1">
-      <div class="route-line" aria-hidden="true"></div>
-      <article class="mission-node available" id="nodeW1">
-        <span class="node-num">W1</span>
-        <div class="node-icon">🔎</div>
-        <p class="node-type">FOUNDATION</p>
-        <h3>UX Detective</h3>
-        <p>จับผิด UI/UX และกู้ Help Center ที่ผู้ใช้กำลังสับสน</p>
-        <div class="node-stars" id="w1Stars">☆☆☆</div>
-        <a class="primary-btn" href="./w1-ux-detective.html">เริ่มภารกิจ</a>
-      </article>
-
-      <article class="mission-node locked" id="nodeW2" aria-label="Week 2 locked">
-        <span class="node-num">W2</span>
-        <div class="node-icon">⚡</div>
-        <p class="node-type">PROCESS</p>
-        <h3>Design Thinking Sprint</h3>
-        <p>พาทีมแก้ปัญหาด้วย Empathize–Define–Ideate–Prototype–Test</p>
-        <div class="node-stars">🔒 ต้องผ่าน W1</div>
-        <button class="disabled-btn" type="button" disabled>ล็อกอยู่</button>
-      </article>
-
-      <article class="mission-node locked" id="nodeW3" aria-label="Week 3 locked">
-        <span class="node-num">W3</span>
-        <div class="node-icon">🧠</div>
-        <p class="node-type">PSYCHOLOGY</p>
-        <h3>Cognitive Load Escape</h3>
-        <p>ลดความรก จัดความสนใจ และทำให้ผู้ใช้คิดน้อยลง</p>
-        <div class="node-stars">🔒 ต้องผ่าน W2</div>
-        <button class="disabled-btn" type="button" disabled>ล็อกอยู่</button>
-      </article>
-
-      <article class="boss-node locked" id="nodeB1" aria-label="Boss B1 locked">
-        <span class="node-num">B1</span>
-        <div class="node-icon">⚠</div>
-        <p class="node-type">BOSS GATE</p>
-        <h3>Cognitive Storm</h3>
-        <p>กู้ AI Help Kiosk ที่เต็มไปด้วย UX Friction</p>
-        <div class="node-stars">🔒 ต้องผ่าน W1–W3</div>
-        <button class="disabled-btn" type="button" disabled>FRICTION CORE LOCKED</button>
-      </article>
-    </section>
-
-    <section class="ar-pilot card-panel" aria-label="AR Field Ops Pilot">
-      <div>
-        <p class="eyebrow">FIELD OPS PILOT // INSTRUCTOR PREVIEW</p>
-        <h2>AR-1 Signal Hunt</h2>
-        <p>ภารกิจ AR/Mock/PC เสริมหลัง Week 3: ออกเก็บหลักฐาน UX Friction ก่อนเข้าสู่ B1 Cognitive Storm</p>
-        <div class="brief-meta"><span>📱 Camera AR</span><span>🧩 Mock AR</span><span>🖥 Virtual Campus</span></div>
+    <section class="act-progress" aria-label="เส้นทาง Act I">
+      <div class="act-progress__heading">
+        <div>
+          <p class="eyebrow">MISSION PATH</p>
+          <h2>เส้นทางการเรียนรู้ Act I</h2>
+        </div>
+        <p id="pathHint" class="act-progress__hint">เริ่มจาก W1 เพื่อสร้างพื้นฐานการคิดแบบ UX Designer</p>
       </div>
-      <a class="primary-btn" href="./ar/ar1-signal-hunt.html?preview=1">ทดลอง AR Pilot</a>
+
+      <ol class="path-rail" aria-label="ลำดับภารกิจ">
+        <li class="path-step path-step--available" id="pathW1">
+          <span class="path-step__dot">1</span>
+          <span>
+            <b>W1</b>
+            <small>UX Detective</small>
+          </span>
+        </li>
+        <li class="path-step" id="pathW2">
+          <span class="path-step__dot">2</span>
+          <span>
+            <b>W2</b>
+            <small>Design Thinking</small>
+          </span>
+        </li>
+        <li class="path-step" id="pathW3">
+          <span class="path-step__dot">3</span>
+          <span>
+            <b>W3</b>
+            <small>Cognitive Load</small>
+          </span>
+        </li>
+        <li class="path-step path-step--boss" id="pathB1">
+          <span class="path-step__dot">B</span>
+          <span>
+            <b>B1</b>
+            <small>Cognitive Storm</small>
+          </span>
+        </li>
+      </ol>
     </section>
 
-    <section class="how-to-play card-panel">
-      <div><p class="eyebrow">CORE LOOP</p><h2>Observe → Diagnose → Design Fix → User Test → Explain</h2></div>
-      <ol>
-        <li>อ่านสัญญาณจากผู้ใช้</li>
-        <li>ค้นหาจุดที่ทำให้ผู้ใช้ติดขัด</li>
-        <li>เลือกวิธีแก้ที่เหมาะสม</li>
-        <li>ดูผลจาก User Simulation</li>
-        <li>อธิบายเหตุผลของการออกแบบ</li>
+    <section class="mission-section" aria-labelledby="missionMapTitle">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">CHOOSE YOUR MISSION</p>
+          <h2 id="missionMapTitle">Mission Control</h2>
+        </div>
+        <p>หนึ่งการ์ด = หนึ่งสิ่งที่ทำได้ชัดเจน</p>
+      </div>
+
+      <div class="mission-grid">
+        <article class="stage-card stage-card--live" id="nodeW1">
+          <div class="stage-card__header">
+            <span class="stage-number">W1</span>
+            <span class="stage-state" id="w1State">AVAILABLE</span>
+          </div>
+
+          <div class="stage-card__icon" aria-hidden="true">⌕</div>
+          <p class="stage-card__type">FOUNDATION</p>
+          <h3>UX Detective</h3>
+          <p class="stage-card__summary">
+            อ่าน User Goal และ User Signal แล้วเลือกสิ่งที่ควรแก้ก่อน เพื่อให้ผู้ใช้ทำงานสำเร็จจริง
+          </p>
+
+          <div class="stage-card__chips">
+            <span>User Goal</span>
+            <span>UI → UX</span>
+            <span>Design Fix</span>
+          </div>
+
+          <div class="stage-card__footer">
+            <div class="star-readout" aria-label="ดาวที่ได้รับ">
+              <span id="w1Stars" aria-hidden="true">☆☆☆</span>
+              <small id="w1StarCaption">เก็บ 1 ดาวเพื่อเปิดเส้นทางต่อ</small>
+            </div>
+            <a id="w1Launch" class="stage-play" href="./w1-ux-detective.html">
+              <span id="w1LaunchText">เริ่มภารกิจ</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </article>
+
+        <article class="stage-card stage-card--locked" id="nodeW2" aria-label="Week 2 mission locked">
+          <div class="stage-card__header">
+            <span class="stage-number">W2</span>
+            <span class="stage-state" id="w2State">LOCKED</span>
+          </div>
+          <div class="stage-card__icon" aria-hidden="true">↺</div>
+          <p class="stage-card__type">PROCESS</p>
+          <h3>Design Thinking Sprint</h3>
+          <p class="stage-card__summary">
+            พาทีมแก้ปัญหาด้วย Empathize → Define → Ideate → Prototype → Test
+          </p>
+          <div class="stage-card__lock-note" id="w2Note">ต้องผ่าน W1 อย่างน้อย 1 ดาว</div>
+          <button class="stage-card__disabled" type="button" disabled>Mission Pack กำลังเตรียม</button>
+        </article>
+
+        <article class="stage-card stage-card--locked" id="nodeW3" aria-label="Week 3 mission locked">
+          <div class="stage-card__header">
+            <span class="stage-number">W3</span>
+            <span class="stage-state">LOCKED</span>
+          </div>
+          <div class="stage-card__icon" aria-hidden="true">◌</div>
+          <p class="stage-card__type">PSYCHOLOGY</p>
+          <h3>Cognitive Load Escape</h3>
+          <p class="stage-card__summary">
+            ลดความรก จัดลำดับความสนใจ และทำให้ผู้ใช้คิดน้อยลง
+          </p>
+          <div class="stage-card__lock-note">ต้องผ่าน W2 ก่อน</div>
+          <button class="stage-card__disabled" type="button" disabled>ล็อกอยู่</button>
+        </article>
+
+        <article class="stage-card stage-card--boss" id="nodeB1" aria-label="Boss B1 locked">
+          <div class="stage-card__header">
+            <span class="stage-number">B1</span>
+            <span class="stage-state">BOSS GATE</span>
+          </div>
+          <div class="stage-card__icon" aria-hidden="true">⚠</div>
+          <p class="stage-card__type">SYNTHESIS</p>
+          <h3>Cognitive Storm</h3>
+          <p class="stage-card__summary">
+            กู้ AI Help Kiosk ที่ผู้ใช้หาเมนูไม่เจอ เข้าใจสถานะผิด และเลิกใช้งานกลางทาง
+          </p>
+          <div class="stage-card__lock-note">ต้องผ่าน W1–W3 ก่อนเข้าสู่ Boss</div>
+          <button class="stage-card__disabled" type="button" disabled>Friction Core Locked</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="learning-loop" aria-labelledby="loopTitle">
+      <div class="learning-loop__copy">
+        <p class="eyebrow">HOW YOU LEARN</p>
+        <h2 id="loopTitle">อย่าจำว่าอะไร “สวย”<br />ให้คิดว่าผู้ใช้ “สำเร็จ” หรือไม่</h2>
+      </div>
+
+      <ol class="loop-steps">
+        <li><b>1</b><span><strong>Observe</strong><small>อ่าน User Goal และ User Signal</small></span></li>
+        <li><b>2</b><span><strong>Diagnose</strong><small>เชื่อม UI symptom กับ UX impact</small></span></li>
+        <li><b>3</b><span><strong>Design Fix</strong><small>เลือกการแก้ที่ช่วยผู้ใช้จริง</small></span></li>
+        <li><b>4</b><span><strong>User Test</strong><small>ดูผลก่อน–หลัง แล้วอธิบายเหตุผล</small></span></li>
       </ol>
     </section>
   </main>
-  <script src="./js/uxq-core.js"></script>
-  <script src="./js/uxq-map.js"></script>
+
+  <script src="./js/uxq-hub.js"></script>
 </body>
 </html>
