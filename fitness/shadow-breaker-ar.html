@@ -1442,8 +1442,7 @@
   <!-- STUDENT_CONTEXT_APPLY_LOCK • load before the game code -->
   <script src="./fitness-student-context-bridge.js?v=20260620-v2"></script>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
   <script>
   (() => {
     "use strict";
@@ -1743,6 +1742,10 @@
       handBusy: false,
       handPointers: { left:null, right:null },
       handLastSeen: 0,
+      handErrorCount: 0,
+      handLastError: "",
+      handReady: false,
+      handLoopTimer: 0,
       sound: true,
       research: true,
       sheetUrl: "",
@@ -1924,32 +1927,70 @@
     }
 
     async function setCamera(on){
-      if(on){
-        try{
-          if(state.cameraStream) return;
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video:{ facingMode:{ideal:"user"}, width:{ideal:1280}, height:{ideal:720} },
-            audio:false
-          });
-          state.cameraStream = stream;
-          cameraVideo.srcObject = stream;
-          cameraLayer.classList.add("fx-on");
-          toast(t("cameraOn"));
-        }catch(err){
-          $("cameraToggle").checked = false;
-          cameraLayer.classList.remove("fx-on");
-          toast(t("cameraFail"), 1800);
+  if(on){
+    try{
+      if(state.cameraStream) return;
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video:{
+          facingMode:{ ideal:"user" },
+          width:{ ideal:1280 },
+          height:{ ideal:720 }
+        },
+        audio:false
+      });
+
+      state.cameraStream = stream;
+      cameraVideo.muted = true;
+      cameraVideo.playsInline = true;
+      cameraVideo.autoplay = true;
+      cameraVideo.srcObject = stream;
+
+      await new Promise((resolve, reject) => {
+        const ready = async () => {
+          try{
+            await cameraVideo.play();
+            resolve();
+          }catch(err){
+            reject(err);
+          }
+        };
+
+        if(cameraVideo.readyState >= 2){
+          ready();
+        }else{
+          cameraVideo.onloadedmetadata = ready;
         }
-      }else{
-        if(state.cameraStream){
-          state.cameraStream.getTracks().forEach(tr => tr.stop());
-          state.cameraStream = null;
-          cameraVideo.srcObject = null;
-        }
-        cameraLayer.classList.remove("fx-on");
-        toast(t("cameraOff"));
-      }
+      });
+
+      cameraLayer.classList.add("fx-on");
+      toast(t("cameraOn"));
+    }catch(err){
+      console.warn("[Shadow Camera]", err);
+      $("cameraToggle").checked = false;
+      cameraLayer.classList.remove("fx-on");
+      toast(t("cameraFail"), 1800);
     }
+  }else{
+    state.handLoopActive = false;
+
+    if(state.handLoopTimer){
+      clearTimeout(state.handLoopTimer);
+      state.handLoopTimer = 0;
+    }
+
+    if(state.cameraStream){
+      state.cameraStream.getTracks().forEach(track => track.stop());
+      state.cameraStream = null;
+    }
+
+    cameraVideo.pause();
+    cameraVideo.srcObject = null;
+    hideHandCursors();
+    cameraLayer.classList.remove("fx-on");
+    toast(t("cameraOff"));
+  }
+}
 
 
     async function setHandTracking(on){
@@ -1987,41 +2028,80 @@
     }
 
     async function initHandsEngine(){
-      if(state.handsEngine) return;
-      if(typeof Hands === "undefined") throw new Error("MediaPipe Hands not loaded");
-      toast(t("handLoading"), 1200);
-      const hands = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-      });
-      hands.setOptions({
-        maxNumHands: 2,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.45,
-        minTrackingConfidence: 0.45
-      });
-      hands.onResults(onHandsResults);
-      state.handsEngine = hands;
-    }
+  if(state.handsEngine) return;
+
+  if(typeof Hands === "undefined"){
+    throw new Error("MediaPipe Hands โหลดไม่สำเร็จ");
+  }
+
+  toast("กำลังเตรียม Hand Tracking...", 1200);
+
+  const hands = new Hands({
+    locateFile: (file) =>
+      `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+  });
+
+  hands.setOptions({
+    maxNumHands: 2,
+    modelComplexity: 0,
+    selfieMode: true,
+    minDetectionConfidence: 0.22,
+    minTrackingConfidence: 0.22
+  });
+
+  hands.onResults(onHandsResults);
+
+  state.handsEngine = hands;
+  state.handReady = true;
+  state.handErrorCount = 0;
+  state.handLastError = "";
+}
 
     function startHandLoop(){
-      if(state.handLoopActive) return;
-      state.handLoopActive = true;
-      const tick = async () => {
-        if(!state.handLoopActive) return;
-        if(state.handTracking && state.handsEngine && state.cameraStream && cameraVideo.readyState >= 2 && !state.handBusy){
-          try{
-            state.handBusy = true;
-            await state.handsEngine.send({ image: cameraVideo });
-          }catch(err){
-            // Keep fallback controls alive even when one frame fails.
-          }finally{
-            state.handBusy = false;
-          }
+  if(state.handLoopActive) return;
+
+  state.handLoopActive = true;
+
+  const tick = async () => {
+    if(!state.handLoopActive) return;
+
+    const canScan =
+      state.handTracking &&
+      state.handsEngine &&
+      state.cameraStream &&
+      cameraVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+      !state.handBusy;
+
+    if(canScan){
+      try{
+        state.handBusy = true;
+        await state.handsEngine.send({ image: cameraVideo });
+        state.handErrorCount = 0;
+      }catch(err){
+        state.handErrorCount += 1;
+        state.handLastError = String(err?.message || err);
+
+        if(state.handErrorCount === 1 || state.handErrorCount % 30 === 0){
+          console.warn("[Shadow Hands]", state.handLastError);
         }
-        requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
+
+        if(state.handErrorCount >= 8){
+          updateCoach(
+            "👋",
+            "Hand Tracking ยังไม่พร้อม",
+            "ใช้แตะเป้า หรือกด J / K ได้ทันที"
+          );
+        }
+      }finally{
+        state.handBusy = false;
+      }
     }
+
+    state.handLoopTimer = window.setTimeout(tick, 33);
+  };
+
+  tick();
+}
 
     function onHandsResults(results){
       if(!state.handTracking) return;
@@ -2049,7 +2129,7 @@
         const p = palmPoint(landmarks);
         const x = clamp((1 - p.x) * arena.clientWidth, 16, arena.clientWidth - 16);
         const y = clamp(p.y * arena.clientHeight, 16, arena.clientHeight - 16);
-        const side = x < arena.clientWidth / 2 ? "left" : "right";
+        const side = p.x < 0.5 ? "left" : "right";
         seenSides.add(side);
 
         const prev = state.handPointers[side];
