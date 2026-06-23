@@ -233,9 +233,10 @@
           <div class="stat"><b>TH/EN</b><small>ภาษา</small></div>
           <div class="stat"><b>Sheet</b><small>บันทึกผล</small></div>
         </div>
-        <div class="inlineControls">
+       <div class="inlineControls">
           <button class="primaryBtn" id="quickStartBtn" type="button">🚀 เริ่มเกมที่แนะนำ</button>
           <button class="ghostBtn" id="dashboardBtn" type="button">📊 ดูผลบนเครื่องนี้</button>
+          <button class="ghostBtn" id="passportBtn" type="button">🏅 Fitness Passport</button>
           <button class="ghostBtn" id="exportProfileBtn" type="button">📄 Export Profile</button>
         </div>
       </div>
@@ -722,6 +723,24 @@
       toast('รีเซ็ตโปรไฟล์แล้ว');
     }
 
+    function openFitnessPassport(){
+  const p = saveProfile();
+  const url = new URL('./fitness-passport-v3.html', location.href);
+
+  url.searchParams.set('name', p.playerName || 'Hero');
+  url.searchParams.set('studentName', p.playerName || 'Hero');
+  url.searchParams.set('pid', p.pid || '');
+  url.searchParams.set('playerId', p.pid || '');
+  url.searchParams.set('studentId', p.pid || '');
+  url.searchParams.set('group', p.groupName || 'ป.5');
+  url.searchParams.set('classId', p.groupName || 'ป.5');
+  url.searchParams.set('section', p.groupName || 'ป.5');
+  url.searchParams.set('studyId', p.studyId || 'FITNESS-P5-2026');
+  url.searchParams.set('hub', './hub.html');
+
+  location.href = url.toString();
+}
+
     function init(){
       loadProfile();
       renderGames();
@@ -741,7 +760,13 @@
       $('runReadinessBtn').addEventListener('click', runReadiness);
       $('copyLinkBtn').addEventListener('click', copyHubLink);
       $('resetBtn').addEventListener('click', resetProfile);
-      $('dashboardBtn').addEventListener('click', () => { $('dashboardPanel').classList.toggle('hidden'); renderLocalDashboard(); });
+      $('dashboardBtn').addEventListener('click', () => {
+  $('dashboardPanel').classList.toggle('hidden');
+  renderLocalDashboard();
+});
+
+$('passportBtn').addEventListener('click', openFitnessPassport);
+
       $('clearLocalBtn').addEventListener('click', () => { safeStorageRemove(LOG_KEY); renderLocalDashboard(); toast('ล้าง local launch log แล้ว'); });
       $('exportProfileBtn').addEventListener('click', exportProfile);
       $('quickStartBtn').addEventListener('click', () => requestLaunch('balance'));
