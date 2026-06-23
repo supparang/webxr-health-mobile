@@ -1964,6 +1964,9 @@
       });
 
       cameraLayer.classList.add("fx-on");
+      if(state.handTracking && state.handsEngine && !state.handLoopActive){
+      startHandLoop();
+    }
       toast(t("cameraOn"));
     }catch(err){
       console.warn("[Shadow Camera]", err);
@@ -2129,7 +2132,7 @@
         const p = palmPoint(landmarks);
         const x = clamp((1 - p.x) * arena.clientWidth, 16, arena.clientWidth - 16);
         const y = clamp(p.y * arena.clientHeight, 16, arena.clientHeight - 16);
-        const side = p.x < 0.5 ? "left" : "right";
+        const side = x < arena.clientWidth / 2 ? "left" : "right";
         seenSides.add(side);
 
         const prev = state.handPointers[side];
