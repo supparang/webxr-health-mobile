@@ -6,150 +6,35 @@
   <title>VR Fitness Academy — Splash</title>
   <link rel="icon" href="favicon.ico"/>
   <style>
-    :root{
-      color-scheme: dark;
-    }
-    *{box-sizing:border-box;}
+    :root{color-scheme:dark}
+    *{box-sizing:border-box}
     body{
-      margin:0;
-      min-height:100vh;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      background:
-        radial-gradient(circle at top left,rgba(59,130,246,.32),transparent 55%),
-        radial-gradient(circle at bottom right,rgba(236,72,153,.32),transparent 55%),
-        #020617;
-      color:#e5e7eb;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:24px 16px;
+      margin:0;min-height:100vh;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background:radial-gradient(circle at top left,rgba(59,130,246,.32),transparent 55%),radial-gradient(circle at bottom right,rgba(236,72,153,.32),transparent 55%),#020617;
+      color:#e5e7eb;display:flex;align-items:center;justify-content:center;padding:24px 16px;
     }
-    .hero-wrap{
-      width:100%;
-      max-width:960px;
-      background:linear-gradient(135deg,rgba(15,23,42,.96),rgba(15,23,42,.98));
-      border-radius:28px;
-      padding:24px 20px 26px;
-      box-shadow:
-        0 0 0 1px rgba(15,23,42,1),
-        0 30px 80px rgba(15,23,42,1);
-    }
-    .hero-tag{
-      font-size:13px;
-      letter-spacing:.16em;
-      text-transform:uppercase;
-      opacity:.8;
-      margin-bottom:6px;
-    }
-    .hero-title{
-      margin:0 0 6px;
-      font-size:clamp(26px,4vw,34px);
-      line-height:1.25;
-    }
-    .hero-title span.highlight{
-      color:#4ade80;
-    }
-    .hero-sub{
-      margin:0 0 14px;
-      font-size:14px;
-      opacity:.85;
-    }
-    .hero-meta{
-      font-size:13px;
-      opacity:.8;
-      margin-bottom:16px;
-    }
-    .hero-meta b{color:#bae6fd;}
-    .btn-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-bottom:12px;
-    }
-    .btn{
-      border:none;
-      cursor:pointer;
-      border-radius:999px;
-      padding:9px 16px 10px;
-      font-size:14px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      text-decoration:none;
-      transition:.13s ease-out;
-      transition-property:transform,box-shadow,filter;
-      white-space:nowrap;
-    }
-    .btn-primary{
-      background:linear-gradient(120deg,#22c55e,#4ade80);
-      color:#052e16;
-      box-shadow:0 18px 50px rgba(22,163,74,.85);
-    }
-    .btn-primary:hover{
-      transform:translateY(-1px) scale(1.02);
-      filter:brightness(1.05);
-    }
-    .btn-secondary{
-      background:rgba(15,23,42,.96);
-      color:#e5e7eb;
-      border:1px solid rgba(148,163,184,.8);
-      box-shadow:0 14px 40px rgba(15,23,42,.95);
-    }
-    .btn-secondary:hover{
-      transform:translateY(-1px) scale(1.02);
-      filter:brightness(1.03);
-    }
-    .hint-row{
-      margin-top:6px;
-      font-size:12px;
-      opacity:.7;
-    }
-    .hint-row b{color:#fde68a;}
-    @media (max-width:640px){
-      .hero-wrap{
-        padding:18px 16px 20px;
-      }
-      .btn-row{
-        flex-direction:column;
-        align-items:stretch;
-      }
-      .btn{
-        justify-content:center;
-        width:100%;
-      }
-    }
+    .hero-wrap{width:100%;max-width:960px;background:linear-gradient(135deg,rgba(15,23,42,.96),rgba(15,23,42,.98));border-radius:28px;padding:24px 20px 26px;box-shadow:0 0 0 1px rgba(15,23,42,1),0 30px 80px rgba(15,23,42,1)}
+    .hero-tag{font-size:13px;letter-spacing:.16em;text-transform:uppercase;opacity:.8;margin-bottom:6px}
+    .hero-title{margin:0 0 6px;font-size:clamp(26px,4vw,34px);line-height:1.25}.hero-title .highlight{color:#4ade80}
+    .hero-sub{margin:0 0 14px;font-size:14px;opacity:.85}.hero-meta{font-size:13px;opacity:.8;margin-bottom:16px}.hero-meta b{color:#bae6fd}
+    .btn-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+    .btn{border:none;cursor:pointer;border-radius:999px;padding:9px 16px 10px;font-size:14px;display:inline-flex;align-items:center;gap:8px;text-decoration:none;transition:.13s ease-out;transition-property:transform,box-shadow,filter;white-space:nowrap}
+    .btn-primary{background:linear-gradient(120deg,#22c55e,#4ade80);color:#052e16;box-shadow:0 18px 50px rgba(22,163,74,.85)}.btn-primary:hover{transform:translateY(-1px) scale(1.02);filter:brightness(1.05)}
+    .hint-row{margin-top:6px;font-size:12px;opacity:.7}.hint-row b{color:#fde68a}
+    @media (max-width:640px){.hero-wrap{padding:18px 16px 20px}.btn-row{flex-direction:column;align-items:stretch}.btn{justify-content:center;width:100%}}
   </style>
 </head>
 <body>
   <main class="hero-wrap">
     <div class="hero-tag">VR FITNESS ACADEMY</div>
-    <h1 class="hero-title">
-      พร้อมออกกำลังกายใน <span class="highlight">Metaverse</span> แล้วหรือยัง?
-    </h1>
-    <p class="hero-sub">
-      ชุดเกม VR Fitness 4 ด้าน: Shadow Breaker, Rhythm Boxer, Jump-Duck, Balance-Hold  
-      เล่นได้ทั้งมือถือ + แว่น VR / PC / Tablet
-    </p>
-    <p class="hero-meta">
-      <b>โหมด Normal</b> เล่นสนุก / ใช้สอนทั่วไป &nbsp;•&nbsp;
-      <b>โหมด Research</b> เก็บข้อมูลวิจัย (Reaction Time, Timing Offset, CSV ฯลฯ)
-    </p>
-
+    <h1 class="hero-title">พร้อมออกกำลังกายใน <span class="highlight">Metaverse</span> แล้วหรือยัง?</h1>
+    <p class="hero-sub">ชุดเกม VR Fitness 4 ด้าน: Shadow Breaker, Rhythm Boxer, Jump-Duck, Balance-Hold เล่นได้ทั้งมือถือ + แว่น VR / PC / Tablet</p>
+    <p class="hero-meta"><b>โหมด Normal</b> เล่นสนุก / ใช้สอนทั่วไป &nbsp;•&nbsp; <b>โหมด Research</b> เก็บข้อมูลวิจัย (Reaction Time, Timing Offset, CSV ฯลฯ)</p>
     <div class="btn-row">
-      <a href="hub.html" class="btn btn-primary">
-        🚀 เข้าสู่ Hub เลือกเกม
-      </a>
-      <a href="vr-shadow-breaker.html?mode=normal" class="btn btn-secondary">
-        🥽 ทดลองโหมด VR — Shadow Breaker
-      </a>
+      <a href="hub.html" class="btn btn-primary">🚀 เข้าสู่ Hub เลือกเกม</a>
     </div>
-
-    <div class="hint-row">
-      แนะนำเริ่มจาก <b>Shadow Breaker</b> แล้วต่อด้วย <b>Rhythm Boxer</b> 🎮✨
-    </div>
-    <div class="hint-row">
-      ใช้เกมเพื่อการสอน / วิจัยด้าน VR Fitness — Prototype Build
-    </div>
+    <div class="hint-row">แนะนำเริ่มจาก <b>Shadow Breaker</b> แล้วต่อด้วย <b>Rhythm Boxer</b> 🎮✨</div>
+    <div class="hint-row">ใช้เกมเพื่อการสอน / วิจัยด้าน VR Fitness — Prototype Build</div>
   </main>
 </body>
 </html>
