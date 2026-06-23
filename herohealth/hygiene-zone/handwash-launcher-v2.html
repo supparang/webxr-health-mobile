@@ -1349,8 +1349,9 @@
           <div>2) ตั้งมือถือบนขาตั้งหรือพิงโต๊ะ ห่างประมาณ 50–70 ซม.</div>
           <div>3) ใช้กล้องหน้า ให้เห็นมือสองข้างเต็มเฟรม</div>
           <div>4) ทำท่าตามภาพเคลื่อนไหวในกล่อง AI Coach</div>
-          <div>5) เมื่อทำ 7 ขั้นครบ จะได้เวลา Germ Boss แยกต่างหาก</div>
-          <div>6) AI Coach ช่วยแนะนำได้ แต่ไม่สามารถกดข้าม 7 ขั้นได้</div>
+          <div>5) ทำ 7 ขั้นครบ จะเข้าสู่ Finish Hygiene Timer แยกต่างหาก</div>
+          <div>6) Finish Hygiene คือ ล้างฟอง → ปิดน้ำ → เช็ดมือ</div>
+          <div>7) เมื่อเช็ดมือสำเร็จ จะได้เวลา Germ Boss แยกต่างหาก</div>
         </div>
 
         <div class="actions">
@@ -1417,7 +1418,7 @@
       "use strict";
 
       const VERSION =
-        "20260623-HANDWASH-AR-DETECTOR-V2-1-STEP4-FAIRNESS-RESEARCH";
+        "20260623-HANDWASH-AR-DETECTOR-V2-2-FINISH-SEQUENCE-GRACE-RESEARCH";
 
       const ZONE_ID = "hygiene";
       const qs = new URLSearchParams(location.search);
@@ -1459,13 +1460,18 @@
         180
       );
 
+      const FINISH_DURATION =
+        DIFF === "easy" ? 18 :
+        DIFF === "hard" ? 12 :
+        15;
+
       const BOSS_DURATION =
         DIFF === "easy" ? 15 :
         DIFF === "hard" ? 10 :
         12;
 
       const DETECTOR_V2 = Object.freeze({
-        label: "orientation-stability-trajectory-v2.1-step4-fairness",
+        label: "orientation-stability-trajectory-v2.2-step4-fairness-finish-grace",
         stabilitySec: .46,
         stabilityDecay: 1.85,
         strictOrientationMin: .18,
@@ -1577,6 +1583,7 @@
 
       let state = null;
       let timer = null;
+      let finishTimer = null;
       let bossTimer = null;
       let toastTimer = null;
       let handsModel = null;
@@ -1666,6 +1673,7 @@
 
       function resetState(){
         clearInterval(timer);
+        clearInterval(finishTimer);
         clearInterval(bossTimer);
         tracking.clear();
 
@@ -1675,6 +1683,11 @@
 
           duration: DURATION,
           remaining: DURATION,
+
+          finishDuration: FINISH_DURATION,
+          finishRemaining: FINISH_DURATION,
+          finishStartedAt: "",
+          finishEndReason: "",
 
           bossDuration: BOSS_DURATION,
           bossRemaining: BOSS_DURATION,
@@ -1817,6 +1830,11 @@
         hidePointers();
       }
 
+      function isProcessStage(){
+        return !!state &&
+          ["main", "finish"].includes(state.stage);
+      }
+
       function logResearchEvent(eventType, extra = {}){
         if(!state || !state.sessionId) return;
 
@@ -1854,6 +1872,7 @@
           ),
 
           remainingGameSec: state.remaining || 0,
+          remainingFinishSec: state.finishRemaining || 0,
           remainingBossSec: state.bossRemaining || 0,
 
           gestureScore: round2(state.gesture?.signal || 0),
@@ -1989,7 +2008,7 @@
         clearInterval(timer);
 
         timer = setInterval(() => {
-          if(!state || ["brief", "summary", "boss"].includes(state.stage)){
+          if(!state || state.stage !== "main"){
             return;
           }
 
@@ -2003,6 +2022,60 @@
 
           updateUI();
         }, 1000);
+      }
+
+      function startFinishSequence(){
+        clearInterval(timer);
+        clearInterval(finishTimer);
+
+        state.stage = "finish";
+        state.phase = "rinseOpen";
+        state.finishRemaining = state.finishDuration;
+        state.finishStartedAt = new Date().toISOString();
+        state.finishEndReason = "";
+
+        resetProcessHold();
+
+        logResearchEvent("finish_start", {
+          phase: "rinseOpen",
+          finishDurationSec: state.finishDuration
+        });
+
+        logResearchEvent("phase_enter", {
+          phase: "rinseOpen",
+          finishDurationSec: state.finishDuration
+        });
+
+        showToast(
+          `ผ่าน 7 ขั้นแล้ว! Finish Hygiene ${state.finishDuration} วินาที: ล้างฟอง → ปิดน้ำ → เช็ดมือ`
+        );
+
+        finishTimer = setInterval(() => {
+          if(!state || state.stage !== "finish"){
+            return;
+          }
+
+          state.finishRemaining -= 1;
+
+          if(state.finishRemaining <= 0){
+            state.finishRemaining = 0;
+            state.finishEndReason = "finish-timeup";
+
+            logResearchEvent("finish_timeout", {
+              phase: state.phase,
+              finishRemainingSec: 0
+            });
+
+            endGame("finish-timeup");
+            return;
+          }
+
+          updateMission();
+          updateUI();
+        }, 1000);
+
+        updateMission();
+        updateUI();
       }
 
       async function startCamera(){
@@ -2108,7 +2181,7 @@
 
         const isTrackingStage =
           state &&
-          ["main", "boss"].includes(state.stage);
+          ["main", "finish", "boss"].includes(state.stage);
 
         if(isTrackingStage){
           state.trackingFrameCount += 1;
@@ -2182,7 +2255,7 @@
 
         maybeLogResearchEvidence(hands);
 
-        if(state.stage === "main"){
+        if(isProcessStage()){
           updateProcessByHands(hands, dt);
         }
 
@@ -2213,7 +2286,7 @@
       }
 
       function markTrackingLost(){
-        if(!state || !["main", "boss"].includes(state.stage)) return;
+        if(!state || !["main", "finish", "boss"].includes(state.stage)) return;
         if(state.trackingLostStartedAt) return;
 
         state.trackingLostStartedAt = performance.now();
@@ -3581,7 +3654,7 @@
       }
 
       function onFaucetTap(){
-        if(state.stage !== "main") return;
+        if(!isProcessStage()) return;
 
         state.tapHits += 1;
 
@@ -3610,7 +3683,7 @@
       }
 
       function onCoachTap(){
-        if(state.stage !== "main") return;
+        if(!isProcessStage()) return;
 
         if(state.phase === "soap"){
           state.tapHits += 1;
@@ -3630,11 +3703,16 @@
           return;
         }
 
+        if(state.stage === "finish"){
+          showToast("Finish Hygiene: ล้างฟอง ปิดน้ำ แล้วเช็ดมือให้แห้ง");
+          return;
+        }
+
         showToast("AI Coach: ทำตามภารกิจด้านบน");
       }
 
       function onTowelTap(){
-        if(state.stage !== "main") return;
+        if(!isProcessStage()) return;
 
         state.tapHits += 1;
 
@@ -3759,18 +3837,14 @@
             }
           );
 
-          state.phase = "rinseOpen";
           state.gesture = null;
 
-          logResearchEvent("phase_enter", {
-            phase: "rinseOpen"
-          });
-
-          showToast("ครบ 7 ขั้นแล้ว! ยื่นมือใต้ก๊อกน้ำเพื่อล้างฟอง");
-        }else{
-          setupGestureStep();
-          showToast("ดีมาก! ต่อไป " + SCRUB[state.scrubIndex].label);
+          startFinishSequence();
+          return;
         }
+
+        setupGestureStep();
+        showToast("ดีมาก! ต่อไป " + SCRUB[state.scrubIndex].label);
 
         updateMission();
         updateUI();
@@ -3849,7 +3923,7 @@
           phase: "dry"
         });
 
-        showToast("ล้างมือครบแล้ว! Germ Boss กำลังมา");
+        showToast("Finish Hygiene สำเร็จ! Germ Boss กำลังมา");
         startBoss();
       }
 
@@ -3864,19 +3938,25 @@
       }
 
       function startBoss(){
+        clearInterval(finishTimer);
+
+        state.finishEndReason = "finish-completed";
         state.stage = "boss";
         state.phase = "boss";
         state.bossRemaining = state.bossDuration;
         state.bossEndReason = "";
 
-        clearInterval(timer);
+        logResearchEvent("finish_complete", {
+          phase: "finish",
+          finishRemainingSec: state.finishRemaining
+        });
 
         logResearchEvent("boss_start", {
           phase: "boss"
         });
 
         showToast(
-          `ล้างมือครบแล้ว! กำจัด Germ Boss ภายใน ${state.bossDuration} วินาที`
+          `Finish Hygiene สำเร็จ! กำจัด Germ Boss ภายใน ${state.bossDuration} วินาที`
         );
 
         placeBoss();
@@ -4071,11 +4151,37 @@
           };
         }
 
+        if(state.stage === "finish"){
+          const process = {
+            rinseOpen: {
+              icon: "💦",
+              title: `Finish Hygiene • ${state.finishRemaining}s`,
+              tip: "ผ่าน 7 ขั้นแล้ว! ยื่นมือเข้าโซนก๊อกน้ำเพื่อล้างฟอง"
+            },
+            closeAfterRinse: {
+              icon: "🚰",
+              title: `Finish Hygiene • ${state.finishRemaining}s`,
+              tip: "ล้างฟองแล้ว ขยับมือออกจากก๊อกน้ำเพื่อปิดน้ำ"
+            },
+            dry: {
+              icon: "🧻",
+              title: `Finish Hygiene • ${state.finishRemaining}s`,
+              tip: "เช็ดมือให้แห้งเพื่อปลดล็อก Germ Boss"
+            }
+          };
+
+          return process[state.phase] || {
+            icon: "🫧",
+            title: `Finish Hygiene • ${state.finishRemaining}s`,
+            tip: "ล้างฟอง ปิดน้ำ และเช็ดมือให้แห้ง"
+          };
+        }
+
         if(state.stage === "boss"){
           return {
             icon: "🦠",
             title: `Germ Boss • ${state.bossRemaining}s`,
-            tip: "ล้างมือครบแล้ว! ใช้ฝ่ามือหรือปลายนิ้วชี้ชน Germ Boss"
+            tip: "ล้างมือครบทุกขั้นแล้ว! ใช้ฝ่ามือหรือปลายนิ้วชี้ชน Germ Boss"
           };
         }
 
@@ -4104,21 +4210,6 @@
             icon: "🧴",
             title: "ใส่สบู่",
             tip: "ยื่นมือเข้าโซนสบู่ หรือกดปุ่ม AI Coach"
-          },
-          rinseOpen: {
-            icon: "💦",
-            title: "ล้างฟองสบู่",
-            tip: "ยื่นมือเข้าโซนก๊อกน้ำ จนฟองลดลงหมด"
-          },
-          closeAfterRinse: {
-            icon: "🚰",
-            title: "เอามือออกเพื่อปิดน้ำ",
-            tip: "หลังล้างฟองแล้ว ขยับมือออกจากก๊อกน้ำ"
-          },
-          dry: {
-            icon: "🧻",
-            title: "เช็ดมือให้แห้ง",
-            tip: "ยื่นมือเข้าโซนผ้าเช็ดมือ"
           }
         };
 
@@ -4133,6 +4224,7 @@
         el.stageText.textContent =
           state.stage === "warmup" ? "Warmup" :
           state.stage === "main" ? "Main" :
+          state.stage === "finish" ? "Finish" :
           state.stage === "boss" ? "Boss" :
           state.stage === "summary" ? "Summary" :
           "Ready";
@@ -4140,7 +4232,9 @@
         el.timerText.textContent =
           state.stage === "boss"
             ? `B${state.bossRemaining}`
-            : String(state.remaining);
+            : state.stage === "finish"
+              ? `F${state.finishRemaining}`
+              : String(state.remaining);
 
         el.scoreText.textContent = String(state.score);
         el.stepText.textContent = `${completedScrubs()}/7`;
@@ -4166,7 +4260,7 @@
         );
 
         el.btnFaucet.disabled = !(
-          state.stage === "main" &&
+          isProcessStage() &&
           [
             "wet",
             "closeBeforeSoap",
@@ -4176,17 +4270,19 @@
         );
 
         el.btnCoach.disabled =
-          state.stage !== "main";
+          !isProcessStage();
 
         el.btnTowel.disabled = !(
-          state.stage === "main" &&
+          isProcessStage() &&
           state.phase === "dry"
         );
 
         el.coachButtonLabel.textContent =
           state.phase === "soap"
             ? "กดสบู่"
-            : "AI Coach";
+            : state.stage === "finish"
+              ? "Finish Coach"
+              : "AI Coach";
 
         updateZoneHighlights();
         updateGestureCard();
@@ -4204,7 +4300,7 @@
       function updateZoneHighlights(){
         el.arWaterZone.classList.toggle(
           "active",
-          state.stage === "main" &&
+          isProcessStage() &&
           ["wet", "rinseOpen"].includes(state.phase)
         );
 
@@ -4222,7 +4318,7 @@
 
         el.arTowelZone.classList.toggle(
           "active",
-          state.stage === "main" &&
+          isProcessStage() &&
           state.phase === "dry"
         );
       }
@@ -4245,9 +4341,13 @@
           el.gesturePercent.textContent = "0%";
           el.gestureStatus.textContent = "AI Coach พร้อม";
           el.gestureCoach.textContent =
-            "ตั้งมือถือให้เห็นมือสองข้างเต็มเฟรม";
+            state.stage === "finish"
+              ? "Finish Hygiene: ล้างฟอง ปิดน้ำ แล้วเช็ดมือ"
+              : "ตั้งมือถือให้เห็นมือสองข้างเต็มเฟรม";
           el.gestureDiagnostic.textContent =
-            "ระบบจะบอกสาเหตุเมื่อ Gesture Evidence ยังไม่พอ";
+            state.stage === "finish"
+              ? `เหลือเวลา Finish Hygiene ${state.finishRemaining} วินาที`
+              : "ระบบจะบอกสาเหตุเมื่อ Gesture Evidence ยังไม่พอ";
           return;
         }
 
@@ -4275,6 +4375,17 @@
 
         if(!active || !step || !gesture){
           el.visualCoach.className = "visual-coach";
+
+          if(state.stage === "finish"){
+            el.visualCoachLabel.textContent = "Finish Hygiene";
+            el.visualCoachSide.textContent = `เหลือ ${state.finishRemaining}s`;
+            el.visualCoachTip.textContent =
+              "ล้างฟอง → ปิดน้ำ → เช็ดมือให้แห้ง";
+            el.visualCoachDemo.className =
+              "visual-coach-demo palm-demo";
+            return;
+          }
+
           el.visualCoachLabel.textContent = "ทำแบบนี้";
           el.visualCoachSide.textContent = "เตรียมมือ";
           el.visualCoachTip.textContent =
@@ -4500,6 +4611,7 @@
 
       function endGame(reason){
         clearInterval(timer);
+        clearInterval(finishTimer);
         clearInterval(bossTimer);
 
         finalizeOpenStepTime();
@@ -4527,7 +4639,9 @@
             ? "game_complete"
             : reason === "boss-timeup"
               ? "game_boss_timeout"
-              : "game_timeout",
+              : reason === "finish-timeup"
+                ? "game_finish_timeout"
+                : "game_timeout",
           {
             phase: "summary"
           }
@@ -4714,13 +4828,16 @@
         state.grade =
           state.stars === 3 && complete
             ? "Hygiene Master"
-            : state.stars === 3
-              ? "Clean Hero"
-              : state.stars === 2
-                ? "Good Washer"
-                : state.stars === 1
-                  ? "Progress Hero"
-                  : "Need Practice";
+            : state.endReason === "finish-timeup" &&
+              steps === 7
+              ? "Seven-Step Hero"
+              : state.stars === 3
+                ? "Clean Hero"
+                : state.stars === 2
+                  ? "Good Washer"
+                  : state.stars === 1
+                    ? "Progress Hero"
+                    : "Need Practice";
 
         state.badges = [];
 
@@ -4757,6 +4874,10 @@
           state.checks.waterCloseAfterRinse
         ){
           state.badges.push("💧 Water Saver");
+        }
+
+        if(state.checks.driedHands){
+          state.badges.push("🫧 Finish Hygiene Clear");
         }
 
         if(complete && state.orderMistakes === 0){
@@ -4831,6 +4952,10 @@
           return "ยอดเยี่ยม! ทำครบ 7 ขั้น ล้างฟอง เช็ดมือ และปิดน้ำแล้ว เหลือฝึกกำจัด Germ Boss ให้ทันเวลา";
         }
 
+        if(state.endReason === "finish-timeup"){
+          return "ทำครบ 7 ขั้นแล้ว! รอบถัดไปใช้ช่วง Finish Hygiene ให้ครบ: ล้างฟอง → ปิดน้ำ → เช็ดมือ";
+        }
+
         if(state.endReason === "timeup" && missingSteps.length){
           const preview = missingSteps
             .slice(0, 3)
@@ -4882,21 +5007,27 @@
             ? "ภารกิจสำเร็จ!"
             : state.endReason === "boss-timeup"
               ? "ล้างมือครบแล้ว!"
-              : "หมดเวลาแล้ว";
+              : state.endReason === "finish-timeup"
+                ? "ทำ 7 ขั้นครบแล้ว!"
+                : "หมดเวลาแล้ว";
 
         el.summarySub.textContent =
           state.endReason === "boss-timeup"
             ? "Germ Boss ยังไม่หมด"
-            : state.grade;
+            : state.endReason === "finish-timeup"
+              ? "Finish Hygiene ยังไม่ครบ"
+              : state.grade;
 
         el.summaryIcon.textContent =
-          state.endReason === "boss-timeup"
-            ? "🧼"
-            : state.stars >= 3
-              ? "🏆"
-              : state.stars >= 2
-                ? "🧼"
-                : "💪";
+          state.endReason === "finish-timeup"
+            ? "🫧"
+            : state.endReason === "boss-timeup"
+              ? "🧼"
+              : state.stars >= 3
+                ? "🏆"
+                : state.stars >= 2
+                  ? "🧼"
+                  : "💪";
 
         el.recommend.textContent = state.recommendation;
 
@@ -5071,7 +5202,7 @@
           section: qs.get("section") || "",
 
           mode: handDetectReady
-            ? "AR-7step-gesture-evidence-live-coach-boss-timer"
+            ? "AR-7step-gesture-evidence-finish-sequence-boss-timer"
             : "tap-process-only",
 
           detectTarget:
@@ -5081,6 +5212,10 @@
 
           durationSec: state.duration,
           remainingSec: state.remaining,
+
+          finishDurationSec: state.finishDuration,
+          finishRemainingSec: state.finishRemaining,
+          finishEndReason: state.finishEndReason,
 
           bossDurationSec: state.bossDuration,
           bossRemainingSec: state.bossRemaining,
@@ -5299,7 +5434,7 @@
           difficulty: DIFF,
 
           mode: handDetectReady
-            ? "AR-7step-gesture-evidence-live-coach-boss-timer"
+            ? "AR-7step-gesture-evidence-finish-sequence-boss-timer"
             : "tap-process-only",
 
           sourceUrl: location.href,
@@ -5311,6 +5446,10 @@
           durationSec: state.duration,
           remainingSec: state.remaining,
           endReason: state.endReason,
+
+          finishDurationSec: state.finishDuration,
+          finishRemainingSec: state.finishRemaining,
+          finishEndReason: state.finishEndReason,
 
           bossDurationSec: state.bossDuration,
           bossRemainingSec: state.bossRemaining,
