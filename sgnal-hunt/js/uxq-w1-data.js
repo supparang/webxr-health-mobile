@@ -1,6 +1,6 @@
 // === /sgnal-hunt/js/uxq-w1-data.js ===
 // UX Quest • W1 UX Detective
-// V6 — 5 tutorial cores + 60 replay cores + 720 meaningful replay scenarios
+// V7 — 5 tutorial cases + 60 replay cores + 720 meaningful replay scenarios
 // CSAI2601 • Year 2 • W1 scope only: UI/UX fundamentals and user-centred thinking
 
 (function () {
@@ -1001,6 +1001,7 @@
       ...scenario,
       id: `tutorial-${index + 1}-${scenario.id}`,
       coreId: `tutorial-${index + 1}-${core.coreId}`,
+      sourceCoreId: core.coreId,
       isTutorial: true,
       title: `Tutorial: ${scenario.title}`
     };
@@ -1028,6 +1029,7 @@
     ...REPLAY_SCENARIOS
   ];
 
+  // V7 keeps Tutorial cases structurally distinct from Replay scenarios.
   // Backward-compatible globals for older scripts.
   window.UXQ_W1_FIRST_RUN = TUTORIAL_CASES;
   window.UXQ_W1_CASES = TUTORIAL_CASES;

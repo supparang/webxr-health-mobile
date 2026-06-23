@@ -369,3 +369,16 @@ a:focus-visible{
 .launcher-card{width:min(760px,100%);padding:48px 44px;border:1px solid rgba(211,224,255,.24);border-radius:32px;background:linear-gradient(150deg,rgba(37,61,142,.73),rgba(16,31,76,.9));box-shadow:var(--shadow);text-align:center}
 .brand-lockup{display:inline-flex;align-items:center;gap:12px;margin:5px auto 17px;text-align:left}.brand-lockup .brand-mark{width:54px;height:54px;border-radius:18px}.brand-lockup strong{font-size:20px}.brand-lockup small{color:#b8c6f2}
 .launcher-card h1{margin:0;font-size:clamp(38px,6vw,64px)}.lead{max-width:590px;margin:14px auto 25px;color:#d6e0ff;line-height:1.72}.launcher-points{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:28px 0}.launcher-points div{padding:15px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.1)}.launcher-points b{display:block;font-size:21px}.launcher-points span{color:#cdd7fa;font-size:12px}.launch-btn{display:inline-block;margin-bottom:16px;text-decoration:none}
+
+/* V7 Replay entry cues */
+.mode-action.is-primary-mode{
+  border-color:#5a78ff;
+  background:linear-gradient(135deg,#eef2ff,#f8faff);
+  box-shadow:0 12px 24px rgba(47,73,172,.14);
+}
+.completion-action.next-week{
+  text-decoration:none;
+  border-color:#5a78ff;
+  background:linear-gradient(135deg,#edf1ff,#f9fbff);
+}
+.completion-action.next-week>span{background:#e7fbf3;color:#0b8f68}

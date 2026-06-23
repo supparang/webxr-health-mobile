@@ -8,7 +8,6 @@
 
   <link rel="stylesheet" href="./css/uxq-core.css" />
   <link rel="stylesheet" href="./css/uxq-hub.css" />
-  <link rel="stylesheet" href="./css/uxq-hub-fix-v5.css?v=20260623-unlock-crashfix-v5" />
 </head>
 <body class="uxq-hub-page">
   <main class="hub-shell">
@@ -26,11 +25,12 @@
           <span class="hub-menu__label">Progress</span>
           <span class="hub-menu__dots" aria-hidden="true">•••</span>
         </summary>
+
         <div class="hub-menu__panel">
-          <p class="hub-menu__eyebrow">ACT I PROGRESS</p>
-          <strong id="menuProgressText">0 / 4 nodes • W1 ☆☆☆ • W2 ☆☆☆</strong>
+          <p class="hub-menu__eyebrow">W1 PROGRESS</p>
+          <strong id="menuProgressText">0/4 nodes • ☆☆☆</strong>
           <small id="menuScoreText">Best score 0</small>
-          <button id="resetProgressBtn" type="button">รีเซ็ตความคืบหน้า Act I</button>
+          <button id="resetProgressBtn" type="button">รีเซ็ตความคืบหน้า W1</button>
         </div>
       </details>
     </header>
@@ -40,30 +40,34 @@
         <p class="eyebrow act-intro__eyebrow">ACT I • HUMAN-CENTERED DESIGN</p>
         <h1 id="actTitle">Understand Humans</h1>
         <p class="act-intro__lede">เข้าใจผู้ใช้ก่อนแก้ interface</p>
+
         <div class="quick-progress" aria-label="ความก้าวหน้า Act I">
-          <span><b id="actProgressText">0 / 4</b> nodes</span>
+          <span><b id="actProgressText">0/4</b> nodes</span>
           <span><b id="heroStars">☆☆☆</b> mastery</span>
           <span><b id="heroScore">0</b> best score</span>
         </div>
       </div>
 
-      <article class="current-card" id="currentMission" aria-labelledby="w1Title">
+      <article class="current-card" id="nodeW1" aria-labelledby="w1Title">
         <div class="current-card__status">
           <span class="status-dot" id="nowStatusDot" aria-hidden="true"></span>
           <span id="nowStatus">MISSION READY</span>
           <span class="current-card__week">W1 • FOUNDATION</span>
         </div>
+
         <div class="current-card__main">
-          <div class="current-card__icon" id="nowIcon" aria-hidden="true">⌕</div>
+          <div id="nowIcon" class="current-card__icon" aria-hidden="true">⌕</div>
           <div>
             <h2 id="w1Title">UX Detective</h2>
             <p id="nowSummary">สืบว่าอะไรทำให้ผู้ใช้ทำเป้าหมายไม่สำเร็จ แล้วเลือกวิธีแก้ที่ช่วยได้จริง</p>
           </div>
         </div>
+
         <div class="current-card__meta">
           <span>⏱ 8–10 นาที</span>
           <span id="nowReward">★ 1 ดาวเพื่อเปิดเส้นทางต่อ</span>
         </div>
+
         <a id="nowLaunch" class="current-card__cta" href="./w1-ux-detective.html">
           <span id="nowLaunchText">เริ่มภารกิจ</span>
           <span aria-hidden="true">→</span>
@@ -79,22 +83,35 @@
         </div>
         <p id="pathHint">ผ่าน W1 อย่างน้อย 1★ เพื่อปลดล็อก W2</p>
       </div>
+
       <ol class="path-rail" aria-label="ลำดับภารกิจ Act I">
         <li class="path-step path-step--available" id="pathW1">
           <span class="path-step__dot">1</span>
-          <span class="path-step__copy"><b>W1 • UX Detective</b><small id="pathW1State">Available</small></span>
+          <span class="path-step__copy">
+            <b>W1 • UX Detective</b>
+            <small id="pathW1State">Available</small>
+          </span>
         </li>
         <li class="path-step" id="pathW2">
           <span class="path-step__dot">2</span>
-          <span class="path-step__copy"><b>W2 • Design Thinking</b><small id="pathW2State">Pass W1 1★</small></span>
+          <span class="path-step__copy">
+            <b>W2 • Design Thinking</b>
+            <small id="pathW2State">Pass W1 1★</small>
+          </span>
         </li>
         <li class="path-step" id="pathW3">
           <span class="path-step__dot">3</span>
-          <span class="path-step__copy"><b>W3 • Cognitive Load</b><small id="pathW3State">Pass W2</small></span>
+          <span class="path-step__copy">
+            <b>W3 • Cognitive Load</b>
+            <small id="pathW3State">Pass W2</small>
+          </span>
         </li>
         <li class="path-step path-step--boss" id="pathB1">
           <span class="path-step__dot">B</span>
-          <span class="path-step__copy"><b>B1 • Cognitive Storm</b><small>Boss Gate</small></span>
+          <span class="path-step__copy">
+            <b>B1 • Cognitive Storm</b>
+            <small>Boss Gate</small>
+          </span>
         </li>
       </ol>
     </section>
@@ -132,7 +149,8 @@
 
         <article class="compact-stage compact-stage--locked" id="nodeW3">
           <div class="compact-stage__top">
-            <span class="stage-number">W3</span><span class="stage-state">LOCKED</span>
+            <span class="stage-number">W3</span>
+            <span class="stage-state">LOCKED</span>
           </div>
           <div class="compact-stage__content">
             <span class="compact-stage__icon" aria-hidden="true">◌</span>
@@ -142,11 +160,17 @@
               <p>ลดความรก จัดความสนใจ และทำให้ผู้ใช้คิดน้อยลง</p>
             </div>
           </div>
-          <div class="compact-stage__footer"><span>ผ่าน W2 ก่อน</span><button type="button" disabled>ล็อกอยู่</button></div>
+          <div class="compact-stage__footer">
+            <span>ผ่าน W2 ก่อน</span>
+            <button type="button" disabled>ล็อกอยู่</button>
+          </div>
         </article>
 
         <article class="boss-preview" id="nodeB1">
-          <div class="boss-preview__top"><span class="stage-number">B1</span><span class="stage-state">BOSS GATE</span></div>
+          <div class="boss-preview__top">
+            <span class="stage-number">B1</span>
+            <span class="stage-state">BOSS GATE</span>
+          </div>
           <div class="boss-preview__body">
             <span class="boss-preview__icon" aria-hidden="true">⚠</span>
             <div>
@@ -155,14 +179,20 @@
               <p>กู้ AI Help Kiosk ที่ผู้ใช้หาเมนูไม่เจอ เข้าใจสถานะผิด และเลิกใช้งานกลางทาง</p>
             </div>
           </div>
-          <div class="boss-preview__footer"><span>ต้องผ่าน W1–W3 ก่อนเข้าสู่ Boss</span><button type="button" disabled>Friction Core Locked</button></div>
+          <div class="boss-preview__footer">
+            <span>ต้องผ่าน W1–W3 ก่อนเข้าสู่ Boss</span>
+            <button type="button" disabled>Friction Core Locked</button>
+          </div>
         </article>
       </div>
     </section>
 
     <details class="how-card">
       <summary>
-        <span><b>วิธีเล่น UX Quest</b><small>Observe → Diagnose → Design Fix → User Test</small></span>
+        <span>
+          <b>วิธีเล่น UX Quest</b>
+          <small>Observe → Diagnose → Design Fix → User Test</small>
+        </span>
         <span class="how-card__chevron" aria-hidden="true">⌄</span>
       </summary>
       <ol class="how-card__steps">
@@ -174,7 +204,7 @@
     </details>
   </main>
 
-  <script src="./js/uxq-unlock-gate-v5.js?v=20260623-unlock-crashfix-v5"></script>
-  <script src="./js/uxq-hub-v5.js?v=20260623-unlock-crashfix-v5"></script>
+  <script src="./js/uxq-progress-v7.js?v=20260623-replay-v7"></script>
+  <script src="./js/uxq-hub-v7.js?v=20260623-replay-v7"></script>
 </body>
 </html>
