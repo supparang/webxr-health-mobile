@@ -1,245 +1,47 @@
 /* === /fitness/fitness-passport-bridge.js ===
-   Fitness Passport Result Bridge
-   ใช้ร่วมกับ:
-   - shadow-breaker-ar.html
-   - rhythm-boxer-ar.html
-   - jumpduck-ar.html
-   - balance-hold-ar2.html
+   Fitness Passport Result Bridge v1
 */
 (function () {
   'use strict';
-
   const ROOT = window;
   const LAST_KEY = 'HHA_LAST_SUMMARY';
   const HISTORY_KEY = 'HHA_PASSPORT_HISTORY_V1';
-
-  const GAME_ALIASES = {
-    shadow: 'shadow-breaker',
-    'shadow-breaker': 'shadow-breaker',
-    shadowbreaker: 'shadow-breaker',
-
-    rhythm: 'rhythm-boxer',
-    'rhythm-boxer': 'rhythm-boxer',
-    rhythmboxer: 'rhythm-boxer',
-
-    jumpduck: 'jumpduck',
-    'jump-duck': 'jumpduck',
-    'jump-duck-ar': 'jumpduck',
-
-    balance: 'balance-hold',
-    balancehold: 'balance-hold',
-    'balance-hold': 'balance-hold',
-    'balance-hold-ar2': 'balance-hold'
+  const ALIAS = {
+    shadow:'shadow-breaker','shadow-breaker':'shadow-breaker',shadowbreaker:'shadow-breaker',
+    rhythm:'rhythm-boxer','rhythm-boxer':'rhythm-boxer',rhythmboxer:'rhythm-boxer',
+    jumpduck:'jumpduck','jump-duck':'jumpduck',
+    balance:'balance-hold',balancehold:'balance-hold','balance-hold':'balance-hold'
   };
-
-  function safeGet(key, fallback) {
-    try {
-      const value = localStorage.getItem(key);
-      return value === null ? fallback : value;
-    } catch (_) {
-      return fallback;
-    }
-  }
-
-  function safeSet(key, value) {
-    try {
-      localStorage.setItem(key, value);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  function clamp(value, min, max) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) return min;
-    return Math.max(min, Math.min(max, number));
-  }
-
-  function queryValue(...names) {
-    const params = new URLSearchParams(location.search);
-    for (const name of names) {
-      const value = params.get(name);
-      if (value) return value.trim();
-    }
-    return '';
-  }
-
-  function canonicalGameId(value) {
-    const raw = String(value || '')
-      .trim()
-      .toLowerCase()
-      .replace(/\.html$/i, '')
-      .replace(/-ar2?$/i, '')
-      .replace(/\s+/g, '-');
-
-    return GAME_ALIASES[raw] || raw || 'unknown';
-  }
-
-  function playerIdentity(payload) {
-    const playerId =
-      String(
-        payload.playerId ||
-        payload.pid ||
-        payload.studentId ||
-        queryValue('pid', 'playerId', 'studentId', 'sid') ||
-        'anon'
-      ).trim() || 'anon';
-
-    const playerName =
-      String(
-        payload.playerName ||
-        payload.name ||
-        queryValue('name', 'player', 'studentName') ||
-        'Hero'
-      ).trim() || 'Hero';
-
-    const group =
-      String(
-        payload.group ||
-        payload.groupName ||
-        queryValue('group', 'classId', 'class', 'section') ||
-        ''
-      ).trim();
-
-    return { playerId, playerName, group };
-  }
-
-  function accuracyOf(payload) {
-    const candidates = [
-      payload.accuracy,
-      payload.accuracyPct,
-      payload.accPct,
-      payload.accuracyGoodPct,
-      payload.hitAccuracy
-    ];
-
-    for (const value of candidates) {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) {
-        return clamp(parsed <= 1 ? parsed * 100 : parsed, 0, 100);
-      }
-    }
-
-    const hit = Number(payload.hits ?? payload.correct ?? 0);
-    const miss = Number(payload.miss ?? payload.misses ?? payload.wrong ?? 0);
-    const total = hit + miss;
-
-    return total > 0 ? clamp((hit / total) * 100, 0, 100) : 0;
-  }
-
-  function scoreOf(payload) {
-    return Math.max(
-      0,
-      Number(payload.scoreFinal ?? payload.score ?? payload.finalScore ?? 0) || 0
-    );
-  }
-
-  function comboOf(payload) {
-    return Math.max(
-      0,
-      Number(payload.comboMax ?? payload.maxCombo ?? payload.bestCombo ?? 0) || 0
-    );
-  }
-
-  function badgeOf(payload, accuracy, combo) {
-    if (payload.badge) return String(payload.badge);
-    if (accuracy >= 95 && combo >= 20) return '🏆 Elite Hero';
-    if (accuracy >= 85) return '🎯 Accuracy Hero';
-    if (combo >= 15) return '🔥 Combo Master';
-    if (accuracy >= 65) return '🌱 Rising Hero';
-    return '💪 Keep Moving';
-  }
-
-  function normalize(payload) {
-    const source = payload || {};
-    const gameId = canonicalGameId(source.gameId || source.game || source.id);
-    const identity = playerIdentity(source);
-    const accuracy = accuracyOf(source);
-    const score = scoreOf(source);
-    const combo = comboOf(source);
-
-    return {
-      version: 'fitness-passport-bridge-v1',
-      savedAt: new Date().toISOString(),
-      gameId,
-      game: gameId,
-      playerId: identity.playerId,
-      pid: identity.playerId,
-      playerName: identity.playerName,
-      name: identity.playerName,
-      group: identity.group,
-      studyId: String(source.studyId || queryValue('studyId', 'study') || ''),
-      diff: String(source.diff || source.difficulty || queryValue('diff', 'difficulty') || ''),
-      duration: Number(source.duration || source.time || source.timeSec || queryValue('time', 'duration') || 0) || 0,
-
-      score,
-      scoreFinal: score,
-      accuracy,
-      accuracyPct: accuracy,
-      comboMax: combo,
-      maxCombo: combo,
-
-      miss: Math.max(0, Number(source.miss ?? source.misses ?? source.wrong ?? 0) || 0),
-      hits: Math.max(0, Number(source.hits ?? source.correct ?? 0) || 0),
-      grade: String(source.grade || source.rank || ''),
-      badge: badgeOf(source, accuracy, combo),
-
-      metrics: source.metrics || {},
-      raw: source
+  const getQ = (...keys) => { try { const q=new URLSearchParams(location.search); for(const k of keys){ const v=q.get(k); if(v) return String(v).trim(); } } catch(_){} return ''; };
+  const safeSet=(k,v)=>{ try{localStorage.setItem(k,v);return true;}catch(_){return false;} };
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
+  const canon=(v)=>{ const k=String(v||'').trim().toLowerCase().replace(/\.html$/,'').replace(/-ar2?$/,'').replace(/\s+/g,'-'); return ALIAS[k]||k||'unknown'; };
+  const pct=(p)=>{ for(const v of [p.accuracy,p.accuracyPct,p.accPct,p.accuracyGoodPct,p.hitAccuracy]){const n=Number(v);if(Number.isFinite(n))return clamp(n<=1?n*100:n,0,100);} const h=Number(p.hits??p.correct??0),m=Number(p.miss??p.misses??p.wrong??0);return h+m?clamp(h/(h+m)*100,0,100):0; };
+  function save(payload){
+    const p=payload||{};
+    const gameId=canon(p.gameId||p.game||p.id);
+    const playerId=String(p.playerId||p.pid||p.studentId||getQ('pid','playerId','studentId','sid')||'anon').trim()||'anon';
+    const playerName=String(p.playerName||p.name||p.studentName||getQ('name','player','studentName')||'Hero').trim()||'Hero';
+    const accuracy=pct(p);
+    const score=Math.max(0,Number(p.scoreFinal??p.score??p.finalScore??0)||0);
+    const combo=Math.max(0,Number(p.comboMax??p.maxCombo??p.bestCombo??0)||0);
+    const summary={
+      version:'fitness-passport-bridge-v1',savedAt:new Date().toISOString(),
+      gameId,game:gameId,playerId,pid:playerId,playerName,name:playerName,
+      group:String(p.group||p.groupName||p.classId||getQ('group','classId','class','section')||''),
+      studyId:String(p.studyId||getQ('studyId','study')||''),diff:String(p.diff||p.difficulty||getQ('diff','difficulty')||''),
+      duration:Number(p.duration||p.time||p.timeSec||getQ('time','duration')||0)||0,
+      score,scoreFinal:score,accuracy,accuracyPct:accuracy,comboMax:combo,maxCombo:combo,
+      miss:Math.max(0,Number(p.miss??p.misses??p.wrong??0)||0),hits:Math.max(0,Number(p.hits??p.correct??0)||0),
+      grade:String(p.grade||p.rank||''),badge:String(p.badge|| (accuracy>=95&&combo>=20?'🏆 Elite Hero':accuracy>=85?'🎯 Accuracy Hero':combo>=15?'🔥 Combo Master':accuracy>=65?'🌱 Rising Hero':'💪 Keep Moving')),
+      metrics:p.metrics||{},raw:p
     };
-  }
-
-  function save(payload) {
-    const summary = normalize(payload);
-    const playerKey = `HHA_LAST_SUMMARY:${summary.gameId}:${summary.playerId}`;
-    const anonKey = `HHA_LAST_SUMMARY:${summary.gameId}:anon`;
-
-    safeSet(playerKey, JSON.stringify(summary));
-    safeSet(anonKey, JSON.stringify(summary));
-    safeSet(LAST_KEY, JSON.stringify(summary));
-
-    let history = [];
-    try {
-      history = JSON.parse(safeGet(HISTORY_KEY, '[]')) || [];
-      if (!Array.isArray(history)) history = [];
-    } catch (_) {
-      history = [];
-    }
-
-    history.unshift(summary);
-    safeSet(HISTORY_KEY, JSON.stringify(history.slice(0, 80)));
-
-    ROOT.dispatchEvent(
-      new CustomEvent('fitness-passport-saved', {
-        detail: summary
-      })
-    );
-
-    console.log('[FitnessPassportBridge] saved', summary.gameId, summary.playerId);
+    safeSet(`${LAST_KEY}:${gameId}:${playerId}`,JSON.stringify(summary));
+    safeSet(`${LAST_KEY}:${gameId}:anon`,JSON.stringify(summary));
+    safeSet(LAST_KEY,JSON.stringify(summary));
+    try{const history=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');history.unshift(summary);safeSet(HISTORY_KEY,JSON.stringify(history.slice(0,80)));}catch(_){}
+    ROOT.dispatchEvent(new CustomEvent('fitness-passport-saved',{detail:summary}));
     return summary;
   }
-
-  function get(gameId, playerId) {
-    const game = canonicalGameId(gameId);
-    const pid = String(playerId || queryValue('pid', 'playerId', 'studentId') || 'anon');
-
-    try {
-      return JSON.parse(
-        safeGet(`HHA_LAST_SUMMARY:${game}:${pid}`, '') ||
-        safeGet(`HHA_LAST_SUMMARY:${game}:anon`, '') ||
-        'null'
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  ROOT.FitnessPassportBridge = {
-    version: 'v1',
-    save,
-    get,
-    normalize,
-    canonicalGameId
-  };
+  ROOT.FitnessPassportBridge={version:'v1',save,canonicalGameId:canon};
 })();
