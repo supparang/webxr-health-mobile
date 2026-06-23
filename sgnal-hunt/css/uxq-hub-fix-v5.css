@@ -1,0 +1,59 @@
+/* === /sgnal-hunt/css/uxq-hub-fix-v5.css ===
+   Compatibility styling for the V5 W2 unlock action.
+*/
+
+.current-card__icon { display: grid; }
+
+.compact-stage--ready {
+  border-color: rgba(67, 219, 169, .58);
+  background: linear-gradient(145deg, rgba(33, 83, 145, .94), rgba(22, 55, 111, .88));
+}
+
+.compact-stage--ready .stage-state {
+  background: rgba(62, 233, 181, .17);
+  color: #a7f8df;
+}
+
+.compact-stage__launch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 11px;
+  border: 1px solid rgba(158, 203, 255, .35);
+  border-radius: 10px;
+  background: rgba(74, 117, 255, .22);
+  color: #eff4ff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  text-decoration: none;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease;
+}
+
+.compact-stage__launch:hover {
+  transform: translateY(-1px);
+  border-color: rgba(186, 218, 255, .75);
+  background: rgba(74, 117, 255, .42);
+}
+
+.compact-stage__launch.is-disabled {
+  pointer-events: none;
+  border-color: rgba(206, 220, 255, .16);
+  background: rgba(255, 255, 255, .04);
+  color: #909ec3;
+}
+
+@media (max-width: 760px) {
+  .compact-stage__footer .compact-stage__launch {
+    display: inline-flex;
+    margin-top: 10px;
+  }
+
+  .compact-stage--ready .compact-stage__footer .compact-stage__launch {
+    width: 100%;
+    min-height: 42px;
+  }
+}
