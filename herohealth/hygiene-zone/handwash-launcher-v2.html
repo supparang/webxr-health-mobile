@@ -1085,6 +1085,116 @@
       font-weight:850;
     }
 
+
+    .delivery-card{
+      display:grid;
+      grid-template-columns:auto minmax(0,1fr) auto;
+      align-items:center;
+      gap:12px;
+      margin:12px 0;
+      padding:12px;
+      border:2px solid #bae6fd;
+      border-radius:18px;
+      background:#f0fbff;
+      text-align:left;
+    }
+
+    .delivery-card[data-status="confirmed"]{
+      border-color:#bbf7d0;
+      background:#f0fdf4;
+    }
+
+    .delivery-card[data-status="offline"],
+    .delivery-card[data-status="retry_scheduled"],
+    .delivery-card[data-status="queued_manual_retry"]{
+      border-color:#fde68a;
+      background:#fffbeb;
+    }
+
+    .delivery-card[data-status="unavailable"]{
+      border-color:#fecaca;
+      background:#fff7f8;
+    }
+
+    .delivery-icon{
+      width:44px;
+      height:44px;
+      display:grid;
+      place-items:center;
+      border-radius:15px;
+      background:#fff;
+      font-size:24px;
+    }
+
+    .delivery-copy{
+      min-width:0;
+    }
+
+    .delivery-copy strong{
+      display:block;
+      color:#12314a;
+      font-size:14px;
+      line-height:1.2;
+    }
+
+    .delivery-copy p{
+      margin:3px 0 0;
+      color:#64798c;
+      font-size:11px;
+      font-weight:800;
+      line-height:1.35;
+    }
+
+    .delivery-checks{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-top:7px;
+    }
+
+    .delivery-chip{
+      padding:4px 7px;
+      border-radius:999px;
+      color:#64748b;
+      background:#e8eef2;
+      font-size:10px;
+      font-weight:1000;
+    }
+
+    .delivery-chip.ok{
+      color:#166534;
+      background:#dcfce7;
+    }
+
+    .delivery-chip.wait{
+      color:#92400e;
+      background:#fef3c7;
+    }
+
+    .delivery-actions{
+      display:grid;
+      gap:6px;
+      justify-items:end;
+    }
+
+    .delivery-actions small{
+      color:#64798c;
+      font-size:10px;
+      font-weight:900;
+      text-align:right;
+    }
+
+    .tiny-btn{
+      min-height:32px;
+      padding:6px 9px;
+      border:1px solid #7dd3fc;
+      border-radius:10px;
+      color:#075985;
+      background:#fff;
+      font-size:11px;
+      font-weight:1000;
+    }
+
     .toast{
       position:absolute;
       z-index:50;
@@ -1150,6 +1260,21 @@
         grid-template-columns:repeat(2,1fr);
       }
     }
+
+
+
+      .delivery-card{
+        grid-template-columns:auto minmax(0,1fr);
+      }
+
+      .delivery-actions{
+        grid-column:1 / -1;
+        justify-items:stretch;
+      }
+
+      .delivery-actions .tiny-btn{
+        width:100%;
+      }
 
     @media (max-height:760px){
       .gesture-card{
@@ -1395,6 +1520,47 @@
           </div>
         </div>
 
+
+        <section
+          id="deliveryPanel"
+          class="delivery-card"
+          data-status="idle"
+          aria-live="polite"
+        >
+          <div id="deliveryIcon" class="delivery-icon">☁️</div>
+
+          <div class="delivery-copy">
+            <strong id="deliveryTitle">กำลังเตรียมบันทึกผล</strong>
+
+            <p id="deliveryText">
+              ระบบจะเก็บ Research Summary และ Event Log ลง Local Outbox ก่อนส่งไปยัง Research Server
+            </p>
+
+            <div class="delivery-checks">
+              <span id="deliverySummaryStatus" class="delivery-chip">
+                Research Summary • รอส่ง
+              </span>
+
+              <span id="deliveryEventsStatus" class="delivery-chip">
+                Event Log • รอส่ง
+              </span>
+            </div>
+          </div>
+
+          <div class="delivery-actions">
+            <button
+              id="btnRetryDelivery"
+              class="tiny-btn"
+              type="button"
+              hidden
+            >
+              ↻ ส่งซ้ำ
+            </button>
+
+            <small id="deliveryOutboxStatus">Local Outbox พร้อม</small>
+          </div>
+        </section>
+
         <div id="badgeList" class="badge-list"></div>
         <div id="diagnosticList" class="diagnostic-list"></div>
 
@@ -1418,7 +1584,7 @@
       "use strict";
 
       const VERSION =
-        "20260623-HANDWASH-AR-DETECTOR-V2-2-FINISH-SEQUENCE-GRACE-RESEARCH";
+        "20260623-HANDWASH-AR-DETECTOR-V2-3-FINISH-GRACE-DELIVERY-ASSURANCE";
 
       const ZONE_ID = "hygiene";
       const qs = new URLSearchParams(location.search);
@@ -1444,6 +1610,20 @@
         window.HH_HANDWASH_RESEARCH_ENDPOINT ||
         SHEET_ENDPOINT ||
         "";
+
+
+      const DELIVERY_VERSION =
+        "20260623-HANDWASH-DELIVERY-ASSURANCE-V2-INTEGRATED";
+
+      const DELIVERY_DB_NAME =
+        "herohealth-handwash-delivery";
+
+      const DELIVERY_DB_VERSION = 1;
+      const DELIVERY_STORE_NAME = "outbox";
+      const DELIVERY_MAX_ATTEMPTS = 8;
+      const DELIVERY_EVENT_BATCH_SIZE = 80;
+      const DELIVERY_RETRY_DELAY_MS = 45 * 1000;
+      const DELIVERY_RECEIPT_DELAYS = [1200, 2200, 3600, 5600];
 
       const DIFF = String(qs.get("diff") || "normal").toLowerCase();
 
@@ -1594,6 +1774,8 @@
       let cameraPermissionGranted = false;
       let cameraSetupMode = "front_camera";
       let playedAttemptCount = 0;
+      let deliveryDbPromise = null;
+      const deliveryProcessing = new Set();
 
       document.addEventListener("DOMContentLoaded", init);
 
@@ -1605,6 +1787,8 @@
         updateMission();
         updateUI();
         startCamera();
+        setupDeliveryRetryListeners();
+        resumeDeliveryOutbox();
       }
 
       function cache(){
@@ -1622,6 +1806,9 @@
           "summaryIcon","summaryTitle","summarySub","sumScore","sumStars","sumAcc",
           "sumSteps","sumStepAccuracy","sumProcessAccuracy","sumGestureQuality",
           "sumBossAccuracy","badgeList","diagnosticList","recommend","toast",
+          "deliveryPanel","deliveryIcon","deliveryTitle","deliveryText",
+          "deliverySummaryStatus","deliveryEventsStatus","deliveryOutboxStatus",
+          "btnRetryDelivery",
           "visualCoach","visualCoachLabel","visualCoachSide","visualCoachDemo",
           "visualCoachTip"
         ].forEach(id => {
@@ -1664,6 +1851,7 @@
         el.btnFaucet.addEventListener("click", onFaucetTap);
         el.btnCoach.addEventListener("click", onCoachTap);
         el.btnTowel.addEventListener("click", onTowelTap);
+        el.btnRetryDelivery.addEventListener("click", retryDeliveryNow);
 
         el.bossTarget.addEventListener("pointerdown", event => {
           event.preventDefault();
@@ -1771,6 +1959,17 @@
 
           researchEvents: [],
           eventSeq: 0,
+
+          delivery: {
+            id: "",
+            status: "idle",
+            summaryConfirmed: false,
+            eventsConfirmed: false,
+            eventCount: 0,
+            expectedEventCount: 0,
+            attempts: 0,
+            message: ""
+          },
 
           stepTimes: {},
           retryCounts: {},
@@ -5031,6 +5230,7 @@
 
         el.recommend.textContent = state.recommendation;
 
+        renderDeliveryStatus();
         renderBadges();
         renderDiagnostics();
       }
@@ -5356,44 +5556,41 @@
       }
 
       function sendSheet(){
-        if(!SHEET_ENDPOINT && !RESEARCH_ENDPOINT) return;
-
         const normalPayload = payload();
         const researchSummary = buildResearchSummaryPayload();
+        const events = Array.isArray(state.researchEvents)
+          ? state.researchEvents.slice()
+          : [];
 
-        if(SHEET_ENDPOINT){
-          postToEndpoint(SHEET_ENDPOINT, normalPayload);
+        if(!SHEET_ENDPOINT && !RESEARCH_ENDPOINT){
+          updateDeliveryStatus({
+            status: "unavailable",
+            expectedEventCount: events.length,
+            message: "ยังไม่ได้กำหนด Web App endpoint สำหรับส่งผล"
+          });
+          return;
         }
 
-        if(RESEARCH_ENDPOINT){
-          postToEndpoint(RESEARCH_ENDPOINT, {
-            api: "handwash_research",
-            type: "handwash_session_summary",
-            payload: researchSummary
+        queueDeliveryPackage({
+          sessionId: state.sessionId,
+          normalEndpoint: SHEET_ENDPOINT,
+          researchEndpoint: RESEARCH_ENDPOINT,
+          normalPayload: normalPayload,
+          researchSummary: researchSummary,
+          events: events,
+          onStatus: updateDeliveryStatus
+        }).then(result => {
+          updateDeliveryStatus({
+            id: result.id,
+            expectedEventCount: result.expectedEventCount
           });
-
-          const chunks = chunkArray(
-            state.researchEvents,
-            100
-          );
-
-          chunks.forEach(events => {
-            postToEndpoint(RESEARCH_ENDPOINT, {
-              api: "handwash_research",
-              type: "handwash_event_batch",
-              meta: {
-                sessionId: researchSummary.sessionId,
-                participantId: researchSummary.participantId,
-                studentName: researchSummary.studentName,
-                classLevel: researchSummary.classLevel,
-                classId: researchSummary.classId,
-                section: researchSummary.section,
-                studyId: researchSummary.studyId
-              },
-              events: events
-            });
+        }).catch(error => {
+          updateDeliveryStatus({
+            status: "retry_scheduled",
+            expectedEventCount: events.length,
+            message: "เก็บผลลง Local Outbox ไม่สำเร็จ ระบบจะลองส่งใหม่เมื่อเปิดเกมอีกครั้ง"
           });
-        }
+        });
       }
 
       function buildResearchSummaryPayload(){
@@ -5561,6 +5758,775 @@
           recommendation: state.recommendation,
           gestureDiagnostics: state.stepDiagnostics
         };
+      }
+
+      /* =====================================================
+       * Result Delivery Assurance
+       * - IndexedDB outbox
+       * - opaque POST to Apps Script
+       * - JSONP receipt verification
+       * ===================================================== */
+
+      function setupDeliveryRetryListeners(){
+        window.addEventListener("online", () => {
+          resumeDeliveryOutbox();
+        });
+
+        document.addEventListener("visibilitychange", () => {
+          if(document.visibilityState === "visible"){
+            resumeDeliveryOutbox();
+          }
+        });
+      }
+
+      function deliveryNowIso(){
+        return new Date().toISOString();
+      }
+
+      function deliveryRandomId(){
+        return Math.random().toString(16).slice(2, 10);
+      }
+
+      function deliveryDelay(ms){
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      function deliverySafeEndpoint(endpoint){
+        return String(endpoint || "").trim();
+      }
+
+      function deliveryEmit(onStatus, payload){
+        try{
+          if(typeof onStatus === "function"){
+            onStatus(Object.assign({
+              deliveryVersion: DELIVERY_VERSION
+            }, payload || {}));
+          }
+        }catch(error){}
+      }
+
+      function deliveryChunk(items, size){
+        const source = Array.isArray(items) ? items : [];
+        const chunks = [];
+        const safeSize = Math.max(1, Number(size) || DELIVERY_EVENT_BATCH_SIZE);
+
+        for(let index = 0; index < source.length; index += safeSize){
+          chunks.push(source.slice(index, index + safeSize));
+        }
+
+        return chunks;
+      }
+
+      function deliveryBuildEventBatches(summary, events){
+        const meta = {
+          sessionId: summary.sessionId || "",
+          participantId: summary.participantId || "anon",
+          studentName: summary.studentName || "Hero",
+          classLevel: summary.classLevel || "",
+          classId: summary.classId || "",
+          section: summary.section || "",
+          studyId: summary.studyId || "HYGIENE-P5-2026"
+        };
+
+        return deliveryChunk(events, DELIVERY_EVENT_BATCH_SIZE)
+          .map(batch => ({
+            api: "handwash_research",
+            type: "handwash_event_batch",
+            meta: meta,
+            events: batch
+          }));
+      }
+
+      function openDeliveryDb(){
+        if(deliveryDbPromise) return deliveryDbPromise;
+
+        deliveryDbPromise = new Promise((resolve, reject) => {
+          if(!window.indexedDB){
+            reject(new Error("IndexedDB unavailable"));
+            return;
+          }
+
+          const request = indexedDB.open(
+            DELIVERY_DB_NAME,
+            DELIVERY_DB_VERSION
+          );
+
+          request.onupgradeneeded = () => {
+            const db = request.result;
+
+            if(!db.objectStoreNames.contains(DELIVERY_STORE_NAME)){
+              db.createObjectStore(DELIVERY_STORE_NAME, {
+                keyPath: "id"
+              });
+            }
+          };
+
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(
+            request.error || new Error("IndexedDB open failed")
+          );
+        });
+
+        return deliveryDbPromise;
+      }
+
+      function deliveryFallbackKey(){
+        return "herohealth:handwash:delivery:outbox";
+      }
+
+      function deliveryReadFallback(){
+        return readJson(deliveryFallbackKey(), []);
+      }
+
+      function deliveryWriteFallback(items){
+        writeJson(deliveryFallbackKey(), items);
+      }
+
+      async function deliveryPut(item){
+        try{
+          const db = await openDeliveryDb();
+
+          return await new Promise((resolve, reject) => {
+            const tx = db.transaction(DELIVERY_STORE_NAME, "readwrite");
+            const request = tx.objectStore(DELIVERY_STORE_NAME).put(item);
+
+            request.onsuccess = () => resolve(item);
+            request.onerror = () => reject(
+              request.error || new Error("Outbox write failed")
+            );
+          });
+        }catch(error){
+          const items = deliveryReadFallback();
+          const index = items.findIndex(row => row.id === item.id);
+
+          if(index >= 0){
+            items[index] = item;
+          }else{
+            items.push(item);
+          }
+
+          deliveryWriteFallback(items.slice(-30));
+          return item;
+        }
+      }
+
+      async function deliveryGet(id){
+        try{
+          const db = await openDeliveryDb();
+
+          return await new Promise((resolve, reject) => {
+            const tx = db.transaction(DELIVERY_STORE_NAME, "readonly");
+            const request = tx.objectStore(DELIVERY_STORE_NAME).get(id);
+
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(
+              request.error || new Error("Outbox read failed")
+            );
+          });
+        }catch(error){
+          return deliveryReadFallback().find(row => row.id === id) || null;
+        }
+      }
+
+      async function deliveryList(){
+        try{
+          const db = await openDeliveryDb();
+
+          return await new Promise((resolve, reject) => {
+            const tx = db.transaction(DELIVERY_STORE_NAME, "readonly");
+            const request = tx.objectStore(DELIVERY_STORE_NAME).getAll();
+
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => reject(
+              request.error || new Error("Outbox list failed")
+            );
+          });
+        }catch(error){
+          return deliveryReadFallback();
+        }
+      }
+
+      async function deliveryRemove(id){
+        try{
+          const db = await openDeliveryDb();
+
+          await new Promise((resolve, reject) => {
+            const tx = db.transaction(DELIVERY_STORE_NAME, "readwrite");
+            const request = tx.objectStore(DELIVERY_STORE_NAME).delete(id);
+
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(
+              request.error || new Error("Outbox delete failed")
+            );
+          });
+        }catch(error){}
+
+        const items = deliveryReadFallback()
+          .filter(row => row.id !== id);
+
+        deliveryWriteFallback(items);
+      }
+
+      async function deliverySendOpaque(endpoint, body){
+        const url = deliverySafeEndpoint(endpoint);
+
+        if(!url){
+          return {
+            ok: false,
+            skipped: true,
+            transport: "none"
+          };
+        }
+
+        try{
+          await fetch(url, {
+            method: "POST",
+            mode: "no-cors",
+            credentials: "omit",
+            keepalive: true,
+            headers: {
+              "Content-Type": "text/plain;charset=utf-8"
+            },
+            body: JSON.stringify(body || {})
+          });
+
+          return {
+            ok: true,
+            transport: "fetch"
+          };
+        }catch(error){
+          return {
+            ok: false,
+            transport: "fetch",
+            error: error && error.message
+              ? error.message
+              : String(error)
+          };
+        }
+      }
+
+      function deliveryJsonp(endpoint, params, timeoutMs = 9000){
+        return new Promise((resolve, reject) => {
+          const callback =
+            "__hhDeliveryReceipt_" +
+            Date.now() +
+            "_" +
+            deliveryRandomId();
+
+          const script = document.createElement("script");
+          const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error("receipt_timeout"));
+          }, timeoutMs);
+
+          function cleanup(){
+            clearTimeout(timeout);
+
+            try{
+              delete window[callback];
+            }catch(error){
+              window[callback] = undefined;
+            }
+
+            if(script.parentNode){
+              script.parentNode.removeChild(script);
+            }
+          }
+
+          window[callback] = payload => {
+            cleanup();
+            resolve(payload || {});
+          };
+
+          script.onerror = () => {
+            cleanup();
+            reject(new Error("receipt_network_error"));
+          };
+
+          try{
+            const url = new URL(endpoint, window.location.href);
+
+            Object.entries(params || {}).forEach(([key, value]) => {
+              if(value !== undefined && value !== null && value !== ""){
+                url.searchParams.set(key, String(value));
+              }
+            });
+
+            url.searchParams.set("callback", callback);
+            url.searchParams.set("_", String(Date.now()));
+
+            script.async = true;
+            script.src = url.toString();
+            document.head.appendChild(script);
+          }catch(error){
+            cleanup();
+            reject(error);
+          }
+        });
+      }
+
+      async function deliveryPollReceipt(item, onStatus){
+        const endpoint = deliverySafeEndpoint(item.researchEndpoint);
+
+        if(!endpoint){
+          return {
+            confirmed: false,
+            summaryConfirmed: false,
+            eventsConfirmed: false,
+            unavailable: true
+          };
+        }
+
+        let latest = null;
+
+        for(const waitMs of DELIVERY_RECEIPT_DELAYS){
+          await deliveryDelay(waitMs);
+
+          try{
+            const receipt = await deliveryJsonp(endpoint, {
+              api: "hygiene",
+              type: "handwash_research_receipt",
+              sessionId: item.sessionId,
+              expectedEvents: item.expectedEventCount
+            });
+
+            latest = receipt || {};
+
+            const summaryConfirmed = !!latest.summaryFound;
+            const eventsConfirmed = !!latest.eventsConfirmed;
+
+            deliveryEmit(onStatus, {
+              id: item.id,
+              status: summaryConfirmed && eventsConfirmed
+                ? "confirmed"
+                : summaryConfirmed
+                  ? "summary_confirmed"
+                  : "awaiting_receipt",
+              summaryConfirmed: summaryConfirmed,
+              eventsConfirmed: eventsConfirmed,
+              eventCount: Number(latest.eventCount || 0),
+              expectedEventCount: Number(item.expectedEventCount || 0),
+              message: summaryConfirmed && eventsConfirmed
+                ? "บันทึก Research Summary และ Event Log แล้ว ✓"
+                : summaryConfirmed
+                  ? "บันทึก Research Summary แล้ว กำลังตรวจ Event Log"
+                  : "กำลังรอใบยืนยันจาก Research Server"
+            });
+
+            if(summaryConfirmed && eventsConfirmed){
+              return Object.assign({}, latest, {
+                confirmed: true,
+                summaryConfirmed: true,
+                eventsConfirmed: true
+              });
+            }
+          }catch(error){
+            latest = {
+              ok: false,
+              error: error && error.message
+                ? error.message
+                : String(error)
+            };
+          }
+        }
+
+        return Object.assign({}, latest || {}, {
+          confirmed: false,
+          summaryConfirmed: !!(latest && latest.summaryFound),
+          eventsConfirmed: !!(latest && latest.eventsConfirmed)
+        });
+      }
+
+      async function deliverOutboxItem(item, onStatus){
+        if(!item || !item.id || deliveryProcessing.has(item.id)) return;
+
+        deliveryProcessing.add(item.id);
+
+        try{
+          if(!navigator.onLine){
+            item.status = "offline";
+            item.nextAttemptAt = Date.now() + DELIVERY_RETRY_DELAY_MS;
+            item.updatedAt = deliveryNowIso();
+
+            await deliveryPut(item);
+
+            deliveryEmit(onStatus, {
+              id: item.id,
+              status: "offline",
+              summaryConfirmed: false,
+              eventsConfirmed: false,
+              eventCount: 0,
+              expectedEventCount: item.expectedEventCount,
+              message: "ไม่มีอินเทอร์เน็ต เก็บผลไว้ใน Local Outbox แล้ว"
+            });
+
+            return;
+          }
+
+          item.status = "sending";
+          item.updatedAt = deliveryNowIso();
+          await deliveryPut(item);
+
+          deliveryEmit(onStatus, {
+            id: item.id,
+            status: "sending",
+            summaryConfirmed: false,
+            eventsConfirmed: false,
+            eventCount: 0,
+            expectedEventCount: item.expectedEventCount,
+            message: "กำลังส่งผลการเล่นไปยัง Research Server"
+          });
+
+          if(
+            !item.normalSent &&
+            item.normalEndpoint &&
+            item.normalPayload
+          ){
+            const normalResult = await deliverySendOpaque(
+              item.normalEndpoint,
+              item.normalPayload
+            );
+
+            item.normalSent = !!normalResult.ok;
+          }
+
+          const summaryResult = await deliverySendOpaque(
+            item.researchEndpoint,
+            {
+              api: "handwash_research",
+              type: "handwash_session_summary",
+              payload: item.researchSummary
+            }
+          );
+
+          const batches = Array.isArray(item.eventBatches)
+            ? item.eventBatches
+            : [];
+
+          let eventBatchesSent = 0;
+
+          for(const batch of batches){
+            const result = await deliverySendOpaque(
+              item.researchEndpoint,
+              batch
+            );
+
+            if(result.ok){
+              eventBatchesSent += 1;
+            }
+          }
+
+          item.researchSent = !!summaryResult.ok;
+          item.eventBatchesSent = eventBatchesSent;
+          item.attempts = Number(item.attempts || 0) + 1;
+          item.status = "awaiting_receipt";
+          item.updatedAt = deliveryNowIso();
+
+          await deliveryPut(item);
+
+          deliveryEmit(onStatus, {
+            id: item.id,
+            status: "awaiting_receipt",
+            summaryConfirmed: false,
+            eventsConfirmed: false,
+            eventCount: 0,
+            expectedEventCount: item.expectedEventCount,
+            attempts: item.attempts,
+            message: "ส่งแล้ว กำลังตรวจสอบใบยืนยันจาก Research Server"
+          });
+
+          const receipt = await deliveryPollReceipt(item, onStatus);
+
+          if(receipt.confirmed){
+            await deliveryRemove(item.id);
+
+            deliveryEmit(onStatus, {
+              id: item.id,
+              status: "confirmed",
+              summaryConfirmed: true,
+              eventsConfirmed: true,
+              eventCount: Number(
+                receipt.eventCount ||
+                item.expectedEventCount ||
+                0
+              ),
+              expectedEventCount: item.expectedEventCount,
+              attempts: item.attempts,
+              message: "บันทึก Research Summary และ Event Log แล้ว ✓"
+            });
+
+            return;
+          }
+
+          item.status = item.attempts >= DELIVERY_MAX_ATTEMPTS
+            ? "queued_manual_retry"
+            : "retry_scheduled";
+
+          item.nextAttemptAt = Date.now() + (
+            item.status === "queued_manual_retry"
+              ? 5 * 60 * 1000
+              : DELIVERY_RETRY_DELAY_MS
+          );
+
+          item.updatedAt = deliveryNowIso();
+          await deliveryPut(item);
+
+          deliveryEmit(onStatus, {
+            id: item.id,
+            status: item.status,
+            summaryConfirmed: !!receipt.summaryConfirmed,
+            eventsConfirmed: !!receipt.eventsConfirmed,
+            eventCount: Number(receipt.eventCount || 0),
+            expectedEventCount: item.expectedEventCount,
+            attempts: item.attempts,
+            message: receipt.summaryConfirmed
+              ? "บันทึก Summary แล้ว แต่ Event Log ยังไม่ครบ ระบบจะลองส่งซ้ำอัตโนมัติ"
+              : "ยังไม่ได้รับใบยืนยัน เก็บผลไว้ใน Local Outbox และจะลองส่งซ้ำอัตโนมัติ"
+          });
+        }catch(error){
+          item.attempts = Number(item.attempts || 0) + 1;
+          item.status = "retry_scheduled";
+          item.nextAttemptAt = Date.now() + DELIVERY_RETRY_DELAY_MS;
+          item.updatedAt = deliveryNowIso();
+
+          try{
+            await deliveryPut(item);
+          }catch(innerError){}
+
+          deliveryEmit(onStatus, {
+            id: item.id,
+            status: "retry_scheduled",
+            summaryConfirmed: false,
+            eventsConfirmed: false,
+            eventCount: 0,
+            expectedEventCount: item.expectedEventCount,
+            attempts: item.attempts,
+            message: "ส่งไม่สมบูรณ์ เก็บผลไว้ใน Local Outbox และจะลองส่งซ้ำอัตโนมัติ"
+          });
+        }finally{
+          deliveryProcessing.delete(item.id);
+        }
+      }
+
+      async function queueDeliveryPackage(input){
+        const summary = input?.researchSummary || {};
+        const sessionId = String(
+          input?.sessionId ||
+          summary.sessionId ||
+          ""
+        ).trim();
+
+        if(!sessionId){
+          throw new Error("missing_session_id");
+        }
+
+        const events = Array.isArray(input?.events)
+          ? input.events
+          : [];
+
+        const item = {
+          id: "hwd-" + sessionId,
+          deliveryVersion: DELIVERY_VERSION,
+          sessionId: sessionId,
+          createdAt: deliveryNowIso(),
+          updatedAt: deliveryNowIso(),
+          status: "queued",
+          attempts: 0,
+          nextAttemptAt: 0,
+
+          normalEndpoint: deliverySafeEndpoint(input?.normalEndpoint),
+          researchEndpoint: deliverySafeEndpoint(input?.researchEndpoint),
+
+          normalPayload: input?.normalPayload || null,
+          researchSummary: summary,
+          eventBatches: deliveryBuildEventBatches(summary, events),
+          expectedEventCount: events.length,
+
+          normalSent: false,
+          researchSent: false,
+          eventBatchesSent: 0
+        };
+
+        await deliveryPut(item);
+
+        deliveryEmit(input?.onStatus, {
+          id: item.id,
+          status: "queued",
+          summaryConfirmed: false,
+          eventsConfirmed: false,
+          eventCount: 0,
+          expectedEventCount: item.expectedEventCount,
+          message: "เก็บผลลง Local Outbox แล้ว"
+        });
+
+        deliverOutboxItem(item, input?.onStatus);
+
+        return {
+          id: item.id,
+          sessionId: item.sessionId,
+          expectedEventCount: item.expectedEventCount
+        };
+      }
+
+      async function resumeDeliveryOutbox(){
+        let items = [];
+
+        try{
+          items = await deliveryList();
+        }catch(error){
+          return;
+        }
+
+        const now = Date.now();
+
+        items
+          .filter(item => {
+            return !item.nextAttemptAt ||
+              Number(item.nextAttemptAt) <= now;
+          })
+          .forEach(item => {
+            deliverOutboxItem(item, null);
+          });
+      }
+
+      async function retryDeliveryNow(){
+        const delivery = state?.delivery || {};
+
+        if(!delivery.id){
+          updateDeliveryStatus({
+            status: "retry_scheduled",
+            message: "ยังไม่พบรายการค้างส่งใน Local Outbox"
+          });
+          return;
+        }
+
+        el.btnRetryDelivery.disabled = true;
+
+        try{
+          const item = await deliveryGet(delivery.id);
+
+          if(!item){
+            updateDeliveryStatus({
+              status: "confirmed",
+              summaryConfirmed: true,
+              eventsConfirmed: true,
+              message: "ไม่พบรายการค้างส่งใน Local Outbox"
+            });
+            return;
+          }
+
+          item.status = "queued";
+          item.nextAttemptAt = 0;
+          item.updatedAt = deliveryNowIso();
+
+          await deliveryPut(item);
+          await deliverOutboxItem(item, updateDeliveryStatus);
+        }finally{
+          el.btnRetryDelivery.disabled = false;
+        }
+      }
+
+      function updateDeliveryStatus(info = {}){
+        if(!state) return;
+
+        state.delivery = Object.assign(
+          {},
+          state.delivery || {},
+          info
+        );
+
+        renderDeliveryStatus();
+      }
+
+      function renderDeliveryStatus(){
+        if(!el.deliveryPanel || !state) return;
+
+        const delivery = state.delivery || {};
+        const status = delivery.status || "idle";
+
+        const waiting = [
+          "queued",
+          "sending",
+          "awaiting_receipt",
+          "summary_confirmed"
+        ].includes(status);
+
+        const retryable = [
+          "offline",
+          "retry_scheduled",
+          "queued_manual_retry"
+        ].includes(status);
+
+        const labels = {
+          idle: "กำลังเตรียมบันทึกผล",
+          queued: "เก็บผลลง Local Outbox แล้ว",
+          sending: "กำลังส่งผลการเล่น",
+          awaiting_receipt: "กำลังตรวจสอบใบยืนยัน",
+          summary_confirmed: "Research Summary บันทึกแล้ว",
+          confirmed: "บันทึกผลวิจัยครบแล้ว ✓",
+          offline: "ไม่มีอินเทอร์เน็ต",
+          retry_scheduled: "เก็บผลไว้รอส่งซ้ำ",
+          queued_manual_retry: "รอให้กดส่งซ้ำ",
+          unavailable: "ยังไม่มี Research Endpoint"
+        };
+
+        const icon = {
+          idle: "☁️",
+          queued: "📦",
+          sending: "📡",
+          awaiting_receipt: "🔎",
+          summary_confirmed: "🧾",
+          confirmed: "✅",
+          offline: "📴",
+          retry_scheduled: "🕒",
+          queued_manual_retry: "🔁",
+          unavailable: "⚠️"
+        };
+
+        el.deliveryPanel.dataset.status = status;
+        el.deliveryIcon.textContent = icon[status] || "☁️";
+        el.deliveryTitle.textContent = labels[status] || "สถานะการบันทึกผล";
+        el.deliveryText.textContent = delivery.message ||
+          "ระบบตรวจสอบผลการส่งข้อมูลอัตโนมัติ";
+
+        const eventCount = Number(delivery.eventCount || 0);
+        const expectedEventCount = Number(delivery.expectedEventCount || 0);
+
+        el.deliverySummaryStatus.textContent = delivery.summaryConfirmed
+          ? "Research Summary ✓"
+          : waiting
+            ? "Research Summary • กำลังส่ง"
+            : "Research Summary • รอส่ง";
+
+        el.deliveryEventsStatus.textContent = delivery.eventsConfirmed
+          ? `Event Log ✓ ${eventCount}/${expectedEventCount}`
+          : waiting
+            ? `Event Log • ${eventCount}/${expectedEventCount}`
+            : "Event Log • รอส่ง";
+
+        el.deliverySummaryStatus.className = "delivery-chip " + (
+          delivery.summaryConfirmed
+            ? "ok"
+            : waiting
+              ? "wait"
+              : ""
+        );
+
+        el.deliveryEventsStatus.className = "delivery-chip " + (
+          delivery.eventsConfirmed
+            ? "ok"
+            : waiting
+              ? "wait"
+              : ""
+        );
+
+        el.deliveryOutboxStatus.textContent = status === "confirmed"
+          ? "ล้าง Local Outbox แล้ว"
+          : retryable
+            ? "เก็บใน Local Outbox ปลอดภัย"
+            : "Local Outbox กำลังทำงาน";
+
+        el.btnRetryDelivery.hidden = !retryable;
       }
 
       function postToEndpoint(endpoint, body){
