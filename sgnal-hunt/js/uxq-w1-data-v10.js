@@ -1868,3 +1868,291 @@
     getScenario
   };
 })();
+/* =========================================================
+   UX QUEST W1 V10 — DATA SCHEMA COMPATIBILITY BRIDGE
+   ทำให้ Data V10 แบบ REPLAY_CORES ใช้กับ Engine V10
+   แบบ coreCases ได้ โดยไม่ล้าง Progress เดิม
+   ========================================================= */
+
+(function () {
+  'use strict';
+
+  const source = window.UXQ_W1_DIVERSITY_V10;
+
+  /* ถ้าเป็น Data schema ใหม่อยู่แล้ว ไม่ต้องแปลงซ้ำ */
+  if (!source || Array.isArray(source.coreCases)) {
+    return;
+  }
+
+  const rawCores = Array.isArray(source.REPLAY_CORES)
+    ? source.REPLAY_CORES
+    : [];
+
+  const rawTutorial = Array.isArray(source.TUTORIAL_CASES)
+    ? source.TUTORIAL_CASES
+    : [];
+
+  const typeMeta = source.TYPE_META || {};
+
+  function textOf(option) {
+    return option?.text || option?.label || '';
+  }
+
+  function cleanPercent(value) {
+    return String(value ?? 0).replace('%', '');
+  }
+
+  function normalizeOption(option) {
+    return {
+      ...option,
+      text: textOf(option)
+    };
+  }
+
+  function normalizeObserve(observe) {
+    const safeObserve = observe || {};
+
+    const base = {
+      ...safeObserve,
+      title: safeObserve.title || 'Observe',
+      prompt:
+        safeObserve.prompt ||
+        safeObserve.question ||
+        'หลักฐานใดเกี่ยวข้องกับ User Goal มากที่สุด?'
+    };
+
+    const options = Array.isArray(safeObserve.options)
+      ? safeObserve.options.map(normalizeOption)
+      : [];
+
+    /*
+      UI/UX Split เดิมต้องเลือก 2 ข้อ
+      แปลงเป็นการเลือก “คู่ของ UI Symptom”
+      เพื่อให้เข้ากับ Engine V10 ที่ใช้ตัวเลือกเดียว
+    */
+    if (safeObserve.kind === 'multi') {
+      const good = options.filter((item) => item.correct);
+      const bad = options.filter((item) => !item.correct);
+
+      return {
+        ...base,
+        kind: 'single',
+        prompt: 'คู่ใดเป็น UI Symptom โดยตรงที่ควรวิเคราะห์ก่อน?',
+        options: [
+          {
+            id: 'correct-pair',
+            correct: true,
+            text: good.map((item) => item.text).join(' + ')
+          },
+          {
+            id: 'mixed-pair',
+            correct: false,
+            text: [good[0]?.text, bad[0]?.text]
+              .filter(Boolean)
+              .join(' + ')
+          },
+          {
+            id: 'non-ui-pair',
+            correct: false,
+            text: bad
+              .map((item) => item.text)
+              .slice(0, 2)
+              .join(' + ')
+          }
+        ]
+      };
+    }
+
+    /*
+      Budget Trade-off เดิมเลือก 2 การแก้ภายใต้งบ
+      แปลงเป็นการเลือก “แผนแก้ไข” หนึ่งแผน
+    */
+    if (safeObserve.kind === 'budget') {
+      const good = options.filter((item) => item.correct);
+      const bad = options.filter((item) => !item.correct);
+
+      return {
+        ...base,
+        kind: 'single',
+        prompt:
+          `คุณมี Design Energy ${safeObserve.budget || 0} หน่วย ` +
+          'แผนใดควรทำก่อนเพื่อช่วย User Goal มากที่สุด?',
+        options: [
+          {
+            id: 'correct-plan',
+            correct: true,
+            text: good.map((item) => item.text).join(' + ')
+          },
+          {
+            id: 'surface-plan',
+            correct: false,
+            text: bad
+              .map((item) => item.text)
+              .slice(0, 2)
+              .join(' + ')
+          },
+          {
+            id: 'mixed-plan',
+            correct: false,
+            text: [good[0]?.text, bad[0]?.text]
+              .filter(Boolean)
+              .join(' + ')
+          }
+        ]
+      };
+    }
+
+    return {
+      ...base,
+      options
+    };
+  }
+
+  function normalizeCore(core) {
+    const meta = typeMeta[core.type] || {};
+
+    const explainChoices = Array.isArray(core.explain?.choices)
+      ? core.explain.choices.map((text, index) => ({
+          id: `explain-${index + 1}`,
+          text,
+          correct: Array.isArray(core.explain?.correct)
+            ? core.explain.correct.includes(text)
+            : false
+        }))
+      : [];
+
+    return {
+      ...core,
+
+      coreId: core.coreId || core.id,
+
+      formatId: core.formatId || core.type,
+
+      format: {
+        label: meta.title || core.type || 'UX Investigation',
+        short: meta.short || core.type || 'UX',
+        description: meta.description || ''
+      },
+
+      title:
+        core.title ||
+        core.screenTitle ||
+        'UX Investigation',
+
+      screen:
+        core.screen ||
+        core.screenTitle ||
+        '',
+
+      persona:
+        core.persona ||
+        core.observe?.persona ||
+        'Smart Campus User',
+
+      goal:
+        core.goal ||
+        core.observe?.goal ||
+        '',
+
+      quote:
+        core.quote ||
+        core.observe?.quote ||
+        '',
+
+      observe: normalizeObserve(core.observe),
+
+      diagnose: {
+        ...(core.diagnosis || {}),
+        title: 'Diagnose',
+        prompt:
+          core.diagnosis?.prompt ||
+          'ผลกระทบต่อผู้ใช้คืออะไร?',
+        options: Array.isArray(core.diagnosis?.options)
+          ? core.diagnosis.options.map(normalizeOption)
+          : []
+      },
+
+      fix: {
+        ...(core.fix || {}),
+        title: 'Design Fix',
+        prompt:
+          core.fix?.prompt ||
+          'เลือกการแก้ที่ตอบ User Goal มากที่สุด',
+        options: Array.isArray(core.fix?.options)
+          ? core.fix.options.map(normalizeOption)
+          : []
+      },
+
+      test: {
+        before: {
+          success: cleanPercent(core.result?.before?.success),
+          time: core.result?.before?.time || '-',
+          confidence: cleanPercent(core.result?.before?.confidence)
+        },
+
+        after: {
+          success: cleanPercent(core.result?.after?.success),
+          time: core.result?.after?.time || '-',
+          confidence: cleanPercent(core.result?.after?.confidence)
+        },
+
+        result:
+          core.result?.takeaway ||
+          'ตรวจผลจาก Task success เวลา และความมั่นใจของผู้ใช้'
+      },
+
+      explain: {
+        prompt:
+          core.explain?.prompt ||
+          'เลือก 2 ผลลัพธ์ที่พิสูจน์ว่าการแก้ช่วยผู้ใช้จริง',
+
+        choices: explainChoices,
+
+        require: 2
+      }
+    };
+  }
+
+  const coreCases = rawCores.map(normalizeCore);
+
+  const coreById = new Map(
+    coreCases.map((core) => [core.id, core])
+  );
+
+  source.coreCases = coreCases;
+
+  source.tutorialCases = rawTutorial
+    .map((core) => coreById.get(core.id) || normalizeCore(core))
+    .filter(Boolean);
+
+  source.formatMeta = Object.fromEntries(
+    Object.entries(typeMeta).map(([id, meta]) => [
+      id,
+      {
+        label: meta.title || id,
+        short: meta.short || id,
+        description: meta.description || ''
+      }
+    ])
+  );
+
+  source.scenarioVariants = Array.isArray(source.scenarioVariants)
+    ? source.scenarioVariants
+    : [];
+
+  source.counts = {
+    contexts: Array.isArray(source.CONTEXTS)
+      ? source.CONTEXTS.length
+      : 0,
+
+    formats: Object.keys(source.formatMeta).length,
+
+    coreCases: source.coreCases.length,
+
+    scenarioVariants: source.scenarioVariants.length,
+
+    scenarios:
+      source.coreCases.length *
+      Math.max(source.scenarioVariants.length, 1)
+  };
+})();
