@@ -1,97 +1,467 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#e0f7ff" />
-  <title>HeroHealth • Fitness Passport</title>
-  <style>
-    :root{--ink:#0f172a;--muted:#64748b;--line:rgba(56,189,248,.35);--card:rgba(255,255,255,.86);--blue:#38bdf8;--mint:#34d399;--amber:#f59e0b;--pink:#fb7185;--shadow:0 18px 46px rgba(14,116,144,.14)}
-    *{box-sizing:border-box}body{margin:0;font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai",system-ui,sans-serif;color:var(--ink);background:radial-gradient(circle at 8% 4%,#fff,transparent 24%),radial-gradient(circle at 92% 7%,#ddd6fe,transparent 26%),linear-gradient(180deg,#dff7ff,#e0fdf4 58%,#fff7d6);min-height:100vh}
-    .wrap{max-width:1080px;margin:auto;padding:16px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.brand,.card{background:var(--card);border:2px solid var(--line);box-shadow:var(--shadow);backdrop-filter:blur(12px)}.brand{border-radius:999px;padding:10px 14px;display:flex;align-items:center;gap:10px}.brand i{font-style:normal;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--blue),var(--mint);color:#fff;font-size:22px}.brand h1{font-size:18px;margin:0}.brand p{margin:3px 0 0;font-size:12px;color:var(--muted);font-weight:800}.btn{border:0;border-radius:999px;padding:11px 14px;font-weight:1000;cursor:pointer;text-decoration:none;color:#0f172a;background:#fff;box-shadow:0 10px 20px rgba(14,116,144,.12)}.btn.primary{background:linear-gradient(135deg,var(--blue),var(--mint);color:#fff}
-    .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-top:14px}.card{border-radius:28px;padding:18px}.hero h2{font-size:clamp(28px,5vw,48px);line-height:.98;margin:0 0 10px;letter-spacing:-.05em}.hero h2 span{background:linear-gradient(135deg,#0284c7,#10b981);-webkit-background-clip:text;background-clip:text;color:transparent}.lead{font-weight:800;line-height:1.55;color:#475569}.score{display:grid;place-items:center;min-height:240px;text-align:center;background:linear-gradient(135deg,rgba(224,247,255,.8),rgba(236,253,245,.9))}.ring{width:144px;height:144px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--mint) calc(var(--pct)*1%),#e2e8f0 0);position:relative}.ring:before{content:"";position:absolute;inset:13px;border-radius:50%;background:#fff}.ring b,.ring span{position:relative}.ring b{font-size:34px}.ring span{font-size:11px;font-weight:1000;color:var(--muted)}
-    .section{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:20px 2px 10px}.section h3{margin:0;font-size:23px}.section p{margin:4px 0 0;color:var(--muted);font-weight:800;font-size:13px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.game{border-radius:24px;padding:14px;background:rgba(255,255,255,.86);border:2px solid var(--line);box-shadow:0 12px 28px rgba(14,116,144,.09);min-height:210px}.game .icon{width:52px;height:52px;border-radius:18px;display:grid;place-items:center;font-size:28px;background:linear-gradient(135deg,rgba(56,189,248,.2),rgba(52,211,153,.22))}.game h4{margin:10px 0 4px;font-size:17px}.game p{margin:0;color:var(--muted);font-size:12px;font-weight:800;line-height:1.45}.bar{height:10px;border-radius:999px;background:#e2e8f0;margin:12px 0 8px;overflow:hidden}.bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--blue),var(--mint))}.metric{display:flex;justify-content:space-between;font-size:12px;font-weight:1000}.status{margin-top:10px;border-radius:14px;padding:8px 9px;font-size:12px;font-weight:1000;background:#f8fafc}.status.good{color:#047857;background:#ecfdf5}.status.warn{color:#b45309;background:#fffbeb}.status.risk{color:#be123c;background:#fff1f2}
-    .next{display:grid;grid-template-columns:1fr 1fr;gap:12px}.mission{background:linear-gradient(135deg,rgba(236,253,245,.95),rgba(224,247,255,.92))}.mission ul{padding-left:20px;margin:10px 0 0}.mission li{margin:8px 0;font-weight:900;line-height:1.45}.insight{background:linear-gradient(135deg,rgba(255,251,235,.95),rgba(255,247,237,.92))}.empty{text-align:center;padding:24px;color:var(--muted);font-weight:900}.foot{margin:16px 2px;color:var(--muted);font-size:12px;font-weight:800;line-height:1.5}
-    @media(max-width:900px){.hero,.next{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:520px){.grid{grid-template-columns:1fr}.wrap{padding:10px}.hero h2{font-size:34px}}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fitness Passport</title>
+<style>
+:root{
+  --ink:#10213a;
+  --muted:#64748b;
+  --line:#9ee3ff;
+  --blue:#20b7ed;
+  --mint:#32cd95;
+  --card:rgba(255,255,255,.9);
+  --shadow:0 16px 38px rgba(14,116,144,.14);
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:Arial,"Noto Sans Thai",sans-serif;
+  color:var(--ink);
+  background:linear-gradient(180deg,#e1f8ff,#e9fff7 58%,#fff8d9);
+}
+.wrap{max-width:1120px;margin:auto;padding:18px}
+.top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.brand,.card,.game{
+  background:var(--card);
+  border:2px solid var(--line);
+  box-shadow:var(--shadow);
+}
+.brand{
+  border-radius:26px;
+  padding:12px 16px;
+  display:flex;
+  gap:11px;
+  align-items:center;
+}
+.brandIcon{
+  width:46px;
+  height:46px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg,var(--blue),var(--mint));
+  font-size:24px;
+}
+.brand h1{margin:0;font-size:21px}
+.brand p{
+  margin:4px 0 0;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:bold;
+}
+.btn{
+  border:0;
+  border-radius:999px;
+  background:white;
+  padding:11px 15px;
+  text-decoration:none;
+  font-weight:bold;
+  color:#16304d;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(14,116,144,.12);
+}
+.hero{
+  display:grid;
+  grid-template-columns:1.15fr .85fr;
+  gap:14px;
+  margin-top:16px;
+}
+.card{
+  border-radius:28px;
+  padding:20px;
+}
+.hero h2{
+  font-size:46px;
+  line-height:1;
+  margin:0 0 12px;
+}
+.hero h2 span{color:#079dcf}
+.lead{
+  font-weight:bold;
+  color:#43536a;
+  line-height:1.55;
+}
+.scoreCard{
+  text-align:center;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  background:linear-gradient(135deg,#e7fbff,#effff7);
+}
+.ring{
+  width:160px;
+  height:160px;
+  border-radius:50%;
+  background:#fff;
+  border:14px solid #dce8ef;
+  display:grid;
+  place-items:center;
+}
+.ring b{font-size:40px}
+.ring small{
+  display:block;
+  color:var(--muted);
+  font-weight:bold;
+}
+.head{
+  display:flex;
+  justify-content:space-between;
+  align-items:end;
+  gap:12px;
+  margin:22px 2px 10px;
+}
+.head h3{margin:0;font-size:24px}
+.head p{
+  margin:4px 0 0;
+  color:var(--muted);
+  font-weight:bold;
+  font-size:13px;
+}
+.games{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+}
+.game{
+  border-radius:24px;
+  padding:14px;
+  min-height:220px;
+}
+.icon{
+  width:56px;
+  height:56px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  background:#ddf9ff;
+  font-size:29px;
+}
+.game h4{
+  margin:10px 0 5px;
+  font-size:17px;
+}
+.game p{
+  margin:0;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.45;
+  font-weight:bold;
+}
+.bar{
+  height:10px;
+  background:#dce8ef;
+  border-radius:999px;
+  margin:14px 0 8px;
+  overflow:hidden;
+}
+.fill{
+  height:100%;
+  width:0;
+  background:linear-gradient(90deg,var(--blue),var(--mint));
+  border-radius:inherit;
+}
+.metric{
+  display:flex;
+  justify-content:space-between;
+  font-size:12px;
+  font-weight:bold;
+}
+.state{
+  margin-top:10px;
+  padding:8px 9px;
+  border-radius:14px;
+  background:#fff8df;
+  color:#9a5d00;
+  font-size:12px;
+  font-weight:bold;
+}
+.bottom{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+.bottom h3{margin:0}
+.bottom ul{padding-left:20px}
+.bottom li{
+  font-weight:bold;
+  margin:8px 0;
+}
+.mission{background:#eafff5}
+.coach{background:#fff7e4}
+.foot{
+  font-size:12px;
+  color:var(--muted);
+  font-weight:bold;
+  margin:18px 2px;
+}
+@media(max-width:900px){
+  .hero,.bottom{grid-template-columns:1fr}
+  .games{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:540px){
+  .games{grid-template-columns:1fr}
+  .hero h2{font-size:36px}
+  .top .btn{width:100%;text-align:center}
+  .brand{width:100%}
+}
+</style>
 </head>
 <body>
-  <main class="wrap">
-    <header class="top">
-      <div class="brand"><i>🏅</i><div><h1>Fitness Passport</h1><p id="studentLine">HeroHealth • พัฒนาการของฉัน</p></div></div>
-      <a class="btn" href="./hub.html">← กลับ Fitness Zone</a>
-    </header>
+<main class="wrap">
 
-    <section class="hero">
-      <article class="card"><h2>ทุกก้าวคือ<br><span>พลังของฉัน</span></h2><p class="lead" id="summaryText">เริ่มเล่นเกม Fitness AR เพื่อสร้าง Passport ของตัวเอง</p><div id="badges" style="display:flex;gap:7px;flex-wrap:wrap;margin-top:14px"></div></article>
-      <article class="card score"><div class="ring" id="ring" style="--pct:0"><div><b id="passportScore">0</b><br><span>FITNESS SCORE</span></div></div><p id="scoreNote" style="margin:12px 0 0;font-weight:1000;color:var(--muted)">ยังไม่มีผลการเล่น</p></article>
-    </section>
+<header class="top">
+  <div class="brand">
+    <div class="brandIcon">🏅</div>
+    <div>
+      <h1>Fitness Passport</h1>
+      <p id="who">Hero • HeroHealth Fitness AR</p>
+    </div>
+  </div>
 
-    <div class="section"><div><h3>4 Game Passport</h3><p>บันทึกจากผลรอบล่าสุดของแต่ละเกม</p></div><button class="btn" id="refreshBtn">↻ อัปเดต</button></div>
-    <section class="grid" id="gameGrid"></section>
+  <a class="btn" href="./hub.html">← กลับ Fitness Zone</a>
+</header>
 
-    <div class="section"><div><h3>ภารกิจและคำแนะนำถัดไป</h3><p>ปรับจากความแม่นยำ ความเหนื่อย และข้อมูลเกมที่มีอยู่</p></div></div>
-    <section class="next"><article class="card mission"><h3 style="margin:0">🎯 Today Mission</h3><ul id="missionList"></ul></article><article class="card insight"><h3 style="margin:0">🤖 Adaptive Coach</h3><div id="coachText" style="margin-top:10px;font-weight:900;line-height:1.55"></div></article></section>
-    <p class="foot">Fitness Passport ใช้ข้อมูลผลล่าสุดที่เกมบันทึกไว้บนอุปกรณ์นี้ และช่วยแนะนำระดับ/เกมถัดไป โดยไม่แทนที่การดูแลจากครูหรือผู้ปกครอง</p>
-  </main>
+<section class="hero">
+  <article class="card">
+    <h2>ทุกก้าวคือ<br><span>พลังของฉัน</span></h2>
+    <p id="summary" class="lead">
+      เริ่มเล่นเกม Fitness AR เพื่อสร้าง Passport ของตัวเอง
+    </p>
+    <p id="badge" class="lead" style="margin-top:14px;font-size:13px">
+      🌱 เริ่มเกมแรกเพื่อปลด Badge
+    </p>
+  </article>
+
+  <article class="card scoreCard">
+    <div class="ring">
+      <div>
+        <b id="score">0</b>
+        <small>FITNESS SCORE</small>
+      </div>
+    </div>
+    <p id="played" class="lead" style="margin:14px 0 0">
+      ยังไม่มีผลการเล่น
+    </p>
+  </article>
+</section>
+
+<div class="head">
+  <div>
+    <h3>4 Game Passport</h3>
+    <p>บันทึกจากผลรอบล่าสุดบนอุปกรณ์นี้</p>
+  </div>
+  <button class="btn" id="refresh">↻ อัปเดต</button>
+</div>
+
+<section class="games" id="games">
+
+  <article class="game">
+    <div class="icon">🥊</div>
+    <h4>Shadow Breaker</h4>
+    <p id="shadowText">ยังไม่มีผลรอบล่าสุด</p>
+    <div class="bar"><div class="fill" id="shadowBar"></div></div>
+    <div class="metric">
+      <span>Readiness</span>
+      <span id="shadowVal">0%</span>
+    </div>
+    <div class="state" id="shadowState">ยังไม่เล่น</div>
+  </article>
+
+  <article class="game">
+    <div class="icon">🎵</div>
+    <h4>Rhythm Boxer</h4>
+    <p id="rhythmText">ยังไม่มีผลรอบล่าสุด</p>
+    <div class="bar"><div class="fill" id="rhythmBar"></div></div>
+    <div class="metric">
+      <span>Readiness</span>
+      <span id="rhythmVal">0%</span>
+    </div>
+    <div class="state" id="rhythmState">ยังไม่เล่น</div>
+  </article>
+
+  <article class="game">
+    <div class="icon">🦘</div>
+    <h4>JumpDuck</h4>
+    <p id="jumpText">ยังไม่มีผลรอบล่าสุด</p>
+    <div class="bar"><div class="fill" id="jumpBar"></div></div>
+    <div class="metric">
+      <span>Readiness</span>
+      <span id="jumpVal">0%</span>
+    </div>
+    <div class="state" id="jumpState">ยังไม่เล่น</div>
+  </article>
+
+  <article class="game">
+    <div class="icon">🧘</div>
+    <h4>Balance Hold</h4>
+    <p id="balanceText">ยังไม่มีผลรอบล่าสุด</p>
+    <div class="bar"><div class="fill" id="balanceBar"></div></div>
+    <div class="metric">
+      <span>Readiness</span>
+      <span id="balanceVal">0%</span>
+    </div>
+    <div class="state" id="balanceState">ยังไม่เล่น</div>
+  </article>
+
+</section>
+
+<div class="head">
+  <div>
+    <h3>ภารกิจและคำแนะนำถัดไป</h3>
+    <p>แนะนำจากผลการเล่นล่าสุด</p>
+  </div>
+</div>
+
+<section class="bottom">
+  <article class="card mission">
+    <h3>🎯 Today Mission</h3>
+    <ul id="mission">
+      <li>เล่น 1 เกม และทำ Warm-up / Cooldown ให้ครบ</li>
+      <li>ตั้งเป้า Accuracy อย่างน้อย 80%</li>
+      <li>สะสม Passport ให้ครบ 4 เกม</li>
+    </ul>
+  </article>
+
+  <article class="card coach">
+    <h3>🤖 Adaptive Coach</h3>
+    <p id="coachText" class="lead" style="margin-top:11px">
+      เริ่มด้วย Shadow Breaker หรือ JumpDuck ระดับ Easy เพื่อสร้างข้อมูลพื้นฐานก่อน
+    </p>
+  </article>
+</section>
+
+<p class="foot">
+  Passport นี้ใช้ข้อมูลผลล่าสุดที่เกมบันทึกไว้บนอุปกรณ์นี้
+</p>
+
+</main>
+
 <script>
-(() => {
-  const GAMES = [
-    {id:'shadow-breaker',label:'Shadow Breaker',icon:'🥊',key:'shadow-breaker'},
-    {id:'rhythm-boxer',label:'Rhythm Boxer',icon:'🎵',key:'rhythmboxer'},
-    {id:'jump-duck',label:'JumpDuck',icon:'🦘',key:'jumpduck'},
-    {id:'balance-hold',label:'Balance Hold',icon:'🧘',key:'balancehold'}
+(function(){
+  var map = [
+    ["shadow","shadow-breaker"],
+    ["rhythm","rhythmboxer"],
+    ["jump","jumpduck"],
+    ["balance","balancehold"]
   ];
-  const q = new URLSearchParams(location.search);
-  const safe = v => String(v == null ? '' : v);
-  const clamp = (n,a,b)=>Math.max(a,Math.min(b,Number(n)||0));
-  const num = (...v)=>{for(const x of v){const n=Number(x);if(Number.isFinite(n))return n;}return 0;};
-  function find(game){
-    const candidates=[];
-    try { candidates.push(JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY')||'null')); } catch(_) {}
-    try { candidates.push(JSON.parse(localStorage.getItem('HHA_LAST_SUMMARY:'+game.key+':'+(q.get('playerId')||q.get('pid')||'anon'))||'null')); } catch(_) {}
-    return candidates.find(x=>x && safe(x.game||x.gameId).replace(/-ar$/,'').replace('rhythmboxer','rhythm-boxer').replace('jumpduck','jump-duck').replace('balancehold','balance-hold')===game.id) || null;
+
+  function get(key){
+    try{
+      return JSON.parse(
+        localStorage.getItem("HHA_LAST_SUMMARY:" + key + ":anon") || "null"
+      );
+    }catch(e){
+      return null;
+    }
   }
-  function rating(data){
-    if(!data) return {value:0,label:'ยังไม่เล่น',kind:'warn'};
-    const acc=num(data.accuracy,data.accPct);
-    const rpe=num(data.rpe);
-    const dizzy=safe(data.dizzy).toLowerCase()==='yes';
-    if(dizzy || rpe>=8) return {value:clamp(acc,0,100),label:'พักและเลือก Easy',kind:'risk'};
-    if(acc>=85) return {value:acc,label:'พร้อมเพิ่มความท้าทาย',kind:'good'};
-    if(acc>=65) return {value:acc,label:'กำลังพัฒนา',kind:'warn'};
-    return {value:acc,label:'เริ่ม Easy อีกครั้ง',kind:'warn'};
+
+  function latest(id,key){
+    var a = get(key);
+
+    try{
+      var b = JSON.parse(
+        localStorage.getItem("HHA_LAST_SUMMARY") || "null"
+      );
+
+      var g = String((b && (b.game || b.gameId)) || "")
+        .replace(/-ar$/,"")
+        .replace("rhythmboxer","rhythm-boxer")
+        .replace("jumpduck","jump-duck")
+        .replace("balancehold","balance-hold");
+
+      if(g === id) return b;
+    }catch(e){}
+
+    return a;
   }
-  function render(){
-    const rows=GAMES.map(g=>({g,data:find(g)}));
-    const played=rows.filter(x=>x.data);
-    const name=q.get('studentName')||q.get('name')||played[0]?.data?.studentName||played[0]?.data?.name||'Hero';
-    document.querySelector('#studentLine').textContent=`${name} • HeroHealth Fitness AR`;
-    const ratings=rows.map(x=>rating(x.data));
-    const avg=played.length?Math.round(ratings.reduce((s,r)=>s+r.value,0)/played.length):0;
-    document.querySelector('#passportScore').textContent=avg;
-    document.querySelector('#ring').style.setProperty('--pct',avg);
-    document.querySelector('#scoreNote').textContent=played.length?`เล่นแล้ว ${played.length}/4 เกม`:'เริ่มเกมแรกเพื่อปลด Passport';
-    document.querySelector('#summaryText').textContent=played.length?`${name} มีผลการเล่น ${played.length} เกมแล้ว เป้าหมายต่อไปคือเก็บ Passport ให้ครบ 4 ทักษะ: ความเร็ว จังหวะ ความคล่องตัว และการทรงตัว`:'เริ่มจากเกมที่ชอบ แล้วทำ Warm-up และ Cooldown ให้ครบเพื่อปลดความก้าวหน้า';
-    const badges=[];
-    if(played.length>=1) badges.push('🌱 First Move');
-    if(played.length>=2) badges.push('🔥 Multi-Sport');
-    if(played.length>=4) badges.push('🏆 Fitness Explorer');
-    if(ratings.some(r=>r.value>=85)) badges.push('⭐ Skill Hero');
-    document.querySelector('#badges').innerHTML=badges.map(x=>`<span style="padding:7px 10px;border-radius:999px;background:#fff;border:1.5px solid var(--line);font-size:12px;font-weight:1000">${x}</span>`).join('') || '<span style="font-size:12px;color:var(--muted);font-weight:900">ยังไม่มี Badge — เริ่มเกมแรกได้เลย</span>';
-    document.querySelector('#gameGrid').innerHTML=rows.map(({g,data},i)=>{const r=ratings[i];const score=data?Math.round(num(data.score)):0;const acc=data?Math.round(num(data.accuracy,data.accPct)):0;return `<article class="game"><div class="icon">${g.icon}</div><h4>${g.label}</h4><p>${data?`Score ${score.toLocaleString()} • Accuracy ${acc}%`:'ยังไม่มีผลรอบล่าสุด'}</p><div class="bar"><i style="width:${r.value}%"></i></div><div class="metric"><span>Readiness</span><span>${r.value}%</span></div><div class="status ${r.kind}">${r.label}</div></article>`;}).join('');
-    const missions=[];
-    if(played.length<4) missions.push(`เล่นเพิ่มอีก ${4-played.length} เกม เพื่อเก็บ Passport ให้ครบ 4 ทักษะ`);
-    else missions.push('เล่นครบ 4 เกมแล้ว — เลือก 1 เกมที่ยังต่ำกว่า 85% เพื่อพัฒนาเฉพาะทักษะ');
-    if(ratings.some(r=>r.kind==='risk')) missions.push('ทำ Recovery ก่อน และรอบถัดไปเลือก Easy/ลดเวลาเล่น');
-    else missions.push('ทำ Warm-up และ Cooldown ให้ครบทุกครั้งเพื่อสะสมพฤติกรรมสุขภาพที่ดี');
-    missions.push('ตั้งเป้า Accuracy อย่างน้อย 80% ในเกมที่ฝึกวันนี้');
-    document.querySelector('#missionList').innerHTML=missions.map(m=>`<li>${m}</li>`).join('');
-    const weakest=rows.map((x,i)=>({...x,r:ratings[i]})).sort((a,b)=>a.r.value-b.r.value)[0];
-    document.querySelector('#coachText').innerHTML=played.length===0?'เริ่มด้วย <b>Shadow Breaker</b> หรือ <b>JumpDuck</b> ระดับ Easy เพื่อสร้างข้อมูลพื้นฐานก่อน':weakest.r.kind==='risk'?`พบสัญญาณว่าควรพักใน <b>${weakest.g.label}</b> ให้ลดระดับความยากและทำ Cooldown ก่อนเริ่มรอบใหม่`:weakest.r.value<65?`แนะนำฝึก <b>${weakest.g.label}</b> ในระดับ Easy อีก 1 รอบ โดยโฟกัสความแม่นยำก่อนความเร็ว`:weakest.r.value<85?`แนะนำเล่น <b>${weakest.g.label}</b> ระดับเดิมอีก 1 รอบ ตั้งเป้า Accuracy ≥ 85% แล้วค่อยเพิ่มความยาก`:`ยอดเยี่ยม! ลองเพิ่มความท้าทายใน <b>${weakest.g.label}</b> หรือฝึกเกมที่ยังเล่นไม่ครบเพื่อสร้าง Passport ให้สมดุล`;
+
+  function pct(d){
+    if(!d) return 0;
+
+    var x = Number(d.accuracy || d.accPct || 0);
+    return Math.max(0,Math.min(100,isFinite(x) ? x : 0));
   }
-  document.querySelector('#refreshBtn').addEventListener('click',render);render();
+
+  function draw(){
+    var sum = 0;
+    var count = 0;
+    var weak = null;
+
+    for(var i=0;i<map.length;i++){
+      var m = map[i];
+      var d = latest(m[1],m[1]);
+      var p = pct(d);
+
+      document.getElementById(m[0] + "Bar").style.width = p + "%";
+      document.getElementById(m[0] + "Val").textContent = Math.round(p) + "%";
+
+      if(d){
+        count++;
+        sum += p;
+
+        document.getElementById(m[0] + "Text").textContent =
+          "Score " + Math.round(Number(d.score || 0)).toLocaleString() +
+          " • Accuracy " + Math.round(p) + "%";
+
+        document.getElementById(m[0] + "State").textContent =
+          p >= 85 ? "พร้อมเพิ่มความท้าทาย" :
+          p >= 65 ? "กำลังพัฒนา" :
+          "เริ่ม Easy อีกครั้ง";
+      }
+
+      if(!weak || p < weak.p){
+        weak = {
+          name:m[0],
+          p:p,
+          label:document.getElementById(m[0] + "Text")
+            .parentNode
+            .querySelector("h4")
+            .textContent
+        };
+      }
+    }
+
+    var avg = count ? Math.round(sum / count) : 0;
+
+    document.getElementById("score").textContent = avg;
+    document.getElementById("played").textContent =
+      count ? "เล่นแล้ว " + count + "/4 เกม" : "ยังไม่มีผลการเล่น";
+
+    document.getElementById("summary").textContent =
+      count
+        ? "คุณมีผลการเล่น " + count +
+          " เกมแล้ว เป้าหมายต่อไปคือเก็บ Passport ให้ครบ 4 ทักษะ"
+        : "เริ่มเกมที่ชอบ แล้วทำ Warm-up และ Cooldown ให้ครบเพื่อปลดความก้าวหน้า";
+
+    document.getElementById("badge").textContent =
+      count >= 4
+        ? "🏆 Fitness Explorer • เล่นครบ 4 เกมแล้ว"
+        : count >= 2
+          ? "🔥 Multi-Sport • เล่นแล้วหลายเกม"
+          : count
+            ? "🌱 First Move • เริ่มต้นได้เยี่ยม"
+            : "🌱 เริ่มเกมแรกเพื่อปลด Badge";
+
+    if(count && weak){
+      document.getElementById("coachText").innerHTML =
+        "แนะนำฝึก <b>" + weak.label +
+        "</b> อีก 1 รอบ โดยโฟกัส Accuracy ก่อนเพิ่มความเร็ว";
+    }
+  }
+
+  document.getElementById("refresh").onclick = draw;
+  draw();
 })();
 </script>
+
 </body>
 </html>
