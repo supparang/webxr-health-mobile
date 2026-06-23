@@ -1,36 +1,642 @@
 /* === /sgnal-hunt/css/uxq-mobile.css === */
-/* UX Quest W1 • V6 mobile-first layout */
+/* UX Quest • Responsive and mobile-first safety layer */
 
-@media (max-width:900px){
-  .case-layout{grid-template-columns:1fr}
-  .mission-card{order:1}
-  .screen-card{order:2}
-  .screen-shell{min-height:360px}
-  .mission-card,.screen-card{padding:22px}
-  .wide{padding:24px}
-  .mission-banner{padding:22px}
-  .topbar{align-items:flex-start}
-  .top-hud{max-width:62%}
+@media (max-width: 980px){
+  .app-shell{
+    width:min(100% - 24px, 920px);
+    padding-top:16px;
+  }
+
+  .topbar{
+    align-items:flex-start;
+    gap:12px;
+  }
+
+  .top-hud{
+    max-width:430px;
+  }
+
+  .mission-banner{
+    align-items:flex-start;
+    padding:22px;
+  }
+
+  .case-layout{
+    grid-template-columns:1fr;
+  }
+
+  .mission-card,
+  .screen-card{
+    padding:22px;
+  }
+
+  .mission-card{
+    order:1;
+  }
+
+  .screen-card{
+    order:2;
+  }
+
+  .screen-shell{
+    min-height:390px;
+  }
+
+  .screen-canvas{
+    min-height:225px;
+  }
+
+  .metric-grid{
+    grid-template-columns:repeat(3,1fr);
+  }
+
+  .complete-card{
+    padding:36px 28px;
+  }
 }
 
-@media (max-width:640px){
-  :root{--radius:20px}
-  body{min-height:100dvh}
-  .app-shell{width:min(100% - 20px,1220px);padding-top:12px;padding-bottom:calc(28px + env(safe-area-inset-bottom))}
-  .topbar{flex-direction:column;gap:10px}.top-hud{width:100%;max-width:none;justify-content:flex-start;gap:6px}.hud-pill,.reset-btn{padding:7px 9px;font-size:12px}.brand-mark{width:37px;height:37px;border-radius:12px}
-  .mission-banner{align-items:flex-start;flex-direction:column;gap:12px;margin-bottom:14px;padding:19px 18px}.mission-banner h1{font-size:31px}.mission-banner p:not(.eyebrow){font-size:14px;line-height:1.55}.ghost-btn{min-height:42px;padding:10px 13px}
-  .phase-rail{display:flex;gap:6px;margin:12px 0;overflow-x:auto;padding-bottom:3px;scrollbar-width:none}.phase-rail::-webkit-scrollbar{display:none}.phase{flex:0 0 auto;min-width:max-content;white-space:nowrap}.phase b{display:none}
-  .case-layout{gap:13px}.mission-card,.screen-card{padding:18px;border-radius:20px}.wide{padding:20px 18px}.case-kicker{gap:6px;margin-bottom:10px}.case-kicker span{padding:5px 8px;font-size:10px}
-  .mission-card h2,.screen-card h2,.complete-card h2{margin-bottom:12px;font-size:29px;line-height:1.18}.goal-card{margin:14px 0 11px;padding:13px 14px;border-radius:15px}.goal-card span{font-size:10px}.goal-card b{font-size:16px;line-height:1.48}
-  .evidence-label{margin-top:12px!important}.evidence-detail{padding:12px 13px;border-radius:0 14px 14px 0;font-size:14px;line-height:1.55}.mission-card>.muted.tiny{margin:10px 2px 0;font-size:12px;line-height:1.5}.question-title{margin:19px 0 12px;font-size:18px;line-height:1.45}
-  .answer-list{gap:9px}.answer-option{min-height:74px;gap:10px;padding:13px 14px;border-radius:14px;font-size:14px}.answer-option strong{display:inline-block;margin-bottom:3px;color:#1d2d5d;font-size:15px;line-height:1.4}.answer-option small{color:#637095;font-size:12px;line-height:1.45}.radio-dot{width:19px;height:19px;min-width:19px}
-  .stage-actions{margin-top:13px}.stage-actions .primary-btn,.full-btn{width:100%;min-height:50px}.primary-btn{padding:13px 16px;font-size:15px}
-  .screen-card{margin-top:0;padding:15px}.screen-card::before{display:block;margin:1px 2px 10px;color:#5368c6;content:"หลักฐานประกอบ";font-size:11px;font-weight:900;letter-spacing:.09em}.screen-shell{min-height:330px;border-width:7px;border-radius:18px}.screen-top{padding:0 11px;font-size:10px}.screen-top span{display:none}.screen-body{padding:16px}.screen-body h3{font-size:20px}.screen-body>p{max-width:100%;font-size:13px}.screen-canvas{gap:9px}.suspect-zone{min-height:82px;padding:10px}.suspect-zone small{font-size:12px}.suspect-zone>span,.chip-stack span{font-size:10px}.screen-caption{margin-top:2px;font-size:12px;line-height:1.45}
-  .instruction-card{gap:10px;padding:12px}.instruction-card p{font-size:13px}.step-badge{min-width:46px;height:28px}.choice-grid,.metric-grid,.complete-metrics,.launcher-points{grid-template-columns:1fr}.metric-card{padding:13px}.test-insight{display:grid;gap:4px}.test-insight b{min-width:0}
-  .complete-card{padding:34px 20px}.complete-metrics{gap:8px;margin:22px 0}.mode-action-grid,.completion-action-grid{gap:10px;margin:18px 0}.mode-action,.completion-action{gap:10px;padding:14px;border-radius:16px}.mode-action{grid-template-columns:auto minmax(0,1fr)}.mode-action>b{display:none}.mode-action-icon,.completion-action>span{width:36px;height:36px;border-radius:12px;font-size:18px}.mode-action strong,.completion-action strong{font-size:15px}.mode-action small,.completion-action small{font-size:12px}.completion-footer{display:grid;grid-template-columns:1fr 1fr;width:100%;gap:8px}.completion-footer .secondary-btn{width:100%;padding:10px 8px;font-size:13px}
-  .launcher-card{padding:36px 22px;border-radius:25px}.launcher-points{gap:8px}.modal-dialog{padding:25px 20px}
+@media (max-width: 760px){
+  body{
+    background:
+      radial-gradient(circle at 50% 0%,#1e3679 0,transparent 31%),
+      linear-gradient(155deg,var(--bg),var(--bg2));
+  }
+
+  .app-shell{
+    width:min(100% - 20px, 680px);
+    padding:12px 0 32px;
+  }
+
+  .topbar{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+    padding-bottom:14px;
+  }
+
+  .brand{
+    width:100%;
+  }
+
+  .brand-mark{
+    width:40px;
+    height:40px;
+    border-radius:13px;
+  }
+
+  .top-hud{
+    width:100%;
+    max-width:none;
+    justify-content:flex-start;
+  }
+
+  .hud-pill,
+  .reset-btn{
+    min-height:36px;
+    padding:7px 10px;
+    font-size:12px;
+  }
+
+  .reset-btn{
+    margin-left:auto;
+  }
+
+  .mission-banner{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:16px;
+    margin:0 0 14px;
+    padding:20px;
+    border-radius:22px;
+  }
+
+  .mission-banner h1{
+    font-size:32px;
+  }
+
+  .mission-banner p:not(.eyebrow){
+    margin-top:8px;
+    font-size:14px;
+    line-height:1.58;
+  }
+
+  .mission-banner .ghost-btn{
+    width:100%;
+  }
+
+  .phase-rail{
+    gap:6px;
+    margin:14px 0;
+  }
+
+  .phase{
+    min-height:41px;
+    padding:7px 4px;
+    gap:4px;
+    border-radius:11px;
+    font-size:0;
+  }
+
+  .phase b{
+    width:24px;
+    height:24px;
+    font-size:11px;
+  }
+
+  .case-layout{
+    gap:14px;
+  }
+
+  .mission-card,
+  .screen-card{
+    padding:18px;
+    border-radius:21px;
+  }
+
+  .case-kicker{
+    gap:6px;
+    margin-bottom:10px;
+  }
+
+  .case-kicker span{
+    padding:5px 8px;
+    font-size:11px;
+  }
+
+  .mission-card h2,
+  .screen-card h2,
+  .complete-card h2{
+    font-size:27px;
+  }
+
+  .goal-card{
+    margin:14px 0 12px;
+    padding:13px;
+  }
+
+  .goal-card b{
+    font-size:15px;
+    line-height:1.5;
+  }
+
+  .persona-card{
+    margin:12px 0 17px;
+    padding:12px;
+    font-size:12px;
+  }
+
+  .evidence-detail{
+    padding:13px;
+    font-size:15px;
+  }
+
+  .instruction-card{
+    gap:10px;
+    margin:14px 0;
+    padding:13px;
+  }
+
+  .instruction-card p{
+    font-size:13px;
+  }
+
+  .step-badge{
+    min-width:43px;
+    height:27px;
+  }
+
+  .screen-shell{
+    min-height:0;
+    border-width:7px;
+    border-radius:18px;
+  }
+
+  .screen-top{
+    height:auto;
+    min-height:43px;
+    padding:10px 12px;
+    gap:8px;
+    font-size:11px;
+  }
+
+  .screen-top span{
+    text-align:right;
+  }
+
+  .screen-body{
+    padding:16px;
+  }
+
+  .screen-body h3{
+    font-size:20px;
+  }
+
+  .screen-body > p{
+    max-width:none;
+    margin:7px 0 14px;
+    font-size:13px;
+    line-height:1.55;
+  }
+
+  .wire-line{
+    width:58%;
+    height:8px;
+    margin-bottom:14px;
+  }
+
+  .screen-canvas{
+    grid-template-columns:1fr;
+    gap:10px;
+    min-height:0;
+  }
+
+  .suspect-zone{
+    min-height:0;
+    padding:12px;
+    border-radius:14px;
+  }
+
+  .suspect-zone b{
+    width:24px;
+    height:24px;
+    margin-bottom:6px;
+    border-radius:8px;
+    font-size:12px;
+  }
+
+  .suspect-zone small{
+    margin-bottom:5px;
+    font-size:10px;
+  }
+
+  .suspect-zone > span{
+    font-size:12px;
+    line-height:1.42;
+  }
+
+  .screen-caption{
+    margin:14px 0 0;
+    font-size:12px;
+    line-height:1.48;
+  }
+
+  .question-title{
+    margin:16px 0 10px;
+    font-size:18px;
+  }
+
+  .answer-list{
+    gap:8px;
+  }
+
+  .answer-option{
+    min-height:0;
+    gap:10px;
+    padding:13px;
+    border-radius:14px;
+    font-size:14px;
+  }
+
+  .answer-option strong{
+    font-weight:750;
+  }
+
+  .radio-dot{
+    width:19px;
+    height:19px;
+    min-width:19px;
+  }
+
+  .choice-grid{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+
+  .explain-chip{
+    padding:13px;
+    border-radius:13px;
+    font-size:14px;
+  }
+
+  .metric-grid{
+    grid-template-columns:1fr;
+    gap:8px;
+    margin:15px 0;
+  }
+
+  .metric-card{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:13px;
+  }
+
+  .metric-card div{
+    margin-top:0;
+  }
+
+  .metric-card b{
+    font-size:19px;
+  }
+
+  .test-insight{
+    display:grid;
+    gap:5px;
+    padding:12px;
+    font-size:13px;
+    line-height:1.5;
+  }
+
+  .test-insight b{
+    min-width:0;
+  }
+
+  .stage-actions{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:9px;
+    margin-top:14px;
+  }
+
+  .primary-btn,
+  .secondary-btn{
+    width:100%;
+    min-height:47px;
+  }
+
+  .complete-card{
+    margin:0;
+    padding:28px 20px;
+    border-radius:22px;
+  }
+
+  .final-stars{
+    margin:8px 0 12px;
+    font-size:35px;
+  }
+
+  .complete-card > p{
+    font-size:14px;
+    line-height:1.62;
+  }
+
+  .complete-metrics{
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin:20px 0;
+  }
+
+  .complete-metrics div{
+    padding:12px 7px;
+    border-radius:13px;
+  }
+
+  .complete-metrics span{
+    font-size:10px;
+  }
+
+  .complete-metrics b{
+    font-size:19px;
+  }
+
+  .principle-stack{
+    padding:13px;
+    border-radius:14px;
+    font-size:13px;
+  }
+
+  .mode-action-grid,
+  .completion-action-grid{
+    gap:9px;
+    margin:17px 0;
+  }
+
+  .mode-action,
+  .completion-action{
+    gap:11px;
+    padding:13px;
+    border-radius:15px;
+  }
+
+  .mode-action-icon,
+  .completion-action > span{
+    width:38px;
+    height:38px;
+    border-radius:12px;
+    font-size:18px;
+  }
+
+  .mode-action strong,
+  .completion-action strong{
+    font-size:15px;
+  }
+
+  .mode-action small,
+  .completion-action small{
+    font-size:12px;
+    line-height:1.4;
+  }
+
+  .mode-action > b{
+    font-size:12px;
+  }
+
+  .modal-dialog{
+    width:calc(100% - 20px);
+    max-height:calc(100dvh - 20px);
+    overflow-y:auto;
+    padding:26px 19px 21px;
+    border-radius:20px;
+  }
+
+  .modal-close{
+    top:9px;
+    right:9px;
+  }
+
+  .how-list{
+    padding-left:18px;
+    font-size:14px;
+    line-height:1.7;
+  }
 }
 
-@media (max-width:380px){
-  .app-shell{width:min(100% - 16px,1220px)}.mission-card,.screen-card{padding:16px}.mission-card h2,.screen-card h2{font-size:27px}.answer-option{padding:12px}.answer-option strong{font-size:14px}.answer-option small{font-size:11px}.hud-pill:nth-of-type(2){display:none}.completion-footer{grid-template-columns:1fr}
+@media (max-width: 460px){
+  .app-shell{
+    width:min(100% - 16px, 460px);
+  }
+
+  .top-hud{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:6px;
+  }
+
+  .hud-pill{
+    display:grid;
+    gap:1px;
+    justify-items:center;
+    min-height:43px;
+    padding:6px 4px;
+    text-align:center;
+  }
+
+  .hud-label{
+    font-size:10px;
+  }
+
+  .hud-pill b{
+    font-size:12px;
+  }
+
+  .reset-btn{
+    grid-column:1 / -1;
+    width:100%;
+    margin-left:0;
+    justify-content:center;
+  }
+
+  .mission-banner{
+    padding:18px;
+  }
+
+  .mission-banner h1{
+    font-size:29px;
+  }
+
+  .phase{
+    min-height:38px;
+  }
+
+  .phase b{
+    width:22px;
+    height:22px;
+    font-size:10px;
+  }
+
+  .mission-card,
+  .screen-card{
+    padding:15px;
+  }
+
+  .mission-card h2,
+  .screen-card h2,
+  .complete-card h2{
+    font-size:24px;
+  }
+
+  .case-kicker span{
+    font-size:10px;
+  }
+
+  .goal-card,
+  .persona-card,
+  .instruction-card{
+    border-radius:13px;
+  }
+
+  .goal-card b{
+    font-size:14px;
+  }
+
+  .evidence-detail{
+    font-size:14px;
+    line-height:1.55;
+  }
+
+  .screen-body{
+    padding:13px;
+  }
+
+  .screen-body h3{
+    font-size:18px;
+  }
+
+  .screen-top{
+    font-size:10px;
+  }
+
+  .suspect-zone{
+    padding:11px;
+  }
+
+  .answer-option{
+    padding:12px;
+    font-size:13px;
+    line-height:1.47;
+  }
+
+  .explain-chip{
+    font-size:13px;
+  }
+
+  .complete-card{
+    padding:25px 16px;
+  }
+
+  .complete-metrics{
+    grid-template-columns:1fr;
+  }
+
+  .complete-metrics div{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:12px 13px;
+  }
+
+  .complete-metrics b{
+    font-size:20px;
+  }
+
+  .mode-action{
+    grid-template-columns:38px minmax(0,1fr);
+  }
+
+  .mode-action > b{
+    display:none;
+  }
+
+  .completion-action{
+    grid-template-columns:38px minmax(0,1fr);
+  }
+
+  .mode-action-icon,
+  .completion-action > span{
+    width:36px;
+    height:36px;
+    border-radius:11px;
+  }
+}
+
+/* Prevent accidental horizontal scrolling from long Thai text. */
+.app-shell,
+.mission-banner,
+.case-layout,
+.mission-card,
+.screen-card,
+.complete-card,
+.answer-option,
+.explain-chip,
+.mode-action,
+.completion-action,
+.investigation-panel,
+.screen-shell,
+.screen-body,
+.suspect-zone{
+  min-width:0;
+}
+
+.answer-option strong,
+.answer-option small,
+.explain-chip,
+.mode-action span,
+.completion-action span,
+.suspect-zone > span,
+.evidence-detail,
+.goal-card b,
+.persona-card span{
+  overflow-wrap:anywhere;
+  word-break:break-word;
 }
