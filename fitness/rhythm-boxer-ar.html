@@ -12,6 +12,7 @@
 
   <!-- Student identity + Bangkok timestamp bridge. Load before game code. -->
   <script src="./fitness-student-context-bridge.js?v=20260620-v2"></script>
+  <script src="./fitness-passport-bridge.js?v=20260623-v1"></script>
 
   <!-- Body tracking: MediaPipe Pose. Touch/keyboard still works if CDN or camera fails. -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
@@ -1214,6 +1215,22 @@
       };
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
       localStorage.setItem('HHA_LAST_SUMMARY:rhythmboxer:' + (payload.playerId || payload.pid || 'anon'), JSON.stringify(summary));
+      window.FitnessPassportBridge?.save({
+        ...summary,
+        gameId: 'rhythm-boxer',
+        score: summary.scoreFinal ?? summary.score ?? payload.score ?? 0,
+        accuracy: summary.accuracy ?? summary.accPct ?? payload.accuracy ?? 0,
+        comboMax: summary.maxCombo ?? summary.bestCombo ?? payload.maxCombo ?? 0,
+        miss: summary.miss ?? summary.misses ?? payload.miss ?? 0,
+        hits: summary.hits ?? payload.hits ?? 0,
+        grade: summary.rank ?? summary.grade ?? payload.rank ?? '',
+        metrics: {
+          strictCombo: summary.maxCombo ?? payload.maxCombo ?? 0,
+          flowCombo: summary.maxFlowCombo ?? payload.maxFlowCombo ?? 0,
+          tempoDrift: summary.tempoDrift ?? payload.tempoDrift ?? null,
+          fatigueIndex: summary.fatigueIndex ?? payload.fatigueIndex ?? null
+        }
+      });
       window.parent && window.parent.postMessage({type:'HHA_GAME_RESULT', game:RB_GAME_ID, payload:summary}, '*');
     }catch(_){}
   }
@@ -2785,6 +2802,5 @@
   }
 })();
 </script>
-  <script src="./fitness-postgame-recovery-bridge.js?v=20260623-fitness-4game-warmup-entry-v5-rhythm-dual-mode"></script>
 </body>
 </html>
