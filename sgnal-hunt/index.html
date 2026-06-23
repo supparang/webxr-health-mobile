@@ -27,10 +27,10 @@
         </summary>
 
         <div class="hub-menu__panel">
-          <p class="hub-menu__eyebrow">ACT I PROGRESS</p>
+          <p class="hub-menu__eyebrow">W1 PROGRESS</p>
           <strong id="menuProgressText">0/4 nodes • ☆☆☆</strong>
           <small id="menuScoreText">Best score 0</small>
-          <button id="resetProgressBtn" type="button">รีเซ็ต Act I</button>
+          <button id="resetProgressBtn" type="button">รีเซ็ตความคืบหน้า W1</button>
         </div>
       </details>
     </header>
@@ -52,13 +52,13 @@
         <div class="current-card__status">
           <span class="status-dot" id="nowStatusDot" aria-hidden="true"></span>
           <span id="nowStatus">MISSION READY</span>
-          <span class="current-card__week" id="nowWeek">W1 • FOUNDATION</span>
+          <span class="current-card__week">W1 • FOUNDATION</span>
         </div>
 
         <div class="current-card__main">
-          <div class="current-card__icon" id="nowIcon" aria-hidden="true">⌕</div>
+          <div class="current-card__icon" aria-hidden="true">⌕</div>
           <div>
-            <h2 id="nowTitle">UX Detective</h2>
+            <h2 id="w1Title">UX Detective</h2>
             <p id="nowSummary">สืบว่าอะไรทำให้ผู้ใช้ทำเป้าหมายไม่สำเร็จ แล้วเลือกวิธีแก้ที่ช่วยได้จริง</p>
           </div>
         </div>
@@ -141,10 +141,7 @@
           </div>
           <div class="compact-stage__footer">
             <span id="w2Note">ผ่าน W1 อย่างน้อย 1 ดาว</span>
-            <a id="w2Launch" class="compact-stage__play is-disabled" href="#" aria-disabled="true">
-              <span id="w2LaunchText">ล็อกอยู่</span>
-              <span aria-hidden="true">→</span>
-            </a>
+            <button type="button" disabled>Mission Pack กำลังเตรียม</button>
           </div>
         </article>
 
@@ -205,6 +202,7 @@
     </details>
   </main>
 
-  <script src="./js/uxq-hub.js?v=20260622-w2-unlock-fix"></script>
+  <script src="./js/uxq-progress-bridge-v3.js?v=20260623-w2-unlock-hotfix-v3"></script>
+  <script src="./js/uxq-hub-v4.js?v=20260623-w2-unlock-hotfix-v3"></script>
 </body>
 </html>
