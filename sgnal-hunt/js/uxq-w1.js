@@ -26,6 +26,8 @@
   const ROUND_SIZE = 5;
   const SESSION_KEY = 'uxquest-w1-session-v6';
   const PROGRESS_KEY = 'uxquest-w1-progress-v6';
+  // Single, version-agnostic unlock bridge shared by Hub and future missions.
+  const UNLOCK_BRIDGE_KEY = 'uxquest-act1-unlock-v1';
   const LEGACY_KEYS = [
     'uxquest-w1-session-v5',
     'uxquest-w1-progress-v5',
@@ -173,11 +175,63 @@
     return MODE_META[state.mode] || MODE_META.tutorial;
   }
 
+  function hasFinishedTutorialProgress() {
+    const hasStar = Math.max(
+      Number(progress.bestStars) || 0,
+      Number(progress.tutorialBestStars) || 0
+    ) >= 1;
+
+    const hasTutorial = Boolean(progress.tutorialComplete);
+
+    const hasCompletedRound = Array.isArray(progress.roundHistory) &&
+      progress.roundHistory.some((round) =>
+        Number(round?.stars) >= 1 ||
+        (round?.mode === 'tutorial' && Number(round?.score) >= 200)
+      );
+
+    return hasStar || hasTutorial || hasCompletedRound;
+  }
+
+  function writeUnlockBridge() {
+    if (!hasFinishedTutorialProgress()) {
+      return;
+    }
+
+    const stars = clamp(Math.max(
+      Number(progress.bestStars) || 0,
+      Number(progress.tutorialBestStars) || 0,
+      1
+    ), 0, 3);
+
+    try {
+      const previous = safeParse(localStorage.getItem(UNLOCK_BRIDGE_KEY), {}) || {};
+      const previousW1 = previous.w1 && typeof previous.w1 === 'object'
+        ? previous.w1
+        : {};
+
+      localStorage.setItem(UNLOCK_BRIDGE_KEY, JSON.stringify({
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        ...previous,
+        w1: {
+          cleared: true,
+          stars: Math.max(Number(previousW1.stars) || 0, stars),
+          score: Math.max(Number(previousW1.score) || 0, Number(progress.bestScore) || 0),
+          rounds: Math.max(Number(previousW1.rounds) || 0, Number(progress.totalRounds) || 0),
+          source: 'w1-v6'
+        }
+      }));
+    } catch (error) {
+      // Storage errors must never prevent the W1 learning flow.
+    }
+  }
+
   function saveProgress() {
     progress.lastUpdated = new Date().toISOString();
 
     try {
       localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+      writeUnlockBridge();
     } catch (error) {
       console.warn('Could not save UX Quest progress.', error);
     }
@@ -220,6 +274,9 @@
         ? saved.roundHistory
         : []
     };
+
+    // Opening W1 also repairs the shared unlock state for previously completed runs.
+    writeUnlockBridge();
   }
 
   function loadSession() {
@@ -289,6 +346,7 @@
     try {
       localStorage.removeItem(PROGRESS_KEY);
       localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(UNLOCK_BRIDGE_KEY);
     } catch (error) {
       console.warn('Could not reset UX Quest data.', error);
     }

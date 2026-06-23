@@ -10,6 +10,7 @@
 
   // Accept valid W1 completion from V4/V5/V6 and repair the canonical V6 record.
   const W1_PROGRESS_KEY = 'uxquest-w1-progress-v6';
+  const W1_UNLOCK_BRIDGE_KEY = 'uxquest-act1-unlock-v1';
   const W1_PROGRESS_KEYS = [
     'uxquest-w1-progress-v6',
     'uxquest-w1-progress-v5',
@@ -99,8 +100,29 @@
   function unique(items) { return [...new Set(items)]; }
   function current() { return BY_ID.get(state.caseIds[state.caseIndex]) || null; }
   function modeMeta() { return MODE[state.mode] || MODE.tutorial; }
+  function localStorageKeys() {
+    try {
+      const keys = [];
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (key) keys.push(key);
+      }
+      return keys;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function dynamicW1Keys(kind) {
+    const pattern = kind === 'progress'
+      ? /^uxquest-w1-progress(?:-|$)/i
+      : /^uxquest-w1-(?:session|case-investigation)(?:-|$)/i;
+
+    return localStorageKeys().filter((key) => pattern.test(key));
+  }
+
   function readCompatW1Records(keys) {
-    return keys
+    return unique(keys)
       .map((key) => safeParse(localStorage.getItem(key), null))
       .filter((item) => item && typeof item === 'object' && !Array.isArray(item));
   }
@@ -128,16 +150,39 @@
   }
 
   function readW1UnlockState() {
-    const progressRecords = readCompatW1Records(W1_PROGRESS_KEYS);
-    const sessionRecords = readCompatW1Records(W1_SESSION_KEYS);
+    const progressRecords = readCompatW1Records([
+      ...W1_PROGRESS_KEYS,
+      ...dynamicW1Keys('progress')
+    ]);
 
-    const bestStars = Math.max(0, ...progressRecords.map((item) => Math.max(
-      Number(item.bestStars) || 0,
-      Number(item.tutorialBestStars) || 0
-    )));
+    const sessionRecords = readCompatW1Records([
+      ...W1_SESSION_KEYS,
+      ...dynamicW1Keys('session')
+    ]);
 
-    const bestScore = Math.max(0, ...progressRecords.map((item) => Number(item.bestScore) || 0));
-    const totalRounds = Math.max(0, ...progressRecords.map((item) => Number(item.totalRounds) || 0));
+    const bridge = safeParse(localStorage.getItem(W1_UNLOCK_BRIDGE_KEY), {}) || {};
+    const bridgeW1 = bridge.w1 && typeof bridge.w1 === 'object' ? bridge.w1 : {};
+
+    const bestStars = Math.max(
+      Number(bridgeW1.stars) || 0,
+      0,
+      ...progressRecords.map((item) => Math.max(
+        Number(item.bestStars) || 0,
+        Number(item.tutorialBestStars) || 0
+      ))
+    );
+
+    const bestScore = Math.max(
+      Number(bridgeW1.score) || 0,
+      0,
+      ...progressRecords.map((item) => Number(item.bestScore) || 0)
+    );
+
+    const totalRounds = Math.max(
+      Number(bridgeW1.rounds) || 0,
+      0,
+      ...progressRecords.map((item) => Number(item.totalRounds) || 0)
+    );
 
     const mergedHistory = progressRecords.flatMap((item) =>
       Array.isArray(item.roundHistory) ? item.roundHistory : []
@@ -152,23 +197,35 @@
       roundHistory: mergedHistory
     };
 
-    const unlocked = isCompletedW1Progress(merged, sessionRecords);
+    const unlocked = Boolean(bridgeW1.cleared) ||
+      isCompletedW1Progress(merged, sessionRecords);
 
     if (unlocked) {
       try {
         const canonical = safeParse(localStorage.getItem(W1_PROGRESS_KEY), {}) || {};
-        if (!canonical.tutorialComplete || Number(canonical.bestStars) < bestStars) {
-          localStorage.setItem(W1_PROGRESS_KEY, JSON.stringify({
-            ...canonical,
-            version: 6,
-            tutorialComplete: true,
-            tutorialBestStars: Math.max(Number(canonical.tutorialBestStars) || 0, bestStars, 1),
-            bestStars: Math.max(Number(canonical.bestStars) || 0, bestStars, 1),
-            bestScore: Math.max(Number(canonical.bestScore) || 0, bestScore),
-            totalRounds: Math.max(Number(canonical.totalRounds) || 0, totalRounds),
-            migratedAt: new Date().toISOString()
-          }));
-        }
+        const repaired = {
+          ...canonical,
+          version: 6,
+          tutorialComplete: true,
+          tutorialBestStars: Math.max(Number(canonical.tutorialBestStars) || 0, bestStars, 1),
+          bestStars: Math.max(Number(canonical.bestStars) || 0, bestStars, 1),
+          bestScore: Math.max(Number(canonical.bestScore) || 0, bestScore),
+          totalRounds: Math.max(Number(canonical.totalRounds) || 0, totalRounds),
+          repairedBy: 'w2-unlock-sync-v2',
+          repairedAt: new Date().toISOString()
+        };
+        localStorage.setItem(W1_PROGRESS_KEY, JSON.stringify(repaired));
+        localStorage.setItem(W1_UNLOCK_BRIDGE_KEY, JSON.stringify({
+          version: 1,
+          updatedAt: new Date().toISOString(),
+          w1: {
+            cleared: true,
+            stars: Math.max(1, bestStars),
+            score: Math.max(0, bestScore),
+            rounds: Math.max(0, totalRounds),
+            source: bridgeW1.source || 'w2-sync-v2'
+          }
+        }));
       } catch (error) {
         // Storage errors should not block a valid W1 completion.
       }
