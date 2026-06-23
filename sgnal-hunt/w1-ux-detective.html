@@ -4,34 +4,140 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0d1638" />
-  <title>W1 UX Detective • UX Quest Replay Engine V9</title>
+  <title>W1 UX Detective • Diversity Engine</title>
+
   <link rel="stylesheet" href="./css/uxq-core.css" />
   <link rel="stylesheet" href="./css/uxq-mobile.css" />
+  <link rel="stylesheet" href="./css/uxq-w1-diversity-v10.css" />
 </head>
+
 <body>
   <main class="app-shell game-shell">
     <header class="topbar">
-      <a class="brand" href="./index.html" aria-label="กลับหน้า Mission Control"><span class="brand-mark">UX</span><span><strong>UX Quest</strong><small>W1 • UX Detective</small></span></a>
+      <a class="brand" href="./index.html" aria-label="กลับหน้า Mission Control">
+        <span class="brand-mark">UX</span>
+        <span>
+          <strong>UX Quest</strong>
+          <small>W1 • UX Detective</small>
+        </span>
+      </a>
+
       <div class="top-hud" aria-label="สถานะภารกิจ">
-        <span class="hud-pill"><span class="hud-label">Case</span><b id="caseValue">1/5</b></span>
-        <span class="hud-pill"><span class="hud-label">Score</span><b id="scoreValue">0</b></span>
-        <span class="hud-pill"><span class="hud-label">Stability</span><b id="stabilityValue">100</b></span>
-        <button id="resetBtn" class="reset-btn" type="button">เริ่มใหม่</button>
+        <span class="hud-pill">
+          <span class="hud-label">Case</span>
+          <b id="caseValue">เลือกโหมด</b>
+        </span>
+
+        <span class="hud-pill">
+          <span class="hud-label">Score</span>
+          <b id="scoreValue">0</b>
+        </span>
+
+        <span class="hud-pill">
+          <span class="hud-label">Stability</span>
+          <b id="stabilityValue">100</b>
+        </span>
+
+        <button id="resetBtn" class="reset-btn" type="button">
+          ล้าง Replay
+        </button>
       </div>
     </header>
+
     <section class="mission-banner">
-      <div><p class="eyebrow">MISSION 01 // CASE-BY-CASE UX INVESTIGATION</p><h1>UX Detective</h1><p>คุณไม่ได้กำลังหา “จุดผิด” บนจอ แต่กำลังสืบว่าอะไรทำให้ผู้ใช้ทำเป้าหมายของตัวเองไม่สำเร็จ</p></div>
-      <button id="howBtn" class="ghost-btn" type="button">วิธีเล่น</button>
+      <div>
+        <p class="eyebrow">
+          MISSION 01 // UX INVESTIGATION DIVERSITY ENGINE
+        </p>
+
+        <h1>UX Detective</h1>
+
+        <p>
+          ไม่ใช่ชุดคำถามเดิมเปลี่ยนชื่อบริการ:
+          แต่ละ Replay จะสุ่ม 5 Case จาก 6 รูปแบบการคิด
+          เพื่อฝึกวิเคราะห์ UX จากหลายมุม
+        </p>
+      </div>
+
+      <button id="howBtn" class="ghost-btn" type="button">
+        วิธีเล่น
+      </button>
     </section>
+
     <nav id="phaseRail" class="phase-rail" aria-label="ขั้นตอนของ Case">
-      <span class="phase active"><b>1</b> Observe</span><span class="phase"><b>2</b> Diagnose</span><span class="phase"><b>3</b> Design Fix</span><span class="phase"><b>4</b> User Test</span><span class="phase"><b>5</b> Explain</span>
+      <span class="phase active"><b>1</b> Observe</span>
+      <span class="phase"><b>2</b> Diagnose</span>
+      <span class="phase"><b>3</b> Design Fix</span>
+      <span class="phase"><b>4</b> User Test</span>
+      <span class="phase"><b>5</b> Explain</span>
     </nav>
+
     <section id="gameStage" class="game-stage" aria-live="polite"></section>
   </main>
-  <dialog id="howDialog" class="modal-dialog"><button class="modal-close" data-close="howDialog" aria-label="ปิด">×</button><p class="eyebrow">HOW TO PLAY</p><h2>คิดจากคนใช้ ไม่ใช่จากหน้าจอ</h2><ol class="how-list"><li>อ่าน <b>User Goal</b> และคำพูดของผู้ใช้</li><li>เลือกจุดที่น่าจะเป็นต้นเหตุของความติดขัด</li><li>วิเคราะห์ความสัมพันธ์ระหว่าง <b>UI symptom</b> และ <b>UX impact</b></li><li>เลือกวิธีแก้ที่ช่วยผู้ใช้ทำงานสำเร็จมากที่สุด</li><li>อ่านผล User Test และอธิบายเหตุผลด้วยคำของคุณเอง</li></ol><p class="muted">ผ่านเมื่อมีคะแนนอย่างน้อย 60 และจบ Explain Check ครบทุกเคส คะแนนเน้นเหตุผล ไม่เน้นกดเร็ว</p></dialog>
-  <dialog id="feedbackDialog" class="modal-dialog feedback-dialog"><button class="modal-close" data-close="feedbackDialog" aria-label="ปิด">×</button><div id="feedbackContent"></div></dialog>
-  <script src="./js/uxq-w1-data.js?v=20260623-w1-v9-final"></script>
-  <script src="./js/uxq-progress-v9.js?v=20260623-w1-v9-final"></script>
-  <script src="./js/uxq-w1-v9.js?v=20260623-w1-v9-final"></script>
+
+  <dialog id="howDialog" class="modal-dialog">
+    <button
+      class="modal-close"
+      data-close="howDialog"
+      aria-label="ปิด"
+      type="button"
+    >
+      ×
+    </button>
+
+    <p class="eyebrow">HOW TO PLAY W1</p>
+    <h2>หลักยังเหมือนเดิม แต่รูปแบบภารกิจเปลี่ยนจริง</h2>
+
+    <ol class="how-list">
+      <li>
+        <b>Evidence Triage</b> —
+        ตัดสินใจว่า evidence ใดขวาง User Goal ก่อน
+      </li>
+
+      <li>
+        <b>Goal Route</b> —
+        หาเส้นทางเริ่มงานที่สอดคล้องกับเป้าหมาย
+      </li>
+
+      <li>
+        <b>UI / UX Split</b> —
+        แยก symptom บนจอออกจาก impact ต่อผู้ใช้
+      </li>
+
+      <li>
+        <b>Budget Trade-off</b> —
+        เลือกการแก้ภายใต้ Design Energy จำกัด
+      </li>
+
+      <li>
+        <b>A/B Audit และ Test Forecast</b> —
+        เปรียบเทียบแบบและทำนายผล User Test
+      </li>
+    </ol>
+
+    <p class="muted">
+      Tutorial มี 5 Case เพื่อสอนวิธีเล่นครั้งแรกเท่านั้น
+      หลังผ่านแล้ว Random Replay จะเป็นค่าเริ่มต้น
+      และไม่ย้อน Tutorial เดิมเอง
+    </p>
+  </dialog>
+
+  <dialog id="feedbackDialog" class="modal-dialog feedback-dialog">
+    <button
+      class="modal-close"
+      data-close="feedbackDialog"
+      aria-label="ปิด"
+      type="button"
+    >
+      ×
+    </button>
+
+    <div id="feedbackContent"></div>
+  </dialog>
+
+  <!-- ใช้ Progress Bridge V9 เดิม เพื่อไม่กระทบการปลดล็อก W2 -->
+  <script src="./js/uxq-progress-v9.js?v=20260623-w1-diversity-v10"></script>
+  <script src="./js/uxq-w1-data-v10.js?v=20260623-w1-diversity-v10"></script>
+  <script src="./js/uxq-w1-diversity-v10.js?v=20260623-w1-diversity-v10"></script>
 </body>
 </html>
