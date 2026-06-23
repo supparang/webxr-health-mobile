@@ -11,7 +11,7 @@
 
   <!--
     File: /fitness/shadow-breaker-ar.html
-    Version: v20260621-SHADOW-BREAKER-AR-HAND-PUNCH-V8-3-FITNESS-PLANNER-COOLDOWN
+    Version: v20260623-SHADOW-BREAKER-AR-HAND-TRACKING-STABLE-V9C
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1303,7 +1303,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260623 • Hand Tracking Stable V9 • Planner Cooldown</div>
+          <div class="pill" id="versionPill">v20260623 • Hand Tracking Stable V9C • Planner Cooldown</div>
         </div>
 
         <div class="grid2">
@@ -2130,7 +2130,7 @@
 
       hands.slice(0,2).forEach((landmarks) => {
         const p = palmPoint(landmarks);
-        const x = clamp((1 - p.x) * arena.clientWidth, 16, arena.clientWidth - 16);
+        const x = clamp(p.x * arena.clientWidth, 16, arena.clientWidth - 16);
         const y = clamp(p.y * arena.clientHeight, 16, arena.clientHeight - 16);
         const side = x < arena.clientWidth / 2 ? "left" : "right";
         seenSides.add(side);
