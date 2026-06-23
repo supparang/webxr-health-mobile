@@ -3114,6 +3114,72 @@ window.FitnessPassportBridge?.save({
         nextHref: gateSummary.gateReturnHref
       });
 
+      const passportPid =
+  qs.get("pid") ||
+  qs.get("studentId") ||
+  qs.get("playerId") ||
+  qs.get("sid") ||
+  "anon";
+
+const passportAttempts =
+  state.metrics.hit +
+  state.metrics.miss +
+  state.metrics.bomb;
+
+const passportAccuracy = passportAttempts
+  ? Math.round((state.metrics.hit / passportAttempts) * 100)
+  : 0;
+
+const passportRank = getRank(
+  passportAccuracy,
+  state.metrics.clearedBoss,
+  state.score
+);
+
+window.FitnessPassportBridge?.save({
+  gameId: "shadow-breaker",
+  game: "shadow-breaker",
+  pid: passportPid,
+  playerId: passportPid,
+  studentId: passportPid,
+  playerName: state.playerName || "Hero",
+  name: state.playerName || "Hero",
+  group: qs.get("group") || qs.get("section") || qs.get("classId") || "",
+  studyId: qs.get("studyId") || "",
+  diff: state.diffKey,
+  duration: state.timeLimit,
+
+  score: state.score,
+  scoreFinal: state.score,
+  accuracy: passportAccuracy,
+  accuracyPct: passportAccuracy,
+  comboMax: state.bestCombo,
+  maxCombo: state.bestCombo,
+
+  hits: state.metrics.hit,
+  correct: state.metrics.hit,
+  miss: state.metrics.miss,
+  misses: state.metrics.miss,
+  bomb: state.metrics.bomb,
+  grade: passportRank.label,
+  rank: passportRank.label,
+  badge: `${passportRank.emoji} ${passportRank.label}`,
+
+  metrics: {
+    bossesCleared: state.metrics.clearedBoss,
+    perfect: state.metrics.perfect,
+    good: state.metrics.good,
+    okay: state.metrics.okay,
+    rushHits: state.rushHits,
+    shieldHits: state.metrics.shield,
+    feverCount: state.feverCount,
+    missionBadges: state.challenge.badges,
+    noBomb: state.metrics.bomb === 0 ? 1 : 0,
+    playerHp: Math.round(state.playerHp),
+    sideSwitches: state.sideSwitches
+  }
+});
+
       if(state.sheetUrl && typeof submitCurrentResultToSheet === "function"){
         setTimeout(() => submitCurrentResultToSheet(false), 350);
       } // AUTO_SHEET_ONLY_SENTINEL
