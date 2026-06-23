@@ -559,14 +559,6 @@
       font-weight:1000;
     }
 
-    .visual-coach-tip{
-      margin-top:7px;
-      color:#0f4c6a;
-      font-size:11px;
-      line-height:1.35;
-      font-weight:900;
-    }
-
     .palm-demo .demo-hand-a{ animation:palmMoveA 1s ease-in-out infinite alternate; }
     .palm-demo .demo-hand-b{ animation:palmMoveB 1s ease-in-out infinite alternate; }
     .palm-demo .demo-arrow{ animation:arrowSlide 1s ease-in-out infinite alternate; }
@@ -1425,7 +1417,7 @@
       "use strict";
 
       const VERSION =
-        "20260622-HANDWASH-AR-DETECTOR-V2-STRICT-GRACE-RESEARCH";
+        "20260623-HANDWASH-AR-DETECTOR-V2-1-STEP4-FAIRNESS-RESEARCH";
 
       const ZONE_ID = "hygiene";
       const qs = new URLSearchParams(location.search);
@@ -1473,7 +1465,7 @@
         12;
 
       const DETECTOR_V2 = Object.freeze({
-        label: "orientation-stability-trajectory-v2",
+        label: "orientation-stability-trajectory-v2.1-step4-fairness",
         stabilitySec: .46,
         stabilityDecay: 1.85,
         strictOrientationMin: .18,
@@ -1540,11 +1532,13 @@
           id: "backFingers",
           label: "4. ถูหลังนิ้วกับฝ่ามือ",
           icon: "✊",
-          tip: "งอนิ้วเป็นกำหลวม ๆ แล้วถูข้อนิ้วกับฝ่ามืออีกข้าง",
-          seconds: 1.1,
-          threshold: .56,
-          graceThreshold: .44,
-          requiresSides: true
+          tip: "กำมือหลวม ๆ วางข้อนิ้วบนฝ่ามืออีกข้าง แล้วถูซ้าย–ขวา",
+          seconds: .95,
+          threshold: .49,
+          graceThreshold: .38,
+          requiresSides: true,
+          stabilitySec: .32,
+          graceAfterSec: 5.5
         },
         {
           id: "thumbs",
@@ -1635,6 +1629,7 @@
 
         SCRUB.forEach((step, index) => {
           const row = document.createElement("div");
+
           row.className = "step-row";
           row.dataset.step = step.id;
 
@@ -2604,7 +2599,13 @@
 
         const best = candidates[0];
 
-        if(elapsed >= 8 && !gesture.graceActive){
+        const graceAfterSec = Number.isFinite(
+          Number(step.graceAfterSec)
+        )
+          ? Number(step.graceAfterSec)
+          : 8;
+
+        if(elapsed >= graceAfterSec && !gesture.graceActive){
           const nearEvidence = getGestureOverallPercent();
 
           const canGrace = !!(
@@ -2774,6 +2775,13 @@
 
       function updateGestureStability(slot, qualifies, dt){
         const gesture = state.gesture;
+        const step = SCRUB[state.scrubIndex];
+
+        const requiredSec = Number.isFinite(
+          Number(step?.stabilitySec)
+        )
+          ? Number(step.stabilitySec)
+          : DETECTOR_V2.stabilitySec;
 
         if(!gesture.stability[slot]){
           gesture.stability[slot] = {
@@ -2786,7 +2794,7 @@
 
         if(qualifies){
           gate.hold = Math.min(
-            DETECTOR_V2.stabilitySec,
+            requiredSec,
             gate.hold + dt
           );
         }else{
@@ -2796,13 +2804,12 @@
           );
         }
 
-        gate.passed =
-          gate.hold >= DETECTOR_V2.stabilitySec;
+        gate.passed = gate.hold >= requiredSec;
 
         return {
           passed: gate.passed,
           percent: clamp(
-            gate.hold / DETECTOR_V2.stabilitySec,
+            gate.hold / requiredSec,
             0,
             1
           ) * 100
@@ -3077,6 +3084,18 @@
         const trajectoryRequired =
           !!options.trajectoryRequired;
 
+        const strictTrajectoryMin = Number.isFinite(
+          Number(candidate.strictTrajectoryMinOverride)
+        )
+          ? Number(candidate.strictTrajectoryMinOverride)
+          : DETECTOR_V2.strictPairTrajectoryMin;
+
+        const graceTrajectoryMin = Number.isFinite(
+          Number(candidate.graceTrajectoryMinOverride)
+        )
+          ? Number(candidate.graceTrajectoryMinOverride)
+          : DETECTOR_V2.gracePairTrajectoryMin;
+
         candidate.strictOrientationOK =
           !orientationRequired ||
           candidate.orientationScore >=
@@ -3092,8 +3111,7 @@
             ? candidate.strictTrajectoryOKOverride
             : (
               !trajectoryRequired ||
-              candidate.trajectoryScore >=
-                DETECTOR_V2.strictPairTrajectoryMin
+              candidate.trajectoryScore >= strictTrajectoryMin
             );
 
         candidate.graceTrajectoryOK =
@@ -3101,8 +3119,7 @@
             ? candidate.graceTrajectoryOKOverride
             : (
               !trajectoryRequired ||
-              candidate.trajectoryScore >=
-                DETECTOR_V2.gracePairTrajectoryMin
+              candidate.trajectoryScore >= graceTrajectoryMin
             );
 
         return candidate;
@@ -3285,44 +3302,45 @@
       }
 
       function roleBackFingerCandidate(target, support, pair){
-        const contact = inverseScore(
+        const knuckleContact = inverseScore(
           distance(target.knuckles, support.palm) / pair.scale,
-          .22,
-          1.6
+          .20,
+          1.82
+        );
+
+        const sideRub = Math.max(
+          target.motionScore,
+          pair.relativeMotion,
+          pair.rubTrajectory
         );
 
         return attachDetectorV2Profile({
           slot: target.key,
           inZone: pair.inScrubZone,
 
-          motionTooLow:
-            target.motionScore < .12 &&
-            pair.rubTrajectory < .16,
+          motionTooLow: sideRub < .09,
 
-          motionScore: Math.max(
-            target.motionScore,
-            pair.rubTrajectory
-          ),
+          motionScore: sideRub,
 
           orientationScore: pair.palmToBackScore,
-          orientationReliable: pair.normalReliable,
+          orientationReliable: false,
 
-          trajectoryScore: Math.max(
-            target.motionScore,
-            pair.rubTrajectory
-          ),
+          trajectoryScore: sideRub,
+
+          strictTrajectoryMinOverride: .28,
+          graceTrajectoryMinOverride: .12,
 
           score: pair.inZoneScore * (
-            .32 * contact +
-            .27 * target.fistScore +
-            .13 * support.openScore +
-            .14 * target.motionScore +
-            .14 * pair.palmToBackScore
+            .42 * knuckleContact +
+            .24 * target.fistScore +
+            .22 * sideRub +
+            .12 * support.openScore
           ),
 
-          coach: "งอนิ้วเป็นกำหลวม ๆ แล้วถูข้อนิ้วบนฝ่ามือ"
+          coach:
+            "กำมือหลวม ๆ วางข้อนิ้วบนฝ่ามืออีกข้าง แล้วถูซ้าย–ขวา"
         }, {
-          orientationRequired: true,
+          orientationRequired: false,
           trajectoryRequired: true
         });
       }
@@ -4996,8 +5014,8 @@
           backFingers: {
             noHands: "ยกมือสองข้างให้กล้องเห็นชัด ๆ",
             outsideZone: "เลื่อนมือมาไว้กลางสัญลักษณ์มือ",
-            lowMotion: "งอนิ้วแล้วถูข้อนิ้วต่อเนื่อง",
-            weakPose: "งอนิ้วเป็นกำหลวม ๆ แล้วถูบนฝ่ามือ",
+            lowMotion: "ถูข้อนิ้วไปทางซ้าย–ขวาให้เห็น 2–3 ครั้ง",
+            weakPose: "กำมือหลวม ๆ ไม่ต้องกำแน่น แล้ววางข้อนิ้วบนฝ่ามือ",
             needOtherHand: "สลับทำอีกมือให้ครบ"
           },
           thumbs: {
