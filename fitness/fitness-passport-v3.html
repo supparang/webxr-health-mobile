@@ -365,51 +365,92 @@ body{
   }
 
   function getPlayerId(){
+  try{
+    const fromUrl =
+      qs.get("pid") ||
+      qs.get("playerId") ||
+      qs.get("studentId");
+
+    const fromStorage =
+      localStorage.getItem("fitnessStudentId") ||
+      sessionStorage.getItem("fitnessStudentId") ||
+      localStorage.getItem("playerId") ||
+      sessionStorage.getItem("playerId");
+
+    const fallbackName =
+      qs.get("studentName") ||
+      qs.get("name") ||
+      "anon";
+
+    return String(fromUrl || fromStorage || fallbackName)
+      .trim() || "anon";
+  }catch(err){
     return String(
       qs.get("pid") ||
       qs.get("playerId") ||
       qs.get("studentId") ||
-      localStorage.getItem("fitnessStudentId") ||
-      localStorage.getItem("playerId") ||
+      qs.get("studentName") ||
+      qs.get("name") ||
       "anon"
     ).trim() || "anon";
   }
+}
 
   function readSummary(gameId){
-    const pid = getPlayerId();
+  const pid = getPlayerId();
 
-    const direct =
-      safeParse(localStorage.getItem(`HHA_LAST_SUMMARY:${gameId}:${pid}`)) ||
-      safeParse(localStorage.getItem(`HHA_LAST_SUMMARY:${gameId}:anon`));
-
-    if(direct) return direct;
-
-    const history = safeParse(
-      localStorage.getItem("HHA_PASSPORT_HISTORY_V1")
-    ) || [];
-
-    const fromHistory = history.find(item =>
-      String(item.gameId || item.game || "") === gameId &&
-      (
-        String(item.playerId || item.pid || "") === pid ||
-        pid === "anon"
-      )
+  const read = (key) => {
+  try{
+    return (
+      safeParse(localStorage.getItem(key)) ||
+      safeParse(sessionStorage.getItem(key))
     );
-
-    if(fromHistory) return fromHistory;
-
-    const global = safeParse(localStorage.getItem("HHA_LAST_SUMMARY"));
-
-    if(
-      global &&
-      String(global.gameId || global.game || "") === gameId
-    ){
-      return global;
-    }
-
+  }catch(err){
     return null;
   }
+};
 
+  const direct =
+    read(`HHA_LAST_SUMMARY:${gameId}:${pid}`) ||
+    (pid === "anon"
+      ? read(`HHA_LAST_SUMMARY:${gameId}:anon`)
+      : null);
+
+  if(direct) return direct;
+
+  const history =
+    read("HHA_PASSPORT_HISTORY_V1") || [];
+
+  const fromHistory = history.find(item =>
+    String(item.gameId || item.game || "") === gameId &&
+    (
+      String(item.playerId || item.pid || "") === pid ||
+      pid === "anon"
+    )
+  );
+
+  if(fromHistory) return fromHistory;
+
+  const global = read("HHA_LAST_SUMMARY");
+
+  const globalGame = String(
+    global?.gameId || global?.game || ""
+  );
+
+  const globalPid = String(
+    global?.playerId || global?.pid || ""
+  );
+
+  if(
+    global &&
+    globalGame === gameId &&
+    (pid === "anon" || globalPid === pid)
+  ){
+    return global;
+  }
+
+  return null;
+}
   function pct(data){
     if(!data) return 0;
 
