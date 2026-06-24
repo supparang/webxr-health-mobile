@@ -303,7 +303,10 @@
     modal.innerHTML = `
       <div class="hha-recovery-card" role="dialog" aria-modal="true">
         <h2 style="margin:0 0 6px">🩺 เช็กความรู้สึกหลังเล่น</h2>
-        <p style="color:#cbd5e1;line-height:1.55">เลือกระดับความเหนื่อยและอาการก่อนทำ Cooldown หรือกลับ Fitness Zone</p>
+        <p style="color:#cbd5e1;line-height:1.55">
+  ก่อนออกจากเกม เลือกระดับความเหนื่อยและอาการของตนเอง
+  แล้วเลือกทำ Cooldown หรือกลับ Fitness Zone ได้
+</p>
         <b>RPE ความเหนื่อย 0–10</b>
         <div class="hha-scale">${Array.from({ length: 11 }, (_, i) => `<button type="button" data-rpe="${i}">${i}</button>`).join("")}</div>
         <b>มีอาการตรงไหนบ้าง</b>
@@ -429,19 +432,6 @@
     rect.height > 20;
 
   if (!resultVisible) return;
-
-  /*
-    สำคัญ: เปิด RPE ก่อน แม้หาแถวปุ่มไม่เจอ
-  */
-  if (!result.dataset.hhaRecoveryAsked) {
-    result.dataset.hhaRecoveryAsked = "1";
-
-    window.setTimeout(() => {
-      if (!saved) {
-        surveyModal().classList.add("show");
-      }
-    }, 450);
-  }
 
   const hubButton =
   $("btnHub") ||
