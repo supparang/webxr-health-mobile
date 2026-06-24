@@ -3850,11 +3850,11 @@ window.FitnessPassportBridge?.save({
     boot();
   })();
   </script>
-  <!-- STUDENT_CONTEXT_APPLY_LOCK • load before the game code -->
-  <script src="./fitness-student-context-bridge.js?v=20260620-v2"></script>
-  <script src="./fitness-passport-bridge.js?v=20260623-v1"></script>
+  <!-- Shared context + Passport must load before the game code -->
+<script src="./fitness-student-context-bridge.js?v=20260620-v2"></script>
+<script src="./fitness-passport-bridge.js?v=20260623-v1"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
-  <script src="./fitness-postgame-recovery-bridge.js?v=20260622-warmup-game-cooldown-rpe-v2-storage-safe"></script>
+<script src="./fitness-postgame-recovery-bridge.js?v=20260622-warmup-game-cooldown-rpe-v2-storage-safe"></script>
 </body>
 </html>
