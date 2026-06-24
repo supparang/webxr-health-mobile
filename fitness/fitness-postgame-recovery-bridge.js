@@ -490,19 +490,7 @@
     }
   }
 }
-  /*
-    เปิด RPE/Pain หลัง Result ปรากฏจริงเพียงครั้งเดียว
-  */
-  if (!result.dataset.hhaRecoveryAsked) {
-    result.dataset.hhaRecoveryAsked = "1";
-
-    window.setTimeout(() => {
-      if (!saved) {
-        surveyModal().classList.add("show");
-      }
-    }, 450);
-  }
-}
+  
   function boot() {
     markWarmupResume();
     hookGameStart();
