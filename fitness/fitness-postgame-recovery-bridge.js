@@ -414,7 +414,20 @@
     $("resultView") ||
     $("gameoverScreen");
 
-  if (!result || $("cooldownBtn")) return;
+  if (!result) return;
+
+  const resultVisible = (() => {
+    const style = window.getComputedStyle(result);
+    return (
+      !result.hidden &&
+      style.display !== "none" &&
+      style.visibility !== "hidden" &&
+      style.opacity !== "0"
+    );
+  })();
+
+  // ยังไม่จบเกม: ห้ามเพิ่มปุ่มหรือเปิด RPE
+  if (!resultVisible) return;
 
   const hubButton =
     $("btnHub") ||
@@ -429,30 +442,23 @@
 
   if (!actions) return;
 
-  const button = document.createElement("button");
-  button.id = "cooldownBtn";
-  button.type = "button";
+  if (!$("cooldownBtn")) {
+    const button = document.createElement("button");
+    button.id = "cooldownBtn";
+    button.type = "button";
+    button.className = hubButton?.className || "bigBtn btn warn";
+    button.textContent = "🧘 ทำ Cooldown 30 วินาที";
 
-  /*
-    ใช้ class เดิมของ JumpDuck ให้ปุ่มกลมกลืนกับหน้า Result
-  */
-  button.className =
-    hubButton?.className ||
-    "bigBtn btn warn";
+    button.addEventListener("click", () => {
+      surveyModal().classList.add("show");
+    });
 
-  button.textContent = "🧘 ทำ Cooldown 30 วินาที";
+    actions.insertBefore(button, hubButton || null);
+  }
 
-  button.addEventListener("click", () => {
-    surveyModal().classList.add("show");
-  });
+  if (hubButton && !hubButton.dataset.hhaRecoveryHooked) {
+    hubButton.dataset.hhaRecoveryHooked = "1";
 
-  /*
-    วางก่อนปุ่มกลับ Hub
-    รองรับ Shadow / Rhythm / JumpDuck / Balance Hold
-  */
-  actions.insertBefore(button, hubButton || null);
-
-  if (hubButton) {
     hubButton.addEventListener("click", (event) => {
       if (planner || saved) return;
 
@@ -466,9 +472,9 @@
       hubButton.textContent = "🧘 ทำ Cooldown AR ต่อ";
     }
   }
-       /*
-    เปิด RPE / Pain อัตโนมัติเมื่อหน้าผลลัพธ์ปรากฏ
-    ผู้เล่นต้องเลือกก่อนจึงไป Cooldown หรือกลับ Hub ได้
+
+  /*
+    เปิด RPE/Pain หลัง Result ปรากฏจริงเพียงครั้งเดียว
   */
   if (!result.dataset.hhaRecoveryAsked) {
     result.dataset.hhaRecoveryAsked = "1";
