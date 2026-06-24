@@ -1774,16 +1774,19 @@ const passportResult = jdSavePassport({
   game: 'jumpduck',
 
   playerId:
-    currentSummaryPayload.playerId ||
-    currentSummaryPayload.studentId ||
-    meta.playerId ||
-    meta.studentId ||
-    'anon',
+  currentSummaryPayload.playerId ||
+  currentSummaryPayload.studentId ||
+  meta.playerId ||
+  meta.studentId ||
+  meta.studentName ||
+  'Hero',
 
   playerName:
-    currentSummaryPayload.studentName ||
-    meta.studentName ||
-    'Hero',
+  currentSummaryPayload.studentName ||
+  meta.studentName ||
+  meta.playerId ||
+  meta.studentId ||
+  'Hero',
 
   score,
   accuracy,
