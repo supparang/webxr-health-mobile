@@ -1,7 +1,7 @@
 <!-- =========================================================
  /herohealth/hygiene-zone/teacher-dashboard.html
  HeroHealth Hygiene Zone Teacher Dashboard V2
- Version: v20260623-HYGIENE-TEACHER-DASHBOARD-V3-1-UNIFIED-GAME-ADAPTERS
+ Version: v20260623-HYGIENE-TEACHER-DASHBOARD-V3-2-GAME-AWARE-BATH-ANALYTICS
 ========================================================= -->
 <!doctype html>
 <html lang="th">
@@ -238,6 +238,13 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
   font-weight:1000;
 }
 
+
+/* V3.2 • Unified game-aware metrics + Bath analytics */
+.game-overview{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin:0 0 14px}
+.game-card{min-height:142px;padding:14px;border:1px solid rgba(255,255,255,.92);border-radius:25px;background:rgba(255,255,255,.84);box-shadow:0 12px 28px rgba(15,23,42,.08);cursor:pointer}.game-card:hover{transform:translateY(-1px);border-color:rgba(37,99,235,.28)}.game-card.active{border-color:rgba(37,99,235,.42);box-shadow:inset 4px 0 0 #2563eb,0 12px 28px rgba(15,23,42,.10)}.game-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.game-card h3{margin:0;color:#0f172a;font-size:16px;line-height:1.1;font-weight:1000}.game-card p{margin:3px 0 0;color:#64748b;font-size:11px;line-height:1.35;font-weight:850}.game-card-count{padding:5px 8px;border-radius:999px;background:#f8fafc;color:#475569;border:1px solid var(--line);font-size:10px;font-weight:1000;white-space:nowrap}.game-card-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}.game-card-stat{padding:8px 7px;border:1px solid rgba(15,23,42,.06);border-radius:14px;background:#fff}.game-card-stat small{display:block;color:#64748b;font-size:9px;font-weight:1000}.game-card-stat b{display:block;margin-top:3px;color:#0f172a;font-size:16px;line-height:1;font-weight:1000}.game-card.empty{background:linear-gradient(135deg,#f8fafc,#fff7ed);cursor:default}
+.table-metric-label{display:block;color:#64748b;font-size:9px;line-height:1.1;font-weight:1000}.table-metric-value{display:block;margin-top:2px;color:#0f172a;font-size:12px;line-height:1.1;font-weight:1000}.game-drill-empty{display:grid;min-height:260px;place-items:center;padding:18px;color:#64748b;text-align:center;line-height:1.5;font-weight:900}.bath-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}.bath-meta span{padding:6px 8px;border:1px solid var(--line);border-radius:999px;background:#f8fafc;color:#475569;font-size:10px;font-weight:1000}.bath-meta b{color:#0f766e;font-weight:1000}.map-overview{display:grid;gap:9px;padding:4px 0}.map-overview-row{display:grid;grid-template-columns:110px 1fr auto;gap:9px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:18px;background:#f8fafc}.map-overview-row b{color:#0f172a;font-size:12px;font-weight:1000}.map-overview-row span{color:#64748b;font-size:11px;line-height:1.35;font-weight:850}.map-overview-row button{min-height:31px;padding:0 9px;border:1px solid rgba(37,99,235,.16);border-radius:11px;background:#fff;color:#1d4ed8;font-size:10px;font-weight:1000}
+@media(max-width:880px){.game-overview{grid-template-columns:1fr}}@media(max-width:580px){.game-card-stats{grid-template-columns:repeat(3,1fr)}.map-overview-row{grid-template-columns:1fr auto}.map-overview-row span{grid-column:1/-1}}
+
 </style>
 </head>
 <body>
@@ -250,9 +257,9 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
 <section class="hero">
   <div class="panel hero-main">
     <div class="eyebrow">📊 Teacher Insight Center</div>
-    <h2 class="hero-title">ดูว่าเด็ก <b>แปรงสะอาด</b><br>และแปรงถูกวิธีจริงไหม</h2>
-    <p class="copy">Dashboard แยก Learning Mode กับ Challenge Mode ชัดเจน: Learning Mastery คือ pass strokes ที่ใช้ผ่านโซน ส่วน Overall Direction คือความแม่นระหว่างฝึก เพื่อให้ครูเห็นทั้ง “ผ่านทักษะ” และ “จุดที่ควรโค้ชต่อ”</p>
-    <div class="pills"><span class="chip">🗺️ Learning Mastery</span><span class="chip">🧭 Overall Direction</span><span class="chip">🌿 Gum Safety</span><span class="chip">🦷 Zone Performance</span></div>
+    <h2 class="hero-title">ดูว่าเด็ก <b>ดูแลสุขอนามัย</b><br>ครบและถูกวิธีจริงไหม</h2>
+    <p class="copy">Dashboard อ่านผลแบบแยกสูตรตามเกม: Toothbrush ดู Clean / Gum / Direction, Handwash ดู 7 ขั้น / Process / Gesture, Bath ดู Clean Body / Dry / Water Save เพื่อให้ครูเห็นทั้ง “ผ่านทักษะ” และ “จุดที่ควรโค้ชต่อ”</p>
+    <div class="pills"><span class="chip">🪥 Toothbrush</span><span class="chip">🧼 Handwash 7-Step</span><span class="chip">🛁 Bath Routine</span><span class="chip">📊 Game-aware Analytics</span></div>
   </div>
   <div class="panel connection">
     <h2>เชื่อม Google Sheets</h2>
@@ -279,10 +286,11 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
 </section>
 
 <section id="kpis" class="kpis"></section>
+<section id="gameOverview" class="game-overview"></section>
 
 <section class="grid">
   <article class="panel card"><div class="head"><div><h2>🎯 Teacher Action Center</h2><p class="muted">สิ่งที่ควรจัดกิจกรรมหรือ coaching ต่อจากข้อมูลที่เลือก</p></div><span id="insightCount" class="mini">0 records</span></div><div id="insights" class="insights"></div></article>
-  <article class="panel card"><div class="head"><div><h2>🗺️ Zone Learning & Challenge Map</h2><p class="muted">Learning Skill / Challenge Clean / Challenge Direction รายโซน</p></div><span class="mini">6 zones</span></div><div id="zoneBoard" class="zone-board"></div><div class="legend"><span>🟦 Learning Skill</span><span>🟩 Challenge Clean</span><span>🟨 Challenge Direction</span></div></article>
+  <article class="panel card"><div class="head"><div><h2 id="zoneMapTitle">🧩 Game Skill Map</h2><p id="zoneMapCopy" class="muted">เลือกเกมเพื่อดูทักษะเฉพาะเกม ไม่เอาตัวชี้วัดคนละเกมมาปนกัน</p></div><span id="zoneMapTag" class="mini">All games</span></div><div id="zoneBoard" class="zone-board"></div><div id="zoneLegend" class="legend"></div></article>
 </section>
 
 <section class="growth-grid">
@@ -320,13 +328,13 @@ h2{margin:0 0 7px;font-size:20px;line-height:1.12;letter-spacing:-.03em;font-wei
 
 <section class="panel table-card">
   <div class="table-head"><div><h2>👩‍🎓 Student Records</h2><p id="caption">เลือกแถวเพื่อดูรายละเอียดรายโซนและ feedback</p></div><span id="recordCount" class="mini">0 records</span></div>
-  <div class="scroll"><table><thead><tr><th>เวลา</th><th>นักเรียน</th><th>เกม / โหมด</th><th>ผล</th><th>Score</th><th>Clean</th><th>Gum</th><th>Technique</th><th>Coverage</th><th>Learning</th><th>Mastery</th><th>Overall Direction</th><th>Weak Zone</th><th>Input</th></tr></thead><tbody id="tbody"></tbody></table></div>
+  <div class="scroll"><table><thead><tr><th>เวลา</th><th>นักเรียน</th><th>เกม / โหมด</th><th>ผล</th><th>Score</th><th>Core Metric</th><th>Care / Safety</th><th>Skill Metric</th><th>Progress / Coverage</th><th>Learning / Process</th><th>Mastery / Boss</th><th>Direction / Water</th><th>Focus Area</th><th>Input</th></tr></thead><tbody id="tbody"></tbody></table></div>
   <div id="mobileRecords" class="mobile-records"></div>
 </section>
 
 <section class="details">
   <article class="panel card"><div class="head"><div><h2>🔎 Selected Attempt</h2><p class="muted">สรุปรายบุคคลจากการเล่นครั้งที่เลือก • เปิดหน้าใหม่จะเลือกผล Current ล่าสุดก่อน</p></div><span id="detailTag" class="mini">เลือกแถว</span></div><div id="detail" class="empty-detail">เลือกแถวจากตารางเพื่อดู Learning Mastery, Overall Direction, ค่า Gum และข้อเสนอแนะเฉพาะคน</div></article>
-  <article class="panel card"><div class="head"><div><h2>🧩 Zone Drilldown</h2><p class="muted">ดูข้อมูล pass strokes หรือ Challenge Clean / Direction รายโซน</p></div><span id="modeTag" class="mini">-</span></div><div id="detailZones" class="empty-detail">รายละเอียดรายโซนจะแสดงที่นี่</div></article>
+  <article class="panel card"><div class="head"><div><h2 id="drilldownTitle">🧩 Game Drilldown</h2><p id="drilldownCopy" class="muted">เลือกผลเพื่อดูตัวชี้วัดเฉพาะเกม</p></div><span id="modeTag" class="mini">-</span></div><div id="detailZones" class="empty-detail">รายละเอียดเฉพาะเกมจะแสดงที่นี่</div></article>
 </section>
 </div></main>
 <div id="toast" class="toast"></div>
@@ -449,19 +457,34 @@ function currentByGame(source,gameKey,playMode,guidedPayload,challengePayload){
 
   if(gameKey==='handwash'){
     return hasAny(source,[
-      'accuracy','stepAccuracy','processAccuracy','gestureQuality',
-      'bossAccuracy','cleanHabitScore','completedSteps','totalSteps',
-      'hygieneProcessComplete','palmStep','wristsStep','stepPassModes',
+      'accuracy','stepAccuracy','step_accuracy',
+      'processAccuracy','process_accuracy',
+      'gestureQuality','gesture_quality',
+      'bossAccuracy','boss_accuracy',
+      'cleanHabitScore','clean_habit_score',
+      'completedSteps','completed_steps',
+      'totalSteps','total_steps',
+      'handwash_completed_steps','handwash_step_accuracy',
+      'hygieneProcessComplete','hygiene_process_complete',
+      'palmStep','wristsStep','stepPassModes',
       'strictPassSteps','gracePassSteps'
     ]);
   }
 
   if(gameKey==='bath'){
     return hasAny(source,[
-      'cleanPercent','clean_percent','dryPercent','dry_percent',
-      'waterSaveScore','water_save_score','routineCompleted',
-      'routine_completed','hiddenGerms','bossDefeated','outcomeStatus',
-      'cleanBodyScore','routineScore'
+      'cleanPercent','clean_percent','cleanBodyScore','clean_body_score',
+      'bath_clean_percent',
+      'dryPercent','dry_percent','dryScore','bath_dry_percent',
+      'waterSaveScore','water_save_score','bath_water_save_score',
+      'foamAvg','foam_avg','bath_foam_avg',
+      'hiddenGerms','hidden_germs','bath_hidden_germs',
+      'wave','bath_wave','comboMax','combo_max','bath_combo_max',
+      'bossType','boss_type','bath_boss_type',
+      'bossDefeated','boss_defeated','bath_boss_defeated',
+      'cameraQuality','camera_quality','bath_camera_quality',
+      'routineCompleted','routine_completed','bath_routine_completed',
+      'outcomeStatus','outcome_status','bath_outcome_status'
     ]);
   }
 
@@ -536,19 +559,27 @@ function norm(raw,i=0){
   );
   const handwashWeak=firstMissingHandwashStep(r);
 
-  const bathClean=n(pick(r,['cleanPercent','clean_percent','cleanBodyScore','clean_score','cleanScore']));
-  const bathDry=n(pick(r,['dryPercent','dry_percent','dryScore']));
-  const bathWater=n(pick(r,['waterSaveScore','water_save_score']));
-  const bathRoutine=yes(pick(r,['routineCompleted','routine_completed']));
-  const bathBoss=yes(pick(r,['bossDefeated','boss_defeated']));
-  const bathHidden=n(pick(r,['hiddenGerms','hidden_germs']));
-  const bathOutcome=String(pick(r,['outcomeStatus','outcome_status'],'')).toLowerCase();
+  const bathClean=n(pick(r,['bath_clean_percent','cleanPercent','clean_percent','cleanBodyScore','clean_body_score','clean_score','cleanScore']));
+  const bathDry=n(pick(r,['bath_dry_percent','dryPercent','dry_percent','dryScore']));
+  const bathWater=n(pick(r,['bath_water_save_score','waterSaveScore','water_save_score']));
+  const bathFoam=n(pick(r,['bath_foam_avg','foamAvg','foam_avg']));
+  const bathHidden=n(pick(r,['bath_hidden_germs','hiddenGerms','hidden_germs']));
+  const bathWave=n(pick(r,['bath_wave','wave']));
+  const bathCombo=n(pick(r,['bath_combo_max','comboMax','combo_max','bestCombo','best_combo']));
+  const bathCamera=n(pick(r,['bath_camera_quality','cameraQuality','camera_quality']));
+  const bathBossType=String(pick(r,['bath_boss_type','bossType','boss_type'],'')).trim();
+  const bathRoutine=yes(pick(r,['bath_routine_completed','routineCompleted','routine_completed']));
+  const bathBoss=yes(pick(r,['bath_boss_defeated','bossDefeated','boss_defeated']));
+  const bathOutcome=String(pick(r,['bath_outcome_status','outcomeStatus','outcome_status','resultStatus','result_status'],'')).toLowerCase();
+  const bathOutcomePassed=/(pass|passed|complete|completed|clear|cleared|win|success)/.test(bathOutcome);
+  const bathBossRequired=!!bathBossType && !/(none|no[_ -]?boss|off)/i.test(bathBossType);
+  const bathPassByMetrics=bathRoutine && bathClean>=70 && bathDry>=60 && bathWater>=50 && (!bathBossRequired || bathBoss);
 
   const hasClean =
     current && (
       (gameKey==='toothbrush' && has(r,['clean_score','cleanScore'])) ||
       (gameKey==='handwash' && has(r,['accuracy','finalAccuracy','final_accuracy'])) ||
-      (gameKey==='bath' && has(r,['cleanPercent','clean_percent','cleanBodyScore','clean_score','cleanScore']))
+      (gameKey==='bath' && has(r,['bath_clean_percent','cleanPercent','clean_percent','cleanBodyScore','clean_body_score','clean_score','cleanScore']))
     );
 
   const hasGum=current && gameKey==='toothbrush' && has(r,['gum_health','gumHealth']);
@@ -556,14 +587,14 @@ function norm(raw,i=0){
     current && (
       (gameKey==='toothbrush' && has(r,['technique_score','techniqueScore'])) ||
       (gameKey==='handwash' && has(r,['gestureQuality','gesture_quality'])) ||
-      (gameKey==='bath' && has(r,['routineScore','routine_score','dryPercent','dry_percent']))
+      (gameKey==='bath' && has(r,['routineScore','routine_score','bath_dry_percent','dryPercent','dry_percent']))
     );
 
   const hasCoverage =
     current && (
       (gameKey==='toothbrush' && has(r,['coverage_zone_count','coverageZoneCount'])) ||
       (gameKey==='handwash' && (has(r,['completedSteps','completed_steps']) || handwashCompleted>0)) ||
-      (gameKey==='bath' && has(r,['routineCompleted','routine_completed']))
+      (gameKey==='bath' && has(r,['bath_routine_completed','routineCompleted','routine_completed']))
     );
 
   const hasDirection=current&&gameKey==='toothbrush'&&has(r,['overall_direction_accuracy','overallDirectionAccuracy','direction_accuracy','directionAccuracy']);
@@ -597,7 +628,7 @@ function norm(raw,i=0){
     gameKey==='handwash'
       ? (handwashComplete || n(pick(r,['stars']))>=3)
       : gameKey==='bath'
-        ? (bathRoutine && bathClean>=70 && (bathDry>=50 || bathOutcome.includes('pass') || bathOutcome.includes('complete')))
+        ? (bathOutcomePassed || bathPassByMetrics)
         : yes(pick(r,['challenge_passed','challengePassed']));
 
   const challengeResult =
@@ -687,9 +718,14 @@ function norm(raw,i=0){
     bath_clean_percent:bathClean,
     bath_dry_percent:bathDry,
     bath_water_save_score:bathWater,
+    bath_foam_avg:bathFoam,
+    bath_hidden_germs:bathHidden,
+    bath_wave:bathWave,
+    bath_combo_max:bathCombo,
+    bath_camera_quality:bathCamera,
+    bath_boss_type:bathBossType,
     bath_routine_completed:bathRoutine,
     bath_boss_defeated:bathBoss,
-    bath_hidden_germs:bathHidden,
     bath_outcome_status:bathOutcome,
 
     _adapter:gameKey,
@@ -743,6 +779,26 @@ function zoneLabel(value){
 }
 
 
+function bathCareDefinitions(record){
+  const items=[
+    ['clean','ความสะอาดร่างกาย',record.bath_clean_percent],
+    ['dry','เช็ดตัวให้แห้ง',record.bath_dry_percent],
+    ['water','ประหยัดน้ำ',record.bath_water_save_score],
+    ['routine','Bath Routine',record.bath_routine_completed?100:0]
+  ];
+
+  if(record.bath_boss_type){
+    items.push(['boss',record.bath_boss_type||'Germ Boss',record.bath_boss_defeated?100:0]);
+  }
+
+  return items.map(([id,label,value],index)=>({
+    id,label,index,basis:'Bath Care',value:
+      value===null||value===undefined||Number.isNaN(Number(value))
+        ?null
+        :Number(value)
+  })).filter(item=>item.value!==null);
+}
+
 function zoneMetricValue(row,keys){
   return has(row,keys)?n(pick(row,keys)):null;
 }
@@ -752,13 +808,10 @@ function derivedChallengeDirection(row){
     return n(pick(row,['direction_accuracy','directionAccuracy']));
   }
 
-  if(
-    has(row,['direction_good','directionGood']) &&
-    has(row,['direction_total','directionTotal'])
-  ){
+  if(has(row,['direction_good','directionGood'])&&has(row,['direction_total','directionTotal'])){
     return Math.round(
       n(pick(row,['direction_good','directionGood'])) /
-      Math.max(1,n(pick(row,['direction_total','directionTotal'])))*100
+      Math.max(1,n(pick(row,['direction_total','directionTotal']))) * 100
     );
   }
 
@@ -767,62 +820,37 @@ function derivedChallengeDirection(row){
 
 function zoneEvidence(record){
   if(record._isLegacy){
-    return {
-      mode:'legacy',
-      basis:'Legacy',
-      zones:[],
-      strongest:null,
-      weakest:null,
-      uniform:false
-    };
+    return {mode:'legacy',basis:'Legacy',zones:[],strongest:null,weakest:null,uniform:false};
   }
 
   const zones=[];
 
-
   if(record.game_key==='handwash'){
-    handwashStepDefs().forEach(([id,label,stepKey,modeKey],index)=>{
+    handwashStepDefs().forEach(([id,label,stepKey,modeKey],index=>{
       const passed=passish(pick(record,[stepKey],''));
       const passMode=String(pick(record,[modeKey],'')).toLowerCase();
-      const value=passed?(passMode==='strict'?100:82):0;
       zones.push({
-        id,
-        label,
-        index,
-        basis:'7-Step',
-        value,
+        id,label,index,basis:'7-Step',
+        value:passed?(passMode==='strict'?100:82):0,
         passMode
       });
-    });
-  }else 
-  if(record.play_mode==='challenge'){
+    }));
+  }else if(record.game_key==='bath'){
+    zones.push(...bathCareDefinitions(record));
+  }else if(record.play_mode==='challenge'){
     const payload=json(record.challenge_zone_performance_json,{});
 
-    CFG.zones.forEach(([id,label],index)=>{
+    CFG.zones.forEach(([id,label],index=>{
       const row=payload[id]||{};
       const directionValue=derivedChallengeDirection(row);
       const cleanValue=zoneMetricValue(row,['clean_percent','cleanPercent']);
 
       if(directionValue!==null){
-        zones.push({
-          id,
-          label,
-          index,
-          basis:'Direction',
-          value:directionValue,
-          clean:cleanValue
-        });
+        zones.push({id,label,index,basis:'Direction',value:directionValue,clean:cleanValue});
       }else if(cleanValue!==null){
-        zones.push({
-          id,
-          label,
-          index,
-          basis:'Clean',
-          value:cleanValue,
-          clean:cleanValue
-        });
+        zones.push({id,label,index,basis:'Clean',value:cleanValue,clean:cleanValue});
       }
-    });
+    }));
   }else if(record.play_mode==='learning'){
     const payload=json(record.guided_zone_progress_json,{});
     const progress=payload.progress||{};
@@ -830,7 +858,7 @@ function zoneEvidence(record){
     const directionGood=payload.direction_good||{};
     const directionTotal=payload.direction_total||{};
 
-    CFG.zones.forEach(([id,label],index)=>{
+    CFG.zones.forEach(([id,label],index=>{
       let value=null;
       let basis='Learning Skill';
 
@@ -840,23 +868,14 @@ function zoneEvidence(record){
         value=Math.round(n(qualified[id])/3*100);
         basis='Pass Strokes';
       }else if(has(directionGood,[id])&&has(directionTotal,[id])){
-        value=Math.round(
-          n(directionGood[id]) /
-          Math.max(1,n(directionTotal[id]))*100
-        );
+        value=Math.round(n(directionGood[id])/Math.max(1,n(directionTotal[id]))*100);
         basis='Direction';
       }
 
       if(value!==null){
-        zones.push({
-          id,
-          label,
-          index,
-          basis,
-          value
-        });
+        zones.push({id,label,index,basis,value});
       }
-    });
+    }));
   }
 
   const measured=zones.filter(zone=>
@@ -872,16 +891,13 @@ function zoneEvidence(record){
       a.index-b.index
     );
 
-    const strongest=ordered[0];
-    const weakest=ordered[ordered.length-1];
-
     return {
       mode:record.play_mode,
-      basis:strongest.basis,
+      basis:ordered[0].basis,
       zones:ordered,
-      strongest,
-      weakest,
-      uniform:Number(strongest.value)===Number(weakest.value)
+      strongest:ordered[0],
+      weakest:ordered[ordered.length-1],
+      uniform:Number(ordered[0].value)===Number(ordered[ordered.length-1].value)
     };
   }
 
@@ -904,65 +920,57 @@ function zoneEvidence(record){
 }
 
 function strongZoneLabel(record){
-  const insight=zoneEvidence(record);
-  return insight.strongest?.label||'—';
+  return zoneEvidence(record).strongest?.label||'—';
 }
 
 function weakZoneLabel(record){
-  const insight=zoneEvidence(record);
-  return insight.weakest?.label||'—';
+  return zoneEvidence(record).weakest?.label||'—';
 }
 
 function zoneInsightText(record){
   const insight=zoneEvidence(record);
 
   if(record._isLegacy){
-    return 'Legacy / Unknown: ยังไม่มี Learning + Challenge zone analytics สำหรับสรุปรายโซน';
+    return 'Legacy / Unknown: ยังไม่มีข้อมูลเชิงลึกเฉพาะเกมสำหรับสรุปจุดเด่นและจุดที่ต้องฝึก';
   }
 
   if(!insight.strongest&&!insight.weakest){
-    return 'ยังไม่มีข้อมูลรายโซนเพียงพอสำหรับสรุปจุดเด่นและจุดที่ต้องฝึก';
+    return 'ยังไม่มีข้อมูลรายองค์ประกอบเพียงพอสำหรับสรุปจุดเด่นและจุดที่ต้องฝึก';
   }
 
-  const basis=insight.basis==='Learning Skill'
-    ?'Learning Skill'
-    :insight.basis==='Pass Strokes'
-      ?'Pass Strokes'
-      :insight.basis==='7-Step'
-        ?'7 ขั้นล้างมือ'
-        :insight.basis==='Clean'
-          ?'Clean'
-          :insight.basis==='Recorded'
-            ?'ข้อมูลที่บันทึก'
-            :'Direction';
+  const basis={
+    'Learning Skill':'Learning Skill',
+    'Pass Strokes':'Pass Strokes',
+    '7-Step':'7 ขั้นล้างมือ',
+    'Bath Care':'Bath Care',
+    'Clean':'Clean',
+    'Recorded':'ข้อมูลที่บันทึก'
+  }[insight.basis]||'Direction';
 
-  const formatZone=zone=>{
-    if(!zone) return '—';
-
-    return zone.value===null||zone.value===undefined
-      ?zone.label
-      :`${zone.label} ${Math.round(Number(zone.value))}%`;
+  const formatItem=item=>{
+    if(!item) return '—';
+    return item.value===null||item.value===undefined
+      ?item.label
+      :`${item.label} ${Math.round(Number(item.value))}%`;
   };
 
   if(insight.uniform&&insight.strongest){
-    const value=Math.round(Number(insight.strongest.value));
-    return `จาก ${basis} รายโซน: ทั้ง ${insight.zones.length} โซนที่วัดได้อยู่ที่ ${value}%`;
+    return `จาก ${basis}: ทั้ง ${insight.zones.length} รายการที่วัดได้อยู่ที่ ${Math.round(Number(insight.strongest.value))}%`;
   }
 
-  return `จาก ${basis} รายโซน: เด่น ${formatZone(insight.strongest)} • ต้องฝึก ${formatZone(insight.weakest)}`;
+  return `จาก ${basis}: เด่น ${formatItem(insight.strongest)} • ต้องฝึก ${formatItem(insight.weakest)}`;
 }
 
 function zoneInsightBasis(record){
   const insight=zoneEvidence(record);
-  if(record._isLegacy) return 'Legacy';
-  return insight.basis||'Zone';
+  return record._isLegacy?'Legacy':(insight.basis||'Game');
 }
 
 function zoneInsightHtml(record){
   if(record._isLegacy) return '';
-
-  return `<div class="zone-insight-note"><strong>Zone Focus</strong><span class="basis">${esc(zoneInsightBasis(record))}</span><br>${esc(zoneInsightText(record))}</div>`;
+  return `<div class="zone-insight-note"><strong>Game Focus</strong><span class="basis">${esc(zoneInsightBasis(record))}</span><br>${esc(zoneInsightText(record))}</div>`;
 }
+
 
 function game(k){return({toothbrush:'🪥 Toothbrush',handwash:'🧼 Handwash',bath:'🛁 Bath',germ:'🔍 Germ Detective',germhunter:'🔍 Germ Hunter',mask:'😷 Mask',cough:'🤧 Cough',nails:'💅 Nails'})[k]||k||'Other'}
 
@@ -981,7 +989,7 @@ function mode(m){
 }
 
 function result(r){
-  if(r._isLegacy)return{label:'Legacy / Unknown',css:'legacy',detail:'ข้อมูลก่อน Learning + Challenge analytics'};
+  if(r._isLegacy)return{label:'Legacy / Unknown',css:'legacy',detail:'ข้อมูลเก่าที่ไม่มี metric สำคัญของเกมนั้น'};
 
   if(r.game_key==='handwash'){
     if(r.challenge_passed||r.handwash_complete)return{label:'Handwash Pass',css:'pass',detail:'7-step hygiene complete'};
@@ -990,9 +998,13 @@ function result(r){
   }
 
   if(r.game_key==='bath'){
-    if(r.challenge_passed)return{label:'Bath Pass',css:'pass',detail:'Clean Body Routine ผ่าน'};
-    if(n(r.bath_clean_percent)>=70)return{label:'Bath Practice',css:'practice',detail:r.challenge_fail_reasons||'สะอาดแล้ว แต่ routine/dry/water ยังต้องฝึก'};
-    return{label:'Bath Retry',css:'retry',detail:r.challenge_fail_reasons||'ฝึกขั้นตอนอาบน้ำให้ครบ'};
+    if(r.challenge_passed)return{label:'Bath Pass',css:'pass',detail:'Clean Body / Routine ผ่าน'};
+    if(!r.bath_routine_completed)return{label:'Bath Retry',css:'retry',detail:'Bath Routine ยังไม่ครบ'};
+    if(n(r.bath_clean_percent)<70)return{label:'Bath Retry',css:'retry',detail:`Clean Body ${Math.round(n(r.bath_clean_percent))}% ยังต่ำกว่า 70%`};
+    if(n(r.bath_dry_percent)<60)return{label:'Bath Practice',css:'practice',detail:`Dry ${Math.round(n(r.bath_dry_percent))}% — ฝึกเช็ดตัวให้แห้ง`};
+    if(n(r.bath_water_save_score)<50)return{label:'Bath Practice',css:'practice',detail:`Water Save ${Math.round(n(r.bath_water_save_score))}% — ฝึกประหยัดน้ำ`};
+    if(r.bath_boss_type&&!r.bath_boss_defeated)return{label:'Bath Practice',css:'practice',detail:'Germ Boss ยังไม่ผ่าน'};
+    return{label:'Bath Practice',css:'practice',detail:r.challenge_fail_reasons||'ตรวจ Clean Body / Dry / Water Save อีกครั้ง'};
   }
 
   const x=r.challenge_result;
@@ -1006,17 +1018,122 @@ function direction(r){return r.play_mode==='learning'?n(r.overall_direction_accu
 function mastery(r){return n(r.learning_direction_mastery,r.learning_complete?100:0)}
 function primaryMetricLabel(r){
   if(r._isLegacy)return 'Tracking';
-  if(r.game_key==='handwash')return 'Steps';
+  if(r.game_key==='handwash')return '7 Steps';
   if(r.game_key==='bath')return 'Routine';
   return r.play_mode==='learning'?'Mastery':'Direction';
 }
+
 function primaryMetricValue(r){
   if(r._isLegacy)return 'Legacy';
   if(r.game_key==='handwash')return `${Math.round(n(r.handwash_completed_steps))}/${Math.round(n(r.handwash_total_steps)||7)}`;
   if(r.game_key==='bath')return r.bath_routine_completed?'Complete':'Practice';
-  return r.play_mode==='learning'?shownPercent(r._hasLearningMastery,mastery(r)):shownPercent(r._hasDirection,direction(r));
+  return r.play_mode==='learning'
+    ?shownPercent(r._hasLearningMastery,mastery(r))
+    :shownPercent(r._hasDirection,direction(r));
 }
-function input(r){return r.input_mode==='hand_tracking'?'✋ Hand':r.input_mode==='touch_mouse'?'👆 Touch':r.hand_tracking_enabled?'✋ Hand':r.input_mode||'-'}
+
+function input(r){
+  return r.input_mode==='hand_tracking'
+    ?'✋ Hand'
+    :r.input_mode==='touch_mouse'
+      ?'👆 Touch'
+      :r.hand_tracking_enabled
+        ?'✋ Hand'
+        :r.input_mode||'-';
+}
+
+function tableMetric(label,value){
+  return `<span class="table-metric-label">${esc(label)}</span><b class="table-metric-value">${esc(value)}</b>`;
+}
+
+function compactPercent(flag,value){
+  return flag?`${Math.round(n(value))}%`:'—';
+}
+
+function unifiedTableCells(r){
+  if(r._isLegacy){
+    return [
+      tableMetric('Core','—'),
+      tableMetric('Care','—'),
+      tableMetric('Skill','—'),
+      tableMetric('Progress','—'),
+      tableMetric('Path','—'),
+      tableMetric('Status','—'),
+      tableMetric('Extra','—')
+    ];
+  }
+
+  if(r.game_key==='handwash'){
+    return [
+      tableMetric('Accuracy',compactPercent(r._hasClean,r.clean_score)),
+      tableMetric('Process',`${Math.round(n(r.handwash_process_accuracy))}%`),
+      tableMetric('Gesture',`${Math.round(n(r.handwash_gesture_quality))}%`),
+      tableMetric('7 Steps',`${Math.round(n(r.handwash_completed_steps))}/${Math.round(n(r.handwash_total_steps)||7)}`),
+      tableMetric('Step Skill',`${Math.round(n(r.handwash_step_accuracy))}%`),
+      tableMetric('Germ Boss',`${Math.round(n(r.handwash_boss_accuracy))}%`),
+      tableMetric('Habit',`${Math.round(n(r.handwash_clean_habit_score))}%`)
+    ];
+  }
+
+  if(r.game_key==='bath'){
+    const bossText=r.bath_boss_type
+      ?(r.bath_boss_defeated?'Passed':'Practice')
+      :'—';
+
+    return [
+      tableMetric('Body Clean',compactPercent(r._hasClean,r.bath_clean_percent)),
+      tableMetric('Dry',Number.isFinite(Number(r.bath_dry_percent))?`${Math.round(n(r.bath_dry_percent))}%`:'—'),
+      tableMetric('Water Save',Number.isFinite(Number(r.bath_water_save_score))?`${Math.round(n(r.bath_water_save_score))}%`:'—'),
+      tableMetric('Routine',r.bath_routine_completed?'✓ Complete':'Practice'),
+      tableMetric('Foam',Number.isFinite(Number(r.bath_foam_avg))?String(Math.round(n(r.bath_foam_avg))):'—'),
+      tableMetric('Boss',bossText),
+      tableMetric('Hidden Germs',Number.isFinite(Number(r.bath_hidden_germs))?String(Math.round(n(r.bath_hidden_germs))):'—')
+    ];
+  }
+
+  return [
+    tableMetric('Clean',compactPercent(r._hasClean,r.clean_score)),
+    tableMetric('Gum',compactPercent(r._hasGum,r.gum_health)),
+    tableMetric('Technique',compactPercent(r._hasTechnique,r.technique_score)),
+    tableMetric('Coverage',r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—'),
+    tableMetric('Learning',r.play_mode==='learning'?`${r._hasLearningProgress?Math.round(n(r.learning_progress_percent)):'—'}% ${r.learning_complete?'✓':''}`:'—'),
+    tableMetric('Mastery',r.play_mode==='learning'?compactPercent(r._hasLearningMastery,mastery(r)):'—'),
+    tableMetric('Direction',compactPercent(r._hasDirection,direction(r)))
+  ];
+}
+
+function mobileMetricSet(r){
+  if(r._isLegacy){
+    return [
+      ['Tracking','Legacy'],
+      ['Score',String(Math.round(n(r.score)))],
+      ['Game',game(r.game_key)]
+    ];
+  }
+
+  if(r.game_key==='handwash'){
+    return [
+      ['Accuracy',compactPercent(r._hasClean,r.clean_score)],
+      ['Process',`${Math.round(n(r.handwash_process_accuracy))}%`],
+      ['7 Steps',`${Math.round(n(r.handwash_completed_steps))}/${Math.round(n(r.handwash_total_steps)||7)}`]
+    ];
+  }
+
+  if(r.game_key==='bath'){
+    return [
+      ['Body Clean',compactPercent(r._hasClean,r.bath_clean_percent)],
+      ['Dry',Number.isFinite(Number(r.bath_dry_percent))?`${Math.round(n(r.bath_dry_percent))}%`:'—'],
+      ['Water Save',Number.isFinite(Number(r.bath_water_save_score))?`${Math.round(n(r.bath_water_save_score))}%`:'—']
+    ];
+  }
+
+  return [
+    ['Clean',compactPercent(r._hasClean,r.clean_score)],
+    ['Gum',compactPercent(r._hasGum,r.gum_health)],
+    [primaryMetricLabel(r),primaryMetricValue(r)]
+  ];
+}
+
 function opts(id,vals,label){const e=$(id),old=e.value,u=[...new Set(vals.filter(Boolean).map(String))].sort((a,b)=>a.localeCompare(b,'th'));e.innerHTML=`<option value="">${esc(label)}</option>`+u.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');if(u.includes(old))e.value=old}
 function filters(){
   studentOptions();
@@ -1125,7 +1242,8 @@ function apply(){
 function avg(a,f){return a.length?Math.round(a.reduce((s,x)=>s+f(x),0)/a.length):0}
 
 function metrics(a){
-  const current=a.filter(r=>r._isCurrent),legacy=a.filter(r=>r._isLegacy);
+  const current=a.filter(r=>r._isCurrent);
+  const legacy=a.filter(r=>r._isLegacy);
   const toothbrush=current.filter(r=>r.game_key==='toothbrush');
   const handwash=current.filter(r=>r.game_key==='handwash');
   const bath=current.filter(r=>r.game_key==='bath');
@@ -1136,39 +1254,108 @@ function metrics(a){
   const complete=learn.filter(r=>r.learning_complete).length;
   const practice=current.filter(r=>['practice','retry'].includes(result(r).css)).length;
 
-  const clean=meanMeasured(current.filter(r=>r._hasClean),r=>r.clean_score);
+  const tbClean=meanMeasured(toothbrush.filter(r=>r._hasClean),r=>r.clean_score);
+  const tbDirection=meanMeasured(challenge.filter(r=>r._hasDirection),r=>direction(r));
   const gum=meanMeasured(toothbrush.filter(r=>r._hasGum),r=>r.gum_health);
-  const tech=meanMeasured(current.filter(r=>r._hasTechnique),r=>r.technique_score);
-  const dir=meanMeasured(challenge.filter(r=>r._hasDirection),r=>direction(r));
-  const learningMasteryMetric=meanMeasured(learn.filter(r=>r._hasLearningMastery),r=>mastery(r));
 
+  const hwAccuracy=meanMeasured(handwash.filter(r=>r._hasClean),r=>r.clean_score);
   const hwStep=meanMeasured(handwash.filter(r=>r._hasHandwashSteps),r=>r.handwash_step_accuracy);
   const hwProcess=meanMeasured(handwash.filter(r=>r._hasHandwashSteps),r=>r.handwash_process_accuracy);
   const hwGesture=meanMeasured(handwash.filter(r=>r._hasHandwashSteps),r=>r.handwash_gesture_quality);
   const hwBoss=meanMeasured(handwash.filter(r=>r._hasHandwashSteps),r=>r.handwash_boss_accuracy);
 
-  return{
+  const bathClean=meanMeasured(bath.filter(r=>r._hasClean),r=>r.bath_clean_percent);
+  const bathDry=meanMeasured(bath.filter(r=>Number.isFinite(Number(r.bath_dry_percent))),r=>r.bath_dry_percent);
+  const bathWater=meanMeasured(bath.filter(r=>Number.isFinite(Number(r.bath_water_save_score))),r=>r.bath_water_save_score);
+  const bathRoutine=meanMeasured(bath.filter(r=>r._isCurrent),r=>r.bath_routine_completed?100:0);
+  const bathBoss=meanMeasured(bath.filter(r=>r.bath_boss_type),r=>r.bath_boss_defeated?100:0);
+
+  return {
     total:a.length,current:current.length,legacy:legacy.length,
-    toothbrush:toothbrush.length,handwash:handwash.length,bath:bath.length,
+    toothbrush,handwash,bath,
     challenge:challenge.length,pass,passRate:current.length?Math.round(pass/current.length*100):null,
     learn:learn.length,complete,learnRate:learn.length?Math.round(complete/learn.length*100):null,
-    clean,gum,tech,dir,mastery:learningMasteryMetric,practice,hwStep,hwProcess,hwGesture,hwBoss
+    practice,
+    tbClean,tbDirection,gum,
+    hwAccuracy,hwStep,hwProcess,hwGesture,hwBoss,
+    bathClean,bathDry,bathWater,bathRoutine,bathBoss
   };
 }
-function kp(label,value,sub,glow){return`<article class="kpi" style="--glow:${glow}"><small>${esc(label)}</small><b>${esc(value)}</b><span>${esc(sub)}</span></article>`}
+
+function kp(label,value,sub,glow){
+  return `<article class="kpi" style="--glow:${glow}"><small>${esc(label)}</small><b>${esc(value)}</b><span>${esc(sub)}</span></article>`;
+}
 
 function renderKpis(){
   const x=metrics(S.shown);
   $('kpis').innerHTML=[
     kp('Total Plays',x.total,`${x.current} Current • ${x.legacy} Legacy`,'rgba(103,232,249,.30)'),
-    kp('Current Pass',x.current?`${x.passRate}%`:'—',`${x.pass}/${x.current} ผ่านตามเกณฑ์เกม`,'rgba(34,197,94,.28)'),
-    kp('Toothbrush Learning',x.learn?`${x.learnRate}%`:'—',`${x.complete}/${x.learn} completed`,'rgba(59,130,246,.25)'),
-    kp('Avg Clean / Accuracy',metricLabel(x.clean),`${x.clean.count} current records`,'rgba(250,204,21,.27)'),
-    kp('Handwash 7 Steps',metricLabel(x.hwStep),x.hwStep.count?`Handwash • ${x.hwStep.count} measured`:'ยังไม่มีข้อมูล Handwash Current','rgba(20,184,166,.24)'),
-    kp('Handwash Process',metricLabel(x.hwProcess),x.hwProcess.count?`ขั้นตอนน้ำ/สบู่/เช็ดมือ`:'ยังไม่มีข้อมูล Process','rgba(14,165,233,.22)'),
-    kp('Toothbrush Direction',metricLabel(x.dir),x.dir.count?`Challenge • ${x.dir.count} measured`:'ยังไม่มีข้อมูล Direction','rgba(251,146,60,.25)'),
+    kp('Current Pass',x.current?`${x.passRate}%`:'—',`${x.pass}/${x.current} ผ่านตามเกณฑ์แต่ละเกม`,'rgba(34,197,94,.28)'),
+    kp('Toothbrush Clean',metricLabel(x.tbClean),x.tbClean.count?`Toothbrush • ${x.tbClean.count} measured`:'ยังไม่มี Toothbrush Current','rgba(250,204,21,.27)'),
+    kp('Toothbrush Direction',metricLabel(x.tbDirection),x.tbDirection.count?`Challenge • ${x.tbDirection.count} measured`:'ยังไม่มี Direction','rgba(251,146,60,.25)'),
+    kp('Handwash Accuracy',metricLabel(x.hwAccuracy),x.hwAccuracy.count?`Handwash • ${x.hwAccuracy.count} measured`:'ยังไม่มี Handwash Current','rgba(20,184,166,.24)'),
+    kp('Handwash 7 Steps',metricLabel(x.hwStep),x.hwStep.count?`Process ${metricLabel(x.hwProcess)}`:'ยังไม่มี Handwash Steps','rgba(14,165,233,.22)'),
+    kp('Bath Body Clean',metricLabel(x.bathClean),x.bathClean.count?`Dry ${metricLabel(x.bathDry)} • Water ${metricLabel(x.bathWater)}`:'รอ Bath Current result แรก','rgba(168,85,247,.22)'),
     kp('Action Needed',x.practice,'Current Practice / Retry','rgba(251,113,133,.25)')
   ].join('');
+}
+
+function gameCardTemplate(key,title,emoji,summary,stats,count,active){
+  return `<article class="game-card ${active?'active':''} ${count?'':'empty'}" data-game-card="${esc(key)}">
+    <div class="game-card-head">
+      <div><h3>${emoji} ${esc(title)}</h3><p>${esc(summary)}</p></div>
+      <span class="game-card-count">${count} Current</span>
+    </div>
+    <div class="game-card-stats">${stats.map(([label,value])=>`<div class="game-card-stat"><small>${esc(label)}</small><b>${esc(value)}</b></div>`).join('')}</div>
+  </article>`;
+}
+
+function renderGameOverview(){
+  const x=metrics(S.shown);
+  const selectedGame=$('game').value;
+
+  const toothbrushPass=x.toothbrush.filter(r=>result(r).css==='pass').length;
+  const handwashPass=x.handwash.filter(r=>result(r).css==='pass').length;
+  const bathPass=x.bath.filter(r=>result(r).css==='pass').length;
+
+  $('gameOverview').innerHTML=[
+    gameCardTemplate(
+      'toothbrush',
+      'Toothbrush AR',
+      '🪥',
+      x.toothbrush.length?'Clean / Gum / Direction':'รอ Toothbrush Current result',
+      [['Pass',`${toothbrushPass}/${x.toothbrush.length||0}`],['Clean',metricLabel(x.tbClean)],['Dir',metricLabel(x.tbDirection)]],
+      x.toothbrush.length,
+      selectedGame==='toothbrush'
+    ),
+    gameCardTemplate(
+      'handwash',
+      'Handwash AR',
+      '🧼',
+      x.handwash.length?'7 Steps / Process / Gesture':'รอ Handwash Current result',
+      [['Pass',`${handwashPass}/${x.handwash.length||0}`],['Steps',metricLabel(x.hwStep)],['Process',metricLabel(x.hwProcess)]],
+      x.handwash.length,
+      selectedGame==='handwash'
+    ),
+    gameCardTemplate(
+      'bath',
+      'Bath AR',
+      '🛁',
+      x.bath.length?'Clean Body / Dry / Water Save':'รอ Bath Current result จากเกมจริง',
+      [['Pass',`${bathPass}/${x.bath.length||0}`],['Clean',metricLabel(x.bathClean)],['Water',metricLabel(x.bathWater)]],
+      x.bath.length,
+      selectedGame==='bath'
+    )
+  ].join('');
+
+  document.querySelectorAll('[data-game-card]').forEach(card=>{
+    card.addEventListener('click',()=>{
+      const key=card.dataset.gameCard;
+      $('game').value=selectedGame===key?'':key;
+      apply();
+      document.querySelector('.grid')?.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+  });
 }
 
 function renderInsights(){
@@ -1191,7 +1378,7 @@ function renderInsights(){
   if(tech.length)list.push(['🧠',`${tech.length} Toothbrush attempts มี Technique ต่ำกว่าเกณฑ์`,'ทำ warm-up ความเร็วระดับกลางก่อนเข้าสู่ Challenge Mode']);
   if(bathPractice.length)list.push(['🛁',`${bathPractice.length} Bath attempts ยังต้องฝึก`,'ตรวจ Routine, Dry, Water Save และ Hidden Germs']);
   if(touch.length)list.push(['👆',`${touch.length} Current attempts ใช้ Touch / Mouse fallback`,'ผลยังใช้ได้ แต่ถ้าประเมินท่าทางให้เปิดกล้องและ Hand Tracking']);
-  if(!list.length)list.push(['✨','ผลรวม Hygiene Zone อยู่ในเกณฑ์ดี',`Current ${x.current} records • Clean/Accuracy ${metricLabel(x.clean)} • Handwash ${metricLabel(x.hwStep)}`]);
+  if(!list.length)list.push(['✨','ผลรวม Hygiene Zone อยู่ในเกณฑ์ดี',`Current ${x.current} records • Toothbrush Clean ${metricLabel(x.tbClean)} • Handwash Steps ${metricLabel(x.hwStep)} • Bath ${metricLabel(x.bathClean)}`]);
 
   $('insightCount').textContent=`${all.length} records • ${x.legacy} legacy`;
   $('insights').innerHTML=list.slice(0,5).map(i=>`<div class="insight"><div class="icon">${i[0]}</div><div><b>${esc(i[1])}</b><span>${esc(i[2])}</span></div></div>`).join('');
@@ -1201,69 +1388,216 @@ function handwashStepMetric(records,stepKey){
   return meanMeasured(records,r=>passish(pick(r,[stepKey],''))?100:0);
 }
 
-function board(){
-  const handwash=S.shown.filter(r=>r.game_key==='handwash'&&r._hasHandwashSteps);
-  const learn=S.shown.filter(r=>r.game_key==='toothbrush'&&r.play_mode==='learning'&&r._hasGuidedZones);
-  const challenge=S.shown.filter(r=>r.game_key==='toothbrush'&&r.play_mode==='challenge'&&r._hasChallengeZones);
+function bathCareRow(record,label,value,kind='fill'){
+  return `<div class="zone-row"><span>${esc(label)}</span><div class="stack"><div class="track"><i class="fill ${kind==='water'?'blue':''}" style="width:${clamp(value??0,0,100)}%"></i></div></div><span class="zone-num">${value===null||value===undefined?'—':Math.round(Number(value))+'%'}</span></div>`;
+}
 
-  if(handwash.length && !learn.length && !challenge.length){
+function setMapHeader(title,copy,tag,legend){
+  $('zoneMapTitle').textContent=title;
+  $('zoneMapCopy').textContent=copy;
+  $('zoneMapTag').textContent=tag;
+  $('zoneLegend').innerHTML=legend||'';
+}
+
+function board(){
+  const current=S.shown.filter(r=>r._isCurrent);
+  const activeGames=[...new Set(current.map(r=>r.game_key))];
+  const selectedGame=$('game').value;
+  const focusGame=selectedGame||(
+    activeGames.length===1 ? activeGames[0] : ''
+  );
+
+  if(!focusGame){
+    setMapHeader(
+      '🧩 Game Skill Map',
+      'เลือกการ์ดเกมหรือ Filter เกม เพื่อดูตัวชี้วัดเฉพาะเกมอย่างถูกต้อง',
+      'All games',
+      '<span>🪥 Toothbrush = Clean / Direction</span><span>🧼 Handwash = 7 Steps / Process</span><span>🛁 Bath = Clean Body / Dry / Water</span>'
+    );
+
+    const summaries=[
+      ['toothbrush','🪥 Toothbrush',current.filter(r=>r.game_key==='toothbrush')],
+      ['handwash','🧼 Handwash',current.filter(r=>r.game_key==='handwash')],
+      ['bath','🛁 Bath',current.filter(r=>r.game_key==='bath')]
+    ];
+
+    $('zoneBoard').innerHTML=`<div class="map-overview">${
+      summaries.map(([key,label,rows])=>{
+        const text=!rows.length
+          ?'ยังไม่มี Current result'
+          :key==='toothbrush'
+            ?`Clean ${metricLabel(meanMeasured(rows.filter(r=>r._hasClean),r=>r.clean_score))} • Direction ${metricLabel(meanMeasured(rows.filter(r=>r._hasDirection),r=>direction(r)))}`
+            :key==='handwash'
+              ?`7 Steps ${metricLabel(meanMeasured(rows,r=>r.handwash_step_accuracy))} • Process ${metricLabel(meanMeasured(rows,r=>r.handwash_process_accuracy))}`
+              :`Body Clean ${metricLabel(meanMeasured(rows.filter(r=>r._hasClean),r=>r.bath_clean_percent))} • Water ${metricLabel(meanMeasured(rows.filter(r=>Number.isFinite(Number(r.bath_water_save_score))),r=>r.bath_water_save_score))}`;
+        return `<div class="map-overview-row"><b>${label}</b><span>${esc(text)}</span><button type="button" data-map-game="${key}">ดูรายละเอียด</button></div>`;
+      }).join('')
+    }</div>`;
+
+    document.querySelectorAll('[data-map-game]').forEach(button=>{
+      button.addEventListener('click',()=>{
+        $('game').value=button.dataset.mapGame;
+        apply();
+      });
+    });
+    return;
+  }
+
+  if(focusGame==='handwash'){
+    const handwash=current.filter(r=>r.game_key==='handwash');
+    setMapHeader(
+      '🧼 Handwash 7-Step Map',
+      'อัตราการผ่านรายขั้น และจำนวน Strict Gesture ภายใต้ filter ที่เลือก',
+      `${handwash.length} attempts`,
+      '<span>🟦 ผ่านขั้นล้างมือ</span><span>🟪 Strict Gesture</span>'
+    );
+
     $('zoneBoard').innerHTML=handwashStepDefs().map(([id,label,stepKey,modeKey])=>{
       const pass=handwashStepMetric(handwash,stepKey);
       const strict=meanMeasured(handwash,r=>String(pick(r,[modeKey],'')).toLowerCase()==='strict'?100:0);
-      return `<div class="zone-row"><span>${label}</span><div class="stack">
-        <div class="track"><i class="fill blue" style="width:${clamp(pass.value??0,0,100)}%"></i></div>
-        <div class="track"><i class="fill" style="width:${clamp(strict.value??0,0,100)}%"></i></div>
-      </div><span class="zone-num">ผ่าน ${metricLabel(pass)}<br>Strict ${metricLabel(strict)}</span></div>`;
+      return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill blue" style="width:${clamp(pass.value??0,0,100)}%"></i></div><div class="track"><i class="fill" style="width:${clamp(strict.value??0,0,100)}%"></i></div></div><span class="zone-num">ผ่าน ${metricLabel(pass)}<br>Strict ${metricLabel(strict)}</span></div>`;
     }).join('');
     return;
   }
+
+  if(focusGame==='bath'){
+    const bath=current.filter(r=>r.game_key==='bath');
+    const clean=meanMeasured(bath.filter(r=>r._hasClean),r=>r.bath_clean_percent);
+    const dry=meanMeasured(bath.filter(r=>Number.isFinite(Number(r.bath_dry_percent))),r=>r.bath_dry_percent);
+    const water=meanMeasured(bath.filter(r=>Number.isFinite(Number(r.bath_water_save_score))),r=>r.bath_water_save_score);
+    const routine=meanMeasured(bath,r=>r.bath_routine_completed?100:0);
+    const boss=meanMeasured(bath.filter(r=>r.bath_boss_type),r=>r.bath_boss_defeated?100:0);
+
+    setMapHeader(
+      '🛁 Bath Care Map',
+      'Clean Body / Dry / Water Save / Routine / Boss ภายใต้ filter ที่เลือก',
+      `${bath.length} attempts`,
+      '<span>🟩 Care Quality</span><span>🟦 Water Save</span>'
+    );
+
+    $('zoneBoard').innerHTML=[
+      bathCareRow(null,'ความสะอาดร่างกาย',clean.value),
+      bathCareRow(null,'เช็ดตัวให้แห้ง',dry.value),
+      bathCareRow(null,'ประหยัดน้ำ',water.value,'water'),
+      bathCareRow(null,'Bath Routine',routine.value),
+      boss.count?bathCareRow(null,'Germ Boss',boss.value):''
+    ].join('');
+    return;
+  }
+
+  const learn=current.filter(r=>r.game_key==='toothbrush'&&r.play_mode==='learning'&&r._hasGuidedZones);
+  const challenge=current.filter(r=>r.game_key==='toothbrush'&&r.play_mode==='challenge'&&r._hasChallengeZones);
+
+  setMapHeader(
+    '🪥 Toothbrush Zone Map',
+    'Learning Skill / Challenge Clean / Challenge Direction รายโซน',
+    `${learn.length+challenge.length} attempts`,
+    '<span>🟦 Learning Skill</span><span>🟩 Challenge Clean</span><span>🟨 Challenge Direction</span>'
+  );
 
   $('zoneBoard').innerHTML=CFG.zones.map(([id,label])=>{
     const l=zoneMetric(learn,'guided_zone_progress_json',id,'');
     const c=zoneMetric(challenge,'challenge_zone_performance_json',id,'clean_percent');
     const d=zoneMetric(challenge,'challenge_zone_performance_json',id,'direction_accuracy');
-    return `<div class="zone-row"><span>${label}</span><div class="stack">
-      <div class="track"><i class="fill blue" style="width:${clamp(l.value??0,0,100)}%"></i></div>
-      <div class="track"><i class="fill" style="width:${clamp(c.value??0,0,100)}%"></i></div>
-      <div class="track"><i class="fill pink" style="width:${clamp(d.value??0,0,100)}%"></i></div>
-    </div><span class="zone-num">L ${metricLabel(l)}<br>C ${metricLabel(c)} • D ${metricLabel(d)}</span></div>`;
+    return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill blue" style="width:${clamp(l.value??0,0,100)}%"></i></div><div class="track"><i class="fill" style="width:${clamp(c.value??0,0,100)}%"></i></div><div class="track"><i class="fill pink" style="width:${clamp(d.value??0,0,100)}%"></i></div></div><span class="zone-num">L ${metricLabel(l)}<br>C ${metricLabel(c)} • D ${metricLabel(d)}</span></div>`;
   }).join('');
 }
-function measuredForDisplay(record,flag,value){return record._isLegacy?'—':shownPercent(flag,value)}
-function coverageDisplay(r){if(r._isLegacy)return '—';if(r.game_key==='handwash')return r._hasCoverage?`${Math.round(n(r.handwash_completed_steps))}/${Math.round(n(r.handwash_total_steps)||7)}`:'—';if(r.game_key==='bath')return r.bath_routine_completed?'Routine ✓':'Practice';return r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—'}
-function selectRecord(key,scrollToDetails=false){S.selected=key;table();detail();if(scrollToDetails)document.querySelector('.details')?.scrollIntoView({behavior:'smooth',block:'start'})}
+
+function measuredForDisplay(record,flag,value){
+  return record._isLegacy?'—':shownPercent(flag,value);
+}
+
+function coverageDisplay(r){
+  if(r._isLegacy)return '—';
+  if(r.game_key==='handwash')return r._hasCoverage?`${Math.round(n(r.handwash_completed_steps))}/${Math.round(n(r.handwash_total_steps)||7)}`:'—';
+  if(r.game_key==='bath')return r.bath_routine_completed?'Routine ✓':'Practice';
+  return r._hasCoverage?`${Math.round(n(r.coverage_zone_count))}/6`:'—';
+}
+
+function selectRecord(key,scrollToDetails=false){
+  S.selected=key;
+  table();
+  detail();
+  if(scrollToDetails)document.querySelector('.details')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 function mobileCards(records){
   const holder=$('mobileRecords');
-  if(!records.length){holder.innerHTML='<div class="mobile-record-empty">ยังไม่มีข้อมูลที่ตรงกับ filter นี้</div>';return}
+
+  if(!records.length){
+    holder.innerHTML='<div class="mobile-record-empty">ยังไม่มีข้อมูลที่ตรงกับ filter นี้</div>';
+    return;
+  }
+
   holder.innerHTML=records.map(r=>{
     const info=result(r);
-    const primary=r._isLegacy?'Legacy data':`${primaryMetricLabel(r)} ${primaryMetricValue(r)}`;
-    return `<article class="record-card ${r.__key===S.selected?'selected':''}" data-mobile-key="${esc(r.__key)}"><div class="record-card-top"><time>${esc(date(r.created_at))}</time><span class="tag ${info.css}">${esc(info.label)}</span></div><h3>${esc(r.player_name)}</h3><p>${esc(game(r.game_key))} • ${esc(r._isLegacy?'Legacy / Unknown':`${mode(r.play_mode)} • ${r.difficulty||'-'}`)}</p><div class="record-card-metrics"><div class="record-card-metric"><small>Clean</small><b>${measuredForDisplay(r,r._hasClean,r.clean_score)}</b></div><div class="record-card-metric"><small>Gum</small><b>${measuredForDisplay(r,r._hasGum,r.gum_health)}</b></div><div class="record-card-metric"><small>${esc(primaryMetricLabel(r))}</small><b>${esc(primaryMetricValue(r))}</b></div></div><div class="record-card-bottom"><span class="sub">${esc(r._isLegacy?'ไม่รวมใน KPI Current':(weakZoneLabel(r)!=='—'?`ฝึกเพิ่ม: ${weakZoneLabel(r)}`:primary))}</span><button class="record-open" type="button">ดูรายละเอียด</button></div></article>`;
+    const mobileMetrics=mobileMetricSet(r);
+
+    return `<article class="record-card ${r.__key===S.selected?'selected':''}" data-mobile-key="${esc(r.__key)}">
+      <div class="record-card-top">
+        <time>${esc(date(r.created_at))}</time>
+        <span class="tag ${info.css}">${esc(info.label)}</span>
+      </div>
+      <h3>${esc(r.player_name)}</h3>
+      <p>${esc(game(r.game_key))} • ${esc(r._isLegacy?'Legacy / Unknown':`${mode(r.play_mode)} • ${r.difficulty||'-'}`)}</p>
+      <div class="record-card-metrics">
+        ${mobileMetrics.map(([label,value])=>`<div class="record-card-metric"><small>${esc(label)}</small><b>${esc(value)}</b></div>`).join('')}
+      </div>
+      <div class="record-card-bottom">
+        <span class="sub">${esc(r._isLegacy?'ไม่รวมใน KPI Current':(weakZoneLabel(r)!=='—'?`ฝึกเพิ่ม: ${weakZoneLabel(r)}`:info.detail))}</span>
+        <button class="record-open" type="button">ดูรายละเอียด</button>
+      </div>
+    </article>`;
   }).join('');
-  holder.querySelectorAll('[data-mobile-key]').forEach(card=>card.addEventListener('click',()=>selectRecord(card.dataset.mobileKey,true)));
+
+  holder.querySelectorAll('[data-mobile-key]').forEach(card=>{
+    card.addEventListener('click',()=>selectRecord(card.dataset.mobileKey,true));
+  });
 }
+
 function table(){
-  const a=S.shown,x=metrics(a);
+  const a=S.shown;
+  const x=metrics(a);
   const studentValue=$('student').value;
   const studentName=studentValue?(S.all.find(r=>r._studentKey===studentValue)?._studentLabel||'นักเรียนที่เลือก'):'ทุกคน';
+
   $('recordCount').textContent=`${studentName} • ${a.length} records • ${x.legacy} legacy`;
-  $('caption').textContent=a.length?`${S.source} • โฟกัส: ${studentName} • Current metrics ไม่รวม ${x.legacy} Legacy / Unknown records`:'ไม่พบข้อมูลที่ตรงกับ filter';
-  if(!a.length){$('tbody').innerHTML='<tr><td colspan="14" class="empty">ยังไม่มีข้อมูลที่ตรงกับ filter นี้</td></tr>';mobileCards([]);return}
+  $('caption').textContent=a.length
+    ?`${S.source} • โฟกัส: ${studentName} • หัวคอลัมน์ใช้ metric ตามเกม ไม่เอา Clean / Accuracy / Process มาปนกัน`
+    :'ไม่พบข้อมูลที่ตรงกับ filter';
+
+  if(!a.length){
+    $('tbody').innerHTML='<tr><td colspan="14" class="empty">ยังไม่มีข้อมูลที่ตรงกับ filter นี้</td></tr>';
+    mobileCards([]);
+    return;
+  }
+
   $('tbody').innerHTML=a.map(r=>{
-    const info=result(r),learning=
-      r.game_key==='handwash'
-        ? `${Math.round(n(r.handwash_step_accuracy))}% ${n(r.handwash_completed_steps)>=7?'✓':''}`
-        : r.game_key==='bath'
-          ? (r.bath_routine_completed?'Routine ✓':'Routine -')
-          : r.play_mode==='learning'
-            ? `${r._hasLearningProgress?Math.round(n(r.learning_progress_percent)):'—'}% ${r.learning_complete?'✓':''}`
-            : '-';
-    return `<tr data-k="${esc(r.__key)}" class="${r.__key===S.selected?'selected':''}"><td>${esc(date(r.created_at))}</td><td class="name">${esc(r.player_name)}<span class="sub">${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'-')}</span></td><td>${esc(game(r.game_key))}<span class="sub">${esc(r._isLegacy?'Legacy / Unknown':`${mode(r.play_mode)} • ${r.difficulty||'-'}`)}</span></td><td><span class="tag ${info.css}">${esc(info.label)}</span><span class="sub">${esc(info.detail)}</span></td><td>${Math.round(n(r.score))}</td><td>${measuredForDisplay(r,r._hasClean,r.clean_score)}</td><td>${measuredForDisplay(r,r._hasGum,r.gum_health)}</td><td>${measuredForDisplay(r,r._hasTechnique,r.technique_score)}</td><td>${coverageDisplay(r)}</td><td>${r._isLegacy?'—':esc(learning)}</td><td>${r._isLegacy?'-':(r.play_mode==='learning'?shownPercent(r._hasLearningMastery,mastery(r)):'-')}</td><td>${measuredForDisplay(r,r._hasDirection,direction(r))}</td><td>${esc(r._isLegacy?'—':weakZoneLabel(r))}</td><td>${esc(r._isLegacy?'—':input(r))}</td></tr>`;
+    const info=result(r);
+    const cells=unifiedTableCells(r);
+
+    return `<tr data-k="${esc(r.__key)}" class="${r.__key===S.selected?'selected':''}">
+      <td>${esc(date(r.created_at))}</td>
+      <td class="name">${esc(r.player_name)}<span class="sub">${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'-')}</span></td>
+      <td>${esc(game(r.game_key))}<span class="sub">${esc(r._isLegacy?'Legacy / Unknown':`${mode(r.play_mode)} • ${r.difficulty||'-'}`)}</span></td>
+      <td><span class="tag ${info.css}">${esc(info.label)}</span><span class="sub">${esc(info.detail)}</span></td>
+      <td>${Math.round(n(r.score))}</td>
+      ${cells.map(cell=>`<td>${cell}</td>`).join('')}
+      <td>${esc(r._isLegacy?'—':weakZoneLabel(r))}</td>
+      <td>${esc(r._isLegacy?'—':input(r))}</td>
+    </tr>`;
   }).join('');
-  document.querySelectorAll('[data-k]').forEach(row=>row.addEventListener('click',()=>selectRecord(row.dataset.k,false)));
+
+  document.querySelectorAll('[data-k]').forEach(row=>{
+    row.addEventListener('click',()=>selectRecord(row.dataset.k,false));
+  });
+
   mobileCards(a);
 }
-function metric(label,value){return`<div class="metric"><small>${esc(label)}</small><b>${esc(value)}</b></div>`}
+
+function metric(label,value){
+  return `<div class="metric"><small>${esc(label)}</small><b>${esc(value)}</b></div>`;
+}
 
 function hygieneAvatar(r){
   if(r._isLegacy)return '🗃️';
@@ -1278,10 +1612,10 @@ function detailMetricsHtml(r,legacy,dir,mas){
   if(legacy){
     return [
       metric('Score',Math.round(n(r.score))),
-      metric('Clean','—'),
-      metric('Gum','—'),
-      metric('Technique','—'),
-      metric('Coverage','—'),
+      metric('Core Metric','—'),
+      metric('Care / Safety','—'),
+      metric('Skill Metric','—'),
+      metric('Progress','—'),
       metric('Tracking','Legacy')
     ].join('');
   }
@@ -1304,7 +1638,7 @@ function detailMetricsHtml(r,legacy,dir,mas){
       metric('Dry',shownPercent(Number.isFinite(Number(r.bath_dry_percent)),r.bath_dry_percent)),
       metric('Water Save',shownPercent(Number.isFinite(Number(r.bath_water_save_score)),r.bath_water_save_score)),
       metric('Routine',r.bath_routine_completed?'Complete':'Practice'),
-      metric('Boss',r.bath_boss_defeated?'Defeated':'Practice')
+      metric('Boss',r.bath_boss_type?(r.bath_boss_defeated?'Defeated':'Practice'):'—')
     ].join('');
   }
 
@@ -1325,9 +1659,9 @@ function detailSummaryTitle(r,legacy){
   return r.play_mode==='learning'?'Learning Summary':'Challenge Summary';
 }
 
-function detailSummaryText(r,legacy,dir,x){
+function detailSummaryText(r,legacy,dir,info){
   if(legacy){
-    return 'บันทึกนี้เกิดก่อนระบบ telemetry รุ่นปัจจุบัน จึงเก็บไว้เป็นประวัติ แต่ไม่นำค่าเดิมมาคำนวณ KPI และ zone analytics ของระบบใหม่';
+    return 'บันทึกนี้ยังไม่มี metric สำคัญของเกมนั้น จึงเก็บไว้เป็นประวัติและไม่นำมาคิด KPI / Queue ของ Current Tracking';
   }
 
   if(r.game_key==='handwash'){
@@ -1335,59 +1669,166 @@ function detailSummaryText(r,legacy,dir,x){
   }
 
   if(r.game_key==='bath'){
-    return `Clean ${shownPercent(r._hasClean,r.bath_clean_percent)} • Dry ${shownPercent(Number.isFinite(Number(r.bath_dry_percent)),r.bath_dry_percent)} • Water Save ${shownPercent(Number.isFinite(Number(r.bath_water_save_score)),r.bath_water_save_score)} • Routine ${r.bath_routine_completed?'Complete':'Practice'}`;
+    const extras=[
+      Number.isFinite(Number(r.bath_foam_avg))?`Foam Avg ${Math.round(n(r.bath_foam_avg))}`:'',
+      Number.isFinite(Number(r.bath_hidden_germs))?`Hidden Germs ${Math.round(n(r.bath_hidden_germs))}`:'',
+      Number.isFinite(Number(r.bath_camera_quality))?`Camera ${Math.round(n(r.bath_camera_quality))}%`:''
+    ].filter(Boolean).join(' • ');
+
+    return `Clean Body ${shownPercent(r._hasClean,r.bath_clean_percent)} • Dry ${shownPercent(Number.isFinite(Number(r.bath_dry_percent)),r.bath_dry_percent)} • Water Save ${shownPercent(Number.isFinite(Number(r.bath_water_save_score)),r.bath_water_save_score)} • Routine ${r.bath_routine_completed?'Complete':'Practice'}${extras?` • ${extras}`:''}`;
   }
 
   return r.play_mode==='learning'
-    ? `Learning Progress ${shownPercent(r._hasLearningProgress,r.learning_progress_percent)} • Pass Strokes ${Math.round(n(r.learning_qualified_strokes))}/${Math.round(n(r.learning_required_strokes)||18)} • Overall Direction ${shownPercent(r._hasDirection,dir)}`
-    : `Direction ${shownPercent(r._hasDirection,dir)} / เป้าหมาย ${Math.round(n(r.direction_threshold))||'-'}% • ${esc(x.detail)}`;
+    ?`Learning Progress ${shownPercent(r._hasLearningProgress,r.learning_progress_percent)} • Pass Strokes ${Math.round(n(r.learning_qualified_strokes))}/${Math.round(n(r.learning_required_strokes)||18)} • Overall Direction ${shownPercent(r._hasDirection,dir)}`
+    :`Direction ${shownPercent(r._hasDirection,dir)} / เป้าหมาย ${Math.round(n(r.direction_threshold))||'-'}% • ${info.detail}`;
 }
 
+function setDrilldownHeader(r){
+  if(!r){
+    $('drilldownTitle').textContent='🧩 Game Drilldown';
+    $('drilldownCopy').textContent='เลือกผลเพื่อดูตัวชี้วัดเฉพาะเกม';
+    return;
+  }
+
+  if(r._isLegacy){
+    $('drilldownTitle').textContent='🗃️ Legacy Record';
+    $('drilldownCopy').textContent='เก็บเป็นประวัติ แต่ไม่มี metric สำคัญสำหรับ game-aware analytics';
+    return;
+  }
+
+  if(r.game_key==='handwash'){
+    $('drilldownTitle').textContent='🧼 Handwash 7-Step Drilldown';
+    $('drilldownCopy').textContent='อัตราผ่าน 7 ขั้น พร้อม strict / AI support ในรอบที่เลือก';
+    return;
+  }
+
+  if(r.game_key==='bath'){
+    $('drilldownTitle').textContent='🛁 Bath Care Drilldown';
+    $('drilldownCopy').textContent='Clean Body / Dry / Water Save / Routine / Boss ของรอบที่เลือก';
+    return;
+  }
+
+  $('drilldownTitle').textContent='🪥 Toothbrush Zone Drilldown';
+  $('drilldownCopy').textContent='Learning pass strokes หรือ Challenge Clean / Direction รายโซน';
+}
 
 function detail(){
   const r=S.shown.find(x=>x.__key===S.selected);
-  if(!r){$('detailTag').className='mini';$('detailTag').textContent='เลือกแถว';$('modeTag').textContent='-';$('detail').className='empty-detail';$('detail').textContent='เลือกแถวจากตารางเพื่อดูรายละเอียด';$('detailZones').className='empty-detail';$('detailZones').textContent='รายละเอียดรายโซนจะแสดงที่นี่';return}
-  const x=result(r),dir=direction(r),mas=mastery(r),legacy=r._isLegacy;
-  $('detailTag').className=`tag ${x.css}`;$('detailTag').textContent=x.label;$('modeTag').textContent=legacy?'Legacy / Unknown':mode(r.play_mode);$('detail').className='';
-  $('detail').innerHTML=`<div class="student"><div class="avatar">${hygieneAvatar(r)}</div><div><h3>${esc(r.player_name)}</h3><p>${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'ไม่ระบุรหัส/ชั้น')}<br>${esc(date(r.created_at))} • ${esc(game(r.game_key))} • ${esc(legacy?'Legacy / Unknown':mode(r.play_mode))}</p></div></div><div class="metrics">${detailMetricsHtml(r,legacy,dir,mas)}</div>${zoneInsightHtml(r)}<div class="note"><strong>${detailSummaryTitle(r,legacy)}</strong><br>${detailSummaryText(r,legacy,dir,x)}<br><br><strong>Coach Note</strong><br>${esc(legacy?'เริ่มใช้ Current Tracking ตั้งแต่ Toothbrush AR v10.9 / Handwash Adapter v3.1 เป็นต้นไป':(r.advice||r.challenge_fail_reasons||'ไม่มีข้อผิดพลาดที่บันทึก'))}<br><br><strong>Auto Zone Insight</strong><br>${esc(legacy?'— / —':zoneInsightText(r))}</div>`;
+
+  if(!r){
+    $('detailTag').className='mini';
+    $('detailTag').textContent='เลือกแถว';
+    $('modeTag').textContent='-';
+    $('detail').className='empty-detail';
+    $('detail').textContent='เลือกแถวจากตารางเพื่อดูรายละเอียด';
+    $('detailZones').className='empty-detail';
+    $('detailZones').textContent='รายละเอียดเฉพาะเกมจะแสดงที่นี่';
+    setDrilldownHeader(null);
+    return;
+  }
+
+  const info=result(r);
+  const dir=direction(r);
+  const mas=mastery(r);
+  const legacy=r._isLegacy;
+
+  $('detailTag').className=`tag ${info.css}`;
+  $('detailTag').textContent=info.label;
+  $('modeTag').textContent=legacy?'Legacy / Unknown':mode(r.play_mode);
+  $('detail').className='';
+  setDrilldownHeader(r);
+
+  const bathExtra=!legacy&&r.game_key==='bath'
+    ?`<div class="bath-meta">
+        ${Number.isFinite(Number(r.bath_foam_avg))?`<span>🫧 Foam Avg <b>${Math.round(n(r.bath_foam_avg))}</b></span>`:''}
+        ${Number.isFinite(Number(r.bath_hidden_germs))?`<span>🦠 Hidden Germs <b>${Math.round(n(r.bath_hidden_germs))}</b></span>`:''}
+        ${Number.isFinite(Number(r.bath_wave))?`<span>🌊 Wave <b>${Math.round(n(r.bath_wave))}</b></span>`:''}
+        ${Number.isFinite(Number(r.bath_combo_max))?`<span>🔥 Combo <b>${Math.round(n(r.bath_combo_max))}</b></span>`:''}
+        ${Number.isFinite(Number(r.bath_camera_quality))?`<span>📷 Camera <b>${Math.round(n(r.bath_camera_quality))}%</b></span>`:''}
+      </div>`
+    :'';
+
+  $('detail').innerHTML=`<div class="student">
+    <div class="avatar">${hygieneAvatar(r)}</div>
+    <div>
+      <h3>${esc(r.player_name)}</h3>
+      <p>${esc([r.student_id,r.class_level,r.section].filter(Boolean).join(' • ')||'ไม่ระบุรหัส/ชั้น')}<br>${esc(date(r.created_at))} • ${esc(game(r.game_key))} • ${esc(legacy?'Legacy / Unknown':mode(r.play_mode))}</p>
+    </div>
+  </div>
+  <div class="metrics">${detailMetricsHtml(r,legacy,dir,mas)}</div>
+  ${zoneInsightHtml(r)}
+  ${bathExtra}
+  <div class="note">
+    <strong>${detailSummaryTitle(r,legacy)}</strong><br>
+    ${detailSummaryText(r,legacy,dir,info)}
+    <br><br><strong>Coach Note</strong><br>
+    ${esc(legacy?'เริ่มใช้ Current Tracking ของเกมนี้เมื่อ payload ส่ง common metrics ครบ':(r.advice||r.challenge_fail_reasons||info.detail||'ไม่มีข้อผิดพลาดที่บันทึก'))}
+    <br><br><strong>Game Focus</strong><br>
+    ${esc(legacy?'— / —':zoneInsightText(r))}
+  </div>`;
+
   zones(r);
 }
 
-
 function zones(r){
-  if(r._isLegacy){$('detailZones').className='empty-detail';$('detailZones').textContent='Legacy / Unknown attempt: บันทึกนี้ยังไม่มี Hygiene Zone telemetry แบบใหม่ จึงไม่แสดงค่า 0% ที่อาจทำให้ตีความผิด และ Dashboard จะเลือกผล Current ล่าสุดก่อนเมื่อเปิดหน้า';return}
+  if(r._isLegacy){
+    $('detailZones').className='game-drill-empty';
+    $('detailZones').textContent='Legacy / Unknown attempt: ยังไม่มี game-aware telemetry จึงไม่แสดงค่า 0% ที่อาจทำให้ตีความผิด';
+    return;
+  }
+
   $('detailZones').className='zone-board';
 
   if(r.game_key==='handwash'){
     $('detailZones').innerHTML=handwashStepDefs().map(([id,label,stepKey,modeKey])=>{
       const passed=passish(pick(r,[stepKey],''));
-      const passMode=String(pick(r,[modeKey],'not-complete'));
-      const value=passed?100:0;
-      const time=n(pick(r,[`stepTime_${id}Sec`],0));
-      return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill blue" style="width:${value}%"></i></div></div><span class="zone-num">${passed?'ผ่าน':'ยังไม่ผ่าน'}<br>${esc(passMode)}${time?` • ${time}s`:''}</span></div>`;
+      const passMode=String(pick(r,[modeKey],'')).toLowerCase();
+      const value=passed?(passMode==='strict'?100:82):0;
+      const status=passed?(passMode==='strict'?'ผ่าน strict':'ผ่าน AI support'):'ยังไม่ผ่าน';
+      return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill blue" style="width:${value}%"></i></div></div><span class="zone-num">${status}<br>${passMode||'not-complete'}</span></div>`;
     }).join('');
     return;
   }
 
   if(r.game_key==='bath'){
     const rows=[
-      ['clean','ความสะอาด',r.bath_clean_percent],
-      ['dry','เช็ดตัวให้แห้ง',r.bath_dry_percent],
-      ['water','ประหยัดน้ำ',r.bath_water_save_score],
-      ['routine','Routine',r.bath_routine_completed?100:0],
-      ['boss','Boss',r.bath_boss_defeated?100:0]
+      ['ความสะอาดร่างกาย',r.bath_clean_percent,'fill'],
+      ['เช็ดตัวให้แห้ง',r.bath_dry_percent,'fill'],
+      ['ประหยัดน้ำ',r.bath_water_save_score,'water'],
+      ['Bath Routine',r.bath_routine_completed?100:0,'fill'],
+      ...(r.bath_boss_type?[[r.bath_boss_type,r.bath_boss_defeated?100:0,'fill']]:[])
     ];
-    $('detailZones').innerHTML=rows.map(([id,label,value])=>`<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill" style="width:${clamp(value??0,0,100)}%"></i></div></div><span class="zone-num">${Number.isFinite(Number(value))?Math.round(Number(value))+'%':'—'}</span></div>`).join('');
+
+    $('detailZones').innerHTML=rows.map(([label,value,kind])=>{
+      const text=Number.isFinite(Number(value))?`${Math.round(Number(value))}%`:'—';
+      return `<div class="zone-row"><span>${esc(label)}</span><div class="stack"><div class="track"><i class="fill ${kind==='water'?'blue':''}" style="width:${clamp(Number(value)||0,0,100)}%"></i></div></div><span class="zone-num">${text}</span></div>`;
+    }).join('');
     return;
   }
 
   if(r.play_mode==='learning'){
-    const p=json(r.guided_zone_progress_json,{}),prog=p.progress||{},q=p.qualified_strokes||p.qualified||{},good=p.direction_good||{},total=p.direction_total||{};
-    $('detailZones').innerHTML=CFG.zones.map(([id,label])=>{const skill=has(prog,[id])?n(prog[id]):null,st=has(q,[id])?n(q[id]):null,dir=has(total,[id])?Math.round(n(good[id])/Math.max(1,n(total[id]))*100):null;return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill blue" style="width:${clamp(skill??0,0,100)}%"></i></div></div><span class="zone-num">Skill ${skill===null?'—':Math.round(skill)+'%'}<br>✓ ${st===null?'—':Math.round(st)}/3 • Dir ${dir===null?'—':dir+'%'}</span></div>`}).join('');
-  }else{
-    const p=json(r.challenge_zone_performance_json,{});
-    $('detailZones').innerHTML=CFG.zones.map(([id,label])=>{const z=p[id]||{},clean=has(z,['clean_percent'])?n(z.clean_percent):null,dir=has(z,['direction_accuracy'])?n(z.direction_accuracy):null;return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill" style="width:${clamp(clean??0,0,100)}%"></i></div><div class="track"><i class="fill pink" style="width:${clamp(dir??0,0,100)}%"></i></div></div><span class="zone-num">Clean ${clean===null?'—':Math.round(clean)+'%'}<br>Direction ${dir===null?'—':Math.round(dir)+'%'}</span></div>`}).join('');
+    const p=json(r.guided_zone_progress_json,{});
+    const prog=p.progress||{};
+    const qualified=p.qualified_strokes||p.qualified||{};
+    const good=p.direction_good||{};
+    const total=p.direction_total||{};
+
+    $('detailZones').innerHTML=CFG.zones.map(([id,label])=>{
+      const skill=has(prog,[id])?n(prog[id]):null;
+      const strokes=has(qualified,[id])?n(qualified[id]):null;
+      const directionValue=has(total,[id])?Math.round(n(good[id])/Math.max(1,n(total[id]))*100):null;
+      return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill blue" style="width:${clamp(skill??0,0,100)}%"></i></div></div><span class="zone-num">Skill ${skill===null?'—':Math.round(skill)+'%'}<br>✓ ${strokes===null?'—':Math.round(strokes)}/3 • Dir ${directionValue===null?'—':directionValue+'%'}</span></div>`;
+    }).join('');
+    return;
   }
+
+  const payload=json(r.challenge_zone_performance_json,{});
+  $('detailZones').innerHTML=CFG.zones.map(([id,label])=>{
+    const row=payload[id]||{};
+    const clean=has(row,['clean_percent'])?n(row.clean_percent):null;
+    const directionValue=derivedChallengeDirection(row);
+    return `<div class="zone-row"><span>${label}</span><div class="stack"><div class="track"><i class="fill" style="width:${clamp(clean??0,0,100)}%"></i></div><div class="track"><i class="fill pink" style="width:${clamp(directionValue??0,0,100)}%"></i></div></div><span class="zone-num">Clean ${clean===null?'—':Math.round(clean)+'%'}<br>Direction ${directionValue===null?'—':Math.round(directionValue)+'%'}</span></div>`;
+  }).join('');
 }
 
 function ordered(records){
@@ -1583,18 +2024,87 @@ function missionFor(records){
   }
 
   if(latestCurrent.game_key==='bath'){
+    const bathFocus=weakZoneLabel(latestCurrent);
+    const clean=Math.round(n(latestCurrent.bath_clean_percent));
+    const dry=Math.round(n(latestCurrent.bath_dry_percent));
+    const water=Math.round(n(latestCurrent.bath_water_save_score));
+
+    if(!latestCurrent.bath_routine_completed){
+      return {
+        icon:'🛁',
+        label:'Bath Routine Recovery',
+        title:'เก็บ Bath Routine ให้ครบก่อนทำคะแนนเพิ่ม',
+        text:`Routine ยังไม่ครบ • Clean Body ${clean}% • จุดโฟกัส ${bathFocus}`,
+        goals:['Routine Complete','Clean Body ≥ 70%','Dry ≥ 60%'],
+        steps:[
+          'ทวนลำดับ Wet → Soap → Scrub → Rinse → Dry ให้ครบ',
+          'ทำให้กล้องเห็นลำตัวและมือในเฟรมตลอดช่วงสำคัญ',
+          'หลังจบ Routine ให้ตรวจ Clean Body และ Dry ก่อนเริ่มรอบใหม่'
+        ],
+        footer:'เริ่มจากลำดับกิจกรรมให้ถูกก่อนเพิ่มความเร็ว'
+      };
+    }
+
+    if(clean<70||dry<60){
+      return {
+        icon:'🧻',
+        label:'Clean + Dry Rescue',
+        title:`ยกระดับ ${clean<70?'Clean Body':'Dry'} ให้ผ่านเกณฑ์`,
+        text:`Clean Body ${clean}% • Dry ${dry}% • Water Save ${water}%`,
+        goals:['Clean Body ≥ 70%','Dry ≥ 60%','Routine Complete'],
+        steps:[
+          'เพิ่มเวลาทำความสะอาดบริเวณที่ยังไม่ครบ',
+          'จบด้วยการเช็ดตัวให้แห้ง ไม่ข้ามขั้น Dry',
+          'ตรวจ Game Drilldown หลังเล่นเพื่อดูองค์ประกอบที่ต่ำสุด'
+        ],
+        footer:'ความสะอาดและการเช็ดตัวให้แห้งเป็นเงื่อนไขพื้นฐานของ Bath Pass'
+      };
+    }
+
+    if(water<50){
+      return {
+        icon:'💧',
+        label:'Water Save Practice',
+        title:'ผ่านความสะอาดแล้ว เหลือฝึกประหยัดน้ำ',
+        text:`Water Save ${water}% • Clean Body ${clean}% • Dry ${dry}%`,
+        goals:['Water Save ≥ 50%','Clean Body รักษา ≥ 70%','Dry รักษา ≥ 60%'],
+        steps:[
+          'เปิดน้ำเฉพาะจังหวะเปียกตัวและล้างฟอง',
+          'หยุดน้ำเมื่อถูสบู่หรือทำกิจกรรมที่ไม่ต้องใช้น้ำ',
+          'เล่นซ้ำจน Water Save ผ่านโดยไม่ลด Clean Body'
+        ],
+        footer:'เป้าหมายคือสะอาดและใช้น้ำพอดี ไม่ใช่ลดน้ำจนทำความสะอาดไม่ครบ'
+      };
+    }
+
+    if(latestCurrent.bath_boss_type&&!latestCurrent.bath_boss_defeated){
+      return {
+        icon:'👾',
+        label:'Bath Boss Practice',
+        title:'Routine ผ่านแล้ว เหลือเคลียร์ Germ Boss',
+        text:`${latestCurrent.bath_boss_type} ยังไม่ผ่าน`,
+        goals:['Boss Clear','Routine Complete','Water Save ≥ 50%'],
+        steps:[
+          'ทำ Routine ให้กระชับเพื่อเหลือเวลาเข้า Boss',
+          'ตามหา Hidden Germs และใช้จังหวะที่ถูกต้อง',
+          'เล่นซ้ำจน Boss ผ่านโดยยังรักษา Clean / Dry'
+        ],
+        footer:'Boss เป็นหลักฐานว่าผู้เรียนใช้ทักษะครบภายใต้เวลาจำกัด'
+      };
+    }
+
     return {
-      icon:'🛁',
-      label:latestCurrent.challenge_passed?'Bath Level Up':'Bath Routine Practice',
-      title:latestCurrent.challenge_passed?'Bath ผ่านแล้ว พร้อมเพิ่มระดับ':'ฝึก Routine อาบน้ำให้ครบ',
-      text:`Clean ${shownPercent(latestCurrent._hasClean,latestCurrent.bath_clean_percent)} • Dry ${shownPercent(Number.isFinite(Number(latestCurrent.bath_dry_percent)),latestCurrent.bath_dry_percent)} • Water Save ${shownPercent(Number.isFinite(Number(latestCurrent.bath_water_save_score)),latestCurrent.bath_water_save_score)}`,
-      goals:['Clean Body ≥ 70%','Dry หลังอาบน้ำ','Water Save ดีขึ้น'],
+      icon:'🏆',
+      label:'Bath Level Up',
+      title:'Bath ผ่านแล้ว พร้อมเพิ่มความท้าทาย',
+      text:`Clean Body ${clean}% • Dry ${dry}% • Water Save ${water}%`,
+      goals:['รักษา Clean / Dry','เพิ่ม Water Save','เปิด Hidden Germs Mission'],
       steps:[
-        'ทวนลำดับการอาบน้ำจากหัว/ตัว/แขน/ขาให้ครบ',
-        'เช็ดตัวให้แห้งหลังจบ routine',
-        'ลดการใช้น้ำเกินจำเป็นและหาจุด Hidden Germs'
+        'เพิ่มความยากหรือเวลาจำกัดโดยยังรักษา Routine',
+        'ทดลองภารกิจ Hidden Germs เพื่อวัดความละเอียด',
+        'ดู Growth Card เพื่อเปรียบเทียบผลครั้งแรกกับล่าสุด'
       ],
-      footer:'Bath adapter พร้อมอ่าน metric กลาง หากเกมส่ง fields ครบ'
+      footer:'พร้อมใช้ผล Bath เป็นหลักฐานทักษะสุขอนามัยส่วนบุคคล'
     };
   }
 
@@ -1810,13 +2320,57 @@ function interventionFor(record){
   }
 
   if(record.game_key==='bath'){
-    if(!record.challenge_passed){
+    if(!record.bath_routine_completed){
+      return {
+        ...base,
+        bucket:'urgent',
+        badge:'ต้องช่วยก่อน',
+        reason:'Bath Routine ยังไม่ครบ',
+        action:`ทวนลำดับ Wet → Soap → Scrub → Rinse → Dry โดยเน้น ${base.weak}`,
+        priority:10
+      };
+    }
+
+    if(n(record.bath_clean_percent)<70){
+      return {
+        ...base,
+        bucket:'urgent',
+        badge:'ต้องช่วยก่อน',
+        reason:`Clean Body ${Math.round(n(record.bath_clean_percent))}% ต่ำกว่า 70%`,
+        action:'เพิ่มการทำความสะอาดบริเวณที่ยังไม่ครบ แล้วตรวจ Clean Body ซ้ำ',
+        priority:9
+      };
+    }
+
+    if(n(record.bath_dry_percent)<60){
+      return {
+        ...base,
+        bucket:'urgent',
+        badge:'ต้องช่วยก่อน',
+        reason:`Dry ${Math.round(n(record.bath_dry_percent))}% ต่ำกว่า 60%`,
+        action:'เพิ่มขั้นเช็ดตัวให้แห้งหลังจบ Routine',
+        priority:8
+      };
+    }
+
+    if(n(record.bath_water_save_score)<50){
       return {
         ...base,
         bucket:'practice',
         badge:'ฝึกเพิ่ม',
-        reason:result(record).detail,
-        action:'ฝึก routine อาบน้ำ + เช็ดตัว + ประหยัดน้ำ',
+        reason:`Water Save ${Math.round(n(record.bath_water_save_score))}% ยังต่ำ`,
+        action:'ฝึกเปิดน้ำเฉพาะเปียกตัว/ล้างฟอง และปิดน้ำระหว่างถูสบู่',
+        priority:6
+      };
+    }
+
+    if(record.bath_boss_type&&!record.bath_boss_defeated){
+      return {
+        ...base,
+        bucket:'practice',
+        badge:'ฝึกเพิ่ม',
+        reason:`${record.bath_boss_type} ยังไม่ผ่าน`,
+        action:'ทำ Routine ให้กระชับ แล้วตามหา Hidden Germs เพื่อเคลียร์ Boss',
         priority:5
       };
     }
@@ -1825,8 +2379,8 @@ function interventionFor(record){
       ...base,
       bucket:'ready',
       badge:'พร้อมต่อ',
-      reason:'Bath routine ผ่านแล้ว',
-      action:'เพิ่มระดับหรือทำภารกิจ Hidden Germs',
+      reason:'Bath Routine ผ่านตามเกณฑ์',
+      action:'เพิ่มระดับหรือเปิด Hidden Germs Mission',
       priority:2
     };
   }
@@ -2097,7 +2651,7 @@ function renderInterventionQueue(){
   });
 }
 
-function render(){renderKpis();renderInsights();renderGrowth();renderMission();renderInterventionQueue();board();table();detail()}
+function render(){renderKpis();renderGameOverview();renderInsights();renderGrowth();renderMission();renderInterventionQueue();board();table();detail()}
 const Storage={
   lastError:'',
   get(key,fallback=''){
