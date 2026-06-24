@@ -3076,14 +3076,17 @@ const passportRank = getRank(
   state.score
 );
 
-window.FitnessPassportBridge?.save({
+const passportRecord = {
   gameId: "shadow-breaker",
   game: "shadow-breaker",
+
   pid: passportPid,
   playerId: passportPid,
   studentId: passportPid,
+
   playerName: state.playerName || "Hero",
   name: state.playerName || "Hero",
+
   group: qs.get("group") || qs.get("section") || qs.get("classId") || "",
   studyId: qs.get("studyId") || "",
   diff: state.diffKey,
@@ -3091,8 +3094,10 @@ window.FitnessPassportBridge?.save({
 
   score: state.score,
   scoreFinal: state.score,
+
   accuracy: passportAccuracy,
   accuracyPct: passportAccuracy,
+
   comboMax: state.bestCombo,
   maxCombo: state.bestCombo,
 
@@ -3101,9 +3106,13 @@ window.FitnessPassportBridge?.save({
   miss: state.metrics.miss,
   misses: state.metrics.miss,
   bomb: state.metrics.bomb,
+
   grade: passportRank.label,
   rank: passportRank.label,
   badge: `${passportRank.emoji} ${passportRank.label}`,
+
+  endedAt: new Date().toISOString(),
+  savedAt: new Date().toISOString(),
 
   metrics: {
     bossesCleared: state.metrics.clearedBoss,
@@ -3118,7 +3127,67 @@ window.FitnessPassportBridge?.save({
     playerHp: Math.round(state.playerHp),
     sideSwitches: state.sideSwitches
   }
-});
+};
+
+let passportSaved = false;
+
+try{
+  if(
+    window.FitnessPassportBridge &&
+    typeof window.FitnessPassportBridge.save === "function"
+  ){
+    window.FitnessPassportBridge.save(passportRecord);
+    passportSaved = true;
+  }
+}catch(err){
+  console.warn("[Shadow Passport Bridge]", err);
+}
+
+/* Fallback: ต่อให้ bridge โหลดไม่ได้ Passport ก็ต้องมีข้อมูล */
+{
+  const passportKey =
+    `HHA_LAST_SUMMARY:shadow-breaker:${passportPid}`;
+
+  safeStorageSet(
+    passportKey,
+    JSON.stringify(passportRecord)
+  );
+
+  safeStorageSet(
+    "HHA_LAST_SUMMARY",
+    JSON.stringify(passportRecord)
+  );
+
+  let history = [];
+
+  try{
+    history = JSON.parse(
+      safeStorageGet("HHA_PASSPORT_HISTORY_V1", "[]")
+    ) || [];
+  }catch(err){
+    history = [];
+  }
+
+  history = history.filter(item =>
+    !(
+      String(item.gameId || item.game || "") === "shadow-breaker" &&
+      String(item.playerId || item.pid || "") === passportPid
+    )
+  );
+
+  history.unshift(passportRecord);
+
+  safeStorageSet(
+    "HHA_PASSPORT_HISTORY_V1",
+    JSON.stringify(history.slice(0, 60))
+  );
+
+  window.dispatchEvent(
+    new CustomEvent("fitness-passport-saved", {
+      detail: passportRecord
+    })
+  );
+}
 
       if(state.sheetUrl && typeof submitCurrentResultToSheet === "function"){
         setTimeout(() => submitCurrentResultToSheet(false), 350);
