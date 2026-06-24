@@ -417,14 +417,18 @@
   if (!result) return;
 
   const resultVisible = (() => {
-    const style = window.getComputedStyle(result);
-    return (
-      !result.hidden &&
-      style.display !== "none" &&
-      style.visibility !== "hidden" &&
-      style.opacity !== "0"
-    );
-  })();
+  const style = window.getComputedStyle(result);
+  const rect = result.getBoundingClientRect();
+
+  return (
+    !result.hidden &&
+    !result.classList.contains("hidden") &&
+    style.display !== "none" &&
+    style.visibility !== "hidden" &&
+    rect.width > 20 &&
+    rect.height > 20
+  );
+})();
 
   // ยังไม่จบเกม: ห้ามเพิ่มปุ่มหรือเปิด RPE
   if (!resultVisible) return;
@@ -504,6 +508,11 @@
     });
 
     addRecoveryButton();
+     addRecoveryButton();
+
+window.setInterval(() => {
+  addRecoveryButton();
+}, 300);
   }
 
   if (document.readyState === "loading") {
