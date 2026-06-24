@@ -3129,15 +3129,12 @@ const passportRecord = {
   }
 };
 
-let passportSaved = false;
-
 try{
   if(
     window.FitnessPassportBridge &&
     typeof window.FitnessPassportBridge.save === "function"
   ){
     window.FitnessPassportBridge.save(passportRecord);
-    passportSaved = true;
   }
 }catch(err){
   console.warn("[Shadow Passport Bridge]", err);
