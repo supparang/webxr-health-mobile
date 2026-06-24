@@ -3144,13 +3144,18 @@ window.FitnessPassportBridge?.save({
 
 
     function safeStorageGet(key, fallback=""){
-      try{
-        return localStorage.getItem(key) ?? fallback;
-      }catch(err){
-        try{ return sessionStorage.getItem(key) ?? fallback; }catch(e){}
-        return fallback;
-      }
-    }
+  try{
+    const localValue = localStorage.getItem(key);
+    if(localValue !== null) return localValue;
+  }catch(err){}
+
+  try{
+    const sessionValue = sessionStorage.getItem(key);
+    if(sessionValue !== null) return sessionValue;
+  }catch(err){}
+
+  return fallback;
+}
 
     function safeStorageSet(key, value){
       try{
