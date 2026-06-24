@@ -409,11 +409,21 @@
   }
 
   function addRecoveryButton() {
-    const result = $("resultOverlay") || $("resultView");
+    const result =
+  $("resultOverlay") ||
+  $("resultView") ||
+  $("gameoverScreen");
     if (!result || $("cooldownBtn")) return;
 
-    const actions = result.querySelector(".bigActions") || result.querySelector(".row");
-    if (!actions) return;
+    const hubButton = $("btnHub") || $("btnMenu2") || $("btnHomeOver");
+
+const actions =
+  result.querySelector(".bigActions") ||
+  result.querySelector(".row") ||
+  hubButton?.parentElement ||
+  null;
+
+if (!actions) return;
 
     const button = document.createElement("button");
     button.id = "cooldownBtn";
@@ -423,7 +433,7 @@
     button.addEventListener("click", () => surveyModal().classList.add("show"));
     actions.insertBefore(button, actions.querySelector("#btnHub") || actions.querySelector("#btnMenu2") || null);
 
-    const hubButton = $("btnHub") || $("btnMenu2");
+    const hubButton = $("btnHub") || $("btnMenu2") || $("btnHomeOver");
     if (hubButton) {
       hubButton.addEventListener("click", (event) => {
         if (planner || saved) return;
