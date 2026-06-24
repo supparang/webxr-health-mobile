@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#08112c" />
-  <title>UX Quest • W1 Crisis Casefile</title>
+  <title>UX Quest • W1 Crisis Casefile Hunt V2</title>
   <style>
     :root{
       --ink:#14213d;
@@ -58,6 +58,65 @@
     dialog{width:min(560px,calc(100% - 28px));border:0;border-radius:22px;padding:28px;background:#fff;color:var(--ink);box-shadow:0 28px 80px rgba(3,10,35,.45)}dialog::backdrop{background:rgba(3,10,34,.68);backdrop-filter:blur(3px)}.dialog-close{float:right;width:34px;height:34px;border:0;border-radius:50%;background:#eff3fb;color:#445171;font-size:20px;cursor:pointer}.dialog-title{margin:0 36px 10px 0;font-size:26px}.dialog-text{color:#52617f;line-height:1.68}.dialog-action{margin-top:18px}.hide{display:none!important}
     @media (max-width:900px){.hero{align-items:flex-start;flex-direction:column}.hero-note{width:100%}.game-grid{grid-template-columns:1fr}.brief,.decision{padding:21px}.mode,.debrief{padding:30px 23px}.test-grid{grid-template-columns:1fr 1fr}.score-grid{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:620px){.app{width:min(100% - 18px,620px);padding-top:12px}.topbar{display:grid;gap:12px}.statusbar{justify-content:flex-start}.hero{padding:21px 18px;border-radius:22px}.hero h1{font-size:35px}.hero p:not(.eyebrow){font-size:14px}.rail{gap:6px}.rail-item{min-height:42px;padding:7px 4px;font-size:0}.rail-item b{width:24px;height:24px;font-size:11px}.mode,.debrief{padding:25px 17px;border-radius:22px}.mode-grid{grid-template-columns:1fr;gap:8px;margin:18px 0}.mode-metric{display:flex;align-items:center;justify-content:space-between;padding:13px}.mode-metric b{margin:0;font-size:22px}.action-row{grid-template-columns:40px 1fr;padding:13px}.action-row>span:last-child{display:none}.action-icon{width:38px;height:38px;border-radius:12px;font-size:18px}.action-row strong{font-size:15px}.action-row small{font-size:12px}.brief,.decision{padding:18px;border-radius:22px}.brief h2{font-size:27px}.evidence-card,.option{padding:13px;border-radius:15px}.evidence-card strong,.option strong{font-size:14px}.test-grid{grid-template-columns:1fr}.test-metric{display:flex;align-items:center;justify-content:space-between;padding:12px}.test-metric b{margin:0;font-size:20px}.score-grid{grid-template-columns:1fr}.score-grid div{display:flex;align-items:center;justify-content:space-between}.score-grid b{margin:0;font-size:21px}.primary{min-height:50px}.status{font-size:12px}.statusbar{display:grid;grid-template-columns:repeat(3,1fr)}.status{text-align:center}.brand-badge{width:40px;height:40px}.hero-note{min-width:0}.dialog-title{font-size:23px}}
+
+
+    /* === V2: Outcome Reports, strict clearance and high-contrast CTA === */
+    .action-row.primary{
+      border-color:#263fc9;
+      background:linear-gradient(135deg,#3f5cf2,#263cc4);
+      color:#fff;
+      box-shadow:0 14px 28px rgba(43,62,197,.30);
+    }
+    .action-row.primary:hover{background:linear-gradient(135deg,#4d6dfd,#2f45d2)}
+    .action-row.primary .action-icon{background:rgba(255,255,255,.18);color:#fff}
+    .action-row.primary strong,.action-row.primary small,.action-row.primary>span:last-child{color:#fff}
+    .action-row.primary small{opacity:.88}
+
+    .report-grid{align-items:start}
+    .case-report{padding:25px}
+    .report-kicker{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+    .outcome-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;font-size:12px;font-weight:900}
+    .outcome-pill.exact{background:#e5fbf2;color:#087657}
+    .outcome-pill.partial{background:#fff4df;color:#96600e}
+    .outcome-pill.miss{background:#ffecef;color:#b24157}
+    .report-title{margin:0;font-size:clamp(24px,3.2vw,34px);letter-spacing:-.035em}
+    .report-lead{margin:9px 0 18px;color:#607096;line-height:1.62}
+    .chain-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:18px 0}
+    .chain-step{min-width:0;padding:13px;border:1px solid #dbe4f7;border-radius:16px;background:#f8faff}
+    .chain-step span{display:block;color:#637397;font-size:10px;font-weight:900;letter-spacing:.08em}
+    .chain-step b{display:block;margin-top:6px;color:#24345f;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+    .chain-state{display:inline-flex;margin-top:8px;padding:4px 6px;border-radius:999px;background:#e5ebff;color:#3650c9;font-size:10px;font-weight:900}
+    .chain-state.good{background:#e6fbf3;color:#087657}
+    .chain-state.warn{background:#fff2df;color:#9a5d0d}
+    .chain-state.bad{background:#ffecef;color:#b54159}
+    .evidence-audit{display:grid;gap:9px;margin-top:12px}
+    .audit-row{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:start;padding:12px 13px;border:1px solid #dde5f7;border-radius:15px;background:#fff}
+    .audit-dot{display:grid;place-items:center;width:26px;height:26px;border-radius:9px;background:#e8edff;color:#3651cc;font-size:12px;font-weight:900}
+    .audit-row b{display:block;color:#2d3e67;font-size:13px;line-height:1.45}
+    .audit-row small{display:block;margin-top:3px;color:#6d7a99;line-height:1.42}
+    .audit-status{padding:5px 7px;border-radius:999px;background:#eef2ff;color:#4760c9;font-size:10px;font-weight:900;white-space:nowrap}
+    .audit-status.good{background:#e6fbf3;color:#087657}
+    .audit-status.warn{background:#fff2df;color:#9a5d0d}
+    .recovery-panel{margin-top:18px;padding:16px;border:1px solid #f1c56e;border-radius:17px;background:#fff8eb;color:#72450d}
+    .recovery-panel h4{margin:0 0 6px;font-size:17px}.recovery-panel p{margin:0;line-height:1.58}
+    .report-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}
+    .report-actions .secondary{margin-top:0;background:#fff;color:#3b4fb3}
+    .clearance-banner{margin:18px 0;padding:16px;border-radius:17px;text-align:left}
+    .clearance-banner.pass{border:1px solid #bdeedb;background:#ecfbf4;color:#0a7055}
+    .clearance-banner.fail{border:1px solid #f5c5ce;background:#fff0f3;color:#a23d53}
+    .clearance-banner b{display:block;margin-bottom:4px;font-size:16px}
+    .case-log{display:grid;gap:9px;margin:18px 0;text-align:left}
+    .case-log-item{display:grid;grid-template-columns:33px 1fr auto;gap:10px;align-items:start;padding:12px;border:1px solid #dee6f7;border-radius:15px;background:#fbfcff}
+    .case-log-item .n{display:grid;place-items:center;width:31px;height:31px;border-radius:10px;background:#e9efff;color:#3d56cf;font-size:12px;font-weight:900}
+    .case-log-item strong{display:block;color:#2b3a63;font-size:14px;line-height:1.45}
+    .case-log-item small{display:block;margin-top:3px;color:#6c7897;line-height:1.45}
+    .case-log-item .state{padding:5px 7px;border-radius:999px;font-size:10px;font-weight:900;white-space:nowrap}
+    .case-log-item .state.good{background:#e6fbf3;color:#087657}
+    .case-log-item .state.warn{background:#fff2df;color:#9a5d0d}
+    .case-log-item .state.bad{background:#ffecef;color:#b54159}
+    @media (max-width:900px){.chain-grid{grid-template-columns:1fr 1fr}}
+    @media (max-width:620px){.case-report{padding:18px}.chain-grid{grid-template-columns:1fr;gap:8px}.audit-row{grid-template-columns:25px 1fr}.audit-status{grid-column:2;justify-self:start}.report-actions{grid-template-columns:1fr}.case-log-item{grid-template-columns:31px 1fr}.case-log-item .state{grid-column:2;justify-self:start}}
+
   </style>
 </head>
 <body>
@@ -65,7 +124,7 @@
     <header class="topbar">
       <a class="brand" href="./index.html" aria-label="กลับหน้า Mission Control">
         <span class="brand-badge">UX</span>
-        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile</small></span>
+        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V2</small></span>
       </a>
       <div class="statusbar" aria-label="สถานะ Mission">
         <span class="status">Case <b id="hudCase">—</b></span>
@@ -76,9 +135,9 @@
 
     <section class="hero">
       <div>
-        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE</p>
-        <h1>UX Detective: Casefile Hunt</h1>
-        <p>ไม่ใช่การเดาคำตอบที่ฟังดูดี คุณต้องเลือกหลักฐาน ตั้งสมมติฐาน ลงทุนกับการแก้ และตัดสินใจจากผลทดสอบจริง — ทุกการตัดสินใจจะเปลี่ยนผลคดี</p>
+        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V2</p>
+        <h1>UX Detective: Casefile Hunt V2</h1>
+        <p>ทุกตัวเลือกมี trade-off แต่ผลจะเปลี่ยนตามเส้นเหตุผล Evidence → Hypothesis → Fix → Test Decision และคดีที่ Test Decision = 0 จะไม่ถือว่าปิดสำเร็จ</p>
       </div>
       <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>1 Case = 1 คดีที่ต้องปิดด้วยเหตุผล</span></aside>
     </section>
@@ -105,7 +164,7 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'csai2601-uxq-casefile-v1-lite';
+  const STORAGE_KEY = 'csai2601-uxq-casefile-v2-lite';
   const CASES_PER_SHIFT = 3;
   const EVIDENCE_LIMIT = 3;
 
@@ -415,6 +474,8 @@
     caseTrust: 100,
     caseTime: 12,
     outcomes: [],
+    caseResult: null,
+    recoveryUsed: false,
     saved: readSave()
   };
 
@@ -441,16 +502,16 @@
   function current(){return state.shift[state.caseIndex]||null}
   function pct(value){return `${Math.max(0,Math.min(100,Math.round(value)))}%`}
   function updateHud(){
-    document.querySelector('#hudCase').textContent=state.step==='mode'?'เลือก Shift':state.step==='debrief'?'ปิดคดี':`${state.caseIndex+1}/${state.shift.length}`;
+    document.querySelector('#hudCase').textContent=state.step==='mode'?'เลือก Shift':state.step==='debrief'?'สรุป Shift':state.step==='report'?'รายงานคดี':`${state.caseIndex+1}/${state.shift.length}`;
     document.querySelector('#hudTime').textContent=state.step==='mode'?'—':`${state.time} นาที`;
     document.querySelector('#hudTrust').textContent=state.step==='mode'?'—':pct(state.trust);
   }
   function updateRail(){
     const order=['evidence','hypothesis','fix','test'];
-    const index=order.indexOf(state.step);
+    const index=state.step==='report'?order.length:order.indexOf(state.step);
     document.querySelectorAll('[data-rail]').forEach(node=>{
       const i=order.indexOf(node.dataset.rail);
-      node.classList.toggle('active',i===index);
+      node.classList.toggle('active',state.step!=='report'&&i===index);
       node.classList.toggle('done',index>-1&&i<index);
     });
   }
@@ -468,7 +529,17 @@
     state.caseIndex=0;state.score=0;state.trust=100;state.time=12;state.outcomes=[];
     resetCase();state.step='evidence';render();
   }
-  function resetCase(){state.selectedEvidence=[];state.selectedHypothesis=null;state.selectedFix=null;state.selectedNext=null;state.caseScore=0;state.caseTrust=100;state.caseTime=12}
+  function resetCase(){
+    state.selectedEvidence=[];
+    state.selectedHypothesis=null;
+    state.selectedFix=null;
+    state.selectedNext=null;
+    state.caseScore=0;
+    state.caseTrust=100;
+    state.caseTime=12;
+    state.caseResult=null;
+    state.recoveryUsed=false;
+  }
 
   function renderMode(){
     const unseen=Math.max(0,CASES.length-state.saved.seen.length);
@@ -476,7 +547,7 @@
       <section class="card mode">
         <p class="eyebrow">W1 // PRACTICE MODE REBUILT</p>
         <h2>เริ่ม Shift ใหม่: ปิด 3 คดีด้วยเหตุผล</h2>
-        <p>ทุกคดีมีหลายคำตอบที่ “พอฟังขึ้น” แต่ผล User Test จะสะท้อนว่า evidence ที่คุณเลือก สมมติฐานที่ตั้ง และการลงทุนแก้ปัญหานั้นสอดคล้องกันจริงหรือไม่</p>
+        <p>ทุกคดีมีหลายคำตอบที่ “พอฟังขึ้น” แต่การผ่าน Shift ต้องอ่านผล User Test แล้วเลือกก้าวต่อไปได้ถูกต้องอย่างน้อย 1 คดี — Test Decision = 0 จะไม่ผ่าน</p>
         <div class="mode-grid">
           <div class="mode-metric"><span>Casefiles ที่ยังไม่เจอ</span><b>${unseen}/${CASES.length}</b></div>
           <div class="mode-metric"><span>Best Case Score</span><b>${state.saved.best}</b></div>
@@ -484,7 +555,7 @@
         </div>
         <div class="action-stack">
           <button class="action-row primary" type="button" data-action="start"><span class="action-icon">⌁</span><span><strong>เริ่ม Crisis Shift</strong><small>สุ่ม 3 คดีใหม่โดยไม่ซ้ำก่อนครบคลังคดี</small></span><span>เริ่ม →</span></button>
-          <button class="action-row" type="button" data-action="how"><span class="action-icon">?</span><span><strong>วิธีชนะคดี</strong><small>เลือก evidence จำกัด ตั้ง hypothesis ที่พิสูจน์ได้ แล้วใช้ผล Test ตัดสินใจ</small></span><span>ดู →</span></button>
+          <button class="action-row" type="button" data-action="how"><span class="action-icon">?</span><span><strong>วิธีชนะคดี</strong><small>เลือก evidence จำกัด ตั้ง hypothesis ที่พิสูจน์ได้ แล้วใช้ผล Test เปลี่ยนแผน</small></span><span>ดู →</span></button>
           <a class="action-row" href="./index.html"><span class="action-icon">⌂</span><span><strong>กลับ Mission Control</strong><small>W1 Crisis Casefile เป็นสนามฝึกใหม่ แยกจาก Quiz เดิมเพื่อทดสอบก่อนแทนที่</small></span><span>กลับ →</span></a>
         </div>
       </section>`;
@@ -560,6 +631,66 @@
       </article>`;
   }
 
+  function selectedEvidenceFor(c){return c.evidence.filter(e=>state.selectedEvidence.includes(e.id))}
+  function selectedHypothesisFor(c){return c.hypotheses.find(h=>h.id===state.selectedHypothesis)||null}
+  function selectedFixFor(c){return c.fixes.find(f=>f.id===state.selectedFix)||null}
+  function selectedNextFor(c){
+    const options=[c.next.exact,c.next.partial,c.next.miss];
+    return options.find(n=>n.id===state.selectedNext)||null;
+  }
+  function evidenceStrengthFor(c,hypothesis){
+    return selectedEvidenceFor(c).reduce((sum,e)=>sum+(e.supports.includes(hypothesis?.id)?e.weight:0),0);
+  }
+  function resolveOutcome(c){
+    const hypothesis=selectedHypothesisFor(c);
+    const fix=selectedFixFor(c);
+    const evidenceForHyp=evidenceStrengthFor(c,hypothesis);
+    const exact=Boolean(hypothesis&&fix&&fix.supports.includes(hypothesis.id)&&evidenceForHyp>=4);
+    const partial=Boolean(hypothesis&&fix&&(fix.supports.includes(hypothesis.id)||evidenceForHyp>=3));
+    return exact?{...c.test.exact,grade:'exact'}:partial?{...c.test.partial,grade:'partial'}:{...c.test.miss,grade:'miss'};
+  }
+  function evaluateCase(c){
+    const evidence=selectedEvidenceFor(c);
+    const hypothesis=selectedHypothesisFor(c);
+    const fix=selectedFixFor(c);
+    const next=selectedNextFor(c);
+    const useful=evidence.filter(e=>e.supports.length>0).length;
+    const strength=evidenceStrengthFor(c,hypothesis);
+    const outcome=resolveOutcome(c);
+    const fixMatches=Boolean(fix&&hypothesis&&fix.supports.includes(hypothesis.id));
+    const nextCorrect=Boolean(next&&next.id===c.next[outcome.grade].id);
+    const evidencePoints=useful*12+Math.min(strength,6)*4;
+    const hypothesisPoints=Math.min(34,strength*6);
+    const fixPoints=outcome.grade==='exact'?42:outcome.grade==='partial'?20:4;
+    const decisionPoints=nextCorrect?36:0;
+    const recoveryPenalty=state.recoveryUsed?18:0;
+    const score=Math.max(0,evidencePoints+hypothesisPoints+fixPoints+decisionPoints-recoveryPenalty);
+    let trust=100;
+    trust-=Math.max(0,EVIDENCE_LIMIT-useful)*9;
+    if(strength<3)trust-=18;
+    if(outcome.grade==='exact')trust+=5;
+    else if(outcome.grade==='partial')trust-=8;
+    else trust-=28;
+    trust+=nextCorrect?5:-14;
+    if(state.recoveryUsed)trust-=8;
+    trust=Math.max(0,Math.min(100,trust));
+    const timeSpent=Math.min(12,4+(state.recoveryUsed?2:0));
+    return {evidence,hypothesis,fix,next,useful,strength,outcome,fixMatches,nextCorrect,score,trust,timeSpent};
+  }
+  function gradeLabel(grade){return grade==='exact'?'Exact chain':grade==='partial'?'Partial chain':'Broken chain'}
+  function gradeThai(grade){return grade==='exact'?'แก้ต้นเหตุได้ตรง':grade==='partial'?'เชื่อมได้บางส่วน': 'ยังแก้อาการหรือเลือกผิดจุด'}
+  function gradeClass(grade){return grade==='exact'?'good':grade==='partial'?'warn':'bad'}
+  function evidenceStatus(e,hypothesis){
+    if(!e.supports.length)return {label:'สัญญาณรบกวน',className:'bad',detail:'ข้อมูลนี้ไม่ช่วยแยกสาเหตุของคดีนี้'};
+    if(e.supports.includes(hypothesis?.id))return {label:'หนุน hypothesis',className:'good',detail:'เชื่อมกับสาเหตุที่คุณเลือกโดยตรง'};
+    return {label:'ชี้ไปอีกสาเหตุ',className:'warn',detail:'มีประโยชน์ แต่สนับสนุน hypothesis คนละข้อ'};
+  }
+  function reportNarrative(result){
+    if(result.outcome.grade==='exact'&&result.nextCorrect)return 'หลักฐานที่เลือกหนุน hypothesis เดียวกัน Fix แก้สาเหตุนั้น และคุณอ่านผล Test เพื่อตัดสินใจรอบถัดไปได้ตรงจุด';
+    if(result.outcome.grade==='exact'&&!result.nextCorrect)return 'คุณวินิจฉัยและแก้ปัญหาได้ดี แต่ Decision หลัง Test ยังไม่ตอบข้อมูลที่ผู้ใช้บอก จึงยังไม่ควรรีบปิดคดี';
+    if(result.outcome.grade==='partial')return 'มีอย่างน้อยหนึ่งส่วนที่ไปในทิศทางเดียวกัน แต่ Evidence → Hypothesis → Fix ยังไม่เชื่อมเป็นเส้นเดียว จึงได้ผล Test ที่ดีขึ้นเพียงบางส่วน';
+    return 'สายเหตุผลยังขาดตอน: หลักฐานอาจชี้คนละสาเหตุ หรือ Fix ไม่ได้ตอบ hypothesis ที่เลือก จึงเกิดผล Test ที่ไม่แก้ User Goal';
+  }
   function renderGame(){
     const c=current(); if(!c){finishShift();return}
     let panel='';
@@ -569,69 +700,128 @@
     if(state.step==='test')panel=testStep(c,resolveOutcome(c));
     stage.innerHTML=`<section class="game-grid">${briefHtml(c)}${panel}</section>`;
   }
-
-  function resolveOutcome(c){
-    const hypothesis=c.hypotheses.find(h=>h.id===state.selectedHypothesis);
-    const fix=c.fixes.find(f=>f.id===state.selectedFix);
-    const selectedEvidence=c.evidence.filter(e=>state.selectedEvidence.includes(e.id));
-    const evidenceForHyp=selectedEvidence.reduce((sum,e)=>sum+(e.supports.includes(hypothesis?.id)?e.weight:0),0);
-    const exact=Boolean(hypothesis && fix && fix.supports.includes(hypothesis.id) && evidenceForHyp>=4);
-    const partial=Boolean(hypothesis && fix && (fix.supports.includes(hypothesis.id)||evidenceForHyp>=3));
-    return exact?{...c.test.exact,grade:'exact'}:partial?{...c.test.partial,grade:'partial'}:{...c.test.miss,grade:'miss'};
+  function renderCaseReport(){
+    const c=current();
+    const result=state.caseResult||evaluateCase(c);
+    const canRecover=!state.recoveryUsed&&(!result.nextCorrect||result.outcome.grade!=='exact');
+    const evidenceRows=result.evidence.map(e=>{
+      const audit=evidenceStatus(e,result.hypothesis);
+      return `<div class="audit-row"><span class="audit-dot">${audit.className==='good'?'✓':audit.className==='warn'?'~':'!'}</span><span><b>${escapeHtml(e.title)}</b><small>${escapeHtml(audit.detail)}</small></span><span class="audit-status ${audit.className}">${escapeHtml(audit.label)}</span></div>`;
+    }).join('');
+    const decisionStatus=result.nextCorrect?'good':'bad';
+    const fixStatus=result.fixMatches&&result.outcome.grade==='exact'?'good':result.fixMatches?'warn':'bad';
+    stage.innerHTML=`
+      <section class="game-grid report-grid">
+        ${briefHtml(c)}
+        <article class="card case-report">
+          <div class="report-kicker"><span class="outcome-pill ${result.outcome.grade}">${escapeHtml(gradeLabel(result.outcome.grade))}</span><span class="tag">Case ${state.caseIndex+1}/${state.shift.length}</span></div>
+          <h2 class="report-title">Case Outcome Report</h2>
+          <p class="report-lead">${escapeHtml(reportNarrative(result))}</p>
+          <div class="chain-grid">
+            <div class="chain-step"><span>EVIDENCE</span><b>${result.strength} pts support</b><em class="chain-state ${result.strength>=4?'good':result.strength>=3?'warn':'bad'}">${result.strength>=4?'แยกสาเหตุได้':'หลักฐานยังไม่พอ'}</em></div>
+            <div class="chain-step"><span>HYPOTHESIS</span><b>${escapeHtml(result.hypothesis?.title||'ยังไม่ได้เลือก')}</b><em class="chain-state ${result.strength>=4?'good':result.strength>=3?'warn':'bad'}">${result.strength>=4?'มีหลักฐานรองรับ':'ต้องทบทวน'}</em></div>
+            <div class="chain-step"><span>FIX</span><b>${escapeHtml(result.fix?.title||'ยังไม่ได้เลือก')}</b><em class="chain-state ${fixStatus}">${result.fixMatches?'ตรง hypothesis':'ไม่ตรง hypothesis'}</em></div>
+            <div class="chain-step"><span>TEST DECISION</span><b>${escapeHtml(result.next?.title||'ยังไม่ได้เลือก')}</b><em class="chain-state ${decisionStatus}">${result.nextCorrect?'อ่านผล Test ถูก':'ยังไม่ตอบผล Test'}</em></div>
+          </div>
+          <div class="test-panel">
+            <div class="test-grid">
+              <div class="test-metric"><span>Task success</span><b class="${result.outcome.success>=80?'up':result.outcome.success>=60?'mid':'down'}">${result.outcome.success}%</b></div>
+              <div class="test-metric"><span>Time to complete</span><b>${escapeHtml(result.outcome.time)}</b></div>
+              <div class="test-metric"><span>User trust</span><b class="${result.outcome.trust>=80?'up':result.outcome.trust>=60?'mid':'down'}">${result.outcome.trust}%</b></div>
+            </div>
+            <div class="quote"><b>USER TEST QUOTE</b>“${escapeHtml(result.outcome.quote)}”</div>
+          </div>
+          <h3 class="question-title">Evidence Audit</h3>
+          <div class="evidence-audit">${evidenceRows||'<p class="muted">ยังไม่มีหลักฐานถูกเลือก</p>'}</div>
+          ${canRecover?`
+            <div class="recovery-panel">
+              <h4>Recovery Token ยังเหลือ 1 ใบ</h4>
+              <p>ย้อนกลับไปแก้ Hypothesis และ Fix ได้ 1 ครั้ง โดยเสียเวลา 2 นาทีและ Trust 8% แต่ช่วยปิดคดีด้วยเหตุผลที่แข็งแรงขึ้น</p>
+            </div>
+            <div class="report-actions">
+              <button class="secondary" type="button" data-action="close-case">ปิดคดีพร้อมความเสี่ยง</button>
+              <button class="primary" type="button" data-action="reopen-case">ใช้ Recovery Token →</button>
+            </div>
+          `:
+          `
+            <div class="feedback"><strong>${result.nextCorrect?'Ready to close':'Case closed with risk'}</strong>${result.nextCorrect?'คุณตัดสินใจหลัง Test ได้ตรงกับสถานการณ์ของคดีนี้':'ไม่มี Recovery Token เหลือ คดีนี้จะถูกบันทึกพร้อมจุดที่ต้องทบทวน'}</div>
+            <button class="primary" type="button" data-action="close-case">บันทึก Decision Report →</button>
+          `}
+        </article>
+      </section>`;
   }
-
   function submitEvidence(){
-    const c=current(); const selected=c.evidence.filter(e=>state.selectedEvidence.includes(e.id));
-    const useful=selected.filter(e=>e.supports.length).length;
-    state.caseScore+=useful*12;
-    state.caseTrust=Math.max(42,state.caseTrust-(EVIDENCE_LIMIT-useful)*9);
-    state.caseTime=Math.max(5,state.caseTime-1);
     state.step='hypothesis';render();
   }
   function submitHypothesis(){
-    const c=current();const selected=c.hypotheses.find(h=>h.id===state.selectedHypothesis);const evidence=c.evidence.filter(e=>state.selectedEvidence.includes(e.id));
-    const strength=evidence.reduce((n,e)=>n+(e.supports.includes(selected?.id)?e.weight:0),0);
-    state.caseScore+=strength*8;
-    if(strength<3)state.caseTrust-=16;
-    state.caseTime=Math.max(3,state.caseTime-1);
     state.step='fix';render();
   }
   function submitFix(){
-    const c=current();const outcome=resolveOutcome(c);
-    if(outcome.grade==='exact'){state.caseScore+=42;state.caseTrust=Math.min(100,state.caseTrust+4)}
-    else if(outcome.grade==='partial'){state.caseScore+=23;state.caseTrust-=7}
-    else{state.caseScore+=7;state.caseTrust-=24}
-    state.caseTime=Math.max(0,state.caseTime-2);
     state.step='test';render();
   }
   function submitNext(){
-    const c=current();const outcome=resolveOutcome(c);const correct=state.selectedNext===c.next[outcome.grade].id;
-    if(correct){state.caseScore+=30;state.caseTrust=Math.min(100,state.caseTrust+5)}else{state.caseScore+=5;state.caseTrust-=10}
-    state.caseTrust=Math.max(0,state.caseTrust);
-    state.score+=state.caseScore;state.trust=Math.round((state.trust+state.caseTrust)/2);state.time=Math.max(0,state.time-state.caseTime);
-    state.outcomes.push({id:c.id,score:state.caseScore,trust:state.caseTrust,grade:outcome.grade,correctNext:correct});
-    const title=correct?'Decision Memo แข็งแรง':'Decision Memo ยังมีช่องโหว่';
-    const text=correct?`คุณใช้ผล Test เลือกก้าวต่อไปได้ตรงกับสถานการณ์ของคดีนี้ ได้ ${state.caseScore} คะแนน`:`ทางเลือกนี้มีข้อดี แต่ยังไม่ตอบผล Test ของคดีนี้โดยตรง คดีถูกปิดได้ แต่ต้องกลับมาทบทวนเหตุผล`;
-    showDialog('CASE CLOSED',title,text,'ไปคดีถัดไป',()=>{state.caseIndex+=1;resetCase();state.step='evidence';render()});
+    const c=current();
+    state.caseResult=evaluateCase(c);
+    state.caseScore=state.caseResult.score;
+    state.caseTrust=state.caseResult.trust;
+    state.caseTime=Math.max(0,12-state.caseResult.timeSpent);
+    state.step='report';
+    render();
   }
-
-  function finishShift(){
-    const exact=state.outcomes.filter(o=>o.grade==='exact').length;
+  function reopenCase(){
+    state.recoveryUsed=true;
+    state.selectedHypothesis=null;
+    state.selectedFix=null;
+    state.selectedNext=null;
+    state.caseResult=null;
+    state.step='hypothesis';
+    render();
+  }
+  function closeCase(){
+    const c=current();
+    const result=state.caseResult||evaluateCase(c);
+    state.score+=result.score;
+    state.trust=Math.round((state.trust+result.trust)/2);
+    state.time=Math.max(0,state.time-result.timeSpent);
+    state.outcomes.push({id:c.id,title:c.title,score:result.score,trust:result.trust,grade:result.outcome.grade,exactChain:result.outcome.grade==='exact',correctNext:result.nextCorrect,recovered:state.recoveryUsed,summary:reportNarrative(result)});
+    state.caseIndex+=1;
+    resetCase();
+    state.step='evidence';
+    render();
+  }
+  function shiftResult(){
+    const exact=state.outcomes.filter(o=>o.exactChain).length;
     const solid=state.outcomes.filter(o=>o.correctNext).length;
-    const stars=state.score>=300&&state.trust>=75?3:state.score>=210&&state.trust>=55?2:1;
-    state.saved.wins+=1;state.saved.best=Math.max(state.saved.best,state.score);state.saved.seen=[...new Set([...state.saved.seen,...state.shift.map(c=>c.id)])];writeSave();
+    const trust=state.trust;
+    const score=state.score;
+    if(solid===0)return {stars:0,title:'Need Reinvestigation',passed:false,reason:'คุณยังไม่อ่านผล User Test เพื่อเลือกก้าวต่อไปได้ถูกต้องในคดีใดเลย'};
+    if(exact>=2&&solid>=2&&trust>=82&&score>=300)return {stars:3,title:'Casefile Commander',passed:true,reason:'คุณเชื่อม Evidence → Hypothesis → Fix → Test Decision ได้แข็งแรงในสถานการณ์กดดัน'};
+    if(exact>=1&&solid>=2&&trust>=70&&score>=240)return {stars:2,title:'Evidence Builder',passed:true,reason:'คุณเริ่มใช้หลักฐานและผล Test นำการตัดสินใจได้จริง'};
+    if(exact>=1&&solid>=1&&trust>=55)return {stars:1,title:'Casefile Clear',passed:true,reason:'คุณปิดคดีได้อย่างมีเหตุผลอย่างน้อยหนึ่งคดี แต่ยังมีช่องโหว่ให้ทบทวน'};
+    return {stars:0,title:'Need Reinvestigation',passed:false,reason:'มีบางการตัดสินใจที่พอฟังขึ้น แต่ยังไม่เชื่อมหลักฐาน การแก้ และผล Test เป็นเส้นเดียว'};
+  }
+  function finishShift(){
+    const exact=state.outcomes.filter(o=>o.exactChain).length;
+    const solid=state.outcomes.filter(o=>o.correctNext).length;
+    const result=shiftResult();
+    if(result.passed)state.saved.wins+=1;
+    state.saved.best=Math.max(state.saved.best,state.score);
+    state.saved.seen=[...new Set([...state.saved.seen,...state.shift.map(c=>c.id)])];
+    writeSave();
     const awards=[];
     if(exact>=2)awards.push('<span class="badge mint">Evidence Chain</span>');
     if(solid===CASES_PER_SHIFT)awards.push('<span class="badge">Test-Driven</span>');
     if(state.trust>=80)awards.push('<span class="badge amber">Trust Keeper</span>');
+    const logs=state.outcomes.map((outcome,index)=>`<div class="case-log-item"><span class="n">${index+1}</span><span><strong>${escapeHtml(outcome.title)}</strong><small>${escapeHtml(outcome.summary)}</small></span><span class="state ${gradeClass(outcome.grade)}">${outcome.correctNext?'Decision aligned':'Review needed'}</span></div>`).join('');
     stage.innerHTML=`
       <section class="card debrief">
         <p class="eyebrow">SHIFT COMPLETE // DECISION REPORT</p>
-        <h2>${stars===3?'Casefile Commander':stars===2?'Evidence Builder':'Rookie Detective'}</h2>
-        <div class="stars">${[1,2,3].map(n=>`<span class="${n<=stars?'on':''}">★</span>`).join('')}</div>
-        <p>คุณปิด ${CASES_PER_SHIFT} คดีแล้ว คะแนนไม่ได้มาจากคำที่ฟังดี แต่มาจากความสอดคล้องของ Evidence → Hypothesis → Fix → Test Decision</p>
+        <h2>${escapeHtml(result.title)}</h2>
+        <div class="stars">${[1,2,3].map(n=>`<span class="${n<=result.stars?'on':''}">★</span>`).join('')}</div>
+        <p>คะแนนไม่มาจากคำที่ฟังดี แต่จากความสอดคล้องของ Evidence → Hypothesis → Fix → Test Decision และการยอมให้ผล Test เปลี่ยนแผนของทีม</p>
         <div class="score-grid"><div><span>Total score</span><b>${state.score}</b></div><div><span>Final trust</span><b>${pct(state.trust)}</b></div><div><span>Exact chains</span><b>${exact}/${CASES_PER_SHIFT}</b></div><div><span>Test decisions</span><b>${solid}/${CASES_PER_SHIFT}</b></div></div>
-        <div class="report"><b>Decision memo</b>${exact>=2?'คุณเริ่มเชื่อมหลักฐานเข้ากับการแก้ได้ดี รอบถัดไปจะเจอคดีใหม่ก่อนครบคลัง และตัวเลือกจะยังมี trade-off ที่ต้องตัดสินใจตามบริบท':'รอบถัดไปให้ดูว่า evidence ที่เลือกสนับสนุน hypothesis ไหน แล้วตรวจว่า fix นั้นแก้สาเหตุหรือเพียงช่วยอาการปลายทาง'}</div>
+        <div class="clearance-banner ${result.passed?'pass':'fail'}"><b>${result.passed?'Shift cleared':'Shift not cleared'}</b>${escapeHtml(result.reason)}${solid===0?' • เงื่อนไขสำคัญ: Test decisions = 0 จึงไม่สามารถผ่าน Shift ได้':''}</div>
+        <div class="case-log">${logs}</div>
         <div class="badge-row">${awards.join('')||'<span class="badge">Keep Investigating</span>'}</div>
         <div class="action-stack"><button class="action-row primary" type="button" data-action="start"><span class="action-icon">↻</span><span><strong>เริ่ม Crisis Shift ใหม่</strong><small>สุ่มคดีที่ยังไม่เจอ และเปลี่ยนเส้นทางการตัดสินใจ</small></span><span>เริ่ม →</span></button><button class="action-row" type="button" data-action="mode"><span class="action-icon">⌂</span><span><strong>กลับหน้าเลือก Shift</strong><small>ดูสถิติ และเริ่มรอบใหม่เมื่อพร้อม</small></span><span>กลับ →</span></button></div>
       </section>`;
@@ -657,9 +847,18 @@
     if(action==='submit-hypothesis'){submitHypothesis();return}
     if(action==='submit-fix'){submitFix();return}
     if(action==='submit-next'){submitNext();return}
+    if(action==='reopen-case'){reopenCase();return}
+    if(action==='close-case'){closeCase();return}
   });
 
-  function render(){updateHud();updateRail();if(state.step==='mode')renderMode();else if(state.step==='debrief'){}else renderGame()}
+  function render(){
+    updateHud();
+    updateRail();
+    if(state.step==='mode')renderMode();
+    else if(state.step==='debrief'){}
+    else if(state.step==='report')renderCaseReport();
+    else renderGame();
+  }
   render();
 })();
 </script>
