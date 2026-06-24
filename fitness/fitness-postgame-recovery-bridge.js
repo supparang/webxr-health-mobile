@@ -409,43 +409,64 @@
   }
 
   function addRecoveryButton() {
-    const result =
-  $("resultOverlay") ||
-  $("resultView") ||
-  $("gameoverScreen");
-    if (!result || $("cooldownBtn")) return;
+  const result =
+    $("resultOverlay") ||
+    $("resultView") ||
+    $("gameoverScreen");
 
-    const hubButton = $("btnHub") || $("btnMenu2") || $("btnHomeOver");
+  if (!result || $("cooldownBtn")) return;
 
-const actions =
-  result.querySelector(".bigActions") ||
-  result.querySelector(".row") ||
-  hubButton?.parentElement ||
-  null;
+  const hubButton =
+    $("btnHub") ||
+    $("btnMenu2") ||
+    $("btnHomeOver");
 
-if (!actions) return;
+  const actions =
+    result.querySelector(".bigActions") ||
+    result.querySelector(".row") ||
+    hubButton?.parentElement ||
+    null;
 
-    const button = document.createElement("button");
-    button.id = "cooldownBtn";
-    button.type = "button";
-    button.className = "bigBtn btn warn";
-    button.textContent = "🧘 ทำ Cooldown 30 วินาที";
-    button.addEventListener("click", () => surveyModal().classList.add("show"));
-    actions.insertBefore(button, actions.querySelector("#btnHub") || actions.querySelector("#btnMenu2") || null);
+  if (!actions) return;
 
-    const hubButton = $("btnHub") || $("btnMenu2") || $("btnHomeOver");
-    if (hubButton) {
-      hubButton.addEventListener("click", (event) => {
-        if (planner || saved) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        surveyModal().classList.add("show");
-      }, true);
+  const button = document.createElement("button");
+  button.id = "cooldownBtn";
+  button.type = "button";
 
-      if (planner) hubButton.textContent = "🧘 ทำ Cooldown AR ต่อ";
+  /*
+    ใช้ class เดิมของ JumpDuck ให้ปุ่มกลมกลืนกับหน้า Result
+  */
+  button.className =
+    hubButton?.className ||
+    "bigBtn btn warn";
+
+  button.textContent = "🧘 ทำ Cooldown 30 วินาที";
+
+  button.addEventListener("click", () => {
+    surveyModal().classList.add("show");
+  });
+
+  /*
+    วางก่อนปุ่มกลับ Hub
+    รองรับ Shadow / Rhythm / JumpDuck / Balance Hold
+  */
+  actions.insertBefore(button, hubButton || null);
+
+  if (hubButton) {
+    hubButton.addEventListener("click", (event) => {
+      if (planner || saved) return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      surveyModal().classList.add("show");
+    }, true);
+
+    if (planner) {
+      hubButton.textContent = "🧘 ทำ Cooldown AR ต่อ";
     }
   }
-
+}
   function boot() {
     markWarmupResume();
     hookGameStart();
