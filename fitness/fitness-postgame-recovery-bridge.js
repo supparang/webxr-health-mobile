@@ -99,7 +99,12 @@
       u.searchParams.set("run", returnUrl.href);
       u.searchParams.set("next", returnUrl.href);
     } else {
-      const target = planner ? plannerReturn : hub;
+      const target = planner
+  ? plannerReturn
+  : new URL(
+      "/webxr-health-mobile/fitness/fitness-passport-v3.html",
+      location.origin
+    ).href;
       u.searchParams.set("next", target);
       u.searchParams.set("cdnext", target);
       u.searchParams.set("hub", target);
