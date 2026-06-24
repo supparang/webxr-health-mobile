@@ -347,29 +347,16 @@ body{
 
 <script>
 (function(){
-  "use strict";
-
-  const params = new URLSearchParams(location.search);
-
-  const pid =
-    params.get("pid") ||
-    params.get("playerId") ||
-    params.get("studentId") ||
-    "anon";
-
-  const playerName =
-    params.get("name") ||
-    params.get("studentName") ||
-    "Hero";
-
   const games = [
-    { ui:"shadow",  id:"shadow-breaker" },
-    { ui:"rhythm",  id:"rhythm-boxer" },
-    { ui:"jump",    id:"jumpduck" },
-    { ui:"balance", id:"balance-hold" }
+    ["shadow", "shadow-breaker"],
+    ["rhythm", "rhythm-boxer"],
+    ["jump", "jumpduck"],
+    ["balance", "balance-hold"]
   ];
 
-  function parse(raw){
+  const qs = new URLSearchParams(location.search);
+
+  function safeParse(raw){
     try{
       return raw ? JSON.parse(raw) : null;
     }catch(err){
@@ -377,155 +364,145 @@ body{
     }
   }
 
-  function normalizeGameId(value){
-    const raw = String(value || "")
-      .toLowerCase()
-      .trim()
-      .replace(/\.html$/,"")
-      .replace(/-ar2?$/,"");
-
-    const aliases = {
-      shadow:"shadow-breaker",
-      shadowbreaker:"shadow-breaker",
-      "shadow-breaker":"shadow-breaker",
-
-      rhythm:"rhythm-boxer",
-      rhythmboxer:"rhythm-boxer",
-      "rhythm-boxer":"rhythm-boxer",
-
-      jumpduck:"jumpduck",
-      "jump-duck":"jumpduck",
-
-      balance:"balance-hold",
-      balancehold:"balance-hold",
-      "balance-hold":"balance-hold"
-    };
-
-    return aliases[raw] || raw;
+  function getPlayerId(){
+    return String(
+      qs.get("pid") ||
+      qs.get("playerId") ||
+      qs.get("studentId") ||
+      localStorage.getItem("fitnessStudentId") ||
+      localStorage.getItem("playerId") ||
+      "anon"
+    ).trim() || "anon";
   }
 
-  function getGameResult(gameId){
-    const candidates = [
-      `HHA_LAST_SUMMARY:${gameId}:${pid}`,
-      `HHA_LAST_SUMMARY:${gameId}:anon`
-    ];
+  function readSummary(gameId){
+    const pid = getPlayerId();
 
-    for(const key of candidates){
-      const found = parse(localStorage.getItem(key));
-      if(found) return found;
-    }
+    const direct =
+      safeParse(localStorage.getItem(`HHA_LAST_SUMMARY:${gameId}:${pid}`)) ||
+      safeParse(localStorage.getItem(`HHA_LAST_SUMMARY:${gameId}:anon`));
 
-    const globalLast = parse(localStorage.getItem("HHA_LAST_SUMMARY"));
+    if(direct) return direct;
+
+    const history = safeParse(
+      localStorage.getItem("HHA_PASSPORT_HISTORY_V1")
+    ) || [];
+
+    const fromHistory = history.find(item =>
+      String(item.gameId || item.game || "") === gameId &&
+      (
+        String(item.playerId || item.pid || "") === pid ||
+        pid === "anon"
+      )
+    );
+
+    if(fromHistory) return fromHistory;
+
+    const global = safeParse(localStorage.getItem("HHA_LAST_SUMMARY"));
+
     if(
-      globalLast &&
-      normalizeGameId(globalLast.gameId || globalLast.game) === gameId
+      global &&
+      String(global.gameId || global.game || "") === gameId
     ){
-      return globalLast;
+      return global;
     }
 
     return null;
   }
 
-  function percent(data){
+  function pct(data){
     if(!data) return 0;
 
-    const values = [
-      data.accuracy,
-      data.accuracyPct,
-      data.accPct,
-      data.hitAccuracy
-    ];
+    const raw =
+      data.accuracy ??
+      data.accuracyPct ??
+      data.accPct ??
+      0;
 
-    for(const value of values){
-      const number = Number(value);
-      if(Number.isFinite(number)){
-        return Math.max(0, Math.min(100, number <= 1 ? number * 100 : number));
-      }
+    const n = Number(raw);
+
+    if(Number.isFinite(n)){
+      return Math.max(0, Math.min(100, n <= 1 ? n * 100 : n));
     }
 
-    const hit = Number(data.hits ?? data.correct ?? data.hit ?? 0);
-    const miss = Number(data.miss ?? data.misses ?? data.wrong ?? 0);
+    const hit = Number(data.hits ?? data.correct ?? 0);
+    const miss = Number(data.miss ?? data.misses ?? 0);
+
     return hit + miss
       ? Math.round((hit / (hit + miss)) * 100)
       : 0;
   }
 
-  function setGameCard(ui, data){
-    const score = Math.max(0, Number(data?.scoreFinal ?? data?.score ?? 0));
-    const readiness = percent(data);
-
-    document.getElementById(`${ui}Bar`).style.width = `${readiness}%`;
-    document.getElementById(`${ui}Val`).textContent = `${Math.round(readiness)}%`;
-
-    if(!data) return 0;
-
-    document.getElementById(`${ui}Text`).textContent =
-      `Score ${Math.round(score).toLocaleString()} • Accuracy ${Math.round(readiness)}%`;
-
-    document.getElementById(`${ui}State`).textContent =
-      readiness >= 85 ? "พร้อมเพิ่มความท้าทาย" :
-      readiness >= 65 ? "กำลังพัฒนา" :
-      "เริ่ม Easy อีกครั้ง";
-
-    return readiness;
-  }
-
   function draw(){
-    document.getElementById("who").textContent =
-      `${playerName} • HeroHealth Fitness AR`;
-
     let total = 0;
-    let count = 0;
+    let played = 0;
     let weakest = null;
 
-    games.forEach(({ui,id}) => {
-      const data = getGameResult(id);
-      const readiness = setGameCard(ui, data);
+    games.forEach(([domKey, gameId]) => {
+      const data = readSummary(gameId);
+      const accuracy = pct(data);
+
+      document.getElementById(domKey + "Bar").style.width = accuracy + "%";
+      document.getElementById(domKey + "Val").textContent =
+        Math.round(accuracy) + "%";
 
       if(data){
-        count++;
-        total += readiness;
+        played++;
+        total += accuracy;
 
-        if(!weakest || readiness < weakest.value){
-          weakest = {
-            value: readiness,
-            label: document.querySelector(`#${ui}Text`)
-              .closest(".game")
-              .querySelector("h4")
-              .textContent
-          };
-        }
+        document.getElementById(domKey + "Text").textContent =
+          "Score " +
+          Math.round(Number(data.scoreFinal ?? data.score ?? 0)).toLocaleString() +
+          " • Accuracy " +
+          Math.round(accuracy) +
+          "%";
+
+        document.getElementById(domKey + "State").textContent =
+          accuracy >= 85
+            ? "พร้อมเพิ่มความท้าทาย"
+            : accuracy >= 65
+              ? "กำลังพัฒนา"
+              : "เริ่ม Easy อีกครั้ง";
+      }
+
+      if(!weakest || accuracy < weakest.accuracy){
+        weakest = {
+          accuracy,
+          label: document.querySelector(`#${domKey}Text`)
+            .closest(".game")
+            .querySelector("h4")
+            .textContent
+        };
       }
     });
 
-    const average = count ? Math.round(total / count) : 0;
+    const avg = played ? Math.round(total / played) : 0;
 
-    document.getElementById("score").textContent = average;
+    document.getElementById("score").textContent = avg;
     document.getElementById("played").textContent =
-      count ? `เล่นแล้ว ${count}/4 เกม` : "ยังไม่มีผลการเล่น";
+      played ? `เล่นแล้ว ${played}/4 เกม` : "ยังไม่มีผลการเล่น";
 
     document.getElementById("summary").textContent =
-      count
-        ? `คุณมีผลการเล่น ${count} เกมแล้ว เป้าหมายต่อไปคือเก็บ Passport ให้ครบ 4 ทักษะ`
+      played
+        ? `คุณมีผลการเล่น ${played} เกมแล้ว เป้าหมายต่อไปคือเก็บ Passport ให้ครบ 4 ทักษะ`
         : "เริ่มเกมที่ชอบ แล้วทำ Warm-up และ Cooldown ให้ครบเพื่อปลดความก้าวหน้า";
 
     document.getElementById("badge").textContent =
-      count >= 4 ? "🏆 Fitness Explorer • เล่นครบ 4 เกมแล้ว" :
-      count >= 2 ? "🔥 Multi-Sport • เล่นแล้วหลายเกม" :
-      count === 1 ? "🌱 First Move • เริ่มต้นได้เยี่ยม" :
-      "🌱 เริ่มเกมแรกเพื่อปลด Badge";
+      played >= 4
+        ? "🏆 Fitness Explorer • เล่นครบ 4 เกมแล้ว"
+        : played >= 2
+          ? "🔥 Multi-Sport • เล่นแล้วหลายเกม"
+          : played
+            ? "🌱 First Move • เริ่มต้นได้เยี่ยม"
+            : "🌱 เริ่มเกมแรกเพื่อปลด Badge";
 
-    if(weakest){
+    if(played && weakest){
       document.getElementById("coachText").innerHTML =
         `แนะนำฝึก <b>${weakest.label}</b> อีก 1 รอบ โดยโฟกัส Accuracy ก่อนเพิ่มความเร็ว`;
-    }else{
-      document.getElementById("coachText").textContent =
-        "เริ่มด้วย Shadow Breaker หรือ JumpDuck ระดับ Easy เพื่อสร้างข้อมูลพื้นฐานก่อน";
     }
   }
 
-  document.getElementById("refresh").addEventListener("click", draw);
-
+  document.getElementById("refresh").onclick = draw;
   window.addEventListener("fitness-passport-saved", draw);
 
   draw();
