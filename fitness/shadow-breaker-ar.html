@@ -3010,9 +3010,18 @@
       $("statFever").textContent = state.feverCount;
 
       const rank = getRank(acc, bossClear, state.score);
-      const oldBest = Number(localStorage.getItem(state.bestScoreKey) || 0);
-      const isNewBest = state.score > oldBest;
-      if(isNewBest) localStorage.setItem(state.bestScoreKey, String(state.score));
+      const oldBest = Number(
+  safeStorageGet(state.bestScoreKey, "0") || 0
+);
+
+const isNewBest = state.score > oldBest;
+
+if(isNewBest){
+  safeStorageSet(
+    state.bestScoreKey,
+    String(state.score)
+  );
+}
       $("rankLogo").textContent = isNewBest ? "🏅" : rank.emoji;
       $("resultSubtitle").textContent = `${rank.label} • ${reasonLabel(reason)}${isNewBest ? " • NEW BEST" : ""}`;
       $("resultMode").textContent = `${DIFF[state.diffKey].label} • ${state.timeLimit}s • ${state.playerName}`;
@@ -3251,7 +3260,15 @@ window.FitnessPassportBridge?.save({
     function saveGateCompletionSummary(){
       const attempts = state.metrics.hit + state.metrics.miss + state.metrics.bomb;
       const acc = attempts ? Math.round((state.metrics.hit / attempts) * 100) : 0;
-      const pid = qs.get("pid") || qs.get("studentId") || qs.get("playerId") || "";
+      const pid =
+  qs.get("pid") ||
+  qs.get("studentId") ||
+  qs.get("playerId") ||
+  qs.get("sid") ||
+  qs.get("studentName") ||
+  qs.get("name") ||
+  state.playerName ||
+  "anon";
       const payload = state.lastSummaryPayload || (typeof buildSheetPayload === "function" ? buildSheetPayload() : {});
 
       const record = {
