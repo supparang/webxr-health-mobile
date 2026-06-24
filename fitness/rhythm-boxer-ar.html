@@ -878,7 +878,7 @@
   const qbool = (k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
 
   const RB_VERSION = 'v20260622-rb-wgc-flow-v1';
-  const RB_GAME_ID = 'rhythmboxer';
+  const RB_GAME_ID = 'rhythm-boxer';
   const RB_DEFAULT_HUB = './';
   const RB_DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
 
@@ -1203,37 +1203,167 @@
   }
 
   function rbStoreLastSummary(payload){
+  try{
+    payload = rbApplyStudentContext(payload || {});
+
+    const playerId = rbClean(
+      payload.playerId ||
+      payload.pid ||
+      payload.studentId ||
+      S.pid ||
+      'anon'
+    ) || 'anon';
+
+    const summary = {
+      version: RB_VERSION,
+      savedAt: new Date().toISOString(),
+      timestampIso: payload.timestamp || new Date().toISOString(),
+      timestampLocal: payload.timestampLocal || rbBangkokNow(),
+
+      game: 'rhythm-boxer',
+      gameId: 'rhythm-boxer',
+
+      pid: playerId,
+      playerId,
+      studentId: rbClean(payload.studentId || playerId),
+
+      playerName: rbClean(
+        payload.playerName ||
+        payload.studentName ||
+        S.pid ||
+        'Hero'
+      ),
+
+      studentName: rbClean(
+        payload.studentName ||
+        payload.playerName ||
+        S.pid ||
+        'Hero'
+      ),
+
+      classId: rbClean(payload.classId),
+      classGroup: rbClean(payload.classGroup || payload.group || payload.classId),
+      group: rbClean(payload.group || payload.classGroup || payload.classId),
+      section: rbClean(payload.section),
+
+      diff: rbClean(payload.diff || payload.difficulty || S.diff),
+      difficulty: rbClean(payload.difficulty || payload.diff || S.diff),
+      duration: Number(payload.duration || payload.timeSec || S.timeSec || 0),
+
+      score: Number(payload.scoreFinal ?? payload.score ?? 0),
+      scoreFinal: Number(payload.scoreFinal ?? payload.score ?? 0),
+
+      accuracy: Number(payload.accuracy ?? payload.accPct ?? 0),
+      accuracyPct: Number(payload.accuracy ?? payload.accPct ?? 0),
+
+      comboMax: Number(payload.maxCombo ?? payload.bestCombo ?? 0),
+      maxCombo: Number(payload.maxCombo ?? payload.bestCombo ?? 0),
+
+      hits: Number(payload.hits ?? 0),
+      miss: Number(payload.miss ?? payload.misses ?? 0),
+      misses: Number(payload.miss ?? payload.misses ?? 0),
+
+      grade: rbClean(payload.rank || payload.grade),
+      rank: rbClean(payload.rank || payload.grade),
+
+      badge: rbClean(
+        payload.badge ||
+        `${payload.rank || payload.grade || 'Rhythm Hero'}`
+      ),
+
+      metrics: {
+        strictCombo: Number(payload.maxCombo ?? payload.bestCombo ?? 0),
+        flowCombo: Number(payload.maxFlowCombo ?? payload.flowCombo ?? 0),
+        perfect: Number(payload.perfect ?? 0),
+        great: Number(payload.great ?? 0),
+        good: Number(payload.good ?? 0),
+        bossClear: Number(payload.bossClear ?? 0),
+        bodyPunches: Number(payload.bodyPunches ?? 0),
+        bodyNoise: Number(payload.bodyNoise ?? 0),
+        tempoDrift: Number(payload.tempoDrift ?? 0),
+        fatigueIndex: Number(payload.fatigueIndex ?? 0),
+        sportScienceIndex: Number(payload.sportScienceIndex ?? 0)
+      }
+    };
+
+    /* Passport Bridge ต้องมาก่อน เพราะมีระบบ compact + fallback */
     try{
-      payload = rbApplyStudentContext(payload || {});
-      const summary = {
-        ...payload,
-        game: RB_GAME_ID,
-        gameId: RB_GAME_ID,
-        timestampIso: payload.timestamp || new Date().toISOString(),
-        timestampLocal: payload.timestampLocal || rbBangkokNow(),
-        __extraJson: JSON.stringify(rbMeta())
-      };
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      localStorage.setItem('HHA_LAST_SUMMARY:rhythmboxer:' + (payload.playerId || payload.pid || 'anon'), JSON.stringify(summary));
-      window.FitnessPassportBridge?.save({
-        ...summary,
-        gameId: 'rhythm-boxer',
-        score: summary.scoreFinal ?? summary.score ?? payload.score ?? 0,
-        accuracy: summary.accuracy ?? summary.accPct ?? payload.accuracy ?? 0,
-        comboMax: summary.maxCombo ?? summary.bestCombo ?? payload.maxCombo ?? 0,
-        miss: summary.miss ?? summary.misses ?? payload.miss ?? 0,
-        hits: summary.hits ?? payload.hits ?? 0,
-        grade: summary.rank ?? summary.grade ?? payload.rank ?? '',
-        metrics: {
-          strictCombo: summary.maxCombo ?? payload.maxCombo ?? 0,
-          flowCombo: summary.maxFlowCombo ?? payload.maxFlowCombo ?? 0,
-          tempoDrift: summary.tempoDrift ?? payload.tempoDrift ?? null,
-          fatigueIndex: summary.fatigueIndex ?? payload.fatigueIndex ?? null
+      if(
+        W.FitnessPassportBridge &&
+        typeof W.FitnessPassportBridge.save === 'function'
+      ){
+        W.FitnessPassportBridge.save(summary);
+      }
+    }catch(err){
+      console.warn('[RB Passport Bridge]', err);
+    }
+
+    const safeSet = (key, value) => {
+      try{
+        localStorage.setItem(key, value);
+        return true;
+      }catch(_){
+        try{
+          sessionStorage.setItem(key, value);
+          return true;
+        }catch(__){
+          return false;
         }
-      });
-      window.parent && window.parent.postMessage({type:'HHA_GAME_RESULT', game:RB_GAME_ID, payload:summary}, '*');
-    }catch(_){}
+      }
+    };
+
+    const json = JSON.stringify(summary);
+
+    /* fallback ที่ Passport อ่านได้ แม้ Bridge โหลดไม่สำเร็จ */
+    safeSet(
+      `HHA_LAST_SUMMARY:rhythm-boxer:${playerId}`,
+      json
+    );
+
+    safeSet('HHA_LAST_SUMMARY', json);
+
+    let history = [];
+
+    try{
+      const raw =
+        localStorage.getItem('HHA_PASSPORT_HISTORY_V1') ||
+        sessionStorage.getItem('HHA_PASSPORT_HISTORY_V1') ||
+        '[]';
+
+      history = JSON.parse(raw) || [];
+    }catch(_){
+      history = [];
+    }
+
+    history = history.filter(item => !(
+      String(item.gameId || item.game || '') === 'rhythm-boxer' &&
+      String(item.playerId || item.pid || '') === playerId
+    ));
+
+    history.unshift(summary);
+
+    /* จำกัด 20 รายการ ป้องกัน localStorage เต็ม */
+    safeSet(
+      'HHA_PASSPORT_HISTORY_V1',
+      JSON.stringify(history.slice(0, 20))
+    );
+
+    W.dispatchEvent(
+      new CustomEvent('fitness-passport-saved', {
+        detail: summary
+      })
+    );
+
+    W.parent?.postMessage({
+      type: 'HHA_GAME_RESULT',
+      game: 'rhythm-boxer',
+      payload: summary
+    }, '*');
+
+  }catch(err){
+    console.warn('[RB Passport Save]', err);
   }
+}
 
   async function rbSubmitSession(payload){
     payload = rbApplyStudentContext(payload || {});
