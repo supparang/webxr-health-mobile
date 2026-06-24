@@ -110,7 +110,34 @@
       grade:String(p.grade || p.rank || ''),
       rank:String(p.rank || p.grade || ''),
       badge:String(p.badge || p.badges || (accuracy >= 95 && combo >= 20 ? '🏆 Elite Hero' : accuracy >= 85 ? '🎯 Accuracy Hero' : combo >= 15 ? '🔥 Combo Master' : accuracy >= 65 ? '🌱 Rising Hero' : '💪 Keep Moving')),
-      metrics:compactMetrics(p.metrics)
+      metrics: compactMetrics({
+  ...(p.metrics || {}),
+  dodges: p.dodges,
+  bestCombo: p.bestCombo ?? p.comboMax ?? p.maxCombo,
+  avgReaction: p.avgReaction,
+  verticalMoves: p.verticalMoves,
+  sideMoves: p.sideMoves,
+  fatigueDelta: p.fatigueDelta,
+  poseQualityAvg: p.poseQualityAvg,
+  calibrationQuality: p.calibrationQuality,
+  movementBalance: p.movementBalance,
+  bossesCleared: p.bossesCleared,
+  perfect: p.perfect,
+  good: p.good,
+  okay: p.okay,
+  rushHits: p.rushHits,
+  shieldHits: p.shieldHits,
+  feverCount: p.feverCount,
+  missionBadges: p.missionBadges,
+  noBomb: p.noBomb,
+  playerHp: p.playerHp,
+  sideSwitches: p.sideSwitches,
+  avgRtMs: p.avgRtMs,
+  hitRatePerMin: p.hitRatePerMin,
+  scorePerMin: p.scorePerMin,
+  bodyReadiness: p.bodyReadiness,
+  fatigueIndex: p.fatigueIndex
+})
     };
     const encoded = JSON.stringify(summary);
     safeSet(`${LAST_KEY}:${gameId}:${playerId}`, encoded);
