@@ -488,11 +488,58 @@ export async function mount(stage, ctx, api){
         completeTask({progress:t.target,target:t.target,detail:'Shoulder Reset ผ่านอัตโนมัติแบบปลอดภัย'});
         return;
       }
-    } else if(t.type==='reach'||t.type==='cross'){
-      const left=lw&&lw.y<ls.y-.06, right=rw&&rw.y<rs.y-.06; const side=left?'L':right?'R':'';
-      if(ready&&side){if(side!==lastSide){lastSide=side;hold=0;}hold+=dt;if(hold>=t.hold&&!sides.has(side)){sides.add(side);hold=0;lastSide='';}}
-      else hold=0;prog=sides.size;detail=`ค้าง ${prog}/2 ด้าน`;
+   } else if(t.type==='reach'||t.type==='cross'){
+  /*
+    Side Stretch แบบ classroom-friendly:
+    ผ่านได้จาก “ยกมือ” หรือ “เอนลำตัวซ้าย–ขวา”
+    ไม่บังคับให้มืออยู่ในภาพ
+  */
+  const handLeft =
+    !!(lw && ls && vis(lw) > .25 && vis(ls) > .25 && lw.y < ls.y - .035);
+
+  const handRight =
+    !!(rw && rs && vis(rw) > .25 && vis(rs) > .25 && rw.y < rs.y - .035);
+
+  const torsoLean =
+    sm && hm && sw
+      ? (sm.x - hm.x) / Math.max(sw, .001)
+      : 0;
+
+  let side = '';
+
+  if(handLeft || torsoLean < -.105){
+    side = 'L';
+  }else if(handRight || torsoLean > .105){
+    side = 'R';
+  }
+
+  if(ready && side){
+    if(side !== lastSide){
+      lastSide = side;
+      hold = 0;
     }
+
+    hold += dt;
+
+    if(hold >= Math.min(t.hold || .8, .65) && !sides.has(side)){
+      sides.add(side);
+      hold = 0;
+      lastSide = '';
+    }
+  }else{
+    hold = 0;
+  }
+
+  prog = sides.size;
+
+  if(side){
+    detail = `ยืดด้าน ${side === 'L' ? 'ซ้าย' : 'ขวา'} ✓ ค้างไว้ • ${prog}/2 ด้าน`;
+  }else if(sides.size >= 1){
+    detail = `สลับเอน/ยืดอีกด้านหนึ่ง • ${prog}/2 ด้าน`;
+  }else{
+    detail = `เอนลำตัวหรือยกมือไปด้านซ้าย/ขวา • ${prog}/2 ด้าน`;
+  }
+}
     completeTask({progress:prog,target:t.target,detail});
   }
   function stop(){
