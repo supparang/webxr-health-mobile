@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#08112c" />
+  <title>UX Quest • W1 Crisis Casefile</title>
+  <style>
+    :root{
+      --ink:#14213d;
+      --muted:#64748b;
+      --paper:#ffffff;
+      --soft:#f3f6ff;
+      --line:#d8e1f6;
+      --navy:#08112c;
+      --navy2:#122866;
+      --blue:#4967f6;
+      --blue2:#2e42c6;
+      --cyan:#32d0e7;
+      --mint:#2bd39b;
+      --amber:#ffbf55;
+      --rose:#ee6b7b;
+      --shadow:0 24px 68px rgba(3,12,44,.28);
+      --radius:28px;
+    }
+    *{box-sizing:border-box}
+    html{background:var(--navy)}
+    body{
+      min-width:320px;
+      margin:0;
+      min-height:100dvh;
+      font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif;
+      color:#fff;
+      background:
+        radial-gradient(circle at 8% 2%,rgba(69,115,255,.55),transparent 34%),
+        radial-gradient(circle at 92% 5%,rgba(32,213,224,.16),transparent 29%),
+        linear-gradient(155deg,var(--navy),#101b47 58%,#06102c);
+    }
+    button{font:inherit; touch-action:manipulation}
+    button:focus-visible,a:focus-visible{outline:3px solid #9eefff;outline-offset:3px}
+    .app{width:min(1180px,calc(100% - 28px));margin:0 auto;padding:18px 0 46px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:4px 0 18px}
+    .brand{display:flex;align-items:center;gap:11px;color:#fff;text-decoration:none}
+    .brand-badge{display:grid;place-items:center;width:44px;height:44px;border-radius:15px;background:linear-gradient(145deg,#85a1ff,#4a62ed);font-weight:900;box-shadow:0 10px 24px rgba(77,103,246,.48)}
+    .brand strong{display:block;font-size:17px}.brand small{display:block;margin-top:2px;color:#b8c6f6;font-size:12px}
+    .statusbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .status{padding:8px 12px;border:1px solid rgba(221,231,255,.22);border-radius:999px;background:rgba(255,255,255,.08);color:#d7e0ff;font-size:13px}.status b{color:#fff}
+    .hero{display:flex;justify-content:space-between;gap:22px;align-items:end;padding:28px 30px;border:1px solid rgba(212,225,255,.22);border-radius:var(--radius);background:linear-gradient(106deg,rgba(47,81,194,.62),rgba(16,31,76,.78));box-shadow:var(--shadow)}
+    .eyebrow{margin:0 0 9px;color:#b7c8ff;font-size:11px;font-weight:900;letter-spacing:.13em}
+    h1{margin:0;font-size:clamp(32px,5vw,54px);letter-spacing:-.045em}.hero p:not(.eyebrow){max-width:745px;margin:11px 0 0;color:#dce5ff;line-height:1.62}
+    .hero-note{display:grid;gap:6px;min-width:220px;padding:15px;border:1px solid rgba(197,217,255,.2);border-radius:17px;background:rgba(255,255,255,.08);color:#d8e3ff;font-size:13px}.hero-note b{font-size:16px;color:#fff}
+    .rail{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:18px 0}.rail-item{display:flex;justify-content:center;align-items:center;gap:8px;min-width:0;padding:11px;border:1px solid rgba(214,226,255,.22);border-radius:15px;background:rgba(255,255,255,.07);color:#bac8f1;font-size:13px}.rail-item b{display:grid;place-items:center;width:23px;height:23px;border-radius:50%;background:rgba(255,255,255,.15);font-size:12px}.rail-item.active{border-color:#fff;background:#fff;color:#1a2a63;box-shadow:0 8px 18px rgba(8,18,53,.2)}.rail-item.active b{background:var(--blue);color:#fff}.rail-item.done{color:#d9fff0;border-color:rgba(57,222,173,.38)}.rail-item.done b{background:var(--mint);color:#073d2c}
+    .stage{min-height:570px}.card{border-radius:var(--radius);background:var(--paper);color:var(--ink);box-shadow:var(--shadow)}
+    .mode{max-width:910px;margin:20px auto;padding:40px}.mode h2,.debrief h2{margin:0 0 10px;font-size:clamp(27px,4vw,40px);letter-spacing:-.03em}.mode>p,.debrief>p{color:var(--muted);line-height:1.7}.mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:25px 0}.mode-metric{padding:17px;border:1px solid var(--line);border-radius:18px;background:var(--soft);text-align:center}.mode-metric span{display:block;color:#6a789e;font-size:12px;font-weight:800}.mode-metric b{display:block;margin-top:5px;font-size:27px}.action-stack{display:grid;gap:12px;margin-top:22px}.action-row{display:grid;grid-template-columns:48px 1fr auto;gap:14px;align-items:center;width:100%;padding:16px;border:1px solid #d9e3fb;border-radius:19px;background:#fff;color:#25345f;cursor:pointer;text-align:left;transition:.18s}.action-row:hover{border-color:#8ba1ff;background:#f8faff;transform:translateY(-1px);box-shadow:0 12px 25px rgba(70,95,186,.12)}.action-row.primary{border:2px solid var(--blue);background:linear-gradient(135deg,#edf1ff,#fbfcff)}.action-icon{display:grid;place-items:center;width:46px;height:46px;border-radius:15px;background:#e6ecff;color:#3f59d4;font-size:21px;font-weight:900}.action-row strong{display:block;font-size:17px}.action-row small{display:block;margin-top:4px;color:#69789c;line-height:1.45}.action-row>span:last-child{color:#3e58ce;font-weight:900}
+    .game-grid{display:grid;grid-template-columns:minmax(310px,.88fr) minmax(460px,1.25fr);gap:18px}.brief,.decision{padding:25px}.case-label{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}.tag{padding:6px 9px;border-radius:999px;background:#e9efff;color:#3650c9;font-size:11px;font-weight:900}.tag.warn{background:#fff0dc;color:#a86609}.brief h2{margin:0;font-size:clamp(25px,3.5vw,35px);letter-spacing:-.03em}.brief .summary{margin:13px 0 0;color:var(--muted);line-height:1.62}.goal{margin:18px 0 0;padding:15px;border:1px solid #d9e4ff;border-radius:17px;background:linear-gradient(135deg,#eaf0ff,#f8faff)}.goal span{display:block;color:#4c64c4;font-size:11px;font-weight:900;letter-spacing:.1em}.goal b{display:block;margin-top:5px;line-height:1.5}.context-box{display:grid;gap:9px;margin-top:16px;padding:15px;border:1px solid #e0e7f7;border-radius:17px;background:#fbfcff}.context-box div{display:grid;gap:3px}.context-box span{color:#607094;font-size:11px;font-weight:900;letter-spacing:.08em}.context-box b{font-size:13px;line-height:1.5}.meter{margin-top:17px;padding:14px;border-radius:16px;background:#10265e;color:#e7efff}.meter-head{display:flex;justify-content:space-between;gap:10px;font-size:12px;font-weight:800}.bar{height:10px;margin-top:8px;border-radius:999px;background:rgba(255,255,255,.18);overflow:hidden}.bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--mint),#8df2c8);transition:.25s}.meter small{display:block;margin-top:8px;color:#b5c9f8;line-height:1.45}
+    .decision h3{margin:0;font-size:clamp(21px,3vw,29px);letter-spacing:-.025em}.decision .prompt{margin:9px 0 18px;color:#657394;line-height:1.62}.hint{margin:0 0 14px;padding:11px 13px;border-radius:13px;background:#fff4e5;color:#9b5e16;font-size:13px;line-height:1.5;font-weight:700}.evidence-grid{display:grid;gap:10px}.evidence-card,.option{width:100%;display:flex;gap:12px;align-items:flex-start;padding:15px;border:1px solid #dbe4f7;border-radius:17px;background:#fff;color:#25345f;cursor:pointer;text-align:left;transition:.18s}.evidence-card:hover,.option:hover{border-color:#91a5ff;background:#f8faff}.evidence-card.selected,.option.selected{border-color:var(--blue);background:#edf1ff;box-shadow:0 10px 20px rgba(70,96,211,.12)}.evidence-mark,.radio{display:grid;place-items:center;flex:0 0 auto;width:23px;height:23px;margin-top:1px;border:2px solid #afbbdc;border-radius:7px;color:#fff;font-size:13px;font-weight:900}.radio{border-radius:50%}.selected .evidence-mark,.selected .radio{border-color:var(--blue);background:var(--blue)}.evidence-card strong,.option strong{display:block;font-size:15px;line-height:1.43}.evidence-card small,.option small{display:block;margin-top:3px;color:#6a789a;line-height:1.45}.option-list{display:grid;gap:10px}.option-meta{display:inline-flex;gap:6px;align-items:center;margin-top:7px;color:#5369c2;font-size:12px;font-weight:800}.primary{width:100%;margin-top:17px;padding:15px 18px;border:0;border-radius:15px;background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;box-shadow:0 12px 25px rgba(54,69,205,.28);cursor:pointer;font-weight:900;font-size:16px}.primary:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}.secondary{width:100%;margin-top:10px;padding:12px;border:1px solid #d4def6;border-radius:14px;background:#f8faff;color:#3951bb;cursor:pointer;font-weight:800}.secondary:hover{background:#edf2ff}
+    .test-panel{display:grid;gap:14px}.test-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.test-metric{padding:14px;border:1px solid #dfe6f7;border-radius:16px;background:#f7f9ff}.test-metric span{display:block;color:#6b789a;font-size:11px;font-weight:800}.test-metric b{display:block;margin-top:5px;font-size:23px}.test-metric em{font-style:normal;font-size:12px;font-weight:800}.up{color:#12966e}.mid{color:#a86a0b}.down{color:#c25467}.quote{padding:15px;border-left:4px solid var(--cyan);border-radius:0 16px 16px 0;background:#edfbfe;color:#245361;line-height:1.62}.quote b{display:block;margin-bottom:5px;color:#12758a;font-size:11px;letter-spacing:.08em}.feedback{margin:17px 0 0;padding:15px;border-radius:16px;background:#eff3ff;color:#344878;line-height:1.62}.feedback strong{display:block;margin-bottom:3px}.debrief{max-width:910px;margin:20px auto;padding:40px;text-align:center}.stars{margin:12px 0;color:#d7e0f7;font-size:41px;letter-spacing:5px}.stars .on{color:var(--amber);text-shadow:0 6px 16px rgba(255,180,47,.35)}.score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:22px 0}.score-grid div{padding:16px 9px;border-radius:16px;background:#f5f7fe}.score-grid span{display:block;color:#6d7b9d;font-size:11px;font-weight:800}.score-grid b{display:block;margin-top:6px;font-size:23px}.report{margin:20px 0;padding:17px;border:1px solid #d8e3fb;border-radius:17px;background:#f5f8ff;color:#344877;text-align:left;line-height:1.65}.report b{display:block;margin-bottom:4px}.badge-row{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:16px 0}.badge{padding:8px 11px;border-radius:999px;background:#eaf0ff;color:#3f58cc;font-size:12px;font-weight:900}.badge.mint{background:#e7fbf2;color:#087657}.badge.amber{background:#fff3df;color:#9a5a05}
+    dialog{width:min(560px,calc(100% - 28px));border:0;border-radius:22px;padding:28px;background:#fff;color:var(--ink);box-shadow:0 28px 80px rgba(3,10,35,.45)}dialog::backdrop{background:rgba(3,10,34,.68);backdrop-filter:blur(3px)}.dialog-close{float:right;width:34px;height:34px;border:0;border-radius:50%;background:#eff3fb;color:#445171;font-size:20px;cursor:pointer}.dialog-title{margin:0 36px 10px 0;font-size:26px}.dialog-text{color:#52617f;line-height:1.68}.dialog-action{margin-top:18px}.hide{display:none!important}
+    @media (max-width:900px){.hero{align-items:flex-start;flex-direction:column}.hero-note{width:100%}.game-grid{grid-template-columns:1fr}.brief,.decision{padding:21px}.mode,.debrief{padding:30px 23px}.test-grid{grid-template-columns:1fr 1fr}.score-grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:620px){.app{width:min(100% - 18px,620px);padding-top:12px}.topbar{display:grid;gap:12px}.statusbar{justify-content:flex-start}.hero{padding:21px 18px;border-radius:22px}.hero h1{font-size:35px}.hero p:not(.eyebrow){font-size:14px}.rail{gap:6px}.rail-item{min-height:42px;padding:7px 4px;font-size:0}.rail-item b{width:24px;height:24px;font-size:11px}.mode,.debrief{padding:25px 17px;border-radius:22px}.mode-grid{grid-template-columns:1fr;gap:8px;margin:18px 0}.mode-metric{display:flex;align-items:center;justify-content:space-between;padding:13px}.mode-metric b{margin:0;font-size:22px}.action-row{grid-template-columns:40px 1fr;padding:13px}.action-row>span:last-child{display:none}.action-icon{width:38px;height:38px;border-radius:12px;font-size:18px}.action-row strong{font-size:15px}.action-row small{font-size:12px}.brief,.decision{padding:18px;border-radius:22px}.brief h2{font-size:27px}.evidence-card,.option{padding:13px;border-radius:15px}.evidence-card strong,.option strong{font-size:14px}.test-grid{grid-template-columns:1fr}.test-metric{display:flex;align-items:center;justify-content:space-between;padding:12px}.test-metric b{margin:0;font-size:20px}.score-grid{grid-template-columns:1fr}.score-grid div{display:flex;align-items:center;justify-content:space-between}.score-grid b{margin:0;font-size:21px}.primary{min-height:50px}.status{font-size:12px}.statusbar{display:grid;grid-template-columns:repeat(3,1fr)}.status{text-align:center}.brand-badge{width:40px;height:40px}.hero-note{min-width:0}.dialog-title{font-size:23px}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <a class="brand" href="./index.html" aria-label="กลับหน้า Mission Control">
+        <span class="brand-badge">UX</span>
+        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile</small></span>
+      </a>
+      <div class="statusbar" aria-label="สถานะ Mission">
+        <span class="status">Case <b id="hudCase">—</b></span>
+        <span class="status">Time <b id="hudTime">—</b></span>
+        <span class="status">Trust <b id="hudTrust">—</b></span>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE</p>
+        <h1>UX Detective: Casefile Hunt</h1>
+        <p>ไม่ใช่การเดาคำตอบที่ฟังดูดี คุณต้องเลือกหลักฐาน ตั้งสมมติฐาน ลงทุนกับการแก้ และตัดสินใจจากผลทดสอบจริง — ทุกการตัดสินใจจะเปลี่ยนผลคดี</p>
+      </div>
+      <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>1 Case = 1 คดีที่ต้องปิดด้วยเหตุผล</span></aside>
+    </section>
+
+    <nav class="rail" aria-label="ขั้นตอนของ Casefile">
+      <span class="rail-item" data-rail="evidence"><b>1</b>Evidence</span>
+      <span class="rail-item" data-rail="hypothesis"><b>2</b>Hypothesis</span>
+      <span class="rail-item" data-rail="fix"><b>3</b>Fix</span>
+      <span class="rail-item" data-rail="test"><b>4</b>Test Decision</span>
+    </nav>
+
+    <section id="stage" class="stage" aria-live="polite"></section>
+  </main>
+
+  <dialog id="feedbackDialog">
+    <button class="dialog-close" type="button" data-close-dialog aria-label="ปิด">×</button>
+    <p class="eyebrow" id="dialogKicker">CASE FEEDBACK</p>
+    <h2 class="dialog-title" id="dialogTitle"></h2>
+    <p class="dialog-text" id="dialogText"></p>
+    <button class="primary dialog-action" type="button" id="dialogButton">ดำเนินการต่อ</button>
+  </dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORAGE_KEY = 'csai2601-uxq-casefile-v1-lite';
+  const CASES_PER_SHIFT = 3;
+  const EVIDENCE_LIMIT = 3;
+
+  const CASES = [
+    {
+      id: 'scholarship-docs',
+      sector: 'Smart Campus Help Center',
+      title: 'คดี 01: หลักฐานทุนหายระหว่างทาง',
+      urgency: 'เหลือเวลา 1 วันก่อนปิดรับทุน',
+      persona: 'พลอย • นักศึกษาปี 2 • ใช้บริการครั้งแรกผ่านมือถือ',
+      goal: 'เริ่มคำร้องขอใบรับรองการเป็นนักศึกษาให้เสร็จและรู้ว่าต้องแนบอะไร',
+      problem: 'หน้า Help Center แสดงบริการตามหน่วยงาน 14 รายการ ผู้ใช้จำนวนมากออกจากหน้าก่อนเริ่มคำร้อง',
+      evidence: [
+        {id:'e1', title:'Session replay', text:'61% ของผู้ใช้แตะเมนู 3–5 ครั้งแล้วออก โดยไม่เคยเปิดบริการขอเอกสาร', supports:['h1'], weight:3},
+        {id:'e2', title:'Ticket เจ้าหน้าที่', text:'คำถามที่พบบ่อยที่สุดคือ “ใบรับรองอยู่เมนูไหน” แม้บริการมีอยู่แล้ว', supports:['h1'], weight:3},
+        {id:'e3', title:'Survey 12 คน', text:'ผู้ใช้บางส่วนอยากรู้รายการเอกสารที่ต้องใช้ก่อนเริ่มคำร้อง', supports:['h2'], weight:2},
+        {id:'e4', title:'System log', text:'หลังส่งคำร้อง เวลาประมวลผลเฉลี่ย 3 ชั่วโมง', supports:['h3'], weight:1},
+        {id:'e5', title:'Brand review', text:'ฝ่ายสื่อสารเสนอให้ใช้ภาพกิจกรรมบนหน้าแรกมากขึ้น', supports:[], weight:0}
+      ],
+      hypotheses: [
+        {id:'h1', title:'ผู้ใช้หา “ทางเริ่มงาน” ไม่เจอ', text:'โครงสร้างตามหน่วยงานไม่ตรงกับเป้าหมาย “ขอเอกสาร” ของผู้ใช้ใหม่'},
+        {id:'h2', title:'ผู้ใช้ยังไม่พร้อมเริ่ม เพราะไม่รู้เงื่อนไขและเอกสาร', text:'ความไม่แน่ใจเกิดก่อนเข้าสู่คำร้อง แม้จะพบเมนูแล้ว'},
+        {id:'h3', title:'ผู้ใช้เลิกเพราะกังวลเวลาประมวลผลหลังส่ง', text:'ผู้ใช้ต้องการคำตอบหรือสถานะที่เร็วขึ้นหลังส่งคำร้อง'}
+      ],
+      fixes: [
+        {id:'f1', title:'Task-first entry', text:'วาง “ขอเอกสาร” เป็น CTA หลัก พร้อมจัดบริการตามงานที่ผู้ใช้ต้องทำ', supports:['h1'], cost:2, note:'ลดเวลาค้นหาจุดเริ่มต้น แต่ยังไม่ตอบเรื่องเอกสารที่ต้องเตรียมทั้งหมด'},
+        {id:'f2', title:'Pre-check requirements', text:'เพิ่มเช็กลิสต์เอกสารและเกณฑ์ก่อนเปิดคำร้อง', supports:['h2'], cost:2, note:'ลดความกังวลก่อนเริ่ม แต่ไม่ช่วยผู้ใช้ที่หาเมนูไม่เจอ'},
+        {id:'f3', title:'Fast-status notification', text:'เพิ่มการแจ้งสถานะและเวลาโดยประมาณหลังส่งคำร้อง', supports:['h3'], cost:2, note:'ช่วยช่วงหลังส่ง แต่ไม่แก้การออกจากหน้าแรก'}
+      ],
+      test: {
+        exact: {success:86,time:'0:48',trust:82,quote:'“เห็นปุ่มขอเอกสารทันที แล้วค่อยเช็กสิ่งที่ต้องเตรียมต่อได้”'},
+        partial: {success:64,time:'1:37',trust:68,quote:'“เช็กลิสต์ช่วยนะ แต่ฉันยังเสียเวลาหาทางเริ่มคำร้องอยู่”'},
+        miss: {success:39,time:'2:21',trust:42,quote:'“มีบอกเวลาหลังส่ง แต่ฉันยังไม่รู้ว่าจะเริ่มคำร้องตรงไหน”'}
+      },
+      next: {
+        exact: {id:'n1', title:'ขยายการทดสอบกับผู้ใช้ใหม่บนมือถือ', text:'ยืนยันว่าจุดเริ่มงานใหม่ใช้ได้กับกลุ่มที่เคยออกจากหน้าแรก'},
+        partial: {id:'n2', title:'ตรวจซ้ำว่าจุดเริ่มงานถูกพบก่อนเช็กลิสต์หรือไม่', text:'แยกว่าปัญหาอยู่ที่การค้นหาเส้นทางหรือความไม่พร้อมก่อนเริ่ม'},
+        miss: {id:'n3', title:'กลับไปทบทวนสมมติฐานจาก evidence ที่ยังไม่ได้ใช้', text:'อย่าเพิ่มฟีเจอร์ในจุดท้ายของ flow ก่อนรู้สาเหตุของการออกจากหน้า'}
+      }
+    },
+    {
+      id: 'advisor-booking',
+      sector: 'Advisor Appointment',
+      title: 'คดี 02: เวลานัดที่ไม่มีใครมั่นใจ',
+      urgency: 'มีช่วงนัดเหลือเพียง 6 ช่องในสัปดาห์นี้',
+      persona: 'ไนซ์ • นักศึกษาปี 2 • จองผ่านโทรศัพท์ระหว่างเดินไปเรียน',
+      goal: 'นัดอาจารย์ที่ปรึกษาให้ตรงวัน เวลา และหัวข้อโดยไม่ต้องโทรยืนยันซ้ำ',
+      problem: 'ผู้ใช้เลือกเวลาหลายครั้ง แต่ไม่ได้เห็นสรุปนัดหมายสุดท้ายก่อนส่ง',
+      evidence: [
+        {id:'e1', title:'Cancellation log', text:'37% ของการยกเลิกเกิดภายใน 15 นาทีหลังจอง และส่วนใหญ่เลือกเวลาซ้ำมากกว่า 2 ครั้ง', supports:['h1'], weight:3},
+        {id:'e2', title:'Interview quote', text:'“ฉันไม่แน่ใจว่าระบบจำเวลาแรกหรือเวลาล่าสุด เลยโทรถามอาจารย์อีกที”', supports:['h1'], weight:3},
+        {id:'e3', title:'Accessibility note', text:'ข้อความในปฏิทินมีขนาดเล็กเมื่อเปิดในมือถือจอ 360px', supports:['h2'], weight:2},
+        {id:'e4', title:'Faculty request', text:'อาจารย์อยากทราบหัวข้อก่อนถึงเวลานัด', supports:['h3'], weight:1},
+        {id:'e5', title:'Visual audit', text:'สีของช่องว่างและช่องที่เลือกใกล้เคียงกัน', supports:['h2'], weight:2}
+      ],
+      hypotheses: [
+        {id:'h1', title:'ผู้ใช้ไม่เห็น “นัดสุดท้ายที่กำลังจะยืนยัน”', text:'การเปลี่ยนเวลาหลายครั้งไม่มี summary ที่ยืนยันสิ่งที่ระบบจะส่งจริง'},
+        {id:'h2', title:'การรับรู้สถานะของช่องเวลาบนมือถือไม่ชัด', text:'ผู้ใช้แยกเวลาที่เลือก เวลาเต็ม และเวลาว่างได้ยาก'},
+        {id:'h3', title:'ผู้ใช้ไม่รู้ว่าต้องกรอกหัวข้อสนทนา', text:'ข้อมูลก่อนนัดไม่ครบเพราะแบบฟอร์มไม่สื่อความคาดหวัง'}
+      ],
+      fixes: [
+        {id:'f1', title:'Appointment summary', text:'แสดงวัน เวลา อาจารย์ และหัวข้อที่กำลังจะส่งก่อนปุ่ม “ยืนยันนัดหมาย”', supports:['h1'], cost:2, note:'ลดความไม่แน่ใจหลังเปลี่ยนเวลา แต่ไม่แก้การมองเห็นช่องเวลาโดยตรง'},
+        {id:'f2', title:'Mobile time-state contrast', text:'ปรับสถานะของช่องว่าง/เลือก/เต็มให้ต่างกันชัด พร้อมขยายพื้นที่แตะ', supports:['h2'], cost:2, note:'ช่วยเลือกช่วงเวลา แต่ยังไม่ยืนยันสิ่งที่จะถูกส่ง'},
+        {id:'f3', title:'Topic-first form', text:'ให้กรอกหัวข้อก่อนเลือกเวลา เพื่อบอกอาจารย์ล่วงหน้า', supports:['h3'], cost:2, note:'ช่วยการเตรียมตัวของอาจารย์ แต่อาจเพิ่มภาระก่อนจอง'}
+      ],
+      test: {
+        exact: {success:89,time:'0:54',trust:90,quote:'“ตอนนี้เห็นชัดเลยว่ากำลังจะนัดวันไหนและหัวข้ออะไร”'},
+        partial: {success:71,time:'1:12',trust:70,quote:'“เลือกเวลาง่ายขึ้น แต่หลังเปลี่ยนหลายรอบก็ยังอยากเห็นสรุปก่อนกดยืนยัน”'},
+        miss: {success:51,time:'1:48',trust:48,quote:'“กรอกหัวข้อได้ แต่ฉันยังไม่แน่ใจว่านัดสุดท้ายคือช่วงไหน”'}
+      },
+      next: {
+        exact: {id:'n1', title:'ทดสอบกับกลุ่มที่ใช้มือถือและเปลี่ยนเวลามากกว่า 1 ครั้ง', text:'ยืนยันว่าการสรุปนัดช่วยลดการโทรถามซ้ำได้จริง'},
+        partial: {id:'n2', title:'วัดจุดที่ผู้ใช้ลังเลระหว่างเลือกเวลาและก่อนยืนยัน', text:'ค้นหาว่าปัญหาหลักยังอยู่ในขั้นการเลือกหรือการตรวจทาน'},
+        miss: {id:'n3', title:'กลับไปตรวจหลักฐานการยกเลิกหลังจอง', text:'การแก้ข้อมูลอาจารย์ไม่ได้ตอบต้นเหตุของการไม่มั่นใจเวลานัด'}
+      }
+    },
+    {
+      id: 'library-search',
+      sector: 'Library Digital Resources',
+      title: 'คดี 03: ฐานข้อมูลที่มากเกินจนเริ่มไม่ถูก',
+      urgency: 'กลุ่มนักศึกษาต้องส่งรายงานในอีก 48 ชั่วโมง',
+      persona: 'ภพ • นักศึกษาปี 2 • ค้นบทความวิชาการครั้งแรก',
+      goal: 'เริ่มค้นบทความที่น่าเชื่อถือและส่งลิงก์ให้เพื่อนในกลุ่มได้',
+      problem: 'หน้าแรกมีฐานข้อมูล E-book คู่มืออ้างอิง และข่าวอบรมในระดับเดียวกัน',
+      evidence: [
+        {id:'e1', title:'Search funnel', text:'ผู้ใช้ใหม่ 58% เปิดฐานข้อมูลมากกว่า 4 แห่ง แต่ไม่ใส่คำค้นใน 2 นาทีแรก', supports:['h1'], weight:3},
+        {id:'e2', title:'Think-aloud', text:'“ฉันไม่รู้ว่าต้องเริ่มจากฐานไหนเพื่อหาบทความ ไม่อยากเดาสุ่ม”', supports:['h1'], weight:3},
+        {id:'e3', title:'Librarian note', text:'นักศึกษามักใช้คำค้นกว้างเกินและไม่รู้ตัวกรองปีพิมพ์', supports:['h2'], weight:2},
+        {id:'e4', title:'Share log', text:'ผู้ใช้ที่เจอบทความแล้ว 31% ไม่รู้วิธีส่ง permalink ให้เพื่อน', supports:['h3'], weight:1},
+        {id:'e5', title:'Content team', text:'มีคำขอให้เพิ่ม E-book แนะนำ 20 เล่มบนหน้าแรก', supports:[], weight:0}
+      ],
+      hypotheses: [
+        {id:'h1', title:'ผู้ใช้ใหม่ไม่มี task entry สำหรับ “ค้นบทความ”', text:'หน้าแรกจัดตามทรัพยากรภายใน แทนที่จะจัดตามงานที่ผู้ใช้ต้องทำ'},
+        {id:'h2', title:'ผู้ใช้เริ่มค้นได้ แต่สร้าง query และใช้ filter ไม่เป็น', text:'ปัญหาหลักอยู่ในขั้นทำ search strategy หลังเลือกฐานข้อมูล'},
+        {id:'h3', title:'ผู้ใช้ค้นพบแล้ว แต่แชร์ผลลัพธ์ให้กลุ่มไม่ได้', text:'ปัญหาหลักเกิดหลังการค้นพบ ไม่ใช่ก่อนเริ่มค้น'}
+      ],
+      fixes: [
+        {id:'f1', title:'Task-based start', text:'เริ่มหน้าแรกด้วย “ค้นบทความ” แล้วให้เลือกประเภทงานก่อนเลือกฐานข้อมูล', supports:['h1'], cost:2, note:'ลดภาระการเลือกเครื่องมือ แต่ไม่ได้สอน query โดยตรง'},
+        {id:'f2', title:'Search strategy coach', text:'เพิ่มตัวช่วยสร้างคำค้นและตัวกรองปี/ประเภทบทความในหน้าค้นหา', supports:['h2'], cost:2, note:'ช่วยหลังเริ่มค้น แต่ไม่ลดความงงก่อนเลือกฐานข้อมูล'},
+        {id:'f3', title:'Share permalink action', text:'เพิ่มปุ่มส่งลิงก์ถาวรให้เพื่อนเมื่อเปิดบทความ', supports:['h3'], cost:2, note:'ช่วยการทำงานกลุ่มหลังค้นพบ'}
+      ],
+      test: {
+        exact: {success:84,time:'0:58',trust:80,quote:'“เริ่มจากคำว่า ค้นบทความ แล้วค่อยเลือกฐานที่เหมาะกับรายงานได้เลย”'},
+        partial: {success:68,time:'1:22',trust:72,quote:'“ตัวช่วยคำค้นดี แต่ฉันยังไม่มั่นใจว่าจะเริ่มที่ฐานไหน”'},
+        miss: {success:47,time:'2:05',trust:50,quote:'“ส่งลิงก์ได้ แต่ตอนแรกยังไม่รู้จะหาอย่างไร”'}
+      },
+      next: {
+        exact: {id:'n1', title:'ทดสอบคำเรียก task entry กับผู้ใช้ที่ไม่เคยใช้ฐานข้อมูล', text:'ตรวจว่า “ค้นบทความ” สื่อความหมายตรงกับเป้าหมายจริงหรือไม่'},
+        partial: {id:'n2', title:'แยกทดสอบการเลือกฐานข้อมูลออกจากการสร้างคำค้น', text:'อย่ารวมสองปัญหาไว้ในผลทดสอบชุดเดียว'},
+        miss: {id:'n3', title:'ย้อนดู funnel ก่อนการค้นพบ', text:'การแชร์ผลลัพธ์ไม่ช่วยผู้ใช้ที่ยังเข้าไม่ถึงจุดเริ่มค้น'}
+      }
+    },
+    {
+      id: 'course-registration',
+      sector: 'Course Registration',
+      title: 'คดี 04: ปุ่มที่ไม่บอกว่าจะยืนยันอะไร',
+      urgency: 'เหลือเวลา 25 นาที ก่อนระบบปิดเพื่อปรับปรุง',
+      persona: 'นนท์ • นักศึกษาปี 2 • ลงทะเบียนรายวิชาเองครั้งแรก',
+      goal: 'ยืนยันรายวิชาที่เลือกและแยกการบันทึกร่างออกจากการลงทะเบียนจริง',
+      problem: 'หน้าสรุปรายวิชามีปุ่ม “ทำต่อ” และ “บันทึก” ที่มีน้ำหนักและตำแหน่งใกล้เคียงกัน',
+      evidence: [
+        {id:'e1', title:'Click log', text:'ผู้ใช้ 44% กด “บันทึก” แล้วออกจากระบบโดยคิดว่าลงทะเบียนเสร็จแล้ว', supports:['h1'], weight:3},
+        {id:'e2', title:'Usability session', text:'“ทำต่อคือไปขั้นไหน? ฉันกลัวกดแล้วลงทะเบียนเลย”', supports:['h1'], weight:3},
+        {id:'e3', title:'Academic office', text:'มีคำถามเรื่องตารางเรียนชนกันจำนวนมากหลังลงทะเบียน', supports:['h2'], weight:2},
+        {id:'e4', title:'Accessibility review', text:'ข้อความบนปุ่มมี contrast ผ่านเกณฑ์ แต่ขนาดพื้นที่แตะพอดีขั้นต่ำ', supports:['h3'], weight:1},
+        {id:'e5', title:'Design request', text:'ทีมการตลาดอยากเพิ่มภาพโปรโมตรายวิชาใหม่', supports:[], weight:0}
+      ],
+      hypotheses: [
+        {id:'h1', title:'Action labels ไม่บอกผลลัพธ์หลังการกด', text:'ผู้ใช้แยก “บันทึกร่าง” กับ “ยืนยันลงทะเบียน” ไม่ได้'},
+        {id:'h2', title:'ผู้ใช้ต้องการตรวจตารางชนก่อนยืนยัน', text:'ปัญหาอยู่ที่การขาดข้อมูลรองรับการตัดสินใจ'},
+        {id:'h3', title:'ผู้ใช้กดปุ่มบนมือถือยาก', text:'พื้นที่แตะและการวางปุ่มทำให้เกิดความผิดพลาดเชิงกายภาพ'}
+      ],
+      fixes: [
+        {id:'f1', title:'Explicit action hierarchy', text:'ใช้ปุ่มหลัก “ยืนยันการลงทะเบียน” และปุ่มรอง “บันทึกร่าง” พร้อมผลที่อธิบายได้', supports:['h1'], cost:2, note:'ลดความกำกวมของ action โดยตรง'},
+        {id:'f2', title:'Conflict preview', text:'เพิ่มสรุปตารางชนก่อนยืนยัน และเสนอตัวเลือกวิชาอื่น', supports:['h2'], cost:2, note:'ช่วยตัดสินใจเรื่องวิชา แต่ไม่ได้แก้ความกำกวมของปุ่ม'},
+        {id:'f3', title:'Touch target upgrade', text:'ขยายพื้นที่แตะและเพิ่มระยะห่างระหว่างปุ่มบนมือถือ', supports:['h3'], cost:2, note:'ลดการกดผิด แต่ไม่ช่วยผู้ใช้ที่ตีความคำไม่ออก'}
+      ],
+      test: {
+        exact: {success:90,time:'0:43',trust:88,quote:'“เห็นชัดว่าปุ่มนี้จะยืนยันจริง ส่วนอีกปุ่มเก็บไว้ก่อน”'},
+        partial: {success:72,time:'1:11',trust:73,quote:'“ดูตารางชนได้ดี แต่ฉันยังลังเลว่าปุ่มไหนส่งผลจริง”'},
+        miss: {success:60,time:'1:21',trust:61,quote:'“กดง่ายขึ้น แต่คำว่า ทำต่อ ก็ยังไม่ชัดว่ามันทำอะไร”'}
+      },
+      next: {
+        exact: {id:'n1', title:'ทดสอบความเข้าใจของคำปุ่มก่อนและหลังการเปลี่ยน', text:'วัดว่าผู้ใช้คาดเดาผลหลังการกดได้โดยไม่ต้องลองผิดลองถูก'},
+        partial: {id:'n2', title:'แยกทดสอบการตีความ action ออกจากการตรวจตารางชน', text:'ดูว่าความลังเลอยู่ที่ความหมายของปุ่มหรือที่ข้อมูลก่อนยืนยัน'},
+        miss: {id:'n3', title:'กลับไปแก้ semantic ของ action', text:'การขยายปุ่มไม่ช่วยถ้าผู้ใช้ไม่รู้ว่ากดแล้วจะเกิดอะไร'}
+      }
+    },
+    {
+      id: 'health-appointment',
+      sector: 'Campus Health Service',
+      title: 'คดี 05: นัดตรวจอยู่ใต้ข่าวสุขภาพ',
+      urgency: 'มีนัดตรวจในวันนี้ และผู้ใช้หลายคนพลาดเวลา',
+      persona: 'เมย์ • นักศึกษาปี 2 • เปิดมือถือระหว่างเดินไปคลินิก',
+      goal: 'เห็นนัดตรวจที่ใกล้ที่สุด รู้สถานที่ และตัดสินใจได้ว่าจะเตรียมตัวหรือเปลี่ยนนัด',
+      problem: 'หน้าแรกวางบทความสุขภาพและข่าวรณรงค์เหนือข้อมูลนัดส่วนตัว',
+      evidence: [
+        {id:'e1', title:'Navigation heatmap', text:'ผู้ใช้เลื่อนผ่านบทความเฉลี่ย 2.8 หน้าจอก่อนเจอข้อมูลนัดของตน', supports:['h1'], weight:3},
+        {id:'e2', title:'No-show review', text:'กลุ่มที่พลาดนัด 64% เปิดหน้า Health Service ในวันนัด แต่ไม่พบเวลาใน 30 วินาทีแรก', supports:['h1'], weight:3},
+        {id:'e3', title:'Clinic staff', text:'ผู้ป่วยใหม่มักถามว่าต้องงดอาหารก่อนตรวจหรือไม่', supports:['h2'], weight:2},
+        {id:'e4', title:'Analytics', text:'บทความเรื่องการนอนหลับมีอัตราอ่านสูงในช่วงสอบ', supports:['h3'], weight:1},
+        {id:'e5', title:'Map report', text:'บางคนหลงอาคารคลินิกในวันแรก', supports:['h2'], weight:2}
+      ],
+      hypotheses: [
+        {id:'h1', title:'ข้อมูลนัดส่วนตัวถูกจัดลำดับต่ำกว่าข้อมูลทั่วไป', text:'ผู้ใช้ที่มีงานเร่งด่วนต้องค้นหานานเกินก่อนเห็นสิ่งที่ต้องทำวันนี้'},
+        {id:'h2', title:'ผู้ใช้อยากได้การเตรียมตัวและเส้นทางไปคลินิกมากขึ้น', text:'เมื่อเห็นนัดแล้ว ผู้ใช้ยังขาดข้อมูลประกอบการไปตามนัด'},
+        {id:'h3', title:'ผู้ใช้สนใจบทความสุขภาพมากกว่าข้อมูลนัด', text:'เนื้อหาทั่วไปควรเป็นองค์ประกอบเด่นของหน้าแรก'}
+      ],
+      fixes: [
+        {id:'f1', title:'Today-first appointment card', text:'ย้าย “นัดถัดไปของคุณ” ขึ้นบนสุด พร้อมเวลา สถานที่ และ action เตรียมตัว/เปลี่ยนนัด', supports:['h1'], cost:2, note:'ตอบโจทย์การค้นหาข้อมูลที่ต้องใช้ทันที'},
+        {id:'f2', title:'Preparation and map pack', text:'เพิ่มเช็กลิสต์การเตรียมตัวและลิงก์แผนที่ในหน้ารายละเอียดนัด', supports:['h2'], cost:2, note:'ช่วยหลังพบข้อมูลนัด แต่ไม่ช่วยให้เจอนัดเร็วขึ้น'},
+        {id:'f3', title:'Wellness content refresh', text:'เพิ่มบทความสุขภาพที่ตรงฤดูกาลสอบและจัดเป็น carousel', supports:['h3'], cost:2, note:'ตอบ engagement เนื้อหาทั่วไป ไม่ใช่ goal เร่งด่วน'}
+      ],
+      test: {
+        exact: {success:91,time:'0:35',trust:91,quote:'“เปิดมาก็เห็นนัดวันนี้เลย แล้วกดดูสิ่งที่ต้องเตรียมได้”'},
+        partial: {success:69,time:'1:17',trust:72,quote:'“ข้อมูลเตรียมตัวดี แต่ต้องเลื่อนหานัดก่อนอยู่ดี”'},
+        miss: {success:40,time:'2:12',trust:44,quote:'“บทความดี แต่ฉันเกือบไม่เห็นว่ามีนัดวันนี้”'}
+      },
+      next: {
+        exact: {id:'n1', title:'ทดสอบการจัดลำดับ Today-first ในวันที่ผู้ใช้มีนัดและไม่มีนัด', text:'ตรวจว่าหน้าแรกยังมีประโยชน์ต่อทั้งสองกลุ่มโดยไม่กลบข้อมูลสำคัญ'},
+        partial: {id:'n2', title:'วัดเวลา “เห็นนัด” แยกจากเวลา “เตรียมตัว”', text:'แยกปัญหาการค้นหาข้อมูลออกจากปัญหาการเตรียมตัว'},
+        miss: {id:'n3', title:'กลับไปจัดลำดับ information hierarchy ใหม่', text:'ไม่ควรเพิ่มเนื้อหาทั่วไปในตำแหน่งที่บังข้อมูลนัดส่วนตัว'}
+      }
+    },
+    {
+      id: 'project-upload',
+      sector: 'Group Project Submission',
+      title: 'คดี 06: ไฟล์สุดท้ายที่ไม่มีใครกล้ายืนยัน',
+      urgency: 'เหลือเวลา 12 นาที ก่อนปิดส่งงาน',
+      persona: 'ทีม 4 คน • ส่งงานผ่านมือถือและแชตกลุ่ม',
+      goal: 'ส่งไฟล์ฉบับสุดท้ายให้ถูกต้องและมีหลักฐานเวลา/สมาชิกหลังส่ง',
+      problem: 'หน้าส่งงานแสดงไฟล์เก่าใหม่ปะปน และไม่มี Submission Summary ก่อนยืนยัน',
+      evidence: [
+        {id:'e1', title:'Revision log', text:'58% ของทีมอัปโหลดมากกว่า 2 ไฟล์ใน 10 นาทีสุดท้ายก่อนกำหนด', supports:['h1'], weight:3},
+        {id:'e2', title:'Student ticket', text:'“ฉันเห็นชื่อไฟล์หลายอัน แต่ไม่แน่ใจว่าไฟล์ที่กำลังจะส่งคือฉบับล่าสุด”', supports:['h1'], weight:3},
+        {id:'e3', title:'Teacher note', text:'ผู้สอนต้องการเห็นสมาชิกที่มีสิทธิ์ส่งแทนทีม', supports:['h2'], weight:2},
+        {id:'e4', title:'Support audit', text:'หลายคนโทรถามว่าส่งสำเร็จหรือยังหลังหน้าจอกลับมาที่เดิม', supports:['h3'], weight:2},
+        {id:'e5', title:'Visual request', text:'มีข้อเสนอให้เพิ่ม thumbnail เอกสารให้ใหญ่ขึ้น', supports:[], weight:0}
+      ],
+      hypotheses: [
+        {id:'h1', title:'ผู้ใช้ไม่เห็นว่าไฟล์ใดจะถูกส่งจริง', text:'ไม่มี summary ของชื่อไฟล์ ขนาดไฟล์ และสถานะ version ก่อนยืนยัน'},
+        {id:'h2', title:'ทีมไม่แน่ใจว่าใครมีสิทธิ์ส่งแทนกัน', text:'กติกาบทบาทผู้ส่งและสมาชิกไม่ชัด'},
+        {id:'h3', title:'ผู้ใช้ไม่เห็นหลักฐานหลังส่ง', text:'แม้ส่งไฟล์ถูกแล้ว แต่ยังไม่มี feedback ที่ตรวจสอบได้'}
+      ],
+      fixes: [
+        {id:'f1', title:'Submission summary', text:'ก่อนส่ง แสดงชื่อไฟล์ ขนาด เวลาแก้ล่าสุด และสมาชิกทีม พร้อมปุ่ม “ยืนยันส่งงาน”', supports:['h1'], cost:2, note:'ช่วยตรวจสิ่งที่จะถูกส่ง แต่ไม่ยืนยันผลหลังส่ง'},
+        {id:'f2', title:'Team role indicator', text:'แสดงสิทธิ์ผู้ส่งแทนและสมาชิกที่รับทราบก่อนกดส่ง', supports:['h2'], cost:2, note:'ช่วย coordination แต่ไม่แก้ความสับสนเรื่องไฟล์สุดท้าย'},
+        {id:'f3', title:'Receipt after submit', text:'หลังส่ง แสดงเวลาส่งและเลขอ้างอิง พร้อมดาวน์โหลดหลักฐาน', supports:['h3'], cost:2, note:'ช่วยติดตามหลังส่ง แต่ไม่แก้การเลือกไฟล์ผิด'}
+      ],
+      test: {
+        exact: {success:88,time:'0:46',trust:90,quote:'“เห็น Final_Report.pdf กับเวลาแก้ล่าสุดก่อนกด จึงมั่นใจว่าไม่ส่งผิดฉบับ”'},
+        partial: {success:70,time:'1:09',trust:75,quote:'“รู้ว่าใครส่งแทนได้ แต่ยังไม่แน่ใจว่าไฟล์ไหนกำลังจะถูกส่ง”'},
+        miss: {success:55,time:'1:31',trust:67,quote:'“มีใบเสร็จหลังส่งดี แต่ก่อนกดยังลุ้นว่าเลือกไฟล์ถูกหรือเปล่า”'}
+      },
+      next: {
+        exact: {id:'n1', title:'ทดสอบกับทีมที่มีไฟล์ซ้ำชื่อและเปลี่ยนคนส่งระหว่างทาง', text:'พิสูจน์ว่า summary ช่วยลดข้อผิดพลาดในสถานการณ์จริงที่ซับซ้อน'},
+        partial: {id:'n2', title:'แยกความเสี่ยง “เลือกไฟล์ผิด” ออกจาก “ผู้ส่งไม่มีสิทธิ์”', text:'อย่าปิดคดีด้วยการแก้ coordination ถ้าปัญหาหลักอยู่ที่ version ของไฟล์'},
+        miss: {id:'n3', title:'ย้อนกลับไปตรวจช่วงก่อนยืนยัน', text:'หลักฐานหลังส่งไม่ได้ช่วยผู้ใช้ตัดสินใจว่าไฟล์ไหนถูกต้องก่อนส่ง'}
+      }
+    },
+    {
+      id: 'repair-report',
+      sector: 'Campus Repair Service',
+      title: 'คดี 07: เหตุเร่งด่วนที่ซ่อนอยู่หลังข่าว',
+      urgency: 'เครื่องฉายภาพห้องเรียนใช้ไม่ได้ก่อนเริ่มสอน 20 นาที',
+      persona: 'ต้น • นักศึกษาปี 2 • ต้องแจ้งปัญหาแทนอาจารย์',
+      goal: 'เปิดคำร้องเหตุเร่งด่วน ระบุห้อง/อุปกรณ์ และรับเลขงานเพื่อให้ติดตามได้',
+      problem: 'CTA แจ้งเหตุอยู่ท้ายหน้าใต้ข่าวอาคารและข้อมูลโครงการทั่วไป',
+      evidence: [
+        {id:'e1', title:'Emergency funnel', text:'ผู้ใช้เหตุเร่งด่วนใช้เวลาเฉลี่ย 2:46 ก่อนเปิดฟอร์มแจ้งซ่อม', supports:['h1'], weight:3},
+        {id:'e2', title:'Incident interview', text:'“ฉันอ่านข่าวอาคารก่อนเพราะคิดว่าต้องเริ่มจากตรงนั้น”', supports:['h1'], weight:3},
+        {id:'e3', title:'Facilities note', text:'ข้อมูลห้องและอุปกรณ์ที่กรอกไม่ครบทำให้เจ้าหน้าที่โทรกลับบ่อย', supports:['h2'], weight:2},
+        {id:'e4', title:'Follow-up log', text:'ผู้แจ้งจำนวนมากถามว่าเคสมีคนรับแล้วหรือยัง', supports:['h3'], weight:2},
+        {id:'e5', title:'Content plan', text:'มีแผนเพิ่มข่าวอาคารใหม่เดือนละ 4 ชิ้น', supports:[], weight:0}
+      ],
+      hypotheses: [
+        {id:'h1', title:'เส้นทางแจ้งเหตุเร่งด่วนถูกจัดลำดับต่ำเกินไป', text:'ผู้ใช้ไม่เห็น action ที่เหมาะกับสถานการณ์ของตนทันที'},
+        {id:'h2', title:'แบบฟอร์มไม่ช่วยเก็บรายละเอียดหน้างานที่จำเป็น', text:'คำร้องช้าเพราะข้อมูลสำหรับซ่อมไม่ครบ'},
+        {id:'h3', title:'ระบบไม่แสดงสถานะหลังส่งคำร้อง', text:'ผู้ใช้ไม่รู้ว่ามีใครรับเรื่องแล้วหรือไม่'}
+      ],
+      fixes: [
+        {id:'f1', title:'Emergency-first CTA', text:'วาง “แจ้งเหตุเร่งด่วน” บนสุด พร้อมเลือกห้อง/อุปกรณ์แบบเร็ว', supports:['h1'], cost:2, note:'ลดเวลาเริ่มแจ้ง แต่ยังไม่ยืนยันสถานะหลังส่ง'},
+        {id:'f2', title:'Guided incident form', text:'เพิ่มคำถามทีละขั้นสำหรับห้อง อุปกรณ์ อาการ และภาพประกอบ', supports:['h2'], cost:2, note:'เพิ่มคุณภาพข้อมูล แต่ไม่ช่วยหาทางเข้าเร็วขึ้น'},
+        {id:'f3', title:'Work-order tracking', text:'แสดงเลขงานและสถานะ “รับเรื่องแล้ว/กำลังไปตรวจ” หลังส่ง', supports:['h3'], cost:2, note:'ช่วยติดตามภายหลัง แต่ไม่แก้การเริ่มแจ้งช้า'}
+      ],
+      test: {
+        exact: {success:87,time:'0:43',trust:85,quote:'“เห็นปุ่มแจ้งเหตุเร่งด่วนทันที แล้วกรอกห้องกับอุปกรณ์ได้เลย”'},
+        partial: {success:70,time:'1:18',trust:75,quote:'“แบบฟอร์มละเอียดขึ้น แต่ตอนแรกยังต้องหาเมนูแจ้งเหตุอยู่”'},
+        miss: {success:52,time:'2:03',trust:68,quote:'“รู้สถานะหลังส่ง แต่กว่าจะเข้าฟอร์มได้ก็เสียเวลาแล้ว”'}
+      },
+      next: {
+        exact: {id:'n1', title:'ทดสอบในบริบทกดดันเวลาจริง และวัดเวลาจากหน้าแรกถึงเปิดคำร้อง', text:'ดูว่าการจัดลำดับ action ลดเวลารอของเหตุเร่งด่วนได้จริง'},
+        partial: {id:'n2', title:'แยก measurement ระหว่าง “พบฟอร์ม” กับ “กรอกข้อมูลครบ”', text:'ไม่สรุปว่าฟอร์มดีแล้วหากผู้ใช้ยังเข้าถึงช้า'},
+        miss: {id:'n3', title:'ย้อนจัด hierarchy ของหน้าแรกก่อน', text:'การติดตามงานดี แต่ไม่ช่วยให้เหตุเร่งด่วนเริ่มถูกแจ้งเร็วขึ้น'}
+      }
+    },
+    {
+      id: 'activity-registration',
+      sector: 'Campus Activity Hub',
+      title: 'คดี 08: สมัครแล้วหรือยัง ที่เต็มหรือเปล่า',
+      urgency: 'กิจกรรมเปิดรับเหลือ 8 ที่นั่ง และผู้ใช้ต้องสะสมชั่วโมงภายในเดือนนี้',
+      persona: 'เจน • นักศึกษาปี 2 • สมัครกิจกรรมจากมือถือ',
+      goal: 'สมัครกิจกรรมให้สำเร็จ รู้สถานะที่นั่ง และรู้ผลต่อชั่วโมงกิจกรรมของตน',
+      problem: 'หลังผู้ใช้กดสมัคร หน้าจอกลับมาหน้าเดิม ไม่มีสถานะว่ารับชื่อแล้วหรือที่เต็ม',
+      evidence: [
+        {id:'e1', title:'Duplicate-submit log', text:'29% ของผู้ใช้กดสมัครซ้ำภายใน 60 วินาที เพราะหน้าจอไม่เปลี่ยน', supports:['h1'], weight:3},
+        {id:'e2', title:'Student quote', text:'“ฉันกดแล้ว แต่ไม่รู้ว่ามีชื่อแล้วหรือกิจกรรมเต็มไปก่อน”', supports:['h1'], weight:3},
+        {id:'e3', title:'Activity office', text:'นักศึกษาถามบ่อยว่ากิจกรรมนี้ได้กี่ชั่วโมง', supports:['h2'], weight:2},
+        {id:'e4', title:'Waitlist audit', text:'ผู้ใช้บางคนไม่รู้ว่าตนอยู่ waiting list หรือไม่', supports:['h3'], weight:2},
+        {id:'e5', title:'Poster review', text:'ทีมสื่อสารอยากให้โปสเตอร์กิจกรรมเด่นขึ้นบนหน้าแรก', supports:[], weight:0}
+      ],
+      hypotheses: [
+        {id:'h1', title:'ระบบไม่ให้ feedback หลัง action สำคัญ', text:'ผู้ใช้ไม่รู้ว่าการสมัครสำเร็จ ล้มเหลว หรือกำลังรอผล'},
+        {id:'h2', title:'ผู้ใช้ขาดข้อมูลเรื่องชั่วโมงกิจกรรมก่อนสมัคร', text:'การตัดสินใจสมัครช้าจากข้อมูลคุณค่าของกิจกรรมไม่ครบ'},
+        {id:'h3', title:'สถานะ waiting list ไม่ถูกสื่อสารให้ชัด', text:'ผู้ใช้ที่ไม่ได้ที่นั่งไม่รู้ว่าต้องรอหรือเลือกกิจกรรมใหม่'}
+      ],
+      fixes: [
+        {id:'f1', title:'Immediate registration feedback', text:'หลังสมัคร แสดง “สมัครสำเร็จ/เต็มแล้ว/กำลังรอ” พร้อมสถานะปัจจุบัน', supports:['h1'], cost:2, note:'ลดการสมัครซ้ำและทำให้รู้ผล action ทันที'},
+        {id:'f2', title:'Hours preview', text:'แสดงชั่วโมงที่ได้รับและเงื่อนไขก่อนกดสมัคร', supports:['h2'], cost:2, note:'ช่วยตัดสินใจ แต่ไม่บอกผลหลังสมัคร'},
+        {id:'f3', title:'Waitlist dashboard', text:'เพิ่มหน้าสถานะคิวและตัวเลือกยกเลิก/เลือกกิจกรรมอื่น', supports:['h3'], cost:2, note:'ช่วยกลุ่ม waiting list แต่ไม่ใช่ feedback หลัง action ทุกคน'}
+      ],
+      test: {
+        exact: {success:90,time:'0:39',trust:89,quote:'“กดแล้วเห็นทันทีว่าฉันได้ที่หรืออยู่คิว และไม่ต้องกดสมัครซ้ำ”'},
+        partial: {success:73,time:'1:06',trust:73,quote:'“เห็นชั่วโมงชัดดี แต่หลังสมัครก็ยังไม่รู้ว่ามีชื่อหรือเปล่า”'},
+        miss: {success:65,time:'1:14',trust:70,quote:'“หน้าคิวช่วยตอนเต็ม แต่ตอนกดสมัครครั้งแรกยังไม่รู้ผลทันที”'}
+      },
+      next: {
+        exact: {id:'n1', title:'วัดอัตราการสมัครซ้ำและการตัดสินใจเลือกกิจกรรมอื่นหลังเห็นสถานะ', text:'ตรวจว่า feedback ช่วยให้ผู้ใช้เลือกขั้นตอนถัดไปได้จริง'},
+        partial: {id:'n2', title:'แยกผล “ตัดสินใจก่อนสมัคร” ออกจาก “รู้ผลหลังสมัคร”', text:'อย่าสับสนระหว่างข้อมูลก่อน action กับ feedback หลัง action'},
+        miss: {id:'n3', title:'กลับไปตรวจ feedback ของ action หลักก่อน', text:'การจัดการคิวมีประโยชน์ แต่ไม่ทดแทนการบอกผลทันทีหลังสมัคร'}
+      }
+    }
+  ];
+
+  const state = {
+    shift: [],
+    caseIndex: 0,
+    step: 'mode',
+    selectedEvidence: [],
+    selectedHypothesis: null,
+    selectedFix: null,
+    selectedNext: null,
+    score: 0,
+    trust: 100,
+    time: 12,
+    caseScore: 0,
+    caseTrust: 100,
+    caseTime: 12,
+    outcomes: [],
+    saved: readSave()
+  };
+
+  const stage = document.querySelector('#stage');
+  const dialog = document.querySelector('#feedbackDialog');
+  const dialogTitle = document.querySelector('#dialogTitle');
+  const dialogText = document.querySelector('#dialogText');
+  const dialogKicker = document.querySelector('#dialogKicker');
+  const dialogButton = document.querySelector('#dialogButton');
+
+  function safeStorageGet(){
+    try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'null')}catch(e){return null}
+  }
+  function readSave(){
+    const raw=safeStorageGet();
+    return raw && typeof raw==='object' ? {seen:Array.isArray(raw.seen)?raw.seen:[], wins:Number(raw.wins)||0,best:Number(raw.best)||0} : {seen:[],wins:0,best:0};
+  }
+  function writeSave(){
+    const light={seen:state.saved.seen.slice(-CASES.length),wins:state.saved.wins,best:state.saved.best};
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(light))}catch(e){/* Game must work even when origin storage is full. */}
+  }
+  function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  function shuffle(list){const a=[...list];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+  function current(){return state.shift[state.caseIndex]||null}
+  function pct(value){return `${Math.max(0,Math.min(100,Math.round(value)))}%`}
+  function updateHud(){
+    document.querySelector('#hudCase').textContent=state.step==='mode'?'เลือก Shift':state.step==='debrief'?'ปิดคดี':`${state.caseIndex+1}/${state.shift.length}`;
+    document.querySelector('#hudTime').textContent=state.step==='mode'?'—':`${state.time} นาที`;
+    document.querySelector('#hudTrust').textContent=state.step==='mode'?'—':pct(state.trust);
+  }
+  function updateRail(){
+    const order=['evidence','hypothesis','fix','test'];
+    const index=order.indexOf(state.step);
+    document.querySelectorAll('[data-rail]').forEach(node=>{
+      const i=order.indexOf(node.dataset.rail);
+      node.classList.toggle('active',i===index);
+      node.classList.toggle('done',index>-1&&i<index);
+    });
+  }
+  function showDialog(kicker,title,text,button='ดำเนินการต่อ',onClose=null){
+    dialogKicker.textContent=kicker;dialogTitle.textContent=title;dialogText.textContent=text;dialogButton.textContent=button;
+    dialogButton.onclick=()=>{dialog.close();if(typeof onClose==='function')onClose()};
+    if(!dialog.open)dialog.showModal();
+  }
+  document.addEventListener('click',event=>{if(event.target.matches('[data-close-dialog]'))dialog.close()});
+
+  function startShift(){
+    let pool=CASES.filter(item=>!state.saved.seen.includes(item.id));
+    if(pool.length<CASES_PER_SHIFT){state.saved.seen=[];pool=[...CASES]}
+    state.shift=shuffle(pool).slice(0,CASES_PER_SHIFT);
+    state.caseIndex=0;state.score=0;state.trust=100;state.time=12;state.outcomes=[];
+    resetCase();state.step='evidence';render();
+  }
+  function resetCase(){state.selectedEvidence=[];state.selectedHypothesis=null;state.selectedFix=null;state.selectedNext=null;state.caseScore=0;state.caseTrust=100;state.caseTime=12}
+
+  function renderMode(){
+    const unseen=Math.max(0,CASES.length-state.saved.seen.length);
+    stage.innerHTML=`
+      <section class="card mode">
+        <p class="eyebrow">W1 // PRACTICE MODE REBUILT</p>
+        <h2>เริ่ม Shift ใหม่: ปิด 3 คดีด้วยเหตุผล</h2>
+        <p>ทุกคดีมีหลายคำตอบที่ “พอฟังขึ้น” แต่ผล User Test จะสะท้อนว่า evidence ที่คุณเลือก สมมติฐานที่ตั้ง และการลงทุนแก้ปัญหานั้นสอดคล้องกันจริงหรือไม่</p>
+        <div class="mode-grid">
+          <div class="mode-metric"><span>Casefiles ที่ยังไม่เจอ</span><b>${unseen}/${CASES.length}</b></div>
+          <div class="mode-metric"><span>Best Case Score</span><b>${state.saved.best}</b></div>
+          <div class="mode-metric"><span>Shifts ปิดสำเร็จ</span><b>${state.saved.wins}</b></div>
+        </div>
+        <div class="action-stack">
+          <button class="action-row primary" type="button" data-action="start"><span class="action-icon">⌁</span><span><strong>เริ่ม Crisis Shift</strong><small>สุ่ม 3 คดีใหม่โดยไม่ซ้ำก่อนครบคลังคดี</small></span><span>เริ่ม →</span></button>
+          <button class="action-row" type="button" data-action="how"><span class="action-icon">?</span><span><strong>วิธีชนะคดี</strong><small>เลือก evidence จำกัด ตั้ง hypothesis ที่พิสูจน์ได้ แล้วใช้ผล Test ตัดสินใจ</small></span><span>ดู →</span></button>
+          <a class="action-row" href="./index.html"><span class="action-icon">⌂</span><span><strong>กลับ Mission Control</strong><small>W1 Crisis Casefile เป็นสนามฝึกใหม่ แยกจาก Quiz เดิมเพื่อทดสอบก่อนแทนที่</small></span><span>กลับ →</span></a>
+        </div>
+      </section>`;
+  }
+
+  function briefHtml(c){return `
+    <article class="card brief">
+      <div class="case-label"><span class="tag">${escapeHtml(c.sector)}</span><span class="tag warn">${escapeHtml(c.urgency)}</span></div>
+      <h2>${escapeHtml(c.title)}</h2>
+      <p class="summary">${escapeHtml(c.problem)}</p>
+      <div class="goal"><span>USER GOAL</span><b>${escapeHtml(c.goal)}</b></div>
+      <div class="context-box"><div><span>PERSONA</span><b>${escapeHtml(c.persona)}</b></div><div><span>CASE PRESSURE</span><b>${escapeHtml(c.urgency)}</b></div></div>
+      <div class="meter"><div class="meter-head"><span>CASE TRUST</span><b>${pct(state.caseTrust)}</b></div><div class="bar"><i style="width:${pct(state.caseTrust)}"></i></div><small>Trust ลดเมื่อตัดสินใจโดยไม่ยึดหลักฐานหรือแก้ผิดจุด</small></div>
+    </article>`}
+
+  function evidenceStep(c){
+    const selected=new Set(state.selectedEvidence);
+    return `
+      <article class="card decision">
+        <p class="eyebrow">STEP 1 // EVIDENCE HUNT</p>
+        <h3>คุณมีเวลาอ่านหลักฐานได้เพียง ${EVIDENCE_LIMIT} ชิ้น</h3>
+        <p class="prompt">เลือกหลักฐานที่ช่วยอธิบายว่าอะไรขวาง User Goal มากที่สุด ไม่ใช่หลักฐานที่ดูสำคัญหรือมีข้อมูลเยอะที่สุด</p>
+        <p class="hint">Evidence ที่ดีต้องช่วยให้คุณตัดสินระหว่างสมมติฐานที่เป็นไปได้ ไม่ใช่เพียงทำให้หน้าจอดูมีปัญหา</p>
+        <div class="evidence-grid">${shuffleStable(c.evidence,c.id).map(e=>`<button class="evidence-card ${selected.has(e.id)?'selected':''}" data-evidence="${e.id}" type="button"><span class="evidence-mark">${selected.has(e.id)?'✓':''}</span><span><strong>${escapeHtml(e.title)}</strong><small>${escapeHtml(e.text)}</small></span></button>`).join('')}</div>
+        <button class="primary" type="button" data-action="submit-evidence" ${selected.size===EVIDENCE_LIMIT?'':'disabled'}>ตั้งสมมติฐานจากหลักฐาน ${selected.size}/${EVIDENCE_LIMIT} →</button>
+        <button class="secondary" type="button" data-action="abort">ออกจาก Shift นี้</button>
+      </article>`;
+  }
+
+  function hypothesisStep(c){
+    return `
+      <article class="card decision">
+        <p class="eyebrow">STEP 2 // HYPOTHESIS LOCK</p>
+        <h3>สาเหตุใดควรทดสอบก่อน?</h3>
+        <p class="prompt">ทั้ง 3 ข้ออาจเป็นปัญหาได้ แต่เลือกข้อที่มีหลักฐานรองรับมากที่สุดจากสิ่งที่คุณเก็บมา</p>
+        <div class="option-list">${shuffleStable(c.hypotheses,`${c.id}-h`).map(h=>`<button type="button" class="option ${state.selectedHypothesis===h.id?'selected':''}" data-hypothesis="${h.id}"><span class="radio">${state.selectedHypothesis===h.id?'●':''}</span><span><strong>${escapeHtml(h.title)}</strong><small>${escapeHtml(h.text)}</small></span></button>`).join('')}</div>
+        <button class="primary" type="button" data-action="submit-hypothesis" ${state.selectedHypothesis?'':'disabled'}>เลือกจุดที่ต้องแก้ →</button>
+      </article>`;
+  }
+
+  function fixStep(c){
+    return `
+      <article class="card decision">
+        <p class="eyebrow">STEP 3 // DESIGN ENERGY TRADE-OFF</p>
+        <h3>คุณมีพลังแก้ระบบเพียง 2 หน่วย</h3>
+        <p class="prompt">ทุกวิธีทำได้และมีคุณค่า แต่เลือกเพียง 1 วิธีที่ควรลงทุนก่อนในคดีนี้</p>
+        <div class="option-list">${shuffleStable(c.fixes,`${c.id}-f`).map(f=>`<button type="button" class="option ${state.selectedFix===f.id?'selected':''}" data-fix="${f.id}"><span class="radio">${state.selectedFix===f.id?'●':''}</span><span><strong>${escapeHtml(f.title)}</strong><small>${escapeHtml(f.text)}</small><span class="option-meta">◆ Cost ${f.cost} • ${escapeHtml(f.note)}</span></span></button>`).join('')}</div>
+        <button class="primary" type="button" data-action="submit-fix" ${state.selectedFix?'':'disabled'}>ส่ง Prototype เข้าทดสอบ →</button>
+      </article>`;
+  }
+
+  function testStep(c,outcome){
+    const nextOptions=shuffleStable([
+      {id:c.next.exact.id,title:c.next.exact.title,text:c.next.exact.text,kind:'exact'},
+      {id:c.next.partial.id,title:c.next.partial.title,text:c.next.partial.text,kind:'partial'},
+      {id:c.next.miss.id,title:c.next.miss.title,text:c.next.miss.text,kind:'miss'}
+    ],`${c.id}-next`);
+    return `
+      <article class="card decision">
+        <p class="eyebrow">STEP 4 // TEST UNDER PRESSURE</p>
+        <h3>ผล User Test มาแล้ว — คุณจะทำอะไรต่อ?</h3>
+        <p class="prompt">ดู Task success, เวลา และ Trust ร่วมกัน อย่าตัดสินจากตัวเลขเดียว</p>
+        <div class="test-panel">
+          <div class="test-grid">
+            <div class="test-metric"><span>Task success</span><b class="${outcome.success>=80?'up':outcome.success>=60?'mid':'down'}">${outcome.success}%</b></div>
+            <div class="test-metric"><span>Time to complete</span><b>${outcome.time}</b></div>
+            <div class="test-metric"><span>User trust</span><b class="${outcome.trust>=80?'up':outcome.trust>=60?'mid':'down'}">${outcome.trust}%</b></div>
+          </div>
+          <div class="quote"><b>USER TEST QUOTE</b>“${escapeHtml(outcome.quote)}”</div>
+        </div>
+        <div class="option-list">${nextOptions.map(n=>`<button type="button" class="option ${state.selectedNext===n.id?'selected':''}" data-next="${n.id}"><span class="radio">${state.selectedNext===n.id?'●':''}</span><span><strong>${escapeHtml(n.title)}</strong><small>${escapeHtml(n.text)}</small></span></button>`).join('')}</div>
+        <button class="primary" type="button" data-action="submit-next" ${state.selectedNext?'':'disabled'}>ปิดคดีด้วย Decision Memo →</button>
+      </article>`;
+  }
+
+  function renderGame(){
+    const c=current(); if(!c){finishShift();return}
+    let panel='';
+    if(state.step==='evidence')panel=evidenceStep(c);
+    if(state.step==='hypothesis')panel=hypothesisStep(c);
+    if(state.step==='fix')panel=fixStep(c);
+    if(state.step==='test')panel=testStep(c,resolveOutcome(c));
+    stage.innerHTML=`<section class="game-grid">${briefHtml(c)}${panel}</section>`;
+  }
+
+  function resolveOutcome(c){
+    const hypothesis=c.hypotheses.find(h=>h.id===state.selectedHypothesis);
+    const fix=c.fixes.find(f=>f.id===state.selectedFix);
+    const selectedEvidence=c.evidence.filter(e=>state.selectedEvidence.includes(e.id));
+    const evidenceForHyp=selectedEvidence.reduce((sum,e)=>sum+(e.supports.includes(hypothesis?.id)?e.weight:0),0);
+    const exact=Boolean(hypothesis && fix && fix.supports.includes(hypothesis.id) && evidenceForHyp>=4);
+    const partial=Boolean(hypothesis && fix && (fix.supports.includes(hypothesis.id)||evidenceForHyp>=3));
+    return exact?{...c.test.exact,grade:'exact'}:partial?{...c.test.partial,grade:'partial'}:{...c.test.miss,grade:'miss'};
+  }
+
+  function submitEvidence(){
+    const c=current(); const selected=c.evidence.filter(e=>state.selectedEvidence.includes(e.id));
+    const useful=selected.filter(e=>e.supports.length).length;
+    state.caseScore+=useful*12;
+    state.caseTrust=Math.max(42,state.caseTrust-(EVIDENCE_LIMIT-useful)*9);
+    state.caseTime=Math.max(5,state.caseTime-1);
+    state.step='hypothesis';render();
+  }
+  function submitHypothesis(){
+    const c=current();const selected=c.hypotheses.find(h=>h.id===state.selectedHypothesis);const evidence=c.evidence.filter(e=>state.selectedEvidence.includes(e.id));
+    const strength=evidence.reduce((n,e)=>n+(e.supports.includes(selected?.id)?e.weight:0),0);
+    state.caseScore+=strength*8;
+    if(strength<3)state.caseTrust-=16;
+    state.caseTime=Math.max(3,state.caseTime-1);
+    state.step='fix';render();
+  }
+  function submitFix(){
+    const c=current();const outcome=resolveOutcome(c);
+    if(outcome.grade==='exact'){state.caseScore+=42;state.caseTrust=Math.min(100,state.caseTrust+4)}
+    else if(outcome.grade==='partial'){state.caseScore+=23;state.caseTrust-=7}
+    else{state.caseScore+=7;state.caseTrust-=24}
+    state.caseTime=Math.max(0,state.caseTime-2);
+    state.step='test';render();
+  }
+  function submitNext(){
+    const c=current();const outcome=resolveOutcome(c);const correct=state.selectedNext===c.next[outcome.grade].id;
+    if(correct){state.caseScore+=30;state.caseTrust=Math.min(100,state.caseTrust+5)}else{state.caseScore+=5;state.caseTrust-=10}
+    state.caseTrust=Math.max(0,state.caseTrust);
+    state.score+=state.caseScore;state.trust=Math.round((state.trust+state.caseTrust)/2);state.time=Math.max(0,state.time-state.caseTime);
+    state.outcomes.push({id:c.id,score:state.caseScore,trust:state.caseTrust,grade:outcome.grade,correctNext:correct});
+    const title=correct?'Decision Memo แข็งแรง':'Decision Memo ยังมีช่องโหว่';
+    const text=correct?`คุณใช้ผล Test เลือกก้าวต่อไปได้ตรงกับสถานการณ์ของคดีนี้ ได้ ${state.caseScore} คะแนน`:`ทางเลือกนี้มีข้อดี แต่ยังไม่ตอบผล Test ของคดีนี้โดยตรง คดีถูกปิดได้ แต่ต้องกลับมาทบทวนเหตุผล`;
+    showDialog('CASE CLOSED',title,text,'ไปคดีถัดไป',()=>{state.caseIndex+=1;resetCase();state.step='evidence';render()});
+  }
+
+  function finishShift(){
+    const exact=state.outcomes.filter(o=>o.grade==='exact').length;
+    const solid=state.outcomes.filter(o=>o.correctNext).length;
+    const stars=state.score>=300&&state.trust>=75?3:state.score>=210&&state.trust>=55?2:1;
+    state.saved.wins+=1;state.saved.best=Math.max(state.saved.best,state.score);state.saved.seen=[...new Set([...state.saved.seen,...state.shift.map(c=>c.id)])];writeSave();
+    const awards=[];
+    if(exact>=2)awards.push('<span class="badge mint">Evidence Chain</span>');
+    if(solid===CASES_PER_SHIFT)awards.push('<span class="badge">Test-Driven</span>');
+    if(state.trust>=80)awards.push('<span class="badge amber">Trust Keeper</span>');
+    stage.innerHTML=`
+      <section class="card debrief">
+        <p class="eyebrow">SHIFT COMPLETE // DECISION REPORT</p>
+        <h2>${stars===3?'Casefile Commander':stars===2?'Evidence Builder':'Rookie Detective'}</h2>
+        <div class="stars">${[1,2,3].map(n=>`<span class="${n<=stars?'on':''}">★</span>`).join('')}</div>
+        <p>คุณปิด ${CASES_PER_SHIFT} คดีแล้ว คะแนนไม่ได้มาจากคำที่ฟังดี แต่มาจากความสอดคล้องของ Evidence → Hypothesis → Fix → Test Decision</p>
+        <div class="score-grid"><div><span>Total score</span><b>${state.score}</b></div><div><span>Final trust</span><b>${pct(state.trust)}</b></div><div><span>Exact chains</span><b>${exact}/${CASES_PER_SHIFT}</b></div><div><span>Test decisions</span><b>${solid}/${CASES_PER_SHIFT}</b></div></div>
+        <div class="report"><b>Decision memo</b>${exact>=2?'คุณเริ่มเชื่อมหลักฐานเข้ากับการแก้ได้ดี รอบถัดไปจะเจอคดีใหม่ก่อนครบคลัง และตัวเลือกจะยังมี trade-off ที่ต้องตัดสินใจตามบริบท':'รอบถัดไปให้ดูว่า evidence ที่เลือกสนับสนุน hypothesis ไหน แล้วตรวจว่า fix นั้นแก้สาเหตุหรือเพียงช่วยอาการปลายทาง'}</div>
+        <div class="badge-row">${awards.join('')||'<span class="badge">Keep Investigating</span>'}</div>
+        <div class="action-stack"><button class="action-row primary" type="button" data-action="start"><span class="action-icon">↻</span><span><strong>เริ่ม Crisis Shift ใหม่</strong><small>สุ่มคดีที่ยังไม่เจอ และเปลี่ยนเส้นทางการตัดสินใจ</small></span><span>เริ่ม →</span></button><button class="action-row" type="button" data-action="mode"><span class="action-icon">⌂</span><span><strong>กลับหน้าเลือก Shift</strong><small>ดูสถิติ และเริ่มรอบใหม่เมื่อพร้อม</small></span><span>กลับ →</span></button></div>
+      </section>`;
+    state.step='debrief';updateHud();updateRail();
+  }
+
+  function shuffleStable(list,seed){
+    const result=[...list];let h=0;for(const ch of String(seed)){h=((h<<5)-h)+ch.charCodeAt(0);h|=0}
+    for(let i=result.length-1;i>0;i--){h=(h*1664525+1013904223)|0;const j=Math.abs(h)%(i+1);[result[i],result[j]]=[result[j],result[i]]}return result;
+  }
+
+  stage.addEventListener('click',event=>{
+    const evidence=event.target.closest('[data-evidence]');
+    if(evidence){const id=evidence.dataset.evidence;if(state.selectedEvidence.includes(id))state.selectedEvidence=state.selectedEvidence.filter(x=>x!==id);else if(state.selectedEvidence.length<EVIDENCE_LIMIT)state.selectedEvidence.push(id);render();return}
+    const h=event.target.closest('[data-hypothesis]');if(h){state.selectedHypothesis=h.dataset.hypothesis;render();return}
+    const f=event.target.closest('[data-fix]');if(f){state.selectedFix=f.dataset.fix;render();return}
+    const n=event.target.closest('[data-next]');if(n){state.selectedNext=n.dataset.next;render();return}
+    const action=event.target.closest('[data-action]')?.dataset.action;
+    if(action==='start'){startShift();return}
+    if(action==='how'){showDialog('HOW TO WIN','ปิดคดีด้วยเหตุผล','1) เลือก Evidence 3 ชิ้นที่ช่วยแยกสาเหตุ 2) ตั้ง Hypothesis ที่หลักฐานรองรับ 3) ลงทุน Fix ที่แก้สาเหตุ 4) อ่านผล Test แล้วเลือกก้าวต่อไปให้เหมาะกับผลจริง','เข้าใจแล้ว');return}
+    if(action==='mode'||action==='abort'){state.step='mode';render();return}
+    if(action==='submit-evidence'){submitEvidence();return}
+    if(action==='submit-hypothesis'){submitHypothesis();return}
+    if(action==='submit-fix'){submitFix();return}
+    if(action==='submit-next'){submitNext();return}
+  });
+
+  function render(){updateHud();updateRail();if(state.step==='mode')renderMode();else if(state.step==='debrief'){}else renderGame()}
+  render();
+})();
+</script>
+</body>
+</html>
