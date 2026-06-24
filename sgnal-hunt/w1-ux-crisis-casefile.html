@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#08112c" />
-  <title>UX Quest • W1 Crisis Casefile Hunt V2</title>
+  <title>UX Quest • W1 Crisis Casefile Hunt V3</title>
   <style>
     :root{
       --ink:#14213d;
@@ -114,6 +114,24 @@
     .case-log-item .state.good{background:#e6fbf3;color:#087657}
     .case-log-item .state.warn{background:#fff2df;color:#9a5d0d}
     .case-log-item .state.bad{background:#ffecef;color:#b54159}
+
+    /* V3 — live pressure, aftershock and final stakeholder boss */
+    .pressure-card{margin-top:15px;padding:14px;border:1px solid #f0cf88;border-radius:16px;background:linear-gradient(135deg,#fff8e9,#fffdf7);color:#754a0c}
+    .pressure-card b{display:block;font-size:13px;letter-spacing:.06em}.pressure-card span{display:block;margin-top:4px;font-size:13px;line-height:1.52}
+    .pressure-inline{margin:0 0 14px;padding:11px 13px;border-left:4px solid var(--amber);border-radius:0 13px 13px 0;background:#fff8ea;color:#7b4d0c;font-size:13px;line-height:1.5;font-weight:760}
+    .aftershock{margin-top:13px;padding:14px 15px;border:1px solid #dce6ff;border-radius:16px;background:linear-gradient(135deg,#edf3ff,#fafcff);color:#2d477c;line-height:1.6}
+    .aftershock b{display:block;margin-bottom:4px;font-size:12px;letter-spacing:.08em;color:#425fc9}
+    .boss-wrap{max-width:940px;margin:20px auto;padding:34px}
+    .boss-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}
+    .boss-top h2{margin:0;font-size:clamp(27px,4vw,42px);letter-spacing:-.035em}.boss-top p{margin:8px 0 0;color:var(--muted);line-height:1.64}
+    .boss-badge{display:inline-grid;place-items:center;min-width:104px;padding:9px 12px;border-radius:999px;background:#172c67;color:#fff;font-size:12px;font-weight:900;letter-spacing:.08em}
+    .boss-situation{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.boss-signal{padding:14px;border:1px solid #dbe4f9;border-radius:16px;background:#f6f8ff}.boss-signal span{display:block;color:#66779d;font-size:11px;font-weight:900}.boss-signal b{display:block;margin-top:5px;color:#293c70;font-size:17px}
+    .boss-brief{margin:18px 0;padding:16px;border-radius:17px;background:#142966;color:#eaf0ff;line-height:1.62}.boss-brief b{display:block;margin-bottom:5px;color:#fff}
+    .boss-option{position:relative}.boss-option .risk-chip{display:inline-block;margin-top:8px;padding:4px 7px;border-radius:999px;background:#eef2ff;color:#5068c4;font-size:11px;font-weight:900}
+    .boss-footer{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:15px;color:#657393;font-size:13px;line-height:1.45}
+    .boss-footer b{color:#28418f}
+    @media (max-width:620px){.boss-wrap{padding:20px}.boss-top{display:grid}.boss-situation{grid-template-columns:1fr}.boss-footer{display:grid}.pressure-card{padding:13px}}
+
     @media (max-width:900px){.chain-grid{grid-template-columns:1fr 1fr}}
     @media (max-width:620px){.case-report{padding:18px}.chain-grid{grid-template-columns:1fr;gap:8px}.audit-row{grid-template-columns:25px 1fr}.audit-status{grid-column:2;justify-self:start}.report-actions{grid-template-columns:1fr}.case-log-item{grid-template-columns:31px 1fr}.case-log-item .state{grid-column:2;justify-self:start}}
 
@@ -124,7 +142,7 @@
     <header class="topbar">
       <a class="brand" href="./index.html" aria-label="กลับหน้า Mission Control">
         <span class="brand-badge">UX</span>
-        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V2</small></span>
+        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V3</small></span>
       </a>
       <div class="statusbar" aria-label="สถานะ Mission">
         <span class="status">Case <b id="hudCase">—</b></span>
@@ -135,11 +153,11 @@
 
     <section class="hero">
       <div>
-        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V2</p>
-        <h1>UX Detective: Casefile Hunt V2</h1>
-        <p>ทุกตัวเลือกมี trade-off แต่ผลจะเปลี่ยนตามเส้นเหตุผล Evidence → Hypothesis → Fix → Test Decision และคดีที่ Test Decision = 0 จะไม่ถือว่าปิดสำเร็จ</p>
+        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V3</p>
+        <h1>UX Detective: Casefile Hunt V3</h1>
+        <p>ทุกคดีมีแรงกดดันจริง ผล Test เปลี่ยนตามเส้นเหตุผล Evidence → Hypothesis → Fix → Test Decision และปิด Shift ต้องผ่าน Final Boss Decision</p>
       </div>
-      <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>1 Case = 1 คดีที่ต้องปิดด้วยเหตุผล</span></aside>
+      <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>3 Case + 1 Boss = 1 Shift ที่ต้องปิดด้วยเหตุผล</span></aside>
     </section>
 
     <nav class="rail" aria-label="ขั้นตอนของ Casefile">
@@ -164,7 +182,7 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'csai2601-uxq-casefile-v2-lite';
+  const STORAGE_KEY = 'csai2601-uxq-casefile-v3-lite';
   const CASES_PER_SHIFT = 3;
   const EVIDENCE_LIMIT = 3;
 
@@ -476,6 +494,9 @@
     outcomes: [],
     caseResult: null,
     recoveryUsed: false,
+    bossChoice: null,
+    bossResult: null,
+    bossAttempts: 0,
     saved: readSave()
   };
 
@@ -500,9 +521,17 @@
   function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
   function shuffle(list){const a=[...list];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
   function current(){return state.shift[state.caseIndex]||null}
+  const PRESSURES=[
+    {id:'scope',title:'BUILD CONSTRAINT',text:'ทีมพัฒนาเหลือเวลา 2 วันและยอมรับได้เพียง 1 flow ที่ต้องแก้ก่อน',lesson:'เลือกสิ่งที่แก้สาเหตุหลักก่อนขยาย scope'},
+    {id:'mobile',title:'MOBILE REALITY',text:'ผู้ใช้กลุ่มเสี่ยงใช้งานบนมือถือจอเล็กระหว่างเดินทางและมีสมาธิจำกัด',lesson:'อย่าทดสอบเฉพาะหน้าจอใหญ่หรืออาศัยรายละเอียดที่มองไม่เห็นบนมือถือ'},
+    {id:'trust',title:'STAKEHOLDER PRESSURE',text:'หน่วยงานอยากประกาศ “แก้แล้ว” ภายในสัปดาห์นี้ แต่ผู้ใช้ยังไม่มั่นใจผลลัพธ์',lesson:'อย่ารีบปิดคดีเพียงเพราะการเปลี่ยนแปลงดูดีในเดโม'}
+  ];
+  function seededIndex(text,max){let h=0;for(const ch of String(text)){h=((h<<5)-h)+ch.charCodeAt(0);h|=0}return Math.abs(h)%max}
+  function pressureFor(c){return PRESSURES[seededIndex(`${c.id}:${state.caseIndex}`,PRESSURES.length)]}
+  function pressureHtml(c){const p=pressureFor(c);return `<div class="pressure-card"><b>⚡ ${escapeHtml(p.title)}</b><span>${escapeHtml(p.text)}</span><span><strong>Decision lens:</strong> ${escapeHtml(p.lesson)}</span></div>`}
   function pct(value){return `${Math.max(0,Math.min(100,Math.round(value)))}%`}
   function updateHud(){
-    document.querySelector('#hudCase').textContent=state.step==='mode'?'เลือก Shift':state.step==='debrief'?'สรุป Shift':state.step==='report'?'รายงานคดี':`${state.caseIndex+1}/${state.shift.length}`;
+    document.querySelector('#hudCase').textContent=state.step==='mode'?'เลือก Shift':state.step==='debrief'?'สรุป Shift':state.step==='report'?'รายงานคดี':state.step==='boss'?'Final Boss':`${state.caseIndex+1}/${state.shift.length}`;
     document.querySelector('#hudTime').textContent=state.step==='mode'?'—':`${state.time} นาที`;
     document.querySelector('#hudTrust').textContent=state.step==='mode'?'—':pct(state.trust);
   }
@@ -527,6 +556,7 @@
     if(pool.length<CASES_PER_SHIFT){state.saved.seen=[];pool=[...CASES]}
     state.shift=shuffle(pool).slice(0,CASES_PER_SHIFT);
     state.caseIndex=0;state.score=0;state.trust=100;state.time=12;state.outcomes=[];
+    state.bossChoice=null;state.bossResult=null;state.bossAttempts=0;
     resetCase();state.step='evidence';render();
   }
   function resetCase(){
@@ -568,6 +598,7 @@
       <p class="summary">${escapeHtml(c.problem)}</p>
       <div class="goal"><span>USER GOAL</span><b>${escapeHtml(c.goal)}</b></div>
       <div class="context-box"><div><span>PERSONA</span><b>${escapeHtml(c.persona)}</b></div><div><span>CASE PRESSURE</span><b>${escapeHtml(c.urgency)}</b></div></div>
+      ${pressureHtml(c)}
       <div class="meter"><div class="meter-head"><span>CASE TRUST</span><b>${pct(state.caseTrust)}</b></div><div class="bar"><i style="width:${pct(state.caseTrust)}"></i></div><small>Trust ลดเมื่อตัดสินใจโดยไม่ยึดหลักฐานหรือแก้ผิดจุด</small></div>
     </article>`}
 
@@ -602,6 +633,7 @@
         <p class="eyebrow">STEP 3 // DESIGN ENERGY TRADE-OFF</p>
         <h3>คุณมีพลังแก้ระบบเพียง 2 หน่วย</h3>
         <p class="prompt">ทุกวิธีทำได้และมีคุณค่า แต่เลือกเพียง 1 วิธีที่ควรลงทุนก่อนในคดีนี้</p>
+        <p class="pressure-inline">⚡ ${escapeHtml(pressureFor(c).title)}: ${escapeHtml(pressureFor(c).lesson)}</p>
         <div class="option-list">${shuffleStable(c.fixes,`${c.id}-f`).map(f=>`<button type="button" class="option ${state.selectedFix===f.id?'selected':''}" data-fix="${f.id}"><span class="radio">${state.selectedFix===f.id?'●':''}</span><span><strong>${escapeHtml(f.title)}</strong><small>${escapeHtml(f.text)}</small><span class="option-meta">◆ Cost ${f.cost} • ${escapeHtml(f.note)}</span></span></button>`).join('')}</div>
         <button class="primary" type="button" data-action="submit-fix" ${state.selectedFix?'':'disabled'}>ส่ง Prototype เข้าทดสอบ →</button>
       </article>`;
@@ -691,6 +723,12 @@
     if(result.outcome.grade==='partial')return 'มีอย่างน้อยหนึ่งส่วนที่ไปในทิศทางเดียวกัน แต่ Evidence → Hypothesis → Fix ยังไม่เชื่อมเป็นเส้นเดียว จึงได้ผล Test ที่ดีขึ้นเพียงบางส่วน';
     return 'สายเหตุผลยังขาดตอน: หลักฐานอาจชี้คนละสาเหตุ หรือ Fix ไม่ได้ตอบ hypothesis ที่เลือก จึงเกิดผล Test ที่ไม่แก้ User Goal';
   }
+  function aftershockNarrative(result){
+    if(result.outcome.grade==='exact'&&result.nextCorrect)return 'ผู้ใช้เริ่มงานได้โดยไม่ต้องขอความช่วยเหลือเพิ่ม และทีมมีข้อมูลพอจะขยายการทดสอบแบบควบคุมความเสี่ยง';
+    if(result.outcome.grade==='exact'&&!result.nextCorrect)return 'Prototype แก้ต้นเหตุได้ แต่ทีมกำลังเสี่ยงตัดสินใจเร็วเกินไปเพราะยังไม่ได้ตอบสัญญาณที่ User Test ส่งกลับมา';
+    if(result.outcome.grade==='partial')return 'ผู้ใช้เห็นการเปลี่ยนแปลงบางส่วน แต่ยังต้องใช้ทางลัดหรือเดาในจุดสำคัญ จึงไม่ควรสรุปว่าปัญหาถูกแก้แล้ว';
+    return 'ผู้ใช้ยังติดขัดใน User Goal เดิม และทีมอาจกำลังลงทุนกับจุดที่ไม่ได้เป็นต้นเหตุของคดี';
+  }
   function renderGame(){
     const c=current(); if(!c){finishShift();return}
     let panel='';
@@ -731,6 +769,7 @@
             </div>
             <div class="quote"><b>USER TEST QUOTE</b>“${escapeHtml(result.outcome.quote)}”</div>
           </div>
+          <div class="aftershock"><b>WHAT CHANGED FOR THE USER</b>${escapeHtml(aftershockNarrative(result))}</div>
           <h3 class="question-title">Evidence Audit</h3>
           <div class="evidence-audit">${evidenceRows||'<p class="muted">ยังไม่มีหลักฐานถูกเลือก</p>'}</div>
           ${canRecover?`
@@ -785,12 +824,75 @@
     state.time=Math.max(0,state.time-result.timeSpent);
     state.outcomes.push({id:c.id,title:c.title,score:result.score,trust:result.trust,grade:result.outcome.grade,exactChain:result.outcome.grade==='exact',correctNext:result.nextCorrect,recovered:state.recoveryUsed,summary:reportNarrative(result)});
     state.caseIndex+=1;
+    if(state.caseIndex>=state.shift.length){
+      state.step='boss';
+      render();
+      return;
+    }
     resetCase();
     state.step='evidence';
     render();
   }
+  function bossConfig(){
+    const exact=state.outcomes.filter(o=>o.exactChain).length;
+    const solid=state.outcomes.filter(o=>o.correctNext).length;
+    const weak=solid<2||exact<1||state.trust<72;
+    const correctId=weak?'retest':'staged';
+    const condition=weak
+      ? 'รายงานคดียังมีช่องว่าง: ผล Test หลายคดีไม่ชี้ว่าผู้ใช้สำเร็จอย่างมั่นใจ'
+      : 'รายงานคดีมีหลักฐานแข็งแรงพอในหลายคดี แต่ยังต้องปล่อยแบบควบคุมความเสี่ยง';
+    return {
+      exact,solid,weak,correctId,condition,
+      options:[
+        {id:'staged',title:'Limited rollout + monitoring',text:'ปล่อยเฉพาะ Fix ที่มีหลักฐานแข็งแรงให้กลุ่มผู้ใช้เสี่ยงสูง ตั้งตัวชี้วัดก่อน–หลัง และกันทีมไว้แก้สัญญาณผิดปกติ',risk:'เหมาะเมื่อหลักฐานและผล Test แข็งแรงพอ'},
+        {id:'retest',title:'Targeted follow-up test',text:'ชะลอการขยายผลไว้ก่อน แล้วทดสอบเพิ่มกับผู้ใช้กลุ่มที่ยังล้มเหลวเพื่อปิดช่องว่างของ Evidence',risk:'เหมาะเมื่อ Test ยังไม่ยืนยันว่าผู้ใช้สำเร็จจริง'},
+        {id:'bundle',title:'Full feature bundle',text:'รวมทุกแนวคิดที่ทีมเสนอเป็น release เดียว แล้วดู engagement โดยรวมหลังเปิดใช้',risk:'เร็วต่อการสื่อสาร แต่ทำให้แยกไม่ได้ว่าอะไรช่วยหรือทำร้าย User Goal'}
+      ]
+    };
+  }
+  function renderBoss(){
+    const boss=bossConfig();
+    const selected=state.bossChoice;
+    stage.innerHTML=`
+      <section class="card boss-wrap">
+        <div class="boss-top">
+          <div><p class="eyebrow">FINAL BOSS // STAKEHOLDER CLASH</p><h2>ตัดสินใจเมื่อทุกคนอยาก “ปล่อยของ”</h2><p>ผู้บริหารขอเปิดใช้จริงวันศุกร์นี้ แต่ทีมต้องเลือกทางที่เหมาะกับหลักฐานจาก 3 คดี ไม่ใช่ทางที่ฟังดูเร็วหรือครบที่สุด</p></div>
+          <span class="boss-badge">BOSS CALL</span>
+        </div>
+        <div class="boss-situation">
+          <div class="boss-signal"><span>Exact chains</span><b>${boss.exact}/3</b></div>
+          <div class="boss-signal"><span>Test decisions</span><b>${boss.solid}/3</b></div>
+          <div class="boss-signal"><span>Trust remaining</span><b>${pct(state.trust)}</b></div>
+        </div>
+        <div class="boss-brief"><b>Stakeholder brief</b>${escapeHtml(boss.condition)} ทีมจึงต้องอธิบายได้ว่าเหตุใดควร Scale, Retest หรือ Hold อย่างมีเหตุผล</div>
+        <div class="option-list">
+          ${shuffleStable(boss.options,`boss-${state.score}-${state.bossAttempts}`).map(option=>`<button type="button" class="option boss-option ${selected===option.id?'selected':''}" data-boss="${option.id}"><span class="radio">${selected===option.id?'●':''}</span><span><strong>${escapeHtml(option.title)}</strong><small>${escapeHtml(option.text)}</small><span class="risk-chip">${escapeHtml(option.risk)}</span></span></button>`).join('')}
+        </div>
+        <div class="boss-footer"><span>${state.bossAttempts===0?'คุณมี Strategic Timeout 1 ครั้ง หากผู้บริหารโต้แย้ง':'Strategic Timeout ถูกใช้แล้ว — เลือกโดยยึด Decision Report'}</span><b>Final call ต้องสอดคล้องกับผล Test</b></div>
+        <button class="primary" type="button" data-action="submit-boss" ${selected?'':'disabled'}>ส่ง Final Decision →</button>
+      </section>`;
+  }
+  function submitBoss(){
+    const boss=bossConfig();
+    const chosen=boss.options.find(o=>o.id===state.bossChoice);
+    const correct=state.bossChoice===boss.correctId;
+    if(!correct&&state.bossAttempts===0){
+      state.bossAttempts=1;
+      state.time=Math.max(0,state.time-1);
+      state.trust=Math.max(0,state.trust-8);
+      state.bossChoice=null;
+      renderBoss();
+      showDialog('STAKEHOLDER PUSHBACK','เหตุผลยังไม่ตอบผล Test',`“${chosen?.title||'ข้อเสนอ'}” มีข้อดี แต่จาก Decision Report รอบนี้ ${boss.weak?'เรายังไม่มีหลักฐานพอให้ขยายผล':'ควรปล่อยแบบจำกัดและวัดผล ไม่ใช่ขยายทุกอย่างพร้อมกัน'} คุณใช้ Strategic Timeout ได้ 1 ครั้งเพื่อทบทวน`, 'กลับไปตัดสินใจใหม่',()=>{state.step='boss';render()});
+      return;
+    }
+    state.bossResult={correct,choice:state.bossChoice,title:chosen?.title||'',note:correct?'Final call aligns with the evidence strength of this Shift':'Final call did not match the evidence strength of this Shift'};
+    if(correct){state.score+=50;state.trust=Math.min(100,state.trust+6)}
+    else{state.trust=Math.max(0,state.trust-12)}
+    finishShift();
+  }
   function shiftResult(){
     const exact=state.outcomes.filter(o=>o.exactChain).length;
+    if(!state.bossResult?.correct)return {stars:0,title:'Need Reinvestigation',passed:false,reason:'Final Boss Decision ยังไม่สอดคล้องกับความแข็งแรงของหลักฐานและผล User Test ใน Shift นี้'};
     const solid=state.outcomes.filter(o=>o.correctNext).length;
     const trust=state.trust;
     const score=state.score;
@@ -812,6 +914,7 @@
     if(exact>=2)awards.push('<span class="badge mint">Evidence Chain</span>');
     if(solid===CASES_PER_SHIFT)awards.push('<span class="badge">Test-Driven</span>');
     if(state.trust>=80)awards.push('<span class="badge amber">Trust Keeper</span>');
+    if(state.bossResult?.correct)awards.push('<span class="badge mint">Stakeholder Strategist</span>');
     const logs=state.outcomes.map((outcome,index)=>`<div class="case-log-item"><span class="n">${index+1}</span><span><strong>${escapeHtml(outcome.title)}</strong><small>${escapeHtml(outcome.summary)}</small></span><span class="state ${gradeClass(outcome.grade)}">${outcome.correctNext?'Decision aligned':'Review needed'}</span></div>`).join('');
     stage.innerHTML=`
       <section class="card debrief">
@@ -820,7 +923,7 @@
         <div class="stars">${[1,2,3].map(n=>`<span class="${n<=result.stars?'on':''}">★</span>`).join('')}</div>
         <p>คะแนนไม่มาจากคำที่ฟังดี แต่จากความสอดคล้องของ Evidence → Hypothesis → Fix → Test Decision และการยอมให้ผล Test เปลี่ยนแผนของทีม</p>
         <div class="score-grid"><div><span>Total score</span><b>${state.score}</b></div><div><span>Final trust</span><b>${pct(state.trust)}</b></div><div><span>Exact chains</span><b>${exact}/${CASES_PER_SHIFT}</b></div><div><span>Test decisions</span><b>${solid}/${CASES_PER_SHIFT}</b></div></div>
-        <div class="clearance-banner ${result.passed?'pass':'fail'}"><b>${result.passed?'Shift cleared':'Shift not cleared'}</b>${escapeHtml(result.reason)}${solid===0?' • เงื่อนไขสำคัญ: Test decisions = 0 จึงไม่สามารถผ่าน Shift ได้':''}</div>
+        <div class="clearance-banner ${result.passed?'pass':'fail'}"><b>${result.passed?'Shift cleared':'Shift not cleared'}</b>${escapeHtml(result.reason)}${solid===0?' • เงื่อนไขสำคัญ: Test decisions = 0 จึงไม่สามารถผ่าน Shift ได้':''}${state.bossResult?` • Boss call: ${escapeHtml(state.bossResult.title)} (${state.bossResult.correct?'aligned':'review needed'})`:''}</div>
         <div class="case-log">${logs}</div>
         <div class="badge-row">${awards.join('')||'<span class="badge">Keep Investigating</span>'}</div>
         <div class="action-stack"><button class="action-row primary" type="button" data-action="start"><span class="action-icon">↻</span><span><strong>เริ่ม Crisis Shift ใหม่</strong><small>สุ่มคดีที่ยังไม่เจอ และเปลี่ยนเส้นทางการตัดสินใจ</small></span><span>เริ่ม →</span></button><button class="action-row" type="button" data-action="mode"><span class="action-icon">⌂</span><span><strong>กลับหน้าเลือก Shift</strong><small>ดูสถิติ และเริ่มรอบใหม่เมื่อพร้อม</small></span><span>กลับ →</span></button></div>
@@ -839,6 +942,7 @@
     const h=event.target.closest('[data-hypothesis]');if(h){state.selectedHypothesis=h.dataset.hypothesis;render();return}
     const f=event.target.closest('[data-fix]');if(f){state.selectedFix=f.dataset.fix;render();return}
     const n=event.target.closest('[data-next]');if(n){state.selectedNext=n.dataset.next;render();return}
+    const boss=event.target.closest('[data-boss]');if(boss){state.bossChoice=boss.dataset.boss;render();return}
     const action=event.target.closest('[data-action]')?.dataset.action;
     if(action==='start'){startShift();return}
     if(action==='how'){showDialog('HOW TO WIN','ปิดคดีด้วยเหตุผล','1) เลือก Evidence 3 ชิ้นที่ช่วยแยกสาเหตุ 2) ตั้ง Hypothesis ที่หลักฐานรองรับ 3) ลงทุน Fix ที่แก้สาเหตุ 4) อ่านผล Test แล้วเลือกก้าวต่อไปให้เหมาะกับผลจริง','เข้าใจแล้ว');return}
@@ -847,6 +951,7 @@
     if(action==='submit-hypothesis'){submitHypothesis();return}
     if(action==='submit-fix'){submitFix();return}
     if(action==='submit-next'){submitNext();return}
+    if(action==='submit-boss'){submitBoss();return}
     if(action==='reopen-case'){reopenCase();return}
     if(action==='close-case'){closeCase();return}
   });
@@ -857,6 +962,7 @@
     if(state.step==='mode')renderMode();
     else if(state.step==='debrief'){}
     else if(state.step==='report')renderCaseReport();
+    else if(state.step==='boss')renderBoss();
     else renderGame();
   }
   render();
