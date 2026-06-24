@@ -444,9 +444,10 @@
   }
 
   const hubButton =
-    $("btnHub") ||
-    $("btnMenu2") ||
-    $("btnHomeOver");
+  $("btnHub") ||
+  $("btnMenu2") ||
+  $("btnHomeOver") ||
+  $("btn-home-over");
 
   const actions =
     result.querySelector(".bigActions") ||
