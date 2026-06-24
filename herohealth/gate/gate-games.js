@@ -2,10 +2,10 @@
 // FULL REPLACEMENT v20260622-GATE-GAMES-FRR-V17-LOADER
 // Shared registry for HeroHealth Gate.
 
-export const PATCH = 'v20260622-GATE-GAMES-FRR-V19-LOADER';
+export const PATCH = 'v20260624-GATE-GAMES-FRR-V24-SIDE-STRETCH';
 
 const FITNESS_MODULE =
-  './games/fitness/fitness-readiness-recovery.js?v=20260624-frr-v23-duck-head-shoulder';
+  './games/fitness/fitness-readiness-recovery.js?v=20260624-frr-v24-side-stretch';
 
 const FITNESS_STYLE =
   './games/fitness/fitness-readiness-recovery.css?v=20260622-frr-v19-direct-exit';
