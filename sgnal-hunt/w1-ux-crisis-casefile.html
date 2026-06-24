@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#08112c" />
-  <title>UX Quest • W1 Crisis Casefile Hunt V7</title>
+  <title>UX Quest • W1 Crisis Casefile Hunt V10</title>
   <style>
     :root{
       --ink:#14213d;
@@ -177,6 +177,24 @@
     .w2-gate-chip.locked{background:#fff0f3;color:#a23d53}
     @media(max-width:780px){.compact-review{grid-template-columns:1fr}.review-card{min-height:auto}.mastery-gate{font-size:13px}}
 
+
+
+    /* V10 — Review Impact + Case Mastery Loop */
+    .ticket-cost-live{display:block!important;margin-top:8px!important;color:#ffe5a9!important;font-weight:800}
+    .review-impact{margin:18px 0;padding:17px;border:2px solid #88a0ff;border-radius:18px;background:linear-gradient(135deg,#edf2ff,#fbfcff);color:#29417c;text-align:left}
+    .review-impact-kicker{display:flex;align-items:center;gap:8px;margin-bottom:7px;color:#3653c8;font-size:11px;font-weight:900;letter-spacing:.1em}
+    .review-impact h3{margin:0;font-size:20px;letter-spacing:-.02em}.review-impact>p{margin:7px 0 0;color:#5c6f99;line-height:1.55}
+    .impact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0 0}
+    .impact-row{padding:13px;border:1px solid #d6e1ff;border-radius:15px;background:#fff}
+    .impact-row span{display:block;color:#64759e;font-size:11px;font-weight:900;letter-spacing:.05em}
+    .impact-row b{display:block;margin-top:5px;color:#263c76;font-size:14px;line-height:1.45}
+    .impact-arrow{display:inline-block;margin:0 5px;color:#4f6ef3;font-weight:900}
+    .impact-state{display:inline-flex;align-items:center;margin-top:7px;padding:4px 8px;border-radius:999px;background:#eef1f8;color:#617096;font-size:11px;font-weight:900}
+    .impact-state.improved{background:#e8fbf2;color:#087957}.impact-state.still{background:#fff0f2;color:#aa4057}.impact-state.stable{background:#edf1ff;color:#4761bd}
+    .impact-loop{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;margin-top:13px;padding:12px 13px;border-radius:14px;background:#f7f9ff;color:#40547f;line-height:1.52}
+    .impact-loop b{display:block;color:#29468e}.impact-loop .loop-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#dce6ff;color:#3652ca;font-weight:900}
+    .impact-ticket{margin-top:12px;padding:10px 12px;border-radius:13px;background:#fff5e5;color:#8d5310;font-size:13px;font-weight:800;line-height:1.5}
+    @media(max-width:720px){.impact-grid{grid-template-columns:1fr}.review-impact{padding:14px}.review-impact h3{font-size:18px}}
   </style>
 </head>
 <body>
@@ -184,7 +202,7 @@
     <header class="topbar">
       <a class="brand" href="./index.html" aria-label="กลับหน้า Mission Control">
         <span class="brand-badge">UX</span>
-        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V9</small></span>
+        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V10</small></span>
       </a>
       <div class="statusbar" aria-label="สถานะ Mission">
         <span class="status">Case <b id="hudCase">—</b></span>
@@ -195,9 +213,9 @@
 
     <section class="hero">
       <div>
-        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V9</p>
-        <h1>UX Detective: Casefile Hunt V9</h1>
-        <p>เกมวิเคราะห์เชิงสถานการณ์: V9 เพิ่ม Blind Boss Trace — ทั้ง Review Ticket และ Final Boss จะบอกเฉพาะหลักคิด ไม่เฉลยทางเลือกที่ถูกระหว่างเล่น</p>
+        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V10</p>
+        <h1>UX Detective: Casefile Hunt V10</h1>
+        <p>เกมวิเคราะห์เชิงสถานการณ์: V10 เพิ่ม Review Impact — หลังใช้ Ticket ผู้เล่นเห็น Before → After ของคดีตนเอง ผล Test ที่เปลี่ยน และเป้าหมายฝึกถัดไป โดยไม่เฉลยคำตอบ</p>
       </div>
       <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>3 Case + 1 Boss + Blind Review = 1 Shift ที่วัดเหตุผลจริง</span></aside>
     </section>
@@ -519,6 +537,8 @@
     }
   ];
 
+  const REVIEW_TICKET_COST = { trust: 5, time: 1 };
+
   const state = {
     shift: [],
     caseIndex: 0,
@@ -544,6 +564,7 @@
     reviewCaseIndex: null,
     reviewPlan: null,
     reviewOriginal: null,
+    reviewImpact: null,
     saved: readSave()
   };
 
@@ -604,7 +625,7 @@
     state.shift=shuffle(pool).slice(0,CASES_PER_SHIFT);
     state.caseIndex=0;state.score=0;state.trust=100;state.time=12;state.outcomes=[];
     state.bossChoice=null;state.bossResult=null;state.bossAttempts=0;
-    state.debriefReviewUsed=false;state.reviewingFromDebrief=false;state.reviewCaseIndex=null;state.reviewPlan=null;state.reviewOriginal=null;
+    state.debriefReviewUsed=false;state.reviewingFromDebrief=false;state.reviewCaseIndex=null;state.reviewPlan=null;state.reviewOriginal=null;state.reviewImpact=null;
     resetCase();state.step='evidence';render();
   }
   function resetCase(){
@@ -750,7 +771,10 @@
       </section>`;
   }
 
-  function briefHtml(c){return `
+  function briefHtml(c){
+    const reviewCost=isReviewing()?REVIEW_TICKET_COST.trust:0;
+    const displayedTrust=Math.max(0,Number(state.caseTrust||100)-reviewCost);
+    return `
     <article class="card brief">
       <div class="case-label"><span class="tag">${escapeHtml(c.sector)}</span><span class="tag warn">${escapeHtml(c.urgency)}</span></div>
       <h2>${escapeHtml(c.title)}</h2>
@@ -759,7 +783,7 @@
       <div class="context-box"><div><span>PERSONA</span><b>${escapeHtml(c.persona)}</b></div><div><span>CASE PRESSURE</span><b>${escapeHtml(c.urgency)}</b></div></div>
       ${pressureHtml(c)}
       ${isReviewing()?`<div class="review-state"><b>🎟️ Reinvestigation Mode: ${escapeHtml(state.reviewPlan?.title||'Review')}</b><span>${escapeHtml(state.reviewPlan?.reason||'')}</span></div>`:''}
-      <div class="meter"><div class="meter-head"><span>CASE TRUST</span><b>${pct(state.caseTrust)}</b></div><div class="bar"><i style="width:${pct(state.caseTrust)}"></i></div><small>Trust ลดเมื่อตัดสินใจโดยไม่ยึดหลักฐานหรือแก้ผิดจุด</small></div>
+      <div class="meter"><div class="meter-head"><span>CASE TRUST</span><b>${pct(displayedTrust)}</b></div><div class="bar"><i style="width:${pct(displayedTrust)}"></i></div><small>Trust ลดเมื่อตัดสินใจโดยไม่ยึดหลักฐานหรือแก้ผิดจุด${isReviewing()?`<span class="ticket-cost-live">Review Ticket applied: −${REVIEW_TICKET_COST.trust}% Trust • −${REVIEW_TICKET_COST.time} นาที</span>`:''}</small></div>
     </article>`}
 
   function evidenceStep(c){
@@ -855,7 +879,7 @@
     const hypothesisPoints=Math.min(34,strength*6);
     const fixPoints=outcome.grade==='exact'?42:outcome.grade==='partial'?20:4;
     const decisionPoints=nextCorrect?36:0;
-    const recoveryPenalty=state.recoveryUsed?18:0;
+    const recoveryPenalty=state.recoveryUsed&&!isReviewing()?18:0;
     const score=Math.max(0,evidencePoints+hypothesisPoints+fixPoints+decisionPoints-recoveryPenalty);
     let trust=100;
     trust-=Math.max(0,EVIDENCE_LIMIT-useful)*9;
@@ -864,7 +888,7 @@
     else if(outcome.grade==='partial')trust-=8;
     else trust-=28;
     trust+=nextCorrect?5:-14;
-    if(state.recoveryUsed)trust-=8;
+    if(state.recoveryUsed&&!isReviewing())trust-=8;
     trust=Math.max(0,Math.min(100,trust));
     const timeSpent=Math.min(12,4+(state.recoveryUsed?2:0));
     return {evidence,hypothesis,fix,next,useful,strength,outcome,fixMatches,nextCorrect,score,trust,timeSpent};
@@ -915,10 +939,70 @@
       outcomeQuote:result.outcome.quote,outcomeSuccess:result.outcome.success,outcomeTrust:result.outcome.trust
     };
   }
+
+  function metricText(outcome){
+    return `${outcome.outcomeSuccess}% • ${escapeHtml(outcome.outcomeTime||'—')} • Trust ${outcome.outcomeTrust}%`;
+  }
+  function outcomeTimeFor(c,outcome){
+    const grade=outcome.grade||'miss';
+    return c.test?.[grade]?.time||'—';
+  }
+  function qualityLabel(outcome){
+    if(outcome.exactChain&&outcome.correctNext)return 'Aligned';
+    if(outcome.exactChain||outcome.correctNext)return 'Partial';
+    return 'Review';
+  }
+  function reviewImpactStatus(before,after){
+    const prior=outcomeQuality(before);
+    const current=outcomeQuality(after);
+    if(current>prior)return {kind:'improved',label:'คดีดีขึ้น'};
+    if(current===prior)return {kind:'stable',label:'คดีต้องทบทวนต่อ'};
+    return {kind:'still',label:'คดีอ่อนลง'};
+  }
+  function buildReviewImpact(c,before,after,plan){
+    const status=reviewImpactStatus(before,after);
+    return {
+      caseId:c.id,
+      title:c.title,
+      focus:plan?.title||'Focused Reinvestigation',
+      before,
+      after,
+      status,
+      ticketTrust:REVIEW_TICKET_COST.trust,
+      ticketTime:REVIEW_TICKET_COST.time,
+      beforeTime:outcomeTimeFor(c,before),
+      afterTime:outcomeTimeFor(c,after)
+    };
+  }
+  function reviewImpactHtml(impactOverride=null){
+    const impact=impactOverride||state.reviewImpact;
+    if(!impact)return '';
+    const before=impact.before, after=impact.after;
+    const status=impact.status||reviewImpactStatus(before,after);
+    const nextWeak=[...state.outcomes].map((o,i)=>({o,i,q:outcomeQuality(o)})).sort((a,b)=>a.q-b.q)[0];
+    const nextTitle=nextWeak?.o?.title||'Decision Map';
+    const loopText=status.kind==='improved'
+      ? `คดีที่ย้อนแก้ดีขึ้นแล้ว ระบบจึงย้ายเป้าหมายฝึกถัดไปไปที่ “${nextTitle}”`
+      : `การย้อนแก้ครั้งนี้ยังไม่เพิ่มความแข็งแรงของคดี ให้ใช้ Decision Map ดูว่าหลักฐานกับ Fix เชื่อมกันหรือไม่ก่อนเริ่ม Shift ใหม่`;
+    return `<section class="review-impact" aria-label="Review impact">
+      <div class="review-impact-kicker">↻ REVIEW IMPACT • CASE ${escapeHtml(impact.title)}</div>
+      <h3>การกู้คดีนี้เปลี่ยนอะไรบ้าง</h3>
+      <p>แสดงเฉพาะผลจากทางเลือกของคุณก่อนและหลัง Review Ticket — ไม่เฉลยทางเลือกที่ควรเลือก</p>
+      <div class="impact-grid">
+        <article class="impact-row"><span>FIX CHANGED</span><b>${escapeHtml(before.fixTitle)} <i class="impact-arrow">→</i> ${escapeHtml(after.fixTitle)}</b></article>
+        <article class="impact-row"><span>USER TEST CHANGED</span><b>${before.outcomeSuccess}% • ${escapeHtml(impact.beforeTime)} <i class="impact-arrow">→</i> ${after.outcomeSuccess}% • ${escapeHtml(impact.afterTime)}</b></article>
+        <article class="impact-row"><span>DECISION CHAIN</span><b>${escapeHtml(qualityLabel(before))} <i class="impact-arrow">→</i> ${escapeHtml(qualityLabel(after))}</b><em class="impact-state ${escapeHtml(status.kind)}">${escapeHtml(status.label)}</em></article>
+        <article class="impact-row"><span>TEST READING</span><b>${before.correctNext?'Aligned':'Review'} <i class="impact-arrow">→</i> ${after.correctNext?'Aligned':'Review'}</b><em class="impact-state ${after.correctNext?'improved':'still'}">${after.correctNext?'อ่านผล Test ตรง':'ยังต้องทบทวนผล Test'}</em></article>
+      </div>
+      <div class="impact-ticket">Ticket cost applied: −${impact.ticketTime} นาที • −${impact.ticketTrust}% Trust • Final Boss ถูกคำนวณใหม่จาก Decision Map ที่แก้แล้ว โดยไม่เปิดเฉลย Boss</div>
+      <div class="impact-loop"><span class="loop-icon">◎</span><span><b>Case Mastery Loop</b>${escapeHtml(loopText)}</span></div>
+    </section>`;
+  }
+
   function recalcShiftBase(){
     if(!state.outcomes.length){state.score=0;state.trust=100;state.time=12;return}
-    const reviewTrustCost=state.debriefReviewUsed?5:0;
-    const reviewTimeCost=state.debriefReviewUsed?1:0;
+    const reviewTrustCost=state.debriefReviewUsed?REVIEW_TICKET_COST.trust:0;
+    const reviewTimeCost=state.debriefReviewUsed?REVIEW_TICKET_COST.time:0;
     state.score=state.outcomes.reduce((sum,o)=>sum+(Number(o.score)||0),0);
     state.trust=Math.max(0,Math.round(state.outcomes.reduce((sum,o)=>sum+(Number(o.trust)||0),0)/state.outcomes.length)-reviewTrustCost);
     state.time=Math.max(0,12-state.outcomes.reduce((sum,o)=>sum+(Number(o.timeSpent)||0),0)-reviewTimeCost);
@@ -949,7 +1033,7 @@
   function renderCaseReport(){
     const c=current();
     const result=state.caseResult||evaluateCase(c);
-    const canRecover=!state.recoveryUsed&&(!result.nextCorrect||result.outcome.grade!=='exact');
+    const canRecover=!isReviewing()&&!state.recoveryUsed&&(!result.nextCorrect||result.outcome.grade!=='exact');
     const evidenceRows=result.evidence.map(e=>{
       const audit=evidenceStatus(e,result.hypothesis);
       return `<div class="audit-row"><span class="audit-dot">${audit.className==='good'?'✓':audit.className==='warn'?'~':'!'}</span><span><b>${escapeHtml(e.title)}</b><small>${escapeHtml(audit.detail)}</small></span><span class="audit-status ${audit.className}">${escapeHtml(audit.label)}</span></div>`;
@@ -963,6 +1047,7 @@
           <div class="report-kicker"><span class="outcome-pill ${result.outcome.grade}">${escapeHtml(gradeLabel(result.outcome.grade))}</span><span class="tag">Case ${state.caseIndex+1}/${state.shift.length}</span></div>
           <h2 class="report-title">${isReviewing()?'Reinvestigation Outcome':'Case Outcome Report'}</h2>
           <p class="report-lead">${escapeHtml(reportNarrative(result))}</p>
+          ${isReviewing()&&state.reviewOriginal?reviewImpactHtml(buildReviewImpact(c,state.reviewOriginal,toOutcome(c,result),state.reviewPlan)):''}
           <div class="chain-grid">
             <div class="chain-step"><span>EVIDENCE</span><b>${result.strength} pts support</b><em class="chain-state ${result.strength>=4?'good':result.strength>=3?'warn':'bad'}">${result.strength>=4?'แยกสาเหตุได้':'หลักฐานยังไม่พอ'}</em></div>
             <div class="chain-step"><span>HYPOTHESIS</span><b>${escapeHtml(result.hypothesis?.title||'ยังไม่ได้เลือก')}</b><em class="chain-state ${result.strength>=4?'good':result.strength>=3?'warn':'bad'}">${result.strength>=4?'มีหลักฐานรองรับ':'ต้องทบทวน'}</em></div>
@@ -1030,11 +1115,15 @@
     const outcome=toOutcome(c,result);
 
     if(state.reviewingFromDebrief && Number.isInteger(state.reviewCaseIndex)){
+      const original=state.reviewOriginal?JSON.parse(JSON.stringify(state.reviewOriginal)):null;
+      const plan=state.reviewPlan?JSON.parse(JSON.stringify(state.reviewPlan)):null;
       state.outcomes[state.reviewCaseIndex]=outcome;
+      if(original)state.reviewImpact=buildReviewImpact(c,original,outcome,plan);
       state.reviewingFromDebrief=false;
       state.reviewCaseIndex=null;
       state.reviewPlan=null;
       state.reviewOriginal=null;
+      state.recoveryUsed=false;
       state.caseIndex=state.shift.length;
       state.bossChoice=null;state.bossResult=null;state.bossAttempts=0;
       recalcShiftBase();
@@ -1070,9 +1159,12 @@
     state.selectedFix=outcome.fixId||null;
     state.selectedNext=outcome.nextId||null;
     state.caseResult=null;
-    state.recoveryUsed=true;
-    state.time=Math.max(0,state.time-1);
-    state.trust=Math.max(0,state.trust-5);
+    state.recoveryUsed=false;
+    state.caseScore=Number(outcome.score)||0;
+    state.caseTrust=Math.max(0,(Number(outcome.trust)||100)-REVIEW_TICKET_COST.trust);
+    state.caseTime=Math.max(0,12-(Number(outcome.timeSpent)||0)-REVIEW_TICKET_COST.time);
+    state.time=Math.max(0,state.time-REVIEW_TICKET_COST.time);
+    state.trust=Math.max(0,state.trust-REVIEW_TICKET_COST.trust);
     state.step='review-brief';
     render();
   }
@@ -1222,7 +1314,8 @@
     if(state.trust>=80)awards.push('<span class="badge amber">Trust Keeper</span>');
     if(result.passed&&state.bossResult?.correct&&exact>=2&&solid>=2)awards.push('<span class="badge mint">Stakeholder Strategist</span>');
     else if(state.bossResult?.correct&&solid>=2)awards.push('<span class="badge review">Test Listener</span>');
-    if(state.debriefReviewUsed&&result.practice)awards.push('<span class="badge review">Review Rescuer</span>');
+    if(state.reviewImpact?.status?.kind==='improved')awards.push('<span class="badge review">Review Rescuer</span>');
+    else if(state.debriefReviewUsed)awards.push('<span class="badge review">Review Attempt</span>');
     const boss=bossConfig();
     const weakestIndex=state.outcomes.map((o,i)=>({i,q:outcomeQuality(o)})).sort((a,b)=>a.q-b.q)[0]?.i ?? -1;
     const maps=state.outcomes.map((outcome,index)=>decisionMapHtml(outcome,index)).join('');
@@ -1243,7 +1336,7 @@
     const gateChip=result.passed?'<span class="w2-gate-chip">W2 READY</span>':'<span class="w2-gate-chip locked">W2 LOCKED — NEED 2★ READINESS</span>';
     stage.innerHTML=`
       <section class="card debrief">
-        <p class="eyebrow">SHIFT COMPLETE // V9 BLIND REVIEW + BOSS TRACE REPORT</p>
+        <p class="eyebrow">SHIFT COMPLETE // V10 REVIEW IMPACT + BOSS TRACE REPORT</p>
         <h2>${escapeHtml(result.title)}</h2>
         <div class="stars">${[1,2,3].map(n=>`<span class="${n<=result.stars?'on':''}">★</span>`).join('')}</div>
         ${gateChip}
@@ -1252,6 +1345,7 @@
         <div class="readiness-gate"><b>Readiness Gate สำหรับ W2</b>1★ = รอบฝึกผ่าน แต่ยังไม่ปลดล็อก W2 • 2★ = ระดับพร้อมต่อยอด: ต้องมีอย่างน้อย 2/3 Exact Chains + 2/3 Test Decisions + Trust ≥ 70 • 3★ = Mastery: 3/3 Chain + 3/3 Test + Trust ≥ 85</div>
         <div class="clearance-banner ${result.passed?'pass':'fail'}"><b>${gateLabel}</b>${escapeHtml(result.reason)}${solid===0?' • เงื่อนไขสำคัญ: Test decisions = 0 จึงไม่สามารถผ่าน Shift ได้':''}</div>
         ${bossTraceHtml(boss,result)}
+        ${reviewImpactHtml()}
         ${compactReviewHtml()}
         <details class="full-map"><summary>ดู Decision Map เต็มรายคดี</summary>${maps}</details>
         ${ticket}
