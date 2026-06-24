@@ -1584,7 +1584,7 @@
       "use strict";
 
       const VERSION =
-        "20260623-HANDWASH-AR-DETECTOR-V2-3-FINISH-GRACE-DELIVERY-ASSURANCE";
+        "20260623-HANDWASH-AR-DETECTOR-V2-4-LEAN-EVENT-DELIVERY";
 
       const ZONE_ID = "hygiene";
       const qs = new URLSearchParams(location.search);
@@ -1613,7 +1613,7 @@
 
 
       const DELIVERY_VERSION =
-        "20260623-HANDWASH-DELIVERY-ASSURANCE-V2-INTEGRATED";
+        "20260623-HANDWASH-DELIVERY-ASSURANCE-V3-LEAN-SEQUENTIAL";
 
       const DELIVERY_DB_NAME =
         "herohealth-handwash-delivery";
@@ -1621,9 +1621,18 @@
       const DELIVERY_DB_VERSION = 1;
       const DELIVERY_STORE_NAME = "outbox";
       const DELIVERY_MAX_ATTEMPTS = 8;
-      const DELIVERY_EVENT_BATCH_SIZE = 80;
+      const DELIVERY_EVENT_BATCH_SIZE = 25;
       const DELIVERY_RETRY_DELAY_MS = 45 * 1000;
-      const DELIVERY_RECEIPT_DELAYS = [1200, 2200, 3600, 5600];
+      const DELIVERY_BETWEEN_BATCH_MS = 220;
+      const DELIVERY_SUMMARY_RECEIPT_DELAYS = [450, 850, 1450, 2300];
+      const DELIVERY_BATCH_RECEIPT_DELAYS = [450, 900, 1550, 2400];
+      const DELIVERY_FINAL_RECEIPT_DELAYS = [700, 1300, 2300, 3600];
+
+      /* Keep research logs informative without recording per-frame noise. */
+      const RESEARCH_EVENT_MAX_PER_SESSION = 72;
+      const RESEARCH_STEP_RETRY_EVENT_MAX = 2;
+      const RESEARCH_TRACKING_EVENT_MAX = 8;
+      const RESEARCH_RETRY_EVENT_MIN_GAP_MS = 3200;
 
       const DIFF = String(qs.get("diff") || "normal").toLowerCase();
 
@@ -1958,6 +1967,7 @@
           badges: [],
 
           researchEvents: [],
+          researchEventCounts: {},
           eventSeq: 0,
 
           delivery: {
@@ -2003,7 +2013,8 @@
             finalReason: "",
             passMode: "not-complete",
             lastRetryAt: 0,
-            lastRetryReason: ""
+            lastRetryReason: "",
+            loggedRetryEvents: 0
           };
 
           state.stepQuality[step.id] = {
@@ -2034,8 +2045,71 @@
           ["main", "finish"].includes(state.stage);
       }
 
+      function isOptionalResearchEvent(eventType){
+        return [
+          "step_retry",
+          "tracking_lost",
+          "tracking_recovered",
+          "tracking_lost_end_game"
+        ].includes(String(eventType || ""));
+      }
+
+      function canLogResearchEvent(eventType, extra = {}){
+        if(!state) return false;
+
+        /*
+         * Event evidence snapshots are intentionally excluded.
+         * The research summary already contains evidence quality,
+         * duration, diagnostics, retries, and final pass mode.
+         */
+        if(eventType === "step_evidence_gain"){
+          return false;
+        }
+
+        const counts = state.researchEventCounts || {};
+
+        if(
+          [
+            "tracking_lost",
+            "tracking_recovered",
+            "tracking_lost_end_game"
+          ].includes(eventType) &&
+          Number(counts.trackingTransitions || 0) >=
+            RESEARCH_TRACKING_EVENT_MAX
+        ){
+          return false;
+        }
+
+        if(eventType === "step_retry"){
+          const currentStep = SCRUB[state.scrubIndex] || null;
+          const stepId =
+            extra.stepId ||
+            currentStep?.id ||
+            "unknown";
+
+          const retryKey = "step_retry:" + stepId;
+
+          if(
+            Number(counts[retryKey] || 0) >=
+            RESEARCH_STEP_RETRY_EVENT_MAX
+          ){
+            return false;
+          }
+        }
+
+        if(
+          state.researchEvents.length >= RESEARCH_EVENT_MAX_PER_SESSION &&
+          isOptionalResearchEvent(eventType)
+        ){
+          return false;
+        }
+
+        return true;
+      }
+
       function logResearchEvent(eventType, extra = {}){
-        if(!state || !state.sessionId) return;
+        if(!state || !state.sessionId) return false;
+        if(!canLogResearchEvent(eventType, extra)) return false;
 
         state.eventSeq += 1;
 
@@ -2059,8 +2133,11 @@
           studyId: qs.get("studyId") || "HYGIENE-P5-2026",
 
           phase: state.phase || "",
-          stepId: currentStep ? currentStep.id : "",
-          stepIndex: currentStep ? state.scrubIndex + 1 : 0,
+          stepId: extra.stepId || (currentStep ? currentStep.id : ""),
+          stepIndex: Number(
+            extra.stepIndex ||
+            (currentStep ? state.scrubIndex + 1 : 0)
+          ),
 
           elapsedStepSec: state.stepStartedAt
             ? round2((performance.now() - state.stepStartedAt) / 1000)
@@ -2075,7 +2152,6 @@
           remainingBossSec: state.bossRemaining || 0,
 
           gestureScore: round2(state.gesture?.signal || 0),
-
           gestureThreshold: currentStep
             ? round2(
                 state.gesture?.graceActive
@@ -2087,9 +2163,10 @@
           evidencePercent: getGestureOverallPercent(),
           gestureStatus: state.gesture?.status || "",
 
-          diagnosticReason: currentStep
-            ? getMainDiagnosticReason(currentStep.id)
-            : "",
+          diagnosticReason: extra.diagnosticReason ||
+            (currentStep
+              ? getMainDiagnosticReason(currentStep.id)
+              : ""),
 
           detectedHands: state.lastDetectedHands || 0,
           twoHandsVisible: !!state.lastTwoHandsVisible,
@@ -2108,9 +2185,28 @@
 
         state.researchEvents.push(event);
 
-        if(state.researchEvents.length > 850){
-          state.researchEvents = state.researchEvents.slice(-850);
+        const counts = state.researchEventCounts ||
+          (state.researchEventCounts = {});
+
+        counts[eventType] = Number(counts[eventType] || 0) + 1;
+
+        if(eventType === "step_retry"){
+          const retryKey = "step_retry:" + (event.stepId || "unknown");
+          counts[retryKey] = Number(counts[retryKey] || 0) + 1;
         }
+
+        if(
+          [
+            "tracking_lost",
+            "tracking_recovered",
+            "tracking_lost_end_game"
+          ].includes(eventType)
+        ){
+          counts.trackingTransitions =
+            Number(counts.trackingTransitions || 0) + 1;
+        }
+
+        return true;
       }
 
       function completeCheck(name, score, eventType = "phase_complete", extra = {}){
@@ -2452,8 +2548,6 @@
             ? "Detect: 2 มือ"
             : "ต้องเห็น 2 มือ";
 
-        maybeLogResearchEvidence(hands);
-
         if(isProcessStage()){
           updateProcessByHands(hands, dt);
         }
@@ -2463,26 +2557,11 @@
         }
       }
 
-      function maybeLogResearchEvidence(hands){
-        if(
-          !state ||
-          state.stage !== "main" ||
-          state.phase !== "scrub"
-        ){
-          return;
-        }
-
-        const now = performance.now();
-
-        if(now - state.lastEvidenceLogAt < 1800) return;
-
-        state.lastEvidenceLogAt = now;
-
-        logResearchEvent("step_evidence_gain", {
-          detectedHands: hands.length,
-          twoHandsVisible: hands.length >= 2
-        });
-      }
+      /*
+       * Deliberately no per-frame Evidence events:
+       * gesture quality, retries, time, orientation and trajectory
+       * are retained in the session summary instead.
+       */
 
       function markTrackingLost(){
         if(!state || !["main", "finish", "boss"].includes(state.stage)) return;
@@ -3180,17 +3259,33 @@
         diagnostic.attempts += dt;
 
         const now = performance.now();
-
+        const firstObservation = !diagnostic.lastRetryReason;
         const changedReason =
           diagnostic.lastRetryReason !== key;
 
-        const canCountAgain =
-          now - diagnostic.lastRetryAt >= 1200;
+        const enoughTimeElapsed =
+          now - Number(diagnostic.lastRetryAt || 0) >=
+          RESEARCH_RETRY_EVENT_MIN_GAP_MS;
 
-        if(changedReason || canCountAgain){
+        const canRecordMeaningfulRetry =
+          Number(diagnostic.loggedRetryEvents || 0) <
+            RESEARCH_STEP_RETRY_EVENT_MAX &&
+          (
+            firstObservation ||
+            changedReason ||
+            enoughTimeElapsed
+          );
+
+        if(canRecordMeaningfulRetry){
           diagnostic.lastRetryAt = now;
           diagnostic.lastRetryReason = key;
+          diagnostic.loggedRetryEvents =
+            Number(diagnostic.loggedRetryEvents || 0) + 1;
 
+          /*
+           * Retry Count is now a small, interpretable number:
+           * distinct coach interventions rather than 60fps samples.
+           */
           state.retryCounts[step.id] += 1;
 
           logResearchEvent("step_retry", {
@@ -5765,7 +5860,72 @@
        * - IndexedDB outbox
        * - opaque POST to Apps Script
        * - JSONP receipt verification
+       * - lean capped research event stream
        * ===================================================== */
+
+      function compactResearchEvents(events){
+        const source = Array.isArray(events)
+          ? events.slice()
+          : [];
+
+        const essential = [];
+        const optional = [];
+        const seenIds = new Set();
+        const retryByStep = {};
+        let trackingCount = 0;
+
+        source.forEach(event => {
+          const item = event || {};
+          const eventId = String(item.eventId || "").trim();
+          const eventType = String(item.eventType || "").trim();
+
+          if(!eventId || seenIds.has(eventId)) return;
+          if(eventType === "step_evidence_gain") return;
+
+          seenIds.add(eventId);
+
+          if(eventType === "step_retry"){
+            const stepId = String(item.stepId || "unknown");
+            retryByStep[stepId] = Number(retryByStep[stepId] || 0) + 1;
+
+            if(retryByStep[stepId] <= RESEARCH_STEP_RETRY_EVENT_MAX){
+              optional.push(item);
+            }
+
+            return;
+          }
+
+          if(
+            [
+              "tracking_lost",
+              "tracking_recovered",
+              "tracking_lost_end_game"
+            ].includes(eventType)
+          ){
+            trackingCount += 1;
+
+            if(trackingCount <= RESEARCH_TRACKING_EVENT_MAX){
+              optional.push(item);
+            }
+
+            return;
+          }
+
+          essential.push(item);
+        });
+
+        const freeSlots = Math.max(
+          0,
+          RESEARCH_EVENT_MAX_PER_SESSION - essential.length
+        );
+
+        return essential
+          .concat(optional.slice(0, freeSlots))
+          .sort((a, b) => {
+            return Number(a.eventSeq || 0) -
+              Number(b.eventSeq || 0);
+          });
+      }
 
       function setupDeliveryRetryListeners(){
         window.addEventListener("online", () => {
@@ -5828,13 +5988,80 @@
           studyId: summary.studyId || "HYGIENE-P5-2026"
         };
 
-        return deliveryChunk(events, DELIVERY_EVENT_BATCH_SIZE)
-          .map(batch => ({
-            api: "handwash_research",
-            type: "handwash_event_batch",
-            meta: meta,
-            events: batch
-          }));
+        const chunks = deliveryChunk(
+          compactResearchEvents(events),
+          DELIVERY_EVENT_BATCH_SIZE
+        );
+
+        return chunks.map((batch, index) => ({
+          api: "handwash_research",
+          type: "handwash_event_batch",
+          meta: meta,
+          batchIndex: index + 1,
+          batchCount: chunks.length,
+          events: batch
+        }));
+      }
+
+      function deliveryExtractEvents(item){
+        if(Array.isArray(item?.rawResearchEvents)){
+          return item.rawResearchEvents.slice();
+        }
+
+        const batches = Array.isArray(item?.eventBatches)
+          ? item.eventBatches
+          : [];
+
+        return batches.flatMap(batch => {
+          return Array.isArray(batch?.events)
+            ? batch.events
+            : [];
+        });
+      }
+
+      function deliveryNormalizeOutboxItem(item){
+        const normalized = Object.assign({}, item || {});
+        const compactEvents = compactResearchEvents(
+          deliveryExtractEvents(normalized)
+        );
+
+        normalized.rawResearchEvents = compactEvents;
+        normalized.eventBatches = deliveryBuildEventBatches(
+          normalized.researchSummary || {},
+          compactEvents
+        );
+
+        normalized.expectedEventCount = compactEvents.length;
+
+        normalized.nextBatchIndex = clamp(
+          Number(normalized.nextBatchIndex || 0),
+          0,
+          normalized.eventBatches.length
+        );
+
+        normalized.confirmedEventCount = Math.max(
+          0,
+          Number(normalized.confirmedEventCount || 0)
+        );
+
+        normalized.eventBatchesSent = Math.max(
+          0,
+          Number(normalized.eventBatchesSent || 0)
+        );
+
+        return normalized;
+      }
+
+      function deliveryExpectedEventsThroughBatch(batches, exclusiveIndex){
+        return (batches || [])
+          .slice(0, exclusiveIndex)
+          .reduce((sum, batch) => {
+            return sum + (
+              Array.isArray(batch?.events)
+                ? batch.events.length
+                : 0
+            );
+          }, 0);
       }
 
       function openDeliveryDb(){
@@ -6065,59 +6292,171 @@
         });
       }
 
-      async function deliveryPollReceipt(item, onStatus){
-        const endpoint = deliverySafeEndpoint(item.researchEndpoint);
+      async function deliveryReadReceipt(item, expectedEvents){
+        return deliveryJsonp(item.researchEndpoint, {
+          api: "hygiene",
+          type: "handwash_research_receipt",
+          sessionId: item.sessionId,
+          expectedEvents: expectedEvents
+        });
+      }
 
-        if(!endpoint){
-          return {
-            confirmed: false,
-            summaryConfirmed: false,
-            eventsConfirmed: false,
-            unavailable: true
-          };
-        }
-
+      async function deliveryWaitForSummary(item, onStatus){
         let latest = null;
 
-        for(const waitMs of DELIVERY_RECEIPT_DELAYS){
+        for(const waitMs of DELIVERY_SUMMARY_RECEIPT_DELAYS){
           await deliveryDelay(waitMs);
 
           try{
-            const receipt = await deliveryJsonp(endpoint, {
-              api: "hygiene",
-              type: "handwash_research_receipt",
-              sessionId: item.sessionId,
-              expectedEvents: item.expectedEventCount
-            });
-
-            latest = receipt || {};
+            latest = await deliveryReadReceipt(item, 0);
 
             const summaryConfirmed = !!latest.summaryFound;
-            const eventsConfirmed = !!latest.eventsConfirmed;
 
             deliveryEmit(onStatus, {
               id: item.id,
-              status: summaryConfirmed && eventsConfirmed
-                ? "confirmed"
-                : summaryConfirmed
-                  ? "summary_confirmed"
-                  : "awaiting_receipt",
+              status: summaryConfirmed
+                ? "sending_events"
+                : "awaiting_receipt",
               summaryConfirmed: summaryConfirmed,
-              eventsConfirmed: eventsConfirmed,
+              eventsConfirmed: false,
               eventCount: Number(latest.eventCount || 0),
               expectedEventCount: Number(item.expectedEventCount || 0),
-              message: summaryConfirmed && eventsConfirmed
-                ? "บันทึก Research Summary และ Event Log แล้ว ✓"
-                : summaryConfirmed
-                  ? "บันทึก Research Summary แล้ว กำลังตรวจ Event Log"
-                  : "กำลังรอใบยืนยันจาก Research Server"
+              attempts: item.attempts,
+              message: summaryConfirmed
+                ? "Research Summary บันทึกแล้ว กำลังส่ง Event Log แบบเป็นชุด"
+                : "กำลังตรวจสอบใบยืนยัน Research Summary"
             });
 
-            if(summaryConfirmed && eventsConfirmed){
+            if(summaryConfirmed){
               return Object.assign({}, latest, {
-                confirmed: true,
                 summaryConfirmed: true,
-                eventsConfirmed: true
+                ready: true
+              });
+            }
+          }catch(error){
+            latest = {
+              ok: false,
+              error: error && error.message
+                ? error.message
+                : String(error)
+            };
+          }
+        }
+
+        return Object.assign({}, latest || {}, {
+          summaryConfirmed: !!(latest && latest.summaryFound),
+          ready: false
+        });
+      }
+
+      async function deliveryWaitForEventCount(
+        item,
+        expectedEvents,
+        onStatus,
+        batchIndex,
+        batchCount,
+        isFinal
+      ){
+        let latest = null;
+
+        for(const waitMs of DELIVERY_BATCH_RECEIPT_DELAYS){
+          await deliveryDelay(waitMs);
+
+          try{
+            latest = await deliveryReadReceipt(item, expectedEvents);
+
+            const summaryConfirmed = !!latest.summaryFound;
+            const eventCount = Number(latest.eventCount || 0);
+            const batchConfirmed =
+              summaryConfirmed &&
+              eventCount >= expectedEvents;
+
+            const finalConfirmed =
+              !!isFinal &&
+              summaryConfirmed &&
+              eventCount >= Number(item.expectedEventCount || 0);
+
+            deliveryEmit(onStatus, {
+              id: item.id,
+              status: finalConfirmed
+                ? "confirmed"
+                : "sending_events",
+              summaryConfirmed: summaryConfirmed,
+              eventsConfirmed: finalConfirmed,
+              eventCount: eventCount,
+              expectedEventCount: Number(item.expectedEventCount || 0),
+              attempts: item.attempts,
+              message: finalConfirmed
+                ? "บันทึก Research Summary และ Event Log แล้ว ✓"
+                : `กำลังยืนยัน Event Log ชุด ${batchIndex}/${batchCount} • ${Math.min(eventCount, Number(item.expectedEventCount || 0))}/${Number(item.expectedEventCount || 0)}`
+            });
+
+            if(batchConfirmed){
+              return Object.assign({}, latest, {
+                summaryConfirmed: true,
+                eventsConfirmed: finalConfirmed,
+                confirmed: finalConfirmed,
+                ready: true
+              });
+            }
+          }catch(error){
+            latest = {
+              ok: false,
+              error: error && error.message
+                ? error.message
+                : String(error)
+            };
+          }
+        }
+
+        return Object.assign({}, latest || {}, {
+          summaryConfirmed: !!(latest && latest.summaryFound),
+          eventsConfirmed: false,
+          confirmed: false,
+          ready: false
+        });
+      }
+
+      async function deliveryWaitForFinalReceipt(item, onStatus){
+        let latest = null;
+
+        for(const waitMs of DELIVERY_FINAL_RECEIPT_DELAYS){
+          await deliveryDelay(waitMs);
+
+          try{
+            latest = await deliveryReadReceipt(
+              item,
+              item.expectedEventCount
+            );
+
+            const summaryConfirmed = !!latest.summaryFound;
+            const eventCount = Number(latest.eventCount || 0);
+            const eventsConfirmed =
+              eventCount >= Number(item.expectedEventCount || 0);
+
+            const confirmed =
+              summaryConfirmed && eventsConfirmed;
+
+            deliveryEmit(onStatus, {
+              id: item.id,
+              status: confirmed
+                ? "confirmed"
+                : "awaiting_receipt",
+              summaryConfirmed: summaryConfirmed,
+              eventsConfirmed: eventsConfirmed,
+              eventCount: eventCount,
+              expectedEventCount: Number(item.expectedEventCount || 0),
+              attempts: item.attempts,
+              message: confirmed
+                ? "บันทึก Research Summary และ Event Log แล้ว ✓"
+                : "กำลังตรวจสอบใบยืนยัน Event Log ชุดสุดท้าย"
+            });
+
+            if(confirmed){
+              return Object.assign({}, latest, {
+                summaryConfirmed: true,
+                eventsConfirmed: true,
+                confirmed: true
               });
             }
           }catch(error){
@@ -6143,6 +6482,8 @@
         deliveryProcessing.add(item.id);
 
         try{
+          item = deliveryNormalizeOutboxItem(item);
+
           if(!navigator.onLine){
             item.status = "offline";
             item.nextAttemptAt = Date.now() + DELIVERY_RETRY_DELAY_MS;
@@ -6155,7 +6496,7 @@
               status: "offline",
               summaryConfirmed: false,
               eventsConfirmed: false,
-              eventCount: 0,
+              eventCount: Number(item.confirmedEventCount || 0),
               expectedEventCount: item.expectedEventCount,
               message: "ไม่มีอินเทอร์เน็ต เก็บผลไว้ใน Local Outbox แล้ว"
             });
@@ -6172,7 +6513,7 @@
             status: "sending",
             summaryConfirmed: false,
             eventsConfirmed: false,
-            eventCount: 0,
+            eventCount: Number(item.confirmedEventCount || 0),
             expectedEventCount: item.expectedEventCount,
             message: "กำลังส่งผลการเล่นไปยัง Research Server"
           });
@@ -6188,56 +6529,146 @@
             );
 
             item.normalSent = !!normalResult.ok;
+            await deliveryPut(item);
           }
 
-          const summaryResult = await deliverySendOpaque(
-            item.researchEndpoint,
-            {
-              api: "handwash_research",
-              type: "handwash_session_summary",
-              payload: item.researchSummary
+          if(!item.researchSent){
+            const summaryResult = await deliverySendOpaque(
+              item.researchEndpoint,
+              {
+                api: "handwash_research",
+                type: "handwash_session_summary",
+                payload: item.researchSummary
+              }
+            );
+
+            if(!summaryResult.ok){
+              throw new Error("research_summary_send_failed");
             }
+
+            item.researchSent = true;
+            await deliveryPut(item);
+          }
+
+          const summaryReceipt = await deliveryWaitForSummary(
+            item,
+            onStatus
           );
+
+          if(!summaryReceipt.ready){
+            throw new Error("research_summary_receipt_pending");
+          }
 
           const batches = Array.isArray(item.eventBatches)
             ? item.eventBatches
             : [];
 
-          let eventBatchesSent = 0;
+          if(!batches.length){
+            const emptyReceipt = await deliveryWaitForFinalReceipt(
+              item,
+              onStatus
+            );
 
-          for(const batch of batches){
-            const result = await deliverySendOpaque(
+            if(!emptyReceipt.confirmed){
+              throw new Error("empty_event_receipt_pending");
+            }
+
+            await deliveryRemove(item.id);
+
+            deliveryEmit(onStatus, {
+              id: item.id,
+              status: "confirmed",
+              summaryConfirmed: true,
+              eventsConfirmed: true,
+              eventCount: 0,
+              expectedEventCount: 0,
+              attempts: item.attempts,
+              message: "บันทึก Research Summary แล้ว ✓"
+            });
+
+            return;
+          }
+
+          for(
+            let index = Number(item.nextBatchIndex || 0);
+            index < batches.length;
+            index += 1
+          ){
+            const batch = batches[index];
+            const expectedEvents = deliveryExpectedEventsThroughBatch(
+              batches,
+              index + 1
+            );
+
+            item.status = "sending_events";
+            item.updatedAt = deliveryNowIso();
+
+            await deliveryPut(item);
+
+            deliveryEmit(onStatus, {
+              id: item.id,
+              status: "sending_events",
+              summaryConfirmed: true,
+              eventsConfirmed: false,
+              eventCount: Number(item.confirmedEventCount || 0),
+              expectedEventCount: item.expectedEventCount,
+              attempts: item.attempts,
+              message: `กำลังส่ง Event Log ชุด ${index + 1}/${batches.length} • ${Number(item.confirmedEventCount || 0)}/${item.expectedEventCount}`
+            });
+
+            const batchResult = await deliverySendOpaque(
               item.researchEndpoint,
               batch
             );
 
-            if(result.ok){
-              eventBatchesSent += 1;
+            if(!batchResult.ok){
+              throw new Error(
+                "event_batch_send_failed_" + (index + 1)
+              );
+            }
+
+            const receipt = await deliveryWaitForEventCount(
+              item,
+              expectedEvents,
+              onStatus,
+              index + 1,
+              batches.length,
+              index === batches.length - 1
+            );
+
+            if(!receipt.ready){
+              throw new Error(
+                "event_batch_receipt_pending_" + (index + 1)
+              );
+            }
+
+            item.nextBatchIndex = index + 1;
+            item.eventBatchesSent = index + 1;
+            item.confirmedEventCount = Math.max(
+              Number(item.confirmedEventCount || 0),
+              Number(receipt.eventCount || 0),
+              expectedEvents
+            );
+
+            item.updatedAt = deliveryNowIso();
+            await deliveryPut(item);
+
+            if(index < batches.length - 1){
+              await deliveryDelay(DELIVERY_BETWEEN_BATCH_MS);
             }
           }
 
-          item.researchSent = !!summaryResult.ok;
-          item.eventBatchesSent = eventBatchesSent;
           item.attempts = Number(item.attempts || 0) + 1;
           item.status = "awaiting_receipt";
           item.updatedAt = deliveryNowIso();
-
           await deliveryPut(item);
 
-          deliveryEmit(onStatus, {
-            id: item.id,
-            status: "awaiting_receipt",
-            summaryConfirmed: false,
-            eventsConfirmed: false,
-            eventCount: 0,
-            expectedEventCount: item.expectedEventCount,
-            attempts: item.attempts,
-            message: "ส่งแล้ว กำลังตรวจสอบใบยืนยันจาก Research Server"
-          });
+          const finalReceipt = await deliveryWaitForFinalReceipt(
+            item,
+            onStatus
+          );
 
-          const receipt = await deliveryPollReceipt(item, onStatus);
-
-          if(receipt.confirmed){
+          if(finalReceipt.confirmed){
             await deliveryRemove(item.id);
 
             deliveryEmit(onStatus, {
@@ -6246,7 +6677,7 @@
               summaryConfirmed: true,
               eventsConfirmed: true,
               eventCount: Number(
-                receipt.eventCount ||
+                finalReceipt.eventCount ||
                 item.expectedEventCount ||
                 0
               ),
@@ -6258,6 +6689,10 @@
             return;
           }
 
+          throw new Error("final_receipt_pending");
+        }catch(error){
+          item = deliveryNormalizeOutboxItem(item || {});
+          item.attempts = Number(item.attempts || 0) + 1;
           item.status = item.attempts >= DELIVERY_MAX_ATTEMPTS
             ? "queued_manual_retry"
             : "retry_scheduled";
@@ -6269,25 +6704,6 @@
           );
 
           item.updatedAt = deliveryNowIso();
-          await deliveryPut(item);
-
-          deliveryEmit(onStatus, {
-            id: item.id,
-            status: item.status,
-            summaryConfirmed: !!receipt.summaryConfirmed,
-            eventsConfirmed: !!receipt.eventsConfirmed,
-            eventCount: Number(receipt.eventCount || 0),
-            expectedEventCount: item.expectedEventCount,
-            attempts: item.attempts,
-            message: receipt.summaryConfirmed
-              ? "บันทึก Summary แล้ว แต่ Event Log ยังไม่ครบ ระบบจะลองส่งซ้ำอัตโนมัติ"
-              : "ยังไม่ได้รับใบยืนยัน เก็บผลไว้ใน Local Outbox และจะลองส่งซ้ำอัตโนมัติ"
-          });
-        }catch(error){
-          item.attempts = Number(item.attempts || 0) + 1;
-          item.status = "retry_scheduled";
-          item.nextAttemptAt = Date.now() + DELIVERY_RETRY_DELAY_MS;
-          item.updatedAt = deliveryNowIso();
 
           try{
             await deliveryPut(item);
@@ -6295,13 +6711,15 @@
 
           deliveryEmit(onStatus, {
             id: item.id,
-            status: "retry_scheduled",
-            summaryConfirmed: false,
+            status: item.status,
+            summaryConfirmed: !!item.researchSent,
             eventsConfirmed: false,
-            eventCount: 0,
+            eventCount: Number(item.confirmedEventCount || 0),
             expectedEventCount: item.expectedEventCount,
             attempts: item.attempts,
-            message: "ส่งไม่สมบูรณ์ เก็บผลไว้ใน Local Outbox และจะลองส่งซ้ำอัตโนมัติ"
+            message: item.researchSent
+              ? "บันทึก Summary แล้ว กำลังเก็บ Event Log ไว้ส่งต่อเป็นชุด"
+              : "ส่งไม่สมบูรณ์ เก็บผลไว้ใน Local Outbox และจะลองส่งซ้ำอัตโนมัติ"
           });
         }finally{
           deliveryProcessing.delete(item.id);
@@ -6320,11 +6738,15 @@
           throw new Error("missing_session_id");
         }
 
-        const events = Array.isArray(input?.events)
+        const originalEvents = Array.isArray(input?.events)
           ? input.events
           : [];
 
-        const item = {
+        const compactEvents = compactResearchEvents(
+          originalEvents
+        );
+
+        const item = deliveryNormalizeOutboxItem({
           id: "hwd-" + sessionId,
           deliveryVersion: DELIVERY_VERSION,
           sessionId: sessionId,
@@ -6339,13 +6761,14 @@
 
           normalPayload: input?.normalPayload || null,
           researchSummary: summary,
-          eventBatches: deliveryBuildEventBatches(summary, events),
-          expectedEventCount: events.length,
+          rawResearchEvents: compactEvents,
 
           normalSent: false,
           researchSent: false,
-          eventBatchesSent: 0
-        };
+          eventBatchesSent: 0,
+          nextBatchIndex: 0,
+          confirmedEventCount: 0
+        });
 
         await deliveryPut(item);
 
@@ -6356,7 +6779,10 @@
           eventsConfirmed: false,
           eventCount: 0,
           expectedEventCount: item.expectedEventCount,
-          message: "เก็บผลลง Local Outbox แล้ว"
+          message:
+            item.expectedEventCount < originalEvents.length
+              ? `ลด Event Log จาก ${originalEvents.length} เหลือ ${item.expectedEventCount} เหตุการณ์สำคัญแล้ว`
+              : "เก็บผลลง Local Outbox แล้ว"
         });
 
         deliverOutboxItem(item, input?.onStatus);
@@ -6447,6 +6873,7 @@
         const waiting = [
           "queued",
           "sending",
+          "sending_events",
           "awaiting_receipt",
           "summary_confirmed"
         ].includes(status);
@@ -6461,6 +6888,7 @@
           idle: "กำลังเตรียมบันทึกผล",
           queued: "เก็บผลลง Local Outbox แล้ว",
           sending: "กำลังส่งผลการเล่น",
+          sending_events: "กำลังส่ง Event Log แบบเป็นชุด",
           awaiting_receipt: "กำลังตรวจสอบใบยืนยัน",
           summary_confirmed: "Research Summary บันทึกแล้ว",
           confirmed: "บันทึกผลวิจัยครบแล้ว ✓",
@@ -6474,6 +6902,7 @@
           idle: "☁️",
           queued: "📦",
           sending: "📡",
+          sending_events: "📚",
           awaiting_receipt: "🔎",
           summary_confirmed: "🧾",
           confirmed: "✅",
