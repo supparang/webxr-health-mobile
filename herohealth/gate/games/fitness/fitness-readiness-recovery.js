@@ -4,7 +4,7 @@
 // The preview canvas draws camera frames directly, avoiding black <video> rendering
 // in some Chrome/WebXR environments.
 
-const PATCH = 'v20260624-FITNESS-READINESS-RECOVERY-DUCK-HEAD-SHOULDER-V23';
+const PATCH = 'v20260624-FITNESS-READINESS-RECOVERY-SIDE-STRETCH-V24';
 
 const MP = {
   module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs',
@@ -488,32 +488,54 @@ export async function mount(stage, ctx, api){
         completeTask({progress:t.target,target:t.target,detail:'Shoulder Reset ผ่านอัตโนมัติแบบปลอดภัย'});
         return;
       }
-   } else if(t.type==='reach'||t.type==='cross'){
+   } else if(t.type === 'reach' || t.type === 'cross'){
+  const nose = p(lm, IDX.NOSE);
+
+  const handLeft = !!(
+    lw && ls &&
+    vis(lw) > .22 &&
+    vis(ls) > .22 &&
+    lw.y < ls.y - .025
+  );
+
+  const handRight = !!(
+    rw && rs &&
+    vis(rw) > .22 &&
+    vis(rs) > .22 &&
+    rw.y < rs.y - .025
+  );
+
   /*
-    Side Stretch แบบ classroom-friendly:
-    ผ่านได้จาก “ยกมือ” หรือ “เอนลำตัวซ้าย–ขวา”
-    ไม่บังคับให้มืออยู่ในภาพ
+    ใช้ศีรษะเทียบสะโพก และองศาไหล่
+    จึงตรวจได้แม้มือไม่อยู่ในกล้อง
   */
-  const handLeft =
-    !!(lw && ls && vis(lw) > .25 && vis(ls) > .25 && lw.y < ls.y - .035);
+  const headLean =
+    nose && hm && sw
+      ? (nose.x - hm.x) / Math.max(sw, .001)
+      : 0;
 
-  const handRight =
-    !!(rw && rs && vis(rw) > .25 && vis(rs) > .25 && rw.y < rs.y - .035);
-
-  const torsoLean =
-    sm && hm && sw
-      ? (sm.x - hm.x) / Math.max(sw, .001)
+  const shoulderTilt =
+    ls && rs && sw
+      ? (ls.y - rs.y) / Math.max(sw, .001)
       : 0;
 
   let side = '';
 
-  if(handLeft || torsoLean < -.105){
+  if(
+    handLeft ||
+    headLean < -.060 ||
+    shoulderTilt > .075
+  ){
     side = 'L';
-  }else if(handRight || torsoLean > .105){
+  }else if(
+    handRight ||
+    headLean > .060 ||
+    shoulderTilt < -.075
+  ){
     side = 'R';
   }
 
-  if(ready && side){
+  if(side){
     if(side !== lastSide){
       lastSide = side;
       hold = 0;
@@ -521,7 +543,7 @@ export async function mount(stage, ctx, api){
 
     hold += dt;
 
-    if(hold >= Math.min(t.hold || .8, .65) && !sides.has(side)){
+    if(hold >= .35 && !sides.has(side)){
       sides.add(side);
       hold = 0;
       lastSide = '';
@@ -533,11 +555,13 @@ export async function mount(stage, ctx, api){
   prog = sides.size;
 
   if(side){
-    detail = `ยืดด้าน ${side === 'L' ? 'ซ้าย' : 'ขวา'} ✓ ค้างไว้ • ${prog}/2 ด้าน`;
-  }else if(sides.size >= 1){
-    detail = `สลับเอน/ยืดอีกด้านหนึ่ง • ${prog}/2 ด้าน`;
+    detail =
+      `ตรวจพบการเอนด้าน ${side === 'L' ? 'ซ้าย' : 'ขวา'} ✓ ` +
+      `ค้างไว้ • ${prog}/2 ด้าน`;
+  }else if(sides.size === 1){
+    detail = `กลับตรง แล้วเอนอีกด้านหนึ่ง • ${prog}/2 ด้าน`;
   }else{
-    detail = `เอนลำตัวหรือยกมือไปด้านซ้าย/ขวา • ${prog}/2 ด้าน`;
+    detail = `เอนศีรษะและไหล่ไปด้านซ้ายหรือขวา • ${prog}/2 ด้าน`;
   }
 }
     completeTask({progress:prog,target:t.target,detail});
