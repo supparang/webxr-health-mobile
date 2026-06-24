@@ -3065,8 +3065,8 @@ const passportRank = getRank(
 );
 
 window.FitnessPassportBridge?.save({
-  gameId: "shadow-breaker-ar",
-  game: "shadow-breaker-ar",
+  gameId: "shadow-breaker",
+  game: "shadow-breaker",
   pid: passportPid,
   playerId: passportPid,
   studentId: passportPid,
@@ -3252,9 +3252,9 @@ window.FitnessPassportBridge?.save({
       const payload = state.lastSummaryPayload || (typeof buildSheetPayload === "function" ? buildSheetPayload() : {});
 
       const record = {
-        source: "shadow-breaker-ar",
-        game: "shadow-breaker-ar",
-        gameId: "shadow-breaker-ar",
+        source: "shadow-breaker",
+        game: "shadow-breaker",
+        gameId: "shadow-breaker",
         pid,
         studentId: qs.get("studentId") || qs.get("sid") || pid,
         playerId: qs.get("playerId") || pid,
@@ -3281,7 +3281,7 @@ window.FitnessPassportBridge?.save({
 
       safeStorageSet("HHA_LAST_SUMMARY", JSON.stringify(record));
       if(pid){
-        safeStorageSet(`HHA_LAST_SUMMARY:shadow-breaker-ar:${pid}`, JSON.stringify(record));
+        safeStorageSet(`HHA_LAST_SUMMARY:shadow-breaker:${pid}`, JSON.stringify(record));
       }
 
       return record;
