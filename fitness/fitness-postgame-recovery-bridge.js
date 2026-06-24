@@ -410,9 +410,10 @@
 
   function addRecoveryButton() {
   const result =
-    $("resultOverlay") ||
-    $("resultView") ||
-    $("gameoverScreen");
+  $("resultOverlay") ||
+  $("resultView") ||
+  $("gameoverScreen") ||
+  $("gameover-screen");
 
   if (!result) return;
 
