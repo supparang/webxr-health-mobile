@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#08112c" />
-  <title>UX Quest • W1 Crisis Casefile Hunt V4</title>
+  <title>UX Quest • W1 Crisis Casefile Hunt V5</title>
   <style>
     :root{
       --ink:#14213d;
@@ -149,6 +149,12 @@
     @media (max-width:900px){.chain-grid{grid-template-columns:1fr 1fr}}
     @media (max-width:620px){.case-report{padding:18px}.chain-grid{grid-template-columns:1fr;gap:8px}.audit-row{grid-template-columns:25px 1fr}.audit-status{grid-column:2;justify-self:start}.report-actions{grid-template-columns:1fr}.case-log-item{grid-template-columns:31px 1fr}.case-log-item .state{grid-column:2;justify-self:start}}
 
+
+    /* V5 — Focused Reinvestigation Mode */
+    .review-state{margin:16px 0 0;padding:14px;border:1px solid #aebdff;border-radius:16px;background:#eef2ff;color:#31457e;line-height:1.55}.review-state b{display:block;margin-bottom:4px;color:#25408f}.review-state strong{color:#25408f}
+    .recovery-brief{max-width:930px;margin:20px auto;padding:34px}.recovery-brief h2{margin:0 0 10px;font-size:clamp(27px,4vw,40px);letter-spacing:-.03em}.recovery-brief>p{color:#617092;line-height:1.7}.focus-banner{display:grid;grid-template-columns:auto minmax(0,1fr);gap:13px;align-items:start;margin:20px 0;padding:17px;border:2px solid #7891ff;border-radius:19px;background:linear-gradient(135deg,#edf1ff,#fbfcff);color:#2d437e}.focus-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:16px;background:#dce6ff;color:#3652ca;font-size:24px;font-weight:900}.focus-banner b{display:block;font-size:17px}.focus-banner span{display:block;margin-top:4px;line-height:1.56;color:#526589}.review-trace{display:grid;gap:10px;margin:19px 0;text-align:left}.trace-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px;border:1px solid #dce5f7;border-radius:15px;background:#fbfcff}.trace-step{display:grid;place-items:center;width:40px;height:40px;border-radius:13px;background:#e8eeff;color:#3955c8;font-size:12px;font-weight:900}.trace-row b{display:block;color:#26385f;line-height:1.42}.trace-row small{display:block;margin-top:3px;color:#6b7899;line-height:1.45}.trace-state{padding:5px 8px;border-radius:999px;background:#eef1f8;color:#627099;font-size:11px;font-weight:900;white-space:nowrap}.trace-state.focus{background:#fff0d5;color:#a35f06}.trace-state.locked{background:#edf1ff;color:#4861bf}.review-note{margin:18px 0;padding:14px 15px;border-radius:15px;background:#fff7e9;border:1px solid #f1d7a9;color:#86500a;line-height:1.58;text-align:left}.review-note b{display:block;margin-bottom:3px}.decision .review-chip{display:inline-flex;align-items:center;gap:7px;margin:0 0 12px;padding:7px 10px;border-radius:999px;background:#e9efff;color:#3854c8;font-size:12px;font-weight:900}.decision .review-chip strong{font-size:12px}.case-report.reinvestigated{border:2px solid #8ba1ff}.map-status.recovered{background:#e7efff;color:#3552c8}.badge.review{background:#e8efff;color:#3853c7}
+    @media(max-width:620px){.recovery-brief{padding:22px}.focus-banner{grid-template-columns:42px minmax(0,1fr);padding:14px}.focus-icon{width:42px;height:42px;border-radius:13px;font-size:20px}.trace-row{grid-template-columns:38px minmax(0,1fr);gap:9px}.trace-step{width:36px;height:36px;border-radius:11px}.trace-state{grid-column:2;justify-self:start}}
+
   </style>
 </head>
 <body>
@@ -156,7 +162,7 @@
     <header class="topbar">
       <a class="brand" href="./index.html" aria-label="กลับหน้า Mission Control">
         <span class="brand-badge">UX</span>
-        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V4</small></span>
+        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V5</small></span>
       </a>
       <div class="statusbar" aria-label="สถานะ Mission">
         <span class="status">Case <b id="hudCase">—</b></span>
@@ -167,11 +173,11 @@
 
     <section class="hero">
       <div>
-        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V4</p>
-        <h1>UX Detective: Casefile Hunt V4</h1>
-        <p>เกมวิเคราะห์เชิงสถานการณ์: ทุกการเลือกจะสร้าง Decision Map ที่เห็นว่า Evidence → Hypothesis → Fix → Test เชื่อมกันหรือขาดตรงไหน และมี Review Ticket ให้กู้คดีที่พลาดได้ 1 ครั้ง</p>
+        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V5</p>
+        <h1>UX Detective: Casefile Hunt V5</h1>
+        <p>เกมวิเคราะห์เชิงสถานการณ์: ทุกการเลือกจะสร้าง Decision Map ที่เห็นว่า Evidence → Hypothesis → Fix → Test เชื่อมกันหรือขาดตรงไหน และมี Review Ticket เปิด Reinvestigation Mode เพื่อกู้ “จุดอ่อนจริง” ได้ 1 ครั้ง</p>
       </div>
-      <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>3 Case + 1 Boss + 1 Review Ticket = 1 Shift ที่กู้เหตุผลได้จริง</span></aside>
+      <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>3 Case + 1 Boss + 1 Focused Review = 1 Shift ที่กู้เหตุผลได้จริง</span></aside>
     </section>
 
     <nav class="rail" aria-label="ขั้นตอนของ Casefile">
@@ -196,7 +202,7 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'csai2601-uxq-casefile-v4-lite';
+  const STORAGE_KEY = 'csai2601-uxq-casefile-v5-lite';
   const CASES_PER_SHIFT = 3;
   const EVIDENCE_LIMIT = 3;
 
@@ -514,6 +520,8 @@
     debriefReviewUsed: false,
     reviewingFromDebrief: false,
     reviewCaseIndex: null,
+    reviewPlan: null,
+    reviewOriginal: null,
     saved: readSave()
   };
 
@@ -548,13 +556,13 @@
   function pressureHtml(c){const p=pressureFor(c);return `<div class="pressure-card"><b>⚡ ${escapeHtml(p.title)}</b><span>${escapeHtml(p.text)}</span><span><strong>Decision lens:</strong> ${escapeHtml(p.lesson)}</span></div>`}
   function pct(value){return `${Math.max(0,Math.min(100,Math.round(value)))}%`}
   function updateHud(){
-    document.querySelector('#hudCase').textContent=state.step==='mode'?'เลือก Shift':state.step==='debrief'?'สรุป Shift':state.step==='report'?'รายงานคดี':state.step==='boss'?'Final Boss':`${state.caseIndex+1}/${state.shift.length}`;
+    document.querySelector('#hudCase').textContent=state.step==='mode'?'เลือก Shift':state.step==='debrief'||state.step==='review-brief'?'สรุป Shift':state.step==='report'?'รายงานคดี':state.step==='boss'?'Final Boss':`${state.caseIndex+1}/${state.shift.length}`;
     document.querySelector('#hudTime').textContent=state.step==='mode'?'—':`${state.time} นาที`;
     document.querySelector('#hudTrust').textContent=state.step==='mode'?'—':pct(state.trust);
   }
   function updateRail(){
     const order=['evidence','hypothesis','fix','test'];
-    const index=state.step==='report'?order.length:order.indexOf(state.step);
+    const index=(state.step==='report'||state.step==='review-brief')?order.length:order.indexOf(state.step);
     document.querySelectorAll('[data-rail]').forEach(node=>{
       const i=order.indexOf(node.dataset.rail);
       node.classList.toggle('active',state.step!=='report'&&i===index);
@@ -574,7 +582,7 @@
     state.shift=shuffle(pool).slice(0,CASES_PER_SHIFT);
     state.caseIndex=0;state.score=0;state.trust=100;state.time=12;state.outcomes=[];
     state.bossChoice=null;state.bossResult=null;state.bossAttempts=0;
-    state.debriefReviewUsed=false;state.reviewingFromDebrief=false;state.reviewCaseIndex=null;
+    state.debriefReviewUsed=false;state.reviewingFromDebrief=false;state.reviewCaseIndex=null;state.reviewPlan=null;state.reviewOriginal=null;
     resetCase();state.step='evidence';render();
   }
   function resetCase(){
@@ -587,6 +595,55 @@
     state.caseTime=12;
     state.caseResult=null;
     state.recoveryUsed=false;
+  }
+
+  function isReviewing(){return Boolean(state.reviewingFromDebrief&&state.reviewPlan)}
+  function reviewFocusFor(outcome){
+    if(Number(outcome.strength)<4)return {step:'evidence',title:'Evidence Gap',icon:'⌁',reason:'หลักฐานที่เก็บมายังไม่แยกสาเหตุของคดีได้ชัด จึงต้องสลับอย่างน้อย 1 หลักฐานก่อนตัดสินใจใหม่'};
+    if(!outcome.fixMatches)return {step:'fix',title:'Fix Mismatch',icon:'✦',reason:'Fix ที่เลือกยังไม่ตอบ hypothesis ที่หลักฐานสนับสนุน จึงล็อก Evidence และ Hypothesis ไว้ แล้วให้แก้เฉพาะการลงทุน'};
+    if(!outcome.correctNext)return {step:'test',title:'Test Decision Gap',icon:'◌',reason:'สายวิเคราะห์ถึง Prototype แล้ว แต่การอ่านผล User Test ยังไม่ตรง จึงให้ทบทวนเฉพาะ Decision หลัง Test'};
+    return {step:'hypothesis',title:'Hypothesis Recheck',icon:'?',reason:'ความเชื่อมโยงยังไม่แข็งแรงพอ ให้ทบทวนสาเหตุที่เลือกโดยใช้หลักฐานเดิม'};
+  }
+  function reviewChanged(step){
+    if(!isReviewing()||state.reviewPlan?.step!==step)return true;
+    const original=state.reviewOriginal||{};
+    if(step==='evidence'){
+      const now=[...state.selectedEvidence].sort().join('|');
+      const before=[...(original.evidenceIds||[])].sort().join('|');
+      return now!==before;
+    }
+    if(step==='hypothesis')return state.selectedHypothesis!==original.hypothesisId;
+    if(step==='fix')return state.selectedFix!==original.fixId;
+    if(step==='test')return state.selectedNext!==original.nextId;
+    return true;
+  }
+  function reviewChip(step){
+    if(!isReviewing())return '';
+    const focus=state.reviewPlan?.step;
+    const current=focus===step;
+    const labels={evidence:'Evidence',hypothesis:'Hypothesis',fix:'Fix',test:'Test decision'};
+    return `<p class="review-chip">🎟️ Reinvestigation Mode • ${current?`แก้ ${escapeHtml(labels[step])} นี้ก่อน`: `กำลังเดินต่อจาก ${escapeHtml(labels[focus]||'Review')}`}</p>`;
+  }
+  function reviewBriefHtml(){
+    const outcome=state.reviewOriginal;
+    const plan=state.reviewPlan;
+    if(!outcome||!plan)return '';
+    const rows=[
+      ['E', 'Evidence', outcome.evidenceTitles?.join(' • ')||'—', plan.step==='evidence'?'focus':'locked'],
+      ['H', 'Hypothesis', outcome.hypothesisTitle||'—', plan.step==='hypothesis'?'focus':(plan.step==='evidence'?'locked':'locked')],
+      ['F', 'Fix', outcome.fixTitle||'—', plan.step==='fix'?'focus':(plan.step==='evidence'||plan.step==='hypothesis'?'locked':'locked')],
+      ['T', 'Test decision', outcome.nextTitle||'—', plan.step==='test'?'focus':(plan.step==='test'?'focus':'locked')]
+    ];
+    return `<section class="card recovery-brief">
+      <p class="eyebrow">FINAL REVIEW TICKET // FOCUSED REINVESTIGATION</p>
+      <h2>กู้คดีแบบมีเป้าหมาย</h2>
+      <p>คุณไม่ได้เริ่มสามคดีใหม่ และไม่แก้ทุกอย่างแบบเดา ๆ Ticket นี้พากลับไปแก้ <b>จุดที่ทำให้เส้นเหตุผลขาด</b> แล้วคำนวณผล Test และ Final Boss ใหม่</p>
+      <div class="focus-banner"><span class="focus-icon">${escapeHtml(plan.icon)}</span><span><b>Focus: ${escapeHtml(plan.title)}</b><span>${escapeHtml(plan.reason)}</span></span></div>
+      <div class="review-trace">${rows.map(row=>`<div class="trace-row"><span class="trace-step">${row[0]}</span><span><b>${escapeHtml(row[1])}</b><small>${escapeHtml(row[2])}</small></span><span class="trace-state ${row[3]}">${row[3]==='focus'?'แก้จุดนี้':'ล็อกเป็นฐานเดิม'}</span></div>`).join('')}</div>
+      <div class="review-note"><b>Review rule</b>คุณต้องเปลี่ยนอย่างน้อย 1 การตัดสินใจในจุด Focus ก่อนระบบจะส่งต่อไปยังขั้นถัดไป และหลังปิดคดีจะต้องเผชิญ Final Boss อีกครั้ง</div>
+      <button class="primary" type="button" data-action="begin-review">เปิด Reinvestigation →</button>
+      <button class="secondary" type="button" data-action="cancel-review">กลับไปดู Decision Map</button>
+    </section>`;
   }
 
   function renderMode(){
@@ -617,6 +674,7 @@
       <div class="goal"><span>USER GOAL</span><b>${escapeHtml(c.goal)}</b></div>
       <div class="context-box"><div><span>PERSONA</span><b>${escapeHtml(c.persona)}</b></div><div><span>CASE PRESSURE</span><b>${escapeHtml(c.urgency)}</b></div></div>
       ${pressureHtml(c)}
+      ${isReviewing()?`<div class="review-state"><b>🎟️ Reinvestigation Mode: ${escapeHtml(state.reviewPlan?.title||'Review')}</b><span>${escapeHtml(state.reviewPlan?.reason||'')}</span></div>`:''}
       <div class="meter"><div class="meter-head"><span>CASE TRUST</span><b>${pct(state.caseTrust)}</b></div><div class="bar"><i style="width:${pct(state.caseTrust)}"></i></div><small>Trust ลดเมื่อตัดสินใจโดยไม่ยึดหลักฐานหรือแก้ผิดจุด</small></div>
     </article>`}
 
@@ -627,9 +685,9 @@
         <p class="eyebrow">STEP 1 // EVIDENCE HUNT</p>
         <h3>คุณมีเวลาอ่านหลักฐานได้เพียง ${EVIDENCE_LIMIT} ชิ้น</h3>
         <p class="prompt">เลือกหลักฐานที่ช่วยอธิบายว่าอะไรขวาง User Goal มากที่สุด ไม่ใช่หลักฐานที่ดูสำคัญหรือมีข้อมูลเยอะที่สุด</p>
-        <p class="hint">Evidence ที่ดีต้องช่วยให้คุณตัดสินระหว่างสมมติฐานที่เป็นไปได้ ไม่ใช่เพียงทำให้หน้าจอดูมีปัญหา</p>
+        ${reviewChip('evidence')}<p class="hint">Evidence ที่ดีต้องช่วยให้คุณตัดสินระหว่างสมมติฐานที่เป็นไปได้ ไม่ใช่เพียงทำให้หน้าจอดูมีปัญหา${isReviewing()&&state.reviewPlan?.step==='evidence'?' • ต้องแทนที่อย่างน้อย 1 ชิ้นจากหลักฐานเดิม':''}</p>
         <div class="evidence-grid">${shuffleStable(c.evidence,c.id).map(e=>`<button class="evidence-card ${selected.has(e.id)?'selected':''}" data-evidence="${e.id}" type="button"><span class="evidence-mark">${selected.has(e.id)?'✓':''}</span><span><strong>${escapeHtml(e.title)}</strong><small>${escapeHtml(e.text)}</small></span></button>`).join('')}</div>
-        <button class="primary" type="button" data-action="submit-evidence" ${selected.size===EVIDENCE_LIMIT?'':'disabled'}>ตั้งสมมติฐานจากหลักฐาน ${selected.size}/${EVIDENCE_LIMIT} →</button>
+        <button class="primary" type="button" data-action="submit-evidence" ${selected.size===EVIDENCE_LIMIT&&reviewChanged('evidence')?'':'disabled'}>ตั้งสมมติฐานจากหลักฐาน ${selected.size}/${EVIDENCE_LIMIT} →</button>
         <button class="secondary" type="button" data-action="abort">ออกจาก Shift นี้</button>
       </article>`;
   }
@@ -639,9 +697,9 @@
       <article class="card decision">
         <p class="eyebrow">STEP 2 // HYPOTHESIS LOCK</p>
         <h3>สาเหตุใดควรทดสอบก่อน?</h3>
-        <p class="prompt">ทั้ง 3 ข้ออาจเป็นปัญหาได้ แต่เลือกข้อที่มีหลักฐานรองรับมากที่สุดจากสิ่งที่คุณเก็บมา</p>
+        ${reviewChip('hypothesis')}<p class="prompt">ทั้ง 3 ข้ออาจเป็นปัญหาได้ แต่เลือกข้อที่มีหลักฐานรองรับมากที่สุดจากสิ่งที่คุณเก็บมา${isReviewing()&&state.reviewPlan?.step==='hypothesis'?' • ต้องเปลี่ยนจาก hypothesis เดิม':''}</p>
         <div class="option-list">${shuffleStable(c.hypotheses,`${c.id}-h`).map(h=>`<button type="button" class="option ${state.selectedHypothesis===h.id?'selected':''}" data-hypothesis="${h.id}"><span class="radio">${state.selectedHypothesis===h.id?'●':''}</span><span><strong>${escapeHtml(h.title)}</strong><small>${escapeHtml(h.text)}</small></span></button>`).join('')}</div>
-        <button class="primary" type="button" data-action="submit-hypothesis" ${state.selectedHypothesis?'':'disabled'}>เลือกจุดที่ต้องแก้ →</button>
+        <button class="primary" type="button" data-action="submit-hypothesis" ${state.selectedHypothesis&&reviewChanged('hypothesis')?'':'disabled'}>เลือกจุดที่ต้องแก้ →</button>
       </article>`;
   }
 
@@ -650,10 +708,10 @@
       <article class="card decision">
         <p class="eyebrow">STEP 3 // DESIGN ENERGY TRADE-OFF</p>
         <h3>คุณมีพลังแก้ระบบเพียง 2 หน่วย</h3>
-        <p class="prompt">ทุกวิธีทำได้และมีคุณค่า แต่เลือกเพียง 1 วิธีที่ควรลงทุนก่อนในคดีนี้</p>
+        ${reviewChip('fix')}<p class="prompt">ทุกวิธีทำได้และมีคุณค่า แต่เลือกเพียง 1 วิธีที่ควรลงทุนก่อนในคดีนี้${isReviewing()&&state.reviewPlan?.step==='fix'?' • ต้องเปลี่ยนจาก Fix เดิม':''}</p>
         <p class="pressure-inline">⚡ ${escapeHtml(pressureFor(c).title)}: ${escapeHtml(pressureFor(c).lesson)}</p>
         <div class="option-list">${shuffleStable(c.fixes,`${c.id}-f`).map(f=>`<button type="button" class="option ${state.selectedFix===f.id?'selected':''}" data-fix="${f.id}"><span class="radio">${state.selectedFix===f.id?'●':''}</span><span><strong>${escapeHtml(f.title)}</strong><small>${escapeHtml(f.text)}</small><span class="option-meta">◆ Cost ${f.cost} • ${escapeHtml(f.note)}</span></span></button>`).join('')}</div>
-        <button class="primary" type="button" data-action="submit-fix" ${state.selectedFix?'':'disabled'}>ส่ง Prototype เข้าทดสอบ →</button>
+        <button class="primary" type="button" data-action="submit-fix" ${state.selectedFix&&reviewChanged('fix')?'':'disabled'}>ส่ง Prototype เข้าทดสอบ →</button>
       </article>`;
   }
 
@@ -667,7 +725,7 @@
       <article class="card decision">
         <p class="eyebrow">STEP 4 // TEST UNDER PRESSURE</p>
         <h3>ผล User Test มาแล้ว — คุณจะทำอะไรต่อ?</h3>
-        <p class="prompt">ดู Task success, เวลา และ Trust ร่วมกัน อย่าตัดสินจากตัวเลขเดียว</p>
+        ${reviewChip('test')}<p class="prompt">ดู Task success, เวลา และ Trust ร่วมกัน อย่าตัดสินจากตัวเลขเดียว${isReviewing()&&state.reviewPlan?.step==='test'?' • ต้องเปลี่ยนจาก Decision เดิม':''}</p>
         <div class="test-panel">
           <div class="test-grid">
             <div class="test-metric"><span>Task success</span><b class="${outcome.success>=80?'up':outcome.success>=60?'mid':'down'}">${outcome.success}%</b></div>
@@ -677,7 +735,7 @@
           <div class="quote"><b>USER TEST QUOTE</b>“${escapeHtml(outcome.quote)}”</div>
         </div>
         <div class="option-list">${nextOptions.map(n=>`<button type="button" class="option ${state.selectedNext===n.id?'selected':''}" data-next="${n.id}"><span class="radio">${state.selectedNext===n.id?'●':''}</span><span><strong>${escapeHtml(n.title)}</strong><small>${escapeHtml(n.text)}</small></span></button>`).join('')}</div>
-        <button class="primary" type="button" data-action="submit-next" ${state.selectedNext?'':'disabled'}>ปิดคดีด้วย Decision Memo →</button>
+        <button class="primary" type="button" data-action="submit-next" ${state.selectedNext&&reviewChanged('test')?'':'disabled'}>ปิดคดีด้วย Decision Memo →</button>
       </article>`;
   }
 
@@ -818,9 +876,9 @@
     stage.innerHTML=`
       <section class="game-grid report-grid">
         ${briefHtml(c)}
-        <article class="card case-report">
+        <article class="card case-report ${isReviewing()?'reinvestigated':''}">
           <div class="report-kicker"><span class="outcome-pill ${result.outcome.grade}">${escapeHtml(gradeLabel(result.outcome.grade))}</span><span class="tag">Case ${state.caseIndex+1}/${state.shift.length}</span></div>
-          <h2 class="report-title">Case Outcome Report</h2>
+          <h2 class="report-title">${isReviewing()?'Reinvestigation Outcome':'Case Outcome Report'}</h2>
           <p class="report-lead">${escapeHtml(reportNarrative(result))}</p>
           <div class="chain-grid">
             <div class="chain-step"><span>EVIDENCE</span><b>${result.strength} pts support</b><em class="chain-state ${result.strength>=4?'good':result.strength>=3?'warn':'bad'}">${result.strength>=4?'แยกสาเหตุได้':'หลักฐานยังไม่พอ'}</em></div>
@@ -892,6 +950,8 @@
       state.outcomes[state.reviewCaseIndex]=outcome;
       state.reviewingFromDebrief=false;
       state.reviewCaseIndex=null;
+      state.reviewPlan=null;
+      state.reviewOriginal=null;
       state.caseIndex=state.shift.length;
       state.bossChoice=null;state.bossResult=null;state.bossAttempts=0;
       recalcShiftBase();
@@ -918,17 +978,28 @@
     state.debriefReviewUsed=true;
     state.reviewingFromDebrief=true;
     state.reviewCaseIndex=index;
+    state.reviewOriginal=JSON.parse(JSON.stringify(outcome));
+    state.reviewPlan=reviewFocusFor(outcome);
     state.caseIndex=index;
     state.selectedEvidence=[...(outcome.evidenceIds||[])];
-    state.selectedHypothesis=null;
-    state.selectedFix=null;
-    state.selectedNext=null;
+    state.selectedHypothesis=outcome.hypothesisId||null;
+    state.selectedFix=outcome.fixId||null;
+    state.selectedNext=outcome.nextId||null;
     state.caseResult=null;
     state.recoveryUsed=true;
     state.time=Math.max(0,state.time-1);
     state.trust=Math.max(0,state.trust-5);
-    state.step='evidence';
-    showDialog('REVIEW TICKET ACTIVATED','ย้อนเปิดคดีที่พลาดได้ 1 คดี',`คุณกลับไปตรวจ Evidence → Hypothesis → Fix ใหม่ได้หนึ่งครั้ง ค่าใช้จ่ายคือเวลา 1 นาทีและ Trust 5% เมื่อปิดคดีแล้วต้องเผชิญ Final Boss อีกครั้ง`, 'กลับไปกู้คดี',()=>render());
+    state.step='review-brief';
+    render();
+  }
+  function beginReview(){
+    if(!isReviewing())return;
+    state.step=state.reviewPlan.step;
+    render();
+  }
+  function cancelReview(){
+    state.step='debrief';
+    finishShift();
   }
   function bossConfig(){
     const exact=state.outcomes.filter(o=>o.exactChain).length;
@@ -1011,7 +1082,9 @@
     if(exact>=2)awards.push('<span class="badge mint">Evidence Chain</span>');
     if(solid===CASES_PER_SHIFT)awards.push('<span class="badge">Test-Driven</span>');
     if(state.trust>=80)awards.push('<span class="badge amber">Trust Keeper</span>');
-    if(state.bossResult?.correct)awards.push('<span class="badge mint">Stakeholder Strategist</span>');
+    if(result.passed&&state.bossResult?.correct&&exact>=1&&solid>=1)awards.push('<span class="badge mint">Stakeholder Strategist</span>');
+    else if(state.bossResult?.correct&&solid>=2)awards.push('<span class="badge review">Test Listener</span>');
+    if(state.debriefReviewUsed&&result.passed)awards.push('<span class="badge review">Review Rescuer</span>');
     const boss=bossConfig();
     const weakestIndex=state.outcomes.findIndex(o=>!o.exactChain||!o.correctNext);
     const maps=state.outcomes.map((outcome,index)=>decisionMapHtml(outcome,index)).join('');
@@ -1061,6 +1134,8 @@
     const actionNode=event.target.closest('[data-action]');
     const action=actionNode?.dataset.action;
     if(action==='review-debrief'){reviewCaseFromDebrief(Number(actionNode.dataset.reviewIndex));return}
+    if(action==='begin-review'){beginReview();return}
+    if(action==='cancel-review'){cancelReview();return}
     if(action==='start'){startShift();return}
     if(action==='how'){showDialog('HOW TO WIN','ปิดคดีด้วยเหตุผล','1) เลือก Evidence 3 ชิ้นที่ช่วยแยกสาเหตุ 2) ตั้ง Hypothesis ที่หลักฐานรองรับ 3) ลงทุน Fix ที่แก้สาเหตุ 4) อ่านผล Test แล้วเลือกก้าวต่อไปให้เหมาะกับผลจริง','เข้าใจแล้ว');return}
     if(action==='mode'||action==='abort'){state.step='mode';render();return}
@@ -1077,6 +1152,7 @@
     updateHud();
     updateRail();
     if(state.step==='mode')renderMode();
+    else if(state.step==='review-brief')stage.innerHTML=reviewBriefHtml();
     else if(state.step==='debrief'){}
     else if(state.step==='report')renderCaseReport();
     else if(state.step==='boss')renderBoss();
