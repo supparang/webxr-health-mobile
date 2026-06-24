@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#08112c" />
-  <title>UX Quest • W1 Crisis Casefile Hunt V5</title>
+  <title>UX Quest • W1 Crisis Casefile Hunt V6</title>
   <style>
     :root{
       --ink:#14213d;
@@ -155,6 +155,23 @@
     .recovery-brief{max-width:930px;margin:20px auto;padding:34px}.recovery-brief h2{margin:0 0 10px;font-size:clamp(27px,4vw,40px);letter-spacing:-.03em}.recovery-brief>p{color:#617092;line-height:1.7}.focus-banner{display:grid;grid-template-columns:auto minmax(0,1fr);gap:13px;align-items:start;margin:20px 0;padding:17px;border:2px solid #7891ff;border-radius:19px;background:linear-gradient(135deg,#edf1ff,#fbfcff);color:#2d437e}.focus-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:16px;background:#dce6ff;color:#3652ca;font-size:24px;font-weight:900}.focus-banner b{display:block;font-size:17px}.focus-banner span{display:block;margin-top:4px;line-height:1.56;color:#526589}.review-trace{display:grid;gap:10px;margin:19px 0;text-align:left}.trace-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px;border:1px solid #dce5f7;border-radius:15px;background:#fbfcff}.trace-step{display:grid;place-items:center;width:40px;height:40px;border-radius:13px;background:#e8eeff;color:#3955c8;font-size:12px;font-weight:900}.trace-row b{display:block;color:#26385f;line-height:1.42}.trace-row small{display:block;margin-top:3px;color:#6b7899;line-height:1.45}.trace-state{padding:5px 8px;border-radius:999px;background:#eef1f8;color:#627099;font-size:11px;font-weight:900;white-space:nowrap}.trace-state.focus{background:#fff0d5;color:#a35f06}.trace-state.locked{background:#edf1ff;color:#4861bf}.review-note{margin:18px 0;padding:14px 15px;border-radius:15px;background:#fff7e9;border:1px solid #f1d7a9;color:#86500a;line-height:1.58;text-align:left}.review-note b{display:block;margin-bottom:3px}.decision .review-chip{display:inline-flex;align-items:center;gap:7px;margin:0 0 12px;padding:7px 10px;border-radius:999px;background:#e9efff;color:#3854c8;font-size:12px;font-weight:900}.decision .review-chip strong{font-size:12px}.case-report.reinvestigated{border:2px solid #8ba1ff}.map-status.recovered{background:#e7efff;color:#3552c8}.badge.review{background:#e8efff;color:#3853c7}
     @media(max-width:620px){.recovery-brief{padding:22px}.focus-banner{grid-template-columns:42px minmax(0,1fr);padding:14px}.focus-icon{width:42px;height:42px;border-radius:13px;font-size:20px}.trace-row{grid-template-columns:38px minmax(0,1fr);gap:9px}.trace-step{width:36px;height:36px;border-radius:11px}.trace-state{grid-column:2;justify-self:start}}
 
+
+    /* V6 — Mastery Gate + Compact Decision Map */
+    .mastery-gate{margin:14px 0;padding:15px;border:1px solid #c9d7ff;border-radius:16px;background:#f4f7ff;color:#30477e;line-height:1.55;text-align:left}
+    .mastery-gate b{display:block;margin-bottom:4px;color:#1f3b93}
+    .compact-review{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0;text-align:left}
+    .review-card{padding:15px;border:1px solid #dbe5f7;border-radius:17px;background:#fbfcff;min-height:142px}
+    .review-card.best{border-color:#bfe9d9;background:#f0fcf7}.review-card.weak{border-color:#f4c4ce;background:#fff5f7}.review-card.skill{border-color:#f0d9ac;background:#fff9ec}
+    .review-card span{display:inline-flex;margin-bottom:8px;padding:5px 8px;border-radius:999px;background:#eaf0ff;color:#3e58c9;font-size:11px;font-weight:900}.review-card.weak span{background:#ffe8ec;color:#b74259}.review-card.skill span{background:#fff0d2;color:#9b5c06}
+    .review-card b{display:block;color:#23345f;font-size:16px;line-height:1.4}.review-card small{display:block;margin-top:6px;color:#627196;line-height:1.48}
+    .full-map{margin:18px 0;text-align:left;border:1px solid #dce6fa;border-radius:17px;background:#fbfcff;overflow:hidden}
+    .full-map summary{cursor:pointer;padding:16px 18px;color:#2e48a8;font-weight:900;list-style:none}.full-map summary::-webkit-details-marker{display:none}
+    .full-map summary::after{content:'⌄';float:right;color:#5c72d1}.full-map[open] summary::after{content:'⌃'}
+    .full-map .decision-map{margin:0;padding:0 14px 14px}
+    .w2-gate-chip{display:inline-flex;margin:10px auto 0;padding:7px 10px;border-radius:999px;background:#e8fbf2;color:#087657;font-size:12px;font-weight:900}
+    .w2-gate-chip.locked{background:#fff0f3;color:#a23d53}
+    @media(max-width:780px){.compact-review{grid-template-columns:1fr}.review-card{min-height:auto}.mastery-gate{font-size:13px}}
+
   </style>
 </head>
 <body>
@@ -162,7 +179,7 @@
     <header class="topbar">
       <a class="brand" href="./index.html" aria-label="กลับหน้า Mission Control">
         <span class="brand-badge">UX</span>
-        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V5</small></span>
+        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V6</small></span>
       </a>
       <div class="statusbar" aria-label="สถานะ Mission">
         <span class="status">Case <b id="hudCase">—</b></span>
@@ -173,11 +190,11 @@
 
     <section class="hero">
       <div>
-        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V5</p>
-        <h1>UX Detective: Casefile Hunt V5</h1>
-        <p>เกมวิเคราะห์เชิงสถานการณ์: ทุกการเลือกจะสร้าง Decision Map ที่เห็นว่า Evidence → Hypothesis → Fix → Test เชื่อมกันหรือขาดตรงไหน และมี Review Ticket เปิด Reinvestigation Mode เพื่อกู้ “จุดอ่อนจริง” ได้ 1 ครั้ง</p>
+        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V6</p>
+        <h1>UX Detective: Casefile Hunt V6</h1>
+        <p>เกมวิเคราะห์เชิงสถานการณ์: V6 เพิ่ม Mastery Gate และ Compact Decision Map — 1★ เป็นรอบฝึก, 2★ ขึ้นไปจึงพร้อมปลดล็อก W2, และรายงานท้ายเกมสรุปเฉพาะสิ่งที่ต้องใช้เรียนต่อ</p>
       </div>
-      <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>3 Case + 1 Boss + 1 Focused Review = 1 Shift ที่กู้เหตุผลได้จริง</span></aside>
+      <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>3 Case + 1 Boss + Compact Review = 1 Shift ที่วัดเหตุผลจริง</span></aside>
     </section>
 
     <nav class="rail" aria-label="ขั้นตอนของ Casefile">
@@ -1004,7 +1021,7 @@
   function bossConfig(){
     const exact=state.outcomes.filter(o=>o.exactChain).length;
     const solid=state.outcomes.filter(o=>o.correctNext).length;
-    const weak=solid<2||exact<1||state.trust<72;
+    const weak=solid<2||exact<2||state.trust<70;
     const correctId=weak?'retest':'staged';
     const condition=weak
       ? 'รายงานคดียังมีช่องว่าง: ผล Test หลายคดีไม่ชี้ว่าผู้ใช้สำเร็จอย่างมั่นใจ'
@@ -1060,15 +1077,40 @@
   }
   function shiftResult(){
     const exact=state.outcomes.filter(o=>o.exactChain).length;
-    if(!state.bossResult?.correct)return {stars:0,title:'Need Reinvestigation',passed:false,reason:'Final Boss Decision ยังไม่สอดคล้องกับความแข็งแรงของหลักฐานและผล User Test ใน Shift นี้'};
     const solid=state.outcomes.filter(o=>o.correctNext).length;
     const trust=state.trust;
     const score=state.score;
-    if(solid===0)return {stars:0,title:'Need Reinvestigation',passed:false,reason:'คุณยังไม่อ่านผล User Test เพื่อเลือกก้าวต่อไปได้ถูกต้องในคดีใดเลย'};
-    if(exact>=2&&solid>=2&&trust>=82&&score>=300)return {stars:3,title:'Casefile Commander',passed:true,reason:'คุณเชื่อม Evidence → Hypothesis → Fix → Test Decision ได้แข็งแรงในสถานการณ์กดดัน'};
-    if(exact>=1&&solid>=2&&trust>=70&&score>=240)return {stars:2,title:'Evidence Builder',passed:true,reason:'คุณเริ่มใช้หลักฐานและผล Test นำการตัดสินใจได้จริง'};
-    if(exact>=1&&solid>=1&&trust>=55)return {stars:1,title:'Casefile Clear',passed:true,reason:'คุณปิดคดีได้อย่างมีเหตุผลอย่างน้อยหนึ่งคดี แต่ยังมีช่องโหว่ให้ทบทวน'};
-    return {stars:0,title:'Need Reinvestigation',passed:false,reason:'มีบางการตัดสินใจที่พอฟังขึ้น แต่ยังไม่เชื่อมหลักฐาน การแก้ และผล Test เป็นเส้นเดียว'};
+    if(!state.bossResult?.correct)return {stars:0,title:'Need Reinvestigation',passed:false,practice:false,reason:'Final Boss Decision ยังไม่สอดคล้องกับความแข็งแรงของหลักฐานและผล User Test ใน Shift นี้'};
+    if(solid===0)return {stars:0,title:'Need Reinvestigation',passed:false,practice:false,reason:'คุณยังไม่อ่านผล User Test เพื่อเลือกก้าวต่อไปได้ถูกต้องในคดีใดเลย'};
+    if(exact>=3&&solid>=3&&trust>=85&&score>=360)return {stars:3,title:'Casefile Commander',passed:true,practice:true,reason:'Mastery: คุณเชื่อม Evidence → Hypothesis → Fix → Test Decision ได้ครบทุกคดี และพร้อมเข้าสู่ W2'};
+    if(exact>=2&&solid>=2&&trust>=70&&score>=280)return {stars:2,title:'W2 Ready Evidence Builder',passed:true,practice:true,reason:'Mastery Gate ผ่าน: มีอย่างน้อย 2 Exact Chains, 2 Test Decisions และ Trust ถึงเกณฑ์สำหรับไป W2'};
+    if(exact>=1&&solid>=1&&trust>=55)return {stars:1,title:'Practice Clear',passed:false,practice:true,reason:'รอบฝึกผ่าน แต่ยังไม่ปลดล็อก W2: ต้องได้อย่างน้อย 2/3 Exact Chains และ 2/3 Test Decisions'};
+    return {stars:0,title:'Need Reinvestigation',passed:false,practice:false,reason:'มีบางการตัดสินใจที่พอฟังขึ้น แต่ยังไม่เชื่อมหลักฐาน การแก้ และผล Test เป็นเส้นเดียว'};
+  }
+  function outcomeQuality(outcome){
+    return (outcome.exactChain?4:(outcome.grade==='partial'?2:0)) + (outcome.correctNext?3:0) + (Number(outcome.strength)>=4?1:0);
+  }
+  function compactReviewHtml(){
+    if(!state.outcomes.length)return '';
+    const indexed=state.outcomes.map((outcome,index)=>({outcome,index,quality:outcomeQuality(outcome)}));
+    const best=[...indexed].sort((a,b)=>b.quality-a.quality)[0];
+    const weak=[...indexed].sort((a,b)=>a.quality-b.quality)[0];
+    const exact=state.outcomes.filter(o=>o.exactChain).length;
+    const solid=state.outcomes.filter(o=>o.correctNext).length;
+    let skill='เชื่อม Evidence → Hypothesis → Fix ให้เป็นเหตุผลเดียว';
+    let skillWhy='คดีที่ไม่เป็น Exact Chain มักเลือกหลักฐานพอใช้ได้ แต่ Fix ยังไม่ตอบสาเหตุที่เลือก';
+    if(solid<2){
+      skill='อ่านผล User Test แล้วตัดสินใจก้าวถัดไป';
+      skillWhy='ผล Test ไม่ได้บอกแค่ว่าสำเร็จหรือไม่ แต่บอกว่าควร Iterate, Retest หรือ Rollout';
+    }else if(exact>=2&&state.trust<70){
+      skill='รักษา Trust ภายใต้แรงกดดัน';
+      skillWhy='เหตุผลดีขึ้นแล้ว แต่การตัดสินใจที่เสี่ยงยังทำให้ผู้ใช้/ทีมไม่มั่นใจพอ';
+    }
+    return `<section class="compact-review" aria-label="Compact decision map summary">
+      <article class="review-card best"><span>ทำได้ดีที่สุด</span><b>${escapeHtml(best.outcome.title)}</b><small>${best.outcome.exactChain?'Evidence → Hypothesis → Fix เชื่อมกันชัด':'มีบางส่วนดี โดยเฉพาะการอ่านผลหรือการเลือกหลักฐาน'}${best.outcome.correctNext?' • Test Decision ถูก':' • ยังควรตรวจ Test Decision'}</small></article>
+      <article class="review-card weak"><span>ควรกลับไปแก้</span><b>${escapeHtml(weak.outcome.title)}</b><small>${weak.outcome.exactChain?'เส้นเหตุผลพอใช้ แต่ก้าวหลัง Test ยังเสี่ยง':'Evidence / Hypothesis / Fix ยังไม่เป็นเส้นเดียว'}${weak.outcome.correctNext?'':' • ควรอ่านผล Test ใหม่'}</small></article>
+      <article class="review-card skill"><span>ทักษะถัดไป</span><b>${escapeHtml(skill)}</b><small>${escapeHtml(skillWhy)}</small></article>
+    </section>`;
   }
   function finishShift(){
     const exact=state.outcomes.filter(o=>o.exactChain).length;
@@ -1082,11 +1124,11 @@
     if(exact>=2)awards.push('<span class="badge mint">Evidence Chain</span>');
     if(solid===CASES_PER_SHIFT)awards.push('<span class="badge">Test-Driven</span>');
     if(state.trust>=80)awards.push('<span class="badge amber">Trust Keeper</span>');
-    if(result.passed&&state.bossResult?.correct&&exact>=1&&solid>=1)awards.push('<span class="badge mint">Stakeholder Strategist</span>');
+    if(result.passed&&state.bossResult?.correct&&exact>=2&&solid>=2)awards.push('<span class="badge mint">Stakeholder Strategist</span>');
     else if(state.bossResult?.correct&&solid>=2)awards.push('<span class="badge review">Test Listener</span>');
-    if(state.debriefReviewUsed&&result.passed)awards.push('<span class="badge review">Review Rescuer</span>');
+    if(state.debriefReviewUsed&&result.practice)awards.push('<span class="badge review">Review Rescuer</span>');
     const boss=bossConfig();
-    const weakestIndex=state.outcomes.findIndex(o=>!o.exactChain||!o.correctNext);
+    const weakestIndex=state.outcomes.map((o,i)=>({i,q:outcomeQuality(o)})).sort((a,b)=>a.q-b.q)[0]?.i ?? -1;
     const maps=state.outcomes.map((outcome,index)=>decisionMapHtml(outcome,index)).join('');
     const ticket=(
       !result.passed &&
@@ -1095,23 +1137,26 @@
     ) ? `
       <section class="review-ticket">
         <h3>🎟️ Final Review Ticket: กู้คดีที่อ่อนที่สุด 1 คดี</h3>
-        <p>แทนที่จะเริ่ม Shift ใหม่ทันที คุณสามารถย้อนกลับไปทบทวน “${escapeHtml(state.outcomes[weakestIndex].title)}” และแก้ Evidence → Hypothesis → Fix ได้ 1 ครั้ง จากนั้นต้องตัดสินใจ Final Boss ใหม่</p>
+        <p>แทนที่จะเริ่ม Shift ใหม่ทันที คุณสามารถย้อนกลับไปทบทวน “${escapeHtml(state.outcomes[weakestIndex].title)}” และแก้จุด Focus ที่ระบบชี้ จากนั้นต้องตัดสินใจ Final Boss ใหม่</p>
         <span class="ticket-meta">ค่าใช้จ่าย: −1 นาที • −5% Trust • ใช้ได้ 1 ครั้งต่อ Shift</span>
         <button class="primary" type="button" data-action="review-debrief" data-review-index="${weakestIndex}">ใช้ Review Ticket →</button>
       </section>
     ` : '';
-
+    const gateLabel=result.passed?'W2 Mastery Gate cleared':result.stars===1?'Practice clear — W2 still locked':'Shift not cleared';
+    const gateChip=result.passed?'<span class="w2-gate-chip">W2 READY</span>':'<span class="w2-gate-chip locked">W2 LOCKED UNTIL 2★ MASTERY</span>';
     stage.innerHTML=`
       <section class="card debrief">
-        <p class="eyebrow">SHIFT COMPLETE // DECISION MAP REPORT</p>
+        <p class="eyebrow">SHIFT COMPLETE // V6 MASTERY GATE REPORT</p>
         <h2>${escapeHtml(result.title)}</h2>
         <div class="stars">${[1,2,3].map(n=>`<span class="${n<=result.stars?'on':''}">★</span>`).join('')}</div>
-        <p>ผลรอบนี้จะชี้เฉพาะจุดว่า “หลักฐานที่เลือก” หนุนสาเหตุใด การแก้ตอบสาเหตุนั้นหรือไม่ และหลังเห็น User Test ทีมตัดสินใจต่ออย่างมีเหตุผลหรือเปล่า</p>
+        ${gateChip}
+        <p>รายงานนี้ย่อให้เห็นก่อนว่าเด็กทำได้ดีตรงไหน ควรแก้คดีใด และทักษะใดต้องฝึกต่อ ส่วน Decision Map เต็มสามารถกดขยายดูรายละเอียดรายคดีได้</p>
         <div class="score-grid"><div><span>Total score</span><b>${state.score}</b></div><div><span>Final trust</span><b>${pct(state.trust)}</b></div><div><span>Exact chains</span><b>${exact}/${CASES_PER_SHIFT}</b></div><div><span>Test decisions</span><b>${solid}/${CASES_PER_SHIFT}</b></div></div>
-        <div class="clearance-banner ${result.passed?'pass':'fail'}"><b>${result.passed?'Shift cleared':'Shift not cleared'}</b>${escapeHtml(result.reason)}${solid===0?' • เงื่อนไขสำคัญ: Test decisions = 0 จึงไม่สามารถผ่าน Shift ได้':''}</div>
+        <div class="mastery-gate"><b>Mastery Gate สำหรับ W2</b>1★ = รอบฝึกผ่าน แต่ยังไม่ปลดล็อก W2 • 2★ = ต้องมีอย่างน้อย 2/3 Exact Chains + 2/3 Test Decisions + Trust ≥ 70 • 3★ = 3/3 Chain + 3/3 Test + Trust ≥ 85</div>
+        <div class="clearance-banner ${result.passed?'pass':'fail'}"><b>${gateLabel}</b>${escapeHtml(result.reason)}${solid===0?' • เงื่อนไขสำคัญ: Test decisions = 0 จึงไม่สามารถผ่าน Shift ได้':''}</div>
         <div class="boss-reason"><b>Final Boss trace</b>คุณเลือก “${escapeHtml(state.bossResult?.title||'—')}” แต่จาก Shift นี้ (${boss.exact}/3 Exact Chains, ${boss.solid}/3 Test Decisions, Trust ${pct(state.trust)}) ทางที่สอดคล้องกับหลักฐานคือ “${escapeHtml(boss.options.find(o=>o.id===boss.correctId)?.title||'—')}”</div>
-        <h3 class="question-title">Decision Maps — ดูเส้นเหตุผลรายคดี</h3>
-        ${maps}
+        ${compactReviewHtml()}
+        <details class="full-map"><summary>ดู Decision Map เต็มรายคดี</summary>${maps}</details>
         ${ticket}
         <div class="badge-row">${awards.join('')||'<span class="badge">Keep Investigating</span>'}</div>
         <div class="action-stack"><button class="action-row primary" type="button" data-action="start"><span class="action-icon">↻</span><span><strong>เริ่ม Crisis Shift ใหม่</strong><small>สุ่มคดีที่ยังไม่เจอ และเปลี่ยนเส้นทางการตัดสินใจ</small></span><span>เริ่ม →</span></button><button class="action-row" type="button" data-action="mode"><span class="action-icon">⌂</span><span><strong>กลับหน้าเลือก Shift</strong><small>ดูสถิติ และเริ่มรอบใหม่เมื่อพร้อม</small></span><span>กลับ →</span></button></div>
