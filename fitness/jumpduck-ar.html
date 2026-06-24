@@ -1817,7 +1817,81 @@ const passportResult = jdSavePassport({
 console.log('[JumpDuck Passport Saved]', passportResult);
 
 gameoverScreen.classList.remove('hidden');
+
 autoSubmitToSheet(currentSummaryPayload);
+
+/*
+  หลังจบเกมหลัก:
+  ให้ค้างหน้า Result สั้น ๆ เพื่อเห็นคะแนน
+  แล้วเข้า Cooldown Gate อัตโนมัติ
+*/
+window.setTimeout(() => {
+  const params = new URLSearchParams(location.search);
+
+  const cooldownUrl = new URL(
+    '/webxr-health-mobile/herohealth/warmup-gate.html',
+    location.origin
+  );
+
+  cooldownUrl.searchParams.set('phase', 'cooldown');
+  cooldownUrl.searchParams.set('game', 'jump-duck');
+  cooldownUrl.searchParams.set('gameId', 'jump-duck');
+
+  cooldownUrl.searchParams.set(
+    'pid',
+    currentSummaryPayload.playerId ||
+    currentSummaryPayload.studentId ||
+    params.get('pid') ||
+    'anon'
+  );
+
+  cooldownUrl.searchParams.set(
+    'name',
+    currentSummaryPayload.studentName ||
+    params.get('name') ||
+    'Hero'
+  );
+
+  cooldownUrl.searchParams.set(
+    'diff',
+    currentSummaryPayload.diff ||
+    params.get('diff') ||
+    'normal'
+  );
+
+  cooldownUrl.searchParams.set(
+    'time',
+    currentSummaryPayload.time ||
+    params.get('time') ||
+    '45'
+  );
+
+  cooldownUrl.searchParams.set(
+    'view',
+    params.get('view') ||
+    'mobile'
+  );
+
+  cooldownUrl.searchParams.set('zone', 'fitness');
+  cooldownUrl.searchParams.set('cat', 'fitness');
+
+  cooldownUrl.searchParams.set(
+    'next',
+    '/webxr-health-mobile/fitness/fitness-passport-v3.html'
+  );
+
+  cooldownUrl.searchParams.set(
+    'hub',
+    '/webxr-health-mobile/fitness/hub.html'
+  );
+
+  cooldownUrl.searchParams.set(
+    'cdnext',
+    '/webxr-health-mobile/fitness/fitness-passport-v3.html'
+  );
+
+  location.href = cooldownUrl.toString();
+}, 1800);
     }
 
     function exportCSV(){
