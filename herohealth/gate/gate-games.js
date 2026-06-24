@@ -5,7 +5,7 @@
 export const PATCH = 'v20260622-GATE-GAMES-FRR-V19-LOADER';
 
 const FITNESS_MODULE =
-  './games/fitness/fitness-readiness-recovery.js?v=20260622-frr-v22-shoulder-hard-timer';
+  './games/fitness/fitness-readiness-recovery.js?v=20260624-frr-v23-duck-head-shoulder';
 
 const FITNESS_STYLE =
   './games/fitness/fitness-readiness-recovery.css?v=20260622-frr-v19-direct-exit';
