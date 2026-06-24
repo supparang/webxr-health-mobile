@@ -184,7 +184,7 @@
     <header class="topbar">
       <a class="brand" href="./index.html" aria-label="กลับหน้า Mission Control">
         <span class="brand-badge">UX</span>
-        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V8</small></span>
+        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V9</small></span>
       </a>
       <div class="statusbar" aria-label="สถานะ Mission">
         <span class="status">Case <b id="hudCase">—</b></span>
@@ -195,9 +195,9 @@
 
     <section class="hero">
       <div>
-        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V8</p>
-        <h1>UX Detective: Casefile Hunt V8</h1>
-        <p>เกมวิเคราะห์เชิงสถานการณ์: V8 ใช้ Blind Review Ticket — ชี้ “หลักคิดที่ต้องกลับไปตรวจ” โดยไม่บอกชื่อคำตอบหรือทางเลือกที่ถูก เพื่อให้การกู้คดียังต้องอาศัยเหตุผลจริง</p>
+        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V9</p>
+        <h1>UX Detective: Casefile Hunt V9</h1>
+        <p>เกมวิเคราะห์เชิงสถานการณ์: V9 เพิ่ม Blind Boss Trace — ทั้ง Review Ticket และ Final Boss จะบอกเฉพาะหลักคิด ไม่เฉลยทางเลือกที่ถูกระหว่างเล่น</p>
       </div>
       <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>3 Case + 1 Boss + Blind Review = 1 Shift ที่วัดเหตุผลจริง</span></aside>
     </section>
@@ -633,7 +633,7 @@
   }
   function reviewFocusFor(outcome,c){
     /*
-      V8 Blind Review Ticket:
+      V9 Blind Review Ticket:
       the player receives a diagnostic rule, never a hypothesis / fix / next-step title.
       This keeps review educational without converting the ticket into an answer key.
     */
@@ -1112,15 +1112,13 @@
     const solid=state.outcomes.filter(o=>o.correctNext).length;
     const weak=solid<2||exact<2||state.trust<70;
     const correctId=weak?'retest':'staged';
-    const condition=weak
-      ? 'รายงานคดียังมีช่องว่าง: ผล Test หลายคดีไม่ชี้ว่าผู้ใช้สำเร็จอย่างมั่นใจ'
-      : 'รายงานคดีมีหลักฐานแข็งแรงพอในหลายคดี แต่ยังต้องปล่อยแบบควบคุมความเสี่ยง';
+    const condition='รายงานจาก 3 คดีมีทั้งสัญญาณความก้าวหน้าและความเสี่ยง ทีมต้องชั่งน้ำหนัก Evidence, ผล User Test และ Trust ก่อนเลือกขอบเขตการดำเนินงาน';
     return {
       exact,solid,weak,correctId,condition,
       options:[
-        {id:'staged',title:'Limited rollout + monitoring',text:'ปล่อยเฉพาะ Fix ที่มีหลักฐานแข็งแรงให้กลุ่มผู้ใช้เสี่ยงสูง ตั้งตัวชี้วัดก่อน–หลัง และกันทีมไว้แก้สัญญาณผิดปกติ',risk:'เหมาะเมื่อหลักฐานและผล Test แข็งแรงพอ'},
-        {id:'retest',title:'Targeted follow-up test',text:'ชะลอการขยายผลไว้ก่อน แล้วทดสอบเพิ่มกับผู้ใช้กลุ่มที่ยังล้มเหลวเพื่อปิดช่องว่างของ Evidence',risk:'เหมาะเมื่อ Test ยังไม่ยืนยันว่าผู้ใช้สำเร็จจริง'},
-        {id:'bundle',title:'Full feature bundle',text:'รวมทุกแนวคิดที่ทีมเสนอเป็น release เดียว แล้วดู engagement โดยรวมหลังเปิดใช้',risk:'เร็วต่อการสื่อสาร แต่ทำให้แยกไม่ได้ว่าอะไรช่วยหรือทำร้าย User Goal'}
+        {id:'staged',title:'Limited rollout + monitoring',text:'ปล่อยการเปลี่ยนแปลงในขอบเขตจำกัด พร้อมตัวชี้วัดก่อน–หลังและแผนรับมือสัญญาณผิดปกติ',risk:'ขยายแบบควบคุมและติดตามผลรายกลุ่ม'},
+        {id:'retest',title:'Targeted follow-up test',text:'ชะลอการขยาย แล้วเก็บข้อมูลเพิ่มเฉพาะกลุ่มหรือจุดที่ยังตอบคำถามสำคัญไม่ได้',risk:'เพิ่มหลักฐานเฉพาะจุดก่อนตัดสินใจขยาย'},
+        {id:'bundle',title:'Full feature bundle',text:'รวมการเปลี่ยนแปลงหลายแนวคิดไว้ใน release เดียว แล้วดู engagement โดยรวมหลังเปิดใช้',risk:'เปลี่ยนหลายสิ่งพร้อมกันและตีความสาเหตุยาก'}
       ]
     };
   }
@@ -1142,7 +1140,7 @@
         <div class="option-list">
           ${shuffleStable(boss.options,`boss-${state.score}-${state.bossAttempts}`).map(option=>`<button type="button" class="option boss-option ${selected===option.id?'selected':''}" data-boss="${option.id}"><span class="radio">${selected===option.id?'●':''}</span><span><strong>${escapeHtml(option.title)}</strong><small>${escapeHtml(option.text)}</small><span class="risk-chip">${escapeHtml(option.risk)}</span></span></button>`).join('')}
         </div>
-        <div class="boss-footer"><span>${state.bossAttempts===0?'คุณมี Strategic Timeout 1 ครั้ง หากผู้บริหารโต้แย้ง':'Strategic Timeout ถูกใช้แล้ว — เลือกโดยยึด Decision Report'}</span><b>Final call ต้องสอดคล้องกับผล Test</b></div>
+        <div class="boss-footer"><span>${state.bossAttempts===0?'คุณมี Strategic Timeout 1 ครั้ง หากผู้บริหารโต้แย้ง':'Strategic Timeout ถูกใช้แล้ว — ใช้ Decision Report ตัดสินใจครั้งสุดท้าย'}</span><b>ระบบวัดความสอดคล้องของ Evidence + Test + Trust ไม่วัดคำที่ฟังดูดี</b></div>
         <button class="primary" type="button" data-action="submit-boss" ${selected?'':'disabled'}>ส่ง Final Decision →</button>
       </section>`;
   }
@@ -1156,7 +1154,7 @@
       state.trust=Math.max(0,state.trust-8);
       state.bossChoice=null;
       renderBoss();
-      showDialog('STAKEHOLDER PUSHBACK','เหตุผลยังไม่ตอบผล Test',`“${chosen?.title||'ข้อเสนอ'}” มีข้อดี แต่จาก Decision Report รอบนี้ ${boss.weak?'เรายังไม่มีหลักฐานพอให้ขยายผล':'ควรปล่อยแบบจำกัดและวัดผล ไม่ใช่ขยายทุกอย่างพร้อมกัน'} คุณใช้ Strategic Timeout ได้ 1 ครั้งเพื่อทบทวน`, 'กลับไปตัดสินใจใหม่',()=>{state.step='boss';render()});
+      showDialog('STAKEHOLDER PUSHBACK','เหตุผลยังไม่ผ่านการตรวจหลักฐาน',`“${chosen?.title||'ข้อเสนอ'}” มีข้อดี แต่ระบบไม่เปิดเฉลยระหว่าง Final Boss ให้กลับไปอ่าน Exact chains, Test decisions และ Trust พร้อมกัน แล้วตรวจว่าการเรียงลำดับความเสี่ยงของคุณสอดคล้องกับข้อมูลทั้ง Shift หรือไม่`, 'กลับไปตัดสินใจใหม่',()=>{state.step='boss';render()});
       return;
     }
     state.bossResult={correct,choice:state.bossChoice,title:chosen?.title||'',note:correct?'Final call aligns with the evidence strength of this Shift':'Final call did not match the evidence strength of this Shift'};
@@ -1201,6 +1199,15 @@
       <article class="review-card skill"><span>ทักษะถัดไป</span><b>${escapeHtml(skill)}</b><small>${escapeHtml(skillWhy)}</small></article>
     </section>`;
   }
+  function bossTraceHtml(boss,result){
+    const selectedTitle=state.bossResult?.title||'—';
+    const metrics=`${boss.exact}/3 Exact Chains, ${boss.solid}/3 Test Decisions, Trust ${pct(state.trust)}`;
+    if(result.passed){
+      return `<div class="boss-reason"><b>Final Boss trace • Decision aligned</b>คุณเลือก “${escapeHtml(selectedTitle)}” และการตัดสินใจนี้สอดคล้องกับ Decision Map ของ Shift นี้ (${escapeHtml(metrics)})</div>`;
+    }
+    return `<div class="boss-reason"><b>Final Boss trace • Blind Review</b>คุณเลือก “${escapeHtml(selectedTitle)}” จาก Shift นี้ (${escapeHtml(metrics)}) ระบบจะไม่เฉลย Final Boss ระหว่างการเรียน ให้ใช้ Decision Map และ Review Ticket ตรวจว่าหลักฐาน ผล Test และระดับ Trust สนับสนุน “ขอบเขตการดำเนินงาน” ที่คุณเลือกครบหรือไม่</div>`;
+  }
+
   function finishShift(){
     const exact=state.outcomes.filter(o=>o.exactChain).length;
     const solid=state.outcomes.filter(o=>o.correctNext).length;
@@ -1236,7 +1243,7 @@
     const gateChip=result.passed?'<span class="w2-gate-chip">W2 READY</span>':'<span class="w2-gate-chip locked">W2 LOCKED — NEED 2★ READINESS</span>';
     stage.innerHTML=`
       <section class="card debrief">
-        <p class="eyebrow">SHIFT COMPLETE // V8 BLIND REVIEW REPORT</p>
+        <p class="eyebrow">SHIFT COMPLETE // V9 BLIND REVIEW + BOSS TRACE REPORT</p>
         <h2>${escapeHtml(result.title)}</h2>
         <div class="stars">${[1,2,3].map(n=>`<span class="${n<=result.stars?'on':''}">★</span>`).join('')}</div>
         ${gateChip}
@@ -1244,7 +1251,7 @@
         <div class="score-grid"><div><span>Total score</span><b>${state.score}</b></div><div><span>Final trust</span><b>${pct(state.trust)}</b></div><div><span>Exact chains</span><b>${exact}/${CASES_PER_SHIFT}</b></div><div><span>Test decisions</span><b>${solid}/${CASES_PER_SHIFT}</b></div></div>
         <div class="readiness-gate"><b>Readiness Gate สำหรับ W2</b>1★ = รอบฝึกผ่าน แต่ยังไม่ปลดล็อก W2 • 2★ = ระดับพร้อมต่อยอด: ต้องมีอย่างน้อย 2/3 Exact Chains + 2/3 Test Decisions + Trust ≥ 70 • 3★ = Mastery: 3/3 Chain + 3/3 Test + Trust ≥ 85</div>
         <div class="clearance-banner ${result.passed?'pass':'fail'}"><b>${gateLabel}</b>${escapeHtml(result.reason)}${solid===0?' • เงื่อนไขสำคัญ: Test decisions = 0 จึงไม่สามารถผ่าน Shift ได้':''}</div>
-        <div class="boss-reason"><b>Final Boss trace</b>คุณเลือก “${escapeHtml(state.bossResult?.title||'—')}” แต่จาก Shift นี้ (${boss.exact}/3 Exact Chains, ${boss.solid}/3 Test Decisions, Trust ${pct(state.trust)}) ทางที่สอดคล้องกับหลักฐานคือ “${escapeHtml(boss.options.find(o=>o.id===boss.correctId)?.title||'—')}”</div>
+        ${bossTraceHtml(boss,result)}
         ${compactReviewHtml()}
         <details class="full-map"><summary>ดู Decision Map เต็มรายคดี</summary>${maps}</details>
         ${ticket}
