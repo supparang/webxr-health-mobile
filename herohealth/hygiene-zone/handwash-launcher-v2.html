@@ -1600,17 +1600,19 @@
         attempts: "herohealth:hygiene:handwash:attempts"
       };
 
+      cconst DEFAULT_WEB_APP_ENDPOINT =
+        "https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec";
+
       const SHEET_ENDPOINT =
         qs.get("sheet") ||
         window.HH_HANDWASH_SHEET_ENDPOINT ||
-        "";
+        DEFAULT_WEB_APP_ENDPOINT;
 
       const RESEARCH_ENDPOINT =
         qs.get("researchSheet") ||
         window.HH_HANDWASH_RESEARCH_ENDPOINT ||
         SHEET_ENDPOINT ||
-        "";
-
+        DEFAULT_WEB_APP_ENDPOINT;
 
       const DELIVERY_VERSION =
         "20260623-HANDWASH-DELIVERY-ASSURANCE-V3-LEAN-SEQUENTIAL";
