@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- CANONICAL FILE: /fitness/jump-duck.html | Student Context + Auto Sheet | v20260620-jd-student-context-v18 -->
+<!-- CANONICAL FILE: /fitness/jumpduck-ar.html | Passport + Student Context + Auto Sheet | v20260624-jd-passport-v1 -->
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
@@ -396,6 +396,7 @@
   </section>
 
   <script src="./fitness-student-context-bridge.js?v=20260620-v2"></script>
+  <script src="./fitness-passport-bridge.js?v=20260624-v1"></script>
 
   <script>
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -599,7 +600,135 @@
       copy.identitySource = copy.studentId ? 'studentId' : (copy.playerId ? 'playerId' : 'nameOnly');
       return copy;
     }
+    function jdSavePassport(summary = {}){
+  try{
+    const ctx = jdBridgeContext();
 
+    const playerId = String(
+  summary.playerId ||
+  summary.pid ||
+  summary.studentId ||
+  ctx.playerId ||
+  ctx.studentId ||
+  meta.playerId ||
+  meta.studentId ||
+  meta.studentName ||
+  'Hero'
+).trim() || 'Hero';
+
+    const playerName = String(
+      summary.playerName ||
+      summary.studentName ||
+      ctx.studentName ||
+      meta.studentName ||
+      playerId ||
+      'Hero'
+    ).trim() || 'Hero';
+
+    const accuracy = Number(
+      summary.accuracy ??
+      summary.accuracyPct ??
+      0
+    ) || 0;
+
+    const compact = {
+      version: 'jumpduck-passport-v1',
+      savedAt: new Date().toISOString(),
+
+      gameId: 'jumpduck',
+      game: 'jumpduck',
+
+      playerId,
+      pid: playerId,
+      studentId: String(
+  summary.studentId ||
+  meta.studentId ||
+  playerId ||
+  ''
+),
+      playerName,
+      studentName: playerName,
+
+      classId: String(summary.classId || meta.classId || ''),
+      classGroup: String(summary.classGroup || summary.group || meta.classId || ''),
+      section: String(summary.section || meta.section || ''),
+
+      diff: String(summary.difficulty || summary.diff || selectedDiff || 'easy'),
+      duration: Number(summary.duration || selectedTime || 0),
+
+      score: Number(summary.score || 0),
+      scoreFinal: Number(summary.score || 0),
+
+      accuracy,
+      accuracyPct: accuracy,
+
+      comboMax: Number(summary.bestCombo || summary.comboMax || 0),
+      maxCombo: Number(summary.bestCombo || summary.comboMax || 0),
+
+      hits: Number(summary.dodges || summary.hits || 0),
+      miss: Number(summary.misses || summary.miss || 0),
+      misses: Number(summary.misses || summary.miss || 0),
+
+      grade: String(summary.rank || ''),
+      rank: String(summary.rank || ''),
+
+      badge: String(
+        summary.badges ||
+        (accuracy >= 85 ? '🎯 Accuracy Hero' :
+          Number(summary.bestCombo || 0) >= 15 ? '🔥 Combo Master' :
+          '💪 Training Starter')
+      ),
+
+      metrics: {
+        dodges: Number(summary.dodges || 0),
+        bestCombo: Number(summary.bestCombo || 0),
+        avgReaction: Number(summary.avgReaction || 0),
+        verticalMoves: Number(summary.verticalMoves || 0),
+        sideMoves: Number(summary.sideMoves || 0),
+        fatigueDelta: Number(summary.fatigueDelta || 0),
+        poseQualityAvg: Number(summary.poseQualityAvg || 0),
+        calibrationQuality: Number(summary.calibrationQuality || 0),
+        movementBalance: String(summary.movementBalance || '')
+      }
+    };
+
+    if(
+      window.FitnessPassportBridge &&
+      typeof window.FitnessPassportBridge.save === 'function'
+    ){
+      window.FitnessPassportBridge.save(compact);
+    }
+
+    const json = JSON.stringify(compact);
+
+    try{
+      localStorage.setItem(
+        `HHA_LAST_SUMMARY:jumpduck:${playerId}`,
+        json
+      );
+      localStorage.setItem('HHA_LAST_SUMMARY', json);
+    }catch(_){
+      try{
+        sessionStorage.setItem(
+          `HHA_LAST_SUMMARY:jumpduck:${playerId}`,
+          json
+        );
+        sessionStorage.setItem('HHA_LAST_SUMMARY', json);
+      }catch(__){}
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('fitness-passport-saved', {
+        detail: compact
+      })
+    );
+
+    return compact;
+  }catch(err){
+    console.warn('[JumpDuck Passport]', err);
+    return null;
+  }
+}
     function jdSaveStudentContext(){
       try{
         if(window.FitnessStudentContext && typeof window.FitnessStudentContext.save === 'function'){
@@ -671,7 +800,13 @@
       meta.classId = (inputClass?.value || meta.classId || context.classId || '').trim();
       meta.studentId = (inputStudent?.value || meta.studentId || context.studentId || '').trim();
       meta.studentName = (inputName?.value || meta.studentName || context.studentName || '').trim();
-      meta.playerId = (meta.playerId || context.playerId || meta.studentId || '').trim();
+      meta.playerId = (
+  meta.playerId ||
+  context.playerId ||
+  meta.studentId ||
+  meta.studentName ||
+  'Hero'
+).trim();
       meta.section = (meta.section || context.section || '').trim();
       meta.teacherId = (inputTeacher?.value || meta.teacherId || '').trim();
 
@@ -844,7 +979,7 @@
         u.searchParams.set('fromGame', 'jumpduck');
         u.searchParams.set('game', 'jumpduck');
         u.searchParams.set('return', '1');
-        u.searchParams.set('v', 'v18-student-context-auto-sheet');
+        u.searchParams.set('v', 'v20260624-jd-passport-v1');
 
         const carry = {
           session: meta.sessionId,
@@ -1626,10 +1761,52 @@
       }
 
       const badgeText = Array.from(badgeBox?.querySelectorAll('.badge-chip') || []).map(el=>el.textContent.trim()).join('|');
-      currentSummaryPayload = buildSheetPayload(metrics, badgeText, rankTitle.textContent);
+      currentSummaryPayload = buildSheetPayload(
+  metrics,
+  badgeText,
+  rankTitle.textContent
+);
 
-      gameoverScreen.classList.remove('hidden');
-      autoSubmitToSheet(currentSummaryPayload);
+const passportResult = jdSavePassport({
+  ...currentSummaryPayload,
+
+  gameId: 'jumpduck',
+  game: 'jumpduck',
+
+  playerId:
+    currentSummaryPayload.playerId ||
+    currentSummaryPayload.studentId ||
+    meta.playerId ||
+    meta.studentId ||
+    'anon',
+
+  playerName:
+    currentSummaryPayload.studentName ||
+    meta.studentName ||
+    'Hero',
+
+  score,
+  accuracy,
+  bestCombo,
+  dodges: totalDodges,
+  misses: totalMisses,
+
+  avgReaction: metrics.avgReaction,
+  verticalMoves: metrics.verticalMoves,
+  sideMoves: metrics.sideMoves,
+  movementBalance: metrics.movementBalance,
+  fatigueDelta: metrics.fatigueDelta,
+  poseQualityAvg: metrics.poseQualityAvg,
+  calibrationQuality,
+
+  rank: rankTitle.textContent,
+  badges: badgeText
+});
+
+console.log('[JumpDuck Passport Saved]', passportResult);
+
+gameoverScreen.classList.remove('hidden');
+autoSubmitToSheet(currentSummaryPayload);
     }
 
     function exportCSV(){
