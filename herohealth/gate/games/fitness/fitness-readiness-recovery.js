@@ -4,7 +4,7 @@
 // The preview canvas draws camera frames directly, avoiding black <video> rendering
 // in some Chrome/WebXR environments.
 
-const PATCH = 'v20260622-FITNESS-READINESS-RECOVERY-COOLDOWN-ZERO-STUCK-V21';
+const PATCH = 'v20260624-FITNESS-READINESS-RECOVERY-DUCK-HEAD-SHOULDER-V23';
 
 const MP = {
   module: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs',
@@ -371,12 +371,112 @@ export async function mount(stage, ctx, api){
       detail=reps
         ? `${reps}/${t.target} จังหวะมือ`
         : 'ยกหรือเลื่อนมือซ้าย/ขวาช้า ๆ หนึ่งครั้ง';
-    } else if(t.type==='march'||t.type==='duck'||t.type==='shift'){
-      const center=hm?hm.x:.5;if(baseline==null)baseline=center;baseline=baseline*.99+center*.01;
-      let side='';if(t.type==='march'&&la&&ra){side=Math.abs(la.y-ra.y)>.035?(la.y>ra.y?'L':'R'):'';} else if(t.type==='duck'&&sm&&hm){side=(sm.y-hm.y)>.17?'D':'';} else side=Math.abs(center-baseline)>sw*.3?(center>baseline?'R':'L'):'';
-      if(ready&&side&&(side!==lastSide||t.type==='duck')&&time>cooldown){reps++;lastSide=side;cooldown=time+320;}
-      prog=reps;detail=`${reps}/${t.target} ${t.type==='duck'?'ย่อเข่า':'สลับ'}`;
-    } else if(t.type==='shoulder'){
+    } else if(t.type==='march' || t.type==='duck' || t.type==='shift'){
+  if(t.type === 'duck'){
+    const nose = p(lm, IDX.NOSE);
+    const shoulderPoint = sm;
+
+    const duckPoint =
+      nose && shoulderPoint
+        ? {
+            x: (nose.x + shoulderPoint.x) / 2,
+            y: (nose.y + shoulderPoint.y) / 2
+          }
+        : (shoulderPoint || nose || hm);
+
+    const duckReady = !!(
+      duckPoint &&
+      (
+        (nose && vis(nose) > .26) ||
+        (ls && rs && vis(ls) > .26 && vis(rs) > .26)
+      )
+    );
+
+    if(!duckReady){
+      prog = reps;
+      detail = `จัดศีรษะหรือไหล่ให้อยู่ในกรอบ • ${reps}/${t.target} ครั้ง`;
+    }else{
+      if(
+        baseline == null ||
+        typeof baseline !== 'object' ||
+        !Number.isFinite(baseline.y)
+      ){
+        baseline = {
+          x: duckPoint.x,
+          y: duckPoint.y
+        };
+      }
+
+      const drop = duckPoint.y - baseline.y;
+
+      if(drop < .010 && lastSide !== 'D'){
+        baseline.y = baseline.y * .94 + duckPoint.y * .06;
+      }
+
+      const duckDetected = drop >= .018;
+
+      if(duckDetected && lastSide !== 'D' && time > cooldown){
+        reps++;
+        lastSide = 'D';
+        cooldown = time + 700;
+      }
+
+      if(lastSide === 'D' && drop < .008){
+        lastSide = '';
+      }
+
+      prog = reps;
+
+      if(duckDetected){
+        detail = `Duck detected ✓ ${reps}/${t.target} ครั้ง`;
+      }else if(lastSide === 'D'){
+        detail = `เงยหรือยืนกลับตรงก่อน • ${reps}/${t.target}`;
+      }else{
+        detail = `ก้มศีรษะหรือย่อเข่าลงเล็กน้อย • ${reps}/${t.target}`;
+      }
+    }
+  } else {
+    const center = hm ? hm.x : .5;
+
+    if(
+      baseline == null ||
+      typeof baseline === 'object' ||
+      !Number.isFinite(baseline)
+    ){
+      baseline = center;
+    }
+
+    baseline = baseline * .99 + center * .01;
+
+    let side = '';
+
+    if(t.type === 'march' && la && ra){
+      side = Math.abs(la.y - ra.y) > .035
+        ? (la.y > ra.y ? 'L' : 'R')
+        : '';
+    }else if(t.type === 'shift'){
+      side = Math.abs(center - baseline) > sw * .3
+        ? (center > baseline ? 'R' : 'L')
+        : '';
+    }
+
+    if(ready && side && side !== lastSide && time > cooldown){
+      reps++;
+      lastSide = side;
+      cooldown = time + 320;
+    }
+
+    if(!side && lastSide && time > cooldown){
+      lastSide = '';
+    }
+
+    prog = reps;
+    detail =
+      t.type === 'march'
+        ? `${reps}/${t.target} ยกเข่าหรือย่ำเท้าสลับ`
+        : `${reps}/${t.target} ถ่ายน้ำหนักซ้าย–ขวา`;
+  }
+} else if(t.type==='shoulder'){
       // V22 ABSOLUTE ZERO-STUCK: Shoulder Reset is a guided recovery pause,
       // not a pose-assessment. It must complete even when hips are cropped,
       // a learner sits close to the camera, or landmark confidence fluctuates.
