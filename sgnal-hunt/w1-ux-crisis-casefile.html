@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#08112c" />
-  <title>UX Quest • W1 Crisis Casefile Hunt V6</title>
+  <title>UX Quest • W1 Crisis Casefile Hunt V7</title>
   <style>
     :root{
       --ink:#14213d;
@@ -144,7 +144,12 @@
     .review-ticket{margin:18px 0;padding:17px;border:2px solid #7f95ff;border-radius:18px;background:linear-gradient(135deg,#edf1ff,#fbfcff);text-align:left}.review-ticket h3{margin:0;color:#263e91;font-size:19px}.review-ticket p{margin:7px 0 0;color:#526589;line-height:1.6}.review-ticket .ticket-meta{display:inline-flex;margin-top:10px;padding:5px 8px;border-radius:999px;background:#dce6ff;color:#3854c7;font-size:11px;font-weight:900}
     .review-ticket .primary{margin-top:13px}
     .boss-trace{margin:14px 0;padding:14px;border:1px solid #f0d3a0;border-radius:15px;background:#fff8e9;color:#794b09;line-height:1.58;text-align:left}.boss-trace b{display:block;margin-bottom:4px}
-    @media(max-width:720px){.map-row{grid-template-columns:31px minmax(0,1fr);gap:8px}.map-title{grid-column:2}.map-decision{grid-column:2}.map-status{grid-column:2;justify-self:start}.map-index{width:28px;height:28px}.review-ticket{padding:14px}.boss-reason{font-size:13px}}
+    /* V7 — W2 readiness wording + focused review trace */
+    .readiness-gate{margin:14px 0;padding:15px;border:1px solid #c9d7ff;border-radius:16px;background:#f4f7ff;color:#30477e;line-height:1.55;text-align:left}.readiness-gate b{display:block;margin-bottom:4px;color:#1f3b93}
+    .ticket-focus{display:grid;grid-template-columns:auto minmax(0,1fr);gap:11px;align-items:start;margin:14px 0 0;padding:13px;border:1px solid #aebdff;border-radius:15px;background:#fff;color:#324981;text-align:left}.ticket-focus .ticket-focus-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;background:#dce6ff;color:#3652ca;font-weight:900;font-size:18px}.ticket-focus b{display:block;color:#25408f}.ticket-focus small{display:block;margin-top:3px;color:#5c6f98;line-height:1.5}.ticket-focus strong{color:#25408f}
+    .review-steps{display:grid;gap:7px;margin:15px 0 0;text-align:left}.review-step{display:grid;grid-template-columns:25px minmax(0,1fr) auto;gap:9px;align-items:center;padding:10px 11px;border:1px solid #dbe4f7;border-radius:13px;background:#fff}.review-step .review-step-num{display:grid;place-items:center;width:24px;height:24px;border-radius:8px;background:#e8eeff;color:#3955c8;font-size:11px;font-weight:900}.review-step b{display:block;color:#29406e;font-size:13px}.review-step small{display:block;margin-top:2px;color:#6b7899;line-height:1.38}.review-step .review-step-state{padding:4px 7px;border-radius:999px;background:#edf1ff;color:#4760ba;font-size:10px;font-weight:900;white-space:nowrap}.review-step.focus .review-step-state{background:#fff0d5;color:#a35f06}.review-step.locked{background:#fbfcff}.review-step.recompute{background:#f6fbff}.review-step.recompute .review-step-state{background:#e9faf3;color:#087c5b}
+    .review-rule-list{margin:15px 0 0;padding:0;list-style:none;display:grid;gap:7px;text-align:left}.review-rule-list li{padding:9px 11px;border-radius:12px;background:#fff7e9;color:#85500a;line-height:1.48}.review-rule-list li b{color:#704000}
+    @media(max-width:720px){.map-row{grid-template-columns:31px minmax(0,1fr);gap:8px}.map-title{grid-column:2}.map-decision{grid-column:2}.map-status{grid-column:2;justify-self:start}.map-index{width:28px;height:28px}.review-ticket{padding:14px}.boss-reason{font-size:13px}.ticket-focus{grid-template-columns:34px minmax(0,1fr);padding:12px}.ticket-focus .ticket-focus-icon{width:34px;height:34px;border-radius:11px}.review-step{grid-template-columns:24px minmax(0,1fr)}.review-step .review-step-state{grid-column:2;justify-self:start}}
 
     @media (max-width:900px){.chain-grid{grid-template-columns:1fr 1fr}}
     @media (max-width:620px){.case-report{padding:18px}.chain-grid{grid-template-columns:1fr;gap:8px}.audit-row{grid-template-columns:25px 1fr}.audit-status{grid-column:2;justify-self:start}.report-actions{grid-template-columns:1fr}.case-log-item{grid-template-columns:31px 1fr}.case-log-item .state{grid-column:2;justify-self:start}}
@@ -190,7 +195,7 @@
 
     <section class="hero">
       <div>
-        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V6</p>
+        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V7</p>
         <h1>UX Detective: Casefile Hunt V6</h1>
         <p>เกมวิเคราะห์เชิงสถานการณ์: V6 เพิ่ม Mastery Gate และ Compact Decision Map — 1★ เป็นรอบฝึก, 2★ ขึ้นไปจึงพร้อมปลดล็อก W2, และรายงานท้ายเกมสรุปเฉพาะสิ่งที่ต้องใช้เรียนต่อ</p>
       </div>
@@ -615,11 +620,61 @@
   }
 
   function isReviewing(){return Boolean(state.reviewingFromDebrief&&state.reviewPlan)}
-  function reviewFocusFor(outcome){
-    if(Number(outcome.strength)<4)return {step:'evidence',title:'Evidence Gap',icon:'⌁',reason:'หลักฐานที่เก็บมายังไม่แยกสาเหตุของคดีได้ชัด จึงต้องสลับอย่างน้อย 1 หลักฐานก่อนตัดสินใจใหม่'};
-    if(!outcome.fixMatches)return {step:'fix',title:'Fix Mismatch',icon:'✦',reason:'Fix ที่เลือกยังไม่ตอบ hypothesis ที่หลักฐานสนับสนุน จึงล็อก Evidence และ Hypothesis ไว้ แล้วให้แก้เฉพาะการลงทุน'};
-    if(!outcome.correctNext)return {step:'test',title:'Test Decision Gap',icon:'◌',reason:'สายวิเคราะห์ถึง Prototype แล้ว แต่การอ่านผล User Test ยังไม่ตรง จึงให้ทบทวนเฉพาะ Decision หลัง Test'};
-    return {step:'hypothesis',title:'Hypothesis Recheck',icon:'?',reason:'ความเชื่อมโยงยังไม่แข็งแรงพอ ให้ทบทวนสาเหตุที่เลือกโดยใช้หลักฐานเดิม'};
+  function labelForReviewStep(step){
+    return ({evidence:'Evidence',hypothesis:'Hypothesis',fix:'Fix',test:'Test decision'})[step]||'Decision';
+  }
+  function strongestHypothesisForEvidence(c,evidenceIds){
+    const selected=c.evidence.filter(e=>evidenceIds.includes(e.id));
+    const ranked=c.hypotheses.map(h=>({hypothesis:h,score:selected.reduce((sum,e)=>sum+(e.supports.includes(h.id)?e.weight:0),0)})).sort((a,b)=>b.score-a.score);
+    return ranked[0]||null;
+  }
+  function fixesForHypothesis(c,hypothesisId){
+    return c.fixes.filter(f=>f.supports.includes(hypothesisId));
+  }
+  function reviewFocusFor(outcome,c){
+    const selectedEvidence=outcome.evidenceIds||[];
+    const strongest=strongestHypothesisForEvidence(c,selectedEvidence);
+    const selectedHyp=c.hypotheses.find(h=>h.id===outcome.hypothesisId)||null;
+    const expectedFix=fixesForHypothesis(c,outcome.hypothesisId)[0]||null;
+    const expectedNext=c.next?.[outcome.grade]||null;
+    if(Number(outcome.strength)<4){
+      return {
+        step:'evidence', title:'Evidence Gap', icon:'⌁',
+        reason:'หลักฐานที่เก็บมายังไม่แยกสาเหตุของคดีได้ชัด จึงต้องแทนที่อย่างน้อย 1 ชิ้นก่อนตั้งสมมติฐานใหม่',
+        objective:`แทนที่หลักฐานที่ไม่ช่วยแยกสาเหตุ แล้วเก็บชุดหลักฐานที่หนุน “${strongest?.hypothesis?.title||'สาเหตุที่พิสูจน์ได้'}” ให้ถึงอย่างน้อย 4 support points`,
+        preserve:'หลังเปลี่ยน Evidence ระบบจะให้คุณยืนยัน Hypothesis → Fix → Test ใหม่ เพราะผลเดิมอาจไม่ใช้ได้แล้ว',
+        targetTitle:strongest?.hypothesis?.title||'สมมติฐานที่มีหลักฐานรองรับ',
+        expectedNextTitle:expectedNext?.title||''
+      };
+    }
+    if(!outcome.fixMatches){
+      return {
+        step:'fix', title:'Fix Mismatch', icon:'✦',
+        reason:'Fix ที่เลือกยังไม่ตอบ hypothesis ที่หลักฐานสนับสนุน จึงล็อก Evidence และ Hypothesis ไว้ แล้วให้แก้เฉพาะการลงทุน',
+        objective:`คง hypothesis “${selectedHyp?.title||outcome.hypothesisTitle}” ไว้ แล้วเลือก Fix ที่แก้สาเหตุนั้นโดยตรง เช่น “${expectedFix?.title||'Fix ที่รองรับ hypothesis'}”`,
+        preserve:'Evidence และ Hypothesis เดิมถูกล็อกเป็นฐาน ส่วน Test Decision จะต้องเลือกใหม่หลังผลทดสอบเปลี่ยน',
+        targetTitle:expectedFix?.title||'Fix ที่ตอบ hypothesis โดยตรง',
+        expectedNextTitle:expectedNext?.title||''
+      };
+    }
+    if(!outcome.correctNext){
+      return {
+        step:'test', title:'Test Decision Gap', icon:'◌',
+        reason:'สายวิเคราะห์ถึง Prototype แล้ว แต่การอ่านผล User Test ยังไม่ตรง จึงให้ทบทวนเฉพาะ Decision หลัง Test',
+        objective:`อ่าน Task success, เวลา, Trust และ User quote แล้วเลือกก้าวต่อไปที่สอดคล้องกว่า: “${expectedNext?.title||'ทบทวนผลทดสอบ'}”`,
+        preserve:'Evidence, Hypothesis และ Fix เดิมถูกล็อก เพราะแก้ต้นเหตุได้แล้ว เหลือเพียงตีความผล Test ให้ตรง',
+        targetTitle:expectedNext?.title||'Test decision ที่สอดคล้อง',
+        expectedNextTitle:expectedNext?.title||''
+      };
+    }
+    return {
+      step:'hypothesis', title:'Hypothesis Recheck', icon:'?',
+      reason:'ความเชื่อมโยงยังไม่แข็งแรงพอ ให้ทบทวนสาเหตุที่เลือกโดยใช้หลักฐานเดิม',
+      objective:`ใช้หลักฐานเดิมเพื่อเลือก hypothesis ที่อธิบาย User Goal ได้ตรงกว่า “${strongest?.hypothesis?.title||'สมมติฐานที่พิสูจน์ได้'}”`,
+      preserve:'Evidence เดิมถูกล็อก ส่วน Fix และ Test จะคำนวณใหม่ตาม hypothesis ที่คุณยืนยัน',
+      targetTitle:strongest?.hypothesis?.title||'Hypothesis ที่มีหลักฐานรองรับ',
+      expectedNextTitle:expectedNext?.title||''
+    };
   }
   function reviewChanged(step){
     if(!isReviewing()||state.reviewPlan?.step!==step)return true;
@@ -639,26 +694,38 @@
     const focus=state.reviewPlan?.step;
     const current=focus===step;
     const labels={evidence:'Evidence',hypothesis:'Hypothesis',fix:'Fix',test:'Test decision'};
-    return `<p class="review-chip">🎟️ Reinvestigation Mode • ${current?`แก้ ${escapeHtml(labels[step])} นี้ก่อน`: `กำลังเดินต่อจาก ${escapeHtml(labels[focus]||'Review')}`}</p>`;
+    const text=current
+      ? `Focus: แก้ ${labels[step]} นี้ก่อน`
+      : `Dependent step: ตัดสินใจใหม่จาก ${labels[focus]||'Review'} ที่เปลี่ยนแล้ว`;
+    return `<p class="review-chip">🎟️ Reinvestigation Mode • ${escapeHtml(text)}</p>`;
+  }
+  function reviewStepState(plan,step){
+    const order=['evidence','hypothesis','fix','test'];
+    const focusIndex=order.indexOf(plan.step);
+    const index=order.indexOf(step);
+    if(index<focusIndex)return {kind:'locked',label:'ล็อกเป็นฐานเดิม'};
+    if(index===focusIndex)return {kind:'focus',label:'ต้องแก้จุดนี้'};
+    return {kind:'recompute',label:'คำนวณใหม่จาก Focus'};
   }
   function reviewBriefHtml(){
     const outcome=state.reviewOriginal;
     const plan=state.reviewPlan;
     if(!outcome||!plan)return '';
     const rows=[
-      ['E', 'Evidence', outcome.evidenceTitles?.join(' • ')||'—', plan.step==='evidence'?'focus':'locked'],
-      ['H', 'Hypothesis', outcome.hypothesisTitle||'—', plan.step==='hypothesis'?'focus':(plan.step==='evidence'?'locked':'locked')],
-      ['F', 'Fix', outcome.fixTitle||'—', plan.step==='fix'?'focus':(plan.step==='evidence'||plan.step==='hypothesis'?'locked':'locked')],
-      ['T', 'Test decision', outcome.nextTitle||'—', plan.step==='test'?'focus':(plan.step==='test'?'focus':'locked')]
+      ['E','Evidence',outcome.evidenceTitles?.join(' • ')||'—','evidence'],
+      ['H','Hypothesis',outcome.hypothesisTitle||'—','hypothesis'],
+      ['F','Fix',outcome.fixTitle||'—','fix'],
+      ['T','Test decision',outcome.nextTitle||'—','test']
     ];
     return `<section class="card recovery-brief">
       <p class="eyebrow">FINAL REVIEW TICKET // FOCUSED REINVESTIGATION</p>
       <h2>กู้คดีแบบมีเป้าหมาย</h2>
-      <p>คุณไม่ได้เริ่มสามคดีใหม่ และไม่แก้ทุกอย่างแบบเดา ๆ Ticket นี้พากลับไปแก้ <b>จุดที่ทำให้เส้นเหตุผลขาด</b> แล้วคำนวณผล Test และ Final Boss ใหม่</p>
+      <p>Review Ticket ไม่ใช่การเริ่มทั้ง Shift ใหม่ คุณจะย้อนกลับไปแก้เฉพาะ <b>จุด Focus</b> และยืนยันเฉพาะขั้นที่ต้องคำนวณใหม่ก่อนสู้ Final Boss อีกครั้ง</p>
       <div class="focus-banner"><span class="focus-icon">${escapeHtml(plan.icon)}</span><span><b>Focus: ${escapeHtml(plan.title)}</b><span>${escapeHtml(plan.reason)}</span></span></div>
-      <div class="review-trace">${rows.map(row=>`<div class="trace-row"><span class="trace-step">${row[0]}</span><span><b>${escapeHtml(row[1])}</b><small>${escapeHtml(row[2])}</small></span><span class="trace-state ${row[3]}">${row[3]==='focus'?'แก้จุดนี้':'ล็อกเป็นฐานเดิม'}</span></div>`).join('')}</div>
-      <div class="review-note"><b>Review rule</b>คุณต้องเปลี่ยนอย่างน้อย 1 การตัดสินใจในจุด Focus ก่อนระบบจะส่งต่อไปยังขั้นถัดไป และหลังปิดคดีจะต้องเผชิญ Final Boss อีกครั้ง</div>
-      <button class="primary" type="button" data-action="begin-review">เปิด Reinvestigation →</button>
+      <div class="ticket-focus"><span class="ticket-focus-icon">→</span><span><b>เป้าหมายที่ต้องพิสูจน์</b><small>${escapeHtml(plan.objective||plan.reason)}</small><small><strong>ระบบกำลังมองหา:</strong> ${escapeHtml(plan.targetTitle||'การตัดสินใจที่เชื่อมกับหลักฐาน')}</small></span></div>
+      <div class="review-steps">${rows.map(row=>{const stateInfo=reviewStepState(plan,row[3]);return `<div class="review-step ${stateInfo.kind}"><span class="review-step-num">${row[0]}</span><span><b>${escapeHtml(row[1])}</b><small>${escapeHtml(row[2])}</small></span><span class="review-step-state">${escapeHtml(stateInfo.label)}</span></div>`}).join('')}</div>
+      <ul class="review-rule-list"><li><b>สิ่งที่คงไว้:</b> ${escapeHtml(plan.preserve||'การตัดสินใจที่ไม่ได้เป็น Focus จะถูกใช้เป็นฐาน')}</li><li><b>กติกา:</b> ต้องเปลี่ยนอย่างน้อย 1 การตัดสินใจที่ Focus ก่อนส่งต่อ</li><li><b>หลังปิดคดี:</b> Final Boss จะถูกคำนวณใหม่จาก Decision Map ที่แก้แล้ว</li></ul>
+      <button class="primary" type="button" data-action="begin-review">เปิด Focused Reinvestigation →</button>
       <button class="secondary" type="button" data-action="cancel-review">กลับไปดู Decision Map</button>
     </section>`;
   }
@@ -992,11 +1059,12 @@
   function reviewCaseFromDebrief(index){
     if(state.debriefReviewUsed || !state.outcomes[index])return;
     const outcome=state.outcomes[index];
+    const casefile=state.shift[index];
     state.debriefReviewUsed=true;
     state.reviewingFromDebrief=true;
     state.reviewCaseIndex=index;
     state.reviewOriginal=JSON.parse(JSON.stringify(outcome));
-    state.reviewPlan=reviewFocusFor(outcome);
+    state.reviewPlan=reviewFocusFor(outcome,casefile);
     state.caseIndex=index;
     state.selectedEvidence=[...(outcome.evidenceIds||[])];
     state.selectedHypothesis=outcome.hypothesisId||null;
@@ -1011,7 +1079,29 @@
   }
   function beginReview(){
     if(!isReviewing())return;
-    state.step=state.reviewPlan.step;
+    const focus=state.reviewPlan.step;
+    const original=state.reviewOriginal||{};
+    /* Lock decisions before Focus; reset Focus and every dependent decision. */
+    state.selectedEvidence=[...(original.evidenceIds||[])];
+    state.selectedHypothesis=original.hypothesisId||null;
+    state.selectedFix=original.fixId||null;
+    state.selectedNext=original.nextId||null;
+    if(focus==='evidence'){
+      state.selectedHypothesis=null;
+      state.selectedFix=null;
+      state.selectedNext=null;
+    }else if(focus==='hypothesis'){
+      state.selectedHypothesis=null;
+      state.selectedFix=null;
+      state.selectedNext=null;
+    }else if(focus==='fix'){
+      state.selectedFix=null;
+      state.selectedNext=null;
+    }else if(focus==='test'){
+      state.selectedNext=null;
+    }
+    state.caseResult=null;
+    state.step=focus;
     render();
   }
   function cancelReview(){
@@ -1138,21 +1228,22 @@
       <section class="review-ticket">
         <h3>🎟️ Final Review Ticket: กู้คดีที่อ่อนที่สุด 1 คดี</h3>
         <p>แทนที่จะเริ่ม Shift ใหม่ทันที คุณสามารถย้อนกลับไปทบทวน “${escapeHtml(state.outcomes[weakestIndex].title)}” และแก้จุด Focus ที่ระบบชี้ จากนั้นต้องตัดสินใจ Final Boss ใหม่</p>
+        <div class="ticket-focus"><span class="ticket-focus-icon">⌁</span><span><b>Focus ที่ระบบตรวจพบ</b><small>${escapeHtml(reviewFocusFor(state.outcomes[weakestIndex],state.shift[weakestIndex]).objective||'ทบทวนเส้นเหตุผลของคดีนี้')}</small><small><strong>สิ่งที่ไม่ต้องเริ่มใหม่:</strong> ${escapeHtml(reviewFocusFor(state.outcomes[weakestIndex],state.shift[weakestIndex]).preserve||'ข้อมูลเดิมที่ไม่ใช่ Focus')}</small></span></div>
         <span class="ticket-meta">ค่าใช้จ่าย: −1 นาที • −5% Trust • ใช้ได้ 1 ครั้งต่อ Shift</span>
         <button class="primary" type="button" data-action="review-debrief" data-review-index="${weakestIndex}">ใช้ Review Ticket →</button>
       </section>
     ` : '';
-    const gateLabel=result.passed?'W2 Mastery Gate cleared':result.stars===1?'Practice clear — W2 still locked':'Shift not cleared';
-    const gateChip=result.passed?'<span class="w2-gate-chip">W2 READY</span>':'<span class="w2-gate-chip locked">W2 LOCKED UNTIL 2★ MASTERY</span>';
+    const gateLabel=result.passed?'W2 Readiness Gate cleared':result.stars===1?'Practice clear — W2 still locked':'Shift not cleared';
+    const gateChip=result.passed?'<span class="w2-gate-chip">W2 READY</span>':'<span class="w2-gate-chip locked">W2 LOCKED — NEED 2★ READINESS</span>';
     stage.innerHTML=`
       <section class="card debrief">
-        <p class="eyebrow">SHIFT COMPLETE // V6 MASTERY GATE REPORT</p>
+        <p class="eyebrow">SHIFT COMPLETE // V7 READINESS GATE REPORT</p>
         <h2>${escapeHtml(result.title)}</h2>
         <div class="stars">${[1,2,3].map(n=>`<span class="${n<=result.stars?'on':''}">★</span>`).join('')}</div>
         ${gateChip}
         <p>รายงานนี้ย่อให้เห็นก่อนว่าเด็กทำได้ดีตรงไหน ควรแก้คดีใด และทักษะใดต้องฝึกต่อ ส่วน Decision Map เต็มสามารถกดขยายดูรายละเอียดรายคดีได้</p>
         <div class="score-grid"><div><span>Total score</span><b>${state.score}</b></div><div><span>Final trust</span><b>${pct(state.trust)}</b></div><div><span>Exact chains</span><b>${exact}/${CASES_PER_SHIFT}</b></div><div><span>Test decisions</span><b>${solid}/${CASES_PER_SHIFT}</b></div></div>
-        <div class="mastery-gate"><b>Mastery Gate สำหรับ W2</b>1★ = รอบฝึกผ่าน แต่ยังไม่ปลดล็อก W2 • 2★ = ต้องมีอย่างน้อย 2/3 Exact Chains + 2/3 Test Decisions + Trust ≥ 70 • 3★ = 3/3 Chain + 3/3 Test + Trust ≥ 85</div>
+        <div class="readiness-gate"><b>Readiness Gate สำหรับ W2</b>1★ = รอบฝึกผ่าน แต่ยังไม่ปลดล็อก W2 • 2★ = ระดับพร้อมต่อยอด: ต้องมีอย่างน้อย 2/3 Exact Chains + 2/3 Test Decisions + Trust ≥ 70 • 3★ = Mastery: 3/3 Chain + 3/3 Test + Trust ≥ 85</div>
         <div class="clearance-banner ${result.passed?'pass':'fail'}"><b>${gateLabel}</b>${escapeHtml(result.reason)}${solid===0?' • เงื่อนไขสำคัญ: Test decisions = 0 จึงไม่สามารถผ่าน Shift ได้':''}</div>
         <div class="boss-reason"><b>Final Boss trace</b>คุณเลือก “${escapeHtml(state.bossResult?.title||'—')}” แต่จาก Shift นี้ (${boss.exact}/3 Exact Chains, ${boss.solid}/3 Test Decisions, Trust ${pct(state.trust)}) ทางที่สอดคล้องกับหลักฐานคือ “${escapeHtml(boss.options.find(o=>o.id===boss.correctId)?.title||'—')}”</div>
         ${compactReviewHtml()}
