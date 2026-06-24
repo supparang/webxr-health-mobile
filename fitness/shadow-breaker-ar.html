@@ -1591,7 +1591,6 @@
         statCombo:"คอมโบสูงสุด",
         statHit:"Hit",
         statMiss:"Miss",
-        statBomb:"Bomb Hit",
         statBomb:"โดนระเบิด",
         statPerfect:"Perfect",
         statFever:"FEVER",
@@ -1671,6 +1670,7 @@
         statCombo:"Best combo",
         statHit:"Hit",
         statMiss:"Miss",
+        statBomb:"Bomb Hit",
         statPerfect:"Perfect",
         statFever:"FEVER",
         adviceGreat:"Excellent. This works well as a short Fitness AR activity for reaction, focus, and body control.",
@@ -3280,9 +3280,13 @@ window.FitnessPassportBridge?.save({
       };
 
       safeStorageSet("HHA_LAST_SUMMARY", JSON.stringify(record));
-      if(pid){
-        safeStorageSet(`HHA_LAST_SUMMARY:shadow-breaker:${pid}`, JSON.stringify(record));
-      }
+
+if(pid){
+  safeStorageSet(
+    `FITNESS_GATE_LAST_SUMMARY:shadow-breaker:${pid}`,
+    JSON.stringify(record)
+  );
+}
 
       return record;
     }
