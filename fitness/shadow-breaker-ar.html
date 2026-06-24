@@ -3040,50 +3040,6 @@
   state.lastSummaryPayload = buildSheetPayload();
 }
 
-window.FitnessPassportBridge?.save({
-  gameId: "shadow-breaker",
-  game: "shadow-breaker",
-  pid: passportPid,
-  playerId: passportPid,
-  studentId: passportPid,
-  playerName: state.playerName || "Hero",
-  name: state.playerName || "Hero",
-  group: qs.get("group") || qs.get("section") || qs.get("classId") || "",
-  studyId: qs.get("studyId") || "",
-  diff: state.diffKey,
-  duration: state.timeLimit,
-
-  score: state.score,
-  scoreFinal: state.score,
-  accuracy: passportAccuracy,
-  accuracyPct: passportAccuracy,
-  comboMax: state.bestCombo,
-  maxCombo: state.bestCombo,
-
-  hits: state.metrics.hit,
-  correct: state.metrics.hit,
-  miss: state.metrics.miss,
-  misses: state.metrics.miss,
-  bomb: state.metrics.bomb,
-  grade: passportRank.label,
-  rank: passportRank.label,
-  badge: passportRank.emoji + " " + passportRank.label,
-
-  metrics: {
-    bossesCleared: state.metrics.clearedBoss,
-    perfect: state.metrics.perfect,
-    good: state.metrics.good,
-    okay: state.metrics.okay,
-    rushHits: state.rushHits,
-    shieldHits: state.metrics.shield,
-    feverCount: state.feverCount,
-    missionBadges: state.challenge.badges,
-    noBomb: state.metrics.bomb === 0 ? 1 : 0,
-    playerHp: Math.round(state.playerHp),
-    sideSwitches: state.sideSwitches
-  }
-});
-
       const gateSummary = saveGateCompletionSummary();
       logEvent("gate_cooldown_ready", {
         plannerFlow: gateSummary.plannerFlow,
@@ -3303,9 +3259,9 @@ window.FitnessPassportBridge?.save({
       const payload = state.lastSummaryPayload || (typeof buildSheetPayload === "function" ? buildSheetPayload() : {});
 
       const record = {
-        source: "shadow-breaker",
-        game: "shadow-breaker",
-        gameId: "shadow-breaker",
+        source: "shadow-breaker-ar",
+        game: "shadow-breaker-ar",
+        gameId: "shadow-breaker-ar",
         pid,
         studentId: qs.get("studentId") || qs.get("sid") || pid,
         playerId: qs.get("playerId") || pid,
@@ -3332,7 +3288,7 @@ window.FitnessPassportBridge?.save({
 
       safeStorageSet("HHA_LAST_SUMMARY", JSON.stringify(record));
       if(pid){
-        safeStorageSet(`HHA_LAST_SUMMARY:shadow-breaker:${pid}`, JSON.stringify(record));
+        safeStorageSet(`HHA_LAST_SUMMARY:shadow-breaker-ar:${pid}`, JSON.stringify(record));
       }
 
       return record;
@@ -3696,13 +3652,21 @@ window.FitnessPassportBridge?.save({
     }
 
     function goHub(){
-      const target = resolvePostGameHref();
+  const target = resolvePostGameHref();
 
-      // Ensure the Cool-down Gate can display the just-finished game snapshot,
-      // even if the player reaches this button before the optional Sheet POST settles.
-      if(state.status === "finished"){
-        saveGateCompletionSummary();
-      }
+  // ให้ Cool-down Gate อ่านผลล่าสุดได้ แม้การส่ง Sheet ยังทำงานไม่เสร็จ
+  if(state.status === "finished"){
+    saveGateCompletionSummary();
+  }
+
+  logEvent("leave_game", {
+    destination: target,
+    plannerFlow: isPlannerFlow() ? 1 : 0,
+    destinationIsCooldownGate: isCooldownGateHref(target) ? 1 : 0
+  });
+
+  location.href = target;
+}
       const passportPid =
   qs.get("pid") ||
   qs.get("studentId") ||
@@ -3726,8 +3690,8 @@ const passportRank = getRank(
 );
 
 window.FitnessPassportBridge?.save({
-  gameId: "shadow-breaker",
-  game: "shadow-breaker",
+  gameId: "shadow-breaker-ar",
+  game: "shadow-breaker-ar",
   pid: passportPid,
   playerId: passportPid,
   studentId: passportPid,
