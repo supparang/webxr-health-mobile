@@ -37,8 +37,12 @@
       metrics:p.metrics||{},raw:p
     };
     safeSet(`${LAST_KEY}:${gameId}:${playerId}`,JSON.stringify(summary));
-    safeSet(`${LAST_KEY}:${gameId}:anon`,JSON.stringify(summary));
-    safeSet(LAST_KEY,JSON.stringify(summary));
+
+if (playerId === 'anon') {
+  safeSet(`${LAST_KEY}:${gameId}:anon`,JSON.stringify(summary));
+}
+
+safeSet(LAST_KEY,JSON.stringify(summary));
     try{const history=JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');history.unshift(summary);safeSet(HISTORY_KEY,JSON.stringify(history.slice(0,80)));}catch(_){}
     ROOT.dispatchEvent(new CustomEvent('fitness-passport-saved',{detail:summary}));
     return summary;
