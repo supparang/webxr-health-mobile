@@ -416,22 +416,31 @@
 
   if (!result) return;
 
-  const resultVisible = (() => {
   const style = window.getComputedStyle(result);
   const rect = result.getBoundingClientRect();
 
-  return (
+  const resultVisible =
     !result.hidden &&
     !result.classList.contains("hidden") &&
     style.display !== "none" &&
     style.visibility !== "hidden" &&
     rect.width > 20 &&
-    rect.height > 20
-  );
-})();
+    rect.height > 20;
 
-  // ยังไม่จบเกม: ห้ามเพิ่มปุ่มหรือเปิด RPE
   if (!resultVisible) return;
+
+  /*
+    สำคัญ: เปิด RPE ก่อน แม้หาแถวปุ่มไม่เจอ
+  */
+  if (!result.dataset.hhaRecoveryAsked) {
+    result.dataset.hhaRecoveryAsked = "1";
+
+    window.setTimeout(() => {
+      if (!saved) {
+        surveyModal().classList.add("show");
+      }
+    }, 450);
+  }
 
   const hubButton =
     $("btnHub") ||
@@ -444,10 +453,14 @@
     hubButton?.parentElement ||
     null;
 
+  /*
+    หาแถวปุ่มไม่เจอ ก็ยังให้ RPE ทำงานได้
+  */
   if (!actions) return;
 
   if (!$("cooldownBtn")) {
     const button = document.createElement("button");
+
     button.id = "cooldownBtn";
     button.type = "button";
     button.className = hubButton?.className || "bigBtn btn warn";
@@ -476,7 +489,7 @@
       hubButton.textContent = "🧘 ทำ Cooldown AR ต่อ";
     }
   }
-
+}
   /*
     เปิด RPE/Pain หลัง Result ปรากฏจริงเพียงครั้งเดียว
   */
@@ -508,7 +521,6 @@
     });
 
     addRecoveryButton();
-     addRecoveryButton();
 
 window.setInterval(() => {
   addRecoveryButton();
