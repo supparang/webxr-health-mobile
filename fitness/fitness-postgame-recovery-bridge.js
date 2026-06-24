@@ -466,6 +466,19 @@
       hubButton.textContent = "🧘 ทำ Cooldown AR ต่อ";
     }
   }
+       /*
+    เปิด RPE / Pain อัตโนมัติเมื่อหน้าผลลัพธ์ปรากฏ
+    ผู้เล่นต้องเลือกก่อนจึงไป Cooldown หรือกลับ Hub ได้
+  */
+  if (!result.dataset.hhaRecoveryAsked) {
+    result.dataset.hhaRecoveryAsked = "1";
+
+    window.setTimeout(() => {
+      if (!saved) {
+        surveyModal().classList.add("show");
+      }
+    }, 450);
+  }
 }
   function boot() {
     markWarmupResume();
