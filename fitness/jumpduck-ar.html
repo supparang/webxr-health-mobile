@@ -547,7 +547,11 @@
         console.warn('localStorage set failed, trying cleanup', key, err);
         try{
           // Remove only JumpDuck leaderboard/cache keys first, not other project data.
-          ['jumpduck_dash_v14_detectfix_leaderboard','jumpduck_dash_v16_student_auto_sheet_leaderboard'].forEach(k=>{
+          [
+  'jumpduck_dash_v14_detectfix_leaderboard',
+  'jumpduck_dash_v16_student_auto_sheet_leaderboard',
+  'jumpduck_dash_v17_student_auto_sheet_leaderboard'
+].forEach(k=>{
             try{ if(k !== key) localStorage.removeItem(k); }catch(e){}
           });
           localStorage.setItem(key, value);
@@ -692,12 +696,16 @@
       }
     };
 
-    if(
-      window.FitnessPassportBridge &&
-      typeof window.FitnessPassportBridge.save === 'function'
-    ){
-      window.FitnessPassportBridge.save(compact);
-    }
+    try{
+  if(
+    window.FitnessPassportBridge &&
+    typeof window.FitnessPassportBridge.save === 'function'
+  ){
+    window.FitnessPassportBridge.save(compact);
+  }
+}catch(err){
+  console.warn('[JumpDuck Passport Bridge skipped]', err);
+}
 
     const json = JSON.stringify(compact);
 
