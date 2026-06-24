@@ -13,7 +13,19 @@
     balance:'balance-hold',balancehold:'balance-hold','balance-hold':'balance-hold'
   };
   const getQ = (...keys) => { try { const q=new URLSearchParams(location.search); for(const k of keys){ const v=q.get(k); if(v) return String(v).trim(); } } catch(_){} return ''; };
-  const safeSet=(k,v)=>{ try{localStorage.setItem(k,v);return true;}catch(_){return false;} };
+  const safeSet = (k, v) => {
+  try {
+    localStorage.setItem(k, v);
+    return true;
+  } catch (_) {
+    try {
+      sessionStorage.setItem(k, v);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,Number(v)||0));
   const canon=(v)=>{ const k=String(v||'').trim().toLowerCase().replace(/\.html$/,'').replace(/-ar2?$/,'').replace(/\s+/g,'-'); return ALIAS[k]||k||'unknown'; };
   const pct=(p)=>{ for(const v of [p.accuracy,p.accuracyPct,p.accPct,p.accuracyGoodPct,p.hitAccuracy]){const n=Number(v);if(Number.isFinite(n))return clamp(n<=1?n*100:n,0,100);} const h=Number(p.hits??p.correct??0),m=Number(p.miss??p.misses??p.wrong??0);return h+m?clamp(h/(h+m)*100,0,100):0; };
