@@ -3158,7 +3158,7 @@
   V14_EXTRA_SPECS.forEach((spec,index)=>CASES.push(createV14Case(spec,index)));
 
 
-  /* V19 — CSAI2601 Week 1 Case-by-Case Curriculum QA
+  /* V19.2 — CSAI2601 Week 1 Case-by-Case Curriculum QA
      Source: Week 1 Teaching Slides, slide 12 (Clarity, Hierarchy,
      Cognitive Load, Consistency, Feedback, Recovery).
      Every Casefile receives exactly one primary Week 1 lens. Supporting
@@ -3194,7 +3194,7 @@
     c.track=LEGACY_TRACKS[c.trackId]||{label:c.week1Lens.label,short:c.week1Lens.short};
   });
 
-  /* V19 — Case-by-Case Curriculum QA Layer
+  /* V19.2 — Case-by-Case Curriculum QA Layer
      Every Casefile exposes the Week 1 assessment chain explicitly:
      UI Symptom → UX Impact → Evidence-backed Improvement.
      This does not disclose the answer; it tells learners what kind of reasoning
@@ -3623,13 +3623,44 @@
   function evidenceStrengthFor(c,hypothesis){
     return selectedEvidenceFor(c).reduce((sum,e)=>sum+(e.supports.includes(hypothesis?.id)?e.weight:0),0);
   }
+  function parseClock(value){
+    const parts=String(value||'0:00').split(':').map(Number);
+    return ((parts[0]||0)*60)+(parts[1]||0);
+  }
+  function formatClock(seconds){
+    const safe=Math.max(0,Math.round(seconds||0));
+    return `${Math.floor(safe/60)}:${String(safe%60).padStart(2,'0')}`;
+  }
+  function fixSignal(base, fix, grade){
+    /* A different intervention should produce a different test signature,
+       even when it still misses the root cause. This prevents a review from
+       looking like it had no effect while keeping the reasoning grade honest. */
+    if(!fix || grade==='exact') return {...base};
+    const options=current()?.fixes||[];
+    const idx=Math.max(0,options.findIndex(item=>item.id===fix.id));
+    const profiles=grade==='partial'
+      ? [{success:0,time:0,trust:0},{success:4,time:-10,trust:2},{success:-3,time:8,trust:-2}]
+      : [{success:0,time:0,trust:0},{success:3,time:-7,trust:1},{success:-2,time:9,trust:-3}];
+    const delta=profiles[idx%profiles.length];
+    const changed={...base,
+      success:Math.max(0,Math.min(100,Number(base.success||0)+delta.success)),
+      trust:Math.max(0,Math.min(100,Number(base.trust||0)+delta.trust)),
+      time:formatClock(parseClock(base.time)+delta.time)
+    };
+    if(delta.success!==0 || delta.time!==0 || delta.trust!==0){
+      changed.quote=`${base.quote} ผลของการปรับนี้เปลี่ยนพฤติกรรมบางส่วน แต่ยังไม่ยืนยันว่าปัญหาหลักถูกแก้แล้ว`;
+    }
+    return changed;
+  }
   function resolveOutcome(c){
     const hypothesis=selectedHypothesisFor(c);
     const fix=selectedFixFor(c);
     const evidenceForHyp=evidenceStrengthFor(c,hypothesis);
     const exact=Boolean(hypothesis&&fix&&fix.supports.includes(hypothesis.id)&&evidenceForHyp>=4);
     const partial=Boolean(hypothesis&&fix&&(fix.supports.includes(hypothesis.id)||evidenceForHyp>=3));
-    return exact?{...c.test.exact,grade:'exact'}:partial?{...c.test.partial,grade:'partial'}:{...c.test.miss,grade:'miss'};
+    const grade=exact?'exact':partial?'partial':'miss';
+    const base={...(c.test?.[grade]||{}),grade};
+    return fixSignal(base,fix,grade);
   }
   function evaluateCase(c){
     const evidence=selectedEvidenceFor(c);
@@ -3747,16 +3778,21 @@
     const status=impact.status||reviewImpactStatus(before,after);
     const nextWeak=[...state.outcomes].map((o,i)=>({o,i,q:outcomeQuality(o)})).sort((a,b)=>a.q-b.q)[0];
     const nextTitle=nextWeak?.o?.title||'Decision Map';
+    const testMoved=Number(before.outcomeSuccess)!==Number(after.outcomeSuccess)||String(impact.beforeTime)!==String(impact.afterTime)||Number(before.outcomeTrust)!==Number(after.outcomeTrust);
     const loopText=status.kind==='improved'
       ? `คดีที่ย้อนแก้ดีขึ้นแล้ว ระบบจึงย้ายเป้าหมายฝึกถัดไปไปที่ “${nextTitle}”`
-      : `การย้อนแก้ครั้งนี้ยังไม่เพิ่มความแข็งแรงของคดี ให้ใช้ Decision Map ดูว่าหลักฐานกับ Fix เชื่อมกันหรือไม่ก่อนเริ่ม Shift ใหม่`;
+      : testMoved
+        ? `ผล Test เปลี่ยนตาม Fix ใหม่ แต่เส้น Evidence → Hypothesis → Fix ยังไม่แข็งแรงพอ ให้ตรวจว่าการเปลี่ยนแปลงนั้นแก้ต้นเหตุหรือเพียงเปลี่ยนอาการ`
+        : `Fix ใหม่ยังไม่เปลี่ยนผล User Test ที่สำคัญ เพราะยังไม่ได้เปลี่ยนเงื่อนไขต้นเหตุที่ hypothesis อธิบายไว้ ให้ใช้ Decision Map ตรวจความเชื่อมโยงอีกครั้ง`;
+    const testLabel=testMoved?'USER TEST RECALCULATED':'USER TEST UNCHANGED';
+    const testState=testMoved?'ผล Test เปลี่ยนตาม Fix ใหม่':'ผล Test ยังไม่เปลี่ยน เพราะ Fix ยังไม่แตะต้นเหตุ';
     return `<section class="review-impact" aria-label="Review impact">
       <div class="review-impact-kicker">↻ REVIEW IMPACT • CASE ${escapeHtml(impact.title)}</div>
       <h3>การกู้คดีนี้เปลี่ยนอะไรบ้าง</h3>
       <p>แสดงเฉพาะผลจากทางเลือกของคุณก่อนและหลัง Review Ticket — ไม่เฉลยทางเลือกที่ควรเลือก</p>
       <div class="impact-grid">
         <article class="impact-row"><span>FIX CHANGED</span><b>${escapeHtml(before.fixTitle)} <i class="impact-arrow">→</i> ${escapeHtml(after.fixTitle)}</b></article>
-        <article class="impact-row"><span>USER TEST CHANGED</span><b>${before.outcomeSuccess}% • ${escapeHtml(impact.beforeTime)} <i class="impact-arrow">→</i> ${after.outcomeSuccess}% • ${escapeHtml(impact.afterTime)}</b></article>
+        <article class="impact-row"><span>${testLabel}</span><b>${before.outcomeSuccess}% • ${escapeHtml(impact.beforeTime)} <i class="impact-arrow">→</i> ${after.outcomeSuccess}% • ${escapeHtml(impact.afterTime)}</b><em class="impact-state ${testMoved?'improved':'still'}">${escapeHtml(testState)}</em></article>
         <article class="impact-row"><span>DECISION CHAIN</span><b>${escapeHtml(qualityLabel(before))} <i class="impact-arrow">→</i> ${escapeHtml(qualityLabel(after))}</b><em class="impact-state ${escapeHtml(status.kind)}">${escapeHtml(status.label)}</em></article>
         <article class="impact-row"><span>TEST READING</span><b>${before.correctNext?'Aligned':'Review'} <i class="impact-arrow">→</i> ${after.correctNext?'Aligned':'Review'}</b><em class="impact-state ${after.correctNext?'improved':'still'}">${after.correctNext?'อ่านผล Test ตรง':'ยังต้องทบทวนผล Test'}</em></article>
       </div>
