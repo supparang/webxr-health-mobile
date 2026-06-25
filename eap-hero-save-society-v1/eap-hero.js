@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z60-student-mission-entry-fix';
+  const APP_VERSION = '20260610-v1z61-direct-student-session-path';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31988,7 +31988,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z60</div>
+              <div class="mini-note">Save the Society • v1z61</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32014,6 +32014,10 @@
     runAIHelpRepairSoon();
     runBossGateUICleanupSoon();
     runSessionEvidenceSyncSoon();
+    setTimeout(()=>{
+      try{ cleanupFourSkillsHubStudentUI(); }catch(e){}
+      try{ hideStudentDebugEntryButtons(); }catch(e){}
+    }, 0);
 
   }
 
@@ -32537,7 +32541,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z60</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z61</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -35826,38 +35830,15 @@
 
   function unifiedCheckpointSessionPage(sessionId, reason){
     const sid = Number(sessionId || state.currentSession || 1) || 1;
-    const s = safeSessionMeta ? safeSessionMeta(sid) : (typeof getSession === 'function' ? getSession(sid) : {id:sid,title:`Session ${sid}`});
-    const path = (typeof skillPathForSession === 'function') ? skillPathForSession(sid) : {core:'Reading', support:'Writing'};
-    const visibleSkills = (typeof isSimpleMode === 'function' && isSimpleMode())
-      ? [path.core].concat((typeof featureUnlocked === 'function' && featureUnlocked('supportMission')) ? [path.support] : [])
-      : ['Reading','Writing','Listening','Speaking'];
-    const cards = visibleSkills.map(skill=>{
-      const required = skill === path.core ? 'Core' : skill === path.support ? 'Support' : 'Optional';
-      let done = false;
-      try{ done = typeof portfolioEvidence === 'function' && portfolioEvidence(sid, skill).length > 0; }catch(e){}
-      return `<div class="hud-card ${done?'ok':''}">
-        <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
-        <p class="mini-note">${safe(required)} Mission</p>
-        ${typeof sessionQualityHTML === 'function' ? sessionQualityHTML(sid) : ''}
-        <button class="btn primary full" onclick="return EAPHero.openSkillMissionSafe('${safe(skill)}',${sid})">Start ${safe(skill)}</button>
-      </div>`;
-    }).join('');
-    layout(`<section class="panel skill-path-panel normalized-checkpoint-session" style="margin-top:20px">
-      <h2>Session ${sid}: ${safe(s.title || s.name || 'Academic English Mission')}</h2>
-      <p class="lead">${safe(s.skill || s.subtitle || 'Academic English practice')}</p>
-      <div class="route-note normal-route-note">Flow: Map → Session Path → Core/Support Mission → Mini Check → Map</div>
-      ${visibleSessionCompletionBadgeHTML(sid)}
-      <div class="grid four">${cards}</div>
-      <div class="simple-mode-note">Simple Mode: ตอนนี้ให้ทำ Core Mission ก่อน และ Support Mission ได้แล้ว</div>
-      ${compactCheckpointNoteHTML(sid)}
-      <div class="footer-actions">
-        <button class="btn" onclick="EAPHero.map()">Map</button>
-        <button class="btn ghost" onclick="return EAPHero.openSkillMissionSafe('Reading',${sid})">Debug: Open Reading</button>
-      </div>
-    </section>`);
-    return false;
+    try{
+      state.currentSession = sid;
+      saveState();
+      return renderStudentSessionPath(sid, 'checkpoint');
+    }catch(err){
+      console.error('[unifiedCheckpointSessionPage]', err);
+      return simpleSessionFallback(sid, err);
+    }
   }
-
 
   function simpleSessionFallback(sessionId, err){
     const sid = Number(sessionId || state.currentSession || 1) || 1;
@@ -35919,6 +35900,7 @@
 
   function checkpointSessionIdFromElement(el){
     if(!el || !el.closest) return 0;
+    if(el.closest('[data-launch-mission="true"],.student-start-mission,.js-skill-mission-btn,.mission-entry-btn')) return 0;
     const node = el.closest('[data-session], [data-sid], .map-card, .session-card, .card');
     if(!node) return 0;
     const attrs = [node.getAttribute('data-session'), node.getAttribute('data-sid'), node.dataset?.session, node.dataset?.sid];
@@ -36052,54 +36034,83 @@
   }
 
 
-  function renderSkillPath(sessionId){
-    setTimeout(()=>attachSafeBossGateNotice(Number(arguments[0] || state.currentSession || 1)), 120);
-
-    try{
-
-    setTimeout(runBossGateUICleanupSoon, 0);
-
-    const s = getSession(Number(sessionId || 1));
-    const path = skillPathForSession(s.id);
-    const gate = bossGateForSession(s.id);
-    const visibleSkills = isSimpleMode()
-      ? [path.core].concat(featureUnlocked('supportMission') ? [path.support] : [])
-      : ['Reading','Writing','Listening','Speaking'];
-    const cards = visibleSkills.map(skill=>{
-      const required = skill === path.core ? 'Core' : skill === path.support ? 'Support' : 'Optional';
-      const done = portfolioEvidence(s.id, skill).length > 0;
-      const fn = skill.toLowerCase();
-      const locked = isSimpleMode() && required === 'Support' && !featureUnlocked('supportMission');
-      return `<div class="hud-card ${done?'ok':''} ${locked?'locked':''}">
-        <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
-        <p class="mini-note">${required} Mission ${locked?'• Locked until Lv.2':''}</p>
-        ${sessionQualityHTML(s.id)}
-        ${sessionIsNotBossNote(s.id)}
-        ${safeBossGateNoticeHTML(s.id)}
-        <button type="button" class="btn ${required==='Optional'?'ghost':'primary'} block js-skill-mission-btn" ${locked?'disabled':''} data-skill="${safeAttr(skill)}" data-session="${s.id}" onclick="return EAPHero.openSkillMissionFromButton(this)">${done?'Replay':'Start'} ${safe(skill)}</button>
-      </div>`;
-    }).join('');
-    const hiddenNote = isSimpleMode() ? `<div class="panel light" style="margin-top:12px"><b>Simple Mode:</b> ตอนนี้ให้ทำ Core Mission ก่อน ${featureUnlocked('supportMission') ? 'และ Support Mission ได้แล้ว' : 'Support Mission จะปลดหลังมี progress/evidence เพิ่ม'}</div>` : '';
-    layout(`
-      <section class="panel" style="margin-top:20px">
-        <div class="badges"><span class="pill">Skill Path Lock</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
-        <h2>Session ${s.id} Path: ${safe(s.title || s.skill)}</h2>
-        <p class="lead">นี่คือหน้าหลักหลังจากเลือก Session บน Map: ทำ Core + Support Mission เพื่อเก็บ Evidence แล้วค่อยปลด Boss Gate ตามช่วง</p>
-        <div class="panel light" style="margin:14px 0">
-          <b>Flow:</b> Map → Session Path → Core/Support Mission → Mini Check/Boss Gate → Map
+  function studentSessionPathCardHTML(sessionId, skill, required){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    let done = false;
+    try{ done = typeof portfolioEvidence === 'function' && portfolioEvidence(sid, skill).length > 0; }catch(e){}
+    const action = done ? `Replay ${skill}` : `Start ${skill}`;
+    const quality = typeof sessionQualityHTML === 'function' ? sessionQualityHTML(sid) : '';
+    return `<article class="hud-card student-mission-card ${done?'ok':''} ${String(required).toLowerCase()}">
+      <div class="student-mission-card-head">
+        <div>
+          <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
+          <p class="mini-note">${safe(required)} Mission</p>
         </div>
-        <div class="grid four">${cards}</div>
-        ${hiddenNote}
-        ${gate ? `<div class="panel light" style="margin-top:18px"><h3>Legacy Boss Gate Hidden: ${safe(gate.title)}</h3><p>${safe(gate.boss)}</p><p class="mini-note">Status: ${bossGateStatus(gate)?'✅ Unlocked':'🔒 Locked'} • ${safe(gate.unlock)}</p><button class="btn primary" onclick="EAPHero.bossGate('${gate.id}')">Open Checkpoint</button></div>` : ''}
-        <div class="footer-actions"><button class="btn" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost" onclick="EAPHero.map()">Map</button><button class="btn ghost small" onclick="return EAPHero.openSkillMission('Reading', ${s.id})">Debug: Open Reading</button></div>
+        <span class="mission-role-pill">${safe(required)}</span>
+      </div>
+      <button type="button" class="btn primary block student-start-mission" data-launch-mission="true" onclick="return EAPHero.openSkillMissionSafe('${safe(skill)}',${sid})">▶ ${safe(action)}</button>
+      <p class="mission-action-caption">${done ? 'You have evidence already. Replay for a stronger score.' : 'Tap to begin this mission now.'}</p>
+      <details class="student-mission-guide">
+        <summary>Mission guide, vocabulary & AI scaffold</summary>
+        ${quality}
+      </details>
+    </article>`;
+  }
+
+  function renderStudentSessionPath(sessionId, source){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    const s = typeof safeSessionMeta === 'function'
+      ? safeSessionMeta(sid)
+      : (typeof getSession === 'function' ? getSession(sid) : {id:sid,title:`Session ${sid}`,skill:'Academic English'});
+    const path = typeof skillPathForSession === 'function'
+      ? skillPathForSession(sid)
+      : {core:'Reading', support:'Writing'};
+    const skills = Array.from(new Set([path.core || 'Reading', path.support || 'Writing']));
+    const cards = skills.map(skill=>studentSessionPathCardHTML(sid, skill, skill === path.core ? 'Core' : 'Support')).join('');
+    const pass = typeof visibleSessionCompletionBadgeHTML === 'function'
+      ? visibleSessionCompletionBadgeHTML(sid)
+      : '';
+    setView('skillPath');
+    layout(`
+      <section class="panel student-session-entry-panel" style="margin-top:20px">
+        <div class="badges">
+          <span class="pill">Session Path</span>
+          <span class="pill">S${sid}</span>
+          <span class="pill">${safe(s.skill || s.subtitle || 'Academic English')}</span>
+        </div>
+        <h2>Session ${sid}: ${safe(s.title || s.name || 'Academic English Mission')}</h2>
+        <p class="lead">Complete the Core Mission and Support Mission. Both count toward your Session Pass.</p>
+        <div class="student-flow-note"><b>Flow:</b> Start Core → Start Support → Session Pass → Boss Gate</div>
+        <div class="student-session-start-strip">
+          ${skills.map(skill=>`<button type="button" class="btn primary student-start-mission" data-launch-mission="true" onclick="return EAPHero.openSkillMissionSafe('${safe(skill)}',${sid})">▶ Start ${safe(skill)}</button>`).join('')}
+        </div>
+        ${pass}
+        <div class="student-mission-grid">${cards}</div>
+        <div class="student-pass-rule">
+          <b>Pass rule:</b> Core ≥ 60 and Support ≥ 60. Your score and completion badge will appear after both missions are submitted.
+        </div>
+        <div class="footer-actions student-session-footer">
+          <button class="btn ghost" onclick="EAPHero.map()">Back to Map</button>
+          <button class="btn ghost" onclick="EAPHero.renderStudentReports()">My Learning Report</button>
+        </div>
       </section>`);
-  
+    return false;
+  }
+
+  function renderSkillPath(sessionId){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    try{
+      state.currentSession = sid;
+      saveState();
+      return renderStudentSessionPath(sid, 'native');
     }catch(err){
       console.error('[renderSkillPath]', err);
-      logRuntimeErrorSafe('renderSkillPath', err, {sessionId:(typeof sessionId!=='undefined'?sessionId:state.currentSession||1)});
-      renderSessionRecoveryPanel((typeof sessionId!=='undefined'?sessionId:state.currentSession||1), err, 'renderSkillPath');
+      try{ logRuntimeErrorSafe('renderSkillPath', err, {sessionId:sid}); }catch(e){}
+      renderSessionRecoveryPanel(sid, err, 'renderSkillPath');
+      return false;
     }
   }
+
   function renderBossGate(gateId){
     const gate = BOSS_GATES.find(g => g.id === gateId) || BOSS_GATES[0];
     const unlocked = bossGateStatus(gate);
@@ -40073,6 +40084,8 @@
     enhanceMissionEntryButtons,
     hideStudentDebugEntryButtons,
     compactPreMissionNotes,
+    studentSessionPathCardHTML,
+    renderStudentSessionPath,
     runStudentMissionEntryFixSoon,
     
     

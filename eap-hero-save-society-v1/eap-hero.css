@@ -1950,3 +1950,128 @@ textarea{
     overflow:visible !important;
   }
 }
+
+
+/* === v1z61 Direct Student Session Path === */
+.student-session-entry-panel{
+  max-width:1160px;
+}
+.student-flow-note{
+  margin:14px 0;
+  padding:12px 14px;
+  border-radius:16px;
+  background:#ecfeff;
+  color:#155e75;
+  border:1px solid #67e8f9;
+  font-weight:900;
+}
+.student-session-start-strip{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin:12px 0 18px;
+  padding:14px;
+  border-radius:18px;
+  background:rgba(14,165,233,.13);
+  border:1px solid rgba(125,211,252,.42);
+}
+.student-session-start-strip .student-start-mission{
+  flex:1 1 210px;
+}
+.student-mission-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+}
+.student-mission-card{
+  padding:16px;
+  min-width:0;
+}
+.student-mission-card-head{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  justify-content:space-between;
+}
+.student-mission-card-head h3{
+  margin:0;
+}
+.mission-role-pill{
+  padding:5px 9px;
+  border-radius:999px;
+  background:rgba(125,211,252,.20);
+  border:1px solid rgba(125,211,252,.38);
+  font-size:12px;
+  font-weight:950;
+}
+.student-start-mission{
+  min-height:48px;
+  margin:12px 0 6px;
+  padding:12px 16px !important;
+  border-radius:16px !important;
+  font-size:16px !important;
+  font-weight:950 !important;
+  cursor:pointer !important;
+  pointer-events:auto !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+.mission-action-caption{
+  margin:0 0 10px;
+  font-size:12px;
+  color:#cbd5e1;
+}
+.student-mission-guide{
+  margin-top:10px;
+  border-radius:14px;
+  overflow:hidden;
+  background:rgba(15,23,42,.22);
+  border:1px solid rgba(226,232,240,.16);
+}
+.student-mission-guide summary{
+  cursor:pointer;
+  padding:12px 14px;
+  color:#bae6fd;
+  font-weight:900;
+}
+.student-mission-guide > *:not(summary){
+  margin-left:12px;
+  margin-right:12px;
+}
+.student-mission-guide .session-quality-card{
+  margin-top:0;
+  margin-bottom:12px;
+}
+.student-mission-guide .challenge-note,
+.student-mission-guide .ai-mini-note{
+  font-size:12px;
+  line-height:1.4;
+}
+.student-pass-rule{
+  margin-top:16px;
+  padding:12px 14px;
+  border-radius:16px;
+  background:#fef3c7;
+  color:#78350f;
+  border:1px solid #fcd34d;
+  font-weight:900;
+}
+.student-session-footer{
+  margin-top:16px;
+}
+@media(max-width:700px){
+  .student-mission-grid{
+    grid-template-columns:1fr;
+  }
+  .student-session-start-strip{
+    position:sticky;
+    top:72px;
+    z-index:30;
+    background:rgba(15,23,42,.96);
+    box-shadow:0 10px 24px rgba(0,0,0,.28);
+  }
+  .student-session-start-strip .student-start-mission{
+    flex:1 1 100%;
+    margin:0;
+  }
+}
