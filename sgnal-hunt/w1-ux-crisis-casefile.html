@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#08112c" />
-  <title>UX Quest • W1 Crisis Casefile Hunt • Bank 48 • Main Path</title>
+  <title>CSAI2601 • W1 UI/UX Audit Lab • Bank 48 • Main Path</title>
   <style>
     :root{
       --ink:#14213d;
@@ -216,7 +216,7 @@
     <header class="topbar">
       <a class="brand" href="./index.html" aria-label="กลับหน้า Mission Control">
         <span class="brand-badge">UX</span>
-        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt</small></span>
+        <span><strong>UX Quest</strong><small>W1 • UI/UX Audit Lab</small></span>
       </a>
       <div class="statusbar" aria-label="สถานะ Mission">
         <span class="status">Case <b id="hudCase">—</b></span>
@@ -228,8 +228,8 @@
     <section class="hero">
       <div>
         <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT</p>
-        <h1>UX Detective: Casefile Hunt</h1>
-        <p>48 Casefiles ครบ 6 สายทักษะ UX • 1 Shift มี 3 คดีคนละสาย และไม่วนคดีเดิมก่อนครบ 16 Shift • ได้ 2★ Readiness จึงปลดล็อก W2</p>
+        <h1>UX Detective: UI/UX Audit Lab</h1>
+        <p>Week 1: จาก “ฉันชอบหน้าจอนี้” ไปสู่ “ผู้ใช้ทำงานสำเร็จหรือไม่” • ใช้ 6 แว่นขยาย: Clarity, Hierarchy, Cognitive Load, Consistency, Feedback และ Recovery • ได้ 2★ Readiness จึงปลดล็อก W2</p>
       </div>
       <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>3 Case + 1 Boss + Blind Review = 1 Shift ที่วัดเหตุผลจริง</span></aside>
     </section>
@@ -3149,12 +3149,12 @@
      three different reasoning tracks in every Shift and all 48 cases appear
      once before a new cycle begins. */
   const CASE_TRACKS = {
-    navigation:{label:'Navigation & Information Architecture',short:'Navigation'},
-    confirmation:{label:'Confirmation & System Feedback',short:'Feedback'},
-    'error-recovery':{label:'Error Recovery & High-Risk Action',short:'Recovery'},
-    'trust-risk':{label:'Trust, Privacy & Risk',short:'Trust'},
-    accessibility:{label:'Accessibility & Inclusive Interaction',short:'Accessibility'},
-    'cognitive-load':{label:'Cognitive Load & Time Pressure',short:'Cognitive'}
+    navigation:{label:'Clarity & Navigation',short:'Clarity'},
+    confirmation:{label:'Feedback & Confirmation',short:'Feedback'},
+    'error-recovery':{label:'Recovery & Error Tolerance',short:'Recovery'},
+    'trust-risk':{label:'Consistency, Trust & Risk',short:'Consistency'},
+    accessibility:{label:'Accessibility & Inclusive UI',short:'Access'},
+    'cognitive-load':{label:'Hierarchy & Cognitive Load',short:'Hierarchy'}
   };
   const TRACK_ASSIGNMENTS = {
     'scholarship-docs':'navigation',
@@ -3485,7 +3485,7 @@
         <p class="eyebrow">W1 // CASEFILE BANK 48</p>
         <h2>เริ่ม Crisis Shift ใหม่: ปิด 3 คดีคนละสายทักษะ</h2>
         <p>W1 Main Path มี 48 Casefiles ครบ 6 สาย UX และจัด Shift ละ 3 คดีไม่ซ้ำ Track เพื่อบังคับให้ใช้เหตุผลต่างรูปแบบ ไม่ใช่จำคำตอบเดิม • คดีจะไม่วนก่อนครบ 16 Shift</p>
-        <section class="learning-brief" aria-label="วันนี้จะเรียนรู้อะไร"><h3>วันนี้คุณกำลังฝึกอะไร</h3><ul><li><b>Evidence:</b> เลือกข้อมูลที่ช่วยแยกสาเหตุ ไม่ใช่ข้อมูลที่ดูสำคัญเฉย ๆ</li><li><b>Hypothesis:</b> อธิบายว่าทำไม User Goal จึงติดขัด โดยต้องอิงหลักฐาน</li><li><b>Fix + Test:</b> เลือกการแก้ที่ตรงสาเหตุ แล้วใช้ผลทดสอบตัดสินใจก้าวถัดไป</li></ul><small>เป้าหมายไม่ใช่ตอบให้เร็ว แต่ทำให้เส้น Evidence → Hypothesis → Fix → Test เชื่อมกันอย่างมีเหตุผล</small></section>
+        <section class="learning-brief" aria-label="วันนี้จะเรียนรู้อะไร"><h3>Week 1 Learning Brief: UI/UX Audit</h3><ul><li><b>UI:</b> ระบุสิ่งที่ผู้ใช้เห็นและโต้ตอบ เช่น คำบนปุ่ม ลำดับข้อมูล แบบฟอร์ม และ feedback</li><li><b>UX:</b> อธิบายผลต่อผู้ใช้: ทำงานสำเร็จหรือไม่ ช้า สับสน หรือไม่มั่นใจเพราะอะไร</li><li><b>User-Centered Design:</b> เริ่มจากผู้ใช้ งานหลัก บริบท และหลักฐาน ไม่เริ่มจากความชอบส่วนตัว</li><li><b>6 UX Lenses:</b> Clarity, Hierarchy, Cognitive Load, Consistency, Feedback, Recovery</li></ul><small>เป้าหมายของ Shift นี้: เขียนเหตุผลแบบ “ผู้ใช้ ___ ไม่สามารถ/ไม่มั่นใจที่จะ ___ เพราะ ___ ส่งผลให้ ___” แล้วเลือกการปรับปรุงที่ตรงสาเหตุ</small></section><section class="learning-brief" aria-label="เกณฑ์ Week 1"><h3>สิ่งที่เกมกำลังประเมินตาม Week 1</h3><ul><li>ระบุผู้ใช้ งานหลัก และบริบทได้</li><li>แยก UI symptom ออกจาก UX impact ได้</li><li>วิเคราะห์ friction ด้วยหนึ่งใน 6 UX Lenses ได้</li><li>เสนอการปรับที่มีเหตุผล ไม่ใช่เพียง “ทำให้สวยขึ้น”</li></ul><small>สอดคล้องกับกิจกรรม UX Detective, Real App Audit และ Rubric งาน UX First Impression Audit</small></section>
         <div class="mode-grid">
           <div class="mode-metric"><span>Casefiles ที่ยังไม่เจอ</span><b>${unseen}/${CASES.length}</b></div>
           <div class="mode-metric"><span>Cycle Shift</span><b>${round}/${TRACK_SCHEDULE.length}</b></div>
@@ -4164,7 +4164,7 @@
     const gateLabel=result.passed?'W2 Readiness Gate cleared':result.stars===1?'Practice clear — W2 still locked':'Shift not cleared';
     const gateChip=result.passed?'<span class="w2-gate-chip">W2 READY</span>':'<span class="w2-gate-chip locked">W2 LOCKED — NEED 2★ READINESS</span>';
     const w2Continue=result.passed?`<a class="action-row primary" href="./w2-design-thinking-sprint.html?v=casefile-v13-ready"><span class="action-icon">→</span><span><strong>ต่อไป: W2 Design Thinking Sprint</strong><small>ผ่าน W1 Casefile ระดับ ${readiness.w1.bestStars}★ Readiness แล้ว • ไม่ต้องกลับไปทำ Quiz W1 เดิม</small></span><span>เริ่ม W2 →</span></a>`:'';
-    const learningSummary=`<section class="learning-summary"><h3>สรุปการเรียนรู้จาก Shift นี้</h3><p>${exact>=2?'คุณเริ่มเชื่อมหลักฐานกับสาเหตุได้ดีขึ้น':'ให้เริ่มจากถามว่า “หลักฐานชิ้นใดช่วยตัดสาเหตุอื่นออกได้” ก่อนเลือก Hypothesis'} ${solid>=2?'และอ่านผล Test เพื่อตัดสินใจก้าวต่อไปได้ค่อนข้างดี':'รอบถัดไปให้ดู Task success, เวลา และ Trust ร่วมกันก่อนเลือกก้าวต่อไป'}</p><div class="reflection-prompt"><b>Reflection 30 วินาที:</b> คดีใดทำให้คุณเปลี่ยนความคิดมากที่สุด และหลักฐานใดทำให้เปลี่ยน?</div></section>`;
+    const learningSummary=`<section class="learning-summary"><h3>Week 1 Learning Summary</h3><p>${exact>=2?'คุณเริ่มแยก “อาการบนหน้าจอ (UI)” ออกจาก “ผลต่อผู้ใช้ (UX)” และเชื่อมหลักฐานกับสาเหตุได้ดีขึ้น':'รอบถัดไปให้เริ่มจาก User Goal ก่อน แล้วใช้หนึ่งใน 6 UX Lenses เพื่ออธิบายว่าอะไรทำให้ผู้ใช้สับสน ช้า หรือไม่มั่นใจ'} ${solid>=2?'คุณยังใช้ผลทดสอบเพื่อดูว่าแบบที่ปรับช่วยให้ผู้ใช้ทำงานสำเร็จได้จริง':'เมื่อดูผล Test ให้พิจารณา Task success, เวลา, ความมั่นใจ และ error/recovery ร่วมกัน ไม่ใช่ดูความสวยของหน้าจอ'}</p><div class="reflection-prompt"><b>Reflection 30 วินาที:</b> เลือก 1 คดี แล้วเขียนให้ครบ: “ผู้ใช้ ___ ไม่สามารถ/ไม่มั่นใจที่จะ ___ เพราะ ___ ส่งผลให้ ___” จากนั้นระบุ UX Lens ที่เกี่ยวข้อง 1 ข้อ</div></section>`;
 
     stage.innerHTML=`
       <section class="card debrief">
