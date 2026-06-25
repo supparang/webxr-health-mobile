@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z62-strict-pass-truth-evidence-integrity';
+  const APP_VERSION = '20260610-v1z63-uk-thailand-coteaching-sb-alignment';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31988,7 +31988,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z62</div>
+              <div class="mini-note">Save the Society • v1z63</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32541,7 +32541,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z62</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z63</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -33747,14 +33747,11 @@
       renderBossGateLocked(report.gate);
       return false;
     }
-    const gate = bossGateByNumber(gateNo);
-    state.currentBossGate = gate.gate;
+    const plan = bossGateByNumber(gateNo);
+    const record = resolveUKBossGate(plan.after[plan.after.length - 1]);
+    state.currentBossGate = plan.gate;
     saveState();
-    if(typeof renderBossGate === 'function'){
-      renderBossGate(gate.after[gate.after.length - 1], gate.gate);
-    }else{
-      renderBossGateTimeline();
-    }
+    renderBossGate(record.id);
     return false;
   }
 
@@ -34957,6 +34954,156 @@
     15:{risk:'High', objective:'Integrate reading/listening evidence into a short written response and oral reflection.', expected:'integrated response + reflection', vocab:['integrate','evidence','reflect','next step'], frame:'The evidence shows ___. My response is ___. My next step is ___.', teacherNote:'เป็น final portfolio synthesis'}
   };
 
+
+  /* === v1z63 UK–Thailand Co-Teaching: S/B Mission Alignment === */
+  const UK_THAILAND_SESSION_PROTOCOL = {
+    1:{mission:'Mission Passport', liveRole:'Incoming UK Student', liveDrop:'A student says, “I will study more.” Teams turn this into a clear academic goal.', wildcard:'What will you do every week?', humanProof:'30-second Academic Goal Passport', reward:'Human Stamp: Goal Connector'},
+    2:{mission:'UK Campus Decoder', liveRole:'UK Campus Decoder', liveDrop:'A course email, timetable or notice contains academic words in a real university context.', wildcard:'How does this word change in a different context?', humanProof:'Vocabulary Rescue Card + one context sentence', reward:'Human Stamp: Context Clue'},
+    3:{mission:'The Broken Brief', liveRole:'Project Briefing Manager', liveDrop:'A project briefing includes one main idea and several distracting details.', wildcard:'Explain the main idea in ten words.', humanProof:'Main Idea + one supporting detail', reward:'Human Stamp: Brief Breaker'},
+    4:{mission:'Signal Relay', liveRole:'Announcement Host', liveDrop:'A live campus announcement uses first, however, because and therefore.', wildcard:'What changed after the word however?', humanProof:'Signal Map + relationship explanation', reward:'Human Stamp: Signal Catcher'},
+    5:{mission:'Evidence Court', liveRole:'Chief Evidence Officer', liveDrop:'A social-media claim or short news item may contain fact, opinion, bias and missing evidence.', wildcard:'What would make you change your decision?', humanProof:'Evidence Verdict + oral defence', reward:'Human Stamp: Evidence Guardian'},
+    6:{mission:'Summary Press Room', liveRole:'Summary Editor', liveDrop:'A long source has key ideas plus tempting details that should not be copied.', wildcard:'Remove fifteen words but keep the meaning.', humanProof:'Three-sentence own-words summary', reward:'Human Stamp: Summary Editor'},
+    7:{mission:'Tone Switchboard', liveRole:'Audience Switcher', liveDrop:'One message must be reshaped for a lecturer, first-year student, journalist or dean.', wildcard:'Now say the same idea to a university dean.', humanProof:'Tone Makeover Card + spoken audience switch', reward:'Human Stamp: Audience Shifter'},
+    8:{mission:'Paragraph Repair Lab', liveRole:'Paragraph Surgeon', liveDrop:'A paragraph has mixed order, weak support and one sentence that may not belong.', wildcard:'Which sentence should disappear, and why?', humanProof:'Paragraph Structure Map', reward:'Human Stamp: Structure Surgeon'},
+    9:{mission:'Campus Solution Pitch', liveRole:'Campus Decision Maker', liveDrop:'A campus problem needs one evidence-based paragraph and a clear solution pitch.', wildcard:'Your evidence is weak. Give one specific example.', humanProof:'Academic Paragraph + 45-second Pitch', reward:'Human Stamp: Solution Pitcher'},
+    10:{mission:'Data Detective', liveRole:'Data Detective', liveDrop:'A graph and caption may show a trend, but the caption may overclaim the result.', wildcard:'Does the graph prove that, or only show a trend?', humanProof:'Trend Statement + cautious interpretation', reward:'Human Stamp: Data Detective'},
+    11:{mission:'International Help Desk', liveRole:'UK Help Desk Officer', liveDrop:'An email reply is incomplete, so teams must make a polite, specific follow-up request.', wildcard:'I am unavailable on that day. What will you ask next?', humanProof:'Email Thread + spoken follow-up', reward:'Human Stamp: Professional Requester'},
+    12:{mission:'Integrity Escape Room', liveRole:'Research Integrity Officer', liveDrop:'A draft mixes quotation, paraphrase, citation and AI support in risky ways.', wildcard:'You used AI for brainstorming. What must you disclose?', humanProof:'Citation Decision Card + AI Ethics Note', reward:'Human Stamp: Ethical AI User'},
+    13:{mission:'Mini Lecture Heist', liveRole:'Mini Lecture Host', liveDrop:'A 60–90 second mini lecture contains a main point, keywords and optional examples.', wildcard:'Which detail is useful, but not central?', humanProof:'Lecture Notes + mini summary', reward:'Human Stamp: Lecture Listener'},
+    14:{mission:'Presentation Under Pressure', liveRole:'International Audience', liveDrop:'A short academic pitch must use opening, signposting, evidence and a clear close.', wildcard:'Explain it now for a first-year student.', humanProof:'One-minute Pitch + Q&A', reward:'Human Stamp: No-Script Presenter'},
+    15:{mission:'Global Solution Summit', liveRole:'Global Panel Member', liveDrop:'A final campus challenge combines a reading source, a mini input, evidence and a solution.', wildcard:'What evidence is strongest, and why?', humanProof:'Solution Brief + reflection + oral pitch', reward:'Human Stamp: Global Communicator'}
+  };
+
+  const UK_THAILAND_BOSS_PROTOCOL = {
+    1:{title:'Global Learner Clearance', event:'Global Learner Clearance', focus:'Academic goal, vocabulary in context and main idea under a live international audience.', liveRole:'International Programme Coordinator', liveDrop:'A new university briefing arrives without advance notice.', wildcard:'Change your answer for a programme coordinator audience.', humanProof:'Mission Passport + source explanation + live response', badge:'Human Link Badge'},
+    2:{title:'Evidence Court Live', event:'Evidence Court Live', focus:'Keywords, signal words, claim checking and an own-words summary under pressure.', liveRole:'Chief Evidence Officer', liveDrop:'A fresh source includes a misleading claim and one missing piece of evidence.', wildcard:'Defend your summary in 30 seconds.', humanProof:'Evidence Verdict + summary + oral defence', badge:'Evidence Court Badge'},
+    3:{title:'Academic Makeover Studio', event:'Academic Makeover Studio', focus:'Academic tone, paragraph structure and evidence-based paragraph writing.', liveRole:'Academic Editor', liveDrop:'A paragraph needs a live repair before it can be published.', wildcard:'Switch audience and revise one sentence live.', humanProof:'Revised paragraph + explanation', badge:'Human Override Badge'},
+    4:{title:'International Help Desk Crisis', event:'International Help Desk Crisis', focus:'Data description, professional email and responsible source/AI use.', liveRole:'International Case Officer', liveDrop:'A graph, an incomplete email and an ethics problem arrive together.', wildcard:'Respond within the time limit for a new audience.', humanProof:'Data claim + email response + ethics statement', badge:'Professional Communicator Badge'},
+    5:{title:'Human Override Summit', event:'Human Override Summit', focus:'Listening, presentation, evidence-based solution and reflection in a live panel.', liveRole:'UK–Thailand Global Panel', liveDrop:'A final campus challenge is released only at the summit.', wildcard:'The audience disagrees. What changes in your solution?', humanProof:'Global Campus Solution Kit + live Q&A', badge:'Human Override Hero'}
+  };
+
+  function ukThailandSessionProtocol(sessionId){
+    return UK_THAILAND_SESSION_PROTOCOL[Number(sessionId || 1)] || UK_THAILAND_SESSION_PROTOCOL[1];
+  }
+
+  function ukThailandBossProtocol(gateNo){
+    return UK_THAILAND_BOSS_PROTOCOL[Number(gateNo || 1)] || UK_THAILAND_BOSS_PROTOCOL[1];
+  }
+
+  function applyUKThailandCoTeachingProtocol(){
+    const sessionUpdates = {
+      1:{zone:'Foundation Arc', skill:'Academic Mindset'},
+      2:{zone:'Foundation Arc', skill:'Academic Vocabulary'},
+      3:{zone:'Foundation Arc', skill:'Main Idea'},
+      4:{zone:'Evidence Arc', skill:'Keywords & Signal Words'},
+      5:{zone:'Evidence Arc', skill:'Critical Reading'},
+      6:{zone:'Evidence Arc', skill:'Summarizing'},
+      7:{zone:'Writing Arc', skill:'Academic Tone'},
+      8:{zone:'Writing Arc', skill:'Paragraph Structure'},
+      9:{zone:'Writing Arc', skill:'Paragraph Writing'},
+      10:{zone:'Professional Arc', skill:'Data Description'},
+      11:{zone:'Professional Arc', skill:'Academic Email'},
+      12:{zone:'Professional Arc', skill:'Citation & Ethics'},
+      13:{zone:'Global Arc', skill:'Academic Listening'},
+      14:{zone:'Global Arc', skill:'Academic Presentation'},
+      15:{zone:'Global Arc', skill:'Final Integration'}
+    };
+    SESSIONS.forEach(s=>{
+      const p = ukThailandSessionProtocol(s.id);
+      const old = s.title;
+      s.gameTitle = old;
+      s.title = p.mission;
+      s.zone = `${sessionUpdates[s.id].zone} • UK–Thailand Global Campus`;
+      s.skill = sessionUpdates[s.id].skill;
+      s.liveRole = p.liveRole;
+      s.liveDrop = p.liveDrop;
+      s.wildcard = p.wildcard;
+      s.humanProof = p.humanProof;
+      s.humanReward = p.reward;
+      s.boss = `Live Co-Teacher: ${p.liveRole}`;
+      s.coTeaching = true;
+    });
+
+    BOSS_GATE_PLAN.splice(0, BOSS_GATE_PLAN.length,
+      {gate:1, after:[1,2,3], title:'Boss Gate 1: Global Learner Clearance', focus:'Mission Passport • vocabulary in context • main idea • live response', skills:['Reading','Writing','Listening','Speaking'], type:'major', event:'Global Learner Clearance'},
+      {gate:2, after:[4,5,6], title:'Boss Gate 2: Evidence Court Live', focus:'Signal words • source credibility • own-words summary • oral defence', skills:['Reading','Writing','Listening','Speaking'], type:'major', event:'Evidence Court Live'},
+      {gate:3, after:[7,8,9], title:'Boss Gate 3: Academic Makeover Studio', focus:'Tone • paragraph repair • academic paragraph • audience shift', skills:['Reading','Writing','Listening','Speaking'], type:'major', event:'Academic Makeover Studio'},
+      {gate:4, after:[10,11,12], title:'Boss Gate 4: International Help Desk Crisis', focus:'Data • professional email • citation/AI ethics • timed response', skills:['Reading','Writing','Listening','Speaking'], type:'major', event:'International Help Desk Crisis'},
+      {gate:5, after:[13,14,15], title:'Final Boss: Human Override Summit', focus:'Mini lecture • presentation • integrated evidence-based solution • live Q&A', skills:['Reading','Writing','Listening','Speaking'], type:'final', event:'Human Override Summit'}
+    );
+
+    BOSS_GATES.splice(0, BOSS_GATES.length,
+      {id:'gate1', planGate:1, title:'Global Learner Clearance', after:3, sessions:[1,2,3], boss:'Global Learner Clearance', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass S1–S3, then complete the live UK–Thailand checkpoint.'},
+      {id:'gate2', planGate:2, title:'Evidence Court Live', after:6, sessions:[4,5,6], boss:'Evidence Court Live', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass S4–S6, then defend evidence and summary in the live checkpoint.'},
+      {id:'gate3', planGate:3, title:'Academic Makeover Studio', after:9, sessions:[7,8,9], boss:'Academic Makeover Studio', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass S7–S9, then repair and explain academic communication live.'},
+      {id:'gate4', planGate:4, title:'International Help Desk Crisis', after:12, sessions:[10,11,12], boss:'International Help Desk Crisis', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass S10–S12, then solve the professional communication case.'},
+      {id:'final', planGate:5, title:'Human Override Summit', after:15, sessions:[13,14,15], boss:'Human Override Summit', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass S13–S15, then present an integrated solution to the live panel.'}
+    );
+
+    Object.entries(EAP_FINAL_SKILL_MATRIX).forEach(([sid,m])=>{
+      const p = ukThailandSessionProtocol(sid);
+      m.mission = p.mission;
+      m.liveRole = p.liveRole;
+      m.liveDrop = p.liveDrop;
+      m.wildcard = p.wildcard;
+    });
+  }
+
+  function resolveUKBossGate(ref){
+    if(ref && typeof ref === 'object' && ref.id) return ref;
+    const raw = String(ref || '').trim();
+    if(raw){
+      const byId = BOSS_GATES.find(g=>g.id === raw);
+      if(byId) return byId;
+    }
+    const n = Number(ref || 0);
+    const byAfter = BOSS_GATES.find(g=>Number(g.after) === n);
+    if(byAfter) return byAfter;
+    const byPlan = BOSS_GATES.find(g=>Number(g.planGate) === n);
+    return byPlan || BOSS_GATES[0];
+  }
+
+  function bossGateForSession(sessionId){
+    const sid = Number(sessionId || 1);
+    return BOSS_GATE_PLAN.find(g=>g.after.includes(sid)) || BOSS_GATE_PLAN[0];
+  }
+
+  function bossGateStatus(gateRef){
+    const gate = resolveUKBossGate(gateRef);
+    const report = bossGateUnlockReport(gate.planGate);
+    return !!report.unlocked;
+  }
+
+  function ukThailandSessionCoTeachHTML(sessionId){
+    const p = ukThailandSessionProtocol(sessionId);
+    return `<section class="co-teach-live-card">
+      <div class="co-teach-kicker">🇹🇭 + 🇬🇧 EVERY-WEEK CO-TEACHING</div>
+      <h3>Human Mission Partner: ${safe(p.liveRole)}</h3>
+      <div class="co-teach-grid">
+        <div><b>Live Drop</b><span>${safe(p.liveDrop)}</span></div>
+        <div><b>Wildcard Question</b><span>“${safe(p.wildcard)}”</span></div>
+        <div><b>Human Proof</b><span>${safe(p.humanProof)}</span></div>
+        <div><b>Reward</b><span>${safe(p.reward)}</span></div>
+      </div>
+      <p class="mini-note">AI helps students rehearse. The British co-teacher provides authentic input, a live audience shift, one follow-up question and Glow + Grow feedback.</p>
+    </section>`;
+  }
+
+  function ukThailandBossCoTeachHTML(gateNo){
+    const p = ukThailandBossProtocol(gateNo);
+    return `<section class="co-teach-boss-card">
+      <div class="co-teach-kicker">LIVE HUMAN CHECKPOINT</div>
+      <h3>${safe(p.event)}</h3>
+      <p><b>British Co-Teacher Role:</b> ${safe(p.liveRole)}</p>
+      <p><b>Live Drop:</b> ${safe(p.liveDrop)}</p>
+      <p><b>Wildcard:</b> “${safe(p.wildcard)}”</p>
+      <p><b>Human Proof:</b> ${safe(p.humanProof)}</p>
+      <div class="co-teach-badge">🏅 ${safe(p.badge)}</div>
+    </section>`;
+  }
+
+  applyUKThailandCoTeachingProtocol();
+
   const EAP_REPLAY_TOPIC_BANK = {
     1:[
       ['academic goal audit','A student wants to improve English but only says, “I will study more.” A stronger academic plan names a skill, a weekly action, and a way to check progress.'],
@@ -36124,17 +36271,19 @@
           <span class="pill">Session Path</span>
           <span class="pill">S${sid}</span>
           <span class="pill">${safe(s.skill || s.subtitle || 'Academic English')}</span>
+          <span class="pill">🇹🇭 + 🇬🇧 Co-Taught</span>
         </div>
-        <h2>Session ${sid}: ${safe(s.title || s.name || 'Academic English Mission')}</h2>
-        <p class="lead">Complete the Core Mission and Support Mission. Both count toward your Session Pass.</p>
-        <div class="student-flow-note"><b>Flow:</b> Start Core → Start Support → Session Pass → Boss Gate</div>
+        <h2>S${sid} · ${safe(s.title || s.name || 'Academic English Mission')}</h2>
+        <p class="lead">AI prepares the team. Thai and British co-teachers turn the mission into authentic academic communication.</p>
+        <div class="student-flow-note"><b>Flow:</b> Live Drop → AI Rehearsal → Core → Support → Wildcard → Human Stamp</div>
+        ${ukThailandSessionCoTeachHTML(sid)}
         <div class="student-session-start-strip">
           ${skills.map(skill=>`<button type="button" class="btn primary student-start-mission" data-launch-mission="true" onclick="return EAPHero.openSkillMissionSafe('${safe(skill)}',${sid})">▶ Start ${safe(skill)}</button>`).join('')}
         </div>
         ${pass}
         <div class="student-mission-grid">${cards}</div>
         <div class="student-pass-rule">
-          <b>Pass rule:</b> Core ≥ 60 and Support ≥ 60. Your score and completion badge will appear after both missions are submitted.
+          <b>Pass rule:</b> Core ≥ 60 and Support ≥ 60. Human feedback adds a Human Stamp but does not grade accent.
         </div>
         <div class="footer-actions student-session-footer">
           <button class="btn ghost" onclick="EAPHero.map()">Back to Map</button>
@@ -36158,28 +36307,34 @@
     }
   }
 
-  function renderBossGate(gateId){
-    const gate = BOSS_GATES.find(g => g.id === gateId) || BOSS_GATES[0];
+  function renderBossGate(gateRef){
+    const gate = resolveUKBossGate(gateRef);
+    const plan = bossGateByNumber(gate.planGate);
     const unlocked = bossGateStatus(gate);
     const mutation = mutationForGate(gate.id);
     const ghost = state.replay?.ghosts?.[gate.id];
     layout(`
-      <section class="panel" style="margin-top:20px">
-        <div class="badges"><span class="pill">Boss Gate</span><span class="pill">${safe(gate.title)}</span><span class="pill">${unlocked?'Unlocked':'Locked'}</span></div>
-        <h2>${safe(gate.boss)}</h2>
-        <p class="lead">${safe(gate.unlock)}</p>
+      <section class="panel co-teach-boss-panel" style="margin-top:20px">
+        <div class="badges">
+          <span class="pill">${gate.planGate === 5 ? 'Final Boss' : 'Boss Gate '+gate.planGate}</span>
+          <span class="pill">🇹🇭 + 🇬🇧 Live Event</span>
+          <span class="pill">${unlocked?'Unlocked':'Locked'}</span>
+        </div>
+        <h2>${safe(gate.title)}</h2>
+        <p class="lead">${safe(plan.focus)}</p>
+        ${ukThailandBossCoTeachHTML(gate.planGate)}
         <div class="grid three">
-          <div class="stat"><b>${safe(mutation.name)}</b><span>Mutation</span></div>
-          <div class="stat"><b>${ghost ? ghost.bestPercent+'%' : '-'}</b><span>Rival Ghost</span></div>
-          <div class="stat"><b>${gate.skills.join(' + ')}</b><span>Skill Check</span></div>
+          <div class="stat"><b>${safe(mutation.name)}</b><span>Digital Challenge Form</span></div>
+          <div class="stat"><b>${ghost ? ghost.bestPercent+'%' : '-'}</b><span>Replay Record</span></div>
+          <div class="stat"><b>4 Skills</b><span>Read • Listen • Write • Speak</span></div>
         </div>
         <div class="panel light" style="margin-top:18px">
           <h3>Boss Rule</h3>
-          <p class="mini-note">บอสช่วงนี้ใช้ MCQ + Reason Gate + portfolio evidence ร่วมกัน ไม่ใช่เลือกตอบอย่างเดียว</p>
+          <p class="mini-note">This is a checkpoint, not an extra session. The digital challenge checks evidence; the British co-teacher adds a live audience, one wildcard question and Glow + Grow feedback.</p>
         </div>
         <div class="footer-actions">
-          <button class="btn primary" ${(unlocked && featureUnlocked('bossGate'))?'':'disabled'} onclick="EAPHero.startGateBoss('${gate.id}')">${featureUnlocked('bossGate')?'Start Gate Boss':'Boss Gate unlocks later'}</button>
-          <button class="btn" onclick="return EAPHero.directOpenSession(${gate.after})">Complete Skill Evidence</button>
+          <button class="btn primary" ${(unlocked && featureUnlocked('bossGate'))?'':'disabled'} onclick="EAPHero.startGateBoss('${gate.id}')">${featureUnlocked('bossGate')?'Start Integrated Boss Challenge':'Boss Gate unlocks later'}</button>
+          <button class="btn" onclick="return EAPHero.directOpenSession(${gate.after})">Complete Required Sessions</button>
           <button class="btn ghost" onclick="EAPHero.replayHub()">Replay Hub</button>
         </div>
       </section>`);
@@ -36190,11 +36345,11 @@
     return MUTATIONS[logs % MUTATIONS.length];
   }
 
-  function startGateBoss(gateId){
-    const gate = BOSS_GATES.find(g => g.id === gateId);
-    if(!gate || !bossGateStatus(gate)) return renderBossGate(gateId);
-    const mutation = mutationForGate(gateId);
-    state.replay.currentGate = gateId;
+  function startGateBoss(gateRef){
+    const gate = resolveUKBossGate(gateRef);
+    if(!gate || !bossGateStatus(gate)) return renderBossGate(gate?.id || gateRef);
+    const mutation = mutationForGate(gate.id);
+    state.replay.currentGate = gate.id;
     state.replay.currentMutation = mutation.key;
     saveState();
     startBoss(gate.after, mutation.key === 'nohint' ? 'nohint' : mutation.key === 'speed' ? 'speed' : 'hero');
@@ -40146,7 +40301,15 @@
 strictEvidenceForSessionSkill,
 strictBestScoreForSessionSkill,
 strictPassTruthReport,
-strictSyncSessionProgress,
+UK_THAILAND_SESSION_PROTOCOL,
+UK_THAILAND_BOSS_PROTOCOL,
+ukThailandSessionProtocol,
+ukThailandBossProtocol,
+applyUKThailandCoTeachingProtocol,
+resolveUKBossGate,
+ukThailandSessionCoTeachHTML,
+ukThailandBossCoTeachHTML,
+    strictSyncSessionProgress,
 strictPassTruthDiagnostic,
 runStrictPassTruthSoon,
     sessionStarScore,

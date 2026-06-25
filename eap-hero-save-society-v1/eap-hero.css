@@ -2088,3 +2088,64 @@ textarea{
   background:rgba(251,146,60,.14);
   border-color:rgba(251,146,60,.42);
 }
+
+
+/* === v1z63 UK–Thailand Co-Teaching S/B Alignment === */
+.co-teach-live-card,
+.co-teach-boss-card{
+  margin:14px 0 18px;
+  padding:16px;
+  border-radius:20px;
+  border:1px solid rgba(45,212,191,.52);
+  background:linear-gradient(135deg,rgba(8,145,178,.22),rgba(79,70,229,.22));
+}
+.co-teach-boss-card{
+  border-color:rgba(251,191,36,.6);
+  background:linear-gradient(135deg,rgba(146,64,14,.24),rgba(91,33,182,.24));
+}
+.co-teach-kicker{
+  margin-bottom:8px;
+  color:#99f6e4;
+  font-size:12px;
+  font-weight:950;
+  letter-spacing:.08em;
+}
+.co-teach-boss-card .co-teach-kicker{
+  color:#fde68a;
+}
+.co-teach-live-card h3,
+.co-teach-boss-card h3{
+  margin:0 0 12px;
+}
+.co-teach-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.co-teach-grid > div{
+  padding:12px;
+  border-radius:15px;
+  background:rgba(255,255,255,.09);
+  border:1px solid rgba(255,255,255,.15);
+}
+.co-teach-grid b,
+.co-teach-grid span{
+  display:block;
+}
+.co-teach-grid b{
+  margin-bottom:4px;
+  color:#bbf7d0;
+}
+.co-teach-badge{
+  display:inline-block;
+  margin-top:8px;
+  padding:8px 11px;
+  border-radius:999px;
+  background:rgba(253,230,138,.14);
+  border:1px solid rgba(253,230,138,.46);
+  color:#fde68a;
+  font-weight:950;
+}
+@media(max-width:700px){
+  .co-teach-grid{grid-template-columns:1fr;}
+}
