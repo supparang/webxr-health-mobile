@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z64-real-reading-live-drop-alignment';
+  const APP_VERSION = '20260610-v1z65-weekly-context-game-engine';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31988,7 +31988,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z64</div>
+              <div class="mini-note">Save the Society • v1z65</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32541,7 +32541,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z64</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z65</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -35912,6 +35912,9 @@
     const rawSkill = String(skill || '').trim();
     const k = rawSkill.toLowerCase();
     try{
+      if(window.EAPHeroWeeklyContext && typeof window.EAPHeroWeeklyContext.openSkillMission === 'function'){
+        return window.EAPHeroWeeklyContext.openSkillMission(rawSkill, sessionId);
+      }
       const routes = {
         reading: renderReadingMission,
         writing: renderWritingMission,
@@ -37380,6 +37383,11 @@
   }
 
   function alignmentFor(skill, sessionId, prompt){
+    try{
+      if(window.EAPHeroWeeklyContext && typeof window.EAPHeroWeeklyContext.alignment === 'function'){
+        return window.EAPHeroWeeklyContext.alignment(skill, sessionId, prompt || {});
+      }
+    }catch(e){}
     return variantAlignmentOverride(skill, sessionId, prompt || {});
   }
 

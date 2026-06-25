@@ -2216,3 +2216,25 @@ textarea{
     min-height:92px;
   }
 }
+
+
+/* === v1z65 Weekly Context Game Engine === */
+.weekly-game-page{max-width:1140px;margin-top:20px;}
+.weekly-mission-context{margin:14px 0;padding:16px;border-radius:20px;background:linear-gradient(135deg,rgba(14,116,144,.22),rgba(67,56,202,.18));border:1px solid rgba(103,232,249,.46);}
+.weekly-context-kicker{margin-bottom:8px;color:#a7f3d0;font-weight:950;font-size:12px;letter-spacing:.08em;}
+.weekly-mission-context h3{margin:0 0 8px;}.weekly-mission-context p{margin:7px 0;}
+.weekly-context-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px;}
+.weekly-context-grid>div{padding:11px 12px;border-radius:14px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14);}
+.weekly-context-grid b,.weekly-context-grid span{display:block;}.weekly-context-grid b{margin-bottom:4px;color:#bae6fd;}
+.weekly-at-a-glance{margin:12px 0;border:1px solid rgba(148,163,184,.34);border-radius:16px;background:rgba(15,23,42,.18);}
+.weekly-at-a-glance summary{cursor:pointer;padding:12px 14px;font-weight:900;color:#dbeafe;}.weekly-at-a-glance-inner{padding:0 14px 12px;}
+.weekly-artifact-card{margin:14px 0;overflow:hidden;border:2px solid #bae6fd;border-radius:20px;background:#f8fafc;color:#1e293b;box-shadow:0 10px 24px rgba(15,23,42,.16);}
+.weekly-artifact-head{padding:10px 15px;background:#e0f2fe;color:#075985;font-size:13px;font-weight:950;}
+.weekly-artifact-card p{margin:0;padding:18px 20px;line-height:1.65;font-size:17px;}
+.weekly-task-card{display:grid;gap:5px;margin:12px 0;padding:14px;border-radius:16px;background:rgba(254,243,199,.96);color:#78350f;border:1px solid #fbbf24;}
+.weekly-task-card b{font-size:16px;}.weekly-task-card em{font-size:13px;font-weight:800;}
+.weekly-skill-guide{margin-top:12px;padding:14px;border-radius:18px;background:linear-gradient(135deg,rgba(8,145,178,.18),rgba(13,148,136,.17));border:1px solid rgba(103,232,249,.42);}
+.weekly-skill-guide h3,.weekly-skill-guide h4{margin:11px 0 8px;}
+.weekly-wildcard-card{margin:12px 0;padding:13px 15px;border-radius:16px;background:rgba(253,230,138,.13);border:1px solid rgba(253,230,138,.52);}
+.weekly-wildcard-card b,.weekly-wildcard-card span{display:block;}.weekly-wildcard-card b{margin-bottom:4px;color:#fde68a;}
+@media(max-width:700px){.weekly-context-grid{grid-template-columns:1fr;}.weekly-artifact-card p{padding:15px;font-size:16px;}}
