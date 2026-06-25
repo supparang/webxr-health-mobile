@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z59-mission-specific-ai-help-question-alignment';
+  const APP_VERSION = '20260610-v1z60-student-mission-entry-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31988,7 +31988,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z59</div>
+              <div class="mini-note">Save the Society • v1z60</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32537,7 +32537,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z59</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z60</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32957,6 +32957,105 @@
     setTimeout(()=>{ forceNormalizeCEFRLabels(); injectVisibleCompletionBadges(); },150);
     setTimeout(()=>{ forceNormalizeCEFRLabels(); injectVisibleCompletionBadges(); },550);
   }
+
+
+  function studentMissionEntryButtonHTML(skill, sessionId, label){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    const sk = String(skill || 'Reading');
+    const text = label || `Start ${sk}`;
+    return `<button class="btn primary mission-entry-btn mission-entry-${safe(sk).toLowerCase()}" data-skill="${safe(sk)}" data-session="${sid}" onclick="return EAPHero.openSkillMissionSafe('${safe(sk)}', ${sid})">▶ ${safe(text)}</button>`;
+  }
+
+  function enhanceMissionEntryButtons(){
+    try{
+      const sid = Number(state.currentSession || 1) || 1;
+      document.querySelectorAll('.mission-entry-strip').forEach(x=>x.remove());
+
+      document.querySelectorAll('.hud-card').forEach(card=>{
+        const txt = (card.textContent || '');
+        const skill = ['Reading','Writing','Listening','Speaking'].find(s=>txt.includes(s));
+        if(!skill) return;
+
+        card.querySelectorAll('button').forEach(btn=>{
+          const btxt = (btn.textContent || '').trim();
+          if(new RegExp(`Start\\s+${skill}`, 'i').test(btxt) || /Start/i.test(btxt)){
+            btn.classList.add('mission-entry-btn','primary');
+            btn.style.display = '';
+            btn.style.pointerEvents = 'auto';
+            btn.style.visibility = 'visible';
+            btn.style.opacity = '1';
+            btn.setAttribute('data-skill', skill);
+            btn.setAttribute('data-session', sid);
+            btn.onclick = function(ev){
+              ev.preventDefault();
+              ev.stopPropagation();
+              return EAPHero.openSkillMissionSafe(skill, sid);
+            };
+          }
+        });
+
+        if(!card.querySelector('.mission-entry-btn')){
+          card.insertAdjacentHTML('afterbegin', `<div class="mission-entry-top">${studentMissionEntryButtonHTML(skill, sid, `Start ${skill}`)}</div>`);
+        }else if(!card.querySelector('.mission-entry-top')){
+          const btn = card.querySelector('.mission-entry-btn');
+          const wrap = document.createElement('div');
+          wrap.className = 'mission-entry-top';
+          btn.parentNode.insertBefore(wrap, btn);
+          wrap.appendChild(btn);
+        }
+      });
+
+      const panel = document.querySelector('.panel');
+      const title = Array.from(document.querySelectorAll('h1,h2')).find(h=>/Session\s+\d+/.test(h.textContent || ''));
+      if(panel && title && !document.querySelector('.mission-entry-strip')){
+        const skills = [];
+        document.querySelectorAll('.hud-card').forEach(card=>{
+          const txt = card.textContent || '';
+          ['Reading','Writing','Listening','Speaking'].forEach(s=>{
+            if(txt.includes(s) && !skills.includes(s)) skills.push(s);
+          });
+        });
+        if(skills.length){
+          const strip = `<div class="mission-entry-strip">${skills.map(s=>studentMissionEntryButtonHTML(s, sid, `Start ${s}`)).join('')}</div>`;
+          const flow = Array.from(document.querySelectorAll('.route-note,.normal-route-note,.lead,p')).find(x=>/Flow:/i.test(x.textContent || ''));
+          (flow || title).insertAdjacentHTML('afterend', strip);
+        }
+      }
+    }catch(err){
+      console.warn('[enhanceMissionEntryButtons]', err);
+    }
+  }
+
+  function hideStudentDebugEntryButtons(){
+    try{
+      if(typeof shouldHideFourSkillsHub === 'function' && !shouldHideFourSkillsHub()) return;
+      document.querySelectorAll('button,a,.btn').forEach(el=>{
+        const txt = (el.textContent || '').replace(/\s+/g,' ').trim();
+        const oc = String(el.getAttribute('onclick') || '');
+        if(/Four Skills Hub|Debug:|Open Reading/i.test(txt) || /fourSkillsHub|skillMissionHub|debug/i.test(oc)){
+          el.style.display = 'none';
+          el.setAttribute('aria-hidden','true');
+          el.classList.add('student-hidden-debug-entry');
+        }
+      });
+    }catch(e){}
+  }
+
+  function compactPreMissionNotes(){
+    try{
+      document.querySelectorAll('.challenge-note,.ai-mini-note').forEach(el=>el.classList.add('compact-premission-note'));
+      document.querySelectorAll('.session-quality-card').forEach(card=>card.classList.add('compact-session-quality-card'));
+    }catch(e){}
+  }
+
+  function runStudentMissionEntryFixSoon(){
+    enhanceMissionEntryButtons();
+    hideStudentDebugEntryButtons();
+    compactPreMissionNotes();
+    setTimeout(()=>{ enhanceMissionEntryButtons(); hideStudentDebugEntryButtons(); compactPreMissionNotes(); }, 120);
+    setTimeout(()=>{ enhanceMissionEntryButtons(); hideStudentDebugEntryButtons(); compactPreMissionNotes(); }, 500);
+  }
+
 
   function isStudentRole(){
     try{
@@ -35882,6 +35981,7 @@
     runVisibleCompletionBadgeSoon();
     runAILearningLayerSoon();
     runMissionAlignmentPatchSoon();
+    runStudentMissionEntryFixSoon();
     return {intercept:!!window.__EAP_CHECKPOINT_SESSION_INTERCEPT__, cards:document.querySelectorAll('.checkpoint-session-safe-card').length};
   }
 
@@ -39969,6 +40069,12 @@
     injectAlignedHelpBlock,
     runMissionAlignmentPatchSoon,
     renderMissionAlignmentDiagnostics,
+    studentMissionEntryButtonHTML,
+    enhanceMissionEntryButtons,
+    hideStudentDebugEntryButtons,
+    compactPreMissionNotes,
+    runStudentMissionEntryFixSoon,
+    
     
     
     scoreEAPOpenAnswer,
