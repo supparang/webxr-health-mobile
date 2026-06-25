@@ -1,4 +1,4 @@
-/* EAP Hero v1z67 Route Progression Unlock Fix */
+/* EAP Hero v1z68 Clean Route Ledger + Map Clarity */
 (function(){
   'use strict';
 
