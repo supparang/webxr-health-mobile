@@ -201,7 +201,12 @@
     .track-board{display:grid;gap:8px;margin:18px 0 0;padding:15px;border:1px solid #d5e2ff;border-radius:17px;background:#f4f7ff;color:#324a8c;text-align:left}
     .track-board>b{font-size:13px}.track-board>span{display:flex;flex-wrap:wrap;gap:7px}.track-board em{padding:6px 9px;border-radius:999px;background:#e5ecff;color:#3654ca;font-size:11px;font-style:normal;font-weight:900}.track-board small{color:#64759b;line-height:1.45}
     @media(max-width:620px){.track-board{padding:13px}.track-board em{font-size:10px}}
-  </style>
+  
+/* V15 content clarity pass */
+.clarity-rule{margin:8px 0 0;padding:10px 12px;border-left:4px solid #6a7dff;background:#f1f4ff;color:#34447b;border-radius:0 10px 10px 0;font-size:13px;line-height:1.55}
+.option-meta{display:block;margin-top:7px;color:#596886;font-size:12px;line-height:1.45}
+.option strong{font-size:15px}.option small{line-height:1.5}
+</style>
 </head>
 <body>
   <main class="app">
@@ -248,7 +253,7 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'csai2601-uxq-casefile-v14-bank48';
+  const STORAGE_KEY = 'csai2601-uxq-casefile-v15-clarity-bank48';
   const LEGACY_STORAGE_KEY = 'csai2601-uxq-casefile-v5-lite';
   const READINESS_KEY = 'csai2601-uxquest-casefile-readiness-v1';
   const CASES_PER_SHIFT = 3;
@@ -3511,9 +3516,9 @@
     return `
       <article class="card decision">
         <p class="eyebrow">STEP 1 // EVIDENCE HUNT</p>
-        <h3>คุณมีเวลาอ่านหลักฐานได้เพียง ${EVIDENCE_LIMIT} ชิ้น</h3>
-        <p class="prompt">เลือกหลักฐานที่ช่วยอธิบายว่าอะไรขวาง User Goal มากที่สุด ไม่ใช่หลักฐานที่ดูสำคัญหรือมีข้อมูลเยอะที่สุด</p>
-        ${reviewChip('evidence')}<p class="hint">Evidence ที่ดีต้องช่วยให้คุณตัดสินระหว่างสมมติฐานที่เป็นไปได้ ไม่ใช่เพียงทำให้หน้าจอดูมีปัญหา${isReviewing()&&state.reviewPlan?.step==='evidence'?' • ต้องแทนที่อย่างน้อย 1 ชิ้นจากหลักฐานเดิม':''}</p>
+        <h3>เลือกอ่านหลักฐานได้เพียง ${EVIDENCE_LIMIT} ชิ้น</h3><p class="clarity-rule">โจทย์นี้ไม่ได้ถามว่าอะไร “สำคัญที่สุด” แต่ถามว่าอะไรช่วยตัดสินระหว่างสาเหตุที่เป็นไปได้</p>
+        <p class="prompt">เลือกหลักฐานที่ช่วย “แยกสาเหตุ” ได้มากที่สุด ไม่ใช่หลักฐานที่ดูสำคัญหรือมีตัวเลขเยอะที่สุด</p>
+        ${reviewChip('evidence')}<p class="hint">หลักฐานที่ดีต้องช่วยตัดสินว่า “สาเหตุไหนน่าจะใช่กว่า” ไม่ใช่เพียงบอกว่าหน้าจอมีปัญหา${isReviewing()&&state.reviewPlan?.step==='evidence'?' • ต้องแทนที่อย่างน้อย 1 ชิ้นจากหลักฐานเดิม':''}</p>
         <div class="evidence-grid">${shuffleStable(c.evidence,c.id).map(e=>`<button class="evidence-card ${selected.has(e.id)?'selected':''}" data-evidence="${e.id}" type="button"><span class="evidence-mark">${selected.has(e.id)?'✓':''}</span><span><strong>${escapeHtml(e.title)}</strong><small>${escapeHtml(e.text)}</small></span></button>`).join('')}</div>
         <button class="primary" type="button" data-action="submit-evidence" ${selected.size===EVIDENCE_LIMIT&&reviewChanged('evidence')?'':'disabled'}>ตั้งสมมติฐานจากหลักฐาน ${selected.size}/${EVIDENCE_LIMIT} →</button>
         <button class="secondary" type="button" data-action="abort">ออกจาก Shift นี้</button>
@@ -3536,9 +3541,9 @@
       <article class="card decision">
         <p class="eyebrow">STEP 3 // DESIGN ENERGY TRADE-OFF</p>
         <h3>คุณมีพลังแก้ระบบเพียง 2 หน่วย</h3>
-        ${reviewChip('fix')}<p class="prompt">ทุกวิธีทำได้และมีคุณค่า แต่เลือกเพียง 1 วิธีที่ควรลงทุนก่อนในคดีนี้${isReviewing()&&state.reviewPlan?.step==='fix'?' • ต้องเปลี่ยนจาก Fix เดิม':''}</p>
+        ${reviewChip('fix')}<p class="prompt">ทุกวิธีมีประโยชน์ในบางสถานการณ์ แต่เลือก 1 วิธีที่แก้ “สาเหตุที่คุณเลือก” ได้ตรงที่สุดในคดีนี้${isReviewing()&&state.reviewPlan?.step==='fix'?' • ต้องเปลี่ยนจาก Fix เดิม':''}</p>
         <p class="pressure-inline">⚡ ${escapeHtml(pressureFor(c).title)}: ${escapeHtml(pressureFor(c).lesson)}</p>
-        <div class="option-list">${shuffleStable(c.fixes,`${c.id}-f`).map(f=>`<button type="button" class="option ${state.selectedFix===f.id?'selected':''}" data-fix="${f.id}"><span class="radio">${state.selectedFix===f.id?'●':''}</span><span><strong>${escapeHtml(f.title)}</strong><small>${escapeHtml(f.text)}</small><span class="option-meta">◆ Cost ${f.cost} • ${escapeHtml(f.note)}</span></span></button>`).join('')}</div>
+        <div class="option-list">${shuffleStable(c.fixes,`${c.id}-f`).map(f=>`<button type="button" class="option ${state.selectedFix===f.id?'selected':''}" data-fix="${f.id}"><span class="radio">${state.selectedFix===f.id?'●':''}</span><span><strong>${escapeHtml(f.title)}</strong><small>${escapeHtml(f.text)}</small><span class="option-meta">◆ ใช้ทรัพยากร ${f.cost} หน่วย • ${escapeHtml(f.note)}</span></span></button>`).join('')}</div>
         <button class="primary" type="button" data-action="submit-fix" ${state.selectedFix&&reviewChanged('fix')?'':'disabled'}>ส่ง Prototype เข้าทดสอบ →</button>
       </article>`;
   }
@@ -3783,7 +3788,7 @@
             <div class="quote"><b>USER TEST QUOTE</b>“${escapeHtml(result.outcome.quote)}”</div>
           </div>
           <div class="aftershock"><b>WHAT CHANGED FOR THE USER</b>${escapeHtml(aftershockNarrative(result))}</div>
-          <h3 class="question-title">Evidence Audit</h3>
+          <h3 class="question-title">Evidence Audit • ตรวจเส้นเหตุผล</h3>
           <div class="evidence-audit">${evidenceRows||'<p class="muted">ยังไม่มีหลักฐานถูกเลือก</p>'}</div>
           ${canRecover?`
             <div class="recovery-panel">
