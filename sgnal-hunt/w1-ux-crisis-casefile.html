@@ -3537,20 +3537,111 @@
     state.step='debrief';
     finishShift();
   }
+  /* V12 — Dynamic Boss Matrix: the final call depends on the weakest reasoning track,
+     test maturity and remaining trust. No single answer is universally correct. */
   function bossConfig(){
     const exact=state.outcomes.filter(o=>o.exactChain).length;
     const solid=state.outcomes.filter(o=>o.correctNext).length;
-    const weak=solid<2||exact<2||state.trust<70;
-    const correctId=weak?'retest':'staged';
-    const condition='รายงานจาก 3 คดีมีทั้งสัญญาณความก้าวหน้าและความเสี่ยง ทีมต้องชั่งน้ำหนัก Evidence, ผล User Test และ Trust ก่อนเลือกขอบเขตการดำเนินงาน';
-    return {
-      exact,solid,weak,correctId,condition,
-      options:[
-        {id:'staged',title:'Limited rollout + monitoring',text:'ปล่อยการเปลี่ยนแปลงในขอบเขตจำกัด พร้อมตัวชี้วัดก่อน–หลังและแผนรับมือสัญญาณผิดปกติ',risk:'ขยายแบบควบคุมและติดตามผลรายกลุ่ม'},
-        {id:'retest',title:'Targeted follow-up test',text:'ชะลอการขยาย แล้วเก็บข้อมูลเพิ่มเฉพาะกลุ่มหรือจุดที่ยังตอบคำถามสำคัญไม่ได้',risk:'เพิ่มหลักฐานเฉพาะจุดก่อนตัดสินใจขยาย'},
-        {id:'bundle',title:'Full feature bundle',text:'รวมการเปลี่ยนแปลงหลายแนวคิดไว้ใน release เดียว แล้วดู engagement โดยรวมหลังเปิดใช้',risk:'เปลี่ยนหลายสิ่งพร้อมกันและตีความสาเหตุยาก'}
-      ]
+    const weakOutcomes=state.outcomes.filter(o=>!o.exactChain || !o.correctNext);
+    const trackVotes={};
+    weakOutcomes.forEach(o=>{
+      const id=o.trackId || state.shift[state.outcomes.indexOf(o)]?.trackId || 'navigation';
+      trackVotes[id]=(trackVotes[id]||0)+1;
+    });
+    const weakestTrack=Object.keys(trackVotes).sort((a,b)=>trackVotes[b]-trackVotes[a])[0] || state.shift[0]?.trackId || 'navigation';
+    const trackName=state.shift.find(c=>c.trackId===weakestTrack)?.track?.name || state.shift.find(c=>c.trackId===weakestTrack)?.track?.short || weakestTrack;
+    const trustLow=state.trust<58;
+    const strong=exact>=2 && solid>=2 && state.trust>=78;
+
+    const matrix={
+      navigation:{
+        title:'เส้นทางเริ่มงานยังไม่ชัด',
+        condition:'คดีใน Shift นี้ชี้ว่าผู้ใช้ยังเสียเวลาหาจุดเริ่มงานและตีความทางเลือกหลักไม่ตรงกัน ทีมต้องตัดสินใจว่าจะพิสูจน์เส้นทางใหม่หรือขยายการเปลี่ยนแปลงทันที',
+        options:[
+          {id:'path-pilot',title:'Task-path pilot',text:'เปิดเส้นทางเริ่มงานใหม่กับกลุ่มจำกัด วัดเวลาเริ่มงานและอัตราการหาจุดเริ่มต้นสำเร็จ',risk:'พิสูจน์เส้นทางหลักก่อนขยาย'},
+          {id:'content-bundle',title:'Content bundle release',text:'เพิ่มคำอธิบาย ข่าว และเมนูหลายส่วนพร้อมกันเพื่อให้ข้อมูลครบขึ้น',risk:'เปลี่ยนหลายปัจจัยและอ่านเหตุผลยาก'},
+          {id:'wait-generic',title:'Wait for general feedback',text:'รอให้ผู้ใช้ส่งความเห็นทั่วไปเพิ่มโดยยังไม่กำหนดคำถามที่จะพิสูจน์',risk:'ได้ข้อมูลมากแต่ไม่ตอบจุดเริ่มงาน'}
+        ],
+        correct:'path-pilot'
+      },
+      confirmation:{
+        title:'ผู้ใช้ยังไม่มั่นใจก่อนยืนยัน',
+        condition:'หลักฐานสะท้อนความเสี่ยงจากการกดยืนยันโดยไม่เห็นผลลัพธ์หรือรายละเอียดสำคัญครบ ทีมต้องเลือกขอบเขตการดำเนินงานที่ลดความเสี่ยงก่อนขยาย',
+        options:[
+          {id:'safety-gate',title:'Confirmation safety gate',text:'ปล่อยเฉพาะจุดยืนยันที่มีสรุปข้อมูลและหลักฐานผลลัพธ์ พร้อมติดตามอัตราการยกเลิก/แก้ไข',risk:'ลดความเสี่ยงในจุดตัดสินใจสำคัญ'},
+          {id:'feature-bundle',title:'Full feature bundle',text:'รวมฟีเจอร์ยืนยัน สถานะ ข่าว และหน้าสรุปหลายส่วนใน release เดียว',risk:'วัดไม่ได้ว่าอะไรช่วยลดความผิดพลาด'},
+          {id:'delay-all',title:'Delay all changes',text:'หยุดทุกการแก้ไขจนกว่าจะมีข้อมูลครบทุกกลุ่มผู้ใช้',risk:'ปลอดภัยแต่ไม่เรียนรู้จากการเปลี่ยนแปลงเล็ก'}
+        ],
+        correct:'safety-gate'
+      },
+      'error-recovery':{
+        title:'ผู้ใช้หลุดจากงานแล้วกลับเข้าเส้นทางไม่ได้',
+        condition:'คดีใน Shift นี้มีสัญญาณว่าความผิดพลาดและการกู้คืนยังเป็นความเสี่ยงหลัก จึงต้องเลือกว่าจะทดสอบ recovery path อย่างไรโดยไม่สร้างความเสียหายเพิ่ม',
+        options:[
+          {id:'recovery-drill',title:'Recovery-path drill',text:'ทดสอบ flow กู้คืนกับเหตุผิดพลาดจริง 1–2 แบบ และวัดว่าผู้ใช้กลับเข้าสู่งานได้โดยไม่ติดต่อเจ้าหน้าที่หรือไม่',risk:'พิสูจน์การกู้คืนก่อนขยาย'},
+          {id:'announce-release',title:'Announcement-first release',text:'สื่อสารขั้นตอนใหม่ให้ผู้ใช้ทุกคนก่อน แม้ flow กู้คืนยังไม่ถูกทดสอบ',risk:'เพิ่มความรู้แต่ไม่ลด failure จริง'},
+          {id:'bundle-rebuild',title:'Full rebuild bundle',text:'ปรับทุกหน้าที่เกี่ยวข้องพร้อมกันเพื่อให้ระบบดูสอดคล้อง',risk:'เปลี่ยนกว้างเกินกว่าจะรู้สาเหตุ'}
+        ],
+        correct:'recovery-drill'
+      },
+      'trust-risk':{
+        title:'ความเชื่อมั่นและความเสี่ยงยังต้องพิสูจน์',
+        condition:'ข้อมูลชี้ว่าผู้ใช้ยังไม่แน่ใจเรื่องความปลอดภัย สิทธิ์ หรือหลักฐานการทำรายการ ทีมต้องชั่งน้ำหนัก Trust กับความเร็วในการปล่อยของ',
+        options:[
+          {id:'trust-audit',title:'Trust safeguard audit',text:'ทดสอบข้อความสิทธิ์ การยืนยัน และหลักฐานการทำรายการกับกลุ่มเสี่ยงก่อนเปิดกว้าง',risk:'ปิดความเสี่ยงสำคัญก่อนขยาย'},
+          {id:'growth-push',title:'Growth push',text:'ปล่อยฟีเจอร์เต็มเพื่อเก็บ engagement จำนวนมากและแก้ภายหลัง',risk:'ความเสี่ยงขยายเร็วกว่าหลักฐาน'},
+          {id:'wait-generic',title:'Wait for general feedback',text:'รอ feedback ทั่วไปโดยไม่มีการตรวจจุดเสี่ยงเฉพาะ',risk:'ข้อมูลไม่เฉพาะพอสำหรับความเสี่ยง'}
+        ],
+        correct:'trust-audit'
+      },
+      accessibility:{
+        title:'ผู้ใช้บางกลุ่มยังทำงานไม่สำเร็จ',
+        condition:'ผลจาก Shift นี้บอกว่าความสำเร็จของผู้ใช้ไม่เท่ากันตามอุปกรณ์หรือความสามารถในการเข้าถึง ทีมต้องตัดสินใจโดยไม่ทิ้งกลุ่มที่เปราะบาง',
+        options:[
+          {id:'accessibility-audit',title:'Assistive-tech audit',text:'ทดสอบ task สำคัญกับมือถือ จอเล็ก และการช่วยเข้าถึงก่อนขยาย พร้อมแก้จุดที่ทำให้กลุ่มเสี่ยงล้มเหลว',risk:'ยืนยันความเท่าเทียมของ task success'},
+          {id:'desktop-rollout',title:'Desktop-first rollout',text:'เปิดใช้บนเดสก์ท็อปก่อน เพราะผลรวมดูดี แล้วค่อยแก้มือถือภายหลัง',risk:'ผลรวมดีแต่ทิ้งกลุ่มที่ล้มเหลว'},
+          {id:'visual-refresh',title:'Visual refresh bundle',text:'ปรับสีและ layout หลายจุดพร้อมกันให้ดูทันสมัยขึ้น',risk:'อาจไม่แก้อุปสรรคการเข้าถึง'}
+        ],
+        correct:'accessibility-audit'
+      },
+      'cognitive-load':{
+        title:'ข้อมูลมากเกินจนตัดสินใจช้า',
+        condition:'ผู้ใช้ยังต้องสแกนข้อมูลมากและตีความลำดับความสำคัญไม่ตรงกัน ทีมควรเลือกทางที่พิสูจน์การลดภาระการคิดได้จริง',
+        options:[
+          {id:'hierarchy-pilot',title:'Hierarchy pilot',text:'ทดสอบลำดับข้อมูลและ action หลักแบบจำกัด โดยวัดเวลาเลือกและอัตราการกลับไปแก้การตัดสินใจ',risk:'พิสูจน์ว่าลด cognitive load ได้จริง'},
+          {id:'more-content',title:'More content bundle',text:'เพิ่มคำอธิบาย ตัวอย่าง และตัวเลือกเพื่อให้ผู้ใช้มีข้อมูลครบที่สุด',risk:'ข้อมูลมากขึ้นอาจเพิ่มภาระการคิด'},
+          {id:'generic-survey',title:'Generic satisfaction survey',text:'เก็บคะแนนพึงพอใจภาพรวมโดยไม่สังเกตจุดตัดสินใจจริง',risk:'รู้ความรู้สึกแต่ไม่รู้ต้นตอ'}
+        ],
+        correct:'hierarchy-pilot'
+      }
     };
+
+    let scenario=matrix[weakestTrack] || matrix.navigation;
+    if(strong){
+      scenario={
+        title:'หลักฐานพร้อมสำหรับการขยายแบบควบคุม',
+        condition:'อย่างน้อย 2 คดีมีเส้นเหตุผลครบ ผล Test ส่วนใหญ่ถูกอ่านได้ตรง และ Trust อยู่ในระดับดี ทีมควรขยายอย่างมี monitoring โดยไม่รวมการเปลี่ยนหลายเรื่องจนตีความผลไม่ได้',
+        options:[
+          {id:'staged-monitor',title:'Limited rollout + monitoring',text:'ขยายกับกลุ่มเพิ่มแบบเป็นช่วง พร้อม metric guardrail และเกณฑ์หยุดเมื่อพบสัญญาณความเสี่ยง',risk:'ขยายอย่างควบคุมและเรียนรู้ต่อ'},
+          {id:'all-at-once',title:'Full feature bundle',text:'เปิดทุกการเปลี่ยนแปลงกับทุกคนพร้อมกันเพื่อให้เห็นผลเร็วที่สุด',risk:'เร็วแต่แยกสาเหตุของผลลัพธ์ยาก'},
+          {id:'restart-research',title:'Restart all research',text:'หยุดการเปลี่ยนแปลงและเริ่มเก็บข้อมูลใหม่ทั้งหมดแม้มี evidence แข็งแรงแล้ว',risk:'ปลอดภัยเกินจนเสียโอกาสเรียนรู้จาก rollout'}
+        ],
+        correct:'staged-monitor'
+      };
+    }else if(trustLow){
+      scenario={
+        title:'Trust ต่ำเกินกว่าจะขยาย',
+        condition:'แม้บางคดีมีสัญญาณบวก แต่ Trust ที่เหลือต่ำทำให้การปล่อยเพิ่มเสี่ยงต่อผู้ใช้และทีม จึงต้องเลือกทางที่หยุดความเสียหายและตรวจจุดเสี่ยงก่อน',
+        options:[
+          {id:'safeguard-hold',title:'Safeguard hold + targeted audit',text:'หยุดการขยายชั่วคราว รักษาเฉพาะ flow ที่ปลอดภัย และตรวจจุดที่ทำให้ผู้ใช้เสียความเชื่อมั่น',risk:'ลดความเสียหายก่อนสร้างหลักฐานใหม่'},
+          {id:'rapid-scale',title:'Rapid scale',text:'ขยายทันทีเพื่อให้ข้อมูลจำนวนมากมาชดเชย Trust ที่ต่ำ',risk:'เพิ่มผู้ได้รับผลกระทบจากความเสี่ยงเดิม'},
+          {id:'cosmetic-patch',title:'Cosmetic patch',text:'ปรับข้อความและภาพให้ดูน่าเชื่อถือขึ้นโดยไม่ตรวจ flow ที่ผู้ใช้ล้มเหลว',risk:'เปลี่ยนภาพลักษณ์แต่ไม่ลดความเสี่ยง'}
+        ],
+        correct:'safeguard-hold'
+      };
+    }
+
+    return {exact,solid,weak:!strong,correctId:scenario.correct,condition:scenario.condition,scenarioTitle:scenario.title,weakestTrack,trackName,options:scenario.options};
   }
   function renderBoss(){
     const boss=bossConfig();
@@ -3558,7 +3649,7 @@
     stage.innerHTML=`
       <section class="card boss-wrap">
         <div class="boss-top">
-          <div><p class="eyebrow">FINAL BOSS // STAKEHOLDER CLASH</p><h2>ตัดสินใจเมื่อทุกคนอยาก “ปล่อยของ”</h2><p>ผู้บริหารขอเปิดใช้จริงวันศุกร์นี้ แต่ทีมต้องเลือกทางที่เหมาะกับหลักฐานจาก 3 คดี ไม่ใช่ทางที่ฟังดูเร็วหรือครบที่สุด</p></div>
+          <div><p class="eyebrow">FINAL BOSS // STAKEHOLDER CLASH</p><h2>${escapeHtml(boss.scenarioTitle||'Stakeholder decision')}</h2><p>ผู้บริหารขอเปิดใช้จริงวันศุกร์นี้ แต่ทีมต้องเลือกทางที่เหมาะกับหลักฐานจาก 3 คดี ไม่ใช่ทางที่ฟังดูเร็วหรือครบที่สุด</p></div>
           <span class="boss-badge">BOSS CALL</span>
         </div>
         <div class="boss-situation">
