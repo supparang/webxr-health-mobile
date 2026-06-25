@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z61-direct-student-session-path';
+  const APP_VERSION = '20260610-v1z62-strict-pass-truth-evidence-integrity';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31988,7 +31988,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z61</div>
+              <div class="mini-note">Save the Society • v1z62</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32541,7 +32541,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z61</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z62</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32614,64 +32614,141 @@
     return Array.from(new Set([(path?.core || 'Reading'), (path?.support || 'Writing')].filter(Boolean)));
   }
 
-  function evidenceForSessionSkill(sessionId, skill){
+
+  function canonicalEvidenceSkill(item){
+    const direct = String(item?.skill || item?.missionSkill || item?.category || item?.type || '').trim().toLowerCase();
+    const exact = {
+      reading:'Reading',
+      writing:'Writing',
+      listening:'Listening',
+      speaking:'Speaking'
+    };
+    if(exact[direct]) return exact[direct];
+    const fallback = typeof extractSkillFromEvidence === 'function' ? extractSkillFromEvidence(item) : '';
+    return ['Reading','Writing','Listening','Speaking'].includes(fallback) ? fallback : '';
+  }
+
+  function strictEvidenceForSessionSkill(sessionId, skill){
     const sid = Number(sessionId || 1);
-    const sk = String(skill || '').toLowerCase();
+    const wanted = String(skill || '').trim().toLowerCase();
     const items = [];
     try{
       (typeof allEvidenceItems === 'function' ? allEvidenceItems() : []).forEach(item=>{
-        const itemSid = typeof extractSessionIdFromEvidence === 'function' ? extractSessionIdFromEvidence(item) : Number(item?.session || item?.sessionId || 0);
+        const itemSid = typeof extractSessionIdFromEvidence === 'function'
+          ? extractSessionIdFromEvidence(item)
+          : Number(item?.sessionId || item?.session || 0);
         if(Number(itemSid) !== sid) return;
-        const itemSkill = typeof extractSkillFromEvidence === 'function' ? extractSkillFromEvidence(item) : String(item?.skill || '').toLowerCase();
-        if(String(itemSkill || '').toLowerCase() === sk) items.push(item);
+        const itemSkill = canonicalEvidenceSkill(item);
+        if(String(itemSkill).toLowerCase() === wanted) items.push(item);
       });
     }catch(e){}
     return items;
   }
 
-  function bestScoreForSessionSkill(sessionId, skill){
+  function strictBestScoreForSessionSkill(sessionId, skill){
     let best = 0;
-    evidenceForSessionSkill(sessionId, skill).forEach(item=>{
-      const score = typeof extractScoreFromEvidence === 'function' ? extractScoreFromEvidence(item) : Number(item?.score || item?.autoScore || 0);
-      if(Number(score || 0) > best) best = Number(score || 0);
+    strictEvidenceForSessionSkill(sessionId, skill).forEach(item=>{
+      const n = typeof extractScoreFromEvidence === 'function'
+        ? extractScoreFromEvidence(item)
+        : Number(item?.score || item?.autoScore || 0);
+      if(Number(n || 0) > best) best = Number(n || 0);
     });
     return best;
   }
 
-  function sessionPassReport(sessionId){
+  function strictPassTruthReport(sessionId){
     const sid = Number(sessionId || 1);
-    const required = requiredSkillsForSession(sid);
-    const sess = state.sessions?.[sid] || {};
-    const explicit = !!(sess.done || sess.completed || sess.complete || sess.bossDone || sess.cleared || sess.unlockedDone);
+    const required = typeof requiredSkillsForSession === 'function'
+      ? requiredSkillsForSession(sid)
+      : ['Reading','Writing'];
     const skillRows = required.map(skill=>{
-      const items = evidenceForSessionSkill(sid, skill);
-      const bestScore = bestScoreForSessionSkill(sid, skill);
-      return {skill, items:items.length, bestScore, passed:bestScore >= PASS_RULES.sessionMinScore};
+      const items = strictEvidenceForSessionSkill(sid, skill);
+      const bestScore = strictBestScoreForSessionSkill(sid, skill);
+      return {
+        skill,
+        items:items.length,
+        bestScore,
+        passed:bestScore >= PASS_RULES.sessionMinScore
+      };
     });
-    const missing = skillRows.filter(r=>!r.passed).map(r=>`${r.skill} ${r.bestScore || 0}/${PASS_RULES.sessionMinScore}`);
-    const passed = explicit || skillRows.every(r=>r.passed);
-    return {session:sid, requiredSkills:required, skillRows, explicit, passed, missing,
-      reason: passed ? (explicit ? 'marked complete' : `Core + Support passed (${PASS_RULES.sessionMinScore}+ each)`) : `Need ${missing.join(', ')}`};
+    const missing = skillRows
+      .filter(r=>!r.passed)
+      .map(r=>`${r.skill} ${r.bestScore || 0}/${PASS_RULES.sessionMinScore}`);
+    const passed = skillRows.length >= 2 && skillRows.every(r=>r.passed);
+    const legacyState = state.sessions?.[sid] || {};
+    const legacyMarked = !!(legacyState.done || legacyState.completed || legacyState.complete || legacyState.cleared);
+    return {
+      session:sid,
+      requiredSkills:required,
+      skillRows,
+      missing,
+      passed,
+      legacyMarked,
+      reason: passed
+        ? `Core + Support passed (${PASS_RULES.sessionMinScore}+ each)`
+        : `Need ${missing.join(' and ')}`
+    };
   }
 
-  function syncPassProgressNow(silent){
+  function strictSyncSessionProgress(silent){
     state.sessions = state.sessions || {};
     state.bossCards = state.bossCards || {};
     for(let sid=1; sid<=15; sid++){
-      const rep = sessionPassReport(sid);
-      state.sessions[sid] = state.sessions[sid] || {};
-      state.sessions[sid].passReport = rep;
-      state.sessions[sid].requiredSkills = rep.requiredSkills;
-      if(rep.passed){
-        state.sessions[sid].completed = true;
-        state.sessions[sid].done = true;
-        state.sessions[sid].completionReason = rep.reason;
-        state.bossCards[sid] = state.bossCards[sid] || {earned:true, reason:rep.reason, at:new Date().toISOString()};
+      const rep = strictPassTruthReport(sid);
+      const scores = rep.skillRows.map(r=>Number(r.bestScore || 0));
+      const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0) / scores.length) : 0;
+      const stars = rep.passed ? (avg >= 85 ? 3 : avg >= 70 ? 2 : 1) : 0;
+      const sess = state.sessions[sid] = state.sessions[sid] || {};
+      sess.passReport = rep;
+      sess.requiredSkills = rep.requiredSkills;
+      sess.earnedStars = stars;
+      sess.bestStars = stars;
+      sess.starAverage = avg;
+      sess.passed = rep.passed;
+      sess.completed = rep.passed;
+      sess.done = rep.passed;
+      sess.complete = rep.passed;
+      sess.cleared = rep.passed;
+      sess.completionReason = rep.reason;
+      if(!rep.passed && state.bossCards[sid]){
+        state.bossCards[sid].earned = false;
+        state.bossCards[sid].invalidatedByStrictPass = true;
       }
     }
     saveState();
-    if(!silent) safeToast('Progress synced from Learning Reports');
+    if(!silent) safeToast('Session status synced from exact Core + Support scores');
     return true;
+  }
+
+  function strictPassTruthDiagnostic(sessionId){
+    const rep = strictPassTruthReport(sessionId);
+    return {
+      session:rep.session,
+      passed:rep.passed,
+      required:rep.skillRows.map(r=>`${r.skill} ${r.bestScore}/60`),
+      reason:rep.reason
+    };
+  }
+
+  function runStrictPassTruthSoon(){
+    try{ strictSyncSessionProgress(true); }catch(e){}
+  }
+
+
+  function evidenceForSessionSkill(sessionId, skill){
+    return strictEvidenceForSessionSkill(sessionId, skill);
+  }
+
+  function bestScoreForSessionSkill(sessionId, skill){
+    return strictBestScoreForSessionSkill(sessionId, skill);
+  }
+
+  function sessionPassReport(sessionId){
+    return strictPassTruthReport(sessionId);
+  }
+
+  function syncPassProgressNow(silent){
+    return strictSyncSessionProgress(!!silent);
   }
 
   function passCriteriaHTML(){
@@ -32741,17 +32818,19 @@
 
   function sessionStarScore(sessionId){
     const sid = Number(sessionId || 1);
-    const rep = typeof sessionPassReport === 'function' ? sessionPassReport(sid) : null;
-    if(!rep) return {session:sid, stars:0, avg:0, passed:false, reason:'no report'};
-    const scores = (rep.skillRows || []).map(x=>Number(x.bestScore || 0)).filter(x=>x>0);
-    const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
-    let stars = 0;
-    if(rep.passed){
-      if(avg >= 85) stars = 3;
-      else if(avg >= 70) stars = 2;
-      else stars = 1;
-    }
-    return {session:sid, stars, avg, passed:rep.passed, requiredSkills:rep.requiredSkills, skillRows:rep.skillRows, reason:rep.reason};
+    const rep = strictPassTruthReport(sid);
+    const scores = rep.skillRows.map(x=>Number(x.bestScore || 0));
+    const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0) / scores.length) : 0;
+    const stars = rep.passed ? (avg >= 85 ? 3 : avg >= 70 ? 2 : 1) : 0;
+    return {
+      session:sid,
+      stars,
+      avg,
+      passed:rep.passed,
+      requiredSkills:rep.requiredSkills,
+      skillRows:rep.skillRows,
+      reason:rep.reason
+    };
   }
 
   function sessionStarsText(sessionId){
@@ -32760,23 +32839,7 @@
   }
 
   function syncSessionStarsNow(silent){
-    state.sessions = state.sessions || {};
-    for(let sid=1; sid<=15; sid++){
-      const st = sessionStarScore(sid);
-      state.sessions[sid] = state.sessions[sid] || {};
-      state.sessions[sid].earnedStars = st.stars;
-      state.sessions[sid].bestStars = st.stars;
-      state.sessions[sid].starAverage = st.avg;
-      state.sessions[sid].passed = st.passed;
-      state.sessions[sid].starReason = st.reason;
-      if(st.passed){
-        state.sessions[sid].completed = true;
-        state.sessions[sid].done = true;
-      }
-    }
-    saveState();
-    if(!silent) safeToast('Session stars synced from reports');
-    return true;
+    return strictSyncSessionProgress(!!silent);
   }
 
   function sessionStarBadgeHTML(sessionId){
@@ -32894,8 +32957,10 @@
     const r = sessionCompletionVisibleReport(sessionId);
     const coreTxt = r.core ? `${safe(r.core.skill)} ${r.core.bestScore || 0}/60` : 'Core 0/60';
     const supportTxt = r.support ? `${safe(r.support.skill)} ${r.support.bestScore || 0}/60` : 'Support 0/60';
+    const title = r.passed ? '✅ Session Passed' : '⏳ Session In Progress';
+    const sub = r.passed ? `avg ${r.avg || 0}` : (r.reason || 'Complete both missions with 60+');
     return `<div class="visible-session-completion ${r.passed?'passed':'not-yet'}" data-visible-session="${r.session}">
-      <div class="vsc-main"><b>${r.passed?'✅ Session Passed':'⚠️ Session not passed yet'}</b><span class="vsc-stars">${safe(r.starText)}</span><span>avg ${r.avg || 0}</span></div>
+      <div class="vsc-main"><b>${title}</b><span class="vsc-stars">${safe(r.starText)}</span><span>${safe(sub)}</span></div>
       <div class="vsc-sub"><span>${coreTxt}</span><span>${supportTxt}</span></div>
     </div>`;
   }
@@ -33433,29 +33498,18 @@
 
   function sessionEvidenceSummary(sessionId){
     const sid = Number(sessionId || 1);
-    const skills = new Set();
-    let bestScore = 0;
-    const items = [];
-    allEvidenceItems().forEach(item=>{
-      const itemSid = extractSessionIdFromEvidence(item);
-      if(itemSid !== sid) return;
-      const sk = extractSkillFromEvidence(item);
-      if(sk) skills.add(sk);
-      const score = extractScoreFromEvidence(item);
-      if(score > bestScore) bestScore = score;
-      items.push(item);
-    });
-
-    const sess = state.sessions?.[sid] || {};
-    const skillObj = sess.skills || sess.skillDone || sess.skillProgress || sess.missions || {};
-    ['Reading','Writing','Listening','Speaking'].forEach(k=>{
-      if(skillObj[k] || skillObj[k.toLowerCase()] || skillObj[k.toUpperCase()]) skills.add(k);
-    });
-
-    if(state.bossCards?.[sid]) bestScore = Math.max(bestScore, 80);
-    const count = skills.size || items.length;
-    const stars = bestScore >= 90 ? 3 : bestScore >= 75 ? 2 : bestScore >= 60 ? 1 : count >= 2 ? 1 : 0;
-    return {session:sid, skills:Array.from(skills), count, items:items.length, bestScore, stars};
+    const rep = strictPassTruthReport(sid);
+    const skills = rep.skillRows.filter(r=>r.items > 0).map(r=>r.skill);
+    const bestScore = rep.skillRows.reduce((best,r)=>Math.max(best, Number(r.bestScore || 0)), 0);
+    const stars = rep.passed ? (bestScore >= 90 ? 3 : bestScore >= 75 ? 2 : 1) : 0;
+    return {
+      session:sid,
+      skills,
+      count:skills.length,
+      items:rep.skillRows.reduce((n,r)=>n + Number(r.items || 0),0),
+      bestScore,
+      stars
+    };
   }
 
   function earnedStarsHTML(sessionId){
@@ -33542,21 +33596,7 @@
 
 
   function repairLegacySessionCompletion(){
-    state.sessions = state.sessions || {};
-    for(let sid=1; sid<=15; sid++){
-      const rep = sessionCompletionReport(sid);
-      const ev = sessionEvidenceSummary(sid);
-      state.sessions[sid] = state.sessions[sid] || {};
-      state.sessions[sid].earnedStars = ev.stars;
-      state.sessions[sid].evidenceCount = ev.count;
-      state.sessions[sid].evidenceSkills = ev.skills;
-      if(rep.complete){
-        state.sessions[sid].completed = true;
-        state.sessions[sid].completionReason = rep.reason;
-      }
-    }
-    saveState();
-    safeToast('Session evidence and stars synced');
+    strictSyncSessionProgress(false);
     renderMap();
   }
 
@@ -36036,20 +36076,27 @@
 
   function studentSessionPathCardHTML(sessionId, skill, required){
     const sid = Number(sessionId || state.currentSession || 1) || 1;
-    let done = false;
-    try{ done = typeof portfolioEvidence === 'function' && portfolioEvidence(sid, skill).length > 0; }catch(e){}
-    const action = done ? `Replay ${skill}` : `Start ${skill}`;
+    const evidence = strictEvidenceForSessionSkill(sid, skill);
+    const bestScore = strictBestScoreForSessionSkill(sid, skill);
+    const passed = bestScore >= PASS_RULES.sessionMinScore;
+    const submitted = evidence.length > 0;
+    const action = passed ? `Replay ${skill}` : submitted ? `Retry ${skill}` : `Start ${skill}`;
+    const caption = passed
+      ? `Passed: ${bestScore}/100. Replay only if you want a stronger score.`
+      : submitted
+        ? `Submitted score: ${bestScore}/100. You need 60+ to pass this skill.`
+        : 'Tap to begin this mission now.';
     const quality = typeof sessionQualityHTML === 'function' ? sessionQualityHTML(sid) : '';
-    return `<article class="hud-card student-mission-card ${done?'ok':''} ${String(required).toLowerCase()}">
+    return `<article class="hud-card student-mission-card ${passed?'ok':'needs'} ${String(required).toLowerCase()}">
       <div class="student-mission-card-head">
         <div>
-          <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
+          <h3>${passed?'✅':'⬜'} ${safe(skill)}</h3>
           <p class="mini-note">${safe(required)} Mission</p>
         </div>
         <span class="mission-role-pill">${safe(required)}</span>
       </div>
       <button type="button" class="btn primary block student-start-mission" data-launch-mission="true" onclick="return EAPHero.openSkillMissionSafe('${safe(skill)}',${sid})">▶ ${safe(action)}</button>
-      <p class="mission-action-caption">${done ? 'You have evidence already. Replay for a stronger score.' : 'Tap to begin this mission now.'}</p>
+      <p class="mission-action-caption">${safe(caption)}</p>
       <details class="student-mission-guide">
         <summary>Mission guide, vocabulary & AI scaffold</summary>
         ${quality}
@@ -40095,6 +40142,13 @@
     STORAGE_LIMITS,
     storageUsageInfo,
     normalizeCEFRLabelsInDOM,
+    canonicalEvidenceSkill,
+strictEvidenceForSessionSkill,
+strictBestScoreForSessionSkill,
+strictPassTruthReport,
+strictSyncSessionProgress,
+strictPassTruthDiagnostic,
+runStrictPassTruthSoon,
     sessionStarScore,
     sessionStarsText,
     normalizeCEFRTextValue,
@@ -40357,4 +40411,5 @@
 
 
   runStorageMaintenanceSoon();
+  runStrictPassTruthSoon();
 })();

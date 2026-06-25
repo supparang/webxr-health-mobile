@@ -2075,3 +2075,16 @@ textarea{
     margin:0;
   }
 }
+
+
+/* === v1z62 Strict Pass Truth + Evidence Integrity === */
+.visible-session-completion.not-yet .vsc-stars{
+  color:#94a3b8;
+}
+.student-mission-card.needs{
+  border-color:rgba(251,146,60,.38);
+}
+.student-mission-card.needs .mission-role-pill{
+  background:rgba(251,146,60,.14);
+  border-color:rgba(251,146,60,.42);
+}
