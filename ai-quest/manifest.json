@@ -1,5 +1,11 @@
 {
-  "version": "v3.6.9",
-  "new_file": "/ai-quest/js/aiquest-s1-ar-result-bridge-v369.js",
-  "index_change": "append one script tag"
+  "version": "v3.7.0",
+  "files": [
+    "/ai-quest/js/aiquest-s1-ar-result-bridge-v369.js",
+    "/ai-quest/js/aiquest-teacher-s1-ar-analytics-v370.js"
+  ],
+  "html_changes": [
+    "/ai-quest/index.html",
+    "/ai-quest/teacher.html"
+  ]
 }

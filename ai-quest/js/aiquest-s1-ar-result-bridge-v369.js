@@ -3,9 +3,8 @@
    File: /ai-quest/js/aiquest-s1-ar-result-bridge-v369.js
    Version: v3.6.9-s1-ar-result-bridge
 
-   Purpose:
-   Attach S1 AR Practice evidence to the next S1 attempt
-   without overwriting the normal S1 score or accuracy.
+   S1 AR is supplementary: evidence is attached to the next
+   S1/M1 Google Sheets submission but never replaces main score.
 ========================================================= */
 (() => {
   "use strict";
@@ -17,7 +16,6 @@
     "AIQUEST_S1_AR_RESULT_V365B",
     "AIQUEST_S1_AR_PRACTICE_RESULT_V365"
   ];
-
   const $ = (id) => document.getElementById(id);
 
   function asObject(value) {
@@ -30,9 +28,7 @@
     const direct = window.AIQUEST_S1_AR_RESULT ||
       window.AIQUEST_S1_AR_PRACTICE?.getResult?.();
 
-    if (direct && typeof direct === "object" && direct.arCompleted) {
-      return direct;
-    }
+    if (direct && typeof direct === "object" && direct.arCompleted) return direct;
 
     for (const key of RESULT_KEYS) {
       try {
@@ -103,10 +99,7 @@
       arHelpUsed: ar.helpUsed,
       arUsedSec: ar.usedSec,
       arInputMode: ar.inputMode,
-      extraJson: {
-        ...extra,
-        s1ArPractice: ar
-      }
+      extraJson: { ...extra, s1ArPractice: ar }
     };
 
     console.log("[AIQuest S1 AR Bridge] attached AR evidence", {
@@ -131,24 +124,20 @@
     function wrapped(attempt, ...rest) {
       return original.call(this, decorate(attempt), ...rest);
     }
-
     wrapped.__s1ArBridgeV369 = true;
     owner[method] = wrapped;
     console.log("[AIQuest S1 AR Bridge] wrapped", label);
   }
 
-  function installNetworkBridge() {
-    // submitAttemptWithFallback() in index calls these global adapters at runtime.
+  function install() {
     wrap(window.AIQuestSync, "submitAttempt", "AIQuestSync.submitAttempt");
     wrap(window.AIQuestCloudLogger, "sendAttempt", "AIQuestCloudLogger.sendAttempt");
-
-    // Optional local copies, when the storage API exposes a writer.
     ["saveAttempt", "addAttempt", "storeAttempt"].forEach((method) => {
       wrap(window.AIQuestStorage, method, `AIQuestStorage.${method}`);
     });
   }
 
-  function renderStudentStatus() {
+  function renderStatus() {
     const old = $("s1ArBridgeStatusV369");
     if (old) old.remove();
 
@@ -159,16 +148,9 @@
     const status = document.createElement("div");
     status.id = "s1ArBridgeStatusV369";
     status.style.cssText = [
-      "clear:both",
-      "margin-top:12px",
-      "padding:10px 12px",
-      "border-radius:14px",
-      "background:rgba(16,185,129,.13)",
-      "border:1px solid rgba(16,185,129,.30)",
-      "color:#bbf7d0",
-      "font-size:12px",
-      "line-height:1.45",
-      "font-weight:800"
+      "clear:both", "margin-top:12px", "padding:10px 12px", "border-radius:14px",
+      "background:rgba(16,185,129,.13)", "border:1px solid rgba(16,185,129,.30)",
+      "color:#bbf7d0", "font-size:12px", "line-height:1.45", "font-weight:800"
     ].join(";");
 
     status.innerHTML = `
@@ -179,17 +161,16 @@
   }
 
   function boot() {
-    installNetworkBridge();
-    renderStudentStatus();
-
-    let lastSignature = "";
+    install();
+    renderStatus();
+    let signature = "";
     setInterval(() => {
-      installNetworkBridge();
+      install();
       const ar = evidence();
-      const signature = ar ? `${ar.completedAt}|${ar.score}|${ar.correct}|${ar.total}` : "";
-      if (signature !== lastSignature) {
-        lastSignature = signature;
-        renderStudentStatus();
+      const next = ar ? `${ar.completedAt}|${ar.score}|${ar.correct}|${ar.total}` : "";
+      if (next !== signature) {
+        signature = next;
+        renderStatus();
       }
     }, 650);
   }
@@ -199,7 +180,7 @@
     getArResult,
     getEvidence: evidence,
     decorateAttempt: decorate,
-    install: installNetworkBridge
+    install
   };
 
   document.readyState === "loading"
