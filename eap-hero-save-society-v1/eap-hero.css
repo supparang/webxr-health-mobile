@@ -2579,3 +2579,18 @@ textarea{
 @media(max-width:700px){
   .route-continue-button{width:100%;}
 }
+
+
+/* === v1z69 Integrated Boss Runtime Fix === */
+.integrated-boss-runtime .challenge-card{
+  min-width:0;
+}
+.integrated-boss-brief{
+  margin:12px 0;
+  padding:12px 14px;
+  border-radius:15px;
+  background:linear-gradient(135deg,rgba(14,165,233,.16),rgba(79,70,229,.18));
+  border:1px solid rgba(125,211,252,.42);
+  color:#e0f2fe;
+  line-height:1.55;
+}

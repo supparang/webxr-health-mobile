@@ -1,4 +1,4 @@
-/* EAP Hero v1z68 Clean Route Ledger + Map Clarity */
+/* EAP Hero v1z69 Integrated Boss Runtime Fix */
 (function(){
   'use strict';
 

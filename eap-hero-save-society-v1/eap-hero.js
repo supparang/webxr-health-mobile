@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260625-v1z68-clean-route-ledger-map-clarity';
+  const APP_VERSION = '20260625-v1z69-integrated-boss-runtime-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31989,7 +31989,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z68</div>
+              <div class="mini-note">Save the Society • v1z69</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32542,7 +32542,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z68</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z69</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -34428,29 +34428,45 @@
 
   function renderBossQuestion(){
     const a = state.active;
+    if(!a || a.mode !== 'boss') return renderMap();
+
     const s = getSession(a.sessionId);
-    let q = a.order[a.index];
-    if(!q) return finishBoss(false, 'ตอบครบชุดคำถามแล้ว');
+    const gate = a.gateId ? resolveUKBossGate(a.gateId) : null;
+    const runtime = gate ? integratedBossRuntimeContext(gate) : null;
+    const q = a.order[a.index];
+
+    if(!q) return finishBoss(false, 'The digital round ended before the Boss HP reached zero.');
+
     setView('boss');
     const hpPct = Math.max(0, Math.round((a.bossHp/a.bossHpMax)*100));
     const timePct = Math.max(0, Math.round((a.timeLeft/a.duration)*100));
+    const title = a.gateTitle || gate?.title || s?.boss || 'Integrated Boss Challenge';
+
     layout(`
-      <section style="margin-top:20px" class="battle-layout">
+      <section style="margin-top:20px" class="battle-layout integrated-boss-runtime">
         <div class="challenge-card">
           <div class="badges">
-            <span class="pill" style="background:#102033;color:#fff">${s.emoji} Boss Battle</span>
-            <span class="pill" style="background:#102033;color:#fff">Session ${s.id}</span>
-            <span class="pill" style="background:#102033;color:#fff">Question ${a.index+1}</span>
+            <span class="pill" style="background:#102033;color:#fff">${gate ? 'B'+gate.planGate : (s?.emoji || '🛡️')+' Boss Battle'}</span>
+            <span class="pill" style="background:#102033;color:#fff">${safe(title)}</span>
+            <span class="pill" style="background:#102033;color:#fff">Question ${a.index+1}/${a.order.length}</span>
             <span class="pill" style="background:#102033;color:#fff">${safe(getContract(a.contract || 'normal').label)}</span>
           </div>
+
+          ${gate ? `<div class="integrated-boss-brief">
+            <b>Digital round:</b> ${safe(runtime.digital)}<br>
+            <b>After this round:</b> ${safe(runtime.live)}<br>
+            <b>Live wildcard:</b> “${safe(runtime.wildcard)}”
+          </div>` : ''}
+
           ${renderQuestionHTML(q)}
           <div id="feedback" class="feedback"></div>
         </div>
+
         <aside class="battle-hud">
           <div class="hud-card ${a.rage?'rage':''}">
-            <h3>${safe(r.gateTitle || s.boss)}</h3>
-            <div class="boss-taunt">“${safe(a.rage ? 'Rage Mode! I will not fall easily!' : s.taunt)}”</div>
-            <p class="mini-note">HP</p>
+            <h3>${safe(title)}</h3>
+            <div class="boss-taunt">“${safe(a.rage ? 'Rage Mode: use evidence and stay calm.' : (gate ? 'Use your Session evidence. The live checkpoint follows the digital round.' : s?.taunt || 'Show what you know.'))}”</div>
+            <p class="mini-note">Checkpoint HP</p>
             <div class="hpbar"><span id="hpFill" style="width:${hpPct}%"></span></div>
           </div>
           <div class="hud-card">
@@ -34469,7 +34485,7 @@
               <button class="btn small" onclick="EAPHero.freezeTime()">Time Freeze</button>
             </div>
           </div>
-          <button class="btn ghost block" onclick="return EAPHero.openSessionFromCard(${s.id})">Quit Battle</button>
+          <button class="btn ghost block" onclick="${gate ? `return EAPHero.bossGate('${safe(gate.id)}')` : `return EAPHero.openSessionFromCard(${s?.id || 1})`}">Quit Challenge</button>
         </aside>
       </section>
     `);
@@ -34575,7 +34591,7 @@
     const contract = getContract(a.contract || 'normal');
     let xpGain = win ? Math.round(60 + a.score + starsEarned*25 + (a.timeLeft/4)) : Math.round(20 + a.correct*5);
     if(win) xpGain = Math.round(xpGain * contract.xpMultiplier);
-    const badge = win ? badgeForSession(s.id) : null;
+    const badge = win ? (gateRunMeta.gateNo && typeof ukThailandBossProtocol === 'function' ? ukThailandBossProtocol(gateRunMeta.gateNo).badge : badgeForSession(s.id)) : null;
     const chestReward = win ? grantTreasure(s, starsEarned, a.contract || 'normal') : null;
 
     const prog = state.sessions[s.id];
@@ -34636,7 +34652,8 @@
       student_id: state.profile.studentId || 'guest',
       player_name: state.profile.name || 'Guest',
       session: s.id,
-      boss: s.boss,
+      boss: gateRunMeta.gateTitle || s.boss,
+      gate_id: gateRunMeta.gateId || '',
       attempt: prog.attempts,
       win, reason,
       score:a.score,
@@ -34706,7 +34723,7 @@
           <div class="stat"><b>${r.maxCombo}</b><span>Max Combo</span></div>
           <div class="stat"><b class="stars">${stars(r.starsEarned)}</b><span>Stars</span></div>
         </div>
-        ${r.win ? `<p class="feedback show ok">Unlock: ${safe(s.unlock)} ${r.badge ? ' • Badge: '+safe(r.badge):''}</p>` : `<p class="feedback show bad">${safe(r.reason)} — กลับไปฝึกแล้วมาสู้ใหม่ได้ค่ะ</p>`}
+        ${r.win ? `<p class="feedback show ok">Checkpoint cleared. ${r.gateTitle ? 'Next route is now available.' : 'Unlock: '+safe(s.unlock)} ${r.badge ? ' • Badge: '+safe(r.badge):''}</p>` : `<p class="feedback show bad">${safe(r.reason)} — กลับไปฝึกแล้วมาสู้ใหม่ได้ค่ะ</p>`}
         ${r.chestReward ? `<p class="feedback show info">Treasure Chest: ${safe(r.chestReward.tier.toUpperCase())} +${r.chestReward.coins} coins ${r.chestReward.bonusTitle ? '• Title: '+safe(r.chestReward.bonusTitle) : ''}</p>` : ''}
         <div class="footer-actions" style="justify-content:center">
           ${r.mistakes.length ? `<button class="btn warn" onclick="EAPHero.reviewMistakes()">Review Mistakes (${r.mistakes.length})</button>` : ''}
@@ -36671,24 +36688,94 @@
     return MUTATIONS[logs % MUTATIONS.length];
   }
 
-  function startGateBoss(gateRef){
+  /* === v1z69 Integrated Boss Runtime === */
+  function integratedBossRuntimeContext(gate){
+    const protocol = typeof ukThailandBossProtocol === 'function'
+      ? ukThailandBossProtocol(gate.planGate)
+      : {};
+    return {
+      title: gate.title,
+      digital: `Digital round: mixed challenge from ${gate.sessions.map(s=>'S'+s).join('–')}.`,
+      live: protocol.liveDrop || 'British co-teacher gives one live follow-up question.',
+      wildcard: protocol.wildcard || 'Explain one piece of evidence for your answer.',
+      proof: protocol.humanProof || 'Integrated evidence + live response',
+      badge: protocol.badge || 'Human Checkpoint Badge'
+    };
+  }
+
+  function startIntegratedBossRuntime(gateRef){
     const gate = resolveUKBossGate(gateRef);
-    if(!gate || !bossGateStatus(gate)) return renderBossGate(gate?.id || gateRef);
+    if(!gate){
+      safeToast('Boss Gate was not found.');
+      return renderMap();
+    }
+
+    const report = bossGateUnlockReport(gate.planGate);
+    if(!report.unlocked){
+      safeToast(report.reason || 'Complete the required Sessions first.');
+      return renderBossGate(gate.id);
+    }
+
+    clearInterval(bossTimer);
 
     const mutation = mutationForGate(gate.id);
+    const contractKey = mutation.key === 'nohint' ? 'nohint' : mutation.key === 'speed' ? 'speed' : 'hero';
+    const contract = getContract(contractKey);
+    const sourceSessions = Array.isArray(gate.sessions) && gate.sessions.length
+      ? gate.sessions.slice()
+      : bossGateByNumber(gate.planGate).after.slice();
+    const questionCount = bossQuestionCount();
+    const order = pickQuestionsFromSessions(sourceSessions, questionCount, `gate_${gate.id}`);
+
+    if(!order.length){
+      safeToast('Boss questions are not ready yet. Return to the route and try again.');
+      return renderBossGate(gate.id);
+    }
+
+    const seconds = Math.max(45, Math.round(difficultySeconds() * contract.timeFactor));
+    const hp = Math.max(65, Math.min(130, Math.round(order.length * 10.5) + contract.hpBonus));
+
+    state.replay = state.replay || {ghosts:{},secretMissions:{},bossRushLogs:[]};
     state.replay.currentGate = gate.id;
     state.replay.currentMutation = mutation.key;
-    saveState();
 
-    const result = startBoss(gate.after, mutation.key === 'nohint' ? 'nohint' : mutation.key === 'speed' ? 'speed' : 'hero');
-    if(state.active){
-      state.active.gateId = gate.id;
-      state.active.gateNo = gate.planGate;
-      state.active.gateTitle = gate.title;
-      state.active.gateAfter = gate.after;
-      saveState();
-    }
-    return result;
+    // Gate metadata is written BEFORE rendering, so the first boss screen is valid.
+    state.active = {
+      mode:'boss',
+      contract:contract.key,
+      sessionId:sourceSessions[sourceSessions.length - 1],
+      gateId:gate.id,
+      gateNo:gate.planGate,
+      gateTitle:gate.title,
+      gateAfter:gate.after,
+      gateSessions:sourceSessions,
+      gateMutation:mutation.key,
+      startedAt:Date.now(),
+      duration:seconds,
+      timeLeft:seconds,
+      bossHpMax:hp,
+      bossHp:hp,
+      hearts:contract.hearts,
+      combo:0,
+      maxCombo:0,
+      score:0,
+      index:0,
+      order,
+      answers:[],
+      correct:0,
+      usedHints:0,
+      rage:false
+    };
+
+    saveState();
+    renderBossQuestion();
+    bossTimer = setInterval(tickBoss, 1000);
+    return false;
+  }
+
+
+  function startGateBoss(gateRef){
+    return startIntegratedBossRuntime(gateRef);
   }
 
   function updateMasteryFromPortfolio(entry){
@@ -40942,6 +41029,7 @@ runStrictPassTruthSoon,
     missionSpecificReadingGuide,
     missionSpecificReadingGuideHTML,
     bossGate:renderBossGate,
+    startIntegratedBossRuntime,
     startGateBoss,
     replayHub:renderReplayHub,
     aiHelp:useAIHelp,
