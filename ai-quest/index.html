@@ -6054,7 +6054,11 @@ function logEvent(data){
 
     function compactAttemptForSync(attempt){
       const src = attempt || {};
-      const extra = src.extraJson || {};
+      let extra = src.extraJson || {};
+      if(typeof extra === 'string'){
+        try{ extra = JSON.parse(extra); }catch(_){ extra = {}; }
+      }
+
       const reflection = Array.isArray(src.reflection) ? src.reflection : (Array.isArray(extra.reflection) ? extra.reflection : []);
       const wrongItems = Array.isArray(extra.wrongItems) ? extra.wrongItems.slice(0,8).map(x => ({
         phase:String(x.phase || x.category || '').slice(0,80),
@@ -6062,6 +6066,48 @@ function logEvent(data){
         answer:String(x.answer || '').slice(0,160),
         correct:String(x.correct || x.correctAnswer || '').slice(0,160)
       })) : [];
+
+      /*
+       * PATCH v3.7.2 — Preserve S1 AR evidence inside the slim payload.
+       * Do this here (before AIQuestSync) instead of relying only on a wrapper.
+       * AR is supplementary and must never replace the S1 main score/accuracy.
+       */
+      const s1ArPractice = (function(){
+        const key = String(src.sessionId || src.missionId || '').toLowerCase().replace(/[\s_\-:]+/g,'');
+        if(key !== 's1' && key !== 'm1' && key !== 'session1' && key !== 'mission1') return null;
+
+        let ar = extra && extra.s1ArPractice ? extra.s1ArPractice : (src.s1ArPractice || window.AIQUEST_S1_AR_RESULT || null);
+
+        if(!ar){
+          try{
+            ar = JSON.parse(localStorage.getItem('AIQUEST_S1_AR_RESULT_V368') || 'null');
+          }catch(_){ ar = null; }
+        }
+
+        if(!ar || !(ar.arCompleted || ar.completed)) return null;
+
+        const total = Number(ar.total || ar.arTotal || 0);
+        const correct = Number(ar.correct || ar.arCorrect || 0);
+        const score = Math.round(Number(
+          ar.score ?? ar.arScore ?? ar.accuracy ?? ar.arAccuracy ?? (total ? correct * 100 / total : 0)
+        ));
+
+        return {
+          activity:'S1 AR Practice: AI Object Scanner',
+          supplementary:true,
+          completed:true,
+          score:score,
+          accuracy:score,
+          correct:correct,
+          total:total,
+          helpUsed:Number(ar.helpUsed || ar.arHelpUsed || 0),
+          usedSec:Number(ar.usedSec || ar.arUsedSec || 0),
+          inputMode:String(ar.inputMode || ar.arInputMode || 'hand_or_mouse_touch'),
+          arVersion:String(ar.version || ar.arVersion || ''),
+          completedAt:String(ar.completedAt || ar.finishedAt || new Date().toISOString())
+        };
+      })();
+
       return {
         attemptId: src.attemptId || ('att_' + Date.now()),
         ts: src.ts || src.timestamp || new Date().toISOString(),
@@ -6090,10 +6136,11 @@ function logEvent(data){
           answer:String(r.answer || r.a || r || '').slice(0,350)
         })),
         extraJson:{
-          sourceVersion:'v3.6.0',
+          sourceVersion:'v3.7.2',
           syncMode:'payload_slim',
           wrongItems,
-          summary:String(extra.summary || src.summary || '').slice(0,500)
+          summary:String(extra.summary || src.summary || '').slice(0,500),
+          ...(s1ArPractice ? {s1ArPractice:s1ArPractice} : {})
         }
       };
     }
@@ -6108,6 +6155,7 @@ function logEvent(data){
         accuracy: slimAttempt.accuracy,
         correct: slimAttempt.correct,
         total: slimAttempt.total,
+        s1ArPractice: !!(slimAttempt.extraJson && slimAttempt.extraJson.s1ArPractice),
         approxBytes: JSON.stringify(slimAttempt).length
       });
 

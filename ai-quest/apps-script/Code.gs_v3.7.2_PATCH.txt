@@ -1,0 +1,104 @@
+/* ============================================================
+   AI Quest v3.7.2 — S1 AR Teacher Evidence Server Patch
+   Add these helper functions BEFORE:
+   function buildTeacherConsole_(params) {
+============================================================ */
+
+function aq372ParseJson_(value) {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  try { return JSON.parse(String(value)); } catch (e) { return null; }
+}
+
+function aq372S1ArPracticeForTeacher_(attempt) {
+  attempt = attempt || {};
+  const session = String(attempt.sessionId || attempt.missionId || '').toLowerCase().replace(/[\s_\-:]+/g, '');
+  if (session !== 's1' && session !== 'm1' && session !== 'session1' && session !== 'mission1') return null;
+
+  const root = aq372ParseJson_(attempt.extraJson || attempt.extra || attempt.s1ArPractice);
+  if (!root) return null;
+
+  const visited = [];
+  function walk(node, depth) {
+    if (!node || depth > 6) return null;
+    const obj = aq372ParseJson_(node);
+    if (!obj || typeof obj !== 'object') return null;
+    if (visited.indexOf(obj) >= 0) return null;
+    visited.push(obj);
+
+    if (obj.s1ArPractice) {
+      const direct = aq372ParseJson_(obj.s1ArPractice) || obj.s1ArPractice;
+      if (direct && (direct.completed === true || direct.arCompleted === true || String(direct.completed || direct.arCompleted).toLowerCase() === 'true')) {
+        return direct;
+      }
+    }
+
+    const keys = ['raw','extraJson','extra','payload','data','attempt','result','summary'];
+    for (let i = 0; i < keys.length; i++) {
+      if (obj[keys[i]] !== undefined) {
+        const found = walk(obj[keys[i]], depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  const ar = walk(root, 0);
+  if (!ar) return null;
+
+  const total = Number(ar.total || ar.arTotal || 0);
+  const correct = Number(ar.correct || ar.arCorrect || 0);
+  const score = Math.round(Number(ar.score || ar.arScore || ar.accuracy || ar.arAccuracy || (total ? correct * 100 / total : 0)));
+
+  return {
+    activity: String(ar.activity || ar.arActivity || 'S1 AR Practice: AI Object Scanner'),
+    supplementary: true,
+    completed: true,
+    score: score,
+    accuracy: score,
+    correct: correct,
+    total: total,
+    helpUsed: Number(ar.helpUsed || ar.arHelpUsed || 0),
+    usedSec: Number(ar.usedSec || ar.arUsedSec || 0),
+    inputMode: String(ar.inputMode || ar.arInputMode || 'hand_or_mouse_touch'),
+    completedAt: String(ar.completedAt || ar.finishedAt || '')
+  };
+}
+
+/* ============================================================
+   In buildTeacherConsole_(), REPLACE ONLY the existing
+   attempts:(s.attempts || []).map(function(a){ ... })
+   block with this version.
+============================================================ */
+
+      attempts:(s.attempts || []).map(function(a){
+        const s1ArPractice = aq372S1ArPracticeForTeacher_(a);
+
+        return {
+          attemptId:String(a.attemptId || ''),
+          serverTs:String(a.serverTs || ''),
+          clientTs:String(a.clientTs || ''),
+          sessionId:String(a.sessionId || ''),
+          missionId:String(a.missionId || ''),
+          missionTitle:String(a.missionTitle || ''),
+          difficulty:String(a.difficulty || ''),
+          score:Number(a.score || 0),
+          stars:Number(a.stars || 0),
+          accuracy:Number(a.accuracy || 0),
+          correct:Number(a.correct || 0),
+          total:Number(a.total || 0),
+          wrong:Number(a.wrong || 0),
+          helpUsed:Number(a.helpUsed || 0),
+          mastered:bool_(a.mastered),
+          bossWin:bool_(a.bossWin),
+          reflection1:String(a.reflection1 || ''),
+          reflection2:String(a.reflection2 || ''),
+          reflection3:String(a.reflection3 || ''),
+          s1ArPractice:s1ArPractice
+        };
+      }),
+
+/* ============================================================
+   Also change the version line near the top:
+   const APP_VERSION = 'v3.7.2';
+============================================================ */
