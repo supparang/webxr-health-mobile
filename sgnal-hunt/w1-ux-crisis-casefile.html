@@ -206,6 +206,9 @@
 .clarity-rule{margin:8px 0 0;padding:10px 12px;border-left:4px solid #6a7dff;background:#f1f4ff;color:#34447b;border-radius:0 10px 10px 0;font-size:13px;line-height:1.55}
 .option-meta{display:block;margin-top:7px;color:#596886;font-size:12px;line-height:1.45}
 .option strong{font-size:15px}.option small{line-height:1.5}
+
+/* V16 Learning Layer */
+.learning-brief{margin:18px 0 0;padding:16px;border:1px solid #d7e2ff;border-radius:18px;background:linear-gradient(135deg,#eff3ff,#fbfcff);color:#2d427e}.learning-brief h3{margin:0 0 8px;font-size:16px}.learning-brief ul{margin:8px 0 0;padding-left:20px;line-height:1.65}.learning-brief li{margin:3px 0}.learning-brief small{display:block;margin-top:10px;color:#5c6e9d;line-height:1.5}.think-lens{margin:0 0 13px;padding:11px 13px;border-left:4px solid #5b75f5;border-radius:0 12px 12px 0;background:#f0f4ff;color:#40558f;font-size:13px;line-height:1.55}.lesson-captured{margin:14px 0 0;padding:14px 15px;border:1px solid #bfeedd;border-radius:15px;background:#f0fcf7;color:#195b47;line-height:1.58}.lesson-captured b{display:block;margin-bottom:4px;font-size:12px;letter-spacing:.08em}.learning-summary{margin:20px 0;padding:18px;border:1px solid #d6e0ff;border-radius:18px;background:#f5f7ff;color:#33477d}.learning-summary h3{margin:0 0 8px}.learning-summary p{margin:0;line-height:1.65}.reflection-prompt{margin-top:12px;padding:12px 13px;border-radius:13px;background:#fff;color:#405078;font-size:13px;line-height:1.55}.reflection-prompt b{color:#273d86}
 </style>
 </head>
 <body>
@@ -3482,6 +3485,7 @@
         <p class="eyebrow">W1 // CASEFILE BANK 48</p>
         <h2>เริ่ม Crisis Shift ใหม่: ปิด 3 คดีคนละสายทักษะ</h2>
         <p>W1 Main Path มี 48 Casefiles ครบ 6 สาย UX และจัด Shift ละ 3 คดีไม่ซ้ำ Track เพื่อบังคับให้ใช้เหตุผลต่างรูปแบบ ไม่ใช่จำคำตอบเดิม • คดีจะไม่วนก่อนครบ 16 Shift</p>
+        <section class="learning-brief" aria-label="วันนี้จะเรียนรู้อะไร"><h3>วันนี้คุณกำลังฝึกอะไร</h3><ul><li><b>Evidence:</b> เลือกข้อมูลที่ช่วยแยกสาเหตุ ไม่ใช่ข้อมูลที่ดูสำคัญเฉย ๆ</li><li><b>Hypothesis:</b> อธิบายว่าทำไม User Goal จึงติดขัด โดยต้องอิงหลักฐาน</li><li><b>Fix + Test:</b> เลือกการแก้ที่ตรงสาเหตุ แล้วใช้ผลทดสอบตัดสินใจก้าวถัดไป</li></ul><small>เป้าหมายไม่ใช่ตอบให้เร็ว แต่ทำให้เส้น Evidence → Hypothesis → Fix → Test เชื่อมกันอย่างมีเหตุผล</small></section>
         <div class="mode-grid">
           <div class="mode-metric"><span>Casefiles ที่ยังไม่เจอ</span><b>${unseen}/${CASES.length}</b></div>
           <div class="mode-metric"><span>Cycle Shift</span><b>${round}/${TRACK_SCHEDULE.length}</b></div>
@@ -3517,7 +3521,7 @@
       <article class="card decision">
         <p class="eyebrow">STEP 1 // EVIDENCE HUNT</p>
         <h3>เลือกอ่านหลักฐานได้เพียง ${EVIDENCE_LIMIT} ชิ้น</h3><p class="clarity-rule">โจทย์นี้ไม่ได้ถามว่าอะไร “สำคัญที่สุด” แต่ถามว่าอะไรช่วยตัดสินระหว่างสาเหตุที่เป็นไปได้</p>
-        <p class="prompt">เลือกหลักฐานที่ช่วย “แยกสาเหตุ” ได้มากที่สุด ไม่ใช่หลักฐานที่ดูสำคัญหรือมีตัวเลขเยอะที่สุด</p>
+        <p class="think-lens"><b>คำถามนำ:</b> หลักฐานชิ้นนี้ช่วยให้ตัด “สาเหตุใดสาเหตุหนึ่ง” ออกได้หรือไม่?</p><p class="prompt">เลือกหลักฐานที่ช่วย “แยกสาเหตุ” ได้มากที่สุด ไม่ใช่หลักฐานที่ดูสำคัญหรือมีตัวเลขเยอะที่สุด</p>
         ${reviewChip('evidence')}<p class="hint">หลักฐานที่ดีต้องช่วยตัดสินว่า “สาเหตุไหนน่าจะใช่กว่า” ไม่ใช่เพียงบอกว่าหน้าจอมีปัญหา${isReviewing()&&state.reviewPlan?.step==='evidence'?' • ต้องแทนที่อย่างน้อย 1 ชิ้นจากหลักฐานเดิม':''}</p>
         <div class="evidence-grid">${shuffleStable(c.evidence,c.id).map(e=>`<button class="evidence-card ${selected.has(e.id)?'selected':''}" data-evidence="${e.id}" type="button"><span class="evidence-mark">${selected.has(e.id)?'✓':''}</span><span><strong>${escapeHtml(e.title)}</strong><small>${escapeHtml(e.text)}</small></span></button>`).join('')}</div>
         <button class="primary" type="button" data-action="submit-evidence" ${selected.size===EVIDENCE_LIMIT&&reviewChanged('evidence')?'':'disabled'}>ตั้งสมมติฐานจากหลักฐาน ${selected.size}/${EVIDENCE_LIMIT} →</button>
@@ -3531,7 +3535,7 @@
         <p class="eyebrow">STEP 2 // HYPOTHESIS LOCK</p>
         <h3>สาเหตุใดควรทดสอบก่อน?</h3>
         ${reviewChip('hypothesis')}<p class="prompt">ทั้ง 3 ข้ออาจเป็นปัญหาได้ แต่เลือกข้อที่มีหลักฐานรองรับมากที่สุดจากสิ่งที่คุณเก็บมา${isReviewing()&&state.reviewPlan?.step==='hypothesis'?' • ต้องเปลี่ยนจาก hypothesis เดิม':''}</p>
-        <div class="option-list">${shuffleStable(c.hypotheses,`${c.id}-h`).map(h=>`<button type="button" class="option ${state.selectedHypothesis===h.id?'selected':''}" data-hypothesis="${h.id}"><span class="radio">${state.selectedHypothesis===h.id?'●':''}</span><span><strong>${escapeHtml(h.title)}</strong><small>${escapeHtml(h.text)}</small></span></button>`).join('')}</div>
+        <p class="think-lens"><b>คำถามนำ:</b> สมมติฐานใดอธิบายหลักฐานที่คุณเลือกได้มากที่สุด โดยไม่กระโดดไปหาวิธีแก้ก่อน?</p><div class="option-list">${shuffleStable(c.hypotheses,`${c.id}-h`).map(h=>`<button type="button" class="option ${state.selectedHypothesis===h.id?'selected':''}" data-hypothesis="${h.id}"><span class="radio">${state.selectedHypothesis===h.id?'●':''}</span><span><strong>${escapeHtml(h.title)}</strong><small>${escapeHtml(h.text)}</small></span></button>`).join('')}</div>
         <button class="primary" type="button" data-action="submit-hypothesis" ${state.selectedHypothesis&&reviewChanged('hypothesis')?'':'disabled'}>เลือกจุดที่ต้องแก้ →</button>
       </article>`;
   }
@@ -3542,7 +3546,7 @@
         <p class="eyebrow">STEP 3 // DESIGN ENERGY TRADE-OFF</p>
         <h3>คุณมีพลังแก้ระบบเพียง 2 หน่วย</h3>
         ${reviewChip('fix')}<p class="prompt">ทุกวิธีมีประโยชน์ในบางสถานการณ์ แต่เลือก 1 วิธีที่แก้ “สาเหตุที่คุณเลือก” ได้ตรงที่สุดในคดีนี้${isReviewing()&&state.reviewPlan?.step==='fix'?' • ต้องเปลี่ยนจาก Fix เดิม':''}</p>
-        <p class="pressure-inline">⚡ ${escapeHtml(pressureFor(c).title)}: ${escapeHtml(pressureFor(c).lesson)}</p>
+        <p class="think-lens"><b>คำถามนำ:</b> Fix นี้เปลี่ยนเงื่อนไขที่ทำให้ผู้ใช้ติดขัดจริง หรือแค่ทำให้หน้าจอดูดีขึ้น?</p><p class="pressure-inline">⚡ ${escapeHtml(pressureFor(c).title)}: ${escapeHtml(pressureFor(c).lesson)}</p>
         <div class="option-list">${shuffleStable(c.fixes,`${c.id}-f`).map(f=>`<button type="button" class="option ${state.selectedFix===f.id?'selected':''}" data-fix="${f.id}"><span class="radio">${state.selectedFix===f.id?'●':''}</span><span><strong>${escapeHtml(f.title)}</strong><small>${escapeHtml(f.text)}</small><span class="option-meta">◆ ใช้ทรัพยากร ${f.cost} หน่วย • ${escapeHtml(f.note)}</span></span></button>`).join('')}</div>
         <button class="primary" type="button" data-action="submit-fix" ${state.selectedFix&&reviewChanged('fix')?'':'disabled'}>ส่ง Prototype เข้าทดสอบ →</button>
       </article>`;
@@ -3559,7 +3563,7 @@
         <p class="eyebrow">STEP 4 // TEST UNDER PRESSURE</p>
         <h3>ผล User Test มาแล้ว — คุณจะทำอะไรต่อ?</h3>
         ${reviewChip('test')}<p class="prompt">ดู Task success, เวลา และ Trust ร่วมกัน อย่าตัดสินจากตัวเลขเดียว${isReviewing()&&state.reviewPlan?.step==='test'?' • ต้องเปลี่ยนจาก Decision เดิม':''}</p>
-        <div class="test-panel">
+        <p class="think-lens"><b>คำถามนำ:</b> ตัวเลขและคำพูดของผู้ใช้บอกว่าควรเดินหน้าต่อ เก็บข้อมูลเพิ่ม หรือหยุดความเสี่ยง?</p><div class="test-panel">
           <div class="test-grid">
             <div class="test-metric"><span>Task success</span><b class="${outcome.success>=80?'up':outcome.success>=60?'mid':'down'}">${outcome.success}%</b></div>
             <div class="test-metric"><span>Time to complete</span><b>${outcome.time}</b></div>
@@ -3755,6 +3759,14 @@
     if(state.step==='test')panel=testStep(c,resolveOutcome(c));
     stage.innerHTML=`<section class="game-grid">${briefHtml(c)}${panel}</section>`;
   }
+  function lessonCapturedHtml(result){
+    let lesson='เมื่อเลือก Fix ให้ตรวจว่า Fix นั้นเปลี่ยนสาเหตุที่ Hypothesis อธิบาย ไม่ใช่เพียงลดอาการที่มองเห็น';
+    if(result?.outcome?.exactChain&&result?.nextCorrect) lesson='การตัดสินใจ UX ที่แข็งแรงต้องเชื่อม Evidence → Hypothesis → Fix → Test Decision เป็นเหตุผลเดียว';
+    else if(!result?.outcome?.exactChain) lesson='อย่าเลือกวิธีแก้ก่อนรู้สาเหตุ: หลักฐานต้องหนุน Hypothesis ก่อน แล้วจึงเลือก Fix';
+    else if(!result?.nextCorrect) lesson='ผล User Test ไม่ได้บอกแค่ว่าดีหรือแย่ แต่ช่วยตัดสินว่าควร iterate, gather evidence หรือ rollout ต่อ';
+    return `<div class="lesson-captured"><b>LESSON CAPTURED</b>${escapeHtml(lesson)}</div>`;
+  }
+
   function renderCaseReport(){
     const c=current();
     const result=state.caseResult||evaluateCase(c);
@@ -3788,7 +3800,7 @@
             <div class="quote"><b>USER TEST QUOTE</b>“${escapeHtml(result.outcome.quote)}”</div>
           </div>
           <div class="aftershock"><b>WHAT CHANGED FOR THE USER</b>${escapeHtml(aftershockNarrative(result))}</div>
-          <h3 class="question-title">Evidence Audit • ตรวจเส้นเหตุผล</h3>
+          ${lessonCapturedHtml(result)}<h3 class="question-title">Evidence Audit • ตรวจเส้นเหตุผล</h3>
           <div class="evidence-audit">${evidenceRows||'<p class="muted">ยังไม่มีหลักฐานถูกเลือก</p>'}</div>
           ${canRecover?`
             <div class="recovery-panel">
@@ -4152,6 +4164,8 @@
     const gateLabel=result.passed?'W2 Readiness Gate cleared':result.stars===1?'Practice clear — W2 still locked':'Shift not cleared';
     const gateChip=result.passed?'<span class="w2-gate-chip">W2 READY</span>':'<span class="w2-gate-chip locked">W2 LOCKED — NEED 2★ READINESS</span>';
     const w2Continue=result.passed?`<a class="action-row primary" href="./w2-design-thinking-sprint.html?v=casefile-v13-ready"><span class="action-icon">→</span><span><strong>ต่อไป: W2 Design Thinking Sprint</strong><small>ผ่าน W1 Casefile ระดับ ${readiness.w1.bestStars}★ Readiness แล้ว • ไม่ต้องกลับไปทำ Quiz W1 เดิม</small></span><span>เริ่ม W2 →</span></a>`:'';
+    const learningSummary=`<section class="learning-summary"><h3>สรุปการเรียนรู้จาก Shift นี้</h3><p>${exact>=2?'คุณเริ่มเชื่อมหลักฐานกับสาเหตุได้ดีขึ้น':'ให้เริ่มจากถามว่า “หลักฐานชิ้นใดช่วยตัดสาเหตุอื่นออกได้” ก่อนเลือก Hypothesis'} ${solid>=2?'และอ่านผล Test เพื่อตัดสินใจก้าวต่อไปได้ค่อนข้างดี':'รอบถัดไปให้ดู Task success, เวลา และ Trust ร่วมกันก่อนเลือกก้าวต่อไป'}</p><div class="reflection-prompt"><b>Reflection 30 วินาที:</b> คดีใดทำให้คุณเปลี่ยนความคิดมากที่สุด และหลักฐานใดทำให้เปลี่ยน?</div></section>`;
+
     stage.innerHTML=`
       <section class="card debrief">
         <p class="eyebrow">SHIFT COMPLETE // W1 CASEFILE + READINESS REPORT</p>
