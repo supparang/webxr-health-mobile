@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z63-uk-thailand-coteaching-sb-alignment';
+  const APP_VERSION = '20260610-v1z64-real-reading-live-drop-alignment';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31988,7 +31988,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z63</div>
+              <div class="mini-note">Save the Society • v1z64</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32541,7 +32541,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z63</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z64</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -35674,6 +35674,7 @@
   }
 
   function syncReadingQuestionsToMission(){
+    if(document.querySelector('[data-real-reading-pack="true"]')) return;
     try{
       const sid = Number(state.currentSession || 1) || 1;
       const q = alignedReadingQuestions(sid);
@@ -35689,6 +35690,7 @@
   }
 
   function removeMismatchedAudienceQuestions(){
+    if(document.querySelector('[data-real-reading-pack="true"]')) return;
     try{
       const sid = Number(state.currentSession || 1) || 1;
       const a = missionAlignmentForSession(sid);
@@ -35707,6 +35709,7 @@
   }
 
   function injectAlignedHelpBlock(){
+    if(document.querySelector('[data-real-reading-pack="true"]')) return;
     try{
       const sid = Number(state.currentSession || 1) || 1;
       const title = Array.from(document.querySelectorAll('h1,h2')).find(h=>/Mission:/i.test(h.textContent || ''));
@@ -37549,22 +37552,179 @@
   }
 
 
-  function renderReadingMission(id){
-    const __readingSessionId = Number(arguments[0] || state.currentSession || 1); const readingQs = readingQuestionSetForSession(__readingSessionId);
 
-    const s = getSession(safeMissionSessionId(id)), text = pickMissionVariant(s.id, 'Reading');
-    const readAlign = alignmentFor('Reading', s.id, text.variant || {});
-    if(readAlign && readAlign.questions && readAlign.questions.length){ text.variant.q = readAlign.questions; }
-    layout(`<section class="panel" style="margin-top:20px">
-      <div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
-      <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
-      <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}">
-      <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
-      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${alignmentGuideHTML('Reading', s.id, text.variant || {})}${cefrAIHelpNote('Reading')}</div>
-      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading')))}</p>
+  /* === v1z64 REAL READING: Live Drop Passage + Aligned Questions === */
+  const REAL_READING_S1_PACKS = {
+    'academic goal audit': {
+      sourceType:'Student Support File',
+      title:'Live Drop: Academic Goal Audit',
+      passage:`Dr. Morgan is meeting a student called Narin. Narin says, “I will study more English this semester.” Dr. Morgan explains that this is a positive idea, but it is not yet a clear academic goal. Narin needs to name one skill, choose one action to do every week, and decide how to check progress. For example, Narin could practise summarising one short article each week and compare the new summary with an earlier one. A clear plan helps Narin see whether the skill is improving.`,
+      questions:[
+        'Why is “I will study more English” not a clear academic goal?',
+        'What three parts should Narin’s stronger goal include?',
+        'Which example in the passage shows a weekly action and a progress check?'
+      ],
+      frames:[
+        'The goal is unclear because ___.',
+        'A stronger goal should include ___, ___, and ___.',
+        'The passage says, “___.”'
+      ],
+      vocab:['academic goal','skill','weekly action','progress check','summarise']
+    },
+    'study strategy choice': {
+      sourceType:'UK–Thailand Study Strategy Note',
+      title:'Live Drop: Choose the Stronger Study Plan',
+      passage:`Two students want to improve their academic English. Mali memorises a long list of random words every evening. Arun reads one short source, writes key words, and asks a classmate or teacher for feedback. Both students spend time studying, but their strategies are different. Dr. Morgan says that an academic plan should connect practice with a real task and a way to check improvement. Arun can see whether the notes and feedback help the next summary. Mali knows more isolated words, but she does not yet know whether she can use them in a reading or writing task.`,
+      questions:[
+        'Which student has the stronger academic study strategy?',
+        'What makes that strategy stronger according to the passage?',
+        'What evidence shows that the other strategy is limited?'
+      ],
+      frames:[
+        '___ has the stronger strategy because ___.',
+        'The plan connects ___ with ___.',
+        'One detail from the passage is ___.'
+      ],
+      vocab:['strategy','practice','feedback','improvement','isolated words']
+    },
+    'learning reflection': {
+      sourceType:'Learning Reflection Log',
+      title:'Live Drop: Reflection Before the Next Mission',
+      passage:`After a difficult English task, Ploy writes a short reflection. She says that finding keywords was easy, but writing a summary in her own words was confusing. She plans to use a simple three-step routine next week: read the task question first, circle two important words, and write one short sentence before checking a model. Dr. Morgan explains that reflection is useful because it turns a vague feeling into a next action. Ploy does not need to write a long diary. She needs to identify one difficulty, choose one action, and check whether the new action helps.`,
+      questions:[
+        'What part of the task was difficult for Ploy?',
+        'What three-step routine will she try next week?',
+        'Why does Dr. Morgan say that reflection is useful?'
+      ],
+      frames:[
+        'Ploy found ___ difficult.',
+        'Next week, she will ___.',
+        'Reflection is useful because ___.'
+      ],
+      vocab:['reflection','difficulty','routine','next action','model']
+    },
+    'skill diagnosis': {
+      sourceType:'British Co-Teacher Student Support File',
+      title:'Live Drop: Skill Diagnosis File',
+      passage:`Narin enjoys chatting casually with international students online. However, in class he finds it difficult to summarise an article in his own words. When he presents, he reads from notes and gives no source or example. Dr. Morgan tells him that he does not need “more English” in general. He needs one clear academic skill to practise. The team should help Narin create a goal that names the skill, gives one weekly action, and includes a way to check progress. For instance, Narin could write one short source-based summary each week and compare it with teacher feedback.`,
+      questions:[
+        'What academic skill problem does Narin have?',
+        'What three parts should his stronger academic goal include?',
+        'Which sentence in the passage gives evidence for a useful weekly action?'
+      ],
+      frames:[
+        'Narin needs to improve ___.',
+        'His goal should include ___, ___, and ___.',
+        'The evidence is “___.”'
+      ],
+      vocab:['summarise','source','evidence','weekly action','progress']
+    }
+  };
+
+  const REAL_READING_SESSION_DESIGNS = {
+    2:{sourceType:'UK Campus Language Note', focus:'academic vocabulary in context', questions:['What academic word, word form, or collocation is the key issue?','What clue in the passage helps you choose the meaning or correct form?','Write one short example that uses the item accurately.'], frames:['The key academic item is ___.','The context clue is ___.','A correct example is ___.'], vocab:['context clue','word family','collocation','academic word','accurate']},
+    3:{sourceType:'Project Briefing File', focus:'main idea and supporting detail', questions:['What is the main idea of the passage?','Which detail best supports the main idea?','Which detail is interesting but not central?'], frames:['The main idea is ___.','One supporting detail is ___.','A less central detail is ___.'], vocab:['main idea','supporting detail','central','topic','evidence']},
+    4:{sourceType:'Campus Announcement Transcript', focus:'keywords and signal words', questions:['Which keyword or signal word is important in the passage?','What relationship does it show: sequence, contrast, cause, result, or example?','How does that signal help the reader understand the message?'], frames:['The signal word is ___.','It shows ___.','This helps the reader understand ___.'], vocab:['keyword','signal word','contrast','result','for example']},
+    5:{sourceType:'Evidence Court Case File', focus:'critical reading', questions:['What claim is made in the passage?','What evidence, bias, or missing information should readers notice?','What should readers check before accepting the claim?'], frames:['The claim is ___.','The evidence or bias is ___.','Readers should check ___.'], vocab:['claim','evidence','bias','source','credible']},
+    6:{sourceType:'Summary Press Source', focus:'summarising in own words', questions:['What source idea is most important?','Which detail can be omitted from a short summary?','How can the main idea be stated in your own words?'], frames:['The source mainly explains ___.','A detail I can omit is ___.','In my own words, ___.'], vocab:['summary','own words','central idea','omit','paraphrase']},
+    7:{sourceType:'Academic Tone Message', focus:'academic tone', questions:['Which wording in the passage is too casual, emotional, or too strong?','What academic wording could replace it?','Why is the revised wording more appropriate?'], frames:['The weak wording is ___.','A more academic version is ___.','This is appropriate because ___.'], vocab:['formal','tone','appropriate','cautious','academic']},
+    8:{sourceType:'Paragraph Repair File', focus:'paragraph structure', questions:['What is the topic sentence or central point?','What support or example belongs with the topic?','What part is weak, missing, or in the wrong place?'], frames:['The topic sentence is ___.','The support is ___.','The weak or missing part is ___.'], vocab:['topic sentence','support','example','conclusion','structure']},
+    9:{sourceType:'Campus Solution Brief', focus:'paragraph writing', questions:['What problem or topic should the paragraph address?','What specific reason or example can support the idea?','What conclusion would connect back to the topic?'], frames:['The paragraph is about ___.','One support idea is ___.','In conclusion, ___.'], vocab:['paragraph','reason','example','support','conclusion']},
+    10:{sourceType:'Data Detective Report', focus:'data description', questions:['What trend or comparison does the passage describe?','What number or data detail supports it?','What conclusion would be too strong?'], frames:['The data show ___.','The figure changes from ___ to ___.','The data do not prove ___.'], vocab:['trend','increase','decrease','comparison','cautious']},
+    11:{sourceType:'International Help Desk Email', focus:'academic email', questions:['What is the purpose of the email situation?','Which polite request or follow-up is needed?','What information should the writer include?'], frames:['The purpose is to request ___.','A polite phrase is “___.”','The email should include ___.'], vocab:['request','feedback','appointment','available','closing']},
+    12:{sourceType:'Research Integrity Case File', focus:'citation and ethics', questions:['Which idea, wording, or AI support needs to be acknowledged?','Should the student quote, paraphrase, cite, or disclose help?','Why is that choice academically responsible?'], frames:['This needs acknowledgement because ___.','I should ___ it because ___.','Responsible use means ___.'], vocab:['citation','paraphrase','quote','disclose','ethics']},
+    13:{sourceType:'Mini Lecture Reading Preview', focus:'academic listening preparation', questions:['What is the main point the listener should expect?','Which two keywords are likely to matter?','Which detail is useful but not central?'], frames:['The main point is ___.','Two keywords are ___ and ___.','A useful detail is ___.'], vocab:['lecture','main point','keyword','detail','signal word']},
+    14:{sourceType:'Presentation Brief', focus:'academic presentation', questions:['What is the presentation topic or purpose?','Which signposting phrase or evidence point is useful?','How should the speaker close the presentation?'], frames:['Today, I will talk about ___.','One key point is ___.','To conclude, ___.'], vocab:['presentation','purpose','signpost','evidence','conclusion']},
+    15:{sourceType:'Global Solution Summit Case', focus:'final integrated EAP decision', questions:['What problem or decision is described?','What evidence from the passage matters most?','What response or next step is reasonable?'], frames:['The problem is ___.','The evidence shows ___.','A reasonable next step is ___.'], vocab:['integrate','evidence','solution','reflect','next step']}
+  };
+
+  function realReadingPack(sessionId, selected){
+    const sid = Number(sessionId || 1);
+    const selectedTopic = String(selected?.topic || '').trim().toLowerCase();
+    if(sid === 1 && REAL_READING_S1_PACKS[selectedTopic]){
+      const p = REAL_READING_S1_PACKS[selectedTopic];
+      return Object.assign({session:sid, role:(ukThailandSessionProtocol(sid)||{}).liveRole || 'British Co-Teacher'}, p);
+    }
+
+    const d = REAL_READING_SESSION_DESIGNS[sid] || REAL_READING_SESSION_DESIGNS[3];
+    const p = ukThailandSessionProtocol(sid) || {};
+    const topic = String(selected?.topic || d.focus);
+    const seed = String(selected?.passage || '');
+    const passage = `Live Drop from ${p.liveRole || 'the British co-teacher'}: Today’s reading case focuses on ${topic}. ${seed} Dr. Morgan asks the team to read for the academic purpose, not for every individual word. Identify the central message, choose one useful detail, and avoid a conclusion that the source does not support. After silent reading, the British co-teacher will read the case once and invite one clarification question before the team gives its evidence-based response.`;
+    return {
+      session:sid,
+      sourceType:d.sourceType,
+      title:`Live Drop: ${topic}`,
+      passage,
+      questions:d.questions,
+      frames:d.frames,
+      vocab:d.vocab,
+      role:p.liveRole || 'British Co-Teacher'
+    };
+  }
+
+  function realReadingSupportHTML(pack){
+    return `<div class="real-reading-support">
+      <div class="badges">
+        <span class="pill">🇬🇧 Live Drop</span>
+        <span class="pill">${safe(pack.sourceType)}</span>
+        <span class="pill">Read → Listen → Clarify → Answer</span>
+      </div>
+      <h3>How to read this mission</h3>
+      <div class="grid three">
+        <div class="step-card"><b>1. Silent Read</b><span>Read once for the main idea. Do not translate every word.</span></div>
+        <div class="step-card"><b>2. Human Check</b><span>The British co-teacher reads the Live Drop once. Ask one clarification question if needed.</span></div>
+        <div class="step-card"><b>3. Evidence Answer</b><span>Answer in 1–2 short sentences and use a word or detail from the passage.</span></div>
+      </div>
+      <h4>Sentence frames for this exact passage</h4>
+      <div class="frame-row">${pack.frames.map(f=>`<span class="frame-chip">${safe(f)}</span>`).join('')}</div>
+      <h4>Useful vocabulary</h4>
+      <div class="vocab-row">${pack.vocab.map(v=>`<span class="mini-word">${safe(v)}</span>`).join('')}</div>
+    </div>`;
+  }
+
+  function readingAnswerPlaceholder(index, pack){
+    const examples = [
+      'Write 1 short answer. Use a word from the Live Drop.',
+      'Write 1–2 short sentences with a clear reason or detail.',
+      'Quote or name one detail from the passage as evidence.'
+    ];
+    return examples[index] || 'Write a short evidence-based answer.';
+  }
+
+
+  function renderReadingMission(id){
+    const __readingSessionId = Number(arguments[0] || state.currentSession || 1);
+    const s = getSession(safeMissionSessionId(id));
+    const selected = pickMissionVariant(s.id, 'Reading');
+    const pack = realReadingPack(s.id, selected);
+    layout(`<section class="panel real-reading-mission" data-real-reading-pack="true" style="margin-top:20px">
+      <div class="badges">
+        <span class="pill">Reading Mission</span>
+        <span class="pill">S${s.id}</span>
+        <span class="pill">${safe(s.skill)}</span>
+        <span class="pill">🇹🇭 + 🇬🇧 Co-Taught</span>
+      </div>
+      <h2>📖 ${safe(pack.title)}</h2>
+      <div class="reading-live-role"><b>Human Mission Partner:</b> ${safe(pack.role)} · Read silently first, then listen once and clarify one phrase if needed.</div>
+      <article class="real-reading-source">
+        <div class="real-reading-source-head">
+          <span>${safe(pack.sourceType)}</span>
+          <span>Reading length: short Live Drop</span>
+        </div>
+        <p>${safe(pack.passage)}</p>
+      </article>
+      <input type="hidden" id="readingTopic" value="${safeAttr(pack.title)}">
+      <input type="hidden" id="readingPassage" value="${safeAttr(pack.passage)}">
+      <p class="mini-note"><b>Your task:</b> answer three short questions. Each answer should use a word, phrase, or detail from the Live Drop.</p>
+      <div class="cefr-support real-reading-cefr">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${realReadingSupportHTML(pack)}${cefrAIHelpNote('Reading')}</div>
+      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — read for the message, evidence and one useful detail.</p>
       ${renderAIHelpBox('Reading', s.id)}
-      ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="4"></textarea>`).join('')}
-      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+      ${pack.questions.map((q,i)=>`<label class="label">${i+1}. ${safe(q)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box compact-reading-answer" rows="3" placeholder="${safeAttr(readingAnswerPlaceholder(i,pack))}"></textarea>`).join('')}
+      <div class="footer-actions">
+        <button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button>
+        <button class="btn ghost" onclick="EAPHero.renderSkillPath(${s.id})">Back to Session Path</button>
+      </div>
     </section>`);
   }
 
@@ -40301,7 +40461,12 @@
 strictEvidenceForSessionSkill,
 strictBestScoreForSessionSkill,
 strictPassTruthReport,
-UK_THAILAND_SESSION_PROTOCOL,
+REAL_READING_S1_PACKS,
+REAL_READING_SESSION_DESIGNS,
+realReadingPack,
+realReadingSupportHTML,
+readingAnswerPlaceholder,
+    UK_THAILAND_SESSION_PROTOCOL,
 UK_THAILAND_BOSS_PROTOCOL,
 ukThailandSessionProtocol,
 ukThailandBossProtocol,
