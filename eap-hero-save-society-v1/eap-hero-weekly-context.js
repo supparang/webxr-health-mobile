@@ -1,4 +1,4 @@
-/* EAP Hero v1z66 Live Conversation Speaking */
+/* EAP Hero v1z67 Route Progression Unlock Fix */
 (function(){
   'use strict';
 
@@ -546,5 +546,15 @@
   api.saveLiveSpeakingEvidence=saveLiveSpeakingEvidence;
   api.submitSpeaking=saveLiveSpeakingEvidence;
   api.resetLiveSpeakingState=resetLiveSpeakingState;
+
+
+  // v1z67: route button is rendered by the core engine. Keep weekly decorations after route changes.
+  const originalContinueRoute = api.continueRoute;
+  api.continueRoute = function(){
+    const result = typeof originalContinueRoute === 'function' ? originalContinueRoute() : false;
+    setTimeout(decorateSessionPath, 120);
+    return result;
+  };
+
   decorateSessionPath();
 })();

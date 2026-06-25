@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z65-weekly-context-game-engine';
+  const APP_VERSION = '20260610-v1z67-route-progression-unlock-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31988,7 +31988,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z66</div>
+              <div class="mini-note">Save the Society • v1z67</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32541,7 +32541,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z66</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z67</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32731,7 +32731,7 @@
   }
 
   function runStrictPassTruthSoon(){
-    try{ strictSyncSessionProgress(true); }catch(e){}
+    try{ strictSyncSessionProgress(true); syncRouteProgression(true); }catch(e){}
   }
 
 
@@ -33264,19 +33264,169 @@
     return Object.keys(state.bossCards || {}).length || 0;
   }
 
-  function nextPlayableSessionId(){
-    const sessions = SESSIONS || [];
-    for(const s of sessions){
-      try{
-        if(!isSessionLocked(s.id)) return s.id;
-      }catch(e){}
+
+  /* === v1z67 Route Progression: Session → Boss Gate → Next Session === */
+  function isBossGateCleared(gateNo){
+    const g = state.bossGates?.[Number(gateNo || 0)] || {};
+    return !!(g.cleared || g.done || g.completed);
+  }
+
+  function routeUnlockForSession(sessionId){
+    const sid = Number(sessionId || 1);
+    if(sid <= 1) return true;
+
+    const previousSession = sid - 1;
+    const checkpoint = bossGateAfterSession(previousSession);
+
+    // After S3/S6/S9/S12, the next Session opens only when its Boss Gate is cleared.
+    if(checkpoint){
+      return isBossGateCleared(checkpoint.gate);
     }
-    return 1;
+
+    // In all other positions, the immediate previous Session must be passed.
+    return !!strictPassTruthReport(previousSession).passed;
+  }
+
+  function syncRouteProgression(silent){
+    try{
+      strictSyncSessionProgress(true);
+      state.sessions = state.sessions || {};
+      state.bossGates = state.bossGates || {};
+
+      for(let sid=1; sid<=15; sid++){
+        const row = state.sessions[sid] = state.sessions[sid] || {};
+        row.unlocked = routeUnlockForSession(sid);
+      }
+
+      // Record Boss availability from the three required passed Sessions and previous Boss completion.
+      BOSS_GATE_PLAN.forEach(plan=>{
+        const report = bossGateUnlockReport(plan.gate);
+        const row = state.bossGates[plan.gate] = state.bossGates[plan.gate] || {};
+        row.unlocked = !!report.unlocked;
+        row.title = plan.title;
+        row.sessions = plan.after.slice();
+      });
+
+      saveState();
+      if(!silent) safeToast('Route synced: the next available Session or Boss Gate is ready.');
+      return true;
+    }catch(err){
+      console.warn('[syncRouteProgression]', err);
+      return false;
+    }
+  }
+
+  function nextRouteRecommendation(fromSession){
+    syncRouteProgression(true);
+
+    const sid = Number(fromSession || state.currentSession || 1) || 1;
+    const current = strictPassTruthReport(sid);
+    const checkpoint = bossGateAfterSession(sid);
+
+    // A passed checkpoint Session sends the learner to its Boss Gate first.
+    if(current.passed && checkpoint){
+      const gateReport = bossGateUnlockReport(checkpoint.gate);
+      if(gateReport.unlocked && !isBossGateCleared(checkpoint.gate)){
+        return {
+          type:'boss',
+          gateNo:checkpoint.gate,
+          title:checkpoint.title,
+          label:`Enter ${checkpoint.title}`,
+          reason:'Your three required Sessions are complete. The next route is the checkpoint.'
+        };
+      }
+      if(isBossGateCleared(checkpoint.gate) && sid < 15 && state.sessions[sid+1]?.unlocked){
+        return {
+          type:'session',
+          sessionId:sid+1,
+          title:getSession(sid+1)?.title || `Session ${sid+1}`,
+          label:`Continue to S${sid+1}`,
+          reason:'The checkpoint is cleared. Continue to the next Session.'
+        };
+      }
+    }
+
+    // A passed normal Session goes to the immediate next unlocked Session.
+    if(current.passed && sid < 15 && state.sessions[sid+1]?.unlocked){
+      return {
+        type:'session',
+        sessionId:sid+1,
+        title:getSession(sid+1)?.title || `Session ${sid+1}`,
+        label:`Continue to S${sid+1}`,
+        reason:'This Session is passed. Your next Session is unlocked.'
+      };
+    }
+
+    // Resume the first available incomplete Session.
+    for(let i=1;i<=15;i++){
+      const rep = strictPassTruthReport(i);
+      if(state.sessions[i]?.unlocked && !rep.passed){
+        return {
+          type:'session',
+          sessionId:i,
+          title:getSession(i)?.title || `Session ${i}`,
+          label:`Continue to S${i}`,
+          reason:'Resume the next incomplete unlocked Session.'
+        };
+      }
+    }
+
+    // Otherwise, find an unlocked but incomplete Boss Gate.
+    for(const plan of BOSS_GATE_PLAN){
+      if(bossGateUnlockReport(plan.gate).unlocked && !isBossGateCleared(plan.gate)){
+        return {
+          type:'boss',
+          gateNo:plan.gate,
+          title:plan.title,
+          label:`Enter ${plan.title}`,
+          reason:'The next route is an unlocked Boss Gate.'
+        };
+      }
+    }
+
+    return {type:'map', label:'Back to Map', reason:'Your current route is complete.'};
+  }
+
+  function continueRoute(){
+    const next = nextRouteRecommendation(state.currentSession);
+    if(next.type === 'session'){
+      state.currentSession = next.sessionId;
+      saveState();
+      return directOpenSession(next.sessionId);
+    }
+    if(next.type === 'boss'){
+      return openBossGate(next.gateNo);
+    }
+    return renderMap();
+  }
+
+  function nextRouteActionHTML(sessionId){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    const current = strictPassTruthReport(sid);
+    if(!current.passed) return '';
+
+    const next = nextRouteRecommendation(sid);
+    if(next.type === 'map') return '';
+    const icon = next.type === 'boss' ? '🛡️' : '▶';
+    return `<section class="next-route-card" data-next-route-card="true">
+      <div>
+        <span class="next-route-kicker">NEXT UNLOCKED ROUTE</span>
+        <h3>${icon} ${safe(next.label)}</h3>
+        <p>${safe(next.reason)}</p>
+      </div>
+      <button class="btn primary next-route-button" onclick="return EAPHero.continueRoute()"> ${icon} ${safe(next.label)} </button>
+    </section>`;
+  }
+
+
+  function nextPlayableSessionId(){
+    const next = nextRouteRecommendation(state.currentSession);
+    return next.type === 'session' ? next.sessionId : Number(state.currentSession || 1);
   }
 
 
   function continueFromButton(btn){
-    return continueSession();
+    return continueRoute();
   }
 
   function bindContinueButtons(){
@@ -33293,26 +33443,7 @@
 
 
   function continueSession(){
-    try{
-      const current = Number(state.currentSession || 1);
-      let id = current;
-      if(!id || (typeof isSessionLocked === 'function' && isSessionLocked(id))){
-        id = nextPlayableSessionId ? nextPlayableSessionId() : 1;
-      }
-      if(!id) id = 1;
-      state.currentSession = id;
-      saveState();
-      if(typeof renderSkillPath === 'function'){
-        renderSkillPath(id);
-      }else if(typeof renderMap === 'function'){
-        renderMap();
-      }
-    }catch(err){
-      console.error('[EAP continueSession]', err);
-      alert('Continue could not open. Going to Map.');
-      renderMap();
-    }
-    return false;
+    return continueRoute();
   }
 
   function studentMapHelpHTML(){
@@ -33757,6 +33888,7 @@
 
 
   function renderMap(){
+    syncRouteProgression(true);
     setTimeout(runCheckpointSessionPatchSoon, 0);
 
     setView('map');
@@ -34170,7 +34302,7 @@
         </div>
         <aside class="battle-hud">
           <div class="hud-card ${a.rage?'rage':''}">
-            <h3>${safe(s.boss)}</h3>
+            <h3>${safe(r.gateTitle || s.boss)}</h3>
             <div class="boss-taunt">“${safe(a.rage ? 'Rage Mode! I will not fall easily!' : s.taunt)}”</div>
             <p class="mini-note">HP</p>
             <div class="hpbar"><span id="hpFill" style="width:${hpPct}%"></span></div>
@@ -34263,6 +34395,12 @@
 
   function finishBoss(win, reason){
     clearInterval(bossTimer);
+    const gateRunMeta = {
+      gateId: state.active?.gateId || state.replay?.currentGate || '',
+      gateNo: Number(state.active?.gateNo || 0),
+      gateTitle: state.active?.gateTitle || '',
+      gateAfter: Number(state.active?.gateAfter || 0)
+    };
     if(state.replay && state.replay.currentGate && state.active){
       const gateId = state.replay.currentGate;
       const percentNow = Math.round((state.active.correct / Math.max(1, state.active.answers.length)) * 100);
@@ -34301,11 +34439,38 @@
     prog.bestScore = Math.max(prog.bestScore || 0, a.score);
     if(win){
       prog.cleared = true;
-      const next = state.sessions[s.id+1];
-      if(next) next.unlocked = true;
+
+      // A Boss Gate is a checkpoint. Its completion opens the first Session in the next block.
+      if(gateRunMeta.gateId){
+        const completedGate = resolveUKBossGate(gateRunMeta.gateId);
+        const gateNo = Number(gateRunMeta.gateNo || completedGate?.planGate || 0);
+        const gateAfter = Number(gateRunMeta.gateAfter || completedGate?.after || 0);
+        if(gateNo){
+          state.bossGates = state.bossGates || {};
+          state.bossGates[gateNo] = {
+            ...(state.bossGates[gateNo] || {}),
+            id:completedGate?.id || gateRunMeta.gateId,
+            title:gateRunMeta.gateTitle || completedGate?.title || `Boss Gate ${gateNo}`,
+            cleared:true,
+            done:true,
+            completed:true,
+            score:a.score,
+            accuracy:Math.round(accuracy*100),
+            completedAt:new Date().toISOString()
+          };
+        }
+        if(gateAfter && state.sessions[gateAfter+1]){
+          state.sessions[gateAfter+1].unlocked = true;
+        }
+      }else{
+        const next = state.sessions[s.id+1];
+        if(next) next.unlocked = true;
+      }
+
       if(!state.cards.includes(s.id)) state.cards.push(s.id);
       if(badge && !state.badges.includes(badge)) state.badges.push(badge);
       addXP(xpGain);
+      syncRouteProgression(true);
     }else{
       addXP(xpGain);
     }
@@ -34333,7 +34498,11 @@
 
     const mistakes = a.answers.filter(x=>!x.correct);
     const result = {
-      win, reason, sessionId:s.id, xpGain, chestReward, contract:a.contract || 'normal', starsEarned, accuracy:Math.round(accuracy*100),
+      win, reason, sessionId:s.id,
+      gateId:gateRunMeta.gateId || '',
+      gateNo:gateRunMeta.gateNo || 0,
+      gateTitle:gateRunMeta.gateTitle || '',
+      xpGain, chestReward, contract:a.contract || 'normal', starsEarned, accuracy:Math.round(accuracy*100),
       score:a.score, maxCombo:a.maxCombo, timeLeft:a.timeLeft, badge, mistakes
     };
     state.active.result = result;
@@ -34388,6 +34557,7 @@
         <div class="footer-actions" style="justify-content:center">
           ${r.mistakes.length ? `<button class="btn warn" onclick="EAPHero.reviewMistakes()">Review Mistakes (${r.mistakes.length})</button>` : ''}
           <button class="btn primary" onclick="EAPHero.reflection(${s.id})">Reflection</button>
+          <button class="btn" onclick="EAPHero.continueRoute()">Continue Route</button>
           <button class="btn" onclick="EAPHero.contract(${s.id})">Rematch Contract</button>
           <button class="btn ghost" onclick="EAPHero.map()">Map</button>
         </div>
@@ -34908,9 +35078,8 @@
   }
 
   function bossGateStatus(gate){
-    if(gate.id === 'gate3') return (state.portfolio || []).length >= 6;
-    if(gate.id === 'final') return (state.portfolio || []).some(p => Number(p.session) === 15 && ['Writing','Speaking'].includes(p.skill));
-    return gate.skills.every(skill => hasSkillEvidenceInRange(gate.sessions, skill));
+    const planGate = Number(gate?.planGate || bossGateAfterSession(gate?.after || 0)?.gate || 1);
+    return !!bossGateUnlockReport(planGate).unlocked;
   }
 
   function bossGateForSession(sessionId){
@@ -36258,6 +36427,7 @@
   }
 
   function renderStudentSessionPath(sessionId, source){
+    syncRouteProgression(true);
     const sid = Number(sessionId || state.currentSession || 1) || 1;
     const s = typeof safeSessionMeta === 'function'
       ? safeSessionMeta(sid)
@@ -36287,6 +36457,7 @@
           ${skills.map(skill=>`<button type="button" class="btn primary student-start-mission" data-launch-mission="true" onclick="return EAPHero.openSkillMissionSafe('${safe(skill)}',${sid})">▶ Start ${safe(skill)}</button>`).join('')}
         </div>
         ${pass}
+        ${nextRouteActionHTML(sid)}
         <div class="student-mission-grid">${cards}</div>
         <div class="student-pass-rule">
           <b>Pass rule:</b> Core ≥ 60 and Support ≥ 60. Human feedback adds a Human Stamp but does not grade accent.
@@ -36354,11 +36525,21 @@
   function startGateBoss(gateRef){
     const gate = resolveUKBossGate(gateRef);
     if(!gate || !bossGateStatus(gate)) return renderBossGate(gate?.id || gateRef);
+
     const mutation = mutationForGate(gate.id);
     state.replay.currentGate = gate.id;
     state.replay.currentMutation = mutation.key;
     saveState();
-    startBoss(gate.after, mutation.key === 'nohint' ? 'nohint' : mutation.key === 'speed' ? 'speed' : 'hero');
+
+    const result = startBoss(gate.after, mutation.key === 'nohint' ? 'nohint' : mutation.key === 'speed' ? 'speed' : 'hero');
+    if(state.active){
+      state.active.gateId = gate.id;
+      state.active.gateNo = gate.planGate;
+      state.active.gateTitle = gate.title;
+      state.active.gateAfter = gate.after;
+      saveState();
+    }
+    return result;
   }
 
   function updateMasteryFromPortfolio(entry){
@@ -40482,6 +40663,12 @@ applyUKThailandCoTeachingProtocol,
 resolveUKBossGate,
 ukThailandSessionCoTeachHTML,
 ukThailandBossCoTeachHTML,
+    isBossGateCleared,
+routeUnlockForSession,
+syncRouteProgression,
+nextRouteRecommendation,
+continueRoute,
+nextRouteActionHTML,
     strictSyncSessionProgress,
 strictPassTruthDiagnostic,
 runStrictPassTruthSoon,
