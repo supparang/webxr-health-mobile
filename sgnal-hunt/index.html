@@ -27,10 +27,10 @@
         </summary>
 
         <div class="hub-menu__panel">
-          <p class="hub-menu__eyebrow">W1 PROGRESS</p>
+          <p class="hub-menu__eyebrow">CASEFILE PROGRESS</p>
           <strong id="menuProgressText">0/4 nodes • ☆☆☆</strong>
           <small id="menuScoreText">Best score 0</small>
-          <button id="resetProgressBtn" type="button">รีเซ็ตความคืบหน้า W1</button>
+          <button id="resetProgressBtn" type="button">รีเซ็ตความคืบหน้า Act I</button>
         </div>
       </details>
     </header>
@@ -58,17 +58,17 @@
         <div class="current-card__main">
           <div id="nowIcon" class="current-card__icon" aria-hidden="true">⌕</div>
           <div>
-            <h2 id="w1Title">UX Detective</h2>
-            <p id="nowSummary">สืบว่าอะไรทำให้ผู้ใช้ทำเป้าหมายไม่สำเร็จ แล้วเลือกวิธีแก้ที่ช่วยได้จริง</p>
+            <h2 id="w1Title">UX Detective: Casefile Hunt</h2>
+            <p id="nowSummary">ปิดคดี UX ด้วย Evidence → Hypothesis → Fix → User Test และ Final Boss</p>
           </div>
         </div>
 
         <div class="current-card__meta">
           <span>⏱ 8–10 นาที</span>
-          <span id="nowReward">★ 1 ดาวเพื่อเปิดเส้นทางต่อ</span>
+          <span id="nowReward">★ 2 Readiness เพื่อปลดล็อก W2</span>
         </div>
 
-        <a id="nowLaunch" class="current-card__cta" href="./w1-ux-detective.html">
+        <a id="nowLaunch" class="current-card__cta" href="./w1-ux-crisis-casefile.html?v=main-path-v13">
           <span id="nowLaunchText">เริ่มภารกิจ</span>
           <span aria-hidden="true">→</span>
         </a>
@@ -81,14 +81,14 @@
           <p class="eyebrow">MISSION PATH</p>
           <h2 id="pathTitle">เส้นทาง Act I</h2>
         </div>
-        <p id="pathHint">ผ่าน W1 อย่างน้อย 1★ เพื่อปลดล็อก W2</p>
+        <p id="pathHint">ผ่าน W1 Casefile ที่ 2★ Readiness เพื่อปลดล็อก W2</p>
       </div>
 
       <ol class="path-rail" aria-label="ลำดับภารกิจ Act I">
         <li class="path-step path-step--available" id="pathW1">
           <span class="path-step__dot">1</span>
           <span class="path-step__copy">
-            <b>W1 • UX Detective</b>
+            <b>W1 • UX Detective Casefile</b>
             <small id="pathW1State">Available</small>
           </span>
         </li>
@@ -96,7 +96,7 @@
           <span class="path-step__dot">2</span>
           <span class="path-step__copy">
             <b>W2 • Design Thinking</b>
-            <small id="pathW2State">Pass W1 1★</small>
+            <small id="pathW2State">Pass W1 2★ Readiness</small>
           </span>
         </li>
         <li class="path-step" id="pathW3">
@@ -140,7 +140,7 @@
             </div>
           </div>
           <div class="compact-stage__footer">
-            <span id="w2Note">ผ่าน W1 อย่างน้อย 1 ดาว</span>
+            <span id="w2Note">ผ่าน W1 Casefile ที่ 2★ Readiness</span>
             <a id="w2Launch" class="compact-stage__launch is-disabled" href="#" aria-disabled="true">
               <span id="w2LaunchText">ล็อกอยู่</span><span aria-hidden="true">→</span>
             </a>
@@ -191,20 +191,18 @@
       <summary>
         <span>
           <b>วิธีเล่น UX Quest</b>
-          <small>Observe → Diagnose → Design Fix → User Test</small>
+          <small>Evidence → Hypothesis → Fix → Test Decision</small>
         </span>
         <span class="how-card__chevron" aria-hidden="true">⌄</span>
       </summary>
       <ol class="how-card__steps">
-        <li><b>1</b><span><strong>Observe</strong><small>อ่าน User Goal และ User Signal</small></span></li>
-        <li><b>2</b><span><strong>Diagnose</strong><small>เชื่อม UI symptom กับ UX impact</small></span></li>
-        <li><b>3</b><span><strong>Design Fix</strong><small>เลือกการแก้ที่ช่วยผู้ใช้จริง</small></span></li>
-        <li><b>4</b><span><strong>User Test</strong><small>ดูผลก่อน–หลัง แล้วอธิบายเหตุผล</small></span></li>
+        <li><b>1</b><span><strong>Evidence</strong><small>เลือกหลักฐานที่ช่วยแยกสาเหตุ</small></span></li>
+        <li><b>2</b><span><strong>Hypothesis</strong><small>ตั้งสาเหตุที่หลักฐานสนับสนุน</small></span></li>
+        <li><b>3</b><span><strong>Fix</strong><small>ลงทุนแก้สาเหตุภายใต้ข้อจำกัด</small></span></li>
+        <li><b>4</b><span><strong>Test Decision</strong><small>อ่านผลจริงแล้วตัดสินใจ Iteration / Pilot / Hold</small></span></li>
       </ol>
     </details>
   </main>
-
-  <script src="./js/uxq-progress-v9.js?v=20260623-w1-v9-final"></script>
-  <script src="./js/uxq-hub-v9.js?v=20260623-w1-v9-final"></script>
+  <script src="./js/uxq-hub-casefile-v13.js?v=20260625-main-path"></script>
 </body>
 </html>

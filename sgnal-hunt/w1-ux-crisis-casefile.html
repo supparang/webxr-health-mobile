@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#08112c" />
-  <title>UX Quest • W1 Crisis Casefile Hunt V11</title>
+  <title>UX Quest • W1 Crisis Casefile Hunt • Main Path</title>
   <style>
     :root{
       --ink:#14213d;
@@ -208,7 +208,7 @@
     <header class="topbar">
       <a class="brand" href="./index.html" aria-label="กลับหน้า Mission Control">
         <span class="brand-badge">UX</span>
-        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt V11</small></span>
+        <span><strong>UX Quest</strong><small>W1 • Crisis Casefile Hunt</small></span>
       </a>
       <div class="statusbar" aria-label="สถานะ Mission">
         <span class="status">Case <b id="hudCase">—</b></span>
@@ -219,9 +219,9 @@
 
     <section class="hero">
       <div>
-        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT V11</p>
-        <h1>UX Detective: Casefile Hunt V11</h1>
-        <p>V11 ขยายคลังคดีเป็น 24 Casefiles ครบ 6 สายทักษะ UX • 1 Shift มี 3 คดีคนละสาย และไม่วนคดีเดิมก่อนครบ 8 Shift</p>
+        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT</p>
+        <h1>UX Detective: Casefile Hunt</h1>
+        <p>24 Casefiles ครบ 6 สายทักษะ UX • 1 Shift มี 3 คดีคนละสาย และไม่วนคดีเดิมก่อนครบ 8 Shift • ได้ 2★ Readiness จึงปลดล็อก W2</p>
       </div>
       <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>3 Case + 1 Boss + Blind Review = 1 Shift ที่วัดเหตุผลจริง</span></aside>
     </section>
@@ -250,6 +250,7 @@
 
   const STORAGE_KEY = 'csai2601-uxq-casefile-v11-bank24';
   const LEGACY_STORAGE_KEY = 'csai2601-uxq-casefile-v5-lite';
+  const READINESS_KEY = 'csai2601-uxquest-casefile-readiness-v1';
   const CASES_PER_SHIFT = 3;
   const EVIDENCE_LIMIT = 3;
 
@@ -2920,6 +2921,45 @@
     const light={seen:state.saved.seen.slice(-CASES.length),wins:state.saved.wins,best:state.saved.best};
     try{localStorage.setItem(STORAGE_KEY,JSON.stringify(light))}catch(e){/* Game must work even when origin storage is full. */}
   }
+
+  /* V13 — Canonical Casefile Readiness Bridge
+     W2 and Mission Control read ONLY this lightweight record. Old quiz progress
+     cannot unlock W2 anymore. The best valid Casefile result is preserved. */
+  function writeReadiness(result){
+    const previous=safeStorageGet(READINESS_KEY)||{};
+    const prior=previous && typeof previous.w1==='object'?previous.w1:{};
+    const priorStars=Math.max(0,Math.min(3,Number(prior.bestStars)||0));
+    const currentStars=Math.max(0,Math.min(3,Number(result?.stars)||0));
+    const bestStars=Math.max(priorStars,currentStars);
+    const bestScore=Math.max(Number(prior.bestScore)||0,Number(state.score)||0);
+    const rounds=Math.max(0,Number(prior.rounds)||0)+1;
+    const record={
+      version:1,
+      updatedAt:new Date().toISOString(),
+      w1:{
+        source:'w1-crisis-casefile-v13-main-path',
+        bestStars,
+        bestScore,
+        rounds,
+        ready:bestStars>=2,
+        mastery:bestStars>=3,
+        lastResult:{
+          stars:currentStars,
+          score:Number(state.score)||0,
+          trust:Number(state.trust)||0,
+          exactChains:state.outcomes.filter(o=>o.exactChain).length,
+          testDecisions:state.outcomes.filter(o=>o.correctNext).length,
+          bossAligned:Boolean(state.bossResult?.correct),
+          completedAt:new Date().toISOString()
+        }
+      }
+    };
+    try{
+      localStorage.setItem(READINESS_KEY,JSON.stringify(record));
+      window.dispatchEvent(new CustomEvent('uxquest:casefile-readiness',{detail:record.w1}));
+    }catch(e){/* Game remains playable if origin storage is unavailable. */}
+    return record;
+  }
   function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
   function shuffle(list){const a=[...list];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
   function current(){return state.shift[state.caseIndex]||null}
@@ -3094,7 +3134,7 @@
       <section class="card mode">
         <p class="eyebrow">W1 // CASEFILE BANK 24</p>
         <h2>เริ่ม Crisis Shift ใหม่: ปิด 3 คดีคนละสายทักษะ</h2>
-        <p>V11 มี 24 Casefiles ครบ 6 สาย UX และจัด Shift ละ 3 คดีไม่ซ้ำ Track เพื่อบังคับให้ใช้เหตุผลต่างรูปแบบ ไม่ใช่จำคำตอบเดิม • คดีจะไม่วนก่อนครบ 8 Shift</p>
+        <p>W1 Main Path มี 24 Casefiles ครบ 6 สาย UX และจัด Shift ละ 3 คดีไม่ซ้ำ Track เพื่อบังคับให้ใช้เหตุผลต่างรูปแบบ ไม่ใช่จำคำตอบเดิม • คดีจะไม่วนก่อนครบ 8 Shift</p>
         <div class="mode-grid">
           <div class="mode-metric"><span>Casefiles ที่ยังไม่เจอ</span><b>${unseen}/${CASES.length}</b></div>
           <div class="mode-metric"><span>Cycle Shift</span><b>${round}/${TRACK_SCHEDULE.length}</b></div>
@@ -3737,6 +3777,7 @@
     state.saved.best=Math.max(state.saved.best,state.score);
     state.saved.seen=[...new Set([...state.saved.seen,...state.shift.map(c=>c.id)])];
     writeSave();
+    const readiness=writeReadiness(result);
     const awards=[];
     if(exact>=2)awards.push('<span class="badge mint">Evidence Chain</span>');
     if(solid===CASES_PER_SHIFT)awards.push('<span class="badge">Test-Driven</span>');
@@ -3763,9 +3804,10 @@
     ` : '';
     const gateLabel=result.passed?'W2 Readiness Gate cleared':result.stars===1?'Practice clear — W2 still locked':'Shift not cleared';
     const gateChip=result.passed?'<span class="w2-gate-chip">W2 READY</span>':'<span class="w2-gate-chip locked">W2 LOCKED — NEED 2★ READINESS</span>';
+    const w2Continue=result.passed?`<a class="action-row primary" href="./w2-design-thinking-sprint.html?v=casefile-v13-ready"><span class="action-icon">→</span><span><strong>ต่อไป: W2 Design Thinking Sprint</strong><small>ผ่าน W1 Casefile ระดับ ${readiness.w1.bestStars}★ Readiness แล้ว • ไม่ต้องกลับไปทำ Quiz W1 เดิม</small></span><span>เริ่ม W2 →</span></a>`:'';
     stage.innerHTML=`
       <section class="card debrief">
-        <p class="eyebrow">SHIFT COMPLETE // V11 BANK 24 + BOSS TRACE REPORT</p>
+        <p class="eyebrow">SHIFT COMPLETE // W1 CASEFILE + READINESS REPORT</p>
         <h2>${escapeHtml(result.title)}</h2>
         <div class="stars">${[1,2,3].map(n=>`<span class="${n<=result.stars?'on':''}">★</span>`).join('')}</div>
         ${gateChip}
@@ -3779,7 +3821,7 @@
         <details class="full-map"><summary>ดู Decision Map เต็มรายคดี</summary>${maps}</details>
         ${ticket}
         <div class="badge-row">${awards.join('')||'<span class="badge">Keep Investigating</span>'}</div>
-        <div class="action-stack"><button class="action-row primary" type="button" data-action="start"><span class="action-icon">↻</span><span><strong>เริ่ม Crisis Shift ใหม่</strong><small>สุ่มคดีที่ยังไม่เจอ และเปลี่ยนเส้นทางการตัดสินใจ</small></span><span>เริ่ม →</span></button><button class="action-row" type="button" data-action="mode"><span class="action-icon">⌂</span><span><strong>กลับหน้าเลือก Shift</strong><small>ดูสถิติ และเริ่มรอบใหม่เมื่อพร้อม</small></span><span>กลับ →</span></button></div>
+        <div class="action-stack">${w2Continue}<button class="action-row primary" type="button" data-action="start"><span class="action-icon">↻</span><span><strong>เริ่ม Crisis Shift ใหม่</strong><small>สุ่มคดีที่ยังไม่เจอ และเปลี่ยนเส้นทางการตัดสินใจ</small></span><span>เริ่ม →</span></button><button class="action-row" type="button" data-action="mode"><span class="action-icon">⌂</span><span><strong>กลับหน้าเลือก Shift</strong><small>ดูสถิติ และเริ่มรอบใหม่เมื่อพร้อม</small></span><span>กลับ →</span></button></div>
       </section>`;
     state.step='debrief';updateHud();updateRail();
   }
