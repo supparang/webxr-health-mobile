@@ -1,10 +1,5 @@
-# UX Quest W1 — V18 Canonical Week 1 Mapping
+# UX Quest W1 V19 — Case-by-Case Curriculum QA
 
-Upload only:
+Upload only `sgnal-hunt/w1-ux-crisis-casefile.html`.
 
-`sgnal-hunt/w1-ux-crisis-casefile.html`
-
-This release remaps all 48 Casefiles to the six official Week 1 lenses from the CSAI2601 Week 1 teaching slides. It keeps the existing Casefile, Review Ticket, Dynamic Boss and Readiness mechanics.
-
-Use:
-`/sgnal-hunt/w1-ux-crisis-casefile.html?v=w1-v18-canonical-map`
+V19 keeps the V18 case bank and decision engine, but adds an explicit Week 1 case audit to every Casefile: UI Symptom → UX Impact → Improvement Lens. The companion matrix documents all 48 mappings.

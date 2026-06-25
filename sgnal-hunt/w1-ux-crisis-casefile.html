@@ -209,6 +209,19 @@
 
 /* V16 Learning Layer */
 .learning-brief{margin:18px 0 0;padding:16px;border:1px solid #d7e2ff;border-radius:18px;background:linear-gradient(135deg,#eff3ff,#fbfcff);color:#2d427e}.learning-brief h3{margin:0 0 8px;font-size:16px}.learning-brief ul{margin:8px 0 0;padding-left:20px;line-height:1.65}.learning-brief li{margin:3px 0}.learning-brief small{display:block;margin-top:10px;color:#5c6e9d;line-height:1.5}.think-lens{margin:0 0 13px;padding:11px 13px;border-left:4px solid #5b75f5;border-radius:0 12px 12px 0;background:#f0f4ff;color:#40558f;font-size:13px;line-height:1.55}.lesson-captured{margin:14px 0 0;padding:14px 15px;border:1px solid #bfeedd;border-radius:15px;background:#f0fcf7;color:#195b47;line-height:1.58}.lesson-captured b{display:block;margin-bottom:4px;font-size:12px;letter-spacing:.08em}.learning-summary{margin:20px 0;padding:18px;border:1px solid #d6e0ff;border-radius:18px;background:#f5f7ff;color:#33477d}.learning-summary h3{margin:0 0 8px}.learning-summary p{margin:0;line-height:1.65}.reflection-prompt{margin-top:12px;padding:12px 13px;border-radius:13px;background:#fff;color:#405078;font-size:13px;line-height:1.55}.reflection-prompt b{color:#273d86}
+
+    /* V19 curriculum QA clarity layer */
+    .case-curriculum-audit{margin:16px 0;padding:14px;border:1px solid #cfdcff;border-radius:16px;background:linear-gradient(135deg,#f5f8ff,#fbfdff);color:#1e2f5f}
+    .audit-kicker{font-size:11px;font-weight:900;letter-spacing:.1em;color:#405cc6;margin-bottom:9px}
+    .case-audit-grid{display:grid;grid-template-columns:1fr;gap:9px}
+    .case-audit-grid>div{padding:10px 11px;border-radius:11px;background:#fff;border:1px solid #e2e9ff}
+    .case-audit-grid span{display:block;font-size:10px;font-weight:900;letter-spacing:.08em;color:#5970c7;margin-bottom:4px}
+    .case-audit-grid b{display:block;font-size:13px;line-height:1.5;color:#26385f}
+    .case-curriculum-audit p{margin:11px 0 0;font-size:12px;line-height:1.55;color:#516285}
+    .lesson-chain{display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(55,78,170,.2)}
+    .lesson-chain span{display:block;font-size:12px;line-height:1.5;color:#42547d}
+    .lesson-chain strong{display:block;color:#284399;font-size:10px;letter-spacing:.07em;margin-bottom:2px}
+
 </style>
 </head>
 <body>
@@ -256,7 +269,7 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'csai2601-uxq-casefile-v15-clarity-bank48';
+  const STORAGE_KEY = 'csai2601-uxq-casefile-v19-week1-content-qa';
   const LEGACY_STORAGE_KEY = 'csai2601-uxq-casefile-v5-lite';
   const READINESS_KEY = 'csai2601-uxquest-casefile-readiness-v1';
   const CASES_PER_SHIFT = 3;
@@ -3145,7 +3158,7 @@
   V14_EXTRA_SPECS.forEach((spec,index)=>CASES.push(createV14Case(spec,index)));
 
 
-  /* V18 — CSAI2601 Week 1 Canonical Lens Mapping
+  /* V19 — CSAI2601 Week 1 Case-by-Case Curriculum QA
      Source: Week 1 Teaching Slides, slide 12 (Clarity, Hierarchy,
      Cognitive Load, Consistency, Feedback, Recovery).
      Every Casefile receives exactly one primary Week 1 lens. Supporting
@@ -3179,6 +3192,30 @@
     c.week1LensId=W1_CASE_LENS[c.id]||'clarity';
     c.week1Lens=W1_LENSES[c.week1LensId];
     c.track=LEGACY_TRACKS[c.trackId]||{label:c.week1Lens.label,short:c.week1Lens.short};
+  });
+
+  /* V19 — Case-by-Case Curriculum QA Layer
+     Every Casefile exposes the Week 1 assessment chain explicitly:
+     UI Symptom → UX Impact → Evidence-backed Improvement.
+     This does not disclose the answer; it tells learners what kind of reasoning
+     the Week 1 UX Detective rubric expects. */
+  const LENS_IMPROVEMENT_PROMPTS={
+    clarity:'ปรับคำ ชื่อเมนู หรือจุดเริ่มงานให้ผู้ใช้เข้าใจว่าจะเริ่มหรือกดอะไรต่อ',
+    hierarchy:'จัดลำดับงานหลักและข้อมูลสำคัญให้เห็นก่อนข้อมูลรอง',
+    'cognitive-load':'ลดสิ่งที่ผู้ใช้ต้องอ่าน จำ หรือเปรียบเทียบให้เหลือเฉพาะงานปัจจุบัน',
+    consistency:'ทำให้คำศัพท์ สถานะ และรูปแบบการโต้ตอบคาดเดาได้เหมือนกัน',
+    feedback:'บอกสถานะ ผลลัพธ์ และก้าวถัดไปหลังผู้ใช้กระทำ',
+    recovery:'ช่วยป้องกัน ชี้จุดผิด และพาผู้ใช้กลับเข้าสู่งานได้'
+  };
+  CASES.forEach(c=>{
+    const lens=c.week1Lens||W1_LENSES.clarity;
+    c.curriculumQA={
+      concept:lens.label,
+      uiSymptom:c.problem,
+      uxImpact:`ผู้ใช้อาจไม่สามารถหรือไม่มั่นใจที่จะ ${c.goal}`,
+      improvementPrompt:LENS_IMPROVEMENT_PROMPTS[c.week1LensId]||LENS_IMPROVEMENT_PROMPTS.clarity,
+      auditSentence:`ผู้ใช้ ${c.persona.split('•')[0].trim()} ไม่สามารถ/ไม่มั่นใจที่จะ ${c.goal} เพราะ ${c.problem} ส่งผลให้ต้องใช้เวลาเพิ่ม สับสน หรือเสี่ยงทำงานไม่สำเร็จ`
+    };
   });
   /* 16 shifts × 3 cases = 48 slots. Every lens appears exactly eight times,
      matching the 8 Casefiles assigned to that lens, so no case repeats before
@@ -3469,7 +3506,7 @@
     const nextTracks=nextTrackLabels();
     stage.innerHTML=`
       <section class="card mode">
-        <p class="eyebrow">W1 // CASEFILE BANK 48</p>
+        <p class="eyebrow">W1 // CSAI2601 WEEK 1 CASEFILE BANK 48</p>
         <h2>เริ่ม Crisis Shift ใหม่: ปิด 3 คดีคนละ UX Lens</h2>
         <p>W1 Main Path มี 48 Casefiles ตาม 6 UX Lenses ของ Week 1 และจัด Shift ละ 3 คดีไม่ซ้ำ Track เพื่อบังคับให้ใช้เหตุผลต่างรูปแบบ ไม่ใช่จำคำตอบเดิม • คดีจะไม่วนก่อนครบ 16 Shift</p>
         <section class="learning-brief" aria-label="วันนี้จะเรียนรู้อะไร"><h3>Week 1 Learning Brief: UI/UX Audit</h3><ul><li><b>UI:</b> ระบุสิ่งที่ผู้ใช้เห็นและโต้ตอบ เช่น คำบนปุ่ม ลำดับข้อมูล แบบฟอร์ม และ feedback</li><li><b>UX:</b> อธิบายผลต่อผู้ใช้: ทำงานสำเร็จหรือไม่ ช้า สับสน หรือไม่มั่นใจเพราะอะไร</li><li><b>User-Centered Design:</b> เริ่มจากผู้ใช้ งานหลัก บริบท และหลักฐาน ไม่เริ่มจากความชอบส่วนตัว</li><li><b>6 UX Lenses:</b> Clarity, Hierarchy, Cognitive Load, Consistency, Feedback, Recovery</li></ul><small>เป้าหมายของ Shift นี้: เขียนเหตุผลแบบ “ผู้ใช้ ___ ไม่สามารถ/ไม่มั่นใจที่จะ ___ เพราะ ___ ส่งผลให้ ___” แล้วเลือกการปรับปรุงที่ตรงสาเหตุ</small></section><section class="learning-brief" aria-label="เกณฑ์ Week 1"><h3>สิ่งที่เกมกำลังประเมินตาม Week 1</h3><ul><li>ระบุผู้ใช้ งานหลัก และบริบทได้</li><li>แยก UI symptom ออกจาก UX impact ได้</li><li>วิเคราะห์ friction ด้วยหนึ่งใน 6 UX Lenses ได้</li><li>เสนอการปรับที่มีเหตุผล ไม่ใช่เพียง “ทำให้สวยขึ้น”</li></ul><small>สอดคล้องกับกิจกรรม UX Detective, Real App Audit และ Rubric งาน UX First Impression Audit</small></section>
@@ -3487,6 +3524,19 @@
       </section>`;
   }
 
+  function caseAuditHtml(c){
+    const qa=c.curriculumQA||{};
+    return `<section class="case-curriculum-audit" aria-label="Week 1 case audit">
+      <div class="audit-kicker">WEEK 1 CASE AUDIT</div>
+      <div class="case-audit-grid">
+        <div><span>UI SYMPTOM</span><b>${escapeHtml(qa.uiSymptom||c.problem||'')}</b></div>
+        <div><span>UX IMPACT</span><b>${escapeHtml(qa.uxImpact||'')}</b></div>
+        <div><span>IMPROVEMENT LENS</span><b>${escapeHtml(qa.improvementPrompt||'')}</b></div>
+      </div>
+      <p><b>กรอบประโยควิเคราะห์:</b> ${escapeHtml(qa.auditSentence||'')}</p>
+    </section>`;
+  }
+
   function briefHtml(c){
     const reviewCost=isReviewing()?REVIEW_TICKET_COST.trust:0;
     const displayedTrust=Math.max(0,Number(state.caseTrust||100)-reviewCost);
@@ -3495,7 +3545,7 @@
       <div class="case-label"><span class="tag track">Week 1 Lens: ${escapeHtml(c.week1Lens?.short||'UX')}</span><span class="tag">${escapeHtml(c.sector)}</span><span class="tag warn">${escapeHtml(c.urgency)}</span></div>
       <h2>${escapeHtml(c.title)}</h2>
       <p class="summary">${escapeHtml(c.problem)}</p><div class="learning-brief"><h3>Lens in this case: ${escapeHtml(c.week1Lens?.label||'UX')}</h3><p><b>ความหมาย:</b> ${escapeHtml(c.week1Lens?.definition||'')}</p><p><b>คำถามตรวจ:</b> ${escapeHtml(c.week1Lens?.question||'')}</p><small>UI focus: ${escapeHtml(c.week1Lens?.uiFocus||'')}</small></div>
-      <div class="goal"><span>USER GOAL</span><b>${escapeHtml(c.goal)}</b></div>
+      ${caseAuditHtml(c)}<div class="goal"><span>USER GOAL</span><b>${escapeHtml(c.goal)}</b></div>
       <div class="context-box"><div><span>PERSONA</span><b>${escapeHtml(c.persona)}</b></div><div><span>CASE PRESSURE</span><b>${escapeHtml(c.urgency)}</b></div></div>
       ${pressureHtml(c)}
       ${isReviewing()?`<div class="review-state"><b>🎟️ Reinvestigation Mode: ${escapeHtml(state.reviewPlan?.title||'Review')}</b><span>${escapeHtml(state.reviewPlan?.reason||'')}</span></div>`:''}
@@ -3752,7 +3802,8 @@
     if(result?.outcome?.exactChain&&result?.nextCorrect) lesson=`${lens.label||'UX'}: ${lens.question||''} — การตัดสินใจ UX ที่แข็งแรงต้องเชื่อม Evidence → Hypothesis → Fix → Test Decision เป็นเหตุผลเดียว`;
     else if(!result?.outcome?.exactChain) lesson=`${lens.label||'UX'}: อย่าเลือกวิธีแก้ก่อนรู้สาเหตุ — หลักฐานต้องหนุน Hypothesis ก่อน แล้วจึงเลือก Fix`;
     else if(!result?.nextCorrect) lesson=`${lens.label||'UX'}: ผล User Test ไม่ได้บอกแค่ว่าดีหรือแย่ แต่ช่วยตัดสินว่าควร iterate, gather evidence หรือ rollout ต่อ`;
-    return `<div class="lesson-captured"><b>LESSON CAPTURED</b>${escapeHtml(lesson)}</div>`;
+    const qa=c?.curriculumQA||{};
+    return `<div class="lesson-captured"><b>LESSON CAPTURED</b>${escapeHtml(lesson)}<div class="lesson-chain"><span><strong>UI symptom</strong>${escapeHtml(qa.uiSymptom||'')}</span><span><strong>UX impact</strong>${escapeHtml(qa.uxImpact||'')}</span><span><strong>Improve by</strong>${escapeHtml(qa.improvementPrompt||'')}</span></div></div>`;
   }
 
   function renderCaseReport(){
