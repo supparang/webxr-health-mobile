@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#08112c" />
-  <title>UX Quest • W1 Crisis Casefile Hunt • Main Path</title>
+  <title>UX Quest • W1 Crisis Casefile Hunt • Bank 48 • Main Path</title>
   <style>
     :root{
       --ink:#14213d;
@@ -221,7 +221,7 @@
       <div>
         <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT</p>
         <h1>UX Detective: Casefile Hunt</h1>
-        <p>24 Casefiles ครบ 6 สายทักษะ UX • 1 Shift มี 3 คดีคนละสาย และไม่วนคดีเดิมก่อนครบ 8 Shift • ได้ 2★ Readiness จึงปลดล็อก W2</p>
+        <p>48 Casefiles ครบ 6 สายทักษะ UX • 1 Shift มี 3 คดีคนละสาย และไม่วนคดีเดิมก่อนครบ 16 Shift • ได้ 2★ Readiness จึงปลดล็อก W2</p>
       </div>
       <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>3 Case + 1 Boss + Blind Review = 1 Shift ที่วัดเหตุผลจริง</span></aside>
     </section>
@@ -248,7 +248,7 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'csai2601-uxq-casefile-v11-bank24';
+  const STORAGE_KEY = 'csai2601-uxq-casefile-v14-bank48';
   const LEGACY_STORAGE_KEY = 'csai2601-uxq-casefile-v5-lite';
   const READINESS_KEY = 'csai2601-uxquest-casefile-readiness-v1';
   const CASES_PER_SHIFT = 3;
@@ -2803,8 +2803,342 @@
   ];
 
 
-  /* V11 Casefile Bank — six tracks × four cases. The schedule guarantees
-     three different reasoning tracks in every Shift and all 24 cases appear
+  /* V14 CASEFILE BANK EXPANSION — 24 additional cases, bringing the bank to 48.
+     Each factory case keeps the same Evidence → Hypothesis → Fix → Test reasoning chain. */
+  const V14_EXTRA_SPECS = [
+  [
+    "event-checkin",
+    "navigation",
+    "Campus Event Check-in",
+    "คดี 25: จุดเช็กอินที่หาไม่เจอ",
+    "เริ่มงานในอีก 12 นาที",
+    "นักศึกษาต้องเช็กอินกิจกรรมให้ทันก่อนประตูปิด",
+    "เมนู Check-in ถูกซ่อนใต้ข่าวและประกาศ",
+    "ผู้ใช้หา action เริ่มต้นไม่เจอ",
+    "เปิด CTA Check-in ตามบริบทงาน",
+    "เพิ่มข่าวกิจกรรมด้านบน"
+  ],
+  [
+    "clinic-wayfinding",
+    "navigation",
+    "Campus Clinic",
+    "คดี 26: ทางไปคลินิกที่ไม่บอกจุดหมาย",
+    "เหลือเวลา 15 นาที",
+    "ผู้ใช้ต้องหาแผนกตรวจที่นัดไว้ให้เจอ",
+    "แผนที่แสดงอาคารแต่ไม่เชื่อมกับเป้าหมายการนัด",
+    "ผู้ใช้ไม่มี route ตามงานที่ต้องทำ",
+    "แสดงเส้นทางจากนัดหมายไปยังแผนก",
+    "เพิ่มรายละเอียดอาคารทั้งหมด"
+  ],
+  [
+    "internship-start",
+    "navigation",
+    "Internship Portal",
+    "คดี 27: เริ่มฝึกงานจากตรงไหน",
+    "กำหนดยื่นเอกสารพรุ่งนี้",
+    "ผู้ใช้ต้องเริ่มขั้นตอนสมัครฝึกงานอย่างถูกลำดับ",
+    "หน้าแรกจัดตามหน่วยงาน ไม่ใช่ตามงานสมัครฝึกงาน",
+    "ผู้ใช้ไม่เห็น task entry สำหรับการสมัคร",
+    "สร้าง start path “สมัครฝึกงาน”",
+    "เพิ่มเมนูย่อยตามฝ่าย"
+  ],
+  [
+    "lost-property",
+    "navigation",
+    "Campus Lost & Found",
+    "คดี 28: ของหายแต่ค้นเส้นทางไม่พบ",
+    "ของสำคัญหายวันนี้",
+    "ผู้ใช้ต้องแจ้งของหายหรือค้นของที่พบได้ทันที",
+    "สองงานถูกวางปนกันใต้รายการประกาศ",
+    "ผู้ใช้ไม่แยกทางเข้าแจ้งหายกับค้นของพบ",
+    "แยก CTA “แจ้งของหาย” และ “ค้นของที่พบ”",
+    "เพิ่มรูปของที่พบมากขึ้น"
+  ],
+  [
+    "exam-seat",
+    "confirmation",
+    "Exam Seat System",
+    "คดี 29: ที่นั่งสอบที่ยืนยันไม่ชัด",
+    "ก่อนสอบ 1 วัน",
+    "ผู้ใช้ต้องยืนยันห้องและเลขที่นั่งสอบของตน",
+    "ผู้ใช้เลือกแล้วแต่ไม่มีสรุปที่นั่งก่อนบันทึก",
+    "ผู้ใช้ไม่เห็นสิ่งที่จะถูกยืนยัน",
+    "แสดง Exam Summary ก่อนยืนยัน",
+    "เปลี่ยนสีผังห้องอย่างเดียว"
+  ],
+  [
+    "parcel-locker",
+    "confirmation",
+    "Parcel Locker",
+    "คดี 30: รับพัสดุแล้วหรือยัง",
+    "พัสดุจะถูกส่งคืนคืนนี้",
+    "ผู้ใช้ต้องรู้ว่ารหัสรับพัสดุใช้ได้และตู้ใดถูกจอง",
+    "กดรับแล้วกลับหน้าเดิมไม่มีใบยืนยัน",
+    "ระบบไม่ส่ง feedback หลัง action สำคัญ",
+    "แสดงเลขตู้ รหัส และเวลาหมดอายุทันที",
+    "เพิ่มภาพสินค้าในรายการ"
+  ],
+  [
+    "graduation-rsvp",
+    "confirmation",
+    "Graduation RSVP",
+    "คดี 31: ตอบรับพิธีแต่ไม่รู้ว่าส่งแล้ว",
+    "ปิดรับตอบคืนนี้",
+    "ผู้ใช้ต้องตอบรับและตรวจข้อมูลผู้ติดตาม",
+    "ปุ่มบันทึกและยืนยันอยู่ใกล้กันโดยไม่บอกผล",
+    "ผู้ใช้แยก draft กับ submission ไม่ออก",
+    "ใช้ action label ชัดและแสดง receipt",
+    "เพิ่มภาพพิธีการ"
+  ],
+  [
+    "club-payment",
+    "confirmation",
+    "Student Club Payment",
+    "คดี 32: ชำระค่าสมาชิกแล้วเงียบ",
+    "เหลือ 3 ชั่วโมง",
+    "ผู้ใช้ต้องรู้ว่าระบบรับเงินและสมาชิกภาพเริ่มแล้ว",
+    "หลังแนบหลักฐานไม่มีสถานะหรือเลขอ้างอิง",
+    "ผู้ใช้ไม่รู้ว่าควรรอหรือส่งซ้ำ",
+    "แสดงสถานะรับรายการและ receipt",
+    "เพิ่ม FAQ เรื่องค่าสมาชิก"
+  ],
+  [
+    "wrong-course-drop",
+    "error-recovery",
+    "Course Registration",
+    "คดี 33: ถอนวิชาผิดแล้วกลับไม่ได้",
+    "ก่อนระบบปิด 20 นาที",
+    "ผู้ใช้ต้องกู้จากการกดถอนรายวิชาผิด",
+    "คำสั่งถอนทำทันทีโดยไม่มี recovery path",
+    "ระบบไม่ช่วยผู้ใช้กลับจาก action เสี่ยง",
+    "เพิ่ม undo window และสรุปรายวิชาที่กระทบ",
+    "เพิ่ม tooltip ที่ปุ่ม"
+  ],
+  [
+    "exam-upload-fail",
+    "error-recovery",
+    "Exam Submission",
+    "คดี 34: ไฟล์สอบอัปโหลดไม่ครบ",
+    "เหลือ 7 นาที",
+    "ผู้ใช้ต้องรู้ว่าไฟล์ใดส่งสำเร็จและกู้การส่งที่ล้มเหลว",
+    "การเชื่อมต่อหลุดแล้วระบบไม่แยกไฟล์สำเร็จกับไฟล์ค้าง",
+    "ผู้ใช้ไม่เห็นสถานะ error ที่แก้ได้",
+    "แสดง per-file status และ retry เฉพาะไฟล์ที่ล้มเหลว",
+    "เพิ่มภาพสถานะทั่วไป"
+  ],
+  [
+    "password-lockout",
+    "error-recovery",
+    "Identity Access",
+    "คดี 35: ล็อกอินผิดจนบัญชีล็อก",
+    "ต้องเข้าเรียนออนไลน์ทันที",
+    "ผู้ใช้ต้องกู้บัญชีโดยไม่ทำให้ล็อกนานขึ้น",
+    "ข้อความ error ไม่บอกจำนวนครั้งที่เหลือหรือทางเลือกกู้",
+    "ระบบไม่ช่วย recovery หลังความผิดพลาด",
+    "บอกสถานะ lockout และ guided recovery",
+    "เพิ่มความยาวรหัสผ่านขั้นต่ำ"
+  ],
+  [
+    "equipment-return",
+    "error-recovery",
+    "Equipment Loan",
+    "คดี 36: คืนอุปกรณ์ผิดรายการ",
+    "ใกล้เวลาปิดเคาน์เตอร์",
+    "ผู้ใช้ต้องแก้รายการคืนที่เลือกผิดก่อนยืนยัน",
+    "หน้าคืนอุปกรณ์ไม่แสดงรายการที่กำลังจะส่งและไม่มี undo",
+    "ผู้ใช้ไม่สามารถตรวจและกู้จาก action ผิด",
+    "เพิ่ม return summary และ undo ก่อนปิดงาน",
+    "เพิ่มภาพอุปกรณ์ใหญ่ขึ้น"
+  ],
+  [
+    "scholarship-consent",
+    "trust-risk",
+    "Scholarship Eligibility",
+    "คดี 37: ขอข้อมูลเกินความจำเป็น",
+    "ปิดรับทุนพรุ่งนี้",
+    "ผู้ใช้ต้องส่งข้อมูลที่จำเป็นโดยเข้าใจว่าข้อมูลใช้เพื่ออะไร",
+    "ฟอร์มขอสิทธิ์เข้าถึงข้อมูลหลายประเภทโดยไม่อธิบาย",
+    "ผู้ใช้ไม่เชื่อว่าข้อมูลถูกใช้ตามวัตถุประสงค์",
+    "อธิบาย purpose และขอเฉพาะข้อมูลจำเป็น",
+    "เพิ่มข้อความประชาสัมพันธ์ทุน"
+  ],
+  [
+    "medical-upload",
+    "trust-risk",
+    "Health Document Upload",
+    "คดี 38: เอกสารสุขภาพที่ไม่กล้าอัปโหลด",
+    "ต้องส่งภายในวันนี้",
+    "ผู้ใช้ต้องอัปโหลดเอกสารสุขภาพอย่างมั่นใจ",
+    "หน้าอัปโหลดไม่บอกผู้มีสิทธิ์เข้าถึงและระยะเวลาเก็บ",
+    "ผู้ใช้ไม่เห็น safeguard ของข้อมูลอ่อนไหว",
+    "แสดง access scope retention และ secure receipt",
+    "เพิ่มแกลเลอรีเอกสารตัวอย่าง"
+  ],
+  [
+    "fee-refund",
+    "trust-risk",
+    "Fee Refund Portal",
+    "คดี 39: คืนเงินแต่กลัวลิงก์ปลอม",
+    "มีข้อความแจ้งคืนเงินใน 24 ชั่วโมง",
+    "ผู้ใช้ต้องตรวจว่าคำขอและช่องทางรับเงินเชื่อถือได้",
+    "หน้าเว็บใช้คำเร่งด่วนและลิงก์ออกนอกโดเมนโดยไม่ยืนยัน",
+    "สัญญาณความน่าเชื่อถือและขอบเขตความเสี่ยงไม่ชัด",
+    "ยืนยันโดเมน ขั้นตอน และข้อมูลบัญชีที่ใช้",
+    "เพิ่ม banner โปรโมชั่น"
+  ],
+  [
+    "research-data",
+    "trust-risk",
+    "Research Participation",
+    "คดี 40: ยินยอมวิจัยโดยไม่รู้ผลกระทบ",
+    "ลงทะเบียนภายใน 10 นาที",
+    "ผู้ใช้ต้องตัดสินใจยินยอมบนข้อมูลครบถ้วน",
+    "consent ยาวและซ่อนสิทธิถอนตัว/การใช้ข้อมูล",
+    "ผู้ใช้ไม่เข้าใจความเสี่ยงและสิทธิของตน",
+    "สรุปสิทธิ ขอบเขต และ withdrawal ชัดเจน",
+    "เพิ่มคำรับรองทั่วไป"
+  ],
+  [
+    "screen-reader-menu",
+    "accessibility",
+    "Campus Navigation",
+    "คดี 41: เมนูที่โปรแกรมอ่านหน้าจออ่านไม่รู้เรื่อง",
+    "ใช้งานก่อนเข้าอาคาร",
+    "ผู้ใช้โปรแกรมอ่านหน้าจอต้องเลือกอาคารและชั้นได้",
+    "ปุ่มไอคอนไม่มี label และลำดับ focus กระโดด",
+    "interaction ไม่เข้าถึงได้ด้วย assistive tech",
+    "เพิ่ม accessible name และ focus order ที่เป็นเหตุผล",
+    "เพิ่มแอนิเมชันเมนู"
+  ],
+  [
+    "color-only-status",
+    "accessibility",
+    "Assignment Status",
+    "คดี 42: สีเดียวที่บอกสถานะ",
+    "ใกล้กำหนดส่ง",
+    "ผู้ใช้ต้องแยกสถานะส่งแล้ว/รอตรวจ/ต้องแก้",
+    "สถานะแตกต่างด้วยสีแดง เขียว เหลืองเท่านั้น",
+    "ข้อมูลสำคัญไม่ถูกสื่อหลายช่องทาง",
+    "เพิ่ม text label และ icon ที่ไม่พึ่งสี",
+    "เพิ่ม palette ใหม่"
+  ],
+  [
+    "keyboard-checkout",
+    "accessibility",
+    "Library Checkout",
+    "คดี 43: คืนหนังสือด้วยคีย์บอร์ดไม่ได้",
+    "ก่อนห้องสมุดปิด 10 นาที",
+    "ผู้ใช้ต้องยืนยันคืนหนังสือโดยไม่ใช้เมาส์",
+    "modal ดัก focus และปุ่มยืนยันเข้าถึงไม่ถึง",
+    "keyboard flow ถูกตัดขาดในขั้นสำคัญ",
+    "แก้ focus trap และ keyboard order",
+    "เพิ่มปุ่มขนาดใหญ่เฉพาะเมาส์"
+  ],
+  [
+    "plain-language-alert",
+    "accessibility",
+    "Safety Alert",
+    "คดี 44: แจ้งเตือนที่อ่านแล้วไม่เข้าใจ",
+    "เหตุฉุกเฉินวันนี้",
+    "ผู้ใช้ต้องเข้าใจว่าต้องทำอะไรทันที",
+    "ข้อความใช้ศัพท์เทคนิคและคำย่อโดยไม่มี action ชัด",
+    "ภาษาและโครงสร้างไม่รองรับผู้ใช้หลากหลาย",
+    "ใช้ plain language + action-first steps",
+    "เพิ่มคำอธิบายเชิงนโยบาย"
+  ],
+  [
+    "meal-plan",
+    "cognitive-load",
+    "Meal Plan Booking",
+    "คดี 45: เลือกมื้ออาหารจากข้อมูลล้น",
+    "ต้องเลือกก่อน 11:00",
+    "ผู้ใช้ต้องเลือกมื้อที่เหมาะกับข้อจำกัดอาหารของตน",
+    "หน้าจอแสดง 30 เมนู ราคา คะแนน รีวิว และโปรโมชันพร้อมกัน",
+    "hierarchy ไม่ช่วยตัดสินใจตามเป้าหมาย",
+    "เริ่มจาก filter ข้อจำกัดอาหารและสรุปตัวเลือก",
+    "เพิ่มรายการแนะนำทั้งหมด"
+  ],
+  [
+    "lab-booking",
+    "cognitive-load",
+    "Lab Reservation",
+    "คดี 46: จองแล็บจากปฏิทินที่แน่นเกิน",
+    "เหลือเวลาเตรียมงาน 30 นาที",
+    "ผู้ใช้ต้องหาช่วงว่างและอุปกรณ์ที่ตรงงาน",
+    "ปฏิทินหลายห้องหลายอุปกรณ์ถูกแสดงพร้อมกัน",
+    "ภาระสแกนข้อมูลสูงเกิน task ปัจจุบัน",
+    "ให้เลือก need ก่อน แล้วแสดงเวลาที่เข้าเกณฑ์",
+    "เพิ่มข้อมูลทุกห้องในหน้าหลัก"
+  ],
+  [
+    "degree-check",
+    "cognitive-load",
+    "Degree Progress",
+    "คดี 47: เช็กจบจากรายวิชายาว 120 แถว",
+    "ต้องวางแผนลงทะเบียนวันนี้",
+    "ผู้ใช้ต้องรู้วิชาค้างที่มีผลต่อการจบก่อน",
+    "ระบบแสดงรายวิชาทั้งหมดโดยไม่จัด priority",
+    "ผู้ใช้ไม่เห็น next best action",
+    "สรุป requirement ที่ค้างและลำดับความเสี่ยง",
+    "เพิ่มตารางรายวิชาละเอียดขึ้น"
+  ],
+  [
+    "housing-compare",
+    "cognitive-load",
+    "Dormitory Comparison",
+    "คดี 48: ห้องพักมากจนเลือกไม่ลง",
+    "เหลือสิทธิ์เลือกห้อง 8 นาที",
+    "ผู้ใช้ต้องเปรียบเทียบห้องตามงบและการเดินทาง",
+    "หน้าเปรียบเทียบมีข้อมูล 18 ช่องเท่ากันหมด",
+    "ผู้ใช้ต้องถือข้อมูลมากเกินใน working memory",
+    "ตั้ง criteria สำคัญและ progressive disclosure",
+    "เพิ่มรายละเอียดทุกช่องให้เห็นพร้อมกัน"
+  ]
+];
+  function createV14Case(spec, index) {
+    const [id,trackId,sector,title,urgency,goal,problem,root,exactFix,decoyFix] = spec;
+    const persona = [
+      'อิง • นักศึกษาปี 2 • ใช้งานผ่านมือถือ',
+      'กาย • นักศึกษาปี 2 • ต้องตัดสินใจภายใต้เวลา',
+      'มีน • นักศึกษาปี 2 • ใช้บริการครั้งแรก',
+      'วิน • นักศึกษาปี 2 • กลับมาแก้งานเดิม'
+    ][index % 4];
+    return {
+      id, trackId, sector, title, urgency, persona, goal, problem,
+      evidence:[
+        {id:'e1',title:'Task replay',text:`ผู้ใช้ 57% หยุดหรือย้อนกลับก่อนทำเป้าหมายหลักสำเร็จ`,supports:['h1'],weight:3},
+        {id:'e2',title:'User quote',text:`“${root} ตอนที่ฉันต้องทำงานนี้จริง”`,supports:['h1'],weight:3},
+        {id:'e3',title:'Support pattern',text:'เจ้าหน้าที่พบคำถามซ้ำในจุดเดียวกับที่ผู้ใช้หยุดหรือแก้ไขงาน',supports:['h2'],weight:2},
+        {id:'e4',title:'Operational note',text:'ทีมงานอยากลดงานติดตามและการทำรายการซ้ำหลังผู้ใช้ตัดสินใจ',supports:['h3'],weight:1},
+        {id:'e5',title:'Visual request',text:'มีข้อเสนอให้เพิ่มภาพหรือเนื้อหาประชาสัมพันธ์ในหน้าเดิม',supports:[],weight:0}
+      ],
+      hypotheses:[
+        {id:'h1',title:'อุปสรรคอยู่ที่เส้นทางหรือข้อมูลหลักของงาน',text:root},
+        {id:'h2',title:'ผู้ใช้ต้องการข้อมูลหรือการยืนยันรอง',text:'ผู้ใช้บางส่วนต้องการความช่วยเหลือหลังเริ่มงาน แต่ไม่ใช่ต้นเหตุหลักของการหยุด'},
+        {id:'h3',title:'ปัญหาเกิดหลังทำงานหลักเสร็จ',text:'การติดตามภายหลังมีความสำคัญ แต่ไม่ได้อธิบายการล้มเหลวในจุดแรก'}
+      ],
+      fixes:[
+        {id:'f1',title:'Root-cause intervention',text:exactFix,supports:['h1'],cost:2,note:'ตอบจุดที่หลักฐานชี้ว่าเป็นอุปสรรคแรกของ User Goal'},
+        {id:'f2',title:'Secondary support',text:'เพิ่มคำแนะนำหรือข้อมูลเสริมหลังผู้ใช้เข้าสู่ flow แล้ว',supports:['h2'],cost:2,note:'ช่วยบางส่วน แต่ไม่ลดอุปสรรคหลักก่อนเริ่มหรือก่อนยืนยัน'},
+        {id:'f3',title:'Surface enhancement',text:decoyFix,supports:['h3'],cost:2,note:'เพิ่มสิ่งที่มองเห็นได้ แต่ไม่พิสูจน์ว่าช่วย User Goal หลัก'}
+      ],
+      test:{
+        exact:{success:86,time:'0:49',trust:87,quote:'“ตอนนี้เห็นสิ่งที่ต้องทำก่อนและตัดสินใจต่อได้โดยไม่ต้องเดา”'},
+        partial:{success:67,time:'1:24',trust:71,quote:'“ข้อมูลเสริมช่วยบ้าง แต่จุดที่ทำให้ฉันหยุดยังอยู่”'},
+        miss:{success:43,time:'2:08',trust:49,quote:'“หน้าดูต่างไป แต่ฉันยังไม่แน่ใจว่าจะทำงานหลักให้เสร็จอย่างไร”'}
+      },
+      next:{
+        exact:{id:'n1',title:'Pilot แบบจำกัดกลุ่ม',text:'ทดสอบกับผู้ใช้ในบริบทจริงและติดตามผลที่กระทบ User Goal'},
+        partial:{id:'n2',title:'เก็บหลักฐานเฉพาะจุดเพิ่ม',text:'แยกว่าปัญหาอยู่ที่เส้นทางหลักหรือข้อมูลรองก่อนลงทุนเพิ่ม'},
+        miss:{id:'n3',title:'กลับไปตรวจ evidence ที่อธิบายต้นเหตุ',text:'อย่าเพิ่มองค์ประกอบปลายทางก่อนแก้อุปสรรคที่ทำให้ผู้ใช้หยุด'}
+      }
+    };
+  }
+  V14_EXTRA_SPECS.forEach((spec,index)=>CASES.push(createV14Case(spec,index)));
+
+
+  /* V14 Casefile Bank — six tracks × eight cases. The schedule guarantees
+     three different reasoning tracks in every Shift and all 48 cases appear
      once before a new cycle begins. */
   const CASE_TRACKS = {
     navigation:{label:'Navigation & Information Architecture',short:'Navigation'},
@@ -2845,6 +3179,14 @@
     c.track=CASE_TRACKS[c.trackId]||CASE_TRACKS['cognitive-load'];
   });
   const TRACK_SCHEDULE = [
+    ['navigation','confirmation','error-recovery'],
+    ['trust-risk','accessibility','cognitive-load'],
+    ['navigation','trust-risk','accessibility'],
+    ['confirmation','error-recovery','cognitive-load'],
+    ['navigation','confirmation','trust-risk'],
+    ['error-recovery','accessibility','cognitive-load'],
+    ['navigation','error-recovery','accessibility'],
+    ['confirmation','trust-risk','cognitive-load'],
     ['navigation','confirmation','error-recovery'],
     ['trust-risk','accessibility','cognitive-load'],
     ['navigation','trust-risk','accessibility'],
@@ -3132,9 +3474,9 @@
     const nextTracks=nextTrackLabels();
     stage.innerHTML=`
       <section class="card mode">
-        <p class="eyebrow">W1 // CASEFILE BANK 24</p>
+        <p class="eyebrow">W1 // CASEFILE BANK 48</p>
         <h2>เริ่ม Crisis Shift ใหม่: ปิด 3 คดีคนละสายทักษะ</h2>
-        <p>W1 Main Path มี 24 Casefiles ครบ 6 สาย UX และจัด Shift ละ 3 คดีไม่ซ้ำ Track เพื่อบังคับให้ใช้เหตุผลต่างรูปแบบ ไม่ใช่จำคำตอบเดิม • คดีจะไม่วนก่อนครบ 8 Shift</p>
+        <p>W1 Main Path มี 48 Casefiles ครบ 6 สาย UX และจัด Shift ละ 3 คดีไม่ซ้ำ Track เพื่อบังคับให้ใช้เหตุผลต่างรูปแบบ ไม่ใช่จำคำตอบเดิม • คดีจะไม่วนก่อนครบ 16 Shift</p>
         <div class="mode-grid">
           <div class="mode-metric"><span>Casefiles ที่ยังไม่เจอ</span><b>${unseen}/${CASES.length}</b></div>
           <div class="mode-metric"><span>Cycle Shift</span><b>${round}/${TRACK_SCHEDULE.length}</b></div>
@@ -3142,7 +3484,7 @@
         </div>
         <div class="track-board"><b>Next Shift tracks</b><span>${nextTracks.map(track=>`<em>${escapeHtml(track)}</em>`).join('')}</span><small>แต่ละ Track ใช้ Casefile ต่างกันและมีแรงกดดันคนละแบบ</small></div>
         <div class="action-stack">
-          <button class="action-row primary" type="button" data-action="start"><span class="action-icon">⌁</span><span><strong>เริ่ม Crisis Shift</strong><small>สุ่ม 3 คดีจาก Track ที่ไม่ซ้ำ • ไม่วน Casefile ก่อนครบ 24 คดี</small></span><span>เริ่ม →</span></button>
+          <button class="action-row primary" type="button" data-action="start"><span class="action-icon">⌁</span><span><strong>เริ่ม Crisis Shift</strong><small>สุ่ม 3 คดีจาก Track ที่ไม่ซ้ำ • ไม่วน Casefile ก่อนครบ 48 คดี</small></span><span>เริ่ม →</span></button>
           <button class="action-row" type="button" data-action="how"><span class="action-icon">?</span><span><strong>วิธีชนะคดี</strong><small>เลือก Evidence จำกัด ตั้ง Hypothesis ที่พิสูจน์ได้ ลงทุน Fix ที่ตอบสาเหตุ แล้วให้ผล Test เปลี่ยนแผน</small></span><span>ดู →</span></button>
           <a class="action-row" href="./index.html"><span class="action-icon">⌂</span><span><strong>กลับ Mission Control</strong><small>W1 Crisis Casefile เป็นสนามฝึกใหม่ แยกจาก Quiz เดิมเพื่อทดสอบก่อนแทนที่</small></span><span>กลับ →</span></a>
         </div>
