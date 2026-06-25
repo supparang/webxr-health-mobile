@@ -227,8 +227,8 @@
 
     <section class="hero">
       <div>
-        <p class="eyebrow">MISSION 01 // UX CRISIS CASEFILE HUNT</p>
-        <h1>UX Detective: UI/UX Audit Lab</h1>
+        <p class="eyebrow">MISSION 01 // WEEK 1 UI/UX AUDIT LAB</p>
+        <h1>UX Detective: Week 1 UI/UX Audit Lab</h1>
         <p>Week 1: จาก “ฉันชอบหน้าจอนี้” ไปสู่ “ผู้ใช้ทำงานสำเร็จหรือไม่” • ใช้ 6 แว่นขยาย: Clarity, Hierarchy, Cognitive Load, Consistency, Feedback และ Recovery • ได้ 2★ Readiness จึงปลดล็อก W2</p>
       </div>
       <aside class="hero-note"><span>เกมวิเคราะห์สถานการณ์</span><b>Evidence → Hypothesis → Fix → Test</b><span>3 Case + 1 Boss + Blind Review = 1 Shift ที่วัดเหตุผลจริง</span></aside>
@@ -3145,75 +3145,62 @@
   V14_EXTRA_SPECS.forEach((spec,index)=>CASES.push(createV14Case(spec,index)));
 
 
-  /* V14 Casefile Bank — six tracks × eight cases. The schedule guarantees
-     three different reasoning tracks in every Shift and all 48 cases appear
-     once before a new cycle begins. */
-  const CASE_TRACKS = {
-    navigation:{label:'Clarity & Navigation',short:'Clarity'},
-    confirmation:{label:'Feedback & Confirmation',short:'Feedback'},
-    'error-recovery':{label:'Recovery & Error Tolerance',short:'Recovery'},
-    'trust-risk':{label:'Consistency, Trust & Risk',short:'Consistency'},
-    accessibility:{label:'Accessibility & Inclusive UI',short:'Access'},
-    'cognitive-load':{label:'Hierarchy & Cognitive Load',short:'Hierarchy'}
+  /* V18 — CSAI2601 Week 1 Canonical Lens Mapping
+     Source: Week 1 Teaching Slides, slide 12 (Clarity, Hierarchy,
+     Cognitive Load, Consistency, Feedback, Recovery).
+     Every Casefile receives exactly one primary Week 1 lens. Supporting
+     concerns such as accessibility and trust remain in the case evidence,
+     but are not treated as extra Week 1 lenses. */
+  const W1_LENSES={
+    clarity:{label:'Clarity',short:'Clarity',definition:'คำ ปุ่ม หรือจุดเริ่มงานไม่ชัดว่าใช้ทำอะไร',question:'ผู้ใช้เข้าใจว่าจะเริ่มงานหรือกดอะไรต่อหรือไม่?',uiFocus:'คำบนปุ่ม ชื่อเมนู ภาษา และจุดเริ่มงาน'},
+    hierarchy:{label:'Hierarchy',short:'Hierarchy',definition:'สิ่งสำคัญไม่เด่น หรือทุกอย่างเด่นเท่ากัน',question:'งานหลักและข้อมูลสำคัญถูกมองเห็นก่อนหรือไม่?',uiFocus:'ลำดับข้อมูล action หลัก และการจัดกลุ่ม'},
+    'cognitive-load':{label:'Cognitive Load',short:'Cognitive Load',definition:'ข้อมูลมากเกินจนผู้ใช้ต้องคิดและจำมาก',question:'ผู้ใช้ต้องสแกน จำ หรือเปรียบเทียบข้อมูลเกินงานปัจจุบันหรือไม่?',uiFocus:'ปริมาณข้อมูล ตัวเลือก ความจำ และ progressive disclosure'},
+    consistency:{label:'Consistency',short:'Consistency',definition:'รูปแบบ คำศัพท์ หรือสถานะไม่เหมือนกันในแต่ละหน้า',question:'ผู้ใช้ต้องเรียนรู้คำหรือพฤติกรรมของระบบใหม่ซ้ำหรือไม่?',uiFocus:'คำศัพท์ สถานะ รูปแบบ และความคาดเดาได้'},
+    feedback:{label:'Feedback',short:'Feedback',definition:'กดแล้วไม่รู้ว่าระบบกำลังทำอะไรหรือสำเร็จหรือไม่',question:'หลังผู้ใช้กระทำ ระบบบอกสถานะ ผลลัพธ์ และสิ่งที่ต้องทำต่อหรือไม่?',uiFocus:'confirmation สถานะ error message และ next action'},
+    recovery:{label:'Recovery',short:'Recovery',definition:'เมื่อผิดพลาด ไม่มีคำแนะนำให้แก้ไขหรือย้อนกลับ',question:'หากผู้ใช้พลาด ระบบช่วยแก้และกลับเข้าสู่งานได้หรือไม่?',uiFocus:'error prevention การแก้ไข undo และทางกลับเข้าสู่ flow'}
   };
-  const TRACK_ASSIGNMENTS = {
-    'scholarship-docs':'navigation',
-    'library-search':'navigation',
-    'repair-report':'navigation',
-    'bus-arrival':'navigation',
-    'advisor-booking':'confirmation',
-    'activity-registration':'confirmation',
-    'id-replacement':'confirmation',
-    'parking-renewal':'confirmation',
-    'course-registration':'error-recovery',
-    'project-upload':'error-recovery',
-    'password-recovery':'error-recovery',
-    'exam-version-conflict':'error-recovery',
-    'health-appointment':'trust-risk',
-    'telehealth-privacy':'trust-risk',
-    'aid-payment-authenticity':'trust-risk',
-    'research-consent':'trust-risk',
-    'caption-controls':'accessibility',
-    'dorm-access':'accessibility',
-    'lab-safety':'accessibility',
-    'plain-language-form':'accessibility',
-    'housing-renewal':'cognitive-load',
-    'degree-audit':'cognitive-load',
-    'group-scheduler':'cognitive-load',
-    'waitlist-explainer':'cognitive-load'
+  const W1_CASE_LENS={
+    'scholarship-docs':'clarity','repair-report':'clarity','bus-arrival':'clarity','event-checkin':'clarity','clinic-wayfinding':'clarity','internship-start':'clarity','lost-property':'clarity','plain-language-alert':'clarity',
+    'library-search':'hierarchy','course-registration':'hierarchy','housing-renewal':'hierarchy','degree-audit':'hierarchy','group-scheduler':'hierarchy','waitlist-explainer':'hierarchy','meal-plan':'hierarchy','lab-booking':'hierarchy',
+    'research-consent':'cognitive-load','plain-language-form':'cognitive-load','degree-check':'cognitive-load','housing-compare':'cognitive-load','caption-controls':'cognitive-load','screen-reader-menu':'cognitive-load','lab-safety':'cognitive-load','health-appointment':'cognitive-load',
+    'advisor-booking':'consistency','telehealth-privacy':'consistency','aid-payment-authenticity':'consistency','scholarship-consent':'consistency','medical-upload':'consistency','fee-refund':'consistency','research-data':'consistency','keyboard-checkout':'consistency',
+    'activity-registration':'feedback','id-replacement':'feedback','parking-renewal':'feedback','exam-seat':'feedback','parcel-locker':'feedback','graduation-rsvp':'feedback','club-payment':'feedback','color-only-status':'feedback',
+    'project-upload':'recovery','password-recovery':'recovery','exam-version-conflict':'recovery','dorm-access':'recovery','wrong-course-drop':'recovery','exam-upload-fail':'recovery','password-lockout':'recovery','equipment-return':'recovery'
+  };
+  const LEGACY_TRACKS={
+    navigation:{label:'Clarity',short:'Clarity'},
+    confirmation:{label:'Feedback',short:'Feedback'},
+    'error-recovery':{label:'Recovery',short:'Recovery'},
+    'trust-risk':{label:'Consistency',short:'Consistency'},
+    accessibility:{label:'Clarity',short:'Clarity'},
+    'cognitive-load':{label:'Cognitive Load',short:'Cognitive Load'}
   };
   CASES.forEach(c=>{
-    c.trackId=c.trackId||TRACK_ASSIGNMENTS[c.id]||'cognitive-load';
-    c.track=CASE_TRACKS[c.trackId]||CASE_TRACKS['cognitive-load'];
+    c.week1LensId=W1_CASE_LENS[c.id]||'clarity';
+    c.week1Lens=W1_LENSES[c.week1LensId];
+    c.track=LEGACY_TRACKS[c.trackId]||{label:c.week1Lens.label,short:c.week1Lens.short};
   });
-  const TRACK_SCHEDULE = [
-    ['navigation','confirmation','error-recovery'],
-    ['trust-risk','accessibility','cognitive-load'],
-    ['navigation','trust-risk','accessibility'],
-    ['confirmation','error-recovery','cognitive-load'],
-    ['navigation','confirmation','trust-risk'],
-    ['error-recovery','accessibility','cognitive-load'],
-    ['navigation','error-recovery','accessibility'],
-    ['confirmation','trust-risk','cognitive-load'],
-    ['navigation','confirmation','error-recovery'],
-    ['trust-risk','accessibility','cognitive-load'],
-    ['navigation','trust-risk','accessibility'],
-    ['confirmation','error-recovery','cognitive-load'],
-    ['navigation','confirmation','trust-risk'],
-    ['error-recovery','accessibility','cognitive-load'],
-    ['navigation','error-recovery','accessibility'],
-    ['confirmation','trust-risk','cognitive-load']
+  /* 16 shifts × 3 cases = 48 slots. Every lens appears exactly eight times,
+     matching the 8 Casefiles assigned to that lens, so no case repeats before
+     the full Week 1 bank is exhausted. */
+  const LENS_SCHEDULE=[
+    ['clarity','feedback','recovery'],['hierarchy','cognitive-load','consistency'],
+    ['clarity','hierarchy','cognitive-load'],['feedback','recovery','consistency'],
+    ['clarity','feedback','hierarchy'],['cognitive-load','recovery','consistency'],
+    ['clarity','recovery','cognitive-load'],['hierarchy','feedback','consistency'],
+    ['clarity','feedback','recovery'],['hierarchy','cognitive-load','consistency'],
+    ['clarity','hierarchy','cognitive-load'],['feedback','recovery','consistency'],
+    ['clarity','feedback','hierarchy'],['cognitive-load','recovery','consistency'],
+    ['clarity','recovery','cognitive-load'],['hierarchy','feedback','consistency']
   ];
   function cycleRoundIndex(){
     const seen=Math.min(state?.saved?.seen?.length||0, CASES.length);
-    return Math.floor(seen/CASES_PER_SHIFT)%TRACK_SCHEDULE.length;
+    return Math.floor(seen/CASES_PER_SHIFT)%LENS_SCHEDULE.length;
   }
-  function nextTrackLabels(){
-    return TRACK_SCHEDULE[cycleRoundIndex()].map(id=>CASE_TRACKS[id]?.short||id);
-  }
+  function nextTrackLabels(){return LENS_SCHEDULE[cycleRoundIndex()].map(id=>W1_LENSES[id]?.short||id)}
   function buildDiverseShift(pool){
-    const tracks=TRACK_SCHEDULE[cycleRoundIndex()];
-    const deck=tracks.map(trackId=>shuffle(pool.filter(c=>c.trackId===trackId))[0]).filter(Boolean);
+    const lenses=LENS_SCHEDULE[cycleRoundIndex()];
+    const deck=lenses.map(lensId=>shuffle(pool.filter(c=>c.week1LensId===lensId))[0]).filter(Boolean);
     return deck.length===CASES_PER_SHIFT?shuffle(deck):shuffle(pool).slice(0,CASES_PER_SHIFT);
   }
 
@@ -3483,17 +3470,17 @@
     stage.innerHTML=`
       <section class="card mode">
         <p class="eyebrow">W1 // CASEFILE BANK 48</p>
-        <h2>เริ่ม Crisis Shift ใหม่: ปิด 3 คดีคนละสายทักษะ</h2>
-        <p>W1 Main Path มี 48 Casefiles ครบ 6 สาย UX และจัด Shift ละ 3 คดีไม่ซ้ำ Track เพื่อบังคับให้ใช้เหตุผลต่างรูปแบบ ไม่ใช่จำคำตอบเดิม • คดีจะไม่วนก่อนครบ 16 Shift</p>
+        <h2>เริ่ม Crisis Shift ใหม่: ปิด 3 คดีคนละ UX Lens</h2>
+        <p>W1 Main Path มี 48 Casefiles ตาม 6 UX Lenses ของ Week 1 และจัด Shift ละ 3 คดีไม่ซ้ำ Track เพื่อบังคับให้ใช้เหตุผลต่างรูปแบบ ไม่ใช่จำคำตอบเดิม • คดีจะไม่วนก่อนครบ 16 Shift</p>
         <section class="learning-brief" aria-label="วันนี้จะเรียนรู้อะไร"><h3>Week 1 Learning Brief: UI/UX Audit</h3><ul><li><b>UI:</b> ระบุสิ่งที่ผู้ใช้เห็นและโต้ตอบ เช่น คำบนปุ่ม ลำดับข้อมูล แบบฟอร์ม และ feedback</li><li><b>UX:</b> อธิบายผลต่อผู้ใช้: ทำงานสำเร็จหรือไม่ ช้า สับสน หรือไม่มั่นใจเพราะอะไร</li><li><b>User-Centered Design:</b> เริ่มจากผู้ใช้ งานหลัก บริบท และหลักฐาน ไม่เริ่มจากความชอบส่วนตัว</li><li><b>6 UX Lenses:</b> Clarity, Hierarchy, Cognitive Load, Consistency, Feedback, Recovery</li></ul><small>เป้าหมายของ Shift นี้: เขียนเหตุผลแบบ “ผู้ใช้ ___ ไม่สามารถ/ไม่มั่นใจที่จะ ___ เพราะ ___ ส่งผลให้ ___” แล้วเลือกการปรับปรุงที่ตรงสาเหตุ</small></section><section class="learning-brief" aria-label="เกณฑ์ Week 1"><h3>สิ่งที่เกมกำลังประเมินตาม Week 1</h3><ul><li>ระบุผู้ใช้ งานหลัก และบริบทได้</li><li>แยก UI symptom ออกจาก UX impact ได้</li><li>วิเคราะห์ friction ด้วยหนึ่งใน 6 UX Lenses ได้</li><li>เสนอการปรับที่มีเหตุผล ไม่ใช่เพียง “ทำให้สวยขึ้น”</li></ul><small>สอดคล้องกับกิจกรรม UX Detective, Real App Audit และ Rubric งาน UX First Impression Audit</small></section>
         <div class="mode-grid">
           <div class="mode-metric"><span>Casefiles ที่ยังไม่เจอ</span><b>${unseen}/${CASES.length}</b></div>
           <div class="mode-metric"><span>Cycle Shift</span><b>${round}/${TRACK_SCHEDULE.length}</b></div>
           <div class="mode-metric"><span>Shifts ปิดสำเร็จ</span><b>${state.saved.wins}</b></div>
         </div>
-        <div class="track-board"><b>Next Shift tracks</b><span>${nextTracks.map(track=>`<em>${escapeHtml(track)}</em>`).join('')}</span><small>แต่ละ Track ใช้ Casefile ต่างกันและมีแรงกดดันคนละแบบ</small></div>
+        <div class="track-board"><b>Next Shift UX Lenses</b><span>${nextTracks.map(track=>`<em>${escapeHtml(track)}</em>`).join('')}</span><small>แต่ละ Track ใช้ ใช้คำศัพท์ Week 1 ต่างกัน เพื่อฝึกมอง friction หลายมุม</small></div>
         <div class="action-stack">
-          <button class="action-row primary" type="button" data-action="start"><span class="action-icon">⌁</span><span><strong>เริ่ม Crisis Shift</strong><small>สุ่ม 3 คดีจาก Track ที่ไม่ซ้ำ • ไม่วน Casefile ก่อนครบ 48 คดี</small></span><span>เริ่ม →</span></button>
+          <button class="action-row primary" type="button" data-action="start"><span class="action-icon">⌁</span><span><strong>เริ่ม Crisis Shift</strong><small>สุ่ม 3 คดีจาก UX Lens ที่ไม่ซ้ำ • ไม่วน Casefile ก่อนครบ 48 คดี</small></span><span>เริ่ม →</span></button>
           <button class="action-row" type="button" data-action="how"><span class="action-icon">?</span><span><strong>วิธีชนะคดี</strong><small>เลือก Evidence จำกัด ตั้ง Hypothesis ที่พิสูจน์ได้ ลงทุน Fix ที่ตอบสาเหตุ แล้วให้ผล Test เปลี่ยนแผน</small></span><span>ดู →</span></button>
           <a class="action-row" href="./index.html"><span class="action-icon">⌂</span><span><strong>กลับ Mission Control</strong><small>W1 Crisis Casefile เป็นสนามฝึกใหม่ แยกจาก Quiz เดิมเพื่อทดสอบก่อนแทนที่</small></span><span>กลับ →</span></a>
         </div>
@@ -3505,9 +3492,9 @@
     const displayedTrust=Math.max(0,Number(state.caseTrust||100)-reviewCost);
     return `
     <article class="card brief">
-      <div class="case-label"><span class="tag track">${escapeHtml(c.track?.short||'UX')}</span><span class="tag">${escapeHtml(c.sector)}</span><span class="tag warn">${escapeHtml(c.urgency)}</span></div>
+      <div class="case-label"><span class="tag track">Week 1 Lens: ${escapeHtml(c.week1Lens?.short||'UX')}</span><span class="tag">${escapeHtml(c.sector)}</span><span class="tag warn">${escapeHtml(c.urgency)}</span></div>
       <h2>${escapeHtml(c.title)}</h2>
-      <p class="summary">${escapeHtml(c.problem)}</p>
+      <p class="summary">${escapeHtml(c.problem)}</p><div class="learning-brief"><h3>Lens in this case: ${escapeHtml(c.week1Lens?.label||'UX')}</h3><p><b>ความหมาย:</b> ${escapeHtml(c.week1Lens?.definition||'')}</p><p><b>คำถามตรวจ:</b> ${escapeHtml(c.week1Lens?.question||'')}</p><small>UI focus: ${escapeHtml(c.week1Lens?.uiFocus||'')}</small></div>
       <div class="goal"><span>USER GOAL</span><b>${escapeHtml(c.goal)}</b></div>
       <div class="context-box"><div><span>PERSONA</span><b>${escapeHtml(c.persona)}</b></div><div><span>CASE PRESSURE</span><b>${escapeHtml(c.urgency)}</b></div></div>
       ${pressureHtml(c)}
@@ -3520,7 +3507,7 @@
     return `
       <article class="card decision">
         <p class="eyebrow">STEP 1 // EVIDENCE HUNT</p>
-        <h3>เลือกอ่านหลักฐานได้เพียง ${EVIDENCE_LIMIT} ชิ้น</h3><p class="clarity-rule">โจทย์นี้ไม่ได้ถามว่าอะไร “สำคัญที่สุด” แต่ถามว่าอะไรช่วยตัดสินระหว่างสาเหตุที่เป็นไปได้</p>
+        <h3>เลือกอ่านหลักฐานได้เพียง ${EVIDENCE_LIMIT} ชิ้น</h3><p class="clarity-rule">Week 1 lens: ${escapeHtml(c.week1Lens?.label||'UX')} — โจทย์นี้ไม่ได้ถามว่าอะไร “สำคัญที่สุด” แต่ถามว่าอะไรช่วยตัดสินระหว่างสาเหตุที่เป็นไปได้</p>
         <p class="think-lens"><b>คำถามนำ:</b> หลักฐานชิ้นนี้ช่วยให้ตัด “สาเหตุใดสาเหตุหนึ่ง” ออกได้หรือไม่?</p><p class="prompt">เลือกหลักฐานที่ช่วย “แยกสาเหตุ” ได้มากที่สุด ไม่ใช่หลักฐานที่ดูสำคัญหรือมีตัวเลขเยอะที่สุด</p>
         ${reviewChip('evidence')}<p class="hint">หลักฐานที่ดีต้องช่วยตัดสินว่า “สาเหตุไหนน่าจะใช่กว่า” ไม่ใช่เพียงบอกว่าหน้าจอมีปัญหา${isReviewing()&&state.reviewPlan?.step==='evidence'?' • ต้องแทนที่อย่างน้อย 1 ชิ้นจากหลักฐานเดิม':''}</p>
         <div class="evidence-grid">${shuffleStable(c.evidence,c.id).map(e=>`<button class="evidence-card ${selected.has(e.id)?'selected':''}" data-evidence="${e.id}" type="button"><span class="evidence-mark">${selected.has(e.id)?'✓':''}</span><span><strong>${escapeHtml(e.title)}</strong><small>${escapeHtml(e.text)}</small></span></button>`).join('')}</div>
@@ -3657,7 +3644,7 @@
   }
   function toOutcome(c,result){
     return {
-      id:c.id,title:c.title,score:result.score,trust:result.trust,timeSpent:result.timeSpent,
+      id:c.id,title:c.title,lensId:c.week1LensId,lensLabel:c.week1Lens?.label||'UX',score:result.score,trust:result.trust,timeSpent:result.timeSpent,
       grade:result.outcome.grade,exactChain:result.outcome.grade==='exact',correctNext:result.nextCorrect,recovered:state.recoveryUsed,
       summary:reportNarrative(result),hint:decisionHint(c,result),
       evidenceIds:result.evidence.map(e=>e.id), evidenceTitles:result.evidence.map(e=>e.title),
@@ -3760,10 +3747,11 @@
     stage.innerHTML=`<section class="game-grid">${briefHtml(c)}${panel}</section>`;
   }
   function lessonCapturedHtml(result){
-    let lesson='เมื่อเลือก Fix ให้ตรวจว่า Fix นั้นเปลี่ยนสาเหตุที่ Hypothesis อธิบาย ไม่ใช่เพียงลดอาการที่มองเห็น';
-    if(result?.outcome?.exactChain&&result?.nextCorrect) lesson='การตัดสินใจ UX ที่แข็งแรงต้องเชื่อม Evidence → Hypothesis → Fix → Test Decision เป็นเหตุผลเดียว';
-    else if(!result?.outcome?.exactChain) lesson='อย่าเลือกวิธีแก้ก่อนรู้สาเหตุ: หลักฐานต้องหนุน Hypothesis ก่อน แล้วจึงเลือก Fix';
-    else if(!result?.nextCorrect) lesson='ผล User Test ไม่ได้บอกแค่ว่าดีหรือแย่ แต่ช่วยตัดสินว่าควร iterate, gather evidence หรือ rollout ต่อ';
+    const c=current(); const lens=c?.week1Lens||{};
+    let lesson=`Week 1 Lens — ${lens.label||'UX'}: ${lens.definition||'เลือกการปรับที่ตอบสาเหตุ'};`;
+    if(result?.outcome?.exactChain&&result?.nextCorrect) lesson=`${lens.label||'UX'}: ${lens.question||''} — การตัดสินใจ UX ที่แข็งแรงต้องเชื่อม Evidence → Hypothesis → Fix → Test Decision เป็นเหตุผลเดียว`;
+    else if(!result?.outcome?.exactChain) lesson=`${lens.label||'UX'}: อย่าเลือกวิธีแก้ก่อนรู้สาเหตุ — หลักฐานต้องหนุน Hypothesis ก่อน แล้วจึงเลือก Fix`;
+    else if(!result?.nextCorrect) lesson=`${lens.label||'UX'}: ผล User Test ไม่ได้บอกแค่ว่าดีหรือแย่ แต่ช่วยตัดสินว่าควร iterate, gather evidence หรือ rollout ต่อ`;
     return `<div class="lesson-captured"><b>LESSON CAPTURED</b>${escapeHtml(lesson)}</div>`;
   }
 
@@ -3944,11 +3932,11 @@
     const weakOutcomes=state.outcomes.filter(o=>!o.exactChain || !o.correctNext);
     const trackVotes={};
     weakOutcomes.forEach(o=>{
-      const id=o.trackId || state.shift[state.outcomes.indexOf(o)]?.trackId || 'navigation';
+      const id=o.lensId || state.shift[state.outcomes.indexOf(o)]?.week1LensId || 'clarity';
       trackVotes[id]=(trackVotes[id]||0)+1;
     });
-    const weakestTrack=Object.keys(trackVotes).sort((a,b)=>trackVotes[b]-trackVotes[a])[0] || state.shift[0]?.trackId || 'navigation';
-    const trackName=state.shift.find(c=>c.trackId===weakestTrack)?.track?.name || state.shift.find(c=>c.trackId===weakestTrack)?.track?.short || weakestTrack;
+    const weakestTrack=Object.keys(trackVotes).sort((a,b)=>trackVotes[b]-trackVotes[a])[0] || state.shift[0]?.week1LensId || 'clarity';
+    const trackName=W1_LENSES[weakestTrack]?.label || weakestTrack;
     const trustLow=state.trust<58;
     const strong=exact>=2 && solid>=2 && state.trust>=78;
 
@@ -4015,7 +4003,12 @@
       }
     };
 
-    let scenario=matrix[weakestTrack] || matrix.navigation;
+    const canonicalMatrix={
+      clarity:matrix.navigation, feedback:matrix.confirmation, recovery:matrix['error-recovery'], consistency:matrix['trust-risk'],
+      hierarchy:{title:'งานหลักยังไม่เด่นกว่าสิ่งรอง',condition:'หลักฐานชี้ว่าสิ่งสำคัญและ action หลักไม่ได้ถูกจัดลำดับให้เห็นก่อน ทีมต้องทดสอบว่าการเน้นงานหลักลดเวลาและความลังเลได้จริงหรือไม่',options:[{id:'hierarchy-pilot',title:'Hierarchy pilot',text:'ทดสอบลำดับข้อมูลและ action หลักแบบจำกัด โดยวัดเวลาเลือกและอัตราการกลับไปแก้การตัดสินใจ',risk:'พิสูจน์ว่าลำดับความสำคัญช่วยงานหลักจริง'},{id:'more-content',title:'More content bundle',text:'เพิ่มคำอธิบาย ตัวอย่าง และตัวเลือกเพื่อให้ข้อมูลครบที่สุด',risk:'ทุกอย่างเด่นเท่ากันและภาระการคิดเพิ่ม'},{id:'generic-survey',title:'Generic satisfaction survey',text:'เก็บคะแนนพึงพอใจภาพรวมโดยไม่สังเกตจุดตัดสินใจจริง',risk:'รู้ความรู้สึกแต่ไม่รู้ต้นตอ'}],correct:'hierarchy-pilot'},
+      'cognitive-load':matrix['cognitive-load']
+    };
+    let scenario=canonicalMatrix[weakestTrack] || matrix.navigation;
     if(strong){
       scenario={
         title:'หลักฐานพร้อมสำหรับการขยายแบบควบคุม',
