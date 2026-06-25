@@ -1,4 +1,4 @@
-/* EAP Hero v1z65 Weekly Context Game Engine */
+/* EAP Hero v1z66 Live Conversation Speaking */
 (function(){
   'use strict';
 
@@ -12,6 +12,14 @@
     listeningMission: api.listeningMission,
     speakingMission: api.speakingMission,
     skillPath: api.skillPath
+  };
+
+  const baseSpeakingApi = {
+    submit: api.submitSpeaking,
+    startTimer: api.startSpeakingTimer,
+    stopTimer: api.stopSpeakingTimer,
+    startSpeech: api.startSpeechToText,
+    stopSpeech: api.stopSpeechToText
   };
 
   const esc = (value) => String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -177,25 +185,326 @@
     return false;
   }
 
+
+  const liveSpeakingState = {
+    session:0,
+    round1:{started:false,done:false,seconds:0},
+    round2:{started:false,done:false,seconds:0},
+    activeRound:'',
+    timer:null,
+    stamp:'',
+    glow:'',
+    grow:''
+  };
+
+  function secondsForSpeakingPack(pack){
+    const text=String(pack.expected || pack.instruction || '');
+    const m=text.match(/(\d+)\s*[–-]\s*(\d+)\s*second/i);
+    if(m) return Math.round((Number(m[1])+Number(m[2]))/2);
+    const one=text.match(/(\d+)\s*second/i);
+    return one ? Number(one[1]) : 40;
+  }
+
+  function wildcardSecondsForSpeakingPack(pack){
+    return Math.max(15, Math.min(30, Math.round(secondsForSpeakingPack(pack) * .55)));
+  }
+
+  function liveTimeText(seconds){
+    const n=Math.max(0,Number(seconds||0));
+    return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+  }
+
+  function planFieldsHTML(pack){
+    const frames=(pack.frames || []).slice(0,3);
+    const labels=frames.length ? frames : ['My main point is ___.','One supporting detail is ___.','My response is ___.'];
+    return `<section class="live-plan-card">
+      <div class="live-phase-label">Before speaking · Quick Plan</div>
+      <h3>Build three short speaking notes</h3>
+      <p>Write keywords only. These are not an essay and they will not be shown as a large transcript.</p>
+      <div class="live-plan-grid">
+        ${labels.map((frame,i)=>`<label class="live-plan-field"><span>${esc(frame)}</span><input id="speakPlan${i}" class="input" maxlength="120" placeholder="Short note only"></label>`).join('')}
+      </div>
+    </section>`;
+  }
+
+  function hiddenSpeakingScoringFields(){
+    return `<div class="live-engine-hidden" aria-hidden="true">
+      <button id="startSpeakBtn" type="button">hidden timer</button>
+      <div id="speakingTimerBox"></div>
+      <input type="checkbox" id="spSpoke">
+      <input type="checkbox" id="spOpen">
+      <input type="checkbox" id="spSign">
+      <input type="checkbox" id="spEvi">
+      <input type="checkbox" id="spClose">
+    </div>`;
+  }
+
+  function liveRoundHTML(pack){
+    const round1Secs=secondsForSpeakingPack(pack);
+    const round2Secs=wildcardSecondsForSpeakingPack(pack);
+    return `<section class="live-conversation-room">
+      <div class="live-phase-label">Live Conversation Mission</div>
+      <h3>Speak → Respond → Receive Human Feedback</h3>
+      <p class="live-room-intro">Use your three notes, speak to the human partner, then respond naturally to one unexpected follow-up. Clear communication matters; accent is not graded.</p>
+
+      <article id="liveRound1Panel" class="live-round-card active">
+        <div class="live-round-number">Round 1</div>
+        <div class="live-round-body">
+          <h4>Speak to ${esc(pack.liveRole)}</h4>
+          <p>${esc(pack.instruction || 'Give your prepared response.')}</p>
+          <div class="live-round-meta"><span>Target: ${round1Secs} seconds</span><span>Use your quick plan</span></div>
+          <div class="footer-actions">
+            <button type="button" id="startRound1Btn" class="btn primary" onclick="EAPHero.startLiveSpeakingRound('round1',${pack.session})">🎙 Start Round 1</button>
+            <button type="button" id="finishRound1Btn" class="btn" onclick="EAPHero.finishLiveSpeakingRound('round1')" disabled>✓ Finish Round 1</button>
+          </div>
+          <div id="round1Status" class="live-round-status">Prepare your three short notes, then start speaking.</div>
+        </div>
+      </article>
+
+      <article id="liveRound2Panel" class="live-round-card locked">
+        <div class="live-round-number">Round 2</div>
+        <div class="live-round-body">
+          <h4>Respond to the British Co-Teacher Wildcard</h4>
+          <blockquote>“${esc(pack.wildcard || 'Can you explain your idea with one detail?')}”</blockquote>
+          <div class="live-round-meta"><span>Target: ${round2Secs} seconds</span><span>Respond, clarify, or add evidence</span></div>
+          <div class="footer-actions">
+            <button type="button" id="startRound2Btn" class="btn primary" onclick="EAPHero.startLiveSpeakingRound('round2',${pack.session})" disabled>🎙 Respond to Wildcard</button>
+            <button type="button" id="finishRound2Btn" class="btn" onclick="EAPHero.finishLiveSpeakingRound('round2')" disabled>✓ Finish Response</button>
+          </div>
+          <div id="round2Status" class="live-round-status">Finish Round 1 to unlock the live follow-up.</div>
+        </div>
+      </article>
+
+      <article id="humanStampPanel" class="human-stamp-card locked">
+        <div class="live-phase-label">Human Feedback · Co-Teacher / Instructor Only</div>
+        <h4>Give a Human Stamp</h4>
+        <p>Check the live performance, not the student’s accent or transcript.</p>
+        <div class="human-rubric-row">
+          <span>Clear message</span><span>Uses task details</span><span>Responds to wildcard</span><span>Interaction / clarification</span>
+        </div>
+        <div class="human-stamp-actions">
+          <button type="button" class="btn human-stamp-clear" onclick="EAPHero.applyHumanSpeakingStamp('clear')">✅ Clear</button>
+          <button type="button" class="btn human-stamp-developing" onclick="EAPHero.applyHumanSpeakingStamp('developing')">🟡 Developing</button>
+          <button type="button" class="btn human-stamp-retry" onclick="EAPHero.applyHumanSpeakingStamp('retry')">↻ Retry</button>
+        </div>
+        <div id="humanStampStatus" class="human-stamp-status">Finish the Wildcard response before the Human Stamp is available.</div>
+        <div class="human-feedback-grid">
+          <label>Glow<input id="humanGlow" class="input" maxlength="160" placeholder="One thing communicated well"></label>
+          <label>Grow<input id="humanGrow" class="input" maxlength="160" placeholder="One next step to try"></label>
+        </div>
+      </article>
+    </section>`;
+  }
+
+  function optionalSpeechReviewHTML(pack){
+    return `<details class="speech-review-details">
+      <summary>Optional: review speech with Voice Input</summary>
+      <p class="mini-note">This is optional support after the live interaction. It is not the main speaking task.</p>
+      <div class="voice-input-panel compact-voice-review">
+        <div class="footer-actions">
+          <button type="button" id="voiceStartBtn" class="btn" onclick="return EAPHero.startSpeechToText()">🎙 Start Voice Review</button>
+          <button type="button" id="voiceStopBtn" class="btn ghost" onclick="return EAPHero.stopSpeechToText()" disabled>⏹ Stop</button>
+        </div>
+        <div id="speechStatusBox" class="speech-status info">Speak in English; you may edit this short record before saving.</div>
+        <div id="speechInterimBox" class="speech-interim"></div>
+        <textarea id="speakingTranscript" class="input live-speech-review-box" rows="4" maxlength="700" placeholder="Optional short transcript or note from your live conversation"></textarea>
+      </div>
+    </details>`;
+  }
+
   function renderSpeaking(sessionId){
-    const sid=Number(sessionId || 1), p=skillPack(sid,'Speaking'), prompt=(p.artifact||'')+'. '+(p.instruction||''), app=document.getElementById('app');
-    app.innerHTML=`<section class="panel weekly-game-page" data-weekly-game-context="true">
-      <div class="badges"><span class="pill">Speaking Mission</span><span class="pill">S${sid}</span><span class="pill">Live Human Response</span><span class="pill">🇹🇭 + 🇬🇧 Co-Taught</span></div>
+    const sid=Number(sessionId || 1);
+    const p=skillPack(sid,'Speaking');
+    const prompt=(p.artifact||'')+'. '+(p.instruction||'');
+    const app=document.getElementById('app');
+    resetLiveSpeakingState(sid);
+    app.innerHTML=`<section class="panel weekly-game-page live-speaking-page" data-weekly-game-context="true">
+      <div class="badges"><span class="pill">Speaking Mission</span><span class="pill">S${sid}</span><span class="pill">Live Conversation</span><span class="pill">🇹🇭 + 🇬🇧 Co-Taught</span></div>
       <h2>🎤 ${esc(p.title)}</h2>
       ${contextCard(sid,'Speaking')}
       ${artifactCard(p.artifactLabel,p.artifact)}
-      <div class="weekly-wildcard-card"><b>British Co-Teacher Wildcard</b><span>“${esc(p.wildcard)}”</span></div>
       <input type="hidden" id="speakingPromptText" value="${attr(prompt)}">
-      ${guideCard(sid,'Speaking')}
-      <div class="panel light speaking-oral-card"><h3>🎙️ Speak first</h3><p>Speak to the live audience before saving notes or a transcript. Clear communication matters; accent is not graded.</p><div class="footer-actions"><button id="startSpeakBtn" class="btn primary" onclick="EAPHero.startSpeakingTimer()">🎙️ Start Speaking</button><button class="btn" onclick="EAPHero.stopSpeakingTimer()">⏹ I Finished Speaking</button></div><div id="speakingTimerBox" class="speaking-timer-box">Speak for the time suggested in this week’s task, then save a short transcript or evidence note.</div></div>
-      ${aiBox('Speaking',sid,'speakingTranscript')}
-      <label class="label">Optional evidence notes / transcript</label>
-      <div class="voice-input-panel"><h3>🎙 Voice Input / Speech-to-Text</h3><p class="mini-note">Use this after speaking. Review the transcript and edit it before submitting.</p><div class="footer-actions"><button type="button" id="voiceStartBtn" class="btn primary" onclick="return EAPHero.startSpeechToText()">🎙 Start Voice Input</button><button type="button" id="voiceStopBtn" class="btn" onclick="return EAPHero.stopSpeechToText()" disabled>⏹ Stop Voice Input</button></div><div id="speechStatusBox" class="speech-status info">Voice input ready in supported browsers.</div><div id="speechInterimBox" class="speech-interim"></div></div>
-      <textarea id="speakingTranscript" class="input speaking-evidence-box answer-box large-speaking-box" rows="10" data-default-rows="10" placeholder="${attr((p.frames||[]).join(' '))}"></textarea>
-      <p class="mini-note speaking-check-note">After speaking, tick the elements you used.</p>
-      <div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spSpoke"> I spoke</label><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing / Q&A</label></div>
-      <div class="footer-actions"><button class="btn primary submit-speaking-btn" onclick="EAPHero.submitSpeaking(${sid})">Submit Speaking Evidence</button>${backButton(sid)}</div>
+      ${planFieldsHTML(p)}
+      ${aiBox('Speaking',sid,'speakPlan0')}
+      ${liveRoundHTML(p)}
+      ${optionalSpeechReviewHTML(p)}
+      <section class="live-reflection-card">
+        <div class="live-phase-label">After the conversation</div>
+        <h3>One-line reflection</h3>
+        <label>What will you keep or improve next time?<input id="speakingReflection" class="input" maxlength="220" placeholder="Example: Next time, I will give my evidence before my conclusion."></label>
+      </section>
+      <div class="footer-actions live-save-actions">
+        <button class="btn primary" onclick="EAPHero.saveLiveSpeakingEvidence(${sid})">Save Live Speaking Evidence</button>
+        ${backButton(sid)}
+      </div>
+      ${hiddenSpeakingScoringFields()}
     </section>`;
+    return false;
+  }
+
+  function resetLiveSpeakingState(sessionId){
+    if(liveSpeakingState.timer) clearInterval(liveSpeakingState.timer);
+    liveSpeakingState.session=Number(sessionId||0);
+    liveSpeakingState.round1={started:false,done:false,seconds:0};
+    liveSpeakingState.round2={started:false,done:false,seconds:0};
+    liveSpeakingState.activeRound='';
+    liveSpeakingState.timer=null;
+    liveSpeakingState.stamp='';
+    liveSpeakingState.glow='';
+    liveSpeakingState.grow='';
+  }
+
+  function updateLiveRoundUI(round){
+    const state=liveSpeakingState[round];
+    const status=document.getElementById(round+'Status');
+    const start=document.getElementById(round==='round1'?'startRound1Btn':'startRound2Btn');
+    const finish=document.getElementById(round==='round1'?'finishRound1Btn':'finishRound2Btn');
+    if(start) start.disabled=!!state.started || !!state.done;
+    if(finish) finish.disabled=!state.started || !!state.done;
+    if(status){
+      if(state.done) status.innerHTML=`<b>Completed:</b> ${liveTimeText(state.seconds)} · ready for the next step.`;
+      else if(state.started) status.innerHTML=`<b>Speaking now… ${liveTimeText(state.seconds)}</b> · focus on the human partner, not the screen.`;
+    }
+  }
+
+  function startLiveSpeakingRound(round, sessionId){
+    if(round!=='round1' && round!=='round2') return false;
+    if(round==='round2' && !liveSpeakingState.round1.done) return false;
+    if(liveSpeakingState.activeRound) return false;
+    const state=liveSpeakingState[round];
+    if(state.done) return false;
+    state.started=true;
+    state.seconds=0;
+    liveSpeakingState.activeRound=round;
+    updateLiveRoundUI(round);
+    if(liveSpeakingState.timer) clearInterval(liveSpeakingState.timer);
+    liveSpeakingState.timer=setInterval(()=>{
+      if(!liveSpeakingState.activeRound) return;
+      const active=liveSpeakingState[liveSpeakingState.activeRound];
+      active.seconds+=1;
+      updateLiveRoundUI(liveSpeakingState.activeRound);
+    },1000);
+    return false;
+  }
+
+  function finishLiveSpeakingRound(round){
+    if(liveSpeakingState.activeRound!==round) return false;
+    if(liveSpeakingState.timer) clearInterval(liveSpeakingState.timer);
+    liveSpeakingState.timer=null;
+    const state=liveSpeakingState[round];
+    state.started=false;
+    state.done=true;
+    liveSpeakingState.activeRound='';
+    updateLiveRoundUI(round);
+
+    if(round==='round1'){
+      const panel=document.getElementById('liveRound2Panel');
+      const button=document.getElementById('startRound2Btn');
+      const status=document.getElementById('round2Status');
+      if(panel) panel.classList.remove('locked');
+      if(button) button.disabled=false;
+      if(status) status.textContent='Round 1 complete. The British co-teacher asks the Wildcard question now.';
+    }else{
+      const panel=document.getElementById('humanStampPanel');
+      const status=document.getElementById('humanStampStatus');
+      if(panel) panel.classList.remove('locked');
+      if(status) status.textContent='Co-teacher or instructor: select Clear, Developing, or Retry, then add Glow + Grow.';
+    }
+    return false;
+  }
+
+  function applyHumanSpeakingStamp(stamp){
+    if(!liveSpeakingState.round2.done) return false;
+    const valid=['clear','developing','retry'];
+    if(!valid.includes(stamp)) return false;
+    liveSpeakingState.stamp=stamp;
+    const labels={clear:'✅ Clear · Human Stamp awarded',developing:'🟡 Developing · Human feedback saved',retry:'↻ Retry · rehearse and respond again'};
+    const status=document.getElementById('humanStampStatus');
+    if(status) status.innerHTML='<b>'+labels[stamp]+'</b>';
+    document.querySelectorAll('.human-stamp-actions button').forEach(b=>b.classList.remove('selected'));
+    const btn=document.querySelector('.human-stamp-'+stamp);
+    if(btn) btn.classList.add('selected');
+    return false;
+  }
+
+  function speakingPlanValues(){
+    return [0,1,2].map(i=>(document.getElementById('speakPlan'+i)?.value||'').trim()).filter(Boolean);
+  }
+
+  function saveHumanSpeakingLog(record){
+    try{
+      const key='EAP_HERO_HUMAN_SPEAKING_LOGS_V1';
+      const old=JSON.parse(localStorage.getItem(key)||'[]');
+      old.push(record);
+      localStorage.setItem(key,JSON.stringify(old.slice(-60)));
+    }catch(e){}
+  }
+
+  function saveLiveSpeakingEvidence(sessionId){
+    const sid=Number(sessionId||liveSpeakingState.session||1);
+    const plan=speakingPlanValues();
+    const reflection=(document.getElementById('speakingReflection')?.value||'').trim();
+    const transcript=(document.getElementById('speakingTranscript')?.value||'').trim();
+    const glow=(document.getElementById('humanGlow')?.value||'').trim();
+    const grow=(document.getElementById('humanGrow')?.value||'').trim();
+
+    if(!liveSpeakingState.round1.done || !liveSpeakingState.round2.done){
+      alert('Complete Round 1 and the Wildcard Response before saving speaking evidence.');
+      return false;
+    }
+    if(plan.length<2){
+      alert('Add at least two short Quick Plan notes before saving.');
+      return false;
+    }
+    if(!liveSpeakingState.stamp){
+      alert('The British co-teacher or instructor needs to choose a Human Stamp first.');
+      return false;
+    }
+
+    const stamp=liveSpeakingState.stamp;
+    const stampText={clear:'Clear',developing:'Developing',retry:'Retry'}[stamp];
+    const record=[
+      'Live Conversation Mission',
+      'Round 1: '+liveTimeText(liveSpeakingState.round1.seconds),
+      'Wildcard response: '+liveTimeText(liveSpeakingState.round2.seconds),
+      'Quick plan: '+plan.join(' | '),
+      'Human Stamp: '+stampText,
+      glow ? 'Glow: '+glow : '',
+      grow ? 'Grow: '+grow : '',
+      reflection ? 'Reflection: '+reflection : '',
+      transcript ? 'Optional speech review: '+transcript : ''
+    ].filter(Boolean).join('\n');
+
+    const transcriptBox=document.getElementById('speakingTranscript');
+    if(transcriptBox) transcriptBox.value=record;
+
+    const spoke=document.getElementById('spSpoke');
+    const open=document.getElementById('spOpen');
+    const sign=document.getElementById('spSign');
+    const evi=document.getElementById('spEvi');
+    const close=document.getElementById('spClose');
+    if(spoke) spoke.checked=true;
+    if(open) open.checked=plan.length>=1;
+    if(sign) sign.checked=plan.length>=2;
+    if(evi) evi.checked=(stamp==='clear' || stamp==='developing');
+    if(close) close.checked=true;
+
+    saveHumanSpeakingLog({
+      at:new Date().toISOString(),
+      session:sid,
+      skill:'Speaking',
+      round1Seconds:liveSpeakingState.round1.seconds,
+      round2Seconds:liveSpeakingState.round2.seconds,
+      humanStamp:stamp,
+      glow,grow,reflection,
+      quickPlan:plan,
+      transcriptProvided:!!transcript
+    });
+
+    if(typeof baseSpeakingApi.submit==='function'){
+      return baseSpeakingApi.submit(sid);
+    }
+    alert('Speaking evidence was prepared, but the portfolio save function is unavailable.');
     return false;
   }
 
@@ -231,5 +540,11 @@
   api.writingMission=renderWriting;
   api.listeningMission=renderListening;
   api.speakingMission=renderSpeaking;
+  api.startLiveSpeakingRound=startLiveSpeakingRound;
+  api.finishLiveSpeakingRound=finishLiveSpeakingRound;
+  api.applyHumanSpeakingStamp=applyHumanSpeakingStamp;
+  api.saveLiveSpeakingEvidence=saveLiveSpeakingEvidence;
+  api.submitSpeaking=saveLiveSpeakingEvidence;
+  api.resetLiveSpeakingState=resetLiveSpeakingState;
   decorateSessionPath();
 })();
