@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260627-v1z72-learning-report-recovery-a2-b1plus';
+  const APP_VERSION = '20260627-v1z73-master-session-matrix-boss-gate-sync-a2-b1plus';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -314,46 +314,61 @@
       reflection:'What is one informal word you should avoid in academic writing?'
     },
     {
-      id:8, emoji:'🐍', title:'Paragraph Structure Lab', zone:'Exam Gate',
+      id:8, emoji:'🐍', title:'Paragraph Structure Lab', zone:'Writing Studio',
       skill:'Academic Paragraph Structure', boss:'Structure Maze Warden',
-      problem:'เมื่อเจอหลายทักษะพร้อมกันแล้วสับสน',
-      taunt:'One head for every weakness!',
-      unlock:'Boss Rush I + Midterm Survivor Badge',
+      problem:'เมื่อย่อหน้าไม่มีโครงสร้าง ผู้อ่านจะตามเหตุผลและหลักฐานไม่ทัน',
+      taunt:'I will mix your topic, support, example, and conclusion!',
+      unlock:'Paragraph Map + Structure Builder Badge',
       lab:[
-        'Session นี้รวม Vocabulary, Main Idea, Summary และ Academic Tone',
-        'ให้ทบทวนจุดอ่อนของตนเองก่อนสู้ Hydra',
-        'โจทย์จะสลับทักษะเพื่อวัดการใช้ความรู้จริง'
+        'ย่อหน้าเชิงวิชาการมีแกน T–E–E–C: Topic Sentence → Explanation → Evidence/Example → Closing Sentence',
+        'Unity หมายถึงทุกประโยคต้องสนับสนุนประเด็นเดียว; Coherence คือการเรียงเหตุผลให้ไหล; Cohesion คือการใช้คำเชื่อมให้ชัด',
+        'คำเชื่อมพื้นฐานที่ใช้บ่อย: for example, in addition, however, therefore, in conclusion'
       ],
       questions:[
-        mcq('S08_Q1','Which word means “หลักฐาน”?','',[
-          'Evidence','Claim','Method','Conclusion'
-        ],0,'Evidence means หลักฐาน.'),
-        mcq('S08_Q2','Choose the main idea.','Digital tools can help students learn independently through videos, quizzes, and feedback.',[
-          'Digital tools provide online videos.',
-          'Digital tools support independent learning.',
-          'Quizzes are one feature of digital tools.',
-          'Feedback can help students improve.'
-        ],1,'This captures the paragraph.'),
-        mcq('S08_Q3','Choose the academic version.','Informal: This is super good.',[
-          'This is useful for students.',
-          'This may provide important benefits.',
-          'This has many positive points.',
-          'This may be helpful in some contexts.'
-        ],1,'This is formal and cautious.'),
-        mcq('S08_Q4','A summary should ______.','',[
-          'be shorter than the original',
-          'keep most original sentences',
-          'add extra opinions',
-          'focus only on examples'
-        ],0,'A summary should be shorter.'),
-        mcq('S08_Q5','Which connector shows result?','',[
-          'however','therefore','although','such as'
-        ],1,'Therefore shows result.'),
-        mcq('S08_Q6','Classify: “I believe online classes are more convenient.”','',[
-          'Fact','Opinion','Evidence','Reference'
-        ],1,'I believe shows opinion.')
+        mcq('S08_Q1','Which sentence is the best topic sentence?','Topic: Digital literacy for university students',[
+          'Students use online sources for assignments.',
+          'Digital literacy helps university students use online information responsibly.',
+          'For example, students can check the author of a website.',
+          'Therefore, students need to read carefully.'
+        ],1,'A topic sentence states the main point of the paragraph.'),
+        mcq('S08_Q2','What should usually come after a topic sentence?','',[
+          'A supporting explanation that develops the main point',
+          'A completely new topic',
+          'A greeting to the reader',
+          'A list of unrelated examples'
+        ],0,'A supporting explanation develops the topic sentence.'),
+        mcq('S08_Q3','Which sentence does NOT belong in a paragraph about academic email?','',[
+          'A clear subject line helps the reader understand the purpose.',
+          'A polite greeting creates a respectful tone.',
+          'Graphs can show trends in student performance.',
+          'A specific request helps the instructor respond.'
+        ],2,'Graphs are not relevant to a paragraph about academic email.'),
+        mcq('S08_Q4','Choose the best order for a short academic paragraph.','',[
+          'Example → Topic sentence → Conclusion → Unrelated detail',
+          'Topic sentence → Supporting explanation → Example/Evidence → Closing sentence',
+          'Conclusion → Greeting → Topic sentence → Example',
+          'Evidence → New topic → Random detail → Closing'
+        ],1,'This order follows T–E–E–C.'),
+        mcq('S08_Q5','Which connector introduces an example?','',[
+          'however',
+          'therefore',
+          'for example',
+          'in conclusion'
+        ],2,'For example introduces supporting evidence or an illustration.'),
+        mcq('S08_Q6','Which sentence works best as a closing sentence?','Topic: Peer feedback improves writing',[
+          'Peers are students in the same class.',
+          'For example, classmates can notice unclear ideas.',
+          'Peer feedback can therefore help writers revise more clearly.',
+          'Some students write paragraphs at home.'
+        ],2,'A closing sentence links back to the main point.'),
+        mcq('S08_Q7','Why is unity important in a paragraph?','',[
+          'It helps every sentence support one main idea.',
+          'It makes every sentence the same length.',
+          'It removes all examples.',
+          'It allows several unrelated topics in one paragraph.'
+        ],0,'Unity keeps the paragraph focused on one clear main idea.')
       ],
-      reflection:'Which EAP skill is strongest for you now? Which one needs more practice?'
+      reflection:'Which part of T–E–E–C do you need to practise most, and why?'
     },
     {
       id:9, emoji:'🐺', title:'Paragraph Writing', zone:'Writing Studio',
@@ -32571,7 +32586,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z72'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z73'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
@@ -33679,8 +33694,9 @@
     }
   }
 
-  function renderBossGateTimeline(){
-    const gatePlan = bossGateByNumber(gateNo || (bossGateAfterSession(sessionId)?.gate) || state.currentBossGate || 1);
+  function renderBossGateTimeline(gateNo){
+    const activeGateNo = Number(gateNo || state.currentBossGate || 1) || 1;
+    const gatePlan = bossGateByNumber(activeGateNo);
     const gateSessions = gatePlan.after;
 
     setView('bossGateTimeline');
@@ -33707,7 +33723,7 @@
     state.currentBossGate = gate.gate;
     saveState();
     if(typeof renderBossGate === 'function'){
-      renderBossGate(gate.after[gate.after.length - 1], gate.gate);
+      renderBossGate(`gate${gate.gate}`);
     }else{
       renderBossGateTimeline();
     }
@@ -33715,7 +33731,78 @@
   }
 
 
+  function bossGateNumberFromId(gateId){
+    const match = String(gateId || '').match(/(\d+)/);
+    return Number(match && match[1]) || 0;
+  }
+
+  function sessionUnlockStatus(sessionId){
+    const sid = Number(sessionId || 1) || 1;
+    if(sid <= 1) return {session:sid, unlocked:true, reason:'S1 is the starting session'};
+    const previous = sid - 1;
+    const previousReport = sessionPassReport(previous);
+    if(!previousReport.passed) return {session:sid, unlocked:false, reason:`Pass S${previous} Core + Support first.`};
+    const checkpoint = bossGateAfterSession(previous);
+    if(checkpoint){
+      const cleared = !!(state.bossGates?.[checkpoint.gate]?.cleared || state.bossGates?.[checkpoint.gate]?.done || state.bossGates?.[checkpoint.gate]?.completed);
+      if(!cleared) return {session:sid, unlocked:false, reason:`Clear ${checkpoint.type === 'final' ? 'the Final Boss' : 'Boss Gate '+checkpoint.gate} after S${previous}.`};
+    }
+    return {session:sid, unlocked:true, reason:`S${previous} complete`};
+  }
+
+  function isSessionLocked(sessionId){
+    return !sessionUnlockStatus(sessionId).unlocked;
+  }
+
+  function syncCourseProgressFromEvidence(silent){
+    state.sessions = state.sessions || {};
+    state.bossGates = state.bossGates || {};
+    for(let sid=1; sid<=15; sid++){
+      state.sessions[sid] = state.sessions[sid] || {};
+      const report = sessionPassReport(sid);
+      state.sessions[sid].passReport = report;
+      state.sessions[sid].requiredSkills = report.requiredSkills;
+      state.sessions[sid].completed = !!report.passed;
+      state.sessions[sid].done = !!report.passed;
+      state.sessions[sid].completionReason = report.reason;
+      const status = sessionUnlockStatus(sid);
+      state.sessions[sid].unlocked = !!status.unlocked;
+      state.sessions[sid].unlockReason = status.reason;
+      if(report.passed){
+        state.sessions[sid].cleared = true;
+        state.bossCards = state.bossCards || {};
+        state.bossCards[sid] = Object.assign({}, state.bossCards[sid] || {}, {earned:true, reason:report.reason, at:new Date().toISOString()});
+      }
+    }
+    if(!silent && typeof safeToast === 'function') safeToast('Course progress synced from Core + Support evidence');
+    return true;
+  }
+
+  function recordBossGateResult(gateId, win, result){
+    const gateNo = bossGateNumberFromId(gateId);
+    if(!gateNo) return null;
+    state.bossGates = state.bossGates || {};
+    const previous = state.bossGates[gateNo] || {};
+    state.bossGates[gateNo] = Object.assign({}, previous, {
+      gate:gateNo,
+      gateId:`gate${gateNo}`,
+      title:bossGateByNumber(gateNo)?.title || `Boss Gate ${gateNo}`,
+      attempts:Number(previous.attempts || 0) + 1,
+      cleared:!!previous.cleared || !!win,
+      done:!!previous.done || !!win,
+      completed:!!previous.completed || !!win,
+      lastScore:Number(result?.score || 0),
+      lastAccuracy:Number(result?.accuracy || 0),
+      updatedAt:new Date().toISOString(),
+      clearedAt:(!!previous.cleared || !!win) ? (previous.clearedAt || new Date().toISOString()) : ''
+    });
+    return state.bossGates[gateNo];
+  }
+
+
+
   function renderMap(){
+    try{ if(typeof syncCourseProgressFromEvidence === 'function') syncCourseProgressFromEvidence(true); }catch(e){}
     setTimeout(runCheckpointSessionPatchSoon, 0);
 
     setView('map');
@@ -33757,6 +33844,7 @@
     const s = getSession(id);
     if(!s) return renderMap();
     const progress = state.sessions[id] || {};
+    if(typeof isSessionLocked === 'function' && isSessionLocked(id)) return renderMap();
     if(!progress.unlocked) return renderMap();
 
     setView('brief');
@@ -34221,12 +34309,14 @@
       state.replay.bossRushLogs.push({ gateId, win, percent:percentNow, combo:state.active.maxCombo || 0, mutation:state.replay.currentMutation || 'standard', at:new Date().toISOString() });
       if(beatGhost) state.replay.secretMissions.ghost_beater = true;
       if((state.replay.currentMutation || '') === 'nohint' && win) state.replay.secretMissions.no_hint_win = true;
+      state.replay.lastResolvedGateId = gateId;
       state.replay.currentGate = '';
       state.replay.currentMutation = '';
     }
     const a = state.active;
     if(!a) return renderMap();
     const s = getSession(a.sessionId);
+    const resolvedGateId = state.replay?.lastResolvedGateId || '';
     const attempts = Math.max(1, a.answers.length);
     const accuracy = attempts ? a.correct / attempts : 0;
     const starsEarned = win ? calcStars(accuracy, a.timeLeft, a.usedHints) : 0;
@@ -34244,7 +34334,7 @@
     if(win){
       prog.cleared = true;
       const next = state.sessions[s.id+1];
-      if(next) next.unlocked = true;
+      if(!resolvedGateId && typeof sessionPassReport === 'function' && sessionPassReport(s.id).passed && next) next.unlocked = true;
       if(!state.cards.includes(s.id)) state.cards.push(s.id);
       if(badge && !state.badges.includes(badge)) state.badges.push(badge);
       addXP(xpGain);
@@ -34279,6 +34369,11 @@
       score:a.score, maxCombo:a.maxCombo, timeLeft:a.timeLeft, badge, mistakes
     };
     state.active.result = result;
+    if(resolvedGateId){
+      recordBossGateResult(resolvedGateId, win, result);
+      state.replay.lastResolvedGateId = '';
+    }
+    if(typeof syncCourseProgressFromEvidence === 'function') syncCourseProgressFromEvidence(true);
     saveState();
     renderResult(result);
   }
@@ -34824,12 +34919,11 @@
 
 
   const BOSS_GATES = [
-    { id:'gate1', title:'Foundation Boss', after:3, sessions:[1,2,3], boss:'Confusion Slime + Detail Trap Spider', skills:['Reading','Writing'], unlock:'Complete Reading + Writing evidence in S1-S3' },
-    { id:'gate2', title:'Critical Boss', after:6, sessions:[4,5,6], boss:'Fake News Phantom + Copy-Paste Zombie', skills:['Reading','Writing'], unlock:'Complete Reading + Writing evidence in S4-S6' },
-    { id:'gate3', title:'Midterm Hydra', after:8, sessions:[1,2,3,4,5,6,7,8], boss:'Structure Maze Warden', skills:['Reading','Writing','Listening'], unlock:'Complete at least 6 portfolio items before S8' },
-    { id:'gate4', title:'Production Boss', after:11, sessions:[9,10,11], boss:'Broken Paragraph Beast + Graph Fog Dragon + Rude Mail Gremlin', skills:['Writing','Speaking'], unlock:'Complete Writing evidence in S9-S11' },
-    { id:'gate5', title:'Communication Boss', after:14, sessions:[12,13,14], boss:'Plagiarism Monster + Lecture Storm + Nervous Ghost', skills:['Listening','Speaking','Ethics'], unlock:'Complete Listening + Speaking evidence in S12-S14' },
-    { id:'final', title:'Final Boss', after:15, sessions:[15], boss:'Stagnation Emperor', skills:['Reading','Writing','Listening','Speaking'], unlock:'Complete final problem-solution portfolio evidence' }
+    { id:'gate1', gate:1, title:'Boss Gate 1: Foundation Check', after:3, sessions:[1,2,3], boss:'Foundation Sentinel', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass Core + Support evidence in S1–S3, then complete the Foundation Check.' },
+    { id:'gate2', gate:2, title:'Boss Gate 2: Evidence & Summary Check', after:6, sessions:[4,5,6], boss:'Evidence Court Guardian', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass Core + Support evidence in S4–S6 and clear Boss Gate 1.' },
+    { id:'gate3', gate:3, title:'Boss Gate 3: Academic Paragraph Check', after:9, sessions:[7,8,9], boss:'Structure Maze Warden', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass Core + Support evidence in S7–S9 and clear Boss Gate 2.' },
+    { id:'gate4', gate:4, title:'Boss Gate 4: Communication & Ethics Check', after:12, sessions:[10,11,12], boss:'Integrity Court Guardian', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass Core + Support evidence in S10–S12 and clear Boss Gate 3.' },
+    { id:'gate5', gate:5, title:'Final Boss: Integrated EAP Performance', after:15, sessions:[13,14,15], boss:'Stagnation Emperor', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass Core + Support evidence in S13–S15 and clear Boss Gate 4.' }
   ];
 
   const MUTATIONS = [
@@ -34850,9 +34944,10 @@
   }
 
   function bossGateStatus(gate){
-    if(gate.id === 'gate3') return (state.portfolio || []).length >= 6;
-    if(gate.id === 'final') return (state.portfolio || []).some(p => Number(p.session) === 15 && ['Writing','Speaking'].includes(p.skill));
-    return gate.skills.every(skill => hasSkillEvidenceInRange(gate.sessions, skill));
+    const numberFromId = String(gate?.id || '').match(/(\d+)/);
+    const gateNo = Number(gate?.gate || (numberFromId && numberFromId[1]) || 1);
+    const status = typeof bossGatePassStatus === 'function' ? bossGatePassStatus(gateNo) : null;
+    return !!(status && status.unlocked);
   }
 
   function bossGateForSession(sessionId){
@@ -34895,6 +34990,85 @@
     14:{risk:'Medium', objective:'Give a short academic presentation with clear opening, signposting, and closing.', expected:'45–60 second presentation + script outline', vocab:['opening','signpost','outline','conclusion'], frame:'Today, I will talk about ___. First, ___. To conclude, ___.', teacherNote:'เน้นพูดจริงและใช้ notes ไม่ใช่อ่านทั้งบท'},
     15:{risk:'High', objective:'Integrate reading/listening evidence into a short written response and oral reflection.', expected:'integrated response + reflection', vocab:['integrate','evidence','reflect','next step'], frame:'The evidence shows ___. My response is ___. My next step is ___.', teacherNote:'เป็น final portfolio synthesis'}
   };
+
+
+  /* === v1z73 Master Session Matrix ===
+     Single source of truth for the 15-week EAP Hero course blueprint.
+     Game progression remains individual/self-paced. Live English Lab data may be
+     added by teachers later, but it never controls student unlocks. */
+  const EAP_MASTER_SESSION_MATRIX = Object.freeze({
+    1:{week:1,arc:'Foundation',theme:'Academic Mindset',level:'A2',core:'Reading',support:'Speaking',optional:['Writing','Listening'],teacherFocus:'EAP purpose and Skill + Action + Check goal setting',liveLabId:'academic_identity_carousel',evidenceType:'academic_goal_card',misconceptionTags:['goal_vague','no_action_plan','goal_not_academic'],replayPackId:'RP_S01_GOAL_BUILDER',passScore:60,bossAfter:null},
+    2:{week:2,arc:'Foundation',theme:'Academic Vocabulary',level:'A2',core:'Reading',support:'Writing',optional:['Listening','Speaking'],teacherFocus:'Context clues, word family, and collocation',liveLabId:'word_meaning_match',evidenceType:'vocabulary_evidence_card',misconceptionTags:['context_clue_missed','word_family_confusion','collocation_misuse'],replayPackId:'RP_S02_CONTEXT_CLUE',passScore:60,bossAfter:null},
+    3:{week:3,arc:'Foundation',theme:'Main Idea',level:'A2-B1+',core:'Reading',support:'Writing',optional:['Listening','Speaking'],teacherFocus:'Topic, main idea, supporting detail, and distractor types',liveLabId:'headline_challenge',evidenceType:'main_idea_card',misconceptionTags:['too_broad_main_idea','too_narrow_main_idea','irrelevant_detail'],replayPackId:'RP_S03_MAIN_IDEA_FRAME',passScore:60,bossAfter:1},
+    4:{week:4,arc:'Evidence',theme:'Keywords & Signal Words',level:'A2-B1+',core:'Reading',support:'Listening',optional:['Writing','Speaking'],teacherFocus:'Keywords and cause/result/contrast/example signals',liveLabId:'signal_word_line_up',evidenceType:'signal_map',misconceptionTags:['keyword_overhighlight','signal_cause_result_confusion','signal_contrast_example_confusion'],replayPackId:'RP_S04_SIGNAL_SORT',passScore:60,bossAfter:null},
+    5:{week:5,arc:'Evidence',theme:'Critical Reading',level:'A2-B1+',core:'Reading',support:'Speaking',optional:['Writing','Listening'],teacherFocus:'Fact, opinion, claim, evidence, and source credibility',liveLabId:'source_detective',evidenceType:'evidence_verdict',misconceptionTags:['fact_opinion_confusion','claim_evidence_confusion','source_credibility_missed'],replayPackId:'RP_S05_EVIDENCE_SORT',passScore:60,bossAfter:null},
+    6:{week:6,arc:'Evidence',theme:'Summarizing',level:'A2-B1+',core:'Writing',support:'Reading',optional:['Listening','Speaking'],teacherFocus:'Read → Reduce → Rewrite → Review',liveLabId:'one_minute_summary_swap',evidenceType:'summary_card',misconceptionTags:['copy_like_summary','summary_missing_main_idea','meaning_changed_summary','opinion_added_to_summary'],replayPackId:'RP_S06_THREE_SENTENCE_SUMMARY',passScore:60,bossAfter:2},
+    7:{week:7,arc:'Academic Writing',theme:'Academic Tone',level:'B1',core:'Writing',support:'Speaking',optional:['Reading','Listening'],teacherFocus:'Informal to academic language, precision, and hedging',liveLabId:'tone_clinic',evidenceType:'tone_makeover_card',misconceptionTags:['informal_tone','imprecise_wording','overcertainty'],replayPackId:'RP_S07_TONE_CONVERTER',passScore:60,bossAfter:null},
+    8:{week:8,arc:'Academic Writing',theme:'Paragraph Structure',level:'B1',core:'Reading',support:'Writing',optional:['Listening','Speaking'],teacherFocus:'T–E–E–C, unity, coherence, and cohesion',liveLabId:'paragraph_puzzle',evidenceType:'paragraph_structure_map',misconceptionTags:['missing_topic_sentence','off_topic_detail','structure_order_error','connector_misuse'],replayPackId:'RP_S08_PARAGRAPH_PUZZLE',passScore:60,bossAfter:null},
+    9:{week:9,arc:'Academic Writing',theme:'Paragraph Writing',level:'B1',core:'Writing',support:'Speaking',optional:['Reading','Listening'],teacherFocus:'Plan and write one short academic paragraph',liveLabId:'mini_paragraph_pitch',evidenceType:'academic_paragraph',misconceptionTags:['weak_support','weak_evidence','missing_closing','unity_break'],replayPackId:'RP_S09_TEEC_BUILDER',passScore:60,bossAfter:3},
+    10:{week:10,arc:'Professional Communication',theme:'Data Description',level:'B1',core:'Reading',support:'Writing',optional:['Listening','Speaking'],teacherFocus:'Trends, comparison, and cautious interpretation',liveLabId:'data_talk_pairs',evidenceType:'data_insight_card',misconceptionTags:['trend_direction_error','stable_fluctuate_confusion','overclaim_from_data'],replayPackId:'RP_S10_TREND_SENTENCE',passScore:60,bossAfter:null},
+    11:{week:11,arc:'Professional Communication',theme:'Academic Email',level:'B1',core:'Writing',support:'Speaking',optional:['Reading','Listening'],teacherFocus:'Subject, greeting, purpose, request, and closing',liveLabId:'email_conversation_roleplay',evidenceType:'academic_email_draft',misconceptionTags:['email_missing_subject','email_missing_request','impolite_tone','unclear_purpose'],replayPackId:'RP_S11_EMAIL_BUILDER',passScore:60,bossAfter:null},
+    12:{week:12,arc:'Professional Communication',theme:'Citation & Ethics',level:'B1+',core:'Reading',support:'Writing',optional:['Listening','Speaking'],teacherFocus:'Quotation, paraphrase, plagiarism, citation, and responsible AI',liveLabId:'ethics_tribunal',evidenceType:'citation_ethics_card',misconceptionTags:['citation_confusion','plagiarism_risk','paraphrase_too_close','ai_ethics_risk'],replayPackId:'RP_S12_ETHICS_CARDS',passScore:60,bossAfter:4},
+    13:{week:13,arc:'Global Performance',theme:'Academic Listening',level:'B1+',core:'Listening',support:'Writing',optional:['Reading','Speaking'],teacherFocus:'Two-round listening and keyword notes',liveLabId:'mini_lecture_note_challenge',evidenceType:'lecture_note_card',misconceptionTags:['listening_topic_missed','listening_main_point_missed','note_overload','signal_word_missed'],replayPackId:'RP_S13_TWO_ROUND_LISTENING',passScore:60,bossAfter:null},
+    14:{week:14,arc:'Global Performance',theme:'Academic Presentation',level:'B1+',core:'Speaking',support:'Writing',optional:['Reading','Listening'],teacherFocus:'Opening, signposting, evidence, conclusion, and Q&A',liveLabId:'one_minute_conference',evidenceType:'presentation_outline',misconceptionTags:['presentation_no_outline','presentation_no_evidence','weak_signposting','q_and_a_avoidance'],replayPackId:'RP_S14_CUE_CARD_REHEARSAL',passScore:60,bossAfter:null},
+    15:{week:15,arc:'Global Performance',theme:'Final Integration',level:'B1+',core:'Writing',support:'Speaking',optional:['Reading','Listening'],teacherFocus:'Problem → Evidence → Interpretation → Solution → Conclusion',liveLabId:'society_solution_showcase',evidenceType:'solution_brief',misconceptionTags:['problem_evidence_solution_mismatch','unsupported_solution','missing_ai_declaration','weak_reflection'],replayPackId:'RP_S15_GUIDED_SOLUTION_BRIEF',passScore:60,bossAfter:5}
+  });
+
+  function masterSessionForSession(sessionId){
+    const sid = Number(sessionId || 1) || 1;
+    return EAP_MASTER_SESSION_MATRIX[sid] || EAP_MASTER_SESSION_MATRIX[1];
+  }
+
+  function syncMasterSessionMatrix(silent){
+    Object.keys(EAP_MASTER_SESSION_MATRIX).forEach(key=>{
+      const sid = Number(key);
+      const meta = EAP_MASTER_SESSION_MATRIX[sid];
+      Object.assign(EAP_FINAL_SKILL_MATRIX[sid] || (EAP_FINAL_SKILL_MATRIX[sid] = {}), {
+        theme:meta.theme, core:meta.core, support:meta.support,
+        optional:meta.optional, level:meta.level, bossAfter:meta.bossAfter,
+        arc:meta.arc, week:meta.week, evidenceType:meta.evidenceType,
+        misconceptionTags:meta.misconceptionTags, replayPackId:meta.replayPackId,
+        liveLabId:meta.liveLabId, teacherFocus:meta.teacherFocus, passScore:meta.passScore
+      });
+      const existingQuality = EAP_FINAL_SESSION_QUALITY[sid] || {};
+      EAP_FINAL_SESSION_QUALITY[sid] = Object.assign(existingQuality, {
+        objective:meta.teacherFocus,
+        expected:meta.evidenceType.replaceAll('_',' '),
+        teacherNote:`${meta.arc} • ${meta.teacherFocus}`
+      });
+      SESSION_QUALITY_AUDIT[sid] = Object.assign({}, SESSION_QUALITY_AUDIT[sid] || {}, {
+        level:meta.level,
+        risk:(sid>=10 || sid===12 || sid>=15) ? 'High' : (sid>=4 ? 'Medium' : 'Low'),
+        core:meta.core,
+        support:meta.support,
+        expected:meta.evidenceType.replaceAll('_',' '),
+        objective:meta.teacherFocus,
+        teacherNote:`${meta.arc} • Replay: ${meta.replayPackId}`
+      });
+    });
+    if(!silent && typeof safeToast === 'function') safeToast('Master Session Matrix synced');
+    return EAP_MASTER_SESSION_MATRIX;
+  }
+
+  function replaceS8QuestionBankV1z73(){
+    const s8 = SESSIONS.find(s=>Number(s.id)===8);
+    if(!s8) return false;
+    const structureQuestions = [
+      mcq('S08_V73_Q1','Which sentence is the best topic sentence?','Topic: Study planning',[ 'Study planning includes calendars.', 'Study planning can help university students complete tasks more effectively.', 'For example, students can use a calendar.', 'Therefore, deadlines are important.' ],1,'The topic sentence gives the paragraph’s central idea.'),
+      mcq('S08_V73_Q2','Which sentence is a supporting detail?','Topic sentence: Peer feedback can improve writing.',[ 'Peer feedback can improve writing.', 'Classmates may notice unclear ideas that the writer did not see.', 'In conclusion, writing is important.', 'This paragraph has four sentences.' ],1,'This detail explains how peer feedback supports writing.'),
+      mcq('S08_V73_Q3','Which sentence is an example?','',[ 'Digital literacy is important for students.', 'It helps them evaluate online sources.', 'For example, students can check the author and date of a website.', 'Therefore, students should learn digital literacy.' ],2,'For example introduces an illustration.'),
+      mcq('S08_V73_Q4','Which sentence is off-topic in a paragraph about academic email?','',[ 'A meaningful subject line makes the purpose clear.', 'A polite greeting helps create a respectful tone.', 'A graph can show an increase in online learning.', 'A clear request makes the email easier to answer.' ],2,'The graph sentence does not support academic email.'),
+      mcq('S08_V73_Q5','Choose the best paragraph order.','',[ 'Topic → Support → Example → Closing', 'Example → Greeting → New topic → Closing', 'Closing → Topic → Random detail → Example', 'Evidence → Title → Support → Question' ],0,'A short academic paragraph follows a clear logical structure.'),
+      mcq('S08_V73_Q6','Which connector best introduces a conclusion?','',[ 'for example', 'however', 'in conclusion', 'because' ],2,'In conclusion signals the closing idea.'),
+      mcq('S08_V73_Q7','What does cohesion mean in a paragraph?','',[ 'Every sentence has the same number of words.', 'Ideas are linked clearly with appropriate words and phrases.', 'The paragraph has no examples.', 'The writer uses difficult vocabulary only.' ],1,'Cohesion helps readers follow connections between ideas.'),
+      mcq('S08_V73_Q8','Why should a paragraph have unity?','',[ 'It keeps every sentence focused on one main idea.', 'It makes the paragraph longer.', 'It allows several unrelated topics.', 'It removes the need for a conclusion.' ],0,'Unity keeps the paragraph focused.')
+    ];
+    s8.questions = structureQuestions;
+    return true;
+  }
+
+  syncMasterSessionMatrix(true);
+  replaceS8QuestionBankV1z73();
 
   const EAP_REPLAY_TOPIC_BANK = {
     1:[
@@ -35551,7 +35725,8 @@
 
 
   function finalMatrixForSession(sessionId){
-    return EAP_FINAL_SKILL_MATRIX[Number(sessionId || 1)] || EAP_FINAL_SKILL_MATRIX[1];
+    const sid = Number(sessionId || 1) || 1;
+    return (typeof EAP_MASTER_SESSION_MATRIX !== 'undefined' && EAP_MASTER_SESSION_MATRIX[sid]) || EAP_FINAL_SKILL_MATRIX[sid] || EAP_FINAL_SKILL_MATRIX[1];
   }
 
   function missionTemplatesFor(skill, sessionId){
@@ -36181,7 +36356,9 @@
     }
   }
   function renderBossGate(gateId){
-    const gate = BOSS_GATES.find(g => g.id === gateId) || BOSS_GATES[0];
+    const requested = String(gateId || '');
+    const gateNo = Number(requested) || bossGateNumberFromId(requested) || 1;
+    const gate = BOSS_GATES.find(g => g.id === requested || Number(g.gate) === gateNo || Number(g.after) === gateNo) || BOSS_GATES[0];
     const unlocked = bossGateStatus(gate);
     const mutation = mutationForGate(gate.id);
     const ghost = state.replay?.ghosts?.[gate.id];
@@ -38804,13 +38981,49 @@
     showSkillResult('Speaking', score, id);
   }
 
+  function deriveEvidenceMisconceptionTags(entry, meta){
+    const item = entry || {};
+    const output = String(item.output || '').trim();
+    const low = output.toLowerCase();
+    const tags = Array.isArray(item.misconceptionTags) ? item.misconceptionTags.slice() : [];
+    const score = Number(item.score || 0);
+    if(score < Number(meta?.passScore || PASS_RULES.sessionMinScore || 60)){
+      tags.push('replay_required', `low_${String(item.skill || 'skill').toLowerCase()}_mastery`);
+    }
+    if(!output && String(item.skill || '') !== 'Speaking') tags.push('missing_evidence_text');
+    if(meta?.evidenceType === 'summary_card' && typeof copiedSourceRatio === 'function' && copiedSourceRatio(output, String(item.prompt || '')) > 0.62) tags.push('copy_like_summary');
+    if(meta?.evidenceType === 'tone_makeover_card' && /\b(super|really|stuff|gonna|wanna|a lot of)\b/i.test(output)) tags.push('informal_tone');
+    if(meta?.evidenceType === 'data_insight_card' && /\b(proves?|always|all students)\b/i.test(low)) tags.push('overclaim_from_data');
+    if(meta?.evidenceType === 'academic_email_draft'){
+      if(!/subject|dear|hello/i.test(output)) tags.push('email_missing_subject_or_greeting');
+      if(!/could you|would like to|request|inquire/i.test(output)) tags.push('email_missing_request');
+    }
+    if(meta?.evidenceType === 'citation_ethics_card' && !/cite|citation|source|author|declare|check|revise/i.test(low)) tags.push('citation_or_ai_ethics_missing');
+    if(meta?.evidenceType === 'solution_brief' && !/evidence|data|source|survey|study/i.test(low)) tags.push('unsupported_solution');
+    return Array.from(new Set(tags.filter(Boolean))).slice(0,8);
+  }
+
   function addPortfolio(entry){
     state.portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
-    const compactEntry = compactPortfolioEntry(Object.assign({
+    const sessionId = Number(entry?.session || entry?.sessionId || state.currentSession || 1) || 1;
+    const meta = typeof masterSessionForSession === 'function' ? masterSessionForSession(sessionId) : null;
+    const incoming = Object.assign({
       at:new Date().toISOString(),
       student_id:state.profile.studentId || 'guest',
-      player_name:state.profile.name || 'Guest'
-    }, entry || {}));
+      player_name:state.profile.name || 'Guest',
+      session:sessionId,
+      sessionId:sessionId,
+      arc:meta?.arc || '',
+      week:meta?.week || sessionId,
+      evidenceType:meta?.evidenceType || 'skill_evidence',
+      replayPackId:meta?.replayPackId || '',
+      focusTags:meta?.misconceptionTags || [],
+      requiredSkills:meta ? [meta.core, meta.support] : []
+    }, entry || {});
+    incoming.session = Number(incoming.session || incoming.sessionId || sessionId) || sessionId;
+    incoming.sessionId = incoming.session;
+    incoming.misconceptionTags = deriveEvidenceMisconceptionTags(incoming, meta);
+    const compactEntry = compactPortfolioEntry(incoming);
     if(!compactEntry.evidenceId){
       compactEntry.evidenceId = reportPortfolioIdentity(compactEntry, state.portfolio.length);
     }
@@ -38825,6 +39038,7 @@
     const report = typeof createLearningReport === 'function'
       ? createLearningReport(portfolioIndex, {deferSave:true})
       : null;
+    if(typeof syncCourseProgressFromEvidence === 'function') syncCourseProgressFromEvidence(true);
     saveState();
     return {portfolioIndex, entry:compactEntry, report};
   }
@@ -38841,7 +39055,7 @@
   }
 
   function exportPortfolioCSV(){
-    const header = ['student_id','player_name','session','skill','difficulty','score','ai_rubric_score','independence_status','independence_verified','independence_replay','replay_required','ai_uses','transcript_hint','prompt','output','at'];
+    const header = ['student_id','player_name','session','arc','week','skill','evidenceType','replayPackId','misconceptionTags','difficulty','score','ai_rubric_score','independence_status','independence_verified','independence_replay','replay_required','ai_uses','transcript_hint','prompt','output','at'];
     const rows = (state.portfolio || []).map(p => {
       const r = p.aiRubric || (typeof aiFormativeRubric === 'function' ? aiFormativeRubric(p) : {});
       const i = p.aiIndependence || (typeof aiIndependenceCheck === 'function' ? aiIndependenceCheck(p) : {});
@@ -39189,8 +39403,13 @@
       tryFrame: skillTryFrame(p.skill),
       aiUses: p.aiUses || 0,
       difficulty: p.difficulty || state.settings?.skillDifficulty || 'easy',
+      arc:p.arc || (typeof masterSessionForSession === 'function' ? masterSessionForSession(p.session).arc : ''),
+      evidenceType:p.evidenceType || '',
+      replayPackId:p.replayPackId || '',
+      misconceptionTags:Array.isArray(p.misconceptionTags) ? p.misconceptionTags : [],
+      focusTags:Array.isArray(p.focusTags) ? p.focusTags : [],
       createdAt: new Date().toISOString(),
-      reportVersion:'v1z72'
+      reportVersion:'v1z73'
     };
     state.learningReports.push(report);
     state.learningReports = compactArray(state.learningReports, STORAGE_LIMITS.learningReports);
@@ -39251,7 +39470,9 @@
         <div><h4>✅ You did well</h4><p>${safe(report.didWell)}</p></div>
         <div><h4>🎯 Next time</h4><p>${safe(report.nextStep)}</p></div>
         <div><h4>✍️ Try this</h4><p><code>${safe(report.tryFrame)}</code></p></div>
+        <div><h4>🧭 Replay support</h4><p>${safe(report.replayPackId || 'Use the suggested Replay Pack when needed.')}</p></div>
       </div>
+      ${(report.misconceptionTags || []).length ? `<p class="mini-note"><b>Practice flags:</b> ${safe((report.misconceptionTags || []).join(' • '))}</p>` : ''}
       ${opts.actions===false?'':`<div class="footer-actions">
         <button class="btn small primary" onclick="EAPHero.renderStudentReports()">My Reports</button>
         <button class="btn small" onclick="EAPHero.map()">Continue Map</button>
@@ -42561,6 +42782,22 @@
   }
 
 
+  function renderMasterSessionMatrix(){
+    setView('masterSessionMatrix');
+    const rows = Object.keys(EAP_MASTER_SESSION_MATRIX).map(key=>{
+      const m = EAP_MASTER_SESSION_MATRIX[key];
+      return `<tr><td>W${m.week} / S${key}</td><td>${safe(m.arc)}</td><td>${safe(m.theme)}</td><td>${safe(m.core)} → ${safe(m.support)}</td><td>${safe(m.evidenceType)}</td><td>${safe(m.replayPackId)}</td><td>${m.bossAfter ? 'B'+safe(m.bossAfter) : '—'}</td></tr>`;
+    }).join('');
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">v1z73</span><span class="pill">Master Session Matrix</span><span class="pill">15 Sessions • 5 Boss Gates</span></div>
+      <h2>EAP Hero Master Session Matrix</h2>
+      <p class="lead">มาตรฐานกลางสำหรับ Course Blueprint, เกม, Portfolio, Replay Pack และ Teacher Dashboard</p>
+      <div class="table-wrap"><table><thead><tr><th>Week / Session</th><th>Arc</th><th>Theme</th><th>Core → Support</th><th>Evidence</th><th>Replay Pack</th><th>Boss</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.syncCourseProgressFromEvidence()">Sync Course Progress</button><button class="btn" onclick="EAPHero.renderProgressDiagnostics()">Progress Diagnostics</button><button class="btn" onclick="EAPHero.map()">Map</button></div>
+    </section>`);
+  }
+
+
   // public API for inline handlers
   window.EAPHero = {
     home:renderHome,
@@ -42574,11 +42811,19 @@
     bestScoreForSessionSkill,
     sessionPassReport,
     syncPassProgressNow,
+    sessionUnlockStatus,
+    isSessionLocked,
+    syncCourseProgressFromEvidence,
+    recordBossGateResult,
     passCriteriaHTML,
     bossGatePassStatus,
     renderProgressDiagnostics,
     EAP_FINAL_SKILL_MATRIX,
     EAP_FINAL_SESSION_QUALITY,
+    EAP_MASTER_SESSION_MATRIX,
+    masterSessionForSession,
+    syncMasterSessionMatrix,
+    renderMasterSessionMatrix,
     EAP_REPLAY_TOPIC_BANK,
     finalMatrixForSession,
     installFinalEAPQuestionBank,
@@ -42901,8 +43146,11 @@
   };
 
   installNoRepeatScenarioPool();
+  syncMasterSessionMatrix(true);
+  replaceS8QuestionBankV1z73();
   repairLearningReportsFromPortfolio(true);
   reconcileLearningReportsV1z67();
+  syncCourseProgressFromEvidence(true);
   renderHome();
 
 
