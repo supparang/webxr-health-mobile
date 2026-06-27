@@ -1,6 +1,6 @@
-# EAP Hero: Save the Society v1z68
+# EAP Hero: Save the Society v1z69
 
-## Session Path Self-Practice UI Fix
+## Student Replay + Progress Session Path
 Upload together:
 - index.html
 - eap-gold-item-bank.js
@@ -8,8 +8,4 @@ Upload together:
 - eap-hero.css
 - classroom-activity-pack.html
 
-v1z68 repairs the Session Path layout:
-- Core + Support appear as two full self-practice cards
-- no empty 4-column grid in Simple Mode
-- no Four Skills Hub / Debug in Student Flow
-- automatic scroll-to-top after navigation
+v1z69 fixes Replay buttons being hidden in Student Mode and adds clear Core/Support progress.

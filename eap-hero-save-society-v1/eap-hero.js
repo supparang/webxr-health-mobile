@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z68-session-path-self-practice-ui-fix';
+  const APP_VERSION = '20260610-v1z69-student-replay-progress-session-path';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32081,7 +32081,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z68</div>
+              <div class="mini-note">Save the Society • v1z69</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32497,7 +32497,10 @@
       const onclick = String(el.getAttribute('onclick') || '');
       const isAdvanced = advancedOnclick.some(w=>onclick.includes(w)) || advancedWords.some(w=>txt.includes(w));
       const isAllowed = allowedWords.some(w=>txt.includes(w));
-      if(isAdvanced && !isAllowed){
+      // v1z69: Replay inside a self-practice mission card is a student learning action,
+      // not the advanced Replay Hub menu.
+      const isStudentMissionLaunch = el.classList.contains('js-skill-mission-btn') || el.classList.contains('session-mission-start');
+      if(isAdvanced && !isAllowed && !isStudentMissionLaunch){
         el.classList.add('student-hidden-menu');
         el.hidden = true;
         el.style.display = 'none';
@@ -32631,7 +32634,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z68</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z69</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -36041,7 +36044,7 @@
 
 
 
-  /* === v1z68 Session Path Self-Practice UI Fix === */
+  /* === v1z69 Student Replay + Progress Session Path === */
   const EAP_SESSION_PATH_SELF_PRACTICE = Object.freeze({
     version:'v1z68',
     rule:'Student Session Path always shows Core + Support together. Both are self-practice missions; no Four Skills Hub or Debug route appears in Student Flow.'
@@ -36060,23 +36063,48 @@
     const q = sessionQuality(sid);
     const diff = currentSkillDifficulty(skill);
     const core = role === 'Core';
-    const roleText = core ? 'Step 1 · Core Mission · Recommended first' : 'Step 2 · Support Mission · Available now';
-    const description = core
-      ? `Build the main ${safe(skill)} skill for this Session through a fresh source-based task.`
-      : `Apply the same Session focus through ${safe(skill)} to complete the self-practice path.`;
-    return `<div class="hud-card session-mission-card ${core ? 'core-card' : 'support-card'} ${done ? 'ok' : ''}">
+    const attemptCount = portfolioEvidence(sid, skill).length;
+    const bestScore = bestScoreForSessionSkill(sid, skill);
+    const passMark = Number(PASS_RULES?.sessionMinScore || 60);
+    const passed = bestScore >= passMark;
+    const attempted = attemptCount > 0;
+    const statusText = passed
+      ? 'Completed'
+      : attempted
+        ? `In progress · best ${bestScore}/100`
+        : core
+          ? 'Recommended first'
+          : 'Available now';
+    const roleText = `Step ${core ? 1 : 2} · ${core ? 'Core' : 'Support'} Mission · ${statusText}`;
+    const description = passed
+      ? `Completed with best evidence ${bestScore}/100. Replay opens a fresh Gold source and keeps your best score.`
+      : core
+        ? `Build the main ${safe(skill)} skill for this Session through a fresh source-based task.`
+        : `Apply the same Session focus through ${safe(skill)} to complete the self-practice path.`;
+    const statusLine = passed
+      ? `✅ Passed at ${bestScore}/100 · ${attemptCount} evidence item${attemptCount === 1 ? '' : 's'}`
+      : attempted
+        ? `🟡 Best evidence ${bestScore}/100 · pass mark ${passMark}/100`
+        : `⬜ No evidence yet · pass mark ${passMark}/100`;
+    const buttonLabel = passed
+      ? `Replay ${safe(skill)}`
+      : attempted
+        ? `Continue ${safe(skill)}`
+        : `Start ${safe(skill)}`;
+    return `<div class="hud-card session-mission-card ${core ? 'core-card' : 'support-card'} ${passed ? 'ok' : attempted ? 'in-progress' : ''}">
       <div class="session-mission-card-top">
         <span class="session-mission-role">${safe(roleText)}</span>
         <span class="session-mission-level">${safe(diff.label || 'A2 Foundation')}</span>
       </div>
-      <h3>${done ? '✅' : core ? '🎯' : '🧩'} ${safe(skill)}</h3>
+      <h3>${passed ? '✅' : core ? '🎯' : '🧩'} ${safe(skill)}</h3>
       <p class="session-mission-description">${description}</p>
       <div class="session-mission-focus">
         <b>Session focus</b>
         <span>${safe(q.objective || `Practice ${skill} for this Session.`)}</span>
       </div>
-      <p class="mini-note session-mission-note">After Start, AI selects a fresh Gold source and a level-specific task for ${safe(skill)}. Help remains optional and never blocks progress.</p>
-      <button type="button" class="btn primary block js-skill-mission-btn session-mission-start" data-skill="${safeAttr(skill)}" data-session="${sid}" onclick="return EAPHero.openSkillMissionFromButton(this)">${done ? `Replay ${safe(skill)}` : `Start ${safe(skill)}`}</button>
+      <div class="session-mission-status">${safe(statusLine)}</div>
+      <p class="mini-note session-mission-note">AI chooses a fresh Gold source and a level-specific ${safe(skill)} task. Help is optional and never blocks progress.</p>
+      <button type="button" class="btn primary block js-skill-mission-btn session-mission-start" data-skill="${safeAttr(skill)}" data-session="${sid}" onclick="return EAPHero.openSkillMissionFromButton(this)">${buttonLabel}</button>
     </div>`;
   }
 
@@ -36103,10 +36131,15 @@
       const gate = bossGateForSession(s.id);
       const studentFlow = isStudentCourseFlow();
       const visibleSkills = Array.from(new Set([path.core, path.support].filter(Boolean)));
+      const passReport = sessionPassReport(s.id);
+      const skillRows = passReport.skillRows || [];
+      const completedSkills = skillRows.filter(row=>row.passed).length;
+      const totalSkills = visibleSkills.length || 2;
+      const passMark = Number(PASS_RULES?.sessionMinScore || 60);
       const cards = visibleSkills.map(skill=>{
         const role = skill === path.core ? 'Core' : 'Support';
-        const done = portfolioEvidence(s.id, skill).length > 0;
-        return sessionMissionCardSummaryHTML(s.id, skill, role, done);
+        const best = bestScoreForSessionSkill(s.id, skill);
+        return sessionMissionCardSummaryHTML(s.id, skill, role, best >= passMark);
       }).join('');
 
       layout(`
@@ -36120,10 +36153,13 @@
           <h2>Session ${s.id}: ${safe(s.title || s.skill)}</h2>
           <p class="lead">ฝึกด้วยตนเองให้ครบทั้ง Core และ Support Mission โดยแต่ละรอบจะได้ Gold Source และโจทย์ตามระดับ AI ของทักษะนั้น</p>
           <div class="session-path-rule">
-            <b>Pass this Session:</b> Complete <strong>${safe(path.core)}</strong> and <strong>${safe(path.support)}</strong> at 60% or above.
-            <span>เริ่ม Core ก่อนจะดีที่สุด แต่ Support เปิดให้ฝึกได้ทันที</span>
+            <div><b>Pass progress: ${completedSkills}/${totalSkills} skill${totalSkills===1?'':'s'} complete</b><span>ผ่านเมื่อแต่ละทักษะได้ ${passMark}% ขึ้นไป</span></div>
+            <div class="session-pass-skills">${skillRows.map(row=>`<span class="${row.passed?'passed':'pending'}">${row.passed?'✅':'⬜'} ${safe(row.skill)} ${row.bestScore ? `${row.bestScore}/100` : 'not started'}</span>`).join('')}</div>
           </div>
-          ${selfPracticeCoreHTML(s.id)}
+          <div class="session-self-practice-mini">
+            <b>👤 Self-practice only</b>
+            <span>คะแนนและการปลด Session มาจากผลงานในเกมของผู้เรียน กิจกรรมสดในห้องเรียนไม่ใช่เงื่อนไขผ่านด่าน</span>
+          </div>
           <div class="grid two session-path-missions">${cards}</div>
           ${gate ? `<div class="session-checkpoint-card">
             <b>🏁 Checkpoint after this Session group</b>
@@ -37460,7 +37496,7 @@
   }
 
 
-  /* === v1z68 Session Path Self-Practice UI Fix: formative feedback, independence, teacher analytics === */
+  /* === v1z69 Student Replay + Progress Session Path: formative feedback, independence, teacher analytics === */
   const EAP_FULL_AI_SUITE = Object.freeze({
     version:'v1z63',
     studentFeatures:['Skill Profile','Ability-Adaptive Difficulty','No-Repeat Selector','AI Help','Formative Rubric','Independence Check','Prediction','Learning Coach'],
@@ -39400,7 +39436,7 @@
 
 
 
-  /* === v1z68 Session Path Self-Practice UI Fix === */
+  /* === v1z69 Student Replay + Progress Session Path === */
   const EAP_ANTI_MEMORIZATION_ENGINE = Object.freeze({
     version:'v1z62',
     scenariosPerSession:16,
@@ -41418,7 +41454,7 @@
   }
 
 
-  /* === v1z68 Session Path Self-Practice UI Fix === */
+  /* === v1z69 Student Replay + Progress Session Path === */
   const EAP_GOLD_BANK_ENGINE = Object.freeze({version:'v1z64',authoredSourcesPerSession:8,authoredSourcesTotal:120,questionAnglesPerTier:4,candidateMCQPerSession:128,candidateMCQTotal:1920,coreSupportTaskPacks:960,rule:'Gold authored sources are selected first; source, question angle, and answer position rotate before reuse.'});
   const EAP_GOLD_QUESTION_ANGLES={easy:['Which response best matches the source?','What is the clearest action or idea in this source?','Which choice directly follows the study situation?','Which answer uses the main point from the source?'],normal:['Which response connects the source idea with its supporting detail?','Which choice explains the relationship in this source most clearly?','Which answer uses the evidence instead of a small unrelated detail?','Which study decision is best supported by this source?'],hard:['Which response makes the most careful evidence-based interpretation?','Which choice explains a useful conclusion without overclaiming?','Which response identifies a reason, evidence, or limit from the source?','Which answer shows critical use of the source information?'],challenge:['Which balanced judgement is best supported by the source?','Which response makes a justified conclusion and still names a limitation?','Which choice compares the evidence with a careful condition?','Which B1+ conclusion avoids both overclaiming and underusing evidence?']};
   function goldBankRoot(){return (typeof window!=='undefined'&&window.EAP_GOLD_AUTHORED_BANK)?window.EAP_GOLD_AUTHORED_BANK:null;}
@@ -41449,7 +41485,7 @@
 
 
 
-  /* === v1z68 Session Path Self-Practice UI Fix === */
+  /* === v1z69 Student Replay + Progress Session Path === */
   const EAP_GOLD_TASK_ALIGNMENT = Object.freeze({
     version:'v1z65',
     rule:'Gold authored source → task-specific help → source-aware AI hint. No legacy generic frame may override a Gold task.',
@@ -41716,7 +41752,7 @@
 
 
 
-  /* === v1z68 Session Path Self-Practice UI Fix === */
+  /* === v1z69 Student Replay + Progress Session Path === */
   const EAP_GOLD_SOURCE_INTEGRITY = Object.freeze({
     version:'v1z66',
     rule:'A Gold source must show only its own scenario text. Generic Session explanations belong in help, not in the source passage.'
@@ -41743,7 +41779,7 @@
   }
 
 
-  /* === v1z68 Session Path Self-Practice UI Fix === */
+  /* === v1z69 Student Replay + Progress Session Path === */
   const EAP_SCORE_RUBRIC_RECONCILIATION = Object.freeze({
     version:'v1z67',
     rule:'Mission Task Score, formative task checklist, and independence evidence are separate signals. They must not look like competing grades.',
