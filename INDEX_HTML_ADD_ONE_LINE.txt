@@ -1,0 +1,1 @@
+<script src="./js/aiquest-s2-ar-click-hotfix-v383.js?v=20260627-s2click383"></script>
