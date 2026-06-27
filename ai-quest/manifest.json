@@ -1,6 +1,11 @@
 {
-  "version": "v3.7.2",
-  "student_file": "/ai-quest/index.html",
-  "apps_script_change": "Code.gs patch required",
-  "goal": "S1 AR evidence visible in Teacher Dashboard"
+  "version": "v3.7.3",
+  "replace": [
+    "/ai-quest/js/aiquest-s1-ar-result-bridge-v369.js",
+    "/ai-quest/js/aiquest-teacher-s1-ar-analytics-v371.js"
+  ],
+  "index_html_change_required": false,
+  "teacher_html_change_required": false,
+  "apps_script_change_required": false,
+  "storage": "session_events (s1_ar_complete)"
 }
