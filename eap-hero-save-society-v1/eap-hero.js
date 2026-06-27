@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z66-gold-source-integrity-focus-ui';
+  const APP_VERSION = '20260610-v1z67-score-rubric-independence-reconciliation';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32081,7 +32081,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z66</div>
+              <div class="mini-note">Save the Society • v1z67</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32630,7 +32630,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z66</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z67</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -37406,7 +37406,7 @@
   }
 
 
-  /* === v1z66 Gold Source Integrity + Focus UI: formative feedback, independence, teacher analytics === */
+  /* === v1z67 Score · Rubric · Independence Reconciliation: formative feedback, independence, teacher analytics === */
   const EAP_FULL_AI_SUITE = Object.freeze({
     version:'v1z63',
     studentFeatures:['Skill Profile','Ability-Adaptive Difficulty','No-Repeat Selector','AI Help','Formative Rubric','Independence Check','Prediction','Learning Coach'],
@@ -37545,7 +37545,7 @@
     };
   }
 
-  function aiFormativeRubric(entry){
+  function legacyAIFormativeRubric(entry){
     const p = entry || {};
     const skill = normalizeAbilitySkill(p.skill);
     const m = aiSuiteMetrics(p);
@@ -37627,7 +37627,7 @@
     return entry;
   }
 
-  function aiIndependenceCheck(entry){
+  function legacyAIIndependenceCheck(entry){
     const p = entry || {};
     const help = Math.max(0, Number(p.aiUses || 0));
     const transcript = !!p.transcriptHint;
@@ -37676,8 +37676,8 @@
   function enhancePortfolioWithFullAI(entry){
     if(!entry) return entry;
     finalizeIndependenceReplayEntry(entry);
-    entry.aiRubric = aiFormativeRubric(entry);
-    entry.aiIndependence = aiIndependenceCheck(entry);
+    entry.aiRubric = Object.assign({}, aiFormativeRubric(entry), {version:'v1z67-task-aligned'});
+    entry.aiIndependence = Object.assign({}, aiIndependenceCheck(entry), {version:'v1z67'});
     entry.aiFeedback = `${entry.aiRubric.didWell} Next: ${entry.aiRubric.nextStep}`;
     return entry;
   }
@@ -37915,7 +37915,9 @@
     let score = scoreEAPOpenAnswer('Reading', id, joined, `${text.topic}. ${text.passage}`);
     const readingDifficulty = currentSkillDifficulty('Reading');
     score = cefrScoreFloor('Reading', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Reading')), 'Reading'), joined);
-    addPortfolio({ session:id, skill:'Reading', difficulty:readingDifficulty.key, aiAbilityTier:readingDifficulty.key, abilityTaskId:document.getElementById('readingAbilityTaskId')?.value || '', score, aiUses:aiUsesFor(id,'Reading'), output:joined, prompt:text.passage });
+    const readingTaskId = document.getElementById('readingAbilityTaskId')?.value || '';
+    const readingGoldSourceId = (readingTaskId.match(/(S\d{2}_G\d{2})/i)?.[1] || '').toUpperCase();
+    addPortfolio({ session:id, skill:'Reading', difficulty:readingDifficulty.key, aiAbilityTier:readingDifficulty.key, abilityTaskId:readingTaskId, goldSourceId:readingGoldSourceId, score, aiUses:aiUsesFor(id,'Reading'), output:joined, prompt:text.passage });
     showSkillResult('Reading', score, id);
   }
 
@@ -38894,6 +38896,9 @@
       skill: p.skill,
       score: Number(p.score || 0),
       aiRubricScore:Number(rubric.total || 0),
+      sourceAligned:!!rubric.sourceAligned,
+      sourceId:rubric.sourceId || taskSourceIdFromEntry(p),
+      supportMode:independence.supportMode || '',
       independenceStatus:independence.status,
       independenceVerified:!!independence.verified,
       band: band.label,
@@ -38922,13 +38927,18 @@
     const band = learningBand(report.score);
     return `<div class="learning-report-card ${safe(band.cls)}">
       <div class="report-head">
-        <div><b>${safe(band.emoji)} ${safe(report.band)}</b><span>${safe(report.skill)} • Session ${safe(report.session)} • CEFR ${safe(report.cefrTarget)}</span></div>
+        <div>
+          <b>${safe(band.emoji)} ${safe(report.band)}</b>
+          <span>${safe(report.skill)} • Session ${safe(report.session)} • CEFR ${safe(report.cefrTarget)}</span>
+          <small class="report-score-caption">Mission Task Score</small>
+        </div>
         <div class="report-score">${safe(report.score)}/100</div>
       </div>
       <div class="report-ai-summary">
-        <span>AI rubric ${safe(report.aiRubricScore ?? '-')}%</span>
-        <span class="${report.independenceVerified ? 'is-verified' : 'is-supported'}">🛡 ${safe(report.independenceStatus || 'Evidence being checked')}</span>
+        <span class="report-checklist">${safe(reportChecklistLabel(report))} <em>formative, not a second grade</em></span>
+        <span class="${report.independenceVerified ? 'is-verified' : 'is-supported'}">${safe(reportStatusLabel(report))}</span>
       </div>
+      <p class="report-score-explainer">${safe(reportSummaryText(report))}</p>
       <div class="report-grid report-grid-readable">
         <div><h4>✅ You did well</h4><p>${safe(report.didWell)}</p></div>
         <div><h4>🎯 Next time</h4><p>${safe(report.nextStep)}</p></div>
@@ -39336,7 +39346,7 @@
 
 
 
-  /* === v1z66 Gold Source Integrity + Focus UI === */
+  /* === v1z67 Score · Rubric · Independence Reconciliation === */
   const EAP_ANTI_MEMORIZATION_ENGINE = Object.freeze({
     version:'v1z62',
     scenariosPerSession:16,
@@ -41354,7 +41364,7 @@
   }
 
 
-  /* === v1z66 Gold Source Integrity + Focus UI === */
+  /* === v1z67 Score · Rubric · Independence Reconciliation === */
   const EAP_GOLD_BANK_ENGINE = Object.freeze({version:'v1z64',authoredSourcesPerSession:8,authoredSourcesTotal:120,questionAnglesPerTier:4,candidateMCQPerSession:128,candidateMCQTotal:1920,coreSupportTaskPacks:960,rule:'Gold authored sources are selected first; source, question angle, and answer position rotate before reuse.'});
   const EAP_GOLD_QUESTION_ANGLES={easy:['Which response best matches the source?','What is the clearest action or idea in this source?','Which choice directly follows the study situation?','Which answer uses the main point from the source?'],normal:['Which response connects the source idea with its supporting detail?','Which choice explains the relationship in this source most clearly?','Which answer uses the evidence instead of a small unrelated detail?','Which study decision is best supported by this source?'],hard:['Which response makes the most careful evidence-based interpretation?','Which choice explains a useful conclusion without overclaiming?','Which response identifies a reason, evidence, or limit from the source?','Which answer shows critical use of the source information?'],challenge:['Which balanced judgement is best supported by the source?','Which response makes a justified conclusion and still names a limitation?','Which choice compares the evidence with a careful condition?','Which B1+ conclusion avoids both overclaiming and underusing evidence?']};
   function goldBankRoot(){return (typeof window!=='undefined'&&window.EAP_GOLD_AUTHORED_BANK)?window.EAP_GOLD_AUTHORED_BANK:null;}
@@ -41385,7 +41395,7 @@
 
 
 
-  /* === v1z66 Gold Source Integrity + Focus UI === */
+  /* === v1z67 Score · Rubric · Independence Reconciliation === */
   const EAP_GOLD_TASK_ALIGNMENT = Object.freeze({
     version:'v1z65',
     rule:'Gold authored source → task-specific help → source-aware AI hint. No legacy generic frame may override a Gold task.',
@@ -41652,7 +41662,7 @@
 
 
 
-  /* === v1z66 Gold Source Integrity + Focus UI === */
+  /* === v1z67 Score · Rubric · Independence Reconciliation === */
   const EAP_GOLD_SOURCE_INTEGRITY = Object.freeze({
     version:'v1z66',
     rule:'A Gold source must show only its own scenario text. Generic Session explanations belong in help, not in the source passage.'
@@ -41677,6 +41687,240 @@
       passed: total === 120 && clean === 120 && keywordReady === 120
     };
   }
+
+
+  /* === v1z67 Score · Rubric · Independence Reconciliation === */
+  const EAP_SCORE_RUBRIC_RECONCILIATION = Object.freeze({
+    version:'v1z67',
+    rule:'Mission Task Score, formative task checklist, and independence evidence are separate signals. They must not look like competing grades.',
+    readingRule:'Gold Reading A2/A2+ checks the three visible answers: main point, key phrase, and direct detail.'
+  });
+
+  function taskSourceIdFromEntry(entry){
+    const direct = String(entry?.goldSourceId || '').trim();
+    if(/^S\d{2}_G\d{2}$/i.test(direct)) return direct.toUpperCase();
+    const taskId = String(entry?.abilityTaskId || entry?.taskId || '');
+    const hit = taskId.match(/(S\d{2}_G\d{2})/i);
+    return hit ? hit[1].toUpperCase() : '';
+  }
+
+  function goldSourceFromEntry(entry){
+    const sourceId = taskSourceIdFromEntry(entry);
+    if(!sourceId || typeof goldBankSessions !== 'function') return null;
+    for(const block of Object.values(goldBankSessions() || {})){
+      const found = (block.sources || []).find(x=>String(x.id || '').toUpperCase() === sourceId);
+      if(found) return found;
+    }
+    return null;
+  }
+
+  function taskTokens(value){
+    const stop = new Set(['a','an','the','and','or','to','of','in','on','for','with','from','by','is','are','was','were','be','been','being','this','that','these','those','it','as','at','but','not','no','only','one','two','three','student','learner','learners','source','sources','task','study','academic']);
+    return (String(value || '').toLowerCase().match(/[a-z][a-z'-]*/g) || []).filter(x=>x.length>2 && !stop.has(x));
+  }
+
+  function sourceOverlap(answer, source){
+    const answerTokens = new Set(taskTokens(answer));
+    const sourceText = `${source?.title || ''} ${source?.passage || ''} ${source?.main || ''} ${source?.evidence || ''} ${(source?.keywords || []).join(' ')}`;
+    const sourceTokens = new Set(taskTokens(sourceText));
+    let count = 0;
+    answerTokens.forEach(t=>{ if(sourceTokens.has(t)) count += 1; });
+    return count;
+  }
+
+  function sourceKeywordUsed(answer, source){
+    const low = String(answer || '').toLowerCase();
+    return (source?.keywords || []).some(k=>low.includes(String(k).toLowerCase()));
+  }
+
+  function shortAnswerScore(answer, source, kind){
+    const raw = String(answer || '').trim();
+    const words = raw.split(/\s+/).filter(Boolean).length;
+    const overlap = sourceOverlap(raw, source);
+    const keyword = sourceKeywordUsed(raw, source);
+    if(!raw) return 0;
+    if(kind === 'keyphrase'){
+      if(keyword) return 4;
+      if(overlap >= 2 && words <= 14) return 3;
+      if(overlap >= 1) return 2;
+      return 1;
+    }
+    if(kind === 'detail'){
+      if(words >= 5 && overlap >= 3) return 4;
+      if(words >= 4 && overlap >= 2) return 3;
+      if(overlap >= 1) return 2;
+      return 1;
+    }
+    if(words >= 5 && overlap >= 3) return 4;
+    if(words >= 4 && overlap >= 2) return 3;
+    if(words >= 3 && (overlap >= 1 || keyword)) return 2;
+    return 1;
+  }
+
+  function taskAlignedGoldReadingRubric(entry, source){
+    const p = entry || {};
+    const answers = String(p.output || '').split(/\s*\|\s*/).map(x=>x.trim());
+    const tier = String(p.difficulty || 'easy');
+    const higher = tier === 'hard' || tier === 'challenge';
+    const c1 = shortAnswerScore(answers[0] || '', source, 'main');
+    const c2 = shortAnswerScore(answers[1] || '', source, higher ? 'detail' : 'keyphrase');
+    const c3 = shortAnswerScore(answers[2] || '', source, 'detail');
+    const answered = answers.filter(Boolean).length;
+    const totalWords = answers.reduce((n,a)=>n + String(a || '').split(/\s+/).filter(Boolean).length,0);
+    const clarity = answered === 3 ? (totalWords >= 15 ? 4 : totalWords >= 10 ? 3 : 2) : answered === 2 ? 2 : answered === 1 ? 1 : 0;
+
+    const labels = higher
+      ? ['Careful Conclusion','Source Evidence','Limit / What Not to Conclude','Clear Completion']
+      : ['Main Point','Key Phrase','Direct Detail','Clear Completion'];
+
+    const criteria = [
+      aiSuiteCriterion('Reading','mainidea',c1, `${answers[0] ? 'answer 1 completed' : 'answer 1 missing'} · source overlap ${sourceOverlap(answers[0] || '', source)}`),
+      aiSuiteCriterion('Reading','keywords',c2, `${answers[1] ? 'answer 2 completed' : 'answer 2 missing'} · source phrase match ${sourceKeywordUsed(answers[1] || '', source) ? 'yes' : 'no'}`),
+      aiSuiteCriterion('Reading','evidence',c3, `${answers[2] ? 'answer 3 completed' : 'answer 3 missing'} · source overlap ${sourceOverlap(answers[2] || '', source)}`),
+      aiSuiteCriterion('Reading','clarity',clarity, `${answered}/3 answers completed · ${totalWords} total words`)
+    ];
+    criteria.forEach((c,i)=>{ c.label = labels[i]; });
+    const total = Math.round(criteria.reduce((n,c)=>n+Number(c.score||0),0) / (criteria.length*4) * 100);
+    const strengths = criteria.filter(c=>c.score>=3).slice(0,2);
+    const growth = criteria.filter(c=>c.score<3).sort((a,b)=>a.score-b.score).slice(0,2);
+    const weakest = growth[0]?.key || '';
+    const nextStep = weakest === 'mainidea'
+      ? 'Next time, write one sentence that explains the whole source before adding a detail.'
+      : weakest === 'keywords'
+        ? `Next time, use one exact useful phrase from “${source.title}” in answer 2.`
+        : weakest === 'evidence'
+          ? 'Next time, add one exact fact or action from the source in answer 3.'
+          : weakest === 'clarity'
+            ? 'Next time, complete all three short answers in clear English.'
+            : 'Try a fresh Gold source using the same three-step method.';
+    const didWell = strengths.length
+      ? `Strongest task evidence: ${strengths.map(x=>x.label).join(' and ')}.`
+      : 'You completed the source task. Use the three-step guide to strengthen the next attempt.';
+    return {
+      skill:'Reading',
+      total,
+      criteria,
+      strengths:strengths.map(x=>x.label),
+      growth:growth.map(x=>x.label),
+      didWell,
+      nextStep,
+      sourceAligned:true,
+      sourceId:source.id,
+      sourceTitle:source.title,
+      note:'This checklist matches the three Reading answers shown for this exact Gold source. It is formative feedback, not a second grade.',
+      at:new Date().toISOString()
+    };
+  }
+
+  function aiFormativeRubric(entry){
+    const p = entry || {};
+    const skill = normalizeAbilitySkill(p.skill);
+    const source = goldSourceFromEntry(p);
+    if(skill === 'Reading' && source) return taskAlignedGoldReadingRubric(p, source);
+    const rubric = legacyAIFormativeRubric(p);
+    rubric.sourceAligned = !!source;
+    rubric.sourceId = source?.id || '';
+    rubric.sourceTitle = source?.title || '';
+    return rubric;
+  }
+
+  function aiIndependenceCheck(entry){
+    const p = entry || {};
+    const help = Math.max(0, Number(p.aiUses || 0));
+    const transcript = !!p.transcriptHint;
+    const rubric = p.aiRubric || aiFormativeRubric(p);
+    const taskScore = Number(p.score || 0);
+    const copied = Number(aiSuiteMetrics(p).copied || 0);
+    const replay = !!p.independenceReplay;
+    const supportLoad = help + (transcript ? 2 : 0);
+
+    let status = 'Build More Evidence';
+    let verified = false;
+    let replayRequired = false;
+    let confidence = Math.max(0, Math.min(100, Math.round(taskScore - supportLoad * 7 - (copied > 0.65 ? 15 : 0))));
+
+    if(taskScore < 60){
+      status = 'Needs Skill Repair';
+      confidence = Math.min(confidence, 45);
+    }else if(replay && help === 0 && !transcript && copied <= 0.65){
+      status = 'Verified Independent';
+      verified = true;
+      confidence = Math.max(confidence, 75);
+    }else if(help === 0 && !transcript && taskScore >= 70 && copied <= 0.65){
+      status = 'Independent Evidence';
+      verified = true;
+      confidence = Math.max(confidence, 72);
+    }else if(help <= 1 && !transcript && taskScore >= 60 && copied <= 0.65){
+      status = 'Mostly Independent';
+      verified = true;
+      confidence = Math.max(confidence, 64);
+    }else if(taskScore >= 60){
+      status = 'Supported Attempt';
+      replayRequired = supportLoad >= 2;
+      confidence = Math.max(confidence, 50);
+    }
+
+    const recommendation = status === 'Needs Skill Repair'
+      ? 'Use one focused hint, revise the weakest answer, then try a fresh source route.'
+      : verified
+        ? 'Independent evidence is recorded. Continue with a fresh scenario at the current AI level.'
+        : replayRequired
+          ? 'Your mission score remains valid as supported practice. An Independent Replay is available later to verify a no-help attempt.'
+          : 'Complete one more fresh attempt to build stable independent evidence.';
+    return {status, verified, replayRequired, confidence, help, transcript, score:taskScore, rubricScore:Number(rubric.total || 0), supportMode:supportLoad > 0 ? 'AI-supported practice' : 'No-help practice', recommendation};
+  }
+
+  function reportChecklistLabel(report){
+    return report?.sourceAligned ? `Task checklist ${Number(report?.aiRubricScore ?? 0)}%` : `AI checklist ${Number(report?.aiRubricScore ?? 0)}%`;
+  }
+
+  function reportStatusLabel(report){
+    if(report?.independenceVerified) return `🛡 ${report.independenceStatus || 'Independent Evidence'}`;
+    if(report?.independenceStatus === 'Supported Attempt') return '🛡 Supported practice · independent replay available';
+    if(report?.independenceStatus === 'Needs Skill Repair') return '🛠 Needs skill repair before replay';
+    return `🛡 ${report?.independenceStatus || 'Evidence being checked'}`;
+  }
+
+  function reportSummaryText(report){
+    return report?.supportMode === 'AI-supported practice'
+      ? 'Mission Task Score is your game result. The task checklist shows which evidence appeared. AI support is recorded separately.'
+      : 'Mission Task Score is your game result. The task checklist shows which evidence appeared.';
+  }
+
+  function reconcileLearningReportsV1z67(){
+    let changed = false;
+    const portfolio = state.portfolio || [];
+    portfolio.forEach(p=>{
+      const rubric = Object.assign({}, aiFormativeRubric(p), {version:'v1z67-task-aligned'});
+      const ind = Object.assign({}, aiIndependenceCheck(Object.assign({}, p, {aiRubric:rubric})), {version:'v1z67'});
+      if(JSON.stringify(p.aiRubric || {}) !== JSON.stringify(rubric) || JSON.stringify(p.aiIndependence || {}) !== JSON.stringify(ind)){
+        p.aiRubric = rubric;
+        p.aiIndependence = ind;
+        changed = true;
+      }
+    });
+    (state.learningReports || []).forEach(report=>{
+      const p = portfolio[Number(report.portfolioIndex)];
+      if(!p) return;
+      const r = p.aiRubric;
+      const ind = p.aiIndependence;
+      const update = {
+        aiRubricScore:Number(r?.total || 0),
+        sourceAligned:!!r?.sourceAligned,
+        sourceId:r?.sourceId || taskSourceIdFromEntry(p),
+        supportMode:ind?.supportMode || '',
+        independenceStatus:ind?.status || '',
+        independenceVerified:!!ind?.verified,
+        didWell:r?.didWell || report.didWell,
+        nextStep:r?.nextStep || report.nextStep,
+        reportVersion:'v1z67'
+      };
+      Object.keys(update).forEach(k=>{ if(report[k] !== update[k]){ report[k]=update[k]; changed=true; } });
+    });
+    if(changed) saveState();
+    return {changed, portfolio:portfolio.length, reports:(state.learningReports || []).length};
+  }
+
 
   // public API for inline handlers
   window.EAPHero = {
@@ -41769,6 +42013,12 @@
     registerGoldTaskContext,
     EAP_GOLD_SOURCE_INTEGRITY,
     goldSourceIntegrityAudit,
+    EAP_SCORE_RUBRIC_RECONCILIATION,
+    taskSourceIdFromEntry,
+    goldSourceFromEntry,
+    taskAlignedGoldReadingRubric,
+    reconcileLearningReportsV1z67,
+    reportStatusLabel,
 
     EAP_SELF_PRACTICE_CORE,
     selfPracticeCoreHTML,
@@ -41999,6 +42249,7 @@
   };
 
   installNoRepeatScenarioPool();
+  reconcileLearningReportsV1z67();
   renderHome();
 
 

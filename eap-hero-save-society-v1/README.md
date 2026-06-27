@@ -1,12 +1,12 @@
-# EAP Hero: Save the Society v1z66
+# EAP Hero: Save the Society v1z67
 
-## Gold Source Integrity + Focus UI
-Upload these files together:
+## Score · Rubric · Independence Reconciliation
+Upload together:
 - index.html
 - eap-gold-item-bank.js
 - eap-hero.js
 - eap-hero.css
 - classroom-activity-pack.html
 
-v1z66 cleans Gold source passages, aligns vocabulary to the active source,
-replaces the large AI Help panel with a compact drawer, and makes Reading answer boxes shorter.
+v1z67 separates Mission Task Score, task-specific formative checklist,
+and AI-support / independence status.

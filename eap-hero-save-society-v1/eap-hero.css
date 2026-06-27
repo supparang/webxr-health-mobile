@@ -2238,3 +2238,37 @@ textarea.answer-box.reading-answer-box{
     height:86px;
   }
 }
+
+
+/* === v1z67 Score · Rubric · Independence Reconciliation === */
+.report-score-caption{
+  display:block;
+  margin-top:3px;
+  color:#64748b;
+  font-size:.78rem;
+  font-weight:800;
+}
+.report-score-explainer{
+  margin:9px 0 12px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:rgba(255,255,255,.62);
+  color:#475569;
+  font-size:.88rem;
+  line-height:1.45;
+}
+.report-ai-summary .report-checklist{
+  background:#e0e7ff;
+  color:#312e81;
+}
+.report-ai-summary em{
+  margin-left:4px;
+  font-size:.73rem;
+  font-style:normal;
+  font-weight:700;
+  opacity:.82;
+}
+.report-ai-summary .is-supported{
+  background:#e0f2fe;
+  color:#0c4a6e;
+}
