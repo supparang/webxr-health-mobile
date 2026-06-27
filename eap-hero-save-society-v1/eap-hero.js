@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z70-speaking-oral-flow-source-alignment';
+  const APP_VERSION = '20260610-v1z71-easy-speaking-ladder-a2-b1plus';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32081,7 +32081,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z70</div>
+              <div class="mini-note">Save the Society • v1z71</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32634,7 +32634,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z70</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z71</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -36044,7 +36044,7 @@
 
 
 
-  /* === v1z70 Speaking Oral Flow + Source Alignment === */
+  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
   const EAP_SESSION_PATH_SELF_PRACTICE = Object.freeze({
     version:'v1z68',
     rule:'Student Session Path always shows Core + Support together. Both are self-practice missions; no Four Skills Hub or Debug route appears in Student Flow.'
@@ -37496,7 +37496,7 @@
   }
 
 
-  /* === v1z70 Speaking Oral Flow + Source Alignment: formative feedback, independence, teacher analytics === */
+  /* === v1z71 Easy Speaking Ladder A2–B1+: formative feedback, independence, teacher analytics === */
   const EAP_FULL_AI_SUITE = Object.freeze({
     version:'v1z63',
     studentFeatures:['Skill Profile','Ability-Adaptive Difficulty','No-Repeat Selector','AI Help','Formative Rubric','Independence Check','Prediction','Learning Coach'],
@@ -38619,60 +38619,60 @@
       goldPack:mv.goldPack
     });
     const source = goldTaskSource(abilityTask) || mv.goldPack?.source || null;
-    const speakingDifficulty = currentSkillDifficulty('Speaking');
-    const timing = speakingTimeRangeForTask(abilityTask);
+    const profile = applyEasySpeakingProfile(abilityTask, source);
+    const sessionMeta = typeof finalMatrixForSession === 'function' ? finalMatrixForSession(s.id) : {};
     const sourceTitle = source?.title || mv.topic || 'this source';
-    const sourceDetail = source?.evidence || source?.passage || mv.passage || '';
     const prompt = {
       title:sourceTitle,
       instruction:buildSpeakingTaskBrief(abilityTask, source),
       topic:sourceTitle,
-      passage:sourceDetail,
+      passage:source?.passage || mv.passage || '',
       source,
       gold:!!abilityTask.gold,
       variantId:abilityTask.id || mv.variant?.id || 'speaking'
     };
 
     registerGoldTaskContext('Speaking', s.id, abilityTask);
-    layout(`<section class="panel speaking-mission-panel" style="margin-top:20px">
+    layout(`<section class="panel speaking-mission-panel easy-speaking-panel" style="margin-top:20px">
       <div class="badges">
         <span class="pill">Speaking Mission</span>
         <span class="pill">S${s.id}</span>
-        <span class="pill">${safe(s.skill)}</span>
-        <span class="pill">Speaking Support</span>
+        <span class="pill">${safe(sessionMeta.theme || 'Academic Mindset')}</span>
+        <span class="pill">${safe(profile.label)}</span>
       </div>
       <h2>🎤 Speaking Mission: ${safe(sourceTitle)}</h2>
-      <div class="speaking-brief">
-        <b>Target: ${safe(timing)} seconds</b>
-        <span>${safe(prompt.instruction)}</span>
+      <div class="speaking-brief easy-speaking-brief">
+        <b>${safe(profile.timeRange)} seconds · ${safe(profile.sentenceGoal)}</b>
+        <span>${safe(profile.studentInstruction)}</span>
       </div>
       ${goldAuthoredBadgeHTML(abilityTask)}
       ${abilityTaskHTML('Speaking', abilityTask)}
       <input type="hidden" id="speakingPromptText" value="${safeAttr(prompt.instruction)}">
       <input type="hidden" id="speakingAbilityTaskId" value="${safeAttr(abilityTask.id)}">
-      <input type="hidden" id="speakingMinSeconds" value="${Number(abilityTask.minSeconds || 25)}">
+      <input type="hidden" id="speakingMinSeconds" value="${Number(profile.minSeconds)}">
+      <input type="hidden" id="speakingProfileKey" value="${safeAttr(profile.key)}">
       <input type="hidden" id="speakingGoldSourceId" value="${safeAttr(source?.id || abilityTask.sourceId || '')}">
 
-      <div class="panel light speaking-oral-card">
+      <div class="panel light speaking-oral-card easy-speaking-oral-card">
         <div class="speaking-oral-head">
           <div>
-            <h3>🎙 Speak first, then save your evidence</h3>
-            <p>พูดจริงตามเวลาเป้าหมายก่อน ระบบจะเปิด Live Transcript ให้อัตโนมัติเมื่อเบราว์เซอร์รองรับ</p>
+            <h3>🎙 Say it simply</h3>
+            <p>พูดตามกรอบสั้น ๆ ให้ชัดเจนก่อน ระบบจับเวลาให้ และ Live Transcript เป็นตัวช่วยเสริมเท่านั้น</p>
           </div>
-          <span class="speaking-time-chip">${safe(timing)} sec</span>
+          <span class="speaking-time-chip">${safe(profile.timeRange)} sec</span>
         </div>
-        <div class="speaking-target-row">
-          <span>1. Topic</span><span>2. One source detail</span><span>3. Clear closing</span>
+        <div class="speaking-target-row easy-speaking-target-row">
+          ${profile.requirements.map((r,i)=>`<span>${i+1}. ${safe(r.short)}</span>`).join('')}
         </div>
-        ${goldTaskAlignmentGuideHTML('Speaking', s.id, abilityTask, prompt)}
+        ${easySpeakingGuideHTML(profile, source)}
         <div class="speaking-flow-controls">
           <button id="startSpeakBtn" class="btn primary" onclick="return EAPHero.startSpeakingFlow()">🎙 Start Speaking</button>
           <button id="finishSpeakBtn" class="btn" onclick="return EAPHero.finishSpeakingFlow()" disabled>⏹ I Finished Speaking</button>
         </div>
-        <div id="speakingTimerBox" class="speaking-timer-box">Ready: press Start Speaking. Aim for ${safe(timing)} seconds.</div>
+        <div id="speakingTimerBox" class="speaking-timer-box">Ready: press Start Speaking. Aim for ${safe(profile.timeRange)} seconds.</div>
         <div class="speaking-live-status">
           <b>🗣 Live transcript</b>
-          <span id="speechStatusBox" class="speech-status info">${speechSupported() ? 'Will start automatically after you press Start Speaking.' : 'Not supported here — keep speaking with the timer; notes stay optional.'}</span>
+          <span id="speechStatusBox" class="speech-status info">${speechSupported() ? 'Optional: it starts automatically after you press Start Speaking.' : 'Not supported here — just speak with the timer.'}</span>
         </div>
         <div id="speechInterimBox" class="speech-interim"></div>
       </div>
@@ -38680,17 +38680,16 @@
       ${independentReplayBannerHTML('Speaking', s.id)}
       ${renderAIHelpBox('Speaking', s.id)}
 
-      <label class="label speaking-evidence-label">Optional transcript / evidence notes</label>
-      <p class="mini-note speaking-evidence-note">Live transcript will appear here when available. You may also type a few words after speaking. It helps feedback, but does not replace the oral task.</p>
-      <textarea id="speakingTranscript" class="input speaking-evidence-box answer-box compact-speaking-box" rows="6" data-default-rows="6" placeholder="${safeAttr(speakingTranscriptPlaceholder(abilityTask, source))}"></textarea>
+      <details class="speaking-evidence-drawer">
+        <summary>Optional transcript / notes for extra AI language feedback</summary>
+        <p class="mini-note speaking-evidence-note">ไม่ต้องพิมพ์เพื่อผ่าน A2 Speaking — ใช้เมื่ออยากเก็บ transcript หรือขอ feedback ด้านภาษาเพิ่ม</p>
+        <textarea id="speakingTranscript" class="input speaking-evidence-box answer-box compact-speaking-box" rows="4" data-default-rows="4" placeholder="${safeAttr(speakingTranscriptPlaceholder(abilityTask, source))}"></textarea>
+      </details>
 
-      <p class="mini-note speaking-check-note">After speaking, tick only the parts you actually included.</p>
-      <div class="speaking-checklist">
+      <p class="mini-note speaking-check-note">หลังพูดแล้ว ติ๊กเฉพาะสิ่งที่คุณทำจริง</p>
+      <div class="speaking-checklist easy-speaking-checklist">
         <label class="choice"><input type="checkbox" id="spSpoke"> I spoke for the target time</label>
-        <label class="choice"><input type="checkbox" id="spOpen"> Topic / opening</label>
-        <label class="choice"><input type="checkbox" id="spEvi"> One source detail</label>
-        <label class="choice"><input type="checkbox" id="spClose"> Clear closing</label>
-        <label class="choice optional-check"><input type="checkbox" id="spSign"> Optional signpost</label>
+        ${profile.requirements.map(r=>`<label class="choice"><input type="checkbox" id="sp_${safeAttr(r.key)}"> ${safe(r.label)}</label>`).join('')}
       </div>
       <div class="footer-actions">
         <button class="btn primary submit-speaking-btn" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button>
@@ -38700,7 +38699,7 @@
   }
 
 
-  function speakingPromptFromVariant(s, mv){
+  function legacySpeakingPromptFromVariantV1z70(s, mv){
     const v = mv.variant || {};
     const matrix = finalMatrixForSession(s.id);
     const gold = mv.goldPack || null;
@@ -38744,15 +38743,14 @@
     const s = getSession(id);
     const out = document.getElementById('speakingTranscript')?.value.trim() || '';
     const prompt = document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction;
-    const requiredSpeakingSeconds = Number(document.getElementById('speakingMinSeconds')?.value || 25);
+    const profileKey = document.getElementById('speakingProfileKey')?.value || 'easy';
+    const profile = easySpeakingProfileByKey(profileKey);
+    const requiredSpeakingSeconds = Number(document.getElementById('speakingMinSeconds')?.value || profile.minSeconds);
     const goldSourceId = (document.getElementById('speakingGoldSourceId')?.value || '').toUpperCase();
-    const checklist = {
-      spoke:!!document.getElementById('spSpoke')?.checked,
-      opening:!!document.getElementById('spOpen')?.checked,
-      evidence:!!document.getElementById('spEvi')?.checked,
-      closing:!!document.getElementById('spClose')?.checked,
-      signposting:!!document.getElementById('spSign')?.checked
-    };
+    const checklist = {spoke:!!document.getElementById('spSpoke')?.checked};
+    profile.requirements.forEach(r=>{
+      checklist[r.key] = !!document.getElementById(`sp_${r.key}`)?.checked;
+    });
 
     if(speakingSeconds < requiredSpeakingSeconds){
       safeToast(`Speak for at least ${requiredSpeakingSeconds} seconds before submitting this mission.`);
@@ -38761,30 +38759,26 @@
       return;
     }
     if(!checklist.spoke){
-      safeToast('Please tick “I spoke for the target time” after you complete the oral task.');
+      safeToast('Please tick “I spoke for the target time” after you finish speaking.');
       return;
     }
-    if(!checklist.opening || !checklist.evidence || !checklist.closing){
-      safeToast('Please confirm Topic / one source detail / clear closing before submitting.');
+    const missing = profile.requirements.filter(r=>!checklist[r.key]);
+    if(missing.length){
+      safeToast(`Please confirm: ${missing.map(x=>x.short).join(' · ')}`);
       return;
     }
 
-    const oralScore = Math.min(100,
-      45 + // completed target duration
-      10 + // learner confirms oral attempt
-      (checklist.opening ? 10 : 0) +
-      (checklist.evidence ? 18 : 0) +
-      (checklist.closing ? 12 : 0) +
-      (checklist.signposting ? 5 : 0)
-    );
-    const transcriptScore = out
-      ? scoreEAPOpenAnswer('Speaking', id, out, prompt, 0)
-      : 0;
-    let score = out
-      ? Math.round(oralScore * 0.78 + transcriptScore * 0.22)
-      : oralScore;
+    const requirementPoints = 50 / Math.max(1, profile.requirements.length);
+    const oralScore = Math.min(100, Math.round(
+      40 + // reached time target
+      10 + // learner confirms the oral attempt
+      profile.requirements.reduce((sum,r)=>sum + (checklist[r.key] ? requirementPoints : 0),0)
+    ));
+    const transcriptScore = out ? scoreEAPOpenAnswer('Speaking', id, out, prompt, 0) : 0;
+
+    // v1z71: transcript is optional evidence. It can enrich feedback but never lowers the oral mission score.
+    const score = Math.max(0, Math.min(100, Math.round(oralScore - aiPenaltyForPortfolio(id, 'Speaking'))));
     const speakingDifficulty = currentSkillDifficulty('Speaking');
-    score = Math.max(0, Math.min(100, Math.round(score - aiPenaltyForPortfolio(id, 'Speaking'))));
 
     addPortfolio({
       session:id,
@@ -38795,10 +38789,11 @@
       goldSourceId,
       speakingSeconds,
       requiredSpeakingSeconds,
+      speakingProfile:profile.key,
       oralChecklist:checklist,
       oralScore,
       transcriptScore,
-      evidenceMode:out ? 'live-or-manual-transcript' : 'timer-and-self-checklist',
+      evidenceMode:out ? 'oral-first-with-optional-transcript' : 'oral-first-timer-and-checklist',
       score,
       aiUses:aiUsesFor(id,'Speaking'),
       output:out,
@@ -39553,7 +39548,7 @@
 
 
 
-  /* === v1z70 Speaking Oral Flow + Source Alignment === */
+  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
   const EAP_ANTI_MEMORIZATION_ENGINE = Object.freeze({
     version:'v1z62',
     scenariosPerSession:16,
@@ -41571,7 +41566,7 @@
   }
 
 
-  /* === v1z70 Speaking Oral Flow + Source Alignment === */
+  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
   const EAP_GOLD_BANK_ENGINE = Object.freeze({version:'v1z64',authoredSourcesPerSession:8,authoredSourcesTotal:120,questionAnglesPerTier:4,candidateMCQPerSession:128,candidateMCQTotal:1920,coreSupportTaskPacks:960,rule:'Gold authored sources are selected first; source, question angle, and answer position rotate before reuse.'});
   const EAP_GOLD_QUESTION_ANGLES={easy:['Which response best matches the source?','What is the clearest action or idea in this source?','Which choice directly follows the study situation?','Which answer uses the main point from the source?'],normal:['Which response connects the source idea with its supporting detail?','Which choice explains the relationship in this source most clearly?','Which answer uses the evidence instead of a small unrelated detail?','Which study decision is best supported by this source?'],hard:['Which response makes the most careful evidence-based interpretation?','Which choice explains a useful conclusion without overclaiming?','Which response identifies a reason, evidence, or limit from the source?','Which answer shows critical use of the source information?'],challenge:['Which balanced judgement is best supported by the source?','Which response makes a justified conclusion and still names a limitation?','Which choice compares the evidence with a careful condition?','Which B1+ conclusion avoids both overclaiming and underusing evidence?']};
   function goldBankRoot(){return (typeof window!=='undefined'&&window.EAP_GOLD_AUTHORED_BANK)?window.EAP_GOLD_AUTHORED_BANK:null;}
@@ -41602,7 +41597,7 @@
 
 
 
-  /* === v1z70 Speaking Oral Flow + Source Alignment === */
+  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
   const EAP_GOLD_TASK_ALIGNMENT = Object.freeze({
     version:'v1z65',
     rule:'Gold authored source → task-specific help → source-aware AI hint. No legacy generic frame may override a Gold task.',
@@ -41869,7 +41864,7 @@
 
 
 
-  /* === v1z70 Speaking Oral Flow + Source Alignment === */
+  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
   const EAP_GOLD_SOURCE_INTEGRITY = Object.freeze({
     version:'v1z66',
     rule:'A Gold source must show only its own scenario text. Generic Session explanations belong in help, not in the source passage.'
@@ -41896,7 +41891,7 @@
   }
 
 
-  /* === v1z70 Speaking Oral Flow + Source Alignment === */
+  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
   const EAP_SCORE_RUBRIC_RECONCILIATION = Object.freeze({
     version:'v1z67',
     rule:'Mission Task Score, formative task checklist, and independence evidence are separate signals. They must not look like competing grades.',
@@ -42130,14 +42125,14 @@
 
 
 
-  /* === v1z70 Speaking Oral Flow + Source Alignment === */
+  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
   const EAP_SPEAKING_ORAL_FLOW = Object.freeze({
     version:'v1z70',
     rule:'Speaking is an oral task first. Timer + required oral checklist create the mission score; transcript is optional evidence that improves feedback.',
     a2Rule:'A2 Foundation uses one topic, one source detail, and one clear closing. Signposting is optional.'
   });
 
-  function speakingTimeRangeForTask(task){
+  function legacySpeakingTimeRangeForTaskV1z70(task){
     const ranges = {
       easy:'25–35',
       normal:'35–45',
@@ -42147,7 +42142,7 @@
     return ranges[task?.tier || currentSkillDifficulty('Speaking').key || 'easy'] || '25–35';
   }
 
-  function buildSpeakingTaskBrief(task, source){
+  function legacyBuildSpeakingTaskBriefV1z70(task, source){
     const time = speakingTimeRangeForTask(task);
     const title = source?.title || task?.topic || 'this source';
     const sourceIdea = source?.main || source?.evidence || source?.passage || '';
@@ -42155,7 +42150,7 @@
     return `Speak for about ${time} seconds about “${title}.” State the topic, give one source detail, and finish with a clear closing.${compactIdea ? ` Source focus: ${compactIdea}` : ''}`;
   }
 
-  function speakingTranscriptPlaceholder(task, source){
+  function legacySpeakingTranscriptPlaceholderV1z70(task, source){
     const title = source?.title || task?.topic || 'this source';
     const keys = Array.isArray(source?.keywords) ? source.keywords : [];
     const clue = keys.length ? keys.slice(0,3).join(', ') : 'one source detail';
@@ -42189,7 +42184,7 @@
     return !!checks[key];
   }
 
-  function taskAlignedGoldSpeakingRubric(entry, source){
+  function legacyTaskAlignedGoldSpeakingRubricV1z70(entry, source){
     const p = entry || {};
     const required = Math.max(1, Number(p.requiredSpeakingSeconds || 25));
     const seconds = Math.max(0, Number(p.speakingSeconds || 0));
@@ -42247,12 +42242,212 @@
     };
   }
 
-  function aiFormativeRubric(entry){
+  function legacyAIFormativeRubricV1z70(entry){
     const p = entry || {};
     const skill = normalizeAbilitySkill(p.skill);
     const source = goldSourceFromEntry(p);
     if(skill === 'Speaking' && source) return taskAlignedGoldSpeakingRubric(p, source);
     return legacyTaskAlignedAIFormativeRubricV1z67(p);
+  }
+
+
+
+  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
+  const EAP_EASY_SPEAKING_LADDER = Object.freeze({
+    version:'v1z71',
+    principle:'Speak clearly before speaking long. A2 requires two short source-based sentences; transcript is never a pass requirement.',
+    levels:{
+      easy:{
+        key:'easy',
+        label:'A2 Foundation',
+        cefr:'A2',
+        timeRange:'12–18',
+        minSeconds:12,
+        maxSeconds:18,
+        sentenceGoal:'2 short sentences',
+        studentInstruction:'Say two short sentences: name the topic, then say one action or detail from the source.',
+        requirements:[
+          {key:'topic',short:'Topic',label:'I named the topic'},
+          {key:'detail',short:'One source action/detail',label:'I gave one source action/detail'}
+        ],
+        frames:['This source is about ___.','The student ___.']
+      },
+      normal:{
+        key:'normal',
+        label:'A2+ Bridge',
+        cefr:'A2+',
+        timeRange:'18–25',
+        minSeconds:18,
+        maxSeconds:25,
+        sentenceGoal:'3 short sentences',
+        studentInstruction:'Say three short sentences: topic, one source detail, and a short closing.',
+        requirements:[
+          {key:'topic',short:'Topic',label:'I named the topic'},
+          {key:'detail',short:'One source detail',label:'I gave one source detail'},
+          {key:'closing',short:'Short closing',label:'I gave a short closing'}
+        ],
+        frames:['This source is about ___.','The student ___.','This is a clear study plan.']
+      },
+      hard:{
+        key:'hard',
+        label:'B1 Core',
+        cefr:'B1',
+        timeRange:'30–40',
+        minSeconds:30,
+        maxSeconds:40,
+        sentenceGoal:'4 short sentences',
+        studentInstruction:'Give a short organized explanation: topic, one source detail, why it is useful, and a closing.',
+        requirements:[
+          {key:'topic',short:'Topic',label:'I introduced the topic'},
+          {key:'detail',short:'Source detail',label:'I gave one source detail'},
+          {key:'reason',short:'Why useful',label:'I explained why it is useful'},
+          {key:'closing',short:'Closing',label:'I ended clearly'}
+        ],
+        frames:['Today, I will explain ___.','For example, ___.','This is useful because ___.','In conclusion, ___.']
+      },
+      challenge:{
+        key:'challenge',
+        label:'B1+ Stretch',
+        cefr:'B1+',
+        timeRange:'45–60',
+        minSeconds:45,
+        maxSeconds:60,
+        sentenceGoal:'4–5 connected sentences',
+        studentInstruction:'Give a balanced source-based response: topic, evidence, why it matters, and a careful conclusion.',
+        requirements:[
+          {key:'topic',short:'Topic',label:'I introduced the topic'},
+          {key:'detail',short:'Evidence',label:'I gave one evidence/detail point'},
+          {key:'reason',short:'Why it matters',label:'I explained why it matters'},
+          {key:'closing',short:'Careful conclusion',label:'I gave a careful conclusion'}
+        ],
+        frames:['The source suggests ___.','The evidence is ___.','This may matter because ___.','However, ___.']
+      }
+    }
+  });
+
+  function easySpeakingProfileByKey(key){
+    return EAP_EASY_SPEAKING_LADDER.levels[String(key || 'easy')] || EAP_EASY_SPEAKING_LADDER.levels.easy;
+  }
+
+  function easySpeakingProfileForTask(task){
+    const key = task?.tier || currentSkillDifficulty('Speaking').key || 'easy';
+    return easySpeakingProfileByKey(key);
+  }
+
+  function applyEasySpeakingProfile(task, source){
+    const profile = easySpeakingProfileForTask(task);
+    task.tier = profile.key;
+    task.minSeconds = profile.minSeconds;
+    task.maxSeconds = profile.maxSeconds;
+    task.target = `${profile.timeRange} seconds · ${profile.sentenceGoal}`;
+    task.instruction = profile.studentInstruction;
+    task.speakingProfile = profile.key;
+    task.source = source || task.source || null;
+    return profile;
+  }
+
+  function speakingTimeRangeForTask(task){
+    return easySpeakingProfileForTask(task).timeRange;
+  }
+
+  function buildSpeakingTaskBrief(task, source){
+    const profile = easySpeakingProfileForTask(task);
+    const title = source?.title || task?.topic || 'this source';
+    return `${profile.studentInstruction} Source: “${title}.”`;
+  }
+
+  function speakingTranscriptPlaceholder(task, source){
+    const profile = easySpeakingProfileForTask(task);
+    const title = source?.title || task?.topic || 'this source';
+    return `Optional notes for “${title}”. ${profile.frames.join(' ')}`;
+  }
+
+  function speakingPromptFromVariant(s, mv){
+    const gold = mv.goldPack || null;
+    const source = gold?.source || null;
+    const profile = easySpeakingProfileByKey(gold?.tier || 'easy');
+    if(gold && source){
+      return {
+        title:source.title || 'Speaking Task',
+        instruction:profile.studentInstruction,
+        topic:source.title || mv.topic,
+        passage:source.passage || mv.passage,
+        source,
+        gold:true,
+        variantId:gold.id || mv.variant?.id || 'speaking'
+      };
+    }
+    return legacySpeakingPromptFromVariantV1z70(s, mv);
+  }
+
+  function easySpeakingGuideHTML(profile, source){
+    const title = source?.title || 'this source';
+    const keywords = Array.isArray(source?.keywords) ? source.keywords.slice(0,3) : [];
+    return `<div class="easy-speaking-guide">
+      <div class="easy-speaking-guide-head"><b>Say these ${profile.requirements.length} things</b><span>${safe(profile.label)} · ${safe(profile.cefr)}</span></div>
+      <div class="easy-speaking-steps">${profile.requirements.map((r,i)=>`<div><b>${i+1}</b><span>${safe(r.short)}</span></div>`).join('')}</div>
+      <div class="easy-speaking-frames">${profile.frames.map(f=>`<span>${safe(f)}</span>`).join('')}</div>
+      <p class="mini-note">Source: ${safe(title)}${keywords.length ? ` · Useful words: ${safe(keywords.join(' · '))}` : ''}</p>
+    </div>`;
+  }
+
+  function taskAlignedGoldSpeakingRubric(entry, source){
+    const p = entry || {};
+    const profile = easySpeakingProfileByKey(p.speakingProfile || p.difficulty || 'easy');
+    const required = Math.max(1, Number(p.requiredSpeakingSeconds || profile.minSeconds));
+    const seconds = Math.max(0, Number(p.speakingSeconds || 0));
+    const checklist = p.oralChecklist || {};
+    const durationScore = seconds >= required ? 4 : seconds >= Math.round(required * .8) ? 3 : seconds > 0 ? 1 : 0;
+    const criteria = [
+      aiSuiteCriterion('Speaking','fluency',durationScore, `${seconds}/${required} seconds on task`)
+    ];
+    criteria[0].label = 'Time on Task';
+    profile.requirements.forEach(r=>{
+      const score = checklist[r.key] ? 4 : 0;
+      const criterion = aiSuiteCriterion('Speaking', r.key === 'topic' ? 'opening' : r.key === 'detail' ? 'evidence' : r.key === 'reason' ? 'fluency' : 'qa',
+        score,
+        checklist[r.key] ? `${r.short} confirmed` : `${r.short} not confirmed`
+      );
+      criterion.label = r.short;
+      criteria.push(criterion);
+    });
+
+    const total = Math.round(criteria.reduce((sum,c)=>sum + Number(c.score || 0),0) / (criteria.length * 4) * 100);
+    const strengths = criteria.filter(c=>c.score>=3).slice(0,2);
+    const growth = criteria.filter(c=>c.score<3).sort((a,b)=>a.score-b.score).slice(0,2);
+    const weakest = growth[0]?.label || '';
+    const nextStep = weakest === 'Time on Task'
+      ? `Next time, keep speaking until the ${required}-second target.`
+      : weakest
+        ? `Next time, add: ${weakest}.`
+        : `Try a fresh ${profile.label} source with the same short speaking pattern.`;
+    const didWell = strengths.length
+      ? `Strongest oral evidence: ${strengths.map(x=>x.label).join(' and ')}.`
+      : 'Your oral task was recorded. Use the short sentence frames on the next attempt.';
+    return {
+      skill:'Speaking',
+      total,
+      criteria,
+      strengths:strengths.map(x=>x.label),
+      growth:growth.map(x=>x.label),
+      didWell,
+      nextStep,
+      sourceAligned:true,
+      sourceId:source.id,
+      sourceTitle:source.title,
+      oralFirst:true,
+      speakingProfile:profile.key,
+      note:'Speaking is assessed from time and the short oral elements for this level. Transcript/notes are optional feedback evidence and are not required to pass.',
+      at:new Date().toISOString()
+    };
+  }
+
+  function aiFormativeRubric(entry){
+    const p = entry || {};
+    const skill = normalizeAbilitySkill(p.skill);
+    const source = goldSourceFromEntry(p);
+    if(skill === 'Speaking' && source && p.oralChecklist) return taskAlignedGoldSpeakingRubric(p, source);
+    return legacyAIFormativeRubricV1z70(p);
   }
 
 
@@ -42354,6 +42549,11 @@
     reconcileLearningReportsV1z67,
     reportStatusLabel,
     EAP_SPEAKING_ORAL_FLOW,
+    EAP_EASY_SPEAKING_LADDER,
+    easySpeakingProfileByKey,
+    easySpeakingProfileForTask,
+    applyEasySpeakingProfile,
+    easySpeakingGuideHTML,
     speakingTimeRangeForTask,
     buildSpeakingTaskBrief,
     speakingTranscriptPlaceholder,

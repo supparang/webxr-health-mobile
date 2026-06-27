@@ -2622,3 +2622,124 @@ textarea.compact-speaking-box{
   .speaking-checklist{grid-template-columns:1fr}
   .speaking-brief{display:grid}
 }
+
+
+/* === v1z71 Easy Speaking Ladder A2–B1+ === */
+.easy-speaking-brief{
+  border-color:rgba(45,212,191,.48);
+  background:linear-gradient(90deg,#ecfdf5,#f0fdfa);
+}
+.easy-speaking-brief b{
+  color:#065f46;
+}
+.easy-speaking-oral-card{
+  max-width:980px;
+  margin-left:auto;
+  margin-right:auto;
+}
+.easy-speaking-target-row span{
+  background:#dcfce7;
+  color:#14532d;
+  border-color:#86efac;
+}
+.easy-speaking-guide{
+  margin:14px 0 4px;
+  padding:13px;
+  border-radius:16px;
+  background:rgba(236,253,245,.12);
+  border:1px solid rgba(167,243,208,.36);
+}
+.easy-speaking-guide-head{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:10px;
+}
+.easy-speaking-guide-head b{
+  color:#bbf7d0;
+}
+.easy-speaking-guide-head span{
+  padding:4px 8px;
+  border-radius:999px;
+  background:rgba(255,255,255,.12);
+  font-size:.8rem;
+  font-weight:850;
+}
+.easy-speaking-steps{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+  gap:9px;
+}
+.easy-speaking-steps > div{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px;
+  border-radius:12px;
+  background:rgba(255,255,255,.10);
+}
+.easy-speaking-steps b{
+  display:inline-grid;
+  place-items:center;
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  background:#bbf7d0;
+  color:#14532d;
+}
+.easy-speaking-frames{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:11px;
+}
+.easy-speaking-frames span{
+  padding:8px 10px;
+  border-radius:11px;
+  background:#fff7cc;
+  border:1px solid #fcd34d;
+  color:#78350f;
+  font-weight:900;
+}
+.speaking-evidence-drawer{
+  margin:13px 0;
+  padding:0;
+  border:1px solid rgba(148,163,184,.34);
+  border-radius:14px;
+  background:rgba(15,23,42,.20);
+  overflow:hidden;
+}
+.speaking-evidence-drawer summary{
+  cursor:pointer;
+  padding:11px 13px;
+  font-weight:850;
+  color:#dbeafe;
+}
+.speaking-evidence-drawer[open] summary{
+  border-bottom:1px dashed rgba(255,255,255,.16);
+}
+.speaking-evidence-drawer .speaking-evidence-note,
+.speaking-evidence-drawer textarea{
+  margin-left:13px;
+  margin-right:13px;
+}
+.speaking-evidence-drawer textarea{
+  width:calc(100% - 26px);
+  margin-bottom:13px;
+}
+textarea.compact-speaking-box{
+  min-height:116px !important;
+  height:116px;
+  max-height:220px;
+}
+.easy-speaking-checklist{
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+}
+.easy-speaking-checklist .choice{
+  min-height:50px;
+}
+@media(max-width:520px){
+  .easy-speaking-steps{grid-template-columns:1fr}
+  .easy-speaking-guide-head{display:grid}
+}
