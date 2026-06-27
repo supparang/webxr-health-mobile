@@ -2,68 +2,660 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1230" />
-  <title>W2 Design Thinking Sprint • UX Quest</title>
-  <link rel="stylesheet" href="./css/uxq-core.css" />
-  <link rel="stylesheet" href="./css/uxq-mobile.css" />
-  <link rel="stylesheet" href="./css/uxq-w2.css" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#081a42" />
+  <title>CSAI2601 • W2 Design Thinking Studio</title>
+  <style>
+    :root{
+      --navy:#081a42;--navy2:#122a68;--ink:#16264c;--muted:#63749c;--line:#d9e4ff;
+      --panel:#fff;--soft:#f4f7ff;--blue:#4267f5;--blue2:#283dd5;--mint:#0fa97e;--mint-soft:#e7fbf4;
+      --amber:#b26a08;--amber-soft:#fff3d8;--rose:#bd4260;--rose-soft:#fff0f3;--shadow:0 20px 58px rgba(4,19,62,.21);
+      --radius:26px;--radius-sm:16px;
+    }
+    *{box-sizing:border-box} html{background:var(--navy)} body{margin:0;min-height:100vh;color:#fff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,sans-serif;background:radial-gradient(circle at 11% 0%,#274caa 0,transparent 31%),linear-gradient(154deg,#071536,#11295f)}
+    button,a,input,textarea{font:inherit} button{touch-action:manipulation} button:focus-visible,a:focus-visible,textarea:focus-visible{outline:3px solid #9edcff;outline-offset:3px}
+    .shell{width:min(1180px,calc(100% - 30px));margin:0 auto;padding:20px 0 46px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:18px}.brand{display:inline-flex;align-items:center;gap:10px;color:#fff;text-decoration:none}.brand-mark{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(145deg,#85a3ff,#5869fa);font-weight:900;box-shadow:0 9px 22px rgba(72,91,251,.46)}.brand strong{display:block;font-size:17px;line-height:1.1}.brand small{display:block;margin-top:3px;color:#c6d2fd;font-size:12px}.hud{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.pill,.exit{display:inline-flex;align-items:center;gap:6px;min-height:37px;padding:8px 11px;border:1px solid rgba(213,226,255,.24);border-radius:999px;background:rgba(255,255,255,.1);color:#fff;font-size:13px}.pill span{color:#cdd8fc}.exit{cursor:pointer}.exit:hover{background:rgba(255,255,255,.17)}
+    .hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:25px 29px;margin-bottom:17px;border:1px solid rgba(201,218,255,.25);border-radius:var(--radius);background:linear-gradient(101deg,rgba(55,83,194,.55),rgba(19,37,87,.76));box-shadow:var(--shadow)}.eyebrow{margin:0 0 8px;color:#b9c9ff;font-size:11px;font-weight:900;letter-spacing:.11em}.hero h1{margin:0;font-size:clamp(30px,4vw,46px);letter-spacing:-.035em}.hero p:not(.eyebrow){max-width:700px;margin:9px 0 0;color:#e0e8ff;line-height:1.6}.hero-callout{width:min(270px,100%);padding:14px;border:1px solid rgba(235,242,255,.24);border-radius:17px;background:rgba(7,20,61,.38);color:#dce7ff;font-size:13px;line-height:1.48}.hero-callout b{display:block;margin-bottom:4px;color:#fff}
+    .rail{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 18px}.phase{display:flex;align-items:center;justify-content:center;gap:7px;min-height:43px;padding:9px;border:1px solid rgba(214,227,255,.19);border-radius:14px;background:rgba(255,255,255,.09);color:#c4d0f5;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.phase b{display:grid;place-items:center;width:22px;height:22px;flex:0 0 auto;border-radius:50%;background:rgba(255,255,255,.15);font-size:11px}.phase.active{background:#fff;color:#20315e;box-shadow:0 8px 19px rgba(2,12,43,.2)}.phase.active b{background:var(--blue);color:#fff}.phase.done{border-color:rgba(68,219,177,.46);color:#d1fced}.phase.done b{background:var(--mint);color:#07372a}
+    .stage{min-height:560px}.card{padding:28px;border-radius:var(--radius);background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}.card h2{margin:0 0 10px;font-size:clamp(26px,3.4vw,37px);letter-spacing:-.035em}.card p{line-height:1.62}.muted{color:var(--muted)}.note{padding:14px 16px;border:1px solid #dce6ff;border-left:4px solid var(--blue);border-radius:0 15px 15px 0;background:#f7f9ff;color:#334675;line-height:1.55}.note strong{display:block;margin-bottom:3px}.tag{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:#e9eeff;color:#3a57cd;font-size:11px;font-weight:900}.tag.mint{background:var(--mint-soft);color:#08785a}.tag.amber{background:var(--amber-soft);color:#a45e00}.tag.rose{background:var(--rose-soft);color:#ab3c57}
+    .mode-card{max-width:930px;margin:0 auto;text-align:center}.mode-card>p{max-width:720px;margin:0 auto;color:var(--muted)}.overview{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin:23px 0}.overview div{padding:14px;border-radius:16px;background:#f5f7fe}.overview span{display:block;color:#7181a5;font-size:12px;font-weight:800}.overview b{display:block;margin-top:4px;font-size:25px}.mode-list{display:grid;gap:12px;margin-top:22px;text-align:left}.mode-btn{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:13px;width:100%;padding:17px;border:1px solid #d7e2ff;border-radius:18px;background:#fff;color:#21325e;cursor:pointer;text-align:left;transition:.18s}.mode-btn:hover:not(:disabled){border-color:#90a7ff;background:#f8faff;transform:translateY(-1px);box-shadow:0 12px 22px rgba(53,74,176,.1)}.mode-btn:disabled{cursor:not-allowed;opacity:.48}.mode-icon{display:grid;place-items:center;width:43px;height:43px;border-radius:14px;background:#e8eeff;color:#3454d3;font-size:20px;font-weight:900}.mode-btn strong{display:block;font-size:17px}.mode-btn small{display:block;margin-top:4px;color:#647393;font-size:13px;line-height:1.45}.mode-arrow{color:#3856d5;font-weight:900}.locked-box{margin:22px 0;padding:18px;border:1px solid #f3c5cf;border-radius:17px;background:var(--rose-soft);color:#8f3750;text-align:left}.locked-box b{display:block;font-size:17px}
+    .brief-grid,.stage-grid{display:grid;grid-template-columns:minmax(305px,.87fr) minmax(440px,1.2fr);gap:17px}.mission-side,.work-side{padding:23px;border-radius:var(--radius);background:#fff;color:var(--ink);box-shadow:var(--shadow)}.mission-side h2,.work-side h2{margin:0 0 10px;font-size:28px;letter-spacing:-.03em}.kicker-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}.persona{margin:16px 0;padding:13px;border:1px solid #dce5f8;border-radius:15px;background:#fbfcff}.persona span{display:block;color:#6d7ea3;font-size:11px;font-weight:900;letter-spacing:.08em}.persona b{display:block;margin-top:4px;font-size:15px}.brief-table{display:grid;gap:8px;margin-top:16px}.brief-row{padding:11px 12px;border:1px solid #e3e9f6;border-radius:14px;background:#f8faff}.brief-row span{display:block;color:#6d7da1;font-size:10px;font-weight:900;letter-spacing:.09em}.brief-row b{display:block;margin-top:4px;font-size:14px;line-height:1.5}.socratic{margin-top:16px;padding:13px;border-radius:14px;background:#eff4ff;color:#385092;font-size:14px;line-height:1.55}.socratic b{display:block;margin-bottom:3px}.artifact{margin-top:15px;padding:13px;border:1px solid #cfe0ff;border-radius:15px;background:linear-gradient(135deg,#eff5ff,#f9fbff)}.artifact span{display:block;color:#4b61b9;font-size:10px;font-weight:900;letter-spacing:.1em}.artifact strong{display:block;margin-top:6px;line-height:1.5}.artifact small{display:block;margin-top:6px;color:#607096;line-height:1.5}
+    .signals{display:grid;gap:10px;margin:16px 0}.signal{position:relative;width:100%;padding:14px 15px;border:1px solid #dae4f8;border-radius:16px;background:#fff;color:#293862;cursor:pointer;text-align:left;transition:.16s}.signal:hover:not(.locked){border-color:#98adff;background:#f8faff}.signal.selected{border-color:var(--blue);background:#ebefff;box-shadow:0 8px 17px rgba(65,101,245,.13)}.signal.locked{cursor:default}.signal-top{display:flex;align-items:center;gap:8px}.check{display:grid;place-items:center;width:22px;height:22px;border:2px solid #b4c2e6;border-radius:7px;color:transparent;font-size:13px;font-weight:900}.selected .check{border-color:var(--blue);background:var(--blue);color:#fff}.signal b{font-size:14px}.signal p{margin:7px 0 0;color:#607098;font-size:13px;line-height:1.5}.signal small{display:block;margin-top:7px;color:#8491b2;font-size:11px;font-weight:750}.limit{margin:10px 0 0;color:#66779d;font-size:13px}.limit b{color:#3652d0}
+    .choice-set{display:grid;gap:11px;margin:16px 0}.choice{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:flex-start;gap:11px;width:100%;padding:15px;border:1px solid #dae4f7;border-radius:16px;background:#fff;color:#293861;cursor:pointer;text-align:left;transition:.16s}.choice:hover:not(.locked){border-color:#96aaff;background:#f8faff}.choice.selected{border-color:var(--blue);background:#edf1ff;box-shadow:0 8px 17px rgba(65,101,245,.13)}.choice .radio{width:21px;height:21px;min-width:21px;margin-top:1px;border:2px solid #b4c2e6;border-radius:50%}.choice.selected .radio{border:6px solid var(--blue)}.choice b{display:block;font-size:15px;line-height:1.45}.choice p{margin:5px 0 0;color:#647394;font-size:13px;line-height:1.48}.choice small{display:block;margin-top:6px;color:#5066bd;font-size:11px;font-weight:800}.subhead{margin:20px 0 8px;color:#3c52a2;font-size:12px;font-weight:900;letter-spacing:.08em}.actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:18px}.primary,.secondary{display:inline-flex;align-items:center;justify-content:center;min-height:45px;padding:11px 16px;border-radius:13px;font-weight:900;cursor:pointer;text-decoration:none}.primary{border:0;background:linear-gradient(135deg,var(--blue),var(--blue2));color:#fff;box-shadow:0 10px 20px rgba(45,65,201,.25)}.primary:hover:not(:disabled){filter:brightness(1.06);transform:translateY(-1px)}.primary:disabled{cursor:not-allowed;opacity:.42;box-shadow:none}.secondary{border:1px solid #cbd7fa;background:#f7f9ff;color:#2c48af}.secondary:hover{background:#edf2ff}.full{width:100%}
+    .test-panel{margin-top:17px;padding:16px;border:1px solid #d7e4ff;border-radius:18px;background:#f8faff}.metric-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:13px 0}.metric{padding:12px;border-radius:13px;background:#fff}.metric span{display:block;color:#7281a4;font-size:11px;font-weight:900}.metric b{display:block;margin-top:4px;font-size:19px}.test-story{padding:13px;border-left:4px solid var(--mint);border-radius:0 13px 13px 0;background:#effcf7;color:#255b4b;line-height:1.55}.test-story b{display:block;margin-bottom:3px}.gate-brief{padding:15px;border-radius:16px;background:#193775;color:#e7eeff;line-height:1.6}.gate-brief b{display:block;color:#fff;margin-bottom:5px}.gate-brief small{display:block;margin-top:6px;color:#c2d2ff}.gate-note{margin-top:14px;padding:12px 13px;border:1px solid #d8e4ff;border-radius:14px;background:#f8faff;color:#52658f;line-height:1.52}.gate-note b{display:block;color:#2d479f;margin-bottom:4px}
+    .debrief{max-width:1000px;margin:0 auto;text-align:center}.stars{margin:9px 0 12px;color:#dce4f8;font-size:39px;letter-spacing:5px}.stars .on{color:#ffb638;text-shadow:0 5px 13px rgba(255,170,34,.25)}.status-chip{display:inline-flex;margin:0 0 14px;padding:7px 11px;border-radius:999px;background:var(--rose-soft);color:#a53e57;font-size:13px;font-weight:900}.status-chip.ready{background:var(--mint-soft);color:#087b5b}.score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin:22px 0}.score-grid div{padding:14px;border-radius:15px;background:#f5f7fe}.score-grid span{display:block;color:#7281a5;font-size:11px;font-weight:900}.score-grid b{display:block;margin-top:4px;font-size:23px}.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:17px 0;text-align:left}.summary-card{padding:16px;border:1px solid #d8e3ff;border-radius:17px;background:#f8faff}.summary-card.good{border-color:#b6eedc;background:#f1fcf7}.summary-card.warn{border-color:#f2d69c;background:#fffaf0}.summary-card.review{border-color:#f6beca;background:#fff5f7}.summary-card span{display:inline-flex;padding:4px 8px;border-radius:999px;background:#e7edff;color:#3f5ace;font-size:10px;font-weight:900}.summary-card b{display:block;margin-top:9px;font-size:16px;line-height:1.42}.summary-card small{display:block;margin-top:7px;color:#637495;font-size:13px;line-height:1.52}.brief-output{margin:19px 0;padding:18px;border:1px solid #cfdcff;border-radius:18px;background:#f4f7ff;text-align:left}.brief-output h3{margin:0 0 10px;color:#233d96;font-size:20px}.brief-output-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.brief-output-grid div{padding:12px;border-radius:13px;background:#fff}.brief-output-grid span{display:block;color:#7181a5;font-size:10px;font-weight:900;letter-spacing:.09em}.brief-output-grid b{display:block;margin-top:5px;color:#293861;font-size:13px;line-height:1.52}.reflection{margin:18px 0;padding:17px;border:1px solid #d7e3ff;border-radius:18px;background:#fff;text-align:left}.reflection label{display:block;margin-bottom:7px;color:#30468e;font-weight:900}.reflection textarea{width:100%;min-height:95px;padding:12px;border:1px solid #ccd8f9;border-radius:13px;color:#293860;line-height:1.55;resize:vertical}.reflection small{display:block;margin-top:6px;color:#7282a5}.review-ticket{margin:20px 0;padding:19px;border:2px solid #8198ff;border-radius:20px;background:linear-gradient(145deg,#f4f7ff,#fff)}.review-ticket h3{margin:0 0 8px;color:#263fa1;font-size:22px}.review-ticket p{margin:0;color:#50628d;text-align:left}.review-focus{display:flex;gap:10px;align-items:flex-start;margin:14px 0;padding:13px;border:1px solid #c6d4ff;border-radius:15px;background:#fff;text-align:left}.review-focus .i{display:grid;place-items:center;width:35px;height:35px;min-width:35px;border-radius:12px;background:#e7edff;color:#3d59d3;font-weight:900}.review-focus b{display:block;color:#2e4595}.review-focus small{display:block;margin-top:3px;color:#617296;line-height:1.45}.ticket-meta{display:inline-flex;margin-bottom:13px;padding:6px 9px;border-radius:999px;background:#e4ebff;color:#4060c9;font-size:12px;font-weight:800}.action-stack{display:grid;gap:11px;margin-top:20px}.action-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:13px;width:100%;padding:15px;border:1px solid #d4e0fb;border-radius:17px;background:#fff;color:#253861;cursor:pointer;text-align:left;text-decoration:none}.action-row.primary{border-color:#4566f1;background:linear-gradient(135deg,#4669f5,#2c42cf);color:#fff}.action-row .action-icon{display:grid;place-items:center;width:41px;height:41px;border-radius:13px;background:#e6edff;color:#3e5bd3;font-size:20px;font-weight:900}.action-row.primary .action-icon{background:rgba(255,255,255,.16);color:#fff}.action-row strong{display:block;font-size:17px}.action-row small{display:block;margin-top:4px;color:#637494;font-size:13px}.action-row.primary small{color:#e2e8ff}.badge-row{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin:17px 0 0}.badge{display:inline-flex;padding:7px 10px;border-radius:999px;background:#e7edff;color:#3956c6;font-size:12px;font-weight:900}.badge.mint{background:var(--mint-soft);color:#087c5b}.badge.amber{background:var(--amber-soft);color:#a15e00}.badge.rose{background:var(--rose-soft);color:#ae415a}
+    dialog{width:min(590px,calc(100% - 28px));padding:29px;border:0;border-radius:22px;background:#fff;color:var(--ink);box-shadow:0 24px 70px rgba(0,8,36,.45)}dialog::backdrop{background:rgba(3,10,34,.66);backdrop-filter:blur(2px)}.dialog-close{position:absolute;right:11px;top:10px;width:35px;height:35px;border:0;border-radius:50%;background:#edf1fb;color:#3a4c75;font-size:22px;cursor:pointer}.dialog-title{margin:0 0 10px;font-size:27px}.dialog-text{color:#4c5d85;line-height:1.65}.verdict{display:inline-flex;margin:0 0 10px;padding:6px 9px;border-radius:999px;background:#e8fbf4;color:#087b5a;font-size:12px;font-weight:900}.principle{margin-top:14px;padding:13px;border-radius:14px;background:#eff4ff;color:#385092;line-height:1.55}.principle b{display:block;margin-bottom:4px}
+    @media(max-width:900px){.brief-grid,.stage-grid{grid-template-columns:1fr}.hero{align-items:flex-start}.hero-callout{width:100%}.mission-side,.work-side{padding:21px}.score-grid{grid-template-columns:repeat(2,1fr)}.summary-grid{grid-template-columns:1fr}.brief-output-grid{grid-template-columns:1fr}}
+    @media(max-width:680px){.shell{width:min(100% - 18px,680px);padding-top:12px}.topbar{display:grid;grid-template-columns:1fr;gap:10px}.hud{justify-content:flex-start}.hero{display:grid;grid-template-columns:1fr;padding:19px;border-radius:22px}.hero h1{font-size:31px}.hero p:not(.eyebrow){font-size:14px}.rail{gap:5px}.phase{min-height:40px;padding:6px 3px;font-size:0}.phase b{width:23px;height:23px;font-size:11px}.card,.mission-side,.work-side{padding:17px;border-radius:21px}.mode-card h2{font-size:29px}.overview{grid-template-columns:1fr 1fr}.overview div:last-child{grid-column:1/-1}.mode-btn{padding:13px}.mode-btn strong{font-size:15px}.mode-btn small{font-size:12px}.mode-arrow{display:none}.persona,.brief-row,.artifact{padding:12px}.choice,.signal{padding:13px}.choice b{font-size:14px}.choice p,.signal p{font-size:12px}.actions{display:grid;grid-template-columns:1fr}.primary,.secondary{width:100%}.metric-row{grid-template-columns:1fr;gap:7px}.metric{display:flex;align-items:center;justify-content:space-between}.metric b{margin:0}.score-grid{grid-template-columns:1fr 1fr}.brief-output{padding:14px}.action-row{padding:13px}.action-row strong{font-size:15px}.action-row small{font-size:12px}.review-ticket h3{font-size:19px}}
+  </style>
 </head>
-<body class="w2-page">
-  <main class="app-shell game-shell">
-    <header class="topbar w2-topbar">
-      <a class="brand" href="./index.html" aria-label="กลับ Mission Control">
-        <span class="brand-mark">UX</span>
-        <span><strong>UX Quest</strong><small>W2 • Design Thinking Sprint</small></span>
-      </a>
-      <div class="top-hud" aria-label="สถานะภารกิจ W2">
-        <span class="hud-pill"><span class="hud-label">Case</span><b id="caseValue">เลือกโหมด</b></span>
-        <span class="hud-pill"><span class="hud-label">Score</span><b id="scoreValue">0</b></span>
-        <span class="hud-pill"><span class="hud-label">Sprint</span><b id="sprintValue">100</b></span>
-        <button id="exitBtn" class="reset-btn" type="button">กลับโหมด</button>
-      </div>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="./index.html" aria-label="กลับ Mission Control"><span class="brand-mark">UX</span><span><strong>UX Quest</strong><small>W2 • Design Thinking Studio</small></span></a>
+      <div class="hud" aria-label="สถานะ Sprint"><span class="pill"><span>Sprint</span><b id="hudSprint">เลือกโหมด</b></span><span class="pill"><span>Score</span><b id="hudScore">0</b></span><span class="pill"><span>Evidence</span><b id="hudEvidence">—</b></span><button id="exitBtn" class="exit" type="button">กลับ Hub</button></div>
     </header>
 
-    <section class="mission-banner w2-banner">
-      <div>
-        <p class="eyebrow">MISSION 02 // HUMAN-CENTERED PROCESS</p>
-        <h1>Design Thinking Sprint</h1>
-        <p>อย่าเริ่มจากหน้าจอที่อยากทำ เริ่มจากหลักฐานผู้ใช้ แล้วพาทีมวนรอบ Empathize → Define → Ideate → Prototype → Test</p>
-      </div>
-      <button id="howBtn" class="ghost-btn" type="button">วิธีเล่น</button>
+    <section class="hero">
+      <div><p class="eyebrow">MISSION 02 // CSAI2601 WEEK 2</p><h1>Design Thinking Studio</h1><p>จาก “อยากทำฟีเจอร์นี้” ไปสู่ “เรามีหลักฐานพอหรือยังว่าแก้ปัญหานี้ให้ผู้ใช้?” ผ่าน Empathize → Define → Ideate → Prototype → Test</p></div>
+      <aside class="hero-callout"><b>Week 2 Design Challenge Brief v1</b>ทุก Sprint จะสร้างร่องรอยการคิด: ผู้ใช้ • บริบท • หลักฐาน • Problem Statement • HMW • สิ่งที่จะทดสอบ</aside>
     </section>
 
-    <nav id="phaseRail" class="phase-rail w2-phase-rail" aria-label="ขั้นตอน Design Thinking">
-      <span class="phase active"><b>1</b> Empathize</span>
-      <span class="phase"><b>2</b> Define</span>
-      <span class="phase"><b>3</b> Ideate</span>
-      <span class="phase"><b>4</b> Prototype</span>
-      <span class="phase"><b>5</b> Test & Iterate</span>
+    <nav class="rail" id="phaseRail" aria-label="Design Thinking phases">
+      <span class="phase"><b>1</b>Empathize</span><span class="phase"><b>2</b>Define</span><span class="phase"><b>3</b>Ideate</span><span class="phase"><b>4</b>Prototype</span><span class="phase"><b>5</b>Test</span>
     </nav>
-
-    <section id="gameStage" class="game-stage w2-stage" aria-live="polite"></section>
+    <section id="stage" class="stage" aria-live="polite"></section>
   </main>
 
-  <dialog id="howDialog" class="modal-dialog">
-    <button class="modal-close" data-close="howDialog" aria-label="ปิด" type="button">×</button>
-    <p class="eyebrow">HOW TO PLAY W2</p>
-    <h2>นำทีมจากหลักฐานไปสู่การเรียนรู้</h2>
-    <ol class="how-list">
-      <li><b>Empathize</b> — อ่าน User Signal โดยไม่ด่วนสรุปแทนผู้ใช้</li>
-      <li><b>Define</b> — เขียนปัญหาที่โฟกัสคนและความต้องการ ไม่กระโดดไปหา solution</li>
-      <li><b>Ideate</b> — เลือกแนวคิดที่ทดสอบสมมติฐานสำคัญก่อน</li>
-      <li><b>Prototype</b> — ทำต้นแบบเท่าที่จำเป็นเพื่อให้ผู้ใช้ลองทำ task จริง</li>
-      <li><b>Test & Iterate</b> — สังเกตพฤติกรรม แล้วกลับไปแก้ phase ที่ต้นเหตุ</li>
-    </ol>
-    <p class="muted">W2 เปิดเมื่อผ่าน W1 Crisis Casefile ระดับ 2★ Readiness</p>
-  </dialog>
+  <dialog id="feedbackDialog"><button class="dialog-close" type="button" data-close-dialog aria-label="ปิด">×</button><p class="eyebrow">SPRINT CHECK-IN</p><h2 class="dialog-title" id="dialogTitle"></h2><div class="verdict" id="dialogVerdict"></div><p class="dialog-text" id="dialogText"></p><div class="principle" id="dialogPrinciple"></div><button id="dialogContinue" class="primary full" type="button">ดำเนินการต่อ →</button></dialog>
 
-  <dialog id="feedbackDialog" class="modal-dialog feedback-dialog">
-    <button class="modal-close" data-close="feedbackDialog" aria-label="ปิด" type="button">×</button>
-    <div id="feedbackContent"></div>
-  </dialog>
+<script>
+(() => {
+  'use strict';
 
-  <script src="./js/uxq-w2-data.js?v=20260623-w1-v9-final"></script>
-  <script src="./js/uxq-w2-casefile-v13.js?v=20260625-casefile-gate"></script>
+  /* =========================================================
+     CSAI2601 • W2 DESIGN THINKING STUDIO • V2
+     Curriculum anchor: Week 2 slides
+     - Human-Centered Design: user, context, task, evidence
+     - Empathize → Define → Ideate → Prototype → Test
+     - Diverge / Converge and iteration
+     - Week 2 Design Challenge Brief v1 rubric
+     ========================================================= */
+
+  const W1_READINESS_KEY = 'csai2601-uxquest-casefile-readiness-v1';
+  const PROGRESS_KEY = 'csai2601-uxquest-w2-design-thinking-v2';
+  const SESSION_KEY = 'csai2601-uxquest-w2-design-thinking-session-v2';
+  const MAX_EVIDENCE = 3;
+  const CASES_PER_CYCLE = 24;
+
+  const $ = (selector) => document.querySelector(selector);
+  const stage = $('#stage');
+  const feedbackDialog = $('#feedbackDialog');
+  const dialogTitle = $('#dialogTitle');
+  const dialogVerdict = $('#dialogVerdict');
+  const dialogText = $('#dialogText');
+  const dialogPrinciple = $('#dialogPrinciple');
+  const dialogContinue = $('#dialogContinue');
+
+  const VARIANTS = [
+    {
+      id:'first-use', label:'เริ่มใช้ครั้งแรก',
+      persona:'นักศึกษาปี 1 ที่ยังไม่คุ้นระบบ',
+      context:'ใช้บริการครั้งแรกจากโทรศัพท์ส่วนตัวหลังเลิกเรียน',
+      modifier:'ยังไม่เข้าใจศัพท์และลำดับงานของระบบ',
+      need:'เริ่มงานได้โดยไม่ต้องเดาว่าควรทำอะไรก่อน',
+      quote:'“ฉันไม่แน่ใจว่าต้องเริ่มตรงไหน และกลัวไปผิดเมนู”'
+    },
+    {
+      id:'rushed-mobile', label:'มือถือ • เวลาจำกัด',
+      persona:'นักศึกษาปี 2 ที่กำลังใช้มือถือระหว่างเดินทาง',
+      context:'มีเวลาจำกัดและสลับดูข้อมูลระหว่างเดินทาง',
+      modifier:'ต้องตัดสินใจเร็วบนจอเล็กและไม่อยากย้อนกลับหลายหน้า',
+      need:'ทำงานหลักให้เสร็จเร็วพร้อมตรวจสอบได้',
+      quote:'“ฉันมีเวลาไม่มาก ขอรู้ว่าต้องกดอะไรและเสร็จแล้วหรือยัง”'
+    },
+    {
+      id:'low-confidence', label:'กังวลความผิดพลาด',
+      persona:'นักศึกษาที่กังวลว่าการยืนยันผิดจะกระทบสิทธิ์หรือเวลา',
+      context:'ใช้งานคนเดียวก่อนถึงกำหนดสำคัญ',
+      modifier:'กลัวกดผิดและไม่มั่นใจว่าระบบจะทำอะไรหลังยืนยัน',
+      need:'ตรวจสอบการตัดสินใจและรู้ผลลัพธ์ได้อย่างมั่นใจ',
+      quote:'“ฉันกลัวว่ากดแล้วจะแก้ไม่ได้ จึงไม่กล้ายืนยัน”'
+    }
+  ];
+
+  const BASE_CASES = [
+    {
+      id:'advisor', service:'Advisor Appointment', title:'นัดอาจารย์ที่ปรึกษา',
+      task:'เลือกช่วงเวลาว่างและยืนยันนัดคุยเรื่องแผนการเรียน',
+      friction:'เวลาว่างกระจายอยู่หลายที่ และผู้ใช้ไม่มั่นใจว่าการนัดถูกบันทึกแล้ว',
+      impact:'ผู้ใช้หยุดก่อนยืนยัน หรือนัดซ้ำผ่านช่องทางอื่น',
+      targetInsight:'ผู้ใช้ต้องเห็น “เวลาที่นัดได้จริง” และตรวจสอบรายละเอียดก่อนยืนยัน ไม่ใช่เพียงมีปฏิทินสวยขึ้น',
+      hmwFocus:'ช่วงเวลาว่างจริงและสถานะการยืนยันนัด',
+      evidence:[
+        ['Observation','ผู้ใช้ 4 จาก 5 คนเปิด Line ของอาจารย์สลับกับระบบนัด เพราะไม่แน่ใจว่าเวลาใดว่างจริง','core'],
+        ['Interview quote','“กดต่อไปแล้วฉันไม่รู้ว่านัดเสร็จหรือยัง”','core'],
+        ['Context note','การนัดผิดทำให้ผู้ใช้ต้องรอพบอาจารย์ใหม่อีกสัปดาห์','core'],
+        ['Stakeholder idea','ฝ่ายงานอยากเพิ่มหน้าโปรไฟล์อาจารย์ให้สวยและมีรูปกิจกรรม','side'],
+        ['Brand request','ทีมสื่อสารอยากให้ใช้ภาพแคมปัสเต็มหน้าจอ','noise']
+      ],
+      idea:{title:'Availability + confirmation flow',text:'จัดเส้นทางให้เห็นเวลาว่างจริง → เลือกหัวข้อ → ตรวจวัน เวลา อาจารย์ ก่อนยืนยัน',why:'ทดสอบว่า “ความแน่นอนก่อนยืนยัน” ลดการนัดซ้ำได้หรือไม่'},
+      altIdea:{title:'Meeting topic guide',text:'เพิ่มตัวอย่างหัวข้อที่นิยมปรึกษาเพื่อช่วยผู้ใช้เตรียมตัว',why:'มีประโยชน์ต่อการเตรียมพบ แต่ยังไม่พิสูจน์ปัญหาเวลาว่างและการยืนยัน'},
+      distractor:{title:'Advisor showcase',text:'ทำหน้าโปรไฟล์อาจารย์พร้อมข่าวกิจกรรมและบทความแนะนำ',why:'ช่วยภาพลักษณ์ แต่ไม่ช่วยให้ผู้ใช้นัดสำเร็จ'},
+      prototype:{title:'Clickable task flow 3 หน้าจอ',text:'เริ่มจากเลือกเวลาว่าง → กรอกหัวข้อ → ดู Booking Summary และยืนยัน',observe:'ผู้ใช้เห็นเวลาจริงและแยก “ต่อไป” ออกจาก “ยืนยันนัด” ได้หรือไม่'},
+      altPrototype:{title:'หน้าจอปฏิทินความละเอียดสูงทั้งระบบ',text:'ออกแบบปฏิทินทุกมุมมองพร้อมสีและไอคอนครบก่อนให้ผู้ใช้ทดลอง',observe:'ทีมตรวจความสวยของหน้าจอได้ แต่ยังไม่เห็นจุดลังเลของ task หลัก'},
+      bottleneck:'ความหมายของจุดก่อนยืนยันและข้อมูลที่ต้องตรวจใน Booking Summary',
+      principle:'Prototype ต้องเล็กพอที่จะทดสอบสมมติฐานเสี่ยงที่สุด ไม่ใช่ใหญ่พอที่จะดูเหมือนระบบเสร็จแล้ว'
+    },
+    {
+      id:'scholarship', service:'Scholarship Portal', title:'สมัครทุนการศึกษา',
+      task:'ตรวจว่าตนเองมีสิทธิ์สมัครทุนใดและเตรียมเอกสารก่อนส่ง',
+      friction:'เงื่อนไข เอกสาร และกำหนดการกระจายอยู่หลายหน้า',
+      impact:'ผู้ใช้เปิดข่าวทุนหลายรายการแต่ไม่เริ่มสมัคร หรือเตรียมเอกสารผิด',
+      targetInsight:'ผู้ใช้ต้องการเส้นทางสมัครตามคุณสมบัติของตนเองและลำดับเอกสาร ไม่ใช่ข่าวทุนที่มากขึ้น',
+      hmwFocus:'คุณสมบัติ เอกสาร และลำดับการสมัคร',
+      evidence:[
+        ['Session replay','ผู้ใช้ 61% เปิดข่าวทุนมากกว่า 3 รายการแต่ไม่เคยกดเริ่มสมัคร','core'],
+        ['Interview quote','“ฉันไม่รู้ว่าต้องเช็กคุณสมบัติก่อนหรือเตรียมเอกสารก่อน”','core'],
+        ['Service note','เอกสารขาดเป็นเหตุให้คำขอจำนวนมากถูกส่งกลับ','core'],
+        ['Content request','ฝ่ายประชาสัมพันธ์ขอเพิ่มข่าวทุนจากภายนอกในหน้าแรก','side'],
+        ['Visual suggestion','ทีมเสนอใช้ภาพรางวัลนักศึกษาเด่นให้มากขึ้น','noise']
+      ],
+      idea:{title:'Eligibility check + checklist',text:'ให้ผู้ใช้ตอบคำถามคุณสมบัติสั้น ๆ แล้วได้ Checklist เอกสารและลำดับการสมัครเฉพาะตน',why:'ทดสอบว่าเส้นทางตามคุณสมบัติช่วยให้เริ่มสมัครได้มั่นใจขึ้นหรือไม่'},
+      altIdea:{title:'ทุนแนะนำประจำสัปดาห์',text:'คัดข่าวทุนเด่นมาไว้บนสุดเพื่อให้ผู้ใช้เห็นมากขึ้น',why:'ช่วยค้นข่าว แต่ไม่แก้ความสับสนเรื่องคุณสมบัติและเอกสาร'},
+      distractor:{title:'Gallery ผู้ได้รับทุน',text:'เพิ่มเรื่องราวผู้ได้รับทุนเดิมเพื่อสร้างแรงบันดาลใจ',why:'สร้างแรงจูงใจได้ แต่ไม่ทำให้ผู้ใช้รู้ว่าต้องทำอะไรต่อ'},
+      prototype:{title:'Prototype เส้นทางตรวจสิทธิ์ 3 ขั้น',text:'ตอบคุณสมบัติ → เห็นผลเบื้องต้น → ได้ Checklist ที่เรียงตามลำดับงาน',observe:'ผู้ใช้บอกได้หรือไม่ว่าต้องทำอะไร “ก่อนส่ง” และ “หลังส่ง”'},
+      altPrototype:{title:'เอกสารรายละเอียดทุนครบทุกหน้า',text:'ทำหน้าข่าวทุนแบบละเอียดและออกแบบ typography ให้สวยก่อนทดสอบ',observe:'อ่านข้อมูลได้ แต่ไม่เห็นว่าผู้ใช้เลือกเส้นทางสมัครได้จริงหรือไม่'},
+      bottleneck:'ลำดับของ Checklist ว่าอะไรต้องทำก่อนเริ่มและอะไรเกิดหลังส่งคำขอ',
+      principle:'Define ที่ดีไม่เท่ากับ “ผู้ใช้อยากได้ข้อมูลเพิ่ม” แต่ระบุได้ว่าผู้ใช้ติดตรงการตัดสินใจใด'
+    },
+    {
+      id:'registration', service:'Course Registration', title:'ลงทะเบียนรายวิชา',
+      task:'เลือกวิชาและตรวจผลกระทบต่อตารางเรียนก่อนยืนยัน',
+      friction:'ผู้ใช้เห็นรหัสวิชาจำนวนมาก แต่ไม่ชัดว่าวิชาใดชนตารางหรือที่นั่งเหลือจริง',
+      impact:'ผู้ใช้ต้องเปิดหลายหน้ามาเทียบเอง และกลัวลงทะเบียนผิด',
+      targetInsight:'ผู้ใช้ต้องตัดสินใจจากข้อจำกัดสำคัญของตน เช่น เวลาชนและที่นั่ง ไม่ใช่ค้นรหัสวิชาให้เร็วขึ้นอย่างเดียว',
+      hmwFocus:'เวลาชนและที่นั่งคงเหลือก่อนเพิ่มวิชา',
+      evidence:[
+        ['Observation','ผู้ใช้สลับระหว่างหน้าค้นวิชาและตารางของตนเองเฉลี่ย 7 ครั้งต่อ task','core'],
+        ['Task log','2 จาก 5 คนเพิ่มวิชาที่ชนตารางแล้วค่อยย้อนกลับไปลบ','core'],
+        ['Interview quote','“ฉันเห็นชื่อวิชา แต่ไม่รู้ว่าชนตรงไหนจนกดไปอีกหน้า”','core'],
+        ['Faculty request','ภาควิชาขอเพิ่มคำอธิบายรายวิชายาวขึ้นในผลค้นหา','side'],
+        ['Brand request','ขอทำหน้ารายวิชาให้มีภาพประกอบทุกวิชา','noise']
+      ],
+      idea:{title:'Schedule-aware choice',text:'แสดงผลกระทบต่อ “ตารางของฉัน” พร้อมที่นั่งคงเหลือในจุดที่ผู้ใช้ตัดสินใจเพิ่มวิชา',why:'ทดสอบว่าผู้ใช้ตัดสินใจได้โดยไม่ต้องเปิดเทียบหลายหน้า'},
+      altIdea:{title:'Course description preview',text:'เพิ่มคำอธิบายรายวิชาแบบย่อในผลค้นหา',why:'ช่วยเข้าใจเนื้อหารายวิชา แต่ไม่ตอบข้อจำกัดเรื่องเวลาชน'},
+      distractor:{title:'Course discovery gallery',text:'จัดหมวดวิชาเป็นการ์ดภาพเพื่อให้หน้าค้นหาดูน่าสนใจ',why:'ช่วยการมองเห็น แต่ไม่ลดความเสี่ยงลงทะเบียนผิด'},
+      prototype:{title:'Clickable compare moment',text:'ต้นแบบค้นวิชา → แสดง conflict/seat signal → สรุปผลกระทบก่อนเพิ่มลงตาราง',observe:'ผู้ใช้ตีความว่า “ชนเต็มเวลา” หรือ “ชนบางช่วง” ได้ถูกหรือไม่'},
+      altPrototype:{title:'Mockup หน้าค้นหาทุก filter',text:'ทำหน้าค้นหาครบทุกตัวกรอง แต่ยังไม่เชื่อมกับตารางผู้ใช้',observe:'ทีมเห็น UI เยอะขึ้น แต่ไม่ทดสอบการตัดสินใจสำคัญ'},
+      bottleneck:'ความหมายของสัญญาณตารางชนและผลกระทบก่อนผู้ใช้ยืนยัน',
+      principle:'Human-centered design ให้ข้อมูลใน “จังหวะตัดสินใจ” ไม่ใช่เพียงเพิ่มข้อมูลในที่อื่น'
+    },
+    {
+      id:'library', service:'Library Digital Resources', title:'ค้นหาบทความวิชาการ',
+      task:'เริ่มค้นบทความสำหรับรายงานและเลือกแหล่งข้อมูลที่เหมาะ',
+      friction:'ผู้ใช้ไม่รู้ว่าควรเริ่มจากคำค้น ฐานข้อมูล หรือประเภทเอกสาร',
+      impact:'ผู้ใช้เลือกฐานข้อมูลแบบสุ่มหรือเลิกค้นก่อนเจอแหล่งที่ใช้ได้',
+      targetInsight:'ผู้ใช้ต้องการจุดเริ่มต้นตามหัวข้อและตัวอย่างคำค้น ไม่ใช่รายชื่อฐานข้อมูลที่ยาวขึ้น',
+      hmwFocus:'จุดเริ่มค้นและคำค้นที่เหมาะกับหัวข้อ',
+      evidence:[
+        ['Think-aloud','ผู้ใช้พูดว่า “ฐานไหนก็คล้ายกันหมด ฉันไม่รู้จะกดอันไหน” ก่อนออกจากหน้า','core'],
+        ['Observation','ผู้ใช้ 4 จาก 5 คนพิมพ์คำค้นกว้างมากและเปิดผลลัพธ์ที่ไม่เกี่ยวข้อง','core'],
+        ['Support log','คำถาม “เริ่มค้นบทความยังไง” เกิดซ้ำในช่วงส่งรายงาน','core'],
+        ['Librarian idea','เพิ่มรายชื่อฐานข้อมูลครบทุกประเภทบนหน้าแรก','side'],
+        ['Visual request','ใช้ภาพชั้นหนังสือขนาดใหญ่เป็น Hero section','noise']
+      ],
+      idea:{title:'Search starter by task',text:'เริ่มจากหัวข้อรายงาน แล้วเสนอคำค้นตัวอย่างและฐานข้อมูลเริ่มต้น 2–3 แห่งพร้อมเหตุผล',why:'ทดสอบว่าผู้ใช้เริ่มค้นอย่างมีทิศทางได้หรือไม่'},
+      altIdea:{title:'Database A–Z directory',text:'จัดรายชื่อฐานข้อมูลใหม่ตามตัวอักษรและเพิ่มคำอธิบายสั้น',why:'เป็นโครงสร้างที่ดีขึ้น แต่ยังทิ้งภาระเลือกจุดเริ่มต้นไว้กับผู้ใช้'},
+      distractor:{title:'Featured research wall',text:'เพิ่มบทความเด่นและภาพหัวข้อวิจัยที่กำลังนิยม',why:'ช่วยแรงบันดาลใจ แต่ไม่ช่วยให้ผู้ใช้สร้างคำค้นของตน'},
+      prototype:{title:'Prototype เริ่มค้น 3 จังหวะ',text:'เลือกหัวข้อ → เห็นคำค้นตัวอย่าง → เปิดฐานข้อมูลที่แนะนำพร้อม task ย่อย',observe:'ผู้ใช้ปรับคำค้นตามโจทย์รายงานได้หรือไม่'},
+      altPrototype:{title:'Library home redesign',text:'ออกแบบหน้าแรกห้องสมุดใหม่ทั้งหน้าและให้เพื่อนร่วมทีมวิจารณ์',observe:'ได้ความเห็นเรื่องความสวย แต่ไม่มี task test กับผู้ใช้จริง'},
+      bottleneck:'จุดที่ผู้ใช้เปลี่ยนจาก “หัวข้อกว้าง” เป็นคำค้นที่ทดสอบค้นหาได้',
+      principle:'Ideate ที่ดีเปิดทางเลือกหลายทาง แต่ Prototype ต้องเลือกคำถามเดียวที่คุ้มค่าจะเรียนรู้ก่อน'
+    },
+    {
+      id:'repair', service:'Campus Repair Service', title:'แจ้งซ่อมห้องเรียน',
+      task:'แจ้งอุปกรณ์ห้องเรียนเสียให้ถึงทีมที่รับผิดชอบและติดตามผลได้',
+      friction:'ผู้ใช้ไม่รู้ว่าต้องเลือกหมวดปัญหาใด และหลังส่งไม่รู้ว่าใครรับเรื่อง',
+      impact:'คำร้องไปผิดทีม ผู้ใช้ส่งซ้ำ หรือไม่กล้ารายงานปัญหาใหม่',
+      targetInsight:'ผู้ใช้ต้องอธิบายอาการด้วยภาษาคนและเห็นเลขงาน/สถานะหลังส่ง ไม่ใช่กรอกศัพท์เทคนิคละเอียดขึ้น',
+      hmwFocus:'วิธีระบุอาการและเส้นทางรับเรื่อง',
+      evidence:[
+        ['Task recording','ผู้ใช้หยุดที่ช่อง “ประเภทความขัดข้อง” นานกว่า 40 วินาทีและเปลี่ยนตัวเลือกหลายครั้ง','core'],
+        ['Interview quote','“โปรเจกเตอร์เปิดไม่ติด แต่ฉันไม่รู้ว่าอยู่หมวดระบบภาพหรือไฟฟ้า”','core'],
+        ['Service log','คำร้องที่ผิดหมวดใช้เวลาเฉลี่ยนานขึ้นก่อนถึงทีมช่างที่ถูกต้อง','core'],
+        ['Staff request','เจ้าหน้าที่เสนอเพิ่มช่องรายละเอียดเทคนิค 8 ช่องเพื่อคัดกรองให้แม่นขึ้น','side'],
+        ['Visual request','เพิ่มไอคอนเครื่องมือหลายรูปในหน้าแจ้งซ่อม','noise']
+      ],
+      idea:{title:'Symptom-first routing',text:'ถามด้วยภาษาคนว่า “อะไรใช้งานไม่ได้?” แล้วช่วยจัดหมวด พร้อมออกเลขงานและทางติดตาม',why:'ทดสอบว่าผู้ใช้ส่งเรื่องถูกทีมโดยไม่ต้องรู้ศัพท์เทคนิคหรือไม่'},
+      altIdea:{title:'Repair knowledge article',text:'เพิ่มบทความวิธีแก้ปัญหาอุปกรณ์เบื้องต้นก่อนให้แจ้งซ่อม',why:'ช่วยบางกรณี แต่ไม่แก้ความไม่แน่ใจเรื่องการส่งงานและติดตาม'},
+      distractor:{title:'Equipment photo gallery',text:'ทำหน้ารวมรูปอุปกรณ์ในแต่ละห้องเพื่อให้ระบบดูเป็นระเบียบ',why:'ให้ข้อมูลประกอบได้ แต่ไม่ช่วย routing task'},
+      prototype:{title:'Prototype ระบุอาการ → ห้อง → เลขงาน',text:'ให้ผู้ใช้แจ้ง “โปรเจกเตอร์เปิดไม่ติด” และดูว่าเลือกเส้นทาง/ติดตามงานต่อได้หรือไม่',observe:'ผู้ใช้เข้าใจว่าระบบรับเรื่องแล้วและรู้จะติดตามเลขงานที่ใดหรือไม่'},
+      altPrototype:{title:'แบบฟอร์มช่างฉบับเต็ม',text:'สร้างฟอร์มที่มีรายการอุปกรณ์และช่องเทคนิคครบก่อนทดสอบ',observe:'ทดสอบได้ว่าข้อมูลละเอียดพอสำหรับช่าง แต่ไม่เหมาะกับผู้รายงานทั่วไป'},
+      bottleneck:'การแปลง “อาการที่ผู้ใช้พูด” เป็นเส้นทางบริการและสถานะที่ติดตามได้',
+      principle:'Human-centered design ไม่บังคับให้ผู้ใช้คิดแบบองค์กรก่อนจึงจะขอความช่วยเหลือได้'
+    },
+    {
+      id:'clinic', service:'Campus Clinic Booking', title:'จองพบพยาบาล',
+      task:'เลือกเวลาพบพยาบาลและรู้ว่าต้องเตรียมอะไรโดยไม่กังวลความเป็นส่วนตัว',
+      friction:'ผู้ใช้ไม่แน่ใจว่าต้องเลือกอาการละเอียดแค่ไหน และกลัวว่าข้อมูลสุขภาพจะถูกเห็นโดยคนอื่น',
+      impact:'ผู้ใช้เลิกจองหรือเลือกข้อมูลไม่ตรง ทำให้ต้องอธิบายซ้ำเมื่อถึงคลินิก',
+      targetInsight:'ผู้ใช้ต้องมีทางเลือกบอกระดับข้อมูลที่จำเป็น พร้อมคำอธิบายความเป็นส่วนตัวและการยืนยันนัด',
+      hmwFocus:'ขอบเขตข้อมูลส่วนตัวและความมั่นใจก่อนยืนยัน',
+      evidence:[
+        ['Interview quote','“ฉันอยากจอง แต่ไม่อยากพิมพ์อาการละเอียดในระบบที่คนอื่นอาจเห็น”','core'],
+        ['Observation','ผู้ใช้ 3 จาก 5 คนหยุดที่ช่องอาการและกลับออกจากระบบก่อนเลือกเวลา','core'],
+        ['Policy note','คลินิกต้องการข้อมูลเบื้องต้นเพียงพอเพื่อจัดเวลา ไม่ต้องการประวัติสุขภาพละเอียดในขั้นจอง','core'],
+        ['Operations idea','เพิ่มแบบสอบถามอาการ 20 ข้อก่อนให้เลือกเวลา','side'],
+        ['Visual request','เพิ่มภาพคลินิกและคำแนะนำสุขภาพในหน้าจอง','noise']
+      ],
+      idea:{title:'Privacy-aware booking',text:'ให้เลือกเหตุผลการนัดระดับกว้าง ๆ อธิบายว่าใครเห็นข้อมูล และสรุปเวลา/วิธีเตรียมตัวก่อนยืนยัน',why:'ทดสอบว่าผู้ใช้จองได้โดยยังรู้สึกควบคุมข้อมูลของตน'},
+      altIdea:{title:'Health content feed',text:'เพิ่มบทความสุขภาพแนะนำตามอาการที่เลือก',why:'ให้ความรู้ได้ แต่ไม่ได้ลดความลังเลก่อนจอง'},
+      distractor:{title:'Clinic virtual tour',text:'ทำทัวร์ภาพพื้นที่คลินิกเพื่อให้ดูเป็นมิตร',why:'ช่วยภาพลักษณ์ แต่ไม่ตอบความกังวลด้านข้อมูลและการยืนยัน'},
+      prototype:{title:'Prototype เลือกเหตุผลกว้าง → เวลา → Privacy Summary',text:'ให้ผู้ใช้เลือกเวลาพบพยาบาลและอธิบายได้ว่าใครจะเห็นข้อมูลอะไร',observe:'ผู้ใช้รู้สึกปลอดภัยพอที่จะดำเนินการต่อหรือไม่'},
+      altPrototype:{title:'ฟอร์มประวัติสุขภาพฉบับยาว',text:'ทำแบบฟอร์มสุขภาพรายละเอียดสูงเพื่อให้ข้อมูลครบก่อนเริ่มนัด',observe:'ได้ข้อมูลมากขึ้น แต่ไม่ทดสอบการลดความกังวลของผู้ใช้'},
+      bottleneck:'ขอบเขตข้อมูลที่จำเป็นต่อการจองและสัญญาณความเป็นส่วนตัวที่ผู้ใช้เข้าใจ',
+      principle:'Context และความเสี่ยงของผู้ใช้เป็นส่วนหนึ่งของปัญหา ไม่ใช่รายละเอียดรองของหน้าจอ'
+    },
+    {
+      id:'study-room', service:'Study Room Booking', title:'จองห้องอ่านหนังสือ',
+      task:'เลือกห้อง วัน และเวลาเพื่อทำงานกลุ่ม พร้อมรู้ผลการจองทันที',
+      friction:'ผู้ใช้ไม่รู้ว่าห้องใดว่างจริง และไม่มั่นใจว่าระบบล็อกเวลาให้แล้วหรือยัง',
+      impact:'ผู้ใช้ส่งคำขอซ้ำหรือไปถึงห้องแล้วพบว่ามีคนใช้',
+      targetInsight:'ผู้ใช้ต้องเห็นความพร้อมใช้ตามเวลาและ Summary ที่ยืนยันห้อง/ช่วงเวลา ไม่ใช่ดูรูปห้องมากขึ้น',
+      hmwFocus:'ห้องว่างตามเวลาและสถานะการจอง',
+      evidence:[
+        ['System log','คำขอจองซ้ำเกิดสูงในช่วงเย็น แม้ผู้ใช้เคยกดส่งคำขอแล้ว','core'],
+        ['Think-aloud','“ฉันเห็นรายชื่อห้อง แต่ไม่รู้ว่าห้องนี้ว่างตอนที่ฉันเลือกหรือเปล่า”','core'],
+        ['Observation','ผู้ใช้ 4 จาก 5 คนมองหาข้อความยืนยันหลังส่ง แต่หน้าเปลี่ยนกลับไปหน้าแรก','core'],
+        ['Facility idea','เพิ่มรูป 360 องศาของทุกห้องในหน้ารายการ','side'],
+        ['Brand request','เพิ่มแบนเนอร์กิจกรรมห้องสมุดด้านบน','noise']
+      ],
+      idea:{title:'Time-first availability flow',text:'เริ่มจากเลือกช่วงเวลา → เห็นเฉพาะห้องว่างจริง → ตรวจ Summary ก่อนยืนยัน',why:'ทดสอบว่าผู้ใช้ตัดสินใจจองและรู้ผลได้โดยไม่ต้องเดา'},
+      altIdea:{title:'Room amenities guide',text:'เพิ่มตัวกรองอุปกรณ์และภาพห้องแบบละเอียด',why:'ช่วยเลือกห้องตามความต้องการ แต่ไม่พิสูจน์ว่าผู้ใช้รู้ผลการจอง'},
+      distractor:{title:'Study inspiration feed',text:'เพิ่มเนื้อหาแนะนำการอ่านและมุมถ่ายรูปในห้องสมุด',why:'ส่งเสริมภาพลักษณ์ แต่ไม่เกี่ยวกับ task จองห้อง'},
+      prototype:{title:'Prototype เลือกเวลา → ห้องว่าง → Booking Summary',text:'ให้ผู้ใช้จองห้องพรุ่งนี้ 13:00–15:00 และบอกข้อมูลที่ระบบยืนยัน',observe:'ผู้ใช้เข้าใจว่าห้องถูกจองแล้ว และรู้จะกลับมาดูการจองได้ที่ใดหรือไม่'},
+      altPrototype:{title:'Catalog ห้องครบทุก filter',text:'ออกแบบรายการห้องพร้อม filter ทุกแบบ แต่ไม่มี flow ยืนยันการจอง',observe:'เห็นความสามารถค้นหาห้อง แต่ไม่เห็นความมั่นใจหลังยืนยัน'},
+      bottleneck:'การเชื่อม “ช่วงเวลาที่เลือก” กับ “ห้องที่ว่างจริง” และหลักฐานว่าการจองเสร็จแล้ว',
+      principle:'Prototype ที่ดีต้องทำให้ผู้ใช้ทำ task เสี่ยงได้ครบ ไม่ใช่เพียงสำรวจข้อมูลได้มาก'
+    },
+    {
+      id:'bus', service:'Campus Shuttle', title:'ตามรถรับส่งมหาวิทยาลัย',
+      task:'เลือกจุดขึ้นและประเมินว่าจะถึงอาคารเรียนทันเวลาหรือไม่',
+      friction:'ตารางเดินรถเป็นข้อความยาวและไม่บอกว่าสถานะปัจจุบันสัมพันธ์กับจุดที่ผู้ใช้ยืนอย่างไร',
+      impact:'ผู้ใช้ไปผิดป้ายหรือรอรถผิดเส้นทางจนไปเรียนสาย',
+      targetInsight:'ผู้ใช้ต้องตัดสินใจจากจุดขึ้น/ปลายทาง/เวลาถึงโดยประมาณ ไม่ใช่อ่านตารางรถทั้งหมด',
+      hmwFocus:'จุดขึ้น เส้นทาง และเวลาถึงตามสถานการณ์',
+      evidence:[
+        ['Observation','ผู้ใช้เปิดตารางรถแล้วถามเพื่อนทันทีว่า “ตอนนี้ต้องรอสายไหน”','core'],
+        ['Journey note','นักศึกษาที่มีเรียนเช้าต้องตัดสินใจภายใน 1–2 นาทีว่าควรเดินไปป้ายใด','core'],
+        ['Interview quote','“ฉันไม่รู้ว่าตารางนี้คือเวลาออกจากต้นทางหรือเวลามาถึงป้ายฉัน”','core'],
+        ['Operations request','เพิ่มตารางเวลาเดินรถทุกเที่ยวเป็น PDF ดาวน์โหลดยาว 3 หน้า','side'],
+        ['Visual request','เพิ่มภาพรถรับส่งหลายมุมในหน้าแรก','noise']
+      ],
+      idea:{title:'Route-to-arrival decision',text:'ให้เลือกจุดขึ้น/ปลายทาง แล้วแสดงสายที่เหมาะ เวลาถึงโดยประมาณ และแผนสำรอง',why:'ทดสอบว่าผู้ใช้ตัดสินใจไปป้ายที่ถูกได้ภายในเวลาจำกัด'},
+      altIdea:{title:'Shuttle service FAQ',text:'เพิ่ม FAQ เรื่องเส้นทางและกติกาการขึ้นรถ',why:'ช่วยคำถามทั่วไป แต่ไม่ช่วยการตัดสินใจ ณ จุดและเวลาปัจจุบัน'},
+      distractor:{title:'Campus travel stories',text:'เพิ่มรีวิวเส้นทางท่องเที่ยวและภาพรถรุ่นใหม่',why:'ช่วยประชาสัมพันธ์ แต่ไม่ช่วยให้ผู้ใช้ไม่ไปสาย'},
+      prototype:{title:'Prototype จุดขึ้น → ปลายทาง → Arrival card',text:'ให้ผู้ใช้ไปอาคารเรียนภายใน 15 นาทีและเลือกป้าย/สายที่ควรใช้',observe:'ผู้ใช้เข้าใจเวลาเป็นเวลา “ถึงป้าย” หรือ “ออกจากต้นทาง” ได้หรือไม่'},
+      altPrototype:{title:'แผนที่ทุกเส้นทางแบบละเอียด',text:'สร้างแผนที่เต็มระบบมีทุกป้ายและทุกเส้นทางก่อนกำหนด task',observe:'ข้อมูลมากขึ้น แต่ไม่วัดการตัดสินใจเวลาจำกัด'},
+      bottleneck:'การแปลตารางและสถานะรถเป็นคำตอบว่า “ตอนนี้ควรไปป้ายไหนและจะถึงเมื่อไร”',
+      principle:'Design challenge ที่ดีระบุการตัดสินใจของผู้ใช้ในบริบทจริง ไม่ใช่บอกเพียงว่าหน้าเดิมข้อมูลไม่พอ'
+    }
+  ];
+
+  function esc(value){return String(value ?? '').replace(/[&<>'"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+  function safeParse(raw,fallback){try{return raw?JSON.parse(raw):fallback;}catch(error){return fallback;}}
+  function shuffle(items){const result=[...items];for(let i=result.length-1;i>0;i-=1){const j=Math.floor(Math.random()*(i+1));[result[i],result[j]]=[result[j],result[i]];}return result;}
+  function unique(items){return [...new Set(items)];}
+  function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
+  function textCaseTitle(challenge){return `${challenge.base.title} • ${challenge.variant.label}`;}
+  function pct(value){return `${Math.round(value)}%`;}
+  function starsHtml(count){return [1,2,3].map((n)=>`<span class="${n<=count?'on':''}">★</span>`).join('');}
+
+  function readW1(){
+    const record=safeParse(localStorage.getItem(W1_READINESS_KEY),{});
+    const w1=record && typeof record.w1==='object'?record.w1:{};
+    return {ready:Boolean(w1.ready),stars:Number(w1.bestStars)||0,source:w1.source||''};
+  }
+  function freshProgress(){return {seen:[],tutorialDone:false,tutorialBest:0,bestStars:0,bestScore:0,totalSprints:0,randomWins:0,updatedAt:null};}
+  function readProgress(){
+    const saved=safeParse(localStorage.getItem(PROGRESS_KEY),null);
+    return saved&&typeof saved==='object'?{...freshProgress(),...saved,seen:Array.isArray(saved.seen)?saved.seen:[]}:freshProgress();
+  }
+  let progress=readProgress();
+  function saveProgress(){
+    const light={...progress,seen:progress.seen.slice(-CASES_PER_CYCLE),updatedAt:new Date().toISOString()};
+    try{localStorage.setItem(PROGRESS_KEY,JSON.stringify(light));}catch(error){/* keep game playable if storage quota is unavailable */}
+  }
+  function saveSession(){
+    if(!state.mode||state.complete)return;
+    const light={mode:state.mode,challengeId:state.challenge?.id||null,phase:state.phase,evidence:state.evidence,problemId:state.problemId,hmwId:state.hmwId,ideaId:state.ideaId,prototypeId:state.prototypeId,testDecisionId:state.testDecisionId,bossId:state.bossId,score:state.score,energy:state.energy,reviewUsed:state.reviewUsed,reviewStage:state.reviewStage};
+    try{sessionStorage.setItem(SESSION_KEY,JSON.stringify(light));}catch(error){/* session resume is optional */}
+  }
+  function clearSession(){try{sessionStorage.removeItem(SESSION_KEY);}catch(error){}}
+
+  function buildChallenge(base,variant){
+    const id=`${base.id}--${variant.id}`;
+    const selectedSignals=base.evidence.map((item,index)=>({id:`e${index+1}`,type:item[0],text:item[1],kind:item[2]}));
+    const correctProblem={
+      id:'p-correct',correct:true,title:'Problem Statement ที่ยึดผู้ใช้',
+      text:`${variant.persona} ต้องการ ${base.task} ในบริบทที่${variant.context} เพราะ ${base.friction} และ${variant.modifier} ซึ่งส่งผลให้${base.impact}`
+    };
+    const solutionFirst={
+      id:'p-solution',correct:false,title:'Solution-first statement',
+      text:`ทีมควรสร้าง “${base.idea.title}” เพื่อทำให้ ${base.service} ทันสมัยและน่าใช้ขึ้น`
+    };
+    const tooBroad={
+      id:'p-broad',correct:false,title:'Broad statement',
+      text:`ผู้ใช้ทุกคนควรใช้งาน ${base.service} ได้ง่ายและรวดเร็วมากขึ้น`
+    };
+    const correctHmw={
+      id:'h-correct',correct:true,title:'How Might We ที่ยังไม่ล็อกคำตอบ',
+      text:`เราจะช่วย ${variant.persona} ให้ ${base.task} ได้อย่างมั่นใจขึ้น โดยลดความไม่แน่ใจเรื่อง ${base.hmwFocus} อย่างไร?`
+    };
+    const solutionHmw={id:'h-solution',correct:false,title:'HMW ที่ล็อก Solution',text:`เราจะเพิ่ม ${base.idea.title} ลงในระบบอย่างไร?`};
+    const genericHmw={id:'h-generic',correct:false,title:'HMW ที่กว้างเกิน',text:`เราจะทำให้ทุกคนชอบ ${base.service} มากที่สุดอย่างไร?`};
+    const ideas=[
+      {id:'i-correct',correct:true,...base.idea},
+      {id:'i-alt',correct:false,...base.altIdea},
+      {id:'i-distractor',correct:false,...base.distractor}
+    ];
+    const prototypes=[
+      {id:'pr-correct',correct:true,...base.prototype},
+      {id:'pr-alt',correct:false,...base.altPrototype},
+      {id:'pr-static',correct:false,title:'Presentation ก่อนทดลอง',text:'ทำสไลด์อธิบายแนวคิดและให้ทีมภายในโหวตว่าสวยหรือชอบมากที่สุด',observe:'ได้ความเห็นจากทีม แต่ไม่เห็นผู้ใช้ทำ task จริง'}
+    ];
+    return {
+      id,base,variant,title:textCaseTitle({base,variant}),signals:shuffle(selectedSignals),
+      problems:shuffle([correctProblem,solutionFirst,tooBroad]),hmws:shuffle([correctHmw,solutionHmw,genericHmw]),ideas:shuffle(ideas),prototypes:shuffle(prototypes),
+      correct:{problem:'p-correct',hmw:'h-correct',idea:'i-correct',prototype:'pr-correct'}
+    };
+  }
+  const BANK=BASE_CASES.flatMap((base)=>VARIANTS.map((variant)=>buildChallenge(base,variant)));
+  const BY_ID=new Map(BANK.map((c)=>[c.id,c]));
+
+  const state={
+    mode:null,challenge:null,phase:-1,score:0,energy:100,evidence:[],problemId:null,hmwId:null,ideaId:null,prototypeId:null,testDecisionId:null,bossId:null,reviewUsed:false,reviewStage:null,complete:false,reflection:''
+  };
+  function resetState(){Object.assign(state,{mode:null,challenge:null,phase:-1,score:0,energy:100,evidence:[],problemId:null,hmwId:null,ideaId:null,prototypeId:null,testDecisionId:null,bossId:null,reviewUsed:false,reviewStage:null,complete:false,reflection:''});}
+  function currentChallenge(){return state.challenge;}
+  function getOption(list,id){return list.find((item)=>item.id===id)||null;}
+  function exactEvidence(){const c=currentChallenge();if(!c)return 0;return state.evidence.filter((id)=>c.signals.find((signal)=>signal.id===id)?.kind==='core').length;}
+  function defineExact(){const c=currentChallenge();return Boolean(c&&state.problemId===c.correct.problem&&state.hmwId===c.correct.hmw);}
+  function ideaExact(){const c=currentChallenge();return Boolean(c&&state.ideaId===c.correct.idea);}
+  function prototypeExact(){const c=currentChallenge();return Boolean(c&&state.prototypeId===c.correct.prototype);}
+  function experimentExact(){return defineExact()&&ideaExact()&&prototypeExact();}
+  function evidenceLabel(){return state.challenge?`${exactEvidence()}/3`: '—';}
+  function active(){return Boolean(state.mode&&state.challenge&&!state.complete);}
+
+  function buildTestPlan(){
+    const c=currentChallenge();
+    if(!c)return null;
+    const accurateDefine=defineExact();
+    const accurateIdea=ideaExact();
+    const accuratePrototype=prototypeExact();
+    if(!accurateDefine){
+      return {
+        kind:'reframe', label:'กลับไป Define ด้วยหลักฐานเฉพาะจุด', success:'2/5', time:'2:30', confidence:'42%',
+        story:`ผู้ใช้บางคนทำ task ต่อได้ แต่เหตุผลที่ติดต่างกันมาก ทีมจึงยังตอบไม่ได้ว่า “ปัญหาหลัก” คืออะไร เพราะโจทย์ที่ตั้งไว้กว้างหรือข้ามจากอาการไป Solution เร็วเกินไป.`,
+        insight:'ผลนี้ยังไม่ยืนยันว่าควรเพิ่มฟีเจอร์ใด ต้องกลับไปเชื่อมผู้ใช้ • งาน • บริบท • อุปสรรคให้เป็น Problem Statement ที่ทดสอบได้',
+        choices:[
+          {id:'td-reframe',correct:true,title:'กลับไป Define และตรวจสมมติฐานที่ยังไม่ชัด',text:'ใช้หลักฐานเดิมร่วมกับคำถามติดตามเฉพาะจุด เพื่อเขียนโจทย์ที่ไม่กว้างและไม่ล็อก Solution'},
+          {id:'td-polish',correct:false,title:'ปรับสีและข้อความทุกหน้าพร้อมกัน',text:'ทำให้หน้าดูสม่ำเสมอขึ้นก่อน แล้วทดสอบใหม่ภายหลัง'},
+          {id:'td-ship',correct:false,title:'ปล่อยระบบตามแนวคิดเดิมให้ผู้ใช้จำนวนมากลอง',text:'เพิ่มปริมาณผู้ใช้ก่อน แม้ยังไม่รู้ว่ากำลังแก้ปัญหาอะไร'}
+        ]
+      };
+    }
+    if(!accurateIdea){
+      return {
+        kind:'ideate',label:'กลับไป Ideate เพื่อเลือกสมมติฐานที่ใช่',success:'3/5',time:'2:12',confidence:'55%',
+        story:`ผู้ใช้มีปฏิกิริยาต่อแนวคิดที่ทีมทำ แต่ช่วงที่ติดตาม ${esc(c.base.bottleneck)} ยังไม่ได้ถูกทดสอบตรง ๆ จึงไม่รู้ว่าแนวทางนี้ช่วย task หลักจริงหรือเพียงเพิ่มข้อมูลรอบข้าง.`,
+        insight:'ผล Test ชี้ว่าทีมกำลังทดลองคำถามคนละข้อกับ Problem Statement ต้องกลับไปเลือกแนวคิดที่แตะอุปสรรคหลัก',
+        choices:[
+          {id:'td-ideate',correct:true,title:'กลับไป Ideate และเลือกแนวคิดที่พิสูจน์อุปสรรคหลัก',text:'แตกทางเลือกใหม่ แล้วเลือกแนวคิดที่เปลี่ยนเงื่อนไขให้ผู้ใช้ทำ task หลักสำเร็จได้'},
+          {id:'td-morecontent',correct:false,title:'เพิ่มรายละเอียดเนื้อหาในแนวคิดเดิม',text:'ทำให้ผู้ใช้มีข้อมูลครบขึ้นก่อน โดยไม่เปลี่ยนสมมติฐานที่ทีมกำลังทดสอบ'},
+          {id:'td-rollout',correct:false,title:'ประกาศใช้แนวคิดนี้กับทุกคนทันที',text:'ใช้ผลที่ยังไม่ตรงกับ task หลักเป็นเหตุผลในการขยายระบบ'}
+        ]
+      };
+    }
+    if(!accuratePrototype){
+      return {
+        kind:'prototype',label:'กลับไป Prototype ให้เห็น task จริง',success:'3/5',time:'2:08',confidence:'58%',
+        story:`ผู้ใช้บอกความเห็นเรื่องหน้าจอได้ แต่ทีมยังไม่ได้เห็นจังหวะตัดสินใจสำคัญเรื่อง ${esc(c.base.bottleneck)} เพราะต้นแบบยังเป็นภาพรวม/เอกสาร ไม่ใช่ flow ที่ให้ทำ task.`,
+        insight:'เมื่อคำถามการทดสอบคือ “ผู้ใช้ทำงานสำเร็จหรือไม่” Prototype ต้องทำให้ผู้ใช้ลงมือทำงานนั้นได้',
+        choices:[
+          {id:'td-prototype',correct:true,title:'กลับไป Prototype จุดตัดสินใจสำคัญ แล้วทดสอบ task เดิม',text:'ทำต้นแบบขนาดเล็กที่ผู้ใช้คลิกผ่านช่วงเสี่ยงและสังเกตพฤติกรรมได้'},
+          {id:'td-hi-fi',correct:false,title:'ทำต้นแบบความละเอียดสูงทั้งระบบก่อน',text:'เพิ่มรายละเอียดภาพทุกหน้าเพื่อให้ดูใกล้ของจริงมากที่สุด'},
+          {id:'td-survey',correct:false,title:'เปลี่ยนเป็นแบบสอบถามความพึงพอใจทั่วไป',text:'เก็บความเห็นกว้าง ๆ แทนการดูผู้ใช้ทำ task'}
+        ]
+      };
+    }
+    return {
+      kind:'iterate',label:'ปรับจุดติดเล็กและทดสอบซ้ำ',success:'4/5',time:'1:28',confidence:'78%',
+      story:`ผู้ใช้ส่วนใหญ่ทำ ${esc(c.base.task)} สำเร็จจากต้นแบบ แต่ 2 คนยังลังเลที่ ${esc(c.base.bottleneck)} ก่อนกดขั้นสุดท้าย.`,
+      insight:'แนวคิดหลักมีหลักฐานสนับสนุนแล้ว แต่ยังต้อง Iterate จุดที่ผู้ใช้ลังเล และยืนยันว่าการปรับช่วย task จริง',
+      choices:[
+        {id:'td-iterate',correct:true,title:'ปรับจุดลังเลเฉพาะจุด แล้ว Retest task เดิม',text:`ทำให้ ${c.base.bottleneck} ชัดขึ้น แล้วดูว่าเวลา ความมั่นใจ และข้อผิดพลาดดีขึ้นหรือไม่`},
+        {id:'td-expand',correct:false,title:'เพิ่มฟีเจอร์ใหม่หลายส่วนก่อนทดสอบซ้ำ',text:'ขยายขอบเขตระบบเพื่อให้ดูครบ แม้ยังมีจุดติดใน flow หลัก'},
+        {id:'td-release',correct:false,title:'ประกาศว่า Prototype ผ่านแล้วและหยุดทดสอบ',text:'ใช้ความสำเร็จส่วนใหญ่เป็นเหตุผลที่จะไม่ตรวจจุดลังเลที่เหลือ'}
+      ]
+    };
+  }
+  function correctTestDecision(){const plan=buildTestPlan();return plan?.choices.find((choice)=>choice.correct)?.id||null;}
+  function testExact(){return Boolean(state.testDecisionId&&state.testDecisionId===correctTestDecision());}
+  function buildGate(){
+    const c=currentChallenge(); const plan=buildTestPlan();
+    const testReady=testExact();
+    const shouldHold=plan?.kind!=='iterate';
+    const correct={
+      id:'g-correct',correct:true,title:shouldHold?'Hold commitment • revise the brief':'Evidence-backed brief • focused retest',
+      text:shouldHold
+        ? `ส่ง Design Challenge Brief v1 ที่ระบุสิ่งที่รู้ สิ่งที่ยังไม่รู้ และย้อนกลับไป ${plan.label.toLowerCase()} ก่อน commit solution`
+        : `ส่ง Design Challenge Brief v1 ที่ระบุผู้ใช้ บริบท Insight และแผนปรับ ${c.base.bottleneck} แล้ว Retest task เดิมกับผู้ใช้เป้าหมาย`
+    };
+    const feature={id:'g-feature',correct:false,title:'Feature commitment',text:`เสนอให้พัฒนาฟีเจอร์ “${c.base.idea.title}” เต็มรูปแบบทันที เพราะทีมมีต้นแบบแล้ว`};
+    const vague={id:'g-vague',correct:false,title:'Generic project brief',text:'สรุปว่า “ทำระบบให้ใช้งานง่ายขึ้น” โดยยังไม่ระบุผู้ใช้ งาน หลักฐาน หรือสิ่งที่จะตรวจต่อ'};
+    // If the test decision is not aligned, no project gate should be considered valid; choices remain plausible but gate must first be evidence-led.
+    return {choices:shuffle([correct,feature,vague]),correctId:correct.id,testReady};
+  }
+  function bossExact(){const gate=buildGate();return Boolean(gate&&gate.testReady&&state.bossId===gate.correctId);}
+
+  function stageMeta(index){
+    return [
+      {label:'Empathize',thai:'เข้าใจผู้ใช้และบริบท',help:'เลือกหลักฐานที่ช่วยอธิบาย “ผู้ใช้กำลังพยายามทำอะไร และติดตรงไหน” ไม่ใช่สิ่งที่ทีมอยากทำ'},
+      {label:'Define',thai:'นิยามโจทย์ที่ควรแก้',help:'เขียน Problem Statement และ HMW ที่มีผู้ใช้ งาน บริบท อุปสรรค และผลกระทบ โดยยังไม่ล็อก Solution'},
+      {label:'Ideate',thai:'สร้างทางเลือกแล้วเลือกสมมติฐานที่เสี่ยง',help:'ทุกแนวคิดอาจมีประโยชน์ แต่ให้เลือกแนวคิดที่ทดสอบอุปสรรคหลักก่อน'},
+      {label:'Prototype',thai:'ทำให้สมมติฐานสัมผัสได้',help:'Prototype ไม่ต้องสมบูรณ์ ต้องพอให้ผู้ใช้ทำ task ที่มีความเสี่ยงจริง'},
+      {label:'Test & Iterate',thai:'เรียนรู้จากพฤติกรรมแล้วเลือกก้าวถัดไป',help:'ผล Test ไม่ใช่คะแนนผ่าน/ไม่ผ่าน แต่บอกว่าควร Iterate, กลับไปตั้งโจทย์ หรือทำ Prototype ใหม่'}
+    ][index];
+  }
+  function updateHud(){
+    $('#hudSprint').textContent=active()?`${state.mode==='tutorial'?'Tutorial':state.mode==='transfer'?'Transfer':'Random'} • ${state.phase>=0?state.phase+1+'/5':'Brief'}`:'เลือกโหมด';
+    $('#hudScore').textContent=active()?state.score:progress.bestScore||0;
+    $('#hudEvidence').textContent=active()?evidenceLabel():'—';
+    $('#exitBtn').textContent=active()?'ออกจาก Sprint':'กลับ Hub';
+  }
+  function updateRail(){
+    document.querySelectorAll('#phaseRail .phase').forEach((node,index)=>{
+      node.classList.toggle('active',active()&&state.phase===index);
+      node.classList.toggle('done',active()&&index<state.phase);
+    });
+  }
+  function scrollTop(){window.scrollTo({top:0,behavior:'smooth'});}
+
+  function modeSelect(){
+    const w1=readW1();
+    const transferUnlocked=progress.tutorialBest>=2||progress.randomWins>=1;
+    stage.innerHTML=`<section class="card mode-card">
+      <p class="eyebrow">W2 • HUMAN-CENTERED DESIGN PROCESS</p>
+      <h2>จาก Friction ที่เห็นใน W1 ไปสู่ Design Challenge ที่พิสูจน์ได้</h2>
+      <p>ทุก Sprint ใช้กรอบ Week 2: เริ่มจากผู้ใช้ บริบท งาน และหลักฐาน จากนั้นจึง Define, Ideate, Prototype และ Test แบบย้อนกลับได้เมื่อหลักฐานใหม่บอกว่าเราคิดผิด</p>
+      <div class="overview"><div><span>Design Challenges</span><b>${BANK.length}</b></div><div><span>Human contexts</span><b>${BASE_CASES.length}</b></div><div><span>Best stars</span><b>${starsHtml(progress.bestStars)}</b></div><div><span>Briefs made</span><b>${progress.totalSprints}</b></div></div>
+      ${w1.ready?`<div class="note"><strong>W1 Readiness confirmed • ${w1.stars}★</strong>คุณผ่าน W1 Casefile ระดับพร้อมต่อยอดแล้ว จึงเริ่ม Week 2 ได้โดยไม่ต้องย้อนกลับ Quiz เดิม</div>
+      <div class="mode-list">
+        <button class="mode-btn" type="button" data-mode="tutorial"><span class="mode-icon">1</span><span><strong>${progress.tutorialDone?'Review Tutorial Sprint':'First Route • Tutorial Sprint'}</strong><small>เดินผ่าน Case ตัวอย่างพร้อม Socratic Prompt และ Learning Check เพื่อเห็นความต่างระหว่าง Problem-first กับ Solution-first</small></span><b class="mode-arrow">→</b></button>
+        <button class="mode-btn" type="button" data-mode="random" ${progress.tutorialDone?'':'disabled'}><span class="mode-icon">↻</span><span><strong>Random Design Challenge</strong><small>${progress.tutorialDone?`สุ่ม 1 Challenge จาก Bank ${BANK.length} • ไม่ซ้ำก่อนครบ 24 Sprint`:'ผ่าน Tutorial ก่อนจึงเปิด Random Sprint'}</small></span><b class="mode-arrow">→</b></button>
+        <button class="mode-btn" type="button" data-mode="transfer" ${transferUnlocked?'':'disabled'}><span class="mode-icon">⚡</span><span><strong>Transfer Sprint</strong><small>${transferUnlocked?'โจทย์ใหม่ ลดคำใบ้ และต้องสร้าง Brief จากเหตุผลของตน':'ปลดล็อกเมื่อ Tutorial ได้ 2★ หรือผ่าน Random Sprint 1 ครั้ง'}</small></span><b class="mode-arrow">→</b></button>
+      </div>`:`<div class="locked-box"><b>W2 ยังล็อก</b><span>ผ่าน W1 Casefile ให้ถึง 2★ Readiness ก่อน เพื่อให้เริ่ม Design Thinking จากฐาน “มองเห็น Friction และอธิบายผลต่อผู้ใช้” ที่พร้อมแล้ว</span></div>`}
+    </section>`;
+    stage.querySelectorAll('[data-mode]').forEach((button)=>button.addEventListener('click',()=>startSprint(button.dataset.mode)));
+  }
+
+  function chooseChallenge(mode){
+    if(mode==='tutorial')return BY_ID.get('advisor--first-use')||BANK[0];
+    const seen=new Set(progress.seen);
+    let candidates=BANK.filter((item)=>!seen.has(item.id));
+    if(!candidates.length)candidates=BANK;
+    if(mode==='transfer'){
+      const transfer=candidates.filter((item)=>item.variant.id!=='first-use');
+      if(transfer.length)candidates=transfer;
+    }
+    return shuffle(candidates)[0];
+  }
+  function startSprint(mode){
+    const w1=readW1();
+    if(!w1.ready)return;
+    if(mode!=='tutorial'&&!progress.tutorialDone)return;
+    if(mode==='transfer'&&!(progress.tutorialBest>=2||progress.randomWins>=1))return;
+    resetState();state.mode=mode;state.challenge=chooseChallenge(mode);state.phase=-1;render();scrollTop();
+  }
+
+  function renderBrief(){
+    const c=currentChallenge();
+    stage.innerHTML=`<section class="brief-grid"><aside class="mission-side"><p class="eyebrow">SPRINT CONTRACT</p><div class="kicker-row"><span class="tag">${esc(c.base.service)}</span><span class="tag amber">${esc(c.variant.label)}</span></div><h2>${esc(c.base.title)}</h2><p class="muted">ใน Sprint นี้ ห้ามเริ่มจากสิ่งที่อยากสร้าง ให้เริ่มจากการทำความเข้าใจผู้ใช้ที่ต้องทำงานจริง</p><div class="brief-table"><div class="brief-row"><span>ผู้ใช้</span><b>${esc(c.variant.persona)}</b></div><div class="brief-row"><span>บริบท</span><b>${esc(c.variant.context)}</b></div><div class="brief-row"><span>งานหลัก</span><b>${esc(c.base.task)}</b></div><div class="brief-row"><span>โจทย์ที่ทีมยังไม่ควรตอบเอง</span><b>ผู้ใช้ติดเพราะอะไร และควรทดลองอะไรให้รู้ก่อน commit Solution?</b></div></div></aside><section class="work-side"><p class="eyebrow">WEEK 2 LEARNING BRIEF</p><h2>Human-Centered Design ไม่ใช่ถามผู้ใช้ครั้งเดียว</h2><p>ให้ใช้ข้อมูลผู้ใช้กำกับการตัดสินใจตลอดวงจร: <b>ผู้ใช้ → บริบท → งาน → หลักฐาน → Design Challenge → Experiment</b></p><div class="note"><strong>คำถามนำก่อนเริ่ม</strong>ตอนนี้ทีมมี “สิ่งที่สังเกตเห็น” อะไรบ้าง และอะไรคือ “ข้อสรุปที่ยังเร็วเกินไป”?</div><div class="artifact"><span>ARTIFACT ที่จะได้เมื่อจบ Sprint</span><strong>Design Challenge Brief v1</strong><small>มี Context, User, Evidence, Problem Statement, How Might We, Prototype plan และสิ่งที่จะเรียนรู้จาก Test</small></div><div class="actions"><button class="primary" type="button" data-action="start-phase">เริ่ม Empathize →</button></div></section></section>`;
+  }
+  function evidenceCard(signal){const selected=state.evidence.includes(signal.id);return `<button class="signal ${selected?'selected':''}" type="button" data-evidence="${esc(signal.id)}"><span class="signal-top"><span class="check">✓</span><b>${esc(signal.type)}</b></span><p>${esc(signal.text)}</p><small>เลือกเมื่อช่วยอธิบาย User goal, Context หรือ Friction ที่ต้องแยกให้ชัด</small></button>`;}
+  function renderEmpathize(){
+    const c=currentChallenge(); const meta=stageMeta(0); const count=state.evidence.length;
+    stage.innerHTML=`<section class="stage-grid"><aside class="mission-side"><p class="eyebrow">01 // ${meta.label.toUpperCase()}</p><div class="kicker-row"><span class="tag mint">${esc(meta.thai)}</span>${state.reviewStage===0?'<span class="tag rose">Focused Retrospective</span>':''}</div><h2>ฟัง • สังเกต • เห็นบริบท</h2><div class="persona"><span>USER SIGNAL</span><b>${esc(c.variant.quote)}</b></div><div class="brief-table"><div class="brief-row"><span>USER</span><b>${esc(c.variant.persona)}</b></div><div class="brief-row"><span>CONTEXT</span><b>${esc(c.variant.context)}</b></div><div class="brief-row"><span>TASK</span><b>${esc(c.base.task)}</b></div></div><div class="socratic"><b>Socratic prompt</b>${esc(meta.help)}</div></aside><section class="work-side"><p class="eyebrow">EVIDENCE BOARD • SELECT ${MAX_EVIDENCE}</p><h2>เลือกหลักฐานที่ช่วยแยกสาเหตุ</h2><p class="muted">อย่าเลือกสิ่งที่ “ดูสำคัญ” หรือเป็นข้อเสนอของทีม เลือกสิ่งที่ช่วยอธิบายว่าเหตุใดผู้ใช้จึงไม่สามารถทำ task ได้อย่างมั่นใจ</p><div class="signals">${c.signals.map(evidenceCard).join('')}</div><p class="limit">เลือกแล้ว <b>${count}/${MAX_EVIDENCE}</b> ชิ้น • เลือกได้พอดี ${MAX_EVIDENCE} ชิ้น</p><div class="actions"><button class="primary" type="button" data-action="next-evidence" ${count===MAX_EVIDENCE?'':'disabled'}>บันทึก Empathy Notes →</button></div></section></section>`;
+  }
+  function choiceHtml(option,selected,kind){return `<button class="choice ${selected===option.id?'selected':''}" type="button" data-choice-kind="${kind}" data-choice-id="${esc(option.id)}"><span class="radio"></span><span><b>${esc(option.title)}</b><p>${esc(option.text)}</p>${option.why?`<small>${esc(option.why)}</small>`:''}</span></button>`;}
+  function renderDefine(){
+    const c=currentChallenge(); const meta=stageMeta(1);
+    stage.innerHTML=`<section class="stage-grid"><aside class="mission-side"><p class="eyebrow">02 // ${meta.label.toUpperCase()}</p><div class="kicker-row"><span class="tag mint">${esc(meta.thai)}</span>${state.reviewStage===1?'<span class="tag rose">Focused Retrospective</span>':''}</div><h2>เปลี่ยน Notes ให้เป็นโจทย์ที่ทดสอบได้</h2><div class="artifact"><span>EMPATHY NOTES ที่เลือก</span><strong>${state.evidence.map((id)=>c.signals.find((s)=>s.id===id)?.type).filter(Boolean).join(' • ')||'—'}</strong><small>ดูอีกครั้งว่า Notes เหล่านี้พอจะบอก User + Task + Context + Obstacle ได้หรือไม่</small></div><div class="socratic"><b>Socratic prompt</b>${esc(meta.help)}</div></aside><section class="work-side"><p class="eyebrow">DEFINE BOARD</p><h2>เลือกโจทย์และคำถามที่ยังเปิดทางเลือก</h2><p class="muted">ต้องเลือกทั้ง <b>Problem Statement</b> และ <b>How Might We</b> — โจทย์ที่ดีไม่เริ่มจากชื่อฟีเจอร์ และไม่กว้างจนทดลองไม่ได้</p><p class="subhead">A. Problem Statement</p><div class="choice-set">${c.problems.map((item)=>choiceHtml(item,state.problemId,'problem')).join('')}</div><p class="subhead">B. How Might We</p><div class="choice-set">${c.hmws.map((item)=>choiceHtml(item,state.hmwId,'hmw')).join('')}</div><div class="actions"><button class="secondary" type="button" data-action="back-evidence">← กลับ Evidence</button><button class="primary" type="button" data-action="next-define" ${state.problemId&&state.hmwId?'':'disabled'}>บันทึก Design Challenge →</button></div></section></section>`;
+  }
+  function renderIdeate(){
+    const c=currentChallenge(); const meta=stageMeta(2);
+    stage.innerHTML=`<section class="stage-grid"><aside class="mission-side"><p class="eyebrow">03 // ${meta.label.toUpperCase()}</p><div class="kicker-row"><span class="tag mint">${esc(meta.thai)}</span>${state.reviewStage===2?'<span class="tag rose">Focused Retrospective</span>':''}</div><h2>คิดให้กว้าง แล้วเลือกสิ่งที่จะเรียนรู้ก่อน</h2><div class="artifact"><span>WORKING PROBLEM</span><strong>${esc(getOption(c.problems,state.problemId)?.text||'—')}</strong><small>Idea ที่เลือกควรทดสอบอุปสรรคในโจทย์นี้ ไม่ใช่แค่ทำให้ระบบมีสิ่งใหม่เพิ่มขึ้น</small></div><div class="socratic"><b>Socratic prompt</b>${esc(meta.help)}</div></aside><section class="work-side"><p class="eyebrow">DIVERGE → CONVERGE</p><h2>เลือกแนวคิดที่คุ้มค่าจะทดลองก่อน</h2><p class="muted">ทุกแนวคิดอาจมีประโยชน์ในอนาคต แต่ Sprint นี้มีเวลาให้ทดสอบเพียง 1 สมมติฐานหลัก เลือกแนวคิดที่แตะ “อุปสรรค” จาก Problem Statement โดยตรง</p><div class="choice-set">${c.ideas.map((item)=>choiceHtml(item,state.ideaId,'idea')).join('')}</div><div class="actions"><button class="secondary" type="button" data-action="back-define">← กลับ Define</button><button class="primary" type="button" data-action="next-idea" ${state.ideaId?'':'disabled'}>เลือก Experiment Direction →</button></div></section></section>`;
+  }
+  function renderPrototype(){
+    const c=currentChallenge(); const meta=stageMeta(3);
+    stage.innerHTML=`<section class="stage-grid"><aside class="mission-side"><p class="eyebrow">04 // ${meta.label.toUpperCase()}</p><div class="kicker-row"><span class="tag mint">${esc(meta.thai)}</span>${state.reviewStage===3?'<span class="tag rose">Focused Retrospective</span>':''}</div><h2>ทำให้สมมติฐานสัมผัสได้</h2><div class="artifact"><span>EXPERIMENT DIRECTION</span><strong>${esc(getOption(c.ideas,state.ideaId)?.title||'—')}</strong><small>${esc(getOption(c.ideas,state.ideaId)?.why||'')}</small></div><div class="socratic"><b>Socratic prompt</b>${esc(meta.help)}</div></aside><section class="work-side"><p class="eyebrow">PROTOTYPE PLAN</p><h2>เลือกต้นแบบที่ทำให้เห็น task เสี่ยง</h2><p class="muted">ไม่ต้องสร้างระบบเต็ม เลือกสิ่งที่ทำให้ผู้ใช้ลงมือทำ <b>${esc(c.base.task)}</b> ได้ แล้วทีมสังเกตพฤติกรรมตรงช่วงเสี่ยง</p><div class="choice-set">${c.prototypes.map((item)=>choiceHtml(item,state.prototypeId,'prototype')).join('')}</div><div class="actions"><button class="secondary" type="button" data-action="back-idea">← กลับ Ideate</button><button class="primary" type="button" data-action="next-prototype" ${state.prototypeId?'':'disabled'}>สร้าง Test Plan →</button></div></section></section>`;
+  }
+  function renderTest(){
+    const c=currentChallenge(); const meta=stageMeta(4); const plan=buildTestPlan();
+    stage.innerHTML=`<section class="stage-grid"><aside class="mission-side"><p class="eyebrow">05 // ${meta.label.toUpperCase()}</p><div class="kicker-row"><span class="tag mint">${esc(meta.thai)}</span>${state.reviewStage===4?'<span class="tag rose">Focused Retrospective</span>':''}</div><h2>เรียนรู้จากสิ่งที่ผู้ใช้ทำ</h2><div class="artifact"><span>PROTOTYPE ที่ทีมทำ</span><strong>${esc(getOption(c.prototypes,state.prototypeId)?.title||'—')}</strong><small>ผล Test ด้านขวาเกิดจากสิ่งที่ทีมเลือกจริง ไม่ใช่คำตอบตายตัวของคดี</small></div><div class="socratic"><b>Socratic prompt</b>${esc(meta.help)}</div></aside><section class="work-side"><p class="eyebrow">USER TEST RESULT</p><h2>ผล Test บอกให้ทีมทำอะไรต่อ?</h2><div class="test-panel"><div class="metric-row"><div class="metric"><span>Task success</span><b>${esc(plan.success)}</b></div><div class="metric"><span>Median time</span><b>${esc(plan.time)}</b></div><div class="metric"><span>Confidence</span><b>${esc(plan.confidence)}</b></div></div><div class="test-story"><b>What we observed</b>${esc(plan.story)}</div><div class="gate-note"><b>Learning signal</b>${esc(plan.insight)}</div></div><p class="subhead">TEST DECISION</p><div class="choice-set">${plan.choices.map((item)=>choiceHtml(item,state.testDecisionId,'test')).join('')}</div><div class="actions"><button class="secondary" type="button" data-action="back-prototype">← กลับ Prototype</button><button class="primary" type="button" data-action="next-test" ${state.testDecisionId?'':'disabled'}>บันทึกสิ่งที่เรียนรู้ →</button></div></section></section>`;
+  }
+  function renderGate(){
+    const c=currentChallenge(); const plan=buildTestPlan(); const gate=buildGate();
+    stage.innerHTML=`<section class="stage-grid"><aside class="mission-side"><p class="eyebrow">PROJECT GATE // DESIGN CHALLENGE BRIEF V1</p><div class="kicker-row"><span class="tag amber">Stakeholder Review</span></div><h2>จะนำสิ่งที่เรียนรู้ไปสู่ Project อย่างไร?</h2><div class="artifact"><span>TEST DECISION ของทีม</span><strong>${esc(plan.choices.find((item)=>item.id===state.testDecisionId)?.title||'—')}</strong><small>Project Brief ที่ดีต้องซื่อสัตย์กับสิ่งที่รู้ สิ่งที่ยังไม่รู้ และก้าวถัดไปที่ตรวจได้</small></div><div class="socratic"><b>Stakeholder pressure</b>ทีมต้องส่ง Design Challenge Brief v1 วันนี้ แต่ห้ามใช้คำว่า “ทำแอปให้ใช้งานง่ายขึ้น” โดยไม่มี User, Context, Evidence และสิ่งที่ต้องตรวจต่อ</div></aside><section class="work-side"><p class="eyebrow">FINAL DECISION</p><h2>เลือก Brief ที่พร้อมเข้าสู่ Workshop</h2><div class="gate-brief"><b>หลักประเมิน Week 2</b>ระบุบริบทและผู้ใช้หลัก • แยกอาการ/สมมติฐาน • Problem Statement ชัด • HMW ยังไม่ล็อกคำตอบ • มีสิ่งที่จะตรวจสอบต่อ<small>การเลือกนี้ไม่ถามว่าอะไร “ดูดี” แต่ถามว่า Brief ใดรักษาวงจร Human-Centered Design ไว้ได้จริง</small></div><div class="choice-set">${gate.choices.map((item)=>choiceHtml(item,state.bossId,'boss')).join('')}</div><div class="actions"><button class="secondary" type="button" data-action="back-test">← กลับ Test</button><button class="primary" type="button" data-action="finish" ${state.bossId?'':'disabled'}>ส่ง Project Gate →</button></div></section></section>`;
+  }
+
+  function feedback(title,verdict,text,principle){
+    dialogTitle.textContent=title;dialogVerdict.textContent=verdict;dialogText.textContent=text;dialogPrinciple.innerHTML=principle?`<b>Week 2 principle</b>${esc(principle)}`:'';feedbackDialog.showModal();
+  }
+  function calculatedScore(){
+    const c=currentChallenge();
+    if(!c)return 0;
+    let total=0;
+    if(state.evidence.length===MAX_EVIDENCE) total+=exactEvidence()*12;
+    if(state.problemId&&state.hmwId) total+=(state.problemId===c.correct.problem?18:0)+(state.hmwId===c.correct.hmw?14:0);
+    if(state.ideaId) total+=ideaExact()?18:4;
+    if(state.prototypeId) total+=prototypeExact()?18:4;
+    if(state.testDecisionId) total+=testExact()?22:0;
+    if(state.bossId) total+=bossExact()?24:0;
+    return total;
+  }
+  function calculatedEnergy(){
+    let value=100;
+    if(state.evidence.length===MAX_EVIDENCE&&exactEvidence()<2)value-=8;
+    if(state.problemId&&state.hmwId&&!defineExact())value-=9;
+    if(state.ideaId&&!ideaExact())value-=7;
+    if(state.prototypeId&&!prototypeExact())value-=7;
+    if(state.testDecisionId&&!testExact())value-=10;
+    if(state.bossId&&!bossExact())value-=8;
+    if(state.reviewUsed)value-=5;
+    return clamp(value,0,100);
+  }
+  function refreshMetrics(){state.score=calculatedScore();state.energy=calculatedEnergy();}
+  function commitStage(){refreshMetrics();saveSession();}
+  function nextFromEvidence(){commitStage();state.phase=1;feedback('Empathy Notes ถูกบันทึก','Evidence first',`คุณเลือกหลักฐาน ${state.evidence.length} ชิ้นแล้ว ขั้นถัดไปอย่าเพิ่งคิดฟีเจอร์ ให้ใช้ Notes เหล่านี้นิยามโจทย์ที่มีผู้ใช้ งาน บริบท และอุปสรรคชัดเจน`,state.mode==='tutorial'?'Empathize คือการแยก “สิ่งที่ผู้ใช้พูด/ทำ” ออกจาก “สิ่งที่ทีมอยากสร้าง”':'');dialogContinue.onclick=()=>{feedbackDialog.close();render();scrollTop();};}
+  function nextFromDefine(){commitStage();state.phase=2;feedback('Design Challenge ถูกตั้งขึ้น','Problem before solution','ตอนนี้ทีมมี Problem Statement และ HMW เป็นสมมติฐานทำงาน ขั้น Ideate ต้องเลือกแนวคิดที่ทดสอบอุปสรรคในโจทย์นี้ ไม่ใช่ขยาย scope',state.mode==='tutorial'?'Problem Statement ที่ดีมี User + Goal/Task + Obstacle/Insight + Impact ส่วน HMW ต้องยังไม่บอกว่าใช้ฟีเจอร์อะไร':'');dialogContinue.onclick=()=>{feedbackDialog.close();render();scrollTop();};}
+  function nextFromIdea(){commitStage();state.phase=3;feedback('Experiment Direction ถูกเลือก','Diverge → converge','แนวคิดที่เลือกจะกำหนดคำถามของ Prototype ต่อไป โปรดอย่าทำระบบเต็ม ให้สร้างสิ่งที่ทำให้เห็นช่วงตัดสินใจสำคัญของ task',state.mode==='tutorial'?'Ideate ไม่จบที่คิดหลายไอเดีย แต่จบเมื่อเลือกแนวคิดที่คุ้มค่าจะเรียนรู้ก่อน':'');dialogContinue.onclick=()=>{feedbackDialog.close();render();scrollTop();};}
+  function nextFromPrototype(){commitStage();state.phase=4;feedback('Test Plan พร้อม','Prototype to learn','ขั้นต่อไประบบจะสร้างผล Test ตาม Problem, Idea และ Prototype ที่คุณเลือกจริง โปรดอ่านพฤติกรรมผู้ใช้ก่อนตัดสินใจว่าจะ Iterate หรือย้อนกลับ phase ใด',state.mode==='tutorial'?'Prototype เป็นคำถามที่จับต้องได้: “เมื่อผู้ใช้ทำ task นี้ เขาจะติดตรงไหน และเราจะเห็นอย่างไร?”':'');dialogContinue.onclick=()=>{feedbackDialog.close();render();scrollTop();};}
+  function nextFromTest(){commitStage();state.phase=5;feedback('Learning from test ถูกบันทึก','Iteration is learning','คุณเลือกก้าวถัดไปจากผล Test แล้ว ตอนนี้เข้าสู่ Project Gate เพื่อเลือก Brief ที่ซื่อสัตย์กับหลักฐาน ไม่ปิดงานเร็วเกินไป',state.mode==='tutorial'?'Iteration ไม่ใช่ความล้มเหลว ผล Test ใหม่อาจทำให้ต้องย้อนกลับ Define, Ideate หรือ Prototype ได้':'');dialogContinue.onclick=()=>{feedbackDialog.close();render();scrollTop();};}
+
+  function result(){
+    const evidence=exactEvidence(), definition=defineExact(), experiment=ideaExact()&&prototypeExact(), test=testExact(), gate=bossExact();
+    const score=state.score; const energy=state.energy;
+    let stars=0;
+    if(test&&gate&&score>=110&&energy>=50)stars=1;
+    if(evidence>=2&&definition&&test&&gate&&energy>=70)stars=2;
+    if(evidence===3&&definition&&experiment&&test&&gate&&energy>=85)stars=3;
+    const title=stars===3?'Evidence-led Sprint: Mastery':stars===2?'Project Brief Ready':stars===1?'Practice Sprint Clear':'Need Reframing';
+    return {evidence,definition,experiment,test,gate,score,energy,stars,title,passed:stars>=1,ready:stars>=2};
+  }
+  function reviewTarget(r){
+    if(r.evidence<2)return {stage:0,title:'กลับไป Empathize',focus:'หลักฐานที่เลือกยังไม่พอแยก User goal, Context และ Friction ออกจากข้อเสนอของทีม',preserve:'ยังไม่มีส่วนที่ควรล็อก — เลือก Evidence ใหม่ได้'};
+    if(!r.definition)return {stage:1,title:'กลับไป Define',focus:'Problem Statement หรือ HMW ยังล็อก Solution / กว้างเกินไป / ไม่รวมผู้ใช้ งาน บริบท และอุปสรรค',preserve:'Evidence Notes เดิมจะถูกล็อกไว้เป็นฐาน'};
+    if(!r.experiment)return {stage:2,title:'กลับไป Ideate / Prototype',focus:'แนวคิดหรือ Prototype ยังไม่ได้ทดสอบอุปสรรคที่ตั้งไว้โดยตรง',preserve:'Evidence และ Define เดิมจะถูกล็อกไว้เป็นฐาน'};
+    if(!r.test)return {stage:4,title:'กลับไปอ่านผล Test',focus:'Test Decision ยังไม่ตอบว่าหลักฐานบอกให้ Iterate, Reframe หรือ Prototype ใหม่',preserve:'Evidence → Prototype เดิมจะถูกล็อกไว้เป็นฐาน'};
+    return {stage:5,title:'กลับไป Project Gate',focus:'Brief ที่เลือกยังไม่แสดงวงจรการเรียนรู้จากผู้ใช้ให้ครบ',preserve:'ผล Test และ Decision เดิมจะถูกล็อกไว้เป็นฐาน'};
+  }
+  function briefOutput(){
+    const c=currentChallenge();const plan=buildTestPlan();
+    return `<section class="brief-output"><h3>Design Challenge Brief v1 • ฉบับจาก Sprint นี้</h3><div class="brief-output-grid"><div><span>CONTEXT + USER</span><b>${esc(c.variant.persona)} • ${esc(c.variant.context)}</b></div><div><span>PRIMARY TASK</span><b>${esc(c.base.task)}</b></div><div><span>WORKING PROBLEM STATEMENT</span><b>${esc(getOption(c.problems,state.problemId)?.text||'—')}</b></div><div><span>HOW MIGHT WE</span><b>${esc(getOption(c.hmws,state.hmwId)?.text||'—')}</b></div><div><span>PROTOTYPE TO LEARN</span><b>${esc(getOption(c.prototypes,state.prototypeId)?.text||'—')}</b></div><div><span>NEXT LEARNING MOVE</span><b>${esc(plan.choices.find((item)=>item.id===state.testDecisionId)?.text||'—')}</b></div></div></section>`;
+  }
+  function debrief(){
+    const r=result(); const target=reviewTarget(r); const c=currentChallenge();
+    progress.totalSprints+=1; progress.bestStars=Math.max(progress.bestStars,r.stars); progress.bestScore=Math.max(progress.bestScore,r.score); progress.seen=unique([...progress.seen,c.id]); if(state.mode==='tutorial'){progress.tutorialDone=true;progress.tutorialBest=Math.max(progress.tutorialBest,r.stars);}if(state.mode==='random'&&r.passed)progress.randomWins+=1; saveProgress(); clearSession(); state.complete=true;
+    const status=r.ready?'<span class="status-chip ready">W2 PROJECT BRIEF READY • 2★</span>':r.passed?'<span class="status-chip">Practice clear • keep iterating</span>':'<span class="status-chip">Need reframing • use Sprint Retrospective</span>';
+    const feedbackText=r.ready?'คุณมีฐานพอจะนำ Brief นี้ไปทำ Workshop Week 2 ต่อได้':r.passed?'คุณทำ Sprint ได้ครบ แต่ยังต้องทำให้ Evidence → Problem → Experiment → Test เชื่อมกันแน่นขึ้นก่อนใช้เป็น Brief หลัก': 'รอบนี้ยังไม่ผ่าน เพราะบางขั้นยังไม่เชื่อมกับหลักฐานหรือผล Test — ใช้ Retrospective เพื่อย้อนแก้ “จุดเดียวที่คุ้มที่สุด” ได้';
+    const review=(!r.ready&&!state.reviewUsed)?`<section class="review-ticket"><h3>🔁 Sprint Retrospective: กลับไปแก้จุดที่คุ้มที่สุด <span class="tag rose">NO ANSWER KEY</span></h3><p>ไม่ต้องเริ่มทั้ง Sprint ใหม่ ระบบจะพากลับไปที่ <b>${esc(target.title)}</b> และล็อกส่วนที่ยังใช้ได้ไว้</p><div class="review-focus"><span class="i">⌁</span><span><b>Focus ที่ระบบตรวจพบ</b><small>${esc(target.focus)}</small><small><strong>สิ่งที่รักษาไว้:</strong> ${esc(target.preserve)}</small></span></div><span class="ticket-meta">ค่าใช้จ่าย: −5 Sprint Energy • ใช้ได้ 1 ครั้งต่อ Sprint</span><button class="primary full" type="button" data-action="review">ใช้ Sprint Retrospective →</button></section>`:'';
+    const best=r.evidence>=2?'Empathy notes มีน้ำหนัก':'เริ่มจากเลือกหลักฐานที่ชี้ User/Context/Task';
+    const next=r.test?'รักษาวงจร Iterate จากผล Test':'อ่านผล Test เพื่อเลือก phase ที่ควรย้อนกลับ';
+    const reason=!r.definition?'Problem framing ยังต้องชัดขึ้น':!r.experiment?'Experiment ยังไม่แตะอุปสรรคหลัก':!r.test?'Test decision ยังไม่สอดคล้องกับสิ่งที่เห็น':!r.gate?'Project brief ยังไม่สะท้อนสิ่งที่รู้/ไม่รู้':'พร้อมนำ Brief ไป Workshop';
+    stage.innerHTML=`<section class="card debrief"><p class="eyebrow">SPRINT COMPLETE // W2 DESIGN THINKING READINESS REPORT</p><h2>${esc(r.title)}</h2><div class="stars">${starsHtml(r.stars)}</div>${status}<p>${esc(feedbackText)}</p><div class="score-grid"><div><span>Total score</span><b>${r.score}</b></div><div><span>Sprint energy</span><b>${pct(r.energy)}</b></div><div><span>Evidence quality</span><b>${r.evidence}/3</b></div><div><span>Test decision</span><b>${r.test?'Aligned':'Review'}</b></div></div><div class="note"><strong>Week 2 Readiness</strong>1★ = ทำ Sprint ครบและใช้วงจรได้ • 2★ = Project Brief Ready: Evidence ≥ 2/3 + Define ถูกทิศ + Test + Project Gate + Energy ≥ 70 • 3★ = Mastery: Evidence 3/3 + ทุกส่วนเชื่อมกัน + Energy ≥ 85</div><div class="summary-grid"><article class="summary-card good"><span>ทำได้ดี</span><b>${esc(best)}</b><small>ให้เก็บนิสัยนี้ไว้เมื่อทำ Design Challenge Brief ของกลุ่มจริง</small></article><article class="summary-card review"><span>ควรกลับไปแก้</span><b>${esc(reason)}</b><small>อย่าแก้ด้วยการเพิ่ม Feature ก่อนตรวจว่าขั้นก่อนหน้ามีหลักฐานรองรับหรือไม่</small></article><article class="summary-card warn"><span>ทักษะถัดไป</span><b>${esc(next)}</b><small>Week 2 วัดการเลือกก้าวถัดไปจาก evidence ไม่ใช่การตอบชื่อขั้นตอนให้ถูก</small></article></div>${briefOutput()}<section class="reflection"><label for="reflectionText">Reflection 30 วินาที</label><textarea id="reflectionText" placeholder="จากผล Test มีหลักฐานอะไรที่ทำให้ทีมควร Iterate / Reframe / Prototype ใหม่? เขียน 1–2 ประโยค"></textarea><small>บันทึกไว้เพื่อใช้ต่อใน Workshop Design Challenge Brief v1 ของกลุ่ม</small></section>${review}<div class="badge-row">${r.evidence>=2?'<span class="badge mint">Evidence Listener</span>':''}${r.definition?'<span class="badge">Problem Framer</span>':''}${r.test?'<span class="badge amber">Test-driven</span>':''}${r.ready?'<span class="badge mint">Brief Ready</span>':''}${state.reviewUsed?'<span class="badge">Retrospective Learner</span>':''}</div><div class="action-stack"><button class="action-row primary" type="button" data-action="restart"><span class="action-icon">↻</span><span><strong>เริ่ม Design Challenge ใหม่</strong><small>สุ่มบริบท/ผู้ใช้ใหม่จาก Bank 24 โดยไม่วนก่อนครบ Cycle</small></span><span>เริ่ม →</span></button><button class="action-row" type="button" data-action="mode"><span class="action-icon">⌂</span><span><strong>กลับหน้าเลือก Sprint</strong><small>ดูสถิติและเลือก Tutorial, Random หรือ Transfer</small></span><span>กลับ →</span></button></div></section>`;
+    updateHud();updateRail();
+  }
+
+  function runReview(){
+    const r=result(); const target=reviewTarget(r); state.reviewUsed=true; state.reviewStage=target.stage; refreshMetrics(); state.complete=false;
+    if(target.stage===0){state.evidence=[];state.problemId=null;state.hmwId=null;state.ideaId=null;state.prototypeId=null;state.testDecisionId=null;state.bossId=null;}
+    if(target.stage===1){state.problemId=null;state.hmwId=null;state.ideaId=null;state.prototypeId=null;state.testDecisionId=null;state.bossId=null;}
+    if(target.stage===2){state.ideaId=null;state.prototypeId=null;state.testDecisionId=null;state.bossId=null;}
+    if(target.stage===3){state.prototypeId=null;state.testDecisionId=null;state.bossId=null;}
+    if(target.stage===4){state.testDecisionId=null;state.bossId=null;}
+    if(target.stage===5){state.bossId=null;}
+    state.phase=target.stage; render(); scrollTop();
+  }
+
+  function render(){
+    updateHud();updateRail();
+    if(!state.mode||!state.challenge){modeSelect();return;}
+    if(state.complete){return;}
+    if(state.phase===-1){renderBrief();return;}
+    if(state.phase===0){renderEmpathize();return;}
+    if(state.phase===1){renderDefine();return;}
+    if(state.phase===2){renderIdeate();return;}
+    if(state.phase===3){renderPrototype();return;}
+    if(state.phase===4){renderTest();return;}
+    if(state.phase===5){renderGate();return;}
+    modeSelect();
+  }
+
+  stage.addEventListener('click',(event)=>{
+    const evidence=event.target.closest('[data-evidence]');
+    if(evidence){const id=evidence.dataset.evidence;if(state.evidence.includes(id))state.evidence=state.evidence.filter((value)=>value!==id);else if(state.evidence.length<MAX_EVIDENCE)state.evidence.push(id);render();return;}
+    const choice=event.target.closest('[data-choice-kind]');
+    if(choice){const kind=choice.dataset.choiceKind;const id=choice.dataset.choiceId;if(kind==='problem')state.problemId=id;if(kind==='hmw')state.hmwId=id;if(kind==='idea')state.ideaId=id;if(kind==='prototype')state.prototypeId=id;if(kind==='test')state.testDecisionId=id;if(kind==='boss')state.bossId=id;render();return;}
+    const action=event.target.closest('[data-action]')?.dataset.action;
+    if(!action)return;
+    if(action==='start-phase'){state.phase=0;render();scrollTop();return;}
+    if(action==='next-evidence'){nextFromEvidence();return;}
+    if(action==='next-define'){nextFromDefine();return;}
+    if(action==='next-idea'){nextFromIdea();return;}
+    if(action==='next-prototype'){nextFromPrototype();return;}
+    if(action==='next-test'){nextFromTest();return;}
+    if(action==='finish'){commitStage();debrief();scrollTop();return;}
+    if(action==='back-evidence'){state.phase=0;render();scrollTop();return;}
+    if(action==='back-define'){state.phase=1;render();scrollTop();return;}
+    if(action==='back-idea'){state.phase=2;render();scrollTop();return;}
+    if(action==='back-prototype'){state.phase=3;render();scrollTop();return;}
+    if(action==='back-test'){state.phase=4;render();scrollTop();return;}
+    if(action==='review'){runReview();return;}
+    if(action==='restart'){startSprint(state.mode==='tutorial'?'random':state.mode);return;}
+    if(action==='mode'){resetState();render();scrollTop();return;}
+  });
+
+  $('#exitBtn').addEventListener('click',()=>{if(active()){resetState();clearSession();render();scrollTop();}else{location.href='./index.html';}});
+  document.querySelectorAll('[data-close-dialog]').forEach((button)=>button.addEventListener('click',()=>feedbackDialog.close()));
+  feedbackDialog.addEventListener('click',(event)=>{if(event.target===feedbackDialog)feedbackDialog.close();});
+
+  // W1 readiness can be updated in another tab without a hard refresh.
+  window.addEventListener('storage',(event)=>{if(event.key===W1_READINESS_KEY&&!active())render();});
+  render();
+})();
+</script>
 </body>
 </html>
