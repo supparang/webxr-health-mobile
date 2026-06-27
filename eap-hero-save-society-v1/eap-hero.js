@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z6 Speaking Oral Mode ===
+/* === EAP Hero: Save the Society v1z72 Learning Report Recovery ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z71-easy-speaking-ladder-a2-b1plus';
+  const APP_VERSION = '20260627-v1z72-learning-report-recovery-a2-b1plus';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31574,6 +31574,7 @@
       fun:{ coins:0, chests:[], titles:[], daily:{ lastDate:'', streak:0 }, achievementsClaimed:[] },
       qa:{ runtimeErrors:[], lastBackupAt:'', lastImportAt:'', qaNotes:[] },
       portfolio:[],
+      learningReports:[],
       mastery:{ Reading:0, Writing:0, Listening:0, Speaking:0, Ethics:0 },
       replay:{ ghosts:{}, secretMissions:{}, bossRushLogs:[] },
       skillPath:{ unlockedBossGates:{} },
@@ -31644,7 +31645,8 @@
       merged.fun.achievementsClaimed = (parsed.fun && parsed.fun.achievementsClaimed) || [];
       merged.qa = Object.assign(fresh.qa || {}, parsed.qa || {});
       merged.qa.runtimeErrors = (parsed.qa && parsed.qa.runtimeErrors) || [];
-      merged.portfolio = parsed.portfolio || [];
+      merged.portfolio = Array.isArray(parsed.portfolio) ? parsed.portfolio : [];
+      merged.learningReports = Array.isArray(parsed.learningReports) ? parsed.learningReports : [];
       merged.mastery = Object.assign(fresh.mastery || {}, parsed.mastery || {});
       merged.replay = Object.assign(fresh.replay || {}, parsed.replay || {});
       merged.replay.ghosts = (parsed.replay && parsed.replay.ghosts) || {};
@@ -32081,7 +32083,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z71</div>
+              <div class="mini-note">Save the Society • v1z72</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32569,7 +32571,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z33'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z72'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
@@ -32634,7 +32636,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z71</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z72</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -38803,12 +38805,15 @@
   }
 
   function addPortfolio(entry){
-    state.portfolio = state.portfolio || [];
+    state.portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
     const compactEntry = compactPortfolioEntry(Object.assign({
       at:new Date().toISOString(),
       student_id:state.profile.studentId || 'guest',
       player_name:state.profile.name || 'Guest'
     }, entry || {}));
+    if(!compactEntry.evidenceId){
+      compactEntry.evidenceId = reportPortfolioIdentity(compactEntry, state.portfolio.length);
+    }
     enhancePortfolioWithFullAI(compactEntry);
     state.portfolio.push(compactEntry);
     state.portfolio = compactArray(state.portfolio, STORAGE_LIMITS.portfolio, compactPortfolioEntry);
@@ -38817,10 +38822,11 @@
     updateAIAbilityProfiles();
     checkSecretMissions();
     addXP(Math.max(5, Math.round((compactEntry.score || 0) / 4)));
+    const report = typeof createLearningReport === 'function'
+      ? createLearningReport(portfolioIndex, {deferSave:true})
+      : null;
     saveState();
-    if(typeof createLearningReport === 'function'){
-      createLearningReport(portfolioIndex);
-    }
+    return {portfolioIndex, entry:compactEntry, report};
   }
 
   function showSkillResult(skill, score, id){
@@ -39082,16 +39088,89 @@
     return frames[skill] || 'For example, ___.';
   }
 
-  function createLearningReport(portfolioIndex){
+  /* === v1z72 Learning Report Recovery ===
+     A Learning Report is the formative view of one portfolio evidence item.
+     Earlier builds could retain portfolio evidence but lose report cards after a
+     local-storage migration.  Stable evidence IDs let the app restore those cards
+     without duplicating reports or relying on a changing array index. */
+  function reportPortfolioIdentity(entry, fallbackIndex){
+    const p = entry || {};
+    const explicit = String(p.evidenceId || p.portfolioId || '').trim();
+    if(explicit) return explicit;
+    const student = String(p.student_id || p.player_id || state.profile?.studentId || 'guest')
+      .replace(/[^A-Za-z0-9_-]+/g, '_');
+    const session = Number(p.session || 0) || 0;
+    const skill = String(p.skill || 'skill').replace(/[^A-Za-z0-9_-]+/g, '_');
+    const at = String(p.at || p.createdAt || '').replace(/[^A-Za-z0-9_.-]+/g, '_');
+    return `legacy_${student}_S${session}_${skill}_${at || fallbackIndex || 0}`;
+  }
+
+  function ensurePortfolioEvidenceIds(){
+    state.portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
+    let changed = false;
+    state.portfolio.forEach((entry, index)=>{
+      if(!entry || typeof entry !== 'object') return;
+      if(!entry.evidenceId){
+        entry.evidenceId = reportPortfolioIdentity(entry, index);
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  function reportMatchesPortfolio(report, entry, index){
+    if(!report || !entry) return false;
+    const portfolioId = reportPortfolioIdentity(entry, index);
+    if(report.portfolioId && String(report.portfolioId) === portfolioId) return true;
+
+    const sameSession = Number(report.session || 0) === Number(entry.session || 0);
+    const sameSkill = String(report.skill || '') === String(entry.skill || '');
+    if(!sameSession || !sameSkill) return false;
+
+    if(report.sourceAt && entry.at && String(report.sourceAt) === String(entry.at)) return true;
+    const rawIndex = String(report.portfolioIndex ?? '').trim();
+    return rawIndex !== '' && Number(rawIndex) === Number(index);
+  }
+
+  function findPortfolioForLearningReport(report){
+    const portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
+    ensurePortfolioEvidenceIds();
+    if(report?.portfolioId){
+      const byId = portfolio.find(entry => String(entry?.evidenceId || '') === String(report.portfolioId));
+      if(byId) return byId;
+    }
+    const index = Number(report?.portfolioIndex);
+    if(Number.isInteger(index) && index >= 0 && portfolio[index] && reportMatchesPortfolio(report, portfolio[index], index)){
+      return portfolio[index];
+    }
+    return portfolio.find((entry, i)=>reportMatchesPortfolio(report, entry, i)) || null;
+  }
+
+  function createLearningReport(portfolioIndex, options={}){
+    state.portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
+    state.learningReports = Array.isArray(state.learningReports) ? state.learningReports : [];
+    ensurePortfolioEvidenceIds();
     const p = state.portfolio?.[portfolioIndex];
     if(!p) return null;
+
+    const existing = state.learningReports.find(report=>reportMatchesPortfolio(report, p, portfolioIndex));
+    if(existing){
+      let changed = false;
+      if(!existing.portfolioId){ existing.portfolioId = p.evidenceId; changed = true; }
+      if(!existing.sourceAt && p.at){ existing.sourceAt = p.at; changed = true; }
+      if(changed && !options.deferSave) saveState();
+      return existing;
+    }
+
     const band = learningBand(p.score);
     const rubric = p.aiRubric || aiFormativeRubric(p);
     const independence = p.aiIndependence || aiIndependenceCheck(p);
     const level = (typeof AI_ABILITY_LEVELS !== 'undefined' && AI_ABILITY_LEVELS[p.difficulty]) || null;
     const report = {
       id: `lr_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
-      portfolioIndex,
+      portfolioIndex:Number(portfolioIndex),
+      portfolioId:p.evidenceId,
+      sourceAt:p.at || '',
       studentId: p.player_id || p.student_id || state.profile?.studentId || '',
       studentName: p.player_name || state.profile?.name || '',
       session: p.session,
@@ -39110,13 +39189,40 @@
       tryFrame: skillTryFrame(p.skill),
       aiUses: p.aiUses || 0,
       difficulty: p.difficulty || state.settings?.skillDifficulty || 'easy',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      reportVersion:'v1z72'
     };
-    state.learningReports = state.learningReports || [];
     state.learningReports.push(report);
     state.learningReports = compactArray(state.learningReports, STORAGE_LIMITS.learningReports);
-    saveState();
+    if(!options.deferSave) saveState();
     return report;
+  }
+
+  function repairLearningReportsFromPortfolio(silent){
+    state.portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
+    state.learningReports = Array.isArray(state.learningReports) ? state.learningReports : [];
+    let changed = ensurePortfolioEvidenceIds();
+    let created = 0;
+
+    state.portfolio.forEach((entry, index)=>{
+      if(!entry || !entry.skill || !Number(entry.session || 0)) return;
+      const exists = state.learningReports.some(report=>reportMatchesPortfolio(report, entry, index));
+      if(!exists){
+        const report = createLearningReport(index, {deferSave:true});
+        if(report){ created += 1; changed = true; }
+      }
+    });
+
+    if(changed) saveState();
+    if(!silent && created){
+      safeToast(`Recovered ${created} Learning Report${created === 1 ? '' : 's'} from saved evidence.`);
+    }
+    return {
+      changed,
+      created,
+      portfolio:(state.portfolio || []).length,
+      reports:(state.learningReports || []).length
+    };
   }
 
   function latestLearningReport(){
@@ -39171,11 +39277,12 @@
   }
 
   function renderStudentReports(){
+    repairLearningReportsFromPortfolio(true);
     setView('studentReports');
     const reports = (state.learningReports || []).slice().reverse();
     const summary = skillSummaryReports();
     const summaryCards = Object.entries(summary).map(([skill,d])=>`<div class="stat report-skill ${safe(d.band.cls)}"><b>${d.count?d.avg:'-'}</b><span>${safe(skill)} • ${d.count?d.band.label:'No report yet'}</span></div>`).join('');
-    const cards = reports.map(r=>renderLearningReportCard(r,{actions:false})).join('') || `<div class="panel light"><h3>No report yet</h3><p>ทำ mission อย่างน้อย 1 ครั้ง แล้วระบบจะแจ้งผลเพื่อปรับปรุงครั้งถัดไป</p></div>`;
+    const cards = reports.map(r=>renderLearningReportCard(r,{actions:false})).join('') || `<div class="panel light report-empty-state"><h3>ยังไม่มี Learning Report</h3><p>รายงานจะสร้างอัตโนมัติเมื่อผู้เรียนทำ <b>Reading, Writing, Listening หรือ Speaking Mission</b> แล้วกด <b>Submit</b> สำเร็จ โดยการเปิด Lab หรือชนะ MCQ Boss เพียงอย่างเดียวยังไม่สร้างรายงานรายทักษะ</p><p class="mini-note">เริ่มจาก Map → เปิด Session ปัจจุบัน → ทำ Core/Support Mission → Submit แล้วกลับมาดู Report ได้ทันที</p><div class="footer-actions"><button class="btn primary" onclick="EAPHero.continueSession()">Continue Current Session</button><button class="btn" onclick="EAPHero.map()">Open Map</button></div></div>`;
     layout(`
       <section class="panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Student Learning Reports</span><span class="pill">Formative Feedback</span><span class="pill">A2-B1+</span></div>
@@ -42102,7 +42209,7 @@
       }
     });
     (state.learningReports || []).forEach(report=>{
-      const p = portfolio[Number(report.portfolioIndex)];
+      const p = typeof findPortfolioForLearningReport === 'function' ? findPortfolioForLearningReport(report) : portfolio[Number(report.portfolioIndex)];
       if(!p) return;
       const r = p.aiRubric;
       const ind = p.aiIndependence;
@@ -42115,7 +42222,10 @@
         independenceVerified:!!ind?.verified,
         didWell:r?.didWell || report.didWell,
         nextStep:r?.nextStep || report.nextStep,
-        reportVersion:'v1z67'
+        portfolioIndex:portfolio.indexOf(p),
+        portfolioId:p.evidenceId || reportPortfolioIdentity(p, portfolio.indexOf(p)),
+        sourceAt:p.at || report.sourceAt || '',
+        reportVersion:'v1z72'
       };
       Object.keys(update).forEach(k=>{ if(report[k] !== update[k]){ report[k]=update[k]; changed=true; } });
     });
@@ -42547,6 +42657,7 @@
     goldSourceFromEntry,
     taskAlignedGoldReadingRubric,
     reconcileLearningReportsV1z67,
+    repairLearningReportsFromPortfolio,
     reportStatusLabel,
     EAP_SPEAKING_ORAL_FLOW,
     EAP_EASY_SPEAKING_LADDER,
@@ -42790,6 +42901,7 @@
   };
 
   installNoRepeatScenarioPool();
+  repairLearningReportsFromPortfolio(true);
   reconcileLearningReportsV1z67();
   renderHome();
 
