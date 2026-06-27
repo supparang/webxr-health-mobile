@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z74 Session Alignment + Version Label Fix ===
+/* === EAP Hero: Save the Society v1z75 Navigation Clarity + Contextual Return Labels ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260627-v1z74-session-alignment-version-label-fix-a2-b1plus';
+  const APP_VERSION = '20260627-v1z75-navigation-clarity-contextual-return-labels-a2-b1plus';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32591,7 +32591,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z74'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z75'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
@@ -37224,7 +37224,7 @@
         <div class="panel light" style="margin-top:18px">
           <h3>Session ${current.id}: ${safe(current.skill)}</h3>
           <p class="mini-note">Boss: ${safe(current.boss)} • Topic: ${safe(skillTextForSession(current).topic)}</p>
-          <button class="btn warn block" onclick="return EAPHero.directOpenSession(${current.id})">🧭 Back to Session Path</button>
+          <button class="btn ghost block" onclick="return EAPHero.directOpenSession(${current.id})">← Session Path</button>
           <div class="grid four">
             <button class="btn primary block" onclick="EAPHero.readingMission(${current.id})">📖 Reading</button>
             <button class="btn primary block" onclick="EAPHero.writingMission(${current.id})">✍️ Writing</button>
@@ -37637,7 +37637,7 @@
       ${independentReplayBannerHTML('Reading', s.id)}
       ${renderAIHelpBox('Reading', s.id)}
       ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="2" placeholder="Write a short answer in English."></textarea>`).join('')}
-      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div>
     </section>`);
   }
 
@@ -38246,7 +38246,7 @@
         <button type="button" class="btn small ghost" onclick="EAPHero.clearAnswerBox('writingOutput')">Clear</button>
       </div>
       <textarea id="writingOutput" class="input answer-box large-writing-box" rows="13" data-default-rows="13" placeholder="${safeAttr(alignedPlaceholder('Writing', s.id, prompt))}"></textarea>
-      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div>
     </section>`);
   }
 
@@ -38561,7 +38561,7 @@
         <button type="button" class="btn small" onclick="EAPHero.expandAnswerBox('listeningNotes')">↕ Expand</button>
       </div>
       <textarea id="listeningNotes" class="input answer-box listening-notes-box" rows="10" data-default-rows="10" placeholder="${safeAttr(alignedPlaceholder('Listening', s.id, text.variant || {}))}"></textarea>
-      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitListening(${s.id})">Submit Listening Notes</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitListening(${s.id})">Submit Listening Notes</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div>
     </section>`);
   }
 
@@ -38878,7 +38878,7 @@
       </div>
       <div class="footer-actions">
         <button class="btn primary submit-speaking-btn" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button>
-        <button class="btn ghost" onclick="EAPHero.renderSkillPath(${s.id})">Back to Session Path</button>
+        <button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button>
       </div>
     </section>`);
   }
@@ -39056,7 +39056,7 @@
       <p class="mini-note">คะแนนนี้เป็น auto-check เบื้องต้น ใช้เพื่อปรับปรุงครั้งถัดไป อาจารย์ยังควรใช้ rubric ตรวจ writing/speaking จริง</p>
       ${renderLearningReportCard(latestLearningReport())}
       ${renderAIFormativeFeedbackCard((state.portfolio || []).slice(-1)[0])}
-      <div class="footer-actions" style="justify-content:center"><button class="btn primary" onclick="EAPHero.skillHub(${id})">Back to Skills</button><button class="btn" onclick="EAPHero.contract(${id})">Boss Contract</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn" onclick="EAPHero.aiLearningCenter()">AI Learning Center</button><button class="btn ghost" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button></div>
+      <div class="footer-actions" style="justify-content:center"><button class="btn primary" onclick="EAPHero.skillHub(${id})">← Back to S${id} Skills</button><button class="btn" onclick="EAPHero.contract(${id})">Boss Contract</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn" onclick="EAPHero.aiLearningCenter()">AI Learning Center</button><button class="btn ghost" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button></div>
     </section>`);
   }
 
@@ -39308,7 +39308,7 @@
     return frames[skill] || 'For example, ___.';
   }
 
-  /* === v1z74 Learning Report Recovery + Session Alignment ===
+  /* === v1z75 Navigation Clarity + Learning Report Recovery ===
      A Learning Report is the formative view of one portfolio evidence item.
      Earlier builds could retain portfolio evidence but lose report cards after a
      local-storage migration.  Stable evidence IDs let the app restore those cards
@@ -42590,7 +42590,7 @@
         portfolioIndex:portfolio.indexOf(p),
         portfolioId:p.evidenceId || reportPortfolioIdentity(p, portfolio.indexOf(p)),
         sourceAt:p.at || report.sourceAt || '',
-        reportVersion:'v1z74'
+        reportVersion:'v1z75'
       };
       Object.keys(update).forEach(k=>{ if(report[k] !== update[k]){ report[k]=update[k]; changed=true; } });
     });
