@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z64-gold-authored-item-bank-qa';
+  const APP_VERSION = '20260610-v1z65-gold-task-aligned-help-ui-focus';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32081,7 +32081,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z64</div>
+              <div class="mini-note">Save the Society • v1z65</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32630,7 +32630,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z64</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z65</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -36406,6 +36406,11 @@
       : '';
     const outputId = aiOutputId(skill, sessionId);
     const stage = uses < limit ? aiHelpStageLabel(uses + 1, limit) : 'Limit reached';
+    const goldTask = currentGoldTaskContext(skill, sessionId);
+    const goldHelpLabel = goldTask?.gold ? `Source-specific • ${goldTask.sourceId || 'Gold Pack'}` : '';
+    const helpIntro = goldTask?.gold
+      ? 'AI Help will guide this exact source task without giving the answer.'
+      : 'AI Help ใช้เพื่อฝึกคิด: Hint → Draft feedback → Sentence frame/checklist ตามระดับความยาก';
     return `
       <div class="panel light ai-help-box" style="margin:14px 0;border-style:dashed">
         <div class="badges">
@@ -36413,8 +36418,9 @@
           <span class="pill">${left}/${limit} left</span>
           <span class="pill">${safe(stage)}</span>
           <span class="pill">Scaffold only</span>
+          ${goldHelpLabel ? `<span class="pill gold-help-pill">${safe(goldHelpLabel)}</span>` : ''}
         </div>
-        <p class="mini-note">AI Help ใช้เพื่อฝึกคิด: Hint → Draft feedback → Sentence frame/checklist ตามระดับความยาก</p>
+        <p class="mini-note">${safe(helpIntro)}</p>
         <button type="button" class="btn ai-mentor-btn" ${left<=0?'disabled':''} onclick="EAPHero.aiHelp('${safeAttr(skill)}', ${sessionId}, '${draftId}', '${outputId}')">${safe(aiHelpButtonLabel(skill, sessionId))}</button>
         <div id="${outputId}" class="feedback info ai-output-box" style="margin-top:10px;display:none"></div>
       </div>`;
@@ -37189,7 +37195,7 @@
     return a.frames.join(' ');
   }
 
-  function alignedAIHelpMessage(skill, sessionId, draftText, nextUse, draftInfo){
+  function legacyAlignedAIHelpMessage(skill, sessionId, draftText, nextUse, draftInfo){
     const a = alignmentFor(skill, sessionId, {});
     const frame = a.frames.join(' ');
     const wordNote = draftInfo && draftInfo.wordCount ? `Your draft has ${draftInfo.wordCount} words. ` : '';
@@ -37349,6 +37355,7 @@
     const abilityTask = buildAbilityTask('Reading', s.id, text);
     if(abilityTask.questions && abilityTask.questions.length) text.variant.q = abilityTask.questions;
     const readingDifficulty = currentSkillDifficulty('Reading');
+    registerGoldTaskContext('Reading', s.id, abilityTask);
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
       <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
@@ -37356,7 +37363,7 @@
       ${abilityTaskHTML('Reading', abilityTask)}
       <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}"><input type="hidden" id="readingAbilityTaskId" value="${safeAttr(abilityTask.id)}">
       <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
-      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${alignmentGuideHTML('Reading', s.id, text.variant || {})}${cefrAIHelpNote('Reading')}</div>
+      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${goldTaskAlignmentGuideHTML('Reading', s.id, abilityTask, text.variant || {})}${cefrAIHelpNote('Reading')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(readingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading', readingDifficulty)))}</p>
       ${independentReplayBannerHTML('Reading', s.id)}
       ${renderAIHelpBox('Reading', s.id)}
@@ -37404,7 +37411,7 @@
   }
 
 
-  /* === v1z64 Gold Authored Item Bank + QA Lock: formative feedback, independence, teacher analytics === */
+  /* === v1z65 Gold Task-Aligned Help + UI Focus: formative feedback, independence, teacher analytics === */
   const EAP_FULL_AI_SUITE = Object.freeze({
     version:'v1z63',
     studentFeatures:['Skill Profile','Ability-Adaptive Difficulty','No-Repeat Selector','AI Help','Formative Rubric','Independence Check','Prediction','Learning Coach'],
@@ -37949,6 +37956,7 @@
     prompt.instruction = `${prompt.instruction} ${abilityTask.instruction || ''}`.trim();
     prompt.target = abilityTask.target || prompt.target;
     const writingDifficulty = currentSkillDifficulty('Writing');
+    registerGoldTaskContext('Writing', s.id, abilityTask);
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Writing Mission</span><span class="pill">S${s.id}</span><span class="pill">Portfolio Evidence</span></div>
       <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
@@ -37956,7 +37964,7 @@
       ${abilityTaskHTML('Writing', abilityTask)}
       <input type="hidden" id="writingPromptText" value="${safeAttr(prompt.instruction)}"><input type="hidden" id="writingAbilityTaskId" value="${safeAttr(abilityTask.id)}">
       <p class="mini-note">เป้าหมาย: ${safe(cefrSimplifyTask(prompt.target))} • auto-check เบื้องต้น</p>
-      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${alignmentGuideHTML('Writing', s.id, prompt)}${cefrAIHelpNote('Writing')}</div>
+      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${goldTaskAlignmentGuideHTML('Writing', s.id, abilityTask, prompt)}${cefrAIHelpNote('Writing')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(writingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Writing', writingDifficulty)))}</p>
       ${independentReplayBannerHTML('Writing', s.id)}
       ${renderAIHelpBox('Writing', s.id)}
@@ -38217,6 +38225,7 @@
     const listenAlign = alignmentFor('Listening', s.id, text.variant || {});
     const abilityTask = buildAbilityTask('Listening', s.id, text);
     const listeningDifficulty = currentSkillDifficulty('Listening');
+    registerGoldTaskContext('Listening', s.id, abilityTask);
     const lecture = `Today, we will discuss ${text.topic}. ${text.passage} ${text.variant.ask || 'Write notes about the main point.'}`;
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Listening Mission</span><span class="pill">S${s.id}</span><span class="pill">Mini Lecture</span></div>
@@ -38270,7 +38279,7 @@
       ${independentReplayBannerHTML('Listening', s.id)}
       ${renderAIHelpBox('Listening', s.id)}
       <p class="mini-note"><b>Task:</b> ${safe(cefrSimplifyTask(abilityTask.instruction || text.variant.ask || 'Write listening notes.'))}</p>
-      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${alignmentGuideHTML('Listening', s.id, text.variant || {})}${cefrAIHelpNote('Listening')}</div>
+      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${goldTaskAlignmentGuideHTML('Listening', s.id, abilityTask, text.variant || {})}${cefrAIHelpNote('Listening')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(listeningDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Listening', listeningDifficulty)))}</p>
       <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}"><input type="hidden" id="listeningAbilityTaskId" value="${safeAttr(abilityTask.id)}">
       <div id="fullTranscriptBox" class="feedback info" style="margin-top:10px"></div>
@@ -38516,6 +38525,7 @@
     const abilityTask = buildAbilityTask('Speaking', s.id, {topic:mv.topic, passage:mv.passage, variant:mv.variant, goldPack:mv.goldPack});
     prompt.instruction = `${prompt.instruction} ${abilityTask.instruction || ''}`.trim();
     const speakingDifficulty = currentSkillDifficulty('Speaking');
+    registerGoldTaskContext('Speaking', s.id, abilityTask);
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Speaking Mission</span><span class="pill">S${s.id}</span><span class="pill">Presentation Practice</span></div>
       <h2>🎤 Speaking Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
@@ -38526,7 +38536,7 @@
         <h3>🎙️ Oral Task First</h3>
         <p><b>งานนี้คือ Speaking:</b> ให้ผู้เรียนพูดจริงก่อน ไม่ใช่พิมพ์ตอบเป็นหลัก</p>
         <p class="mini-note"><b>Difficulty:</b> ${safe(speakingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Speaking', speakingDifficulty)))}</p>
-        <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${alignmentGuideHTML('Speaking', s.id, prompt)}${cefrAIHelpNote('Speaking')}</div>
+        <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${goldTaskAlignmentGuideHTML('Speaking', s.id, abilityTask, prompt)}${cefrAIHelpNote('Speaking')}</div>
         
         <div class="footer-actions">
           <button id="startSpeakBtn" class="btn primary" onclick="EAPHero.startSpeakingTimer()">🎙️ Start Speaking</button>
@@ -39331,7 +39341,7 @@
 
 
 
-  /* === v1z64 Gold Authored Item Bank + QA Lock === */
+  /* === v1z65 Gold Task-Aligned Help + UI Focus === */
   const EAP_ANTI_MEMORIZATION_ENGINE = Object.freeze({
     version:'v1z62',
     scenariosPerSession:16,
@@ -40060,16 +40070,23 @@
 
   function abilityTaskHTML(skill, task){
     const p = task.profile || {};
-    return `<div class="ai-ability-task-card">
+    const levelLabel = task.gold
+      ? `AI level · CEFR ${safe(task.cefr || (AI_ABILITY_LEVELS[task.tier] || {}).cefr || 'A2–B1+')}`
+      : `${safe(task.label)} · CEFR ${safe(task.cefr)}`;
+    const routeLabel = task.gold
+      ? 'Route: source-grounded'
+      : `New route: ${safe(task.variantLabel || task.variantCode || 'fresh task')}`;
+    return `<div class="ai-ability-task-card ${task.gold ? 'gold-source-aware' : ''}">
       <div class="ai-ability-head">
         <b>🤖 AI Ability Match</b>
-        <span>${safe(task.label)} · CEFR ${safe(task.cefr)}</span>
+        <span>${levelLabel}</span>
       </div>
       <p><b>${safe(skill)} level selected from your own evidence.</b> ${safe(task.instruction || 'Task difficulty is adjusted for this skill.')}</p>
       <div class="ai-ability-meta">
         <span>Attempts: ${Number(p.attempts || 0)}</span>
         <span>Recent independent score: ${Number(p.recentAverage || 0)}%</span>
-        <span>AI Help avg: ${Number(p.aiAverage || 0)}</span><span>New route: ${safe(task.variantLabel || task.variantCode || 'fresh task')}</span>
+        <span>AI Help avg: ${Number(p.aiAverage || 0)}</span>
+        <span>${routeLabel}</span>
       </div>
       <p class="mini-note">${safe(p.reason || 'AI will collect more evidence after this mission.')}</p>
     </div>`;
@@ -41342,7 +41359,7 @@
   }
 
 
-  /* === v1z64 Gold Authored Item Bank + QA Lock === */
+  /* === v1z65 Gold Task-Aligned Help + UI Focus === */
   const EAP_GOLD_BANK_ENGINE = Object.freeze({version:'v1z64',authoredSourcesPerSession:8,authoredSourcesTotal:120,questionAnglesPerTier:4,candidateMCQPerSession:128,candidateMCQTotal:1920,coreSupportTaskPacks:960,rule:'Gold authored sources are selected first; source, question angle, and answer position rotate before reuse.'});
   const EAP_GOLD_QUESTION_ANGLES={easy:['Which response best matches the source?','What is the clearest action or idea in this source?','Which choice directly follows the study situation?','Which answer uses the main point from the source?'],normal:['Which response connects the source idea with its supporting detail?','Which choice explains the relationship in this source most clearly?','Which answer uses the evidence instead of a small unrelated detail?','Which study decision is best supported by this source?'],hard:['Which response makes the most careful evidence-based interpretation?','Which choice explains a useful conclusion without overclaiming?','Which response identifies a reason, evidence, or limit from the source?','Which answer shows critical use of the source information?'],challenge:['Which balanced judgement is best supported by the source?','Which response makes a justified conclusion and still names a limitation?','Which choice compares the evidence with a careful condition?','Which B1+ conclusion avoids both overclaiming and underusing evidence?']};
   function goldBankRoot(){return (typeof window!=='undefined'&&window.EAP_GOLD_AUTHORED_BANK)?window.EAP_GOLD_AUTHORED_BANK:null;}
@@ -41370,6 +41387,277 @@
   function buildAbilityTask(skill,sessionId,context){const task=buildAbilityTaskLegacy(skill,sessionId,context),gold=context?.goldPack;if(!gold)return task;task.id=gold.id;task.gold=true;task.sourceId=gold.sourceId;task.label=gold.label;task.variantCode=`gold-${gold.sourceId}`;task.variantLabel='Gold authored source';task.instruction=gold.instruction||task.instruction;task.target=gold.target||task.target;if(gold.questions?.length)task.questions=gold.questions;if(gold.voiceRate)task.voiceRate=gold.voiceRate;if(gold.minSeconds)task.minSeconds=gold.minSeconds;return task;}
   function selectQuestionSet(session,count,mode){const gold=selectGoldAssessmentSet(session,count,mode);if(gold.length>=Math.max(1,Number(count||1)))return gold;return selectQuestionSetLegacy(session,count,mode);}
   function pickQuestionsFromSessions(sessionIds,count,examKey){const gold=selectGoldAssessmentSetAcross(sessionIds,count,examKey);if(gold.length>=Math.max(1,Number(count||1)))return gold;return pickQuestionsFromSessionsLegacy(sessionIds,count,examKey);}
+
+
+
+  /* === v1z65 Gold Task-Aligned Help + UI Focus === */
+  const EAP_GOLD_TASK_ALIGNMENT = Object.freeze({
+    version:'v1z65',
+    rule:'Gold authored source → task-specific help → source-aware AI hint. No legacy generic frame may override a Gold task.',
+    scope:'All four skills: Reading, Writing, Listening, Speaking.'
+  });
+
+  let eapGoldActiveTaskContext = null;
+
+  function registerGoldTaskContext(skill, sessionId, task){
+    const normalized = normalizeAbilitySkill(skill);
+    if(task && task.gold){
+      eapGoldActiveTaskContext = {
+        skill:normalized,
+        session:Number(sessionId || 1),
+        task:Object.assign({}, task),
+        at:Date.now()
+      };
+    }else{
+      eapGoldActiveTaskContext = null;
+    }
+    return eapGoldActiveTaskContext;
+  }
+
+  function currentGoldTaskContext(skill, sessionId){
+    const ctx = eapGoldActiveTaskContext;
+    if(!ctx) return null;
+    const sameSkill = normalizeAbilitySkill(skill) === ctx.skill;
+    const sameSession = Number(sessionId || 1) === Number(ctx.session || 1);
+    return sameSkill && sameSession ? ctx.task : null;
+  }
+
+  function goldTaskSource(task){
+    if(task && task.goldSource) return task.goldSource;
+    if(task && task.source) return task.source;
+    const sourceId = task?.sourceId || '';
+    if(sourceId && typeof goldBankSessions === 'function'){
+      for(const block of Object.values(goldBankSessions() || {})){
+        const found = (block.sources || []).find(x=>x.id === sourceId);
+        if(found) return found;
+      }
+    }
+    return null;
+  }
+
+  function goldTaskVocabulary(sessionId, skill, source){
+    const sid = Number(sessionId || 1);
+    const bySession = {
+      1:['target skill','weekly action','progress check'],
+      2:['context clue','word family','academic phrase'],
+      3:['main idea','supporting detail','central'],
+      4:['keyword','signal word','contrast'],
+      5:['claim','evidence','source check'],
+      6:['summary','own words','main point'],
+      7:['formal','cautious','academic tone'],
+      8:['topic sentence','support','closing'],
+      9:['reason','example','conclusion'],
+      10:['trend','increase','may suggest'],
+      11:['purpose','request','closing'],
+      12:['paraphrase','citation','source'],
+      13:['main point','keyword','detail'],
+      14:['signpost','evidence','conclusion'],
+      15:['evidence','response','next step']
+    };
+    const base = bySession[sid] || ['main idea','evidence','clear response'];
+    if(source?.title && skill === 'Reading') return base;
+    return base;
+  }
+
+  function goldTaskGuideData(skill, task){
+    const normalized = normalizeAbilitySkill(skill);
+    const tier = task?.tier || currentSkillDifficulty(normalized).key || 'easy';
+    const source = goldTaskSource(task);
+    const sourceTitle = source?.title || task?.topic || 'this source';
+    const bySkill = {
+      Reading:{
+        easy:{
+          steps:[
+            'Read the whole source once. Look for the lesson, not one small detail.',
+            'Choose one short key phrase that belongs to the central idea.',
+            'Use one exact source detail to support your answer.'
+          ],
+          frames:[
+            'The main point is that ___.',
+            'One key phrase is “___.”',
+            'The passage says that ___.'
+          ],
+          expected:'main point + key phrase + direct detail'
+        },
+        normal:{
+          steps:[
+            'Identify the main idea that covers the whole source.',
+            'Find the detail that best supports that idea.',
+            'Name one smaller detail that should not become the main point.'
+          ],
+          frames:[
+            'The main idea is ___.',
+            'The detail “___” supports this because ___.',
+            'A less central detail is ___.'
+          ],
+          expected:'main idea + linked evidence + detail filter'
+        },
+        hard:{
+          steps:[
+            'Make a careful conclusion from the source.',
+            'Choose evidence that supports the conclusion.',
+            'Name one limit or missing detail before overclaiming.'
+          ],
+          frames:[
+            'The source suggests that ___.',
+            'The evidence is “___.”',
+            'A limit is ___.'
+          ],
+          expected:'careful conclusion + evidence + limitation'
+        },
+        challenge:{
+          steps:[
+            'Make a balanced judgement from the source.',
+            'Compare what the evidence supports with what it does not prove.',
+            'State one condition or limitation clearly.'
+          ],
+          frames:[
+            'A balanced conclusion is ___.',
+            'The evidence supports this because ___.',
+            'We should not conclude that ___.'
+          ],
+          expected:'balanced judgement + evidence + condition'
+        }
+      },
+      Writing:{
+        easy:{
+          steps:['State the source idea in your own words.','Add one direct source detail or action.','End with a clear sentence.'],
+          frames:['The source shows that ___.','For example, ___.','This is useful because ___.'],
+          expected:'3–4 source-based sentences'
+        },
+        normal:{
+          steps:['Write one focused point.','Use one source detail and explain it.','Link ideas with one connector.'],
+          frames:['The main point is ___.','The source says ___.','Therefore/However, ___.'],
+          expected:'connected source-based response'
+        },
+        hard:{
+          steps:['Make a claim about the source situation.','Use evidence and explain the connection.','Add one cautious limitation.'],
+          frames:['The evidence suggests that ___.','This matters because ___.','However, ___.'],
+          expected:'evidence + explanation + limitation'
+        },
+        challenge:{
+          steps:['Compare possible responses to the source situation.','Justify one choice with evidence.','End with a balanced limitation.'],
+          frames:['A stronger response is ___.','This is supported by ___.','A limitation is ___.'],
+          expected:'balanced evidence-based paragraph'
+        }
+      },
+      Listening:{
+        easy:{
+          steps:['Listen for the central lesson.','Write two keywords, not full sentences.','Add one exact supporting detail.'],
+          frames:['Main point: ___.','Keywords: ___ and ___.','One detail: ___.'],
+          expected:'main point + 2 keywords + detail'
+        },
+        normal:{
+          steps:['Listen for the main idea.','Identify a support detail or relationship word.','Write one short link between them.'],
+          frames:['Main idea: ___.','Support detail: ___.','This shows ___.'],
+          expected:'main idea + support + relationship'
+        },
+        hard:{
+          steps:['Record evidence from the lecture.','Make one careful inference.','Name a gap or limitation in the short lecture.'],
+          frames:['Evidence: ___.','This may suggest ___.','One missing detail is ___.'],
+          expected:'evidence + inference + gap'
+        },
+        challenge:{
+          steps:['Create a concise synthesis note.','Write a balanced conclusion.','Ask one useful follow-up question.'],
+          frames:['The lecture suggests ___.','A limitation is ___.','A useful question is ___.'],
+          expected:'synthesis + limitation + question'
+        }
+      },
+      Speaking:{
+        easy:{
+          steps:['Name the source topic.','Give one clear point or detail.','Close your response clearly.'],
+          frames:['Today, I will explain ___.','One source detail is ___.','In conclusion, ___.'],
+          expected:'short organized response'
+        },
+        normal:{
+          steps:['Open with the topic.','Use one signpost and one source detail.','Give a clear closing.'],
+          frames:['First, ___.','For example, ___.','To conclude, ___.'],
+          expected:'signposted source response'
+        },
+        hard:{
+          steps:['State a claim about the source situation.','Support it with evidence.','Add one careful limitation before closing.'],
+          frames:['The source suggests ___.','The evidence is ___.','However, ___.'],
+          expected:'claim + evidence + limitation'
+        },
+        challenge:{
+          steps:['Compare two possible responses.','Justify your chosen response with evidence.','Answer a likely follow-up carefully.'],
+          frames:['A stronger option is ___.','This is supported by ___.','One condition is ___.'],
+          expected:'mini presentation + balanced response'
+        }
+      }
+    };
+    const data = ((bySkill[normalized] || bySkill.Reading)[tier] || (bySkill[normalized] || bySkill.Reading).easy);
+    return Object.assign({}, data, {
+      skill:normalized,
+      tier,
+      source,
+      sourceTitle,
+      vocab:goldTaskVocabulary(task?.session || 1, normalized, source)
+    });
+  }
+
+  function goldTaskAlignmentGuideHTML(skill, sessionId, task, fallbackPrompt){
+    if(!task?.gold) return alignmentGuideHTML(skill, sessionId, fallbackPrompt || {});
+    const g = goldTaskGuideData(skill, task);
+    return `<div class="gold-task-guide">
+      <div class="gold-task-guide-head">
+        <span>🎯 Help aligned to this exact Gold source</span>
+        <span>${safe(g.source?.id || task.sourceId || '')}</span>
+        <span>${safe(g.sourceTitle)}</span>
+      </div>
+      <h3>Use this help for this task only</h3>
+      <div class="gold-guide-grid">
+        ${g.steps.map((step,i)=>`<div class="gold-guide-step"><b>Step ${i+1}</b><span>${safe(step)}</span></div>`).join('')}
+      </div>
+      <h4>Sentence frames for this task</h4>
+      <div class="gold-frame-row">${g.frames.map(frame=>`<span>${safe(frame)}</span>`).join('')}</div>
+      <h4>Useful vocabulary</h4>
+      <div class="gold-vocab-row">${g.vocab.map(word=>`<span>${safe(word)}</span>`).join('')}</div>
+      <p class="mini-note">Source: ${safe(g.sourceTitle)} · ${safe(g.expected)} · This is a scaffold, not an answer key.</p>
+    </div>`;
+  }
+
+  function goldTaskAIHelpMessage(skill, sessionId, task, draftText, nextUse, draftInfo){
+    const g = goldTaskGuideData(skill, task);
+    const sourceTitle = g.sourceTitle;
+    const draft = String(draftText || '').trim();
+    const check = {
+      Reading:'Does your first answer cover the whole source? Does your second answer give a short key phrase? Does your third answer give one exact detail?',
+      Writing:'Does your response use the source idea in your own words, one supporting detail, and the required organisation?',
+      Listening:'Do your notes show the main point, selective keywords, and the task-specific supporting detail?',
+      Speaking:'Does your response have a clear opening, one source detail/evidence point, and a closing?'
+    }[g.skill] || 'Does your answer follow the task steps and use source evidence?';
+    const message = nextUse >= 2
+      ? `Draft check for “${sourceTitle}”: ${check} Use a frame only where it helps: ${g.frames.join(' ')}`
+      : `Source-specific hint for “${sourceTitle}”: ${g.steps.join(' ')} Useful frame: ${g.frames[0]}`;
+    return {
+      level:nextUse >= 2 ? 'gold-source-draft-check' : 'gold-source-hint',
+      message,
+      useNumber:nextUse,
+      draftWordCount:draftInfo?.wordCount || 0,
+      draftNotes:draftInfo?.notes || []
+    };
+  }
+
+  function alignedAIHelpMessage(skill, sessionId, draftText, nextUse, draftInfo){
+    const gold = currentGoldTaskContext(skill, sessionId);
+    if(gold?.gold) return goldTaskAIHelpMessage(skill, sessionId, gold, draftText, nextUse, draftInfo);
+    return legacyAlignedAIHelpMessage(skill, sessionId, draftText, nextUse, draftInfo);
+  }
+
+  function goldTaskAlignmentAudit(){
+    const available = typeof goldBankAvailable === 'function' && goldBankAvailable();
+    const sessions = available ? Object.keys(goldBankSessions() || {}).length : 0;
+    const skillCount = 4;
+    const tierCount = 4;
+    return {
+      available,
+      sessions,
+      alignedConfigurations:sessions * skillCount * tierCount,
+      noLegacyAudienceFramesForGold:true,
+      rule:'Every Gold source task uses goldTaskAlignmentGuideHTML and source-aware AI Help.'
+    };
+  }
 
 
   // public API for inline handlers
@@ -41457,6 +41745,10 @@
     goldQALab:renderGoldQALab,
     goldMissionPack,
     selectGoldAssessmentSet,
+    EAP_GOLD_TASK_ALIGNMENT,
+    goldTaskAlignmentGuideHTML,
+    goldTaskAlignmentAudit,
+    registerGoldTaskContext,
 
     EAP_SELF_PRACTICE_CORE,
     selfPracticeCoreHTML,

@@ -2117,3 +2117,72 @@ textarea{
 
 /* === v1z64 Gold Authored Item Bank + QA Lock === */
 .gold-authored-badge{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;padding:10px 12px;border-radius:15px;border:1px solid rgba(217,119,6,.38);background:linear-gradient(135deg,#fff7ed,#fffbeb);color:#78350f}.gold-authored-badge b{font-weight:950}.gold-authored-badge span{padding:4px 8px;border-radius:999px;background:#fef3c7;border:1px solid rgba(217,119,6,.20);font-size:.82rem;font-weight:800}.gold-qa-status{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0;padding:11px 13px;border-radius:14px;background:#fef3c7;border:1px solid #facc15;color:#78350f}.gold-qa-status.pass{background:#dcfce7;border-color:#86efac;color:#14532d}.gold-qa-status b{font-weight:950}@media(max-width:640px){.gold-authored-badge{padding:10px}.gold-authored-badge span{font-size:.76rem}}
+
+
+/* === v1z65 Gold Task-Aligned Help + UI Focus === */
+.gold-task-guide{
+  margin:12px 0;
+  padding:14px;
+  border-radius:18px;
+  border:1px solid rgba(20,184,166,.42);
+  background:linear-gradient(180deg,rgba(13,148,136,.18),rgba(15,118,110,.13));
+  color:#ecfeff;
+}
+.gold-task-guide-head{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-bottom:10px;
+}
+.gold-task-guide-head span{
+  padding:5px 8px;
+  border-radius:999px;
+  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.17);
+  font-size:.82rem;
+  font-weight:900;
+}
+.gold-task-guide h3{margin:0 0 10px;font-size:1.08rem}
+.gold-task-guide h4{margin:13px 0 7px;font-size:1rem;color:#bbf7d0}
+.gold-guide-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px;
+}
+.gold-guide-step{
+  min-height:84px;
+  padding:10px;
+  border-radius:13px;
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.15);
+}
+.gold-guide-step b,.gold-guide-step span{display:block}
+.gold-guide-step b{color:#a7f3d0;margin-bottom:4px}
+.gold-frame-row,.gold-vocab-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.gold-frame-row span{
+  display:inline-block;
+  padding:8px 10px;
+  border-radius:12px;
+  background:#fff7cc;
+  color:#78350f;
+  border:1px solid #fcd34d;
+  font-weight:900;
+}
+.gold-vocab-row span{
+  padding:5px 8px;
+  border-radius:999px;
+  background:#dbeafe;
+  color:#1e3a8a;
+  font-weight:850;
+  font-size:.88rem;
+}
+.gold-source-aware .ai-ability-head span{background:#dbeafe;color:#1e3a8a}
+.gold-help-pill{background:#fef3c7 !important;color:#78350f !important}
+@media(max-width:760px){
+  .gold-guide-grid{grid-template-columns:1fr}
+  .gold-guide-step{min-height:0}
+}
