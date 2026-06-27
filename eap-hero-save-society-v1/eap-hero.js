@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z72 Learning Report Recovery ===
+/* === EAP Hero: Save the Society v1z74 Session Alignment + Version Label Fix ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260627-v1z73-master-session-matrix-boss-gate-sync-a2-b1plus';
+  const APP_VERSION = '20260627-v1z74-session-alignment-version-label-fix-a2-b1plus';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32065,6 +32065,11 @@
     return String(text ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
+  function shortAppVersion(){
+    const match = String(APP_VERSION || '').match(/v\d+[a-z0-9]*/i);
+    return match ? match[0] : 'latest';
+  }
+
   function stars(n){
     return '★'.repeat(n) + '☆'.repeat(Math.max(0,3-n));
   }
@@ -32098,7 +32103,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z72</div>
+              <div class="mini-note">Save the Society • ${safe(shortAppVersion())}</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32586,7 +32591,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z73'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z74'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
@@ -32651,7 +32656,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z72</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • ${safe(shortAppVersion())}</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -37654,6 +37659,7 @@
       Speaking:['today','first','because','example','evidence','conclusion','thank','question']
     };
     const special = {
+      2:['word','meaning','context','sentence','evidence','claim','method','result'],
       5:['bias','claim','evidence','source','check'],
       6:['summary','own','words','important','source'],
       8:['topic','sentence','support','example','conclusion'],
@@ -39302,7 +39308,7 @@
     return frames[skill] || 'For example, ___.';
   }
 
-  /* === v1z72 Learning Report Recovery ===
+  /* === v1z74 Learning Report Recovery + Session Alignment ===
      A Learning Report is the formative view of one portfolio evidence item.
      Earlier builds could retain portfolio evidence but lose report cards after a
      local-storage migration.  Stable evidence IDs let the app restore those cards
@@ -41904,8 +41910,145 @@
   function goldSessionBlock(id){return goldBankSessions()[String(Number(id||1))]||null;}
   function goldTierKey(skill){try{return currentSkillDifficulty(skill).key||'easy';}catch(e){return'easy';}}
   function goldPick(key,rows,store,cap){if(!rows.length)return null;const recent=store[key]||[];let pool=rows.filter(x=>!recent.includes(x.id));if(!pool.length){const lock=recent.slice(0,Math.max(3,Math.ceil(rows.length/2)));pool=rows.filter(x=>!lock.includes(x.id));if(!pool.length)pool=rows.slice();}const chosen=pool[Math.floor(Math.random()*pool.length)];store[key]=[chosen.id].concat(recent.filter(id=>id!==chosen.id)).slice(0,cap||rows.length);return chosen;}
+  function goldReadingTaskSpec(sessionId, title, tier){
+    const sid = Number(sessionId || 1);
+    const level = ['easy','normal','hard','challenge'].includes(tier) ? tier : 'easy';
+    const titleText = String(title || 'this source');
+    const base = {
+      1:{
+        steps:['Read for one academic goal or skill.','Find one practical action in the source.','Explain why that action can help a learner.'],
+        frames:['The academic goal is ___.','One useful action is ___.','This can help because ___.'],
+        questions:[`What academic goal or skill is important in “${titleText}”?`,'Write one learning action from the source.','Why can this action help a learner?'],
+        instruction:'Read for one academic goal, one action, and one reason.',
+        target:'goal + action + reason',
+        vocab:['academic goal','practice','progress check']
+      },
+      2:{
+        steps:['Choose one academic word or phrase from the source.','Use nearby words to explain its meaning in context.','Use the word or phrase in one short academic sentence.'],
+        frames:['The word/phrase is “___."','In this source, it means ___.','I can use it in: ___.'],
+        questions:[`Choose one useful academic word or phrase from “${titleText}”.`,'What does it mean in this source?','Write one short academic sentence using it correctly.'],
+        instruction:'Read for one academic word, its meaning in context, and one simple use.',
+        target:'word + context meaning + example sentence',
+        vocab:['academic word','meaning','context clue']
+      },
+      3:{
+        steps:['Read the whole source once. Look for the lesson, not one small detail.','Choose one short key phrase that belongs to the central idea.','Use one exact source detail to support your answer.'],
+        frames:['The main point is that ___.','One key phrase is “___."','The passage says that ___.'],
+        questions:[`What is the main point of “${titleText}”?`,'Write one key word or phrase from the source.','What direct detail supports your answer?'],
+        instruction:'Read for the central idea and one direct support.',
+        target:'main idea + key phrase + direct detail',
+        vocab:['main idea','supporting detail','topic']
+      },
+      4:{
+        steps:['Choose one keyword that names the topic.','Find one signal word or relationship phrase.','Name the relationship: cause, result, contrast, example, or sequence.'],
+        frames:['A key word is “___."','The signal word/phrase is “___."','It shows ___.'],
+        questions:[`Which keyword is important in “${titleText}”?`,'Write one signal word or relationship phrase from the source.','Does it show cause, result, contrast, example, or sequence?'],
+        instruction:'Read for one keyword and one relationship signal.',
+        target:'keyword + signal word + relationship',
+        vocab:['keyword','signal word','relationship']
+      },
+      5:{
+        steps:['Identify the source claim or main point.','Find one detail that supports it.','Explain why the detail is useful evidence or why it needs checking.'],
+        frames:['The claim/point is ___.','One supporting detail is ___.','This is useful because ___.'],
+        questions:[`What claim or main point does “${titleText}” make?`,'Which direct detail supports it?','Why is this detail useful evidence, or why should it be checked?'],
+        instruction:'Read for a claim, one support detail, and a careful source check.',
+        target:'claim + evidence + careful reason',
+        vocab:['claim','evidence','source']
+      },
+      6:{
+        steps:['Find the central idea.','Choose one detail that should stay in a short summary.','Name one small detail that can be left out.'],
+        frames:['The main idea is ___.','Keep this detail: ___.','This smaller detail can be left out: ___.'],
+        questions:[`What is the central idea of “${titleText}”?`,'Which detail should stay in a short summary?','Which smaller detail can be left out?'],
+        instruction:'Read to select the main idea and the most useful summary detail.',
+        target:'main idea + key detail + detail reduction',
+        vocab:['summary','main idea','key detail']
+      },
+      7:{
+        steps:['Find one formal or precise word in the source.','Identify one idea that should be stated carefully.','Write one cautious academic sentence.'],
+        frames:['A formal word is “___."','This idea should be stated carefully: ___.','A cautious sentence is ___.'],
+        questions:[`Which word or phrase in “${titleText}” sounds formal or precise?`,'Which idea should be stated carefully rather than strongly?','Write one cautious academic sentence about the source.'],
+        instruction:'Read for precise academic language and one cautious statement.',
+        target:'formal word + cautious idea + academic sentence',
+        vocab:['formal','precise','may suggest']
+      },
+      8:{
+        steps:['Identify the possible topic sentence or central point.','Choose one detail that supports it.','Write a suitable closing sentence.'],
+        frames:['The topic sentence could be ___.','One support detail is ___.','A closing sentence is ___.'],
+        questions:[`What could be the topic sentence for “${titleText}”?`,'Which source detail is useful support?','Write one suitable closing sentence.'],
+        instruction:'Read to identify a paragraph focus, one support detail, and a closing idea.',
+        target:'topic sentence + support + closing',
+        vocab:['topic sentence','support','conclusion']
+      },
+      9:{
+        steps:['Choose one clear paragraph topic.','Find one source detail that can support it.','Write a closing sentence that returns to the topic.'],
+        frames:['My topic sentence is ___.','One support detail is ___.','Therefore, ___.'],
+        questions:[`What topic sentence can you write from “${titleText}”?`,'Which source detail can support this topic sentence?','Write one closing sentence for the paragraph.'],
+        instruction:'Read for a paragraph idea, one support detail, and a conclusion.',
+        target:'paragraph plan + support + closing',
+        vocab:['paragraph','evidence','conclusion']
+      },
+      10:{
+        steps:['Find the main trend or comparison in the source.','Choose one number or detail that supports it.','Write one cautious data statement.'],
+        frames:['The trend/comparison is ___.','One useful detail is ___.','The data show that ___.'],
+        questions:[`What trend or comparison is described in “${titleText}”?`,'Which number or direct detail supports it?','Write one cautious sentence beginning “The data show that ...”.'],
+        instruction:'Read for a trend, one data detail, and a cautious statement.',
+        target:'trend + data detail + cautious interpretation',
+        vocab:['trend','data','increase']
+      },
+      11:{
+        steps:['Identify the communication purpose.','Choose the polite request or action needed.','Write one suitable closing sentence.'],
+        frames:['The purpose is ___.','A polite request is ___.','A suitable closing is ___.'],
+        questions:[`What is the communication purpose in “${titleText}”?`,'What polite request or action would fit this situation?','Write one suitable email closing.'],
+        instruction:'Read for purpose, a polite request, and an appropriate closing.',
+        target:'purpose + polite request + closing',
+        vocab:['purpose','request','closing']
+      },
+      12:{
+        steps:['Find one idea that comes from a source.','Explain how to write it in your own words.','State one responsible source or AI action.'],
+        frames:['This source idea is ___.','In my own words, it means ___.','A responsible action is ___.'],
+        questions:[`Which idea from “${titleText}” would need a citation?`,'Write the idea in your own words.','What responsible source or AI action is needed?'],
+        instruction:'Read for one source idea, a paraphrase, and an ethical action.',
+        target:'source idea + paraphrase + ethical action',
+        vocab:['citation','paraphrase','responsible AI']
+      },
+      13:{
+        steps:['Read for the lecture topic or main point.','Choose two useful keywords.','Write one detail worth noting.'],
+        frames:['The main point is ___.','Two keywords are ___ and ___.','One note detail is ___.'],
+        questions:[`What is the main point of “${titleText}”?`,'Write two useful keywords from the source.','What one detail would be useful to note?'],
+        instruction:'Read to prepare a short lecture note: main point, keywords, and one detail.',
+        target:'main point + two keywords + note detail',
+        vocab:['main point','keyword','note']
+      },
+      14:{
+        steps:['Identify the presentation topic.','Choose one detail or evidence to include.','Write a clear conclusion line.'],
+        frames:['Today, I will present ___.','One detail/evidence is ___.','In conclusion, ___.'],
+        questions:[`What presentation topic could “${titleText}” support?`,'Which source detail or evidence should be included?','Write one clear conclusion line.'],
+        instruction:'Read to prepare a topic, one support point, and a conclusion.',
+        target:'topic + support + conclusion',
+        vocab:['presentation','evidence','conclusion']
+      },
+      15:{
+        steps:['Identify the problem in the source.','Choose one detail or evidence showing why it matters.','Write one specific solution.'],
+        frames:['The problem is ___.','The evidence/detail is ___.','One solution is ___.'],
+        questions:[`What problem is described in “${titleText}”?`,'Which detail or evidence shows why it matters?','What one specific solution could address it?'],
+        instruction:'Read for a problem, one evidence detail, and a specific solution.',
+        target:'problem + evidence + solution',
+        vocab:['problem','evidence','solution']
+      }
+    };
+    const spec = base[sid] || base[3];
+    if(level === 'normal' && sid === 2){
+      spec.questions = [`Which academic word is central in “${titleText}”?`,'Which nearby words help explain its meaning?','Use the word in one clear academic sentence.'];
+      spec.instruction = 'Read for a central academic word, context clues, and one accurate use.';
+    }else if((level === 'hard' || level === 'challenge') && sid === 2){
+      spec.questions = [`Which academic term is most precise in “${titleText}”?`,'How does the source show its meaning or use?','Use the term or a related word-family form in one academic sentence.'];
+      spec.instruction = 'Use context and precise academic vocabulary; explain meaning before using the term.';
+    }
+    return spec;
+  }
+
   function goldMissionPack(sessionId,skill,tier){if(!goldBankAvailable())return null;const sid=Number(sessionId||1), sk=normalizeAbilitySkill(skill), level=['easy','normal','hard','challenge'].includes(tier)?tier:'easy', block=goldSessionBlock(sid);if(!block)return null;const st=ensureGoldAuthoredState(),src=goldPick(`mission_S${sid}_${sk}_${level}`,block.sources,st.missionHistory,16);if(!src)return null;st.updatedAt=new Date().toISOString();saveState();const id=`G64_${src.id}_${sk}_${level}`, targets={easy:32,normal:52,hard:75,challenge:95}, seconds={easy:25,normal:38,hard:52,challenge:65}, rates={easy:.78,normal:.88,hard:.96,challenge:1.02};const p={id,gold:true,sourceId:src.id,session:sid,skill:sk,tier:level,title:`${src.title} · ${sk} Gold Pack`,topic:src.title,passage:src.passage,source:src,focus:block.focus,label:`Gold authored source · ${src.title}`,quality:'authored-v1z64'};
-    if(sk==='Reading'){const q={easy:[`What is the main point of “${src.title}”?`,`Write one key word or phrase from the source.`,`What direct detail supports your answer?`],normal:[`What is the main idea in “${src.title}”?`,`Which detail best supports the idea? Explain the link.`,`What smaller detail should not become the main point?`],hard:[`What careful conclusion can readers make from “${src.title}”?`,`Which source detail supports that conclusion?`,`What limit or missing information should readers note?`],challenge:[`What is the strongest balanced judgement about “${src.title}”?`,`Which evidence supports your judgement?`,`What should readers not conclude from this short source?`]};p.questions=q[level];p.instruction=level==='easy'?'Read for the central idea and one direct support.':level==='normal'?'Connect the main idea with evidence and reject a smaller detail.':level==='hard'?'Use evidence and name one limit before making a conclusion.':'Make a balanced judgement using evidence and one clear limitation.';p.target='main idea + evidence + careful response';}
+    if(sk==='Reading'){const spec=goldReadingTaskSpec(sid,src.title,level);p.questions=spec.questions;p.instruction=spec.instruction;p.target=spec.target;p.sessionReadingSpec=spec;}
     else if(sk==='Writing'){const q={easy:`Write 3–4 clear sentences about ${src.title}. State the main idea and one action or detail.`,normal:`Write 4–6 connected sentences about ${src.title}. Use one reason, one source detail, and one connector.`,hard:`Write 70–90 words about ${src.title}. Explain the evidence and add one cautious limitation.`,challenge:`Write 90–110 words about ${src.title}. Make a balanced judgement, use evidence, and explain one limitation.`};p.instruction=`${q[level]} Use your own wording; do not copy the source sentence.`;p.target=`${targets[level]} words · source-based academic response`;}
     else if(sk==='Listening'){const q={easy:'Listen for the main point, two keywords, and one direct detail.',normal:'Write notes for the main idea, a support detail, and one signal/relationship.',hard:'Write notes that show evidence, a careful inference, and one missing detail or limit.',challenge:'Write a concise synthesis note, a balanced conclusion, and one useful follow-up question.'};p.instruction=`${q[level]} The mini lecture is based on “${src.title}”.`;p.target='selective notes from an authored mini lecture';p.voiceRate=rates[level];p.lecture=`Today’s mini lecture is about ${src.title}. ${src.passage} The key point is: ${src.main}. Remember this evidence: ${src.evidence}.`;}
     else {const q={easy:`Speak for about ${seconds.easy}–35 seconds. State the topic, one point, and one clear closing.`,normal:`Speak for about ${seconds.normal}–45 seconds. Use a signpost, one reason, and one source detail.`,hard:`Speak for about ${seconds.hard}–60 seconds. Give a claim, evidence, and a cautious limitation.`,challenge:`Give a ${seconds.challenge}–75 second mini presentation. Make a balanced judgement, use evidence, and answer a likely follow-up.`};p.instruction=`${q[level]} Use “${src.title}” as your source situation.`;p.target='organized source-based spoken response';p.minSeconds=seconds[level];}return p;}
@@ -42117,13 +42260,14 @@
         }
       }
     };
-    const data = ((bySkill[normalized] || bySkill.Reading)[tier] || (bySkill[normalized] || bySkill.Reading).easy);
+    const readingSpec = normalized === 'Reading' ? goldReadingTaskSpec(task?.session || 1, sourceTitle, tier) : null;
+    const data = readingSpec || ((bySkill[normalized] || bySkill.Reading)[tier] || (bySkill[normalized] || bySkill.Reading).easy);
     return Object.assign({}, data, {
       skill:normalized,
       tier,
       source,
       sourceTitle,
-      vocab:goldTaskVocabulary(task?.session || 1, normalized, source)
+      vocab:(readingSpec?.vocab || goldTaskVocabulary(task?.session || 1, normalized, source))
     });
   }
 
@@ -42446,7 +42590,7 @@
         portfolioIndex:portfolio.indexOf(p),
         portfolioId:p.evidenceId || reportPortfolioIdentity(p, portfolio.indexOf(p)),
         sourceAt:p.at || report.sourceAt || '',
-        reportVersion:'v1z72'
+        reportVersion:'v1z74'
       };
       Object.keys(update).forEach(k=>{ if(report[k] !== update[k]){ report[k]=update[k]; changed=true; } });
     });
