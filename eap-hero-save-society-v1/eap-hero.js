@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260625-v1z69-integrated-boss-runtime-fix';
+  const APP_VERSION = '20260610-v1z64-gold-authored-item-bank-qa';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31503,6 +31503,58 @@
     return { id, type:'mcq', question, context, choices, answer, feedback };
   }
 
+
+  /* === v1z60: Self-Practice Core (no live classroom activity in game flow) === */
+  const EAP_SELF_PRACTICE_CORE = Object.freeze({
+    individualOnly:true,
+    noLiveActivityGate:true,
+    passRule:'Pass through individual Core + Support evidence and the relevant Mini Check/Boss Gate.',
+    principle:'Live activities with a foreign teacher belong in a separate real-classroom pack and never change game progress.'
+  });
+
+  function selfPracticeCoreHTML(sessionId){
+    const sid = Number(sessionId || state?.currentSession || 1) || 1;
+    const path = typeof skillPathForSession === 'function'
+      ? skillPathForSession(sid)
+      : {core:'Reading',support:'Writing'};
+    return `<div class="self-practice-core" data-self-practice-session="${sid}">
+      <div class="self-practice-pills">
+        <span>Self-Practice Core</span>
+        <span>Individual Learning</span>
+        <span>No Live Activity Gate</span>
+      </div>
+      <h3>ฝึกด้วยตนเองได้ครบเส้นทาง</h3>
+      <p>Session นี้ให้ผู้เรียนทำ <b>${safe(path.core)}</b> และ <b>${safe(path.support)}</b> ด้วยตนเอง ผ่านเกมและ AI Help ได้เลย โดยไม่ต้องจับคู่ อภิปรายสด หรือทำกิจกรรมกับอาจารย์ต่างชาติ</p>
+      <p class="mini-note">คะแนน การปลด Session และ Boss Gate นับจากผลงานในเกมของผู้เรียนเท่านั้น กิจกรรมในห้องเรียนจริงเป็นส่วนเสริมแยกต่างหาก และไม่เป็นเงื่อนไขผ่านด่าน</p>
+    </div>`;
+  }
+
+  function migrateSelfPracticeCoreState(){
+    try{
+      let changed = false;
+      if(state && Object.prototype.hasOwnProperty.call(state,'classActivities')){
+        delete state.classActivities;
+        changed = true;
+      }
+      if(state && Object.prototype.hasOwnProperty.call(state,'lessons')){
+        delete state.lessons;
+        changed = true;
+      }
+      if(changed && typeof saveState === 'function') saveState();
+      return changed;
+    }catch(err){
+      console.warn('[migrateSelfPracticeCoreState]', err);
+      return false;
+    }
+  }
+
+  function openClassroomActivityPack(){
+    const url = './classroom-activity-pack.html';
+    window.open(url, '_blank', 'noopener');
+    return false;
+  }
+
+
   function cloneDefaultState(){
     const sessions = {};
     SESSIONS.forEach(s=>{
@@ -31526,19 +31578,22 @@
       replay:{ ghosts:{}, secretMissions:{}, bossRushLogs:[] },
       skillPath:{ unlockedBossGates:{} },
       ai:{ dailyUses:{}, logs:[], sessionUses:{} },
+      aiAbility:{ profiles:{}, taskHistory:{}, updatedAt:'' },
+      antiMemorization:{ questionCycles:{}, taskCycles:{}, optionPositions:{}, updatedAt:'' },
+      independenceReplay:{ active:false, session:null, skill:'', aiBaseline:0, startedAt:'' },
+      goldAuthoredBank:{ missionHistory:{}, questionHistory:{}, updatedAt:'' },
       skillBankHistory:{},
       reviews:{ rubricScores:[], reviewNotes:[] },
       listening:{ transcriptHints:[], transcriptUnlocked:{} },
       revisions:{ submissions:[], improvementBadges:{} },
-      lessons:{ activePlan:null, logs:[] },
-      classActivities:{ pairMissions:[], peerReviews:[] },
-      settings:{ difficulty:'easy', skillDifficulty:'easy', uiMode:'simple', progressiveUnlock:true, reviewView:'compact', cefrLevel:'A2-B1+', roleMode:'student' },
+      settings:{ difficulty:'easy', skillDifficulty:'easy', manualSkillDifficulty:'easy', aiAdaptiveDifficulty:true, uiMode:'simple', progressiveUnlock:true, reviewView:'compact', cefrLevel:'A2-B1+', roleMode:'student' },
       recentQuestions:{},
       active:null
     };
   }
 
   let state = loadState();
+  migrateSelfPracticeCoreState();
 
 
   function recordRuntimeError(type, message, source, line, col){
@@ -31601,6 +31656,17 @@
       merged.ai.dailyUses = (parsed.ai && parsed.ai.dailyUses) || {};
       merged.ai.logs = (parsed.ai && parsed.ai.logs) || [];
       merged.ai.sessionUses = (parsed.ai && parsed.ai.sessionUses) || {};
+      merged.aiAbility = Object.assign(fresh.aiAbility || {}, parsed.aiAbility || {});
+      merged.aiAbility.profiles = (parsed.aiAbility && parsed.aiAbility.profiles) || {};
+      merged.aiAbility.taskHistory = (parsed.aiAbility && parsed.aiAbility.taskHistory) || {};
+      merged.antiMemorization = Object.assign(fresh.antiMemorization || {}, parsed.antiMemorization || {});
+      merged.antiMemorization.questionCycles = (parsed.antiMemorization && parsed.antiMemorization.questionCycles) || {};
+      merged.antiMemorization.taskCycles = (parsed.antiMemorization && parsed.antiMemorization.taskCycles) || {};
+      merged.antiMemorization.optionPositions = (parsed.antiMemorization && parsed.antiMemorization.optionPositions) || {};
+      merged.independenceReplay = Object.assign(fresh.independenceReplay || {}, parsed.independenceReplay || {});
+      merged.goldAuthoredBank = Object.assign(fresh.goldAuthoredBank || {}, parsed.goldAuthoredBank || {});
+      merged.goldAuthoredBank.missionHistory = (parsed.goldAuthoredBank && parsed.goldAuthoredBank.missionHistory) || {};
+      merged.goldAuthoredBank.questionHistory = (parsed.goldAuthoredBank && parsed.goldAuthoredBank.questionHistory) || {};
       merged.skillBankHistory = parsed.skillBankHistory || {};
       merged.reviews = Object.assign(fresh.reviews || {}, parsed.reviews || {});
       merged.reviews.rubricScores = (parsed.reviews && parsed.reviews.rubricScores) || [];
@@ -31611,12 +31677,12 @@
       merged.revisions = Object.assign(fresh.revisions || {}, parsed.revisions || {});
       merged.revisions.submissions = (parsed.revisions && parsed.revisions.submissions) || [];
       merged.revisions.improvementBadges = (parsed.revisions && parsed.revisions.improvementBadges) || {};
-      merged.lessons = Object.assign(fresh.lessons || {}, parsed.lessons || {});
-      merged.lessons.logs = (parsed.lessons && parsed.lessons.logs) || [];
-      merged.classActivities = Object.assign(fresh.classActivities || {}, parsed.classActivities || {});
-      merged.classActivities.pairMissions = (parsed.classActivities && parsed.classActivities.pairMissions) || [];
-      merged.classActivities.peerReviews = (parsed.classActivities && parsed.classActivities.peerReviews) || [];
+      // v1z60: live classroom data is intentionally not part of the student game state.
+      delete merged.lessons;
+      delete merged.classActivities;
       merged.settings.skillDifficulty = parsed.settings?.skillDifficulty || parsed.settings?.difficulty || 'easy';
+      merged.settings.manualSkillDifficulty = parsed.settings?.manualSkillDifficulty || merged.settings.skillDifficulty || 'easy';
+      merged.settings.aiAdaptiveDifficulty = parsed.settings?.aiAdaptiveDifficulty !== false;
       merged.settings.uiMode = parsed.settings?.uiMode || 'simple';
       merged.settings.progressiveUnlock = parsed.settings?.progressiveUnlock !== false;
       merged.settings.reviewView = parsed.settings?.reviewView || 'compact';
@@ -31704,12 +31770,37 @@
       }
       if(state.ai && Array.isArray(state.ai.logs)) state.ai.logs = state.ai.logs.slice(-80);
       if(state.aiHelp && Array.isArray(state.aiHelp.logs)) state.aiHelp.logs = state.aiHelp.logs.slice(-80);
+      if(state.aiAbility){
+        state.aiAbility.profiles = state.aiAbility.profiles || {};
+        const history = state.aiAbility.taskHistory || {};
+        Object.keys(history).forEach(k=>{
+          history[k] = (history[k] || []).slice(0,16);
+        });
+        state.aiAbility.taskHistory = history;
+      }
+      if(state.antiMemorization){
+        const anti = state.antiMemorization;
+        anti.questionCycles = anti.questionCycles || {};
+        anti.taskCycles = anti.taskCycles || {};
+        anti.optionPositions = anti.optionPositions || {};
+        Object.keys(anti.questionCycles).forEach(k=>{ anti.questionCycles[k] = (anti.questionCycles[k] || []).slice(0,64); });
+        Object.keys(anti.taskCycles).forEach(k=>{ anti.taskCycles[k] = (anti.taskCycles[k] || []).slice(0,12); });
+        Object.keys(anti.optionPositions).forEach(k=>{ anti.optionPositions[k] = (anti.optionPositions[k] || []).slice(0,24); });
+      }
+      if(state.goldAuthoredBank){
+        state.goldAuthoredBank.missionHistory = state.goldAuthoredBank.missionHistory || {};
+        state.goldAuthoredBank.questionHistory = state.goldAuthoredBank.questionHistory || {};
+        Object.keys(state.goldAuthoredBank.missionHistory).forEach(k=>{ state.goldAuthoredBank.missionHistory[k] = (state.goldAuthoredBank.missionHistory[k] || []).slice(0,16); });
+        Object.keys(state.goldAuthoredBank.questionHistory).forEach(k=>{ state.goldAuthoredBank.questionHistory[k] = (state.goldAuthoredBank.questionHistory[k] || []).slice(0,96); });
+      }
       if(state.rubricReviews) state.rubricReviews = compactArray(state.rubricReviews, 80, x=>{
         const y = Object.assign({}, x || {});
         if(y.feedback) y.feedback = compactTextForStorage(y.feedback, 500);
         if(y.output) y.output = compactTextForStorage(y.output, 700);
         return y;
       });
+      if(state.classActivities) delete state.classActivities;
+      if(state.lessons) delete state.lessons;
       if(state.researchDatasetCache) delete state.researchDatasetCache;
       if(state.debug) delete state.debug;
     }catch(err){
@@ -31729,10 +31820,10 @@
       cards: state.cards || [],
       bossCards: state.bossCards || {},
       bossGates: state.bossGates || {},
-      courseRouteRun: state.courseRouteRun || {},
       sessions: state.sessions || {},
       portfolio: compactArray(state.portfolio, 40, compactPortfolioEntry),
       learningReports: compactArray(state.learningReports, 40),
+      independenceReplay: state.independenceReplay || {},
       fun: state.fun || {},
       updatedAt:new Date().toISOString(),
       storageMode:'emergency-minimal'
@@ -31835,7 +31926,8 @@
       localStorage.removeItem(STORAGE_KEY);
       state = cloneDefaultState();
       installFinalEAPQuestionBank();
-  renderHome();
+      installNoRepeatScenarioPool();
+      renderHome();
     }
   }
 
@@ -31989,7 +32081,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z69</div>
+              <div class="mini-note">Save the Society • v1z64</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32015,10 +32107,6 @@
     runAIHelpRepairSoon();
     runBossGateUICleanupSoon();
     runSessionEvidenceSyncSoon();
-    setTimeout(()=>{
-      try{ cleanupFourSkillsHubStudentUI(); }catch(e){}
-      try{ hideStudentDebugEntryButtons(); }catch(e){}
-    }, 0);
 
   }
 
@@ -32542,7 +32630,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z69</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z64</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32615,141 +32703,64 @@
     return Array.from(new Set([(path?.core || 'Reading'), (path?.support || 'Writing')].filter(Boolean)));
   }
 
-
-  function canonicalEvidenceSkill(item){
-    const direct = String(item?.skill || item?.missionSkill || item?.category || item?.type || '').trim().toLowerCase();
-    const exact = {
-      reading:'Reading',
-      writing:'Writing',
-      listening:'Listening',
-      speaking:'Speaking'
-    };
-    if(exact[direct]) return exact[direct];
-    const fallback = typeof extractSkillFromEvidence === 'function' ? extractSkillFromEvidence(item) : '';
-    return ['Reading','Writing','Listening','Speaking'].includes(fallback) ? fallback : '';
-  }
-
-  function strictEvidenceForSessionSkill(sessionId, skill){
+  function evidenceForSessionSkill(sessionId, skill){
     const sid = Number(sessionId || 1);
-    const wanted = String(skill || '').trim().toLowerCase();
+    const sk = String(skill || '').toLowerCase();
     const items = [];
     try{
       (typeof allEvidenceItems === 'function' ? allEvidenceItems() : []).forEach(item=>{
-        const itemSid = typeof extractSessionIdFromEvidence === 'function'
-          ? extractSessionIdFromEvidence(item)
-          : Number(item?.sessionId || item?.session || 0);
+        const itemSid = typeof extractSessionIdFromEvidence === 'function' ? extractSessionIdFromEvidence(item) : Number(item?.session || item?.sessionId || 0);
         if(Number(itemSid) !== sid) return;
-        const itemSkill = canonicalEvidenceSkill(item);
-        if(String(itemSkill).toLowerCase() === wanted) items.push(item);
+        const itemSkill = typeof extractSkillFromEvidence === 'function' ? extractSkillFromEvidence(item) : String(item?.skill || '').toLowerCase();
+        if(String(itemSkill || '').toLowerCase() === sk) items.push(item);
       });
     }catch(e){}
     return items;
   }
 
-  function strictBestScoreForSessionSkill(sessionId, skill){
+  function bestScoreForSessionSkill(sessionId, skill){
     let best = 0;
-    strictEvidenceForSessionSkill(sessionId, skill).forEach(item=>{
-      const n = typeof extractScoreFromEvidence === 'function'
-        ? extractScoreFromEvidence(item)
-        : Number(item?.score || item?.autoScore || 0);
-      if(Number(n || 0) > best) best = Number(n || 0);
+    evidenceForSessionSkill(sessionId, skill).forEach(item=>{
+      const score = typeof extractScoreFromEvidence === 'function' ? extractScoreFromEvidence(item) : Number(item?.score || item?.autoScore || 0);
+      if(Number(score || 0) > best) best = Number(score || 0);
     });
     return best;
   }
 
-  function strictPassTruthReport(sessionId){
-    const sid = Number(sessionId || 1);
-    const required = typeof requiredSkillsForSession === 'function'
-      ? requiredSkillsForSession(sid)
-      : ['Reading','Writing'];
-    const skillRows = required.map(skill=>{
-      const items = strictEvidenceForSessionSkill(sid, skill);
-      const bestScore = strictBestScoreForSessionSkill(sid, skill);
-      return {
-        skill,
-        items:items.length,
-        bestScore,
-        passed:bestScore >= PASS_RULES.sessionMinScore
-      };
-    });
-    const missing = skillRows
-      .filter(r=>!r.passed)
-      .map(r=>`${r.skill} ${r.bestScore || 0}/${PASS_RULES.sessionMinScore}`);
-    const passed = skillRows.length >= 2 && skillRows.every(r=>r.passed);
-    const legacyState = state.sessions?.[sid] || {};
-    const legacyMarked = !!(legacyState.done || legacyState.completed || legacyState.complete || legacyState.cleared);
-    return {
-      session:sid,
-      requiredSkills:required,
-      skillRows,
-      missing,
-      passed,
-      legacyMarked,
-      reason: passed
-        ? `Core + Support passed (${PASS_RULES.sessionMinScore}+ each)`
-        : `Need ${missing.join(' and ')}`
-    };
-  }
-
-  function strictSyncSessionProgress(silent){
-    state.sessions = state.sessions || {};
-    state.bossCards = state.bossCards || {};
-    for(let sid=1; sid<=15; sid++){
-      const rep = strictPassTruthReport(sid);
-      const scores = rep.skillRows.map(r=>Number(r.bestScore || 0));
-      const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0) / scores.length) : 0;
-      const stars = rep.passed ? (avg >= 85 ? 3 : avg >= 70 ? 2 : 1) : 0;
-      const sess = state.sessions[sid] = state.sessions[sid] || {};
-      sess.passReport = rep;
-      sess.requiredSkills = rep.requiredSkills;
-      sess.earnedStars = stars;
-      sess.bestStars = stars;
-      sess.starAverage = avg;
-      sess.passed = rep.passed;
-      sess.completed = rep.passed;
-      sess.done = rep.passed;
-      sess.complete = rep.passed;
-      sess.cleared = rep.passed;
-      sess.completionReason = rep.reason;
-      if(!rep.passed && state.bossCards[sid]){
-        state.bossCards[sid].earned = false;
-        state.bossCards[sid].invalidatedByStrictPass = true;
-      }
-    }
-    saveState();
-    if(!silent) safeToast('Session status synced from exact Core + Support scores');
-    return true;
-  }
-
-  function strictPassTruthDiagnostic(sessionId){
-    const rep = strictPassTruthReport(sessionId);
-    return {
-      session:rep.session,
-      passed:rep.passed,
-      required:rep.skillRows.map(r=>`${r.skill} ${r.bestScore}/60`),
-      reason:rep.reason
-    };
-  }
-
-  function runStrictPassTruthSoon(){
-    try{ strictSyncSessionProgress(true); syncRouteProgression(true); }catch(e){}
-  }
-
-
-  function evidenceForSessionSkill(sessionId, skill){
-    return strictEvidenceForSessionSkill(sessionId, skill);
-  }
-
-  function bestScoreForSessionSkill(sessionId, skill){
-    return strictBestScoreForSessionSkill(sessionId, skill);
-  }
-
   function sessionPassReport(sessionId){
-    return strictPassTruthReport(sessionId);
+    const sid = Number(sessionId || 1);
+    const required = requiredSkillsForSession(sid);
+    const sess = state.sessions?.[sid] || {};
+    const explicit = !!(sess.done || sess.completed || sess.complete || sess.bossDone || sess.cleared || sess.unlockedDone);
+    const skillRows = required.map(skill=>{
+      const items = evidenceForSessionSkill(sid, skill);
+      const bestScore = bestScoreForSessionSkill(sid, skill);
+      return {skill, items:items.length, bestScore, passed:bestScore >= PASS_RULES.sessionMinScore};
+    });
+    const missing = skillRows.filter(r=>!r.passed).map(r=>`${r.skill} ${r.bestScore || 0}/${PASS_RULES.sessionMinScore}`);
+    const passed = explicit || skillRows.every(r=>r.passed);
+    return {session:sid, requiredSkills:required, skillRows, explicit, passed, missing,
+      reason: passed ? (explicit ? 'marked complete' : `Core + Support passed (${PASS_RULES.sessionMinScore}+ each)`) : `Need ${missing.join(', ')}`};
   }
 
   function syncPassProgressNow(silent){
-    return strictSyncSessionProgress(!!silent);
+    state.sessions = state.sessions || {};
+    state.bossCards = state.bossCards || {};
+    for(let sid=1; sid<=15; sid++){
+      const rep = sessionPassReport(sid);
+      state.sessions[sid] = state.sessions[sid] || {};
+      state.sessions[sid].passReport = rep;
+      state.sessions[sid].requiredSkills = rep.requiredSkills;
+      if(rep.passed){
+        state.sessions[sid].completed = true;
+        state.sessions[sid].done = true;
+        state.sessions[sid].completionReason = rep.reason;
+        state.bossCards[sid] = state.bossCards[sid] || {earned:true, reason:rep.reason, at:new Date().toISOString()};
+      }
+    }
+    saveState();
+    if(!silent) safeToast('Progress synced from Learning Reports');
+    return true;
   }
 
   function passCriteriaHTML(){
@@ -32764,7 +32775,13 @@
   }
 
   function bossGatePassStatus(gateNo){
-    return courseRouteBossStatus(gateNo);
+    const gate = bossGateByNumber(gateNo);
+    const rows = gate.after.map(sid=>sessionPassReport(sid));
+    const prevOk = isPreviousBossGateCleared ? isPreviousBossGateCleared(gate.gate) : gate.gate <= 1;
+    const sessionsPassed = rows.every(r=>r.passed);
+    const missing = rows.filter(r=>!r.passed).map(r=>`S${r.session}: ${r.reason}`);
+    if(!prevOk) missing.push(`Clear Boss Gate ${gate.gate-1} first`);
+    return {gate:gate.gate, title:gate.title, sessions:rows, sessionsPassed, previousGateCleared:prevOk, unlocked:sessionsPassed && prevOk, missing};
   }
 
   function renderProgressDiagnostics(){
@@ -32813,19 +32830,17 @@
 
   function sessionStarScore(sessionId){
     const sid = Number(sessionId || 1);
-    const rep = courseRoutePassReport(sid);
-    const scores = rep.skillRows.map(x=>Number(x.bestScore || 0));
-    const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0) / scores.length) : 0;
-    const stars = rep.passed ? (avg >= 85 ? 3 : avg >= 70 ? 2 : 1) : 0;
-    return {
-      session:sid,
-      stars,
-      avg,
-      passed:rep.passed,
-      requiredSkills:rep.requiredSkills,
-      skillRows:rep.skillRows,
-      reason:rep.reason
-    };
+    const rep = typeof sessionPassReport === 'function' ? sessionPassReport(sid) : null;
+    if(!rep) return {session:sid, stars:0, avg:0, passed:false, reason:'no report'};
+    const scores = (rep.skillRows || []).map(x=>Number(x.bestScore || 0)).filter(x=>x>0);
+    const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+    let stars = 0;
+    if(rep.passed){
+      if(avg >= 85) stars = 3;
+      else if(avg >= 70) stars = 2;
+      else stars = 1;
+    }
+    return {session:sid, stars, avg, passed:rep.passed, requiredSkills:rep.requiredSkills, skillRows:rep.skillRows, reason:rep.reason};
   }
 
   function sessionStarsText(sessionId){
@@ -32834,7 +32849,23 @@
   }
 
   function syncSessionStarsNow(silent){
-    return strictSyncSessionProgress(!!silent);
+    state.sessions = state.sessions || {};
+    for(let sid=1; sid<=15; sid++){
+      const st = sessionStarScore(sid);
+      state.sessions[sid] = state.sessions[sid] || {};
+      state.sessions[sid].earnedStars = st.stars;
+      state.sessions[sid].bestStars = st.stars;
+      state.sessions[sid].starAverage = st.avg;
+      state.sessions[sid].passed = st.passed;
+      state.sessions[sid].starReason = st.reason;
+      if(st.passed){
+        state.sessions[sid].completed = true;
+        state.sessions[sid].done = true;
+      }
+    }
+    saveState();
+    if(!silent) safeToast('Session stars synced from reports');
+    return true;
   }
 
   function sessionStarBadgeHTML(sessionId){
@@ -32933,19 +32964,18 @@
 
   function sessionCompletionVisibleReport(sessionId){
     const sid = Number(sessionId || state.currentSession || 1) || 1;
-    const rep = courseRoutePassReport(sid);
-    const scores = rep.skillRows.map(x=>Number(x.bestScore || 0));
-    const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0) / scores.length) : 0;
-    const stars = rep.passed ? (avg >= 85 ? 3 : avg >= 70 ? 2 : 1) : 0;
+    const st = typeof sessionStarScore === 'function' ? sessionStarScore(sid) : {passed:false,avg:0,stars:0};
+    const rep = typeof sessionPassReport === 'function' ? sessionPassReport(sid) : null;
+    const rows = rep?.skillRows || [];
     return {
       session:sid,
-      passed:rep.passed,
-      avg,
-      stars,
-      starText:'★'.repeat(stars)+'☆'.repeat(Math.max(0,3-stars)),
-      core:rep.skillRows[0] || null,
-      support:rep.skillRows[1] || null,
-      reason:rep.reason
+      passed:!!st.passed,
+      avg:Number(st.avg || 0),
+      stars:Number(st.stars || 0),
+      starText: typeof sessionStarsText === 'function' ? sessionStarsText(sid) : '☆☆☆',
+      core: rows[0] || null,
+      support: rows[1] || null,
+      reason: rep?.reason || st.reason || ''
     };
   }
 
@@ -32953,10 +32983,8 @@
     const r = sessionCompletionVisibleReport(sessionId);
     const coreTxt = r.core ? `${safe(r.core.skill)} ${r.core.bestScore || 0}/60` : 'Core 0/60';
     const supportTxt = r.support ? `${safe(r.support.skill)} ${r.support.bestScore || 0}/60` : 'Support 0/60';
-    const title = r.passed ? '✅ Session Passed' : '⏳ Session In Progress';
-    const sub = r.passed ? `avg ${r.avg || 0}` : (r.reason || 'Complete both missions with 60+');
     return `<div class="visible-session-completion ${r.passed?'passed':'not-yet'}" data-visible-session="${r.session}">
-      <div class="vsc-main"><b>${title}</b><span class="vsc-stars">${safe(r.starText)}</span><span>${safe(sub)}</span></div>
+      <div class="vsc-main"><b>${r.passed?'✅ Session Passed':'⚠️ Session not passed yet'}</b><span class="vsc-stars">${safe(r.starText)}</span><span>avg ${r.avg || 0}</span></div>
       <div class="vsc-sub"><span>${coreTxt}</span><span>${supportTxt}</span></div>
     </div>`;
   }
@@ -33022,105 +33050,6 @@
     setTimeout(()=>{ forceNormalizeCEFRLabels(); injectVisibleCompletionBadges(); },150);
     setTimeout(()=>{ forceNormalizeCEFRLabels(); injectVisibleCompletionBadges(); },550);
   }
-
-
-  function studentMissionEntryButtonHTML(skill, sessionId, label){
-    const sid = Number(sessionId || state.currentSession || 1) || 1;
-    const sk = String(skill || 'Reading');
-    const text = label || `Start ${sk}`;
-    return `<button class="btn primary mission-entry-btn mission-entry-${safe(sk).toLowerCase()}" data-skill="${safe(sk)}" data-session="${sid}" onclick="return EAPHero.openSkillMissionSafe('${safe(sk)}', ${sid})">▶ ${safe(text)}</button>`;
-  }
-
-  function enhanceMissionEntryButtons(){
-    try{
-      const sid = Number(state.currentSession || 1) || 1;
-      document.querySelectorAll('.mission-entry-strip').forEach(x=>x.remove());
-
-      document.querySelectorAll('.hud-card').forEach(card=>{
-        const txt = (card.textContent || '');
-        const skill = ['Reading','Writing','Listening','Speaking'].find(s=>txt.includes(s));
-        if(!skill) return;
-
-        card.querySelectorAll('button').forEach(btn=>{
-          const btxt = (btn.textContent || '').trim();
-          if(new RegExp(`Start\\s+${skill}`, 'i').test(btxt) || /Start/i.test(btxt)){
-            btn.classList.add('mission-entry-btn','primary');
-            btn.style.display = '';
-            btn.style.pointerEvents = 'auto';
-            btn.style.visibility = 'visible';
-            btn.style.opacity = '1';
-            btn.setAttribute('data-skill', skill);
-            btn.setAttribute('data-session', sid);
-            btn.onclick = function(ev){
-              ev.preventDefault();
-              ev.stopPropagation();
-              return EAPHero.openSkillMissionSafe(skill, sid);
-            };
-          }
-        });
-
-        if(!card.querySelector('.mission-entry-btn')){
-          card.insertAdjacentHTML('afterbegin', `<div class="mission-entry-top">${studentMissionEntryButtonHTML(skill, sid, `Start ${skill}`)}</div>`);
-        }else if(!card.querySelector('.mission-entry-top')){
-          const btn = card.querySelector('.mission-entry-btn');
-          const wrap = document.createElement('div');
-          wrap.className = 'mission-entry-top';
-          btn.parentNode.insertBefore(wrap, btn);
-          wrap.appendChild(btn);
-        }
-      });
-
-      const panel = document.querySelector('.panel');
-      const title = Array.from(document.querySelectorAll('h1,h2')).find(h=>/Session\s+\d+/.test(h.textContent || ''));
-      if(panel && title && !document.querySelector('.mission-entry-strip')){
-        const skills = [];
-        document.querySelectorAll('.hud-card').forEach(card=>{
-          const txt = card.textContent || '';
-          ['Reading','Writing','Listening','Speaking'].forEach(s=>{
-            if(txt.includes(s) && !skills.includes(s)) skills.push(s);
-          });
-        });
-        if(skills.length){
-          const strip = `<div class="mission-entry-strip">${skills.map(s=>studentMissionEntryButtonHTML(s, sid, `Start ${s}`)).join('')}</div>`;
-          const flow = Array.from(document.querySelectorAll('.route-note,.normal-route-note,.lead,p')).find(x=>/Flow:/i.test(x.textContent || ''));
-          (flow || title).insertAdjacentHTML('afterend', strip);
-        }
-      }
-    }catch(err){
-      console.warn('[enhanceMissionEntryButtons]', err);
-    }
-  }
-
-  function hideStudentDebugEntryButtons(){
-    try{
-      if(typeof shouldHideFourSkillsHub === 'function' && !shouldHideFourSkillsHub()) return;
-      document.querySelectorAll('button,a,.btn').forEach(el=>{
-        const txt = (el.textContent || '').replace(/\s+/g,' ').trim();
-        const oc = String(el.getAttribute('onclick') || '');
-        if(/Four Skills Hub|Debug:|Open Reading/i.test(txt) || /fourSkillsHub|skillMissionHub|debug/i.test(oc)){
-          el.style.display = 'none';
-          el.setAttribute('aria-hidden','true');
-          el.classList.add('student-hidden-debug-entry');
-        }
-      });
-    }catch(e){}
-  }
-
-  function compactPreMissionNotes(){
-    try{
-      document.querySelectorAll('.challenge-note,.ai-mini-note').forEach(el=>el.classList.add('compact-premission-note'));
-      document.querySelectorAll('.session-quality-card').forEach(card=>card.classList.add('compact-session-quality-card'));
-    }catch(e){}
-  }
-
-  function runStudentMissionEntryFixSoon(){
-    enhanceMissionEntryButtons();
-    hideStudentDebugEntryButtons();
-    compactPreMissionNotes();
-    setTimeout(()=>{ enhanceMissionEntryButtons(); hideStudentDebugEntryButtons(); compactPreMissionNotes(); }, 120);
-    setTimeout(()=>{ enhanceMissionEntryButtons(); hideStudentDebugEntryButtons(); compactPreMissionNotes(); }, 500);
-  }
-
 
   function isStudentRole(){
     try{
@@ -33260,312 +33189,19 @@
     return Object.keys(state.bossCards || {}).length || 0;
   }
 
-
-  /* === v1z67 Route Progression: Session → Boss Gate → Next Session === */
-  function isBossGateCleared(gateNo){
-    return courseRouteBossCleared(gateNo);
-  }
-
-  function routeUnlockForSession(sessionId){
-    return courseRouteUnlockForSession(sessionId);
-  }
-
-  function syncRouteProgression(silent){
-    return syncCourseRouteProgress(!!silent);
-  }
-
-  function nextRouteRecommendation(fromSession){
-    return courseRouteNextRecommendation(fromSession);
-  }
-
-  function continueRoute(){
-    const next = nextRouteRecommendation(state.currentSession);
-    if(next.type === 'session'){
-      state.currentSession = next.sessionId;
-      saveState();
-      return directOpenSession(next.sessionId);
-    }
-    if(next.type === 'boss'){
-      return openBossGate(next.gateNo);
-    }
-    return renderMap();
-  }
-
-  function nextRouteActionHTML(sessionId){
-    const sid = Number(sessionId || state.currentSession || 1) || 1;
-    const current = strictPassTruthReport(sid);
-    if(!current.passed) return '';
-
-    const next = nextRouteRecommendation(sid);
-    if(next.type === 'map') return '';
-    const icon = next.type === 'boss' ? '🛡️' : '▶';
-    return `<section class="next-route-card" data-next-route-card="true">
-      <div>
-        <span class="next-route-kicker">NEXT UNLOCKED ROUTE</span>
-        <h3>${icon} ${safe(next.label)}</h3>
-        <p>${safe(next.reason)}</p>
-      </div>
-      <button class="btn primary next-route-button" onclick="return EAPHero.continueRoute()"> ${icon} ${safe(next.label)} </button>
-    </section>`;
-  }
-
-
-
-  /* === v1z68 Clean Route Ledger: ignore legacy test unlocks === */
-  const COURSE_ROUTE_VERSION = 'UKTH_GLOBAL_CAMPUS_20260625';
-
-  function courseRouteRun(){
-    state.courseRouteRun = state.courseRouteRun || {};
-    const run = state.courseRouteRun;
-
-    if(run.version !== COURSE_ROUTE_VERSION){
-      const currentSid = Number(state.currentSession || 1);
-      let claimS1 = false;
-      try{
-        // Preserve the result the learner has just completed in S1, but never
-        // allow historic tests from later sessions to unlock the new course.
-        claimS1 = currentSid === 1 && !!strictPassTruthReport(1).passed;
-      }catch(e){}
-
-      state.courseRouteRun = {
-        version: COURSE_ROUTE_VERSION,
-        initializedAt: new Date().toISOString(),
-        claimedLegacy: claimS1 ? {1:{claimedAt:new Date().toISOString(), note:'S1 pass carried into the new UK–Thailand route'}} : {},
-        clearedGates: {},
-        migrationNote: 'Older portfolio records are archived for reporting but do not unlock the UK–Thailand route.'
-      };
-    }
-
-    state.courseRouteRun.claimedLegacy = state.courseRouteRun.claimedLegacy || {};
-    state.courseRouteRun.clearedGates = state.courseRouteRun.clearedGates || {};
-    return state.courseRouteRun;
-  }
-
-  function courseRouteEvidenceItems(){
-    try{
-      return (typeof allEvidenceItems === 'function' ? allEvidenceItems() : [])
-        .filter(item => String(item?.courseRouteVersion || '') === COURSE_ROUTE_VERSION);
-    }catch(e){
-      return [];
-    }
-  }
-
-  function courseRouteEvidenceForSessionSkill(sessionId, skill){
-    const sid = Number(sessionId || 1);
-    const wanted = String(skill || '').toLowerCase();
-    return courseRouteEvidenceItems().filter(item => {
-      const itemSid = typeof extractSessionIdFromEvidence === 'function'
-        ? extractSessionIdFromEvidence(item)
-        : Number(item?.session || item?.sessionId || 0);
-      return Number(itemSid) === sid && String(canonicalEvidenceSkill(item)).toLowerCase() === wanted;
-    });
-  }
-
-  function courseRoutePassReport(sessionId){
-    const sid = Number(sessionId || 1);
-    const run = courseRouteRun();
-
-    // S1 can be safely carried forward when it was the current completed test.
-    if(run.claimedLegacy?.[sid]){
-      const legacy = strictPassTruthReport(sid);
-      if(legacy.passed){
-        return Object.assign({}, legacy, {
-          courseRouteVersion: COURSE_ROUTE_VERSION,
-          source:'claimed-current-S1',
-          reason:'Passed in the current S1 run'
-        });
-      }
-    }
-
-    const required = requiredSkillsForSession(sid);
-    const skillRows = required.map(skill => {
-      const items = courseRouteEvidenceForSessionSkill(sid, skill);
-      const bestScore = items.reduce((best,item)=>Math.max(best, Number(extractScoreFromEvidence(item) || 0)), 0);
-      return {skill, items:items.length, bestScore, passed:bestScore >= PASS_RULES.sessionMinScore};
-    });
-    const missing = skillRows.filter(r=>!r.passed).map(r=>`${r.skill} ${r.bestScore || 0}/${PASS_RULES.sessionMinScore}`);
-    const passed = skillRows.length >= 2 && skillRows.every(r=>r.passed);
-    return {
-      session:sid,
-      requiredSkills:required,
-      skillRows,
-      missing,
-      passed,
-      reason:passed ? `Core + Support passed (${PASS_RULES.sessionMinScore}+ each)` : `Need ${missing.join(' and ')}`,
-      courseRouteVersion:COURSE_ROUTE_VERSION,
-      source:'current-course-evidence'
-    };
-  }
-
-  function courseRouteBossCleared(gateNo){
-    const run = courseRouteRun();
-    return !!run.clearedGates?.[Number(gateNo || 0)]?.cleared;
-  }
-
-  function courseRouteBossStatus(gateNo){
-    const gate = bossGateByNumber(gateNo);
-    const rows = gate.after.map(sid => courseRoutePassReport(sid));
-    const previousGateCleared = gate.gate <= 1 ? true : courseRouteBossCleared(gate.gate - 1);
-    const sessionsPassed = rows.every(row => row.passed);
-    const missing = rows.filter(row=>!row.passed).map(row=>`S${row.session}: ${row.reason}`);
-    if(!previousGateCleared) missing.push(`Clear Boss Gate ${gate.gate - 1} first`);
-    return {
-      gate:gate.gate,
-      title:gate.title,
-      sessions:rows,
-      sessionsPassed,
-      previousGateCleared,
-      unlocked:sessionsPassed && previousGateCleared,
-      missing
-    };
-  }
-
-  function courseRouteUnlockForSession(sessionId){
-    const sid = Number(sessionId || 1);
-    if(sid <= 1) return true;
-
-    const previousSession = sid - 1;
-    const checkpoint = bossGateAfterSession(previousSession);
-    if(checkpoint) return courseRouteBossCleared(checkpoint.gate);
-    return !!courseRoutePassReport(previousSession).passed;
-  }
-
-  function syncCourseRouteProgress(silent){
-    try{
-      const run = courseRouteRun();
-      state.sessions = state.sessions || {};
-      state.bossGates = state.bossGates || {};
-
-      for(let sid=1; sid<=15; sid++){
-        const report = courseRoutePassReport(sid);
-        const scores = report.skillRows.map(r=>Number(r.bestScore || 0));
-        const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
-        const stars = report.passed ? (avg >= 85 ? 3 : avg >= 70 ? 2 : 1) : 0;
-        const row = state.sessions[sid] = state.sessions[sid] || {};
-        row.passReport = report;
-        row.requiredSkills = report.requiredSkills;
-        row.passed = report.passed;
-        row.completed = report.passed;
-        row.done = report.passed;
-        row.complete = report.passed;
-        row.cleared = report.passed;
-        row.bestStars = stars;
-        row.earnedStars = stars;
-        row.starAverage = avg;
-        row.completionReason = report.reason;
-        row.unlocked = courseRouteUnlockForSession(sid);
-        row.courseRouteVersion = COURSE_ROUTE_VERSION;
-      }
-
-      BOSS_GATE_PLAN.forEach(plan=>{
-        const status = courseRouteBossStatus(plan.gate);
-        const savedClear = run.clearedGates?.[plan.gate] || null;
-        state.bossGates[plan.gate] = {
-          ...(state.bossGates[plan.gate] || {}),
-          title:plan.title,
-          unlocked:status.unlocked,
-          cleared:!!savedClear?.cleared,
-          done:!!savedClear?.cleared,
-          completed:!!savedClear?.cleared,
-          courseRouteVersion:COURSE_ROUTE_VERSION
-        };
-      });
-
-      saveState();
-      if(!silent) safeToast('UK–Thailand course route synced.');
-      return true;
-    }catch(err){
-      console.warn('[syncCourseRouteProgress]', err);
-      return false;
-    }
-  }
-
-  function courseRouteNextRecommendation(fromSession){
-    syncCourseRouteProgress(true);
-    const sid = Number(fromSession || state.currentSession || 1) || 1;
-    const current = courseRoutePassReport(sid);
-    const checkpoint = bossGateAfterSession(sid);
-
-    if(current.passed && checkpoint){
-      const gate = courseRouteBossStatus(checkpoint.gate);
-      if(gate.unlocked && !courseRouteBossCleared(checkpoint.gate)){
-        return {
-          type:'boss',
-          gateNo:checkpoint.gate,
-          title:checkpoint.title,
-          label:`Enter ${checkpoint.title}`,
-          reason:'Your three Sessions are complete. The checkpoint is ready.'
-        };
-      }
-      if(courseRouteBossCleared(checkpoint.gate) && sid < 15 && state.sessions[sid+1]?.unlocked){
-        return {
-          type:'session',
-          sessionId:sid+1,
-          title:getSession(sid+1)?.title || `Session ${sid+1}`,
-          label:`Continue to S${sid+1}`,
-          reason:'The checkpoint is cleared. Continue to the next Session.'
-        };
-      }
-    }
-
-    if(current.passed && sid < 15 && state.sessions[sid+1]?.unlocked){
-      return {
-        type:'session',
-        sessionId:sid+1,
-        title:getSession(sid+1)?.title || `Session ${sid+1}`,
-        label:`Continue to S${sid+1}`,
-        reason:'This Session is passed. Your next Session is ready.'
-      };
-    }
-
-    for(let i=1;i<=15;i++){
-      const report = courseRoutePassReport(i);
-      if(state.sessions[i]?.unlocked && !report.passed){
-        return {
-          type:'session',
-          sessionId:i,
-          title:getSession(i)?.title || `Session ${i}`,
-          label:`Continue to S${i}`,
-          reason:'Resume the next unlocked Session.'
-        };
-      }
-    }
-
-    for(const plan of BOSS_GATE_PLAN){
-      const gate = courseRouteBossStatus(plan.gate);
-      if(gate.unlocked && !courseRouteBossCleared(plan.gate)){
-        return {
-          type:'boss',
-          gateNo:plan.gate,
-          title:plan.title,
-          label:`Enter ${plan.title}`,
-          reason:'Your next route is an unlocked Boss Gate.'
-        };
-      }
-    }
-
-    return {type:'map', label:'Back to Map', reason:'Your current route is complete.'};
-  }
-
-  function simpleGateRequirementHTML(plan){
-    const status = courseRouteBossStatus(plan.gate);
-    const sessionChips = status.sessions.map(row=>`<span class="gate-session-pill ${row.passed?'done':'todo'}">S${row.session} ${row.passed?'✓':'○'}</span>`).join('');
-    const previous = plan.gate > 1 ? `<span class="gate-session-pill ${status.previousGateCleared?'done':'todo'}">B${plan.gate-1} ${status.previousGateCleared?'✓':'○'}</span>` : '';
-    const message = status.unlocked
-      ? 'Ready: enter this live checkpoint.'
-      : `Complete the marked Sessions${plan.gate > 1 ? ' and the previous Boss Gate' : ''}.`;
-    return `<div class="gate-progress-simple">${sessionChips}${previous}<span class="gate-progress-message">${safe(message)}</span></div>`;
-  }
-
-
   function nextPlayableSessionId(){
-    const next = nextRouteRecommendation(state.currentSession);
-    return next.type === 'session' ? next.sessionId : Number(state.currentSession || 1);
+    const sessions = SESSIONS || [];
+    for(const s of sessions){
+      try{
+        if(!isSessionLocked(s.id)) return s.id;
+      }catch(e){}
+    }
+    return 1;
   }
 
 
   function continueFromButton(btn){
-    return continueRoute();
+    return continueSession();
   }
 
   function bindContinueButtons(){
@@ -33582,20 +33218,35 @@
 
 
   function continueSession(){
-    return continueRoute();
+    try{
+      const current = Number(state.currentSession || 1);
+      let id = current;
+      if(!id || (typeof isSessionLocked === 'function' && isSessionLocked(id))){
+        id = nextPlayableSessionId ? nextPlayableSessionId() : 1;
+      }
+      if(!id) id = 1;
+      state.currentSession = id;
+      saveState();
+      if(typeof renderSkillPath === 'function'){
+        renderSkillPath(id);
+      }else if(typeof renderMap === 'function'){
+        renderMap();
+      }
+    }catch(err){
+      console.error('[EAP continueSession]', err);
+      alert('Continue could not open. Going to Map.');
+      renderMap();
+    }
+    return false;
   }
 
   function studentMapHelpHTML(){
-    const next = courseRouteNextRecommendation(state.currentSession);
-    const icon = next.type === 'boss' ? '🛡️' : next.type === 'session' ? '▶' : '🗺️';
-    const label = next.type === 'session' || next.type === 'boss' ? `${icon} ${next.label}` : '🗺️ Back to Map';
-    return `<div class="student-map-help route-aware-map-help">
-      <b>What should I do now?</b>
-      <span>${safe(next.reason)}</span>
-      <strong>${safe(next.label)}${next.title ? ' · '+safe(next.title) : ''}</strong>
+    return `<div class="student-map-help">
+      <b>What should I do?</b>
+      <span>กด Continue Session เพื่อเล่นต่อ หรือเลือก Session ที่ยังไม่ล็อกบนแผนที่</span>
     </div>
     <div class="footer-actions student-map-actions">
-      <button class="btn primary route-continue-button" data-action="continue-session" onclick="return EAPHero.continueRoute()">${safe(label)}</button>
+      <button class="btn primary" data-action="continue-session" onclick="return EAPHero.continueFromButton(this)">Continue Session</button>
       <button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button>
     </div>`;
   }
@@ -33772,18 +33423,29 @@
 
   function sessionEvidenceSummary(sessionId){
     const sid = Number(sessionId || 1);
-    const rep = strictPassTruthReport(sid);
-    const skills = rep.skillRows.filter(r=>r.items > 0).map(r=>r.skill);
-    const bestScore = rep.skillRows.reduce((best,r)=>Math.max(best, Number(r.bestScore || 0)), 0);
-    const stars = rep.passed ? (bestScore >= 90 ? 3 : bestScore >= 75 ? 2 : 1) : 0;
-    return {
-      session:sid,
-      skills,
-      count:skills.length,
-      items:rep.skillRows.reduce((n,r)=>n + Number(r.items || 0),0),
-      bestScore,
-      stars
-    };
+    const skills = new Set();
+    let bestScore = 0;
+    const items = [];
+    allEvidenceItems().forEach(item=>{
+      const itemSid = extractSessionIdFromEvidence(item);
+      if(itemSid !== sid) return;
+      const sk = extractSkillFromEvidence(item);
+      if(sk) skills.add(sk);
+      const score = extractScoreFromEvidence(item);
+      if(score > bestScore) bestScore = score;
+      items.push(item);
+    });
+
+    const sess = state.sessions?.[sid] || {};
+    const skillObj = sess.skills || sess.skillDone || sess.skillProgress || sess.missions || {};
+    ['Reading','Writing','Listening','Speaking'].forEach(k=>{
+      if(skillObj[k] || skillObj[k.toLowerCase()] || skillObj[k.toUpperCase()]) skills.add(k);
+    });
+
+    if(state.bossCards?.[sid]) bestScore = Math.max(bestScore, 80);
+    const count = skills.size || items.length;
+    const stars = bestScore >= 90 ? 3 : bestScore >= 75 ? 2 : bestScore >= 60 ? 1 : count >= 2 ? 1 : 0;
+    return {session:sid, skills:Array.from(skills), count, items:items.length, bestScore, stars};
   }
 
   function earnedStarsHTML(sessionId){
@@ -33842,7 +33504,9 @@
 
   function isPreviousBossGateCleared(gateNo){
     const n = Number(gateNo || 1);
-    return n <= 1 ? true : courseRouteBossCleared(n - 1);
+    if(n <= 1) return true;
+    const prev = state.bossGates?.[n-1] || {};
+    return !!(prev.cleared || prev.done || prev.completed);
   }
 
   function bossGateUnlockReport(gateNo){
@@ -33868,7 +33532,21 @@
 
 
   function repairLegacySessionCompletion(){
-    strictSyncSessionProgress(false);
+    state.sessions = state.sessions || {};
+    for(let sid=1; sid<=15; sid++){
+      const rep = sessionCompletionReport(sid);
+      const ev = sessionEvidenceSummary(sid);
+      state.sessions[sid] = state.sessions[sid] || {};
+      state.sessions[sid].earnedStars = ev.stars;
+      state.sessions[sid].evidenceCount = ev.count;
+      state.sessions[sid].evidenceSkills = ev.skills;
+      if(rep.complete){
+        state.sessions[sid].completed = true;
+        state.sessions[sid].completionReason = rep.reason;
+      }
+    }
+    saveState();
+    safeToast('Session evidence and stars synced');
     renderMap();
   }
 
@@ -33925,17 +33603,13 @@
       <h3>Learning Route</h3>
       ${bossGateNamingLegendHTML()}
       <div class="boss-route">
-        ${BOSS_GATE_PLAN.map(g=>{
-          const status = courseRouteBossStatus(g.gate);
-          return `<div class="boss-route-block ${g.type==='final'?'final':''}">
-            <div class="route-sessions">${g.after.map(sid=>`<span class="route-session">S${sid}</span>`).join('<span class="route-arrow">→</span>')}</div>
-            <div class="route-arrow-down">↓</div>
-            <button class="boss-gate-chip ${status.unlocked?'unlocked':'locked'}" onclick="return EAPHero.openBossGate(${g.gate})">${g.type==='final'?'👑':'🛡️'} ${safe(g.title)}</button>
-            <p>${safe(g.focus)}</p>
-            <p class="boss-skill-line">Skills: ${(g.skills||['Reading','Writing','Listening','Speaking']).map(safe).join(' • ')}</p>
-            ${simpleGateRequirementHTML(g)}
-          </div>`;
-        }).join('')}
+        ${BOSS_GATE_PLAN.map(g=>`<div class="boss-route-block ${g.type==='final'?'final':''}">
+          <div class="route-sessions">${g.after.map(sid=>`<span class="route-session">S${sid}</span>`).join('<span class="route-arrow">→</span>')}</div>
+          <div class="route-arrow-down">↓</div>
+          <button class="boss-gate-chip ${isBossGateUnlocked(g.gate)?'unlocked':'locked'}" onclick="return EAPHero.openBossGate(${g.gate})">${g.type==='final'?'👑':'🛡️'} ${safe(g.title)}</button>
+          <p>${safe(g.focus)}</p><p class="boss-skill-line">Skills: ${(g.skills||['Reading','Writing','Listening','Speaking']).map(safe).join(' • ')}</p>
+          <p class="gate-requirement">${bossGateUnlockReport(g.gate).unlocked ? 'Unlocked checkpoint' : safe(bossGateUnlockRuleText(g.gate) + ' ' + bossGateUnlockReport(g.gate).reason)}</p>
+        </div>`).join('')}
       </div>
     </div>`;
   }
@@ -34023,17 +33697,19 @@
       renderBossGateLocked(report.gate);
       return false;
     }
-    const plan = bossGateByNumber(gateNo);
-    const record = resolveUKBossGate(plan.after[plan.after.length - 1]);
-    state.currentBossGate = plan.gate;
+    const gate = bossGateByNumber(gateNo);
+    state.currentBossGate = gate.gate;
     saveState();
-    renderBossGate(record.id);
+    if(typeof renderBossGate === 'function'){
+      renderBossGate(gate.after[gate.after.length - 1], gate.gate);
+    }else{
+      renderBossGateTimeline();
+    }
     return false;
   }
 
 
   function renderMap(){
-    syncRouteProgression(true);
     setTimeout(runCheckpointSessionPatchSoon, 0);
 
     setView('map');
@@ -34064,7 +33740,6 @@
         </div>
         <h2>Campus Map</h2>
         <p class="lead">เลือก Session จาก Map → ทำ Skill Path → เก็บ Portfolio Evidence → ปลด Boss Gate เป็นช่วง ๆ</p>
-        <div class="course-route-integrity-note">UK–Thailand Course Run: ใช้เฉพาะหลักฐานที่ส่งในเส้นทางใหม่นี้เพื่อปลดด่านถัดไป ข้อมูลทดสอบเก่ายังอยู่ใน Report แต่ไม่ปลดด่านให้อัตโนมัติ</div>
         ${studentMapHelpHTML()}
         ${bossGateTimelineHTML()}
         <div class="map">${tiles}</div>
@@ -34186,6 +33861,7 @@
   function renderQuestionHTML(q){
     return `
       ${q.context ? `<div class="context">${safe(q.context)}</div>` : ''}
+      ${q.antiGuess ? `<div class="anti-guess-status">🧠 Fresh scenario · option order rotates · choose from evidence</div>` : ''}
       <div class="question">${safe(q.question)}</div>
       <div class="choices">
         ${q.choices.map((c,i)=>`<button class="choice" data-choice="${i}" onclick="EAPHero.answer(${i})">${String.fromCharCode(65+i)}. ${safe(c)}</button>`).join('')}
@@ -34309,8 +33985,9 @@
 
 
 
-  function shuffleChoicesForQuestion(q){
+  function shuffleChoicesForQuestion(q, scopeKey){
     if(!q || !Array.isArray(q.choices)) return q;
+    if(q.antiGuess) return balancedChoiceShuffle(q, scopeKey);
     const paired = q.choices.map((choice, idx) => ({ choice, originalIndex: idx }));
     shuffle(paired);
     const newAnswer = paired.findIndex(item => item.originalIndex === q.answer);
@@ -34320,29 +33997,23 @@
     });
   }
 
-
-  function pickQuestionsFromSessions(sessionIds, count, examKey){
+  function pickQuestionsFromSessionsLegacy(sessionIds, count, examKey){
+    const ids = Array.isArray(sessionIds) ? sessionIds : [sessionIds];
+    const valid = ids.map(Number).filter(id=>!!getSession(id));
+    if(!valid.length) return [];
+    const perSession = Math.max(1, Math.ceil(Number(count || 1) / valid.length));
     let pool = [];
-    sessionIds.forEach(id => {
+    valid.forEach(id=>{
       const s = getSession(id);
-      if(s){
-        const preferred = preferredPool(s.questions, Math.ceil(count / sessionIds.length));
-        pool = pool.concat(preferred.map(q => Object.assign({}, q, { sourceSession:id, sourceBoss:s.boss, sourceSkill:s.skill })));
-      }
+      const set = selectNoRepeatQuestionSet(s, perSession, `exam_${examKey || 'mixed'}`);
+      pool = pool.concat(set.map(q=>Object.assign({}, q, {
+        sourceSession:id,
+        sourceBoss:s.boss,
+        sourceSkill:s.skill
+      })));
     });
-
-    const recentKey = 'exam_' + examKey;
-    const recent = new Set((state.recentQuestions && state.recentQuestions[recentKey]) || []);
-    let fresh = uniqueByFingerprint(shuffle([...pool]).filter(q => !recent.has(q.id)));
-    let selected = fresh.slice(0, count);
-
-    if(selected.length < count){
-      const ids = new Set(selected.map(q => q.id));
-      selected = selected.concat(uniqueByFingerprint(shuffle([...pool]).filter(q => !ids.has(q.id))).slice(0, count - selected.length));
-    }
-    return shuffle(selected).slice(0, Math.min(count, selected.length)).map(shuffleChoicesForQuestion);
+    return shuffle(pool).slice(0, Math.min(Number(count || pool.length), pool.length));
   }
-
 
   function bossQuestionCount(){
     const d = state.settings.difficulty;
@@ -34379,22 +34050,9 @@
     return noLengthCue.concat(balanced, rest);
   }
 
-  function selectQuestionSet(session, count, mode){
-    const basePool = preferredPool(session.questions, count);
-    const pool = shuffle([...basePool]);
-    const recent = new Set((state.recentQuestions && state.recentQuestions[session.id]) || []);
-    let fresh = uniqueByFingerprint(pool.filter(q => !recent.has(q.id)));
-    let selected = fresh.slice(0, count);
-
-    if(selected.length < count){
-      const selectedIds = new Set(selected.map(q => q.id));
-      const fallback = uniqueByFingerprint(pool.filter(q => !selectedIds.has(q.id)));
-      selected = selected.concat(fallback.slice(0, count - selected.length));
-    }
-
-    return shuffle(selected).slice(0, Math.min(count, selected.length)).map(shuffleChoicesForQuestion);
+  function selectQuestionSetLegacy(session, count, mode){
+    return selectNoRepeatQuestionSet(session, count, mode);
   }
-
 
   function updateRecentQuestions(sessionId, ids){
     state.recentQuestions = state.recentQuestions || {};
@@ -34428,45 +34086,29 @@
 
   function renderBossQuestion(){
     const a = state.active;
-    if(!a || a.mode !== 'boss') return renderMap();
-
     const s = getSession(a.sessionId);
-    const gate = a.gateId ? resolveUKBossGate(a.gateId) : null;
-    const runtime = gate ? integratedBossRuntimeContext(gate) : null;
-    const q = a.order[a.index];
-
-    if(!q) return finishBoss(false, 'The digital round ended before the Boss HP reached zero.');
-
+    let q = a.order[a.index];
+    if(!q) return finishBoss(false, 'ตอบครบชุดคำถามแล้ว');
     setView('boss');
     const hpPct = Math.max(0, Math.round((a.bossHp/a.bossHpMax)*100));
     const timePct = Math.max(0, Math.round((a.timeLeft/a.duration)*100));
-    const title = a.gateTitle || gate?.title || s?.boss || 'Integrated Boss Challenge';
-
     layout(`
-      <section style="margin-top:20px" class="battle-layout integrated-boss-runtime">
+      <section style="margin-top:20px" class="battle-layout">
         <div class="challenge-card">
           <div class="badges">
-            <span class="pill" style="background:#102033;color:#fff">${gate ? 'B'+gate.planGate : (s?.emoji || '🛡️')+' Boss Battle'}</span>
-            <span class="pill" style="background:#102033;color:#fff">${safe(title)}</span>
-            <span class="pill" style="background:#102033;color:#fff">Question ${a.index+1}/${a.order.length}</span>
+            <span class="pill" style="background:#102033;color:#fff">${s.emoji} Boss Battle</span>
+            <span class="pill" style="background:#102033;color:#fff">Session ${s.id}</span>
+            <span class="pill" style="background:#102033;color:#fff">Question ${a.index+1}</span>
             <span class="pill" style="background:#102033;color:#fff">${safe(getContract(a.contract || 'normal').label)}</span>
           </div>
-
-          ${gate ? `<div class="integrated-boss-brief">
-            <b>Digital round:</b> ${safe(runtime.digital)}<br>
-            <b>After this round:</b> ${safe(runtime.live)}<br>
-            <b>Live wildcard:</b> “${safe(runtime.wildcard)}”
-          </div>` : ''}
-
           ${renderQuestionHTML(q)}
           <div id="feedback" class="feedback"></div>
         </div>
-
         <aside class="battle-hud">
           <div class="hud-card ${a.rage?'rage':''}">
-            <h3>${safe(title)}</h3>
-            <div class="boss-taunt">“${safe(a.rage ? 'Rage Mode: use evidence and stay calm.' : (gate ? 'Use your Session evidence. The live checkpoint follows the digital round.' : s?.taunt || 'Show what you know.'))}”</div>
-            <p class="mini-note">Checkpoint HP</p>
+            <h3>${safe(s.boss)}</h3>
+            <div class="boss-taunt">“${safe(a.rage ? 'Rage Mode! I will not fall easily!' : s.taunt)}”</div>
+            <p class="mini-note">HP</p>
             <div class="hpbar"><span id="hpFill" style="width:${hpPct}%"></span></div>
           </div>
           <div class="hud-card">
@@ -34485,7 +34127,7 @@
               <button class="btn small" onclick="EAPHero.freezeTime()">Time Freeze</button>
             </div>
           </div>
-          <button class="btn ghost block" onclick="${gate ? `return EAPHero.bossGate('${safe(gate.id)}')` : `return EAPHero.openSessionFromCard(${s?.id || 1})`}">Quit Challenge</button>
+          <button class="btn ghost block" onclick="return EAPHero.openSessionFromCard(${s.id})">Quit Battle</button>
         </aside>
       </section>
     `);
@@ -34557,12 +34199,6 @@
 
   function finishBoss(win, reason){
     clearInterval(bossTimer);
-    const gateRunMeta = {
-      gateId: state.active?.gateId || state.replay?.currentGate || '',
-      gateNo: Number(state.active?.gateNo || 0),
-      gateTitle: state.active?.gateTitle || '',
-      gateAfter: Number(state.active?.gateAfter || 0)
-    };
     if(state.replay && state.replay.currentGate && state.active){
       const gateId = state.replay.currentGate;
       const percentNow = Math.round((state.active.correct / Math.max(1, state.active.answers.length)) * 100);
@@ -34591,7 +34227,7 @@
     const contract = getContract(a.contract || 'normal');
     let xpGain = win ? Math.round(60 + a.score + starsEarned*25 + (a.timeLeft/4)) : Math.round(20 + a.correct*5);
     if(win) xpGain = Math.round(xpGain * contract.xpMultiplier);
-    const badge = win ? (gateRunMeta.gateNo && typeof ukThailandBossProtocol === 'function' ? ukThailandBossProtocol(gateRunMeta.gateNo).badge : badgeForSession(s.id)) : null;
+    const badge = win ? badgeForSession(s.id) : null;
     const chestReward = win ? grantTreasure(s, starsEarned, a.contract || 'normal') : null;
 
     const prog = state.sessions[s.id];
@@ -34601,46 +34237,11 @@
     prog.bestScore = Math.max(prog.bestScore || 0, a.score);
     if(win){
       prog.cleared = true;
-
-      // A Boss Gate is a checkpoint. Its completion opens the first Session in the next block.
-      if(gateRunMeta.gateId){
-        const completedGate = resolveUKBossGate(gateRunMeta.gateId);
-        const gateNo = Number(gateRunMeta.gateNo || completedGate?.planGate || 0);
-        const gateAfter = Number(gateRunMeta.gateAfter || completedGate?.after || 0);
-        if(gateNo){
-          state.bossGates = state.bossGates || {};
-          state.bossGates[gateNo] = {
-            ...(state.bossGates[gateNo] || {}),
-            id:completedGate?.id || gateRunMeta.gateId,
-            title:gateRunMeta.gateTitle || completedGate?.title || `Boss Gate ${gateNo}`,
-            cleared:true,
-            done:true,
-            completed:true,
-            score:a.score,
-            accuracy:Math.round(accuracy*100),
-            completedAt:new Date().toISOString()
-          };
-          const run = courseRouteRun();
-          run.clearedGates[gateNo] = {
-            cleared:true,
-            title:gateRunMeta.gateTitle || completedGate?.title || `Boss Gate ${gateNo}`,
-            score:a.score,
-            accuracy:Math.round(accuracy*100),
-            completedAt:new Date().toISOString()
-          };
-        }
-        if(gateAfter && state.sessions[gateAfter+1]){
-          state.sessions[gateAfter+1].unlocked = true;
-        }
-      }else{
-        const next = state.sessions[s.id+1];
-        if(next) next.unlocked = true;
-      }
-
+      const next = state.sessions[s.id+1];
+      if(next) next.unlocked = true;
       if(!state.cards.includes(s.id)) state.cards.push(s.id);
       if(badge && !state.badges.includes(badge)) state.badges.push(badge);
       addXP(xpGain);
-      syncRouteProgression(true);
     }else{
       addXP(xpGain);
     }
@@ -34652,8 +34253,7 @@
       student_id: state.profile.studentId || 'guest',
       player_name: state.profile.name || 'Guest',
       session: s.id,
-      boss: gateRunMeta.gateTitle || s.boss,
-      gate_id: gateRunMeta.gateId || '',
+      boss: s.boss,
       attempt: prog.attempts,
       win, reason,
       score:a.score,
@@ -34669,11 +34269,7 @@
 
     const mistakes = a.answers.filter(x=>!x.correct);
     const result = {
-      win, reason, sessionId:s.id,
-      gateId:gateRunMeta.gateId || '',
-      gateNo:gateRunMeta.gateNo || 0,
-      gateTitle:gateRunMeta.gateTitle || '',
-      xpGain, chestReward, contract:a.contract || 'normal', starsEarned, accuracy:Math.round(accuracy*100),
+      win, reason, sessionId:s.id, xpGain, chestReward, contract:a.contract || 'normal', starsEarned, accuracy:Math.round(accuracy*100),
       score:a.score, maxCombo:a.maxCombo, timeLeft:a.timeLeft, badge, mistakes
     };
     state.active.result = result;
@@ -34716,19 +34312,18 @@
       <section class="panel light result-hero" style="margin-top:20px">
         <div class="big-emoji">${r.win ? '🏆' : '💪'}</div>
         <h2>${r.win ? 'Boss Defeated!' : 'Try Again'}</h2>
-        <h3>${safe(r.gateTitle || s.boss)}</h3>
+        <h3>${safe(s.boss)}</h3>
         <div class="grid four">
           <div class="stat"><b>${r.xpGain}</b><span>XP Gained</span></div>
           <div class="stat"><b>${r.accuracy}%</b><span>Accuracy</span></div>
           <div class="stat"><b>${r.maxCombo}</b><span>Max Combo</span></div>
           <div class="stat"><b class="stars">${stars(r.starsEarned)}</b><span>Stars</span></div>
         </div>
-        ${r.win ? `<p class="feedback show ok">Checkpoint cleared. ${r.gateTitle ? 'Next route is now available.' : 'Unlock: '+safe(s.unlock)} ${r.badge ? ' • Badge: '+safe(r.badge):''}</p>` : `<p class="feedback show bad">${safe(r.reason)} — กลับไปฝึกแล้วมาสู้ใหม่ได้ค่ะ</p>`}
+        ${r.win ? `<p class="feedback show ok">Unlock: ${safe(s.unlock)} ${r.badge ? ' • Badge: '+safe(r.badge):''}</p>` : `<p class="feedback show bad">${safe(r.reason)} — กลับไปฝึกแล้วมาสู้ใหม่ได้ค่ะ</p>`}
         ${r.chestReward ? `<p class="feedback show info">Treasure Chest: ${safe(r.chestReward.tier.toUpperCase())} +${r.chestReward.coins} coins ${r.chestReward.bonusTitle ? '• Title: '+safe(r.chestReward.bonusTitle) : ''}</p>` : ''}
         <div class="footer-actions" style="justify-content:center">
           ${r.mistakes.length ? `<button class="btn warn" onclick="EAPHero.reviewMistakes()">Review Mistakes (${r.mistakes.length})</button>` : ''}
           <button class="btn primary" onclick="EAPHero.reflection(${s.id})">Reflection</button>
-          <button class="btn" onclick="EAPHero.continueRoute()">Continue Route</button>
           <button class="btn" onclick="EAPHero.contract(${s.id})">Rematch Contract</button>
           <button class="btn ghost" onclick="EAPHero.map()">Map</button>
         </div>
@@ -35249,8 +34844,9 @@
   }
 
   function bossGateStatus(gate){
-    const planGate = Number(gate?.planGate || bossGateAfterSession(gate?.after || 0)?.gate || 1);
-    return !!bossGateUnlockReport(planGate).unlocked;
+    if(gate.id === 'gate3') return (state.portfolio || []).length >= 6;
+    if(gate.id === 'final') return (state.portfolio || []).some(p => Number(p.session) === 15 && ['Writing','Speaking'].includes(p.skill));
+    return gate.skills.every(skill => hasSkillEvidenceInRange(gate.sessions, skill));
   }
 
   function bossGateForSession(sessionId){
@@ -35293,156 +34889,6 @@
     14:{risk:'Medium', objective:'Give a short academic presentation with clear opening, signposting, and closing.', expected:'45–60 second presentation + script outline', vocab:['opening','signpost','outline','conclusion'], frame:'Today, I will talk about ___. First, ___. To conclude, ___.', teacherNote:'เน้นพูดจริงและใช้ notes ไม่ใช่อ่านทั้งบท'},
     15:{risk:'High', objective:'Integrate reading/listening evidence into a short written response and oral reflection.', expected:'integrated response + reflection', vocab:['integrate','evidence','reflect','next step'], frame:'The evidence shows ___. My response is ___. My next step is ___.', teacherNote:'เป็น final portfolio synthesis'}
   };
-
-
-  /* === v1z63 UK–Thailand Co-Teaching: S/B Mission Alignment === */
-  const UK_THAILAND_SESSION_PROTOCOL = {
-    1:{mission:'Mission Passport', liveRole:'Incoming UK Student', liveDrop:'A student says, “I will study more.” Teams turn this into a clear academic goal.', wildcard:'What will you do every week?', humanProof:'30-second Academic Goal Passport', reward:'Human Stamp: Goal Connector'},
-    2:{mission:'UK Campus Decoder', liveRole:'UK Campus Decoder', liveDrop:'A course email, timetable or notice contains academic words in a real university context.', wildcard:'How does this word change in a different context?', humanProof:'Vocabulary Rescue Card + one context sentence', reward:'Human Stamp: Context Clue'},
-    3:{mission:'The Broken Brief', liveRole:'Project Briefing Manager', liveDrop:'A project briefing includes one main idea and several distracting details.', wildcard:'Explain the main idea in ten words.', humanProof:'Main Idea + one supporting detail', reward:'Human Stamp: Brief Breaker'},
-    4:{mission:'Signal Relay', liveRole:'Announcement Host', liveDrop:'A live campus announcement uses first, however, because and therefore.', wildcard:'What changed after the word however?', humanProof:'Signal Map + relationship explanation', reward:'Human Stamp: Signal Catcher'},
-    5:{mission:'Evidence Court', liveRole:'Chief Evidence Officer', liveDrop:'A social-media claim or short news item may contain fact, opinion, bias and missing evidence.', wildcard:'What would make you change your decision?', humanProof:'Evidence Verdict + oral defence', reward:'Human Stamp: Evidence Guardian'},
-    6:{mission:'Summary Press Room', liveRole:'Summary Editor', liveDrop:'A long source has key ideas plus tempting details that should not be copied.', wildcard:'Remove fifteen words but keep the meaning.', humanProof:'Three-sentence own-words summary', reward:'Human Stamp: Summary Editor'},
-    7:{mission:'Tone Switchboard', liveRole:'Audience Switcher', liveDrop:'One message must be reshaped for a lecturer, first-year student, journalist or dean.', wildcard:'Now say the same idea to a university dean.', humanProof:'Tone Makeover Card + spoken audience switch', reward:'Human Stamp: Audience Shifter'},
-    8:{mission:'Paragraph Repair Lab', liveRole:'Paragraph Surgeon', liveDrop:'A paragraph has mixed order, weak support and one sentence that may not belong.', wildcard:'Which sentence should disappear, and why?', humanProof:'Paragraph Structure Map', reward:'Human Stamp: Structure Surgeon'},
-    9:{mission:'Campus Solution Pitch', liveRole:'Campus Decision Maker', liveDrop:'A campus problem needs one evidence-based paragraph and a clear solution pitch.', wildcard:'Your evidence is weak. Give one specific example.', humanProof:'Academic Paragraph + 45-second Pitch', reward:'Human Stamp: Solution Pitcher'},
-    10:{mission:'Data Detective', liveRole:'Data Detective', liveDrop:'A graph and caption may show a trend, but the caption may overclaim the result.', wildcard:'Does the graph prove that, or only show a trend?', humanProof:'Trend Statement + cautious interpretation', reward:'Human Stamp: Data Detective'},
-    11:{mission:'International Help Desk', liveRole:'UK Help Desk Officer', liveDrop:'An email reply is incomplete, so teams must make a polite, specific follow-up request.', wildcard:'I am unavailable on that day. What will you ask next?', humanProof:'Email Thread + spoken follow-up', reward:'Human Stamp: Professional Requester'},
-    12:{mission:'Integrity Escape Room', liveRole:'Research Integrity Officer', liveDrop:'A draft mixes quotation, paraphrase, citation and AI support in risky ways.', wildcard:'You used AI for brainstorming. What must you disclose?', humanProof:'Citation Decision Card + AI Ethics Note', reward:'Human Stamp: Ethical AI User'},
-    13:{mission:'Mini Lecture Heist', liveRole:'Mini Lecture Host', liveDrop:'A 60–90 second mini lecture contains a main point, keywords and optional examples.', wildcard:'Which detail is useful, but not central?', humanProof:'Lecture Notes + mini summary', reward:'Human Stamp: Lecture Listener'},
-    14:{mission:'Presentation Under Pressure', liveRole:'International Audience', liveDrop:'A short academic pitch must use opening, signposting, evidence and a clear close.', wildcard:'Explain it now for a first-year student.', humanProof:'One-minute Pitch + Q&A', reward:'Human Stamp: No-Script Presenter'},
-    15:{mission:'Global Solution Summit', liveRole:'Global Panel Member', liveDrop:'A final campus challenge combines a reading source, a mini input, evidence and a solution.', wildcard:'What evidence is strongest, and why?', humanProof:'Solution Brief + reflection + oral pitch', reward:'Human Stamp: Global Communicator'}
-  };
-
-  const UK_THAILAND_BOSS_PROTOCOL = {
-    1:{title:'Global Learner Clearance', event:'Global Learner Clearance', focus:'Academic goal, vocabulary in context and main idea under a live international audience.', liveRole:'International Programme Coordinator', liveDrop:'A new university briefing arrives without advance notice.', wildcard:'Change your answer for a programme coordinator audience.', humanProof:'Mission Passport + source explanation + live response', badge:'Human Link Badge'},
-    2:{title:'Evidence Court Live', event:'Evidence Court Live', focus:'Keywords, signal words, claim checking and an own-words summary under pressure.', liveRole:'Chief Evidence Officer', liveDrop:'A fresh source includes a misleading claim and one missing piece of evidence.', wildcard:'Defend your summary in 30 seconds.', humanProof:'Evidence Verdict + summary + oral defence', badge:'Evidence Court Badge'},
-    3:{title:'Academic Makeover Studio', event:'Academic Makeover Studio', focus:'Academic tone, paragraph structure and evidence-based paragraph writing.', liveRole:'Academic Editor', liveDrop:'A paragraph needs a live repair before it can be published.', wildcard:'Switch audience and revise one sentence live.', humanProof:'Revised paragraph + explanation', badge:'Human Override Badge'},
-    4:{title:'International Help Desk Crisis', event:'International Help Desk Crisis', focus:'Data description, professional email and responsible source/AI use.', liveRole:'International Case Officer', liveDrop:'A graph, an incomplete email and an ethics problem arrive together.', wildcard:'Respond within the time limit for a new audience.', humanProof:'Data claim + email response + ethics statement', badge:'Professional Communicator Badge'},
-    5:{title:'Human Override Summit', event:'Human Override Summit', focus:'Listening, presentation, evidence-based solution and reflection in a live panel.', liveRole:'UK–Thailand Global Panel', liveDrop:'A final campus challenge is released only at the summit.', wildcard:'The audience disagrees. What changes in your solution?', humanProof:'Global Campus Solution Kit + live Q&A', badge:'Human Override Hero'}
-  };
-
-  function ukThailandSessionProtocol(sessionId){
-    return UK_THAILAND_SESSION_PROTOCOL[Number(sessionId || 1)] || UK_THAILAND_SESSION_PROTOCOL[1];
-  }
-
-  function ukThailandBossProtocol(gateNo){
-    return UK_THAILAND_BOSS_PROTOCOL[Number(gateNo || 1)] || UK_THAILAND_BOSS_PROTOCOL[1];
-  }
-
-  function applyUKThailandCoTeachingProtocol(){
-    const sessionUpdates = {
-      1:{zone:'Foundation Arc', skill:'Academic Mindset'},
-      2:{zone:'Foundation Arc', skill:'Academic Vocabulary'},
-      3:{zone:'Foundation Arc', skill:'Main Idea'},
-      4:{zone:'Evidence Arc', skill:'Keywords & Signal Words'},
-      5:{zone:'Evidence Arc', skill:'Critical Reading'},
-      6:{zone:'Evidence Arc', skill:'Summarizing'},
-      7:{zone:'Writing Arc', skill:'Academic Tone'},
-      8:{zone:'Writing Arc', skill:'Paragraph Structure'},
-      9:{zone:'Writing Arc', skill:'Paragraph Writing'},
-      10:{zone:'Professional Arc', skill:'Data Description'},
-      11:{zone:'Professional Arc', skill:'Academic Email'},
-      12:{zone:'Professional Arc', skill:'Citation & Ethics'},
-      13:{zone:'Global Arc', skill:'Academic Listening'},
-      14:{zone:'Global Arc', skill:'Academic Presentation'},
-      15:{zone:'Global Arc', skill:'Final Integration'}
-    };
-    SESSIONS.forEach(s=>{
-      const p = ukThailandSessionProtocol(s.id);
-      const old = s.title;
-      s.gameTitle = old;
-      s.title = p.mission;
-      s.zone = `${sessionUpdates[s.id].zone} • UK–Thailand Global Campus`;
-      s.skill = sessionUpdates[s.id].skill;
-      s.liveRole = p.liveRole;
-      s.liveDrop = p.liveDrop;
-      s.wildcard = p.wildcard;
-      s.humanProof = p.humanProof;
-      s.humanReward = p.reward;
-      s.boss = `Live Co-Teacher: ${p.liveRole}`;
-      s.coTeaching = true;
-    });
-
-    BOSS_GATE_PLAN.splice(0, BOSS_GATE_PLAN.length,
-      {gate:1, after:[1,2,3], title:'Boss Gate 1: Global Learner Clearance', focus:'Mission Passport • vocabulary in context • main idea • live response', skills:['Reading','Writing','Listening','Speaking'], type:'major', event:'Global Learner Clearance'},
-      {gate:2, after:[4,5,6], title:'Boss Gate 2: Evidence Court Live', focus:'Signal words • source credibility • own-words summary • oral defence', skills:['Reading','Writing','Listening','Speaking'], type:'major', event:'Evidence Court Live'},
-      {gate:3, after:[7,8,9], title:'Boss Gate 3: Academic Makeover Studio', focus:'Tone • paragraph repair • academic paragraph • audience shift', skills:['Reading','Writing','Listening','Speaking'], type:'major', event:'Academic Makeover Studio'},
-      {gate:4, after:[10,11,12], title:'Boss Gate 4: International Help Desk Crisis', focus:'Data • professional email • citation/AI ethics • timed response', skills:['Reading','Writing','Listening','Speaking'], type:'major', event:'International Help Desk Crisis'},
-      {gate:5, after:[13,14,15], title:'Final Boss: Human Override Summit', focus:'Mini lecture • presentation • integrated evidence-based solution • live Q&A', skills:['Reading','Writing','Listening','Speaking'], type:'final', event:'Human Override Summit'}
-    );
-
-    BOSS_GATES.splice(0, BOSS_GATES.length,
-      {id:'gate1', planGate:1, title:'Global Learner Clearance', after:3, sessions:[1,2,3], boss:'Global Learner Clearance', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass S1–S3, then complete the live UK–Thailand checkpoint.'},
-      {id:'gate2', planGate:2, title:'Evidence Court Live', after:6, sessions:[4,5,6], boss:'Evidence Court Live', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass S4–S6, then defend evidence and summary in the live checkpoint.'},
-      {id:'gate3', planGate:3, title:'Academic Makeover Studio', after:9, sessions:[7,8,9], boss:'Academic Makeover Studio', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass S7–S9, then repair and explain academic communication live.'},
-      {id:'gate4', planGate:4, title:'International Help Desk Crisis', after:12, sessions:[10,11,12], boss:'International Help Desk Crisis', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass S10–S12, then solve the professional communication case.'},
-      {id:'final', planGate:5, title:'Human Override Summit', after:15, sessions:[13,14,15], boss:'Human Override Summit', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass S13–S15, then present an integrated solution to the live panel.'}
-    );
-
-    Object.entries(EAP_FINAL_SKILL_MATRIX).forEach(([sid,m])=>{
-      const p = ukThailandSessionProtocol(sid);
-      m.mission = p.mission;
-      m.liveRole = p.liveRole;
-      m.liveDrop = p.liveDrop;
-      m.wildcard = p.wildcard;
-    });
-  }
-
-  function resolveUKBossGate(ref){
-    if(ref && typeof ref === 'object' && ref.id) return ref;
-    const raw = String(ref || '').trim();
-    if(raw){
-      const byId = BOSS_GATES.find(g=>g.id === raw);
-      if(byId) return byId;
-    }
-    const n = Number(ref || 0);
-    const byAfter = BOSS_GATES.find(g=>Number(g.after) === n);
-    if(byAfter) return byAfter;
-    const byPlan = BOSS_GATES.find(g=>Number(g.planGate) === n);
-    return byPlan || BOSS_GATES[0];
-  }
-
-  function bossGateForSession(sessionId){
-    const sid = Number(sessionId || 1);
-    return BOSS_GATE_PLAN.find(g=>g.after.includes(sid)) || BOSS_GATE_PLAN[0];
-  }
-
-  function bossGateStatus(gateRef){
-    const gate = resolveUKBossGate(gateRef);
-    const report = bossGateUnlockReport(gate.planGate);
-    return !!report.unlocked;
-  }
-
-  function ukThailandSessionCoTeachHTML(sessionId){
-    const p = ukThailandSessionProtocol(sessionId);
-    return `<section class="co-teach-live-card">
-      <div class="co-teach-kicker">🇹🇭 + 🇬🇧 EVERY-WEEK CO-TEACHING</div>
-      <h3>Human Mission Partner: ${safe(p.liveRole)}</h3>
-      <div class="co-teach-grid">
-        <div><b>Live Drop</b><span>${safe(p.liveDrop)}</span></div>
-        <div><b>Wildcard Question</b><span>“${safe(p.wildcard)}”</span></div>
-        <div><b>Human Proof</b><span>${safe(p.humanProof)}</span></div>
-        <div><b>Reward</b><span>${safe(p.reward)}</span></div>
-      </div>
-      <p class="mini-note">AI helps students rehearse. The British co-teacher provides authentic input, a live audience shift, one follow-up question and Glow + Grow feedback.</p>
-    </section>`;
-  }
-
-  function ukThailandBossCoTeachHTML(gateNo){
-    const p = ukThailandBossProtocol(gateNo);
-    return `<section class="co-teach-boss-card">
-      <div class="co-teach-kicker">LIVE HUMAN CHECKPOINT</div>
-      <h3>${safe(p.event)}</h3>
-      <p><b>British Co-Teacher Role:</b> ${safe(p.liveRole)}</p>
-      <p><b>Live Drop:</b> ${safe(p.liveDrop)}</p>
-      <p><b>Wildcard:</b> “${safe(p.wildcard)}”</p>
-      <p><b>Human Proof:</b> ${safe(p.humanProof)}</p>
-      <div class="co-teach-badge">🏅 ${safe(p.badge)}</div>
-    </section>`;
-  }
-
-  applyUKThailandCoTeachingProtocol();
 
   const EAP_REPLAY_TOPIC_BANK = {
     1:[
@@ -35546,7 +34992,7 @@
   };
 
   function aiHelpLimitFor(skill, sessionId){
-    const diff = (typeof currentSkillDifficulty === 'function' ? currentSkillDifficulty().key : (state.profile?.difficulty || 'normal')) || 'normal';
+    const diff = (typeof currentSkillDifficulty === 'function' ? currentSkillDifficulty(skill).key : (state.profile?.difficulty || 'easy')) || 'easy';
     const m = finalMatrixForSession ? finalMatrixForSession(sessionId) : {level:'A2-B1+'};
     const isCore = m.core === skill;
     const base = diff === 'easy' ? 3 : diff === 'normal' ? 2 : diff === 'hard' ? 2 : 1;
@@ -35591,21 +35037,31 @@
     const passedCount = skillRows.filter(x=>x.passed).length;
     const avg = Number(st.avg || 0);
     const aiUses = required.reduce((a,sk)=>a+aiUseCountFor(sid,sk),0);
+    const independence = typeof sessionIndependenceSummary === 'function'
+      ? sessionIndependenceSummary(sid, required)
+      : {confirmed:false,verifiedCount:0,pending:[],label:'Independence data unavailable'};
     let readiness = Math.round((avg * 0.65) + (passedCount/Math.max(1,required.length))*30 + Math.min(5, st.stars || 0));
     if(aiUses >= 4) readiness -= 6;
     if(aiUses >= 8) readiness -= 8;
+    if(independence.pending?.some(x=>x.replayRequired)) readiness -= 10;
+    if(independence.confirmed) readiness += 5;
     readiness = Math.max(0, Math.min(100, readiness));
     let band = 'High Risk';
     if(readiness >= AI_LEARNING_LAYER.sessionRiskThresholds.ready) band = 'Ready';
     else if(readiness >= AI_LEARNING_LAYER.sessionRiskThresholds.medium) band = 'Almost Ready';
     else if(readiness >= AI_LEARNING_LAYER.sessionRiskThresholds.high) band = 'Needs Practice';
     const weak = skillRows.filter(x=>!x.passed).map(x=>x.skill);
+    const replaySkill = independence.pending?.find(x=>x.replayRequired)?.skill;
     const next = weak.length
       ? `Practice ${weak[0]} again. Use one hint, then revise with source keywords.`
-      : aiUses >= 4
-        ? 'Try replay without AI help to confirm independent performance.'
-        : 'Ready for checkpoint or harder replay.';
-    return {session:sid, readiness, band, avg, stars:st.stars||0, aiUses, required, skillRows, weak, next, passed:!!st.passed};
+      : replaySkill
+        ? `Run an Independent Replay for ${replaySkill}: AI Help is paused so the skill can be confirmed.`
+        : independence.confirmed
+          ? 'Independent evidence is confirmed. Ready for checkpoint or a fresh higher-tier replay.'
+          : aiUses >= 4
+            ? 'Try replay without AI help to confirm independent performance.'
+            : 'Ready for checkpoint or harder replay.';
+    return {session:sid, readiness, band, avg, stars:st.stars||0, aiUses, required, skillRows, weak, next, passed:!!st.passed, independence};
   }
 
   function aiDifficultyRecommendation(sessionId){
@@ -36014,7 +35470,6 @@
   }
 
   function syncReadingQuestionsToMission(){
-    if(document.querySelector('[data-real-reading-pack="true"]')) return;
     try{
       const sid = Number(state.currentSession || 1) || 1;
       const q = alignedReadingQuestions(sid);
@@ -36030,7 +35485,6 @@
   }
 
   function removeMismatchedAudienceQuestions(){
-    if(document.querySelector('[data-real-reading-pack="true"]')) return;
     try{
       const sid = Number(state.currentSession || 1) || 1;
       const a = missionAlignmentForSession(sid);
@@ -36049,7 +35503,6 @@
   }
 
   function injectAlignedHelpBlock(){
-    if(document.querySelector('[data-real-reading-pack="true"]')) return;
     try{
       const sid = Number(state.currentSession || 1) || 1;
       const title = Array.from(document.querySelectorAll('h1,h2')).find(h=>/Mission:/i.test(h.textContent || ''));
@@ -36252,9 +35705,6 @@
     const rawSkill = String(skill || '').trim();
     const k = rawSkill.toLowerCase();
     try{
-      if(window.EAPHeroWeeklyContext && typeof window.EAPHeroWeeklyContext.openSkillMission === 'function'){
-        return window.EAPHeroWeeklyContext.openSkillMission(rawSkill, sessionId);
-      }
       const routes = {
         reading: renderReadingMission,
         writing: renderWritingMission,
@@ -36363,15 +35813,39 @@
 
   function unifiedCheckpointSessionPage(sessionId, reason){
     const sid = Number(sessionId || state.currentSession || 1) || 1;
-    try{
-      state.currentSession = sid;
-      saveState();
-      return renderStudentSessionPath(sid, 'checkpoint');
-    }catch(err){
-      console.error('[unifiedCheckpointSessionPage]', err);
-      return simpleSessionFallback(sid, err);
-    }
+    const s = safeSessionMeta ? safeSessionMeta(sid) : (typeof getSession === 'function' ? getSession(sid) : {id:sid,title:`Session ${sid}`});
+    const path = (typeof skillPathForSession === 'function') ? skillPathForSession(sid) : {core:'Reading', support:'Writing'};
+    const visibleSkills = (typeof isSimpleMode === 'function' && isSimpleMode())
+      ? [path.core].concat((typeof featureUnlocked === 'function' && featureUnlocked('supportMission')) ? [path.support] : [])
+      : ['Reading','Writing','Listening','Speaking'];
+    const cards = visibleSkills.map(skill=>{
+      const required = skill === path.core ? 'Core' : skill === path.support ? 'Support' : 'Optional';
+      let done = false;
+      try{ done = typeof portfolioEvidence === 'function' && portfolioEvidence(sid, skill).length > 0; }catch(e){}
+      return `<div class="hud-card ${done?'ok':''}">
+        <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
+        <p class="mini-note">${safe(required)} Mission</p>
+        ${typeof sessionQualityHTML === 'function' ? sessionQualityHTML(sid) : ''}
+        <button class="btn primary full" onclick="return EAPHero.openSkillMissionSafe('${safe(skill)}',${sid})">Start ${safe(skill)}</button>
+      </div>`;
+    }).join('');
+    layout(`<section class="panel skill-path-panel normalized-checkpoint-session" style="margin-top:20px">
+      <h2>Session ${sid}: ${safe(s.title || s.name || 'Academic English Mission')}</h2>
+      <p class="lead">${safe(s.skill || s.subtitle || 'Academic English practice')}</p>
+      <div class="route-note normal-route-note">Flow: Map → Individual Core/Support Mission → Mini Check → Map</div>
+      ${selfPracticeCoreHTML(sid)}
+      ${visibleSessionCompletionBadgeHTML(sid)}
+      <div class="grid four">${cards}</div>
+      <div class="simple-mode-note">Simple Mode: ตอนนี้ให้ทำ Core Mission ก่อน และ Support Mission ได้แล้ว</div>
+      ${compactCheckpointNoteHTML(sid)}
+      <div class="footer-actions">
+        <button class="btn" onclick="EAPHero.map()">Map</button>
+        <button class="btn ghost" onclick="return EAPHero.openSkillMissionSafe('Reading',${sid})">Debug: Open Reading</button>
+      </div>
+    </section>`);
+    return false;
   }
+
 
   function simpleSessionFallback(sessionId, err){
     const sid = Number(sessionId || state.currentSession || 1) || 1;
@@ -36383,7 +35857,7 @@
     layout(`<section class="panel simple-session-fallback" style="margin-top:20px">
       <div class="badges"><span class="pill">Safe Session Mode</span><span class="pill">S${sid}</span><span class="pill">v1z50</span></div>
       <h2>Session ${sid}: ${safe(s.title || s.name || 'Academic English Mission')}</h2>
-      <p class="lead">${safe(s.subtitle || s.skill || 'Practice Reading, Writing, Listening, and Speaking missions.')}</p>
+      <p class="lead">${safe(s.subtitle || s.skill || 'Practice individual Reading, Writing, Listening, and Speaking missions.')}</p>
       ${gateNote}
       <div class="grid four skill-open-grid">
         <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Reading',${sid})">Reading</button>
@@ -36433,7 +35907,6 @@
 
   function checkpointSessionIdFromElement(el){
     if(!el || !el.closest) return 0;
-    if(el.closest('[data-launch-mission="true"],.student-start-mission,.js-skill-mission-btn,.mission-entry-btn')) return 0;
     const node = el.closest('[data-session], [data-sid], .map-card, .session-card, .card');
     if(!node) return 0;
     const attrs = [node.getAttribute('data-session'), node.getAttribute('data-sid'), node.dataset?.session, node.dataset?.sid];
@@ -36496,7 +35969,6 @@
     runVisibleCompletionBadgeSoon();
     runAILearningLayerSoon();
     runMissionAlignmentPatchSoon();
-    runStudentMissionEntryFixSoon();
     return {intercept:!!window.__EAP_CHECKPOINT_SESSION_INTERCEPT__, cards:document.querySelectorAll('.checkpoint-session-safe-card').length};
   }
 
@@ -36567,117 +36039,77 @@
   }
 
 
-  function studentSessionPathCardHTML(sessionId, skill, required){
-    const sid = Number(sessionId || state.currentSession || 1) || 1;
-    const route = courseRoutePassReport(sid);
-    const row = route.skillRows.find(r=>String(r.skill).toLowerCase() === String(skill).toLowerCase()) || {items:0,bestScore:0,passed:false};
-    const bestScore = Number(row.bestScore || 0);
-    const passed = !!row.passed;
-    const submitted = Number(row.items || 0) > 0;
-    const action = passed ? `Replay ${skill}` : submitted ? `Retry ${skill}` : `Start ${skill}`;
-    const caption = passed
-      ? `Passed: ${bestScore}/100. Replay only if you want a stronger score.`
-      : submitted
-        ? `Submitted score: ${bestScore}/100. You need 60+ to pass this skill.`
-        : 'Tap to begin this mission now.';
-    const quality = typeof sessionQualityHTML === 'function' ? sessionQualityHTML(sid) : '';
-    return `<article class="hud-card student-mission-card ${passed?'ok':'needs'} ${String(required).toLowerCase()}">
-      <div class="student-mission-card-head">
-        <div><h3>${passed?'✅':'⬜'} ${safe(skill)}</h3><p class="mini-note">${safe(required)} Mission</p></div>
-        <span class="mission-role-pill">${safe(required)}</span>
-      </div>
-      <button type="button" class="btn primary block student-start-mission" data-launch-mission="true" onclick="return EAPHero.openSkillMissionSafe('${safe(skill)}',${sid})">▶ ${safe(action)}</button>
-      <p class="mission-action-caption">${safe(caption)}</p>
-      <details class="student-mission-guide"><summary>Mission guide, vocabulary & AI scaffold</summary>${quality}</details>
-    </article>`;
-  }
-
-  function renderStudentSessionPath(sessionId, source){
-    syncRouteProgression(true);
-    const sid = Number(sessionId || state.currentSession || 1) || 1;
-    const s = typeof safeSessionMeta === 'function'
-      ? safeSessionMeta(sid)
-      : (typeof getSession === 'function' ? getSession(sid) : {id:sid,title:`Session ${sid}`,skill:'Academic English'});
-    const path = typeof skillPathForSession === 'function'
-      ? skillPathForSession(sid)
-      : {core:'Reading', support:'Writing'};
-    const skills = Array.from(new Set([path.core || 'Reading', path.support || 'Writing']));
-    const cards = skills.map(skill=>studentSessionPathCardHTML(sid, skill, skill === path.core ? 'Core' : 'Support')).join('');
-    const pass = typeof visibleSessionCompletionBadgeHTML === 'function'
-      ? visibleSessionCompletionBadgeHTML(sid)
-      : '';
-    setView('skillPath');
-    layout(`
-      <section class="panel student-session-entry-panel" style="margin-top:20px">
-        <div class="badges">
-          <span class="pill">Session Path</span>
-          <span class="pill">S${sid}</span>
-          <span class="pill">${safe(s.skill || s.subtitle || 'Academic English')}</span>
-          <span class="pill">🇹🇭 + 🇬🇧 Co-Taught</span>
-        </div>
-        <h2>S${sid} · ${safe(s.title || s.name || 'Academic English Mission')}</h2>
-        <p class="lead">AI prepares the team. Thai and British co-teachers turn the mission into authentic academic communication.</p>
-        <div class="student-flow-note"><b>Flow:</b> Live Drop → AI Rehearsal → Core → Support → Wildcard → Human Stamp</div>
-        ${ukThailandSessionCoTeachHTML(sid)}
-        <div class="student-session-start-strip">
-          ${skills.map(skill=>`<button type="button" class="btn primary student-start-mission" data-launch-mission="true" onclick="return EAPHero.openSkillMissionSafe('${safe(skill)}',${sid})">▶ Start ${safe(skill)}</button>`).join('')}
-        </div>
-        ${pass}
-        ${nextRouteActionHTML(sid)}
-        <div class="student-mission-grid">${cards}</div>
-        <div class="student-pass-rule">
-          <b>Pass rule:</b> Core ≥ 60 and Support ≥ 60. Human feedback adds a Human Stamp but does not grade accent.
-        </div>
-        <div class="footer-actions student-session-footer">
-          <button class="btn ghost" onclick="EAPHero.map()">Back to Map</button>
-          <button class="btn ghost" onclick="EAPHero.renderStudentReports()">My Learning Report</button>
-        </div>
-      </section>`);
-    return false;
-  }
-
   function renderSkillPath(sessionId){
-    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    setTimeout(()=>attachSafeBossGateNotice(Number(arguments[0] || state.currentSession || 1)), 120);
+
     try{
-      state.currentSession = sid;
-      saveState();
-      return renderStudentSessionPath(sid, 'native');
+
+    setTimeout(runBossGateUICleanupSoon, 0);
+
+    const s = getSession(Number(sessionId || 1));
+    const path = skillPathForSession(s.id);
+    const gate = bossGateForSession(s.id);
+    const visibleSkills = isSimpleMode()
+      ? [path.core].concat(featureUnlocked('supportMission') ? [path.support] : [])
+      : ['Reading','Writing','Listening','Speaking'];
+    const cards = visibleSkills.map(skill=>{
+      const required = skill === path.core ? 'Core' : skill === path.support ? 'Support' : 'Optional';
+      const done = portfolioEvidence(s.id, skill).length > 0;
+      const fn = skill.toLowerCase();
+      const locked = isSimpleMode() && required === 'Support' && !featureUnlocked('supportMission');
+      return `<div class="hud-card ${done?'ok':''} ${locked?'locked':''}">
+        <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
+        <p class="mini-note">${required} Mission ${locked?'• Locked until Lv.2':''}</p>
+        ${sessionQualityHTML(s.id)}
+        ${sessionIsNotBossNote(s.id)}
+        ${safeBossGateNoticeHTML(s.id)}
+        <button type="button" class="btn ${required==='Optional'?'ghost':'primary'} block js-skill-mission-btn" ${locked?'disabled':''} data-skill="${safeAttr(skill)}" data-session="${s.id}" onclick="return EAPHero.openSkillMissionFromButton(this)">${done?'Replay':'Start'} ${safe(skill)}</button>
+      </div>`;
+    }).join('');
+    const hiddenNote = isSimpleMode() ? `<div class="panel light" style="margin-top:12px"><b>Simple Mode:</b> ตอนนี้ให้ทำ Core Mission ก่อน ${featureUnlocked('supportMission') ? 'และ Support Mission ได้แล้ว' : 'Support Mission จะปลดหลังมี progress/evidence เพิ่ม'}</div>` : '';
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Skill Path Lock</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
+        <h2>Session ${s.id} Path: ${safe(s.title || s.skill)}</h2>
+        <p class="lead">นี่คือหน้าหลักหลังจากเลือก Session บน Map: ทำ Core + Support Mission ด้วยตนเองเพื่อเก็บ Evidence แล้วค่อยปลด Boss Gate ตามช่วง</p>
+        <div class="panel light" style="margin:14px 0">
+          <b>Flow:</b> Map → Individual Core/Support Mission → Mini Check/Boss Gate → Map
+        </div>
+        ${selfPracticeCoreHTML(s.id)}
+        <div class="grid four">${cards}</div>
+        ${hiddenNote}
+        ${gate ? `<div class="panel light" style="margin-top:18px"><h3>Legacy Boss Gate Hidden: ${safe(gate.title)}</h3><p>${safe(gate.boss)}</p><p class="mini-note">Status: ${bossGateStatus(gate)?'✅ Unlocked':'🔒 Locked'} • ${safe(gate.unlock)}</p><button class="btn primary" onclick="EAPHero.bossGate('${gate.id}')">Open Checkpoint</button></div>` : ''}
+        <div class="footer-actions"><button class="btn" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost" onclick="EAPHero.map()">Map</button><button class="btn ghost small" onclick="return EAPHero.openSkillMission('Reading', ${s.id})">Debug: Open Reading</button></div>
+      </section>`);
+  
     }catch(err){
       console.error('[renderSkillPath]', err);
-      try{ logRuntimeErrorSafe('renderSkillPath', err, {sessionId:sid}); }catch(e){}
-      renderSessionRecoveryPanel(sid, err, 'renderSkillPath');
-      return false;
+      logRuntimeErrorSafe('renderSkillPath', err, {sessionId:(typeof sessionId!=='undefined'?sessionId:state.currentSession||1)});
+      renderSessionRecoveryPanel((typeof sessionId!=='undefined'?sessionId:state.currentSession||1), err, 'renderSkillPath');
     }
   }
-
-  function renderBossGate(gateRef){
-    const gate = resolveUKBossGate(gateRef);
-    const plan = bossGateByNumber(gate.planGate);
+  function renderBossGate(gateId){
+    const gate = BOSS_GATES.find(g => g.id === gateId) || BOSS_GATES[0];
     const unlocked = bossGateStatus(gate);
     const mutation = mutationForGate(gate.id);
     const ghost = state.replay?.ghosts?.[gate.id];
     layout(`
-      <section class="panel co-teach-boss-panel" style="margin-top:20px">
-        <div class="badges">
-          <span class="pill">${gate.planGate === 5 ? 'Final Boss' : 'Boss Gate '+gate.planGate}</span>
-          <span class="pill">🇹🇭 + 🇬🇧 Live Event</span>
-          <span class="pill">${unlocked?'Unlocked':'Locked'}</span>
-        </div>
-        <h2>${safe(gate.title)}</h2>
-        <p class="lead">${safe(plan.focus)}</p>
-        ${ukThailandBossCoTeachHTML(gate.planGate)}
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Boss Gate</span><span class="pill">${safe(gate.title)}</span><span class="pill">${unlocked?'Unlocked':'Locked'}</span></div>
+        <h2>${safe(gate.boss)}</h2>
+        <p class="lead">${safe(gate.unlock)}</p>
         <div class="grid three">
-          <div class="stat"><b>${safe(mutation.name)}</b><span>Digital Challenge Form</span></div>
-          <div class="stat"><b>${ghost ? ghost.bestPercent+'%' : '-'}</b><span>Replay Record</span></div>
-          <div class="stat"><b>4 Skills</b><span>Read • Listen • Write • Speak</span></div>
+          <div class="stat"><b>${safe(mutation.name)}</b><span>Mutation</span></div>
+          <div class="stat"><b>${ghost ? ghost.bestPercent+'%' : '-'}</b><span>Rival Ghost</span></div>
+          <div class="stat"><b>${gate.skills.join(' + ')}</b><span>Skill Check</span></div>
         </div>
         <div class="panel light" style="margin-top:18px">
           <h3>Boss Rule</h3>
-          <p class="mini-note">This is a checkpoint, not an extra session. The digital challenge checks evidence; the British co-teacher adds a live audience, one wildcard question and Glow + Grow feedback.</p>
+          <p class="mini-note">บอสช่วงนี้ใช้ MCQ + Reason Gate + portfolio evidence ร่วมกัน ไม่ใช่เลือกตอบอย่างเดียว</p>
         </div>
         <div class="footer-actions">
-          <button class="btn primary" ${(unlocked && featureUnlocked('bossGate'))?'':'disabled'} onclick="EAPHero.startGateBoss('${gate.id}')">${featureUnlocked('bossGate')?'Start Integrated Boss Challenge':'Boss Gate unlocks later'}</button>
-          <button class="btn" onclick="return EAPHero.directOpenSession(${gate.after})">Complete Required Sessions</button>
+          <button class="btn primary" ${(unlocked && featureUnlocked('bossGate'))?'':'disabled'} onclick="EAPHero.startGateBoss('${gate.id}')">${featureUnlocked('bossGate')?'Start Gate Boss':'Boss Gate unlocks later'}</button>
+          <button class="btn" onclick="return EAPHero.directOpenSession(${gate.after})">Complete Skill Evidence</button>
           <button class="btn ghost" onclick="EAPHero.replayHub()">Replay Hub</button>
         </div>
       </section>`);
@@ -36688,94 +36120,14 @@
     return MUTATIONS[logs % MUTATIONS.length];
   }
 
-  /* === v1z69 Integrated Boss Runtime === */
-  function integratedBossRuntimeContext(gate){
-    const protocol = typeof ukThailandBossProtocol === 'function'
-      ? ukThailandBossProtocol(gate.planGate)
-      : {};
-    return {
-      title: gate.title,
-      digital: `Digital round: mixed challenge from ${gate.sessions.map(s=>'S'+s).join('–')}.`,
-      live: protocol.liveDrop || 'British co-teacher gives one live follow-up question.',
-      wildcard: protocol.wildcard || 'Explain one piece of evidence for your answer.',
-      proof: protocol.humanProof || 'Integrated evidence + live response',
-      badge: protocol.badge || 'Human Checkpoint Badge'
-    };
-  }
-
-  function startIntegratedBossRuntime(gateRef){
-    const gate = resolveUKBossGate(gateRef);
-    if(!gate){
-      safeToast('Boss Gate was not found.');
-      return renderMap();
-    }
-
-    const report = bossGateUnlockReport(gate.planGate);
-    if(!report.unlocked){
-      safeToast(report.reason || 'Complete the required Sessions first.');
-      return renderBossGate(gate.id);
-    }
-
-    clearInterval(bossTimer);
-
-    const mutation = mutationForGate(gate.id);
-    const contractKey = mutation.key === 'nohint' ? 'nohint' : mutation.key === 'speed' ? 'speed' : 'hero';
-    const contract = getContract(contractKey);
-    const sourceSessions = Array.isArray(gate.sessions) && gate.sessions.length
-      ? gate.sessions.slice()
-      : bossGateByNumber(gate.planGate).after.slice();
-    const questionCount = bossQuestionCount();
-    const order = pickQuestionsFromSessions(sourceSessions, questionCount, `gate_${gate.id}`);
-
-    if(!order.length){
-      safeToast('Boss questions are not ready yet. Return to the route and try again.');
-      return renderBossGate(gate.id);
-    }
-
-    const seconds = Math.max(45, Math.round(difficultySeconds() * contract.timeFactor));
-    const hp = Math.max(65, Math.min(130, Math.round(order.length * 10.5) + contract.hpBonus));
-
-    state.replay = state.replay || {ghosts:{},secretMissions:{},bossRushLogs:[]};
-    state.replay.currentGate = gate.id;
+  function startGateBoss(gateId){
+    const gate = BOSS_GATES.find(g => g.id === gateId);
+    if(!gate || !bossGateStatus(gate)) return renderBossGate(gateId);
+    const mutation = mutationForGate(gateId);
+    state.replay.currentGate = gateId;
     state.replay.currentMutation = mutation.key;
-
-    // Gate metadata is written BEFORE rendering, so the first boss screen is valid.
-    state.active = {
-      mode:'boss',
-      contract:contract.key,
-      sessionId:sourceSessions[sourceSessions.length - 1],
-      gateId:gate.id,
-      gateNo:gate.planGate,
-      gateTitle:gate.title,
-      gateAfter:gate.after,
-      gateSessions:sourceSessions,
-      gateMutation:mutation.key,
-      startedAt:Date.now(),
-      duration:seconds,
-      timeLeft:seconds,
-      bossHpMax:hp,
-      bossHp:hp,
-      hearts:contract.hearts,
-      combo:0,
-      maxCombo:0,
-      score:0,
-      index:0,
-      order,
-      answers:[],
-      correct:0,
-      usedHints:0,
-      rage:false
-    };
-
     saveState();
-    renderBossQuestion();
-    bossTimer = setInterval(tickBoss, 1000);
-    return false;
-  }
-
-
-  function startGateBoss(gateRef){
-    return startIntegratedBossRuntime(gateRef);
+    startBoss(gate.after, mutation.key === 'nohint' ? 'nohint' : mutation.key === 'speed' ? 'speed' : 'hero');
   }
 
   function updateMasteryFromPortfolio(entry){
@@ -37038,6 +36390,12 @@
 
   function renderAIHelpBox(skill, sessionId){
     sessionId = Number(sessionId || 1);
+    if(typeof independenceReplayActive === 'function' && independenceReplayActive(sessionId, skill)){
+      return `<div class="panel light independence-ai-paused" style="margin:14px 0;border-style:dashed">
+        <div class="badges"><span class="pill">🛡 Independent Replay</span><span class="pill">AI Help paused</span></div>
+        <p class="mini-note">ทำรอบนี้ด้วยตนเองเพื่อสร้างหลักฐาน independent performance คะแนนและ feedback จะถูกเก็บแยกจากรอบที่ใช้ AI Help</p>
+      </div>`;
+    }
     const uses = aiUsesFor(sessionId, skill);
     const limit = adaptiveAIHelpLimit(skill);
     const left = Math.max(0, limit - uses);
@@ -37062,6 +36420,16 @@
       </div>`;
   }
   function useAIHelp(skill, sessionId, draftInputId, outputId){
+    if(typeof independenceReplayActive === 'function' && independenceReplayActive(sessionId, skill)){
+      const out = document.getElementById(outputId || aiOutputId(skill, sessionId)) || document.getElementById('aiHelpOutput');
+      const message = 'Independent Replay is active. AI Help is paused for this attempt so your own evidence can be checked.';
+      if(out){
+        out.style.display = 'block';
+        out.classList.add('show');
+        out.innerHTML = `<b>AI Mentor:</b> ${safe(message)}`;
+      }else safeToast(message);
+      return;
+    }
     const allowed = canUseAI(sessionId, skill);
     const out = document.getElementById(outputId || aiOutputId(skill, sessionId)) || document.getElementById('aiHelpOutput');
     if(!allowed.ok){
@@ -37469,7 +36837,7 @@
     return `S${sessionId}_${skill}`;
   }
 
-  function pickMissionVariant(sessionId, skill){
+  function pickMissionVariantLegacy(sessionId, skill){
     const sid = Number(sessionId || state.currentSession || 1);
     state.skillBankHistory = state.skillBankHistory || {};
     const hkey = missionHistoryKey(sid, skill);
@@ -37800,11 +37168,6 @@
   }
 
   function alignmentFor(skill, sessionId, prompt){
-    try{
-      if(window.EAPHeroWeeklyContext && typeof window.EAPHeroWeeklyContext.alignment === 'function'){
-        return window.EAPHeroWeeklyContext.alignment(skill, sessionId, prompt || {});
-      }
-    }catch(e){}
     return variantAlignmentOverride(skill, sessionId, prompt || {});
   }
 
@@ -37977,179 +37340,28 @@
   }
 
 
-
-  /* === v1z64 REAL READING: Live Drop Passage + Aligned Questions === */
-  const REAL_READING_S1_PACKS = {
-    'academic goal audit': {
-      sourceType:'Student Support File',
-      title:'Live Drop: Academic Goal Audit',
-      passage:`Dr. Morgan is meeting a student called Narin. Narin says, “I will study more English this semester.” Dr. Morgan explains that this is a positive idea, but it is not yet a clear academic goal. Narin needs to name one skill, choose one action to do every week, and decide how to check progress. For example, Narin could practise summarising one short article each week and compare the new summary with an earlier one. A clear plan helps Narin see whether the skill is improving.`,
-      questions:[
-        'Why is “I will study more English” not a clear academic goal?',
-        'What three parts should Narin’s stronger goal include?',
-        'Which example in the passage shows a weekly action and a progress check?'
-      ],
-      frames:[
-        'The goal is unclear because ___.',
-        'A stronger goal should include ___, ___, and ___.',
-        'The passage says, “___.”'
-      ],
-      vocab:['academic goal','skill','weekly action','progress check','summarise']
-    },
-    'study strategy choice': {
-      sourceType:'UK–Thailand Study Strategy Note',
-      title:'Live Drop: Choose the Stronger Study Plan',
-      passage:`Two students want to improve their academic English. Mali memorises a long list of random words every evening. Arun reads one short source, writes key words, and asks a classmate or teacher for feedback. Both students spend time studying, but their strategies are different. Dr. Morgan says that an academic plan should connect practice with a real task and a way to check improvement. Arun can see whether the notes and feedback help the next summary. Mali knows more isolated words, but she does not yet know whether she can use them in a reading or writing task.`,
-      questions:[
-        'Which student has the stronger academic study strategy?',
-        'What makes that strategy stronger according to the passage?',
-        'What evidence shows that the other strategy is limited?'
-      ],
-      frames:[
-        '___ has the stronger strategy because ___.',
-        'The plan connects ___ with ___.',
-        'One detail from the passage is ___.'
-      ],
-      vocab:['strategy','practice','feedback','improvement','isolated words']
-    },
-    'learning reflection': {
-      sourceType:'Learning Reflection Log',
-      title:'Live Drop: Reflection Before the Next Mission',
-      passage:`After a difficult English task, Ploy writes a short reflection. She says that finding keywords was easy, but writing a summary in her own words was confusing. She plans to use a simple three-step routine next week: read the task question first, circle two important words, and write one short sentence before checking a model. Dr. Morgan explains that reflection is useful because it turns a vague feeling into a next action. Ploy does not need to write a long diary. She needs to identify one difficulty, choose one action, and check whether the new action helps.`,
-      questions:[
-        'What part of the task was difficult for Ploy?',
-        'What three-step routine will she try next week?',
-        'Why does Dr. Morgan say that reflection is useful?'
-      ],
-      frames:[
-        'Ploy found ___ difficult.',
-        'Next week, she will ___.',
-        'Reflection is useful because ___.'
-      ],
-      vocab:['reflection','difficulty','routine','next action','model']
-    },
-    'skill diagnosis': {
-      sourceType:'British Co-Teacher Student Support File',
-      title:'Live Drop: Skill Diagnosis File',
-      passage:`Narin enjoys chatting casually with international students online. However, in class he finds it difficult to summarise an article in his own words. When he presents, he reads from notes and gives no source or example. Dr. Morgan tells him that he does not need “more English” in general. He needs one clear academic skill to practise. The team should help Narin create a goal that names the skill, gives one weekly action, and includes a way to check progress. For instance, Narin could write one short source-based summary each week and compare it with teacher feedback.`,
-      questions:[
-        'What academic skill problem does Narin have?',
-        'What three parts should his stronger academic goal include?',
-        'Which sentence in the passage gives evidence for a useful weekly action?'
-      ],
-      frames:[
-        'Narin needs to improve ___.',
-        'His goal should include ___, ___, and ___.',
-        'The evidence is “___.”'
-      ],
-      vocab:['summarise','source','evidence','weekly action','progress']
-    }
-  };
-
-  const REAL_READING_SESSION_DESIGNS = {
-    2:{sourceType:'UK Campus Language Note', focus:'academic vocabulary in context', questions:['What academic word, word form, or collocation is the key issue?','What clue in the passage helps you choose the meaning or correct form?','Write one short example that uses the item accurately.'], frames:['The key academic item is ___.','The context clue is ___.','A correct example is ___.'], vocab:['context clue','word family','collocation','academic word','accurate']},
-    3:{sourceType:'Project Briefing File', focus:'main idea and supporting detail', questions:['What is the main idea of the passage?','Which detail best supports the main idea?','Which detail is interesting but not central?'], frames:['The main idea is ___.','One supporting detail is ___.','A less central detail is ___.'], vocab:['main idea','supporting detail','central','topic','evidence']},
-    4:{sourceType:'Campus Announcement Transcript', focus:'keywords and signal words', questions:['Which keyword or signal word is important in the passage?','What relationship does it show: sequence, contrast, cause, result, or example?','How does that signal help the reader understand the message?'], frames:['The signal word is ___.','It shows ___.','This helps the reader understand ___.'], vocab:['keyword','signal word','contrast','result','for example']},
-    5:{sourceType:'Evidence Court Case File', focus:'critical reading', questions:['What claim is made in the passage?','What evidence, bias, or missing information should readers notice?','What should readers check before accepting the claim?'], frames:['The claim is ___.','The evidence or bias is ___.','Readers should check ___.'], vocab:['claim','evidence','bias','source','credible']},
-    6:{sourceType:'Summary Press Source', focus:'summarising in own words', questions:['What source idea is most important?','Which detail can be omitted from a short summary?','How can the main idea be stated in your own words?'], frames:['The source mainly explains ___.','A detail I can omit is ___.','In my own words, ___.'], vocab:['summary','own words','central idea','omit','paraphrase']},
-    7:{sourceType:'Academic Tone Message', focus:'academic tone', questions:['Which wording in the passage is too casual, emotional, or too strong?','What academic wording could replace it?','Why is the revised wording more appropriate?'], frames:['The weak wording is ___.','A more academic version is ___.','This is appropriate because ___.'], vocab:['formal','tone','appropriate','cautious','academic']},
-    8:{sourceType:'Paragraph Repair File', focus:'paragraph structure', questions:['What is the topic sentence or central point?','What support or example belongs with the topic?','What part is weak, missing, or in the wrong place?'], frames:['The topic sentence is ___.','The support is ___.','The weak or missing part is ___.'], vocab:['topic sentence','support','example','conclusion','structure']},
-    9:{sourceType:'Campus Solution Brief', focus:'paragraph writing', questions:['What problem or topic should the paragraph address?','What specific reason or example can support the idea?','What conclusion would connect back to the topic?'], frames:['The paragraph is about ___.','One support idea is ___.','In conclusion, ___.'], vocab:['paragraph','reason','example','support','conclusion']},
-    10:{sourceType:'Data Detective Report', focus:'data description', questions:['What trend or comparison does the passage describe?','What number or data detail supports it?','What conclusion would be too strong?'], frames:['The data show ___.','The figure changes from ___ to ___.','The data do not prove ___.'], vocab:['trend','increase','decrease','comparison','cautious']},
-    11:{sourceType:'International Help Desk Email', focus:'academic email', questions:['What is the purpose of the email situation?','Which polite request or follow-up is needed?','What information should the writer include?'], frames:['The purpose is to request ___.','A polite phrase is “___.”','The email should include ___.'], vocab:['request','feedback','appointment','available','closing']},
-    12:{sourceType:'Research Integrity Case File', focus:'citation and ethics', questions:['Which idea, wording, or AI support needs to be acknowledged?','Should the student quote, paraphrase, cite, or disclose help?','Why is that choice academically responsible?'], frames:['This needs acknowledgement because ___.','I should ___ it because ___.','Responsible use means ___.'], vocab:['citation','paraphrase','quote','disclose','ethics']},
-    13:{sourceType:'Mini Lecture Reading Preview', focus:'academic listening preparation', questions:['What is the main point the listener should expect?','Which two keywords are likely to matter?','Which detail is useful but not central?'], frames:['The main point is ___.','Two keywords are ___ and ___.','A useful detail is ___.'], vocab:['lecture','main point','keyword','detail','signal word']},
-    14:{sourceType:'Presentation Brief', focus:'academic presentation', questions:['What is the presentation topic or purpose?','Which signposting phrase or evidence point is useful?','How should the speaker close the presentation?'], frames:['Today, I will talk about ___.','One key point is ___.','To conclude, ___.'], vocab:['presentation','purpose','signpost','evidence','conclusion']},
-    15:{sourceType:'Global Solution Summit Case', focus:'final integrated EAP decision', questions:['What problem or decision is described?','What evidence from the passage matters most?','What response or next step is reasonable?'], frames:['The problem is ___.','The evidence shows ___.','A reasonable next step is ___.'], vocab:['integrate','evidence','solution','reflect','next step']}
-  };
-
-  function realReadingPack(sessionId, selected){
-    const sid = Number(sessionId || 1);
-    const selectedTopic = String(selected?.topic || '').trim().toLowerCase();
-    if(sid === 1 && REAL_READING_S1_PACKS[selectedTopic]){
-      const p = REAL_READING_S1_PACKS[selectedTopic];
-      return Object.assign({session:sid, role:(ukThailandSessionProtocol(sid)||{}).liveRole || 'British Co-Teacher'}, p);
-    }
-
-    const d = REAL_READING_SESSION_DESIGNS[sid] || REAL_READING_SESSION_DESIGNS[3];
-    const p = ukThailandSessionProtocol(sid) || {};
-    const topic = String(selected?.topic || d.focus);
-    const seed = String(selected?.passage || '');
-    const passage = `Live Drop from ${p.liveRole || 'the British co-teacher'}: Today’s reading case focuses on ${topic}. ${seed} Dr. Morgan asks the team to read for the academic purpose, not for every individual word. Identify the central message, choose one useful detail, and avoid a conclusion that the source does not support. After silent reading, the British co-teacher will read the case once and invite one clarification question before the team gives its evidence-based response.`;
-    return {
-      session:sid,
-      sourceType:d.sourceType,
-      title:`Live Drop: ${topic}`,
-      passage,
-      questions:d.questions,
-      frames:d.frames,
-      vocab:d.vocab,
-      role:p.liveRole || 'British Co-Teacher'
-    };
-  }
-
-  function realReadingSupportHTML(pack){
-    return `<div class="real-reading-support">
-      <div class="badges">
-        <span class="pill">🇬🇧 Live Drop</span>
-        <span class="pill">${safe(pack.sourceType)}</span>
-        <span class="pill">Read → Listen → Clarify → Answer</span>
-      </div>
-      <h3>How to read this mission</h3>
-      <div class="grid three">
-        <div class="step-card"><b>1. Silent Read</b><span>Read once for the main idea. Do not translate every word.</span></div>
-        <div class="step-card"><b>2. Human Check</b><span>The British co-teacher reads the Live Drop once. Ask one clarification question if needed.</span></div>
-        <div class="step-card"><b>3. Evidence Answer</b><span>Answer in 1–2 short sentences and use a word or detail from the passage.</span></div>
-      </div>
-      <h4>Sentence frames for this exact passage</h4>
-      <div class="frame-row">${pack.frames.map(f=>`<span class="frame-chip">${safe(f)}</span>`).join('')}</div>
-      <h4>Useful vocabulary</h4>
-      <div class="vocab-row">${pack.vocab.map(v=>`<span class="mini-word">${safe(v)}</span>`).join('')}</div>
-    </div>`;
-  }
-
-  function readingAnswerPlaceholder(index, pack){
-    const examples = [
-      'Write 1 short answer. Use a word from the Live Drop.',
-      'Write 1–2 short sentences with a clear reason or detail.',
-      'Quote or name one detail from the passage as evidence.'
-    ];
-    return examples[index] || 'Write a short evidence-based answer.';
-  }
-
-
   function renderReadingMission(id){
-    const __readingSessionId = Number(arguments[0] || state.currentSession || 1);
-    const s = getSession(safeMissionSessionId(id));
-    const selected = pickMissionVariant(s.id, 'Reading');
-    const pack = realReadingPack(s.id, selected);
-    layout(`<section class="panel real-reading-mission" data-real-reading-pack="true" style="margin-top:20px">
-      <div class="badges">
-        <span class="pill">Reading Mission</span>
-        <span class="pill">S${s.id}</span>
-        <span class="pill">${safe(s.skill)}</span>
-        <span class="pill">🇹🇭 + 🇬🇧 Co-Taught</span>
-      </div>
-      <h2>📖 ${safe(pack.title)}</h2>
-      <div class="reading-live-role"><b>Human Mission Partner:</b> ${safe(pack.role)} · Read silently first, then listen once and clarify one phrase if needed.</div>
-      <article class="real-reading-source">
-        <div class="real-reading-source-head">
-          <span>${safe(pack.sourceType)}</span>
-          <span>Reading length: short Live Drop</span>
-        </div>
-        <p>${safe(pack.passage)}</p>
-      </article>
-      <input type="hidden" id="readingTopic" value="${safeAttr(pack.title)}">
-      <input type="hidden" id="readingPassage" value="${safeAttr(pack.passage)}">
-      <p class="mini-note"><b>Your task:</b> answer three short questions. Each answer should use a word, phrase, or detail from the Live Drop.</p>
-      <div class="cefr-support real-reading-cefr">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${realReadingSupportHTML(pack)}${cefrAIHelpNote('Reading')}</div>
-      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — read for the message, evidence and one useful detail.</p>
+    const __readingSessionId = Number(arguments[0] || state.currentSession || 1); const readingQs = readingQuestionSetForSession(__readingSessionId);
+
+    const s = getSession(safeMissionSessionId(id)), text = pickMissionVariant(s.id, 'Reading');
+    const readAlign = alignmentFor('Reading', s.id, text.variant || {});
+    if(readAlign && readAlign.questions && readAlign.questions.length){ text.variant.q = readAlign.questions; }
+    const abilityTask = buildAbilityTask('Reading', s.id, text);
+    if(abilityTask.questions && abilityTask.questions.length) text.variant.q = abilityTask.questions;
+    const readingDifficulty = currentSkillDifficulty('Reading');
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
+      <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
+      ${goldAuthoredBadgeHTML(abilityTask)}
+      ${abilityTaskHTML('Reading', abilityTask)}
+      <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}"><input type="hidden" id="readingAbilityTaskId" value="${safeAttr(abilityTask.id)}">
+      <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
+      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${alignmentGuideHTML('Reading', s.id, text.variant || {})}${cefrAIHelpNote('Reading')}</div>
+      <p class="mini-note"><b>Difficulty:</b> ${safe(readingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading', readingDifficulty)))}</p>
+      ${independentReplayBannerHTML('Reading', s.id)}
       ${renderAIHelpBox('Reading', s.id)}
-      ${pack.questions.map((q,i)=>`<label class="label">${i+1}. ${safe(q)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box compact-reading-answer" rows="3" placeholder="${safeAttr(readingAnswerPlaceholder(i,pack))}"></textarea>`).join('')}
-      <div class="footer-actions">
-        <button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button>
-        <button class="btn ghost" onclick="EAPHero.renderSkillPath(${s.id})">Back to Session Path</button>
-      </div>
+      ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="4"></textarea>`).join('')}
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
 
@@ -38191,6 +37403,483 @@
     return hit / Math.max(1, out.size);
   }
 
+
+  /* === v1z64 Gold Authored Item Bank + QA Lock: formative feedback, independence, teacher analytics === */
+  const EAP_FULL_AI_SUITE = Object.freeze({
+    version:'v1z63',
+    studentFeatures:['Skill Profile','Ability-Adaptive Difficulty','No-Repeat Selector','AI Help','Formative Rubric','Independence Check','Prediction','Learning Coach'],
+    teacherFeatures:['AI Teacher Analytics','Intervention Recommendation','AI Analytics CSV'],
+    scope:'All analytics are calculated from the portfolio stored in the current browser dataset. Cross-device class aggregation needs a connected server or spreadsheet receiver.'
+  });
+
+  const AI_RUBRIC_LABELS = {
+    Reading:{
+      mainidea:['Main Idea','State the central message, not only a small detail.'],
+      keywords:['Keywords','Use key words that connect directly to the topic.'],
+      evidence:['Evidence','Add one detail or reason from the source.'],
+      inference:['Inference','Use careful language when you infer meaning.'],
+      critical:['Critical Check','Name one thing a reader should check or question.'],
+      clarity:['Clarity','Make each answer clear enough for a reader to follow.']
+    },
+    Writing:{
+      task:['Task Achievement','Answer the task purpose with enough relevant content.'],
+      organization:['Organization','Use a clear idea, support, and a closing or structure.'],
+      tone:['Academic Tone','Use precise, formal, and careful wording.'],
+      vocabulary:['Vocabulary','Use useful course/source words accurately in context.'],
+      grammar:['Sentence Clarity','Check sentence boundaries, capitals, and punctuation.'],
+      ethics:['Source / AI Ethics','Use own words and acknowledge source or tool support when required.']
+    },
+    Listening:{
+      mainpoint:['Main Point','Record the lecture’s central point.'],
+      keywords:['Keywords','Keep useful keywords instead of every spoken word.'],
+      signal:['Signal Words','Notice sequence, contrast, cause, or example signals.'],
+      evidence:['Evidence Note','Record a detail or example that supports the point.'],
+      summary:['Summary','Turn notes into a concise understanding statement.'],
+      question:['Question / Follow-up','Ask or note one useful question for further learning.']
+    },
+    Speaking:{
+      opening:['Opening & Purpose','Start by naming the topic or purpose.'],
+      organization:['Organization','Use a beginning, support, and a clear ending.'],
+      signposting:['Signposting','Use words such as first, next, however, or in conclusion.'],
+      evidence:['Evidence / Support','Give a reason, example, or source-based support.'],
+      fluency:['Response Development','Develop a clear response for the required time.'],
+      qa:['Closing / Response','Close the idea or respond directly and politely.']
+    }
+  };
+
+  const AI_INTERVENTION_LIBRARY = {
+    Reading:{
+      mainidea:'Assign two independent Reading missions at the current AI tier: focus route, then evidence route. Require one main idea and one support detail each time.',
+      keywords:'Assign keyword + signal-word Reading routes. Ask the learner to connect two keywords with a relationship word.',
+      evidence:'Assign the evidence route and ask for “claim → detail → why it supports” in one response.',
+      inference:'Keep the learner at the present tier and use inference/limitation routes with cautious words: may, suggests, likely.',
+      critical:'Assign source-check and limitation routes; ask the learner to name author/date/evidence or one missing detail.',
+      clarity:'Use shorter response frames first, then ask for one complete support sentence.'
+    },
+    Writing:{
+      task:'Assign one focused response at the current AI tier. Give one target and ask the learner to remove unrelated ideas.',
+      organization:'Assign paragraph structure or sequence route: topic → support → explanation → closing.',
+      tone:'Assign academic tone/revision route with a short casual-to-formal rewrite before the next full response.',
+      vocabulary:'Assign source-vocabulary route: use two task words accurately, then explain one in context.',
+      grammar:'Use sentence-clarity revision: one idea per sentence, capital letter, full stop, and one connector.',
+      ethics:'Assign citation/ethics route: paraphrase one source idea and state how help or sources were used.'
+    },
+    Listening:{
+      mainpoint:'Assign a shorter listening route. Learner writes “Main point:” before adding any smaller details.',
+      keywords:'Assign keyword route. Learner records exactly two useful words and explains their connection.',
+      signal:'Assign sequence/contrast route and listen for one relationship word before writing notes.',
+      evidence:'Assign example/evidence route. Learner writes one detail and what it supports.',
+      summary:'Ask for a three-line note: main point, two keywords, one concise conclusion.',
+      question:'After listening, learner writes one genuine follow-up question beginning What, Why, or How.'
+    },
+    Speaking:{
+      opening:'Use a 30-second guided opening: topic, purpose, one point, closing.',
+      organization:'Assign sequence route and require first/next/in conclusion in the response.',
+      signposting:'Run a signpost-only rehearsal before the full speaking attempt.',
+      evidence:'Assign example/evidence route and require one reason or source detail before the conclusion.',
+      fluency:'Keep the current AI tier, use one sentence frame, and add 5–10 seconds only after clarity is stable.',
+      qa:'End each response with a conclusion or a direct answer to one follow-up question.'
+    }
+  };
+
+  function aiSuiteWordList(text){
+    return String(text || '').trim().match(/[A-Za-zÀ-ÿ0-9']+/g) || [];
+  }
+
+  function aiSuiteScore4(value, low, mid, high){
+    const n = Number(value || 0);
+    if(n >= high) return 4;
+    if(n >= mid) return 3;
+    if(n >= low) return 2;
+    return n > 0 ? 1 : 0;
+  }
+
+  function aiSuitePatternScore(text, patterns, fallback=0){
+    const t = String(text || '').toLowerCase();
+    const hits = (patterns || []).reduce((n, pattern)=>n + (pattern.test(t) ? 1 : 0), 0);
+    return Math.max(fallback, aiSuiteScore4(hits, 1, 2, 3));
+  }
+
+  function aiSuiteConnectorCount(text){
+    return (String(text || '').toLowerCase().match(/\b(because|however|therefore|for example|first|next|finally|in conclusion|according to|suggests|indicates|although|while|as a result)\b/g) || []).length;
+  }
+
+  function aiSuiteMetrics(entry){
+    const p = entry || {};
+    const output = String(p.output || '').trim();
+    const lower = output.toLowerCase();
+    const words = aiSuiteWordList(output);
+    const sentenceCount = (output.match(/[.!?]+/g) || []).length;
+    const connectors = aiSuiteConnectorCount(output);
+    const target = Math.max(12, Number(typeof targetWordCountForSkill === 'function' ? targetWordCountForSkill(p.skill) : 30));
+    const prompt = String(p.prompt || '');
+    const sourceKeys = typeof sourceKeywordsForScoring === 'function' ? sourceKeywordsForScoring(prompt) : [];
+    const markerKeys = typeof skillMarkersForScoring === 'function' ? skillMarkersForScoring(p.skill, p.session) : [];
+    const sourceHits = sourceKeys.filter(k=>lower.includes(String(k).toLowerCase())).length;
+    const markerHits = markerKeys.filter(k=>lower.includes(String(k).toLowerCase())).length;
+    const copied = typeof copiedSourceRatio === 'function' ? copiedSourceRatio(output, prompt) : 0;
+    const hasQuestion = /\?|\b(what|why|how|could|would)\b/i.test(output);
+    const hasFormal = /\b(may|might|suggests|indicates|evidence|source|therefore|however|according to|analysis|academic|responsible)\b/i.test(output);
+    const hasCasualRisk = /\b(awesome|super|really really|totally|stuff|things|a lot|always|everyone|obviously)\b/i.test(output);
+    const hasCitation = /\b(according to|source|cite|citation|paraphrase|quoted|reference|ai help|ai tool|assistance)\b/i.test(output);
+    const hasOpening = /^\s*(today|i will|this response|the topic|in this)/i.test(output);
+    const hasClosing = /\b(in conclusion|to conclude|therefore|overall|finally)\b/i.test(output);
+    const hasSignal = /\b(first|next|then|however|because|therefore|for example|finally)\b/i.test(output);
+    return {
+      output, lower, words:words.length, sentenceCount, connectors, target,
+      sourceHits, markerHits, copied, hasQuestion, hasFormal, hasCasualRisk,
+      hasCitation, hasOpening, hasClosing, hasSignal
+    };
+  }
+
+  function aiSuiteCriterion(skill, key, score, evidence){
+    const schema = (AI_RUBRIC_LABELS[skill] || {})[key] || [key, 'Improve this part in the next attempt.'];
+    return {
+      key,
+      label:schema[0],
+      score:Math.max(0, Math.min(4, Math.round(Number(score || 0)))),
+      evidence:String(evidence || ''),
+      next:schema[1]
+    };
+  }
+
+  function aiFormativeRubric(entry){
+    const p = entry || {};
+    const skill = normalizeAbilitySkill(p.skill);
+    const m = aiSuiteMetrics(p);
+    const length4 = aiSuiteScore4(m.words / Math.max(1,m.target), 0.35, 0.7, 1.0);
+    const source4 = aiSuiteScore4(m.sourceHits + m.markerHits, 1, 3, 5);
+    const organisation4 = Math.max(aiSuiteScore4(m.connectors, 1, 2, 3), aiSuiteScore4(m.sentenceCount, 1, 2, 4));
+    const clarity4 = Math.max(0, Math.min(4, Math.round((length4 + aiSuiteScore4(m.sentenceCount,1,2,4)) / 2)));
+    const formal4 = m.hasCasualRisk ? Math.max(1, aiSuiteScore4(m.hasFormal ? 1 : 0, 1, 2, 3)-1) : aiSuiteScore4(m.hasFormal ? 2 : m.connectors, 1, 2, 3);
+    const independentIntegrity = m.copied > 0.82 ? 1 : m.copied > 0.65 ? 2 : (m.hasCitation || Number(p.session) !== 12 ? 3 : 2);
+    let criteria = [];
+
+    if(skill === 'Writing'){
+      criteria = [
+        aiSuiteCriterion(skill,'task', Math.round((length4 + source4)/2), `${m.words}/${m.target} target words; source/task hits ${m.sourceHits + m.markerHits}`),
+        aiSuiteCriterion(skill,'organization', organisation4, `${m.sentenceCount} sentence marker(s); ${m.connectors} connector(s)`),
+        aiSuiteCriterion(skill,'tone', formal4, m.hasCasualRisk ? 'casual/overstrong wording detected' : 'academic/cautious wording indicator checked'),
+        aiSuiteCriterion(skill,'vocabulary', source4, `${m.sourceHits} source-keyword hit(s); ${m.markerHits} skill-marker hit(s)`),
+        aiSuiteCriterion(skill,'grammar', clarity4, 'automatic sentence-clarity indicator; teacher review remains final'),
+        aiSuiteCriterion(skill,'ethics', independentIntegrity, m.copied > 0.65 ? 'high source-overlap risk detected' : 'source/AI integrity indicator checked')
+      ];
+    }else if(skill === 'Speaking'){
+      const fluency = Math.max(length4, aiSuiteScore4(Number(p.speakingSeconds || 0) / 10, 2, 3, 5));
+      criteria = [
+        aiSuiteCriterion(skill,'opening', aiSuiteScore4((m.hasOpening?2:0) + (m.words>=12?1:0),1,2,3), m.hasOpening ? 'opening phrase detected' : 'add a clear opening'),
+        aiSuiteCriterion(skill,'organization', organisation4, `${m.sentenceCount} sentence marker(s); ${m.connectors} connector(s)`),
+        aiSuiteCriterion(skill,'signposting', aiSuiteScore4(m.hasSignal?2:m.connectors,1,2,3), m.hasSignal ? 'signposting indicator detected' : 'use first/next/however/in conclusion'),
+        aiSuiteCriterion(skill,'evidence', source4, `${m.sourceHits} source-keyword hit(s); ${m.markerHits} task-marker hit(s)`),
+        aiSuiteCriterion(skill,'fluency', fluency, `${Number(p.speakingSeconds || 0)} seconds recorded; ${m.words} transcript words`),
+        aiSuiteCriterion(skill,'qa', aiSuiteScore4((m.hasClosing?2:0) + (m.hasQuestion?1:0),1,2,3), m.hasClosing ? 'clear closing indicator detected' : 'add a clear conclusion or direct response')
+      ];
+    }else if(skill === 'Listening'){
+      criteria = [
+        aiSuiteCriterion(skill,'mainpoint', aiSuitePatternScore(m.output,[/\bmain point\b/,/\bmain idea\b/,/\bcentral\b/,/\blecture.*about\b/], length4>=2?2:0), 'main-point indicator checked'),
+        aiSuiteCriterion(skill,'keywords', aiSuitePatternScore(m.output,[/\bkeyword/,/\bkey word/,/\bterms?\b/], m.sourceHits>=2?2:0), `${m.sourceHits} source-keyword hit(s)`),
+        aiSuiteCriterion(skill,'signal', aiSuiteScore4(m.hasSignal?2:m.connectors,1,2,3), `${m.connectors} signal/connector indicator(s)`),
+        aiSuiteCriterion(skill,'evidence', source4, `${m.sourceHits} source-keyword hit(s); ${m.markerHits} task-marker hit(s)`),
+        aiSuiteCriterion(skill,'summary', Math.round((length4 + organisation4)/2), `${m.words}/${m.target} target words; ${m.sentenceCount} sentence marker(s)`),
+        aiSuiteCriterion(skill,'question', aiSuiteScore4(m.hasQuestion?2:0,1,2,3), m.hasQuestion ? 'question/follow-up indicator detected' : 'add one useful follow-up question')
+      ];
+    }else{
+      criteria = [
+        aiSuiteCriterion(skill,'mainidea', aiSuitePatternScore(m.output,[/\bmain idea\b/,/\bmain point\b/,/\bcentral\b/,/\btopic\b/], source4>=2?2:0), 'main-idea indicator checked'),
+        aiSuiteCriterion(skill,'keywords', aiSuitePatternScore(m.output,[/\bkeyword/,/\bkey word/,/\bterms?\b/], m.sourceHits>=2?2:0), `${m.sourceHits} source-keyword hit(s)`),
+        aiSuiteCriterion(skill,'evidence', source4, `${m.sourceHits} source-keyword hit(s); ${m.markerHits} task-marker hit(s)`),
+        aiSuiteCriterion(skill,'inference', aiSuitePatternScore(m.output,[/\binfer/,/\bsuggests?\b/,/\bmay\b/,/\bmight\b/,/\blikely\b/,/\bbecause\b/], m.connectors>=2?2:0), 'inference/cautious-language indicator checked'),
+        aiSuiteCriterion(skill,'critical', aiSuitePatternScore(m.output,[/\bcheck\b/,/\bsource\b/,/\bauthor\b/,/\bdate\b/,/\bbias\b/,/\blimit/,/\bcredible\b/], Number(p.session)>=5?1:0), 'critical-reading indicator checked'),
+        aiSuiteCriterion(skill,'clarity', clarity4, `${m.words}/${m.target} target words; ${m.sentenceCount} sentence marker(s)`)
+      ];
+    }
+    const total = Math.round((criteria.reduce((sum,c)=>sum+c.score,0) / Math.max(1,criteria.length*4))*100);
+    const strengths = criteria.filter(c=>c.score>=3).slice(0,2);
+    const growth = criteria.filter(c=>c.score<3).sort((a,b)=>a.score-b.score).slice(0,2);
+    const didWell = strengths.length
+      ? `Strongest indicators: ${strengths.map(x=>x.label).join(' and ')}.`
+      : 'You completed the task and created evidence for the next AI recommendation.';
+    const nextStep = growth.length
+      ? growth[0].next
+      : 'Keep the same quality on a new scenario without relying on extra AI Help.';
+    return {
+      skill, total, criteria, strengths:strengths.map(x=>x.label), growth:growth.map(x=>x.label),
+      didWell, nextStep,
+      note:'Automatic formative indicators support learning; teacher judgement remains the final evaluation.',
+      at:new Date().toISOString()
+    };
+  }
+
+  function independenceReplayActive(sessionId, skill){
+    const r = state.independenceReplay || {};
+    return !!(r.active && Number(r.session) === Number(sessionId) && normalizeAbilitySkill(r.skill) === normalizeAbilitySkill(skill));
+  }
+
+  function finalizeIndependenceReplayEntry(entry){
+    if(!entry || !independenceReplayActive(entry.session, entry.skill)) return entry;
+    const r = state.independenceReplay || {};
+    entry.independenceReplay = true;
+    entry.aiUses = Math.max(0, Number(entry.aiUses || 0) - Number(r.aiBaseline || 0));
+    entry.independenceReplayStartedAt = r.startedAt || '';
+    state.independenceReplay = {active:false, session:null, skill:'', aiBaseline:0, startedAt:''};
+    return entry;
+  }
+
+  function aiIndependenceCheck(entry){
+    const p = entry || {};
+    const help = Math.max(0, Number(p.aiUses || 0));
+    const transcript = !!p.transcriptHint;
+    const rubric = p.aiRubric || aiFormativeRubric(p);
+    const score = Math.max(Number(p.score || 0), Number(rubric.total || 0));
+    const copied = Number(aiSuiteMetrics(p).copied || 0);
+    const replay = !!p.independenceReplay;
+    const supportLoad = help + (transcript ? 2 : 0);
+    let status = 'Needs Independent Replay';
+    let verified = false;
+    let replayRequired = true;
+    let confidence = Math.max(0, Math.min(100, Math.round(score - supportLoad*9 - (copied>0.65?15:0))));
+
+    if(replay && help === 0 && !transcript && score >= 60 && copied <= 0.65){
+      status = 'Verified Independent';
+      verified = true;
+      replayRequired = false;
+      confidence = Math.max(confidence, 75);
+    }else if(help === 0 && !transcript && score >= 70 && copied <= 0.65){
+      status = 'Independent Evidence';
+      verified = true;
+      replayRequired = false;
+      confidence = Math.max(confidence, 72);
+    }else if(help <= 1 && !transcript && score >= 60 && copied <= 0.65){
+      status = 'Mostly Independent';
+      verified = true;
+      replayRequired = false;
+      confidence = Math.max(confidence, 64);
+    }else if(score >= 60 && copied <= 0.65){
+      status = 'Supported Progress';
+      replayRequired = supportLoad >= 2;
+      confidence = Math.max(confidence, 50);
+    }else if(score < 60){
+      status = 'Needs Skill Repair';
+      replayRequired = false;
+      confidence = Math.min(confidence, 45);
+    }
+    const recommendation = replayRequired
+      ? 'Run an Independent Replay: AI Help is paused for this one attempt so the learner can confirm the skill independently.'
+      : status === 'Needs Skill Repair'
+        ? 'Use one focused AI Help step, then revise one answer before trying the next route.'
+        : 'Keep building with a new scenario at the current skill level.';
+    return {status, verified, replayRequired, confidence, help, transcript, score, recommendation};
+  }
+
+  function enhancePortfolioWithFullAI(entry){
+    if(!entry) return entry;
+    finalizeIndependenceReplayEntry(entry);
+    entry.aiRubric = aiFormativeRubric(entry);
+    entry.aiIndependence = aiIndependenceCheck(entry);
+    entry.aiFeedback = `${entry.aiRubric.didWell} Next: ${entry.aiRubric.nextStep}`;
+    return entry;
+  }
+
+  function sessionIndependenceSummary(sessionId, requiredSkills){
+    const sid = Number(sessionId || 1);
+    const required = (requiredSkills || (typeof requiredSkillsForSession === 'function' ? requiredSkillsForSession(sid) : []) || []).map(normalizeAbilitySkill);
+    const entries = (state.portfolio || []).filter(p=>Number(p.session)===sid && required.includes(normalizeAbilitySkill(p.skill)));
+    const bySkill = required.map(skill=>{
+      const rows = entries.filter(p=>normalizeAbilitySkill(p.skill)===skill);
+      const checks = rows.map(p=>p.aiIndependence || aiIndependenceCheck(p));
+      const verified = checks.some(x=>x.verified);
+      const replayRequired = checks.length ? checks[checks.length-1].replayRequired : false;
+      const latest = checks[checks.length-1] || null;
+      return {skill, attempts:rows.length, verified, replayRequired, latest};
+    });
+    const verifiedCount = bySkill.filter(x=>x.verified).length;
+    const pending = bySkill.filter(x=>x.replayRequired || !x.verified);
+    const label = !entries.length ? 'No independence evidence yet' :
+      verifiedCount === required.length ? 'Independent evidence confirmed' :
+      pending.some(x=>x.replayRequired) ? 'Independent replay recommended' :
+      'Build one more independent attempt';
+    return {session:sid, required, entries, bySkill, verifiedCount, pending, label, confirmed:required.length>0 && verifiedCount===required.length};
+  }
+
+  function startIndependentReplay(sessionId, skill){
+    const sid = Number(sessionId || state.currentSession || 1);
+    const normalized = normalizeAbilitySkill(skill);
+    state.independenceReplay = {
+      active:true,
+      session:sid,
+      skill:normalized,
+      aiBaseline:Number(typeof aiUsesFor === 'function' ? aiUsesFor(sid, normalized) : 0),
+      startedAt:new Date().toISOString()
+    };
+    saveState();
+    safeToast(`Independent Replay: AI Help paused for ${normalized}.`);
+    return openSkillMission(normalized, sid);
+  }
+
+  function independentReplayBannerHTML(skill, sessionId){
+    if(!independenceReplayActive(sessionId, skill)) return '';
+    return `<div class="independence-replay-banner">
+      <b>🛡 Independent Replay active</b>
+      <span>AI Help is paused for this attempt. Your result will be stored separately as independence evidence.</span>
+    </div>`;
+  }
+
+  function renderAIFormativeFeedbackCard(entry, opts={}){
+    if(!entry) return '';
+    const rubric = entry.aiRubric || aiFormativeRubric(entry);
+    const ind = entry.aiIndependence || aiIndependenceCheck(entry);
+    const rows = rubric.criteria.map(c=>`<div class="ai-rubric-row">
+      <div><b>${safe(c.label)}</b><span>${safe(c.evidence)}</span></div>
+      <div class="ai-rubric-score s${c.score}">${c.score}/4</div>
+    </div>`).join('');
+    const replayButton = ind.replayRequired
+      ? `<button class="btn warn" onclick="EAPHero.startIndependentReplay(${Number(entry.session || 1)}, '${safeAttr(entry.skill || 'Reading')}')">Start Independent Replay</button>`
+      : '';
+    return `<div class="ai-formative-card">
+      <div class="ai-formative-head">
+        <div><b>🤖 AI Formative Rubric</b><span>Automatic indicators · not teacher final marking</span></div>
+        <div class="ai-formative-total">${rubric.total}/100</div>
+      </div>
+      <div class="ai-independence-line ${ind.verified?'verified':'supported'}">
+        <b>🛡 ${safe(ind.status)}</b>
+        <span>${safe(ind.recommendation)}</span>
+      </div>
+      <div class="ai-rubric-list">${rows}</div>
+      <div class="ai-formative-summary">
+        <p><b>Strength:</b> ${safe(rubric.didWell)}</p>
+        <p><b>Next action:</b> ${safe(rubric.nextStep)}</p>
+      </div>
+      ${opts.actions===false ? '' : `<div class="footer-actions"><button class="btn" onclick="EAPHero.aiLearningCenter()">AI Learning Center</button>${replayButton}</div>`}
+    </div>`;
+  }
+
+  function aiTeacherAnalyticsData(){
+    const entries = state.portfolio || [];
+    const learnerIds = new Set(entries.map(p=>String(p.student_id || p.player_name || 'Current learner')));
+    const skills = ['Reading','Writing','Listening','Speaking'].map(skill=>{
+      const rows = entries.filter(p=>normalizeAbilitySkill(p.skill)===skill);
+      const rubrics = rows.map(p=>p.aiRubric || aiFormativeRubric(p));
+      const checks = rows.map(p=>p.aiIndependence || aiIndependenceCheck(p));
+      const avgScore = rows.length ? Math.round(rows.reduce((sum,p)=>sum+Number(p.score||0),0)/rows.length) : 0;
+      const avgRubric = rubrics.length ? Math.round(rubrics.reduce((sum,r)=>sum+Number(r.total||0),0)/rubrics.length) : 0;
+      const avgHelp = rows.length ? Math.round((rows.reduce((sum,p)=>sum+Number(p.aiUses||0),0)/rows.length)*10)/10 : 0;
+      const verifiedCount = checks.filter(x=>x.verified).length;
+      const replayNeeded = checks.filter(x=>x.replayRequired).length;
+      const weakCounts = {};
+      rubrics.forEach(r=>(r.criteria||[]).forEach(c=>{
+        if(Number(c.score)<3) weakCounts[c.key]=(weakCounts[c.key]||0)+1;
+      }));
+      const weakKey = Object.entries(weakCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || '';
+      const weakLabel = weakKey ? ((AI_RUBRIC_LABELS[skill]||{})[weakKey]?.[0] || weakKey) : 'No repeated gap detected';
+      const intervention = weakKey
+        ? (AI_INTERVENTION_LIBRARY[skill]?.[weakKey] || 'Assign one focused practice route at the learner’s current AI level.')
+        : 'Keep the learner on fresh scenarios at the current AI level and monitor independent evidence.';
+      return {skill, attempts:rows.length, avgScore, avgRubric, avgHelp, verifiedCount, replayNeeded, independenceRate:rows.length?Math.round((verifiedCount/rows.length)*100):0, weakKey, weakLabel, intervention};
+    });
+    const overall = {
+      learners:learnerIds.size,
+      evidence:entries.length,
+      avgScore:entries.length?Math.round(entries.reduce((sum,p)=>sum+Number(p.score||0),0)/entries.length):0,
+      verified:entries.filter(p=>(p.aiIndependence||aiIndependenceCheck(p)).verified).length,
+      replayNeeded:entries.filter(p=>(p.aiIndependence||aiIndependenceCheck(p)).replayRequired).length
+    };
+    overall.independenceRate = overall.evidence ? Math.round((overall.verified/overall.evidence)*100) : 0;
+    return {overall, skills, scope:EAP_FULL_AI_SUITE.scope};
+  }
+
+  function renderAITeacherAnalytics(){
+    if(isSimpleMode()){
+      return unlockTeacherMode();
+    }
+    const data = aiTeacherAnalyticsData();
+    const rows = data.skills.map(x=>`<tr>
+      <td><b>${safe(x.skill)}</b></td>
+      <td>${x.attempts}</td><td>${x.avgScore}%</td><td>${x.avgRubric}%</td><td>${x.avgHelp}</td>
+      <td>${x.independenceRate}%</td><td>${x.replayNeeded}</td>
+      <td>${safe(x.weakLabel)}</td>
+    </tr>`).join('');
+    const plans = data.skills.map(x=>`<article class="ai-intervention-card">
+      <div class="badges"><span class="pill">${safe(x.skill)}</span><span class="pill">${safe(x.weakLabel)}</span></div>
+      <h3>${safe(x.skill)} intervention</h3>
+      <p>${safe(x.intervention)}</p>
+      <p class="mini-note">Game flow remains self-practice only. Any live activity stays optional in the separate Classroom Activity Pack.</p>
+    </article>`).join('');
+    layout(`<section class="panel ai-teacher-analytics" style="margin-top:20px">
+      <div class="badges"><span class="pill">v1z63</span><span class="pill">AI Teacher Analytics</span><span class="pill">Self-Practice Evidence</span></div>
+      <h2>AI Teacher Analytics &amp; Intervention Plan</h2>
+      <p class="lead">สรุปจาก portfolio ในชุดข้อมูลที่อยู่บนเบราว์เซอร์นี้: จุดอ่อนรายทักษะ การใช้ AI Help และหลักฐานการทำเอง</p>
+      <div class="analytics-scope"><b>Data scope:</b> ${safe(data.scope)}</div>
+      <div class="grid four">
+        <div class="stat"><b>${data.overall.learners}</b><span>Learner(s) in current data</span></div>
+        <div class="stat"><b>${data.overall.evidence}</b><span>Portfolio evidence</span></div>
+        <div class="stat"><b>${data.overall.avgScore}%</b><span>Average auto score</span></div>
+        <div class="stat"><b>${data.overall.independenceRate}%</b><span>Independent evidence</span></div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Skill</th><th>Attempts</th><th>Auto</th><th>AI rubric</th><th>Help avg</th><th>Independent</th><th>Replay need</th><th>Priority gap</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <h3 style="margin-top:18px">AI Intervention Recommendations</h3>
+      <div class="grid two">${plans}</div>
+      <div class="footer-actions">
+        <button class="btn primary" onclick="EAPHero.exportAITeacherAnalyticsCSV()">Export AI Analytics CSV</button>
+        <button class="btn" onclick="EAPHero.aiLearningCenter()">AI Learning Center</button>
+        <button class="btn" onclick="EAPHero.teacherTools()">Teacher Tools</button>
+        <button class="btn ghost" onclick="EAPHero.map()">Map</button>
+      </div>
+    </section>`);
+  }
+
+  function exportAITeacherAnalyticsCSV(){
+    const data = aiTeacherAnalyticsData();
+    const rows = [['scope','skill','attempts','avg_auto_score','avg_ai_rubric','avg_ai_help','independence_rate','verified_count','replay_needed','priority_gap','intervention']];
+    data.skills.forEach(x=>rows.push([
+      data.scope,x.skill,x.attempts,x.avgScore,x.avgRubric,x.avgHelp,x.independenceRate,x.verifiedCount,x.replayNeeded,x.weakLabel,x.intervention
+    ]));
+    downloadCSV('eap-ai-teacher-analytics.csv', rows);
+  }
+
+  function renderAILearningCenter(){
+    const skills = ['Reading','Writing','Listening','Speaking'];
+    const cards = skills.map(skill=>{
+      const profile = skillAbilityProfile(skill);
+      const rows = (state.portfolio||[]).filter(p=>normalizeAbilitySkill(p.skill)===skill);
+      const latest = rows[rows.length-1];
+      const ind = latest ? (latest.aiIndependence || aiIndependenceCheck(latest)) : null;
+      return `<div class="hud-card ai-center-skill-card">
+        <h3>${safe(skill)}</h3>
+        <p class="ai-center-level">${safe(profile.label)}</p>
+        <p class="mini-note">${rows.length} evidence item(s) · recent ${profile.recentAverage}%</p>
+        <p class="mini-note">${ind ? `Independence: ${safe(ind.status)}` : 'No independence evidence yet'}</p>
+      </div>`;
+    }).join('');
+    const current = (state.portfolio||[]).slice(-1)[0];
+    layout(`<section class="panel ai-learning-center" style="margin-top:20px">
+      <div class="badges"><span class="pill">v1z63</span><span class="pill">AI Learning Center</span><span class="pill">A2–B1+ Year 2</span></div>
+      <h2>My AI Learning Center</h2>
+      <p class="lead">ดูระดับรายทักษะ, formative rubric, หลักฐานทำเอง และเส้นทางฝึกรอบถัดไป</p>
+      <div class="grid four">${cards}</div>
+      ${current ? renderAIFormativeFeedbackCard(current,{actions:false}) : `<div class="panel light"><p>Complete one mission to create your first AI feedback and independence record.</p></div>`}
+      <div class="footer-actions">
+        <button class="btn primary" onclick="EAPHero.renderAIAbilityDashboard()">AI Ability Dashboard</button>
+        <button class="btn" onclick="EAPHero.renderAILearningDiagnostics()">AI Prediction</button>
+        <button class="btn" onclick="EAPHero.renderAntiMemorizationAudit()">No-Repeat Audit</button>
+        <button class="btn ghost" onclick="EAPHero.map()">Map</button>
+      </div>
+    </section>`);
+  }
+
+  function exportFullAIEvidenceCSV(){
+    const header = ['student_id','player_name','session','skill','difficulty','score','ai_rubric_score','independence_status','independence_verified','independent_replay','replay_required','ai_uses','transcript_hint','priority_growth','output','at'];
+    const rows = (state.portfolio||[]).map(p=>{
+      const r = p.aiRubric || aiFormativeRubric(p);
+      const i = p.aiIndependence || aiIndependenceCheck(p);
+      return [p.student_id,p.player_name,p.session,p.skill,p.difficulty,p.score,r.total,i.status,i.verified,p.independenceReplay,i.replayRequired,p.aiUses,p.transcriptHint,(r.growth||[]).join(' | '),p.output,p.at].map(csvCell);
+    });
+    downloadCSV('eap-full-ai-evidence.csv',[header,...rows]);
+  }
+
+
   function scoreEAPOpenAnswer(skill, sessionId, output, sourceText, extra){
     const out = String(output || '').trim();
     const low = out.toLowerCase();
@@ -38201,7 +37890,7 @@
     const markerHit = markers.filter(k=>low.includes(k)).length;
     const connectorHit = (low.match(/\b(because|however|therefore|for example|in conclusion|first|next|finally|according to|suggests|indicates)\b/g)||[]).length;
     let score = 0;
-    const minWords = skill === 'Reading' ? 28 : skill === 'Listening' ? 24 : skill === 'Speaking' ? 30 : 45;
+    const minWords = typeof targetWordCountForSkill === 'function' ? targetWordCountForSkill(skill) : (skill === 'Reading' ? 28 : skill === 'Listening' ? 24 : skill === 'Speaking' ? 30 : 45);
     if(words >= minWords) score += 20;
     else if(words >= Math.round(minWords*0.6)) score += 10;
     score += Math.min(25, sourceHit * 7);
@@ -38222,8 +37911,9 @@
     const answers = [0,1,2].map(i => document.getElementById('readingAns'+i)?.value.trim() || '');
     const joined = answers.join(' | ');
     let score = scoreEAPOpenAnswer('Reading', id, joined, `${text.topic}. ${text.passage}`);
-    score = cefrScoreFloor('Reading', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Reading'))), joined);
-    addPortfolio({ session:id, skill:'Reading', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Reading'), output:joined, prompt:text.passage });
+    const readingDifficulty = currentSkillDifficulty('Reading');
+    score = cefrScoreFloor('Reading', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Reading')), 'Reading'), joined);
+    addPortfolio({ session:id, skill:'Reading', difficulty:readingDifficulty.key, aiAbilityTier:readingDifficulty.key, abilityTaskId:document.getElementById('readingAbilityTaskId')?.value || '', score, aiUses:aiUsesFor(id,'Reading'), output:joined, prompt:text.passage });
     showSkillResult('Reading', score, id);
   }
 
@@ -38255,13 +37945,20 @@
   function renderWritingMission(id){
     const s = getSession(safeMissionSessionId(id)), mv = pickMissionVariant(s.id, 'Writing'), prompt = writingPromptFromVariant(s, mv);
     const writeAlign = alignmentFor('Writing', s.id, prompt);
+    const abilityTask = buildAbilityTask('Writing', s.id, {topic:mv.topic, passage:mv.passage, variant:mv.variant, goldPack:mv.goldPack});
+    prompt.instruction = `${prompt.instruction} ${abilityTask.instruction || ''}`.trim();
+    prompt.target = abilityTask.target || prompt.target;
+    const writingDifficulty = currentSkillDifficulty('Writing');
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Writing Mission</span><span class="pill">S${s.id}</span><span class="pill">Portfolio Evidence</span></div>
       <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
-      <input type="hidden" id="writingPromptText" value="${safeAttr(prompt.instruction)}">
+      ${goldAuthoredBadgeHTML(abilityTask)}
+      ${abilityTaskHTML('Writing', abilityTask)}
+      <input type="hidden" id="writingPromptText" value="${safeAttr(prompt.instruction)}"><input type="hidden" id="writingAbilityTaskId" value="${safeAttr(abilityTask.id)}">
       <p class="mini-note">เป้าหมาย: ${safe(cefrSimplifyTask(prompt.target))} • auto-check เบื้องต้น</p>
       <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${alignmentGuideHTML('Writing', s.id, prompt)}${cefrAIHelpNote('Writing')}</div>
-      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Writing')))}</p>
+      <p class="mini-note"><b>Difficulty:</b> ${safe(writingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Writing', writingDifficulty)))}</p>
+      ${independentReplayBannerHTML('Writing', s.id)}
       ${renderAIHelpBox('Writing', s.id)}
       <div class="answer-box-toolbar">
         <span>Write your answer here</span>
@@ -38302,8 +37999,9 @@
     const s = getSession(id), out = document.getElementById('writingOutput')?.value.trim() || '';
     const prompt = document.getElementById('writingPromptText')?.value || writingPromptForSession(s).instruction;
     let score = scoreEAPOpenAnswer('Writing', id, out, prompt);
-    score = cefrScoreFloor('Writing', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Writing'))), out);
-    addPortfolio({ session:id, skill:'Writing', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Writing'), output:out, prompt });
+    const writingDifficulty = currentSkillDifficulty('Writing');
+    score = cefrScoreFloor('Writing', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Writing')), 'Writing'), out);
+    addPortfolio({ session:id, skill:'Writing', difficulty:writingDifficulty.key, aiAbilityTier:writingDifficulty.key, abilityTaskId:document.getElementById('writingAbilityTaskId')?.value || '', score, aiUses:aiUsesFor(id,'Writing'), output:out, prompt });
     showSkillResult('Writing', score, id);
   }
 
@@ -38517,6 +38215,8 @@
   function renderListeningMission(id){
     const s = getSession(safeMissionSessionId(id)), text = pickMissionVariant(s.id, 'Listening');
     const listenAlign = alignmentFor('Listening', s.id, text.variant || {});
+    const abilityTask = buildAbilityTask('Listening', s.id, text);
+    const listeningDifficulty = currentSkillDifficulty('Listening');
     const lecture = `Today, we will discuss ${text.topic}. ${text.passage} ${text.variant.ask || 'Write notes about the main point.'}`;
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Listening Mission</span><span class="pill">S${s.id}</span><span class="pill">Mini Lecture</span></div>
@@ -38537,7 +38237,7 @@
             </select>
           </label>
           <label>Speed
-            <input id="voiceRate" class="input" type="range" min="0.65" max="1.08" step="0.01" value="0.88" oninput="document.getElementById('voiceRateLabel').textContent=this.value">
+            <input id="voiceRate" class="input" type="range" min="0.65" max="1.08" step="0.01" value="${abilityTask.voiceRate || 0.88}" oninput="document.getElementById('voiceRateLabel').textContent=this.value">
             <span id="voiceRateLabel" class="mini-note">0.88</span>
           </label>
           <label>Pitch
@@ -38565,11 +38265,14 @@
         <button class="btn warn" onclick="EAPHero.showTranscriptHint(${s.id})">👁 Transcript Hint</button>
       </div>
       <div id="transcriptHintBox" class="feedback info" style="margin-top:10px"></div>
+      ${goldAuthoredBadgeHTML(abilityTask)}
+      ${abilityTaskHTML('Listening', abilityTask)}
+      ${independentReplayBannerHTML('Listening', s.id)}
       ${renderAIHelpBox('Listening', s.id)}
-      <p class="mini-note"><b>Task:</b> ${safe(cefrSimplifyTask(text.variant.ask || 'Write listening notes.'))}</p>
+      <p class="mini-note"><b>Task:</b> ${safe(cefrSimplifyTask(abilityTask.instruction || text.variant.ask || 'Write listening notes.'))}</p>
       <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${alignmentGuideHTML('Listening', s.id, text.variant || {})}${cefrAIHelpNote('Listening')}</div>
-      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Listening')))}</p>
-      <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}">
+      <p class="mini-note"><b>Difficulty:</b> ${safe(listeningDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Listening', listeningDifficulty)))}</p>
+      <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}"><input type="hidden" id="listeningAbilityTaskId" value="${safeAttr(abilityTask.id)}">
       <div id="fullTranscriptBox" class="feedback info" style="margin-top:10px"></div>
       <label class="label">Listening notes</label>
       <div class="answer-box-toolbar">
@@ -38618,7 +38321,7 @@
   }
 
   function transcriptPenalty(sessionId){
-    return transcriptHintUsed(sessionId) ? currentSkillDifficulty().transcriptPenalty : 0;
+    return transcriptHintUsed(sessionId) ? currentSkillDifficulty('Listening').transcriptPenalty : 0;
   }
 
   function showFullTranscript(sessionId){
@@ -38650,8 +38353,9 @@
     const s = getSession(id), notes = document.getElementById('listeningNotes')?.value.trim() || '';
     const prompt = document.getElementById('listeningPromptText')?.value || skillTextForSession(s).passage;
     let score = scoreEAPOpenAnswer('Listening', id, notes, prompt);
-    score = cefrScoreFloor('Listening', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Listening') - transcriptPenalty(id))), notes);
-    addPortfolio({ session:id, skill:'Listening', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Listening'), transcriptHint:transcriptHintUsed(id), output:notes, prompt });
+    const listeningDifficulty = currentSkillDifficulty('Listening');
+    score = cefrScoreFloor('Listening', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Listening') - transcriptPenalty(id)), 'Listening'), notes);
+    addPortfolio({ session:id, skill:'Listening', difficulty:listeningDifficulty.key, aiAbilityTier:listeningDifficulty.key, abilityTaskId:document.getElementById('listeningAbilityTaskId')?.value || '', score, aiUses:aiUsesFor(id,'Listening'), transcriptHint:transcriptHintUsed(id), output:notes, prompt });
     unlockListeningTranscript(id);
     showFullTranscript(id);
     showSkillResult('Listening', score, id);
@@ -38809,22 +38513,28 @@
   function renderSpeakingMission(id){
     const s = getSession(safeMissionSessionId(id)), mv = pickMissionVariant(s.id, 'Speaking'), prompt = speakingPromptFromVariant(s, mv);
     const speakAlign = alignmentFor('Speaking', s.id, prompt);
+    const abilityTask = buildAbilityTask('Speaking', s.id, {topic:mv.topic, passage:mv.passage, variant:mv.variant, goldPack:mv.goldPack});
+    prompt.instruction = `${prompt.instruction} ${abilityTask.instruction || ''}`.trim();
+    const speakingDifficulty = currentSkillDifficulty('Speaking');
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Speaking Mission</span><span class="pill">S${s.id}</span><span class="pill">Presentation Practice</span></div>
       <h2>🎤 Speaking Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
-      <input type="hidden" id="speakingPromptText" value="${safeAttr(prompt.instruction)}">
+      ${goldAuthoredBadgeHTML(abilityTask)}
+      ${abilityTaskHTML('Speaking', abilityTask)}
+      <input type="hidden" id="speakingPromptText" value="${safeAttr(prompt.instruction)}"><input type="hidden" id="speakingAbilityTaskId" value="${safeAttr(abilityTask.id)}"><input type="hidden" id="speakingMinSeconds" value="${Number(abilityTask.minSeconds || 25)}">
       <div class="panel light speaking-oral-card">
         <h3>🎙️ Oral Task First</h3>
         <p><b>งานนี้คือ Speaking:</b> ให้ผู้เรียนพูดจริงก่อน ไม่ใช่พิมพ์ตอบเป็นหลัก</p>
-        <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Speaking')))}</p>
+        <p class="mini-note"><b>Difficulty:</b> ${safe(speakingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Speaking', speakingDifficulty)))}</p>
         <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${alignmentGuideHTML('Speaking', s.id, prompt)}${cefrAIHelpNote('Speaking')}</div>
         
         <div class="footer-actions">
           <button id="startSpeakBtn" class="btn primary" onclick="EAPHero.startSpeakingTimer()">🎙️ Start Speaking</button>
           <button class="btn" onclick="EAPHero.stopSpeakingTimer()">⏹ I Finished Speaking</button>
         </div>
-        <div id="speakingTimerBox" class="speaking-timer-box">กด Start Speaking แล้วพูดตาม prompt 30–90 วินาที</div>
+        <div id="speakingTimerBox" class="speaking-timer-box">กด Start Speaking แล้วพูดตาม prompt ตามเวลาที่ AI เลือกให้</div>
       </div>
+      ${independentReplayBannerHTML('Speaking', s.id)}
       ${renderAIHelpBox('Speaking', s.id)}
       <label class="label">Optional evidence notes / transcript</label>
       
@@ -38874,10 +38584,12 @@
     if(document.getElementById('spSign')?.checked) extra += 8;
     if(document.getElementById('spEvi')?.checked) extra += 8;
     if(document.getElementById('spClose')?.checked) extra += 6;
-    if(document.getElementById('spSpoke')?.checked || speakingSeconds >= 20) extra += 10;
+    const requiredSpeakingSeconds = Number(document.getElementById('speakingMinSeconds')?.value || 25);
+    if(document.getElementById('spSpoke')?.checked || speakingSeconds >= requiredSpeakingSeconds) extra += 10;
     let score = scoreEAPOpenAnswer('Speaking', id, out, prompt, extra);
-    score = cefrScoreFloor('Speaking', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Speaking'))), out);
-    addPortfolio({ session:id, skill:'Speaking', difficulty:currentSkillDifficulty().key, speakingSeconds, score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt });
+    const speakingDifficulty = currentSkillDifficulty('Speaking');
+    score = cefrScoreFloor('Speaking', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Speaking')), 'Speaking'), out);
+    addPortfolio({ session:id, skill:'Speaking', difficulty:speakingDifficulty.key, aiAbilityTier:speakingDifficulty.key, abilityTaskId:document.getElementById('speakingAbilityTaskId')?.value || '', speakingSeconds, score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt });
     showSkillResult('Speaking', score, id);
   }
 
@@ -38886,13 +38598,14 @@
     const compactEntry = compactPortfolioEntry(Object.assign({
       at:new Date().toISOString(),
       student_id:state.profile.studentId || 'guest',
-      player_name:state.profile.name || 'Guest',
-      courseRouteVersion: typeof COURSE_ROUTE_VERSION === 'string' ? COURSE_ROUTE_VERSION : ''
+      player_name:state.profile.name || 'Guest'
     }, entry || {}));
+    enhancePortfolioWithFullAI(compactEntry);
     state.portfolio.push(compactEntry);
     state.portfolio = compactArray(state.portfolio, STORAGE_LIMITS.portfolio, compactPortfolioEntry);
     const portfolioIndex = state.portfolio.length - 1;
     updateMasteryFromPortfolio(compactEntry);
+    updateAIAbilityProfiles();
     checkSecretMissions();
     addXP(Math.max(5, Math.round((compactEntry.score || 0) / 4)));
     saveState();
@@ -38907,13 +38620,25 @@
       <div class="grid three"><div class="stat"><b>${score}/100</b><span>Auto Score</span></div><div class="stat"><b>+${Math.max(5, Math.round(score/4))}</b><span>XP</span></div><div class="stat"><b>${(state.portfolio || []).length}</b><span>Portfolio Items</span></div></div>
       <p class="mini-note">คะแนนนี้เป็น auto-check เบื้องต้น ใช้เพื่อปรับปรุงครั้งถัดไป อาจารย์ยังควรใช้ rubric ตรวจ writing/speaking จริง</p>
       ${renderLearningReportCard(latestLearningReport())}
-      <div class="footer-actions" style="justify-content:center"><button class="btn primary" onclick="EAPHero.skillHub(${id})">Back to Skills</button><button class="btn" onclick="EAPHero.contract(${id})">Boss Contract</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn ghost" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button></div>
+      ${renderAIFormativeFeedbackCard((state.portfolio || []).slice(-1)[0])}
+      <div class="footer-actions" style="justify-content:center"><button class="btn primary" onclick="EAPHero.skillHub(${id})">Back to Skills</button><button class="btn" onclick="EAPHero.contract(${id})">Boss Contract</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn" onclick="EAPHero.aiLearningCenter()">AI Learning Center</button><button class="btn ghost" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button></div>
     </section>`);
   }
 
   function exportPortfolioCSV(){
-    const header = ['student_id','player_name','session','skill','score','prompt','output','at'];
-    const rows = (state.portfolio || []).map(p => header.map(h => csvCell(p[h])).join(','));
+    const header = ['student_id','player_name','session','skill','difficulty','score','ai_rubric_score','independence_status','independence_verified','independence_replay','replay_required','ai_uses','transcript_hint','prompt','output','at'];
+    const rows = (state.portfolio || []).map(p => {
+      const r = p.aiRubric || (typeof aiFormativeRubric === 'function' ? aiFormativeRubric(p) : {});
+      const i = p.aiIndependence || (typeof aiIndependenceCheck === 'function' ? aiIndependenceCheck(p) : {});
+      const row = Object.assign({}, p, {
+        ai_rubric_score:r.total ?? '',
+        independence_status:i.status ?? '',
+        independence_verified:i.verified ?? '',
+        independence_replay:p.independenceReplay ?? false,
+        replay_required:i.replayRequired ?? ''
+      });
+      return header.map(h => csvCell(row[h])).join(',');
+    });
     const csv = [header.join(','), ...rows].join('\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
     const url = URL.createObjectURL(blob);
@@ -39076,7 +38801,7 @@
   function guidedSpeakingFrameHTML(){
     return `<div class="guided-speaking-frame">
       <h3>Guided Speaking Frame</h3>
-      <p class="mini-note">พูดตามกรอบนี้ได้สำหรับ Easy A2 / Normal Boss Gate 1</p>
+      <p class="mini-note">พูดตามกรอบนี้ได้สำหรับ A2 Foundation / A2+ Bridge</p>
       <ol>
         <li>Today, I will talk about <b>_____</b>.</li>
         <li>First, <b>_____</b>.</li>
@@ -39088,7 +38813,7 @@
 
 
   function adaptiveAIHelpLimit(skill){
-    const d = currentSkillDifficulty().key || 'easy';
+    const d = currentSkillDifficulty(skill).key || 'easy';
     const s = String(skill || '').toLowerCase();
 
     if(d === 'challenge') return 1;
@@ -39099,7 +38824,7 @@
       return 3;
     }
 
-    // Normal Boss Gate 1
+    // A2+ Bridge
     if(s === 'reading') return 2;
     return 3;
   }
@@ -39152,18 +38877,24 @@
     const p = state.portfolio?.[portfolioIndex];
     if(!p) return null;
     const band = learningBand(p.score);
+    const rubric = p.aiRubric || aiFormativeRubric(p);
+    const independence = p.aiIndependence || aiIndependenceCheck(p);
+    const level = (typeof AI_ABILITY_LEVELS !== 'undefined' && AI_ABILITY_LEVELS[p.difficulty]) || null;
     const report = {
       id: `lr_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
       portfolioIndex,
-      studentId: p.player_id || state.profile?.studentId || '',
+      studentId: p.player_id || p.student_id || state.profile?.studentId || '',
       studentName: p.player_name || state.profile?.name || '',
       session: p.session,
       skill: p.skill,
       score: Number(p.score || 0),
+      aiRubricScore:Number(rubric.total || 0),
+      independenceStatus:independence.status,
+      independenceVerified:!!independence.verified,
       band: band.label,
-      cefrTarget: p.difficulty === 'hard' ? 'B1+' : p.difficulty === 'normal' ? 'B1' : 'A2-B1+',
-      didWell: skillPositiveFeedback(p.skill, p.score),
-      nextStep: skillNextStep(p.skill, p.score),
+      cefrTarget: level ? level.cefr : 'A2–B1+',
+      didWell: rubric.didWell,
+      nextStep: rubric.nextStep,
       tryFrame: skillTryFrame(p.skill),
       aiUses: p.aiUses || 0,
       difficulty: p.difficulty || state.settings?.skillDifficulty || 'easy',
@@ -39188,6 +38919,10 @@
       <div class="report-head">
         <div><b>${safe(band.emoji)} ${safe(report.band)}</b><span>${safe(report.skill)} • Session ${safe(report.session)} • CEFR ${safe(report.cefrTarget)}</span></div>
         <div class="report-score">${safe(report.score)}/100</div>
+      </div>
+      <div class="report-ai-summary">
+        <span>AI rubric ${safe(report.aiRubricScore ?? '-')}%</span>
+        <span class="${report.independenceVerified ? 'is-verified' : 'is-supported'}">🛡 ${safe(report.independenceStatus || 'Evidence being checked')}</span>
       </div>
       <div class="report-grid report-grid-readable">
         <div><h4>✅ You did well</h4><p>${safe(report.didWell)}</p></div>
@@ -39470,7 +39205,7 @@
           <h3>Recommended classroom start</h3>
           <ol class="pilot-steps">
             <li>ให้นักศึกษาเข้า Student Simple Mode เท่านั้น</li>
-            <li>เริ่มที่ Easy A2 หรือ Normal Boss Gate 1</li>
+            <li>เริ่มที่ AI Adaptive A2 Foundation หรือ A2+ Bridge</li>
             <li>ให้ใช้ AI Help ได้ตามระบบ โดยย้ำว่าใช้เพื่อฝึก ไม่ใช่ให้ตอบแทน</li>
             <li>ให้ทำ Reading/Writing/Listening/Speaking อย่างน้อย 1 evidence ต่อคาบ</li>
             <li>Teacher ตรวจจาก Review Queue และ Rubric Review</li>
@@ -39511,6 +39246,8 @@
     state.settings = state.settings || {};
     state.settings.uiMode = 'simple';
     state.settings.skillDifficulty = state.settings.skillDifficulty || 'easy';
+    state.settings.manualSkillDifficulty = state.settings.manualSkillDifficulty || state.settings.skillDifficulty || 'easy';
+    state.settings.aiAdaptiveDifficulty = true;
     state.settings.progressiveUnlock = true;
     state.settings.cefrLevel = 'A2-B1+';
     saveState();
@@ -39525,12 +39262,12 @@
     return `Ask AI Mentor (${Math.min(used + 1, limit)}/${limit}) • ${next}`;
   }
   function adaptiveAIHelpLabel(skill){
-    const d = currentSkillDifficulty().key || 'easy';
+    const d = currentSkillDifficulty(skill).key || 'easy';
     const limit = adaptiveAIHelpLimit(skill);
     if(d === 'challenge') return `${limit}/${limit} Challenge`;
-    if(d === 'hard') return `${limit}/${limit} Hard Boss Gate 1+`;
+    if(d === 'hard') return `${limit}/${limit} B1 Core`;
     if(d === 'easy') return `${limit}/${limit} Easy A2`;
-    return `${limit}/${limit} Normal Boss Gate 1`;
+    return `${limit}/${limit} A2+ Bridge`;
   }
 
   function aiHelpStageLabel(useNo, limit){
@@ -39546,7 +39283,7 @@
   }
 
   function adaptiveAIPenalty(uses, skill){
-    const d = currentSkillDifficulty().key || 'easy';
+    const d = currentSkillDifficulty(skill).key || 'easy';
     uses = Number(uses || 0);
     if(uses <= 0) return 0;
     if(d === 'easy') return Math.max(0, uses - 2) * 2;
@@ -39586,24 +39323,842 @@
   }
 
   const SKILL_DIFFICULTIES = {
-    easy:{ key:'easy', label:'Easy A2', note:'คำถามสั้น มีกรอบช่วย เหมาะกับเริ่มต้น', aiLimitBonus:1, transcriptPenalty:3, scoreBonus:5 },
-    normal:{ key:'normal', label:'Normal Boss Gate 1', note:'ระดับมาตรฐานของปี 2 ตอบสั้นแต่มีเหตุผล', aiLimitBonus:0, transcriptPenalty:6, scoreBonus:0 },
-    hard:{ key:'hard', label:'Hard Boss Gate 1+', note:'ต้องอธิบายเหตุผลและหลักฐานมากขึ้น', aiLimitBonus:0, transcriptPenalty:9, scoreBonus:8 },
-    challenge:{ key:'challenge', label:'Challenge Optional', note:'สำหรับโบนัส/เด็กพร้อม ไม่ใช่ค่าเริ่มต้น', aiLimitBonus:-1, transcriptPenalty:12, scoreBonus:15 }
+    easy:{ key:'easy', cefr:'A2', label:'A2 Foundation', note:'เริ่มจากคำสั่งสั้น คำศัพท์ชัด และมีกรอบช่วย', aiLimitBonus:1, transcriptPenalty:3, scoreBonus:0 },
+    normal:{ key:'normal', cefr:'A2+', label:'A2+ Bridge', note:'เชื่อมข้อมูล 2 จุด ใช้เหตุผลสั้น ๆ และเลือกคำตอบใกล้เคียง', aiLimitBonus:0, transcriptPenalty:6, scoreBonus:0 },
+    hard:{ key:'hard', cefr:'B1', label:'B1 Core', note:'อธิบายเหตุผล ใช้ evidence และจัดโครงสร้างคำตอบ', aiLimitBonus:0, transcriptPenalty:9, scoreBonus:0 },
+    challenge:{ key:'challenge', cefr:'B1+', label:'B1+ Stretch', note:'inference, compare, justify และ revision ภายในเพดาน B1+', aiLimitBonus:-1, transcriptPenalty:12, scoreBonus:0 }
   };
 
-  function currentSkillDifficulty(){
-    const key = state.settings?.skillDifficulty || state.settings?.difficulty || 'normal';
-    return SKILL_DIFFICULTIES[key] || SKILL_DIFFICULTIES.normal;
+
+
+  /* === v1z64 Gold Authored Item Bank + QA Lock === */
+  const EAP_ANTI_MEMORIZATION_ENGINE = Object.freeze({
+    version:'v1z62',
+    scenariosPerSession:16,
+    questionFormsPerTier:4,
+    mcqPerTier:64,
+    mcqPerSession:256,
+    taskVariantsPerSkillTier:12,
+    rule:'No item repeats within its active cycle. When a cycle is exhausted, recently shown items remain locked out.'
+  });
+
+  const EAP_REPLAY_SCENARIO_LENSES = [{"id": "library-research", "title": "Library Research Sprint", "text": "During an independent library research sprint, a student reads a short course source and records one study decision."}, {"id": "online-lecture", "title": "Online Lecture Prep", "text": "Before an online lecture, a student prepares alone with a short academic task and a personal study note."}, {"id": "revision-desk", "title": "Revision Desk", "text": "At a revision desk, a student checks a previous draft independently and plans one improvement."}, {"id": "study-dashboard", "title": "Study Dashboard", "text": "Using a personal study dashboard, a student reviews progress from one week of independent practice."}, {"id": "source-brief", "title": "Source Brief", "text": "For a short source brief, a student works alone to identify useful information for a university task."}, {"id": "email-draft", "title": "Email Draft Check", "text": "While preparing an academic email draft, a student checks clarity, purpose, and suitable wording independently."}, {"id": "data-note", "title": "Data Note", "text": "For a small data note, a student studies a simple figure and writes a careful observation independently."}, {"id": "listening-log", "title": "Listening Log", "text": "After a mini lecture, a student creates a personal listening log with selective notes."}, {"id": "presentation-plan", "title": "Presentation Plan", "text": "Before a short presentation, a student rehearses a clear opening, support point, and closing alone."}, {"id": "citation-check", "title": "Citation Check", "text": "During a citation check, a student reviews how a source idea should be used responsibly."}, {"id": "reading-map", "title": "Reading Map", "text": "While making a reading map, a student separates central ideas from smaller supporting details."}, {"id": "vocabulary-card", "title": "Vocabulary Card", "text": "Using vocabulary cards, a student checks meaning, context, and a useful example sentence."}, {"id": "assignment-plan", "title": "Assignment Plan", "text": "For an assignment plan, a student identifies a task requirement and chooses one realistic next step."}, {"id": "feedback-note", "title": "Feedback Note", "text": "After receiving feedback, a student makes an individual note about what to revise and why."}, {"id": "reflection-log", "title": "Reflection Log", "text": "At the end of a study session, a student records one piece of evidence and one next action."}, {"id": "independent-lab", "title": "Independent EAP Lab", "text": "In an independent EAP lab task, a student applies a course skill to a new academic situation."}];
+  const EAP_ANTI_GUESS_BLUEPRINTS = {"1": {"short": "Academic Goal Audit", "focus": "academic goal planning", "fact": "A strong academic goal names a target skill, a weekly action, and a progress check.", "targets": {"easy": "name one target skill, one weekly action, and one progress check", "normal": "connect a measurable study action with a planned review point", "hard": "explain how a weekly record can show progress toward the goal", "challenge": "compare two plans and justify which one is more measurable"}, "wrong": ["make a broad promise without naming a skill", "choose the longest goal sentence without a check point", "wait until the final test before planning any action", "focus on difficult grammar but ignore the study goal", "copy another learner’s goal without adapting it", "add more words but no measurable evidence"]}, "2": {"short": "Vocabulary in Context", "focus": "academic vocabulary learning", "fact": "Academic vocabulary grows when learners notice context clues, word families, and useful examples.", "targets": {"easy": "use the word with a clear context clue and one example", "normal": "connect the term with a word family or repeated context", "hard": "explain how the context supports the precise academic meaning", "challenge": "compare two possible meanings and justify the best context-based choice"}, "wrong": ["memorize a word without any context", "choose a casual synonym without checking meaning", "ignore word families and examples", "use a word only because it sounds difficult", "copy a dictionary line without applying it", "select the longest unfamiliar word as the answer"]}, "3": {"short": "Main Idea Reading", "focus": "main idea and supporting detail", "fact": "Effective readers identify the central idea, then separate it from examples and smaller details.", "targets": {"easy": "state what the whole text is mainly about", "normal": "link the main idea with the detail that best supports it", "hard": "explain why one detail is central while another is only an example", "challenge": "compare two interpretations and justify the one best supported by the text"}, "wrong": ["repeat one small example as the main idea", "choose the first detail without checking the whole text", "focus on an unrelated number or name", "select the longest sentence only", "treat every detail as equally important", "ignore the paragraph’s central message"]}, "4": {"short": "Keywords and Signal Words", "focus": "keywords and signal-word relationships", "fact": "Keywords and signal words show cause, contrast, example, sequence, and a writer’s direction.", "targets": {"easy": "identify a key word or signal word and its simple function", "normal": "connect a signal word with the relationship between two ideas", "hard": "explain how the signal word changes the reader’s interpretation", "challenge": "compare possible relationships and justify the strongest one"}, "wrong": ["treat every signal word as an example marker", "ignore the relationship between the two ideas", "choose a keyword only because it is repeated", "read however as a sequence marker", "use a cause word when the sentence shows contrast", "focus on punctuation instead of meaning"]}, "5": {"short": "Critical Reading", "focus": "critical reading of claims and sources", "fact": "Critical readers check claims, evidence, source credibility, date, purpose, and possible bias.", "targets": {"easy": "identify the claim and one source feature to check", "normal": "connect a claim with the evidence or source detail that supports it", "hard": "explain a limitation, missing evidence, or possible bias", "challenge": "judge competing evidence and make a cautious source-based conclusion"}, "wrong": ["trust the claim because it sounds confident", "choose the source with the most exciting wording", "ignore the publication date and author", "treat an opinion as evidence without checking", "accept a strong claim with no supporting data", "decide from the title alone"]}, "6": {"short": "Summarizing", "focus": "summarizing in own words", "fact": "A good summary keeps the central meaning, removes minor detail, and uses the learner’s own wording.", "targets": {"easy": "keep the main point and write it in shorter own words", "normal": "select the key ideas and omit a less important example", "hard": "paraphrase the source while preserving the relationship between ideas", "challenge": "compare two summaries and justify the one that is accurate and independent"}, "wrong": ["copy the full source paragraph", "change only one or two words from the source", "add a personal opinion not found in the source", "keep every example and minor detail", "remove the central idea to make it shorter", "use a quotation without explaining it"]}, "7": {"short": "Academic Tone", "focus": "formal and cautious academic tone", "fact": "Academic tone is precise, formal, and careful about what evidence can support.", "targets": {"easy": "replace casual wording with a clear formal phrase", "normal": "connect a claim with cautious wording such as may or suggests", "hard": "revise a strong statement so its evidence and tone match", "challenge": "compare two revisions and justify the more precise academic choice"}, "wrong": ["use superlatives without evidence", "make every claim sound certain", "replace formal wording with slang", "add emotional language instead of precision", "state that everyone must agree", "hide uncertainty when the evidence is limited"]}, "8": {"short": "Paragraph Structure", "focus": "paragraph structure", "fact": "A clear paragraph has a topic sentence, support or example, explanation, and a closing idea.", "targets": {"easy": "identify the topic sentence and one supporting detail", "normal": "connect support or example to the central paragraph idea", "hard": "explain which structural part is weak or missing and why", "challenge": "compare two paragraph structures and justify the clearer organisation"}, "wrong": ["start with an unrelated example", "add support without a topic sentence", "treat the conclusion as a new topic", "place every sentence in random order", "use a title instead of a topic sentence", "repeat the same sentence as all paragraph parts"]}, "9": {"short": "Paragraph Writing", "focus": "academic paragraph development", "fact": "Academic paragraphs develop one central point with support, example or evidence, explanation, and a closing.", "targets": {"easy": "write one clear topic sentence and one supporting point", "normal": "develop a reason with an example and a connector", "hard": "link evidence to an explanation and a focused closing", "challenge": "compare two paragraph choices and justify the stronger development"}, "wrong": ["write several unrelated points in one paragraph", "add a conclusion with no support", "use difficult words but no clear idea", "repeat the topic sentence without development", "insert an example that does not connect to the point", "end without returning to the central idea"]}, "10": {"short": "Data Description", "focus": "careful data description", "fact": "Data description identifies major trends, compares values, and avoids conclusions that the data cannot support.", "targets": {"easy": "state the visible increase, decrease, or comparison accurately", "normal": "connect a numerical change to a careful trend statement", "hard": "explain what the data suggest while naming a limit on the claim", "challenge": "compare two interpretations and justify the cautious data-based conclusion"}, "wrong": ["claim that the data prove every learner improved", "ignore the numbers and give only an opinion", "describe a small change as a guaranteed result", "choose the largest number without comparing values", "state a cause that the figure does not show", "use perfect or always with limited data"]}, "11": {"short": "Academic Email", "focus": "clear and polite academic email", "fact": "Academic email includes a clear subject, polite greeting, context, focused request, and appropriate closing.", "targets": {"easy": "make a polite request with a clear purpose", "normal": "connect the request with enough context and a practical next step", "hard": "revise the email so its tone, purpose, and deadline are all clear", "challenge": "compare two email choices and justify the more professional response"}, "wrong": ["send a command with no greeting", "ask for help without explaining the course task", "use casual slang in a formal request", "include a complaint but no clear request", "leave out the reason and expected next step", "write only a subject line with no message"]}, "12": {"short": "Citation and Ethics", "focus": "citation, paraphrase, and ethical tool use", "fact": "Responsible academic work credits borrowed ideas, paraphrases carefully, and declares assistance honestly.", "targets": {"easy": "identify a borrowed idea and credit the source", "normal": "choose whether to paraphrase or quote and explain the reason", "hard": "revise a source-based response to show ethical citation and own wording", "challenge": "compare two uses of a source or AI tool and justify the responsible choice"}, "wrong": ["copy an idea without naming the source", "change a few words and claim it is independent", "hide AI help from the final work", "cite only when the source contains a picture", "quote everything without explaining relevance", "treat another author’s idea as personal experience"]}, "13": {"short": "Academic Listening", "focus": "academic listening and selective notes", "fact": "Useful lecture notes record the main point, keywords, and selected details rather than every spoken word.", "targets": {"easy": "write the main point, two keywords, and one useful detail", "normal": "connect a lecture point with a support detail or signal word", "hard": "organise notes to show an inference, evidence, or a gap", "challenge": "synthesise notes into a cautious conclusion and a useful follow-up question"}, "wrong": ["try to copy every spoken word", "write only the lecture title", "record personal opinion instead of the main point", "ignore signal words and relationships", "keep minor detail but omit the central point", "wait until the end before writing any note"]}, "14": {"short": "Academic Presentation", "focus": "clear academic presentation", "fact": "A useful presentation states a topic, guides listeners with signposts, supports ideas, and closes clearly.", "targets": {"easy": "state the topic, one point, and a clear closing", "normal": "use a signpost and connect a point with an example", "hard": "organise a short talk with evidence and a careful conclusion", "challenge": "compare presentation choices and justify the clearer evidence-based delivery"}, "wrong": ["read every slide word without a main point", "start with unrelated detail and no topic", "use signposts with no supporting idea", "make a claim without any example", "end suddenly without a conclusion", "use difficult vocabulary but unclear structure"]}, "15": {"short": "Final Integration", "focus": "integrated EAP response", "fact": "An integrated EAP response uses evidence from sources, a clear response, and a realistic reflection or next step.", "targets": {"easy": "state the problem, one evidence point, and one response", "normal": "connect evidence from a source to a practical next step", "hard": "weigh evidence, explain a response, and name one limitation", "challenge": "compare possible responses and justify a balanced evidence-based decision"}, "wrong": ["give a personal opinion without source evidence", "copy one source sentence without a response", "list unrelated skills without connecting them", "claim that one detail solves the whole problem", "ignore limitations or next steps", "write a reflection with no evidence of learning"]}};
+
+  const EAP_ANTI_GUESS_ANGLES = {
+    easy:[
+      'In the {scenario} task, which action best shows {focus}?',
+      'A learner works independently on {focus}. Which choice is most useful here?',
+      'Which step gives a clear A2-level response for this {scenario} task?',
+      'Which response directly matches the source idea about {focus}?'
+    ],
+    normal:[
+      'In the {scenario} task, which response best connects {focus} with a useful study decision?',
+      'Which choice links the main point and a supporting action most clearly?',
+      'A learner must connect two ideas about {focus}. Which response does this best?',
+      'Which option uses the task information rather than an unrelated detail?'
+    ],
+    hard:[
+      'Which response gives evidence-based reasoning about {focus} in this {scenario} task?',
+      'Which choice explains a limit, reason, or relationship instead of only repeating a detail?',
+      'A careful B1 response is needed. Which option best supports the conclusion with reasoning?',
+      'Which response checks whether the evidence really supports the claim about {focus}?'
+    ],
+    challenge:[
+      'Which conclusion about {focus} is most careful and justified in this {scenario} task?',
+      'Which response compares alternatives and still avoids overclaiming?',
+      'A B1+ learner must weigh evidence. Which option gives the strongest balanced judgement?',
+      'Which choice states a useful limitation before making a final decision?'
+    ]
+  };
+
+  const EAP_SKILL_VARIATION_CODES = [
+    'focus','keyword','direct-detail','sequence','contrast','example',
+    'reason','evidence','limitation','revision','transfer','reflection'
+  ];
+
+  function ensureAntiMemorizationState(){
+    state.antiMemorization = state.antiMemorization || {questionCycles:{},taskCycles:{},optionPositions:{},updatedAt:''};
+    state.antiMemorization.questionCycles = state.antiMemorization.questionCycles || {};
+    state.antiMemorization.taskCycles = state.antiMemorization.taskCycles || {};
+    state.antiMemorization.optionPositions = state.antiMemorization.optionPositions || {};
+    return state.antiMemorization;
   }
 
-  function setSkillDifficulty(level){
-    if(!SKILL_DIFFICULTIES[level]) level = 'normal';
+  function antiGuessBlueprint(sessionId){
+    return EAP_ANTI_GUESS_BLUEPRINTS[Number(sessionId || 1)] || EAP_ANTI_GUESS_BLUEPRINTS[1];
+  }
+
+  function noRepeatScenarioPassage(sessionId, lens, index){
+    const b = antiGuessBlueprint(sessionId);
+    const endings = [
+      'The student must choose a response using the task evidence, not a memorized pattern.',
+      'The student needs a useful next step that can be checked independently.',
+      'The response should match the task purpose and use careful academic English.',
+      'The learner should focus on meaning, evidence, and one realistic action.'
+    ];
+    return `${lens.text} ${b.fact} ${endings[index % endings.length]}`;
+  }
+
+  function installNoRepeatScenarioPool(){
+    Object.keys(EAP_ANTI_GUESS_BLUEPRINTS).forEach(key=>{
+      const sid = Number(key);
+      const b = antiGuessBlueprint(sid);
+      const bank = EAP_REPLAY_TOPIC_BANK[sid] = EAP_REPLAY_TOPIC_BANK[sid] || [];
+      const known = new Set(bank.map(x=>String(x && x[0] || '').toLowerCase()));
+      EAP_REPLAY_SCENARIO_LENSES.forEach((lens,index)=>{
+        const topic = `${lens.title}: ${b.short}`;
+        if(known.has(topic.toLowerCase())) return;
+        const entry = [topic, noRepeatScenarioPassage(sid, lens, index)];
+        entry.nr62 = true;
+        bank.push(entry);
+      });
+    });
+  }
+
+  function antiGuessTierForSession(sessionId){
+    try{
+      const path = typeof skillPathForSession === 'function'
+        ? skillPathForSession(sessionId)
+        : {core:'Reading'};
+      const core = path.core || 'Reading';
+      return currentSkillDifficulty(core).key || 'easy';
+    }catch(err){
+      return 'easy';
+    }
+  }
+
+  function antiGuessChoices(sessionId, tier, lensIndex, angleIndex){
+    const b = antiGuessBlueprint(sessionId);
+    const correct = `Use this approach: ${b.targets[tier] || b.targets.easy}.`;
+    const offset = (lensIndex + angleIndex) % b.wrong.length;
+    const wrongs = [];
+    for(let i=0;i<3;i++) wrongs.push(`Use this approach: ${b.wrong[(offset+i) % b.wrong.length]}.`);
+    return [correct].concat(wrongs);
+  }
+
+  function makeNoRepeatQuestion(sessionId, tier, lens, lensIndex, angle, angleIndex){
+    const b = antiGuessBlueprint(sessionId);
+    const question = String(angle)
+      .replace(/\{scenario\}/g, lens.title)
+      .replace(/\{focus\}/g, b.focus);
+    return {
+      id:`NR62_S${sessionId}_${tier}_${lens.id}_${angleIndex}`,
+      type:'mcq',
+      question,
+      context:noRepeatScenarioPassage(sessionId, lens, lensIndex),
+      choices:antiGuessChoices(sessionId, tier, lensIndex, angleIndex),
+      answer:0,
+      feedback:`Use the evidence in the scenario. ${b.fact}`,
+      quality:'v1z62',
+      antiGuess:true,
+      tier,
+      sourceSession:Number(sessionId),
+      sourceSkill:(typeof skillPathForSession === 'function' ? skillPathForSession(sessionId).core : 'Reading'),
+      stemGroup:`${sessionId}_${tier}_${lens.id}_${angleIndex}`
+    };
+  }
+
+  function noRepeatQuestionBank(sessionId, tier){
+    const sid = Number(sessionId || 1);
+    const level = ['easy','normal','hard','challenge'].includes(tier) ? tier : 'easy';
+    return EAP_REPLAY_SCENARIO_LENSES.flatMap((lens,lensIndex)=>
+      EAP_ANTI_GUESS_ANGLES[level].map((angle,angleIndex)=>
+        makeNoRepeatQuestion(sid, level, lens, lensIndex, angle, angleIndex)
+      )
+    );
+  }
+
+  function balancedChoiceShuffle(q, scopeKey){
+    if(!q || !Array.isArray(q.choices) || !q.choices.length) return q;
+    const anti = ensureAntiMemorizationState();
+    const scope = scopeKey || `S${q.sourceSession || q.sessionId || 0}_${q.tier || 'base'}`;
+    const history = anti.optionPositions[scope] || [];
+    const counts = [0,0,0,0];
+    history.forEach(pos=>{ if(Number.isInteger(pos) && pos >= 0 && pos < 4) counts[pos] += 1; });
+    const minCount = Math.min(...counts);
+    let candidates = counts.map((n,i)=>n===minCount ? i : -1).filter(i=>i>=0);
+    if(history.length > 0 && candidates.length > 1){
+      const withoutLast = candidates.filter(i=>i !== history[0]);
+      if(withoutLast.length) candidates = withoutLast;
+    }
+    const answerPos = candidates[Math.floor(Math.random()*candidates.length)];
+    const correct = q.choices[q.answer];
+    const distractors = q.choices.filter((_,i)=>i !== q.answer);
+    shuffle(distractors);
+    const choices = [];
+    let d=0;
+    for(let i=0;i<q.choices.length;i++){
+      choices.push(i===answerPos ? correct : distractors[d++]);
+    }
+    anti.optionPositions[scope] = [answerPos].concat(history).slice(0,24);
+    anti.updatedAt = new Date().toISOString();
+    return Object.assign({}, q, {choices, answer:answerPos, answerPositionBalanced:true});
+  }
+
+  function noRepeatCycleKey(sessionId, tier){
+    return `S${Number(sessionId || 1)}_${tier || 'easy'}`;
+  }
+
+  function selectNoRepeatQuestionSet(session, count, mode){
+    const sid = Number(session && session.id || 1);
+    const tier = antiGuessTierForSession(sid);
+    const bank = noRepeatQuestionBank(sid, tier);
+    const anti = ensureAntiMemorizationState();
+    const key = noRepeatCycleKey(sid, tier);
+    const seen = anti.questionCycles[key] || [];
+    const unseen = bank.filter(q=>!seen.includes(q.id));
+    let selected = shuffle(unseen.slice()).slice(0, count);
+
+    if(selected.length < count){
+      const immediateLockout = seen.slice(0, Math.max(12, Number(count || 1) * 2));
+      const refill = bank.filter(q=>
+        !immediateLockout.includes(q.id) &&
+        !selected.some(x=>x.id===q.id)
+      );
+      selected = selected.concat(shuffle(refill).slice(0, count-selected.length));
+      anti.questionCycles[key] = selected.map(x=>x.id);
+    }else{
+      anti.questionCycles[key] = selected.map(x=>x.id).concat(seen.filter(id=>!selected.some(x=>x.id===id))).slice(0,bank.length);
+    }
+
+    anti.updatedAt = new Date().toISOString();
+    const ids = selected.map(q=>q.id);
+    updateRecentQuestions(sid, ids);
+    return shuffle(selected).map(q=>balancedChoiceShuffle(q, `NR62_${sid}_${tier}_${mode || 'practice'}`));
+  }
+
+  function nextNoRepeatTaskVariant(skill, sessionId, tier){
+    const anti = ensureAntiMemorizationState();
+    const normalized = normalizeAbilitySkill(skill);
+    const key = `S${Number(sessionId || 1)}_${normalized}_${tier || 'easy'}`;
+    const used = anti.taskCycles[key] || [];
+    let fresh = EAP_SKILL_VARIATION_CODES.filter(code=>!used.includes(code));
+    if(!fresh.length) fresh = EAP_SKILL_VARIATION_CODES.filter(code=>!used.slice(0,4).includes(code));
+    const code = fresh[Math.floor(Math.random()*fresh.length)] || EAP_SKILL_VARIATION_CODES[0];
+    anti.taskCycles[key] = [code].concat(used.filter(x=>x!==code)).slice(0,12);
+    anti.updatedAt = new Date().toISOString();
+    return code;
+  }
+
+  function noRepeatReadingQuestions(focus, topic, tier, code){
+    const label = `${focus} in ${topic}`;
+    const prompts = {
+      easy:{
+        focus:[`What is the clearest point about ${label}?`,`Write one key word from the text.`,`Give one direct supporting detail.`],
+        keyword:[`Which keyword helps explain ${label}?`,`What does the keyword suggest?`,`Add one direct detail.`],
+        'direct-detail':[`What direct detail is useful for ${label}?`,`How does it connect to the topic?`,`Write a short main-point sentence.`],
+        sequence:[`What should a learner identify first about ${label}?`,`What comes next?`,`Give one useful detail.`],
+        contrast:[`What idea is different or important in ${label}?`,`Which word signals it?`,`Write one direct detail.`],
+        example:[`What example helps explain ${label}?`,`What does it show?`,`State the main point briefly.`],
+        reason:[`What reason is given about ${label}?`,`Which words support it?`,`Write one detail.`],
+        evidence:[`What fact supports the point about ${label}?`,`Why is it useful?`,`State the topic.`],
+        limitation:[`What should a learner not focus on first?`,`What is more important?`,`Give one detail.`],
+        revision:[`Which idea about ${label} should be clearer?`,`What key word helps?`,`Write a simple revision.`],
+        transfer:[`How can the main point about ${label} help a learner?`,`Name one key word.`,`Give one direct action.`],
+        reflection:[`What is one useful learning point about ${label}?`,`What detail supports it?`,`Write a short next step.`]
+      },
+      normal:{
+        focus:[`What is the main idea about ${label}?`,`Which detail best supports it?`,`Explain the link briefly.`],
+        keyword:[`Which keyword or signal word shapes ${label}?`,`What relationship does it show?`,`Which detail supports your answer?`],
+        'direct-detail':[`Which detail is central for ${label}?`,`Which detail is less central?`,`Explain why.`],
+        sequence:[`How are the ideas about ${label} organised?`,`Which signal word shows this?`,`What support detail fits?`],
+        contrast:[`What contrast appears in ${label}?`,`Which wording shows it?`,`Why does it matter?`],
+        example:[`How does an example support ${label}?`,`What is the central point?`,`Which detail is not central?`],
+        reason:[`What reason supports the point about ${label}?`,`What evidence connects to it?`,`Write a careful conclusion.`],
+        evidence:[`Which evidence best supports ${label}?`,`How does it connect to the claim?`,`What should readers avoid overclaiming?`],
+        limitation:[`What detail limits a conclusion about ${label}?`,`What can still be said?`,`Use one support point.`],
+        revision:[`Which statement about ${label} is clearest?`,`What detail strengthens it?`,`Revise one unclear phrase.`],
+        transfer:[`How can the idea about ${label} transfer to a study task?`,`What evidence supports this?`,`Write a short reason.`],
+        reflection:[`What did a learner understand about ${label}?`,`Which detail supports that learning?`,`What is a useful next step?`]
+      },
+      hard:{
+        focus:[`What claim is made about ${label}?`,`Which evidence best supports it?`,`What limitation should be noted?`],
+        keyword:[`How does the key wording shape the claim about ${label}?`,`Which evidence supports the interpretation?`,`What alternative reading is possible?`],
+        'direct-detail':[`Which detail is strong evidence for ${label}?`,`Which detail is weaker?`,`Explain the difference.`],
+        sequence:[`How does the organisation develop the claim about ${label}?`,`Which relationship word is important?`,`What can readers infer?`],
+        contrast:[`What contrast changes the interpretation of ${label}?`,`Which evidence supports this?`,`State one careful conclusion.`],
+        example:[`How well does the example support ${label}?`,`What does it fail to prove?`,`What should readers check next?`],
+        reason:[`What reasoning supports ${label}?`,`What evidence is missing or limited?`,`Write a cautious conclusion.`],
+        evidence:[`Compare evidence for ${label}.`,`Which detail is most reliable?`,`What should not be concluded?`],
+        limitation:[`What is the main limitation in a claim about ${label}?`,`Which evidence still matters?`,`How should the conclusion change?`],
+        revision:[`Revise a claim about ${label} so it matches the evidence.`,`What support is needed?`,`What wording should be cautious?`],
+        transfer:[`How could a learner apply ${label} in a new task?`,`What evidence supports the transfer?`,`What risk should be avoided?`],
+        reflection:[`What does the evidence show about ${label}?`,`What remains uncertain?`,`Write a reasoned next step.`]
+      },
+      challenge:{
+        focus:[`What is the strongest conclusion about ${label}?`,`Which evidence is most convincing?`,`Name one limitation.`],
+        keyword:[`Compare two interpretations of ${label}.`,`Which is better supported?`,`Why should the conclusion remain cautious?`],
+        'direct-detail':[`Compare two details about ${label}.`,`Which one carries more weight?`,`What is the balanced conclusion?`],
+        sequence:[`How does the structure shape a judgement about ${label}?`,`Which relationship matters most?`,`What condition could change the conclusion?`],
+        contrast:[`What competing ideas appear in ${label}?`,`Which evidence supports each?`,`Give a balanced decision.`],
+        example:[`How persuasive is the example for ${label}?`,`What counter-detail matters?`,`Write a cautious conclusion.`],
+        reason:[`Which reasoning is strongest about ${label}?`,`What evidence limits it?`,`Justify a final judgement.`],
+        evidence:[`Weigh the evidence about ${label}.`,`Which point is reliable?`,`What should readers investigate next?`],
+        limitation:[`What limitation is most important for ${label}?`,`What can reasonably be concluded?`,`What cannot be concluded?`],
+        revision:[`Which revision makes a conclusion about ${label} more balanced?`,`What evidence should remain?`,`Why is the revision stronger?`],
+        transfer:[`Compare two applications of ${label}.`,`Which is better justified?`,`State one condition for success.`],
+        reflection:[`What is a balanced reflection about ${label}?`,`Which evidence supports it?`,`What is a realistic next step?`]
+      }
+    };
+    const level = prompts[tier] || prompts.easy;
+    return level[code] || level.focus;
+  }
+
+  function applyNoRepeatSkillVariation(task, sessionId, context){
+    if(!task) return task;
+    const code = nextNoRepeatTaskVariant(task.skill, sessionId, task.tier);
+    const focus = task.focus || antiGuessBlueprint(sessionId).focus;
+    const topic = context && context.topic ? context.topic : `Session ${sessionId}`;
+    task.variantCode = code;
+    task.variantLabel = code.replace(/-/g,' ');
+    if(task.skill === 'Reading'){
+      task.questions = noRepeatReadingQuestions(focus, topic, task.tier, code);
+    }else if(task.skill === 'Writing'){
+      const add = {
+        focus:'Start with one focused idea, then develop it clearly.',
+        keyword:'Use two task keywords accurately in context.',
+        'direct-detail':'Use one specific source detail, not a vague claim.',
+        sequence:'Organise the response with first, next, and a closing.',
+        contrast:'Use one contrast or cautious connector appropriately.',
+        example:'Add one concrete university-study example.',
+        reason:'Give a reason and explain why it supports your point.',
+        evidence:'Link one source idea to your own explanation.',
+        limitation:'State one limitation or careful condition.',
+        revision:'Revise one sentence for precision and academic tone.',
+        transfer:'Apply the source idea to a new independent study situation.',
+        reflection:'End with a realistic next action for improvement.'
+      };
+      task.instruction = `${task.instruction} New route: ${add[code] || add.focus}`;
+      task.target = `${task.target || 'clear response'} + ${code}`;
+    }else if(task.skill === 'Listening'){
+      const add = {
+        focus:'Record the main point before smaller details.',
+        keyword:'Collect two keywords and explain their connection.',
+        'direct-detail':'Keep one direct detail that supports the main point.',
+        sequence:'Use order words to organise your notes.',
+        contrast:'Mark a contrast or change in the mini lecture.',
+        example:'Note one example and what it illustrates.',
+        reason:'Record a reason and the point it supports.',
+        evidence:'Separate evidence from a general claim.',
+        limitation:'Note one gap, condition, or limitation.',
+        revision:'Turn raw notes into one clearer summary line.',
+        transfer:'Write one study action based on the lecture.',
+        reflection:'Finish with one learning reflection and a next step.'
+      };
+      task.instruction = `${task.instruction} New route: ${add[code] || add.focus}`;
+      const baseRate = Number(task.voiceRate || 0.88);
+      const offsets = {focus:0,keyword:-0.01,'direct-detail':0.01,sequence:0,contrast:0.01,example:-0.01,reason:0.02,evidence:0,limitation:0.01,revision:-0.01,transfer:0.01,reflection:0};
+      task.voiceRate = Math.max(0.68, Math.min(1.08, baseRate + Number(offsets[code] || 0)));
+      task.target = `${task.target || 'selective notes'} + ${code}`;
+    }else if(task.skill === 'Speaking'){
+      const add = {
+        focus:'State the topic before giving your main point.',
+        keyword:'Use two useful academic words naturally.',
+        'direct-detail':'Give one specific detail rather than a broad statement.',
+        sequence:'Use clear signposts to organise your response.',
+        contrast:'Compare two ideas with a careful contrast phrase.',
+        example:'Support your point with one relevant example.',
+        reason:'Explain why your reason supports the point.',
+        evidence:'Mention one evidence-based support point.',
+        limitation:'Add one limitation or careful condition.',
+        revision:'Say one stronger revised sentence at the end.',
+        transfer:'Apply the idea to an independent study situation.',
+        reflection:'Finish with a reflection and one next step.'
+      };
+      task.instruction = `${task.instruction} New route: ${add[code] || add.focus}`;
+      const bumps = {focus:0,keyword:0,'direct-detail':5,sequence:0,contrast:5,example:0,reason:5,evidence:5,limitation:5,revision:0,transfer:5,reflection:0};
+      task.minSeconds = Number(task.minSeconds || 25) + Number(bumps[code] || 0);
+      task.target = `${task.target || 'academic response'} + ${code}`;
+    }
+    return task;
+  }
+
+  function antiMemorizationAudit(){
+    return SESSIONS.map(s=>({
+      session:s.id,
+      scenarios:EAP_REPLAY_SCENARIO_LENSES.length,
+      mcqPerTier:EAP_REPLAY_SCENARIO_LENSES.length * EAP_ANTI_GUESS_ANGLES.easy.length,
+      mcqPerSession:EAP_REPLAY_SCENARIO_LENSES.length * EAP_ANTI_GUESS_ANGLES.easy.length * 4,
+      skillPromptRoutes:EAP_SKILL_VARIATION_CODES.length,
+      activeTier:antiGuessTierForSession(s.id)
+    }));
+  }
+
+  function renderAntiMemorizationAudit(){
+    const rows = antiMemorizationAudit().map(r=>`<tr>
+      <td>S${r.session}</td><td>${r.scenarios}</td><td>${r.mcqPerTier}</td><td>${r.mcqPerSession}</td><td>${r.skillPromptRoutes}</td><td>${safe((AI_ABILITY_LEVELS[r.activeTier] || AI_ABILITY_LEVELS.easy).label)}</td>
+    </tr>`).join('');
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">v1z62</span><span class="pill">No-Repeat Cycle</span><span class="pill">Anti-Guess</span></div>
+      <h2>Replay &amp; Anti-Memorization Audit</h2>
+      <p class="lead">คำถามไม่วนซ้ำใน cycle เดียวกัน และตำแหน่งคำตอบถูกกระจาย A/B/C/D เพื่อลดการเดาแพตเทิร์น</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Session</th><th>Scenarios</th><th>MCQ / AI tier</th><th>MCQ total</th><th>Skill prompt routes</th><th>Active core tier</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.map()">Map</button><button class="btn" onclick="EAPHero.difficultyPanel()">AI Difficulty</button></div>
+    </section>`);
+  }
+
+
+  /* === v1z61 AI Ability-Adaptive Skill Engine: Year 2 CEFR A2–B1+ === */
+  const AI_ABILITY_LEVELS = Object.freeze({
+    easy:{key:'easy', cefr:'A2', label:'A2 Foundation', ceiling:'A2 only'},
+    normal:{key:'normal', cefr:'A2+', label:'A2+ Bridge', ceiling:'A2+ only'},
+    hard:{key:'hard', cefr:'B1', label:'B1 Core', ceiling:'B1 only'},
+    challenge:{key:'challenge', cefr:'B1+', label:'B1+ Stretch', ceiling:'Never above B1+'}
+  });
+
+  const AI_SKILL_TIER_TASK_IDS = Object.freeze({
+    Reading:{
+      easy:['main-keyword','direct-detail','frame-support','find-focus'],
+      normal:['main-support','signal-link','detail-filter','idea-reason'],
+      hard:['claim-evidence','infer-purpose','evidence-quality','limitation-check'],
+      challenge:['compare-claim','cautious-conclusion','source-judgement','counter-detail']
+    },
+    Writing:{
+      easy:['guided-three','frame-example','simple-goal','key-sentence'],
+      normal:['reason-example','clear-paragraph','source-link','revision-choice'],
+      hard:['evidence-connect','cautious-rewrite','paragraph-control','reasoned-response'],
+      challenge:['integrated-revision','compare-justify','limitation-rewrite','source-ethics']
+    },
+    Listening:{
+      easy:['main-keywords','direct-detail','sequence-clue','simple-note'],
+      normal:['idea-support','signal-notes','detail-filter','two-point-note'],
+      hard:['evidence-link','inference-note','gap-check','structured-summary'],
+      challenge:['synthesis-note','implication','source-question','critical-listen']
+    },
+    Speaking:{
+      easy:['guided-30','frame-example','simple-explain','clear-close'],
+      normal:['reason-35','signpost-40','support-example','polite-response'],
+      hard:['evidence-50','claim-limit','organized-talk','follow-up-ready'],
+      challenge:['mini-presentation','compare-justify','defend-claim','reflect-revise']
+    }
+  });
+
+  function normalizeAbilitySkill(skill){
+    const raw = String(skill || '').trim().toLowerCase();
+    return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'Reading';
+  }
+
+  function ensureAIAbilityState(){
     state.settings = state.settings || {};
-    state.settings.skillDifficulty = level;
+    if(typeof state.settings.aiAdaptiveDifficulty !== 'boolean') state.settings.aiAdaptiveDifficulty = true;
+    state.settings.manualSkillDifficulty = state.settings.manualSkillDifficulty || state.settings.skillDifficulty || 'easy';
+    state.aiAbility = state.aiAbility || {profiles:{}, taskHistory:{}, updatedAt:''};
+    state.aiAbility.profiles = state.aiAbility.profiles || {};
+    state.aiAbility.taskHistory = state.aiAbility.taskHistory || {};
+  }
+
+  function weightedAbilityAverage(values){
+    const arr = Array.isArray(values) ? values : [];
+    if(!arr.length) return 0;
+    let numerator = 0, denominator = 0;
+    arr.forEach((value, index)=>{
+      const weight = index + 1;
+      numerator += Number(value || 0) * weight;
+      denominator += weight;
+    });
+    return denominator ? Math.round(numerator / denominator) : 0;
+  }
+
+  function normalizedAbilityScore(entry){
+    const p = entry || {};
+    const usedTier = SKILL_DIFFICULTIES[p.difficulty] || SKILL_DIFFICULTIES.easy;
+    const raw = Math.max(0, Number(p.score || 0) - Number(usedTier.scoreBonus || 0));
+    const aiUses = Math.max(0, Number(p.aiUses || 0));
+    const expectedHelp = usedTier.key === 'easy' ? 2 : usedTier.key === 'normal' ? 2 : 1;
+    const extraHelp = Math.max(0, aiUses - expectedHelp);
+    const transcriptCost = p.transcriptHint ? 2 : 0;
+    return Math.max(0, Math.min(100, Math.round(raw - extraHelp * 4 - transcriptCost)));
+  }
+
+  function skillAbilityEvidence(skill){
+    const normalized = normalizeAbilitySkill(skill);
+    return (state.portfolio || [])
+      .filter(x=>normalizeAbilitySkill(x.skill) === normalized)
+      .slice(-6);
+  }
+
+  function computeSkillAbilityProfile(skill){
+    ensureAIAbilityState();
+    const normalized = normalizeAbilitySkill(skill);
+    const evidence = skillAbilityEvidence(normalized);
+    const scores = evidence.map(normalizedAbilityScore);
+    const recentAverage = weightedAbilityAverage(scores);
+    const latestTwo = scores.slice(-2);
+    const latestTwoAverage = latestTwo.length ? Math.round(latestTwo.reduce((a,b)=>a+b,0) / latestTwo.length) : 0;
+    const aiAverage = evidence.length
+      ? Math.round((evidence.reduce((sum,x)=>sum + Number(x.aiUses || 0), 0) / evidence.length) * 10) / 10
+      : 0;
+    const independentAttempts = evidence.filter(x=>Number(x.aiUses || 0) <= 1).length;
+    const spread = scores.length > 1
+      ? Math.round(Math.sqrt(scores.reduce((sum,x)=>sum + Math.pow(x - recentAverage, 2), 0) / scores.length))
+      : 0;
+
+    let key = 'easy';
+    let reason = 'Start at A2 Foundation while AI collects at least two attempts for this skill.';
+    if(evidence.length >= 2){
+      if(recentAverage < 58 || (latestTwo.length === 2 && latestTwoAverage < 50)){
+        key = 'easy';
+        reason = 'Recent performance needs clearer language, short instructions, and more scaffolding.';
+      }else if(recentAverage < 74 || evidence.length < 3 || aiAverage > 2.3){
+        key = 'normal';
+        reason = 'The skill is building. AI will use A2+ tasks that connect ideas without jumping too far.';
+      }else if(recentAverage < 87 || evidence.length < 4 || independentAttempts < 3 || aiAverage > 1.3 || spread > 16){
+        key = 'hard';
+        reason = 'The skill is stable enough for B1 Core: evidence, reasons, and clearer organisation.';
+      }else{
+        key = 'challenge';
+        reason = 'Strong independent, stable performance. AI may offer B1+ Stretch, but never above B1+.';
+      }
+    }
+    const level = AI_ABILITY_LEVELS[key];
+    return {
+      skill:normalized,
+      key,
+      cefr:level.cefr,
+      label:level.label,
+      attempts:evidence.length,
+      independentAttempts,
+      recentAverage,
+      latestTwoAverage,
+      aiAverage,
+      spread,
+      reason,
+      updatedAt:new Date().toISOString()
+    };
+  }
+
+  function skillAbilityProfile(skill){
+    return computeSkillAbilityProfile(skill);
+  }
+
+  function updateAIAbilityProfiles(){
+    ensureAIAbilityState();
+    const profiles = {};
+    ['Reading','Writing','Listening','Speaking'].forEach(skill=>{
+      profiles[skill] = computeSkillAbilityProfile(skill);
+    });
+    state.aiAbility.profiles = profiles;
+    state.aiAbility.updatedAt = new Date().toISOString();
+    return profiles;
+  }
+
+  function currentSkillDifficulty(skill){
+    ensureAIAbilityState();
+    const manual = state.settings.manualSkillDifficulty || state.settings.skillDifficulty || 'easy';
+    const useAdaptive = state.settings.aiAdaptiveDifficulty !== false && !!skill;
+    const profile = useAdaptive ? skillAbilityProfile(skill) : null;
+    const key = profile?.key || manual;
+    const base = SKILL_DIFFICULTIES[key] || SKILL_DIFFICULTIES.easy;
+    return Object.assign({}, base, {
+      source:useAdaptive ? 'ai-ability' : 'manual',
+      profile:profile || null
+    });
+  }
+
+  function setAIAdaptiveDifficulty(enabled){
+    ensureAIAbilityState();
+    state.settings.aiAdaptiveDifficulty = !!enabled;
+    if(!enabled){
+      state.settings.skillDifficulty = state.settings.manualSkillDifficulty || state.settings.skillDifficulty || 'easy';
+    }
+    updateAIAbilityProfiles();
     saveState();
+    safeToast(enabled
+      ? 'AI adaptive difficulty is ON: each skill now has its own A2–B1+ level.'
+      : 'Manual difficulty is ON for teacher setup.');
+    renderDifficultyPanel();
+  }
+
+  function setManualSkillDifficulty(level){
+    if(!SKILL_DIFFICULTIES[level]) level = 'easy';
+    ensureAIAbilityState();
+    state.settings.manualSkillDifficulty = level;
+    state.settings.skillDifficulty = level;
+    state.settings.aiAdaptiveDifficulty = false;
+    saveState();
+    safeToast(`Manual level: ${SKILL_DIFFICULTIES[level].label}`);
     updateDifficultyUI(level);
-    safeToast(`Selected difficulty: ${SKILL_DIFFICULTIES[level].label}`);
+  }
+
+  function aiAbilityTaskType(skill, sessionId, tierKey){
+    ensureAIAbilityState();
+    const normalized = normalizeAbilitySkill(skill);
+    const tier = tierKey || currentSkillDifficulty(normalized).key;
+    const options = (AI_SKILL_TIER_TASK_IDS[normalized] && AI_SKILL_TIER_TASK_IDS[normalized][tier]) ||
+      AI_SKILL_TIER_TASK_IDS.Reading.easy;
+    const historyKey = `S${Number(sessionId || 1)}_${normalized}_${tier}`;
+    const recent = state.aiAbility.taskHistory[historyKey] || [];
+    let pool = options.filter(x=>!recent.includes(x));
+    if(!pool.length) pool = options.slice();
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    state.aiAbility.taskHistory[historyKey] = [picked].concat(recent.filter(x=>x !== picked)).slice(0,16);
+    return picked;
+  }
+
+  function taskQuestionSetForReading(focus, tier, taskType){
+    const f = String(focus || 'this academic topic');
+    const sets = {
+      easy:[
+        [`What is the main idea about ${f}?`, 'Write two keywords from the passage.', 'Give one detail that supports the main idea.'],
+        [`What problem or topic does the passage describe about ${f}?`, 'Find one clear word or phrase that helps you answer.', 'Write one short support detail.'],
+        [`Choose the most important point about ${f}.`, 'Which sentence or phrase gives direct support?', 'Complete: “The passage is mainly about ___.”'],
+        [`What should a learner understand first about ${f}?`, 'Write one key word and its meaning from context.', 'Add one example/detail from the text.']
+      ],
+      normal:[
+        [`What is the main idea about ${f}?`, 'Which detail is the best support? Explain briefly.', 'What signal word or phrase links the ideas?'],
+        [`State the key point about ${f}.`, 'How do two details connect to that point?', 'Which detail is less central, and why?'],
+        [`What claim or message is made about ${f}?`, 'Give one evidence detail.', 'Explain one relationship: cause, contrast, example, or sequence.'],
+        [`What is the writer trying to show about ${f}?`, 'What information supports this?', 'Write one careful conclusion in your own words.']
+      ],
+      hard:[
+        [`What claim or main idea is made about ${f}?`, 'Which evidence best supports the claim? Explain why.', 'What limitation or detail should readers not overclaim?'],
+        [`What can readers infer about ${f}?`, 'Which words or details support the inference?', 'What information is still missing?'],
+        [`What is the writer’s purpose or stance on ${f}?`, 'How strong is the evidence?', 'Rewrite the conclusion using careful academic language.'],
+        [`Identify the central claim about ${f}.`, 'Compare strong and weak evidence from the passage.', 'What should a critical reader check next?']
+      ],
+      challenge:[
+        [`What is the strongest claim about ${f}?`, 'Compare two relevant details: which is more convincing, and why?', 'Write a cautious conclusion with one limitation.'],
+        [`How should a reader judge the source’s message about ${f}?`, 'What evidence supports or weakens it?', 'What counter-detail or limitation matters?'],
+        [`What can reasonably be concluded about ${f}?`, 'What should not be concluded?', 'Justify your answer using evidence and cautious wording.'],
+        [`Compare two possible interpretations of ${f}.`, 'Which interpretation is better supported?', 'Explain one condition that could change your conclusion.']
+      ]
+    };
+    const bank = sets[tier] || sets.easy;
+    const idx = Math.max(0, (AI_SKILL_TIER_TASK_IDS.Reading[tier] || []).indexOf(taskType));
+    return bank[idx % bank.length];
+  }
+
+  function buildAbilityTaskLegacy(skill, sessionId, context){
+    const normalized = normalizeAbilitySkill(skill);
+    const diff = currentSkillDifficulty(normalized);
+    const profile = diff.profile || skillAbilityProfile(normalized);
+    const align = typeof missionAlignmentForSession === 'function'
+      ? missionAlignmentForSession(sessionId)
+      : {focus:'this academic topic'};
+    const focus = align.focus || context?.topic || 'this academic topic';
+    const taskType = aiAbilityTaskType(normalized, sessionId, diff.key);
+    const task = {
+      id:`${normalized.toLowerCase()}-s${Number(sessionId || 1)}-${diff.key}-${taskType}`,
+      type:taskType,
+      skill:normalized,
+      tier:diff.key,
+      cefr:diff.cefr,
+      label:diff.label,
+      focus,
+      profile
+    };
+
+    if(normalized === 'Reading'){
+      task.questions = taskQuestionSetForReading(focus, diff.key, taskType);
+      task.instruction = diff.key === 'easy'
+        ? 'Read for the main idea, key words, and one direct detail.'
+        : diff.key === 'normal'
+          ? 'Connect the main idea with evidence and one relationship word.'
+          : diff.key === 'hard'
+            ? 'Use evidence, inference, or a limitation in your answer.'
+            : 'Compare evidence and justify a cautious conclusion.';
+    }
+    if(normalized === 'Writing'){
+      const data = {
+        easy:[
+          ['Write 3–4 clear sentences. Use one sentence frame and one simple example.','3–4 clear sentences + frame + example'],
+          ['Write a short response with a topic sentence and one supporting detail.','topic sentence + support'],
+          ['Use the source idea in your own words. Add one reason.','own words + one reason'],
+          ['Write a clear academic goal or response using the useful vocabulary.','clear response + useful vocabulary']
+        ],
+        normal:[
+          ['Write 4–6 connected sentences. Include a reason or example and one connector.','4–6 sentences + connector + reason/example'],
+          ['Develop one point with evidence from the source and your own explanation.','source evidence + explanation'],
+          ['Write a short organised paragraph: topic, support, closing.','short paragraph structure'],
+          ['Revise one idea to make it clearer and more academic.','clearer academic revision']
+        ],
+        hard:[
+          ['Write 70–90 words. Add evidence, a connector, and careful academic wording.','70–90 words + evidence + careful tone'],
+          ['Write a paragraph that explains a claim and one limitation.','claim + evidence + limitation'],
+          ['Use the source, then add your own reasoned response.','source link + reasoned response'],
+          ['Revise for clear organisation, evidence, and academic tone.','organised revision']
+        ],
+        challenge:[
+          ['Write 90–110 words. Compare ideas, justify your view, and state one limitation.','90–110 words + compare + justify + limitation'],
+          ['Create an integrated response using evidence and an ethical/cautious conclusion.','integrated evidence response'],
+          ['Revise a draft so it becomes more precise, balanced, and academic.','precision + balance + revision'],
+          ['Use evidence to defend a solution while naming one limitation.','defend solution + limitation']
+        ]
+      };
+      const bank = data[diff.key] || data.easy;
+      const idx = Math.max(0, (AI_SKILL_TIER_TASK_IDS.Writing[diff.key] || []).indexOf(taskType));
+      [task.instruction, task.target] = bank[idx % bank.length];
+    }
+    if(normalized === 'Listening'){
+      const data = {
+        easy:[
+          ['Listen for the main point, two keywords, and one direct detail.',0.78,'main point + 2 keywords + 1 detail'],
+          ['Listen once for topic words, then replay for one example.',0.78,'topic words + example'],
+          ['Listen for sequence words and write ideas in order.',0.80,'sequence notes'],
+          ['Write short notes, not every word.',0.80,'short selective notes']
+        ],
+        normal:[
+          ['Organise notes as main idea, support, and signal word.',0.88,'main idea + support + signal'],
+          ['Listen for two connected ideas and explain their link.',0.88,'two connected ideas'],
+          ['Separate a useful detail from a less central detail.',0.90,'detail filter'],
+          ['Write a two-point note and one short conclusion.',0.90,'two-point note + conclusion']
+        ],
+        hard:[
+          ['Explain how an example supports the main idea.',0.96,'idea–example relationship'],
+          ['Write notes that show one inference and the evidence for it.',0.96,'inference + evidence'],
+          ['Identify missing information or a limitation in the mini lecture.',0.98,'gap/limitation note'],
+          ['Create a structured summary from your notes.',0.98,'structured summary']
+        ],
+        challenge:[
+          ['Synthesize the main point, evidence, and one implication.',1.02,'synthesis + implication'],
+          ['Write one follow-up question that checks the speaker’s claim.',1.02,'critical follow-up question'],
+          ['Judge which point is strongest and why.',1.04,'evidence judgement'],
+          ['Summarize the lecture with a cautious conclusion.',1.04,'cautious summary']
+        ]
+      };
+      const bank = data[diff.key] || data.easy;
+      const idx = Math.max(0, (AI_SKILL_TIER_TASK_IDS.Listening[diff.key] || []).indexOf(taskType));
+      [task.instruction, task.voiceRate, task.target] = bank[idx % bank.length];
+    }
+    if(normalized === 'Speaking'){
+      const data = {
+        easy:[
+          ['Speak for about 25–35 seconds. Use an opening, one simple reason, and a closing.',25,'opening + reason + closing'],
+          ['Use a sentence frame and give one simple example.',25,'frame + example'],
+          ['Explain one clear point in short sentences.',30,'clear short explanation'],
+          ['End with one clear concluding sentence.',30,'clear closing']
+        ],
+        normal:[
+          ['Speak for about 35–45 seconds. Use signposting and one example.',35,'signposting + example'],
+          ['State a reason, then explain it in one more sentence.',35,'reason + explanation'],
+          ['Give one source-based point and one personal application.',40,'source point + application'],
+          ['Make a polite short response with a reason.',40,'polite response + reason']
+        ],
+        hard:[
+          ['Speak for about 50–60 seconds. Give a claim, evidence, and one limitation.',50,'claim + evidence + limitation'],
+          ['Use opening, signposting, evidence, and a careful conclusion.',50,'organised academic talk'],
+          ['Explain a point and prepare one follow-up response.',55,'explanation + follow-up'],
+          ['Use evidence rather than unsupported opinion.',55,'evidence-based response']
+        ],
+        challenge:[
+          ['Give a 60–75 second mini presentation with evidence and a limitation.',60,'mini presentation'],
+          ['Compare two ideas and justify your choice.',60,'compare + justify'],
+          ['Defend a claim with evidence and a careful response to a challenge.',65,'defend claim'],
+          ['Reflect on your response and state one stronger revision.',65,'reflection + revision']
+        ]
+      };
+      const bank = data[diff.key] || data.easy;
+      const idx = Math.max(0, (AI_SKILL_TIER_TASK_IDS.Speaking[diff.key] || []).indexOf(taskType));
+      [task.instruction, task.minSeconds, task.target] = bank[idx % bank.length];
+    }
+    return applyNoRepeatSkillVariation(task, sessionId, context);
+  }
+
+  function abilityTaskHTML(skill, task){
+    const p = task.profile || {};
+    return `<div class="ai-ability-task-card">
+      <div class="ai-ability-head">
+        <b>🤖 AI Ability Match</b>
+        <span>${safe(task.label)} · CEFR ${safe(task.cefr)}</span>
+      </div>
+      <p><b>${safe(skill)} level selected from your own evidence.</b> ${safe(task.instruction || 'Task difficulty is adjusted for this skill.')}</p>
+      <div class="ai-ability-meta">
+        <span>Attempts: ${Number(p.attempts || 0)}</span>
+        <span>Recent independent score: ${Number(p.recentAverage || 0)}%</span>
+        <span>AI Help avg: ${Number(p.aiAverage || 0)}</span><span>New route: ${safe(task.variantLabel || task.variantCode || 'fresh task')}</span>
+      </div>
+      <p class="mini-note">${safe(p.reason || 'AI will collect more evidence after this mission.')}</p>
+    </div>`;
+  }
+
+  function targetWordCountForSkill(skill){
+    const diff = currentSkillDifficulty(skill);
+    const map = {
+      Reading:{easy:24,normal:32,hard:42,challenge:52},
+      Writing:{easy:35,normal:50,hard:70,challenge:90},
+      Listening:{easy:18,normal:28,hard:38,challenge:48},
+      Speaking:{easy:20,normal:32,hard:48,challenge:60}
+    };
+    return (map[normalizeAbilitySkill(skill)] || map.Reading)[diff.key] || 28;
+  }
+
+  function aiDifficultyRecommendation(sessionId, skill){
+    if(skill){
+      const p = skillAbilityProfile(skill);
+      return {current:p.key, recommended:p.key, label:p.label, cefr:p.cefr, reason:p.reason, profile:p};
+    }
+    const path = typeof skillPathForSession === 'function'
+      ? skillPathForSession(sessionId)
+      : {core:'Reading',support:'Writing'};
+    const core = skillAbilityProfile(path.core);
+    const support = skillAbilityProfile(path.support);
+    return {
+      current:`${path.core}: ${core.label}`,
+      recommended:`${path.support}: ${support.label}`,
+      core, support,
+      reason:`AI adjusts ${path.core} and ${path.support} separately.`
+    };
+  }
+
+  function aiLearningCoachHTML(sessionId){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    const p = aiPredictionForSession(sid);
+    const path = skillPathForSession(sid);
+    const core = skillAbilityProfile(path.core);
+    const support = skillAbilityProfile(path.support);
+    const cls = p.band === 'Ready' ? 'ready' : p.band === 'Almost Ready' ? 'almost' : 'risk';
+    return `<div class="ai-learning-coach ${cls}">
+      <div class="ai-coach-head"><b>🤖 AI Learning Coach</b><span>${safe(p.band)} · readiness ${p.readiness}%</span></div>
+      <div class="ai-coach-grid">
+        <div><b>${safe(path.core)} AI Level</b><span>${safe(core.label)} · ${core.recentAverage}%</span></div>
+        <div><b>${safe(path.support)} AI Level</b><span>${safe(support.label)} · ${support.recentAverage}%</span></div>
+        <div><b>AI Help</b><span>Scaffold only; high reliance keeps the next level stable.</span></div>
+        <div><b>Independence</b><span>${safe(p.independence?.label || 'Evidence will appear after a mission.')}</span></div>
+        <div><b>Next action</b><span>${safe(p.next)}</span></div>
+      </div>
+      <p class="mini-note">AI never pushes this Year 2 course beyond B1+ and never raises all four skills together.</p>
+    </div>`;
+  }
+
+  function renderAIAbilityDashboard(){
+    updateAIAbilityProfiles();
+    const rows = ['Reading','Writing','Listening','Speaking'].map(skill=>{
+      const p = skillAbilityProfile(skill);
+      return `<tr>
+        <td><b>${safe(skill)}</b></td>
+        <td>${safe(p.label)}<br><span class="mini-note">CEFR ${safe(p.cefr)}</span></td>
+        <td>${p.attempts}</td>
+        <td>${p.recentAverage}%</td>
+        <td>${p.independentAttempts}</td>
+        <td>${p.aiAverage}</td>
+        <td>${safe(p.reason)}</td>
+      </tr>`;
+    }).join('');
+    layout(`<section class="panel ai-diagnostics-panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">v1z61</span><span class="pill">AI Ability Adaptation</span><span class="pill">A2–B1+ Year 2</span></div>
+      <h2>AI Ability Dashboard</h2>
+      <p class="lead">AI วิเคราะห์ผลงานแยก Reading, Writing, Listening และ Speaking แล้วเลือก task level ให้แต่ละทักษะโดยไม่เกิน B1+</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Skill</th><th>AI Level</th><th>Attempts</th><th>Recent score</th><th>Independent</th><th>AI Help avg</th><th>Why</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <div class="footer-actions">
+        <button class="btn primary" onclick="EAPHero.setAIAdaptiveDifficulty(true)">Use AI Adaptive Mode</button>
+        <button class="btn" onclick="EAPHero.difficultyPanel()">Settings</button>
+        <button class="btn ghost" onclick="EAPHero.map()">Back to Map</button>
+      </div>
+    </section>`);
+  }
+
+
+  // v1z61 currentSkillDifficulty() is defined by the AI Ability-Adaptive engine above.
+
+  function setSkillDifficulty(level){
+    return setManualSkillDifficulty(level);
   }
 
   function updateDifficultyUI(level){
@@ -39635,8 +40190,8 @@
     }
   }
 
-  function difficultyPromptAddon(skill){
-    const d = currentSkillDifficulty().key;
+  function difficultyPromptAddon(skill, difficulty){
+    const d = (difficulty && difficulty.key ? difficulty : currentSkillDifficulty(skill)).key;
     const map = {
       easy:{
         Reading:'Answer directly. Focus on main idea, keywords, and one support.',
@@ -39666,34 +40221,54 @@
     return map[d]?.[skill] || '';
   }
 
-  function difficultyAdjustedScore(score){
-    const d = currentSkillDifficulty();
+  function difficultyAdjustedScore(score, skill){
+    const d = currentSkillDifficulty(skill);
     return Math.max(0, Math.min(100, Number(score || 0) + (d.scoreBonus || 0)));
   }
 
   function renderDifficultyPanel(){
-    const d = currentSkillDifficulty();
-    const cards = Object.values(SKILL_DIFFICULTIES).map(x => `
-      <div class="hud-card difficulty-card ${x.key===d.key?'selected ok':''}" data-difficulty-card="${x.key}">
-        <h3><span data-difficulty-icon>${x.key===d.key?'✅':'⬜'}</span> ${safe(x.label)}</h3>
-        <p class="mini-note">${safe(x.note)}</p>
-        <button data-difficulty-button class="btn ${x.key===d.key?'success':'primary'} block" onclick="EAPHero.setSkillDifficulty('${x.key}')">${x.key===d.key?'Selected: '+x.label:'Use '+x.label}</button>
-      </div>`).join('');
+    ensureAIAbilityState();
+    updateAIAbilityProfiles();
+    const adaptive = state.settings.aiAdaptiveDifficulty !== false;
+    const manual = state.settings.manualSkillDifficulty || 'easy';
+    const cards = ['Reading','Writing','Listening','Speaking'].map(skill=>{
+      const p = skillAbilityProfile(skill);
+      return `<div class="hud-card ability-level-card ${p.key}">
+        <h3>${safe(skill)}</h3>
+        <p class="ability-level">${safe(p.label)}</p>
+        <p class="mini-note">CEFR ${safe(p.cefr)} · ${p.attempts} attempt(s) · recent ${p.recentAverage}%</p>
+        <p class="mini-note">${safe(p.reason)}</p>
+      </div>`;
+    }).join('');
+    const manualCards = Object.values(SKILL_DIFFICULTIES).map(x=>`
+      <button class="btn ${x.key===manual?'success':'ghost'}" onclick="EAPHero.setManualSkillDifficulty('${x.key}')">${safe(x.label)}</button>
+    `).join('');
     layout(`
       <section class="panel" style="margin-top:20px">
-        <div class="badges"><span class="pill">v1z2</span><span class="pill">Difficulty Tier</span><span class="pill">Selected: <span data-current-difficulty>${safe(d.label)}</span></span></div>
-        <h2>Skill Mission Difficulty</h2>
-        <p class="lead">เลือกระดับความยากของ Reading/Writing/Listening/Speaking Missions เพื่อใช้กับทั้งคาบหรือรอบ replay</p>
-        <div class="cefr-support">${cefrBadgeHTML()}<p><b>Calibration:</b> โหมดนี้ปรับโจทย์ให้เหมาะกับปี 2 ระดับ A2–B1+ โดยใช้คำสั่งสั้นขึ้นและมี sentence frames</p>
-          <p><b>AI Help:</b> Reading 2 ครั้ง, Writing/Listening/Speaking 3 ครั้งใน Easy/Normal; Hard 2; Challenge 1</p></div>
-        ${isSimpleMode() ? `<div class="panel light"><b>แนะนำสำหรับผู้เรียนใหม่:</b> ใช้ Easy ในช่วงแรก แล้วค่อยปรับเป็น Normal หลังคุ้นกับเกม</div>` : ''}
-        <div class="grid four">${cards}</div>
-        <div id="currentDifficultyRule" class="panel light" style="margin-top:18px">
-          <h3>Current Rule: ${safe(d.label)}</h3>
-          <p><b>ตอนนี้เลือกอยู่:</b> ${safe(d.label)} — ${safe(d.note)}</p>
-          <p class="mini-note">Hard/Challenge เพิ่มคะแนน bonus เล็กน้อย แต่โจทย์จะคาดหวัง evidence, inference, limitation และ academic tone มากขึ้น</p>
+        <div class="badges"><span class="pill">v1z61</span><span class="pill">AI Ability Adaptation</span><span class="pill">Year 2 · A2–B1+</span></div>
+        <h2>AI Skill Difficulty</h2>
+        <p class="lead">ระบบไม่ได้ปรับทั้งเกมพร้อมกันแล้ว แต่ดูความสามารถของแต่ละทักษะและเลือกโจทย์ A2 Foundation → A2+ Bridge → B1 Core → B1+ Stretch แยกกัน</p>
+        <div class="panel light">
+          <h3>AI Adaptive Mode: ${adaptive ? 'ON' : 'OFF (Teacher Manual)'}</h3>
+          <p>${adaptive
+            ? 'Reading, Writing, Listening และ Speaking อาจอยู่คนละระดับได้ตามคะแนนล่าสุด ความสม่ำเสมอ และการใช้ AI Help.'
+            : 'ใช้ระดับ manual เดียวชั่วคราวสำหรับครูเท่านั้น; กดเปิด AI Adaptive เพื่อกลับสู่การปรับรายทักษะ.'}</p>
+          <div class="footer-actions">
+            <button class="btn ${adaptive?'success':'primary'}" onclick="EAPHero.setAIAdaptiveDifficulty(true)">Use AI Adaptive</button>
+            <button class="btn ghost" onclick="EAPHero.setAIAdaptiveDifficulty(false)">Teacher Manual</button>
+          </div>
         </div>
-        <div class="footer-actions"><button class="btn" onclick="EAPHero.map()">Map</button><button class="btn ghost" onclick="EAPHero.teacherTools()">Teacher Tools</button></div>
+        <div class="grid four" style="margin-top:16px">${cards}</div>
+        <div class="panel light" style="margin-top:16px">
+          <h3>Teacher Manual Fallback</h3>
+          <p class="mini-note">ใช้เฉพาะตอนต้องการให้ทั้งห้องทำระดับเดียวกันชั่วคราว ไม่ใช่ค่าเริ่มต้นของผู้เรียน</p>
+          <div class="footer-actions">${manualCards}</div>
+        </div>
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.renderAIAbilityDashboard()">AI Ability Dashboard</button>
+          <button class="btn" onclick="EAPHero.map()">Map</button>
+          <button class="btn ghost" onclick="EAPHero.teacherTools()">Teacher Tools</button>
+        </div>
       </section>`);
   }
 
@@ -39710,16 +40285,16 @@
     }
     layout(`
       <section class="panel" style="margin-top:20px">
-        <div class="badges"><span class="pill">Teacher Tools</span><span class="pill">Classroom Loop</span><span class="pill">Pre-Firebase</span></div>
-        <h2>Teacher Classroom Control</h2>
-        <p class="lead">ศูนย์ควบคุมก่อนต่อ Firebase: ตั้งความยาก สร้างแผนคาบ ตรวจงาน สั่ง revision และจัด pair/class activity</p>
+        <div class="badges"><span class="pill">Teacher Tools</span><span class="pill">Self-Practice Analytics</span><span class="pill">Pre-Firebase</span></div>
+        <h2>Teacher Review &amp; Analytics</h2>
+        <p class="lead">ติดตามผลฝึกเดี่ยวของผู้เรียน: ตั้งความยาก ตรวจงาน ดู revision และ export หลักฐาน โดยไม่มี pair/group activity อยู่ใน game flow</p>
         <div class="grid three">
           <div class="hud-card"><h3>🎚 Difficulty</h3><p>ตั้งระดับโจทย์ skill mission</p><button class="btn primary block" onclick="EAPHero.difficultyPanel()">Open</button></div>
           <div class="hud-card"><h3>🧾 Review Queue</h3><p>ตรวจ portfolio ด้วย rubric</p><button class="btn primary block" onclick="EAPHero.reviewQueue()">Open</button></div>
           <div class="hud-card"><h3>🔁 Revision Loop</h3><p>ติดตามงานแก้ไขและ improvement</p><button class="btn primary block" onclick="EAPHero.revisionCenter()">Open</button></div>
-          <div class="hud-card"><h3>📚 Lesson Mode</h3><p>สร้างแผนคาบเรียน 60/90 นาที</p><button class="btn primary block" onclick="EAPHero.lessonMode()">Open</button></div>
-          <div class="hud-card"><h3>🤝 Pair/Class Mission</h3><p>กิจกรรมคู่ กลุ่ม และ peer review</p><button class="btn primary block" onclick="EAPHero.classActivity()">Open</button></div>
           <div class="hud-card"><h3>📤 Exports</h3><p>CSV สำหรับ evidence/research</p><button class="btn primary block" onclick="EAPHero.dashboard()">Dashboard</button></div>
+          <div class="hud-card"><h3>🤖 AI Analytics</h3><p>ดู rubric, independence และ intervention รายทักษะ</p><button class="btn primary block" onclick="EAPHero.aiTeacherAnalytics()">Open</button></div>
+          <div class="hud-card"><h3>🧪 Gold Bank QA</h3><p>ตรวจ authored items, duplicate risk, option bias และ no-repeat coverage</p><button class="btn primary block" onclick="EAPHero.goldQALab()">Open</button></div>
         </div>
       </section>`);
   }
@@ -39859,8 +40434,8 @@
         <tr><td>Warm-up</td><td>${plan.warmup}</td><td>Quick question / vocabulary activation</td></tr>
         <tr><td>Session Brief</td><td>${plan.brief}</td><td>Introduce topic, boss/problem, and success criteria</td></tr>
         <tr><td>Core Mission</td><td>${plan.core}</td><td>${safe(path.core)} Mission with portfolio evidence</td></tr>
-        <tr><td>Support Mission</td><td>${plan.support}</td><td>${safe(path.support)} Mission or pair check</td></tr>
-        <tr><td>Review</td><td>${plan.review}</td><td>Rubric/peer feedback, Reason Gate, or Boss Gate ${plan.boss ? '('+safe(plan.boss.title)+')' : ''}</td></tr>
+        <tr><td>Support Mission</td><td>${plan.support}</td><td>${safe(path.support)} independent mission with AI scaffold and self-check</td></tr>
+        <tr><td>Review</td><td>${plan.review}</td><td>Self-check, AI feedback, Reason Gate, or Boss Gate ${plan.boss ? '('+safe(plan.boss.title)+')' : ''}</td></tr>
         <tr><td>Reflection</td><td>${plan.reflection}</td><td>Exit ticket: what improved / what to revise</td></tr>
       </tbody></table></div>
       <div class="footer-actions">
@@ -39896,65 +40471,12 @@
     const a = document.createElement('a'); a.href=url; a.download='eap-hero-lesson-logs.csv'; a.click(); URL.revokeObjectURL(url);
   }
 
+  // v1z60: classroom activities are deliberately external to the student game.
+  // Kept only as a safe legacy route for old bookmarks; it stores no activity, XP, or pass evidence.
   function renderClassActivity(){
-    const id = Number(state.currentSession || 1);
-    const s = getSession(id);
-    const activities = [
-      ['Pair Reading','Student A reads for main idea; Student B checks evidence; switch roles.'],
-      ['Peer Review Writing','Use rubric language: one strength, one question, one revision suggestion.'],
-      ['Speaking Q&A Pair','Student A presents 45 seconds; Student B asks one academic question.'],
-      ['Group Boss Prep','Group identifies claim, evidence, limitation, and response before Boss Gate.'],
-      ['Mini Debate','Two sides give claim-evidence-response using academic tone.']
-    ];
-    layout(`
-      <section class="panel" style="margin-top:20px">
-        <div class="badges"><span class="pill">v1z</span><span class="pill">Class Activity</span><span class="pill">Pair/Group</span></div>
-        <h2>Class / Pair Mission</h2>
-        <p class="lead">กิจกรรมในห้องเรียนแบบไม่ต้อง real-time online ก่อนต่อ Firebase</p>
-        <div class="grid two">${activities.map((a,i)=>`<div class="hud-card"><h3>${safe(a[0])}</h3><p>${safe(a[1])}</p><button class="btn primary block" onclick="EAPHero.startClassActivity('${safeAttr(a[0])}', '${safeAttr(a[1])}')">Start</button></div>`).join('')}</div>
-        <div class="panel light" style="margin-top:18px">
-          <h3>Peer Review Quick Form</h3>
-          <label class="label">Partner / Group</label><input id="peerPartner" class="input" placeholder="Partner name or group">
-          <label class="label">Feedback</label><textarea id="peerFeedback" class="input" rows="4" placeholder="One strength, one question, one suggestion"></textarea>
-          <button class="btn primary" onclick="EAPHero.savePeerReview()">Save Peer Review</button>
-        </div>
-        <div class="footer-actions"><button class="btn" onclick="EAPHero.exportClassActivityCSV()">Export Class Activity CSV</button><button class="btn ghost" onclick="EAPHero.teacherTools()">Teacher Tools</button></div>
-      </section>`);
+    return openClassroomActivityPack();
   }
 
-  function startClassActivity(title, desc){
-    state.classActivities = state.classActivities || {pairMissions:[], peerReviews:[]};
-    state.classActivities.pairMissions.push({ title, desc, session:state.currentSession || 1, difficulty:currentSkillDifficulty().key, at:new Date().toISOString() });
-    addXP(5);
-    saveState();
-    safeToast(`${title} started`);
-  }
-
-  function savePeerReview(){
-    const partner = document.getElementById('peerPartner')?.value.trim() || '';
-    const feedback = document.getElementById('peerFeedback')?.value.trim() || '';
-    state.classActivities = state.classActivities || {pairMissions:[], peerReviews:[]};
-    state.classActivities.peerReviews.push({
-      partner, feedback,
-      session:state.currentSession || 1,
-      student_id:state.profile.studentId || 'guest',
-      at:new Date().toISOString()
-    });
-    addXP(10);
-    saveState();
-    safeToast('Peer review saved');
-  }
-
-  function exportClassActivityCSV(){
-    const header = ['type','student_id','session','title','partner','feedback','difficulty','at'];
-    const rows = [];
-    (state.classActivities?.pairMissions || []).forEach(r => rows.push(['pairMission',state.profile.studentId||'guest',r.session,r.title,'','',r.difficulty,r.at].map(csvCell).join(',')));
-    (state.classActivities?.peerReviews || []).forEach(r => rows.push(['peerReview',r.student_id,r.session,'',r.partner,r.feedback,'',r.at].map(csvCell).join(',')));
-    const csv = [header.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download='eap-hero-class-activities.csv'; a.click(); URL.revokeObjectURL(url);
-  }
 
 
   const RUBRICS = {
@@ -40602,11 +41124,6 @@
             session:1, minutes:60, core:'Reading', support:'Writing', difficulty:state.settings.skillDifficulty || 'normal', startedAt:new Date().toISOString()
           }
         },
-        classActivities:{
-          sampleActivity: (state.classActivities?.pairMissions || [])[state.classActivities?.pairMissions?.length-1] || {
-            session:1, title:'Pair Reading', difficulty:state.settings.skillDifficulty || 'normal', at:new Date().toISOString()
-          }
-        },
         listeningTranscriptHints:{
           sampleHint: (state.listening?.transcriptHints || [])[state.listening?.transcriptHints?.length-1] || {
             student_id:uid,
@@ -40726,12 +41243,10 @@
           <button class="btn warn" onclick="EAPHero.teacherTools()">Teacher Tools</button>
           <button class="btn" onclick="EAPHero.difficultyPanel()">Difficulty</button>
           <button class="btn" onclick="EAPHero.revisionCenter()">Revision Center</button>
-          <button class="btn" onclick="EAPHero.lessonMode()">Lesson Mode</button>
-          <button class="btn" onclick="EAPHero.classActivity()">Class Activity</button>
           <button class="btn" onclick="EAPHero.exportRubricCSV()">Export Rubric CSV</button>
           <button class="btn" onclick="EAPHero.exportRevisionCSV()">Export Revision CSV</button>
-          <button class="btn" onclick="EAPHero.exportLessonPlanCSV()">Export Lesson Logs CSV</button>
-          <button class="btn" onclick="EAPHero.exportClassActivityCSV()">Export Class Activity CSV</button>
+          <button class="btn primary" onclick="EAPHero.aiTeacherAnalytics()">AI Teacher Analytics</button>
+          <button class="btn" onclick="EAPHero.exportAITeacherAnalyticsCSV()">Export AI Analytics CSV</button>
           <button class="btn warn" onclick="EAPHero.exportExamCSV()">Export Exam CSV</button>
           <button class="btn" onclick="EAPHero.itemGuard()">Item Guard</button>
           <button class="btn" onclick="EAPHero.qaLock()">QA Lock</button>
@@ -40826,6 +41341,37 @@
     return arr;
   }
 
+
+  /* === v1z64 Gold Authored Item Bank + QA Lock === */
+  const EAP_GOLD_BANK_ENGINE = Object.freeze({version:'v1z64',authoredSourcesPerSession:8,authoredSourcesTotal:120,questionAnglesPerTier:4,candidateMCQPerSession:128,candidateMCQTotal:1920,coreSupportTaskPacks:960,rule:'Gold authored sources are selected first; source, question angle, and answer position rotate before reuse.'});
+  const EAP_GOLD_QUESTION_ANGLES={easy:['Which response best matches the source?','What is the clearest action or idea in this source?','Which choice directly follows the study situation?','Which answer uses the main point from the source?'],normal:['Which response connects the source idea with its supporting detail?','Which choice explains the relationship in this source most clearly?','Which answer uses the evidence instead of a small unrelated detail?','Which study decision is best supported by this source?'],hard:['Which response makes the most careful evidence-based interpretation?','Which choice explains a useful conclusion without overclaiming?','Which response identifies a reason, evidence, or limit from the source?','Which answer shows critical use of the source information?'],challenge:['Which balanced judgement is best supported by the source?','Which response makes a justified conclusion and still names a limitation?','Which choice compares the evidence with a careful condition?','Which B1+ conclusion avoids both overclaiming and underusing evidence?']};
+  function goldBankRoot(){return (typeof window!=='undefined'&&window.EAP_GOLD_AUTHORED_BANK)?window.EAP_GOLD_AUTHORED_BANK:null;}
+  function goldBankSessions(){return goldBankRoot()?.sessions||{};}
+  function goldBankAvailable(){const s=goldBankSessions();return Object.keys(s).length===15&&Object.values(s).every(x=>Array.isArray(x.sources)&&x.sources.length===8);}
+  function ensureGoldAuthoredState(){state.goldAuthoredBank=state.goldAuthoredBank||{missionHistory:{},questionHistory:{},updatedAt:''};state.goldAuthoredBank.missionHistory=state.goldAuthoredBank.missionHistory||{};state.goldAuthoredBank.questionHistory=state.goldAuthoredBank.questionHistory||{};return state.goldAuthoredBank;}
+  function goldSessionBlock(id){return goldBankSessions()[String(Number(id||1))]||null;}
+  function goldTierKey(skill){try{return currentSkillDifficulty(skill).key||'easy';}catch(e){return'easy';}}
+  function goldPick(key,rows,store,cap){if(!rows.length)return null;const recent=store[key]||[];let pool=rows.filter(x=>!recent.includes(x.id));if(!pool.length){const lock=recent.slice(0,Math.max(3,Math.ceil(rows.length/2)));pool=rows.filter(x=>!lock.includes(x.id));if(!pool.length)pool=rows.slice();}const chosen=pool[Math.floor(Math.random()*pool.length)];store[key]=[chosen.id].concat(recent.filter(id=>id!==chosen.id)).slice(0,cap||rows.length);return chosen;}
+  function goldMissionPack(sessionId,skill,tier){if(!goldBankAvailable())return null;const sid=Number(sessionId||1), sk=normalizeAbilitySkill(skill), level=['easy','normal','hard','challenge'].includes(tier)?tier:'easy', block=goldSessionBlock(sid);if(!block)return null;const st=ensureGoldAuthoredState(),src=goldPick(`mission_S${sid}_${sk}_${level}`,block.sources,st.missionHistory,16);if(!src)return null;st.updatedAt=new Date().toISOString();saveState();const id=`G64_${src.id}_${sk}_${level}`, targets={easy:32,normal:52,hard:75,challenge:95}, seconds={easy:25,normal:38,hard:52,challenge:65}, rates={easy:.78,normal:.88,hard:.96,challenge:1.02};const p={id,gold:true,sourceId:src.id,session:sid,skill:sk,tier:level,title:`${src.title} · ${sk} Gold Pack`,topic:src.title,passage:src.passage,source:src,focus:block.focus,label:`Gold authored source · ${src.title}`,quality:'authored-v1z64'};
+    if(sk==='Reading'){const q={easy:[`What is the main point of “${src.title}”?`,`Write one key word or phrase from the source.`,`What direct detail supports your answer?`],normal:[`What is the main idea in “${src.title}”?`,`Which detail best supports the idea? Explain the link.`,`What smaller detail should not become the main point?`],hard:[`What careful conclusion can readers make from “${src.title}”?`,`Which source detail supports that conclusion?`,`What limit or missing information should readers note?`],challenge:[`What is the strongest balanced judgement about “${src.title}”?`,`Which evidence supports your judgement?`,`What should readers not conclude from this short source?`]};p.questions=q[level];p.instruction=level==='easy'?'Read for the central idea and one direct support.':level==='normal'?'Connect the main idea with evidence and reject a smaller detail.':level==='hard'?'Use evidence and name one limit before making a conclusion.':'Make a balanced judgement using evidence and one clear limitation.';p.target='main idea + evidence + careful response';}
+    else if(sk==='Writing'){const q={easy:`Write 3–4 clear sentences about ${src.title}. State the main idea and one action or detail.`,normal:`Write 4–6 connected sentences about ${src.title}. Use one reason, one source detail, and one connector.`,hard:`Write 70–90 words about ${src.title}. Explain the evidence and add one cautious limitation.`,challenge:`Write 90–110 words about ${src.title}. Make a balanced judgement, use evidence, and explain one limitation.`};p.instruction=`${q[level]} Use your own wording; do not copy the source sentence.`;p.target=`${targets[level]} words · source-based academic response`;}
+    else if(sk==='Listening'){const q={easy:'Listen for the main point, two keywords, and one direct detail.',normal:'Write notes for the main idea, a support detail, and one signal/relationship.',hard:'Write notes that show evidence, a careful inference, and one missing detail or limit.',challenge:'Write a concise synthesis note, a balanced conclusion, and one useful follow-up question.'};p.instruction=`${q[level]} The mini lecture is based on “${src.title}”.`;p.target='selective notes from an authored mini lecture';p.voiceRate=rates[level];p.lecture=`Today’s mini lecture is about ${src.title}. ${src.passage} The key point is: ${src.main}. Remember this evidence: ${src.evidence}.`;}
+    else {const q={easy:`Speak for about ${seconds.easy}–35 seconds. State the topic, one point, and one clear closing.`,normal:`Speak for about ${seconds.normal}–45 seconds. Use a signpost, one reason, and one source detail.`,hard:`Speak for about ${seconds.hard}–60 seconds. Give a claim, evidence, and a cautious limitation.`,challenge:`Give a ${seconds.challenge}–75 second mini presentation. Make a balanced judgement, use evidence, and answer a likely follow-up.`};p.instruction=`${q[level]} Use “${src.title}” as your source situation.`;p.target='organized source-based spoken response';p.minSeconds=seconds[level];}return p;}
+  function goldAuthoredBadgeHTML(task){if(!task?.gold)return'';return`<div class="gold-authored-badge"><b>🏅 Gold Authored Pack</b><span>${safe(task.sourceId||'')}</span><span>${safe(task.label||'source-specific task')}</span><span>CEFR ${safe((AI_ABILITY_LEVELS[task.tier]||{}).cefr||'A2–B1+')}</span></div>`;}
+  function goldChoices(src,tier){const correct=tier==='easy'?src.main:tier==='normal'?`Because ${src.evidence}`:tier==='hard'?src.inference:`${src.inference} However, ${src.limitation}`;const bad=Array.isArray(src.misconceptions)?src.misconceptions:[];const fmt=(x)=>tier==='normal'?`Because ${String(x).charAt(0).toLowerCase()+String(x).slice(1)}`:tier==='challenge'?`${x} However, the source gives no support for this conclusion.`:x;return[correct,fmt(bad[0]||'Use an unrelated detail.'),fmt(bad[1]||'Ignore the evidence.'),fmt(bad[2]||'Make a broad unsupported claim.')];}
+  function goldQuestionFromSource(sid,src,tier,angle){const block=goldSessionBlock(sid), angles=EAP_GOLD_QUESTION_ANGLES[tier]||EAP_GOLD_QUESTION_ANGLES.easy;return{id:`G64_Q_${src.id}_${tier}_A${angle}`,type:'mcq',question:`${angles[angle%angles.length]} — ${src.title}`,context:src.passage,choices:goldChoices(src,tier),answer:0,feedback:`Evidence: ${src.evidence} ${src.limitation}`,sourceSession:Number(sid),sourceSkill:(typeof skillPathForSession==='function'?skillPathForSession(sid).core:'Reading'),tier,gold:true,antiGuess:true,goldSourceId:src.id,goldTheme:block?.theme||''};}
+  function goldQuestionCandidates(sid,tier){const b=goldSessionBlock(sid), level=['easy','normal','hard','challenge'].includes(tier)?tier:'easy';if(!b)return[];return b.sources.flatMap(src=>EAP_GOLD_QUESTION_ANGLES[level].map((_,i)=>goldQuestionFromSource(sid,src,level,i)));}
+  function selectGoldAssessmentSet(session,count,mode){if(!goldBankAvailable())return[];const sid=Number(session?.id||session||1),tier=goldTierKey((typeof skillPathForSession==='function'?skillPathForSession(sid).core:'Reading')),all=goldQuestionCandidates(sid,tier),st=ensureGoldAuthoredState(),key=`question_S${sid}_${tier}_${mode||'practice'}`,need=Math.max(1,Number(count||1)),picked=[];let pool=all.filter(q=>!(st.questionHistory[key]||[]).includes(q.id));while(picked.length<need&&pool.length)picked.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);if(picked.length<need){const lock=(st.questionHistory[key]||[]).slice(0,Math.max(8,need*2));pool=all.filter(q=>!lock.includes(q.id)&&!picked.some(p=>p.id===q.id));while(picked.length<need&&pool.length)picked.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);}if(picked.length<need){pool=all.filter(q=>!picked.some(p=>p.id===q.id));while(picked.length<need&&pool.length)picked.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);}st.questionHistory[key]=picked.map(q=>q.id).concat((st.questionHistory[key]||[]).filter(id=>!picked.some(q=>q.id===id))).slice(0,all.length);st.updatedAt=new Date().toISOString();saveState();return shuffle(picked).map(q=>balancedChoiceShuffle(q,`G64_${sid}_${tier}_${mode||'practice'}`));}
+  function selectGoldAssessmentSetAcross(ids,count,key){const list=(Array.isArray(ids)?ids:[ids]).map(Number).filter(Boolean);if(!list.length)return[];const per=Math.max(1,Math.ceil(Number(count||1)/list.length));return shuffle(list.flatMap(id=>selectGoldAssessmentSet({id},per,`boss_${key||'mixed'}`))).slice(0,Math.min(Number(count||0)||Infinity,per*list.length));}
+  function gNorm(v){return String(v||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();}
+  function goldAuthoredBankAudit(){const ss=goldBankSessions(),ids=[],passages=[],questions=[],rows=[];let sc=0,ic=0,tc=0;Object.keys(ss).sort((a,b)=>Number(a)-Number(b)).forEach(k=>{const sid=Number(k),b=ss[k],src=b.sources||[];sc+=src.length;src.forEach(x=>{ids.push(x.id);passages.push(gNorm(x.passage));});['easy','normal','hard','challenge'].forEach(t=>goldQuestionCandidates(sid,t).forEach(q=>{ic++;questions.push(gNorm(q.question+' '+q.context));}));tc+=src.length*4*4;rows.push({session:sid,theme:b.theme,sources:src.length,mcq:src.length*4*4,taskPacks:src.length*4*4});});const dup=(a)=>a.length-new Set(a).size;const pass=goldBankAvailable()&&sc===120&&ic===1920&&tc===1920&&dup(ids)===0&&dup(passages)===0&&dup(questions)===0;return{version:'v1z64',bankLoaded:goldBankAvailable(),pass,sourceCount:sc,itemCount:ic,taskCount:tc,duplicateSourceIds:dup(ids),duplicatePassages:dup(passages),duplicateQuestions:dup(questions),rows,note:'Correct answer positions are balanced at delivery. Option-length flags require a human pilot review, not a structural failure.'};}
+  function renderGoldQALab(){if(isSimpleMode())return unlockTeacherMode();const a=goldAuthoredBankAudit();layout(`<section class="panel gold-qa-panel" style="margin-top:20px"><div class="badges"><span class="pill">v1z64</span><span class="pill">Gold Authored Bank</span><span class="pill">QA Lock</span></div><h2>Gold Item Bank QA Lab</h2><p class="lead">ตรวจคลังสถานการณ์และข้อสอบที่เขียนเฉพาะ Session: uniqueness, CEFR tiers, no-repeat coverage และ answer-position delivery</p><div class="gold-qa-status ${a.pass?'pass':'warn'}"><b>${a.pass?'QA Structural Lock Passed':'QA Needs Review'}</b><span>${a.bankLoaded?'Gold bank loaded':'Gold item-bank script is missing'}</span></div><div class="grid four"><div class="stat"><b>${a.sourceCount}</b><span>Authored scenarios</span></div><div class="stat"><b>${a.itemCount}</b><span>Candidate MCQs</span></div><div class="stat"><b>${a.taskCount}</b><span>Skill × tier packs</span></div><div class="stat"><b>${a.duplicateQuestions}</b><span>Exact duplicate stems</span></div></div><div class="table-wrap"><table><thead><tr><th>Session</th><th>Theme</th><th>Sources</th><th>MCQs</th><th>Task packs</th></tr></thead><tbody>${a.rows.map(r=>`<tr><td>S${r.session}</td><td>${safe(r.theme)}</td><td>${r.sources}</td><td>${r.mcq}</td><td>${r.taskPacks}</td></tr>`).join('')}</tbody></table></div><div class="panel light"><h3>QA rules enforced</h3><p>120 unique authored sources • 1,920 source-grounded MCQ candidates • no exact duplicate source IDs/passages/stems • source/angle cycles • answer position balancing A/B/C/D at delivery.</p><p class="mini-note">${safe(a.note)}</p></div><div class="footer-actions"><button class="btn primary" onclick="EAPHero.goldBankAuditPage()">Refresh QA</button><button class="btn" onclick="EAPHero.aiTeacherAnalytics()">AI Analytics</button><button class="btn ghost" onclick="EAPHero.teacherTools()">Teacher Tools</button></div></section>`);}
+  function pickMissionVariant(sessionId,skill){const sid=Number(sessionId||state.currentSession||1),sk=normalizeAbilitySkill(skill),tier=goldTierKey(sk),gold=goldMissionPack(sid,sk,tier);if(gold){return{session:sid,skill:sk,topic:gold.topic,passage:gold.lecture||gold.passage,variant:{id:gold.id,title:gold.title,instruction:gold.instruction,target:gold.target,ask:gold.instruction,q:gold.questions||[],gold:true},topicIndex:-1,variantIndex:-1,combo:gold.id,goldPack:gold};}return pickMissionVariantLegacy(sessionId,skill);}
+  function buildAbilityTask(skill,sessionId,context){const task=buildAbilityTaskLegacy(skill,sessionId,context),gold=context?.goldPack;if(!gold)return task;task.id=gold.id;task.gold=true;task.sourceId=gold.sourceId;task.label=gold.label;task.variantCode=`gold-${gold.sourceId}`;task.variantLabel='Gold authored source';task.instruction=gold.instruction||task.instruction;task.target=gold.target||task.target;if(gold.questions?.length)task.questions=gold.questions;if(gold.voiceRate)task.voiceRate=gold.voiceRate;if(gold.minSeconds)task.minSeconds=gold.minSeconds;return task;}
+  function selectQuestionSet(session,count,mode){const gold=selectGoldAssessmentSet(session,count,mode);if(gold.length>=Math.max(1,Number(count||1)))return gold;return selectQuestionSetLegacy(session,count,mode);}
+  function pickQuestionsFromSessions(sessionIds,count,examKey){const gold=selectGoldAssessmentSetAcross(sessionIds,count,examKey);if(gold.length>=Math.max(1,Number(count||1)))return gold;return pickQuestionsFromSessionsLegacy(sessionIds,count,examKey);}
+
+
   // public API for inline handlers
   window.EAPHero = {
     home:renderHome,
@@ -40868,14 +41414,53 @@
     injectAlignedHelpBlock,
     runMissionAlignmentPatchSoon,
     renderMissionAlignmentDiagnostics,
-    studentMissionEntryButtonHTML,
-    enhanceMissionEntryButtons,
-    hideStudentDebugEntryButtons,
-    compactPreMissionNotes,
-    studentSessionPathCardHTML,
-    renderStudentSessionPath,
-    runStudentMissionEntryFixSoon,
-    
+    AI_ABILITY_LEVELS,
+    AI_SKILL_TIER_TASK_IDS,
+    skillAbilityProfile,
+    updateAIAbilityProfiles,
+    currentSkillDifficulty,
+    setAIAdaptiveDifficulty,
+    setManualSkillDifficulty,
+    buildAbilityTask,
+    abilityTaskHTML,
+    targetWordCountForSkill,
+    renderAIAbilityDashboard,
+    EAP_ANTI_MEMORIZATION_ENGINE,
+    EAP_REPLAY_SCENARIO_LENSES,
+    EAP_ANTI_GUESS_BLUEPRINTS,
+    installNoRepeatScenarioPool,
+    noRepeatQuestionBank,
+    selectNoRepeatQuestionSet,
+    nextNoRepeatTaskVariant,
+    antiMemorizationAudit,
+    renderAntiMemorizationAudit,
+    EAP_FULL_AI_SUITE,
+    AI_RUBRIC_LABELS,
+    AI_INTERVENTION_LIBRARY,
+    aiFormativeRubric,
+    aiIndependenceCheck,
+    sessionIndependenceSummary,
+    startIndependentReplay,
+    independenceReplayActive,
+    renderAIFormativeFeedbackCard,
+    renderAILearningCenter,
+    aiLearningCenter:renderAILearningCenter,
+    aiTeacherAnalyticsData,
+    renderAITeacherAnalytics,
+    aiTeacherAnalytics:renderAITeacherAnalytics,
+    exportAITeacherAnalyticsCSV,
+    exportFullAIEvidenceCSV,
+    EAP_GOLD_BANK_ENGINE,
+    goldBankAvailable,
+    goldAuthoredBankAudit,
+    goldBankAuditPage:renderGoldQALab,
+    goldQALab:renderGoldQALab,
+    goldMissionPack,
+    selectGoldAssessmentSet,
+
+    EAP_SELF_PRACTICE_CORE,
+    selfPracticeCoreHTML,
+    migrateSelfPracticeCoreState,
     
     
     scoreEAPOpenAnswer,
@@ -40883,32 +41468,6 @@
     STORAGE_LIMITS,
     storageUsageInfo,
     normalizeCEFRLabelsInDOM,
-    canonicalEvidenceSkill,
-strictEvidenceForSessionSkill,
-strictBestScoreForSessionSkill,
-strictPassTruthReport,
-REAL_READING_S1_PACKS,
-REAL_READING_SESSION_DESIGNS,
-realReadingPack,
-realReadingSupportHTML,
-readingAnswerPlaceholder,
-    UK_THAILAND_SESSION_PROTOCOL,
-UK_THAILAND_BOSS_PROTOCOL,
-ukThailandSessionProtocol,
-ukThailandBossProtocol,
-applyUKThailandCoTeachingProtocol,
-resolveUKBossGate,
-ukThailandSessionCoTeachHTML,
-ukThailandBossCoTeachHTML,
-    isBossGateCleared,
-routeUnlockForSession,
-syncRouteProgression,
-nextRouteRecommendation,
-continueRoute,
-nextRouteActionHTML,
-    strictSyncSessionProgress,
-strictPassTruthDiagnostic,
-runStrictPassTruthSoon,
     sessionStarScore,
     sessionStarsText,
     normalizeCEFRTextValue,
@@ -41029,7 +41588,6 @@ runStrictPassTruthSoon,
     missionSpecificReadingGuide,
     missionSpecificReadingGuideHTML,
     bossGate:renderBossGate,
-    startIntegratedBossRuntime,
     startGateBoss,
     replayHub:renderReplayHub,
     aiHelp:useAIHelp,
@@ -41081,10 +41639,8 @@ runStrictPassTruthSoon,
     generateLessonPlan,
     startLesson,
     exportLessonPlanCSV,
-    classActivity:renderClassActivity,
-    startClassActivity,
-    savePeerReview,
-    exportClassActivityCSV,
+    classActivity:openClassroomActivityPack,
+    openClassroomActivityPack,
     reviewQueue:renderReviewQueue,
     refreshReviewQueueTable,
     pilotReadiness:renderPilotReadiness,
@@ -41130,6 +41686,7 @@ runStrictPassTruthSoon,
     reset:resetState
   };
 
+  installNoRepeatScenarioPool();
   renderHome();
 
 
@@ -41172,5 +41729,4 @@ runStrictPassTruthSoon,
 
 
   runStorageMaintenanceSoon();
-  runStrictPassTruthSoon();
 })();
