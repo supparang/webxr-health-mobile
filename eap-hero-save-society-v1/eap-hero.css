@@ -2484,3 +2484,141 @@ textarea.answer-box.reading-answer-box{
   .session-path-rule{display:grid;gap:10px}
   .session-self-practice-mini{display:grid;gap:4px}
 }
+
+
+/* === v1z70 Speaking Oral Flow + Source Alignment === */
+.speaking-mission-panel .context{
+  margin-bottom:12px;
+}
+.speaking-brief{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 12px;
+  align-items:flex-start;
+  margin:12px 0;
+  padding:12px 14px;
+  border-radius:15px;
+  border:1px solid rgba(125,211,252,.38);
+  background:rgba(224,242,254,.95);
+  color:#0c4a6e;
+  line-height:1.5;
+}
+.speaking-brief b{
+  color:#1e3a8a;
+  white-space:nowrap;
+}
+.speaking-brief span{
+  flex:1 1 400px;
+}
+.speaking-oral-card{
+  color:#eaf9ff !important;
+  background:linear-gradient(180deg,rgba(15,118,110,.20),rgba(15,23,42,.30)) !important;
+  border-color:rgba(45,212,191,.48) !important;
+}
+.speaking-oral-card h3,
+.speaking-oral-card p,
+.speaking-oral-card .mini-note{
+  color:#eaf9ff !important;
+}
+.speaking-oral-head{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+}
+.speaking-oral-head h3{
+  margin:0 0 5px;
+}
+.speaking-oral-head p{
+  margin:0;
+  line-height:1.45;
+}
+.speaking-time-chip{
+  padding:7px 10px;
+  border-radius:999px;
+  background:#fef3c7;
+  color:#78350f;
+  font-weight:950;
+  white-space:nowrap;
+}
+.speaking-target-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:13px 0 3px;
+}
+.speaking-target-row span{
+  padding:6px 9px;
+  border-radius:999px;
+  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.17);
+  color:#d1fae5;
+  font-weight:850;
+  font-size:.88rem;
+}
+.speaking-flow-controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:15px;
+}
+.speaking-live-status{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 10px;
+  align-items:center;
+  margin-top:10px;
+  padding:9px 11px;
+  border-radius:12px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+}
+.speaking-live-status b{color:#a7f3d0}
+.speaking-live-status .speech-status{
+  margin:0;
+  padding:0;
+  background:transparent;
+  color:#dbeafe;
+  min-height:0;
+}
+.speaking-evidence-label{
+  display:block;
+  margin-top:16px;
+}
+.speaking-evidence-note{
+  margin:5px 0 9px;
+  color:#cbd5e1;
+}
+textarea.compact-speaking-box{
+  min-height:168px !important;
+  height:168px;
+  max-height:280px;
+  line-height:1.5 !important;
+}
+.speaking-checklist{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  margin:12px 0;
+}
+.speaking-checklist .choice{
+  min-height:54px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+.speaking-checklist .optional-check{
+  opacity:.82;
+}
+.speaking-timer-box.needs-time{
+  border:1px solid #fbbf24;
+  background:rgba(251,191,36,.16);
+}
+@media(max-width:800px){
+  .speaking-checklist{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .speaking-checklist{grid-template-columns:1fr}
+  .speaking-brief{display:grid}
+}

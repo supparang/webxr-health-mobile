@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z69-student-replay-progress-session-path';
+  const APP_VERSION = '20260610-v1z70-speaking-oral-flow-source-alignment';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32081,7 +32081,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z69</div>
+              <div class="mini-note">Save the Society • v1z70</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32634,7 +32634,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z69</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z70</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -36044,7 +36044,7 @@
 
 
 
-  /* === v1z69 Student Replay + Progress Session Path === */
+  /* === v1z70 Speaking Oral Flow + Source Alignment === */
   const EAP_SESSION_PATH_SELF_PRACTICE = Object.freeze({
     version:'v1z68',
     rule:'Student Session Path always shows Core + Support together. Both are self-practice missions; no Four Skills Hub or Debug route appears in Student Flow.'
@@ -37496,7 +37496,7 @@
   }
 
 
-  /* === v1z69 Student Replay + Progress Session Path: formative feedback, independence, teacher analytics === */
+  /* === v1z70 Speaking Oral Flow + Source Alignment: formative feedback, independence, teacher analytics === */
   const EAP_FULL_AI_SUITE = Object.freeze({
     version:'v1z63',
     studentFeatures:['Skill Profile','Ability-Adaptive Difficulty','No-Repeat Selector','AI Help','Formative Rubric','Independence Check','Prediction','Learning Coach'],
@@ -38489,16 +38489,19 @@
     el.dispatchEvent(new Event('input', {bubbles:true}));
   }
 
-  function startSpeechToText(){
+  function startSpeechToText(options={}){
+    const autoStartTimer = options.autoStartTimer !== false;
+    const quietUnsupported = !!options.quietUnsupported;
     if(!speechSupported()){
-      setSpeechStatus('Speech-to-text is not supported in this browser. Please type notes manually.', 'warn');
-      alert('Speech-to-text is not supported in this browser. Try Chrome or Edge, or type notes manually.');
+      setSpeechStatus('Live transcript is not supported here. Keep speaking with the timer; you may add short notes afterwards.', 'warn');
+      if(!quietUnsupported) alert('Speech-to-text is not supported in this browser. Try Chrome or Edge, or add short evidence notes manually.');
+      if(autoStartTimer) startSpeakingTimer();
       return false;
     }
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     try{
       if(speechRecognizer && speechRecognizing){
-        setSpeechStatus('Voice input is already listening...', 'info');
+        setSpeechStatus('Live transcript is already listening...', 'info');
         return false;
       }
       speechRecognizer = new SpeechRecognition();
@@ -38507,20 +38510,18 @@
       speechRecognizer.continuous = true;
       speechRecognizing = true;
 
-      let finalText = '';
       speechRecognizer.onstart = function(){
-        setSpeechStatus('Listening... speak in English. Your words will appear below.', 'live');
-        const startBtn = document.getElementById('voiceStartBtn');
-        const stopBtn = document.getElementById('voiceStopBtn');
+        setSpeechStatus('Live transcript is listening. Speak naturally in English.', 'live');
+        const startBtn = document.getElementById('startSpeakBtn');
+        const finishBtn = document.getElementById('finishSpeakBtn');
         if(startBtn) startBtn.disabled = true;
-        if(stopBtn) stopBtn.disabled = false;
+        if(finishBtn) finishBtn.disabled = false;
       };
       speechRecognizer.onresult = function(event){
         let interim = '';
         for(let i = event.resultIndex; i < event.results.length; i++){
           const transcript = event.results[i][0].transcript;
           if(event.results[i].isFinal){
-            finalText += transcript + ' ';
             appendSpeechText(transcript);
           }else{
             interim += transcript;
@@ -38531,41 +38532,39 @@
       };
       speechRecognizer.onerror = function(event){
         speechRecognizing = false;
-        setSpeechStatus(`Voice input error: ${event.error || 'unknown'}. You can type notes manually.`, 'warn');
-        const startBtn = document.getElementById('voiceStartBtn');
-        const stopBtn = document.getElementById('voiceStopBtn');
+        setSpeechStatus(`Live transcript stopped: ${event.error || 'unknown'}. Your timer can continue and you may add notes manually.`, 'warn');
+        const startBtn = document.getElementById('startSpeakBtn');
         if(startBtn) startBtn.disabled = false;
-        if(stopBtn) stopBtn.disabled = true;
       };
       speechRecognizer.onend = function(){
         speechRecognizing = false;
-        setSpeechStatus('Voice input stopped. You can edit the transcript before submitting.', 'done');
-        const startBtn = document.getElementById('voiceStartBtn');
-        const stopBtn = document.getElementById('voiceStopBtn');
-        if(startBtn) startBtn.disabled = false;
-        if(stopBtn) stopBtn.disabled = true;
         const interimBox = document.getElementById('speechInterimBox');
         if(interimBox) interimBox.textContent = '';
+        if(speakingSeconds > 0){
+          setSpeechStatus('Live transcript stopped. Review the notes if you want, then submit your speaking evidence.', 'done');
+        }
       };
       speechRecognizer.start();
-      startSpeakingTimer();
-      return false;
+      if(autoStartTimer) startSpeakingTimer();
+      return true;
     }catch(err){
       speechRecognizing = false;
-      setSpeechStatus(`Could not start voice input: ${err.message || err}`, 'warn');
+      setSpeechStatus(`Live transcript could not start. Keep speaking with the timer and add notes if you want.`, 'warn');
+      if(autoStartTimer) startSpeakingTimer();
       return false;
     }
   }
 
-  function stopSpeechToText(){
+  function stopSpeechToText(options={}){
     try{
       if(speechRecognizer && speechRecognizing){
         speechRecognizer.stop();
       }
-      stopSpeakingTimer();
-      setSpeechStatus('Voice input stopped. Review and edit your words below.', 'done');
+      if(options.stopTimer !== false) stopSpeakingTimer();
+      setSpeechStatus('Speaking finished. Review the transcript only if you want to add or correct evidence notes.', 'done');
     }catch(err){
-      setSpeechStatus(`Could not stop voice input: ${err.message || err}`, 'warn');
+      setSpeechStatus(`Live transcript could not stop cleanly. Your timer result is still saved.`, 'warn');
+      if(options.stopTimer !== false) stopSpeakingTimer();
     }
     return false;
   }
@@ -38574,11 +38573,13 @@
   function startSpeakingTimer(){
     speakingSeconds = 0;
     const box = document.getElementById('speakingTimerBox');
-    const btn = document.getElementById('startSpeakBtn');
-    if(btn) btn.disabled = true;
+    const startBtn = document.getElementById('startSpeakBtn');
+    const finishBtn = document.getElementById('finishSpeakBtn');
+    if(startBtn) startBtn.disabled = true;
+    if(finishBtn) finishBtn.disabled = false;
     if(box){
       box.classList.add('active');
-      box.innerHTML = '<b>Speaking now...</b> <span id="speakingTime">00:00</span><br><span class="mini-note">พูดจริงตาม prompt ก่อน แล้วค่อยติ๊ก checklist/ใส่ notes เป็นหลักฐานเสริม</span>';
+      box.innerHTML = '<b>Speaking now...</b> <span id="speakingTime">00:00</span><br><span class="mini-note">Speak first. Live transcript is optional evidence, not the task itself.</span>';
     }
     clearInterval(speakingTimer);
     speakingTimer = setInterval(()=>{
@@ -38594,62 +38595,107 @@
 
   function stopSpeakingTimer(){
     clearInterval(speakingTimer);
-    const btn = document.getElementById('startSpeakBtn');
-    if(btn) btn.disabled = false;
+    const startBtn = document.getElementById('startSpeakBtn');
+    const finishBtn = document.getElementById('finishSpeakBtn');
+    if(startBtn) startBtn.disabled = false;
+    if(finishBtn) finishBtn.disabled = true;
     const box = document.getElementById('speakingTimerBox');
     if(box){
       const m = String(Math.floor(speakingSeconds/60)).padStart(2,'0');
       const s = String(speakingSeconds%60).padStart(2,'0');
       box.classList.add('active');
-      box.innerHTML = `<b>Speaking completed:</b> ${m}:${s}<br><span class="mini-note">ตอนนี้ใส่ evidence notes/transcript สั้น ๆ หรือ reflection เพื่อบันทึก portfolio</span>`;
+      box.innerHTML = `<b>Speaking finished:</b> ${m}:${s}<br><span class="mini-note">Tick the parts you included. Transcript/notes are optional and help AI give more detailed feedback.</span>`;
     }
   }
 
 
   function renderSpeakingMission(id){
-    const s = getSession(safeMissionSessionId(id)), mv = pickMissionVariant(s.id, 'Speaking'), prompt = speakingPromptFromVariant(s, mv);
-    const speakAlign = alignmentFor('Speaking', s.id, prompt);
-    const abilityTask = buildAbilityTask('Speaking', s.id, {topic:mv.topic, passage:mv.passage, variant:mv.variant, goldPack:mv.goldPack});
-    prompt.instruction = `${prompt.instruction} ${abilityTask.instruction || ''}`.trim();
+    const s = getSession(safeMissionSessionId(id));
+    const mv = pickMissionVariant(s.id, 'Speaking');
+    const abilityTask = buildAbilityTask('Speaking', s.id, {
+      topic:mv.topic,
+      passage:mv.passage,
+      variant:mv.variant,
+      goldPack:mv.goldPack
+    });
+    const source = goldTaskSource(abilityTask) || mv.goldPack?.source || null;
     const speakingDifficulty = currentSkillDifficulty('Speaking');
+    const timing = speakingTimeRangeForTask(abilityTask);
+    const sourceTitle = source?.title || mv.topic || 'this source';
+    const sourceDetail = source?.evidence || source?.passage || mv.passage || '';
+    const prompt = {
+      title:sourceTitle,
+      instruction:buildSpeakingTaskBrief(abilityTask, source),
+      topic:sourceTitle,
+      passage:sourceDetail,
+      source,
+      gold:!!abilityTask.gold,
+      variantId:abilityTask.id || mv.variant?.id || 'speaking'
+    };
+
     registerGoldTaskContext('Speaking', s.id, abilityTask);
-    layout(`<section class="panel" style="margin-top:20px">
-      <div class="badges"><span class="pill">Speaking Mission</span><span class="pill">S${s.id}</span><span class="pill">Presentation Practice</span></div>
-      <h2>🎤 Speaking Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
+    layout(`<section class="panel speaking-mission-panel" style="margin-top:20px">
+      <div class="badges">
+        <span class="pill">Speaking Mission</span>
+        <span class="pill">S${s.id}</span>
+        <span class="pill">${safe(s.skill)}</span>
+        <span class="pill">Speaking Support</span>
+      </div>
+      <h2>🎤 Speaking Mission: ${safe(sourceTitle)}</h2>
+      <div class="speaking-brief">
+        <b>Target: ${safe(timing)} seconds</b>
+        <span>${safe(prompt.instruction)}</span>
+      </div>
       ${goldAuthoredBadgeHTML(abilityTask)}
       ${abilityTaskHTML('Speaking', abilityTask)}
-      <input type="hidden" id="speakingPromptText" value="${safeAttr(prompt.instruction)}"><input type="hidden" id="speakingAbilityTaskId" value="${safeAttr(abilityTask.id)}"><input type="hidden" id="speakingMinSeconds" value="${Number(abilityTask.minSeconds || 25)}">
+      <input type="hidden" id="speakingPromptText" value="${safeAttr(prompt.instruction)}">
+      <input type="hidden" id="speakingAbilityTaskId" value="${safeAttr(abilityTask.id)}">
+      <input type="hidden" id="speakingMinSeconds" value="${Number(abilityTask.minSeconds || 25)}">
+      <input type="hidden" id="speakingGoldSourceId" value="${safeAttr(source?.id || abilityTask.sourceId || '')}">
+
       <div class="panel light speaking-oral-card">
-        <h3>🎙️ Oral Task First</h3>
-        <p><b>งานนี้คือ Speaking:</b> ให้ผู้เรียนพูดจริงก่อน ไม่ใช่พิมพ์ตอบเป็นหลัก</p>
-        <p class="mini-note"><b>Difficulty:</b> ${safe(speakingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Speaking', speakingDifficulty)))}</p>
-        <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${goldTaskAlignmentGuideHTML('Speaking', s.id, abilityTask, prompt)}${abilityTask.gold ? '' : cefrAIHelpNote('Speaking')}</div>
-        
-        <div class="footer-actions">
-          <button id="startSpeakBtn" class="btn primary" onclick="EAPHero.startSpeakingTimer()">🎙️ Start Speaking</button>
-          <button class="btn" onclick="EAPHero.stopSpeakingTimer()">⏹ I Finished Speaking</button>
+        <div class="speaking-oral-head">
+          <div>
+            <h3>🎙 Speak first, then save your evidence</h3>
+            <p>พูดจริงตามเวลาเป้าหมายก่อน ระบบจะเปิด Live Transcript ให้อัตโนมัติเมื่อเบราว์เซอร์รองรับ</p>
+          </div>
+          <span class="speaking-time-chip">${safe(timing)} sec</span>
         </div>
-        <div id="speakingTimerBox" class="speaking-timer-box">กด Start Speaking แล้วพูดตาม prompt ตามเวลาที่ AI เลือกให้</div>
+        <div class="speaking-target-row">
+          <span>1. Topic</span><span>2. One source detail</span><span>3. Clear closing</span>
+        </div>
+        ${goldTaskAlignmentGuideHTML('Speaking', s.id, abilityTask, prompt)}
+        <div class="speaking-flow-controls">
+          <button id="startSpeakBtn" class="btn primary" onclick="return EAPHero.startSpeakingFlow()">🎙 Start Speaking</button>
+          <button id="finishSpeakBtn" class="btn" onclick="return EAPHero.finishSpeakingFlow()" disabled>⏹ I Finished Speaking</button>
+        </div>
+        <div id="speakingTimerBox" class="speaking-timer-box">Ready: press Start Speaking. Aim for ${safe(timing)} seconds.</div>
+        <div class="speaking-live-status">
+          <b>🗣 Live transcript</b>
+          <span id="speechStatusBox" class="speech-status info">${speechSupported() ? 'Will start automatically after you press Start Speaking.' : 'Not supported here — keep speaking with the timer; notes stay optional.'}</span>
+        </div>
+        <div id="speechInterimBox" class="speech-interim"></div>
       </div>
+
       ${independentReplayBannerHTML('Speaking', s.id)}
       ${renderAIHelpBox('Speaking', s.id)}
-      <label class="label">Optional evidence notes / transcript</label>
-      
-        <div class="voice-input-panel">
-          <h3>🎙 Voice Input / Speech-to-Text</h3>
-          <p class="mini-note">กด Start Voice Input แล้วพูดเป็นภาษาอังกฤษ ระบบจะพยายามถอดคำพูดลงในช่อง notes/transcript ด้านล่าง จากนั้นแก้ไขก่อน Submit ได้</p>
-          <div class="footer-actions">
-            <button type="button" id="voiceStartBtn" class="btn primary" onclick="return EAPHero.startSpeechToText()">🎙 Start Voice Input</button>
-            <button type="button" id="voiceStopBtn" class="btn" onclick="return EAPHero.stopSpeechToText()" disabled>⏹ Stop Voice Input</button>
-          </div>
-          <div id="speechStatusBox" class="speech-status info">${speechSupported() ? 'Voice input ready in supported browsers.' : 'Speech-to-text may not be supported in this browser.'}</div>
-          <div id="speechInterimBox" class="speech-interim"></div>
-        </div>
 
-      <textarea id="speakingTranscript" class="input speaking-evidence-box answer-box large-speaking-box" rows="12" data-default-rows="12" placeholder="${safeAttr(alignedPlaceholder('Speaking', s.id, prompt))}"></textarea>
-      <p class="mini-note speaking-check-note">หลังพูดแล้ว ติ๊กสิ่งที่พูดมี ก่อน Submit Speaking Evidence</p>
-      <div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spSpoke"> I spoke</label><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing/Q&A</label></div>
-      <div class="footer-actions"><button class="btn primary submit-speaking-btn" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+      <label class="label speaking-evidence-label">Optional transcript / evidence notes</label>
+      <p class="mini-note speaking-evidence-note">Live transcript will appear here when available. You may also type a few words after speaking. It helps feedback, but does not replace the oral task.</p>
+      <textarea id="speakingTranscript" class="input speaking-evidence-box answer-box compact-speaking-box" rows="6" data-default-rows="6" placeholder="${safeAttr(speakingTranscriptPlaceholder(abilityTask, source))}"></textarea>
+
+      <p class="mini-note speaking-check-note">After speaking, tick only the parts you actually included.</p>
+      <div class="speaking-checklist">
+        <label class="choice"><input type="checkbox" id="spSpoke"> I spoke for the target time</label>
+        <label class="choice"><input type="checkbox" id="spOpen"> Topic / opening</label>
+        <label class="choice"><input type="checkbox" id="spEvi"> One source detail</label>
+        <label class="choice"><input type="checkbox" id="spClose"> Clear closing</label>
+        <label class="choice optional-check"><input type="checkbox" id="spSign"> Optional signpost</label>
+      </div>
+      <div class="footer-actions">
+        <button class="btn primary submit-speaking-btn" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button>
+        <button class="btn ghost" onclick="EAPHero.renderSkillPath(${s.id})">Back to Session Path</button>
+      </div>
     </section>`);
   }
 
@@ -38657,9 +38703,30 @@
   function speakingPromptFromVariant(s, mv){
     const v = mv.variant || {};
     const matrix = finalMatrixForSession(s.id);
+    const gold = mv.goldPack || null;
+    const source = gold?.source || null;
+    if(gold && source){
+      const tier = gold.tier || 'easy';
+      const ranges = {
+        easy:'25–35',
+        normal:'35–45',
+        hard:'50–60',
+        challenge:'60–75'
+      };
+      const range = ranges[tier] || '25–35';
+      return {
+        title:source.title || `${matrix.theme} Speaking Task`,
+        instruction:`Speak for about ${range} seconds. State the topic, give one source detail, and finish with a clear closing.`,
+        topic:source.title || mv.topic,
+        passage:source.passage || mv.passage,
+        source,
+        gold:true,
+        variantId:gold.id || v.id || 'speaking'
+      };
+    }
     return {
       title:v.title || `${matrix.theme} Speaking Challenge`,
-      instruction:`Topic: ${mv.topic}. ${v.instruction || 'Give a short academic explanation.'} Include opening, one source-based point, one example/evidence, and a closing. Source idea: ${mv.passage}`,
+      instruction:`Topic: ${mv.topic}. ${v.instruction || 'Give a short academic explanation.'} Include an opening, one support point, and a closing.`,
       topic:mv.topic,
       passage:mv.passage,
       variantId:v.id || 'speaking'
@@ -38674,19 +38741,69 @@
   }
 
   function submitSpeaking(id){
-    const s = getSession(id), out = document.getElementById('speakingTranscript')?.value.trim() || '';
+    const s = getSession(id);
+    const out = document.getElementById('speakingTranscript')?.value.trim() || '';
     const prompt = document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction;
-    let extra = 0;
-    if(document.getElementById('spOpen')?.checked) extra += 8;
-    if(document.getElementById('spSign')?.checked) extra += 8;
-    if(document.getElementById('spEvi')?.checked) extra += 8;
-    if(document.getElementById('spClose')?.checked) extra += 6;
     const requiredSpeakingSeconds = Number(document.getElementById('speakingMinSeconds')?.value || 25);
-    if(document.getElementById('spSpoke')?.checked || speakingSeconds >= requiredSpeakingSeconds) extra += 10;
-    let score = scoreEAPOpenAnswer('Speaking', id, out, prompt, extra);
+    const goldSourceId = (document.getElementById('speakingGoldSourceId')?.value || '').toUpperCase();
+    const checklist = {
+      spoke:!!document.getElementById('spSpoke')?.checked,
+      opening:!!document.getElementById('spOpen')?.checked,
+      evidence:!!document.getElementById('spEvi')?.checked,
+      closing:!!document.getElementById('spClose')?.checked,
+      signposting:!!document.getElementById('spSign')?.checked
+    };
+
+    if(speakingSeconds < requiredSpeakingSeconds){
+      safeToast(`Speak for at least ${requiredSpeakingSeconds} seconds before submitting this mission.`);
+      const box = document.getElementById('speakingTimerBox');
+      if(box) box.classList.add('needs-time');
+      return;
+    }
+    if(!checklist.spoke){
+      safeToast('Please tick “I spoke for the target time” after you complete the oral task.');
+      return;
+    }
+    if(!checklist.opening || !checklist.evidence || !checklist.closing){
+      safeToast('Please confirm Topic / one source detail / clear closing before submitting.');
+      return;
+    }
+
+    const oralScore = Math.min(100,
+      45 + // completed target duration
+      10 + // learner confirms oral attempt
+      (checklist.opening ? 10 : 0) +
+      (checklist.evidence ? 18 : 0) +
+      (checklist.closing ? 12 : 0) +
+      (checklist.signposting ? 5 : 0)
+    );
+    const transcriptScore = out
+      ? scoreEAPOpenAnswer('Speaking', id, out, prompt, 0)
+      : 0;
+    let score = out
+      ? Math.round(oralScore * 0.78 + transcriptScore * 0.22)
+      : oralScore;
     const speakingDifficulty = currentSkillDifficulty('Speaking');
-    score = cefrScoreFloor('Speaking', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Speaking')), 'Speaking'), out);
-    addPortfolio({ session:id, skill:'Speaking', difficulty:speakingDifficulty.key, aiAbilityTier:speakingDifficulty.key, abilityTaskId:document.getElementById('speakingAbilityTaskId')?.value || '', speakingSeconds, score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt });
+    score = Math.max(0, Math.min(100, Math.round(score - aiPenaltyForPortfolio(id, 'Speaking'))));
+
+    addPortfolio({
+      session:id,
+      skill:'Speaking',
+      difficulty:speakingDifficulty.key,
+      aiAbilityTier:speakingDifficulty.key,
+      abilityTaskId:document.getElementById('speakingAbilityTaskId')?.value || '',
+      goldSourceId,
+      speakingSeconds,
+      requiredSpeakingSeconds,
+      oralChecklist:checklist,
+      oralScore,
+      transcriptScore,
+      evidenceMode:out ? 'live-or-manual-transcript' : 'timer-and-self-checklist',
+      score,
+      aiUses:aiUsesFor(id,'Speaking'),
+      output:out,
+      prompt
+    });
     showSkillResult('Speaking', score, id);
   }
 
@@ -39436,7 +39553,7 @@
 
 
 
-  /* === v1z69 Student Replay + Progress Session Path === */
+  /* === v1z70 Speaking Oral Flow + Source Alignment === */
   const EAP_ANTI_MEMORIZATION_ENGINE = Object.freeze({
     version:'v1z62',
     scenariosPerSession:16,
@@ -41454,7 +41571,7 @@
   }
 
 
-  /* === v1z69 Student Replay + Progress Session Path === */
+  /* === v1z70 Speaking Oral Flow + Source Alignment === */
   const EAP_GOLD_BANK_ENGINE = Object.freeze({version:'v1z64',authoredSourcesPerSession:8,authoredSourcesTotal:120,questionAnglesPerTier:4,candidateMCQPerSession:128,candidateMCQTotal:1920,coreSupportTaskPacks:960,rule:'Gold authored sources are selected first; source, question angle, and answer position rotate before reuse.'});
   const EAP_GOLD_QUESTION_ANGLES={easy:['Which response best matches the source?','What is the clearest action or idea in this source?','Which choice directly follows the study situation?','Which answer uses the main point from the source?'],normal:['Which response connects the source idea with its supporting detail?','Which choice explains the relationship in this source most clearly?','Which answer uses the evidence instead of a small unrelated detail?','Which study decision is best supported by this source?'],hard:['Which response makes the most careful evidence-based interpretation?','Which choice explains a useful conclusion without overclaiming?','Which response identifies a reason, evidence, or limit from the source?','Which answer shows critical use of the source information?'],challenge:['Which balanced judgement is best supported by the source?','Which response makes a justified conclusion and still names a limitation?','Which choice compares the evidence with a careful condition?','Which B1+ conclusion avoids both overclaiming and underusing evidence?']};
   function goldBankRoot(){return (typeof window!=='undefined'&&window.EAP_GOLD_AUTHORED_BANK)?window.EAP_GOLD_AUTHORED_BANK:null;}
@@ -41485,7 +41602,7 @@
 
 
 
-  /* === v1z69 Student Replay + Progress Session Path === */
+  /* === v1z70 Speaking Oral Flow + Source Alignment === */
   const EAP_GOLD_TASK_ALIGNMENT = Object.freeze({
     version:'v1z65',
     rule:'Gold authored source → task-specific help → source-aware AI hint. No legacy generic frame may override a Gold task.',
@@ -41752,7 +41869,7 @@
 
 
 
-  /* === v1z69 Student Replay + Progress Session Path === */
+  /* === v1z70 Speaking Oral Flow + Source Alignment === */
   const EAP_GOLD_SOURCE_INTEGRITY = Object.freeze({
     version:'v1z66',
     rule:'A Gold source must show only its own scenario text. Generic Session explanations belong in help, not in the source passage.'
@@ -41779,7 +41896,7 @@
   }
 
 
-  /* === v1z69 Student Replay + Progress Session Path === */
+  /* === v1z70 Speaking Oral Flow + Source Alignment === */
   const EAP_SCORE_RUBRIC_RECONCILIATION = Object.freeze({
     version:'v1z67',
     rule:'Mission Task Score, formative task checklist, and independence evidence are separate signals. They must not look like competing grades.',
@@ -41902,7 +42019,7 @@
     };
   }
 
-  function aiFormativeRubric(entry){
+  function legacyTaskAlignedAIFormativeRubricV1z67(entry){
     const p = entry || {};
     const skill = normalizeAbilitySkill(p.skill);
     const source = goldSourceFromEntry(p);
@@ -42012,6 +42129,133 @@
   }
 
 
+
+  /* === v1z70 Speaking Oral Flow + Source Alignment === */
+  const EAP_SPEAKING_ORAL_FLOW = Object.freeze({
+    version:'v1z70',
+    rule:'Speaking is an oral task first. Timer + required oral checklist create the mission score; transcript is optional evidence that improves feedback.',
+    a2Rule:'A2 Foundation uses one topic, one source detail, and one clear closing. Signposting is optional.'
+  });
+
+  function speakingTimeRangeForTask(task){
+    const ranges = {
+      easy:'25–35',
+      normal:'35–45',
+      hard:'50–60',
+      challenge:'60–75'
+    };
+    return ranges[task?.tier || currentSkillDifficulty('Speaking').key || 'easy'] || '25–35';
+  }
+
+  function buildSpeakingTaskBrief(task, source){
+    const time = speakingTimeRangeForTask(task);
+    const title = source?.title || task?.topic || 'this source';
+    const sourceIdea = source?.main || source?.evidence || source?.passage || '';
+    const compactIdea = String(sourceIdea).replace(/\s+/g,' ').trim();
+    return `Speak for about ${time} seconds about “${title}.” State the topic, give one source detail, and finish with a clear closing.${compactIdea ? ` Source focus: ${compactIdea}` : ''}`;
+  }
+
+  function speakingTranscriptPlaceholder(task, source){
+    const title = source?.title || task?.topic || 'this source';
+    const keys = Array.isArray(source?.keywords) ? source.keywords : [];
+    const clue = keys.length ? keys.slice(0,3).join(', ') : 'one source detail';
+    return `Optional evidence notes / live transcript for “${title}”. Example: Today, I will explain ___. One source detail is ___. In conclusion, ___. Useful words: ${clue}.`;
+  }
+
+  function startSpeakingFlow(){
+    startSpeakingTimer();
+    if(speechSupported()){
+      startSpeechToText({autoStartTimer:false, quietUnsupported:true});
+    }else{
+      setSpeechStatus('Live transcript is not supported here. Continue speaking with the timer; notes are optional.', 'warn');
+    }
+    return false;
+  }
+
+  function finishSpeakingFlow(){
+    if(speechRecognizer && speechRecognizing){
+      stopSpeechToText({stopTimer:true});
+    }else{
+      stopSpeakingTimer();
+      setSpeechStatus('Speaking finished. Add or correct notes only if you want AI feedback on language.', 'done');
+    }
+    const spoke = document.getElementById('spSpoke');
+    if(spoke && speakingSeconds > 0) spoke.checked = true;
+    return false;
+  }
+
+  function speakingChecklistValue(entry, key){
+    const checks = entry?.oralChecklist || {};
+    return !!checks[key];
+  }
+
+  function taskAlignedGoldSpeakingRubric(entry, source){
+    const p = entry || {};
+    const required = Math.max(1, Number(p.requiredSpeakingSeconds || 25));
+    const seconds = Math.max(0, Number(p.speakingSeconds || 0));
+    const transcript = String(p.output || '').trim();
+    const transcriptWords = transcript ? transcript.split(/\s+/).filter(Boolean).length : 0;
+    const durationScore = seconds >= required ? 4 : seconds >= Math.round(required * .8) ? 3 : seconds > 0 ? 1 : 0;
+    const openingScore = speakingChecklistValue(p,'opening') ? 4 : 0;
+    const evidenceScore = speakingChecklistValue(p,'evidence') ? 4 : 0;
+    const closingScore = speakingChecklistValue(p,'closing') ? 4 : 0;
+    const transcriptScore = transcriptWords >= 18 ? 4 : transcriptWords >= 8 ? 3 : transcriptWords > 0 ? 2 : 1;
+    const criteria = [
+      aiSuiteCriterion('Speaking','fluency',durationScore, `${seconds}/${required} seconds on task`),
+      aiSuiteCriterion('Speaking','opening',openingScore, speakingChecklistValue(p,'opening') ? 'topic/opening confirmed' : 'topic/opening not confirmed'),
+      aiSuiteCriterion('Speaking','evidence',evidenceScore, speakingChecklistValue(p,'evidence') ? 'one source detail confirmed' : 'source detail not confirmed'),
+      aiSuiteCriterion('Speaking','qa',closingScore, speakingChecklistValue(p,'closing') ? 'clear closing confirmed' : 'clear closing not confirmed'),
+      aiSuiteCriterion('Speaking','signposting',transcriptScore, transcriptWords ? `${transcriptWords} transcript/note words for language feedback` : 'no transcript — timer and oral checklist remain the main evidence')
+    ];
+    criteria[0].label = 'Time on Task';
+    criteria[1].label = 'Topic / Opening';
+    criteria[2].label = 'Source Detail';
+    criteria[3].label = 'Clear Closing';
+    criteria[4].label = 'Transcript / Notes (optional)';
+    const total = Math.round(criteria.reduce((sum,c)=>sum + Number(c.score || 0),0) / (criteria.length * 4) * 100);
+    const strengths = criteria.filter(c=>c.score>=3).slice(0,2);
+    const growth = criteria.filter(c=>c.score<3).sort((a,b)=>a.score-b.score).slice(0,2);
+    const weakest = growth[0]?.label || '';
+    const nextStep = weakest === 'Time on Task'
+      ? `Next time, keep speaking until the ${required}-second target is reached.`
+      : weakest === 'Topic / Opening'
+        ? 'Next time, begin by naming the source topic.'
+        : weakest === 'Source Detail'
+          ? `Next time, add one source detail from “${source.title}”.`
+          : weakest === 'Clear Closing'
+            ? 'Next time, finish with one clear concluding sentence.'
+            : transcriptWords === 0
+              ? 'Optional: keep a short transcript or note to receive more detailed language feedback.'
+              : 'Try a fresh Gold source at the same AI level.';
+    const didWell = strengths.length
+      ? `Strongest oral evidence: ${strengths.map(x=>x.label).join(' and ')}.`
+      : 'Your timer and checklist were recorded. Use the three oral targets on the next attempt.';
+    return {
+      skill:'Speaking',
+      total,
+      criteria,
+      strengths:strengths.map(x=>x.label),
+      growth:growth.map(x=>x.label),
+      didWell,
+      nextStep,
+      sourceAligned:true,
+      sourceId:source.id,
+      sourceTitle:source.title,
+      oralFirst:true,
+      note:'This checklist matches the actual Speaking task: time, topic/opening, source detail, and closing. Transcript is optional evidence, not a second oral task.',
+      at:new Date().toISOString()
+    };
+  }
+
+  function aiFormativeRubric(entry){
+    const p = entry || {};
+    const skill = normalizeAbilitySkill(p.skill);
+    const source = goldSourceFromEntry(p);
+    if(skill === 'Speaking' && source) return taskAlignedGoldSpeakingRubric(p, source);
+    return legacyTaskAlignedAIFormativeRubricV1z67(p);
+  }
+
+
   // public API for inline handlers
   window.EAPHero = {
     home:renderHome,
@@ -42109,6 +42353,13 @@
     taskAlignedGoldReadingRubric,
     reconcileLearningReportsV1z67,
     reportStatusLabel,
+    EAP_SPEAKING_ORAL_FLOW,
+    speakingTimeRangeForTask,
+    buildSpeakingTaskBrief,
+    speakingTranscriptPlaceholder,
+    startSpeakingFlow,
+    finishSpeakingFlow,
+    taskAlignedGoldSpeakingRubric,
 
     EAP_SELF_PRACTICE_CORE,
     selfPracticeCoreHTML,
