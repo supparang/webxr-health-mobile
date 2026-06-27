@@ -6693,18 +6693,37 @@ loadProfileToForm();
 })();
 </script>
 
-<!-- S1 AR result bridge remains safe to load globally -->
-<script src="./js/aiquest-s1-ar-result-bridge-v369.js?v=20260627-s1result385"></script>
-<script src="./js/aiquest-s1-ar-entry-v387.js?v=20260627-s1entry387"></script>
+</script>
 
-<!-- S2 AR: Agent Builder -->
-<script src="./js/aiquest-s2-ar-route-fix-v386.js?v=20260627-s2route386"></script>
-<script src="./js/aiquest-s2-ar-practice-v387.js?v=20260627-s2hand387"></script>
-<script src="./js/aiquest-s2-ar-result-bridge-v381.js?v=20260627-s2result381"></script>
-<script src="./js/aiquest-s2-ar-entry-v381.js?v=20260627-s2entry381"></script>
-<script src="./js/aiquest-s2-ar-click-hotfix-v383.js?v=20260627-s2click383"></script>
-<script src="./js/aiquest-s2-ar-direct-launch-v386.js?v=20260627-s2direct386"></script>
-  <script src="./js/aiquest-ar-stabilizer-v388.js?v=20260627-arstable388"></script>
-  <script src="./js/aiquest-ar-duplicate-cleanup-v389.js?v=20260627-ardedupe389"></script>
+<!-- AR Router: load S1 engine only when entering S1 AR -->
+<script>
+(function(){
+  'use strict';
+
+  var q = new URLSearchParams(location.search);
+  var session = String(q.get('session') || '').toLowerCase();
+  var ar = String(q.get('ar') || '').toLowerCase();
+
+  var isS1 = (session === 's1' || session === 'm1');
+  var isS1Ar = isS1 && (ar === 'hand' || ar === 'scanner' || ar === 'object');
+
+  if(isS1Ar){
+    document.write('<script src="./js/aiquest-s1-ar-practice-v364.js?v=20260627-s1ar-router390"><\/script>');
+    document.write('<script src="./js/aiquest-s1-ar-hand-hotfix-v364.js?v=20260627-s1hand-router390"><\/script>');
+  }
+})();
+</script>
+
+<!-- S1 AR result event -->
+<script src="./js/aiquest-s1-ar-result-bridge-v369.js?v=20260627-s1result392"></script>
+
+<!-- S2 AR engine + result event -->
+<script src="./js/aiquest-s2-ar-route-fix-v386.js?v=20260627-s2route392"></script>
+<script src="./js/aiquest-s2-ar-practice-v387.js?v=20260627-s2practice392"></script>
+<script src="./js/aiquest-s2-ar-result-bridge-v381.js?v=20260627-s2result392"></script>
+
+<!-- One launcher only -->
+<script src="./js/aiquest-ar-launcher-final-v392.js?v=20260627-arfinal392"></script>
+
 </body>
 </html>
