@@ -6674,15 +6674,21 @@ loadProfileToForm();
 })();
 </script>
 <!-- AR Router v3.8.5: load S1 AR engine only for S1 -->
+<!-- AR Router: load S1 AR engine only when entering AR -->
 <script>
 (function(){
   'use strict';
+
   var q = new URLSearchParams(location.search);
   var session = String(q.get('session') || '').toLowerCase();
+  var ar = String(q.get('ar') || '').toLowerCase();
 
-  if(session === 's1' || session === 'm1'){
-    document.write('<script src="./js/aiquest-s1-ar-practice-v364.js?v=20260627-s1ar385"><\/script>');
-    document.write('<script src="./js/aiquest-s1-ar-hand-hotfix-v364.js?v=20260627-s1hand385"><\/script>');
+  var isS1 = (session === 's1' || session === 'm1');
+  var isS1Ar = isS1 && (ar === 'hand' || ar === 'scanner' || ar === 'object');
+
+  if(isS1Ar){
+    document.write('<script src="./js/aiquest-s1-ar-practice-v364.js?v=20260627-s1ar-router390"><\/script>');
+    document.write('<script src="./js/aiquest-s1-ar-hand-hotfix-v364.js?v=20260627-s1hand-router390"><\/script>');
   }
 })();
 </script>
