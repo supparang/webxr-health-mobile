@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z67-score-rubric-independence-reconciliation';
+  const APP_VERSION = '20260610-v1z68-session-path-self-practice-ui-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32081,7 +32081,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z67</div>
+              <div class="mini-note">Save the Society • v1z68</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32103,6 +32103,7 @@
         ${content}
       </div>
     `;
+    resetViewToTopSoon();
     runTrueStudentUILockSoon();
     runAIHelpRepairSoon();
     runBossGateUICleanupSoon();
@@ -32630,7 +32631,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z67</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z68</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -36039,49 +36040,102 @@
   }
 
 
+
+  /* === v1z68 Session Path Self-Practice UI Fix === */
+  const EAP_SESSION_PATH_SELF_PRACTICE = Object.freeze({
+    version:'v1z68',
+    rule:'Student Session Path always shows Core + Support together. Both are self-practice missions; no Four Skills Hub or Debug route appears in Student Flow.'
+  });
+
+  function isStudentCourseFlow(){
+    try{
+      return typeof isStudentRole === 'function' ? !!isStudentRole() : roleMode() === 'student';
+    }catch(err){
+      return true;
+    }
+  }
+
+  function sessionMissionCardSummaryHTML(sessionId, skill, role, done){
+    const sid = Number(sessionId || 1);
+    const q = sessionQuality(sid);
+    const diff = currentSkillDifficulty(skill);
+    const core = role === 'Core';
+    const roleText = core ? 'Step 1 · Core Mission · Recommended first' : 'Step 2 · Support Mission · Available now';
+    const description = core
+      ? `Build the main ${safe(skill)} skill for this Session through a fresh source-based task.`
+      : `Apply the same Session focus through ${safe(skill)} to complete the self-practice path.`;
+    return `<div class="hud-card session-mission-card ${core ? 'core-card' : 'support-card'} ${done ? 'ok' : ''}">
+      <div class="session-mission-card-top">
+        <span class="session-mission-role">${safe(roleText)}</span>
+        <span class="session-mission-level">${safe(diff.label || 'A2 Foundation')}</span>
+      </div>
+      <h3>${done ? '✅' : core ? '🎯' : '🧩'} ${safe(skill)}</h3>
+      <p class="session-mission-description">${description}</p>
+      <div class="session-mission-focus">
+        <b>Session focus</b>
+        <span>${safe(q.objective || `Practice ${skill} for this Session.`)}</span>
+      </div>
+      <p class="mini-note session-mission-note">After Start, AI selects a fresh Gold source and a level-specific task for ${safe(skill)}. Help remains optional and never blocks progress.</p>
+      <button type="button" class="btn primary block js-skill-mission-btn session-mission-start" data-skill="${safeAttr(skill)}" data-session="${sid}" onclick="return EAPHero.openSkillMissionFromButton(this)">${done ? `Replay ${safe(skill)}` : `Start ${safe(skill)}`}</button>
+    </div>`;
+  }
+
+  function resetViewToTopSoon(){
+    const goTop = ()=>{
+      try{
+        window.scrollTo({top:0, left:0, behavior:'auto'});
+      }catch(err){
+        try{ window.scrollTo(0,0); }catch(_){}
+      }
+    };
+    if(typeof requestAnimationFrame === 'function') requestAnimationFrame(goTop);
+    else setTimeout(goTop, 0);
+  }
+
+
   function renderSkillPath(sessionId){
     setTimeout(()=>attachSafeBossGateNotice(Number(arguments[0] || state.currentSession || 1)), 120);
-
     try{
+      setTimeout(runBossGateUICleanupSoon, 0);
 
-    setTimeout(runBossGateUICleanupSoon, 0);
+      const s = getSession(Number(sessionId || 1));
+      const path = skillPathForSession(s.id);
+      const gate = bossGateForSession(s.id);
+      const studentFlow = isStudentCourseFlow();
+      const visibleSkills = Array.from(new Set([path.core, path.support].filter(Boolean)));
+      const cards = visibleSkills.map(skill=>{
+        const role = skill === path.core ? 'Core' : 'Support';
+        const done = portfolioEvidence(s.id, skill).length > 0;
+        return sessionMissionCardSummaryHTML(s.id, skill, role, done);
+      }).join('');
 
-    const s = getSession(Number(sessionId || 1));
-    const path = skillPathForSession(s.id);
-    const gate = bossGateForSession(s.id);
-    const visibleSkills = isSimpleMode()
-      ? [path.core].concat(featureUnlocked('supportMission') ? [path.support] : [])
-      : ['Reading','Writing','Listening','Speaking'];
-    const cards = visibleSkills.map(skill=>{
-      const required = skill === path.core ? 'Core' : skill === path.support ? 'Support' : 'Optional';
-      const done = portfolioEvidence(s.id, skill).length > 0;
-      const fn = skill.toLowerCase();
-      const locked = isSimpleMode() && required === 'Support' && !featureUnlocked('supportMission');
-      return `<div class="hud-card ${done?'ok':''} ${locked?'locked':''}">
-        <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
-        <p class="mini-note">${required} Mission ${locked?'• Locked until Lv.2':''}</p>
-        ${sessionQualityHTML(s.id)}
-        ${sessionIsNotBossNote(s.id)}
-        ${safeBossGateNoticeHTML(s.id)}
-        <button type="button" class="btn ${required==='Optional'?'ghost':'primary'} block js-skill-mission-btn" ${locked?'disabled':''} data-skill="${safeAttr(skill)}" data-session="${s.id}" onclick="return EAPHero.openSkillMissionFromButton(this)">${done?'Replay':'Start'} ${safe(skill)}</button>
-      </div>`;
-    }).join('');
-    const hiddenNote = isSimpleMode() ? `<div class="panel light" style="margin-top:12px"><b>Simple Mode:</b> ตอนนี้ให้ทำ Core Mission ก่อน ${featureUnlocked('supportMission') ? 'และ Support Mission ได้แล้ว' : 'Support Mission จะปลดหลังมี progress/evidence เพิ่ม'}</div>` : '';
-    layout(`
-      <section class="panel" style="margin-top:20px">
-        <div class="badges"><span class="pill">Skill Path Lock</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
-        <h2>Session ${s.id} Path: ${safe(s.title || s.skill)}</h2>
-        <p class="lead">นี่คือหน้าหลักหลังจากเลือก Session บน Map: ทำ Core + Support Mission ด้วยตนเองเพื่อเก็บ Evidence แล้วค่อยปลด Boss Gate ตามช่วง</p>
-        <div class="panel light" style="margin:14px 0">
-          <b>Flow:</b> Map → Individual Core/Support Mission → Mini Check/Boss Gate → Map
-        </div>
-        ${selfPracticeCoreHTML(s.id)}
-        <div class="grid four">${cards}</div>
-        ${hiddenNote}
-        ${gate ? `<div class="panel light" style="margin-top:18px"><h3>Legacy Boss Gate Hidden: ${safe(gate.title)}</h3><p>${safe(gate.boss)}</p><p class="mini-note">Status: ${bossGateStatus(gate)?'✅ Unlocked':'🔒 Locked'} • ${safe(gate.unlock)}</p><button class="btn primary" onclick="EAPHero.bossGate('${gate.id}')">Open Checkpoint</button></div>` : ''}
-        <div class="footer-actions"><button class="btn" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost" onclick="EAPHero.map()">Map</button><button class="btn ghost small" onclick="return EAPHero.openSkillMission('Reading', ${s.id})">Debug: Open Reading</button></div>
-      </section>`);
-  
+      layout(`
+        <section class="panel session-path-panel" style="margin-top:20px">
+          <div class="badges">
+            <span class="pill">Self-Practice Path</span>
+            <span class="pill">S${s.id}</span>
+            <span class="pill">${safe(s.skill)}</span>
+            <span class="pill">Core + Support</span>
+          </div>
+          <h2>Session ${s.id}: ${safe(s.title || s.skill)}</h2>
+          <p class="lead">ฝึกด้วยตนเองให้ครบทั้ง Core และ Support Mission โดยแต่ละรอบจะได้ Gold Source และโจทย์ตามระดับ AI ของทักษะนั้น</p>
+          <div class="session-path-rule">
+            <b>Pass this Session:</b> Complete <strong>${safe(path.core)}</strong> and <strong>${safe(path.support)}</strong> at 60% or above.
+            <span>เริ่ม Core ก่อนจะดีที่สุด แต่ Support เปิดให้ฝึกได้ทันที</span>
+          </div>
+          ${selfPracticeCoreHTML(s.id)}
+          <div class="grid two session-path-missions">${cards}</div>
+          ${gate ? `<div class="session-checkpoint-card">
+            <b>🏁 Checkpoint after this Session group</b>
+            <span>${safe(gate.title || gate.boss || 'Boss Gate')} · ${bossGateStatus(gate) ? '✅ Ready to open' : '🔒 Complete the required Sessions first'}</span>
+          </div>` : ''}
+          <div class="footer-actions session-path-actions">
+            <button class="btn" onclick="EAPHero.map()">🗺️ Back to Map</button>
+            <button class="btn" onclick="EAPHero.renderStudentReports()">📘 My Learning Report</button>
+            ${studentFlow ? '' : `<button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost small" onclick="return EAPHero.openSkillMission('Reading', ${s.id})">Debug: Open Reading</button>`}
+          </div>
+        </section>
+      `);
     }catch(err){
       console.error('[renderSkillPath]', err);
       logRuntimeErrorSafe('renderSkillPath', err, {sessionId:(typeof sessionId!=='undefined'?sessionId:state.currentSession||1)});
@@ -37406,7 +37460,7 @@
   }
 
 
-  /* === v1z67 Score · Rubric · Independence Reconciliation: formative feedback, independence, teacher analytics === */
+  /* === v1z68 Session Path Self-Practice UI Fix: formative feedback, independence, teacher analytics === */
   const EAP_FULL_AI_SUITE = Object.freeze({
     version:'v1z63',
     studentFeatures:['Skill Profile','Ability-Adaptive Difficulty','No-Repeat Selector','AI Help','Formative Rubric','Independence Check','Prediction','Learning Coach'],
@@ -39346,7 +39400,7 @@
 
 
 
-  /* === v1z67 Score · Rubric · Independence Reconciliation === */
+  /* === v1z68 Session Path Self-Practice UI Fix === */
   const EAP_ANTI_MEMORIZATION_ENGINE = Object.freeze({
     version:'v1z62',
     scenariosPerSession:16,
@@ -41364,7 +41418,7 @@
   }
 
 
-  /* === v1z67 Score · Rubric · Independence Reconciliation === */
+  /* === v1z68 Session Path Self-Practice UI Fix === */
   const EAP_GOLD_BANK_ENGINE = Object.freeze({version:'v1z64',authoredSourcesPerSession:8,authoredSourcesTotal:120,questionAnglesPerTier:4,candidateMCQPerSession:128,candidateMCQTotal:1920,coreSupportTaskPacks:960,rule:'Gold authored sources are selected first; source, question angle, and answer position rotate before reuse.'});
   const EAP_GOLD_QUESTION_ANGLES={easy:['Which response best matches the source?','What is the clearest action or idea in this source?','Which choice directly follows the study situation?','Which answer uses the main point from the source?'],normal:['Which response connects the source idea with its supporting detail?','Which choice explains the relationship in this source most clearly?','Which answer uses the evidence instead of a small unrelated detail?','Which study decision is best supported by this source?'],hard:['Which response makes the most careful evidence-based interpretation?','Which choice explains a useful conclusion without overclaiming?','Which response identifies a reason, evidence, or limit from the source?','Which answer shows critical use of the source information?'],challenge:['Which balanced judgement is best supported by the source?','Which response makes a justified conclusion and still names a limitation?','Which choice compares the evidence with a careful condition?','Which B1+ conclusion avoids both overclaiming and underusing evidence?']};
   function goldBankRoot(){return (typeof window!=='undefined'&&window.EAP_GOLD_AUTHORED_BANK)?window.EAP_GOLD_AUTHORED_BANK:null;}
@@ -41395,7 +41449,7 @@
 
 
 
-  /* === v1z67 Score · Rubric · Independence Reconciliation === */
+  /* === v1z68 Session Path Self-Practice UI Fix === */
   const EAP_GOLD_TASK_ALIGNMENT = Object.freeze({
     version:'v1z65',
     rule:'Gold authored source → task-specific help → source-aware AI hint. No legacy generic frame may override a Gold task.',
@@ -41662,7 +41716,7 @@
 
 
 
-  /* === v1z67 Score · Rubric · Independence Reconciliation === */
+  /* === v1z68 Session Path Self-Practice UI Fix === */
   const EAP_GOLD_SOURCE_INTEGRITY = Object.freeze({
     version:'v1z66',
     rule:'A Gold source must show only its own scenario text. Generic Session explanations belong in help, not in the source passage.'
@@ -41689,7 +41743,7 @@
   }
 
 
-  /* === v1z67 Score · Rubric · Independence Reconciliation === */
+  /* === v1z68 Session Path Self-Practice UI Fix === */
   const EAP_SCORE_RUBRIC_RECONCILIATION = Object.freeze({
     version:'v1z67',
     rule:'Mission Task Score, formative task checklist, and independence evidence are separate signals. They must not look like competing grades.',

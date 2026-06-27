@@ -1,6 +1,6 @@
-# EAP Hero: Save the Society v1z67
+# EAP Hero: Save the Society v1z68
 
-## Score · Rubric · Independence Reconciliation
+## Session Path Self-Practice UI Fix
 Upload together:
 - index.html
 - eap-gold-item-bank.js
@@ -8,5 +8,8 @@ Upload together:
 - eap-hero.css
 - classroom-activity-pack.html
 
-v1z67 separates Mission Task Score, task-specific formative checklist,
-and AI-support / independence status.
+v1z68 repairs the Session Path layout:
+- Core + Support appear as two full self-practice cards
+- no empty 4-column grid in Simple Mode
+- no Four Skills Hub / Debug in Student Flow
+- automatic scroll-to-top after navigation

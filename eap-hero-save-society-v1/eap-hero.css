@@ -2272,3 +2272,135 @@ textarea.answer-box.reading-answer-box{
   background:#e0f2fe;
   color:#0c4a6e;
 }
+
+
+/* === v1z68 Session Path Self-Practice UI Fix === */
+.session-path-panel{
+  max-width:1180px;
+}
+.session-path-rule{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 12px;
+  align-items:center;
+  margin:14px 0;
+  padding:12px 14px;
+  border-radius:16px;
+  background:rgba(14,116,144,.20);
+  border:1px solid rgba(56,189,248,.34);
+  color:#e0f2fe;
+  line-height:1.5;
+}
+.session-path-rule strong{
+  color:#bbf7d0;
+}
+.session-path-rule span{
+  display:block;
+  width:100%;
+  color:#cbd5e1;
+  font-size:.9rem;
+}
+.session-path-missions{
+  margin-top:16px;
+  align-items:stretch;
+}
+.session-mission-card{
+  min-height:292px;
+  display:flex;
+  flex-direction:column;
+  padding:18px;
+}
+.session-mission-card.core-card{
+  border-color:rgba(45,212,191,.48);
+  background:linear-gradient(180deg,rgba(13,148,136,.18),rgba(15,23,42,.18));
+}
+.session-mission-card.support-card{
+  border-color:rgba(125,211,252,.44);
+  background:linear-gradient(180deg,rgba(30,64,175,.18),rgba(15,23,42,.18));
+}
+.session-mission-card-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+.session-mission-role,
+.session-mission-level{
+  display:inline-block;
+  padding:5px 9px;
+  border-radius:999px;
+  font-size:.8rem;
+  font-weight:900;
+}
+.session-mission-role{
+  color:#083344;
+  background:#ccfbf1;
+}
+.session-mission-level{
+  color:#1e3a8a;
+  background:#dbeafe;
+}
+.session-mission-card h3{
+  margin-bottom:8px;
+}
+.session-mission-description{
+  min-height:50px;
+  margin-bottom:12px;
+  line-height:1.5;
+  color:#e0f2fe;
+}
+.session-mission-focus{
+  display:grid;
+  gap:4px;
+  margin-bottom:10px;
+  padding:10px 11px;
+  border-radius:13px;
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.13);
+}
+.session-mission-focus b{
+  color:#a7f3d0;
+  font-size:.82rem;
+}
+.session-mission-focus span{
+  font-size:.94rem;
+  line-height:1.42;
+}
+.session-mission-note{
+  color:#cbd5e1;
+  line-height:1.45;
+  margin-bottom:14px;
+}
+.session-mission-start{
+  margin-top:auto;
+}
+.session-checkpoint-card{
+  display:grid;
+  gap:4px;
+  margin-top:16px;
+  padding:12px 14px;
+  border-radius:15px;
+  border:1px solid rgba(251,191,36,.36);
+  background:rgba(251,191,36,.10);
+  color:#fef3c7;
+}
+.session-checkpoint-card span{
+  color:#fde68a;
+  font-size:.9rem;
+}
+.session-path-actions{
+  margin-top:18px;
+}
+@media(max-width:760px){
+  .session-path-missions.grid.two{
+    grid-template-columns:1fr;
+  }
+  .session-mission-card{
+    min-height:0;
+  }
+  .session-mission-description{
+    min-height:0;
+  }
+}
