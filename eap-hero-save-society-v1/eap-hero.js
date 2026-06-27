@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z65-gold-task-aligned-help-ui-focus';
+  const APP_VERSION = '20260610-v1z66-gold-source-integrity-focus-ui';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32081,7 +32081,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z65</div>
+              <div class="mini-note">Save the Society • v1z66</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32630,7 +32630,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z65</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z66</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -36391,9 +36391,9 @@
   function renderAIHelpBox(skill, sessionId){
     sessionId = Number(sessionId || 1);
     if(typeof independenceReplayActive === 'function' && independenceReplayActive(sessionId, skill)){
-      return `<div class="panel light independence-ai-paused" style="margin:14px 0;border-style:dashed">
-        <div class="badges"><span class="pill">🛡 Independent Replay</span><span class="pill">AI Help paused</span></div>
-        <p class="mini-note">ทำรอบนี้ด้วยตนเองเพื่อสร้างหลักฐาน independent performance คะแนนและ feedback จะถูกเก็บแยกจากรอบที่ใช้ AI Help</p>
+      return `<div class="independence-replay-banner compact-replay">
+        <b>🛡 Independent Replay active</b>
+        <span>AI Help is paused for this attempt so your independent evidence can be checked.</span>
       </div>`;
     }
     const uses = aiUsesFor(sessionId, skill);
@@ -36407,23 +36407,18 @@
     const outputId = aiOutputId(skill, sessionId);
     const stage = uses < limit ? aiHelpStageLabel(uses + 1, limit) : 'Limit reached';
     const goldTask = currentGoldTaskContext(skill, sessionId);
-    const goldHelpLabel = goldTask?.gold ? `Source-specific • ${goldTask.sourceId || 'Gold Pack'}` : '';
-    const helpIntro = goldTask?.gold
-      ? 'AI Help will guide this exact source task without giving the answer.'
-      : 'AI Help ใช้เพื่อฝึกคิด: Hint → Draft feedback → Sentence frame/checklist ตามระดับความยาก';
-    return `
-      <div class="panel light ai-help-box" style="margin:14px 0;border-style:dashed">
-        <div class="badges">
-          <span class="pill">🤖 AI Mentor</span>
-          <span class="pill">${left}/${limit} left</span>
-          <span class="pill">${safe(stage)}</span>
-          <span class="pill">Scaffold only</span>
-          ${goldHelpLabel ? `<span class="pill gold-help-pill">${safe(goldHelpLabel)}</span>` : ''}
-        </div>
-        <p class="mini-note">${safe(helpIntro)}</p>
+    const goldLabel = goldTask?.gold ? ` · ${goldTask.sourceId || 'Gold Source'}` : '';
+    const intro = goldTask?.gold
+      ? 'Open only when you need a source-specific hint. AI will not provide the answer.'
+      : 'Open only when you need a hint, frame, or self-check.';
+    return `<details class="ai-help-drawer">
+      <summary>🤖 AI Mentor · ${left}/${limit} hints left · ${safe(stage)}${safe(goldLabel)}</summary>
+      <div class="ai-help-drawer-body">
+        <p>${safe(intro)}</p>
         <button type="button" class="btn ai-mentor-btn" ${left<=0?'disabled':''} onclick="EAPHero.aiHelp('${safeAttr(skill)}', ${sessionId}, '${draftId}', '${outputId}')">${safe(aiHelpButtonLabel(skill, sessionId))}</button>
         <div id="${outputId}" class="feedback info ai-output-box" style="margin-top:10px;display:none"></div>
-      </div>`;
+      </div>
+    </details>`;
   }
   function useAIHelp(skill, sessionId, draftInputId, outputId){
     if(typeof independenceReplayActive === 'function' && independenceReplayActive(sessionId, skill)){
@@ -37363,11 +37358,11 @@
       ${abilityTaskHTML('Reading', abilityTask)}
       <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}"><input type="hidden" id="readingAbilityTaskId" value="${safeAttr(abilityTask.id)}">
       <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
-      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${goldTaskAlignmentGuideHTML('Reading', s.id, abilityTask, text.variant || {})}${cefrAIHelpNote('Reading')}</div>
+      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${goldTaskAlignmentGuideHTML('Reading', s.id, abilityTask, text.variant || {})}${abilityTask.gold ? '' : cefrAIHelpNote('Reading')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(readingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading', readingDifficulty)))}</p>
       ${independentReplayBannerHTML('Reading', s.id)}
       ${renderAIHelpBox('Reading', s.id)}
-      ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="4"></textarea>`).join('')}
+      ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="2" placeholder="Write a short answer in English."></textarea>`).join('')}
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
@@ -37411,7 +37406,7 @@
   }
 
 
-  /* === v1z65 Gold Task-Aligned Help + UI Focus: formative feedback, independence, teacher analytics === */
+  /* === v1z66 Gold Source Integrity + Focus UI: formative feedback, independence, teacher analytics === */
   const EAP_FULL_AI_SUITE = Object.freeze({
     version:'v1z63',
     studentFeatures:['Skill Profile','Ability-Adaptive Difficulty','No-Repeat Selector','AI Help','Formative Rubric','Independence Check','Prediction','Learning Coach'],
@@ -37964,7 +37959,7 @@
       ${abilityTaskHTML('Writing', abilityTask)}
       <input type="hidden" id="writingPromptText" value="${safeAttr(prompt.instruction)}"><input type="hidden" id="writingAbilityTaskId" value="${safeAttr(abilityTask.id)}">
       <p class="mini-note">เป้าหมาย: ${safe(cefrSimplifyTask(prompt.target))} • auto-check เบื้องต้น</p>
-      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${goldTaskAlignmentGuideHTML('Writing', s.id, abilityTask, prompt)}${cefrAIHelpNote('Writing')}</div>
+      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${goldTaskAlignmentGuideHTML('Writing', s.id, abilityTask, prompt)}${abilityTask.gold ? '' : cefrAIHelpNote('Writing')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(writingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Writing', writingDifficulty)))}</p>
       ${independentReplayBannerHTML('Writing', s.id)}
       ${renderAIHelpBox('Writing', s.id)}
@@ -38279,7 +38274,7 @@
       ${independentReplayBannerHTML('Listening', s.id)}
       ${renderAIHelpBox('Listening', s.id)}
       <p class="mini-note"><b>Task:</b> ${safe(cefrSimplifyTask(abilityTask.instruction || text.variant.ask || 'Write listening notes.'))}</p>
-      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${goldTaskAlignmentGuideHTML('Listening', s.id, abilityTask, text.variant || {})}${cefrAIHelpNote('Listening')}</div>
+      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${goldTaskAlignmentGuideHTML('Listening', s.id, abilityTask, text.variant || {})}${abilityTask.gold ? '' : cefrAIHelpNote('Listening')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(listeningDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Listening', listeningDifficulty)))}</p>
       <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}"><input type="hidden" id="listeningAbilityTaskId" value="${safeAttr(abilityTask.id)}">
       <div id="fullTranscriptBox" class="feedback info" style="margin-top:10px"></div>
@@ -38536,7 +38531,7 @@
         <h3>🎙️ Oral Task First</h3>
         <p><b>งานนี้คือ Speaking:</b> ให้ผู้เรียนพูดจริงก่อน ไม่ใช่พิมพ์ตอบเป็นหลัก</p>
         <p class="mini-note"><b>Difficulty:</b> ${safe(speakingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Speaking', speakingDifficulty)))}</p>
-        <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${goldTaskAlignmentGuideHTML('Speaking', s.id, abilityTask, prompt)}${cefrAIHelpNote('Speaking')}</div>
+        <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${goldTaskAlignmentGuideHTML('Speaking', s.id, abilityTask, prompt)}${abilityTask.gold ? '' : cefrAIHelpNote('Speaking')}</div>
         
         <div class="footer-actions">
           <button id="startSpeakBtn" class="btn primary" onclick="EAPHero.startSpeakingTimer()">🎙️ Start Speaking</button>
@@ -39341,7 +39336,7 @@
 
 
 
-  /* === v1z65 Gold Task-Aligned Help + UI Focus === */
+  /* === v1z66 Gold Source Integrity + Focus UI === */
   const EAP_ANTI_MEMORIZATION_ENGINE = Object.freeze({
     version:'v1z62',
     scenariosPerSession:16,
@@ -41359,7 +41354,7 @@
   }
 
 
-  /* === v1z65 Gold Task-Aligned Help + UI Focus === */
+  /* === v1z66 Gold Source Integrity + Focus UI === */
   const EAP_GOLD_BANK_ENGINE = Object.freeze({version:'v1z64',authoredSourcesPerSession:8,authoredSourcesTotal:120,questionAnglesPerTier:4,candidateMCQPerSession:128,candidateMCQTotal:1920,coreSupportTaskPacks:960,rule:'Gold authored sources are selected first; source, question angle, and answer position rotate before reuse.'});
   const EAP_GOLD_QUESTION_ANGLES={easy:['Which response best matches the source?','What is the clearest action or idea in this source?','Which choice directly follows the study situation?','Which answer uses the main point from the source?'],normal:['Which response connects the source idea with its supporting detail?','Which choice explains the relationship in this source most clearly?','Which answer uses the evidence instead of a small unrelated detail?','Which study decision is best supported by this source?'],hard:['Which response makes the most careful evidence-based interpretation?','Which choice explains a useful conclusion without overclaiming?','Which response identifies a reason, evidence, or limit from the source?','Which answer shows critical use of the source information?'],challenge:['Which balanced judgement is best supported by the source?','Which response makes a justified conclusion and still names a limitation?','Which choice compares the evidence with a careful condition?','Which B1+ conclusion avoids both overclaiming and underusing evidence?']};
   function goldBankRoot(){return (typeof window!=='undefined'&&window.EAP_GOLD_AUTHORED_BANK)?window.EAP_GOLD_AUTHORED_BANK:null;}
@@ -41390,7 +41385,7 @@
 
 
 
-  /* === v1z65 Gold Task-Aligned Help + UI Focus === */
+  /* === v1z66 Gold Source Integrity + Focus UI === */
   const EAP_GOLD_TASK_ALIGNMENT = Object.freeze({
     version:'v1z65',
     rule:'Gold authored source → task-specific help → source-aware AI hint. No legacy generic frame may override a Gold task.',
@@ -41436,27 +41431,23 @@
   }
 
   function goldTaskVocabulary(sessionId, skill, source){
-    const sid = Number(sessionId || 1);
-    const bySession = {
-      1:['target skill','weekly action','progress check'],
-      2:['context clue','word family','academic phrase'],
-      3:['main idea','supporting detail','central'],
-      4:['keyword','signal word','contrast'],
-      5:['claim','evidence','source check'],
-      6:['summary','own words','main point'],
-      7:['formal','cautious','academic tone'],
-      8:['topic sentence','support','closing'],
-      9:['reason','example','conclusion'],
-      10:['trend','increase','may suggest'],
-      11:['purpose','request','closing'],
-      12:['paraphrase','citation','source'],
-      13:['main point','keyword','detail'],
-      14:['signpost','evidence','conclusion'],
-      15:['evidence','response','next step']
-    };
-    const base = bySession[sid] || ['main idea','evidence','clear response'];
-    if(source?.title && skill === 'Reading') return base;
-    return base;
+    const direct = Array.isArray(source?.keywords) ? source.keywords.filter(Boolean) : [];
+    if(direct.length >= 3) return direct.slice(0,3);
+    const text = `${source?.title || ''} ${source?.passage || ''}`.toLowerCase();
+    const phrases = [
+      'main idea','supporting detail','weekly action','progress check','copied phrases',
+      'context clue','word family','source check','topic sentence','cautious conclusion',
+      'polite request','citation','paraphrase','main point','signal word','signpost','next step'
+    ];
+    const found = phrases.filter(p=>text.includes(p)).slice(0,3);
+    const fallback = skill === 'Reading'
+      ? ['main idea','source detail','evidence']
+      : skill === 'Writing'
+        ? ['source idea','support','clear response']
+        : skill === 'Listening'
+          ? ['main point','keyword','detail']
+          : ['topic','evidence','conclusion'];
+    return found.concat(fallback.filter(x=>!found.includes(x))).slice(0,3);
   }
 
   function goldTaskGuideData(skill, task){
@@ -41660,6 +41651,33 @@
   }
 
 
+
+  /* === v1z66 Gold Source Integrity + Focus UI === */
+  const EAP_GOLD_SOURCE_INTEGRITY = Object.freeze({
+    version:'v1z66',
+    rule:'A Gold source must show only its own scenario text. Generic Session explanations belong in help, not in the source passage.'
+  });
+
+  function goldSourceIntegrityAudit(){
+    const sessions = typeof goldBankSessions === 'function' ? goldBankSessions() : {};
+    const rows = [];
+    let total = 0, clean = 0, keywordReady = 0;
+    Object.entries(sessions || {}).forEach(([sid, block])=>{
+      const sources = block.sources || [];
+      sources.forEach(src=>{
+        total += 1;
+        const genericLeak = /A strong academic goal names a target skill|Academic vocabulary becomes useful when learners notice context|Effective readers identify the central message|Keywords and signal words show cause/i.test(src.passage || '');
+        if(!genericLeak) clean += 1;
+        if(Array.isArray(src.keywords) && src.keywords.length >= 3) keywordReady += 1;
+      });
+      rows.push({session:Number(sid), sources:sources.length});
+    });
+    return {
+      total, clean, keywordReady, rows,
+      passed: total === 120 && clean === 120 && keywordReady === 120
+    };
+  }
+
   // public API for inline handlers
   window.EAPHero = {
     home:renderHome,
@@ -41749,6 +41767,8 @@
     goldTaskAlignmentGuideHTML,
     goldTaskAlignmentAudit,
     registerGoldTaskContext,
+    EAP_GOLD_SOURCE_INTEGRITY,
+    goldSourceIntegrityAudit,
 
     EAP_SELF_PRACTICE_CORE,
     selfPracticeCoreHTML,

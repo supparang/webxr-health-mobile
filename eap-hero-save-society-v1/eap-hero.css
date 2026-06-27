@@ -2186,3 +2186,55 @@ textarea{
   .gold-guide-grid{grid-template-columns:1fr}
   .gold-guide-step{min-height:0}
 }
+
+
+/* === v1z66 Gold Source Integrity + Focus UI === */
+.ai-help-drawer{
+  margin:12px 0;
+  border:1px solid rgba(148,163,184,.34);
+  border-radius:14px;
+  background:rgba(15,23,42,.20);
+  color:#e7f7ff;
+  overflow:hidden;
+}
+.ai-help-drawer summary{
+  cursor:pointer;
+  list-style:none;
+  padding:11px 13px;
+  font-weight:900;
+  user-select:none;
+}
+.ai-help-drawer summary::-webkit-details-marker{display:none}
+.ai-help-drawer summary::after{
+  content:'Open';
+  float:right;
+  padding:2px 7px;
+  border-radius:999px;
+  font-size:.75rem;
+  background:rgba(255,255,255,.12);
+}
+.ai-help-drawer[open] summary::after{content:'Close'}
+.ai-help-drawer-body{
+  padding:0 13px 13px;
+  border-top:1px dashed rgba(255,255,255,.16);
+}
+.ai-help-drawer-body p{
+  margin:10px 0;
+  color:#cfe8f6;
+  line-height:1.5;
+}
+.ai-help-drawer .ai-output-box{
+  min-height:0 !important;
+}
+textarea.answer-box.reading-answer-box{
+  min-height:78px !important;
+  height:78px;
+  max-height:140px;
+  line-height:1.45 !important;
+}
+@media(max-width:860px){
+  textarea.answer-box.reading-answer-box{
+    min-height:86px !important;
+    height:86px;
+  }
+}

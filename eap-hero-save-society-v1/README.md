@@ -1,15 +1,12 @@
-# EAP Hero: Save the Society v1z65
+# EAP Hero: Save the Society v1z66
 
-## Gold Task-Aligned Help + UI Focus
-Upload together:
+## Gold Source Integrity + Focus UI
+Upload these files together:
 - index.html
 - eap-gold-item-bank.js
 - eap-hero.js
 - eap-hero.css
 - classroom-activity-pack.html
 
-v1z65 fixes Gold-source help alignment:
-- no generic audience/purpose frames on source-specific tasks
-- source-aware AI Help
-- task-specific frames across all four skills and A2–B1+
-- cleaner Gold badge + AI Ability card information
+v1z66 cleans Gold source passages, aligns vocabulary to the active source,
+replaces the large AI Help panel with a compact drawer, and makes Reading answer boxes shorter.
