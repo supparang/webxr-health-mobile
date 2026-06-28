@@ -1,25 +1,20 @@
 {
-  "package": "EAP-Word-Quest-v192-Core-Aligned-Full-Patch",
-  "version": "v1.9.2",
-  "group": "122",
-  "targets": 290,
-  "itemVariants": 894,
+  "package": "EAP Word Quest v193 Score Combo Recovery Patch",
+  "version": "v1.9.3-CORE-SCORE-COMBO-RECOVERY-122",
+  "deployTo": "/herohealth/eap-word-quest/",
   "files": [
     "index.html",
+    "eap-word-engine-v193-score-combo-recovery.js",
+    "README-ติดตั้ง-v193-ภาษาไทย.txt",
+    "CONSOLE-TEST.txt",
+    "MANIFEST.json"
+  ],
+  "requiresExisting": [
     "eap-core-vocabulary-map-v189.js",
     "eap-word-data-v191-core-aligned-bank.js",
     "eap-word-engine-v190-core-ai.js",
     "eap-word-engine-v192-core-bank-controller.js",
-    "README-ติดตั้ง-v192-ภาษาไทย.txt"
-  ],
-  "scriptOrder": [
-    "logger",
-    "report-core",
-    "v183",
-    "v189 map",
-    "v191 bank",
-    "v190 core ai",
-    "v192 controller"
-  ],
-  "removed": "eap-word-engine-v188-local-ai-learning.js"
+    "eap-word-logger.js",
+    "eap-word-report-core.js"
+  ]
 }
