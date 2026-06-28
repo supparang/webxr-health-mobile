@@ -1,13 +1,14 @@
-/* === EAP Hero: Save the Society v1z83 Whitelist Storage Recovery ===
+/* === EAP Hero: Save the Society v1z84 Whitelist Storage Recovery ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
 (function(){
   'use strict';
 
-  const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
+  const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
+  const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z83-whitelist-storage-recovery';
+  const APP_VERSION = '20260628-v1z84-true-storage-rewrite-s1-goal-builder';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31650,6 +31651,10 @@
       let raw = localStorage.getItem(STORAGE_KEY);
       let migratedFromLegacy = false;
       if(!raw){
+        raw = localStorage.getItem(PREVIOUS_STORAGE_KEY);
+        migratedFromLegacy = !!raw;
+      }
+      if(!raw){
         raw = localStorage.getItem(LEGACY_STORAGE_KEY);
         migratedFromLegacy = !!raw;
       }
@@ -31659,6 +31664,7 @@
       // immediately so the new compact key has room to save progress safely.
       if(migratedFromLegacy){
         try{ localStorage.removeItem(LEGACY_STORAGE_KEY); }catch(_){}
+        try{ localStorage.removeItem(PREVIOUS_STORAGE_KEY); }catch(_){}
       }
       const fresh = cloneDefaultState();
       const merged = Object.assign(fresh, parsed);
@@ -31970,7 +31976,7 @@
     const settings=state.settings || {};
     return {
       version:APP_VERSION,
-      storageMode:'v1z83-whitelist',
+      storageMode:'v1z84-whitelist',
       savedAt:new Date().toISOString(),
       view:safeText(state.view || 'home',30),
       currentSession:Number(state.currentSession||1)||1,
@@ -32001,91 +32007,47 @@
         }
       });
       try{ localStorage.removeItem(LEGACY_STORAGE_KEY); }catch(_){}
-    }catch(err){ console.warn('[v1z83 cleanup]',err); }
+    }catch(err){ console.warn('[v1z84 cleanup]',err); }
   }
 
-  function safeLocalStorageSet(key, value){
-    const payload = key === STORAGE_KEY ? JSON.stringify(buildWhitelistStorageSnapshot()) : String(value);
-    try{
-      localStorage.setItem(key,payload);
-      return true;
-    }catch(err){
-      if(!isQuotaExceededError(err)) throw err;
-      console.warn('[v1z83] quota: removing stale EAP test keys and retrying');
-      try{
-        cleanupStaleEapStorage();
-        try{ localStorage.removeItem(key); }catch(_){}
-        localStorage.setItem(key,payload);
-        safeToast('Storage recovered. Only compact learning progress is kept in this browser.');
-        return true;
-      }catch(err2){
-        console.warn('[v1z83] persistent browser quota',err2);
-        try{ sessionStorage.setItem(key+'_TEMP',payload); }catch(_){}
-        return false;
-      }
+  /* v1z84: true storage rewrite. Never serialize the live state object. */
+  function v84MiniSessions(){
+    const out={};
+    Object.entries(state.sessions || {}).forEach(([id,x])=>{
+      out[id]={unlocked:!!x?.unlocked,cleared:!!x?.cleared,bestStars:Number(x?.bestStars||0)||0,bestAccuracy:Number(x?.bestAccuracy||0)||0,attempts:Math.min(20,Number(x?.attempts||0)||0),bestScore:Number(x?.bestScore||0)||0};
+    });
+    return out;
+  }
+  function v84Snapshot(){
+    const p=state.profile||{}, f=state.fun||{}, m=state.mastery||{};
+    const portfolio=(Array.isArray(state.portfolio)?state.portfolio:[]).slice(-12).map(x=>({
+      id:String(x?.id||x?.evidenceId||''),sessionId:Number(x?.sessionId||x?.session||0)||0,skill:String(x?.skill||''),score:Number(x?.score||0)||0,
+      submittedAt:String(x?.submittedAt||x?.at||''),preview:String(x?.output||x?.evidenceText||'').slice(0,96)
+    }));
+    return {schema:'eap-v84',version:APP_VERSION,savedAt:new Date().toISOString(),view:String(state.view||'home').slice(0,24),currentSession:Number(state.currentSession||1)||1,
+      profile:{name:String(p.name||'').slice(0,60),studentId:String(p.studentId||'').slice(0,40),goal:String(p.goal||'').slice(0,120)},
+      xp:Number(state.xp||0)||0,rank:String(state.rank||'New Learner').slice(0,40),sessions:v84MiniSessions(),
+      mastery:{Reading:Number(m.Reading||0)||0,Writing:Number(m.Writing||0)||0,Listening:Number(m.Listening||0)||0,Speaking:Number(m.Speaking||0)||0},
+      fun:{coins:Number(f.coins||0)||0,daily:{lastDate:String(f.daily?.lastDate||'').slice(0,12),streak:Number(f.daily?.streak||0)||0}},
+      skillPath:{unlockedBossGates:Object.assign({},state.skillPath?.unlockedBossGates||{})}, bossGates:Object.assign({},state.bossGates||{}), portfolio};
+  }
+  function cleanupV84Storage(){
+    try{ Object.keys(localStorage).forEach(k=>{ if(/^EAP_HERO_/i.test(k) && k!==STORAGE_KEY){ try{localStorage.removeItem(k)}catch(_){} } }); }catch(_){}
+  }
+  function safeLocalStorageSet(){
+    const payload=JSON.stringify(v84Snapshot());
+    try{ localStorage.setItem(STORAGE_KEY,payload); return true; }
+    catch(err){
+      console.warn('[v1z84 storage] quota; clearing obsolete EAP keys and retrying');
+      try{ cleanupV84Storage(); localStorage.setItem(STORAGE_KEY,payload); return true; }
+      catch(err2){ console.warn('[v1z84 storage] persistence unavailable; keeping this run in memory',err2); return false; }
     }
   }
-
-  function storageUsageInfo(){
-    let chars = 0;
-    try{ chars = (localStorage.getItem(STORAGE_KEY) || '').length; }catch(e){}
-    return {
-      key:STORAGE_KEY,
-      chars,
-      approxKB:Math.round(chars/1024),
-      portfolio:(state.portfolio || []).length,
-      reports:(state.learningReports || []).length,
-      qaErrors:(state.qa?.runtimeErrors || []).length,
-      runtimeErrors:(state.runtimeErrors || []).length
-    };
-  }
-
-  function optimizeStorageNow(silent){
-    pruneStateForStorage();
-    const ok = safeLocalStorageSet(STORAGE_KEY, JSON.stringify(state));
-    if(!silent){
-      const u = storageUsageInfo();
-      safeToast(`Storage optimized: ~${u.approxKB} KB, portfolio ${u.portfolio}, reports ${u.reports}`);
-    }
-    return ok;
-  }
-
-  function renderStorageDiagnostics(){
-    const u = storageUsageInfo();
-    layout(`<section class="panel" style="margin-top:20px">
-      <div class="badges"><span class="pill">Storage Diagnostics</span><span class="pill">v1z54</span></div>
-      <h2>Storage status</h2>
-      <p class="lead">ใช้ดูว่าข้อมูลในเครื่องใหญ่เกินจน Submit ไม่ไปหรือไม่</p>
-      <div class="grid four">
-        <div class="stat"><b>${u.approxKB} KB</b><span>Approx localStorage size</span></div>
-        <div class="stat"><b>${u.portfolio}</b><span>Portfolio</span></div>
-        <div class="stat"><b>${u.reports}</b><span>Reports</span></div>
-        <div class="stat"><b>${u.qaErrors + u.runtimeErrors}</b><span>Error logs</span></div>
-      </div>
-      <div class="storage-fix-note"><b>Fix:</b> กด Optimize Storage เพื่อตัด output/log เก่าที่ยาวเกิน แต่ยังเก็บ progress สำคัญไว้</div>
-      <div class="footer-actions">
-        <button class="btn primary" onclick="EAPHero.optimizeStorageNow()">Optimize Storage</button><button class="btn" onclick="EAPHero.deepStorageCleanupNow()">Deep Cleanup</button>
-        <button class="btn" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
-        <button class="btn" onclick="EAPHero.map()">Back to Map</button><button class="btn ghost" onclick="EAPHero.refreshVisibleProgressNow()">Refresh Visible Progress</button>
-      </div>
-    </section>`);
-  }
-
-  function runStorageMaintenanceSoon(){
-    setTimeout(()=>{ try{ optimizeStorageNow(true); }catch(e){} }, 500);
-  }
-
-
-  /* v1z83: storage is a strict whitelist only. */
-  function buildHardStorageSnapshot(){ return buildWhitelistStorageSnapshot(); }
-
-  function saveState(){
-    try{
-      const ok = safeLocalStorageSet(STORAGE_KEY, '');
-      if(!ok) console.warn('[v1z83] browser persistence skipped; active session remains in memory');
-      return ok;
-    }catch(err){ console.warn('[saveState failed]',err); return false; }
-  }
+  function storageUsageInfo(){ let chars=0; try{chars=(localStorage.getItem(STORAGE_KEY)||'').length}catch(_){} return {key:STORAGE_KEY,chars,approxKB:Math.round(chars/1024),portfolio:(state.portfolio||[]).length,reports:0,qaErrors:0,runtimeErrors:0}; }
+  function optimizeStorageNow(silent){ const ok=safeLocalStorageSet(); if(!silent) safeToast(ok?'Progress saved safely.':'Browser storage is unavailable; this run remains open.'); return ok; }
+  function runStorageMaintenanceSoon(){ setTimeout(()=>{try{safeLocalStorageSet()}catch(_){}},250); }
+  function buildHardStorageSnapshot(){ return v84Snapshot(); }
+  function saveState(){ try{return safeLocalStorageSet()}catch(err){console.warn('[v1z84 saveState]',err);return false} }
 
   function resetState(){
     if(confirm('ล้างข้อมูลเกมทั้งหมดในเครื่องนี้ใช่ไหมคะ?')){
@@ -32740,7 +32702,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z83'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z84'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
@@ -37765,39 +37727,26 @@
 
 
   function renderReadingMission(id){
-    const __readingSessionId = Number(arguments[0] || state.currentSession || 1); const readingQs = readingQuestionSetForSession(__readingSessionId);
-
-    const s = getSession(safeMissionSessionId(id)), text = pickMissionVariant(s.id, 'Reading');
-    const readAlign = alignmentFor('Reading', s.id, text.variant || {});
-    if(readAlign && readAlign.questions && readAlign.questions.length){ text.variant.q = readAlign.questions; }
-    const abilityTask = buildAbilityTask('Reading', s.id, text);
-    if(abilityTask.questions && abilityTask.questions.length) text.variant.q = abilityTask.questions;
-    if([1,2,3].includes(Number(s.id))){
-      const alignedQuestions={
-        1:['Which academic goal is clear and specific?','Choose one skill you want to improve.','Write one short practice action.'],
-        2:['Write one academic word from the source.','What does this word mean in this context?','Write one short sentence using the word.'],
-        3:['What is the main idea of the passage?','Write one supporting detail.','Why is this detail not the whole main idea?']
-      };
-      text.variant.q=alignedQuestions[s.id];
+    const sid=Number(safeMissionSessionId(id)||1), s=getSession(sid), text=pickMissionVariant(s.id,'Reading');
+    if(sid===1){
+      const goals=['I want to improve English.','I want to improve my academic reading this semester.','English is difficult for me.'];
+      const skills=['Academic reading','Academic vocabulary','Writing paragraphs','Listening to lectures','Presentation skills'];
+      const actions=['Read one short academic text each week','Review five academic words each week','Write one short summary each week','Listen twice for key words','Practise with a partner'];
+      layout(`<section class="panel" style="margin-top:20px"><div class="badges"><span class="pill">Reading Mission</span><span class="pill">S1</span><span class="pill">Academic Mindset</span></div>
+      <h2>📖 Reading Mission: Build My Academic Goal</h2><p class="lead">Choose → match → save. No long typing is needed.</p>
+      <div class="cefr-support aligned-support"><h3>🎯 Goal Builder</h3><p><b>Step 1.</b> Choose the clearest academic goal.</p>
+      <div class="goal-choice-set">${goals.map((g,i)=>`<label class="goal-choice"><input type="radio" name="s1GoalChoice" value="${i}" ${i===1?'checked':''}> ${safe(g)}</label>`).join('')}</div>
+      <p><b>Step 2.</b> Choose one skill you want to improve.</p><select id="s1SkillPick" class="input">${skills.map(x=>`<option>${safe(x)}</option>`).join('')}</select>
+      <p><b>Step 3.</b> Choose one practice action.</p><select id="s1ActionPick" class="input">${actions.map(x=>`<option>${safe(x)}</option>`).join('')}</select>
+      <div class="mission-specific-guide"><h4>Your Goal Card Preview</h4><p id="s1GoalPreview">My academic goal is to improve academic reading.<br>I will practise by reading one short academic text each week.</p></div></div>
+      <script>(function(){const a=document.getElementById('s1SkillPick'),b=document.getElementById('s1ActionPick'),p=document.getElementById('s1GoalPreview');function u(){p.innerHTML='My academic goal is to improve '+a.value.toLowerCase()+'.<br>I will practise by '+b.value.toLowerCase()+'.'}a.onchange=u;b.onchange=u;u()})()</script>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(1)">Save My Academic Goal</button><button class="btn ghost" onclick="EAPHero.skillHub(1)">← Back to S1 Skills</button></div></section>`);
+      return;
     }
-    const readingDifficulty = currentSkillDifficulty('Reading');
-    registerGoldTaskContext('Reading', s.id, abilityTask);
-    layout(`<section class="panel" style="margin-top:20px">
-      <div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
-      <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
-      ${goldAuthoredBadgeHTML(abilityTask)}
-      ${abilityTaskHTML('Reading', abilityTask)}
-      <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}"><input type="hidden" id="readingAbilityTaskId" value="${safeAttr(abilityTask.id)}">
-      <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
-      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${goldTaskAlignmentGuideHTML('Reading', s.id, abilityTask, text.variant || {})}${abilityTask.gold ? '' : cefrAIHelpNote('Reading')}</div>
-      <p class="mini-note"><b>Difficulty:</b> ${safe(readingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading', readingDifficulty)))}</p>
-      ${independentReplayBannerHTML('Reading', s.id)}
-      ${renderAIHelpBox('Reading', s.id)}
-      ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="2" placeholder="Write a short answer in English."></textarea>`).join('')}
-      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div>
-    </section>`);
+    const readAlign=alignmentFor('Reading',s.id,text.variant||{}); if(readAlign?.questions?.length) text.variant.q=readAlign.questions;
+    const abilityTask=buildAbilityTask('Reading',s.id,text); if(abilityTask.questions?.length) text.variant.q=abilityTask.questions;
+    layout(`<section class="panel" style="margin-top:20px"><div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div><h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>${goldAuthoredBadgeHTML(abilityTask)}${abilityTaskHTML('Reading',abilityTask)}<input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}"><p class="mini-note">Answer briefly in English.</p>${renderAIHelpBox('Reading',s.id)}${(text.variant.q||[]).map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="2" placeholder="Write a short answer in English."></textarea>`).join('')}<div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div></section>`);
   }
-
 
   function sourceKeywordsForScoring(text){
     const stop = new Set('the a an and or to of in on for with from by is are was were be been being this that these those student students academic english eap task source idea topic because therefore however example'.split(/\s+/));
@@ -38339,7 +38288,15 @@
   }
 
 
+  function submitReadingGoalBuilderV84(id, answers){
+    const sid=Number(id||1), skill='Reading', score=100; state.profile=state.profile||{}; state.profile.goal=`My academic goal is to improve ${String(answers[1]).toLowerCase()}. I will practise by ${String(answers[2]).toLowerCase()}.`;
+    state.sessions=state.sessions||{}; state.sessions[sid]=Object.assign({},state.sessions[sid]||{}, {unlocked:true,cleared:true,bestScore:Math.max(Number(state.sessions[sid]?.bestScore||0),score),bestAccuracy:100,bestStars:3,attempts:Number(state.sessions[sid]?.attempts||0)+1});
+    state.portfolio=Array.isArray(state.portfolio)?state.portfolio:[]; state.portfolio.push({id:'EV-S1-'+Date.now(),sessionId:sid,session:sid,skill,score,submittedAt:new Date().toISOString(),output:state.profile.goal,evidenceText:state.profile.goal,prompt:'S1 Goal Builder'}); state.portfolio=state.portfolio.slice(-24);
+    state.mastery=state.mastery||{}; state.mastery.Reading=Math.max(Number(state.mastery.Reading||0),score); addXP(20); saveState(); safeToast('Academic Goal saved. Great start!'); showSkillResult(skill,score,sid); return false;
+  }
+
   function submitReading(id){
+    if(Number(id)===1){ const sk=document.getElementById('s1SkillPick')?.value||'Academic reading'; const ac=document.getElementById('s1ActionPick')?.value||'Read one short academic text each week'; const choice=document.querySelector('input[name="s1GoalChoice"]:checked')?.value||'1'; const a0=choice==='1'?'I want to improve my academic reading this semester.':'I selected a learning goal.'; const a1=sk; const a2=ac; return submitReadingGoalBuilderV84(id,[a0,a1,a2]); }
     const s = getSession(id);
     const text = { topic: document.getElementById('readingTopic')?.value || skillTextForSession(s).topic, passage: document.getElementById('readingPassage')?.value || skillTextForSession(s).passage };
     const answers = [0,1,2].map(i => document.getElementById('readingAns'+i)?.value.trim() || '');
