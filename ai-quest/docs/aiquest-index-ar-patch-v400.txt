@@ -1,0 +1,75 @@
+AI Quest index.html — AR Smooth Patch v4.0.0
+
+1) DELETE the entire old block from:
+   <!-- AR Router v3.8.5: load S1 AR engine only for S1 -->
+   through:
+   <script src="./js/aiquest-ar-final-route-v395.js?v=20260627-arfinal395"></script>
+
+   This removes BOTH duplicated S1 document.write routers, the stray </script>,
+   and unconditional S2 AR loads.
+
+2) PUT THIS SINGLE LINE in the same place, immediately before </body>:
+
+<script src="./js/aiquest-ar-runtime-v400.js?v=20260628-ar-runtime400"></script>
+
+3) In function startMission(id), put this as the FIRST executable line:
+
+  if(window.AIQuestARRuntime){
+    window.AIQuestARRuntime.leave('start-main-mission');
+  }
+
+4) In these navigation handlers, put the following line BEFORE stopTimer() / switchScreen():
+   - btnMenu
+   - btnBackInGame
+   - btnConfirmReset
+   - saveResult() just before switchScreen('menuScreen')
+
+  if(window.AIQuestARRuntime){
+    window.AIQuestARRuntime.leave('leave-game-screen');
+  }
+
+5) In BOTH actual AR engine files (S1 and S2), make two small engine-level changes.
+
+A. Replace the camera request:
+
+const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+
+with:
+
+const arProfile = window.AIQuestARRuntime
+  ? window.AIQuestARRuntime.getCameraConstraints(true)
+  : true;
+const stream = await navigator.mediaDevices.getUserMedia({ video: arProfile, audio: false });
+video.srcObject = stream;
+if(window.AIQuestARRuntime){
+  window.AIQuestARRuntime.registerVideo(video);
+}
+
+B. Immediately before any MediaPipe / detector inference call such as:
+
+await hands.send({ image: video });
+
+insert:
+
+if(window.AIQuestARRuntime && !window.AIQuestARRuntime.shouldProcessFrame()){
+  requestAnimationFrame(loop);
+  return;
+}
+
+C. After creating the detector, video stream, or animation loop, register cleanup:
+
+if(window.AIQuestARRuntime){
+  window.AIQuestARRuntime.registerCleanup(() => {
+    try { cancelAnimationFrame(rafId); } catch(_) {}
+    try { stream && stream.getTracks().forEach(t => t.stop()); } catch(_) {}
+    try { detector && detector.close && detector.close(); } catch(_) {}
+    try { video && (video.srcObject = null); } catch(_) {}
+  });
+}
+
+Result:
+- S1 engine loads once only when the AR URL requests S1.
+- S2 engine loads once only when the AR URL requests S2.
+- Ordinary sessions have no MediaPipe/camera overhead.
+- Camera is released when learners leave AR, hide the tab, or close the page.
+- AR inference is capped at 18 fps on smaller screens and 24 fps otherwise.

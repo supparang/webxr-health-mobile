@@ -1873,6 +1873,9 @@ async function saveStudentProfile(){
     }
 
     function startMission(id){
+      if(window.AIQuestARRuntime){
+        window.AIQuestARRuntime.leave('start-main-mission');
+      }
   const stage = stageById(id);
   if(!stage) return;
   if(id === 'b2' && !boss2Ready()){
@@ -6409,6 +6412,7 @@ async function saveResult(){
 
 }
       safeSaveMainProgress();
+      if(window.AIQuestARRuntime){ window.AIQuestARRuntime.leave('save-result'); }
       renderAll();
       switchScreen('menuScreen');
       showToast('บันทึกในเครื่องแล้ว — กำลังซิงก์ Google Sheets เบื้องหลัง');
@@ -6462,12 +6466,14 @@ async function saveResult(){
     });
 
     el('btnMenu').addEventListener('click', () => {
+      if(window.AIQuestARRuntime){ window.AIQuestARRuntime.leave('menu-button'); }
       stopTimer();
       renderAll();
       switchScreen('menuScreen');
     });
 
     el('btnBackInGame').addEventListener('click', () => {
+      if(window.AIQuestARRuntime){ window.AIQuestARRuntime.leave('back-in-game'); }
       stopTimer();
       renderAll();
       switchScreen('menuScreen');
@@ -6492,6 +6498,7 @@ async function saveResult(){
     });
 
     el('btnConfirmReset').addEventListener('click', () => {
+      if(window.AIQuestARRuntime){ window.AIQuestARRuntime.leave('reset-progress'); }
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem('CSAI2102_AIQUEST_M1_SEEN_HISTORY_V1');
 
@@ -6673,53 +6680,8 @@ loadProfileToForm();
   else addTeacherLink();
 })();
 </script>
-<!-- AR Router v3.8.5: load S1 AR engine only for S1 -->
-<!-- AR Router: load S1 AR engine only when entering AR -->
-<script>
-(function(){
-  'use strict';
+<!-- AI Quest AR Runtime v4.0.0: lazy-load only the requested S1/S2 AR engine -->
+<script src="./js/aiquest-ar-runtime-v400.js?v=20260628-ar-runtime400"></script>
 
-  var q = new URLSearchParams(location.search);
-  var session = String(q.get('session') || '').toLowerCase();
-  var ar = String(q.get('ar') || '').toLowerCase();
-
-  var isS1 = (session === 's1' || session === 'm1');
-  var isS1Ar = isS1 && (ar === 'hand' || ar === 'scanner' || ar === 'object');
-
-  if(isS1Ar){
-    document.write('<script src="./js/aiquest-s1-ar-practice-v364.js?v=20260627-s1ar-router390"><\/script>');
-    document.write('<script src="./js/aiquest-s1-ar-hand-hotfix-v364.js?v=20260627-s1hand-router390"><\/script>');
-  }
-})();
-</script>
-
-</script>
-
-<!-- AR Router: load S1 engine only when entering S1 AR -->
-<script>
-(function(){
-  'use strict';
-
-  var q = new URLSearchParams(location.search);
-  var session = String(q.get('session') || '').toLowerCase();
-  var ar = String(q.get('ar') || '').toLowerCase();
-
-  var isS1 = (session === 's1' || session === 'm1');
-  var isS1Ar = isS1 && (ar === 'hand' || ar === 'scanner' || ar === 'object');
-
-  if(isS1Ar){
-    document.write('<script src="./js/aiquest-s1-ar-practice-v364.js?v=20260627-s1ar-router390"><\/script>');
-    document.write('<script src="./js/aiquest-s1-ar-hand-hotfix-v364.js?v=20260627-s1hand-router390"><\/script>');
-  }
-})();
-</script>
-
-<script src="./js/aiquest-s1-ar-result-bridge-v369.js?v=20260627-s1result395"></script>
-
-<script src="./js/aiquest-s2-ar-route-fix-v386.js?v=20260627-s2route395"></script>
-<script src="./js/aiquest-s2-ar-practice-v387.js?v=20260627-s2practice395"></script>
-<script src="./js/aiquest-s2-ar-result-bridge-v381.js?v=20260627-s2result395"></script>
-
-<script src="./js/aiquest-ar-final-route-v395.js?v=20260627-arfinal395"></script>
 </body>
 </html>
