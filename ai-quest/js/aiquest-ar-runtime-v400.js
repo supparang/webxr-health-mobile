@@ -1,14 +1,13 @@
-/* CSAI2102 AI Quest — AR Runtime v4.0.1
+/* CSAI2102 AI Quest — AR Runtime v4.0.2
    Visible in-session launcher for S1 and S2.
    Loads AR engines only after the learner presses an AR Practice button.
 */
 (() => {
   'use strict';
 
-  const VERSION = '4.0.1';
+  const VERSION = '4.0.2';
   const loaded = new Map();
   const state = { active:false, paused:false, mode:'', bootPromise:null, streams:new Set(), rafIds:new Set(), cleanups:new Set(), media:null, raf:null, caf:null, lastAt:0 };
-  const q = (selector) => document.querySelector(selector);
   const small = () => window.matchMedia?.('(max-width:860px)').matches;
 
   function route(){
@@ -138,12 +137,13 @@
 
     const modules = mode === 's1'
       ? [
-          './js/aiquest-s1-ar-practice-v364.js?v=20260628-s1ar401',
-          './js/aiquest-s1-ar-hand-hotfix-v364.js?v=20260628-s1hand401',
-          './js/aiquest-s1-ar-result-bridge-v369.js?v=20260628-s1result401'
+          './js/aiquest-s1-ar-practice-v364.js?v=20260628-s1ar402',
+          './js/aiquest-s1-ar-hand-hotfix-v364.js?v=20260628-s1hand402',
+          './js/aiquest-s1-ar-entry-v382.js?v=20260628-s1camera402',
+          './js/aiquest-s1-ar-result-bridge-v369.js?v=20260628-s1result402'
         ]
       : [
-          './aiquest-s2-ar-practice-v387.js?v=20260628-s2ar401'
+          './aiquest-s2-ar-practice-v387.js?v=20260628-s2ar402'
         ];
 
     state.bootPromise = (async () => {
