@@ -1,19 +1,19 @@
 /* =========================================================
-   EAP Word Quest • Summary Buttons Restore Hotfix
+   EAP Word Quest • Summary Buttons Restore + Core Summary Guard
    File: /herohealth/eap-word-quest/eap-word-engine-v171-summary-buttons-hotfix.js
-   Version: v1.7.1-SUMMARY-BUTTONS-RESTORE
+   Version: v1.9.10-SUMMARY-BUTTONS-CORE-GUARD-122
 
    Fix:
-   - After hard summary render, only Next Mission works
-   - Restore Home / Replay / Word Deck buttons
-   - Clear inline styles left by hard summary screen forcing
-   - Keep v170 Boss Gate summary logic
+   - Restore Home / Replay / Word Deck buttons after legacy summary render.
+   - Clear inline styles left by hard summary screen forcing.
+   - Keep v170 Boss Gate summary logic for legacy mode.
+   - Let the Core Bank controller own the final summary when Core Bank is active.
 ========================================================= */
 
 "use strict";
 
 (function(){
-  const HOTFIX_VERSION = "v1.7.1-SUMMARY-BUTTONS-RESTORE";
+  const HOTFIX_VERSION = "v1.9.10-SUMMARY-BUTTONS-CORE-GUARD-122";
 
   if(window.__EAP_WORD_QUEST_V171_SUMMARY_BUTTONS__){
     console.info("[EAP Word Quest] v171 summary buttons already loaded");
@@ -98,10 +98,6 @@
   function replayCurrentFromSummary(){
     clearScreenInlineStyles();
 
-    /*
-      ให้ handler เดิมของปุ่ม replay ทำงานก่อน แล้วซ่อม screen style ตามหลัง
-      เพราะ engine หลักถือ state รอบล่าสุดไว้
-    */
     setTimeout(() => {
       repairActiveScreen();
 
@@ -115,9 +111,6 @@
   function openDeckFromSummary(){
     clearScreenInlineStyles();
 
-    /*
-      ให้ handler เดิม renderWordDeck() ทำงานก่อน แล้วล้าง inline style ตามหลัง
-    */
     setTimeout(() => {
       repairActiveScreen();
 
@@ -145,9 +138,6 @@
     }
 
     if(id === "summaryDeckBtn"){
-      /*
-        ไม่ stopImmediatePropagation เพื่อให้ handler เดิม render deck ก่อน
-      */
       openDeckFromSummary();
       return;
     }
@@ -168,15 +158,62 @@
   }
 
   /*
-    ใช้ capture เฉพาะ Home/Back ที่ต้อง override
-    ปุ่มอื่นปล่อย handler เดิมทำงาน แล้ว repair ตามหลัง
+    v172 registers a window capture listener for #nextBtn immediately after
+    this file loads. That listener was essential for the legacy engine, but it
+    intercepts the Core Bank's final Next button before the Core controller can
+    call finishRun(). This guard wraps only that one v172 registration and
+    lets the Core controller own its own summary/result/logging path.
   */
-  document.addEventListener("click",fixSummaryButtonClick,true);
+  function installCoreSummaryGuardHook(){
+    if(window.__EAP_V171_CORE_SUMMARY_HOOK__) return;
+    window.__EAP_V171_CORE_SUMMARY_HOOK__ = true;
 
-  /*
-    Safety repair:
-    ถ้ามี screen active แต่ยังโดน inline hidden จาก v170 ให้ซ่อมอัตโนมัติสั้น ๆ
-  */
+    const nativeAdd = window.addEventListener;
+    let armed = true;
+
+    window.addEventListener = function(type, listener, options){
+      const source = typeof listener === "function"
+        ? Function.prototype.toString.call(listener)
+        : "";
+      const isV172FinalCapture =
+        armed &&
+        type === "click" &&
+        options === true &&
+        source.includes("isFinalReady") &&
+        source.includes("finishNow") &&
+        source.includes("#nextBtn");
+
+      if(isV172FinalCapture){
+        armed = false;
+        const guardedListener = function(event){
+          const coreBankActive = Boolean(
+            window.EAP_CORE_QUESTION_BANK &&
+            window.EAP_CORE_QUESTION_BANK.coreAligned
+          );
+          if(coreBankActive || window.__EAP_CORE_CONTROLLER_ACTIVE__ === true){
+            return;
+          }
+          return listener.call(this,event);
+        };
+        window.__EAP_V172_LEGACY_FINAL_CAPTURE_GUARDED__ = true;
+        window.__EAP_V172_LEGACY_FINAL_CAPTURE_ORIGINAL__ = listener;
+        window.addEventListener = nativeAdd;
+        return nativeAdd.call(window,type,guardedListener,options);
+      }
+
+      return nativeAdd.call(window,type,listener,options);
+    };
+
+    setTimeout(() => {
+      if(armed){
+        window.addEventListener = nativeAdd;
+      }
+    },1800);
+  }
+
+  document.addEventListener("click",fixSummaryButtonClick,true);
+  installCoreSummaryGuardHook();
+
   function safetyRepair(){
     const active = document.querySelector(".screen.active");
     if(!active) return;
@@ -195,6 +232,11 @@
 
   window.repairEapSummaryButtons = repairActiveScreen;
   window.goEapHome = goHome;
+  window.inspectEapV171CoreSummaryGuard = () => ({
+    version:HOTFIX_VERSION,
+    guarded:Boolean(window.__EAP_V172_LEGACY_FINAL_CAPTURE_GUARDED__),
+    coreBank:Boolean(window.EAP_CORE_QUESTION_BANK && window.EAP_CORE_QUESTION_BANK.coreAligned)
+  });
 
   window.APP_VERSION = HOTFIX_VERSION;
 
@@ -206,11 +248,12 @@
   setTimeout(safetyRepair,120);
   setTimeout(safetyRepair,500);
 
-  console.info("[EAP Word Quest] Summary buttons restore hotfix ready:",{
+  console.info("[EAP Word Quest] Summary buttons + Core summary guard ready:",{
     version:HOTFIX_VERSION,
     helpers:[
       "repairEapSummaryButtons()",
-      "goEapHome()"
+      "goEapHome()",
+      "inspectEapV171CoreSummaryGuard()"
     ]
   });
 })();
