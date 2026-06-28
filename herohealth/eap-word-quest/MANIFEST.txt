@@ -1,7 +1,8 @@
-EAP Word Quest v194 Stability + Score Fix
-
-Files:
-- index.html
-- eap-word-engine-v194-stability-score-fix.js
-- README-ติดตั้ง-v194-แก้ค้าง.txt
-- REMOVE-v193.txt
+README-ติดตั้ง-v196-ภาษาไทย.txt
+eap-core-vocabulary-map-v189.js
+eap-word-data-v191-core-aligned-bank.js
+eap-word-engine-v195-core-ai-student-scoped.js
+eap-word-engine-v195-stable-score-core-progress.js
+eap-word-engine-v196-core-compact-progress-controller.js
+eap-word-engine-v196-storage-repair.js
+index.html
