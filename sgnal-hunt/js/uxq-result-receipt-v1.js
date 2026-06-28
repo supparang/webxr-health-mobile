@@ -64,8 +64,17 @@
     const tag = document.querySelector('.uxq-top .uxq-mission-tag');
     if (tag && tag.textContent !== info.tag) tag.textContent = info.tag;
   }
+  function loadFooterSync(){
+    if (document.querySelector('script[data-uxq-result-footer-sync]')) return;
+    const script = document.createElement('script');
+    script.src = './js/uxq-result-footer-sync-v1.js?v=20260628-footer-sync-v1';
+    script.async = true;
+    script.dataset.uxqResultFooterSync = '1';
+    document.head.appendChild(script);
+  }
   function boot(){
     addStyle();
+    loadFooterSync();
     decorate();
     const observer = new MutationObserver(decorate);
     observer.observe(document.documentElement, { childList: true, subtree: true });
