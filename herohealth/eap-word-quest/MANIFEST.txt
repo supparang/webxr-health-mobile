@@ -1,0 +1,17 @@
+EAP Word Quest v1.9.0 Core AI Package
+
+index.html
+- Updated Student Page entrypoint
+- Loads v189 Core Vocabulary Map and v190 Core AI
+- Does not load legacy v188 Local AI
+
+eap-core-vocabulary-map-v189.js
+- 290 active vocabulary targets across S1–S15
+- Boss pools BG1–BG5
+
+eap-word-engine-v190-core-ai.js
+- Core-aligned student/teacher AI helpers
+
+Package scope:
+- This is the complete installation package for the current v189/v190 Core Map + AI step.
+- It does not replace the existing question bank; that requires the next v191 content-bank package.
