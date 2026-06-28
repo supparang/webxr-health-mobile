@@ -1,7 +1,7 @@
 /* =========================================================
    EAP Word Quest • Core Vocabulary Map
    File: /herohealth/eap-word-quest/eap-core-vocabulary-map-v189.js
-   Version: v1.9.0-CORE-VOCABULARY-MAP-122
+   Version: v1.9.1-CORE-VOCABULARY-MAP-122-S3-ALIGNMENT
 
    Single source of truth for:
    - Main EAP Core Sessions S1–S15
@@ -15,7 +15,7 @@
 (() => {
   "use strict";
 
-  const VERSION = "v1.9.0-CORE-VOCABULARY-MAP-122";
+  const VERSION = "v1.9.1-CORE-VOCABULARY-MAP-122-S3-ALIGNMENT";
   const GROUP = "122";
 
   const SESSIONS = {
@@ -115,7 +115,7 @@
     "spiral": [
       "notice",
       "context clue",
-      "purpose"
+      "requirement"
     ],
     "stretch": [
       "central idea",
@@ -469,7 +469,7 @@
     "arcId": "ARC5",
     "arcTitle": "Global Arc",
     "mission": "Academic Presentation",
-    "skillFocus": "structure a short presentation and respond to an audience",
+    "skillFocus": "open, signpost, support and close a short academic presentation",
     "core": [
       "opening",
       "signpost",
@@ -502,7 +502,7 @@
     "arcId": "ARC5",
     "arcTitle": "Global Arc",
     "mission": "Final Integration",
-    "skillFocus": "form a solution brief from issue through next step",
+    "skillFocus": "connect issue, cause, evidence, solution, impact and reflection in a solution brief",
     "core": [
       "issue",
       "problem statement",
@@ -618,21 +618,20 @@
       ["stretch", session.stretch || []]
     ];
 
-    return targetGroups.flatMap(([band, terms]) => terms.map((term, index) => ({
-      id: `${sessionId}-${band}-${String(index + 1).padStart(2, "0")}`,
-      sessionId,
-      term,
-      normalized: key(term),
-      band,
-      level:
-        band === "stretch" ? "B1+" :
-        band === "chunk" ? "A2+–B1" :
-        band === "spiral" ? "A2+–B1" :
-        "A2+–B1",
-      title: session.title,
-      mission: session.mission,
-      skillFocus: session.skillFocus
-    })));
+    return targetGroups.flatMap(([band, terms]) =>
+      terms.map((term,index) => ({
+        id: `${sessionId}_${band}_${index + 1}`,
+        sessionId,
+        term: norm(term),
+        normalized: key(term),
+        band,
+        title: session.title,
+        arcId: session.arcId,
+        arcTitle: session.arcTitle,
+        mission: session.mission,
+        skillFocus: session.skillFocus
+      }))
+    );
   }
 
   function uniqueByTerm(targets){
