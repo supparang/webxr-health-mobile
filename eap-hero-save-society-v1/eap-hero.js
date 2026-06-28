@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z78 Speaking Timer Sync + Ready-to-Submit ===
+/* === EAP Hero: Save the Society v1z82 Hard Storage Split + Safe Persistence ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -7,7 +7,7 @@
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z81-storage-migration-s2-writing-fix';
+  const APP_VERSION = '20260628-v1z82-hard-storage-split-safe-persistence';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31992,9 +31992,57 @@
   }
 
 
+  /* v1z82: persist a strict, browser-safe snapshot only. Full raw evidence stays in memory
+     for the active session and must be sent to the server/IndexedDB in the next integration. */
+  const PERSIST_BLOCKED_KEYS = new Set([
+    'rawAudio','audioBlob','screenshot','fullHtml','debug','questionBank','goldPacks',
+    'rawSource','sourceText','fullTranscript','fullAiRubric','fullWritingHistory',
+    'allAttempts','researchDatasetCache','classActivities','lessons'
+  ]);
+
+  function makePersistable(value, depth, key){
+    const d = Number(depth || 0);
+    if(PERSIST_BLOCKED_KEYS.has(String(key || ''))) return undefined;
+    if(value == null || typeof value === 'number' || typeof value === 'boolean') return value;
+    if(typeof value === 'string') return compactTextForStorage(value, d < 3 ? 700 : 280);
+    if(d > 6) return undefined;
+    if(Array.isArray(value)){
+      const max = d < 2 ? 45 : 18;
+      return value.slice(-max).map(v => makePersistable(v, d + 1, '')).filter(v => v !== undefined);
+    }
+    if(typeof value === 'object'){
+      const out = {};
+      Object.keys(value).slice(0, 100).forEach(k => {
+        const v = makePersistable(value[k], d + 1, k);
+        if(v !== undefined) out[k] = v;
+      });
+      return out;
+    }
+    return undefined;
+  }
+
+  function buildHardStorageSnapshot(){
+    pruneStateForStorage();
+    const compact = makePersistable(state, 0, '') || {};
+    compact.version = APP_VERSION;
+    compact.storageMode = 'v1z82-hard-split';
+    compact.savedAt = new Date().toISOString();
+    // Protect against accidental expansion of activity logs.
+    compact.portfolio = compactArray(state.portfolio, 30, compactPortfolioEntry);
+    compact.learningReports = compactArray(state.learningReports, 30, x => makePersistable(x, 0, ''));
+    if(compact.ai){ compact.ai.logs = []; compact.ai.dailyUses = compact.ai.dailyUses || {}; }
+    if(compact.qa){ compact.qa.runtimeErrors = []; }
+    if(compact.logs) compact.logs = [];
+    if(compact.examLogs) compact.examLogs = compactArray(state.examLogs, 8, x => makePersistable(x, 0, ''));
+    return compact;
+  }
+
   function saveState(){
     try{
-      return safeLocalStorageSet(STORAGE_KEY, JSON.stringify(state));
+      const snapshot = buildHardStorageSnapshot();
+      const ok = safeLocalStorageSet(STORAGE_KEY, JSON.stringify(snapshot));
+      if(!ok) console.warn('[v1z82] browser persistence skipped; active session remains in memory');
+      return ok;
     }catch(err){
       console.warn('[saveState failed]', err);
       return false;
