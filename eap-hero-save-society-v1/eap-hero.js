@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z75 Navigation Clarity + Contextual Return Labels ===
+/* === EAP Hero: Save the Society v1z76 Navigation Clarity + Contextual Return Labels ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260627-v1z75-navigation-clarity-contextual-return-labels-a2-b1plus';
+  const APP_VERSION = '20260627-v1z76-navigation-clarity-contextual-return-labels-a2-b1plus';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32591,7 +32591,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z75'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z76'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
@@ -37623,6 +37623,14 @@
     if(readAlign && readAlign.questions && readAlign.questions.length){ text.variant.q = readAlign.questions; }
     const abilityTask = buildAbilityTask('Reading', s.id, text);
     if(abilityTask.questions && abilityTask.questions.length) text.variant.q = abilityTask.questions;
+    if([1,2,3].includes(Number(s.id))){
+      const alignedQuestions={
+        1:['Which academic goal is clear and specific?','Choose one skill you want to improve.','Write one short practice action.'],
+        2:['Write one academic word from the source.','What does this word mean in this context?','Write one short sentence using the word.'],
+        3:['What is the main idea of the passage?','Write one supporting detail.','Why is this detail not the whole main idea?']
+      };
+      text.variant.q=alignedQuestions[s.id];
+    }
     const readingDifficulty = currentSkillDifficulty('Reading');
     registerGoldTaskContext('Reading', s.id, abilityTask);
     layout(`<section class="panel" style="margin-top:20px">
@@ -38245,7 +38253,7 @@
         <button type="button" class="btn small" onclick="EAPHero.expandAnswerBox('writingOutput')">↕ Expand</button>
         <button type="button" class="btn small ghost" onclick="EAPHero.clearAnswerBox('writingOutput')">Clear</button>
       </div>
-      <textarea id="writingOutput" class="input answer-box large-writing-box" rows="13" data-default-rows="13" placeholder="${safeAttr(alignedPlaceholder('Writing', s.id, prompt))}"></textarea>
+      <textarea id="writingOutput" class="input answer-box large-writing-box" rows="${Number(s.id)<=3?6:13}" data-default-rows="${Number(s.id)<=3?6:13}" placeholder="${safeAttr(alignedPlaceholder('Writing', s.id, prompt))}"></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div>
     </section>`);
   }
@@ -38254,6 +38262,13 @@
   function writingPromptFromVariant(s, mv){
     const v = mv.variant || {};
     const matrix = finalMatrixForSession(s.id);
+    const sid=Number(s.id);
+    const aligned={
+      1:{title:'My Academic Goal Card',target:'2 short sentences',instruction:'Choose one academic skill and one practice action. Write: My academic goal is to improve ____. I will practise by ____.'},
+      2:{title:'Vocabulary in Context',target:'2 short sentences',instruction:'Choose one academic word from the source. Write its simple meaning, then write one short academic sentence using the word.'},
+      3:{title:'Main Idea Brief',target:'2 short sentences',instruction:'Write the main idea of the short passage. Add one supporting detail. Use your own words.'}
+    }[sid];
+    if(aligned) return Object.assign({topic:mv.topic,passage:mv.passage,variantType:'aligned-writing'},aligned);
     return {
       title:v.title || `${matrix.theme} Writing Challenge`,
       target:v.target || 'clear academic response using the source idea',
@@ -38498,7 +38513,12 @@
     const abilityTask = buildAbilityTask('Listening', s.id, text);
     const listeningDifficulty = currentSkillDifficulty('Listening');
     registerGoldTaskContext('Listening', s.id, abilityTask);
-    const lecture = `Today, we will discuss ${text.topic}. ${text.passage} ${text.variant.ask || 'Write notes about the main point.'}`;
+    const alignedLectures={
+      1:'My academic goal is to improve reading. I will practise by reading one short text every week.',
+      2:'The word evidence means information that supports an idea. Students can use evidence in academic writing.',
+      3:'Online learning can support independent study. For example, students can use videos and quizzes outside class.'
+    };
+    const lecture = alignedLectures[Number(s.id)] || `Today, we will discuss ${text.topic}. ${text.passage} ${text.variant.ask || 'Write notes about the main point.'}`;
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Listening Mission</span><span class="pill">S${s.id}</span><span class="pill">Mini Lecture</span></div>
       <h2>🎧 Listening Mission</h2>
@@ -38806,10 +38826,15 @@
     const source = goldTaskSource(abilityTask) || mv.goldPack?.source || null;
     const profile = applyEasySpeakingProfile(abilityTask, source);
     const sessionMeta = typeof finalMatrixForSession === 'function' ? finalMatrixForSession(s.id) : {};
-    const sourceTitle = source?.title || mv.topic || 'this source';
+    const alignedSpeaking = {
+      1:{title:'My Academic Goal',instruction:'Say one academic goal and one practice action.'},
+      2:{title:'Word Meaning Mini Talk',instruction:'Say one academic word, its simple meaning, and one short example.'},
+      3:{title:'Main Idea Mini Talk',instruction:'Say the main idea and one supporting detail.'}
+    }[Number(s.id)] || null;
+    const sourceTitle = alignedSpeaking?.title || source?.title || mv.topic || 'this source';
     const prompt = {
       title:sourceTitle,
-      instruction:buildSpeakingTaskBrief(abilityTask, source),
+      instruction:alignedSpeaking?.instruction || buildSpeakingTaskBrief(abilityTask, source),
       topic:sourceTitle,
       passage:source?.passage || mv.passage || '',
       source,
@@ -39308,7 +39333,7 @@
     return frames[skill] || 'For example, ___.';
   }
 
-  /* === v1z75 Navigation Clarity + Learning Report Recovery ===
+  /* === v1z76 Navigation Clarity + Learning Report Recovery ===
      A Learning Report is the formative view of one portfolio evidence item.
      Earlier builds could retain portfolio evidence but lose report cards after a
      local-storage migration.  Stable evidence IDs let the app restore those cards
@@ -42590,7 +42615,7 @@
         portfolioIndex:portfolio.indexOf(p),
         portfolioId:p.evidenceId || reportPortfolioIdentity(p, portfolio.indexOf(p)),
         sourceAt:p.at || report.sourceAt || '',
-        reportVersion:'v1z75'
+        reportVersion:'v1z76'
       };
       Object.keys(update).forEach(k=>{ if(report[k] !== update[k]){ report[k]=update[k]; changed=true; } });
     });
@@ -42941,6 +42966,62 @@
     </section>`);
   }
 
+
+
+  /* === v1z76 Four-Skill Alignment Pack: S1–S3 === */
+  const EAP_FOUR_SKILL_ALIGNMENT_V1Z76 = Object.freeze({
+    1:{
+      Reading:{steps:['Read the goal choices.','Choose one clear academic skill.','Add one practice action.'],frames:['My academic goal is to improve ____.','I will practise by ____.'],vocab:['goal','improve','practise','reading','writing']},
+      Listening:{steps:['Listen once for the skill.','Listen again for the practice action.','Write two keywords only.'],frames:['The goal is ____.','The student will practise by ____.'],vocab:['goal','practise','weekly','skill']},
+      Writing:{steps:['Choose one skill.','Choose one action.','Write two short sentences.'],frames:['My academic goal is to improve ____.','I will practise by ____.'],vocab:['goal','improve','practise']},
+      Speaking:{title:'My Academic Goal',timeRange:'8–12',minSeconds:8,maxSeconds:12,sentenceGoal:'2 short sentences',instruction:'Say one academic goal and one practice action.',requirements:[{key:'goal',short:'Academic goal',label:'I said one academic goal'},{key:'action',short:'Practice action',label:'I said one practice action'}],frames:['My academic goal is to improve ____.','I will practise by ____.'],vocab:['goal','improve','practise']}
+    },
+    2:{
+      Reading:{steps:['Find one academic word.','Use nearby words to guess the meaning.','Write one short sentence using it.'],frames:['The word ____ means ____.','I can use it in this sentence: ____.'],vocab:['evidence','method','result','analyze']},
+      Listening:{steps:['Listen for the academic word.','Listen again for its meaning.','Write the word and meaning.'],frames:['The word is ____.','It means ____.'],vocab:['word','meaning','evidence','result']},
+      Writing:{steps:['Choose one word.','Write a simple meaning.','Use it in one sentence.'],frames:['The word ____ means ____.','In academic writing, ____.'],vocab:['evidence','method','result','analyze']},
+      Speaking:{title:'Word Meaning Mini Talk',timeRange:'10–14',minSeconds:10,maxSeconds:14,sentenceGoal:'2 short sentences',instruction:'Say one academic word and its simple meaning. Add a short example if you can.',requirements:[{key:'word',short:'Academic word',label:'I said one academic word'},{key:'meaning',short:'Simple meaning',label:'I explained the meaning'}],frames:['The word ____ means ____.','For example, ____.'],vocab:['word','meaning','evidence','method']}
+    },
+    3:{
+      Reading:{steps:['Read the whole short passage.','Choose the central message.','Add one supporting detail.'],frames:['The main idea is ____.','One supporting detail is ____.'],vocab:['main idea','support','detail','topic']},
+      Listening:{steps:['Listen once for the topic.','Listen again for the main idea.','Write one support detail.'],frames:['The topic is ____.','The main idea is ____.'],vocab:['topic','main idea','detail']},
+      Writing:{steps:['Write the main idea.','Add one supporting detail.','Use your own words.'],frames:['The main idea is ____.','For example, ____.'],vocab:['main idea','support','detail']},
+      Speaking:{title:'Main Idea Mini Talk',timeRange:'12–16',minSeconds:12,maxSeconds:16,sentenceGoal:'2 short sentences',instruction:'Say the main idea and one supporting detail from the source.',requirements:[{key:'mainidea',short:'Main idea',label:'I said the main idea'},{key:'support',short:'One support',label:'I gave one supporting detail'}],frames:['The main idea is ____.','For example, ____.'],vocab:['main idea','support','detail']}
+    }
+  });
+
+  function v1z76Guide(skill, sessionId){
+    const x=EAP_FOUR_SKILL_ALIGNMENT_V1Z76[Number(sessionId)]?.[normalizeAbilitySkill(skill)];
+    return x || null;
+  }
+
+  function goldTaskAlignmentGuideHTML(skill, sessionId, task, fallbackPrompt){
+    const a=v1z76Guide(skill,sessionId);
+    if(a){
+      return `<div class="gold-task-guide v1z76-aligned-guide"><div class="gold-task-guide-head"><span>🎯 Skill quest help</span><span>S${Number(sessionId)}</span><span>${safe(normalizeAbilitySkill(skill))}</span></div><h3>Do this one step at a time</h3><div class="gold-guide-grid">${a.steps.map((x,i)=>`<div class="gold-guide-step"><b>Step ${i+1}</b><span>${safe(x)}</span></div>`).join('')}</div><h4>Sentence frames</h4><div class="gold-frame-row">${a.frames.map(x=>`<span>${safe(x)}</span>`).join('')}</div><h4>Useful words</h4><div class="gold-vocab-row">${a.vocab.map(x=>`<span>${safe(x)}</span>`).join('')}</div><p class="mini-note">This is a scaffold. Your topic, word, detail, and context rotate each replay.</p></div>`;
+    }
+    if(!task?.gold) return alignmentGuideHTML(skill, sessionId, fallbackPrompt || {});
+    const g=goldTaskGuideData(skill,task);
+    return `<div class="gold-task-guide"><div class="gold-task-guide-head"><span>🎯 Help aligned to this exact Gold source</span><span>${safe(g.source?.id || task.sourceId || '')}</span><span>${safe(g.sourceTitle)}</span></div><h3>Use this help for this task only</h3><div class="gold-guide-grid">${g.steps.map((step,i)=>`<div class="gold-guide-step"><b>Step ${i+1}</b><span>${safe(step)}</span></div>`).join('')}</div><h4>Sentence frames for this task</h4><div class="gold-frame-row">${g.frames.map(frame=>`<span>${safe(frame)}</span>`).join('')}</div><h4>Useful vocabulary</h4><div class="gold-vocab-row">${g.vocab.map(word=>`<span>${safe(word)}</span>`).join('')}</div><p class="mini-note">Source: ${safe(g.sourceTitle)} · ${safe(g.expected)} · This is a scaffold, not an answer key.</p></div>`;
+  }
+
+  function applyEasySpeakingProfile(task, source){
+    const sid=Number(task?.session || state.currentSession || 1);
+    const aligned=v1z76Guide('Speaking',sid);
+    const profile=aligned ? Object.assign({key:'easy',label:'A2 Foundation',cefr:'A2'},aligned) : easySpeakingProfileForTask(task);
+    task.tier=profile.key; task.minSeconds=profile.minSeconds; task.maxSeconds=profile.maxSeconds;
+    task.target=`${profile.timeRange} seconds · ${profile.sentenceGoal}`; task.instruction=profile.instruction;
+    task.speakingProfile=profile.key; task.source=source || task.source || null; task.session=sid;
+    return profile;
+  }
+
+  function easySpeakingGuideHTML(profile, source){
+    const sid=Number(source?.session || state.currentSession || 1);
+    const a=v1z76Guide('Speaking',sid);
+    const title=a?.title || source?.title || 'this source';
+    const vocab=a?.vocab || (Array.isArray(source?.keywords)?source.keywords.slice(0,3):[]);
+    return `<div class="easy-speaking-guide"><div class="easy-speaking-guide-head"><b>Say these ${profile.requirements.length} things</b><span>${safe(profile.label)} · ${safe(profile.cefr)}</span></div><div class="easy-speaking-steps">${profile.requirements.map((r,i)=>`<div><b>${i+1}</b><span>${safe(r.short)}</span></div>`).join('')}</div><div class="easy-speaking-frames">${profile.frames.map(f=>`<span>${safe(f)}</span>`).join('')}</div><p class="mini-note">Mission: ${safe(title)} · Useful words: ${safe(vocab.join(' · '))}</p></div>`;
+  }
 
   // public API for inline handlers
   window.EAPHero = {
