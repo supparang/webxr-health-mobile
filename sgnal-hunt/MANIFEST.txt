@@ -1,0 +1,20 @@
+UX Quest Act I — Storage-Safe Update Manifest
+Version: 20260628-storage-safe1
+
+Deployment folder: /sgnal-hunt/
+
+Core gameplay files:
+- index.html
+- w1-ux-crisis-casefile.html
+- w2-design-thinking-sprint.html
+- w3-cognitive-load-escape.html
+- b1-cognitive-storm.html
+
+Shared runtime files:
+- js/uxq-progress-v2.js
+- js/uxq-mission-engine-v2.js
+- js/uxq-hub-casefile-v15.js
+
+Existing unchanged dependencies retained at deployment target:
+- css/uxq-core.css
+- css/uxq-hub.css

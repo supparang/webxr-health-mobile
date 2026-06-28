@@ -1,29 +1,47 @@
-UX Quest — Act I Complete Pack (2026-06-28)
+UX Quest — Act I Storage-Safe Complete Update (2026-06-28)
 
-FILES
-- w1-ux-crisis-casefile.html        W1 • UX Detective Casefile
-- w2-design-thinking-sprint.html    W2 • Design Thinking Sprint
-- w3-cognitive-load-escape.html     W3 • Cognitive Load Escape
-- b1-cognitive-storm.html           B1 • Cognitive Storm Boss Gate
-- js/uxq-progress-v1.js             Shared local progress and unlock store
-- js/uxq-mission-engine-v1.js       Shared game engine
-- js/uxq-hub-casefile-v14.js        Mission Control unlock/status controller
+PURPOSE
+This is the full updated Act I source set for the existing deployment folder:
+  /sgnal-hunt/
 
-INSTALL
-1. Copy the four HTML files into the same folder as index.html.
-2. Copy the three JavaScript files into ./js/.
-3. In index.html, replace only the final hub script line with:
-   <script src="./js/uxq-hub-casefile-v14.js?v=20260628-act1-complete"></script>
-4. Keep the existing Mission Control HTML markup unchanged.
-5. Open index.html through a local server or GitHub Pages. Do not test by opening file:// directly if browser storage behaves inconsistently.
+It fixes the browser error:
+  QuotaExceededError: Setting the value of 'uxq.recent.w2.v1' exceeded the quota
 
-PLAY / UNLOCK RULES
-- W1 is open immediately.
-- 2★ Readiness (accuracy >= 62%) unlocks the next mission.
-- W1 → W2 → W3 → B1.
-- Each play selects random cases, randomizes option position, avoids recently used cases, uses combo scoring, and gives rationale-based feedback.
-- Hint may be used once per question and costs 15 score only; it never blocks progression.
-- Progress is currently stored locally in that browser under localStorage key uxq.act1.progress.v1.
+WHAT CHANGED
+- New shared assets use versioned v2 / v15 filenames, so browsers do not reuse the old cached engine.
+- Case-history storage is limited to four case IDs only.
+- All game data now uses a safe fallback chain:
+  localStorage → sessionStorage → in-memory.
+  A full localStorage quota can no longer prevent W1, W2, W3, or B1 from starting.
+- When localStorage is full, progress remains available through the current browser tab via sessionStorage, allowing W1 → W2 → W3 → B1 to continue normally.
+- Existing v1 progress is read once and migrated automatically on the next saved mission result.
+- Mission attempt history is capped at three concise summaries.
+- Mission Control now reads through the same safe progress layer and clears only UX Quest keys when reset.
 
-IMPORTANT LIMITATION
-This pack intentionally does not claim to have teacher-dashboard or Google Sheets logging yet. It is a stable local-first Act I game layer. Connect logging after gameplay and progress rules have been tested in a browser.
+FILES TO UPLOAD (KEEP THIS FOLDER STRUCTURE)
+/sgnal-hunt/
+  index.html
+  w1-ux-crisis-casefile.html
+  w2-design-thinking-sprint.html
+  w3-cognitive-load-escape.html
+  b1-cognitive-storm.html
+  /js/
+    uxq-progress-v2.js
+    uxq-mission-engine-v2.js
+    uxq-hub-casefile-v15.js
+
+IMPORTANT
+- Upload / overwrite every file in this package into the existing /sgnal-hunt/ folder.
+- Keep the existing /sgnal-hunt/css/uxq-core.css and /sgnal-hunt/css/uxq-hub.css files. They are unchanged dependencies of Mission Control.
+- Older v1 / v14 JavaScript files may remain on the server; the updated HTML pages no longer call them.
+- Do not rename the deployed folder to “signal-hunt”; the current live project path is “sgnal-hunt”.
+
+QUICK TEST
+1. Open /sgnal-hunt/index.html and press “เริ่มภารกิจ”.
+2. Complete W1 with 2★ or more.
+3. Return to Mission Control and open W2.
+4. Confirm there is no red QuotaExceededError in Console.
+5. Test one replay of W2; its introductory case should vary and the option positions should shuffle.
+
+OPTIONAL CLEANUP
+No manual localStorage clearing is required because this update uses v2 keys. To reset only UX Quest progress, use “รีเซ็ตความคืบหน้า Act I” in Mission Control.
