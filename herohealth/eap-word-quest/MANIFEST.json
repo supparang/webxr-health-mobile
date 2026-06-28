@@ -1,0 +1,25 @@
+{
+  "package": "EAP-Word-Quest-v192-Core-Aligned-Full-Patch",
+  "version": "v1.9.2",
+  "group": "122",
+  "targets": 290,
+  "itemVariants": 894,
+  "files": [
+    "index.html",
+    "eap-core-vocabulary-map-v189.js",
+    "eap-word-data-v191-core-aligned-bank.js",
+    "eap-word-engine-v190-core-ai.js",
+    "eap-word-engine-v192-core-bank-controller.js",
+    "README-ติดตั้ง-v192-ภาษาไทย.txt"
+  ],
+  "scriptOrder": [
+    "logger",
+    "report-core",
+    "v183",
+    "v189 map",
+    "v191 bank",
+    "v190 core ai",
+    "v192 controller"
+  ],
+  "removed": "eap-word-engine-v188-local-ai-learning.js"
+}

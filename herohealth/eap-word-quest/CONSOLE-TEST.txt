@@ -1,0 +1,13 @@
+เปิด Console แล้วรันตามนี้:
+
+Array.from(document.scripts).map(s => s.src).filter(src => src.includes("eap-word") || src.includes("eap-core"))
+getEapCoreTargetCounts()
+inspectEapCoreQuestionBank()
+inspectEapV192()
+startEapCoreSession("S1")
+
+ค่าที่ควรได้:
+- ไม่มี v188
+- มี v189 / v191 / v190 / v192
+- target total = 290
+- item total = 894
