@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z89 Session Score Sync + Portfolio Best Attempt Summary ===
+/* === EAP Hero: Save the Society v1z91 Legacy Completion Display + No-Fake-Score Fix ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z90-safe-score-recovery-no-zero-overwrite';
+  const APP_VERSION = '20260628-v1z91-legacy-completion-display-no-fake-score';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32897,12 +32897,15 @@
     const skillRows = required.map(skill=>{
       const items = evidenceForSessionSkill(sid, skill);
       const bestScore = bestScoreForSessionSkill(sid, skill);
-      return {skill, items:items.length, bestScore, passed:bestScore >= PASS_RULES.sessionMinScore};
+      // A migrated session can be legitimately complete while its pre-v1z90 numeric
+      // evidence was removed during compact-storage migration. Do not invent a score.
+      const legacyCompletion = explicit && bestScore < PASS_RULES.sessionMinScore;
+      return {skill, items:items.length, bestScore, passed:bestScore >= PASS_RULES.sessionMinScore || legacyCompletion, legacyCompletion};
     });
     const missing = skillRows.filter(r=>!r.passed).map(r=>`${r.skill} ${r.bestScore || 0}/${PASS_RULES.sessionMinScore}`);
     const passed = explicit || skillRows.every(r=>r.passed);
     return {session:sid, requiredSkills:required, skillRows, explicit, passed, missing,
-      reason: passed ? (explicit ? 'marked complete' : `Core + Support passed (${PASS_RULES.sessionMinScore}+ each)`) : `Need ${missing.join(', ')}`};
+      reason: passed ? (explicit ? 'completed in an earlier local version; detailed score unavailable for some skills' : `Core + Support passed (${PASS_RULES.sessionMinScore}+ each)`) : `Need ${missing.join(', ')}`};
   }
 
   function syncPassProgressNow(silent){
@@ -32921,12 +32924,15 @@
         state.sessionScores[sid] = state.sessionScores[sid] || {};
         required.forEach(skill=>{
           const existing = Number(bestScoreForSessionSkill(sid, skill) || 0);
-          const recovered = existing >= PASS_RULES.sessionMinScore ? existing : PASS_RULES.sessionMinScore;
           const key = String(skill || '').trim();
           const prior = sessionState.skills[key];
           const priorNum = Number(typeof prior === 'object' ? (prior.score ?? prior.bestScore ?? 0) : prior || 0);
-          const best = Math.max(priorNum, recovered);
-          sessionState.skills[key] = Object.assign({}, (prior && typeof prior==='object'?prior:{}), {score:best,bestScore:best,recoveredFromCompletion:existing < PASS_RULES.sessionMinScore});
+          const best = Math.max(priorNum, existing);
+          sessionState.skills[key] = Object.assign({}, (prior && typeof prior==='object'?prior:{}), {
+            score:best, bestScore:best,
+            legacyCompletion:best < PASS_RULES.sessionMinScore,
+            recoveredFromCompletion:false
+          });
           state.sessionScores[sid][key] = Math.max(Number(state.sessionScores[sid][key] || 0), best);
         });
       }
@@ -33186,8 +33192,15 @@
 
   function visibleSessionCompletionBadgeHTML(sessionId){
     const r = sessionCompletionVisibleReport(sessionId);
-    const coreTxt = r.core ? `${safe(r.core.skill)} ${r.core.bestScore || 0}/60` : 'Core 0/60';
-    const supportTxt = r.support ? `${safe(r.support.skill)} ${r.support.bestScore || 0}/60` : 'Support 0/60';
+    const scoreLabel = (row, fallback) => {
+      if(!row) return fallback;
+      if(row.legacyCompletion && Number(row.bestScore || 0) < PASS_RULES.sessionMinScore){
+        return `${safe(row.skill)}: Passed (legacy score unavailable)`;
+      }
+      return `${safe(row.skill)} ${row.bestScore || 0}/60`;
+    };
+    const coreTxt = scoreLabel(r.core, 'Core not started');
+    const supportTxt = scoreLabel(r.support, 'Support not started');
     return `<div class="visible-session-completion ${r.passed?'passed':'not-yet'}" data-visible-session="${r.session}">
       <div class="vsc-main"><b>${r.passed?'✅ Session Passed':'⚠️ Session not passed yet'}</b><span class="vsc-stars">${safe(r.starText)}</span><span>avg ${r.avg || 0}</span></div>
       <div class="vsc-sub"><span>${coreTxt}</span><span>${supportTxt}</span></div>
