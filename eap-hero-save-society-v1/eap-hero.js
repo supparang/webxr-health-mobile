@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z84 Whitelist Storage Recovery ===
+/* === EAP Hero: Save the Society v1z86 Whitelist Storage Recovery ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z85-boot-guard-fix';
+  const APP_VERSION = '20260628-v1z86-version-guard-storage-baseline';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31976,7 +31976,7 @@
     const settings=state.settings || {};
     return {
       version:APP_VERSION,
-      storageMode:'v1z84-whitelist',
+      storageMode:'v1z86-whitelist',
       savedAt:new Date().toISOString(),
       view:safeText(state.view || 'home',30),
       currentSession:Number(state.currentSession||1)||1,
@@ -32007,10 +32007,10 @@
         }
       });
       try{ localStorage.removeItem(LEGACY_STORAGE_KEY); }catch(_){}
-    }catch(err){ console.warn('[v1z84 cleanup]',err); }
+    }catch(err){ console.warn('[v1z86 cleanup]',err); }
   }
 
-  /* v1z84: true storage rewrite. Never serialize the live state object. */
+  /* v1z86: true storage rewrite. Never serialize the live state object. */
   function v84MiniSessions(){
     const out={};
     Object.entries(state.sessions || {}).forEach(([id,x])=>{
@@ -32038,16 +32038,16 @@
     const payload=JSON.stringify(v84Snapshot());
     try{ localStorage.setItem(STORAGE_KEY,payload); return true; }
     catch(err){
-      console.warn('[v1z84 storage] quota; clearing obsolete EAP keys and retrying');
+      console.warn('[v1z86 storage] quota; clearing obsolete EAP keys and retrying');
       try{ cleanupV84Storage(); localStorage.setItem(STORAGE_KEY,payload); return true; }
-      catch(err2){ console.warn('[v1z84 storage] persistence unavailable; keeping this run in memory',err2); return false; }
+      catch(err2){ console.warn('[v1z86 storage] persistence unavailable; keeping this run in memory',err2); return false; }
     }
   }
   function storageUsageInfo(){ let chars=0; try{chars=(localStorage.getItem(STORAGE_KEY)||'').length}catch(_){} return {key:STORAGE_KEY,chars,approxKB:Math.round(chars/1024),portfolio:(state.portfolio||[]).length,reports:0,qaErrors:0,runtimeErrors:0}; }
   function optimizeStorageNow(silent){ const ok=safeLocalStorageSet(); if(!silent) safeToast(ok?'Progress saved safely.':'Browser storage is unavailable; this run remains open.'); return ok; }
   function runStorageMaintenanceSoon(){ setTimeout(()=>{try{safeLocalStorageSet()}catch(_){}},250); }
   function buildHardStorageSnapshot(){ return v84Snapshot(); }
-  function saveState(){ try{return safeLocalStorageSet()}catch(err){console.warn('[v1z84 saveState]',err);return false} }
+  function saveState(){ try{return safeLocalStorageSet()}catch(err){console.warn('[v1z86 saveState]',err);return false} }
 
   function resetState(){
     if(confirm('ล้างข้อมูลเกมทั้งหมดในเครื่องนี้ใช่ไหมคะ?')){
@@ -32195,9 +32195,12 @@
 
   function cacheVersionNotice(){
     const q = new URLSearchParams(location.search);
-    const x = q.get('x') || '';
-    if(x && !String(APP_VERSION).includes(x.replace(/^v/, 'v'))){
-      return `<div class="cache-notice">Cache notice: URL asks for ${safe(x)}, but loaded JS is ${safe(APP_VERSION)}. Please upload index.html/eap-hero.js/eap-hero.css and hard refresh.</div>`;
+    const requested = String(q.get('x') || '').toLowerCase();
+    const loaded = String(APP_VERSION || '').toLowerCase();
+    const requestedTag = (requested.match(/v1z\d+/) || [''])[0];
+    const loadedTag = (loaded.match(/v1z\d+/) || [''])[0];
+    if(requestedTag && loadedTag && requestedTag !== loadedTag){
+      return `<div class="cache-notice">Cache notice: URL asks for ${safe(requestedTag)}, but loaded JS is ${safe(APP_VERSION)}. Please upload index.html/eap-hero.js/eap-hero.css and hard refresh.</div>`;
     }
     return '';
   }
@@ -32702,7 +32705,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z84'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z86'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
