@@ -1,20 +1,18 @@
 {
-  "package": "EAP Word Quest v193 Score Combo Recovery Patch",
-  "version": "v1.9.3-CORE-SCORE-COMBO-RECOVERY-122",
-  "deployTo": "/herohealth/eap-word-quest/",
+  "package": "EAP Word Quest v195 Core Truth + Stability",
   "files": [
     "index.html",
-    "eap-word-engine-v193-score-combo-recovery.js",
-    "README-ติดตั้ง-v193-ภาษาไทย.txt",
-    "CONSOLE-TEST.txt",
-    "MANIFEST.json"
+    "eap-word-engine-v195-core-ai-student-scoped.js",
+    "eap-word-engine-v195-core-truth-progress-controller.js",
+    "eap-word-engine-v195-stable-score-core-progress.js",
+    "README-ติดตั้ง-v195.txt",
+    "REMOVE-OLD-SCRIPTS.txt"
   ],
-  "requiresExisting": [
-    "eap-core-vocabulary-map-v189.js",
-    "eap-word-data-v191-core-aligned-bank.js",
+  "replaces": [
+    "eap-word-engine-v183-progress-sync-hotfix.js",
     "eap-word-engine-v190-core-ai.js",
     "eap-word-engine-v192-core-bank-controller.js",
-    "eap-word-logger.js",
-    "eap-word-report-core.js"
+    "eap-word-engine-v193-score-combo-recovery.js",
+    "eap-word-engine-v194-stability-score-fix.js"
   ]
 }

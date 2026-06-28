@@ -1,21 +1,9 @@
-EAP Word Quest v193 checks
+inspectEapV195()
+getEapCoreProgress()
+getEapCoreAiState()
 
-1) Confirm script loaded
-window.EAP_WORD_V193_VERSION
-
-2) Inspect live policy / last reward
-inspectEapV193()
-getEapV193RewardPreview()
-
-3) After a test run with at least one correct answer, expected:
-- xp > 0
-- score === xp
-- maxCombo >= 1 when correct > 0
-- rewardBreakdown.correctXp === correct * 60
-
-4) Recommended functional test
-- Start S1 in a fresh profile/core state.
-- Answer at least 2 questions correctly.
-- Finish the round even if below 60%.
-- Verify the summary card and the v172 overlay show XP > 0.
-- Open Teacher Dashboard / export CSV and verify reward fields exist.
+Expected:
+- coreOnly: true
+- Progress reflects only Core v195 (or migrated real Core v192 attempts of same Student ID)
+- AI scope uses current Student ID
+- no v183 progress sync logs
