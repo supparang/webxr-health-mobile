@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z88 Portfolio Best Attempt Summary + Safe Boss Arrays ===
+/* === EAP Hero: Save the Society v1z89 Session Score Sync + Portfolio Best Attempt Summary ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z88-portfolio-best-attempt-summary';
+  const APP_VERSION = '20260628-v1z89-session-score-sync-portfolio-best-attempt-summary';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32862,10 +32862,25 @@
   }
 
   function bestScoreForSessionSkill(sessionId, skill){
+    const sid = Number(sessionId || 0);
+    const wanted = String(skill || '').toLowerCase();
     let best = 0;
-    evidenceForSessionSkill(sessionId, skill).forEach(item=>{
+    evidenceForSessionSkill(sid, skill).forEach(item=>{
       const score = typeof extractScoreFromEvidence === 'function' ? extractScoreFromEvidence(item) : Number(item?.score || item?.autoScore || 0);
       if(Number(score || 0) > best) best = Number(score || 0);
+    });
+    // v1z89: Map/session cards must also read the central session score mirror.
+    // This protects progress when a compact portfolio entry or report card is de-duplicated.
+    const sess = state.sessions?.[sid] || {};
+    const buckets = [sess.skills, sess.skillScores, sess.skillDone, sess.skillProgress, sess.missions, state.sessionScores?.[sid], state.skillScores?.[sid]];
+    buckets.forEach(bucket=>{
+      if(!bucket || typeof bucket !== 'object') return;
+      Object.keys(bucket).forEach(key=>{
+        if(String(key).toLowerCase() !== wanted) return;
+        const v = bucket[key];
+        const score = Number(typeof v === 'object' ? (v.score ?? v.bestScore ?? v.autoScore ?? v.value ?? 0) : v || 0);
+        if(score > best) best = score;
+      });
     });
     return best;
   }
@@ -39287,6 +39302,19 @@
       state.portfolio.push(compactEntry);
     }
     state.portfolio = compactArray(state.portfolio, STORAGE_LIMITS.portfolio, compactPortfolioEntry);
+    // v1z89 central score mirror: always sync the best evidence into the session state
+    // so Session Map, unlock logic, and report summary agree after replay/de-duplication.
+    state.sessions = state.sessions || {};
+    state.sessions[sessionId] = state.sessions[sessionId] || {};
+    state.sessions[sessionId].skills = state.sessions[sessionId].skills || {};
+    state.sessionScores = state.sessionScores || {};
+    state.sessionScores[sessionId] = state.sessionScores[sessionId] || {};
+    const skillKey = String(compactEntry.skill || '').trim() || 'Unknown';
+    const priorSkill = state.sessions[sessionId].skills[skillKey];
+    const priorScore = Number(typeof priorSkill === 'object' ? (priorSkill.score ?? priorSkill.bestScore ?? 0) : priorSkill || 0);
+    const bestSkillScore = Math.max(priorScore, Number(compactEntry.score || 0));
+    state.sessions[sessionId].skills[skillKey] = {score:bestSkillScore, bestScore:bestSkillScore, latestScore:Number(compactEntry.score || 0), at:compactEntry.at || new Date().toISOString()};
+    state.sessionScores[sessionId][skillKey] = bestSkillScore;
     const portfolioIndex = existingIndex >= 0 ? existingIndex : state.portfolio.length - 1;
     updateMasteryFromPortfolio(compactEntry);
     updateAIAbilityProfiles();
