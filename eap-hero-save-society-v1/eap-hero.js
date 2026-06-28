@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z89-session-score-sync-portfolio-best-attempt-summary';
+  const APP_VERSION = '20260628-v1z90-safe-score-recovery-no-zero-overwrite';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31585,6 +31585,7 @@
       badges:[],
       cards:[],
       sessions,
+      sessionScores:{},
       logs:[],
       examLogs:[],
       examAttempts:{},
@@ -31669,6 +31670,7 @@
       const fresh = cloneDefaultState();
       const merged = Object.assign(fresh, parsed);
       merged.sessions = Object.assign(fresh.sessions, parsed.sessions || {});
+      merged.sessionScores = Object.assign({}, fresh.sessionScores || {}, parsed.sessionScores || {});
       merged.recentQuestions = Object.assign(fresh.recentQuestions || {}, parsed.recentQuestions || {});
       merged.examLogs = parsed.examLogs || [];
       merged.examAttempts = Object.assign(fresh.examAttempts || {}, parsed.examAttempts || {});
@@ -31969,7 +31971,8 @@
         attempts:Math.min(99,Number(x.attempts||0)||0),
         bestScore:Number(x.bestScore||0)||0,
         reflections:compactArray(x.reflections,2,r=>safeText(r,150)),
-        skillEvidence:compactSessionEvidence(x.skillEvidence || x.evidence)
+        skillEvidence:compactSessionEvidence(x.skillEvidence || x.evidence),
+        skills:compactSessionEvidence(x.skills || x.skillScores || x.skillDone || x.skillProgress || x.missions)
       };
     });
     const profile=state.profile || {};
@@ -31987,6 +31990,7 @@
       badges:compactArray(state.badges,20,b=>safeText(b,80)),
       cards:compactArray(state.cards,12,c=>({sessionId:Number(c?.sessionId||c?.session||0)||0,title:safeText(c?.title||'',100),at:safeText(c?.at||'',40)})),
       sessions,
+      sessionScores:compactSessionEvidence(state.sessionScores || {}),
       portfolio:compactArray(state.portfolio,18,compactEvidenceForWhitelist),
       learningReports:compactArray(state.learningReports,12,r=>({sessionId:Number(r?.sessionId||0)||0,skill:safeText(r?.skill||'',30),score:Number(r?.score||0)||0,didWell:safeText(r?.didWell||'',180),nextStep:safeText(r?.nextStep||'',180),at:safeText(r?.at||r?.submittedAt||'',40)})),
       mastery:{Reading:Number(state.mastery?.Reading||0)||0,Writing:Number(state.mastery?.Writing||0)||0,Listening:Number(state.mastery?.Listening||0)||0,Speaking:Number(state.mastery?.Speaking||0)||0,Ethics:Number(state.mastery?.Ethics||0)||0},
@@ -32014,7 +32018,7 @@
   function v84MiniSessions(){
     const out={};
     Object.entries(state.sessions || {}).forEach(([id,x])=>{
-      out[id]={unlocked:!!x?.unlocked,cleared:!!x?.cleared,bestStars:Number(x?.bestStars||0)||0,bestAccuracy:Number(x?.bestAccuracy||0)||0,attempts:Math.min(20,Number(x?.attempts||0)||0),bestScore:Number(x?.bestScore||0)||0};
+      out[id]={unlocked:!!x?.unlocked,cleared:!!x?.cleared,bestStars:Number(x?.bestStars||0)||0,bestAccuracy:Number(x?.bestAccuracy||0)||0,attempts:Math.min(20,Number(x?.attempts||0)||0),bestScore:Number(x?.bestScore||0)||0,skills:compactSessionEvidence(x?.skills || x?.skillScores || x?.skillDone || x?.skillProgress || x?.missions)};
     });
     return out;
   }
@@ -32026,7 +32030,7 @@
     }));
     return {schema:'eap-v84',version:APP_VERSION,savedAt:new Date().toISOString(),view:String(state.view||'home').slice(0,24),currentSession:Number(state.currentSession||1)||1,
       profile:{name:String(p.name||'').slice(0,60),studentId:String(p.studentId||'').slice(0,40),goal:String(p.goal||'').slice(0,120)},
-      xp:Number(state.xp||0)||0,rank:String(state.rank||'New Learner').slice(0,40),sessions:v84MiniSessions(),
+      xp:Number(state.xp||0)||0,rank:String(state.rank||'New Learner').slice(0,40),sessions:v84MiniSessions(),sessionScores:compactSessionEvidence(state.sessionScores || {}),
       mastery:{Reading:Number(m.Reading||0)||0,Writing:Number(m.Writing||0)||0,Listening:Number(m.Listening||0)||0,Speaking:Number(m.Speaking||0)||0},
       fun:{coins:Number(f.coins||0)||0,daily:{lastDate:String(f.daily?.lastDate||'').slice(0,12),streak:Number(f.daily?.streak||0)||0}},
       skillPath:{unlockedBossGates:Object.assign({},state.skillPath?.unlockedBossGates||{})}, bossGates:Object.assign({},state.bossGates||{}), portfolio};
@@ -32903,11 +32907,31 @@
 
   function syncPassProgressNow(silent){
     state.sessions = state.sessions || {};
+    state.sessionScores = state.sessionScores || {};
     state.bossCards = state.bossCards || {};
+    // v1z90 recovery: earlier compact builds retained `cleared:true` but omitted skill mirrors.
+    // Never let a zero overwrite a cleared session. Recover exact portfolio/history scores first;
+    // only then use the pass floor to preserve an already-earned completion state.
     for(let sid=1; sid<=15; sid++){
+      const sessionState = state.sessions[sid] = state.sessions[sid] || {};
+      const wasCleared = !!(sessionState.cleared || sessionState.done || sessionState.completed || sessionState.complete || sessionState.bossDone || sessionState.unlockedDone);
+      const required = requiredSkillsForSession(sid);
+      if(wasCleared){
+        sessionState.skills = sessionState.skills || {};
+        state.sessionScores[sid] = state.sessionScores[sid] || {};
+        required.forEach(skill=>{
+          const existing = Number(bestScoreForSessionSkill(sid, skill) || 0);
+          const recovered = existing >= PASS_RULES.sessionMinScore ? existing : PASS_RULES.sessionMinScore;
+          const key = String(skill || '').trim();
+          const prior = sessionState.skills[key];
+          const priorNum = Number(typeof prior === 'object' ? (prior.score ?? prior.bestScore ?? 0) : prior || 0);
+          const best = Math.max(priorNum, recovered);
+          sessionState.skills[key] = Object.assign({}, (prior && typeof prior==='object'?prior:{}), {score:best,bestScore:best,recoveredFromCompletion:existing < PASS_RULES.sessionMinScore});
+          state.sessionScores[sid][key] = Math.max(Number(state.sessionScores[sid][key] || 0), best);
+        });
+      }
       const rep = sessionPassReport(sid);
-      state.sessions[sid] = state.sessions[sid] || {};
-      state.sessions[sid].passReport = rep;
+      sessionState.passReport = rep;
       state.sessions[sid].requiredSkills = rep.requiredSkills;
       if(rep.passed){
         state.sessions[sid].completed = true;
