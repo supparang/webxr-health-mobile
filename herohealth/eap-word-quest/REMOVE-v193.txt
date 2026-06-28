@@ -1,0 +1,5 @@
+IMPORTANT
+Do NOT load this old file anymore:
+eap-word-engine-v193-score-combo-recovery.js
+
+v194 replaces v193 completely.
