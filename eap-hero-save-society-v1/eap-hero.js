@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z78-speaking-timer-sync-ready-submit-a2-b1plus';
+  const APP_VERSION = '20260628-v1z80-storage-compact-autocheck-sync-a2-b1plus';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31714,16 +31714,16 @@
 
 
   const STORAGE_LIMITS = {
-    portfolio:90,
-    learningReports:90,
-    runtimeErrors:12,
-    qaRuntimeErrors:12,
-    logs:80,
-    examLogs:20,
-    examAttempts:20,
-    outputChars:900,
-    promptChars:500,
-    feedbackChars:500
+    portfolio:48,
+    learningReports:36,
+    runtimeErrors:4,
+    qaRuntimeErrors:4,
+    logs:20,
+    examLogs:8,
+    examAttempts:8,
+    outputChars:320,
+    promptChars:240,
+    feedbackChars:240
   };
 
   function isQuotaExceededError(err){
@@ -31847,34 +31847,56 @@
     };
   }
 
+  function compactStateSnapshotForStorage(){
+    // Create a compact copy so a failed save never depends on oversized raw history.
+    pruneStateForStorage();
+    const snapshot = JSON.parse(JSON.stringify(state));
+    snapshot.portfolio = compactArray(snapshot.portfolio, 48, compactPortfolioEntry);
+    snapshot.learningReports = compactArray(snapshot.learningReports, 36, r => {
+      const x = Object.assign({}, r || {});
+      ['didWell','nextStep','tryFrame','teacherFeedback','transcript'].forEach(k=>{
+        if(x[k] != null) x[k] = compactTextForStorage(x[k], 240);
+      });
+      return x;
+    });
+    if(snapshot.ai){
+      if(Array.isArray(snapshot.ai.logs)) snapshot.ai.logs = snapshot.ai.logs.slice(-12).map(x=>{
+        const y=Object.assign({},x||{}); if(y.message) y.message=compactTextForStorage(y.message,180); return y;
+      });
+      snapshot.ai.dailyUses = snapshot.ai.dailyUses || {};
+    }
+    if(snapshot.qa && Array.isArray(snapshot.qa.runtimeErrors)) snapshot.qa.runtimeErrors=[];
+    snapshot.runtimeErrors=[];
+    delete snapshot.researchDatasetCache;
+    delete snapshot.classActivities;
+    delete snapshot.lessons;
+    delete snapshot.debug;
+    return snapshot;
+  }
+
   function safeLocalStorageSet(key, value){
     try{
-      localStorage.setItem(key, value);
+      // Always save a compact snapshot for the primary game key. This prevents
+      // transcript/history growth from breaking normal mission submit flows.
+      const payload = key === STORAGE_KEY
+        ? JSON.stringify(compactStateSnapshotForStorage())
+        : String(value);
+      localStorage.setItem(key, payload);
       return true;
     }catch(err){
       if(!isQuotaExceededError(err)) throw err;
-      console.warn('[storage quota] pruning and retrying save');
+      console.warn('[storage quota] emergency compact save');
       try{
-        pruneStateForStorage();
-        const compactValue = JSON.stringify(state);
+        const minimal = JSON.stringify(minimalStateForEmergencySave());
         localStorage.removeItem(key);
-        localStorage.setItem(key, compactValue);
-        safeToast('Storage was full. Old long records were compacted.');
+        localStorage.setItem(key, minimal);
+        safeToast('Storage was optimized. Essential progress is safe.');
         return true;
       }catch(err2){
-        console.warn('[storage quota] emergency minimal save', err2);
-        try{
-          const minimal = JSON.stringify(minimalStateForEmergencySave());
-          localStorage.removeItem(key);
-          localStorage.setItem(key, minimal);
-          safeToast('Storage was full. Saved essential progress only.');
-          return true;
-        }catch(err3){
-          console.warn('[storage quota] save skipped', err3);
-          try{ sessionStorage.setItem(key + '_BACKUP', JSON.stringify(minimalStateForEmergencySave())); }catch(e){}
-          safeToast('Storage is full. Progress kept for this session only. Export/reset old data soon.');
-          return false;
-        }
+        console.warn('[storage quota] browser save unavailable', err2);
+        try{ sessionStorage.setItem(key + '_BACKUP', JSON.stringify(minimalStateForEmergencySave())); }catch(e){}
+        safeToast('Browser storage is full. Please export/reset old test data before continuing.');
+        return false;
       }
     }
   }
@@ -32591,7 +32613,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z78'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z80'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
