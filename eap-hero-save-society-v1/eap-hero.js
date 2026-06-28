@@ -7,7 +7,7 @@
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z80-storage-compact-autocheck-sync-a2-b1plus';
+  const APP_VERSION = '20260628-v1z81-storage-migration-s2-writing-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
