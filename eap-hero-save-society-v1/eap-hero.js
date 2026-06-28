@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z87 Boss Safe Array Fix ===
+/* === EAP Hero: Save the Society v1z88 Portfolio Best Attempt Summary + Safe Boss Arrays ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z87-boss-safe-array-fix';
+  const APP_VERSION = '20260628-v1z88-portfolio-best-attempt-summary';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32110,12 +32110,9 @@
   }
 
   function grantTreasure(session, starsEarned, contractKey){
-    // Defensive normalization: legacy / compact saves may omit nested arrays.
-    state.fun = state.fun || {};
-    state.fun.coins = Number(state.fun.coins || 0);
+    state.fun = state.fun || { coins:0, chests:[], titles:[], daily:{ lastDate:'', streak:0 }, achievementsClaimed:[] };
     state.fun.chests = Array.isArray(state.fun.chests) ? state.fun.chests : [];
     state.fun.titles = Array.isArray(state.fun.titles) ? state.fun.titles : [];
-    state.fun.daily = (state.fun.daily && typeof state.fun.daily === 'object') ? state.fun.daily : { lastDate:'', streak:0 };
     state.fun.achievementsClaimed = Array.isArray(state.fun.achievementsClaimed) ? state.fun.achievementsClaimed : [];
     const contract = getContract(contractKey || 'normal');
     let tier = contract.chest || 'bronze';
@@ -32133,7 +32130,7 @@
     let bonus = null;
     if(tier === 'legendary' || Math.random() < .33){
       bonus = titlePool[(session.id + (state.fun.chests?.length || 0)) % titlePool.length];
-      if(!state.fun.titles.includes(bonus)) state.fun.titles.push(bonus);
+      if(!Array.isArray(state.fun.titles)) state.fun.titles=[]; if(!state.fun.titles.includes(bonus)) state.fun.titles.push(bonus);
     }
 
     const reward = {
@@ -34475,9 +34472,6 @@
     const chestReward = win ? grantTreasure(s, starsEarned, a.contract || 'normal') : null;
 
     const prog = state.sessions[s.id];
-    // Defensive normalization for migrated/legacy progress objects.
-    state.cards = Array.isArray(state.cards) ? state.cards : [];
-    state.badges = Array.isArray(state.badges) ? state.badges : [];
     prog.attempts = (prog.attempts || 0) + 1;
     prog.bestStars = Math.max(prog.bestStars || 0, starsEarned);
     prog.bestAccuracy = Math.max(prog.bestAccuracy || 0, Math.round(accuracy*100));
@@ -34486,8 +34480,8 @@
       prog.cleared = true;
       const next = state.sessions[s.id+1];
       if(!resolvedGateId && typeof sessionPassReport === 'function' && sessionPassReport(s.id).passed && next) next.unlocked = true;
-      if(!state.cards.includes(s.id)) state.cards.push(s.id);
-      if(badge && !state.badges.includes(badge)) state.badges.push(badge);
+      if(!Array.isArray(state.cards)) state.cards=[]; if(!state.cards.includes(s.id)) state.cards.push(s.id);
+      if(!Array.isArray(state.badges)) state.badges=[]; if(badge && !state.badges.includes(badge)) state.badges.push(badge);
       addXP(xpGain);
     }else{
       addXP(xpGain);
@@ -39259,9 +39253,41 @@
       compactEntry.evidenceId = reportPortfolioIdentity(compactEntry, state.portfolio.length);
     }
     enhancePortfolioWithFullAI(compactEntry);
-    state.portfolio.push(compactEntry);
+    // v1z88: One student-facing portfolio card per Session + Skill + difficulty.
+    // Replays remain visible as a compact history for teachers/research without duplicating reports.
+    const sameKey = (p) => Number(p?.session || p?.sessionId || 0) === Number(compactEntry.session || compactEntry.sessionId || 0)
+      && String(p?.skill || '') === String(compactEntry.skill || '')
+      && String(p?.difficulty || '') === String(compactEntry.difficulty || '');
+    const existingIndex = state.portfolio.findIndex(sameKey);
+    if(existingIndex >= 0){
+      const prior = state.portfolio[existingIndex] || {};
+      const history = Array.isArray(prior.attemptHistory) ? prior.attemptHistory.slice(-4) : [];
+      history.push({
+        at: compactEntry.at || new Date().toISOString(),
+        score: Number(compactEntry.score || 0),
+        difficulty: compactEntry.difficulty || '',
+        durationSec: Number(compactEntry.durationSec || compactEntry.speakingSeconds || 0),
+        hintUsed: Number(compactEntry.aiUses || 0),
+        preview: String(compactEntry.output || '').slice(0,120)
+      });
+      const best = Number(compactEntry.score || 0) >= Number(prior.score || 0) ? compactEntry : prior;
+      const merged = Object.assign({}, best, {
+        attemptCount: Math.max(Number(prior.attemptCount || 1) + 1, Number(compactEntry.attemptNo || 1)),
+        latestScore: Number(compactEntry.score || 0),
+        latestAt: compactEntry.at || new Date().toISOString(),
+        attemptHistory: history.slice(-5),
+        output: best.output || prior.output || compactEntry.output || ''
+      });
+      state.portfolio[existingIndex] = compactPortfolioEntry(merged);
+    }else{
+      compactEntry.attemptCount = Math.max(1, Number(compactEntry.attemptNo || 1));
+      compactEntry.latestScore = Number(compactEntry.score || 0);
+      compactEntry.latestAt = compactEntry.at || new Date().toISOString();
+      compactEntry.attemptHistory = [{ at:compactEntry.latestAt, score:compactEntry.latestScore, difficulty:compactEntry.difficulty || '', preview:String(compactEntry.output || '').slice(0,120) }];
+      state.portfolio.push(compactEntry);
+    }
     state.portfolio = compactArray(state.portfolio, STORAGE_LIMITS.portfolio, compactPortfolioEntry);
-    const portfolioIndex = state.portfolio.length - 1;
+    const portfolioIndex = existingIndex >= 0 ? existingIndex : state.portfolio.length - 1;
     updateMasteryFromPortfolio(compactEntry);
     updateAIAbilityProfiles();
     checkSecretMissions();
@@ -39277,7 +39303,7 @@
   function showSkillResult(skill, score, id){
     layout(`<section class="panel light result-hero" style="margin-top:20px">
       <div class="big-emoji">${score >= 75 ? '🌟' : score >= 50 ? '✅' : '📝'}</div><h2>${safe(skill)} Evidence Saved</h2>
-      <div class="grid three"><div class="stat"><b>${score}/100</b><span>Auto Score</span></div><div class="stat"><b>+${Math.max(5, Math.round(score/4))}</b><span>XP</span></div><div class="stat"><b>${(state.portfolio || []).length}</b><span>Portfolio Items</span></div></div>
+      <div class="grid three"><div class="stat"><b>${score}/100</b><span>Auto Score</span></div><div class="stat"><b>+${Math.max(5, Math.round(score/4))}</b><span>XP</span></div><div class="stat"><b>${(state.portfolio || []).length}</b><span>Portfolio summaries</span></div></div>
       <p class="mini-note">คะแนนนี้เป็น auto-check เบื้องต้น ใช้เพื่อปรับปรุงครั้งถัดไป อาจารย์ยังควรใช้ rubric ตรวจ writing/speaking จริง</p>
       ${renderLearningReportCard(latestLearningReport())}
       ${renderAIFormativeFeedbackCard((state.portfolio || []).slice(-1)[0])}
@@ -39748,14 +39774,21 @@
   function renderStudentReports(){
     repairLearningReportsFromPortfolio(true);
     setView('studentReports');
-    const reports = (state.learningReports || []).slice().reverse();
+    const allReports = (state.learningReports || []).slice();
+    const reportMap = new Map();
+    allReports.forEach(r=>{
+      const key = `${Number(r.session||0)}|${String(r.skill||'')}|${String(r.difficulty||'')}`;
+      const prior = reportMap.get(key);
+      if(!prior || Number(r.score||0) >= Number(prior.score||0) || String(r.createdAt||'') > String(prior.createdAt||'')) reportMap.set(key,r);
+    });
+    const reports = Array.from(reportMap.values()).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
     const summary = skillSummaryReports();
     const summaryCards = Object.entries(summary).map(([skill,d])=>`<div class="stat report-skill ${safe(d.band.cls)}"><b>${d.count?d.avg:'-'}</b><span>${safe(skill)} • ${d.count?d.band.label:'No report yet'}</span></div>`).join('');
     const cards = reports.map(r=>renderLearningReportCard(r,{actions:false})).join('') || `<div class="panel light report-empty-state"><h3>ยังไม่มี Learning Report</h3><p>รายงานจะสร้างอัตโนมัติเมื่อผู้เรียนทำ <b>Reading, Writing, Listening หรือ Speaking Mission</b> แล้วกด <b>Submit</b> สำเร็จ โดยการเปิด Lab หรือชนะ MCQ Boss เพียงอย่างเดียวยังไม่สร้างรายงานรายทักษะ</p><p class="mini-note">เริ่มจาก Map → เปิด Session ปัจจุบัน → ทำ Core/Support Mission → Submit แล้วกลับมาดู Report ได้ทันที</p><div class="footer-actions"><button class="btn primary" onclick="EAPHero.continueSession()">Continue Current Session</button><button class="btn" onclick="EAPHero.map()">Open Map</button></div></div>`;
     layout(`
       <section class="panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Student Learning Reports</span><span class="pill">Formative Feedback</span><span class="pill">A2-B1+</span></div>
-        <h2>My Learning Report</h2>
+        <h2>My Learning Report</h2><p class="mini-note">Best attempt is shown once per Session, Skill and level. Previous replays are counted in attempt history.</p>
         <p class="lead">ผลนี้ใช้เพื่อพัฒนาครั้งถัดไป: รู้ระดับปัจจุบัน จุดที่ทำได้ดี จุดที่ควรเพิ่ม และประโยคช่วยตอบ</p>
         <div class="grid four">${summaryCards}</div>
         <div class="footer-actions">
