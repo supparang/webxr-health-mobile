@@ -5,7 +5,8 @@
 (function(){
   'use strict';
 
-  const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
+  const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
+  const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
   const APP_VERSION = '20260628-v1z80-storage-compact-autocheck-sync-a2-b1plus';
   const app = document.getElementById('app');
 
@@ -31646,9 +31647,19 @@
 
   function loadState(){
     try{
-      const raw = localStorage.getItem(STORAGE_KEY);
+      let raw = localStorage.getItem(STORAGE_KEY);
+      let migratedFromLegacy = false;
+      if(!raw){
+        raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        migratedFromLegacy = !!raw;
+      }
       if(!raw) return cloneDefaultState();
       const parsed = JSON.parse(raw);
+      // v1z81: a prior V1 state can be multi-megabyte. Read it once, then remove it
+      // immediately so the new compact key has room to save progress safely.
+      if(migratedFromLegacy){
+        try{ localStorage.removeItem(LEGACY_STORAGE_KEY); }catch(_){}
+      }
       const fresh = cloneDefaultState();
       const merged = Object.assign(fresh, parsed);
       merged.sessions = Object.assign(fresh.sessions, parsed.sessions || {});
@@ -31834,10 +31845,10 @@
       currentSession: state.currentSession || 1,
       xp: state.xp || 0,
       rank: state.rank || '',
-      cards: state.cards || [],
+      cards: compactArray(state.cards, 24, x=>({sessionId:x?.sessionId||x?.session||'', title:compactTextForStorage(x?.title||'',100), at:x?.at||''})),
       bossCards: state.bossCards || {},
       bossGates: state.bossGates || {},
-      sessions: state.sessions || {},
+      sessions: compactSessionsForStorage(state.sessions),
       portfolio: compactArray(state.portfolio, 40, compactPortfolioEntry),
       learningReports: compactArray(state.learningReports, 40),
       independenceReplay: state.independenceReplay || {},
@@ -31847,12 +31858,33 @@
     };
   }
 
+  function compactSessionsForStorage(sessions){
+    const out = {};
+    Object.keys(sessions || {}).forEach(id=>{
+      const x = sessions[id] || {};
+      out[id] = {
+        unlocked:!!x.unlocked, cleared:!!x.cleared, bestStars:Number(x.bestStars||0),
+        bestAccuracy:Number(x.bestAccuracy||0), attempts:Number(x.attempts||0),
+        bestScore:Number(x.bestScore||0),
+        reflections:compactArray(x.reflections, 2, r=>compactTextForStorage(r, 180)),
+        skillEvidence:x.skillEvidence || x.evidence || undefined
+      };
+    });
+    return out;
+  }
+
   function compactStateSnapshotForStorage(){
-    // Create a compact copy so a failed save never depends on oversized raw history.
+    // v1z81: persist only learner progress, not cached sources/tasks/AI traces.
+    // This is intentionally a storage snapshot, not a full in-memory clone.
     pruneStateForStorage();
     const snapshot = JSON.parse(JSON.stringify(state));
-    snapshot.portfolio = compactArray(snapshot.portfolio, 48, compactPortfolioEntry);
-    snapshot.learningReports = compactArray(snapshot.learningReports, 36, r => {
+    snapshot.sessions = compactSessionsForStorage(snapshot.sessions);
+    snapshot.active = null;
+    snapshot.recentQuestions = {};
+    snapshot.examAttempts = {};
+    snapshot.skillBankHistory = {};
+    snapshot.portfolio = compactArray(snapshot.portfolio, 24, compactPortfolioEntry);
+    snapshot.learningReports = compactArray(snapshot.learningReports, 16, r => {
       const x = Object.assign({}, r || {});
       ['didWell','nextStep','tryFrame','teacherFeedback','transcript'].forEach(k=>{
         if(x[k] != null) x[k] = compactTextForStorage(x[k], 240);
@@ -31871,6 +31903,15 @@
     delete snapshot.classActivities;
     delete snapshot.lessons;
     delete snapshot.debug;
+    delete snapshot.goldAuthoredBank;
+    delete snapshot.antiMemorization;
+    delete snapshot.aiAbility;
+    delete snapshot.replay;
+    delete snapshot.examLogs;
+    delete snapshot.logs;
+    delete snapshot.revisions;
+    delete snapshot.listening;
+    delete snapshot.reviews;
     return snapshot;
   }
 
@@ -42172,8 +42213,18 @@
 
   function goldMissionPack(sessionId,skill,tier){if(!goldBankAvailable())return null;const sid=Number(sessionId||1), sk=normalizeAbilitySkill(skill), level=['easy','normal','hard','challenge'].includes(tier)?tier:'easy', block=goldSessionBlock(sid);if(!block)return null;const st=ensureGoldAuthoredState(),src=goldPick(`mission_S${sid}_${sk}_${level}`,block.sources,st.missionHistory,16);if(!src)return null;st.updatedAt=new Date().toISOString();saveState();const id=`G64_${src.id}_${sk}_${level}`, targets={easy:32,normal:52,hard:75,challenge:95}, seconds={easy:25,normal:38,hard:52,challenge:65}, rates={easy:.78,normal:.88,hard:.96,challenge:1.02};const p={id,gold:true,sourceId:src.id,session:sid,skill:sk,tier:level,title:`${src.title} · ${sk} Gold Pack`,topic:src.title,passage:src.passage,source:src,focus:block.focus,label:`Gold authored source · ${src.title}`,quality:'authored-v1z64'};
     if(sk==='Reading'){const spec=goldReadingTaskSpec(sid,src.title,level);p.questions=spec.questions;p.instruction=spec.instruction;p.target=spec.target;p.sessionReadingSpec=spec;}
-    else if(sk==='Writing'){const q={easy:`Write 3–4 clear sentences about ${src.title}. State the main idea and one action or detail.`,normal:`Write 4–6 connected sentences about ${src.title}. Use one reason, one source detail, and one connector.`,hard:`Write 70–90 words about ${src.title}. Explain the evidence and add one cautious limitation.`,challenge:`Write 90–110 words about ${src.title}. Make a balanced judgement, use evidence, and explain one limitation.`};p.instruction=`${q[level]} Use your own wording; do not copy the source sentence.`;p.target=`${targets[level]} words · source-based academic response`;}
-    else if(sk==='Listening'){const q={easy:'Listen for the main point, two keywords, and one direct detail.',normal:'Write notes for the main idea, a support detail, and one signal/relationship.',hard:'Write notes that show evidence, a careful inference, and one missing detail or limit.',challenge:'Write a concise synthesis note, a balanced conclusion, and one useful follow-up question.'};p.instruction=`${q[level]} The mini lecture is based on “${src.title}”.`;p.target='selective notes from an authored mini lecture';p.voiceRate=rates[level];p.lecture=`Today’s mini lecture is about ${src.title}. ${src.passage} The key point is: ${src.main}. Remember this evidence: ${src.evidence}.`;}
+    else if(sk==='Writing'){
+      if(sid===2){
+        const q={easy:`Choose one academic word from ${src.title}. Write its simple meaning, then use it in one short academic sentence.`,normal:`Choose one academic word, explain one context clue, and use the word or word-family form in one academic sentence.`,hard:`Explain the precise meaning of one academic word from context and write two connected academic sentences using it accurately.`,challenge:`Compare two possible meanings, justify the context-based meaning, and use the word-family accurately in two academic sentences.`};
+        p.instruction=`${q[level]} Do not write a main idea, action/detail, or AI declaration for this vocabulary task.`;
+        p.target=level==='easy' ? 'word + simple meaning + one academic sentence' : 'context-based vocabulary evidence';
+        p.writingMode='vocabulary_in_context';
+      }else{
+        const q={easy:`Write 3–4 clear sentences about ${src.title}. State the main idea and one action or detail.`,normal:`Write 4–6 connected sentences about ${src.title}. Use one reason, one source detail, and one connector.`,hard:`Write 70–90 words about ${src.title}. Explain the evidence and add one cautious limitation.`,challenge:`Write 90–110 words about ${src.title}. Make a balanced judgement, use evidence, and explain one limitation.`};
+        p.instruction=`${q[level]} Use your own wording; do not copy the source sentence.`;
+        p.target=`${targets[level]} words · source-based academic response`;
+      }
+    }else if(sk==='Listening'){const q={easy:'Listen for the main point, two keywords, and one direct detail.',normal:'Write notes for the main idea, a support detail, and one signal/relationship.',hard:'Write notes that show evidence, a careful inference, and one missing detail or limit.',challenge:'Write a concise synthesis note, a balanced conclusion, and one useful follow-up question.'};p.instruction=`${q[level]} The mini lecture is based on “${src.title}”.`;p.target='selective notes from an authored mini lecture';p.voiceRate=rates[level];p.lecture=`Today’s mini lecture is about ${src.title}. ${src.passage} The key point is: ${src.main}. Remember this evidence: ${src.evidence}.`;}
     else {const q={easy:`Speak for about ${seconds.easy}–35 seconds. State the topic, one point, and one clear closing.`,normal:`Speak for about ${seconds.normal}–45 seconds. Use a signpost, one reason, and one source detail.`,hard:`Speak for about ${seconds.hard}–60 seconds. Give a claim, evidence, and a cautious limitation.`,challenge:`Give a ${seconds.challenge}–75 second mini presentation. Make a balanced judgement, use evidence, and answer a likely follow-up.`};p.instruction=`${q[level]} Use “${src.title}” as your source situation.`;p.target='organized source-based spoken response';p.minSeconds=seconds[level];}return p;}
   function goldAuthoredBadgeHTML(task){if(!task?.gold)return'';return`<div class="gold-authored-badge"><b>🏅 Gold Authored Pack</b><span>${safe(task.sourceId||'')}</span><span>${safe(task.label||'source-specific task')}</span><span>CEFR ${safe((AI_ABILITY_LEVELS[task.tier]||{}).cefr||'A2–B1+')}</span></div>`;}
   function goldChoices(src,tier){const correct=tier==='easy'?src.main:tier==='normal'?`Because ${src.evidence}`:tier==='hard'?src.inference:`${src.inference} However, ${src.limitation}`;const bad=Array.isArray(src.misconceptions)?src.misconceptions:[];const fmt=(x)=>tier==='normal'?`Because ${String(x).charAt(0).toLowerCase()+String(x).slice(1)}`:tier==='challenge'?`${x} However, the source gives no support for this conclusion.`:x;return[correct,fmt(bad[0]||'Use an unrelated detail.'),fmt(bad[1]||'Ignore the evidence.'),fmt(bad[2]||'Make a broad unsupported claim.')];}
