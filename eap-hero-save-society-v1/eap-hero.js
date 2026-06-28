@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z77 Navigation Clarity + Contextual Return Labels ===
+/* === EAP Hero: Save the Society v1z78 Speaking Timer Sync + Ready-to-Submit ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260627-v1z77-navigation-clarity-contextual-return-labels-a2-b1plus';
+  const APP_VERSION = '20260628-v1z78-speaking-timer-sync-ready-submit-a2-b1plus';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32591,7 +32591,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z77'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z78'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
@@ -38665,6 +38665,8 @@
 
   let speakingTimer = null;
   let speakingSeconds = 0;
+  // v1z78: freeze the measured time when the learner finishes.
+  let finishedSpeakingSeconds = 0;
 
 
   let speechRecognizer = null;
@@ -38777,6 +38779,10 @@
 
   function startSpeakingTimer(){
     speakingSeconds = 0;
+    finishedSpeakingSeconds = 0;
+    // Legacy compatibility: some previous submit handlers read window.speakingSeconds.
+    window.speakingSeconds = 0;
+    window.finishedSpeakingSeconds = 0;
     const box = document.getElementById('speakingTimerBox');
     const startBtn = document.getElementById('startSpeakBtn');
     const finishBtn = document.getElementById('finishSpeakBtn');
@@ -38789,16 +38795,25 @@
     clearInterval(speakingTimer);
     speakingTimer = setInterval(()=>{
       speakingSeconds += 1;
+      window.speakingSeconds = speakingSeconds;
       const t = document.getElementById('speakingTime');
       if(t){
         const m = String(Math.floor(speakingSeconds/60)).padStart(2,'0');
         const s = String(speakingSeconds%60).padStart(2,'0');
         t.textContent = `${m}:${s}`;
       }
+      const need = Number(document.getElementById('speakingMinSeconds')?.value || 8);
+      if(speakingSeconds === need){
+        setSpeechStatus(`✅ Ready to submit — minimum ${need} seconds completed. You may continue speaking or press I Finished Speaking.`, 'done');
+      }
     }, 1000);
   }
 
   function stopSpeakingTimer(){
+    // Preserve the last shown timer value before any UI/reset operation.
+    finishedSpeakingSeconds = Math.max(Number(finishedSpeakingSeconds || 0), Number(speakingSeconds || 0));
+    window.finishedSpeakingSeconds = finishedSpeakingSeconds;
+    window.speakingSeconds = speakingSeconds;
     clearInterval(speakingTimer);
     const startBtn = document.getElementById('startSpeakBtn');
     const finishBtn = document.getElementById('finishSpeakBtn');
@@ -38809,7 +38824,10 @@
       const m = String(Math.floor(speakingSeconds/60)).padStart(2,'0');
       const s = String(speakingSeconds%60).padStart(2,'0');
       box.classList.add('active');
-      box.innerHTML = `<b>Speaking finished:</b> ${m}:${s}<br><span class="mini-note">Tick the parts you included. Transcript/notes are optional and help AI give more detailed feedback.</span>`;
+      box.dataset.seconds = String(finishedSpeakingSeconds || speakingSeconds || 0);
+      const need = Number(document.getElementById('speakingMinSeconds')?.value || 8);
+      const ready = (finishedSpeakingSeconds || speakingSeconds || 0) >= need;
+      box.innerHTML = `<b>Speaking finished:</b> ${m}:${s}<br><span class="mini-note">${ready ? `✅ Ready to submit — minimum ${need} seconds completed.` : `Keep practising until you reach the minimum ${need} seconds.`} Transcript/notes are optional and never affect pass.</span>`;
     }
   }
 
@@ -38879,7 +38897,7 @@
           <button id="startSpeakBtn" class="btn primary" onclick="return EAPHero.startSpeakingFlow()">🎙 Start Speaking</button>
           <button id="finishSpeakBtn" class="btn" onclick="return EAPHero.finishSpeakingFlow()" disabled>⏹ I Finished Speaking</button>
         </div>
-        <div id="speakingTimerBox" class="speaking-timer-box">Ready: press Start Speaking. Aim for ${safe(profile.timeRange)} seconds.</div>
+        <div id="speakingTimerBox" class="speaking-timer-box">Ready: press Start Speaking. Aim for at least ${Number(profile.minSeconds)} seconds. Speaking longer is okay.</div>
         <div class="speaking-live-status">
           <b>🗣 Live transcript</b>
           <span id="speechStatusBox" class="speech-status info">${speechSupported() ? 'Optional: it starts automatically after you press Start Speaking.' : 'Not supported here — just speak with the timer.'}</span>
@@ -38964,10 +38982,13 @@
       (profile.requirements || []).forEach(r=>{
         checklist[r.key] = !!document.getElementById(`sp_${r.key}`)?.checked;
       });
-      const spokenSec = Number(window.speakingSeconds || 0);
+      const liveSeconds = Number(speakingSeconds || 0);
+      const frozenSeconds = Number(finishedSpeakingSeconds || window.finishedSpeakingSeconds || 0);
+      const displayedSeconds = Number(document.getElementById('speakingTimerBox')?.dataset?.seconds || 0);
+      const spokenSec = Math.max(liveSeconds, frozenSeconds, displayedSeconds);
 
       if(spokenSec < requiredSpeakingSeconds){
-        safeToast(`Speak for at least ${requiredSpeakingSeconds} seconds before submitting this mission.`);
+        safeToast(`Speaking time is not ready yet: ${spokenSec}s recorded. Please press Start Speaking, speak for at least ${requiredSpeakingSeconds} seconds, then press I Finished Speaking.`);
         const box = document.getElementById('speakingTimerBox');
         if(box) box.classList.add('needs-time');
         return false;
@@ -42670,7 +42691,7 @@
         portfolioIndex:portfolio.indexOf(p),
         portfolioId:p.evidenceId || reportPortfolioIdentity(p, portfolio.indexOf(p)),
         sourceAt:p.at || report.sourceAt || '',
-        reportVersion:'v1z77'
+        reportVersion:'v1z78'
       };
       Object.keys(update).forEach(k=>{ if(report[k] !== update[k]){ report[k]=update[k]; changed=true; } });
     });
@@ -42729,8 +42750,11 @@
       stopSpeakingTimer();
       setSpeechStatus('Speaking finished. Add or correct notes only if you want AI feedback on language.', 'done');
     }
+    finishedSpeakingSeconds = Math.max(Number(finishedSpeakingSeconds || 0), Number(speakingSeconds || 0));
+    window.finishedSpeakingSeconds = finishedSpeakingSeconds;
+    window.speakingSeconds = speakingSeconds;
     const spoke = document.getElementById('spSpoke');
-    if(spoke && speakingSeconds > 0) spoke.checked = true;
+    if(spoke && finishedSpeakingSeconds > 0) spoke.checked = true;
     return false;
   }
 
