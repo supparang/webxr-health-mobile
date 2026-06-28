@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z76 Navigation Clarity + Contextual Return Labels ===
+/* === EAP Hero: Save the Society v1z77 Navigation Clarity + Contextual Return Labels ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260627-v1z76-navigation-clarity-contextual-return-labels-a2-b1plus';
+  const APP_VERSION = '20260627-v1z77-navigation-clarity-contextual-return-labels-a2-b1plus';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32591,7 +32591,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z76'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z77'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
@@ -38949,67 +38949,91 @@
     return { title:'Mini Academic Speaking', instruction:`Give a 30–45 second explanation of how ${s.skill} helps university students in academic work.` };
   }
 
+  // v1z77: oral-first speaking evidence. Transcript is optional and never blocks pass.
   function submitSpeaking(id){
-    const s = getSession(id);
-    const out = document.getElementById('speakingTranscript')?.value.trim() || '';
-    const prompt = document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction;
-    const profileKey = document.getElementById('speakingProfileKey')?.value || 'easy';
-    const profile = easySpeakingProfileByKey(profileKey);
-    const requiredSpeakingSeconds = Number(document.getElementById('speakingMinSeconds')?.value || profile.minSeconds);
-    const goldSourceId = (document.getElementById('speakingGoldSourceId')?.value || '').toUpperCase();
-    const checklist = {spoke:!!document.getElementById('spSpoke')?.checked};
-    profile.requirements.forEach(r=>{
-      checklist[r.key] = !!document.getElementById(`sp_${r.key}`)?.checked;
-    });
+    try{
+      const s = getSession(id);
+      if(!s){ safeToast('Speaking mission could not be found. Please return to the session and try again.'); return false; }
+      const out = document.getElementById('speakingTranscript')?.value.trim() || '';
+      const prompt = document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction;
+      const profileKey = document.getElementById('speakingProfileKey')?.value || 'easy';
+      const profile = easySpeakingProfileByKey(profileKey);
+      const requiredSpeakingSeconds = Number(document.getElementById('speakingMinSeconds')?.value || profile.minSeconds || 8);
+      const goldSourceId = (document.getElementById('speakingGoldSourceId')?.value || '').toUpperCase();
+      const checklist = {spoke:!!document.getElementById('spSpoke')?.checked};
+      (profile.requirements || []).forEach(r=>{
+        checklist[r.key] = !!document.getElementById(`sp_${r.key}`)?.checked;
+      });
+      const spokenSec = Number(window.speakingSeconds || 0);
 
-    if(speakingSeconds < requiredSpeakingSeconds){
-      safeToast(`Speak for at least ${requiredSpeakingSeconds} seconds before submitting this mission.`);
-      const box = document.getElementById('speakingTimerBox');
-      if(box) box.classList.add('needs-time');
-      return;
+      if(spokenSec < requiredSpeakingSeconds){
+        safeToast(`Speak for at least ${requiredSpeakingSeconds} seconds before submitting this mission.`);
+        const box = document.getElementById('speakingTimerBox');
+        if(box) box.classList.add('needs-time');
+        return false;
+      }
+      if(!checklist.spoke){
+        safeToast('Please tick “I spoke for the target time” after you finish speaking.');
+        return false;
+      }
+      const missing = (profile.requirements || []).filter(r=>!checklist[r.key]);
+      if(missing.length){
+        safeToast(`Please confirm: ${missing.map(x=>x.short).join(' · ')}`);
+        return false;
+      }
+
+      const requirementPoints = 50 / Math.max(1, (profile.requirements || []).length);
+      const oralScore = Math.min(100, Math.round(50 + (profile.requirements || []).reduce((sum,r)=>sum + (checklist[r.key] ? requirementPoints : 0),0)));
+      const transcriptScore = out ? scoreEAPOpenAnswer('Speaking', id, out, prompt, 0) : 0;
+      const speakingDifficulty = currentSkillDifficulty('Speaking');
+      const teacherReviewRequired = [3,6,9,12,15].includes(Number(id));
+
+      // Pass is based only on the oral timer and learner confirmations.
+      // Raw speech-recognition text must never reduce the oral score.
+      const score = oralScore;
+      const evidence = addPortfolio({
+        session:id,
+        skill:'Speaking',
+        taskId:`S${String(id).padStart(2,'0')}_SPEAKING`,
+        difficulty:speakingDifficulty.key,
+        aiAbilityTier:speakingDifficulty.key,
+        abilityTaskId:document.getElementById('speakingAbilityTaskId')?.value || '',
+        goldSourceId,
+        durationSec:spokenSec,
+        speakingSeconds:spokenSec,
+        targetRange:profile.timeRange || `${requiredSpeakingSeconds}+ sec`,
+        requiredSpeakingSeconds,
+        speakingProfile:profile.key,
+        oralChecklist:checklist,
+        selectedGoal:document.getElementById('speakingSelectedGoal')?.value || '',
+        selectedAction:document.getElementById('speakingSelectedAction')?.value || '',
+        cueData:document.getElementById('speakingCueData')?.value || '',
+        oralScore,
+        transcriptScore,
+        transcriptAvailable:!!out,
+        transcriptIsOptional:true,
+        transcriptNotForPass:true,
+        evidenceMode:out ? 'oral-first-with-optional-transcript' : 'oral-first-timer-and-checklist',
+        teacherReviewRequired,
+        teacherReviewStatus:teacherReviewRequired ? 'pending_boss_review' : 'not_required',
+        teacherFeedbackCode:'',
+        teacherScore:null,
+        teacherComment:'',
+        attemptNo:((state.portfolio || []).filter(x=>Number(x.session)===Number(id) && x.skill==='Speaking').length + 1),
+        replayNeeded:false,
+        score,
+        aiUses:aiUsesFor(id,'Speaking'),
+        output:out,
+        prompt
+      });
+      safeToast(teacherReviewRequired ? 'Speaking evidence saved. Teacher review will be requested for this Boss Gate.' : 'Speaking evidence saved.');
+      showSkillResult('Speaking', score, id);
+      return evidence;
+    }catch(err){
+      console.error('[submitSpeaking]', err);
+      safeToast('Speaking evidence could not be saved. Please try once more.');
+      return false;
     }
-    if(!checklist.spoke){
-      safeToast('Please tick “I spoke for the target time” after you finish speaking.');
-      return;
-    }
-    const missing = profile.requirements.filter(r=>!checklist[r.key]);
-    if(missing.length){
-      safeToast(`Please confirm: ${missing.map(x=>x.short).join(' · ')}`);
-      return;
-    }
-
-    const requirementPoints = 50 / Math.max(1, profile.requirements.length);
-    const oralScore = Math.min(100, Math.round(
-      40 + // reached time target
-      10 + // learner confirms the oral attempt
-      profile.requirements.reduce((sum,r)=>sum + (checklist[r.key] ? requirementPoints : 0),0)
-    ));
-    const transcriptScore = out ? scoreEAPOpenAnswer('Speaking', id, out, prompt, 0) : 0;
-
-    // v1z71: transcript is optional evidence. It can enrich feedback but never lowers the oral mission score.
-    const score = Math.max(0, Math.min(100, Math.round(oralScore - aiPenaltyForPortfolio(id, 'Speaking'))));
-    const speakingDifficulty = currentSkillDifficulty('Speaking');
-
-    addPortfolio({
-      session:id,
-      skill:'Speaking',
-      difficulty:speakingDifficulty.key,
-      aiAbilityTier:speakingDifficulty.key,
-      abilityTaskId:document.getElementById('speakingAbilityTaskId')?.value || '',
-      goldSourceId,
-      speakingSeconds,
-      requiredSpeakingSeconds,
-      speakingProfile:profile.key,
-      oralChecklist:checklist,
-      oralScore,
-      transcriptScore,
-      evidenceMode:out ? 'oral-first-with-optional-transcript' : 'oral-first-timer-and-checklist',
-      score,
-      aiUses:aiUsesFor(id,'Speaking'),
-      output:out,
-      prompt
-    });
-    showSkillResult('Speaking', score, id);
   }
 
   function deriveEvidenceMisconceptionTags(entry, meta){
@@ -39049,7 +39073,21 @@
       evidenceType:meta?.evidenceType || 'skill_evidence',
       replayPackId:meta?.replayPackId || '',
       focusTags:meta?.misconceptionTags || [],
-      requiredSkills:meta ? [meta.core, meta.support] : []
+      requiredSkills:meta ? [meta.core, meta.support] : [],
+      taskId:'',
+      durationSec:null,
+      targetRange:'',
+      oralChecklist:null,
+      transcriptAvailable:false,
+      transcriptIsOptional:false,
+      transcriptNotForPass:false,
+      teacherReviewRequired:false,
+      teacherReviewStatus:'not_required',
+      teacherFeedbackCode:'',
+      teacherScore:null,
+      teacherComment:'',
+      attemptNo:1,
+      replayNeeded:false
     }, entry || {});
     incoming.session = Number(incoming.session || incoming.sessionId || sessionId) || sessionId;
     incoming.sessionId = incoming.session;
@@ -39086,7 +39124,7 @@
   }
 
   function exportPortfolioCSV(){
-    const header = ['student_id','player_name','session','arc','week','skill','evidenceType','replayPackId','misconceptionTags','difficulty','score','ai_rubric_score','independence_status','independence_verified','independence_replay','replay_required','ai_uses','transcript_hint','prompt','output','at'];
+    const header = ['student_id','player_name','session','arc','week','skill','taskId','evidenceType','replayPackId','misconceptionTags','difficulty','score','durationSec','targetRange','requiredSpeakingSeconds','oralChecklist','selectedGoal','selectedAction','cueData','transcriptAvailable','transcriptIsOptional','transcriptNotForPass','teacherReviewRequired','teacherReviewStatus','teacherFeedbackCode','teacherScore','teacherComment','attemptNo','replayNeeded','ai_rubric_score','independence_status','independence_verified','independence_replay','replay_required','ai_uses','transcript_hint','prompt','output','at'];
     const rows = (state.portfolio || []).map(p => {
       const r = p.aiRubric || (typeof aiFormativeRubric === 'function' ? aiFormativeRubric(p) : {});
       const i = p.aiIndependence || (typeof aiIndependenceCheck === 'function' ? aiIndependenceCheck(p) : {});
@@ -39105,17 +39143,34 @@
     const a = document.createElement('a'); a.href = url; a.download = 'eap-hero-portfolio.csv'; a.click(); URL.revokeObjectURL(url);
   }
 
+  // v1z77: teacher dashboard can call this to attach concise Boss-speaking review data.
+  function saveTeacherSpeakingReview(evidenceId, review={}){
+    const allowed = ['CL','PR','FL','ST','EV','QA'];
+    const item = (state.portfolio || []).find(x=>String(x.evidenceId)===String(evidenceId));
+    if(!item) return {ok:false, reason:'evidence_not_found'};
+    const code = String(review.code || '').toUpperCase();
+    item.teacherFeedbackCode = allowed.includes(code) ? code : '';
+    item.teacherScore = Number.isFinite(Number(review.score)) ? Math.max(0, Math.min(10, Number(review.score))) : null;
+    item.teacherComment = compactTextForStorage(review.comment || '', 500);
+    item.teacherReviewRequired = true;
+    item.teacherReviewStatus = 'reviewed';
+    item.teacherReviewedAt = new Date().toISOString();
+    saveState();
+    return {ok:true, item};
+  }
+
   function safeAttr(text){ return String(text ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 
 
 
 
+  // v1z77: safe UI notification. Never recurse into itself.
   function safeToast(message){
     const msg = String(message || '');
     try{
-      if(typeof toast === 'function'){
-        safeToast(msg);
+      if(typeof toast === 'function' && toast !== safeToast){
+        toast(msg);
         return;
       }
     }catch(_){}
@@ -39129,7 +39184,7 @@
     box.textContent = msg;
     box.classList.add('show');
     clearTimeout(box._timer);
-    box._timer = setTimeout(()=>box.classList.remove('show'), 1800);
+    box._timer = setTimeout(()=>box.classList.remove('show'), 2200);
   }
 
 
@@ -39333,7 +39388,7 @@
     return frames[skill] || 'For example, ___.';
   }
 
-  /* === v1z76 Navigation Clarity + Learning Report Recovery ===
+  /* === v1z77 Navigation Clarity + Learning Report Recovery ===
      A Learning Report is the formative view of one portfolio evidence item.
      Earlier builds could retain portfolio evidence but lose report cards after a
      local-storage migration.  Stable evidence IDs let the app restore those cards
@@ -42615,7 +42670,7 @@
         portfolioIndex:portfolio.indexOf(p),
         portfolioId:p.evidenceId || reportPortfolioIdentity(p, portfolio.indexOf(p)),
         sourceAt:p.at || report.sourceAt || '',
-        reportVersion:'v1z76'
+        reportVersion:'v1z77'
       };
       Object.keys(update).forEach(k=>{ if(report[k] !== update[k]){ report[k]=update[k]; changed=true; } });
     });
@@ -42968,7 +43023,7 @@
 
 
 
-  /* === v1z76 Four-Skill Alignment Pack: S1–S3 === */
+  /* === v1z77 Four-Skill Alignment Pack: S1–S3 === */
   const EAP_FOUR_SKILL_ALIGNMENT_V1Z76 = Object.freeze({
     1:{
       Reading:{steps:['Read the goal choices.','Choose one clear academic skill.','Add one practice action.'],frames:['My academic goal is to improve ____.','I will practise by ____.'],vocab:['goal','improve','practise','reading','writing']},
@@ -42990,15 +43045,15 @@
     }
   });
 
-  function v1z76Guide(skill, sessionId){
+  function v1z77Guide(skill, sessionId){
     const x=EAP_FOUR_SKILL_ALIGNMENT_V1Z76[Number(sessionId)]?.[normalizeAbilitySkill(skill)];
     return x || null;
   }
 
   function goldTaskAlignmentGuideHTML(skill, sessionId, task, fallbackPrompt){
-    const a=v1z76Guide(skill,sessionId);
+    const a=v1z77Guide(skill,sessionId);
     if(a){
-      return `<div class="gold-task-guide v1z76-aligned-guide"><div class="gold-task-guide-head"><span>🎯 Skill quest help</span><span>S${Number(sessionId)}</span><span>${safe(normalizeAbilitySkill(skill))}</span></div><h3>Do this one step at a time</h3><div class="gold-guide-grid">${a.steps.map((x,i)=>`<div class="gold-guide-step"><b>Step ${i+1}</b><span>${safe(x)}</span></div>`).join('')}</div><h4>Sentence frames</h4><div class="gold-frame-row">${a.frames.map(x=>`<span>${safe(x)}</span>`).join('')}</div><h4>Useful words</h4><div class="gold-vocab-row">${a.vocab.map(x=>`<span>${safe(x)}</span>`).join('')}</div><p class="mini-note">This is a scaffold. Your topic, word, detail, and context rotate each replay.</p></div>`;
+      return `<div class="gold-task-guide v1z77-aligned-guide"><div class="gold-task-guide-head"><span>🎯 Skill quest help</span><span>S${Number(sessionId)}</span><span>${safe(normalizeAbilitySkill(skill))}</span></div><h3>Do this one step at a time</h3><div class="gold-guide-grid">${a.steps.map((x,i)=>`<div class="gold-guide-step"><b>Step ${i+1}</b><span>${safe(x)}</span></div>`).join('')}</div><h4>Sentence frames</h4><div class="gold-frame-row">${a.frames.map(x=>`<span>${safe(x)}</span>`).join('')}</div><h4>Useful words</h4><div class="gold-vocab-row">${a.vocab.map(x=>`<span>${safe(x)}</span>`).join('')}</div><p class="mini-note">This is a scaffold. Your topic, word, detail, and context rotate each replay.</p></div>`;
     }
     if(!task?.gold) return alignmentGuideHTML(skill, sessionId, fallbackPrompt || {});
     const g=goldTaskGuideData(skill,task);
@@ -43007,7 +43062,7 @@
 
   function applyEasySpeakingProfile(task, source){
     const sid=Number(task?.session || state.currentSession || 1);
-    const aligned=v1z76Guide('Speaking',sid);
+    const aligned=v1z77Guide('Speaking',sid);
     const profile=aligned ? Object.assign({key:'easy',label:'A2 Foundation',cefr:'A2'},aligned) : easySpeakingProfileForTask(task);
     task.tier=profile.key; task.minSeconds=profile.minSeconds; task.maxSeconds=profile.maxSeconds;
     task.target=`${profile.timeRange} seconds · ${profile.sentenceGoal}`; task.instruction=profile.instruction;
@@ -43017,7 +43072,7 @@
 
   function easySpeakingGuideHTML(profile, source){
     const sid=Number(source?.session || state.currentSession || 1);
-    const a=v1z76Guide('Speaking',sid);
+    const a=v1z77Guide('Speaking',sid);
     const title=a?.title || source?.title || 'this source';
     const vocab=a?.vocab || (Array.isArray(source?.keywords)?source.keywords.slice(0,3):[]);
     return `<div class="easy-speaking-guide"><div class="easy-speaking-guide-head"><b>Say these ${profile.requirements.length} things</b><span>${safe(profile.label)} · ${safe(profile.cefr)}</span></div><div class="easy-speaking-steps">${profile.requirements.map((r,i)=>`<div><b>${i+1}</b><span>${safe(r.short)}</span></div>`).join('')}</div><div class="easy-speaking-frames">${profile.frames.map(f=>`<span>${safe(f)}</span>`).join('')}</div><p class="mini-note">Mission: ${safe(title)} · Useful words: ${safe(vocab.join(' · '))}</p></div>`;
@@ -43304,6 +43359,7 @@
     speechSupported,
     stopSpeakingTimer,
     submitSpeaking,
+    saveTeacherSpeakingReview,
     exportPortfolioCSV,
     exportBackupJSON,
     importBackupJSON,
