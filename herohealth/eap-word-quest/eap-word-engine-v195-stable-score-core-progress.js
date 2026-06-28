@@ -1,36 +1,28 @@
 /* =========================================================
-   EAP Word Quest • Stable Score + Strict Core Progress
+   EAP Word Quest • Stable Summary Reward + Logger Guard
    File: /herohealth/eap-word-quest/eap-word-engine-v195-stable-score-core-progress.js
-   Version: v1.9.5-STABLE-SCORE-STRICT-CORE-PROGRESS-122
+   Runtime Version: v1.9.9-SUMMARY-REWARD-LOGGER-STABILITY-122
 
-   Why this patch exists:
-   - Earlier AI and score patches could wrap the logger on recurring timers.
-   - Those wrappers could wrap each other repeatedly, causing heavy CPU use,
-     frozen answer buttons, and repeated "logger bridge ready" console lines.
-
-   This patch:
-   - Uses one safe logger bridge only.
-   - Prevents the Core AI bridge from re-wrapping the final logger.
-   - Does NOT use a MutationObserver.
-   - Keeps XP / combo / pass / recovery rewards stable.
-   - Updates summary reward UI without creating a render loop.
-
-   Important:
-   - Do not load v183 / v190 / v192 / v193 / v194 with this file.
+   Purpose:
+   - Stop recurring logger bridge rebuilds without wrapping the logger again.
+   - Render XP / combo from the real Core run result in the v172 summary overlay.
+   - Keep rewards visible even when the legacy summary UI redraws itself.
+   - Hide the internal Target tag so the game never reveals the answer.
+   - Add a concise Thai explanation of score and pass threshold.
 ========================================================= */
 
 (() => {
   "use strict";
 
-  const VERSION = "v1.9.5-STABLE-SCORE-STRICT-CORE-PROGRESS-122";
+  const VERSION = "v1.9.9-SUMMARY-REWARD-LOGGER-STABILITY-122";
   const GROUP = "122";
-  const LEDGER_KEY = "EAP_WORD_QUEST_CORE_V195_REWARD_LEDGER";
+  const BOSS_IDS = new Set(["BG1","BG2","BG3","BG4","BG5"]);
 
-  if (window.__EAP_WORD_V195_STABILITY__) {
-    console.info("[EAP Word Quest] v195 stability patch already loaded");
+  if (window.__EAP_WORD_V199_SUMMARY_STABILITY__) {
+    console.info("[EAP Word Quest] v199 summary stability already loaded");
     return;
   }
-  window.__EAP_WORD_V195_STABILITY__ = true;
+  window.__EAP_WORD_V199_SUMMARY_STABILITY__ = true;
 
   const $ = id => document.getElementById(id);
 
@@ -47,375 +39,220 @@
     return Math.max(min, Math.min(max, value));
   }
 
-  function safeRead(key, fallback) {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch (err) {
-      return fallback;
-    }
+  function threshold(sessionId) {
+    if (sessionId === "BG5") return 75;
+    if (BOSS_IDS.has(norm(sessionId))) return 70;
+    return 60;
   }
 
-  function safeWrite(key, value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-      return true;
-    } catch (err) {
-      console.warn("[EAP Word Quest] v195 cannot save reward ledger", err);
-      return false;
-    }
-  }
-
-  function isBoss(sessionId) {
-    return /^BG[1-5]$/.test(norm(sessionId));
-  }
-
-  function rewardRunKey(payload) {
-    return [
-      GROUP,
-      norm(payload && payload.studentId) || "anon",
-      norm(payload && payload.sessionId) || "S1",
-      norm(payload && (payload.endedAt || payload.playedAt || payload.startedAt)) || "run"
-    ].join("|");
-  }
-
-  function getHintCount(payload) {
-    const fromPayload = Math.max(
-      num(payload && payload.hintUsed),
-      num(payload && payload.hintsUsed)
-    );
-
-    if (fromPayload > 0) return fromPayload;
-
-    try {
-      if (typeof window.getEapCoreAiState === "function") {
-        const ai = window.getEapCoreAiState();
-        return Math.max(0, num(ai && ai.metrics && ai.metrics.hints));
-      }
-    } catch (err) {}
-
-    return 0;
-  }
-
-  function enrichReward(payload, persist) {
-    if (!payload || typeof payload !== "object") return payload;
-    if (payload.rewardVersion === VERSION && payload.rewardBreakdown) return payload;
-
-    const correct = Math.max(0, num(payload.correct));
-    const total = Math.max(1, num(payload.total, 1));
-    const accuracy = clamp(
-      Math.round(num(payload.accuracy, (correct / total) * 100)),
-      0,
-      100
-    );
-    const passed = Boolean(payload.passed);
-    const sessionId = norm(payload.sessionId) || "S1";
-    const hints = getHintCount(payload);
-    const rawCombo = Math.max(0, num(payload.maxCombo));
-    const maxCombo = correct > 0 ? Math.max(1, rawCombo) : 0;
-    const mode = norm(payload.mode).toLowerCase();
-    const responseTime = Math.max(0, num(payload.responseTimeAvg));
-
-    const baseScoreFromController = Math.max(0, num(payload.score), num(payload.xp));
-    const correctFloorXp = correct * 60;
-    const scoreFloor = Math.max(baseScoreFromController, correctFloorXp);
-    const comboBonus = maxCombo >= 2
-      ? Math.min(90, (maxCombo - 1) * 15 + (maxCombo >= 4 ? 20 : 0))
-      : 0;
-    const speedBonus = responseTime > 0 && responseTime <= 6
-      ? correct * 10
-      : responseTime > 0 && responseTime <= 12
-        ? correct * 5
-        : 0;
-    const passBonus = passed ? (isBoss(sessionId) ? 220 : 140) : 0;
-    const noHintBonus = passed && hints === 0 ? 30 : 0;
-    const recoveryBonus = passed && mode === "weak" ? 75 : 0;
-    const perfectBonus = accuracy === 100 ? (isBoss(sessionId) ? 160 : 100) : 0;
-
-    const ledger = safeRead(LEDGER_KEY, { sessions: {}, runs: {} }) || { sessions: {}, runs: {} };
-    ledger.sessions = ledger.sessions || {};
-    ledger.runs = ledger.runs || {};
-
-    const sessionLedgerKey = `${GROUP}|${norm(payload.studentId) || "anon"}|${sessionId}`;
-    const previousBest = num(ledger.sessions[sessionLedgerKey] && ledger.sessions[sessionLedgerKey].bestAccuracy, -1);
-    const improvementBonus = previousBest >= 0 && accuracy > previousBest
-      ? Math.min(120, (accuracy - previousBest) * 3)
-      : 0;
-
-    const xp = scoreFloor + comboBonus + speedBonus + passBonus + noHintBonus + recoveryBonus + perfectBonus + improvementBonus;
-
-    const enriched = Object.assign({}, payload, {
-      score: xp,
-      xp,
-      maxCombo,
-      hintUsed: Math.max(num(payload.hintUsed), hints),
-      hintsUsed: Math.max(num(payload.hintsUsed), hints),
-      rewardVersion: VERSION,
-      rewardBreakdown: {
-        version: VERSION,
-        correct,
-        total,
-        accuracy,
-        hints,
-        baseScoreFromController,
-        correctFloorXp,
-        comboBonus,
-        speedBonus,
-        passBonus,
-        noHintBonus,
-        recoveryBonus,
-        perfectBonus,
-        improvementBonus,
-        xpBase: scoreFloor,
-        xp,
-        maxCombo
-      },
-      xpBase: scoreFloor,
-      comboBonus,
-      speedBonus,
-      passBonus,
-      noHintBonus,
-      recoveryBonus,
-      perfectBonus,
-      improvementBonus
-    });
-
-    if (persist) {
-      const runKey = rewardRunKey(enriched);
-      if (!ledger.runs[runKey]) {
-        ledger.runs[runKey] = {
-          sessionId,
-          xp,
-          accuracy,
-          at: new Date().toISOString()
-        };
-
-        const old = ledger.sessions[sessionLedgerKey] || {};
-        ledger.sessions[sessionLedgerKey] = {
-          bestAccuracy: Math.max(num(old.bestAccuracy, 0), accuracy),
-          totalXp: num(old.totalXp) + xp,
-          attempts: num(old.attempts) + 1,
-          lastXp: xp,
-          lastAccuracy: accuracy,
-          lastAt: new Date().toISOString()
-        };
-        safeWrite(LEDGER_KEY, ledger);
-      }
-    }
-
-    return enriched;
-  }
-
-  function installSingleLoggerBridge() {
-    const current = window.logEapWordQuestResult;
-    if (typeof current !== "function") return false;
-    if (current.__eapV195Wrapped) return true;
-
-    const bridge = function(payload) {
-      const enriched = enrichReward(payload, true);
-      return current.call(this, enriched);
-    };
+  function setLoggerMarkers() {
+    const logger = window.logEapWordQuestResult;
+    if (typeof logger !== "function") return false;
 
     /*
-      v190 checks this marker every 650 ms. Giving the final bridge the same
-      marker prevents it from continuously wrapping the bridge again.
+      v195 Core AI checks this marker every 650 ms. Marking the final current
+      logger prevents it from repeatedly wrapping the storage/logging chain.
     */
-    bridge.__eapV195Wrapped = true;
-    bridge.__eapV194Wrapped = true;
-    bridge.__eapV190Wrapped = true;
-    bridge.__eapV193Wrapped = true;
-    bridge.__eapV194Original = current;
-
-    window.logEapWordQuestResult = bridge;
-    console.info("[EAP Word Quest] v195 single logger bridge ready");
+    logger.__eapV190Wrapped = true;
+    logger.__eapV195Wrapped = true;
+    logger.__eapV193Wrapped = true;
+    logger.__eapV194Wrapped = true;
+    logger.__eapV199Marked = true;
     return true;
   }
 
-  function statNode(root, label) {
-    if (!root) return null;
-    const wanted = norm(label).toLowerCase();
-    const cards = Array.from(root.querySelectorAll(".mini,.stat,.eap172-stat,.summary-stat"));
-    for (const card of cards) {
-      const caption = card.querySelector("span,small,.label");
-      const value = card.querySelector("b,strong,.value");
-      if (!caption || !value) continue;
-      if (norm(caption.textContent).toLowerCase() === wanted) return value;
+  function sourceResult() {
+    return window.EAP_V196_LAST_RESULT ||
+      window.EAP_V195_LAST_RESULT ||
+      window.EAP_V192_LAST_RESULT ||
+      (window.EAP_V172_SUMMARY_STATE && window.EAP_V172_SUMMARY_STATE.result) ||
+      window.EAP_V199_LAST_RESULT ||
+      null;
+  }
+
+  function normalizeReward(input) {
+    const source = input && typeof input === "object" ? input : {};
+    const correct = Math.max(0, num(source.correct));
+    const total = Math.max(1, num(source.total, 1));
+    const accuracy = clamp(Math.round(num(source.accuracy, (correct / total) * 100)), 0, 100);
+    const sessionId = norm(source.sessionId) || "S1";
+    const passed = Boolean(source.passed || accuracy >= threshold(sessionId));
+    const maxCombo = correct > 0 ? Math.max(1, num(source.maxCombo)) : 0;
+
+    /* Controller score is preferred. The floor protects results from old UI values. */
+    const controllerScore = Math.max(0, num(source.score), num(source.xp));
+    const base = Math.max(controllerScore, correct * 60);
+    const comboBonus = maxCombo >= 2 ? Math.min(90, (maxCombo - 1) * 15 + (maxCombo >= 4 ? 20 : 0)) : 0;
+    const passBonus = passed ? (BOSS_IDS.has(sessionId) ? 220 : 140) : 0;
+    const noHintBonus = passed && Math.max(num(source.hintUsed), num(source.hintsUsed)) === 0 ? 30 : 0;
+    const perfectBonus = accuracy === 100 ? (BOSS_IDS.has(sessionId) ? 160 : 100) : 0;
+
+    /* Do not double-count controller bonus; only use calculated bonus when controller had no score. */
+    const xp = controllerScore > 0 ? controllerScore : base + comboBonus + passBonus + noHintBonus + perfectBonus;
+
+    return Object.assign({}, source, {
+      correct,
+      total,
+      accuracy,
+      sessionId,
+      passed,
+      maxCombo,
+      score: xp,
+      xp,
+      rewardVersion: VERSION,
+      rewardBreakdown: {
+        base,
+        comboBonus: controllerScore > 0 ? 0 : comboBonus,
+        passBonus: controllerScore > 0 ? 0 : passBonus,
+        noHintBonus: controllerScore > 0 ? 0 : noHintBonus,
+        perfectBonus: controllerScore > 0 ? 0 : perfectBonus,
+        xp
+      }
+    });
+  }
+
+  function visibleSummaryRoot() {
+    const overlay = $("eapV172SummaryOverlay");
+    if (overlay && !overlay.hidden && overlay.offsetParent !== null) {
+      return overlay.querySelector(".eap172-card") || overlay;
+    }
+    const screen = $("summaryScreen");
+    if (screen && screen.classList.contains("active")) {
+      return screen.querySelector(".summary-card") || screen;
     }
     return null;
   }
 
-  function readStat(root, label) {
-    const node = statNode(root, label);
-    const match = node && norm(node.textContent).match(/-?\d+/);
-    return match ? num(match[0]) : 0;
-  }
+  function setSummaryStat(root, label, value) {
+    if (!root) return;
+    const wanted = norm(label).toLowerCase();
+    const cards = Array.from(root.querySelectorAll(".eap172-stat,.summary-stat,.stat,.mini"));
 
-  function updateLiveScoreSafely() {
-    const game = $("gameScreen");
-    const stats = $("gameStats");
-    if (!game || !stats || !game.classList.contains("active")) return;
-
-    const correct = readStat(stats, "Correct");
-    const combo = readStat(stats, "Combo");
-    const scoreNode = statNode(stats, "Score");
-    if (!scoreNode || correct <= 0) return;
-
-    const minimum = correct * 60 + (combo >= 2 ? Math.min(90, (combo - 1) * 15) : 0);
-    const current = readStat(stats, "Score");
-    if (minimum > current) scoreNode.textContent = String(minimum);
+    for (const card of cards) {
+      const text = norm(card.textContent).toLowerCase();
+      if (!text.includes(wanted)) continue;
+      const valueNode = card.querySelector("b,strong,.value");
+      if (valueNode) valueNode.textContent = String(value);
+    }
   }
 
   function injectStyle() {
-    if ($("eapV194Style")) return;
+    if ($("eapV199Style")) return;
     const style = document.createElement("style");
-    style.id = "eapV194Style";
+    style.id = "eapV199Style";
     style.textContent = `
-      #eapV194RewardBox{
+      #eapV199RewardBox{
+        margin:12px 0;
         border:1px solid #bbf7d0;
+        border-radius:16px;
+        padding:12px 14px;
         background:linear-gradient(135deg,#ecfdf5,#eff6ff);
         color:#14532d;
-        border-radius:18px;
-        padding:14px 16px;
-        margin:14px 0;
-        font-weight:850;
         line-height:1.5;
+        font-weight:850;
       }
-      #eapV194RewardBox .eap194-title{font-size:16px;font-weight:1000;color:#166534;margin-bottom:6px}
-      #eapV194RewardBox .eap194-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
-      #eapV194RewardBox .eap194-chip{
-        display:inline-flex;align-items:center;border:1px solid #bbf7d0;background:#fff;
-        border-radius:999px;padding:5px 9px;font-size:12px;font-weight:950;color:#166534;
-      }
-      #eapV194RewardBox .eap194-recovery{margin-top:8px;color:#1e3a8a}
+      #eapV199RewardBox b{color:#166534}
+      #eapV199RewardBox .eap199-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+      #eapV199RewardBox .eap199-chip{display:inline-flex;align-items:center;border:1px solid #bbf7d0;background:#fff;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:950;color:#166534}
     `;
     document.head.appendChild(style);
   }
 
-  function currentSummaryResult() {
-    if (window.EAP_V195_LAST_RESULT) return window.EAP_V195_LAST_RESULT;
-    if (window.EAP_V192_LAST_RESULT) return window.EAP_V192_LAST_RESULT;
-    const v172 = window.EAP_V172_SUMMARY_STATE;
-    return v172 && v172.result ? v172.result : null;
-  }
+  function renderRewardSummary() {
+    const root = visibleSummaryRoot();
+    const raw = sourceResult();
+    if (!root || !raw) return;
 
-  function strictCoreProgress(){
-    if (typeof window.getEapCoreProgress === "function") return window.getEapCoreProgress();
-    return { passed:0,total:20,percent:0,next:"S1",coreOnly:true };
-  }
+    const result = normalizeReward(raw);
+    window.EAP_V199_LAST_RESULT = result;
 
-  function renderStrictCoreProgress(root){
-    if (!root) return;
-    const old = root.querySelector("#eapV183ProgressBox");
-    if (old) old.remove();
-    let box = $("eapV195CoreProgressBox");
-    if (!box) {
-      box = document.createElement("div");
-      box.id = "eapV195CoreProgressBox";
-      box.style.cssText = "border:1px solid #c7d2fe;background:#eef2ff;color:#312e81;border-radius:16px;padding:12px 14px;margin:12px 0;font-weight:900;line-height:1.45";
-      const before = root.querySelector(".summary-actions,.eap172-actions");
-      if (before) before.insertAdjacentElement("beforebegin",box);
-      else root.appendChild(box);
+    /* Keep shared result objects truthful for all later UI/report reads. */
+    if (window.EAP_V196_LAST_RESULT) Object.assign(window.EAP_V196_LAST_RESULT, result);
+    if (window.EAP_V195_LAST_RESULT) Object.assign(window.EAP_V195_LAST_RESULT, result);
+    if (window.EAP_V172_SUMMARY_STATE && window.EAP_V172_SUMMARY_STATE.result) {
+      Object.assign(window.EAP_V172_SUMMARY_STATE.result, result);
     }
-    const p = strictCoreProgress();
-    box.textContent = `Core Progress: ${p.passed}/${p.total} passed • ${p.percent}% • Next: ${p.next}`;
-  }
 
-  let renderedSummaryKey = "";
+    setSummaryStat(root, "XP", result.xp);
+    setSummaryStat(root, "Score", result.xp);
+    setSummaryStat(root, "Max Combo", result.maxCombo);
+    setSummaryStat(root, "Combo", result.maxCombo);
 
-  function renderSummaryRewardSafely() {
-    const source = currentSummaryResult();
-    if (!source) return;
-
-    const root =
-      document.querySelector("#eapV172SummaryOverlay .eap172-card") ||
-      document.querySelector("#eapV172SummaryOverlay") ||
-      document.querySelector("#summaryScreen .summary-card");
-    if (!root) return;
-
-    renderStrictCoreProgress(root);
-
-    const key = rewardRunKey(source);
-    if (key === renderedSummaryKey && $("eapV194RewardBox")) return;
-
-    const result = enrichReward(source, false);
-    Object.assign(source, result);
-
-    const xpNode = statNode(root, "XP") || statNode(root, "Score");
-    const comboNode = statNode(root, "Max Combo") || statNode(root, "Combo");
-    if (xpNode) xpNode.textContent = String(result.xp);
-    if (comboNode) comboNode.textContent = String(result.maxCombo);
-
-    let box = $("eapV194RewardBox");
+    let box = $("eapV199RewardBox");
     if (!box) {
       box = document.createElement("div");
-      box.id = "eapV194RewardBox";
+      box.id = "eapV199RewardBox";
       const actions = root.querySelector(".summary-actions,.eap172-actions");
       if (actions) actions.insertAdjacentElement("beforebegin", box);
       else root.appendChild(box);
     }
 
-    const r = result.rewardBreakdown;
-    const recovery = result.passed
-      ? "Great work. Replay at a higher difficulty or use Weak Words mode for extra mastery."
-      : `Recovery Mission: replay ${norm(result.sessionId) || "this Session"} with AI Help and focus on ${Array.isArray(result.weakWords) && result.weakWords.length ? result.weakWords.slice(0,3).join(", ") : "the missed targets"}.`;
+    const needed = Math.ceil(result.total * threshold(result.sessionId) / 100);
+    const outcome = result.passed
+      ? `ผ่านเกณฑ์ ${threshold(result.sessionId)}% แล้ว พร้อมไปต่อ ${result.sessionId === "BG5" ? "สรุปรายวิชา" : "Session ถัดไป"}`
+      : `ยังต้องตอบถูกอย่างน้อย ${needed}/${result.total} ข้อเพื่อผ่าน ลองใช้ AI Help และทบทวน Weak Words ก่อนเล่นซ้ำ`;
 
     box.innerHTML = `
-      <div class="eap194-title">🎯 XP earned this round: ${result.xp}</div>
-      <div>Every correct answer earns progress, even before the pass threshold is reached.</div>
-      <div class="eap194-row">
-        <span class="eap194-chip">Base ${r.xpBase}</span>
-        <span class="eap194-chip">Combo +${r.comboBonus}</span>
-        <span class="eap194-chip">Pass +${r.passBonus}</span>
-        <span class="eap194-chip">Hints ${r.hints}</span>
-      </div>
-      <div class="eap194-recovery">${recovery}</div>
-    `;
-
-    renderedSummaryKey = key;
+      <b>🎯 XP รอบนี้: ${result.xp}</b><br>
+      ได้ ${result.correct}/${result.total} ข้อ • Accuracy ${result.accuracy}% • ${outcome}
+      <div class="eap199-row">
+        <span class="eap199-chip">Base ${Math.max(result.correct * 60, result.rewardBreakdown.base || 0)}</span>
+        <span class="eap199-chip">Max Combo ${result.maxCombo}</span>
+        <span class="eap199-chip">Pass ${result.passed ? "✓" : "–"}</span>
+      </div>`;
   }
 
-  function inspect() {
-    const logger = window.logEapWordQuestResult;
-    return {
-      version: VERSION,
-      loggerBridgeInstalled: Boolean(logger && logger.__eapV195Wrapped),
-      v190RewrapBlocked: Boolean(logger && logger.__eapV190Wrapped),
-      oldV193Loaded: Boolean(window.__EAP_WORD_V193_SCORE_COMBO__),
-      latestReward: currentSummaryResult() ? enrichReward(currentSummaryResult(), false).rewardBreakdown : null
-    };
+  function hideAnswerLeak() {
+    const tagBox = $("questionTags");
+    if (!tagBox) return;
+    Array.from(tagBox.querySelectorAll("span")).forEach(tag => {
+      const text = norm(tag.textContent);
+      if (/^Target\s*:/i.test(text)) {
+        tag.textContent = "Mission target";
+        tag.title = "คำศัพท์เป้าหมายจะเฉลยผ่าน feedback หลังตอบ";
+      }
+    });
   }
 
   function tick() {
-    installSingleLoggerBridge();
-    updateLiveScoreSafely();
-    renderSummaryRewardSafely();
+    setLoggerMarkers();
+    hideAnswerLeak();
+    renderRewardSummary();
   }
 
-  function boot() {
-    injectStyle();
-    tick();
-    [150, 600, 1200].forEach(delay => setTimeout(tick, delay));
-    window.addEventListener("eap-core-run-finished", () => {
-      [80, 350, 900].forEach(delay => setTimeout(tick,delay));
-    });
-    document.addEventListener("click", event => {
-      const hit = event.target && event.target.closest ? event.target.closest("#choicesEl .eap192-choice") : null;
-      if (hit) setTimeout(updateLiveScoreSafely,60);
-    }, true);
-    console.info("[EAP Word Quest] v195 stable score + strict core progress ready", inspect());
-  }
+  window.addEventListener("eap-core-run-finished", event => {
+    if (event && event.detail) {
+      window.EAP_V199_LAST_RESULT = normalizeReward(event.detail);
+      Object.assign(event.detail, window.EAP_V199_LAST_RESULT);
+    }
+    [0,80,250,600,1100].forEach(delay => setTimeout(tick, delay));
+  });
 
-  window.inspectEapV194 = inspect;
-  window.inspectEapV195 = inspect;
-  window.getEapV194RewardPreview = () => {
-    const result = currentSummaryResult();
-    return result ? enrichReward(result, false) : null;
+  document.addEventListener("click", event => {
+    const watched = event.target && event.target.closest
+      ? event.target.closest("#choicesEl .eap192-choice,#nextBtn,#replayBtn,#nextMissionBtn")
+      : null;
+    if (watched) [40,180,500].forEach(delay => setTimeout(tick, delay));
+  }, true);
+
+  injectStyle();
+  [0,100,350,800,1500].forEach(delay => setTimeout(tick, delay));
+  setInterval(tick, 1000);
+
+  window.inspectEapV199 = () => {
+    const result = sourceResult();
+    const logger = window.logEapWordQuestResult;
+    return {
+      version: VERSION,
+      result: result ? normalizeReward(result) : null,
+      loggerMarked: Boolean(logger && logger.__eapV190Wrapped && logger.__eapV195Wrapped),
+      summaryVisible: Boolean(visibleSummaryRoot()),
+      targetHidden: !Array.from(document.querySelectorAll("#questionTags span")).some(tag => /^Target\s*:/i.test(norm(tag.textContent)))
+    };
   };
-  window.EAP_WORD_V195_VERSION = VERSION;
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot, { once: true });
-  } else {
-    boot();
-  }
+  console.info("[EAP Word Quest] v199 stable reward + summary truth ready", {
+    version: VERSION,
+    loggerMarked: setLoggerMarkers()
+  });
 })();
