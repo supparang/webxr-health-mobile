@@ -38975,7 +38975,7 @@
       const out = document.getElementById('speakingTranscript')?.value.trim() || '';
       const prompt = document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction;
       const profileKey = document.getElementById('speakingProfileKey')?.value || 'easy';
-      const profile = easySpeakingProfileByKey(profileKey);
+      const profile = Number(id) === 1 ? easySpeakingProfileByKey('s1goal') : easySpeakingProfileByKey(profileKey);
       const requiredSpeakingSeconds = Number(document.getElementById('speakingMinSeconds')?.value || profile.minSeconds || 8);
       const goldSourceId = (document.getElementById('speakingGoldSourceId')?.value || '').toUpperCase();
       const checklist = {spoke:!!document.getElementById('spSpoke')?.checked};
@@ -42851,6 +42851,21 @@
         ],
         frames:['This source is about ___.','The student ___.']
       },
+      s1goal:{
+        key:'s1goal',
+        label:'A2 Foundation · My Academic Goal',
+        cefr:'A2',
+        timeRange:'8–12',
+        minSeconds:8,
+        maxSeconds:12,
+        sentenceGoal:'2 short sentences',
+        studentInstruction:'Say one academic goal and one practice action.',
+        requirements:[
+          {key:'goal',short:'Academic goal',label:'I said one academic goal'},
+          {key:'action',short:'Practice action',label:'I said one practice action'}
+        ],
+        frames:['My academic goal is to improve ____.','I will practise by ____.']
+      },
       normal:{
         key:'normal',
         label:'A2+ Bridge',
@@ -42909,6 +42924,8 @@
   }
 
   function easySpeakingProfileForTask(task){
+    const sessionId = Number(task?.sessionId || task?.sid || task?.id || task?.session || 0);
+    if(sessionId === 1) return easySpeakingProfileByKey('s1goal');
     const key = task?.tier || currentSkillDifficulty('Speaking').key || 'easy';
     return easySpeakingProfileByKey(key);
   }
