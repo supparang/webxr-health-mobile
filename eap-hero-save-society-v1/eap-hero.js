@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z82 Hard Storage Split + Safe Persistence ===
+/* === EAP Hero: Save the Society v1z83 Whitelist Storage Recovery ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -7,7 +7,7 @@
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z82-hard-storage-split-safe-persistence';
+  const APP_VERSION = '20260628-v1z83-whitelist-storage-recovery';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31915,28 +31915,112 @@
     return snapshot;
   }
 
-  function safeLocalStorageSet(key, value){
+  function safeText(value, max){
+    return compactTextForStorage(value == null ? '' : value, max || 180);
+  }
+
+  function compactEvidenceForWhitelist(entry){
+    const e = entry || {};
+    return {
+      evidenceId:safeText(e.evidenceId || e.id || '',90),
+      sessionId:Number(e.sessionId || e.session || 0) || 0,
+      skill:safeText(e.skill || '',30),
+      score:Number(e.score || 0) || 0,
+      submittedAt:safeText(e.submittedAt || e.at || '',40),
+      evidenceType:safeText(e.evidenceType || e.type || '',60),
+      output:safeText(e.output || e.answer || e.studentAnswer || '',220),
+      reflection:safeText(e.reflection || '',180),
+      durationSec:Number(e.durationSec || 0) || 0,
+      checklist:e.checklist && typeof e.checklist==='object' ? {
+        targetTime:!!e.checklist.targetTime,
+        academicGoal:!!e.checklist.academicGoal,
+        practiceAction:!!e.checklist.practiceAction
+      } : undefined,
+      teacherFeedbackCode:safeText(e.teacherFeedbackCode || '',20),
+      teacherScore:(e.teacherScore == null ? null : Number(e.teacherScore))
+    };
+  }
+
+  function compactSessionEvidence(ev){
+    const src = ev && typeof ev==='object' ? ev : {};
+    const out={};
+    Object.keys(src).slice(0,8).forEach(k=>{
+      const x=src[k] || {};
+      out[k]={score:Number(x.score || x.bestScore || 0)||0, passed:!!(x.passed || x.complete), at:safeText(x.at || x.submittedAt || '',40)};
+    });
+    return out;
+  }
+
+  function buildWhitelistStorageSnapshot(){
+    // Strict whitelist: browser keeps progress only; never raw tasks, sources, logs, transcripts or AI traces.
+    const sessions={};
+    Object.keys(state.sessions || {}).forEach(id=>{
+      const x=state.sessions[id] || {};
+      sessions[id]={
+        unlocked:!!x.unlocked, cleared:!!x.cleared,
+        bestStars:Number(x.bestStars||0)||0,
+        bestAccuracy:Number(x.bestAccuracy||0)||0,
+        attempts:Math.min(99,Number(x.attempts||0)||0),
+        bestScore:Number(x.bestScore||0)||0,
+        reflections:compactArray(x.reflections,2,r=>safeText(r,150)),
+        skillEvidence:compactSessionEvidence(x.skillEvidence || x.evidence)
+      };
+    });
+    const profile=state.profile || {};
+    const settings=state.settings || {};
+    return {
+      version:APP_VERSION,
+      storageMode:'v1z83-whitelist',
+      savedAt:new Date().toISOString(),
+      view:safeText(state.view || 'home',30),
+      currentSession:Number(state.currentSession||1)||1,
+      profile:{name:safeText(profile.name,80),studentId:safeText(profile.studentId,60),goal:safeText(profile.goal,180)},
+      settings:{difficulty:safeText(settings.difficulty||'easy',20),skillDifficulty:safeText(settings.skillDifficulty||'easy',20),manualSkillDifficulty:safeText(settings.manualSkillDifficulty||'easy',20),aiAdaptiveDifficulty:settings.aiAdaptiveDifficulty!==false,uiMode:safeText(settings.uiMode||'simple',20),progressiveUnlock:settings.progressiveUnlock!==false,reviewView:safeText(settings.reviewView||'compact',20),cefrLevel:safeText(settings.cefrLevel||'A2-B1+',20),roleMode:'student'},
+      xp:Number(state.xp||0)||0,
+      rank:safeText(state.rank||'New Learner',40),
+      badges:compactArray(state.badges,20,b=>safeText(b,80)),
+      cards:compactArray(state.cards,12,c=>({sessionId:Number(c?.sessionId||c?.session||0)||0,title:safeText(c?.title||'',100),at:safeText(c?.at||'',40)})),
+      sessions,
+      portfolio:compactArray(state.portfolio,18,compactEvidenceForWhitelist),
+      learningReports:compactArray(state.learningReports,12,r=>({sessionId:Number(r?.sessionId||0)||0,skill:safeText(r?.skill||'',30),score:Number(r?.score||0)||0,didWell:safeText(r?.didWell||'',180),nextStep:safeText(r?.nextStep||'',180),at:safeText(r?.at||r?.submittedAt||'',40)})),
+      mastery:{Reading:Number(state.mastery?.Reading||0)||0,Writing:Number(state.mastery?.Writing||0)||0,Listening:Number(state.mastery?.Listening||0)||0,Speaking:Number(state.mastery?.Speaking||0)||0,Ethics:Number(state.mastery?.Ethics||0)||0},
+      fun:{coins:Number(state.fun?.coins||0)||0,daily:{lastDate:safeText(state.fun?.daily?.lastDate||'',20),streak:Number(state.fun?.daily?.streak||0)||0},achievementsClaimed:compactArray(state.fun?.achievementsClaimed,20,x=>safeText(x,60))},
+      skillPath:{unlockedBossGates:Object.assign({},state.skillPath?.unlockedBossGates||{})},
+      bossGates:Object.assign({},state.bossGates||{}),
+      bossCards:Object.assign({},state.bossCards||{}),
+      independenceReplay:{active:false,session:null,skill:'',aiBaseline:0,startedAt:''}
+    };
+  }
+
+  function cleanupStaleEapStorage(){
     try{
-      // Always save a compact snapshot for the primary game key. This prevents
-      // transcript/history growth from breaking normal mission submit flows.
-      const payload = key === STORAGE_KEY
-        ? JSON.stringify(compactStateSnapshotForStorage())
-        : String(value);
-      localStorage.setItem(key, payload);
+      Object.keys(localStorage).forEach(k=>{
+        if(k === STORAGE_KEY) return;
+        if(/^EAP_HERO_SAVE_SOCIETY(_V\d+|_BACKUP|_LEGACY)?/i.test(k) || /^EAP_HERO_.*(BACKUP|CACHE|STATE)/i.test(k)){
+          try{ localStorage.removeItem(k); }catch(_){}
+        }
+      });
+      try{ localStorage.removeItem(LEGACY_STORAGE_KEY); }catch(_){}
+    }catch(err){ console.warn('[v1z83 cleanup]',err); }
+  }
+
+  function safeLocalStorageSet(key, value){
+    const payload = key === STORAGE_KEY ? JSON.stringify(buildWhitelistStorageSnapshot()) : String(value);
+    try{
+      localStorage.setItem(key,payload);
       return true;
     }catch(err){
       if(!isQuotaExceededError(err)) throw err;
-      console.warn('[storage quota] emergency compact save');
+      console.warn('[v1z83] quota: removing stale EAP test keys and retrying');
       try{
-        const minimal = JSON.stringify(minimalStateForEmergencySave());
-        localStorage.removeItem(key);
-        localStorage.setItem(key, minimal);
-        safeToast('Storage was optimized. Essential progress is safe.');
+        cleanupStaleEapStorage();
+        try{ localStorage.removeItem(key); }catch(_){}
+        localStorage.setItem(key,payload);
+        safeToast('Storage recovered. Only compact learning progress is kept in this browser.');
         return true;
       }catch(err2){
-        console.warn('[storage quota] browser save unavailable', err2);
-        try{ sessionStorage.setItem(key + '_BACKUP', JSON.stringify(minimalStateForEmergencySave())); }catch(e){}
-        safeToast('Browser storage is full. Please export/reset old test data before continuing.');
+        console.warn('[v1z83] persistent browser quota',err2);
+        try{ sessionStorage.setItem(key+'_TEMP',payload); }catch(_){}
         return false;
       }
     }
@@ -31992,61 +32076,15 @@
   }
 
 
-  /* v1z82: persist a strict, browser-safe snapshot only. Full raw evidence stays in memory
-     for the active session and must be sent to the server/IndexedDB in the next integration. */
-  const PERSIST_BLOCKED_KEYS = new Set([
-    'rawAudio','audioBlob','screenshot','fullHtml','debug','questionBank','goldPacks',
-    'rawSource','sourceText','fullTranscript','fullAiRubric','fullWritingHistory',
-    'allAttempts','researchDatasetCache','classActivities','lessons'
-  ]);
-
-  function makePersistable(value, depth, key){
-    const d = Number(depth || 0);
-    if(PERSIST_BLOCKED_KEYS.has(String(key || ''))) return undefined;
-    if(value == null || typeof value === 'number' || typeof value === 'boolean') return value;
-    if(typeof value === 'string') return compactTextForStorage(value, d < 3 ? 700 : 280);
-    if(d > 6) return undefined;
-    if(Array.isArray(value)){
-      const max = d < 2 ? 45 : 18;
-      return value.slice(-max).map(v => makePersistable(v, d + 1, '')).filter(v => v !== undefined);
-    }
-    if(typeof value === 'object'){
-      const out = {};
-      Object.keys(value).slice(0, 100).forEach(k => {
-        const v = makePersistable(value[k], d + 1, k);
-        if(v !== undefined) out[k] = v;
-      });
-      return out;
-    }
-    return undefined;
-  }
-
-  function buildHardStorageSnapshot(){
-    pruneStateForStorage();
-    const compact = makePersistable(state, 0, '') || {};
-    compact.version = APP_VERSION;
-    compact.storageMode = 'v1z82-hard-split';
-    compact.savedAt = new Date().toISOString();
-    // Protect against accidental expansion of activity logs.
-    compact.portfolio = compactArray(state.portfolio, 30, compactPortfolioEntry);
-    compact.learningReports = compactArray(state.learningReports, 30, x => makePersistable(x, 0, ''));
-    if(compact.ai){ compact.ai.logs = []; compact.ai.dailyUses = compact.ai.dailyUses || {}; }
-    if(compact.qa){ compact.qa.runtimeErrors = []; }
-    if(compact.logs) compact.logs = [];
-    if(compact.examLogs) compact.examLogs = compactArray(state.examLogs, 8, x => makePersistable(x, 0, ''));
-    return compact;
-  }
+  /* v1z83: storage is a strict whitelist only. */
+  function buildHardStorageSnapshot(){ return buildWhitelistStorageSnapshot(); }
 
   function saveState(){
     try{
-      const snapshot = buildHardStorageSnapshot();
-      const ok = safeLocalStorageSet(STORAGE_KEY, JSON.stringify(snapshot));
-      if(!ok) console.warn('[v1z82] browser persistence skipped; active session remains in memory');
+      const ok = safeLocalStorageSet(STORAGE_KEY, '');
+      if(!ok) console.warn('[v1z83] browser persistence skipped; active session remains in memory');
       return ok;
-    }catch(err){
-      console.warn('[saveState failed]', err);
-      return false;
-    }
+    }catch(err){ console.warn('[saveState failed]',err); return false; }
   }
 
   function resetState(){
@@ -32702,7 +32740,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z80'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z83'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
