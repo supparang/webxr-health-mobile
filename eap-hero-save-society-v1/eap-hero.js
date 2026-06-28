@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z86 Whitelist Storage Recovery ===
+/* === EAP Hero: Save the Society v1z87 Boss Safe Array Fix ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z86-version-guard-storage-baseline';
+  const APP_VERSION = '20260628-v1z87-boss-safe-array-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32110,7 +32110,13 @@
   }
 
   function grantTreasure(session, starsEarned, contractKey){
-    state.fun = state.fun || { coins:0, chests:[], titles:[], daily:{ lastDate:'', streak:0 }, achievementsClaimed:[] };
+    // Defensive normalization: legacy / compact saves may omit nested arrays.
+    state.fun = state.fun || {};
+    state.fun.coins = Number(state.fun.coins || 0);
+    state.fun.chests = Array.isArray(state.fun.chests) ? state.fun.chests : [];
+    state.fun.titles = Array.isArray(state.fun.titles) ? state.fun.titles : [];
+    state.fun.daily = (state.fun.daily && typeof state.fun.daily === 'object') ? state.fun.daily : { lastDate:'', streak:0 };
+    state.fun.achievementsClaimed = Array.isArray(state.fun.achievementsClaimed) ? state.fun.achievementsClaimed : [];
     const contract = getContract(contractKey || 'normal');
     let tier = contract.chest || 'bronze';
     if(starsEarned >= 3 && tier === 'bronze') tier = 'silver';
@@ -34469,6 +34475,9 @@
     const chestReward = win ? grantTreasure(s, starsEarned, a.contract || 'normal') : null;
 
     const prog = state.sessions[s.id];
+    // Defensive normalization for migrated/legacy progress objects.
+    state.cards = Array.isArray(state.cards) ? state.cards : [];
+    state.badges = Array.isArray(state.badges) ? state.badges : [];
     prog.attempts = (prog.attempts || 0) + 1;
     prog.bestStars = Math.max(prog.bestStars || 0, starsEarned);
     prog.bestAccuracy = Math.max(prog.bestAccuracy || 0, Math.round(accuracy*100));
