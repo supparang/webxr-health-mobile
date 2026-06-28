@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z91 Legacy Completion Display + No-Fake-Score Fix ===
+/* === EAP Hero: Save the Society v1z92 Report Recovery + Safe Legacy Portfolio Migration ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z91-legacy-completion-display-no-fake-score';
+  const APP_VERSION = '20260628-v1z92-report-recovery-safe-legacy-portfolio-migration';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -39790,7 +39790,9 @@
 
   function renderLearningReportCard(report, opts={}){
     if(!report) return '';
-    const band = learningBand(report.score);
+    const isLegacy = !!report.legacyCompletion;
+    const band = isLegacy ? {cls:'developing', emoji:'🗂️', label:'Completed legacy evidence'} : learningBand(report.score);
+    const scoreText = isLegacy ? (Number(report.score)>0 ? `${safe(report.score)}/100` : 'Completed') : `${safe(report.score)}/100`;
     return `<div class="learning-report-card ${safe(band.cls)}">
       <div class="report-head">
         <div>
@@ -39798,7 +39800,7 @@
           <span>${safe(report.skill)} • Session ${safe(report.session)} • CEFR ${safe(report.cefrTarget)}</span>
           <small class="report-score-caption">Mission Task Score</small>
         </div>
-        <div class="report-score">${safe(report.score)}/100</div>
+        <div class="report-score">${scoreText}</div>
       </div>
       <div class="report-ai-summary">
         <span class="report-checklist">${safe(reportChecklistLabel(report))} <em>formative, not a second grade</em></span>
@@ -39830,10 +39832,77 @@
     const bySkill = {};
     ['Reading','Writing','Listening','Speaking'].forEach(skill=>{
       const list = reports.filter(r=>r.skill===skill);
-      const avg = list.length ? Math.round(list.reduce((a,b)=>a+Number(b.score||0),0)/list.length) : 0;
-      bySkill[skill] = {count:list.length, avg, band:learningBand(avg)};
+      const scored = list.filter(r=>Number(r.score) > 0);
+      const avg = scored.length ? Math.round(scored.reduce((a,b)=>a+Number(b.score||0),0)/scored.length) : 0;
+      bySkill[skill] = {count:list.length, scoredCount:scored.length, avg, legacyOnly:list.length>0 && !scored.length, band:learningBand(avg)};
     });
     return bySkill;
+  }
+
+  /* v1z92: restore a compact, truthful report summary for completed legacy sessions.
+     These entries preserve completion evidence without inventing a numerical score. */
+  const LEGACY_SKILL_ROUTE_V92 = {
+    1:['Reading','Speaking'], 2:['Reading','Writing'], 3:['Reading','Writing'],
+    4:['Reading','Listening'], 5:['Reading','Speaking'], 6:['Writing','Reading'],
+    7:['Writing','Speaking'], 8:['Reading','Writing'], 9:['Writing','Speaking'],
+    10:['Reading','Writing'], 11:['Writing','Speaking'], 12:['Reading','Writing'],
+    13:['Listening','Writing'], 14:['Speaking','Writing'], 15:['Writing','Speaking']
+  };
+
+  function legacyScoreFromStateV92(sessionId, skill){
+    const sid = String(sessionId);
+    const direct = state.sessionScores?.[sid]?.[skill] ?? state.sessionScores?.[sessionId]?.[skill];
+    if(Number(direct) > 0) return Number(direct);
+    const session = state.sessions?.[sid] || state.sessions?.[sessionId] || {};
+    const pools = [session.skills, session.skillEvidence, session.skillScores, session.evidence, session.missions];
+    for(const pool of pools){
+      const value = pool?.[skill] ?? pool?.[String(skill).toLowerCase()] ?? pool?.[String(skill).toUpperCase()];
+      const score = Number(value?.score ?? value?.bestScore ?? value);
+      if(score > 0) return score;
+    }
+    return null;
+  }
+
+  function recoverLegacyPortfolioAndReportsV92(){
+    state.portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
+    state.learningReports = Array.isArray(state.learningReports) ? state.learningReports : [];
+    let created = 0;
+    Object.keys(state.sessions || {}).forEach(rawId=>{
+      const sid = Number(rawId);
+      const session = state.sessions?.[rawId] || {};
+      if(!sid || !session.cleared) return;
+      (LEGACY_SKILL_ROUTE_V92[sid] || []).forEach(skill=>{
+        const exists = state.portfolio.some(p=>Number(p?.sessionId || p?.session)===sid && String(p?.skill||'')===skill) ||
+          state.learningReports.some(r=>Number(r?.session)===sid && String(r?.skill||'')===skill);
+        if(exists) return;
+        const retainedScore = legacyScoreFromStateV92(sid, skill);
+        const evidenceId = `LEGACY-S${sid}-${skill}`;
+        const entry = {
+          id:evidenceId, evidenceId, sessionId:sid, session:sid, skill,
+          score:retainedScore === null ? null : retainedScore,
+          submittedAt:'', at:'', difficulty:'legacy', evidenceType:'legacy-completion',
+          legacyCompletion:true,
+          output:'Completed legacy evidence retained after browser-storage migration.',
+          evidenceText:'Completed legacy evidence retained after browser-storage migration.'
+        };
+        state.portfolio.push(entry);
+        state.learningReports.push({
+          id:`lr_${evidenceId}`, portfolioId:evidenceId, portfolioIndex:state.portfolio.length-1,
+          session:sid, skill, score:retainedScore === null ? null : retainedScore,
+          difficulty:'legacy', cefrTarget:'A2–B1+', band:'Completed legacy evidence',
+          legacyCompletion:true, independenceVerified:false, supportMode:'legacy migration',
+          didWell:'Completed before the browser-storage migration.',
+          nextStep:'Continue with the next mission; future submissions will show full formative feedback.',
+          tryFrame:skillTryFrame(skill), replayPackId:'Legacy completion retained', createdAt:'', sourceAt:''
+        });
+        created++;
+      });
+    });
+    if(created){
+      state.portfolio = compactArray(state.portfolio, STORAGE_LIMITS.portfolio, compactPortfolioEntry);
+      state.learningReports = compactArray(state.learningReports, STORAGE_LIMITS.learningReports, x=>x);
+    }
+    return created;
   }
 
   function renderStudentReports(){
@@ -39848,7 +39917,7 @@
     });
     const reports = Array.from(reportMap.values()).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
     const summary = skillSummaryReports();
-    const summaryCards = Object.entries(summary).map(([skill,d])=>`<div class="stat report-skill ${safe(d.band.cls)}"><b>${d.count?d.avg:'-'}</b><span>${safe(skill)} • ${d.count?d.band.label:'No report yet'}</span></div>`).join('');
+    const summaryCards = Object.entries(summary).map(([skill,d])=>`<div class="stat report-skill ${safe(d.band.cls)}"><b>${d.count?(d.legacyOnly?'✓':d.avg):'-'}</b><span>${safe(skill)} • ${d.count?(d.legacyOnly?'Legacy completion retained':d.band.label):'No report yet'}</span></div>`).join('');
     const cards = reports.map(r=>renderLearningReportCard(r,{actions:false})).join('') || `<div class="panel light report-empty-state"><h3>ยังไม่มี Learning Report</h3><p>รายงานจะสร้างอัตโนมัติเมื่อผู้เรียนทำ <b>Reading, Writing, Listening หรือ Speaking Mission</b> แล้วกด <b>Submit</b> สำเร็จ โดยการเปิด Lab หรือชนะ MCQ Boss เพียงอย่างเดียวยังไม่สร้างรายงานรายทักษะ</p><p class="mini-note">เริ่มจาก Map → เปิด Session ปัจจุบัน → ทำ Core/Support Mission → Submit แล้วกลับมาดู Report ได้ทันที</p><div class="footer-actions"><button class="btn primary" onclick="EAPHero.continueSession()">Continue Current Session</button><button class="btn" onclick="EAPHero.map()">Open Map</button></div></div>`;
     layout(`
       <section class="panel" style="margin-top:20px">
@@ -43719,9 +43788,11 @@
   installNoRepeatScenarioPool();
   syncMasterSessionMatrix(true);
   replaceS8QuestionBankV1z73();
+  recoverLegacyPortfolioAndReportsV92();
   repairLearningReportsFromPortfolio(true);
   reconcileLearningReportsV1z67();
   syncCourseProgressFromEvidence(true);
+  saveState();
   renderHome();
 
 
