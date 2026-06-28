@@ -32900,6 +32900,29 @@
     return true;
   }
 
+  function renderStorageDiagnostics(){
+    const info = storageUsageInfo();
+    setView('storageDiagnostics');
+    layout(`<section class="panel progress-diagnostics-panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Storage Diagnostics</span><span class="pill">${safe(APP_VERSION)}</span></div>
+      <h2>Browser storage status</h2>
+      <p class="lead">หน้านี้ใช้ตรวจพื้นที่จัดเก็บของเกมในเบราว์เซอร์ โดยไม่กระทบผลการเรียน</p>
+      <div class="grid three">
+        <div class="stat"><b>${Number(info.approxKB||0)} KB</b><span>Current EAP snapshot</span></div>
+        <div class="stat"><b>${Number(info.portfolio||0)}</b><span>Portfolio summaries</span></div>
+        <div class="stat"><b>${safe(info.key||'')}</b><span>Storage key</span></div>
+      </div>
+      <div class="panel light" style="margin-top:16px">
+        <h3>Safe actions</h3>
+        <p class="mini-note">หากเบราว์เซอร์เต็ม เกมจะทำงานต่อในหน้านี้ได้ แต่ควรสำรองข้อมูลก่อนรีเซ็ต</p>
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.optimizeStorageNow()">Try compact save</button>
+          <button class="btn" onclick="EAPHero.map()">Back to Map</button>
+        </div>
+      </div>
+    </section>`);
+  }
+
   function passCriteriaHTML(){
     return `<div class="pass-criteria-box">
       <h3>How to pass <button class="btn small ghost pass-debug-btn" onclick="EAPHero.renderProgressDiagnostics()">Where am I stuck?</button><button class="btn small ghost pass-debug-btn" onclick="EAPHero.renderStorageDiagnostics()">Storage</button></h3>
