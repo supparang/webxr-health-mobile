@@ -26,7 +26,8 @@
     if (document.querySelector(`script[${marker}]`)) return;
     const script = document.createElement('script');
     script.src = src;
-    script.async = true;
+    // Dynamic scripts with async=false preserve the transport → UI dependency.
+    script.async = false;
     script.setAttribute(marker, '1');
     document.head.appendChild(script);
   }
