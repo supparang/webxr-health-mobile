@@ -14,7 +14,32 @@ The queue identifies three situations:
 2. `pending_teacher_review` — the learner submitted a 1–2 sentence explanation and the teacher can now verify or guide it.
 3. `rapidAttemptFlag` — a prompt to inspect evidence further, not an automatic penalty.
 
-## Files to add to the private Teacher Dashboard Apps Script project
+## Deployment boundary
+
+UX Quest intentionally uses **two Apps Script web apps**:
+
+1. **Public Student Receiver** — accepts write-only evidence from GitHub Pages.
+2. **Private Teacher Dashboard** — reads learning evidence and shows the review queue.
+
+Do not merge these deployments. The receiver remains public for student browsers; the dashboard remains restricted because it reads learner data.
+
+## Step 1 — update the public Student Receiver
+
+Add `UXQ_REASON_RETRY_RECEIVER_PATCH.gs` to the **public receiver** Apps Script project.
+
+Then add its small integration block directly after the receiver parses `payload` and before it rejects or branches on `mission_completed`. Reuse the receiver's existing generic append routine so the complete event JSON is stored in the same payload/details column in `UXQuest_Attempts`.
+
+The new event is:
+
+```text
+reason_retry_submitted
+```
+
+It carries `linkedAttemptId`, which connects the learner's short explanation back to the completed W1/W2/W3/B1 attempt.
+
+Save and deploy a **new version of the public receiver** after this change.
+
+## Step 2 — update the private Teacher Dashboard
 
 1. Add `UXQ_REASON_CHECK_REVIEW_QUEUE_PATCH.gs` as a new `.gs` file.
 2. Add `UXQ_REASON_CHECK_REVIEW_QUEUE_COMPONENT.html` as a new HTML file.
@@ -31,6 +56,8 @@ uxqGetReasonReviewQueue();
 uxqSaveReasonReview(input);
 ```
 
+Save and deploy a **new version of the teacher-only dashboard**.
+
 ## New review sheet
 
 On the first teacher decision, the patch creates:
@@ -46,7 +73,7 @@ reviewKey | linkedAttemptId | studentId | missionId | reviewStatus |
 feedbackCode | teacherNote | reviewer | updatedAt
 ```
 
-`UXQuest_Attempts` remains unchanged and is treated as the raw evidence source.
+`UXQuest_Attempts` remains the append-only raw evidence source. The new sheet stores only teacher decisions.
 
 ## Teacher decision codes
 
@@ -71,7 +98,8 @@ They add **Explain Why Retry** only after a completed mission when the Reason Ch
 1. Complete W2, W3, or B1 with a Reason Check below 70%.
 2. Confirm the result page displays **Explain Why Retry**.
 3. Send one short explanation.
-4. Refresh the private Teacher Dashboard.
-5. Confirm that the queue changes from `awaiting_retry` to `pending_teacher_review`.
-6. Save `Verified`, `Prompt again`, or `Discuss in class` with an optional feedback code.
-7. Confirm `UXQuest_ReasonReview` contains one row linked to the original `attemptId`.
+4. Confirm the public receiver appends a raw `reason_retry_submitted` row to `UXQuest_Attempts`.
+5. Refresh the private Teacher Dashboard.
+6. Confirm that the queue changes from `awaiting_retry` to `pending_teacher_review`.
+7. Save `Verified`, `Prompt again`, or `Discuss in class` with an optional feedback code.
+8. Confirm `UXQuest_ReasonReview` contains one row linked to the original `attemptId`.
