@@ -1,4 +1,4 @@
-/* UX Quest • Result Receipt UI v1 */
+/* UX Quest • Result Receipt UI v1.1 */
 (() => {
   'use strict';
 
@@ -9,7 +9,12 @@
   function getMeta(item){
     const state = item?.state || 'local_only';
     if (state === 'confirmed') return { tag: 'SYSTEM CONFIRMED', tone: 'good', title: 'ระบบยืนยันการบันทึกแล้ว', body: 'มีการตอบรับจากระบบปลายทางสำหรับรอบนี้แล้ว' };
-    if (state === 'dispatched_unverified') return { tag: 'REQUEST DISPATCHED', tone: 'warn', title: 'ส่งคำขอไปยังระบบชั้นเรียนแล้ว', body: 'หน้านี้ยังยืนยันไม่ได้ว่า Apps Script หรือ Google Sheets บันทึกแถวข้อมูลสำเร็จ เพราะการส่งแบบ no-cors อ่านคำตอบจากปลายทางไม่ได้' };
+    if (state === 'dispatched_unverified') return {
+      tag: 'RESULT SENT',
+      tone: 'good',
+      title: 'ส่งผลไปยังระบบชั้นเรียนแล้ว',
+      body: 'เกมส่งคำขอผลลัพธ์ไปยัง Student Receiver แล้ว ผู้สอนสามารถตรวจผลใน Teacher Dashboard หลังรีเฟรชข้อมูลได้ หน้าผู้เรียนไม่อ่านคำตอบกลับจาก Google Sheets โดยตรง เพราะการส่งใช้ no-cors'
+    };
     if (state === 'dispatching') return { tag: 'SAVING REQUEST', tone: 'warn', title: 'บันทึกในอุปกรณ์แล้ว กำลังส่งคำขอ', body: 'โปรดรอสักครู่ ระบบจะอัปเดตสถานะการส่งในหน้านี้' };
     if (state === 'queued') return { tag: 'QUEUED ON DEVICE', tone: 'bad', title: 'บันทึกในอุปกรณ์แล้ว รอส่งเมื่อเชื่อมต่อ', body: 'ระบบเก็บรอบนี้ไว้ในคิวของอุปกรณ์และจะลองส่งใหม่เมื่อกลับมาออนไลน์' };
     if (state === 'profile_incomplete') return { tag: 'SAVED ON DEVICE', tone: 'bad', title: 'บันทึกเฉพาะในอุปกรณ์นี้', body: 'ยังไม่ส่งเข้าระบบชั้นเรียน เพราะข้อมูลผู้เรียนยังไม่ครบ' };
@@ -67,7 +72,7 @@
   function loadFooterSync(){
     if (document.querySelector('script[data-uxq-result-footer-sync]')) return;
     const script = document.createElement('script');
-    script.src = './js/uxq-result-footer-sync-v1.js?v=20260628-footer-sync-v1';
+    script.src = './js/uxq-result-footer-sync-v1.js?v=20260629-footer-sync-v2';
     script.async = true;
     script.dataset.uxqResultFooterSync = '1';
     document.head.appendChild(script);
