@@ -1,22 +1,18 @@
 /* =========================================================
-   CSAI2102 AI Quest — S2 AR Result Bridge v4.0.7
+   CSAI2102 AI Quest — S2 AR Result Bridge v4.0.8
    File: /ai-quest/js/aiquest-s2-ar-result-bridge-v406.js
 
-   Purpose:
-   - Send completed S2 AR Agent Builder evidence to session_events.
-   - Recover V401 and earlier local results when the learner opens Student Page.
-   - Keep S2 AR supplementary; never change S2 score, accuracy, or gate.
-   - Prevent duplicate evidence when the bridge is loaded more than once.
+   Canonical owner of S2 AR evidence delivery.
+   It coordinates legacy receipt keys too, so cached V403/V405 senders cannot
+   create a second row for the same completed Agent Builder run.
 ========================================================= */
 (() => {
   'use strict';
 
-  const VERSION = 'v4.0.7-s2-ar-singleton-dedup-sync';
+  const VERSION = 'v4.0.8-s2-ar-canonical-sender-shield';
   const SINGLETON_KEY = '__AIQUEST_S2_AR_BRIDGE_SINGLETON__';
   const existing = window[SINGLETON_KEY];
 
-  // Dynamic script injection can accidentally evaluate this bridge more than once.
-  // Only one live bridge may own S2 AR delivery for a page.
   if (existing?.active) {
     console.log('[AIQuest S2 AR Sync] duplicate bridge skipped');
     return;
@@ -32,7 +28,12 @@
     'AIQUEST_S2_AR_PRACTICE_RESULT_V386'
   ];
   const RECEIPT_KEY = 'AIQUEST_S2_AR_EVENT_SYNC_V406';
-  const LEGACY_RECEIPT_KEY = 'AIQUEST_S2_AR_EVENT_SYNC_V405';
+  // V405 was a prior bridge and V403 belongs to the retired AR runtime sender.
+  // Keeping these keys aligned makes retries safe across cached page versions.
+  const LEGACY_RECEIPT_KEYS = [
+    'AIQUEST_S2_AR_EVENT_SYNC_V405',
+    'AIQUEST_S2_AR_EVENT_SYNC_V403'
+  ];
   const FALLBACK_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 
   let busy = false;
@@ -155,7 +156,6 @@
     };
 
     const raw = {
-      // Stable IDs make a retry of the same completed AR run idempotent.
       eventId: `s2ar_${token}`,
       attemptId: `s2_ar_practice_${String(profile.studentId || 'anon')}_${token}`,
       studentId: String(profile.studentId || ''),
@@ -213,6 +213,45 @@
     box.textContent = message;
   }
 
+  function receiptFor(sig, event, profile, status){
+    return {
+      signature: sig,
+      status,
+      eventId: event?.eventId || '',
+      studentId: String(profile?.studentId || ''),
+      queuedAt: new Date().toISOString(),
+      bridge: VERSION,
+      owner: 'canonical-s2-bridge'
+    };
+  }
+
+  // Claim legacy receipt keys before dispatch. The retired runtime tests V403
+  // and older V405 tests V405; both therefore stand down for this same run.
+  function claimLegacySenders(sig, event, profile){
+    const receipt = receiptFor(sig, event, profile, 'queued');
+    LEGACY_RECEIPT_KEYS.forEach((key) => writeJson(key, receipt));
+  }
+
+  function releaseLegacyClaims(sig, event, profile){
+    LEGACY_RECEIPT_KEYS.forEach((key) => {
+      const current = readJson(key) || {};
+      if (current.signature === sig && current.owner === 'canonical-s2-bridge') {
+        writeJson(key, Object.assign({}, receiptFor(sig, event, profile, 'failed'), { failedAt: new Date().toISOString() }));
+      }
+    });
+  }
+
+  function adoptLegacyReceipt(sig){
+    for (const key of LEGACY_RECEIPT_KEYS) {
+      const legacy = readJson(key) || {};
+      if (legacy.signature === sig && legacy.status === 'queued') {
+        writeJson(RECEIPT_KEY, Object.assign({}, legacy, { bridge: VERSION, recoveredFrom: key }));
+        return true;
+      }
+    }
+    return false;
+  }
+
   function renderReceipt(){
     const ar = evidence();
     if (!ar) return;
@@ -227,15 +266,6 @@
     );
   }
 
-  function recoverLegacyReceipt(sig){
-    const legacy = readJson(LEGACY_RECEIPT_KEY) || {};
-    if (legacy.signature === sig && legacy.status === 'queued') {
-      writeJson(RECEIPT_KEY, { ...legacy, bridge: VERSION, recoveredFrom: LEGACY_RECEIPT_KEY });
-      return true;
-    }
-    return false;
-  }
-
   async function sync(){
     const ar = evidence();
     if (!ar || busy || !runtime.active) return false;
@@ -243,7 +273,7 @@
     const sig = signature(ar);
     const receipt = readJson(RECEIPT_KEY) || {};
     if (receipt.signature === sig && (receipt.status === 'sending' || receipt.status === 'queued')) return true;
-    if (recoverLegacyReceipt(sig)) return true;
+    if (adoptLegacyReceipt(sig)) return true;
 
     const profile = getProfile();
     if (!profile.studentId) {
@@ -259,14 +289,8 @@
 
     const event = buildPayload(ar, profile);
     busy = true;
-    writeJson(RECEIPT_KEY, {
-      signature: sig,
-      status: 'sending',
-      eventId: event.eventId,
-      studentId: String(profile.studentId),
-      queuedAt: new Date().toISOString(),
-      bridge: VERSION
-    });
+    writeJson(RECEIPT_KEY, receiptFor(sig, event, profile, 'sending'));
+    claimLegacySenders(sig, event, profile);
     renderStatus('กำลังส่งหลักฐาน S2 AR…', 'warn');
 
     try {
@@ -279,28 +303,16 @@
         body: JSON.stringify({ action: 'sync_v23', kind: 'event', payload: event })
       });
 
-      writeJson(RECEIPT_KEY, {
-        signature: sig,
-        status: 'queued',
-        eventId: event.eventId,
-        studentId: String(profile.studentId),
-        queuedAt: new Date().toISOString(),
-        bridge: VERSION
-      });
+      writeJson(RECEIPT_KEY, receiptFor(sig, event, profile, 'queued'));
+      claimLegacySenders(sig, event, profile);
       renderStatus(`✓ ส่งหลักฐาน S2 AR แล้ว: ${ar.correct}/${ar.total} • ${ar.score}% • Teacher Dashboard: S2 AR Practice`, 'good');
       window.dispatchEvent(new CustomEvent('aiquest:s2-ar-event-queued', { detail: { event, evidence: ar, bridge: VERSION } }));
-      console.log('[AIQuest S2 AR Sync] queued one deduplicated s2_ar_complete event', event.eventId);
+      console.log('[AIQuest S2 AR Sync] queued one canonical s2_ar_complete event', event.eventId);
       return true;
     } catch (error) {
       console.warn('[AIQuest S2 AR Sync] event send failed', error);
-      writeJson(RECEIPT_KEY, {
-        signature: sig,
-        status: 'failed',
-        eventId: event.eventId,
-        studentId: String(profile.studentId),
-        failedAt: new Date().toISOString(),
-        bridge: VERSION
-      });
+      writeJson(RECEIPT_KEY, Object.assign({}, receiptFor(sig, event, profile, 'failed'), { failedAt: new Date().toISOString() }));
+      releaseLegacyClaims(sig, event, profile);
       renderStatus('S2 AR ส่งไม่สำเร็จในขณะนี้ ระบบจะลองใหม่เมื่อเปิดหน้านี้อีกครั้ง', 'warn');
       return false;
     } finally {
