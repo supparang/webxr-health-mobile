@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260627-v1z72-learning-report-recovery-a2-b1plus';
+  const APP_VERSION = '20260627-v1z104- Mission-Flow';
   const app = document.getElementById('app');
 
   const SESSIONS = [
