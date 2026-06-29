@@ -39910,46 +39910,81 @@
     return created;
   }
 
-  function renderStudentReports(){
-    // v1z94: Map and Report must read the same recovered completion source.
-    // Re-sync completion first, then create compact legacy evidence before rendering.
-    try{ if(typeof syncPassProgressNow === 'function') syncPassProgressNow(true); }catch(e){}
-    let recoveredLegacy = 0;
-    try{ recoveredLegacy = recoverLegacyPortfolioAndReportsV92(); }catch(e){ console.warn('[v1z94] legacy report recovery failed', e); }
-    try{ repairLearningReportsFromPortfolio(true); }catch(e){}
-    if(recoveredLegacy){ try{ saveState(); }catch(e){} }
-    setView('studentReports');
-    const allReports = (state.learningReports || []).slice();
-    const reportMap = new Map();
-    allReports.forEach(r=>{
-      const key = `${Number(r.session||0)}|${String(r.skill||'')}|${String(r.difficulty||'')}`;
-      const prior = reportMap.get(key);
-      if(!prior || Number(r.score||0) >= Number(prior.score||0) || String(r.createdAt||'') > String(prior.createdAt||'')) reportMap.set(key,r);
+  /* v1z95: one shared report source for Map, learner report, export, and teacher review.
+     Numeric scores are only shown when a retained evidence source exists. */
+  function unifiedReportsV95(){
+    const reports = Array.isArray(state.learningReports) ? state.learningReports.slice() : [];
+    const byKey = new Map();
+    reports.forEach(r=>{
+      if(!r || !Number(r.session||0) || !r.skill) return;
+      const key=`${Number(r.session)}|${String(r.skill)}`;
+      const prior=byKey.get(key);
+      const rank=x=>Number(x?.score||0);
+      if(!prior || rank(r)>rank(prior) || (!prior.legacyCompletion && r.legacyCompletion===false)) byKey.set(key,r);
     });
-    const reports = Array.from(reportMap.values()).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
-    const summary = skillSummaryReports();
-    const summaryCards = Object.entries(summary).map(([skill,d])=>`<div class="stat report-skill ${safe(d.band.cls)}"><b>${d.count?(d.legacyOnly?'✓':d.avg):'-'}</b><span>${safe(skill)} • ${d.count?(d.legacyOnly?'Legacy completion retained':d.band.label):'No report yet'}</span></div>`).join('');
-    const cards = reports.map(r=>renderLearningReportCard(r,{actions:false})).join('') || `<div class="panel light report-empty-state"><h3>ยังไม่มี Learning Report</h3><p>รายงานจะสร้างอัตโนมัติเมื่อผู้เรียนทำ <b>Reading, Writing, Listening หรือ Speaking Mission</b> แล้วกด <b>Submit</b> สำเร็จ โดยการเปิด Lab หรือชนะ MCQ Boss เพียงอย่างเดียวยังไม่สร้างรายงานรายทักษะ</p><p class="mini-note">เริ่มจาก Map → เปิด Session ปัจจุบัน → ทำ Core/Support Mission → Submit แล้วกลับมาดู Report ได้ทันที</p><div class="footer-actions"><button class="btn primary" onclick="EAPHero.continueSession()">Continue Current Session</button><button class="btn" onclick="EAPHero.map()">Open Map</button></div></div>`;
-    layout(`
-      <section class="panel" style="margin-top:20px">
-        <div class="badges"><span class="pill">Student Learning Reports</span><span class="pill">Formative Feedback</span><span class="pill">A2-B1+</span></div>
-        <h2>My Learning Report</h2><p class="mini-note">Best attempt is shown once per Session, Skill and level. Previous replays are counted in attempt history.</p>
-        <p class="lead">ผลนี้ใช้เพื่อพัฒนาครั้งถัดไป: รู้ระดับปัจจุบัน จุดที่ทำได้ดี จุดที่ควรเพิ่ม และประโยคช่วยตอบ</p>
-        <div class="grid four">${summaryCards}</div>
-        <div class="footer-actions">
-          <button class="btn primary" onclick="EAPHero.exportLearningReportsCSV()">Export Student Report CSV</button>
-          <button class="btn" onclick="EAPHero.map()">Back to Map</button>
-        </div>
-        <div class="report-list">${cards}</div>
-      </section>`);
+    for(let sid=1;sid<=15;sid++){
+      const pass=sessionPassReport(sid);
+      if(!pass?.passed) continue;
+      (pass.requiredSkills||[]).forEach(skill=>{
+        const key=`${sid}|${skill}`;
+        if(byKey.has(key)) return;
+        const retained=legacyScoreFromStateV92(sid,skill);
+        byKey.set(key,{
+          id:`lr_V95_LEGACY_S${sid}_${skill}`,
+          session:sid, skill, score:retained===null?null:retained,
+          difficulty:'legacy', cefrTarget:'A2–B1+', band:'Completed legacy evidence',
+          legacyCompletion:true, independenceVerified:false,
+          independenceStatus:'Legacy completion retained', supportMode:'legacy migration',
+          sourceAligned:false, aiRubricScore:0,
+          didWell:'Completion and unlock status were retained after browser-storage migration.',
+          nextStep:'Complete the next mission. New submissions will store a scored report for teacher review.',
+          tryFrame:skillTryFrame(skill), replayPackId:'Legacy completion retained', createdAt:''
+        });
+      });
+    }
+    return Array.from(byKey.values()).sort((a,b)=>Number(a.session||0)-Number(b.session||0)||String(a.skill).localeCompare(String(b.skill)));
   }
 
-  function exportLearningReportsCSV(){
-    const rows = [['createdAt','studentId','studentName','session','skill','score','band','cefrTarget','difficulty','aiUses','didWell','nextStep','tryFrame']];
-    (state.learningReports || []).forEach(r=>{
-      rows.push([r.createdAt,r.studentId,r.studentName,r.session,r.skill,r.score,r.band,r.cefrTarget,r.difficulty,r.aiUses,r.didWell,r.nextStep,r.tryFrame]);
+  function summaryFromReportsV95(reports){
+    const out={};
+    ['Reading','Writing','Listening','Speaking'].forEach(skill=>{
+      const list=reports.filter(r=>r.skill===skill);
+      const scored=list.filter(r=>Number(r.score)>0);
+      const avg=scored.length?Math.round(scored.reduce((t,r)=>t+Number(r.score||0),0)/scored.length):0;
+      out[skill]={count:list.length, scoredCount:scored.length, avg, legacyOnly:list.length>0&&!scored.length, band:learningBand(avg)};
     });
-    downloadCSV('eap-learning-reports.csv', rows);
+    return out;
+  }
+
+  function renderStudentReports(){
+    try{ if(typeof syncPassProgressNow==='function') syncPassProgressNow(true); }catch(e){}
+    const reports=unifiedReportsV95();
+    const summary=summaryFromReportsV95(reports);
+    const summaryCards=Object.entries(summary).map(([skill,d])=>{
+      const value=d.count?(d.scoredCount?d.avg:'✓'):'-';
+      const label=d.count?(d.scoredCount?`${d.avg}/100 average`:'Completed legacy evidence'):'No report yet';
+      return `<div class="stat report-skill ${safe(d.band.cls)}"><b>${safe(value)}</b><span>${safe(skill)} • ${safe(label)}</span></div>`;
+    }).join('');
+    const cards=reports.map(r=>renderLearningReportCard(r,{actions:false})).join('') || `<div class="panel light report-empty-state"><h3>ยังไม่มี Learning Report</h3><p>รายงานจะสร้างอัตโนมัติเมื่อผู้เรียนทำ Mission แล้วกด Submit สำเร็จ</p><div class="footer-actions"><button class="btn primary" onclick="EAPHero.continueSession()">Continue Current Session</button><button class="btn" onclick="EAPHero.map()">Open Map</button></div></div>`;
+    setView('studentReports');
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Student Learning Reports</span><span class="pill">Formative Feedback</span><span class="pill">A2-B1+</span></div>
+      <h2>My Learning Report</h2><p class="mini-note">Best retained evidence is shown once per Session and Skill. Legacy completion is labelled separately and is never presented as a numeric score.</p>
+      <p class="lead">ผลนี้ใช้เพื่อพัฒนาครั้งถัดไป: รู้ระดับปัจจุบัน จุดที่ทำได้ดี จุดที่ควรเพิ่ม และประโยคช่วยตอบ</p>
+      <div class="grid four">${summaryCards}</div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.exportLearningReportsCSV()">Export Student Report CSV</button><button class="btn" onclick="EAPHero.map()">Back to Map</button></div>
+      <div class="report-list">${cards}</div>
+    </section>`);
+  }
+
+
+  function exportLearningReportsCSV(){
+    const rows=[['createdAt','studentId','studentName','session','skill','score','scoreStatus','band','cefrTarget','difficulty','teacherReviewStatus','didWell','nextStep','tryFrame']];
+    unifiedReportsV95().forEach(r=>{
+      const numeric=Number(r.score)>0?Number(r.score):'';
+      rows.push([r.createdAt||'', state.profile?.id||state.profile?.studentId||'', state.profile?.name||'', r.session, r.skill, numeric, r.legacyCompletion?'legacy_completion_no_numeric_score':'numeric_retained', r.band||'', r.cefrTarget||'', r.difficulty||'', r.legacyCompletion?'Teacher may acknowledge completion; do not use as a numeric mark.':'Numeric result retained', r.didWell||'',r.nextStep||'',r.tryFrame||'']);
+    });
+    downloadCSV('eap-learning-reports.csv',rows);
   }
 
   function attachLearningReportToLatestPortfolio(skill){
@@ -42975,10 +43010,12 @@
   }
 
   function reportChecklistLabel(report){
+    if(report?.legacyCompletion) return 'Completion status retained';
     return report?.sourceAligned ? `Task checklist ${Number(report?.aiRubricScore ?? 0)}%` : `AI checklist ${Number(report?.aiRubricScore ?? 0)}%`;
   }
 
   function reportStatusLabel(report){
+    if(report?.legacyCompletion) return '🗂 Legacy completion · numeric score unavailable';
     if(report?.independenceVerified) return `🛡 ${report.independenceStatus || 'Independent Evidence'}`;
     if(report?.independenceStatus === 'Supported Attempt') return '🛡 Supported practice · independent replay available';
     if(report?.independenceStatus === 'Needs Skill Repair') return '🛠 Needs skill repair before replay';
@@ -42986,6 +43023,7 @@
   }
 
   function reportSummaryText(report){
+    if(report?.legacyCompletion) return 'Completion was retained after local browser migration. A teacher should use any server-side record for a formal numeric mark.';
     return report?.supportMode === 'AI-supported practice'
       ? 'Mission Task Score is your game result. The task checklist shows which evidence appeared. AI support is recorded separately.'
       : 'Mission Task Score is your game result. The task checklist shows which evidence appeared.';
