@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v5.1 • Stable mission start + replay coach
+/* UX Quest • Classroom Configuration v5.2 • Reason Check review support
    Public configuration only: the receiver is write-only; no teacher read endpoint lives here.
 */
 (() => {
@@ -11,7 +11,7 @@
     defaultSection: '',
     allowGuestPractice: true,
     maxQueuedAttempts: 12,
-    version: '20260629-classroom-v5.1-replay-coach'
+    version: '20260629-classroom-v5.2-reason-review'
   };
 
   const existing = (window.UXQ_CLASSROOM_CONFIG && typeof window.UXQ_CLASSROOM_CONFIG === 'object')
@@ -20,9 +20,9 @@
 
   window.UXQ_CLASSROOM_CONFIG = Object.freeze(Object.assign({}, defaults, existing));
 
-  /* Presentation-only enhancements. They never intercept UXQProgress,
-     mission-engine start handlers, learner identity, scoring, or sync. */
-  function loadPresentationScript(src, marker){
+  /* Presentation and evidence enhancements. They never intercept UXQProgress,
+     mission-engine scoring, gating, or mission-completed delivery. */
+  function loadScript(src, marker){
     if (document.querySelector(`script[${marker}]`)) return;
     const script = document.createElement('script');
     script.src = src;
@@ -31,14 +31,16 @@
     document.head.appendChild(script);
   }
 
-  function loadResultPresentation(){
-    loadPresentationScript('./js/uxq-result-receipt-v1.js?v=20260629-receipt-v1-1', 'data-uxq-result-receipt');
-    loadPresentationScript('./js/uxq-anti-guess-coach-v1.js?v=20260629-replay-coach-v1', 'data-uxq-replay-coach');
+  function loadResultSupport(){
+    loadScript('./js/uxq-result-receipt-v1.js?v=20260629-receipt-v1-1', 'data-uxq-result-receipt');
+    loadScript('./js/uxq-anti-guess-coach-v1.js?v=20260629-replay-coach-v1', 'data-uxq-replay-coach');
+    loadScript('./js/uxq-reason-retry-transport-v1.js?v=20260629-reason-transport-v1', 'data-uxq-reason-transport');
+    loadScript('./js/uxq-explain-why-retry-v1.js?v=20260629-explain-retry-v1', 'data-uxq-explain-retry');
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadResultPresentation, { once: true });
+    document.addEventListener('DOMContentLoaded', loadResultSupport, { once: true });
   } else {
-    loadResultPresentation();
+    loadResultSupport();
   }
 })();
