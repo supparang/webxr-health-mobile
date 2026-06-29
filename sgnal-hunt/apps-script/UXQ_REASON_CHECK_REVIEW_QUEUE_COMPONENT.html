@@ -1,0 +1,89 @@
+<!-- UX Quest • Reason Check Review Queue Component v1
+     Add this fragment to the private Teacher Dashboard HTML after the
+     Reasoning & Anti-Guess section. The Apps Script server patch supplies:
+       uxqGetReasonReviewQueue()
+       uxqSaveReasonReview(input)
+-->
+<style>
+  .uxq-rq{border:1px solid rgba(129,164,255,.28);border-radius:20px;background:rgba(7,20,49,.76);padding:18px;margin:18px 0;color:#eff6ff}
+  .uxq-rq h2,.uxq-rq h3{margin:0}.uxq-rq p{color:#b5c3e3}.uxq-rq__head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}.uxq-rq__head p{margin:5px 0 0;font-size:.9rem}
+  .uxq-rq__grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}.uxq-rq__metric{border:1px solid rgba(129,164,255,.22);border-radius:15px;background:linear-gradient(155deg,rgba(24,47,94,.88),rgba(13,28,62,.94));padding:13px}.uxq-rq__metric small{display:block;color:#aec0e7;font-weight:850;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}.uxq-rq__metric b{font-size:1.75rem}
+  .uxq-rq__filters{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:10px 0}.uxq-rq select,.uxq-rq input,.uxq-rq textarea{width:100%;box-sizing:border-box;border:1px solid rgba(161,185,245,.27);background:rgba(7,18,45,.7);color:#f1f5ff;border-radius:12px;padding:10px;font:inherit}.uxq-rq textarea{min-height:98px;resize:vertical;line-height:1.55}
+  .uxq-rq__table{display:block;width:100%;overflow:auto;border:1px solid rgba(129,164,255,.18);border-radius:14px}.uxq-rq__table table{width:100%;border-collapse:collapse;min-width:980px}.uxq-rq__table th{background:rgba(67,91,165,.35);color:#c8d8ff;font-size:.76rem;letter-spacing:.06em;text-transform:uppercase}.uxq-rq__table th,.uxq-rq__table td{padding:10px 11px;text-align:left;border-bottom:1px solid rgba(129,164,255,.13);vertical-align:top;font-size:.88rem}.uxq-rq__muted{color:#aebede;font-size:.82rem;line-height:1.45}.uxq-rq__pill{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-weight:850;font-size:.76rem;white-space:nowrap}.uxq-rq__pill.awaiting{background:rgba(255,193,73,.14);border:1px solid rgba(255,209,102,.37);color:#ffe4a0}.uxq-rq__pill.pending{background:rgba(155,140,255,.18);border:1px solid rgba(187,175,255,.35);color:#e4ddff}.uxq-rq__pill.verified{background:rgba(73,187,126,.18);border:1px solid rgba(116,235,165,.35);color:#c7ffdc}.uxq-rq__pill.discuss{background:rgba(255,123,143,.14);border:1px solid rgba(255,151,166,.42);color:#ffd0d8}
+  .uxq-rq__btn{border:1px solid rgba(129,164,255,.32);border-radius:10px;background:rgba(82,108,196,.22);color:#e9efff;font-weight:850;padding:8px 10px;cursor:pointer}.uxq-rq__btn:hover{filter:brightness(1.12)}.uxq-rq__btn.primary{background:linear-gradient(135deg,#38bdf8,#8b5cf6);border-color:transparent}.uxq-rq__detail{margin-top:14px;border:1px solid rgba(129,164,255,.24);border-radius:16px;background:rgba(11,25,58,.7);padding:14px}.uxq-rq__answers{display:grid;gap:8px;margin:10px 0}.uxq-rq__answer{border:1px solid rgba(129,164,255,.16);border-radius:11px;padding:10px;background:rgba(4,15,35,.4);font-size:.88rem;line-height:1.5}.uxq-rq__answer b{color:#dbeafe}.uxq-rq__save{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}.uxq-rq__message{font-size:.84rem;color:#c7ffdc}.uxq-rq__focus{display:flex;gap:6px;flex-wrap:wrap}.uxq-rq__focus span{border-radius:999px;padding:3px 7px;background:rgba(155,140,255,.2);color:#e1d9ff;font-size:.75rem}
+  @media(max-width:820px){.uxq-rq__grid{grid-template-columns:repeat(2,minmax(0,1fr))}.uxq-rq__filters{grid-template-columns:1fr}}@media(max-width:480px){.uxq-rq__grid{grid-template-columns:1fr}}
+</style>
+
+<section id="uxqReasonReviewQueue" class="uxq-rq" aria-live="polite">
+  <div class="uxq-rq__head"><div><h2>Reason Check Review Queue</h2><p>ดูเฉพาะรอบที่เกมผ่านได้ แต่เหตุผลยังไม่ถึงเกณฑ์ หรือมี rapid-attempt signal — ใช้เพื่อ feedback เชิงพัฒนา ไม่ใช่ตัดคะแนนอัตโนมัติ</p></div><button type="button" class="uxq-rq__btn" id="uxqRqRefresh">รีเฟรชคิว</button></div>
+  <div class="uxq-rq__muted" style="margin-top:12px">กำลังรอข้อมูล…</div>
+</section>
+
+<script>
+(() => {
+  'use strict';
+  let model = { items: [], summary: {} };
+  let activeKey = '';
+  const root = () => document.getElementById('uxqReasonReviewQueue');
+  const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  const num = value => Number(value || 0);
+  const dateText = value => { const date = new Date(value || ''); return Number.isNaN(date.getTime()) ? (value || '—') : date.toLocaleString('th-TH', { timeZone:'Asia/Bangkok' }); };
+  const timeText = sec => { const value = num(sec); return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`; };
+  const statusLabel = status => ({ awaiting_retry:'รอ Explain Why Retry', pending_teacher_review:'รออาจารย์ตรวจ', verified:'Verified', prompt_again:'Prompt again', discuss_in_class:'Discuss in class' }[status] || status || 'รอข้อมูล');
+  const statusClass = status => ({ awaiting_retry:'awaiting', pending_teacher_review:'pending', verified:'verified', prompt_again:'awaiting', discuss_in_class:'discuss' }[status] || 'pending');
+  const focusMarkup = focus => (Array.isArray(focus) && focus.length ? focus.map(item => `<span>${esc(item.stageKey)} · ${num(item.count)}</span>`).join('') : '<span>Reason Check</span>');
+
+  function filteredItems(){
+    const mission = document.getElementById('uxqRqMission')?.value || 'all';
+    const status = document.getElementById('uxqRqStatus')?.value || 'all';
+    const query = String(document.getElementById('uxqRqSearch')?.value || '').trim().toLowerCase();
+    return (model.items || []).filter(item => {
+      const text = [item.studentId,item.studentName,item.missionId,item.missionTitle,item.status].join(' ').toLowerCase();
+      return (mission === 'all' || item.missionId === mission) && (status === 'all' || item.status === status) && (!query || text.includes(query));
+    });
+  }
+
+  function render(){
+    const box = root();
+    if (!box) return;
+    const summary = model.summary || {};
+    const missions = [...new Set((model.items || []).map(item => item.missionId).filter(Boolean))];
+    const rows = filteredItems();
+    const detail = (model.items || []).find(item => item.queueKey === activeKey);
+    box.innerHTML = `
+      <div class="uxq-rq__head"><div><h2>Reason Check Review Queue</h2><p>อัปเดต ${esc(dateText(model.generatedAt))} • หลักฐานเสริม ไม่เปลี่ยนคะแนนหรือสถานะผ่านของเกม</p></div><button type="button" class="uxq-rq__btn" id="uxqRqRefresh">รีเฟรชคิว</button></div>
+      <div class="uxq-rq__grid"><div class="uxq-rq__metric"><small>ทั้งหมด</small><b>${num(summary.total)}</b></div><div class="uxq-rq__metric"><small>รอ Retry</small><b>${num(summary.awaitingRetry)}</b></div><div class="uxq-rq__metric"><small>รอตรวจ</small><b>${num(summary.pendingTeacherReview)}</b></div><div class="uxq-rq__metric"><small>Verified</small><b>${num(summary.verified)}</b></div></div>
+      <div class="uxq-rq__filters"><select id="uxqRqMission"><option value="all">ทุก Mission</option>${missions.map(id => `<option value="${esc(id)}">${esc(id)}</option>`).join('')}</select><select id="uxqRqStatus"><option value="all">ทุกสถานะ</option><option value="awaiting_retry">รอ Explain Why Retry</option><option value="pending_teacher_review">รออาจารย์ตรวจ</option><option value="verified">Verified</option><option value="prompt_again">Prompt again</option><option value="discuss_in_class">Discuss in class</option></select><input id="uxqRqSearch" placeholder="ค้นหาผู้เรียน / Mission / สถานะ"></div>
+      <div class="uxq-rq__table"><table><thead><tr><th>ผู้เรียน</th><th>Mission</th><th>Reason Check</th><th>หลักฐาน/สัญญาณ</th><th>Explain Why Retry</th><th>สถานะ</th><th></th></tr></thead><tbody>${rows.map(item => `<tr><td><b>${esc(item.studentName || item.studentId || '—')}</b><div class="uxq-rq__muted">${esc(item.studentId || '')} • ${esc(item.section || '')}</div></td><td><b>${esc(item.missionTitle || item.missionId || '—')}</b><div class="uxq-rq__muted">${esc(dateText(item.occurredAt))}</div></td><td><b>${num(item.verifiedAccuracy)}%</b><div class="uxq-rq__muted">${num(item.verifiedCorrect)}/${num(item.verifiedTotal)} verified</div></td><td><div class="uxq-rq__focus">${focusMarkup(item.focus)}</div>${item.rapidAttemptFlag ? '<div class="uxq-rq__muted" style="margin-top:6px">⚡ Rapid attempt signal</div>' : ''}</td><td>${item.retry?.response ? esc(item.retry.response) : '<span class="uxq-rq__muted">ยังไม่มีคำอธิบายเพิ่มเติม</span>'}</td><td><span class="uxq-rq__pill ${statusClass(item.status)}">${esc(statusLabel(item.status))}</span></td><td><button class="uxq-rq__btn" data-open="${esc(item.queueKey)}">ตรวจ</button></td></tr>`).join('') || '<tr><td colspan="7" class="uxq-rq__muted">ไม่พบรายการตามตัวกรอง</td></tr>'}</tbody></table></div>
+      ${detail ? renderDetail(detail) : ''}
+    `;
+    document.getElementById('uxqRqRefresh').onclick = refresh;
+    ['uxqRqMission','uxqRqStatus'].forEach(id => document.getElementById(id).onchange = render);
+    document.getElementById('uxqRqSearch').oninput = render;
+    box.querySelectorAll('[data-open]').forEach(button => button.onclick = () => { activeKey = button.dataset.open; render(); });
+    bindDetail(detail);
+  }
+
+  function renderDetail(item){
+    const review = item.review || {};
+    return `<section class="uxq-rq__detail"><div class="uxq-rq__head"><div><h3>${esc(item.studentName || item.studentId)} · ${esc(item.missionTitle || item.missionId)}</h3><p>คำตอบ/Reason Check ที่ควรใช้ประกอบการสนทนา</p></div><button class="uxq-rq__btn" id="uxqRqClose">ปิด</button></div><div class="uxq-rq__answers">${(item.answers || []).map(answer => `<div class="uxq-rq__answer"><b>${esc(answer.stageKey)}</b><br>เลือก: ${esc(answer.selected || '—')}<br>เหตุผลที่เลือก: ${esc(answer.reasonSelected || '—')}</div>`).join('') || '<div class="uxq-rq__answer">ไม่มี item-level evidence ใน payload นี้</div>'}</div><div class="uxq-rq__answer"><b>Explain Why Retry</b><br>${item.retry?.response ? esc(item.retry.response) : '<span class="uxq-rq__muted">ผู้เรียนยังไม่ส่งคำอธิบายเพิ่มเติม</span>'}</div><div class="uxq-rq__filters" style="grid-template-columns:1fr 1fr"><select id="uxqRqDecision"><option value="verified" ${review.reviewStatus === 'verified' ? 'selected' : ''}>Verified</option><option value="prompt_again" ${review.reviewStatus === 'prompt_again' ? 'selected' : ''}>Prompt again</option><option value="discuss_in_class" ${review.reviewStatus === 'discuss_in_class' ? 'selected' : ''}>Discuss in class</option></select><select id="uxqRqCode"><option value="">ไม่ใช้ code</option><option value="CL" ${review.feedbackCode === 'CL' ? 'selected' : ''}>CL · ความชัดเจน</option><option value="EV" ${review.feedbackCode === 'EV' ? 'selected' : ''}>EV · หลักฐาน</option><option value="ST" ${review.feedbackCode === 'ST' ? 'selected' : ''}>ST · เชื่อมสถานการณ์</option><option value="QA" ${review.feedbackCode === 'QA' ? 'selected' : ''}>QA · คำถามต่อยอด</option></select></div><textarea id="uxqRqNote" maxlength="1200" placeholder="ความเห็นอาจารย์ (ไม่บังคับ)">${esc(review.teacherNote || '')}</textarea><div class="uxq-rq__save"><span id="uxqRqMessage" class="uxq-rq__message"></span><button class="uxq-rq__btn primary" id="uxqRqSave">บันทึกการทบทวน</button></div></section>`;
+  }
+
+  function bindDetail(item){
+    if (!item) return;
+    document.getElementById('uxqRqClose').onclick = () => { activeKey = ''; render(); };
+    document.getElementById('uxqRqSave').onclick = () => {
+      const message = document.getElementById('uxqRqMessage');
+      const button = document.getElementById('uxqRqSave');
+      button.disabled = true; message.textContent = 'กำลังบันทึก…';
+      const input = { linkedAttemptId:item.queueKey, studentId:item.studentId, missionId:item.missionId, reviewStatus:document.getElementById('uxqRqDecision').value, feedbackCode:document.getElementById('uxqRqCode').value, teacherNote:document.getElementById('uxqRqNote').value };
+      google.script.run.withSuccessHandler(() => { message.textContent = '✓ บันทึกแล้ว'; refresh(); }).withFailureHandler(error => { button.disabled = false; message.textContent = 'บันทึกไม่สำเร็จ: ' + (error?.message || error); }).uxqSaveReasonReview(input);
+    };
+  }
+
+  function refresh(){ google.script.run.withSuccessHandler(data => { model = data || { items:[], summary:{} }; activeKey = ''; render(); }).withFailureHandler(error => { const box = root(); if (box) box.innerHTML = '<div class="uxq-rq__muted">โหลด Review Queue ไม่สำเร็จ: ' + esc(error?.message || error) + '</div>'; }).uxqGetReasonReviewQueue(); }
+  window.renderUXQReasonReviewQueue = data => { model = data || { items:[], summary:{} }; render(); };
+  document.getElementById('uxqRqRefresh').onclick = refresh;
+  refresh();
+})();
+</script>
