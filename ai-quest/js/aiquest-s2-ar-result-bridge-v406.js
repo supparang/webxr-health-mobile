@@ -1,16 +1,30 @@
 /* =========================================================
-   CSAI2102 AI Quest — S2 AR Result Bridge v4.0.6
+   CSAI2102 AI Quest — S2 AR Result Bridge v4.0.7
    File: /ai-quest/js/aiquest-s2-ar-result-bridge-v406.js
 
    Purpose:
    - Send completed S2 AR Agent Builder evidence to session_events.
    - Recover V401 and earlier local results when the learner opens Student Page.
    - Keep S2 AR supplementary; never change S2 score, accuracy, or gate.
+   - Prevent duplicate evidence when the bridge is loaded more than once.
 ========================================================= */
 (() => {
   'use strict';
 
-  const VERSION = 'v4.0.6-s2-ar-reliable-event-sync';
+  const VERSION = 'v4.0.7-s2-ar-singleton-dedup-sync';
+  const SINGLETON_KEY = '__AIQUEST_S2_AR_BRIDGE_SINGLETON__';
+  const existing = window[SINGLETON_KEY];
+
+  // Dynamic script injection can accidentally evaluate this bridge more than once.
+  // Only one live bridge may own S2 AR delivery for a page.
+  if (existing?.active) {
+    console.log('[AIQuest S2 AR Sync] duplicate bridge skipped');
+    return;
+  }
+
+  const runtime = { active: true, timer: null };
+  window[SINGLETON_KEY] = runtime;
+
   const RESULT_KEYS = [
     'AIQUEST_S2_AR_RESULT_V401',
     'AIQUEST_S2_AR_RESULT_V387',
@@ -86,7 +100,34 @@
   }
 
   function signature(ar){
-    return [ar?.completedAt || '', ar?.score || 0, ar?.correct || 0, ar?.total || 0, ar?.helpUsed || 0].join('|');
+    return [
+      ar?.completedAt || '',
+      ar?.score || 0,
+      ar?.correct || 0,
+      ar?.total || 0,
+      ar?.helpUsed || 0,
+      ar?.usedSec || 0,
+      ar?.inputMode || ''
+    ].join('|');
+  }
+
+  function hash(value){
+    let output = 2166136261;
+    const text = String(value || '');
+    for (let i = 0; i < text.length; i += 1) {
+      output ^= text.charCodeAt(i);
+      output = Math.imul(output, 16777619);
+    }
+    return (output >>> 0).toString(36);
+  }
+
+  function deliveryKey(ar, profile){
+    return [
+      's2_ar_complete',
+      String(profile?.studentId || ''),
+      String(profile?.section || '101'),
+      signature(ar)
+    ].join('|');
   }
 
   function endpoint(){
@@ -94,11 +135,9 @@
     return config.appsScriptUrl || FALLBACK_ENDPOINT;
   }
 
-  function makeId(prefix){
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  }
-
   function buildPayload(ar, profile){
+    const key = deliveryKey(ar, profile);
+    const token = hash(key);
     const trace = {
       activity: ar.activity,
       supplementary: true,
@@ -111,12 +150,14 @@
       usedSec: ar.usedSec,
       inputMode: ar.inputMode,
       arVersion: ar.arVersion,
-      completedAt: ar.completedAt
+      completedAt: ar.completedAt,
+      deliveryKey: key
     };
 
     const raw = {
-      eventId: makeId('s2ar'),
-      attemptId: `s2_ar_practice_${String(profile.studentId || 'anon')}_${Date.now()}`,
+      // Stable IDs make a retry of the same completed AR run idempotent.
+      eventId: `s2ar_${token}`,
+      attemptId: `s2_ar_practice_${String(profile.studentId || 'anon')}_${token}`,
       studentId: String(profile.studentId || ''),
       studentName: String(profile.studentName || profile.name || ''),
       section: String(profile.section || '101'),
@@ -134,7 +175,7 @@
       combo: Number(ar.correct || 0),
       helpLeft: Math.max(0, 3 - Number(ar.helpUsed || 0)),
       clientTs: ar.completedAt,
-      extraJson: { eventKind: 's2_ar_practice', s2ArPractice: trace }
+      extraJson: { eventKind: 's2_ar_practice', deliveryKey: key, s2ArPractice: trace }
     };
 
     return window.AIQuestDataContract?.buildEvent
@@ -148,7 +189,8 @@
   }
 
   function statusHost(){
-    return document.getElementById('aiquestS2ArEntryV405') ||
+    return document.getElementById('aiquestS2ArEntryV407') ||
+      document.getElementById('aiquestS2ArEntryV405') ||
       document.getElementById('aiquestArLauncherV401');
   }
 
@@ -196,11 +238,11 @@
 
   async function sync(){
     const ar = evidence();
-    if (!ar || busy) return false;
+    if (!ar || busy || !runtime.active) return false;
 
     const sig = signature(ar);
     const receipt = readJson(RECEIPT_KEY) || {};
-    if (receipt.signature === sig && receipt.status === 'queued') return true;
+    if (receipt.signature === sig && (receipt.status === 'sending' || receipt.status === 'queued')) return true;
     if (recoverLegacyReceipt(sig)) return true;
 
     const profile = getProfile();
@@ -217,6 +259,14 @@
 
     const event = buildPayload(ar, profile);
     busy = true;
+    writeJson(RECEIPT_KEY, {
+      signature: sig,
+      status: 'sending',
+      eventId: event.eventId,
+      studentId: String(profile.studentId),
+      queuedAt: new Date().toISOString(),
+      bridge: VERSION
+    });
     renderStatus('กำลังส่งหลักฐาน S2 AR…', 'warn');
 
     try {
@@ -239,10 +289,18 @@
       });
       renderStatus(`✓ ส่งหลักฐาน S2 AR แล้ว: ${ar.correct}/${ar.total} • ${ar.score}% • Teacher Dashboard: S2 AR Practice`, 'good');
       window.dispatchEvent(new CustomEvent('aiquest:s2-ar-event-queued', { detail: { event, evidence: ar, bridge: VERSION } }));
-      console.log('[AIQuest S2 AR Sync] queued s2_ar_complete event', event.eventId);
+      console.log('[AIQuest S2 AR Sync] queued one deduplicated s2_ar_complete event', event.eventId);
       return true;
     } catch (error) {
       console.warn('[AIQuest S2 AR Sync] event send failed', error);
+      writeJson(RECEIPT_KEY, {
+        signature: sig,
+        status: 'failed',
+        eventId: event.eventId,
+        studentId: String(profile.studentId),
+        failedAt: new Date().toISOString(),
+        bridge: VERSION
+      });
       renderStatus('S2 AR ส่งไม่สำเร็จในขณะนี้ ระบบจะลองใหม่เมื่อเปิดหน้านี้อีกครั้ง', 'warn');
       return false;
     } finally {
@@ -251,6 +309,7 @@
   }
 
   function tick(){
+    if (!runtime.active) return;
     const ar = evidence();
     const sig = ar ? signature(ar) : '';
     if (sig !== lastSignature) {
@@ -262,7 +321,7 @@
 
   function boot(){
     tick();
-    setInterval(tick, 800);
+    runtime.timer = setInterval(tick, 800);
     window.addEventListener('aiquest:s2-ar-start', () => { lastSignature = ''; });
     window.addEventListener('aiquest:s2-ar-complete', () => { lastSignature = ''; tick(); });
   }
@@ -271,7 +330,8 @@
     version: VERSION,
     sync,
     getResult,
-    evidence
+    evidence,
+    deliveryKey: (ar = evidence(), profile = getProfile()) => ar ? deliveryKey(ar, profile) : ''
   });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });
