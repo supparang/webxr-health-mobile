@@ -1,13 +1,20 @@
-/* CSAI2102 AI Quest — AR Runtime v4.0.2
-   Visible in-session launcher for S1 and S2.
-   Loads AR engines only after the learner presses an AR Practice button.
+/* CSAI2102 AI Quest — AR Runtime v4.0.3
+   Visible launcher for S1/S2 plus supplementary S2 AR evidence sync.
 */
 (() => {
   'use strict';
 
-  const VERSION = '4.0.2';
+  const VERSION = '4.0.3';
+  const S2_RESULT_KEY = 'AIQUEST_S2_AR_RESULT_V387';
+  const S2_SYNC_KEY = 'AIQUEST_S2_AR_EVENT_SYNC_V403';
+  const FALLBACK_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
   const loaded = new Map();
-  const state = { active:false, paused:false, mode:'', bootPromise:null, streams:new Set(), rafIds:new Set(), cleanups:new Set(), media:null, raf:null, caf:null, lastAt:0 };
+  const state = {
+    active:false, paused:false, mode:'', bootPromise:null,
+    streams:new Set(), rafIds:new Set(), cleanups:new Set(),
+    media:null, raf:null, caf:null, lastAt:0,
+    s2SyncBusy:false
+  };
   const small = () => window.matchMedia?.('(max-width:860px)').matches;
 
   function route(){
@@ -41,7 +48,12 @@
       if (known?.dataset.aiquestArLoaded === '1') return done();
       tag.addEventListener('load', done, {once:true});
       tag.addEventListener('error', fail, {once:true});
-      if (!known) { tag.src = src; tag.async = false; tag.dataset.aiquestArRuntime = VERSION; document.body.appendChild(tag); }
+      if (!known) {
+        tag.src = src;
+        tag.async = false;
+        tag.dataset.aiquestArRuntime = VERSION;
+        document.body.appendChild(tag);
+      }
     });
     loaded.set(full,promise);
     return promise;
@@ -74,12 +86,21 @@
   }
 
   function restoreGuards(){
-    if (state.media && navigator.mediaDevices) { navigator.mediaDevices.getUserMedia = state.media; state.media = null; }
-    if (state.raf) { window.requestAnimationFrame = state.raf; window.cancelAnimationFrame = state.caf; state.raf = null; state.caf = null; }
+    if (state.media && navigator.mediaDevices) {
+      navigator.mediaDevices.getUserMedia = state.media;
+      state.media = null;
+    }
+    if (state.raf) {
+      window.requestAnimationFrame = state.raf;
+      window.cancelAnimationFrame = state.caf;
+      state.raf = null;
+      state.caf = null;
+    }
   }
 
   function closeKnownAr(){
     try { window.AIQUEST_S1_AR_PRACTICE?.close?.(); } catch (_) {}
+    try { window.AIQUEST_S2_AR_PRACTICE?.close?.(); } catch (_) {}
     const s1 = document.getElementById('s1ar368');
     if (s1) s1.classList.remove('open');
     const s2 = document.getElementById('s2ar387');
@@ -93,7 +114,9 @@
     state.rafIds.clear();
     state.streams.forEach(stream => { try { stream.getTracks().forEach(track => track.stop()); } catch (_) {} });
     state.streams.clear();
-    document.querySelectorAll('video[data-aiquest-ar],#s1video368,#s2v387').forEach(video => { try { video.pause(); video.srcObject = null; } catch (_) {} });
+    document.querySelectorAll('video[data-aiquest-ar],#s1video368,#s2v387').forEach(video => {
+      try { video.pause(); video.srcObject = null; } catch (_) {}
+    });
     closeKnownAr();
     restoreGuards();
   }
@@ -101,7 +124,11 @@
   function leave(reason='leave'){
     if (!state.active && !state.bootPromise) return;
     dispatch('aiquest:ar-stop',{reason});
-    state.active = false; state.paused = false; release(reason); state.mode = ''; state.bootPromise = null;
+    state.active = false;
+    state.paused = false;
+    release(reason);
+    state.mode = '';
+    state.bootPromise = null;
   }
 
   function pause(reason='hidden'){
@@ -114,7 +141,9 @@
   function resume(reason='visible'){
     if (!state.active || !state.paused) return;
     state.paused = false;
-    document.querySelectorAll('#s1video368,#s2v387').forEach(video => { if (video.srcObject) video.play().catch(()=>{}); });
+    document.querySelectorAll('#s1video368,#s2v387').forEach(video => {
+      if (video.srcObject) video.play().catch(()=>{});
+    });
     dispatch('aiquest:ar-resume',{reason});
   }
 
@@ -127,23 +156,147 @@
     return true;
   }
 
+  function getProfile(){
+    const direct = window.AIQuestStorage?.getProfile?.() || {};
+    if (direct.studentId) return direct;
+    try {
+      for (let i=0;i<localStorage.length;i++) {
+        const key = localStorage.key(i) || '';
+        if (!/aiquest|profile|classroom/i.test(key)) continue;
+        const candidate = JSON.parse(localStorage.getItem(key) || 'null');
+        if (candidate?.studentId) return candidate;
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  function endpoint(){
+    const config = window.AIQuestDataContract?.loadConfig?.() || {};
+    return config.appsScriptUrl || FALLBACK_ENDPOINT;
+  }
+
+  function makeId(prefix){
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;
+  }
+
+  function readS2Result(){
+    const direct = window.AIQUEST_S2_AR_RESULT;
+    if (direct?.arCompleted && (direct.sessionId === 's2' || direct.missionId === 'm2')) return direct;
+    try {
+      const stored = JSON.parse(localStorage.getItem(S2_RESULT_KEY) || 'null');
+      if (stored?.arCompleted && (stored.sessionId === 's2' || stored.missionId === 'm2')) return stored;
+    } catch (_) {}
+    return null;
+  }
+
+  function readS2Sync(){
+    try { return JSON.parse(localStorage.getItem(S2_SYNC_KEY) || '{}'); }
+    catch (_) { return {}; }
+  }
+
+  function writeS2Sync(value){
+    try { localStorage.setItem(S2_SYNC_KEY,JSON.stringify(value || {})); }
+    catch (_) {}
+  }
+
+  function s2Signature(result){
+    return [
+      result?.finishedAt || '', result?.correct || 0, result?.total || 0,
+      result?.arScore ?? result?.accuracy ?? 0, result?.helpUsed || 0
+    ].join('|');
+  }
+
+  function s2Event(result, profile){
+    const score = Math.round(Number(result.arScore ?? result.accuracy ?? 0));
+    const trace = {
+      activity:'S2 AR Practice: Agent Builder',
+      supplementary:true,
+      completed:true,
+      score,
+      accuracy:score,
+      correct:Number(result.correct || 0),
+      total:Number(result.total || 0),
+      helpUsed:Number(result.helpUsed || 0),
+      usedSec:Number(result.usedSec || 0),
+      inputMode:String(result.inputMode || 'hand_or_mouse_touch'),
+      arVersion:String(result.version || ''),
+      completedAt:String(result.finishedAt || new Date().toISOString())
+    };
+    const rawEvent = {
+      eventId:makeId('s2ar'),
+      attemptId:`s2_ar_practice_${String(profile.studentId || 'anon')}_${Date.now()}`,
+      studentId:String(profile.studentId || ''),
+      sessionId:'s2',
+      missionId:'m2',
+      runMode:'practice',
+      eventType:'s2_ar_complete',
+      phase:'S2 AR Practice',
+      itemId:'agent_builder',
+      prompt:'S2 AR Practice: Agent Builder',
+      yourAnswer:JSON.stringify(trace),
+      correctAnswer:'completed',
+      isCorrect:true,
+      scoreDelta:score,
+      combo:Number(trace.correct || 0),
+      helpLeft:Math.max(0,3-Number(trace.helpUsed || 0)),
+      clientTs:trace.completedAt,
+      extraJson:{eventKind:'s2_ar_practice',s2ArPractice:trace}
+    };
+    return window.AIQuestDataContract?.buildEvent
+      ? window.AIQuestDataContract.buildEvent(rawEvent,{attemptId:rawEvent.attemptId,studentId:rawEvent.studentId,sessionId:'s2',missionId:'m2'})
+      : rawEvent;
+  }
+
+  async function syncS2Evidence(){
+    const result = readS2Result();
+    if (!result || state.s2SyncBusy) return false;
+    const signature = s2Signature(result);
+    const prior = readS2Sync();
+    if (prior.signature === signature && prior.status === 'queued') return true;
+    const profile = getProfile();
+    if (!profile.studentId) return false;
+    const url = endpoint();
+    if (!url) return false;
+
+    const event = s2Event(result,profile);
+    state.s2SyncBusy = true;
+    try {
+      await fetch(url,{
+        method:'POST',mode:'no-cors',cache:'no-store',keepalive:true,
+        headers:{'Content-Type':'text/plain;charset=UTF-8'},
+        body:JSON.stringify({action:'sync_v23',kind:'event',payload:event})
+      });
+      writeS2Sync({signature,status:'queued',eventId:event.eventId,studentId:String(profile.studentId),queuedAt:new Date().toISOString()});
+      window.dispatchEvent(new CustomEvent('aiquest:s2-ar-event-queued',{detail:{event,result}}));
+      return true;
+    } catch (error) {
+      console.warn('[AIQuest S2 AR Sync] event send failed',error);
+      return false;
+    } finally {
+      state.s2SyncBusy = false;
+    }
+  }
+
   async function boot(forced){
     const mode = forced || route();
     if (!mode) return false;
     if (state.active && state.mode === mode && state.bootPromise) return state.bootPromise;
     if (state.active && state.mode !== mode) leave('switch-session');
-    state.active = true; state.paused = false; state.mode = mode; state.lastAt = 0;
+    state.active = true;
+    state.paused = false;
+    state.mode = mode;
+    state.lastAt = 0;
     installGuards();
 
     const modules = mode === 's1'
       ? [
-          './js/aiquest-s1-ar-practice-v364.js?v=20260628-s1ar402',
-          './js/aiquest-s1-ar-hand-hotfix-v364.js?v=20260628-s1hand402',
-          './js/aiquest-s1-ar-entry-v382.js?v=20260628-s1camera402',
-          './js/aiquest-s1-ar-result-bridge-v369.js?v=20260628-s1result402'
+          './js/aiquest-s1-ar-practice-v364.js?v=20260629-s1ar403',
+          './js/aiquest-s1-ar-hand-hotfix-v364.js?v=20260629-s1hand403',
+          './js/aiquest-s1-ar-entry-v382.js?v=20260629-s1camera404',
+          './js/aiquest-s1-ar-result-bridge-v369.js?v=20260629-s1result403'
         ]
       : [
-          './aiquest-s2-ar-practice-v387.js?v=20260628-s2ar402'
+          './aiquest-s2-ar-practice-v387.js?v=20260629-s2ar403'
         ];
 
     state.bootPromise = (async () => {
@@ -189,7 +342,11 @@
   async function startPractice(mode, button){
     if (button?.dataset.busy === '1') return;
     const original = button?.textContent || '';
-    if (button) { button.dataset.busy='1'; button.disabled=true; button.textContent='กำลังเตรียม AR…'; }
+    if (button) {
+      button.dataset.busy = '1';
+      button.disabled = true;
+      button.textContent = 'กำลังเตรียม AR…';
+    }
     try {
       await boot(mode);
       const practice = mode === 's1'
@@ -209,29 +366,46 @@
     const mode = sessionFromUi();
     const area = document.getElementById('gameArea');
     if (!mode || !area) return;
+
     const id = 'aiquestArLauncherV401';
     const old = document.getElementById(id);
     if (old?.dataset.mode === mode) return;
     old?.remove();
+
     const s1 = mode === 's1';
     const card = document.createElement('section');
-    card.id=id; card.dataset.mode=mode;
-    card.style.cssText='margin:0 0 14px;padding:14px 16px;border:1px solid rgba(103,232,249,.44);border-radius:20px;background:linear-gradient(135deg,rgba(20,184,166,.15),rgba(124,58,237,.14));display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap';
-    const copy=document.createElement('div'); copy.style.cssText='min-width:220px;flex:1';
-    const title=document.createElement('b'); title.style.fontSize='16px'; title.textContent=s1?'✋ S1 AR Practice: AI Object Scanner':'🧩 S2 AR Practice: Agent Builder';
-    const desc=document.createElement('div'); desc.style.cssText='margin-top:5px;color:#dbeafe;font-size:13px;line-height:1.5'; desc.textContent=s1?'ใช้มือชี้ค้าง หรือแตะ/คลิก เพื่อแยก AI, Automation, Sensor, Rule-based และ Prediction':'ใช้มือชี้ค้าง หรือแตะ/คลิก เพื่อฝึก PEAS, percept, actuator, environment และ rational agent';
-    const note=document.createElement('div'); note.style.cssText='margin-top:7px;color:#bbf7d0;font-size:12px;font-weight:800'; note.textContent='กิจกรรมเสริม • ไม่เปลี่ยนคะแนนหรือการปลดล็อก Session หลัก';
+    card.id = id;
+    card.dataset.mode = mode;
+    card.style.cssText = 'margin:0 0 14px;padding:14px 16px;border:1px solid rgba(103,232,249,.44);border-radius:20px;background:linear-gradient(135deg,rgba(20,184,166,.15),rgba(124,58,237,.14));display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap';
+    const copy = document.createElement('div');
+    copy.style.cssText = 'min-width:220px;flex:1';
+    const title = document.createElement('b');
+    title.style.fontSize = '16px';
+    title.textContent = s1 ? '✋ S1 AR Practice: AI Object Scanner' : '🧩 S2 AR Practice: Agent Builder';
+    const desc = document.createElement('div');
+    desc.style.cssText = 'margin-top:5px;color:#dbeafe;font-size:13px;line-height:1.5';
+    desc.textContent = s1
+      ? 'ใช้มือชี้ค้าง หรือแตะ/คลิก เพื่อแยก AI, Automation, Sensor, Rule-based และ Prediction'
+      : 'ใช้มือชี้ค้าง หรือแตะ/คลิก เพื่อฝึก PEAS, percept, actuator, environment และ rational agent';
+    const note = document.createElement('div');
+    note.style.cssText = 'margin-top:7px;color:#bbf7d0;font-size:12px;font-weight:800';
+    note.textContent = 'กิจกรรมเสริม • ไม่เปลี่ยนคะแนนหรือการปลดล็อก Session หลัก';
     copy.append(title,desc,note);
-    const button=document.createElement('button'); button.type='button'; button.textContent=s1?'เริ่ม S1 AR Practice':'เริ่ม S2 AR Practice'; button.style.cssText='border:0;border-radius:15px;padding:12px 16px;background:linear-gradient(135deg,#a7f3d0,#67e8f9);color:#06223a;font-weight:1000;cursor:pointer'; button.onclick=()=>startPractice(mode,button);
-    card.append(copy,button); area.insertAdjacentElement('afterbegin',card);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = s1 ? 'เริ่ม S1 AR Practice' : 'เริ่ม S2 AR Practice';
+    button.style.cssText = 'border:0;border-radius:15px;padding:12px 16px;background:linear-gradient(135deg,#a7f3d0,#67e8f9);color:#06223a;font-weight:1000;cursor:pointer';
+    button.onclick = () => startPractice(mode,button);
+    card.append(copy,button);
+    area.insertAdjacentElement('afterbegin',card);
   }
 
   function installLauncher(){
-    let timer=0;
-    const refresh=()=>{ clearTimeout(timer); timer=setTimeout(addLauncher,30); };
-    const area=document.getElementById('gameArea');
-    if(area && !area.dataset.aiquestArLauncherObserved){
-      area.dataset.aiquestArLauncherObserved='1';
+    let timer = 0;
+    const refresh = () => { clearTimeout(timer); timer=setTimeout(addLauncher,30); };
+    const area = document.getElementById('gameArea');
+    if (area && !area.dataset.aiquestArLauncherObserved) {
+      area.dataset.aiquestArLauncherObserved = '1';
       new MutationObserver(refresh).observe(area,{childList:true,subtree:false});
     }
     window.addEventListener('aiquest:ar-stop',refresh);
@@ -239,16 +413,35 @@
   }
 
   window.AIQuestARRuntime = Object.freeze({
-    version:VERSION, boot, leave, pause, resume, shouldProcessFrame,
+    version:VERSION,boot,leave,pause,resume,shouldProcessFrame,syncS2Evidence,
     getCameraConstraints:constraints,
-    registerCleanup:(fn)=>{ if(typeof fn!=='function') return ()=>{}; state.cleanups.add(fn); return ()=>state.cleanups.delete(fn); },
-    registerVideo:(video)=>{ if(video){video.dataset.aiquestAr='1'; if(video.srcObject?.getTracks) state.streams.add(video.srcObject);} return ()=>{}; },
-    isActive:()=>state.active, isPaused:()=>state.paused, getMode:()=>state.mode
+    registerCleanup:(fn)=>{
+      if (typeof fn !== 'function') return ()=>{};
+      state.cleanups.add(fn);
+      return ()=>state.cleanups.delete(fn);
+    },
+    registerVideo:(video)=>{
+      if (video) {
+        video.dataset.aiquestAr='1';
+        if (video.srcObject?.getTracks) state.streams.add(video.srcObject);
+      }
+      return ()=>{};
+    },
+    isActive:()=>state.active,isPaused:()=>state.paused,getMode:()=>state.mode
   });
 
   document.addEventListener('visibilitychange',()=>document.hidden?pause('visibilitychange'):resume('visibilitychange'));
   window.addEventListener('pagehide',()=>leave('pagehide'));
   window.addEventListener('beforeunload',()=>leave('beforeunload'));
-  const begin=()=>{ installLauncher(); boot().catch(()=>{}); };
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',begin,{once:true}); else begin();
+  window.addEventListener('aiquest:s2-ar-start',()=>setTimeout(syncS2Evidence,500));
+  window.addEventListener('aiquest:s2-ar-event-queued',()=>{});
+
+  const begin = () => {
+    installLauncher();
+    syncS2Evidence();
+    setInterval(syncS2Evidence,1000);
+    boot().catch(()=>{});
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',begin,{once:true});
+  else begin();
 })();
