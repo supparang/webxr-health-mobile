@@ -89,11 +89,21 @@
     requestAnimationFrame(apply);
   }
 
+  function loadSummaryPassCommit() {
+    if (window.__EAP_WORD_V226_SUMMARY_PASS_COMMIT__ || document.querySelector("script[data-eap-v226-summary-pass]")) return;
+    const script = document.createElement("script");
+    script.src = "./eap-word-engine-v226-summary-pass-commit.js?v=20260629-v226-summary-pass";
+    script.async = false;
+    script.dataset.eapV226SummaryPass = "true";
+    document.head.appendChild(script);
+  }
+
   const observer = new MutationObserver(requestApply);
   observer.observe(document.body,{childList:true,subtree:true,characterData:true});
   document.addEventListener("click",()=>[0,120,360,760].forEach((delay)=>setTimeout(requestApply,delay)),true);
   window.addEventListener("eap-core-run-finished",()=>[0,100,300,700].forEach((delay)=>setTimeout(requestApply,delay)));
   [0,160,500,1200].forEach((delay)=>setTimeout(requestApply,delay));
+  loadSummaryPassCommit();
 
   window.inspectEapV224 = () => ({
     version:VERSION,
