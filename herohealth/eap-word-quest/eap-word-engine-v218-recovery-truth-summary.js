@@ -1,20 +1,12 @@
 /* =========================================================
-   EAP Word Quest • Recovery Truth Summary
+   EAP Word Quest • Recovery Truth Summary + Round Lock
    File: /herohealth/eap-word-quest/eap-word-engine-v218-recovery-truth-summary.js
-   Version: v2.1.8-RECOVERY-TRUTH-SUMMARY-122
-
-   Purpose:
-   - Show recovery advice from the latest result of the same Session.
-   - Remove stale global "challenge mode" summaries after a low score.
-   - Preserve the existing Core controller, scoring, gate, XP and logging.
-   - Ensure Replay/Continue supplies the intended Session id before v209
-     selects the next round, so recovery selection cannot inherit another
-     Session's difficulty.
+   Version: v2.1.8-RECOVERY-TRUTH-SUMMARY-ROUNDLOCK-122
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.1.8-RECOVERY-TRUTH-SUMMARY-122";
+  const VERSION = "v2.1.8-RECOVERY-TRUTH-SUMMARY-ROUNDLOCK-122";
   if (window.__EAP_WORD_V218_RECOVERY_TRUTH__) return;
   window.__EAP_WORD_V218_RECOVERY_TRUTH__ = true;
 
@@ -24,6 +16,33 @@
     "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
   }[ch]));
   const isSessionId = (value) => /^(S(?:1[0-5]|[1-9])|BG[1-5])$/i.test(norm(value));
+
+  /* Low-score recovery remains 8 Warm-up + 4 Core, but must remain a full
+     12-question round. A2+ is used only as the item-selection floor so the
+     controller does not discard B1 core-context items before forming 12. */
+  const policyBeforeRecoveryLock = typeof window.getEapCoreAiPolicy === "function"
+    ? window.getEapCoreAiPolicy
+    : null;
+  if (policyBeforeRecoveryLock) {
+    window.getEapCoreAiPolicy = function eapRecoveryRoundLockedPolicy() {
+      const policy = policyBeforeRecoveryLock() || {};
+      const mix = policy.roundMix || {};
+      const lowRecovery = Boolean(
+        policy.sessionCalibrated &&
+        policy.difficulty === "A2" &&
+        Number(mix.warm) === 8 &&
+        Number(mix.core) === 4 &&
+        Number(mix.challenge) === 0
+      );
+      return lowRecovery ? Object.assign({}, policy, {
+        difficulty:"A2+",
+        recoverySelectionFloor:"A2+",
+        plannedRoundSize:12,
+        recoveryRoundLocked:true,
+        prediction:"Recovery round: rebuild key vocabulary before challenge items"
+      }) : policy;
+    };
+  }
 
   function currentResult() {
     return window.EAP_V203_LAST_RESULT ||
@@ -45,7 +64,6 @@
     const style = document.createElement("style");
     style.id = "eapV218Style";
     style.textContent = `
-      /* Older global coaches can contradict the latest Session result. */
       #eapV195Summary,#eapV195SummaryBox,#eapV198SummaryGuide{display:none!important}
       #eapV218RecoveryPlan{margin:12px 0;border:1px solid #bfdbfe;border-radius:18px;padding:14px 16px;background:linear-gradient(135deg,#eff6ff,#f8fafc);color:#1e3a8a;line-height:1.48;font-weight:800}
       #eapV218RecoveryPlan b{font-weight:1000;color:#1d4ed8}
@@ -119,12 +137,10 @@
     if (!target) return;
     const id = target.id || "";
     const result = currentResult();
-
     if (id === "replayBtn" || id === "nextMissionBtn") {
       const sid = norm(result && result.sessionId).toUpperCase();
       if (isSessionId(sid) && !result.passed) setUpcomingSession(sid);
     }
-
     const direct = norm(target.dataset && target.dataset.startSession).toUpperCase();
     if (isSessionId(direct)) setUpcomingSession(direct);
   }
@@ -138,13 +154,16 @@
 
   window.inspectEapV218 = () => {
     const result = currentResult();
+    const policy = typeof window.getEapCoreAiPolicy === "function" ? window.getEapCoreAiPolicy() : {};
     return {
       version: VERSION,
       result: result ? { sessionId:result.sessionId, accuracy:result.accuracy, passed:result.passed } : null,
       nextPlan: result ? nextPlan(result) : null,
+      recoveryRoundLocked:Boolean(policy.recoveryRoundLocked),
+      plannedRoundSize:policy.plannedRoundSize || 12,
       summaryVisible: Boolean(summaryRoot())
     };
   };
 
-  console.info("[EAP Word Quest] v218 recovery-truth summary ready", { version:VERSION });
+  console.info("[EAP Word Quest] v218 recovery truth + 12-question lock ready", { version:VERSION });
 })();
