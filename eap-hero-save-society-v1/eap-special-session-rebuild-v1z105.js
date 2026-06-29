@@ -1,4 +1,4 @@
-/* EAP Hero v1z105 – exact clean two-card layout for S3/S7/S10/S13/S15 */
+/* EAP Hero v1z105.1 – exact clean two-card layout for S3/S7/S10/S13/S15 */
 (() => {
   'use strict';
   const SPECIAL=['Main Idea Hunter','Academic Tone Battle','Data Description','Academic Listening','Final Integration'];
@@ -12,26 +12,34 @@
   }
   function candidates(root){
     const raw=[...root.querySelectorAll('section,article,div')].filter(isMissionCard);
-    return raw.filter(el=>!raw.some(other=>other!==el&&other.contains(el)));
+    /* Keep the innermost matching card, not its wide parent container. */
+    return raw.filter(el=>!raw.some(other=>other!==el && el.contains(other) && isMissionCard(other)));
   }
   function titleFor(card){
     const t=text(card);
     const m=t.match(/(?:✅\s*)?(Reading|Writing|Listening|Speaking)\b/);
     return m?.[1]||'';
   }
+  function chooseCards(panel){
+    const all=candidates(panel).filter(c=>titleFor(c));
+    const used=new Set(); const picked=[];
+    all.forEach(card=>{
+      const skill=titleFor(card);
+      if(!used.has(skill) && picked.length<2){used.add(skill);picked.push(card);}
+    });
+    return picked;
+  }
   function run(){
     const root=app(); const panel=root?.querySelector('.session-path-panel');
     if(!panel||!isTarget()) return;
-    const cards=candidates(panel).filter(c=>titleFor(c)).slice(0,2);
+    const cards=chooseCards(panel);
     if(cards.length!==2) return;
     let grid=panel.querySelector(':scope > .eap-v105-grid');
     if(!grid){
       grid=document.createElement('div');grid.className='eap-v105-grid';
       cards[0].parentElement.insertBefore(grid,cards[0]);
-      cards.forEach(card=>grid.appendChild(card));
-    }else{
-      cards.forEach(card=>{if(card.parentElement!==grid)grid.appendChild(card);});
     }
+    cards.forEach(card=>{if(card.parentElement!==grid)grid.appendChild(card);});
     cards.forEach((card,index)=>{
       card.classList.add('eap-v105-card');
       card.dataset.v105=index===0?'core':'support';
