@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260629-v1z108-eap-gold-item';
+  const APP_VERSION = '20260629-v1z106-Support-card';
   const app = document.getElementById('app');
 
   const SESSIONS = [
