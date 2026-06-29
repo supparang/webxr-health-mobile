@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z96 Version Integrity + Trusted Score Display ===
+/* === EAP Hero: Save the Society v1z97 Four-Skill Difficulty Scaffold + Listening Two-Round Fix ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260629-v1z96-version-integrity-trusted-score-display';
+  const APP_VERSION = '20260629-v1z97-four-skill-difficulty-scaffold';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -36418,7 +36418,7 @@
 
 
 
-  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
+  /* === v1z97 Easy Speaking Ladder A2–B1+ === */
   const EAP_SESSION_PATH_SELF_PRACTICE = Object.freeze({
     version:'v1z68',
     rule:'Student Session Path always shows Core + Support together. Both are self-practice missions; no Four Skills Hub or Debug route appears in Student Flow.'
@@ -37807,6 +37807,66 @@
   }
 
 
+  /* === v1z97 Four-Skill Difficulty Scaffold: A2 Foundation → B1+ Stretch === */
+  const EAP_DIFFICULTY_AUDIT = Object.freeze({
+    1:{tier:'A2 Foundation',focus:'Choose a clear goal and one action.',th:'เลือกเป้าหมายที่ชัด และวิธีฝึก 1 วิธี'},
+    2:{tier:'A2 Foundation',focus:'Find one word, say its meaning, then use it.',th:'เลือกคำ 1 คำ บอกความหมาย และใช้ในประโยคสั้น'},
+    3:{tier:'A2+ Bridge',focus:'Find the main idea and one detail.',th:'หาใจความสำคัญและรายละเอียด 1 จุด'},
+    4:{tier:'A2+ Bridge',focus:'Spot a keyword or signal word.',th:'หาคำสำคัญหรือคำเชื่อม 1 คำ'},
+    5:{tier:'A2+ Bridge',focus:'Decide: fact, opinion, claim, or evidence.',th:'แยก Fact / Opinion / Claim / Evidence'},
+    6:{tier:'A2+ Bridge',focus:'Keep the main idea in your own words.',th:'เก็บใจความสำคัญด้วยคำของตนเอง'},
+    7:{tier:'B1 Core',focus:'Make one sentence more academic.',th:'ปรับ 1 ประโยคให้เป็นภาษาเชิงวิชาการ'},
+    8:{tier:'B1 Core',focus:'Build a paragraph in clear order.',th:'จัดย่อหน้าตามลำดับที่ชัดเจน'},
+    9:{tier:'B1 Core',focus:'Write one short supported paragraph.',th:'เขียนย่อหน้าสั้นพร้อมเหตุผล/ตัวอย่าง'},
+    10:{tier:'B1 Core',focus:'Describe the trend. Do not guess causes.',th:'บรรยายแนวโน้ม ไม่สรุปสาเหตุเกินข้อมูล'},
+    11:{tier:'B1 Core',focus:'Write one polite and clear request.',th:'เขียนคำขอสุภาพและชัดเจน'},
+    12:{tier:'B1+',focus:'Use sources and AI responsibly.',th:'ใช้แหล่งข้อมูลและ AI อย่างรับผิดชอบ'},
+    13:{tier:'B1+',focus:'Listen twice: main point first, details second.',th:'ฟัง 2 รอบ: ใจความหลักก่อน รายละเอียดทีหลัง'},
+    14:{tier:'B1+',focus:'Present one point, one support, one close.',th:'นำเสนอ 1 ประเด็น 1 หลักฐาน 1 ข้อสรุป'},
+    15:{tier:'B1+',focus:'Connect problem, evidence, and solution.',th:'เชื่อมปัญหา หลักฐาน และทางออก'}
+  });
+  function eapAuditFor(sessionId){ return EAP_DIFFICULTY_AUDIT[Number(sessionId)] || EAP_DIFFICULTY_AUDIT[1]; }
+  function missionScaffoldHTML(skill, sessionId){
+    const a=eapAuditFor(sessionId); const sid=Number(sessionId);
+    const frames={
+      Reading:'Read 1 → find 1 key idea → answer in 1 short sentence.',
+      Writing: sid<=2?'Choose → complete the frame → check one sentence.':sid<=6?'Use the frame → write 2 short sentences.':'Plan → write → check one key point.',
+      Listening:'Listen 1: topic. Listen 2: two keywords + one detail.',
+      Speaking:'Look at the cue → say it simply → finish when ready.'
+    };
+    return `<div class="cefr-support aligned-support mission-scaffold"><div class="badges"><span class="pill">${safe(a.tier)}</span><span class="pill">One idea at a time</span></div><p><b>Today:</b> ${safe(a.focus)}<br><span class="mini-note">${safe(a.th)}</span></p><p><b>Small steps:</b> ${safe(frames[skill]||'Read the task → do one step at a time.')}<br><span class="mini-note">ทำทีละขั้น ไม่ต้องตอบยาว</span></p></div>`;
+  }
+  function shortAnswerPlaceholder(skill, sessionId, index){
+    const sid=Number(sessionId), n=Number(index||0)+1;
+    if(skill==='Reading'){
+      if(sid<=2) return '1–4 words are enough. / ตอบสั้น ๆ ได้';
+      if(sid<=5) return 'Write one short answer. / ตอบ 1 ประโยคสั้น';
+      return 'Use one idea + one reason/example. / 1 แนวคิด + 1 เหตุผล';
+    }
+    return 'Write a short answer. / ตอบสั้น ๆ ได้';
+  }
+  function writingFrameFor(sessionId){
+    const sid=Number(sessionId);
+    const f={
+      1:'My academic goal is to improve ____.\nI will practise by ____.',
+      2:'The word ____ means ____.\nIn academic writing, ____.',
+      3:'The main idea is ____.\nOne detail is ____.',
+      4:'The keyword is ____.\nIt shows ____.',
+      5:'This is a ____ because ____.',
+      6:'The text is about ____.\nOverall, ____.',
+      7:'Informal: ____.\nAcademic: ____.',
+      8:'Topic sentence: ____.\nFor example, ____.\nTherefore, ____.',
+      9:'Topic: ____.\nSupport: ____.\nExample: ____.\nClosing: ____.',
+      10:'The data show ____.\nIt changed from ____ to ____.',
+      11:'Dear Dr. ____,\nI am writing to ____.\nCould you please ____?\nThank you.',
+      12:'I used ____ to help me ____.\nI checked and revised by ____.',
+      13:'Topic: ____.\nKeywords: ____ / ____.\nMain point: ____.',
+      14:'Today I will present ____.\nOne important point is ____.\nTherefore, ____.',
+      15:'Problem: ____.\nEvidence: ____.\nSolution: ____.'
+    };
+    return f[sid] || '';
+  }
+
   function renderReadingMission(id){
     const sid=Number(safeMissionSessionId(id)||1), s=getSession(sid), text=pickMissionVariant(s.id,'Reading');
     if(sid===1){
@@ -37826,7 +37886,7 @@
     }
     const readAlign=alignmentFor('Reading',s.id,text.variant||{}); if(readAlign?.questions?.length) text.variant.q=readAlign.questions;
     const abilityTask=buildAbilityTask('Reading',s.id,text); if(abilityTask.questions?.length) text.variant.q=abilityTask.questions;
-    layout(`<section class="panel" style="margin-top:20px"><div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div><h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>${goldAuthoredBadgeHTML(abilityTask)}${abilityTaskHTML('Reading',abilityTask)}<input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}"><p class="mini-note">Answer briefly in English.</p>${renderAIHelpBox('Reading',s.id)}${(text.variant.q||[]).map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="2" placeholder="Write a short answer in English."></textarea>`).join('')}<div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div></section>`);
+    layout(`<section class="panel" style="margin-top:20px"><div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div><h2>📖 Reading Mission: ${safe(text.topic)}</h2>${missionScaffoldHTML('Reading',s.id)}<div class="context">${safe(text.passage)}</div>${goldAuthoredBadgeHTML(abilityTask)}${abilityTaskHTML('Reading',abilityTask)}<input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}"><p class="mini-note"><b>Answer briefly in English.</b> / ตอบสั้น ๆ เป็นภาษาอังกฤษได้ ไม่ต้องเขียนยาว</p>${renderAIHelpBox('Reading',s.id)}${(text.variant.q||[]).map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="2" placeholder="${safeAttr(shortAnswerPlaceholder('Reading',s.id,i))}"></textarea>`).join('')}<div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div></section>`);
   }
 
   function sourceKeywordsForScoring(text){
@@ -37868,7 +37928,7 @@
   }
 
 
-  /* === v1z71 Easy Speaking Ladder A2–B1+: formative feedback, independence, teacher analytics === */
+  /* === v1z97 Easy Speaking Ladder A2–B1+: formative feedback, independence, teacher analytics === */
   const EAP_FULL_AI_SUITE = Object.freeze({
     version:'v1z63',
     studentFeatures:['Skill Profile','Ability-Adaptive Difficulty','No-Repeat Selector','AI Help','Formative Rubric','Independence Check','Prediction','Learning Coach'],
@@ -38426,7 +38486,7 @@
     registerGoldTaskContext('Writing', s.id, abilityTask);
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Writing Mission</span><span class="pill">S${s.id}</span><span class="pill">Portfolio Evidence</span></div>
-      <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
+      <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2>${missionScaffoldHTML('Writing',s.id)}<div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
       ${goldAuthoredBadgeHTML(abilityTask)}
       ${abilityTaskHTML('Writing', abilityTask)}
       <input type="hidden" id="writingPromptText" value="${safeAttr(prompt.instruction)}"><input type="hidden" id="writingAbilityTaskId" value="${safeAttr(abilityTask.id)}">
@@ -38440,7 +38500,7 @@
         <button type="button" class="btn small" onclick="EAPHero.expandAnswerBox('writingOutput')">↕ Expand</button>
         <button type="button" class="btn small ghost" onclick="EAPHero.clearAnswerBox('writingOutput')">Clear</button>
       </div>
-      <textarea id="writingOutput" class="input answer-box large-writing-box" rows="${Number(s.id)<=3?6:13}" data-default-rows="${Number(s.id)<=3?6:13}" placeholder="${safeAttr(alignedPlaceholder('Writing', s.id, prompt))}"></textarea>
+      <textarea id="writingOutput" class="input answer-box large-writing-box" rows="${Number(s.id)<=3?6:13}" data-default-rows="${Number(s.id)<=3?6:13}" placeholder="${safeAttr(writingFrameFor(s.id) || alignedPlaceholder('Writing', s.id, prompt))}"></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div>
     </section>`);
   }
@@ -38708,7 +38768,7 @@
     const lecture = alignedLectures[Number(s.id)] || `Today, we will discuss ${text.topic}. ${text.passage} ${text.variant.ask || 'Write notes about the main point.'}`;
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Listening Mission</span><span class="pill">S${s.id}</span><span class="pill">Mini Lecture</span></div>
-      <h2>🎧 Listening Mission</h2>
+      <h2>🎧 Listening Mission</h2>${missionScaffoldHTML('Listening',s.id)}
       <div class="ai-voice-lab">
         <div class="badges"><span class="pill">🎧 AI Voice Lab</span><span class="pill">Best browser voice</span><span class="pill">A2-B1+ listening</span></div>
         <div class="voice-control-grid">
@@ -38744,8 +38804,7 @@
         <div id="voiceQualityLabel" class="voice-quality-label">Voice: detecting...</div>
         <div id="listeningVoiceStatus" class="listening-voice-status info">Choose Play AI Voice to listen. Transcript stays hidden until review.</div>
       </div>
-      <div class="lecture-chunks">${sentenceChunks(lecture).map((c,i)=>`<div class="lecture-chunk"><b>${i+1}</b><span>${safe(c)}</span></div>`).join('')}</div>
-      <div class="context hidden-lecture-text" id="lectureText" data-lecture="${safeAttr(lecture)}">${safe(lecture)}</div>
+      <div class="cefr-support aligned-support"><p><b>Round 1:</b> Listen for the topic. / ฟังหาเรื่องหลัก</p><p><b>Round 2:</b> Listen again for 2 keywords and 1 detail. / ฟังซ้ำเพื่อจับคำสำคัญ 2 คำและรายละเอียด 1 จุด</p></div><div class="context hidden-lecture-text" id="lectureText" data-lecture="${safeAttr(lecture)}" aria-hidden="true"></div>
       <script>setTimeout(function(){ if(window.EAPHero && EAPHero.renderVoiceOptions) EAPHero.renderVoiceOptions(); }, 150);</script>
       <div class="footer-actions">
         
@@ -38764,7 +38823,7 @@
       <div id="fullTranscriptBox" class="feedback info" style="margin-top:10px"></div>
       <label class="label">Listening notes</label>
       <div class="answer-box-toolbar">
-        <span>Main point + keywords + one detail</span>
+        <span>Round 1: topic • Round 2: 2 keywords + 1 detail</span>
         <button type="button" class="btn small" onclick="EAPHero.expandAnswerBox('listeningNotes')">↕ Expand</button>
       </div>
       <textarea id="listeningNotes" class="input answer-box listening-notes-box" rows="10" data-default-rows="10" placeholder="${safeAttr(alignedPlaceholder('Listening', s.id, text.variant || {}))}"></textarea>
@@ -39055,7 +39114,7 @@
         <span class="pill">${safe(sessionMeta.theme || 'Academic Mindset')}</span>
         <span class="pill">${safe(profile.label)}</span>
       </div>
-      <h2>🎤 Speaking Mission: ${safe(sourceTitle)}</h2>
+      <h2>🎤 Speaking Mission: ${safe(sourceTitle)}</h2>${missionScaffoldHTML('Speaking',s.id)}
       <div class="speaking-brief easy-speaking-brief">
         <b>${safe(profile.timeRange)} seconds · ${safe(profile.sentenceGoal)}</b>
         <span>${safe(profile.studentInstruction)}</span>
@@ -40330,7 +40389,7 @@
 
 
 
-  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
+  /* === v1z97 Easy Speaking Ladder A2–B1+ === */
   const EAP_ANTI_MEMORIZATION_ENGINE = Object.freeze({
     version:'v1z62',
     scenariosPerSession:16,
@@ -42348,7 +42407,7 @@
   }
 
 
-  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
+  /* === v1z97 Easy Speaking Ladder A2–B1+ === */
   const EAP_GOLD_BANK_ENGINE = Object.freeze({version:'v1z64',authoredSourcesPerSession:8,authoredSourcesTotal:120,questionAnglesPerTier:4,candidateMCQPerSession:128,candidateMCQTotal:1920,coreSupportTaskPacks:960,rule:'Gold authored sources are selected first; source, question angle, and answer position rotate before reuse.'});
   const EAP_GOLD_QUESTION_ANGLES={easy:['Which response best matches the source?','What is the clearest action or idea in this source?','Which choice directly follows the study situation?','Which answer uses the main point from the source?'],normal:['Which response connects the source idea with its supporting detail?','Which choice explains the relationship in this source most clearly?','Which answer uses the evidence instead of a small unrelated detail?','Which study decision is best supported by this source?'],hard:['Which response makes the most careful evidence-based interpretation?','Which choice explains a useful conclusion without overclaiming?','Which response identifies a reason, evidence, or limit from the source?','Which answer shows critical use of the source information?'],challenge:['Which balanced judgement is best supported by the source?','Which response makes a justified conclusion and still names a limitation?','Which choice compares the evidence with a careful condition?','Which B1+ conclusion avoids both overclaiming and underusing evidence?']};
   function goldBankRoot(){return (typeof window!=='undefined'&&window.EAP_GOLD_AUTHORED_BANK)?window.EAP_GOLD_AUTHORED_BANK:null;}
@@ -42526,7 +42585,7 @@
 
 
 
-  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
+  /* === v1z97 Easy Speaking Ladder A2–B1+ === */
   const EAP_GOLD_TASK_ALIGNMENT = Object.freeze({
     version:'v1z65',
     rule:'Gold authored source → task-specific help → source-aware AI hint. No legacy generic frame may override a Gold task.',
@@ -42794,7 +42853,7 @@
 
 
 
-  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
+  /* === v1z97 Easy Speaking Ladder A2–B1+ === */
   const EAP_GOLD_SOURCE_INTEGRITY = Object.freeze({
     version:'v1z66',
     rule:'A Gold source must show only its own scenario text. Generic Session explanations belong in help, not in the source passage.'
@@ -42821,7 +42880,7 @@
   }
 
 
-  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
+  /* === v1z97 Easy Speaking Ladder A2–B1+ === */
   const EAP_SCORE_RUBRIC_RECONCILIATION = Object.freeze({
     version:'v1z67',
     rule:'Mission Task Score, formative task checklist, and independence evidence are separate signals. They must not look like competing grades.',
@@ -43061,7 +43120,7 @@
 
 
 
-  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
+  /* === v1z97 Easy Speaking Ladder A2–B1+ === */
   const EAP_SPEAKING_ORAL_FLOW = Object.freeze({
     version:'v1z70',
     rule:'Speaking is an oral task first. Timer + required oral checklist create the mission score; transcript is optional evidence that improves feedback.',
@@ -43191,7 +43250,7 @@
 
 
 
-  /* === v1z71 Easy Speaking Ladder A2–B1+ === */
+  /* === v1z97 Easy Speaking Ladder A2–B1+ === */
   const EAP_EASY_SPEAKING_LADDER = Object.freeze({
     version:'v1z71',
     principle:'Speak clearly before speaking long. A2 requires two short source-based sentences; transcript is never a pass requirement.',
