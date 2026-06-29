@@ -112,6 +112,7 @@
     };
     load("eap-word-engine-v226-summary-pass-commit.js", "__EAP_WORD_V226_SUMMARY_PASS_COMMIT__", "eapV226SummaryPass");
     load("eap-word-engine-v227-retained-pass-repair.js", "__EAP_WORD_V227_RETAINED_PASS_REPAIR__", "eapV227RetainedPass");
+    load("eap-word-engine-v228-retained-pass-cta-shield.js", "__EAP_WORD_V228_RETAINED_CTA__", "eapV228RetainedCta");
   }
 
   const observer = new MutationObserver(requestApply);
