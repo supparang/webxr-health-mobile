@@ -115,6 +115,7 @@
     load("eap-word-engine-v228-retained-pass-cta-shield.js", "__EAP_WORD_V228_RETAINED_CTA__", "eapV228RetainedCta");
     load("eap-word-engine-v229-recovery-round-integrity.js", "__EAP_WORD_V229_RECOVERY_ROUND_INTEGRITY__", "eapV229RecoveryRound");
     load("eap-word-engine-v230-visible-pass-state-commit.js", "__EAP_WORD_V230_VISIBLE_PASS__", "eapV230VisiblePass");
+    load("eap-word-engine-v231-summary-state-authority.js", "__EAP_WORD_V231_SUMMARY_STATE_AUTHORITY__", "eapV231SummaryAuthority");
   }
 
   const observer = new MutationObserver(requestApply);
