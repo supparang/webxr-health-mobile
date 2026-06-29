@@ -1,6 +1,6 @@
-/* UX Quest • Classroom Analytics v3.1
+/* UX Quest • Classroom Analytics v3.3
    Queue-safe, write-only mission summaries with truthful submission receipts.
-   Adds anti-guess evidence fields for verified reasoning and teacher review.
+   Adds anti-guess evidence fields plus a local learner reasoning map.
 */
 (() => {
   'use strict';
@@ -17,13 +17,16 @@
       : Math.random().toString(36).slice(2);
     return `${prefix || 'uxq'}-${Date.now().toString(36)}-${cryptoPart}`;
   }
+
   function safeGet(area, key){ try { return area.getItem(key); } catch (error) { return null; } }
   function safeSet(area, key, value){ try { area.setItem(key, value); return true; } catch (error) { return false; } }
+
   function getQueue(){
     const raw = safeGet(window.localStorage, KEY) || safeGet(window.sessionStorage, KEY) || memory.get(KEY) || '[]';
     try { return Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : []; }
     catch (error) { return []; }
   }
+
   function putQueue(items){
     const limit = Math.max(1, Number(config().maxQueuedAttempts || 12));
     const next = (Array.isArray(items) ? items : []).slice(-limit);
@@ -33,14 +36,17 @@
     }
     return next;
   }
+
   function profile(){
     try { return window.UXQIdentity?.get?.() || {}; }
     catch (error) { return {}; }
   }
+
   function canRecord(){
     const p = profile();
     return Boolean(config().receiverUrl && window.UXQIdentity?.isComplete?.(p));
   }
+
   function receiptMessage(receipt){
     if (!receipt) return 'ผลของรอบนี้เก็บไว้ในอุปกรณ์นี้';
     const code = receipt.attemptId ? ` • รหัสรอบ ${receipt.attemptId}` : '';
@@ -50,6 +56,7 @@
     if (receipt.state === 'profile_incomplete') return `บันทึกความคืบหน้าในอุปกรณ์นี้แล้ว • กรอกข้อมูลผู้เรียนให้ครบก่อนส่งผลเข้าชั้นเรียน${code}`;
     return `บันทึกในอุปกรณ์นี้แล้ว${code}`;
   }
+
   function readReceipt(){
     if (lastReceipt) return lastReceipt;
     const raw = safeGet(window.localStorage, RECEIPT_KEY) || safeGet(window.sessionStorage, RECEIPT_KEY) || memory.get(RECEIPT_KEY);
@@ -57,6 +64,7 @@
     try { lastReceipt = JSON.parse(raw); return lastReceipt; }
     catch (error) { return null; }
   }
+
   function saveReceipt(receipt){
     const next = Object.assign({}, receipt || {}, { updatedAt: new Date().toISOString() });
     lastReceipt = next;
@@ -68,6 +76,7 @@
     catch (error) {}
     return next;
   }
+
   function statusText(){
     const receipt = readReceipt();
     if (receipt) return receiptMessage(receipt);
@@ -76,6 +85,7 @@
     const queued = getQueue().length;
     return queued ? `บันทึกในอุปกรณ์แล้ว • มี ${queued} รอบรอส่งเมื่อเชื่อมต่อ` : 'บันทึกในอุปกรณ์แล้ว • พร้อมส่งเข้าสู่ระบบชั้นเรียน';
   }
+
   function slimAnswers(items){
     return (Array.isArray(items) ? items : []).slice(0, 32).map((item) => ({
       questionId: String(item.questionId || '').slice(0, 160),
@@ -90,6 +100,7 @@
       earned: Number(item.earned || 0)
     }));
   }
+
   function buildAttempt(data){
     const p = profile();
     const now = new Date().toISOString();
@@ -131,12 +142,44 @@
       answers: slimAnswers(data.answers)
     };
   }
+
+  function buildLearningMap(payload){
+    const answers = Array.isArray(payload?.answers) ? payload.answers : [];
+    const evidenceAnswers = answers.filter((answer) => Object.prototype.hasOwnProperty.call(answer || {}, 'verified'));
+    const groups = new Map();
+
+    evidenceAnswers
+      .filter((answer) => answer.verified !== true)
+      .forEach((answer) => {
+        const stageKey = String(answer.stageKey || 'reasoning');
+        const current = groups.get(stageKey) || {
+          stageKey,
+          count: 0,
+          mainCorrect: true
+        };
+        current.count += 1;
+        current.mainCorrect = current.mainCorrect && Boolean(answer.correct);
+        groups.set(stageKey, current);
+      });
+
+    return {
+      available: evidenceAnswers.length > 0,
+      total: Number(payload?.total || answers.length || 0),
+      verifiedCorrect: Number(payload?.verifiedCorrect || 0),
+      verifiedAccuracy: Number(payload?.verifiedAccuracy || 0),
+      focus: [...groups.values()]
+        .sort((a, b) => b.count - a.count || a.stageKey.localeCompare(b.stageKey))
+        .slice(0, 3)
+    };
+  }
+
   function enqueue(payload){
     const queue = getQueue();
     queue.push(payload);
     putQueue(queue);
     return getQueue().length;
   }
+
   function submit(payload){
     const endpoint = String(config().receiverUrl || '').trim();
     if (!endpoint || !payload) return Promise.resolve({ state: 'local_only', queued: false, verified: false });
@@ -150,6 +193,7 @@
     }).then(() => ({ state: 'dispatched_unverified', queued: false, verified: false }))
       .catch((error) => ({ state: 'queued', queued: true, verified: false, queueLength: enqueue(payload), error: String(error?.message || error) }));
   }
+
   function flush(){
     if (!canRecord()) return Promise.resolve({ skipped: true, sent: 0, queued: getQueue().length });
     const queue = getQueue();
@@ -161,26 +205,39 @@
       return summary;
     })), Promise.resolve({ skipped: false, sent: 0, queued: 0 }));
   }
+
   function makeReceipt(payload, state, extra){
     return Object.assign({
-      receiptId: id('receipt'), app: payload.app, attemptId: payload.attemptId,
-      eventId: payload.eventId, missionId: payload.missionId, missionTitle: payload.missionTitle,
-      state, verified: state === 'confirmed', createdAt: new Date().toISOString()
+      receiptId: id('receipt'),
+      app: payload.app,
+      attemptId: payload.attemptId,
+      eventId: payload.eventId,
+      missionId: payload.missionId,
+      missionTitle: payload.missionTitle,
+      state,
+      verified: state === 'confirmed',
+      createdAt: new Date().toISOString(),
+      learningMap: buildLearningMap(payload)
     }, extra || {});
   }
+
   function recordMissionComplete(data){
     const payload = buildAttempt(data || {});
     const endpoint = String(config().receiverUrl || '').trim();
     let receipt;
+
     if (!endpoint) {
       receipt = saveReceipt(makeReceipt(payload, 'local_only', { reason: 'receiver_not_configured' }));
       return { queued: false, skipped: true, message: receiptMessage(receipt), attemptId: payload.attemptId, eventId: payload.eventId, receipt };
     }
+
     if (!canRecord()) {
       receipt = saveReceipt(makeReceipt(payload, 'profile_incomplete', { reason: 'profile_incomplete' }));
       return { queued: false, skipped: true, message: receiptMessage(receipt), attemptId: payload.attemptId, eventId: payload.eventId, receipt };
     }
+
     receipt = saveReceipt(makeReceipt(payload, 'dispatching', { reason: 'request_started' }));
+
     const delivery = flush()
       .catch(() => ({ skipped: false, sent: 0, queued: 0 }))
       .then(() => submit(payload))
@@ -190,6 +247,7 @@
         queueLength: outcome.queueLength || 0,
         deliveryError: outcome.error || ''
       })));
+
     return {
       queued: false,
       skipped: false,
@@ -204,5 +262,5 @@
   window.addEventListener('online', () => { flush(); });
   window.addEventListener('pageshow', () => { flush(); });
   window.UXQSubmissionReceipt = Object.freeze({ getLast: readReceipt, message: receiptMessage });
-  window.UXQAnalytics = Object.freeze({ id, recordMissionComplete, statusText, flush, getQueue });
+  window.UXQAnalytics = Object.freeze({ KEY, RECEIPT_KEY, id, canRecord, recordMissionComplete, statusText, flush, getQueue });
 })();
