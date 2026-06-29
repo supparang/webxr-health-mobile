@@ -1,7 +1,7 @@
-/* EAP Word Quest v215 stable release guard */
+/* EAP Word Quest v215 stable release guard + option tap bridge */
 (() => {
   "use strict";
-  const VERSION="v2.1.5-STABLE-RELEASE-GUARD-122";
+  const VERSION="v2.1.5-OPTION-TAP-BRIDGE-122";
   if(window.__EAP_WORD_V215_RELEASE_GUARD__) return;
   window.__EAP_WORD_V215_RELEASE_GUARD__=true;
   const $=id=>document.getElementById(id);
@@ -12,7 +12,15 @@
   const summary=()=>Boolean($("summaryScreen")?.classList.contains("active"));
   const setText=(node,value)=>{if(node&&node.textContent!==value)node.textContent=value;};
 
-  const style=document.createElement("style");style.id="eapV215ReleaseGuardStyle";style.textContent="#questionTags .eap215-tag{display:inline-flex;align-items:center;border:1px solid #dbeafe;background:#f8fafc;color:#475569;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:900}#summaryWeakPracticeBtn{border-color:#fed7aa!important;background:#fff7ed!important;color:#9a3412!important}";if(!$("eapV215ReleaseGuardStyle"))document.head.appendChild(style);
+  const style=document.createElement("style");style.id="eapV215ReleaseGuardStyle";style.textContent=`
+    #questionTags .eap215-tag{display:inline-flex;align-items:center;border:1px solid #dbeafe;background:#f8fafc;color:#475569;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:900}
+    #summaryWeakPracticeBtn{border-color:#fed7aa!important;background:#fff7ed!important;color:#9a3412!important}
+    /* Keep answer buttons above all optional helper layers. */
+    #choicesEl{position:relative!important;z-index:2147483000!important;pointer-events:auto!important}
+    #choicesEl .eap192-choice{position:relative!important;z-index:2147483001!important;pointer-events:auto!important;touch-action:manipulation!important}
+    /* Session support above already explains the mission; do not expose the internal current target. */
+    #eapV195Note{display:none!important}
+  `;if(!$("eapV215ReleaseGuardStyle"))document.head.appendChild(style);
 
   function tags(){
     if(!game()) return;
@@ -33,8 +41,21 @@
   function issue(item){const problems=[],choices=Array.isArray(item&&item.choices)?item.choices:[];if(choices.length!==4)problems.push("choices_not_four");if(choices.filter(row=>row&&row.correct).length!==1)problems.push("correct_count_not_one");const used=new Set();choices.forEach(row=>{const id=key(row&&row.text);if(!id||used.has(id))problems.push("duplicate_or_blank_choice");used.add(id);});if(!norm(item&&item.target)||!norm(item&&item.answerTerm))problems.push("missing_target_or_answer");return problems;}
   function preflight(){const bank=window.EAP_CORE_QUESTION_BANK,order=bank&&Array.isArray(bank.sessionOrder)?bank.sessionOrder:[];const report={version:VERSION,ready:Boolean(bank&&order.length===20),sessionCount:order.length,itemTotal:Number(bank&&bank.itemTotal)||0,sessions:{},issues:[]};order.forEach(id=>{const rows=Array.isArray(bank.bySession[id])?bank.bySession[id]:[];const problems=rows.flatMap(row=>issue(row).map(problem=>`${row.id}:${problem}`));report.sessions[id]={items:rows.length,issues:problems};report.issues.push(...problems);});report.ready=report.ready&&!report.issues.length;return report;}
   function patch(){tags();toast();weakButton();}
+
+  /* A few mobile/webview builds occasionally lose the synthetic click after a tap.
+     Trigger one native click from pointerup; the core controller remains the only scorer. */
+  let lastPointerChoice="";
+  document.addEventListener("pointerup",event=>{
+    const choice=event.target?.closest?.("#choicesEl .eap192-choice");
+    if(!choice||choice.disabled)return;
+    const marker=`${choice.dataset.index||""}|${choice.textContent||""}|${Date.now()}`;
+    if(lastPointerChoice===marker)return;
+    lastPointerChoice=marker;
+    requestAnimationFrame(()=>{if(!choice.disabled)choice.click();});
+  },true);
+
   document.addEventListener("click",event=>{const button=event.target?.closest?.("#summaryWeakPracticeBtn");if(button){event.preventDefault();event.stopImmediatePropagation();startWeak();return;}[80,220,520].forEach(delay=>setTimeout(patch,delay));},true);
   window.addEventListener("eap-core-run-finished",()=>[80,260,700].forEach(delay=>setTimeout(patch,delay)));
   [100,450,1200].forEach(delay=>setTimeout(patch,delay));setTimeout(()=>{window.EAP_WORD_RELEASE_PREFLIGHT=preflight();console.info("[EAP Word Quest] release preflight",window.EAP_WORD_RELEASE_PREFLIGHT);},1500);
-  window.inspectEapReleaseQA=()=>window.EAP_WORD_RELEASE_PREFLIGHT||preflight();window.inspectEapV215=()=>({version:VERSION,gameActive:game(),summaryActive:summary(),targetLeakVisible:Array.from(document.querySelectorAll("#questionTags span")).some(node=>/^Target\s*:/i.test(norm(node.textContent))),weakRecoveryVisible:Boolean($("summaryWeakPracticeBtn")&&!$("summaryWeakPracticeBtn").hidden),preflight:window.EAP_WORD_RELEASE_PREFLIGHT||null});
+  window.inspectEapReleaseQA=()=>window.EAP_WORD_RELEASE_PREFLIGHT||preflight();window.inspectEapV215=()=>({version:VERSION,gameActive:game(),summaryActive:summary(),targetLeakVisible:Array.from(document.querySelectorAll("#questionTags span")).some(node=>/^Target\s*:/i.test(norm(node.textContent))),weakRecoveryVisible:Boolean($("summaryWeakPracticeBtn")&&!$("summaryWeakPracticeBtn").hidden),choices:Array.from(document.querySelectorAll("#choicesEl .eap192-choice")).map(node=>({text:norm(node.textContent),disabled:node.disabled})),preflight:window.EAP_WORD_RELEASE_PREFLIGHT||null});
 })();
