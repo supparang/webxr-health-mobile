@@ -1,17 +1,16 @@
 /* =========================================================
    EAP Word Quest • Recovery CTA Visual Lock
    File: /herohealth/eap-word-quest/eap-word-engine-v224-recovery-cta-visual-lock.js
-   Version: v2.2.4-RECOVERY-CTA-VISUAL-LOCK-122
+   Version: v2.2.4-RETAINED-PASS-AWARE-122
 
-   A presentation-only guard for Summary screens that say “ฝึกเพิ่มอีกนิด”.
-   Older summary scripts can still refresh the button's underlying text while
-   they render progress. This patch paints one fixed Recovery label without
-   writing the button text itself, so there is no visible word swapping.
+   Presentation guard for below-threshold replay summaries.
+   It locks a Recovery CTA only when this Session has not been passed before.
+   A lower replay must keep the learner's already-earned progression path.
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.2.4-RECOVERY-CTA-VISUAL-LOCK-122";
+  const VERSION = "v2.2.4-RETAINED-PASS-AWARE-122";
   if (window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__) return;
   window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__ = true;
 
@@ -19,12 +18,25 @@
   const norm = (value) => String(value == null ? "" : value).replace(/\s+/g," ").trim();
   let queued = false;
 
+  function corePassed(sessionId) {
+    try {
+      const progress = typeof window.getEapCoreProgress === "function" ? window.getEapCoreProgress() : null;
+      const key = progress && progress.stateKey;
+      const raw = key ? localStorage.getItem(key) : "";
+      const state = raw ? JSON.parse(raw) : {};
+      return Boolean(state && state.sessions && state.sessions[sessionId] && state.sessions[sessionId].passed);
+    } catch (err) {
+      return false;
+    }
+  }
+
   function summaryRecoverySession() {
     const screen = $("summaryScreen");
     if (!screen || !screen.classList.contains("active")) return "";
     const title = norm($("summaryTitle") && $("summaryTitle").textContent);
     const match = title.match(/^(S(?:1[0-5]|[1-9])|BG[1-5])\s+ฝึกเพิ่มอีกนิด/i);
-    return match ? match[1].toUpperCase() : "";
+    const sessionId = match ? match[1].toUpperCase() : "";
+    return sessionId && !corePassed(sessionId) ? sessionId : "";
   }
 
   function addStyle() {
@@ -89,21 +101,25 @@
     requestAnimationFrame(apply);
   }
 
-  function loadSummaryPassCommit() {
-    if (window.__EAP_WORD_V226_SUMMARY_PASS_COMMIT__ || document.querySelector("script[data-eap-v226-summary-pass]")) return;
-    const script = document.createElement("script");
-    script.src = "./eap-word-engine-v226-summary-pass-commit.js?v=20260629-v226-summary-pass";
-    script.async = false;
-    script.dataset.eapV226SummaryPass = "true";
-    document.head.appendChild(script);
+  function loadPassGuards() {
+    const load = (file, marker, version) => {
+      if (window[marker] || document.querySelector(`script[data-${version}]`)) return;
+      const script = document.createElement("script");
+      script.src = `./${file}?v=20260629-${version}`;
+      script.async = false;
+      script.dataset[version] = "true";
+      document.head.appendChild(script);
+    };
+    load("eap-word-engine-v226-summary-pass-commit.js", "__EAP_WORD_V226_SUMMARY_PASS_COMMIT__", "eapV226SummaryPass");
+    load("eap-word-engine-v227-retained-pass-repair.js", "__EAP_WORD_V227_RETAINED_PASS_REPAIR__", "eapV227RetainedPass");
   }
 
   const observer = new MutationObserver(requestApply);
   observer.observe(document.body,{childList:true,subtree:true,characterData:true});
   document.addEventListener("click",()=>[0,120,360,760].forEach((delay)=>setTimeout(requestApply,delay)),true);
   window.addEventListener("eap-core-run-finished",()=>[0,100,300,700].forEach((delay)=>setTimeout(requestApply,delay)));
-  [0,160,500,1200].forEach((delay)=>setTimeout(requestApply,delay));
-  loadSummaryPassCommit();
+  [0,160,500,1200,2200].forEach((delay)=>setTimeout(requestApply,delay));
+  loadPassGuards();
 
   window.inspectEapV224 = () => ({
     version:VERSION,
@@ -111,5 +127,5 @@
     visibleLabel:norm($("nextMissionBtn") && $("nextMissionBtn").dataset.eapV224Label)
   });
 
-  console.info("[EAP Word Quest] v224 stable Recovery CTA ready",{version:VERSION});
+  console.info("[EAP Word Quest] v224 retained-pass-aware Recovery CTA ready",{version:VERSION});
 })();
