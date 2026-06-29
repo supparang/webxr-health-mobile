@@ -1,5 +1,7 @@
-UX Quest • Act I — Classroom Data Layer v2 (Receiver Ready)
-Build: 2026-06-28
+UX Quest • Act I — Classroom Data Layer v5.2 (Reason Check Review Ready)
+Build: 2026-06-29
 Includes: Mission Control, W1 UX Detective, W2 Design Thinking, W3 Cognitive Load, B1 Cognitive Storm.
 Classroom logging is enabled with a public write-only Apps Script receiver.
+Student result support: receipt, replay coach, Explain Why Retry, and queued retry-evidence transport.
+Teacher support in /apps-script: anti-guess summary, Reason Check Review Queue, review-status sheet, and receiver compatibility patch.
 Required existing CSS: css/uxq-core.css and css/uxq-hub.css.
