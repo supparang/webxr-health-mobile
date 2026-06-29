@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z92 Report Recovery + Safe Legacy Portfolio Migration ===
+/* === EAP Hero: Save the Society v1z93 Boss Gate Route Identity Fix ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260628-v1z92-report-recovery-safe-legacy-portfolio-migration';
+  const APP_VERSION = '20260629-v1z93-boss-gate-route-identity-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -34238,20 +34238,29 @@
 
 
   function startBoss(id, contractName){
-    const s = getSession(id);
+    // A Boss Gate must remain distinct from a Session Boss. Gate play uses a mixed
+    // question set from its required Sessions, while the final Session is only used
+    // as the display anchor for legacy result/reflection compatibility.
+    const gateSessionIds = Array.isArray(id) ? id.map(Number).filter(Boolean) : null;
+    const anchorSessionId = gateSessionIds && gateSessionIds.length ? gateSessionIds[gateSessionIds.length - 1] : id;
+    const s = getSession(anchorSessionId);
     if(!s) return renderMap();
 
     clearInterval(bossTimer);
 
     const contract = getContract(contractName || 'normal');
     const seconds = Math.max(45, Math.round(difficultySeconds() * contract.timeFactor));
-    const order = selectQuestionSet(s, bossQuestionCount(), 'boss');
+    const order = gateSessionIds
+      ? pickQuestionsFromSessionsLegacy(gateSessionIds, bossQuestionCount(), 'gate_' + (state.replay?.currentGate || 'mixed'))
+      : selectQuestionSet(s, bossQuestionCount(), 'boss');
     const hp = Math.max(65, Math.min(130, Math.round(order.length * 10.5) + contract.hpBonus));
 
     state.active = {
       mode:'boss',
       contract:contract.key,
-      sessionId:id,
+      sessionId:Number(anchorSessionId),
+      gateSessionIds:gateSessionIds || [],
+      gateId:(state.replay && state.replay.currentGate) || '',
       startedAt:Date.now(),
       duration:seconds,
       timeLeft:seconds,
@@ -34562,7 +34571,7 @@
 
     const mistakes = a.answers.filter(x=>!x.correct);
     const result = {
-      win, reason, sessionId:s.id, xpGain, chestReward, contract:a.contract || 'normal', starsEarned, accuracy:Math.round(accuracy*100),
+      win, reason, sessionId:s.id, gateId:resolvedGateId || a.gateId || '', xpGain, chestReward, contract:a.contract || 'normal', starsEarned, accuracy:Math.round(accuracy*100),
       score:a.score, maxCombo:a.maxCombo, timeLeft:a.timeLeft, badge, mistakes
     };
     state.active.result = result;
@@ -34605,12 +34614,16 @@
 
   function renderResult(r){
     const s = getSession(r.sessionId);
+    const gate = r.gateId ? BOSS_GATES.find(g => g.id === r.gateId) : null;
+    const resultBossName = gate ? gate.boss : s.boss;
+    const resultGateLine = gate ? `<p class="mini-note">${safe(gate.title)} · Sessions ${safe(gate.sessions.join('–'))}</p>` : '';
     setView('result');
     layout(`
       <section class="panel light result-hero" style="margin-top:20px">
         <div class="big-emoji">${r.win ? '🏆' : '💪'}</div>
         <h2>${r.win ? 'Boss Defeated!' : 'Try Again'}</h2>
-        <h3>${safe(s.boss)}</h3>
+        <h3>${safe(resultBossName)}</h3>
+        ${resultGateLine}
         <div class="grid four">
           <div class="stat"><b>${r.xpGain}</b><span>XP Gained</span></div>
           <div class="stat"><b>${r.accuracy}%</b><span>Accuracy</span></div>
@@ -36555,7 +36568,7 @@
   function renderBossGate(gateId){
     const requested = String(gateId || '');
     const gateNo = Number(requested) || bossGateNumberFromId(requested) || 1;
-    const gate = BOSS_GATES.find(g => g.id === requested || Number(g.gate) === gateNo || Number(g.after) === gateNo) || BOSS_GATES[0];
+    const gate = BOSS_GATES.find(g => g.id === requested || Number(g.gate) === gateNo || (!requested.startsWith('gate') && Number(g.after) === gateNo)) || BOSS_GATES[0];
     const unlocked = bossGateStatus(gate);
     const mutation = mutationForGate(gate.id);
     const ghost = state.replay?.ghosts?.[gate.id];
@@ -36575,7 +36588,7 @@
         </div>
         <div class="footer-actions">
           <button class="btn primary" ${(unlocked && featureUnlocked('bossGate'))?'':'disabled'} onclick="EAPHero.startGateBoss('${gate.id}')">${featureUnlocked('bossGate')?'Start Gate Boss':'Boss Gate unlocks later'}</button>
-          <button class="btn" onclick="return EAPHero.directOpenSession(${gate.after})">Complete Skill Evidence</button>
+          <button class="btn" onclick="return EAPHero.directOpenSession(${gate.after})">Review S${gate.after} Evidence</button>
           <button class="btn ghost" onclick="EAPHero.replayHub()">Replay Hub</button>
         </div>
       </section>`);
@@ -36593,7 +36606,8 @@
     state.replay.currentGate = gateId;
     state.replay.currentMutation = mutation.key;
     saveState();
-    startBoss(gate.after, mutation.key === 'nohint' ? 'nohint' : mutation.key === 'speed' ? 'speed' : 'hero');
+    // Use the gate's session group, not gate.after (which is only the last session ID).
+    startBoss(gate.sessions, mutation.key === 'nohint' ? 'nohint' : mutation.key === 'speed' ? 'speed' : 'hero');
   }
 
   function updateMasteryFromPortfolio(entry){
@@ -39790,9 +39804,7 @@
 
   function renderLearningReportCard(report, opts={}){
     if(!report) return '';
-    const isLegacy = !!report.legacyCompletion;
-    const band = isLegacy ? {cls:'developing', emoji:'🗂️', label:'Completed legacy evidence'} : learningBand(report.score);
-    const scoreText = isLegacy ? (Number(report.score)>0 ? `${safe(report.score)}/100` : 'Completed') : `${safe(report.score)}/100`;
+    const band = learningBand(report.score);
     return `<div class="learning-report-card ${safe(band.cls)}">
       <div class="report-head">
         <div>
@@ -39800,7 +39812,7 @@
           <span>${safe(report.skill)} • Session ${safe(report.session)} • CEFR ${safe(report.cefrTarget)}</span>
           <small class="report-score-caption">Mission Task Score</small>
         </div>
-        <div class="report-score">${scoreText}</div>
+        <div class="report-score">${safe(report.score)}/100</div>
       </div>
       <div class="report-ai-summary">
         <span class="report-checklist">${safe(reportChecklistLabel(report))} <em>formative, not a second grade</em></span>
@@ -39832,77 +39844,10 @@
     const bySkill = {};
     ['Reading','Writing','Listening','Speaking'].forEach(skill=>{
       const list = reports.filter(r=>r.skill===skill);
-      const scored = list.filter(r=>Number(r.score) > 0);
-      const avg = scored.length ? Math.round(scored.reduce((a,b)=>a+Number(b.score||0),0)/scored.length) : 0;
-      bySkill[skill] = {count:list.length, scoredCount:scored.length, avg, legacyOnly:list.length>0 && !scored.length, band:learningBand(avg)};
+      const avg = list.length ? Math.round(list.reduce((a,b)=>a+Number(b.score||0),0)/list.length) : 0;
+      bySkill[skill] = {count:list.length, avg, band:learningBand(avg)};
     });
     return bySkill;
-  }
-
-  /* v1z92: restore a compact, truthful report summary for completed legacy sessions.
-     These entries preserve completion evidence without inventing a numerical score. */
-  const LEGACY_SKILL_ROUTE_V92 = {
-    1:['Reading','Speaking'], 2:['Reading','Writing'], 3:['Reading','Writing'],
-    4:['Reading','Listening'], 5:['Reading','Speaking'], 6:['Writing','Reading'],
-    7:['Writing','Speaking'], 8:['Reading','Writing'], 9:['Writing','Speaking'],
-    10:['Reading','Writing'], 11:['Writing','Speaking'], 12:['Reading','Writing'],
-    13:['Listening','Writing'], 14:['Speaking','Writing'], 15:['Writing','Speaking']
-  };
-
-  function legacyScoreFromStateV92(sessionId, skill){
-    const sid = String(sessionId);
-    const direct = state.sessionScores?.[sid]?.[skill] ?? state.sessionScores?.[sessionId]?.[skill];
-    if(Number(direct) > 0) return Number(direct);
-    const session = state.sessions?.[sid] || state.sessions?.[sessionId] || {};
-    const pools = [session.skills, session.skillEvidence, session.skillScores, session.evidence, session.missions];
-    for(const pool of pools){
-      const value = pool?.[skill] ?? pool?.[String(skill).toLowerCase()] ?? pool?.[String(skill).toUpperCase()];
-      const score = Number(value?.score ?? value?.bestScore ?? value);
-      if(score > 0) return score;
-    }
-    return null;
-  }
-
-  function recoverLegacyPortfolioAndReportsV92(){
-    state.portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
-    state.learningReports = Array.isArray(state.learningReports) ? state.learningReports : [];
-    let created = 0;
-    Object.keys(state.sessions || {}).forEach(rawId=>{
-      const sid = Number(rawId);
-      const session = state.sessions?.[rawId] || {};
-      if(!sid || !session.cleared) return;
-      (LEGACY_SKILL_ROUTE_V92[sid] || []).forEach(skill=>{
-        const exists = state.portfolio.some(p=>Number(p?.sessionId || p?.session)===sid && String(p?.skill||'')===skill) ||
-          state.learningReports.some(r=>Number(r?.session)===sid && String(r?.skill||'')===skill);
-        if(exists) return;
-        const retainedScore = legacyScoreFromStateV92(sid, skill);
-        const evidenceId = `LEGACY-S${sid}-${skill}`;
-        const entry = {
-          id:evidenceId, evidenceId, sessionId:sid, session:sid, skill,
-          score:retainedScore === null ? null : retainedScore,
-          submittedAt:'', at:'', difficulty:'legacy', evidenceType:'legacy-completion',
-          legacyCompletion:true,
-          output:'Completed legacy evidence retained after browser-storage migration.',
-          evidenceText:'Completed legacy evidence retained after browser-storage migration.'
-        };
-        state.portfolio.push(entry);
-        state.learningReports.push({
-          id:`lr_${evidenceId}`, portfolioId:evidenceId, portfolioIndex:state.portfolio.length-1,
-          session:sid, skill, score:retainedScore === null ? null : retainedScore,
-          difficulty:'legacy', cefrTarget:'A2–B1+', band:'Completed legacy evidence',
-          legacyCompletion:true, independenceVerified:false, supportMode:'legacy migration',
-          didWell:'Completed before the browser-storage migration.',
-          nextStep:'Continue with the next mission; future submissions will show full formative feedback.',
-          tryFrame:skillTryFrame(skill), replayPackId:'Legacy completion retained', createdAt:'', sourceAt:''
-        });
-        created++;
-      });
-    });
-    if(created){
-      state.portfolio = compactArray(state.portfolio, STORAGE_LIMITS.portfolio, compactPortfolioEntry);
-      state.learningReports = compactArray(state.learningReports, STORAGE_LIMITS.learningReports, x=>x);
-    }
-    return created;
   }
 
   function renderStudentReports(){
@@ -39917,7 +39862,7 @@
     });
     const reports = Array.from(reportMap.values()).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
     const summary = skillSummaryReports();
-    const summaryCards = Object.entries(summary).map(([skill,d])=>`<div class="stat report-skill ${safe(d.band.cls)}"><b>${d.count?(d.legacyOnly?'✓':d.avg):'-'}</b><span>${safe(skill)} • ${d.count?(d.legacyOnly?'Legacy completion retained':d.band.label):'No report yet'}</span></div>`).join('');
+    const summaryCards = Object.entries(summary).map(([skill,d])=>`<div class="stat report-skill ${safe(d.band.cls)}"><b>${d.count?d.avg:'-'}</b><span>${safe(skill)} • ${d.count?d.band.label:'No report yet'}</span></div>`).join('');
     const cards = reports.map(r=>renderLearningReportCard(r,{actions:false})).join('') || `<div class="panel light report-empty-state"><h3>ยังไม่มี Learning Report</h3><p>รายงานจะสร้างอัตโนมัติเมื่อผู้เรียนทำ <b>Reading, Writing, Listening หรือ Speaking Mission</b> แล้วกด <b>Submit</b> สำเร็จ โดยการเปิด Lab หรือชนะ MCQ Boss เพียงอย่างเดียวยังไม่สร้างรายงานรายทักษะ</p><p class="mini-note">เริ่มจาก Map → เปิด Session ปัจจุบัน → ทำ Core/Support Mission → Submit แล้วกลับมาดู Report ได้ทันที</p><div class="footer-actions"><button class="btn primary" onclick="EAPHero.continueSession()">Continue Current Session</button><button class="btn" onclick="EAPHero.map()">Open Map</button></div></div>`;
     layout(`
       <section class="panel" style="margin-top:20px">
@@ -43788,11 +43733,9 @@
   installNoRepeatScenarioPool();
   syncMasterSessionMatrix(true);
   replaceS8QuestionBankV1z73();
-  recoverLegacyPortfolioAndReportsV92();
   repairLearningReportsFromPortfolio(true);
   reconcileLearningReportsV1z67();
   syncCourseProgressFromEvidence(true);
-  saveState();
   renderHome();
 
 
