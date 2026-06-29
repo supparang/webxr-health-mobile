@@ -13,7 +13,7 @@
       var url = new URL(location.href);
       if(url.searchParams.get('teacher') !== '1'){
         url.searchParams.set('teacher','1');
-        if(!url.searchParams.get('v')) url.searchParams.set('v','20260614-bysessionreal350');
+        if(!url.searchParams.get('v')) url.searchParams.set('v','20260629-attempthistory406');
         history.replaceState(null,'',url.toString());
       }
     }catch(e){}
@@ -116,15 +116,15 @@
       <div class="logo">🧠</div>
       <div>
         <h1>CSAI2102: AI Quest</h1>
-        <div class="sub">v3.5.0 • Teacher Dashboard • Section 101</div>
+        <div class="sub">v4.0.6 • Teacher Dashboard • Section 101</div>
         <div style="margin-top:8px">
           <span class="pill good">✓ Teacher-only page</span>
-          <span class="pill good">✓ Phase 1 Ready: S1–S5 + B1–B2</span>
+          <span class="pill good">✓ Full Attempt History</span>
           <span class="pill blue">Section 101</span>
         </div>
       </div>
       <div class="actions">
-        <a class="btn" href="./index.html?v=20260614-bysessionreal350">Student Page</a>
+        <a class="btn" href="./index.html?v=20260629-attempthistory406">Student Page</a>
         <button class="btn primary" id="refreshBtn">Refresh</button>
         <button class="btn" id="previewBtn">Preview Student</button>
       </div>
@@ -138,7 +138,7 @@
 
     <section class="card">
       <h2>All Students Detail</h2>
-      <p class="muted">ดูสถานะนักศึกษาทุกคนจาก Google Sheets เฉพาะ Section 101</p>
+      <p class="muted">ภาพรวมต่อคนใช้ Best และ Latest เพื่ออ่านชั้นเรียนได้เร็ว ส่วนทุกรอบย้อนหลังแสดงใน All Attempt History ด้านล่าง</p>
       <div class="two" style="margin:10px 0">
         <button class="btn primary" id="loadStudent12Btn">Load Student 12 / KK</button>
         <button class="btn" id="showRawTopBtn">Show raw response</button>
@@ -189,7 +189,7 @@
           <span class="pill good">✓ Class ID 101</span>
           <span class="pill good">✓ Apps Script URL</span>
           <span class="pill good">✓ Accuracy: correct/total</span>
-          <span class="pill warn">S6 เปิดใน Phase 2</span>
+          <span class="pill good">✓ All Attempt History</span>
         </div>
       </section>
       <section class="card">
@@ -220,5 +220,6 @@
   <script src="./js/aiquest-student-detail-v350.js"></script>
   <script src="./js/aiquest-production-v350.js"></script>
   <script src="./js/aiquest-teacher-only-dashboard-v350.js"></script>
+  <script src="./js/aiquest-teacher-attempt-history-v406.js?v=20260629-attempthistory406"></script>
 </body>
 </html>
