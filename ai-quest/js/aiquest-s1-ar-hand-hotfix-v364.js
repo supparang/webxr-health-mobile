@@ -1,20 +1,273 @@
-/* AI Quest S1 AR Hand Hotfix v3.9.4 — stable single-start replacement */
-(()=>{"use strict";
-const V="v3.9.4-s1-hand-stable",VER="0.4.1646424915",BASE=`https://cdn.jsdelivr.net/npm/@mediapipe/hands@${VER}`,SRC=`${BASE}/hands.js`,$=i=>document.getElementById(i),CFG={dwell:1200,cooldown:850,pinch:.118,pad:92,magnet:245};
-let h=null,run=false,starting=false,raf=0,lastPinch=false,t=null,t0=0,last=0,xs=null,ys=null,fails=0,token=0;
-function pan(){return $("s1ar368")||$("s1ar366")||$("s1ArPanelV366")}function vid(){return $("s1video368")||$("s1arvideo366")||$("s1ArVideoV366")}function open(){return !!pan()?.classList.contains("open")}
-function css(){if($("s1hstyle394"))return;let e=document.createElement("style");e.id="s1hstyle394";e.textContent=`.s1hc394{position:fixed;left:0;top:0;width:45px;height:45px;border:3px solid #67e8f9;border-radius:50%;z-index:100030;pointer-events:none;transform:translate(-50%,-50%);display:none;background:#02061722;box-shadow:0 0 0 11px #22d3ee2b,0 0 30px #22d3ee88}.s1hc394.p{border-color:#86efac;box-shadow:0 0 0 14px #86efac44,0 0 36px #86efacaa}.s1hr394{position:fixed;left:0;top:0;width:74px;height:74px;border-radius:50%;z-index:100029;pointer-events:none;transform:translate(-50%,-50%);display:none;background:conic-gradient(#86efac var(--p,0deg),#ffffff28 0deg);-webkit-mask:radial-gradient(circle,transparent 54%,#000 56%);mask:radial-gradient(circle,transparent 54%,#000 56%)}.s1hs394{position:fixed;left:12px;top:calc(67px + env(safe-area-inset-top,0px));z-index:100031;display:none;max-width:min(92vw,620px);padding:9px 13px;border-radius:999px;color:#e0f2fe;background:#0f172aed;border:1px solid #ffffff33;font:900 12px system-ui;backdrop-filter:blur(12px)}.s1retry394{margin-left:8px;padding:4px 8px;border-radius:999px;border:1px solid #67e8f977;background:#164e6388;color:#cffafe;font:800 11px system-ui;cursor:pointer}`;document.head.appendChild(e)}
-function ui(){css();[["s1hc394","s1hc394"],["s1hr394","s1hr394"],["s1hs394","s1hs394"]].forEach(([i,c])=>{if(!$(i)){let e=document.createElement("div");e.id=i;e.className=c;document.body.appendChild(e)}})}
-function status(s,retry=false){let e=$("s1hs394");if(!e)return;e.style.display=open()?"block":"none";e.textContent=s||"";if(retry&&!$("s1retry394")){let b=document.createElement("button");b.id="s1retry394";b.className="s1retry394";b.type="button";b.textContent="ลองตรวจมืออีกครั้ง";b.onclick=()=>start(true);e.appendChild(b)}}
-function clear(){if(t)t.classList.remove("hand-target-v368");t=null;t0=0;let r=$("s1hr394");if(r)r.style.setProperty("--p","0deg")}
-function hide(){["s1hc394","s1hr394"].forEach(i=>{let e=$(i);if(e)e.style.display="none"});clear()}
-function buttons(){return [...document.querySelectorAll("#s1answers368 .ans:not([disabled])"),$("s1next368"),$("s1again368"),$("s1back368")].filter(e=>e&&!e.disabled&&e.offsetParent!==null)}
-function hit(x,y){let e=document.elementFromPoint(x,y)?.closest?.("#s1answers368 .ans:not([disabled]),#s1next368:not([disabled]),#s1again368:not([disabled]),#s1back368:not([disabled])");if(e)return e;let b=null,d=1e9;buttons().forEach(e=>{let r=e.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dd=Math.hypot(x-cx,y-cy),inside=x>=r.left-CFG.pad&&x<=r.right+CFG.pad&&y>=r.top-CFG.pad&&y<=r.bottom+CFG.pad;if((inside||dd<CFG.magnet)&&dd<d){b=e;d=dd}});return b}
-function act(e,m){let z=Date.now();if(!e||e.disabled||z-last<CFG.cooldown)return;last=z;let l=(e.textContent||"").trim().replace(/\s+/g," ").slice(0,48);clear();try{e.focus({preventScroll:true})}catch(_){}e.click();status((m==="pinch"?"✓ Pinch เลือก: ":"✓ ชี้ค้างเลือก: ")+l)}
-function load(){return new Promise((yes,no)=>{if(window.Hands)return yes(window.Hands);let old=[...document.scripts].find(s=>(s.src||"").includes("@mediapipe/hands"));if(old){old.addEventListener("load",()=>window.Hands?yes(window.Hands):no(new Error("Hands API missing")),{once:true});old.addEventListener("error",()=>no(new Error("MediaPipe load failed")),{once:true});return}let s=document.createElement("script");s.src=SRC;s.async=true;s.crossOrigin="anonymous";s.onload=()=>window.Hands?yes(window.Hands):no(new Error("Hands API missing"));s.onerror=()=>no(new Error("MediaPipe load failed"));document.head.appendChild(s)})}
-async function start(force=false){ui();if(!open()||starting||(run&&!force))return;let v=vid();if(!v?.srcObject){status("Hand: กล้องยังไม่พร้อม • ใช้ mouse/touch ได้ทันที",true);return}starting=true;fails=0;let mine=++token;status("Hand: กำลังเปิดตัวตรวจจับ…");try{let Hands=await load();if(!open()||mine!==token)return;h=new Hands({locateFile:f=>`${BASE}/${f}`});h.setOptions({maxNumHands:1,modelComplexity:0,minDetectionConfidence:.42,minTrackingConfidence:.42});h.onResults(out);run=true;status("Hand Easy Mode: ยกมือให้อยู่กลางกล้อง • ชี้ค้าง 1.2 วินาที หรือหนีบนิ้วเพื่อเลือก");loop(mine)}catch(e){run=false;console.warn("[AIQuest S1 Hand] start failed",e);status("Hand เปิดไม่สำเร็จในเครื่องนี้ • ใช้ mouse/touch ได้ตามปกติ",true)}finally{starting=false}}
-async function loop(mine){if(!run||!open()||mine!==token)return;let v=vid();if(v?.readyState>=2&&h)try{await h.send({image:v});fails=0}catch(e){fails++;if(fails>=2){run=false;console.warn("[AIQuest S1 Hand] stopped after errors",e);status("Hand หยุดเพื่อป้องกันเกมค้าง • ใช้ mouse/touch ได้ตามปกติ",true);hide();return}}raf=requestAnimationFrame(()=>loop(mine))}
-function stop(){token++;run=false;starting=false;cancelAnimationFrame(raf);raf=0;xs=ys=null;lastPinch=false;hide();let e=$("s1hs394");if(e)e.style.display="none"}
-function out(r){if(!run||!open()){hide();return}let l=r.multiHandLandmarks?.[0];if(!l?.[8]||!l?.[4]){hide();status("Hand: ยังไม่พบมือ • ยกมือให้อยู่ในกรอบกล้อง");return}let i=l[8],u=l[4],rx=(1-i.x)*innerWidth,ry=i.y*innerHeight;xs=xs==null?rx:xs*.52+rx*.48;ys=ys==null?ry:ys*.52+ry*.48;let p=Math.hypot(i.x-u.x,i.y-u.y,(i.z||0)-(u.z||0))<CFG.pinch,c=$("s1hc394"),ring=$("s1hr394");c.style.display="block";c.style.left=xs+"px";c.style.top=ys+"px";c.classList.toggle("p",p);ring.style.display="block";ring.style.left=xs+"px";ring.style.top=ys+"px";let e=hit(xs,ys);if(!e){clear();status("Hand Easy Mode: เลื่อนปลายนิ้วเข้าใกล้ช่องคำตอบ");lastPinch=p;return}if(e!==t){clear();t=e;t0=Date.now();t.classList.add("hand-target-v368")}let d=Date.now()-t0;ring.style.setProperty("--p",Math.min(360,Math.round(d/CFG.dwell*360))+"deg");let lab=(e.textContent||"").trim().replace(/\s+/g," ").slice(0,50);status(p?`Hand: pinch เพื่อเลือก ${lab}`:`Hand Easy Mode: เล็ง “${lab}” • วงเต็มใน ${Math.max(0,(CFG.dwell-d)/1000).toFixed(1)} วิ`);if(p&&!lastPinch)act(e,"pinch");else if(d>=CFG.dwell)act(e,"dwell");lastPinch=p}
-function watch(){ui();let was=false;setInterval(()=>{let o=open();if(o&&!was){was=true;setTimeout(()=>start(false),700)}else if(!o&&was){was=false;stop()}},350)}
-window.AIQUEST_S1_HAND_HOTFIX={version:V,start,stop,config:CFG};document.readyState==="loading"?document.addEventListener("DOMContentLoaded",watch):watch();console.log("[AIQuest] "+V+" loaded")})();
+/* =========================================================
+   AI Quest S1 AR Hand Hotfix v4.0.6
+   Desktop: Hand Easy Mode remains available.
+   Phone: Touch-first Compact AR Assist; no automatic hand-tracking loop.
+========================================================= */
+(() => {
+  'use strict';
+
+  const V = 'v4.0.6-s1-hand-touch-first-mobile';
+  const VER = '0.4.1646424915';
+  const BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/hands@${VER}`;
+  const SRC = `${BASE}/hands.js`;
+  const $ = (id) => document.getElementById(id);
+  const CFG = {dwell:1850,cooldown:1400,pinch:.075,pad:34,magnet:92};
+
+  let hands = null;
+  let running = false;
+  let starting = false;
+  let raf = 0;
+  let lastPinch = false;
+  let target = null;
+  let targetAt = 0;
+  let lastAction = 0;
+  let smoothX = null;
+  let smoothY = null;
+  let failures = 0;
+  let token = 0;
+
+  const mobile = () => window.matchMedia?.('(max-width:600px)').matches;
+  const panel = () => $('s1ar368') || $('s1ar366') || $('s1ArPanelV366');
+  const video = () => $('s1video368') || $('s1arvideo366') || $('s1ArVideoV366');
+  const open = () => Boolean(panel()?.classList.contains('open'));
+
+  function css(){
+    if ($('s1hstyle406')) return;
+    const style = document.createElement('style');
+    style.id = 's1hstyle406';
+    style.textContent = `
+      .s1hc406{position:fixed;left:0;top:0;width:45px;height:45px;border:3px solid #67e8f9;border-radius:50%;z-index:100030;pointer-events:none;transform:translate(-50%,-50%);display:none;background:#02061722;box-shadow:0 0 0 11px #22d3ee2b,0 0 30px #22d3ee88}
+      .s1hc406.pinch{border-color:#86efac;box-shadow:0 0 0 14px #86efac44,0 0 36px #86efacaa}
+      .s1hr406{position:fixed;left:0;top:0;width:74px;height:74px;border-radius:50%;z-index:100029;pointer-events:none;transform:translate(-50%,-50%);display:none;background:conic-gradient(#86efac var(--p,0deg),#ffffff28 0deg);-webkit-mask:radial-gradient(circle,transparent 54%,#000 56%);mask:radial-gradient(circle,transparent 54%,#000 56%)}
+      .s1hs406{position:fixed;left:12px;top:calc(67px + env(safe-area-inset-top,0px));z-index:100031;display:none;max-width:min(92vw,620px);padding:9px 13px;border-radius:999px;color:#e0f2fe;background:#0f172aed;border:1px solid #ffffff33;font:900 12px system-ui;backdrop-filter:blur(12px)}
+      .s1retry406{margin-left:8px;padding:4px 8px;border-radius:999px;border:1px solid #67e8f977;background:#164e6388;color:#cffafe;font:800 11px system-ui;cursor:pointer}
+      @media(max-width:600px){.s1hs406,.s1hc406,.s1hr406{display:none!important}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ui(){
+    css();
+    [['s1hc406','s1hc406'],['s1hr406','s1hr406'],['s1hs406','s1hs406']].forEach(([id,className]) => {
+      if ($(id)) return;
+      const node = document.createElement('div');
+      node.id = id;
+      node.className = className;
+      document.body.appendChild(node);
+    });
+  }
+
+  function status(message,retry=false){
+    const node = $('s1hs406');
+    if (!node) return;
+    if (mobile()) { node.style.display = 'none'; return; }
+    node.style.display = open() ? 'block' : 'none';
+    node.textContent = message || '';
+    if (retry) {
+      const old = $('s1retry406');
+      if (old) old.remove();
+      const button = document.createElement('button');
+      button.id = 's1retry406';
+      button.className = 's1retry406';
+      button.type = 'button';
+      button.textContent = 'ลองตรวจมืออีกครั้ง';
+      button.onclick = () => start(true);
+      node.appendChild(button);
+    }
+  }
+
+  function clearTarget(){
+    target?.classList.remove('hand-target-v368');
+    target = null;
+    targetAt = 0;
+    $('s1hr406')?.style.setProperty('--p','0deg');
+  }
+
+  function hide(){
+    ['s1hc406','s1hr406'].forEach((id) => { const node = $(id); if (node) node.style.display = 'none'; });
+    clearTarget();
+  }
+
+  function buttons(){
+    return [
+      ...document.querySelectorAll('#s1answers368 .ans:not([disabled])'),
+      $('s1next368'),$('s1again368'),$('s1back368')
+    ].filter((node) => node && !node.disabled && node.offsetParent !== null);
+  }
+
+  function hit(x,y){
+    const direct = document.elementFromPoint(x,y)?.closest?.('#s1answers368 .ans:not([disabled]),#s1next368:not([disabled]),#s1again368:not([disabled]),#s1back368:not([disabled])');
+    if (direct) return direct;
+    let nearest = null;
+    let best = Infinity;
+    buttons().forEach((button) => {
+      const rect = button.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const distance = Math.hypot(x-centerX,y-centerY);
+      const nearby = x >= rect.left-CFG.pad && x <= rect.right+CFG.pad && y >= rect.top-CFG.pad && y <= rect.bottom+CFG.pad;
+      if ((nearby || distance < CFG.magnet) && distance < best) { nearest = button; best = distance; }
+    });
+    return nearest;
+  }
+
+  function activate(button,mode){
+    const now = Date.now();
+    if (!button || button.disabled || now-lastAction < CFG.cooldown) return;
+    lastAction = now;
+    const label = String(button.textContent || '').trim().replace(/\s+/g,' ').slice(0,48);
+    clearTarget();
+    try { button.focus({preventScroll:true}); } catch (_) {}
+    button.click();
+    status((mode === 'pinch' ? '✓ Pinch เลือก: ' : '✓ ชี้ค้างเลือก: ') + label);
+  }
+
+  function load(){
+    return new Promise((resolve,reject) => {
+      if (window.Hands) return resolve(window.Hands);
+      const prior = [...document.scripts].find((script) => String(script.src || '').includes('@mediapipe/hands'));
+      if (prior) {
+        prior.addEventListener('load',() => window.Hands ? resolve(window.Hands) : reject(new Error('Hands API missing')),{once:true});
+        prior.addEventListener('error',() => reject(new Error('MediaPipe load failed')),{once:true});
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = SRC;
+      script.async = true;
+      script.crossOrigin = 'anonymous';
+      script.onload = () => window.Hands ? resolve(window.Hands) : reject(new Error('Hands API missing'));
+      script.onerror = () => reject(new Error('MediaPipe load failed'));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function start(force=false){
+    ui();
+    if (mobile() && !force) return; // Phone stays touch-first unless a future explicit hand button calls force=true.
+    if (!open() || starting || (running && !force)) return;
+    const node = video();
+    if (!node?.srcObject || node.readyState < 2) {
+      status('Hand: กล้องยังไม่พร้อม • ใช้ mouse/touch ได้ทันที',true);
+      return;
+    }
+    starting = true;
+    failures = 0;
+    const mine = ++token;
+    status('Hand: กำลังเปิดตัวตรวจจับ…');
+    try {
+      const Hands = await load();
+      if (!open() || mine !== token) return;
+      hands = new Hands({locateFile:(file) => `${BASE}/${file}`});
+      hands.setOptions({maxNumHands:1,modelComplexity:0,minDetectionConfidence:.42,minTrackingConfidence:.42});
+      hands.onResults(results);
+      running = true;
+      status('Hand Easy Mode: ยกมือให้อยู่กลางกล้อง • ชี้ค้าง 1.8 วินาที หรือหนีบนิ้วเพื่อเลือก');
+      loop(mine);
+    } catch (error) {
+      running = false;
+      console.warn('[AIQuest S1 Hand] start failed',error);
+      status('Hand เปิดไม่สำเร็จในเครื่องนี้ • ใช้ mouse/touch ได้ตามปกติ',true);
+    } finally {
+      starting = false;
+    }
+  }
+
+  async function loop(mine){
+    if (!running || !open() || mine !== token) return;
+    const node = video();
+    try {
+      if (node?.readyState >= 2 && hands) await hands.send({image:node});
+      failures = 0;
+    } catch (error) {
+      failures++;
+      if (failures >= 2) {
+        running = false;
+        console.warn('[AIQuest S1 Hand] stopped after errors',error);
+        status('Hand หยุดเพื่อป้องกันเกมค้าง • ใช้ mouse/touch ได้ตามปกติ',true);
+        hide();
+        return;
+      }
+    }
+    raf = requestAnimationFrame(() => loop(mine));
+  }
+
+  function results(output){
+    if (!running || !open()) { hide(); return; }
+    const landmarks = output.multiHandLandmarks?.[0];
+    if (!landmarks?.[8] || !landmarks?.[4]) {
+      hide();
+      status('Hand: ยังไม่พบมือ • ยกมือให้อยู่ในกรอบกล้อง');
+      return;
+    }
+    const indexTip = landmarks[8];
+    const thumbTip = landmarks[4];
+    const rawX = (1-indexTip.x)*innerWidth;
+    const rawY = indexTip.y*innerHeight;
+    smoothX = smoothX == null ? rawX : smoothX*.52 + rawX*.48;
+    smoothY = smoothY == null ? rawY : smoothY*.52 + rawY*.48;
+    const pinching = Math.hypot(indexTip.x-thumbTip.x,indexTip.y-thumbTip.y,(indexTip.z||0)-(thumbTip.z||0)) < CFG.pinch;
+    const cursor = $('s1hc406');
+    const ring = $('s1hr406');
+    cursor.style.display = 'block';
+    cursor.style.left = smoothX+'px';
+    cursor.style.top = smoothY+'px';
+    cursor.classList.toggle('pinch',pinching);
+    ring.style.display = 'block';
+    ring.style.left = smoothX+'px';
+    ring.style.top = smoothY+'px';
+    const button = hit(smoothX,smoothY);
+    if (!button) {
+      clearTarget();
+      status('Hand Easy Mode: เลื่อนปลายนิ้วเข้าใกล้ช่องคำตอบ');
+      lastPinch = pinching;
+      return;
+    }
+    if (button !== target) {
+      clearTarget();
+      target = button;
+      targetAt = Date.now();
+      target.classList.add('hand-target-v368');
+    }
+    const elapsed = Date.now()-targetAt;
+    ring.style.setProperty('--p',Math.min(360,Math.round(elapsed/CFG.dwell*360))+'deg');
+    const label = String(button.textContent || '').trim().replace(/\s+/g,' ').slice(0,50);
+    status(pinching ? `Hand: pinch เพื่อเลือก ${label}` : `Hand Easy Mode: เล็ง “${label}” • วงเต็มใน ${Math.max(0,(CFG.dwell-elapsed)/1000).toFixed(1)} วิ`);
+    if (pinching && !lastPinch) activate(button,'pinch');
+    else if (elapsed >= CFG.dwell) activate(button,'dwell');
+    lastPinch = pinching;
+  }
+
+  function stop(){
+    token++;
+    running = false;
+    starting = false;
+    cancelAnimationFrame(raf);
+    raf = 0;
+    smoothX = null;
+    smoothY = null;
+    lastPinch = false;
+    hide();
+    const node = $('s1hs406');
+    if (node) node.style.display = 'none';
+  }
+
+  function watch(){
+    ui();
+    let wasOpen = false;
+    setInterval(() => {
+      const active = open();
+      if (active && !wasOpen) {
+        wasOpen = true;
+        if (!mobile()) setTimeout(() => start(false),700);
+      } else if (!active && wasOpen) {
+        wasOpen = false;
+        stop();
+      }
+    },350);
+  }
+
+  window.AIQUEST_S1_HAND_HOTFIX = {version:V,start,stop,config:CFG};
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',watch);
+  else watch();
+  console.log('[AIQuest] '+V+' loaded');
+})();
