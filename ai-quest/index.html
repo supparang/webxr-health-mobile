@@ -1872,8 +1872,18 @@ async function saveStudentProfile(){
       }
     }
 
+    function keepARRuntimeForDirectStage(id){
+      const q = new URLSearchParams(location.search);
+      const session = String(q.get('session') || q.get('mission') || '').toLowerCase();
+      const ar = String(q.get('ar') || q.get('mode') || '').toLowerCase();
+      const isS1Ar = (id === 'm1') && (session === 's1' || session === 'm1') &&
+        ['hand','scanner','object','camera','practice','ar'].includes(ar);
+      const isS2Ar = (id === 'm2') && (session === 's2' || session === 'm2') && ar === 'agent';
+      return isS1Ar || isS2Ar;
+    }
+
     function startMission(id){
-      if(window.AIQuestARRuntime){
+      if(window.AIQuestARRuntime && !keepARRuntimeForDirectStage(id)){
         window.AIQuestARRuntime.leave('start-main-mission');
       }
   const stage = stageById(id);
@@ -6107,6 +6117,44 @@ function logEvent(data){
         };
       })();
 
+
+
+      /* PATCH v4.0.5 — Preserve S2 AR Agent Builder evidence in the same slim payload.
+       * S2 AR remains supplementary and never replaces S2 main score/accuracy. */
+      const s2ArPractice = (function(){
+        const key = String(src.sessionId || src.missionId || '').toLowerCase().replace(/[\s_\-:]+/g,'');
+        if(key !== 's2' && key !== 'm2' && key !== 'session2' && key !== 'mission2') return null;
+
+        let ar = extra && extra.s2ArPractice ? extra.s2ArPractice : (src.s2ArPractice || window.AIQUEST_S2_AR_RESULT || null);
+        if(!ar){
+          try{
+            ar = JSON.parse(localStorage.getItem('AIQUEST_S2_AR_RESULT_V401') || 'null');
+          }catch(_){ ar = null; }
+        }
+        if(!ar || !(ar.arCompleted || ar.completed)) return null;
+
+        const total = Number(ar.total || ar.arTotal || 0);
+        const correct = Number(ar.correct || ar.arCorrect || 0);
+        const score = Math.round(Number(
+          ar.score ?? ar.arScore ?? ar.accuracy ?? ar.arAccuracy ?? (total ? correct * 100 / total : 0)
+        ));
+
+        return {
+          activity:'S2 AR Practice: Agent Builder',
+          supplementary:true,
+          completed:true,
+          score:score,
+          accuracy:score,
+          correct:correct,
+          total:total,
+          helpUsed:Number(ar.helpUsed || ar.arHelpUsed || 0),
+          usedSec:Number(ar.usedSec || ar.arUsedSec || 0),
+          inputMode:String(ar.inputMode || ar.arInputMode || 'easy_hand_or_mouse_touch'),
+          arVersion:String(ar.version || ar.arVersion || ''),
+          completedAt:String(ar.completedAt || ar.finishedAt || new Date().toISOString())
+        };
+      })();
+
       return {
         attemptId: src.attemptId || ('att_' + Date.now()),
         ts: src.ts || src.timestamp || new Date().toISOString(),
@@ -6139,7 +6187,8 @@ function logEvent(data){
           syncMode:'payload_slim',
           wrongItems,
           summary:String(extra.summary || src.summary || '').slice(0,500),
-          ...(s1ArPractice ? {s1ArPractice:s1ArPractice} : {})
+          ...(s1ArPractice ? {s1ArPractice:s1ArPractice} : {}),
+          ...(s2ArPractice ? {s2ArPractice:s2ArPractice} : {})
         }
       };
     }
@@ -6155,6 +6204,7 @@ function logEvent(data){
         correct: slimAttempt.correct,
         total: slimAttempt.total,
         s1ArPractice: !!(slimAttempt.extraJson && slimAttempt.extraJson.s1ArPractice),
+        s2ArPractice: !!(slimAttempt.extraJson && slimAttempt.extraJson.s2ArPractice),
         approxBytes: JSON.stringify(slimAttempt).length
       });
 
@@ -6680,8 +6730,11 @@ loadProfileToForm();
   else addTeacherLink();
 })();
 </script>
-<!-- AI Quest AR Runtime v4.0.0: lazy-load only the requested S1/S2 AR engine -->
-<script src="./js/aiquest-ar-runtime-v400.js?v=20260628-ar-runtime400"></script>
+<!-- AI Quest AR v4.0.5: normalize legacy S2 URL first, then lazy-load the requested engine. -->
+<script src="./js/aiquest-s2-ar-route-fix-v386.js?v=20260629-s2route386"></script>
+<script src="./js/aiquest-ar-runtime-v405.js?v=20260629-ar-runtime405"></script>
+<script src="./js/aiquest-s1-ar-entry-v387.js?v=20260629-s1entry387"></script>
+<script src="./js/aiquest-s2-ar-entry-v405.js?v=20260629-s2entry405"></script>
 
 </body>
 </html>

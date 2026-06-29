@@ -1,0 +1,47 @@
+{
+  "bundle": "AI Quest AR Complete v4.0.5",
+  "created": "2026-06-29",
+  "scope": "Full replacement files for the current S1/S2 AR integration release",
+  "files": [
+    {
+      "path": "README-DEPLOY-AND-TEST.md",
+      "bytes": 2067,
+      "sha256": "eb72f15e713d3af6035fb7dc6c758faa5acc626da3bb439d1aba65b8c3f8594f"
+    },
+    {
+      "path": "ai-quest/index.html",
+      "bytes": 244412,
+      "sha256": "6034ee06e83fdc25dda375c9bfa1790015ab9c2c85e0d072114314eb6bb12bd1"
+    },
+    {
+      "path": "ai-quest/js/aiquest-ar-final-route-v401.js",
+      "bytes": 945,
+      "sha256": "8ca1849196d82b2f20a0e275236c4aa76e478fa0e58f4f2cf40d23616b0728be"
+    },
+    {
+      "path": "ai-quest/js/aiquest-ar-runtime-v405.js",
+      "bytes": 10129,
+      "sha256": "65d0a0e04c2f27fceffae04559f1623f9a35b2c004638b209aab209d3c47bae2"
+    },
+    {
+      "path": "ai-quest/js/aiquest-s1-ar-entry-v387.js",
+      "bytes": 4121,
+      "sha256": "7ac099b8c98e852ab1d0764653ab42c554bca1dc9c6b409e406b665d5d5834e7"
+    },
+    {
+      "path": "ai-quest/js/aiquest-s2-ar-entry-v405.js",
+      "bytes": 3877,
+      "sha256": "3c0fc8c7875e987dcac57f8b0250d828e39e9c01b2f0b69d841f4963fa775e54"
+    },
+    {
+      "path": "ai-quest/js/aiquest-s2-ar-practice-v405.js",
+      "bytes": 22670,
+      "sha256": "f918d094386d741d8f3faead7ab30b0496d6d8879b6ea33ba009194e7edfe40b"
+    },
+    {
+      "path": "ai-quest/js/aiquest-s2-ar-route-fix-v386.js",
+      "bytes": 734,
+      "sha256": "22bba7c496e9f6f6e1b4bac24651065b869fb50edda1040882ac206ce56f9264"
+    }
+  ]
+}
