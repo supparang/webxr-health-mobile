@@ -1,85 +1,100 @@
 /* =========================================================
-   CSAI2102 AI Quest — S1 AR Result Bridge + Auto Event Sync
+   CSAI2102 AI Quest — S1 AR Result Bridge + Auto Event Sync v4.0.7
    File: /ai-quest/js/aiquest-s1-ar-result-bridge-v369.js
-   Version: v3.7.3-s1-ar-auto-event-sync
 
-   Design:
-   - AR is supplementary; never changes S1 main grade/accuracy.
-   - On AR completion, sends one `s1_ar_complete` EVENT to Google Sheets.
-   - Teacher reads that event separately from normal S1 attempts.
+   Keeps the legacy AR runtime path working while using the same singleton,
+   receipt key, and stable delivery ID as the current S1 bridge.
 ========================================================= */
 (() => {
-  "use strict";
+  'use strict';
 
-  const VERSION = "v3.7.3-s1-ar-auto-event-sync";
+  const VERSION = 'v4.0.7-s1-ar-legacy-route-dedup-sync';
+  const SINGLETON_KEY = '__AIQUEST_S1_AR_BRIDGE_SINGLETON__';
+  const existing = window[SINGLETON_KEY];
+
+  if (existing?.active) {
+    console.log('[AIQuest S1 AR Sync] duplicate legacy bridge skipped');
+    return;
+  }
+
+  const runtime = { active: true, timer: null };
+  window[SINGLETON_KEY] = runtime;
+
   const RESULT_KEYS = [
-    "AIQUEST_S1_AR_RESULT_V368",
-    "AIQUEST_S1_AR_RESULT_V366",
-    "AIQUEST_S1_AR_RESULT_V365B",
-    "AIQUEST_S1_AR_PRACTICE_RESULT_V365"
+    'AIQUEST_S1_AR_RESULT_V368',
+    'AIQUEST_S1_AR_RESULT_V366',
+    'AIQUEST_S1_AR_RESULT_V365B',
+    'AIQUEST_S1_AR_PRACTICE_RESULT_V365'
   ];
-  const EVENT_SYNC_KEY = "AIQUEST_S1_AR_EVENT_SYNC_V373";
-  const FALLBACK_ENDPOINT = "https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec";
-  const $ = (id) => document.getElementById(id);
+  const RECEIPT_KEY = 'AIQUEST_S1_AR_EVENT_SYNC_V406';
+  const LEGACY_RECEIPT_KEY = 'AIQUEST_S1_AR_EVENT_SYNC_V373';
+  const FALLBACK_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 
-  let syncBusy = false;
-  let lastVisualSignature = "";
+  let busy = false;
+  let lastVisualSignature = '';
 
   function asObject(value) {
     if (!value) return {};
-    if (typeof value === "object") return value;
-    try { return JSON.parse(value); } catch (_) { return {}; }
+    if (typeof value === 'object') return value;
+    try { return JSON.parse(value); }
+    catch (_) { return {}; }
+  }
+
+  function readJson(key) {
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); }
+    catch (_) { return null; }
+  }
+
+  function writeJson(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value || {})); }
+    catch (_) {}
   }
 
   function getArResult() {
-    const direct = window.AIQUEST_S1_AR_RESULT ||
-      window.AIQUEST_S1_AR_PRACTICE?.getResult?.();
-
-    if (direct && typeof direct === "object" && direct.arCompleted) return direct;
+    const direct = window.AIQUEST_S1_AR_RESULT || window.AIQUEST_S1_AR_PRACTICE?.getResult?.();
+    if (direct?.arCompleted && (direct.sessionId === 's1' || direct.missionId === 'm1')) return direct;
 
     for (const key of RESULT_KEYS) {
-      try {
-        const item = JSON.parse(localStorage.getItem(key) || "null");
-        if (item && item.arCompleted && (item.sessionId === "s1" || item.missionId === "m1")) return item;
-      } catch (_) {}
+      const item = readJson(key);
+      if (item?.arCompleted && (item.sessionId === 's1' || item.missionId === 'm1')) return item;
     }
     return null;
   }
 
   function sessionKey(value) {
-    const raw = String(value || "").toLowerCase().replace(/[\s_\-:]+/g, "");
-    if (["s1", "m1", "session1", "mission1", "aiawakening"].includes(raw)) return "s1";
+    const raw = String(value || '').toLowerCase().replace(/[\s_\-:]+/g, '');
+    if (['s1', 'm1', 'session1', 'mission1', 'aiawakening'].includes(raw)) return 's1';
     return raw;
   }
 
   function isS1(attempt) {
     const src = attempt || {};
-    return sessionKey(src.sessionId) === "s1" ||
-      sessionKey(src.missionId) === "s1" ||
-      sessionKey(src.missionId) === "m1";
+    return sessionKey(src.sessionId) === 's1' ||
+      sessionKey(src.missionId) === 's1' ||
+      sessionKey(src.missionId) === 'm1';
   }
 
   function evidence() {
     const ar = getArResult();
-    if (!ar || !ar.arCompleted) return null;
+    if (!ar?.arCompleted) return null;
 
-    const total = Number(ar.total || 0);
-    const correct = Number(ar.correct || 0);
-    const score = Math.round(Number(ar.arScore ?? ar.accuracy ?? (total ? correct * 100 / total : 0)));
+    const total = Number(ar.total || ar.arTotal || 0);
+    const correct = Number(ar.correct || ar.arCorrect || 0);
+    const score = Math.round(Number(ar.arScore ?? ar.score ?? ar.accuracy ?? (total ? correct * 100 / total : 0)));
 
     return {
-      activity: "S1 AR Practice: AI Object Scanner",
+      activity: 'S1 AR Practice: AI Object Scanner',
       supplementary: true,
       completed: true,
       score,
       accuracy: score,
       correct,
       total,
-      helpUsed: Number(ar.helpUsed || 0),
-      usedSec: Number(ar.usedSec || 0),
-      inputMode: String(ar.inputMode || ar.arInputMode || "hand_or_mouse_touch"),
-      arVersion: ar.version || "",
-      completedAt: ar.finishedAt || new Date().toISOString()
+      helpUsed: Number(ar.helpUsed || ar.arHelpUsed || 0),
+      usedSec: Number(ar.usedSec || ar.arUsedSec || 0),
+      inputMode: String(ar.inputMode || ar.arInputMode || 'hand_or_mouse_touch'),
+      arVersion: String(ar.version || ar.arVersion || ''),
+      completedAt: String(ar.finishedAt || ar.completedAt || new Date().toISOString())
     };
   }
 
@@ -87,36 +102,46 @@
     const direct = window.AIQuestStorage?.getProfile?.() || {};
     if (direct.studentId) return direct;
 
-    // Safe fallback for the existing AI Quest profile storage formats.
     try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i) || "";
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i) || '';
         if (!/aiquest|profile|classroom/i.test(key)) continue;
-        const candidate = JSON.parse(localStorage.getItem(key) || "null");
-        if (candidate && candidate.studentId) return candidate;
+        const candidate = readJson(key);
+        if (candidate?.studentId) return candidate;
       }
     } catch (_) {}
     return {};
   }
 
-  function syncSignature(ar) {
+  function signature(ar) {
     return [
-      ar.completedAt || "",
-      ar.score || 0,
-      ar.correct || 0,
-      ar.total || 0,
-      ar.helpUsed || 0
-    ].join("|");
+      ar?.completedAt || '',
+      ar?.score || 0,
+      ar?.correct || 0,
+      ar?.total || 0,
+      ar?.helpUsed || 0,
+      ar?.usedSec || 0,
+      ar?.inputMode || ''
+    ].join('|');
   }
 
-  function readSyncState() {
-    try { return JSON.parse(localStorage.getItem(EVENT_SYNC_KEY) || "{}"); }
-    catch (_) { return {}; }
+  function hash(value) {
+    let output = 2166136261;
+    const text = String(value || '');
+    for (let i = 0; i < text.length; i += 1) {
+      output ^= text.charCodeAt(i);
+      output = Math.imul(output, 16777619);
+    }
+    return (output >>> 0).toString(36);
   }
 
-  function writeSyncState(state) {
-    try { localStorage.setItem(EVENT_SYNC_KEY, JSON.stringify(state || {})); }
-    catch (_) {}
+  function deliveryKey(ar, profile) {
+    return [
+      's1_ar_complete',
+      String(profile?.studentId || ''),
+      String(profile?.section || '101'),
+      signature(ar)
+    ].join('|');
   }
 
   function endpoint() {
@@ -124,12 +149,9 @@
     return config.appsScriptUrl || FALLBACK_ENDPOINT;
   }
 
-  function makeId(prefix) {
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  }
-
   function eventPayload(ar, profile) {
-    const eventId = makeId("s1ar");
+    const key = deliveryKey(ar, profile);
+    const token = hash(key);
     const trace = {
       activity: ar.activity,
       supplementary: true,
@@ -142,118 +164,62 @@
       usedSec: ar.usedSec,
       inputMode: ar.inputMode,
       arVersion: ar.arVersion,
-      completedAt: ar.completedAt
+      completedAt: ar.completedAt,
+      deliveryKey: key
     };
 
     const rawEvent = {
-      eventId,
-      attemptId: `s1_ar_practice_${String(profile.studentId || "anon")}_${Date.now()}`,
-      studentId: String(profile.studentId || ""),
-      sessionId: "s1",
-      missionId: "m1",
-      runMode: "practice",
-      eventType: "s1_ar_complete",
-      phase: "S1 AR Practice",
-      itemId: "ai_object_scanner",
-      prompt: "S1 AR Practice: AI Object Scanner",
-      // teacherConsole already returns `yourAnswer`, so this is deliberate and safe.
+      eventId: `s1ar_${token}`,
+      attemptId: `s1_ar_practice_${String(profile.studentId || 'anon')}_${token}`,
+      studentId: String(profile.studentId || ''),
+      studentName: String(profile.studentName || profile.name || ''),
+      section: String(profile.section || '101'),
+      sessionId: 's1',
+      missionId: 'm1',
+      runMode: 'practice',
+      eventType: 's1_ar_complete',
+      phase: 'S1 AR Practice',
+      itemId: 'ai_object_scanner',
+      prompt: 'S1 AR Practice: AI Object Scanner',
       yourAnswer: JSON.stringify(trace),
-      correctAnswer: "completed",
+      correctAnswer: 'completed',
       isCorrect: true,
       scoreDelta: Number(ar.score || 0),
       combo: Number(ar.correct || 0),
       helpLeft: Math.max(0, 3 - Number(ar.helpUsed || 0)),
       clientTs: ar.completedAt,
-      extraJson: {
-        eventKind: "s1_ar_practice",
-        s1ArPractice: trace
-      }
+      extraJson: { eventKind: 's1_ar_practice', deliveryKey: key, s1ArPractice: trace }
     };
 
     return window.AIQuestDataContract?.buildEvent
       ? window.AIQuestDataContract.buildEvent(rawEvent, {
           attemptId: rawEvent.attemptId,
           studentId: rawEvent.studentId,
-          sessionId: "s1",
-          missionId: "m1"
+          sessionId: 's1',
+          missionId: 'm1'
         })
       : rawEvent;
   }
 
-  async function autoSyncArEvent() {
-    const ar = evidence();
-    if (!ar || syncBusy) return false;
-
-    const signature = syncSignature(ar);
-    const state = readSyncState();
-    if (state.signature === signature && state.status === "queued") return true;
-
-    const profile = getProfile();
-    if (!profile.studentId) {
-      console.warn("[AIQuest S1 AR Sync] profile missing; AR evidence remains local");
-      return false;
-    }
-
-    const url = endpoint();
-    if (!url) {
-      console.warn("[AIQuest S1 AR Sync] Apps Script endpoint missing");
-      return false;
-    }
-
-    const event = eventPayload(ar, profile);
-    const body = JSON.stringify({ action: "sync_v23", kind: "event", payload: event });
-
-    syncBusy = true;
-    try {
-      // text/plain + no-cors avoids a browser preflight while Apps Script still parses JSON body.
-      await fetch(url, {
-        method: "POST",
-        mode: "no-cors",
-        cache: "no-store",
-        keepalive: true,
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
-        body
-      });
-
-      writeSyncState({
-        signature,
-        status: "queued",
-        eventId: event.eventId,
-        studentId: String(profile.studentId),
-        queuedAt: new Date().toISOString()
-      });
-
-      console.log("[AIQuest S1 AR Sync] queued s1_ar_complete event", {
-        eventId: event.eventId,
-        studentId: profile.studentId,
-        score: ar.score,
-        correct: ar.correct,
-        total: ar.total
-      });
-
-      window.dispatchEvent(new CustomEvent("aiquest:s1-ar-event-queued", {
-        detail: { event, evidence: ar }
-      }));
+  function recoverLegacyReceipt(sig) {
+    const legacy = readJson(LEGACY_RECEIPT_KEY) || {};
+    if (legacy.signature === sig && legacy.status === 'queued') {
+      writeJson(RECEIPT_KEY, { ...legacy, bridge: VERSION, recoveredFrom: LEGACY_RECEIPT_KEY });
       return true;
-    } catch (error) {
-      console.warn("[AIQuest S1 AR Sync] event send failed", error);
-      return false;
-    } finally {
-      syncBusy = false;
     }
+    return false;
   }
 
-  // Retained for normal S1 submissions: adds AR evidence into the related S1 attempt,
-  // but AR event sync does not require a normal S1 attempt to be created.
+  // Retained for normal S1 submissions; AR is still supplementary only.
   function decorate(attempt) {
-    if (!attempt || typeof attempt !== "object" || !isS1(attempt)) return attempt;
+    if (!attempt || typeof attempt !== 'object' || !isS1(attempt)) return attempt;
     const ar = evidence();
     if (!ar) return attempt;
 
     const extra = asObject(attempt.extraJson);
     if (extra.s1ArPractice?.completedAt === ar.completedAt) return attempt;
 
-    const next = {
+    return {
       ...attempt,
       arCompleted: true,
       arActivity: ar.activity,
@@ -267,100 +233,174 @@
       arInputMode: ar.inputMode,
       extraJson: { ...extra, s1ArPractice: ar }
     };
-
-    console.log("[AIQuest S1 AR Bridge] attached AR evidence to S1 attempt", {
-      sessionId: next.sessionId,
-      missionId: next.missionId,
-      arScore: next.arScore
-    });
-    return next;
   }
 
   function wrap(owner, method, label) {
-    if (!owner || typeof owner[method] !== "function") return;
+    if (!owner || typeof owner[method] !== 'function') return;
     const original = owner[method];
-    if (original.__s1ArBridgeV373) return;
+    if (original.__s1ArBridgeV407) return;
 
     function wrapped(attempt, ...rest) {
       return original.call(this, decorate(attempt), ...rest);
     }
-    wrapped.__s1ArBridgeV373 = true;
+    wrapped.__s1ArBridgeV407 = true;
     owner[method] = wrapped;
-    console.log("[AIQuest S1 AR Bridge] wrapped", label);
+    console.log('[AIQuest S1 AR Bridge] wrapped', label);
   }
 
   function installAttemptBridge() {
-    wrap(window.AIQuestSync, "submitAttempt", "AIQuestSync.submitAttempt");
-    wrap(window.AIQuestCloudLogger, "sendAttempt", "AIQuestCloudLogger.sendAttempt");
-    ["saveAttempt", "addAttempt", "storeAttempt"].forEach((method) => {
+    wrap(window.AIQuestSync, 'submitAttempt', 'AIQuestSync.submitAttempt');
+    wrap(window.AIQuestCloudLogger, 'sendAttempt', 'AIQuestCloudLogger.sendAttempt');
+    ['saveAttempt', 'addAttempt', 'storeAttempt'].forEach((method) => {
       wrap(window.AIQuestStorage, method, `AIQuestStorage.${method}`);
     });
   }
 
-  function renderStatus() {
-    const old = $("s1ArBridgeStatusV369");
-    if (old) old.remove();
+  function statusHost() {
+    return document.getElementById('aiquestS1ArEntryV387') ||
+      document.getElementById('s1entry368') ||
+      document.getElementById('s1arentry368') ||
+      document.getElementById('s1arentry366');
+  }
 
+  function renderStatus(message, tone) {
+    const host = statusHost();
+    if (!host) return;
+
+    let box = document.getElementById('s1ArBridgeStatusV369');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 's1ArBridgeStatusV369';
+      box.style.cssText = 'clear:both;margin-top:12px;padding:10px 12px;border-radius:14px;font-size:12px;line-height:1.45;font-weight:800';
+      host.appendChild(box);
+    }
+
+    const good = tone === 'good';
+    box.style.background = good ? 'rgba(16,185,129,.13)' : 'rgba(34,211,238,.12)';
+    box.style.border = `1px solid ${good ? 'rgba(16,185,129,.30)' : 'rgba(34,211,238,.28)'}`;
+    box.style.color = good ? '#bbf7d0' : '#cffafe';
+    box.innerHTML = message;
+  }
+
+  function renderReceipt() {
     const ar = evidence();
-    const entry = $("s1entry368") || $("s1arentry368") || $("s1arentry366");
-    if (!entry || !ar) return;
+    if (!ar) return;
+    const receipt = readJson(RECEIPT_KEY) || {};
+    const ok = receipt.signature === signature(ar) && receipt.status === 'queued';
 
-    const state = readSyncState();
-    const syncOk = state.signature === syncSignature(ar) && state.status === "queued";
-    const status = document.createElement("div");
-    status.id = "s1ArBridgeStatusV369";
-    status.style.cssText = [
-      "clear:both", "margin-top:12px", "padding:10px 12px", "border-radius:14px",
-      `background:${syncOk ? "rgba(16,185,129,.13)" : "rgba(34,211,238,.12)"}`,
-      `border:1px solid ${syncOk ? "rgba(16,185,129,.30)" : "rgba(34,211,238,.28)"}`,
-      `color:${syncOk ? "#bbf7d0" : "#cffafe"}`,
-      "font-size:12px", "line-height:1.45", "font-weight:800"
-    ].join(";");
+    renderStatus(
+      ok
+        ? `<strong>✓ ส่ง AR Practice แล้ว: ${ar.correct}/${ar.total} • ${ar.score}%</strong><br>Teacher Dashboard จะแสดงเป็นกิจกรรมเสริมหลัง Refresh`
+        : `<strong>AR Practice ล่าสุด: ${ar.correct}/${ar.total} • ${ar.score}%</strong><br>กำลังเตรียมส่งหลักฐานกิจกรรมเสริมไปยัง Teacher Dashboard`,
+      ok ? 'good' : 'warn'
+    );
+  }
 
-    status.innerHTML = syncOk
-      ? `<strong>✓ ส่ง AR Practice แล้ว: ${ar.correct}/${ar.total} • ${ar.score}%</strong><br>Teacher Dashboard จะแสดงเป็นกิจกรรมเสริมหลัง Refresh`
-      : `<strong>AR Practice ล่าสุด: ${ar.correct}/${ar.total} • ${ar.score}%</strong><br>กำลังเตรียมส่งหลักฐานกิจกรรมเสริมไปยัง Teacher Dashboard`;
-    entry.appendChild(status);
+  async function autoSyncArEvent() {
+    const ar = evidence();
+    if (!ar || busy || !runtime.active) return false;
+
+    const sig = signature(ar);
+    const receipt = readJson(RECEIPT_KEY) || {};
+    if (receipt.signature === sig && (receipt.status === 'sending' || receipt.status === 'queued')) return true;
+    if (recoverLegacyReceipt(sig)) return true;
+
+    const profile = getProfile();
+    if (!profile.studentId) {
+      console.warn('[AIQuest S1 AR Sync] profile missing; AR evidence remains local');
+      return false;
+    }
+
+    const url = endpoint();
+    if (!url) {
+      console.warn('[AIQuest S1 AR Sync] Apps Script endpoint missing');
+      return false;
+    }
+
+    const event = eventPayload(ar, profile);
+    busy = true;
+    writeJson(RECEIPT_KEY, {
+      signature: sig,
+      status: 'sending',
+      eventId: event.eventId,
+      studentId: String(profile.studentId),
+      queuedAt: new Date().toISOString(),
+      bridge: VERSION
+    });
+    renderStatus('<strong>กำลังส่งหลักฐาน S1 AR…</strong>', 'warn');
+
+    try {
+      await fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        cache: 'no-store',
+        keepalive: true,
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify({ action: 'sync_v23', kind: 'event', payload: event })
+      });
+
+      writeJson(RECEIPT_KEY, {
+        signature: sig,
+        status: 'queued',
+        eventId: event.eventId,
+        studentId: String(profile.studentId),
+        queuedAt: new Date().toISOString(),
+        bridge: VERSION
+      });
+      renderReceipt();
+      window.dispatchEvent(new CustomEvent('aiquest:s1-ar-event-queued', { detail: { event, evidence: ar, bridge: VERSION } }));
+      console.log('[AIQuest S1 AR Sync] queued one deduplicated s1_ar_complete event', event.eventId);
+      return true;
+    } catch (error) {
+      console.warn('[AIQuest S1 AR Sync] event send failed', error);
+      writeJson(RECEIPT_KEY, {
+        signature: sig,
+        status: 'failed',
+        eventId: event.eventId,
+        studentId: String(profile.studentId),
+        failedAt: new Date().toISOString(),
+        bridge: VERSION
+      });
+      renderStatus('<strong>S1 AR ส่งไม่สำเร็จในขณะนี้</strong><br>ระบบจะลองใหม่เมื่อเปิดหน้านี้อีกครั้ง', 'warn');
+      return false;
+    } finally {
+      busy = false;
+    }
   }
 
   function tick() {
+    if (!runtime.active) return;
     installAttemptBridge();
 
     const ar = evidence();
-    const signature = ar ? syncSignature(ar) : "";
-    if (signature !== lastVisualSignature) {
-      lastVisualSignature = signature;
-      renderStatus();
+    const sig = ar ? signature(ar) : '';
+    if (sig !== lastVisualSignature) {
+      lastVisualSignature = sig;
+      renderReceipt();
     }
 
-    if (ar) {
-      autoSyncArEvent().then((ok) => {
-        if (ok) renderStatus();
-      });
-    }
+    if (ar) autoSyncArEvent().then((ok) => { if (ok) renderReceipt(); });
   }
 
   function boot() {
     tick();
-    setInterval(tick, 900);
-    window.addEventListener("aiquest:s1-ar-start", () => {
-      // New run means the local result will be replaced only when it finishes.
-      lastVisualSignature = "";
-    });
+    runtime.timer = setInterval(tick, 900);
+    window.addEventListener('aiquest:s1-ar-start', () => { lastVisualSignature = ''; });
+    window.addEventListener('aiquest:s1-ar-complete', () => { lastVisualSignature = ''; tick(); });
   }
 
-  window.AIQUEST_S1_AR_RESULT_BRIDGE = {
+  window.AIQUEST_S1_AR_RESULT_BRIDGE = Object.freeze({
     version: VERSION,
     getArResult,
     getEvidence: evidence,
     decorateAttempt: decorate,
     syncNow: autoSyncArEvent,
-    getSyncState: readSyncState
-  };
+    getSyncState: () => readJson(RECEIPT_KEY) || {},
+    deliveryKey: (ar = evidence(), profile = getProfile()) => ar ? deliveryKey(ar, profile) : ''
+  });
 
-  document.readyState === "loading"
-    ? document.addEventListener("DOMContentLoaded", boot)
-    : boot();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });
+  else boot();
 
-  console.log("[AIQuest] " + VERSION + " loaded", window.AIQUEST_S1_AR_RESULT_BRIDGE);
+  console.log('[AIQuest] ' + VERSION + ' loaded', window.AIQUEST_S1_AR_RESULT_BRIDGE);
 })();
