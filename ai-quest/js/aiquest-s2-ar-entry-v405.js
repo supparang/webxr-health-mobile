@@ -1,4 +1,4 @@
-/* CSAI2102 AI Quest — S2 AR Persistent Entry v4.0.7
+/* CSAI2102 AI Quest — S2 AR Persistent Entry v4.0.8
    Mirrors the stable S1 entry strategy: the normal S2 page may build #gameArea
    after this script starts, so observe the document as well as the game area.
    Presentation/launch only: does not change S2 score, gating, or main gameplay.
@@ -7,14 +7,14 @@
   'use strict';
 
   const CARD_ID = 'aiquestS2ArEntryV407';
-  const BRIDGE_SRC = './js/aiquest-s2-ar-result-bridge-v406.js?v=20260629-s2bridge406';
+  const BRIDGE_SRC = './js/aiquest-s2-ar-result-bridge-v406.js?v=20260629-s2bridge407';
   const q = new URLSearchParams(location.search);
   const routeSession = String(q.get('session') || '').toLowerCase();
 
   function ensureResultBridge(){
     if (
       window.AIQUEST_S2_AR_RESULT_BRIDGE &&
-      window.AIQUEST_S2_AR_RESULT_BRIDGE.version === 'v4.0.6-s2-ar-reliable-event-sync'
+      window.AIQUEST_S2_AR_RESULT_BRIDGE.version === 'v4.0.7-s2-ar-singleton-dedup-sync'
     ) return;
 
     const absolute = new URL(BRIDGE_SRC, document.baseURI).href;
@@ -24,7 +24,7 @@
     const tag = document.createElement('script');
     tag.src = BRIDGE_SRC;
     tag.async = false;
-    tag.dataset.aiquestS2ArBridge = 'v406';
+    tag.dataset.aiquestS2ArBridge = 'v407';
     tag.onerror = () => console.warn('[AIQuest S2 AR] evidence bridge failed to load');
     document.head.appendChild(tag);
   }
@@ -94,7 +94,7 @@
       u.searchParams.set('session', 's2');
       u.searchParams.set('ar', 'agent');
       u.searchParams.set('from', 's2');
-      u.searchParams.set('v', '20260629-s2-entry407');
+      u.searchParams.set('v', '20260629-s2-entry408');
       location.assign(u.toString());
     }, true);
 
@@ -110,7 +110,7 @@
     old?.remove();
 
     area.insertBefore(card(), area.firstChild);
-    console.log('[AIQuest S2 AR] persistent entry visible v4.0.7');
+    console.log('[AIQuest S2 AR] persistent entry visible v4.0.8');
   }
 
   let queued = false;
