@@ -1,11 +1,33 @@
-/* CSAI2102 AI Quest — S2 AR Persistent Entry v4.0.5
-   Keeps an optional S2 Agent Builder AR card visible after Session 2 renders.
+/* CSAI2102 AI Quest — S2 AR Persistent Entry v4.0.6
+   Keeps an optional S2 Agent Builder AR card visible after Session 2 renders
+   and loads the S2 AR evidence bridge on normal and direct-AR routes.
 */
 (() => {
   'use strict';
   const CARD_ID = 'aiquestS2ArEntryV405';
+  const BRIDGE_SRC = './js/aiquest-s2-ar-result-bridge-v406.js?v=20260629-s2bridge406';
   const q = new URLSearchParams(location.search);
   const routeSession = String(q.get('session') || '').toLowerCase();
+
+  function ensureResultBridge(){
+    if (window.AIQUEST_S2_AR_RESULT_BRIDGE &&
+        window.AIQUEST_S2_AR_RESULT_BRIDGE.version === 'v4.0.6-s2-ar-reliable-event-sync') return;
+
+    const absolute = new URL(BRIDGE_SRC, document.baseURI).href;
+    const exists = [...document.scripts].some((script) => script.src === absolute);
+    if (exists) return;
+
+    const tag = document.createElement('script');
+    tag.src = BRIDGE_SRC;
+    tag.async = false;
+    tag.dataset.aiquestS2ArBridge = 'v406';
+    tag.onerror = () => console.warn('[AIQuest S2 AR] evidence bridge failed to load');
+    document.head.appendChild(tag);
+  }
+
+  // Recover local evidence on the normal page and sync immediately after direct AR completion.
+  if (!routeSession || routeSession === 's2' || routeSession === 'm2') ensureResultBridge();
+
   if (q.get('ar') || (routeSession && routeSession !== 's2' && routeSession !== 'm2')) return;
 
   function saved(){
@@ -43,7 +65,7 @@
       u.searchParams.set('session','s2');
       u.searchParams.set('ar','agent');
       u.searchParams.set('from','s2');
-      u.searchParams.set('v','20260629-s2-entry405');
+      u.searchParams.set('v','20260629-s2-entry406');
       location.assign(u.toString());
     }, true);
     return wrap;
