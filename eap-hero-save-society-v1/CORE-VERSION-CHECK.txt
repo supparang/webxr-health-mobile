@@ -1,0 +1,12 @@
+/* === EAP Hero: Save the Society v1z92 Report Recovery + Safe Legacy Portfolio Migration ===
+   Standalone PC/Mobile web prototype.
+   Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
+*/
+(function(){
+  'use strict';
+
+  const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
+  const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
+  const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
+  const APP_VERSION = '20260629-v1z94-unified-legacy-report-recovery';
+  const app = document.getElementById('app');

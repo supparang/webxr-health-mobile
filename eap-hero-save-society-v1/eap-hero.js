@@ -1,12 +1,14 @@
-/* === EAP Hero: Save the Society v1z72 Learning Report Recovery ===
+/* === EAP Hero: Save the Society v1z92 Report Recovery + Safe Legacy Portfolio Migration ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
 (function(){
   'use strict';
 
-  const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260627-v1z104- Mission-Flow';
+  const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
+  const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
+  const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
+  const APP_VERSION = '20260629-v1z94-unified-legacy-report-recovery';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -314,46 +316,61 @@
       reflection:'What is one informal word you should avoid in academic writing?'
     },
     {
-      id:8, emoji:'🐍', title:'Paragraph Structure Lab', zone:'Exam Gate',
+      id:8, emoji:'🐍', title:'Paragraph Structure Lab', zone:'Writing Studio',
       skill:'Academic Paragraph Structure', boss:'Structure Maze Warden',
-      problem:'เมื่อเจอหลายทักษะพร้อมกันแล้วสับสน',
-      taunt:'One head for every weakness!',
-      unlock:'Boss Rush I + Midterm Survivor Badge',
+      problem:'เมื่อย่อหน้าไม่มีโครงสร้าง ผู้อ่านจะตามเหตุผลและหลักฐานไม่ทัน',
+      taunt:'I will mix your topic, support, example, and conclusion!',
+      unlock:'Paragraph Map + Structure Builder Badge',
       lab:[
-        'Session นี้รวม Vocabulary, Main Idea, Summary และ Academic Tone',
-        'ให้ทบทวนจุดอ่อนของตนเองก่อนสู้ Hydra',
-        'โจทย์จะสลับทักษะเพื่อวัดการใช้ความรู้จริง'
+        'ย่อหน้าเชิงวิชาการมีแกน T–E–E–C: Topic Sentence → Explanation → Evidence/Example → Closing Sentence',
+        'Unity หมายถึงทุกประโยคต้องสนับสนุนประเด็นเดียว; Coherence คือการเรียงเหตุผลให้ไหล; Cohesion คือการใช้คำเชื่อมให้ชัด',
+        'คำเชื่อมพื้นฐานที่ใช้บ่อย: for example, in addition, however, therefore, in conclusion'
       ],
       questions:[
-        mcq('S08_Q1','Which word means “หลักฐาน”?','',[
-          'Evidence','Claim','Method','Conclusion'
-        ],0,'Evidence means หลักฐาน.'),
-        mcq('S08_Q2','Choose the main idea.','Digital tools can help students learn independently through videos, quizzes, and feedback.',[
-          'Digital tools provide online videos.',
-          'Digital tools support independent learning.',
-          'Quizzes are one feature of digital tools.',
-          'Feedback can help students improve.'
-        ],1,'This captures the paragraph.'),
-        mcq('S08_Q3','Choose the academic version.','Informal: This is super good.',[
-          'This is useful for students.',
-          'This may provide important benefits.',
-          'This has many positive points.',
-          'This may be helpful in some contexts.'
-        ],1,'This is formal and cautious.'),
-        mcq('S08_Q4','A summary should ______.','',[
-          'be shorter than the original',
-          'keep most original sentences',
-          'add extra opinions',
-          'focus only on examples'
-        ],0,'A summary should be shorter.'),
-        mcq('S08_Q5','Which connector shows result?','',[
-          'however','therefore','although','such as'
-        ],1,'Therefore shows result.'),
-        mcq('S08_Q6','Classify: “I believe online classes are more convenient.”','',[
-          'Fact','Opinion','Evidence','Reference'
-        ],1,'I believe shows opinion.')
+        mcq('S08_Q1','Which sentence is the best topic sentence?','Topic: Digital literacy for university students',[
+          'Students use online sources for assignments.',
+          'Digital literacy helps university students use online information responsibly.',
+          'For example, students can check the author of a website.',
+          'Therefore, students need to read carefully.'
+        ],1,'A topic sentence states the main point of the paragraph.'),
+        mcq('S08_Q2','What should usually come after a topic sentence?','',[
+          'A supporting explanation that develops the main point',
+          'A completely new topic',
+          'A greeting to the reader',
+          'A list of unrelated examples'
+        ],0,'A supporting explanation develops the topic sentence.'),
+        mcq('S08_Q3','Which sentence does NOT belong in a paragraph about academic email?','',[
+          'A clear subject line helps the reader understand the purpose.',
+          'A polite greeting creates a respectful tone.',
+          'Graphs can show trends in student performance.',
+          'A specific request helps the instructor respond.'
+        ],2,'Graphs are not relevant to a paragraph about academic email.'),
+        mcq('S08_Q4','Choose the best order for a short academic paragraph.','',[
+          'Example → Topic sentence → Conclusion → Unrelated detail',
+          'Topic sentence → Supporting explanation → Example/Evidence → Closing sentence',
+          'Conclusion → Greeting → Topic sentence → Example',
+          'Evidence → New topic → Random detail → Closing'
+        ],1,'This order follows T–E–E–C.'),
+        mcq('S08_Q5','Which connector introduces an example?','',[
+          'however',
+          'therefore',
+          'for example',
+          'in conclusion'
+        ],2,'For example introduces supporting evidence or an illustration.'),
+        mcq('S08_Q6','Which sentence works best as a closing sentence?','Topic: Peer feedback improves writing',[
+          'Peers are students in the same class.',
+          'For example, classmates can notice unclear ideas.',
+          'Peer feedback can therefore help writers revise more clearly.',
+          'Some students write paragraphs at home.'
+        ],2,'A closing sentence links back to the main point.'),
+        mcq('S08_Q7','Why is unity important in a paragraph?','',[
+          'It helps every sentence support one main idea.',
+          'It makes every sentence the same length.',
+          'It removes all examples.',
+          'It allows several unrelated topics in one paragraph.'
+        ],0,'Unity keeps the paragraph focused on one clear main idea.')
       ],
-      reflection:'Which EAP skill is strongest for you now? Which one needs more practice?'
+      reflection:'Which part of T–E–E–C do you need to practise most, and why?'
     },
     {
       id:9, emoji:'🐺', title:'Paragraph Writing', zone:'Writing Studio',
@@ -31568,6 +31585,7 @@
       badges:[],
       cards:[],
       sessions,
+      sessionScores:{},
       logs:[],
       examLogs:[],
       examAttempts:{},
@@ -31631,12 +31649,28 @@
 
   function loadState(){
     try{
-      const raw = localStorage.getItem(STORAGE_KEY);
+      let raw = localStorage.getItem(STORAGE_KEY);
+      let migratedFromLegacy = false;
+      if(!raw){
+        raw = localStorage.getItem(PREVIOUS_STORAGE_KEY);
+        migratedFromLegacy = !!raw;
+      }
+      if(!raw){
+        raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        migratedFromLegacy = !!raw;
+      }
       if(!raw) return cloneDefaultState();
       const parsed = JSON.parse(raw);
+      // v1z81: a prior V1 state can be multi-megabyte. Read it once, then remove it
+      // immediately so the new compact key has room to save progress safely.
+      if(migratedFromLegacy){
+        try{ localStorage.removeItem(LEGACY_STORAGE_KEY); }catch(_){}
+        try{ localStorage.removeItem(PREVIOUS_STORAGE_KEY); }catch(_){}
+      }
       const fresh = cloneDefaultState();
       const merged = Object.assign(fresh, parsed);
       merged.sessions = Object.assign(fresh.sessions, parsed.sessions || {});
+      merged.sessionScores = Object.assign({}, fresh.sessionScores || {}, parsed.sessionScores || {});
       merged.recentQuestions = Object.assign(fresh.recentQuestions || {}, parsed.recentQuestions || {});
       merged.examLogs = parsed.examLogs || [];
       merged.examAttempts = Object.assign(fresh.examAttempts || {}, parsed.examAttempts || {});
@@ -31699,16 +31733,16 @@
 
 
   const STORAGE_LIMITS = {
-    portfolio:90,
-    learningReports:90,
-    runtimeErrors:12,
-    qaRuntimeErrors:12,
-    logs:80,
-    examLogs:20,
-    examAttempts:20,
-    outputChars:900,
-    promptChars:500,
-    feedbackChars:500
+    portfolio:48,
+    learningReports:36,
+    runtimeErrors:4,
+    qaRuntimeErrors:4,
+    logs:20,
+    examLogs:8,
+    examAttempts:8,
+    outputChars:320,
+    promptChars:240,
+    feedbackChars:240
   };
 
   function isQuotaExceededError(err){
@@ -31819,10 +31853,10 @@
       currentSession: state.currentSession || 1,
       xp: state.xp || 0,
       rank: state.rank || '',
-      cards: state.cards || [],
+      cards: compactArray(state.cards, 24, x=>({sessionId:x?.sessionId||x?.session||'', title:compactTextForStorage(x?.title||'',100), at:x?.at||''})),
       bossCards: state.bossCards || {},
       bossGates: state.bossGates || {},
-      sessions: state.sessions || {},
+      sessions: compactSessionsForStorage(state.sessions),
       portfolio: compactArray(state.portfolio, 40, compactPortfolioEntry),
       learningReports: compactArray(state.learningReports, 40),
       independenceReplay: state.independenceReplay || {},
@@ -31832,96 +31866,192 @@
     };
   }
 
-  function safeLocalStorageSet(key, value){
-    try{
-      localStorage.setItem(key, value);
-      return true;
-    }catch(err){
-      if(!isQuotaExceededError(err)) throw err;
-      console.warn('[storage quota] pruning and retrying save');
-      try{
-        pruneStateForStorage();
-        const compactValue = JSON.stringify(state);
-        localStorage.removeItem(key);
-        localStorage.setItem(key, compactValue);
-        safeToast('Storage was full. Old long records were compacted.');
-        return true;
-      }catch(err2){
-        console.warn('[storage quota] emergency minimal save', err2);
-        try{
-          const minimal = JSON.stringify(minimalStateForEmergencySave());
-          localStorage.removeItem(key);
-          localStorage.setItem(key, minimal);
-          safeToast('Storage was full. Saved essential progress only.');
-          return true;
-        }catch(err3){
-          console.warn('[storage quota] save skipped', err3);
-          try{ sessionStorage.setItem(key + '_BACKUP', JSON.stringify(minimalStateForEmergencySave())); }catch(e){}
-          safeToast('Storage is full. Progress kept for this session only. Export/reset old data soon.');
-          return false;
-        }
-      }
-    }
+  function compactSessionsForStorage(sessions){
+    const out = {};
+    Object.keys(sessions || {}).forEach(id=>{
+      const x = sessions[id] || {};
+      out[id] = {
+        unlocked:!!x.unlocked, cleared:!!x.cleared, bestStars:Number(x.bestStars||0),
+        bestAccuracy:Number(x.bestAccuracy||0), attempts:Number(x.attempts||0),
+        bestScore:Number(x.bestScore||0),
+        reflections:compactArray(x.reflections, 2, r=>compactTextForStorage(r, 180)),
+        skillEvidence:x.skillEvidence || x.evidence || undefined
+      };
+    });
+    return out;
   }
 
-  function storageUsageInfo(){
-    let chars = 0;
-    try{ chars = (localStorage.getItem(STORAGE_KEY) || '').length; }catch(e){}
+  function compactStateSnapshotForStorage(){
+    // v1z81: persist only learner progress, not cached sources/tasks/AI traces.
+    // This is intentionally a storage snapshot, not a full in-memory clone.
+    pruneStateForStorage();
+    const snapshot = JSON.parse(JSON.stringify(state));
+    snapshot.sessions = compactSessionsForStorage(snapshot.sessions);
+    snapshot.active = null;
+    snapshot.recentQuestions = {};
+    snapshot.examAttempts = {};
+    snapshot.skillBankHistory = {};
+    snapshot.portfolio = compactArray(snapshot.portfolio, 24, compactPortfolioEntry);
+    snapshot.learningReports = compactArray(snapshot.learningReports, 16, r => {
+      const x = Object.assign({}, r || {});
+      ['didWell','nextStep','tryFrame','teacherFeedback','transcript'].forEach(k=>{
+        if(x[k] != null) x[k] = compactTextForStorage(x[k], 240);
+      });
+      return x;
+    });
+    if(snapshot.ai){
+      if(Array.isArray(snapshot.ai.logs)) snapshot.ai.logs = snapshot.ai.logs.slice(-12).map(x=>{
+        const y=Object.assign({},x||{}); if(y.message) y.message=compactTextForStorage(y.message,180); return y;
+      });
+      snapshot.ai.dailyUses = snapshot.ai.dailyUses || {};
+    }
+    if(snapshot.qa && Array.isArray(snapshot.qa.runtimeErrors)) snapshot.qa.runtimeErrors=[];
+    snapshot.runtimeErrors=[];
+    delete snapshot.researchDatasetCache;
+    delete snapshot.classActivities;
+    delete snapshot.lessons;
+    delete snapshot.debug;
+    delete snapshot.goldAuthoredBank;
+    delete snapshot.antiMemorization;
+    delete snapshot.aiAbility;
+    delete snapshot.replay;
+    delete snapshot.examLogs;
+    delete snapshot.logs;
+    delete snapshot.revisions;
+    delete snapshot.listening;
+    delete snapshot.reviews;
+    return snapshot;
+  }
+
+  function safeText(value, max){
+    return compactTextForStorage(value == null ? '' : value, max || 180);
+  }
+
+  function compactEvidenceForWhitelist(entry){
+    const e = entry || {};
     return {
-      key:STORAGE_KEY,
-      chars,
-      approxKB:Math.round(chars/1024),
-      portfolio:(state.portfolio || []).length,
-      reports:(state.learningReports || []).length,
-      qaErrors:(state.qa?.runtimeErrors || []).length,
-      runtimeErrors:(state.runtimeErrors || []).length
+      evidenceId:safeText(e.evidenceId || e.id || '',90),
+      sessionId:Number(e.sessionId || e.session || 0) || 0,
+      skill:safeText(e.skill || '',30),
+      score:Number(e.score || 0) || 0,
+      submittedAt:safeText(e.submittedAt || e.at || '',40),
+      evidenceType:safeText(e.evidenceType || e.type || '',60),
+      output:safeText(e.output || e.answer || e.studentAnswer || '',220),
+      reflection:safeText(e.reflection || '',180),
+      durationSec:Number(e.durationSec || 0) || 0,
+      checklist:e.checklist && typeof e.checklist==='object' ? {
+        targetTime:!!e.checklist.targetTime,
+        academicGoal:!!e.checklist.academicGoal,
+        practiceAction:!!e.checklist.practiceAction
+      } : undefined,
+      teacherFeedbackCode:safeText(e.teacherFeedbackCode || '',20),
+      teacherScore:(e.teacherScore == null ? null : Number(e.teacherScore))
     };
   }
 
-  function optimizeStorageNow(silent){
-    pruneStateForStorage();
-    const ok = safeLocalStorageSet(STORAGE_KEY, JSON.stringify(state));
-    if(!silent){
-      const u = storageUsageInfo();
-      safeToast(`Storage optimized: ~${u.approxKB} KB, portfolio ${u.portfolio}, reports ${u.reports}`);
-    }
-    return ok;
+  function compactSessionEvidence(ev){
+    const src = ev && typeof ev==='object' ? ev : {};
+    const out={};
+    Object.keys(src).slice(0,8).forEach(k=>{
+      const x=src[k] || {};
+      out[k]={score:Number(x.score || x.bestScore || 0)||0, passed:!!(x.passed || x.complete), at:safeText(x.at || x.submittedAt || '',40)};
+    });
+    return out;
   }
 
-  function renderStorageDiagnostics(){
-    const u = storageUsageInfo();
-    layout(`<section class="panel" style="margin-top:20px">
-      <div class="badges"><span class="pill">Storage Diagnostics</span><span class="pill">v1z54</span></div>
-      <h2>Storage status</h2>
-      <p class="lead">ใช้ดูว่าข้อมูลในเครื่องใหญ่เกินจน Submit ไม่ไปหรือไม่</p>
-      <div class="grid four">
-        <div class="stat"><b>${u.approxKB} KB</b><span>Approx localStorage size</span></div>
-        <div class="stat"><b>${u.portfolio}</b><span>Portfolio</span></div>
-        <div class="stat"><b>${u.reports}</b><span>Reports</span></div>
-        <div class="stat"><b>${u.qaErrors + u.runtimeErrors}</b><span>Error logs</span></div>
-      </div>
-      <div class="storage-fix-note"><b>Fix:</b> กด Optimize Storage เพื่อตัด output/log เก่าที่ยาวเกิน แต่ยังเก็บ progress สำคัญไว้</div>
-      <div class="footer-actions">
-        <button class="btn primary" onclick="EAPHero.optimizeStorageNow()">Optimize Storage</button><button class="btn" onclick="EAPHero.deepStorageCleanupNow()">Deep Cleanup</button>
-        <button class="btn" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
-        <button class="btn" onclick="EAPHero.map()">Back to Map</button><button class="btn ghost" onclick="EAPHero.refreshVisibleProgressNow()">Refresh Visible Progress</button>
-      </div>
-    </section>`);
+  function buildWhitelistStorageSnapshot(){
+    // Strict whitelist: browser keeps progress only; never raw tasks, sources, logs, transcripts or AI traces.
+    const sessions={};
+    Object.keys(state.sessions || {}).forEach(id=>{
+      const x=state.sessions[id] || {};
+      sessions[id]={
+        unlocked:!!x.unlocked, cleared:!!x.cleared,
+        bestStars:Number(x.bestStars||0)||0,
+        bestAccuracy:Number(x.bestAccuracy||0)||0,
+        attempts:Math.min(99,Number(x.attempts||0)||0),
+        bestScore:Number(x.bestScore||0)||0,
+        reflections:compactArray(x.reflections,2,r=>safeText(r,150)),
+        skillEvidence:compactSessionEvidence(x.skillEvidence || x.evidence),
+        skills:compactSessionEvidence(x.skills || x.skillScores || x.skillDone || x.skillProgress || x.missions)
+      };
+    });
+    const profile=state.profile || {};
+    const settings=state.settings || {};
+    return {
+      version:APP_VERSION,
+      storageMode:'v1z86-whitelist',
+      savedAt:new Date().toISOString(),
+      view:safeText(state.view || 'home',30),
+      currentSession:Number(state.currentSession||1)||1,
+      profile:{name:safeText(profile.name,80),studentId:safeText(profile.studentId,60),goal:safeText(profile.goal,180)},
+      settings:{difficulty:safeText(settings.difficulty||'easy',20),skillDifficulty:safeText(settings.skillDifficulty||'easy',20),manualSkillDifficulty:safeText(settings.manualSkillDifficulty||'easy',20),aiAdaptiveDifficulty:settings.aiAdaptiveDifficulty!==false,uiMode:safeText(settings.uiMode||'simple',20),progressiveUnlock:settings.progressiveUnlock!==false,reviewView:safeText(settings.reviewView||'compact',20),cefrLevel:safeText(settings.cefrLevel||'A2-B1+',20),roleMode:'student'},
+      xp:Number(state.xp||0)||0,
+      rank:safeText(state.rank||'New Learner',40),
+      badges:compactArray(state.badges,20,b=>safeText(b,80)),
+      cards:compactArray(state.cards,12,c=>({sessionId:Number(c?.sessionId||c?.session||0)||0,title:safeText(c?.title||'',100),at:safeText(c?.at||'',40)})),
+      sessions,
+      sessionScores:compactSessionEvidence(state.sessionScores || {}),
+      portfolio:compactArray(state.portfolio,18,compactEvidenceForWhitelist),
+      learningReports:compactArray(state.learningReports,12,r=>({sessionId:Number(r?.sessionId||0)||0,skill:safeText(r?.skill||'',30),score:Number(r?.score||0)||0,didWell:safeText(r?.didWell||'',180),nextStep:safeText(r?.nextStep||'',180),at:safeText(r?.at||r?.submittedAt||'',40)})),
+      mastery:{Reading:Number(state.mastery?.Reading||0)||0,Writing:Number(state.mastery?.Writing||0)||0,Listening:Number(state.mastery?.Listening||0)||0,Speaking:Number(state.mastery?.Speaking||0)||0,Ethics:Number(state.mastery?.Ethics||0)||0},
+      fun:{coins:Number(state.fun?.coins||0)||0,daily:{lastDate:safeText(state.fun?.daily?.lastDate||'',20),streak:Number(state.fun?.daily?.streak||0)||0},achievementsClaimed:compactArray(state.fun?.achievementsClaimed,20,x=>safeText(x,60))},
+      skillPath:{unlockedBossGates:Object.assign({},state.skillPath?.unlockedBossGates||{})},
+      bossGates:Object.assign({},state.bossGates||{}),
+      bossCards:Object.assign({},state.bossCards||{}),
+      independenceReplay:{active:false,session:null,skill:'',aiBaseline:0,startedAt:''}
+    };
   }
 
-  function runStorageMaintenanceSoon(){
-    setTimeout(()=>{ try{ optimizeStorageNow(true); }catch(e){} }, 500);
-  }
-
-
-  function saveState(){
+  function cleanupStaleEapStorage(){
     try{
-      return safeLocalStorageSet(STORAGE_KEY, JSON.stringify(state));
-    }catch(err){
-      console.warn('[saveState failed]', err);
-      return false;
+      Object.keys(localStorage).forEach(k=>{
+        if(k === STORAGE_KEY) return;
+        if(/^EAP_HERO_SAVE_SOCIETY(_V\d+|_BACKUP|_LEGACY)?/i.test(k) || /^EAP_HERO_.*(BACKUP|CACHE|STATE)/i.test(k)){
+          try{ localStorage.removeItem(k); }catch(_){}
+        }
+      });
+      try{ localStorage.removeItem(LEGACY_STORAGE_KEY); }catch(_){}
+    }catch(err){ console.warn('[v1z86 cleanup]',err); }
+  }
+
+  /* v1z86: true storage rewrite. Never serialize the live state object. */
+  function v84MiniSessions(){
+    const out={};
+    Object.entries(state.sessions || {}).forEach(([id,x])=>{
+      out[id]={unlocked:!!x?.unlocked,cleared:!!x?.cleared,bestStars:Number(x?.bestStars||0)||0,bestAccuracy:Number(x?.bestAccuracy||0)||0,attempts:Math.min(20,Number(x?.attempts||0)||0),bestScore:Number(x?.bestScore||0)||0,skills:compactSessionEvidence(x?.skills || x?.skillScores || x?.skillDone || x?.skillProgress || x?.missions)};
+    });
+    return out;
+  }
+  function v84Snapshot(){
+    const p=state.profile||{}, f=state.fun||{}, m=state.mastery||{};
+    const portfolio=(Array.isArray(state.portfolio)?state.portfolio:[]).slice(-12).map(x=>({
+      id:String(x?.id||x?.evidenceId||''),sessionId:Number(x?.sessionId||x?.session||0)||0,skill:String(x?.skill||''),score:Number(x?.score||0)||0,
+      submittedAt:String(x?.submittedAt||x?.at||''),preview:String(x?.output||x?.evidenceText||'').slice(0,96)
+    }));
+    return {schema:'eap-v84',version:APP_VERSION,savedAt:new Date().toISOString(),view:String(state.view||'home').slice(0,24),currentSession:Number(state.currentSession||1)||1,
+      profile:{name:String(p.name||'').slice(0,60),studentId:String(p.studentId||'').slice(0,40),goal:String(p.goal||'').slice(0,120)},
+      xp:Number(state.xp||0)||0,rank:String(state.rank||'New Learner').slice(0,40),sessions:v84MiniSessions(),sessionScores:compactSessionEvidence(state.sessionScores || {}),
+      mastery:{Reading:Number(m.Reading||0)||0,Writing:Number(m.Writing||0)||0,Listening:Number(m.Listening||0)||0,Speaking:Number(m.Speaking||0)||0},
+      fun:{coins:Number(f.coins||0)||0,daily:{lastDate:String(f.daily?.lastDate||'').slice(0,12),streak:Number(f.daily?.streak||0)||0}},
+      skillPath:{unlockedBossGates:Object.assign({},state.skillPath?.unlockedBossGates||{})}, bossGates:Object.assign({},state.bossGates||{}), portfolio};
+  }
+  function cleanupV84Storage(){
+    try{ Object.keys(localStorage).forEach(k=>{ if(/^EAP_HERO_/i.test(k) && k!==STORAGE_KEY){ try{localStorage.removeItem(k)}catch(_){} } }); }catch(_){}
+  }
+  function safeLocalStorageSet(){
+    const payload=JSON.stringify(v84Snapshot());
+    try{ localStorage.setItem(STORAGE_KEY,payload); return true; }
+    catch(err){
+      console.warn('[v1z86 storage] quota; clearing obsolete EAP keys and retrying');
+      try{ cleanupV84Storage(); localStorage.setItem(STORAGE_KEY,payload); return true; }
+      catch(err2){ console.warn('[v1z86 storage] persistence unavailable; keeping this run in memory',err2); return false; }
     }
   }
+  function storageUsageInfo(){ let chars=0; try{chars=(localStorage.getItem(STORAGE_KEY)||'').length}catch(_){} return {key:STORAGE_KEY,chars,approxKB:Math.round(chars/1024),portfolio:(state.portfolio||[]).length,reports:0,qaErrors:0,runtimeErrors:0}; }
+  function optimizeStorageNow(silent){ const ok=safeLocalStorageSet(); if(!silent) safeToast(ok?'Progress saved safely.':'Browser storage is unavailable; this run remains open.'); return ok; }
+  function runStorageMaintenanceSoon(){ setTimeout(()=>{try{safeLocalStorageSet()}catch(_){}},250); }
+  function buildHardStorageSnapshot(){ return v84Snapshot(); }
+  function saveState(){ try{return safeLocalStorageSet()}catch(err){console.warn('[v1z86 saveState]',err);return false} }
 
   function resetState(){
     if(confirm('ล้างข้อมูลเกมทั้งหมดในเครื่องนี้ใช่ไหมคะ?')){
@@ -31985,6 +32115,9 @@
 
   function grantTreasure(session, starsEarned, contractKey){
     state.fun = state.fun || { coins:0, chests:[], titles:[], daily:{ lastDate:'', streak:0 }, achievementsClaimed:[] };
+    state.fun.chests = Array.isArray(state.fun.chests) ? state.fun.chests : [];
+    state.fun.titles = Array.isArray(state.fun.titles) ? state.fun.titles : [];
+    state.fun.achievementsClaimed = Array.isArray(state.fun.achievementsClaimed) ? state.fun.achievementsClaimed : [];
     const contract = getContract(contractKey || 'normal');
     let tier = contract.chest || 'bronze';
     if(starsEarned >= 3 && tier === 'bronze') tier = 'silver';
@@ -32001,7 +32134,7 @@
     let bonus = null;
     if(tier === 'legendary' || Math.random() < .33){
       bonus = titlePool[(session.id + (state.fun.chests?.length || 0)) % titlePool.length];
-      if(!state.fun.titles.includes(bonus)) state.fun.titles.push(bonus);
+      if(!Array.isArray(state.fun.titles)) state.fun.titles=[]; if(!state.fun.titles.includes(bonus)) state.fun.titles.push(bonus);
     }
 
     const reward = {
@@ -32050,6 +32183,11 @@
     return String(text ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
+  function shortAppVersion(){
+    const match = String(APP_VERSION || '').match(/v\d+[a-z0-9]*/i);
+    return match ? match[0] : 'latest';
+  }
+
   function stars(n){
     return '★'.repeat(n) + '☆'.repeat(Math.max(0,3-n));
   }
@@ -32064,9 +32202,12 @@
 
   function cacheVersionNotice(){
     const q = new URLSearchParams(location.search);
-    const x = q.get('x') || '';
-    if(x && !String(APP_VERSION).includes(x.replace(/^v/, 'v'))){
-      return `<div class="cache-notice">Cache notice: URL asks for ${safe(x)}, but loaded JS is ${safe(APP_VERSION)}. Please upload index.html/eap-hero.js/eap-hero.css and hard refresh.</div>`;
+    const requested = String(q.get('x') || '').toLowerCase();
+    const loaded = String(APP_VERSION || '').toLowerCase();
+    const requestedTag = (requested.match(/v1z\d+/) || [''])[0];
+    const loadedTag = (loaded.match(/v1z\d+/) || [''])[0];
+    if(requestedTag && loadedTag && requestedTag !== loadedTag){
+      return `<div class="cache-notice">Cache notice: URL asks for ${safe(requestedTag)}, but loaded JS is ${safe(APP_VERSION)}. Please upload index.html/eap-hero.js/eap-hero.css and hard refresh.</div>`;
     }
     return '';
   }
@@ -32083,7 +32224,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z72</div>
+              <div class="mini-note">Save the Society • ${safe(shortAppVersion())}</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32571,7 +32712,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z72'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z86'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
@@ -32636,7 +32777,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z72</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • ${safe(shortAppVersion())}</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32725,10 +32866,25 @@
   }
 
   function bestScoreForSessionSkill(sessionId, skill){
+    const sid = Number(sessionId || 0);
+    const wanted = String(skill || '').toLowerCase();
     let best = 0;
-    evidenceForSessionSkill(sessionId, skill).forEach(item=>{
+    evidenceForSessionSkill(sid, skill).forEach(item=>{
       const score = typeof extractScoreFromEvidence === 'function' ? extractScoreFromEvidence(item) : Number(item?.score || item?.autoScore || 0);
       if(Number(score || 0) > best) best = Number(score || 0);
+    });
+    // v1z89: Map/session cards must also read the central session score mirror.
+    // This protects progress when a compact portfolio entry or report card is de-duplicated.
+    const sess = state.sessions?.[sid] || {};
+    const buckets = [sess.skills, sess.skillScores, sess.skillDone, sess.skillProgress, sess.missions, state.sessionScores?.[sid], state.skillScores?.[sid]];
+    buckets.forEach(bucket=>{
+      if(!bucket || typeof bucket !== 'object') return;
+      Object.keys(bucket).forEach(key=>{
+        if(String(key).toLowerCase() !== wanted) return;
+        const v = bucket[key];
+        const score = Number(typeof v === 'object' ? (v.score ?? v.bestScore ?? v.autoScore ?? v.value ?? 0) : v || 0);
+        if(score > best) best = score;
+      });
     });
     return best;
   }
@@ -32741,21 +32897,47 @@
     const skillRows = required.map(skill=>{
       const items = evidenceForSessionSkill(sid, skill);
       const bestScore = bestScoreForSessionSkill(sid, skill);
-      return {skill, items:items.length, bestScore, passed:bestScore >= PASS_RULES.sessionMinScore};
+      // A migrated session can be legitimately complete while its pre-v1z90 numeric
+      // evidence was removed during compact-storage migration. Do not invent a score.
+      const legacyCompletion = explicit && bestScore < PASS_RULES.sessionMinScore;
+      return {skill, items:items.length, bestScore, passed:bestScore >= PASS_RULES.sessionMinScore || legacyCompletion, legacyCompletion};
     });
     const missing = skillRows.filter(r=>!r.passed).map(r=>`${r.skill} ${r.bestScore || 0}/${PASS_RULES.sessionMinScore}`);
     const passed = explicit || skillRows.every(r=>r.passed);
     return {session:sid, requiredSkills:required, skillRows, explicit, passed, missing,
-      reason: passed ? (explicit ? 'marked complete' : `Core + Support passed (${PASS_RULES.sessionMinScore}+ each)`) : `Need ${missing.join(', ')}`};
+      reason: passed ? (explicit ? 'completed in an earlier local version; detailed score unavailable for some skills' : `Core + Support passed (${PASS_RULES.sessionMinScore}+ each)`) : `Need ${missing.join(', ')}`};
   }
 
   function syncPassProgressNow(silent){
     state.sessions = state.sessions || {};
+    state.sessionScores = state.sessionScores || {};
     state.bossCards = state.bossCards || {};
+    // v1z90 recovery: earlier compact builds retained `cleared:true` but omitted skill mirrors.
+    // Never let a zero overwrite a cleared session. Recover exact portfolio/history scores first;
+    // only then use the pass floor to preserve an already-earned completion state.
     for(let sid=1; sid<=15; sid++){
+      const sessionState = state.sessions[sid] = state.sessions[sid] || {};
+      const wasCleared = !!(sessionState.cleared || sessionState.done || sessionState.completed || sessionState.complete || sessionState.bossDone || sessionState.unlockedDone);
+      const required = requiredSkillsForSession(sid);
+      if(wasCleared){
+        sessionState.skills = sessionState.skills || {};
+        state.sessionScores[sid] = state.sessionScores[sid] || {};
+        required.forEach(skill=>{
+          const existing = Number(bestScoreForSessionSkill(sid, skill) || 0);
+          const key = String(skill || '').trim();
+          const prior = sessionState.skills[key];
+          const priorNum = Number(typeof prior === 'object' ? (prior.score ?? prior.bestScore ?? 0) : prior || 0);
+          const best = Math.max(priorNum, existing);
+          sessionState.skills[key] = Object.assign({}, (prior && typeof prior==='object'?prior:{}), {
+            score:best, bestScore:best,
+            legacyCompletion:best < PASS_RULES.sessionMinScore,
+            recoveredFromCompletion:false
+          });
+          state.sessionScores[sid][key] = Math.max(Number(state.sessionScores[sid][key] || 0), best);
+        });
+      }
       const rep = sessionPassReport(sid);
-      state.sessions[sid] = state.sessions[sid] || {};
-      state.sessions[sid].passReport = rep;
+      sessionState.passReport = rep;
       state.sessions[sid].requiredSkills = rep.requiredSkills;
       if(rep.passed){
         state.sessions[sid].completed = true;
@@ -32767,6 +32949,29 @@
     saveState();
     if(!silent) safeToast('Progress synced from Learning Reports');
     return true;
+  }
+
+  function renderStorageDiagnostics(){
+    const info = storageUsageInfo();
+    setView('storageDiagnostics');
+    layout(`<section class="panel progress-diagnostics-panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Storage Diagnostics</span><span class="pill">${safe(APP_VERSION)}</span></div>
+      <h2>Browser storage status</h2>
+      <p class="lead">หน้านี้ใช้ตรวจพื้นที่จัดเก็บของเกมในเบราว์เซอร์ โดยไม่กระทบผลการเรียน</p>
+      <div class="grid three">
+        <div class="stat"><b>${Number(info.approxKB||0)} KB</b><span>Current EAP snapshot</span></div>
+        <div class="stat"><b>${Number(info.portfolio||0)}</b><span>Portfolio summaries</span></div>
+        <div class="stat"><b>${safe(info.key||'')}</b><span>Storage key</span></div>
+      </div>
+      <div class="panel light" style="margin-top:16px">
+        <h3>Safe actions</h3>
+        <p class="mini-note">หากเบราว์เซอร์เต็ม เกมจะทำงานต่อในหน้านี้ได้ แต่ควรสำรองข้อมูลก่อนรีเซ็ต</p>
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.optimizeStorageNow()">Try compact save</button>
+          <button class="btn" onclick="EAPHero.map()">Back to Map</button>
+        </div>
+      </div>
+    </section>`);
   }
 
   function passCriteriaHTML(){
@@ -32987,8 +33192,15 @@
 
   function visibleSessionCompletionBadgeHTML(sessionId){
     const r = sessionCompletionVisibleReport(sessionId);
-    const coreTxt = r.core ? `${safe(r.core.skill)} ${r.core.bestScore || 0}/60` : 'Core 0/60';
-    const supportTxt = r.support ? `${safe(r.support.skill)} ${r.support.bestScore || 0}/60` : 'Support 0/60';
+    const scoreLabel = (row, fallback) => {
+      if(!row) return fallback;
+      if(row.legacyCompletion && Number(row.bestScore || 0) < PASS_RULES.sessionMinScore){
+        return `${safe(row.skill)}: Passed (legacy score unavailable)`;
+      }
+      return `${safe(row.skill)} ${row.bestScore || 0}/60`;
+    };
+    const coreTxt = scoreLabel(r.core, 'Core not started');
+    const supportTxt = scoreLabel(r.support, 'Support not started');
     return `<div class="visible-session-completion ${r.passed?'passed':'not-yet'}" data-visible-session="${r.session}">
       <div class="vsc-main"><b>${r.passed?'✅ Session Passed':'⚠️ Session not passed yet'}</b><span class="vsc-stars">${safe(r.starText)}</span><span>avg ${r.avg || 0}</span></div>
       <div class="vsc-sub"><span>${coreTxt}</span><span>${supportTxt}</span></div>
@@ -33679,8 +33891,9 @@
     }
   }
 
-  function renderBossGateTimeline(){
-    const gatePlan = bossGateByNumber(gateNo || (bossGateAfterSession(sessionId)?.gate) || state.currentBossGate || 1);
+  function renderBossGateTimeline(gateNo){
+    const activeGateNo = Number(gateNo || state.currentBossGate || 1) || 1;
+    const gatePlan = bossGateByNumber(activeGateNo);
     const gateSessions = gatePlan.after;
 
     setView('bossGateTimeline');
@@ -33707,7 +33920,7 @@
     state.currentBossGate = gate.gate;
     saveState();
     if(typeof renderBossGate === 'function'){
-      renderBossGate(gate.after[gate.after.length - 1], gate.gate);
+      renderBossGate(`gate${gate.gate}`);
     }else{
       renderBossGateTimeline();
     }
@@ -33715,7 +33928,78 @@
   }
 
 
+  function bossGateNumberFromId(gateId){
+    const match = String(gateId || '').match(/(\d+)/);
+    return Number(match && match[1]) || 0;
+  }
+
+  function sessionUnlockStatus(sessionId){
+    const sid = Number(sessionId || 1) || 1;
+    if(sid <= 1) return {session:sid, unlocked:true, reason:'S1 is the starting session'};
+    const previous = sid - 1;
+    const previousReport = sessionPassReport(previous);
+    if(!previousReport.passed) return {session:sid, unlocked:false, reason:`Pass S${previous} Core + Support first.`};
+    const checkpoint = bossGateAfterSession(previous);
+    if(checkpoint){
+      const cleared = !!(state.bossGates?.[checkpoint.gate]?.cleared || state.bossGates?.[checkpoint.gate]?.done || state.bossGates?.[checkpoint.gate]?.completed);
+      if(!cleared) return {session:sid, unlocked:false, reason:`Clear ${checkpoint.type === 'final' ? 'the Final Boss' : 'Boss Gate '+checkpoint.gate} after S${previous}.`};
+    }
+    return {session:sid, unlocked:true, reason:`S${previous} complete`};
+  }
+
+  function isSessionLocked(sessionId){
+    return !sessionUnlockStatus(sessionId).unlocked;
+  }
+
+  function syncCourseProgressFromEvidence(silent){
+    state.sessions = state.sessions || {};
+    state.bossGates = state.bossGates || {};
+    for(let sid=1; sid<=15; sid++){
+      state.sessions[sid] = state.sessions[sid] || {};
+      const report = sessionPassReport(sid);
+      state.sessions[sid].passReport = report;
+      state.sessions[sid].requiredSkills = report.requiredSkills;
+      state.sessions[sid].completed = !!report.passed;
+      state.sessions[sid].done = !!report.passed;
+      state.sessions[sid].completionReason = report.reason;
+      const status = sessionUnlockStatus(sid);
+      state.sessions[sid].unlocked = !!status.unlocked;
+      state.sessions[sid].unlockReason = status.reason;
+      if(report.passed){
+        state.sessions[sid].cleared = true;
+        state.bossCards = state.bossCards || {};
+        state.bossCards[sid] = Object.assign({}, state.bossCards[sid] || {}, {earned:true, reason:report.reason, at:new Date().toISOString()});
+      }
+    }
+    if(!silent && typeof safeToast === 'function') safeToast('Course progress synced from Core + Support evidence');
+    return true;
+  }
+
+  function recordBossGateResult(gateId, win, result){
+    const gateNo = bossGateNumberFromId(gateId);
+    if(!gateNo) return null;
+    state.bossGates = state.bossGates || {};
+    const previous = state.bossGates[gateNo] || {};
+    state.bossGates[gateNo] = Object.assign({}, previous, {
+      gate:gateNo,
+      gateId:`gate${gateNo}`,
+      title:bossGateByNumber(gateNo)?.title || `Boss Gate ${gateNo}`,
+      attempts:Number(previous.attempts || 0) + 1,
+      cleared:!!previous.cleared || !!win,
+      done:!!previous.done || !!win,
+      completed:!!previous.completed || !!win,
+      lastScore:Number(result?.score || 0),
+      lastAccuracy:Number(result?.accuracy || 0),
+      updatedAt:new Date().toISOString(),
+      clearedAt:(!!previous.cleared || !!win) ? (previous.clearedAt || new Date().toISOString()) : ''
+    });
+    return state.bossGates[gateNo];
+  }
+
+
+
   function renderMap(){
+    try{ if(typeof syncCourseProgressFromEvidence === 'function') syncCourseProgressFromEvidence(true); }catch(e){}
     setTimeout(runCheckpointSessionPatchSoon, 0);
 
     setView('map');
@@ -33757,6 +34041,7 @@
     const s = getSession(id);
     if(!s) return renderMap();
     const progress = state.sessions[id] || {};
+    if(typeof isSessionLocked === 'function' && isSessionLocked(id)) return renderMap();
     if(!progress.unlocked) return renderMap();
 
     setView('brief');
@@ -34221,12 +34506,14 @@
       state.replay.bossRushLogs.push({ gateId, win, percent:percentNow, combo:state.active.maxCombo || 0, mutation:state.replay.currentMutation || 'standard', at:new Date().toISOString() });
       if(beatGhost) state.replay.secretMissions.ghost_beater = true;
       if((state.replay.currentMutation || '') === 'nohint' && win) state.replay.secretMissions.no_hint_win = true;
+      state.replay.lastResolvedGateId = gateId;
       state.replay.currentGate = '';
       state.replay.currentMutation = '';
     }
     const a = state.active;
     if(!a) return renderMap();
     const s = getSession(a.sessionId);
+    const resolvedGateId = state.replay?.lastResolvedGateId || '';
     const attempts = Math.max(1, a.answers.length);
     const accuracy = attempts ? a.correct / attempts : 0;
     const starsEarned = win ? calcStars(accuracy, a.timeLeft, a.usedHints) : 0;
@@ -34244,9 +34531,9 @@
     if(win){
       prog.cleared = true;
       const next = state.sessions[s.id+1];
-      if(next) next.unlocked = true;
-      if(!state.cards.includes(s.id)) state.cards.push(s.id);
-      if(badge && !state.badges.includes(badge)) state.badges.push(badge);
+      if(!resolvedGateId && typeof sessionPassReport === 'function' && sessionPassReport(s.id).passed && next) next.unlocked = true;
+      if(!Array.isArray(state.cards)) state.cards=[]; if(!state.cards.includes(s.id)) state.cards.push(s.id);
+      if(!Array.isArray(state.badges)) state.badges=[]; if(badge && !state.badges.includes(badge)) state.badges.push(badge);
       addXP(xpGain);
     }else{
       addXP(xpGain);
@@ -34279,6 +34566,11 @@
       score:a.score, maxCombo:a.maxCombo, timeLeft:a.timeLeft, badge, mistakes
     };
     state.active.result = result;
+    if(resolvedGateId){
+      recordBossGateResult(resolvedGateId, win, result);
+      state.replay.lastResolvedGateId = '';
+    }
+    if(typeof syncCourseProgressFromEvidence === 'function') syncCourseProgressFromEvidence(true);
     saveState();
     renderResult(result);
   }
@@ -34824,12 +35116,11 @@
 
 
   const BOSS_GATES = [
-    { id:'gate1', title:'Foundation Boss', after:3, sessions:[1,2,3], boss:'Confusion Slime + Detail Trap Spider', skills:['Reading','Writing'], unlock:'Complete Reading + Writing evidence in S1-S3' },
-    { id:'gate2', title:'Critical Boss', after:6, sessions:[4,5,6], boss:'Fake News Phantom + Copy-Paste Zombie', skills:['Reading','Writing'], unlock:'Complete Reading + Writing evidence in S4-S6' },
-    { id:'gate3', title:'Midterm Hydra', after:8, sessions:[1,2,3,4,5,6,7,8], boss:'Structure Maze Warden', skills:['Reading','Writing','Listening'], unlock:'Complete at least 6 portfolio items before S8' },
-    { id:'gate4', title:'Production Boss', after:11, sessions:[9,10,11], boss:'Broken Paragraph Beast + Graph Fog Dragon + Rude Mail Gremlin', skills:['Writing','Speaking'], unlock:'Complete Writing evidence in S9-S11' },
-    { id:'gate5', title:'Communication Boss', after:14, sessions:[12,13,14], boss:'Plagiarism Monster + Lecture Storm + Nervous Ghost', skills:['Listening','Speaking','Ethics'], unlock:'Complete Listening + Speaking evidence in S12-S14' },
-    { id:'final', title:'Final Boss', after:15, sessions:[15], boss:'Stagnation Emperor', skills:['Reading','Writing','Listening','Speaking'], unlock:'Complete final problem-solution portfolio evidence' }
+    { id:'gate1', gate:1, title:'Boss Gate 1: Foundation Check', after:3, sessions:[1,2,3], boss:'Foundation Sentinel', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass Core + Support evidence in S1–S3, then complete the Foundation Check.' },
+    { id:'gate2', gate:2, title:'Boss Gate 2: Evidence & Summary Check', after:6, sessions:[4,5,6], boss:'Evidence Court Guardian', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass Core + Support evidence in S4–S6 and clear Boss Gate 1.' },
+    { id:'gate3', gate:3, title:'Boss Gate 3: Academic Paragraph Check', after:9, sessions:[7,8,9], boss:'Structure Maze Warden', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass Core + Support evidence in S7–S9 and clear Boss Gate 2.' },
+    { id:'gate4', gate:4, title:'Boss Gate 4: Communication & Ethics Check', after:12, sessions:[10,11,12], boss:'Integrity Court Guardian', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass Core + Support evidence in S10–S12 and clear Boss Gate 3.' },
+    { id:'gate5', gate:5, title:'Final Boss: Integrated EAP Performance', after:15, sessions:[13,14,15], boss:'Stagnation Emperor', skills:['Reading','Writing','Listening','Speaking'], unlock:'Pass Core + Support evidence in S13–S15 and clear Boss Gate 4.' }
   ];
 
   const MUTATIONS = [
@@ -34850,9 +35141,10 @@
   }
 
   function bossGateStatus(gate){
-    if(gate.id === 'gate3') return (state.portfolio || []).length >= 6;
-    if(gate.id === 'final') return (state.portfolio || []).some(p => Number(p.session) === 15 && ['Writing','Speaking'].includes(p.skill));
-    return gate.skills.every(skill => hasSkillEvidenceInRange(gate.sessions, skill));
+    const numberFromId = String(gate?.id || '').match(/(\d+)/);
+    const gateNo = Number(gate?.gate || (numberFromId && numberFromId[1]) || 1);
+    const status = typeof bossGatePassStatus === 'function' ? bossGatePassStatus(gateNo) : null;
+    return !!(status && status.unlocked);
   }
 
   function bossGateForSession(sessionId){
@@ -34895,6 +35187,85 @@
     14:{risk:'Medium', objective:'Give a short academic presentation with clear opening, signposting, and closing.', expected:'45–60 second presentation + script outline', vocab:['opening','signpost','outline','conclusion'], frame:'Today, I will talk about ___. First, ___. To conclude, ___.', teacherNote:'เน้นพูดจริงและใช้ notes ไม่ใช่อ่านทั้งบท'},
     15:{risk:'High', objective:'Integrate reading/listening evidence into a short written response and oral reflection.', expected:'integrated response + reflection', vocab:['integrate','evidence','reflect','next step'], frame:'The evidence shows ___. My response is ___. My next step is ___.', teacherNote:'เป็น final portfolio synthesis'}
   };
+
+
+  /* === v1z73 Master Session Matrix ===
+     Single source of truth for the 15-week EAP Hero course blueprint.
+     Game progression remains individual/self-paced. Live English Lab data may be
+     added by teachers later, but it never controls student unlocks. */
+  const EAP_MASTER_SESSION_MATRIX = Object.freeze({
+    1:{week:1,arc:'Foundation',theme:'Academic Mindset',level:'A2',core:'Reading',support:'Speaking',optional:['Writing','Listening'],teacherFocus:'EAP purpose and Skill + Action + Check goal setting',liveLabId:'academic_identity_carousel',evidenceType:'academic_goal_card',misconceptionTags:['goal_vague','no_action_plan','goal_not_academic'],replayPackId:'RP_S01_GOAL_BUILDER',passScore:60,bossAfter:null},
+    2:{week:2,arc:'Foundation',theme:'Academic Vocabulary',level:'A2',core:'Reading',support:'Writing',optional:['Listening','Speaking'],teacherFocus:'Context clues, word family, and collocation',liveLabId:'word_meaning_match',evidenceType:'vocabulary_evidence_card',misconceptionTags:['context_clue_missed','word_family_confusion','collocation_misuse'],replayPackId:'RP_S02_CONTEXT_CLUE',passScore:60,bossAfter:null},
+    3:{week:3,arc:'Foundation',theme:'Main Idea',level:'A2-B1+',core:'Reading',support:'Writing',optional:['Listening','Speaking'],teacherFocus:'Topic, main idea, supporting detail, and distractor types',liveLabId:'headline_challenge',evidenceType:'main_idea_card',misconceptionTags:['too_broad_main_idea','too_narrow_main_idea','irrelevant_detail'],replayPackId:'RP_S03_MAIN_IDEA_FRAME',passScore:60,bossAfter:1},
+    4:{week:4,arc:'Evidence',theme:'Keywords & Signal Words',level:'A2-B1+',core:'Reading',support:'Listening',optional:['Writing','Speaking'],teacherFocus:'Keywords and cause/result/contrast/example signals',liveLabId:'signal_word_line_up',evidenceType:'signal_map',misconceptionTags:['keyword_overhighlight','signal_cause_result_confusion','signal_contrast_example_confusion'],replayPackId:'RP_S04_SIGNAL_SORT',passScore:60,bossAfter:null},
+    5:{week:5,arc:'Evidence',theme:'Critical Reading',level:'A2-B1+',core:'Reading',support:'Speaking',optional:['Writing','Listening'],teacherFocus:'Fact, opinion, claim, evidence, and source credibility',liveLabId:'source_detective',evidenceType:'evidence_verdict',misconceptionTags:['fact_opinion_confusion','claim_evidence_confusion','source_credibility_missed'],replayPackId:'RP_S05_EVIDENCE_SORT',passScore:60,bossAfter:null},
+    6:{week:6,arc:'Evidence',theme:'Summarizing',level:'A2-B1+',core:'Writing',support:'Reading',optional:['Listening','Speaking'],teacherFocus:'Read → Reduce → Rewrite → Review',liveLabId:'one_minute_summary_swap',evidenceType:'summary_card',misconceptionTags:['copy_like_summary','summary_missing_main_idea','meaning_changed_summary','opinion_added_to_summary'],replayPackId:'RP_S06_THREE_SENTENCE_SUMMARY',passScore:60,bossAfter:2},
+    7:{week:7,arc:'Academic Writing',theme:'Academic Tone',level:'B1',core:'Writing',support:'Speaking',optional:['Reading','Listening'],teacherFocus:'Informal to academic language, precision, and hedging',liveLabId:'tone_clinic',evidenceType:'tone_makeover_card',misconceptionTags:['informal_tone','imprecise_wording','overcertainty'],replayPackId:'RP_S07_TONE_CONVERTER',passScore:60,bossAfter:null},
+    8:{week:8,arc:'Academic Writing',theme:'Paragraph Structure',level:'B1',core:'Reading',support:'Writing',optional:['Listening','Speaking'],teacherFocus:'T–E–E–C, unity, coherence, and cohesion',liveLabId:'paragraph_puzzle',evidenceType:'paragraph_structure_map',misconceptionTags:['missing_topic_sentence','off_topic_detail','structure_order_error','connector_misuse'],replayPackId:'RP_S08_PARAGRAPH_PUZZLE',passScore:60,bossAfter:null},
+    9:{week:9,arc:'Academic Writing',theme:'Paragraph Writing',level:'B1',core:'Writing',support:'Speaking',optional:['Reading','Listening'],teacherFocus:'Plan and write one short academic paragraph',liveLabId:'mini_paragraph_pitch',evidenceType:'academic_paragraph',misconceptionTags:['weak_support','weak_evidence','missing_closing','unity_break'],replayPackId:'RP_S09_TEEC_BUILDER',passScore:60,bossAfter:3},
+    10:{week:10,arc:'Professional Communication',theme:'Data Description',level:'B1',core:'Reading',support:'Writing',optional:['Listening','Speaking'],teacherFocus:'Trends, comparison, and cautious interpretation',liveLabId:'data_talk_pairs',evidenceType:'data_insight_card',misconceptionTags:['trend_direction_error','stable_fluctuate_confusion','overclaim_from_data'],replayPackId:'RP_S10_TREND_SENTENCE',passScore:60,bossAfter:null},
+    11:{week:11,arc:'Professional Communication',theme:'Academic Email',level:'B1',core:'Writing',support:'Speaking',optional:['Reading','Listening'],teacherFocus:'Subject, greeting, purpose, request, and closing',liveLabId:'email_conversation_roleplay',evidenceType:'academic_email_draft',misconceptionTags:['email_missing_subject','email_missing_request','impolite_tone','unclear_purpose'],replayPackId:'RP_S11_EMAIL_BUILDER',passScore:60,bossAfter:null},
+    12:{week:12,arc:'Professional Communication',theme:'Citation & Ethics',level:'B1+',core:'Reading',support:'Writing',optional:['Listening','Speaking'],teacherFocus:'Quotation, paraphrase, plagiarism, citation, and responsible AI',liveLabId:'ethics_tribunal',evidenceType:'citation_ethics_card',misconceptionTags:['citation_confusion','plagiarism_risk','paraphrase_too_close','ai_ethics_risk'],replayPackId:'RP_S12_ETHICS_CARDS',passScore:60,bossAfter:4},
+    13:{week:13,arc:'Global Performance',theme:'Academic Listening',level:'B1+',core:'Listening',support:'Writing',optional:['Reading','Speaking'],teacherFocus:'Two-round listening and keyword notes',liveLabId:'mini_lecture_note_challenge',evidenceType:'lecture_note_card',misconceptionTags:['listening_topic_missed','listening_main_point_missed','note_overload','signal_word_missed'],replayPackId:'RP_S13_TWO_ROUND_LISTENING',passScore:60,bossAfter:null},
+    14:{week:14,arc:'Global Performance',theme:'Academic Presentation',level:'B1+',core:'Speaking',support:'Writing',optional:['Reading','Listening'],teacherFocus:'Opening, signposting, evidence, conclusion, and Q&A',liveLabId:'one_minute_conference',evidenceType:'presentation_outline',misconceptionTags:['presentation_no_outline','presentation_no_evidence','weak_signposting','q_and_a_avoidance'],replayPackId:'RP_S14_CUE_CARD_REHEARSAL',passScore:60,bossAfter:null},
+    15:{week:15,arc:'Global Performance',theme:'Final Integration',level:'B1+',core:'Writing',support:'Speaking',optional:['Reading','Listening'],teacherFocus:'Problem → Evidence → Interpretation → Solution → Conclusion',liveLabId:'society_solution_showcase',evidenceType:'solution_brief',misconceptionTags:['problem_evidence_solution_mismatch','unsupported_solution','missing_ai_declaration','weak_reflection'],replayPackId:'RP_S15_GUIDED_SOLUTION_BRIEF',passScore:60,bossAfter:5}
+  });
+
+  function masterSessionForSession(sessionId){
+    const sid = Number(sessionId || 1) || 1;
+    return EAP_MASTER_SESSION_MATRIX[sid] || EAP_MASTER_SESSION_MATRIX[1];
+  }
+
+  function syncMasterSessionMatrix(silent){
+    Object.keys(EAP_MASTER_SESSION_MATRIX).forEach(key=>{
+      const sid = Number(key);
+      const meta = EAP_MASTER_SESSION_MATRIX[sid];
+      Object.assign(EAP_FINAL_SKILL_MATRIX[sid] || (EAP_FINAL_SKILL_MATRIX[sid] = {}), {
+        theme:meta.theme, core:meta.core, support:meta.support,
+        optional:meta.optional, level:meta.level, bossAfter:meta.bossAfter,
+        arc:meta.arc, week:meta.week, evidenceType:meta.evidenceType,
+        misconceptionTags:meta.misconceptionTags, replayPackId:meta.replayPackId,
+        liveLabId:meta.liveLabId, teacherFocus:meta.teacherFocus, passScore:meta.passScore
+      });
+      const existingQuality = EAP_FINAL_SESSION_QUALITY[sid] || {};
+      EAP_FINAL_SESSION_QUALITY[sid] = Object.assign(existingQuality, {
+        objective:meta.teacherFocus,
+        expected:meta.evidenceType.replaceAll('_',' '),
+        teacherNote:`${meta.arc} • ${meta.teacherFocus}`
+      });
+      SESSION_QUALITY_AUDIT[sid] = Object.assign({}, SESSION_QUALITY_AUDIT[sid] || {}, {
+        level:meta.level,
+        risk:(sid>=10 || sid===12 || sid>=15) ? 'High' : (sid>=4 ? 'Medium' : 'Low'),
+        core:meta.core,
+        support:meta.support,
+        expected:meta.evidenceType.replaceAll('_',' '),
+        objective:meta.teacherFocus,
+        teacherNote:`${meta.arc} • Replay: ${meta.replayPackId}`
+      });
+    });
+    if(!silent && typeof safeToast === 'function') safeToast('Master Session Matrix synced');
+    return EAP_MASTER_SESSION_MATRIX;
+  }
+
+  function replaceS8QuestionBankV1z73(){
+    const s8 = SESSIONS.find(s=>Number(s.id)===8);
+    if(!s8) return false;
+    const structureQuestions = [
+      mcq('S08_V73_Q1','Which sentence is the best topic sentence?','Topic: Study planning',[ 'Study planning includes calendars.', 'Study planning can help university students complete tasks more effectively.', 'For example, students can use a calendar.', 'Therefore, deadlines are important.' ],1,'The topic sentence gives the paragraph’s central idea.'),
+      mcq('S08_V73_Q2','Which sentence is a supporting detail?','Topic sentence: Peer feedback can improve writing.',[ 'Peer feedback can improve writing.', 'Classmates may notice unclear ideas that the writer did not see.', 'In conclusion, writing is important.', 'This paragraph has four sentences.' ],1,'This detail explains how peer feedback supports writing.'),
+      mcq('S08_V73_Q3','Which sentence is an example?','',[ 'Digital literacy is important for students.', 'It helps them evaluate online sources.', 'For example, students can check the author and date of a website.', 'Therefore, students should learn digital literacy.' ],2,'For example introduces an illustration.'),
+      mcq('S08_V73_Q4','Which sentence is off-topic in a paragraph about academic email?','',[ 'A meaningful subject line makes the purpose clear.', 'A polite greeting helps create a respectful tone.', 'A graph can show an increase in online learning.', 'A clear request makes the email easier to answer.' ],2,'The graph sentence does not support academic email.'),
+      mcq('S08_V73_Q5','Choose the best paragraph order.','',[ 'Topic → Support → Example → Closing', 'Example → Greeting → New topic → Closing', 'Closing → Topic → Random detail → Example', 'Evidence → Title → Support → Question' ],0,'A short academic paragraph follows a clear logical structure.'),
+      mcq('S08_V73_Q6','Which connector best introduces a conclusion?','',[ 'for example', 'however', 'in conclusion', 'because' ],2,'In conclusion signals the closing idea.'),
+      mcq('S08_V73_Q7','What does cohesion mean in a paragraph?','',[ 'Every sentence has the same number of words.', 'Ideas are linked clearly with appropriate words and phrases.', 'The paragraph has no examples.', 'The writer uses difficult vocabulary only.' ],1,'Cohesion helps readers follow connections between ideas.'),
+      mcq('S08_V73_Q8','Why should a paragraph have unity?','',[ 'It keeps every sentence focused on one main idea.', 'It makes the paragraph longer.', 'It allows several unrelated topics.', 'It removes the need for a conclusion.' ],0,'Unity keeps the paragraph focused.')
+    ];
+    s8.questions = structureQuestions;
+    return true;
+  }
+
+  syncMasterSessionMatrix(true);
+  replaceS8QuestionBankV1z73();
 
   const EAP_REPLAY_TOPIC_BANK = {
     1:[
@@ -35551,7 +35922,8 @@
 
 
   function finalMatrixForSession(sessionId){
-    return EAP_FINAL_SKILL_MATRIX[Number(sessionId || 1)] || EAP_FINAL_SKILL_MATRIX[1];
+    const sid = Number(sessionId || 1) || 1;
+    return (typeof EAP_MASTER_SESSION_MATRIX !== 'undefined' && EAP_MASTER_SESSION_MATRIX[sid]) || EAP_FINAL_SKILL_MATRIX[sid] || EAP_FINAL_SKILL_MATRIX[1];
   }
 
   function missionTemplatesFor(skill, sessionId){
@@ -36181,7 +36553,9 @@
     }
   }
   function renderBossGate(gateId){
-    const gate = BOSS_GATES.find(g => g.id === gateId) || BOSS_GATES[0];
+    const requested = String(gateId || '');
+    const gateNo = Number(requested) || bossGateNumberFromId(requested) || 1;
+    const gate = BOSS_GATES.find(g => g.id === requested || Number(g.gate) === gateNo || Number(g.after) === gateNo) || BOSS_GATES[0];
     const unlocked = bossGateStatus(gate);
     const mutation = mutationForGate(gate.id);
     const ghost = state.replay?.ghosts?.[gate.id];
@@ -37042,7 +37416,7 @@
         <div class="panel light" style="margin-top:18px">
           <h3>Session ${current.id}: ${safe(current.skill)}</h3>
           <p class="mini-note">Boss: ${safe(current.boss)} • Topic: ${safe(skillTextForSession(current).topic)}</p>
-          <button class="btn warn block" onclick="return EAPHero.directOpenSession(${current.id})">🧭 Back to Session Path</button>
+          <button class="btn ghost block" onclick="return EAPHero.directOpenSession(${current.id})">← Session Path</button>
           <div class="grid four">
             <button class="btn primary block" onclick="EAPHero.readingMission(${current.id})">📖 Reading</button>
             <button class="btn primary block" onclick="EAPHero.writingMission(${current.id})">✍️ Writing</button>
@@ -37434,31 +37808,26 @@
 
 
   function renderReadingMission(id){
-    const __readingSessionId = Number(arguments[0] || state.currentSession || 1); const readingQs = readingQuestionSetForSession(__readingSessionId);
-
-    const s = getSession(safeMissionSessionId(id)), text = pickMissionVariant(s.id, 'Reading');
-    const readAlign = alignmentFor('Reading', s.id, text.variant || {});
-    if(readAlign && readAlign.questions && readAlign.questions.length){ text.variant.q = readAlign.questions; }
-    const abilityTask = buildAbilityTask('Reading', s.id, text);
-    if(abilityTask.questions && abilityTask.questions.length) text.variant.q = abilityTask.questions;
-    const readingDifficulty = currentSkillDifficulty('Reading');
-    registerGoldTaskContext('Reading', s.id, abilityTask);
-    layout(`<section class="panel" style="margin-top:20px">
-      <div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
-      <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
-      ${goldAuthoredBadgeHTML(abilityTask)}
-      ${abilityTaskHTML('Reading', abilityTask)}
-      <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}"><input type="hidden" id="readingAbilityTaskId" value="${safeAttr(abilityTask.id)}">
-      <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
-      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${goldTaskAlignmentGuideHTML('Reading', s.id, abilityTask, text.variant || {})}${abilityTask.gold ? '' : cefrAIHelpNote('Reading')}</div>
-      <p class="mini-note"><b>Difficulty:</b> ${safe(readingDifficulty.label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading', readingDifficulty)))}</p>
-      ${independentReplayBannerHTML('Reading', s.id)}
-      ${renderAIHelpBox('Reading', s.id)}
-      ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="2" placeholder="Write a short answer in English."></textarea>`).join('')}
-      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
-    </section>`);
+    const sid=Number(safeMissionSessionId(id)||1), s=getSession(sid), text=pickMissionVariant(s.id,'Reading');
+    if(sid===1){
+      const goals=['I want to improve English.','I want to improve my academic reading this semester.','English is difficult for me.'];
+      const skills=['Academic reading','Academic vocabulary','Writing paragraphs','Listening to lectures','Presentation skills'];
+      const actions=['Read one short academic text each week','Review five academic words each week','Write one short summary each week','Listen twice for key words','Practise with a partner'];
+      layout(`<section class="panel" style="margin-top:20px"><div class="badges"><span class="pill">Reading Mission</span><span class="pill">S1</span><span class="pill">Academic Mindset</span></div>
+      <h2>📖 Reading Mission: Build My Academic Goal</h2><p class="lead">Choose → match → save. No long typing is needed.</p>
+      <div class="cefr-support aligned-support"><h3>🎯 Goal Builder</h3><p><b>Step 1.</b> Choose the clearest academic goal.</p>
+      <div class="goal-choice-set">${goals.map((g,i)=>`<label class="goal-choice"><input type="radio" name="s1GoalChoice" value="${i}" ${i===1?'checked':''}> ${safe(g)}</label>`).join('')}</div>
+      <p><b>Step 2.</b> Choose one skill you want to improve.</p><select id="s1SkillPick" class="input">${skills.map(x=>`<option>${safe(x)}</option>`).join('')}</select>
+      <p><b>Step 3.</b> Choose one practice action.</p><select id="s1ActionPick" class="input">${actions.map(x=>`<option>${safe(x)}</option>`).join('')}</select>
+      <div class="mission-specific-guide"><h4>Your Goal Card Preview</h4><p id="s1GoalPreview">My academic goal is to improve academic reading.<br>I will practise by reading one short academic text each week.</p></div></div>
+      <script>(function(){const a=document.getElementById('s1SkillPick'),b=document.getElementById('s1ActionPick'),p=document.getElementById('s1GoalPreview');function u(){p.innerHTML='My academic goal is to improve '+a.value.toLowerCase()+'.<br>I will practise by '+b.value.toLowerCase()+'.'}a.onchange=u;b.onchange=u;u()})()</script>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(1)">Save My Academic Goal</button><button class="btn ghost" onclick="EAPHero.skillHub(1)">← Back to S1 Skills</button></div></section>`);
+      return;
+    }
+    const readAlign=alignmentFor('Reading',s.id,text.variant||{}); if(readAlign?.questions?.length) text.variant.q=readAlign.questions;
+    const abilityTask=buildAbilityTask('Reading',s.id,text); if(abilityTask.questions?.length) text.variant.q=abilityTask.questions;
+    layout(`<section class="panel" style="margin-top:20px"><div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div><h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>${goldAuthoredBadgeHTML(abilityTask)}${abilityTaskHTML('Reading',abilityTask)}<input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}"><p class="mini-note">Answer briefly in English.</p>${renderAIHelpBox('Reading',s.id)}${(text.variant.q||[]).map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="2" placeholder="Write a short answer in English."></textarea>`).join('')}<div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div></section>`);
   }
-
 
   function sourceKeywordsForScoring(text){
     const stop = new Set('the a an and or to of in on for with from by is are was were be been being this that these those student students academic english eap task source idea topic because therefore however example'.split(/\s+/));
@@ -37477,6 +37846,7 @@
       Speaking:['today','first','because','example','evidence','conclusion','thank','question']
     };
     const special = {
+      2:['word','meaning','context','sentence','evidence','claim','method','result'],
       5:['bias','claim','evidence','source','check'],
       6:['summary','own','words','important','source'],
       8:['topic','sentence','support','example','conclusion'],
@@ -37999,7 +38369,15 @@
   }
 
 
+  function submitReadingGoalBuilderV84(id, answers){
+    const sid=Number(id||1), skill='Reading', score=100; state.profile=state.profile||{}; state.profile.goal=`My academic goal is to improve ${String(answers[1]).toLowerCase()}. I will practise by ${String(answers[2]).toLowerCase()}.`;
+    state.sessions=state.sessions||{}; state.sessions[sid]=Object.assign({},state.sessions[sid]||{}, {unlocked:true,cleared:true,bestScore:Math.max(Number(state.sessions[sid]?.bestScore||0),score),bestAccuracy:100,bestStars:3,attempts:Number(state.sessions[sid]?.attempts||0)+1});
+    state.portfolio=Array.isArray(state.portfolio)?state.portfolio:[]; state.portfolio.push({id:'EV-S1-'+Date.now(),sessionId:sid,session:sid,skill,score,submittedAt:new Date().toISOString(),output:state.profile.goal,evidenceText:state.profile.goal,prompt:'S1 Goal Builder'}); state.portfolio=state.portfolio.slice(-24);
+    state.mastery=state.mastery||{}; state.mastery.Reading=Math.max(Number(state.mastery.Reading||0),score); addXP(20); saveState(); safeToast('Academic Goal saved. Great start!'); showSkillResult(skill,score,sid); return false;
+  }
+
   function submitReading(id){
+    if(Number(id)===1){ const sk=document.getElementById('s1SkillPick')?.value||'Academic reading'; const ac=document.getElementById('s1ActionPick')?.value||'Read one short academic text each week'; const choice=document.querySelector('input[name="s1GoalChoice"]:checked')?.value||'1'; const a0=choice==='1'?'I want to improve my academic reading this semester.':'I selected a learning goal.'; const a1=sk; const a2=ac; return submitReadingGoalBuilderV84(id,[a0,a1,a2]); }
     const s = getSession(id);
     const text = { topic: document.getElementById('readingTopic')?.value || skillTextForSession(s).topic, passage: document.getElementById('readingPassage')?.value || skillTextForSession(s).passage };
     const answers = [0,1,2].map(i => document.getElementById('readingAns'+i)?.value.trim() || '');
@@ -38062,8 +38440,8 @@
         <button type="button" class="btn small" onclick="EAPHero.expandAnswerBox('writingOutput')">↕ Expand</button>
         <button type="button" class="btn small ghost" onclick="EAPHero.clearAnswerBox('writingOutput')">Clear</button>
       </div>
-      <textarea id="writingOutput" class="input answer-box large-writing-box" rows="13" data-default-rows="13" placeholder="${safeAttr(alignedPlaceholder('Writing', s.id, prompt))}"></textarea>
-      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+      <textarea id="writingOutput" class="input answer-box large-writing-box" rows="${Number(s.id)<=3?6:13}" data-default-rows="${Number(s.id)<=3?6:13}" placeholder="${safeAttr(alignedPlaceholder('Writing', s.id, prompt))}"></textarea>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div>
     </section>`);
   }
 
@@ -38071,6 +38449,13 @@
   function writingPromptFromVariant(s, mv){
     const v = mv.variant || {};
     const matrix = finalMatrixForSession(s.id);
+    const sid=Number(s.id);
+    const aligned={
+      1:{title:'My Academic Goal Card',target:'2 short sentences',instruction:'Choose one academic skill and one practice action. Write: My academic goal is to improve ____. I will practise by ____.'},
+      2:{title:'Vocabulary in Context',target:'2 short sentences',instruction:'Choose one academic word from the source. Write its simple meaning, then write one short academic sentence using the word.'},
+      3:{title:'Main Idea Brief',target:'2 short sentences',instruction:'Write the main idea of the short passage. Add one supporting detail. Use your own words.'}
+    }[sid];
+    if(aligned) return Object.assign({topic:mv.topic,passage:mv.passage,variantType:'aligned-writing'},aligned);
     return {
       title:v.title || `${matrix.theme} Writing Challenge`,
       target:v.target || 'clear academic response using the source idea',
@@ -38315,7 +38700,12 @@
     const abilityTask = buildAbilityTask('Listening', s.id, text);
     const listeningDifficulty = currentSkillDifficulty('Listening');
     registerGoldTaskContext('Listening', s.id, abilityTask);
-    const lecture = `Today, we will discuss ${text.topic}. ${text.passage} ${text.variant.ask || 'Write notes about the main point.'}`;
+    const alignedLectures={
+      1:'My academic goal is to improve reading. I will practise by reading one short text every week.',
+      2:'The word evidence means information that supports an idea. Students can use evidence in academic writing.',
+      3:'Online learning can support independent study. For example, students can use videos and quizzes outside class.'
+    };
+    const lecture = alignedLectures[Number(s.id)] || `Today, we will discuss ${text.topic}. ${text.passage} ${text.variant.ask || 'Write notes about the main point.'}`;
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Listening Mission</span><span class="pill">S${s.id}</span><span class="pill">Mini Lecture</span></div>
       <h2>🎧 Listening Mission</h2>
@@ -38378,7 +38768,7 @@
         <button type="button" class="btn small" onclick="EAPHero.expandAnswerBox('listeningNotes')">↕ Expand</button>
       </div>
       <textarea id="listeningNotes" class="input answer-box listening-notes-box" rows="10" data-default-rows="10" placeholder="${safeAttr(alignedPlaceholder('Listening', s.id, text.variant || {}))}"></textarea>
-      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitListening(${s.id})">Submit Listening Notes</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitListening(${s.id})">Submit Listening Notes</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button></div>
     </section>`);
   }
 
@@ -38462,6 +38852,8 @@
 
   let speakingTimer = null;
   let speakingSeconds = 0;
+  // v1z78: freeze the measured time when the learner finishes.
+  let finishedSpeakingSeconds = 0;
 
 
   let speechRecognizer = null;
@@ -38574,6 +38966,10 @@
 
   function startSpeakingTimer(){
     speakingSeconds = 0;
+    finishedSpeakingSeconds = 0;
+    // Legacy compatibility: some previous submit handlers read window.speakingSeconds.
+    window.speakingSeconds = 0;
+    window.finishedSpeakingSeconds = 0;
     const box = document.getElementById('speakingTimerBox');
     const startBtn = document.getElementById('startSpeakBtn');
     const finishBtn = document.getElementById('finishSpeakBtn');
@@ -38586,16 +38982,25 @@
     clearInterval(speakingTimer);
     speakingTimer = setInterval(()=>{
       speakingSeconds += 1;
+      window.speakingSeconds = speakingSeconds;
       const t = document.getElementById('speakingTime');
       if(t){
         const m = String(Math.floor(speakingSeconds/60)).padStart(2,'0');
         const s = String(speakingSeconds%60).padStart(2,'0');
         t.textContent = `${m}:${s}`;
       }
+      const need = Number(document.getElementById('speakingMinSeconds')?.value || 8);
+      if(speakingSeconds === need){
+        setSpeechStatus(`✅ Ready to submit — minimum ${need} seconds completed. You may continue speaking or press I Finished Speaking.`, 'done');
+      }
     }, 1000);
   }
 
   function stopSpeakingTimer(){
+    // Preserve the last shown timer value before any UI/reset operation.
+    finishedSpeakingSeconds = Math.max(Number(finishedSpeakingSeconds || 0), Number(speakingSeconds || 0));
+    window.finishedSpeakingSeconds = finishedSpeakingSeconds;
+    window.speakingSeconds = speakingSeconds;
     clearInterval(speakingTimer);
     const startBtn = document.getElementById('startSpeakBtn');
     const finishBtn = document.getElementById('finishSpeakBtn');
@@ -38606,7 +39011,10 @@
       const m = String(Math.floor(speakingSeconds/60)).padStart(2,'0');
       const s = String(speakingSeconds%60).padStart(2,'0');
       box.classList.add('active');
-      box.innerHTML = `<b>Speaking finished:</b> ${m}:${s}<br><span class="mini-note">Tick the parts you included. Transcript/notes are optional and help AI give more detailed feedback.</span>`;
+      box.dataset.seconds = String(finishedSpeakingSeconds || speakingSeconds || 0);
+      const need = Number(document.getElementById('speakingMinSeconds')?.value || 8);
+      const ready = (finishedSpeakingSeconds || speakingSeconds || 0) >= need;
+      box.innerHTML = `<b>Speaking finished:</b> ${m}:${s}<br><span class="mini-note">${ready ? `✅ Ready to submit — minimum ${need} seconds completed.` : `Keep practising until you reach the minimum ${need} seconds.`} Transcript/notes are optional and never affect pass.</span>`;
     }
   }
 
@@ -38623,10 +39031,15 @@
     const source = goldTaskSource(abilityTask) || mv.goldPack?.source || null;
     const profile = applyEasySpeakingProfile(abilityTask, source);
     const sessionMeta = typeof finalMatrixForSession === 'function' ? finalMatrixForSession(s.id) : {};
-    const sourceTitle = source?.title || mv.topic || 'this source';
+    const alignedSpeaking = {
+      1:{title:'My Academic Goal',instruction:'Say one academic goal and one practice action.'},
+      2:{title:'Word Meaning Mini Talk',instruction:'Say one academic word, its simple meaning, and one short example.'},
+      3:{title:'Main Idea Mini Talk',instruction:'Say the main idea and one supporting detail.'}
+    }[Number(s.id)] || null;
+    const sourceTitle = alignedSpeaking?.title || source?.title || mv.topic || 'this source';
     const prompt = {
       title:sourceTitle,
-      instruction:buildSpeakingTaskBrief(abilityTask, source),
+      instruction:alignedSpeaking?.instruction || buildSpeakingTaskBrief(abilityTask, source),
       topic:sourceTitle,
       passage:source?.passage || mv.passage || '',
       source,
@@ -38671,7 +39084,7 @@
           <button id="startSpeakBtn" class="btn primary" onclick="return EAPHero.startSpeakingFlow()">🎙 Start Speaking</button>
           <button id="finishSpeakBtn" class="btn" onclick="return EAPHero.finishSpeakingFlow()" disabled>⏹ I Finished Speaking</button>
         </div>
-        <div id="speakingTimerBox" class="speaking-timer-box">Ready: press Start Speaking. Aim for ${safe(profile.timeRange)} seconds.</div>
+        <div id="speakingTimerBox" class="speaking-timer-box">Ready: press Start Speaking. Aim for at least ${Number(profile.minSeconds)} seconds. Speaking longer is okay.</div>
         <div class="speaking-live-status">
           <b>🗣 Live transcript</b>
           <span id="speechStatusBox" class="speech-status info">${speechSupported() ? 'Optional: it starts automatically after you press Start Speaking.' : 'Not supported here — just speak with the timer.'}</span>
@@ -38695,7 +39108,7 @@
       </div>
       <div class="footer-actions">
         <button class="btn primary submit-speaking-btn" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button>
-        <button class="btn ghost" onclick="EAPHero.renderSkillPath(${s.id})">Back to Session Path</button>
+        <button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">← Back to S${s.id} Skills</button>
       </div>
     </section>`);
   }
@@ -38741,83 +39154,205 @@
     return { title:'Mini Academic Speaking', instruction:`Give a 30–45 second explanation of how ${s.skill} helps university students in academic work.` };
   }
 
+  // v1z77: oral-first speaking evidence. Transcript is optional and never blocks pass.
   function submitSpeaking(id){
-    const s = getSession(id);
-    const out = document.getElementById('speakingTranscript')?.value.trim() || '';
-    const prompt = document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction;
-    const profileKey = document.getElementById('speakingProfileKey')?.value || 'easy';
-    const profile = easySpeakingProfileByKey(profileKey);
-    const requiredSpeakingSeconds = Number(document.getElementById('speakingMinSeconds')?.value || profile.minSeconds);
-    const goldSourceId = (document.getElementById('speakingGoldSourceId')?.value || '').toUpperCase();
-    const checklist = {spoke:!!document.getElementById('spSpoke')?.checked};
-    profile.requirements.forEach(r=>{
-      checklist[r.key] = !!document.getElementById(`sp_${r.key}`)?.checked;
-    });
+    try{
+      const s = getSession(id);
+      if(!s){ safeToast('Speaking mission could not be found. Please return to the session and try again.'); return false; }
+      const out = document.getElementById('speakingTranscript')?.value.trim() || '';
+      const prompt = document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction;
+      const profileKey = document.getElementById('speakingProfileKey')?.value || 'easy';
+      const profile = Number(id) === 1 ? easySpeakingProfileByKey('s1goal') : easySpeakingProfileByKey(profileKey);
+      const requiredSpeakingSeconds = Number(document.getElementById('speakingMinSeconds')?.value || profile.minSeconds || 8);
+      const goldSourceId = (document.getElementById('speakingGoldSourceId')?.value || '').toUpperCase();
+      const checklist = {spoke:!!document.getElementById('spSpoke')?.checked};
+      (profile.requirements || []).forEach(r=>{
+        checklist[r.key] = !!document.getElementById(`sp_${r.key}`)?.checked;
+      });
+      const liveSeconds = Number(speakingSeconds || 0);
+      const frozenSeconds = Number(finishedSpeakingSeconds || window.finishedSpeakingSeconds || 0);
+      const displayedSeconds = Number(document.getElementById('speakingTimerBox')?.dataset?.seconds || 0);
+      const spokenSec = Math.max(liveSeconds, frozenSeconds, displayedSeconds);
 
-    if(speakingSeconds < requiredSpeakingSeconds){
-      safeToast(`Speak for at least ${requiredSpeakingSeconds} seconds before submitting this mission.`);
-      const box = document.getElementById('speakingTimerBox');
-      if(box) box.classList.add('needs-time');
-      return;
+      if(spokenSec < requiredSpeakingSeconds){
+        safeToast(`Speaking time is not ready yet: ${spokenSec}s recorded. Please press Start Speaking, speak for at least ${requiredSpeakingSeconds} seconds, then press I Finished Speaking.`);
+        const box = document.getElementById('speakingTimerBox');
+        if(box) box.classList.add('needs-time');
+        return false;
+      }
+      if(!checklist.spoke){
+        safeToast('Please tick “I spoke for the target time” after you finish speaking.');
+        return false;
+      }
+      const missing = (profile.requirements || []).filter(r=>!checklist[r.key]);
+      if(missing.length){
+        safeToast(`Please confirm: ${missing.map(x=>x.short).join(' · ')}`);
+        return false;
+      }
+
+      const requirementPoints = 50 / Math.max(1, (profile.requirements || []).length);
+      const oralScore = Math.min(100, Math.round(50 + (profile.requirements || []).reduce((sum,r)=>sum + (checklist[r.key] ? requirementPoints : 0),0)));
+      const transcriptScore = out ? scoreEAPOpenAnswer('Speaking', id, out, prompt, 0) : 0;
+      const speakingDifficulty = currentSkillDifficulty('Speaking');
+      const teacherReviewRequired = [3,6,9,12,15].includes(Number(id));
+
+      // Pass is based only on the oral timer and learner confirmations.
+      // Raw speech-recognition text must never reduce the oral score.
+      const score = oralScore;
+      const evidence = addPortfolio({
+        session:id,
+        skill:'Speaking',
+        taskId:`S${String(id).padStart(2,'0')}_SPEAKING`,
+        difficulty:speakingDifficulty.key,
+        aiAbilityTier:speakingDifficulty.key,
+        abilityTaskId:document.getElementById('speakingAbilityTaskId')?.value || '',
+        goldSourceId,
+        durationSec:spokenSec,
+        speakingSeconds:spokenSec,
+        targetRange:profile.timeRange || `${requiredSpeakingSeconds}+ sec`,
+        requiredSpeakingSeconds,
+        speakingProfile:profile.key,
+        oralChecklist:checklist,
+        selectedGoal:document.getElementById('speakingSelectedGoal')?.value || '',
+        selectedAction:document.getElementById('speakingSelectedAction')?.value || '',
+        cueData:document.getElementById('speakingCueData')?.value || '',
+        oralScore,
+        transcriptScore,
+        transcriptAvailable:!!out,
+        transcriptIsOptional:true,
+        transcriptNotForPass:true,
+        evidenceMode:out ? 'oral-first-with-optional-transcript' : 'oral-first-timer-and-checklist',
+        teacherReviewRequired,
+        teacherReviewStatus:teacherReviewRequired ? 'pending_boss_review' : 'not_required',
+        teacherFeedbackCode:'',
+        teacherScore:null,
+        teacherComment:'',
+        attemptNo:((state.portfolio || []).filter(x=>Number(x.session)===Number(id) && x.skill==='Speaking').length + 1),
+        replayNeeded:false,
+        score,
+        aiUses:aiUsesFor(id,'Speaking'),
+        output:out,
+        prompt
+      });
+      safeToast(teacherReviewRequired ? 'Speaking evidence saved. Teacher review will be requested for this Boss Gate.' : 'Speaking evidence saved.');
+      showSkillResult('Speaking', score, id);
+      return evidence;
+    }catch(err){
+      console.error('[submitSpeaking]', err);
+      safeToast('Speaking evidence could not be saved. Please try once more.');
+      return false;
     }
-    if(!checklist.spoke){
-      safeToast('Please tick “I spoke for the target time” after you finish speaking.');
-      return;
+  }
+
+  function deriveEvidenceMisconceptionTags(entry, meta){
+    const item = entry || {};
+    const output = String(item.output || '').trim();
+    const low = output.toLowerCase();
+    const tags = Array.isArray(item.misconceptionTags) ? item.misconceptionTags.slice() : [];
+    const score = Number(item.score || 0);
+    if(score < Number(meta?.passScore || PASS_RULES.sessionMinScore || 60)){
+      tags.push('replay_required', `low_${String(item.skill || 'skill').toLowerCase()}_mastery`);
     }
-    const missing = profile.requirements.filter(r=>!checklist[r.key]);
-    if(missing.length){
-      safeToast(`Please confirm: ${missing.map(x=>x.short).join(' · ')}`);
-      return;
+    if(!output && String(item.skill || '') !== 'Speaking') tags.push('missing_evidence_text');
+    if(meta?.evidenceType === 'summary_card' && typeof copiedSourceRatio === 'function' && copiedSourceRatio(output, String(item.prompt || '')) > 0.62) tags.push('copy_like_summary');
+    if(meta?.evidenceType === 'tone_makeover_card' && /\b(super|really|stuff|gonna|wanna|a lot of)\b/i.test(output)) tags.push('informal_tone');
+    if(meta?.evidenceType === 'data_insight_card' && /\b(proves?|always|all students)\b/i.test(low)) tags.push('overclaim_from_data');
+    if(meta?.evidenceType === 'academic_email_draft'){
+      if(!/subject|dear|hello/i.test(output)) tags.push('email_missing_subject_or_greeting');
+      if(!/could you|would like to|request|inquire/i.test(output)) tags.push('email_missing_request');
     }
-
-    const requirementPoints = 50 / Math.max(1, profile.requirements.length);
-    const oralScore = Math.min(100, Math.round(
-      40 + // reached time target
-      10 + // learner confirms the oral attempt
-      profile.requirements.reduce((sum,r)=>sum + (checklist[r.key] ? requirementPoints : 0),0)
-    ));
-    const transcriptScore = out ? scoreEAPOpenAnswer('Speaking', id, out, prompt, 0) : 0;
-
-    // v1z71: transcript is optional evidence. It can enrich feedback but never lowers the oral mission score.
-    const score = Math.max(0, Math.min(100, Math.round(oralScore - aiPenaltyForPortfolio(id, 'Speaking'))));
-    const speakingDifficulty = currentSkillDifficulty('Speaking');
-
-    addPortfolio({
-      session:id,
-      skill:'Speaking',
-      difficulty:speakingDifficulty.key,
-      aiAbilityTier:speakingDifficulty.key,
-      abilityTaskId:document.getElementById('speakingAbilityTaskId')?.value || '',
-      goldSourceId,
-      speakingSeconds,
-      requiredSpeakingSeconds,
-      speakingProfile:profile.key,
-      oralChecklist:checklist,
-      oralScore,
-      transcriptScore,
-      evidenceMode:out ? 'oral-first-with-optional-transcript' : 'oral-first-timer-and-checklist',
-      score,
-      aiUses:aiUsesFor(id,'Speaking'),
-      output:out,
-      prompt
-    });
-    showSkillResult('Speaking', score, id);
+    if(meta?.evidenceType === 'citation_ethics_card' && !/cite|citation|source|author|declare|check|revise/i.test(low)) tags.push('citation_or_ai_ethics_missing');
+    if(meta?.evidenceType === 'solution_brief' && !/evidence|data|source|survey|study/i.test(low)) tags.push('unsupported_solution');
+    return Array.from(new Set(tags.filter(Boolean))).slice(0,8);
   }
 
   function addPortfolio(entry){
     state.portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
-    const compactEntry = compactPortfolioEntry(Object.assign({
+    const sessionId = Number(entry?.session || entry?.sessionId || state.currentSession || 1) || 1;
+    const meta = typeof masterSessionForSession === 'function' ? masterSessionForSession(sessionId) : null;
+    const incoming = Object.assign({
       at:new Date().toISOString(),
       student_id:state.profile.studentId || 'guest',
-      player_name:state.profile.name || 'Guest'
-    }, entry || {}));
+      player_name:state.profile.name || 'Guest',
+      session:sessionId,
+      sessionId:sessionId,
+      arc:meta?.arc || '',
+      week:meta?.week || sessionId,
+      evidenceType:meta?.evidenceType || 'skill_evidence',
+      replayPackId:meta?.replayPackId || '',
+      focusTags:meta?.misconceptionTags || [],
+      requiredSkills:meta ? [meta.core, meta.support] : [],
+      taskId:'',
+      durationSec:null,
+      targetRange:'',
+      oralChecklist:null,
+      transcriptAvailable:false,
+      transcriptIsOptional:false,
+      transcriptNotForPass:false,
+      teacherReviewRequired:false,
+      teacherReviewStatus:'not_required',
+      teacherFeedbackCode:'',
+      teacherScore:null,
+      teacherComment:'',
+      attemptNo:1,
+      replayNeeded:false
+    }, entry || {});
+    incoming.session = Number(incoming.session || incoming.sessionId || sessionId) || sessionId;
+    incoming.sessionId = incoming.session;
+    incoming.misconceptionTags = deriveEvidenceMisconceptionTags(incoming, meta);
+    const compactEntry = compactPortfolioEntry(incoming);
     if(!compactEntry.evidenceId){
       compactEntry.evidenceId = reportPortfolioIdentity(compactEntry, state.portfolio.length);
     }
     enhancePortfolioWithFullAI(compactEntry);
-    state.portfolio.push(compactEntry);
+    // v1z88: One student-facing portfolio card per Session + Skill + difficulty.
+    // Replays remain visible as a compact history for teachers/research without duplicating reports.
+    const sameKey = (p) => Number(p?.session || p?.sessionId || 0) === Number(compactEntry.session || compactEntry.sessionId || 0)
+      && String(p?.skill || '') === String(compactEntry.skill || '')
+      && String(p?.difficulty || '') === String(compactEntry.difficulty || '');
+    const existingIndex = state.portfolio.findIndex(sameKey);
+    if(existingIndex >= 0){
+      const prior = state.portfolio[existingIndex] || {};
+      const history = Array.isArray(prior.attemptHistory) ? prior.attemptHistory.slice(-4) : [];
+      history.push({
+        at: compactEntry.at || new Date().toISOString(),
+        score: Number(compactEntry.score || 0),
+        difficulty: compactEntry.difficulty || '',
+        durationSec: Number(compactEntry.durationSec || compactEntry.speakingSeconds || 0),
+        hintUsed: Number(compactEntry.aiUses || 0),
+        preview: String(compactEntry.output || '').slice(0,120)
+      });
+      const best = Number(compactEntry.score || 0) >= Number(prior.score || 0) ? compactEntry : prior;
+      const merged = Object.assign({}, best, {
+        attemptCount: Math.max(Number(prior.attemptCount || 1) + 1, Number(compactEntry.attemptNo || 1)),
+        latestScore: Number(compactEntry.score || 0),
+        latestAt: compactEntry.at || new Date().toISOString(),
+        attemptHistory: history.slice(-5),
+        output: best.output || prior.output || compactEntry.output || ''
+      });
+      state.portfolio[existingIndex] = compactPortfolioEntry(merged);
+    }else{
+      compactEntry.attemptCount = Math.max(1, Number(compactEntry.attemptNo || 1));
+      compactEntry.latestScore = Number(compactEntry.score || 0);
+      compactEntry.latestAt = compactEntry.at || new Date().toISOString();
+      compactEntry.attemptHistory = [{ at:compactEntry.latestAt, score:compactEntry.latestScore, difficulty:compactEntry.difficulty || '', preview:String(compactEntry.output || '').slice(0,120) }];
+      state.portfolio.push(compactEntry);
+    }
     state.portfolio = compactArray(state.portfolio, STORAGE_LIMITS.portfolio, compactPortfolioEntry);
-    const portfolioIndex = state.portfolio.length - 1;
+    // v1z89 central score mirror: always sync the best evidence into the session state
+    // so Session Map, unlock logic, and report summary agree after replay/de-duplication.
+    state.sessions = state.sessions || {};
+    state.sessions[sessionId] = state.sessions[sessionId] || {};
+    state.sessions[sessionId].skills = state.sessions[sessionId].skills || {};
+    state.sessionScores = state.sessionScores || {};
+    state.sessionScores[sessionId] = state.sessionScores[sessionId] || {};
+    const skillKey = String(compactEntry.skill || '').trim() || 'Unknown';
+    const priorSkill = state.sessions[sessionId].skills[skillKey];
+    const priorScore = Number(typeof priorSkill === 'object' ? (priorSkill.score ?? priorSkill.bestScore ?? 0) : priorSkill || 0);
+    const bestSkillScore = Math.max(priorScore, Number(compactEntry.score || 0));
+    state.sessions[sessionId].skills[skillKey] = {score:bestSkillScore, bestScore:bestSkillScore, latestScore:Number(compactEntry.score || 0), at:compactEntry.at || new Date().toISOString()};
+    state.sessionScores[sessionId][skillKey] = bestSkillScore;
+    const portfolioIndex = existingIndex >= 0 ? existingIndex : state.portfolio.length - 1;
     updateMasteryFromPortfolio(compactEntry);
     updateAIAbilityProfiles();
     checkSecretMissions();
@@ -38825,6 +39360,7 @@
     const report = typeof createLearningReport === 'function'
       ? createLearningReport(portfolioIndex, {deferSave:true})
       : null;
+    if(typeof syncCourseProgressFromEvidence === 'function') syncCourseProgressFromEvidence(true);
     saveState();
     return {portfolioIndex, entry:compactEntry, report};
   }
@@ -38832,16 +39368,16 @@
   function showSkillResult(skill, score, id){
     layout(`<section class="panel light result-hero" style="margin-top:20px">
       <div class="big-emoji">${score >= 75 ? '🌟' : score >= 50 ? '✅' : '📝'}</div><h2>${safe(skill)} Evidence Saved</h2>
-      <div class="grid three"><div class="stat"><b>${score}/100</b><span>Auto Score</span></div><div class="stat"><b>+${Math.max(5, Math.round(score/4))}</b><span>XP</span></div><div class="stat"><b>${(state.portfolio || []).length}</b><span>Portfolio Items</span></div></div>
+      <div class="grid three"><div class="stat"><b>${score}/100</b><span>Auto Score</span></div><div class="stat"><b>+${Math.max(5, Math.round(score/4))}</b><span>XP</span></div><div class="stat"><b>${(state.portfolio || []).length}</b><span>Portfolio summaries</span></div></div>
       <p class="mini-note">คะแนนนี้เป็น auto-check เบื้องต้น ใช้เพื่อปรับปรุงครั้งถัดไป อาจารย์ยังควรใช้ rubric ตรวจ writing/speaking จริง</p>
       ${renderLearningReportCard(latestLearningReport())}
       ${renderAIFormativeFeedbackCard((state.portfolio || []).slice(-1)[0])}
-      <div class="footer-actions" style="justify-content:center"><button class="btn primary" onclick="EAPHero.skillHub(${id})">Back to Skills</button><button class="btn" onclick="EAPHero.contract(${id})">Boss Contract</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn" onclick="EAPHero.aiLearningCenter()">AI Learning Center</button><button class="btn ghost" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button></div>
+      <div class="footer-actions" style="justify-content:center"><button class="btn primary" onclick="EAPHero.skillHub(${id})">← Back to S${id} Skills</button><button class="btn" onclick="EAPHero.contract(${id})">Boss Contract</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn" onclick="EAPHero.aiLearningCenter()">AI Learning Center</button><button class="btn ghost" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button></div>
     </section>`);
   }
 
   function exportPortfolioCSV(){
-    const header = ['student_id','player_name','session','skill','difficulty','score','ai_rubric_score','independence_status','independence_verified','independence_replay','replay_required','ai_uses','transcript_hint','prompt','output','at'];
+    const header = ['student_id','player_name','session','arc','week','skill','taskId','evidenceType','replayPackId','misconceptionTags','difficulty','score','durationSec','targetRange','requiredSpeakingSeconds','oralChecklist','selectedGoal','selectedAction','cueData','transcriptAvailable','transcriptIsOptional','transcriptNotForPass','teacherReviewRequired','teacherReviewStatus','teacherFeedbackCode','teacherScore','teacherComment','attemptNo','replayNeeded','ai_rubric_score','independence_status','independence_verified','independence_replay','replay_required','ai_uses','transcript_hint','prompt','output','at'];
     const rows = (state.portfolio || []).map(p => {
       const r = p.aiRubric || (typeof aiFormativeRubric === 'function' ? aiFormativeRubric(p) : {});
       const i = p.aiIndependence || (typeof aiIndependenceCheck === 'function' ? aiIndependenceCheck(p) : {});
@@ -38860,17 +39396,34 @@
     const a = document.createElement('a'); a.href = url; a.download = 'eap-hero-portfolio.csv'; a.click(); URL.revokeObjectURL(url);
   }
 
+  // v1z77: teacher dashboard can call this to attach concise Boss-speaking review data.
+  function saveTeacherSpeakingReview(evidenceId, review={}){
+    const allowed = ['CL','PR','FL','ST','EV','QA'];
+    const item = (state.portfolio || []).find(x=>String(x.evidenceId)===String(evidenceId));
+    if(!item) return {ok:false, reason:'evidence_not_found'};
+    const code = String(review.code || '').toUpperCase();
+    item.teacherFeedbackCode = allowed.includes(code) ? code : '';
+    item.teacherScore = Number.isFinite(Number(review.score)) ? Math.max(0, Math.min(10, Number(review.score))) : null;
+    item.teacherComment = compactTextForStorage(review.comment || '', 500);
+    item.teacherReviewRequired = true;
+    item.teacherReviewStatus = 'reviewed';
+    item.teacherReviewedAt = new Date().toISOString();
+    saveState();
+    return {ok:true, item};
+  }
+
   function safeAttr(text){ return String(text ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 
 
 
 
+  // v1z77: safe UI notification. Never recurse into itself.
   function safeToast(message){
     const msg = String(message || '');
     try{
-      if(typeof toast === 'function'){
-        safeToast(msg);
+      if(typeof toast === 'function' && toast !== safeToast){
+        toast(msg);
         return;
       }
     }catch(_){}
@@ -38884,7 +39437,7 @@
     box.textContent = msg;
     box.classList.add('show');
     clearTimeout(box._timer);
-    box._timer = setTimeout(()=>box.classList.remove('show'), 1800);
+    box._timer = setTimeout(()=>box.classList.remove('show'), 2200);
   }
 
 
@@ -39088,7 +39641,7 @@
     return frames[skill] || 'For example, ___.';
   }
 
-  /* === v1z72 Learning Report Recovery ===
+  /* === v1z77 Navigation Clarity + Learning Report Recovery ===
      A Learning Report is the formative view of one portfolio evidence item.
      Earlier builds could retain portfolio evidence but lose report cards after a
      local-storage migration.  Stable evidence IDs let the app restore those cards
@@ -39189,8 +39742,13 @@
       tryFrame: skillTryFrame(p.skill),
       aiUses: p.aiUses || 0,
       difficulty: p.difficulty || state.settings?.skillDifficulty || 'easy',
+      arc:p.arc || (typeof masterSessionForSession === 'function' ? masterSessionForSession(p.session).arc : ''),
+      evidenceType:p.evidenceType || '',
+      replayPackId:p.replayPackId || '',
+      misconceptionTags:Array.isArray(p.misconceptionTags) ? p.misconceptionTags : [],
+      focusTags:Array.isArray(p.focusTags) ? p.focusTags : [],
       createdAt: new Date().toISOString(),
-      reportVersion:'v1z72'
+      reportVersion:'v1z73'
     };
     state.learningReports.push(report);
     state.learningReports = compactArray(state.learningReports, STORAGE_LIMITS.learningReports);
@@ -39232,7 +39790,9 @@
 
   function renderLearningReportCard(report, opts={}){
     if(!report) return '';
-    const band = learningBand(report.score);
+    const isLegacy = !!report.legacyCompletion;
+    const band = isLegacy ? {cls:'developing', emoji:'🗂️', label:'Completed legacy evidence'} : learningBand(report.score);
+    const scoreText = isLegacy ? (Number(report.score)>0 ? `${safe(report.score)}/100` : 'Completed') : `${safe(report.score)}/100`;
     return `<div class="learning-report-card ${safe(band.cls)}">
       <div class="report-head">
         <div>
@@ -39240,7 +39800,7 @@
           <span>${safe(report.skill)} • Session ${safe(report.session)} • CEFR ${safe(report.cefrTarget)}</span>
           <small class="report-score-caption">Mission Task Score</small>
         </div>
-        <div class="report-score">${safe(report.score)}/100</div>
+        <div class="report-score">${scoreText}</div>
       </div>
       <div class="report-ai-summary">
         <span class="report-checklist">${safe(reportChecklistLabel(report))} <em>formative, not a second grade</em></span>
@@ -39251,7 +39811,9 @@
         <div><h4>✅ You did well</h4><p>${safe(report.didWell)}</p></div>
         <div><h4>🎯 Next time</h4><p>${safe(report.nextStep)}</p></div>
         <div><h4>✍️ Try this</h4><p><code>${safe(report.tryFrame)}</code></p></div>
+        <div><h4>🧭 Replay support</h4><p>${safe(report.replayPackId || 'Use the suggested Replay Pack when needed.')}</p></div>
       </div>
+      ${(report.misconceptionTags || []).length ? `<p class="mini-note"><b>Practice flags:</b> ${safe((report.misconceptionTags || []).join(' • '))}</p>` : ''}
       ${opts.actions===false?'':`<div class="footer-actions">
         <button class="btn small primary" onclick="EAPHero.renderStudentReports()">My Reports</button>
         <button class="btn small" onclick="EAPHero.map()">Continue Map</button>
@@ -39270,39 +39832,159 @@
     const bySkill = {};
     ['Reading','Writing','Listening','Speaking'].forEach(skill=>{
       const list = reports.filter(r=>r.skill===skill);
-      const avg = list.length ? Math.round(list.reduce((a,b)=>a+Number(b.score||0),0)/list.length) : 0;
-      bySkill[skill] = {count:list.length, avg, band:learningBand(avg)};
+      const scored = list.filter(r=>Number(r.score) > 0);
+      const avg = scored.length ? Math.round(scored.reduce((a,b)=>a+Number(b.score||0),0)/scored.length) : 0;
+      bySkill[skill] = {count:list.length, scoredCount:scored.length, avg, legacyOnly:list.length>0 && !scored.length, band:learningBand(avg)};
     });
     return bySkill;
   }
 
-  function renderStudentReports(){
-    repairLearningReportsFromPortfolio(true);
-    setView('studentReports');
-    const reports = (state.learningReports || []).slice().reverse();
-    const summary = skillSummaryReports();
-    const summaryCards = Object.entries(summary).map(([skill,d])=>`<div class="stat report-skill ${safe(d.band.cls)}"><b>${d.count?d.avg:'-'}</b><span>${safe(skill)} • ${d.count?d.band.label:'No report yet'}</span></div>`).join('');
-    const cards = reports.map(r=>renderLearningReportCard(r,{actions:false})).join('') || `<div class="panel light report-empty-state"><h3>ยังไม่มี Learning Report</h3><p>รายงานจะสร้างอัตโนมัติเมื่อผู้เรียนทำ <b>Reading, Writing, Listening หรือ Speaking Mission</b> แล้วกด <b>Submit</b> สำเร็จ โดยการเปิด Lab หรือชนะ MCQ Boss เพียงอย่างเดียวยังไม่สร้างรายงานรายทักษะ</p><p class="mini-note">เริ่มจาก Map → เปิด Session ปัจจุบัน → ทำ Core/Support Mission → Submit แล้วกลับมาดู Report ได้ทันที</p><div class="footer-actions"><button class="btn primary" onclick="EAPHero.continueSession()">Continue Current Session</button><button class="btn" onclick="EAPHero.map()">Open Map</button></div></div>`;
-    layout(`
-      <section class="panel" style="margin-top:20px">
-        <div class="badges"><span class="pill">Student Learning Reports</span><span class="pill">Formative Feedback</span><span class="pill">A2-B1+</span></div>
-        <h2>My Learning Report</h2>
-        <p class="lead">ผลนี้ใช้เพื่อพัฒนาครั้งถัดไป: รู้ระดับปัจจุบัน จุดที่ทำได้ดี จุดที่ควรเพิ่ม และประโยคช่วยตอบ</p>
-        <div class="grid four">${summaryCards}</div>
-        <div class="footer-actions">
-          <button class="btn primary" onclick="EAPHero.exportLearningReportsCSV()">Export Student Report CSV</button>
-          <button class="btn" onclick="EAPHero.map()">Back to Map</button>
-        </div>
-        <div class="report-list">${cards}</div>
-      </section>`);
+  /* v1z92: restore a compact, truthful report summary for completed legacy sessions.
+     These entries preserve completion evidence without inventing a numerical score. */
+  const LEGACY_SKILL_ROUTE_V92 = {
+    1:['Reading','Speaking'], 2:['Reading','Writing'], 3:['Reading','Writing'],
+    4:['Reading','Listening'], 5:['Reading','Speaking'], 6:['Writing','Reading'],
+    7:['Writing','Speaking'], 8:['Reading','Writing'], 9:['Writing','Speaking'],
+    10:['Reading','Writing'], 11:['Writing','Speaking'], 12:['Reading','Writing'],
+    13:['Listening','Writing'], 14:['Speaking','Writing'], 15:['Writing','Speaking']
+  };
+
+  function legacyScoreFromStateV92(sessionId, skill){
+    const sid = String(sessionId);
+    const direct = state.sessionScores?.[sid]?.[skill] ?? state.sessionScores?.[sessionId]?.[skill];
+    if(Number(direct) > 0) return Number(direct);
+    const session = state.sessions?.[sid] || state.sessions?.[sessionId] || {};
+    const pools = [session.skills, session.skillEvidence, session.skillScores, session.evidence, session.missions];
+    for(const pool of pools){
+      const value = pool?.[skill] ?? pool?.[String(skill).toLowerCase()] ?? pool?.[String(skill).toUpperCase()];
+      const score = Number(value?.score ?? value?.bestScore ?? value);
+      if(score > 0) return score;
+    }
+    return null;
   }
 
-  function exportLearningReportsCSV(){
-    const rows = [['createdAt','studentId','studentName','session','skill','score','band','cefrTarget','difficulty','aiUses','didWell','nextStep','tryFrame']];
-    (state.learningReports || []).forEach(r=>{
-      rows.push([r.createdAt,r.studentId,r.studentName,r.session,r.skill,r.score,r.band,r.cefrTarget,r.difficulty,r.aiUses,r.didWell,r.nextStep,r.tryFrame]);
+  function recoverLegacyPortfolioAndReportsV92(){
+    state.portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
+    state.learningReports = Array.isArray(state.learningReports) ? state.learningReports : [];
+    let created = 0;
+    Object.keys(state.sessions || {}).forEach(rawId=>{
+      const sid = Number(rawId);
+      const session = state.sessions?.[rawId] || {};
+      // A completion can be retained under cleared/done/completed OR reconstructed by the
+      // central pass report. Never rely on one legacy field only.
+      const pass = typeof sessionPassReport === 'function' ? sessionPassReport(sid) : null;
+      const retainedCompletion = !!(session.cleared || session.done || session.completed || session.complete || session.bossDone || session.unlockedDone || pass?.passed);
+      if(!sid || !retainedCompletion) return;
+      const skillsToRecover = (pass?.requiredSkills && pass.requiredSkills.length ? pass.requiredSkills : (LEGACY_SKILL_ROUTE_V92[sid] || []));
+      skillsToRecover.forEach(skill=>{
+        const exists = state.portfolio.some(p=>Number(p?.sessionId || p?.session)===sid && String(p?.skill||'')===skill) ||
+          state.learningReports.some(r=>Number(r?.session)===sid && String(r?.skill||'')===skill);
+        if(exists) return;
+        const retainedScore = legacyScoreFromStateV92(sid, skill);
+        const evidenceId = `LEGACY-S${sid}-${skill}`;
+        const entry = {
+          id:evidenceId, evidenceId, sessionId:sid, session:sid, skill,
+          score:retainedScore === null ? null : retainedScore,
+          submittedAt:'', at:'', difficulty:'legacy', evidenceType:'legacy-completion',
+          legacyCompletion:true,
+          output:'Completed legacy evidence retained after browser-storage migration.',
+          evidenceText:'Completed legacy evidence retained after browser-storage migration.'
+        };
+        state.portfolio.push(entry);
+        state.learningReports.push({
+          id:`lr_${evidenceId}`, portfolioId:evidenceId, portfolioIndex:state.portfolio.length-1,
+          session:sid, skill, score:retainedScore === null ? null : retainedScore,
+          difficulty:'legacy', cefrTarget:'A2–B1+', band:'Completed legacy evidence',
+          legacyCompletion:true, independenceVerified:false, supportMode:'legacy migration',
+          didWell:'Completed before the browser-storage migration.',
+          nextStep:'Continue with the next mission; future submissions will show full formative feedback.',
+          tryFrame:skillTryFrame(skill), replayPackId:'Legacy completion retained', createdAt:'', sourceAt:''
+        });
+        created++;
+      });
     });
-    downloadCSV('eap-learning-reports.csv', rows);
+    if(created){
+      state.portfolio = compactArray(state.portfolio, STORAGE_LIMITS.portfolio, compactPortfolioEntry);
+      state.learningReports = compactArray(state.learningReports, STORAGE_LIMITS.learningReports, x=>x);
+    }
+    return created;
+  }
+
+  /* v1z95: one shared report source for Map, learner report, export, and teacher review.
+     Numeric scores are only shown when a retained evidence source exists. */
+  function unifiedReportsV95(){
+    const reports = Array.isArray(state.learningReports) ? state.learningReports.slice() : [];
+    const byKey = new Map();
+    reports.forEach(r=>{
+      if(!r || !Number(r.session||0) || !r.skill) return;
+      const key=`${Number(r.session)}|${String(r.skill)}`;
+      const prior=byKey.get(key);
+      const rank=x=>Number(x?.score||0);
+      if(!prior || rank(r)>rank(prior) || (!prior.legacyCompletion && r.legacyCompletion===false)) byKey.set(key,r);
+    });
+    for(let sid=1;sid<=15;sid++){
+      const pass=sessionPassReport(sid);
+      if(!pass?.passed) continue;
+      (pass.requiredSkills||[]).forEach(skill=>{
+        const key=`${sid}|${skill}`;
+        if(byKey.has(key)) return;
+        const retained=legacyScoreFromStateV92(sid,skill);
+        byKey.set(key,{
+          id:`lr_V95_LEGACY_S${sid}_${skill}`,
+          session:sid, skill, score:retained===null?null:retained,
+          difficulty:'legacy', cefrTarget:'A2–B1+', band:'Completed legacy evidence',
+          legacyCompletion:true, independenceVerified:false,
+          independenceStatus:'Legacy completion retained', supportMode:'legacy migration',
+          sourceAligned:false, aiRubricScore:0,
+          didWell:'Completion and unlock status were retained after browser-storage migration.',
+          nextStep:'Complete the next mission. New submissions will store a scored report for teacher review.',
+          tryFrame:skillTryFrame(skill), replayPackId:'Legacy completion retained', createdAt:''
+        });
+      });
+    }
+    return Array.from(byKey.values()).sort((a,b)=>Number(a.session||0)-Number(b.session||0)||String(a.skill).localeCompare(String(b.skill)));
+  }
+
+  function summaryFromReportsV95(reports){
+    const out={};
+    ['Reading','Writing','Listening','Speaking'].forEach(skill=>{
+      const list=reports.filter(r=>r.skill===skill);
+      const scored=list.filter(r=>Number(r.score)>0);
+      const avg=scored.length?Math.round(scored.reduce((t,r)=>t+Number(r.score||0),0)/scored.length):0;
+      out[skill]={count:list.length, scoredCount:scored.length, avg, legacyOnly:list.length>0&&!scored.length, band:learningBand(avg)};
+    });
+    return out;
+  }
+
+  function renderStudentReports(){
+    try{ if(typeof syncPassProgressNow==='function') syncPassProgressNow(true); }catch(e){}
+    const reports=unifiedReportsV95();
+    const summary=summaryFromReportsV95(reports);
+    const summaryCards=Object.entries(summary).map(([skill,d])=>{
+      const value=d.count?(d.scoredCount?d.avg:'✓'):'-';
+      const label=d.count?(d.scoredCount?`${d.avg}/100 average`:'Completed legacy evidence'):'No report yet';
+      return `<div class="stat report-skill ${safe(d.band.cls)}"><b>${safe(value)}</b><span>${safe(skill)} • ${safe(label)}</span></div>`;
+    }).join('');
+    const cards=reports.map(r=>renderLearningReportCard(r,{actions:false})).join('') || `<div class="panel light report-empty-state"><h3>ยังไม่มี Learning Report</h3><p>รายงานจะสร้างอัตโนมัติเมื่อผู้เรียนทำ Mission แล้วกด Submit สำเร็จ</p><div class="footer-actions"><button class="btn primary" onclick="EAPHero.continueSession()">Continue Current Session</button><button class="btn" onclick="EAPHero.map()">Open Map</button></div></div>`;
+    setView('studentReports');
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Student Learning Reports</span><span class="pill">Formative Feedback</span><span class="pill">A2-B1+</span></div>
+      <h2>My Learning Report</h2><p class="mini-note">Best retained evidence is shown once per Session and Skill. Legacy completion is labelled separately and is never presented as a numeric score.</p>
+      <p class="lead">ผลนี้ใช้เพื่อพัฒนาครั้งถัดไป: รู้ระดับปัจจุบัน จุดที่ทำได้ดี จุดที่ควรเพิ่ม และประโยคช่วยตอบ</p>
+      <div class="grid four">${summaryCards}</div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.exportLearningReportsCSV()">Export Student Report CSV</button><button class="btn" onclick="EAPHero.map()">Back to Map</button></div>
+      <div class="report-list">${cards}</div>
+    </section>`);
+  }
+
+
+  function exportLearningReportsCSV(){
+    const rows=[['createdAt','studentId','studentName','session','skill','score','scoreStatus','band','cefrTarget','difficulty','teacherReviewStatus','didWell','nextStep','tryFrame']];
+    unifiedReportsV95().forEach(r=>{
+      const numeric=Number(r.score)>0?Number(r.score):'';
+      rows.push([r.createdAt||'', state.profile?.id||state.profile?.studentId||'', state.profile?.name||'', r.session, r.skill, numeric, r.legacyCompletion?'legacy_completion_no_numeric_score':'numeric_retained', r.band||'', r.cefrTarget||'', r.difficulty||'', r.legacyCompletion?'Teacher may acknowledge completion; do not use as a numeric mark.':'Numeric result retained', r.didWell||'',r.nextStep||'',r.tryFrame||'']);
+    });
+    downloadCSV('eap-learning-reports.csv',rows);
   }
 
   function attachLearningReportToLatestPortfolio(skill){
@@ -41683,10 +42365,157 @@
   function goldSessionBlock(id){return goldBankSessions()[String(Number(id||1))]||null;}
   function goldTierKey(skill){try{return currentSkillDifficulty(skill).key||'easy';}catch(e){return'easy';}}
   function goldPick(key,rows,store,cap){if(!rows.length)return null;const recent=store[key]||[];let pool=rows.filter(x=>!recent.includes(x.id));if(!pool.length){const lock=recent.slice(0,Math.max(3,Math.ceil(rows.length/2)));pool=rows.filter(x=>!lock.includes(x.id));if(!pool.length)pool=rows.slice();}const chosen=pool[Math.floor(Math.random()*pool.length)];store[key]=[chosen.id].concat(recent.filter(id=>id!==chosen.id)).slice(0,cap||rows.length);return chosen;}
+  function goldReadingTaskSpec(sessionId, title, tier){
+    const sid = Number(sessionId || 1);
+    const level = ['easy','normal','hard','challenge'].includes(tier) ? tier : 'easy';
+    const titleText = String(title || 'this source');
+    const base = {
+      1:{
+        steps:['Read for one academic goal or skill.','Find one practical action in the source.','Explain why that action can help a learner.'],
+        frames:['The academic goal is ___.','One useful action is ___.','This can help because ___.'],
+        questions:[`What academic goal or skill is important in “${titleText}”?`,'Write one learning action from the source.','Why can this action help a learner?'],
+        instruction:'Read for one academic goal, one action, and one reason.',
+        target:'goal + action + reason',
+        vocab:['academic goal','practice','progress check']
+      },
+      2:{
+        steps:['Choose one academic word or phrase from the source.','Use nearby words to explain its meaning in context.','Use the word or phrase in one short academic sentence.'],
+        frames:['The word/phrase is “___."','In this source, it means ___.','I can use it in: ___.'],
+        questions:[`Choose one useful academic word or phrase from “${titleText}”.`,'What does it mean in this source?','Write one short academic sentence using it correctly.'],
+        instruction:'Read for one academic word, its meaning in context, and one simple use.',
+        target:'word + context meaning + example sentence',
+        vocab:['academic word','meaning','context clue']
+      },
+      3:{
+        steps:['Read the whole source once. Look for the lesson, not one small detail.','Choose one short key phrase that belongs to the central idea.','Use one exact source detail to support your answer.'],
+        frames:['The main point is that ___.','One key phrase is “___."','The passage says that ___.'],
+        questions:[`What is the main point of “${titleText}”?`,'Write one key word or phrase from the source.','What direct detail supports your answer?'],
+        instruction:'Read for the central idea and one direct support.',
+        target:'main idea + key phrase + direct detail',
+        vocab:['main idea','supporting detail','topic']
+      },
+      4:{
+        steps:['Choose one keyword that names the topic.','Find one signal word or relationship phrase.','Name the relationship: cause, result, contrast, example, or sequence.'],
+        frames:['A key word is “___."','The signal word/phrase is “___."','It shows ___.'],
+        questions:[`Which keyword is important in “${titleText}”?`,'Write one signal word or relationship phrase from the source.','Does it show cause, result, contrast, example, or sequence?'],
+        instruction:'Read for one keyword and one relationship signal.',
+        target:'keyword + signal word + relationship',
+        vocab:['keyword','signal word','relationship']
+      },
+      5:{
+        steps:['Identify the source claim or main point.','Find one detail that supports it.','Explain why the detail is useful evidence or why it needs checking.'],
+        frames:['The claim/point is ___.','One supporting detail is ___.','This is useful because ___.'],
+        questions:[`What claim or main point does “${titleText}” make?`,'Which direct detail supports it?','Why is this detail useful evidence, or why should it be checked?'],
+        instruction:'Read for a claim, one support detail, and a careful source check.',
+        target:'claim + evidence + careful reason',
+        vocab:['claim','evidence','source']
+      },
+      6:{
+        steps:['Find the central idea.','Choose one detail that should stay in a short summary.','Name one small detail that can be left out.'],
+        frames:['The main idea is ___.','Keep this detail: ___.','This smaller detail can be left out: ___.'],
+        questions:[`What is the central idea of “${titleText}”?`,'Which detail should stay in a short summary?','Which smaller detail can be left out?'],
+        instruction:'Read to select the main idea and the most useful summary detail.',
+        target:'main idea + key detail + detail reduction',
+        vocab:['summary','main idea','key detail']
+      },
+      7:{
+        steps:['Find one formal or precise word in the source.','Identify one idea that should be stated carefully.','Write one cautious academic sentence.'],
+        frames:['A formal word is “___."','This idea should be stated carefully: ___.','A cautious sentence is ___.'],
+        questions:[`Which word or phrase in “${titleText}” sounds formal or precise?`,'Which idea should be stated carefully rather than strongly?','Write one cautious academic sentence about the source.'],
+        instruction:'Read for precise academic language and one cautious statement.',
+        target:'formal word + cautious idea + academic sentence',
+        vocab:['formal','precise','may suggest']
+      },
+      8:{
+        steps:['Identify the possible topic sentence or central point.','Choose one detail that supports it.','Write a suitable closing sentence.'],
+        frames:['The topic sentence could be ___.','One support detail is ___.','A closing sentence is ___.'],
+        questions:[`What could be the topic sentence for “${titleText}”?`,'Which source detail is useful support?','Write one suitable closing sentence.'],
+        instruction:'Read to identify a paragraph focus, one support detail, and a closing idea.',
+        target:'topic sentence + support + closing',
+        vocab:['topic sentence','support','conclusion']
+      },
+      9:{
+        steps:['Choose one clear paragraph topic.','Find one source detail that can support it.','Write a closing sentence that returns to the topic.'],
+        frames:['My topic sentence is ___.','One support detail is ___.','Therefore, ___.'],
+        questions:[`What topic sentence can you write from “${titleText}”?`,'Which source detail can support this topic sentence?','Write one closing sentence for the paragraph.'],
+        instruction:'Read for a paragraph idea, one support detail, and a conclusion.',
+        target:'paragraph plan + support + closing',
+        vocab:['paragraph','evidence','conclusion']
+      },
+      10:{
+        steps:['Find the main trend or comparison in the source.','Choose one number or detail that supports it.','Write one cautious data statement.'],
+        frames:['The trend/comparison is ___.','One useful detail is ___.','The data show that ___.'],
+        questions:[`What trend or comparison is described in “${titleText}”?`,'Which number or direct detail supports it?','Write one cautious sentence beginning “The data show that ...”.'],
+        instruction:'Read for a trend, one data detail, and a cautious statement.',
+        target:'trend + data detail + cautious interpretation',
+        vocab:['trend','data','increase']
+      },
+      11:{
+        steps:['Identify the communication purpose.','Choose the polite request or action needed.','Write one suitable closing sentence.'],
+        frames:['The purpose is ___.','A polite request is ___.','A suitable closing is ___.'],
+        questions:[`What is the communication purpose in “${titleText}”?`,'What polite request or action would fit this situation?','Write one suitable email closing.'],
+        instruction:'Read for purpose, a polite request, and an appropriate closing.',
+        target:'purpose + polite request + closing',
+        vocab:['purpose','request','closing']
+      },
+      12:{
+        steps:['Find one idea that comes from a source.','Explain how to write it in your own words.','State one responsible source or AI action.'],
+        frames:['This source idea is ___.','In my own words, it means ___.','A responsible action is ___.'],
+        questions:[`Which idea from “${titleText}” would need a citation?`,'Write the idea in your own words.','What responsible source or AI action is needed?'],
+        instruction:'Read for one source idea, a paraphrase, and an ethical action.',
+        target:'source idea + paraphrase + ethical action',
+        vocab:['citation','paraphrase','responsible AI']
+      },
+      13:{
+        steps:['Read for the lecture topic or main point.','Choose two useful keywords.','Write one detail worth noting.'],
+        frames:['The main point is ___.','Two keywords are ___ and ___.','One note detail is ___.'],
+        questions:[`What is the main point of “${titleText}”?`,'Write two useful keywords from the source.','What one detail would be useful to note?'],
+        instruction:'Read to prepare a short lecture note: main point, keywords, and one detail.',
+        target:'main point + two keywords + note detail',
+        vocab:['main point','keyword','note']
+      },
+      14:{
+        steps:['Identify the presentation topic.','Choose one detail or evidence to include.','Write a clear conclusion line.'],
+        frames:['Today, I will present ___.','One detail/evidence is ___.','In conclusion, ___.'],
+        questions:[`What presentation topic could “${titleText}” support?`,'Which source detail or evidence should be included?','Write one clear conclusion line.'],
+        instruction:'Read to prepare a topic, one support point, and a conclusion.',
+        target:'topic + support + conclusion',
+        vocab:['presentation','evidence','conclusion']
+      },
+      15:{
+        steps:['Identify the problem in the source.','Choose one detail or evidence showing why it matters.','Write one specific solution.'],
+        frames:['The problem is ___.','The evidence/detail is ___.','One solution is ___.'],
+        questions:[`What problem is described in “${titleText}”?`,'Which detail or evidence shows why it matters?','What one specific solution could address it?'],
+        instruction:'Read for a problem, one evidence detail, and a specific solution.',
+        target:'problem + evidence + solution',
+        vocab:['problem','evidence','solution']
+      }
+    };
+    const spec = base[sid] || base[3];
+    if(level === 'normal' && sid === 2){
+      spec.questions = [`Which academic word is central in “${titleText}”?`,'Which nearby words help explain its meaning?','Use the word in one clear academic sentence.'];
+      spec.instruction = 'Read for a central academic word, context clues, and one accurate use.';
+    }else if((level === 'hard' || level === 'challenge') && sid === 2){
+      spec.questions = [`Which academic term is most precise in “${titleText}”?`,'How does the source show its meaning or use?','Use the term or a related word-family form in one academic sentence.'];
+      spec.instruction = 'Use context and precise academic vocabulary; explain meaning before using the term.';
+    }
+    return spec;
+  }
+
   function goldMissionPack(sessionId,skill,tier){if(!goldBankAvailable())return null;const sid=Number(sessionId||1), sk=normalizeAbilitySkill(skill), level=['easy','normal','hard','challenge'].includes(tier)?tier:'easy', block=goldSessionBlock(sid);if(!block)return null;const st=ensureGoldAuthoredState(),src=goldPick(`mission_S${sid}_${sk}_${level}`,block.sources,st.missionHistory,16);if(!src)return null;st.updatedAt=new Date().toISOString();saveState();const id=`G64_${src.id}_${sk}_${level}`, targets={easy:32,normal:52,hard:75,challenge:95}, seconds={easy:25,normal:38,hard:52,challenge:65}, rates={easy:.78,normal:.88,hard:.96,challenge:1.02};const p={id,gold:true,sourceId:src.id,session:sid,skill:sk,tier:level,title:`${src.title} · ${sk} Gold Pack`,topic:src.title,passage:src.passage,source:src,focus:block.focus,label:`Gold authored source · ${src.title}`,quality:'authored-v1z64'};
-    if(sk==='Reading'){const q={easy:[`What is the main point of “${src.title}”?`,`Write one key word or phrase from the source.`,`What direct detail supports your answer?`],normal:[`What is the main idea in “${src.title}”?`,`Which detail best supports the idea? Explain the link.`,`What smaller detail should not become the main point?`],hard:[`What careful conclusion can readers make from “${src.title}”?`,`Which source detail supports that conclusion?`,`What limit or missing information should readers note?`],challenge:[`What is the strongest balanced judgement about “${src.title}”?`,`Which evidence supports your judgement?`,`What should readers not conclude from this short source?`]};p.questions=q[level];p.instruction=level==='easy'?'Read for the central idea and one direct support.':level==='normal'?'Connect the main idea with evidence and reject a smaller detail.':level==='hard'?'Use evidence and name one limit before making a conclusion.':'Make a balanced judgement using evidence and one clear limitation.';p.target='main idea + evidence + careful response';}
-    else if(sk==='Writing'){const q={easy:`Write 3–4 clear sentences about ${src.title}. State the main idea and one action or detail.`,normal:`Write 4–6 connected sentences about ${src.title}. Use one reason, one source detail, and one connector.`,hard:`Write 70–90 words about ${src.title}. Explain the evidence and add one cautious limitation.`,challenge:`Write 90–110 words about ${src.title}. Make a balanced judgement, use evidence, and explain one limitation.`};p.instruction=`${q[level]} Use your own wording; do not copy the source sentence.`;p.target=`${targets[level]} words · source-based academic response`;}
-    else if(sk==='Listening'){const q={easy:'Listen for the main point, two keywords, and one direct detail.',normal:'Write notes for the main idea, a support detail, and one signal/relationship.',hard:'Write notes that show evidence, a careful inference, and one missing detail or limit.',challenge:'Write a concise synthesis note, a balanced conclusion, and one useful follow-up question.'};p.instruction=`${q[level]} The mini lecture is based on “${src.title}”.`;p.target='selective notes from an authored mini lecture';p.voiceRate=rates[level];p.lecture=`Today’s mini lecture is about ${src.title}. ${src.passage} The key point is: ${src.main}. Remember this evidence: ${src.evidence}.`;}
+    if(sk==='Reading'){const spec=goldReadingTaskSpec(sid,src.title,level);p.questions=spec.questions;p.instruction=spec.instruction;p.target=spec.target;p.sessionReadingSpec=spec;}
+    else if(sk==='Writing'){
+      if(sid===2){
+        const q={easy:`Choose one academic word from ${src.title}. Write its simple meaning, then use it in one short academic sentence.`,normal:`Choose one academic word, explain one context clue, and use the word or word-family form in one academic sentence.`,hard:`Explain the precise meaning of one academic word from context and write two connected academic sentences using it accurately.`,challenge:`Compare two possible meanings, justify the context-based meaning, and use the word-family accurately in two academic sentences.`};
+        p.instruction=`${q[level]} Do not write a main idea, action/detail, or AI declaration for this vocabulary task.`;
+        p.target=level==='easy' ? 'word + simple meaning + one academic sentence' : 'context-based vocabulary evidence';
+        p.writingMode='vocabulary_in_context';
+      }else{
+        const q={easy:`Write 3–4 clear sentences about ${src.title}. State the main idea and one action or detail.`,normal:`Write 4–6 connected sentences about ${src.title}. Use one reason, one source detail, and one connector.`,hard:`Write 70–90 words about ${src.title}. Explain the evidence and add one cautious limitation.`,challenge:`Write 90–110 words about ${src.title}. Make a balanced judgement, use evidence, and explain one limitation.`};
+        p.instruction=`${q[level]} Use your own wording; do not copy the source sentence.`;
+        p.target=`${targets[level]} words · source-based academic response`;
+      }
+    }else if(sk==='Listening'){const q={easy:'Listen for the main point, two keywords, and one direct detail.',normal:'Write notes for the main idea, a support detail, and one signal/relationship.',hard:'Write notes that show evidence, a careful inference, and one missing detail or limit.',challenge:'Write a concise synthesis note, a balanced conclusion, and one useful follow-up question.'};p.instruction=`${q[level]} The mini lecture is based on “${src.title}”.`;p.target='selective notes from an authored mini lecture';p.voiceRate=rates[level];p.lecture=`Today’s mini lecture is about ${src.title}. ${src.passage} The key point is: ${src.main}. Remember this evidence: ${src.evidence}.`;}
     else {const q={easy:`Speak for about ${seconds.easy}–35 seconds. State the topic, one point, and one clear closing.`,normal:`Speak for about ${seconds.normal}–45 seconds. Use a signpost, one reason, and one source detail.`,hard:`Speak for about ${seconds.hard}–60 seconds. Give a claim, evidence, and a cautious limitation.`,challenge:`Give a ${seconds.challenge}–75 second mini presentation. Make a balanced judgement, use evidence, and answer a likely follow-up.`};p.instruction=`${q[level]} Use “${src.title}” as your source situation.`;p.target='organized source-based spoken response';p.minSeconds=seconds[level];}return p;}
   function goldAuthoredBadgeHTML(task){if(!task?.gold)return'';return`<div class="gold-authored-badge"><b>🏅 Gold Authored Pack</b><span>${safe(task.sourceId||'')}</span><span>${safe(task.label||'source-specific task')}</span><span>CEFR ${safe((AI_ABILITY_LEVELS[task.tier]||{}).cefr||'A2–B1+')}</span></div>`;}
   function goldChoices(src,tier){const correct=tier==='easy'?src.main:tier==='normal'?`Because ${src.evidence}`:tier==='hard'?src.inference:`${src.inference} However, ${src.limitation}`;const bad=Array.isArray(src.misconceptions)?src.misconceptions:[];const fmt=(x)=>tier==='normal'?`Because ${String(x).charAt(0).toLowerCase()+String(x).slice(1)}`:tier==='challenge'?`${x} However, the source gives no support for this conclusion.`:x;return[correct,fmt(bad[0]||'Use an unrelated detail.'),fmt(bad[1]||'Ignore the evidence.'),fmt(bad[2]||'Make a broad unsupported claim.')];}
@@ -41896,13 +42725,14 @@
         }
       }
     };
-    const data = ((bySkill[normalized] || bySkill.Reading)[tier] || (bySkill[normalized] || bySkill.Reading).easy);
+    const readingSpec = normalized === 'Reading' ? goldReadingTaskSpec(task?.session || 1, sourceTitle, tier) : null;
+    const data = readingSpec || ((bySkill[normalized] || bySkill.Reading)[tier] || (bySkill[normalized] || bySkill.Reading).easy);
     return Object.assign({}, data, {
       skill:normalized,
       tier,
       source,
       sourceTitle,
-      vocab:goldTaskVocabulary(task?.session || 1, normalized, source)
+      vocab:(readingSpec?.vocab || goldTaskVocabulary(task?.session || 1, normalized, source))
     });
   }
 
@@ -42180,10 +43010,12 @@
   }
 
   function reportChecklistLabel(report){
+    if(report?.legacyCompletion) return 'Completion status retained';
     return report?.sourceAligned ? `Task checklist ${Number(report?.aiRubricScore ?? 0)}%` : `AI checklist ${Number(report?.aiRubricScore ?? 0)}%`;
   }
 
   function reportStatusLabel(report){
+    if(report?.legacyCompletion) return '🗂 Legacy completion · numeric score unavailable';
     if(report?.independenceVerified) return `🛡 ${report.independenceStatus || 'Independent Evidence'}`;
     if(report?.independenceStatus === 'Supported Attempt') return '🛡 Supported practice · independent replay available';
     if(report?.independenceStatus === 'Needs Skill Repair') return '🛠 Needs skill repair before replay';
@@ -42191,6 +43023,7 @@
   }
 
   function reportSummaryText(report){
+    if(report?.legacyCompletion) return 'Completion was retained after local browser migration. A teacher should use any server-side record for a formal numeric mark.';
     return report?.supportMode === 'AI-supported practice'
       ? 'Mission Task Score is your game result. The task checklist shows which evidence appeared. AI support is recorded separately.'
       : 'Mission Task Score is your game result. The task checklist shows which evidence appeared.';
@@ -42225,7 +43058,7 @@
         portfolioIndex:portfolio.indexOf(p),
         portfolioId:p.evidenceId || reportPortfolioIdentity(p, portfolio.indexOf(p)),
         sourceAt:p.at || report.sourceAt || '',
-        reportVersion:'v1z72'
+        reportVersion:'v1z78'
       };
       Object.keys(update).forEach(k=>{ if(report[k] !== update[k]){ report[k]=update[k]; changed=true; } });
     });
@@ -42284,8 +43117,11 @@
       stopSpeakingTimer();
       setSpeechStatus('Speaking finished. Add or correct notes only if you want AI feedback on language.', 'done');
     }
+    finishedSpeakingSeconds = Math.max(Number(finishedSpeakingSeconds || 0), Number(speakingSeconds || 0));
+    window.finishedSpeakingSeconds = finishedSpeakingSeconds;
+    window.speakingSeconds = speakingSeconds;
     const spoke = document.getElementById('spSpoke');
-    if(spoke && speakingSeconds > 0) spoke.checked = true;
+    if(spoke && finishedSpeakingSeconds > 0) spoke.checked = true;
     return false;
   }
 
@@ -42382,6 +43218,21 @@
         ],
         frames:['This source is about ___.','The student ___.']
       },
+      s1goal:{
+        key:'s1goal',
+        label:'A2 Foundation · My Academic Goal',
+        cefr:'A2',
+        timeRange:'8–12',
+        minSeconds:8,
+        maxSeconds:12,
+        sentenceGoal:'2 short sentences',
+        studentInstruction:'Say one academic goal and one practice action.',
+        requirements:[
+          {key:'goal',short:'Academic goal',label:'I said one academic goal'},
+          {key:'action',short:'Practice action',label:'I said one practice action'}
+        ],
+        frames:['My academic goal is to improve ____.','I will practise by ____.']
+      },
       normal:{
         key:'normal',
         label:'A2+ Bridge',
@@ -42440,6 +43291,8 @@
   }
 
   function easySpeakingProfileForTask(task){
+    const sessionId = Number(task?.sessionId || task?.sid || task?.id || task?.session || 0);
+    if(sessionId === 1) return easySpeakingProfileByKey('s1goal');
     const key = task?.tier || currentSkillDifficulty('Speaking').key || 'easy';
     return easySpeakingProfileByKey(key);
   }
@@ -42561,6 +43414,78 @@
   }
 
 
+  function renderMasterSessionMatrix(){
+    setView('masterSessionMatrix');
+    const rows = Object.keys(EAP_MASTER_SESSION_MATRIX).map(key=>{
+      const m = EAP_MASTER_SESSION_MATRIX[key];
+      return `<tr><td>W${m.week} / S${key}</td><td>${safe(m.arc)}</td><td>${safe(m.theme)}</td><td>${safe(m.core)} → ${safe(m.support)}</td><td>${safe(m.evidenceType)}</td><td>${safe(m.replayPackId)}</td><td>${m.bossAfter ? 'B'+safe(m.bossAfter) : '—'}</td></tr>`;
+    }).join('');
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">v1z73</span><span class="pill">Master Session Matrix</span><span class="pill">15 Sessions • 5 Boss Gates</span></div>
+      <h2>EAP Hero Master Session Matrix</h2>
+      <p class="lead">มาตรฐานกลางสำหรับ Course Blueprint, เกม, Portfolio, Replay Pack และ Teacher Dashboard</p>
+      <div class="table-wrap"><table><thead><tr><th>Week / Session</th><th>Arc</th><th>Theme</th><th>Core → Support</th><th>Evidence</th><th>Replay Pack</th><th>Boss</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.syncCourseProgressFromEvidence()">Sync Course Progress</button><button class="btn" onclick="EAPHero.renderProgressDiagnostics()">Progress Diagnostics</button><button class="btn" onclick="EAPHero.map()">Map</button></div>
+    </section>`);
+  }
+
+
+
+  /* === v1z77 Four-Skill Alignment Pack: S1–S3 === */
+  const EAP_FOUR_SKILL_ALIGNMENT_V1Z76 = Object.freeze({
+    1:{
+      Reading:{steps:['Read the goal choices.','Choose one clear academic skill.','Add one practice action.'],frames:['My academic goal is to improve ____.','I will practise by ____.'],vocab:['goal','improve','practise','reading','writing']},
+      Listening:{steps:['Listen once for the skill.','Listen again for the practice action.','Write two keywords only.'],frames:['The goal is ____.','The student will practise by ____.'],vocab:['goal','practise','weekly','skill']},
+      Writing:{steps:['Choose one skill.','Choose one action.','Write two short sentences.'],frames:['My academic goal is to improve ____.','I will practise by ____.'],vocab:['goal','improve','practise']},
+      Speaking:{title:'My Academic Goal',timeRange:'8–12',minSeconds:8,maxSeconds:12,sentenceGoal:'2 short sentences',instruction:'Say one academic goal and one practice action.',requirements:[{key:'goal',short:'Academic goal',label:'I said one academic goal'},{key:'action',short:'Practice action',label:'I said one practice action'}],frames:['My academic goal is to improve ____.','I will practise by ____.'],vocab:['goal','improve','practise']}
+    },
+    2:{
+      Reading:{steps:['Find one academic word.','Use nearby words to guess the meaning.','Write one short sentence using it.'],frames:['The word ____ means ____.','I can use it in this sentence: ____.'],vocab:['evidence','method','result','analyze']},
+      Listening:{steps:['Listen for the academic word.','Listen again for its meaning.','Write the word and meaning.'],frames:['The word is ____.','It means ____.'],vocab:['word','meaning','evidence','result']},
+      Writing:{steps:['Choose one word.','Write a simple meaning.','Use it in one sentence.'],frames:['The word ____ means ____.','In academic writing, ____.'],vocab:['evidence','method','result','analyze']},
+      Speaking:{title:'Word Meaning Mini Talk',timeRange:'10–14',minSeconds:10,maxSeconds:14,sentenceGoal:'2 short sentences',instruction:'Say one academic word and its simple meaning. Add a short example if you can.',requirements:[{key:'word',short:'Academic word',label:'I said one academic word'},{key:'meaning',short:'Simple meaning',label:'I explained the meaning'}],frames:['The word ____ means ____.','For example, ____.'],vocab:['word','meaning','evidence','method']}
+    },
+    3:{
+      Reading:{steps:['Read the whole short passage.','Choose the central message.','Add one supporting detail.'],frames:['The main idea is ____.','One supporting detail is ____.'],vocab:['main idea','support','detail','topic']},
+      Listening:{steps:['Listen once for the topic.','Listen again for the main idea.','Write one support detail.'],frames:['The topic is ____.','The main idea is ____.'],vocab:['topic','main idea','detail']},
+      Writing:{steps:['Write the main idea.','Add one supporting detail.','Use your own words.'],frames:['The main idea is ____.','For example, ____.'],vocab:['main idea','support','detail']},
+      Speaking:{title:'Main Idea Mini Talk',timeRange:'12–16',minSeconds:12,maxSeconds:16,sentenceGoal:'2 short sentences',instruction:'Say the main idea and one supporting detail from the source.',requirements:[{key:'mainidea',short:'Main idea',label:'I said the main idea'},{key:'support',short:'One support',label:'I gave one supporting detail'}],frames:['The main idea is ____.','For example, ____.'],vocab:['main idea','support','detail']}
+    }
+  });
+
+  function v1z77Guide(skill, sessionId){
+    const x=EAP_FOUR_SKILL_ALIGNMENT_V1Z76[Number(sessionId)]?.[normalizeAbilitySkill(skill)];
+    return x || null;
+  }
+
+  function goldTaskAlignmentGuideHTML(skill, sessionId, task, fallbackPrompt){
+    const a=v1z77Guide(skill,sessionId);
+    if(a){
+      return `<div class="gold-task-guide v1z77-aligned-guide"><div class="gold-task-guide-head"><span>🎯 Skill quest help</span><span>S${Number(sessionId)}</span><span>${safe(normalizeAbilitySkill(skill))}</span></div><h3>Do this one step at a time</h3><div class="gold-guide-grid">${a.steps.map((x,i)=>`<div class="gold-guide-step"><b>Step ${i+1}</b><span>${safe(x)}</span></div>`).join('')}</div><h4>Sentence frames</h4><div class="gold-frame-row">${a.frames.map(x=>`<span>${safe(x)}</span>`).join('')}</div><h4>Useful words</h4><div class="gold-vocab-row">${a.vocab.map(x=>`<span>${safe(x)}</span>`).join('')}</div><p class="mini-note">This is a scaffold. Your topic, word, detail, and context rotate each replay.</p></div>`;
+    }
+    if(!task?.gold) return alignmentGuideHTML(skill, sessionId, fallbackPrompt || {});
+    const g=goldTaskGuideData(skill,task);
+    return `<div class="gold-task-guide"><div class="gold-task-guide-head"><span>🎯 Help aligned to this exact Gold source</span><span>${safe(g.source?.id || task.sourceId || '')}</span><span>${safe(g.sourceTitle)}</span></div><h3>Use this help for this task only</h3><div class="gold-guide-grid">${g.steps.map((step,i)=>`<div class="gold-guide-step"><b>Step ${i+1}</b><span>${safe(step)}</span></div>`).join('')}</div><h4>Sentence frames for this task</h4><div class="gold-frame-row">${g.frames.map(frame=>`<span>${safe(frame)}</span>`).join('')}</div><h4>Useful vocabulary</h4><div class="gold-vocab-row">${g.vocab.map(word=>`<span>${safe(word)}</span>`).join('')}</div><p class="mini-note">Source: ${safe(g.sourceTitle)} · ${safe(g.expected)} · This is a scaffold, not an answer key.</p></div>`;
+  }
+
+  function applyEasySpeakingProfile(task, source){
+    const sid=Number(task?.session || state.currentSession || 1);
+    const aligned=v1z77Guide('Speaking',sid);
+    const profile=aligned ? Object.assign({key:'easy',label:'A2 Foundation',cefr:'A2'},aligned) : easySpeakingProfileForTask(task);
+    task.tier=profile.key; task.minSeconds=profile.minSeconds; task.maxSeconds=profile.maxSeconds;
+    task.target=`${profile.timeRange} seconds · ${profile.sentenceGoal}`; task.instruction=profile.instruction;
+    task.speakingProfile=profile.key; task.source=source || task.source || null; task.session=sid;
+    return profile;
+  }
+
+  function easySpeakingGuideHTML(profile, source){
+    const sid=Number(source?.session || state.currentSession || 1);
+    const a=v1z77Guide('Speaking',sid);
+    const title=a?.title || source?.title || 'this source';
+    const vocab=a?.vocab || (Array.isArray(source?.keywords)?source.keywords.slice(0,3):[]);
+    return `<div class="easy-speaking-guide"><div class="easy-speaking-guide-head"><b>Say these ${profile.requirements.length} things</b><span>${safe(profile.label)} · ${safe(profile.cefr)}</span></div><div class="easy-speaking-steps">${profile.requirements.map((r,i)=>`<div><b>${i+1}</b><span>${safe(r.short)}</span></div>`).join('')}</div><div class="easy-speaking-frames">${profile.frames.map(f=>`<span>${safe(f)}</span>`).join('')}</div><p class="mini-note">Mission: ${safe(title)} · Useful words: ${safe(vocab.join(' · '))}</p></div>`;
+  }
+
   // public API for inline handlers
   window.EAPHero = {
     home:renderHome,
@@ -42574,11 +43499,19 @@
     bestScoreForSessionSkill,
     sessionPassReport,
     syncPassProgressNow,
+    sessionUnlockStatus,
+    isSessionLocked,
+    syncCourseProgressFromEvidence,
+    recordBossGateResult,
     passCriteriaHTML,
     bossGatePassStatus,
     renderProgressDiagnostics,
     EAP_FINAL_SKILL_MATRIX,
     EAP_FINAL_SESSION_QUALITY,
+    EAP_MASTER_SESSION_MATRIX,
+    masterSessionForSession,
+    syncMasterSessionMatrix,
+    renderMasterSessionMatrix,
     EAP_REPLAY_TOPIC_BANK,
     finalMatrixForSession,
     installFinalEAPQuestionBank,
@@ -42834,6 +43767,7 @@
     speechSupported,
     stopSpeakingTimer,
     submitSpeaking,
+    saveTeacherSpeakingReview,
     exportPortfolioCSV,
     exportBackupJSON,
     importBackupJSON,
@@ -42901,8 +43835,16 @@
   };
 
   installNoRepeatScenarioPool();
+  syncMasterSessionMatrix(true);
+  replaceS8QuestionBankV1z73();
+  recoverLegacyPortfolioAndReportsV92();
   repairLearningReportsFromPortfolio(true);
   reconcileLearningReportsV1z67();
+  syncCourseProgressFromEvidence(true);
+  // Run once more after all progress normalization so legacy completions become reports too.
+  recoverLegacyPortfolioAndReportsV92();
+  repairLearningReportsFromPortfolio(true);
+  saveState();
   renderHome();
 
 
