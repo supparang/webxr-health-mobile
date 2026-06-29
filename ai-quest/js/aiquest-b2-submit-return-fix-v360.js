@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const VERSION = 'v3.6.1-roadmap-b2-native+s2-ar-recovery-loader';
+  const VERSION = 'v3.6.2-roadmap-b2-native+s2-ar-v405-bootstrap';
 
   function toast(msg){
     try{
@@ -27,15 +27,42 @@
     }
   }
 
-  function loadS2RecoveryBridge(){
+  function readJson(key){
+    try{return JSON.parse(localStorage.getItem(key)||'null');}
+    catch(e){return null;}
+  }
+
+  /* The retired V403 sender was an interim experiment.  Suppress it before
+     the V405 bridge loads so that a completed S2 AR run creates one event. */
+  function suppressLegacyS2Sender(){
+    const result=readJson('AIQUEST_S2_AR_RESULT_V387');
+    if(!result || !result.arCompleted || (result.sessionId!=='s2' && result.missionId!=='m2')) return;
+    const signature=[
+      result.finishedAt||'',result.correct||0,result.total||0,
+      result.arScore ?? result.accuracy ?? 0,result.helpUsed||0
+    ].join('|');
+    const current=readJson('AIQUEST_S2_AR_EVENT_SYNC_V403')||{};
+    if(current.signature===signature && current.status==='queued') return;
+    try{
+      localStorage.setItem('AIQUEST_S2_AR_EVENT_SYNC_V403',JSON.stringify({
+        signature:signature,
+        status:'queued',
+        owner:'s2-ar-v405-bootstrap',
+        queuedAt:new Date().toISOString()
+      }));
+    }catch(e){}
+  }
+
+  function loadS2ResultBridge(){
     if(isTeacherPage()) return;
-    if(document.querySelector('script[data-aiquest-s2-recovery-v404]')) return;
+    if(document.querySelector('script[data-aiquest-s2-bridge-v405]')) return;
+    suppressLegacyS2Sender();
     const script=document.createElement('script');
-    script.src='./js/aiquest-s2-ar-result-bridge-v404.js?v=20260629-s2recover404';
-    script.async=true;
-    script.dataset.aiquestS2RecoveryV404='1';
-    script.onload=()=>console.log('[AIQuest] S2 AR recovery bridge requested');
-    script.onerror=()=>console.warn('[AIQuest] S2 AR recovery bridge could not load');
+    script.src='./js/aiquest-s2-ar-result-bridge-v405.js?v=20260629-s2bridge405';
+    script.async=false;
+    script.dataset.aiquestS2BridgeV405='1';
+    script.onload=()=>console.log('[AIQuest] S2 AR V405 bridge loaded');
+    script.onerror=()=>console.warn('[AIQuest] S2 AR V405 bridge could not load');
     document.head.appendChild(script);
   }
 
@@ -117,7 +144,7 @@
   }
 
   function observe(){
-    loadS2RecoveryBridge();
+    loadS2ResultBridge();
     patchSubmitButtons();
     patchStartMission();
     if(!window.__AIQUEST_B2_RETURN_OBSERVER_V321){
@@ -135,7 +162,7 @@
     goRoadmap,
     patchSubmitButtons,
     patchStartMission,
-    loadS2RecoveryBridge,
+    loadS2ResultBridge,
     refresh: observe
   };
 
