@@ -1,21 +1,18 @@
-/* CSAI2102 AI Quest — S2 AR Persistent Entry v4.0.8
-   Mirrors the stable S1 entry strategy: the normal S2 page may build #gameArea
-   after this script starts, so observe the document as well as the game area.
-   Presentation/launch only: does not change S2 score, gating, or main gameplay.
+/* CSAI2102 AI Quest — S2 AR Persistent Entry v4.0.9
+   Keeps the S2 AR card visible after dynamic session render and always loads
+   the canonical S2 evidence sender before a learner enters Agent Builder.
 */
 (() => {
   'use strict';
 
   const CARD_ID = 'aiquestS2ArEntryV407';
-  const BRIDGE_SRC = './js/aiquest-s2-ar-result-bridge-v406.js?v=20260629-s2bridge407';
+  const BRIDGE_VERSION = 'v4.0.8-s2-ar-canonical-sender-shield';
+  const BRIDGE_SRC = './js/aiquest-s2-ar-result-bridge-v406.js?v=20260629-s2bridge408';
   const q = new URLSearchParams(location.search);
   const routeSession = String(q.get('session') || '').toLowerCase();
 
   function ensureResultBridge(){
-    if (
-      window.AIQUEST_S2_AR_RESULT_BRIDGE &&
-      window.AIQUEST_S2_AR_RESULT_BRIDGE.version === 'v4.0.7-s2-ar-singleton-dedup-sync'
-    ) return;
+    if (window.AIQUEST_S2_AR_RESULT_BRIDGE?.version === BRIDGE_VERSION) return;
 
     const absolute = new URL(BRIDGE_SRC, document.baseURI).href;
     const exists = [...document.scripts].some((script) => script.src === absolute);
@@ -24,17 +21,18 @@
     const tag = document.createElement('script');
     tag.src = BRIDGE_SRC;
     tag.async = false;
-    tag.dataset.aiquestS2ArBridge = 'v407';
-    tag.onerror = () => console.warn('[AIQuest S2 AR] evidence bridge failed to load');
+    tag.dataset.aiquestS2ArBridge = 'v408';
+    tag.onerror = () => console.warn('[AIQuest S2 AR] canonical evidence bridge failed to load');
     document.head.appendChild(tag);
   }
 
-  // Recover local evidence on the normal page and sync after direct AR completion.
+  // This must run on the normal S2 page and the direct AR route. The bridge
+  // owns one write-only evidence record for each finished AR session.
   if (!routeSession || routeSession === 's2' || routeSession === 'm2') {
     ensureResultBridge();
   }
 
-  // The AR route owns its own canvas/runtime. Never inject a launcher card there.
+  // The AR route owns its own full-screen runtime. Never inject the launcher there.
   if (q.get('ar') || (routeSession && routeSession !== 's2' && routeSession !== 'm2')) return;
 
   function saved(){
@@ -90,11 +88,12 @@
     wrap.querySelector('#aiquestS2ArStartV407').addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
+      ensureResultBridge();
       const u = new URL(location.href);
       u.searchParams.set('session', 's2');
       u.searchParams.set('ar', 'agent');
       u.searchParams.set('from', 's2');
-      u.searchParams.set('v', '20260629-s2-entry408');
+      u.searchParams.set('v', '20260629-s2-entry409');
       location.assign(u.toString());
     }, true);
 
@@ -110,7 +109,7 @@
     old?.remove();
 
     area.insertBefore(card(), area.firstChild);
-    console.log('[AIQuest S2 AR] persistent entry visible v4.0.8');
+    console.log('[AIQuest S2 AR] persistent entry visible v4.0.9');
   }
 
   let queued = false;
@@ -125,9 +124,6 @@
 
   function boot(){
     schedule();
-
-    // #gameArea often does not exist yet when the entry script first executes.
-    // A document-level observer is required so S2 gets the same resilience as S1.
     new MutationObserver(schedule).observe(document.documentElement, {
       childList: true,
       subtree: true
