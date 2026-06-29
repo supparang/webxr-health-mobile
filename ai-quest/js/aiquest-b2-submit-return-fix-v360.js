@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const VERSION = 'v3.6.0-roadmap-b2-native';
+  const VERSION = 'v3.6.1-roadmap-b2-native+s2-ar-recovery-loader';
 
   function toast(msg){
     try{
@@ -16,6 +16,27 @@
       sessionStorage.setItem('AIQUEST_SUPPRESS_AUTOSTART_UNTIL', String(Date.now() + (ms || 10000)));
       if(typeof window.AIQUEST_SUPPRESS_AUTOSTART === 'function') window.AIQUEST_SUPPRESS_AUTOSTART(ms || 10000);
     }catch(e){}
+  }
+
+  function isTeacherPage(){
+    try{
+      return window.AIQUEST_PAGE_ROLE === 'teacher' ||
+        new URLSearchParams(location.search).get('teacher') === '1';
+    }catch(e){
+      return false;
+    }
+  }
+
+  function loadS2RecoveryBridge(){
+    if(isTeacherPage()) return;
+    if(document.querySelector('script[data-aiquest-s2-recovery-v404]')) return;
+    const script=document.createElement('script');
+    script.src='./js/aiquest-s2-ar-result-bridge-v404.js?v=20260629-s2recover404';
+    script.async=true;
+    script.dataset.aiquestS2RecoveryV404='1';
+    script.onload=()=>console.log('[AIQuest] S2 AR recovery bridge requested');
+    script.onerror=()=>console.warn('[AIQuest] S2 AR recovery bridge could not load');
+    document.head.appendChild(script);
   }
 
   function isB2Context(){
@@ -96,6 +117,7 @@
   }
 
   function observe(){
+    loadS2RecoveryBridge();
     patchSubmitButtons();
     patchStartMission();
     if(!window.__AIQUEST_B2_RETURN_OBSERVER_V321){
@@ -113,6 +135,7 @@
     goRoadmap,
     patchSubmitButtons,
     patchStartMission,
+    loadS2RecoveryBridge,
     refresh: observe
   };
 
