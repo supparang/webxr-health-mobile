@@ -1,7 +1,6 @@
-/* UX Quest • Classroom Analytics v3
+/* UX Quest • Classroom Analytics v3.1
    Queue-safe, write-only mission summaries with truthful submission receipts.
-   Important: a no-cors browser request can confirm only that dispatch was attempted;
-   it cannot confirm that Apps Script or Google Sheets stored the row.
+   Adds anti-guess evidence fields for verified reasoning and teacher review.
 */
 (() => {
   'use strict';
@@ -59,9 +58,7 @@
     catch (error) { return null; }
   }
   function saveReceipt(receipt){
-    const next = Object.assign({}, receipt || {}, {
-      updatedAt: new Date().toISOString()
-    });
+    const next = Object.assign({}, receipt || {}, { updatedAt: new Date().toISOString() });
     lastReceipt = next;
     const text = JSON.stringify(next);
     if (!safeSet(window.localStorage, RECEIPT_KEY, text)) {
@@ -86,7 +83,10 @@
       caseName: String(item.caseName || '').slice(0, 160),
       stageKey: String(item.stageKey || '').slice(0, 80),
       correct: Boolean(item.correct),
+      verified: Boolean(item.verified),
+      reasonCorrect: Boolean(item.reasonCorrect),
       selected: String(item.selected || '').slice(0, 420),
+      reasonSelected: String(item.reasonSelected || '').slice(0, 520),
       earned: Number(item.earned || 0)
     }));
   }
@@ -122,6 +122,11 @@
       attemptNo: Number(data.attemptNo || 0),
       passed: Boolean(data.passed),
       badge: String(data.badge || '').slice(0, 120),
+      verifiedCorrect: Number(data.verifiedCorrect || 0),
+      verifiedTotal: Number(data.verifiedTotal || data.total || 0),
+      verifiedAccuracy: Number(data.verifiedAccuracy || 0),
+      guessRisk: String(data.guessRisk || '').slice(0, 40),
+      rapidAttemptFlag: Boolean(data.rapidAttemptFlag),
       caseIds: (Array.isArray(data.caseIds) ? data.caseIds : []).map(v => String(v).slice(0, 100)),
       answers: slimAnswers(data.answers)
     };
@@ -143,13 +148,7 @@
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify(payload)
     }).then(() => ({ state: 'dispatched_unverified', queued: false, verified: false }))
-      .catch((error) => ({
-        state: 'queued',
-        queued: true,
-        verified: false,
-        queueLength: enqueue(payload),
-        error: String(error?.message || error)
-      }));
+      .catch((error) => ({ state: 'queued', queued: true, verified: false, queueLength: enqueue(payload), error: String(error?.message || error) }));
   }
   function flush(){
     if (!canRecord()) return Promise.resolve({ skipped: true, sent: 0, queued: getQueue().length });
@@ -164,22 +163,15 @@
   }
   function makeReceipt(payload, state, extra){
     return Object.assign({
-      receiptId: id('receipt'),
-      app: payload.app,
-      attemptId: payload.attemptId,
-      eventId: payload.eventId,
-      missionId: payload.missionId,
-      missionTitle: payload.missionTitle,
-      state,
-      verified: state === 'confirmed',
-      createdAt: new Date().toISOString()
+      receiptId: id('receipt'), app: payload.app, attemptId: payload.attemptId,
+      eventId: payload.eventId, missionId: payload.missionId, missionTitle: payload.missionTitle,
+      state, verified: state === 'confirmed', createdAt: new Date().toISOString()
     }, extra || {});
   }
   function recordMissionComplete(data){
     const payload = buildAttempt(data || {});
     const endpoint = String(config().receiverUrl || '').trim();
     let receipt;
-
     if (!endpoint) {
       receipt = saveReceipt(makeReceipt(payload, 'local_only', { reason: 'receiver_not_configured' }));
       return { queued: false, skipped: true, message: receiptMessage(receipt), attemptId: payload.attemptId, eventId: payload.eventId, receipt };
@@ -188,21 +180,16 @@
       receipt = saveReceipt(makeReceipt(payload, 'profile_incomplete', { reason: 'profile_incomplete' }));
       return { queued: false, skipped: true, message: receiptMessage(receipt), attemptId: payload.attemptId, eventId: payload.eventId, receipt };
     }
-
     receipt = saveReceipt(makeReceipt(payload, 'dispatching', { reason: 'request_started' }));
     const delivery = flush()
       .catch(() => ({ skipped: false, sent: 0, queued: 0 }))
       .then(() => submit(payload))
-      .then((outcome) => {
-        const updated = saveReceipt(Object.assign({}, receipt, {
-          state: outcome.state,
-          verified: false,
-          queueLength: outcome.queueLength || 0,
-          deliveryError: outcome.error || ''
-        }));
-        return updated;
-      });
-
+      .then((outcome) => saveReceipt(Object.assign({}, receipt, {
+        state: outcome.state,
+        verified: false,
+        queueLength: outcome.queueLength || 0,
+        deliveryError: outcome.error || ''
+      })));
     return {
       queued: false,
       skipped: false,
@@ -216,7 +203,6 @@
 
   window.addEventListener('online', () => { flush(); });
   window.addEventListener('pageshow', () => { flush(); });
-
   window.UXQSubmissionReceipt = Object.freeze({ getLast: readReceipt, message: receiptMessage });
-  window.UXQAnalytics = Object.freeze({ KEY, RECEIPT_KEY, id, canRecord, statusText, flush, recordMissionComplete });
+  window.UXQAnalytics = Object.freeze({ id, recordMissionComplete, statusText, flush, getQueue });
 })();
