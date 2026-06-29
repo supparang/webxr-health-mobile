@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260629-v1z97-four-skill-difficulty-scaffold';
+  const APP_VERSION = '20260629-v1z100-society-saver ';
   const app = document.getElementById('app');
 
   const SESSIONS = [
