@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v5 • Stable mission-start hotfix
+/* UX Quest • Classroom Configuration v5.1 • Stable mission start + replay coach
    Public configuration only: the receiver is write-only; no teacher read endpoint lives here.
 */
 (() => {
@@ -11,7 +11,7 @@
     defaultSection: '',
     allowGuestPractice: true,
     maxQueuedAttempts: 12,
-    version: '20260628-classroom-v5-start-hotfix'
+    version: '20260629-classroom-v5.1-replay-coach'
   };
 
   const existing = (window.UXQ_CLASSROOM_CONFIG && typeof window.UXQ_CLASSROOM_CONFIG === 'object')
@@ -20,20 +20,25 @@
 
   window.UXQ_CLASSROOM_CONFIG = Object.freeze(Object.assign({}, defaults, existing));
 
-  /* Result receipt is presentation-only. It must never intercept UXQProgress,
-     mission-engine start handlers, or learner-profile flow. */
-  function loadResultReceiptUi(){
-    if (document.querySelector('script[data-uxq-result-receipt]')) return;
+  /* Presentation-only enhancements. They never intercept UXQProgress,
+     mission-engine start handlers, learner identity, scoring, or sync. */
+  function loadPresentationScript(src, marker){
+    if (document.querySelector(`script[${marker}]`)) return;
     const script = document.createElement('script');
-    script.src = './js/uxq-result-receipt-v1.js?v=20260628-receipt-v1';
+    script.src = src;
     script.async = true;
-    script.dataset.uxqResultReceipt = '1';
+    script.setAttribute(marker, '1');
     document.head.appendChild(script);
   }
 
+  function loadResultPresentation(){
+    loadPresentationScript('./js/uxq-result-receipt-v1.js?v=20260629-receipt-v1-1', 'data-uxq-result-receipt');
+    loadPresentationScript('./js/uxq-anti-guess-coach-v1.js?v=20260629-replay-coach-v1', 'data-uxq-replay-coach');
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadResultReceiptUi, { once: true });
+    document.addEventListener('DOMContentLoaded', loadResultPresentation, { once: true });
   } else {
-    loadResultReceiptUi();
+    loadResultPresentation();
   }
 })();
