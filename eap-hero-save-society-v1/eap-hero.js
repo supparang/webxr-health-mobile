@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z92 Report Recovery + Safe Legacy Portfolio Migration ===
+/* === EAP Hero: Save the Society v1z96 Version Integrity + Trusted Score Display ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260629-v1z94-unified-legacy-report-recovery';
+  const APP_VERSION = '20260629-v1z96-version-integrity-trusted-score-display';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -32712,7 +32712,7 @@
   function studentPilotFinalChecks(){
     const checks = [];
     const audit = studentVisibleMenuAudit();
-    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z86'), detail:APP_VERSION});
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z96'), detail:APP_VERSION});
     checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
     checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
     checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
@@ -39792,7 +39792,7 @@
     if(!report) return '';
     const isLegacy = !!report.legacyCompletion;
     const band = isLegacy ? {cls:'developing', emoji:'🗂️', label:'Completed legacy evidence'} : learningBand(report.score);
-    const scoreText = isLegacy ? (Number(report.score)>0 ? `${safe(report.score)}/100` : 'Completed') : `${safe(report.score)}/100`;
+    const scoreText = isLegacy ? 'Completed' : `${safe(report.score)}/100`;
     return `<div class="learning-report-card ${safe(band.cls)}">
       <div class="report-head">
         <div>
@@ -39832,7 +39832,7 @@
     const bySkill = {};
     ['Reading','Writing','Listening','Speaking'].forEach(skill=>{
       const list = reports.filter(r=>r.skill===skill);
-      const scored = list.filter(r=>Number(r.score) > 0);
+      const scored = list.filter(r=>!r.legacyCompletion && Number(r.score) > 0);
       const avg = scored.length ? Math.round(scored.reduce((a,b)=>a+Number(b.score||0),0)/scored.length) : 0;
       bySkill[skill] = {count:list.length, scoredCount:scored.length, avg, legacyOnly:list.length>0 && !scored.length, band:learningBand(avg)};
     });
@@ -39850,16 +39850,9 @@
   };
 
   function legacyScoreFromStateV92(sessionId, skill){
-    const sid = String(sessionId);
-    const direct = state.sessionScores?.[sid]?.[skill] ?? state.sessionScores?.[sessionId]?.[skill];
-    if(Number(direct) > 0) return Number(direct);
-    const session = state.sessions?.[sid] || state.sessions?.[sessionId] || {};
-    const pools = [session.skills, session.skillEvidence, session.skillScores, session.evidence, session.missions];
-    for(const pool of pools){
-      const value = pool?.[skill] ?? pool?.[String(skill).toLowerCase()] ?? pool?.[String(skill).toUpperCase()];
-      const score = Number(value?.score ?? value?.bestScore ?? value);
-      if(score > 0) return score;
-    }
+    /* Legacy/browser-migration values are not a trustworthy teacher score source.
+       Preserve completion separately; use numeric marks only from a retained
+       mission/report evidence item created by the current submission flow. */
     return null;
   }
 
@@ -39910,7 +39903,7 @@
     return created;
   }
 
-  /* v1z95: one shared report source for Map, learner report, export, and teacher review.
+  /* v1z96: one shared report source for Map, learner report, export, and teacher review.
      Numeric scores are only shown when a retained evidence source exists. */
   function unifiedReportsV95(){
     const reports = Array.isArray(state.learningReports) ? state.learningReports.slice() : [];
@@ -39949,7 +39942,7 @@
     const out={};
     ['Reading','Writing','Listening','Speaking'].forEach(skill=>{
       const list=reports.filter(r=>r.skill===skill);
-      const scored=list.filter(r=>Number(r.score)>0);
+      const scored=list.filter(r=>!r.legacyCompletion && Number(r.score)>0);
       const avg=scored.length?Math.round(scored.reduce((t,r)=>t+Number(r.score||0),0)/scored.length):0;
       out[skill]={count:list.length, scoredCount:scored.length, avg, legacyOnly:list.length>0&&!scored.length, band:learningBand(avg)};
     });
@@ -39981,7 +39974,7 @@
   function exportLearningReportsCSV(){
     const rows=[['createdAt','studentId','studentName','session','skill','score','scoreStatus','band','cefrTarget','difficulty','teacherReviewStatus','didWell','nextStep','tryFrame']];
     unifiedReportsV95().forEach(r=>{
-      const numeric=Number(r.score)>0?Number(r.score):'';
+      const numeric=(!r.legacyCompletion && Number(r.score)>0)?Number(r.score):'';
       rows.push([r.createdAt||'', state.profile?.id||state.profile?.studentId||'', state.profile?.name||'', r.session, r.skill, numeric, r.legacyCompletion?'legacy_completion_no_numeric_score':'numeric_retained', r.band||'', r.cefrTarget||'', r.difficulty||'', r.legacyCompletion?'Teacher may acknowledge completion; do not use as a numeric mark.':'Numeric result retained', r.didWell||'',r.nextStep||'',r.tryFrame||'']);
     });
     downloadCSV('eap-learning-reports.csv',rows);
