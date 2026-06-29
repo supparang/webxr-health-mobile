@@ -1,0 +1,63 @@
+<!--
+  UX Quest • Anti-Guess Dashboard Component v1
+  Safe HTML fragment for the existing Apps Script Teacher Dashboard.
+  Load this file into the current dashboard HTML, then call:
+    google.script.run.withSuccessHandler(renderUXQAntiGuessDashboard).uxqGetTeacherView();
+-->
+<style>
+  .uxq-ag-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0 18px}
+  .uxq-ag-card{border:1px solid rgba(129,164,255,.28);border-radius:16px;background:linear-gradient(155deg,rgba(24,47,94,.92),rgba(13,28,62,.96));padding:15px;color:#eff6ff}
+  .uxq-ag-card small{display:block;color:#aec0e7;font-weight:850;letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px}.uxq-ag-card b{display:block;font-size:1.85rem;letter-spacing:-.04em}
+  .uxq-ag-section{border:1px solid rgba(129,164,255,.25);border-radius:20px;background:rgba(7,20,49,.76);padding:18px;margin:18px 0;color:#eff6ff}
+  .uxq-ag-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:14px}.uxq-ag-head h2{margin:0;font-size:1.2rem}.uxq-ag-head p{margin:4px 0 0;color:#b5c3e3;font-size:.9rem}
+  .uxq-ag-table{width:100%;border-collapse:collapse;overflow:hidden;border:1px solid rgba(129,164,255,.22);border-radius:14px}.uxq-ag-table th{padding:10px 11px;text-align:left;background:rgba(67,91,165,.35);color:#c8d8ff;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase}.uxq-ag-table td{padding:11px;border-top:1px solid rgba(129,164,255,.15);font-size:.9rem;vertical-align:top}.uxq-ag-muted{color:#aebede;font-size:.82rem}.uxq-ag-pill{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-weight:850;font-size:.78rem;white-space:nowrap}.uxq-ag-pill.good{background:rgba(73,187,126,.18);border:1px solid rgba(116,235,165,.35);color:#c7ffdc}.uxq-ag-pill.review{background:rgba(255,193,73,.14);border:1px solid rgba(255,209,102,.37);color:#ffe4a0}.uxq-ag-pill.risk{background:rgba(255,123,143,.14);border:1px solid rgba(255,151,166,.42);color:#ffd0d8}.uxq-ag-focus{display:flex;flex-wrap:wrap;gap:6px}.uxq-ag-focus span{border-radius:999px;padding:3px 7px;background:rgba(155,140,255,.2);color:#e1d9ff;font-size:.76rem}
+  @media(max-width:820px){.uxq-ag-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.uxq-ag-table{display:block;overflow:auto;white-space:nowrap}}@media(max-width:480px){.uxq-ag-grid{grid-template-columns:1fr}}
+</style>
+
+<section id="uxqAntiGuessDashboard" class="uxq-ag-section" aria-live="polite">
+  <div class="uxq-ag-head"><div><h2>Reasoning & Anti-Guess View</h2><p>แยกคำตอบที่ถูกออกจากเหตุผลที่ยืนยันได้ เพื่อวางแผนสอนซ่อมเฉพาะจุด</p></div></div>
+  <div class="uxq-ag-muted">กำลังรอข้อมูล…</div>
+</section>
+
+<script>
+  (() => {
+    'use strict';
+    const el = () => document.getElementById('uxqAntiGuessDashboard');
+    const n = value => Number(value || 0);
+    const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    const riskClass = value => value === 'low' ? 'good' : (value === 'high' ? 'risk' : 'review');
+    const statusClass = value => /Mastery/i.test(String(value || '')) ? 'good' : (/Rapid|ฝึก/i.test(String(value || '')) ? 'risk' : 'review');
+    const timeText = sec => { const value = n(sec); return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`; };
+    const focusText = focus => (Array.isArray(focus) && focus.length ? focus.map(item => `<span>${esc(item.stageKey)} · ${n(item.count)}</span>`).join('') : '<span>ครบทุก Reason Check</span>');
+
+    window.renderUXQAntiGuessDashboard = function(model){
+      const root = el();
+      if (!root) return;
+      const summary = model?.summary || {};
+      const students = Array.isArray(model?.students) ? model.students : [];
+      root.innerHTML = `
+        <div class="uxq-ag-head"><div><h2>Reasoning & Anti-Guess View</h2><p>ข้อมูลล่าสุด: ${esc(model?.generatedAt || '—')} • แยก Latest ออกจาก Best เพื่อไม่ให้ดาวเก่าบดบังจุดที่ต้องฝึก</p></div></div>
+        <div class="uxq-ag-grid">
+          <div class="uxq-ag-card"><small>Attempts</small><b>${n(summary.attempts)}</b></div>
+          <div class="uxq-ag-card"><small>Avg Accuracy</small><b>${n(summary.avgAccuracy)}%</b></div>
+          <div class="uxq-ag-card"><small>Avg Verified</small><b>${n(summary.avgVerifiedAccuracy)}%</b></div>
+          <div class="uxq-ag-card"><small>Rapid Flags</small><b>${n(summary.rapidAttempts)}</b></div>
+        </div>
+        <table class="uxq-ag-table">
+          <thead><tr><th>ผู้เรียน</th><th>Latest</th><th>Reason Check</th><th>สถานะครู</th><th>จุดฝึกต่อ</th><th>Best verified</th></tr></thead>
+          <tbody>${students.map(student => {
+            const latest = student.latest || {};
+            const best = student.best || {};
+            return `<tr>
+              <td><b>${esc(student.studentName || student.studentId || '—')}</b><div class="uxq-ag-muted">${esc(student.section || '')} • ${n(student.attempts)} attempts</div></td>
+              <td><b>${esc(latest.missionTitle || latest.missionId || '—')}</b><div class="uxq-ag-muted">Score ${n(latest.score)} • ${n(latest.accuracy)}% • ${timeText(latest.durationSec)}</div></td>
+              <td><b>${n(latest.verifiedAccuracy)}%</b><div class="uxq-ag-muted">${n(latest.verifiedCorrect)}/${n(latest.verifiedTotal)} verified</div></td>
+              <td><span class="uxq-ag-pill ${statusClass(latest.teacherStatus)}">${esc(latest.teacherStatus || 'รอข้อมูล')}</span><div style="margin-top:6px"><span class="uxq-ag-pill ${riskClass(latest.guessRisk)}">${esc(latest.guessRisk || 'medium')}</span></div></td>
+              <td><div class="uxq-ag-focus">${focusText(latest.focus)}</div></td>
+              <td><b>${n(best.verifiedAccuracy)}%</b><div class="uxq-ag-muted">${esc(best.missionTitle || best.missionId || '—')}</div></td>
+            </tr>`;
+          }).join('') || '<tr><td colspan="6" class="uxq-ag-muted">ยังไม่มีผลการเล่น</td></tr>'}</tbody>
+        </table>`;
+    };
+  })();
+</script>
