@@ -1,14 +1,43 @@
 /* AI Quest S1 AR Persistent Entry Fix
    File: /ai-quest/js/aiquest-s1-ar-entry-v387.js
-   Version: v3.8.7
-   Purpose: Keep S1 AR Practice card visible after normal S1 game renders/re-renders.
+   Version: v4.0.6
+   Purpose:
+   - Keep S1 AR Practice card visible after normal S1 game re-renders.
+   - Load the S1 AR evidence bridge on both normal and direct-AR routes.
 */
 (function(){
   'use strict';
 
   var CARD_ID = 'aiquestS1ArEntryV387';
-  var AR_PARAM = new URLSearchParams(location.search).get('ar');
-  var SESSION = String(new URLSearchParams(location.search).get('session') || '').toLowerCase();
+  var params = new URLSearchParams(location.search);
+  var AR_PARAM = params.get('ar');
+  var SESSION = String(params.get('session') || '').toLowerCase();
+  var BRIDGE_SRC = './js/aiquest-s1-ar-result-bridge-v406.js?v=20260629-s1bridge406';
+
+  function ensureResultBridge(){
+    if (window.AIQUEST_S1_AR_RESULT_BRIDGE &&
+        window.AIQUEST_S1_AR_RESULT_BRIDGE.version === 'v4.0.6-s1-ar-reliable-event-sync') return;
+
+    var absolute = new URL(BRIDGE_SRC, document.baseURI).href;
+    var exists = Array.prototype.some.call(document.scripts, function(script){
+      return script.src === absolute;
+    });
+    if (exists) return;
+
+    var tag = document.createElement('script');
+    tag.src = BRIDGE_SRC;
+    tag.async = false;
+    tag.dataset.aiquestS1ArBridge = 'v406';
+    tag.onerror = function(){
+      console.warn('[AIQuest S1 AR] evidence bridge failed to load');
+    };
+    document.head.appendChild(tag);
+  }
+
+  // Load on the normal student page to recover a completed AR run and on S1 direct AR routes.
+  if (!SESSION || SESSION === 's1' || SESSION === 'm1') ensureResultBridge();
+
+  // Do not inject the normal-page card into any AR page or a session other than S1.
   if (AR_PARAM || (SESSION && SESSION !== 's1' && SESSION !== 'm1')) return;
 
   function getSavedResult(){
@@ -46,7 +75,7 @@
       ev.preventDefault(); ev.stopPropagation();
       var u = new URL(location.href);
       u.searchParams.set('session','s1'); u.searchParams.set('ar','hand'); u.searchParams.set('from','s1');
-      u.searchParams.set('v','20260629-s1-entry387'); location.assign(u.toString());
+      u.searchParams.set('v','20260629-s1-entry406'); location.assign(u.toString());
     }, true);
     return wrap;
   }
