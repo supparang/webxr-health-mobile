@@ -2,8 +2,7 @@
    EAP Word Quest • Shared Sheets Configuration
    File: /herohealth/eap-word-quest/eap-word-sheet-config.js
 
-   Paste the deployed Google Apps Script Web App URL into endpoint after
-   deployment. Keep group locked to 122 for this course.
+   Group 122 Google Apps Script Web App endpoint.
 ========================================================= */
 (() => {
   "use strict";
@@ -15,12 +14,14 @@
   })();
 
   window.EAP_WORD_SHEET_CONFIG = Object.assign({
-    endpoint: "",
+    endpoint: "https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec",
     group: "122",
     course: "EAP Word Quest",
     appVersion: "v2.4.1"
   }, existing);
 
+  /* A previously saved teacher-side endpoint may be retained only when a
+     deployment URL was explicitly configured in the current browser. */
   if (!window.EAP_WORD_SHEET_CONFIG.endpoint && endpointFromStorage) {
     window.EAP_WORD_SHEET_CONFIG.endpoint = endpointFromStorage;
   }
