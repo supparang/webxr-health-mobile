@@ -4,8 +4,8 @@
    Version: v2.2.4-RECOVERY-LOCK-LEDGER-LOADER-122
 
    Keeps a stable Recovery CTA only for a Session that has not passed yet.
-   Loads the retained-pass / full recovery guards, direct pass-ledger path,
-   and final BG5 completion presentation.
+   Loads retained-pass / recovery-size guards, the direct pass-ledger path,
+   final completion presentation, and Boss-specific recovery truth.
 ========================================================= */
 (() => {
   "use strict";
@@ -88,6 +88,8 @@
     load("eap-word-engine-v229-recovery-round-integrity.js", "__EAP_WORD_V229_RECOVERY_ROUND_INTEGRITY__", "recovery-round");
     load("eap-word-engine-v233-pass-ledger-path.js", "__EAP_WORD_V233_PASS_LEDGER_PATH__", "pass-ledger-path");
     load("eap-word-engine-v234-final-summit-complete.js", "__EAP_WORD_V234_FINAL_SUMMIT__", "final-summit");
+    load("eap-word-engine-v236-boss-round-recovery-integrity.js", "__EAP_WORD_V236_BOSS_ROUND_INTEGRITY__", "boss-round");
+    load("eap-word-engine-v235-boss-summary-truth.js", "__EAP_WORD_V235_BOSS_SUMMARY_TRUTH__", "boss-summary");
   }
 
   const observer = new MutationObserver(requestApply);
@@ -103,5 +105,5 @@
     visibleLabel:norm($("nextMissionBtn") && $("nextMissionBtn").dataset.eapV224Label)
   });
 
-  console.info("[EAP Word Quest] v224 pass-ledger loader ready",{version:VERSION});
+  console.info("[EAP Word Quest] v224 boss-recovery loader ready",{version:VERSION});
 })();
