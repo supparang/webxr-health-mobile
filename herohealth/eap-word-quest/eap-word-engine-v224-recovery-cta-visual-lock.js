@@ -6,8 +6,8 @@
    Keeps a stable Recovery CTA only for a Session that has not passed yet.
    Loads retained-pass / recovery-size guards, direct pass-ledger path,
    final completion presentation, Boss-specific recovery truth, the direct
-   24-question BG5 recovery director, final BG5 pass commit guard, and the
-   Home completion report.
+   24-question BG5 recovery director, final pass commit, completion report,
+   and the automatic Sheets cloud-sync bridge.
 ========================================================= */
 (() => {
   "use strict";
@@ -95,6 +95,8 @@
     load("eap-word-engine-v237-bg5-full-recovery-director.js", "__EAP_WORD_V237_BG5_FULL_RECOVERY__", "bg5-full-recovery");
     load("eap-word-engine-v238-final-pass-commit.js", "__EAP_WORD_V238_FINAL_PASS_COMMIT__", "final-pass-commit");
     load("eap-word-engine-v239-home-completion-report.js", "__EAP_WORD_V239_HOME_COMPLETION__", "home-completion-report");
+    load("eap-word-sheet-config.js", "EAP_WORD_SHEET_CONFIG", "sheet-config");
+    load("eap-word-engine-v240-core-cloud-sync.js", "__EAP_WORD_V240_CLOUD_SYNC__", "core-cloud-sync");
   }
 
   const observer = new MutationObserver(requestApply);
@@ -110,5 +112,5 @@
     visibleLabel:norm($("nextMissionBtn") && $("nextMissionBtn").dataset.eapV224Label)
   });
 
-  console.info("[EAP Word Quest] v224 final completion loader ready",{version:VERSION});
+  console.info("[EAP Word Quest] v224 final completion + cloud sync loader ready",{version:VERSION});
 })();
