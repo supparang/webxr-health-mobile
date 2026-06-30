@@ -1,18 +1,12 @@
 /* =========================================================
    EAP Word Quest • Recovery CTA Visual Lock
    File: /herohealth/eap-word-quest/eap-word-engine-v224-recovery-cta-visual-lock.js
-   Version: v2.2.4-RECOVERY-LOCK-LEDGER-LOADER-122
-
-   Keeps a stable Recovery CTA only for a Session that has not passed yet.
-   Loads retained-pass / recovery-size guards, direct pass-ledger path,
-   final completion presentation, Boss-specific recovery truth, the direct
-   24-question BG5 recovery director, final pass commit, completion report,
-   and the automatic Sheets cloud-sync bridge.
+   Version: v2.2.5-RECOVERY-LOCK-LEDGER-LOADER-122
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.2.4-RECOVERY-LOCK-LEDGER-LOADER-122";
+  const VERSION = "v2.2.5-RECOVERY-LOCK-LEDGER-LOADER-122";
   if (window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__) return;
   window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__ = true;
 
@@ -95,8 +89,8 @@
     load("eap-word-engine-v237-bg5-full-recovery-director.js", "__EAP_WORD_V237_BG5_FULL_RECOVERY__", "bg5-full-recovery");
     load("eap-word-engine-v238-final-pass-commit.js", "__EAP_WORD_V238_FINAL_PASS_COMMIT__", "final-pass-commit");
     load("eap-word-engine-v239-home-completion-report.js", "__EAP_WORD_V239_HOME_COMPLETION__", "home-completion-report");
-    load("eap-word-sheet-config.js", "EAP_WORD_SHEET_CONFIG", "sheet-config");
-    load("eap-word-engine-v240-core-cloud-sync.js", "__EAP_WORD_V240_CLOUD_SYNC__", "core-cloud-sync");
+    load("eap-word-sheet-config.js", "EAP_WORD_SHEET_CONFIG", "sheet-config-v252");
+    load("eap-word-engine-v240-core-cloud-sync.js", "__EAP_WORD_V240_CLOUD_SYNC__", "core-cloud-sync-v252");
   }
 
   const observer = new MutationObserver(requestApply);
