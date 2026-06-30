@@ -24,6 +24,9 @@
 
   const $ = (id) => document.getElementById(id);
   const norm = (value) => String(value == null ? "" : value).replace(/\s+/g, " ").trim();
+  const escapeHtml = (value) => norm(value).replace(/[&<>"']/g, (ch) => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  }[ch]));
   let queued = false;
 
   function onHome() {
