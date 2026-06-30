@@ -4,9 +4,9 @@
    Version: v2.2.4-RECOVERY-LOCK-LEDGER-LOADER-122
 
    Keeps a stable Recovery CTA only for a Session that has not passed yet.
-   Loads retained-pass / recovery-size guards, the direct pass-ledger path,
-   final completion presentation, Boss-specific recovery truth, and the
-   direct 24-question BG5 recovery director.
+   Loads retained-pass / recovery-size guards, direct pass-ledger path,
+   final completion presentation, Boss-specific recovery truth, the direct
+   24-question BG5 recovery director, and final BG5 pass commit guard.
 ========================================================= */
 (() => {
   "use strict";
@@ -47,12 +47,9 @@
     style.id = "eapV224RecoveryVisualStyle";
     style.textContent = `
       #nextMissionBtn[data-eap-v224-label]{position:relative!important;min-width:242px!important;width:242px!important;max-width:242px!important;min-height:54px!important;overflow:hidden!important;color:transparent!important;font-size:0!important;line-height:0!important;text-shadow:none!important}
-      #nextMissionBtn[data-eap-v224-label]::after{content:attr(data-eap-v224-label]!important;position:absolute!important;inset:0!important;display:flex!important;align-items:center!important;justify-content:center!important;color:#fff!important;font-size:18px!important;font-weight:950!important;line-height:1.15!important;white-space:nowrap!important;pointer-events:none!important}
+      #nextMissionBtn[data-eap-v224-label]::after{content:attr(data-eap-v224-label)!important;position:absolute!important;inset:0!important;display:flex!important;align-items:center!important;justify-content:center!important;color:#fff!important;font-size:18px!important;font-weight:950!important;line-height:1.15!important;white-space:nowrap!important;pointer-events:none!important}
       @media(max-width:680px){#nextMissionBtn[data-eap-v224-label]{min-width:0!important;width:100%!important;max-width:none!important}#nextMissionBtn[data-eap-v224-label]::after{font-size:17px!important}}
     `;
-    /* Corrected below after style assignment so a malformed cached rule can
-       never block the live button label. */
-    style.textContent = style.textContent.replace("attr(data-eap-v224-label]", "attr(data-eap-v224-label)");
     document.head.appendChild(style);
   }
 
@@ -95,6 +92,7 @@
     load("eap-word-engine-v236-boss-round-recovery-integrity.js", "__EAP_WORD_V236_BOSS_ROUND_INTEGRITY__", "boss-round");
     load("eap-word-engine-v235-boss-summary-truth.js", "__EAP_WORD_V235_BOSS_SUMMARY_TRUTH__", "boss-summary");
     load("eap-word-engine-v237-bg5-full-recovery-director.js", "__EAP_WORD_V237_BG5_FULL_RECOVERY__", "bg5-full-recovery");
+    load("eap-word-engine-v238-final-pass-commit.js", "__EAP_WORD_V238_FINAL_PASS_COMMIT__", "final-pass-commit");
   }
 
   const observer = new MutationObserver(requestApply);
@@ -110,5 +108,5 @@
     visibleLabel:norm($("nextMissionBtn") && $("nextMissionBtn").dataset.eapV224Label)
   });
 
-  console.info("[EAP Word Quest] v224 BG5-full loader ready",{version:VERSION});
+  console.info("[EAP Word Quest] v224 final completion loader ready",{version:VERSION});
 })();
