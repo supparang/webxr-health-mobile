@@ -1,7 +1,7 @@
 /* EAP Hero sheet sync: new evidence only. */
 (function(){
   'use strict';
-  const CFG=window.EAP_SHEET_CONFIG||{};
+  const CFG=window.EAP_SHEET_BRIDGE_CONFIG||window.EAP_SHEET_CONFIG||{};
   const STATE='EAP_HERO_PROGRESS_V3';
   const TRACK='EAP_HERO_SHEET_TRACK_V114';
   const read=(k,f)=>{try{return JSON.parse(localStorage.getItem(k)||'')}catch(_){return f}};
