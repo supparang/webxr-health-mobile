@@ -19,7 +19,7 @@
     endpoint: "https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec",
     group: "122",
     course: "EAP Word Quest",
-    appVersion: "v2.4.7"
+    appVersion: "v2.4.8"
   }, existing);
 
   if (!window.EAP_WORD_SHEET_CONFIG.endpoint && endpointFromStorage) {
@@ -63,7 +63,7 @@
   if (isTeacher) {
     loadTeacherRuntime("eap-word-teacher-v242-loader.js", "v242-loader");
     loadTeacherRuntime("eap-word-teacher-v246-identity-name-truth.js", "v246-identity-name-truth");
-    loadTeacherRuntime("eap-word-teacher-v247-current-profile-truth.js", "v247-current-profile-truth");
+    loadTeacherRuntime("eap-word-teacher-v248-strict-identity-separation.js", "v248-strict-identity-separation");
     loadRuntime("eap-word-teacher-v244-local-history-sync.js", "teacher-local-history-sync");
   }
 })();
