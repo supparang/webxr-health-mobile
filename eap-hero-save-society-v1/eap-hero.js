@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260630-v1z120-core-sync-guard';
+  const APP_VERSION = '20260630-v1z121-core-sync-baseline';
   const app = document.getElementById('app');
 
   const SESSIONS = [
