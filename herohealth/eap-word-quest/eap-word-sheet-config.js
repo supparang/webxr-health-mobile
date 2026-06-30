@@ -3,8 +3,7 @@
    File: /herohealth/eap-word-quest/eap-word-sheet-config.js
 
    Group 122 Google Apps Script Web App endpoint.
-   Starts automatic round sync, historic Core backfill, and profile identity
-   sync so Sheets always receives the learner's current saved name.
+   Syncs completed rounds, historic Core state, and the current saved profile.
 ========================================================= */
 (() => {
   "use strict";
@@ -19,7 +18,7 @@
     endpoint: "https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec",
     group: "122",
     course: "EAP Word Quest",
-    appVersion: "v2.4.8"
+    appVersion: "v2.5.1"
   }, existing);
 
   if (!window.EAP_WORD_SHEET_CONFIG.endpoint && endpointFromStorage) {
@@ -54,16 +53,14 @@
     loadRuntime("eap-word-engine-v240-core-cloud-sync.js", "core-cloud-sync");
   }
 
-  // Transfers the verified Core ledger that existed before cloud sync.
   loadRuntime("eap-word-engine-v243-core-history-backfill.js", "core-history-backfill");
-
-  // Sends the current saved Student Name / ID even before another round ends.
   loadRuntime("eap-word-engine-v245-profile-identity-sync.js", "profile-identity-sync");
 
   if (isTeacher) {
-    loadTeacherRuntime("eap-word-teacher-v242-loader.js", "v242-loader");
+    // This loader now installs v250/v251, which preserve the ID embedded in
+    // raw local rows and never reassign KK's history to KP.
+    loadTeacherRuntime("eap-word-teacher-v242-loader.js", "v251-loader");
     loadTeacherRuntime("eap-word-teacher-v246-identity-name-truth.js", "v246-identity-name-truth");
-    loadTeacherRuntime("eap-word-teacher-v248-strict-identity-separation.js", "v248-strict-identity-separation");
     loadRuntime("eap-word-teacher-v244-local-history-sync.js", "teacher-local-history-sync");
   }
 })();
