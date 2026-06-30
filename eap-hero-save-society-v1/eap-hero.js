@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260629-v1z108-Live-Sheet-Bridge';
+  const APP_VERSION = '20260630-v1z109-direct-evidence-sheet-sync';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -39266,6 +39266,69 @@
     return Array.from(new Set(tags.filter(Boolean))).slice(0,8);
   }
 
+
+  /* EAP Sheet Sync v9 — invoked only by the real evidence save path.
+     It receives the exact compact portfolio entry; it never reads the result screen. */
+  function syncEvidenceToEapSheet(compactEntry, sessionId){
+    try{
+      const cfg = window.EAP_SHEET_CONFIG || {};
+      if(!cfg.enabled || !cfg.webAppUrl || !compactEntry) return false;
+      const studentId = String(
+        state.profile?.studentId ||
+        state.profile?.id ||
+        compactEntry.student_id ||
+        'guest'
+      ).trim();
+      const studentName = String(
+        state.profile?.studentName ||
+        state.profile?.name ||
+        compactEntry.player_name ||
+        'Guest'
+      ).trim();
+      const skill = String(compactEntry.skill || '').trim();
+      const sid = Number(compactEntry.session || compactEntry.sessionId || sessionId || 0);
+      if(!studentId || !skill || !sid) return false;
+
+      state.sheetSync = state.sheetSync || { sent:{} };
+      state.sheetSync.sent = state.sheetSync.sent || {};
+      const attemptId = String(
+        compactEntry.evidenceId ||
+        compactEntry.id ||
+        `eap-${studentId}-S${sid}-${skill}-${compactEntry.at || Date.now()}`
+      );
+      if(state.sheetSync.sent[attemptId]) return false;
+
+      const score = Number(compactEntry.score ?? compactEntry.latestScore ?? 0) || 0;
+      const url = new URL(cfg.webAppUrl);
+      const payload = {
+        action:'submit_attempt',
+        attemptId,
+        studentId,
+        studentName,
+        section:String(state.profile?.section || cfg.section || '122'),
+        sessionId:String(sid),
+        sessionTitle:String(getSession(sid)?.title || compactEntry.sessionTitle || ''),
+        skill,
+        score:String(score),
+        accuracy:String(Number(compactEntry.accuracy ?? compactEntry.bestAccuracy ?? 0) || 0),
+        passMark:'60',
+        passed:String(!!compactEntry.passed || score >= 60),
+        legacyCompletion:String(!!compactEntry.legacyCompletion),
+        hintUsed:String(Number(compactEntry.aiUses ?? compactEntry.hintUsed ?? 0) || 0),
+        replay:String(!!compactEntry.replay),
+        clientTimestamp:String(compactEntry.at || new Date().toISOString()),
+        sourceUrl:location.href
+      };
+      Object.keys(payload).forEach(key => url.searchParams.set(key, payload[key]));
+      fetch(url.toString(), {mode:'no-cors', cache:'no-store'}).catch(()=>{});
+      state.sheetSync.sent[attemptId] = new Date().toISOString();
+      return true;
+    }catch(err){
+      console.warn('[EAP sheet sync]', err);
+      return false;
+    }
+  }
+
   function addPortfolio(entry){
     state.portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
     const sessionId = Number(entry?.session || entry?.sessionId || state.currentSession || 1) || 1;
@@ -39361,6 +39424,7 @@
       ? createLearningReport(portfolioIndex, {deferSave:true})
       : null;
     if(typeof syncCourseProgressFromEvidence === 'function') syncCourseProgressFromEvidence(true);
+    syncEvidenceToEapSheet(compactEntry, sessionId);
     saveState();
     return {portfolioIndex, entry:compactEntry, report};
   }
