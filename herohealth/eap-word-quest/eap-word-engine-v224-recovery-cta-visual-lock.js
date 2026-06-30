@@ -1,16 +1,17 @@
 /* =========================================================
    EAP Word Quest • Recovery CTA Visual Lock
    File: /herohealth/eap-word-quest/eap-word-engine-v224-recovery-cta-visual-lock.js
-   Version: v2.2.4-RETAINED-PASS-AWARE-122
+   Version: v2.2.4-RECOVERY-LOCK-FINAL-LOADER-122
 
-   Presentation guard for below-threshold replay summaries.
-   It locks a Recovery CTA only when this Session has not been passed before.
-   A lower replay must keep the learner's already-earned progression path.
+   Keeps a stable Recovery CTA only for a Session that has not passed yet.
+   Loads the small retained-pass and recovery-size guards plus one final
+   progress authority. Older overlapping summary-state patches are no longer
+   loaded from this runtime entry point.
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.2.4-RETAINED-PASS-AWARE-122";
+  const VERSION = "v2.2.4-RECOVERY-LOCK-FINAL-LOADER-122";
   if (window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__) return;
   window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__ = true;
 
@@ -44,36 +45,9 @@
     const style = document.createElement("style");
     style.id = "eapV224RecoveryVisualStyle";
     style.textContent = `
-      #nextMissionBtn[data-eap-v224-label]{
-        position:relative!important;
-        min-width:242px!important;
-        width:242px!important;
-        max-width:242px!important;
-        min-height:54px!important;
-        overflow:hidden!important;
-        color:transparent!important;
-        font-size:0!important;
-        line-height:0!important;
-        text-shadow:none!important;
-      }
-      #nextMissionBtn[data-eap-v224-label]::after{
-        content:attr(data-eap-v224-label)!important;
-        position:absolute!important;
-        inset:0!important;
-        display:flex!important;
-        align-items:center!important;
-        justify-content:center!important;
-        color:#fff!important;
-        font-size:18px!important;
-        font-weight:950!important;
-        line-height:1.15!important;
-        white-space:nowrap!important;
-        pointer-events:none!important;
-      }
-      @media(max-width:680px){
-        #nextMissionBtn[data-eap-v224-label]{min-width:0!important;width:100%!important;max-width:none!important}
-        #nextMissionBtn[data-eap-v224-label]::after{font-size:17px!important}
-      }
+      #nextMissionBtn[data-eap-v224-label]{position:relative!important;min-width:242px!important;width:242px!important;max-width:242px!important;min-height:54px!important;overflow:hidden!important;color:transparent!important;font-size:0!important;line-height:0!important;text-shadow:none!important}
+      #nextMissionBtn[data-eap-v224-label]::after{content:attr(data-eap-v224-label)!important;position:absolute!important;inset:0!important;display:flex!important;align-items:center!important;justify-content:center!important;color:#fff!important;font-size:18px!important;font-weight:950!important;line-height:1.15!important;white-space:nowrap!important;pointer-events:none!important}
+      @media(max-width:680px){#nextMissionBtn[data-eap-v224-label]{min-width:0!important;width:100%!important;max-width:none!important}#nextMissionBtn[data-eap-v224-label]::after{font-size:17px!important}}
     `;
     document.head.appendChild(style);
   }
@@ -101,21 +75,18 @@
     requestAnimationFrame(apply);
   }
 
-  function loadPassGuards() {
-    const load = (file, marker, version) => {
-      if (window[marker] || document.querySelector(`script[data-${version}]`)) return;
+  function loadFinalGuards() {
+    const load = (file, marker, tag) => {
+      if (window[marker] || document.querySelector(`script[data-eap-runtime="${tag}"]`)) return;
       const script = document.createElement("script");
-      script.src = `./${file}?v=20260629-${version}`;
+      script.src = `./${file}?v=20260630-${tag}`;
       script.async = false;
-      script.dataset[version] = "true";
+      script.dataset.eapRuntime = tag;
       document.head.appendChild(script);
     };
-    load("eap-word-engine-v226-summary-pass-commit.js", "__EAP_WORD_V226_SUMMARY_PASS_COMMIT__", "eapV226SummaryPass");
-    load("eap-word-engine-v227-retained-pass-repair.js", "__EAP_WORD_V227_RETAINED_PASS_REPAIR__", "eapV227RetainedPass");
-    load("eap-word-engine-v228-retained-pass-cta-shield.js", "__EAP_WORD_V228_RETAINED_CTA__", "eapV228RetainedCta");
-    load("eap-word-engine-v229-recovery-round-integrity.js", "__EAP_WORD_V229_RECOVERY_ROUND_INTEGRITY__", "eapV229RecoveryRound");
-    load("eap-word-engine-v230-visible-pass-state-commit.js", "__EAP_WORD_V230_VISIBLE_PASS__", "eapV230VisiblePass");
-    load("eap-word-engine-v231-summary-state-authority.js", "__EAP_WORD_V231_SUMMARY_STATE_AUTHORITY__", "eapV231SummaryAuthority");
+    load("eap-word-engine-v227-retained-pass-repair.js", "__EAP_WORD_V227_RETAINED_PASS_REPAIR__", "retained-pass");
+    load("eap-word-engine-v229-recovery-round-integrity.js", "__EAP_WORD_V229_RECOVERY_ROUND_INTEGRITY__", "recovery-round");
+    load("eap-word-engine-v232-final-progress-authority.js", "__EAP_WORD_V232_FINAL_PROGRESS_AUTHORITY__", "final-progress");
   }
 
   const observer = new MutationObserver(requestApply);
@@ -123,7 +94,7 @@
   document.addEventListener("click",()=>[0,120,360,760].forEach((delay)=>setTimeout(requestApply,delay)),true);
   window.addEventListener("eap-core-run-finished",()=>[0,100,300,700].forEach((delay)=>setTimeout(requestApply,delay)));
   [0,160,500,1200,2200].forEach((delay)=>setTimeout(requestApply,delay));
-  loadPassGuards();
+  loadFinalGuards();
 
   window.inspectEapV224 = () => ({
     version:VERSION,
@@ -131,5 +102,5 @@
     visibleLabel:norm($("nextMissionBtn") && $("nextMissionBtn").dataset.eapV224Label)
   });
 
-  console.info("[EAP Word Quest] v224 retained-pass-aware Recovery CTA ready",{version:VERSION});
+  console.info("[EAP Word Quest] v224 final recovery loader ready",{version:VERSION});
 })();
