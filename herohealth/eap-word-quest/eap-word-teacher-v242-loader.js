@@ -1,6 +1,6 @@
 /* EAP Word Quest • Teacher v242 Patch Loader
-   Ensures v241 wraps report-core only after teacher.html has finished
-   defining its render function, then refreshes the current view once. */
+   Ensures the teacher report patches load only after teacher.html has
+   defined its render function, then refreshes the current view once. */
 (() => {
   "use strict";
   if (window.__EAP_WORD_TEACHER_V242_LOADER__) return;
@@ -18,9 +18,39 @@
     if (button && typeof button.click === "function") button.click();
   }
 
+  function loadScript(path, tag, done) {
+    if (document.querySelector(`script[data-eap-teacher-runtime="${tag}"]`) || document.querySelector(`script[data-eap-runtime="${tag}"]`)) {
+      done();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = path;
+    script.async = false;
+    if (tag.indexOf("logger") >= 0) script.dataset.eapRuntime = tag;
+    else script.dataset.eapTeacherRuntime = tag;
+    script.onload = done;
+    script.onerror = () => {
+      console.warn("[EAP Word Quest] teacher runtime did not load", tag);
+      done();
+    };
+    document.head.appendChild(script);
+  }
+
+  function loadIdentitySafeLocalReport() {
+    loadScript(
+      "./eap-word-logger-v250-identity-preserve.js?v=20260630-v250-identity",
+      "identity-preserve-logger",
+      () => loadScript(
+        "./eap-word-teacher-v249-local-ledger-truth.js?v=20260630-v249-local-ledger",
+        "v249-local-ledger-truth",
+        () => setTimeout(refreshTeacherView, 80)
+      )
+    );
+  }
+
   function load() {
     if (loaded || window.__EAP_WORD_TEACHER_V241_CORE_TRUTH__) {
-      setTimeout(refreshTeacherView, 40);
+      loadIdentitySafeLocalReport();
       return;
     }
     loaded = true;
@@ -28,7 +58,7 @@
     script.src = patchPath;
     script.async = false;
     script.dataset.eapTeacherRuntime = "v241-core-truth";
-    script.onload = () => setTimeout(refreshTeacherView, 40);
+    script.onload = () => loadIdentitySafeLocalReport();
     script.onerror = () => console.warn("[EAP Word Quest] teacher v241 patch did not load");
     document.head.appendChild(script);
   }
