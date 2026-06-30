@@ -124,8 +124,9 @@
       if (actions) actions.insertAdjacentElement("beforebegin",plan); else root.appendChild(plan);
     }
 
-    const missing = Math.max(0, model.needed - model.correct);
-    const signature = `${model.sessionId}|${model.correct}/${model.total}|${model.accuracy}|${model.required}`;
+    const nextTotal = fullRoundSize(model.sessionId);
+    const nextNeeded = Math.ceil((nextTotal * model.required) / 100);
+    const signature = `${model.sessionId}|${model.correct}/${model.total}|${model.accuracy}|${model.required}|${nextTotal}`;
     if (plan.dataset.eapV235Signature !== signature) {
       plan.dataset.eapV235Signature = signature;
       plan.dataset.eapV235BossFail = "true";
@@ -133,19 +134,19 @@
       plan.innerHTML = `
         <b>แผนเรียนจากผล ${model.sessionId} รอบนี้</b>
         <div class="eap218-row"><b>Boss Recovery รอบถัดไป</b></div>
-        <div class="eap218-row">ได้ ${model.correct}/${model.total} ข้อ (${model.accuracy}%) • เกณฑ์ผ่าน ${model.required}% หรืออย่างน้อย ${model.needed}/${model.total} ข้อ</div>
-        <div class="eap218-row">ยังต้องตอบถูกเพิ่มอีก ${missing} ข้อ และรอบถัดไปจะกลับมาเป็น ${model.sessionId} รอบเต็ม ${fullRoundSize(model.sessionId)} ข้อ</div>
-        <div><span class="eap218-chip">Boss รอบเต็ม ${fullRoundSize(model.sessionId)} ข้อ</span><span class="eap218-chip">ทบทวน Weak Words</span><span class="eap218-chip">โจทย์บูรณาการ</span></div>`;
+        <div class="eap218-row">ผลรอบนี้ได้ ${model.correct}/${model.total} ข้อ (${model.accuracy}%) ซึ่งยังต่ำกว่าเกณฑ์ ${model.required}% ของ ${model.sessionId}</div>
+        <div class="eap218-row">รอบถัดไปจะกลับมาเป็น ${model.sessionId} รอบเต็ม ${nextTotal} ข้อ และต้องตอบถูกอย่างน้อย ${nextNeeded}/${nextTotal} ข้อเพื่อผ่าน</div>
+        <div><span class="eap218-chip">Boss รอบเต็ม ${nextTotal} ข้อ</span><span class="eap218-chip">ทบทวน Weak Words</span><span class="eap218-chip">โจทย์บูรณาการ</span></div>`;
     }
 
     const next = $("nextMissionBtn");
     if (next) {
       const label = `เริ่ม ${model.sessionId} Recovery`;
-      /* Keep the controller's semantic route: nextMission() remains BG5. */
+      /* Keep the controller's semantic route: nextMission() remains the same Boss. */
       if (next.textContent !== label) next.textContent = label;
       next.dataset.eapV235Label = label;
       next.setAttribute("aria-label",label);
-      next.title = `ต้องตอบถูกเพิ่มอีก ${missing} ข้อเพื่อผ่าน ${model.sessionId}`;
+      next.title = `${model.sessionId} รอบเต็มผ่านที่ ${nextNeeded}/${nextTotal}`;
     }
 
     const replay = $("replayBtn");
