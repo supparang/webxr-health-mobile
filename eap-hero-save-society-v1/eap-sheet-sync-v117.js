@@ -1,10 +1,11 @@
-/* EAP Hero sheet bridge v117: isolated from core engine. */
+/* EAP Hero sheet bridge v118: isolated from core engine. */
 (function(){
   'use strict';
   const WEB_APP_URL='https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec';
   const SECTION='122';
   const STATE='EAP_HERO_PROGRESS_V3';
   const TRACK='EAP_HERO_SHEET_TRACK_V117';
+  const SUBMISSION_KIND='fresh_evidence_v118';
   const read=(k,f)=>{try{return JSON.parse(localStorage.getItem(k)||'')}catch(_){return f}};
   const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(_){}};
   const text=v=>v==null?'':String(v);
@@ -30,12 +31,12 @@
       const legacy=e.legacyCompletion===true||text(e.legacyCompletion).toLowerCase()==='true';if(legacy)return;
       const id='eap-'+p.studentId+'-'+k.replace(/[^A-Za-z0-9_-]/g,'');if(t.sent[id])return;
       const sid=text(e.session||e.sessionId),score=num(e.latestScore!==undefined?e.latestScore:e.score),acc=accuracy(e);
-      submit({action:'submit_attempt',attemptId:id,studentId:p.studentId,studentName:p.studentName,section:p.section,sessionId:sid,sessionTitle:text(e.sessionTitle||(s.sessions&&s.sessions[sid]&&s.sessions[sid].title)),skill:text(e.skill),score:score,accuracy:acc===null?'':acc,passMark:60,passed:score>=60,legacyCompletion:false,hintUsed:num(e.aiUses||e.hintUsed),replay:e.replay===true,clientTimestamp:text(e.latestAt||e.at||e.evidenceId||new Date().toISOString()),sourceUrl:location.href});
+      submit({action:'submit_attempt',submissionKind:SUBMISSION_KIND,attemptId:id,studentId:p.studentId,studentName:p.studentName,section:p.section,sessionId:sid,sessionTitle:text(e.sessionTitle||(s.sessions&&s.sessions[sid]&&s.sessions[sid].title)),skill:text(e.skill),score:score,accuracy:acc===null?'':acc,passMark:60,passed:score>=60,legacyCompletion:false,hintUsed:num(e.aiUses||e.hintUsed),replay:e.replay===true,clientTimestamp:text(e.latestAt||e.at||e.evidenceId||new Date().toISOString()),sourceUrl:location.href});
       t.sent[id]=Date.now();
     });
     write(TRACK,t);
   }
-  window.EAPSheetSyncV117={sync};
+  window.EAPSheetSyncV118={sync};
   window.addEventListener('load',()=>setTimeout(sync,900));
   setInterval(sync,1800);
 })();
