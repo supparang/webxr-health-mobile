@@ -1,251 +1,41 @@
-/* =========================================================
-   EAP Hero v113 • Portfolio-to-Sheet Sync
-   - Reads portfolio only; never reads result-page text
-   - Sends real Accuracy only when portfolio actually contains it
-   - Does not convert missing Accuracy into 0%
-========================================================= */
-(function () {
+/* EAP Hero sheet sync: new evidence only. */
+(function(){
   'use strict';
-
-  const CONFIG = window.EAP_SHEET_CONFIG || {};
-  const STATE_KEY = 'EAP_HERO_PROGRESS_V3';
-  const SENT_KEY = 'EAP_HERO_SHEET_SENT_V113';
-
-  function readJson(key, fallback) {
-    try {
-      return JSON.parse(localStorage.getItem(key) || '');
-    } catch (_) {
-      return fallback;
-    }
+  const CFG=window.EAP_SHEET_CONFIG||{};
+  const STATE='EAP_HERO_PROGRESS_V3';
+  const TRACK='EAP_HERO_SHEET_TRACK_V114';
+  const read=(k,f)=>{try{return JSON.parse(localStorage.getItem(k)||'')}catch(_){return f}};
+  const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(_){}};
+  const text=v=>v==null?'':String(v);
+  const num=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
+  const present=v=>v!==''&&v!=null&&Number.isFinite(Number(v));
+  function accuracy(e){
+    for(const v of [e.accuracy,e.bestAccuracy,e.accPct,e.accuracyPct]) if(present(v)) return Math.max(0,Math.min(100,num(v)));
+    const c=e.correct??e.correctCount, t=e.total??e.questionCount??e.questions;
+    return present(c)&&present(t)&&num(t)>0?Math.round(num(c)/num(t)*100):null;
   }
-
-  function asText(value) {
-    return value === undefined || value === null
-      ? ''
-      : String(value);
-  }
-
-  function asNumber(value, fallback) {
-    const n = Number(value);
-
-    return Number.isFinite(n)
-      ? n
-      : (fallback === undefined ? 0 : fallback);
-  }
-
-  function hasNumber(value) {
-    if (value === undefined || value === null || value === '') {
-      return false;
-    }
-
-    const n = Number(value);
-
-    return Number.isFinite(n) && n >= 0;
-  }
-
-  function getRealAccuracy(entry) {
-    const directCandidates = [
-      entry.accuracy,
-      entry.bestAccuracy,
-      entry.accPct,
-      entry.accuracyPct
-    ];
-
-    for (const value of directCandidates) {
-      if (hasNumber(value)) {
-        return Math.max(0, Math.min(100, asNumber(value)));
-      }
-    }
-
-    const correct = entry.correct ?? entry.correctCount;
-    const total = entry.total ?? entry.questionCount ?? entry.questions;
-
-    if (
-      hasNumber(correct) &&
-      hasNumber(total) &&
-      asNumber(total) > 0
-    ) {
-      return Math.round(
-        (asNumber(correct) / asNumber(total)) * 100
-      );
-    }
-
-    return null;
-  }
-
-  function getProfile(state) {
-    const profile = state.profile || state.player || {};
-
-    return {
-      studentId: asText(
-        profile.studentId ||
-        profile.id ||
-        state.studentId ||
-        'guest'
-      ),
-
-      studentName: asText(
-        profile.studentName ||
-        profile.name ||
-        state.studentName ||
-        'Guest'
-      ),
-
-      section: asText(
-        profile.section ||
-        state.section ||
-        CONFIG.section ||
-        '122'
-      )
-    };
-  }
-
-  function requestUrl(payload) {
-    const url = new URL(CONFIG.webAppUrl);
-
-    Object.keys(payload).forEach(function(key) {
-      url.searchParams.set(key, asText(payload[key]));
+  function profile(s){const p=s.profile||s.player||{};return{studentId:text(p.studentId||p.id||s.studentId||'guest'),studentName:text(p.studentName||p.name||s.studentName||'Guest'),section:text(p.section||s.section||CFG.section||'122')}}
+  function key(e,i){return [text(e.session||e.sessionId),text(e.skill).toLowerCase(),text(e.latestAt||e.at||e.evidenceId||i)].join('|')}
+  function transmit(payload){const u=new URL(CFG.webAppUrl);Object.keys(payload).forEach(k=>u.searchParams.set(k,text(payload[k])));u.searchParams.set('_',Date.now());const im=document.createElement('img');im.width=im.height=1;im.style.cssText='position:fixed;left:-9999px;top:-9999px;opacity:0';im.onload=im.onerror=()=>setTimeout(()=>im.remove(),100);im.src=u;document.body.appendChild(im)}
+  function sync(){
+    if(!CFG.enabled||!CFG.webAppUrl)return;
+    const s=read(STATE,null); if(!s||!Array.isArray(s.portfolio))return;
+    const p=profile(s), pkey=p.studentId+'|'+p.section;
+    const tr=read(TRACK,{profileKey:'',ready:false,known:{},sent:{}});
+    if(tr.profileKey!==pkey){tr.profileKey=pkey;tr.ready=false;tr.known={};tr.sent={}}
+    const list=s.portfolio.map((entry,index)=>({entry:entry||{},index})).filter(x=>text(x.entry.session||x.entry.sessionId)&&text(x.entry.skill));
+    if(!tr.ready){list.forEach(x=>tr.known[key(x.entry,x.index)]=true);tr.ready=true;write(TRACK,tr);return}
+    list.forEach(x=>{
+      const e=x.entry,k=key(e,x.index); if(tr.known[k])return; tr.known[k]=true;
+      const legacy=e.legacyCompletion===true||text(e.legacyCompletion).toLowerCase()==='true'; if(legacy)return;
+      const id='eap-'+p.studentId+'-'+k.replace(/[^A-Za-z0-9_-]/g,''); if(tr.sent[id])return;
+      const sid=text(e.session||e.sessionId), score=num(e.latestScore!==undefined?e.latestScore:e.score), acc=accuracy(e);
+      transmit({action:'submit_attempt',attemptId:id,studentId:p.studentId,studentName:p.studentName,section:p.section,sessionId:sid,sessionTitle:text(e.sessionTitle||(s.sessions&&s.sessions[sid]&&s.sessions[sid].title)),skill:text(e.skill),score,accuracy:acc===null?'':acc,passMark:60,passed:score>=60,legacyCompletion:false,hintUsed:num(e.aiUses||e.hintUsed),replay:e.replay===true,clientTimestamp:text(e.latestAt||e.at||e.evidenceId||new Date().toISOString()),sourceUrl:location.href});
+      tr.sent[id]=Date.now();
     });
-
-    url.searchParams.set('_cache', String(Date.now()));
-
-    return url.toString();
+    write(TRACK,tr);
   }
-
-  function send(payload) {
-    const image = document.createElement('img');
-
-    image.width = 1;
-    image.height = 1;
-
-    image.style.cssText =
-      'position:fixed;left:-9999px;top:-9999px;' +
-      'opacity:0;pointer-events:none';
-
-    image.onload = image.onerror = function() {
-      setTimeout(function() {
-        image.remove();
-      }, 100);
-    };
-
-    image.src = requestUrl(payload);
-    document.body.appendChild(image);
-  }
-
-  function sync() {
-    if (!CONFIG.enabled || !CONFIG.webAppUrl) {
-      return;
-    }
-
-    const state = readJson(STATE_KEY, null);
-
-    if (!state || !Array.isArray(state.portfolio)) {
-      return;
-    }
-
-    const profile = getProfile(state);
-    const sent = readJson(SENT_KEY, {});
-
-    state.portfolio.forEach(function(entry, index) {
-      const sessionId = asText(
-        entry.session || entry.sessionId
-      );
-
-      const skill = asText(entry.skill);
-
-      if (!sessionId || !skill) {
-        return;
-      }
-
-      const score = asNumber(
-        entry.latestScore !== undefined
-          ? entry.latestScore
-          : entry.score
-      );
-
-      const accuracy = getRealAccuracy(entry);
-
-      const stamp = asText(
-        entry.latestAt ||
-        entry.at ||
-        entry.evidenceId ||
-        index
-      );
-
-      const attemptId =
-        'eap-' +
-        profile.studentId +
-        '-s' +
-        sessionId +
-        '-' +
-        skill.toLowerCase() +
-        '-' +
-        stamp.replace(/[^A-Za-z0-9_-]/g, '');
-
-      if (sent[attemptId]) {
-        return;
-      }
-
-      const legacy =
-        entry.legacyCompletion === true ||
-        String(entry.legacyCompletion).toLowerCase() === 'true';
-
-      const payload = {
-        action: 'submit_attempt',
-
-        attemptId: attemptId,
-        studentId: profile.studentId,
-        studentName: profile.studentName,
-        section: profile.section,
-
-        sessionId: sessionId,
-
-        sessionTitle: asText(
-          entry.sessionTitle ||
-          (
-            state.sessions &&
-            state.sessions[sessionId] &&
-            state.sessions[sessionId].title
-          )
-        ),
-
-        skill: skill,
-
-        score: score,
-
-        /* Blank means the game did not provide Accuracy. */
-        accuracy: accuracy === null ? '' : accuracy,
-
-        passMark: 60,
-        passed: legacy || score >= 60,
-        legacyCompletion: legacy,
-
-        hintUsed: asNumber(
-          entry.aiUses || entry.hintUsed
-        ),
-
-        replay: entry.replay === true,
-        clientTimestamp: stamp,
-        sourceUrl: location.href
-      };
-
-      send(payload);
-      sent[attemptId] = Date.now();
-    });
-
-    localStorage.setItem(
-      SENT_KEY,
-      JSON.stringify(sent)
-    );
-  }
-
-  window.EAPSheetSyncV113 = {
-    sync: sync
-  };
-
-  window.addEventListener('load', function() {
-    setTimeout(sync, 700);
-  });
-
-  setInterval(sync, 1800);
+  window.EAPSheetSyncV114={sync};
+  window.addEventListener('load',()=>setTimeout(sync,900));
+  setInterval(sync,1800);
 })();
