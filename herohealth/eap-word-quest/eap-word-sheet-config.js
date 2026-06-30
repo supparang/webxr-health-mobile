@@ -1,15 +1,9 @@
-/* =========================================================
-   EAP Word Quest • Shared Sheets Configuration
-   File: /herohealth/eap-word-quest/eap-word-sheet-config.js
-
-   Group 122 Google Apps Script Web App endpoint.
-   Syncs completed rounds, historic Core state, and the current saved profile.
-========================================================= */
+/* EAP Word Quest • Shared Sheets Configuration • Group 122 */
 (() => {
   "use strict";
 
   const existing = window.EAP_WORD_SHEET_CONFIG || {};
-  const endpointFromStorage = (() => {
+  const savedEndpoint = (() => {
     try { return localStorage.getItem("EAP_WORD_SHEET_ENDPOINT") || ""; }
     catch (err) { return ""; }
   })();
@@ -18,11 +12,11 @@
     endpoint: "https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec",
     group: "122",
     course: "EAP Word Quest",
-    appVersion: "v2.5.1"
+    appVersion: "v2.5.2"
   }, existing);
 
-  if (!window.EAP_WORD_SHEET_CONFIG.endpoint && endpointFromStorage) {
-    window.EAP_WORD_SHEET_CONFIG.endpoint = endpointFromStorage;
+  if (!window.EAP_WORD_SHEET_CONFIG.endpoint && savedEndpoint) {
+    window.EAP_WORD_SHEET_CONFIG.endpoint = savedEndpoint;
   }
 
   window.getEapWordSheetEndpoint = () => String(
@@ -50,17 +44,14 @@
   const isTeacher = /\/teacher\.html$/i.test(location.pathname || "");
 
   if (!isTeacher) {
-    loadRuntime("eap-word-engine-v240-core-cloud-sync.js", "core-cloud-sync");
+    loadRuntime("eap-word-engine-v240-core-cloud-sync.js", "core-cloud-sync-v252");
   }
 
-  loadRuntime("eap-word-engine-v243-core-history-backfill.js", "core-history-backfill");
-  loadRuntime("eap-word-engine-v245-profile-identity-sync.js", "profile-identity-sync");
+  loadRuntime("eap-word-engine-v245-profile-identity-sync.js", "profile-identity-sync-v252");
 
   if (isTeacher) {
-    // This loader now installs v250/v251, which preserve the ID embedded in
-    // raw local rows and never reassign KK's history to KP.
-    loadTeacherRuntime("eap-word-teacher-v242-loader.js", "v251-loader");
-    loadTeacherRuntime("eap-word-teacher-v246-identity-name-truth.js", "v246-identity-name-truth");
-    loadRuntime("eap-word-teacher-v244-local-history-sync.js", "teacher-local-history-sync");
+    loadTeacherRuntime("eap-word-teacher-v242-loader.js", "v251-loader-v252");
+    loadTeacherRuntime("eap-word-teacher-v246-identity-name-truth.js", "v246-identity-name-truth-v252");
+    loadTeacherRuntime("eap-word-teacher-v252-cloud-ledger-integrity.js", "v252-cloud-ledger-integrity");
   }
 })();
