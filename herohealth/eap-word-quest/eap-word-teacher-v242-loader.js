@@ -6,7 +6,7 @@
   if (window.__EAP_WORD_TEACHER_V242_LOADER__) return;
   window.__EAP_WORD_TEACHER_V242_LOADER__ = true;
 
-  const patchPath = "./eap-word-teacher-v241-core-truth-layout.js?v=20260630-v241-core-truth";
+  const patchPath = "./eap-word-teacher-v241-core-truth-layout.js?v=20260630-v251-core-truth";
   let loaded = false;
 
   function ready() {
@@ -38,12 +38,12 @@
 
   function loadIdentitySafeLocalReport() {
     loadScript(
-      "./eap-word-logger-v250-identity-preserve.js?v=20260630-v250-identity",
-      "identity-preserve-logger",
+      "./eap-word-logger-v250-identity-preserve.js?v=20260630-v251-identity",
+      "identity-preserve-logger-v251",
       () => loadScript(
-        "./eap-word-teacher-v249-local-ledger-truth.js?v=20260630-v249-local-ledger",
-        "v249-local-ledger-truth",
-        () => setTimeout(refreshTeacherView, 80)
+        "./eap-word-teacher-v251-local-identity-truth.js?v=20260630-v251-local-identity",
+        "v251-local-identity-truth",
+        () => setTimeout(refreshTeacherView, 120)
       )
     );
   }
@@ -57,7 +57,7 @@
     const script = document.createElement("script");
     script.src = patchPath;
     script.async = false;
-    script.dataset.eapTeacherRuntime = "v241-core-truth";
+    script.dataset.eapTeacherRuntime = "v241-core-truth-v251";
     script.onload = () => loadIdentitySafeLocalReport();
     script.onerror = () => console.warn("[EAP Word Quest] teacher v241 patch did not load");
     document.head.appendChild(script);
