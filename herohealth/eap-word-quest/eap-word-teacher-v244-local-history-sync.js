@@ -3,10 +3,9 @@
    File: /herohealth/eap-word-quest/eap-word-teacher-v244-local-history-sync.js
    Version: v2.4.4-TEACHER-LOCAL-HISTORY-SYNC-122
 
-   The Teacher Dashboard and Student page share the same GitHub Pages origin.
-   When a teacher opens this dashboard on the same device used for testing,
-   this bridge sends the existing Core pass ledger to Google Sheets once and
-   then reloads the cloud view. It does not alter any student progress.
+   Moves existing Core history from this browser to Sheets, then reloads the
+   cloud report. Also reloads after the current Student Profile name/ID has
+   been synchronized (for example KK → KP).
 ========================================================= */
 (() => {
   "use strict";
@@ -52,8 +51,6 @@
       }
     }
 
-    // no-cors POST returns after the request has been accepted by the browser;
-    // wait briefly before refreshing the JSONP teacher API.
     setTimeout(cloudReload, 1200);
   }
 
@@ -65,6 +62,13 @@
     if (tryCount >= 100) return;
     setTimeout(() => waitForBackfill(tryCount + 1), 50);
   }
+
+  window.addEventListener("eap-word-profile-identity-synced", (event) => {
+    const detail = event && event.detail;
+    if (!detail || !detail.ok || !detail.sent) return;
+    notify(`อัปเดตชื่อ ${detail.profile && detail.profile.studentName ? detail.profile.studentName : "ผู้เรียน"} ใน Google Sheets แล้ว`);
+    setTimeout(cloudReload, 1000);
+  });
 
   window.inspectEapTeacherV244 = () => ({ version: VERSION, started });
   waitForBackfill(0);
