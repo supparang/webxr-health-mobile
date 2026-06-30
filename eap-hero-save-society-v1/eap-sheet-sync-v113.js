@@ -1,41 +1,429 @@
-/* EAP Hero sheet sync: new evidence only. */
-(function(){
+/* =========================================================
+   EAP Hero Sheet Bridge v123
+   ส่งเฉพาะผลกิจกรรมใหม่ที่ไม่ใช่ legacy ไปยัง EAP Hero Sheet
+
+   ใช้ร่วมกับ:
+   - EAPHero.gs v118
+   - submissionKind: fresh_evidence_v118
+========================================================= */
+
+(function () {
   'use strict';
-  const CFG=window.EAP_SHEET_BRIDGE_CONFIG||window.EAP_SHEET_CONFIG||{};
-  const STATE='EAP_HERO_PROGRESS_V3';
-  const TRACK='EAP_HERO_SHEET_TRACK_V114';
-  const read=(k,f)=>{try{return JSON.parse(localStorage.getItem(k)||'')}catch(_){return f}};
-  const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(_){}};
-  const text=v=>v==null?'':String(v);
-  const num=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
-  const present=v=>v!==''&&v!=null&&Number.isFinite(Number(v));
-  function accuracy(e){
-    for(const v of [e.accuracy,e.bestAccuracy,e.accPct,e.accuracyPct]) if(present(v)) return Math.max(0,Math.min(100,num(v)));
-    const c=e.correct??e.correctCount, t=e.total??e.questionCount??e.questions;
-    return present(c)&&present(t)&&num(t)>0?Math.round(num(c)/num(t)*100):null;
+
+  const WEB_APP_URL =
+    'https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec';
+
+  const SECTION = '122';
+
+  const STATE_KEY = 'EAP_HERO_PROGRESS_V3';
+  const SENT_KEY = 'EAP_HERO_SHEET_SENT_V123';
+
+  const SUBMISSION_KIND = 'fresh_evidence_v118';
+
+  let baselineReady = false;
+  let known = {};
+
+  function read(key, fallback) {
+    try {
+      return JSON.parse(localStorage.getItem(key) || '');
+    } catch (_) {
+      return fallback;
+    }
   }
-  function profile(s){const p=s.profile||s.player||{};return{studentId:text(p.studentId||p.id||s.studentId||'guest'),studentName:text(p.studentName||p.name||s.studentName||'Guest'),section:text(p.section||s.section||CFG.section||'122')}}
-  function key(e,i){return [text(e.session||e.sessionId),text(e.skill).toLowerCase(),text(e.latestAt||e.at||e.evidenceId||i)].join('|')}
-  function transmit(payload){const u=new URL(CFG.webAppUrl);Object.keys(payload).forEach(k=>u.searchParams.set(k,text(payload[k])));u.searchParams.set('_',Date.now());const im=document.createElement('img');im.width=im.height=1;im.style.cssText='position:fixed;left:-9999px;top:-9999px;opacity:0';im.onload=im.onerror=()=>setTimeout(()=>im.remove(),100);im.src=u;document.body.appendChild(im)}
-  function sync(){
-    if(!CFG.enabled||!CFG.webAppUrl)return;
-    const s=read(STATE,null); if(!s||!Array.isArray(s.portfolio))return;
-    const p=profile(s), pkey=p.studentId+'|'+p.section;
-    const tr=read(TRACK,{profileKey:'',ready:false,known:{},sent:{}});
-    if(tr.profileKey!==pkey){tr.profileKey=pkey;tr.ready=false;tr.known={};tr.sent={}}
-    const list=s.portfolio.map((entry,index)=>({entry:entry||{},index})).filter(x=>text(x.entry.session||x.entry.sessionId)&&text(x.entry.skill));
-    if(!tr.ready){list.forEach(x=>tr.known[key(x.entry,x.index)]=true);tr.ready=true;write(TRACK,tr);return}
-    list.forEach(x=>{
-      const e=x.entry,k=key(e,x.index); if(tr.known[k])return; tr.known[k]=true;
-      const legacy=e.legacyCompletion===true||text(e.legacyCompletion).toLowerCase()==='true'; if(legacy)return;
-      const id='eap-'+p.studentId+'-'+k.replace(/[^A-Za-z0-9_-]/g,''); if(tr.sent[id])return;
-      const sid=text(e.session||e.sessionId), score=num(e.latestScore!==undefined?e.latestScore:e.score), acc=accuracy(e);
-      transmit({action:'submit_attempt',attemptId:id,studentId:p.studentId,studentName:p.studentName,section:p.section,sessionId:sid,sessionTitle:text(e.sessionTitle||(s.sessions&&s.sessions[sid]&&s.sessions[sid].title)),skill:text(e.skill),score,accuracy:acc===null?'':acc,passMark:60,passed:score>=60,legacyCompletion:false,hintUsed:num(e.aiUses||e.hintUsed),replay:e.replay===true,clientTimestamp:text(e.latestAt||e.at||e.evidenceId||new Date().toISOString()),sourceUrl:location.href});
-      tr.sent[id]=Date.now();
+
+  function write(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (_) {}
+  }
+
+  function text(value) {
+    return value === undefined || value === null
+      ? ''
+      : String(value);
+  }
+
+  function num(value, fallback) {
+    const number = Number(value);
+
+    return Number.isFinite(number)
+      ? number
+      : (fallback === undefined ? 0 : fallback);
+  }
+
+  function profile(state) {
+    const player =
+      (state && (state.profile || state.player)) || {};
+
+    return {
+      studentId: text(
+        player.studentId ||
+        player.id ||
+        (state && state.studentId) ||
+        'guest'
+      ),
+
+      studentName: text(
+        player.studentName ||
+        player.name ||
+        (state && state.studentName) ||
+        'Guest'
+      ),
+
+      section: text(
+        player.section ||
+        (state && state.section) ||
+        SECTION
+      )
+    };
+  }
+
+  function stamp(entry, index) {
+    return text(
+      entry.latestAt ||
+      entry.at ||
+      entry.evidenceId ||
+      index
+    );
+  }
+
+  function signature(entry, index) {
+    return [
+      text(entry.session || entry.sessionId),
+      text(entry.skill).toLowerCase(),
+      stamp(entry, index),
+      text(
+        entry.latestScore !== undefined
+          ? entry.latestScore
+          : entry.score
+      )
+    ].join('|');
+  }
+
+  function getAccuracy(entry) {
+    const candidates = [
+      entry.accuracy,
+      entry.bestAccuracy,
+      entry.accPct,
+      entry.accuracyPct
+    ];
+
+    for (let i = 0; i < candidates.length; i++) {
+      const value = Number(candidates[i]);
+
+      if (Number.isFinite(value)) {
+        return Math.max(0, Math.min(100, value));
+      }
+    }
+
+    return '';
+  }
+
+  function isLegacy(entry) {
+    return (
+      entry.legacyCompletion === true ||
+      text(entry.legacyCompletion).toLowerCase() === 'true'
+    );
+  }
+
+  function items(state) {
+    if (!state || !Array.isArray(state.portfolio)) {
+      return [];
+    }
+
+    return state.portfolio
+      .map(function (entry, index) {
+        return {
+          entry: entry || {},
+          index: index
+        };
+      })
+      .filter(function (item) {
+        const entry = item.entry;
+
+        return (
+          text(entry.session || entry.sessionId) &&
+          text(entry.skill)
+        );
+      });
+  }
+
+  function payloadFor(item, state) {
+    const entry = item.entry;
+    const user = profile(state);
+
+    const sessionId = text(
+      entry.session || entry.sessionId
+    );
+
+    const score = num(
+      entry.latestScore !== undefined
+        ? entry.latestScore
+        : entry.score,
+      0
+    );
+
+    const cleanStamp = stamp(entry, item.index)
+      .replace(/[^A-Za-z0-9_-]/g, '');
+
+    return {
+      action: 'submit_attempt',
+
+      // ต้องตรงกับ EAPHero.gs v118
+      submissionKind: SUBMISSION_KIND,
+
+      attemptId:
+        'eap-v123-' +
+        user.studentId + '-' +
+        sessionId + '-' +
+        text(entry.skill).toLowerCase() + '-' +
+        cleanStamp,
+
+      studentId: user.studentId,
+      studentName: user.studentName,
+      section: user.section,
+
+      sessionId: sessionId,
+      sessionTitle: text(entry.sessionTitle),
+      skill: text(entry.skill),
+
+      score: score,
+      accuracy: getAccuracy(entry),
+
+      passMark: 60,
+      passed: score >= 60,
+
+      // ห้ามส่ง legacy เข้า Sheet
+      legacyCompletion: false,
+
+      hintUsed: num(
+        entry.aiUses || entry.hintUsed,
+        0
+      ),
+
+      replay: entry.replay === true,
+
+      clientTimestamp: stamp(entry, item.index),
+      sourceUrl: location.href
+    };
+  }
+
+  function autoTransmit(payload) {
+    const body = JSON.stringify(payload);
+
+    try {
+      if (
+        navigator.sendBeacon &&
+        navigator.sendBeacon(
+          WEB_APP_URL,
+          new Blob(
+            [body],
+            {
+              type: 'text/plain;charset=UTF-8'
+            }
+          )
+        )
+      ) {
+        return true;
+      }
+    } catch (_) {}
+
+    try {
+      fetch(WEB_APP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        keepalive: true,
+
+        headers: {
+          'Content-Type': 'text/plain;charset=UTF-8'
+        },
+
+        body: body
+      }).catch(function () {});
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function postVisible(payload) {
+    const popup = window.open(
+      '',
+      'eap_sheet_result',
+      'width=680,height=500'
+    );
+
+    if (!popup) {
+      alert(
+        'เบราว์เซอร์บล็อกหน้าต่างยืนยัน กรุณาอนุญาต pop-up ชั่วคราว'
+      );
+      return;
+    }
+
+    const form = document.createElement('form');
+
+    form.method = 'POST';
+    form.action = WEB_APP_URL;
+    form.target = 'eap_sheet_result';
+    form.style.display = 'none';
+
+    Object.keys(payload).forEach(function (key) {
+      const input = document.createElement('input');
+
+      input.type = 'hidden';
+      input.name = key;
+      input.value = text(payload[key]);
+
+      form.appendChild(input);
     });
-    write(TRACK,tr);
+
+    document.body.appendChild(form);
+
+    form.submit();
+
+    setTimeout(function () {
+      try {
+        form.remove();
+      } catch (_) {}
+    }, 50);
   }
-  window.EAPSheetSyncV114={sync};
-  window.addEventListener('load',()=>setTimeout(sync,900));
-  setInterval(sync,1800);
+
+  function getLatestFreshItem() {
+    const state = read(STATE_KEY, null);
+
+    const freshItems = items(state).filter(function (item) {
+      return !isLegacy(item.entry);
+    });
+
+    if (!freshItems.length) {
+      return null;
+    }
+
+    return {
+      state: state,
+      item: freshItems[freshItems.length - 1]
+    };
+  }
+
+  function createBaseline() {
+    const state = read(STATE_KEY, null);
+
+    items(state).forEach(function (item) {
+      known[signature(item.entry, item.index)] = true;
+    });
+
+    baselineReady = true;
+  }
+
+  function sync() {
+    if (!baselineReady) {
+      createBaseline();
+      return;
+    }
+
+    const state = read(STATE_KEY, null);
+    const sent = read(SENT_KEY, {});
+
+    items(state).forEach(function (item) {
+      const entry = item.entry;
+      const key = signature(entry, item.index);
+
+      if (known[key]) {
+        return;
+      }
+
+      known[key] = true;
+
+      if (isLegacy(entry)) {
+        return;
+      }
+
+      const payload = payloadFor(item, state);
+
+      if (sent[payload.attemptId]) {
+        return;
+      }
+
+      if (autoTransmit(payload)) {
+        sent[payload.attemptId] = Date.now();
+      }
+    });
+
+    write(SENT_KEY, sent);
+  }
+
+  function addManualButton() {
+    if (document.getElementById('eap-sheet-manual-send')) {
+      return;
+    }
+
+    const button = document.createElement('button');
+
+    button.id = 'eap-sheet-manual-send';
+    button.type = 'button';
+    button.textContent = '📤 ส่งผลล่าสุดเข้า Sheet';
+
+    button.style.cssText = [
+      'position:fixed',
+      'right:18px',
+      'bottom:18px',
+      'z-index:99999',
+      'border:0',
+      'border-radius:999px',
+      'padding:12px 16px',
+      'background:#17375e',
+      'color:#fff',
+      'font:700 14px Arial,sans-serif',
+      'box-shadow:0 6px 18px rgba(0,0,0,.25)',
+      'cursor:pointer'
+    ].join(';');
+
+    button.addEventListener('click', function () {
+      const latest = getLatestFreshItem();
+
+      if (!latest) {
+        alert('ยังไม่พบผลกิจกรรมใหม่สำหรับส่ง');
+        return;
+      }
+
+      const payload = payloadFor(
+        latest.item,
+        latest.state
+      );
+
+      postVisible(payload);
+    });
+
+    document.body.appendChild(button);
+  }
+
+  window.EAPSheetSyncV123 = {
+    sync: sync,
+
+    sendLatest: function () {
+      const latest = getLatestFreshItem();
+
+      if (!latest) {
+        return false;
+      }
+
+      postVisible(
+        payloadFor(
+          latest.item,
+          latest.state
+        )
+      );
+
+      return true;
+    }
+  };
+
+  createBaseline();
+
+  setInterval(sync, 700);
+
+  window.addEventListener('load', function () {
+    setTimeout(addManualButton, 1200);
+  });
 })();
