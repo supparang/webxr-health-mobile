@@ -31,7 +31,7 @@ function doGet(e) {
   ];
 
   if (wordQuestActions.includes(action) || (action === 'setup' && module === 'eap_word')) {
-    return eapWordDoGet_(e);
+    return eapWordFinalDoGet_(e);
   }
 
   /* ---------- EAP Hero default ---------- */
@@ -60,7 +60,7 @@ function doPost(e) {
   ];
 
   if (wordQuestActions.includes(action)) {
-    return eapWordDoPost_(e);
+    return eapWordFinalDoPost_(e);
   }
 
   /* ---------- EAP Hero default ---------- */
