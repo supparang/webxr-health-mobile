@@ -1,12 +1,7 @@
-/* =========================================================
-   EAP Hero Sheet Bridge v123
-   ส่งเฉพาะผลกิจกรรมใหม่ที่ไม่ใช่ legacy ไปยัง EAP Hero Sheet
-
-   ใช้ร่วมกับ:
-   - EAPHero.gs v118
-   - submissionKind: fresh_evidence_v118
-========================================================= */
-
+/* EAP Hero sheet bridge v123
+   ส่งเฉพาะผลใหม่หลังหน้าเกมเปิดแล้ว
+   มีปุ่ม “ส่งผลล่าสุดเข้า Sheet” สำหรับตรวจสอบการส่งแบบชัดเจน
+*/
 (function () {
   'use strict';
 
@@ -14,11 +9,10 @@
     'https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec';
 
   const SECTION = '122';
+  const SUBMISSION_KIND = 'fresh_evidence_v118';
 
   const STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   const SENT_KEY = 'EAP_HERO_SHEET_SENT_V123';
-
-  const SUBMISSION_KIND = 'fresh_evidence_v118';
 
   let baselineReady = false;
   let known = {};
@@ -44,41 +38,40 @@
   }
 
   function num(value, fallback) {
-    const number = Number(value);
-
-    return Number.isFinite(number)
-      ? number
+    const n = Number(value);
+    return Number.isFinite(n)
+      ? n
       : (fallback === undefined ? 0 : fallback);
   }
 
-  function profile(state) {
-    const player =
+  function getProfile(state) {
+    const profile =
       (state && (state.profile || state.player)) || {};
 
     return {
       studentId: text(
-        player.studentId ||
-        player.id ||
+        profile.studentId ||
+        profile.id ||
         (state && state.studentId) ||
         'guest'
       ),
 
       studentName: text(
-        player.studentName ||
-        player.name ||
+        profile.studentName ||
+        profile.name ||
         (state && state.studentName) ||
         'Guest'
       ),
 
       section: text(
-        player.section ||
+        profile.section ||
         (state && state.section) ||
         SECTION
       )
     };
   }
 
-  function stamp(entry, index) {
+  function entryStamp(entry, index) {
     return text(
       entry.latestAt ||
       entry.at ||
@@ -87,11 +80,11 @@
     );
   }
 
-  function signature(entry, index) {
+  function entrySignature(entry, index) {
     return [
       text(entry.session || entry.sessionId),
       text(entry.skill).toLowerCase(),
-      stamp(entry, index),
+      entryStamp(entry, index),
       text(
         entry.latestScore !== undefined
           ? entry.latestScore
@@ -108,25 +101,18 @@
       entry.accuracyPct
     ];
 
-    for (let i = 0; i < candidates.length; i++) {
-      const value = Number(candidates[i]);
+    for (const value of candidates) {
+      const n = Number(value);
 
-      if (Number.isFinite(value)) {
-        return Math.max(0, Math.min(100, value));
+      if (Number.isFinite(n)) {
+        return Math.max(0, Math.min(100, n));
       }
     }
 
     return '';
   }
 
-  function isLegacy(entry) {
-    return (
-      entry.legacyCompletion === true ||
-      text(entry.legacyCompletion).toLowerCase() === 'true'
-    );
-  }
-
-  function items(state) {
+  function getPortfolioItems(state) {
     if (!state || !Array.isArray(state.portfolio)) {
       return [];
     }
@@ -139,22 +125,29 @@
         };
       })
       .filter(function (item) {
-        const entry = item.entry;
-
-        return (
-          text(entry.session || entry.sessionId) &&
-          text(entry.skill)
+        return Boolean(
+          text(item.entry.session || item.entry.sessionId) &&
+          text(item.entry.skill)
         );
       });
   }
 
+  function isLegacy(entry) {
+    return (
+      entry.legacyCompletion === true ||
+      text(entry.legacyCompletion).toLowerCase() === 'true'
+    );
+  }
+
   function payloadFor(item, state) {
     const entry = item.entry;
-    const user = profile(state);
+    const profile = getProfile(state);
 
     const sessionId = text(
       entry.session || entry.sessionId
     );
+
+    const skill = text(entry.skill);
 
     const score = num(
       entry.latestScore !== undefined
@@ -163,37 +156,39 @@
       0
     );
 
-    const cleanStamp = stamp(entry, item.index)
-      .replace(/[^A-Za-z0-9_-]/g, '');
+    const stamp = entryStamp(entry, item.index);
 
     return {
       action: 'submit_attempt',
 
-      // ต้องตรงกับ EAPHero.gs v118
+      /* สำคัญ: ต้องตรงกับ EAPHero.gs v118 */
       submissionKind: SUBMISSION_KIND,
 
       attemptId:
         'eap-v123-' +
-        user.studentId + '-' +
-        sessionId + '-' +
-        text(entry.skill).toLowerCase() + '-' +
-        cleanStamp,
+        profile.studentId +
+        '-' +
+        sessionId +
+        '-' +
+        skill.toLowerCase() +
+        '-' +
+        encodeURIComponent(stamp),
 
-      studentId: user.studentId,
-      studentName: user.studentName,
-      section: user.section,
+      studentId: profile.studentId,
+      studentName: profile.studentName,
+      section: profile.section,
 
       sessionId: sessionId,
       sessionTitle: text(entry.sessionTitle),
-      skill: text(entry.skill),
 
+      skill: skill,
       score: score,
       accuracy: getAccuracy(entry),
 
       passMark: 60,
       passed: score >= 60,
 
-      // ห้ามส่ง legacy เข้า Sheet
+      /* ไม่ส่ง legacy เข้า Sheet */
       legacyCompletion: false,
 
       hintUsed: num(
@@ -203,7 +198,7 @@
 
       replay: entry.replay === true,
 
-      clientTimestamp: stamp(entry, item.index),
+      clientTimestamp: stamp,
       sourceUrl: location.href
     };
   }
@@ -233,11 +228,9 @@
         method: 'POST',
         mode: 'no-cors',
         keepalive: true,
-
         headers: {
           'Content-Type': 'text/plain;charset=UTF-8'
         },
-
         body: body
       }).catch(function () {});
 
@@ -251,7 +244,7 @@
     const popup = window.open(
       '',
       'eap_sheet_result',
-      'width=680,height=500'
+      'width=620,height=460'
     );
 
     if (!popup) {
@@ -279,38 +272,34 @@
     });
 
     document.body.appendChild(form);
-
     form.submit();
-
-    setTimeout(function () {
-      try {
-        form.remove();
-      } catch (_) {}
-    }, 50);
+    form.remove();
   }
 
-  function getLatestFreshItem() {
+  function latestFreshResult() {
     const state = read(STATE_KEY, null);
 
-    const freshItems = items(state).filter(function (item) {
+    const list = getPortfolioItems(state).filter(function (item) {
       return !isLegacy(item.entry);
     });
 
-    if (!freshItems.length) {
+    if (!list.length) {
       return null;
     }
 
     return {
       state: state,
-      item: freshItems[freshItems.length - 1]
+      item: list[list.length - 1]
     };
   }
 
-  function createBaseline() {
+  function setBaseline() {
     const state = read(STATE_KEY, null);
 
-    items(state).forEach(function (item) {
-      known[signature(item.entry, item.index)] = true;
+    getPortfolioItems(state).forEach(function (item) {
+      known[
+        entrySignature(item.entry, item.index)
+      ] = true;
     });
 
     baselineReady = true;
@@ -318,22 +307,26 @@
 
   function sync() {
     if (!baselineReady) {
-      createBaseline();
+      setBaseline();
       return;
     }
 
     const state = read(STATE_KEY, null);
     const sent = read(SENT_KEY, {});
 
-    items(state).forEach(function (item) {
+    getPortfolioItems(state).forEach(function (item) {
       const entry = item.entry;
-      const key = signature(entry, item.index);
 
-      if (known[key]) {
+      const signature = entrySignature(
+        entry,
+        item.index
+      );
+
+      if (known[signature]) {
         return;
       }
 
-      known[key] = true;
+      known[signature] = true;
 
       if (isLegacy(entry)) {
         return;
@@ -354,7 +347,11 @@
   }
 
   function addManualButton() {
-    if (document.getElementById('eap-sheet-manual-send')) {
+    if (
+      document.getElementById(
+        'eap-sheet-manual-send'
+      )
+    ) {
       return;
     }
 
@@ -379,21 +376,21 @@
       'cursor:pointer'
     ].join(';');
 
-    button.addEventListener('click', function () {
-      const latest = getLatestFreshItem();
+    button.onclick = function () {
+      const latest = latestFreshResult();
 
       if (!latest) {
         alert('ยังไม่พบผลกิจกรรมใหม่สำหรับส่ง');
         return;
       }
 
-      const payload = payloadFor(
-        latest.item,
-        latest.state
+      postVisible(
+        payloadFor(
+          latest.item,
+          latest.state
+        )
       );
-
-      postVisible(payload);
-    });
+    };
 
     document.body.appendChild(button);
   }
@@ -402,7 +399,7 @@
     sync: sync,
 
     sendLatest: function () {
-      const latest = getLatestFreshItem();
+      const latest = latestFreshResult();
 
       if (!latest) {
         return false;
@@ -419,11 +416,9 @@
     }
   };
 
-  createBaseline();
+  setBaseline();
 
   setInterval(sync, 700);
 
-  window.addEventListener('load', function () {
-    setTimeout(addManualButton, 1200);
-  });
+  setTimeout(addManualButton, 1200);
 })();
