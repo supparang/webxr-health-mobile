@@ -1,17 +1,17 @@
 /* =========================================================
    EAP Word Quest • Recovery CTA Visual Lock
    File: /herohealth/eap-word-quest/eap-word-engine-v224-recovery-cta-visual-lock.js
-   Version: v2.2.4-RECOVERY-LOCK-FINAL-LOADER-122
+   Version: v2.2.4-RECOVERY-LOCK-LEDGER-LOADER-122
 
    Keeps a stable Recovery CTA only for a Session that has not passed yet.
-   Loads the small retained-pass and recovery-size guards plus one final
-   progress authority. Older overlapping summary-state patches are no longer
-   loaded from this runtime entry point.
+   Loads the retained-pass / full recovery guards and one direct pass-ledger
+   authority. The ledger writes to the same Core state key and owns the
+   learner-facing Arc path, so Summary and path cannot disagree.
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.2.4-RECOVERY-LOCK-FINAL-LOADER-122";
+  const VERSION = "v2.2.4-RECOVERY-LOCK-LEDGER-LOADER-122";
   if (window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__) return;
   window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__ = true;
 
@@ -21,11 +21,12 @@
 
   function corePassed(sessionId) {
     try {
-      const progress = typeof window.getEapCoreProgress === "function" ? window.getEapCoreProgress() : null;
-      const key = progress && progress.stateKey;
-      const raw = key ? localStorage.getItem(key) : "";
-      const state = raw ? JSON.parse(raw) : {};
-      return Boolean(state && state.sessions && state.sessions[sessionId] && state.sessions[sessionId].passed);
+      const saved = JSON.parse(localStorage.getItem("EAP_WORD_QUEST_PROFILE_V01") || "{}") || {};
+      const rawId = norm(($("studentIdInput") && $("studentIdInput").value) || saved.studentId || saved.id || "no-id");
+      const id = rawId.replace(/[^a-z0-9_-]/gi,"_") || "no-id";
+      const key = `EAP_WORD_QUEST_CORE_V196_STATE_122_${id}`;
+      const state = JSON.parse(localStorage.getItem(key) || "{}") || {};
+      return Boolean(state.sessions && state.sessions[sessionId] && state.sessions[sessionId].passed);
     } catch (err) {
       return false;
     }
@@ -86,7 +87,7 @@
     };
     load("eap-word-engine-v227-retained-pass-repair.js", "__EAP_WORD_V227_RETAINED_PASS_REPAIR__", "retained-pass");
     load("eap-word-engine-v229-recovery-round-integrity.js", "__EAP_WORD_V229_RECOVERY_ROUND_INTEGRITY__", "recovery-round");
-    load("eap-word-engine-v232-final-progress-authority.js", "__EAP_WORD_V232_FINAL_PROGRESS_AUTHORITY__", "final-progress");
+    load("eap-word-engine-v233-pass-ledger-path.js", "__EAP_WORD_V233_PASS_LEDGER_PATH__", "pass-ledger-path");
   }
 
   const observer = new MutationObserver(requestApply);
@@ -102,5 +103,5 @@
     visibleLabel:norm($("nextMissionBtn") && $("nextMissionBtn").dataset.eapV224Label)
   });
 
-  console.info("[EAP Word Quest] v224 final recovery loader ready",{version:VERSION});
+  console.info("[EAP Word Quest] v224 pass-ledger loader ready",{version:VERSION});
 })();
