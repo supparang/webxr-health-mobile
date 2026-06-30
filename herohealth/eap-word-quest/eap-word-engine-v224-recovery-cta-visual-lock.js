@@ -6,7 +6,8 @@
    Keeps a stable Recovery CTA only for a Session that has not passed yet.
    Loads retained-pass / recovery-size guards, direct pass-ledger path,
    final completion presentation, Boss-specific recovery truth, the direct
-   24-question BG5 recovery director, and final BG5 pass commit guard.
+   24-question BG5 recovery director, final BG5 pass commit guard, and the
+   Home completion report.
 ========================================================= */
 (() => {
   "use strict";
@@ -93,6 +94,7 @@
     load("eap-word-engine-v235-boss-summary-truth.js", "__EAP_WORD_V235_BOSS_SUMMARY_TRUTH__", "boss-summary");
     load("eap-word-engine-v237-bg5-full-recovery-director.js", "__EAP_WORD_V237_BG5_FULL_RECOVERY__", "bg5-full-recovery");
     load("eap-word-engine-v238-final-pass-commit.js", "__EAP_WORD_V238_FINAL_PASS_COMMIT__", "final-pass-commit");
+    load("eap-word-engine-v239-home-completion-report.js", "__EAP_WORD_V239_HOME_COMPLETION__", "home-completion-report");
   }
 
   const observer = new MutationObserver(requestApply);
