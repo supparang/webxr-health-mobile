@@ -1,12 +1,12 @@
 /* =========================================================
    EAP Word Quest • Recovery CTA Visual Lock
    File: /herohealth/eap-word-quest/eap-word-engine-v224-recovery-cta-visual-lock.js
-   Version: v2.2.5-RECOVERY-LOCK-LEDGER-LOADER-122
+   Version: v2.6.0-RECOVERY-LOCK-LEDGER-LOADER-122
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.2.5-RECOVERY-LOCK-LEDGER-LOADER-122";
+  const VERSION = "v2.6.0-RECOVERY-LOCK-LEDGER-LOADER-122";
   if (window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__) return;
   window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__ = true;
 
@@ -17,7 +17,7 @@
   function corePassed(sessionId) {
     try {
       const saved = JSON.parse(localStorage.getItem("EAP_WORD_QUEST_PROFILE_V01") || "{}") || {};
-      const rawId = norm(($("studentIdInput") && $("studentIdInput").value) || saved.studentId || saved.id || "no-id");
+      const rawId = norm(($('studentIdInput') && $('studentIdInput').value) || saved.studentId || saved.id || "no-id");
       const id = rawId.replace(/[^a-z0-9_-]/gi,"_") || "no-id";
       const key = `EAP_WORD_QUEST_CORE_V196_STATE_122_${id}`;
       const state = JSON.parse(localStorage.getItem(key) || "{}") || {};
@@ -89,8 +89,8 @@
     load("eap-word-engine-v237-bg5-full-recovery-director.js", "__EAP_WORD_V237_BG5_FULL_RECOVERY__", "bg5-full-recovery");
     load("eap-word-engine-v238-final-pass-commit.js", "__EAP_WORD_V238_FINAL_PASS_COMMIT__", "final-pass-commit");
     load("eap-word-engine-v239-home-completion-report.js", "__EAP_WORD_V239_HOME_COMPLETION__", "home-completion-report");
-    load("eap-word-sheet-config.js", "EAP_WORD_SHEET_CONFIG", "sheet-config-v252");
-    load("eap-word-engine-v240-core-cloud-sync.js", "__EAP_WORD_V240_CLOUD_SYNC__", "core-cloud-sync-v252");
+    load("eap-word-sheet-config.js", "EAP_WORD_SHEET_CONFIG", "sheet-config-v260");
+    load("eap-word-engine-v260-cloud-ledger-final.js", "__EAP_WORD_V260_CLOUD_LEDGER__", "cloud-ledger-v260");
   }
 
   const observer = new MutationObserver(requestApply);
@@ -106,5 +106,5 @@
     visibleLabel:norm($("nextMissionBtn") && $("nextMissionBtn").dataset.eapV224Label)
   });
 
-  console.info("[EAP Word Quest] v224 final completion + cloud sync loader ready",{version:VERSION});
+  console.info("[EAP Word Quest] final completion + cloud ledger loader ready",{version:VERSION});
 })();
