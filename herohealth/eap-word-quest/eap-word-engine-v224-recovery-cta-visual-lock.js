@@ -4,9 +4,8 @@
    Version: v2.2.4-RECOVERY-LOCK-LEDGER-LOADER-122
 
    Keeps a stable Recovery CTA only for a Session that has not passed yet.
-   Loads the retained-pass / full recovery guards and one direct pass-ledger
-   authority. The ledger writes to the same Core state key and owns the
-   learner-facing Arc path, so Summary and path cannot disagree.
+   Loads the retained-pass / full recovery guards, direct pass-ledger path,
+   and final BG5 completion presentation.
 ========================================================= */
 (() => {
   "use strict";
@@ -88,6 +87,7 @@
     load("eap-word-engine-v227-retained-pass-repair.js", "__EAP_WORD_V227_RETAINED_PASS_REPAIR__", "retained-pass");
     load("eap-word-engine-v229-recovery-round-integrity.js", "__EAP_WORD_V229_RECOVERY_ROUND_INTEGRITY__", "recovery-round");
     load("eap-word-engine-v233-pass-ledger-path.js", "__EAP_WORD_V233_PASS_LEDGER_PATH__", "pass-ledger-path");
+    load("eap-word-engine-v234-final-summit-complete.js", "__EAP_WORD_V234_FINAL_SUMMIT__", "final-summit");
   }
 
   const observer = new MutationObserver(requestApply);
