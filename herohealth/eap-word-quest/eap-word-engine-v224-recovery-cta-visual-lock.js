@@ -1,12 +1,12 @@
 /* =========================================================
    EAP Word Quest • Recovery CTA Visual Lock
    File: /herohealth/eap-word-quest/eap-word-engine-v224-recovery-cta-visual-lock.js
-   Version: v2.6.4-RECOVERY-LOCK-FORM-POST-LOADER-122
+   Version: v2.6.5-RECOVERY-LOCK-CURRENT-SUMMARY-LOADER-122
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.6.4-RECOVERY-LOCK-FORM-POST-LOADER-122";
+  const VERSION = "v2.6.5-RECOVERY-LOCK-CURRENT-SUMMARY-LOADER-122";
   if (window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__) return;
   window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__ = true;
 
@@ -80,6 +80,7 @@
       script.dataset.eapRuntime = tag;
       document.head.appendChild(script);
     };
+
     load("eap-word-engine-v227-retained-pass-repair.js", "__EAP_WORD_V227_RETAINED_PASS_REPAIR__", "retained-pass");
     load("eap-word-engine-v229-recovery-round-integrity.js", "__EAP_WORD_V229_RECOVERY_ROUND_INTEGRITY__", "recovery-round");
     load("eap-word-engine-v233-pass-ledger-path.js", "__EAP_WORD_V233_PASS_LEDGER_PATH__", "pass-ledger-path");
@@ -89,12 +90,13 @@
     load("eap-word-engine-v237-bg5-full-recovery-director.js", "__EAP_WORD_V237_BG5_FULL_RECOVERY__", "bg5-full-recovery");
     load("eap-word-engine-v238-final-pass-commit.js", "__EAP_WORD_V238_FINAL_PASS_COMMIT__", "final-pass-commit");
     load("eap-word-engine-v239-home-completion-report.js", "__EAP_WORD_V239_HOME_COMPLETION__", "home-completion-report");
-    load("eap-word-sheet-config.js", "EAP_WORD_SHEET_CONFIG", "sheet-config-v264");
+    load("eap-word-sheet-config.js", "EAP_WORD_SHEET_CONFIG", "sheet-config-v265");
 
-    /* Prevent the legacy no-cors bridge linked by an older static entry from
-       attaching on this visit; v264 below is the active delivery path. */
+    /* v262 used no-cors. v264 is retained for history recovery; v265 is the
+       authority for the exact current summary state shown to the learner. */
     window.__EAP_WORD_V262_VERIFIED_SHEET_BRIDGE__ = true;
     load("eap-word-engine-v264-form-post-receipt.js", "__EAP_WORD_V264_FORM_POST_RECEIPT__", "form-post-receipt-v264");
+    load("eap-word-engine-v265-current-summary-receipt.js", "__EAP_WORD_V265_CURRENT_SUMMARY_RECEIPT__", "current-summary-receipt-v265");
   }
 
   const observer = new MutationObserver(requestApply);
@@ -110,5 +112,5 @@
     visibleLabel:norm($("nextMissionBtn") && $("nextMissionBtn").dataset.eapV224Label)
   });
 
-  console.info("[EAP Word Quest] form-post Sheets receipt loader ready",{version:VERSION});
+  console.info("[EAP Word Quest] current-summary Sheets receipt loader ready",{version:VERSION});
 })();
