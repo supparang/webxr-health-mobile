@@ -2,40 +2,40 @@
    EAP Word Quest • Sync Compatibility Loader
    File kept as v262 because index.html already loads this path.
 
-   The old v262 queue/observer bridge has been retired. This loader starts
-   only the small v270 direct-summary sender after the student page boots.
+   v2.7.1 loads one direct sender that builds the payload ONLY from the
+   currently visible v172 summary state. It never reuses a prior round log.
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.7.0-COMPAT-LOADER-122";
-  const TAG = "direct-sheet-submit-v270";
+  const VERSION = "v2.7.1-EXACT-SUMMARY-COMPAT-LOADER-122";
+  const TAG = "exact-summary-sheet-submit-v271";
 
-  if (window.__EAP_WORD_V270_COMPAT_LOADER__) return;
-  window.__EAP_WORD_V270_COMPAT_LOADER__ = true;
+  if (window.__EAP_WORD_V271_COMPAT_LOADER__) return;
+  window.__EAP_WORD_V271_COMPAT_LOADER__ = true;
 
   function load() {
     if (
-      window.__EAP_WORD_V270_DIRECT_SHEET_SUBMIT__ ||
+      window.__EAP_WORD_V271_EXACT_SUMMARY_SUBMIT__ ||
       document.querySelector(`script[data-eap-runtime="${TAG}"]`)
     ) {
       return;
     }
 
     const script = document.createElement("script");
-    script.src = "./eap-word-engine-v270-direct-sheet-submit.js?v=20260701-direct-sheet-submit-v270";
+    script.src = "./eap-word-engine-v271-exact-summary-sheet-submit.js?v=20260701-exact-summary-v271";
     script.async = false;
     script.dataset.eapRuntime = TAG;
     script.onerror = () => {
-      console.warn("[EAP Word Quest] direct Sheets sender could not load");
+      console.warn("[EAP Word Quest] exact summary Sheets sender could not load");
     };
     document.head.appendChild(script);
   }
 
-  /* Wait until the core, logger, and v224 storage recovery have completed. */
+  /* Wait until core, logger and v224 storage recovery have settled. */
   setTimeout(load, 700);
 
-  console.info("[EAP Word Quest] stable direct Sheets compatibility loader ready", {
+  console.info("[EAP Word Quest] exact summary Sheets loader ready", {
     version: VERSION
   });
 })();
