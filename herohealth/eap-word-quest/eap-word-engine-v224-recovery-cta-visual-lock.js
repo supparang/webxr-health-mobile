@@ -1,12 +1,12 @@
 /* =========================================================
    EAP Word Quest • Recovery CTA Visual Lock
    File: /herohealth/eap-word-quest/eap-word-engine-v224-recovery-cta-visual-lock.js
-   Version: v2.6.2-RECOVERY-LOCK-LEDGER-LOADER-122
+   Version: v2.6.4-RECOVERY-LOCK-FORM-POST-LOADER-122
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.6.2-RECOVERY-LOCK-LEDGER-LOADER-122";
+  const VERSION = "v2.6.4-RECOVERY-LOCK-FORM-POST-LOADER-122";
   if (window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__) return;
   window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__ = true;
 
@@ -75,7 +75,7 @@
     const load = (file, marker, tag) => {
       if (window[marker] || document.querySelector(`script[data-eap-runtime="${tag}"]`)) return;
       const script = document.createElement("script");
-      script.src = `./${file}?v=20260630-${tag}`;
+      script.src = `./${file}?v=20260701-${tag}`;
       script.async = false;
       script.dataset.eapRuntime = tag;
       document.head.appendChild(script);
@@ -89,10 +89,12 @@
     load("eap-word-engine-v237-bg5-full-recovery-director.js", "__EAP_WORD_V237_BG5_FULL_RECOVERY__", "bg5-full-recovery");
     load("eap-word-engine-v238-final-pass-commit.js", "__EAP_WORD_V238_FINAL_PASS_COMMIT__", "final-pass-commit");
     load("eap-word-engine-v239-home-completion-report.js", "__EAP_WORD_V239_HOME_COMPLETION__", "home-completion-report");
-    load("eap-word-sheet-config.js", "EAP_WORD_SHEET_CONFIG", "sheet-config-v260");
-    load("eap-word-engine-v260-cloud-ledger-final.js", "__EAP_WORD_V260_CLOUD_LEDGER__", "cloud-ledger-v260");
-    load("eap-word-engine-v245-profile-identity-sync.js", "__EAP_WORD_V245_PROFILE_IDENTITY_SYNC__", "profile-identity-sync-v260");
-    load("eap-word-engine-v262-verified-sheet-bridge.js", "__EAP_WORD_V262_VERIFIED_SHEET_BRIDGE__", "verified-sheet-bridge-v262");
+    load("eap-word-sheet-config.js", "EAP_WORD_SHEET_CONFIG", "sheet-config-v264");
+
+    /* Prevent the legacy no-cors bridge linked by an older static entry from
+       attaching on this visit; v264 below is the active delivery path. */
+    window.__EAP_WORD_V262_VERIFIED_SHEET_BRIDGE__ = true;
+    load("eap-word-engine-v264-form-post-receipt.js", "__EAP_WORD_V264_FORM_POST_RECEIPT__", "form-post-receipt-v264");
   }
 
   const observer = new MutationObserver(requestApply);
@@ -108,5 +110,5 @@
     visibleLabel:norm($("nextMissionBtn") && $("nextMissionBtn").dataset.eapV224Label)
   });
 
-  console.info("[EAP Word Quest] final completion + verified cloud ledger loader ready",{version:VERSION});
+  console.info("[EAP Word Quest] form-post Sheets receipt loader ready",{version:VERSION});
 })();
