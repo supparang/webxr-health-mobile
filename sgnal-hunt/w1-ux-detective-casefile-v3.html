@@ -9,11 +9,29 @@
 <body>
   <main id="uxqApp" aria-live="polite"></main>
 
+  <script>
+  /* Compatibility guard: some browser-writing extensions can remove the native
+     Array iterator in the page realm. W1 uses Set + array spread for the
+     no-repeat case window, so restore the standard iterator before the engine loads. */
+  (() => {
+    try {
+      if (typeof Symbol === 'function' && Symbol.iterator && typeof Array.prototype[Symbol.iterator] !== 'function' && typeof Array.prototype.values === 'function') {
+        Object.defineProperty(Array.prototype, Symbol.iterator, {
+          value: Array.prototype.values,
+          writable: true,
+          configurable: true
+        });
+      }
+    } catch (error) {
+      // The game has its own storage fallback; do not block the page for an extension conflict.
+    }
+  })();
+  </script>
   <script src="./js/uxq-classroom-config-v2.js?v=20260701-classroom-v5-5"></script>
   <script src="./js/uxq-progress-v2.js?v=20260628-storage-safe1"></script>
   <script src="./js/uxq-identity-v1.js?v=20260628-classroom-v1"></script>
   <script src="./js/uxq-analytics-v2.js?v=20260628-classroom-receiver-v2"></script>
-  <script src="./js/uxq-w1-casefile-boost-v3.js?v=20260701-w1-pressure-v3"></script>
+  <script src="./js/uxq-w1-casefile-boost-v3.js?v=20260701-w1-pressure-v3-iteratorfix"></script>
   <script>
   (() => {
     'use strict';
