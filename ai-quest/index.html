@@ -6692,22 +6692,11 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v360.js"></script>
-<script src="./js/aiquest-label-consistency-v360.js"></script>
-  <script src="./js/aiquest-teacher-accuracy-fix-v360.js"></script>
-  <script src="./js/aiquest-submit-accuracy-payload-v360.js"></script>
-  <script src="./js/aiquest-phase1-ready-cleanup-v360.js"></script>
-  <script src="./js/aiquest-phase1-final-polish-v360.js"></script>
-  <script src="./js/aiquest-phase1-final-dedupe-v360.js"></script>
-<script src="./js/aiquest-remedial-path-v360.js"></script>
-  <script src="./js/aiquest-session-roadmap-v360.js"></script>
-<script src="./js/aiquest-card-click-native-v360.js"></script>
-  <script src="./js/aiquest-b2-submit-return-fix-v360.js"></script>
-
 <script>
 (function(){
   function addTeacherLink(){
     if(document.getElementById('teacherPageLinkV340')) return;
+
     var a=document.createElement('a');
     a.id='teacherPageLinkV340';
     a.href='./teacher.html?teacher=1&v=20260616-s6kb360';
@@ -6726,15 +6715,25 @@ loadProfileToForm();
     a.style.fontSize='12px';
     document.body.appendChild(a);
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',addTeacherLink);
-  else addTeacherLink();
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', addTeacherLink);
+  }else{
+    addTeacherLink();
+  }
 })();
 </script>
-<!-- AI Quest AR v4.0.5: normalize legacy S2 URL first, then lazy-load the requested engine. -->
-<script src="./js/aiquest-s2-ar-route-fix-v386.js?v=20260629-s2route386"></script>
-<script src="./js/aiquest-ar-runtime-v405.js?v=20260629-ar-runtime405"></script>
-<script src="./js/aiquest-s1-ar-entry-v387.js?v=20260629-s1entry387"></script>
+
+<!-- AI Quest unified AR v4.0.5 -->
+<script src="./js/aiquest-s1-ar-result-bridge-v369.js?v=20260629-s1result405"></script>
+<script src="./js/aiquest-s2-ar-result-bridge-v381.js?v=20260629-s2result405"></script>
+
+<!-- การ์ดปุ่มเข้า AR ใน S1 / S2 -->
+<script src="./js/aiquest-s1-ar-entry-v387.js?v=20260629-s1entry405"></script>
 <script src="./js/aiquest-s2-ar-entry-v405.js?v=20260629-s2entry405"></script>
+
+<!-- ตัวเปิด AR จริง -->
+<script src="./js/aiquest-ar-runtime-v405.js?v=20260629-arruntime405"></script>
 
 </body>
 </html>
