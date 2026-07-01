@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260701-v1z128-raw-evidence';
+  const APP_VERSION = '20260630-v1z127-eap-evidence-sync';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -39363,18 +39363,6 @@
     incoming.session = Number(incoming.session || incoming.sessionId || sessionId) || sessionId;
     incoming.sessionId = incoming.session;
     incoming.misconceptionTags = deriveEvidenceMisconceptionTags(incoming, meta);
-
-    // v1z128: preserve raw evidence for teacher review before compaction.
-    try{
-      if(window.EAPEvidenceSyncV127 && typeof window.EAPEvidenceSyncV127.submitRaw === 'function'){
-        window.EAPEvidenceSyncV127.submitRaw(Object.assign({}, incoming, {
-          evidenceId: incoming.evidenceId || ('raw-' + sessionId + '-' + String(incoming.skill || 'skill').replace(/[^a-z0-9_-]/gi,'') + '-' + Date.now())
-        }), state);
-      }
-    }catch(e){
-      console.warn('[EAP evidence raw sync]', e);
-    }
-
     const compactEntry = compactPortfolioEntry(incoming);
     if(!compactEntry.evidenceId){
       compactEntry.evidenceId = reportPortfolioIdentity(compactEntry, state.portfolio.length);
