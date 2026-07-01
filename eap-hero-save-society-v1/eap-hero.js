@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260701-v1z128-raw-evidence';
+  const APP_VERSION = '20260701-v1z129-speaking-evidence';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -39364,13 +39364,18 @@
     incoming.sessionId = incoming.session;
     incoming.misconceptionTags = deriveEvidenceMisconceptionTags(incoming, meta);
 
-    // v1z128: send raw evidence before compactPortfolioEntry removes long prompt/output fields.
+    // v1z129: capture teacher-review evidence before compactPortfolioEntry removes it.
     try{
-      if(window.EAPEvidenceSyncV128 && typeof window.EAPEvidenceSyncV128.submitRaw === 'function'){
-        window.EAPEvidenceSyncV128.submitRaw(incoming, state);
+      if(window.EAPEvidenceSyncV129){
+        const isSpeakingEvidence = String(incoming.skill || '').toLowerCase() === 'speaking';
+        if(isSpeakingEvidence && typeof window.EAPEvidenceSyncV129.captureSpeaking === 'function'){
+          window.EAPEvidenceSyncV129.captureSpeaking(incoming, state);
+        }else if(typeof window.EAPEvidenceSyncV129.submitRaw === 'function'){
+          window.EAPEvidenceSyncV129.submitRaw(incoming, state);
+        }
       }
     }catch(err){
-      console.warn('[EAP raw evidence sync]', err);
+      console.warn('[EAP evidence v129]', err);
     }
 
     const compactEntry = compactPortfolioEntry(incoming);
