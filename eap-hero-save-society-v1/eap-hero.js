@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260701-v1z131-visible-replay-button';
+  const APP_VERSION = '20260701-v1z132-practice-again-footer';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -36547,10 +36547,20 @@
             <b>🏁 Checkpoint after this Session group</b>
             <span>${safe(gate.title || gate.boss || 'Boss Gate')} · ${bossGateStatus(gate) ? '✅ Ready to open' : '🔒 Complete the required Sessions first'}</span>
           </div>` : ''}
-          <div class="footer-actions session-path-actions">
+          <div class="footer-actions session-path-actions" style="display:flex!important;flex-wrap:wrap;gap:10px;margin-top:18px">
+            <button type="button" class="btn primary js-session-practice-again"
+              style="display:inline-flex!important;visibility:visible!important;opacity:1!important"
+              onclick="return EAPHero.openSkillMission('${safeAttr(path.core)}', ${s.id})">
+              ▶ Practice ${safe(path.core)} again
+            </button>
+            <button type="button" class="btn primary js-session-practice-again"
+              style="display:inline-flex!important;visibility:visible!important;opacity:1!important"
+              onclick="return EAPHero.openSkillMission('${safeAttr(path.support)}', ${s.id})">
+              ▶ Practice ${safe(path.support)} again
+            </button>
             <button class="btn" onclick="EAPHero.map()">🗺️ Back to Map</button>
             <button class="btn" onclick="EAPHero.renderStudentReports()">📘 My Learning Report</button>
-            ${studentFlow ? '' : `<button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost small" onclick="return EAPHero.openSkillMission('Reading', ${s.id})">Debug: Open Reading</button>`}
+            ${studentFlow ? '' : `<button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button>`}
           </div>
         </section>
       `);
