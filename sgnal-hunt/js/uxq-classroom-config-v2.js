@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v5.4 • Sunday classroom lock
+/* UX Quest • Classroom Configuration v5.5 • Fresh class launch + route guard
    Public configuration only: the receiver is write-only; no teacher read endpoint lives here.
 */
 (() => {
@@ -7,7 +7,52 @@
   const query = new URLSearchParams(location.search || '');
   const rawClassroomMode = String(query.get('classroom') || query.get('uxqClassroom') || '').trim().toLowerCase();
   const classroomMode = ['1', 'true', 'class', 'classroom', 'required'].includes(rawClassroomMode);
-  const classroomSection = String(query.get('section') || query.get('uxqSection') || '').trim().slice(0, 80);
+  const freshStart = ['1', 'true', 'fresh', 'new', 'reset'].includes(String(query.get('fresh') || query.get('newLearner') || '').trim().toLowerCase());
+
+  function normalizeSection(value){
+    return String(value || '')
+      .trim()
+      .replace(/^(?:section|sec)[\s_-]*/i, '')
+      .trim()
+      .slice(0, 80);
+  }
+
+  const classroomSection = normalizeSection(query.get('section') || query.get('uxqSection'));
+
+  function removeStored(key){
+    try { window.localStorage.removeItem(key); } catch (error) {}
+    try { window.sessionStorage.removeItem(key); } catch (error) {}
+  }
+
+  function clearFreshClassroomState(){
+    [
+      'uxq.act1.progress.v2',
+      'uxq.act1.progress.v1',
+      'uxq.classroom.profile.v1',
+      'uxq.classroom.queue.v1',
+      'uxq.classroom.last-receipt.v1',
+      'uxq.reason-retry.queue.v1'
+    ].forEach(removeStored);
+
+    ['w1', 'w2', 'w3', 'b1'].forEach((id) => {
+      removeStored(`uxq.recent.${id}.v1`);
+      removeStored(`uxq.recent.${id}.v2`);
+      removeStored(`uxq.run.${id}.v1`);
+      removeStored(`uxq.run.${id}.v2`);
+    });
+  }
+
+  // `fresh=1` is deliberately a one-time browser reset for a new classroom learner.
+  // It clears only local UX Quest state; it never deletes historical rows in Google Sheets.
+  if (classroomMode && freshStart) {
+    clearFreshClassroomState();
+    try {
+      const clean = new URL(location.href);
+      clean.searchParams.delete('fresh');
+      clean.searchParams.delete('newLearner');
+      window.history.replaceState({}, '', `${clean.pathname}${clean.search}${clean.hash}`);
+    } catch (error) {}
+  }
 
   const defaults = {
     receiverUrl: 'https://script.google.com/macros/s/AKfycbzw1_j4b98wxVWuUlEwFKl_jlZkprDjESt5cHIEdgT4lrT2xbt8bj0vWTu6VpTziBlepQ/exec',
@@ -18,7 +63,7 @@
     classroomSection,
     allowGuestPractice: !classroomMode,
     maxQueuedAttempts: 12,
-    version: '20260701-classroom-v5.4-sunday-section-lock'
+    version: '20260701-classroom-v5.5-fresh-route-guard'
   };
 
   const existing = (window.UXQ_CLASSROOM_CONFIG && typeof window.UXQ_CLASSROOM_CONFIG === 'object')
@@ -39,18 +84,25 @@
 
   window.UXQ_CLASSROOM_CONFIG = Object.freeze(merged);
 
+  function withClassroomParams(rawHref){
+    let target;
+    try { target = new URL(rawHref, location.href); }
+    catch (error) { return null; }
+    if (target.origin !== location.origin || !/\/sgnal-hunt\//.test(target.pathname)) return null;
+    target.searchParams.set('classroom', '1');
+    if (classroomSection) target.searchParams.set('section', classroomSection);
+    target.searchParams.delete('fresh');
+    target.searchParams.delete('newLearner');
+    return target;
+  }
+
   function carryClassroomParams(){
     if (!classroomMode) return;
     document.querySelectorAll('a[href]').forEach((anchor) => {
       const rawHref = anchor.getAttribute('href');
       if (!rawHref || rawHref.startsWith('#') || /^(mailto:|tel:|javascript:)/i.test(rawHref)) return;
-      let target;
-      try { target = new URL(rawHref, location.href); }
-      catch (error) { return; }
-      if (target.origin !== location.origin || !/\/sgnal-hunt\//.test(target.pathname)) return;
-      target.searchParams.set('classroom', '1');
-      if (classroomSection) target.searchParams.set('section', classroomSection);
-      if (anchor.href !== target.href) anchor.href = target.href;
+      const target = withClassroomParams(rawHref);
+      if (target && anchor.href !== target.href) anchor.href = target.href;
     });
   }
 
@@ -82,6 +134,56 @@
     if (input) input.value = classroomSection;
   }
 
+  function classroomMissionHref(missionId){
+    const files = {
+      w1: './w1-ux-crisis-casefile.html',
+      w2: './w2-design-thinking-sprint.html',
+      w3: './w3-cognitive-load-escape.html',
+      b1: './b1-cognitive-storm.html'
+    };
+    return withClassroomParams(files[missionId] || './index.html');
+  }
+
+  // The Mission Path uses JavaScript navigation for cards/buttons. Capture it here
+  // so classroom=1 and the intended section cannot disappear on W1/W2/W3/B1.
+  function guardMissionNavigation(event){
+    if (!classroomMode || event.defaultPrevented) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    const pathStep = target.closest('.path-step');
+    if (pathStep && pathStep.classList.contains('path-step--launchable')) {
+      const missionId = ({ pathW1: 'w1', pathW2: 'w2', pathW3: 'w3', pathB1: 'b1' })[pathStep.id];
+      const destination = classroomMissionHref(missionId);
+      if (destination) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        location.assign(destination.href);
+      }
+      return;
+    }
+
+    const button = target.closest('#nodeW3 .compact-stage__footer button, #nodeB1 .boss-preview__footer button');
+    if (button && !button.disabled) {
+      const missionId = button.closest('#nodeW3') ? 'w3' : 'b1';
+      const destination = classroomMissionHref(missionId);
+      if (destination) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        location.assign(destination.href);
+      }
+      return;
+    }
+
+    const anchor = target.closest('a[href]');
+    if (!anchor) return;
+    const destination = withClassroomParams(anchor.getAttribute('href'));
+    if (!destination) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    location.assign(destination.href);
+  }
+
   function watchClassroomLinks(){
     carryClassroomParams();
     enforceClassroomSection();
@@ -89,6 +191,7 @@
     if (!root || root.dataset.uxqClassroomLinkWatch === '1') return;
     root.dataset.uxqClassroomLinkWatch = '1';
     document.addEventListener('submit', guardClassroomSectionSubmit, true);
+    document.addEventListener('click', guardMissionNavigation, true);
     const observer = new MutationObserver(() => {
       carryClassroomParams();
       enforceClassroomSection();
@@ -96,11 +199,10 @@
     observer.observe(root, { childList: true, subtree: true });
   }
 
-  // These helpers are intentionally public so a teacher can share a strict classroom link,
-  // while normal self-paced practice remains available without a student-data requirement.
   window.UXQClassroomLaunch = Object.freeze({
     isRequired: () => classroomMode,
     section: () => classroomSection,
+    freshStart: () => freshStart,
     carryLinks: carryClassroomParams
   });
 
@@ -110,7 +212,6 @@
     if (document.querySelector(`script[${marker}]`)) return;
     const script = document.createElement('script');
     script.src = src;
-    // Dynamic scripts with async=false preserve the transport → UI dependency.
     script.async = false;
     script.setAttribute(marker, '1');
     document.head.appendChild(script);
