@@ -1,6 +1,7 @@
 /* CSAI2102 AI Quest — AR Readiness Label Fix v4.0.9
    Presentation-only alignment for the existing AR Readiness card.
    S1 is a latest-evidence-per-learner view; S2 preserves real replay history.
+   Also loads the separate Core Evidence Audit (S1–S6 / B1–B2).
 */
 (() => {
   'use strict';
@@ -48,8 +49,18 @@
     });
   }
 
+  function loadCoreAudit(){
+    if (window.AIQuestCoreAuditV411 || document.getElementById('aiquestCoreAuditV411Script')) return;
+    const script = document.createElement('script');
+    script.id = 'aiquestCoreAuditV411Script';
+    script.src = './js/aiquest-teacher-core-audit-v411.js?v=20260701-coreaudit411';
+    script.async = true;
+    document.head.appendChild(script);
+  }
+
   function boot(){
     apply();
+    loadCoreAudit();
     new MutationObserver(apply).observe(document.documentElement, { childList:true, subtree:true });
     setInterval(apply, 1300);
   }
