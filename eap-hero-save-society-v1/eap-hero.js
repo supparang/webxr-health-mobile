@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260701-v1z130-all-session-replay';
+  const APP_VERSION = '20260701-v1z131-visible-replay-button';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -36478,8 +36478,15 @@
         <span>${safe(q.objective || `Practice ${skill} for this Session.`)}</span>
       </div>
       <div class="session-mission-status">${safe(statusLine)}</div>
+      <button type="button"
+        class="btn primary block js-skill-mission-btn session-mission-start"
+        style="display:block!important;visibility:visible!important;opacity:1!important;width:100%;margin:12px 0 10px;min-height:46px;position:relative;z-index:5"
+        data-skill="${safeAttr(skill)}"
+        data-session="${sid}"
+        onclick="return EAPHero.openSkillMissionFromButton(this)">
+        ${buttonLabel}
+      </button>
       <p class="mini-note session-mission-note">AI chooses a fresh Gold source and a level-specific ${safe(skill)} task. Help is optional and never blocks progress.</p>
-      <button type="button" class="btn primary block js-skill-mission-btn session-mission-start" data-skill="${safeAttr(skill)}" data-session="${sid}" onclick="return EAPHero.openSkillMissionFromButton(this)">${buttonLabel}</button>
     </div>`;
   }
 
