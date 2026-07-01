@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260630-v1z127-eap-evidence-sync';
+  const APP_VERSION = '20260701-v1z128-raw-evidence';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -39363,6 +39363,16 @@
     incoming.session = Number(incoming.session || incoming.sessionId || sessionId) || sessionId;
     incoming.sessionId = incoming.session;
     incoming.misconceptionTags = deriveEvidenceMisconceptionTags(incoming, meta);
+
+    // v1z128: send raw evidence before compactPortfolioEntry removes long prompt/output fields.
+    try{
+      if(window.EAPEvidenceSyncV128 && typeof window.EAPEvidenceSyncV128.submitRaw === 'function'){
+        window.EAPEvidenceSyncV128.submitRaw(incoming, state);
+      }
+    }catch(err){
+      console.warn('[EAP raw evidence sync]', err);
+    }
+
     const compactEntry = compactPortfolioEntry(incoming);
     if(!compactEntry.evidenceId){
       compactEntry.evidenceId = reportPortfolioIdentity(compactEntry, state.portfolio.length);
