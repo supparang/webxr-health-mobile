@@ -6602,7 +6602,9 @@ async function saveResult(){
     const deepMission = initialParams.get('mission');
     const deepSession = initialParams.get('session');
     const targetId = deepMission || deepSessionMap[String(deepSession || '').toLowerCase()] || '';
-    if(targetId && stageById(targetId)){
+    const isArLaunch = !!initialParams.get('ar');
+
+    if(!isArLaunch && targetId && stageById(targetId)){
       setTimeout(() => {
         const stg = stageById(targetId);
         selectedStageId = targetId;
@@ -6746,6 +6748,7 @@ loadProfileToForm();
 <!-- การ์ดปุ่มเข้า AR ใน S1 และ S2 -->
 <script src="./js/aiquest-s1-ar-entry-v387.js?v=20260629-s1entry405"></script>
 <script src="./js/aiquest-s2-ar-entry-v405.js?v=20260629-s2entry405"></script>
+  <script src="./js/aiquest-search-knowledge-gameplay-v410.js?v=20260701-gameplay410"></script>
 
 </body>
 </html>
