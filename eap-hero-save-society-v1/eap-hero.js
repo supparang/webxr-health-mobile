@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260701-v1z129-speaking-evidence';
+  const APP_VERSION = '20260701-v1z130-all-session-replay';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -36355,9 +36355,10 @@
     const sid = Number(sessionId || state.currentSession || 1) || 1;
     state.currentSession = sid;
     saveState();
-    if([3,6,9,12,15].includes(sid)){
-      return unifiedCheckpointSessionPage(sid, null);
-    }
+
+    // v1z130: every normal Session uses the same replayable Skill Path.
+    // Boss Gate availability remains handled by the checkpoint notice,
+    // not by replacing S3/S6/S9/S12/S15 with a special page.
     return safeOpenSession(sid);
   }
 
