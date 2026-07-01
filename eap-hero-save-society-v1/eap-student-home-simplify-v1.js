@@ -1,5 +1,5 @@
 /* =========================================================
-   EAP Hero Student Home Simplifier v1
+   EAP Hero Student Home Simplifier v2
    Student-facing home: one primary path, no duplicate actions
 ========================================================= */
 (() => {
@@ -13,19 +13,11 @@
     /^reset\s*local\s*progress$/i
   ];
 
-  const KEEP_BUTTON_TEXT = [
-    /^start\s*\/\s*continue$/i,
-    /^my\s*learning\s*report$/i,
-    /^profile$/i,
-    /^continue$/i,
-    /^report$/i
-  ];
-
   const textOf = (el) => String(el?.textContent || '')
     .replace(/\s+/g, ' ')
     .trim();
 
-  const matches = (list, text) => list.some((rx) => rx.test(text));
+  const isExact = (rx, value) => rx.test(value);
 
   function hide(el) {
     if (!el || el.dataset.studentHomeHidden === '1') return;
@@ -41,27 +33,20 @@
   }
 
   function simplifyButtons() {
-    document.querySelectorAll('button, a.btn, [role="button"]').forEach((button) => {
+    const controls = [...document.querySelectorAll('button, a.btn, [role="button"]')];
+
+    controls.forEach((button) => {
       const text = textOf(button);
-      if (!text) return;
-
-      if (matches(HIDE_BUTTON_TEXT, text)) {
-        hide(button);
-        return;
-      }
-
-      // Hide repeated content-area controls; header Continue/Profile/Report remain.
-      if (
-        matches(KEEP_BUTTON_TEXT, text) &&
-        button.closest('.hero-actions, .home-actions, .start-actions, .landing-actions')
-      ) {
-        const key = text.toLowerCase();
-        const prior = [...document.querySelectorAll('button, a.btn, [role="button"]')]
-          .filter((item) => textOf(item).toLowerCase() === key)
-          .filter((item) => item.dataset.studentHomeHidden !== '1');
-        if (prior.length > 1 && button !== prior[0]) hide(button);
-      }
+      if (HIDE_BUTTON_TEXT.some((rx) => isExact(rx, text))) hide(button);
     });
+
+    // Keep exactly one content button labelled “My Learning Report”.
+    // Header “Report” is a different control and remains available.
+    const reports = controls.filter((button) =>
+      /^my\s*learning\s*report$/i.test(textOf(button)) &&
+      button.dataset.studentHomeHidden !== '1'
+    );
+    reports.slice(1).forEach(hide);
   }
 
   function simplifyStatus() {
