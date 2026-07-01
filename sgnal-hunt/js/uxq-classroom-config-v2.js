@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v5.3 • Sunday classroom launch mode
+/* UX Quest • Classroom Configuration v5.4 • Sunday classroom lock
    Public configuration only: the receiver is write-only; no teacher read endpoint lives here.
 */
 (() => {
@@ -18,7 +18,7 @@
     classroomSection,
     allowGuestPractice: !classroomMode,
     maxQueuedAttempts: 12,
-    version: '20260701-classroom-v5.3-sunday-launch'
+    version: '20260701-classroom-v5.4-sunday-section-lock'
   };
 
   const existing = (window.UXQ_CLASSROOM_CONFIG && typeof window.UXQ_CLASSROOM_CONFIG === 'object')
@@ -27,7 +27,7 @@
   const merged = Object.assign({}, defaults, existing);
 
   // A shared classroom link deliberately wins over any older local/demo setting.
-  // It makes student identity mandatory and seeds the correct section before a mission begins.
+  // It makes learner identity mandatory and pins the intended section.
   if (classroomMode) {
     merged.classroomMode = 'required';
     merged.allowGuestPractice = false;
@@ -54,12 +54,45 @@
     });
   }
 
+  function enforceClassroomSection(){
+    if (!classroomMode || !classroomSection) return;
+    const input = document.getElementById('uxqProfileSection');
+    if (!input) return;
+    if (input.value !== classroomSection) input.value = classroomSection;
+    input.readOnly = true;
+    input.setAttribute('aria-readonly', 'true');
+    input.title = `Section is set to ${classroomSection} for this class.`;
+
+    const label = input.closest('label');
+    if (label && !label.querySelector('[data-uxq-classroom-section-note]')) {
+      const note = document.createElement('small');
+      note.dataset.uxqClassroomSectionNote = '1';
+      note.textContent = `กลุ่มถูกกำหนดเป็น ${classroomSection} สำหรับคาบนี้`;
+      note.style.color = '#9fddff';
+      note.style.fontWeight = '700';
+      label.appendChild(note);
+    }
+  }
+
+  function guardClassroomSectionSubmit(event){
+    if (!classroomMode || !classroomSection) return;
+    const form = event.target;
+    if (!form || form.id !== 'uxqProfileForm') return;
+    const input = form.querySelector('#uxqProfileSection');
+    if (input) input.value = classroomSection;
+  }
+
   function watchClassroomLinks(){
     carryClassroomParams();
+    enforceClassroomSection();
     const root = document.documentElement;
     if (!root || root.dataset.uxqClassroomLinkWatch === '1') return;
     root.dataset.uxqClassroomLinkWatch = '1';
-    const observer = new MutationObserver(carryClassroomParams);
+    document.addEventListener('submit', guardClassroomSectionSubmit, true);
+    const observer = new MutationObserver(() => {
+      carryClassroomParams();
+      enforceClassroomSection();
+    });
     observer.observe(root, { childList: true, subtree: true });
   }
 
