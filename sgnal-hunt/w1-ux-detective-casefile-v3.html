@@ -17,7 +17,8 @@
   <script>
   (() => {
     'use strict';
-    window.UXQW1CasefileBoost.init({
+    const game = window.UXQW1CasefileBoost;
+    game.init({
       rootId: 'uxqApp',
       hubHref: './index.html',
       nextHref: './w2-design-thinking-sprint.html?v=act1-w1-cleared',
@@ -28,6 +29,23 @@
       verifyTarget: 70,
       caseCount: 2
     });
+
+    function repairCaseBankCopy(){
+      const count = Number(game.caseCount || 15);
+      document.querySelectorAll('.uxq-brief').forEach((card) => {
+        if (card.querySelector('b')?.textContent?.trim() === 'Case Bank') {
+          const value = card.querySelector('span');
+          if (value) value.textContent = `${count} dossiers • ${count * 4} decision cards`;
+        }
+      });
+      const lede = document.querySelector('.uxq-lede');
+      if (lede) lede.innerHTML = lede.innerHTML.replace(/2 จาก 12 Casefiles/g, `2 จาก ${count} Casefiles`);
+      const best = document.querySelector('.uxq-mini-score');
+      if (best) best.textContent = best.textContent.replace('12 dossiers', `${count} dossiers`);
+    }
+
+    repairCaseBankCopy();
+    new MutationObserver(repairCaseBankCopy).observe(document.documentElement, { childList: true, subtree: true });
   })();
   </script>
 </body>
