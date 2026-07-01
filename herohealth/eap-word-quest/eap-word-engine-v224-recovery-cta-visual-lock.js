@@ -1,28 +1,41 @@
 /* =========================================================
    EAP Word Quest • Recovery CTA Visual Lock
    File: /herohealth/eap-word-quest/eap-word-engine-v224-recovery-cta-visual-lock.js
-   Version: v2.6.5-RECOVERY-LOCK-CURRENT-SUMMARY-LOADER-122
+   Version: v2.6.6-STUDENT-BOOT-STABILITY-122
+
+   Emergency stability hotfix
+   - Keeps the established game/recovery modules.
+   - Deliberately disables experimental Sheets receipt bridges v262/v264/v265
+     from the student boot path while the core game is stabilised.
+   - Does not change Local Storage, progress, or any Sheets history.
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.6.5-RECOVERY-LOCK-CURRENT-SUMMARY-LOADER-122";
+  const VERSION = "v2.6.6-STUDENT-BOOT-STABILITY-122";
   if (window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__) return;
   window.__EAP_WORD_V224_RECOVERY_VISUAL_LOCK__ = true;
 
   const $ = (id) => document.getElementById(id);
-  const norm = (value) => String(value == null ? "" : value).replace(/\s+/g," ").trim();
+  const norm = (value) => String(value == null ? "" : value).replace(/\s+/g, " ").trim();
   let queued = false;
+
+  /* The static entry still references v262 from an earlier build. Mark it as
+     already loaded before that static tag runs, so it safely returns without
+     attaching extra observers or cross-origin delivery work. */
+  window.__EAP_WORD_V262_VERIFIED_SHEET_BRIDGE__ = true;
+  window.__EAP_WORD_V264_FORM_POST_RECEIPT__ = true;
+  window.__EAP_WORD_V265_CURRENT_SUMMARY_RECEIPT__ = true;
 
   function corePassed(sessionId) {
     try {
       const saved = JSON.parse(localStorage.getItem("EAP_WORD_QUEST_PROFILE_V01") || "{}") || {};
       const rawId = norm(($('studentIdInput') && $('studentIdInput').value) || saved.studentId || saved.id || "no-id");
-      const id = rawId.replace(/[^a-z0-9_-]/gi,"_") || "no-id";
+      const id = rawId.replace(/[^a-z0-9_-]/gi, "_") || "no-id";
       const key = `EAP_WORD_QUEST_CORE_V196_STATE_122_${id}`;
       const state = JSON.parse(localStorage.getItem(key) || "{}") || {};
       return Boolean(state.sessions && state.sessions[sessionId] && state.sessions[sessionId].passed);
-    } catch (err) {
+    } catch (error) {
       return false;
     }
   }
@@ -38,6 +51,7 @@
 
   function addStyle() {
     if ($("eapV224RecoveryVisualStyle")) return;
+
     const style = document.createElement("style");
     style.id = "eapV224RecoveryVisualStyle";
     style.textContent = `
@@ -51,17 +65,20 @@
   function apply() {
     queued = false;
     addStyle();
+
     const button = $("nextMissionBtn");
     if (!button) return;
+
     const sessionId = summaryRecoverySession();
     if (!sessionId) {
       delete button.dataset.eapV224Label;
       button.removeAttribute("data-eap-v224-label");
       return;
     }
+
     const label = `เริ่ม ${sessionId} Recovery`;
-    if (button.dataset.eapV224Label !== label) button.dataset.eapV224Label = label;
-    if (button.getAttribute("aria-label") !== label) button.setAttribute("aria-label",label);
+    button.dataset.eapV224Label = label;
+    button.setAttribute("aria-label", label);
     button.title = `เริ่มชุดทบทวน ${sessionId} โดยใช้โจทย์ใหม่`;
   }
 
@@ -71,7 +88,7 @@
     requestAnimationFrame(apply);
   }
 
-  function loadFinalGuards() {
+  function loadStableGuards() {
     const load = (file, marker, tag) => {
       if (window[marker] || document.querySelector(`script[data-eap-runtime="${tag}"]`)) return;
       const script = document.createElement("script");
@@ -90,27 +107,21 @@
     load("eap-word-engine-v237-bg5-full-recovery-director.js", "__EAP_WORD_V237_BG5_FULL_RECOVERY__", "bg5-full-recovery");
     load("eap-word-engine-v238-final-pass-commit.js", "__EAP_WORD_V238_FINAL_PASS_COMMIT__", "final-pass-commit");
     load("eap-word-engine-v239-home-completion-report.js", "__EAP_WORD_V239_HOME_COMPLETION__", "home-completion-report");
-    load("eap-word-sheet-config.js", "EAP_WORD_SHEET_CONFIG", "sheet-config-v265");
-
-    /* v262 used no-cors. v264 is retained for history recovery; v265 is the
-       authority for the exact current summary state shown to the learner. */
-    window.__EAP_WORD_V262_VERIFIED_SHEET_BRIDGE__ = true;
-    load("eap-word-engine-v264-form-post-receipt.js", "__EAP_WORD_V264_FORM_POST_RECEIPT__", "form-post-receipt-v264");
-    load("eap-word-engine-v265-current-summary-receipt.js", "__EAP_WORD_V265_CURRENT_SUMMARY_RECEIPT__", "current-summary-receipt-v265");
   }
 
   const observer = new MutationObserver(requestApply);
-  observer.observe(document.body,{childList:true,subtree:true,characterData:true});
-  document.addEventListener("click",()=>[0,120,360,760].forEach((delay)=>setTimeout(requestApply,delay)),true);
-  window.addEventListener("eap-core-run-finished",()=>[0,100,300,700].forEach((delay)=>setTimeout(requestApply,delay)));
-  [0,160,500,1200,2200].forEach((delay)=>setTimeout(requestApply,delay));
-  loadFinalGuards();
+  observer.observe(document.body, { childList:true, subtree:true, characterData:true });
+  document.addEventListener("click", () => [0, 120, 360, 760].forEach((delay) => setTimeout(requestApply, delay)), true);
+  window.addEventListener("eap-core-run-finished", () => [0, 100, 300, 700].forEach((delay) => setTimeout(requestApply, delay)));
+  [0, 160, 500, 1200, 2200].forEach((delay) => setTimeout(requestApply, delay));
+  loadStableGuards();
 
   window.inspectEapV224 = () => ({
-    version:VERSION,
-    recoverySession:summaryRecoverySession(),
-    visibleLabel:norm($("nextMissionBtn") && $("nextMissionBtn").dataset.eapV224Label)
+    version: VERSION,
+    recoverySession: summaryRecoverySession(),
+    visibleLabel: norm($("nextMissionBtn") && $("nextMissionBtn").dataset.eapV224Label),
+    receiptBridgesDisabled: true
   });
 
-  console.info("[EAP Word Quest] current-summary Sheets receipt loader ready",{version:VERSION});
+  console.info("[EAP Word Quest] stable student boot restored", { version: VERSION });
 })();
