@@ -35,13 +35,20 @@
       document.querySelectorAll('.uxq-brief').forEach((card) => {
         if (card.querySelector('b')?.textContent?.trim() === 'Case Bank') {
           const value = card.querySelector('span');
-          if (value) value.textContent = `${count} dossiers • ${count * 4} decision cards`;
+          const next = `${count} dossiers • ${count * 4} decision cards`;
+          if (value && value.textContent !== next) value.textContent = next;
         }
       });
       const lede = document.querySelector('.uxq-lede');
-      if (lede) lede.innerHTML = lede.innerHTML.replace(/2 จาก 12 Casefiles/g, `2 จาก ${count} Casefiles`);
+      if (lede) {
+        const next = lede.innerHTML.replace(/2 จาก 12 Casefiles/g, `2 จาก ${count} Casefiles`);
+        if (lede.innerHTML !== next) lede.innerHTML = next;
+      }
       const best = document.querySelector('.uxq-mini-score');
-      if (best) best.textContent = best.textContent.replace('12 dossiers', `${count} dossiers`);
+      if (best) {
+        const next = best.textContent.replace('12 dossiers', `${count} dossiers`);
+        if (best.textContent !== next) best.textContent = next;
+      }
     }
 
     repairCaseBankCopy();
