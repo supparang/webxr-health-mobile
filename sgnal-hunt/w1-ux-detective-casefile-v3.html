@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#071124" />
+  <title>UX Quest • W1 UX Detective Casefile</title>
+</head>
+<body>
+  <main id="uxqApp" aria-live="polite"></main>
+
+  <script src="./js/uxq-classroom-config-v2.js?v=20260701-classroom-v5-5"></script>
+  <script src="./js/uxq-progress-v2.js?v=20260628-storage-safe1"></script>
+  <script src="./js/uxq-identity-v1.js?v=20260628-classroom-v1"></script>
+  <script src="./js/uxq-analytics-v2.js?v=20260628-classroom-receiver-v2"></script>
+  <script src="./js/uxq-w1-casefile-boost-v3.js?v=20260701-w1-pressure-v3"></script>
+  <script>
+  (() => {
+    'use strict';
+    window.UXQW1CasefileBoost.init({
+      rootId: 'uxqApp',
+      hubHref: './index.html',
+      nextHref: './w2-design-thinking-sprint.html?v=act1-w1-cleared',
+      nextLabel: 'ไป W2 Design Thinking Sprint',
+      passAccuracy: 62,
+      threeStarAccuracy: 82,
+      threeStarHints: 2,
+      verifyTarget: 70,
+      caseCount: 2
+    });
+  })();
+  </script>
+</body>
+</html>
