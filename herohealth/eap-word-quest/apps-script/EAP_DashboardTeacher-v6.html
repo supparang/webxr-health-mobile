@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{
+      --ink:#102033;--muted:#607085;--line:#dbe4ee;--bg:#f4f7fb;--card:#fff;
+      --navy:#17375e;--good:#087f5b;--bad:#b42318;--purple:#6639a6;
+      --latest-bg:#e8f0fe;--latest-fg:#174ea6;--best-bg:#ecfdf5;--best-fg:#047857;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Arial,"Noto Sans Thai",sans-serif}
+    .wrap{max-width:1540px;margin:auto;padding:22px}
+    .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}
+    h1,h2,h3{margin:0} h1{font-size:27px}.subtitle{margin:5px 0 0;color:var(--muted)}
+    button,input,select{font:inherit}
+    .btn{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;background:var(--navy);color:#fff}
+    .btn.ghost{background:#e8eef6;color:var(--ink)}
+    .toolbar,.tabs{display:flex;flex-wrap:wrap;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+    .toolbar input,.toolbar select{border:1px solid var(--line);border-radius:9px;padding:9px 10px;min-width:150px;background:#fff}
+    .toolbar label{display:grid;gap:4px;color:var(--muted);font-size:12px;font-weight:800}
+    .toolbar label select{min-width:158px;color:var(--ink);font-weight:400}
+    .tab{border:0;border-radius:10px;padding:9px 13px;font-weight:800;cursor:pointer;background:#edf2f7;color:var(--ink)}
+    .tab.active{background:var(--navy);color:#fff}
+    .cards{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:12px;margin-bottom:16px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px}.label{color:var(--muted);font-weight:700;font-size:12px}.value{font-size:27px;font-weight:900;margin-top:4px}
+    .section{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:auto;margin-bottom:16px}.section-title{padding:15px 16px 4px;font-size:18px;font-weight:900}.section-note{padding:0 16px 13px;color:var(--muted);font-size:12px}
+    table{width:100%;border-collapse:collapse;min-width:1160px}th,td{padding:11px 12px;border-top:1px solid var(--line);text-align:left;vertical-align:middle}th{background:#f8fafc;font-size:12px;color:#42566f}.row-latest td{background:#fbfdff}
+    .pill{display:inline-block;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:800;white-space:nowrap}.active{background:#dff7ed;color:var(--good)}.review{background:#fde7e7;color:var(--bad)}.hero-tag{color:#174ea6;background:#e6efff}.word-tag{color:#6639a6;background:#f0e8ff}.latest-tag{background:var(--latest-bg);color:var(--latest-fg)}.best-tag{background:var(--best-bg);color:var(--best-fg)}
+    .tag-stack{display:flex;flex-wrap:wrap;gap:5px}.small{color:var(--muted);font-size:12px}.detail{margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}.detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:12px 0}.mini{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px}.mini strong{font-size:18px;display:block;margin-top:2px}.empty{padding:38px;text-align:center;color:var(--muted)}.hidden{display:none}.history-note{margin:0 0 12px;color:var(--muted);font-size:12px}
+    @media(max-width:1100px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.wrap{padding:12px}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.top{display:block}.top .btn{margin-top:12px}.detail-grid{grid-template-columns:1fr}}
+    @media print{.toolbar,.tabs,.btn{display:none!important}.wrap{max-width:none;padding:0}.detail{display:none!important}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="top">
+      <div>
+        <h1>EAP Learning Analytics Dashboard</h1>
+        <p class="subtitle">EAP Hero + EAP Word Quest · Section 122 · Latest/Best evidence view</p>
+      </div>
+      <button class="btn ghost" onclick="window.print()">Print / Save PDF</button>
+    </section>
+
+    <section class="toolbar">
+      <label>Section<select id="section"><option value="122">Section 122</option></select></label>
+      <label>ค้นหา<input id="search" placeholder="ค้นหารหัสหรือชื่อผู้เรียน"></label>
+      <label>สถานะ<select id="status"><option value="">ทุกสถานะ</option><option value="active">Active</option><option value="review">Needs support</option></select></label>
+      <label>Word Quest Evidence<select id="evidence"><option value="all">ทุก attempt</option><option value="latest">Latest attempt ต่อ Session</option><option value="best">Best attempt ต่อ Session</option></select></label>
+      <button class="btn" onclick="loadData()">Refresh data</button>
+      <button class="btn ghost" onclick="downloadCsv()">Export CSV</button>
+    </section>
+
+    <section class="tabs">
+      <button class="tab active" data-tab="all" onclick="setTab('all')">ภาพรวมผู้เรียน</button>
+      <button class="tab" data-tab="hero" onclick="setTab('hero')">EAP Hero</button>
+      <button class="tab" data-tab="wordquest" onclick="setTab('wordquest')">EAP Word Quest</button>
+      <button class="tab" data-tab="support" onclick="setTab('support')">Needs Support</button>
+    </section>
+
+    <section class="cards">
+      <div class="card"><div class="label">ผู้เรียน</div><div class="value" id="learners">—</div></div>
+      <div class="card"><div class="label">Hero records</div><div class="value" id="heroRecords">—</div></div>
+      <div class="card"><div class="label">Word Quest attempts</div><div class="value" id="wordRecords">—</div></div>
+      <div class="card"><div class="label">Word Quest sessions</div><div class="value" id="wordSessions">—</div></div>
+      <div class="card"><div class="label">Hero average</div><div class="value" id="heroAverage">—</div></div>
+      <div class="card"><div class="label">Word Best Accuracy %</div><div class="value" id="wordBestAverage">—</div></div>
+      <div class="card"><div class="label">Word Latest Accuracy %</div><div class="value" id="wordLatestAverage">—</div></div>
+      <div class="card"><div class="label">ต้องช่วยทบทวน</div><div class="value" id="supportCount">—</div></div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">รายชื่อนักศึกษา</div>
+      <div class="section-note" id="tableNote">Latest = ผลล่าสุดของ Session นั้น · Best = Accuracy สูงสุด (เสมอใช้ Score และเวลาล่าสุดตัดสิน) · แท็บ Word Quest เรียงเวลาใหม่สุดก่อน</div>
+      <table>
+        <thead id="tableHead"></thead>
+        <tbody id="rows"><tr><td colspan="11" class="empty">กำลังโหลดข้อมูล…</td></tr></tbody>
+      </table>
+    </section>
+
+    <section id="detail" class="detail hidden"></section>
+  </main>
+
+  <script>
+    let appData={overview:{},learners:[]};
+    let activeTab='all';
+    const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const showValue=(value,suffix='')=>value===null||value===undefined||value===''?'—':String(value)+suffix;
+    const timeMs=value=>{const n=new Date(value||'').getTime();return Number.isFinite(n)?n:0;};
+    const dateLabel=value=>{const n=timeMs(value);if(!n)return'—';return new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'medium',timeStyle:'short'}).format(new Date(n));};
+    const filters=()=>({section:document.getElementById('section').value,query:document.getElementById('search').value.trim(),status:document.getElementById('status').value});
+    const evidenceMode=()=>document.getElementById('evidence').value;
+    const setText=(id,value)=>document.getElementById(id).textContent=value;
+    const statusBadge=status=>`<span class="pill ${esc(status)}">${status==='review'?'Needs support':'Active'}</span>`;
+
+    function evidenceBadges(record){
+      const tags=[];
+      if(record.isLatestAttempt)tags.push('<span class="pill latest-tag">Latest</span>');
+      if(record.isBestAttempt)tags.push('<span class="pill best-tag">Best</span>');
+      return tags.length?`<span class="tag-stack">${tags.join('')}</span>`:'<span class="small">History</span>';
+    }
+
+    function setTab(tab){
+      activeTab=tab;
+      document.querySelectorAll('.tab').forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
+      renderRows();
+    }
+
+    function loadData(){
+      document.getElementById('rows').innerHTML='<tr><td colspan="11" class="empty">กำลังโหลดข้อมูล…</td></tr>';
+      google.script.run.withSuccessHandler(render).withFailureHandler(showError).eapTeacherDashboardData(filters());
+    }
+
+    function render(data){
+      appData=data||{overview:{},learners:[]};
+      const overview=appData.overview||{};
+      setText('learners',overview.learners??0);
+      setText('heroRecords',overview.heroRecords??0);
+      setText('wordRecords',overview.wordQuestRecords??0);
+      setText('wordSessions',overview.wordQuestUniqueSessions??0);
+      setText('heroAverage',showValue(overview.heroAverage));
+      setText('wordBestAverage',overview.wordQuestAccuracyAverage==null?'—':overview.wordQuestAccuracyAverage+'%');
+      setText('wordLatestAverage',overview.wordQuestLatestAccuracyAverage==null?'—':overview.wordQuestLatestAccuracyAverage+'%');
+      setText('supportCount',overview.needsSupport??0);
+      renderRows();
+    }
+
+    function renderRows(){
+      const learners=[...(appData.learners||[])];
+      const head=document.getElementById('tableHead');
+      const body=document.getElementById('rows');
+      if(activeTab==='all')return renderOverview_(learners,head,body);
+      if(activeTab==='hero')return renderHero_(learners,head,body);
+      if(activeTab==='wordquest')return renderWord_(learners,head,body);
+      renderSupport_(learners,head,body);
+    }
+
+    function renderOverview_(learners,head,body){
+      document.getElementById('tableNote').textContent='ค่าความแม่นยำ Word Quest ในภาพรวมใช้ Best attempt ต่อ Session จึงไม่ถูกลดด้วยการฝึกซ้ำที่ยังไม่ดีเท่ารอบเดิม';
+      head.innerHTML='<tr><th>รหัส</th><th>ชื่อผู้เรียน</th><th>Hero avg.</th><th>Hero recorded</th><th>Word Best</th><th>Word Latest</th><th>Sessions</th><th>Weak words ล่าสุด</th><th>Status</th><th></th></tr>';
+      const html=learners.map(student=>{
+        const word=student.wordQuest||{};
+        return `<tr><td>${esc(student.studentId)}</td><td>${esc(student.studentName)}</td><td><span class="pill hero-tag">${esc(showValue(student.hero.avgScore))}</span></td><td>${student.hero.recordedThrough==='—'?'—':'Recorded through: <strong>'+esc(student.hero.recordedThrough)+'</strong>'}</td><td><span class="pill best-tag">${esc(showValue(word.avgAccuracy,'%'))}</span></td><td><span class="pill latest-tag">${esc(showValue(word.avgLatestAccuracy,'%'))}</span></td><td>${esc(word.uniqueSessions??0)}</td><td class="small">${esc((word.weakWords||[]).join(', ')||'—')}</td><td>${statusBadge(student.status)}</td><td><button class="btn ghost" data-open="${esc(student.studentId)}">ดูรายคน</button></td></tr>`;
+      }).join('');
+      body.innerHTML=html||emptyRow_(10);
+      bindOpenButtons_();
+    }
+
+    function renderHero_(learners,head,body){
+      document.getElementById('tableNote').textContent='EAP Hero ใช้ summary ต่อ Session: แสดงผลดีที่สุดและจำนวนครั้งสะสม';
+      head.innerHTML='<tr><th>รหัส</th><th>ชื่อผู้เรียน</th><th>Session</th><th>Title</th><th>Skill</th><th>Best score</th><th>Accuracy</th><th>Passed</th><th>Attempts</th><th>Flag</th></tr>';
+      const rows=[];
+      learners.forEach(student=>student.hero.records.forEach(record=>rows.push(`<tr><td>${esc(student.studentId)}</td><td>${esc(student.studentName)}</td><td>${esc(record.sessionId)}</td><td>${esc(record.sessionTitle)}</td><td>${esc(record.skill)}</td><td>${esc(showValue(record.bestScore))}</td><td>${esc(showValue(record.bestAccuracy,'%'))}</td><td>${record.passed?'Passed':'Not yet'}</td><td>${esc(record.attempts)}</td><td>${esc(record.reviewFlag||'—')}</td></tr>`)));
+      body.innerHTML=rows.join('')||emptyRow_(10);
+    }
+
+    function renderWord_(learners,head,body){
+      const mode=evidenceMode();
+      document.getElementById('tableNote').textContent=mode==='latest'?'แสดง Latest attempt ของแต่ละผู้เรียนต่อ Session เรียงใหม่สุดก่อน':mode==='best'?'แสดง Best attempt ของแต่ละผู้เรียนต่อ Session: Accuracy สูงสุด → Score สูงสุด → เวลาล่าสุด':'แสดงประวัติทุก attempt เรียง Played at ใหม่สุดก่อน พร้อมป้าย Latest/Best';
+      head.innerHTML='<tr><th>รหัส</th><th>ชื่อผู้เรียน</th><th>Session</th><th>Title</th><th>Type</th><th>Accuracy</th><th>Passed</th><th>Evidence</th><th>Session attempts</th><th>Weak words</th><th>Played at</th></tr>';
+      const rows=[];
+      learners.forEach(student=>student.wordQuest.records.forEach(record=>{
+        if(mode==='latest'&&!record.isLatestAttempt)return;
+        if(mode==='best'&&!record.isBestAttempt)return;
+        rows.push({student,record});
+      }));
+      rows.sort((a,b)=>timeMs(b.record.playedAt)-timeMs(a.record.playedAt)||String(a.student.studentName).localeCompare(String(b.student.studentName)));
+      body.innerHTML=rows.map(({student,record})=>`<tr class="${record.isLatestAttempt?'row-latest':''}"><td>${esc(student.studentId)}</td><td>${esc(student.studentName)}</td><td>${esc(record.sessionId)}</td><td>${esc(record.sessionTitle)}</td><td>${esc(record.sessionType)}</td><td>${esc(showValue(record.accuracy,'%'))}</td><td>${record.passed?'Passed':'Not yet'}</td><td>${evidenceBadges(record)}</td><td>${esc(record.sessionAttemptCount||1)}</td><td class="small">${esc((record.weakWords||[]).join(', ')||'—')}</td><td class="small">${esc(dateLabel(record.playedAt))}</td></tr>`).join('')||emptyRow_(11);
+    }
+
+    function renderSupport_(learners,head,body){
+      document.getElementById('tableNote').textContent='Needs Support จะขึ้นเมื่อ EAP Hero มี review flag หรือ Word Quest มีอย่างน้อย 2 attempts ใน Session เดียวและทั้ง Latest/Best ยังต่ำกว่า 60%';
+      head.innerHTML='<tr><th>รหัส</th><th>ชื่อผู้เรียน</th><th>Hero avg.</th><th>Word Best</th><th>Word Latest</th><th>เหตุผลที่ควรช่วย</th><th></th></tr>';
+      const support=learners.filter(student=>student.status==='review');
+      body.innerHTML=support.map(student=>`<tr><td>${esc(student.studentId)}</td><td>${esc(student.studentName)}</td><td>${esc(showValue(student.hero.avgScore))}</td><td>${esc(showValue(student.wordQuest.avgAccuracy,'%'))}</td><td>${esc(showValue(student.wordQuest.avgLatestAccuracy,'%'))}</td><td>ผลล่าสุดและผลดีที่สุดของบาง Session ยังต่ำกว่าเกณฑ์ หรือมี Hero review flag</td><td><button class="btn ghost" data-open="${esc(student.studentId)}">ดูรายคน</button></td></tr>`).join('')||emptyRow_(7);
+      bindOpenButtons_();
+    }
+
+    function emptyRow_(colspan){return `<tr><td colspan="${colspan}" class="empty">ยังไม่มีข้อมูลตามตัวกรองนี้</td></tr>`;}
+    function bindOpenButtons_(){document.querySelectorAll('[data-open]').forEach(button=>button.addEventListener('click',()=>openStudent(button.dataset.open)));}
+
+    function openStudent(studentId){google.script.run.withSuccessHandler(renderStudent).withFailureHandler(showError).eapTeacherStudentDetail(studentId);}
+
+    function renderStudent(data){
+      if(!data||!data.ok)return;
+      const student=data.learner;const detail=document.getElementById('detail');const word=student.wordQuest||{};
+      detail.classList.remove('hidden');
+      const heroRows=student.hero.records.map(row=>`<tr><td>${esc(row.sessionId)}</td><td>${esc(row.sessionTitle)}</td><td>${esc(row.skill)}</td><td>${esc(showValue(row.bestScore))}</td><td>${esc(showValue(row.bestAccuracy,'%'))}</td><td>${row.passed?'Passed':'Not yet'}</td><td>${esc(row.attempts)}</td><td>${esc(row.reviewFlag||'—')}</td></tr>`).join('');
+      const wordRows=[...word.records].sort((a,b)=>timeMs(b.playedAt)-timeMs(a.playedAt)).map(row=>`<tr class="${row.isLatestAttempt?'row-latest':''}"><td>${esc(row.sessionId)}</td><td>${esc(row.sessionTitle)}</td><td>${esc(row.sessionType)}</td><td>${esc(showValue(row.score||row.xp))}</td><td>${esc(showValue(row.accuracy,'%'))}</td><td>${row.passed?'Passed':'Not yet'}</td><td>${evidenceBadges(row)}</td><td>${esc(row.sessionAttemptCount||1)}</td><td>${esc((row.weakWords||[]).join(', ')||'—')}</td><td class="small">${esc(dateLabel(row.playedAt))}</td></tr>`).join('');
+      const latest=word.latestRecord||null;
+      detail.innerHTML=`<h2>${esc(student.studentName)} <span class="small">${esc(student.studentId)} · Section ${esc(student.section)}</span></h2><p class="history-note">Evidence history เรียงเวลาใหม่สุดก่อน — ป้าย Latest และ Best ช่วยแยกความก้าวหน้าปัจจุบันจากผลงานสูงสุด</p><div class="detail-grid"><div class="mini">EAP Hero · Recorded through<strong>${esc(student.hero.recordedThrough)}</strong></div><div class="mini">Word Quest · Best Accuracy<strong>${esc(showValue(word.avgAccuracy,'%'))}</strong></div><div class="mini">Word Quest · Latest Accuracy<strong>${esc(showValue(word.avgLatestAccuracy,'%'))}</strong></div><div class="mini">Latest activity<strong>${esc(latest?latest.sessionId+' · '+dateLabel(latest.playedAt):'—')}</strong></div></div><h3>EAP Hero</h3><div class="section"><table><thead><tr><th>Session</th><th>Title</th><th>Skill</th><th>Best score</th><th>Accuracy</th><th>Passed</th><th>Attempts</th><th>Flag</th></tr></thead><tbody>${heroRows||'<tr><td colspan="8" class="empty">ยังไม่มีข้อมูล EAP Hero</td></tr>'}</tbody></table></div><h3>EAP Word Quest · Full attempt history</h3><div class="section"><table><thead><tr><th>Session</th><th>Title</th><th>Type</th><th>Score / XP</th><th>Accuracy</th><th>Passed</th><th>Evidence</th><th>Session attempts</th><th>Weak words</th><th>Played at</th></tr></thead><tbody>${wordRows||'<tr><td colspan="10" class="empty">ยังไม่มีข้อมูล EAP Word Quest</td></tr>'}</tbody></table></div>`;
+      detail.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+
+    function downloadCsv(){
+      const header=['studentId','studentName','section','heroAverage','heroRecordedThrough','wordBestAccuracy','wordLatestAccuracy','wordUniqueSessions','wordLatestPlayedAt','wordWeakWords','status'];
+      const rows=(appData.learners||[]).map(student=>[student.studentId,student.studentName,student.section,student.hero.avgScore,student.hero.recordedThrough,student.wordQuest.avgAccuracy,student.wordQuest.avgLatestAccuracy,student.wordQuest.uniqueSessions,student.wordQuest.latestPlayedAt,(student.wordQuest.weakWords||[]).join('|'),student.status]);
+      const csv=[header,...rows].map(row=>row.map(value=>'"'+String(value??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+      const url=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download='EAP-Learning-Analytics-Section-122-v6.csv';link.click();URL.revokeObjectURL(url);
+    }
+
+    function showError(error){document.getElementById('rows').innerHTML=`<tr><td colspan="11" class="empty">โหลดข้อมูลไม่สำเร็จ: ${esc(error&&error.message?error.message:error)}</td></tr>`;}
+    ['search','status','section'].forEach(id=>document.getElementById(id).addEventListener(id==='search'?'input':'change',()=>setTimeout(loadData,180)));
+    document.getElementById('evidence').addEventListener('change',renderRows);
+    loadData();
+  </script>
+</body>
+</html>
