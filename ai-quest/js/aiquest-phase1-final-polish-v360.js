@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  const VERSION='v4.2.3-s2-boss-feedback-loader';
+  const VERSION='v4.2.4-s2-thai418-loader';
   const STATE_KEY='CSAI2102_AIQUEST_V16_M1_GOOGLE_SHEETS';
   const PROFILE_KEY='CSAI2102_AIQUEST_PROFILE_V420';
   const $=id=>document.getElementById(id);
@@ -23,8 +23,8 @@
     load('aiquestDirectCloudV421','./js/aiquest-direct-cloud-v421.js?v=20260701-cloud421');
     load('aiquestS6AccessGateV412','./js/aiquest-s6-access-gate-v412.js?v=20260701-s6access412');
     load('aiquestS6ResultSyncV415','./js/aiquest-s6-result-sync-v415.js?v=20260701-s6sync415');
-    load('aiquestThaiFirstSearchV411','./js/aiquest-search-knowledge-gameplay-v410.js?v=20260701-thai411');
-    load('aiquestS2BossFeedbackPauseV1','./js/aiquest-s2-boss-feedback-pause-v1.js?v=20260702-s2bossfeedback1');
+    load('aiquestThaiFirstSearchV418','./js/aiquest-search-knowledge-gameplay-v410.js?v=20260702-thai418');
+    load('aiquestS2BossFeedbackPauseV1','./js/aiquest-s2-boss-feedback-pause-v1.js?v=20260702-s2bossfeedback2');
   }
   function normalize(){if(!isTeacher())return;Array.from(document.querySelectorAll('span,div,td,p,li')).forEach(el=>{if(/^Misconception:\s*automation$/i.test(String(el.textContent||'').trim()))el.textContent='Focus: automation';});}
   function refresh(){installStorage();loadStudentTools();refreshProfileUI();normalize();}
