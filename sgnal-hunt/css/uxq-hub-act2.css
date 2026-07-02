@@ -1,0 +1,58 @@
+/* UX Quest • Mission Control Act II extension */
+.path-rail{grid-template-columns:repeat(5,minmax(0,1fr));}
+
+.insight-preview{
+  grid-column:1 / -1;
+  min-height:188px;
+  border-color:rgba(108,244,229,.40);
+  background:
+    radial-gradient(circle at 100% 0%,rgba(110,248,230,.15),transparent 15rem),
+    radial-gradient(circle at 4% 100%,rgba(168,118,255,.16),transparent 16rem),
+    linear-gradient(150deg,rgba(14,73,92,.86),rgba(33,22,79,.94));
+}
+
+.insight-preview .stage-state{
+  background:rgba(104,241,224,.14);
+  color:#b9fff5;
+}
+
+.insight-preview .boss-preview__icon{
+  color:#9cfff3;
+}
+
+#nodeW4.boss-preview--available{
+  border-color:rgba(126,250,237,.78);
+  box-shadow:0 16px 40px rgba(32,206,193,.12);
+}
+
+#nodeW4.boss-preview--complete{
+  border-color:rgba(255,204,104,.64);
+  box-shadow:0 16px 40px rgba(255,194,85,.12);
+}
+
+#pathW4 .path-step__dot{
+  border-color:rgba(124,245,233,.38);
+  background:#144e64;
+  color:#b6fff5;
+}
+
+#pathW4.path-step--available .path-step__dot{
+  border-color:#8ff9ec;
+  background:#2ed7bd;
+  color:#06362f;
+}
+
+#pathW4.path-step--cleared .path-step__dot{
+  border-color:#ffe08c;
+  background:#ffc55a;
+  color:#4a3100;
+}
+
+@media(max-width:960px){
+  .path-rail{grid-template-columns:repeat(5,minmax(150px,1fr));overflow-x:auto;padding-bottom:4px;}
+}
+
+@media(max-width:760px){
+  .path-rail{grid-template-columns:1fr;}
+  .insight-preview{grid-column:auto;}
+}
