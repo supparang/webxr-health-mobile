@@ -1,0 +1,95 @@
+/* UX Quest • W4 User Insight Lab
+   A cyan / violet signal-lab layer on top of the shared mission engine.
+*/
+body.uxq-w4-page{
+  background:
+    radial-gradient(circle at 8% 5%,rgba(73,244,213,.18),transparent 27rem),
+    radial-gradient(circle at 94% 13%,rgba(151,115,255,.24),transparent 29rem),
+    linear-gradient(145deg,#05192a 0%,#0a1538 55%,#191047 100%);
+}
+
+body.uxq-w4-page::before{
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  content:"";
+  opacity:.38;
+  background-image:linear-gradient(rgba(116,247,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(116,247,255,.045) 1px,transparent 1px);
+  background-size:34px 34px;
+  mask-image:radial-gradient(circle at 50% 20%,#000 0,rgba(0,0,0,.3) 48%,transparent 84%);
+}
+
+body.uxq-w4-page .uxq-panel{
+  border-color:rgba(106,243,232,.34);
+  background:linear-gradient(152deg,rgba(14,55,82,.94),rgba(20,16,67,.96));
+}
+
+body.uxq-w4-page .uxq-hero{
+  background:
+    radial-gradient(circle at 94% 8%,rgba(107,243,226,.22),transparent 13rem),
+    radial-gradient(circle at 7% 100%,rgba(170,123,255,.16),transparent 15rem),
+    linear-gradient(152deg,rgba(14,55,82,.94),rgba(20,16,67,.96));
+}
+
+body.uxq-w4-page .uxq-brand__mark,
+body.uxq-w4-page .uxq-current-card__icon{
+  border-color:rgba(113,248,239,.72);
+  background:linear-gradient(145deg,rgba(94,244,222,.23),rgba(153,111,255,.30));
+}
+
+body.uxq-w4-page .uxq-kicker,
+body.uxq-w4-page .uxq-mission-tag,
+body.uxq-w4-page .uxq-casebar__label,
+body.uxq-w4-page .uxq-takeaway b{
+  color:#8efcf2;
+}
+
+body.uxq-w4-page .uxq-title{
+  text-shadow:0 0 30px rgba(132,246,237,.14);
+}
+
+body.uxq-w4-page .uxq-stage{
+  border-color:rgba(134,250,239,.58);
+  color:#9bfff6;
+  background:rgba(61,225,211,.08);
+}
+
+body.uxq-w4-page .uxq-progressline i{
+  background:linear-gradient(90deg,#76f4d7,#76dfff 48%,#b78cff);
+}
+
+body.uxq-w4-page .uxq-btn{
+  background:linear-gradient(135deg,#8efcf2,#7dd6ff 58%,#b89aff);
+  color:#07152d;
+}
+
+body.uxq-w4-page .uxq-btn--ghost{
+  background:rgba(5,18,45,.3);
+  color:#efffff;
+  border-color:rgba(141,247,238,.34);
+}
+
+body.uxq-w4-page .uxq-btn--warn{
+  background:#ffd66f;
+  color:#3d2a00;
+}
+
+body.uxq-w4-page .uxq-option:hover:not(:disabled){
+  border-color:rgba(126,249,237,.85);
+  background:rgba(52,135,150,.36);
+}
+
+body.uxq-w4-page .uxq-verify{
+  border-color:rgba(132,250,240,.40);
+  background:rgba(75,227,211,.08);
+}
+
+body.uxq-w4-page .uxq-takeaway{
+  border-color:rgba(129,250,238,.34);
+  background:rgba(89,228,211,.08);
+}
+
+@media (max-width:760px){
+  body.uxq-w4-page::before{background-size:25px 25px;}
+}
