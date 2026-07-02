@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v5.5 • Fresh class launch + route guard
+/* UX Quest • Classroom Configuration v5.6 • W4 route + Thai-first support
    Public configuration only: the receiver is write-only; no teacher read endpoint lives here.
 */
 (() => {
@@ -34,7 +34,7 @@
       'uxq.reason-retry.queue.v1'
     ].forEach(removeStored);
 
-    ['w1', 'w2', 'w3', 'b1'].forEach((id) => {
+    ['w1', 'w2', 'w3', 'b1', 'w4'].forEach((id) => {
       removeStored(`uxq.recent.${id}.v1`);
       removeStored(`uxq.recent.${id}.v2`);
       removeStored(`uxq.run.${id}.v1`);
@@ -42,8 +42,6 @@
     });
   }
 
-  // `fresh=1` is deliberately a one-time browser reset for a new classroom learner.
-  // It clears only local UX Quest state; it never deletes historical rows in Google Sheets.
   if (classroomMode && freshStart) {
     clearFreshClassroomState();
     try {
@@ -63,7 +61,7 @@
     classroomSection,
     allowGuestPractice: !classroomMode,
     maxQueuedAttempts: 12,
-    version: '20260701-classroom-v5.5-fresh-route-guard'
+    version: '20260702-classroom-v5.6-w4-thai-first'
   };
 
   const existing = (window.UXQ_CLASSROOM_CONFIG && typeof window.UXQ_CLASSROOM_CONFIG === 'object')
@@ -71,8 +69,6 @@
     : {};
   const merged = Object.assign({}, defaults, existing);
 
-  // A shared classroom link deliberately wins over any older local/demo setting.
-  // It makes learner identity mandatory and pins the intended section.
   if (classroomMode) {
     merged.classroomMode = 'required';
     merged.allowGuestPractice = false;
@@ -139,13 +135,12 @@
       w1: './w1-ux-crisis-casefile.html',
       w2: './w2-design-thinking-sprint.html',
       w3: './w3-cognitive-load-escape.html',
-      b1: './b1-cognitive-storm.html'
+      b1: './b1-cognitive-storm.html',
+      w4: './w4-user-insight-lab.html'
     };
     return withClassroomParams(files[missionId] || './index.html');
   }
 
-  // The Mission Path uses JavaScript navigation for cards/buttons. Capture it here
-  // so classroom=1 and the intended section cannot disappear on W1/W2/W3/B1.
   function guardMissionNavigation(event){
     if (!classroomMode || event.defaultPrevented) return;
     const target = event.target instanceof Element ? event.target : null;
@@ -153,7 +148,7 @@
 
     const pathStep = target.closest('.path-step');
     if (pathStep && pathStep.classList.contains('path-step--launchable')) {
-      const missionId = ({ pathW1: 'w1', pathW2: 'w2', pathW3: 'w3', pathB1: 'b1' })[pathStep.id];
+      const missionId = ({ pathW1:'w1', pathW2:'w2', pathW3:'w3', pathB1:'b1', pathW4:'w4' })[pathStep.id];
       const destination = classroomMissionHref(missionId);
       if (destination) {
         event.preventDefault();
@@ -163,9 +158,9 @@
       return;
     }
 
-    const button = target.closest('#nodeW3 .compact-stage__footer button, #nodeB1 .boss-preview__footer button');
+    const button = target.closest('#nodeW3 .compact-stage__footer button, #nodeB1 .boss-preview__footer button, #nodeW4 .boss-preview__footer button');
     if (button && !button.disabled) {
-      const missionId = button.closest('#nodeW3') ? 'w3' : 'b1';
+      const missionId = button.closest('#nodeW3') ? 'w3' : (button.closest('#nodeW4') ? 'w4' : 'b1');
       const destination = classroomMissionHref(missionId);
       if (destination) {
         event.preventDefault();
@@ -196,7 +191,7 @@
       carryClassroomParams();
       enforceClassroomSection();
     });
-    observer.observe(root, { childList: true, subtree: true });
+    observer.observe(root, { childList:true, subtree:true });
   }
 
   window.UXQClassroomLaunch = Object.freeze({
@@ -206,8 +201,6 @@
     carryLinks: carryClassroomParams
   });
 
-  /* Presentation and evidence enhancements. They never intercept UXQProgress,
-     mission-engine scoring, gating, or mission-completed delivery. */
   function loadScript(src, marker){
     if (document.querySelector(`script[${marker}]`)) return;
     const script = document.createElement('script');
@@ -219,16 +212,19 @@
 
   function loadResultSupport(){
     loadScript('./js/uxq-result-receipt-v1.js?v=20260629-receipt-v1-1', 'data-uxq-result-receipt');
-    loadScript('./js/uxq-anti-guess-coach-v1.js?v=20260629-replay-coach-v1', 'data-uxq-replay-coach');
+    loadScript('./js/uxq-anti-guess-coach-v1.js?v=20260629-replay-coach-v1', 'data-uxq-anti-guess-coach');
     loadScript('./js/uxq-reason-retry-transport-v1.js?v=20260629-reason-transport-v1', 'data-uxq-reason-transport');
     loadScript('./js/uxq-explain-why-retry-v1.js?v=20260629-explain-retry-v1', 'data-uxq-explain-retry');
+    if (/w4-user-insight-lab\.html/i.test(location.pathname)) {
+      loadScript('./js/uxq-w4-thai-first-v1.js?v=20260702-thai-first-v1', 'data-uxq-w4-thai-first');
+    }
   }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       watchClassroomLinks();
       loadResultSupport();
-    }, { once: true });
+    }, { once:true });
   } else {
     watchClassroomLinks();
     loadResultSupport();
