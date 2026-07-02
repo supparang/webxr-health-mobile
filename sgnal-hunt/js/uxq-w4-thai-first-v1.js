@@ -10,63 +10,34 @@
   document.title = 'UX Quest • W4 ห้องแล็บถอดรหัสผู้ใช้';
 
   const exact = new Map([
-    ['Mission progress', 'ความคืบหน้าภารกิจ'],
-    ['Score', 'คะแนน'],
-    ['Verified', 'เหตุผลที่ผ่าน'],
-    ['Clock', 'เวลา'],
-    ['RESULT SECURED', 'บันทึกผลภารกิจแล้ว'],
-    ['MISSION CLEARED', 'ผ่านภารกิจแล้ว'],
-    ['CASEFILE REVIEW', 'ทบทวนคดี'],
-    ['Anti-guess check:', 'ตรวจการเดา:'],
-    ['score', 'คะแนน'],
-    ['accuracy', 'ความถูกต้อง'],
-    ['verified', 'เหตุผลผ่าน'],
-    ['evidence calls', 'การตัดสินใจ'],
-    ['best combo', 'คอมโบสูงสุด'],
-    ['Badge unlocked:', 'ปลดล็อกรางวัล:'],
-    ['Mission Control', 'ศูนย์ภารกิจ'],
-    ['Reason Check: ทำไมคำตอบนี้จึงน่าเชื่อ?', 'ตรวจเหตุผล: ทำไมคำตอบนี้จึงน่าเชื่อถือ?'],
+    ['Mission progress', 'ความคืบหน้าภารกิจ'], ['Score', 'คะแนน'], ['Verified', 'เหตุผลที่ผ่าน'], ['Clock', 'เวลา'],
+    ['RESULT SECURED', 'บันทึกผลภารกิจแล้ว'], ['MISSION CLEARED', 'ผ่านภารกิจแล้ว'], ['CASEFILE REVIEW', 'ทบทวนคดี'],
+    ['Anti-guess check:', 'ตรวจการเดา:'], ['score', 'คะแนน'], ['accuracy', 'ความถูกต้อง'], ['verified', 'เหตุผลผ่าน'],
+    ['evidence calls', 'การตัดสินใจ'], ['best combo', 'คอมโบสูงสุด'], ['Badge unlocked:', 'ปลดล็อกรางวัล:'],
+    ['Mission Control', 'ศูนย์ภารกิจ'], ['Reason Check: ทำไมคำตอบนี้จึงน่าเชื่อ?', 'ตรวจเหตุผล: ทำไมคำตอบนี้จึงน่าเชื่อถือ?'],
     ['ติดตรงไหน? เปิด Hint ได้ 1 ครั้งต่อข้อ (−15 คะแนน)', 'ติดตรงไหน? ดูคำใบ้ได้ 1 ครั้งต่อข้อ (−15 คะแนน)'],
-    ['ใช้ Hint', 'ดูคำใบ้'],
-    ['เก็บหลักฐานต่อ', 'ทำข้อต่อไป'],
-    ['สรุปผลภารกิจ', 'ดูสรุปผล'],
-    ['User Insight Lab', 'ห้องแล็บถอดรหัสผู้ใช้'],
-    ['ACT II • USER INSIGHT LAB', 'ACT II • ห้องแล็บถอดรหัสผู้ใช้'],
-    ['W4 INSIGHT LAB', 'W4 ห้องแล็บผู้ใช้'],
-    ['ACT II • USER INSIGHT', 'ACT II • เข้าใจผู้ใช้เชิงลึก'],
-    ['BOSS SIGNAL', 'ด่านบอส'],
-    ['CASE', 'คดี'],
-    ['MISSION READY', 'พร้อมเริ่มภารกิจ'],
-    ['REPLAY OR ADVANCE', 'เล่นซ้ำหรือไปต่อ'],
-    ['ACT II READY', 'พร้อมเข้าสู่ Act II'],
-    ['ACT II SECURED', 'ผ่าน Act II แล้ว']
+    ['ใช้ Hint', 'ดูคำใบ้'], ['เก็บหลักฐานต่อ', 'ทำข้อต่อไป'], ['สรุปผลภารกิจ', 'ดูสรุปผล'],
+    ['User Insight Lab', 'ห้องแล็บถอดรหัสผู้ใช้'], ['ACT II • USER INSIGHT LAB', 'ACT II • ห้องแล็บถอดรหัสผู้ใช้'],
+    ['W4 INSIGHT LAB', 'W4 ห้องแล็บผู้ใช้'], ['ACT II • USER INSIGHT', 'ACT II • เข้าใจผู้ใช้เชิงลึก'],
+    ['BOSS SIGNAL', 'ด่านบอส'], ['CASE', 'คดี'], ['MISSION READY', 'พร้อมเริ่มภารกิจ'],
+    ['REPLAY OR ADVANCE', 'เล่นซ้ำหรือไปต่อ'], ['ACT II READY', 'พร้อมเข้าสู่ภารกิจถัดไป'], ['ACT II SECURED', 'ผ่านภารกิจแล้ว'],
+    ['Decision • Reason Check ทุกจุด', 'การตัดสินใจ 12 ข้อ • ตรวจเหตุผลทุกข้อ'],
+    ['2★ Readiness', '2★ ระดับความพร้อม'], ['3★ ต้อง Verified ความเข้าใจเชิงลึก 75%+', '3★ ต้องมีเหตุผลผ่านการตรวจ 75%+'],
+    ['กลับ Mission Control', 'กลับศูนย์ภารกิจ']
   ]);
 
   const fragments = [
-    ['Signal Scan:', 'สแกนเสียงผู้ใช้:'],
-    ['Signal Filter:', 'แยกสิ่งที่เห็นจริง:'],
-    ['Insight Lens:', 'สกัดความเข้าใจเชิงลึก:'],
-    ['Define Lock:', 'ตั้งโจทย์ให้ตรงผู้ใช้:'],
-    ['Boss Signal', 'ด่านบอส: ข้อมูลชนกัน'],
-    ['Point of View / HMW', 'โจทย์ออกแบบ'],
-    ['Observation', 'สิ่งที่สังเกตได้'],
-    ['Assumption', 'ข้อสันนิษฐาน'],
-    ['Solution', 'แนวทางแก้'],
-    ['Insight', 'ความเข้าใจเชิงลึก'],
-    ['Verified Insight', 'เหตุผลเชิงลึกที่ผ่านการตรวจ'],
-    ['Insight Run', 'รอบสกัดความเข้าใจเชิงลึก'],
-    ['Casefile', 'คดี'],
-    ['Case', 'คดี'],
-    ['Boss', 'บอส'],
-    ['Hint', 'คำใบ้'],
-    ['visual', 'หน้าตา'],
-    ['solution', 'แนวทางแก้'],
-    ['task', 'งานที่ผู้ใช้ต้องทำ'],
-    ['mental model', 'ความเข้าใจของผู้ใช้ต่อระบบ'],
-    ['Human-Centered Solver', 'นักแก้ปัญหาโดยยึดผู้ใช้เป็นศูนย์กลาง'],
-    ['Evidence Architect', 'นักออกแบบจากหลักฐาน'],
-    ['Insight Scout', 'นักสืบความเข้าใจผู้ใช้'],
-    ['Casefile Rookie', 'นักสืบคดีมือใหม่']
+    ['User ความเข้าใจเชิงลึก Lab:', 'ห้องแล็บถอดรหัสผู้ใช้'],
+    ['Signal Scan:', 'สแกนเสียงผู้ใช้:'], ['Signal Filter:', 'แยกสิ่งที่เห็นจริง:'],
+    ['Insight Lens:', 'สกัดความเข้าใจเชิงลึก:'], ['Define Lock:', 'ตั้งโจทย์ให้ตรงผู้ใช้:'],
+    ['Boss Signal', 'ด่านบอส: ข้อมูลชนกัน'], ['Point of View / HMW', 'โจทย์ออกแบบ'],
+    ['Observation', 'สิ่งที่สังเกตได้'], ['Assumption', 'ข้อสันนิษฐาน'], ['Solution', 'แนวทางแก้'],
+    ['Insight', 'ความเข้าใจเชิงลึก'], ['Verified Insight', 'เหตุผลเชิงลึกที่ผ่านการตรวจ'],
+    ['Insight Run', 'รอบสกัดความเข้าใจเชิงลึก'], ['Casefile', 'คดี'], ['Case', 'คดี'], ['Boss', 'บอส'],
+    ['Hint', 'คำใบ้'], ['Readiness', 'ระดับความพร้อม'], ['visual', 'หน้าตา'], ['solution', 'แนวทางแก้'],
+    ['task', 'งานที่ผู้ใช้ต้องทำ'], ['mental model', 'ความเข้าใจของผู้ใช้ต่อระบบ'],
+    ['Human-Centered Solver', 'นักแก้ปัญหาโดยยึดผู้ใช้เป็นศูนย์กลาง'], ['Evidence Architect', 'นักออกแบบจากหลักฐาน'],
+    ['Insight Scout', 'นักสืบความเข้าใจผู้ใช้'], ['Casefile Rookie', 'นักสืบคดีมือใหม่']
   ];
 
   function replaceText(text) {
@@ -90,6 +61,17 @@
     });
   }
 
+  function setText(selector, value){
+    const el = document.querySelector(selector);
+    if (el && el.textContent !== value) el.textContent = value;
+  }
+
+  function forceThaiHero(){
+    setText('.uxq-hero .uxq-kicker', 'ACT II • ห้องแล็บถอดรหัสผู้ใช้');
+    setText('.uxq-hero h1, .uxq-hero .uxq-title', 'ห้องแล็บถอดรหัสผู้ใช้');
+    setText('.uxq-hero .uxq-intro', 'สแกนเสียงผู้ใช้ คัดสิ่งที่เห็นจริง สกัดความเข้าใจเชิงลึก และเลือกโจทย์ที่ควรแก้ก่อน');
+  }
+
   function injectGlossary(){
     if (document.getElementById('uxq-w4-thai-glossary')) return;
     const hero = document.querySelector('.uxq-hero');
@@ -104,19 +86,9 @@
     else hero.appendChild(card);
   }
 
-  function apply(){
-    translate();
-    injectGlossary();
-  }
-
+  function apply(){ translate(); forceThaiHero(); injectGlossary(); }
   const observer = new MutationObserver(() => apply());
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      apply();
-      observer.observe(document.documentElement, { childList:true, subtree:true });
-    }, { once:true });
-  } else {
-    apply();
-    observer.observe(document.documentElement, { childList:true, subtree:true });
-  }
+    document.addEventListener('DOMContentLoaded', () => { apply(); observer.observe(document.documentElement, { childList:true, subtree:true }); }, { once:true });
+  } else { apply(); observer.observe(document.documentElement, { childList:true, subtree:true }); }
 })();
