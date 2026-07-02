@@ -8,6 +8,7 @@
 
   <link rel="stylesheet" href="./css/uxq-core.css" />
   <link rel="stylesheet" href="./css/uxq-hub.css" />
+  <link rel="stylesheet" href="./css/uxq-hub-act2.css?v=20260702-w4-lab-v1" />
 </head>
 <body class="uxq-hub-page">
   <main class="hub-shell">
@@ -27,22 +28,22 @@
         </summary>
 
         <div class="hub-menu__panel">
-          <p class="hub-menu__eyebrow">CASEFILE PROGRESS</p>
-          <strong id="menuProgressText">0/4 nodes • ☆☆☆</strong>
+          <p class="hub-menu__eyebrow">QUEST PROGRESS</p>
+          <strong id="menuProgressText">0/5 nodes • ☆☆☆</strong>
           <small id="menuScoreText">Best score 0</small>
-          <button id="resetProgressBtn" type="button">รีเซ็ตความคืบหน้า Act I</button>
+          <button id="resetProgressBtn" type="button">รีเซ็ตความก้าวหน้า UX Quest</button>
         </div>
       </details>
     </header>
 
     <section class="overview-grid" aria-labelledby="actTitle">
       <div class="act-intro">
-        <p class="eyebrow act-intro__eyebrow">ACT I • HUMAN-CENTERED DESIGN</p>
-        <h1 id="actTitle">Understand Humans</h1>
-        <p class="act-intro__lede">เข้าใจผู้ใช้ก่อนแก้ interface</p>
+        <p class="eyebrow act-intro__eyebrow">ACT I → ACT II • HUMAN-CENTERED DESIGN</p>
+        <h1 id="actTitle">Understand → Insight</h1>
+        <p class="act-intro__lede">เริ่มจากหลักฐานผู้ใช้ แล้วสกัด Insight ก่อนตัดสินใจแก้ interface</p>
 
-        <div class="quick-progress" aria-label="ความก้าวหน้า Act I">
-          <span><b id="actProgressText">0/4</b> nodes</span>
+        <div class="quick-progress" aria-label="ความก้าวหน้า UX Quest">
+          <span><b id="actProgressText">0/5</b> nodes</span>
           <span><b id="heroStars">☆☆☆</b> mastery</span>
           <span><b id="heroScore">0</b> best score</span>
         </div>
@@ -64,7 +65,7 @@
         </div>
 
         <div class="current-card__meta">
-          <span>⏱ 8–10 นาที</span>
+          <span>⏱ 8–15 นาที</span>
           <span id="nowReward">★ 2 Readiness เพื่อปลดล็อก W2</span>
         </div>
 
@@ -79,12 +80,12 @@
       <div class="mission-path__heading">
         <div>
           <p class="eyebrow">MISSION PATH</p>
-          <h2 id="pathTitle">เส้นทาง Act I</h2>
+          <h2 id="pathTitle">เส้นทาง UX Quest</h2>
         </div>
         <p id="pathHint">ผ่าน W1 Casefile ที่ 2★ Readiness เพื่อปลดล็อก W2</p>
       </div>
 
-      <ol class="path-rail" aria-label="ลำดับภารกิจ Act I">
+      <ol class="path-rail" aria-label="ลำดับภารกิจ UX Quest">
         <li class="path-step path-step--available" id="pathW1">
           <span class="path-step__dot">1</span>
           <span class="path-step__copy">
@@ -113,6 +114,13 @@
             <small>Boss Gate</small>
           </span>
         </li>
+        <li class="path-step" id="pathW4">
+          <span class="path-step__dot">4</span>
+          <span class="path-step__copy">
+            <b>W4 • User Insight Lab</b>
+            <small id="pathW4State">Pass B1 2★ Readiness</small>
+          </span>
+        </li>
       </ol>
     </section>
 
@@ -122,7 +130,7 @@
           <p class="eyebrow">UP NEXT</p>
           <h2 id="upNextTitle">ภารกิจถัดไป</h2>
         </div>
-        <p>ปลดล็อกตามการเรียน ไม่ต้องไล่หาเมนู</p>
+        <p>ปลดล็อกตามเส้นทางเรียน และเล่นซ้ำด้วย Casefile ที่สุ่มใหม่ได้</p>
       </div>
 
       <div class="up-next-grid">
@@ -184,6 +192,25 @@
             <button type="button" disabled>Friction Core Locked</button>
           </div>
         </article>
+
+        <article class="boss-preview insight-preview" id="nodeW4">
+          <div class="boss-preview__top">
+            <span class="stage-number">W4</span>
+            <span class="stage-state">ACT II LOCKED</span>
+          </div>
+          <div class="boss-preview__body">
+            <span class="boss-preview__icon" aria-hidden="true">◉</span>
+            <div>
+              <p class="compact-stage__type">ACT II • USER INSIGHT</p>
+              <h3>User Insight Lab</h3>
+              <p>สแกนเสียงผู้ใช้ แยก Observation → Insight → HMW แล้วฝ่า Boss Signal ที่ข้อมูลชนกัน</p>
+            </div>
+          </div>
+          <div class="boss-preview__footer">
+            <span>ต้องเคลียร์ B1 • Cognitive Storm ก่อน</span>
+            <button type="button" disabled>Insight Lab Locked</button>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -191,7 +218,7 @@
       <summary>
         <span>
           <b>วิธีเล่น UX Quest</b>
-          <small>Evidence → Hypothesis → Fix → Test Decision</small>
+          <small>แต่ละ Mission ใช้กรอบคิดที่ต่างกัน และทุกด่านมี Reason Check เพื่อกันการเดา</small>
         </span>
         <span class="how-card__chevron" aria-hidden="true">⌄</span>
       </summary>
@@ -199,14 +226,14 @@
         <li><b>1</b><span><strong>Evidence</strong><small>เลือกหลักฐานที่ช่วยแยกสาเหตุ</small></span></li>
         <li><b>2</b><span><strong>Hypothesis</strong><small>ตั้งสาเหตุที่หลักฐานสนับสนุน</small></span></li>
         <li><b>3</b><span><strong>Fix</strong><small>ลงทุนแก้สาเหตุภายใต้ข้อจำกัด</small></span></li>
-        <li><b>4</b><span><strong>Test Decision</strong><small>อ่านผลจริงแล้วตัดสินใจ Iteration / Pilot / Hold</small></span></li>
+        <li><b>4</b><span><strong>Insight</strong><small>สกัดความต้องการที่ซ่อนอยู่ก่อนล็อกโจทย์ใหม่</small></span></li>
       </ol>
     </details>
   </main>
-  <script src="./js/uxq-classroom-config-v2.js?v=20260628-classroom-receiver-v2"></script>
-  <script src="./js/uxq-progress-v2.js?v=20260628-storage-safe1"></script>
-  <script src="./js/uxq-identity-v1.js?v=20260628-classroom-v1"></script>
-  <script src="./js/uxq-analytics-v2.js?v=20260628-classroom-receiver-v2"></script>
-  <script src="./js/uxq-hub-casefile-v16.js?v=20260628-classroom-v1"></script>
+  <script src="./js/uxq-classroom-config-v2.js?v=20260702-w4-lab-v1"></script>
+  <script src="./js/uxq-progress-v3.js?v=20260702-w4-lab-v1"></script>
+  <script src="./js/uxq-identity-v1.js?v=20260702-w4-lab-v1"></script>
+  <script src="./js/uxq-analytics-v2.js?v=20260702-w4-lab-v1"></script>
+  <script src="./js/uxq-hub-casefile-v17.js?v=20260702-w4-lab-v1"></script>
 </body>
 </html>
