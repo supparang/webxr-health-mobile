@@ -1,6 +1,6 @@
 /* UX Quest • W4 Thai-first learner language
-   Keeps only core UX vocabulary in English on first encounter, while replacing
-   gameplay chrome and instructional wording with Thai for Thai undergraduates.
+   Keeps only a small glossary of core UX vocabulary in English. Gameplay chrome,
+   questions, hints, and feedback remain Thai-first for Thai undergraduates.
 */
 (() => {
   'use strict';
@@ -43,10 +43,10 @@
     ['Define Lock:', 'ตั้งโจทย์ให้ตรงผู้ใช้:'],
     ['Boss Signal', 'ด่านบอส: ข้อมูลชนกัน'],
     ['Point of View / HMW', 'โจทย์ออกแบบ (HMW)'],
-    ['Observation', 'สิ่งที่สังเกตได้ (Observation)'],
+    ['Observation', 'สิ่งที่สังเกตได้'],
     ['Assumption', 'ข้อสันนิษฐาน'],
     ['Solution', 'แนวทางแก้'],
-    ['Insight', 'ความเข้าใจเชิงลึก (Insight)'],
+    ['Insight', 'ความเข้าใจเชิงลึก'],
     ['Casefile', 'คดี'],
     ['Case', 'คดี'],
     ['Boss', 'บอส'],
@@ -72,7 +72,7 @@
     while (walker.nextNode()) nodes.push(walker.currentNode);
     nodes.forEach((node) => {
       const parent = node.parentElement;
-      if (!parent || ['SCRIPT', 'STYLE'].includes(parent.tagName)) return;
+      if (!parent || ['SCRIPT', 'STYLE'].includes(parent.tagName) || parent.closest('[data-uxq-no-translate]')) return;
       const original = node.nodeValue;
       const next = replaceText(original);
       if (next !== original) node.nodeValue = next;
@@ -85,6 +85,7 @@
     if (!hero) return;
     const card = document.createElement('aside');
     card.id = 'uxq-w4-thai-glossary';
+    card.dataset.uxqNoTranslate = '1';
     card.style.cssText = 'border:1px solid rgba(142,252,242,.35);border-radius:16px;padding:13px 15px;background:rgba(65,223,207,.08);color:#e9ffff;line-height:1.55;font-size:.91rem';
     card.innerHTML = '<b style="display:block;color:#9bfff6;margin-bottom:5px">ศัพท์ UX ที่ต้องรู้ในด่านนี้</b><span><b>สิ่งที่สังเกตได้ (Observation)</b> = สิ่งที่เห็นหรือบันทึกได้จริง • <b>ความเข้าใจเชิงลึก (Insight)</b> = ความต้องการหรือแรงกังวลที่ซ่อนอยู่ • <b>HMW</b> = โจทย์ออกแบบที่ยังไม่ล็อกคำตอบ</span>';
     const actions = hero.querySelector('.uxq-actions');
