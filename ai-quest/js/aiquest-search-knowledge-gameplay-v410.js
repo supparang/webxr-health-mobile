@@ -1,39 +1,45 @@
-/* AI Quest Thai-first labels v4.1.16 — S2 boss feedback aliases */
+/* AI Quest Thai-first labels v4.1.17 — S2 boss on-screen feedback */
 (()=>{
 'use strict';
-const V='v4.1.16-s2-boss-feedback-aliases';
+const V='v4.1.17-s2-boss-onscreen-feedback';
 const L={'Card Rush':'ตัดสินใจเร็ว: AI หรือไม่ (Card Rush)','Trick Check':'จับกับดักความเข้าใจ (Trick Check)','Explain Strike':'อธิบายเหตุผล (Explain Strike)','Rookie Boss':'บอสมือใหม่ AI (Rookie Boss)','Agent Check':'ตรวจระบบตัวแทน (Agent Check)','PEAS Builder':'สร้าง PEAS ของ Agent (PEAS Builder)','Environment Lab':'วิเคราะห์สภาพแวดล้อม (Environment Lab)','Rational Agent Boss':'บอสตัวแทนมีเหตุผล (Rational Agent Boss)','Search Concept':'แนวคิดการค้นหา (Search Concept)','BFS Trace':'ตามรอย BFS (BFS Trace)','DFS Trace':'ตามรอย DFS (DFS Trace)','Search Boss':'บอสการค้นหา (Search Boss)','Cost Concept':'แนวคิดต้นทุนเส้นทาง (Cost Concept)','UCS Trace':'ตามรอย UCS (UCS Trace)','Optimal Path':'เส้นทางต้นทุนต่ำสุด (Optimal Path)','Frontier Cost':'เลือกจากแนวหน้าตามต้นทุน (Frontier Cost)','BFS vs UCS':'เปรียบเทียบ BFS กับ UCS','Cost Boss':'บอสต้นทุนเส้นทาง (Cost Boss)','A* Concept':'แนวคิด A* (A* Concept)','A* Trace':'ตามรอย A* (A* Trace)','Heuristic Check':'ตรวจค่า heuristic','A* Boss':'บอส A*','Search Arena':'สนามประลองการค้นหา (Search Arena)'};
 const s=v=>String(v==null?'':v).trim();
-function bossWhy(x){
-  const claim=s(x.claim||x.prompt||x.label);
-  const counter=s(x.counter||x.answer);
-  return 'เหตุผล: '+(counter||'ให้ตรวจจาก percept, goal และ action')+' — อย่าตัดสินจากคำว่า smart, automatic หรือมี sensor เพียงอย่างเดียว';
-}
-function s2Feedback(x){
-  const raw=s(x.phase).toLowerCase(), id=s(x.id), type=s(x.type);
-  const isBoss=/boss|rational/.test(raw+' '+id+' '+type);
-  if(!s(x.hint)) x.hint=isBoss?'อ่านคำกล่าวของบอส แล้วตรวจว่าระบบมี percept, goal และการเลือก action จริงหรือไม่':'พิจารณาว่าระบบรับรู้สภาพแวดล้อมและเลือก action เพื่อเป้าหมายหรือไม่';
-  let why=s(x.why||x.feedback||x.explain||x.explanation||x.coach);
-  if(!why){
-    if(isBoss) why=bossWhy(x);
-    else if(s(x.answer||x.counter)==='Agent') why='ระบบนี้รับข้อมูลจากสภาพแวดล้อมและเลือกการกระทำเพื่อบรรลุเป้าหมาย จึงเข้าลักษณะของ agent';
-    else if(s(x.answer||x.counter)==='Not Agent') why='ระบบนี้ทำงานตามคำสั่งหรือกฎตายตัวเป็นหลัก โดยไม่ได้เลือกการกระทำตามสภาพแวดล้อมเพื่อเป้าหมาย';
-    else if(s(x.answer||x.counter)==='Maybe Agent') why='ข้อมูลในโจทย์ยังไม่พอ ต้องดูเพิ่มว่าระบบมีการรับรู้บริบทและเลือกการกระทำตามเป้าหมายหรือไม่';
-    else why='พิจารณาจากบทบาทของ percept, goal, action และสภาพแวดล้อมของระบบ';
-  }
-  x.why=why;x.feedback=why;x.explain=why;x.explanation=why;x.coach=why;
-  return x;
-}
-function fix(x){
-  if(!x||typeof x!=='object')return x;
-  const raw=s(x.phase);
-  if(L[raw])x.phase=L[raw];
-  ['prompt','label','claim','hint','why','feedback','explain','explanation','coach','counter'].forEach(k=>{if(x[k])x[k]=s(x[k]).replace('Rookie Boss Claim:','คำกล่าวของบอสมือใหม่:').replace('Rational Agent Boss Claim:','คำกล่าวของบอสตัวแทนมีเหตุผล:').replace('Boss Claim:','คำกล่าวของบอส:').replace('Cost Boss Claim:','คำกล่าวของบอสต้นทุน:')});
-  if(/^s2_|agent|peas|environment|rational/i.test(s(x.id)+' '+raw+' '+s(x.type)))s2Feedback(x);
-  return x;
-}
+function fix(x){if(!x||typeof x!=='object')return x;const raw=s(x.phase);if(L[raw])x.phase=L[raw];return x}
 function round(r){if(!r)return r;Object.keys(r).forEach(k=>{if(Array.isArray(r[k]))r[k]=r[k].map(fix)});if(Array.isArray(r.phases))r.phases=r.phases.map(x=>L[x]||x);return r}
-function wrap(n){const o=window[n];if(typeof o!=='function'||o.__thai416)return;const f=d=>round(o(d));f.__thai416=true;window[n]=f}
-function run(){['buildMission1Round','buildSession2Round','buildBoss1Round','buildSession3Round','buildSession4Round','buildSession5Round','buildBoss2Round'].forEach(wrap);window.AIQuestSearchKnowledgeGameplay={version:V,mode:'thai-first-s2-boss-feedback-ready'};console.log('[AIQuest] '+V+' loaded')}
+function wrap(n){const o=window[n];if(typeof o!=='function'||o.__thai417)return;const f=d=>round(o(d));f.__thai417=true;window[n]=f}
+function isS2Boss(btn){
+  const shell=btn.closest('.gamePanel,.missionPanel,.questionCard,.panel,.card,section,div')||document.body;
+  const near=(shell.innerText||'').slice(0,1600);
+  const page=(document.body.innerText||'').slice(0,5000);
+  return /Rational Agent Boss|บอสตัวแทนมีเหตุผล|Agent Boss|คำกล่าวของบอส/i.test(near)||/Session 2|Agent Builder|S2/i.test(page)&&/Boss|บอส/i.test(near);
+}
+function getBox(btn){
+  let p=btn.parentElement;
+  for(let i=0;i<6&&p;i++,p=p.parentElement){if(p.querySelectorAll('button').length>=2)return p;}
+  return btn.parentElement||document.body;
+}
+function showBossFeedback(btn){
+  if(!isS2Boss(btn))return;
+  const box=getBox(btn);
+  const old=box.querySelector('.aq-s2-boss-feedback');if(old)old.remove();
+  const correct=btn.dataset.ok==='true'||btn.classList.contains('correct')||/ไม่ถูก|ไม่จริง|ไม่เสมอ|ต้องดู/.test(btn.textContent||'');
+  const claim=(box.innerText||'').match(/[“"]([^”"]+)[”"]/);
+  const text=correct
+    ?'✅ ตอบถูก — ให้ตัดสินจากว่า ระบบรับรู้ข้อมูล (percept) เลือกการกระทำ (action) เพื่อเป้าหมาย (goal) หรือไม่ ไม่ใช่ดูเพียงว่าดูฉลาด ทำงานอัตโนมัติ หรือมี sensor.'
+    :'❌ ยังไม่ถูก — กลับไปตรวจ 3 จุด: ระบบรับรู้อะไร, ต้องการบรรลุเป้าหมายใด, และเลือก action ตามข้อมูลนั้นหรือไม่. คำว่า smart หรือ automatic อย่างเดียวไม่พอจะยืนยันว่าเป็น intelligent agent.';
+  const d=document.createElement('div');
+  d.className='aq-s2-boss-feedback';
+  d.style.cssText='margin-top:12px;padding:12px 14px;border-radius:14px;line-height:1.55;background:'+(correct?'rgba(52,211,153,.12)':'rgba(251,113,133,.12)')+';border:1px solid '+(correct?'rgba(52,211,153,.45)':'rgba(251,113,133,.45)')+';font-weight:800;text-align:left';
+  d.textContent=text;
+  box.appendChild(d);
+}
+function listen(){
+  document.addEventListener('click',ev=>{
+    const b=ev.target.closest('button,.choiceBtn,.choice');
+    if(!b)return;
+    setTimeout(()=>showBossFeedback(b),60);
+  },true);
+}
+function run(){['buildMission1Round','buildSession2Round','buildBoss1Round','buildSession3Round','buildSession4Round','buildSession5Round','buildBoss2Round'].forEach(wrap);listen();window.AIQuestSearchKnowledgeGameplay={version:V,mode:'thai-first-s2-boss-visible-feedback'};console.log('[AIQuest] '+V+' loaded')}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(run,250),{once:true});else setTimeout(run,250);
 })();
