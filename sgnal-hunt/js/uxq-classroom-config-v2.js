@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v5.7 • W4 replay-bank preload */
+/* UX Quest • Classroom Configuration v5.8 • Thai learner interface */
 (() => {
   'use strict';
 
@@ -7,8 +7,6 @@
   const classroomMode = ['1', 'true', 'class', 'classroom', 'required'].includes(rawClassroomMode);
   const freshStart = ['1', 'true', 'fresh', 'new', 'reset'].includes(String(query.get('fresh') || query.get('newLearner') || '').trim().toLowerCase());
 
-  /* This config file is parser-blocking. Preloading here guarantees that the W4
-     bank and hook exist before uxq-mission-engine-v3.js is evaluated. */
   if (/w4-user-insight-lab\.html/i.test(location.pathname) && document.readyState === 'loading') {
     document.write('<script src="./js/uxq-w4-engine-hook-v1.js?v=20260702-w4-bank-v1"><\/script><script src="./js/uxq-w4-extra-bank-v1.js?v=20260702-w4-bank-v1"><\/script>');
   }
@@ -43,7 +41,7 @@
     courseId: 'UXQ-ACT1-2026', courseLabel: 'UX Quest • Act I',
     defaultSection: classroomSection || '', classroomMode: classroomMode ? 'required' : 'practice',
     classroomSection, allowGuestPractice: !classroomMode, maxQueuedAttempts: 12,
-    version: '20260702-classroom-v5.7-w4-expanded-bank'
+    version: '20260702-classroom-v5.8-thai-engine'
   };
   const existing = (window.UXQ_CLASSROOM_CONFIG && typeof window.UXQ_CLASSROOM_CONFIG === 'object') ? window.UXQ_CLASSROOM_CONFIG : {};
   const merged = Object.assign({}, defaults, existing);
@@ -132,6 +130,7 @@
     const script = document.createElement('script'); script.src = src; script.async = false; script.setAttribute(marker, '1'); document.head.appendChild(script);
   }
   function loadResultSupport(){
+    loadScript('./js/uxq-engine-thai-v1.js?v=20260702-engine-thai-v1','data-uxq-engine-thai');
     loadScript('./js/uxq-result-receipt-v1.js?v=20260629-receipt-v1-1','data-uxq-result-receipt');
     loadScript('./js/uxq-anti-guess-coach-v1.js?v=20260629-replay-coach-v1','data-uxq-anti-guess-coach');
     loadScript('./js/uxq-reason-retry-transport-v1.js?v=20260629-reason-transport-v1','data-uxq-reason-transport');
