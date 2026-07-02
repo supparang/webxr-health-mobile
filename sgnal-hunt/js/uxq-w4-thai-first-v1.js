@@ -1,6 +1,6 @@
-/* UX Quest • W4 Thai-first learner language
-   Keeps only a small glossary of core UX vocabulary in English. Gameplay chrome,
-   questions, hints, and feedback remain Thai-first for Thai undergraduates.
+/* UX Quest • W4 Thai-only gameplay
+   Student gameplay is Thai-only. English UX terms appear only in the optional
+   mini glossary before the learner starts the mission.
 */
 (() => {
   'use strict';
@@ -25,7 +25,6 @@
     ['best combo', 'คอมโบสูงสุด'],
     ['Badge unlocked:', 'ปลดล็อกรางวัล:'],
     ['Mission Control', 'ศูนย์ภารกิจ'],
-    ['ออก', 'ออกจากภารกิจ'],
     ['Reason Check: ทำไมคำตอบนี้จึงน่าเชื่อ?', 'ตรวจเหตุผล: ทำไมคำตอบนี้จึงน่าเชื่อถือ?'],
     ['ติดตรงไหน? เปิด Hint ได้ 1 ครั้งต่อข้อ (−15 คะแนน)', 'ติดตรงไหน? ดูคำใบ้ได้ 1 ครั้งต่อข้อ (−15 คะแนน)'],
     ['ใช้ Hint', 'ดูคำใบ้'],
@@ -33,7 +32,14 @@
     ['สรุปผลภารกิจ', 'ดูสรุปผล'],
     ['User Insight Lab', 'ห้องแล็บถอดรหัสผู้ใช้'],
     ['ACT II • USER INSIGHT LAB', 'ACT II • ห้องแล็บถอดรหัสผู้ใช้'],
-    ['W4 INSIGHT LAB', 'W4 ห้องแล็บผู้ใช้']
+    ['W4 INSIGHT LAB', 'W4 ห้องแล็บผู้ใช้'],
+    ['ACT II • USER INSIGHT', 'ACT II • เข้าใจผู้ใช้เชิงลึก'],
+    ['BOSS SIGNAL', 'ด่านบอส'],
+    ['CASE', 'คดี'],
+    ['MISSION READY', 'พร้อมเริ่มภารกิจ'],
+    ['REPLAY OR ADVANCE', 'เล่นซ้ำหรือไปต่อ'],
+    ['ACT II READY', 'พร้อมเข้าสู่ Act II'],
+    ['ACT II SECURED', 'ผ่าน Act II แล้ว']
   ]);
 
   const fragments = [
@@ -42,20 +48,25 @@
     ['Insight Lens:', 'สกัดความเข้าใจเชิงลึก:'],
     ['Define Lock:', 'ตั้งโจทย์ให้ตรงผู้ใช้:'],
     ['Boss Signal', 'ด่านบอส: ข้อมูลชนกัน'],
-    ['Point of View / HMW', 'โจทย์ออกแบบ (HMW)'],
+    ['Point of View / HMW', 'โจทย์ออกแบบ'],
     ['Observation', 'สิ่งที่สังเกตได้'],
     ['Assumption', 'ข้อสันนิษฐาน'],
     ['Solution', 'แนวทางแก้'],
     ['Insight', 'ความเข้าใจเชิงลึก'],
+    ['Verified Insight', 'เหตุผลเชิงลึกที่ผ่านการตรวจ'],
+    ['Insight Run', 'รอบสกัดความเข้าใจเชิงลึก'],
     ['Casefile', 'คดี'],
     ['Case', 'คดี'],
     ['Boss', 'บอส'],
-    ['Verified Insight', 'เหตุผลเชิงลึกที่ผ่านการตรวจ'],
-    ['Insight Run', 'รอบสกัดความเข้าใจเชิงลึก'],
+    ['Hint', 'คำใบ้'],
     ['visual', 'หน้าตา'],
     ['solution', 'แนวทางแก้'],
     ['task', 'งานที่ผู้ใช้ต้องทำ'],
-    ['mental model', 'ความเข้าใจของผู้ใช้ต่อระบบ']
+    ['mental model', 'ความเข้าใจของผู้ใช้ต่อระบบ'],
+    ['Human-Centered Solver', 'นักแก้ปัญหาโดยยึดผู้ใช้เป็นศูนย์กลาง'],
+    ['Evidence Architect', 'นักออกแบบจากหลักฐาน'],
+    ['Insight Scout', 'นักสืบความเข้าใจผู้ใช้'],
+    ['Casefile Rookie', 'นักสืบคดีมือใหม่']
   ];
 
   function replaceText(text) {
@@ -87,7 +98,7 @@
     card.id = 'uxq-w4-thai-glossary';
     card.dataset.uxqNoTranslate = '1';
     card.style.cssText = 'border:1px solid rgba(142,252,242,.35);border-radius:16px;padding:13px 15px;background:rgba(65,223,207,.08);color:#e9ffff;line-height:1.55;font-size:.91rem';
-    card.innerHTML = '<b style="display:block;color:#9bfff6;margin-bottom:5px">ศัพท์ UX ที่ต้องรู้ในด่านนี้</b><span><b>สิ่งที่สังเกตได้ (Observation)</b> = สิ่งที่เห็นหรือบันทึกได้จริง • <b>ความเข้าใจเชิงลึก (Insight)</b> = ความต้องการหรือแรงกังวลที่ซ่อนอยู่ • <b>HMW</b> = โจทย์ออกแบบที่ยังไม่ล็อกคำตอบ</span>';
+    card.innerHTML = '<b style="display:block;color:#9bfff6;margin-bottom:5px">ศัพท์ UX ที่ควรรู้ก่อนเริ่ม</b><span>สิ่งที่สังเกตได้ <b>(Observation)</b> = สิ่งที่เห็นหรือบันทึกได้จริง • ความเข้าใจเชิงลึก <b>(Insight)</b> = ความต้องการหรือแรงกังวลที่ซ่อนอยู่ • โจทย์ออกแบบ <b>(HMW)</b> = คำถามที่ยังไม่ล็อกคำตอบ</span>';
     const actions = hero.querySelector('.uxq-actions');
     if (actions) actions.insertAdjacentElement('beforebegin', card);
     else hero.appendChild(card);
