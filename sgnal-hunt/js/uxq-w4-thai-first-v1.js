@@ -31,7 +31,6 @@
     ['ใช้ Hint', 'ดูคำใบ้'],
     ['เก็บหลักฐานต่อ', 'ทำข้อต่อไป'],
     ['สรุปผลภารกิจ', 'ดูสรุปผล'],
-    ['เล่นอีกครั้งด้วยคดีใหม่', 'เล่นอีกครั้งด้วยคดีใหม่'],
     ['User Insight Lab', 'ห้องแล็บถอดรหัสผู้ใช้'],
     ['ACT II • USER INSIGHT LAB', 'ACT II • ห้องแล็บถอดรหัสผู้ใช้'],
     ['W4 INSIGHT LAB', 'W4 ห้องแล็บผู้ใช้']
@@ -48,6 +47,11 @@
     ['Assumption', 'ข้อสันนิษฐาน'],
     ['Solution', 'แนวทางแก้'],
     ['Insight', 'ความเข้าใจเชิงลึก (Insight)'],
+    ['Casefile', 'คดี'],
+    ['Case', 'คดี'],
+    ['Boss', 'บอส'],
+    ['Verified Insight', 'เหตุผลเชิงลึกที่ผ่านการตรวจ'],
+    ['Insight Run', 'รอบสกัดความเข้าใจเชิงลึก'],
     ['visual', 'หน้าตา'],
     ['solution', 'แนวทางแก้'],
     ['task', 'งานที่ผู้ใช้ต้องทำ'],
@@ -97,10 +101,10 @@
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       apply();
-      observer.observe(document.documentElement, { childList:true, subtree:true, characterData:true });
+      observer.observe(document.documentElement, { childList:true, subtree:true });
     }, { once:true });
   } else {
     apply();
-    observer.observe(document.documentElement, { childList:true, subtree:true, characterData:true });
+    observer.observe(document.documentElement, { childList:true, subtree:true });
   }
 })();
