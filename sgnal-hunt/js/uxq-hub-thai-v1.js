@@ -8,13 +8,39 @@
     nodeW4:['ห้องแล็บถอดรหัสผู้ใช้','สแกนเสียงผู้ใช้ แยกสิ่งที่เห็นจริง สกัดความเข้าใจเชิงลึก และตั้งโจทย์']
   };
   const thaiState = {LOCKED:'ล็อกอยู่',READY:'พร้อมเริ่ม',CLEARED:'ผ่านแล้ว','BOSS READY':'บอสพร้อม','BOSS GATE':'ด่านบอส','ACT II READY':'พร้อมเข้าสู่ภารกิจถัดไป','ACT II LOCKED':'ภารกิจถัดไปยังล็อกอยู่','INSIGHT SECURED':'ยืนยันความเข้าใจผู้ใช้แล้ว','MISSION READY':'พร้อมเริ่มภารกิจ','REPLAY OR ADVANCE':'เล่นซ้ำหรือไปต่อ','ACT II SECURED':'ผ่านภารกิจแล้ว'};
-  function set(id, value){ const el=document.getElementById(id); if(el) el.textContent=value; }
+  const put = (el, value) => { if (el && el.textContent !== value) el.textContent = value; };
+  const replace = (el, pairs) => {
+    if (!el) return;
+    let next = el.textContent;
+    pairs.forEach(([from, to]) => { next = next.split(from).join(to); });
+    if (next !== el.textContent) el.textContent = next;
+  };
   function apply(){
-    Object.entries(text).forEach(([id,value])=>{ const el=document.getElementById(id); if(!el)return; if(Array.isArray(value)){ const h=el.querySelector('h3'), p=el.querySelector('p'); if(h)h.textContent=value[0]; if(p)p.textContent=value[1]; } else { const b=el.querySelector('b'); if(b)b.textContent=value; }});
-    document.querySelectorAll('.stage-state,#nowStatus').forEach(el=>{ const v=el.textContent.trim(); if(thaiState[v])el.textContent=thaiState[v]; });
-    set('menuScoreText', document.getElementById('menuScoreText')?.textContent.replace('Best score','คะแนนสูงสุด'));
-    const hint=document.getElementById('pathHint'); if(hint){ hint.textContent=hint.textContent.replaceAll('Readiness','ระดับความพร้อม').replaceAll('Cognitive Storm','บอสพายุความสับสน').replaceAll('User Insight Lab','ห้องแล็บถอดรหัสผู้ใช้').replaceAll('Casefile','คดี'); }
-    document.querySelectorAll('button,a').forEach(el=>{ el.textContent=el.textContent.replaceAll('Friction Core Locked','ด่านบอสยังล็อกอยู่').replaceAll('Insight Lab Locked','ห้องแล็บยังล็อกอยู่').replaceAll('เข้าสู่ Cognitive Storm','เข้าสู่บอสพายุความสับสน').replaceAll('เข้าสู่ User Insight Lab','เข้าสู่ห้องแล็บถอดรหัสผู้ใช้').replaceAll('เล่น Insight Lab อีกครั้ง','เล่นห้องแล็บอีกครั้ง').replaceAll('เล่น Boss อีกครั้ง','เล่นบอสอีกครั้ง'); });
+    Object.entries(text).forEach(([id,value])=>{
+      const el=document.getElementById(id); if(!el) return;
+      if(Array.isArray(value)){
+        put(el.querySelector('h3'), value[0]);
+        put(el.querySelector('p'), value[1]);
+      } else put(el.querySelector('b'), value);
+    });
+    document.querySelectorAll('.stage-state,#nowStatus').forEach(el=>{
+      const value=el.textContent.trim(); if(thaiState[value]) put(el,thaiState[value]);
+    });
+    replace(document.getElementById('menuScoreText'), [['Best score','คะแนนสูงสุด']]);
+    replace(document.getElementById('pathHint'), [['Readiness','ระดับความพร้อม'],['Cognitive Storm','บอสพายุความสับสน'],['User Insight Lab','ห้องแล็บถอดรหัสผู้ใช้'],['Casefile','คดี']]);
+    document.querySelectorAll('button,a').forEach(el=>replace(el,[
+      ['Friction Core Locked','ด่านบอสยังล็อกอยู่'],['Insight Lab Locked','ห้องแล็บยังล็อกอยู่'],
+      ['เข้าสู่ Cognitive Storm','เข้าสู่บอสพายุความสับสน'],['เข้าสู่ User Insight Lab','เข้าสู่ห้องแล็บถอดรหัสผู้ใช้'],
+      ['เล่น Insight Lab อีกครั้ง','เล่นห้องแล็บอีกครั้ง'],['เล่น Boss อีกครั้ง','เล่นบอสอีกครั้ง']
+    ]));
   }
-  addEventListener('DOMContentLoaded',()=>{ apply(); new MutationObserver(apply).observe(document.documentElement,{childList:true,subtree:true}); },{once:true});
+  addEventListener('DOMContentLoaded',()=>{
+    apply();
+    let queued=false;
+    new MutationObserver(()=>{
+      if(queued) return;
+      queued=true;
+      requestAnimationFrame(()=>{ queued=false; apply(); });
+    }).observe(document.documentElement,{childList:true,subtree:true});
+  },{once:true});
 })();
