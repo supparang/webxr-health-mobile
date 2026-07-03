@@ -1,160 +1,277 @@
-
+/*
+  CSAI2102 AI Quest — B2 Applied AI Gate
+  v3.6.2
+  ------------------------------------------------------------
+  Canonical B2 scope: S4 Route Cost -> S5 A* -> S6 Knowledge Base
+  The builder replaces the legacy S3-S5 selection with a balanced,
+  replay-safe S4-S6 applied assessment.
+*/
 (function(){
   'use strict';
-  const VERSION='v3.6.0-b2-specific-bank';
-  const KEY='CSAI2102_AIQUEST_B2_SPECIFIC_HISTORY_V316';
 
-  function pad(n){return String(n).padStart(3,'0');}
-  function clone(o){return JSON.parse(JSON.stringify(o||{}));}
-  function shuffle(a){const x=(a||[]).slice();for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]];}return x;}
-  function readH(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){return{};}}
-  function writeH(h){try{localStorage.setItem(KEY,JSON.stringify(h));}catch(e){}}
-  function textOf(it){return String([it&&it.id,it&&it.phase,it&&it.prompt,it&&it.answer,it&&it.why,it&&it.hint].filter(Boolean).join(' | '));}
-  function sig(it){return textOf(it).toLowerCase().replace(/\d+/g,'#').replace(/\s+/g,' ').slice(0,320);}
-  function badB2(it){
-    const t=textOf(it).toLowerCase();
-    return t.includes('เลือกตาม property ของปัญหา')
-      || t.includes('search arena boss')
-      || t.includes('เลือก algorithm/เหตุผลที่ถูกต้อง')
-      || t.includes('integrated search')
-      || t.includes('b2 รวม s3-s5')
-      || t.includes('expanded order คือ final path')
-      || t.includes('search ทุกแบบเหมือนกัน')
-      || t.includes('เห็น goal แล้วหยุดได้ทุกแบบ')
-      || t.includes('b2max_')
-      || t.includes('b2_max')
-      || t.includes('b2_deep')
-      || t.includes('b2_hard');
-  }
-  function pushUnique(arr,items){
-    if(!Array.isArray(arr))return 0;
-    const ids=new Set(arr.map(x=>x&&x.id).filter(Boolean));
-    let n=0;
-    (items||[]).forEach(it=>{if(!it||!it.id||ids.has(it.id))return;arr.push(it);ids.add(it.id);n++;});
-    return n;
+  const VERSION = 'v3.6.2-b2-applied-s4-s6';
+  const KEY = 'CSAI2102_AIQUEST_B2_APPLIED_HISTORY_V362';
+  const HISTORY_WINDOW = 8;
+
+  function pad(n){ return String(n).padStart(3, '0'); }
+  function clone(value){ return JSON.parse(JSON.stringify(value || {})); }
+  function shuffle(items){
+    const out = (items || []).slice();
+    for(let i=out.length-1;i>0;i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
   }
 
-  const scenarios=[
-    ['S3 Search Core','bfs_unweighted','แผนที่ทุก edge มีน้ำหนักเท่ากัน ต้องหา path ที่จำนวน edge น้อยสุด','เลือก BFS เพราะ graph เป็น unweighted และ BFS สำรวจเป็นชั้น จึงเจอ path ที่ edge น้อยสุด',['เลือก DFS เพราะลงลึกก่อนจึงสั้นสุดเสมอ','เลือก UCS เพราะต้องใช้ cost แม้ทุก edge เท่ากัน','เลือก Greedy เพราะ h-only รับประกัน shortest path'],'BFS เหมาะกับ shortest path ใน unweighted graph'],
-    ['S3 Search Core','dfs_memory','พื้นที่ค้นหาลึกมาก ต้องการหา solution สักทางและยอมรับว่าอาจไม่สั้นที่สุด','เลือก DFS ได้ เพราะลงลึกและใช้ memory น้อยกว่า BFS แต่ไม่รับประกัน shortest path',['เลือก BFS เสมอแม้ memory ไม่พอ','เลือก UCS ทั้งที่ไม่มี cost ต่างกัน','เลือก A* โดยไม่มี heuristic'],'DFS เหมาะบางบริบทแต่มีข้อจำกัด'],
-    ['S3 Search Core','trace_path','นักศึกษาส่ง expanded order ทั้งหมดเป็น final path','ตอบว่าผิด เพราะ expanded order คือ trace ส่วน final path ต้องย้อน parent chain',['ตอบว่าถูก เพราะ expanded order คือ path เสมอ','ใช้ frontier ล่าสุดเป็น path','ใช้ visited set ทั้งหมดเป็น path'],'trace กับ path เป็นคนละสิ่ง'],
-    ['S3 Search Core','neighbor_order','โจทย์กำหนด neighbor order A,B,C แต่คำตอบ BFS ขยาย C ก่อน A','ตอบว่าผิด เพราะต้องเคารพ neighbor order ที่โจทย์กำหนด',['ตอบว่าถูก เพราะ order ไม่มีผลทุกกรณี','ใช้ h ต่ำสุดแทน','final path เหมือนกันเสมอจึงไม่เป็นไร'],'neighbor order มีผลต่อ trace'],
-    ['S4 Cost Search','ucs_weighted','ทาง S-A-G มี 2 edge cost รวม 20 แต่ S-B-C-G มี 3 edge cost รวม 8','เลือก UCS เพราะต้องหา path cost ต่ำสุด ไม่ใช่ path ที่ edge น้อยสุด',['เลือก BFS เพราะ edge น้อยกว่าต้องดีที่สุด','เลือก DFS เพราะเส้นทางยาวกว่า','เลือก Greedy เพราะไม่ต้องดู cost ที่เดินมา'],'weighted graph ต้อง optimize cumulative cost'],
-    ['S4 Cost Search','ucs_goal_pop','UCS เห็น goal ใน frontier cost 15 แต่มี node อื่นใน frontier cost 5','ยังไม่ควรหยุด ต้อง pop node cost ต่ำสุดก่อน เพราะอาจเจอทางไป goal ที่ถูกกว่า',['หยุดทันทีเมื่อเห็น goal','เลือก goal เพราะชื่อ goal สำคัญกว่า priority','เปลี่ยนเป็น DFS เพื่อจบเร็ว'],'UCS ตอบเมื่อ goal ถูก pop ด้วย cost ต่ำสุด'],
-    ['S4 Cost Search','ucs_relax','พบทางไป X เดิม cost 12 แล้วพบทางใหม่ cost 7','ต้อง update cost และ parent ของ X เป็นทาง cost 7',['เก็บ cost 12 เพราะพบก่อน','ลบ X ออกจาก graph','ไม่ต้องสน parent เพราะมี visited แล้ว'],'relax/update ทำให้ได้ path cost ต่ำกว่า'],
-    ['S4 Cost Search','bfs_vs_ucs','มีคนบอกว่า BFS กับ UCS เหมือนกันในทุก weighted graph','ไม่ถูก BFS นับจำนวน edge ส่วน UCS ใช้ cumulative cost',['ถูก เพราะทั้งคู่มี frontier','ถูกเมื่อมี goal เดียว','DFS คือ UCS แบบเร็วกว่า'],'BFS/UCS ต่างกันเมื่อ edge cost ไม่เท่ากัน'],
-    ['S5 Heuristic Search','astar_formula','A มี g=4,h=3 และ B มี g=2,h=6 ใน A* ควรเลือกอะไร','เลือก A เพราะ f(A)=7 ต่ำกว่า f(B)=8',['เลือก B เพราะ g ต่ำกว่า','เลือก B เพราะ h สูงกว่า','สุ่มได้เพราะยังไม่ใช่ goal'],'A* เลือกตาม f(n)=g(n)+h(n)'],
-    ['S5 Heuristic Search','greedy_vs_astar','ระบบเลือก node ที่ h(n) ต่ำสุดอย่างเดียวโดยไม่สน cost ที่เดินมา','นี่คือ Greedy Best-First มากกว่า A* เพราะ A* ต้องใช้ g(n)+h(n)',['นี่คือ A* แน่นอนเพราะมี heuristic','นี่คือ UCS เพราะมี frontier','นี่คือ BFS เพราะเลือกทีละ node'],'Greedy h-only ต่างจาก A*'],
-    ['S5 Heuristic Search','admissible','heuristic ประเมินระยะไป goal สูงกว่าความจริงหลายครั้ง','heuristic นี้ไม่ admissible และอาจทำให้ A* เสีย optimality',['ยิ่งประเมินสูงยิ่ง optimal','ทำให้ A* กลายเป็น BFS','ทำให้ไม่ต้องใช้ g(n)'],'admissible heuristic ต้องไม่ overestimate'],
-    ['S5 Heuristic Search','astar_tie','A* มี node สองตัว f เท่ากัน และโจทย์ให้ tie-break ด้วย h ต่ำกว่า','เลือก node ที่ h ต่ำกว่า เพราะต้องทำตาม tie-break ที่โจทย์กำหนด',['สุ่มได้เสมอเพราะ f เท่ากัน','เลือก node ที่ชื่อยาวกว่า','หยุด search ทันที'],'tie-break ทำให้ trace ตรวจได้'],
-    ['Final Search Duel','city_ucs','ระบบนำทางในเมือง ถนนมีระยะจริงต่างกัน แต่ยังไม่มี heuristic','เลือก UCS เพราะ edge มี cost ต่างกันและต้องหา cumulative cost ต่ำสุด',['เลือก BFS เพราะทุกถนนคือ edge หนึ่งเส้น','เลือก DFS เพราะมีหลายซอย','เลือก Greedy เพราะไม่มี heuristic ก็ยังใช้ h ได้'],'weighted ไม่มี heuristic → UCS'],
-    ['Final Search Duel','route_astar','ระบบนำทางมีระยะที่เดินมาแล้วและระยะเส้นตรงประมาณถึง goal','เลือก A* เพราะใช้ g(n) จากระยะที่เดินมาแล้วรวมกับ h(n) ที่ประมาณถึง goal',['เลือก Greedy เพราะไม่ต้องดูระยะที่เดินมา','เลือก BFS เพราะแผนที่มี node','เลือก DFS เพราะลงลึกได้เร็ว'],'มี cost + heuristic → A*'],
-    ['Final Search Duel','wrong_stop','ใน UCS/A* นักศึกษาหยุดทันทีเมื่อ goal ถูกเพิ่มเข้า frontier','เตือนว่าอาจหยุดเร็วเกิน ต้องพิจารณาตาม priority จน goal ถูกเลือกออกมาอย่างถูกเงื่อนไข',['ถูกเสมอเมื่อเห็น goal','goal ไม่ควรถูกใช้เลย','ควรลบ frontier ทั้งหมด'],'goal discovery ไม่เท่ากับ goal selected/popped'],
-    ['Final Search Duel','settled_order','รายงาน settled order เป็น optimal path','ผิด settled/expanded order คือการลำดับประมวลผล ไม่ใช่ path สุดท้าย',['ถูก เพราะ settled order คือ path เสมอ','ถูกถ้าใช้ heuristic','ถูกถ้า cost ทุก edge เป็นบวก'],'settled order กับ optimal path ต่างกัน']
+  function profileKey(){
+    try{
+      const profile = window.AIQuestStorage && window.AIQuestStorage.getProfile
+        ? window.AIQuestStorage.getProfile()
+        : {};
+      return String((profile.studentId || 'anon') + '_' + (profile.section || '101')).replace(/[^\w-]/g, '_');
+    }catch(error){
+      return 'anon_101';
+    }
+  }
+
+  function readHistory(){
+    try{
+      const all = JSON.parse(localStorage.getItem(KEY) || '{}');
+      const rows = all && all[profileKey()];
+      return Array.isArray(rows) ? rows : [];
+    }catch(error){
+      return [];
+    }
+  }
+
+  function writeHistory(record){
+    try{
+      const all = JSON.parse(localStorage.getItem(KEY) || '{}');
+      const key = profileKey();
+      const list = Array.isArray(all[key]) ? all[key] : [];
+      list.unshift(record);
+      all[key] = list.slice(0, HISTORY_WINDOW);
+      localStorage.setItem(KEY, JSON.stringify(all));
+    }catch(error){}
+  }
+
+  function resetB2History(){
+    try{
+      const all = JSON.parse(localStorage.getItem(KEY) || '{}');
+      delete all[profileKey()];
+      localStorage.setItem(KEY, JSON.stringify(all));
+    }catch(error){}
+  }
+
+  function textSignature(item){
+    return String([
+      item && item.familyId,
+      item && item.phase,
+      item && item.prompt,
+      item && item.answer
+    ].filter(Boolean).join(' | '))
+      .toLowerCase()
+      .replace(/\d+/g, '#')
+      .replace(/\s+/g, ' ')
+      .slice(0, 360);
+  }
+
+  const SCENARIOS = [
+    // S4: Route Cost / UCS
+    ['S4 Cost Search', 'ucs_weighted', 'เส้นทาง A มี 2 edge ต้นทุนรวม 20 ส่วนเส้นทาง B มี 3 edge ต้นทุนรวม 8 เมื่อเป้าหมายคือต้นทุนต่ำสุด ควรใช้แนวคิดใด', 'เลือก Uniform Cost Search เพราะต้องเปรียบเทียบ cumulative cost ของเส้นทาง ไม่ใช่จำนวน edge', ['เลือก BFS เพราะจำนวน edge น้อยกว่าต้องดีที่สุดเสมอ', 'เลือก DFS เพราะลงลึกก่อนจึงได้ต้นทุนต่ำสุด', 'เลือก Greedy โดยไม่ต้องดูต้นทุนที่เดินมา'], 'Weighted graph ต้องดูผลรวม cost', 'ucs_weighted'],
+    ['S4 Cost Search', 'ucs_goal_pop', 'UCS พบ goal อยู่ใน frontier ด้วย cost 15 แต่ยังมี node อื่น cost 5 อยู่ใน frontier ควรทำอย่างไร', 'ยังไม่ควรหยุด ต้องเลือก node ที่มี cost ต่ำสุดก่อน เพราะอาจพบเส้นทางไป goal ที่ถูกกว่า', ['หยุดทันทีเพราะเห็น goal แล้ว', 'ลบ node cost 5 เพราะ goal สำคัญกว่า', 'เปลี่ยนเป็น DFS เพื่อให้จบเร็ว'], 'UCS ตอบเมื่อ goal ถูกเลือกออกจาก frontier ด้วย priority ที่ถูกต้อง', 'ucs_goal_pop'],
+    ['S4 Cost Search', 'ucs_relax', 'พบทางไปยัง X เดิมมี cost 12 แล้วพบทางใหม่ไป X มี cost 7 ระบบควรปรับอะไร', 'อัปเดต cost และ parent ของ X เป็นเส้นทาง cost 7', ['เก็บ cost 12 เพราะพบก่อน', 'ลบ X ออกจาก graph', 'ไม่ต้องเก็บ parent เพราะมี visited แล้ว'], 'Relaxation ทำให้ระบบเก็บเส้นทางที่ดีกว่า', 'ucs_relax'],
+    ['S4 Cost Search', 'bfs_vs_ucs', 'มีผู้เรียนกล่าวว่า BFS กับ UCS ให้คำตอบเหมือนกันเสมอใน weighted graph ควรตอบอย่างไร', 'ไม่ถูก BFS พิจารณาจำนวน edge แต่ UCS พิจารณา cumulative cost จึงต่างกันเมื่อ cost ไม่เท่ากัน', ['ถูก เพราะทั้งคู่มี frontier', 'ถูกเมื่อมี goal เพียงหนึ่งเดียว', 'DFS คือ UCS แบบเร็วกว่า'], 'BFS และ UCS ต่างกันตาม cost structure', 'bfs_vs_ucs'],
+    ['S4 Cost Search', 'priority_queue', 'ใน UCS node ใดควรถูกนำออกจาก priority queue ก่อน', 'node ที่มี cumulative cost g(n) ต่ำสุดตามข้อมูลปัจจุบัน', ['node ที่อยู่ลึกที่สุด', 'node ที่ชื่อใกล้ goal ที่สุดโดยไม่ดู cost', 'node ที่ถูกค้นพบก่อนเสมอ'], 'UCS จัดลำดับด้วย g(n)', 'priority_queue'],
+
+    // S5: A* / Heuristic
+    ['S5 Heuristic Search', 'astar_formula', 'A มี g=4,h=3 และ B มี g=2,h=6 ใน A* ควรเลือก node ใดก่อน', 'เลือก A เพราะ f(A)=g+h=7 ต่ำกว่า f(B)=8', ['เลือก B เพราะ g ต่ำกว่า', 'เลือก B เพราะ h สูงกว่า', 'สุ่มได้เพราะยังไม่ถึง goal'], 'A* เลือกตาม f(n)=g(n)+h(n)', 'astar_formula'],
+    ['S5 Heuristic Search', 'greedy_vs_astar', 'ระบบเลือก node ที่ h(n) ต่ำสุดอย่างเดียวโดยไม่สนต้นทุนที่เดินมาแล้ว ระบบนี้ใกล้กับอะไร', 'Greedy Best-First Search มากกว่า A* เพราะ A* ต้องรวม g(n)+h(n)', ['A* แน่นอนเพราะมี heuristic', 'UCS เพราะมี frontier', 'BFS เพราะเลือกทีละ node'], 'Greedy ใช้ h-only ส่วน A* ใช้ g+h', 'greedy_vs_astar'],
+    ['S5 Heuristic Search', 'admissible', 'heuristic ประเมินต้นทุนถึง goal สูงกว่าความจริงอย่างเป็นระบบ ผลที่ควรระวังคืออะไร', 'heuristic ไม่ admissible และ A* อาจไม่รับประกัน optimality', ['ยิ่งประเมินสูงยิ่ง optimal', 'A* จะกลายเป็น BFS', 'ไม่ต้องใช้ g(n) อีกต่อไป'], 'Admissible heuristic ไม่ควร overestimate', 'admissible'],
+    ['S5 Heuristic Search', 'astar_zero', 'ถ้า heuristic ของทุก node เป็น 0 A* มีพฤติกรรมสอดคล้องกับวิธีใดมากที่สุด', 'Uniform Cost Search เพราะ f(n)=g(n)+0', ['BFS เสมอแม้ cost ต่างกัน', 'DFS เพราะไม่มี heuristic', 'Greedy เพราะ h(n)=0'], 'A* ที่ h=0 ลดรูปเป็น UCS', 'astar_zero'],
+    ['S5 Heuristic Search', 'tie_break', 'A* มี node สองตัวที่ f เท่ากัน และโจทย์กำหนดให้เลือก h ต่ำกว่าก่อน ควรทำอย่างไร', 'เลือก node ที่ h ต่ำกว่าเพื่อทำตาม tie-break rule ของโจทย์', ['สุ่มได้เสมอเพราะ f เท่ากัน', 'เลือกชื่อ node ที่สั้นกว่า', 'หยุด search ทันที'], 'Tie-break ทำให้ trace ตรวจสอบได้', 'tie_break'],
+
+    // S6: Knowledge Representation / Inference
+    ['S6 Knowledge Representation', 'fact_rule', 'ฐานความรู้มี “Bird(Tweety)” และกฎ “Bird(x) → CanFly(x)” ข้อใดเป็นผลอนุมานที่เหมาะสม', 'CanFly(Tweety) เพราะ fact และ rule ทำให้อนุมานตามกฎได้', ['Bird(x) เป็นเท็จเพราะ x ไม่ใช่ชื่อจริง', 'Tweety เป็นกฎใหม่', 'ต้องสุ่มคำตอบเพราะไม่มีข้อมูลครบ'], 'แยก fact ออกจาก rule แล้วใช้ inference', 'fact_rule'],
+    ['S6 Knowledge Representation', 'representation_choice', 'ต้องแทนความรู้ว่า “นักศึกษาทุกคนที่ผ่าน prerequisite จึงลงทะเบียนวิชาถัดไปได้” วิธีใดเหมาะสมที่สุด', 'ใช้กฎเชิงเงื่อนไขที่เชื่อม prerequisite กับสิทธิ์ลงทะเบียน', ['เก็บเป็นข้อความอิสระโดยไม่ระบุเงื่อนไข', 'เก็บเฉพาะรายชื่อทุกคนโดยไม่มีความสัมพันธ์', 'ใช้ค่า random เพื่อทำนายสิทธิ์'], 'Knowledge representation ต้องรักษาความสัมพันธ์เชิงกฎ', 'representation_choice'],
+    ['S6 Knowledge Representation', 'forward_inference', 'มี fact ว่า “SensorOnline(R1)” และกฎ “SensorOnline(x) → CanObserve(x)” ข้อใดถูกต้อง', 'อนุมานได้ว่า CanObserve(R1)', ['อนุมานว่า R1 ไม่มี sensor', 'ลบ fact เดิมเพราะมีกฎแล้ว', 'สรุปว่า R1 เป็น goal'], 'Forward inference ใช้ fact ให้ตรงกับ antecedent ของ rule', 'forward_inference'],
+    ['S6 Knowledge Representation', 'consistency', 'ฐานความรู้ระบุว่า “RoomA is available” และ “RoomA is not available” พร้อมกัน สิ่งใดควรทำก่อน', 'ตรวจความขัดแย้งของ fact และแหล่งข้อมูลก่อนนำไปอนุมานต่อ', ['ใช้ทั้งสอง fact พร้อมกันโดยไม่ตรวจสอบ', 'เลือก fact ที่เขียนยาวกว่า', 'ลบ rule ทุกข้อในฐานความรู้'], 'Knowledge base ต้องรักษาความสอดคล้อง', 'consistency'],
+    ['S6 Knowledge Representation', 'closed_world', 'ไม่มี fact ว่า “HasKey(Nina)” ในฐานความรู้ที่ใช้ open-world reasoning ข้อใดเหมาะสมที่สุด', 'ยังสรุปไม่ได้ว่า Nina ไม่มี key เพียงเพราะไม่พบ fact', ['สรุปทันทีว่า Nina ไม่มี key', 'เพิ่ม fact ว่าไม่มี key โดยอัตโนมัติ', 'อนุมานว่า Nina เป็น goal'], 'การไม่มีข้อมูลไม่เท่ากับข้อมูลเป็นเท็จใน open-world setting', 'closed_world'],
+
+    // Final applied synthesis
+    ['Final Applied AI Duel', 'route_plus_rules', 'หุ่นยนต์ส่งของต้องเลือกเส้นทางต้นทุนต่ำและหลีกเลี่ยงห้องที่ฐานความรู้ระบุว่า “ปิดใช้งาน” ระบบควรผสานอะไร', 'ใช้ search เพื่อเลือกเส้นทาง และใช้ knowledge rules เพื่อคัดข้อจำกัดของเส้นทาง', ['ใช้ BFS อย่างเดียวโดยไม่ดูต้นทุนหรือกฎ', 'ใช้ฐานความรู้อย่างเดียวโดยไม่ค้นหาเส้นทาง', 'สุ่มเส้นทางเพื่อหลีกเลี่ยง bias'], 'งาน AI จริงมักผสาน search กับ representation/inference', 'route_plus_rules'],
+    ['Final Applied AI Duel', 'astar_knowledge', 'ระบบนำทางมี g(n), h(n) และกฎว่าพื้นที่น้ำท่วมเป็น forbidden zone แนวทางใดเหมาะสมที่สุด', 'ใช้ A* เลือกตาม g+h พร้อมใช้กฎตัด node ที่ละเมิดข้อจำกัด', ['ใช้ h(n) อย่างเดียวและไม่สนข้อจำกัด', 'ใช้ DFS เพราะสามารถเดินผ่านพื้นที่ต้องห้ามได้', 'ละทิ้งกฎเมื่อ heuristic ดี'], 'A* และ rule constraints ต้องทำงานร่วมกัน', 'astar_knowledge'],
+    ['Final Applied AI Duel', 'explain_decision', 'ระบบเลือกเส้นทางหนึ่งและผู้ใช้ถามเหตุผล คำอธิบายใดมีคุณภาพที่สุด', 'อธิบายทั้ง cost ที่สะสม ค่า heuristic และกฎ/ข้อจำกัดที่มีผลต่อการตัดสินใจ', ['บอกเพียงว่า AI เลือกเอง', 'บอกว่าเส้นทางนี้สั้นเพราะชื่อ node สั้น', 'ไม่ต้องอธิบายเมื่อคะแนนสูง'], 'Explainability ทำให้ตรวจสอบการตัดสินใจได้', 'explain_decision'],
+    ['Final Applied AI Duel', 'update_knowledge', 'หลังห้องหนึ่งปิดกะทันหัน ระบบควรปรับการตัดสินใจอย่างไร', 'อัปเดต fact ในฐานความรู้แล้วคำนวณ search ใหม่ตามข้อจำกัดล่าสุด', ['ใช้เส้นทางเดิมต่อแม้ขัดกับข้อมูลใหม่', 'ลบทุก rule เพื่อให้เร็วขึ้น', 'ใช้คำตอบก่อนหน้าโดยไม่ตรวจสอบ'], 'การตัดสินใจที่ดีต้องอิงข้อมูลและ knowledge ล่าสุด', 'update_knowledge']
   ];
 
-  const variants=['กรณีแผนที่มหาวิทยาลัย','กรณีเกม maze','กรณีหุ่นยนต์ส่งของ','กรณีระบบนำทางในอาคาร','กรณี web crawler','กรณี puzzle search','กรณี warehouse route','กรณี emergency exit'];
+  const CONTEXTS = [
+    'แผนที่มหาวิทยาลัย', 'เกม maze', 'หุ่นยนต์ส่งของ', 'ระบบนำทางในอาคาร',
+    'web crawler', 'puzzle search', 'warehouse route', 'emergency exit',
+    'ระบบช่วยเหลือผู้สูงอายุ', 'ระบบจัดตารางเรียน', 'ระบบคัดกรองงานบริการ', 'ยานยนต์อัตโนมัติจำลอง'
+  ];
+
+  const PROMPT_FORMS = [
+    (context, prompt) => `${context}: ${prompt}`,
+    (context, prompt) => `สถานการณ์ ${context}: ${prompt}`,
+    (context, prompt) => `ใน ${context} ให้พิจารณาโจทย์ต่อไปนี้ — ${prompt}`,
+    (context, prompt) => `Debug AI decision ใน${context}: ${prompt}`
+  ];
 
   function makeBank(){
-    const items=[];
-    for(let i=0;i<34;i++){
-      scenarios.forEach((s,j)=>items.push({
-        id:`b2_specific_${pad(i)}_${pad(j)}`,
-        familyId:`b2_specific_${s[1]}_${i%34}`,
-        phase:s[0],
-        prompt:`${variants[i%variants.length]}: ${s[2]}`,
-        answer:s[3],
-        distractors:s[4],
-        why:s[5],
-        hint:s[1],
-        context:`B2 specific scenario ${i+1}`
-      }));
+    const items = [];
+    for(let variant=0; variant<24; variant++){
+      SCENARIOS.forEach((scenario, index) => {
+        const context = CONTEXTS[(variant + index) % CONTEXTS.length];
+        const prompt = PROMPT_FORMS[variant % PROMPT_FORMS.length](context, scenario[2]);
+        items.push({
+          id:`b2_applied_${pad(variant)}_${pad(index)}`,
+          familyId:`b2_${scenario[1]}_${variant % 6}`,
+          phase:scenario[0],
+          prompt,
+          answer:scenario[3],
+          distractors:scenario[4],
+          why:scenario[5],
+          hint:scenario[6],
+          context
+        });
+      });
     }
     return items;
   }
 
   function rebuildB2(){
-    const bank=window.AIQUEST_BOSS2_BANK;
-    if(!bank||!Array.isArray(bank.ITEMS))return null;
-    const before=bank.ITEMS.length;
-    for(let i=bank.ITEMS.length-1;i>=0;i--){
-      if(badB2(bank.ITEMS[i])) bank.ITEMS.splice(i,1);
-    }
-    const afterStrip=bank.ITEMS.length;
-    const added=pushUnique(bank.ITEMS,makeBank());
-    bank.counts={
-      total:bank.ITEMS.length,
-      s3:bank.ITEMS.filter(x=>x.phase==='S3 Search Core').length,
-      s4:bank.ITEMS.filter(x=>x.phase==='S4 Cost Search').length,
-      s5:bank.ITEMS.filter(x=>x.phase==='S5 Heuristic Search').length,
-      final:bank.ITEMS.filter(x=>x.phase==='Final Search Duel').length
+    const bank = window.AIQUEST_BOSS2_BANK;
+    if(!bank) return null;
+
+    const items = makeBank();
+    bank.ITEMS = items;
+    bank.counts = {
+      total:items.length,
+      s4:items.filter(item => item.phase === 'S4 Cost Search').length,
+      s5:items.filter(item => item.phase === 'S5 Heuristic Search').length,
+      s6:items.filter(item => item.phase === 'S6 Knowledge Representation').length,
+      final:items.filter(item => item.phase === 'Final Applied AI Duel').length
     };
-    return {before,afterStrip,added,counts:bank.counts};
+    bank.appliedScope = ['s4','s5','s6'];
+    bank.appliedVersion = VERSION;
+    return bank.counts;
   }
 
-  function installB2Builder(){
-    const bank=window.AIQUEST_BOSS2_BANK;
-    if(!bank||typeof bank.buildBoss2Round!=='function'||bank.__b2SpecificV316)return false;
-    const original=bank.buildBoss2Round;
-    bank.buildBoss2Round=function(diff){
-      const oldRound=original.call(bank,diff);
-      const need={
-        state:Array.isArray(oldRound.state)?oldRound.state.length:3,
-        graph:Array.isArray(oldRound.graph)?oldRound.graph.length:3,
-        maze:Array.isArray(oldRound.maze)?oldRound.maze.length:3,
-        boss:Array.isArray(oldRound.boss)?oldRound.boss.length:3
-      };
-      const hist=readH(), key='b2_'+(diff||'normal'), r=hist[key]||{};
-      const recentIds=new Set(r.ids||[]), recentFam=new Set(r.families||[]), recentSig=new Set(r.sig||[]);
-      const usedIds=new Set(), usedFam=new Set(), usedSig=new Set();
+  function recentSets(){
+    const history = readHistory();
+    const ids = new Set();
+    const families = new Set();
+    const signatures = new Set();
+    history.forEach(row => {
+      (row.itemIds || []).forEach(id => ids.add(id));
+      (row.familyIds || []).forEach(id => families.add(id));
+      (row.signatures || []).forEach(value => signatures.add(value));
+    });
+    return {ids, families, signatures};
+  }
 
-      function pick(phase,count){
-        const pool=shuffle((bank.ITEMS||[]).filter(it=>it.phase===phase&&!badB2(it)));
-        pool.sort((a,b)=>{
-          function score(it){
-            const s=sig(it);
-            let v=100+Math.random()*30;
-            if(String(it.id||'').includes('b2_specific'))v+=90;
-            if(recentIds.has(it.id))v-=150;
-            if(recentFam.has(it.familyId))v-=120;
-            if(recentSig.has(s))v-=220;
-            if(usedIds.has(it.id)||usedSig.has(s))v-=999;
-            if(usedFam.has(it.familyId))v-=160;
-            return v;
-          }
-          return score(b)-score(a);
-        });
-        const out=[];
-        for(const it of pool){
-          if(out.length>=count)break;
-          const s=sig(it);
-          if(usedIds.has(it.id)||usedSig.has(s)||badB2(it))continue;
-          out.push(clone(it));
-          usedIds.add(it.id);usedFam.add(it.familyId||it.id);usedSig.add(s);
-        }
-        return out;
+  function pickItems(pool, count, recent, usedIds, usedFamilies, usedSignatures){
+    const ranked = shuffle(pool).map(item => ({item, score:Math.random() * 20}));
+    ranked.forEach(entry => {
+      const item = entry.item;
+      const signature = textSignature(item);
+      if(recent.ids.has(item.id)) entry.score -= 160;
+      if(recent.families.has(item.familyId)) entry.score -= 120;
+      if(recent.signatures.has(signature)) entry.score -= 220;
+      if(usedIds.has(item.id)) entry.score -= 999;
+      if(usedFamilies.has(item.familyId)) entry.score -= 180;
+      if(usedSignatures.has(signature)) entry.score -= 999;
+    });
+
+    const selected = [];
+    for(const entry of ranked.sort((a,b) => b.score - a.score)){
+      if(selected.length >= count) break;
+      const item = entry.item;
+      const signature = textSignature(item);
+      if(usedIds.has(item.id) || usedSignatures.has(signature)) continue;
+      selected.push(clone(item));
+      usedIds.add(item.id);
+      usedFamilies.add(item.familyId);
+      usedSignatures.add(signature);
+    }
+
+    if(selected.length < count){
+      for(const item of shuffle(pool)){
+        if(selected.length >= count) break;
+        if(usedIds.has(item.id)) continue;
+        selected.push(clone(item));
+        usedIds.add(item.id);
+        usedFamilies.add(item.familyId);
+        usedSignatures.add(textSignature(item));
       }
+    }
+    return selected;
+  }
 
-      const round=Object.assign({},oldRound);
-      round.state=pick('S3 Search Core',need.state);
-      round.graph=pick('S4 Cost Search',need.graph);
-      round.maze=pick('S5 Heuristic Search',need.maze);
-      round.boss=pick('Final Search Duel',need.boss);
-      const all=[...round.state,...round.graph,...round.maze,...round.boss];
-      hist[key]={ts:new Date().toISOString(),ids:all.map(x=>x.id).slice(-260),families:all.map(x=>x.familyId||x.id).slice(-260),sig:all.map(sig).slice(-260)};
-      writeH(hist);
-      round.noRepeat=Object.assign({},round.noRepeat||{},{b2SpecificVersion:VERSION,recentWindow:260});
-      return round;
+  function installAppliedBuilder(){
+    const bank = window.AIQUEST_BOSS2_BANK;
+    if(!bank || typeof bank.buildBoss2Round !== 'function' || bank.__b2AppliedV362) return false;
+
+    const originalBuilder = bank.buildBoss2Round;
+    bank.buildBoss2Round = function(difficulty){
+      const oldRound = originalBuilder.call(bank, difficulty || 'normal');
+      const total = ['state','graph','maze','boss'].reduce((sum, key) => sum + (Array.isArray(oldRound[key]) ? oldRound[key].length : 0), 0) || 16;
+      const base = Math.floor(total / 4);
+      const remainder = total % 4;
+      const counts = [base + (remainder > 0 ? 1 : 0), base + (remainder > 1 ? 1 : 0), base + (remainder > 2 ? 1 : 0), base];
+      const recent = recentSets();
+      const usedIds = new Set();
+      const usedFamilies = new Set();
+      const usedSignatures = new Set();
+      const items = bank.ITEMS || [];
+
+      const state = pickItems(items.filter(item => item.phase === 'S4 Cost Search'), counts[0], recent, usedIds, usedFamilies, usedSignatures);
+      const graph = pickItems(items.filter(item => item.phase === 'S5 Heuristic Search'), counts[1], recent, usedIds, usedFamilies, usedSignatures);
+      const maze = pickItems(items.filter(item => item.phase === 'S6 Knowledge Representation'), counts[2], recent, usedIds, usedFamilies, usedSignatures);
+      const boss = pickItems(items.filter(item => item.phase === 'Final Applied AI Duel'), counts[3], recent, usedIds, usedFamilies, usedSignatures);
+      const all = [...state, ...graph, ...maze, ...boss];
+
+      writeHistory({
+        ts:new Date().toISOString(),
+        difficulty:difficulty || 'normal',
+        itemIds:all.map(item => item.id),
+        familyIds:all.map(item => item.familyId),
+        signatures:all.map(textSignature),
+        policy:'8-attempt item-family-signature anti-repeat'
+      });
+
+      return {
+        ...oldRound,
+        version:VERSION,
+        title:'B2: Applied AI Boss Gate',
+        phases:['S4 Cost Search','S5 Heuristic Search','S6 Knowledge Representation','Final Applied AI Duel'],
+        state,
+        graph,
+        maze,
+        boss,
+        noRepeat:{
+          recentWindow:HISTORY_WINDOW,
+          itemIds:all.map(item => item.id),
+          familyIds:all.map(item => item.familyId),
+          policy:'item + family + prompt signature'
+        }
+      };
     };
-    window.buildBoss2Round=bank.buildBoss2Round;
-    bank.__b2SpecificV316=true;
+
+    window.buildBoss2Round = bank.buildBoss2Round;
+    bank.__b2AppliedV362 = true;
     return true;
   }
 
   function run(){
-    const report={version:VERSION,rebuildB2:rebuildB2(),builderInstalled:installB2Builder()};
-    window.AIQUEST_B2_SPECIFIC_REPORT=report;
-    console.log('[AIQuest] '+VERSION+' applied',report);
+    const counts = rebuildB2();
+    const builderInstalled = installAppliedBuilder();
+    const report = {version:VERSION, counts, builderInstalled, scope:'S4-S6'};
+    window.AIQUEST_B2_APPLIED_REPORT = report;
+    console.log('[AIQuest] B2 Applied Gate loaded', report);
   }
+
   run();
 })();
