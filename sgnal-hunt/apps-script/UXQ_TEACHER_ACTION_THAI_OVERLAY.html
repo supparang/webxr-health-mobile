@@ -1,0 +1,63 @@
+<script>
+(function(){
+  'use strict';
+
+  var replacements = [
+    ['Teacher Action Dashboard','แดชบอร์ดสำหรับตัดสินใจสอน'],
+    ['Class pattern','รูปแบบที่พบในชั้นเรียน'],
+    ['Stretch task','ภารกิจต่อยอด'],
+    ['Design Thinking Sprint','W2 • คิดเชิงออกแบบ'],
+    ['Cognitive Storm','B1 • บอสพายุความสับสน'],
+    ['Cognitive Load Escape','W3 • ลดภาระความคิด'],
+    ['UX Detective: Casefile Hunt','W1 • นักสืบปัญหา UX'],
+    ['UX Detective','W1 • นักสืบปัญหา UX'],
+    ['User Insight Lab','W4 • ห้องแล็บถอดรหัสผู้ใช้'],
+    ['Evidence','หลักฐาน'],
+    ['Hypothesis','สมมติฐาน'],
+    ['Fix','วิธีแก้'],
+    ['Test','ทดสอบ'],
+    ['Define','ตั้งโจทย์'],
+    ['Ideate','สร้างแนวคิด'],
+    ['Prototype','ต้นแบบ'],
+    ['Reduce load','ลดภาระความคิด'],
+    ['Reduce Load','ลดภาระความคิด'],
+    ['Insight','สกัดความเข้าใจเชิงลึก'],
+    ['Best Verified','เหตุผลที่ดีที่สุด'],
+    ['Verified','เหตุผลผ่าน'],
+    ['Stretch','ต่อยอด']
+  ];
+
+  function translateTextNode(node){
+    var parent = node.parentElement;
+    if(!parent || /^(SCRIPT|STYLE|TEXTAREA)$/i.test(parent.tagName)) return;
+    var next = node.nodeValue;
+    replacements.forEach(function(pair){ next = next.split(pair[0]).join(pair[1]); });
+    if(next !== node.nodeValue) node.nodeValue = next;
+  }
+
+  function apply(){
+    var host = document.getElementById('uxqTeacherActionDashboard');
+    if(!host) return;
+    var walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+    var nodes = [];
+    while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(translateTextNode);
+  }
+
+  function observe(){
+    var host = document.getElementById('uxqTeacherActionDashboard');
+    if(!host || host.dataset.uxqThaiOverlay === '1') return;
+    host.dataset.uxqThaiOverlay = '1';
+    var queued = false;
+    new MutationObserver(function(){
+      if(queued) return;
+      queued = true;
+      requestAnimationFrame(function(){ queued = false; apply(); });
+    }).observe(host,{childList:true,subtree:true,characterData:true});
+  }
+
+  function boot(){ apply(); observe(); }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else boot();
+})();
+</script>
