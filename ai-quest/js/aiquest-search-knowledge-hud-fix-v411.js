@@ -1,8 +1,8 @@
-/* AI Quest v4.1.3 — Canonical S4–S6 HUD, feedback, and learner-facing B2 hints */
+/* AI Quest v4.1.4 — Canonical S1–S6 onboarding, HUD, feedback, and B2 hints */
 (() => {
   'use strict';
 
-  const VERSION = 'v4.1.3-canonical-s4-s6-hints-wording';
+  const VERSION = 'v4.1.4-canonical-onboarding-hints-wording';
   const $ = (selector, root=document) => root.querySelector(selector);
   const $$ = (selector, root=document) => [...root.querySelectorAll(selector)];
 
@@ -55,7 +55,7 @@
 
   function repairB2Hints(){
     const original = window.buildBoss2Round;
-    if(typeof original !== 'function' || original.__aq413HintFix) return;
+    if(typeof original !== 'function' || original.__aq414HintFix) return;
     const patched = function(difficulty){
       const round = original(difficulty);
       ['state','graph','maze','boss'].forEach(key => {
@@ -68,8 +68,8 @@
       });
       return round;
     };
-    patched.__aq413HintFix = true;
-    patched.__aq413HintFixOriginal = original;
+    patched.__aq414HintFix = true;
+    patched.__aq414HintFixOriginal = original;
     window.buildBoss2Round = patched;
   }
 
@@ -88,6 +88,35 @@
     });
   }
 
+  function repairStudentOnboarding(){
+    const start = document.getElementById('studentStartPanel');
+    if(start){
+      const lead = start.querySelector('p');
+      if(lead) lead.innerHTML = '<b>Session 1–6 + Boss B1/B2</b> เปิดตามลำดับ: S1 → S2 → S3 → B1 → S4 → S5 → S6 → B2';
+      const grid = start.querySelector('.studentStepGrid');
+      if(grid && grid.dataset.aq414 !== '1'){
+        grid.dataset.aq414 = '1';
+        grid.innerHTML = `
+          <div class="studentStep"><b>S1</b><br>AI / Automation / Sensor / Prediction</div>
+          <div class="studentStep"><b>S2–S3</b><br>Agent / PEAS / Environment / Search Foundations</div>
+          <div class="studentStep"><b>B1 → S4–S5</b><br>Foundation Gate → Cost Search → A*</div>
+          <div class="studentStep"><b>S6 → B2</b><br>Knowledge Representation → Applied AI Gate</div>
+        `;
+      }
+    }
+
+    const statusButton = document.getElementById('studentCheckStatus');
+    if(statusButton && !statusButton.__aq414CanonicalStatus){
+      statusButton.__aq414CanonicalStatus = true;
+      statusButton.onclick = function(){
+        if(window.AIQuestRoadmap && typeof window.AIQuestRoadmap.render === 'function'){
+          window.AIQuestRoadmap.render();
+          if(typeof window.showToast === 'function') window.showToast('อัปเดตสถานะตามเส้นทาง S1 → S2 → S3 → B1 → S4 → S5 → S6 → B2 แล้ว');
+        }
+      };
+    }
+  }
+
   function tune(area){
     cleanHud(area);
     replaceVisibleText(area);
@@ -102,9 +131,10 @@
 
   function install(){
     const area = document.getElementById('gameArea');
-    if (!area || area.dataset.aq413 === '1') return;
-    area.dataset.aq413 = '1';
+    if (!area || area.dataset.aq414 === '1') return;
+    area.dataset.aq414 = '1';
     repairB2Hints();
+    repairStudentOnboarding();
 
     let scheduled = false;
     const refresh = () => {
@@ -113,6 +143,7 @@
       requestAnimationFrame(() => {
         scheduled = false;
         repairB2Hints();
+        repairStudentOnboarding();
         tune(area);
         replaceVisibleText(document.getElementById('resultScreen'));
       });
