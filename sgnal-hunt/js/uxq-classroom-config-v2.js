@@ -8,10 +8,10 @@
   const freshStart = ['1', 'true', 'fresh', 'new', 'reset'].includes(String(query.get('fresh') || query.get('newLearner') || '').trim().toLowerCase());
 
   if (/w1-ux-crisis-casefile\.html/i.test(location.pathname) && document.readyState === 'loading') {
-    document.write('<script src="./js/uxq-w1-week1-alignment-v1.js?v=20260703-w1-alignment-v1"><\\/script>');
+    document.write('<script src="./js/uxq-w1-week1-alignment-v1.js?v=20260703-w1-alignment-v1"></' + 'script>');
   }
   if (/w4-user-insight-lab\.html/i.test(location.pathname) && document.readyState === 'loading') {
-    document.write('<script src="./js/uxq-w4-engine-hook-v1.js?v=20260702-w4-bank-v1"><\\/script><script src="./js/uxq-w4-extra-bank-v1.js?v=20260702-w4-bank-v1"><\\/script>');
+    document.write('<script src="./js/uxq-w4-engine-hook-v1.js?v=20260702-w4-bank-v1"></' + 'script><script src="./js/uxq-w4-extra-bank-v1.js?v=20260702-w4-bank-v1"></' + 'script>');
   }
 
   function normalizeSection(value){
