@@ -75,7 +75,11 @@
   function loadA2B1TaskScaffold() {
     appendScript(
       'eap-a2b1-task-scaffold-v2-loader',
-      './eap-a2b1-task-scaffold-v2.js?v=20260704-a2b1-scaffold-v2'
+      './eap-a2b1-task-scaffold-v2.js?v=20260704-a2b1-scaffold-v2',
+      () => appendScript(
+        'eap-speaking-bank-v2-loader',
+        './eap-speaking-bank-v2.js?v=20260704-speaking-bank-v2'
+      )
     );
   }
 
