@@ -1,5 +1,5 @@
 /* =========================================================
-   EAP Hero Student Home Simplifier v2 + Learning Ladder Loader
+   EAP Hero Student Home Simplifier v3 + Learning Loaders
    Student-facing home: one primary path, no duplicate actions
 ========================================================= */
 (() => {
@@ -13,10 +13,7 @@
     /^reset\s*local\s*progress$/i
   ];
 
-  const textOf = (el) => String(el?.textContent || '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
+  const textOf = (el) => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
   const isExact = (rx, value) => rx.test(value);
 
   function hide(el) {
@@ -28,19 +25,16 @@
 
   function isHomeVisible() {
     const bodyText = document.body ? document.body.innerText : '';
-    return /EAP Hero:\s*Save the Society/i.test(bodyText) &&
-      /Player Status/i.test(bodyText);
+    return /EAP Hero:\s*Save the Society/i.test(bodyText) && /Player Status/i.test(bodyText);
   }
 
   function simplifyButtons() {
     const controls = [...document.querySelectorAll('button, a.btn, [role="button"]')];
     controls.forEach((button) => {
-      const text = textOf(button);
-      if (HIDE_BUTTON_TEXT.some((rx) => isExact(rx, text))) hide(button);
+      if (HIDE_BUTTON_TEXT.some((rx) => isExact(rx, textOf(button)))) hide(button);
     });
     const reports = controls.filter((button) =>
-      /^my\s*learning\s*report$/i.test(textOf(button)) &&
-      button.dataset.studentHomeHidden !== '1'
+      /^my\s*learning\s*report$/i.test(textOf(button)) && button.dataset.studentHomeHidden !== '1'
     );
     reports.slice(1).forEach(hide);
   }
@@ -78,16 +72,16 @@
     document.head.appendChild(script);
   }
 
-  function loadLearningLadder() {
+  function loadA2B1TaskScaffold() {
     appendScript(
-      'eap-learning-ladder-loader',
-      './eap-learning-ladder-v1.js?v=20260704-learning-ladder-v1'
+      'eap-a2b1-task-scaffold-v2-loader',
+      './eap-a2b1-task-scaffold-v2.js?v=20260704-a2b1-scaffold-v2'
     );
   }
 
   function loadBossGateV2() {
-    /* Preserve the genuine core Boss Clash callback. This protects users who
-       still have an older cached Boss Gate patch while v2 loads. */
+    /* Preserve the core Boss Clash callback when an old cache has loaded the
+       earlier gate file before the current four-skill version arrives. */
     const coreStart = window.EAPHero &&
       (window.EAPHero.__bossFourSkillOriginalStart || window.EAPHero.startGateBoss);
     if (coreStart) window.__EAP_CORE_BOSS_START_V2 = coreStart;
@@ -104,7 +98,7 @@
   }
 
   function start() {
-    loadLearningLadder();
+    loadA2B1TaskScaffold();
     simplifyHome();
     const observer = new MutationObserver(() => simplifyHome());
     observer.observe(document.documentElement, { childList: true, subtree: true });
