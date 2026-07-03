@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v6.2 • Thai learner interface */
+/* UX Quest • Classroom Configuration v6.3 • Thai learner interface */
 (() => {
   'use strict';
 
@@ -14,7 +14,7 @@
     document.write('<script src="./js/uxq-w4-engine-hook-v1.js?v=20260702-w4-bank-v1"></' + 'script><script src="./js/uxq-w4-extra-bank-v1.js?v=20260702-w4-bank-v1"></' + 'script>');
   }
   if (/(w2-design-thinking-sprint|w3-cognitive-load-escape|b1-cognitive-storm|w4-user-insight-lab|w5-concept-forge|w6-flow-rescue|b2-flow-fortress)\.html/i.test(location.pathname) && document.readyState === 'loading') {
-    document.write('<script data-uxq-boss-loop-guard src="./js/uxq-boss-console-loop-guard-v1.js?v=20260705-loop-guard-v1"></' + 'script><script data-uxq-w2b2-mastery src="./js/uxq-w2-b2-mastery-v1.js?v=20260705-mastery-v1"></' + 'script>');
+    document.write('<script data-uxq-boss-loop-guard src="./js/uxq-boss-console-loop-guard-v1.js?v=20260705-loop-guard-v1"></' + 'script><script data-uxq-w2b2-mastery src="./js/uxq-w2-b2-mastery-v1.js?v=20260705-mastery-v1"></' + 'script><script data-uxq-w2b2-result-copy src="./js/uxq-w2-b2-result-copy-v1.js?v=20260705-result-copy-v1"></' + 'script>');
   }
 
   function normalizeSection(value){
@@ -48,7 +48,7 @@
     courseId: 'UXQ-ACT1-2026', courseLabel: 'UX Quest • Act I',
     defaultSection: classroomSection || '', classroomMode: classroomMode ? 'required' : 'practice',
     classroomSection, allowGuestPractice: !classroomMode, maxQueuedAttempts: 12,
-    version: '20260705-classroom-v6.2-w2-b2-preload'
+    version: '20260705-classroom-v6.3-w2-b2-result-copy'
   };
   const existing = (window.UXQ_CLASSROOM_CONFIG && typeof window.UXQ_CLASSROOM_CONFIG === 'object') ? window.UXQ_CLASSROOM_CONFIG : {};
   const merged = Object.assign({}, defaults, existing);
