@@ -1,10 +1,10 @@
 /* UX Quest • W5 Mission Control extension
- * Adds W5 without changing the already-running W1–W4 hub controller.
+ * Adds W5 Concept Forge without changing the already-running W1–W4 hub controller.
  */
 (() => {
   'use strict';
 
-  const W5_HREF = './w5-user-journey-rescue.html?v=20260703-w5-flow-v1';
+  const W5_HREF = './w5-concept-forge.html?v=20260704-w5-concept-v1';
   const ALL = ['w1', 'w2', 'w3', 'b1', 'w4', 'w5'];
   const $ = (id) => document.getElementById(id);
   const n = (value) => Number(value || 0);
@@ -32,7 +32,7 @@
     grid.insertAdjacentHTML('beforeend', `
       <article class="boss-preview insight-preview w5-preview" id="nodeW5">
         <div class="boss-preview__top"><span class="stage-number">W5</span><span class="stage-state" id="w5State">ล็อกอยู่</span></div>
-        <div class="boss-preview__body"><span class="boss-preview__icon" aria-hidden="true">↝</span><div><p class="compact-stage__type">ACT II • USER JOURNEY & TASK FLOW</p><h3>ภารกิจกู้เส้นทางผู้ใช้</h3><p>วาดเส้นทาง หา pain point เลือกคอขวด ออกแบบ flow ใหม่ และพิสูจน์ผลกับงานจริง</p></div></div>
+        <div class="boss-preview__body"><span class="boss-preview__icon" aria-hidden="true">✦</span><div><p class="compact-stage__type">ACT II • CONCEPT DESIGN</p><h3>Concept Forge: จาก Insight สู่แนวคิด</h3><p>นิยามปัญหา สร้าง HMW แตกไอเดีย วาง storyboard และเลือกต้นแบบที่ทดสอบได้จริง</p></div></div>
         <div class="boss-preview__footer"><span id="w5Note">ต้องผ่าน W4 ก่อน</span><a id="w5Launch" class="w5-launch is-disabled" href="#" aria-disabled="true">ล็อกอยู่</a></div>
       </article>
     `);
@@ -77,15 +77,15 @@
 
     if (!w4Passed) return;
     setText('nowStatus', w5Passed ? 'ผ่าน W5 แล้ว' : 'พร้อมเริ่ม W5');
-    setText('nowWeek', 'W5 • ภารกิจกู้เส้นทางผู้ใช้');
-    setText('nowIcon', '↝');
-    setText('w1Title', 'ภารกิจกู้เส้นทางผู้ใช้');
-    setText('nowSummary', 'วาดเส้นทางผู้ใช้ หา pain point เลือกคอขวด แล้วออกแบบลำดับงานใหม่ที่พาไปถึงเป้าหมาย');
-    setText('nowReward', w5Passed ? `ผ่านแล้ว ${stars(item.bestStars)} • เล่นซ้ำด้วยคดีใหม่ได้` : '★ 2 ระดับความพร้อม เพื่อยืนยันการออกแบบ Task Flow');
+    setText('nowWeek', 'W5 • Concept Forge');
+    setText('nowIcon', '✦');
+    setText('w1Title', 'Concept Forge: จาก Insight สู่แนวคิด');
+    setText('nowSummary', 'เปลี่ยน insight เป็น Problem Statement, HMW, ไอเดีย, Storyboard และต้นแบบที่ทดสอบได้จริง');
+    setText('nowReward', w5Passed ? `ผ่านแล้ว ${stars(item.bestStars)} • เล่นซ้ำด้วยคดีใหม่ได้` : '★ 2 ระดับความพร้อม เพื่อยืนยันการสร้างแนวคิดจากหลักฐานผู้ใช้');
     const mainLaunch = $('nowLaunch');
     if (mainLaunch) {
       mainLaunch.href = W5_HREF;
-      mainLaunch.setAttribute('aria-label', 'เปิด W5 ภารกิจกู้เส้นทางผู้ใช้');
+      mainLaunch.setAttribute('aria-label', 'เปิด W5 Concept Forge');
     }
     setText('nowLaunchText', w5Passed ? 'เล่น W5 ทบทวน' : 'เริ่ม W5');
     const dot = $('nowStatusDot');
@@ -94,8 +94,8 @@
       dot.classList.toggle('is-resume', !w5Passed);
     }
     setText('pathHint', w5Passed
-      ? 'W4 และ W5 ผ่านแล้ว — เล่นซ้ำด้วยคดีใหม่เพื่อฝึกถ่ายโอนหลักคิดไปยังบริบทอื่น'
-      : 'ผ่าน W4 แล้ว — W5 ภารกิจกู้เส้นทางผู้ใช้เปิดให้เริ่มได้');
+      ? 'W4 และ W5 ผ่านแล้ว — เล่นซ้ำด้วยคดีใหม่เพื่อฝึกเปลี่ยน insight ให้เป็นแนวคิดที่ทดสอบได้'
+      : 'ผ่าน W4 แล้ว — W5 Concept Forge เปิดให้เริ่มได้');
   }
 
   document.addEventListener('DOMContentLoaded', () => window.setTimeout(render, 0));
