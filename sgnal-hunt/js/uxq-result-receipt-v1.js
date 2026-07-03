@@ -1,4 +1,4 @@
-/* UX Quest • Result Receipt UI v1.1 */
+/* UX Quest • Result Receipt UI v1.2 • Truthful delivery status */
 (() => {
   'use strict';
 
@@ -10,10 +10,10 @@
     const state = item?.state || 'local_only';
     if (state === 'confirmed') return { tag: 'SYSTEM CONFIRMED', tone: 'good', title: 'ระบบยืนยันการบันทึกแล้ว', body: 'มีการตอบรับจากระบบปลายทางสำหรับรอบนี้แล้ว' };
     if (state === 'dispatched_unverified') return {
-      tag: 'RESULT SENT',
+      tag: 'REQUEST SENT',
       tone: 'good',
-      title: 'ส่งผลไปยังระบบชั้นเรียนแล้ว',
-      body: 'เกมส่งคำขอผลลัพธ์ไปยัง Student Receiver แล้ว ผู้สอนสามารถตรวจผลใน Teacher Dashboard หลังรีเฟรชข้อมูลได้ หน้าผู้เรียนไม่อ่านคำตอบกลับจาก Google Sheets โดยตรง เพราะการส่งใช้ no-cors'
+      title: 'ส่งคำขอผลลัพธ์ไปยังระบบชั้นเรียนแล้ว',
+      body: 'เกมส่งคำขอไปยัง Student Receiver แล้ว หน้าผู้เรียนยังยืนยันไม่ได้ว่าระบบปลายทางบันทึกสำเร็จหรือไม่ เพราะการส่งใช้ no-cors จึงไม่อ่านคำตอบกลับจาก Google Sheets โดยตรง'
     };
     if (state === 'dispatching') return { tag: 'SAVING REQUEST', tone: 'warn', title: 'บันทึกในอุปกรณ์แล้ว กำลังส่งคำขอ', body: 'โปรดรอสักครู่ ระบบจะอัปเดตสถานะการส่งในหน้านี้' };
     if (state === 'queued') return { tag: 'QUEUED ON DEVICE', tone: 'bad', title: 'บันทึกในอุปกรณ์แล้ว รอส่งเมื่อเชื่อมต่อ', body: 'ระบบเก็บรอบนี้ไว้ในคิวของอุปกรณ์และจะลองส่งใหม่เมื่อกลับมาออนไลน์' };
@@ -72,7 +72,7 @@
   function loadFooterSync(){
     if (document.querySelector('script[data-uxq-result-footer-sync]')) return;
     const script = document.createElement('script');
-    script.src = './js/uxq-result-footer-sync-v1.js?v=20260629-footer-sync-v2';
+    script.src = './js/uxq-result-footer-sync-v1.js?v=20260704-truthful-delivery-v2';
     script.async = true;
     script.dataset.uxqResultFooterSync = '1';
     document.head.appendChild(script);
@@ -85,6 +85,6 @@
     observer.observe(document.documentElement, { childList: true, subtree: true });
     window.addEventListener('uxq:submission-receipt', () => window.setTimeout(decorate, 0));
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });
   else boot();
 })();
