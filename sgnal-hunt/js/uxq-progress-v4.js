@@ -1,6 +1,6 @@
-/* UX Quest • Progress Store v4
- * Shared local-first progress for W1 → W2 → W3 → B1 → W4 → W5.
- * Compatible with uxq.act1.progress.v2 so existing progress remains intact.
+/* UX Quest • Progress Store v4.1
+ * Shared local-first progress for the full CSAI2601 campaign.
+ * Keeps existing uxq.act1.progress.v2 data so current learners retain progress.
  */
 (() => {
   'use strict';
@@ -8,18 +8,24 @@
   const KEY = 'uxq.act1.progress.v2';
   const LEGACY_KEY = 'uxq.act1.progress.v1';
   const ACT1_IDS = ['w1', 'w2', 'w3', 'b1'];
-  const ACT2_IDS = ['w4', 'w5'];
-  const MISSION_IDS = [...ACT1_IDS, ...ACT2_IDS];
+  const ACT2_IDS = ['w4', 'w5', 'w6', 'b2'];
+  const ACT3_IDS = ['w7', 'b3'];
+  const ACT4_IDS = ['w9', 'w10', 'w11', 'b4'];
+  const ACT5_IDS = ['w12', 'w13', 'w14', 'b5'];
+  const MISSION_IDS = [...ACT1_IDS, ...ACT2_IDS, ...ACT3_IDS, ...ACT4_IDS, ...ACT5_IDS];
   const memory = new Map();
   let storageMode = 'local';
 
   function fresh(){
     return {
-      version: 4,
+      version: 4.1,
       updatedAt: null,
       missions: {},
       act1: { completed: false, bestScore: 0, totalStars: 0 },
       act2: { completed: false, bestScore: 0, totalStars: 0 },
+      act3: { completed: false, bestScore: 0, totalStars: 0 },
+      act4: { completed: false, bestScore: 0, totalStars: 0 },
+      act5: { completed: false, bestScore: 0, totalStars: 0 },
       quest: { completedNodes: 0, bestScore: 0, totalStars: 0 }
     };
   }
@@ -46,14 +52,12 @@
       storageMode = 'local';
       return storageMode;
     } catch (error) {}
-
     try {
       window.sessionStorage.setItem(key, text);
       memory.delete(key);
       storageMode = 'session';
       return storageMode;
     } catch (error) {}
-
     memory.set(key, text);
     storageMode = 'memory';
     return storageMode;
@@ -74,6 +78,9 @@
     base.updatedAt = value.updatedAt || null;
     base.act1 = Object.assign(base.act1, value.act1 || {});
     base.act2 = Object.assign(base.act2, value.act2 || {});
+    base.act3 = Object.assign(base.act3, value.act3 || {});
+    base.act4 = Object.assign(base.act4, value.act4 || {});
+    base.act5 = Object.assign(base.act5, value.act5 || {});
     base.quest = Object.assign(base.quest, value.quest || {});
     return base;
   }
@@ -83,9 +90,7 @@
     catch (error) { return null; }
   }
 
-  function get(){
-    return parse(storage.getItem(KEY)) || parse(storage.getItem(LEGACY_KEY)) || fresh();
-  }
+  function get(){ return parse(storage.getItem(KEY)) || parse(storage.getItem(LEGACY_KEY)) || fresh(); }
 
   function statFor(ids, missions){
     const rows = ids.map((id) => missions[id] || {});
@@ -98,11 +103,14 @@
 
   function save(progress){
     const next = clean(progress);
-    next.version = 4;
+    next.version = 4.1;
     next.updatedAt = new Date().toISOString();
     const missions = next.missions || {};
     next.act1 = statFor(ACT1_IDS, missions);
     next.act2 = statFor(ACT2_IDS, missions);
+    next.act3 = statFor(ACT3_IDS, missions);
+    next.act4 = statFor(ACT4_IDS, missions);
+    next.act5 = statFor(ACT5_IDS, missions);
     const all = MISSION_IDS.map((id) => missions[id] || {});
     next.quest = {
       completedNodes: MISSION_IDS.filter((id) => Number(missions[id]?.bestStars || 0) >= 2).length,
@@ -131,7 +139,7 @@
       passed: Boolean(result.passed),
       badge: String(result.badge || '')
     };
-    const history = Array.isArray(previous.history) ? previous.history.slice(-2) : [];
+    const history = Array.isArray(previous.history) ? previous.history.slice(-7) : [];
     history.push(attempt);
     progress.missions[id] = {
       id,
@@ -148,9 +156,7 @@
     return save(progress);
   }
 
-  function missionPassed(id){
-    return Number(get().missions?.[id]?.bestStars || 0) >= 2;
-  }
+  function missionPassed(id){ return Number(get().missions?.[id]?.bestStars || 0) >= 2; }
 
   function resetQuest(){
     removeItem(KEY);
@@ -165,17 +171,7 @@
   }
 
   window.UXQProgress = Object.freeze({
-    KEY,
-    LEGACY_KEY,
-    ACT1_IDS,
-    ACT2_IDS,
-    MISSION_IDS,
-    get,
-    save,
-    recordMission,
-    missionPassed,
-    resetQuest,
-    resetAct1: resetQuest,
-    storage
+    KEY, LEGACY_KEY, ACT1_IDS, ACT2_IDS, ACT3_IDS, ACT4_IDS, ACT5_IDS, MISSION_IDS,
+    get, save, recordMission, missionPassed, resetQuest, resetAct1: resetQuest, storage
   });
 })();
