@@ -1,4 +1,4 @@
-/* UX Quest • Result Receipt UI v1.3 • Truthful delivery + mastery layer loader */
+/* UX Quest • Result Receipt UI v1.4 • Truthful delivery + mastery layer loader */
 (() => {
   'use strict';
 
@@ -83,6 +83,7 @@
   function loadMasteryLayer(){
     const current = String(location.pathname || '').toLowerCase();
     if (!/(w2-design-thinking-sprint|w3-cognitive-load-escape|b1-cognitive-storm|w4-user-insight-lab|w5-concept-forge|w6-flow-rescue|b2-flow-fortress)\.html/.test(current)) return;
+    loadScript('./js/uxq-boss-console-loop-guard-v1.js?v=20260705-loop-guard-v1', 'data-uxq-boss-loop-guard');
     loadScript('./js/uxq-w2-b2-mastery-v1.js?v=20260705-mastery-v1', 'data-uxq-w2b2-mastery');
   }
   function boot(){
