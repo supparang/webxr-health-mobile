@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v6.1 • Thai learner interface */
+/* UX Quest • Classroom Configuration v6.2 • Thai learner interface */
 (() => {
   'use strict';
 
@@ -12,6 +12,9 @@
   }
   if (/w4-user-insight-lab\.html/i.test(location.pathname) && document.readyState === 'loading') {
     document.write('<script src="./js/uxq-w4-engine-hook-v1.js?v=20260702-w4-bank-v1"></' + 'script><script src="./js/uxq-w4-extra-bank-v1.js?v=20260702-w4-bank-v1"></' + 'script>');
+  }
+  if (/(w2-design-thinking-sprint|w3-cognitive-load-escape|b1-cognitive-storm|w4-user-insight-lab|w5-concept-forge|w6-flow-rescue|b2-flow-fortress)\.html/i.test(location.pathname) && document.readyState === 'loading') {
+    document.write('<script data-uxq-boss-loop-guard src="./js/uxq-boss-console-loop-guard-v1.js?v=20260705-loop-guard-v1"></' + 'script><script data-uxq-w2b2-mastery src="./js/uxq-w2-b2-mastery-v1.js?v=20260705-mastery-v1"></' + 'script>');
   }
 
   function normalizeSection(value){
@@ -45,7 +48,7 @@
     courseId: 'UXQ-ACT1-2026', courseLabel: 'UX Quest • Act I',
     defaultSection: classroomSection || '', classroomMode: classroomMode ? 'required' : 'practice',
     classroomSection, allowGuestPractice: !classroomMode, maxQueuedAttempts: 12,
-    version: '20260705-classroom-v6.1-w2-b2-mastery'
+    version: '20260705-classroom-v6.2-w2-b2-preload'
   };
   const existing = (window.UXQ_CLASSROOM_CONFIG && typeof window.UXQ_CLASSROOM_CONFIG === 'object') ? window.UXQ_CLASSROOM_CONFIG : {};
   const merged = Object.assign({}, defaults, existing);
@@ -138,7 +141,7 @@
   }
   function loadResultSupport(){
     loadScript('./js/uxq-engine-thai-v1.js?v=20260705-engine-thai-v2','data-uxq-engine-thai');
-    loadScript('./js/uxq-result-receipt-v1.js?v=20260705-mastery-loader-v1','data-uxq-result-receipt');
+    loadScript('./js/uxq-result-receipt-v1.js?v=20260705-mastery-loader-v2','data-uxq-result-receipt');
     loadScript('./js/uxq-anti-guess-coach-v1.js?v=20260629-replay-coach-v1','data-uxq-anti-guess-coach');
     loadScript('./js/uxq-reason-retry-transport-v1.js?v=20260629-reason-transport-v1','data-uxq-reason-transport');
     loadScript('./js/uxq-explain-why-retry-v1.js?v=20260629-explain-retry-v1','data-uxq-explain-retry');
