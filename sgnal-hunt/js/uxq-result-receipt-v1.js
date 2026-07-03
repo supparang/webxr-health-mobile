@@ -1,4 +1,4 @@
-/* UX Quest • Result Receipt UI v1.2 • Truthful delivery status */
+/* UX Quest • Result Receipt UI v1.3 • Truthful delivery + mastery layer loader */
 (() => {
   'use strict';
 
@@ -69,17 +69,26 @@
     const tag = document.querySelector('.uxq-top .uxq-mission-tag');
     if (tag && tag.textContent !== info.tag) tag.textContent = info.tag;
   }
-  function loadFooterSync(){
-    if (document.querySelector('script[data-uxq-result-footer-sync]')) return;
+  function loadScript(src, marker){
+    if (document.querySelector(`script[${marker}]`)) return;
     const script = document.createElement('script');
-    script.src = './js/uxq-result-footer-sync-v1.js?v=20260704-truthful-delivery-v2';
-    script.async = true;
-    script.dataset.uxqResultFooterSync = '1';
+    script.src = src;
+    script.async = false;
+    script.setAttribute(marker, '1');
     document.head.appendChild(script);
+  }
+  function loadFooterSync(){
+    loadScript('./js/uxq-result-footer-sync-v1.js?v=20260704-truthful-delivery-v2', 'data-uxq-result-footer-sync');
+  }
+  function loadMasteryLayer(){
+    const current = String(location.pathname || '').toLowerCase();
+    if (!/(w2-design-thinking-sprint|w3-cognitive-load-escape|b1-cognitive-storm|w4-user-insight-lab|w5-concept-forge|w6-flow-rescue|b2-flow-fortress)\.html/.test(current)) return;
+    loadScript('./js/uxq-w2-b2-mastery-v1.js?v=20260705-mastery-v1', 'data-uxq-w2b2-mastery');
   }
   function boot(){
     addStyle();
     loadFooterSync();
+    loadMasteryLayer();
     decorate();
     const observer = new MutationObserver(decorate);
     observer.observe(document.documentElement, { childList: true, subtree: true });
