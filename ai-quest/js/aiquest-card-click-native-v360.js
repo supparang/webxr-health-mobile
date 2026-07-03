@@ -1,14 +1,24 @@
-
+/*
+  CSAI2102 AI Quest
+  v3.6.5 — Canonical native card navigation
+  ------------------------------------------------------------
+  Retains safe click handling for legacy cards, but every route now follows:
+  S1 -> S2 -> S3 -> B1 -> S4 -> S5 -> S6 -> B2
+  The obsolete floating native navigation is retired; the canonical Roadmap
+  is the single visible navigation surface.
+*/
 (function(){
   'use strict';
 
-  const VERSION = 'v3.6.0-phase1-ready-cleanup';
+  const VERSION = 'v3.6.5-canonical-card-navigation';
+  const STORAGE_KEY = 'CSAI2102_AIQUEST_V16_M1_GOOGLE_SHEETS';
+  const FLOW = ['m1','m2','m3','b1','m4','m5','m6','b2'];
 
   function recentlySubmitted(){
     try{
       const until = Number(sessionStorage.getItem('AIQUEST_SUPPRESS_AUTOSTART_UNTIL') || 0);
       return Date.now() < until;
-    }catch(e){
+    }catch(error){
       return false;
     }
   }
@@ -16,70 +26,77 @@
   function suppressAutoStart(ms){
     try{
       sessionStorage.setItem('AIQUEST_SUPPRESS_AUTOSTART_UNTIL', String(Date.now() + (ms || 8000)));
-    }catch(e){}
+    }catch(error){}
   }
 
   window.AIQUEST_SUPPRESS_AUTOSTART = suppressAutoStart;
 
-  function toast(msg){
+  function toast(message){
     try{
-      if(typeof showToast === 'function') showToast(msg);
-      else console.log('[AIQuest]', msg);
-    }catch(e){ console.log('[AIQuest]', msg); }
+      if(typeof showToast === 'function') showToast(message);
+      else console.log('[AIQuest]', message);
+    }catch(error){
+      console.log('[AIQuest]', message);
+    }
+  }
+
+  function localState(){
+    try{
+      return typeof state === 'object' && state ? state : JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    }catch(error){
+      return {};
+    }
   }
 
   function passed(id){
-    try{
-      return !!(
-        state.completed[id] ||
-        state.stars[id] ||
-        state.mastered[id] ||
-        Number(state.bestScore[id] || 0) >= 60
-      );
-    }catch(e){
-      return false;
-    }
+    const current = localState();
+    return !!(
+      (current.completed && current.completed[id]) ||
+      (current.stars && Number(current.stars[id] || 0) > 0) ||
+      (current.mastered && current.mastered[id]) ||
+      (current.bestScore && Number(current.bestScore[id] || 0) >= 60)
+    );
   }
 
   function ready(id){
     if(id === 'm1') return true;
     if(id === 'm2') return passed('m1');
-    if(id === 'b1') return passed('m1') && passed('m2');
-    if(id === 'm3') return passed('m1') && passed('m2') && passed('b1');
-    if(id === 'm4') return passed('m3');
+    if(id === 'm3') return passed('m2');
+    if(id === 'b1') return ['m1','m2','m3'].every(passed);
+    if(id === 'm4') return passed('b1');
     if(id === 'm5') return passed('m4');
-    if(id === 'b2') return passed('m3') && passed('m4') && passed('m5');
+    if(id === 'm6') return passed('m5');
+    if(id === 'b2') return ['m4','m5','m6'].every(passed);
     return false;
   }
 
-  function inferStageFromText(el){
-    const raw = String(el && (el.innerText || el.textContent) || '');
-    const t = raw.toLowerCase().replace(/\s+/g,' ').trim();
-
-    // ต้องเช็ก B2/B1 ก่อน เพราะมีคำว่า Boss ซ้ำ
-    if(/\bb2\b/i.test(raw) || t.includes('search arena boss')) return 'b2';
-    if(/\bb1\b/i.test(raw) || t.includes('rookie ai boss')) return 'b1';
-    if(/\bs1\b/i.test(raw) || t.includes('ai awakening')) return 'm1';
-    if(/\bs2\b/i.test(raw) || t.includes('agent builder')) return 'm2';
-    if(/\bs3\b/i.test(raw) || t.includes('search maze')) return 'm3';
-    if(/\bs4\b/i.test(raw) || t.includes('route cost')) return 'm4';
-    if(/\bs5\b/i.test(raw) || t.includes('a* rescue') || t.includes('heuristic')) return 'm5';
+  function inferStageFromText(element){
+    const raw = String(element && (element.innerText || element.textContent) || '');
+    const value = raw.toLowerCase().replace(/\s+/g, ' ').trim();
+    if(/\bb2\b/i.test(raw) || value.includes('applied ai boss gate') || value.includes('search arena boss')) return 'b2';
+    if(/\bb1\b/i.test(raw) || value.includes('foundation boss gate') || value.includes('rookie ai boss')) return 'b1';
+    if(/\bs1\b/i.test(raw) || value.includes('ai awakening')) return 'm1';
+    if(/\bs2\b/i.test(raw) || value.includes('agent builder')) return 'm2';
+    if(/\bs3\b/i.test(raw) || value.includes('search maze')) return 'm3';
+    if(/\bs4\b/i.test(raw) || value.includes('route cost')) return 'm4';
+    if(/\bs5\b/i.test(raw) || value.includes('a* rescue') || value.includes('heuristic')) return 'm5';
+    if(/\bs6\b/i.test(raw) || value.includes('knowledge base forge') || value.includes('ฐานความรู้')) return 'm6';
     return '';
   }
 
-  function isRoadmapArea(el){
-    if(!el) return false;
-    const t = String(el.innerText || el.textContent || '').toLowerCase();
-    // การ์ด roadmap จะมี title + status พวกนี้
-    return t.includes('passed') || t.includes('mastery') || t.includes('boss gate open') || t.includes('locked') || t.includes('กดเพื่อเข้า');
+  function isRoadmapArea(element){
+    if(!element) return false;
+    const value = String(element.innerText || element.textContent || '').toLowerCase();
+    return value.includes('passed') || value.includes('mastery') || value.includes('boss gate open') || value.includes('locked') || value.includes('กดเพื่อเข้า');
   }
 
-  function nearestCard(target){
-    let el = target;
-    for(let i=0; el && i<8; i++, el=el.parentElement){
-      if(!el || el === document.body) break;
-      const id = inferStageFromText(el);
-      if(id && isRoadmapArea(el)) return {el,id};
+  function nearestLegacyCard(target){
+    let element = target;
+    for(let depth=0; element && depth<8; depth++,element=element.parentElement){
+      if(!element || element === document.body) break;
+      if(element.hasAttribute && element.hasAttribute('data-aiq-flow-id')) return null;
+      const id = inferStageFromText(element);
+      if(id && isRoadmapArea(element)) return {element,id};
     }
     return null;
   }
@@ -90,12 +107,12 @@
       return false;
     }
     if(!ready(id)){
-      toast('ยังเข้าไม่ได้: ยังไม่ผ่านเงื่อนไขก่อนหน้า');
+      toast('ยังเข้าไม่ได้: ต้องผ่านด่านก่อนหน้าตามลำดับรายวิชา');
       return false;
     }
-    if(typeof startMission === 'function'){
-      toast((passed(id) ? 'Replay ' : 'เข้า ') + id.toUpperCase());
-      startMission(id);
+    if(typeof window.startMission === 'function'){
+      toast((passed(id) ? 'เล่นซ้ำ: ' : 'เข้าสู่ ') + id.toUpperCase());
+      window.startMission(id);
       return true;
     }
     toast('ไม่พบ startMission');
@@ -103,131 +120,68 @@
   }
 
   function installGlobalCapture(){
-    if(window.__AIQUEST_CARD_CLICK_NATIVE_V319) return;
-    window.__AIQUEST_CARD_CLICK_NATIVE_V319 = true;
+    if(window.__AIQUEST_CARD_CLICK_NATIVE_V365) return;
+    window.__AIQUEST_CARD_CLICK_NATIVE_V365 = true;
 
-    document.addEventListener('click', function(ev){
+    document.addEventListener('click', function(event){
       if(recentlySubmitted()) return;
-      if(ev.target && ev.target.closest && ev.target.closest('button, textarea, input, select, form, #gameScreen, #missionScreen, #playScreen, #summaryScreen, #resultScreen, [data-no-roadmap-click]')){
+      if(event.target && event.target.closest && event.target.closest('button, textarea, input, select, form, #gameScreen, #missionScreen, #playScreen, #summaryScreen, #resultScreen, [data-no-roadmap-click]')){
         return;
       }
-      const found = nearestCard(ev.target);
+      const found = nearestLegacyCard(event.target);
       if(!found) return;
-
-      // ปล่อยปุ่มลอย/ปุ่มจริงทำงานเอง ถ้าไม่ใช่การ์ด
-      if(ev.target && ev.target.closest && ev.target.closest('#roadmapClickFixPanel_DISABLED')) return;
-
-      const id = found.id;
-      if(!['m1','m2','m3','m4','m5','b1','b2'].includes(id)) return;
-
-      ev.preventDefault();
-      ev.stopPropagation();
-      ev.stopImmediatePropagation();
-
-      go(id, false);
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      go(found.id, false);
       return false;
     }, true);
   }
 
-  function markCards(){
-    const all = Array.from(document.querySelectorAll('div, article, section, button'));
+  function markLegacyCards(){
     let marked = 0;
-    all.forEach(el => {
-      const id = inferStageFromText(el);
-      if(!id) return;
-      if(!isRoadmapArea(el)) return;
-
-      // เลือก element ที่ดูเป็น card: มีข้อความไม่ยาวเกินไปและมี border/radius จาก class/card
-      const txt = String(el.innerText || el.textContent || '');
-      if(txt.length > 260) return;
-
-      el.setAttribute('data-aiquest-direct-card', id);
-      el.style.cursor = ready(id) ? 'pointer' : 'not-allowed';
-      el.title = ready(id) ? 'กดเพื่อเข้าเล่น / Replay' : 'ยังไม่ผ่านเงื่อนไข';
+    Array.from(document.querySelectorAll('div, article, section, button')).forEach(element => {
+      if(element.hasAttribute && element.hasAttribute('data-aiq-flow-id')) return;
+      const id = inferStageFromText(element);
+      if(!id || !isRoadmapArea(element)) return;
+      const content = String(element.innerText || element.textContent || '');
+      if(content.length > 260) return;
+      element.setAttribute('data-aiquest-direct-card', id);
+      element.style.cursor = ready(id) ? 'pointer' : 'not-allowed';
+      element.title = ready(id) ? 'กดเพื่อเข้าเล่น / เล่นซ้ำ' : 'ยังไม่ผ่านเงื่อนไขตามลำดับรายวิชา';
       marked++;
     });
     return marked;
   }
 
-  function removeOldDuplicatePanels(){
-    ['roadmapClickFixPanel','roadmapClickFixPanel_DISABLED','roadmapDirectEntryPanel'].forEach(id => {
-      const el = document.getElementById(id);
-      if(el) el.remove();
+  function removeRetiredNativeNavigation(){
+    ['roadmapClickFixPanel','roadmapClickFixPanel_DISABLED','roadmapDirectEntryPanel','aiquestNativeTopBar'].forEach(id => {
+      const element = document.getElementById(id);
+      if(element) element.remove();
     });
-  }
-
-  function addTopReplayButton(){
-    removeOldDuplicatePanels();
-    try{
-      const qs = new URLSearchParams(location.search);
-      if(qs.get('teacher') === '1'){
-        const oldBar=document.getElementById('aiquestNativeTopBar');
-        if(oldBar) oldBar.remove();
-        return;
-      }
-    }catch(e){}
-    let bar = document.getElementById('aiquestNativeTopBar');
-    if(bar) bar.remove();
-
-    const header = document.querySelector('.topbar, header, .hero, .app-header') || document.body;
-    bar = document.createElement('div');
-    bar.id = 'aiquestNativeTopBar';
-    bar.style.position = 'fixed';
-    bar.style.left = '50%';
-    bar.style.transform = 'translateX(-50%)';
-    bar.style.bottom = '18px';
-    bar.style.zIndex = '100000';
-    bar.style.display = 'flex';
-    bar.style.gap = '8px';
-    bar.style.padding = '8px';
-    bar.style.borderRadius = '18px';
-    bar.style.background = 'rgba(15,23,42,.92)';
-    bar.style.border = '1px solid rgba(34,211,238,.35)';
-    bar.style.boxShadow = '0 18px 44px rgba(0,0,0,.38)';
-
-    const ids = ['m1','m2','b1','m3','m4','m5','b2'];
-    const labels = {m1:'S1',m2:'S2',b1:'B1',m3:'S3',m4:'S4',m5:'S5',b2:'B2'};
-    ids.forEach(id=>{
-      const btn=document.createElement('button');
-      btn.textContent=labels[id];
-      btn.className='btn small';
-      btn.style.borderRadius='999px';
-      btn.style.padding='8px 12px';
-      btn.style.fontWeight='900';
-      btn.style.border='1px solid rgba(255,255,255,.15)';
-      btn.style.background=id==='b2'?'linear-gradient(135deg,#22c55e,#14b8a6)':'rgba(255,255,255,.08)';
-      btn.style.color='#fff';
-      btn.disabled=!ready(id);
-      btn.style.opacity=btn.disabled?'.42':'1';
-      btn.onclick=(e)=>{e.preventDefault();e.stopPropagation();go(id, true);};
-      bar.appendChild(btn);
-    });
-    document.body.appendChild(bar);
   }
 
   function boot(){
     installGlobalCapture();
-    markCards();
-    addTopReplayButton();
-    [250,700,1300,2200,3500].forEach(ms=>setTimeout(()=>{
-      markCards();
-      addTopReplayButton();
-    },ms));
+    removeRetiredNativeNavigation();
+    markLegacyCards();
+    [250,700,1300,2200,3500].forEach(ms => setTimeout(() => {
+      removeRetiredNativeNavigation();
+      markLegacyCards();
+    }, ms));
   }
 
   window.AIQUEST_CARD_CLICK_NATIVE = {
-    version: VERSION,
+    version:VERSION,
     go,
     ready,
-    markCards,
-    refresh: boot
+    markCards:markLegacyCards,
+    refresh:boot,
+    flow:FLOW.slice()
   };
 
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot);
-  }else{
-    boot();
-  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 
-  console.log('[AIQuest] '+VERSION+' loaded', window.AIQUEST_CARD_CLICK_NATIVE);
+  console.log('[AIQuest] ' + VERSION + ' loaded', window.AIQUEST_CARD_CLICK_NATIVE);
 })();
