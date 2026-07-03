@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v6.0 • Thai learner interface */
+/* UX Quest • Classroom Configuration v6.1 • Thai learner interface */
 (() => {
   'use strict';
 
@@ -25,9 +25,10 @@
   }
   function clearFreshClassroomState(){
     ['uxq.act1.progress.v2','uxq.act1.progress.v1','uxq.classroom.profile.v1','uxq.classroom.queue.v1','uxq.classroom.last-receipt.v1','uxq.reason-retry.queue.v1','uxq.w1.first-impression.v1'].forEach(removeStored);
-    ['w1','w2','w3','b1','w4'].forEach((id) => {
+    ['w1','w2','w3','b1','w4','w5','w6','b2'].forEach((id) => {
       removeStored(`uxq.recent.${id}.v1`); removeStored(`uxq.recent.${id}.v2`);
       removeStored(`uxq.run.${id}.v1`); removeStored(`uxq.run.${id}.v2`);
+      removeStored(`uxq.mastery.${id}.v1`); removeStored(`uxq.transfer.${id}.v1`);
     });
   }
   if (classroomMode && freshStart) {
@@ -44,7 +45,7 @@
     courseId: 'UXQ-ACT1-2026', courseLabel: 'UX Quest • Act I',
     defaultSection: classroomSection || '', classroomMode: classroomMode ? 'required' : 'practice',
     classroomSection, allowGuestPractice: !classroomMode, maxQueuedAttempts: 12,
-    version: '20260704-classroom-v6-w1-result-copy'
+    version: '20260705-classroom-v6.1-w2-b2-mastery'
   };
   const existing = (window.UXQ_CLASSROOM_CONFIG && typeof window.UXQ_CLASSROOM_CONFIG === 'object') ? window.UXQ_CLASSROOM_CONFIG : {};
   const merged = Object.assign({}, defaults, existing);
@@ -92,7 +93,10 @@
     const input = form.querySelector('#uxqProfileSection'); if (input) input.value = classroomSection;
   }
   function classroomMissionHref(missionId){
-    const files = {w1:'./w1-ux-crisis-casefile.html',w2:'./w2-design-thinking-sprint.html',w3:'./w3-cognitive-load-escape.html',b1:'./b1-cognitive-storm.html',w4:'./w4-user-insight-lab.html'};
+    const files = {
+      w1:'./w1-ux-crisis-casefile.html', w2:'./w2-design-thinking-sprint.html', w3:'./w3-cognitive-load-escape.html', b1:'./b1-cognitive-storm.html',
+      w4:'./w4-user-insight-lab.html', w5:'./w5-concept-forge.html', w6:'./w6-flow-rescue.html', b2:'./b2-flow-fortress.html'
+    };
     return withClassroomParams(files[missionId] || './index.html');
   }
   function guardMissionNavigation(event){
@@ -133,8 +137,8 @@
     const script = document.createElement('script'); script.src = src; script.async = false; script.setAttribute(marker, '1'); document.head.appendChild(script);
   }
   function loadResultSupport(){
-    loadScript('./js/uxq-engine-thai-v1.js?v=20260702-engine-thai-v1','data-uxq-engine-thai');
-    loadScript('./js/uxq-result-receipt-v1.js?v=20260704-truthful-delivery-v2','data-uxq-result-receipt');
+    loadScript('./js/uxq-engine-thai-v1.js?v=20260705-engine-thai-v2','data-uxq-engine-thai');
+    loadScript('./js/uxq-result-receipt-v1.js?v=20260705-mastery-loader-v1','data-uxq-result-receipt');
     loadScript('./js/uxq-anti-guess-coach-v1.js?v=20260629-replay-coach-v1','data-uxq-anti-guess-coach');
     loadScript('./js/uxq-reason-retry-transport-v1.js?v=20260629-reason-transport-v1','data-uxq-reason-transport');
     loadScript('./js/uxq-explain-why-retry-v1.js?v=20260629-explain-retry-v1','data-uxq-explain-retry');
