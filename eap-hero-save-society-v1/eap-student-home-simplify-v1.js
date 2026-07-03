@@ -1,5 +1,5 @@
 /* =========================================================
-   EAP Hero Student Home Simplifier v2
+   EAP Hero Student Home Simplifier v2 + Learning Ladder Loader
    Student-facing home: one primary path, no duplicate actions
 ========================================================= */
 (() => {
@@ -75,7 +75,17 @@
     simplifyStatus();
   }
 
+  function loadLearningLadder() {
+    if (document.getElementById('eap-learning-ladder-loader')) return;
+    const script = document.createElement('script');
+    script.id = 'eap-learning-ladder-loader';
+    script.src = './eap-learning-ladder-v1.js?v=20260704-learning-ladder-v1';
+    script.async = true;
+    document.head.appendChild(script);
+  }
+
   function start() {
+    loadLearningLadder();
     simplifyHome();
     const observer = new MutationObserver(() => simplifyHome());
     observer.observe(document.documentElement, { childList: true, subtree: true });
