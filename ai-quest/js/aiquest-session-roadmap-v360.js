@@ -1,6 +1,6 @@
 /*
   CSAI2102 AI Quest
-  v3.6.1 Canonical Course Flow
+  v3.6.2 Canonical Course Flow
   ------------------------------------------------------------
   Canonical sequence:
   S1 -> S2 -> S3 -> B1 -> S4 -> S5 -> S6 -> B2
@@ -14,7 +14,7 @@
 (function(){
   'use strict';
 
-  const VERSION = 'v3.6.1-canonical-flow-s1-s3-b1-s4-s6-b2';
+  const VERSION = 'v3.6.2-canonical-flow-continue-intercept';
   const STORAGE_KEY = 'CSAI2102_AIQUEST_V16_M1_GOOGLE_SHEETS';
 
   const FLOW = [
@@ -152,21 +152,53 @@
     console.log('[AIQuest]', message);
   }
 
+  function profileIsReady(){
+    try{
+      return !(window.AIQuestStorage && typeof window.AIQuestStorage.isProfileReady === 'function') || window.AIQuestStorage.isProfileReady();
+    }catch(error){
+      return false;
+    }
+  }
+
+  function launchNextMission(){
+    const item = FLOW_BY_ID[nextId(readState())];
+    if(!item) return false;
+
+    if(!profileIsReady()){
+      document.getElementById('profilePanel')?.scrollIntoView({behavior:'smooth', block:'center'});
+      showToast('กรุณากรอก Student Profile ก่อนเริ่มเล่น');
+      return false;
+    }
+
+    if(!courseUnlocked(item.id)){
+      showToast(item.no + ' ยังล็อก: ' + item.unlock);
+      return false;
+    }
+
+    if(typeof window.startMission === 'function'){
+      window.startMission(item.id);
+      return true;
+    }
+
+    showToast('ไม่พบ engine เริ่มเกม กรุณารีเฟรชหน้า');
+    return false;
+  }
+
   function patchCoreGateFunctions(){
     const currentUnlock = window.isUnlocked;
-    if(typeof currentUnlock === 'function' && !currentUnlock.__aiquestCanonicalFlowV361){
+    if(typeof currentUnlock === 'function' && !currentUnlock.__aiquestCanonicalFlowV362){
       const legacyUnlock = currentUnlock;
       const patchedUnlock = function(stage){
         if(stage && FLOW_IDS.has(stage.id)) return courseUnlocked(stage.id);
         return legacyUnlock(stage);
       };
-      patchedUnlock.__aiquestCanonicalFlowV361 = true;
+      patchedUnlock.__aiquestCanonicalFlowV362 = true;
       patchedUnlock.__legacyUnlock = legacyUnlock;
       window.isUnlocked = patchedUnlock;
     }
 
     const currentStart = window.startMission;
-    if(typeof currentStart === 'function' && !currentStart.__aiquestCanonicalFlowV361){
+    if(typeof currentStart === 'function' && !currentStart.__aiquestCanonicalFlowV362){
       const legacyStart = currentStart;
       const patchedStart = function(id){
         if(FLOW_IDS.has(id) && !courseUnlocked(id)){
@@ -176,7 +208,7 @@
         }
         return legacyStart.apply(this, arguments);
       };
-      patchedStart.__aiquestCanonicalFlowV361 = true;
+      patchedStart.__aiquestCanonicalFlowV362 = true;
       patchedStart.__legacyStart = legacyStart;
       window.startMission = patchedStart;
     }
@@ -199,6 +231,7 @@
     style.id = 'aiquestCanonicalFlowStyle';
     style.textContent = `
       #missionMap.aiquestCanonicalMap{display:block!important}
+      #aiquestNativeTopBar{display:none!important}
       .aiqFlowRule{margin:0 0 14px;padding:13px 14px;border:1px solid rgba(56,189,248,.30);border-radius:18px;background:rgba(56,189,248,.07);line-height:1.65;color:#dbeafe}
       .aiqFlowRule b{color:#fef3c7}
       .aiqFlowDivision{margin:18px 0 9px;color:#dbeafe;font-weight:1000;display:flex;align-items:center;gap:9px}
@@ -274,6 +307,11 @@
         event.preventDefault();
         event.stopPropagation();
         const id = card.dataset.aiqFlowId;
+        if(!profileIsReady()){
+          document.getElementById('profilePanel')?.scrollIntoView({behavior:'smooth', block:'center'});
+          showToast('กรุณากรอก Student Profile ก่อนเริ่มเล่น');
+          return;
+        }
         if(!courseUnlocked(id) && !passed(readState(), id)){
           showToast(FLOW_BY_ID[id].no + ' ยังล็อก: ' + FLOW_BY_ID[id].unlock);
           return;
@@ -298,8 +336,7 @@
       continueButton.textContent = 'ไปด่านถัดไป';
       continueButton.onclick = function(event){
         event.preventDefault();
-        const id = nextId(readState());
-        if(typeof window.startMission === 'function') window.startMission(id);
+        launchNextMission();
       };
     }
   }
@@ -337,13 +374,22 @@
     if(!quickButton) return;
 
     const state = readState();
-    const id = nextId(state);
-    const item = FLOW_BY_ID[id];
+    const item = FLOW_BY_ID[nextId(state)];
     quickButton.textContent = item ? `${item.no}: ${item.title}` : 'Continue';
     quickButton.title = item ? `ไป ${item.no} ตามลำดับรายวิชา` : 'ไปด่านถัดไป';
+
+    if(!quickButton.__aiquestCanonicalFlowCaptureV362){
+      quickButton.__aiquestCanonicalFlowCaptureV362 = true;
+      quickButton.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        launchNextMission();
+      }, true);
+    }
+
     quickButton.onclick = function(event){
       event.preventDefault();
-      if(item && typeof window.startMission === 'function') window.startMission(item.id);
+      launchNextMission();
     };
   }
 
@@ -379,7 +425,8 @@
       render:maintain,
       isPassed:passed,
       isUnlocked:courseUnlocked,
-      nextId
+      nextId,
+      launchNextMission
     };
 
     console.log('[AIQuest] ' + VERSION + ' loaded');
