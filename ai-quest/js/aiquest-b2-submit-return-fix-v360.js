@@ -1,25 +1,25 @@
 /*
   CSAI2102 AI Quest
-  v3.6.4 — Canonical Gate Migration + B2 Return/S2 AR Bootstrap
-  ------------------------------------------------------------
-  Legacy B1 was taken before S3 and legacy B2 before S6. On the first
-  load after the canonical-flow upgrade, prior local B1/B2 passes are
-  archived then reset so students re-take the correct evidence gate.
+  v3.6.5 — Canonical Gate Engine Sync + B2 Return/S2 AR Bootstrap
+  -----------------------------------------------------------------
+  Canonical flow: S1 -> S2 -> S3 -> B1 -> S4 -> S5 -> S6 -> B2
+  This patch keeps the remaining legacy core helpers synchronized with
+  the canonical gate rules, while preserving the B2 return and S2 AR bridge.
 */
 (function(){
   'use strict';
 
-  const VERSION = 'v3.6.4-canonical-gate-migration-reload-b2-return';
+  const VERSION = 'v3.6.5-canonical-engine-sync-b2-return';
   const PROGRESS_KEY = 'CSAI2102_AIQUEST_V16_M1_GOOGLE_SHEETS';
   const MIGRATION_KEY = 'canonicalGateMigrationV363';
   const RELOAD_KEY = 'AIQUEST_CANONICAL_GATE_RELOAD_V363';
 
-  function toast(msg){
+  function toast(message){
     try{
-      if(typeof showToast === 'function') showToast(msg);
-      else console.log('[AIQuest]', msg);
+      if(typeof showToast === 'function') showToast(message);
+      else console.log('[AIQuest]', message);
     }catch(error){
-      console.log('[AIQuest]', msg);
+      console.log('[AIQuest]', message);
     }
   }
 
@@ -41,7 +41,7 @@
     }
   }
 
-  function stagePassed(state, id){
+  function passed(state, id){
     const st = state || {};
     return !!(
       (st.completed && st.completed[id]) ||
@@ -67,17 +67,51 @@
     });
   }
 
+  function canonicalNextId(state){
+    const st = state || readProgress();
+    const flow = ['m1','m2','m3','b1','m4','m5','m6','b2'];
+    return flow.find(id => !passed(st, id)) || 'b2';
+  }
+
+  function canonicalB2Ready(){
+    const state = readProgress();
+    return ['m4','m5','m6'].every(id => passed(state, id));
+  }
+
+  function patchLegacyGateHelpers(){
+    /* boss2Ready() is called inside the original startMission closure.
+       Because it is a top-level classic-script function, replacing the
+       global binding updates the condition used by that legacy engine. */
+    if(typeof window.boss2Ready === 'function' && !window.boss2Ready.__aiquestCanonicalB2V365){
+      const canonical = function(){ return canonicalB2Ready(); };
+      canonical.__aiquestCanonicalB2V365 = true;
+      canonical.__legacyBoss2Ready = window.boss2Ready;
+      window.boss2Ready = canonical;
+    }
+
+    /* Keeps older renderStats/updateTopQuickButton output aligned during
+       the short interval before the Roadmap renderer paints its own label. */
+    if(typeof window.nextQuickMissionId === 'function' && !window.nextQuickMissionId.__aiquestCanonicalNextV365){
+      const canonical = function(){ return canonicalNextId(readProgress()); };
+      canonical.__aiquestCanonicalNextV365 = true;
+      canonical.__legacyNextQuickMissionId = window.nextQuickMissionId;
+      window.nextQuickMissionId = canonical;
+    }
+  }
+
   function migrateLegacyGatePasses(){
     const state = readProgress();
-    if(state[MIGRATION_KEY] && state[MIGRATION_KEY].applied) return {applied:false, already:true, invalidated:[]};
+    if(state[MIGRATION_KEY] && state[MIGRATION_KEY].applied){
+      return {applied:false, already:true, invalidated:[]};
+    }
 
     const invalidated = [];
     const archive = state.legacyGateArchive && typeof state.legacyGateArchive === 'object'
       ? state.legacyGateArchive
       : {};
 
-    /* B1 prior to this release could only assess S1-S2; it cannot certify S3. */
-    if(stagePassed(state, 'b1')){
+    /* Old B1 was taken before S3; it cannot certify Search Foundations. */
+    if(passed(state, 'b1')){
       archive.b1LegacyBeforeS3 = {
         ...stageSnapshot(state, 'b1'),
         archivedAt:new Date().toISOString(),
@@ -87,8 +121,8 @@
       invalidated.push('B1');
     }
 
-    /* B2 prior to this release assessed S3-S5; it cannot certify S6. */
-    if(stagePassed(state, 'b2')){
+    /* Old B2 was taken before S6; it cannot certify Knowledge Representation. */
+    if(passed(state, 'b2')){
       archive.b2LegacyBeforeS6 = {
         ...stageSnapshot(state, 'b2'),
         archivedAt:new Date().toISOString(),
@@ -107,13 +141,6 @@
       rationale:'Canonical course flow requires B1 after S1-S3 and B2 after S4-S6.'
     };
     writeProgress(state);
-
-    try{
-      if(window.AIQuestRoadmap && typeof window.AIQuestRoadmap.render === 'function'){
-        window.AIQuestRoadmap.render();
-      }
-    }catch(error){}
-
     return {applied:true, already:false, invalidated};
   }
 
@@ -228,12 +255,11 @@
 
   function patchSubmitButtons(){
     Array.from(document.querySelectorAll('button')).forEach(button => {
-      if(button.__b2ReturnFixV364) return;
+      if(button.__b2ReturnFixV365) return;
       const label = String(button.innerText || button.textContent || '').trim();
       if(!/บันทึก|ส่งผล|submit|save/i.test(label)) return;
-      button.__b2ReturnFixV364 = true;
+      button.__b2ReturnFixV365 = true;
       button.setAttribute('data-no-roadmap-click','1');
-
       button.addEventListener('click', function(){
         if(!isB2Context()) return;
         suppress(15000);
@@ -251,7 +277,7 @@
   }
 
   function patchStartMission(){
-    if(typeof window.startMission !== 'function' || window.startMission.__b2ReturnFixV364) return false;
+    if(typeof window.startMission !== 'function' || window.startMission.__b2ReturnFixV365) return false;
     const original = window.startMission;
     window.startMission = function(id){
       try{
@@ -263,7 +289,7 @@
       }catch(error){}
       return original.apply(this, arguments);
     };
-    window.startMission.__b2ReturnFixV364 = true;
+    window.startMission.__b2ReturnFixV365 = true;
     return true;
   }
 
@@ -274,16 +300,18 @@
       return;
     }
 
+    patchLegacyGateHelpers();
     loadS2ResultBridge();
     patchSubmitButtons();
     patchStartMission();
 
-    if(!window.__AIQUEST_B2_RETURN_OBSERVER_V364){
-      window.__AIQUEST_B2_RETURN_OBSERVER_V364 = new MutationObserver(function(){
+    if(!window.__AIQUEST_B2_RETURN_OBSERVER_V365){
+      window.__AIQUEST_B2_RETURN_OBSERVER_V365 = new MutationObserver(function(){
+        patchLegacyGateHelpers();
         patchSubmitButtons();
         patchStartMission();
       });
-      window.__AIQUEST_B2_RETURN_OBSERVER_V364.observe(document.body || document.documentElement, {childList:true, subtree:true});
+      window.__AIQUEST_B2_RETURN_OBSERVER_V365.observe(document.body || document.documentElement, {childList:true, subtree:true});
     }
   }
 
@@ -293,7 +321,7 @@
     goRoadmap,
     patchSubmitButtons,
     patchStartMission,
-    loadS2ResultBridge,
+    patchLegacyGateHelpers,
     migrateLegacyGatePasses,
     refresh:observe
   };
