@@ -6,8 +6,19 @@ var modal=function(){return document.getElementById('uxqTeacherActionModal')};
 var cache={};
 var esc=function(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')};
 var n=function(v){return Number(v||0)};
-var mission=function(v){var m={w1:'W1 • นักสืบปัญหา UX',w2:'W2 • คิดเชิงออกแบบ',w3:'W3 • ลดภาระความคิด',b1:'B1 • บอสพายุความสับสน',w4:'W4 • ห้องแล็บถอดรหัสผู้ใช้'};return m[String(v||'').toLowerCase()]||v||'ภารกิจ'};
-var stage=function(v){var m={evidence:'หลักฐาน',hypothesis:'สมมติฐาน',fix:'วิธีแก้',test:'ทดสอบ',empathize:'เข้าใจผู้ใช้',define:'ตั้งโจทย์',ideate:'สร้างแนวคิด',prototype:'ต้นแบบ',diagnose:'หาจุดที่ทำให้คิดเกินจำเป็น',prioritize:'จัดลำดับสิ่งสำคัญ',reduce:'ลดภาระความคิด',validate:'ตรวจผล',process:'กระบวนการออกแบบ',listen:'ฟังสัญญาณผู้ใช้',separate:'แยกสิ่งที่เห็นจริง',insight:'สกัดความเข้าใจเชิงลึก'};return m[String(v||'').toLowerCase()]||v||'ตรวจเหตุผล'};
+var mission=function(v){
+  var raw=String(v||'').trim(), key=raw.toLowerCase();
+  var m={
+    w1:'W1 • นักสืบปัญหา UX',w2:'W2 • คิดเชิงออกแบบ',w3:'W3 • ลดภาระความคิด',b1:'B1 • บอสพายุความสับสน',w4:'W4 • ห้องแล็บถอดรหัสผู้ใช้',
+    'ux detective':'W1 • นักสืบปัญหา UX','ux detective: casefile hunt':'W1 • นักสืบปัญหา UX','w1 • ux detective':'W1 • นักสืบปัญหา UX','w1 • ux detective: casefile hunt':'W1 • นักสืบปัญหา UX',
+    'design thinking':'W2 • คิดเชิงออกแบบ','design thinking sprint':'W2 • คิดเชิงออกแบบ','w2 • design thinking':'W2 • คิดเชิงออกแบบ','w2 • design thinking sprint':'W2 • คิดเชิงออกแบบ',
+    'cognitive load':'W3 • ลดภาระความคิด','cognitive load escape':'W3 • ลดภาระความคิด','w3 • cognitive load':'W3 • ลดภาระความคิด','w3 • cognitive load escape':'W3 • ลดภาระความคิด',
+    'cognitive storm':'B1 • บอสพายุความสับสน','b1 • cognitive storm':'B1 • บอสพายุความสับสน',
+    'user insight lab':'W4 • ห้องแล็บถอดรหัสผู้ใช้','w4 • user insight lab':'W4 • ห้องแล็บถอดรหัสผู้ใช้'
+  };
+  return m[key]||raw||'ภารกิจ';
+};
+var stage=function(v){var m={evidence:'หลักฐาน',hypothesis:'สมมติฐาน',fix:'วิธีแก้',test:'ทดสอบ',empathize:'เข้าใจผู้ใช้',define:'ตั้งโจทย์',ideate:'สร้างแนวคิด',prototype:'ต้นแบบ',diagnose:'หาจุดที่ทำให้คิดเกินจำเป็น',prioritize:'จัดลำดับสิ่งสำคัญ',reduce:'ลดภาระความคิด','reduce load':'ลดภาระความคิด',validate:'ตรวจผล',process:'กระบวนการออกแบบ',listen:'ฟังสัญญาณผู้ใช้',separate:'แยกสิ่งที่เห็นจริง',insight:'สกัดความเข้าใจเชิงลึก'};return m[String(v||'').toLowerCase()]||v||'ตรวจเหตุผล'};
 var empty=function(t){return '<div class="uxq-ta-empty">'+esc(t)+'</div>'};
 var focus=function(s){var f=Array.isArray(s.focus)?s.focus.slice(0,2):[];return f.length?f.map(function(i){return stage(i.stageKey)}).join(' + '):'ตรวจเหตุผล'};
 function person(s){return '<div class="uxq-ta-item"><div><b>'+esc(s.studentName||s.studentId||'ผู้เรียน')+'</b><small>'+esc(s.section||'')+' • '+esc(focus(s))+' • เหตุผลผ่าน '+n(s.latest&&s.latest.verifiedAccuracy)+'%</small></div><div><span class="uxq-ta-badge '+esc(s.supportLevel)+'">'+esc(s.actionLabel)+'</span><button class="uxq-ta-button" type="button" data-uxq-student="'+esc(s.studentId||s.studentName)+'">ดูเหตุผล</button></div></div>'}
