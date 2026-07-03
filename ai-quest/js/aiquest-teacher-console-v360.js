@@ -1,14 +1,13 @@
 /* =========================================================
    CSAI2102 AI Quest
-   Teacher Console Runtime v5.0.0
+   Teacher Console Runtime v5.2.0
    ---------------------------------------------------------
-   Loads AR analytics and the curriculum-aligned Core Evidence Audit.
-   The audit treats old Knowledge S6/B2 results as historical evidence,
-   not as certification of the revised Minimax curriculum.
+   Loads AR analytics, the Minimax-aligned Core Audit, and the
+   separate Module 3 Phase 2 audit (S7/S8/S9/B3).
 ========================================================= */
 (() => {
   "use strict";
-  const VERSION = "v5.0.0-teacher-console-minimax-audit";
+  const VERSION = "v5.2.0-teacher-console-core-phase2-audits";
 
   function isTeacherOnlyPage() {
     return !!window.AIQUEST_FORCE_TEACHER_PAGE ||
@@ -39,9 +38,14 @@
     loadScript("aiquestCoreAuditV500Script", "./js/aiquest-teacher-core-audit-v411.js?v=20260704-minimax500");
   }
 
+  function loadPhase2Audit() {
+    if (!isTeacherOnlyPage()) return;
+    loadScript("aiquestPhase2AuditV520Script", "./js/aiquest-teacher-phase2-audit-v520.js?v=20260704-phase2audit520");
+  }
+
   function patchTeacherLabels() {
     const sub = document.querySelector(".top .sub");
-    if (sub) sub.textContent = "Classroom Release • Core S1–S6 + B1–B2 • Section 101";
+    if (sub) sub.textContent = "Classroom Release • Core + Phase 2 • Section 101";
     document.querySelectorAll(".top .pill").forEach((pill) => {
       if (/Phase 1 Ready|S1–S5|S1-S5/i.test(pill.textContent || "")) {
         pill.textContent = "✓ Core release: S1–S6 + B1–B2";
@@ -52,19 +56,17 @@
   function boot() {
     if (!isTeacherOnlyPage()) return;
     patchTeacherLabels();
-    window.addEventListener("load", () => {
+    const loadAll = () => {
       setTimeout(loadArAnalytics, 0);
       setTimeout(loadMinimaxCoreAudit, 900);
-      setTimeout(patchTeacherLabels, 1100);
-    }, { once: true });
-    if (document.readyState === "complete") {
-      setTimeout(loadArAnalytics, 0);
-      setTimeout(loadMinimaxCoreAudit, 900);
-      setTimeout(patchTeacherLabels, 1100);
-    }
+      setTimeout(loadPhase2Audit, 1450);
+      setTimeout(patchTeacherLabels, 1700);
+    };
+    window.addEventListener("load", loadAll, { once: true });
+    if (document.readyState === "complete") loadAll();
   }
 
-  window.AIQUEST_TEACHER_CONSOLE_CLEAN = { version: VERSION, loadArAnalytics, loadMinimaxCoreAudit };
+  window.AIQUEST_TEACHER_CONSOLE_CLEAN = { version: VERSION, loadArAnalytics, loadMinimaxCoreAudit, loadPhase2Audit };
   boot();
   console.log("[AIQuest] " + VERSION + " loaded");
 })();
