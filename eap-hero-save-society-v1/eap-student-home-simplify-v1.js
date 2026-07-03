@@ -95,6 +95,10 @@
         }
       }
     );
+    appendScript(
+      'eap-boss-audio-v2-loader',
+      './eap-boss-audio-compat-v2.js?v=20260704-boss-audio-v2'
+    );
   }
 
   function start() {
