@@ -1,19 +1,14 @@
 /* =========================================================
    CSAI2102 AI Quest
-   Teacher Console Clean Shim
-   File: /ai-quest/js/aiquest-teacher-console-v360.js
-   Version: v3.7.1-teacher-console-clean
-
-   Replaces an obsolete file that had a JavaScript syntax error.
-   Teacher-only dashboard functionality stays in:
-   aiquest-teacher-only-dashboard-v360.js
-
-   This shim safely loads the S1 AR analytics extension on teacher.html.
+   Teacher Console Runtime v5.0.0
+   ---------------------------------------------------------
+   Loads AR analytics and the curriculum-aligned Core Evidence Audit.
+   The audit treats old Knowledge S6/B2 results as historical evidence,
+   not as certification of the revised Minimax curriculum.
 ========================================================= */
 (() => {
   "use strict";
-
-  const VERSION = "v3.7.1-teacher-console-clean";
+  const VERSION = "v5.0.0-teacher-console-minimax-audit";
 
   function isTeacherOnlyPage() {
     return !!window.AIQUEST_FORCE_TEACHER_PAGE ||
@@ -21,32 +16,55 @@
       /\/teacher\.html$/i.test(location.pathname);
   }
 
-  function loadArAnalytics() {
-    if (!isTeacherOnlyPage()) return;
-
-    const id = "aiquestTeacherS1ArAnalyticsV371";
+  function loadScript(id, src) {
     if (document.getElementById(id)) return;
-
     const script = document.createElement("script");
     script.id = id;
-    script.src = "./js/aiquest-teacher-s1-ar-analytics-v371.js?v=20260625-teacherclean371";
+    script.src = src;
     script.async = false;
-    script.onload = () => console.log("[AIQuest] S1 AR teacher analytics activated");
-    script.onerror = () => console.warn("[AIQuest] Unable to load S1 AR teacher analytics");
     document.head.appendChild(script);
+  }
+
+  function loadArAnalytics() {
+    if (!isTeacherOnlyPage()) return;
+    loadScript("aiquestTeacherS1ArAnalyticsV371", "./js/aiquest-teacher-s1-ar-analytics-v371.js?v=20260625-teacherclean371");
+  }
+
+  function loadMinimaxCoreAudit() {
+    if (!isTeacherOnlyPage()) return;
+    const oldCard = document.getElementById("coreAuditV411");
+    if (oldCard) oldCard.remove();
+    const oldScript = document.getElementById("aiquestCoreAuditV411Script");
+    if (oldScript) oldScript.remove();
+    loadScript("aiquestCoreAuditV500Script", "./js/aiquest-teacher-core-audit-v411.js?v=20260704-minimax500");
+  }
+
+  function patchTeacherLabels() {
+    const sub = document.querySelector(".top .sub");
+    if (sub) sub.textContent = "Classroom Release • Core S1–S6 + B1–B2 • Section 101";
+    document.querySelectorAll(".top .pill").forEach((pill) => {
+      if (/Phase 1 Ready|S1–S5|S1-S5/i.test(pill.textContent || "")) {
+        pill.textContent = "✓ Core release: S1–S6 + B1–B2";
+      }
+    });
   }
 
   function boot() {
     if (!isTeacherOnlyPage()) return;
-    window.addEventListener("load", () => setTimeout(loadArAnalytics, 0), { once: true });
-    if (document.readyState === "complete") setTimeout(loadArAnalytics, 0);
+    patchTeacherLabels();
+    window.addEventListener("load", () => {
+      setTimeout(loadArAnalytics, 0);
+      setTimeout(loadMinimaxCoreAudit, 900);
+      setTimeout(patchTeacherLabels, 1100);
+    }, { once: true });
+    if (document.readyState === "complete") {
+      setTimeout(loadArAnalytics, 0);
+      setTimeout(loadMinimaxCoreAudit, 900);
+      setTimeout(patchTeacherLabels, 1100);
+    }
   }
 
-  window.AIQUEST_TEACHER_CONSOLE_CLEAN = {
-    version: VERSION,
-    loadArAnalytics
-  };
-
+  window.AIQUEST_TEACHER_CONSOLE_CLEAN = { version: VERSION, loadArAnalytics, loadMinimaxCoreAudit };
   boot();
   console.log("[AIQuest] " + VERSION + " loaded");
 })();
