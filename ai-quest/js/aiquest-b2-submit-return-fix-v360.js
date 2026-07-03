@@ -1,6 +1,6 @@
 /*
   CSAI2102 AI Quest
-  v3.6.3 — Canonical Gate Migration + B2 Return/S2 AR Bootstrap
+  v3.6.4 — Canonical Gate Migration + B2 Return/S2 AR Bootstrap
   ------------------------------------------------------------
   Legacy B1 was taken before S3 and legacy B2 before S6. On the first
   load after the canonical-flow upgrade, prior local B1/B2 passes are
@@ -9,9 +9,10 @@
 (function(){
   'use strict';
 
-  const VERSION = 'v3.6.3-canonical-gate-migration-b2-return';
+  const VERSION = 'v3.6.4-canonical-gate-migration-reload-b2-return';
   const PROGRESS_KEY = 'CSAI2102_AIQUEST_V16_M1_GOOGLE_SHEETS';
   const MIGRATION_KEY = 'canonicalGateMigrationV363';
+  const RELOAD_KEY = 'AIQUEST_CANONICAL_GATE_RELOAD_V363';
 
   function toast(msg){
     try{
@@ -116,6 +117,17 @@
     return {applied:true, already:false, invalidated};
   }
 
+  function reloadAfterMigration(){
+    try{
+      if(sessionStorage.getItem(RELOAD_KEY) === '1') return false;
+      sessionStorage.setItem(RELOAD_KEY, '1');
+      setTimeout(() => location.reload(), 80);
+      return true;
+    }catch(error){
+      return false;
+    }
+  }
+
   function suppress(ms){
     try{
       sessionStorage.setItem('AIQUEST_SUPPRESS_AUTOSTART_UNTIL', String(Date.now() + (ms || 10000)));
@@ -216,10 +228,10 @@
 
   function patchSubmitButtons(){
     Array.from(document.querySelectorAll('button')).forEach(button => {
-      if(button.__b2ReturnFixV363) return;
+      if(button.__b2ReturnFixV364) return;
       const label = String(button.innerText || button.textContent || '').trim();
       if(!/บันทึก|ส่งผล|submit|save/i.test(label)) return;
-      button.__b2ReturnFixV363 = true;
+      button.__b2ReturnFixV364 = true;
       button.setAttribute('data-no-roadmap-click','1');
 
       button.addEventListener('click', function(){
@@ -239,7 +251,7 @@
   }
 
   function patchStartMission(){
-    if(typeof window.startMission !== 'function' || window.startMission.__b2ReturnFixV363) return false;
+    if(typeof window.startMission !== 'function' || window.startMission.__b2ReturnFixV364) return false;
     const original = window.startMission;
     window.startMission = function(id){
       try{
@@ -251,28 +263,27 @@
       }catch(error){}
       return original.apply(this, arguments);
     };
-    window.startMission.__b2ReturnFixV363 = true;
+    window.startMission.__b2ReturnFixV364 = true;
     return true;
   }
 
   function observe(){
     const migration = migrateLegacyGatePasses();
+    if(migration.applied && migration.invalidated.length){
+      reloadAfterMigration();
+      return;
+    }
+
     loadS2ResultBridge();
     patchSubmitButtons();
     patchStartMission();
 
-    if(migration.applied && migration.invalidated.length){
-      setTimeout(() => {
-        toast('ปรับเส้นทางรายวิชาใหม่: กรุณาทวน ' + migration.invalidated.join(' และ ') + ' เพื่อให้ผลประเมินตรงกับเนื้อหา');
-      }, 600);
-    }
-
-    if(!window.__AIQUEST_B2_RETURN_OBSERVER_V363){
-      window.__AIQUEST_B2_RETURN_OBSERVER_V363 = new MutationObserver(function(){
+    if(!window.__AIQUEST_B2_RETURN_OBSERVER_V364){
+      window.__AIQUEST_B2_RETURN_OBSERVER_V364 = new MutationObserver(function(){
         patchSubmitButtons();
         patchStartMission();
       });
-      window.__AIQUEST_B2_RETURN_OBSERVER_V363.observe(document.body || document.documentElement, {childList:true, subtree:true});
+      window.__AIQUEST_B2_RETURN_OBSERVER_V364.observe(document.body || document.documentElement, {childList:true, subtree:true});
     }
   }
 
