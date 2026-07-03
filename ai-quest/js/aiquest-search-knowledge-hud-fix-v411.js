@@ -1,33 +1,34 @@
-/* AI Quest v4.1.4 — Canonical S1–S6 onboarding, HUD, feedback, and B2 hints */
+/* AI Quest v5.0.1 — Canonical S1–S6 onboarding and S6/B2 realignment loader */
 (() => {
   'use strict';
 
-  const VERSION = 'v4.1.4-canonical-onboarding-hints-wording';
+  const VERSION = 'v5.0.1-s6-minimax-b2-loader';
   const $ = (selector, root=document) => root.querySelector(selector);
   const $$ = (selector, root=document) => [...root.querySelectorAll(selector)];
 
   const TEXT_REPAIRS = [
-    ['B2 Search Arena', 'B2 Applied AI Gate (S4–S6)'],
-    ['B2 Search Arena Score', 'B2 Applied AI Gate Score'],
-    ['Search Arena reasoning', 'Applied AI reasoning'],
-    ['integrated search', 'การประยุกต์ Search และ Knowledge'],
+    ['B2 Search Arena Score', 'B2 Search & Game AI Gate Score'],
+    ['B2 Search Arena', 'B2 Search & Game AI Boss Gate'],
+    ['Applied AI Boss Gate', 'Search & Game AI Boss Gate'],
+    ['Search Arena reasoning', 'UCS + A* + Minimax reasoning'],
+    ['integrated search', 'การบูรณาการ UCS, A* และ Minimax'],
     ['Weighted graph', 'สถานการณ์'],
-    ['ควรทบทวน S3–S5 ก่อนขึ้น S6', 'ควรทบทวน S4–S6 ก่อนทำ B2 ใหม่'],
-    ['ผ่าน B2 แล้วจะใช้เป็นฐานสำหรับ S6 Knowledge Base Forge / Logic', 'ผ่าน B2 แล้ว สรุปครบ S4–S6: Cost Search, A* และ Knowledge Representation'],
-    ['สรุปผล S3', 'สรุปผล S4'],
-    ['S3 รอบนี้ไม่มีข้อผิดพลาดหลัก', 'S4 รอบนี้ไม่มีข้อผิดพลาดหลัก'],
-    ['ควร remedial ก่อนขึ้น S4', 'ควรทบทวนก่อนขึ้น S5'],
-    ['ถ้า S3 ผ่านแล้ว จะใช้เป็นฐานสำหรับ S5 A* Rescue Mission / Heuristic Search', 'เมื่อ S4 ผ่านแล้ว จะใช้เป็นฐานสำหรับ S5 A* Rescue Mission / Heuristic Search']
+    ['Knowledge Base Forge', 'Minimax Arena'],
+    ['Knowledge Representation / Facts / Rules / Inference', 'Game Tree / MAX–MIN / Utility / Alpha–Beta Pruning'],
+    ['Cost Search / A* / Knowledge Representation', 'UCS / A* / Minimax'],
+    ['ควรทบทวน S4–S6 ก่อนทำ B2 ใหม่', 'ควรทบทวน UCS, A* และ Minimax ก่อนทำ B2 ใหม่'],
+    ['ผ่าน B2 แล้ว สรุปครบ S4–S6: Cost Search, A* และ Knowledge Representation', 'ผ่าน B2 แล้ว สรุปครบ S4–S6: UCS, A* และ Minimax; จากนั้นไป S7 Knowledge Representation'],
+    ['เมื่อ S4 ผ่านแล้ว จะใช้เป็นฐานสำหรับ S5 A* Rescue Mission / Heuristic Search', 'เมื่อ S4 ผ่านแล้ว จะใช้เป็นฐานสำหรับ S5 A* Rescue Mission / Heuristic Search']
   ];
 
   function phaseGuide(phase, prompt){
     const p = String(phase || '').toLowerCase();
     const q = String(prompt || '').toLowerCase();
-    if (p.includes('knowledge') || p.includes('representation') || p.includes('inference') || q.includes('fact') || q.includes('rule')) {
-      return 'แยก fact, rule และผล inference ให้ชัด แล้วตรวจว่าฐานความรู้มีความขัดแย้งหรือไม่ก่อนสรุป';
+    if (p.includes('minimax') || p.includes('alpha') || p.includes('strategy') || q.includes('max') || q.includes('min')) {
+      return 'ระบุว่าตาใดเป็น MAX/MIN ก่อน แล้ว backup utility กลับสู่ราก; prune ได้เมื่อ alpha ≥ beta';
     }
-    if (p.includes('applied') || p.includes('final applied')) {
-      return 'เชื่อม cumulative cost, f(n)=g(n)+h(n) และกฎ/ข้อจำกัดจากฐานความรู้ให้สอดคล้องก่อนเลือกคำตอบ';
+    if (p.includes('applied') || p.includes('integrated') || p.includes('boss')) {
+      return 'เลือกหลักให้ตรงโจทย์: UCS ดู cumulative cost, A* ดู f(n)=g(n)+h(n), Minimax คาดการตอบโต้ของคู่แข่ง';
     }
     if (p.includes('state')) return 'ระบุ state, initial state, actions และ goal test ให้ตรงบทบาทก่อนเลือกคำตอบ';
     if (p.includes('dfs') || p.includes('bfs')) return 'ดู frontier ให้ชัด: BFS ใช้ queue, DFS ใช้ stack/ลึกก่อน; อย่าสลับกับ final path';
@@ -36,7 +37,6 @@
     if (p.includes('trace') || q.includes('trace')) return 'ไล่ทีละ step แล้วตรวจว่า queue/stack เปลี่ยนอย่างไร ไม่ข้ามลำดับ';
     if (p.includes('cost') || q.includes('cost') || q.includes('ucs')) return 'รวม cumulative cost ทุกเส้นทางก่อนเลือก UCS; จำนวน edge น้อยกว่าไม่ได้แปลว่าค่าใช้จ่ายต่ำกว่า';
     if (p.includes('heuristic') || q.includes('a*') || q.includes('heuristic')) return 'A* ใช้ f(n)=g(n)+h(n): อย่าเลือกจาก h(n) อย่างเดียวเหมือน Greedy';
-    if (p.includes('boss') || p.includes('duel')) return 'ดู criterion ของโจทย์ให้ครบก่อนสรุป: cost, heuristic และข้อจำกัดจาก knowledge base อาจต้องใช้ร่วมกัน';
     return 'อ่าน criterion ของโจทย์ก่อน แล้วจึงล็อกคำตอบ';
   }
 
@@ -51,26 +51,6 @@
       if (seen.has(key)) chip.remove();
       else seen.add(key);
     });
-  }
-
-  function repairB2Hints(){
-    const original = window.buildBoss2Round;
-    if(typeof original !== 'function' || original.__aq414HintFix) return;
-    const patched = function(difficulty){
-      const round = original(difficulty);
-      ['state','graph','maze','boss'].forEach(key => {
-        (round && Array.isArray(round[key]) ? round[key] : []).forEach(item => {
-          const hint = String(item && item.hint || '').trim();
-          if(item && /^[a-z][a-z0-9_]{2,}$/i.test(hint) && item.why){
-            item.hint = item.why;
-          }
-        });
-      });
-      return round;
-    };
-    patched.__aq414HintFix = true;
-    patched.__aq414HintFixOriginal = original;
-    window.buildBoss2Round = patched;
   }
 
   function replaceVisibleText(root){
@@ -94,20 +74,20 @@
       const lead = start.querySelector('p');
       if(lead) lead.innerHTML = '<b>Session 1–6 + Boss B1/B2</b> เปิดตามลำดับ: S1 → S2 → S3 → B1 → S4 → S5 → S6 → B2';
       const grid = start.querySelector('.studentStepGrid');
-      if(grid && grid.dataset.aq414 !== '1'){
-        grid.dataset.aq414 = '1';
+      if(grid && grid.dataset.aq501 !== '1'){
+        grid.dataset.aq501 = '1';
         grid.innerHTML = `
           <div class="studentStep"><b>S1</b><br>AI / Automation / Sensor / Prediction</div>
           <div class="studentStep"><b>S2–S3</b><br>Agent / PEAS / Environment / Search Foundations</div>
-          <div class="studentStep"><b>B1 → S4–S5</b><br>Foundation Gate → Cost Search → A*</div>
-          <div class="studentStep"><b>S6 → B2</b><br>Knowledge Representation → Applied AI Gate</div>
+          <div class="studentStep"><b>B1 → S4–S5</b><br>Foundation Gate → Uniform Cost Search → A*</div>
+          <div class="studentStep"><b>S6 → B2</b><br>Minimax / Alpha–Beta → Search & Game AI Gate</div>
         `;
       }
     }
 
     const statusButton = document.getElementById('studentCheckStatus');
-    if(statusButton && !statusButton.__aq414CanonicalStatus){
-      statusButton.__aq414CanonicalStatus = true;
+    if(statusButton && !statusButton.__aq501CanonicalStatus){
+      statusButton.__aq501CanonicalStatus = true;
       statusButton.onclick = function(){
         if(window.AIQuestRoadmap && typeof window.AIQuestRoadmap.render === 'function'){
           window.AIQuestRoadmap.render();
@@ -115,6 +95,17 @@
         }
       };
     }
+  }
+
+  function loadS6B2Realignment(){
+    if(window.AIQuestS6B2Realignment || document.getElementById('aiquestS6B2V500Script')) return;
+    const script = document.createElement('script');
+    script.id = 'aiquestS6B2V500Script';
+    script.src = './js/aiquest-s6-minimax-b2-game-v500.js?v=20260704-s6b2v500';
+    script.async = false;
+    script.onload = () => console.log('[AIQuest] S6 Minimax / B2 Search & Game runtime loaded');
+    script.onerror = () => console.warn('[AIQuest] S6/B2 realignment runtime could not load');
+    document.head.appendChild(script);
   }
 
   function tune(area){
@@ -131,10 +122,10 @@
 
   function install(){
     const area = document.getElementById('gameArea');
-    if (!area || area.dataset.aq414 === '1') return;
-    area.dataset.aq414 = '1';
-    repairB2Hints();
+    if (!area || area.dataset.aq501 === '1') return;
+    area.dataset.aq501 = '1';
     repairStudentOnboarding();
+    loadS6B2Realignment();
 
     let scheduled = false;
     const refresh = () => {
@@ -142,8 +133,8 @@
       scheduled = true;
       requestAnimationFrame(() => {
         scheduled = false;
-        repairB2Hints();
         repairStudentOnboarding();
+        loadS6B2Realignment();
         tune(area);
         replaceVisibleText(document.getElementById('resultScreen'));
       });
