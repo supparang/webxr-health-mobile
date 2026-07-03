@@ -1,8 +1,8 @@
-/* AI Quest v4.1.2 — Canonical S4–S6 HUD, feedback, and summary wording */
+/* AI Quest v4.1.3 — Canonical S4–S6 HUD, feedback, and learner-facing B2 hints */
 (() => {
   'use strict';
 
-  const VERSION = 'v4.1.2-canonical-s4-s6-hud-wording';
+  const VERSION = 'v4.1.3-canonical-s4-s6-hints-wording';
   const $ = (selector, root=document) => root.querySelector(selector);
   const $$ = (selector, root=document) => [...root.querySelectorAll(selector)];
 
@@ -11,6 +11,7 @@
     ['B2 Search Arena Score', 'B2 Applied AI Gate Score'],
     ['Search Arena reasoning', 'Applied AI reasoning'],
     ['integrated search', 'การประยุกต์ Search และ Knowledge'],
+    ['Weighted graph', 'สถานการณ์'],
     ['ควรทบทวน S3–S5 ก่อนขึ้น S6', 'ควรทบทวน S4–S6 ก่อนทำ B2 ใหม่'],
     ['ผ่าน B2 แล้วจะใช้เป็นฐานสำหรับ S6 Knowledge Base Forge / Logic', 'ผ่าน B2 แล้ว สรุปครบ S4–S6: Cost Search, A* และ Knowledge Representation'],
     ['สรุปผล S3', 'สรุปผล S4'],
@@ -52,6 +53,26 @@
     });
   }
 
+  function repairB2Hints(){
+    const original = window.buildBoss2Round;
+    if(typeof original !== 'function' || original.__aq413HintFix) return;
+    const patched = function(difficulty){
+      const round = original(difficulty);
+      ['state','graph','maze','boss'].forEach(key => {
+        (round && Array.isArray(round[key]) ? round[key] : []).forEach(item => {
+          const hint = String(item && item.hint || '').trim();
+          if(item && /^[a-z][a-z0-9_]{2,}$/i.test(hint) && item.why){
+            item.hint = item.why;
+          }
+        });
+      });
+      return round;
+    };
+    patched.__aq413HintFix = true;
+    patched.__aq413HintFixOriginal = original;
+    window.buildBoss2Round = patched;
+  }
+
   function replaceVisibleText(root){
     if(!root) return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -81,8 +102,9 @@
 
   function install(){
     const area = document.getElementById('gameArea');
-    if (!area || area.dataset.aq412 === '1') return;
-    area.dataset.aq412 = '1';
+    if (!area || area.dataset.aq413 === '1') return;
+    area.dataset.aq413 = '1';
+    repairB2Hints();
 
     let scheduled = false;
     const refresh = () => {
@@ -90,6 +112,7 @@
       scheduled = true;
       requestAnimationFrame(() => {
         scheduled = false;
+        repairB2Hints();
         tune(area);
         replaceVisibleText(document.getElementById('resultScreen'));
       });
