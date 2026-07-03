@@ -1,330 +1,385 @@
 /*
   CSAI2102 AI Quest
-  PATCH v3.6.0 Session Roadmap + Boss Gate
+  v3.6.1 Canonical Course Flow
   ------------------------------------------------------------
-  Shows total course sessions, available sessions, unlock criteria,
-  and boss gate cadence.
+  Canonical sequence:
+  S1 -> S2 -> S3 -> B1 -> S4 -> S5 -> S6 -> B2
+
+  This module is intentionally the single runtime source of truth for:
+  - roadmap presentation
+  - mission unlock rules
+  - Continue / next-step navigation
+  - student-facing progress wording
 */
 (function(){
   'use strict';
 
-  const VERSION = 'v3.6.0-roadmap-session6-knowledge-base';
+  const VERSION = 'v3.6.1-canonical-flow-s1-s3-b1-s4-s6-b2';
   const STORAGE_KEY = 'CSAI2102_AIQUEST_V16_M1_GOOGLE_SHEETS';
 
-  const ROADMAP = [
-    {id:'m1', type:'session', no:'S1', title:'AI Awakening', topic:'AI / Automation / Sensor / Prediction', available:true},
-    {id:'m2', type:'session', no:'S2', title:'Agent Builder', topic:'Intelligent Agent / PEAS / Environment', available:true},
-    {id:'b1', type:'boss', no:'B1', title:'Rookie AI Boss', topic:'AI Overview + Agent', available:true, unlock:'ผ่าน S1 และ S2 อย่างน้อย 1 ดาว'},
-    {id:'m3', type:'session', no:'S3', title:'Search Maze', topic:'State Space / BFS / DFS', available:true, unlock:'ผ่าน B1 Rookie AI Boss'},
-    {id:'m4', type:'session', no:'S4', title:'Route Cost Challenge', topic:'Uniform Cost Search / Weighted Graph', available:true, unlock:'ผ่าน S3 Search Maze'},
-    {id:'m5', type:'session', no:'S5', title:'A* Rescue Mission', topic:'A* Search / Heuristic', available:true, unlock:'ผ่าน S4 Route Cost Challenge'},
-    {id:'b2', type:'boss', no:'B2', title:'Search Arena Boss', topic:'BFS / DFS / UCS / A*', available:true, unlock:'ผ่าน S3-S5'},
-    {id:'m6', type:'session', no:'S6', title:'Knowledge Base Forge', topic:'Knowledge Representation', available:true, unlock:'ผ่าน B2 Search Arena Boss'},
-    {id:'m7', type:'session', no:'S7', title:'Logic Lab', topic:'Propositional / Predicate Logic'},
-    {id:'m8', type:'session', no:'S8', title:'Inference Tower', topic:'Reasoning / Inference'},
-    {id:'b3', type:'boss', no:'B3', title:'Knowledge Boss', topic:'KR + Logic + Inference', unlock:'ผ่าน S6-S8'},
-    {id:'m9', type:'session', no:'S9', title:'Learning Machine', topic:'Machine Learning Basics'},
-    {id:'m10', type:'session', no:'S10', title:'Classifier Arena', topic:'Classification'},
-    {id:'m11', type:'session', no:'S11', title:'Model Evaluation', topic:'Accuracy / Precision / Recall'},
-    {id:'b4', type:'boss', no:'B4', title:'ML Boss', topic:'ML + Evaluation', unlock:'ผ่าน S9-S11'},
-    {id:'m12', type:'session', no:'S12', title:'Language Agent', topic:'NLP / LLM'},
-    {id:'m13', type:'session', no:'S13', title:'Vision Quest', topic:'Computer Vision'},
-    {id:'m14', type:'session', no:'S14', title:'Responsible AI', topic:'Ethics / Bias / Safety'},
-    {id:'m15', type:'session', no:'S15', title:'Mini Project Launch', topic:'AI Mini Project'},
-    {id:'b5', type:'boss', no:'B5', title:'Final AI Boss', topic:'Integrated AI Principles', unlock:'ผ่าน S12-S15 + Reflection'}
+  const FLOW = [
+    {
+      id:'m1', no:'S1', type:'session',
+      title:'AI Awakening',
+      topic:'AI / Automation / Sensor / Prediction',
+      division:'Division 1: AI Foundations',
+      unlock:'เริ่มได้ทันที'
+    },
+    {
+      id:'m2', no:'S2', type:'session',
+      title:'Agent Builder',
+      topic:'Intelligent Agent / PEAS / Environment',
+      division:'Division 1: AI Foundations',
+      unlock:'ผ่าน S1'
+    },
+    {
+      id:'m3', no:'S3', type:'session',
+      title:'Search Maze',
+      topic:'State Space / BFS / DFS / Goal Test',
+      division:'Division 1: AI Foundations',
+      unlock:'ผ่าน S2'
+    },
+    {
+      id:'b1', no:'B1', type:'boss',
+      title:'Foundation Boss Gate',
+      topic:'AI / Agent / Search Foundations',
+      division:'Boss Gate 1',
+      unlock:'ผ่าน S1–S3'
+    },
+    {
+      id:'m4', no:'S4', type:'session',
+      title:'Route Cost Challenge',
+      topic:'Uniform Cost Search / Weighted Graph / Priority Queue',
+      division:'Division 2: Search & Knowledge',
+      unlock:'ผ่าน B1'
+    },
+    {
+      id:'m5', no:'S5', type:'session',
+      title:'A* Rescue Mission',
+      topic:'A* Search / Heuristic / f(n)=g(n)+h(n)',
+      division:'Division 2: Search & Knowledge',
+      unlock:'ผ่าน S4'
+    },
+    {
+      id:'m6', no:'S6', type:'session',
+      title:'Knowledge Base Forge',
+      topic:'Knowledge Representation / Facts / Rules / Inference',
+      division:'Division 2: Search & Knowledge',
+      unlock:'ผ่าน S5'
+    },
+    {
+      id:'b2', no:'B2', type:'boss',
+      title:'Applied AI Boss Gate',
+      topic:'Cost Search / A* / Knowledge Representation',
+      division:'Boss Gate 2',
+      unlock:'ผ่าน S4–S6'
+    }
   ];
 
-  function qs(){ return new URLSearchParams(location.search); }
-  function isTeacherMode(){
-    const p = qs();
-    return p.get('teacher') === '1' || p.get('admin') === '1' || p.get('dev') === '1' || p.get('mode') === 'teacher' || p.get('view') === 'teacher';
-  }
+  const FLOW_IDS = new Set(FLOW.map(item => item.id));
+  const FLOW_BY_ID = Object.fromEntries(FLOW.map(item => [item.id, item]));
+
   function $(selector){ return document.querySelector(selector); }
-  function escapeHtml(s){
-    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function escapeHtml(value){
+    return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'
+    }[ch]));
   }
-  function state(){
+
+  function readState(){
     try{
       return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     }catch(error){
       return {};
     }
   }
-  function isPassed(st, id){
-    return !!(st.completed && st.completed[id]) || !!(st.stars && Number(st.stars[id] || 0) > 0) || !!(st.bestScore && Number(st.bestScore[id] || 0) >= 60);
+
+  function passed(state, id){
+    const st = state || readState();
+    return !!(
+      (st.completed && st.completed[id]) ||
+      (st.stars && Number(st.stars[id] || 0) > 0) ||
+      (st.mastered && st.mastered[id]) ||
+      (st.bestScore && Number(st.bestScore[id] || 0) >= 60)
+    );
   }
-  function isMastered(st, id){
+
+  function mastered(state, id){
+    const st = state || readState();
     return !!(st.mastered && st.mastered[id]);
   }
-  function stars(st, id){
+
+  function stars(state, id){
+    const st = state || readState();
     return Number(st.stars && st.stars[id] || 0);
   }
-  function score(st, id){
+
+  function bestScore(state, id){
+    const st = state || readState();
     const value = st.bestScore && st.bestScore[id];
-    return value == null ? '-' : value;
+    return value == null || value === '' ? '-' : Number(value);
   }
-  function bossUnlocked(st, bossId){
-    if(bossId === 'b1') return isPassed(st, 'm1') && isPassed(st, 'm2');
-    if(bossId === 'b2') return ['m3','m4','m5'].every(id => isPassed(st, id));
-    if(bossId === 'b3') return ['m6','m7','m8'].every(id => isPassed(st, id));
-    if(bossId === 'b4') return ['m9','m10','m11'].every(id => isPassed(st, id));
-    if(bossId === 'b5') return ['m12','m13','m14','m15'].every(id => isPassed(st, id));
-    return false;
-  }
-  function sessionUnlocked(st, id){
+
+  function courseUnlocked(id, inputState){
+    const st = inputState || readState();
     if(id === 'm1') return true;
-    if(id === 'm2') return isPassed(st, 'm1');
-    if(id === 'm3') return isPassed(st, 'b1');
-    if(id === 'm4') return isPassed(st, 'm3');
-    if(id === 'm5') return isPassed(st, 'm4');
-    if(id === 'm6') return isPassed(st, 'b2');
+    if(id === 'm2') return passed(st, 'm1');
+    if(id === 'm3') return passed(st, 'm2');
+    if(id === 'b1') return ['m1','m2','m3'].every(key => passed(st, key));
+    if(id === 'm4') return passed(st, 'b1');
+    if(id === 'm5') return passed(st, 'm4');
+    if(id === 'm6') return passed(st, 'm5');
+    if(id === 'b2') return ['m4','m5','m6'].every(key => passed(st, key));
     return false;
   }
-  function roadmapStatus(st, item){
-    if(item.type === 'boss'){
-      const open = bossUnlocked(st, item.id);
-      return {
-        label: open ? 'Boss Gate Open' : 'Boss Locked',
-        cls: open ? 'bossOpen' : 'locked',
-        detail: item.unlock || 'ผ่าน sessions ก่อนหน้า'
+
+  function nextId(inputState){
+    const st = inputState || readState();
+    for(const item of FLOW){
+      if(!passed(st, item.id)) return item.id;
+    }
+    return 'b2';
+  }
+
+  function showToast(message){
+    try{
+      if(typeof window.showToast === 'function'){
+        window.showToast(message);
+        return;
+      }
+    }catch(error){}
+    console.log('[AIQuest]', message);
+  }
+
+  function patchCoreGateFunctions(){
+    const currentUnlock = window.isUnlocked;
+    if(typeof currentUnlock === 'function' && !currentUnlock.__aiquestCanonicalFlowV361){
+      const legacyUnlock = currentUnlock;
+      const patchedUnlock = function(stage){
+        if(stage && FLOW_IDS.has(stage.id)) return courseUnlocked(stage.id);
+        return legacyUnlock(stage);
       };
+      patchedUnlock.__aiquestCanonicalFlowV361 = true;
+      patchedUnlock.__legacyUnlock = legacyUnlock;
+      window.isUnlocked = patchedUnlock;
     }
 
-    const passed = isPassed(st, item.id);
-    const mastered = isMastered(st, item.id);
-    const unlocked = sessionUnlocked(st, item.id) || item.available;
+    const currentStart = window.startMission;
+    if(typeof currentStart === 'function' && !currentStart.__aiquestCanonicalFlowV361){
+      const legacyStart = currentStart;
+      const patchedStart = function(id){
+        if(FLOW_IDS.has(id) && !courseUnlocked(id)){
+          const item = FLOW_BY_ID[id];
+          showToast((item ? item.no : String(id).toUpperCase()) + ' ยังล็อก: ' + (item ? item.unlock : 'ผ่านด่านก่อนหน้า'));
+          return false;
+        }
+        return legacyStart.apply(this, arguments);
+      };
+      patchedStart.__aiquestCanonicalFlowV361 = true;
+      patchedStart.__legacyStart = legacyStart;
+      window.startMission = patchedStart;
+    }
+  }
 
-    if(mastered) return {label:'Mastery', cls:'mastery', detail:`Best ${score(st, item.id)} • ${stars(st, item.id)} ดาว`};
-    if(passed) return {label:'Passed', cls:'passed', detail:`Best ${score(st, item.id)} • ${stars(st, item.id)} ดาว`};
-    if(unlocked) return {label:'Open', cls:'open', detail:'เปิดให้เล่นแล้ว'};
-    return {label:'Locked', cls:'locked', detail:'ยังไม่เปิดใน patch นี้'};
+  function statusFor(state, item){
+    const isPassed = passed(state, item.id);
+    const isMastered = mastered(state, item.id);
+    const isOpen = courseUnlocked(item.id, state);
+
+    if(isMastered) return {label:'Mastery', cls:'mastery', detail:`Best ${bestScore(state, item.id)} • ${stars(state, item.id)} ดาว`};
+    if(isPassed) return {label:'Passed', cls:'passed', detail:`Best ${bestScore(state, item.id)} • ${stars(state, item.id)} ดาว`};
+    if(isOpen) return {label:item.type === 'boss' ? 'Boss Gate Open' : 'Open', cls:'open', detail:'พร้อมเริ่มภารกิจ'};
+    return {label:'Locked', cls:'locked', detail:item.unlock};
   }
 
   function injectStyle(){
-    if($('#aiquestRoadmapStyle')) return;
-
+    if(document.getElementById('aiquestCanonicalFlowStyle')) return;
     const style = document.createElement('style');
-    style.id = 'aiquestRoadmapStyle';
+    style.id = 'aiquestCanonicalFlowStyle';
     style.textContent = `
-      .roadmapPanel{border:1px solid rgba(56,189,248,.24);background:rgba(14,165,233,.045)}
-      .roadmapTop{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}
-      .roadmapMetric{border:1px solid var(--line);background:rgba(255,255,255,.055);border-radius:16px;padding:12px}
-      .roadmapMetric .num{font-size:30px;font-weight:1000}
-      .roadmapMetric .label{color:var(--muted);font-weight:900}
-      .bossGateBox{border:1px solid rgba(251,191,36,.38);background:rgba(251,191,36,.08);border-radius:18px;padding:14px;margin-top:12px;line-height:1.65}
-      .roadmapGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
-      .roadmapCard{border:1px solid var(--line);border-radius:16px;padding:12px;background:rgba(255,255,255,.045);min-height:126px;position:relative;overflow:hidden;text-align:left;color:var(--text);font:inherit;cursor:pointer;transition:.16s transform,.16s border-color,.16s box-shadow,.16s background}
-      .roadmapCard:hover{transform:translateY(-2px);border-color:rgba(56,189,248,.46);box-shadow:0 14px 30px rgba(0,0,0,.18)}
-      .roadmapCard.locked{cursor:not-allowed}
-      .roadmapCard.locked:hover{transform:none;box-shadow:none}
-      .roadmapCard.recommended:before{content:'NEXT';position:absolute;right:10px;top:10px;border:1px solid rgba(251,191,36,.55);background:rgba(251,191,36,.14);color:#fde68a;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:1000}
-      .roadmapClickHint{color:#bae6fd;font-size:12px;font-weight:900;margin-top:8px}
-      .roadmapCard.locked .roadmapClickHint{color:#94a3b8}
-      .roadmapCard.session.open{border-color:rgba(56,189,248,.34);background:rgba(56,189,248,.08)}
-      .roadmapCard.session.passed{border-color:rgba(52,211,153,.38);background:rgba(52,211,153,.08)}
-      .roadmapCard.session.mastery{border-color:rgba(167,139,250,.48);background:rgba(167,139,250,.10)}
-      .roadmapCard.boss{border-color:rgba(251,191,36,.34);background:rgba(251,191,36,.06)}
-      .roadmapCard.boss.bossOpen{border-color:rgba(251,191,36,.7);box-shadow:0 0 0 1px rgba(251,191,36,.18) inset;background:rgba(251,191,36,.13)}
-      .roadmapCard.locked{opacity:.74}
-      .roadmapNo{font-weight:1000;color:#bae6fd}
-      .roadmapTitle{font-weight:1000;font-size:15px;margin-top:4px}
-      .roadmapTopic{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.35}
-      .roadmapStatus{display:inline-flex;margin-top:8px;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:5px 8px;font-size:11px;font-weight:1000}
-      .roadmapStatus.mastery,.roadmapStatus.passed{color:#bbf7d0;border-color:rgba(52,211,153,.36);background:rgba(52,211,153,.10)}
-      .roadmapStatus.open{color:#bae6fd;border-color:rgba(56,189,248,.36);background:rgba(56,189,248,.10)}
-      .roadmapStatus.bossOpen{color:#fde68a;border-color:rgba(251,191,36,.48);background:rgba(251,191,36,.12)}
-      .roadmapStatus.locked{color:#cbd5e1}
-      .roadmapActions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-      @media(max-width:1050px){.roadmapGrid{grid-template-columns:repeat(3,1fr)}.roadmapTop{grid-template-columns:repeat(2,1fr)}}
-      @media(max-width:720px){.roadmapGrid{grid-template-columns:1fr}.roadmapTop{grid-template-columns:1fr}}
+      #missionMap.aiquestCanonicalMap{display:block!important}
+      .aiqFlowRule{margin:0 0 14px;padding:13px 14px;border:1px solid rgba(56,189,248,.30);border-radius:18px;background:rgba(56,189,248,.07);line-height:1.65;color:#dbeafe}
+      .aiqFlowRule b{color:#fef3c7}
+      .aiqFlowDivision{margin:18px 0 9px;color:#dbeafe;font-weight:1000;display:flex;align-items:center;gap:9px}
+      .aiqFlowDivision:before{content:'';width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#a78bfa);box-shadow:0 0 0 5px rgba(56,189,248,.08)}
+      .aiqFlowGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+      .aiqFlowCard{min-height:158px;padding:13px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(180deg,rgba(30,45,74,.95),rgba(17,28,50,.92));color:var(--text);text-align:left;display:flex;flex-direction:column;gap:7px;transition:.16s transform,.16s border-color,.16s opacity}
+      .aiqFlowCard:hover:not(:disabled){transform:translateY(-2px);border-color:rgba(56,189,248,.58)}
+      .aiqFlowCard:disabled{opacity:.52;cursor:not-allowed}
+      .aiqFlowCard.boss{background:linear-gradient(180deg,rgba(88,28,135,.76),rgba(17,28,50,.94));border-color:rgba(167,139,250,.38)}
+      .aiqFlowCard.passed{border-color:rgba(52,211,153,.42)}
+      .aiqFlowCard.mastery{border-color:rgba(251,191,36,.74);box-shadow:0 0 0 1px rgba(251,191,36,.12) inset}
+      .aiqFlowTop{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+      .aiqFlowNo{font-weight:1000;color:#bae6fd}
+      .aiqFlowBadge{font-size:11px;font-weight:1000;border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:4px 7px;background:rgba(255,255,255,.08);white-space:nowrap}
+      .aiqFlowTitle{font-weight:1000;font-size:15px;line-height:1.2}
+      .aiqFlowTopic{font-size:12px;line-height:1.42;color:var(--muted)}
+      .aiqFlowDetail{font-size:11px;color:#dbeafe;margin-top:auto;line-height:1.35}
+      .aiqFlowNext{margin:14px 0 4px;padding:10px 12px;border-radius:14px;border:1px solid rgba(251,191,36,.28);background:rgba(251,191,36,.08);color:#fef3c7;font-weight:900;line-height:1.5}
+      .aiqProgressGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+      .aiqProgressCard{border:1px solid var(--line);border-radius:13px;padding:9px;background:rgba(255,255,255,.045);font-size:12px;line-height:1.45}
+      .aiqProgressCard b{color:#dbeafe}
+      @media(max-width:1050px){.aiqFlowGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+      @media(max-width:620px){.aiqFlowGrid,.aiqProgressGrid{grid-template-columns:1fr}}
     `;
     document.head.appendChild(style);
   }
 
-  function nextRecommendedId(st){
-    if(!isPassed(st, 'm1')) return 'm1';
-    if(!isPassed(st, 'm2')) return 'm2';
-    if(bossUnlocked(st, 'b1') && !isPassed(st, 'b1')) return 'b1';
-    if(isPassed(st, 'b1') && !isPassed(st, 'm3')) return 'm3';
-    if(isPassed(st, 'm3') && !isPassed(st, 'm4')) return 'm4';
-    if(isPassed(st, 'm4') && !isPassed(st, 'm5')) return 'm5';
-    if(bossUnlocked(st, 'b2') && !isPassed(st, 'b2')) return 'b2';
-    return '';
-  }
-
-  function isClickable(st, item){
-    if(item.type === 'boss') return item.available && bossUnlocked(st, item.id);
-    if(item.id === 'm1' || item.id === 'm2' || item.id === 'm3' || item.id === 'm4' || item.id === 'm5') return sessionUnlocked(st, item.id) || item.available;
-    return false;
-  }
-
-  function clickHint(st, item){
-    if(item.type === 'boss'){
-      return bossUnlocked(st, item.id) ? 'กดเพื่อเข้า Boss' : (item.unlock || 'ยังไม่เปิด');
-    }
-    if(item.id === 'm1') return isPassed(st, 'm1') ? 'กดเพื่อเล่นซ้ำ / Mastery' : 'กดเพื่อเริ่ม';
-    if(item.id === 'm2') return isPassed(st, 'm2') ? 'กดเพื่อเล่นซ้ำ / Mastery' : 'กดเพื่อเริ่ม';
-    if(item.id === 'm3') return isPassed(st, 'm3') ? 'กดเพื่อเล่นซ้ำ / Mastery' : (sessionUnlocked(st,'m3') ? 'กดเพื่อเริ่ม S3' : 'ผ่าน B1 ก่อน');
-    if(item.id === 'm4') return isPassed(st, 'm4') ? 'กดเพื่อเล่นซ้ำ / Mastery' : (sessionUnlocked(st,'m4') ? 'กดเพื่อเริ่ม S4' : 'ผ่าน S3 ก่อน');
-    if(item.id === 'm5') return isPassed(st, 'm5') ? 'กดเพื่อเล่นซ้ำ / Mastery' : (sessionUnlocked(st,'m5') ? 'กดเพื่อเริ่ม S5' : 'ผ่าน S4 ก่อน');
-    return 'ยังไม่เปิดใน patch นี้';
-  }
-
-  function cardHTML(st, item){
-    const status = roadmapStatus(st, item);
-    const clickable = isClickable(st, item);
-    const recommended = nextRecommendedId(st) === item.id;
-
+  function flowCardHtml(state, item){
+    const status = statusFor(state, item);
+    const open = courseUnlocked(item.id, state) || passed(state, item.id);
     return `
-      <button type="button" class="roadmapCard ${item.type} ${status.cls} ${recommended ? 'recommended' : ''}" data-roadmap-id="${escapeHtml(item.id)}" ${clickable ? '' : 'aria-disabled="true"'}>
-        <div class="roadmapNo">${escapeHtml(item.no)} ${item.type === 'boss' ? '👾' : '🎯'}</div>
-        <div class="roadmapTitle">${escapeHtml(item.title)}</div>
-        <div class="roadmapTopic">${escapeHtml(item.topic || '')}</div>
-        <span class="roadmapStatus ${status.cls}">${escapeHtml(status.label)}</span>
-        <div class="roadmapTopic">${escapeHtml(status.detail)}</div>
-        <div class="roadmapClickHint">${escapeHtml(clickHint(st, item))}</div>
+      <button type="button" class="aiqFlowCard ${item.type === 'boss' ? 'boss' : ''} ${status.cls}" data-aiq-flow-id="${item.id}" ${open ? '' : 'disabled'}>
+        <div class="aiqFlowTop">
+          <span class="aiqFlowNo">${item.type === 'boss' ? '👾 ' : '🎯 '}${item.no}</span>
+          <span class="aiqFlowBadge">${escapeHtml(status.label)}</span>
+        </div>
+        <div class="aiqFlowTitle">${escapeHtml(item.title)}</div>
+        <div class="aiqFlowTopic">${escapeHtml(item.topic)}</div>
+        <div class="aiqFlowDetail">${escapeHtml(status.detail)}</div>
       </button>
     `;
   }
 
-  function toast(message){
-    if(typeof showToast === 'function') showToast(message);
-    else alert(message);
+  function renderCanonicalMissionMap(){
+    const map = document.getElementById('missionMap');
+    if(!map) return;
+
+    const state = readState();
+    const groups = [
+      {label:'Division 1: AI Foundations', ids:['m1','m2','m3']},
+      {label:'Boss Gate 1', ids:['b1']},
+      {label:'Division 2: Search & Knowledge', ids:['m4','m5','m6']},
+      {label:'Boss Gate 2', ids:['b2']}
+    ];
+    const next = FLOW_BY_ID[nextId(state)];
+
+    map.classList.add('aiquestCanonicalMap');
+    map.dataset.aiquestCanonicalFlow = VERSION;
+    map.innerHTML = `
+      <div class="aiqFlowRule">
+        <b>Canonical Progress Rule:</b> S1 → S2 → S3 → B1 → S4 → S5 → S6 → B2
+        <br>Boss B1 เปิดเมื่อผ่าน S1–S3 และ Boss B2 เปิดเมื่อผ่าน S4–S6
+      </div>
+      ${groups.map(group => `
+        <div class="aiqFlowDivision">${escapeHtml(group.label)}</div>
+        <div class="aiqFlowGrid">${group.ids.map(id => flowCardHtml(state, FLOW_BY_ID[id])).join('')}</div>
+      `).join('')}
+      <div class="aiqFlowNext">เป้าหมายถัดไป: ${escapeHtml(next.no)} ${escapeHtml(next.title)} — ${escapeHtml(next.unlock)}</div>
+    `;
+
+    map.querySelectorAll('[data-aiq-flow-id]').forEach(card => {
+      card.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const id = card.dataset.aiqFlowId;
+        if(!courseUnlocked(id) && !passed(readState(), id)){
+          showToast(FLOW_BY_ID[id].no + ' ยังล็อก: ' + FLOW_BY_ID[id].unlock);
+          return;
+        }
+        if(typeof window.startMission === 'function') window.startMission(id);
+        else showToast('ไม่พบ engine เริ่มเกม กรุณารีเฟรชหน้า');
+      });
+    });
   }
 
-  function startByRoadmapId(id){
-    const st = state();
-    const item = ROADMAP.find(x => x.id === id);
-    if(!item) return;
-
-    if(item.type === 'boss'){
-      if(!bossUnlocked(st, id)){
-        toast(item.unlock || 'Boss ยังไม่เปิด');
-        return;
+  function repairStartPanel(){
+    const panel = document.getElementById('studentStartPanel');
+    if(panel){
+      const lead = panel.querySelector('p');
+      if(lead){
+        lead.innerHTML = '<b>Session 1–6 + Boss B1/B2</b> เปิดตามลำดับ: S1 → S2 → S3 → B1 → S4 → S5 → S6 → B2';
       }
-
-      /*
-       * PATCH v3.6.0
-       * Roadmap native entry for Boss Gates.
-       * ก่อนหน้านี้เปิดเฉพาะ B1 แล้ว B2 ถูก toast ว่า "ยังไม่เปิด"
-       * ทั้งที่ B2 engine เปิดแล้วใน v3.1.x+
-       */
-      if(id === 'b1' || id === 'b2'){
-        if(typeof startMission === 'function') startMission(id);
-        else toast('Boss engine ยังไม่พร้อม กรุณา refresh หน้า');
-        return;
-      }
-
-      toast('Boss นี้ยังไม่เปิดใน patch ปัจจุบัน');
-      return;
     }
 
-    if(id === 'm1' || id === 'm2' || id === 'm3' || id === 'm4' || id === 'm5'){
-      if(!sessionUnlocked(st, id) && !item.available){
-        toast('ด่านนี้ยังล็อก');
-        return;
-      }
-      if(typeof startMission === 'function') startMission(id);
-      else toast('ยังไม่พบ engine เริ่มเกม กรุณา refresh หน้า');
-      return;
+    const continueButton = document.getElementById('studentStartSession2');
+    if(continueButton){
+      continueButton.textContent = 'ไปด่านถัดไป';
+      continueButton.onclick = function(event){
+        event.preventDefault();
+        const id = nextId(readState());
+        if(typeof window.startMission === 'function') window.startMission(id);
+      };
     }
-
-    toast('Session นี้ยังไม่เปิดใน patch ปัจจุบัน');
   }
 
-  function render(){
-    injectStyle();
+  function renderStudentFlowStatus(){
+    const box = document.getElementById('studentProgressBox');
+    if(!box) return;
 
-    if(isTeacherMode()){
-      const existing = $('#sessionRoadmapPanel');
-      if(existing) existing.remove();
-      return;
-    }
+    let profile = {};
+    try{
+      profile = window.AIQuestStorage ? window.AIQuestStorage.getProfile() : {};
+    }catch(error){}
 
-    let anchor = $('#sessionRoadmapPanel');
-    if(!anchor){
-      anchor = document.createElement('section');
-      anchor.className = isTeacherMode() ? 'teacherBox roadmapPanel' : 'panel roadmapPanel';
-      anchor.id = 'sessionRoadmapPanel';
-      anchor.style.marginTop = '16px';
-
-      const hero = document.querySelector('#menuScreen .hero');
-      if(hero) hero.insertAdjacentElement('afterend', anchor);
-      else return;
-    }
-
-    const st = state();
-    const totalSessions = ROADMAP.filter(x => x.type === 'session').length;
-    const totalBosses = ROADMAP.filter(x => x.type === 'boss').length;
-    const openSessions = ROADMAP.filter(x => x.type === 'session' && (x.available || sessionUnlocked(st, x.id))).length;
-    const passedSessions = ROADMAP.filter(x => x.type === 'session' && isPassed(st, x.id)).length;
-    const openBosses = ROADMAP.filter(x => x.type === 'boss' && bossUnlocked(st, x.id)).length;
-    const b1Open = bossUnlocked(st, 'b1');
-
-    const next = !isPassed(st,'m1')
-      ? 'เป้าหมายถัดไป: ผ่าน Session 1'
-      : !isPassed(st,'m2')
-        ? 'เป้าหมายถัดไป: ผ่าน Session 2 เพื่อเปิด B1'
-        : b1Open && !isPassed(st,'b1')
-          ? 'Boss Gate B1 เปิดแล้ว: พร้อมทำ Rookie AI Boss'
-          : isPassed(st,'b1') && !isPassed(st,'m3')
-            ? 'เป้าหมายถัดไป: เริ่ม Session 3 Search Maze'
-            : isPassed(st,'m3') && !isPassed(st,'m4')
-              ? 'เป้าหมายถัดไป: เริ่ม S4 Route Cost Challenge'
-              : isPassed(st,'m4') && !isPassed(st,'m5')
-                ? 'เป้าหมายถัดไป: เริ่ม S5 A* Rescue Mission'
-                : 'กำลังรอเปิดด่านถัดไป';
-
-    anchor.innerHTML = `
-      <h2>AI Quest Roadmap: 15 Sessions + Boss Gates</h2>
-      <p>
-        ภาพรวมเส้นทางรายวิชา แสดงว่าเปิดแล้วกี่ session, ผ่านเกณฑ์เปิดด่านใดแล้ว
-        และ Boss จะเปิดหลังผ่านกลุ่ม session ตามเกณฑ์
-      </p>
-
-      <div class="roadmapTop">
-        <div class="roadmapMetric"><div class="num">${openSessions}/${totalSessions}</div><div class="label">Sessions เปิดในระบบตอนนี้</div></div>
-        <div class="roadmapMetric"><div class="num">${passedSessions}/${openSessions}</div><div class="label">Sessions ที่ผ่านแล้ว</div></div>
-        <div class="roadmapMetric"><div class="num">${openBosses}/${totalBosses}</div><div class="label">Boss Gates ที่เปิดแล้ว</div></div>
-        <div class="roadmapMetric"><div class="num">${isPassed(st,'b2') ? 'S6' : isPassed(st,'b2') ? 'S6' : isPassed(st,'m5') ? 'B2' : isPassed(st,'m4') ? 'S5' : isPassed(st,'m3') ? 'S4' : 'S3'}</div><div class="label">${isPassed(st,'b2') ? 'ถัดไป: Knowledge Base Forge' : isPassed(st,'b2') ? 'ถัดไป: Knowledge Base Forge' : isPassed(st,'m5') ? 'ถัดไป: Search Arena Boss' : isPassed(st,'m4') ? 'ถัดไป: A* Rescue Mission' : isPassed(st,'m3') ? 'ถัดไป: Route Cost Challenge' : 'ถัดไป: Search Maze'}</div></div>
-      </div>
-
-      <div class="bossGateBox">
-        <b>Progress Rule:</b> S1–S2 → B1 → S3 → S4 → S5 → B2 → S6
-        <br><b>Next:</b> ${escapeHtml(next)}
-      </div>
-
-      <div class="roadmapActions">
-        <span class="roadmapStatus open">กดการ์ดที่เปิดแล้วเพื่อเข้าเล่น</span>
-        <span class="roadmapStatus locked">การ์ดล็อกจะแสดงเงื่อนไขบนการ์ด</span>
-        <span class="roadmapStatus bossOpen">Boss เปิดเมื่อผ่านเกณฑ์</span>
-      </div>
-
-      <div class="roadmapGrid">
-        ${ROADMAP.map(item => cardHTML(st, item)).join('')}
+    const state = readState();
+    const next = FLOW_BY_ID[nextId(state)];
+    box.dataset.aiquestCanonicalFlow = VERSION;
+    box.innerHTML = `
+      <b>Student:</b> ${escapeHtml(profile.studentId || '-')} • ${escapeHtml(profile.studentName || '-')} • ${escapeHtml(profile.section || '-')}
+      <br><b>เส้นทางมาตรฐาน:</b> S1 → S2 → S3 → B1 → S4 → S5 → S6 → B2
+      <br><b>เป้าหมายถัดไป:</b> ${escapeHtml(next.no)} ${escapeHtml(next.title)}
+      <div class="aiqProgressGrid">
+        ${FLOW.map(item => {
+          const status = statusFor(state, item);
+          return `<div class="aiqProgressCard ${status.cls}"><b>${item.no}: ${escapeHtml(item.title)}</b><br>${escapeHtml(status.label)} • ${escapeHtml(status.detail)}</div>`;
+        }).join('')}
       </div>
     `;
-    anchor.querySelectorAll('[data-roadmap-id]').forEach(card => {
-      card.onclick = (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        startByRoadmapId(card.dataset.roadmapId);
-      };
-    });
+  }
 
+  function repairQuickNavigation(){
+    const legacyBar = document.getElementById('aiquestNativeTopBar');
+    if(legacyBar) legacyBar.remove();
+
+    const quickButton = document.getElementById('btnSession2Top');
+    if(!quickButton) return;
+
+    const state = readState();
+    const id = nextId(state);
+    const item = FLOW_BY_ID[id];
+    quickButton.textContent = item ? `${item.no}: ${item.title}` : 'Continue';
+    quickButton.title = item ? `ไป ${item.no} ตามลำดับรายวิชา` : 'ไปด่านถัดไป';
+    quickButton.onclick = function(event){
+      event.preventDefault();
+      if(item && typeof window.startMission === 'function') window.startMission(item.id);
+    };
+  }
+
+  function repairLegacyDetailText(){
+    const panel = document.getElementById('detailPanel');
+    if(!panel) return;
+    const html = panel.innerHTML;
+    const repaired = html
+      .replace(/Boss Gate หลังผ่าน Session 1–2/g, 'Boss Gate หลังผ่าน Session 1–3')
+      .replace(/ผ่าน S1 และ S2 อย่างน้อย 1 ดาว/g, 'ผ่าน S1, S2 และ S3 อย่างน้อย 1 ดาว')
+      .replace(/Boss Gate หลังผ่าน Session 3–5/g, 'Boss Gate หลังผ่าน Session 4–6')
+      .replace(/ผ่าน S3, S4, S5/g, 'ผ่าน S4, S5, S6');
+    if(repaired !== html) panel.innerHTML = repaired;
+  }
+
+  function maintain(){
+    patchCoreGateFunctions();
+    injectStyle();
+    renderCanonicalMissionMap();
+    repairStartPanel();
+    renderStudentFlowStatus();
+    repairQuickNavigation();
+    repairLegacyDetailText();
   }
 
   function boot(){
-    render();
-    setInterval(render, 2500);
+    maintain();
+    setInterval(maintain, 900);
 
     window.AIQuestRoadmap = {
       VERSION,
-      ROADMAP,
-      render,
-      startByRoadmapId,
-      bossUnlocked,
-      isPassed
+      FLOW,
+      render:maintain,
+      isPassed:passed,
+      isUnlocked:courseUnlocked,
+      nextId
     };
 
     console.log('[AIQuest] ' + VERSION + ' loaded');
