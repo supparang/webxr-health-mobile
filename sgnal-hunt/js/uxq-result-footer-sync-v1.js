@@ -1,11 +1,11 @@
-/* UX Quest • Result Footer Sync v1.1 */
+/* UX Quest • Result Footer Sync v1.2 • Truthful delivery status */
 (() => {
   'use strict';
 
   function statusLine(state){
     const lines = {
-      confirmed: 'สถานะการส่ง: ระบบยืนยันการบันทึกแล้ว',
-      dispatched_unverified: 'สถานะการส่ง: ส่งคำขอผลลัพธ์ไปยัง Student Receiver แล้ว • ผู้สอนตรวจผลได้ใน Teacher Dashboard',
+      confirmed: 'สถานะการส่ง: ระบบปลายทางยืนยันการบันทึกแล้ว',
+      dispatched_unverified: 'สถานะการส่ง: ส่งคำขอไปยัง Student Receiver แล้ว • หน้านี้ยังไม่สามารถยืนยันการบันทึกปลายทางได้',
       dispatching: 'สถานะการส่ง: บันทึกในอุปกรณ์แล้ว • กำลังส่งคำขอไปยังระบบชั้นเรียน',
       queued: 'สถานะการส่ง: บันทึกในอุปกรณ์แล้ว • รอส่งเมื่ออุปกรณ์กลับมาออนไลน์',
       profile_incomplete: 'สถานะการส่ง: บันทึกเฉพาะในอุปกรณ์นี้ • ข้อมูลผู้เรียนยังไม่ครบ',
