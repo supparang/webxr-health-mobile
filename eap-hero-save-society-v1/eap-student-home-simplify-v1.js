@@ -34,14 +34,10 @@
 
   function simplifyButtons() {
     const controls = [...document.querySelectorAll('button, a.btn, [role="button"]')];
-
     controls.forEach((button) => {
       const text = textOf(button);
       if (HIDE_BUTTON_TEXT.some((rx) => isExact(rx, text))) hide(button);
     });
-
-    // Keep exactly one content button labelled “My Learning Report”.
-    // Header “Report” is a different control and remains available.
     const reports = controls.filter((button) =>
       /^my\s*learning\s*report$/i.test(textOf(button)) &&
       button.dataset.studentHomeHidden !== '1'
@@ -53,12 +49,9 @@
     const title = [...document.querySelectorAll('h1,h2,h3,strong,div')]
       .find((el) => textOf(el) === 'Player Status');
     if (!title) return;
-
     const panel = title.closest('section, aside, .panel, .card, div');
     if (!panel) return;
-
     [...panel.querySelectorAll('button')].forEach(hide);
-
     [...panel.querySelectorAll('*')].forEach((el) => {
       const text = textOf(el);
       if (!text || el.children.length) return;
@@ -75,13 +68,39 @@
     simplifyStatus();
   }
 
-  function loadLearningLadder() {
-    if (document.getElementById('eap-learning-ladder-loader')) return;
+  function appendScript(id, src, onload) {
+    if (document.getElementById(id)) return;
     const script = document.createElement('script');
-    script.id = 'eap-learning-ladder-loader';
-    script.src = './eap-learning-ladder-v1.js?v=20260704-learning-ladder-v1';
+    script.id = id;
+    script.src = src;
     script.async = true;
+    if (typeof onload === 'function') script.onload = onload;
     document.head.appendChild(script);
+  }
+
+  function loadLearningLadder() {
+    appendScript(
+      'eap-learning-ladder-loader',
+      './eap-learning-ladder-v1.js?v=20260704-learning-ladder-v1'
+    );
+  }
+
+  function loadBossGateV2() {
+    /* Preserve the genuine core Boss Clash callback. This protects users who
+       still have an older cached Boss Gate patch while v2 loads. */
+    const coreStart = window.EAPHero &&
+      (window.EAPHero.__bossFourSkillOriginalStart || window.EAPHero.startGateBoss);
+    if (coreStart) window.__EAP_CORE_BOSS_START_V2 = coreStart;
+
+    appendScript(
+      'eap-boss-four-skill-v2-loader',
+      './eap-boss-four-skill-gate-v1.js?v=20260704-boss4skill-v2',
+      () => {
+        if (window.EAPHero && window.__EAP_CORE_BOSS_START_V2) {
+          window.EAPHero.__bossFourSkillOriginalStart = window.__EAP_CORE_BOSS_START_V2;
+        }
+      }
+    );
   }
 
   function start() {
@@ -89,6 +108,7 @@
     simplifyHome();
     const observer = new MutationObserver(() => simplifyHome());
     observer.observe(document.documentElement, { childList: true, subtree: true });
+    window.addEventListener('load', () => setTimeout(loadBossGateV2, 0), { once: true });
   }
 
   if (document.readyState === 'loading') {
