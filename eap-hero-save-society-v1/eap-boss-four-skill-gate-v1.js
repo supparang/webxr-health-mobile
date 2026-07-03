@@ -1,136 +1,186 @@
 /* =========================================================
-   EAP Boss Gate Four-Skill Patch v1
-   B1–B5: Reading → Listening → Writing → Speaking → Boss Clash
-   Load AFTER eap-hero.js and eap-evidence-sync-v129.js
-========================================================= */
-(() => {
+   EAP Hero Boss Gate v2 — Four Skills, Scaffolded A2+ → B1
+   B1–B5 always run Reading → Listening → Writing → Speaking
+   before the original Boss Clash. Boss speaking creates teacher
+   review evidence; no pronunciation/grammar score is auto-decided.
+   ========================================================= */
+(function () {
   'use strict';
 
-  const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
-  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
+  var STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
+  var SKILLS = ['Reading', 'Listening', 'Writing', 'Speaking'];
 
-  const GATES = {
+  var GATES = {
     1: {
-      title:'Boss Gate 1 · Foundation Check',
-      reading:'Academic English helps learners read sources, explain ideas, and set clear learning goals.',
-      readQuestion:'Which statement best summarizes the source?',
-      readChoices:[
-        'Academic English supports academic learning goals and communication.',
-        'Academic English is only used for casual conversation.',
-        'Learners should avoid academic sources.',
-        'Goals are not useful for university study.'
-      ], readAnswer:0,
-      listening:'First, identify the main idea. Next, choose one useful academic word. Finally, explain why the word helps your study.',
-      listenQuestion:'What should the learner do after identifying the main idea?',
-      listenChoices:['Finish immediately.','Choose one useful academic word.','Ignore source details.','Write unrelated information.'],
-      listenAnswer:1,
-      writing:'Write 2–4 sentences: state one academic goal and one action you will take.',
-      speaking:'Speak for 30–45 seconds: state one academic goal, one action, and a clear closing.'
+      title: 'Boss Gate 1 · Foundation Check',
+      arc: 'S1–S3 · goal, academic words, main idea',
+      reading: {
+        source: 'Academic English helps students read sources, explain ideas, and set clear learning goals.',
+        question: 'What is the main message?',
+        choices: [
+          'Academic English helps students learn and communicate at university.',
+          'Academic English is only for casual chats.',
+          'Students should avoid setting goals.',
+          'Sources are not useful for study.'
+        ], answer: 0
+      },
+      listening: {
+        source: 'First, choose one academic goal. Next, choose one small action. Finally, check your progress.',
+        question: 'What should a learner do after choosing a goal?',
+        choices: ['Choose one small action.', 'Stop studying.', 'Copy another plan.', 'Ignore progress.'], answer: 0
+      },
+      writing: {
+        prompt: 'Build a short goal statement with one action.',
+        frames: ['My academic goal is to improve reading.', 'I will read one short source each week.', 'This action can help me make progress.']
+      },
+      speaking: {
+        prompt: 'Use the three cues to give a short goal talk.',
+        frames: ['Today I will talk about my academic goal.', 'One action is to read one short source each week.', 'This goal can help my university study.']
+      }
     },
     2: {
-      title:'Boss Gate 2 · Evidence & Summary Check',
-      reading:'Reliable academic work uses clear keywords, checks evidence, and summarizes the central idea in the writer’s own words.',
-      readQuestion:'Which action is best supported by the source?',
-      readChoices:[
-        'Copy the first sentence exactly.',
-        'Check evidence and summarize the central idea in your own words.',
-        'Use one keyword without reading.',
-        'Choose a claim because it sounds confident.'
-      ], readAnswer:1,
-      listening:'A credible source has an identifiable author, relevant evidence, and a clear publication context.',
-      listenQuestion:'Which feature did the speaker mention?',
-      listenChoices:['A clear publication context.','A colorful page design.','A short caption.','A celebrity name.'],
-      listenAnswer:0,
-      writing:'Write 2–4 sentences: summarize the source and explain why checking evidence matters.',
-      speaking:'Speak for 30–45 seconds: state the main idea, one evidence-checking action, and a conclusion.'
+      title: 'Boss Gate 2 · Reading Signals & Summary Check',
+      arc: 'S4–S6 · keywords, evidence, summary',
+      reading: {
+        source: 'A careful reader uses keywords, checks evidence, and writes the central idea in short new words.',
+        question: 'Which action matches the source?',
+        choices: [
+          'Find keywords, check evidence, and write a short summary.',
+          'Copy the first sentence only.',
+          'Choose a claim because it sounds strong.',
+          'Ignore evidence and read the title only.'
+        ], answer: 0
+      },
+      listening: {
+        source: 'A credible source has a clear author, relevant evidence, and a publication context.',
+        question: 'Which feature was mentioned?',
+        choices: ['A clear author.', 'A colourful page.', 'A celebrity photo.', 'A short slogan.'], answer: 0
+      },
+      writing: {
+        prompt: 'Build a 3-sentence source summary.',
+        frames: ['The source is about checking information.', 'One useful point is to check evidence.', 'This helps students write a careful summary.']
+      },
+      speaking: {
+        prompt: 'Use the three cues to explain one reading strategy.',
+        frames: ['Today I will explain a reading strategy.', 'I will check one source detail.', 'This can help me understand the main idea.']
+      }
     },
     3: {
-      title:'Boss Gate 3 · Academic Paragraph Check',
-      reading:'A focused academic paragraph begins with one topic sentence, develops the idea with support or evidence, and closes by linking back to the main point.',
-      readQuestion:'Which paragraph order matches the source?',
-      readChoices:[
-        'Topic sentence → support/evidence → closing sentence.',
-        'Closing → unrelated detail → greeting.',
-        'Example → new topic → random opinion.',
-        'Reference list → title → question.'
-      ], readAnswer:0,
-      listening:'Academic tone is clear, formal, and cautious. Writers should avoid slang and unsupported strong claims.',
-      listenQuestion:'What tone should academic writers avoid?',
-      listenChoices:[
-        'Clear and cautious language.',
-        'Formal vocabulary.',
-        'Slang and unsupported strong claims.',
-        'A focused topic sentence.'
-      ], listenAnswer:2,
-      writing:'Write a 3–4 sentence paragraph about one study strategy with topic, support, and closing.',
-      speaking:'Speak for 30–45 seconds: explain your paragraph topic, one support detail, and your closing idea.'
+      title: 'Boss Gate 3 · Paragraph & Tone Check',
+      arc: 'S7–S9 · paragraph structure and academic tone',
+      reading: {
+        source: 'A focused paragraph has a topic sentence, support or evidence, and a closing sentence.',
+        question: 'Which order is correct?',
+        choices: [
+          'Topic sentence → support → closing sentence.',
+          'Closing → greeting → new topic.',
+          'Random detail → title → question.',
+          'Reference list → unrelated opinion → heading.'
+        ], answer: 0
+      },
+      listening: {
+        source: 'Academic tone is clear and careful. Avoid slang and very strong claims without support.',
+        question: 'What should a writer avoid?',
+        choices: ['Slang and unsupported strong claims.', 'Clear language.', 'A topic sentence.', 'One support detail.'], answer: 0
+      },
+      writing: {
+        prompt: 'Build a mini paragraph about one study strategy.',
+        frames: ['One useful study strategy is to review key words.', 'For example, I can review five words after class.', 'This strategy can support my academic reading.']
+      },
+      speaking: {
+        prompt: 'Use the three cues to present your mini paragraph.',
+        frames: ['Today I will explain one study strategy.', 'For example, I can review key words after class.', 'This strategy can support my reading.']
+      }
     },
     4: {
-      title:'Boss Gate 4 · Data, Email & Ethics Check',
-      reading:'Academic communication requires accurate data description, a polite purpose in email, and honest acknowledgement of sources and AI support.',
-      readQuestion:'Which response follows all three principles?',
-      readChoices:[
-        'Report data accurately, write politely, and acknowledge sources or AI support.',
-        'Use dramatic data, a short command, and hide the source.',
-        'Copy an answer and claim it is original.',
-        'Choose the largest number without checking.'
-      ], readAnswer:0,
-      listening:'Online quiz use increased from 40 percent to 58 percent. The result should be described accurately without claiming a cause.',
-      listenQuestion:'What did the speaker advise?',
-      listenChoices:[
-        'Claim that quizzes caused every improvement.',
-        'Describe the increase accurately without an unsupported cause.',
-        'Ignore the numbers.',
-        'Report a decrease.'
-      ], listenAnswer:1,
-      writing:'Write 2–4 sentences: describe the trend from 40% to 58% and one ethical source or AI action.',
-      speaking:'Speak for 30–45 seconds: report the trend, one polite academic action, and one ethics reminder.'
+      title: 'Boss Gate 4 · Data, Email & Ethics Check',
+      arc: 'S10–S12 · notes, evidence, citation and ethical use',
+      reading: {
+        source: 'Academic communication reports data accurately, uses a polite purpose, and names sources or AI support honestly.',
+        question: 'Which response follows the source?',
+        choices: [
+          'Report data carefully, write politely, and name the source or AI support.',
+          'Change numbers to sound dramatic.',
+          'Copy work and say it is original.',
+          'Hide where information comes from.'
+        ], answer: 0
+      },
+      listening: {
+        source: 'Online quiz use rose from 40 percent to 58 percent. Describe the increase, but do not claim a cause without evidence.',
+        question: 'What should the learner do?',
+        choices: ['Describe the increase carefully.', 'Say quizzes caused every improvement.', 'Ignore the numbers.', 'Report a decrease.'], answer: 0
+      },
+      writing: {
+        prompt: 'Build a short accurate data statement.',
+        frames: ['Online quiz use increased from 40% to 58%.', 'The data show an increase in quiz use.', 'We should name the source of the data.']
+      },
+      speaking: {
+        prompt: 'Use the three cues to report one result carefully.',
+        frames: ['Today I will report one result.', 'Quiz use increased from 40% to 58%.', 'We should use data and sources honestly.']
+      }
     },
     5: {
-      title:'Final Boss · Integrated EAP Performance',
-      reading:'Digital literacy helps students evaluate online information, use evidence responsibly, and communicate a practical solution to a social problem.',
-      readQuestion:'Which final response best uses the source?',
-      readChoices:[
-        'Evaluate information, use evidence, and propose a practical solution.',
-        'Share the first claim without checking it.',
-        'Use a solution without evidence.',
-        'Avoid explaining the social problem.'
-      ], readAnswer:0,
-      listening:'First, identify a social problem. Next, support your idea with one credible detail. In conclusion, propose a realistic action.',
-      listenQuestion:'What should come before the realistic action?',
-      listenChoices:[
-        'A credible supporting detail.',
-        'An unrelated story.',
-        'Difficult vocabulary only.',
-        'A casual greeting.'
-      ], listenAnswer:0,
-      writing:'Write 3–4 sentences: name a social problem, give one evidence-based detail, and propose a realistic solution.',
-      speaking:'Speak for 30–45 seconds: present the problem, one evidence detail, one solution, and a clear conclusion.'
+      title: 'Final Boss · Integrated EAP Performance',
+      arc: 'S13–S15 · presentation, Q&A and social solution',
+      reading: {
+        source: 'Digital literacy helps students evaluate online information, use evidence responsibly, and explain a practical solution to a social problem.',
+        question: 'Which final response uses the source well?',
+        choices: [
+          'Check information, use evidence, and propose a practical solution.',
+          'Share the first online claim without checking.',
+          'Give a solution without evidence.',
+          'Avoid explaining the social problem.'
+        ], answer: 0
+      },
+      listening: {
+        source: 'First, name one social problem. Next, add one credible detail. Finally, propose one realistic action.',
+        question: 'What comes before the realistic action?',
+        choices: ['One credible detail.', 'A casual greeting.', 'A difficult word only.', 'An unrelated story.'], answer: 0
+      },
+      writing: {
+        prompt: 'Build a 3-sentence practical solution.',
+        frames: ['One social problem is false information online.', 'Students can check the author and evidence.', 'This action can support safer information use.']
+      },
+      speaking: {
+        prompt: 'Use the three cues to give a short final presentation.',
+        frames: ['Today I will present one social problem.', 'Students can check the author and evidence.', 'This is a realistic action for safer online information.']
+      }
     }
   };
 
-  const gateNo = (id) => Number(String(id || '').replace(/\D/g, '')) || 1;
+  function esc(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
 
   function readState() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
-    catch (error) { return { profile:{ name:'Guest', studentId:'guest', section:'122' } }; }
+    catch (_) { return { profile: { studentId: 'guest', studentName: 'Guest', section: '122' } }; }
   }
 
-  function sendEvidence(gate, skill, prompt, output, extras = {}) {
-    const state = readState();
-    const entry = {
-      rawEvidenceId: `boss-${gate}-${skill}-${Date.now()}`,
-      sessionId: `B${gate}`,
+  function gateNo(value) {
+    var n = Number(String(value || '').replace(/\D/g, ''));
+    return GATES[n] ? n : 1;
+  }
+
+  function evidenceSync() {
+    return window.EAPEvidenceSyncV130 || window.EAPEvidenceSyncV129 || null;
+  }
+
+  function sendEvidence(gate, skill, prompt, output, extras) {
+    extras = extras || {};
+    var entry = {
+      rawEvidenceId: 'boss-' + gate + '-' + skill + '-' + Date.now(),
+      sessionId: 'B' + gate,
       sessionTitle: GATES[gate].title,
-      skill,
-      evidenceType: `boss_${skill.toLowerCase()}_evidence`,
-      taskId: `B${gate}_${skill}`,
+      skill: skill,
+      evidenceType: 'boss_' + skill.toLowerCase() + '_evidence',
+      taskId: 'B' + gate + '_' + skill,
       score: 100,
       passed: true,
-      prompt,
-      output,
+      prompt: prompt,
+      output: output,
       durationSec: extras.durationSec || 0,
       targetRange: extras.targetRange || '',
       teacherReviewRequired: skill === 'Speaking',
@@ -138,183 +188,203 @@
       oralChecklist: extras.checklist || {},
       attemptCount: 1,
       at: new Date().toISOString(),
-      boss: { gate, requiredSkills:['Reading','Listening','Writing','Speaking'] }
+      boss: { gate: gate, requiredSkills: SKILLS.slice(), stage: skill }
     };
-    if (window.EAPEvidenceSyncV129?.submitRaw) {
-      window.EAPEvidenceSyncV129.submitRaw(entry, state);
-    }
+    var sync = evidenceSync();
+    if (sync && typeof sync.submitRaw === 'function') sync.submitRaw(entry, readState());
   }
 
   function playVoice(text) {
     try {
-      speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.86;
-      speechSynthesis.speak(utterance);
-    } catch (error) {}
+      window.speechSynthesis.cancel();
+      var voice = new SpeechSynthesisUtterance(text);
+      voice.lang = 'en-US';
+      voice.rate = 0.78;
+      window.speechSynthesis.speak(voice);
+    } catch (_) {}
   }
 
-  function page(gate, stage, body) {
-    const stepNames = ['Reading','Listening','Writing','Speaking'];
-    document.getElementById('app').innerHTML = `
-      <main class="wrap" style="max-width:1180px;margin:auto;padding:20px">
-        <section class="panel" style="margin-top:18px">
-          <div class="badges">
-            <span class="pill">Boss Gate ${gate}</span>
-            <span class="pill">Four-Skill Evidence</span>
-            <span class="pill">Step ${stage + 1}/4</span>
-          </div>
-          <h2>${esc(GATES[gate].title)}</h2>
-          <p class="lead">Complete Reading, Listening, Writing, and Speaking before the Boss Clash.</p>
-          <div class="grid four" style="margin:14px 0">
-            ${stepNames.map((skill, index) => `
-              <div class="stat" style="${index === stage ? 'outline:3px solid #73d9e7' : ''}">
-                <b>${index < stage ? '✓ ' : ''}${skill}</b>
-                <span>${index < stage ? 'Complete' : index === stage ? 'Current' : 'Locked'}</span>
-              </div>
-            `).join('')}
-          </div>
-          ${body}
-        </section>
-      </main>
-    `;
+  function shell(gate, current, inner) {
+    var g = GATES[gate];
+    document.getElementById('app').innerHTML = '' +
+      '<main class="wrap" style="max-width:1100px;margin:auto;padding:20px">' +
+        '<section class="panel" style="margin-top:18px">' +
+          '<div class="badges"><span class="pill">Boss Gate ' + gate + '</span><span class="pill">4 Skills Required</span><span class="pill">A2+ → B1 Path</span></div>' +
+          '<h2>' + esc(g.title) + '</h2>' +
+          '<p class="lead">' + esc(g.arc) + ' · ทำทีละทักษะพร้อมตัวช่วย แล้วจึงเข้าสู่ Boss Clash</p>' +
+          '<div class="grid four" style="margin:14px 0">' +
+            SKILLS.map(function (skill, index) {
+              var state = index < current ? '✓ Complete' : index === current ? 'Current' : 'Locked';
+              var outline = index === current ? 'outline:3px solid #73d9e7' : '';
+              return '<div class="stat" style="' + outline + '"><b>' + esc(skill) + '</b><span>' + state + '</span></div>';
+            }).join('') +
+          '</div>' + inner +
+        '</section>' +
+      '</main>';
   }
 
-  function choiceStage(gate, stage, kind) {
-    const g = GATES[gate];
-    const reading = kind === 'reading';
-    const source = reading ? g.reading : g.listening;
-    const question = reading ? g.readQuestion : g.listenQuestion;
-    const choices = reading ? g.readChoices : g.listenChoices;
-    const answer = reading ? g.readAnswer : g.listenAnswer;
+  function sourceBox(kind, source, allowTranscript) {
+    var listen = kind === 'Listening';
+    return '' +
+      '<div class="panel light" style="margin:14px 0">' +
+        '<h3>' + (listen ? '🎧 Listening' : '📖 Reading') + ' · A2 Foundation</h3>' +
+        (listen ? '<button type="button" class="btn ghost" id="bossPlay">▶ Play audio</button> <button type="button" class="btn ghost" id="bossShowText">Show text support</button><p id="bossTranscript" class="mini-note" style="display:none;margin-top:10px">' + esc(source) + '</p>' : '<p style="font-size:18px;line-height:1.65">' + esc(source) + '</p>') +
+        '<p class="mini-note">เลือกคำตอบที่ตรงกับข้อความมากที่สุด · ตอบผิดลองใหม่ได้</p>' +
+      '</div>';
+  }
 
-    page(gate, stage, `
-      <div class="panel light">
-        <h3>${reading ? '📖 Reading' : '🎧 Listening'}</h3>
-        <p style="font-size:18px;line-height:1.6">${esc(source)}</p>
-        ${reading ? '' : '<button class="btn ghost" id="playVoice">▶ Play audio again</button><p class="mini-note">Audio transcript is shown for accessibility.</p>'}
-      </div>
-      <h3>${esc(question)}</h3>
-      ${choices.map((choice, index) => `
-        <button class="btn ghost block boss4-choice" data-index="${index}" style="text-align:left;margin:9px 0">
-          ${String.fromCharCode(65 + index)}. ${esc(choice)}
-        </button>
-      `).join('')}
-      <p id="boss4Message" class="mini-note"></p>
-    `);
+  function choiceStage(gate, kind) {
+    var g = GATES[gate];
+    var task = kind === 'Reading' ? g.reading : g.listening;
+    var stage = kind === 'Reading' ? 0 : 1;
+    shell(gate, stage, sourceBox(kind, task.source) +
+      '<h3>' + esc(task.question) + '</h3>' +
+      task.choices.map(function (choice, index) {
+        return '<button type="button" class="btn ghost block eap-boss-choice" data-answer="' + index + '" style="margin:9px 0;text-align:left">' + String.fromCharCode(65 + index) + '. ' + esc(choice) + '</button>';
+      }).join('') +
+      '<p id="bossMessage" class="mini-note"></p>');
 
-    document.getElementById('playVoice')?.addEventListener('click', () => playVoice(source));
-    document.querySelectorAll('.boss4-choice').forEach((button) => {
-      button.addEventListener('click', () => {
-        if (Number(button.dataset.index) !== answer) {
-          document.getElementById('boss4Message').textContent = 'Try again. Check the source carefully.';
+    document.getElementById('bossPlay') && document.getElementById('bossPlay').addEventListener('click', function () { playVoice(task.source); });
+    document.getElementById('bossShowText') && document.getElementById('bossShowText').addEventListener('click', function () {
+      var text = document.getElementById('bossTranscript');
+      text.style.display = text.style.display === 'none' ? 'block' : 'none';
+    });
+    if (kind === 'Listening') setTimeout(function () { playVoice(task.source); }, 280);
+
+    Array.prototype.slice.call(document.querySelectorAll('.eap-boss-choice')).forEach(function (button) {
+      button.addEventListener('click', function () {
+        if (Number(button.dataset.answer) !== task.answer) {
+          document.getElementById('bossMessage').textContent = 'ลองอีกครั้ง: กลับไปดูคำสำคัญใน source หรือฟังอีก 1 รอบ';
           return;
         }
-        sendEvidence(gate, reading ? 'Reading' : 'Listening', source, choices[answer]);
-        reading ? choiceStage(gate, 1, 'listening') : writingStage(gate);
+        sendEvidence(gate, kind, task.source, task.choices[task.answer]);
+        if (kind === 'Reading') choiceStage(gate, 'Listening');
+        else writingStage(gate);
       });
     });
-    if (!reading) setTimeout(() => playVoice(source), 300);
+  }
+
+  function frameButtons(frames, field) {
+    return '<div style="display:grid;gap:8px;margin:12px 0">' + frames.map(function (frame, index) {
+      return '<button type="button" class="btn ghost eap-boss-frame" data-index="' + index + '" style="text-align:left">＋ ' + esc(frame) + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function bindFrames(frames, fieldId) {
+    Array.prototype.slice.call(document.querySelectorAll('.eap-boss-frame')).forEach(function (button) {
+      button.addEventListener('click', function () {
+        var field = document.getElementById(fieldId);
+        var value = frames[Number(button.dataset.index)];
+        field.value = field.value.trim() ? field.value.trim() + ' ' + value : value;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.focus();
+      });
+    });
+  }
+
+  function wordCount(text) {
+    return String(text || '').trim().split(/\s+/).filter(Boolean).length;
   }
 
   function writingStage(gate) {
-    const g = GATES[gate];
-    page(gate, 2, `
-      <div class="panel light">
-        <h3>✍️ Writing Evidence</h3>
-        <p>${esc(g.writing)}</p>
-        <textarea id="bossWriting" rows="7" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Write your answer here..."></textarea>
-        <p class="mini-note">Use your own words. This is evidence, not automatic grammar scoring.</p>
-        <button class="btn primary" id="saveWriting">Save writing & continue</button>
-        <p id="writingMessage" class="mini-note"></p>
-      </div>
-    `);
-
-    document.getElementById('saveWriting').addEventListener('click', () => {
-      const output = document.getElementById('bossWriting').value.trim();
-      if (output.split(/\s+/).filter(Boolean).length < 12) {
-        document.getElementById('writingMessage').textContent = 'Write at least 12 words before continuing.';
+    var task = GATES[gate].writing;
+    shell(gate, 2,
+      '<div class="panel light">' +
+        '<h3>✍️ Writing · A2+ Bridge</h3>' +
+        '<p>' + esc(task.prompt) + '</p>' +
+        '<p class="mini-note">แตะ sentence frames 2–3 อัน แล้วปรับคำให้เป็นของคุณได้</p>' +
+        frameButtons(task.frames, 'bossWriting') +
+        '<textarea id="bossWriting" rows="6" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Use the sentence frames or write your own short answer."></textarea>' +
+        '<p class="mini-note">ผ่านด้วยคำตอบสั้นที่มีอย่างน้อย 2 ideas · ไม่ใช้ grammar auto-score</p>' +
+        '<button type="button" class="btn primary" id="bossSaveWriting">Save writing & continue</button><p id="bossWriteMessage" class="mini-note"></p>' +
+      '</div>');
+    bindFrames(task.frames, 'bossWriting');
+    document.getElementById('bossSaveWriting').addEventListener('click', function () {
+      var output = document.getElementById('bossWriting').value.trim();
+      if (wordCount(output) < 6) {
+        document.getElementById('bossWriteMessage').textContent = 'เลือก sentence frame อย่างน้อย 2 อัน หรือเขียนคำตอบสั้น ๆ ก่อนดำเนินการต่อ';
         return;
       }
-      sendEvidence(gate, 'Writing', g.writing, output);
+      sendEvidence(gate, 'Writing', task.prompt, output);
       speakingStage(gate);
     });
   }
 
   function speakingStage(gate) {
-    const g = GATES[gate];
-    let startedAt = 0;
-    let timer = null;
+    var task = GATES[gate].speaking;
+    var startedAt = 0;
+    var timer = null;
+    shell(gate, 3,
+      '<div class="panel light">' +
+        '<h3>🗣️ Speaking · B1 Core with Cue Cards</h3>' +
+        '<p>' + esc(task.prompt) + '</p>' +
+        '<div class="grid three" style="margin:12px 0">' + task.frames.map(function (frame, index) {
+          return '<div class="stat"><b>Cue ' + (index + 1) + '</b><span>' + esc(frame) + '</span></div>';
+        }).join('') + '</div>' +
+        '<p><b id="bossSpeakClock">00:00</b> / 00:20 minimum</p>' +
+        '<button type="button" class="btn ghost" id="bossStartSpeak">Start speaking timer</button>' +
+        '<label style="display:block;margin:12px 0"><input type="checkbox" id="bossTopic"> I stated the topic</label>' +
+        '<label style="display:block;margin:12px 0"><input type="checkbox" id="bossDetail"> I gave one source detail</label>' +
+        '<label style="display:block;margin:12px 0"><input type="checkbox" id="bossClose"> I used a clear closing</label>' +
+        '<textarea id="bossSpeakingNote" rows="4" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Type 1–2 sentences about what you said."></textarea>' +
+        '<p class="mini-note">ระบบตรวจเวลาและ checklist เท่านั้น · ครูตรวจหลักฐาน Boss Speaking ภายหลัง ไม่ใช้ transcript ตัดสิน grammar หรือ pronunciation อัตโนมัติ</p>' +
+        '<button type="button" class="btn primary" id="bossFinishSpeak">Save speaking & enter Boss Clash</button><p id="bossSpeakMessage" class="mini-note"></p>' +
+      '</div>');
 
-    page(gate, 3, `
-      <div class="panel light">
-        <h3>🗣️ Boss Speaking Evidence</h3>
-        <p>${esc(g.speaking)}</p>
-        <p><b id="speakClock">00:00</b> / 00:30 minimum</p>
-        <button class="btn ghost" id="startSpeaking">Start speaking timer</button>
-        <label style="display:block;margin:12px 0"><input type="checkbox" id="checkTopic"> I stated the topic</label>
-        <label style="display:block;margin:12px 0"><input type="checkbox" id="checkDetail"> I gave one source detail</label>
-        <label style="display:block;margin:12px 0"><input type="checkbox" id="checkClosing"> I ended with a clear closing</label>
-        <textarea id="speakingNote" rows="4" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Speaking note: write 1–2 sentences about what you said."></textarea>
-        <p class="mini-note">Optional audio recording remains available through the speaking evidence tool. Teacher review applies only to this Boss speaking evidence.</p>
-        <button class="btn primary" id="finishSpeaking" style="margin-top:12px">Save speaking & enter Boss Clash</button>
-        <p id="speakingMessage" class="mini-note"></p>
-      </div>
-    `);
-
-    document.getElementById('startSpeaking').addEventListener('click', () => {
+    document.getElementById('bossStartSpeak').addEventListener('click', function () {
       if (startedAt) return;
       startedAt = Date.now();
-      document.getElementById('startSpeaking').textContent = 'Speaking timer running';
-      timer = setInterval(() => {
-        const seconds = Math.floor((Date.now() - startedAt) / 1000);
-        document.getElementById('speakClock').textContent =
-          `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+      this.textContent = 'Speaking timer running';
+      timer = setInterval(function () {
+        var seconds = Math.floor((Date.now() - startedAt) / 1000);
+        document.getElementById('bossSpeakClock').textContent = String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
       }, 250);
     });
 
-    document.getElementById('finishSpeaking').addEventListener('click', () => {
-      const seconds = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0;
-      const note = document.getElementById('speakingNote').value.trim();
-      const checklist = {
-        spoke: seconds >= 30,
-        topic: document.getElementById('checkTopic').checked,
-        detail: document.getElementById('checkDetail').checked,
-        closing: document.getElementById('checkClosing').checked
+    document.getElementById('bossFinishSpeak').addEventListener('click', function () {
+      var seconds = startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0;
+      var note = document.getElementById('bossSpeakingNote').value.trim();
+      var checklist = {
+        spoke: seconds >= 20,
+        topic: document.getElementById('bossTopic').checked,
+        detail: document.getElementById('bossDetail').checked,
+        closing: document.getElementById('bossClose').checked
       };
-
-      if (
-        seconds < 30 ||
-        !checklist.topic ||
-        !checklist.detail ||
-        !checklist.closing ||
-        note.split(/\s+/).filter(Boolean).length < 8
-      ) {
-        document.getElementById('speakingMessage').textContent =
-          'Complete 30 seconds, all checklist items, and an 8-word speaking note.';
+      if (!checklist.spoke || !checklist.topic || !checklist.detail || !checklist.closing || wordCount(note) < 5) {
+        document.getElementById('bossSpeakMessage').textContent = 'ทำให้ครบ: พูด 20 วินาที, ติ๊ก 3 checklist, และพิมพ์ speaking note สั้น ๆ อย่างน้อย 5 คำ';
         return;
       }
-
       if (timer) clearInterval(timer);
-      sendEvidence(gate, 'Speaking', g.speaking, note, {
-        durationSec: seconds,
-        targetRange: '30–45',
-        checklist
-      });
-      window.EAPHero.__bossFourSkillOriginalStart(`gate${gate}`);
+      sendEvidence(gate, 'Speaking', task.prompt, note, { durationSec: seconds, targetRange: '20–40', checklist: checklist });
+      completeFourSkills(gate);
+    });
+  }
+
+  function completeFourSkills(gate) {
+    shell(gate, 4,
+      '<div class="panel light" style="text-align:center;padding:26px">' +
+        '<h3>✅ Four-Skill Evidence Complete</h3>' +
+        '<p>คุณทำ Reading, Listening, Writing และ Speaking ครบแล้ว</p>' +
+        '<p class="mini-note">Boss Speaking ถูกส่งเป็นรายการสำหรับ Teacher Review ตามข้อตกลงรายวิชา</p>' +
+        '<button type="button" class="btn primary" id="enterBossClash">Enter Boss Clash</button>' +
+      '</div>');
+    document.getElementById('enterBossClash').addEventListener('click', function () {
+      var original = window.EAPHero && window.EAPHero.__bossFourSkillOriginalStart;
+      if (typeof original === 'function') original('gate' + gate);
     });
   }
 
   function patch() {
-    if (!window.EAPHero?.startGateBoss || window.EAPHero.__bossFourSkillPatched) return;
-    window.EAPHero.__bossFourSkillPatched = true;
+    if (!window.EAPHero || typeof window.EAPHero.startGateBoss !== 'function' || window.EAPHero.__bossFourSkillV2Patched) return;
+    window.EAPHero.__bossFourSkillV2Patched = true;
     window.EAPHero.__bossFourSkillOriginalStart = window.EAPHero.startGateBoss;
-    window.EAPHero.startGateBoss = (gateId) => choiceStage(gateNo(gateId), 0, 'reading');
+    window.EAPHero.startGateBoss = function (gateId) { choiceStage(gateNo(gateId), 'Reading'); };
   }
 
-  const wait = setInterval(() => {
+  var wait = setInterval(function () {
     patch();
-    if (window.EAPHero?.__bossFourSkillPatched) clearInterval(wait);
+    if (window.EAPHero && window.EAPHero.__bossFourSkillV2Patched) clearInterval(wait);
   }, 100);
+
+  window.EAPBossFourSkillV2 = { gates: GATES, start: function (gate) { choiceStage(gateNo(gate), 'Reading'); } };
 })();
