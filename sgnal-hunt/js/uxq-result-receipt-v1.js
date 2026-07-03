@@ -1,4 +1,4 @@
-/* UX Quest • Result Receipt UI v1.4 • Truthful delivery + mastery layer loader */
+/* UX Quest • Result Receipt UI v1.5 • Truthful delivery + mastery/artifact loader */
 (() => {
   'use strict';
 
@@ -9,12 +9,7 @@
   function getMeta(item){
     const state = item?.state || 'local_only';
     if (state === 'confirmed') return { tag: 'SYSTEM CONFIRMED', tone: 'good', title: 'ระบบยืนยันการบันทึกแล้ว', body: 'มีการตอบรับจากระบบปลายทางสำหรับรอบนี้แล้ว' };
-    if (state === 'dispatched_unverified') return {
-      tag: 'REQUEST SENT',
-      tone: 'good',
-      title: 'ส่งคำขอผลลัพธ์ไปยังระบบชั้นเรียนแล้ว',
-      body: 'เกมส่งคำขอไปยัง Student Receiver แล้ว หน้าผู้เรียนยังยืนยันไม่ได้ว่าระบบปลายทางบันทึกสำเร็จหรือไม่ เพราะการส่งใช้ no-cors จึงไม่อ่านคำตอบกลับจาก Google Sheets โดยตรง'
-    };
+    if (state === 'dispatched_unverified') return { tag: 'REQUEST SENT', tone: 'good', title: 'ส่งคำขอผลลัพธ์ไปยังระบบชั้นเรียนแล้ว', body: 'เกมส่งคำขอไปยัง Student Receiver แล้ว หน้าผู้เรียนยังยืนยันไม่ได้ว่าระบบปลายทางบันทึกสำเร็จหรือไม่ เพราะการส่งใช้ no-cors จึงไม่อ่านคำตอบกลับจาก Google Sheets โดยตรง' };
     if (state === 'dispatching') return { tag: 'SAVING REQUEST', tone: 'warn', title: 'บันทึกในอุปกรณ์แล้ว กำลังส่งคำขอ', body: 'โปรดรอสักครู่ ระบบจะอัปเดตสถานะการส่งในหน้านี้' };
     if (state === 'queued') return { tag: 'QUEUED ON DEVICE', tone: 'bad', title: 'บันทึกในอุปกรณ์แล้ว รอส่งเมื่อเชื่อมต่อ', body: 'ระบบเก็บรอบนี้ไว้ในคิวของอุปกรณ์และจะลองส่งใหม่เมื่อกลับมาออนไลน์' };
     if (state === 'profile_incomplete') return { tag: 'SAVED ON DEVICE', tone: 'bad', title: 'บันทึกเฉพาะในอุปกรณ์นี้', body: 'ยังไม่ส่งเข้าระบบชั้นเรียน เพราะข้อมูลผู้เรียนยังไม่ครบ' };
@@ -85,6 +80,7 @@
     if (!/(w2-design-thinking-sprint|w3-cognitive-load-escape|b1-cognitive-storm|w4-user-insight-lab|w5-concept-forge|w6-flow-rescue|b2-flow-fortress)\.html/.test(current)) return;
     loadScript('./js/uxq-boss-console-loop-guard-v1.js?v=20260705-loop-guard-v1', 'data-uxq-boss-loop-guard');
     loadScript('./js/uxq-w2-b2-mastery-v1.js?v=20260705-mastery-v1', 'data-uxq-w2b2-mastery');
+    if (/(w4-user-insight-lab|w5-concept-forge|w6-flow-rescue)\.html/.test(current)) loadScript('./js/uxq-w4-w6-artifact-builders-v1.js?v=20260705-artifact-builders-v1', 'data-uxq-w4w6-artifact-builders');
   }
   function boot(){
     addStyle();
