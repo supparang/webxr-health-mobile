@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v5.8 • Thai learner interface */
+/* UX Quest • Classroom Configuration v5.9 • Thai learner interface */
 (() => {
   'use strict';
 
@@ -7,8 +7,11 @@
   const classroomMode = ['1', 'true', 'class', 'classroom', 'required'].includes(rawClassroomMode);
   const freshStart = ['1', 'true', 'fresh', 'new', 'reset'].includes(String(query.get('fresh') || query.get('newLearner') || '').trim().toLowerCase());
 
+  if (/w1-ux-crisis-casefile\.html/i.test(location.pathname) && document.readyState === 'loading') {
+    document.write('<script src="./js/uxq-w1-week1-alignment-v1.js?v=20260703-w1-alignment-v1"><\\/script>');
+  }
   if (/w4-user-insight-lab\.html/i.test(location.pathname) && document.readyState === 'loading') {
-    document.write('<script src="./js/uxq-w4-engine-hook-v1.js?v=20260702-w4-bank-v1"><\/script><script src="./js/uxq-w4-extra-bank-v1.js?v=20260702-w4-bank-v1"><\/script>');
+    document.write('<script src="./js/uxq-w4-engine-hook-v1.js?v=20260702-w4-bank-v1"><\\/script><script src="./js/uxq-w4-extra-bank-v1.js?v=20260702-w4-bank-v1"><\\/script>');
   }
 
   function normalizeSection(value){
@@ -21,7 +24,7 @@
     try { window.sessionStorage.removeItem(key); } catch (error) {}
   }
   function clearFreshClassroomState(){
-    ['uxq.act1.progress.v2','uxq.act1.progress.v1','uxq.classroom.profile.v1','uxq.classroom.queue.v1','uxq.classroom.last-receipt.v1','uxq.reason-retry.queue.v1'].forEach(removeStored);
+    ['uxq.act1.progress.v2','uxq.act1.progress.v1','uxq.classroom.profile.v1','uxq.classroom.queue.v1','uxq.classroom.last-receipt.v1','uxq.reason-retry.queue.v1','uxq.w1.first-impression.v1'].forEach(removeStored);
     ['w1','w2','w3','b1','w4'].forEach((id) => {
       removeStored(`uxq.recent.${id}.v1`); removeStored(`uxq.recent.${id}.v2`);
       removeStored(`uxq.run.${id}.v1`); removeStored(`uxq.run.${id}.v2`);
@@ -41,7 +44,7 @@
     courseId: 'UXQ-ACT1-2026', courseLabel: 'UX Quest • Act I',
     defaultSection: classroomSection || '', classroomMode: classroomMode ? 'required' : 'practice',
     classroomSection, allowGuestPractice: !classroomMode, maxQueuedAttempts: 12,
-    version: '20260702-classroom-v5.8-thai-engine'
+    version: '20260703-classroom-v5.9-w1-alignment'
   };
   const existing = (window.UXQ_CLASSROOM_CONFIG && typeof window.UXQ_CLASSROOM_CONFIG === 'object') ? window.UXQ_CLASSROOM_CONFIG : {};
   const merged = Object.assign({}, defaults, existing);
