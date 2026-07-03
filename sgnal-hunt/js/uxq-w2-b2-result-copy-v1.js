@@ -1,4 +1,4 @@
-/* UX Quest • W2–B2 Result Copy v1
+/* UX Quest • W2–B2 Result Copy v1.1
  * Replaces generic readiness language with mission and boss-specific outcomes.
  */
 (() => {
@@ -41,7 +41,7 @@
     };
     result.querySelectorAll('.uxq-result-grid span').forEach((node) => {
       const key = String(node.textContent || '').trim().toLowerCase();
-      if (labels[key]) node.textContent = labels[key];
+      if (labels[key] && node.textContent !== labels[key]) node.textContent = labels[key];
     });
   }
   function enhance(){
@@ -54,17 +54,21 @@
     const lead = title?.nextElementSibling;
     if (lead?.tagName === 'P') {
       lead.classList.add('uxq-result-mission-note');
-      if (passed) lead.textContent = id === 'b1' || id === 'b2'
-        ? 'คุณเชื่อมหลักฐาน เหตุผล และการพิสูจน์ผลในด่านบอสได้ครบขึ้นแล้ว'
-        : 'นำผลลัพธ์รอบนี้ไปต่อยอดเป็น Studio Artifact เพื่อใช้กับระบบจริงในใบงานประจำสัปดาห์';
+      const desired = passed
+        ? (id === 'b1' || id === 'b2'
+          ? 'คุณเชื่อมหลักฐาน เหตุผล และการพิสูจน์ผลในด่านบอสได้ครบขึ้นแล้ว'
+          : 'นำผลลัพธ์รอบนี้ไปต่อยอดเป็น Studio Artifact เพื่อใช้กับระบบจริงในใบงานประจำสัปดาห์')
+        : String(lead.textContent || '');
+      if (lead.textContent !== desired) lead.textContent = desired;
     }
     replaceLabels(result);
     const reason = result.querySelector('.uxq-guess-note b');
-    if (reason && /Anti-guess/i.test(reason.textContent)) reason.textContent = 'ตรวจเหตุผล:';
+    if (reason && /Anti-guess/i.test(reason.textContent) && reason.textContent !== 'ตรวจเหตุผล:') reason.textContent = 'ตรวจเหตุผล:';
     const badge = result.querySelector('.uxq-takeaway b');
-    if (badge && (/Evidence Architect|Badge unlocked/i.test(badge.textContent))) badge.textContent = `Badge ที่ได้รับ: ${copy.badge}`;
+    const badgeText = `Badge ที่ได้รับ: ${copy.badge}`;
+    if (badge && (/Evidence Architect|Badge unlocked/i.test(badge.textContent)) && badge.textContent !== badgeText) badge.textContent = badgeText;
     const next = [...result.querySelectorAll('a.uxq-btn')].find((item) => /w3-cognitive|b1-cognitive|w4-user|w5-concept|w6-flow|b2-flow|index\.html/i.test(item.getAttribute('href') || ''));
-    if (next && !/Mission Control/i.test(next.textContent)) next.textContent = copy.next;
+    if (next && !/Mission Control/i.test(next.textContent) && next.textContent !== copy.next) next.textContent = copy.next;
   }
   function boot(){
     enhance();
