@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v5.9 • Thai learner interface */
+/* UX Quest • Classroom Configuration v6.0 • Thai learner interface */
 (() => {
   'use strict';
 
@@ -44,7 +44,7 @@
     courseId: 'UXQ-ACT1-2026', courseLabel: 'UX Quest • Act I',
     defaultSection: classroomSection || '', classroomMode: classroomMode ? 'required' : 'practice',
     classroomSection, allowGuestPractice: !classroomMode, maxQueuedAttempts: 12,
-    version: '20260703-classroom-v5.9-w1-alignment'
+    version: '20260704-classroom-v6-w1-result-copy'
   };
   const existing = (window.UXQ_CLASSROOM_CONFIG && typeof window.UXQ_CLASSROOM_CONFIG === 'object') ? window.UXQ_CLASSROOM_CONFIG : {};
   const merged = Object.assign({}, defaults, existing);
@@ -134,10 +134,11 @@
   }
   function loadResultSupport(){
     loadScript('./js/uxq-engine-thai-v1.js?v=20260702-engine-thai-v1','data-uxq-engine-thai');
-    loadScript('./js/uxq-result-receipt-v1.js?v=20260629-receipt-v1-1','data-uxq-result-receipt');
+    loadScript('./js/uxq-result-receipt-v1.js?v=20260704-truthful-delivery-v2','data-uxq-result-receipt');
     loadScript('./js/uxq-anti-guess-coach-v1.js?v=20260629-replay-coach-v1','data-uxq-anti-guess-coach');
     loadScript('./js/uxq-reason-retry-transport-v1.js?v=20260629-reason-transport-v1','data-uxq-reason-transport');
     loadScript('./js/uxq-explain-why-retry-v1.js?v=20260629-explain-retry-v1','data-uxq-explain-retry');
+    if (/w1-ux-crisis-casefile\.html/i.test(location.pathname)) loadScript('./js/uxq-w1-result-copy-v1.js?v=20260704-w1-result-copy-v1','data-uxq-w1-result-copy');
     if (/w4-user-insight-lab\.html/i.test(location.pathname)) loadScript('./js/uxq-w4-thai-first-v1.js?v=20260702-thai-only-v2','data-uxq-w4-thai-first');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { watchClassroomLinks(); loadResultSupport(); }, {once:true});
