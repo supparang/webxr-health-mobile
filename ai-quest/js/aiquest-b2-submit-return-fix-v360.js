@@ -1,79 +1,183 @@
-
+/*
+  CSAI2102 AI Quest
+  v3.6.3 — Canonical Gate Migration + B2 Return/S2 AR Bootstrap
+  ------------------------------------------------------------
+  Legacy B1 was taken before S3 and legacy B2 before S6. On the first
+  load after the canonical-flow upgrade, prior local B1/B2 passes are
+  archived then reset so students re-take the correct evidence gate.
+*/
 (function(){
   'use strict';
 
-  const VERSION = 'v3.6.2-roadmap-b2-native+s2-ar-v405-bootstrap';
+  const VERSION = 'v3.6.3-canonical-gate-migration-b2-return';
+  const PROGRESS_KEY = 'CSAI2102_AIQUEST_V16_M1_GOOGLE_SHEETS';
+  const MIGRATION_KEY = 'canonicalGateMigrationV363';
 
   function toast(msg){
     try{
       if(typeof showToast === 'function') showToast(msg);
       else console.log('[AIQuest]', msg);
-    }catch(e){ console.log('[AIQuest]', msg); }
+    }catch(error){
+      console.log('[AIQuest]', msg);
+    }
+  }
+
+  function readProgress(){
+    try{
+      const state = JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}');
+      return state && typeof state === 'object' ? state : {};
+    }catch(error){
+      return {};
+    }
+  }
+
+  function writeProgress(state){
+    try{
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify(state || {}));
+      return true;
+    }catch(error){
+      return false;
+    }
+  }
+
+  function stagePassed(state, id){
+    const st = state || {};
+    return !!(
+      (st.completed && st.completed[id]) ||
+      (st.stars && Number(st.stars[id] || 0) > 0) ||
+      (st.mastered && st.mastered[id]) ||
+      (st.bestScore && Number(st.bestScore[id] || 0) >= 60)
+    );
+  }
+
+  function stageSnapshot(state, id){
+    const st = state || {};
+    return {
+      completed:!!(st.completed && st.completed[id]),
+      stars:Number(st.stars && st.stars[id] || 0),
+      mastered:!!(st.mastered && st.mastered[id]),
+      bestScore:st.bestScore && st.bestScore[id] != null ? Number(st.bestScore[id]) : null
+    };
+  }
+
+  function clearStage(state, id){
+    ['completed','stars','mastered','bestScore'].forEach(key => {
+      if(state[key] && Object.prototype.hasOwnProperty.call(state[key], id)) delete state[key][id];
+    });
+  }
+
+  function migrateLegacyGatePasses(){
+    const state = readProgress();
+    if(state[MIGRATION_KEY] && state[MIGRATION_KEY].applied) return {applied:false, already:true, invalidated:[]};
+
+    const invalidated = [];
+    const archive = state.legacyGateArchive && typeof state.legacyGateArchive === 'object'
+      ? state.legacyGateArchive
+      : {};
+
+    /* B1 prior to this release could only assess S1-S2; it cannot certify S3. */
+    if(stagePassed(state, 'b1')){
+      archive.b1LegacyBeforeS3 = {
+        ...stageSnapshot(state, 'b1'),
+        archivedAt:new Date().toISOString(),
+        reason:'Legacy B1 preceded S3 and did not contain Search Foundations evidence.'
+      };
+      clearStage(state, 'b1');
+      invalidated.push('B1');
+    }
+
+    /* B2 prior to this release assessed S3-S5; it cannot certify S6. */
+    if(stagePassed(state, 'b2')){
+      archive.b2LegacyBeforeS6 = {
+        ...stageSnapshot(state, 'b2'),
+        archivedAt:new Date().toISOString(),
+        reason:'Legacy B2 preceded S6 and did not contain Knowledge Representation evidence.'
+      };
+      clearStage(state, 'b2');
+      invalidated.push('B2');
+    }
+
+    state.legacyGateArchive = archive;
+    state[MIGRATION_KEY] = {
+      applied:true,
+      version:VERSION,
+      appliedAt:new Date().toISOString(),
+      invalidated,
+      rationale:'Canonical course flow requires B1 after S1-S3 and B2 after S4-S6.'
+    };
+    writeProgress(state);
+
+    try{
+      if(window.AIQuestRoadmap && typeof window.AIQuestRoadmap.render === 'function'){
+        window.AIQuestRoadmap.render();
+      }
+    }catch(error){}
+
+    return {applied:true, already:false, invalidated};
   }
 
   function suppress(ms){
     try{
       sessionStorage.setItem('AIQUEST_SUPPRESS_AUTOSTART_UNTIL', String(Date.now() + (ms || 10000)));
       if(typeof window.AIQUEST_SUPPRESS_AUTOSTART === 'function') window.AIQUEST_SUPPRESS_AUTOSTART(ms || 10000);
-    }catch(e){}
+    }catch(error){}
   }
 
   function isTeacherPage(){
     try{
-      return window.AIQUEST_PAGE_ROLE === 'teacher' ||
-        new URLSearchParams(location.search).get('teacher') === '1';
-    }catch(e){
+      return window.AIQUEST_PAGE_ROLE === 'teacher' || new URLSearchParams(location.search).get('teacher') === '1';
+    }catch(error){
       return false;
     }
   }
 
   function readJson(key){
-    try{return JSON.parse(localStorage.getItem(key)||'null');}
-    catch(e){return null;}
+    try{ return JSON.parse(localStorage.getItem(key) || 'null'); }
+    catch(error){ return null; }
   }
 
-  /* The retired V403 sender was an interim experiment.  Suppress it before
+  /* The retired V403 sender was an interim experiment. Suppress it before
      the V405 bridge loads so that a completed S2 AR run creates one event. */
   function suppressLegacyS2Sender(){
-    const result=readJson('AIQUEST_S2_AR_RESULT_V387');
-    if(!result || !result.arCompleted || (result.sessionId!=='s2' && result.missionId!=='m2')) return;
-    const signature=[
-      result.finishedAt||'',result.correct||0,result.total||0,
-      result.arScore ?? result.accuracy ?? 0,result.helpUsed||0
+    const result = readJson('AIQUEST_S2_AR_RESULT_V387');
+    if(!result || !result.arCompleted || (result.sessionId !== 's2' && result.missionId !== 'm2')) return;
+    const signature = [
+      result.finishedAt || '', result.correct || 0, result.total || 0,
+      result.arScore ?? result.accuracy ?? 0, result.helpUsed || 0
     ].join('|');
-    const current=readJson('AIQUEST_S2_AR_EVENT_SYNC_V403')||{};
-    if(current.signature===signature && current.status==='queued') return;
+    const current = readJson('AIQUEST_S2_AR_EVENT_SYNC_V403') || {};
+    if(current.signature === signature && current.status === 'queued') return;
     try{
-      localStorage.setItem('AIQUEST_S2_AR_EVENT_SYNC_V403',JSON.stringify({
-        signature:signature,
+      localStorage.setItem('AIQUEST_S2_AR_EVENT_SYNC_V403', JSON.stringify({
+        signature,
         status:'queued',
         owner:'s2-ar-v405-bootstrap',
         queuedAt:new Date().toISOString()
       }));
-    }catch(e){}
+    }catch(error){}
   }
 
   function loadS2ResultBridge(){
     if(isTeacherPage()) return;
     if(document.querySelector('script[data-aiquest-s2-bridge-v405]')) return;
     suppressLegacyS2Sender();
-    const script=document.createElement('script');
-    script.src='./js/aiquest-s2-ar-result-bridge-v405.js?v=20260629-s2bridge405';
-    script.async=false;
-    script.dataset.aiquestS2BridgeV405='1';
-    script.onload=()=>console.log('[AIQuest] S2 AR V405 bridge loaded');
-    script.onerror=()=>console.warn('[AIQuest] S2 AR V405 bridge could not load');
+    const script = document.createElement('script');
+    script.src = './js/aiquest-s2-ar-result-bridge-v405.js?v=20260629-s2bridge405';
+    script.async = false;
+    script.dataset.aiquestS2BridgeV405 = '1';
+    script.onload = () => console.log('[AIQuest] S2 AR V405 bridge loaded');
+    script.onerror = () => console.warn('[AIQuest] S2 AR V405 bridge could not load');
     document.head.appendChild(script);
   }
 
   function isB2Context(){
     try{
-      const qs = new URLSearchParams(location.search);
-      if((qs.get('session')||'').toLowerCase()==='b2') return true;
-      if((window.currentMission && window.currentMission.id)==='b2') return true;
-      const t = document.body ? (document.body.innerText || '') : '';
-      return /B2:\s*Search Arena Boss/i.test(t) || /Search Arena Boss/i.test(t);
-    }catch(e){
+      const query = new URLSearchParams(location.search);
+      if((query.get('session') || '').toLowerCase() === 'b2') return true;
+      if((window.currentMission && window.currentMission.id) === 'b2') return true;
+      const pageText = document.body ? (document.body.innerText || '') : '';
+      return /B2:\s*(Search Arena Boss|Applied AI Boss Gate)/i.test(pageText) || /Search Arena Boss|Applied AI Boss Gate/i.test(pageText);
+    }catch(error){
       return false;
     }
   }
@@ -85,32 +189,40 @@
         renderRoadmap();
         return true;
       }
-    }catch(e){}
+    }catch(error){}
     try{
       if(typeof showRoadmap === 'function'){
         showRoadmap();
         return true;
       }
-    }catch(e){}
+    }catch(error){}
     try{
       if(typeof renderHome === 'function'){
         renderHome();
         return true;
       }
-    }catch(e){}
+    }catch(error){}
+    try{
+      if(window.AIQuestRoadmap && typeof window.AIQuestRoadmap.render === 'function'){
+        window.AIQuestRoadmap.render();
+        document.getElementById('menuScreen')?.classList.add('active');
+        document.getElementById('gameScreen')?.classList.remove('active');
+        document.getElementById('resultScreen')?.classList.remove('active');
+        return true;
+      }
+    }catch(error){}
     return false;
   }
 
   function patchSubmitButtons(){
-    const btns = Array.from(document.querySelectorAll('button'));
-    btns.forEach(btn=>{
-      if(btn.__b2ReturnFixV321) return;
-      const text = String(btn.innerText || btn.textContent || '').trim();
-      if(!/บันทึก|ส่งผล|submit|save/i.test(text)) return;
-      btn.__b2ReturnFixV321 = true;
-      btn.setAttribute('data-no-roadmap-click','1');
+    Array.from(document.querySelectorAll('button')).forEach(button => {
+      if(button.__b2ReturnFixV363) return;
+      const label = String(button.innerText || button.textContent || '').trim();
+      if(!/บันทึก|ส่งผล|submit|save/i.test(label)) return;
+      button.__b2ReturnFixV363 = true;
+      button.setAttribute('data-no-roadmap-click','1');
 
-      btn.addEventListener('click', function(){
+      button.addEventListener('click', function(){
         if(!isB2Context()) return;
         suppress(15000);
         setTimeout(function(){
@@ -127,47 +239,56 @@
   }
 
   function patchStartMission(){
-    if(typeof window.startMission !== 'function' || window.startMission.__b2ReturnFixV321) return false;
+    if(typeof window.startMission !== 'function' || window.startMission.__b2ReturnFixV363) return false;
     const original = window.startMission;
     window.startMission = function(id){
       try{
         const until = Number(sessionStorage.getItem('AIQUEST_SUPPRESS_AUTOSTART_UNTIL') || 0);
-        if(Date.now() < until && String(id).toLowerCase()==='b2'){
+        if(Date.now() < until && String(id).toLowerCase() === 'b2'){
           toast('บันทึกแล้ว: ไม่เริ่ม B2 รอบใหม่อัตโนมัติ');
           return;
         }
-      }catch(e){}
+      }catch(error){}
       return original.apply(this, arguments);
     };
-    window.startMission.__b2ReturnFixV321 = true;
+    window.startMission.__b2ReturnFixV363 = true;
     return true;
   }
 
   function observe(){
+    const migration = migrateLegacyGatePasses();
     loadS2ResultBridge();
     patchSubmitButtons();
     patchStartMission();
-    if(!window.__AIQUEST_B2_RETURN_OBSERVER_V321){
-      window.__AIQUEST_B2_RETURN_OBSERVER_V321 = new MutationObserver(function(){
+
+    if(migration.applied && migration.invalidated.length){
+      setTimeout(() => {
+        toast('ปรับเส้นทางรายวิชาใหม่: กรุณาทวน ' + migration.invalidated.join(' และ ') + ' เพื่อให้ผลประเมินตรงกับเนื้อหา');
+      }, 600);
+    }
+
+    if(!window.__AIQUEST_B2_RETURN_OBSERVER_V363){
+      window.__AIQUEST_B2_RETURN_OBSERVER_V363 = new MutationObserver(function(){
         patchSubmitButtons();
         patchStartMission();
       });
-      window.__AIQUEST_B2_RETURN_OBSERVER_V321.observe(document.body || document.documentElement, {childList:true, subtree:true});
+      window.__AIQUEST_B2_RETURN_OBSERVER_V363.observe(document.body || document.documentElement, {childList:true, subtree:true});
     }
   }
 
   window.AIQUEST_B2_SUBMIT_RETURN_FIX = {
-    version: VERSION,
+    version:VERSION,
     suppress,
     goRoadmap,
     patchSubmitButtons,
     patchStartMission,
     loadS2ResultBridge,
-    refresh: observe
+    migrateLegacyGatePasses,
+    refresh:observe
   };
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', observe);
   else observe();
 
-  console.log('[AIQuest] '+VERSION+' loaded', window.AIQUEST_B2_SUBMIT_RETURN_FIX);
+  console.log('[AIQuest] ' + VERSION + ' loaded', window.AIQUEST_B2_SUBMIT_RETURN_FIX);
 })();
