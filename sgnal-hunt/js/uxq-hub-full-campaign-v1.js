@@ -51,7 +51,7 @@
     const anchor = document.createElement('div');
     anchor.id = 'uxq-full-campaign-anchor';
     anchor.className = 'campaign-separator';
-    anchor.textContent = 'CSAI2601 Campaign Map • 20 nodes • ทุกด่านเปิดตาม mastery และเล่นซ้ำด้วยคดีหมุนเวียน';
+    anchor.textContent = 'CSAI2601 Campaign Map • 18 playable nodes • ทุกด่านเปิดตาม mastery และเล่นซ้ำด้วยคดีหมุนเวียน';
     grid.appendChild(anchor);
     NODES.forEach((node) => grid.insertAdjacentHTML('beforeend', cardMarkup(node)));
   }
