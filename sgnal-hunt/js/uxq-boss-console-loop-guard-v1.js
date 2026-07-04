@@ -1,5 +1,5 @@
-/* UX Quest • Boss Console Guard v1.5
- * Preloads replay-bank and anti-guess layers synchronously before the mission engine.
+/* UX Quest • Mission Integrity Preloader v1.6
+ * Loads replay-bank, anti-guess and result-integrity layers before the mission engine.
  */
 (() => {
   'use strict';
@@ -9,6 +9,7 @@
   if (route && document.readyState === 'loading') {
     const replay = boss ? '<script data-uxq-boss-replay-bank src="./js/uxq-boss-replay-bank-v1.js?v=20260706-boss-replay-v2"></' + 'script>' : '';
     const antiGuess = '<script data-uxq-w2b2-antiguess src="./js/uxq-w2-b2-antiguess-v1.js?v=20260706-antiguess-v1"></' + 'script>';
-    document.write(replay + antiGuess);
+    const integrity = '<script data-uxq-result-integrity src="./js/uxq-result-integrity-v1.js?v=20260706-result-integrity-v1"></' + 'script>';
+    document.write(replay + antiGuess + integrity);
   }
 })();
