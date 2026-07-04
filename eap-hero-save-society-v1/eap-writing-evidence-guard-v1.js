@@ -17,10 +17,11 @@
     var s = clean(v).toLowerCase();
     return !s || /write its simple meaning|write one short academic sentence|choose one academic word from context|answer briefly in english|saved activity evidence/.test(s);
   }
-  function valid(){
-    var value = clean(box() && box().value);
+  function acceptable(v){
+    var value = clean(v);
     return value.split(/\s+/).filter(Boolean).length >= 4 && !promptLike(value);
   }
+  function valid(){ return acceptable(box() && box().value); }
   function notice(){
     var old = document.getElementById('eapWritingGuardNotice');
     if(old) old.remove();
@@ -45,7 +46,7 @@
     return Number.isFinite(time) ? time : 0;
   }
   function repairPortfolio(value, sid){
-    if(!valid() || !sid) return;
+    if(!acceptable(value) || !sid) return;
     var state;
     try { state = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch(_) { state = null; }
     if(!state) return;
@@ -77,7 +78,7 @@
     sync.submitRaw = function(entry,state,extras){
       var skill = clean(entry && entry.skill).toLowerCase();
       var value = clean(box() && box().value);
-      if(writingPage() && skill === 'writing' && valid()){
+      if(writingPage() && skill === 'writing' && acceptable(value)){
         entry = Object.assign({},entry,{output:value,answer:value,studentAnswer:value});
         extras = Object.assign({},extras || {},{output:value});
       }
@@ -92,14 +93,14 @@
     api.submitWriting = function(){
       var sid = currentSession();
       var value = clean(box() && box().value);
-      if(writingPage() && !valid()){
+      if(writingPage() && !acceptable(value)){
         notice();
         var field = box();
         if(field) field.focus();
         return false;
       }
       var result = original.apply(api,arguments);
-      if(writingPage() && valid()){
+      if(writingPage() && acceptable(value)){
         setTimeout(function(){ repairPortfolio(value,sid); },0);
         setTimeout(function(){ repairPortfolio(value,sid); },160);
       }
