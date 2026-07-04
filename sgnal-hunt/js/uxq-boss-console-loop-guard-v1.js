@@ -13,7 +13,7 @@
     const replay = earlyBoss ? '<script data-uxq-boss-replay-bank src="./js/uxq-boss-replay-bank-v1.js?v=20260706-boss-replay-v2"></' + 'script>' : '';
     const antiGuess = '<script data-uxq-w2b2-antiguess src="./js/uxq-w2-b2-antiguess-v1.js?v=20260706-antiguess-v1"></' + 'script>';
     const w2Preview = w2 && preview ? '<script data-uxq-w2-teacher-preview src="./js/uxq-w2-teacher-preview-v1.js?v=20260706-w2-preview-v2"></' + 'script>' : '';
-    const stageSuite = !w2 && qa ? '<script data-uxq-stage-acceptance-suite src="./js/uxq-stage-acceptance-suite-v1.js?v=20260704-stage-qa-v2"></' + 'script>' : '';
+    const stageSuite = !w2 && qa ? '<script data-uxq-stage-acceptance-suite src="./js/uxq-stage-qa-campaign-v2.js?v=20260704-stage-qa-v2"></' + 'script>' : '';
     const integrity = '<script data-uxq-result-integrity src="./js/uxq-result-integrity-v1.js?v=20260706-result-integrity-v1"></' + 'script>';
     const w2QaLab = w2 && qa ? '<script data-uxq-w2-qa src="./js/uxq-w2-qa-lab-v1.js?v=20260706-w2-qa-v3"></' + 'script>' : '';
     document.write(w2Hardening + replay + antiGuess + w2Preview + stageSuite + integrity + w2QaLab);
