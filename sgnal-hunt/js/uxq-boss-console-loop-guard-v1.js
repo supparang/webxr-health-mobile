@@ -1,4 +1,4 @@
-/* UX Quest mission preloader v2.2 */
+/* UX Quest mission preloader v2.3 */
 (() => {
   'use strict';
   const path = String(location.pathname || '').toLowerCase();
@@ -12,11 +12,12 @@
   if (route && document.readyState === 'loading') {
     const w2Hardening = w2 ? '<script data-uxq-w2-sprint-preprocessor src="./js/uxq-w2-sprint-preprocessor-v1.js?v=20260706-w2-native-antiguess-v1"></' + 'script>' : '';
     const replay = earlyBoss ? '<script data-uxq-boss-replay-bank src="./js/uxq-boss-replay-bank-v1.js?v=20260706-boss-replay-v2"></' + 'script>' : (lateBoss ? '<script data-uxq-late-round src="./js/uxq-late-boss-escalation-v1.js?v=20260704-late-round-v1"></' + 'script>' : '');
+    const elite = '<script data-uxq-elite-replay src="./js/uxq-elite-replay-v1.js?v=20260704-elite-replay-v1"></' + 'script>';
     const antiGuess = '<script data-uxq-w2b2-antiguess src="./js/uxq-w2-b2-antiguess-v1.js?v=20260706-antiguess-v1"></' + 'script>';
     const w2Preview = w2 && preview ? '<script data-uxq-w2-teacher-preview src="./js/uxq-w2-teacher-preview-v1.js?v=20260706-w2-preview-v2"></' + 'script>' : '';
     const stageSuite = !w2 && qa ? '<script data-uxq-stage-acceptance-suite src="./js/uxq-stage-qa-campaign-v2.js?v=20260704-stage-qa-v2"></' + 'script>' : '';
     const integrity = '<script data-uxq-result-integrity src="./js/uxq-result-integrity-v1.js?v=20260706-result-integrity-v1"></' + 'script>';
     const w2QaLab = w2 && qa ? '<script data-uxq-w2-qa src="./js/uxq-w2-qa-lab-v1.js?v=20260706-w2-qa-v3"></' + 'script>' : '';
-    document.write(w2Hardening + replay + antiGuess + w2Preview + stageSuite + integrity + w2QaLab);
+    document.write(w2Hardening + replay + elite + antiGuess + w2Preview + stageSuite + integrity + w2QaLab);
   }
 })();
