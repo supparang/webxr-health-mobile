@@ -12,13 +12,19 @@
 
 Every playable node uses:
 
-1. Three context-rich casefiles selected with recent-case protection.
+1. A rotating context-rich case bank with recent-case protection.
 2. Four decision options: one evidence-led answer plus three near-miss alternatives.
 3. Per-question answer-position shuffling.
 4. Reason Check after a correct decision; 3 stars requires decision accuracy and verified reasoning.
 5. Hint cost and combo scoring, so a fast guess does not create high mastery.
 6. Result integrity: pass, badge, unlock and handoff must agree.
 7. Studio Transfer artifact saved locally for use in the worksheet, prototype or final case study.
+
+## Replay route
+
+- **W7–B5:** use three linked casefiles — scholarship application, library-seat booking and clinic booking — so learners encounter the same UX reasoning under different user goals and constraints.
+- **W3–B2:** retain their existing mission banks and anti-guess hardening; replay rotates available cases and answer positions.
+- Regular missions from W3 onward can enter **Elite Replay** after a learner has earned 3 stars: the next replay expands to all available casefiles.
 
 ## Boss escalation
 
