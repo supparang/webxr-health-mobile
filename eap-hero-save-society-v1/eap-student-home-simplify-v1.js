@@ -83,6 +83,13 @@
     );
   }
 
+  function loadPortfolioTimestampGuard() {
+    appendScript(
+      'eap-portfolio-timestamp-guard-loader',
+      './eap-portfolio-timestamp-fix-v1.js?v=20260704-portfolio-time-v1'
+    );
+  }
+
   function loadBossGateV2() {
     /* Preserve the core Boss Clash callback when an old cache has loaded the
        earlier gate file before the current four-skill version arrives. */
@@ -106,6 +113,7 @@
   }
 
   function start() {
+    loadPortfolioTimestampGuard();
     loadA2B1TaskScaffold();
     simplifyHome();
     const observer = new MutationObserver(() => simplifyHome());
