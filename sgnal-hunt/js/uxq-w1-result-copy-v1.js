@@ -1,4 +1,4 @@
-/* UX Quest • W1 Result Copy v2
+/* UX Quest • W1 Result Copy v2.1
  * Keeps Week 1 results truthful: no unlocked badge or readiness claim on a failed run.
  */
 (() => {
@@ -15,6 +15,15 @@
       @media(max-width:760px){.uxq-results h1{font-size:clamp(1.55rem,8vw,2.25rem)}.uxq-result-grid div{min-height:76px}.uxq-result-grid span{font-size:.68rem!important;line-height:1.25;display:block}}
     `;
     document.head.appendChild(style);
+  }
+
+  function loadIntegrity(){
+    if (document.querySelector('script[data-uxq-result-integrity]')) return;
+    const script = document.createElement('script');
+    script.src = './js/uxq-result-integrity-v1.js?v=20260706-result-integrity-v1';
+    script.async = false;
+    script.dataset.uxqResultIntegrity = '1';
+    document.head.appendChild(script);
   }
 
   function replaceMetricLabels(result){
@@ -81,6 +90,7 @@
   }
 
   function boot(){
+    loadIntegrity();
     enhance();
     new MutationObserver(() => requestAnimationFrame(enhance)).observe(document.getElementById('uxqApp') || document.body, { childList:true, subtree:true });
   }
