@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{--ink:#102033;--muted:#607085;--line:#dbe4ee;--bg:#f4f7fb;--card:#fff;--navy:#17375e;--good:#087f5b;--warn:#b45309}.wrap{max-width:1280px;margin:auto;padding:20px;font:14px/1.45 Arial,"Noto Sans Thai",sans-serif;color:var(--ink)}body{margin:0;background:var(--bg)}h1,h2,p{margin:0}.subtitle{margin-top:5px;color:var(--muted)}.toolbar{display:flex;gap:10px;flex-wrap:wrap;padding:12px;background:#fff;border:1px solid var(--line);border-radius:14px;margin:14px 0}.toolbar input,.toolbar select{border:1px solid var(--line);border-radius:9px;padding:9px 10px;font:inherit}.btn{border:0;border-radius:10px;padding:10px 14px;background:var(--navy);color:#fff;font-weight:800;cursor:pointer}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}.card,.section{background:#fff;border:1px solid var(--line);border-radius:14px}.card{padding:14px}.label{font-size:12px;color:var(--muted);font-weight:800}.value{font-size:28px;font-weight:900;margin-top:4px}.section{overflow:auto}table{border-collapse:collapse;width:100%;min-width:940px}th,td{padding:11px 12px;border-top:1px solid var(--line);text-align:left;vertical-align:middle}th{background:#f8fafc;color:#42566f;font-size:12px}.pill{display:inline-block;border-radius:999px;padding:4px 8px;font-weight:800;font-size:12px}.done{background:#dff7ed;color:var(--good)}.todo{background:#fff1d8;color:var(--warn)}.skill{font-weight:800}.small{font-size:12px;color:var(--muted)}.empty{padding:42px;text-align:center;color:var(--muted)}@media(max-width:700px){.wrap{padding:12px}.cards{grid-template-columns:1fr}}@media print{.toolbar,.btn{display:none!important}.wrap{padding:0;max-width:none}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>EAP Hero · Boss Four-Skill Ledger</h1>
+    <p class="subtitle">ยืนยันหลักฐาน Reading, Listening, Writing และ Speaking ของ B1–B5 ก่อนดูผล Boss Clash</p>
+    <section class="toolbar">
+      <select id="section"><option value="122">Section 122</option></select>
+      <input id="query" placeholder="ค้นหารหัสหรือชื่อผู้เรียน">
+      <button class="btn" onclick="loadData()">Refresh Ledger</button>
+      <button class="btn" style="background:#e8eef6;color:#102033" onclick="window.print()">Print / Save PDF</button>
+    </section>
+    <section class="cards"><div class="card"><div class="label">Boss attempts</div><div class="value" id="total">—</div></div><div class="card"><div class="label">หลักฐาน 4 ทักษะครบ</div><div class="value" id="complete">—</div></div><div class="card"><div class="label">ยังขาดหลักฐาน</div><div class="value" id="incomplete">—</div></div></section>
+    <section class="section"><table><thead><tr><th>เวลา</th><th>ผู้เรียน</th><th>Boss</th><th>Reading</th><th>Listening</th><th>Writing</th><th>Speaking</th><th>Four-skill proof</th><th>Speaking Review</th></tr></thead><tbody id="rows"><tr><td colspan="9" class="empty">กำลังโหลด…</td></tr></tbody></table></section>
+  </main>
+  <script>
+    const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const date=v=>{const n=new Date(v||'').getTime();return Number.isFinite(n)?new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'medium',timeStyle:'short'}).format(new Date(n)):'—'};
+    const stamp=(r,skill)=>r.evidence&&r.evidence[skill]?`<span class="pill done">✓ ${esc(skill)}</span><br><span class="small">${esc(r.evidence[skill].score)}/100</span>`:`<span class="pill todo">○ ${esc(skill)}</span>`;
+    function loadData(){document.getElementById('rows').innerHTML='<tr><td colspan="9" class="empty">กำลังโหลด…</td></tr>';google.script.run.withSuccessHandler(render).withFailureHandler(error).eapBossFourSkillLedgerData({section:document.getElementById('section').value,query:document.getElementById('query').value.trim()})}
+    function render(data){const s=data.summary||{};document.getElementById('total').textContent=s.totalBossAttempts??0;document.getElementById('complete').textContent=s.completeFourSkill??0;document.getElementById('incomplete').textContent=s.incomplete??0;const html=(data.records||[]).map(r=>`<tr><td class="small">${esc(date(r.latestAt))}</td><td><strong>${esc(r.studentName)}</strong><br><span class="small">${esc(r.studentId)}</span></td><td><strong>${esc(r.sessionId)}</strong><br><span class="small">${esc(r.sessionTitle||'Boss Gate')}</span></td><td>${stamp(r,'Reading')}</td><td>${stamp(r,'Listening')}</td><td>${stamp(r,'Writing')}</td><td>${stamp(r,'Speaking')}</td><td>${r.complete?'<span class="pill done">✓ ครบ 4 ทักษะ</span>':'<span class="pill todo">○ ยังไม่ครบ</span>'}</td><td>${r.speakingReviewStatus?`<span class="pill ${r.speakingReviewStatus==='reviewed'?'done':'todo'}">${esc(r.speakingReviewStatus==='reviewed'?'ตรวจแล้ว':'รอตรวจ')}</span>`:'—'}</td></tr>`).join('');document.getElementById('rows').innerHTML=html||'<tr><td colspan="9" class="empty">ยังไม่มีหลักฐานตามตัวกรองนี้</td></tr>'}
+    function error(e){document.getElementById('rows').innerHTML=`<tr><td colspan="9" class="empty">โหลดไม่สำเร็จ: ${esc(e&&e.message?e.message:e)}</td></tr>`}
+    document.getElementById('section').addEventListener('change',loadData);document.getElementById('query').addEventListener('input',()=>setTimeout(loadData,220));loadData();
+  </script>
+</body>
+</html>
