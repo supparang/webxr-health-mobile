@@ -1,7 +1,8 @@
 /* EAP Hero legacy reset compatibility loader.
-   index.html already loads this file before eap-hero.js. Write the safe
-   bootstrap synchronously so the core cannot read V1/V2 migration stores. */
+   Safe Boot v8 removes only corrupt legacy entries and preserves
+   player-scoped verified progress restored from Sheet. */
 (function(){
   'use strict';
-  document.write('<script src="./eap-core-safe-boot-v7.js?v=20260704-safe-boot-v7"><\\/script>');
+  var src = './eap-core-safe-boot-v7.js?v=20260704-safe-boot-v8-preserve-resume';
+  document.write('<script src="' + src + '"><' + '/script>');
 })();
