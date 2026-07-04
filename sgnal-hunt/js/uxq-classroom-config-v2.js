@@ -1,10 +1,12 @@
-/* UX Quest • Classroom Configuration v6.4 • CSAI2601 */
+/* UX Quest • Classroom Configuration v6.5 • CSAI2601 */
 (() => {
   'use strict';
   const query=new URLSearchParams(location.search||''),raw=String(query.get('classroom')||query.get('uxqClassroom')||'').trim().toLowerCase();
   const classroomMode=['1','true','class','classroom','required'].includes(raw),fresh=['1','true','fresh','new','reset'].includes(String(query.get('fresh')||query.get('newLearner')||'').trim().toLowerCase());
   const section=String(query.get('section')||query.get('uxqSection')||'').trim().replace(/^(?:section|sec)[\s_-]*/i,'').trim().slice(0,80);
-  const defaults={receiverUrl:'https://script.google.com/macros/s/AKfycbzw1_j4b98wxVWuUlEwFKl_jlZkprDjESt5cHIEdgT4lrT2xbt8bj0vWTu6VpTziBlepQ/exec',courseId:'CSAI2601-2026',courseLabel:'CSAI2601 • UX Quest',defaultSection:section||'',classroomMode:classroomMode?'required':'practice',classroomSection:section,allowGuestPractice:!classroomMode,maxQueuedAttempts:12,version:'20260704-csai2601-v6.4'};
+  const missionRoute=/(w1-ux-crisis-casefile|w2-design-thinking-sprint|w3-cognitive-load-escape|b1-cognitive-storm|w4-user-insight-lab|w5-concept-forge|w6-flow-rescue|w7-wireframe-heist|b2-flow-fortress|w8-midterm-studio|w9-design-system-vault|w10-responsive-rescue|w11-contrast-cipher|b3-ux-blueprint-gauntlet|w12-component-command|w13-prototype-pulse|w14-validation-lab|b4-design-system-siege|w15-portfolio-launch-studio)\.html/i.test(location.pathname);
+  if(missionRoute&&document.readyState==='loading')document.write('<script src="./js/uxq-option-length-guard-v1.js?v=20260704-option-balance-v1"></'+'script>');
+  const defaults={receiverUrl:'https://script.google.com/macros/s/AKfycbzw1_j4b98wxVWuUlEwFKl_jlZkprDjESt5cHIEdgT4lrT2xbt8bj0vWTu6VpTziBlepQ/exec',courseId:'CSAI2601-2026',courseLabel:'CSAI2601 • UX Quest',defaultSection:section||'',classroomMode:classroomMode?'required':'practice',classroomSection:section,allowGuestPractice:!classroomMode,maxQueuedAttempts:12,version:'20260704-csai2601-v6.5-option-balance'};
   const existing=(window.UXQ_CLASSROOM_CONFIG&&typeof window.UXQ_CLASSROOM_CONFIG==='object')?window.UXQ_CLASSROOM_CONFIG:{};
   window.UXQ_CLASSROOM_CONFIG=Object.freeze(Object.assign({},defaults,existing,classroomMode?{classroomMode:'required',allowGuestPractice:false,defaultSection:section||existing.defaultSection||'',classroomSection:section||existing.classroomSection||''}:{}));
   const remove=k=>{try{localStorage.removeItem(k)}catch(e){}try{sessionStorage.removeItem(k)}catch(e){}};
