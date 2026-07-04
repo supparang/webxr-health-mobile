@@ -1,0 +1,13 @@
+/* CSAI2601 canonical campaign spine
+ * W1-W15 + B1-B4:
+ * W1 W2 W3 B1 W4 W5 W6 W7 B2 W8 W9 W10 W11 B3 W12 W13 W14 B4 W15
+ */
+(() => {
+  'use strict';
+  const path=String(location.pathname||'').toLowerCase();
+  const id=path.includes('w7-wireframe-heist')?'w7':path.includes('b2-flow-fortress')?'b2':path.includes('w8-midterm-studio')?'w8':path.includes('w9-design-system-vault')?'w9':path.includes('w10-responsive-rescue')?'w10':path.includes('w11-contrast-cipher')?'w11':path.includes('b3-ux-blueprint-gauntlet')?'b3':path.includes('w12-component-command')?'w12':path.includes('w13-prototype-pulse')?'w13':path.includes('w14-validation-lab')?'w14':path.includes('b4-design-system-siege')?'b4':path.includes('w15-portfolio-launch-studio')?'w15':'';
+  if(!id)return;
+  const MAP={w7:{requires:'w6',nextHref:'./b2-flow-fortress.html',nextLabel:'เข้าสู่ B2 • Flow Fortress'},b2:{requires:'w7',nextHref:'./w8-midterm-studio.html',nextLabel:'ไปต่อ W8 • Midterm Studio'},w8:{requires:'b2',nextHref:'./w9-design-system-vault.html',nextLabel:'ไปต่อ W9 • Design System Vault'},w9:{requires:'w8',nextHref:'./w10-responsive-rescue.html',nextLabel:'ไปต่อ W10 • Responsive Rescue'},w10:{requires:'w9',nextHref:'./w11-contrast-cipher.html',nextLabel:'ไปต่อ W11 • Contrast Cipher'},w11:{requires:'w10',nextHref:'./b3-ux-blueprint-gauntlet.html',nextLabel:'เข้าสู่ B3 • UX Blueprint Gauntlet'},b3:{requires:'w11',nextHref:'./w12-component-command.html',nextLabel:'ไปต่อ W12 • Component Command'},w12:{requires:'b3',nextHref:'./w13-prototype-pulse.html',nextLabel:'ไปต่อ W13 • Prototype Pulse'},w13:{requires:'w12',nextHref:'./w14-validation-lab.html',nextLabel:'ไปต่อ W14 • Validation Lab'},w14:{requires:'w13',nextHref:'./b4-design-system-siege.html',nextLabel:'เข้าสู่ B4 • Design System Siege'},b4:{requires:'w14',nextHref:'./w15-portfolio-launch-studio.html',nextLabel:'ไปต่อ W15 • Portfolio Launch Studio'},w15:{requires:'b4',nextHref:'./index.html',nextLabel:'กลับ Mission Control • Campaign Complete'}};
+  const prior=Object.getOwnPropertyDescriptor(window,'UXQMissionEngine');let current;
+  Object.defineProperty(window,'UXQMissionEngine',{configurable:true,get(){return current||(prior?.get?prior.get.call(window):undefined)},set(engine){if(prior?.set){prior.set.call(window,engine);engine=prior.get?prior.get.call(window):engine}if(!engine||typeof engine.init!=='function'){current=engine;return}const init=engine.init.bind(engine);current=Object.freeze(Object.assign({},engine,{init:(config)=>{if(!config||config.id!==id||!MAP[id])return init(config);return init(Object.assign({},config,MAP[id]))}}))}});
+})();
