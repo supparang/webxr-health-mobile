@@ -13,9 +13,9 @@
   function profile(){var p=read(PROFILE,{})||{};return {studentId:clean(p.studentId||p.id),studentName:clean(p.studentName||p.name),section:clean(p.section||'122')||'122'};}
   function key(p){return encodeURIComponent(p.section+'__'+p.studentId);}
   function boot(){
-    if(!window.EAPPlayerResume||typeof window.EAPPlayerResume.cache!=='function')return;
-    var p=profile();if(!p.studentId)return;
-    var cache=window.EAPPlayerResume.cache();if(!cache||!cache.ok||!Array.isArray(cache.records))return;
+    if(!window.EAPPlayerResume||typeof window.EAPPlayerResume.cache!=='function')return false;
+    var p=profile();if(!p.studentId)return false;
+    var cache=window.EAPPlayerResume.cache();if(!cache||!cache.ok||!Array.isArray(cache.records))return false;
     var state=read(STATE,{})||{};state.completedSessions=state.completedSessions||{};state.unlockedSessions=state.unlockedSessions||{};state.bossProgress=state.bossProgress||{};
     var changed=false;
     cache.records.forEach(function(row){
@@ -31,8 +31,10 @@
       }
     });
     if(changed){write(STATE,state);write(SNAP+key(p),state);write(ACTIVE,p);}
+    return changed;
   }
   boot();
-  setTimeout(boot,180);
+  var tries=0;var poll=setInterval(function(){boot();tries++;if(tries>=18)clearInterval(poll);},350);
+  window.addEventListener('eap:resume-synced',boot);
   window.addEventListener('eap:profile-saved',function(){setTimeout(boot,250);});
 })();
