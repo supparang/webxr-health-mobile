@@ -1,4 +1,4 @@
-/* UX Quest • W2 QA Lab v1.2
+/* UX Quest • W2 QA Lab v1.3
  * Teacher-only acceptance checklist, activated with ?qa=1.
  * It does not change scoring, progress, analytics or student gameplay.
  */
@@ -33,7 +33,7 @@
     const url = new URL(location.href);
     url.searchParams.set('qa', '1');
     url.searchParams.set('preview', '1');
-    url.searchParams.set('v', '20260706-w2-preview-v1');
+    url.searchParams.set('v', '20260706-w2-preview-v2');
     url.searchParams.delete('classroom');
     url.searchParams.delete('uxqClassroom');
     url.searchParams.delete('section');
@@ -61,7 +61,18 @@
     const resultText = String(result?.textContent || '');
     const passed = /MISSION CLEARED/i.test(resultText);
     const blocked = /ยังไม่ผ่านเกณฑ์ปลดล็อก|ยังไม่ผ่าน/i.test(resultText);
-    return { warmup:Boolean(warmup), started, transfer, integrity, passed, blocked, hasResult:Boolean(result) };
+    const w3Link = [...(result?.querySelectorAll('a[href]') || [])].find((anchor) => /w3-cognitive-load-escape\.html/i.test(String(anchor.getAttribute('href') || '')));
+    return {
+      warmup:Boolean(warmup),
+      started,
+      transfer,
+      integrity,
+      passed,
+      blocked,
+      hasResult:Boolean(result),
+      completed:Boolean(result),
+      w3Ready:Boolean(w3Link)
+    };
   }
 
   function row(state, text, detail){
@@ -77,8 +88,11 @@
     const staticReady = staticData.nativeHardening && staticData.caseCount === 3 && staticData.totalStages === 15 && staticData.allFour && staticData.oneCorrect;
     const resultState = !live.hasResult ? 'WAIT' : (live.integrity && ((live.passed && !live.blocked) || (!live.passed && live.blocked)) ? 'PASS' : 'FAIL');
     const transferState = !live.hasResult ? 'WAIT' : (live.transfer ? 'PASS' : 'FAIL');
-    const warmupState = live.started ? 'PASS' : (live.warmup ? 'PASS' : 'WAIT');
-    const key = JSON.stringify({ preview, staticReady, caseCount:staticData.caseCount, totalStages:staticData.totalStages, warmupState, started:live.started, resultState, transferState });
+    // A result screen is reachable only after the warm-up and core mission have completed.
+    const warmupState = (live.started || live.completed) ? 'PASS' : (live.warmup ? 'PASS' : 'WAIT');
+    const flowState = (live.started || live.completed) ? 'PASS' : 'WAIT';
+    const w3State = !live.hasResult ? 'WAIT' : (live.passed ? (live.w3Ready ? 'PASS' : 'FAIL') : 'WAIT');
+    const key = JSON.stringify({ preview, staticReady, caseCount:staticData.caseCount, totalStages:staticData.totalStages, warmupState, flowState, resultState, transferState, w3State });
     let panel = $('.uxq-w2-qa');
     if (panel?.dataset.qaKey === key) return;
     if (!panel) {
@@ -91,7 +105,10 @@
     const previewBlock = preview
       ? '<p class="uxq-w2-qa__preview-note"><b>Teacher Preview กำลังทำงาน:</b> ข้าม W1 เฉพาะแท็บนี้เพื่อทดสอบ W2 และไม่ได้เปิด W2 ให้ผู้เรียนตามปกติ</p>'
       : `<p class="uxq-w2-qa__preview-note">W2 ยังล็อกเพราะเส้นทางผู้เรียนต้องผ่าน W1 ก่อน ใช้ Preview เฉพาะเพื่อตรวจเกม W2 โดยไม่ส่งผลเข้าระบบชั้นเรียน</p><a class="uxq-w2-qa__preview" href="${previewHref()}">เปิด W2 Teacher Preview →</a>`;
-    panel.innerHTML = `<summary><span>W2 ACCEPTANCE LAB • TEST MODE</span><span>⌄</span></summary><div class="uxq-w2-qa__body"><p class="uxq-w2-qa__note">ตรวจโครงสร้างและผลการเล่นของ W2 เท่านั้น — ไม่เปลี่ยนคะแนนหรือความก้าวหน้าของผู้เรียน</p>${previewBlock}${row(staticReady ? 'PASS' : 'FAIL','Case integrity',`${staticData.caseCount}/3 casefiles • ${staticData.totalStages}/15 stages • 4 options/1 correct ต่อ stage`)}${row(warmupState,'Sprint warm-up gate',live.started ? 'ผ่าน warm-up และเข้าสู่ภารกิจหลักแล้ว' : (live.warmup ? 'warm-up เปิดอยู่: ตรวจว่าเรียงลำดับแล้วเริ่มเกมได้' : 'กดเริ่มภารกิจเพื่อทดสอบ warm-up'))}${row(live.started ? 'PASS' : 'WAIT','Mission flow',live.started ? 'W2 game state ถูกสร้างแล้ว: ทดสอบตอบผิด/ถูกและ Reason Check' : 'รอเริ่มคดีหลัก')}${row(resultState,'Result integrity',!live.hasResult ? 'รอจบเกมเพื่อตรวจ pass / unlock / badge ให้ตรงกัน' : (live.integrity ? 'มีสถานะผลลัพธ์และข้อความสอดคล้องกับผลจริง' : 'หน้าผลลัพธ์ยังไม่มี integrity marker'))}${row(transferState,'Studio transfer',!live.hasResult ? 'รอจบเกมเพื่อตรวจ HCD Sprint Transfer Board' : (live.transfer ? 'พบ Studio Transfer Board พร้อมบันทึก' : 'ไม่พบ Studio Transfer Board'))}<div class="uxq-w2-qa__footer"><b>ผ่าน acceptance เมื่อ:</b> เดาสุ่มไม่ถึง 2★ • Golden Path ได้ 2★ และ W3 เปิด • Result/Badge/Transfer ตรงกัน • เล่นซ้ำเปลี่ยน case/ตำแหน่งคำตอบ</div><button type="button" class="uxq-w2-qa__clear">ซ่อน QA Panel</button></div>`;
+    const warmupDetail = live.completed ? 'ผลลัพธ์ปรากฏแล้ว จึงยืนยันว่า Sprint warm-up ผ่านก่อนเข้าสู่คดีหลัก' : (live.started ? 'ผ่าน warm-up และเข้าสู่ภารกิจหลักแล้ว' : (live.warmup ? 'warm-up เปิดอยู่: ตรวจว่าเรียงลำดับแล้วเริ่มเกมได้' : 'กดเริ่มภารกิจเพื่อทดสอบ warm-up'));
+    const flowDetail = live.completed ? 'จบ W2 และแสดงหน้าผลลัพธ์แล้ว' : (live.started ? 'W2 game state ถูกสร้างแล้ว: ทดสอบตอบผิด/ถูกและ Reason Check' : 'รอเริ่มคดีหลัก');
+    const w3Detail = !live.hasResult ? 'รอจบเกมเพื่อตรวจปุ่มส่งต่อ W3' : (live.passed ? (live.w3Ready ? 'พบปุ่ม ไปต่อ W3 • Psychology จากผลผ่าน 2★' : 'ผ่าน 2★ แล้ว แต่ไม่พบปุ่มส่งต่อ W3') : 'รอบนี้ไม่ผ่าน 2★ จึงยังไม่ต้องส่งต่อ W3');
+    panel.innerHTML = `<summary><span>W2 ACCEPTANCE LAB • TEST MODE</span><span>⌄</span></summary><div class="uxq-w2-qa__body"><p class="uxq-w2-qa__note">ตรวจโครงสร้างและผลการเล่นของ W2 เท่านั้น — ไม่เปลี่ยนคะแนนหรือความก้าวหน้าของผู้เรียน</p>${previewBlock}${row(staticReady ? 'PASS' : 'FAIL','Case integrity',`${staticData.caseCount}/3 casefiles • ${staticData.totalStages}/15 stages • 4 options/1 correct ต่อ stage`)}${row(warmupState,'Sprint warm-up gate',warmupDetail)}${row(flowState,'Mission flow',flowDetail)}${row(resultState,'Result integrity',!live.hasResult ? 'รอจบเกมเพื่อตรวจ pass / unlock / badge ให้ตรงกัน' : (live.integrity ? 'มีสถานะผลลัพธ์และข้อความสอดคล้องกับผลจริง' : 'หน้าผลลัพธ์ยังไม่มี integrity marker'))}${row(transferState,'Studio transfer',!live.hasResult ? 'รอจบเกมเพื่อตรวจ HCD Sprint Transfer Board' : (live.transfer ? 'พบ Studio Transfer Board พร้อมบันทึก' : 'ไม่พบ Studio Transfer Board'))}${row(w3State,'W3 handoff',w3Detail)}<div class="uxq-w2-qa__footer"><b>ผ่าน acceptance เมื่อ:</b> เดาสุ่มไม่ถึง 2★ • Golden Path ได้ 2★ และพบปุ่มส่งต่อ W3 • Result/Badge/Transfer ตรงกัน • เล่นซ้ำเปลี่ยน case/ตำแหน่งคำตอบ</div><button type="button" class="uxq-w2-qa__clear">ซ่อน QA Panel</button></div>`;
     $('.uxq-w2-qa__clear', panel)?.addEventListener('click', () => { hide(); panel.remove(); });
   }
 
