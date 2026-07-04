@@ -1,6 +1,6 @@
 /* =========================================================
    EAP Hero Boss Four-Skill Ledger
-   Reads B1–B5 evidence events and groups them by learner + Boss Gate.
+   Reads B1–B5 evidence events and shows the distinct Boss Clash outcome.
    This is evidence visibility only; it does not recalculate scores.
 ========================================================= */
 
@@ -12,11 +12,7 @@ function eapBossFourSkillLedgerData(filters) {
   const skills = ['Reading', 'Listening', 'Writing', 'Speaking'];
   const sheet = eapEvidenceEventsSheet_();
   const values = sheet.getDataRange().getValues();
-  if (values.length < 2) {
-    return {ok:true, section:section, generatedAt:now_().iso, records:[]};
-  }
-
-  const headers = values[0].map(String);
+  const headers = values.length ? values[0].map(String) : [];
   const grouped = {};
 
   values.slice(1).forEach(function(row) {
@@ -70,6 +66,27 @@ function eapBossFourSkillLedgerData(filters) {
     }
   });
 
+  /* Boss Clash is a separate summary record, not a fifth skill. */
+  const bossClashByKey = {};
+  const summaryRows = sh_('summary').getDataRange().getValues().slice(1)
+    .map(function(row) { return rowObject_(H.summary, row); })
+    .filter(function(row) {
+      return text_(row.section) === section &&
+        /^B[1-5]$/.test(text_(row.sessionId).toUpperCase()) &&
+        text_(row.skill).toLowerCase() === 'boss clash';
+    });
+
+  summaryRows.forEach(function(row) {
+    if (studentId && text_(row.studentId) !== studentId) return;
+    const key = [text_(row.studentId), text_(row.sessionId).toUpperCase()].join('|');
+    bossClashByKey[key] = {
+      passed: text_(row.passed).toUpperCase() === 'TRUE',
+      bestScore: number_(row.bestScore, 0),
+      updatedAt: text_(row.updatedAt),
+      attempts: number_(row.attempts, 0)
+    };
+  });
+
   const records = Object.keys(grouped).map(function(key) {
     const item = grouped[key];
     const completedSkills = skills.filter(function(skill) { return !!item.evidence[skill]; });
@@ -83,6 +100,7 @@ function eapBossFourSkillLedgerData(filters) {
       completedSkills: completedSkills,
       complete: completedSkills.length === skills.length,
       speakingReviewStatus: item.evidence.Speaking ? item.evidence.Speaking.reviewStatus || 'pending_teacher_review' : '',
+      bossClash: bossClashByKey[key] || { passed:false, bestScore:0, updatedAt:'', attempts:0 },
       evidence: item.evidence
     };
   }).sort(function(a, b) {
@@ -98,7 +116,8 @@ function eapBossFourSkillLedgerData(filters) {
     summary:{
       totalBossAttempts:records.length,
       completeFourSkill:records.filter(function(record){ return record.complete; }).length,
-      incomplete:records.filter(function(record){ return !record.complete; }).length
+      incomplete:records.filter(function(record){ return !record.complete; }).length,
+      bossClashPassed:records.filter(function(record){ return record.bossClash && record.bossClash.passed; }).length
     },
     records:records
   };
