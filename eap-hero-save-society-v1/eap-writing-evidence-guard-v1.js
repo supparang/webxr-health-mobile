@@ -1,7 +1,8 @@
 /* EAP Hero Writing Evidence Guard v1 */
 (function(){
   'use strict';
-  var submitted = false;
+  var syncPatched = false;
+
   function clean(v){ return String(v == null ? '' : v).replace(/\s+/g,' ').trim(); }
   function box(){ return document.getElementById('writingOutput'); }
   function writingPage(){ return /Writing Mission/i.test(String((document.getElementById('app') || document.body).innerText || '')); }
@@ -23,6 +24,21 @@
     document.body.appendChild(node);
     setTimeout(function(){ node.remove(); }, 3200);
   }
+  function patchEvidenceSync(){
+    var sync = window.EAPEvidenceSyncV130 || window.EAPEvidenceSyncV129;
+    if(!sync || syncPatched || typeof sync.submitRaw !== 'function') return;
+    var original = sync.submitRaw;
+    sync.submitRaw = function(entry,state,extras){
+      var skill = clean(entry && entry.skill).toLowerCase();
+      var value = clean(box() && box().value);
+      if(writingPage() && skill === 'writing' && valid()){
+        entry = Object.assign({},entry,{output:value,answer:value,studentAnswer:value});
+        extras = Object.assign({},extras || {},{output:value});
+      }
+      return original.call(this,entry,state,extras);
+    };
+    syncPatched = true;
+  }
   document.addEventListener('click', function(event){
     var button = event.target && event.target.closest && event.target.closest('button');
     if(!button || !/submit writing/i.test(clean(button.textContent)) || !writingPage()) return;
@@ -34,5 +50,9 @@
       if(field) field.focus();
     }
   }, true);
+  var timer = setInterval(function(){
+    patchEvidenceSync();
+    if(syncPatched) clearInterval(timer);
+  },100);
   window.EAPWritingEvidenceGuardV1 = {valid:valid};
 })();
