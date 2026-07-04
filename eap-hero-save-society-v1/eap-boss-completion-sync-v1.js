@@ -1,7 +1,7 @@
 /* =========================================================
-   EAP Hero Boss Completion Sync v1
+   EAP Hero Boss Completion Sync v2
    Records a B1–B5 Boss Clash pass as a normal EAP attempt after the
-   real core game shows “Boss Defeated!”. It is separate from Boss
+   real core game shows “Boss Defeated!”. It remains separate from Boss
    Speaking review evidence and never fabricates a speaking note.
 ========================================================= */
 (function () {
@@ -9,8 +9,9 @@
 
   var CFG = window.EAP_SHEET_CONFIG || {};
   var ENDPOINT = String(CFG.webAppUrl || '');
-  var QUEUE_KEY = 'EAP_HERO_BOSS_REVIEW_EVENT_QUEUE_V1';
-  var SENT_KEY = 'EAP_HERO_BOSS_COMPLETION_SENT_V1';
+  var QUEUE_KEY = 'EAP_HERO_BOSS_REVIEW_EVENT_QUEUE_V2';
+  var LEGACY_QUEUE_KEY = 'EAP_HERO_BOSS_REVIEW_EVENT_QUEUE_V1';
+  var SENT_KEY = 'EAP_HERO_BOSS_COMPLETION_SENT_V2';
   var timer = null;
 
   function text(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
@@ -32,10 +33,17 @@
     return /Boss Defeated!/i.test(body);
   }
 
+  function queueItems() {
+    var merged = Object.assign({}, read(LEGACY_QUEUE_KEY, {}), read(QUEUE_KEY, {}));
+    return Object.keys(merged).map(function (key) { return merged[key]; });
+  }
+
   function currentBossEvidence() {
-    var queue = read(QUEUE_KEY, {});
-    var items = Object.keys(queue).map(function (key) { return queue[key]; })
-      .filter(function (item) { return item && item.event && /^B[1-5]$/i.test(text(item.event.sessionId)); })
+    var items = queueItems()
+      .filter(function (item) {
+        return item && item.event && /^B[1-5]$/i.test(text(item.event.sessionId)) &&
+          item.event.value && item.event.value.teacherReviewRequired === true;
+      })
       .sort(function (a, b) { return String(b.queuedAt || '').localeCompare(String(a.queuedAt || '')); });
     return items[0] || null;
   }
