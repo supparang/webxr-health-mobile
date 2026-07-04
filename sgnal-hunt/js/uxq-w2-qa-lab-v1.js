@@ -1,4 +1,4 @@
-/* UX Quest • W2 QA Lab v1.1
+/* UX Quest • W2 QA Lab v1.2
  * Teacher-only acceptance checklist, activated with ?qa=1.
  * It does not change scoring, progress, analytics or student gameplay.
  */
@@ -9,6 +9,7 @@
   if (!['1', 'true', 'yes'].includes(String(query.get('qa') || '').toLowerCase())) return;
 
   const HIDE_KEY = 'uxq.w2.qa.hidden.v1';
+  const preview = ['1', 'true', 'yes'].includes(String(query.get('preview') || '').toLowerCase());
   const $ = (selector, root) => (root || document).querySelector(selector);
 
   function addStyle(){
@@ -16,7 +17,7 @@
     const style = document.createElement('style');
     style.id = 'uxq-w2-qa-style';
     style.textContent = `
-      .uxq-w2-qa{position:fixed;z-index:4000;right:12px;bottom:12px;width:min(420px,calc(100vw - 24px));border:1px solid rgba(255,209,102,.68);border-radius:16px;background:#102548;color:#eef6ff;box-shadow:0 18px 52px rgba(0,0,0,.38);overflow:hidden;font-size:.84rem}.uxq-w2-qa summary{display:flex;justify-content:space-between;gap:8px;cursor:pointer;padding:12px 13px;background:rgba(255,209,102,.13);font-weight:900;color:#ffe4a3}.uxq-w2-qa__body{padding:12px 13px;display:grid;gap:9px}.uxq-w2-qa__note{margin:0;color:#dce8ff;line-height:1.48}.uxq-w2-qa__row{display:flex;gap:8px;align-items:flex-start;padding:8px 9px;border:1px solid rgba(181,205,255,.20);border-radius:11px;background:rgba(4,15,36,.34);line-height:1.4}.uxq-w2-qa__state{font-weight:950;min-width:50px}.uxq-w2-qa__state--pass{color:#9af4bc}.uxq-w2-qa__state--wait{color:#ffe4a3}.uxq-w2-qa__state--fail{color:#ffb5c0}.uxq-w2-qa__footer{border-top:1px solid rgba(181,205,255,.18);padding-top:9px;color:#c8dbff;font-size:.78rem;line-height:1.45}.uxq-w2-qa__clear{justify-self:start;border:1px solid rgba(181,205,255,.30);border-radius:9px;background:transparent;color:#eef6ff;padding:7px 9px;font:inherit;font-weight:800}
+      .uxq-w2-qa{position:fixed;z-index:4000;right:12px;bottom:12px;width:min(420px,calc(100vw - 24px));border:1px solid rgba(255,209,102,.68);border-radius:16px;background:#102548;color:#eef6ff;box-shadow:0 18px 52px rgba(0,0,0,.38);overflow:hidden;font-size:.84rem}.uxq-w2-qa summary{display:flex;justify-content:space-between;gap:8px;cursor:pointer;padding:12px 13px;background:rgba(255,209,102,.13);font-weight:900;color:#ffe4a3}.uxq-w2-qa__body{padding:12px 13px;display:grid;gap:9px}.uxq-w2-qa__note{margin:0;color:#dce8ff;line-height:1.48}.uxq-w2-qa__row{display:flex;gap:8px;align-items:flex-start;padding:8px 9px;border:1px solid rgba(181,205,255,.20);border-radius:11px;background:rgba(4,15,36,.34);line-height:1.4}.uxq-w2-qa__state{font-weight:950;min-width:50px}.uxq-w2-qa__state--pass{color:#9af4bc}.uxq-w2-qa__state--wait{color:#ffe4a3}.uxq-w2-qa__state--fail{color:#ffb5c0}.uxq-w2-qa__footer{border-top:1px solid rgba(181,205,255,.18);padding-top:9px;color:#c8dbff;font-size:.78rem;line-height:1.45}.uxq-w2-qa__clear,.uxq-w2-qa__preview{justify-self:start;border:1px solid rgba(181,205,255,.30);border-radius:9px;background:transparent;color:#eef6ff;padding:7px 9px;font:inherit;font-weight:800;text-decoration:none}.uxq-w2-qa__preview{border-color:rgba(110,231,255,.62);background:rgba(110,231,255,.12);color:#c9f8ff}.uxq-w2-qa__preview-note{margin:0;padding:8px 9px;border-left:3px solid #6ee7ff;border-radius:0 9px 9px 0;background:rgba(110,231,255,.08);color:#dceeff;line-height:1.45;font-size:.79rem}
     `;
     document.head.appendChild(style);
   }
@@ -27,6 +28,19 @@
   }
   function hide(){
     try { sessionStorage.setItem(HIDE_KEY, '1'); } catch (error) {}
+  }
+  function previewHref(){
+    const url = new URL(location.href);
+    url.searchParams.set('qa', '1');
+    url.searchParams.set('preview', '1');
+    url.searchParams.set('v', '20260706-w2-preview-v1');
+    url.searchParams.delete('classroom');
+    url.searchParams.delete('uxqClassroom');
+    url.searchParams.delete('section');
+    url.searchParams.delete('uxqSection');
+    url.searchParams.delete('fresh');
+    url.searchParams.delete('newLearner');
+    return url.href;
   }
 
   function dataChecks(){
@@ -64,7 +78,7 @@
     const resultState = !live.hasResult ? 'WAIT' : (live.integrity && ((live.passed && !live.blocked) || (!live.passed && live.blocked)) ? 'PASS' : 'FAIL');
     const transferState = !live.hasResult ? 'WAIT' : (live.transfer ? 'PASS' : 'FAIL');
     const warmupState = live.started ? 'PASS' : (live.warmup ? 'PASS' : 'WAIT');
-    const key = JSON.stringify({ staticReady, caseCount:staticData.caseCount, totalStages:staticData.totalStages, warmupState, started:live.started, resultState, transferState });
+    const key = JSON.stringify({ preview, staticReady, caseCount:staticData.caseCount, totalStages:staticData.totalStages, warmupState, started:live.started, resultState, transferState });
     let panel = $('.uxq-w2-qa');
     if (panel?.dataset.qaKey === key) return;
     if (!panel) {
@@ -74,7 +88,10 @@
       document.body.appendChild(panel);
     }
     panel.dataset.qaKey = key;
-    panel.innerHTML = `<summary><span>W2 ACCEPTANCE LAB • TEST MODE</span><span>⌄</span></summary><div class="uxq-w2-qa__body"><p class="uxq-w2-qa__note">ตรวจโครงสร้างและผลการเล่นของ W2 เท่านั้น — ไม่เปลี่ยนคะแนนหรือความก้าวหน้าของผู้เรียน</p>${row(staticReady ? 'PASS' : 'FAIL','Case integrity',`${staticData.caseCount}/3 casefiles • ${staticData.totalStages}/15 stages • 4 options/1 correct ต่อ stage`)}${row(warmupState,'Sprint warm-up gate',live.started ? 'ผ่าน warm-up และเข้าสู่ภารกิจหลักแล้ว' : (live.warmup ? 'warm-up เปิดอยู่: ตรวจว่าเรียงลำดับแล้วเริ่มเกมได้' : 'กดเริ่มภารกิจเพื่อทดสอบ warm-up'))}${row(live.started ? 'PASS' : 'WAIT','Mission flow',live.started ? 'W2 game state ถูกสร้างแล้ว: ทดสอบตอบผิด/ถูกและ Reason Check' : 'รอเริ่มคดีหลัก')}${row(resultState,'Result integrity',!live.hasResult ? 'รอจบเกมเพื่อตรวจ pass / unlock / badge ให้ตรงกัน' : (live.integrity ? 'มีสถานะผลลัพธ์และข้อความสอดคล้องกับผลจริง' : 'หน้าผลลัพธ์ยังไม่มี integrity marker'))}${row(transferState,'Studio transfer',!live.hasResult ? 'รอจบเกมเพื่อตรวจ HCD Sprint Transfer Board' : (live.transfer ? 'พบ Studio Transfer Board พร้อมบันทึก' : 'ไม่พบ Studio Transfer Board'))}<div class="uxq-w2-qa__footer"><b>ผ่าน acceptance เมื่อ:</b> เดาสุ่มไม่ถึง 2★ • Golden Path ได้ 2★ และ W3 เปิด • Result/Badge/Transfer ตรงกัน • เล่นซ้ำเปลี่ยน case/ตำแหน่งคำตอบ</div><button type="button" class="uxq-w2-qa__clear">ซ่อน QA Panel</button></div>`;
+    const previewBlock = preview
+      ? '<p class="uxq-w2-qa__preview-note"><b>Teacher Preview กำลังทำงาน:</b> ข้าม W1 เฉพาะแท็บนี้เพื่อทดสอบ W2 และไม่ได้เปิด W2 ให้ผู้เรียนตามปกติ</p>'
+      : `<p class="uxq-w2-qa__preview-note">W2 ยังล็อกเพราะเส้นทางผู้เรียนต้องผ่าน W1 ก่อน ใช้ Preview เฉพาะเพื่อตรวจเกม W2 โดยไม่ส่งผลเข้าระบบชั้นเรียน</p><a class="uxq-w2-qa__preview" href="${previewHref()}">เปิด W2 Teacher Preview →</a>`;
+    panel.innerHTML = `<summary><span>W2 ACCEPTANCE LAB • TEST MODE</span><span>⌄</span></summary><div class="uxq-w2-qa__body"><p class="uxq-w2-qa__note">ตรวจโครงสร้างและผลการเล่นของ W2 เท่านั้น — ไม่เปลี่ยนคะแนนหรือความก้าวหน้าของผู้เรียน</p>${previewBlock}${row(staticReady ? 'PASS' : 'FAIL','Case integrity',`${staticData.caseCount}/3 casefiles • ${staticData.totalStages}/15 stages • 4 options/1 correct ต่อ stage`)}${row(warmupState,'Sprint warm-up gate',live.started ? 'ผ่าน warm-up และเข้าสู่ภารกิจหลักแล้ว' : (live.warmup ? 'warm-up เปิดอยู่: ตรวจว่าเรียงลำดับแล้วเริ่มเกมได้' : 'กดเริ่มภารกิจเพื่อทดสอบ warm-up'))}${row(live.started ? 'PASS' : 'WAIT','Mission flow',live.started ? 'W2 game state ถูกสร้างแล้ว: ทดสอบตอบผิด/ถูกและ Reason Check' : 'รอเริ่มคดีหลัก')}${row(resultState,'Result integrity',!live.hasResult ? 'รอจบเกมเพื่อตรวจ pass / unlock / badge ให้ตรงกัน' : (live.integrity ? 'มีสถานะผลลัพธ์และข้อความสอดคล้องกับผลจริง' : 'หน้าผลลัพธ์ยังไม่มี integrity marker'))}${row(transferState,'Studio transfer',!live.hasResult ? 'รอจบเกมเพื่อตรวจ HCD Sprint Transfer Board' : (live.transfer ? 'พบ Studio Transfer Board พร้อมบันทึก' : 'ไม่พบ Studio Transfer Board'))}<div class="uxq-w2-qa__footer"><b>ผ่าน acceptance เมื่อ:</b> เดาสุ่มไม่ถึง 2★ • Golden Path ได้ 2★ และ W3 เปิด • Result/Badge/Transfer ตรงกัน • เล่นซ้ำเปลี่ยน case/ตำแหน่งคำตอบ</div><button type="button" class="uxq-w2-qa__clear">ซ่อน QA Panel</button></div>`;
     $('.uxq-w2-qa__clear', panel)?.addEventListener('click', () => { hide(); panel.remove(); });
   }
 
