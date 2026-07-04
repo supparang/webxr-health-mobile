@@ -72,6 +72,20 @@
     document.head.appendChild(script);
   }
 
+  function loadPortfolioIntegrityCleanup() {
+    appendScript(
+      'eap-portfolio-integrity-cleanup-v2-loader',
+      './eap-portfolio-integrity-cleanup-v2.js?v=20260704-portfolio-integrity-v2'
+    );
+  }
+
+  function loadPortfolioTimestampGuard() {
+    appendScript(
+      'eap-portfolio-timestamp-guard-loader',
+      './eap-portfolio-timestamp-fix-v1.js?v=20260704-portfolio-time-v1'
+    );
+  }
+
   function loadA2B1TaskScaffold() {
     appendScript(
       'eap-a2b1-task-scaffold-v2-loader',
@@ -80,13 +94,6 @@
         'eap-speaking-bank-v2-loader',
         './eap-speaking-bank-v2.js?v=20260704-speaking-bank-v2'
       )
-    );
-  }
-
-  function loadPortfolioTimestampGuard() {
-    appendScript(
-      'eap-portfolio-timestamp-guard-loader',
-      './eap-portfolio-timestamp-fix-v1.js?v=20260704-portfolio-time-v1'
     );
   }
 
@@ -113,6 +120,7 @@
   }
 
   function start() {
+    loadPortfolioIntegrityCleanup();
     loadPortfolioTimestampGuard();
     loadA2B1TaskScaffold();
     simplifyHome();
