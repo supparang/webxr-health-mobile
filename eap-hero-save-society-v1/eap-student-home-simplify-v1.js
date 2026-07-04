@@ -1,5 +1,5 @@
 /* =========================================================
-   EAP Hero Student Home Simplifier v3 + Learning Loaders
+   EAP Hero Student Home Simplifier v4 + Learning Loaders
    Student-facing home: one primary path, no duplicate actions
 ========================================================= */
 (() => {
@@ -72,13 +72,6 @@
     document.head.appendChild(script);
   }
 
-  function loadPortfolioIntegrityCleanup() {
-    appendScript(
-      'eap-portfolio-integrity-cleanup-v2-loader',
-      './eap-portfolio-integrity-cleanup-v2.js?v=20260704-portfolio-integrity-v2'
-    );
-  }
-
   function loadPortfolioTimestampGuard() {
     appendScript(
       'eap-portfolio-timestamp-guard-loader',
@@ -120,7 +113,6 @@
   }
 
   function start() {
-    loadPortfolioIntegrityCleanup();
     loadPortfolioTimestampGuard();
     loadA2B1TaskScaffold();
     simplifyHome();
