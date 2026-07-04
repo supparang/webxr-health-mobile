@@ -1,10 +1,14 @@
-/* UX Quest • Boss Console Guard v1.4
- * Loads the W2–B2 anti-guess layer synchronously before the mission engine.
+/* UX Quest • Boss Console Guard v1.5
+ * Preloads replay-bank and anti-guess layers synchronously before the mission engine.
  */
 (() => {
   'use strict';
-  const route = /(w2-design-thinking-sprint|w3-cognitive-load-escape|b1-cognitive-storm|w4-user-insight-lab|w5-concept-forge|w6-flow-rescue|b2-flow-fortress)\.html/i.test(location.pathname);
+  const path = String(location.pathname || '').toLowerCase();
+  const route = /(w2-design-thinking-sprint|w3-cognitive-load-escape|b1-cognitive-storm|w4-user-insight-lab|w5-concept-forge|w6-flow-rescue|b2-flow-fortress)\.html/.test(path);
+  const boss = /(b1-cognitive-storm|b2-flow-fortress)\.html/.test(path);
   if (route && document.readyState === 'loading') {
-    document.write('<script data-uxq-w2b2-antiguess src="./js/uxq-w2-b2-antiguess-v1.js?v=20260706-antiguess-v1"></' + 'script>');
+    const replay = boss ? '<script data-uxq-boss-replay-bank src="./js/uxq-boss-replay-bank-v1.js?v=20260706-boss-replay-v2"></' + 'script>' : '';
+    const antiGuess = '<script data-uxq-w2b2-antiguess src="./js/uxq-w2-b2-antiguess-v1.js?v=20260706-antiguess-v1"></' + 'script>';
+    document.write(replay + antiGuess);
   }
 })();
