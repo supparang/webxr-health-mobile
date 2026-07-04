@@ -1,16 +1,15 @@
-/* UX Quest • Anti-Guess Replay Coach v2
-   Presentation-only learning support. It reads the finished result screen and
-   local receipt, adds targeted replay guidance, and never intercepts mission
-   flow, scoring, progression, identity, or data sync.
-*/
+/* UX Quest • Anti-Guess Replay Coach v3
+ * Presentation-only learning support. Reads the finished result screen and
+ * gives truthful replay guidance without changing scoring or progression.
+ */
 (() => {
   'use strict';
 
   const stageGuide = {
-    evidence: ['Evidence', 'เริ่มจากพฤติกรรมผู้ใช้ที่สังเกตได้จริง ไม่ใช่คำอธิบายที่ฟังดูสมเหตุผลอย่างเดียว'],
-    hypothesis: ['Hypothesis', 'เชื่อมหลักฐานกับสิ่งที่ผู้ใช้อาจเข้าใจผิดหรือ friction ที่เป็นสาเหตุ'],
-    fix: ['Fix', 'เลือกการปรับที่แก้ต้นเหตุ และทำให้ผู้ใช้รู้ action ถัดไปได้ชัด'],
-    test: ['Test', 'ให้ความสำคัญกับ task success เวลา และความเข้าใจ มากกว่าความเห็นทั่วไป'],
+    evidence: ['Evidence', 'เริ่มจากพฤติกรรมผู้ใช้ที่สังเกตได้จริง แล้วเทียบกับคำอธิบายทางเลือกที่ยังไม่รองรับด้วยหลักฐาน'],
+    hypothesis: ['Hypothesis', 'เชื่อมหลักฐานกับ friction ที่เป็นสาเหตุ และตัดคำอธิบายที่ฟังดีแต่ยังไม่อธิบาย task failure'],
+    fix: ['Fix', 'เลือกการปรับที่ลด friction ที่พบจริง ไม่ใช่เพียงเพิ่ม feature หรือทำหน้าจอให้ดูสะอาด'],
+    test: ['Test', 'วัด task success เวลา ความผิดพลาด และความเข้าใจ state มากกว่าความเห็นทั่วไป'],
     empathize: ['Empathize', 'เก็บบริบท พฤติกรรม และความรู้สึกก่อนตัดสินใจหา solution'],
     define: ['Define', 'เขียนโจทย์จาก user need และ barrier โดยยังไม่รีบล็อกวิธีแก้'],
     ideate: ['Ideate', 'เลือกแนวคิดที่พาผู้ใช้ไปถึงเป้าหมาย ไม่ใช่แค่แนวคิดที่น่าสนใจ'],
@@ -39,6 +38,7 @@
     style.textContent = `
       .uxq-replay-coach{width:min(760px,100%);border:1px solid rgba(110,231,255,.38);border-radius:17px;background:rgba(8,42,73,.38);padding:15px 16px;text-align:left;display:grid;gap:9px}
       .uxq-replay-coach[data-level="ready"]{border-color:rgba(119,233,164,.48);background:rgba(39,112,77,.14)}
+      .uxq-replay-coach[data-level="blocked"]{border-color:rgba(255,151,166,.52);background:rgba(112,34,55,.15)}
       .uxq-replay-coach__kicker{font-size:.74rem;font-weight:950;letter-spacing:.1em;color:#6ee7ff;text-transform:uppercase}
       .uxq-replay-coach__title{font-size:1rem;font-weight:900;color:#fff}
       .uxq-replay-coach__body{margin:0;color:#dbeafe;line-height:1.6;font-size:.92rem}
@@ -48,15 +48,15 @@
       .uxq-replay-coach__focus-row b{color:#fff}
       .uxq-replay-coach details{border-top:1px solid rgba(181,205,255,.2);padding-top:10px;color:#dbeafe;font-size:.9rem;line-height:1.58}
       .uxq-replay-coach summary{cursor:pointer;color:#baf4ff;font-weight:850}
-      .uxq-replay-coach ol{margin:9px 0 0;padding-left:22px}
-      .uxq-replay-coach li+li{margin-top:5px}
+      .uxq-replay-coach ol{margin:9px 0 0;padding-left:22px}.uxq-replay-coach li+li{margin-top:5px}
     `;
     document.head.appendChild(style);
   }
 
-  function metric(root, label){
+  function metric(root, labels){
+    const wanted = Array.isArray(labels) ? labels : [labels];
     const cards = [...root.querySelectorAll('.uxq-result-grid div')];
-    const card = cards.find((node) => normalize(node.querySelector('span')?.textContent) === label);
+    const card = cards.find((node) => wanted.includes(normalize(node.querySelector('span')?.textContent)));
     return card?.querySelector('b')?.textContent?.trim() || '';
   }
 
@@ -66,50 +66,50 @@
       if (!map?.available) return null;
       if (Number(map.verifiedAccuracy) !== Math.round(Number(verified))) return null;
       return map;
-    } catch (error) {
-      return null;
-    }
+    } catch (error) { return null; }
   }
 
   function focusMarkup(map){
     const focus = Array.isArray(map?.focus) ? map.focus.slice(0, 3) : [];
     if (!focus.length) return '';
-
     const rows = focus.map((item) => {
       const [label, guide] = stageGuide[item.stageKey] || [item.stageKey || 'Reason Check', 'เชื่อมคำตอบกับพฤติกรรมผู้ใช้ จุดติดขัด และผลที่ต้องพิสูจน์'];
-      const prefix = item.mainCorrect
-        ? 'คำตอบหลักถูก แต่เหตุผลยังไม่ตรง'
-        : 'เริ่มจากทบทวนคำตอบและเหตุผล';
+      const prefix = item.mainCorrect ? 'คำตอบหลักถูก แต่เหตุผลยังไม่ตรง' : 'เริ่มจากทบทวนคำตอบและเหตุผล';
       return `<div class="uxq-replay-coach__focus-row"><b>${label}</b> · ${prefix}<br>${guide}</div>`;
     }).join('');
-
     return `<div class="uxq-replay-coach__focus"><div class="uxq-replay-coach__focus-title">Focus for the next case</div>${rows}</div>`;
   }
 
   function buildCard(root){
-    const verifiedText = metric(root, 'verified');
-    const evidenceText = metric(root, 'evidence calls');
+    const verifiedText = metric(root, ['verified', 'ตรวจเหตุผล']);
+    const evidenceText = metric(root, ['evidence calls', 'การตัดสินใจ ux']);
     const verified = parsePercent(verifiedText);
     const evidence = parseFraction(evidenceText);
     if (verified == null || !evidence?.total) return null;
 
+    const passed = /MISSION CLEARED/i.test(String(root.querySelector('.uxq-kicker')?.textContent || ''));
     const need = Math.ceil(evidence.total * 0.70);
     const approximateVerified = Math.round((verified / 100) * evidence.total);
     const remaining = Math.max(0, need - approximateVerified);
-    const ready = verified >= 70;
+    const ready = passed && verified >= 70;
     const map = receiptMap(verified);
     const card = document.createElement('section');
     card.className = 'uxq-replay-coach';
-    card.dataset.level = ready ? 'ready' : 'review';
-    card.dataset.uxqReplayCoach = `${verified}|${evidence.current}/${evidence.total}|${(map?.focus || []).map(item => `${item.stageKey}:${item.count}`).join(',')}`;
+    card.dataset.level = ready ? 'ready' : (passed ? 'review' : 'blocked');
+    card.dataset.uxqReplayCoach = `${passed}|${verified}|${evidence.current}/${evidence.total}|${(map?.focus || []).map(item => `${item.stageKey}:${item.count}`).join(',')}`;
 
-    const title = ready
-      ? 'Reasoning pattern แข็งแรงแล้ว'
-      : `อีกประมาณ ${remaining || 1} Reason Check จะถึงเส้น 3★`;
-
-    const body = ready
-      ? 'คุณไม่ได้เพียงเลือกคำตอบถูก แต่เชื่อมคำตอบกับหลักฐานได้สม่ำเสมอแล้ว รอบถัดไปเปลี่ยนคดีเพื่อยืนยันว่าใช้หลักคิดเดิมกับบริบทใหม่ได้จริง'
-      : 'รอบนี้ผ่าน Readiness แล้ว เป้าหมายรอบถัดไปคือเลือกเหตุผลที่อธิบาย “พฤติกรรมผู้ใช้ + จุดติดขัด + ผลที่เกิดขึ้น” โดยตรง ไม่เลือกข้อความที่ดูดีแต่ยังไม่ชี้สาเหตุ';
+    let title;
+    let body;
+    if (!passed) {
+      title = 'รอบนี้ยังไม่ผ่านเกณฑ์ปลดล็อก';
+      body = 'ผลรอบนี้สะท้อนว่าเดาจากคำที่ฟังดีอย่างเดียวยังไม่พอ รอบถัดไปให้เลือกคำตอบที่อธิบาย “พฤติกรรมผู้ใช้ + จุดติดขัด + ผลที่เกิดขึ้น” ได้ตรง และใช้ Reason Check ยืนยันเหตุผล';
+    } else if (ready) {
+      title = 'Reasoning pattern แข็งแรงแล้ว';
+      body = 'คุณไม่ได้เพียงเลือกคำตอบถูก แต่เชื่อมคำตอบกับหลักฐานได้สม่ำเสมอแล้ว รอบถัดไปเปลี่ยนคดีเพื่อยืนยันว่าใช้หลักคิดเดิมกับบริบทใหม่ได้จริง';
+    } else {
+      title = `ผ่านภารกิจแล้ว — เหลือประมาณ ${remaining || 1} Reason Check เพื่อไปถึง 3★`;
+      body = 'การปลดล็อกภารกิจถัดไปกับ mastery 3★ เป็นคนละเกณฑ์กัน รอบถัดไปให้เชื่อมเหตุผลกับหลักฐานอย่างชัดเจน ไม่เลือกข้อความที่ดูดีแต่ยังไม่ชี้สาเหตุ';
+    }
 
     card.innerHTML = `
       <div class="uxq-replay-coach__kicker">REPLAY COACH</div>
@@ -146,8 +146,7 @@
     addStyle();
     decorate();
     window.addEventListener('uxq:submission-receipt', decorate);
-    const observer = new MutationObserver(decorate);
-    observer.observe(document.documentElement, { childList:true, subtree:true });
+    new MutationObserver(decorate).observe(document.documentElement, { childList:true, subtree:true });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });
