@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{--ink:#102033;--muted:#607085;--line:#dbe4ee;--bg:#f4f7fb;--card:#fff;--navy:#17375e;--good:#087f5b;--warn:#b45309;--bad:#b42318}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Arial,"Noto Sans Thai",sans-serif}.wrap{max-width:1480px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:14px}h1,h2,h3,p{margin:0}.subtitle{color:var(--muted);margin-top:5px}.toolbar{display:flex;flex-wrap:wrap;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:14px 0}.toolbar label{display:grid;gap:4px;font-size:12px;color:var(--muted);font-weight:800}.toolbar input,.toolbar select,.review textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:#fff;min-width:160px}.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;background:var(--navy);color:#fff}.btn.ghost{background:#e8eef6;color:var(--ink)}.btn.good{background:#087f5b}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}.card{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:14px}.label{color:var(--muted);font-size:12px;font-weight:800}.value{font-size:28px;font-weight:900;margin-top:3px}.section{border:1px solid var(--line);background:var(--card);border-radius:14px;overflow:auto;margin:14px 0}.section h2{padding:15px 16px 4px;font-size:18px}.note{padding:0 16px 13px;color:var(--muted);font-size:12px}table{border-collapse:collapse;width:100%;min-width:1280px}th,td{padding:11px 12px;border-top:1px solid var(--line);vertical-align:top;text-align:left}th{background:#f8fafc;color:#42566f;font-size:12px}.pill{display:inline-block;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:800;white-space:nowrap}.pending{background:#fff1d8;color:var(--warn)}.reviewed{background:#dff7ed;color:var(--good)}.resubmit_support{background:#fde7e7;color:var(--bad)}.output{max-width:310px;white-space:pre-wrap;line-height:1.5}.check{display:grid;gap:3px;font-size:12px;white-space:nowrap}.empty{padding:42px;text-align:center;color:var(--muted)}.review{margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}.review.hidden{display:none}.codes{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.codes label{border:1px solid var(--line);background:#f8fafc;border-radius:999px;padding:7px 9px;cursor:pointer;font-weight:800}.codes input{margin-right:5px}.meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:10px 0}.mini{border:1px solid var(--line);border-radius:10px;background:#f8fafc;padding:10px}.small{font-size:12px;color:var(--muted)}a.audio{font-weight:800;color:#174ea6;text-decoration:none}@media(max-width:900px){.cards,.meta{grid-template-columns:repeat(2,minmax(0,1fr))}.top{display:block}.top button{margin-top:12px}}@media(max-width:560px){.wrap{padding:12px}.cards,.meta{grid-template-columns:1fr}}@media print{.toolbar,.btn,.review{display:none!important}.wrap{padding:0;max-width:none}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="top">
+      <div>
+        <h1>EAP Hero · Boss Speaking Review</h1>
+        <p class="subtitle">ตรวจเฉพาะ B1–B5 Speaking Evidence · feedback เป็นเชิงพัฒนาและไม่เปลี่ยนคะแนนเกมอัตโนมัติ</p>
+      </div>
+      <button class="btn ghost" onclick="window.print()">Print / Save PDF</button>
+    </section>
+
+    <section class="toolbar">
+      <label>Section<select id="section"><option value="122">Section 122</option></select></label>
+      <label>สถานะ<select id="status"><option value="">ทั้งหมด</option><option value="pending_teacher_review">รอตรวจ</option><option value="reviewed">ตรวจแล้ว</option><option value="resubmit_support">ให้ฝึกซ้ำ</option></select></label>
+      <label>ค้นหา<input id="query" placeholder="รหัส ชื่อ B1–B5 หรือคำตอบ"></label>
+      <button class="btn" onclick="loadData()">Refresh Evidence</button>
+    </section>
+
+    <section class="cards">
+      <div class="card"><div class="label">หลักฐานทั้งหมด</div><div class="value" id="total">—</div></div>
+      <div class="card"><div class="label">รอตรวจ</div><div class="value" id="pending">—</div></div>
+      <div class="card"><div class="label">ตรวจแล้ว</div><div class="value" id="reviewed">—</div></div>
+      <div class="card"><div class="label">แนบเสียงโดยยินยอม</div><div class="value" id="audio">—</div></div>
+    </section>
+
+    <section class="section">
+      <h2>หลักฐานคำพูดของผู้เรียน</h2>
+      <p class="note">ดูเวลา, checklist, speaking note และไฟล์เสียงเฉพาะเมื่อผู้เรียนยินยอม — transcript ไม่ใช้เป็นเกณฑ์ผ่าน/ตก</p>
+      <table>
+        <thead><tr><th>เวลา</th><th>ผู้เรียน</th><th>Boss</th><th>เวลา/เป้าหมาย</th><th>Checklist</th><th>Speaking note</th><th>Audio</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody id="rows"><tr><td colspan="9" class="empty">กำลังโหลดหลักฐาน…</td></tr></tbody>
+      </table>
+    </section>
+
+    <section id="review" class="review hidden"></section>
+  </main>
+
+  <script>
+    let state={records:[],reviewCodes:[]}, selected=null;
+    const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const date=v=>{const t=new Date(v||'').getTime();return Number.isFinite(t)?new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'medium',timeStyle:'short'}).format(new Date(t)):'—'};
+    const filter=()=>({section:document.getElementById('section').value,status:document.getElementById('status').value,query:document.getElementById('query').value.trim()});
+    const statusLabel=s=>s==='reviewed'?'ตรวจแล้ว':s==='resubmit_support'?'ให้ฝึกซ้ำ':'รอตรวจ';
+    const checklist=r=>{const c=r.oralChecklist||{};return `<div class="check"><span>${c.spoke?'✓':'○'} เวลา</span><span>${c.topic?'✓':'○'} Topic</span><span>${c.detail?'✓':'○'} Detail</span><span>${c.closing?'✓':'○'} Closing</span></div>`};
+    function loadData(){document.getElementById('rows').innerHTML='<tr><td colspan="9" class="empty">กำลังโหลดหลักฐาน…</td></tr>';google.script.run.withSuccessHandler(render).withFailureHandler(error).eapEvidenceReviewData(filter())}
+    function render(data){state=data||{records:[],summary:{},reviewCodes:[]};const s=state.summary||{};document.getElementById('total').textContent=s.total??0;document.getElementById('pending').textContent=s.pending??0;document.getElementById('reviewed').textContent=s.reviewed??0;document.getElementById('audio').textContent=s.withAudio??0;const rows=(state.records||[]).map(r=>`<tr><td class="small">${esc(date(r.createdAt))}</td><td><strong>${esc(r.studentName||'—')}</strong><br><span class="small">${esc(r.studentId)} · ${esc(r.section)}</span></td><td><strong>${esc(r.sessionId)}</strong><br><span class="small">${esc(r.sessionTitle||'Boss Gate')}</span></td><td>${esc(r.durationSec||0)} sec<br><span class="small">${esc(r.targetRange||'—')}</span></td><td>${checklist(r)}</td><td class="output">${esc(r.output||'—')}</td><td>${r.audio&&r.audio.available&&r.audio.fileUrl?`<a class="audio" href="${esc(r.audio.fileUrl)}" target="_blank">▶ Open audio</a>`:(r.consentAudio?'<span class="small">กำลังบันทึก/ไม่มีไฟล์</span>':'<span class="small">ไม่ยินยอม</span>')}</td><td><span class="pill ${esc(r.reviewStatus||'pending_teacher_review')}">${esc(statusLabel(r.reviewStatus))}</span>${(r.feedbackCodes||[]).length?'<br><span class="small">'+esc(r.feedbackCodes.join(', '))+'</span>':''}</td><td><button class="btn ghost" data-review="${esc(r.eventId)}">ตรวจ</button></td></tr>`).join('');document.getElementById('rows').innerHTML=rows||'<tr><td colspan="9" class="empty">ยังไม่มีหลักฐานตามตัวกรองนี้</td></tr>';document.querySelectorAll('[data-review]').forEach(b=>b.addEventListener('click',()=>openReview(b.dataset.review)))}
+    function openReview(id){selected=(state.records||[]).find(r=>String(r.eventId)===String(id));if(!selected)return;const box=document.getElementById('review');box.classList.remove('hidden');const codes=state.reviewCodes||['CL','PR','FL','ST','EV','QA'];const chosen=new Set(selected.feedbackCodes||[]);box.innerHTML=`<h2>Teacher Review · ${esc(selected.studentName)} <span class="small">${esc(selected.studentId)} · ${esc(selected.sessionId)}</span></h2><p class="small">ใช้ feedback code เพื่อชี้จุดพัฒนาเท่านั้น ไม่เปลี่ยนคะแนนเกมและไม่ตัดสินผ่าน/ตกจาก transcript</p><div class="meta"><div class="mini"><strong>${esc(selected.durationSec)} sec</strong><span class="small">Duration</span></div><div class="mini"><strong>${selected.oralChecklist&&selected.oralChecklist.topic?'✓':'○'} / ${selected.oralChecklist&&selected.oralChecklist.detail?'✓':'○'} / ${selected.oralChecklist&&selected.oralChecklist.closing?'✓':'○'}</strong><span class="small">Topic / Detail / Closing</span></div><div class="mini"><strong>${esc(selected.targetRange||'—')}</strong><span class="small">Target range</span></div><div class="mini"><strong>${selected.audio&&selected.audio.available?'Audio available':'No audio'}</strong><span class="small">Consent-based only</span></div></div><div class="codes">${codes.map(code=>`<label><input type="checkbox" value="${esc(code)}" ${chosen.has(code)?'checked':''}>${esc(code)}</label>`).join('')}</div><label class="small" style="display:grid;gap:5px">ข้อเสนอแนะสั้น ๆ<textarea id="comment" rows="4" placeholder="เช่น CL: เริ่มด้วยหัวข้อให้ชัดเจนขึ้น และ ST: ใช้ closing สั้น ๆ เพื่อจบคำตอบ">${esc(selected.teacherComment||'')}</textarea></label><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><select id="reviewStatus"><option value="reviewed">ตรวจแล้ว</option><option value="resubmit_support">ให้ฝึกซ้ำเพื่อเสริมความมั่นใจ</option><option value="pending_teacher_review">คงไว้เป็นรอตรวจ</option></select><button class="btn good" id="saveReview">Save review</button><button class="btn ghost" id="cancelReview">ยกเลิก</button></div>`;document.getElementById('reviewStatus').value=selected.reviewStatus||'pending_teacher_review';document.getElementById('cancelReview').addEventListener('click',()=>box.classList.add('hidden'));document.getElementById('saveReview').addEventListener('click',saveReview);box.scrollIntoView({behavior:'smooth',block:'start'})}
+    function saveReview(){if(!selected)return;const codes=[...document.querySelectorAll('.codes input:checked')].map(i=>i.value);const payload={eventId:selected.eventId,feedbackCodes:codes,comment:document.getElementById('comment').value.trim(),status:document.getElementById('reviewStatus').value,reviewedBy:'Teacher'};const b=document.getElementById('saveReview');b.disabled=true;b.textContent='Saving…';google.script.run.withSuccessHandler(()=>{document.getElementById('review').classList.add('hidden');loadData()}).withFailureHandler(error).eapSaveEvidenceReview(payload)}
+    function error(e){document.getElementById('rows').innerHTML=`<tr><td colspan="9" class="empty">โหลดข้อมูลไม่สำเร็จ: ${esc(e&&e.message?e.message:e)}</td></tr>`}
+    ['section','status'].forEach(id=>document.getElementById(id).addEventListener('change',loadData));document.getElementById('query').addEventListener('input',()=>setTimeout(loadData,220));loadData();
+  </script>
+</body>
+</html>
