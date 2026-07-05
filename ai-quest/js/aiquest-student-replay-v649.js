@@ -1,0 +1,14 @@
+(()=>{'use strict';
+const mid=String(new URLSearchParams(location.search).get('mission')||'s1').toLowerCase();
+const $=id=>document.getElementById(id);
+const contexts={s1:['สถานการณ์โรงเรียนอัจฉริยะ','สถานการณ์ห้องสมุดดิจิทัล','สถานการณ์บริการชุมชน'],s2:['สถานการณ์หุ่นยนต์ส่งยา','สถานการณ์รถรับส่งมหาวิทยาลัย','สถานการณ์ห้องสมุดอัตโนมัติ'],s3:['สถานการณ์ขนส่งพัสดุ','สถานการณ์ทีมกู้ภัย','สถานการณ์วางแผนรถรับส่ง'],s4:['สถานการณ์บริษัทขนส่ง','สถานการณ์ส่งอาหาร','สถานการณ์หน่วยกู้ภัย'],s5:['สถานการณ์โดรนสำรวจ','สถานการณ์ระบบนำทาง','สถานการณ์หุ่นยนต์คลังสินค้า'],s6:['สถานการณ์เกมวางแผน','สถานการณ์แข่งขันเชิงกลยุทธ์','สถานการณ์เกมกระดาน'],s7:['สถานการณ์ศูนย์สุขภาพ','สถานการณ์ตรวจเอกสาร','สถานการณ์ช่วยเหลือนักศึกษา'],s8:['สถานการณ์คลินิก','สถานการณ์ประเมินความเสี่ยง','สถานการณ์ข้อมูลไม่ครบ'],s9:['สถานการณ์ศูนย์บริการ','สถานการณ์ฝ่ายวิชาการ','สถานการณ์ระบบผู้เชี่ยวชาญ'],b1:['สถานการณ์ศูนย์บริการประชาชน','สถานการณ์ห้องปฏิบัติการ','สถานการณ์ทีมพัฒนา'],b2:['สถานการณ์เลือกวิธีค้นหา','สถานการณ์แข่งขัน AI','สถานการณ์ทดสอบอัลกอริทึม'],b3:['สถานการณ์ระบบเหตุผล','สถานการณ์ข้อมูลไม่แน่นอน','สถานการณ์กำกับดูแล']};
+function getBank(){return mid==='s1'?window.AIQuestS1ThaiV646:(window.AIQuestCoreThaiBanksV646||{})[mid]}
+function copy(row){return [row[0],row[1],Array.isArray(row[2])?row[2].slice():row[2],row[3]]}
+function shuffle(a){const x=[...a];for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]]}return x}
+function history(){try{return JSON.parse(localStorage.getItem('CSAI2102_REPLAY_V649')||'{}')}catch(e){return {}}}
+function store(x){try{localStorage.setItem('CSAI2102_REPLAY_V649',JSON.stringify(x))}catch(e){}}
+function pool(items,type){const out=[],scene=contexts[mid]||['สถานการณ์ A','สถานการณ์ B','สถานการณ์ C'];items.forEach((row,base)=>scene.forEach((name,variant)=>{const v=copy(row);v[0]=(type==='m'?'สถานการณ์: ':'โจทย์จาก ')+name+' — '+v[0];v[3]=(v[3]||'')+' • '+name;v._rid=type+'_'+base+'_'+variant;v._base=base;out.push(v)}));return out}
+function select(full,used,count){const groups={};full.forEach(x=>{(groups[x._base]||(groups[x._base]=[])).push(x)});const chosen=[];Object.keys(groups).sort((a,b)=>a-b).forEach(k=>{const set=shuffle(groups[k]);chosen.push(set.find(x=>!used.includes(x._rid))||set[0])});return chosen.slice(0,count)}
+function mount(){const bank=getBank(),start=$('start');if(!bank||!start)return setTimeout(mount,50);if(bank._replay649)return;bank._replay649=true;const fullM=pool(bank.m||[],'m'),fullQ=pool(bank.q||[],'q');start.addEventListener('click',()=>{const all=history(),h=all[mid]||{m:[],q:[]},m=select(fullM,h.m,4),q=select(fullQ,h.q,8);bank.m=m;bank.q=q;h.m=[...h.m,...m.map(x=>x._rid)].slice(-8);h.q=[...h.q,...q.map(x=>x._rid)].slice(-16);all[mid]=h;store(all)},true)}
+mount();
+})();
