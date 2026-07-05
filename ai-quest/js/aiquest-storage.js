@@ -9,27 +9,26 @@ function bootSheetProfile(){
   if(!sid||!name||!note)return;
   let lookupSeq=0,lookupTimer=null;
   const say=(text,kind)=>{note.className='notice'+(kind?' '+kind:'');note.textContent=text};
+  const cacheMessage=()=>{const p=getProfile();if(p.studentId&&p.studentName)say('✓ Profile ในเครื่อง: '+p.studentId+' • '+p.studentName+' • Section 101','good')};
   const lookup=async quiet=>{
     const studentId=c(sid.value);if(!studentId)return;
     if(!/^[A-Za-z0-9_-]{1,32}$/.test(studentId)){if(!quiet)say('รหัสนักศึกษาใช้ตัวอักษร/ตัวเลขได้ไม่เกิน 32 ตัวอักษร','bad');return}
-    const requestId=++lookupSeq;say('กำลังตรวจ Profile จาก Google Sheets…','');
+    const requestId=++lookupSeq;if(!quiet)say('กำลังตรวจ Profile จาก Google Sheets…','');
     try{
       const response=await window.AIQuestSync?.lookupProfile?.({studentId});
       if(requestId!==lookupSeq)return;
       if(response?.ok&&response?.found&&response?.profile){
-        const p=response.profile;
-        if(String(p.studentId||'')!==studentId)return;
+        const p=response.profile;if(String(p.studentId||'')!==studentId)return;
         const cached=saveProfile({studentId:p.studentId,studentName:p.studentName,section:'101',profileSource:'sheet'});
-        name.value=cached.studentName; if(section)section.value='101';
+        name.value=cached.studentName;if(section)section.value='101';
         say('✓ ดึง Profile จาก Google Sheets แล้ว: '+cached.studentId+' • '+cached.studentName+' • Section 101','good');
         name.dataset.profileSource='sheet';
       }else if(response?.ok&&response?.action==='profileLookup'&&typeof response.found==='undefined'){
-        if(!quiet)say('Profile Lookup ยังไม่ถูกเปิดใช้บน Apps Script — ใช้ข้อมูลในเครื่องชั่วคราว','bad');
+        if(!quiet)say('Profile Lookup ยังไม่ถูกเปิดใช้บน Apps Script — ใช้ข้อมูลในเครื่องชั่วคราว','bad');else cacheMessage();
       }else{
-        name.dataset.profileSource='new';
-        if(!quiet)say('ไม่พบ Profile ใน Google Sheets — กรอกชื่อ แล้วกดบันทึกข้อมูลเพื่อสร้าง Profile ใหม่','');
+        name.dataset.profileSource='new';if(!quiet)say('ไม่พบ Profile ใน Google Sheets — กรอกชื่อ แล้วกดบันทึกข้อมูลเพื่อสร้าง Profile ใหม่','');else cacheMessage();
       }
-    }catch(err){if(requestId===lookupSeq&&!quiet)say('เชื่อมต่อ Google Sheets ไม่สำเร็จ — กรอกชื่อและบันทึกในเครื่องได้','bad')}
+    }catch(err){if(requestId===lookupSeq){if(!quiet)say('เชื่อมต่อ Google Sheets ไม่สำเร็จ — กรอกชื่อและบันทึกในเครื่องได้','bad');else cacheMessage()}}
   };
   sid.addEventListener('blur',()=>lookup(false));
   sid.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();lookup(false)}});
@@ -38,7 +37,7 @@ function bootSheetProfile(){
     const btn=document.createElement('button');btn.type='button';btn.id='lookupProfile';btn.className='btn secondary';btn.textContent='ดึง Profile จาก Sheet';btn.title='ค้นหาด้วยรหัสนักศึกษาแบบตรงรหัส';btn.addEventListener('click',()=>lookup(false));
     save.parentElement?.insertBefore(btn,save);
   }
-  const cached=getProfile();if(cached.studentId){sid.value=cached.studentId;name.value=cached.studentName||name.value;if(section)section.value='101';setTimeout(()=>lookup(true),250)}
+  const cached=getProfile();if(cached.studentId){sid.value=cached.studentId;name.value=cached.studentName||name.value;if(section)section.value='101';cacheMessage();setTimeout(()=>lookup(true),250)}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootSheetProfile,{once:true});else setTimeout(bootSheetProfile,0);
 console.log('[AIQuest] storage runtime ready • Sheet-first cache enabled');
