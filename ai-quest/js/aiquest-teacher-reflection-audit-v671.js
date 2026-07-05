@@ -1,6 +1,6 @@
-/* CSAI2102 Teacher Reflection Audit v6.7.1
-   Flags pre-existing placeholder/template reflections for teacher review.
-   It does not alter student scores or erase historical data. */
+/* CSAI2102 Teacher Reflection Audit v6.7.2
+   Flags existing placeholder/template reflections once per data load.
+   Does not touch score/history and never continuously rerenders the table. */
 (()=>{'use strict';
   const KEY='Reflection ต้องเขียนใหม่';
   const $=id=>document.getElementById(id);
@@ -13,23 +13,21 @@
     'ระบุจุดที่มนุษย์ควรตรวจทาน และเหตุผลว่าทำไมจึงไม่ควรปล่อยให้ ai ตัดสินใจลำพัง',
     'อย่างน้อย 45 ตัวอักษร อธิบายหลักการที่ใช้ตัดสินใจในหนึ่ง case'
   ].map(norm);
-  function template(value){
-    const v=norm(value);if(!v)return false;
-    return copiedSeeds.some(seed=>v===seed || (v.length>=30&&(v.includes(seed)||seed.includes(v))));
-  }
-  function duplicate(values){
-    const usable=values.map(norm).filter(Boolean);
-    return usable.length>=2 && new Set(usable).size<usable.length;
-  }
+  const template=value=>{const v=norm(value);return !!v&&copiedSeeds.some(seed=>v===seed||(v.length>=30&&(v.includes(seed)||seed.includes(v))));};
+  const duplicate=values=>{const usable=values.map(norm).filter(Boolean);return usable.length>=2&&new Set(usable).size<usable.length;};
   function auditStudent(student){
     const reflections=student&&student.latestReflection&&typeof student.latestReflection==='object'
-      ? Object.keys(student.latestReflection).filter(key=>/^reflection/i.test(key)).map(key=>student.latestReflection[key])
-      : [];
+      ? Object.keys(student.latestReflection).filter(key=>/^reflection/i.test(key)).map(key=>student.latestReflection[key]) : [];
     const invalid=reflections.some(template)||duplicate(reflections);
+    const prior=String(student._reflectionAuditV672||'');
+    const next=invalid?'template':'ok';
     student.risks=Array.isArray(student.risks)?student.risks:[];
-    if(invalid&&!student.risks.includes(KEY))student.risks.unshift(KEY);
-    student.reflectionIntegrity=invalid?'template':'ok';
-    return invalid;
+    let changed=false;
+    if(invalid&&!student.risks.includes(KEY)){student.risks.unshift(KEY);changed=true;}
+    if(!invalid&&student.risks.includes(KEY)){student.risks=student.risks.filter(item=>item!==KEY);changed=true;}
+    if(prior!==next){student._reflectionAuditV672=next;changed=true;}
+    student.reflectionIntegrity=next;
+    return changed;
   }
   function decorateModal(){
     const box=$('detailBox');if(!box||box.dataset.reflectionAudit==='1')return;
@@ -39,24 +37,27 @@
     const section=[...box.querySelectorAll('section')].find(el=>/Latest Reflection/.test(el.textContent||''));
     if(section)section.insertAdjacentElement('beforebegin',warning);else box.appendChild(warning);
   }
+  let seenLoad='';
   function apply(){
     const api=window.AIQUEST_TEACHER_SAFE_V533||window.AIQUEST_TEACHER_SAFE_V532;
     const students=api&&api.state&&Array.isArray(api.state.students)?api.state.students:[];
     if(!students.length)return;
+    const loadKey=String(api.state.lastLoaded||'')+'|'+students.length;
+    if(loadKey===seenLoad)return;
+    seenLoad=loadKey;
     let changed=false;students.forEach(student=>{if(auditStudent(student))changed=true;});
     if(changed){
       const search=$('studentSearch');
       if(search&&typeof search.oninput==='function')search.oninput();
     }
   }
-  function schedule(){clearTimeout(schedule.t);schedule.t=setTimeout(apply,80);}
+  function schedule(){clearTimeout(schedule.t);schedule.t=setTimeout(apply,120);}
   function init(){
-    const students=$('studentsBox'),state=$('loadState'),modal=$('detailModal');
-    if(students)new MutationObserver(schedule).observe(students,{childList:true,subtree:true});
+    const state=$('loadState'),modal=$('detailModal');
     if(state)new MutationObserver(schedule).observe(state,{childList:true,characterData:true,subtree:true});
     if(modal)new MutationObserver(decorateModal).observe(modal,{childList:true,subtree:true});
-    document.addEventListener('click',event=>{if(event.target&&event.target.classList&&event.target.classList.contains('detailBtn'))setTimeout(decorateModal,40);});
-    setTimeout(apply,1000);
+    document.addEventListener('click',event=>{const btn=event.target&&event.target.closest&&event.target.closest('.detailBtn');if(btn)setTimeout(decorateModal,40);});
+    setTimeout(apply,1100);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
