@@ -1,0 +1,1 @@
+(()=>{'use strict';try{const to=new URL('../ml-replay-v660.html',location.href);new URLSearchParams(location.search).forEach((v,k)=>to.searchParams.set(k,v));location.replace(to.href)}catch(e){location.replace('../ml-replay-v660.html')}})();
