@@ -97,7 +97,10 @@
     document.body.appendChild(el);setTimeout(function(){if(el.parentNode)el.remove();},4800);
   }
   function reconcile(data){
-    if(!data||data.ok!==true||!Array.isArray(data.records))return false;
+    /* An empty or failed resume response is never evidence that Sheet has no
+       data. Preserve the current state until a non-empty verified response
+       arrives; this prevents accidental deletion during deployment/cache lag. */
+    if(!data||data.ok!==true||!Array.isArray(data.records)||data.records.length===0)return false;
     var state=read(STATE,{});if(!state||typeof state!=='object')return false;
     var before=profile(state),p=verifiedIdentity(data,before);
     if(!p.studentId)return false;
