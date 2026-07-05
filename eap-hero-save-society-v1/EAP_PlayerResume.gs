@@ -1,9 +1,11 @@
 /* =========================================================
-   EAP Hero Player Resume API v2
-   - Reads verified summary data only for studentId + section.
-   - Canonicalizes historical session variants such as 1 / S1 / Session 1.
-   - Deduplicates one logical session + skill before the learner resumes.
-   - Prefers higher best score, then later update, then non-empty title.
+   EAP Hero Player Resume API v3
+
+   - Reads only this learner's summary data by studentId + section.
+   - Canonicalizes 1 / S1 / Session 1 variants.
+   - Enforces the S1–S15 Session–Skill Contract before resume/unlock.
+   - Invalid historic rows are returned as quarantined audit data only;
+     they never affect the student Map, scores, or unlocks.
 ========================================================= */
 
 function eapPlayerResume_(params) {
@@ -29,7 +31,26 @@ function eapPlayerResume_(params) {
     })
     .map(eapResumeNormalizedRow_);
 
-  const summaryRows = eapResumeCanonicalizeRows_(rawRows)
+  const quarantinedRecords = rawRows
+    .filter(function(row) {
+      return !eapHeroSkillAllowed_(row.sessionId, row.skill);
+    })
+    .map(function(row) {
+      return {
+        sessionId: row.sessionId,
+        sessionTitle: row.sessionTitle,
+        skill: row.skill,
+        bestScore: row.bestScore,
+        updatedAt: row.updatedAt,
+        reason: eapHeroContractReason_(row.sessionId, row.skill)
+      };
+    });
+
+  const validRows = rawRows.filter(function(row) {
+    return eapHeroSkillAllowed_(row.sessionId, row.skill);
+  });
+
+  const summaryRows = eapResumeCanonicalizeRows_(validRows)
     .sort(function(a, b) {
       return eapResumeTimeMs_(b.updatedAt) - eapResumeTimeMs_(a.updatedAt) ||
         eapResumeSessionRank_(b.sessionId) - eapResumeSessionRank_(a.sessionId) ||
@@ -63,7 +84,7 @@ function eapPlayerResume_(params) {
 
   return {
     ok: true,
-    source: 'verified_summary_canonical',
+    source: 'verified_summary_contract_v3',
     student: {
       studentId: studentId,
       studentName: text_(latestProfile.studentName, requestedName || 'Student'),
@@ -72,7 +93,9 @@ function eapPlayerResume_(params) {
     records: summaryRows,
     recordCount: summaryRows.length,
     rawRecordCount: rawRows.length,
-    duplicatesCollapsed: Math.max(0, rawRows.length - summaryRows.length),
+    duplicatesCollapsed: Math.max(0, validRows.length - summaryRows.length),
+    quarantinedRecords: quarantinedRecords,
+    quarantinedCount: quarantinedRecords.length,
     serverRevision: serverRevision || now_().iso,
     generatedAt: now_().iso,
     latestActivity: latestActivity ? {
@@ -83,15 +106,15 @@ function eapPlayerResume_(params) {
     } : null,
     continueLabel: summaryRows.length
       ? 'ยืนยันความคืบหน้าถึง ' + (furthest.sessionId || latestActivity.sessionId)
-      : 'ยังไม่พบความคืบหน้าที่บันทึกไว้ใน Sheet'
+      : 'ยังไม่พบความคืบหน้าที่ใช้ได้ใน Sheet'
   };
 }
 
 function eapResumeNormalizedRow_(row) {
   return {
-    sessionId: eapResumeSessionId_(row.sessionId),
+    sessionId: eapHeroCanonicalSession_(row.sessionId),
     sessionTitle: text_(row.sessionTitle),
-    skill: eapResumeSkill_(row.skill),
+    skill: eapHeroCanonicalSkill_(row.skill),
     bestScore: number_(row.bestScore, 0),
     bestAccuracy: number_(row.bestAccuracy, 0),
     passed: text_(row.passed).toUpperCase() === 'TRUE',
@@ -138,27 +161,17 @@ function eapResumeCanonicalizeRows_(rows) {
   return Object.keys(grouped).map(function(key) { return grouped[key]; });
 }
 
+/* Kept as public aliases because existing dashboard helpers use these names. */
 function eapResumeSkill_(value) {
-  const raw = text_(value).trim().toLowerCase();
-  const map = {
-    reading:'Reading', listening:'Listening', writing:'Writing',
-    speaking:'Speaking', 'boss clash':'Boss Clash'
-  };
-  return map[raw] || text_(value);
+  return eapHeroCanonicalSkill_(value);
 }
 
 function eapResumeSessionId_(value) {
-  const raw = text_(value).toUpperCase().replace(/\s+/g, '');
-  if (/^\d+$/.test(raw)) return 'S' + raw;
-  const s = raw.match(/^S(?:ESSION)?(\d{1,2})$/);
-  if (s) return 'S' + s[1];
-  const b = raw.match(/^B(?:OSS)?(\d{1,2})$/);
-  if (b) return 'B' + b[1];
-  return raw;
+  return eapHeroCanonicalSession_(value);
 }
 
 function eapResumeSessionRank_(value) {
-  const sid = eapResumeSessionId_(value);
+  const sid = eapHeroCanonicalSession_(value);
   const s = sid.match(/^S(\d{1,2})$/);
   if (s) return Number(s[1]) * 10;
   const b = sid.match(/^B(\d{1,2})$/);
