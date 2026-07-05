@@ -1,1 +1,18 @@
-(()=>{'use strict';const U='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';const post=(kind,payload)=>fetch(U,{method:'POST',mode:'no-cors',cache:'no-store',keepalive:true,headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({action:'sync_v23',kind,payload:{...payload,section:'101',clientTs:payload?.clientTs||new Date().toISOString(),pageUrl:payload?.pageUrl||location.href}})}).then(()=>({ok:true,queued:true}));window.AIQuestCloudLogger={isCloudReady:()=>true,healthCheck:async()=>({ok:true,endpoint:U}),sendProfile:p=>post('profile',p),sendAttempt:p=>post('attempt',p),sendEvent:p=>post('event',p),flushPending:async()=>({ok:true,queued:true})};console.log('[AIQuest] cloud logger ready')})();
+(()=>{'use strict';
+const U='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
+const post=(kind,payload)=>fetch(U,{method:'POST',mode:'no-cors',cache:'no-store',keepalive:true,headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({action:'sync_v23',kind,payload:{...payload,section:'101',clientTs:payload?.clientTs||new Date().toISOString(),pageUrl:payload?.pageUrl||location.href}})}).then(()=>({ok:true,queued:true}));
+const jsonp=(action,params={})=>new Promise((resolve,reject)=>{
+  const callback='__aiquest_jsonp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9);
+  const url=new URL(U);url.searchParams.set('action',action);url.searchParams.set('callback',callback);
+  Object.keys(params).forEach(k=>url.searchParams.set(k,String(params[k]??'')));
+  const script=document.createElement('script');let done=false;
+  const cleanup=()=>{if(done)return;done=true;clearTimeout(timer);try{script.remove()}catch(e){}try{delete window[callback]}catch(e){window[callback]=undefined}};
+  const timer=setTimeout(()=>{cleanup();reject(new Error('Profile lookup timeout'))},9000);
+  window[callback]=data=>{cleanup();resolve(data||{})};
+  script.onerror=()=>{cleanup();reject(new Error('Profile lookup unavailable'))};
+  script.src=url.toString();document.head.appendChild(script);
+});
+const getProfile=async payload=>{const studentId=String(payload?.studentId||'').trim();if(!studentId)return{ok:false,found:false,error:'studentId is required'};return jsonp('profileLookup',{studentId,section:'101'})};
+window.AIQuestCloudLogger={isCloudReady:()=>true,healthCheck:async()=>({ok:true,endpoint:U}),sendProfile:p=>post('profile',p),sendAttempt:p=>post('attempt',p),sendEvent:p=>post('event',p),getProfile,flushPending:async()=>({ok:true,queued:true})};
+console.log('[AIQuest] cloud logger ready • Sheet-first profile lookup');
+})();
