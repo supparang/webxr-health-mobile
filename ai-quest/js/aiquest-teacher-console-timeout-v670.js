@@ -1,4 +1,4 @@
-/* CSAI2102 Teacher Console Sheets timeout bridge v6.7.2
+/* CSAI2102 Teacher Console Sheets timeout bridge v6.7.3
    Extends Sheets read time and loads safe post-render helpers. */
 (()=>{'use strict';
   const nativeFetch=window.fetch&&window.fetch.bind(window);
@@ -18,9 +18,9 @@
   };
   const script=(id,src)=>{if(document.getElementById(id))return;const el=document.createElement('script');el.id=id;el.src=src;document.head.appendChild(el);};
   const loadHelpers=()=>{
-    script('aiquestTeacherReflectionAuditV671','./js/aiquest-teacher-reflection-audit-v671.js?v=20260705-reflect-audit672');
-    script('aiquestTeacherViewRecoveryV672','./js/aiquest-teacher-view-recovery-v672.js?v=20260705-view672');
+    script('aiquestTeacherReflectionAuditV671','./js/aiquest-teacher-reflection-audit-v671.js?v=20260705-reflect-audit673');
+    script('aiquestTeacherViewRecoveryV673','./js/aiquest-teacher-view-recovery-v672.js?v=20260705-view673');
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadHelpers,{once:true});else loadHelpers();
-  console.log('[AIQuest] Teacher Console timeout and View recovery active');
+  console.log('[AIQuest] Teacher Console timeout and View recovery active v6.7.3');
 })();
