@@ -1,6 +1,6 @@
-/* UX Quest • Elite W1–B2 Question Upgrade v1
+/* UX Quest • Elite W1–B2 Question Upgrade v2
    Expands replay variants, makes B1/B2 true wave + final-boss runs,
-   and removes answer-length / answer-shape cues from option cards. */
+   removes answer-length / answer-shape cues, and assigns every replay case a unique ID. */
 (()=>{'use strict';
 const IDS=new Set(['w1','w2','w3','b1','w4','w5','w6','b2']);
 const txt=v=>String(v??'').replace(/\s+/g,' ').trim();
@@ -37,7 +37,7 @@ function makeCase(c,m,index,id){
 }
 function expand(bank,id){
  const src=Array.isArray(bank)?bank:[];
- return src.flatMap((c,i)=>variants.map((m,j)=>makeCase(c,m,(i+j)%3,id)));
+ return src.flatMap((c,i)=>variants.map((m,j)=>makeCase(c,m,(i+j)%3,`${id}-variant-${i}-${j}`)));
 }
 function neutralize(c){
  const mapStages=st=>Object.fromEntries(Object.entries(st||{}).map(([k,s])=>[k,{...s,options:(s.options||[]).map(o=>{
@@ -77,5 +77,5 @@ Object.defineProperty(window,'UXQMissionEngine',{
    current=Object.freeze({...engine,init(config){style();return init(upgrade(config));}});
  }
 });
-window.UXQEliteW1B2=Object.freeze({version:'v1',upgrade});
+window.UXQEliteW1B2=Object.freeze({version:'v2',upgrade});
 })();
