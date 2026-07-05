@@ -7,11 +7,14 @@
   if(allow.indexOf(mission)<0) mission='s1';
   var frame=document.getElementById('missionFrame');
   frame.src='./core3-mechanic-arena-v640.html?mission='+encodeURIComponent(mission)+'&student=1';
-  function removeTeacherUI(doc){
-    var style=doc.createElement('style');
-    style.textContent='#practice,#gameLab,[data-teacher-only]{display:none!important}';
-    doc.head.appendChild(style);
 
+  function removeTeacherUI(doc){
+    if(!doc.getElementById('studentOnlyStyle')){
+      var style=doc.createElement('style');
+      style.id='studentOnlyStyle';
+      style.textContent='#practice,#gameLab,[data-teacher-only]{display:none!important}';
+      doc.head.appendChild(style);
+    }
     var practice=doc.getElementById('practice');
     if(practice) practice.remove();
     var gameLab=doc.getElementById('gameLab');
@@ -36,12 +39,21 @@
       }
     });
   }
+
   frame.addEventListener('load',function(){
     try{
       var doc=frame.contentDocument;
       removeTeacherUI(doc);
       frame.style.visibility='visible';
-      var observer=new MutationObserver(function(){ removeTeacherUI(doc); });
+      var queued=false;
+      var observer=new MutationObserver(function(){
+        if(queued) return;
+        queued=true;
+        requestAnimationFrame(function(){
+          queued=false;
+          removeTeacherUI(doc);
+        });
+      });
       observer.observe(doc.body,{childList:true,subtree:true});
     }catch(err){
       frame.style.visibility='visible';
