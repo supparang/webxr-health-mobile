@@ -73,6 +73,14 @@
     if(inputs[0])inputs[0].value=p.studentName;
     if(inputs[1])inputs[1].value=p.studentId;
   }
+  function refreshOpenMap(){
+    var app=document.getElementById('app');
+    var text=String(app&&app.innerText||'');
+    if(!/SESSION\s*1/i.test(text))return;
+    var api=window.EAPHero;
+    var render=api&&(api.map||api.forceHome);
+    if(typeof render==='function')setTimeout(function(){try{render.call(api);}catch(_){}} , 0);
+  }
   function toast(message){
     var old=document.getElementById('eap-resume-truth-toast');if(old)old.remove();
     var el=document.createElement('div');el.id='eap-resume-truth-toast';el.textContent=message;
@@ -119,6 +127,7 @@
     }
     if(removed.length){
       toast('ล้างคะแนนเก่าที่ไม่มีใน Sheet '+removed.map(function(x){return x.sessionId+' '+x.skill;}).join(', ')+' แล้ว');
+      refreshOpenMap();
     }
     return removed.length>0;
   }
