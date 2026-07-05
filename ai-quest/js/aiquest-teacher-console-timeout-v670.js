@@ -28,5 +28,13 @@
     });
     return Promise.race([request,ceiling]).finally(()=>clearTimeout(timer));
   };
+  const loadReflectionAudit=()=>{
+    if(document.getElementById('aiquestTeacherReflectionAuditV671'))return;
+    const script=document.createElement('script');
+    script.id='aiquestTeacherReflectionAuditV671';
+    script.src='./js/aiquest-teacher-reflection-audit-v671.js?v=20260705-reflect-audit671';
+    document.head.appendChild(script);
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadReflectionAudit,{once:true});else loadReflectionAudit();
   console.log('[AIQuest] Teacher Console timeout bridge active (45s)');
 })();
