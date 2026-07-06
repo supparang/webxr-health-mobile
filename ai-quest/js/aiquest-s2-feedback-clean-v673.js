@@ -1,12 +1,22 @@
-/* CSAI2102 S2 Agent Builder Bootstrap v6.8.1 */
+/* CSAI2102 S2 Agent Builder Bootstrap v6.8.2 */
 (()=>{'use strict';
-  if(window.__AIQUEST_S2_BOOTSTRAP_V681__)return;
-  window.__AIQUEST_S2_BOOTSTRAP_V681__=true;
+  if(window.__AIQUEST_S2_BOOTSTRAP_V682__)return;
+  window.__AIQUEST_S2_BOOTSTRAP_V682__=true;
   const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
   let rotationReady=!!window.__AIQUEST_S2_ANSWER_ROTATION_V677__;
   let auditReady=!!window.__AIQUEST_S2_REPLAY_AUDIT_DIRECT_V681__;
   let evidenceReady=!!window.__AIQUEST_S2_REFLECTION_EVIDENCE_V681__;
+  let mapOrderReady=!!window.__AIQUEST_S2_MAP_ORDER_V682__;
 
+  function loadMapOrder(){
+    if(mapOrderReady||document.getElementById('aiquestS2MapOrderV682'))return;
+    const script=document.createElement('script');
+    script.id='aiquestS2MapOrderV682';
+    script.async=false;
+    script.src='./js/aiquest-s2-map-order-v682.js?v=20260706-maporder682';
+    script.onload=()=>{mapOrderReady=!!window.__AIQUEST_S2_MAP_ORDER_V682__};
+    document.head.appendChild(script);
+  }
   function loadReflectionEvidence(){
     if(evidenceReady||document.getElementById('aiquestS2ReflectionEvidenceV681'))return;
     const script=document.createElement('script');
@@ -16,14 +26,15 @@
     script.onload=()=>{evidenceReady=!!window.__AIQUEST_S2_REFLECTION_EVIDENCE_V681__};
     document.head.appendChild(script);
   }
+  function afterAuditReady(){loadReflectionEvidence();loadMapOrder()}
   function loadDirectAudit(){
-    if(auditReady){loadReflectionEvidence();return;}
+    if(auditReady){afterAuditReady();return;}
     if(document.getElementById('aiquestS2ReplayAuditDirectV680'))return;
     const script=document.createElement('script');
     script.id='aiquestS2ReplayAuditDirectV680';
     script.async=false;
     script.src='./js/aiquest-s2-replay-audit-direct-v680.js?v=20260706-audit681';
-    script.onload=()=>{const until=Date.now()+2500;const wait=()=>{auditReady=!!window.__AIQUEST_S2_REPLAY_AUDIT_DIRECT_V681__;if(auditReady){loadReflectionEvidence();return;}if(Date.now()<until)return setTimeout(wait,40);const node=document.getElementById('profileNote');if(node){node.className='notice bad';node.textContent='ยังเตรียม Replay Audit ไม่สำเร็จ กรุณารีเฟรชหน้าแล้วลองใหม่'}};wait()};
+    script.onload=()=>{const until=Date.now()+2500;const wait=()=>{auditReady=!!window.__AIQUEST_S2_REPLAY_AUDIT_DIRECT_V681__;if(auditReady){afterAuditReady();return;}if(Date.now()<until)return setTimeout(wait,40);const node=document.getElementById('profileNote');if(node){node.className='notice bad';node.textContent='ยังเตรียม Replay Audit ไม่สำเร็จ กรุณารีเฟรชหน้าแล้วลองใหม่'}};wait()};
     document.head.appendChild(script);
   }
   function loadRotation(){
@@ -36,7 +47,7 @@
     script.onload=()=>{rotationReady=!!window.__AIQUEST_S2_ANSWER_ROTATION_V677__;loadDirectAudit()};
     document.head.appendChild(script);
   }
-  const launchReady=()=>rotationReady&&auditReady&&evidenceReady;
+  const launchReady=()=>rotationReady&&auditReady&&evidenceReady&&mapOrderReady;
 
   function repair(){
     const node=document.getElementById('feedback');
@@ -57,12 +68,12 @@
   }
   function resumeStart(button,tries){
     if(launchReady()){button.click();return;}
-    loadRotation();loadDirectAudit();loadReflectionEvidence();
+    loadRotation();loadDirectAudit();loadReflectionEvidence();loadMapOrder();
     if(tries>0)setTimeout(()=>resumeStart(button,tries-1),60);
-    else{const node=document.getElementById('profileNote');if(node){node.className='notice bad';node.textContent='ยังเริ่ม Deck ไม่ได้ เพราะ Replay Audit หรือ Reflection Evidence ยังไม่พร้อม กรุณารีเฟรชหน้า'}}
+    else{const node=document.getElementById('profileNote');if(node){node.className='notice bad';node.textContent='ยังเริ่ม Deck ไม่ได้ เพราะระบบกันคำตอบซ้ำหรือ Reflection Evidence ยังไม่พร้อม กรุณารีเฟรชหน้า'}}
   }
   function boot(){
-    loadRotation();loadDirectAudit();loadReflectionEvidence();
+    loadRotation();loadDirectAudit();loadReflectionEvidence();loadMapOrder();
     let queued=false;
     const queue=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;repair()},0)};
     new MutationObserver(queue).observe(document.body,{childList:true,subtree:true,characterData:true});
