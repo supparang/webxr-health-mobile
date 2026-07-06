@@ -1,20 +1,31 @@
-/* CSAI2102 S2 Agent Builder Bootstrap v6.8.2 */
+/* CSAI2102 S2 Agent Builder Bootstrap v6.8.3 */
 (()=>{'use strict';
-  if(window.__AIQUEST_S2_BOOTSTRAP_V682__)return;
-  window.__AIQUEST_S2_BOOTSTRAP_V682__=true;
+  if(window.__AIQUEST_S2_BOOTSTRAP_V683__)return;
+  window.__AIQUEST_S2_BOOTSTRAP_V683__=true;
   const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
   let rotationReady=!!window.__AIQUEST_S2_ANSWER_ROTATION_V677__;
   let auditReady=!!window.__AIQUEST_S2_REPLAY_AUDIT_DIRECT_V681__;
   let evidenceReady=!!window.__AIQUEST_S2_REFLECTION_EVIDENCE_V681__;
   let mapOrderReady=!!window.__AIQUEST_S2_MAP_ORDER_V682__;
+  let choiceParityReady=!!window.__AIQUEST_S2_CHOICE_PARITY_V683__;
 
+  function loadChoiceParity(){
+    if(choiceParityReady||document.getElementById('aiquestS2ChoiceParityV683'))return;
+    const script=document.createElement('script');
+    script.id='aiquestS2ChoiceParityV683';
+    script.async=false;
+    script.src='./js/aiquest-s2-choice-parity-v683.js?v=20260706-parity683';
+    script.onload=()=>{choiceParityReady=!!window.__AIQUEST_S2_CHOICE_PARITY_V683__};
+    document.head.appendChild(script);
+  }
   function loadMapOrder(){
-    if(mapOrderReady||document.getElementById('aiquestS2MapOrderV682'))return;
+    if(mapOrderReady){loadChoiceParity();return;}
+    if(document.getElementById('aiquestS2MapOrderV682'))return;
     const script=document.createElement('script');
     script.id='aiquestS2MapOrderV682';
     script.async=false;
     script.src='./js/aiquest-s2-map-order-v682.js?v=20260706-maporder682';
-    script.onload=()=>{mapOrderReady=!!window.__AIQUEST_S2_MAP_ORDER_V682__};
+    script.onload=()=>{mapOrderReady=!!window.__AIQUEST_S2_MAP_ORDER_V682__;loadChoiceParity()};
     document.head.appendChild(script);
   }
   function loadReflectionEvidence(){
@@ -47,7 +58,7 @@
     script.onload=()=>{rotationReady=!!window.__AIQUEST_S2_ANSWER_ROTATION_V677__;loadDirectAudit()};
     document.head.appendChild(script);
   }
-  const launchReady=()=>rotationReady&&auditReady&&evidenceReady&&mapOrderReady;
+  const launchReady=()=>rotationReady&&auditReady&&evidenceReady&&mapOrderReady&&choiceParityReady;
 
   function repair(){
     const node=document.getElementById('feedback');
@@ -68,12 +79,12 @@
   }
   function resumeStart(button,tries){
     if(launchReady()){button.click();return;}
-    loadRotation();loadDirectAudit();loadReflectionEvidence();loadMapOrder();
+    loadRotation();loadDirectAudit();loadReflectionEvidence();loadMapOrder();loadChoiceParity();
     if(tries>0)setTimeout(()=>resumeStart(button,tries-1),60);
-    else{const node=document.getElementById('profileNote');if(node){node.className='notice bad';node.textContent='ยังเริ่ม Deck ไม่ได้ เพราะระบบกันคำตอบซ้ำหรือ Reflection Evidence ยังไม่พร้อม กรุณารีเฟรชหน้า'}}
+    else{const node=document.getElementById('profileNote');if(node){node.className='notice bad';node.textContent='ยังเริ่ม Deck ไม่ได้ เพราะระบบกันคำตอบซ้ำ/ความยาวตัวเลือก หรือ Reflection Evidence ยังไม่พร้อม กรุณารีเฟรชหน้า'}}
   }
   function boot(){
-    loadRotation();loadDirectAudit();loadReflectionEvidence();loadMapOrder();
+    loadRotation();loadDirectAudit();loadReflectionEvidence();loadMapOrder();loadChoiceParity();
     let queued=false;
     const queue=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;repair()},0)};
     new MutationObserver(queue).observe(document.body,{childList:true,subtree:true,characterData:true});
