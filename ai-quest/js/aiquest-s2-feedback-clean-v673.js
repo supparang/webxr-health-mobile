@@ -1,31 +1,31 @@
-/* CSAI2102 S2 Agent Builder Bootstrap v6.7.8 */
+/* CSAI2102 S2 Agent Builder Bootstrap v6.8.0 */
 (()=>{'use strict';
-  if(window.__AIQUEST_S2_BOOTSTRAP_V678__)return;
-  window.__AIQUEST_S2_BOOTSTRAP_V678__=true;
+  if(window.__AIQUEST_S2_BOOTSTRAP_V680__)return;
+  window.__AIQUEST_S2_BOOTSTRAP_V680__=true;
   const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
   let rotationReady=!!window.__AIQUEST_S2_ANSWER_ROTATION_V677__;
-  let captureReady=!!window.__AIQUEST_S2_REPLAY_AUDIT_CAPTURE_V678__;
+  let auditReady=!!window.__AIQUEST_S2_REPLAY_AUDIT_DIRECT_V680__;
 
-  function loadCapture(){
-    if(captureReady||document.getElementById('aiquestS2ReplayAuditCaptureV678'))return;
+  function loadDirectAudit(){
+    if(auditReady||document.getElementById('aiquestS2ReplayAuditDirectV680'))return;
     const script=document.createElement('script');
-    script.id='aiquestS2ReplayAuditCaptureV678';
+    script.id='aiquestS2ReplayAuditDirectV680';
     script.async=false;
-    script.src='./js/aiquest-s2-replay-audit-capture-v678.js?v=20260706-audit678';
-    script.onload=()=>{captureReady=!!window.__AIQUEST_S2_REPLAY_AUDIT_CAPTURE_V678__};
+    script.src='./js/aiquest-s2-replay-audit-direct-v680.js?v=20260706-audit680';
+    script.onload=()=>{const until=Date.now()+2500;const wait=()=>{auditReady=!!window.__AIQUEST_S2_REPLAY_AUDIT_DIRECT_V680__;if(!auditReady&&Date.now()<until)return setTimeout(wait,40);if(!auditReady){const node=document.getElementById('profileNote');if(node){node.className='notice bad';node.textContent='ยังเตรียม Replay Audit ไม่สำเร็จ กรุณารีเฟรชหน้าแล้วลองใหม่'}}};wait()};
     document.head.appendChild(script);
   }
   function loadRotation(){
-    if(rotationReady){loadCapture();return;}
+    if(rotationReady){loadDirectAudit();return;}
     if(document.getElementById('aiquestS2AnswerRotationV677'))return;
     const script=document.createElement('script');
     script.id='aiquestS2AnswerRotationV677';
     script.async=false;
     script.src='./js/aiquest-s2-answer-rotation-v677.js?v=20260706-answer677';
-    script.onload=()=>{rotationReady=!!window.__AIQUEST_S2_ANSWER_ROTATION_V677__;loadCapture()};
+    script.onload=()=>{rotationReady=!!window.__AIQUEST_S2_ANSWER_ROTATION_V677__;loadDirectAudit()};
     document.head.appendChild(script);
   }
-  const launchReady=()=>rotationReady&&captureReady;
+  const launchReady=()=>rotationReady&&auditReady;
 
   function repair(){
     const node=document.getElementById('feedback');
@@ -46,10 +46,12 @@
   }
   function resumeStart(button,tries){
     if(launchReady()){button.click();return;}
-    if(tries>0){loadRotation();loadCapture();setTimeout(()=>resumeStart(button,tries-1),60);}
+    loadRotation();loadDirectAudit();
+    if(tries>0)setTimeout(()=>resumeStart(button,tries-1),60);
+    else{const node=document.getElementById('profileNote');if(node){node.className='notice bad';node.textContent='ยังเริ่ม Deck ไม่ได้ เพราะ Replay Audit ยังไม่พร้อม กรุณารีเฟรชหน้า'}}
   }
   function boot(){
-    loadRotation();loadCapture();
+    loadRotation();loadDirectAudit();
     let queued=false;
     const queue=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;repair()},0)};
     new MutationObserver(queue).observe(document.body,{childList:true,subtree:true,characterData:true});
@@ -57,7 +59,7 @@
       const start=event.target&&event.target.closest?event.target.closest('#start'):null;
       if(start&&!launchReady()){
         event.preventDefault();event.stopImmediatePropagation();event.stopPropagation();
-        resumeStart(start,25);
+        resumeStart(start,42);
         return;
       }
       if(event.target&&event.target.closest&&event.target.closest('#checkMap'))setTimeout(repair,0);
