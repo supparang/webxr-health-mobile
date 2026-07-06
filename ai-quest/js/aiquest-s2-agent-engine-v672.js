@@ -1,11 +1,11 @@
-/* CSAI2102 AI Quest — S2 Agent Builder Student Engine v6.7.2 */
+/* CSAI2102 AI Quest — S2 Agent Builder Student Engine v6.7.5 */
 (()=>{'use strict';
   const $=id=>document.getElementById(id);
   const MID='s2';
   const CORE='CSAI2102_CORE3_MECHANIC_V640';
   const LEGACY='CSAI2102_AIQUEST_V16_M1_GOOGLE_SHEETS';
   const STRICT='CSAI2102_CORE3_STRICT_V650';
-  const VERSION='v6.7.2-s2-agent-builder';
+  const VERSION='v6.7.5-s2-agent-builder';
   let state=null;
   const number=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
   const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
@@ -24,7 +24,7 @@
   function toast(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>$('toast').classList.remove('show'),2400)}
   function notice(text,kind){const node=$('saveNote');if(!node)return;node.className='notice '+(kind||'');node.innerHTML=text}
   function entry(){
-    const p=profile();const open=priorPassed();
+    const p=profile(),open=priorPassed();
     $('sid').value=p.studentId||'';$('name').value=p.studentName||p.name||'';$('section').value='101';
     $('status').textContent=open?'พร้อมเริ่ม':'ยังล็อก';
     $('status').className='value '+(open?'ok':'warn');
@@ -70,16 +70,20 @@
     document.querySelectorAll('[data-choice]').forEach(node=>node.onclick=()=>answerChoice(card,options[number(node.dataset.choice)],false));
   }
   function skill(card,ok){if(!state.skills[card.skill])state.skills[card.skill]={correct:0,total:0};state.skills[card.skill].total++;if(ok)state.skills[card.skill].correct++}
-  function mark(card,ok,detail){
+  function mark(card,ok,detail,trustedHtml){
     if(state.answered||state.ended)return;state.answered=true;clearInterval(state.timer);skill(card,ok);
     if(ok){state.correct++;state.combo++;state.comboMax=Math.max(state.comboMax,state.combo);if(card.kind==='m')state.mechanic++;else if(card.kind==='q')state.knowledge++;else state.twist++;}else{state.combo=0;state.wrong.push({phase:card.phase,skill:card.skill,prompt:card.prompt,correct:card.correct||'จัดวาง PEAS ให้ถูกต้อง',explain:card.explain});}
     $('next').disabled=false;hud();
-    feedback(ok?'<b>✅ Agent Decision ถูกต้อง</b><br>'+esc(detail||card.explain):'<b>⚠️ Case Intel</b><br>'+esc(detail||card.explain),ok?'good':'bad');
+    const safeDetail=trustedHtml?String(detail||''):esc(detail||card.explain);
+    feedback(ok?'<b>✅ Agent Decision ถูกต้อง</b><br>'+safeDetail:'<b>⚠️ Case Intel</b><br>'+safeDetail,ok?'good':'bad');
   }
   function answerMap(card,right,selected){
     document.querySelectorAll('.slotSelect').forEach((node,index)=>{node.disabled=true;node.classList.add(selected[index]===card.cards[index].answer?'slotOk':'slotNo')});$('checkMap').disabled=true;
-    const ok=right>=3;const correctList=card.cards.map((item,index)=>'<li><b>'+esc(item.answer)+'</b>: '+esc(item.text)+(selected[index]===item.answer?' ✓':' ✦')+'</li>').join('');
-    mark(card,ok,(ok?'จัด PEAS ถูกต้อง '+right+'/4 ข้อ':'จัด PEAS ถูกต้อง '+right+'/4 ข้อ — ต้องอย่างน้อย 3/4 จึงผ่าน Mechanic')+'<ul class="answerList">'+correctList+'</ul>'+esc(card.explain));
+    const ok=right>=3;
+    const correctList=card.cards.map((item,index)=>'<li><b>'+esc(item.answer)+'</b>: '+esc(item.text)+(selected[index]===item.answer?' ✓':' ✦')+'</li>').join('');
+    const prefix=ok?'จัด PEAS ถูกต้อง '+right+'/4 ข้อ':'จัด PEAS ถูกต้อง '+right+'/4 ข้อ — ต้องอย่างน้อย 3/4 จึงผ่าน Mechanic';
+    const detail='<div>'+esc(prefix)+'</div><ul class="answerList">'+correctList+'</ul><div>'+esc(card.explain)+'</div>';
+    mark(card,ok,detail,true);
   }
   function answerChoice(card,value,isTimeout){
     if(state.answered||state.ended)return;const ok=value===card.correct;
