@@ -1,7 +1,7 @@
-/* CSAI2102 Teacher Console Fetch Bridge v6.7.5 */
+/* CSAI2102 Teacher Console Fetch Bridge v6.7.8 */
 (()=>{'use strict';
-  if(window.__AIQUEST_TEACHER_FETCH_BRIDGE_V675__)return;
-  window.__AIQUEST_TEACHER_FETCH_BRIDGE_V675__=true;
+  if(window.__AIQUEST_TEACHER_FETCH_BRIDGE_V678__)return;
+  window.__AIQUEST_TEACHER_FETCH_BRIDGE_V678__=true;
   const native=window.fetch&&window.fetch.bind(window);
   if(native){
     const target=url=>String(url||'').indexOf('script.google.com/macros/')>=0&&/[?&]action=teacherConsole(?:&|$)/.test(String(url||''));
@@ -15,12 +15,12 @@
       return Promise.race([request,maxWait]).finally(()=>clearTimeout(timer));
     };
   }
-  const id='aiquestTeacherS2SkillPanelV675';
-  if(!document.getElementById(id)){
+  const load=(id,src)=>{
+    if(document.getElementById(id))return;
     const script=document.createElement('script');
-    script.id=id;
-    script.src='./js/aiquest-teacher-s2-skill-panel-v675.js?v=20260706-s2skills675';
-    document.head.appendChild(script);
-  }
-  console.log('[AIQuest] Teacher Console fetch bridge v6.7.5 active');
+    script.id=id;script.src=src;document.head.appendChild(script);
+  };
+  load('aiquestTeacherS2SkillPanelV675','./js/aiquest-teacher-s2-skill-panel-v675.js?v=20260706-s2skills675');
+  load('aiquestTeacherS2ReplayAuditV678','./js/aiquest-teacher-s2-replay-audit-v678.js?v=20260706-replayaudit678');
+  console.log('[AIQuest] Teacher Console fetch bridge v6.7.8 active');
 })();
