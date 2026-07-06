@@ -1,7 +1,8 @@
-/* CSAI2102 S2 Agent Builder feedback render fix v6.7.4 */
+/* CSAI2102 S2 Agent Builder feedback render fix v6.7.5 */
 (()=>{'use strict';
-  if(window.__AIQUEST_S2_FEEDBACK_CLEAN_V674__)return;
-  window.__AIQUEST_S2_FEEDBACK_CLEAN_V674__=true;
+  if(window.__AIQUEST_S2_FEEDBACK_CLEAN_V675__)return;
+  window.__AIQUEST_S2_FEEDBACK_CLEAN_V675__=true;
+  const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
 
   const repair=()=>{
     const node=document.getElementById('feedback');
@@ -11,7 +12,9 @@
     const end=raw.indexOf('</ul>',start);
     if(start<0||end<0)return false;
 
+    const originalTitle=String(node.querySelector('b')?.textContent||'✅ Agent Decision ถูกต้อง').trim();
     const before=raw.slice(0,start).trim();
+    const intro=before.indexOf(originalTitle)===0?before.slice(originalTitle.length).trim():before;
     const list=raw.slice(start,end+5);
     const after=raw.slice(end+5).trim();
     const parser=document.createElement('div');
@@ -19,21 +22,21 @@
     const items=[...parser.querySelectorAll('li')].map(item=>item.textContent.trim()).filter(Boolean);
     if(!items.length)return false;
 
-    const title=node.querySelector('b')?.textContent||'✅ Agent Decision ถูกต้อง';
-    node.innerHTML='<b>'+title.replace(/[&<>"\']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]))+'</b><br>'+before.replace(title,'').trim().replace(/[&<>"\']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]))+'<ul class="answerList">'+items.map(item=>'<li>'+item.replace(/[&<>"\']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]))+'</li>').join('')+'</ul><div>'+after.replace(/[&<>"\']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]))+'</div>';
+    node.innerHTML='<div style="font-weight:900;font-size:17px;margin-bottom:8px">'+esc(originalTitle)+'</div>'+
+      '<div style="margin-bottom:8px">'+esc(intro)+'</div>'+
+      '<ul class="answerList" style="margin:7px 0 9px;padding-left:21px;display:grid;gap:5px">'+items.map(item=>'<li>'+esc(item)+'</li>').join('')+'</ul>'+
+      '<div style="opacity:.96">'+esc(after)+'</div>';
     return true;
   };
 
   const observe=()=>{
-    const root=document.body;
-    if(!root)return;
     let queued=false;
     const queue=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;repair()},0)};
-    new MutationObserver(queue).observe(root,{childList:true,subtree:true,characterData:true});
+    new MutationObserver(queue).observe(document.body,{childList:true,subtree:true,characterData:true});
     document.addEventListener('click',event=>{
       if(event.target&&event.target.closest&&event.target.closest('#checkMap'))setTimeout(repair,0);
     },false);
-    setInterval(repair,180);
+    setInterval(repair,220);
     repair();
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',observe,{once:true});else observe();
