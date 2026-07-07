@@ -1,15 +1,18 @@
-/* CSAI2102 S2 Agent Builder Bootstrap v6.8.9
-   The reflection case selector is essential. All other replay decorators are optional.
+/* CSAI2102 S2 Agent Builder Bootstrap v6.9.0
+   Reflection integrity and final fingerprint uniqueness are required.
+   Other replay decorators improve variety but must never block a learner from starting.
 */
 (()=>{'use strict';
-  if(window.__AIQUEST_S2_BOOTSTRAP_V689__)return;
-  window.__AIQUEST_S2_BOOTSTRAP_V689__=true;
+  if(window.__AIQUEST_S2_BOOTSTRAP_V690__)return;
+  window.__AIQUEST_S2_BOOTSTRAP_V690__=true;
   const essential=[
     ['case-evidence','./js/aiquest-s2-reflection-evidence-v675.js?v=20260707-case675',()=>!!window.__AIQUEST_S2_CASE_EVIDENCE_V675__],
+    ['semantic-evidence','./js/aiquest-s2-reflection-semantic-gate-v678.js?v=20260707-semantic678',()=>!!window.__AIQUEST_S2_REFLECTION_SEMANTIC_GATE_V678__],
     ['case-skillfix','./js/aiquest-s2-case-evidence-skillfix-v676.js?v=20260707-case676',()=>!!window.__AIQUEST_S2_CASE_EVIDENCE_SKILLFIX_V676__]
   ];
   const optional=[
     ['rotation','./js/aiquest-s2-answer-rotation-v677.js?v=20260706-answer677',()=>!!window.__AIQUEST_S2_ANSWER_ROTATION_V677__],
+    ['fingerprint-window','./js/aiquest-s2-fingerprint-window-v681.js?v=20260707-fingerprint681',()=>!!window.__AIQUEST_S2_FINGERPRINT_WINDOW_V681__],
     ['audit','./js/aiquest-s2-replay-audit-direct-v680.js?v=20260706-audit681',()=>!!window.__AIQUEST_S2_REPLAY_AUDIT_DIRECT_V681__],
     ['map-order','./js/aiquest-s2-map-order-v682.js?v=20260706-maporder682',()=>!!window.__AIQUEST_S2_MAP_ORDER_V682__],
     ['parity','./js/aiquest-s2-choice-parity-v683.js?v=20260706-parity683',()=>!!window.__AIQUEST_S2_CHOICE_PARITY_V683__],
