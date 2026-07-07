@@ -1,9 +1,9 @@
-/* CSAI2102 Teacher S2 Review Focus v6.8.1
-   Maintains summary risks and loads the direct evidence overlay for the student modal.
+/* CSAI2102 Teacher Review Focus v6.8.2
+   Maintains S2 skill review focus and loads both S2 and Core reflection-evidence overlays.
 */
 (()=>{'use strict';
-  if(window.__AIQUEST_TEACHER_S2_REVIEW_FOCUS_V681__)return;
-  window.__AIQUEST_TEACHER_S2_REVIEW_FOCUS_V681__=true;
+  if(window.__AIQUEST_TEACHER_REVIEW_FOCUS_V682__)return;
+  window.__AIQUEST_TEACHER_REVIEW_FOCUS_V682__=true;
   const runtime=()=>window.AIQUEST_TEACHER_SAFE_V533||window.AIQUEST_TEACHER_SAFE_V532||null;
   const num=value=>{const n=Number(value);return Number.isFinite(n)?n:0;};
   const parse=value=>{if(!value)return null;if(typeof value==='object')return value;try{return JSON.parse(String(value));}catch(e){return null;}};
@@ -26,11 +26,14 @@
     students.forEach(student=>{const old=Array.isArray(student.risks)?student.risks.map(String):[],keep=old.filter(item=>!item.startsWith(PREFIX)&&item!=='คะแนนล่าสุดควรทบทวน'),derived=lines(student),next=[...derived,...keep];if(next.join('|')!==old.join('|')){student.risks=next;changed=true;}});
     if(changed){const search=document.getElementById('studentSearch');if(search&&typeof search.oninput==='function')search.oninput();}
   }
-  function loadEvidenceOverlay(){
-    if(window.__AIQUEST_TEACHER_S2_REVIEW_EVIDENCE_V681__)return;
-    const id='aiquestTeacherS2ReviewEvidenceV681';if(document.getElementById(id))return;
-    const script=document.createElement('script');script.id=id;script.src='./js/aiquest-teacher-s2-review-evidence-v681.js?v=20260707-review681';script.async=false;document.head.appendChild(script);
+  function load(id,src,flag){
+    if(window[flag]||document.getElementById(id))return;
+    const script=document.createElement('script');script.id=id;script.src=src;script.async=false;document.head.appendChild(script);
+  }
+  function loadEvidenceOverlays(){
+    load('aiquestTeacherS2ReviewEvidenceV681','./js/aiquest-teacher-s2-reflection-evidence-v681.js?v=20260707-s2evidence681','__AIQUEST_TEACHER_S2_REFLECTION_EVIDENCE_V681__');
+    load('aiquestTeacherCoreReflectionEvidenceV676','./js/aiquest-teacher-core-reflection-evidence-v676.js?v=20260707-coreevidence676','__AIQUEST_TEACHER_CORE_REFLECTION_EVIDENCE_V676__');
   }
   const state=document.getElementById('loadState');if(state)new MutationObserver(()=>setTimeout(apply,80)).observe(state,{childList:true,characterData:true,subtree:true});
-  setInterval(apply,300);apply();loadEvidenceOverlay();
+  setInterval(apply,300);apply();loadEvidenceOverlays();
 })();
