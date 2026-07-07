@@ -1,9 +1,9 @@
-/* CSAI2102 S2 Agent Builder Bootstrap v6.8.5
+/* CSAI2102 S2 Agent Builder Bootstrap v6.8.6
    Loads all deck decorators in a fixed order so later layers cannot be overwritten.
 */
 (()=>{'use strict';
-  if(window.__AIQUEST_S2_BOOTSTRAP_V685__)return;
-  window.__AIQUEST_S2_BOOTSTRAP_V685__=true;
+  if(window.__AIQUEST_S2_BOOTSTRAP_V686__)return;
+  window.__AIQUEST_S2_BOOTSTRAP_V686__=true;
   const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
   let prepared=false,preparing=null;
 
@@ -14,7 +14,8 @@
     ['parity','./js/aiquest-s2-choice-parity-v683.js?v=20260706-parity683',()=>!!window.__AIQUEST_S2_CHOICE_PARITY_V683__],
     ['near-miss','./js/aiquest-s2-distractor-depth-v684.js?v=20260706-depth684',()=>!!window.__AIQUEST_S2_DISTRACTOR_DEPTH_V684__],
     ['authorship','./js/aiquest-s2-choice-authorship-v685.js?v=20260706-authorship685',()=>!!window.__AIQUEST_S2_CHOICE_AUTHORSHIP_V685__],
-    ['reflection-evidence','./js/aiquest-s2-reflection-evidence-v681.js?v=20260706-evidence681',()=>!!window.__AIQUEST_S2_REFLECTION_EVIDENCE_V681__]
+    ['reflection-evidence','./js/aiquest-s2-reflection-evidence-v681.js?v=20260706-evidence681',()=>!!window.__AIQUEST_S2_REFLECTION_EVIDENCE_V681__],
+    ['evidence-dropdown','./js/aiquest-s2-evidence-dropdown-v686.js?v=20260706-dropdown686',()=>!!window.__AIQUEST_S2_EVIDENCE_DROPDOWN_V686__]
   ];
 
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
