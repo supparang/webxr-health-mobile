@@ -1,23 +1,18 @@
-/* CSAI2102 AI Quest — Core Replay Engine v6.7.4
-   Recovery hotfix: resume a valid unfinished deck after refresh and make Next idempotent.
+/* CSAI2102 AI Quest — Core Replay Engine v6.8.2
+   Runtime recovery plus a hard uniqueness postcondition for visible Case contexts.
 */
 (()=>{'use strict';
   const $=id=>document.getElementById(id);
   const params=new URLSearchParams(location.search);
   const MID=String(params.get('mission')||'s1').toLowerCase();
-  const CORE='CSAI2102_CORE3_MECHANIC_V640';
-  const LEGACY='CSAI2102_AIQUEST_V16_M1_GOOGLE_SHEETS';
-  const PHASE2='CSAI2102_AIQUEST_PHASE2_V511';
-  const STRICT='CSAI2102_CORE3_STRICT_V650';
-  const ACTIVE='CSAI2102_ACTIVE_REPLAY_V674_'+MID;
-  const VERSION='v6.7.4-replay-recovery';
-  let state=null;
-  let starting=false;
-
+  const CORE='CSAI2102_CORE3_MECHANIC_V640',LEGACY='CSAI2102_AIQUEST_V16_M1_GOOGLE_SHEETS',PHASE2='CSAI2102_AIQUEST_PHASE2_V511',STRICT='CSAI2102_CORE3_STRICT_V650',ACTIVE='CSAI2102_ACTIVE_REPLAY_V674_'+MID,VERSION='v6.8.2-context-hard-gate';
+  let state=null,starting=false;
   const number=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
   const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const shuffle=a=>{const x=[...(a||[])];for(let i=x.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[x[i],x[j]]=[x[j],x[i]]}return x};
   const uid=p=>p+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9);
+  const tidy=v=>String(v==null?'':v).replace(/\s+/g,' ').trim();
+  const hash=v=>{let n=0;for(const ch of String(v||''))n=(n*31+ch.charCodeAt(0))>>>0;return n};
   function read(key,fallback){try{const v=JSON.parse(localStorage.getItem(key)||'null');return v==null?fallback:v}catch(e){return fallback}}
   function write(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch(e){}}
   function remove(key){try{localStorage.removeItem(key)}catch(e){}}
@@ -34,158 +29,83 @@
   function isBoss(){return MID.startsWith('b')}
   function strictRecord(){return read(STRICT,{})}
 
-  function clearRun(){remove(ACTIVE)}
-  function saveRun(){
-    if(!state)return;
-    try{
-      const snapshot=JSON.parse(JSON.stringify({...state,timer:null,missionId:MID,snapshotAt:Date.now()}));
-      write(ACTIVE,snapshot);
-    }catch(e){}
+  const places={
+    s1:['ศูนย์คัดกรองอีเมลภาควิชา','ห้องสมุดดิจิทัล','ศูนย์บริการชุมชน','คลินิกมหาวิทยาลัย','ร้านค้าปลีกชุมชน','ระบบรถรับส่งมหาวิทยาลัย','ศูนย์แนะแนวอาชีพ','โรงอาหารอัจฉริยะ','ศูนย์กีฬา','ห้องปฏิบัติการวิทยาศาสตร์','ระบบทุนการศึกษา','ศูนย์บริการนักศึกษา','ศูนย์สุขภาพชุมชน','สำนักงานทะเบียน','ศูนย์ข้อมูลเทศบาล','ศูนย์อาสาสมัคร','โรงพยาบาลสัตว์มหาวิทยาลัย','ศูนย์เรียนรู้ผู้สูงอายุ','ศูนย์จัดการพลังงาน','ศูนย์ควบคุมจราจร','ศูนย์รับแจ้งเหตุ','ศูนย์คัดแยกขยะ','ศูนย์บริการผู้พิการ','ตลาดชุมชนดิจิทัล','ศูนย์ตรวจคุณภาพน้ำ','ศูนย์ดูแลอาคารอัจฉริยะ','ศูนย์จัดการห้องเรียน','ศูนย์ติดตามอุปกรณ์','ศูนย์ช่วยเหลือฉุกเฉิน','ศูนย์ประเมินการเข้าถึงบริการ'],
+    s2:['หุ่นยนต์ส่งยา','รถรับส่งอัตโนมัติ','รถเข็นห้องสมุด','โดรนส่งเอกสาร','ระบบจัดคิวผู้ป่วย','หุ่นยนต์คลังสินค้า','ระบบประตูอัจฉริยะ','หุ่นยนต์ทำความสะอาด','ระบบแนะนำห้องเรียน','จุดตรวจบัตรอัตโนมัติ','หุ่นยนต์ช่วยผู้สูงอายุ','ระบบคัดแยกขยะ','โดรนสำรวจอาคาร','ระบบแจ้งเตือนภัย','รถเข็นอาหารอัตโนมัติ','ระบบจัดคิวโรงอาหาร','แขนกลห้องปฏิบัติการ','ระบบส่งเอกสารภายใน','หุ่นยนต์บริการประชาชน','ระบบนำทางผู้พิการ','รถเข็นเวชภัณฑ์','ระบบตรวจความปลอดภัยอาคาร','หุ่นยนต์ดูแลสวน','ระบบช่วยค้นหาหนังสือ'],
+    default:['ศูนย์ปฏิบัติการ A','ศูนย์ปฏิบัติการ B','ศูนย์ปฏิบัติการ C','ศูนย์ปฏิบัติการ D','ศูนย์ปฏิบัติการ E','ศูนย์ปฏิบัติการ F','ศูนย์ปฏิบัติการ G','ศูนย์ปฏิบัติการ H','ศูนย์ปฏิบัติการ I','ศูนย์ปฏิบัติการ J','ศูนย์ปฏิบัติการ K','ศูนย์ปฏิบัติการ L','ศูนย์ปฏิบัติการ M','ศูนย์ปฏิบัติการ N','ศูนย์ปฏิบัติการ O','ศูนย์ปฏิบัติการ P','ศูนย์ปฏิบัติการ Q','ศูนย์ปฏิบัติการ R','ศูนย์ปฏิบัติการ S','ศูนย์ปฏิบัติการ T','ศูนย์ปฏิบัติการ U','ศูนย์ปฏิบัติการ V','ศูนย์ปฏิบัติการ W','ศูนย์ปฏิบัติการ X']
+  };
+  const fallbackLenses=['ตรวจข้อมูลรับเข้า','ตั้งเกณฑ์การตัดสินใจ','สื่อสารข้อจำกัด','ตรวจผลกระทบต่อผู้ใช้','บันทึกหลักฐาน','ส่งต่อ human review','จัดการข้อมูลไม่ครบ','คุ้มครองสิทธิ์ผู้ใช้','ตรวจผลก่อนแจ้ง','เปรียบเทียบทางเลือก','ทดสอบกรณีพิเศษ','ติดตามผลหลังให้คำแนะนำ','จำกัดขอบเขตการตัดสินใจอัตโนมัติ','ใช้ทางเลือกปลอดภัยเมื่อไม่แน่ใจ','จัดลำดับผู้ใช้ตามเงื่อนไข'];
+  function lensFor(card,index){
+    const source=(tidy(card?.prompt)+' '+tidy(card?.correct)+' '+tidy(card?.explain)).toLowerCase();
+    if(source.includes('อีเมล')||source.includes('สแปม'))return 'คัดกรองอีเมลรายงาน';
+    if(source.includes('ปัญญาประดิษฐ์')||/(^|[^a-z])ai([^a-z]|$)/.test(source))return 'แยก AI ออกจากระบบตามกฎ';
+    if(source.includes('ตั้งเวลา')||source.includes('กฎคงที่')||source.includes('ระบบอัตโนมัติ'))return 'ตรวจระบบตามกฎที่ตั้งไว้';
+    if(source.includes('แนะนำเพลง')||source.includes('พฤติกรรมการฟัง'))return 'ระบบแนะนำจากพฤติกรรมผู้ใช้';
+    if(source.includes('ยอมรับผลทันที')||source.includes('อนุมัติผล'))return 'ตรวจทานก่อนอนุมัติผล';
+    if(source.includes('ไม่คุ้นเคย')||source.includes('ข้อมูลไม่ครบ'))return 'รับมือข้อมูลไม่ครบหรือไม่คุ้นเคย';
+    if(source.includes('ตรวจสอบย้อนหลัง')||source.includes('audit')||source.includes('บันทึก'))return 'บันทึกเหตุผลเพื่อตรวจสอบย้อนหลัง';
+    if(source.includes('ผลกระทบสูง')||source.includes('คนตรวจทาน'))return 'ส่งต่อ human review เมื่อผลกระทบสูง';
+    if(card?.kind==='twist')return 'จัดการข้อมูลใหม่ก่อนเปิดใช้ระบบ';
+    return fallbackLenses[hash(String(card?.id||'')+'|'+index)%fallbackLenses.length];
   }
-  function loadRun(){
-    const saved=read(ACTIVE,null);
-    if(!saved||saved.missionId!==MID||!saved.deck||!Array.isArray(saved.deck.cards)||!saved.deck.cards.length){clearRun();return null}
-    saved.timer=null;
-    saved.index=Math.max(0,number(saved.index));
-    return saved;
+  function replaceAll(text,from,to){const source=String(text||'');return from&&source.includes(from)?source.split(from).join(to):source}
+  function enforceUniqueContexts(deck){
+    if(!deck||!Array.isArray(deck.cards)||!deck.cards.length)return deck;
+    const list=places[MID]||places.default,used=new Set(),seed=hash(String(deck.id||'')+'|'+String(deck.round||0));
+    deck.cards.forEach((card,index)=>{
+      const old=tidy(card.context),lens=lensFor(card,index);let title='';
+      for(let offset=0;offset<list.length*2;offset++){
+        const place=list[(seed+index*11+offset*7)%list.length];
+        const candidate=lens+' • '+place;
+        if(!used.has(candidate)){title=candidate;break}
+      }
+      if(!title)title=lens+' #'+(index+1)+' • '+list[index%list.length];
+      used.add(title);
+      card.contextBase=title.split(' • ').slice(1).join(' • ');
+      card.scenarioFocus=lens;
+      card.contextSignature=title;
+      card.context=title;
+      card.prompt=replaceAll(card.prompt,old,title);
+      card.__runtimeContextGateV682=true;
+    });
+    deck.contextAudit={version:'v6.8.2',hardGate:true,unique:used.size===deck.cards.length,count:used.size};
+    return deck;
   }
+  function duplicateContext(deck){const contexts=(deck?.cards||[]).map(card=>tidy(card.context)).filter(Boolean);return !contexts.length||new Set(contexts).size!==contexts.length}
 
-  function renderEntry(){
-    const b=bank();
-    if(!b){location.replace('./course-map-v640.html');return}
-    const p=profile(),before=previous(MID),isOpen=unlocked();
-    $('title').textContent=MID.toUpperCase()+': '+b.title;
-    $('topic').textContent=b.topic;
-    $('route').innerHTML='<b>'+esc(b.icon)+' '+esc(b.title)+'</b><br>'+(isBoss()?'Boss Board 3 Phase × 6 เคส = 18 เคส':'Replay Deck: 5 กลไก + 8 ความรู้ + 2 Case Twist = 15 เคส')+'<br><small>ไม่ซ้ำกับ 4 รอบล่าสุดของผู้เรียนคนนี้</small>';
-    $('state').textContent=passed(MID)?'ผ่านแล้ว':isOpen?'พร้อมเริ่ม':'ยังล็อก';
-    $('deckInfo').textContent=isBoss()?'Boss: ต้องชนะ 3 Phase และลด HP เป็น 0':'Replay Deck: จะสร้างเคสใหม่ทุกครั้งที่กดเริ่ม';
-    $('target').textContent=isBoss()?b.target+'% + HP 0':'รวม 60%';
-    $('gate').textContent=isOpen?(isBoss()?'เกณฑ์ผ่าน: คะแนนอย่างน้อย '+b.target+'% และ HP บอส = 0':'เกณฑ์ผ่าน: รวม ≥60% • กลไก ≥3/5 • ความรู้ ≥5/8 • Case Twist ≥1/2'):'ยังล็อก: ต้องผ่าน '+String(before||'S1').toUpperCase()+' ก่อน';
-    $('sid').value=p.studentId||'';$('name').value=p.studentName||p.name||'';$('section').value='101';
-    $('start').disabled=!isOpen;
-    profileStatus();
-  }
+  function clearRun(){remove(ACTIVE)}
+  function saveRun(){if(!state)return;try{const snapshot=JSON.parse(JSON.stringify({...state,timer:null,missionId:MID,snapshotAt:Date.now()}));write(ACTIVE,snapshot)}catch(e){}}
+  function loadRun(){const saved=read(ACTIVE,null);if(!saved||saved.missionId!==MID||!saved.deck||!Array.isArray(saved.deck.cards)||!saved.deck.cards.length){clearRun();return null}enforceUniqueContexts(saved.deck);saved.timer=null;saved.index=Math.max(0,number(saved.index));write(ACTIVE,saved);return saved}
+
+  function renderEntry(){const b=bank();if(!b){location.replace('./course-map-v640.html');return}const p=profile(),before=previous(MID),isOpen=unlocked();$('title').textContent=MID.toUpperCase()+': '+b.title;$('topic').textContent=b.topic;$('route').innerHTML='<b>'+esc(b.icon)+' '+esc(b.title)+'</b><br>'+(isBoss()?'Boss Board 3 Phase × 6 เคส = 18 เคส':'Replay Deck: 5 กลไก + 8 ความรู้ + 2 Case Twist = 15 เคส')+'<br><small>บริบทที่แสดงไม่ซ้ำกันภายใน Deck</small>';$('state').textContent=passed(MID)?'ผ่านแล้ว':isOpen?'พร้อมเริ่ม':'ยังล็อก';$('deckInfo').textContent=isBoss()?'Boss: ต้องชนะ 3 Phase และลด HP เป็น 0':'Replay Deck: จะสร้างเคสใหม่ทุกครั้งที่กดเริ่ม';$('target').textContent=isBoss()?b.target+'% + HP 0':'รวม 60%';$('gate').textContent=isOpen?(isBoss()?'เกณฑ์ผ่าน: คะแนนอย่างน้อย '+b.target+'% และ HP บอส = 0':'เกณฑ์ผ่าน: รวม ≥60% • กลไก ≥3/5 • ความรู้ ≥5/8 • Case Twist ≥1/2'):'ยังล็อก: ต้องผ่าน '+String(before||'S1').toUpperCase()+' ก่อน';$('sid').value=p.studentId||'';$('name').value=p.studentName||p.name||'';$('section').value='101';$('start').disabled=!isOpen;profileStatus()}
   function profileStatus(){const p=profile();if(profileReady()){$('profileNote').className='notice good';$('profileNote').textContent='✓ พร้อมแล้ว: '+p.studentId+' • '+(p.studentName||p.name)+' • Section 101'}else{$('profileNote').className='notice';$('profileNote').textContent='กรอกรหัสนักศึกษาและชื่อ แล้วกดบันทึกข้อมูลก่อนเริ่ม'}}
-  async function saveProfile(){
-    const sid=$('sid').value.trim(),name=$('name').value.trim();
-    if(!sid||!name){$('profileNote').className='notice bad';$('profileNote').textContent='กรุณากรอกรหัสนักศึกษาและชื่อให้ครบ';return}
-    let p={studentId:sid,studentName:name,section:'101'};
-    try{p=window.AIQuestStorage?.saveProfile?.(p)||p}catch(e){}
-    let sent=false;try{await window.AIQuestSync?.submitProfile?.(p);sent=true}catch(e){}
-    $('profileNote').className='notice good';$('profileNote').textContent=(sent?'✓ บันทึกและส่งข้อมูลแล้ว: ':'✓ บันทึกในเครื่องแล้ว: ')+p.studentId+' • '+p.studentName+' • Section 101';toast('บันทึกข้อมูลแล้ว');
-  }
+  async function saveProfile(){const sid=$('sid').value.trim(),name=$('name').value.trim();if(!sid||!name){$('profileNote').className='notice bad';$('profileNote').textContent='กรุณากรอกรหัสนักศึกษาและชื่อให้ครบ';return}let p={studentId:sid,studentName:name,section:'101'};try{p=window.AIQuestStorage?.saveProfile?.(p)||p}catch(e){}let sent=false;try{await window.AIQuestSync?.submitProfile?.(p);sent=true}catch(e){}$('profileNote').className='notice good';$('profileNote').textContent=(sent?'✓ บันทึกและส่งข้อมูลแล้ว: ':'✓ บันทึกในเครื่องแล้ว: ')+p.studentId+' • '+p.studentName+' • Section 101';toast('บันทึกข้อมูลแล้ว')}
 
   function start(){
     if(starting)return;
     if(!profileReady()){toast('กรุณาบันทึกข้อมูลก่อนเริ่ม');$('sid').focus();return}
     if(!unlocked()){toast('ภารกิจนี้ยังล็อก');return}
-    const deck=window.AIQuestReplayFactoryV650?.makeDeck?.();
+    let deck=window.AIQuestReplayFactoryV650?.makeDeck?.();
     if(!deck||!Array.isArray(deck.cards)||!deck.cards.length){toast('ยังเตรียม Replay Deck ไม่สำเร็จ');return}
+    deck=enforceUniqueContexts(deck);
+    if(duplicateContext(deck)){toast('ระบบหยุด Deck ที่มี Case ซ้ำ กรุณากดเริ่มใหม่');return}
     starting=true;clearRun();
     state={attemptId:uid('attempt'),deck,index:0,correct:0,mechanic:0,knowledge:0,twist:0,mechanicTotal:0,knowledgeTotal:0,twistTotal:0,combo:0,comboMax:0,hints:3,hintsUsed:0,hp:isBoss()?12:0,wrong:[],startedAt:Date.now(),saved:false,ended:false,answered:false,timer:null};
     deck.cards.forEach(card=>{if(card.kind==='m')state.mechanicTotal++;else if(card.kind==='q')state.knowledgeTotal++;else state.twistTotal++});
-    $('gtitle').textContent=MID.toUpperCase()+': '+bank().title;
-    $('gsub').textContent='Deck #'+deck.round+' • '+(deck.structure.boss?'18 เคส / 3 Phase':'15 เคส / 3 Phase')+' • No repeat '+deck.usedWindow+' รอบ';
-    show('game');drawCard();starting=false;
+    $('gtitle').textContent=MID.toUpperCase()+': '+bank().title;$('gsub').textContent='Deck #'+deck.round+' • '+(deck.structure.boss?'18 เคส / 3 Phase':'15 เคส / 3 Phase')+' • Context unique '+deck.contextAudit.count+'/'+deck.cards.length;show('game');drawCard();starting=false;
   }
   function seconds(card){if(isBoss())return 35;if(card.kind==='m')return 36;if(card.kind==='q')return 32;return 45}
-  function startClock(sec){
-    if(!state)return;
-    clearInterval(state.timer);state.left=sec;state.maxSec=sec;renderHud();
-    state.timer=setInterval(()=>{if(!state||state.ended)return;state.left--;renderHud();if(state.left<=0){clearInterval(state.timer);answer(null,true)}},1000);
-  }
-  function renderHud(){
-    if(!state)return;
-    const card=state.deck.cards[state.index],pct=Math.max(0,state.left/state.maxSec*100),progress=(state.index+1)+'/'+state.deck.structure.total,phase=card?.phase||'ภารกิจ';
-    $('hud').innerHTML='<div class="hud"><span class="chip">⏱ เหลือ '+Math.max(0,state.left)+' วินาที</span><span class="chip">'+esc(phase)+'</span><span class="chip">🎯 เคส '+progress+'</span><span class="chip">🔥 ต่อเนื่อง x'+state.combo+'</span><span class="chip">🧠 คำใบ้ '+state.hints+'</span>'+(isBoss()?'<span class="chip boss">👾 HP '+state.hp+'</span>':'')+'<div class="bar"><i class="'+(pct<25?'low':'')+'" style="width:'+pct+'%"></i></div></div>';
-  }
+  function startClock(sec){if(!state)return;clearInterval(state.timer);state.left=sec;state.maxSec=sec;renderHud();state.timer=setInterval(()=>{if(!state||state.ended)return;state.left--;renderHud();if(state.left<=0){clearInterval(state.timer);answer(null,true)}},1000)}
+  function renderHud(){if(!state)return;const card=state.deck.cards[state.index],pct=Math.max(0,state.left/state.maxSec*100),progress=(state.index+1)+'/'+state.deck.structure.total,phase=card?.phase||'ภารกิจ';$('hud').innerHTML='<div class="hud"><span class="chip">⏱ เหลือ '+Math.max(0,state.left)+' วินาที</span><span class="chip">'+esc(phase)+'</span><span class="chip">🎯 เคส '+progress+'</span><span class="chip">🔥 ต่อเนื่อง x'+state.combo+'</span><span class="chip">🧠 คำใบ้ '+state.hints+'</span>'+(isBoss()?'<span class="chip boss">👾 HP '+state.hp+'</span>':'')+'<div class="bar"><i class="'+(pct<25?'low':'')+'" style="width:'+pct+'%"></i></div></div>'}
   function feedback(html,kind){const node=$('feedback');if(!node)return;node.className='feedback show '+(kind||'');node.innerHTML=html}
-  function shell(card,choices){
-    const phase=card.phase||'ภารกิจ',label=card.kind==='m'?'กลไก':card.kind==='q'?'ความรู้':'⚡ Case Twist';
-    $('arena').innerHTML='<section class="arena '+(card.kind==='twist'?'twistArena':'')+'"><div class="arenaHead"><div><h3>'+esc(bank().icon)+' '+esc(phase)+'</h3><p class="muted">'+label+' • '+esc(card.context||'สถานการณ์รอบใหม่')+'</p></div><div class="arenaIcon">'+(card.kind==='twist'?'⚡':esc(bank().icon))+'</div></div><div class="question">'+esc(card.prompt)+'</div><div class="choices">'+choices.map((x,i)=>'<button class="choice" data-choice="'+i+'">'+esc(x)+'</button>').join('')+'</div><div class="row" style="margin-top:12px"><button id="next" class="btn" disabled>'+(state.index===state.deck.cards.length-1?'สรุปผลภารกิจ':'เคสถัดไป')+'</button><button id="hint" class="btn secondary">🧠 ขอคำใบ้</button></div><div id="feedback" class="feedback"></div></section>';
-    document.querySelectorAll('[data-choice]').forEach(btn=>btn.onclick=()=>answer(choices[number(btn.dataset.choice)],false));
-    $('next').onclick=()=>{
-      if(!state||state.ended||!state.answered)return;
-      $('next').disabled=true;
-      state.answered=false;state.index++;saveRun();drawCard();
-    };
-    $('hint').onclick=()=>useHint(card);
-  }
-  function useHint(card){
-    if(!state)return;
-    if(state.hints<1){toast('ใช้คำใบ้ครบแล้ว');return}
-    state.hints--;state.hintsUsed++;feedback('<b>🧠 คำใบ้</b><br>ตัดตัวเลือกที่ขาดหลักฐาน ไม่คำนึงถึงผลกระทบ หรือไม่เปิดโอกาสให้ตรวจสอบออกก่อน','help');$('hint').disabled=true;renderHud();saveRun();
-  }
-  function drawCard(){
-    if(!state)return;
-    if(state.index>=state.deck.cards.length){finish();return}
-    state.answered=false;
-    const card=state.deck.cards[state.index],options=shuffle([card.correct,...(card.wrong||[]).slice(0,3)]);
-    shell(card,options);saveRun();startClock(seconds(card));
-  }
-  function answer(value,timeout){
-    if(!state||state.answered||state.ended)return;
-    const card=state.deck.cards[state.index];if(!card)return;
-    state.answered=true;clearInterval(state.timer);
-    const ok=value===card.correct;
-    if(ok){state.correct++;state.combo++;state.comboMax=Math.min(state.deck.structure.total,Math.max(state.comboMax,state.combo));if(card.kind==='m')state.mechanic++;else if(card.kind==='q')state.knowledge++;else state.twist++;if(isBoss())state.hp=Math.max(0,state.hp-1)}
-    else{state.combo=0;state.wrong.push({phase:card.phase,kind:card.kind,prompt:card.prompt,answer:timeout?'หมดเวลา':value,correct:card.correct,explain:card.explain})}
-    document.querySelectorAll('[data-choice]').forEach(btn=>{btn.disabled=true;if(btn.textContent===card.correct)btn.classList.add('ok');else if(btn.textContent===value)btn.classList.add('no')});
-    feedback(ok?'<b>✅ ตัดสินใจถูกต้อง</b><br>'+esc(card.explain):'<b>⚠️ ทบทวน Case นี้</b><br><b>คำตอบที่เหมาะสม:</b> '+esc(card.correct)+'<br>'+esc(card.explain),ok?'good':'bad');
-    $('next').disabled=false;renderHud();saveRun();
-  }
+  function shell(card,choices){const phase=card.phase||'ภารกิจ',label=card.kind==='m'?'กลไก':card.kind==='q'?'ความรู้':'⚡ Case Twist';$('arena').innerHTML='<section class="arena '+(card.kind==='twist'?'twistArena':'')+'"><div class="arenaHead"><div><h3>'+esc(bank().icon)+' '+esc(phase)+'</h3><p class="muted">'+label+' • '+esc(card.context||'สถานการณ์รอบใหม่')+'</p></div><div class="arenaIcon">'+(card.kind==='twist'?'⚡':esc(bank().icon))+'</div></div><div class="question">'+esc(card.prompt)+'</div><div class="choices">'+choices.map((x,i)=>'<button class="choice" data-choice="'+i+'">'+esc(x)+'</button>').join('')+'</div><div class="row" style="margin-top:12px"><button id="next" class="btn" disabled>'+(state.index===state.deck.cards.length-1?'สรุปผลภารกิจ':'เคสถัดไป')+'</button><button id="hint" class="btn secondary">🧠 ขอคำใบ้</button></div><div id="feedback" class="feedback"></div></section>';document.querySelectorAll('[data-choice]').forEach(btn=>btn.onclick=()=>answer(choices[number(btn.dataset.choice)],false));$('next').onclick=()=>{if(!state||state.ended||!state.answered)return;$('next').disabled=true;state.answered=false;state.index++;saveRun();drawCard()};$('hint').onclick=()=>useHint(card)}
+  function useHint(card){if(!state)return;if(state.hints<1){toast('ใช้คำใบ้ครบแล้ว');return}state.hints--;state.hintsUsed++;feedback('<b>🧠 คำใบ้</b><br>ตัดตัวเลือกที่ขาดหลักฐาน ไม่คำนึงถึงผลกระทบ หรือไม่เปิดโอกาสให้ตรวจสอบออกก่อน','help');$('hint').disabled=true;renderHud();saveRun()}
+  function drawCard(){if(!state)return;if(state.index>=state.deck.cards.length){finish();return}state.answered=false;const card=state.deck.cards[state.index],options=shuffle([card.correct,...(card.wrong||[]).slice(0,3)]);shell(card,options);saveRun();startClock(seconds(card))}
+  function answer(value,timeout){if(!state||state.answered||state.ended)return;const card=state.deck.cards[state.index];if(!card)return;state.answered=true;clearInterval(state.timer);const ok=value===card.correct;if(ok){state.correct++;state.combo++;state.comboMax=Math.min(state.deck.structure.total,Math.max(state.comboMax,state.combo));if(card.kind==='m')state.mechanic++;else if(card.kind==='q')state.knowledge++;else state.twist++;if(isBoss())state.hp=Math.max(0,state.hp-1)}else{state.combo=0;state.wrong.push({phase:card.phase,kind:card.kind,prompt:card.prompt,answer:timeout?'หมดเวลา':value,correct:card.correct,explain:card.explain})}document.querySelectorAll('[data-choice]').forEach(btn=>{btn.disabled=true;if(btn.textContent===card.correct)btn.classList.add('ok');else if(btn.textContent===value)btn.classList.add('no')});feedback(ok?'<b>✅ ตัดสินใจถูกต้อง</b><br>'+esc(card.explain):'<b>⚠️ ทบทวน Case นี้</b><br><b>คำตอบที่เหมาะสม:</b> '+esc(card.correct)+'<br>'+esc(card.explain),ok?'good':'bad');$('next').disabled=false;renderHud();saveRun()}
   function ratio(a,b){return b?Math.round(a/b*100):0}
-  function finish(){
-    if(!state||state.ended)return;
-    state.ended=true;clearInterval(state.timer);
-    const total=state.deck.structure.total,mechanicPct=ratio(state.mechanic,state.mechanicTotal),knowledgePct=ratio(state.knowledge,state.knowledgeTotal),twistPct=ratio(state.twist,state.twistTotal);
-    let score,pass;
-    if(isBoss()){score=Math.round(state.correct/total*100);pass=score>=bank().target&&state.hp===0}
-    else{score=Math.round(mechanicPct*.35+knowledgePct*.45+twistPct*.20);pass=score>=60&&state.mechanic>=3&&state.knowledge>=5&&state.twist>=1}
-    state.result={score,pass,mechanicPct,knowledgePct,twistPct,usedSec:Math.round((Date.now()-state.startedAt)/1000)};saveRun();renderResult();
-  }
-  function renderResult(){
-    if(!state||!state.result)return;
-    const r=state.result,boss=isBoss();
-    $('rtitle').textContent='ผล '+MID.toUpperCase()+': '+bank().title;
-    $('badge').textContent=boss?(r.pass?'🏆 Boss Cleared':'👾 Boss ยังไม่ถูกปราบ'):(r.pass?'✅ ผ่าน Replay Deck แล้ว':'🔁 ยังไม่ผ่าน ลอง Deck ใหม่ได้');
-    $('score').textContent=r.score;
-    $('stars').textContent='★'.repeat(r.score>=85?3:r.score>=70?2:r.score>=60?1:0)+'☆'.repeat(r.score>=85?0:r.score>=70?1:r.score>=60?2:3);
-    $('rtext').textContent=boss?(r.pass?'ผ่านทั้ง 3 Phase และลด HP บอสเป็น 0 แล้ว':'ต้องได้ '+bank().target+'% และลด HP บอสให้เหลือ 0'):(r.pass?'ผ่านตามเกณฑ์ทั้ง 3 ส่วน บันทึกผลเพื่อปลดด่านถัดไป':'ยังไม่ผ่านเกณฑ์ครบทั้ง 3 ส่วน: กลไก ≥3/5 • ความรู้ ≥5/8 • Case Twist ≥1/2');
-    const cards=[];
-    if(boss){cards.push(['👾 ความถูกต้องรวม',state.correct+'/'+state.deck.structure.total+' • '+r.score+'%',r.score>=bank().target?'good':'warn']);cards.push(['🛡️ Phase 1',state.mechanic+'/'+state.mechanicTotal+' • '+r.mechanicPct+'%',r.mechanicPct>=70?'good':'warn']);cards.push(['📘 Phase 2',state.knowledge+'/'+state.knowledgeTotal+' • '+r.knowledgePct+'%',r.knowledgePct>=70?'good':'warn']);cards.push(['⚡ HP บอส',state.hp===0?'0 ✓':state.hp,state.hp===0?'good':'bad'])}
-    else{cards.push(['🕹️ กลไก',state.mechanic+'/5 • '+r.mechanicPct+'%',state.mechanic>=3?'good':'warn']);cards.push(['📘 ความรู้',state.knowledge+'/8 • '+r.knowledgePct+'%',state.knowledge>=5?'good':'warn']);cards.push(['⚡ Case Twist',state.twist+'/2 • '+r.twistPct+'%',state.twist>=1?'good':'warn']);cards.push(['🔥 ต่อเนื่องสูงสุด','x'+state.comboMax+'/'+state.deck.structure.total,'good'])}
-    cards.push(['⏱ เวลาที่ใช้',r.usedSec+' วินาที','']);
-    $('summary').innerHTML=cards.map(x=>'<div class="cell '+x[2]+'"><b>'+x[0]+'</b><br>'+x[1]+'</div>').join('');
-    $('review').innerHTML=state.wrong.length?'<b>Case Intel สำหรับรอบถัดไป</b>'+state.wrong.map(x=>'<div class="wrong"><b>'+esc(x.phase||'ภารกิจ')+'</b><br>'+esc(x.prompt)+'<br><b>คำตอบที่เหมาะสม:</b> '+esc(x.correct)+'<br>'+esc(x.explain)+'</div>').join(''):'<b>Perfect Deck!</b><p class="muted">ตอบถูกครบทุกเคสของ Deck นี้</p>';
-    $('r1').placeholder='อย่างน้อย 45 ตัวอักษร: อธิบายหลักการที่ใช้ตัดสินใจในหนึ่ง Case';$('r2').placeholder='อย่างน้อย 45 ตัวอักษร: ยกตัวอย่างการใช้ AI อย่างรับผิดชอบ';$('r3').placeholder='อย่างน้อย 45 ตัวอักษร: อธิบายจุดที่มนุษย์ควรตรวจทาน';
-    $('save').disabled=!!state.saved;$('save').textContent=state.saved?'✓ ส่งผลแล้ว':'ส่งผลเข้า Google Sheets';$('saveNote').className='notice '+(state.saved?'good':'');$('saveNote').textContent=state.saved?'✓ ส่งผลเรียบร้อยแล้ว':'เขียนการสะท้อนคิดอย่างน้อย 45 ตัวอักษรต่อข้อ แล้วกดบันทึกผล';show('result');
-  }
-  async function save(){
-    if(!state||!state.result||state.saved)return;
-    const answers=['r1','r2','r3'].map(id=>$(id).value.trim()),tooShort=answers.map((x,i)=>x.length<45?i+1:null).filter(Boolean);
-    if(tooShort.length){$('saveNote').className='notice bad';$('saveNote').textContent='คำตอบข้อ '+tooShort.join(', ')+' ยังสั้นเกินไป — อย่างน้อย 45 ตัวอักษรต่อข้อ';return}
-    $('save').disabled=true;$('save').textContent='กำลังบันทึก…';
-    const p=profile(),r=state.result,payload={attemptId:state.attemptId,studentId:p.studentId,studentName:p.studentName||p.name,section:'101',sessionId:MID,missionId:MID,missionTitle:bank().title,difficulty:state.deck.round>2?'stretch':'core',score:r.score,stars:r.score>=85?3:r.score>=70?2:r.score>=60?1:0,gateStatus:r.pass?'passed':'review',mastered:r.score>=85,usedTimeSec:r.usedSec,accuracy:Math.round(state.correct/state.deck.structure.total*100),correct:state.correct,total:state.deck.structure.total,wrong:state.wrong.length,maxCombo:state.comboMax,helpUsed:state.hintsUsed,bossWin:isBoss()?r.pass:false,reflection1:answers[0],reflection2:answers[1],reflection3:answers[2],clientTs:new Date().toISOString(),schemaVersion:VERSION,runMode:'graded',isPractice:false,isGraded:true,extraJson:{replayDeckId:state.deck.id,replayRound:state.deck.round,noRepeatWindow:state.deck.usedWindow,deckTotal:state.deck.structure.total,mechanicCases:state.deck.structure.mechanic,knowledgeCases:state.deck.structure.knowledge,twistCases:state.deck.structure.twist,mechanicCorrect:state.mechanic,knowledgeCorrect:state.knowledge,twistCorrect:state.twist,bossHp:state.hp,passRules:isBoss()?'score>=70 and hp=0':'score>=60,m>=3/5,q>=5/8,t>=1/2'}};
-    $('saveNote').className='notice';$('saveNote').textContent='กำลังส่งผลเข้า Google Sheets…';
-    let sent=false;try{await window.AIQuestSync?.submitAttempt?.(payload);sent=true}catch(e){}
-    if(r.pass){const core=read(CORE,{completed:{},best:{}});core.completed=core.completed||{};core.best=core.best||{};core.completed[MID]=true;core.best[MID]=Math.max(number(core.best[MID]),r.score);write(CORE,core);const strict=strictRecord();strict[MID]={score:r.score,mechanic:state.mechanic,knowledge:state.knowledge,twist:state.twist,bossWin:isBoss()?r.pass:false,at:Date.now(),version:VERSION};write(STRICT,strict)}
-    state.saved=true;$('save').textContent='✓ ส่งผลแล้ว';$('saveNote').className='notice good';$('saveNote').textContent=sent?'✓ ส่งผลเข้า Google Sheets แล้ว':'✓ บันทึกในเครื่องแล้ว ระบบจะซิงก์เมื่อเชื่อมต่อได้';clearRun();toast('บันทึกผล '+MID.toUpperCase()+' แล้ว');
-  }
-  function restoreRun(){
-    const saved=loadRun();if(!saved)return false;
-    state=saved;
-    if(state.ended&&state.result){renderResult();toast('คืนหน้าสรุปรอบเดิมแล้ว');return true}
-    if(state.answered){state.index++;state.answered=false}
-    if(state.index>=state.deck.cards.length){finish();return true}
-    state.ended=false;$('gtitle').textContent=MID.toUpperCase()+': '+bank().title;$('gsub').textContent='คืนรอบ Deck #'+state.deck.round+' • เคส '+(state.index+1)+'/'+state.deck.structure.total;show('game');drawCard();toast('คืนรอบที่ค้างไว้แล้ว');return true;
-  }
-
-  $('saveProfile').onclick=saveProfile;
-  $('start').onclick=start;
-  $('exit').onclick=()=>{if(confirm('ต้องการออกจากภารกิจหรือไม่? ผลรอบนี้จะไม่ถูกบันทึก')){clearInterval(state?.timer);clearRun();state=null;show('entry');renderEntry()}};
-  $('save').onclick=save;
-  $('replay').onclick=()=>{clearInterval(state?.timer);clearRun();state=null;show('entry');renderEntry();start()};
-  window.addEventListener('pagehide',()=>{if(state&&!state.saved)saveRun()});
-  renderEntry();restoreRun();
+  function finish(){if(!state||state.ended)return;state.ended=true;clearInterval(state.timer);const total=state.deck.structure.total,mechanicPct=ratio(state.mechanic,state.mechanicTotal),knowledgePct=ratio(state.knowledge,state.knowledgeTotal),twistPct=ratio(state.twist,state.twistTotal);let score,pass;if(isBoss()){score=Math.round(state.correct/total*100);pass=score>=bank().target&&state.hp===0}else{score=Math.round(mechanicPct*.35+knowledgePct*.45+twistPct*.20);pass=score>=60&&state.mechanic>=3&&state.knowledge>=5&&state.twist>=1}state.result={score,pass,mechanicPct,knowledgePct,twistPct,usedSec:Math.round((Date.now()-state.startedAt)/1000)};saveRun();renderResult()}
+  function renderResult(){if(!state||!state.result)return;const r=state.result,boss=isBoss();$('rtitle').textContent='ผล '+MID.toUpperCase()+': '+bank().title;$('badge').textContent=boss?(r.pass?'🏆 Boss Cleared':'👾 Boss ยังไม่ถูกปราบ'):(r.pass?'✅ ผ่าน Replay Deck แล้ว':'🔁 ยังไม่ผ่าน ลอง Deck ใหม่ได้');$('score').textContent=r.score;$('stars').textContent='★'.repeat(r.score>=85?3:r.score>=70?2:r.score>=60?1:0)+'☆'.repeat(r.score>=85?0:r.score>=70?1:r.score>=60?2:3);$('rtext').textContent=boss?(r.pass?'ผ่านทั้ง 3 Phase และลด HP บอสเป็น 0 แล้ว':'ต้องได้ '+bank().target+'% และลด HP บอสให้เหลือ 0'):(r.pass?'ผ่านตามเกณฑ์ทั้ง 3 ส่วน บันทึกผลเพื่อปลดด่านถัดไป':'ยังไม่ผ่านเกณฑ์ครบทั้ง 3 ส่วน: กลไก ≥3/5 • ความรู้ ≥5/8 • Case Twist ≥1/2');const cards=[];if(boss){cards.push(['👾 ความถูกต้องรวม',state.correct+'/'+state.deck.structure.total+' • '+r.score+'%',r.score>=bank().target?'good':'warn']);cards.push(['🛡️ Phase 1',state.mechanic+'/'+state.mechanicTotal+' • '+r.mechanicPct+'%',r.mechanicPct>=70?'good':'warn']);cards.push(['📘 Phase 2',state.knowledge+'/'+state.knowledgeTotal+' • '+r.knowledgePct+'%',r.knowledgePct>=70?'good':'warn']);cards.push(['⚡ HP บอส',state.hp===0?'0 ✓':state.hp,state.hp===0?'good':'bad'])}else{cards.push(['🕹️ กลไก',state.mechanic+'/5 • '+r.mechanicPct+'%',state.mechanic>=3?'good':'warn']);cards.push(['📘 ความรู้',state.knowledge+'/8 • '+r.knowledgePct+'%',state.knowledge>=5?'good':'warn']);cards.push(['⚡ Case Twist',state.twist+'/2 • '+r.twistPct+'%',state.twist>=1?'good':'warn']);cards.push(['🔥 ต่อเนื่องสูงสุด','x'+state.comboMax+'/'+state.deck.structure.total,'good'])}cards.push(['⏱ เวลาที่ใช้',r.usedSec+' วินาที','']);$('summary').innerHTML=cards.map(x=>'<div class="cell '+x[2]+'"><b>'+x[0]+'</b><br>'+x[1]+'</div>').join('');$('review').innerHTML=state.wrong.length?'<b>Case Intel สำหรับรอบถัดไป</b>'+state.wrong.map(x=>'<div class="wrong"><b>'+esc(x.phase||'ภารกิจ')+'</b><br>'+esc(x.prompt)+'<br><b>คำตอบที่เหมาะสม:</b> '+esc(x.correct)+'<br>'+esc(x.explain)+'</div>').join(''):'<b>Perfect Deck!</b><p class="muted">ตอบถูกครบทุกเคสของ Deck นี้</p>';$('r1').placeholder='อย่างน้อย 45 ตัวอักษร: อธิบายหลักการที่ใช้ตัดสินใจในหนึ่ง Case';$('r2').placeholder='อย่างน้อย 45 ตัวอักษร: ยกตัวอย่างการใช้ AI อย่างรับผิดชอบ';$('r3').placeholder='อย่างน้อย 45 ตัวอักษร: อธิบายจุดที่มนุษย์ควรตรวจทาน';$('save').disabled=!!state.saved;$('save').textContent=state.saved?'✓ ส่งผลแล้ว':'ส่งผลเข้า Google Sheets';$('saveNote').className='notice '+(state.saved?'good':'');$('saveNote').textContent=state.saved?'✓ ส่งผลเรียบร้อยแล้ว':'เขียนการสะท้อนคิดอย่างน้อย 45 ตัวอักษรต่อข้อ แล้วกดบันทึกผล';show('result')}
+  async function save(){if(!state||!state.result||state.saved)return;const answers=['r1','r2','r3'].map(id=>$(id).value.trim()),tooShort=answers.map((x,i)=>x.length<45?i+1:null).filter(Boolean);if(tooShort.length){$('saveNote').className='notice bad';$('saveNote').textContent='คำตอบข้อ '+tooShort.join(', ')+' ยังสั้นเกินไป — อย่างน้อย 45 ตัวอักษรต่อข้อ';return}$('save').disabled=true;$('save').textContent='กำลังบันทึก…';const p=profile(),r=state.result,payload={attemptId:state.attemptId,studentId:p.studentId,studentName:p.studentName||p.name,section:'101',sessionId:MID,missionId:MID,missionTitle:bank().title,difficulty:state.deck.round>2?'stretch':'core',score:r.score,stars:r.score>=85?3:r.score>=70?2:r.score>=60?1:0,gateStatus:r.pass?'passed':'review',mastered:r.score>=85,usedTimeSec:r.usedSec,accuracy:Math.round(state.correct/state.deck.structure.total*100),correct:state.correct,total:state.deck.structure.total,wrong:state.wrong.length,maxCombo:state.comboMax,helpUsed:state.hintsUsed,bossWin:isBoss()?r.pass:false,reflection1:answers[0],reflection2:answers[1],reflection3:answers[2],clientTs:new Date().toISOString(),schemaVersion:VERSION,runMode:'graded',isPractice:false,isGraded:true,extraJson:{replayDeckId:state.deck.id,replayRound:state.deck.round,noRepeatWindow:state.deck.usedWindow,deckTotal:state.deck.structure.total,mechanicCases:state.deck.structure.mechanic,knowledgeCases:state.deck.structure.knowledge,twistCases:state.deck.structure.twist,mechanicCorrect:state.mechanic,knowledgeCorrect:state.knowledge,twistCorrect:state.twist,bossHp:state.hp,contextAudit:state.deck.contextAudit,passRules:isBoss()?'score>=70 and hp=0':'score>=60,m>=3/5,q>=5/8,t>=1/2'}};$('saveNote').className='notice';$('saveNote').textContent='กำลังส่งผลเข้า Google Sheets…';let sent=false;try{await window.AIQuestSync?.submitAttempt?.(payload);sent=true}catch(e){}if(r.pass){const core=read(CORE,{completed:{},best:{}});core.completed=core.completed||{};core.best=core.best||{};core.completed[MID]=true;core.best[MID]=Math.max(number(core.best[MID]),r.score);write(CORE,core);const strict=strictRecord();strict[MID]={score:r.score,mechanic:state.mechanic,knowledge:state.knowledge,twist:state.twist,bossWin:isBoss()?r.pass:false,at:Date.now(),version:VERSION};write(STRICT,strict)}state.saved=true;$('save').textContent='✓ ส่งผลแล้ว';$('saveNote').className='notice good';$('saveNote').textContent=sent?'✓ ส่งผลเข้า Google Sheets แล้ว':'✓ บันทึกในเครื่องแล้ว ระบบจะซิงก์เมื่อเชื่อมต่อได้';clearRun();toast('บันทึกผล '+MID.toUpperCase()+' แล้ว')}
+  function restoreRun(){const saved=loadRun();if(!saved)return false;state=saved;if(state.ended&&state.result){renderResult();toast('คืนหน้าสรุปรอบเดิมแล้ว');return true}if(state.answered){state.index++;state.answered=false}if(state.index>=state.deck.cards.length){finish();return true}state.ended=false;$('gtitle').textContent=MID.toUpperCase()+': '+bank().title;$('gsub').textContent='คืนรอบ Deck #'+state.deck.round+' • เคส '+(state.index+1)+'/'+state.deck.structure.total;show('game');drawCard();toast('คืนรอบที่ค้างไว้แล้ว');return true}
+  $('saveProfile').onclick=saveProfile;$('start').onclick=start;$('exit').onclick=()=>{if(confirm('ต้องการออกจากภารกิจหรือไม่? ผลรอบนี้จะไม่ถูกบันทึก')){clearInterval(state?.timer);clearRun();state=null;show('entry');renderEntry()}};$('save').onclick=save;$('replay').onclick=()=>{clearInterval(state?.timer);clearRun();state=null;show('entry');renderEntry();start()};window.addEventListener('pagehide',()=>{if(state&&!state.saved)saveRun()});renderEntry();restoreRun();
 })();
