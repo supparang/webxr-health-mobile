@@ -1,12 +1,8 @@
-/* CSAI2102 S2 Bootstrap v6.9.7
-   Load start recovery before evidence layers. Semantic v6.9.6 remains the primary
-   deck factory; recovery only prevents a learner-facing dead end if a builder error occurs.
-*/
+/* CSAI2102 S2 Bootstrap v6.9.8 */
 (()=>{'use strict';
-  if(window.__AIQUEST_S2_BOOTSTRAP_V697__)return;
-  window.__AIQUEST_S2_BOOTSTRAP_V697__=true;
+  if(window.__AIQUEST_S2_BOOTSTRAP_V698__)return;
+  window.__AIQUEST_S2_BOOTSTRAP_V698__=true;
   const layers=[
-    ['start-recovery','./js/aiquest-s2-start-recovery-v697.js?v=20260707-start697',()=>!!window.__AIQUEST_S2_START_RECOVERY_V697__],
     ['case-evidence','./js/aiquest-s2-reflection-evidence-v675.js?v=20260707-case675',()=>!!window.__AIQUEST_S2_CASE_EVIDENCE_V675__],
     ['semantic-evidence','./js/aiquest-s2-reflection-semantic-gate-v678.js?v=20260707-semantic678',()=>!!window.__AIQUEST_S2_REFLECTION_SEMANTIC_GATE_V678__],
     ['case-skillfix','./js/aiquest-s2-case-evidence-skillfix-v676.js?v=20260707-case676',()=>!!window.__AIQUEST_S2_CASE_EVIDENCE_SKILLFIX_V676__]
@@ -14,8 +10,7 @@
   const wait=(check,ms)=>new Promise(resolve=>{const end=Date.now()+ms;const tick=()=>{if(check()||Date.now()>=end)return resolve(check());setTimeout(tick,25)};tick()});
   async function load(name,src,check){
     if(check())return true;
-    const id='aqS2Boot697_'+name;
-    let node=document.getElementById(id);
+    const id='aqS2Boot698_'+name;let node=document.getElementById(id);
     if(!node){node=document.createElement('script');node.id=id;node.src=src;node.async=false;document.head.appendChild(node);}
     return wait(check,1800);
   }
