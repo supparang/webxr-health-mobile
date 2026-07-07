@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260707-v1z133-v130-boss-route-contract';
+  const APP_VERSION = '20260707-v1z134-accuracy-portfolio-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -37477,8 +37477,35 @@
       </section>`);
   }
 
+  function portfolioOutputPreview_(value){
+    const raw = String(value || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const limit = 128;
+    const preview = raw.slice(0, limit);
+    const suffix = raw.length > limit ? '…' : '';
+
+    return `<div
+      title="${safeAttr(raw)}"
+      style="max-width:460px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+    >${safe(preview)}${suffix}</div>`;
+  }
+
   function portfolioRows(){
-    const rows = (state.portfolio || []).slice(-12).reverse().map(p => `<tr><td>${new Date(p.at).toLocaleString()}</td><td>S${p.session}</td><td>${safe(p.skill)}</td><td>${p.score || 0}</td><td>${safe(String(p.output || '').slice(0,120))}</td></tr>`).join('');
+    const rows = (state.portfolio || [])
+      .slice(-12)
+      .reverse()
+      .map(function(p){
+        const route = eapResolveEvidenceRouteId_(p, p?.session || p?.sessionId);
+        const label = eapRouteIsBoss_(route)
+          ? route
+          : 'S' + String(p.session || p.sessionId || '—');
+
+        return `<tr><td>${new Date(p.at).toLocaleString()}</td><td>${safe(label)}</td><td>${safe(p.skill)}</td><td>${p.score || 0}</td><td>${portfolioOutputPreview_(p.output)}</td></tr>`;
+      })
+      .join('');
+
     return rows || '<tr><td colspan="5">No portfolio evidence yet</td></tr>';
   }
 
@@ -39482,7 +39509,10 @@
   }
 
   function eapEvidenceSyncV130_(){
-    return window.EAPEvidenceSyncV130 || null;
+    /* Prefer v131; retain V130 compatibility during rollout. */
+    return window.EAPEvidenceSyncV131 ||
+      window.EAPEvidenceSyncV130 ||
+      null;
   }
 
   function eapBossEventId_(routeId, skill, result){
@@ -39635,6 +39665,62 @@
     return true;
   }
 
+  /*
+     Accuracy contract for Student → Sheet transport
+     ------------------------------------------------
+     - Writing / Speaking are rubric or evidence-based and intentionally
+       keep accuracy blank in the Teacher Dashboard.
+     - Reading / Listening use a percentage. Older mission entries stored
+       only `score`, so score is used as a clearly bounded fallback.
+     - A legacy zero beside a positive Reading/Listening score is treated
+       as a missing transport value, not a real 0% result.
+  */
+  function eapAttemptAccuracyForEntry_(entry, skill, score){
+    const normalizedSkill = eapNormalizeEvidenceSkill_(skill);
+
+    if(normalizedSkill === 'writing' || normalizedSkill === 'speaking'){
+      return '';
+    }
+
+    const source = entry || {};
+    const candidates = [
+      source.accuracy,
+      source.latestAccuracy,
+      source.bestAccuracy
+    ];
+
+    for(let index = 0; index < candidates.length; index += 1){
+      const raw = candidates[index];
+
+      if(raw === undefined || raw === null || raw === '') continue;
+
+      const numeric = Number(raw);
+
+      if(!Number.isFinite(numeric) || numeric < 0 || numeric > 100){
+        continue;
+      }
+
+      if(
+        numeric === 0 &&
+        Number(score) > 0 &&
+        (normalizedSkill === 'reading' || normalizedSkill === 'listening')
+      ){
+        return Math.round(Math.max(0, Math.min(100, Number(score))));
+      }
+
+      return Math.round(numeric);
+    }
+
+    if(
+      (normalizedSkill === 'reading' || normalizedSkill === 'listening') &&
+      Number.isFinite(Number(score))
+    ){
+      return Math.round(Math.max(0, Math.min(100, Number(score))));
+    }
+
+    return '';
+  }
+
   function syncEvidenceToEapSheet(compactEntry, sessionId){
     try{
       const cfg = window.EAP_SHEET_CONFIG || {};
@@ -39705,6 +39791,12 @@
         0
       ) || 0;
 
+      const accuracy = eapAttemptAccuracyForEntry_(
+        compactEntry,
+        skill,
+        score
+      );
+
       const url = new URL(cfg.webAppUrl);
 
       const payload = {
@@ -39723,13 +39815,9 @@
         ),
         skill:skill,
         score:String(score),
-        accuracy:String(
-          Number(
-            compactEntry.accuracy ??
-            compactEntry.bestAccuracy ??
-            0
-          ) || 0
-        ),
+        accuracy:accuracy === ''
+          ? ''
+          : String(accuracy),
         passMark:'60',
         passed:String(
           !!compactEntry.passed ||
