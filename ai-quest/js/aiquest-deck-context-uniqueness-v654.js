@@ -1,9 +1,4 @@
-/* CSAI2102 AI Quest — Deck Context Uniqueness v6.5.4
-   A different question is not enough when several cards show the same scene title.
-   This layer assigns each card a distinct operational micro-context within a deck,
-   preserves its original learning objective, and avoids reusing the same complete
-   context signature across the latest four decks for the same learner.
-*/
+/* CSAI2102 AI Quest — Deck Context Uniqueness v6.5.4 */
 (()=>{'use strict';
   if(window.__AIQUEST_DECK_CONTEXT_UNIQUENESS_V654__)return;
   window.__AIQUEST_DECK_CONTEXT_UNIQUENESS_V654__=true;
@@ -26,19 +21,32 @@
   function chooseLabel(card,index,round,blocked,inside){
     const seed=hash((card?.id||'')+'|'+(card?.kind||'')+'|'+index+'|'+round);
     for(let offset=0;offset<labels.length;offset++){
-      const label=labels[(seed+round*7+offset)%labels.length],signature=baseContext(card)+' | '+label;
+      const label=labels[(seed+round*7+offset)%labels.length];
+      const signature=baseContext(card)+' | '+label;
       if(!blocked.has(signature)&&!inside.has(signature))return {label,signature};
     }
-    const label=labels[(seed+index)%labels.length]+' • จุดปฏิบัติการ '+(index+1);return {label,signature:baseContext(card)+' | '+label};
+    const label=labels[(seed+index)%labels.length]+' • จุดปฏิบัติการ '+(index+1);
+    return {label,signature:baseContext(card)+' | '+label};
   }
   function normalize(deck,track){
     if(!deck||!Array.isArray(deck.cards)||!deck.cards.length)return deck;
-    const h=history(),previous=new Set(h[mid].rounds.flatMap(row=>Array.isArray(row.signatures)?row.signatures:[])),inside=new Set();
-    const round=Number(deck.round||0)||1;let changed=false;
+    const h=history();
+    const previous=new Set(h[mid].rounds.flatMap(row=>Array.isArray(row.signatures)?row.signatures:[]));
+    const inside=new Set();const round=Number(deck.round||0)||1;let changed=false;
     deck.cards.forEach((card,index)=>{
       if(card.__contextUniqueV654){inside.add(String(card.contextSignature||((baseContext(card)+' | ')+String(card.scenarioFocus||''))));return;}
-      const old=tidy(card.context||''),base=baseContext(card),picked=chooseLabel(card,index,round,previous,inside),context=base+' — '+picked.label;
-      card.contextBase=base;card.scenarioFocus=picked.label;card.contextSignature=picked.signature;card.context=context;card.prompt=replaceContext(card.prompt,old,context);card.__contextUniqueV654=true;inside.add(picked.signature);changed=true;
+      const old=tidy(card.context||'');
+      const base=baseContext(card);
+      const picked=chooseLabel(card,index,round,previous,inside);
+      const context=picked.label+' — '+base;
+      card.contextBase=base;
+      card.scenarioFocus=picked.label;
+      card.contextSignature=picked.signature;
+      card.context=context;
+      card.prompt=replaceContext(card.prompt,old,context);
+      card.__contextUniqueV654=true;
+      inside.add(picked.signature);
+      changed=true;
     });
     deck.contextUniqueness={version:'v6.5.4',uniqueWithinDeck:inside.size===deck.cards.length,window:WINDOW,signatureCount:inside.size};
     if(track&&changed){h[mid].rounds.push({deckId:String(deck.id||''),round,at:Date.now(),signatures:[...inside]});h[mid].rounds=h[mid].rounds.slice(-WINDOW);write(key+'_'+personKey(),h);}
