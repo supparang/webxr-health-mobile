@@ -1,326 +1,489 @@
 /* =========================================================
-   EAP Hero Writing Evidence Guard v3
+   EAP Hero Writing Evidence Guard v4
    File: eap-writing-evidence-guard-v1.js
 
-   Purpose
-   - Captures a valid normal-session writing response at submit time.
-   - Waits for the genuine “Writing Evidence Saved” completion screen.
-   - Sends submit_evidence independently of the core submit method.
-   - Leaves Mastery / Exposure classification to Apps Script Contract V2.
+   Reliable normal Writing evidence transport
+   ---------------------------------------------------------
+   - Observes NEW Writing records in EAP_HERO_PROGRESS_V3.portfolio.
+   - Does not depend on a particular button label or EAPHero method.
+   - Posts submit_evidence through a hidden form to the existing
+     Google Apps Script Web App.
+   - Contract V2 decides Mastery vs Exposure at the receiver.
 ========================================================= */
 (function(){
   'use strict';
 
-  var STORE = 'EAP_HERO_PROGRESS_V3';
-  var SENT = 'EAP_HERO_WRITING_EVIDENCE_SENT_V3';
-  var pending = null;
-  var heroPatched = false;
+  var STATE_KEY = 'EAP_HERO_PROGRESS_V3';
+  var PROFILE_KEY = 'EAP_HERO_PLAYER_PROFILE_V1';
+  var SENT_KEY = 'EAP_HERO_WRITING_EVIDENCE_SENT_V4';
+  var FRAME_ID = 'eap-writing-evidence-v4-receiver';
 
-  function clean(value){
+  var WEB_APP_URL =
+    (window.EAP_SHEET_CONFIG || {}).webAppUrl ||
+    'https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec';
+
+  var SUBMISSION_KIND = 'fresh_evidence_v118';
+  var known = {};
+  var timer = null;
+
+  function text(value) {
     return String(value == null ? '' : value)
       .replace(/\s+/g, ' ')
       .trim();
   }
 
-  function appText(){
-    return String(
-      (document.getElementById('app') || document.body).innerText || ''
+  function readJson(key, fallback) {
+    try {
+      var raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function writeJson(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (error) {}
+  }
+
+  function getState() {
+    return readJson(STATE_KEY, {});
+  }
+
+  function getProfile(state) {
+    var direct = readJson(PROFILE_KEY, {});
+    var fromState =
+      (state && (
+        state.profile ||
+        state.player ||
+        state.user
+      )) || {};
+
+    var source = Object.keys(direct).length
+      ? direct
+      : fromState;
+
+    var studentId = text(
+      source.studentId ||
+      source.id ||
+      (state && state.studentId)
     );
-  }
 
-  function writingBox(){
-    return document.getElementById('writingOutput');
-  }
+    var studentName = text(
+      source.studentName ||
+      source.name ||
+      (state && (
+        state.studentName ||
+        state.name ||
+        state.playerName
+      ))
+    );
 
-  function currentSession(){
-    var match = appText().match(/(?:Session\s*|\bS)(1[0-5]|[1-9])\b/i);
-    return Number(match && match[1] || 0);
-  }
+    var section = text(
+      source.section ||
+      (state && state.section) ||
+      '122'
+    ) || '122';
 
-  function isWritingPage(){
-    return /Writing Mission|Writing Evidence Saved/i.test(appText());
-  }
-
-  function isCompletionPage(){
-    return /Writing Evidence Saved/i.test(appText());
-  }
-
-  function acceptable(value){
-    return clean(value).split(/\s+/).filter(Boolean).length >= 4;
-  }
-
-  function readJson(key){
-    try { return JSON.parse(localStorage.getItem(key) || 'null'); }
-    catch(error){ return null; }
-  }
-
-  function findProfileIn(value, depth){
-    if(!value || depth > 4) return null;
-
-    if(typeof value === 'object'){
-      var studentId = clean(value.studentId || value.id || value.studentCode);
-      var name = clean(value.name || value.studentName || value.displayName);
-      var section = clean(value.section || value.classGroup || value.group);
-
-      if(studentId && (name || section)){
-        return {
-          studentId: studentId,
-          name: name || 'Guest',
-          section: section || '122'
-        };
-      }
-
-      var keys = Object.keys(value);
-      for(var index = 0; index < keys.length; index += 1){
-        var found = findProfileIn(value[keys[index]], depth + 1);
-        if(found) return found;
-      }
+    if (!studentId || studentId.toLowerCase() === 'guest') {
+      return null;
     }
-
-    return null;
-  }
-
-  function playerState(){
-    var primary = readJson(STORE);
-    var profile = findProfileIn(primary, 0);
-
-    if(!profile){
-      for(var index = 0; index < localStorage.length; index += 1){
-        var key = localStorage.key(index) || '';
-        if(!/eap.*(profile|progress|player)/i.test(key)) continue;
-        profile = findProfileIn(readJson(key), 0);
-        if(profile) break;
-      }
-    }
-
-    if(!profile) return null;
 
     return {
-      profile: {
-        studentId: profile.studentId,
-        id: profile.studentId,
-        name: profile.name,
-        studentName: profile.name,
-        section: profile.section
-      }
+      studentId: studentId,
+      studentName: studentName || 'Unknown',
+      section: section
     };
   }
 
-  function sentMap(){
-    return readJson(SENT) || {};
-  }
+  function sessionId(entry) {
+    var raw = text(
+      entry && (
+        entry.sessionId ||
+        entry.session ||
+        entry.sessionNumber ||
+        entry.sessionCode
+      )
+    ).toUpperCase();
 
-  function saveSent(map){
-    try { localStorage.setItem(SENT, JSON.stringify(map)); }
-    catch(error){}
-  }
-
-  function scoreFromPage(){
-    var matches = appText().match(/\b(\d{1,3})\s*\/\s*100\b/g) || [];
-    if(!matches.length) return 0;
-
-    var score = Number(String(matches[0]).split('/')[0]);
-    return Number.isFinite(score)
-      ? Math.max(0, Math.min(100, score))
-      : 0;
-  }
-
-  function titleFor(sessionNumber){
-    var titles = {
-      1:'Academic Hero Awakening',
-      2:'Vocabulary Lab',
-      3:'Main Idea Hunter',
-      4:'Keyword Scanner',
-      5:'Critical Reading',
-      6:'Summary Builder',
-      7:'Academic Tone Battle',
-      8:'Paragraph Structure Lab',
-      9:'Paragraph Writing',
-      10:'Data Description',
-      11:'Academic Email',
-      12:'Citation and Ethics',
-      13:'Academic Listening',
-      14:'Academic Presentation',
-      15:'Final Integration'
-    };
-
-    return titles[sessionNumber] || ('Session ' + sessionNumber);
-  }
-
-  function promptFromPage(){
-    var node = document.querySelector(
-      '[data-writing-prompt], .writing-prompt, .mission-prompt, .prompt'
+    var match = raw.match(
+      /(?:^|\b)S(?:ESSION)?\s*0?([1-9]|1[0-5])(?:\b|_)/
     );
 
-    return clean(node && node.innerText) || 'Writing activity evidence.';
+    if (match) {
+      return 'S' + Number(match[1]);
+    }
+
+    if (/^0?([1-9]|1[0-5])$/.test(raw)) {
+      return 'S' + Number(raw);
+    }
+
+    return '';
   }
 
-  function queueWriting(value, sessionNumber, prompt){
-    if(!acceptable(value) || !sessionNumber) return false;
+  function isWriting(entry) {
+    return /writing|write/i.test(text(
+      entry && (
+        entry.skill ||
+        entry.skillName ||
+        entry.evidenceType ||
+        entry.taskId ||
+        entry.type
+      )
+    ));
+  }
 
-    var now = Date.now();
-    var samePending = pending &&
-      pending.sessionNumber === sessionNumber &&
-      pending.value === value &&
-      now - pending.createdAt < 5000;
+  function output(entry) {
+    var fields = [
+      entry && entry.output,
+      entry && entry.answer,
+      entry && entry.studentAnswer,
+      entry && entry.writtenResponse,
+      entry && entry.response,
+      entry && entry.text,
+      entry && entry.value
+    ];
 
-    if(samePending) return true;
+    for (var index = 0; index < fields.length; index += 1) {
+      var result = text(fields[index]);
+      if (result) {
+        return result;
+      }
+    }
 
-    pending = {
-      id: 'writing-pending-' + now,
-      value: value,
-      prompt: clean(prompt) || promptFromPage(),
-      sessionNumber: sessionNumber,
-      createdAt: now,
-      sent: false
+    return '';
+  }
+
+  function score(entry) {
+    var fields = [
+      entry && entry.latestScore,
+      entry && entry.score,
+      entry && entry.bestScore
+    ];
+
+    for (var index = 0; index < fields.length; index += 1) {
+      var result = Number(fields[index]);
+
+      if (Number.isFinite(result)) {
+        return Math.max(0, Math.min(100, result));
+      }
+    }
+
+    return 0;
+  }
+
+  function occurredAt(entry, index) {
+    return text(
+      entry && (
+        entry.occurredAt ||
+        entry.at ||
+        entry.createdAt ||
+        entry.submittedAt ||
+        entry.latestAt ||
+        entry.timestamp ||
+        entry.evidenceId
+      )
+    ) || String(index);
+  }
+
+  function signature(entry, index) {
+    return [
+      sessionId(entry),
+      text(entry && entry.skill).toLowerCase(),
+      occurredAt(entry, index),
+      score(entry),
+      output(entry).slice(0, 260)
+    ].join('|');
+  }
+
+  function titleFor(sid) {
+    var titles = {
+      S1: 'Academic Hero Awakening',
+      S2: 'Vocabulary Lab',
+      S3: 'Main Idea Hunter',
+      S4: 'Keyword Scanner',
+      S5: 'Critical Reading',
+      S6: 'Summary Builder',
+      S7: 'Academic Tone Battle',
+      S8: 'Paragraph Structure Lab',
+      S9: 'Paragraph Writing',
+      S10: 'Data Description',
+      S11: 'Academic Email',
+      S12: 'Citation and Ethics',
+      S13: 'Academic Listening',
+      S14: 'Academic Presentation',
+      S15: 'Final Integration'
     };
 
-    window.setTimeout(flushPending, 350);
-    window.setTimeout(flushPending, 1200);
-    window.setTimeout(flushPending, 2600);
-    window.setTimeout(flushPending, 5000);
+    return titles[sid] || sid;
+  }
+
+  function ensureFrame() {
+    var frame = document.getElementById(FRAME_ID);
+
+    if (frame) {
+      return frame;
+    }
+
+    frame = document.createElement('iframe');
+    frame.id = FRAME_ID;
+    frame.name = FRAME_ID;
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText =
+      'display:none!important;width:1px;height:1px;border:0';
+
+    document.documentElement.appendChild(frame);
+
+    return frame;
+  }
+
+  function scalar(value) {
+    if (value && typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch (error) {
+        return '';
+      }
+    }
+
+    return String(value == null ? '' : value);
+  }
+
+  function postEvidence(payload) {
+    try {
+      ensureFrame();
+
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = WEB_APP_URL;
+      form.target = FRAME_ID;
+      form.style.display = 'none';
+
+      Object.keys(payload).forEach(function(key) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = scalar(payload[key]);
+        form.appendChild(input);
+      });
+
+      document.body.appendChild(form);
+      form.submit();
+
+      window.setTimeout(function() {
+        try {
+          form.remove();
+        } catch (error) {}
+      }, 0);
+
+      return true;
+    } catch (error) {
+      console.warn(
+        '[EAP Writing Evidence Guard v4] POST failed',
+        error
+      );
+
+      return false;
+    }
+  }
+
+  function toast(message) {
+    var old = document.getElementById(
+      'eap-writing-evidence-v4-toast'
+    );
+
+    if (old) {
+      old.remove();
+    }
+
+    var node = document.createElement('div');
+    node.id = 'eap-writing-evidence-v4-toast';
+    node.textContent = message;
+
+    node.style.cssText = [
+      'position:fixed',
+      'right:18px',
+      'bottom:76px',
+      'z-index:100002',
+      'padding:10px 13px',
+      'border-radius:12px',
+      'background:#065f46',
+      'color:#fff',
+      'font:800 13px system-ui,-apple-system,sans-serif',
+      'box-shadow:0 10px 28px rgba(0,0,0,.24)'
+    ].join(';');
+
+    document.body.appendChild(node);
+
+    window.setTimeout(function() {
+      if (node.parentNode) {
+        node.remove();
+      }
+    }, 4200);
+  }
+
+  function send(entry, state, index) {
+    var person = getProfile(state);
+
+    if (!person) {
+      console.warn(
+        '[EAP Writing Evidence Guard v4] valid profile unavailable'
+      );
+
+      return false;
+    }
+
+    var sid = sessionId(entry);
+    var answer = output(entry);
+
+    if (!sid || !answer) {
+      return false;
+    }
+
+    var sent = readJson(SENT_KEY, {});
+    var key = signature(entry, index);
+
+    if (sent[key]) {
+      return true;
+    }
+
+    var evidenceId = [
+      'writing',
+      person.studentId,
+      sid,
+      Date.now()
+    ].join('-');
+
+    var payload = {
+      action: 'submit_evidence',
+      submissionKind: SUBMISSION_KIND,
+      evidenceId: evidenceId,
+
+      section: person.section,
+      studentId: person.studentId,
+      studentName: person.studentName,
+
+      sessionId: sid,
+      sessionTitle:
+        text(entry.sessionTitle) || titleFor(sid),
+
+      skill: 'writing',
+      evidenceType: 'writing_evidence',
+      taskId:
+        text(entry.taskId) ||
+        ('writing_' + sid.toLowerCase()),
+
+      score: score(entry),
+      passed: score(entry) >= 60 ? 'TRUE' : 'FALSE',
+
+      prompt: text(
+        entry.prompt ||
+        entry.instruction ||
+        entry.question
+      ) || 'Writing activity evidence.',
+
+      output: answer,
+
+      durationSec: 0,
+      targetRange: '',
+
+      teacherReviewRequired: 'FALSE',
+      teacherReviewStatus: '',
+
+      oralChecklist: '{}',
+      misconceptionTags: '[]',
+      boss: '{}',
+
+      attemptCount: Number(
+        entry.attemptNo ||
+        entry.attemptCount ||
+        1
+      ),
+
+      occurredAt:
+        occurredAt(entry, index) ||
+        new Date().toISOString(),
+
+      sourceUrl: location.href,
+      consentAudio: 'FALSE'
+    };
+
+    if (!postEvidence(payload)) {
+      return false;
+    }
+
+    sent[key] = {
+      evidenceId: evidenceId,
+      submittedAt: Date.now()
+    };
+
+    writeJson(SENT_KEY, sent);
+
+    toast('📝 ส่งหลักฐาน Writing เข้า Sheet แล้ว');
+    console.info(
+      '[EAP Writing Evidence Guard v4] sent',
+      payload
+    );
 
     return true;
   }
 
-  function flushPending(){
-    if(!pending || pending.sent || !isCompletionPage()) return false;
+  function prime() {
+    var state = getState();
+    var portfolio = Array.isArray(state.portfolio)
+      ? state.portfolio
+      : [];
 
-    var sync = window.EAPEvidenceSyncV131 ||
-      window.EAPEvidenceSyncV130 ||
-      window.EAPEvidenceSyncV129;
-
-    if(!sync || typeof sync.submitRaw !== 'function'){
-      console.warn('[EAP Writing Evidence Guard v3] Evidence Sync is unavailable');
-      return false;
-    }
-
-    var state = playerState();
-    if(!state || !state.profile || !clean(state.profile.studentId)){
-      console.warn('[EAP Writing Evidence Guard v3] Player profile is unavailable');
-      return false;
-    }
-
-    var person = state.profile;
-    var evidenceId = [
-      'writing',
-      clean(person.studentId),
-      'S' + pending.sessionNumber,
-      pending.createdAt
-    ].join('-');
-
-    var sent = sentMap();
-    if(sent[evidenceId]){
-      pending.sent = true;
-      return true;
-    }
-
-    var entry = {
-      rawEvidenceId: evidenceId,
-      sessionId: 'S' + pending.sessionNumber,
-      sessionTitle: titleFor(pending.sessionNumber),
-      skill: 'writing',
-      evidenceType: 'writing_evidence',
-      taskId: 'writing_s' + pending.sessionNumber,
-      score: scoreFromPage(),
-      prompt: pending.prompt,
-      output: pending.value,
-      answer: pending.value,
-      studentAnswer: pending.value,
-      attemptNo: 1,
-      at: new Date().toISOString()
-    };
-
-    var ok = sync.submitRaw(entry, state, { output: pending.value });
-
-    if(ok){
-      sent[evidenceId] = Date.now();
-      saveSent(sent);
-      pending.sent = true;
-      console.info('[EAP Writing Evidence Guard v3] evidence queued', evidenceId);
-    }
-
-    return ok;
+    portfolio.forEach(function(entry, index) {
+      known[signature(entry, index)] = true;
+    });
   }
 
-  function showInvalidNotice(){
-    alert('กรุณาเขียนคำตอบของตนเองอย่างน้อย 1 ประโยคก่อนส่ง');
-    if(writingBox()) writingBox().focus();
-  }
+  function scan() {
+    var state = getState();
+    var portfolio = Array.isArray(state.portfolio)
+      ? state.portfolio
+      : [];
 
-  function captureSubmit(event){
-    var button = event.target && event.target.closest
-      ? event.target.closest('button')
-      : null;
+    portfolio.forEach(function(entry, index) {
+      var key = signature(entry, index);
 
-    if(!button || !/submit\s*writing/i.test(clean(button.textContent))) return;
-    if(!isWritingPage()) return;
-
-    var value = clean(writingBox() && writingBox().value);
-    var sessionNumber = currentSession();
-
-    if(!acceptable(value)){
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      showInvalidNotice();
-      return;
-    }
-
-    queueWriting(value, sessionNumber, promptFromPage());
-  }
-
-  function patchHero(){
-    var api = window.EAPHero;
-
-    if(!api || heroPatched || typeof api.submitWriting !== 'function') return;
-
-    var original = api.submitWriting.bind(api);
-    api.submitWriting = function(){
-      var value = clean(writingBox() && writingBox().value);
-      var sessionNumber = currentSession();
-
-      if(isWritingPage() && !acceptable(value)){
-        showInvalidNotice();
-        return false;
+      if (known[key]) {
+        return;
       }
 
-      if(acceptable(value) && sessionNumber){
-        queueWriting(value, sessionNumber, promptFromPage());
+      known[key] = true;
+
+      if (
+        isWriting(entry) &&
+        sessionId(entry) &&
+        output(entry)
+      ) {
+        send(entry, state, index);
       }
-
-      return original.apply(api, arguments);
-    };
-
-    heroPatched = true;
+    });
   }
 
-  document.addEventListener('click', captureSubmit, true);
+  function boot() {
+    prime();
 
-  var observer = new MutationObserver(function(){
-    flushPending();
-  });
+    timer = window.setInterval(scan, 500);
 
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
+    window.addEventListener('beforeunload', scan);
+  }
 
-  var patchTimer = window.setInterval(function(){
-    patchHero();
-    if(heroPatched) window.clearInterval(patchTimer);
-  }, 120);
+  window.EAPWritingEvidenceGuardV4 = {
+    scan: scan,
 
-  window.EAPWritingEvidenceGuardV3 = {
-    queueWriting: queueWriting,
-    flushPending: flushPending,
-    debug: function(){
-      return {
-        pending: pending,
-        completion: isCompletionPage(),
-        session: currentSession(),
-        state: playerState()
-      };
+    inspect: function() {
+      var state = getState();
+
+      return Array.isArray(state.portfolio)
+        ? state.portfolio
+        : [];
     }
   };
+
+  boot();
 })();
