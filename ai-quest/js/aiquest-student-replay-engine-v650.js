@@ -1,2 +1,2 @@
 /* Legacy entry retained for old bookmarks. */
-(()=>{'use strict';if(window.__AIQUEST_CORE_RECOVERY_LOADER_V682__)return;window.__AIQUEST_CORE_RECOVERY_LOADER_V682__=true;const s=document.createElement('script');s.src='./js/aiquest-student-replay-engine-v674.js?v=20260707-context-hard-v682';s.async=false;document.head.appendChild(s)})();
+(()=>{'use strict';if(window.__AIQUEST_CORE_RECOVERY_LOADER_V685__)return;window.__AIQUEST_CORE_RECOVERY_LOADER_V685__=true;const s=document.createElement('script');s.src='./js/aiquest-student-replay-engine-v685.js?v=20260707-casepicker685';s.async=false;document.head.appendChild(s)})();
