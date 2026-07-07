@@ -1,128 +1,276 @@
-/* EAP Hero Writing Evidence Guard v1 */
+/* =========================================================
+   EAP Hero Writing Evidence Guard v2
+   File: eap-writing-evidence-guard-v1.js
+
+   Purpose
+   - Keeps valid learner writing in the normal game flow.
+   - Sends normal-session Writing evidence to eap_hero_evidence.
+   - Lets the Apps Script Contract classify it as Mastery or Exposure.
+   - Does not alter game score, unlocks, or teacher-review rules.
+========================================================= */
 (function(){
   'use strict';
-  var syncPatched = false;
-  var heroPatched = false;
-  var STORE = 'EAP_HERO_PROGRESS_V3';
 
-  function clean(v){ return String(v == null ? '' : v).replace(/\s+/g,' ').trim(); }
-  function box(){ return document.getElementById('writingOutput'); }
-  function pageText(){ return String((document.getElementById('app') || document.body).innerText || ''); }
-  function currentSession(){
-    var m = pageText().match(/(?:Session\s*|\bS)(1[0-5]|[1-9])\b/i);
-    return Number(m && m[1] || 0);
+  var STORE = 'EAP_HERO_PROGRESS_V3';
+  var SENT = 'EAP_HERO_WRITING_EVIDENCE_SENT_V2';
+  var heroPatched = false;
+
+  function clean(v) {
+    return String(v == null ? '' : v)
+      .replace(/\s+/g, ' ')
+      .trim();
   }
-  function writingPage(){ return /Writing Mission/i.test(pageText()); }
-  function promptLike(v){
-    var s = clean(v).toLowerCase();
-    return !s || /write its simple meaning|write one short academic sentence|choose one academic word from context|answer briefly in english|saved activity evidence/.test(s);
+
+  function pageText() {
+    return String(
+      (document.getElementById('app') || document.body)
+        .innerText || ''
+    );
   }
-  function acceptable(v){
-    var value = clean(v);
-    return value.split(/\s+/).filter(Boolean).length >= 4 && !promptLike(value);
+
+  function currentSession() {
+    var match = pageText().match(
+      /(?:Session\s*|\bS)(1[0-5]|[1-9])\b/i
+    );
+
+    return Number(match && match[1] || 0);
   }
-  function valid(){ return acceptable(box() && box().value); }
-  function notice(){
-    var old = document.getElementById('eapWritingGuardNotice');
-    if(old) old.remove();
-    var node = document.createElement('div');
-    node.id = 'eapWritingGuardNotice';
-    node.textContent = 'Write one short answer of your own before submitting. The instruction itself is not writing evidence.';
-    node.style.cssText = 'position:fixed;z-index:100020;left:50%;bottom:22px;transform:translateX(-50%);padding:10px 14px;border-radius:12px;background:#8d2b10;color:#fff;font:700 14px system-ui';
-    document.body.appendChild(node);
-    setTimeout(function(){ node.remove(); }, 3200);
+
+  function writingPage() {
+    return /Writing Mission|Writing Evidence Saved/i
+      .test(pageText());
   }
-  function sameSession(row, sid){
-    var value = clean(row && (row.sessionId || row.session || row.taskId || row.rawEvidenceId || ''));
-    return new RegExp('(?:^|\\b)S?0?' + Number(sid) + '(?:\\b|_)','i').test(value);
+
+  function box() {
+    return document.getElementById('writingOutput');
   }
-  function isWritingRow(row, sid){
-    var skill = clean(row && (row.skill || row.skillName || row.evidenceType || row.taskId || '')).toLowerCase();
-    return !!row && typeof row === 'object' && /writing/.test(skill) && sameSession(row,sid);
+
+  function acceptable(value) {
+    return clean(value)
+      .split(/\s+/)
+      .filter(Boolean)
+      .length >= 4;
   }
-  function timestamp(row){
-    var value = row && (row.at || row.occurredAt || row.createdAt || row.submittedAt || row.timestamp || 0);
-    var time = new Date(value).getTime();
-    return Number.isFinite(time) ? time : 0;
-  }
-  function repairPortfolio(value, sid){
-    if(!acceptable(value) || !sid) return;
-    var state;
-    try { state = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch(_) { state = null; }
-    if(!state) return;
-    var rows = [], seen = [];
-    function walk(node){
-      if(!node || typeof node !== 'object' || seen.indexOf(node) >= 0) return;
-      seen.push(node);
-      if(isWritingRow(node,sid)) rows.push(node);
-      if(Array.isArray(node)) node.forEach(walk);
-      else Object.keys(node).forEach(function(key){ walk(node[key]); });
-    }
-    walk(state);
-    rows.sort(function(a,b){ return timestamp(b) - timestamp(a); });
-    var target = rows[0];
-    if(!target) return;
-    var old = clean(target.output || target.answer || target.studentAnswer);
-    if(promptLike(old)){
-      target.output = value;
-      target.answer = value;
-      target.studentAnswer = value;
-      target.evidenceOutputSource = 'writingOutput';
-      try { localStorage.setItem(STORE, JSON.stringify(state)); } catch(_) {}
+
+  function readState() {
+    try {
+      return JSON.parse(
+        localStorage.getItem(STORE) || 'null'
+      );
+    } catch (error) {
+      return null;
     }
   }
-  function patchEvidenceSync(){
-    var sync = window.EAPEvidenceSyncV130 || window.EAPEvidenceSyncV129;
-    if(!sync || syncPatched || typeof sync.submitRaw !== 'function') return;
-    var original = sync.submitRaw;
-    sync.submitRaw = function(entry,state,extras){
-      var skill = clean(entry && entry.skill).toLowerCase();
-      var value = clean(box() && box().value);
-      if(writingPage() && skill === 'writing' && acceptable(value)){
-        entry = Object.assign({},entry,{output:value,answer:value,studentAnswer:value});
-        extras = Object.assign({},extras || {},{output:value});
-      }
-      return original.call(this,entry,state,extras);
+
+  function sentMap() {
+    try {
+      return JSON.parse(
+        localStorage.getItem(SENT) || '{}'
+      );
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveSent(map) {
+    try {
+      localStorage.setItem(SENT, JSON.stringify(map));
+    } catch (error) {}
+  }
+
+  function visibleScore() {
+    var match = pageText().match(
+      /(?:Auto Score|Writing Evidence Saved)[\s\S]{0,180}?(\d{1,3})\s*\/\s*100/i
+    );
+
+    if (!match) {
+      match = pageText().match(/\b(\d{1,3})\s*\/\s*100\b/);
+    }
+
+    var score = Number(match && match[1]);
+
+    return Number.isFinite(score)
+      ? Math.max(0, Math.min(100, score))
+      : 0;
+  }
+
+  function titleFor(sessionNumber) {
+    var titles = {
+      1: 'Academic Hero Awakening',
+      2: 'Vocabulary Lab',
+      3: 'Main Idea Hunter',
+      4: 'Keyword Scanner',
+      5: 'Critical Reading',
+      6: 'Summary Builder',
+      7: 'Academic Tone Battle',
+      8: 'Paragraph Structure Lab',
+      9: 'Paragraph Writing',
+      10: 'Data Description',
+      11: 'Academic Email',
+      12: 'Citation and Ethics',
+      13: 'Academic Listening',
+      14: 'Academic Presentation',
+      15: 'Final Integration'
     };
-    syncPatched = true;
+
+    return titles[sessionNumber] ||
+      ('Session ' + sessionNumber);
   }
-  function patchHero(){
+
+  function promptFor() {
+    var node = document.querySelector(
+      '[data-writing-prompt], .writing-prompt, .mission-prompt, .prompt'
+    );
+
+    return clean(node && node.innerText) ||
+      'Writing activity evidence.';
+  }
+
+  function submitWritingEvidence(value, sessionNumber) {
+    if (!acceptable(value) || !sessionNumber) {
+      return false;
+    }
+
+    var sync =
+      window.EAPEvidenceSyncV131 ||
+      window.EAPEvidenceSyncV130 ||
+      window.EAPEvidenceSyncV129;
+
+    if (!sync || typeof sync.submitRaw !== 'function') {
+      console.warn(
+        '[EAP Writing Evidence Guard v2] Evidence Sync is unavailable'
+      );
+      return false;
+    }
+
+    var state = readState();
+
+    if (!state || !state.profile) {
+      console.warn(
+        '[EAP Writing Evidence Guard v2] Player profile is unavailable'
+      );
+      return false;
+    }
+
+    var profile = state.profile || {};
+    var studentId = clean(
+      profile.studentId || profile.id || 'guest'
+    );
+
+    var dedupeKey = [
+      studentId,
+      'S' + sessionNumber,
+      clean(value).slice(0, 120)
+    ].join('|');
+
+    var sent = sentMap();
+
+    if (sent[dedupeKey]) {
+      return true;
+    }
+
+    var entry = {
+      rawEvidenceId:
+        'writing-' +
+        studentId +
+        '-S' +
+        sessionNumber +
+        '-' +
+        Date.now(),
+
+      sessionId: 'S' + sessionNumber,
+      sessionTitle: titleFor(sessionNumber),
+
+      skill: 'writing',
+      evidenceType: 'writing_evidence',
+      taskId: 'writing_s' + sessionNumber,
+
+      score: visibleScore(),
+
+      prompt: promptFor(),
+
+      output: value,
+      answer: value,
+      studentAnswer: value,
+
+      attemptNo: 1,
+      at: new Date().toISOString()
+    };
+
+    var ok = sync.submitRaw(entry, state, {
+      output: value
+    });
+
+    if (ok) {
+      sent[dedupeKey] = Date.now();
+      saveSent(sent);
+
+      console.info(
+        '[EAP Writing Evidence Guard v2] submitted',
+        entry.rawEvidenceId
+      );
+    }
+
+    return ok;
+  }
+
+  function patchHero() {
     var api = window.EAPHero;
-    if(!api || heroPatched || typeof api.submitWriting !== 'function') return;
+
+    if (
+      !api ||
+      heroPatched ||
+      typeof api.submitWriting !== 'function'
+    ) {
+      return;
+    }
+
     var original = api.submitWriting.bind(api);
-    api.submitWriting = function(){
-      var sid = currentSession();
+
+    api.submitWriting = function() {
+      var sessionNumber = currentSession();
       var value = clean(box() && box().value);
-      if(writingPage() && !acceptable(value)){
-        notice();
-        var field = box();
-        if(field) field.focus();
+
+      if (writingPage() && !acceptable(value)) {
+        alert(
+          'กรุณาเขียนคำตอบของตนเองอย่างน้อย 1 ประโยคก่อนส่ง'
+        );
+
+        if (box()) {
+          box().focus();
+        }
+
         return false;
       }
-      var result = original.apply(api,arguments);
-      if(writingPage() && acceptable(value)){
-        setTimeout(function(){ repairPortfolio(value,sid); },0);
-        setTimeout(function(){ repairPortfolio(value,sid); },160);
+
+      var result = original.apply(api, arguments);
+
+      if (acceptable(value) && sessionNumber) {
+        window.setTimeout(function() {
+          submitWritingEvidence(value, sessionNumber);
+        }, 350);
+
+        window.setTimeout(function() {
+          submitWritingEvidence(value, sessionNumber);
+        }, 1200);
       }
+
       return result;
     };
+
     heroPatched = true;
   }
-  document.addEventListener('click', function(event){
-    var button = event.target && event.target.closest && event.target.closest('button');
-    if(!button || !/submit writing/i.test(clean(button.textContent)) || !writingPage()) return;
-    if(!valid()){
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      notice();
-      var field = box();
-      if(field) field.focus();
-    }
-  }, true);
-  var timer = setInterval(function(){
-    patchEvidenceSync();
+
+  var timer = window.setInterval(function() {
     patchHero();
-    if(syncPatched && heroPatched) clearInterval(timer);
-  },100);
-  window.EAPWritingEvidenceGuardV1 = {valid:valid,repair:repairPortfolio};
+
+    if (heroPatched) {
+      window.clearInterval(timer);
+    }
+  }, 120);
+
+  window.EAPWritingEvidenceGuardV2 = {
+    submitWritingEvidence: submitWritingEvidence,
+    currentSession: currentSession
+  };
 })();
