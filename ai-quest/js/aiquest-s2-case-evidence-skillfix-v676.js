@@ -1,9 +1,9 @@
-/* CSAI2102 S2 Evidence Picker metadata repair v6.8.1
-   Also backfills integrity guards for any browser that still has an older bootstrap shell cached.
+/* CSAI2102 S2 Evidence Picker metadata repair v6.8.2
+   Also backfills integrity guards and case-card prompt previews for cached player shells.
 */
 (()=>{'use strict';
-  if(window.__AIQUEST_S2_CASE_EVIDENCE_SKILLFIX_V681__)return;
-  window.__AIQUEST_S2_CASE_EVIDENCE_SKILLFIX_V681__=true;
+  if(window.__AIQUEST_S2_CASE_EVIDENCE_SKILLFIX_V682__)return;
+  window.__AIQUEST_S2_CASE_EVIDENCE_SKILLFIX_V682__=true;
   window.__AIQUEST_S2_CASE_EVIDENCE_SKILLFIX_V676__=true;
   const ACTIVE='CSAI2102_ACTIVE_S2_V674';
   const KEY='CSAI2102_S2_CASE_EVIDENCE_AUDIT_V675';
@@ -24,8 +24,8 @@
   function repairActive(){const snapshot=read(ACTIVE,null);return repair(snapshot?.deck)}
   function patch(){
     const api=window.AIQuestS2AgentDeckV672;
-    if(!api||api.__caseEvidenceSkillFixV681||typeof api.buildDeck!=='function')return false;
-    api.__caseEvidenceSkillFixV681=true;
+    if(!api||api.__caseEvidenceSkillFixV682||typeof api.buildDeck!=='function')return false;
+    api.__caseEvidenceSkillFixV682=true;
     const original=api.buildDeck.bind(api);
     api.buildDeck=function(){const deck=original();repair(deck);return deck};
     return true;
@@ -34,6 +34,7 @@
   function rescue(){
     if(!window.__AIQUEST_S2_REFLECTION_SEMANTIC_GATE_V678__)add('aiquestS2SemanticGateV678','./js/aiquest-s2-reflection-semantic-gate-v678.js?v=20260707-semantic678');
     if(window.__AIQUEST_S2_ANSWER_ROTATION_V677__&&!window.__AIQUEST_S2_FINGERPRINT_WINDOW_V681__)add('aiquestS2FingerprintWindowV681','./js/aiquest-s2-fingerprint-window-v681.js?v=20260707-fingerprint681');
+    if(!window.__AIQUEST_REFLECTION_CASE_CARD_DETAIL_V676__)add('aiquestReflectionCaseCardDetailV676','./js/aiquest-reflection-case-card-detail-v676.js?v=20260707-casedetail676');
   }
   const timer=setInterval(()=>{patch();repairActive();rescue()},140);
   patch();repairActive();rescue();
