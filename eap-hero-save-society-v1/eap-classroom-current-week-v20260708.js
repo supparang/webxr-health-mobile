@@ -1,64 +1,68 @@
 /* =========================================================
    EAP Hero Classroom Current Week v20260708
-   Purpose:
-   - Set the classroom default route to Week 2 / S2 for tomorrow's class.
-   - Do not override explicit URL parameters such as ?session=1 or ?route=S1.
-   - Do not erase learner progress; only sets the active classroom route.
+   V2: manual helper only.
+   - Does NOT set any default route automatically.
+   - This prevents weekly maintenance confusion.
+   - Teachers can still open a specific week with URL params, e.g. ?session=2.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260708-EAP-CLASSROOM-CURRENT-WEEK-S2';
-  const DEFAULT_ROUTE = 'S2';
-  const DEFAULT_SESSION = '2';
-  const ROUTE_TITLE = 'Vocabulary Lab';
-  const KEYS = [
-    'EAP_HERO_ACTIVE_ROUTE',
-    'EAP_HERO_CURRENT_ROUTE',
-    'EAP_HERO_CURRENT_SESSION',
-    'EAP_ACTIVE_SESSION'
-  ];
+  const VERSION = 'v20260708-EAP-CLASSROOM-CURRENT-WEEK-MANUAL-ONLY';
 
   function clean(value){
     return String(value == null ? '' : value).replace(/\s+/g,' ').trim();
   }
 
-  function hasExplicitRoute(){
-    const q = new URLSearchParams(location.search);
-    return !!clean(q.get('session') || q.get('route') || q.get('stage'));
+  function normalizeRoute(route){
+    const raw = clean(route).toUpperCase();
+    if (!raw) return '';
+    return /^\d+$/.test(raw) ? 'S' + raw : raw;
   }
 
-  function setRoute(){
-    if (hasExplicitRoute()) return;
+  function setRoute(route){
+    const normalized = normalizeRoute(route);
+    if (!normalized) return false;
+    const session = /^S\d+$/i.test(normalized)
+      ? normalized.replace(/^S/i,'')
+      : normalized;
     try {
-      localStorage.setItem('EAP_HERO_CLASSROOM_DEFAULT_ROUTE', DEFAULT_ROUTE);
-      localStorage.setItem('EAP_HERO_CLASSROOM_DEFAULT_TITLE', ROUTE_TITLE);
-      localStorage.setItem('EAP_HERO_CLASSROOM_DEFAULT_VERSION', VERSION);
-      localStorage.setItem('EAP_HERO_ACTIVE_ROUTE', DEFAULT_ROUTE);
-      localStorage.setItem('EAP_HERO_CURRENT_ROUTE', DEFAULT_ROUTE);
-      localStorage.setItem('EAP_HERO_CURRENT_SESSION', DEFAULT_SESSION);
-      localStorage.setItem('EAP_ACTIVE_SESSION', DEFAULT_SESSION);
+      localStorage.setItem('EAP_HERO_ACTIVE_ROUTE', normalized);
+      localStorage.setItem('EAP_HERO_CURRENT_ROUTE', normalized);
+      localStorage.setItem('EAP_HERO_CURRENT_SESSION', session);
+      localStorage.setItem('EAP_ACTIVE_SESSION', session);
+      localStorage.setItem('EAP_HERO_CLASSROOM_ROUTE_SET_MANUALLY_AT', new Date().toISOString());
     } catch(error) {}
+    return true;
   }
 
-  function routeInfo(){
+  function clearRoute(){
+    try {
+      [
+        'EAP_HERO_ACTIVE_ROUTE',
+        'EAP_HERO_CURRENT_ROUTE',
+        'EAP_HERO_CURRENT_SESSION',
+        'EAP_ACTIVE_SESSION',
+        'EAP_HERO_CLASSROOM_DEFAULT_ROUTE',
+        'EAP_HERO_CLASSROOM_DEFAULT_TITLE',
+        'EAP_HERO_CLASSROOM_DEFAULT_VERSION'
+      ].forEach(key => localStorage.removeItem(key));
+    } catch(error) {}
+    return true;
+  }
+
+  function info(){
     return {
       version: VERSION,
-      defaultRoute: DEFAULT_ROUTE,
-      defaultSession: DEFAULT_SESSION,
-      title: ROUTE_TITLE,
-      explicitUrlRoute: hasExplicitRoute()
+      autoDefault: false,
+      recommendation: 'Use explicit URL params such as ?session=2 for a specific teaching week.'
     };
   }
 
-  setRoute();
-
   window.EAPClassroomCurrentWeek = {
     version: VERSION,
-    defaultRoute: DEFAULT_ROUTE,
-    defaultSession: DEFAULT_SESSION,
-    title: ROUTE_TITLE,
     setRoute,
-    info: routeInfo
+    clearRoute,
+    info
   };
 })();
