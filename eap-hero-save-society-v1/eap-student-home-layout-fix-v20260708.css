@@ -1,9 +1,10 @@
 /* =========================================================
    EAP Hero Student Home Layout Fix v20260708
-   v2 Mobile Compact
+   v3 Mobile Ultra Compact
    - Desktop/tablet uses available viewport width.
-   - Mobile uses compact roadmap cards and smaller controls.
-   - Keeps roadmap + session grid compact and readable.
+   - Mobile browser shows only the current actionable route.
+   - Done/locked roadmap cards are hidden on mobile to avoid a 20-route scroll.
+   - Keeps routeOrder unlock logic from JS; this file only changes layout/visibility.
 ========================================================= */
 
 html,
@@ -101,7 +102,7 @@ body #app {
   }
 }
 
-/* Mobile compact mode: detected by viewport width / coarse pointer. */
+/* Mobile ultra compact mode: mobile browser sees only the current route card. */
 @media (max-width: 720px), (hover: none) and (pointer: coarse) {
   body {
     -webkit-text-size-adjust: 100%;
@@ -130,36 +131,46 @@ body #app {
   }
 
   #eap-student-15week-roadmap .rm-head p {
-    font-size: 11px !important;
-    line-height: 1.25 !important;
-    max-height: 28px !important;
-    overflow: hidden !important;
+    display: none !important;
   }
 
   #eap-student-15week-roadmap .rm-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 6px !important;
-    padding: 7px !important;
-  }
-
-  #eap-student-15week-roadmap .rm-summary > * {
-    min-height: 42px !important;
-    padding: 7px 8px !important;
-    border-radius: 12px !important;
-    font-size: 11px !important;
-    line-height: 1.18 !important;
+    display: none !important;
   }
 
   #eap-student-15week-roadmap .rm-grid {
     grid-template-columns: 1fr !important;
-    gap: 8px !important;
+    gap: 7px !important;
     padding: 7px !important;
   }
 
+  /* Hide the 20-route list on mobile. Keep only the current unlocked route. */
   #eap-student-15week-roadmap .rm-card {
+    display: none !important;
+  }
+
+  #eap-student-15week-roadmap .rm-card.eap-current,
+  #eap-student-15week-roadmap .rm-card:not(.eap-locked):not(.eap-done):first-of-type {
+    display: block !important;
+  }
+
+  #eap-student-15week-roadmap .rm-card.eap-current {
     min-height: 0 !important;
-    padding: 9px 10px !important;
+    padding: 10px 11px !important;
     border-radius: 15px !important;
+  }
+
+  #eap-student-15week-roadmap .rm-card.eap-current::before {
+    content: 'ด่านที่ต้องทำตอนนี้';
+    display: inline-flex;
+    align-items: center;
+    margin: 0 0 5px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #dffcf3;
+    color: #047857;
+    font-size: 11px;
+    font-weight: 950;
   }
 
   #eap-student-15week-roadmap .rm-week,
@@ -170,7 +181,7 @@ body #app {
   }
 
   #eap-student-15week-roadmap .rm-title {
-    font-size: 14px !important;
+    font-size: 15px !important;
     line-height: 1.15 !important;
     margin: 3px 0 !important;
   }
@@ -198,6 +209,16 @@ body #app {
     line-height: 1.15 !important;
   }
 
+  /* Hide session-grid done/locked cards on mobile, keep current only. */
+  .eap-session-unified-locked,
+  .eap-session-unified-done {
+    display: none !important;
+  }
+
+  .eap-session-unified-current {
+    display: block !important;
+  }
+
   .app > main,
   #app > main,
   .app .screen,
@@ -217,16 +238,12 @@ body #app {
     left: auto !important;
     bottom: 8px !important;
     max-width: calc(100vw - 16px) !important;
-    transform: scale(.92) !important;
+    transform: scale(.9) !important;
     transform-origin: right bottom !important;
   }
 }
 
 @media (max-width: 420px) {
-  #eap-student-15week-roadmap .rm-summary {
-    grid-template-columns: 1fr 1fr !important;
-  }
-
   #eap-student-15week-roadmap .rm-actions {
     grid-template-columns: 1fr !important;
   }
