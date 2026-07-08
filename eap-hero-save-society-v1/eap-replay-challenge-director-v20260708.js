@@ -1,19 +1,18 @@
 /* =========================================================
    EAP Hero Replay Challenge Director v20260708
-   V2: lock Source/Scenario per route so it does not change every refresh.
-   - Applies to S1-S15 + B1-B5.
-   - Shows concise replay challenge; source detail is collapsed.
-   - Scenario changes only when the learner/teacher taps "สุ่ม Scenario ใหม่".
+   V3 METADATA-ONLY STUDENT MODE
+   - Keeps anti-memorization / replay metadata inside the content pack.
+   - Does NOT inject the visible Replay Challenge panel into the student page.
+   - Scenario/source rotation data remains available for Sheet metadata and teacher analysis.
    - Does not change scoring, pass/fail, evidence, Sheet transport, or core runtime.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260708-EAP-REPLAY-CHALLENGE-DIRECTOR-S15-B5-V2-SCENARIO-LOCK';
+  const VERSION = 'v20260708-EAP-REPLAY-CHALLENGE-DIRECTOR-V3-METADATA-ONLY';
   const PACK_NAME = 'EAP_HERO_SESSION_CONTENT_PACK';
   const BANK_NAME = 'EAP_GOLD_AUTHORED_BANK';
   const PANEL_ID = 'eap-replay-challenge-panel';
-  const STYLE_ID = 'eap-replay-challenge-style';
   const SKILLS = ['reading','listening','writing','speaking'];
 
   const MODES = [
@@ -60,11 +59,6 @@
   };
 
   function clean(value){ return String(value == null ? '' : value).replace(/\s+/g,' ').trim(); }
-  function esc(value){
-    return String(value == null ? '' : value)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-  }
 
   function pack(){
     const data = window[PACK_NAME];
@@ -106,25 +100,8 @@
     return '';
   }
 
-  function routeIdFromDom(){
-    const text = clean(document.body && document.body.textContent || '');
-    const session = text.match(/Session\s*(1[0-5]|[1-9])/i);
-    if (session) return 'S' + Number(session[1]);
-    const boss = text.match(/\b(B[1-5])\b/i);
-    if (boss) return boss[1].toUpperCase();
-    const data = pack();
-    if (!data) return '';
-    const lower = text.toLowerCase();
-    const found = data.routes.find(route => {
-      const title = clean(route.title).toLowerCase();
-      const rid = clean(route.routeId).toLowerCase();
-      return (title && lower.includes(title)) || (rid && new RegExp('\\b' + rid + '\\b','i').test(lower));
-    });
-    return found ? found.routeId : '';
-  }
-
   function currentRoute(){
-    return byRouteId(routeIdFromUrl()) || byRouteId(routeIdFromDom()) || byRouteId(routeIdFromStorage()) || byRouteId('S1');
+    return byRouteId(routeIdFromUrl()) || byRouteId(routeIdFromStorage()) || byRouteId('S1');
   }
 
   function routeSources(route){
@@ -248,7 +225,8 @@
           antiLongestOptionBias: true,
           requireEvidenceOnReplay: true,
           preserveBestScore: true,
-          scenarioLockedDuringCurrentView: true
+          scenarioLockedDuringCurrentView: true,
+          studentPanelVisible: false
         };
         (route.missions || []).forEach(mission => {
           const skill = clean(mission.skill).toLowerCase();
@@ -266,126 +244,23 @@
       data.replayChallengeDirector = {
         version: VERSION,
         appliesTo: 'S1-S15 + B1-B5',
-        normalSessionReplay: 'locked scenario during current view + fresh source on replay + skill challenge + evidence replay goal',
-        bossReplay: 'integrated four-skill surge + teacher-review readiness',
-        antiMemorization: ['no-repeat source window','rotating challenge modes','anti-longest-option warning','evidence-required replay']
+        normalSessionReplay: 'metadata-only: fresh source/replay variants kept for anti-memorization without student panel',
+        bossReplay: 'metadata-only integrated four-skill surge + teacher-review readiness',
+        antiMemorization: ['no-repeat source window','rotating challenge modes','anti-longest-option warning','evidence-required replay'],
+        studentPanelVisible: false
       };
       data.__replayChallengeDirector = VERSION;
     } catch(error) {}
   }
 
-  function injectStyle(){
-    if (document.getElementById(STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = `
-      #${PANEL_ID}{margin:10px 0 0;padding:11px;border-radius:16px;background:linear-gradient(135deg,#fff8e7,#ffffff);border:1px solid #fde68a;color:#102033;box-shadow:0 8px 22px rgba(8,25,45,.10);font-family:Arial,'Noto Sans Thai',sans-serif}
-      #${PANEL_ID} .rc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:7px}
-      #${PANEL_ID} .rc-title{font-size:15px;font-weight:950;color:#7c4a00;line-height:1.25}
-      #${PANEL_ID} .rc-mode{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:#ffedd5;color:#9a3412;font-size:12px;font-weight:950}
-      #${PANEL_ID} .rc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
-      #${PANEL_ID} .rc-box{border:1px solid #fde7b3;border-radius:13px;background:#fff;padding:9px;line-height:1.35;font-size:12px;color:#334155}
-      #${PANEL_ID} .rc-box b{display:block;color:#17375e;font-size:13px;margin-bottom:4px}
-      #${PANEL_ID} .rc-pill{display:inline-flex;margin:3px 4px 0 0;padding:4px 7px;border-radius:999px;background:#ecfeff;color:#155e75;font-size:11px;font-weight:900}
-      #${PANEL_ID} .rc-warning{margin-top:8px;padding:8px 10px;border-radius:12px;background:#fef3c7;color:#78350f;font-size:12px;font-weight:850;line-height:1.35}
-      #${PANEL_ID} .rc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-      #${PANEL_ID} button{border:0;border-radius:12px;padding:8px 10px;background:#17375e;color:#fff;font-weight:950;font-size:12px;cursor:pointer}
-      #${PANEL_ID} button.secondary{background:#edf2f7;color:#1f2937}
-      #${PANEL_ID} details{margin-top:5px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;overflow:hidden}
-      #${PANEL_ID} summary{padding:7px 9px;cursor:pointer;font-weight:900;color:#17375e}
-      #${PANEL_ID} .rc-detail{padding:0 9px 8px;color:#475569;line-height:1.35}
-      @media(max-width:760px){#${PANEL_ID}{padding:10px;border-radius:14px}#${PANEL_ID} .rc-title{font-size:14px}#${PANEL_ID} .rc-grid{grid-template-columns:1fr;gap:7px}#${PANEL_ID} .rc-box{font-size:12px;padding:8px}#${PANEL_ID} button{font-size:12px;min-height:36px}}
-    `;
-    document.head.appendChild(style);
-  }
-
-  function challengeForCurrent(options){
-    const route = currentRoute();
-    return { route, challenge: routeChallenge(route, options || {}) };
-  }
-
-  function render(route, challenge){
-    if (!route || !challenge) return '';
-    const src = challenge.source;
-    const skills = challenge.requiredSkills.map(skill => '<span class="rc-pill">' + esc(skill) + ' · ' + esc(skillRole(route, skill)) + '</span>').join('');
-    const sourceLine = src
-      ? '<b>Scenario ล็อกไว้รอบนี้</b>' + esc(src.id + ' · ' + src.title) +
-        '<details><summary>ดูรายละเอียด Source</summary><div class="rc-detail">' + esc(clean(src.passage)) + '</div></details>'
-      : '<b>Boss Scenario</b>Integrated source set / teacher-review evidence';
-    const boss = route.routeType === 'boss_gate'
-      ? '<div class="rc-box"><b>Boss Rule</b>' + esc(challenge.bossRule) + '</div>'
-      : '<div class="rc-box"><b>No-repeat pool</b>' + esc(challenge.sourceCount || 0) + ' cards · window ' + esc(challenge.noRepeatWindow) + '<br><span class="rc-pill">ไม่เปลี่ยนเองระหว่างอ่าน</span></div>';
-
-    return `
-      <div class="rc-head">
-        <div class="rc-title">🔥 Replay Challenge · ${esc(route.routeId)} ${esc(route.title || '')}</div>
-        <div class="rc-mode">${esc(challenge.mode.th)} · ${esc(challenge.intensity)}</div>
-      </div>
-      <div class="rc-grid">
-        <div class="rc-box"><b>รอบนี้เล่นแบบ</b>${esc(challenge.mode.pressure)}<br><span class="rc-pill">${esc(challenge.mode.bonus)}</span></div>
-        <div class="rc-box"><b>Skill ที่ต้องคุม</b>${skills || '<span class="rc-pill">Practice</span>'}</div>
-        <div class="rc-box">${sourceLine}</div>
-        ${boss}
-      </div>
-      <div class="rc-warning">กันเดา: ห้ามใช้สูตร “ข้อยาวสุดคือคำตอบ” — ให้ยึด evidence + limitation จากโจทย์เท่านั้น</div>
-      <div class="rc-actions">
-        <button type="button" data-eap-rc-action="rotate">🔄 สุ่ม Scenario ใหม่สำหรับ replay</button>
-        <button type="button" class="secondary" data-eap-rc-action="brief">📘 กลับไป Mission Brief</button>
-      </div>
-    `;
-  }
-
-  function mount(options){
-    enrichPack();
-    const brief = document.getElementById('eap-session-content-brief');
-    if (!brief) return;
-    injectStyle();
-    const state = challengeForCurrent(options || {});
-    const route = state.route;
-    const challenge = state.challenge;
-    let panel = document.getElementById(PANEL_ID);
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.id = PANEL_ID;
-      const rail = document.getElementById('eap-classroom-action-rail');
-      if (rail && rail.parentNode === brief) rail.insertAdjacentElement('afterend', panel);
-      else {
-        const compact = brief.querySelector('.eap-brief-compact');
-        if (compact) compact.insertAdjacentElement('afterend', panel);
-        else brief.appendChild(panel);
-      }
-    }
-    const key = route.routeId + '|' + challenge.mode.id + '|' + (challenge.source && challenge.source.id || 'boss') + '|' + VERSION;
-    if (panel.dataset.key !== key) {
-      panel.dataset.key = key;
-      panel.innerHTML = render(route, challenge);
-    }
-  }
-
-  function onClick(event){
-    const btn = event.target.closest('[data-eap-rc-action]');
-    if (!btn) return;
-    event.preventDefault();
-    const action = btn.dataset.eapRcAction;
-    if (action === 'rotate') {
-      mount({ rotate:true });
-      const panel = document.getElementById(PANEL_ID);
-      if (panel) panel.scrollIntoView({ behavior:'smooth', block:'center' });
-      return;
-    }
-    if (action === 'brief') {
-      const brief = document.getElementById('eap-session-content-brief');
-      if (brief) brief.scrollIntoView({ behavior:'smooth', block:'start' });
-    }
-  }
+  function cleanupPanel(){ document.getElementById(PANEL_ID)?.remove(); }
 
   function start(){
-    document.addEventListener('click', onClick, true);
     enrichPack();
-    mount();
-    window.setInterval(function(){ mount({ rotate:false }); }, 1800);
+    cleanupPanel();
     window.EAPReplayChallengeDirector = {
       version: VERSION,
+      metadataOnly: true,
       currentRoute,
       routeChallenge: function(routeId){
         const route = byRouteId(routeId) || currentRoute();
@@ -394,11 +269,12 @@
       rotateScenario: function(routeId){
         const route = byRouteId(routeId) || currentRoute();
         const source = rotateSource(route);
-        mount({ rotate:false });
+        enrichPack();
         return source;
       },
-      refresh: function(){ mount({ rotate:false }); }
+      refresh: function(){ enrichPack(); cleanupPanel(); }
     };
+    window.setInterval(function(){ enrichPack(); cleanupPanel(); }, 1800);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true });
