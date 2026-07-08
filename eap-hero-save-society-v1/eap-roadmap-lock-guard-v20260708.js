@@ -1,22 +1,23 @@
 /* =========================================================
    EAP Hero Roadmap Lock Guard v20260708
-   V6 CLOUD-VERIFIED ROADMAP-ONLY SAFE
+   V7 CLOUD SESSIONPROGRESS SAFE
    - ONE rule for roadmap + session grid.
    - routeOrder includes S1-S15 and B1-B5.
-   - Unlock trusts Cloud/Sheet verified records only.
-   - localStorage is just a cache of cloud records, not the source of truth.
+   - Unlock trusts Cloud/Sheet verified records first.
+   - Also trusts serverResume/sessionProgress written by the Cloud Resume API.
+   - localStorage alone is not enough unless it is tagged by Cloud Resume.
    - IMPORTANT: never decorates/disables active mission/question UI.
 ========================================================= */
 (function(){
 'use strict';
 
-const VERSION='v20260708-EAP-ROADMAP-LOCK-GUARD-V6-ACTIVE-MISSION-SAFE';
+const VERSION='v20260708-EAP-ROADMAP-LOCK-GUARD-V7-CLOUD-SESSIONPROGRESS-SAFE';
 const PACK='EAP_HERO_SESSION_CONTENT_PACK';
 const STATE='EAP_HERO_PROGRESS_V3';
 const PASS=60;
 const SKILLS=['reading','listening','writing','speaking'];
-const STYLE='eapUnifiedSeqLockStyleV6MissionSafe';
-const TOAST='eapUnifiedSeqLockToastV6MissionSafe';
+const STYLE='eapUnifiedSeqLockStyleV7CloudProgressSafe';
+const TOAST='eapUnifiedSeqLockToastV7CloudProgressSafe';
 
 function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim()}
 function lower(v){return clean(v).toLowerCase()}
@@ -27,19 +28,23 @@ function pack(){const d=window[PACK];return d&&Array.isArray(d.routes)?d:null}
 function routeList(){const d=pack();if(!d)return[];const order=Array.isArray(d.routeOrder)&&d.routeOrder.length?d.routeOrder:d.routes.map(r=>r.routeId);return order.map(id=>d.routes.find(r=>norm(r.routeId)===norm(id))).filter(Boolean)}
 function routeIndex(id){return routeList().findIndex(r=>norm(r.routeId)===norm(id))}
 function readState(){try{return JSON.parse(localStorage.getItem(STATE)||'{}')}catch(e){return {}}}
+function isCloudState(s){s=s||readState();return !!(s.serverResume&&(s.serverResume.cloudFirst===true||num(s.serverResume.recordCount)>0||clean(s.serverResume.resumeKey)))||s.cloudResumeStatus==='ok'||clean(s.currentCloudRoute)}
 function cloudTrusted(e){return !!(e&&(e.cloudVerified===true||e.serverVerified===true||e.restoredFromSheet===true||e.sheetConfirmed===true||clean(e.resumeSource).indexOf('server')>=0||clean(e.resumeSource).indexOf('cloud')>=0||clean(e.sourceSheet))) }
-function entries(){const s=readState(),out=[];['portfolio','attempts','evidence','summary','records'].forEach(k=>{if(Array.isArray(s[k]))out.push.apply(out,s[k])});if(s.sessions&&typeof s.sessions==='object'){Object.keys(s.sessions).forEach(k=>{const v=s.sessions[k];if(Array.isArray(v))v.forEach(x=>out.push(Object.assign({sessionId:k},x||{})));else if(v&&typeof v==='object')Object.keys(v).forEach(sk=>{const x=v[sk];if(x&&typeof x==='object')out.push(Object.assign({sessionId:k,skill:sk},x));});});}return out.filter(cloudTrusted)}
+function addCloudSessionProgress(out,s){if(!isCloudState(s)||!s.sessionProgress||typeof s.sessionProgress!=='object')return;Object.keys(s.sessionProgress).forEach(routeKey=>{const st=s.sessionProgress[routeKey];const rid=norm(st&&st.routeId||routeKey);if(!rid||!routeById(rid))return;const scores=st.scores||{};Object.keys(scores).forEach(sk=>{const score=num(scores[sk]);out.push({routeId:rid,sessionId:rid,skill:sk,score:score,bestScore:score,passed:score>=PASS,cloudVerified:true,serverVerified:true,restoredFromSheet:true,resumeSource:'server_sessionProgress'});});if(st.complete===true&&Array.isArray(st.required)){st.required.forEach(sk=>{if(scores[sk]==null)out.push({routeId:rid,sessionId:rid,skill:sk,score:100,bestScore:100,passed:true,cloudVerified:true,serverVerified:true,restoredFromSheet:true,resumeSource:'server_completedSessions'});});}})}
+function entries(){const s=readState(),out=[];['portfolio','attempts','evidence','summary','records'].forEach(k=>{if(Array.isArray(s[k]))out.push.apply(out,s[k])});if(s.sessions&&typeof s.sessions==='object'){Object.keys(s.sessions).forEach(k=>{const v=s.sessions[k];if(Array.isArray(v))v.forEach(x=>out.push(Object.assign({sessionId:k},x||{})));else if(v&&typeof v==='object')Object.keys(v).forEach(sk=>{const x=v[sk];if(x&&typeof x==='object')out.push(Object.assign({sessionId:k,skill:sk},x));});});}addCloudSessionProgress(out,s);return out.filter(cloudTrusted)}
+function routeById(id){const rid=norm(id);return routeList().find(r=>norm(r.routeId)===rid)||null}
 function entryRoute(e){const r=e&&(e.routeId||e.sessionId||e.session||e.stage||'');return typeof r==='number'?'S'+r:norm(r)}
 function entrySkill(e){return lower(e&&e.skill)}
 function entryScore(e){return Math.max(num(e&&e.bestScore),num(e&&e.latestScore),num(e&&e.score),num(e&&e.stars)>=3?100:0)}
 function entryPass(e){const raw=e&&(e.passed!==undefined?e.passed:e.pass);return raw===true||String(raw).toLowerCase()==='true'||String(raw)==='1'||entryScore(e)>=PASS}
 function best(){const b={};entries().forEach(e=>{const r=entryRoute(e),s=entrySkill(e);if(!r||!s)return;const k=r+'|'+s,sc=entryScore(e),ps=entryPass(e);if(!b[k]||sc>b[k].score||ps)b[k]={score:sc,passed:ps}});return b}
 function required(route){if(!route)return[];if(route.routeType==='boss_gate')return SKILLS.slice();const c=route.skillContract||{};const req=SKILLS.filter(s=>['Core','Support','Integrated'].indexOf(clean(c[s]))>=0);return req.length?req:['reading','writing']}
-function routeStatus(id){const list=routeList();const r=list.find(x=>norm(x.routeId)===norm(id));if(!r)return{routeId:norm(id),complete:false,required:[],passed:[],missing:[],scores:{}};const rid=norm(r.routeId),b=best(),req=required(r),passed=[],missing=[],scores={};req.forEach(s=>{const item=b[rid+'|'+s];scores[s]=item?item.score:0;if(item&&(item.passed||item.score>=PASS))passed.push(s);else missing.push(s)});return{routeId:rid,routeType:r.routeType,title:r.title||'',complete:missing.length===0,required:req,passed:passed,missing:missing,scores:scores}}
+function completedByCloudState(rid){const s=readState();if(!isCloudState(s))return false;const r=norm(rid),n=(r.match(/^S(\d+)$/)||[])[1];const c=s.completedSessions||{};return c[r]===true||(n&&c[n]===true)}
+function routeStatus(id){const list=routeList();const r=list.find(x=>norm(x.routeId)===norm(id));if(!r)return{routeId:norm(id),complete:false,required:[],passed:[],missing:[],scores:{}};const rid=norm(r.routeId),b=best(),req=required(r),passed=[],missing=[],scores={};req.forEach(s=>{const item=b[rid+'|'+s];scores[s]=item?item.score:0;if(item&&(item.passed||item.score>=PASS))passed.push(s);else missing.push(s)});if(missing.length&&completedByCloudState(rid)){missing.splice(0,missing.length);req.forEach(s=>{if(passed.indexOf(s)<0)passed.push(s);if(!scores[s])scores[s]=100});}return{routeId:rid,routeType:r.routeType,title:r.title||'',complete:missing.length===0,required:req,passed:passed,missing:missing,scores:scores}}
 function firstIncompleteIndex(){const list=routeList();for(let i=0;i<list.length;i++){if(!routeStatus(list[i].routeId).complete)return i}return Math.max(0,list.length-1)}
 function maxOpenIndex(){return firstIncompleteIndex()}
 function isUnlocked(id){const idx=routeIndex(id);return idx>=0&&idx<=maxOpenIndex()}
-function currentRoute(){const list=routeList();return list[maxOpenIndex()]||list[0]||null}
+function currentRoute(){const s=readState(),list=routeList();if(isCloudState(s)&&s.currentCloudRoute){const r=routeById(s.currentCloudRoute);if(r)return r}return list[maxOpenIndex()]||list[0]||null}
 function blockerFor(id){const idx=routeIndex(id),list=routeList();if(idx<0)return null;for(let i=0;i<idx;i++){const st=routeStatus(list[i].routeId);if(!st.complete)return st}return null}
 function reason(id){const block=blockerFor(id);if(!block)return'';return 'ต้องมีผลที่ยืนยันบน Cloud/Sheet ของ '+block.routeId+' ก่อน: '+block.missing.map(cap).join(' + ')+' ≥ 60/100'}
 function setActive(id){const rid=norm(id)||'S1';try{localStorage.setItem('EAP_HERO_ACTIVE_ROUTE',rid);localStorage.setItem('EAP_HERO_CURRENT_ROUTE',rid);const m=rid.match(/^S(\d+)$/i);if(m)localStorage.setItem('EAP_HERO_CURRENT_SESSION',String(Number(m[1])))}catch(e){}}
@@ -66,6 +71,6 @@ function routeFromButton(btn){if(isActiveMissionArea(btn))return'';const explici
 function clickGuard(e){const btn=e.target&&e.target.closest&&e.target.closest('button,a,[role="button"]');if(!btn||isActiveMissionArea(btn))return;const rid=routeFromButton(btn);if(!rid||isUnlocked(rid))return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();toast('ยังเข้า '+rid+' ไม่ได้: '+reason(rid));}
 let timer;function schedule(){clearTimeout(timer);timer=setTimeout(decorate,80)}
 function start(){addCss();document.addEventListener('click',clickGuard,true);window.addEventListener('load',schedule);window.addEventListener('storage',schedule);window.addEventListener('eap:resume-synced',schedule);new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true});schedule();setInterval(decorate,900)}
-window.EAPRoadmapLockGuard={version:VERSION,cloudVerifiedOnly:true,activeMissionSafe:true,routeStatus:routeStatus,isUnlocked:isUnlocked,reason:reason,refresh:decorate,maxOpenIndex:maxOpenIndex,firstIncompleteIndex:firstIncompleteIndex,currentRoute:currentRoute};
+window.EAPRoadmapLockGuard={version:VERSION,cloudVerifiedOnly:true,cloudSessionProgressSafe:true,activeMissionSafe:true,routeStatus:routeStatus,isUnlocked:isUnlocked,reason:reason,refresh:decorate,maxOpenIndex:maxOpenIndex,firstIncompleteIndex:firstIncompleteIndex,currentRoute:currentRoute};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
