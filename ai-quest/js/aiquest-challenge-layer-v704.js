@@ -1,6 +1,8 @@
-/* CSAI2102 AI Quest — Challenge Replay Layer v7.0.4
-   Fixes answer-length bias: correct choices are now concise, comparable in length,
-   and explanations live in feedback/principle instead of the choice text.
+/* CSAI2102 AI Quest — Challenge Replay Layer v7.0.5
+   Fixes repeated-correct-answer bias AND answer-length bias:
+   each case receives a concept/trap-specific concise correct option,
+   comparable-length distractors, balanced slots, risk meter, boss arcs,
+   combo/rank titles, and adaptive weak-skill emphasis.
 */
 (()=>{'use strict';
   if(window.AIQuestChallengeLayerV704)return;
@@ -36,45 +38,67 @@
     b4:['Phase 1 ตรวจ pipeline','Phase 2 วิเคราะห์ metric/error/bias','Final Twist deploy หรือ hold'],
     b5:['Phase 1 ออกแบบ AI system','Phase 2 ตรวจ GenAI/RAG/monitoring','Final Twist Governance board ตัดสิน']
   };
-  const optionBank={
-    s1:['ขอหลักฐาน data-model-output ก่อน','เชื่อคำว่า AI แล้วอนุมัติทันที','ปัดทิ้งว่าไม่ใช่ AI โดยไม่ตรวจ','ใช้ผลทันทีและไม่เก็บ log'],
-    s2:['ตรวจ sensor แล้วตั้ง oversight','ให้ Agent เร็วที่สุดเสมอ','สลับ sensor กับ actuator','ขยาย scope โดยไม่ขออนุมัติ'],
-    s3:['นิยาม state-goal-action ก่อน','เลือกทางสั้นสุดเสมอ','ข้าม constraint เพื่อให้จบเร็ว','เปลี่ยน goal ระหว่างทาง'],
-    s4:['เลือก search ให้ตรง cost/goal','ใช้ DFS ทุกเคสเพราะเร็ว','ใช้ BFS แม้ cost ไม่เท่ากัน','ไม่ต้องมี visited set'],
-    s5:['ตรวจ g+h และ heuristic ก่อน','ใช้ h อย่างเดียวพอ','เลือก Greedy ทุกสถานการณ์','ใช้ heuristic ที่เดาเกินจริง'],
-    s6:['คิดตาคู่แข่งด้วย minimax','เลือกแต้มสูงสุดทันที','สลับบท MIN กับ MAX','ไม่ต้องดู terminal utility'],
-    s7:['จัด fact-rule-relation ให้ชัด','เขียนทุกอย่างเป็น fact','ใช้ relation กลับทิศก็ได้','เพิ่ม rule โดยไม่ตรวจชนกัน'],
-    s8:['ใช้ prior+evidence อย่างระวัง','เชื่อ evidence ล่าสุด 100%','ทิ้ง base rate ทั้งหมด','ซ่อน uncertainty จากผู้ใช้'],
-    s9:['แสดง rule trace ก่อนสรุป','ใช้ rule แรกที่เจอเสมอ','ไม่ต้องอธิบายเหตุผล','ข้าม expert review ทุกเคส'],
-    s10:['แยก train/valid/test ให้สะอาด','เอา test ไปช่วย train','ใช้ feature จากอนาคต','ดู training accuracy อย่างเดียว'],
-    s11:['ดู metric และ FP/FN impact','ใช้ accuracy อย่างเดียว','ปรับ threshold ตามใจ','เลือก recall สูงสุดเสมอ'],
-    s12:['ตรวจ cluster กับ bias ก่อน','ตั้งชื่อ cluster เป็นความจริง','ลบ outlier ทั้งหมด','ถือว่า grouping ไม่มี bias'],
-    s13:['ดู validation/generalization','เชื่อ train loss ต่ำสุด','เพิ่ม layer แก้ทุกปัญหา','ไม่ต้องมี validation'],
-    s14:['ตรวจ retrieval/citation ก่อนตอบ','เชื่อคำตอบที่เรียบเรียงดี','ใช้เอกสารแรกเสมอ','ให้ prompt ผู้ใช้แก้ policy'],
-    s15:['deploy พร้อม monitoring/fallback','ปล่อยใช้หลัง demo ผ่าน','ไม่ monitor หลังเปิดใช้','ตัด human fallback ออก'],
-    b1:['หยุดกรณีเสี่ยงแล้วตรวจหลักฐาน','เชื่อระบบเพราะชื่อว่า AI','หยุดทุกระบบโดยไม่แยก risk','ตัดสินโดยไม่เก็บเหตุผล'],
-    b2:['เปลี่ยน strategy ตาม cost/risk','ใช้วิธีเดิมทุกสถานการณ์','เชื่อ heuristic โดยไม่ตรวจ','มองข้ามคู่แข่ง/ข้อจำกัด'],
-    b3:['เทียบ rule กับ evidence trace','ใช้กฎแรกแม้ชนกัน','ซ่อน uncertainty ในผลลัพธ์','ข้ามคำอธิบายให้ผู้ใช้'],
-    b4:['hold deploy ถ้า metric/bias เสี่ยง','deploy เพราะค่าเฉลี่ยดี','แก้ threshold โดยไม่ดู impact','ไม่ตรวจ drift หลังใช้งาน'],
-    b5:['เสนอ governance+monitoring+appeal','deploy ทันทีเพื่อโชว์ผล','ไม่ต้องมี audit trail','ให้ GenAI ตัดสินแทนทั้งหมด']
+  const correctPools={
+    s1:['ขอดู data-model-output','แยก rule กับ learning','ตรวจหลักฐานก่อนสรุป','ขอข้อมูลเพิ่มก่อนจัดประเภท','ให้มนุษย์ตัดสินท้าย','ตรวจว่าเป็น decision support','เทียบ automation กับ AI','ดู model ไม่ใช่ชื่อระบบ'],
+    s2:['ตรวจ sensor confidence','วาง PEAS ให้ครบ','แยก sensor/actuator','ตั้ง human oversight','จำกัด scope ของ Agent','เก็บ audit trail','เลือก safe fallback','วัด performance ให้ตรง'],
+    s3:['นิยาม state ก่อน','กำหนด goal ให้ชัด','เลือก action ที่อนุญาต','ตรวจ constraint ก่อนเดิน','คิด cost ของ path','ระบุ failure state','ไม่เปลี่ยน goal เอง','เลือกทางที่ปลอดภัย'],
+    s4:['เลือก BFS เมื่อ cost เท่ากัน','เลือก UCS เมื่อ cost ต่างกัน','ตรวจ frontier ก่อน','เก็บ visited set','เลี่ยง DFS dead-end','เทียบ completeness','เลือกตาม goal และ cost','ประเมิน memory risk'],
+    s5:['ใช้ f=g+h','ตรวจ h ไม่เกินจริง','แยก Greedy กับ A*','คิด g ก่อน h','เลือก heuristic ที่อธิบายได้','ตรวจ admissible','เลี่ยง h อย่างเดียว','เทียบ path cost'],
+    s6:['คิดตาคู่แข่งก่อน','ใช้ minimax ให้ถูกบท','ดู terminal utility','แยก MIN กับ MAX','เลือก safe move','ลด worst-case loss','ประเมิน opponent response','ไม่เลือกแต้มทันที'],
+    s7:['แยก fact-rule-relation','ตรวจ relation direction','ทำ graph ให้ consistent','ใส่ exception ที่จำเป็น','ไม่ overreach ontology','ตรวจ rule conflict','อธิบาย relation','รักษา consistency'],
+    s8:['ใช้ prior+evidence','อย่าทิ้ง base rate','สรุปพร้อม uncertainty','คำนวณ posterior','ชั่งน้ำหนัก evidence','ตรวจ likelihood','ไม่เชื่อหลักฐานเดียว','บอกระดับความมั่นใจ'],
+    s9:['ทำ rule trace','แยก forward/backward','ตรวจ rule conflict','อธิบายก่อนสรุป','ให้ expert review','หยุด circular rule','ใช้ evidence กับ rule','บันทึก inference path'],
+    s10:['แยก train/valid/test','ตัด data leakage','ตรวจ feature-label','ใช้ validation จริง','ไม่ดู train acc อย่างเดียว','กันข้อมูลอนาคต','ตรวจ split ให้สะอาด','บันทึก pipeline'],
+    s11:['ดู FP/FN impact','เลือก metric ให้ตรงงาน','ปรับ threshold อย่างมีเหตุผล','ไม่ใช้ accuracy อย่างเดียว','เทียบ precision/recall','ดู class imbalance','อธิบาย error type','เลือก threshold ตาม risk'],
+    s12:['ตรวจ similarity ก่อน','อย่าตีความ cluster เกิน','ตรวจ outlier ก่อนลบ','ประเมิน bias ของกลุ่ม','validate cluster','อธิบาย grouping limit','ไม่ตั้งชื่อเป็นความจริง','ตรวจ interpretation risk'],
+    s13:['ดู validation loss','ตรวจ overfitting','เทียบ generalization','ไม่เพิ่ม layer เสมอ','อธิบาย weight/layer','ใช้ validation set','ดู gap train-valid','เลือกโมเดลที่ generalize'],
+    s14:['ตรวจ retrieval ก่อน','เช็ค citation กับคำตอบ','กัน hallucination','ตรวจ prompt injection','ใช้แหล่งอ้างอิงตรง','อย่าเชื่อคำตอบลื่น','เทียบคำตอบกับ evidence','ระบุเมื่อหลักฐานไม่พอ'],
+    s15:['วาง monitoring','มี human fallback','ตรวจ model drift','บันทึก audit trail','ตั้ง governance rule','ประเมิน feedback loop','ไม่ deploy จาก demo อย่างเดียว','เตรียม appeal process'],
+    b1:['ตรวจหลักฐานก่อนตัดสิน','วาง PEAS แล้วค่อยแก้','หยุดกรณีเสี่ยงสูง','แยก AI claim ออกจาก automation','ส่ง human review','นิยามปัญหาก่อน action','ใช้ safe fallback','เก็บเหตุผลตรวจสอบ'],
+    b2:['เปลี่ยน strategy ตาม cost','ตรวจ heuristic ก่อนใช้','คิดคู่แข่งตอบโต้','เทียบ optimality กับ risk','ใช้ UCS เมื่อ cost ต่าง','ใช้ A* เมื่อ h น่าเชื่อถือ','ตรวจ search failure','อย่าใช้วิธีเดียวทุกเคส'],
+    b3:['เทียบ rule กับ evidence','สร้าง reasoning trace','บอก uncertainty','ตรวจ knowledge conflict','ให้ expert review','ไม่ใช้ rule แรกทันที','อธิบายข้อสรุป','แก้ conflict ก่อนสรุป'],
+    b4:['hold deploy เมื่อ bias เสี่ยง','ตรวจ metric หลายมุม','ดู threshold impact','ตรวจ drift warning','แยก validation/test','ดู FP/FN ก่อน launch','บันทึก evaluation','ตั้ง monitoring หลังใช้'],
+    b5:['ใส่ governance+monitoring','ตรวจ RAG evidence','มี appeal process','ตั้ง human oversight','กัน hallucination','เฝ้า model drift','เก็บ audit trail','ทำ safe deployment']
+  };
+  const wrongPools={
+    s1:['เชื่อคำว่า AI ทันที','ปัดทิ้งโดยไม่ตรวจ','ใช้ผลทันทีไม่เก็บ log','ดูเฉพาะหน้าจอผู้ใช้'],
+    s2:['ให้เร็วที่สุดเสมอ','สลับ sensor กับ actuator','ขยาย scope เอง','ตัด human review ออก'],
+    s3:['เลือกทางสั้นสุดเสมอ','ข้าม constraint','เปลี่ยน goal ระหว่างทาง','ไม่ระบุ failure state'],
+    s4:['ใช้ DFS ทุกเคส','ใช้ BFS ทุกกรณี','ไม่ต้อง visited set','เลือกจากความเร็วอย่างเดียว'],
+    s5:['ใช้ h อย่างเดียว','เลือก Greedy เสมอ','ใช้ h ที่เดาเกินจริง','ไม่ดู g cost'],
+    s6:['เลือกแต้มสูงสุดทันที','สลับ MIN/MAX','ไม่ดู terminal utility','ไม่คิดตาคู่แข่ง'],
+    s7:['เขียนทุกอย่างเป็น fact','relation กลับทิศก็ได้','เพิ่ม rule ไม่ตรวจชนกัน','ไม่ต้องมี exception'],
+    s8:['เชื่อ evidence ล่าสุด 100%','ทิ้ง base rate','ซ่อน uncertainty','ใช้ตัวอย่างเดียวสรุป'],
+    s9:['ใช้ rule แรกที่เจอ','ไม่ต้องอธิบายเหตุผล','ข้าม expert review','วน rule ซ้ำได้'],
+    s10:['เอา test ไป train','ใช้ feature อนาคต','ดู train accuracy อย่างเดียว','ไม่ต้อง validation'],
+    s11:['ใช้ accuracy อย่างเดียว','เลือก recall สูงสุดเสมอ','ปรับ threshold ตามใจ','ไม่ดู FP/FN'],
+    s12:['ตั้งชื่อ cluster เป็นความจริง','ลบ outlier ทั้งหมด','ถือว่าไม่มี bias','ไม่ต้อง validate'],
+    s13:['train loss ต่ำสุดดีที่สุด','เพิ่ม layer แก้ทุกปัญหา','ไม่ต้อง validation','โมเดลลึกย่อมถูกกว่า'],
+    s14:['เชื่อคำตอบที่ลื่น','ใช้เอกสารแรกพอ','ให้ prompt แก้ policy','ไม่ต้อง citation'],
+    s15:['deploy หลัง demo ผ่าน','ไม่ต้อง monitor','ตัด fallback ออก','ไม่ต้อง audit'],
+    b1:['เชื่อชื่อ AI ทันที','หยุดทุกระบบไม่แยก risk','ตัดสินไม่เก็บเหตุผล','ข้าม human review'],
+    b2:['ใช้วิธีเดิมทุกเคส','เชื่อ h โดยไม่ตรวจ','มองข้ามคู่แข่ง','ไม่ดู cost'],
+    b3:['ใช้กฎแรกเสมอ','ซ่อน uncertainty','ไม่ต้อง trace','ข้ามคำอธิบาย'],
+    b4:['deploy เพราะค่าเฉลี่ยดี','ไม่ดู bias','ไม่ monitor drift','ใช้ accuracy เดียว'],
+    b5:['deploy ทันที','ให้ GenAI ตัดสินทั้งหมด','ไม่ต้อง appeal','ไม่มี governance']
   };
   const idOf=x=>String(x||'s1').toLowerCase().replace('m','s').replace('boss','b');
   const read=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?d:v}catch(e){return d}};
   const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
-  function weakConcepts(id){const data=read('CSAI2102_CHALLENGE_WEAK_V704_'+idOf(id),{miss:{}});return Object.entries(data.miss||{}).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);}
-  function rememberMiss(id,cards){const key='CSAI2102_CHALLENGE_WEAK_V704_'+idOf(id),data=read(key,{miss:{}});(cards||[]).forEach(c=>{data.miss[c.concept]=(data.miss[c.concept]||0)+1});write(key,data);}
+  function weakConcepts(id){const data=read('CSAI2102_CHALLENGE_WEAK_V705_'+idOf(id),{miss:{}});return Object.entries(data.miss||{}).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);}
+  function rememberMiss(id,cards){const key='CSAI2102_CHALLENGE_WEAK_V705_'+idOf(id),data=read(key,{miss:{}});(cards||[]).forEach(c=>{data.miss[c.concept]=(data.miss[c.concept]||0)+1});write(key,data);}
   function plannedSlot(i){return [0,2,1,3,1,0,3,2,0,1,3,2,1,3,0][i%15];}
   function risk(i,card){let s=i>=13?3:i>=9?2:i>=5?1:0;const t=(card.prompt+' '+card.policy+' '+card.concept).toLowerCase();if(t.includes('rights')||t.includes('privacy')||t.includes('human')||t.includes('safe'))s++;return riskLevels[Math.max(0,Math.min(3,s))];}
-  function balanced(id){return optionBank[idOf(id)]||optionBank.s1;}
+  function uniqueDistractors(sid,correct,index){const pool=(wrongPools[sid]||wrongPools.s1).concat(wrongPools.s1);const out=[];for(let k=0;k<pool.length&&out.length<3;k++){const x=pool[(index+k)%pool.length];if(x!==correct&&!out.includes(x))out.push(x);}while(out.length<3)out.push(['ตรวจทีหลัง','เชื่อระบบทันที','ข้ามหลักฐาน'][out.length]);return out;}
   function enhanceCard(id,card,index,total,weak){
-    const sid=idOf(id),trap=(traps[sid]||traps.s1)[index%5],riskLevel=risk(index,card),boss=sid[0]==='b',arc=boss?(bossArc[sid]||[])[index<5?0:index<11?1:2]:null,pressure=index>=13?'FINAL TWIST':index>=10?'PRESSURE':index>=5?'ANALYZE':'BUILD',opts=balanced(sid);
-    const prefix=boss?'⚔ '+(arc||'Boss Phase')+' • ':'🎮 '+pressure+' • ';
-    return {...card,answerSlot:plannedSlot(index),riskLevel,challengeTrap:trap,challengePressure:pressure,comboTitle:comboTitles[Math.min(comboTitles.length-1,Math.floor(index/3))],challengeVersion:'v7.0.4',correct:opts[0],distractors:opts.slice(1),prompt:prefix+'['+riskLevel+' RISK] '+card.prompt+'\nกับดักที่ต้องระวัง: '+trap+(weak.includes(card.concept)?' • Adaptive Weak Skill':''),principle:card.principle+' • หลักตอบจริง: '+card.correct+' • Trap: '+trap+' • Risk: '+riskLevel};
+    const sid=idOf(id),trap=(traps[sid]||traps.s1)[index%5],riskLevel=risk(index,card),boss=sid[0]==='b',arc=boss?(bossArc[sid]||[])[index<5?0:index<11?1:2]:null,pressure=index>=13?'FINAL TWIST':index>=10?'PRESSURE':index>=5?'ANALYZE':'BUILD';
+    const correct=(correctPools[sid]||correctPools.s1)[index%(correctPools[sid]||correctPools.s1).length],distractors=uniqueDistractors(sid,correct,index),prefix=boss?'⚔ '+(arc||'Boss Phase')+' • ':'🎮 '+pressure+' • ';
+    return {...card,answerSlot:plannedSlot(index),riskLevel,challengeTrap:trap,challengePressure:pressure,comboTitle:comboTitles[Math.min(comboTitles.length-1,Math.floor(index/3))],challengeVersion:'v7.0.5',correct,distractors,prompt:prefix+'['+riskLevel+' RISK] '+card.prompt+'\nกับดักที่ต้องระวัง: '+trap+(weak.includes(card.concept)?' • Adaptive Weak Skill':''),principle:card.principle+' • หลักตอบจริง: '+card.correct+' • ตัวเลือกถูกถูกย่อให้ไม่เดาจากความยาว • Trap: '+trap+' • Risk: '+riskLevel};
   }
-  function enhanceDeck(id,cards){const sid=idOf(id),weak=weakConcepts(sid),deck=(cards||[]).map((c,i)=>enhanceCard(sid,c,i,cards.length,weak));deck.challengeAudit={version:'v7.0.4',optionBiasFix:'correct choice is concise; explanation moved to feedback',sessionId:sid,total:deck.length,slots:[0,1,2,3].map(s=>deck.filter(c=>c.answerSlot===s).length),riskMix:riskLevels.map(r=>deck.filter(c=>c.riskLevel===r).length),weakBoost:weak,traps:deck.map(c=>c.challengeTrap)};return deck;}
+  function enhanceDeck(id,cards){const sid=idOf(id),weak=weakConcepts(sid),deck=(cards||[]).map((c,i)=>enhanceCard(sid,c,i,cards.length,weak));deck.challengeAudit={version:'v7.0.5',optionBiasFix:'correct choice varies per case; explanations moved to feedback',sessionId:sid,total:deck.length,uniqueCorrect:new Set(deck.map(c=>c.correct)).size,slots:[0,1,2,3].map(s=>deck.filter(c=>c.answerSlot===s).length),riskMix:riskLevels.map(r=>deck.filter(c=>c.riskLevel===r).length),weakBoost:weak,traps:deck.map(c=>c.challengeTrap)};return deck;}
   function rank(score){let out=ranks[0][0];ranks.forEach(([name,need])=>{if(Number(score)>=need)out=name});return out;}
   function comboTitle(combo){return comboTitles[Math.min(comboTitles.length-1,Math.floor(Number(combo||0)/3))];}
-  function patch(){const C=window.AIQuestAllContentV702;if(!C||C.__challengeV704)return false;const baseDeck=C.__baseDeckV704||C.deck.bind(C);C.__baseDeckV704=baseDeck;C.deck=(id,round)=>enhanceDeck(id,baseDeck(id,round));C.rank=rank;C.comboTitle=comboTitle;C.rememberMiss=rememberMiss;C.challengeLayerVersion='v7.0.4';C.__challengeV704=true;C.version='v7.0.2+challenge704';return true;}
+  function patch(){const C=window.AIQuestAllContentV702;if(!C||C.__challengeV704)return false;const baseDeck=C.__baseDeckV705||C.deck.bind(C);C.__baseDeckV705=baseDeck;C.deck=(id,round)=>enhanceDeck(id,baseDeck(id,round));C.rank=rank;C.comboTitle=comboTitle;C.rememberMiss=rememberMiss;C.challengeLayerVersion='v7.0.5';C.__challengeV704=true;C.version='v7.0.2+challenge705';return true;}
   if(!patch())document.addEventListener('DOMContentLoaded',patch,{once:true});
-  window.AIQuestChallengeLayerV704={version:'v7.0.4',enhanceDeck,rank,comboTitle,rememberMiss,optionBank,replayRules:['No longest-correct bias','Concise correct options','Mission-specific traps','Boss arcs','Risk meter','Adaptive weak-skill boost','Balanced slots']};
+  window.AIQuestChallengeLayerV704={version:'v7.0.5',enhanceDeck,rank,comboTitle,rememberMiss,correctPools,wrongPools,replayRules:['No repeated correct answer','No longest-correct bias','Concept-specific concise correct options','Mission-specific traps','Boss arcs','Risk meter','Adaptive weak-skill boost','Balanced slots']};
 })();
