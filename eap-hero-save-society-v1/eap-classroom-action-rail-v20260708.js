@@ -1,15 +1,12 @@
 /* =========================================================
    EAP Hero Classroom Action Rail v20260708
-   Adds quick buttons for tomorrow's class:
-   - Start Core Mission
-   - Start Support Mission
-   - Open Map / Report fallback
-   This is UI-only. It does not change scoring, mastery, evidence, or Sheet sync.
+   Classroom polished quick actions.
+   UI-only: no scoring, mastery, evidence, or Sheet sync changes.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260708-CLASSROOM-ACTION-RAIL-V1';
+  const VERSION = 'v20260708-CLASSROOM-ACTION-RAIL-V2';
   const PACK_NAME = 'EAP_HERO_SESSION_CONTENT_PACK';
   const PANEL_ID = 'eap-session-content-brief';
   const RAIL_ID = 'eap-classroom-action-rail';
@@ -29,6 +26,13 @@
     return data && Array.isArray(data.routes) ? data : null;
   }
 
+  function byRouteId(routeId){
+    const data = pack();
+    const key = clean(routeId).toUpperCase();
+    if (!data || !key) return null;
+    return data.routes.find(route => clean(route.routeId).toUpperCase() === key) || null;
+  }
+
   function routeIdFromUrl(){
     const params = new URLSearchParams(location.search);
     const raw = clean(params.get('session') || params.get('route') || params.get('stage') || '');
@@ -42,13 +46,6 @@
       .filter(Boolean)
       .join(' | ')
       .toLowerCase();
-  }
-
-  function byRouteId(routeId){
-    const data = pack();
-    const key = clean(routeId).toUpperCase();
-    if (!data || !key) return null;
-    return data.routes.find(route => clean(route.routeId).toUpperCase() === key) || null;
   }
 
   function currentRoute(){
@@ -87,40 +84,30 @@
 
   function primarySkills(route){
     if (!route) return [];
-    if (route.routeType === 'boss_gate') return ['reading','listening','writing','speaking'];
+    if (route.routeType === 'boss_gate') {
+      return ['reading','listening','writing','speaking'];
+    }
     return SKILLS.filter(skill => ['Core','Support'].includes(role(route, skill)));
   }
 
   function skillLabel(skill){
-    return clean(skill).slice(0,1).toUpperCase() + clean(skill).slice(1);
+    const raw = clean(skill).toLowerCase();
+    return raw.slice(0,1).toUpperCase() + raw.slice(1);
   }
 
   function hero(){
     return window.EAPHero || window.EapHero || window.eapHero || null;
   }
 
-  function toast(message){
-    if (hero() && typeof hero().toast === 'function') {
-      try { hero().toast(message); return; } catch(error) {}
-    }
-    try { console.info('[EAP Classroom Rail]', message); } catch(error) {}
-  }
-
   function clickExistingSkillButton(skill, sid){
-    const selectors = [
-      '[data-skill="' + skill + '"][data-session="' + sid + '"]',
-      '[data-skill="' + skillLabel(skill) + '"][data-session="' + sid + '"]',
-      '[data-skill="' + skill.toUpperCase() + '"][data-session="' + sid + '"]'
-    ];
-
-    for (const selector of selectors) {
-      const el = document.querySelector(selector);
+    const labels = [skill, skillLabel(skill), skill.toUpperCase()];
+    for (const label of labels) {
+      const el = document.querySelector('[data-skill="' + label + '"][data-session="' + sid + '"]');
       if (el && typeof el.click === 'function') {
         el.click();
         return true;
       }
     }
-
     return false;
   }
 
@@ -132,7 +119,7 @@
     try {
       if (api && typeof api.openSkillMission === 'function') {
         api.openSkillMission(niceSkill, sid);
-        return;
+        return true;
       }
 
       if (api && typeof api.openSkillMissionFromButton === 'function') {
@@ -140,25 +127,27 @@
         fake.dataset.skill = niceSkill;
         fake.dataset.session = String(sid);
         api.openSkillMissionFromButton(fake);
-        return;
+        return true;
       }
 
-      if (clickExistingSkillButton(skill, sid)) return;
+      if (clickExistingSkillButton(skill, sid)) {
+        return true;
+      }
 
       if (api && typeof api.skillHub === 'function') {
         api.skillHub(sid);
-        return;
+        return true;
       }
 
       if (api && typeof api.map === 'function') {
         api.map();
-        return;
+        return true;
       }
     } catch(error) {
       console.warn('[EAP Classroom Rail] startSkill failed', error);
     }
 
-    toast('ยังเปิดภารกิจไม่ได้ ให้แตะปุ่ม Practice ในหน้าเกม');
+    return false;
   }
 
   function openMap(){
@@ -193,18 +182,19 @@
     css.id = STYLE_ID;
     css.textContent = `
       #${RAIL_ID}{margin:10px 0 0;padding:10px;border-radius:15px;background:linear-gradient(135deg,#102033,#17375e);color:#fff;box-shadow:0 10px 22px rgba(8,25,45,.18)}
-      #${RAIL_ID} .rail-title{font-size:13px;font-weight:950;margin-bottom:7px;display:flex;justify-content:space-between;gap:8px;align-items:center}
-      #${RAIL_ID} .rail-title small{font-size:10px;opacity:.72;font-weight:700}
-      #${RAIL_ID} .rail-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
-      #${RAIL_ID} button{border:0;border-radius:12px;padding:10px 9px;font-weight:950;cursor:pointer;background:#e8fbf3;color:#075c46;box-shadow:inset 0 -1px 0 rgba(0,0,0,.12);font-size:13px;line-height:1.15;min-height:42px}
+      #${RAIL_ID} .rail-title{font-size:14px;font-weight:950;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+      #${RAIL_ID} .rail-title small{display:none}
+      #${RAIL_ID} .rail-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px}
+      #${RAIL_ID} button{border:0;border-radius:12px;padding:10px 8px;font-weight:950;cursor:pointer;background:#e8fbf3;color:#075c46;box-shadow:inset 0 -1px 0 rgba(0,0,0,.12);font-size:13px;line-height:1.18;min-height:42px}
       #${RAIL_ID} button.support{background:#e8f0fe;color:#174ea6}
       #${RAIL_ID} button.boss{background:#fff5d6;color:#8a5700}
       #${RAIL_ID} button.utility{background:#edf2f7;color:#1f2937}
-      #${RAIL_ID} .rail-note{margin-top:7px;font-size:11px;opacity:.82;line-height:1.35}
+      #${RAIL_ID} .rail-note{margin-top:7px;font-size:11px;opacity:.84;line-height:1.35}
       @media(max-width:760px){
         #${RAIL_ID}{padding:9px;border-radius:13px;margin-top:8px}
+        #${RAIL_ID} .rail-title{font-size:13px;margin-bottom:7px}
         #${RAIL_ID} .rail-actions{grid-template-columns:1fr 1fr;gap:7px}
-        #${RAIL_ID} button{font-size:12px;min-height:39px;padding:9px 7px}
+        #${RAIL_ID} button{font-size:12px;min-height:38px;padding:9px 7px}
         #${RAIL_ID} .rail-note{font-size:10px}
       }
     `;
@@ -216,7 +206,7 @@
     const cls = r === 'Support' ? 'support' : (route.routeType === 'boss_gate' ? 'boss' : '');
     const label = route.routeType === 'boss_gate'
       ? '▶ Boss ' + skillLabel(skill)
-      : (index === 0 ? '▶ เริ่ม Core: ' : '▶ ต่อ Support: ') + skillLabel(skill);
+      : (r === 'Core' ? '▶ เริ่ม Core: ' : '▶ ต่อ Support: ') + skillLabel(skill);
 
     return '<button type="button" class="' + cls + '" data-eap-start-skill="' + esc(skill) + '">' + esc(label) + '</button>';
   }
@@ -224,21 +214,22 @@
   function render(route){
     if (!route) return '';
     const skills = primarySkills(route);
-    const actionButtons = skills.map((skill, index) => buttonFor(skill, route, index)).join('');
+    const buttons = skills.map((skill, index) => buttonFor(skill, route, index)).join('');
+    const note = route.routeType === 'boss_gate'
+      ? 'Boss Gate รวม 4 skills และ Speaking จะส่งให้ครูตรวจ'
+      : 'ทำ Core ก่อน แล้วต่อ Support; Exposure เป็นฝึกเสริม ไม่บล็อกการไปต่อ';
 
     return `
       <div class="rail-title">
-        <span>🚀 เริ่มเรียนเร็วสำหรับคาบนี้</span>
+        <span>🚀 เริ่มภารกิจทันที</span>
         <small>${esc(VERSION)}</small>
       </div>
       <div class="rail-actions">
-        ${actionButtons || '<button type="button" class="utility" data-eap-action="map">เปิดแผนที่</button>'}
+        ${buttons || '<button type="button" class="utility" data-eap-action="map">🗺️ Map</button>'}
         <button type="button" class="utility" data-eap-action="map">🗺️ Map</button>
         <button type="button" class="utility" data-eap-action="report">📘 Report</button>
       </div>
-      <div class="rail-note">
-        ทำ Core ก่อน แล้วตามด้วย Support ส่วน Exposure ใช้ฝึกเพิ่ม ไม่บล็อกการไปต่อ
-      </div>
+      <div class="rail-note">${esc(note)}</div>
     `;
   }
 
@@ -270,8 +261,8 @@
     const start = event.target.closest('[data-eap-start-skill]');
     if (start) {
       event.preventDefault();
-      const route = currentRoute();
-      startSkill(start.dataset.eapStartSkill, route);
+      const ok = startSkill(start.dataset.eapStartSkill, currentRoute());
+      if (!ok) console.info('[EAP Classroom Rail] Use the original Practice button if this route is not ready.');
       return;
     }
 
@@ -286,7 +277,7 @@
   window.EAPClassroomActionRail = {
     version: VERSION,
     refresh: mount,
-    startSkill: function(skill){ startSkill(skill, currentRoute()); }
+    startSkill: function(skill){ return startSkill(skill, currentRoute()); }
   };
 
   function start(){
