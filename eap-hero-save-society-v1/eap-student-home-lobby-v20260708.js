@@ -1,23 +1,26 @@
 /* =========================================================
    EAP Hero Student Home Lobby v20260708
-   - Home is a compact lobby, not the full 15-week Learning Path.
-   - Start / Continue uses the verified current route from Cloud/Sheet state.
-   - Map remains the place to see the full path / route grid.
-   - Profile data is not changed: existing studentId + section + Cloud Resume
-     continue to be used by eap-player-resume-v1.js and EAP Profile.
+   V2 SINGLE-CHOICE HOME
+   - Home shows one clear learner action: Start / Continue.
+   - Map / Report / Profile remain available after entering the app flow,
+     but are not duplicated on the Home body.
+   - The full 15-week Learning Path stays in Map, not on Home.
+   - Existing profile and progress are preserved: studentId + section +
+     Cloud Resume still come from the same keys and Sheet API.
    - UI-only. Does not change profile keys, Sheet sync, scores, pass/fail,
      evidence, teacher review, or unlock logic.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260708-EAP-STUDENT-HOME-LOBBY-V1';
+  const VERSION = 'v20260708-EAP-STUDENT-HOME-LOBBY-V2-SINGLE-CTA';
   const LOBBY_ID = 'eap-student-compact-lobby';
-  const STYLE_ID = 'eap-student-home-lobby-style-v1';
+  const STYLE_ID = 'eap-student-home-lobby-style-v2';
   const ROADMAP_ID = 'eap-student-15week-roadmap';
   const PROFILE_KEY = 'EAP_HERO_PLAYER_PROFILE_V1';
   const STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PACK_NAME = 'EAP_HERO_SESSION_CONTENT_PACK';
+  const HIDDEN_ATTR = 'data-eap-home-single-hidden';
 
   function clean(v){ return String(v == null ? '' : v).replace(/\s+/g,' ').trim(); }
   function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
@@ -66,38 +69,79 @@
     style.id = STYLE_ID;
     style.textContent = `
       body.eap-home-lobby-mode #${ROADMAP_ID}{display:none!important}
+      [${HIDDEN_ATTR}="1"]{display:none!important}
       #${LOBBY_ID}{
         margin:14px auto 16px;
-        max-width:1040px;
-        border-radius:22px;
-        padding:16px;
+        max-width:820px;
+        border-radius:24px;
+        padding:20px;
         background:linear-gradient(135deg,#102033,#17375e);
         color:#fff;
-        border:1px solid rgba(153,246,228,.32);
-        box-shadow:0 14px 34px rgba(8,25,45,.22);
+        border:1px solid rgba(153,246,228,.36);
+        box-shadow:0 16px 40px rgba(8,25,45,.26);
         font-family:Arial,'Noto Sans Thai',sans-serif;
       }
       #${LOBBY_ID} *{box-sizing:border-box}
-      #${LOBBY_ID} .lob-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;align-items:stretch}
-      #${LOBBY_ID} h2{margin:0 0 6px;font-size:clamp(22px,3vw,34px);line-height:1.1;color:#fff;font-weight:950}
-      #${LOBBY_ID} p{margin:0;color:#d8edf7;line-height:1.55;font-weight:800}
-      #${LOBBY_ID} .lob-now{display:grid;gap:8px;padding:14px;border-radius:18px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16)}
+      #${LOBBY_ID} .lob-grid{display:grid;grid-template-columns:1fr;gap:14px;align-items:stretch;text-align:center}
+      #${LOBBY_ID} h2{margin:0 0 6px;font-size:clamp(26px,4vw,42px);line-height:1.08;color:#fff;font-weight:950}
+      #${LOBBY_ID} p{margin:0 auto;color:#d8edf7;line-height:1.55;font-weight:850;max-width:660px}
+      #${LOBBY_ID} .lob-now{display:grid;gap:5px;padding:13px;border-radius:18px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);max-width:520px;margin:0 auto;width:100%}
       #${LOBBY_ID} .lob-kicker{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#99f6e4;font-weight:950}
-      #${LOBBY_ID} .lob-title{font-size:20px;font-weight:950;color:#fff;line-height:1.2}
+      #${LOBBY_ID} .lob-title{font-size:22px;font-weight:950;color:#fff;line-height:1.2}
       #${LOBBY_ID} .lob-meta{font-size:13px;color:#c7e4f4;font-weight:850}
-      #${LOBBY_ID} .lob-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
-      #${LOBBY_ID} button{border:0;border-radius:14px;padding:12px 14px;font-weight:950;cursor:pointer;min-height:44px;font-size:14px}
-      #${LOBBY_ID} .primary{background:#9af3e9;color:#102033;box-shadow:0 10px 24px rgba(45,212,191,.18)}
-      #${LOBBY_ID} .secondary{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.20)}
-      #${LOBBY_ID} .warn{background:#fff5d6;color:#8a5700}
+      #${LOBBY_ID} .lob-actions{display:grid;grid-template-columns:minmax(220px,360px);justify-content:center;gap:9px;margin-top:16px}
+      #${LOBBY_ID} button{border:0;border-radius:18px;padding:15px 18px;font-weight:950;cursor:pointer;min-height:56px;font-size:18px}
+      #${LOBBY_ID} .primary{background:#9af3e9;color:#102033;box-shadow:0 12px 28px rgba(45,212,191,.22)}
+      #${LOBBY_ID} .home-hint{font-size:12px;opacity:.9;margin-top:8px;color:#bdeee8}
       @media(max-width:760px){
-        #${LOBBY_ID}{margin:10px 8px 14px;padding:13px;border-radius:18px;max-width:calc(100vw - 16px)}
-        #${LOBBY_ID} .lob-grid{grid-template-columns:1fr;gap:10px}
-        #${LOBBY_ID} .lob-actions{display:grid;grid-template-columns:1fr;gap:8px}
-        #${LOBBY_ID} button{width:100%;font-size:14px}
+        #${LOBBY_ID}{margin:10px 8px 14px;padding:15px;border-radius:20px;max-width:calc(100vw - 16px)}
+        #${LOBBY_ID} .lob-actions{grid-template-columns:1fr}
+        #${LOBBY_ID} button{width:100%;font-size:17px;min-height:54px}
       }
     `;
     document.head.appendChild(style);
+  }
+
+  function hideNode(node){
+    if (!node || node.id === LOBBY_ID || node.closest && node.closest('#' + LOBBY_ID)) return;
+    node.setAttribute(HIDDEN_ATTR, '1');
+    node.setAttribute('aria-hidden', 'true');
+  }
+
+  function unhideOwned(){
+    Array.from(document.querySelectorAll('[' + HIDDEN_ATTR + '="1"]')).forEach(node => {
+      if (!isHomeVisible()) {
+        node.removeAttribute(HIDDEN_ATTR);
+        node.removeAttribute('aria-hidden');
+      }
+    });
+  }
+
+  function hideDuplicateActions(){
+    if (!isHomeVisible()) { unhideOwned(); return; }
+
+    const actionText = /^(?:🧭\s*)?map$|^(?:▶\s*)?continue$|^start\s*\/\s*continue$|^profile$|^my\s*learning\s*report$|^report$/i;
+    Array.from(document.querySelectorAll('button,a,[role="button"]')).forEach(btn => {
+      if (btn.closest('#' + LOBBY_ID)) return;
+      const t = clean(btn.textContent).replace(/^[📘👤🧭▶]+\s*/,'');
+      if (actionText.test(t)) hideNode(btn);
+    });
+
+    /* Hide the old Player Status card on Home; the compact lobby already shows
+       current route + profile identity, so students see only one action. */
+    Array.from(document.querySelectorAll('section,aside,div')).forEach(node => {
+      if (node.id === LOBBY_ID || node.closest('#' + LOBBY_ID)) return;
+      const t = clean(node.textContent);
+      if (/^Player Status\s+/.test(t) && /XP/.test(t) && /Progress/.test(t)) {
+        const panel = node.closest('section,aside,.panel,.card,div') || node;
+        hideNode(panel);
+      }
+    });
+
+    /* Hide the old large intro card only after the compact lobby exists. */
+    const title = Array.from(document.querySelectorAll('h1,h2')).find(el => /EAP Hero:\s*Save the Society/i.test(clean(el.textContent)) && !el.closest('#' + LOBBY_ID));
+    const oldIntro = title && title.closest('section,main,.panel,.card,div');
+    if (oldIntro) hideNode(oldIntro);
   }
 
   function anchor(){
@@ -120,10 +164,6 @@
     if (window.EAPHero && typeof window.EAPHero.map === 'function') return window.EAPHero.map();
   }
 
-  function openMap(){ if (window.EAPHero && typeof window.EAPHero.map === 'function') window.EAPHero.map(); }
-  function openReport(){ if (window.EAPHero && typeof window.EAPHero.report === 'function') window.EAPHero.report(); }
-  function openProfile(){ if (window.EAPHero && typeof window.EAPHero.profile === 'function') window.EAPHero.profile(); }
-
   function render(){
     const route = currentRoute();
     const p = profile();
@@ -133,13 +173,11 @@
         <div>
           <div class="lob-kicker">Student Lobby</div>
           <h2>EAP Hero: Save the Society</h2>
-          <p>เริ่มจากปุ่ม Start / Continue เพื่อเข้าเส้นทางล่าสุดทันที ส่วน Map ใช้ดูภาพรวม 15 Week และ Boss Gate เท่านั้น</p>
+          <p>มีทางเดียวสำหรับนักศึกษา: กด Start / Continue แล้วระบบจะพาไปด่านล่าสุดที่ควรทำ</p>
           <div class="lob-actions">
             <button type="button" class="primary" data-eap-lobby-action="continue">▶ Start / Continue</button>
-            <button type="button" class="secondary" data-eap-lobby-action="map">🧭 Map</button>
-            <button type="button" class="secondary" data-eap-lobby-action="report">📘 My Learning Report</button>
-            <button type="button" class="secondary" data-eap-lobby-action="profile">👤 Profile</button>
           </div>
+          <div class="home-hint">Map / Report / Profile ใช้หลังเข้าเรียนแล้ว เพื่อลดความสับสนหน้าแรก</div>
         </div>
         <div class="lob-now">
           <div class="lob-kicker">ตอนนี้</div>
@@ -155,7 +193,7 @@
     const home = isHomeVisible();
     document.body.classList.toggle('eap-home-lobby-mode', home);
     const existing = document.getElementById(LOBBY_ID);
-    if (!home) { if (existing) existing.remove(); return; }
+    if (!home) { if (existing) existing.remove(); unhideOwned(); return; }
     const a = anchor();
     let panel = existing;
     if (!panel) {
@@ -172,17 +210,14 @@
       panel.dataset.key = key;
       panel.innerHTML = render();
     }
+    hideDuplicateActions();
   }
 
   function click(e){
     const btn = e.target && e.target.closest && e.target.closest('[data-eap-lobby-action]');
     if (!btn) return;
     e.preventDefault();
-    const action = btn.dataset.eapLobbyAction;
-    if (action === 'continue') openCurrent();
-    if (action === 'map') openMap();
-    if (action === 'report') openReport();
-    if (action === 'profile') openProfile();
+    openCurrent();
   }
 
   function start(){
@@ -195,7 +230,7 @@
     setInterval(insert, 1400);
   }
 
-  window.EAPStudentHomeLobby = { version: VERSION, refresh: insert, profile, currentRoute };
+  window.EAPStudentHomeLobby = { version: VERSION, singleCTA: true, refresh: insert, profile, currentRoute };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true });
   else start();
