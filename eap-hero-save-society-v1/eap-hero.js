@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z133 V130 Evidence + Boss Route Contract ===
+/* === EAP Hero: Save the Society v1z92 Report Recovery + Safe Legacy Portfolio Migration ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -8,7 +8,7 @@
   const STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PREVIOUS_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V2_COMPACT';
   const LEGACY_STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260707-v1z134-accuracy-portfolio-fix';
+  const APP_VERSION = '20260630-v1z127-eap-evidence-sync';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -33993,17 +33993,6 @@
       updatedAt:new Date().toISOString(),
       clearedAt:(!!previous.cleared || !!win) ? (previous.clearedAt || new Date().toISOString()) : ''
     });
-    try{
-      eapSubmitBossGateEvents_(
-        'B' + gateNo,
-        !!win,
-        result || {},
-        state.bossGates[gateNo]
-      );
-    }catch(error){
-      console.warn('[Boss Gate event bridge]', error);
-    }
-
     return state.bossGates[gateNo];
   }
 
@@ -34573,25 +34562,8 @@
 
     const mistakes = a.answers.filter(x=>!x.correct);
     const result = {
-      win,
-      reason,
-      sessionId:s.id,
-      bossRouteId:resolvedGateId
-        ? eapBossRouteIdFromGateId_(resolvedGateId)
-        : '',
-      bossGateId:resolvedGateId || '',
-      duration:a.duration,
-      xpGain,
-      chestReward,
-      contract:a.contract || 'normal',
-      starsEarned,
-      accuracy:Math.round(accuracy*100),
-      score:a.score,
-      maxCombo:a.maxCombo,
-      timeLeft:a.timeLeft,
-      usedHints:a.usedHints,
-      badge,
-      mistakes
+      win, reason, sessionId:s.id, xpGain, chestReward, contract:a.contract || 'normal', starsEarned, accuracy:Math.round(accuracy*100),
+      score:a.score, maxCombo:a.maxCombo, timeLeft:a.timeLeft, badge, mistakes
     };
     state.active.result = result;
     if(resolvedGateId){
@@ -34647,10 +34619,8 @@
         </div>
         ${r.win ? `<p class="feedback show ok">Unlock: ${safe(s.unlock)} ${r.badge ? ' • Badge: '+safe(r.badge):''}</p>` : `<p class="feedback show bad">${safe(r.reason)} — กลับไปฝึกแล้วมาสู้ใหม่ได้ค่ะ</p>`}
         ${r.chestReward ? `<p class="feedback show info">Treasure Chest: ${safe(r.chestReward.tier.toUpperCase())} +${r.chestReward.coins} coins ${r.chestReward.bonusTitle ? '• Title: '+safe(r.chestReward.bonusTitle) : ''}</p>` : ''}
-        ${r.win && r.bossRouteId ? `<p class="feedback show info">🎤 Complete the short Boss Speaking evidence to send the Teacher Review item for ${safe(r.bossRouteId)}. Audio is optional and requires consent.</p>` : ''}
         <div class="footer-actions" style="justify-content:center">
           ${r.mistakes.length ? `<button class="btn warn" onclick="EAPHero.reviewMistakes()">Review Mistakes (${r.mistakes.length})</button>` : ''}
-          ${r.win && r.bossRouteId ? `<button class="btn primary" onclick="EAPHero.captureBossSpeakingEvidence('${safeAttr(r.bossRouteId)}')">🎤 Boss Speaking Evidence</button>` : ''}
           <button class="btn primary" onclick="EAPHero.reflection(${s.id})">Reflection</button>
           <button class="btn" onclick="EAPHero.contract(${s.id})">Rematch Contract</button>
           <button class="btn ghost" onclick="EAPHero.map()">Map</button>
@@ -36385,10 +36355,9 @@
     const sid = Number(sessionId || state.currentSession || 1) || 1;
     state.currentSession = sid;
     saveState();
-
-    // v1z130: every normal Session uses the same replayable Skill Path.
-    // Boss Gate availability remains handled by the checkpoint notice,
-    // not by replacing S3/S6/S9/S12/S15 with a special page.
+    if([3,6,9,12,15].includes(sid)){
+      return unifiedCheckpointSessionPage(sid, null);
+    }
     return safeOpenSession(sid);
   }
 
@@ -36508,15 +36477,8 @@
         <span>${safe(q.objective || `Practice ${skill} for this Session.`)}</span>
       </div>
       <div class="session-mission-status">${safe(statusLine)}</div>
-      <button type="button"
-        class="btn primary block js-skill-mission-btn session-mission-start"
-        style="display:block!important;visibility:visible!important;opacity:1!important;width:100%;margin:12px 0 10px;min-height:46px;position:relative;z-index:5"
-        data-skill="${safeAttr(skill)}"
-        data-session="${sid}"
-        onclick="return EAPHero.openSkillMissionFromButton(this)">
-        ${buttonLabel}
-      </button>
       <p class="mini-note session-mission-note">AI chooses a fresh Gold source and a level-specific ${safe(skill)} task. Help is optional and never blocks progress.</p>
+      <button type="button" class="btn primary block js-skill-mission-btn session-mission-start" data-skill="${safeAttr(skill)}" data-session="${sid}" onclick="return EAPHero.openSkillMissionFromButton(this)">${buttonLabel}</button>
     </div>`;
   }
 
@@ -36577,20 +36539,10 @@
             <b>🏁 Checkpoint after this Session group</b>
             <span>${safe(gate.title || gate.boss || 'Boss Gate')} · ${bossGateStatus(gate) ? '✅ Ready to open' : '🔒 Complete the required Sessions first'}</span>
           </div>` : ''}
-          <div class="footer-actions session-path-actions" style="display:flex!important;flex-wrap:wrap;gap:10px;margin-top:18px">
-            <button type="button" class="btn primary js-session-practice-again"
-              style="display:inline-flex!important;visibility:visible!important;opacity:1!important"
-              onclick="return EAPHero.openSkillMission('${safeAttr(path.core)}', ${s.id})">
-              ▶ Practice ${safe(path.core)} again
-            </button>
-            <button type="button" class="btn primary js-session-practice-again"
-              style="display:inline-flex!important;visibility:visible!important;opacity:1!important"
-              onclick="return EAPHero.openSkillMission('${safeAttr(path.support)}', ${s.id})">
-              ▶ Practice ${safe(path.support)} again
-            </button>
+          <div class="footer-actions session-path-actions">
             <button class="btn" onclick="EAPHero.map()">🗺️ Back to Map</button>
             <button class="btn" onclick="EAPHero.renderStudentReports()">📘 My Learning Report</button>
-            ${studentFlow ? '' : `<button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button>`}
+            ${studentFlow ? '' : `<button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost small" onclick="return EAPHero.openSkillMission('Reading', ${s.id})">Debug: Open Reading</button>`}
           </div>
         </section>
       `);
@@ -37477,35 +37429,8 @@
       </section>`);
   }
 
-  function portfolioOutputPreview_(value){
-    const raw = String(value || '')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    const limit = 128;
-    const preview = raw.slice(0, limit);
-    const suffix = raw.length > limit ? '…' : '';
-
-    return `<div
-      title="${safeAttr(raw)}"
-      style="max-width:460px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-    >${safe(preview)}${suffix}</div>`;
-  }
-
   function portfolioRows(){
-    const rows = (state.portfolio || [])
-      .slice(-12)
-      .reverse()
-      .map(function(p){
-        const route = eapResolveEvidenceRouteId_(p, p?.session || p?.sessionId);
-        const label = eapRouteIsBoss_(route)
-          ? route
-          : 'S' + String(p.session || p.sessionId || '—');
-
-        return `<tr><td>${new Date(p.at).toLocaleString()}</td><td>${safe(label)}</td><td>${safe(p.skill)}</td><td>${p.score || 0}</td><td>${portfolioOutputPreview_(p.output)}</td></tr>`;
-      })
-      .join('');
-
+    const rows = (state.portfolio || []).slice(-12).reverse().map(p => `<tr><td>${new Date(p.at).toLocaleString()}</td><td>S${p.session}</td><td>${safe(p.skill)}</td><td>${p.score || 0}</td><td>${safe(String(p.output || '').slice(0,120))}</td></tr>`).join('');
     return rows || '<tr><td colspan="5">No portfolio evidence yet</td></tr>';
   }
 
@@ -39269,20 +39194,7 @@
       const oralScore = Math.min(100, Math.round(50 + (profile.requirements || []).reduce((sum,r)=>sum + (checklist[r.key] ? requirementPoints : 0),0)));
       const transcriptScore = out ? scoreEAPOpenAnswer('Speaking', id, out, prompt, 0) : 0;
       const speakingDifficulty = currentSkillDifficulty('Speaking');
-      const speakingRouteId = eapResolveEvidenceRouteId_(
-        {
-          routeId: state.active?.bossRouteId || '',
-          bossRouteId: state.active?.bossRouteId || '',
-          bossGateId: state.active?.bossGateId || '',
-          sessionId: id,
-          session: id
-        },
-        id
-      );
-      const teacherReviewRequired = eapIsBossSpeakingReview_(
-        speakingRouteId,
-        'Speaking'
-      );
+      const teacherReviewRequired = [3,6,9,12,15].includes(Number(id));
 
       // Pass is based only on the oral timer and learner confirmations.
       // Raw speech-recognition text must never reduce the oral score.
@@ -39311,7 +39223,7 @@
         transcriptNotForPass:true,
         evidenceMode:out ? 'oral-first-with-optional-transcript' : 'oral-first-timer-and-checklist',
         teacherReviewRequired,
-        teacherReviewStatus:teacherReviewRequired ? 'pending_teacher_review' : 'not_required',
+        teacherReviewStatus:teacherReviewRequired ? 'pending_boss_review' : 'not_required',
         teacherFeedbackCode:'',
         teacherScore:null,
         teacherComment:'',
@@ -39322,7 +39234,7 @@
         output:out,
         prompt
       });
-      safeToast(teacherReviewRequired ? 'Boss Speaking evidence saved. Teacher review will be requested.' : 'Speaking evidence saved. This normal-session note does not require Teacher Review.');
+      safeToast(teacherReviewRequired ? 'Speaking evidence saved. Teacher review will be requested for this Boss Gate.' : 'Speaking evidence saved.');
       showSkillResult('Speaking', score, id);
       return evidence;
     }catch(err){
@@ -39357,499 +39269,58 @@
 
   /* EAP Sheet Sync v9 — invoked only by the real evidence save path.
      It receives the exact compact portfolio entry; it never reads the result screen. */
-  /* =========================================================
-     V130 evidence / attempt transport
-     ---------------------------------------------------------
-     - Every skill can create raw evidence through EAPEvidenceSyncV130.
-     - Only normal-session Core + Support create attempts/summary rows.
-     - Exposure-only skill evidence remains in eap_hero_evidence.
-     - Boss routes retain B1–B5 and never collapse to S3/S6/S9/S12/S15.
-  ========================================================= */
-  function eapNormalizeEvidenceSkill_(value){
-    return String(value || '')
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, '');
-  }
-
-  function eapBossRouteIdFromGateId_(gateId){
-    const match = String(gateId || '').match(/(\d+)/);
-    const gateNo = Number(match && match[1]);
-    return gateNo >= 1 && gateNo <= 5
-      ? 'B' + gateNo
-      : '';
-  }
-
-  function eapResolveEvidenceRouteId_(entry, fallbackSessionId){
-    const source = entry || {};
-    const raw = String(
-      source.routeId ||
-      source.contractRouteId ||
-      source.bossRouteId ||
-      source.bossId ||
-      source.bossGateId ||
-      source.sessionId ||
-      source.session ||
-      fallbackSessionId ||
-      ''
-    ).trim().toUpperCase();
-
-    const boss = raw.match(/^(?:B|BG|GATE)?\s*([1-5])$/i);
-    if(
-      boss &&
-      (
-        /^B/i.test(raw) ||
-        /^BG/i.test(raw) ||
-        /^GATE/i.test(raw) ||
-        /^GATE\d/i.test(String(source.bossGateId || ''))
-      )
-    ){
-      return 'B' + boss[1];
-    }
-
-    const session = raw.match(/^S?\s*(1[0-5]|[1-9])$/i);
-    if(session){
-      return 'S' + Number(session[1]);
-    }
-
-    const explicitBoss =
-      String(source.bossRouteId || source.bossId || source.bossGateId || '')
-        .match(/([1-5])/);
-
-    if(explicitBoss){
-      return 'B' + explicitBoss[1];
-    }
-
-    const fallback = Number(fallbackSessionId || source.session || source.sessionId || 0);
-    return fallback >= 1 && fallback <= 15
-      ? 'S' + fallback
-      : '';
-  }
-
-  function eapRouteIsBoss_(routeId){
-    return /^B[1-5]$/i.test(String(routeId || '').trim());
-  }
-
-  function eapLocalSessionNumberForRoute_(routeId, fallback){
-    const route = String(routeId || '').trim().toUpperCase();
-    const normal = route.match(/^S(1[0-5]|[1-9])$/);
-    if(normal) return Number(normal[1]);
-
-    if(/^B[1-5]$/.test(route)){
-      const gate = bossGateByNumber(Number(route.slice(1)));
-      return Number(gate?.after?.[gate.after.length - 1] || fallback || 1);
-    }
-
-    return Number(fallback || 0) || 1;
-  }
-
-  function eapRouteTitle_(routeId, fallbackTitle){
-    const route = String(routeId || '').trim().toUpperCase();
-
-    if(eapRouteIsBoss_(route)){
-      const gate = bossGateByNumber(Number(route.slice(1)));
-      return String(
-        gate?.title ||
-        fallbackTitle ||
-        ('Boss Gate ' + route.slice(1))
-      );
-    }
-
-    const sid = eapLocalSessionNumberForRoute_(route, 1);
-    return String(
-      fallbackTitle ||
-      getSession(sid)?.title ||
-      ('Session ' + sid)
-    );
-  }
-
-  function eapNormalSessionMasterySkills_(routeId){
-    const sid = eapLocalSessionNumberForRoute_(routeId, 0);
-    const path =
-      typeof skillPathForSession === 'function'
-        ? skillPathForSession(sid)
-        : (
-          typeof finalMatrixForSession === 'function'
-            ? finalMatrixForSession(sid)
-            : EAP_FINAL_SKILL_MATRIX?.[sid]
-        );
-
-    return Array.from(
-      new Set(
-        [
-          path?.core,
-          path?.support
-        ]
-          .filter(Boolean)
-          .map(function(skill){
-            return eapNormalizeEvidenceSkill_(skill);
-          })
-      )
-    );
-  }
-
-  function eapShouldSendAttemptForEntry_(entry, routeId){
-    const route = String(routeId || '').trim().toUpperCase();
-    const skill = eapNormalizeEvidenceSkill_(entry?.skill);
-
-    if(!route || !skill) return false;
-
-    if(eapRouteIsBoss_(route)){
-      return ['reading', 'writing', 'listening', 'speaking']
-        .indexOf(skill) >= 0;
-    }
-
-    return eapNormalSessionMasterySkills_(route)
-      .indexOf(skill) >= 0;
-  }
-
-  function eapIsBossSpeakingReview_(routeId, skill){
-    return eapRouteIsBoss_(routeId) &&
-      eapNormalizeEvidenceSkill_(skill) === 'speaking';
-  }
-
-  function eapEvidenceSyncV130_(){
-    /* Prefer v131; retain V130 compatibility during rollout. */
-    return window.EAPEvidenceSyncV131 ||
-      window.EAPEvidenceSyncV130 ||
-      null;
-  }
-
-  function eapBossEventId_(routeId, skill, result){
-    return [
-      'boss-event',
-      state.profile?.studentId || 'guest',
-      String(routeId || ''),
-      String(skill || ''),
-      String(result?.completedAt || result?.at || Date.now())
-    ]
-      .join('-')
-      .replace(/[^a-z0-9_-]/gi, '');
-  }
-
-  function eapPostEapEvent_(payload){
-    try{
-      const cfg = window.EAP_SHEET_CONFIG || {};
-      if(!cfg.enabled || !cfg.webAppUrl) return false;
-
-      fetch(cfg.webAppUrl, {
-        method:'POST',
-        mode:'no-cors',
-        keepalive:true,
-        headers:{'Content-Type':'text/plain;charset=UTF-8'},
-        body:JSON.stringify(payload)
-      }).catch(function(){});
-
-      return true;
-    }catch(error){
-      console.warn('[EAP Boss event]', error);
-      return false;
-    }
-  }
-
-  function eapSubmitBossGateEvents_(routeId, win, result, bossState){
-    const route = String(routeId || '').trim().toUpperCase();
-    if(!eapRouteIsBoss_(route)) return false;
-
-    const profile = state.profile || {};
-    const skills = ['Reading', 'Writing', 'Listening', 'Speaking'];
-    const gate = bossGateByNumber(Number(route.slice(1)));
-    const data = Object.assign({}, result || {}, {
-      routeId:route,
-      bossId:route,
-      bossGateId:route,
-      win:!!win,
-      completedAt:new Date().toISOString(),
-      gateTitle:gate?.title || '',
-      gateFocus:gate?.focus || '',
-      gateSkills:skills,
-      bossState:bossState || {}
-    });
-
-    return skills.every(function(skill){
-      return eapPostEapEvent_({
-        action:'submit_event',
-        submissionKind:'fresh_evidence_v118',
-        eventId:eapBossEventId_(route, skill, data),
-        section:String(profile.section || '122'),
-        studentId:String(profile.studentId || profile.id || 'guest'),
-        studentName:String(profile.name || profile.studentName || 'Guest'),
-        eventType:'boss_skill_checkpoint',
-        sessionId:route,
-        skill:skill,
-        value:Object.assign({}, data, {
-          skill:skill,
-          teacherReviewRequired:
-            eapIsBossSpeakingReview_(route, skill)
-        })
-      });
-    });
-  }
-
-  function captureBossSpeakingEvidence(routeId){
-    const route = String(routeId || '').trim().toUpperCase();
-    if(!eapRouteIsBoss_(route)){
-      safeToast('Boss Speaking evidence is available only for B1–B5.');
-      return false;
-    }
-
-    const sync = eapEvidenceSyncV130_();
-    if(!sync || typeof sync.captureSpeaking !== 'function'){
-      safeToast('Evidence Sync v130 is not ready. Please reload the game once.');
-      return false;
-    }
-
-    const gateNo = Number(route.slice(1));
-    const gate = bossGateByNumber(gateNo);
-    const result = state.active?.result || {};
-    const timeUsed = Math.max(
-      0,
-      Number(result?.duration || 0) - Number(result?.timeLeft || 0)
-    );
-
-    const entry = {
-      routeId:route,
-      bossRouteId:route,
-      bossGateId:route,
-      bossId:route,
-      sessionId:route,
-      session:gate?.after?.[gate.after.length - 1] || state.currentSession || 1,
-      sessionTitle:gate?.title || ('Boss Gate ' + gateNo),
-      skill:'Speaking',
-      evidenceType:'boss_speaking_evidence',
-      taskId:route + '_SPEAKING_EVIDENCE',
-      score:Number(result?.score || result?.accuracy || 0),
-      passed:!!result?.win,
-      prompt:
-        'Speak a short evidence-based response about the Boss Gate mission. ' +
-        'State the problem, one supporting detail, and a clear conclusion.',
-      durationSec:timeUsed,
-      speakingSeconds:timeUsed,
-      targetRange:'20–45 sec',
-      attemptNo:Number(
-        state.bossGates?.[gateNo]?.attempts || 1
-      ),
-      oralChecklist:{
-        bossMission:true,
-        problem:true,
-        evidence:true,
-        conclusion:true
-      },
-      selectedFrame:
-        'The problem is ___. One supporting detail is ___. In conclusion, ___.',
-      selectedCue:
-        gate?.focus || 'Use one clear problem, evidence/detail, and conclusion.',
-      boss:{
-        routeId:route,
-        bossId:route,
-        gate:gateNo,
-        title:gate?.title || '',
-        requiredSkills:['Reading', 'Writing', 'Listening', 'Speaking'],
-        selectedFrame:
-          'The problem is ___. One supporting detail is ___. In conclusion, ___.',
-        selectedCue:
-          gate?.focus || 'Use one clear problem, evidence/detail, and conclusion.',
-        attemptCount:Number(
-          state.bossGates?.[gateNo]?.attempts || 1
-        ),
-        hintUsed:Number(result?.usedHints || 0),
-        replayCount:Number(
-          state.replay?.bossRushLogs?.filter(function(log){
-            return String(log?.gateId || '') === ('gate' + gateNo);
-          }).length || 0
-        )
-      }
-    };
-
-    sync.captureSpeaking(entry, state);
-    return true;
-  }
-
-  /*
-     Accuracy contract for Student → Sheet transport
-     ------------------------------------------------
-     - Writing / Speaking are rubric or evidence-based and intentionally
-       keep accuracy blank in the Teacher Dashboard.
-     - Reading / Listening use a percentage. Older mission entries stored
-       only `score`, so score is used as a clearly bounded fallback.
-     - A legacy zero beside a positive Reading/Listening score is treated
-       as a missing transport value, not a real 0% result.
-  */
-  function eapAttemptAccuracyForEntry_(entry, skill, score){
-    const normalizedSkill = eapNormalizeEvidenceSkill_(skill);
-
-    if(normalizedSkill === 'writing' || normalizedSkill === 'speaking'){
-      return '';
-    }
-
-    const source = entry || {};
-    const candidates = [
-      source.accuracy,
-      source.latestAccuracy,
-      source.bestAccuracy
-    ];
-
-    for(let index = 0; index < candidates.length; index += 1){
-      const raw = candidates[index];
-
-      if(raw === undefined || raw === null || raw === '') continue;
-
-      const numeric = Number(raw);
-
-      if(!Number.isFinite(numeric) || numeric < 0 || numeric > 100){
-        continue;
-      }
-
-      if(
-        numeric === 0 &&
-        Number(score) > 0 &&
-        (normalizedSkill === 'reading' || normalizedSkill === 'listening')
-      ){
-        return Math.round(Math.max(0, Math.min(100, Number(score))));
-      }
-
-      return Math.round(numeric);
-    }
-
-    if(
-      (normalizedSkill === 'reading' || normalizedSkill === 'listening') &&
-      Number.isFinite(Number(score))
-    ){
-      return Math.round(Math.max(0, Math.min(100, Number(score))));
-    }
-
-    return '';
-  }
-
   function syncEvidenceToEapSheet(compactEntry, sessionId){
     try{
       const cfg = window.EAP_SHEET_CONFIG || {};
       if(!cfg.enabled || !cfg.webAppUrl || !compactEntry) return false;
-
-      const routeId = eapResolveEvidenceRouteId_(
-        compactEntry,
-        sessionId
-      );
-
-      /*
-       * Raw evidence has already been sent through V130. Do not create
-       * an attempts/summary record for ordinary exposure-only practice.
-       */
-      if(!eapShouldSendAttemptForEntry_(compactEntry, routeId)){
-        return false;
-      }
-
       const studentId = String(
         state.profile?.studentId ||
         state.profile?.id ||
         compactEntry.student_id ||
         'guest'
       ).trim();
-
       const studentName = String(
         state.profile?.studentName ||
         state.profile?.name ||
         compactEntry.player_name ||
         'Guest'
       ).trim();
-
       const skill = String(compactEntry.skill || '').trim();
-      const isBoss = eapRouteIsBoss_(routeId);
-      const localSessionId = eapLocalSessionNumberForRoute_(
-        routeId,
-        sessionId
-      );
-      const receiverSessionId = isBoss
-        ? routeId
-        : String(localSessionId);
-
-      if(!studentId || !skill || !receiverSessionId) return false;
+      const sid = Number(compactEntry.session || compactEntry.sessionId || sessionId || 0);
+      if(!studentId || !skill || !sid) return false;
 
       state.sheetSync = state.sheetSync || { sent:{} };
       state.sheetSync.sent = state.sheetSync.sent || {};
-
       const attemptId = String(
         compactEntry.evidenceId ||
         compactEntry.id ||
-        (
-          'eap-' +
-          studentId +
-          '-' +
-          routeId +
-          '-' +
-          skill +
-          '-' +
-          (compactEntry.at || Date.now())
-        )
+        `eap-${studentId}-S${sid}-${skill}-${compactEntry.at || Date.now()}`
       );
-
       if(state.sheetSync.sent[attemptId]) return false;
 
-      const score = Number(
-        compactEntry.score ??
-        compactEntry.latestScore ??
-        0
-      ) || 0;
-
-      const accuracy = eapAttemptAccuracyForEntry_(
-        compactEntry,
-        skill,
-        score
-      );
-
+      const score = Number(compactEntry.score ?? compactEntry.latestScore ?? 0) || 0;
       const url = new URL(cfg.webAppUrl);
-
       const payload = {
         action:'submit_attempt',
-        submissionKind:'fresh_evidence_v118',
-        attemptId:attemptId,
-        studentId:studentId,
-        studentName:studentName,
+        attemptId,
+        studentId,
+        studentName,
         section:String(state.profile?.section || cfg.section || '122'),
-        sessionId:receiverSessionId,
-        sessionTitle:eapRouteTitle_(
-          routeId,
-          compactEntry.sessionTitle ||
-          getSession(localSessionId)?.title ||
-          ''
-        ),
-        skill:skill,
+        sessionId:String(sid),
+        sessionTitle:String(getSession(sid)?.title || compactEntry.sessionTitle || ''),
+        skill,
         score:String(score),
-        accuracy:accuracy === ''
-          ? ''
-          : String(accuracy),
+        accuracy:String(Number(compactEntry.accuracy ?? compactEntry.bestAccuracy ?? 0) || 0),
         passMark:'60',
-        passed:String(
-          !!compactEntry.passed ||
-          score >= 60
-        ),
-        legacyCompletion:String(
-          !!compactEntry.legacyCompletion
-        ),
-        hintUsed:String(
-          Number(
-            compactEntry.aiUses ??
-            compactEntry.hintUsed ??
-            0
-          ) || 0
-        ),
+        passed:String(!!compactEntry.passed || score >= 60),
+        legacyCompletion:String(!!compactEntry.legacyCompletion),
+        hintUsed:String(Number(compactEntry.aiUses ?? compactEntry.hintUsed ?? 0) || 0),
         replay:String(!!compactEntry.replay),
-        clientTimestamp:String(
-          compactEntry.at ||
-          new Date().toISOString()
-        ),
+        clientTimestamp:String(compactEntry.at || new Date().toISOString()),
         sourceUrl:location.href
       };
-
-      Object.keys(payload).forEach(function(key){
-        url.searchParams.set(key, payload[key]);
-      });
-
-      fetch(
-        url.toString(),
-        {mode:'no-cors', cache:'no-store'}
-      ).catch(function(){});
-
+      Object.keys(payload).forEach(key => url.searchParams.set(key, payload[key]));
+      fetch(url.toString(), {mode:'no-cors', cache:'no-store'}).catch(()=>{});
       state.sheetSync.sent[attemptId] = new Date().toISOString();
       return true;
     }catch(err){
@@ -39860,17 +39331,7 @@
 
   function addPortfolio(entry){
     state.portfolio = Array.isArray(state.portfolio) ? state.portfolio : [];
-
-    const routeId = eapResolveEvidenceRouteId_(
-      entry,
-      state.currentSession || 1
-    );
-
-    const sessionId = eapLocalSessionNumberForRoute_(
-      routeId,
-      entry?.session || entry?.sessionId || state.currentSession || 1
-    );
-
+    const sessionId = Number(entry?.session || entry?.sessionId || state.currentSession || 1) || 1;
     const meta = typeof masterSessionForSession === 'function' ? masterSessionForSession(sessionId) : null;
     const incoming = Object.assign({
       at:new Date().toISOString(),
@@ -39899,68 +39360,9 @@
       attemptNo:1,
       replayNeeded:false
     }, entry || {});
-    const resolvedRouteId = eapResolveEvidenceRouteId_(
-      incoming,
-      routeId || sessionId
-    );
-
-    incoming.session = eapLocalSessionNumberForRoute_(
-      resolvedRouteId,
-      sessionId
-    );
-
-    incoming.routeId = resolvedRouteId;
-
-    /*
-     * Keep regular session storage numeric for legacy local-progress logic.
-     * Boss evidence keeps B1–B5 in sessionId for the V130 bridge.
-     */
-    incoming.sessionId = eapRouteIsBoss_(resolvedRouteId)
-      ? resolvedRouteId
-      : incoming.session;
-
-    if(eapRouteIsBoss_(resolvedRouteId)){
-      incoming.bossRouteId = resolvedRouteId;
-      incoming.bossId = resolvedRouteId;
-      incoming.isBossGate = true;
-    }
-
-    incoming.teacherReviewRequired = eapIsBossSpeakingReview_(
-      resolvedRouteId,
-      incoming.skill
-    );
-
-    incoming.teacherReviewStatus = incoming.teacherReviewRequired
-      ? 'pending_teacher_review'
-      : 'not_required';
-
+    incoming.session = Number(incoming.session || incoming.sessionId || sessionId) || sessionId;
+    incoming.sessionId = incoming.session;
     incoming.misconceptionTags = deriveEvidenceMisconceptionTags(incoming, meta);
-
-    /*
-     * V130 raw-evidence bridge:
-     * - all normal skills send authentic evidence;
-     * - normal Speaking remains a typed note with no teacher review;
-     * - only B1–B5 Speaking invokes the Boss review flow.
-     */
-    try{
-      const evidenceSync = eapEvidenceSyncV130_();
-      if(evidenceSync){
-        const isSpeakingEvidence =
-          eapNormalizeEvidenceSkill_(incoming.skill) === 'speaking';
-
-        if(
-          isSpeakingEvidence &&
-          typeof evidenceSync.captureSpeaking === 'function'
-        ){
-          evidenceSync.captureSpeaking(incoming, state);
-        }else if(typeof evidenceSync.submitRaw === 'function'){
-          evidenceSync.submitRaw(incoming, state);
-        }
-      }
-    }catch(err){
-      console.warn('[EAP evidence v130]', err);
-    }
-
     const compactEntry = compactPortfolioEntry(incoming);
     if(!compactEntry.evidenceId){
       compactEntry.evidenceId = reportPortfolioIdentity(compactEntry, state.portfolio.length);
@@ -39968,19 +39370,9 @@
     enhancePortfolioWithFullAI(compactEntry);
     // v1z88: One student-facing portfolio card per Session + Skill + difficulty.
     // Replays remain visible as a compact history for teachers/research without duplicating reports.
-    const sameKey = (p) =>
-      String(
-        p?.routeId ||
-        eapResolveEvidenceRouteId_(p, p?.session || p?.sessionId)
-      ) === String(
-        compactEntry.routeId ||
-        eapResolveEvidenceRouteId_(
-          compactEntry,
-          compactEntry.session || compactEntry.sessionId
-        )
-      ) &&
-      String(p?.skill || '') === String(compactEntry.skill || '') &&
-      String(p?.difficulty || '') === String(compactEntry.difficulty || '');
+    const sameKey = (p) => Number(p?.session || p?.sessionId || 0) === Number(compactEntry.session || compactEntry.sessionId || 0)
+      && String(p?.skill || '') === String(compactEntry.skill || '')
+      && String(p?.difficulty || '') === String(compactEntry.difficulty || '');
     const existingIndex = state.portfolio.findIndex(sameKey);
     if(existingIndex >= 0){
       const prior = state.portfolio[existingIndex] || {};
@@ -40010,39 +39402,21 @@
       state.portfolio.push(compactEntry);
     }
     state.portfolio = compactArray(state.portfolio, STORAGE_LIMITS.portfolio, compactPortfolioEntry);
-    // v1z89 central score mirror: normal-session mastery only.
-    // A Boss Gate route must never overwrite the last normal Session score.
-    const compactRouteId = eapResolveEvidenceRouteId_(
-      compactEntry,
-      sessionId
-    );
-
-    if(!eapRouteIsBoss_(compactRouteId)){
-      state.sessions = state.sessions || {};
-      state.sessions[sessionId] = state.sessions[sessionId] || {};
-      state.sessions[sessionId].skills = state.sessions[sessionId].skills || {};
-      state.sessionScores = state.sessionScores || {};
-      state.sessionScores[sessionId] = state.sessionScores[sessionId] || {};
-      const skillKey = String(compactEntry.skill || '').trim() || 'Unknown';
-      const priorSkill = state.sessions[sessionId].skills[skillKey];
-      const priorScore = Number(typeof priorSkill === 'object' ? (priorSkill.score ?? priorSkill.bestScore ?? 0) : priorSkill || 0);
-      const bestSkillScore = Math.max(priorScore, Number(compactEntry.score || 0));
-      state.sessions[sessionId].skills[skillKey] = {
-        score:bestSkillScore,
-        bestScore:bestSkillScore,
-        latestScore:Number(compactEntry.score || 0),
-        at:compactEntry.at || new Date().toISOString()
-      };
-      state.sessionScores[sessionId][skillKey] = bestSkillScore;
-    }
-
-    const portfolioIndex = existingIndex >= 0
-      ? existingIndex
-      : state.portfolio.length - 1;
-
-    if(!eapRouteIsBoss_(compactRouteId)){
-      updateMasteryFromPortfolio(compactEntry);
-    }
+    // v1z89 central score mirror: always sync the best evidence into the session state
+    // so Session Map, unlock logic, and report summary agree after replay/de-duplication.
+    state.sessions = state.sessions || {};
+    state.sessions[sessionId] = state.sessions[sessionId] || {};
+    state.sessions[sessionId].skills = state.sessions[sessionId].skills || {};
+    state.sessionScores = state.sessionScores || {};
+    state.sessionScores[sessionId] = state.sessionScores[sessionId] || {};
+    const skillKey = String(compactEntry.skill || '').trim() || 'Unknown';
+    const priorSkill = state.sessions[sessionId].skills[skillKey];
+    const priorScore = Number(typeof priorSkill === 'object' ? (priorSkill.score ?? priorSkill.bestScore ?? 0) : priorSkill || 0);
+    const bestSkillScore = Math.max(priorScore, Number(compactEntry.score || 0));
+    state.sessions[sessionId].skills[skillKey] = {score:bestSkillScore, bestScore:bestSkillScore, latestScore:Number(compactEntry.score || 0), at:compactEntry.at || new Date().toISOString()};
+    state.sessionScores[sessionId][skillKey] = bestSkillScore;
+    const portfolioIndex = existingIndex >= 0 ? existingIndex : state.portfolio.length - 1;
+    updateMasteryFromPortfolio(compactEntry);
     updateAIAbilityProfiles();
     checkSecretMissions();
     addXP(Math.max(5, Math.round((compactEntry.score || 0) / 4)));
@@ -40091,14 +39465,6 @@
     const allowed = ['CL','PR','FL','ST','EV','QA'];
     const item = (state.portfolio || []).find(x=>String(x.evidenceId)===String(evidenceId));
     if(!item) return {ok:false, reason:'evidence_not_found'};
-
-    if(!eapIsBossSpeakingReview_(
-      eapResolveEvidenceRouteId_(item, item.session || item.sessionId),
-      item.skill
-    )){
-      return {ok:false, reason:'boss_speaking_only'};
-    }
-
     const code = String(review.code || '').toUpperCase();
     item.teacherFeedbackCode = allowed.includes(code) ? code : '';
     item.teacherScore = Number.isFinite(Number(review.score)) ? Math.max(0, Math.min(10, Number(review.score))) : null;
@@ -44201,7 +43567,6 @@
     isSessionLocked,
     syncCourseProgressFromEvidence,
     recordBossGateResult,
-    captureBossSpeakingEvidence,
     passCriteriaHTML,
     bossGatePassStatus,
     renderProgressDiagnostics,
