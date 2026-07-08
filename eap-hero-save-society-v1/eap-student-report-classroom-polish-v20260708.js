@@ -1,15 +1,15 @@
 /* =========================================================
    EAP Hero Student Report Classroom Polish v20260708
    15-week route-aware student report polish.
-   - Makes My Learning Report easier for Thai students.
-   - Replaces long English explanatory note with Thai classroom note.
-   - Adds a clear next-step prompt for the current S1-S15/B1-B5 route.
+   - Makes My Learning Report lighter for Thai students.
+   - Removes explanatory legacy/best-score notes from the student report UI.
+   - Keeps a clear next-step prompt for the current S1-S15/B1-B5 route.
    - UI-only. Does not change scores, mastery, Sheet sync, or evidence.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260708-STUDENT-REPORT-CLASSROOM-POLISH-15WEEK-V2';
+  const VERSION = 'v20260708-STUDENT-REPORT-CLASSROOM-POLISH-15WEEK-V3-NO-NOTE';
   const PACK_NAME = 'EAP_HERO_SESSION_CONTENT_PACK';
   const STYLE_ID = 'eap-student-report-classroom-polish-style';
   const NOTE_ID = 'eap-student-report-thai-note';
@@ -116,21 +116,14 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      #${NOTE_ID},#${NEXT_ID}{
+      #${NOTE_ID}{display:none!important}
+      #${NEXT_ID}{
         margin:12px 0;
         padding:13px 14px;
         border-radius:16px;
         line-height:1.45;
         font-family:Arial,'Noto Sans Thai',sans-serif;
         box-shadow:0 8px 20px rgba(8,25,45,.10);
-      }
-      #${NOTE_ID}{
-        background:#eef8ff;
-        color:#12324d;
-        border:1px solid rgba(97,155,190,.35);
-        font-weight:800;
-      }
-      #${NEXT_ID}{
         background:linear-gradient(135deg,#e8fbf3,#ffffff);
         color:#064e3b;
         border:1px solid rgba(16,185,129,.32);
@@ -151,7 +144,7 @@
         cursor:pointer;
       }
       @media(max-width:760px){
-        #${NOTE_ID},#${NEXT_ID}{
+        #${NEXT_ID}{
           margin:10px 0;
           padding:11px 12px;
           border-radius:14px;
@@ -168,27 +161,21 @@
     return candidates.find(node => /My Learning Report/.test(text(node.textContent || ''))) || null;
   }
 
-  function removeEnglishLegacyNote(root){
+  function removeExplanatoryNotes(root){
+    document.getElementById(NOTE_ID)?.remove();
     if (!root) return;
     const nodes = Array.from(root.querySelectorAll('p,div,span'));
     nodes.forEach(node => {
       const t = text(node.textContent);
-      if (t.indexOf('Best retained evidence is shown once per Session and Skill') >= 0) {
-        node.style.display = 'none';
-        node.setAttribute('aria-hidden','true');
+      if (
+        t.indexOf('Best retained evidence is shown once per Session and Skill') >= 0 ||
+        t.indexOf('รายงานนี้ใช้ดูความก้าวหน้า') >= 0 ||
+        t.indexOf('ระบบจะแสดงคะแนนดีที่สุด') >= 0 ||
+        t.indexOf('legacy มาเป็นคะแนนใหม่') >= 0
+      ) {
+        node.remove();
       }
     });
-  }
-
-  function addThaiNote(root){
-    if (!root || document.getElementById(NOTE_ID)) return;
-    const h = Array.from(root.querySelectorAll('h1,h2,h3')).find(node => /My Learning Report/.test(text(node.textContent || '')));
-    const anchor = Array.from(root.querySelectorAll('p,div')).find(node => text(node.textContent).indexOf('Best retained evidence') >= 0) || h;
-    const note = document.createElement('div');
-    note.id = NOTE_ID;
-    note.textContent = 'รายงานนี้ใช้ดูความก้าวหน้าและ feedback เพื่อพัฒนาครั้งถัดไป ระบบจะแสดงคะแนนดีที่สุดของแต่ละ Session และ Skill โดยไม่นำข้อมูลเก่าที่เป็น legacy มาเป็นคะแนนใหม่';
-    if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(note, anchor.nextSibling);
-    else root.appendChild(note);
   }
 
   function rememberRoute(route){
@@ -273,8 +260,7 @@
     injectStyle();
     const root = findReportRoot();
     if (!root) return;
-    removeEnglishLegacyNote(root);
-    addThaiNote(root);
+    removeExplanatoryNotes(root);
     addNextStep(root);
   }
 
@@ -283,6 +269,7 @@
     window.setInterval(polish, 900);
     window.EAPStudentReportClassroomPolish = {
       version: VERSION,
+      noExplanatoryNote: true,
       refresh: polish,
       currentRoute: currentRoute
     };
