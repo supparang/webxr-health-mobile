@@ -1,7 +1,10 @@
 /* =========================================================
    EAP Hero Desktop Overflow Fix v20260708
+   v2 Tight Desktop Layout
    - Fixes PC layout where the right hero/info panel falls outside viewport.
-   - Desktop only; mobile compact rules remain in layout-fix CSS.
+   - Stops the left mission panel from stretching to the height of the right hero panel.
+   - Makes the 15-week roadmap span the full row instead of leaving a dead right column.
+   - Desktop/tablet only; mobile current-route rules remain in layout-fix CSS.
 ========================================================= */
 
 html,
@@ -17,8 +20,8 @@ body .app {
 }
 
 .shell {
-  width: min(1280px, calc(100vw - 28px)) !important;
-  max-width: min(1280px, calc(100vw - 28px)) !important;
+  width: min(1320px, calc(100vw - 28px)) !important;
+  max-width: min(1320px, calc(100vw - 28px)) !important;
   margin-left: auto !important;
   margin-right: auto !important;
 }
@@ -28,11 +31,13 @@ body .app {
   max-width: 100% !important;
 }
 
+/* Main desktop hero: use the width, but do not stretch cards vertically. */
 .hero {
   width: 100% !important;
   max-width: 100% !important;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px) !important;
-  align-items: stretch !important;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 424px) !important;
+  align-items: start !important;
+  gap: 16px !important;
 }
 
 .hero > *,
@@ -46,22 +51,65 @@ body .app {
   min-width: 0 !important;
 }
 
-.hero .panel {
+.hero .panel,
+.hero .mf-hud,
+.mf-hud {
+  align-self: start !important;
+  height: auto !important;
+  min-height: 0 !important;
   overflow: hidden !important;
 }
 
 .hero .panel h1 {
-  font-size: clamp(38px, 4.4vw, 58px) !important;
+  font-size: clamp(36px, 4vw, 56px) !important;
   word-break: normal !important;
 }
 
 .hero .lead {
-  font-size: clamp(15px, 1.4vw, 18px) !important;
+  font-size: clamp(15px, 1.25vw, 17px) !important;
+  line-height: 1.55 !important;
 }
 
-/* Mission-first HUD should stay inside the left column on PC. */
+/* Mission-first HUD should be a compact mission card, not a tall empty canvas. */
 .mf-hud {
   width: 100% !important;
+  max-width: 100% !important;
+  margin-bottom: 12px !important;
+  padding: 13px 14px !important;
+}
+
+.mf-hud-main {
+  margin: 8px 0 6px !important;
+}
+
+.mf-stepper {
+  margin: 8px 0 8px !important;
+}
+
+.mf-hud-bottom {
+  margin-top: 6px !important;
+}
+
+/* If the roadmap is inserted inside the hero/grid parent, make it use the full row. */
+#eap-student-15week-roadmap {
+  grid-column: 1 / -1 !important;
+  width: min(1320px, 100%) !important;
+  max-width: 100% !important;
+  align-self: start !important;
+}
+
+#eap-student-15week-roadmap .rm-grid {
+  grid-template-columns: repeat(3, minmax(240px, 1fr)) !important;
+}
+
+#eap-student-15week-roadmap .rm-card {
+  min-height: 128px !important;
+}
+
+/* Compact long lesson/replay sections so empty columns do not dominate. */
+.challenge-card,
+.panel.light,
+.mf-route-board {
   max-width: 100% !important;
 }
 
@@ -73,7 +121,7 @@ body .app {
   z-index: 60 !important;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .hero {
     grid-template-columns: 1fr !important;
   }
@@ -81,11 +129,19 @@ body .app {
   .hero .panel h1 {
     font-size: clamp(34px, 8vw, 54px) !important;
   }
+
+  #eap-student-15week-roadmap .rm-grid {
+    grid-template-columns: repeat(2, minmax(230px, 1fr)) !important;
+  }
 }
 
 @media (max-width: 720px), (hover: none) and (pointer: coarse) {
   .shell {
     width: calc(100vw - 10px) !important;
     max-width: calc(100vw - 10px) !important;
+  }
+
+  .hero {
+    grid-template-columns: 1fr !important;
   }
 }
