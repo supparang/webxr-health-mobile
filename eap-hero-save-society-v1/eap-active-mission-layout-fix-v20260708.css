@@ -1,0 +1,122 @@
+/* =========================================================
+   EAP Hero Active Mission Layout Fix v20260708
+   - Fixes the mission screen where the question card sits on the far right
+     and leaves a huge empty battle canvas on the left.
+   - Makes the active question/evidence area the main learning area.
+   - Keeps HUD / boss flavor compact below the question.
+   - UI-only: does not change answers, scoring, Sheet, resume, or unlock.
+========================================================= */
+
+/* The original battle-layout is 1fr + 360px. After Mission Mode injects its
+   HUD as the first grid child, the question can be pushed into the narrow
+   right column and the left side becomes a large blank. For classroom use,
+   active missions should be single-column and readable. */
+.battle-layout {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 14px !important;
+  align-items: start !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.battle-layout > * {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.battle-layout > .mf-hud {
+  grid-column: 1 / -1 !important;
+  order: 1 !important;
+  width: 100% !important;
+  margin-bottom: 0 !important;
+}
+
+.battle-layout > .challenge-card,
+.battle-layout .challenge-card {
+  grid-column: 1 / -1 !important;
+  order: 2 !important;
+  justify-self: stretch !important;
+  width: min(1040px, 100%) !important;
+  max-width: 1040px !important;
+  margin: 0 auto !important;
+  padding: clamp(16px, 2vw, 22px) !important;
+  border-radius: 22px !important;
+}
+
+.battle-layout > .battle-hud,
+.battle-layout > .hud-card,
+.battle-layout .battle-hud {
+  grid-column: 1 / -1 !important;
+  order: 3 !important;
+  width: min(1040px, 100%) !important;
+  max-width: 1040px !important;
+  margin: 0 auto !important;
+}
+
+.battle-layout .question {
+  max-width: 920px !important;
+  font-size: clamp(20px, 2.2vw, 28px) !important;
+  line-height: 1.35 !important;
+}
+
+.battle-layout .context {
+  font-size: clamp(15px, 1.25vw, 18px) !important;
+}
+
+.battle-layout .choices {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.battle-layout .choice {
+  min-height: 76px !important;
+  display: flex !important;
+  align-items: center !important;
+  line-height: 1.35 !important;
+}
+
+/* Keep the boss/HP flavor visible but compact, not a tall empty canvas. */
+.battle-layout .boss-taunt,
+.battle-layout .hud-card,
+.battle-layout .battle-hud > * {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+/* Older injected/absolute panels must not cover or dim the question area. */
+.battle-layout [style*="position: fixed"],
+.battle-layout [style*="position:fixed"] {
+  max-width: calc(100vw - 24px) !important;
+}
+
+@media (max-width: 900px) {
+  .battle-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .battle-layout .choices {
+    grid-template-columns: 1fr !important;
+  }
+
+  .battle-layout .choice {
+    min-height: 58px !important;
+  }
+}
+
+@media (max-width: 720px), (hover: none) and (pointer: coarse) {
+  .battle-layout {
+    gap: 10px !important;
+  }
+
+  .battle-layout > .challenge-card,
+  .battle-layout .challenge-card {
+    padding: 14px !important;
+    border-radius: 18px !important;
+  }
+
+  .battle-layout .question {
+    font-size: 19px !important;
+  }
+}
