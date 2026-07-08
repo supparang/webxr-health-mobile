@@ -1,14 +1,19 @@
 /* =========================================================
-   EAP Hero Boss Gate v2 — Four Skills, Scaffolded A2+ → B1
-   B1–B5 always run Reading → Listening → Writing → Speaking
-   before the original Boss Clash. Boss speaking creates teacher
-   review evidence; no pronunciation/grammar score is auto-decided.
-   ========================================================= */
+   EAP Hero Boss Gate v3 — Four Skills + Rotating Scenario Bank
+   - B1–B5 run Reading → Listening → Writing → Speaking before Boss Clash.
+   - Uses EAPBossReplayScenario from eap-boss-replay-bank-v2.js when available.
+   - Reading/Listening source, question, and answers rotate per Boss attempt.
+   - Answer order is shuffled per render while preserving the correct answer.
+   - Writing/Speaking prompts follow the same selected Boss scenario.
+   - Boss Speaking creates teacher review evidence; no pronunciation/grammar
+     score is auto-decided.
+========================================================= */
 (function () {
   'use strict';
 
   var STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   var SKILLS = ['Reading', 'Listening', 'Writing', 'Speaking'];
+  var SCENARIO_CACHE = {};
 
   var GATES = {
     1: {
@@ -154,6 +159,80 @@
     });
   }
 
+  function clone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+
+  function shuffleWithAnswer(correct, distractors) {
+    var items = [correct].concat(distractors || []).map(function (text, index) {
+      return { text: text, correct: index === 0 };
+    });
+    for (var i = items.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = items[i];
+      items[i] = items[j];
+      items[j] = tmp;
+    }
+    var answer = items.findIndex(function (item) { return item.correct; });
+    return {
+      choices: items.map(function (item) { return item.text; }),
+      answer: answer < 0 ? 0 : answer
+    };
+  }
+
+  function fallbackScenario(gate) {
+    var g = GATES[gate] || GATES[1];
+    return {
+      tag: 'Default Boss Variant',
+      reading: g.reading.source,
+      rq: g.reading.question,
+      ra: g.reading.choices[g.reading.answer],
+      rd: g.reading.choices.filter(function (_, index) { return index !== g.reading.answer; }),
+      listening: g.listening.source,
+      lq: g.listening.question,
+      la: g.listening.choices[g.listening.answer],
+      ld: g.listening.choices.filter(function (_, index) { return index !== g.listening.answer; }),
+      writing: g.writing.prompt,
+      speaking: g.speaking.prompt
+    };
+  }
+
+  function activeScenario(gate) {
+    var current = window.EAPBossReplayScenario;
+    if (current && Number(current.gate) === Number(gate) && current.scenario) {
+      SCENARIO_CACHE[gate] = current.scenario;
+      return current.scenario;
+    }
+    if (SCENARIO_CACHE[gate]) return SCENARIO_CACHE[gate];
+    var fallback = fallbackScenario(gate);
+    SCENARIO_CACHE[gate] = fallback;
+    window.EAPBossReplayScenario = { gate: gate, scenario: fallback };
+    return fallback;
+  }
+
+  function gateData(gate) {
+    var g = clone(GATES[gate] || GATES[1]);
+    var sc = activeScenario(gate);
+    var reading = shuffleWithAnswer(sc.ra, sc.rd);
+    var listening = shuffleWithAnswer(sc.la, sc.ld);
+
+    g.scenarioTag = sc.tag || 'Boss Scenario';
+    g.reading.source = sc.reading || g.reading.source;
+    g.reading.question = sc.rq || g.reading.question;
+    g.reading.choices = reading.choices;
+    g.reading.answer = reading.answer;
+
+    g.listening.source = sc.listening || g.listening.source;
+    g.listening.question = sc.lq || g.listening.question;
+    g.listening.choices = listening.choices;
+    g.listening.answer = listening.answer;
+
+    g.writing.prompt = sc.writing || g.writing.prompt;
+    g.speaking.prompt = sc.speaking || g.speaking.prompt;
+
+    return g;
+  }
+
   function readState() {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
     catch (_) { return { profile: { studentId: 'guest', studentName: 'Guest', section: '122' } }; }
@@ -170,10 +249,11 @@
 
   function sendEvidence(gate, skill, prompt, output, extras) {
     extras = extras || {};
+    var g = gateData(gate);
     var entry = {
       rawEvidenceId: 'boss-' + gate + '-' + skill + '-' + Date.now(),
       sessionId: 'B' + gate,
-      sessionTitle: GATES[gate].title,
+      sessionTitle: g.title,
       skill: skill,
       evidenceType: 'boss_' + skill.toLowerCase() + '_evidence',
       taskId: 'B' + gate + '_' + skill,
@@ -188,7 +268,7 @@
       oralChecklist: extras.checklist || {},
       attemptCount: 1,
       at: new Date().toISOString(),
-      boss: { gate: gate, requiredSkills: SKILLS.slice(), stage: skill }
+      boss: { gate: gate, requiredSkills: SKILLS.slice(), stage: skill, scenarioTag: g.scenarioTag }
     };
     var sync = evidenceSync();
     if (sync && typeof sync.submitRaw === 'function') sync.submitRaw(entry, readState());
@@ -205,11 +285,11 @@
   }
 
   function shell(gate, current, inner) {
-    var g = GATES[gate];
+    var g = gateData(gate);
     document.getElementById('app').innerHTML = '' +
       '<main class="wrap" style="max-width:1100px;margin:auto;padding:20px">' +
         '<section class="panel" style="margin-top:18px">' +
-          '<div class="badges"><span class="pill">Boss Gate ' + gate + '</span><span class="pill">4 Skills Required</span><span class="pill">A2+ → B1 Path</span></div>' +
+          '<div class="badges"><span class="pill">Boss Gate ' + gate + '</span><span class="pill">4 Skills Required</span><span class="pill">Scenario: ' + esc(g.scenarioTag) + '</span></div>' +
           '<h2>' + esc(g.title) + '</h2>' +
           '<p class="lead">' + esc(g.arc) + ' · ทำทีละทักษะพร้อมตัวช่วย แล้วจึงเข้าสู่ Boss Clash</p>' +
           '<div class="grid four" style="margin:14px 0">' +
@@ -223,18 +303,18 @@
       '</main>';
   }
 
-  function sourceBox(kind, source, allowTranscript) {
+  function sourceBox(kind, source) {
     var listen = kind === 'Listening';
     return '' +
       '<div class="panel light" style="margin:14px 0">' +
-        '<h3>' + (listen ? '🎧 Listening' : '📖 Reading') + ' · A2 Foundation</h3>' +
+        '<h3>' + (listen ? '🎧 Listening' : '📖 Reading') + ' · Boss Scenario</h3>' +
         (listen ? '<button type="button" class="btn ghost" id="bossPlay">▶ Play audio</button> <button type="button" class="btn ghost" id="bossShowText">Show text support</button><p id="bossTranscript" class="mini-note" style="display:none;margin-top:10px">' + esc(source) + '</p>' : '<p style="font-size:18px;line-height:1.65">' + esc(source) + '</p>') +
-        '<p class="mini-note">เลือกคำตอบที่ตรงกับข้อความมากที่สุด · ตอบผิดลองใหม่ได้</p>' +
+        '<p class="mini-note">เลือกคำตอบที่ตรงกับข้อความมากที่สุด · ตอบผิดลองใหม่ได้ · คำถามและตำแหน่งคำตอบหมุนทุกครั้ง</p>' +
       '</div>';
   }
 
   function choiceStage(gate, kind) {
-    var g = GATES[gate];
+    var g = gateData(gate);
     var task = kind === 'Reading' ? g.reading : g.listening;
     var stage = kind === 'Reading' ? 0 : 1;
     shell(gate, stage, sourceBox(kind, task.source) +
@@ -264,7 +344,7 @@
     });
   }
 
-  function frameButtons(frames, field) {
+  function frameButtons(frames) {
     return '<div style="display:grid;gap:8px;margin:12px 0">' + frames.map(function (frame, index) {
       return '<button type="button" class="btn ghost eap-boss-frame" data-index="' + index + '" style="text-align:left">＋ ' + esc(frame) + '</button>';
     }).join('') + '</div>';
@@ -287,13 +367,14 @@
   }
 
   function writingStage(gate) {
-    var task = GATES[gate].writing;
+    var g = gateData(gate);
+    var task = g.writing;
     shell(gate, 2,
       '<div class="panel light">' +
-        '<h3>✍️ Writing · A2+ Bridge</h3>' +
+        '<h3>✍️ Writing · Boss Scenario</h3>' +
         '<p>' + esc(task.prompt) + '</p>' +
         '<p class="mini-note">แตะ sentence frames 2–3 อัน แล้วปรับคำให้เป็นของคุณได้</p>' +
-        frameButtons(task.frames, 'bossWriting') +
+        frameButtons(task.frames) +
         '<textarea id="bossWriting" rows="6" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Use the sentence frames or write your own short answer."></textarea>' +
         '<p class="mini-note">ผ่านด้วยคำตอบสั้นที่มีอย่างน้อย 2 ideas · ไม่ใช้ grammar auto-score</p>' +
         '<button type="button" class="btn primary" id="bossSaveWriting">Save writing & continue</button><p id="bossWriteMessage" class="mini-note"></p>' +
@@ -311,12 +392,13 @@
   }
 
   function speakingStage(gate) {
-    var task = GATES[gate].speaking;
+    var g = gateData(gate);
+    var task = g.speaking;
     var startedAt = 0;
     var timer = null;
     shell(gate, 3,
       '<div class="panel light">' +
-        '<h3>🗣️ Speaking · B1 Core with Cue Cards</h3>' +
+        '<h3>🗣️ Speaking · Boss Scenario with Cue Cards</h3>' +
         '<p>' + esc(task.prompt) + '</p>' +
         '<div class="grid three" style="margin:12px 0">' + task.frames.map(function (frame, index) {
           return '<div class="stat"><b>Cue ' + (index + 1) + '</b><span>' + esc(frame) + '</span></div>';
@@ -375,16 +457,23 @@
   }
 
   function patch() {
-    if (!window.EAPHero || typeof window.EAPHero.startGateBoss !== 'function' || window.EAPHero.__bossFourSkillV2Patched) return;
-    window.EAPHero.__bossFourSkillV2Patched = true;
+    if (!window.EAPHero || typeof window.EAPHero.startGateBoss !== 'function' || window.EAPHero.__bossFourSkillV3Patched) return;
+    window.EAPHero.__bossFourSkillV3Patched = true;
     window.EAPHero.__bossFourSkillOriginalStart = window.EAPHero.startGateBoss;
-    window.EAPHero.startGateBoss = function (gateId) { choiceStage(gateNo(gateId), 'Reading'); };
+    window.EAPHero.startGateBoss = function (gateId) {
+      var gate = gateNo(gateId);
+      if (window.EAPBossReplayScenario && Number(window.EAPBossReplayScenario.gate) !== Number(gate)) {
+        window.EAPBossReplayScenario = null;
+      }
+      choiceStage(gate, 'Reading');
+    };
   }
 
   var wait = setInterval(function () {
     patch();
-    if (window.EAPHero && window.EAPHero.__bossFourSkillV2Patched) clearInterval(wait);
+    if (window.EAPHero && window.EAPHero.__bossFourSkillV3Patched) clearInterval(wait);
   }, 100);
 
   window.EAPBossFourSkillV2 = { gates: GATES, start: function (gate) { choiceStage(gateNo(gate), 'Reading'); } };
+  window.EAPBossFourSkillV3 = { gates: GATES, start: function (gate) { choiceStage(gateNo(gate), 'Reading'); }, version: 'v3-rotating-scenarios' };
 })();
