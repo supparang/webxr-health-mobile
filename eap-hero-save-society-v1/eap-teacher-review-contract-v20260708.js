@@ -1,16 +1,19 @@
 /* =========================================================
    EAP Hero Teacher Review Contract v20260708
+   Safe V2:
    - Completes teacher-check metadata for every S1-S15 and B1-B5 route.
+   - Does NOT mutate the frozen content pack object.
    - Normal sessions: Core + Support are mastery evidence; Exposure is participation evidence.
    - Boss Gates: all four skills are integrated; Boss Speaking requires teacher review.
-   - Does not change student score/pass logic by itself; it enriches content and Sheet metadata.
+   - Does not change student score/pass logic; used by Sheet bridge and teacher dashboard metadata.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260708-EAP-TEACHER-REVIEW-CONTRACT-S15-B5-V1';
+  const VERSION = 'v20260708-EAP-TEACHER-REVIEW-CONTRACT-S15-B5-V2-SAFE';
   const PACK_NAME = 'EAP_HERO_SESSION_CONTENT_PACK';
   const SKILLS = ['reading','listening','writing','speaking'];
+  let CONTRACT_CACHE = null;
 
   const FEEDBACK_CODES = [
     { code:'CL', label:'Clarity', th:'ชัดเจน เข้าใจง่าย' },
@@ -49,35 +52,25 @@
   };
 
   function clean(value){ return String(value == null ? '' : value).replace(/\s+/g,' ').trim(); }
+  function key(value){ return clean(value).toUpperCase(); }
   function pack(){ const data = window[PACK_NAME]; return data && Array.isArray(data.routes) ? data : null; }
   function isBoss(route){ return route && route.routeType === 'boss_gate'; }
   function roleOf(route, skill){ return clean(route && route.skillContract && route.skillContract[skill] || 'Exposure'); }
   function scopeOf(role){ return role === 'Exposure' ? 'exposure' : 'mastery'; }
-
-  function routeNumber(route){
-    const m = clean(route && route.routeId).match(/^S(\d+)$/i);
-    return m ? Number(m[1]) : '';
-  }
-
-  function teacherRequired(route, skill){
-    if (!route) return false;
-    if (isBoss(route) && skill === 'speaking') return true;
-    return false;
-  }
-
+  function routeNumber(route){ const m = clean(route && route.routeId).match(/^S(\d+)$/i); return m ? Number(m[1]) : ''; }
+  function teacherRequired(route, skill){ return !!(route && isBoss(route) && skill === 'speaking'); }
   function reviewStatusDefault(route, skill){
     if (teacherRequired(route, skill)) return 'pending_teacher_review';
     if (skill === 'writing') return 'teacher_can_review_optional';
     return 'auto_evidence_review_optional';
   }
-
   function masteryEligible(route, skill){
     const role = roleOf(route, skill);
     return isBoss(route) || role === 'Core' || role === 'Support' || role === 'Integrated';
   }
 
   function teacherTask(route, skill){
-    const base = SKILL_EVIDENCE[skill];
+    const base = SKILL_EVIDENCE[skill] || SKILL_EVIDENCE.reading;
     const role = roleOf(route, skill);
     const boss = isBoss(route);
     return {
@@ -136,50 +129,37 @@
     };
   }
 
-  function apply(){
+  function build(){
     const data = pack();
-    if (!data || data.__teacherReviewContractVersion === VERSION) return;
     const contracts = {};
+    if (!data) return contracts;
     data.routes.forEach(route => {
       const contract = routeContract(route);
       contracts[contract.routeId] = contract;
-      route.teacherReviewContract = contract;
-      (route.missions || []).forEach(mission => {
-        const skill = clean(mission.skill).toLowerCase();
-        const task = contract.teacherChecklist.find(item => item.skill === skill);
-        if (task) {
-          mission.teacherReview = task;
-          mission.teacherEvidence = [
-            mission.teacherEvidence || '',
-            'route=' + contract.routeId,
-            'role=' + task.skillRole,
-            'review=' + task.teacherReviewStatusDefault,
-            'tabs=' + task.sheetTabs.join('+')
-          ].filter(Boolean).join(' | ');
-        }
-      });
     });
-    data.teacherReviewContractVersion = VERSION;
-    data.teacherReviewContracts = contracts;
-    data.__teacherReviewContractVersion = VERSION;
+    CONTRACT_CACHE = contracts;
+    return contracts;
+  }
+
+  function all(){
+    return CONTRACT_CACHE || build();
   }
 
   function route(routeId){
-    apply();
-    const data = pack();
-    if (!data) return null;
-    const key = clean(routeId).toUpperCase();
-    const found = data.routes.find(item => clean(item.routeId).toUpperCase() === key);
-    return found && found.teacherReviewContract || null;
+    const contracts = all();
+    return contracts[key(routeId)] || null;
   }
 
   function task(routeId, skill){
     const contract = route(routeId);
-    const key = clean(skill).toLowerCase();
-    return contract && contract.teacherChecklist.find(item => item.skill === key) || null;
+    const skillKey = clean(skill).toLowerCase();
+    return contract && contract.teacherChecklist.find(item => item.skill === skillKey) || null;
   }
 
-  apply();
+  function apply(){
+    build();
+    return { ok:true, version:VERSION, routes:Object.keys(CONTRACT_CACHE || {}).length, frozenPackSafe:true };
+  }
 
   window.EAPTeacherReviewContract = {
     version: VERSION,
@@ -188,6 +168,8 @@
     apply,
     route,
     task,
-    all:function(){ apply(); const data = pack(); return data && data.teacherReviewContracts || {}; }
+    all
   };
+
+  apply();
 })();
