@@ -1,0 +1,119 @@
+/* =========================================================
+   EAP Hero Student Home Layout Fix v20260708
+   - Removes excessive right-side whitespace on student home.
+   - Makes roadmap use the available viewport width.
+   - Keeps roadmap + session grid compact and readable.
+========================================================= */
+
+html,
+body {
+  min-width: 0;
+}
+
+body .app,
+body #app {
+  width: 100% !important;
+  max-width: none !important;
+  overflow-x: hidden !important;
+}
+
+#eap-student-15week-roadmap {
+  width: min(1280px, calc(100vw - 24px)) !important;
+  max-width: min(1280px, calc(100vw - 24px)) !important;
+  margin: 12px auto 18px !important;
+  clear: both !important;
+}
+
+#eap-student-15week-roadmap .rm-head {
+  padding: 12px 14px !important;
+}
+
+#eap-student-15week-roadmap .rm-head h2 {
+  font-size: 18px !important;
+}
+
+#eap-student-15week-roadmap .rm-head p {
+  font-size: 12px !important;
+  margin-top: 4px !important;
+}
+
+#eap-student-15week-roadmap .rm-summary {
+  grid-template-columns: repeat(4, minmax(150px, 1fr)) !important;
+  gap: 8px !important;
+  padding: 10px 12px !important;
+}
+
+#eap-student-15week-roadmap .rm-grid {
+  grid-template-columns: repeat(4, minmax(210px, 1fr)) !important;
+  gap: 10px !important;
+  padding: 12px !important;
+}
+
+#eap-student-15week-roadmap .rm-card {
+  min-height: 148px !important;
+  padding: 11px !important;
+}
+
+#eap-student-15week-roadmap .rm-title {
+  font-size: 15px !important;
+}
+
+#eap-student-15week-roadmap .rm-focus {
+  min-height: 34px !important;
+}
+
+#eap-student-15week-roadmap .rm-actions {
+  grid-template-columns: 1fr 1fr !important;
+}
+
+#eap-student-15week-roadmap button {
+  white-space: normal !important;
+}
+
+/* Keep the main mission/session grid from leaving a dead right column. */
+.app > main,
+#app > main,
+.app .screen,
+#app .screen,
+.app .page,
+#app .page,
+.app .panel,
+#app .panel {
+  max-width: min(1280px, calc(100vw - 24px));
+}
+
+/* Floating Sheet status should not cover the roadmap buttons too much. */
+.eap-sheet-floating,
+.eap-sheet-status,
+[id*="sheet"][style*="fixed"],
+[class*="sheet"][style*="fixed"] {
+  max-width: min(360px, calc(100vw - 28px)) !important;
+}
+
+@media (max-width: 1180px) {
+  #eap-student-15week-roadmap .rm-summary {
+    grid-template-columns: repeat(2, minmax(160px, 1fr)) !important;
+  }
+
+  #eap-student-15week-roadmap .rm-grid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr)) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  #eap-student-15week-roadmap {
+    width: calc(100vw - 14px) !important;
+    max-width: calc(100vw - 14px) !important;
+    margin: 8px auto 14px !important;
+  }
+
+  #eap-student-15week-roadmap .rm-summary,
+  #eap-student-15week-roadmap .rm-grid {
+    grid-template-columns: 1fr !important;
+    padding: 9px !important;
+  }
+
+  #eap-student-15week-roadmap .rm-card {
+    min-height: 0 !important;
+  }
+}
