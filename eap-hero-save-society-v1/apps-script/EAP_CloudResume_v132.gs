@@ -6,24 +6,34 @@
    - Implements eapPlayerResume_(p) for action=player_resume.
    - Student progress is resumed by studentId + section across Lab/Mobile/Home.
    - Reads eap-v132-events first, then common legacy tabs if present.
-   - Returns normalized records for S1-S15 and B1-B5.
+   - Returns normalized records for valid routeOrder only:
+     S1-S3, B1, S4-S6, B2, S7-S9, B3, S10-S12, B4, S13-S15, B5.
+   - Filters legacy/aggregate records such as S0.
 
    Router requirement:
    In SharedWebAppRouter.gs doGet(e), route action 'player_resume'
    to eapPlayerResume_(e.parameter || {}).
 ========================================================= */
 
-var EAP_CLOUD_RESUME_VERSION = 'v20260708-EAP-CLOUD-RESUME-V132';
+var EAP_CLOUD_RESUME_VERSION = 'v20260708-EAP-CLOUD-RESUME-V132-VALID-ROUTES';
+
+var EAP_CLOUD_RESUME_ROUTE_ORDER = [
+  'S1', 'S2', 'S3', 'B1',
+  'S4', 'S5', 'S6', 'B2',
+  'S7', 'S8', 'S9', 'B3',
+  'S10', 'S11', 'S12', 'B4',
+  'S13', 'S14', 'S15', 'B5'
+];
 
 var EAP_CLOUD_RESUME_SHEETS = [
   'eap-v132-events',
-  'eap-v132-quality-audit',
   'attempts',
-  'summary',
   'evidence',
+  'summary',
   'EAP_Attempts',
+  'EAP_Evidence',
   'EAP_Summary',
-  'EAP_Evidence'
+  'eap-v132-quality-audit'
 ];
 
 function eapPlayerResume_(p) {
@@ -50,9 +60,10 @@ function eapPlayerResume_(p) {
     };
   }
 
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = eapCloudResumeSpreadsheet_();
   var all = [];
   var scanned = [];
+  var ignored = 0;
 
   EAP_CLOUD_RESUME_SHEETS.forEach(function (sheetName) {
     var sheet = ss.getSheetByName(sheetName);
@@ -60,14 +71,15 @@ function eapPlayerResume_(p) {
 
     scanned.push(sheetName);
 
-    var rows = eapCloudResumeRowsFromSheet_(
+    var result = eapCloudResumeRowsFromSheet_(
       sheet,
       sheetName,
       studentId,
       section
     );
 
-    all = all.concat(rows);
+    all = all.concat(result.rows);
+    ignored += result.ignored;
   });
 
   var records = eapCloudResumeDeduplicate_(all);
@@ -82,6 +94,8 @@ function eapPlayerResume_(p) {
     recordCount: records.length,
     records: records,
     scannedSheets: scanned,
+    ignoredInvalidRouteRows: ignored,
+    validRouteOrder: EAP_CLOUD_RESUME_ROUTE_ORDER,
     latestActivity: records.length
       ? records[records.length - 1].updatedAt
       : '',
@@ -102,9 +116,11 @@ function eapCloudResumeRowsFromSheet_(
 ) {
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
+  var out = [];
+  var ignored = 0;
 
   if (lastRow < 2 || lastCol < 1) {
-    return [];
+    return { rows: out, ignored: ignored };
   }
 
   var values = sheet
@@ -114,8 +130,6 @@ function eapCloudResumeRowsFromSheet_(
   var headers = values[0].map(function (v) {
     return eapCloudResumeText_(v);
   });
-
-  var out = [];
 
   for (var r = 1; r < values.length; r++) {
     var obj = eapCloudResumeObject_(headers, values[r]);
@@ -157,17 +171,27 @@ function eapCloudResumeRowsFromSheet_(
       section
     );
 
+    if (!record) {
+      ignored++;
+      continue;
+    }
+
     if (
-      record &&
       record.sessionId &&
       record.skill &&
-      !record.legacyCompletion
+      !record.legacyCompletion &&
+      eapCloudResumeIsValidRoute_(record.sessionId)
     ) {
       out.push(record);
+    } else {
+      ignored++;
     }
   }
 
-  return out;
+  return {
+    rows: out,
+    ignored: ignored
+  };
 }
 
 function eapCloudResumeNormalizeRecord_(
@@ -196,6 +220,14 @@ function eapCloudResumeNormalizeRecord_(
       'focusSkill'
     ])
   );
+
+  if (!routeId || !skill) {
+    return null;
+  }
+
+  if (!eapCloudResumeIsValidRoute_(routeId)) {
+    return null;
+  }
 
   var score = eapCloudResumeNumber_(
     eapCloudResumePick_(obj, [
@@ -315,12 +347,51 @@ function eapCloudResumeDeduplicate_(rows) {
       return best[key];
     })
     .sort(function (a, b) {
-      return String(a.sessionId).localeCompare(
-        String(b.sessionId),
-        undefined,
-        { numeric: true }
-      ) || String(a.skill).localeCompare(String(b.skill));
+      var ai = EAP_CLOUD_RESUME_ROUTE_ORDER.indexOf(a.sessionId);
+      var bi = EAP_CLOUD_RESUME_ROUTE_ORDER.indexOf(b.sessionId);
+
+      if (ai !== bi) {
+        return ai - bi;
+      }
+
+      return String(a.skill).localeCompare(String(b.skill));
     });
+}
+
+function eapCloudResumeIsValidRoute_(routeId) {
+  return EAP_CLOUD_RESUME_ROUTE_ORDER.indexOf(
+    eapCloudResumeRouteId_(routeId)
+  ) >= 0;
+}
+
+function eapCloudResumeSpreadsheet_() {
+  if (typeof eapSheetV132Spreadsheet_ === 'function') {
+    return eapSheetV132Spreadsheet_();
+  }
+
+  var id = '';
+
+  try {
+    id = PropertiesService
+      .getScriptProperties()
+      .getProperty('EAP_SPREADSHEET_ID') || '';
+  } catch (error) {
+    id = '';
+  }
+
+  if (id) {
+    return SpreadsheetApp.openById(id);
+  }
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  if (!ss) {
+    throw new Error(
+      'No active spreadsheet. Bind this Apps Script to the Sheet, or set Script Property EAP_SPREADSHEET_ID.'
+    );
+  }
+
+  return ss;
 }
 
 function eapCloudResumeObject_(headers, row) {
