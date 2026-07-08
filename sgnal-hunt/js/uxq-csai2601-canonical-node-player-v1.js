@@ -1,6 +1,6 @@
-/* CSAI2601 UX Quest • Canonical Node Player v1.1
+/* CSAI2601 UX Quest • Canonical Node Player v1.2
  * Curriculum-locked playable layer for W1-W15 + B1-B4.
- * Fix v1.1: stage-specific question models so consecutive rounds do not repeat the same option pattern.
+ * Fix v1.2: Reason Check choices are stage-specific, not a repeated global pattern.
  */
 (() => {
   'use strict';
@@ -15,36 +15,42 @@
   const index = node ? allNodes.findIndex((item) => String(item.id).toLowerCase() === key) : -1;
   const previous = index > 0 ? allNodes[index - 1] : null;
 
-  const state = {
-    screen: 'intro', caseFile: null, stages: [], current: 0, selected: null, verify: null,
-    answered: false, correct: 0, verified: 0, wrong: 0, hints: 0, startedAt: Date.now(), history: []
-  };
+  const state = { screen:'intro', caseFile:null, stages:[], current:0, selected:null, verify:null, answered:false, correct:0, verified:0, wrong:0, hints:0, startedAt:Date.now(), history:[] };
 
-  function esc(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-  }
-  function shuffle(list) {
+  const esc = (value) => String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  const shuffle = (list) => {
     const out = Array.from(list || []);
     for (let i = out.length - 1; i > 0; i -= 1) {
       const j = Math.floor(Math.random() * (i + 1));
       [out[i], out[j]] = [out[j], out[i]];
     }
     return out;
-  }
-  function clamp(value, min, max) { return Math.max(min, Math.min(max, Number(value || 0))); }
-  function pct(a, b) { return b ? Math.round((Number(a || 0) / Number(b || 0)) * 100) : 0; }
-  function starsText(value) { const n = clamp(value, 0, 3); return `${'★'.repeat(n)}${'☆'.repeat(3 - n)}`; }
-  function fmt(seconds) { return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`; }
-  function progress() { return window.UXQProgress?.get?.() || { missions: {} }; }
-  function missionRecord(id) { return progress().missions?.[String(id || '').toLowerCase()] || {}; }
-  function passed(id) { return Number(missionRecord(id).bestStars || 0) >= 2; }
-  function canPlay() { return !previous || passed(previous.id); }
-  function urlForNode(id) { return `./csai2601-canonical-node.html?node=${encodeURIComponent(String(id || '').toUpperCase())}`; }
-  function missionControlUrl() { return './csai2601-mission-control.html?v=canonical-node-v11'; }
+  };
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value || 0)));
+  const pct = (a, b) => b ? Math.round((Number(a || 0) / Number(b || 0)) * 100) : 0;
+  const starsText = (value) => `${'★'.repeat(clamp(value, 0, 3))}${'☆'.repeat(3 - clamp(value, 0, 3))}`;
+  const fmt = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  const progress = () => window.UXQProgress?.get?.() || { missions:{} };
+  const missionRecord = (id) => progress().missions?.[String(id || '').toLowerCase()] || {};
+  const passed = (id) => Number(missionRecord(id).bestStars || 0) >= 2;
+  const canPlay = () => !previous || passed(previous.id);
+  const urlForNode = (id) => `./csai2601-canonical-node.html?node=${encodeURIComponent(String(id || '').toUpperCase())}&v=canonical-node-v12`;
+  const missionControlUrl = () => './csai2601-mission-control.html?v=canonical-node-v12';
 
-  function recentKey() { return `csai2601.uxq.canonical.recent.${key}.v2`; }
+  function opt(id, correct, label, rationale, misconception) {
+    return { id, correct, label, rationale, misconception: misconception || '' };
+  }
+  function caseText(caseFile) {
+    return {
+      context: caseFile.context || caseFile.title || node?.casePrompt || node?.bossScenario || node?.focus || 'สถานการณ์ UX/UI',
+      friction: caseFile.friction || caseFile.issue || caseFile.risk || caseFile.data || 'ผู้ใช้ติดขัดระหว่างทำงานหลัก',
+      user: caseFile.user || 'ผู้ใช้หลักของระบบ',
+      artifact: node?.artifact || 'ใบงานหลังเล่น'
+    };
+  }
+  function recentKey() { return `csai2601.uxq.canonical.recent.${key}.v3`; }
   function readRecent() { try { return JSON.parse(localStorage.getItem(recentKey()) || '[]'); } catch (error) { return []; } }
   function writeRecent(id) {
     try {
@@ -54,187 +60,186 @@
     } catch (error) {}
   }
   function pickCase() {
-    const bank = Array.isArray(node.seedCases) && node.seedCases.length ? node.seedCases : [{ id: `${node.id}-C01`, context: node.focus || node.title }];
+    const bank = Array.isArray(node?.seedCases) && node.seedCases.length ? node.seedCases : [{ id:`${node?.id || 'W'}-C01`, context:node?.focus || node?.title || 'UX case' }];
     const recent = new Set(readRecent());
-    const fresh = bank.filter((item) => !recent.has(item.id));
-    const pool = fresh.length ? fresh : bank;
-    const chosen = pool[Math.floor(Math.random() * pool.length)] || pool[0];
+    const pool = bank.filter((item) => !recent.has(item.id));
+    const chosen = (pool.length ? pool : bank)[Math.floor(Math.random() * (pool.length || bank.length))] || bank[0];
     writeRecent(chosen.id);
     return chosen;
-  }
-
-  function caseText(caseFile) {
-    return {
-      context: caseFile.context || caseFile.title || node.casePrompt || node.bossScenario || node.focus || 'สถานการณ์ UX/UI',
-      friction: caseFile.friction || caseFile.issue || caseFile.risk || caseFile.data || 'ผู้ใช้ติดขัดระหว่างทำ task',
-      user: caseFile.user || 'ผู้ใช้หลักของระบบ',
-      misconception: caseFile.misconception || caseFile.risk || caseFile.issue || 'ตัดสินจากความรู้สึกมากกว่าหลักฐาน',
-      artifact: node.artifact || 'studio artifact'
-    };
-  }
-
-  function option(id, correct, label, rationale, misconception) {
-    return { id, correct, label, rationale, misconception: misconception || '' };
   }
 
   function w1Model(roundIndex, caseFile) {
     const c = caseText(caseFile);
     const models = [
       {
-        label: 'Friction Hunt',
-        prompt: 'ข้อ 1: จุดติดขัดหลักของผู้ใช้คืออะไร',
-        instruction: `Case: ${c.context} • สัญญาณปัญหา: ${c.friction}`,
-        reason: 'หลักฐานใดทำให้คิดว่านี่คือปัญหา UX ไม่ใช่แค่ UI',
-        options: [
-          option('c0', true, `ระบุ friction ว่า “${c.friction}” ทำให้ผู้ใช้ทำ task ไม่จบ`, 'ถูกต้อง เพราะเริ่มจากพฤติกรรม/อุปสรรคของผู้ใช้ก่อนเลือกวิธีแก้', ''),
-          option('d0a', false, 'สรุปว่า UI ไม่สวย จึงควรเปลี่ยนสีและไอคอนทั้งหมดก่อน', 'ผิด เพราะตัดสินจากความสวย แต่ยังไม่ชี้ว่าผู้ใช้ติดที่ task ใด', 'UI-only'),
-          option('d0b', false, 'บอกว่าผู้ใช้ไม่อ่านเอง จึงเพิ่มคำเตือนยาวไว้บนทุกหน้า', 'ผิด เพราะโทษผู้ใช้และอาจเพิ่ม cognitive load โดยไม่แก้ friction', 'blame-user'),
-          option('d0c', false, 'เลือกแก้หน้าที่ทีมทำได้เร็วที่สุดก่อน แม้ไม่ใช่จุดที่ผู้ใช้ติด', 'ผิด เพราะความง่ายของทีมไม่ใช่หลักฐานของ UX impact', 'team-convenience')
+        kind:'friction', label:'Friction Hunt', prompt:'ข้อ 1: จุดติดขัดหลักของผู้ใช้คืออะไร',
+        instruction:`สถานการณ์: ${c.context} • สัญญาณปัญหา: ${c.friction}`,
+        reason:'ทำไมจึงถือว่านี่คือจุดติดขัดหลักของผู้ใช้',
+        correct:`ผู้ใช้ติดที่ “${c.friction}” จนทำงานหลักใน ${c.context} ไม่ราบรื่น`,
+        rationale:'ถูก เพราะระบุอุปสรรคที่กระทบงานของผู้ใช้ ไม่ใช่ตัดสินจากหน้าตาอย่างเดียว',
+        distractors:[
+          ['หน้าจอไม่สวย จึงควรเปลี่ยนสีและไอคอนทั้งหมดก่อน', 'ผิด เพราะความสวยไม่บอกว่าผู้ใช้ติดที่งานใด', 'UI-only'],
+          ['ผู้ใช้ไม่อ่านเอง จึงควรเพิ่มคำเตือนยาว ๆ ไว้ทุกหน้า', 'ผิด เพราะโทษผู้ใช้และเพิ่มภาระการอ่าน', 'blame-user'],
+          ['ทีมแก้หน้าจอนี้ได้เร็ว จึงควรเลือกเป็นปัญหาหลัก', 'ผิด เพราะความง่ายของทีมไม่ใช่หลักฐานผู้ใช้', 'team-convenience']
         ]
       },
       {
-        label: 'User Goal Match',
-        prompt: 'ข้อ 2: เป้าหมายจริงของผู้ใช้ในคดีนี้คืออะไร',
-        instruction: `Case: ${c.context} • ให้จับ user goal ก่อนคิด layout หรือปุ่ม`,
-        reason: 'ผู้ใช้จะล้มเหลวที่ขั้นตอนไหน หากเราเข้าใจ goal ผิด',
-        options: [
-          option('c1', true, `ผู้ใช้ต้องทำงานหลักให้สำเร็จใน ${c.context} โดยรู้ next step ชัดเจน`, 'ถูกต้อง เพราะ user goal ต้องผูกกับ task สำคัญและผลลัพธ์ที่ผู้ใช้ต้องการ', ''),
-          option('d1a', false, 'ผู้ใช้ต้องการเห็นหน้าจอที่มีลูกเล่นเยอะและดูทันสมัยเป็นหลัก', 'ผิด เพราะความทันสมัยไม่ใช่ task outcome', 'aesthetic-goal'),
-          option('d1b', false, 'ผู้ใช้ควรอ่านข้อมูลทั้งหมดก่อน แล้วค่อยตัดสินใจเองว่าจะกดอะไร', 'ผิด เพราะผลักภาระการจัดลำดับกลับไปให้ผู้ใช้', 'reader-burden'),
-          option('d1c', false, 'ผู้ใช้ต้องการให้เมนูทุกอย่างอยู่หน้าแรกเท่า ๆ กันเพื่อเลือกเองได้ครบ', 'ผิด เพราะทุกอย่างเด่นเท่ากันจะทำให้ priority หาย', 'no-priority')
+        kind:'goal', label:'User Goal Match', prompt:'ข้อ 2: เป้าหมายจริงของผู้ใช้ในคดีนี้คืออะไร',
+        instruction:`สถานการณ์: ${c.context} • ให้จับเป้าหมายก่อนคิด layout หรือปุ่ม`,
+        reason:'ทำไม goal นี้จึงเป็น goal หลักของผู้ใช้',
+        correct:`ผู้ใช้ต้องทำงานหลักใน ${c.context} ให้สำเร็จ และรู้ว่าต้องทำอะไรต่อ`,
+        rationale:'ถูก เพราะเป้าหมายผู้ใช้ต้องผูกกับงานที่ต้องสำเร็จและผลลัพธ์ที่ตรวจได้',
+        distractors:[
+          ['ผู้ใช้ต้องการหน้าจอที่มีลูกเล่นเยอะและดูทันสมัย', 'ผิด เพราะความทันสมัยไม่ใช่เป้าหมายหลักของ task', 'aesthetic-goal'],
+          ['ผู้ใช้ควรอ่านข้อมูลทั้งหมดก่อน แล้วเลือกเองว่าจะทำอะไร', 'ผิด เพราะผลักภาระการจัดลำดับกลับไปให้ผู้ใช้', 'reader-burden'],
+          ['ผู้ใช้ต้องการเห็นทุกเมนูเด่นเท่ากันเพื่อเลือกได้ครบ', 'ผิด เพราะทุกอย่างเด่นเท่ากันทำให้ priority หาย', 'no-priority']
         ]
       },
       {
-        label: 'Impact Lens',
-        prompt: 'ข้อ 3: ปัญหานี้ควรจัดเข้ากรอบ UI, UX หรือ front-end feedback อย่างไร',
-        instruction: `Case: ${c.context} • แยก visual problem ออกจาก task failure และ system feedback`,
-        reason: 'ถ้าแก้สีหรือปุ่มอย่างเดียว ปัญหาจะหายจริงหรือไม่ เพราะอะไร',
-        options: [
-          option('c2', true, 'UI อาจเกี่ยวกับตำแหน่ง/น้ำหนักภาพ แต่ UX คือ task ไม่สำเร็จ และ front-end feedback คือ state/response ไม่ชัด', 'ถูกต้อง เพราะแยกชั้นปัญหาได้ ไม่ลด UX ให้เหลือแค่ความสวย', ''),
-          option('d2a', false, 'เป็น UI ทั้งหมด เพราะผู้ใช้มองหน้าจอแล้วไม่เข้าใจ', 'ผิด เพราะการไม่เข้าใจอาจเกิดจาก flow, wording, feedback หรือ information architecture ด้วย', 'UI-overgeneralization'),
-          option('d2b', false, 'เป็น front-end ทั้งหมด เพราะถ้าเขียนโค้ดให้เร็วขึ้นผู้ใช้จะพอใจ', 'ผิด เพราะ speed ไม่ได้แก้ goal, hierarchy หรือความเข้าใจเสมอไป', 'performance-only'),
-          option('d2c', false, 'เป็น UX ทั้งหมด จึงไม่ต้องตรวจ visual hierarchy หรือ feedback state', 'ผิด เพราะ UX ต้องสังเคราะห์หลายชั้น รวม UI และ system response ด้วย', 'UX-vague')
+        kind:'impact', label:'Impact Lens', prompt:'ข้อ 3: ปัญหานี้ควรจัดเข้ากรอบ UI, UX หรือ front-end feedback อย่างไร',
+        instruction:`สถานการณ์: ${c.context} • แยก visual problem ออกจาก task failure และ system feedback`,
+        reason:'ทำไมการแยก UI, UX และ feedback จึงสำคัญต่อการแก้ปัญหา',
+        correct:'UI คือการมองเห็น/ลำดับภาพ, UX คือ task สำเร็จหรือไม่, front-end feedback คือระบบตอบกลับชัดหรือไม่',
+        rationale:'ถูก เพราะแยกชั้นปัญหาได้ จึงเลือกวิธีแก้ไม่ผิดชั้น',
+        distractors:[
+          ['ทุกปัญหาบนหน้าจอถือเป็น UI ทั้งหมด', 'ผิด เพราะบางปัญหาเป็น flow, feedback หรือความเข้าใจของผู้ใช้', 'UI-overgeneralization'],
+          ['ถ้าโค้ดเร็วขึ้น ผู้ใช้จะเข้าใจเอง', 'ผิด เพราะ performance ไม่แก้ goal หรือ hierarchy เสมอไป', 'performance-only'],
+          ['UX เป็นเรื่องกว้าง จึงไม่ต้องแยกประเภทปัญหา', 'ผิด เพราะยิ่งเป็น UX ยิ่งต้องแยกชั้นเหตุผลให้ชัด', 'UX-vague']
         ]
       },
       {
-        label: 'Fix Decision',
-        prompt: 'ข้อ 4: ควรเลือกแนวทางแก้เบื้องต้นแบบใด',
-        instruction: `Case: ${c.context} • เลือก fix ที่ลด ${c.friction} โดยไม่เพิ่มภาระใหม่`,
-        reason: 'วิธีแก้ใดสัมพันธ์กับ friction และพิสูจน์ผลได้จริง',
-        options: [
-          option('c3', true, 'ปรับลำดับข้อมูล/CTA/feedback ให้ผู้ใช้เห็นงานถัดไปและสถานะของระบบชัดขึ้น', 'ถูกต้อง เพราะแก้จาก task friction และเปิดทางให้ทดสอบผลได้', ''),
-          option('d3a', false, 'เพิ่ม animation ให้ปุ่มเด่นขึ้นก่อน โดยยังไม่เปลี่ยน flow หรือ feedback', 'ผิด เพราะอาจดึงสายตา แต่ไม่แก้สาเหตุที่ผู้ใช้ทำงานไม่สำเร็จ', 'visual-no-flow'),
-          option('d3b', false, 'ซ่อนข้อมูลรองทั้งหมดทันทีเพื่อให้หน้าโล่งที่สุด', 'ผิด เพราะหน้าโล่งอาจตัดข้อมูลที่จำเป็นต่อการตัดสินใจ', 'over-simplify'),
-          option('d3c', false, 'เพิ่ม FAQ ขนาดใหญ่ไว้ด้านบนทุกหน้าเพื่ออธิบายวิธีใช้', 'ผิด เพราะใช้ข้อความอธิบายแทนการแก้ interaction/structure', 'manual-instead-design')
+        kind:'fix', label:'Fix Decision', prompt:'ข้อ 4: ควรเลือกแนวทางแก้เบื้องต้นแบบใด',
+        instruction:`สถานการณ์: ${c.context} • เลือก fix ที่ลด ${c.friction} โดยไม่เพิ่มภาระใหม่`,
+        reason:'ทำไมแนวทางแก้นี้จึงสัมพันธ์กับ friction หลัก',
+        correct:'ปรับลำดับข้อมูล ปุ่มหลัก และ feedback ให้ผู้ใช้เห็นงานถัดไปกับสถานะของระบบชัดขึ้น',
+        rationale:'ถูก เพราะแก้จาก friction และเปิดทางให้ทดสอบผลได้',
+        distractors:[
+          ['เพิ่ม animation ให้ปุ่มเด่นขึ้นก่อน โดยยังไม่เปลี่ยน flow หรือ feedback', 'ผิด เพราะดึงสายตาแต่ไม่แก้สาเหตุของ task failure', 'visual-no-flow'],
+          ['ซ่อนข้อมูลรองทั้งหมดทันทีเพื่อให้หน้าโล่งที่สุด', 'ผิด เพราะหน้าโล่งอาจตัดข้อมูลที่จำเป็นต่อการตัดสินใจ', 'over-simplify'],
+          ['เพิ่ม FAQ ใหญ่ ๆ ไว้ด้านบนเพื่ออธิบายวิธีใช้', 'ผิด เพราะใช้คู่มือแทนการแก้ interaction/structure', 'manual-instead-design']
         ]
       },
       {
-        label: 'Proof Plan',
-        prompt: 'ข้อ 5: จะทดสอบอย่างไรว่า UX ดีขึ้นจริง',
-        instruction: `Case: ${c.context} • ต้องพิสูจน์ด้วยพฤติกรรม ไม่ใช่ถามว่าชอบไหมอย่างเดียว`,
-        reason: 'จะทดสอบได้อย่างไรว่าแก้ดีขึ้นจริง',
-        options: [
-          option('c4', true, 'ให้ผู้ใช้ทำ task เดิม วัด task success, เวลา, error และคำอธิบาย next step หลังใช้', 'ถูกต้อง เพราะวัด outcome ที่สัมพันธ์กับ friction โดยตรง', ''),
-          option('d4a', false, 'ถามทีมออกแบบว่าหน้าใหม่ดูดีกว่าเดิมหรือไม่', 'ผิด เพราะความเห็นทีมไม่แทนพฤติกรรมผู้ใช้จริง', 'team-opinion'),
-          option('d4b', false, 'วัดเฉพาะจำนวนคนกดเข้าหน้าแรกหลังเปลี่ยนดีไซน์', 'ผิด เพราะ traffic ไม่บอกว่าผู้ใช้ทำ task สำเร็จหรือไม่', 'traffic-only'),
-          option('d4c', false, 'ให้ผู้ใช้ดูภาพ mockup แล้วเลือกว่าชอบภาพไหนมากกว่า', 'ผิด เพราะ preference ไม่เท่ากับ usability หรือ task success', 'preference-test')
+        kind:'proof', label:'Proof Plan', prompt:'ข้อ 5: จะทดสอบอย่างไรว่า UX ดีขึ้นจริง',
+        instruction:`สถานการณ์: ${c.context} • ต้องพิสูจน์ด้วยพฤติกรรม ไม่ใช่ถามว่าชอบไหมอย่างเดียว`,
+        reason:'ทำไมวิธีทดสอบนี้จึงพิสูจน์ผลได้จริง',
+        correct:'ให้ผู้ใช้ทำ task เดิม แล้ววัด task success, เวลา, error และการอธิบาย next step หลังใช้',
+        rationale:'ถูก เพราะวัด outcome ที่สัมพันธ์กับ friction โดยตรง',
+        distractors:[
+          ['ถามทีมออกแบบว่าหน้าใหม่ดูดีกว่าเดิมหรือไม่', 'ผิด เพราะความเห็นทีมไม่แทนพฤติกรรมผู้ใช้จริง', 'team-opinion'],
+          ['วัดเฉพาะจำนวนคนกดเข้าหน้าแรกหลังเปลี่ยนดีไซน์', 'ผิด เพราะ traffic ไม่บอกว่า task สำเร็จหรือไม่', 'traffic-only'],
+          ['ให้ผู้ใช้ดู mockup แล้วเลือกว่าชอบภาพไหนมากกว่า', 'ผิด เพราะ preference ไม่เท่ากับ usability', 'preference-test']
         ]
       }
     ];
     return models[roundIndex % models.length];
   }
 
+  function kindFromRound(round) {
+    const lower = String(round || '').toLowerCase();
+    if (/friction|pain|issue|problem|failure/.test(lower)) return 'friction';
+    if (/goal|need|user/.test(lower)) return 'goal';
+    if (/impact|ui|ux|feedback|access|responsive|system/.test(lower)) return 'impact';
+    if (/fix|repair|choose|decision|countermeasure|iteration|prototype/.test(lower)) return 'fix';
+    if (/proof|test|validate|evidence|severity|rank|retest|evaluation/.test(lower)) return 'proof';
+    if (/flow|path|journey|sitemap|ia|navigation|wireframe|layout|hierarchy|priority/.test(lower)) return 'impact';
+    return 'fix';
+  }
+
   function genericModel(round, roundIndex, caseFile) {
     const c = caseText(caseFile);
-    const concept = node.concepts?.[roundIndex % Math.max(1, node.concepts.length)] || node.focus || 'UX evidence';
-    const lower = String(round || '').toLowerCase();
-    const model = {
-      label: round,
-      prompt: `${node.type === 'boss' ? 'Boss' : 'Mission'} Round ${roundIndex + 1}: ${round}`,
-      instruction: `Case: ${c.context} • โฟกัส: ${concept}`,
-      reason: node.reasonChecks?.[roundIndex % Math.max(1, node.reasonChecks.length)] || 'เหตุผลใดเชื่อมกับหลักฐานผู้ใช้มากที่สุด',
-      correct: `ใช้หลักฐานของ ${c.user} ใน ${c.context} เพื่อเลือก decision ที่แก้ ${c.friction} และพิสูจน์ได้ใน ${c.artifact}`,
-      rationale: `ถูกต้อง เพราะเชื่อม user evidence → ${concept} → design decision → proof`,
-      distractors: [
-        ['ตัดสินจากหน้าจอที่ดูสวยหรือคุ้นที่สุดก่อน แล้วค่อยหาเหตุผลประกอบ', 'ผิด เพราะเป็น aesthetic-first ไม่ใช่ evidence-led decision', 'aesthetic-first'],
-        ['เพิ่มคำอธิบายให้มากขึ้นโดยไม่เปลี่ยน structure, state หรือ feedback', 'ผิด เพราะอาจเพิ่มภาระและไม่แก้ต้นเหตุของ friction', 'more-text-fix'],
-        ['เลือกทางที่ทีมทำเร็วที่สุด แม้ยังไม่รู้ว่าช่วยผู้ใช้ทำ task สำเร็จขึ้นหรือไม่', 'ผิด เพราะความเร็วของทีมไม่ใช่หลักฐานของ user outcome', 'team-convenience']
-      ]
+    const concept = node?.concepts?.[roundIndex % Math.max(1, node.concepts.length)] || node?.focus || 'UX evidence';
+    const kind = kindFromRound(round);
+    const templates = {
+      friction: {
+        correct:`เลือกหลักฐานที่บอกว่า ${c.user} ติดตรง ${c.friction} และกระทบงานหลัก`,
+        rationale:'ถูก เพราะเริ่มจากอุปสรรคของผู้ใช้และผลต่อ task',
+        distractors:[['เลือกจุดที่หน้าตาดูเก่าที่สุดก่อน', 'ผิด เพราะความเก่าไม่เท่ากับ friction หลัก', 'old-looking'], ['เลือกจุดที่ทีมพูดถึงบ่อยที่สุด', 'ผิด เพราะเสียงทีมไม่แทนหลักฐานผู้ใช้', 'team-voice'], ['เลือกจุดที่แก้ได้เร็วที่สุด', 'ผิด เพราะความเร็วไม่บอกผลต่อผู้ใช้', 'easy-fix']]
+      },
+      goal: {
+        correct:`จับ goal ว่า ${c.user} ต้องทำงานใดให้สำเร็จใน ${c.context} และต้องรู้ next step อะไร`,
+        rationale:'ถูก เพราะ goal ต้องสัมพันธ์กับงานและผลลัพธ์ของผู้ใช้',
+        distractors:[['เลือกสิ่งที่ผู้ใช้ดูเหมือนน่าจะชอบที่สุด', 'ผิด เพราะความชอบไม่ใช่ goal หลัก', 'preference-goal'], ['เลือกข้อมูลที่มีเยอะที่สุดบนหน้า', 'ผิด เพราะข้อมูลเยอะไม่เท่ากับเป้าหมายสำคัญ', 'data-volume'], ['รวมทุกเป้าหมายไว้เท่ากันหมด', 'ผิด เพราะไม่มี priority ให้ผู้ใช้ตัดสินใจ', 'no-priority']]
+      },
+      impact: {
+        correct:`แยกผลกระทบของ ${concept} ว่าทำให้ผู้ใช้สับสน ทำผิด หรือทำ task ไม่สำเร็จอย่างไร`,
+        rationale:'ถูก เพราะ impact ต้องอธิบายผลต่อพฤติกรรมผู้ใช้ ไม่ใช่แค่ลักษณะหน้าจอ',
+        distractors:[['ถือว่าทุกอย่างเป็นปัญหาความสวยงาม', 'ผิด เพราะ UX มีทั้ง flow, feedback, wording และ structure', 'beauty-only'], ['มองว่าเป็นปัญหาโค้ดทั้งหมด', 'ผิด เพราะ front-end performance ไม่ครอบคลุมความเข้าใจผู้ใช้', 'code-only'], ['ไม่ต้องแยกชั้นปัญหา เพราะสุดท้ายก็แก้หน้าจอเหมือนกัน', 'ผิด เพราะแก้ผิดชั้นทำให้ friction ไม่หาย', 'no-diagnosis']]
+      },
+      fix: {
+        correct:`เลือกแนวทางที่แก้ ${c.friction} โดยเชื่อมจากหลักฐาน → decision → สิ่งที่จะปรับใน ${c.artifact}`,
+        rationale:'ถูก เพราะ fix ที่ดีต้องสัมพันธ์กับ friction และนำไปทำ artifact ได้',
+        distractors:[['เลือกวิธีที่ทำให้หน้าจอดูทันสมัยที่สุดก่อน', 'ผิด เพราะความสวยไม่พอถ้าไม่แก้ task', 'style-first'], ['เลือกวิธีที่ไม่กระทบงานทีมเลย แม้ผู้ใช้ยังติดเหมือนเดิม', 'ผิด เพราะทีมสะดวกไม่ใช่ user outcome', 'team-convenience'], ['เพิ่มคำอธิบายยาวขึ้นทุกจุด', 'ผิด เพราะอาจเพิ่มภาระการอ่านโดยไม่แก้ต้นเหตุ', 'text-heavy']]
+      },
+      proof: {
+        correct:`พิสูจน์ด้วย task success, เวลา, error, ความเข้าใจ next step หรือผลก่อน-หลังการแก้`,
+        rationale:'ถูก เพราะ proof ต้องวัดพฤติกรรมและ outcome ที่ตรวจได้',
+        distractors:[['ถามว่าผู้ใช้ชอบดีไซน์ใหม่ไหมอย่างเดียว', 'ผิด เพราะ preference ไม่เท่ากับ usability', 'preference-only'], ['ดูยอดเข้าหน้าเว็บอย่างเดียว', 'ผิด เพราะ traffic ไม่บอกว่า task สำเร็จหรือไม่', 'traffic-only'], ['ให้ทีมโหวตว่าหน้าใหม่ดูดีขึ้นไหม', 'ผิด เพราะ team opinion ไม่ใช่ validation', 'team-vote']]
+      }
     };
-    if (/evidence|signal|fact|read|scan/.test(lower)) {
-      model.correct = `เลือกหลักฐานที่สังเกตได้จาก ${c.context} แล้วระบุว่ามันกระทบ task ของผู้ใช้อย่างไร`;
-      model.distractors = [
-        ['เลือกคำชมจากผู้ใช้เป็นหลัก เพราะฟังแล้วเป็นบวกที่สุด', 'ผิด เพราะคำชมไม่บอก friction หรือ task failure', 'positive-bias'],
-        ['เลือกข้อมูลที่ทีมมีอยู่แล้ว แม้ไม่เกี่ยวกับงานที่ผู้ใช้ต้องทำ', 'ผิด เพราะ data ที่มีไม่จำเป็นต้องเป็น evidence ที่ตอบโจทย์', 'available-data-bias'],
-        ['สรุปจากความรู้สึกของผู้สอนหรือทีมว่า screen ไหนน่าจะมีปัญหา', 'ผิด เพราะเป็น assumption ไม่ใช่ observed evidence', 'assumption']
-      ];
-    } else if (/problem|hmw|define|frame/.test(lower)) {
-      model.correct = `เขียนปัญหาให้มี user + goal + barrier จาก ${c.context} โดยยังไม่ล็อก solution เร็วเกินไป`;
-      model.distractors = [
-        ['เริ่มจาก solution ที่อยากทำ แล้วเขียนปัญหาให้เข้ากับ solution นั้น', 'ผิด เพราะ solution-led framing ทำให้หลุดจากหลักฐานผู้ใช้', 'solution-first'],
-        ['เขียนปัญหากว้าง ๆ ว่า “ระบบใช้งานยาก” เพื่อครอบคลุมทุกอย่าง', 'ผิด เพราะกว้างเกินไปจนตัดสินใจออกแบบต่อไม่ได้', 'too-broad'],
-        ['เขียนโจทย์เป็นรายการ feature ที่ต้องเพิ่มทันที', 'ผิด เพราะ feature list ไม่ใช่ problem statement', 'feature-list']
-      ];
-    } else if (/flow|path|journey|structure|sitemap|ia|navigation/.test(lower)) {
-      model.correct = `จัดเส้นทางจาก entry → decision → confirmation → error path ให้ผู้ใช้ไปต่อได้ใน ${c.context}`;
-      model.distractors = [
-        ['ทำเฉพาะ happy path เพราะต้องการให้ flow ดูสั้นและสวย', 'ผิด เพราะ UX ต้องรองรับความผิดพลาดและทางเลือกจริง', 'happy-path-only'],
-        ['รวมทุกเมนูไว้หน้าเดียวเพื่อให้ผู้ใช้เห็นครบ', 'ผิด เพราะอาจทำให้ navigation overload', 'menu-dump'],
-        ['ซ่อนขั้นตอนสำคัญไว้หลังเมนูรองเพื่อให้หน้าแรกโล่ง', 'ผิด เพราะลด discoverability ของ task หลัก', 'hidden-task']
-      ];
-    } else if (/wireframe|layout|hierarchy|priority|grid|visual/.test(lower)) {
-      model.correct = `วาง hierarchy ให้ข้อมูลที่ผู้ใช้ต้องใช้ตัดสินใจมาก่อน CTA และข้อมูลรองใน ${c.context}`;
-      model.distractors = [
-        ['ทำให้ทุก block มีขนาดเท่ากันเพื่อความเป็นระเบียบ', 'ผิด เพราะความเท่ากันอาจทำให้ priority หาย', 'flat-hierarchy'],
-        ['เริ่มจากสีและภาพประกอบก่อน เพราะจะทำให้ wireframe ดูสมจริง', 'ผิด เพราะ wireframe ต้องพิสูจน์ structure และ task ก่อน visual polish', 'visual-too-early'],
-        ['วาง CTA หลายปุ่มให้เด่นเท่ากันเพื่อเปิดทางเลือก', 'ผิด เพราะผู้ใช้จะไม่รู้ primary action', 'cta-conflict']
-      ];
-    } else if (/state|feedback|interaction|prototype|test|validate|severity|iteration/.test(lower)) {
-      model.correct = `ออกแบบ feedback/prototype/test ให้เห็น state, error และหลักฐานก่อน-หลังการแก้ ${c.friction}`;
-      model.distractors = [
-        ['วัดเฉพาะว่าผู้ใช้ชอบ prototype หรือไม่', 'ผิด เพราะ preference ไม่แทน task success', 'preference-only'],
-        ['แก้ทุกอย่างที่เห็นพร้อมกัน เพื่อให้หน้าจอเปลี่ยนเยอะที่สุด', 'ผิด เพราะจะพิสูจน์ไม่ได้ว่าอะไรทำให้ดีขึ้น', 'change-too-much'],
-        ['ให้ระบบเงียบหลังผู้ใช้กด เพื่อไม่รบกวนสายตา', 'ผิด เพราะ lack of feedback ทำให้ผู้ใช้ไม่รู้ state', 'no-feedback']
-      ];
-    }
-    return model;
+    const t = templates[kind];
+    return {
+      kind, label:round,
+      prompt:`${node?.type === 'boss' ? 'รอบบอส' : 'รอบภารกิจ'} ${roundIndex + 1}: ${round}`,
+      instruction:`สถานการณ์: ${c.context} • โฟกัส: ${concept}`,
+      reason: node?.reasonChecks?.[roundIndex % Math.max(1, node.reasonChecks.length)] || 'เหตุผลใดเชื่อมกับหลักฐานผู้ใช้มากที่สุด',
+      correct:t.correct, rationale:t.rationale, distractors:t.distractors
+    };
   }
 
   function buildStage(round, caseFile, roundIndex) {
     const model = key === 'w1' ? w1Model(roundIndex, caseFile) : genericModel(round, roundIndex, caseFile);
-    const right = option(`c${roundIndex}`, true, model.correct || model.options?.find((item) => item.correct)?.label, model.rationale || model.options?.find((item) => item.correct)?.rationale || 'ถูกต้อง เพราะตัดสินใจจากหลักฐานและพิสูจน์ผลได้', '');
-    const wrongs = model.options
-      ? model.options.filter((item) => !item.correct).map((item, idx) => option(`d${roundIndex}-${idx}`, false, item.label, item.rationale, item.misconception))
-      : model.distractors.map(([label, rationale, misconception], idx) => option(`d${roundIndex}-${idx}`, false, label, rationale, misconception));
-    return {
-      id: `${key}-stage-${roundIndex + 1}`,
-      round: model.label || round,
-      prompt: model.prompt,
-      instruction: model.instruction,
-      reason: model.reason,
-      options: shuffle([right, ...wrongs])
-    };
+    const right = opt(`c${roundIndex}`, true, model.correct, model.rationale, '');
+    const wrongs = model.distractors.map(([label, rationale, misconception], idx) => opt(`d${roundIndex}-${idx}`, false, label, rationale, misconception));
+    return { id:`${key}-stage-${roundIndex + 1}`, kind:model.kind, round:model.label, prompt:model.prompt, instruction:model.instruction, reason:model.reason, options:shuffle([right, ...wrongs]) };
   }
 
   function makeRun() {
     const caseFile = pickCase();
-    const rounds = Array.isArray(node.missionRounds) && node.missionRounds.length ? node.missionRounds : ['Identify evidence', 'Choose decision', 'Reason check', 'Plan proof'];
-    const selectedRounds = node.type === 'boss' ? rounds.slice(0, 6) : rounds.slice(0, 5);
+    const rounds = Array.isArray(node?.missionRounds) && node.missionRounds.length ? node.missionRounds : ['Identify evidence', 'Choose decision', 'Reason check', 'Plan proof'];
+    const selectedRounds = node?.type === 'boss' ? rounds.slice(0, 6) : rounds.slice(0, 5);
     state.caseFile = caseFile;
     state.stages = selectedRounds.map((round, idx) => buildStage(round, caseFile, idx));
-    state.current = 0; state.selected = null; state.verify = null; state.answered = false;
-    state.correct = 0; state.verified = 0; state.wrong = 0; state.hints = 0; state.startedAt = Date.now(); state.history = [];
+    Object.assign(state, { current:0, selected:null, verify:null, answered:false, correct:0, verified:0, wrong:0, hints:0, startedAt:Date.now(), history:[] });
   }
 
-  function buildReasonChoices(stage) {
-    const right = option('reason-ok', true, stage.reason, 'เหตุผลนี้เชื่อมหลักฐาน แนวคิด และผลต่อผู้ใช้เข้าด้วยกัน', '');
-    return shuffle([
-      right,
-      option('reason-style', false, 'เพราะหน้าจอดูทันสมัยและน่าจะถูกใจผู้เรียนส่วนใหญ่', 'ผิด เพราะความชอบหรือความสวยไม่ใช่หลักฐานว่า task สำเร็จขึ้น', 'style-only'),
-      option('reason-speed', false, 'เพราะทีมทำวิธีนี้ได้เร็วที่สุดและไม่ต้องเปลี่ยนโครงสร้างมาก', 'ผิด เพราะความสะดวกของทีมไม่ใช่ user outcome', 'team-speed'),
-      option('reason-copy', false, 'เพราะระบบยอดนิยมหลายระบบใช้รูปแบบคล้ายกัน', 'ผิด เพราะ pattern ที่นิยมต้องปรับตาม user, task และ context', 'copy-pattern')
-    ]);
+  function reasonBank(kind, stage) {
+    const banks = {
+      friction: [
+        ['เหตุผลนี้ชี้ว่าผู้ใช้ติดในขั้นตอนสำคัญ และทำให้งานหลักเดินต่อไม่ได้', 'ถูก เพราะ friction ต้องวัดจาก task failure หรือภาระผู้ใช้', true, ''],
+        ['เพราะหน้าจอดูไม่ทันสมัย จึงน่าจะเป็นปัญหาหลัก', 'ผิด เพราะความทันสมัยไม่พิสูจน์ friction', false, 'beauty-bias'],
+        ['เพราะทีมคิดว่าจุดนี้น่าจะมีปัญหาที่สุด', 'ผิด เพราะเป็น assumption ของทีม ไม่ใช่หลักฐานผู้ใช้', false, 'team-assumption'],
+        ['เพราะระบบอื่นไม่ได้ออกแบบแบบนี้', 'ผิด เพราะการเทียบระบบอื่นไม่พิสูจน์ว่าผู้ใช้ติดจริง', false, 'copy-comparison']
+      ],
+      goal: [
+        ['เหตุผลนี้สอดคล้องกับงานที่ผู้ใช้ต้องทำให้สำเร็จในสถานการณ์นี้', 'ถูก เพราะ user goal ต้องผูกกับ task outcome', true, ''],
+        ['เพราะเป็นสิ่งที่ผู้ใช้น่าจะชอบมากที่สุด', 'ผิด เพราะความชอบไม่เท่ากับ goal หลัก', false, 'preference-goal'],
+        ['เพราะมีข้อมูลอยู่บนหน้าจอเยอะที่สุด', 'ผิด เพราะข้อมูลเยอะไม่แปลว่าสำคัญที่สุด', false, 'information-volume'],
+        ['เพราะการรวมทุกอย่างไว้หน้าแรกจะครอบคลุมกว่า', 'ผิด เพราะครอบคลุมเกินไปทำให้ priority หาย', false, 'everything-first']
+      ],
+      impact: [
+        ['เหตุผลนี้แยกได้ว่าปัญหาอยู่ที่ภาพ/ลำดับข้อมูล, flow หรือ feedback ของระบบ', 'ถูก เพราะ impact ต้องวิเคราะห์ชั้นปัญหาให้ตรงก่อนแก้', true, ''],
+        ['เพราะทุกปัญหาบนหน้าจอถือเป็น UI ทั้งหมด', 'ผิด เพราะ UI ไม่ครอบคลุมทุกมิติของ UX', false, 'ui-only'],
+        ['เพราะถ้าโค้ดเร็วขึ้น ผู้ใช้จะเข้าใจเอง', 'ผิด เพราะ performance ไม่แก้ความเข้าใจเสมอไป', false, 'performance-only'],
+        ['เพราะ UX เป็นเรื่องกว้าง จึงไม่ต้องแยกประเภทปัญหา', 'ผิด เพราะถ้าไม่แยกชั้น จะเลือกวิธีแก้ผิดได้ง่าย', false, 'vague-ux']
+      ],
+      fix: [
+        ['เหตุผลนี้แก้จุดติดขัดหลักและตรวจสอบผลหลังปรับได้', 'ถูก เพราะ fix ต้องโยง friction → decision → expected improvement', true, ''],
+        ['เพราะดูสวยและน่าจะทำให้ผู้ใช้รู้สึกดีขึ้น', 'ผิด เพราะความสวยอย่างเดียวไม่พอถ้า task ยังไม่สำเร็จ', false, 'style-first'],
+        ['เพราะทีมทำได้เร็วและไม่กระทบโครงสร้างเดิมมาก', 'ผิด เพราะ team convenience ไม่ใช่ user outcome', false, 'team-speed'],
+        ['เพราะใส่คำอธิบายเยอะขึ้นน่าจะพอแล้ว', 'ผิด เพราะข้อความยาวอาจเพิ่ม cognitive load', false, 'more-text']
+      ],
+      proof: [
+        ['เหตุผลนี้วัดได้ว่าผู้ใช้ทำงานสำเร็จเร็วขึ้น ผิดน้อยลง หรือเข้าใจขั้นตอนดีขึ้นจริง', 'ถูก เพราะ proof ต้องวัด user outcome', true, ''],
+        ['เพราะทีมออกแบบเห็นว่าหน้าใหม่ดูดีขึ้น', 'ผิด เพราะความเห็นทีมไม่ใช่หลักฐานการใช้งาน', false, 'team-opinion'],
+        ['เพราะมีคนเข้าเว็บมากขึ้นหลังปรับหน้า', 'ผิด เพราะ traffic ไม่เท่ากับ task success', false, 'traffic-only'],
+        ['เพราะผู้ใช้เลือกว่าชอบดีไซน์ใหม่มากกว่า', 'ผิด เพราะ preference ไม่เท่ากับ usability', false, 'preference-test']
+      ]
+    };
+    return (banks[kind] || banks.fix).map(([label, rationale, correct, misconception], idx) => opt(`reason-${stage.id}-${idx}`, correct, label, rationale, misconception));
   }
+
+  function buildReasonChoices(stage) { return shuffle(reasonBank(stage.kind, stage)); }
 
   function ensureStyle() {
     if (document.getElementById('csai2601-canonical-node-style')) return;
@@ -249,18 +254,18 @@
 
   function intro() {
     const record = missionRecord(key);
-    const sample = node.seedCases?.[0] || {};
-    return `<div class="shell"><div class="top"><a class="brand" href="${missionControlUrl()}"><span class="mark">UX</span><span>CSAI2601 UX Quest</span></a><span class="pill">v1.1 • ${esc(node.id)}</span></div><section class="panel ${canPlay() ? '' : 'lock'}"><div class="hero"><p class="kicker">${node.type === 'boss' ? 'BOSS GATE' : 'WEEKLY MISSION'} • ${esc(node.id)}</p><h1 class="title">${esc(node.missionTitle || node.title)}</h1><p class="lede">${esc(node.focus || '')}</p><div class="briefs"><div class="brief"><b>Concept</b><span>${esc((node.concepts || []).slice(0, 5).join(' • ') || node.title)}</span></div><div class="brief"><b>Case</b><span>${esc(node.casePrompt || node.bossScenario || sample.context || 'วิเคราะห์สถานการณ์ UX/UI จากหลักฐาน')}</span></div><div class="brief"><b>Artifact</b><span>${esc(node.artifact || 'Studio artifact')}</span></div></div>${record.bestStars ? `<p class="lede">สถิติดีที่สุดเดิม: ${starsText(record.bestStars)} • score ${Number(record.bestScore || 0)} • เล่นซ้ำเพื่อเจอ case variant ใหม่ได้</p>` : ''}${canPlay() ? `<div class="actions"><button class="btn" data-start>เริ่ม ${esc(node.id)} →</button><a class="btn secondary" href="${missionControlUrl()}">กลับ Mission Control</a></div>` : `<p class="lede">ด่านนี้ยังล็อกอยู่ ต้องผ่าน ${esc(previous?.id || 'ด่านก่อนหน้า')} ที่ 2★ ก่อน</p><div class="actions"><a class="btn warn" href="${urlForNode(previous?.id || 'W1')}">ไปด่านก่อนหน้า</a><a class="btn secondary" href="${missionControlUrl()}">กลับ Mission Control</a></div>`}</div></section></div>`;
+    const sample = node?.seedCases?.[0] || {};
+    return `<div class="shell"><div class="top"><a class="brand" href="${missionControlUrl()}"><span class="mark">UX</span><span>CSAI2601 UX Quest</span></a><span class="pill">v1.2 • ${esc(node?.id || '')}</span></div><section class="panel ${canPlay() ? '' : 'lock'}"><div class="hero"><p class="kicker">${node?.type === 'boss' ? 'BOSS GATE' : 'WEEKLY MISSION'} • ${esc(node?.id || '')}</p><h1 class="title">${esc(node?.missionTitle || node?.title || 'CSAI2601')}</h1><p class="lede">${esc(node?.focus || '')}</p><div class="briefs"><div class="brief"><b>Concept</b><span>${esc((node?.concepts || []).slice(0, 5).join(' • ') || node?.title || '')}</span></div><div class="brief"><b>Case</b><span>${esc(node?.casePrompt || node?.bossScenario || sample.context || 'วิเคราะห์สถานการณ์ UX/UI จากหลักฐาน')}</span></div><div class="brief"><b>Artifact</b><span>${esc(node?.artifact || 'Studio artifact')}</span></div></div>${record.bestStars ? `<p class="lede">สถิติดีที่สุดเดิม: ${starsText(record.bestStars)} • score ${Number(record.bestScore || 0)} • เล่นซ้ำเพื่อเจอ case variant ใหม่ได้</p>` : ''}${canPlay() ? `<div class="actions"><button class="btn" data-start>เริ่ม ${esc(node?.id || '')} →</button><a class="btn secondary" href="${missionControlUrl()}">กลับ Mission Control</a></div>` : `<p class="lede">ด่านนี้ยังล็อกอยู่ ต้องผ่าน ${esc(previous?.id || 'ด่านก่อนหน้า')} ที่ 2★ ก่อน</p><div class="actions"><a class="btn warn" href="${urlForNode(previous?.id || 'W1')}">ไปด่านก่อนหน้า</a><a class="btn secondary" href="${missionControlUrl()}">กลับ Mission Control</a></div>`}</div></section></div>`;
   }
 
   function game() {
     const stage = state.stages[state.current];
     const progressPct = pct(state.current, state.stages.length);
-    return `<div class="shell"><div class="top"><a class="brand" href="${missionControlUrl()}"><span class="mark">UX</span><span>${esc(node.id)} • ${esc(node.missionTitle || node.title)}</span></a><span class="pill">Case ${esc(state.caseFile?.id || '')}</span></div><section class="panel"><div class="hud"><div class="meter"><small>Progress</small><b>${state.current + 1}/${state.stages.length} • ${esc(stage.round)}</b><div class="bar"><i style="width:${progressPct}%"></i></div></div><div class="meter"><small>Correct</small><b>${state.correct}</b></div><div class="meter"><small>Reason</small><b>${state.verified}</b></div><div class="meter"><small>Hints</small><b>${state.hints}</b></div></div><div class="game"><div class="case"><p class="kicker">${esc(stage.round)}</p><h1>${esc(stage.prompt)}</h1><p>${esc(stage.instruction)}</p></div><div class="question"><p class="prompt">เลือกคำตอบที่ตรงกับหน้าที่ของข้อนี้ที่สุด</p><p class="instruction">ข้อในแต่ละ round วัดคนละทักษะ: friction, goal, impact, fix หรือ proof อย่าใช้คำตอบแบบเดียวกันทุกข้อ</p><div class="options">${stage.options.map((item) => `<button class="option ${state.selected === item.id ? 'pick' : ''}" data-choice="${esc(item.id)}" ${state.answered || state.verify ? 'disabled' : ''}><b>${esc(item.label)}</b><span>${esc(item.misconception ? `กับดัก: ${item.misconception}` : 'เชื่อมกับหลักฐานและ artifact')}</span></button>`).join('')}</div>${state.verify ? verifyBox(stage) : ''}${state.answered ? feedbackBox() : ''}<div class="utility"><div class="hint">Hint: ${esc(stage.reason)} ${state.hints ? '• เปิด hint แล้ว คะแนน reasoning ยังผ่านได้ แต่ 3★ ต้องแม่นจริง' : ''}</div><button class="btn secondary" data-hint ${state.answered ? 'disabled' : ''}>ขอ Hint</button></div></div></div></section></div>`;
+    return `<div class="shell"><div class="top"><a class="brand" href="${missionControlUrl()}"><span class="mark">UX</span><span>${esc(node?.id || '')} • ${esc(node?.missionTitle || node?.title || '')}</span></a><span class="pill">Case ${esc(state.caseFile?.id || '')}</span></div><section class="panel"><div class="hud"><div class="meter"><small>Progress</small><b>${state.current + 1}/${state.stages.length} • ${esc(stage.round)}</b><div class="bar"><i style="width:${progressPct}%"></i></div></div><div class="meter"><small>Correct</small><b>${state.correct}</b></div><div class="meter"><small>Reason</small><b>${state.verified}</b></div><div class="meter"><small>Hints</small><b>${state.hints}</b></div></div><div class="game"><div class="case"><p class="kicker">${esc(stage.round)} • ${esc(stage.kind)}</p><h1>${esc(stage.prompt)}</h1><p>${esc(stage.instruction)}</p></div><div class="question"><p class="prompt">เลือกคำตอบที่ตรงกับหน้าที่ของข้อนี้ที่สุด</p><p class="instruction">แต่ละข้อวัดคนละทักษะ และ Reason Check จะเปลี่ยนตามชนิดข้อ ไม่ใช้เหตุผลชุดเดิมวนซ้ำ</p><div class="options">${stage.options.map((item) => `<button class="option ${state.selected === item.id ? 'pick' : ''}" data-choice="${esc(item.id)}" ${state.answered || state.verify ? 'disabled' : ''}><b>${esc(item.label)}</b><span>${esc(item.misconception ? `กับดัก: ${item.misconception}` : 'เชื่อมกับหลักฐานและ artifact')}</span></button>`).join('')}</div>${state.verify ? verifyBox(stage) : ''}${state.answered ? feedbackBox() : ''}<div class="utility"><div class="hint">คำใบ้: ${esc(stage.reason)} ${state.hints ? '• เปิด hint แล้ว คะแนน reasoning ยังผ่านได้ แต่ 3★ ต้องแม่นจริง' : ''}</div><button class="btn secondary" data-hint ${state.answered ? 'disabled' : ''}>ขอคำใบ้</button></div></div></div></section></div>`;
   }
 
   function verifyBox(stage) {
-    return `<section class="verify"><h3>Reason Check</h3><p>${esc(stage.reason)}</p><div class="options">${state.verify.reasons.map((reason) => `<button class="option" data-reason="${esc(reason.id)}"><b>${esc(reason.label)}</b><span>${esc(reason.rationale)}</span></button>`).join('')}</div></section>`;
+    return `<section class="verify"><h3>ตรวจเหตุผล</h3><p>${esc(stage.reason)}</p><div class="options">${state.verify.reasons.map((reason) => `<button class="option" data-reason="${esc(reason.id)}"><b>${esc(reason.label)}</b><span>${esc(reason.rationale)}${reason.misconception ? ` • กับดัก: ${esc(reason.misconception)}` : ''}</span></button>`).join('')}</div></section>`;
   }
   function feedbackBox() {
     const last = state.history[state.history.length - 1] || {};
@@ -276,8 +281,8 @@
     const score = Math.max(0, Math.round((accuracy * 7) + (reasonPct * 5) + (stars * 80) - (state.hints * 12) - (state.wrong * 8)));
     const passedNode = stars >= 2;
     const next = CONTENT?.nextAfter?.(node.id);
-    const artifactFields = node.artifactChecklist || ['Evidence','Decision','Proof'];
-    try { window.UXQProgress?.recordMission?.(key, { score, stars, accuracy, correct: state.correct, total, hints: state.hints, durationSec, passed: passedNode, badge: `${node.id} ${node.missionTitle || node.title}` }); }
+    const artifactFields = node?.artifactChecklist || ['หลักฐานจากผู้ใช้', 'สิ่งที่เลือกออกแบบ/แก้ไข', 'วิธีพิสูจน์ผล'];
+    try { window.UXQProgress?.recordMission?.(key, { score, stars, accuracy, correct:state.correct, total, hints:state.hints, durationSec, passed:passedNode, badge:`${node.id} ${node.missionTitle || node.title}` }); }
     catch (error) { console.warn('[CSAI2601 Canonical Node] progress record failed', error); }
     return `<div class="shell"><section class="panel"><div class="results"><div class="stars">${starsText(stars)}</div><h1>${passedNode ? `${esc(node.id)} ผ่านแล้ว` : `${esc(node.id)} ยังควร Retry`}</h1><p>${passedNode ? 'ปลดล็อกด่านถัดไปได้แล้ว เล่นซ้ำเพื่อเจอ case variant ใหม่และเพิ่มความแม่นยำด้าน Reason Check ได้' : 'ควรเล่นซ้ำโดยใช้หลักฐานจาก case, concept และ artifact เป็นแกน'}</p><div class="result-grid"><div><b>${score}</b><span>Score</span></div><div><b>${accuracy}%</b><span>Accuracy</span></div><div><b>${reasonPct}%</b><span>Reason</span></div><div><b>${state.hints}</b><span>Hints</span></div><div><b>${fmt(durationSec)}</b><span>Time</span></div></div><section class="artifact"><p class="kicker">Studio Artifact</p><h2>${esc(node.artifact || 'Artifact')}</h2><p>นำผลการเล่นไปเติมใบงาน/portfolio ตามหัวข้อต่อไปนี้</p>${artifactFields.slice(0, 5).map((field, idx) => `<label><b>${esc(field)}</b><textarea data-artifact-field="${idx}" placeholder="เขียนสิ่งที่ตัดสินใจจากหลักฐาน ไม่ใช่แค่คำตอบที่เลือก"></textarea></label>`).join('')}<div class="actions"><button class="btn secondary" data-save-artifact>บันทึก note ในเครื่อง</button><small data-save-status></small></div></section><section class="takeaway"><b>สิ่งที่ Dashboard/ครูควรเห็นจากด่านนี้</b><ul>${(node.dashboardEvidence || []).slice(0, 8).map((item) => `<li>${esc(item)}</li>`).join('')}</ul></section><div class="actions"><button class="btn" data-retry>เล่นซ้ำด้วย case ใหม่</button>${next ? `<a class="btn ${passedNode ? '' : 'disabled'}" href="${urlForNode(next.id)}">ไปต่อ ${esc(next.id)} →</a>` : ''}<a class="btn secondary" href="${missionControlUrl()}">กลับ Mission Control</a></div></div></section></div>`;
   }
@@ -287,7 +292,7 @@
     const values = {};
     root.querySelectorAll('textarea[data-artifact-field]').forEach((field) => { values[field.dataset.artifactField] = field.value.trim(); });
     try {
-      localStorage.setItem(`csai2601.uxq.artifact.${key}.v1`, JSON.stringify({ nodeId: node.id, savedAt: new Date().toISOString(), values }));
+      localStorage.setItem(`csai2601.uxq.artifact.${key}.v2`, JSON.stringify({ nodeId:node.id, savedAt:new Date().toISOString(), values }));
       const status = root.querySelector('[data-save-status]'); if (status) status.textContent = 'บันทึก note ในเครื่องแล้ว';
     } catch (error) { const status = root.querySelector('[data-save-status]'); if (status) status.textContent = 'บันทึกไม่ได้ โปรดคัดลอกข้อความเก็บไว้'; }
   }
@@ -314,8 +319,8 @@
     const choice = stage.options.find((item) => item.id === id);
     if (!choice) return;
     state.selected = id;
-    if (choice.correct) { state.verify = { option: choice, reasons: buildReasonChoices(stage) }; render(); }
-    else { state.wrong += 1; state.answered = true; state.history.push({ correct:false, verified:false, rationale: choice.rationale }); render(); }
+    if (choice.correct) { state.verify = { option:choice, reasons:buildReasonChoices(stage) }; render(); }
+    else { state.wrong += 1; state.answered = true; state.history.push({ correct:false, verified:false, rationale:choice.rationale }); render(); }
   }
   function chooseReason(id) {
     if (!state.verify || state.answered) return;
@@ -323,12 +328,12 @@
     if (!reason) return;
     state.correct += 1;
     if (reason.correct) state.verified += 1; else state.wrong += 1;
-    state.history.push({ correct: reason.correct, verified: reason.correct, rationale: reason.correct ? state.verify.option.rationale : reason.rationale });
+    state.history.push({ correct:reason.correct, verified:reason.correct, rationale:reason.rationale });
     state.verify = null; state.answered = true; render();
   }
   function nextStage() {
     if (state.current >= state.stages.length - 1) state.screen = 'results';
-    else { state.current += 1; state.selected = null; state.verify = null; state.answered = false; }
+    else Object.assign(state, { current:state.current + 1, selected:null, verify:null, answered:false });
     render();
   }
   render();
