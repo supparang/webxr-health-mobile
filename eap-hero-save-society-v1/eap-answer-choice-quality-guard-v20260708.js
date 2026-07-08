@@ -1,18 +1,20 @@
 /* =========================================================
    EAP Hero Answer Choice Quality Guard v20260708
-   - Prevents classroom-visible choice patterns from becoming too easy.
-   - Shuffles visible answer-choice buttons once per question render.
-   - Equalizes answer tiles and flags length-cue risk.
-   - Does not change answer semantics, event handlers, score, pass/fail, or Sheet sync.
+   V2 STABLE / NON-INTRUSIVE
+   - Does NOT move/reorder DOM nodes after a question is visible.
+   - Does NOT insert a note tile inside the answer grid.
+   - Keeps equal answer tile styling and A/B/C/D labels only.
+   - Choice randomization must come from the question engine/item bank before render,
+     not from a live MutationObserver after the learner is trying to click.
+   - UI-only: does not change answer semantics, event handlers, score, pass/fail, or Sheet sync.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260708-EAP-ANSWER-CHOICE-QUALITY-GUARD-V1';
-  const STYLE_ID = 'eap-answer-choice-quality-guard-style';
-  const NOTE_CLASS = 'eap-choice-quality-note';
+  const VERSION = 'v20260708-EAP-ANSWER-CHOICE-QUALITY-GUARD-V2-STABLE-NO-RESHUFFLE';
+  const STYLE_ID = 'eap-answer-choice-quality-guard-style-v2';
   const CHOICE_CLASS = 'eap-choice-quality-tile';
-  const GROUP_ATTR = 'data-eap-choice-quality-key';
+  const GROUP_ATTR = 'data-eap-choice-quality-stable-key';
 
   const ACTION_WORDS = [
     'reading core','speaking support','writing support','listening support','mission brief','map','report','sheet',
@@ -29,17 +31,6 @@
       h += (h<<1) + (h<<4) + (h<<7) + (h<<8) + (h<<24);
     }
     return h >>> 0;
-  }
-
-  function rng(seed){
-    let s = seed >>> 0;
-    return function(){
-      s += 0x6D2B79F5;
-      let t = s;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
   }
 
   function shouldIgnore(button){
@@ -101,64 +92,32 @@
         display:inline-flex;align-items:center;justify-content:center;
         background:rgba(15,118,110,.12);color:#0f766e;font-weight:950;font-size:12px;
       }
-      .${NOTE_CLASS}{
-        margin:8px 0 7px;padding:8px 10px;border-radius:12px;
-        background:#eff6ff;border:1px solid #bfdbfe;color:#17375e;
-        font-family:Arial,'Noto Sans Thai',sans-serif;font-size:12px;font-weight:850;line-height:1.35;
-      }
-      .${NOTE_CLASS}.warn{background:#fff7ed;border-color:#fed7aa;color:#7c2d12}
-      @media(max-width:760px){.${CHOICE_CLASS}{min-height:52px!important}.${NOTE_CLASS}{font-size:11px;padding:7px 9px}}
+      .eap-choice-quality-note{display:none!important}
+      @media(max-width:760px){.${CHOICE_CLASS}{min-height:52px!important}}
     `;
     document.head.appendChild(style);
   }
 
-  function shuffleExisting(parent, list, key){
-    const r = rng(hash(key));
-    const sorted = list.map((node, index) => ({ node, index, sort:r() }))
-      .sort((a,b) => a.sort - b.sort)
-      .map(item => item.node);
-    sorted.forEach(node => parent.appendChild(node));
-    return sorted;
-  }
-
-  function lengthRisk(texts){
-    const lengths = texts.map(t => clean(t).length);
-    const max = Math.max.apply(null, lengths);
-    const min = Math.min.apply(null, lengths);
-    const avg = lengths.reduce((a,b)=>a+b,0) / Math.max(1, lengths.length);
-    return { max, min, avg, risky: max >= Math.max(38, min * 1.65, avg * 1.45) };
-  }
-
-  function addNote(parent, risky){
-    let note = parent.querySelector(':scope > .' + NOTE_CLASS);
-    if (!note) {
-      note = document.createElement('div');
-      note.className = NOTE_CLASS;
-      parent.insertBefore(note, parent.firstChild);
-    }
-    note.classList.toggle('warn', !!risky);
-    note.textContent = risky
-      ? '⚠️ Choice Guard: ตัวเลือกถูกสุ่มลำดับและปรับขนาดแล้ว อย่าเดาจากข้อที่ยาวที่สุด ให้เลือกจาก evidence ใน source เท่านั้น'
-      : '✅ Choice Guard: ตัวเลือกถูกสุ่มลำดับแล้ว ให้ยึด evidence ไม่ใช่ตำแหน่งหรือความยาวของคำตอบ';
-  }
-
   function processGroup(parent, list){
     if (!looksLikeChoices(list)) return;
+
     const texts = list.map(btn => clean(btn.textContent));
-    const key = hash(texts.join('|')) + ':' + list.length;
-    if (parent.getAttribute(GROUP_ATTR) !== String(key)) {
-      parent.setAttribute(GROUP_ATTR, String(key));
-      list = shuffleExisting(parent, list, String(key));
-    }
-    const risk = lengthRisk(texts);
-    addNote(parent, risk.risky);
-    Array.from(parent.querySelectorAll('button,[role="button"]'))
-      .filter(btn => !shouldIgnore(btn))
-      .forEach((btn, index) => {
-        btn.classList.add(CHOICE_CLASS);
-        btn.dataset.eapChoiceLabel = String.fromCharCode(65 + index);
-        btn.title = 'Choice ' + String.fromCharCode(65 + index) + ': choose by source evidence, not answer length';
-      });
+    const key = String(hash(texts.join('|')) + ':' + list.length);
+
+    /* Critical fix:
+       We mark the rendered question as seen, but we do not reorder the DOM.
+       Reordering after render was making choices move under the learner's cursor/tap. */
+    parent.setAttribute(GROUP_ATTR, key);
+
+    /* Remove old intrusive note if V1 already injected it into this grid. */
+    Array.from(parent.querySelectorAll(':scope > .eap-choice-quality-note')).forEach(note => note.remove());
+
+    list.forEach((btn, index) => {
+      btn.classList.add(CHOICE_CLASS);
+      btn.dataset.eapChoiceLabel = String.fromCharCode(65 + index);
+      btn.title = 'Choice ' + String.fromCharCode(65 + index) + ': choose by source evidence, not answer length';
+      btn.dataset.eapChoiceStable = '1';
+    });
   }
 
   let pending = null;
@@ -169,13 +128,17 @@
 
   function schedule(){
     clearTimeout(pending);
-    pending = setTimeout(apply, 120);
+    pending = setTimeout(apply, 180);
   }
 
   function start(){
     apply();
-    new MutationObserver(schedule).observe(document.documentElement, { childList:true, subtree:true, characterData:true });
-    window.EAPAnswerChoiceQualityGuard = { version:VERSION, refresh:apply };
+    new MutationObserver(schedule).observe(document.documentElement, { childList:true, subtree:true });
+    window.EAPAnswerChoiceQualityGuard = {
+      version: VERSION,
+      stableNoReshuffle: true,
+      refresh: apply
+    };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true });
