@@ -95,7 +95,9 @@ Every Boss Gate must synthesize earlier weeks and must include:
 
 ## Current playable state
 
-- Playable and linked from the existing game path: W1, W2, W3, B1, W4, W5 Concept Forge, W6 Flow Rescue and B2 Flow Fortress.
-- This campaign lock now defines the complete canonical curriculum for W1–W15 + B1–B4.
-- Later nodes should remain labeled as **กำลังสร้าง** until their full gameplay pages are implemented, so students are never sent to a false or empty page.
-- Machine-readable content for all W/B nodes is stored in `sgnal-hunt/js/uxq-csai2601-canonical-content-v1.js`.
+- `sgnal-hunt/csai2601-mission-control.html` is the canonical Mission Control entry.
+- Mission Control renders from `sgnal-hunt/js/uxq-csai2601-canonical-content-v1.js`.
+- Every W/B node launches through `sgnal-hunt/csai2601-canonical-node.html?node=<NODE_ID>`.
+- The canonical node player records progress through `uxq-progress-v4.js` and keeps the 2★ unlock rule.
+- All W1–W15 and B1–B4 now have a safe playable canonical layer with case rotation, shuffled options, Reason Check, artifact prompts and dashboard-ready evidence fields.
+- Legacy rich pages may still exist, but the canonical Mission Control no longer depends on old B5-era labels or old hard-coded paths.
