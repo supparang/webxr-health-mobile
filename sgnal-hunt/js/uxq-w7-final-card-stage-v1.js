@@ -1,7 +1,7 @@
-/* CSAI2601 UX Quest • W7 Final Card Stage v1.1
+/* CSAI2601 UX Quest • W7 Final Card Stage v1.2
  * Last visual pass for W7 main choice cards only.
- * Fixes visible cards after all other layers: stage-specific titles + stage-specific subtitles.
- * Re-applies when Student Ready UI neutralizes subtitles back to generic text.
+ * Stops subtitle flicker by replacing Student Ready controlled <span> subtitles with <small data-w7-subtitle>.
+ * Round 1 visual priority, Round 2 layout, Round 3 CTA, Round 4 mobile, Round 5 hierarchy trap.
  * Does not change data-choice or correctness.
  */
 (() => {
@@ -28,20 +28,30 @@
   function pairFor(source,i,used){const st=stage(); const seed=[roundNo(),text($('.top .pill')),text($('.case h1')),text($('.case p:last-child')),source?.dataset?.choice||'',i].join('|'); return pick(isCorrect(source)?st.ok:st.near,seed,i,used);}
   function optionTargets(){return $$('.question > .options .option[data-choice]');}
   function visibleCards(){return $$('.uxqMiniCard,.uxqDragCard');}
-  function subtitleNodes(root){return $$('small,span',root).filter(x=>!x.classList.contains('uxqMiniLane')&&!x.classList.contains('uxqDragLane')&&!x.classList.contains('uxqW7StageBadge'));}
+  function ensureSmallSubtitle(root){
+    let small=$('small[data-w7-subtitle]',root);
+    if(!small){small=document.createElement('small');small.setAttribute('data-w7-subtitle','1');root.appendChild(small);}
+    $$('span',root).forEach(sp=>{
+      if(sp.classList.contains('uxqMiniLane')||sp.classList.contains('uxqDragLane'))return;
+      sp.setAttribute('hidden','hidden');
+      sp.style.display='none';
+      sp.textContent='';
+    });
+    return small;
+  }
   function writeOption(btn,i,used){
     const p=pairFor(btn,i,used); btn.dataset.w7FinalCardStage='1'; btn.setAttribute('data-choice-tag',letters[i]||String(i+1)); btn.setAttribute('data-mechanic-label',letters[i]||String(i+1));
-    const b=$('b',btn); const subs=subtitleNodes(btn); if(b)b.textContent=p[0]; if(subs.length)subs[subs.length-1].textContent=p[1];
+    const b=$('b',btn); const small=ensureSmallSubtitle(btn); if(b)b.textContent=p[0]; small.textContent=p[1];
   }
   function writeCard(card,i,source,used){
     const p=pairFor(source||card,i,used); card.dataset.w7FinalCardStage='1';
-    const lane=$('.uxqMiniLane,.uxqDragLane',card); const head=$('strong,b',card); const subs=subtitleNodes(card); if(lane)lane.textContent=letters[i]||String(i+1); if(head)head.textContent=p[0]; if(subs.length)subs[subs.length-1].textContent=p[1];
+    const lane=$('.uxqMiniLane,.uxqDragLane',card); const head=$('strong,b',card); const small=ensureSmallSubtitle(card); if(lane)lane.textContent=letters[i]||String(i+1); if(head)head.textContent=p[0]; small.textContent=p[1];
   }
   function badge(q){let b=$('.uxqW7StageBadge',q); if(!b){b=document.createElement('div');b.className='uxqW7StageBadge'; const anchor=q.querySelector('.uxqReadableBadge,.student-ready-note,.uxqChallengeHud,.uxqAdaptiveBar'); if(anchor)anchor.insertAdjacentElement('afterend',b); else q.insertBefore(b,q.firstChild);} b.textContent=`✅ W7 ${stage().badge}: การ์ดและเหตุผลย่อยตรงกับรอบนี้`;}
-  function style(){if($('#uxq-w7-final-card-style'))return; const s=document.createElement('style');s.id='uxq-w7-final-card-style';s.textContent=`.uxqW7StageBadge{display:inline-flex;width:max-content;max-width:100%;border:1px solid rgba(121,237,165,.38);border-radius:999px;background:rgba(121,237,165,.08);color:#afffd1;padding:6px 9px;font-weight:900;font-size:.78rem;margin:6px 0 8px}.question .option[data-w7-final-card-stage="1"],.uxqMiniCard[data-w7-final-card-stage="1"],.uxqDragCard[data-w7-final-card-stage="1"]{min-height:146px!important;max-height:168px!important;overflow:hidden!important;display:grid!important;align-content:start!important;gap:8px!important;transform:none!important;will-change:auto!important}.question .option[data-w7-final-card-stage="1"]:before{content:attr(data-choice-tag)!important}.question .option[data-w7-final-card-stage="1"] b,.uxqMiniCard[data-w7-final-card-stage="1"] strong,.uxqDragCard[data-w7-final-card-stage="1"] b{font-size:1.03rem!important;line-height:1.3!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;min-height:2.7em!important;max-height:2.7em!important}.question .option[data-w7-final-card-stage="1"] span,.question .option[data-w7-final-card-stage="1"] small,.uxqMiniCard[data-w7-final-card-stage="1"] small,.uxqDragCard[data-w7-final-card-stage="1"] small{display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;min-height:2.8em!important;max-height:2.8em!important;line-height:1.35!important;color:#b9c8e4!important}`; document.head.appendChild(s);}
-  function needsFix(){const q=$('.question'); if(!q||$('.verify')||$('.feedback'))return false; const s=[...optionTargets().flatMap(subtitleNodes),...visibleCards().flatMap(subtitleNodes)].map(text).join(' '); return GENERIC.test(s);}
+  function style(){if($('#uxq-w7-final-card-style'))return; const s=document.createElement('style');s.id='uxq-w7-final-card-style';s.textContent=`.uxqW7StageBadge{display:inline-flex;width:max-content;max-width:100%;border:1px solid rgba(121,237,165,.38);border-radius:999px;background:rgba(121,237,165,.08);color:#afffd1;padding:6px 9px;font-weight:900;font-size:.78rem;margin:6px 0 8px}.question .option[data-w7-final-card-stage="1"],.uxqMiniCard[data-w7-final-card-stage="1"],.uxqDragCard[data-w7-final-card-stage="1"]{min-height:146px!important;max-height:168px!important;overflow:hidden!important;display:grid!important;align-content:start!important;gap:8px!important;transform:none!important;will-change:auto!important}.question .option[data-w7-final-card-stage="1"]:before{content:attr(data-choice-tag)!important}.question .option[data-w7-final-card-stage="1"] b,.uxqMiniCard[data-w7-final-card-stage="1"] strong,.uxqDragCard[data-w7-final-card-stage="1"] b{font-size:1.03rem!important;line-height:1.3!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;min-height:2.7em!important;max-height:2.7em!important}.question .option[data-w7-final-card-stage="1"] small[data-w7-subtitle],.uxqMiniCard[data-w7-final-card-stage="1"] small[data-w7-subtitle],.uxqDragCard[data-w7-final-card-stage="1"] small[data-w7-subtitle]{display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;min-height:2.8em!important;max-height:2.8em!important;line-height:1.35!important;color:#b9c8e4!important}`; document.head.appendChild(s);}
+  function needsFix(){const q=$('.question'); if(!q||$('.verify')||$('.feedback'))return false; const s=[...optionTargets(),...visibleCards()].map(el=>text($('small[data-w7-subtitle]',el))+' '+text($('span:not(.uxqMiniLane):not(.uxqDragLane)',el))).join(' '); return GENERIC.test(s)||!s.trim();}
   function mark(){return [roundNo(),text($('.top .pill')),text($('.hud .meter b')),optionTargets().map(x=>x.dataset.choice).join(','),visibleCards().length].join('|');}
   let last='';
   function apply(){const q=$('.question'); if(!q||$('.verify')||$('.feedback'))return; const opts=optionTargets(); const cards=visibleCards(); if(opts.length+cards.length===0)return; const m=mark(); if(last===m&&q.dataset.w7FinalStageApplied==='1'&&!needsFix())return; style(); const used=new Set(); opts.forEach((btn,i)=>writeOption(btn,i,used)); const usedCard=new Set(); cards.forEach((card,i)=>writeCard(card,i,opts[i],usedCard)); badge(q); q.dataset.w7FinalStageApplied='1'; last=m;}
-  let t=0; function schedule(){clearTimeout(t); t=setTimeout(apply,90);} if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true}); else schedule(); new MutationObserver(()=>{if(mark()!==last||needsFix())schedule();}).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
+  let t=0; function schedule(){clearTimeout(t); t=setTimeout(apply,160);} if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true}); else schedule(); new MutationObserver(()=>{if(mark()!==last||needsFix())schedule();}).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['hidden','style']});
 })();
