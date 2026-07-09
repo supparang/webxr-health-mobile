@@ -1,22 +1,27 @@
 /* =========================================================
-   EAP Hero Writing Evidence Guard v4
+   EAP Hero Writing Evidence Guard v5
    File: eap-writing-evidence-guard-v1.js
 
    Reliable normal Writing evidence transport
    ---------------------------------------------------------
-   - Observes NEW Writing records in EAP_HERO_PROGRESS_V3.portfolio.
+   - Observes NEW local Writing records in EAP_HERO_PROGRESS_V3.portfolio.
    - Does not depend on a particular button label or EAPHero method.
    - Posts submit_evidence through a hidden form to the existing
      Google Apps Script Web App.
-   - Contract V2 decides Mastery vs Exposure at the receiver.
+   - Contract decides Mastery vs Exposure at the receiver.
+   - V5: skips rows restored from Cloud/Sheet so Cloud Resume does not
+     re-submit old S1/S3/S7/S9 Writing evidence during Boss Gate or reload.
+   - Normal Writing evidence only. Boss Gate completion and Boss Speaking
+     evidence are handled by their own files.
 ========================================================= */
 (function(){
   'use strict';
 
   var STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   var PROFILE_KEY = 'EAP_HERO_PLAYER_PROFILE_V1';
-  var SENT_KEY = 'EAP_HERO_WRITING_EVIDENCE_SENT_V4';
-  var FRAME_ID = 'eap-writing-evidence-v4-receiver';
+  var SENT_KEY = 'EAP_HERO_WRITING_EVIDENCE_SENT_V5';
+  var FRAME_ID = 'eap-writing-evidence-v5-receiver';
+  var VERSION = 'v20260709-EAP-WRITING-EVIDENCE-GUARD-V5-SKIP-CLOUD-RESTORE';
 
   var WEB_APP_URL =
     (window.EAP_SHEET_CONFIG || {}).webAppUrl ||
@@ -30,6 +35,10 @@
     return String(value == null ? '' : value)
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  function lower(value) {
+    return text(value).toLowerCase();
   }
 
   function readJson(key, fallback) {
@@ -101,6 +110,7 @@
     var raw = text(
       entry && (
         entry.sessionId ||
+        entry.routeId ||
         entry.session ||
         entry.sessionNumber ||
         entry.sessionCode
@@ -219,6 +229,38 @@
     return titles[sid] || sid;
   }
 
+  function isCloudRestored(entry) {
+    if (!entry) return false;
+    if (entry.restoredFromSheet === true || entry.cloudVerified === true || entry.serverVerified === true) return true;
+    var src = lower(entry.resumeSource || entry.sourceSheet || entry.source || '');
+    return /cloud|sheet|summary|attempts|server/.test(src);
+  }
+
+  function isBossOrCompletion(entry) {
+    var raw = text(
+      entry && (
+        entry.routeId ||
+        entry.sessionId ||
+        entry.session ||
+        entry.sessionTitle ||
+        entry.routeTitle ||
+        entry.evidenceType ||
+        entry.skillRole
+      )
+    );
+    return /^B[1-5]$/i.test(text(entry && (entry.routeId || entry.sessionId))) || /boss|completion|integrated/i.test(raw);
+  }
+
+  function shouldSend(entry) {
+    if (!entry) return false;
+    if (isCloudRestored(entry)) return false;
+    if (isBossOrCompletion(entry)) return false;
+    if (!isWriting(entry)) return false;
+    if (!sessionId(entry)) return false;
+    if (!output(entry)) return false;
+    return true;
+  }
+
   function ensureFrame() {
     var frame = document.getElementById(FRAME_ID);
 
@@ -280,7 +322,7 @@
       return true;
     } catch (error) {
       console.warn(
-        '[EAP Writing Evidence Guard v4] POST failed',
+        '[EAP Writing Evidence Guard v5] POST failed',
         error
       );
 
@@ -290,7 +332,7 @@
 
   function toast(message) {
     var old = document.getElementById(
-      'eap-writing-evidence-v4-toast'
+      'eap-writing-evidence-v5-toast'
     );
 
     if (old) {
@@ -298,7 +340,7 @@
     }
 
     var node = document.createElement('div');
-    node.id = 'eap-writing-evidence-v4-toast';
+    node.id = 'eap-writing-evidence-v5-toast';
     node.textContent = message;
 
     node.style.cssText = [
@@ -328,7 +370,7 @@
 
     if (!person) {
       console.warn(
-        '[EAP Writing Evidence Guard v4] valid profile unavailable'
+        '[EAP Writing Evidence Guard v5] valid profile unavailable'
       );
 
       return false;
@@ -406,7 +448,8 @@
         new Date().toISOString(),
 
       sourceUrl: location.href,
-      consentAudio: 'FALSE'
+      consentAudio: 'FALSE',
+      writingEvidenceGuardVersion: VERSION
     };
 
     if (!postEvidence(payload)) {
@@ -422,7 +465,7 @@
 
     toast('📝 ส่งหลักฐาน Writing เข้า Sheet แล้ว');
     console.info(
-      '[EAP Writing Evidence Guard v4] sent',
+      '[EAP Writing Evidence Guard v5] sent',
       payload
     );
 
@@ -455,11 +498,7 @@
 
       known[key] = true;
 
-      if (
-        isWriting(entry) &&
-        sessionId(entry) &&
-        output(entry)
-      ) {
+      if (shouldSend(entry)) {
         send(entry, state, index);
       }
     });
@@ -474,6 +513,7 @@
   }
 
   window.EAPWritingEvidenceGuardV4 = {
+    version: VERSION,
     scan: scan,
 
     inspect: function() {
