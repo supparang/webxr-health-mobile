@@ -1,8 +1,10 @@
 /* =========================================================
    EAP Hero Student Home Lobby v20260708
-   V2 SINGLE-CHOICE HOME
+   V3 SINGLE-CHOICE HOME + PROFILE SWITCH
    - Home shows one clear learner action: Start / Continue.
-   - Map / Report / Profile remain available after entering the app flow,
+   - A small Profile / Switch learner action is available for new devices,
+     shared lab machines, or wrong studentId.
+   - Map / Report stay available after entering the app flow,
      but are not duplicated on the Home body.
    - The full 15-week Learning Path stays in Map, not on Home.
    - Existing profile and progress are preserved: studentId + section +
@@ -13,9 +15,9 @@
 (function(){
   'use strict';
 
-  const VERSION = 'v20260708-EAP-STUDENT-HOME-LOBBY-V2-SINGLE-CTA';
+  const VERSION = 'v20260709-EAP-STUDENT-HOME-LOBBY-V3-SINGLE-CTA-PROFILE-SWITCH';
   const LOBBY_ID = 'eap-student-compact-lobby';
-  const STYLE_ID = 'eap-student-home-lobby-style-v2';
+  const STYLE_ID = 'eap-student-home-lobby-style-v3';
   const ROADMAP_ID = 'eap-student-15week-roadmap';
   const PROFILE_KEY = 'EAP_HERO_PLAYER_PROFILE_V1';
   const STATE_KEY = 'EAP_HERO_PROGRESS_V3';
@@ -92,11 +94,14 @@
       #${LOBBY_ID} .lob-actions{display:grid;grid-template-columns:minmax(220px,360px);justify-content:center;gap:9px;margin-top:16px}
       #${LOBBY_ID} button{border:0;border-radius:18px;padding:15px 18px;font-weight:950;cursor:pointer;min-height:56px;font-size:18px}
       #${LOBBY_ID} .primary{background:#9af3e9;color:#102033;box-shadow:0 12px 28px rgba(45,212,191,.22)}
+      #${LOBBY_ID} .secondary{background:rgba(255,255,255,.12);color:#dffcf8;border:1px solid rgba(255,255,255,.22);font-size:14px;min-height:44px;padding:10px 14px;border-radius:14px}
       #${LOBBY_ID} .home-hint{font-size:12px;opacity:.9;margin-top:8px;color:#bdeee8}
+      #${LOBBY_ID} .profile-hint{font-size:12px;color:#bdeee8;opacity:.9;margin-top:8px}
       @media(max-width:760px){
         #${LOBBY_ID}{margin:10px 8px 14px;padding:15px;border-radius:20px;max-width:calc(100vw - 16px)}
         #${LOBBY_ID} .lob-actions{grid-template-columns:1fr}
         #${LOBBY_ID} button{width:100%;font-size:17px;min-height:54px}
+        #${LOBBY_ID} .secondary{font-size:14px;min-height:44px}
       }
     `;
     document.head.appendChild(style);
@@ -164,6 +169,12 @@
     if (window.EAPHero && typeof window.EAPHero.map === 'function') return window.EAPHero.map();
   }
 
+  function openProfile(){
+    if (window.EAPPlayerProfile && typeof window.EAPPlayerProfile.open === 'function') return window.EAPPlayerProfile.open();
+    if (window.EAPHero && typeof window.EAPHero.profile === 'function') return window.EAPHero.profile();
+    alert('Profile ยังโหลดไม่เสร็จ กรุณารอสักครู่แล้วกดอีกครั้ง');
+  }
+
   function render(){
     const route = currentRoute();
     const p = profile();
@@ -176,14 +187,16 @@
           <p>มีทางเดียวสำหรับนักศึกษา: กด Start / Continue แล้วระบบจะพาไปด่านล่าสุดที่ควรทำ</p>
           <div class="lob-actions">
             <button type="button" class="primary" data-eap-lobby-action="continue">▶ Start / Continue</button>
+            <button type="button" class="secondary" data-eap-lobby-action="profile">👤 เปลี่ยนผู้เรียน / ย้ายเครื่อง</button>
           </div>
-          <div class="home-hint">Map / Report / Profile ใช้หลังเข้าเรียนแล้ว เพื่อลดความสับสนหน้าแรก</div>
+          <div class="home-hint">Map / Report ใช้หลังเข้าเรียนแล้ว เพื่อลดความสับสนหน้าแรก</div>
         </div>
         <div class="lob-now">
           <div class="lob-kicker">ตอนนี้</div>
           <div class="lob-title">${esc(currentLabel(route))}</div>
           <div class="lob-meta">${esc(route.title || '')}</div>
           <div class="lob-meta">${esc(p.studentName || 'Student')} · ${esc(idText)}</div>
+          <div class="profile-hint">ย้ายเครื่อง/ใช้เครื่อง Lab: กด “เปลี่ยนผู้เรียน” แล้วกรอก Student ID + Section เดิม ระบบจะดึง progress จาก Sheet</div>
         </div>
       </div>`;
   }
@@ -217,6 +230,8 @@
     const btn = e.target && e.target.closest && e.target.closest('[data-eap-lobby-action]');
     if (!btn) return;
     e.preventDefault();
+    const action = btn.getAttribute('data-eap-lobby-action');
+    if (action === 'profile') return openProfile();
     openCurrent();
   }
 
@@ -230,7 +245,7 @@
     setInterval(insert, 1400);
   }
 
-  window.EAPStudentHomeLobby = { version: VERSION, singleCTA: true, refresh: insert, profile, currentRoute };
+  window.EAPStudentHomeLobby = { version: VERSION, singleCTA: true, profileSwitch: true, refresh: insert, profile, currentRoute };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true });
   else start();
