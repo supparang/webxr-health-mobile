@@ -1,11 +1,14 @@
 /* =========================================================
-   EAP Hero Boss Completion Sync v3
+   EAP Hero Boss Completion Sync v4
    - Records a B1–B5 Boss Clash pass as normal EAP attempts after the
      real core game shows “Boss Defeated!” or after queued Boss Speaking
      evidence exists from the defeated screen.
    - Sends one completion attempt for each integrated Boss Gate skill
      (Reading, Listening, Writing, Speaking) so Cloud Resume can mark
      the Boss Gate complete and unlock the next route.
+   - Fixes stale evidence/session IDs: if the visible defeated boss is
+     Copy-Paste Zombie, it is treated as B2, even if an old queued event
+     incorrectly says B1.
    - Boss Speaking teacher review remains separate in the evidence bridge;
      this file never fabricates a speaking note, audio, pronunciation,
      grammar, or teacher score.
@@ -15,17 +18,24 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v20260709-EAP-BOSS-COMPLETION-SYNC-V3-FOUR-SKILL-UNLOCK';
+  var VERSION = 'v20260709-EAP-BOSS-COMPLETION-SYNC-V4-COPYPASTE-B2';
   var CFG = window.EAP_SHEET_CONFIG || {};
   var ENDPOINT = String(CFG.webAppUrl || '');
   var QUEUE_KEY = 'EAP_HERO_BOSS_REVIEW_EVENT_QUEUE_V2';
   var LEGACY_QUEUE_KEY = 'EAP_HERO_BOSS_REVIEW_EVENT_QUEUE_V1';
-  var SENT_KEY = 'EAP_HERO_BOSS_COMPLETION_SENT_V3';
+  var SENT_KEY = 'EAP_HERO_BOSS_COMPLETION_SENT_V4';
   var STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   var timer = null;
 
   var BOSS_SKILLS = ['Reading', 'Listening', 'Writing', 'Speaking'];
   var NEXT_ROUTE = { B1:'S4', B2:'S7', B3:'S10', B4:'S13', B5:'B5' };
+  var BOSS_NAME_TO_GATE = [
+    { re:/Detail\s+Trap\s+Spider/i, gate:'B1' },
+    { re:/Copy\s*-?\s*Paste\s+Zombie/i, gate:'B2' },
+    { re:/Broken\s+Paragraph\s+Beast|Structure\s+Maze\s+Warden/i, gate:'B3' },
+    { re:/Plagiarism\s+Monster|Rude\s+Mail\s+Gremlin|Graph\s+Fog\s+Dragon/i, gate:'B4' },
+    { re:/Stagnation\s+Emperor|Final\s+Academic\s+Mission/i, gate:'B5' }
+  ];
 
   function text(value) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
   function read(key, fallback) { try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch (_) { return fallback; } }
@@ -57,23 +67,73 @@
     return b ? b[1].toUpperCase() : '';
   }
 
+  function gateFromText(source) {
+    var s = text(source);
+    if (!s) return '';
+    var explicit = s.match(/\b(B[1-5])\s*(?:Boss\s*Gate|Gate)?\b/i);
+    if (explicit) return explicit[1].toUpperCase();
+    for (var i = 0; i < BOSS_NAME_TO_GATE.length; i++) {
+      if (BOSS_NAME_TO_GATE[i].re.test(s)) return BOSS_NAME_TO_GATE[i].gate;
+    }
+    return '';
+  }
+
   function queueItems() {
     var merged = Object.assign({}, read(LEGACY_QUEUE_KEY, {}), read(QUEUE_KEY, {}));
     return Object.keys(merged).map(function (key) { return merged[key]; });
   }
 
+  function baseDetail(item) {
+    var event = item && item.event || {};
+    return event.value || {};
+  }
+
+  function eventText(item) {
+    var event = item && item.event || {};
+    var detail = baseDetail(item);
+    return [
+      event.sessionId,
+      event.eventId,
+      detail.sessionId,
+      detail.routeId,
+      detail.sessionTitle,
+      detail.routeTitle,
+      detail.bossName,
+      detail.boss,
+      detail.prompt,
+      detail.output,
+      detail.sourceUrl
+    ].map(text).join(' ');
+  }
+
+  function inferredGate(item) {
+    /* Visible page wins over stale queued event IDs. This fixes Copy-Paste
+       Zombie pages that were previously submitted as B1 by an old queue item. */
+    var fromBody = gateFromText(bodyText());
+    if (fromBody) return fromBody;
+
+    var fromEventText = gateFromText(eventText(item));
+    if (fromEventText) return fromEventText;
+
+    var event = item && item.event || {};
+    var detail = baseDetail(item);
+    var explicit = text(event.sessionId || detail.sessionId || detail.routeId).toUpperCase();
+    return /^B[1-5]$/.test(explicit) ? explicit : '';
+  }
+
   function currentBossEvidence() {
     var items = queueItems()
       .filter(function (item) {
-        return item && item.event && /^B[1-5]$/i.test(text(item.event.sessionId || (item.event.value && item.event.value.sessionId))) &&
-          item.event.value && item.event.value.teacherReviewRequired === true;
+        if (!item || !item.event || !item.event.value) return false;
+        if (item.event.value.teacherReviewRequired !== true) return false;
+        return !!inferredGate(item);
       })
       .sort(function (a, b) { return String(b.queuedAt || '').localeCompare(String(a.queuedAt || '')); });
     return items[0] || null;
   }
 
   function itemGate(item) {
-    return text(item && item.event && (item.event.sessionId || (item.event.value && item.event.value.sessionId))).toUpperCase();
+    return inferredGate(item);
   }
 
   function accuracy() {
@@ -82,9 +142,15 @@
     return match ? Math.max(0, Math.min(100, Number(match[1]))) : 100;
   }
 
-  function baseDetail(item) {
-    var event = item.event || {};
-    return event.value || {};
+  function titleForGate(gate, detail) {
+    var fallback = {
+      B1:'Boss Gate 1: Academic Foundations',
+      B2:'Boss Gate 2: Reading, Listening and Summary',
+      B3:'Boss Gate 3: Academic Writing Control',
+      B4:'Boss Gate 4: Academic Communication and Ethics',
+      B5:'Boss Gate 5: Final Academic Mission'
+    };
+    return text(detail.sessionTitle || detail.routeTitle || fallback[gate] || ('Boss Gate ' + gate.replace('B', '')));
   }
 
   function attemptIdFor(person, gate, skill, item) {
@@ -99,6 +165,7 @@
     var p = profile();
     var gate = itemGate(item);
     var acc = accuracy();
+    var title = titleForGate(gate, detail);
     return {
       action: 'submit_attempt',
       submissionKind: 'fresh_evidence_v118',
@@ -110,8 +177,8 @@
       routeId: gate,
       routeType: 'boss_gate',
       sessionId: gate,
-      sessionTitle: text(detail.sessionTitle || ('Boss Gate ' + gate.replace('B', ''))),
-      routeTitle: text(detail.sessionTitle || ('Boss Gate ' + gate.replace('B', ''))),
+      sessionTitle: title,
+      routeTitle: title,
       skill: skill,
       skillRole: 'Integrated',
       score: acc,
@@ -137,6 +204,7 @@
     var p = profile();
     var gate = itemGate(item);
     var acc = accuracy();
+    var title = titleForGate(gate, detail);
     return {
       action: 'submit_attempt',
       submissionKind: 'fresh_evidence_v118',
@@ -148,8 +216,8 @@
       routeId: gate,
       routeType: 'boss_gate',
       sessionId: gate,
-      sessionTitle: text(detail.sessionTitle || ('Boss Gate ' + gate.replace('B', ''))),
-      routeTitle: text(detail.sessionTitle || ('Boss Gate ' + gate.replace('B', ''))),
+      sessionTitle: title,
+      routeTitle: title,
       skill: 'Boss Clash',
       skillRole: 'Completion',
       score: acc,
@@ -196,7 +264,7 @@
       required: BOSS_SKILLS,
       passedSkills: BOSS_SKILLS,
       updatedAt: now(),
-      source: 'boss_completion_sync_v3'
+      source: 'boss_completion_sync_v4'
     });
     state.currentRoute = next;
     state.currentCloudRoute = next;
@@ -252,7 +320,7 @@
     if (!gate) return;
 
     var homeGate = routeFromHomeText();
-    var allowed = completedPage() || (homeGate && homeGate === gate);
+    var allowed = completedPage() || (homeGate && homeGate === gate) || gateFromText(bodyText()) === gate;
     if (!allowed) return;
 
     buildAttempts(item).forEach(sendOne);
@@ -272,6 +340,6 @@
   new MutationObserver(schedule).observe(document.documentElement, { childList:true, subtree:true, characterData:true });
   window.addEventListener('load', schedule);
   window.addEventListener('eap:resume-synced', schedule);
-  window.EAPBossCompletionSyncV1 = { version: VERSION, sync:sync };
+  window.EAPBossCompletionSyncV1 = { version: VERSION, sync:sync, inferGate: inferredGate };
   schedule();
 })();
