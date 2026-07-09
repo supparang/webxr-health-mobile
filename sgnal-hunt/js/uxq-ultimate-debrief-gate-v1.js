@@ -1,0 +1,36 @@
+/* CSAI2601 UX Quest • Ultimate Debrief Gate v1
+ * Scope: W1-W15 + B1-B4.
+ * Final debrief gate after foundation/advanced gates.
+ * Requires selected concept + reason connector + evidence/task/context language.
+ * Adds B3/B4 strict rules.
+ */
+(() => {
+  'use strict';
+  const $=(s,r=document)=>r.querySelector(s);
+  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  const text=e=>String(e?.textContent||'').replace(/\s+/g,' ').trim();
+  const val=e=>String(e?.value||'').replace(/\s+/g,' ').trim();
+  const node=()=>String(new URLSearchParams(location.search||'').get('node')||new URLSearchParams(location.search||'').get('id')||'W1').toUpperCase();
+  const n=node();
+  if(!/^(W([1-9]|1[0-5])|B[1-4])$/.test(n))return;
+  const conn=/เพราะ|เนื่องจาก|จึง|ทำให้|เพื่อ|ช่วย|ลด|เพิ่ม|ป้องกัน|พิสูจน์|วัด|ทดสอบ|retest|evidence|because|therefore|validate|measure|compare/i;
+  const evidence=/ผู้ใช้|task|goal|context|case|หลักฐาน|evidence|สถานการณ์|เงื่อนไข|ข้อมูล|ปัญหา|friction|flow|layout|CTA|mobile|persona|prototype|wireframe|component|state|accessibility|a11y|visual|finding|severity|portfolio|boss|test|result/i;
+  const rules={
+    W1:['UX Problem',/friction|ปัญหา|task|goal|ผู้ใช้|หลักฐาน|สะดุด/i,42],W2:['HCD Evidence',/HCD|evidence|หลักฐาน|ผู้ใช้|assumption|research|test/i,42],W3:['Psychology',/mental|cognitive|load|feedback|psychology|สถานะ|เข้าใจ|ผู้ใช้/i,42],W4:['Research',/research|สัมภาษณ์|สังเกต|คำถาม|pain point|persona|bias|หลักฐาน/i,42],W5:['Problem/HMW',/problem|HMW|root cause|insight|concept|solution|สาเหตุ/i,42],W6:['Flow',/flow|path|step|recovery|error|next step|goal|ผู้ใช้/i,42],W7:['Wireframe Priority',/priority|visual|status|layout|CTA|mobile|touch|hierarchy|context/i,46],
+    W8:['Blueprint',/blueprint|evidence|chain|critique|revision|mismatch|artifact|problem/i,50],W9:['Design System',/component|state|naming|system|pattern|reuse|consistent|rule/i,50],W10:['Responsive/A11y',/responsive|accessibility|a11y|contrast|label|breakpoint|touch|mobile/i,50],W11:['Visual System',/visual|color|typography|contrast|spacing|hierarchy|สี|ฟอนต์/i,50],W12:['Interaction State',/state|feedback|microcopy|error|recovery|prevention|สถานะ/i,50],W13:['Prototype',/prototype|link|interaction|path|flow|error path|dead end|task/i,50],W14:['Usability',/finding|severity|fix|retest|usability|impact|frequency|ทดสอบซ้ำ/i,50],W15:['Portfolio',/portfolio|defense|story|evidence gap|decision|result|test|นำเสนอ/i,50],
+    B1:['Boss Foundation',/friction|HCD|evidence|psychology|mental|feedback|task|proof|พิสูจน์/i,56],B2:['Boss Flow/Wireframe',/persona|problem|flow|wireframe|HMW|layout|recovery|chain|evidence/i,56],B3:['Boss Interface System',/component|state|responsive|a11y|accessibility|visual|system|pattern|contrast|reuse/i,58],B4:['Boss Validation',/finding|severity|prototype|test|retest|iteration|evidence|fix|result|usability/i,58]
+  };
+  const chip=/^[A-Za-zก-๙\s\/+-]{1,22}$/;
+  function len(s){return s.replace(/[\s,，、.。•\-_/]+/g,'').length;}
+  function rule(){const r=rules[n]||rules.W1;return {name:r[0],idea:r[1],min:r[2]};}
+  function root(){const heads=$$('h1,h2,h3,b,strong,section,div').filter(el=>/debrief|sheet|สรุป|ภารกิจหลังเล่น|artifact|mission|portfolio|boss/i.test(text(el)));for(const h of heads){let r=h.closest('section,article,.card,.panel,.result,.summary,.artifact')||h.parentElement;for(let i=0;i<7&&r&&r.querySelectorAll('textarea').length<1;i++)r=r.parentElement;if(r&&r.querySelectorAll('textarea').length)return r;}return null;}
+  function fields(r){return $$('textarea',r).slice(0,3);}
+  function score(s){const r=rule();if(!s)return {ok:false,msg:'ยังไม่ได้เขียน'};if(chip.test(s)&&!conn.test(s))return {ok:false,msg:'ยังเป็น keyword ต้องเขียนเป็นประโยค'};if(len(s)<r.min)return {ok:false,msg:`สั้นเกินไปสำหรับ ${r.name}`};if(!r.idea.test(s))return {ok:false,msg:`ยังไม่ชี้แนวคิดของ ${r.name} ชัดพอ`};if(!conn.test(s))return {ok:false,msg:'ต้องมีเหตุผล เช่น เพราะ/ช่วย/ลด/ทำให้/พิสูจน์'};if(!evidence.test(s))return {ok:false,msg:'ต้องโยงกับหลักฐาน case / task / goal / user / finding'};return {ok:true,msg:'ผ่าน'};}
+  function hint(){const r=rule();return `${r.name}: เขียนสิ่งที่เลือก + เพราะ/ช่วย/ลด/ทำให้ + evidence/context/task ของ case`;}
+  function hintNode(ta){let h=ta.parentElement.querySelector('.uxqUltimateDebriefHint');if(!h){h=document.createElement('div');h.className='uxqUltimateDebriefHint';ta.insertAdjacentElement('afterend',h);}return h;}
+  function validate(r,focus){let ok=true,first=null;fields(r).forEach(ta=>{const res=score(val(ta));ta.dataset.ultimateDebriefOk=res.ok?'1':'0';const h=hintNode(ta);h.textContent=res.ok?'✅ Ultimate pass: มีแนวคิด + เหตุผล + หลักฐานชัดแล้ว':`⚠ ${res.msg} — ${hint()}`;h.dataset.ok=res.ok?'1':'0';if(!res.ok){ok=false;if(!first)first=ta;}});$$('button',r).filter(b=>/บันทึก|save|ส่ง|submit/i.test(text(b))).forEach(b=>{b.disabled=!ok;b.dataset.ultimateDebriefBlocked=ok?'0':'1';});if(!ok&&focus){first?.focus();toast('Ultimate Gate: ต้องเขียนแนวคิด + เหตุผล + หลักฐานจาก case ก่อนบันทึก');}return ok;}
+  function apply(){const r=root();if(!r||r.dataset.ultimateDebriefGate==='v1')return;r.dataset.ultimateDebriefGate='v1';fields(r).forEach(ta=>{ta.placeholder=hint();hintNode(ta).textContent=hint();ta.addEventListener('input',()=>validate(r,false));ta.addEventListener('blur',()=>validate(r,false));});r.addEventListener('click',e=>{const b=e.target.closest('button,a');if(!b||!/บันทึก|save|ส่ง|submit/i.test(text(b)))return;if(!validate(r,true)){e.preventDefault();e.stopImmediatePropagation();}},true);validate(r,false);}
+  function toast(msg){let t=$('.uxqUltimateDebriefToast');if(t)t.remove();t=document.createElement('div');t.className='uxqUltimateDebriefToast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2800);}
+  function style(){if($('#uxq-ultimate-debrief-style'))return;const s=document.createElement('style');s.id='uxq-ultimate-debrief-style';s.textContent=`.uxqUltimateDebriefHint{margin:7px 0 0;color:#ffe39a;font-weight:850;font-size:.86rem;line-height:1.35}.uxqUltimateDebriefHint[data-ok="1"]{color:#8ff5c2}textarea[data-ultimate-debrief-ok="0"]{border-color:rgba(255,209,102,.78)!important;box-shadow:0 0 0 2px rgba(255,209,102,.12)!important}button[data-ultimate-debrief-blocked="1"]{opacity:.48;cursor:not-allowed}.uxqUltimateDebriefToast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99999;background:rgba(8,18,45,.98);border:1px solid rgba(255,209,102,.5);border-radius:16px;color:#fff;padding:12px 14px;font-weight:900;max-width:min(92vw,680px);box-shadow:0 18px 60px rgba(0,0,0,.35)}`;document.head.appendChild(s);}
+  let t=0;function run(){clearTimeout(t);t=setTimeout(()=>{style();apply();},170);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else run();new MutationObserver(run).observe(document.documentElement,{childList:true,subtree:true});
+})();
