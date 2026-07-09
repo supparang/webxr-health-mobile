@@ -1,6 +1,7 @@
-/* EAP Hero v126 — Two-Required-Skill Completion & Replay Guidance
+/* EAP Hero v127 — Two-Required-Skill Completion & Replay Guidance
    Each session requires exactly two agreed core skills at 60/100.
    The other two skills are optional practice and never block progression.
+   V127 fixes S-prefixed session IDs from Cloud/Sheet evidence, e.g. S1.
 */
 (() => {
   'use strict';
@@ -53,15 +54,34 @@
     catch (_) { return {}; }
   }
 
+  function text(value){
+    return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+  }
+
   function toNum(value){
     const n = Number(value);
     return Number.isFinite(n) ? n : 0;
   }
 
+  function normalizeSessionNo(value){
+    const raw = text(value).toUpperCase();
+    if (!raw) return 0;
+    const s = raw.match(/^S(?:ESSION)?\s*0?(1[0-5]|[1-9])$/);
+    if (s) return Number(s[1]);
+    if (/^0?(1[0-5]|[1-9])$/.test(raw)) return Number(raw);
+    const mixed = raw.match(/(?:^|\b)S(?:ESSION)?\s*0?(1[0-5]|[1-9])(?:\b|_)/);
+    return mixed ? Number(mixed[1]) : 0;
+  }
+
+  function normalizeSkill(value){
+    const raw = text(value).toLowerCase();
+    return ALL_SKILLS.find(skill => raw === skill.toLowerCase() || raw.indexOf(skill.toLowerCase()) >= 0) || '';
+  }
+
   function sessionId(){
     const app = document.getElementById('app');
-    const text = String(app?.innerText || '');
-    const found = text.match(/Session\s*:?[\s]*(1[0-5]|[1-9])\b/i);
+    const pageText = String(app?.innerText || '');
+    const found = pageText.match(/Session\s*:?[\s]*(1[0-5]|[1-9])\b/i);
     return found ? Number(found[1]) : 0;
   }
 
@@ -72,15 +92,38 @@
   function evidenceFor(sid){
     const s = state();
     const portfolio = Array.isArray(s.portfolio) ? s.portfolio : [];
+    const sessionProgress = s.sessionProgress && typeof s.sessionProgress === 'object' ? s.sessionProgress : {};
+    const routeStatus = s.routeStatus && typeof s.routeStatus === 'object' ? s.routeStatus : {};
     const best = {};
     ALL_SKILLS.forEach(skill => { best[skill] = 0; });
+
+    /* 1) Prefer portfolio/recent evidence. V126 missed records like sessionId:'S1'. */
     portfolio.forEach(entry => {
-      const entrySession = Number(entry?.session || entry?.sessionId || 0);
-      const skill = String(entry?.skill || '');
-      if (entrySession !== sid || !Object.prototype.hasOwnProperty.call(best, skill)) return;
-      const score = toNum(entry?.latestScore ?? entry?.score);
+      const entrySession = normalizeSessionNo(entry?.session || entry?.sessionId || entry?.routeId || entry?.sessionCode);
+      const skill = normalizeSkill(entry?.skill || entry?.skillName || entry?.evidenceType || entry?.taskId || entry?.type);
+      if (entrySession !== sid || !skill) return;
+      const score = toNum(entry?.latestScore ?? entry?.score ?? entry?.bestScore);
       best[skill] = Math.max(best[skill], score);
     });
+
+    /* 2) Merge Cloud Resume sessionProgress/routeStatus, so restored Sheet rows appear immediately. */
+    const keys = ['S' + sid, String(sid), 's' + sid];
+    keys.forEach(key => {
+      [sessionProgress[key], routeStatus[key]].forEach(row => {
+        if (!row) return;
+        const scores = row.scores && typeof row.scores === 'object' ? row.scores : {};
+        ALL_SKILLS.forEach(skill => {
+          best[skill] = Math.max(best[skill], toNum(scores[skill]));
+        });
+        if (Array.isArray(row.passed)) {
+          row.passed.forEach(skillName => {
+            const skill = normalizeSkill(skillName);
+            if (skill) best[skill] = Math.max(best[skill], PASS_MARK);
+          });
+        }
+      });
+    });
+
     return best;
   }
 
@@ -156,6 +199,9 @@
   let timer;
   function schedule(){ clearTimeout(timer); timer = setTimeout(render, 80); }
   window.addEventListener('load', schedule);
+  window.addEventListener('storage', schedule);
+  window.addEventListener('eap:resume-synced', schedule);
+  window.addEventListener('eap:profile-saved', schedule);
   new MutationObserver(schedule).observe(document.documentElement, {childList:true, subtree:true});
-  window.EAPTwoSkillProgressV126 = { render, requiredSkills };
+  window.EAPTwoSkillProgressV126 = { render, requiredSkills, evidenceFor, version:'v20260709-v127-s-prefix-fix' };
 })();
