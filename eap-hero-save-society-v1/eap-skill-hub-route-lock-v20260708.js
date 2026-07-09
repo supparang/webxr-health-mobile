@@ -1,9 +1,11 @@
 /* =========================================================
    EAP Hero Skill Hub Route Lock v20260708
-   V1 CURRENT-ROUTE ONLY
+   V2 CURRENT-ROUTE ONLY + STALE HUB AUTO-REROUTE
    - Start / Continue must open only the current route from Cloud/Sheet.
    - Skill Mission Hub must not expose S1-S15 as free navigation.
    - Session selector buttons inside Skill Hub are hidden/blocked.
+   - If Skill Hub is already showing the wrong session from stale UI/state,
+     auto-reroute it back to the current Cloud/Sheet route.
    - EAPHero.skillHub/openSkillMission are guarded so locked/future sessions
      cannot be opened by stale buttons or old scripts.
    - UI/routing only. Does not change scores, pass/fail, Sheet, evidence,
@@ -12,11 +14,13 @@
 (function(){
   'use strict';
 
-  const VERSION = 'v20260708-EAP-SKILL-HUB-ROUTE-LOCK-V1-CURRENT-ONLY';
+  const VERSION = 'v20260709-EAP-SKILL-HUB-ROUTE-LOCK-V2-AUTO-REROUTE';
   const STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PACK_NAME = 'EAP_HERO_SESSION_CONTENT_PACK';
-  const STYLE_ID = 'eap-skill-hub-route-lock-style-v1';
+  const STYLE_ID = 'eap-skill-hub-route-lock-style-v2';
   const NOTICE_ID = 'eap-skill-hub-route-lock-notice';
+  const REROUTE_FLAG = 'data-eap-skillhub-rerouting';
+  let lastRerouteAt = 0;
 
   function clean(v){ return String(v == null ? '' : v).replace(/\s+/g,' ').trim(); }
   function norm(v){ const raw = clean(v).toUpperCase(); return /^\d+$/.test(raw) ? 'S' + Number(raw) : raw; }
@@ -49,6 +53,7 @@
       }
     } catch(error) {}
 
+    /* localStorage is only a fallback when Cloud/Sheet has not returned yet. */
     const fromStore = routeById(localStorage.getItem('EAP_HERO_ACTIVE_ROUTE')) ||
       routeById(localStorage.getItem('EAP_HERO_CURRENT_ROUTE')) ||
       routeById(localStorage.getItem('EAP_HERO_CURRENT_SESSION'));
@@ -77,20 +82,27 @@
     const api = hero();
     const route = currentRoute();
     setActive(route);
+
     if (route && route.routeType === 'boss_gate' && api && typeof api.startGateBoss === 'function') {
       api.startGateBoss(route.routeId);
       return true;
     }
+
     const sid = sessionNo(route) || 1;
+
     if (api && typeof api.__skillHubRouteLockOriginalSkillHub === 'function') {
-      api.__skillHubRouteLockOriginalSkillHub.call(api, sid);
+      api.__skillHubRouteLockCalling = true;
+      try { api.__skillHubRouteLockOriginalSkillHub.call(api, sid); }
+      finally { api.__skillHubRouteLockCalling = false; }
       return true;
     }
+
     if (api && typeof api.skillHub === 'function' && !api.__skillHubRouteLockCalling) {
       api.__skillHubRouteLockCalling = true;
       try { api.skillHub(sid); } finally { api.__skillHubRouteLockCalling = false; }
       return true;
     }
+
     return false;
   }
 
@@ -106,6 +118,7 @@
         font:900 13px/1.45 Arial,'Noto Sans Thai',sans-serif;
       }
       #${NOTICE_ID} b{color:#102033}
+      body[${REROUTE_FLAG}="1"] #app{opacity:.72;pointer-events:none}
     `;
     document.head.appendChild(style);
   }
@@ -114,6 +127,19 @@
     const app = document.getElementById('app');
     const text = clean(app && app.innerText || '');
     return /EAP\s+Skill\s+Mission\s+Hub/i.test(text) || /Session\s+Path/i.test(text) && /Skills:\s*Reading/i.test(text);
+  }
+
+  function visibleSkillHubSession(){
+    if (!isSkillHub()) return '';
+    const app = document.getElementById('app');
+    const text = clean(app && app.innerText || '');
+
+    const heading = Array.from(app.querySelectorAll('h1,h2,h3,.title,.heading,strong,b'))
+      .map(el => clean(el.textContent || ''))
+      .find(t => /^Session\s+(1[0-5]|[1-9])\s*:/i.test(t));
+    const source = heading || text;
+    const m = source.match(/Session\s+(1[0-5]|[1-9])\s*:/i);
+    return m ? 'S' + Number(m[1]) : '';
   }
 
   function isSessionButton(node){
@@ -150,8 +176,39 @@
         notice.id = NOTICE_ID;
         notice.innerHTML = '🔒 เลือก Session เองไม่ได้ในหน้านี้ — ระบบล็อกตามเส้นทางล่าสุด: <b>' + currentLabel(route) + '</b>. ใช้ปุ่ม Skill ของด่านนี้ หรือกลับ Map เพื่อดูภาพรวม';
         holder.insertAdjacentElement('afterend', notice);
+      } else {
+        document.getElementById(NOTICE_ID).innerHTML = '🔒 เลือก Session เองไม่ได้ในหน้านี้ — ระบบล็อกตามเส้นทางล่าสุด: <b>' + currentLabel(route) + '</b>. ใช้ปุ่ม Skill ของด่านนี้ หรือกลับ Map เพื่อดูภาพรวม';
       }
     }
+  }
+
+  function enforceVisibleHubRoute(){
+    if (!isSkillHub()) return;
+    const route = currentRoute();
+    const expected = norm(route && route.routeId || 'S1');
+    const visible = visibleSkillHubSession();
+
+    /* Boss Gate is not a normal Skill Hub page. If the current route is a Boss,
+       a stale S page must immediately return to the Boss Gate flow. */
+    if (route && route.routeType === 'boss_gate') {
+      if (visible && Date.now() - lastRerouteAt > 900) {
+        lastRerouteAt = Date.now();
+        document.body.setAttribute(REROUTE_FLAG,'1');
+        setTimeout(function(){ runCurrentRoute(); document.body.removeAttribute(REROUTE_FLAG); }, 80);
+      }
+      return;
+    }
+
+    if (!visible || !expected || visible === expected) return;
+
+    if (Date.now() - lastRerouteAt < 900) return;
+    lastRerouteAt = Date.now();
+    document.body.setAttribute(REROUTE_FLAG,'1');
+    setActive(route);
+    setTimeout(function(){
+      runCurrentRoute();
+      document.body.removeAttribute(REROUTE_FLAG);
+    }, 80);
   }
 
   function requestedSessionFromArgs(args){
@@ -211,7 +268,7 @@
   let timer = null;
   function schedule(){
     clearTimeout(timer);
-    timer = setTimeout(function(){ patchHero(); hideSessionSwitcher(); }, 120);
+    timer = setTimeout(function(){ patchHero(); hideSessionSwitcher(); enforceVisibleHubRoute(); }, 120);
   }
 
   function start(){
@@ -222,10 +279,10 @@
     window.addEventListener('eap:resume-synced', schedule);
     new MutationObserver(schedule).observe(document.documentElement, { childList:true, subtree:true, characterData:true });
     schedule();
-    setInterval(schedule, 1200);
+    setInterval(schedule, 900);
   }
 
-  window.EAPSkillHubRouteLock = { version: VERSION, refresh: schedule, currentRoute, runCurrentRoute };
+  window.EAPSkillHubRouteLock = { version: VERSION, refresh: schedule, currentRoute, visibleSkillHubSession, runCurrentRoute };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true });
   else start();
