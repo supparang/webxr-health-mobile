@@ -1,9 +1,10 @@
 /* =========================================================
- EAP Boss Gate Replayability Bank V3.1
+ EAP Boss Gate Replayability Bank V3.2
  - 5 rotating scenarios per B1-B5 = 25 scenarios
  - Each scenario has Reading 2 + Listening 2 + Writing 1 + Speaking 1
  - Total bank size = 150 Boss skill-items
- - Choice quality fix: correct answer is NOT consistently the longest option
+ - Choice quality fix: no repeated opening pattern such as Choose/Check/Add
+ - Correct answer is NOT consistently the longest or the most source-like option
  - Distractors are plausible, similar length, and shuffled by Boss Gate
  - No-repeat scenario window per gate
  - Reading/Listening item inside scenario is randomized per run
@@ -12,7 +13,7 @@
 (() => {
   'use strict';
 
-  const KEY = 'EAP_BOSS_4SKILL_SCENARIO_HISTORY_V31';
+  const KEY = 'EAP_BOSS_4SKILL_SCENARIO_HISTORY_V32';
   const rand = n => Math.floor(Math.random() * n);
 
   const BLUEPRINTS = {
@@ -53,15 +54,6 @@
     ]
   };
 
-  const fillers = [
-    'before finalising the answer',
-    'and explain the reason clearly',
-    'while keeping the task focus',
-    'with one useful support detail',
-    'and check the instruction again',
-    'without changing the main idea'
-  ];
-
   function history(){ try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (_) { return {}; } }
   function saveHistory(all){ localStorage.setItem(KEY, JSON.stringify(all)); }
   function remember(gate, tag){
@@ -70,41 +62,43 @@
     all[gate].push(tag);
     saveHistory(all);
   }
+
   function words(s){ return String(s || '').trim().split(/\s+/).filter(Boolean).length; }
-  function addFiller(s){ return `${s} ${fillers[rand(fillers.length)]}.`; }
-  function similarize(correct, ds){
+  function normalizeSentence(s){ return /[.!?]$/.test(String(s || '').trim()) ? String(s).trim() : String(s || '').trim() + '.'; }
+
+  function similarLength(correct, list){
     const target = words(correct);
-    return ds.map(d => {
-      let out = d.replace(/\.$/, '');
-      while (words(out) < Math.max(5, target - 2)) out = addFiller(out).replace(/\.$/, '');
-      if (!/[.!?]$/.test(out)) out += '.';
-      return out;
+    const pads = ['with task focus','using source evidence','before submitting','for academic clarity'];
+    return list.map((item, idx) => {
+      let out = String(item || '').replace(/\.$/, '').trim();
+      while (words(out) < Math.max(7, target - 4) && words(out) < target + 2) out += ' ' + pads[(idx + words(out)) % pads.length];
+      return normalizeSentence(out);
     });
   }
 
   function readingItems(gate, b){
     const [tag, a, d, c, skill] = b;
-    const correct1 = `Choose one clear purpose, use ${d}, and connect it to ${c}.`;
-    const correct2 = `Check the task, select useful information, and explain why it matters for ${skill}.`;
+    const correct1 = `Purpose plan: one clear purpose, ${d}, and a link to ${c}.`;
+    const correct2 = `Evidence plan: check the task, select useful information, and explain the link to ${skill}.`;
     return [
       {
         source:`A learner working on ${a} should choose one clear purpose, use ${d}, and connect it to ${c}. This makes the work easier to explain in academic English.`,
         q:'Which response best follows the source?',
         a:correct1,
-        d:similarize(correct1,[
-          `Choose many purposes, use ${d}, but do not connect it to ${c}.`,
-          `Choose one purpose, ignore ${d}, and write about a different task.`,
-          `Copy the source quickly, but do not explain the connection to ${c}.`
+        d:similarLength(correct1,[
+          `Many-purpose plan: several purposes and ${d}, but no link to ${c}.`,
+          `Different-task plan: one purpose, but not ${d} or the task focus.`,
+          `Copy-only plan: repeats the source, but leaves the link to ${c} unclear.`
         ])
       },
       {
         source:`In a strong EAP task, students do not only finish quickly. They check the task, select useful information, and explain why it matters for ${skill}.`,
         q:'What should students do besides finishing quickly?',
         a:correct2,
-        d:similarize(correct2,[
-          `Check only the answer length and choose the option that looks complete.`,
-          `Select useful information but avoid explaining why it matters for ${skill}.`,
-          `Focus mainly on speed and submit before checking the task carefully.`
+        d:similarLength(correct2,[
+          `Length plan: check answer length and choose what looks complete.`,
+          `Partial plan: select information but leave out the link to ${skill}.`,
+          `Speed plan: submit quickly before checking the task carefully.`
         ])
       }
     ];
@@ -112,27 +106,27 @@
 
   function listeningItems(gate, b){
     const [tag, a, d, c, skill] = b;
-    const correct1 = `Add ${d} after the simple point.`;
-    const correct2 = 'Check the instruction, choose one useful detail, and revise before submitting.';
+    const correct1 = `Support step: add ${d} after the simple point.`;
+    const correct2 = 'Revision step: check the instruction, choose one useful detail, and revise.';
     return [
       {
         source:`The tutor says, “For ${a}, start with one simple point. Then add ${d}. Finally, explain the link to ${c}.”`,
         q:'What should the learner add after the simple point?',
         a:correct1,
-        d:similarize(correct1,[
-          `Add an unrelated story after the simple point.`,
-          `Add a private opinion with no support.`,
-          `Add only a greeting and stop the explanation.`
+        d:similarLength(correct1,[
+          `Story step: add an unrelated story after the simple point.`,
+          `Opinion step: add a private opinion with no support.`,
+          `Greeting step: add only a greeting and stop the explanation.`
         ])
       },
       {
         source:`A student explains, “I improved my ${skill} task by checking the instruction, choosing one useful detail, and revising my answer before submitting.”`,
         q:'Which action helped the student improve?',
         a:correct2,
-        d:similarize(correct2,[
-          `Submit the answer quickly, choose one detail, and avoid revising it.`,
-          `Read the instruction once, remove useful details, and submit immediately.`,
-          `Change the answer randomly, add a long phrase, and ignore the task.`
+        d:similarLength(correct2,[
+          `Quick step: submit fast, choose one detail, and avoid revision.`,
+          `Removal step: read once, remove useful details, and submit.`,
+          `Random step: change the answer randomly and ignore the task.`
         ])
       }
     ];
@@ -167,9 +161,7 @@
 
   function balanceAnswerLength(scenario){
     ['readingItems','listeningItems'].forEach(group => {
-      (scenario[group] || []).forEach(item => {
-        item.d = similarize(item.a, item.d || []);
-      });
+      (scenario[group] || []).forEach(item => { item.d = similarLength(item.a, item.d || []); });
     });
     return scenario;
   }
@@ -192,18 +184,18 @@
     scenario.la = l.a;
     scenario.ld = l.d;
     scenario.itemMeta = {
-      version:'v3.1-150-items-balanced-choices',
+      version:'v3.2-150-items-varied-openings',
       bankSkillItems:150,
       scenariosPerBoss:5,
       perScenario:{Reading:2, Listening:2, Writing:1, Speaking:1},
-      choiceQuality:'balanced-length-plausible-distractors'
+      choiceQuality:'varied-openings-balanced-length-plausible-distractors'
     };
     return scenario;
   }
 
   function bindOverride(){
-    if (!window.EAPHero?.startGateBoss || window.EAPBossReplayV31) return;
-    window.EAPBossReplayV31 = true;
+    if (!window.EAPHero?.startGateBoss || window.EAPBossReplayV32) return;
+    window.EAPBossReplayV32 = true;
     const original = window.EAPHero.startGateBoss;
     window.EAPHero.startGateBoss = function(gateId){
       const gate = Number(String(gateId || '').replace(/\D/g, '')) || 1;
@@ -214,14 +206,14 @@
 
   const wait = setInterval(() => {
     bindOverride();
-    if (window.EAPBossReplayV31) clearInterval(wait);
+    if (window.EAPBossReplayV32) clearInterval(wait);
   }, 120);
 
   window.EAPBossReplayBankV3 = {
-    version:'v3.1-150-items-balanced-choices',
+    version:'v3.2-150-items-varied-openings',
     bank:BANK,
     choose:chooseScenario,
     count:{bosses:5, scenarios:25, skillItems:150, reading:50, listening:50, writing:25, speaking:25},
-    quality:{correctNotLongest:true, plausibleDistractors:true, balancedLength:true}
+    quality:{correctNotLongest:true, plausibleDistractors:true, balancedLength:true, variedOpenings:true}
   };
 })();
