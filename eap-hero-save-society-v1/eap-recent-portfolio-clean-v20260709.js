@@ -1,23 +1,17 @@
 /* =========================================================
    EAP Hero Recent Portfolio Clean v20260709
-   V4 STUDENT RECENT ONLY + TIME LABEL
-   - Cleans the student-facing Recent Portfolio table only.
-   - Hides obvious legacy/migration rows AND Cloud/Sheet restore confirmation
-     rows because their timestamp is the restore/cache time, not the original
-     learning time.
-   - Keeps real learner evidence rows visible, even if table columns are
-     shifted by responsive UI.
-   - If multiple valid rows share the same Session + Skill, it keeps the best
-     visible row and hides only lower-score duplicates.
-   - Clarifies that the visible time column may be the display/restore time.
+   V5 STUDENT RECENT ONLY + HIDE TIME COLUMN
+   - Student-facing table hides display/restore time to avoid confusion.
+   - Keeps Session / Skill / Score / Output visible.
+   - Teacher Dashboard / Sheet remain the source of truth for exact timestamp.
    - UI-only. Does not delete localStorage, does not change Sheet rows,
      scores, pass/fail, evidence, teacher review, or unlock rules.
 ========================================================= */
 (function(){
   'use strict';
 
-  var VERSION = 'v20260710-EAP-RECENT-PORTFOLIO-CLEAN-V4-TIME-LABEL';
-  var STYLE_ID = 'eap-recent-portfolio-clean-style-v4';
+  var VERSION = 'v20260710-EAP-RECENT-PORTFOLIO-CLEAN-V5-HIDE-STUDENT-TIME';
+  var STYLE_ID = 'eap-recent-portfolio-clean-style-v5';
   var timer = null;
 
   function text(value){
@@ -36,8 +30,10 @@
     style.textContent = [
       'tr[data-eap-portfolio-hidden="1"]{display:none!important}',
       '.eap-portfolio-clean-note{display:inline-flex;margin-left:10px;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#047857;font:800 11px Arial,"Noto Sans Thai",sans-serif;vertical-align:middle}',
-      '.eap-portfolio-time-note{display:block;margin:7px 0 4px;color:#cbd5e1;font:800 12px Arial,"Noto Sans Thai",sans-serif;line-height:1.35}',
-      '.eap-portfolio-time-note b{color:#a7f3d0}'
+      '.eap-portfolio-student-note{display:block;margin:7px 0 4px;color:#cbd5e1;font:800 12px Arial,"Noto Sans Thai",sans-serif;line-height:1.35}',
+      '.eap-portfolio-student-note b{color:#a7f3d0}',
+      'table[data-eap-student-portfolio="1"] th[data-eap-time-col="1"], table[data-eap-student-portfolio="1"] td[data-eap-time-col="1"]{display:none!important}',
+      '@media(max-width:760px){.eap-portfolio-clean-note{margin-left:0;margin-top:6px}.eap-portfolio-student-note{font-size:11px}}'
     ].join('\n');
     document.head.appendChild(style);
   }
@@ -109,21 +105,22 @@
     row.removeAttribute('aria-hidden');
   }
 
-  function labelTimeHeader(table){
-    var headerCells = Array.prototype.slice.call(table.querySelectorAll('thead th, tr:first-child th'));
-    if (!headerCells.length) return;
-    var first = headerCells[0];
-    var raw = text(first.textContent);
-    if (/เวลาแสดง/.test(raw)) return;
-    if (/วันที่\/เวลา|date|time/i.test(raw)) {
-      first.textContent = 'เวลาแสดง (ล่าสุด/กู้คืน)';
-    }
+  function markAndHideTimeColumn(table){
+    table.dataset.eapStudentPortfolio = '1';
+    var rows = Array.prototype.slice.call(table.querySelectorAll('tr'));
+    rows.forEach(function(row){
+      var cells = Array.prototype.slice.call(row.children);
+      if (cells[0]) {
+        cells[0].dataset.eapTimeCol = '1';
+        cells[0].setAttribute('aria-hidden', 'true');
+      }
+    });
   }
 
   function cleanTable(table){
     if (!looksLikePortfolioTable(table)) return;
 
-    labelTimeHeader(table);
+    markAndHideTimeColumn(table);
 
     var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
     var buckets = {};
@@ -137,8 +134,6 @@
         return;
       }
 
-      /* If we cannot safely parse session+skill, keep the row visible.
-         Classroom priority: never accidentally hide valid evidence again. */
       if (!parsed.session || !parsed.skill) return;
 
       var key = parsed.session + '|' + parsed.skill.toLowerCase();
@@ -148,16 +143,14 @@
 
     Object.keys(buckets).forEach(function(key){
       var list = buckets[key];
-      list.sort(function(a, b){
-        return (b.score - a.score) || (b.length - a.length);
-      });
+      list.sort(function(a, b){ return (b.score - a.score) || (b.length - a.length); });
       list.forEach(function(item, index){
         if (index > 0 && item.score < list[0].score) hide(item.row);
       });
     });
 
     addNote(table);
-    addTimeNote(table);
+    addStudentNote(table);
   }
 
   function findTitle(table){
@@ -166,10 +159,7 @@
     for (var i = 0; i < 5 && node; i += 1) {
       var prev = node.previousElementSibling;
       while (prev) {
-        if (/recent portfolio/i.test(text(prev.textContent))) {
-          title = prev;
-          break;
-        }
+        if (/recent portfolio/i.test(text(prev.textContent))) { title = prev; break; }
         prev = prev.previousElementSibling;
       }
       if (title) break;
@@ -183,16 +173,16 @@
     if (!title || title.querySelector('.eap-portfolio-clean-note')) return;
     var note = document.createElement('span');
     note.className = 'eap-portfolio-clean-note';
-    note.textContent = 'แสดงเฉพาะหลักฐานจริงของผู้เรียน';
+    note.textContent = 'หลักฐานล่าสุดของผู้เรียน';
     title.appendChild(note);
   }
 
-  function addTimeNote(table){
+  function addStudentNote(table){
     var title = findTitle(table);
-    if (!title || title.parentElement.querySelector('.eap-portfolio-time-note')) return;
+    if (!title || title.parentElement.querySelector('.eap-portfolio-student-note')) return;
     var note = document.createElement('div');
-    note.className = 'eap-portfolio-time-note';
-    note.innerHTML = '<b>หมายเหตุเวลา:</b> ตารางนี้ใช้ดูรายการล่าสุด/ข้อมูลที่กู้คืนบนเครื่องนี้ เวลาอาจเป็นเวลาโหลดข้อมูลล่าสุด ไม่ใช่เวลาเล่นจริงทุกครั้ง; คะแนนและ Session status ให้ยึดหลักฐานแยกตาม Skill';
+    note.className = 'eap-portfolio-student-note';
+    note.innerHTML = '<b>สำหรับผู้เรียน:</b> ตารางนี้แสดง Session, Skill, Score และคำตอบล่าสุด/ดีที่สุดเท่านั้น เวลาเล่นจริงให้ครูดูจาก Teacher Dashboard';
     title.insertAdjacentElement('afterend', note);
   }
 
