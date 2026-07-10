@@ -1,7 +1,8 @@
-/* CSAI2601 UX Quest • W1 Hard Override v8
+/* CSAI2601 UX Quest • W1 Hard Override v8.1
  * Scope: W1 only.
  * Direct inline layout override for the real player DOM.
  * Fixes dense-grid v7 not winning against earlier responsive/two-column rules.
+ * Important fix: preserve .uxqFairText/.uxqFairLetter from all-node choice fairness guard.
  * No content/scoring changes: preserves choice ids, correctness, reason, strict gate, and sheet sync.
  */
 (() => {
@@ -45,8 +46,17 @@
         white-space:normal!important;
         overflow-wrap:break-word!important;
       }
-      body .question .option span, body .verify .option span{
+      body .question .option span:not(.uxqFairLetter):not(.uxqFairText):not(.uxqFairSub), body .verify .option span:not(.uxqFairLetter):not(.uxqFairText):not(.uxqFairSub){
         display:none!important;
+      }
+      body .question .option .uxqFairText, body .verify .option .uxqFairText{
+        display:block!important;color:#eef6ff!important;font-weight:900!important;line-height:1.32!important;white-space:normal!important;overflow-wrap:anywhere!important;
+      }
+      body .question .option .uxqFairLetter, body .verify .option .uxqFairLetter{
+        display:inline-grid!important;place-items:center!important;min-width:1.85rem!important;height:1.45rem!important;margin:0 0 .42rem 0!important;
+      }
+      body .question .option .uxqFairSub, body .verify .option .uxqFairSub{
+        display:block!important;color:#a9b9d9!important;font-size:.82rem!important;line-height:1.35!important;margin-top:.35rem!important;
       }
       body .question{padding:14px 16px!important;}
       body .question .prompt{font-size:1.25rem!important;line-height:1.28!important;margin:0 0 6px!important;}
@@ -88,7 +98,10 @@
         b.style.setProperty('white-space','normal','important');
         b.style.setProperty('overflow-wrap','break-word','important');
       }
-      el.querySelectorAll('span,small,p').forEach((x)=>x.style.setProperty('display','none','important'));
+      el.querySelectorAll('span:not(.uxqFairLetter):not(.uxqFairText):not(.uxqFairSub),small,p').forEach((x)=>x.style.setProperty('display','none','important'));
+      el.querySelectorAll('.uxqFairText').forEach((x)=>{x.style.setProperty('display','block','important');x.style.setProperty('color','#eef6ff','important');x.style.setProperty('font-weight','900','important');x.style.setProperty('line-height','1.32','important');});
+      el.querySelectorAll('.uxqFairLetter').forEach((x)=>x.style.setProperty('display','inline-grid','important'));
+      el.querySelectorAll('.uxqFairSub').forEach((x)=>x.style.setProperty('display','block','important'));
     });
     const old = $('.uxqW1HardBadge', q);
     if (!old) {
