@@ -1,16 +1,16 @@
 /* =========================================================
    EAP Gold Choice Bias Fix v20260710
-   V3 NEUTRAL-CORRECT-LABELS
+   V4 NATIVE-FOUR-CHOICE
    - Runs after eap-gold-item-bank.js and before the question engine.
-   - Removes visible correct-answer signatures:
-     "The scenario gives...", "The main message...", "Supported but limited...".
-   - Rewrites inference + misconceptions into neutral short labels.
-   - Keeps source passage, main, evidence, scoring, and Sheet sync unchanged.
+   - Removes visible correct-answer signatures.
+   - Guarantees every authored source has exactly 3 unique misconceptions.
+     Together with 1 correct inference, the engine now creates 4 native choices.
+   - Keeps source passage, main, evidence, scoring, Sheet sync, and unlock unchanged.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260710-GOLD-CHOICE-BIAS-FIX-V3-NEUTRAL-CORRECT-LABELS';
+  const VERSION = 'v20260710-GOLD-CHOICE-BIAS-FIX-V4-NATIVE-FOUR-CHOICE';
   const BANK_NAME = 'EAP_GOLD_AUTHORED_BANK';
 
   function clean(v){ return String(v == null ? '' : v).replace(/\s+/g,' ').trim(); }
@@ -75,25 +75,60 @@
   }
 
   function balancedSet(sessionNo){ return SESSION_FIXES[sessionNo] || GENERIC_FIXES; }
+  function hashSeed(value){
+    let h = 0;
+    const s = String(value || '');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h;
+  }
   function pickCorrect(sessionNo, source){
     const seed = String(source && source.id || '') + ':' + String(source && source.title || '') + ':' + sessionNo;
-    let h = 0;
-    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-    return CORRECT_BANK[h % 4];
+    return CORRECT_BANK[hashSeed(seed) % 4];
   }
   function pickLimit(sessionNo, source){
     const seed = String(source && source.id || '') + ':limit:' + sessionNo;
-    let h = 0;
-    for (let i = 0; i < seed.length; i++) h = (h * 33 + seed.charCodeAt(i)) >>> 0;
-    return LIMIT_BANK[h % 4];
+    return LIMIT_BANK[hashSeed(seed) % 4];
+  }
+
+  function normalizeMisconceptions(sessionNo, source){
+    const replacements = balancedSet(sessionNo);
+    const original = Array.isArray(source.misconceptions) ? source.misconceptions.slice() : [];
+    const result = [];
+
+    function add(value){
+      let out = clean(value);
+      if (!out) return;
+      if (isBadCue(out) || words(out) < 5 || words(out) > 13) return;
+      if (out === clean(source.inference) || out === clean(source.limitation)) return;
+      if (result.some(item => item.toLowerCase() === out.toLowerCase())) return;
+      result.push(out);
+    }
+
+    original.forEach(add);
+
+    const seed = hashSeed(String(source.id || '') + ':' + String(source.title || '') + ':' + sessionNo);
+    for (let i = 0; result.length < 3 && i < replacements.length * 3; i++) {
+      add(replacements[(seed + i) % replacements.length]);
+    }
+    for (let i = 0; result.length < 3 && i < GENERIC_FIXES.length * 3; i++) {
+      add(GENERIC_FIXES[(seed + i) % GENERIC_FIXES.length]);
+    }
+
+    while (result.length < 3) {
+      const n = result.length + 1;
+      result.push('Related answer ' + n + ': mentions the topic but misses the evidence condition.');
+    }
+
+    source.misconceptions = result.slice(0, 3);
+    source.choiceCount = 4;
+    source.distractorCount = 3;
+    return original.length !== 3 || original.join('||') !== source.misconceptions.join('||');
   }
 
   function patchSource(sessionNo, source){
     if (!source) return false;
     let changed = false;
-    const replacements = balancedSet(sessionNo);
 
-    // Critical: correct answer must not have a repeated visible signature.
     const newInference = pickCorrect(sessionNo, source);
     if (!source.inference || isBadCue(source.inference) || words(source.inference) > 12) {
       source.originalInference = source.originalInference || source.inference;
@@ -108,33 +143,10 @@
       changed = true;
     }
 
-    if (Array.isArray(source.misconceptions)) {
-      source.misconceptions = source.misconceptions.map((item, index) => {
-        let out = clean(item);
-        if (isBadCue(out) || words(out) < 5 || words(out) > 13) {
-          changed = true;
-          out = replacements[index % replacements.length];
-        }
-        return out;
-      });
-    } else {
-      source.misconceptions = replacements.slice();
-      changed = true;
-    }
+    if (normalizeMisconceptions(sessionNo, source)) changed = true;
 
-    source.misconceptions = source.misconceptions.map((item, index) => {
-      let out = clean(item);
-      if (isBadCue(out) || words(out) < 5 || words(out) > 13) {
-        changed = true;
-        out = replacements[index % replacements.length];
-      }
-      return out;
-    });
-
-    if (changed) {
-      source.choiceBiasFixed = VERSION;
-      source.choiceQuality = 'neutral-short-options-no-correct-signature';
-    }
+    source.choiceBiasFixed = VERSION;
+    source.choiceQuality = 'native-four-options-neutral-short-no-correct-signature';
     return changed;
   }
 
@@ -142,18 +154,24 @@
     const bank = window[BANK_NAME];
     if (!bank || !bank.sessions || bank.__choiceBiasFix === VERSION) return false;
     let changed = 0;
+    let sources = 0;
     Object.keys(bank.sessions).forEach(key => {
       const sessionNo = Number(key);
-      const sources = bank.sessions[key] && bank.sessions[key].sources;
-      if (!Array.isArray(sources)) return;
-      sources.forEach(source => { if (patchSource(sessionNo, source)) changed += 1; });
+      const list = bank.sessions[key] && bank.sessions[key].sources;
+      if (!Array.isArray(list)) return;
+      list.forEach(source => {
+        sources += 1;
+        if (patchSource(sessionNo, source)) changed += 1;
+      });
     });
     try {
       bank.__choiceBiasFix = VERSION;
       bank.choiceBiasFixSummary = {
         version: VERSION,
         changedSources: changed,
-        rule: 'No visible answer should be guessable by repeated correct-answer wording.'
+        checkedSources: sources,
+        choiceRule: '1 correct inference + exactly 3 unique misconceptions = 4 native options',
+        domRepairRequired: false
       };
     } catch(_) {}
     return changed;
@@ -161,7 +179,7 @@
 
   function start(){
     patch();
-    window.EAPGoldChoiceBiasFix = { version: VERSION, patch };
+    window.EAPGoldChoiceBiasFix = { version: VERSION, patch: patch };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true });
