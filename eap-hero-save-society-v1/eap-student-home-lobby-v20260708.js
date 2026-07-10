@@ -1,23 +1,21 @@
 /* =========================================================
    EAP Hero Student Home Lobby v20260708
-   V3 SINGLE-CHOICE HOME + PROFILE SWITCH
+   V4 SINGLE-CTA ROBUST BOSS START
    - Home shows one clear learner action: Start / Continue.
-   - A small Profile / Switch learner action is available for new devices,
-     shared lab machines, or wrong studentId.
-   - Map / Report stay available after entering the app flow,
-     but are not duplicated on the Home body.
-   - The full 15-week Learning Path stays in Map, not on Home.
+   - Start / Continue now opens Boss Gate routes through EAPBossFourSkillV4
+     if EAPHero.startGateBoss has not finished patching yet.
+   - Also falls back to EAPSkillHubRouteLock.runCurrentRoute when available.
    - Existing profile and progress are preserved: studentId + section +
      Cloud Resume still come from the same keys and Sheet API.
-   - UI-only. Does not change profile keys, Sheet sync, scores, pass/fail,
-     evidence, teacher review, or unlock logic.
+   - UI/routing only. Does not change profile keys, Sheet sync, scores,
+     pass/fail, evidence, teacher review, or unlock logic.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260709-EAP-STUDENT-HOME-LOBBY-V3-SINGLE-CTA-PROFILE-SWITCH';
+  const VERSION = 'v20260710-EAP-STUDENT-HOME-LOBBY-V4-ROBUST-BOSS-START';
   const LOBBY_ID = 'eap-student-compact-lobby';
-  const STYLE_ID = 'eap-student-home-lobby-style-v3';
+  const STYLE_ID = 'eap-student-home-lobby-style-v4';
   const ROADMAP_ID = 'eap-student-15week-roadmap';
   const PROFILE_KEY = 'EAP_HERO_PLAYER_PROFILE_V1';
   const STATE_KEY = 'EAP_HERO_PROGRESS_V3';
@@ -31,6 +29,7 @@
   function routeId(v){ const raw = clean(v).toUpperCase(); if (!raw) return ''; return /^\d+$/.test(raw) ? 'S' + Number(raw) : raw; }
   function byRouteId(id){ const data = pack(); const rid = routeId(id); return data && rid ? data.routes.find(r => routeId(r.routeId) === rid) || null : null; }
   function sessionNo(route){ const m = clean(route && route.routeId).match(/^S(\d+)$/i); return m ? Number(m[1]) : 0; }
+  function gateNo(route){ const m = clean(route && route.routeId || route).match(/^B(\d+)$/i); return m ? Number(m[1]) : 0; }
 
   function isHomeVisible(){
     const bodyText = document.body ? clean(document.body.innerText) : '';
@@ -72,17 +71,7 @@
     style.textContent = `
       body.eap-home-lobby-mode #${ROADMAP_ID}{display:none!important}
       [${HIDDEN_ATTR}="1"]{display:none!important}
-      #${LOBBY_ID}{
-        margin:14px auto 16px;
-        max-width:820px;
-        border-radius:24px;
-        padding:20px;
-        background:linear-gradient(135deg,#102033,#17375e);
-        color:#fff;
-        border:1px solid rgba(153,246,228,.36);
-        box-shadow:0 16px 40px rgba(8,25,45,.26);
-        font-family:Arial,'Noto Sans Thai',sans-serif;
-      }
+      #${LOBBY_ID}{margin:14px auto 16px;max-width:820px;border-radius:24px;padding:20px;background:linear-gradient(135deg,#102033,#17375e);color:#fff;border:1px solid rgba(153,246,228,.36);box-shadow:0 16px 40px rgba(8,25,45,.26);font-family:Arial,'Noto Sans Thai',sans-serif}
       #${LOBBY_ID} *{box-sizing:border-box}
       #${LOBBY_ID} .lob-grid{display:grid;grid-template-columns:1fr;gap:14px;align-items:stretch;text-align:center}
       #${LOBBY_ID} h2{margin:0 0 6px;font-size:clamp(26px,4vw,42px);line-height:1.08;color:#fff;font-weight:950}
@@ -97,12 +86,7 @@
       #${LOBBY_ID} .secondary{background:rgba(255,255,255,.12);color:#dffcf8;border:1px solid rgba(255,255,255,.22);font-size:14px;min-height:44px;padding:10px 14px;border-radius:14px}
       #${LOBBY_ID} .home-hint{font-size:12px;opacity:.9;margin-top:8px;color:#bdeee8}
       #${LOBBY_ID} .profile-hint{font-size:12px;color:#bdeee8;opacity:.9;margin-top:8px}
-      @media(max-width:760px){
-        #${LOBBY_ID}{margin:10px 8px 14px;padding:15px;border-radius:20px;max-width:calc(100vw - 16px)}
-        #${LOBBY_ID} .lob-actions{grid-template-columns:1fr}
-        #${LOBBY_ID} button{width:100%;font-size:17px;min-height:54px}
-        #${LOBBY_ID} .secondary{font-size:14px;min-height:44px}
-      }
+      @media(max-width:760px){#${LOBBY_ID}{margin:10px 8px 14px;padding:15px;border-radius:20px;max-width:calc(100vw - 16px)}#${LOBBY_ID} .lob-actions{grid-template-columns:1fr}#${LOBBY_ID} button{width:100%;font-size:17px;min-height:54px}#${LOBBY_ID} .secondary{font-size:14px;min-height:44px}}
     `;
     document.head.appendChild(style);
   }
@@ -115,35 +99,23 @@
 
   function unhideOwned(){
     Array.from(document.querySelectorAll('[' + HIDDEN_ATTR + '="1"]')).forEach(node => {
-      if (!isHomeVisible()) {
-        node.removeAttribute(HIDDEN_ATTR);
-        node.removeAttribute('aria-hidden');
-      }
+      if (!isHomeVisible()) { node.removeAttribute(HIDDEN_ATTR); node.removeAttribute('aria-hidden'); }
     });
   }
 
   function hideDuplicateActions(){
     if (!isHomeVisible()) { unhideOwned(); return; }
-
     const actionText = /^(?:🧭\s*)?map$|^(?:▶\s*)?continue$|^start\s*\/\s*continue$|^profile$|^my\s*learning\s*report$|^report$/i;
     Array.from(document.querySelectorAll('button,a,[role="button"]')).forEach(btn => {
       if (btn.closest('#' + LOBBY_ID)) return;
       const t = clean(btn.textContent).replace(/^[📘👤🧭▶]+\s*/,'');
       if (actionText.test(t)) hideNode(btn);
     });
-
-    /* Hide the old Player Status card on Home; the compact lobby already shows
-       current route + profile identity, so students see only one action. */
     Array.from(document.querySelectorAll('section,aside,div')).forEach(node => {
       if (node.id === LOBBY_ID || node.closest('#' + LOBBY_ID)) return;
       const t = clean(node.textContent);
-      if (/^Player Status\s+/.test(t) && /XP/.test(t) && /Progress/.test(t)) {
-        const panel = node.closest('section,aside,.panel,.card,div') || node;
-        hideNode(panel);
-      }
+      if (/^Player Status\s+/.test(t) && /XP/.test(t) && /Progress/.test(t)) hideNode(node.closest('section,aside,.panel,.card,div') || node);
     });
-
-    /* Hide the old large intro card only after the compact lobby exists. */
     const title = Array.from(document.querySelectorAll('h1,h2')).find(el => /EAP Hero:\s*Save the Society/i.test(clean(el.textContent)) && !el.closest('#' + LOBBY_ID));
     const oldIntro = title && title.closest('section,main,.panel,.card,div');
     if (oldIntro) hideNode(oldIntro);
@@ -156,17 +128,32 @@
     return { app, anchor: card || title || app.firstElementChild };
   }
 
-  function openCurrent(){
-    const route = currentRoute();
+  function setActive(route){
     try {
       localStorage.setItem('EAP_HERO_ACTIVE_ROUTE', route.routeId);
       localStorage.setItem('EAP_HERO_CURRENT_ROUTE', route.routeId);
       const n = sessionNo(route);
       if (n) localStorage.setItem('EAP_HERO_CURRENT_SESSION', String(n));
     } catch(error) {}
-    if (route.routeType === 'boss_gate' && window.EAPHero && typeof window.EAPHero.startGateBoss === 'function') return window.EAPHero.startGateBoss(route.routeId);
+  }
+
+  function openBoss(route){
+    const gate = gateNo(route);
+    if (!gate) return false;
+    if (window.EAPBossFourSkillV4 && typeof window.EAPBossFourSkillV4.start === 'function') { window.EAPBossFourSkillV4.start(gate); return true; }
+    if (window.EAPHero && typeof window.EAPHero.startGateBoss === 'function') { window.EAPHero.startGateBoss(route.routeId); return true; }
+    setTimeout(function(){ openBoss(route); }, 250);
+    return true;
+  }
+
+  function openCurrent(){
+    const route = currentRoute();
+    setActive(route);
+    if (route.routeType === 'boss_gate') return openBoss(route);
+    if (window.EAPSkillHubRouteLock && typeof window.EAPSkillHubRouteLock.runCurrentRoute === 'function') return window.EAPSkillHubRouteLock.runCurrentRoute();
     if (window.EAPHero && typeof window.EAPHero.skillHub === 'function') return window.EAPHero.skillHub(sessionNo(route) || 1);
     if (window.EAPHero && typeof window.EAPHero.map === 'function') return window.EAPHero.map();
+    setTimeout(openCurrent, 250);
   }
 
   function openProfile(){
@@ -179,26 +166,7 @@
     const route = currentRoute();
     const p = profile();
     const idText = p.studentId ? 'ID ' + p.studentId + ' · Section ' + p.section : 'กรอก Profile ก่อนเริ่มเรียน';
-    return `
-      <div class="lob-grid">
-        <div>
-          <div class="lob-kicker">Student Lobby</div>
-          <h2>EAP Hero: Save the Society</h2>
-          <p>มีทางเดียวสำหรับนักศึกษา: กด Start / Continue แล้วระบบจะพาไปด่านล่าสุดที่ควรทำ</p>
-          <div class="lob-actions">
-            <button type="button" class="primary" data-eap-lobby-action="continue">▶ Start / Continue</button>
-            <button type="button" class="secondary" data-eap-lobby-action="profile">👤 เปลี่ยนผู้เรียน / ย้ายเครื่อง</button>
-          </div>
-          <div class="home-hint">Map / Report ใช้หลังเข้าเรียนแล้ว เพื่อลดความสับสนหน้าแรก</div>
-        </div>
-        <div class="lob-now">
-          <div class="lob-kicker">ตอนนี้</div>
-          <div class="lob-title">${esc(currentLabel(route))}</div>
-          <div class="lob-meta">${esc(route.title || '')}</div>
-          <div class="lob-meta">${esc(p.studentName || 'Student')} · ${esc(idText)}</div>
-          <div class="profile-hint">ย้ายเครื่อง/ใช้เครื่อง Lab: กด “เปลี่ยนผู้เรียน” แล้วกรอก Student ID + Section เดิม ระบบจะดึง progress จาก Sheet</div>
-        </div>
-      </div>`;
+    return `<div class="lob-grid"><div><div class="lob-kicker">Student Lobby</div><h2>EAP Hero: Save the Society</h2><p>มีทางเดียวสำหรับนักศึกษา: กด Start / Continue แล้วระบบจะพาไปด่านล่าสุดที่ควรทำ</p><div class="lob-actions"><button type="button" class="primary" data-eap-lobby-action="continue">▶ Start / Continue</button><button type="button" class="secondary" data-eap-lobby-action="profile">👤 เปลี่ยนผู้เรียน / ย้ายเครื่อง</button></div><div class="home-hint">Map / Report ใช้หลังเข้าเรียนแล้ว เพื่อลดความสับสนหน้าแรก</div></div><div class="lob-now"><div class="lob-kicker">ตอนนี้</div><div class="lob-title">${esc(currentLabel(route))}</div><div class="lob-meta">${esc(route.title || '')}</div><div class="lob-meta">${esc(p.studentName || 'Student')} · ${esc(idText)}</div><div class="profile-hint">ย้ายเครื่อง/ใช้เครื่อง Lab: กด “เปลี่ยนผู้เรียน” แล้วกรอก Student ID + Section เดิม ระบบจะดึง progress จาก Sheet</div></div></div>`;
   }
 
   function insert(){
@@ -219,10 +187,7 @@
     const route = currentRoute();
     const p = profile();
     const key = VERSION + '|' + (route && route.routeId || '') + '|' + p.studentId + '|' + p.section;
-    if (panel.dataset.key !== key || !panel.innerHTML) {
-      panel.dataset.key = key;
-      panel.innerHTML = render();
-    }
+    if (panel.dataset.key !== key || !panel.innerHTML) { panel.dataset.key = key; panel.innerHTML = render(); }
     hideDuplicateActions();
   }
 
@@ -230,6 +195,8 @@
     const btn = e.target && e.target.closest && e.target.closest('[data-eap-lobby-action]');
     if (!btn) return;
     e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
     const action = btn.getAttribute('data-eap-lobby-action');
     if (action === 'profile') return openProfile();
     openCurrent();
@@ -245,8 +212,7 @@
     setInterval(insert, 1400);
   }
 
-  window.EAPStudentHomeLobby = { version: VERSION, singleCTA: true, profileSwitch: true, refresh: insert, profile, currentRoute };
-
+  window.EAPStudentHomeLobby = { version: VERSION, singleCTA: true, profileSwitch: true, refresh: insert, profile, currentRoute, openCurrent };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true });
   else start();
 })();
