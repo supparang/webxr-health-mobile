@@ -6,7 +6,7 @@
   'use strict';
 
   const CONTENT = window.CSAI2601_UXQ_CANONICAL_CONTENT_V1;
-  const VERSION = 'clean-v37-logo-static-20260709';
+  const VERSION = 'clean-v38-logo-early-20260709';
   const FALLBACK_NODES = [
     'W1','W2','W3','B1','W4','W5','W6','W7','B2','W8','W9','W10','W11','B3','W12','W13','W14','B4','W15'
   ].map((id, index) => ({ id, order:index + 1, type:id.startsWith('B') ? 'boss' : 'week', title:id, missionTitle:id, focus:'CSAI2601 canonical mission', artifact:'Studio Artifact' }));
