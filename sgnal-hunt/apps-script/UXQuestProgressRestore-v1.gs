@@ -1,0 +1,146 @@
+/* =========================================================
+ * UX Quest • Cross-device Progress Restore v1
+ * Add this file to the SAME Apps Script project that owns UXQuest_Attempts.
+ * Route from the project's existing doGet(e):
+ *   if (String(e.parameter.action||'') === 'uxq_student_progress') return UXQ_getStudentProgress_(e);
+ * Supports JSON and JSONP for GitHub Pages clients.
+ * ========================================================= */
+
+function UXQ_getStudentProgress_(e) {
+  try {
+    const p = (e && e.parameter) || {};
+    const studentId = UXQ_restoreText_(p.studentId, 80);
+    const section = UXQ_restoreText_(p.section, 80);
+    const courseId = UXQ_restoreText_(p.courseId || 'UXQ-ACT1-2026', 120);
+    const callback = UXQ_restoreCallback_(p.callback);
+
+    if (!studentId || !section || !courseId) {
+      return UXQ_restoreOutput_({ ok:false, error:'missing_identity' }, callback);
+    }
+
+    const sheet = UXQ_getAttemptsSheet_();
+    if (!sheet || sheet.getLastRow() < 2) {
+      return UXQ_restoreOutput_(UXQ_restoreEmpty_(studentId, section, courseId), callback);
+    }
+
+    const values = sheet.getDataRange().getDisplayValues();
+    const headers = values.shift().map(UXQ_restoreKey_);
+    const col = {};
+    headers.forEach(function(key, index) { if (key) col[key] = index; });
+
+    const required = ['studentid','section','courseid','missionid','eventtype'];
+    for (let i = 0; i < required.length; i += 1) {
+      if (col[required[i]] === undefined) {
+        return UXQ_restoreOutput_({ ok:false, error:'missing_sheet_column', column:required[i] }, callback);
+      }
+    }
+
+    const missions = {};
+    let matchingRows = 0;
+    values.forEach(function(row) {
+      if (UXQ_restoreText_(row[col.studentid], 80) !== studentId) return;
+      if (UXQ_restoreText_(row[col.section], 80) !== section) return;
+      if (UXQ_restoreText_(row[col.courseid], 120) !== courseId) return;
+      if (String(row[col.eventtype] || '').trim() !== 'mission_completed') return;
+
+      const id = String(row[col.missionid] || '').trim().toLowerCase();
+      if (!/^(?:w(?:[1-9]|1[0-5])|b[1-4])$/.test(id)) return;
+      matchingRows += 1;
+
+      const score = UXQ_restoreNum_(row[col.score]);
+      const stars = UXQ_restoreNum_(row[col.stars]);
+      const accuracy = UXQ_restoreNum_(row[col.accuracy]);
+      const correct = UXQ_restoreNum_(row[col.correct]);
+      const total = UXQ_restoreNum_(row[col.total]);
+      const hints = UXQ_restoreNum_(row[col.hints]);
+      const durationSec = UXQ_restoreNum_(row[col.durationsec]);
+      const passed = UXQ_restoreBool_(row[col.passed]) || stars >= 2;
+      const completedAt = UXQ_restoreText_(row[col.completedat] || row[col.receivedat], 80);
+      const badge = UXQ_restoreText_(row[col.badge], 120);
+
+      const previous = missions[id] || {
+        id:id, attempts:0, completed:false, bestScore:0, bestStars:0,
+        bestAccuracy:0, bestCorrect:0, total:0, hints:0, durationSec:0,
+        lastCompletedAt:'', badge:''
+      };
+      previous.attempts += 1;
+      previous.completed = previous.completed || passed;
+      previous.bestScore = Math.max(previous.bestScore, score);
+      previous.bestStars = Math.max(previous.bestStars, stars);
+      previous.bestAccuracy = Math.max(previous.bestAccuracy, accuracy);
+      previous.bestCorrect = Math.max(previous.bestCorrect, correct);
+      previous.total = Math.max(previous.total, total);
+      if (!previous.lastCompletedAt || completedAt >= previous.lastCompletedAt) {
+        previous.lastCompletedAt = completedAt;
+        previous.hints = hints;
+        previous.durationSec = durationSec;
+        previous.badge = badge;
+      }
+      missions[id] = previous;
+    });
+
+    const order = ['w1','w2','w3','b1','w4','w5','w6','w7','b2','w8','w9','w10','w11','b3','w12','w13','w14','b4','w15'];
+    const completedNodes = order.filter(function(id) {
+      return missions[id] && (missions[id].completed || Number(missions[id].bestStars || 0) >= 2);
+    }).length;
+    const nextMission = order.find(function(id) {
+      return !missions[id] || !(missions[id].completed || Number(missions[id].bestStars || 0) >= 2);
+    }) || '';
+
+    return UXQ_restoreOutput_({
+      ok:true,
+      found:matchingRows > 0,
+      studentId:studentId,
+      section:section,
+      courseId:courseId,
+      matchingRows:matchingRows,
+      completedNodes:completedNodes,
+      nextMission:nextMission,
+      missions:missions,
+      restoredAt:new Date().toISOString()
+    }, callback);
+  } catch (error) {
+    return UXQ_restoreOutput_({ ok:false, error:String(error && error.message ? error.message : error) }, '');
+  }
+}
+
+function UXQ_restoreEmpty_(studentId, section, courseId) {
+  return {
+    ok:true, found:false, studentId:studentId, section:section, courseId:courseId,
+    matchingRows:0, completedNodes:0, nextMission:'w1', missions:{}, restoredAt:new Date().toISOString()
+  };
+}
+
+function UXQ_restoreKey_(value) {
+  return String(value == null ? '' : value).trim().toLowerCase().replace(/[^a-z0-9ก-๙]+/g, '');
+}
+
+function UXQ_restoreText_(value, max) {
+  let text = String(value == null ? '' : value).trim();
+  if (max && text.length > max) text = text.slice(0, max);
+  return text;
+}
+
+function UXQ_restoreNum_(value) {
+  const number = Number(String(value == null ? '' : value).replace(/,/g, '').trim());
+  return Number.isFinite(number) ? number : 0;
+}
+
+function UXQ_restoreBool_(value) {
+  const text = String(value == null ? '' : value).trim().toLowerCase();
+  return value === true || value === 1 || text === 'true' || text === '1' || text === 'yes' || text === 'passed';
+}
+
+function UXQ_restoreCallback_(value) {
+  const callback = String(value || '').trim();
+  return /^[A-Za-z_$][0-9A-Za-z_$\.]{0,120}$/.test(callback) ? callback : '';
+}
+
+function UXQ_restoreOutput_(value, callback) {
+  const json = JSON.stringify(value);
+  if (callback) {
+    return ContentService.createTextOutput(callback + '(' + json + ');')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+}
