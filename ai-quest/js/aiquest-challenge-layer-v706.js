@@ -1,12 +1,13 @@
-/* CSAI2102 AI Quest — Challenge Replay Layer v7.1.2.3
-   Student Anti-Guess Polish v712.3
+/* CSAI2102 AI Quest — Challenge Replay Layer v7.1.2.4
+   Student Anti-Guess Polish v712.4
    - keeps v711 flow / reflection / Sheet schema intact
    - keeps option length balance
-   - S11 Fair Metric Deck: classification-only, no Regression leakage, clear FP/FN decision logic
+   - S11 Fair Metric Deck v2: classification-only, no Regression leakage, clearer FP/FN cues
+   - adds focus-specific S11 distractors to avoid repeated three-choice pattern
 */
 (()=>{'use strict';
-  if(window.AIQuestChallengeLayerV7123)return;
-  const VERSION='v7.1.2.3';
+  if(window.AIQuestChallengeLayerV7124)return;
+  const VERSION='v7.1.2.4';
   const riskLevels=['LOW','MEDIUM','HIGH','CRITICAL'];
   const comboTitles=['Insight Spark','Logic Chain','Agent Flow','Reasoning Surge','Boss Break','Perfect Deck'];
   const ranks=[['Rookie Analyst',0],['Junior AI Inspector',60],['Agent Designer',70],['AI Quest Specialist',85],['AI Master',95]];
@@ -79,22 +80,32 @@
   };
   const s11Cycle=['Precision','Recall','Confusion matrix','Threshold','False positive','False negative','Class imbalance','F1-score'];
   const s11Prompt={
-    Precision:'ระบบต้องลด False Positive: เลือก metric/การตรวจใดให้เหมาะที่สุด',
-    Recall:'ระบบต้องลด False Negative: เลือก metric/การตรวจใดให้เหมาะที่สุด',
-    'Confusion matrix':'ต้องอธิบาย FP/FN/TP/TN ให้เห็น error แยกประเภท ควรใช้อะไร',
-    Threshold:'ต้องปรับเกณฑ์ตัดสินก่อน deploy โดยดูผลของ FP/FN ควรทำอย่างไร',
-    'False positive':'ถ้า FP ทำให้ระบบแจ้งเตือนผิดหรือวิ่งรถเปล่า ควรเน้นอะไร',
-    'False negative':'ถ้า FN ทำให้พลาดเคสสำคัญหรือผู้ใช้ถูกละเลย ควรเน้นอะไร',
-    'Class imbalance':'ถ้าข้อมูลไม่สมดุล Accuracy สูงอาจหลอกได้ ควรตรวจอะไร',
-    'F1-score':'เมื่อ Precision และ Recall สำคัญใกล้กัน ควรเลือก metric ใด'
+    Precision:'โจทย์นี้กลัวทำนายบวกผิด / แจ้งผิด / ส่งรถไปเก้อ → ลด FP',
+    Recall:'โจทย์นี้กลัวพลาดเคสจริง / ผู้ใช้หลุดการดูแล → ลด FN',
+    'Confusion matrix':'โจทย์นี้ต้องเห็น TP FP FN TN แยกประเภท ไม่ใช่ดูเลขรวม',
+    Threshold:'โจทย์นี้ต้องปรับเส้นตัดสิน โดยดูว่า FP หรือ FN กระทบใคร',
+    'False positive':'FP คือระบบบอกว่าเป็นเคสเป้าหมาย ทั้งที่จริงไม่ใช่',
+    'False negative':'FN คือระบบบอกว่าไม่ใช่เคสเป้าหมาย ทั้งที่จริงใช่',
+    'Class imbalance':'ข้อมูลส่วนใหญ่กลบเคสส่วนน้อย ทำให้ Accuracy หลอกได้',
+    'F1-score':'Precision และ Recall สำคัญใกล้กัน ต้องบาลานซ์สองด้าน'
+  };
+  const s11Wrong={
+    Precision:['เลือก Recall เพราะอยากจับให้ครบ แม้โจทย์กลัวแจ้งผิด','ใช้ Accuracy รวมเพราะดูง่าย แม้ class ไม่สมดุล','ลด threshold ลงมากจน FP เพิ่มโดยไม่ดูต้นทุน','ใช้ F1-score ทันทีโดยไม่ถามว่า FP เสียหายกว่าไหม','ดูเฉพาะจำนวนทายถูก ไม่ดูว่าทายบวกผิดกี่ครั้ง'],
+    Recall:['เลือก Precision เพราะอยากให้แม่น แม้โจทย์กลัวพลาดเคสจริง','ใช้ Accuracy รวมทั้งที่เคสสำคัญมีจำนวนน้อย','เพิ่ม threshold สูงจน FN เพิ่มโดยไม่ตรวจผลกระทบ','ใช้ F1-score ทันทีโดยไม่ถามว่า FN เสียหายกว่าไหม','ดูเฉพาะเคสที่ระบบมั่นใจสูงแล้วปล่อยเคสก้ำกึ่ง'],
+    'Confusion matrix':['รายงาน Accuracy อย่างเดียวแทนการแยก FP/FN','ใช้ F1-score อย่างเดียวโดยไม่ดู TP FP FN TN','ดูเฉพาะ confidence เฉลี่ยของโมเดล','สรุปว่าโมเดลดีเพราะคะแนนรวมสูง','ตรวจเฉพาะ error ของกลุ่มข้อมูลใหญ่'],
+    Threshold:['ใช้ threshold default ของ library ต่อไป','ปรับ threshold ให้ accuracy สูงสุดอย่างเดียว','ปรับ threshold จาก demo รอบเดียว','ใช้ threshold เดียวกับทุก risk level','ไม่ดูว่าการเลื่อน threshold เพิ่ม FP หรือ FN'],
+    'False positive':['เลือก Recall สูงสุดแม้ทำให้แจ้งผิดเพิ่ม','ลด threshold เพื่อจับให้ครบโดยไม่ดูรถวิ่งเก้อ','มอง FP เป็น error เล็กน้อยทุกเคส','ดูแต่ FN แล้วไม่ประเมินต้นทุนของ FP','ให้ระบบ action ก่อนแล้วค่อยตรวจภายหลัง'],
+    'False negative':['เลือก Precision สูงสุดแม้ทำให้พลาดเคสจริง','เพิ่ม threshold เพื่อให้คำตอบแม่นแต่หลุดเคสสำคัญ','มอง FN เป็น error เล็กน้อยทุกเคส','ดูแต่ FP แล้วไม่ประเมินผู้ที่หลุดการดูแล','ตรวจเฉพาะเคสที่ระบบทำนายว่าเป็นบวก'],
+    'Class imbalance':['ใช้ Accuracy เพราะคะแนนรวมสูงอยู่แล้ว','ดูเฉพาะ class ส่วนใหญ่ที่มีข้อมูลเยอะ','ไม่แยกผลลัพธ์ตามกลุ่ม minority','ใช้ค่าเฉลี่ยรวมแทน confusion matrix','สรุปว่าโมเดลดีเพราะทาย class หลักถูก'],
+    'F1-score':['ใช้ Precision อย่างเดียวแม้ Recall สำคัญเท่ากัน','ใช้ Recall อย่างเดียวแม้ Precision สำคัญเท่ากัน','ใช้ Accuracy เพราะเข้าใจง่ายกว่า','เลือก metric ที่สูงสุดใน dashboard โดยไม่ดูงาน','ไม่ดู FP/FN เพราะมี F1-score แล้ว']
   };
   const suffixes=['พร้อมหลักฐานในเคส','โดยเทียบกับ impact','และบันทึกเหตุผล','ก่อนปล่อย action','ตามระดับ risk','พร้อม human review'];
   const idOf=x=>String(x||'s1').toLowerCase().replace('m','s').replace('boss','b');
   const hash=s=>{let h=2166136261;String(s).split('').forEach(ch=>{h^=ch.charCodeAt(0);h=Math.imul(h,16777619)});return h>>>0;};
   const read=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k)||'null');return v==null?d:v}catch(e){return d}};
   const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
-  const keyRecent=sid=>'CSAI2102_RECENT_FINGERPRINTS_V7123_'+sid;
-  const keyWeak=sid=>'CSAI2102_WEAK_CONCEPTS_V7123_'+sid;
+  const keyRecent=sid=>'CSAI2102_RECENT_FINGERPRINTS_V7124_'+sid;
+  const keyWeak=sid=>'CSAI2102_WEAK_CONCEPTS_V7124_'+sid;
   function recent(sid){return read(keyRecent(sid),[]);}
   function rememberDeck(sid,cards){const now=(cards||[]).map(c=>c.fingerprint||c.id),hist=recent(sid).concat(now).slice(-60);write(keyRecent(sid),hist);}
   function weakConcepts(id){const data=read(keyWeak(idOf(id)),{miss:{}});return Object.entries(data.miss||{}).sort((a,b)=>b[1]-a[1]).slice(0,4).map(x=>x[0]);}
@@ -105,24 +116,24 @@
   const len=s=>clean(s).length;
   function pick(pool,key,used,avoid){let start=hash(key)%pool.length;for(let k=0;k<pool.length;k++){let v=clean(pool[(start+k)%pool.length]);if(v&&v!==avoid&&!used.has(v)){used.add(v);return v;}}return clean(pool[start]||'ตรวจหลักฐานในเคส');}
   function makeCorrect(sid,card,i,trap,riskLevel,used){const pool=(correctBank[sid]||correctBank.s1).concat(['ตรวจ '+card.concept+' '+suffixes[i%suffixes.length],'ใช้ '+card.concept+' โดยอิง evidence','แยก '+card.concept+' จากกับดัก '+trap,'ประเมิน '+card.concept+' ตาม '+riskLevel+' risk']);let v=pick(pool,sid+'|ok|'+card.fingerprint+'|'+i,used,'');if(len(v)<28)v+=' '+suffixes[(i+2)%suffixes.length];return clean(v);}
-  function makeDistractors(sid,card,i,trap,correct,usedWrong){let near=['ใช้ '+card.concept+' ถ้า confidence สูงพอ','เชื่อผล '+card.policy+' ก่อนแล้วค่อย audit','ตรวจ '+trap+' เฉพาะเมื่อมี complaint','ถือว่า demo ผ่านจึงใช้ได้','บันทึกเหตุผลแบบสั้นโดยไม่แสดง evidence','ให้ระบบ action ก่อนแล้วค่อย review'];
-    if(sid==='s11') near=['เลือก metric ที่คะแนนรวมสูงสุดใน dashboard','ใช้ threshold เดิมเพราะเคยผ่าน validation','รายงาน accuracy ถ้าผู้บริหารต้องการตัวเลขเดียว','ปรับ precision/recall โดยไม่ดูผู้ได้รับผลกระทบ','รวม FP/FN เป็น error เดียวไม่แยก impact','ดูเฉพาะ error ของกลุ่มตัวอย่างใหญ่'];
+  function s11Correct(focus){return ({Precision:'เลือก Precision เมื่อต้องลด False Positive',Recall:'เลือก Recall เมื่อต้องลด False Negative','Confusion matrix':'ใช้ Confusion matrix เพื่อแยก TP/FP/FN/TN',Threshold:'ปรับ Threshold โดยดูผลกระทบของ FP/FN','False positive':'ลด FP ด้วย Precision และตรวจ threshold','False negative':'ลด FN ด้วย Recall และตรวจ threshold','Class imbalance':'ไม่ใช้ Accuracy เดียวเมื่อข้อมูลไม่สมดุล','F1-score':'ใช้ F1-score เมื่อ Precision/Recall สำคัญใกล้กัน'})[focus]||'เลือก metric ตาม FP/FN impact';}
+  function makeDistractors(sid,card,i,trap,correct,usedWrong){if(sid==='s11'){const focus=card.concept,base=(s11Wrong[focus]||decoyBank.s11).concat(decoyBank.s11);const out=[];let start=hash('s11wrong|'+focus+'|'+card.context+'|'+i)%base.length;for(let k=0;k<base.length&&out.length<3;k++){let v=clean(base[(start+k)%base.length]);if(v&&v!==correct&&!out.includes(v)&&!usedWrong.has(v)){out.push(v);usedWrong.add(v);}}for(let k=0;out.length<3&&k<base.length;k++){let v=clean(base[k]);if(v&&v!==correct&&!out.includes(v))out.push(v);}return out.slice(0,3);}let near=['ใช้ '+card.concept+' ถ้า confidence สูงพอ','เชื่อผล '+card.policy+' ก่อนแล้วค่อย audit','ตรวจ '+trap+' เฉพาะเมื่อมี complaint','ถือว่า demo ผ่านจึงใช้ได้','บันทึกเหตุผลแบบสั้นโดยไม่แสดง evidence','ให้ระบบ action ก่อนแล้วค่อย review'];
     const pool=(decoyBank[sid]||[]).concat(near).concat(decoyBank.all);const out=[];let start=hash('wrong|'+sid+'|'+card.fingerprint+'|'+i)%pool.length;for(let k=0;k<pool.length&&out.length<3;k++){let v=clean(pool[(start+k)%pool.length]);if(v&&v!==correct&&!out.includes(v)&&!usedWrong.has(v)){out.push(v);usedWrong.add(v);}}
     for(let k=0;out.length<3&&k<pool.length;k++){let v=clean(pool[k]);if(v&&v!==correct&&!out.includes(v))out.push(v);}return out.slice(0,3);}
   function balance(correct,distractors,card,i,riskLevel){let c=clean(correct),ds=distractors.map(clean);const dLens=ds.map(len),minD=Math.min.apply(null,dLens),maxD=Math.max.apply(null,dLens);if(len(c)+8<minD)c=clean(c+' '+suffixes[(i+3)%suffixes.length]);if(len(c)+8<minD)c=clean(c+' ในเคสนี้');if(len(c)>maxD+18)c=c.replace(' พร้อมหลักฐานในเคส','').replace(' โดยเทียบกับ impact','');
     ds=ds.map((d,j)=>{if(len(d)>len(c)+28)d=d.replace('โดยไม่แสดง evidence','').replace('ก่อนแล้วค่อย audit','ภายหลัง').replace('เฉพาะเมื่อมี complaint','ภายหลัง');if(len(d)<len(c)-20)d=clean(d+' ตามเงื่อนไขเดิม');return clean(d);});return {correct:c,distractors:ds};}
-  function s11Correct(focus){return ({Precision:'เลือก Precision เมื่อต้องลด False Positive',Recall:'เลือก Recall เมื่อต้องลด False Negative','Confusion matrix':'ใช้ Confusion matrix เพื่อแยก TP/FP/FN/TN',Threshold:'ปรับ Threshold โดยดูผลกระทบของ FP/FN','False positive':'ลด FP ด้วย Precision และตรวจ threshold','False negative':'ลด FN ด้วย Recall และตรวจ threshold','Class imbalance':'ไม่ใช้ Accuracy เดียวเมื่อข้อมูลไม่สมดุล','F1-score':'ใช้ F1-score เมื่อ Precision/Recall สำคัญใกล้กัน'})[focus]||'เลือก metric ตาม FP/FN impact';}
-  function enhance(raw,id,round){const sid=idOf(id),weak=weakConcepts(sid),usedCorrect=new Set(),usedWrong=new Set();const out=raw.map((orig,i)=>{let card={...orig};let trap=(traps[sid]||traps.s1)[(i+(round||0))%(traps[sid]||traps.s1).length],riskLevel=risk(i,card);if(sid==='s11'){const focus=s11Cycle[(i+(round||0))%s11Cycle.length];card.concept=focus;card.prompt=(card.prompt||'')+'\nโจทย์ชี้เป้า: '+s11Prompt[focus];card.fingerprint='s11|'+focus+'|'+card.context+'|'+card.policy+'|v7123';}
+  function enhance(raw,id,round){const sid=idOf(id),weak=weakConcepts(sid),usedCorrect=new Set(),usedWrong=new Set();const out=raw.map((orig,i)=>{let card={...orig};let trap=(traps[sid]||traps.s1)[(i+(round||0))%(traps[sid]||traps.s1).length],riskLevel=risk(i,card);if(sid==='s11'){const focus=s11Cycle[(i+(round||0))%s11Cycle.length];card.concept=focus;card.prompt=(card.prompt||'')+'\nโจทย์ชี้เป้า: '+s11Prompt[focus];card.fingerprint='s11|'+focus+'|'+card.context+'|'+card.policy+'|v7124';}
       let correct=sid==='s11'?s11Correct(card.concept):makeCorrect(sid,card,i,trap,riskLevel,usedCorrect);if(usedCorrect.has(correct))correct+=' '+suffixes[i%suffixes.length];usedCorrect.add(correct);let distractors=makeDistractors(sid,card,i,trap,correct,usedWrong);const b=balance(correct,distractors,card,i,riskLevel);correct=b.correct;distractors=b.distractors;const boss=sid[0]==='b',pressure=i>=13?'FINAL TWIST':i>=10?'PRESSURE':i>=5?'ANALYZE':'BUILD',prefix=boss?'⚔ BOSS • ':'🎮 '+pressure+' • ';
-      return {...card,answerSlot:slot(i,round),riskLevel,challengeTrap:trap,challengePressure:pressure,comboTitle:comboTitles[Math.min(comboTitles.length-1,Math.floor(i/3))],challengeVersion:VERSION,correct,distractors,prompt:prefix+'['+riskLevel+' RISK] '+card.prompt+'\nกับดักที่ต้องระวัง: '+trap+(weak.includes(card.concept)?' • Adaptive Weak Skill':''),principle:card.principle+' • หลักเต็ม: '+(orig.correct||'')+' • v712.3: S11 fair metric deck; no regression leakage; option length balanced • Trap: '+trap+' • Risk: '+riskLevel};});
-    out.challengeAudit={version:VERSION,noRepeatWindow:'last 4 decks / 60 fingerprints',antiGuessPolish:'v712.3 S11 fair metric deck / no regression leakage / option length balance / plausible distractors',uniqueCorrect:new Set(out.map(c=>c.correct)).size,uniqueDistractors:new Set(out.flatMap(c=>c.distractors)).size,slots:[0,1,2,3].map(s=>out.filter(c=>c.answerSlot===s).length),riskMix:riskLevels.map(r=>out.filter(c=>c.riskLevel===r).length),traps:out.map(c=>c.challengeTrap),weakBoost:weak};return out;}
+      return {...card,answerSlot:slot(i,round),riskLevel,challengeTrap:trap,challengePressure:pressure,comboTitle:comboTitles[Math.min(comboTitles.length-1,Math.floor(i/3))],challengeVersion:VERSION,correct,distractors,prompt:prefix+'['+riskLevel+' RISK] '+card.prompt+'\nกับดักที่ต้องระวัง: '+trap+(weak.includes(card.concept)?' • Adaptive Weak Skill':''),principle:card.principle+' • หลักเต็ม: '+(orig.correct||'')+' • v712.4: S11 fairer metric hints; focus-specific distractors; no regression leakage; option length balanced • Trap: '+trap+' • Risk: '+riskLevel};});
+    out.challengeAudit={version:VERSION,noRepeatWindow:'last 4 decks / 60 fingerprints',antiGuessPolish:'v712.4 S11 fairer metric hints / focus-specific distractors / no regression leakage / option length balance',uniqueCorrect:new Set(out.map(c=>c.correct)).size,uniqueDistractors:new Set(out.flatMap(c=>c.distractors)).size,slots:[0,1,2,3].map(s=>out.filter(c=>c.answerSlot===s).length),riskMix:riskLevels.map(r=>out.filter(c=>c.riskLevel===r).length),traps:out.map(c=>c.challengeTrap),weakBoost:weak};return out;}
   function rank(score){let out=ranks[0][0];ranks.forEach(([name,need])=>{if(Number(score)>=need)out=name});return out;}
   function comboTitle(combo){return comboTitles[Math.min(comboTitles.length-1,Math.floor(Number(combo||0)/3))];}
-  function patch(){const C=window.AIQuestAllContentV702;if(!C||C.__challengeV7123)return false;const base=C.deck.bind(C);C.deck=function(id,round){const sid=idOf(id),r=Number(round||1),hist=new Set(recent(sid));let raw=[];for(let bump=0;bump<8&&raw.length<15;bump++){const cand=base(sid,r+bump)||[];cand.forEach(c=>{const fp=c.fingerprint||c.id;if(raw.length<15&&!hist.has(fp)&&!raw.find(x=>(x.fingerprint||x.id)===fp))raw.push(c);});}if(raw.length<15){const cand=base(sid,r+99)||[];cand.forEach(c=>{if(raw.length<15&&!raw.find(x=>(x.fingerprint||x.id)===(c.fingerprint||c.id)))raw.push(c);});}const deck=enhance(raw.slice(0,15),sid,r);rememberDeck(sid,deck);return deck;};C.rank=rank;C.comboTitle=comboTitle;C.rememberMiss=rememberMiss;C.challengeLayerVersion=VERSION;C.__challengeV7123=true;C.__challengeV7122=true;C.__challengeV7121=true;C.__challengeV712=true;C.__challengeV706=true;C.version='v7.0.2+challenge712.3';return true;}
+  function patch(){const C=window.AIQuestAllContentV702;if(!C||C.__challengeV7124)return false;const base=C.deck.bind(C);C.deck=function(id,round){const sid=idOf(id),r=Number(round||1),hist=new Set(recent(sid));let raw=[];for(let bump=0;bump<8&&raw.length<15;bump++){const cand=base(sid,r+bump)||[];cand.forEach(c=>{const fp=c.fingerprint||c.id;if(raw.length<15&&!hist.has(fp)&&!raw.find(x=>(x.fingerprint||x.id)===fp))raw.push(c);});}if(raw.length<15){const cand=base(sid,r+99)||[];cand.forEach(c=>{if(raw.length<15&&!raw.find(x=>(x.fingerprint||x.id)===(c.fingerprint||c.id)))raw.push(c);});}const deck=enhance(raw.slice(0,15),sid,r);rememberDeck(sid,deck);return deck;};C.rank=rank;C.comboTitle=comboTitle;C.rememberMiss=rememberMiss;C.challengeLayerVersion=VERSION;C.__challengeV7124=true;C.__challengeV7123=true;C.__challengeV7122=true;C.__challengeV7121=true;C.__challengeV712=true;C.__challengeV706=true;C.version='v7.0.2+challenge712.4';return true;}
   if(!patch())document.addEventListener('DOMContentLoaded',patch,{once:true});
-  window.AIQuestChallengeLayerV706={version:VERSION,replayRules:['v712.3 S11 fair metric deck','No Regression leakage in S11','Clear FP/FN metric logic','Option length balance','No shortest/longest answer bias','Plausible session-specific distractors','Balanced answer slots'],rank,comboTitle,rememberMiss};
+  window.AIQuestChallengeLayerV706={version:VERSION,replayRules:['v712.4 S11 fairer metric hints','Focus-specific S11 distractors','No Regression leakage in S11','Clear FP/FN metric logic','Option length balance','No shortest/longest answer bias','Balanced answer slots'],rank,comboTitle,rememberMiss};
   window.AIQuestChallengeLayerV712=window.AIQuestChallengeLayerV706;
   window.AIQuestChallengeLayerV7121=window.AIQuestChallengeLayerV706;
   window.AIQuestChallengeLayerV7122=window.AIQuestChallengeLayerV706;
   window.AIQuestChallengeLayerV7123=window.AIQuestChallengeLayerV706;
+  window.AIQuestChallengeLayerV7124=window.AIQuestChallengeLayerV706;
 })();
