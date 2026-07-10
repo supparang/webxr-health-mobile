@@ -1,20 +1,21 @@
 /* =========================================================
    EAP Boss Clash / Question Four-Choice Repair v20260710
-   V2 ALL-QUESTION-SCREENS
+   V3 MULTI-MISSING-LABELS
    - Safety repair for EAP multiple-choice screens.
    - Goal: A/B/C/D must be visible every time.
    - Does NOT rewrite existing visible choices.
-   - First tries to reveal a hidden choice.
-   - If the engine really rendered only 3 choices, inserts one safe distractor card.
-   - Keeps existing click handlers on original choices. Synthetic fallback choice
-     forwards click to an existing distractor-like choice so the game remains playable.
+   - First tries to reveal hidden choices.
+   - If the engine renders only 3 choices, inserts safe distractor cards for
+     every missing label, including cases like A/C/D visible but B missing.
+   - Synthetic fallback choices forward click to an existing distractor-like
+     choice so the game remains playable and safely wrong.
    - UI-only. Does not change scoring rules, Sheet, evidence, unlock, or teacher review.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260710-BOSS-CLASH-FOUR-CHOICE-REPAIR-V2-ALL-QUESTION-SCREENS';
-  const STYLE_ID = 'eap-boss-clash-four-choice-repair-style-v2';
+  const VERSION = 'v20260710-BOSS-CLASH-FOUR-CHOICE-REPAIR-V3-MULTI-MISSING-LABELS';
+  const STYLE_ID = 'eap-boss-clash-four-choice-repair-style-v3';
   const LABELS = ['A','B','C','D'];
   const SAFE_TEXT = {
     A:'A. Related answer: mentions the topic, but the evidence link is incomplete.',
@@ -64,7 +65,7 @@
       let p = el.parentElement;
       for (let i = 0; i < 3 && p; i += 1) {
         const count = Array.from(p.children || []).filter(ch => looksLikeChoice(ch) && visible(ch)).length;
-        if (count >= 3 && count <= 4) break;
+        if (count >= 3 && count <= 5) break;
         p = p.parentElement;
       }
       if (!p) return;
@@ -118,18 +119,17 @@
   function findForwardTarget(choices){
     return choices.find(el => /broad|detail|polished|unsupported|misses|beyond|weak|no support|related answer|topic answer|example answer/i.test(clean(el.textContent))) || choices[0] || null;
   }
-  function addSynthetic(missing, choices){
-    if (!missing.length || choices.length < 3) return false;
+  function syntheticWithLabel(parent, label){
+    return Array.from(parent.querySelectorAll('[data-eap-choice-repair-synthetic="1"]')).find(el => labelOf(el) === label);
+  }
+  function addOneSynthetic(parent, label, choices){
+    if (syntheticWithLabel(parent, label)) return false;
     injectStyle();
-    const parent = likelyChoiceParent(choices);
-    if (!parent) return false;
-    const already = parent.querySelector('[data-eap-choice-repair-synthetic="1"]');
-    if (already) return false;
-    const label = missing[0];
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'eap-boss-choice-repair-card';
     el.dataset.eapChoiceRepairSynthetic = '1';
+    el.dataset.eapChoiceRepairLabel = label;
     el.dataset.eapChoiceRepairVersion = VERSION;
     el.textContent = SAFE_TEXT[label] || (label + '. Related answer: mentions the topic, but the evidence link is incomplete.');
     const forward = findForwardTarget(choices);
@@ -140,6 +140,14 @@
     }, true);
     parent.appendChild(el);
     return true;
+  }
+  function addSynthetic(missing, choices){
+    if (!missing.length || choices.length < 2) return false;
+    const parent = likelyChoiceParent(choices);
+    if (!parent) return false;
+    let changed = false;
+    missing.forEach(label => { if (addOneSynthetic(parent, label, choices)) changed = true; });
+    return changed;
   }
   function repair(){
     if (!isQuestionScreen()) return;
@@ -154,7 +162,7 @@
   function schedule(){ clearTimeout(timer); timer = setTimeout(repair, 80); }
   function start(){
     repair();
-    [150, 400, 900, 1600, 2600].forEach(ms => setTimeout(repair, ms));
+    [80, 150, 400, 900, 1600, 2600, 4200].forEach(ms => setTimeout(repair, ms));
     const root = app() || document.documentElement;
     new MutationObserver(schedule).observe(root, { childList:true, subtree:true, characterData:true });
     window.EAPBossClashFourChoiceRepair = { version: VERSION, repair };
