@@ -1,18 +1,20 @@
 /* =========================================================
-   EAP Boss Clash Four-Choice Repair v20260710
-   - Safety repair for Boss Clash screens only.
+   EAP Boss Clash / Question Four-Choice Repair v20260710
+   V2 ALL-QUESTION-SCREENS
+   - Safety repair for EAP multiple-choice screens.
    - Goal: A/B/C/D must be visible every time.
    - Does NOT rewrite existing visible choices.
    - First tries to reveal a hidden choice.
    - If the engine really rendered only 3 choices, inserts one safe distractor card.
    - Keeps existing click handlers on original choices. Synthetic fallback choice
      forwards click to an existing distractor-like choice so the game remains playable.
+   - UI-only. Does not change scoring rules, Sheet, evidence, unlock, or teacher review.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260710-BOSS-CLASH-FOUR-CHOICE-REPAIR-V1';
-  const STYLE_ID = 'eap-boss-clash-four-choice-repair-style';
+  const VERSION = 'v20260710-BOSS-CLASH-FOUR-CHOICE-REPAIR-V2-ALL-QUESTION-SCREENS';
+  const STYLE_ID = 'eap-boss-clash-four-choice-repair-style-v2';
   const LABELS = ['A','B','C','D'];
   const SAFE_TEXT = {
     A:'A. Related answer: mentions the topic, but the evidence link is incomplete.',
@@ -23,9 +25,10 @@
 
   function clean(v){ return String(v == null ? '' : v).replace(/\s+/g,' ').trim(); }
   function app(){ return document.getElementById('app'); }
-  function isBossClash(){
+  function isQuestionScreen(){
     const text = clean(app()?.innerText || '');
-    return /Boss Battle|Hero Contract|Detail Trap Spider|Boss HP|Which balanced judgement|Which B1\+ conclusion|Which response makes/i.test(text);
+    return /Boss Battle|Hero Contract|Detail Trap Spider|Boss HP|Question\s+\d+|Fresh scenario|Which\s+(choice|response|answer)|Which balanced judgement|Which B1\+ conclusion|Which response makes|Why is your answer/i.test(text)
+      && /\bA\.\s+|\bB\.\s+|\bC\.\s+/.test(text);
   }
   function labelOf(el){
     const m = clean(el && el.textContent).match(/^([A-D])\.\s+/i);
@@ -36,6 +39,7 @@
     if (!/^[A-D]\.\s+/.test(text)) return false;
     if (text.length < 12 || text.length > 500) return false;
     if (el.closest('#eap-classroom-map-compact-card,#eap-classroom-action-rail,#eap-session-content-brief,#eap-replay-challenge-panel')) return false;
+    if (/Boss Battle|Session\s+\d+|Hero Contract|Choice Guard|Fresh scenario|Hint:/i.test(text)) return false;
     const childChoiceCount = Array.from(el.children || []).filter(ch => /^[A-D]\.\s+/.test(clean(ch.textContent))).length;
     return childChoiceCount === 0;
   }
@@ -46,7 +50,7 @@
   }
   function allChoiceNodes(){
     const root = app() || document.body;
-    return Array.from(root.querySelectorAll('button,[role="button"],.choice,.answer,.option,.card,.stat,div'))
+    return Array.from(root.querySelectorAll('button,[role="button"],[onclick],.choice,.answer,.option,.card,.stat,div'))
       .filter(looksLikeChoice);
   }
   function visibleChoices(){ return allChoiceNodes().filter(visible); }
@@ -57,7 +61,12 @@
   function likelyChoiceParent(list){
     const map = new Map();
     list.forEach(el => {
-      const p = el.parentElement;
+      let p = el.parentElement;
+      for (let i = 0; i < 3 && p; i += 1) {
+        const count = Array.from(p.children || []).filter(ch => looksLikeChoice(ch) && visible(ch)).length;
+        if (count >= 3 && count <= 4) break;
+        p = p.parentElement;
+      }
       if (!p) return;
       map.set(p, (map.get(p) || 0) + 1);
     });
@@ -100,13 +109,14 @@
         visibility:visible!important;
         opacity:1!important;
         cursor:pointer!important;
+        text-align:left!important;
       }
       .eap-boss-choice-repair-card:hover{outline:2px solid rgba(14,165,233,.28)!important;}
     `;
     document.head.appendChild(style);
   }
   function findForwardTarget(choices){
-    return choices.find(el => /broad|detail|polished|unsupported|misses|beyond|weak|no support/i.test(clean(el.textContent))) || choices[0] || null;
+    return choices.find(el => /broad|detail|polished|unsupported|misses|beyond|weak|no support|related answer|topic answer|example answer/i.test(clean(el.textContent))) || choices[0] || null;
   }
   function addSynthetic(missing, choices){
     if (!missing.length || choices.length < 3) return false;
@@ -123,14 +133,16 @@
     el.dataset.eapChoiceRepairVersion = VERSION;
     el.textContent = SAFE_TEXT[label] || (label + '. Related answer: mentions the topic, but the evidence link is incomplete.');
     const forward = findForwardTarget(choices);
-    el.addEventListener('click', function(){
+    el.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
       if (forward) forward.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true, view:window }));
-    });
+    }, true);
     parent.appendChild(el);
     return true;
   }
   function repair(){
-    if (!isBossClash()) return;
+    if (!isQuestionScreen()) return;
     let choices = visibleChoices();
     if (choices.length >= 4 && missingLabels(choices).length === 0) return;
     let missing = missingLabels(choices);
@@ -142,9 +154,9 @@
   function schedule(){ clearTimeout(timer); timer = setTimeout(repair, 80); }
   function start(){
     repair();
-    [150, 400, 900, 1600].forEach(ms => setTimeout(repair, ms));
+    [150, 400, 900, 1600, 2600].forEach(ms => setTimeout(repair, ms));
     const root = app() || document.documentElement;
-    new MutationObserver(schedule).observe(root, { childList:true, subtree:true });
+    new MutationObserver(schedule).observe(root, { childList:true, subtree:true, characterData:true });
     window.EAPBossClashFourChoiceRepair = { version: VERSION, repair };
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true });
