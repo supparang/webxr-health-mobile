@@ -1,12 +1,16 @@
 /* CSAI2601 canonical Mission Control — rendered from uxq-csai2601-canonical-content-v1.js
  * Course path: W1-W15 + B1-B4. No B5.
- * All nodes launch through clean canonical student build with cache-busted logo/static packs.
+ * Fix v39: restore stable per-node icons in every Mission Control card; no more empty circle placeholders.
  */
 (() => {
   'use strict';
 
   const CONTENT = window.CSAI2601_UXQ_CANONICAL_CONTENT_V1;
-  const VERSION = 'clean-v38-logo-early-20260709';
+  const VERSION = 'clean-v39-mission-icons-20260709';
+  const NODE_ICONS = {
+    W1:'🔎', W2:'🧭', W3:'🧠', W4:'🕵️', W5:'💡', W6:'🗺️', W7:'📐', W8:'🧩', W9:'🧱', W10:'📱', W11:'🎨', W12:'⚡', W13:'🔗', W14:'🧪', W15:'🏁',
+    B1:'👹', B2:'🐉', B3:'🛡️', B4:'🔥'
+  };
   const FALLBACK_NODES = [
     'W1','W2','W3','B1','W4','W5','W6','W7','B2','W8','W9','W10','W11','B3','W12','W13','W14','B4','W15'
   ].map((id, index) => ({ id, order:index + 1, type:id.startsWith('B') ? 'boss' : 'week', title:id, missionTitle:id, focus:'CSAI2601 canonical mission', artifact:'Studio Artifact' }));
@@ -19,6 +23,7 @@
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (char) => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
   }[char]));
+  const nodeIcon = (node) => NODE_ICONS[String(node?.id || '').toUpperCase()] || (String(node?.id || '').toUpperCase().startsWith('B') ? '⚔️' : 'UX');
   const stars = (value) => {
     const n = Math.max(0, Math.min(3, Number(value || 0)));
     return `${'★'.repeat(n)}${'☆'.repeat(3 - n)}`;
@@ -52,6 +57,7 @@
     const previous = nodes[index - 1];
     const url = state.isAvailable ? launchUrl(node) : '#';
     const typeLabel = boss ? 'BOSS GATE' : 'WEEKLY MISSION';
+    const icon = nodeIcon(node);
     const hint = state.isPassed
       ? `${stars(state.stars)} • เล่นซ้ำได้ด้วย case variant ใหม่`
       : state.isAvailable
@@ -68,7 +74,7 @@
         <span class="stage-state">${esc(state.label)}</span>
       </div>
       <div class="${boss ? 'boss-preview__body' : 'compact-stage__content'}">
-        <span class="${boss ? 'boss-preview__icon' : 'compact-stage__icon'}">${boss ? '⚔' : '◌'}</span>
+        <span class="${boss ? 'boss-preview__icon' : 'compact-stage__icon'}" aria-hidden="true">${icon}</span>
         <div>
           <p class="compact-stage__type">${typeLabel}</p>
           <h3>${esc(node.missionTitle || node.title)}</h3>
@@ -91,7 +97,7 @@
     if ($('#progress')) $('#progress').textContent = progressText;
 
     if (grid) {
-      grid.innerHTML = `<div class="campaign-separator">CSAI2601 • 15 Weeks + 4 Boss Gates • ${total} nodes • canonical player ${esc(CONTENT?.version || 'fallback')}</div>` +
+      grid.innerHTML = `<div class="campaign-separator">CSAI2601 • 15 Weeks + 4 Boss Gates • ${total} nodes • canonical player ${esc(CONTENT?.version || 'fallback')} • mission icons v39</div>` +
         nodes.map((node, index) => card(node, index, progressData)).join('');
       grid.querySelectorAll('a[aria-disabled="true"]').forEach((link) => link.addEventListener('click', (event) => event.preventDefault()));
     }
@@ -99,8 +105,10 @@
     const next = nextNode(progressData);
     if (next) {
       const nextState = statusOf(progressData, next, nodes.indexOf(next));
+      const icon = nodeIcon(next);
       if ($('#nextTitle')) $('#nextTitle').textContent = `${next.id} • ${next.missionTitle || next.title}`;
       if ($('#nextDesc')) $('#nextDesc').textContent = `${next.focus || ''}${next.artifact ? ` • ส่งงาน: ${next.artifact}` : ''}`;
+      if ($('.current-card__icon')) $('.current-card__icon').textContent = icon;
       if ($('#nextLink')) {
         $('#nextLink').href = launchUrl(next);
         $('#nextLink').textContent = nextState.isPassed ? 'เล่นซ้ำ →' : 'เริ่มภารกิจ →';
