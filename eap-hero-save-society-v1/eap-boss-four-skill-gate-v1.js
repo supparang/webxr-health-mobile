@@ -1,8 +1,9 @@
 /* =========================================================
-   EAP Hero Boss Gate v4 — Four Skills + Score Rubric
+   EAP Hero Boss Gate v4.1 — Fair Score Rubric
    - B1-B5 run Reading -> Listening -> Writing -> Speaking before Boss Clash.
    - Supports EAPBossReplayBankV3: 150 Boss skill-items.
-   - Reading/Listening score by attempt quality, not always 100.
+   - Following guidance now earns Good or better, not a low score.
+   - Reading/Listening score by attempt quality.
    - Writing/Speaking score by task-completion rubric, not grammar/pronunciation auto-judgment.
    - Boss Speaking still creates teacher review evidence.
 ========================================================= */
@@ -36,6 +37,7 @@
   function words(value){ return String(value || '').trim().split(/\s+/).filter(Boolean); }
   function wordCount(value){ return words(value).length; }
   function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
+  function level(score){ return score >= 90 ? 'Excellent' : score >= 80 ? 'Good' : score >= 60 ? 'Pass' : 'Developing'; }
 
   function shuffleWithAnswer(correct, distractors){
     var items = [correct].concat(distractors || []).map(function(text,index){ return {text:text, correct:index===0}; });
@@ -78,41 +80,63 @@
   function evidenceSync(){ return window.EAPEvidenceSyncV130 || window.EAPEvidenceSyncV129 || null; }
 
   function mcqScore(wrongCount){
-    if (wrongCount <= 0) return {score:100, level:'Excellent', note:'ตอบถูกตั้งแต่ครั้งแรก'};
-    if (wrongCount === 1) return {score:85, level:'Good', note:'ตอบถูกหลังลองใหม่ 1 ครั้ง'};
-    if (wrongCount === 2) return {score:72, level:'Pass', note:'ตอบถูกหลังทบทวน source'};
-    return {score:60, level:'Pass', note:'ผ่านขั้นต่ำจากการลองใหม่หลายครั้ง'};
+    if (wrongCount <= 0) return {score:100, level:'Excellent', note:'ตอบถูกตั้งแต่ครั้งแรก · Excellent'};
+    if (wrongCount === 1) return {score:90, level:'Excellent', note:'ทบทวนแล้วตอบถูก · ยังอยู่ระดับ Excellent'};
+    if (wrongCount === 2) return {score:82, level:'Good', note:'ตอบถูกหลังลองใหม่ 2 ครั้ง · Good'};
+    return {score:75, level:'Pass', note:'ผ่านหลังลองใหม่หลายครั้ง · ควรกลับไปทบทวน source'};
+  }
+
+  function frameSignal(output, frames){
+    var lower = String(output || '').toLowerCase();
+    var hits = 0;
+    (frames || []).forEach(function(f){
+      var parts = String(f || '').toLowerCase().split(/\s+/).filter(Boolean);
+      var a = parts.slice(0, 3).join(' ');
+      var b = parts.slice(-3).join(' ');
+      if ((a && lower.indexOf(a) >= 0) || (b && lower.indexOf(b) >= 0)) hits += 1;
+    });
+    return hits;
   }
 
   function writingScore(output, frames){
     var wc = wordCount(output);
-    var lower = String(output || '').toLowerCase();
-    var frameHits = (frames || []).filter(function(f){ return lower.indexOf(String(f).split(' ').slice(0,4).join(' ').toLowerCase()) >= 0; }).length;
-    var connectors = /(because|for example|this helps|therefore|however|also|first|next|finally|one useful|one important)/i.test(output) ? 1 : 0;
+    var frameHits = frameSignal(output, frames);
+    var connectors = /(because|for example|this helps|therefore|however|also|first|next|finally|one useful|one important|this connects|in my study)/i.test(output) ? 1 : 0;
     var components = {
       taskComplete: wc >= 6 ? 25 : Math.round(wc * 4),
-      ideas: clamp(Math.round(wc * 1.4), 8, 25),
-      frameUse: clamp(frameHits * 7 + (connectors ? 6 : 0), 8, 20),
-      clarity: wc >= 18 ? 20 : wc >= 12 ? 16 : 12,
-      mechanics: wc >= 10 ? 10 : 7
+      ideas: wc >= 22 ? 25 : wc >= 14 ? 22 : wc >= 8 ? 18 : 10,
+      guidanceUse: frameHits >= 2 ? 20 : frameHits === 1 || connectors ? 16 : 12,
+      clarity: wc >= 18 ? 20 : wc >= 10 ? 17 : 13,
+      completionBonus: wc >= 6 ? 10 : 5
     };
-    var score = clamp(components.taskComplete + components.ideas + components.frameUse + components.clarity + components.mechanics, 50, 100);
-    if (wc >= 25 && connectors) score = Math.max(score, 92);
-    return { score:score, level:score >= 90 ? 'Excellent' : score >= 75 ? 'Good' : score >= 60 ? 'Pass' : 'Developing', note:'Writing rubric: task, ideas, frame use, clarity, basic mechanics', components:components };
+    var score = clamp(components.taskComplete + components.ideas + components.guidanceUse + components.clarity + components.completionBonus, 50, 100);
+
+    // Fairness floor: if the learner follows the minimum instruction, do not punish them with a low score.
+    if (wc >= 6) score = Math.max(score, 80);
+    if (wc >= 10 && (frameHits >= 1 || connectors)) score = Math.max(score, 85);
+    if (wc >= 16 && frameHits >= 2) score = Math.max(score, 92);
+    if (wc >= 24 && frameHits >= 2 && connectors) score = Math.max(score, 96);
+
+    return { score:score, level:level(score), note:'Writing rubric: ทำครบตามโจทย์ = Good ขึ้นไป; คะแนนสูงขึ้นเมื่อเพิ่ม detail, ใช้ frame/connector และอธิบายชัดขึ้น', components:components };
   }
 
   function speakingScore(seconds, checklist, note){
     var noteWords = wordCount(note);
     var checked = ['topic','detail','closing'].filter(function(k){ return checklist[k]; }).length;
     var components = {
-      duration: seconds >= 40 ? 25 : seconds >= 30 ? 22 : seconds >= 20 ? 18 : Math.round(seconds * 0.8),
+      duration: seconds >= 40 ? 25 : seconds >= 30 ? 23 : seconds >= 20 ? 21 : Math.round(seconds * 0.8),
       checklist: checked * 15,
-      note: noteWords >= 18 ? 20 : noteWords >= 10 ? 16 : noteWords >= 5 ? 12 : 4,
-      reflectionMatch: checked === 3 && noteWords >= 5 ? 10 : 5
+      note: noteWords >= 18 ? 20 : noteWords >= 10 ? 17 : noteWords >= 5 ? 14 : 4,
+      completionBonus: checked === 3 && noteWords >= 5 ? 10 : 5
     };
-    var score = clamp(components.duration + components.checklist + components.note + components.reflectionMatch, 45, 100);
-    if (seconds >= 20 && checked === 3 && noteWords >= 5) score = Math.max(score, 75);
-    return { score:score, level:score >= 90 ? 'Excellent' : score >= 75 ? 'Good' : score >= 60 ? 'Pass' : 'Developing', note:'Speaking rubric: duration, checklist, speaking note. Pronunciation/grammar are for teacher review, not auto-scored.', components:components };
+    var score = clamp(components.duration + components.checklist + components.note + components.completionBonus, 45, 100);
+
+    // Fairness floor: meeting all required speaking steps should feel successful.
+    if (seconds >= 20 && checked === 3 && noteWords >= 5) score = Math.max(score, 85);
+    if (seconds >= 30 && checked === 3 && noteWords >= 10) score = Math.max(score, 92);
+    if (seconds >= 40 && checked === 3 && noteWords >= 18) score = Math.max(score, 96);
+
+    return { score:score, level:level(score), note:'Speaking rubric: ทำครบเวลา + checklist + note = Good ขึ้นไป; pronunciation/grammar ให้ครู review ไม่ใช่ auto-score', components:components };
   }
 
   function sendEvidence(gate, skill, prompt, output, extras){
@@ -156,9 +180,9 @@
     document.getElementById('app').innerHTML = '' +
       '<main class="wrap" style="max-width:1100px;margin:auto;padding:20px">' +
       '<section class="panel" style="margin-top:18px">' +
-      '<div class="badges"><span class="pill">Boss Gate ' + gate + '</span><span class="pill">4 Skills Required</span><span class="pill">Scenario: ' + esc(g.scenarioTag) + '</span><span class="pill">Score Rubric V4</span></div>' +
+      '<div class="badges"><span class="pill">Boss Gate ' + gate + '</span><span class="pill">4 Skills Required</span><span class="pill">Scenario: ' + esc(g.scenarioTag) + '</span><span class="pill">Fair Rubric V4.1</span></div>' +
       '<h2>' + esc(g.title) + '</h2>' +
-      '<p class="lead">' + esc(g.arc) + ' · ทำทีละทักษะ คะแนนมาจากคุณภาพการทำภารกิจ ไม่ใช่ 100 อัตโนมัติ</p>' +
+      '<p class="lead">' + esc(g.arc) + ' · ทำครบตามคำแนะนำ = Good ขึ้นไป คะแนนสูงขึ้นเมื่อเพิ่มคุณภาพและรายละเอียด</p>' +
       '<div class="grid four" style="margin:14px 0">' + SKILLS.map(function(skill,index){ var state = index < current ? '✓ Complete' : index === current ? 'Current' : 'Locked'; var outline = index === current ? 'outline:3px solid #73d9e7' : ''; return '<div class="stat" style="' + outline + '"><b>' + esc(skill) + '</b><span>' + state + '</span></div>'; }).join('') + '</div>' + inner +
       '</section></main>';
   }
@@ -196,7 +220,7 @@
 
   function writingStage(gate){
     var g = gateData(gate), task = g.writing;
-    shell(gate, 2, '<div class="panel light"><h3>✍️ Writing · Boss Scenario</h3><p>' + esc(task.prompt) + '</p><p class="mini-note">คะแนนดูจาก task, ideas, frame use, clarity และ basic mechanics · ไม่หัก grammar โหดเกินระดับ A2-B1+</p>' + frameButtons(task.frames) + '<textarea id="bossWriting" rows="6" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Use the sentence frames or write your own short answer."></textarea><button type="button" class="btn primary" id="bossSaveWriting">Save writing & continue</button><p id="bossWriteMessage" class="mini-note"></p></div>');
+    shell(gate, 2, '<div class="panel light"><h3>✍️ Writing · Boss Scenario</h3><p>' + esc(task.prompt) + '</p><p class="mini-note">ทำตามโจทย์ขั้นต่ำได้ Good ขึ้นไป · คะแนนสูงขึ้นเมื่อเพิ่ม detail, ใช้ frame/connector และเขียนชัดขึ้น</p>' + frameButtons(task.frames) + '<textarea id="bossWriting" rows="6" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Use the sentence frames or write your own short answer."></textarea><button type="button" class="btn primary" id="bossSaveWriting">Save writing & continue</button><p id="bossWriteMessage" class="mini-note"></p></div>');
     bindFrames(task.frames, 'bossWriting');
     document.getElementById('bossSaveWriting').addEventListener('click', function(){
       var output = document.getElementById('bossWriting').value.trim();
@@ -210,7 +234,7 @@
 
   function speakingStage(gate){
     var g = gateData(gate), task = g.speaking, startedAt = 0, timer = null;
-    shell(gate, 3, '<div class="panel light"><h3>🗣️ Speaking · Boss Scenario with Cue Cards</h3><p>' + esc(task.prompt) + '</p><div class="grid three" style="margin:12px 0">' + task.frames.map(function(frame,index){ return '<div class="stat"><b>Cue ' + (index+1) + '</b><span>' + esc(frame) + '</span></div>'; }).join('') + '</div><p><b id="bossSpeakClock">00:00</b> / 00:20 minimum</p><button type="button" class="btn ghost" id="bossStartSpeak">Start speaking timer</button><label style="display:block;margin:12px 0"><input type="checkbox" id="bossTopic"> I stated the topic</label><label style="display:block;margin:12px 0"><input type="checkbox" id="bossDetail"> I gave one source detail</label><label style="display:block;margin:12px 0"><input type="checkbox" id="bossClose"> I used a clear closing</label><textarea id="bossSpeakingNote" rows="4" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Type 1-2 sentences about what you said."></textarea><p class="mini-note">ระบบให้คะแนนจากเวลา + checklist + note เท่านั้น · ครูตรวจ Boss Speaking เพิ่มภายหลัง ไม่ใช้ transcript ตัดสิน grammar/pronunciation อัตโนมัติ</p><button type="button" class="btn primary" id="bossFinishSpeak">Save speaking & enter Boss Clash</button><p id="bossSpeakMessage" class="mini-note"></p></div>');
+    shell(gate, 3, '<div class="panel light"><h3>🗣️ Speaking · Boss Scenario with Cue Cards</h3><p>' + esc(task.prompt) + '</p><div class="grid three" style="margin:12px 0">' + task.frames.map(function(frame,index){ return '<div class="stat"><b>Cue ' + (index+1) + '</b><span>' + esc(frame) + '</span></div>'; }).join('') + '</div><p><b id="bossSpeakClock">00:00</b> / 00:20 minimum</p><button type="button" class="btn ghost" id="bossStartSpeak">Start speaking timer</button><label style="display:block;margin:12px 0"><input type="checkbox" id="bossTopic"> I stated the topic</label><label style="display:block;margin:12px 0"><input type="checkbox" id="bossDetail"> I gave one source detail</label><label style="display:block;margin:12px 0"><input type="checkbox" id="bossClose"> I used a clear closing</label><textarea id="bossSpeakingNote" rows="4" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Type 1-2 sentences about what you said."></textarea><p class="mini-note">ทำครบเวลา + checklist + note = Good ขึ้นไป · pronunciation/grammar ให้ครู review ไม่ใช่ auto-score</p><button type="button" class="btn primary" id="bossFinishSpeak">Save speaking & enter Boss Clash</button><p id="bossSpeakMessage" class="mini-note"></p></div>');
     document.getElementById('bossStartSpeak').addEventListener('click', function(){ if (startedAt) return; startedAt = Date.now(); this.textContent = 'Speaking timer running'; timer = setInterval(function(){ var seconds = Math.floor((Date.now()-startedAt)/1000); document.getElementById('bossSpeakClock').textContent = String(Math.floor(seconds/60)).padStart(2,'0') + ':' + String(seconds%60).padStart(2,'0'); }, 250); });
     document.getElementById('bossFinishSpeak').addEventListener('click', function(){
       var seconds = startedAt ? Math.floor((Date.now()-startedAt)/1000) : 0;
@@ -231,8 +255,8 @@
   }
 
   function patch(){
-    if (!window.EAPHero || typeof window.EAPHero.startGateBoss !== 'function' || window.EAPHero.__bossFourSkillV4Patched) return;
-    window.EAPHero.__bossFourSkillV4Patched = true;
+    if (!window.EAPHero || typeof window.EAPHero.startGateBoss !== 'function' || window.EAPHero.__bossFourSkillV41Patched) return;
+    window.EAPHero.__bossFourSkillV41Patched = true;
     window.EAPHero.__bossFourSkillOriginalStart = window.EAPHero.startGateBoss;
     window.EAPHero.startGateBoss = function(gateId){
       var gate = gateNo(gateId);
@@ -241,6 +265,6 @@
     };
   }
 
-  var wait = setInterval(function(){ patch(); if (window.EAPHero && window.EAPHero.__bossFourSkillV4Patched) clearInterval(wait); }, 100);
-  window.EAPBossFourSkillV4 = { gates:GATES, start:function(gate){ choiceStage(gateNo(gate),'Reading'); }, version:'v4-score-rubric-150-bank-ready', scoring:{mcqScore:mcqScore, writingScore:writingScore, speakingScore:speakingScore} };
+  var wait = setInterval(function(){ patch(); if (window.EAPHero && window.EAPHero.__bossFourSkillV41Patched) clearInterval(wait); }, 100);
+  window.EAPBossFourSkillV4 = { gates:GATES, start:function(gate){ choiceStage(gateNo(gate),'Reading'); }, version:'v4.1-fair-score-rubric', scoring:{mcqScore:mcqScore, writingScore:writingScore, speakingScore:speakingScore} };
 })();
