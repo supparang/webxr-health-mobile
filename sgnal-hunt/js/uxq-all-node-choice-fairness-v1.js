@@ -1,208 +1,160 @@
-/* CSAI2601 UX Quest • All-node Choice Fairness Guard v1
+/* CSAI2601 UX Quest • All-node Choice Fairness Guard v2
    Scope: W1-W15 and B1-B4.
-   Goal: remove visual spoilers from answer choices before students answer:
-   - no unusually long correct option
-   - no one-option-only artifact/decision-chain clue
-   - no subtext clue stack inside choices
-   - reason/evidence stays in Reason Check after the choice
+   Fix: v1 over-normalized choices and made repeated generic distractors.
+   v2 keeps scoring ids intact, but rewrites visible labels by stage role:
+   - correct button = data-choice starts with c
+   - distractors = data-choice starts with d
+   - labels are short, balanced, and stage-specific
 */
 (() => {
   'use strict';
 
-  const VERSION = 'v20260709-all-node-choice-fairness-v1';
-  const NODE_RE = /^(W(?:[1-9]|1[0-5])|B[1-4])$/i;
+  const VERSION = 'v20260709-choice-fairness-stage-aware-v2';
   const qs = new URLSearchParams(location.search);
   const NODE = String(qs.get('node') || qs.get('id') || 'W1').toUpperCase();
-  if (!NODE_RE.test(NODE)) return;
+  if (!/^(W(?:[1-9]|1[0-5])|B[1-4])$/.test(NODE)) return;
 
-  const THRESHOLD_LONG = 68;
-  const THRESHOLD_RATIO = 1.45;
-  const CLUE_TERMS = [
-    'artifact','decision chain','chain','หลักฐาน','evidence','ส่งต่อ','Visual Style Guide','style guide',
-    'ถูกต้องที่สุด','ดีที่สุด','ครบถ้วน','ตรงกับ','ครอบคลุม','พิสูจน์','proof','เชื่อมกับ','โยงกับ',
-    'ตาม goal','ตาม context','task outcome','task success','user goal','human review','citation',
-    'accessibility','contrast','typography','spacing','color token','status meaning'
-  ];
+  const escText = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  const lower = (v) => escText(v).toLowerCase();
 
-  const CONCEPTS = [
-    [/friction|ติดขัด|สะดุด|ทำงานหลัก/i, 'ชี้จุดติดขัดจาก task'],
-    [/goal|เป้าหมาย/i, 'จับเป้าหมายผู้ใช้จริง'],
-    [/impact|ผลกระทบ|สำเร็จ/i, 'แยกผลกระทบต่อ task'],
-    [/fix|แก้|ปรับ/i, 'เลือกแนวแก้ที่วัดได้'],
-    [/proof|test|ทดสอบ|วัด/i, 'วัดผลหลังปรับจริง'],
-    [/evidence|หลักฐาน|สัมภาษณ์|สังเกต/i, 'ใช้หลักฐานจากผู้ใช้'],
-    [/HCD|human|persona/i, 'ยึดผู้ใช้ก่อนออกแบบ'],
-    [/assumption|สมมติฐาน/i, 'แยกสมมติฐานออก'],
-    [/cognitive|load|ภาระคิด/i, 'ลดภาระการคิด'],
-    [/feedback|ตอบกลับ/i, 'ให้ feedback ชัดเจน'],
-    [/prevention|ป้องกัน/i, 'ป้องกันข้อผิดพลาด'],
-    [/flow|ขั้นตอน|ลำดับ/i, 'จัด flow ตามงานหลัก'],
-    [/wireframe|layout|grid|card/i, 'จัด layout ตาม priority'],
-    [/CTA|ปุ่ม|action/i, 'วาง CTA ตามเป้าหมาย'],
-    [/responsive|mobile|touch/i, 'ปรับ mobile ให้แตะง่าย'],
-    [/pattern|component|state/i, 'ใช้ pattern สม่ำเสมอ'],
-    [/color|status|token/i, 'กำหนดสีตามสถานะ'],
-    [/typography|font|heading/i, 'จัด hierarchy ตัวอักษร'],
-    [/contrast|readability|อ่าน/i, 'เพิ่ม contrast ให้อ่านได้'],
-    [/spacing|ระยะห่าง|white space/i, 'ตั้ง spacing ให้ช่วยอ่าน'],
-    [/prototype|link|interaction/i, 'เชื่อม prototype ตาม task'],
-    [/evaluation|severity|retest/i, 'จัดลำดับปัญหาจากผลกระทบ'],
-    [/portfolio|defense|rationale/i, 'อธิบายเหตุผลด้วยหลักฐาน'],
-    [/RAG|citation|retrieval|source/i, 'ตรวจแหล่งอ้างอิงก่อนใช้'],
-  ];
-
-  const BAD_PATTERNS = [
-    [/สวย|ทันสมัย|ชอบ|น่าสนใจ|สีสด|animation|อนิเมชัน/i, 'ยึดความสวยก่อนงานจริง'],
-    [/ยาว|อธิบาย|ทุกหน้า|ทุกจุด|ทั้งหมด|เยอะ/i, 'เพิ่มข้อมูลมากขึ้นก่อน'],
-    [/ไม่ต้อง|ข้าม|ไม่ตรวจ|เดา|ตามใจ/i, 'ข้ามการตรวจหลักฐาน'],
-    [/ทีม|สะดวก|เร็วที่สุด|ทำง่าย/i, 'เลือกตามความสะดวกทีม'],
-    [/รอ|ท้าย|หลังสุด/i, 'เลื่อนไปจัดการภายหลัง'],
-    [/mockup|ชอบภาพ|โหวต|ความชอบ/i, 'ตัดสินจากความชอบ'],
-    [/เก่า|เดิม|เหมือนเดิม/i, 'ใช้แบบเดิมโดยไม่ตรวจ'],
-  ];
-
-  const FALLBACKS = {
-    W1: ['ชี้ปัญหาจากพฤติกรรม', 'ดูผลต่อ task หลัก', 'เลือกแนวแก้ที่วัดได้', 'ตรวจผลหลังปรับ'],
-    W2: ['จัด evidence ตามลำดับ', 'แยก assumption ออก', 'ถามผู้ใช้ให้ตรงประเด็น', 'สรุป insight จากข้อมูล'],
-    W3: ['ลด cognitive load', 'ทำ feedback ให้ชัด', 'ป้องกัน error ก่อนเกิด', 'เลือก repair ที่ตรงงาน'],
-    W4: ['เลือกคำถามวิจัย', 'จับ pain point จริง', 'แยกข้อมูลกับความเห็น', 'สรุป evidence ที่ใช้ได้'],
-    W5: ['หา root cause', 'เขียน problem frame', 'เลือก HMW ที่แคบพอ', 'ต่อยอดเป็นแนวคิด'],
-    W6: ['จัดขั้นตอนงานหลัก', 'หา bottleneck ใน flow', 'แยก happy/error path', 'ลดจุดหลงทาง'],
-    W7: ['จัด priority ของหน้า', 'เลือก layout รองรับ goal', 'วาง CTA ให้ชัด', 'ปรับ mobile ให้แตะง่าย'],
-    W8: ['ต่อ evidence chain', 'ชี้ mismatch สำคัญ', 'เลือก revision ก่อน', 'อธิบาย rationale'],
-    W9: ['ใช้ component เดียวกัน', 'กำหนด state ชัด', 'ตั้ง naming rule', 'แก้ inconsistency'],
-    W10:['จัด responsive breakpoint', 'เพิ่ม touch target', 'ตรวจ accessibility', 'แก้ layout ล้นจอ'],
-    W11:['กำหนดสีตามสถานะ', 'จัด hierarchy ตัวอักษร', 'เพิ่ม contrast ให้อ่านได้', 'บันทึกกติกาใน guide'],
-    W12:['ทำ state ให้ครบ', 'เขียน microcopy ชัด', 'ป้องกัน error', 'ช่วยผู้ใช้ recovery'],
-    W13:['เชื่อม link ตาม task', 'ทดสอบ interaction', 'เตรียม error path', 'อธิบาย flow ของ prototype'],
-    W14:['จัด severity ตาม impact', 'เลือก fix ที่สำคัญก่อน', 'วาง retest หลังแก้', 'บันทึก evidence log'],
-    W15:['เรียงเรื่องจากหลักฐาน', 'ชี้ผลลัพธ์ของ design', 'ตอบคำถาม defense', 'สรุป next step'],
-    B1: ['ระบุ problem จากหลักฐาน', 'จับ user goal', 'เลือก fix ที่ตรง impact', 'วาง proof หลังแก้'],
-    B2: ['ต่อ persona กับ flow', 'เลือก wireframe ที่ตรง task', 'จัด CTA ตาม priority', 'อธิบาย decision'],
-    B3: ['ใช้ pattern สม่ำเสมอ', 'ตรวจ responsive', 'แก้ accessibility', 'คุม visual system'],
-    B4: ['จัด component state', 'เชื่อม prototype', 'ประเมิน severity', 'วาง iteration plan']
+  const nodeFallback = {
+    W1: ['เลือก friction จาก task', 'เลือกจากความสวย', 'เลือกจากเสียงทีม', 'เลือกที่แก้ง่ายสุด'],
+    W2: ['ใช้ evidence ก่อนออกแบบ', 'เดาจากความรู้สึก', 'ทำ wireframe ทันที', 'เลือกตามโจทย์ทีม'],
+    W3: ['ลด load ที่ทำให้พลาด', 'เพิ่มสีให้ดูน่าสนใจ', 'ใส่ข้อความทุกจุด', 'ปล่อยให้ผู้ใช้เดา'],
+    W4: ['ถามเพื่อหา evidence', 'ถามเพื่อยืนยันไอเดีย', 'ถามกว้างเกินไป', 'ถามตามใจทีม'],
+    W5: ['เขียน problem จาก insight', 'เขียน solution ก่อน', 'เขียนกว้างเกินไป', 'เขียนตาม feature'],
+    W6: ['จัด flow ตาม task', 'ใส่ทุกเมนูหน้าแรก', 'ข้าม error path', 'จัดตามเมนูเดิม'],
+    W7: ['จัด priority ตาม goal', 'ทำทุกอย่างเด่นเท่ากัน', 'ซ่อน action สำคัญ', 'เน้นภาพก่อนงาน'],
+    W8: ['ต่อ chain จาก evidence', 'แก้จากความชอบ', 'ข้าม mismatch', 'สรุปโดยไม่มี proof'],
+    W9: ['ใช้ pattern เดียวกัน', 'สร้างปุ่มใหม่ทุกหน้า', 'ใช้ชื่อไม่สม่ำเสมอ', 'ไม่กำหนด state'],
+    W10:['ปรับ layout ตามจอ', 'ย่อทุกอย่างให้เล็ก', 'ใช้ desktop เหมือนเดิม', 'ไม่ตรวจ touch target'],
+    W11:['เลือกตาม system rule', 'เลือกตามความสวย', 'เพิ่มข้อมูลมากขึ้น', 'ใช้แบบเดิมต่อไป'],
+    W12:['แสดง state ให้ชัด', 'ซ่อน error message', 'ใช้คำสั่งกำกวม', 'ไม่เตรียม recovery'],
+    W13:['เชื่อม prototype ตาม task', 'ลิงก์เฉพาะหน้าสวย', 'ข้าม error path', 'ไม่ทดสอบ interaction'],
+    W14:['จัด severity จาก impact', 'แก้สิ่งที่ง่ายก่อน', 'แก้จากความชอบ', 'ไม่วาง retest'],
+    W15:['เล่าจาก evidence สู่ผลลัพธ์', 'โชว์ภาพอย่างเดียว', 'ข้ามเหตุผล design', 'ไม่ตอบข้อจำกัด'],
+    B1: ['เลือกจาก evidence chain', 'เลือกจากความสวย', 'เลือกตามทีม', 'เลือกที่เร็วสุด'],
+    B2: ['เชื่อม flow กับ wireframe', 'วางปุ่มให้ใหญ่ที่สุด', 'รวมทุกอย่างหน้าเดียว', 'ข้าม persona'],
+    B3: ['คุม system ให้สม่ำเสมอ', 'ทำแต่ละหน้าคนละแบบ', 'ละเลย accessibility', 'เลือกสีตามชอบ'],
+    B4: ['ทดสอบและ iterate จากผล', 'จบที่ prototype สวย', 'แก้ทุกอย่างพร้อมกัน', 'ไม่บันทึก evidence']
   };
 
-  function cleanSpaces(text) {
-    return String(text || '').replace(/\s+/g, ' ').trim();
+  const rules = [
+    { re:/color|สี|status|token/i, set:['กำหนดสีตามสถานะ','ใช้สีตามความชอบ','ใส่สีหลายแบบ','ใช้สีเดียวทุกสถานะ'] },
+    { re:/typography|type|font|heading|ตัวอักษร|หัวข้อ/i, set:['จัด hierarchy ตัวอักษร','ทำทุกข้อความเท่ากัน','ใช้ฟอนต์หลายแบบ','ลดระยะห่างจนแน่น'] },
+    { re:/contrast|readability|accessibility|อ่าน|คอนทราสต์/i, set:['เพิ่ม contrast ให้อ่านได้','เลือกสีสวยแต่จาง','ใช้สีใกล้พื้นหลัง','ลดขนาดตัวอักษร'] },
+    { re:/spacing|white space|ระยะห่าง|ช่องว่าง/i, set:['จัด spacing ให้ช่วยอ่าน','อัดข้อมูลให้แน่นขึ้น','เว้นช่องว่างแบบสุ่ม','ซ่อนข้อมูลรองทั้งหมด'] },
+    { re:/visual|style|signal|guide|สัญญาณภาพ/i, set:['บันทึกกติกาใน guide','เลือกตามภาพที่ชอบ','ปรับทีละหน้าเอง','ใช้สีแทนทุกอย่าง'] },
+
+    { re:/friction|pain|stuck|ติดขัด|สะดุด/i, set:['เลือกจุดที่ task สะดุด','เลือกจุดที่ดูไม่สวย','เลือกจุดที่ทีมพูดบ่อย','เลือกจุดที่แก้ง่ายสุด'] },
+    { re:/goal|need|user goal|เป้าหมาย/i, set:['จับงานหลักของผู้ใช้','เลือกสิ่งที่ผู้ใช้น่าชอบ','รวมทุก goal เท่ากัน','เลือกข้อมูลที่เยอะสุด'] },
+    { re:/impact|failure|ผลกระทบ|task failure/i, set:['แยกผลกระทบต่อ task','นับเป็น UI ทั้งหมด','ถือว่าโค้ดเร็วก็พอ','สรุปว่าเป็นความสวย'] },
+    { re:/fix|repair|decision|choose|แก้|ปรับ/i, set:['เลือก fix ที่วัดผลได้','เพิ่มคำอธิบายทุกจุด','เลือกที่ทีมทำง่าย','ทำให้ดูทันสมัยก่อน'] },
+    { re:/proof|test|validate|retest|พิสูจน์|ทดสอบ|วัด/i, set:['วัด task success หลังใช้','ถามว่าชอบหรือไม่','ดูยอดเข้าหน้าเว็บ','ให้ทีมโหวตดีไซน์'] },
+
+    { re:/evidence|หลักฐาน|classify|ข้อมูล/i, set:['จัด evidence ให้ตรงปัญหา','ใช้ความเห็นแทนข้อมูล','เลือกข้อมูลที่เยอะสุด','ข้ามข้อมูลที่ขัดแย้ง'] },
+    { re:/HCD|human|process|กระบวนการ/i, set:['เริ่มจากผู้ใช้จริง','เริ่มจากหน้าจอสวย','เริ่มจาก feature ใหม่','เริ่มจากสิ่งที่ทำง่าย'] },
+    { re:/assumption|สมมติฐาน|trap/i, set:['แยก assumption ออก','เชื่อเดาแรกของทีม','ใช้ตัวอย่างเดียวพอ','ข้ามการตรวจสอบ'] },
+    { re:/interview|question|ถาม|วิจัย/i, set:['ถามเพื่อหาเหตุผลจริง','ถามนำให้ตอบตามเรา','ถามกว้างจนจับไม่ได้','ถามเฉพาะความชอบ'] },
+    { re:/insight|root|problem|HMW|ปัญหา/i, set:['เขียนจาก root cause','เริ่มจาก solution','เขียนให้กว้างที่สุด','รวมหลายปัญหาในข้อเดียว'] },
+
+    { re:/flow|path|journey|IA|navigation|ขั้นตอน/i, set:['จัดลำดับตามงานหลัก','ใส่ทุกทางเลือกก่อน','ข้ามจุดผิดพลาด','จัดตามเมนูเดิม'] },
+    { re:/wireframe|layout|grid|card|priority|hierarchy/i, set:['จัด priority ตาม goal','ทำทุกส่วนเด่นเท่ากัน','ซ่อน CTA สำคัญ','เลือก layout ที่สวยสุด'] },
+    { re:/CTA|button|action|ปุ่ม/i, set:['วาง CTA ตามงานหลัก','เพิ่มหลายปุ่มพร้อมกัน','ทำปุ่มใหญ่ทุกปุ่ม','ย้าย CTA ไปท้ายหน้า'] },
+    { re:/mobile|responsive|touch|breakpoint/i, set:['เพิ่ม touch target สำคัญ','ย่อ desktop ลงมือถือ','ซ่อนขั้นตอนหลัก','ใช้ hover เป็นหลัก'] },
+
+    { re:/pattern|component|design system/i, set:['ใช้ pattern สม่ำเสมอ','ทำปุ่มใหม่ทุกหน้า','เปลี่ยนชื่อ component','ใช้สีตามแต่ละทีม'] },
+    { re:/state|feedback|loading|error/i, set:['แสดง state ให้ชัด','ซ่อน feedback','ใช้ข้อความกำกวม','ไม่บอก next step'] },
+    { re:/microcopy|wording|copy|ข้อความ/i, set:['เขียน copy ช่วยตัดสินใจ','เขียนยาวทุกจุด','ใช้ศัพท์เทคนิค','ไม่อธิบาย error'] },
+    { re:/prototype|link|interaction/i, set:['เชื่อมลิงก์ตาม task','เชื่อมเฉพาะหน้าหลัก','ไม่ทำ error path','ปล่อยปุ่มบางจุดว่าง'] },
+    { re:/severity|evaluation|finding|priority/i, set:['จัด severity ตาม impact','แก้สิ่งที่ง่ายก่อน','แก้ตามความชอบ','ไม่วาง retest'] },
+    { re:/portfolio|defense|rationale/i, set:['อธิบายด้วย evidence','โชว์ภาพอย่างเดียว','เล่า feature ทั้งหมด','ข้ามข้อจำกัด'] },
+
+    { re:/RAG|citation|retrieval|source|hallucination/i, set:['ตรวจ source กับ citation','เชื่อคำตอบที่ลื่น','ไม่ตรวจ retrieval','ใช้เอกสารเก่าเงียบ ๆ'] },
+  ];
+
+  function stageText() {
+    const parts = [
+      document.querySelector('.hud .meter b')?.textContent,
+      document.querySelector('.case .kicker')?.textContent,
+      document.querySelector('.case h1')?.textContent,
+      document.querySelector('.case p')?.textContent,
+      document.querySelector('.question .hint')?.textContent,
+      document.querySelector('.question .prompt')?.textContent
+    ];
+    return parts.map(escText).filter(Boolean).join(' • ');
   }
 
-  function removeCluePhrases(text) {
-    let s = cleanSpaces(text);
-    s = s.replace(/เลือก(?:คำตอบ|แนวทาง|วิธี|หลักฐาน)?(?:ที่|ซึ่ง)?/gi, '');
-    s = s.replace(/(?:โดย|เพื่อ|เพราะ|เนื่องจาก|พร้อมทั้ง|แล้วส่งต่อ|ส่งต่อเข้า|ต่อด้วย|และส่งต่อ).*$/i, '');
-    s = s.replace(/\s*[•→].*$/g, '');
-    s = s.replace(/\([^)]{8,}\)/g, '');
-    s = s.replace(/\b(?:artifact|decision chain|Visual Style Guide|style guide)\b/gi, '');
-    s = cleanSpaces(s);
-    return s;
+  function choiceSet() {
+    const text = stageText();
+    const rule = rules.find(r => r.re.test(text));
+    return (rule?.set || nodeFallback[NODE] || nodeFallback.W1).slice(0,4);
   }
 
-  function compactMeaning(raw, index) {
-    const text = cleanSpaces(raw);
-    for (const [re, label] of CONCEPTS) if (re.test(text)) return label;
-    for (const [re, label] of BAD_PATTERNS) if (re.test(text)) return label;
-    let s = removeCluePhrases(text);
-    if (!s || s.length < 6) s = (FALLBACKS[NODE] || FALLBACKS.W1)[index % 4];
-    if (s.length > 44) s = s.slice(0, 42).replace(/[\s,;:/-]+$/,'') + '…';
-    return s;
+  function dataChoice(el) { return String(el.getAttribute('data-choice') || el.dataset.choice || ''); }
+  function isCorrect(el) { return /^c\d*/i.test(dataChoice(el)); }
+  function distractorIndex(el) {
+    const m = dataChoice(el).match(/^d\d+-(\d+)/i);
+    return m ? Number(m[1]) : 0;
   }
 
-  function hasSpoiler(texts) {
-    const lengths = texts.map(t => cleanSpaces(t).length);
-    const sorted = lengths.slice().sort((a,b) => a-b);
-    const median = sorted[Math.floor(sorted.length / 2)] || 1;
-    const max = Math.max(...lengths);
-    if (max > THRESHOLD_LONG || max / Math.max(1, median) > THRESHOLD_RATIO) return true;
-    const lowered = texts.map(t => t.toLowerCase());
-    return CLUE_TERMS.some(term => lowered.filter(t => t.includes(term.toLowerCase())).length === 1);
+  function setButton(button, label) {
+    const id = dataChoice(button);
+    button.dataset.uxqFairOriginal = button.dataset.uxqFairOriginal || escText(button.textContent);
+    button.innerHTML = `<span class="uxqFairLetter">${button.closest('.options') ? Array.from(button.closest('.options').children).indexOf(button) >= 0 ? String.fromCharCode(65 + Array.from(button.closest('.options').children).indexOf(button)) : '' : ''}</span><span class="uxqFairText"></span>`;
+    const text = button.querySelector('.uxqFairText');
+    if (text) text.textContent = label;
+    button.setAttribute('data-choice', id);
   }
 
-  function uniqueBalanced(labels) {
-    const used = new Set();
-    const fallback = FALLBACKS[NODE] || FALLBACKS.W1;
-    return labels.map((label, i) => {
-      let out = cleanSpaces(label);
-      if (!out || used.has(out.toLowerCase())) out = fallback[i % fallback.length];
-      let n = 2;
-      while (used.has(out.toLowerCase())) out = `${fallback[i % fallback.length]} ${n++}`;
-      used.add(out.toLowerCase());
-      return out;
-    });
-  }
-
-  function setOptionText(option, text) {
-    option.dataset.uxqFairOriginal = option.dataset.uxqFairOriginal || cleanSpaces(option.textContent);
-    const label = option.querySelector('.choice-label, .label, .badge, b, strong');
-    const letter = option.getAttribute('data-label') || option.dataset.label || label?.textContent?.trim()?.match(/^[A-D]$/i)?.[0] || '';
-    option.textContent = '';
-    const head = document.createElement('span');
-    head.className = 'uxqFairLetter';
-    head.textContent = letter || String.fromCharCode(65 + Array.from(option.parentElement?.children || []).indexOf(option));
-    const body = document.createElement('span');
-    body.className = 'uxqFairText';
-    body.textContent = text;
-    option.append(head, body);
-  }
-
-  function mark(container, reason) {
-    if (container.querySelector('.uxqFairnessBadge')) return;
-    const badge = document.createElement('div');
-    badge.className = 'uxqFairnessBadge';
-    badge.textContent = `✅ choice fairness: ${reason}`;
-    const target = container.querySelector('.instruction, .prompt, .question-title, h2, h3') || container.firstElementChild;
-    if (target?.parentElement) target.parentElement.insertBefore(badge, target.nextSibling);
-  }
-
-  function processQuestion(question) {
+  function apply() {
+    const question = document.querySelector('.question');
     if (!question || question.dataset.uxqFairApplied === VERSION) return;
-    if (question.closest('.result, .summary, .debrief, .artifact, textarea')) return;
-    const options = Array.from(question.querySelectorAll('button.option, .option, button.choice, .choice, [data-choice]'))
-      .filter(el => !el.closest('.verify, .result, .debrief, .artifact') && el.offsetParent !== null);
-    if (options.length < 4) return;
+    if (question.querySelector('.verify, .feedback')) return;
+    const buttons = Array.from(question.querySelectorAll('.options [data-choice]')).filter(b => b.offsetParent !== null).slice(0,4);
+    if (buttons.length < 4) return;
 
-    const originalTexts = options.slice(0,4).map(o => cleanSpaces(o.dataset.uxqFairOriginal || o.textContent));
-    const needs = hasSpoiler(originalTexts) || options.some(o => /\n|\s{2,}/.test(o.textContent));
-    if (!needs) {
-      question.dataset.uxqFairApplied = VERSION;
-      mark(question, 'balanced');
-      return;
-    }
-
-    const labels = uniqueBalanced(originalTexts.map(compactMeaning));
-    options.slice(0,4).forEach((opt, i) => setOptionText(opt, labels[i]));
+    const set = choiceSet();
+    const correctLabel = set[0];
+    const wrongLabels = set.slice(1);
+    buttons.forEach((button) => {
+      const label = isCorrect(button) ? correctLabel : wrongLabels[distractorIndex(button) % wrongLabels.length];
+      setButton(button, label);
+    });
     question.dataset.uxqFairApplied = VERSION;
     question.dataset.uxqFairVersion = VERSION;
-    mark(question, 'no spoiler / equal length');
-
-    window.UXQ_CHOICE_FAIRNESS_AUDIT = window.UXQ_CHOICE_FAIRNESS_AUDIT || [];
-    window.UXQ_CHOICE_FAIRNESS_AUDIT.push({ node:NODE, version:VERSION, before:originalTexts, after:labels, ts:new Date().toISOString() });
+    addBadge(question, 'stage-specific / no repeated generic');
   }
 
-  function scan() {
-    document.querySelectorAll('.question, .game, .stage, .round, main').forEach(processQuestion);
+  function addBadge(question, text) {
+    if (question.querySelector('.uxqFairnessBadge')) return;
+    const badge = document.createElement('div');
+    badge.className = 'uxqFairnessBadge';
+    badge.textContent = `✅ choice fairness: ${text}`;
+    const prompt = question.querySelector('.prompt') || question.firstElementChild;
+    if (prompt?.parentElement) prompt.parentElement.insertBefore(badge, prompt.nextSibling);
   }
 
   function css() {
-    if (document.getElementById('uxqAllChoiceFairnessCSS')) return;
+    if (document.getElementById('uxqChoiceFairnessV2CSS')) return;
     const style = document.createElement('style');
-    style.id = 'uxqAllChoiceFairnessCSS';
+    style.id = 'uxqChoiceFairnessV2CSS';
     style.textContent = `
-      .uxqFairnessBadge{display:inline-flex;align-items:center;gap:.35rem;margin:.55rem 0 .8rem;padding:.36rem .7rem;border:1px solid rgba(94,234,212,.55);background:rgba(20,184,166,.14);color:#bbf7d0;border-radius:999px;font-weight:900;font-size:.82rem;letter-spacing:-.01em}
-      button.option .uxqFairLetter,.option .uxqFairLetter,button.choice .uxqFairLetter,.choice .uxqFairLetter,[data-choice] .uxqFairLetter{display:inline-grid;place-items:center;min-width:2.1rem;height:1.6rem;margin-right:.55rem;border:1px solid rgba(103,232,249,.6);background:rgba(8,145,178,.2);color:#a5f3fc;border-radius:999px;font-weight:1000;font-size:.78rem;line-height:1}
-      button.option .uxqFairText,.option .uxqFairText,button.choice .uxqFairText,.choice .uxqFairText,[data-choice] .uxqFairText{display:inline;overflow-wrap:anywhere;word-break:normal;line-height:1.35}
-      button.option,.option,button.choice,.choice,[data-choice]{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;min-height:7.4rem!important;display:flex!important;align-items:flex-start!important;gap:.15rem!important}
+      .uxqFairnessBadge{display:inline-flex;align-items:center;margin:.45rem 0 .75rem;padding:.34rem .68rem;border:1px solid rgba(94,234,212,.55);background:rgba(20,184,166,.14);color:#bbf7d0;border-radius:999px;font-weight:900;font-size:.78rem}
+      .option .uxqFairLetter{display:inline-grid;place-items:center;min-width:1.9rem;height:1.55rem;margin-right:.55rem;border:1px solid rgba(103,232,249,.65);background:rgba(8,145,178,.22);color:#a5f3fc;border-radius:999px;font-weight:1000;font-size:.78rem;line-height:1}
+      .option .uxqFairText{display:inline;line-height:1.32;overflow-wrap:anywhere}
+      .question>.options .option{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;min-height:5.7rem!important;display:flex!important;align-items:flex-start!important;gap:.1rem!important}
     `;
     document.head.appendChild(style);
   }
 
   function boot() {
     css();
-    scan();
+    apply();
     let timer = 0;
-    const schedule = () => { clearTimeout(timer); timer = setTimeout(scan, 60); };
-    new MutationObserver(schedule).observe(document.body, { childList:true, subtree:true, characterData:true });
-    window.addEventListener('click', () => setTimeout(scan, 80), true);
+    const schedule = () => { clearTimeout(timer); timer = setTimeout(apply, 40); };
+    new MutationObserver(schedule).observe(document.body, { childList:true, subtree:true });
+    window.addEventListener('click', () => setTimeout(apply, 70), true);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });
