@@ -1,12 +1,12 @@
 /* CSAI2601 canonical Mission Control — rendered from uxq-csai2601-canonical-content-v1.js
  * Course path: W1-W15 + B1-B4. No B5.
- * Fix v39: restore stable per-node icons in every Mission Control card; no more empty circle placeholders.
+ * Fix v40: route all nodes to all-node choice fairness guard build.
  */
 (() => {
   'use strict';
 
   const CONTENT = window.CSAI2601_UXQ_CANONICAL_CONTENT_V1;
-  const VERSION = 'clean-v39-mission-icons-20260709';
+  const VERSION = 'clean-v40-choice-fairness-20260709';
   const NODE_ICONS = {
     W1:'🔎', W2:'🧭', W3:'🧠', W4:'🕵️', W5:'💡', W6:'🗺️', W7:'📐', W8:'🧩', W9:'🧱', W10:'📱', W11:'🎨', W12:'⚡', W13:'🔗', W14:'🧪', W15:'🏁',
     B1:'👹', B2:'🐉', B3:'🛡️', B4:'🔥'
@@ -97,7 +97,7 @@
     if ($('#progress')) $('#progress').textContent = progressText;
 
     if (grid) {
-      grid.innerHTML = `<div class="campaign-separator">CSAI2601 • 15 Weeks + 4 Boss Gates • ${total} nodes • canonical player ${esc(CONTENT?.version || 'fallback')} • mission icons v39</div>` +
+      grid.innerHTML = `<div class="campaign-separator">CSAI2601 • 15 Weeks + 4 Boss Gates • ${total} nodes • canonical player ${esc(CONTENT?.version || 'fallback')} • mission icons v39 • choice fairness v40</div>` +
         nodes.map((node, index) => card(node, index, progressData)).join('');
       grid.querySelectorAll('a[aria-disabled="true"]').forEach((link) => link.addEventListener('click', (event) => event.preventDefault()));
     }
