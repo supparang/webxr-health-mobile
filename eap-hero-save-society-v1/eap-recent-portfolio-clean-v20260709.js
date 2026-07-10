@@ -1,6 +1,6 @@
 /* =========================================================
    EAP Hero Recent Portfolio Clean v20260709
-   V3 STUDENT RECENT ONLY
+   V4 STUDENT RECENT ONLY + TIME LABEL
    - Cleans the student-facing Recent Portfolio table only.
    - Hides obvious legacy/migration rows AND Cloud/Sheet restore confirmation
      rows because their timestamp is the restore/cache time, not the original
@@ -9,14 +9,15 @@
      shifted by responsive UI.
    - If multiple valid rows share the same Session + Skill, it keeps the best
      visible row and hides only lower-score duplicates.
+   - Clarifies that the visible time column may be the display/restore time.
    - UI-only. Does not delete localStorage, does not change Sheet rows,
      scores, pass/fail, evidence, teacher review, or unlock rules.
 ========================================================= */
 (function(){
   'use strict';
 
-  var VERSION = 'v20260710-EAP-RECENT-PORTFOLIO-CLEAN-V3-STUDENT-RECENT-ONLY';
-  var STYLE_ID = 'eap-recent-portfolio-clean-style-v3';
+  var VERSION = 'v20260710-EAP-RECENT-PORTFOLIO-CLEAN-V4-TIME-LABEL';
+  var STYLE_ID = 'eap-recent-portfolio-clean-style-v4';
   var timer = null;
 
   function text(value){
@@ -34,7 +35,9 @@
     style.id = STYLE_ID;
     style.textContent = [
       'tr[data-eap-portfolio-hidden="1"]{display:none!important}',
-      '.eap-portfolio-clean-note{display:inline-flex;margin-left:10px;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#047857;font:800 11px Arial,"Noto Sans Thai",sans-serif;vertical-align:middle}'
+      '.eap-portfolio-clean-note{display:inline-flex;margin-left:10px;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#047857;font:800 11px Arial,"Noto Sans Thai",sans-serif;vertical-align:middle}',
+      '.eap-portfolio-time-note{display:block;margin:7px 0 4px;color:#cbd5e1;font:800 12px Arial,"Noto Sans Thai",sans-serif;line-height:1.35}',
+      '.eap-portfolio-time-note b{color:#a7f3d0}'
     ].join('\n');
     document.head.appendChild(style);
   }
@@ -106,8 +109,21 @@
     row.removeAttribute('aria-hidden');
   }
 
+  function labelTimeHeader(table){
+    var headerCells = Array.prototype.slice.call(table.querySelectorAll('thead th, tr:first-child th'));
+    if (!headerCells.length) return;
+    var first = headerCells[0];
+    var raw = text(first.textContent);
+    if (/เวลาแสดง/.test(raw)) return;
+    if (/วันที่\/เวลา|date|time/i.test(raw)) {
+      first.textContent = 'เวลาแสดง (ล่าสุด/กู้คืน)';
+    }
+  }
+
   function cleanTable(table){
     if (!looksLikePortfolioTable(table)) return;
+
+    labelTimeHeader(table);
 
     var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
     var buckets = {};
@@ -141,9 +157,10 @@
     });
 
     addNote(table);
+    addTimeNote(table);
   }
 
-  function addNote(table){
+  function findTitle(table){
     var title = null;
     var node = table;
     for (var i = 0; i < 5 && node; i += 1) {
@@ -158,11 +175,25 @@
       if (title) break;
       node = node.parentElement;
     }
+    return title;
+  }
+
+  function addNote(table){
+    var title = findTitle(table);
     if (!title || title.querySelector('.eap-portfolio-clean-note')) return;
     var note = document.createElement('span');
     note.className = 'eap-portfolio-clean-note';
     note.textContent = 'แสดงเฉพาะหลักฐานจริงของผู้เรียน';
     title.appendChild(note);
+  }
+
+  function addTimeNote(table){
+    var title = findTitle(table);
+    if (!title || title.parentElement.querySelector('.eap-portfolio-time-note')) return;
+    var note = document.createElement('div');
+    note.className = 'eap-portfolio-time-note';
+    note.innerHTML = '<b>หมายเหตุเวลา:</b> ตารางนี้ใช้ดูรายการล่าสุด/ข้อมูลที่กู้คืนบนเครื่องนี้ เวลาอาจเป็นเวลาโหลดข้อมูลล่าสุด ไม่ใช่เวลาเล่นจริงทุกครั้ง; คะแนนและ Session status ให้ยึดหลักฐานแยกตาม Skill';
+    title.insertAdjacentElement('afterend', note);
   }
 
   function run(){
