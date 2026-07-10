@@ -1,14 +1,15 @@
 /* =========================================================
    EAP Hero Strict Per-Skill Score Truth Guard v20260708
-   Problem solved:
-   - Session cards may show an avg or copied score as if every required skill passed.
-   - This guard reads portfolio evidence by Session + Skill and overlays the truth.
-   - It never changes stored data, Sheet sync, scoring, or unlock logic.
+   Stable version:
+   - Reads portfolio evidence by Session + Skill.
+   - Adds a truth overlay only when its content changes.
+   - Avoids writing DOM repeatedly, preventing MutationObserver flicker.
+   - UI-only. Does not change stored data, Sheet sync, scoring, or unlock logic.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260708-STRICT-SKILL-SCORE-TRUTH-V1';
+  const VERSION = 'v20260708-STRICT-SKILL-SCORE-TRUTH-V2-NO-FLICKER';
   const STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PASS_MARK = 60;
   const STYLE_ID = 'eap-strict-skill-score-truth-style';
@@ -31,6 +32,10 @@
     14: ['Writing','Speaking'],
     15: ['Writing','Speaking']
   };
+
+  let lastAppTextKey = '';
+  let lastDataKey = '';
+  let timer = null;
 
   function text(value){
     return String(value == null ? '' : value).replace(/\s+/g,' ').trim();
@@ -115,7 +120,7 @@
       const t = text(node.textContent);
       if (!/^SESSION\s+(1[0-5]|[1-9])\b/i.test(t)) return false;
       const rect = node.getBoundingClientRect();
-      return rect.width >= 120 && rect.height >= 80 && rect.height <= 420;
+      return rect.width >= 120 && rect.height >= 80 && rect.height <= 460;
     });
   }
 
@@ -124,45 +129,81 @@
     return m ? Number(m[1]) : 0;
   }
 
-  function htmlFor(sid, best){
+  function modelFor(sid, best){
     const required = REQUIRED[sid] || ['Reading','Writing'];
-    const rows = required.map(skill => {
+    return required.map(skill => {
       const score = best[sid] && best[sid][skill] ? best[sid][skill] : 0;
-      const pass = score >= PASS_MARK;
-      return '<span class="row ' + (pass ? 'pass' : 'todo') + '">' +
-        (pass ? '✓ ' : '○ ') + skill + ': ' + (score ? score + '/60' : 'ยังไม่พบหลักฐาน') +
-        '</span>';
-    }).join('');
-    const complete = required.every(skill => best[sid] && best[sid][skill] >= PASS_MARK);
-    return '<div class="' + GUARD_CLASS + (complete ? ' ok' : '') + '" data-session="' + sid + '">' +
-      '<b>คะแนนจริงแยกตาม Skill</b>' + rows +
-      (complete ? '<span class="row pass">Session ผ่านตามหลักฐานจริง</span>' : '<span class="row todo">ยังไม่ครบตามหลักฐานจริง</span>') +
-      '</div>';
-  }
-
-  function patchCards(){
-    injectStyle();
-    const best = strictPortfolioBest();
-    sessionCardNodes().forEach(node => {
-      const sid = sessionFromNode(node);
-      if (!sid) return;
-      let guard = node.querySelector(':scope > .' + GUARD_CLASS);
-      const next = htmlFor(sid, best);
-      if (!guard) {
-        node.insertAdjacentHTML('beforeend', next);
-      } else if (guard.outerHTML !== next) {
-        guard.outerHTML = next;
-      }
+      return { skill, score, pass: score >= PASS_MARK };
     });
   }
 
+  function htmlFor(sid, best){
+    const model = modelFor(sid, best);
+    const rows = model.map(row => '<span class="row ' + (row.pass ? 'pass' : 'todo') + '">' +
+      (row.pass ? '✓ ' : '○ ') + row.skill + ': ' + (row.score ? row.score + '/60' : 'ยังไม่พบหลักฐาน') +
+      '</span>').join('');
+    const complete = model.every(row => row.pass);
+    return '<b>คะแนนจริงแยกตาม Skill</b>' + rows +
+      (complete ? '<span class="row pass">Session ผ่านตามหลักฐานจริง</span>' : '<span class="row todo">ยังไม่ครบตามหลักฐานจริง</span>');
+  }
+
+  function patchCards(force){
+    const app = document.getElementById('app');
+    if (!app) return;
+    injectStyle();
+
+    const appKey = text(app.textContent).slice(0, 1200);
+    const best = strictPortfolioBest();
+    const dataKey = JSON.stringify(best);
+
+    if (!force && appKey === lastAppTextKey && dataKey === lastDataKey) {
+      return;
+    }
+
+    lastAppTextKey = appKey;
+    lastDataKey = dataKey;
+
+    sessionCardNodes().forEach(node => {
+      const sid = sessionFromNode(node);
+      if (!sid) return;
+
+      const model = modelFor(sid, best);
+      const key = JSON.stringify(model);
+      let guard = node.querySelector(':scope > .' + GUARD_CLASS);
+      const html = htmlFor(sid, best);
+      const complete = model.every(row => row.pass);
+
+      if (!guard) {
+        guard = document.createElement('div');
+        guard.className = GUARD_CLASS + (complete ? ' ok' : '');
+        guard.dataset.session = String(sid);
+        guard.dataset.truthKey = key;
+        guard.innerHTML = html;
+        node.appendChild(guard);
+        return;
+      }
+
+      if (guard.dataset.truthKey === key) return;
+      guard.dataset.truthKey = key;
+      guard.className = GUARD_CLASS + (complete ? ' ok' : '');
+      guard.innerHTML = html;
+    });
+  }
+
+  function schedule(force){
+    clearTimeout(timer);
+    timer = setTimeout(() => patchCards(!!force), 180);
+  }
+
   function start(){
-    patchCards();
-    window.setInterval(patchCards, 1000);
-    window.addEventListener('storage', patchCards);
+    schedule(true);
+    window.addEventListener('storage', () => schedule(true));
+    window.addEventListener('eap:resume-synced', () => schedule(true));
+    window.addEventListener('eap:profile-saved', () => schedule(true));
+    window.addEventListener('eap:cloud-resume-applied', () => schedule(true));
     window.EAPStrictSkillScoreTruth = {
       version: VERSION,
-      refresh: patchCards,
+      refresh: function(){ schedule(true); },
       strictPortfolioBest: strictPortfolioBest
     };
   }
