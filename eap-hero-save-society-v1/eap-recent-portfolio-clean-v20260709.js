@@ -1,19 +1,19 @@
 /* =========================================================
    EAP Hero Recent Portfolio Clean v20260709
-   V7 SAFE STUDENT TABLE
-   - Never hides student evidence rows.
-   - Hides only the confusing time column for students.
-   - Keeps Session / Skill / Score / Output visible.
-   - Fills empty Output from local portfolio when available; otherwise shows —.
-   - Teacher Dashboard / Sheet remain the source of truth for exact timestamp.
+   V8 SANITIZE + DEDUPE STUDENT TABLE
+   - Hides confusing time column for students.
+   - Keeps one best row per Session + Skill.
+   - Never shows system/legacy/cloud messages to students.
+   - Output becomes real student text when available; otherwise 'หลักฐานบันทึกแล้ว'.
+   - Teacher Dashboard / Sheet remain the source of truth for exact timestamp and full evidence.
    - UI-only. Does not delete localStorage, does not change Sheet rows,
      scores, pass/fail, evidence, teacher review, or unlock rules.
 ========================================================= */
 (function(){
   'use strict';
 
-  var VERSION = 'v20260710-EAP-RECENT-PORTFOLIO-CLEAN-V7-SAFE-NO-HIDE-ROWS';
-  var STYLE_ID = 'eap-recent-portfolio-clean-style-v7';
+  var VERSION = 'v20260710-EAP-RECENT-PORTFOLIO-CLEAN-V8-SANITIZE-DEDUPE';
+  var STYLE_ID = 'eap-recent-portfolio-clean-style-v8';
   var STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   var timer = null;
 
@@ -27,11 +27,12 @@
   }
 
   function addStyle(){
-    var old = document.getElementById(STYLE_ID);
-    if (old) return;
+    removeOldStyles();
+    if (document.getElementById(STYLE_ID)) return;
     var style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = [
+      'tr[data-eap-portfolio-hidden="1"]{display:none!important}',
       '.eap-portfolio-clean-note{display:inline-flex;margin-left:10px;padding:4px 8px;border-radius:999px;background:#dcfce7;color:#047857;font:800 11px Arial,"Noto Sans Thai",sans-serif;vertical-align:middle}',
       '.eap-portfolio-student-note{display:block;margin:7px 0 4px;color:#cbd5e1;font:800 12px Arial,"Noto Sans Thai",sans-serif;line-height:1.35}',
       '.eap-portfolio-student-note b{color:#a7f3d0}',
@@ -42,9 +43,9 @@
     document.head.appendChild(style);
   }
 
-  function removeOldHideStyles(){
+  function removeOldStyles(){
     Array.prototype.slice.call(document.querySelectorAll('style[id^="eap-recent-portfolio-clean-style-"]')).forEach(function(style){
-      if (style.id !== STYLE_ID) style.parentNode && style.parentNode.removeChild(style);
+      if (style.id !== STYLE_ID && style.parentNode) style.parentNode.removeChild(style);
     });
   }
 
@@ -72,6 +73,12 @@
     return '';
   }
 
+  function isSystemText(value){
+    var t = text(value).toLowerCase();
+    if (!t) return true;
+    return /completed legacy evidence retained|browser-storage migration|ความคืบหน้าที่ยืนยันแล้วจาก\s*cloud\/sheet|cloud\/sheet|auto_evidence_review_optional|teacher_can_review_optional|auto_review_optional|confirmed from cloud|restored from sheet|server_sessionprogress|legacy evidence/i.test(t);
+  }
+
   function evidenceOutput(entry){
     var candidates = [
       entry && entry.output,
@@ -87,7 +94,7 @@
     ];
     for (var i = 0; i < candidates.length; i += 1) {
       var v = text(candidates[i]);
-      if (v && !/auto_evidence_review_optional|teacher_can_review_optional|legacy evidence/i.test(v)) return v;
+      if (v && !isSystemText(v)) return v;
     }
     return '';
   }
@@ -116,7 +123,7 @@
     return /recent portfolio|session/.test(all) && /skill/.test(all) && /score/.test(all);
   }
 
-  function showEverything(table){
+  function resetHidden(table){
     Array.prototype.slice.call(table.querySelectorAll('tr,td,th')).forEach(function(el){
       el.removeAttribute('data-eap-portfolio-hidden');
       el.removeAttribute('aria-hidden');
@@ -146,6 +153,9 @@
     });
     var skillIndex = cells.findIndex(function(c){ return !!normalizeSkill(c); });
     if (skillIndex >= 0 && cells[skillIndex + 1] != null) score = num(cells[skillIndex + 1]);
+    if (!score) {
+      cells.forEach(function(c){ var n = num(c); if (!score && n > 0 && n <= 100) score = n; });
+    }
     return { cells: cells, session: session, skill: skill, score: score };
   }
 
@@ -160,23 +170,45 @@
     return cells.length ? cells[cells.length - 1] : null;
   }
 
-  function restoreOutputs(table){
+  function setOutput(row, parsed, lookup){
+    var cell = outputCell(row);
+    if (!cell || !parsed.session || !parsed.skill) return;
+    var current = text(cell.textContent);
+    var hit = lookup[parsed.session + '|' + parsed.skill.toLowerCase()];
+    var finalText = '';
+
+    if (hit && hit.output) finalText = hit.output;
+    else if (current && !isSystemText(current)) finalText = current;
+    else finalText = 'หลักฐานบันทึกแล้ว';
+
+    cell.textContent = shortOutput(finalText);
+    cell.title = finalText;
+    cell.dataset.eapOutputRestored = '1';
+  }
+
+  function dedupeRows(table){
+    var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
+    var buckets = {};
     var lookup = portfolioLookup();
-    Array.prototype.slice.call(table.querySelectorAll('tr')).forEach(function(row){
+
+    rows.forEach(function(row){
       var parsed = parseRow(row);
       if (!parsed.session || !parsed.skill) return;
-      var cell = outputCell(row);
-      if (!cell) return;
-      var current = text(cell.textContent);
-      if (current && current !== '—') return;
-      var hit = lookup[parsed.session + '|' + parsed.skill.toLowerCase()];
-      if (hit && hit.output) {
-        cell.textContent = shortOutput(hit.output);
-        cell.title = hit.output;
-      } else {
-        cell.textContent = '—';
-      }
-      cell.dataset.eapOutputRestored = '1';
+      setOutput(row, parsed, lookup);
+      var key = parsed.session + '|' + parsed.skill.toLowerCase();
+      if (!buckets[key]) buckets[key] = [];
+      buckets[key].push({ row: row, score: parsed.score });
+    });
+
+    Object.keys(buckets).forEach(function(key){
+      var list = buckets[key];
+      list.sort(function(a, b){ return b.score - a.score; });
+      list.forEach(function(item, index){
+        if (index > 0) {
+          item.row.dataset.eapPortfolioHidden = '1';
+          item.row.setAttribute('aria-hidden', 'true');
+        }
+      });
     });
   }
 
@@ -209,21 +241,20 @@
     if (!title || title.parentElement.querySelector('.eap-portfolio-student-note')) return;
     var note = document.createElement('div');
     note.className = 'eap-portfolio-student-note';
-    note.innerHTML = '<b>สำหรับผู้เรียน:</b> ตารางนี้แสดง Session, Skill, Score และคำตอบล่าสุด/ดีที่สุดเท่านั้น เวลาเล่นจริงให้ครูดูจาก Teacher Dashboard';
+    note.innerHTML = '<b>สำหรับผู้เรียน:</b> ตารางนี้แสดง Session, Skill, Score และคำตอบ/หลักฐานล่าสุดเท่านั้น เวลาเล่นจริงให้ครูดูจาก Teacher Dashboard';
     title.insertAdjacentElement('afterend', note);
   }
 
   function cleanTable(table){
     if (!looksLikePortfolioTable(table)) return;
-    showEverything(table);
+    resetHidden(table);
     markAndHideTimeColumn(table);
-    restoreOutputs(table);
+    dedupeRows(table);
     addNote(table);
     addStudentNote(table);
   }
 
   function run(){
-    removeOldHideStyles();
     addStyle();
     Array.prototype.slice.call(document.querySelectorAll('#app table')).forEach(cleanTable);
   }
