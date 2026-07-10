@@ -1,11 +1,12 @@
 /* CSAI2601 canonical Mission Control — rendered from uxq-csai2601-canonical-content-v1.js
  * Course path: W1-W15 + B1-B4. No B5.
- * All nodes now launch through the canonical node player so titles, artifacts and boss cadence cannot drift.
+ * All nodes launch through clean canonical student build with cache-busted logo/static packs.
  */
 (() => {
   'use strict';
 
   const CONTENT = window.CSAI2601_UXQ_CANONICAL_CONTENT_V1;
+  const VERSION = 'clean-v37-logo-static-20260709';
   const FALLBACK_NODES = [
     'W1','W2','W3','B1','W4','W5','W6','W7','B2','W8','W9','W10','W11','B3','W12','W13','W14','B4','W15'
   ].map((id, index) => ({ id, order:index + 1, type:id.startsWith('B') ? 'boss' : 'week', title:id, missionTitle:id, focus:'CSAI2601 canonical mission', artifact:'Studio Artifact' }));
@@ -22,7 +23,7 @@
     const n = Math.max(0, Math.min(3, Number(value || 0)));
     return `${'★'.repeat(n)}${'☆'.repeat(3 - n)}`;
   };
-  const launchUrl = (node) => `./csai2601-canonical-node.html?node=${encodeURIComponent(String(node.id || '').toUpperCase())}`;
+  const launchUrl = (node) => `./csai2601-canonical-node-clean-v1.html?node=${encodeURIComponent(String(node.id || '').toUpperCase())}&v=${encodeURIComponent(VERSION)}`;
 
   function progress() { return window.UXQProgress?.get?.() || { missions:{} }; }
   function missionRecord(progressData, key) { return progressData?.missions?.[key] || progressData?.missions?.[String(key).toUpperCase()] || {}; }
