@@ -1,13 +1,14 @@
-/* CSAI2601 UX Quest • Result Auto Sheet Sync v1
- * Sends mission_completed automatically when the result screen appears.
- * Also sends artifact_submitted when the debrief button is clicked and fields are filled.
- * Keeps existing local-save behavior; this is a safety layer for classroom Sheet logging.
+/* CSAI2601 UX Quest • Result Auto Sheet Sync v2
+ * Sheet-only classroom logging.
+ * - Sends mission_completed automatically when the result screen appears.
+ * - Replaces local-note save with Sheet submit for debrief/artifact.
+ * - Prevents the old local-only save handler from overriding classroom status.
  */
 (() => {
   'use strict';
 
-  const SENT_KEY = 'csai2601.uxq.mission.sheet.sent.v1';
-  const ARTIFACT_LAST_KEY = 'csai2601.uxq.artifact.sheet.autosync.last.v1';
+  const SENT_KEY = 'csai2601.uxq.mission.sheet.sent.v2';
+  const ARTIFACT_LAST_KEY = 'csai2601.uxq.artifact.sheet.autosync.last.v2';
   const q = () => new URLSearchParams(location.search || '');
   const nodeId = () => String(q().get('node') || q().get('id') || 'W1').toUpperCase();
   const nodeKey = () => nodeId().toLowerCase();
@@ -104,7 +105,7 @@
       badge: clean(result.badge || `${common.nodeId} ${common.missionTitle}`, 120),
       caseIds: common.caseId ? [common.caseId] : [],
       answers: [],
-      source: 'csai2601-result-autosheet-v1'
+      source: 'csai2601-result-autosheet-v2-sheet-only'
     });
   }
   function collectArtifact() {
@@ -119,14 +120,14 @@
     });
     return { values, labels };
   }
-  function artifactPayload() {
+  function artifactPayload(forceEmpty) {
     const result = lastResult();
     const artifact = collectArtifact();
     const problem = artifact.values['0'] || '';
     const why = artifact.values['1'] || '';
     const fixTest = artifact.values['2'] || '';
     const reflection = [problem, why, fixTest].filter(Boolean).join(' | ');
-    if (!reflection) return null;
+    if (!reflection && !forceEmpty) return null;
     return Object.assign(base('artifact_submitted', 'uxq.artifact.v2'), {
       eventId: uid('artifact'),
       attemptId: uid('artifact-attempt'),
@@ -135,8 +136,8 @@
       problemSeen: problem,
       uxReason: why,
       fixAndTest: fixTest,
-      reflection: clean(reflection, 3000),
-      learnedPoint: clean(why || problem, 1500),
+      reflection: clean(reflection || 'submitted without debrief text', 3000),
+      learnedPoint: clean(why || problem || 'submitted without debrief text', 1500),
       artifactFields: artifact.labels,
       score: Number(result.score || 0),
       stars: Number(result.stars || 0),
@@ -146,11 +147,18 @@
       hints: Number(result.hints || 0),
       durationSec: Number(result.durationSec || 0),
       passed: Boolean(result.passed),
-      source: 'csai2601-result-autosheet-v1'
+      source: 'csai2601-result-autosheet-v2-sheet-only'
     });
   }
   function status(text) {
-    const el = document.querySelector('[data-save-status]');
+    let el = document.querySelector('[data-save-status]');
+    const artifact = document.querySelector('.artifact');
+    if (!el && artifact) {
+      el = document.createElement('small');
+      el.setAttribute('data-save-status', '');
+      const actions = artifact.querySelector('.actions') || artifact;
+      actions.appendChild(el);
+    }
     if (el) el.textContent = text;
   }
   function post(item) {
@@ -174,29 +182,47 @@
     if (sent && sent[item.eventId]) return;
     sent[item.eventId] = new Date().toISOString();
     writeJson(SENT_KEY, sent);
+    status('กำลังส่งผลการเล่นเข้า Sheet...');
     post(item).then((outcome) => {
-      if (outcome.state === 'dispatched_unverified') status('ส่งผลการเล่นเข้า Sheet แล้ว • กรอก debrief แล้วกดบันทึกได้');
-      else status('บันทึกผลในเครื่องแล้ว • ยังส่ง Sheet ไม่ได้');
+      if (outcome.state === 'dispatched_unverified') status('ส่งผลการเล่นเข้า Sheet แล้ว');
+      else status('ยังส่ง Sheet ไม่ได้: ตรวจ receiverUrl / profile');
+    });
+  }
+  function hardenSheetOnlyUi() {
+    document.querySelectorAll('[data-save-artifact]').forEach((button) => {
+      button.textContent = 'ส่งเข้า Sheet';
+      button.classList.remove('secondary');
+      button.setAttribute('title', 'ส่ง debrief/artifact เข้า Google Sheet เท่านั้น');
+    });
+    document.querySelectorAll('.artifact p, .artifact .kicker').forEach((el) => {
+      el.textContent = el.textContent
+        .replace(/บันทึก note ในเครื่อง/g, 'ส่งเข้า Sheet')
+        .replace(/นำผลการเล่นไปเติมใบงาน\/portfolio ตามหัวข้อต่อไปนี้/g, 'กรอกสั้น ๆ แล้วส่งเข้า Google Sheet เท่านั้น');
     });
   }
   function bindArtifactButton() {
     document.querySelectorAll('[data-save-artifact]').forEach((button) => {
-      if (button.dataset.autoSheetBound === '1') return;
-      button.dataset.autoSheetBound = '1';
-      button.addEventListener('click', () => {
-        const item = artifactPayload();
-        if (!item) { status('ผลการเล่นส่งเข้า Sheet แล้ว • ถ้าจะส่ง debrief ให้กรอกอย่างน้อย 1 ช่อง'); return; }
+      if (button.dataset.sheetOnlyBound === '1') return;
+      button.dataset.sheetOnlyBound = '1';
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const item = artifactPayload(false);
+        if (!item) { status('ผลการเล่นส่งเข้า Sheet แล้ว • กรอก debrief อย่างน้อย 1 ช่องแล้วกดส่งเข้า Sheet'); return; }
         writeJson(ARTIFACT_LAST_KEY, item);
         status('กำลังส่ง debrief เข้า Sheet...');
         post(item).then((outcome) => {
-          if (outcome.state === 'dispatched_unverified') status('ส่งผลการเล่น + debrief เข้า Sheet แล้ว');
-          else status('บันทึก debrief ในเครื่องแล้ว • ยังส่ง Sheet ไม่ได้');
+          if (outcome.state === 'dispatched_unverified') status('ส่ง debrief เข้า Sheet แล้ว');
+          else status('ยังส่ง Sheet ไม่ได้: เก็บคิวในเครื่องชั่วคราวแล้ว');
         });
       }, true);
     });
   }
   let timer = 0;
-  function run() { clearTimeout(timer); timer = setTimeout(() => { autoMission(); bindArtifactButton(); }, 80); }
+  function run() {
+    clearTimeout(timer);
+    timer = setTimeout(() => { autoMission(); hardenSheetOnlyUi(); bindArtifactButton(); }, 60);
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once:true }); else run();
   new MutationObserver(run).observe(document.documentElement, { childList:true, subtree:true });
   window.CSAI2601UXQAutoSheet = Object.freeze({ missionPayload, artifactPayload, autoMission });
