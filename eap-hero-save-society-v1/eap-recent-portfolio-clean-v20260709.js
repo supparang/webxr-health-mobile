@@ -1,10 +1,10 @@
 /* =========================================================
    EAP Hero Recent Portfolio Clean v20260709
-   V8 SANITIZE + DEDUPE STUDENT TABLE
+   V9 STUDENT-FRIENDLY WORDING
    - Hides confusing time column for students.
    - Keeps one best row per Session + Skill.
    - Never shows system/legacy/cloud messages to students.
-   - Output becomes real student text when available; otherwise 'หลักฐานบันทึกแล้ว'.
+   - Output becomes real student text when available; otherwise 'ทำภารกิจสำเร็จแล้ว'.
    - Teacher Dashboard / Sheet remain the source of truth for exact timestamp and full evidence.
    - UI-only. Does not delete localStorage, does not change Sheet rows,
      scores, pass/fail, evidence, teacher review, or unlock rules.
@@ -12,18 +12,18 @@
 (function(){
   'use strict';
 
-  var VERSION = 'v20260710-EAP-RECENT-PORTFOLIO-CLEAN-V8-SANITIZE-DEDUPE';
-  var STYLE_ID = 'eap-recent-portfolio-clean-style-v8';
+  var VERSION = 'v20260710-EAP-RECENT-PORTFOLIO-CLEAN-V9-STUDENT-FRIENDLY';
+  var STYLE_ID = 'eap-recent-portfolio-clean-style-v9';
   var STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   var timer = null;
 
-  function text(value){
-    return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
-  }
+  function text(value){ return String(value == null ? '' : value).replace(/\s+/g, ' ').trim(); }
+  function num(value){ var n = Number(text(value).replace(/[^0-9.-]/g, '')); return Number.isFinite(n) ? n : 0; }
 
-  function num(value){
-    var n = Number(text(value).replace(/[^0-9.-]/g, ''));
-    return Number.isFinite(n) ? n : 0;
+  function removeOldStyles(){
+    Array.prototype.slice.call(document.querySelectorAll('style[id^="eap-recent-portfolio-clean-style-"]')).forEach(function(style){
+      if (style.id !== STYLE_ID && style.parentNode) style.parentNode.removeChild(style);
+    });
   }
 
   function addStyle(){
@@ -43,16 +43,7 @@
     document.head.appendChild(style);
   }
 
-  function removeOldStyles(){
-    Array.prototype.slice.call(document.querySelectorAll('style[id^="eap-recent-portfolio-clean-style-"]')).forEach(function(style){
-      if (style.id !== STYLE_ID && style.parentNode) style.parentNode.removeChild(style);
-    });
-  }
-
-  function readState(){
-    try { return JSON.parse(localStorage.getItem(STATE_KEY) || '{}') || {}; }
-    catch(error) { return {}; }
-  }
+  function readState(){ try { return JSON.parse(localStorage.getItem(STATE_KEY) || '{}') || {}; } catch(error) { return {}; } }
 
   function normalizeSkill(value){
     var raw = text(value).toLowerCase();
@@ -69,8 +60,7 @@
     if (/^B\d$/.test(raw)) return raw;
     if (/^\d{1,2}$/.test(raw)) return 'S' + Number(raw);
     var m = raw.match(/(?:^|\b)S(?:ESSION)?\s*0?(1[0-5]|[1-9])(?:\b|_)/i);
-    if (m) return 'S' + Number(m[1]);
-    return '';
+    return m ? 'S' + Number(m[1]) : '';
   }
 
   function isSystemText(value){
@@ -111,9 +101,7 @@
       if (!session || !skill || !out) return;
       var key = session + '|' + skill.toLowerCase();
       var old = lookup[key];
-      if (!old || score > old.score || (score === old.score && out.length > old.output.length)) {
-        lookup[key] = { output: out, score: score };
-      }
+      if (!old || score > old.score || (score === old.score && out.length > old.output.length)) lookup[key] = { output: out, score: score };
     });
     return lookup;
   }
@@ -135,52 +123,29 @@
     table.dataset.eapStudentPortfolio = '1';
     Array.prototype.slice.call(table.querySelectorAll('tr')).forEach(function(row){
       var cells = Array.prototype.slice.call(row.children);
-      if (cells[0]) {
-        cells[0].dataset.eapTimeCol = '1';
-        cells[0].setAttribute('aria-hidden', 'true');
-      }
+      if (cells[0]) { cells[0].dataset.eapTimeCol = '1'; cells[0].setAttribute('aria-hidden', 'true'); }
     });
   }
 
   function parseRow(row){
     var cells = Array.prototype.slice.call(row.querySelectorAll('td')).map(function(td){ return text(td.textContent); });
-    var session = '';
-    var skill = '';
-    var score = 0;
-    cells.forEach(function(c){
-      if (!session) session = normalizeSession(c);
-      if (!skill) skill = normalizeSkill(c);
-    });
+    var session = '', skill = '', score = 0;
+    cells.forEach(function(c){ if (!session) session = normalizeSession(c); if (!skill) skill = normalizeSkill(c); });
     var skillIndex = cells.findIndex(function(c){ return !!normalizeSkill(c); });
     if (skillIndex >= 0 && cells[skillIndex + 1] != null) score = num(cells[skillIndex + 1]);
-    if (!score) {
-      cells.forEach(function(c){ var n = num(c); if (!score && n > 0 && n <= 100) score = n; });
-    }
-    return { cells: cells, session: session, skill: skill, score: score };
+    if (!score) cells.forEach(function(c){ var n = num(c); if (!score && n > 0 && n <= 100) score = n; });
+    return { session: session, skill: skill, score: score };
   }
 
-  function shortOutput(value){
-    var v = text(value);
-    if (v.length > 120) return v.slice(0, 117) + '...';
-    return v;
-  }
-
-  function outputCell(row){
-    var cells = Array.prototype.slice.call(row.querySelectorAll('td'));
-    return cells.length ? cells[cells.length - 1] : null;
-  }
+  function shortOutput(value){ var v = text(value); return v.length > 120 ? v.slice(0, 117) + '...' : v; }
+  function outputCell(row){ var cells = Array.prototype.slice.call(row.querySelectorAll('td')); return cells.length ? cells[cells.length - 1] : null; }
 
   function setOutput(row, parsed, lookup){
     var cell = outputCell(row);
     if (!cell || !parsed.session || !parsed.skill) return;
     var current = text(cell.textContent);
     var hit = lookup[parsed.session + '|' + parsed.skill.toLowerCase()];
-    var finalText = '';
-
-    if (hit && hit.output) finalText = hit.output;
-    else if (current && !isSystemText(current)) finalText = current;
-    else finalText = 'หลักฐานบันทึกแล้ว';
-
+    var finalText = hit && hit.output ? hit.output : (current && !isSystemText(current) ? current : 'ทำภารกิจสำเร็จแล้ว');
     cell.textContent = shortOutput(finalText);
     cell.title = finalText;
     cell.dataset.eapOutputRestored = '1';
@@ -188,9 +153,7 @@
 
   function dedupeRows(table){
     var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
-    var buckets = {};
-    var lookup = portfolioLookup();
-
+    var buckets = {}, lookup = portfolioLookup();
     rows.forEach(function(row){
       var parsed = parseRow(row);
       if (!parsed.session || !parsed.skill) return;
@@ -199,28 +162,20 @@
       if (!buckets[key]) buckets[key] = [];
       buckets[key].push({ row: row, score: parsed.score });
     });
-
     Object.keys(buckets).forEach(function(key){
       var list = buckets[key];
       list.sort(function(a, b){ return b.score - a.score; });
       list.forEach(function(item, index){
-        if (index > 0) {
-          item.row.dataset.eapPortfolioHidden = '1';
-          item.row.setAttribute('aria-hidden', 'true');
-        }
+        if (index > 0) { item.row.dataset.eapPortfolioHidden = '1'; item.row.setAttribute('aria-hidden', 'true'); }
       });
     });
   }
 
   function findTitle(table){
-    var title = null;
-    var node = table;
+    var title = null, node = table;
     for (var i = 0; i < 5 && node; i += 1) {
       var prev = node.previousElementSibling;
-      while (prev) {
-        if (/recent portfolio/i.test(text(prev.textContent))) { title = prev; break; }
-        prev = prev.previousElementSibling;
-      }
+      while (prev) { if (/recent portfolio/i.test(text(prev.textContent))) { title = prev; break; } prev = prev.previousElementSibling; }
       if (title) break;
       node = node.parentElement;
     }
@@ -232,7 +187,7 @@
     if (!title || title.querySelector('.eap-portfolio-clean-note')) return;
     var note = document.createElement('span');
     note.className = 'eap-portfolio-clean-note';
-    note.textContent = 'หลักฐานล่าสุดของผู้เรียน';
+    note.textContent = 'ภารกิจล่าสุดของผู้เรียน';
     title.appendChild(note);
   }
 
@@ -241,7 +196,7 @@
     if (!title || title.parentElement.querySelector('.eap-portfolio-student-note')) return;
     var note = document.createElement('div');
     note.className = 'eap-portfolio-student-note';
-    note.innerHTML = '<b>สำหรับผู้เรียน:</b> ตารางนี้แสดง Session, Skill, Score และคำตอบ/หลักฐานล่าสุดเท่านั้น เวลาเล่นจริงให้ครูดูจาก Teacher Dashboard';
+    note.innerHTML = '<b>สำหรับผู้เรียน:</b> ตารางนี้แสดง Session, Skill, Score และสถานะภารกิจล่าสุดเท่านั้น เวลาเล่นจริงให้ครูดูจาก Teacher Dashboard';
     title.insertAdjacentElement('afterend', note);
   }
 
@@ -254,15 +209,8 @@
     addStudentNote(table);
   }
 
-  function run(){
-    addStyle();
-    Array.prototype.slice.call(document.querySelectorAll('#app table')).forEach(cleanTable);
-  }
-
-  function schedule(){
-    clearTimeout(timer);
-    timer = setTimeout(run, 80);
-  }
+  function run(){ addStyle(); Array.prototype.slice.call(document.querySelectorAll('#app table')).forEach(cleanTable); }
+  function schedule(){ clearTimeout(timer); timer = setTimeout(run, 80); }
 
   window.EAPRecentPortfolioClean = { version: VERSION, run: run };
   window.addEventListener('load', schedule);
