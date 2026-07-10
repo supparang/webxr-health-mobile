@@ -1,9 +1,12 @@
 /* =========================================================
    EAP Hero Recent Portfolio Clean v20260709
-   V2 CONSERVATIVE
+   V3 STUDENT RECENT ONLY
    - Cleans the student-facing Recent Portfolio table only.
-   - Hides only obvious legacy/migration/blank-noise rows.
-   - Keeps valid rows visible even if table columns are shifted by responsive UI.
+   - Hides obvious legacy/migration rows AND Cloud/Sheet restore confirmation
+     rows because their timestamp is the restore/cache time, not the original
+     learning time.
+   - Keeps real learner evidence rows visible, even if table columns are
+     shifted by responsive UI.
    - If multiple valid rows share the same Session + Skill, it keeps the best
      visible row and hides only lower-score duplicates.
    - UI-only. Does not delete localStorage, does not change Sheet rows,
@@ -12,8 +15,8 @@
 (function(){
   'use strict';
 
-  var VERSION = 'v20260709-EAP-RECENT-PORTFOLIO-CLEAN-V2-CONSERVATIVE';
-  var STYLE_ID = 'eap-recent-portfolio-clean-style-v2';
+  var VERSION = 'v20260710-EAP-RECENT-PORTFOLIO-CLEAN-V3-STUDENT-RECENT-ONLY';
+  var STYLE_ID = 'eap-recent-portfolio-clean-style-v3';
   var timer = null;
 
   function text(value){
@@ -41,6 +44,16 @@
     return /completed legacy evidence retained after browser-storage migration|legacy evidence retained|browser-storage migration|sundefined|snull|snan/.test(t);
   }
 
+  function isRestoreConfirmation(rowText){
+    var t = text(rowText).toLowerCase();
+    return /ความคืบหน้าที่ยืนยันแล้วจาก\s*cloud\/sheet|confirmed from cloud\/sheet|cloud\/sheet confirmed|restored from sheet|resumeSource|server_sessionprogress/.test(t);
+  }
+
+  function isSystemOutputOnly(rowText){
+    var t = text(rowText).toLowerCase();
+    return /^(auto_evidence_review_optional|teacher_can_review_optional|auto_review_optional)$/i.test(text(rowText)) || /\b(auto_evidence_review_optional|teacher_can_review_optional)\b/.test(t);
+  }
+
   function isSkill(value){
     return /^(reading|writing|listening|speaking)$/i.test(text(value));
   }
@@ -64,6 +77,7 @@
     var session = '';
     var skill = '';
     var score = 0;
+    var output = cells.length ? cells[cells.length - 1] : '';
 
     cells.forEach(function(c){
       if (!session) session = normalizeSession(c);
@@ -79,7 +93,7 @@
       }
     }
 
-    return { cells: cells, body: body, session: session, skill: skill, score: score };
+    return { cells: cells, body: body, session: session, skill: skill, score: score, output: output };
   }
 
   function hide(row){
@@ -101,9 +115,8 @@
     rows.forEach(function(row){
       show(row);
       var parsed = parseRow(row);
-      var lowerBody = parsed.body.toLowerCase();
 
-      if (!parsed.body || isLegacy(parsed.body)) {
+      if (!parsed.body || isLegacy(parsed.body) || isRestoreConfirmation(parsed.body) || isSystemOutputOnly(parsed.output)) {
         hide(row);
         return;
       }
@@ -114,7 +127,7 @@
 
       var key = parsed.session + '|' + parsed.skill.toLowerCase();
       if (!buckets[key]) buckets[key] = [];
-      buckets[key].push({ row: row, score: parsed.score, length: parsed.body.length, body: lowerBody });
+      buckets[key].push({ row: row, score: parsed.score, length: parsed.output.length || parsed.body.length });
     });
 
     Object.keys(buckets).forEach(function(key){
@@ -148,7 +161,7 @@
     if (!title || title.querySelector('.eap-portfolio-clean-note')) return;
     var note = document.createElement('span');
     note.className = 'eap-portfolio-clean-note';
-    note.textContent = 'ซ่อนเฉพาะ legacy/แถวซ้ำที่คะแนนต่ำกว่า';
+    note.textContent = 'แสดงเฉพาะหลักฐานจริงของผู้เรียน';
     title.appendChild(note);
   }
 
