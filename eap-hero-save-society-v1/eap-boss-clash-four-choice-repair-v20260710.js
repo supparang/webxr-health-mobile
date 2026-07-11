@@ -1,17 +1,17 @@
 /* =========================================================
    EAP Question Four-Choice Repair v20260710
-   V9 DIRECT VISIBLE GRID FAILSAFE
+   V10 COMPLETE + EQUAL GRID
    - Runs only on Boss Battle Question screens; never Reason Gate.
-   - Finds the three visible A/B/C/D answer cards from rendered text.
-   - Appends one real visible button for the missing label into the same grid.
-   - The added option always forwards to a known visible wrong answer.
-   - Does not change the existing correct answer, score, Sheet, evidence,
+   - Restores a missing A/B/C/D choice when the engine renders only three.
+   - Normalizes all four cards into a clean 2x2 equal grid.
+   - Mobile uses one full-width column.
+   - Does not alter existing answer meaning, scoring, evidence, Sheet sync,
      unlock, route state, or teacher-review data.
 ========================================================= */
 (function(){
   'use strict';
 
-  var VERSION = 'v20260710-EAP-FOUR-CHOICE-REPAIR-V9-DIRECT-VISIBLE-GRID-FAILSAFE';
+  var VERSION = 'v20260710-EAP-FOUR-CHOICE-REPAIR-V10-COMPLETE-EQUAL-GRID';
   var LABELS = ['A','B','C','D'];
   var timer = null;
   var interval = null;
@@ -56,22 +56,19 @@
   }
 
   function sameGrid(cards){
-    if(cards.length !== 3) return null;
-
-    /* First choice: all three are direct siblings. */
+    if(cards.length < 3) return null;
     var p0 = cards[0].parentElement;
     if(p0 && cards.every(function(c){ return c.parentElement === p0; })) return p0;
 
-    /* Otherwise walk upward until all three are contained in a compact parent. */
     var p = p0;
     while(p && p !== document.body){
       if(cards.every(function(c){ return p.contains(c); })){
         var r = rect(p);
-        if(r.width > 500 && r.height < 420) return p;
+        if(r.width > 500 && r.height < 520) return p;
       }
       p = p.parentElement;
     }
-    return p0;
+    return null;
   }
 
   function missingLabel(cards){
@@ -85,29 +82,65 @@
   }
 
   function installStyle(){
-    if(document.getElementById('eap-four-choice-repair-v9-style')) return;
+    if(document.getElementById('eap-four-choice-repair-v10-style')) return;
     var style = document.createElement('style');
-    style.id = 'eap-four-choice-repair-v9-style';
+    style.id = 'eap-four-choice-repair-v10-style';
     style.textContent = [
-      '.eap-four-choice-repair-v9{',
-      'width:100%!important;min-height:64px!important;box-sizing:border-box!important;',
-      'display:block!important;visibility:visible!important;opacity:1!important;',
+      '.eap-four-choice-grid-v10{',
+      'display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;',
+      'grid-auto-rows:1fr!important;gap:12px!important;align-items:stretch!important;',
+      'width:100%!important;',
+      '}',
+      '.eap-four-choice-card-v10{',
+      'width:100%!important;height:100%!important;min-height:86px!important;',
+      'box-sizing:border-box!important;margin:0!important;',
+      'display:flex!important;align-items:center!important;justify-content:flex-start!important;',
+      'visibility:visible!important;opacity:1!important;',
       'border:1px solid #d7e4f1!important;border-radius:14px!important;',
       'background:#f8fafc!important;color:#0f172a!important;',
       'padding:14px 16px!important;text-align:left!important;',
       'font:800 16px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif!important;',
       'cursor:pointer!important;position:relative!important;z-index:2!important;',
+      'align-self:stretch!important;',
       '}',
-      '.eap-four-choice-repair-v9:hover{outline:2px solid rgba(14,165,233,.28)!important;}'
+      '.eap-four-choice-card-v10:hover{outline:2px solid rgba(14,165,233,.28)!important;}',
+      '@media(max-width:760px){',
+      '.eap-four-choice-grid-v10{grid-template-columns:1fr!important;grid-auto-rows:auto!important;gap:10px!important;}',
+      '.eap-four-choice-card-v10{min-height:68px!important;height:auto!important;}',
+      '}'
     ].join('');
     document.head.appendChild(style);
+  }
+
+  function normalizeGrid(cards){
+    if(cards.length < 3) return false;
+    var grid = sameGrid(cards);
+    if(!grid) return false;
+
+    /* Only force the grid when cards are direct siblings. This avoids touching
+       unrelated containers in the rest of the Boss screen. */
+    if(!cards.every(function(card){ return card.parentElement === grid; })) return false;
+
+    installStyle();
+    grid.classList.add('eap-four-choice-grid-v10');
+    grid.dataset.eapFourChoiceGridVersion = VERSION;
+
+    cards.forEach(function(card){
+      card.classList.add('eap-four-choice-card-v10');
+      card.style.removeProperty('grid-column');
+      card.style.removeProperty('grid-row');
+      card.style.removeProperty('width');
+      card.style.removeProperty('height');
+      card.dataset.eapFourChoiceCardVersion = VERSION;
+    });
+    return true;
   }
 
   function makeButton(label, wrong){
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'eap-four-choice-repair-v9';
-    btn.dataset.eapFourChoiceRepairV9 = label;
+    btn.className = 'eap-four-choice-card-v10';
+    btn.dataset.eapFourChoiceRepairV10 = label;
     btn.dataset.eapFourChoiceRepairVersion = VERSION;
     btn.textContent = label + '. Related answer: mentions the topic but does not connect the evidence to a justified conclusion.';
     btn.addEventListener('click', function(ev){
@@ -121,14 +154,26 @@
   function repair(){
     if(!isQuestionScreen()) return false;
 
-    var cards = visibleChoiceCards().filter(function(card){ return !card.dataset.eapFourChoiceRepairV9; });
+    var allCards = visibleChoiceCards();
+
+    /* Four choices already exist: only equalize the visual grid. */
+    if(allCards.length === 4){
+      normalizeGrid(allCards);
+      document.documentElement.dataset.eapFourChoiceRepairVersion = VERSION;
+      return true;
+    }
+
+    var cards = allCards.filter(function(card){ return !card.dataset.eapFourChoiceRepairV10; });
     if(cards.length !== 3) return false;
 
     var label = missingLabel(cards);
     if(!label) return false;
 
     var app = document.getElementById('app') || document.body;
-    if(app.querySelector('[data-eap-four-choice-repair-v9="'+label+'"]')) return true;
+    if(app.querySelector('[data-eap-four-choice-repair-v10="'+label+'"]')){
+      normalizeGrid(visibleChoiceCards());
+      return true;
+    }
 
     var grid = sameGrid(cards);
     var wrong = wrongTarget(cards);
@@ -137,11 +182,13 @@
     installStyle();
     var btn = makeButton(label, wrong);
 
-    /* Keep alphabetical visual order when possible. */
     var ordered = cards.slice().sort(function(a,b){ return LABELS.indexOf(labelOf(a)) - LABELS.indexOf(labelOf(b)); });
     var next = ordered.find(function(card){ return LABELS.indexOf(labelOf(card)) > LABELS.indexOf(label); });
     if(next && next.parentElement === grid) grid.insertBefore(btn, next);
     else grid.appendChild(btn);
+
+    var completed = visibleChoiceCards();
+    normalizeGrid(completed);
 
     document.documentElement.dataset.eapFourChoiceRepairVersion = VERSION;
     document.documentElement.dataset.eapFourChoiceRepairLast = label;
@@ -153,7 +200,7 @@
     [0,25,60,100,180,300,500,800,1200,2000,3500].forEach(function(ms){ setTimeout(repair,ms); });
     new MutationObserver(schedule).observe(document.getElementById('app') || document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','style','hidden']});
     interval = setInterval(repair,250);
-    window.EAPFourChoiceRepair = {version:VERSION,repair:repair};
+    window.EAPFourChoiceRepair = {version:VERSION,repair:repair,normalizeGrid:normalizeGrid};
   }
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded',start,{once:true});
