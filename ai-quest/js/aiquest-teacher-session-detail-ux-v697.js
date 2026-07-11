@@ -1,11 +1,11 @@
-/* CSAI2102 Teacher Console — View Bridge v7.0.0
+/* CSAI2102 Teacher Console — View Bridge v7.0.1
    Robust standalone bridge for dynamically re-rendered View buttons.
-   Opens a safe detail modal without relying on legacy handlers.
+   Opens on pointerdown so legacy click handlers cannot block the modal.
 */
 (()=>{'use strict';
-  if(window.__AIQUEST_TEACHER_VIEW_BRIDGE_V700__)return;
-  window.__AIQUEST_TEACHER_VIEW_BRIDGE_V700__=true;
-  const VERSION='v7.0.0';
+  if(window.__AIQUEST_TEACHER_VIEW_BRIDGE_V7001__)return;
+  window.__AIQUEST_TEACHER_VIEW_BRIDGE_V7001__=true;
+  const VERSION='v7.0.1';
   const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const arr=v=>Array.isArray(v)?v:[];
   const num=v=>Number.isFinite(Number(v))?Number(v):0;
@@ -14,7 +14,11 @@
   const parse=v=>{if(v&&typeof v==='object')return v;if(typeof v==='string'){try{return JSON.parse(v)}catch(e){return {}}}return {}};
   const meta=a=>{const e=parse(a?.extraJson||a?.extra),raw=(e.raw&&typeof e.raw==='object')?e.raw:{},nested=parse(raw.extraJson||e.extraJson);return Object.assign({},e,nested,(raw.extraJson&&typeof raw.extraJson==='object')?raw.extraJson:{});};
   function students(){return arr(runtime()?.state?.students);}
-  function findStudent(btn){const row=btn.closest('tr');const id=String(row?.querySelector('td b')?.textContent||'').trim();return students().find(s=>String(s?.studentId||'').trim()===id)||null;}
+  function findStudent(btn){
+    const row=btn.closest('tr');
+    const id=String(row?.querySelector('td b')?.textContent||'').trim();
+    return students().find(s=>String(s?.studentId||'').trim()===id)||null;
+  }
   function close(){document.getElementById('aqViewModalV700')?.remove();document.body.style.overflow='';}
   function open(student){
     close();
@@ -31,7 +35,7 @@
       #aqViewModalV700 .sec{margin-top:14px;padding-top:14px;border-top:1px solid rgba(148,163,184,.18)}#aqViewModalV700 .ref{padding:11px;border:1px solid rgba(148,163,184,.2);border-radius:12px;margin-top:8px;background:rgba(255,255,255,.03)}#aqViewModalV700 .ref p{white-space:pre-wrap;line-height:1.6}
       #aqViewModalV700 table{width:100%;border-collapse:collapse;min-width:760px}#aqViewModalV700 th,#aqViewModalV700 td{padding:9px;border-bottom:1px solid rgba(148,163,184,.15);text-align:left;font-size:13px}#aqViewModalV700 .tw{overflow:auto;border:1px solid rgba(148,163,184,.18);border-radius:12px}
       @media(max-width:760px){#aqViewModalV700{padding:0}#aqViewModalV700 .p{width:100%;height:100vh;max-height:none;border-radius:0}#aqViewModalV700 .g{grid-template-columns:1fr 1fr}}
-    </style><div class="p"><div class="h"><div><b>${esc(student?.studentId||'-')} • ${esc(student?.studentName||'')}</b><div><small>Teacher View v700</small></div></div><button id="aqViewCloseV700">ปิด</button></div><div class="b">
+    </style><div class="p"><div class="h"><div><b>${esc(student?.studentId||'-')} • ${esc(student?.studentName||'')}</b><div><small>Teacher View v700.1</small></div></div><button id="aqViewCloseV700">ปิด</button></div><div class="b">
       <div class="g"><div class="m"><small>Attempts</small><b>${attempts.length}</b></div><div class="m"><small>Latest</small><b>${attempts.length?num(latest.score):'—'}</b></div><div class="m"><small>Best</small><b>${attempts.length?Math.max(...attempts.map(a=>num(a.score))):'—'}</b></div><div class="m"><small>Mastery</small><b>${latest.mastered?'TRUE':'FALSE'}</b></div></div>
       <div class="sec"><h3>Selected Case</h3><p>${[x.selectedCaseContext,x.selectedCaseSkill,x.selectedCaseRisk,x.selectedCaseTrap].filter(Boolean).map(esc).join(' • ')||'ไม่มี metadata'}</p></div>
       <div class="sec"><h3>Challenge Evidence</h3><p>Content: ${esc(x.contentVersion||'—')} • Challenge: ${esc(audit.version||'—')} • Unique correct: ${esc(audit.uniqueCorrect??'—')} • Unique distractors: ${esc(audit.uniqueDistractors??'—')}</p></div>
@@ -39,12 +43,24 @@
       <div class="sec"><h3>Attempt History</h3><div class="tw"><table><thead><tr><th>Submitted</th><th>Session</th><th>Score</th><th>Correct</th><th>Accuracy</th><th>Version</th></tr></thead><tbody>${attempts.map(a=>{const am=meta(a);return `<tr><td>${stamp(a)?new Date(stamp(a)).toLocaleString('th-TH'):'—'}</td><td>${esc(a.sessionId||a.missionId||'—')}</td><td>${num(a.score)}</td><td>${num(a.correct)}/${num(a.total)}</td><td>${num(a.accuracy)}%</td><td>${esc(am.contentVersion||a.schemaVersion||'—')}</td></tr>`}).join('')}</tbody></table></div></div>
     </div></div>`;
     document.body.appendChild(shell);document.body.style.overflow='hidden';
-    document.getElementById('aqViewCloseV700').onclick=close;shell.addEventListener('click',e=>{if(e.target===shell)close();});
+    document.getElementById('aqViewCloseV700').onpointerdown=e=>{e.preventDefault();e.stopPropagation();close();};
+    shell.addEventListener('pointerdown',e=>{if(e.target===shell)close();});
   }
-  function handle(e){const btn=e.target?.closest?.('#studentsBox .detailBtn,#studentsBox button[data-index],#studentsBox button');if(!btn||btn.disabled||btn.getAttribute('aria-disabled')==='true')return;if(!/view|ดูรายละเอียด/i.test(String(btn.textContent||'')))return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();const student=findStudent(btn);if(student)open(student);}
-  document.addEventListener('click',handle,true);
+  let lastOpen=0;
+  function handle(e){
+    const btn=e.target?.closest?.('#studentsBox .detailBtn,#studentsBox button[data-index],#studentsBox button');
+    if(!btn||btn.disabled||btn.getAttribute('aria-disabled')==='true')return;
+    if(!/view|ดูรายละเอียด/i.test(String(btn.textContent||'')))return;
+    e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+    const now=Date.now();if(now-lastOpen<400)return;lastOpen=now;
+    const student=findStudent(btn);if(student)open(student);
+  }
+  document.addEventListener('pointerdown',handle,true);
+  document.addEventListener('mousedown',handle,true);
+  document.addEventListener('click',e=>{const btn=e.target?.closest?.('#studentsBox .detailBtn,#studentsBox button[data-index]');if(btn){e.preventDefault();e.stopPropagation();}},true);
   document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
   window.AIQUEST_TEACHER_SESSION_DETAIL_UX_V697={open,close,VERSION};
   window.AIQUEST_TEACHER_VIEW_BRIDGE_V700={open,close,VERSION};
-  console.log('[AIQuest] Teacher View v700 active');
+  window.AIQUEST_TEACHER_VIEW_BRIDGE_V7001={open,close,VERSION};
+  console.log('[AIQuest] Teacher View pointer bridge active',VERSION);
 })();
