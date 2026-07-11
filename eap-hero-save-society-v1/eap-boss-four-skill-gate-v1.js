@@ -1,15 +1,17 @@
 /* =========================================================
-   EAP Hero Boss Gate v4.1 — Fair Score Rubric
+   EAP Hero Boss Gate v5.0 — Adaptive Multi-Skill Boss Run
    - B1-B5 run Reading -> Listening -> Writing -> Speaking before Boss Clash.
-   - Supports EAPBossReplayBankV3: 150 Boss skill-items.
-   - Following guidance now earns Good or better, not a low score.
-   - Reading/Listening score by attempt quality.
-   - Writing/Speaking score by task-completion rubric, not grammar/pronunciation auto-judgment.
-   - Boss Speaking still creates teacher review evidence.
+   - Supports EAPBossReplayBankV3 V4.0: 800 generated Boss skill-items.
+   - First run = 8 tasks; replay = 12; elite replay = 14.
+   - Reading/Listening use multiple rotating MCQs with combo + task progress.
+   - Writing/Speaking can contain multiple fresh prompts on replay.
+   - Each task sends its own evidence row with item id and run metadata.
+   - Writing/Speaking remain formative; pronunciation/grammar are not auto-scored.
 ========================================================= */
 (function () {
   'use strict';
 
+  var VERSION = 'v5.0-adaptive-multi-skill-boss-run';
   var STORAGE_KEY = 'EAP_HERO_PROGRESS_V3';
   var SKILLS = ['Reading', 'Listening', 'Writing', 'Speaking'];
   var SCENARIO_CACHE = {};
@@ -30,241 +32,162 @@
     5:{tag:'Default Community Solution',reading:'Digital literacy helps students evaluate online information, use evidence responsibly, and explain a practical solution to a social problem.',rq:'Which final response uses the source well?',ra:'Check information, use evidence, and propose a practical solution.',rd:['Share the first online claim without checking.','Give a solution without evidence.','Avoid explaining the social problem.'],listening:'First, name one social problem. Next, add one credible detail. Finally, propose one realistic action.',lq:'What comes before the realistic action?',la:'One credible detail.',ld:['A casual greeting.','A difficult word only.','An unrelated story.'],writing:'Write 3-4 sentences: one social problem, one evidence-based detail, and one realistic action.',speaking:'Speak for 30-45 seconds: present one problem, one detail, one solution, and a conclusion.'}
   };
 
-  function esc(value){
-    return String(value == null ? '' : value).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
-  }
+  function esc(value){ return String(value == null ? '' : value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
   function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
-  function words(value){ return String(value || '').trim().split(/\s+/).filter(Boolean); }
+  function words(value){ return String(value||'').trim().split(/\s+/).filter(Boolean); }
   function wordCount(value){ return words(value).length; }
-  function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
-  function level(score){ return score >= 90 ? 'Excellent' : score >= 80 ? 'Good' : score >= 60 ? 'Pass' : 'Developing'; }
+  function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
+  function level(score){ return score>=90?'Excellent':score>=80?'Good':score>=60?'Pass':'Developing'; }
+  function gateNo(value){ var n=Number(String(value||'').replace(/\D/g,'')); return GATES[n]?n:1; }
+  function readState(){ try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');}catch(_){return {profile:{studentId:'guest',studentName:'Guest',section:'122'}};} }
+  function evidenceSync(){ return window.EAPEvidenceSyncV130||window.EAPEvidenceSyncV129||null; }
 
-  function shuffleWithAnswer(correct, distractors){
-    var items = [correct].concat(distractors || []).map(function(text,index){ return {text:text, correct:index===0}; });
-    for (var i=items.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=items[i]; items[i]=items[j]; items[j]=t; }
-    var answer = items.findIndex(function(item){ return item.correct; });
-    return { choices:items.map(function(item){ return item.text; }), answer:answer < 0 ? 0 : answer };
+  function shuffledAnswer(correct,distractors){
+    var ds=(distractors||[]).filter(Boolean).slice(0,3);
+    while(ds.length<3) ds.push('Related information is mentioned, but it does not answer the task clearly.');
+    var items=[{text:correct,correct:true}].concat(ds.map(function(t){return {text:t,correct:false};}));
+    for(var i=items.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=items[i];items[i]=items[j];items[j]=tmp;}
+    return {choices:items.map(function(x){return x.text;}),answer:items.findIndex(function(x){return x.correct;})};
   }
-
-  function fallbackScenario(gate){ return clone(FALLBACK[gate] || FALLBACK[1]); }
 
   function activeScenario(gate){
-    var current = window.EAPBossReplayScenario;
-    if (current && Number(current.gate) === Number(gate) && current.scenario){ SCENARIO_CACHE[gate] = current.scenario; return current.scenario; }
-    if (SCENARIO_CACHE[gate]) return SCENARIO_CACHE[gate];
-    var fallback = fallbackScenario(gate);
-    SCENARIO_CACHE[gate] = fallback;
-    window.EAPBossReplayScenario = { gate:gate, scenario:fallback };
+    var current=window.EAPBossReplayScenario;
+    if(current&&Number(current.gate)===Number(gate)&&current.scenario){SCENARIO_CACHE[gate]=current.scenario;return current.scenario;}
+    if(SCENARIO_CACHE[gate]) return SCENARIO_CACHE[gate];
+    var fallback=clone(FALLBACK[gate]||FALLBACK[1]);
+    fallback.runPlan={mode:'Fallback Run',reading:1,listening:1,writing:1,speaking:1,total:4,runNo:1};
+    SCENARIO_CACHE[gate]=fallback;
+    window.EAPBossReplayScenario={gate:gate,scenario:fallback};
     return fallback;
   }
 
+  function normalizeMcq(item,legacySource,legacyQ,legacyA,legacyD,index,prefix){
+    var x=item||{id:prefix+(index+1),source:legacySource,q:legacyQ,a:legacyA,d:legacyD};
+    var mixed=shuffledAnswer(x.a,x.d);
+    return {id:x.id||prefix+(index+1),source:x.source||legacySource,question:x.q||legacyQ,choices:mixed.choices,answer:mixed.answer,focus:x.focus||''};
+  }
+
   function gateData(gate){
-    var base = clone(GATES[gate] || GATES[1]);
-    var sc = activeScenario(gate);
-    var reading = shuffleWithAnswer(sc.ra, sc.rd);
-    var listening = shuffleWithAnswer(sc.la, sc.ld);
-    base.scenarioTag = sc.tag || 'Boss Scenario';
-    base.itemMeta = sc.itemMeta || {};
-    base.reading = { source:sc.reading, question:sc.rq, choices:reading.choices, answer:reading.answer };
-    base.listening = { source:sc.listening, question:sc.lq, choices:listening.choices, answer:listening.answer };
-    base.writing = { prompt:sc.writing, frames:sc.writingFrames || ['My main point is clear.','One useful detail is included.','This helps me explain the task.'] };
-    base.speaking = { prompt:sc.speaking, frames:sc.speakingFrames || ['Today I will explain my idea.','One important detail is included.','This is useful for my study.'] };
+    var base=clone(GATES[gate]||GATES[1]);
+    var sc=activeScenario(gate);
+    var run=sc.runItems||{};
+    var rItems=(run.reading&&run.reading.length?run.reading:[null]).map(function(item,i){return normalizeMcq(item,sc.reading,sc.rq,sc.ra,sc.rd,i,'B'+gate+'-R');});
+    var lItems=(run.listening&&run.listening.length?run.listening:[null]).map(function(item,i){return normalizeMcq(item,sc.listening,sc.lq,sc.la,sc.ld,i,'B'+gate+'-L');});
+    var wItems=(run.writing&&run.writing.length?run.writing:[{id:'B'+gate+'-W1',prompt:sc.writing}]).map(function(x,i){return {id:x.id||'B'+gate+'-W'+(i+1),prompt:x.prompt||sc.writing};});
+    var sItems=(run.speaking&&run.speaking.length?run.speaking:[{id:'B'+gate+'-S1',prompt:sc.speaking}]).map(function(x,i){return {id:x.id||'B'+gate+'-S'+(i+1),prompt:x.prompt||sc.speaking};});
+    base.scenarioTag=sc.tag||'Boss Scenario';
+    base.itemMeta=sc.itemMeta||{};
+    base.runPlan=sc.runPlan||{mode:'Boss Run',reading:rItems.length,listening:lItems.length,writing:wItems.length,speaking:sItems.length,total:rItems.length+lItems.length+wItems.length+sItems.length,runNo:1};
+    base.readingTasks=rItems;
+    base.listeningTasks=lItems;
+    base.writingTasks=wItems;
+    base.speakingTasks=sItems;
+    base.writingFrames=sc.writingFrames||['My main point is clear.','One useful detail is included.','This helps me explain the task.'];
+    base.speakingFrames=sc.speakingFrames||['Today I will explain my idea.','One important detail is included.','This is useful for my study.'];
     return base;
   }
 
-  function readState(){
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
-    catch(_){ return { profile:{studentId:'guest', studentName:'Guest', section:'122'} }; }
-  }
-  function gateNo(value){ var n = Number(String(value || '').replace(/\D/g,'')); return GATES[n] ? n : 1; }
-  function evidenceSync(){ return window.EAPEvidenceSyncV130 || window.EAPEvidenceSyncV129 || null; }
-
   function mcqScore(wrongCount){
-    if (wrongCount <= 0) return {score:100, level:'Excellent', note:'ตอบถูกตั้งแต่ครั้งแรก · Excellent'};
-    if (wrongCount === 1) return {score:90, level:'Excellent', note:'ทบทวนแล้วตอบถูก · ยังอยู่ระดับ Excellent'};
-    if (wrongCount === 2) return {score:82, level:'Good', note:'ตอบถูกหลังลองใหม่ 2 ครั้ง · Good'};
-    return {score:75, level:'Pass', note:'ผ่านหลังลองใหม่หลายครั้ง · ควรกลับไปทบทวน source'};
+    if(wrongCount<=0)return {score:100,level:'Excellent',note:'ตอบถูกครั้งแรก · Excellent'};
+    if(wrongCount===1)return {score:90,level:'Excellent',note:'ทบทวนแล้วตอบถูก · Excellent'};
+    if(wrongCount===2)return {score:82,level:'Good',note:'ตอบถูกหลังลองใหม่ 2 ครั้ง · Good'};
+    return {score:75,level:'Pass',note:'ผ่านหลังลองใหม่หลายครั้ง · ควรทบทวน source'};
   }
 
-  function frameSignal(output, frames){
-    var lower = String(output || '').toLowerCase();
-    var hits = 0;
-    (frames || []).forEach(function(f){
-      var parts = String(f || '').toLowerCase().split(/\s+/).filter(Boolean);
-      var a = parts.slice(0, 3).join(' ');
-      var b = parts.slice(-3).join(' ');
-      if ((a && lower.indexOf(a) >= 0) || (b && lower.indexOf(b) >= 0)) hits += 1;
-    });
+  function frameSignal(output,frames){
+    var lower=String(output||'').toLowerCase(),hits=0;
+    (frames||[]).forEach(function(f){var p=String(f||'').toLowerCase().split(/\s+/).filter(Boolean);var a=p.slice(0,3).join(' '),b=p.slice(-3).join(' ');if((a&&lower.indexOf(a)>=0)||(b&&lower.indexOf(b)>=0))hits+=1;});
     return hits;
   }
+  function writingScore(output,frames){
+    var wc=wordCount(output),fh=frameSignal(output,frames),connectors=/(because|for example|this helps|therefore|however|also|first|next|finally|one useful|one important|this connects|although|while)/i.test(output)?1:0;
+    var c={taskComplete:wc>=6?25:Math.round(wc*4),ideas:wc>=22?25:wc>=14?22:wc>=8?18:10,guidanceUse:fh>=2?20:fh===1||connectors?16:12,clarity:wc>=18?20:wc>=10?17:13,completionBonus:wc>=6?10:5};
+    var score=clamp(c.taskComplete+c.ideas+c.guidanceUse+c.clarity+c.completionBonus,50,100);
+    if(wc>=6)score=Math.max(score,80);if(wc>=10&&(fh>=1||connectors))score=Math.max(score,85);if(wc>=16&&fh>=2)score=Math.max(score,92);if(wc>=24&&fh>=2&&connectors)score=Math.max(score,96);
+    return {score:score,level:level(score),note:'Writing rubric: ทำครบโจทย์ = Good ขึ้นไป; เพิ่ม detail, frame/connector และความชัดเจนเพื่อคะแนนสูงขึ้น',components:c};
+  }
+  function speakingScore(seconds,checklist,note){
+    var nw=wordCount(note),checked=['topic','detail','closing'].filter(function(k){return checklist[k];}).length;
+    var c={duration:seconds>=40?25:seconds>=30?23:seconds>=20?21:Math.round(seconds*.8),checklist:checked*15,note:nw>=18?20:nw>=10?17:nw>=5?14:4,completionBonus:checked===3&&nw>=5?10:5};
+    var score=clamp(c.duration+c.checklist+c.note+c.completionBonus,45,100);
+    if(seconds>=20&&checked===3&&nw>=5)score=Math.max(score,85);if(seconds>=30&&checked===3&&nw>=10)score=Math.max(score,92);if(seconds>=40&&checked===3&&nw>=18)score=Math.max(score,96);
+    return {score:score,level:level(score),note:'Speaking rubric: เวลา + checklist + note = Good ขึ้นไป; pronunciation/grammar ให้ครู review',components:c};
+  }
 
-  function writingScore(output, frames){
-    var wc = wordCount(output);
-    var frameHits = frameSignal(output, frames);
-    var connectors = /(because|for example|this helps|therefore|however|also|first|next|finally|one useful|one important|this connects|in my study)/i.test(output) ? 1 : 0;
-    var components = {
-      taskComplete: wc >= 6 ? 25 : Math.round(wc * 4),
-      ideas: wc >= 22 ? 25 : wc >= 14 ? 22 : wc >= 8 ? 18 : 10,
-      guidanceUse: frameHits >= 2 ? 20 : frameHits === 1 || connectors ? 16 : 12,
-      clarity: wc >= 18 ? 20 : wc >= 10 ? 17 : 13,
-      completionBonus: wc >= 6 ? 10 : 5
+  function sendEvidence(gate,skill,prompt,output,extras){
+    extras=extras||{};var g=gateData(gate);var score=Number(extras.score||100);var itemId=extras.itemId||('B'+gate+'-'+skill+'-'+Date.now());
+    var entry={
+      rawEvidenceId:'boss-'+gate+'-'+skill+'-'+itemId+'-'+Date.now(),sessionId:'B'+gate,sessionTitle:g.title,skill:skill,evidenceType:'boss_'+skill.toLowerCase()+'_evidence',taskId:itemId,
+      score:score,latestScore:score,passed:score>=60,prompt:prompt,output:output,durationSec:extras.durationSec||0,targetRange:extras.targetRange||'',
+      teacherReviewRequired:skill==='Speaking',teacherReviewStatus:skill==='Speaking'?'pending_teacher_review':'',oralChecklist:extras.checklist||{},attemptCount:extras.attemptCount||1,
+      at:new Date().toISOString(),scoreLevel:extras.level||'',scoreExplanation:extras.note||'',scoringBreakdown:extras.components||{},
+      boss:{gate:gate,requiredSkills:SKILLS.slice(),stage:skill,scenarioTag:g.scenarioTag,itemId:itemId,itemIndex:Number(extras.itemIndex||0)+1,itemTotal:Number(extras.itemTotal||1),runMode:g.runPlan.mode,runNo:g.runPlan.runNo||1,runPlan:g.runPlan,itemMeta:g.itemMeta||{}}
     };
-    var score = clamp(components.taskComplete + components.ideas + components.guidanceUse + components.clarity + components.completionBonus, 50, 100);
-
-    // Fairness floor: if the learner follows the minimum instruction, do not punish them with a low score.
-    if (wc >= 6) score = Math.max(score, 80);
-    if (wc >= 10 && (frameHits >= 1 || connectors)) score = Math.max(score, 85);
-    if (wc >= 16 && frameHits >= 2) score = Math.max(score, 92);
-    if (wc >= 24 && frameHits >= 2 && connectors) score = Math.max(score, 96);
-
-    return { score:score, level:level(score), note:'Writing rubric: ทำครบตามโจทย์ = Good ขึ้นไป; คะแนนสูงขึ้นเมื่อเพิ่ม detail, ใช้ frame/connector และอธิบายชัดขึ้น', components:components };
+    var sync=evidenceSync();if(sync&&typeof sync.submitRaw==='function')sync.submitRaw(entry,readState());
   }
 
-  function speakingScore(seconds, checklist, note){
-    var noteWords = wordCount(note);
-    var checked = ['topic','detail','closing'].filter(function(k){ return checklist[k]; }).length;
-    var components = {
-      duration: seconds >= 40 ? 25 : seconds >= 30 ? 23 : seconds >= 20 ? 21 : Math.round(seconds * 0.8),
-      checklist: checked * 15,
-      note: noteWords >= 18 ? 20 : noteWords >= 10 ? 17 : noteWords >= 5 ? 14 : 4,
-      completionBonus: checked === 3 && noteWords >= 5 ? 10 : 5
-    };
-    var score = clamp(components.duration + components.checklist + components.note + components.completionBonus, 45, 100);
+  function playVoice(text){try{window.speechSynthesis.cancel();var v=new SpeechSynthesisUtterance(text);v.lang='en-US';v.rate=.78;window.speechSynthesis.speak(v);}catch(_){} }
 
-    // Fairness floor: meeting all required speaking steps should feel successful.
-    if (seconds >= 20 && checked === 3 && noteWords >= 5) score = Math.max(score, 85);
-    if (seconds >= 30 && checked === 3 && noteWords >= 10) score = Math.max(score, 92);
-    if (seconds >= 40 && checked === 3 && noteWords >= 18) score = Math.max(score, 96);
+  function shell(gate,current,inner,sub){
+    var g=gateData(gate),plan=g.runPlan||{};
+    document.getElementById('app').innerHTML='<main class="wrap" style="max-width:1100px;margin:auto;padding:20px"><section class="panel" style="margin-top:18px">'+
+      '<div class="badges"><span class="pill">Boss Gate '+gate+'</span><span class="pill">'+esc(plan.mode||'Boss Run')+'</span><span class="pill">'+esc(String(plan.total||4))+' Tasks</span><span class="pill">Scenario: '+esc(g.scenarioTag)+'</span></div>'+
+      '<h2>'+esc(g.title)+'</h2><p class="lead">'+esc(g.arc)+' · '+esc(sub||'ทำภารกิจครบทั้ง 4 Skills เพื่อเข้าสู่ Boss Clash')+'</p>'+
+      '<div class="grid four" style="margin:14px 0">'+SKILLS.map(function(skill,index){var state=index<current?'✓ Complete':index===current?'Current':'Locked';var outline=index===current?'outline:3px solid #73d9e7':'';var n=plan[skill.toLowerCase()]||1;return '<div class="stat" style="'+outline+'"><b>'+esc(skill)+'</b><span>'+state+' · '+n+' task'+(n>1?'s':'')+'</span></div>';}).join('')+'</div>'+inner+'</section></main>';
+  }
+  function scoreBox(title,r){return '<div class="panel light" style="margin:12px 0;padding:14px"><b>'+esc(title)+': '+r.score+'/100 · '+esc(r.level)+'</b><p class="mini-note">'+esc(r.note)+'</p></div>';}
+  function progressBar(label,index,total,combo){var pct=Math.round(((index)/Math.max(1,total))*100);return '<div class="panel light" style="padding:10px 14px;margin:10px 0"><b>'+esc(label)+' '+(index+1)+' / '+total+'</b><span style="float:right">🔥 Combo '+combo+'</span><div style="height:8px;background:#dbeafe;border-radius:99px;margin-top:8px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#38bdf8,#34d399)"></div></div></div>';}
 
-    return { score:score, level:level(score), note:'Speaking rubric: ทำครบเวลา + checklist + note = Good ขึ้นไป; pronunciation/grammar ให้ครู review ไม่ใช่ auto-score', components:components };
+  function choiceStage(gate,kind,itemIndex,combo){
+    itemIndex=Number(itemIndex||0);combo=Number(combo||0);
+    var g=gateData(gate),tasks=kind==='Reading'?g.readingTasks:g.listeningTasks,task=tasks[itemIndex],stage=kind==='Reading'?0:1,wrong=0;
+    if(!task){ if(kind==='Reading')return choiceStage(gate,'Listening',0,combo); return writingStage(gate,0); }
+    var listen=kind==='Listening';
+    var source='<div class="panel light" style="margin:14px 0"><h3>'+(listen?'🎧 Listening':'📖 Reading')+' · Boss Scenario</h3>'+
+      (listen?'<button type="button" class="btn ghost" id="bossPlay">▶ Play audio</button> <button type="button" class="btn ghost" id="bossShowText">Show text support</button><p id="bossTranscript" class="mini-note" style="display:none;margin-top:10px">'+esc(task.source)+'</p>':'<p style="font-size:18px;line-height:1.65">'+esc(task.source)+'</p>')+
+      '<p class="mini-note">ตอบถูกครั้งแรกได้คะแนนสูงสุด · ตอบผิดลองใหม่ได้ · ตำแหน่งคำตอบหมุนทุก task</p></div>';
+    shell(gate,stage,progressBar(kind+' Challenge',itemIndex,tasks.length,combo)+source+'<h3>'+esc(task.question)+'</h3><div class="grid two">'+task.choices.map(function(c,i){return '<button type="button" class="btn ghost block eap-boss-choice" data-answer="'+i+'" style="margin:7px 0;text-align:left;min-height:76px">'+String.fromCharCode(65+i)+'. '+esc(c)+'</button>';}).join('')+'</div><p id="bossMessage" class="mini-note"></p>',kind+' '+(itemIndex+1)+'/'+tasks.length+' · สะสม Combo เพื่อเพิ่มความเร้าใจ');
+    if(document.getElementById('bossPlay'))document.getElementById('bossPlay').addEventListener('click',function(){playVoice(task.source);});
+    if(document.getElementById('bossShowText'))document.getElementById('bossShowText').addEventListener('click',function(){var t=document.getElementById('bossTranscript');t.style.display=t.style.display==='none'?'block':'none';});
+    if(listen)setTimeout(function(){playVoice(task.source);},280);
+    Array.prototype.slice.call(document.querySelectorAll('.eap-boss-choice')).forEach(function(button){button.addEventListener('click',function(){
+      if(Number(button.dataset.answer)!==task.answer){wrong+=1;combo=0;document.getElementById('bossMessage').textContent='⚠️ Combo reset · ลองอีกครั้ง: กลับไปดู keyword/evidence หรือฟังอีก 1 รอบ';return;}
+      combo+=1;var r=mcqScore(wrong);sendEvidence(gate,kind,task.source,task.choices[task.answer],{score:r.score,level:r.level,note:r.note,attemptCount:wrong+1,itemId:task.id,itemIndex:itemIndex,itemTotal:tasks.length});
+      document.getElementById('bossMessage').innerHTML=scoreBox(kind+' Task '+(itemIndex+1),r)+'<p><b>🔥 Combo '+combo+'</b></p>';
+      setTimeout(function(){if(itemIndex+1<tasks.length)choiceStage(gate,kind,itemIndex+1,combo);else if(kind==='Reading')choiceStage(gate,'Listening',0,combo);else writingStage(gate,0);},620);
+    });});
   }
 
-  function sendEvidence(gate, skill, prompt, output, extras){
-    extras = extras || {};
-    var g = gateData(gate);
-    var score = Number(extras.score || 100);
-    var entry = {
-      rawEvidenceId:'boss-' + gate + '-' + skill + '-' + Date.now(),
-      sessionId:'B' + gate,
-      sessionTitle:g.title,
-      skill:skill,
-      evidenceType:'boss_' + skill.toLowerCase() + '_evidence',
-      taskId:'B' + gate + '_' + skill,
-      score:score,
-      latestScore:score,
-      passed:score >= 60,
-      prompt:prompt,
-      output:output,
-      durationSec:extras.durationSec || 0,
-      targetRange:extras.targetRange || '',
-      teacherReviewRequired:skill === 'Speaking',
-      teacherReviewStatus:skill === 'Speaking' ? 'pending_teacher_review' : '',
-      oralChecklist:extras.checklist || {},
-      attemptCount:extras.attemptCount || 1,
-      at:new Date().toISOString(),
-      scoreLevel:extras.level || '',
-      scoreExplanation:extras.note || '',
-      scoringBreakdown:extras.components || {},
-      boss:{gate:gate, requiredSkills:SKILLS.slice(), stage:skill, scenarioTag:g.scenarioTag, itemMeta:g.itemMeta || {}}
-    };
-    var sync = evidenceSync();
-    if (sync && typeof sync.submitRaw === 'function') sync.submitRaw(entry, readState());
+  function frameButtons(frames){return '<div style="display:grid;gap:8px;margin:12px 0">'+frames.map(function(f,i){return '<button type="button" class="btn ghost eap-boss-frame" data-index="'+i+'" style="text-align:left">＋ '+esc(f)+'</button>';}).join('')+'</div>';}
+  function bindFrames(frames,fieldId){Array.prototype.slice.call(document.querySelectorAll('.eap-boss-frame')).forEach(function(b){b.addEventListener('click',function(){var field=document.getElementById(fieldId),value=frames[Number(b.dataset.index)];field.value=field.value.trim()?field.value.trim()+' '+value:value;field.dispatchEvent(new Event('input',{bubbles:true}));field.focus();});});}
+
+  function writingStage(gate,itemIndex){
+    itemIndex=Number(itemIndex||0);var g=gateData(gate),tasks=g.writingTasks,task=tasks[itemIndex];if(!task)return speakingStage(gate,0);
+    shell(gate,2,progressBar('Writing Mission',itemIndex,tasks.length,0)+'<div class="panel light"><h3>✍️ Writing · Fresh Prompt '+(itemIndex+1)+'/'+tasks.length+'</h3><p>'+esc(task.prompt)+'</p><p class="mini-note">Replay จะเปลี่ยน prompt และ scenario · ทำครบตามโจทย์ขั้นต่ำได้ Good ขึ้นไป</p>'+frameButtons(g.writingFrames)+'<textarea id="bossWriting" rows="6" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Use the sentence frames or write your own answer."></textarea><button type="button" class="btn primary" id="bossSaveWriting">Save task & continue</button><p id="bossWriteMessage" class="mini-note"></p></div>','Writing '+(itemIndex+1)+'/'+tasks.length+' · เขียนคนละ prompt ในรอบ replay');
+    bindFrames(g.writingFrames,'bossWriting');
+    document.getElementById('bossSaveWriting').addEventListener('click',function(){var output=document.getElementById('bossWriting').value.trim();if(wordCount(output)<6){document.getElementById('bossWriteMessage').textContent='ใช้ sentence frame อย่างน้อย 2 อัน หรือเขียนอย่างน้อย 6 คำก่อน';return;}var r=writingScore(output,g.writingFrames);sendEvidence(gate,'Writing',task.prompt,output,{score:r.score,level:r.level,note:r.note,components:r.components,itemId:task.id,itemIndex:itemIndex,itemTotal:tasks.length});document.getElementById('bossWriteMessage').innerHTML=scoreBox('Writing Task '+(itemIndex+1),r);setTimeout(function(){if(itemIndex+1<tasks.length)writingStage(gate,itemIndex+1);else speakingStage(gate,0);},700);});
   }
 
-  function playVoice(text){
-    try { window.speechSynthesis.cancel(); var voice = new SpeechSynthesisUtterance(text); voice.lang='en-US'; voice.rate=0.78; window.speechSynthesis.speak(voice); } catch(_) {}
-  }
-
-  function shell(gate, current, inner){
-    var g = gateData(gate);
-    document.getElementById('app').innerHTML = '' +
-      '<main class="wrap" style="max-width:1100px;margin:auto;padding:20px">' +
-      '<section class="panel" style="margin-top:18px">' +
-      '<div class="badges"><span class="pill">Boss Gate ' + gate + '</span><span class="pill">4 Skills Required</span><span class="pill">Scenario: ' + esc(g.scenarioTag) + '</span><span class="pill">Fair Rubric V4.1</span></div>' +
-      '<h2>' + esc(g.title) + '</h2>' +
-      '<p class="lead">' + esc(g.arc) + ' · ทำครบตามคำแนะนำ = Good ขึ้นไป คะแนนสูงขึ้นเมื่อเพิ่มคุณภาพและรายละเอียด</p>' +
-      '<div class="grid four" style="margin:14px 0">' + SKILLS.map(function(skill,index){ var state = index < current ? '✓ Complete' : index === current ? 'Current' : 'Locked'; var outline = index === current ? 'outline:3px solid #73d9e7' : ''; return '<div class="stat" style="' + outline + '"><b>' + esc(skill) + '</b><span>' + state + '</span></div>'; }).join('') + '</div>' + inner +
-      '</section></main>';
-  }
-
-  function scoreBox(title, rubric){
-    return '<div class="panel light" style="margin:12px 0;padding:14px"><b>' + esc(title) + ': ' + rubric.score + '/100 · ' + esc(rubric.level) + '</b><p class="mini-note">' + esc(rubric.note) + '</p></div>';
-  }
-
-  function sourceBox(kind, source){
-    var listen = kind === 'Listening';
-    return '<div class="panel light" style="margin:14px 0"><h3>' + (listen ? '🎧 Listening' : '📖 Reading') + ' · Boss Scenario</h3>' +
-      (listen ? '<button type="button" class="btn ghost" id="bossPlay">▶ Play audio</button> <button type="button" class="btn ghost" id="bossShowText">Show text support</button><p id="bossTranscript" class="mini-note" style="display:none;margin-top:10px">' + esc(source) + '</p>' : '<p style="font-size:18px;line-height:1.65">' + esc(source) + '</p>') +
-      '<p class="mini-note">ตอบถูกครั้งแรกได้คะแนนสูงสุด · ตอบผิดลองใหม่ได้แต่คะแนนลดลงเล็กน้อย · ตำแหน่งคำตอบหมุนทุกครั้ง</p></div>';
-  }
-
-  function choiceStage(gate, kind){
-    var g = gateData(gate), task = kind === 'Reading' ? g.reading : g.listening, stage = kind === 'Reading' ? 0 : 1, wrong = 0;
-    shell(gate, stage, sourceBox(kind, task.source) + '<h3>' + esc(task.question) + '</h3>' + task.choices.map(function(choice,index){ return '<button type="button" class="btn ghost block eap-boss-choice" data-answer="' + index + '" style="margin:9px 0;text-align:left">' + String.fromCharCode(65+index) + '. ' + esc(choice) + '</button>'; }).join('') + '<p id="bossMessage" class="mini-note"></p>');
-    document.getElementById('bossPlay') && document.getElementById('bossPlay').addEventListener('click', function(){ playVoice(task.source); });
-    document.getElementById('bossShowText') && document.getElementById('bossShowText').addEventListener('click', function(){ var t=document.getElementById('bossTranscript'); t.style.display=t.style.display==='none'?'block':'none'; });
-    if (kind === 'Listening') setTimeout(function(){ playVoice(task.source); }, 280);
-    Array.prototype.slice.call(document.querySelectorAll('.eap-boss-choice')).forEach(function(button){
-      button.addEventListener('click', function(){
-        if (Number(button.dataset.answer) !== task.answer){ wrong += 1; document.getElementById('bossMessage').textContent = 'ลองอีกครั้ง: กลับไปดู keyword/evidence ใน source หรือฟังอีก 1 รอบ'; return; }
-        var rubric = mcqScore(wrong);
-        sendEvidence(gate, kind, task.source, task.choices[task.answer], {score:rubric.score, level:rubric.level, note:rubric.note, attemptCount:wrong + 1});
-        document.getElementById('bossMessage').innerHTML = scoreBox(kind + ' Score', rubric);
-        setTimeout(function(){ if (kind === 'Reading') choiceStage(gate, 'Listening'); else writingStage(gate); }, 650);
-      });
-    });
-  }
-
-  function frameButtons(frames){ return '<div style="display:grid;gap:8px;margin:12px 0">' + frames.map(function(frame,index){ return '<button type="button" class="btn ghost eap-boss-frame" data-index="' + index + '" style="text-align:left">＋ ' + esc(frame) + '</button>'; }).join('') + '</div>'; }
-  function bindFrames(frames, fieldId){ Array.prototype.slice.call(document.querySelectorAll('.eap-boss-frame')).forEach(function(button){ button.addEventListener('click', function(){ var field=document.getElementById(fieldId); var value=frames[Number(button.dataset.index)]; field.value = field.value.trim() ? field.value.trim() + ' ' + value : value; field.dispatchEvent(new Event('input',{bubbles:true})); field.focus(); }); }); }
-
-  function writingStage(gate){
-    var g = gateData(gate), task = g.writing;
-    shell(gate, 2, '<div class="panel light"><h3>✍️ Writing · Boss Scenario</h3><p>' + esc(task.prompt) + '</p><p class="mini-note">ทำตามโจทย์ขั้นต่ำได้ Good ขึ้นไป · คะแนนสูงขึ้นเมื่อเพิ่ม detail, ใช้ frame/connector และเขียนชัดขึ้น</p>' + frameButtons(task.frames) + '<textarea id="bossWriting" rows="6" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Use the sentence frames or write your own short answer."></textarea><button type="button" class="btn primary" id="bossSaveWriting">Save writing & continue</button><p id="bossWriteMessage" class="mini-note"></p></div>');
-    bindFrames(task.frames, 'bossWriting');
-    document.getElementById('bossSaveWriting').addEventListener('click', function(){
-      var output = document.getElementById('bossWriting').value.trim();
-      if (wordCount(output) < 6){ document.getElementById('bossWriteMessage').textContent = 'เลือก sentence frame อย่างน้อย 2 อัน หรือเขียนคำตอบสั้น ๆ ก่อนดำเนินการต่อ'; return; }
-      var rubric = writingScore(output, task.frames);
-      sendEvidence(gate, 'Writing', task.prompt, output, {score:rubric.score, level:rubric.level, note:rubric.note, components:rubric.components});
-      document.getElementById('bossWriteMessage').innerHTML = scoreBox('Writing Score', rubric);
-      setTimeout(function(){ speakingStage(gate); }, 720);
-    });
-  }
-
-  function speakingStage(gate){
-    var g = gateData(gate), task = g.speaking, startedAt = 0, timer = null;
-    shell(gate, 3, '<div class="panel light"><h3>🗣️ Speaking · Boss Scenario with Cue Cards</h3><p>' + esc(task.prompt) + '</p><div class="grid three" style="margin:12px 0">' + task.frames.map(function(frame,index){ return '<div class="stat"><b>Cue ' + (index+1) + '</b><span>' + esc(frame) + '</span></div>'; }).join('') + '</div><p><b id="bossSpeakClock">00:00</b> / 00:20 minimum</p><button type="button" class="btn ghost" id="bossStartSpeak">Start speaking timer</button><label style="display:block;margin:12px 0"><input type="checkbox" id="bossTopic"> I stated the topic</label><label style="display:block;margin:12px 0"><input type="checkbox" id="bossDetail"> I gave one source detail</label><label style="display:block;margin:12px 0"><input type="checkbox" id="bossClose"> I used a clear closing</label><textarea id="bossSpeakingNote" rows="4" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Type 1-2 sentences about what you said."></textarea><p class="mini-note">ทำครบเวลา + checklist + note = Good ขึ้นไป · pronunciation/grammar ให้ครู review ไม่ใช่ auto-score</p><button type="button" class="btn primary" id="bossFinishSpeak">Save speaking & enter Boss Clash</button><p id="bossSpeakMessage" class="mini-note"></p></div>');
-    document.getElementById('bossStartSpeak').addEventListener('click', function(){ if (startedAt) return; startedAt = Date.now(); this.textContent = 'Speaking timer running'; timer = setInterval(function(){ var seconds = Math.floor((Date.now()-startedAt)/1000); document.getElementById('bossSpeakClock').textContent = String(Math.floor(seconds/60)).padStart(2,'0') + ':' + String(seconds%60).padStart(2,'0'); }, 250); });
-    document.getElementById('bossFinishSpeak').addEventListener('click', function(){
-      var seconds = startedAt ? Math.floor((Date.now()-startedAt)/1000) : 0;
-      var note = document.getElementById('bossSpeakingNote').value.trim();
-      var checklist = {spoke:seconds>=20, topic:document.getElementById('bossTopic').checked, detail:document.getElementById('bossDetail').checked, closing:document.getElementById('bossClose').checked};
-      if (!checklist.spoke || !checklist.topic || !checklist.detail || !checklist.closing || wordCount(note) < 5){ document.getElementById('bossSpeakMessage').textContent = 'ทำให้ครบ: พูด 20 วินาที, ติ๊ก 3 checklist, และพิมพ์ speaking note สั้น ๆ อย่างน้อย 5 คำ'; return; }
-      if (timer) clearInterval(timer);
-      var rubric = speakingScore(seconds, checklist, note);
-      sendEvidence(gate, 'Speaking', task.prompt, note, {score:rubric.score, level:rubric.level, note:rubric.note, components:rubric.components, durationSec:seconds, targetRange:'20-45', checklist:checklist});
-      document.getElementById('bossSpeakMessage').innerHTML = scoreBox('Speaking Score', rubric);
-      setTimeout(function(){ completeFourSkills(gate); }, 780);
-    });
+  function speakingStage(gate,itemIndex){
+    itemIndex=Number(itemIndex||0);var g=gateData(gate),tasks=g.speakingTasks,task=tasks[itemIndex];if(!task)return completeFourSkills(gate);var startedAt=0,timer=null;
+    shell(gate,3,progressBar('Speaking Mission',itemIndex,tasks.length,0)+'<div class="panel light"><h3>🗣️ Speaking · Fresh Prompt '+(itemIndex+1)+'/'+tasks.length+'</h3><p>'+esc(task.prompt)+'</p><div class="grid three" style="margin:12px 0">'+g.speakingFrames.map(function(f,i){return '<div class="stat"><b>Cue '+(i+1)+'</b><span>'+esc(f)+'</span></div>';}).join('')+'</div><p><b id="bossSpeakClock">00:00</b> / 00:20 minimum</p><button type="button" class="btn ghost" id="bossStartSpeak">Start speaking timer</button><label style="display:block;margin:12px 0"><input type="checkbox" id="bossTopic"> I stated the topic</label><label style="display:block;margin:12px 0"><input type="checkbox" id="bossDetail"> I gave one source detail</label><label style="display:block;margin:12px 0"><input type="checkbox" id="bossClose"> I used a clear closing</label><textarea id="bossSpeakingNote" rows="4" style="width:100%;padding:14px;border-radius:12px;font:inherit" placeholder="Type 1–2 sentences about what you said."></textarea><p class="mini-note">Replay ใช้ prompt ใหม่ · pronunciation/grammar ให้ครู review ไม่ใช่ auto-score</p><button type="button" class="btn primary" id="bossFinishSpeak">Save task & continue</button><p id="bossSpeakMessage" class="mini-note"></p></div>','Speaking '+(itemIndex+1)+'/'+tasks.length+' · ครู review Boss Speaking ตามหลักฐานจริง');
+    document.getElementById('bossStartSpeak').addEventListener('click',function(){if(startedAt)return;startedAt=Date.now();this.textContent='Speaking timer running';timer=setInterval(function(){var s=Math.floor((Date.now()-startedAt)/1000);var el=document.getElementById('bossSpeakClock');if(el)el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');},250);});
+    document.getElementById('bossFinishSpeak').addEventListener('click',function(){var seconds=startedAt?Math.floor((Date.now()-startedAt)/1000):0,note=document.getElementById('bossSpeakingNote').value.trim(),check={spoke:seconds>=20,topic:document.getElementById('bossTopic').checked,detail:document.getElementById('bossDetail').checked,closing:document.getElementById('bossClose').checked};if(!check.spoke||!check.topic||!check.detail||!check.closing||wordCount(note)<5){document.getElementById('bossSpeakMessage').textContent='ทำให้ครบ: พูด 20 วินาที, ติ๊ก 3 checklist และพิมพ์ note อย่างน้อย 5 คำ';return;}if(timer)clearInterval(timer);var r=speakingScore(seconds,check,note);sendEvidence(gate,'Speaking',task.prompt,note,{score:r.score,level:r.level,note:r.note,components:r.components,durationSec:seconds,targetRange:'20-45',checklist:check,itemId:task.id,itemIndex:itemIndex,itemTotal:tasks.length});document.getElementById('bossSpeakMessage').innerHTML=scoreBox('Speaking Task '+(itemIndex+1),r);setTimeout(function(){if(itemIndex+1<tasks.length)speakingStage(gate,itemIndex+1);else completeFourSkills(gate);},760);});
   }
 
   function completeFourSkills(gate){
-    shell(gate, 4, '<div class="panel light" style="text-align:center;padding:26px"><h3>✅ Four-Skill Evidence Complete</h3><p>คุณทำ Reading, Listening, Writing และ Speaking ครบแล้ว</p><p class="mini-note">Boss Speaking ถูกส่งเป็นรายการสำหรับ Teacher Review ตามข้อตกลงรายวิชา</p><button type="button" class="btn primary" id="enterBossClash">Enter Boss Clash</button></div>');
-    document.getElementById('enterBossClash').addEventListener('click', function(){ var original = window.EAPHero && window.EAPHero.__bossFourSkillOriginalStart; if (typeof original === 'function') original('gate' + gate); });
+    var g=gateData(gate),p=g.runPlan;
+    shell(gate,4,'<div class="panel light" style="text-align:center;padding:26px"><h3>✅ '+esc(p.mode||'Boss Run')+' Complete</h3><p>คุณทำ Reading '+g.readingTasks.length+', Listening '+g.listeningTasks.length+', Writing '+g.writingTasks.length+' และ Speaking '+g.speakingTasks.length+' task ครบแล้ว</p><p class="mini-note">รอบหน้า scenario และ item จะหมุนใหม่ พร้อมเพิ่มจำนวน task ใน Rematch/Elite Remix</p><button type="button" class="btn primary" id="enterBossClash">Enter Boss Clash</button></div>','ครบ '+p.total+' tasks · พร้อมเข้าสู่ Boss Clash');
+    document.getElementById('enterBossClash').addEventListener('click',function(){var original=window.EAPHero&&window.EAPHero.__bossFourSkillOriginalStart;if(typeof original==='function')original('gate'+gate);});
   }
 
   function patch(){
-    if (!window.EAPHero || typeof window.EAPHero.startGateBoss !== 'function' || window.EAPHero.__bossFourSkillV41Patched) return;
-    window.EAPHero.__bossFourSkillV41Patched = true;
-    window.EAPHero.__bossFourSkillOriginalStart = window.EAPHero.startGateBoss;
-    window.EAPHero.startGateBoss = function(gateId){
-      var gate = gateNo(gateId);
-      if (window.EAPBossReplayScenario && Number(window.EAPBossReplayScenario.gate) !== Number(gate)) window.EAPBossReplayScenario = null;
-      choiceStage(gate, 'Reading');
-    };
+    if(!window.EAPHero||typeof window.EAPHero.startGateBoss!=='function'||window.EAPHero.__bossFourSkillV50Patched)return;
+    window.EAPHero.__bossFourSkillV50Patched=true;
+    window.EAPHero.__bossFourSkillOriginalStart=window.EAPHero.startGateBoss;
+    window.EAPHero.startGateBoss=function(gateId){var gate=gateNo(gateId);if(window.EAPBossReplayScenario&&Number(window.EAPBossReplayScenario.gate)!==Number(gate))window.EAPBossReplayScenario=null;choiceStage(gate,'Reading',0,0);};
   }
 
-  var wait = setInterval(function(){ patch(); if (window.EAPHero && window.EAPHero.__bossFourSkillV41Patched) clearInterval(wait); }, 100);
-  window.EAPBossFourSkillV4 = { gates:GATES, start:function(gate){ choiceStage(gateNo(gate),'Reading'); }, version:'v4.1-fair-score-rubric', scoring:{mcqScore:mcqScore, writingScore:writingScore, speakingScore:speakingScore} };
+  var wait=setInterval(function(){patch();if(window.EAPHero&&window.EAPHero.__bossFourSkillV50Patched)clearInterval(wait);},100);
+  window.EAPBossFourSkillV4={gates:GATES,start:function(gate){choiceStage(gateNo(gate),'Reading',0,0);},version:VERSION,scoring:{mcqScore:mcqScore,writingScore:writingScore,speakingScore:speakingScore}};
 })();
