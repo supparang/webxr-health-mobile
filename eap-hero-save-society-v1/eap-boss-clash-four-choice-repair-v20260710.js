@@ -1,149 +1,158 @@
 /* =========================================================
    EAP Question Four-Choice Repair v20260710
-   V8 ACTIVE-VISUAL-GRID DIRECT
-   - Runs only on Boss Battle Question screens, never Reason Gate.
-   - Finds the smallest visible card containing "Boss Battle" + "Question N".
-   - Reads the visible A/B/C/D cards by their rendered text, regardless of
-     nested spans or wrapper divs.
-   - When exactly one label is missing, clones a real visible choice card,
-     rewrites it as the missing distractor, and forwards its click to a known
-     visible wrong choice. This keeps the grid complete without touching the
-     correct native answer.
-   - UI safety only: no score, Sheet, evidence, unlock, or route mutation.
+   V9 DIRECT VISIBLE GRID FAILSAFE
+   - Runs only on Boss Battle Question screens; never Reason Gate.
+   - Finds the three visible A/B/C/D answer cards from rendered text.
+   - Appends one real visible button for the missing label into the same grid.
+   - The added option always forwards to a known visible wrong answer.
+   - Does not change the existing correct answer, score, Sheet, evidence,
+     unlock, route state, or teacher-review data.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260710-EAP-FOUR-CHOICE-REPAIR-V8-ACTIVE-VISUAL-GRID-DIRECT';
-  const LABELS = ['A','B','C','D'];
-  let timer = null;
+  var VERSION = 'v20260710-EAP-FOUR-CHOICE-REPAIR-V9-DIRECT-VISIBLE-GRID-FAILSAFE';
+  var LABELS = ['A','B','C','D'];
+  var timer = null;
+  var interval = null;
 
   function clean(v){ return String(v == null ? '' : v).replace(/\s+/g,' ').trim(); }
   function rect(el){ try { return el.getBoundingClientRect(); } catch(_) { return {width:0,height:0,top:0,left:0}; } }
   function visible(el){
-    if(!el) return false;
-    const r = rect(el);
-    const cs = getComputedStyle(el);
-    return cs.display !== 'none' && cs.visibility !== 'hidden' && Number(cs.opacity || 1) > 0.05 && r.width > 120 && r.height > 34;
+    if(!el || !el.isConnected) return false;
+    var r = rect(el);
+    var cs = getComputedStyle(el);
+    return cs.display !== 'none' && cs.visibility !== 'hidden' && Number(cs.opacity || 1) > 0.05 && r.width > 150 && r.height > 38;
   }
   function labelOf(el){
-    const m = clean(el && (el.innerText || el.textContent)).match(/^([A-D])\.\s+/i);
+    var m = clean(el && (el.innerText || el.textContent)).match(/^([A-D])\.\s+/i);
     return m ? m[1].toUpperCase() : '';
   }
-  function area(el){ const r = rect(el); return r.width * r.height; }
+  function area(el){ var r = rect(el); return r.width * r.height; }
 
-  function activeQuestionPanel(){
-    const root = document.getElementById('app') || document.body;
-    const nodes = Array.from(root.querySelectorAll('section,article,main,.panel,.card,div'));
-    const hits = nodes.filter(function(el){
-      if(!visible(el)) return false;
-      const t = clean(el.innerText || el.textContent);
-      if(!/Boss Battle/i.test(t) || !/Question\s+\d+/i.test(t)) return false;
-      if(/Reason Gate/i.test(t)) return false;
-      const r = rect(el);
-      return r.width > 500 && r.height > 250;
-    });
-    hits.sort(function(a,b){ return area(a) - area(b); });
-    return hits[0] || null;
+  function isQuestionScreen(){
+    var app = document.getElementById('app');
+    var text = clean(app && app.innerText);
+    return /Boss Battle/i.test(text) && /Question\s+\d+/i.test(text) && !/Reason Gate/i.test(text);
   }
 
-  function candidateChoices(panel){
-    const all = Array.from(panel.querySelectorAll('button,[role="button"],[onclick],.choice,.answer,.option,.choice-card,.answer-option,div'));
-    const grouped = new Map();
+  function visibleChoiceCards(){
+    var app = document.getElementById('app') || document.body;
+    var all = Array.from(app.querySelectorAll('button,[role="button"],[onclick],.choice,.answer,.option,.choice-card,.answer-option,div'));
+    var byLabel = {};
 
     all.forEach(function(el){
       if(!visible(el)) return;
-      const label = labelOf(el);
+      var label = labelOf(el);
       if(!label) return;
-      const t = clean(el.innerText || el.textContent);
-      if(t.length < 12 || t.length > 520) return;
-
-      const old = grouped.get(label);
-      /* Prefer the smallest visible element for each label. This selects the
-         actual clickable card even when wrappers repeat the same text. */
-      if(!old || area(el) < area(old)) grouped.set(label, el);
+      var text = clean(el.innerText || el.textContent);
+      if(text.length < 12 || text.length > 520) return;
+      var r = rect(el);
+      if(r.top < 250) return;
+      if(!byLabel[label] || area(el) < area(byLabel[label])) byLabel[label] = el;
     });
 
-    return LABELS.map(function(label){ return grouped.get(label); }).filter(Boolean);
+    return LABELS.map(function(label){ return byLabel[label]; }).filter(Boolean);
   }
 
-  function commonGridParent(cards){
-    if(!cards.length) return null;
-    let p = cards[0].parentElement;
+  function sameGrid(cards){
+    if(cards.length !== 3) return null;
+
+    /* First choice: all three are direct siblings. */
+    var p0 = cards[0].parentElement;
+    if(p0 && cards.every(function(c){ return c.parentElement === p0; })) return p0;
+
+    /* Otherwise walk upward until all three are contained in a compact parent. */
+    var p = p0;
     while(p && p !== document.body){
-      if(cards.every(function(card){ return p.contains(card); })){
-        const directOrWrapped = Array.from(p.children || []).filter(function(ch){
-          if(labelOf(ch)) return true;
-          return Array.from(ch.querySelectorAll ? ch.querySelectorAll('*') : []).some(function(n){ return !!labelOf(n); });
-        });
-        if(directOrWrapped.length >= 3) return p;
+      if(cards.every(function(c){ return p.contains(c); })){
+        var r = rect(p);
+        if(r.width > 500 && r.height < 420) return p;
       }
       p = p.parentElement;
     }
-    return cards[0].parentElement;
+    return p0;
   }
 
   function missingLabel(cards){
-    const present = new Set(cards.map(labelOf));
+    var present = new Set(cards.map(labelOf));
     return LABELS.find(function(label){ return !present.has(label); }) || '';
   }
 
-  function knownWrong(cards){
-    const wrongCue = /broad answer|detail answer|list answer|example answer|topic answer|polished answer|makes a claim beyond|misses the whole|no support|not evidence-based/i;
-    return cards.find(function(card){ return wrongCue.test(clean(card.innerText || card.textContent)); }) || null;
+  function wrongTarget(cards){
+    var wrongCue = /broad answer|detail answer|list answer|example answer|topic answer|polished answer|makes a claim beyond|misses the whole|no support|not evidence-based|treats all details/i;
+    return cards.find(function(card){ return wrongCue.test(clean(card.innerText || card.textContent)); }) || cards[0] || null;
   }
 
-  function replaceCardText(card,label){
-    const message = label + '. Related answer: mentions the topic but does not connect the evidence to a justified conclusion.';
-    const descendants = Array.from(card.querySelectorAll('*')).sort(function(a,b){ return area(a)-area(b); });
-    const target = descendants.find(function(el){ return /^[A-D]\.\s+/.test(clean(el.textContent)); });
-    if(target) target.textContent = message;
-    else card.textContent = message;
+  function installStyle(){
+    if(document.getElementById('eap-four-choice-repair-v9-style')) return;
+    var style = document.createElement('style');
+    style.id = 'eap-four-choice-repair-v9-style';
+    style.textContent = [
+      '.eap-four-choice-repair-v9{',
+      'width:100%!important;min-height:64px!important;box-sizing:border-box!important;',
+      'display:block!important;visibility:visible!important;opacity:1!important;',
+      'border:1px solid #d7e4f1!important;border-radius:14px!important;',
+      'background:#f8fafc!important;color:#0f172a!important;',
+      'padding:14px 16px!important;text-align:left!important;',
+      'font:800 16px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif!important;',
+      'cursor:pointer!important;position:relative!important;z-index:2!important;',
+      '}',
+      '.eap-four-choice-repair-v9:hover{outline:2px solid rgba(14,165,233,.28)!important;}'
+    ].join('');
+    document.head.appendChild(style);
   }
 
-  function repair(){
-    const panel = activeQuestionPanel();
-    if(!panel) return false;
-
-    const cards = candidateChoices(panel).filter(function(card){ return !card.dataset.eapFourChoiceRepairV8; });
-    if(cards.length !== 3) return false;
-
-    const label = missingLabel(cards);
-    if(!label || panel.querySelector('[data-eap-four-choice-repair-v8="'+label+'"]')) return false;
-
-    const grid = commonGridParent(cards);
-    const wrong = knownWrong(cards);
-    if(!grid || !wrong) return false;
-
-    const template = cards[0];
-    const clone = template.cloneNode(true);
-    clone.removeAttribute('id');
-    clone.dataset.eapFourChoiceRepairV8 = label;
-    clone.dataset.eapFourChoiceRepairVersion = VERSION;
-    clone.setAttribute('aria-label',label + '. Additional distractor');
-    clone.style.removeProperty('display');
-    clone.style.removeProperty('visibility');
-    clone.style.removeProperty('opacity');
-    replaceCardText(clone,label);
-
-    clone.addEventListener('click',function(ev){
+  function makeButton(label, wrong){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'eap-four-choice-repair-v9';
+    btn.dataset.eapFourChoiceRepairV9 = label;
+    btn.dataset.eapFourChoiceRepairVersion = VERSION;
+    btn.textContent = label + '. Related answer: mentions the topic but does not connect the evidence to a justified conclusion.';
+    btn.addEventListener('click', function(ev){
       ev.preventDefault();
       ev.stopPropagation();
       wrong.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));
-    },true);
+    }, true);
+    return btn;
+  }
 
-    const ordered = cards.slice().sort(function(a,b){ return LABELS.indexOf(labelOf(a))-LABELS.indexOf(labelOf(b)); });
-    const next = ordered.find(function(card){ return LABELS.indexOf(labelOf(card)) > LABELS.indexOf(label); });
-    if(next && next.parentElement === grid) grid.insertBefore(clone,next);
-    else grid.appendChild(clone);
+  function repair(){
+    if(!isQuestionScreen()) return false;
 
+    var cards = visibleChoiceCards().filter(function(card){ return !card.dataset.eapFourChoiceRepairV9; });
+    if(cards.length !== 3) return false;
+
+    var label = missingLabel(cards);
+    if(!label) return false;
+
+    var app = document.getElementById('app') || document.body;
+    if(app.querySelector('[data-eap-four-choice-repair-v9="'+label+'"]')) return true;
+
+    var grid = sameGrid(cards);
+    var wrong = wrongTarget(cards);
+    if(!grid || !wrong) return false;
+
+    installStyle();
+    var btn = makeButton(label, wrong);
+
+    /* Keep alphabetical visual order when possible. */
+    var ordered = cards.slice().sort(function(a,b){ return LABELS.indexOf(labelOf(a)) - LABELS.indexOf(labelOf(b)); });
+    var next = ordered.find(function(card){ return LABELS.indexOf(labelOf(card)) > LABELS.indexOf(label); });
+    if(next && next.parentElement === grid) grid.insertBefore(btn, next);
+    else grid.appendChild(btn);
+
+    document.documentElement.dataset.eapFourChoiceRepairVersion = VERSION;
+    document.documentElement.dataset.eapFourChoiceRepairLast = label;
     return true;
   }
 
-  function schedule(){ clearTimeout(timer); timer = setTimeout(repair,40); }
+  function schedule(){ clearTimeout(timer); timer = setTimeout(repair, 25); }
   function start(){
-    [0,40,80,140,240,400,700,1100,1800,3000].forEach(function(ms){ setTimeout(repair,ms); });
-    new MutationObserver(schedule).observe(document.getElementById('app') || document.documentElement,{childList:true,subtree:true,characterData:true});
+    [0,25,60,100,180,300,500,800,1200,2000,3500].forEach(function(ms){ setTimeout(repair,ms); });
+    new MutationObserver(schedule).observe(document.getElementById('app') || document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','style','hidden']});
+    interval = setInterval(repair,250);
     window.EAPFourChoiceRepair = {version:VERSION,repair:repair};
   }
 
