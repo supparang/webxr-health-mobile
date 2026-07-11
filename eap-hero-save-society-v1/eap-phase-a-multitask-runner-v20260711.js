@@ -1,18 +1,19 @@
 /* =========================================================
    EAP Hero Phase A2 — Multi-Task Session Runner v20260711
-   V3 RESTORED + INTEGRATED
+   V4 SKILL-PAGE PROGRESS PANEL FIX
    - First 8 / Replay 11 / Elite 13 tasks.
    - Brief -> Challenge -> Pressure -> Mini Rescue -> Reflection.
    - Existing skill missions execute each task.
    - Evidence completes only the active matching task.
    - Exposure remains optional and never changes unlock rules.
-   - Upgrades Mission-First v1z99 briefing without changing scores/Sheet.
+   - Shows persistent Phase A progress on every skill mission page.
 ========================================================= */
 (function(){
   'use strict';
-  var VERSION='v20260711-EAP-PHASE-A2-V3-RESTORED-INTEGRATED';
+  var VERSION='v20260711-EAP-PHASE-A2-V4-SKILL-PAGE-PROGRESS';
   var RUNNER_KEY='EAP_PHASE_A2_RUNNER_V1';
   var STYLE_ID='eap-phase-a2-runner-style';
+  var PANEL_ID='phaseA2MissionPanel';
   var baselineIds={}, renderTimer=null;
 
   function text(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
@@ -21,7 +22,13 @@
   function writeRunner(v){try{localStorage.setItem(RUNNER_KEY,JSON.stringify(v||{}));}catch(_){}return v||{};}
   function readProgress(){try{return JSON.parse(localStorage.getItem('EAP_HERO_PROGRESS_V3')||'{}');}catch(_){return{};}}
   function engine(){return window.EAPSessionUltimateEngine||null;}
-  function sidFromPage(){var app=document.getElementById('app');var m=text(app&&app.innerText).match(/(?:Session\s*|Week\s*|\bS)(1[0-5]|[1-9])\b/i);return m?'S'+Number(m[1]):'';}
+  function sidFromPage(){
+    var active=window.EAPPhaseAActiveTask;
+    if(active&&active.sessionId)return String(active.sessionId).toUpperCase();
+    var app=document.getElementById('app');
+    var m=text(app&&app.innerText).match(/(?:Session\s*|Week\s*|\bS)(1[0-5]|[1-9])\b/i);
+    return m?'S'+Number(m[1]):'';
+  }
   function skillNorm(v){return text(v).toLowerCase();}
 
   function collectEvidence(root){
@@ -95,7 +102,7 @@
 
   function addStyle(){
     if(document.getElementById(STYLE_ID))return;
-    var s=document.createElement('style');s.id=STYLE_ID;s.textContent='.phase-a2-panel{margin:12px 0;padding:14px;border:1px solid #67e8f9;border-radius:16px;background:linear-gradient(135deg,#082f49,#172554);color:#ecfeff}.phase-a2-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.phase-a2-track{display:grid;grid-template-columns:repeat(5,minmax(105px,1fr));gap:8px;margin:12px 0}.phase-a2-step{padding:9px;border-radius:12px;background:#1e3a5f;border:1px solid #3b82f6;font-size:12px;font-weight:800}.phase-a2-step.on{outline:2px solid #22c55e;background:#14532d}.phase-a2-step.current{outline:3px solid #22d3ee;background:#164e63}.phase-a2-progress{height:10px;border-radius:999px;background:#334155;overflow:hidden}.phase-a2-progress i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#22d3ee);transition:width .25s}.phase-a2-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.mf-brief-steps.phase-a-five{grid-template-columns:repeat(5,1fr)!important}.mf-brief-steps.phase-a-five div{min-width:0!important}@media(max-width:700px){.phase-a2-track,.mf-brief-steps.phase-a-five{grid-template-columns:1fr 1fr!important}}';document.head.appendChild(s);
+    var s=document.createElement('style');s.id=STYLE_ID;s.textContent='.phase-a2-panel{margin:0 0 16px;padding:14px;border:1px solid #67e8f9;border-radius:16px;background:linear-gradient(135deg,#082f49,#172554);color:#ecfeff;box-shadow:0 10px 28px rgba(2,8,23,.24)}.phase-a2-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.phase-a2-track{display:grid;grid-template-columns:repeat(5,minmax(105px,1fr));gap:8px;margin:12px 0}.phase-a2-step{padding:9px;border-radius:12px;background:#1e3a5f;border:1px solid #3b82f6;font-size:12px;font-weight:800}.phase-a2-step.on{outline:2px solid #22c55e;background:#14532d}.phase-a2-step.current{outline:3px solid #22d3ee;background:#164e63}.phase-a2-progress{height:10px;border-radius:999px;background:#334155;overflow:hidden;margin-top:10px}.phase-a2-progress i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#22d3ee);transition:width .25s}.phase-a2-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.mf-brief-steps.phase-a-five{grid-template-columns:repeat(5,1fr)!important}.mf-brief-steps.phase-a-five div{min-width:0!important}@media(max-width:700px){.phase-a2-track,.mf-brief-steps.phase-a-five{grid-template-columns:1fr 1fr!important}}';document.head.appendChild(s);
   }
 
   function upgradeBrief(){
@@ -107,13 +114,32 @@
     var fine=card.querySelector('.mf-fine');if(fine)fine.textContent='⚡ '+run.taskCount+' tasks · '+text(run.coreSkills&&run.coreSkills.join(' + '))+' · '+text(run.adaptiveLevel)+' · Best score is preserved.';
   }
 
+  function findSkillHost(app){
+    var title=[].slice.call(app.querySelectorAll('h1,h2')).find(function(el){return /(?:Reading|Writing|Listening|Speaking)\s+Mission/i.test(text(el.textContent));});
+    if(title){
+      var node=title;
+      while(node&&node.parentElement&&node.parentElement!==app){
+        if(node.parentElement.querySelector&&node.parentElement.querySelector('button,textarea,input,select'))return node.parentElement;
+        node=node.parentElement;
+      }
+      return title.parentElement||app;
+    }
+    return app.querySelector('main,.wrap,.mission-shell,.skill-mission')||app;
+  }
+
   function renderPanel(){
     addStyle();upgradeBrief();
     var app=document.getElementById('app');if(!app)return;
     var sid=sidFromPage();if(!sid||/Boss Gate|Boss Battle/i.test(text(app.innerText)))return;
     var run=ensureRun(sid);if(!run)return;run=completeBrief(sid,run)||run;
-    var task=activeTask(run),host=app.querySelector('.session-path-panel,.panel,main section,section');if(!host)return;
-    var panel=host.querySelector('.phase-a2-panel');if(!panel){panel=document.createElement('div');panel.className='phase-a2-panel';host.insertBefore(panel,host.firstChild);}
+    var task=activeTask(run),host=findSkillHost(app);if(!host)return;
+    var panel=document.getElementById(PANEL_ID);
+    if(!panel){panel=document.createElement('div');panel.id=PANEL_ID;panel.className='phase-a2-panel';}
+    if(panel.parentNode!==host){
+      var anchor=host.querySelector('h1,h2,.badges');
+      if(anchor&&anchor.parentNode===host)host.insertBefore(panel,anchor);
+      else host.insertBefore(panel,host.firstChild);
+    }
     var completed=(run.completedTaskIds||[]).length,pct=Math.round(completed/Math.max(1,run.taskCount)*100),stage=task?task.stage:'Complete';
     var phases=['Brief','Challenge','Pressure Round','Mini Rescue','Reflection'];
     panel.innerHTML='<div class="phase-a2-head"><div><b>⚡ '+esc(run.modeLabel)+' · '+run.taskCount+' Tasks</b><div>'+esc((run.coreSkills||[]).join(' + '))+' · '+esc(run.adaptiveLevel)+' · Combo '+Number(run.combo||0)+'</div></div><b>'+completed+'/'+run.taskCount+'</b></div><div class="phase-a2-progress"><i style="width:'+pct+'%"></i></div><div class="phase-a2-track">'+phases.map(function(p){var items=run.plan.filter(function(t){return t.stage===p;}),done=items.length&&items.every(function(t){return run.completedTaskIds.indexOf(t.taskId)>=0;}),cls=p===stage?'current':done?'on':'';return '<div class="phase-a2-step '+cls+'">'+esc(p)+'</div>';}).join('')+'</div><div class="phase-a2-actions">'+(task?'<button class="btn primary" type="button" data-phase-a-next>▶ '+esc(task.stage)+' · '+esc(task.skill)+'</button><span class="pill">'+esc(task.role)+(task.required?' · Required':' · Optional')+'</span>':'<span class="pill">✅ Run Complete</span>')+'</div>';
@@ -122,6 +148,6 @@
 
   function schedule(){clearTimeout(renderTimer);renderTimer=setTimeout(renderPanel,80);}
   window.EAPPhaseAMultiTaskRunner={version:VERSION,ensureRun:ensureRun,activeTask:activeTask,launchTask:launchTask,scanEvidence:scanEvidence,state:readRunner};
-  setInterval(scanEvidence,650);window.addEventListener('load',schedule);window.addEventListener('eap:session-ultimate-task',schedule);window.addEventListener('eap:phase-a-task-complete',schedule);
+  setInterval(scanEvidence,650);window.addEventListener('load',schedule);window.addEventListener('eap:session-ultimate-task',schedule);window.addEventListener('eap:phase-a-task-complete',schedule);window.addEventListener('eap:phase-a-task-launch',schedule);
   new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,characterData:true});schedule();
 })();
