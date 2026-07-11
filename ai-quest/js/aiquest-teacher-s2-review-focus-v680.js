@@ -18,7 +18,11 @@
   function label(skill){const map={'PEAS ครบองค์ประกอบ':'PEAS Board','Sensor / Actuator':'Sensor / Actuator','Performance measure':'Performance Measure','Rational action':'Rational Action','Human oversight':'Human Oversight','Trade-off':'Safety Trade-off','Scope boundary':'Scope Boundary','Human override':'Human Override','Audit trail':'Audit Trail','Agent test':'Agent Testing'};return map[skill]||skill;}
   function lines(student){
     const meta=latestS2Meta(student);if(!meta)return [];
-    return Object.entries(meta.s2Skills||{}).filter(([,row])=>row&&num(row.total)>0&&num(row.correct)<num(row.total)).sort((a,b)=>(num(a[1].correct)/Math.max(1,num(a[1].total)))-(num(b[1].correct)/Math.max(1,num(b[1].total))).slice(0,3).map(([skill,row])=>PREFIX+label(skill)+' '+num(row.correct)+'/'+num(row.total));
+    return Object.entries(meta.s2Skills||{})
+      .filter(([,row])=>row&&num(row.total)>0&&num(row.correct)<num(row.total))
+      .sort((a,b)=>(num(a[1].correct)/Math.max(1,num(a[1].total)))-(num(b[1].correct)/Math.max(1,num(b[1].total))))
+      .slice(0,3)
+      .map(([skill,row])=>PREFIX+label(skill)+' '+num(row.correct)+'/'+num(row.total));
   }
   function apply(){
     const students=runtime()?.state?.students;if(!Array.isArray(students)||!students.length)return;
