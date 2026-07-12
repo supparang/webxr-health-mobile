@@ -1,26 +1,25 @@
 /* =========================================================
    EAP Hero Roadmap Lock Guard v20260712
-   V10 CLOUD BOSS CHECKPOINT ADVANCE
+   V11 LIVE CLOUD RECORDS BOSS ADVANCE
    - ONE rule for roadmap + session grid.
    - Unlock uses best evidence from Cloud/Sheet restored rows AND fresh local rows.
-   - Boss completion can advance the next Session immediately from the live
-     Cloud Resume event even when localStorage is full and cannot be rewritten.
-   - Existing Map state can recover sequential Boss completion from the visible
-     "Session Bosses: N/15" counter, so learners do not need to replay B1.
-   - UI/lock only. Does not change Sheet rows, evidence, teacher review,
-     pass/fail scoring, or teacher dashboard data.
+   - Reads live eap:resume-synced payload shape {data:{records:[]}} directly,
+     so B1 completion can unlock S4 even when localStorage is full.
+   - Boss Gate is complete only after all 4 integrated skills pass.
+   - UI/lock only. Does not change Sheet rows, scoring, teacher review, or dashboard data.
 ========================================================= */
 (function(){
 'use strict';
 
-const VERSION='v20260712-EAP-ROADMAP-LOCK-GUARD-V10-CLOUD-BOSS-CHECKPOINT-ADVANCE';
+const VERSION='v20260712-EAP-ROADMAP-LOCK-GUARD-V11-LIVE-CLOUD-RECORDS-BOSS-ADVANCE';
 const PACK='EAP_HERO_SESSION_CONTENT_PACK';
 const STATE='EAP_HERO_PROGRESS_V3';
 const PASS=60;
 const SKILLS=['reading','listening','writing','speaking'];
-const STYLE='eapUnifiedSeqLockStyleV10CloudBoss';
-const TOAST='eapUnifiedSeqLockToastV10CloudBoss';
+const STYLE='eapUnifiedSeqLockStyleV11CloudRecords';
+const TOAST='eapUnifiedSeqLockToastV11CloudRecords';
 const memoryCompleted={};
+const memoryBest={};
 
 function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim()}
 function lower(v){return clean(v).toLowerCase()}
@@ -37,14 +36,32 @@ function cloudTrusted(e){return !!(e&&(e.cloudVerified===true||e.serverVerified=
 function freshLocalTrusted(e){if(!e||isLegacyOnly(e))return false;const kind=lower(e.submissionKind||e.action||e.evidenceType||e.taskId||'');return e.passed===true||clean(e.passed).toUpperCase()==='TRUE'||num(e.score)>=PASS||/fresh_evidence|submit_evidence|submit_attempt|academic_goal_card|reading_evidence|speaking/i.test(kind)}
 function trusted(e){return cloudTrusted(e)||freshLocalTrusted(e)}
 
+function entryRoute(e){const r=e&&(e.routeId||e.sessionId||e.session||e.stage||'');return typeof r==='number'?'S'+r:norm(r)}
+function entrySkill(e){const raw=lower(e&&e.skill||e&&e.skillName||e&&e.evidenceType||e&&e.taskId||e&&e.type);return SKILLS.find(s=>raw===s||raw.indexOf(s)>=0)||''}
+function entryScore(e){return Math.max(num(e&&e.bestScore),num(e&&e.latestScore),num(e&&e.score),num(e&&e.stars)>=3?100:0)}
+function entryPass(e){const raw=e&&(e.passed!==undefined?e.passed:e.pass);return raw===true||String(raw).toLowerCase()==='true'||String(raw)==='1'||entryScore(e)>=PASS}
+
+function rememberRecord(row){
+  if(!row||isLegacyOnly(row))return;
+  const rid=entryRoute(row),sk=entrySkill(row),score=entryScore(row),passed=entryPass(row);
+  if(!rid||!sk)return;
+  const key=rid+'|'+sk;
+  if(!memoryBest[key]||score>memoryBest[key].score||passed)memoryBest[key]={score:score,passed:passed};
+}
+function recomputeBossMemory(){
+  for(let i=1;i<=5;i++){
+    const rid='B'+i;
+    memoryCompleted[rid]=SKILLS.every(sk=>{const x=memoryBest[rid+'|'+sk];return !!(x&&(x.passed||x.score>=PASS))});
+  }
+}
+function rememberRecords(rows){(Array.isArray(rows)?rows:[]).forEach(rememberRecord);recomputeBossMemory()}
 function rememberCompletedFromState(s){
   if(!s||typeof s!=='object')return;
   const c=s.completedSessions||{};
   Object.keys(c).forEach(k=>{if(c[k]===true||clean(c[k]).toUpperCase()==='TRUE')memoryCompleted[norm(k)]=true});
   const sp=s.sessionProgress||s.routeStatus||{};
   Object.keys(sp).forEach(k=>{const st=sp[k]||{};const rid=norm(st.routeId||st.sessionId||k);if(st.complete===true||st.passed===true)memoryCompleted[rid]=true});
-  const records=Array.isArray(s.records)?s.records:[];
-  records.forEach(r=>{const rid=norm(r&& (r.routeId||r.sessionId));if(/^B[1-5]$/.test(rid)&&(r.passed===true||clean(r.passed).toUpperCase()==='TRUE'||num(r.score)>=PASS))memoryCompleted[rid]=true});
+  ['records','portfolio','attempts','evidence','summary'].forEach(k=>rememberRecords(s[k]));
   if(s.bossCompletionLocalAdvance&&s.bossCompletionLocalAdvance.gate)memoryCompleted[norm(s.bossCompletionLocalAdvance.gate)]=true;
 }
 function rememberBossCountFromDom(){
@@ -54,7 +71,13 @@ function rememberBossCountFromDom(){
   const count=Math.max(0,Math.min(5,Number(m[1])||0));
   for(let i=1;i<=count;i++)memoryCompleted['B'+i]=true;
 }
-function onResumeSynced(e){rememberCompletedFromState(e&&e.detail);schedule()}
+function onResumeSynced(e){
+  const detail=e&&e.detail||{};
+  rememberCompletedFromState(detail);
+  if(detail.data){rememberCompletedFromState(detail.data);rememberRecords(detail.data.records)}
+  if(detail.state)rememberCompletedFromState(detail.state);
+  schedule();
+}
 
 function addCloudSessionProgress(out,s){
   if(!s||!s.sessionProgress||typeof s.sessionProgress!=='object')return;
@@ -74,11 +97,7 @@ function entries(){
   addCloudSessionProgress(out,s);
   return out.filter(trusted);
 }
-function entryRoute(e){const r=e&&(e.routeId||e.sessionId||e.session||e.stage||'');return typeof r==='number'?'S'+r:norm(r)}
-function entrySkill(e){const raw=lower(e&&e.skill||e&&e.skillName||e&&e.evidenceType||e&&e.taskId||e&&e.type);return SKILLS.find(s=>raw===s||raw.indexOf(s)>=0)||''}
-function entryScore(e){return Math.max(num(e&&e.bestScore),num(e&&e.latestScore),num(e&&e.score),num(e&&e.stars)>=3?100:0)}
-function entryPass(e){const raw=e&&(e.passed!==undefined?e.passed:e.pass);return raw===true||String(raw).toLowerCase()==='true'||String(raw)==='1'||entryScore(e)>=PASS}
-function best(){const b={};entries().forEach(e=>{const r=entryRoute(e),s=entrySkill(e);if(!r||!s||isLegacyOnly(e))return;const k=r+'|'+s,sc=entryScore(e),ps=entryPass(e);if(!b[k]||sc>b[k].score||ps)b[k]={score:sc,passed:ps}});return b}
+function best(){const b=Object.assign({},memoryBest);entries().forEach(e=>{const r=entryRoute(e),s=entrySkill(e);if(!r||!s||isLegacyOnly(e))return;const k=r+'|'+s,sc=entryScore(e),ps=entryPass(e);if(!b[k]||sc>b[k].score||ps)b[k]={score:sc,passed:ps}});return b}
 function required(route){if(!route)return[];if(route.routeType==='boss_gate')return SKILLS.slice();const c=route.skillContract||{};const req=SKILLS.filter(s=>['Core','Support','Integrated','core','support','integrated'].indexOf(clean(c[s]))>=0);return req.length?req:['reading','writing']}
 function completedByCloudState(rid){const s=readState();rememberCompletedFromState(s);rememberBossCountFromDom();const r=norm(rid),n=(r.match(/^S(\d+)$/)||[])[1];const c=s.completedSessions||{};return memoryCompleted[r]===true||c[r]===true||(n&&c[n]===true)}
 function routeStatus(id){
@@ -96,7 +115,7 @@ function currentRoute(){const list=routeList();return list[maxOpenIndex()]||list
 function blockerFor(id){const idx=routeIndex(id),list=routeList();if(idx<0)return null;for(let i=0;i<idx;i++){const st=routeStatus(list[i].routeId);if(!st.complete)return st}return null}
 function reason(id){const block=blockerFor(id);if(!block)return'';return 'ต้องผ่าน '+block.routeId+' ก่อน: '+block.missing.map(cap).join(' + ')+' ≥ 60/100'}
 function setActive(id){const rid=norm(id)||'S1';try{localStorage.setItem('EAP_HERO_ACTIVE_ROUTE',rid);localStorage.setItem('EAP_HERO_CURRENT_ROUTE',rid);const m=rid.match(/^S(\d+)$/i);if(m)localStorage.setItem('EAP_HERO_CURRENT_SESSION',String(Number(m[1])))}catch(e){window.EAP_HERO_ACTIVE_ROUTE_MEMORY=rid}}
-function normalizeStoredIfLocked(){const cur=currentRoute();if(!cur)return false;try{const active=norm(localStorage.getItem('EAP_HERO_ACTIVE_ROUTE')||localStorage.getItem('EAP_HERO_CURRENT_ROUTE')||window.EAP_HERO_ACTIVE_ROUTE_MEMORY||'');if(!active||!isUnlocked(active)||routeStatus(active).complete){setActive(cur.routeId);return true}}catch(e){setActive(cur.routeId());return true}return false}
+function normalizeStoredIfLocked(){const cur=currentRoute();if(!cur)return false;try{const active=norm(localStorage.getItem('EAP_HERO_ACTIVE_ROUTE')||localStorage.getItem('EAP_HERO_CURRENT_ROUTE')||window.EAP_HERO_ACTIVE_ROUTE_MEMORY||'');if(!active||!isUnlocked(active)||routeStatus(active).complete){setActive(cur.routeId);return true}}catch(e){setActive(cur.routeId);return true}return false}
 function isActiveMissionArea(node){return !!(node&&node.closest&&node.closest('.battle-layout,.challenge-card,.choices,.question,.context,.feedback,.boss-brief,.boss-taunt'))}
 function addCss(){if(document.getElementById(STYLE))return;const s=document.createElement('style');s.id=STYLE;s.textContent=`
 #eap-student-15week-roadmap .rm-card.eap-locked,.session-tile.eap-session-unified-locked,.session-card.eap-session-unified-locked,.checkpoint-card.eap-session-unified-locked{opacity:.42!important;filter:grayscale(.35)!important;background:#f8fafc!important;border-style:dashed!important;box-shadow:none!important}
@@ -118,6 +137,6 @@ function routeFromButton(btn){if(isActiveMissionArea(btn))return'';const explici
 function clickGuard(e){const btn=e.target&&e.target.closest&&e.target.closest('button,a,[role="button"]');if(!btn||isActiveMissionArea(btn))return;const rid=routeFromButton(btn);if(!rid||isUnlocked(rid))return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();toast(reason(rid)||'Route locked')}
 let timer;function schedule(){clearTimeout(timer);timer=setTimeout(decorate,80)}
 function start(){addCss();rememberCompletedFromState(readState());document.addEventListener('click',clickGuard,true);window.addEventListener('load',schedule);window.addEventListener('storage',schedule);window.addEventListener('eap:resume-synced',onResumeSynced);window.addEventListener('eap:profile-saved',schedule);new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true});schedule();setInterval(decorate,900)}
-window.EAPRoadmapLockGuard={version:VERSION,cloudVerifiedOnly:false,classroomLocalEvidenceUnlock:true,cloudSessionProgressSafe:true,bossCheckpointMemorySafe:true,bossCountRecovery:true,hideFutureLockedProgress:true,activeMissionSafe:true,routeStatus:routeStatus,isUnlocked:isUnlocked,reason:reason,refresh:decorate,maxOpenIndex:maxOpenIndex,firstIncompleteIndex:firstIncompleteIndex,currentRoute:currentRoute};
+window.EAPRoadmapLockGuard={version:VERSION,cloudVerifiedOnly:false,classroomLocalEvidenceUnlock:true,cloudSessionProgressSafe:true,bossCheckpointMemorySafe:true,liveCloudRecordsSafe:true,bossCountRecovery:true,hideFutureLockedProgress:true,activeMissionSafe:true,routeStatus:routeStatus,isUnlocked:isUnlocked,reason:reason,refresh:decorate,maxOpenIndex:maxOpenIndex,firstIncompleteIndex:firstIncompleteIndex,currentRoute:currentRoute};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
