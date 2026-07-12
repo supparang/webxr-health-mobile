@@ -1,22 +1,44 @@
-/* CSAI2601 UX Quest • Reason Variety v6
- * Adds boss-aware Reason Check for B1-B4 while preserving W1-W15 behavior.
+/* CSAI2601 UX Quest • Reason Variety v6.1
+ * Retired DOM text rewriting.
+ *
+ * The canonical item banks already provide question-specific Reason Check
+ * prompts, correct rationales, distractors, and scoring identifiers. Earlier
+ * versions replaced those texts with a small shared category pool, causing
+ * different W12 rounds (State, Microcopy, Recovery, etc.) to display the same
+ * reasons. This compatibility file now preserves the authored item content.
  */
 (() => {
   'use strict';
-  const $=(s,r=document)=>r.querySelector(s); const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
-  const text=(el)=>String(el?.textContent||'').trim(); const qp=()=>new URLSearchParams(location.search||''); const node=()=>String(qp().get('node')||qp().get('id')||'W1').toUpperCase();
-  const KEY=`csai2601.reason.v6.${node()}`;
-  function h(s){let x=0;String(s||'').split('').forEach(c=>{x=((x<<5)-x+c.charCodeAt(0))|0;});return Math.abs(x);} function seq(){const n=Number(sessionStorage.getItem(KEY)||0)+1;try{sessionStorage.setItem(KEY,String(n));}catch(e){}return n;} function choose(list,seed,add){return list[(h(seed)+add)%list.length];} function idx(btn){const m=String(btn?.dataset?.reason||'').match(/-(\d+)$/);return m?Number(m[1]):-1;}
-  function kind(){const n=node(); const k=[n,text($('.case .kicker')),text($('.case h1')),text($('.case p:last-child'))].join(' ').toLowerCase(); if(n==='B1')return'boss_foundation'; if(n==='B2')return'boss_flow_wireframe'; if(n==='B3')return'boss_interface_system'; if(n==='B4')return'boss_validation'; if(/w2|hcd|human-centered|assumption|empathize|research target|small test/.test(k))return'hcd'; if(/w3|psychology|cognitive|mental model|attention|recognition|recall|working memory/.test(k))return'psychology'; if(/hmw|problem statement|root cause|insight/.test(k))return'define'; if(/sitemap|navigation|happy path|error path|bottleneck|ia|flow/.test(k))return'flow'; if(/wireframe|layout|hierarchy|priority|cta|mobile|grid/.test(k))return'wireframe'; if(/research question|pain point|persona|interview|observation/.test(k))return'research'; if(/proof|test|validate|evidence|วัด|ทดสอบ|พิสูจน์/.test(k))return'proof'; if(/impact|ui|ux|feedback|ผลกระทบ|สับสน|ผิด/.test(k))return'impact'; return'fix'; }
-  const OK={
-    boss_foundation:['เชื่อม UI/UX, HCD และ psychology เข้ากับหลักฐานผู้ใช้ครบ','เริ่มจาก task failure แล้วใช้ HCD เก็บ evidence ก่อนเลือก fix','อธิบายได้ว่าปัญหากระทบ mental model, feedback หรือ cognitive load อย่างไร','fix นี้ลด friction และพิสูจน์ด้วย task success/time/error ได้'],
-    boss_flow_wireframe:['ป้องกัน chain ได้ครบ: evidence → problem → flow → wireframe → test idea','persona, problem, HMW, IA และ wireframe ไม่หลุดจากกัน','flow มี happy path และ error path ที่ช่วยให้ task สำเร็จ','wireframe มี priority, layout, CTA และ mobile ที่ตอบหลักฐาน'],
-    boss_interface_system:['เชื่อม design system, responsive และ accessibility เป็นระบบเดียวกัน','component state/naming/variant ช่วยลดความจำและความสับสนของผู้ใช้','responsive decision มาจาก content และ task ไม่ใช่ขนาดเครื่องอย่างเดียว','accessibility issue ถูกจัดตามผลต่อ task หลักและการเข้าถึงจริง'],
-    boss_validation:['เชื่อม component state → prototype → usability evidence → fix → retest ครบ','prototype ทดสอบ task จริงและมี error/recovery path','severity มาจาก task failure, error, time และความเข้าใจของผู้ใช้','iteration เลือก fix จาก evidence และพิสูจน์ด้วย before/after'],
-    hcd:['เริ่มจาก evidence ของผู้ใช้ก่อนตัดสินใจออกแบบ','แยก assumption ของทีมออกจากพฤติกรรมผู้ใช้จริง','เลือก research target ที่เกี่ยวข้องกับ task โดยตรง'], psychology:['โยงปัญหากับ cognitive load, mental model หรือ feedback ได้ตรง','repair นี้ช่วยให้ผู้ใช้จำ/เดา/ตัดสินใจน้อยลง','อธิบายผลต่อ attention, recognition หรือ error prevention ได้'], research:['เชื่อมคำถามวิจัยกับ pain point และ persona need ของผู้ใช้จริง','ใช้ข้อมูลผู้ใช้เพื่อแยก evidence ออกจาก assumption ก่อนออกแบบ'], define:['เชื่อม insight → root cause → problem statement → HMW ได้ครบ','HMW นี้เปิดทางให้คิดหลาย solution โดยไม่ล็อกคำตอบเร็วเกินไป'], flow:['จัดกลุ่มข้อมูลตาม mental model และ journey ของผู้ใช้','navigation นี้ช่วยให้ผู้ใช้เริ่มงานถูกจุดและเดิน flow ต่อได้'], wireframe:['จัด visual priority ให้ผู้ใช้เห็นสิ่งที่ต้องทำก่อน','layout นี้รองรับ goal, content hierarchy และ primary CTA ชัด'], impact:['อธิบายผลกระทบต่อความเข้าใจ การตัดสินใจ หรือ task ของผู้ใช้','แยกได้ว่าปัญหาอยู่ที่ลำดับข้อมูล flow หรือ feedback'], fix:['แก้จุดติดขัดหลักโดยไม่เพิ่มภาระใหม่ให้ผู้ใช้','เชื่อมหลักฐานกับสิ่งที่จะปรับในหน้าจอหรือ flow ได้'], proof:['ให้ผู้ใช้ทำ task เดิม แล้วเทียบผลก่อนและหลังปรับ','วัดจากพฤติกรรมจริง เช่น สำเร็จเร็วขึ้น ผิดน้อยลง หรืออธิบายขั้นตอนต่อได้']
-  };
-  const BAD=[['ถามว่าชอบภาพไหนมากกว่า โดยไม่ได้ให้ทำภารกิจจริง','ใช้ความสวยหรือความชอบแทนหลักฐานการใช้งาน','เลือกเพราะหน้าดูทันสมัยขึ้น'],['ให้ทีมตัดสินว่าแบบใหม่ดีขึ้น โดยไม่ลองกับผู้ใช้','ใช้มุมมองคนทำงานแทนมุมมองผู้ใช้','เลือกตามสิ่งที่ทีมทำง่าย'],['ดูแค่จำนวนคนเข้าหน้าแรก แต่ไม่รู้ว่าใช้งานสำเร็จไหม','เพิ่มคำอธิบายยาวขึ้น โดยไม่แก้จุดที่ผู้ใช้ติด','คัดลอก pattern จากที่อื่นโดยไม่ดู case นี้']];
-  function seed(roundNo){return[node(),roundNo,text($('.top .pill')),text($('.case .kicker')),text($('.case h1')),text($('.case p:last-child'))].join('|');}
-  function apply(){const box=$('.verify'); if(!box||box.dataset.reasonVarietyV6==='1')return; const k=kind(); const s=seed(seq()); $$('.verify .option',box).forEach((btn,i)=>{const n=idx(btn); const b=$('b',btn); const small=$('span',btn); const list=n===0?(OK[k]||OK.fix):(BAD[Math.max(0,n-1)]||BAD[2]); if(b)b.textContent=choose(list,s,i+Math.max(0,n)); if(small)small.textContent=n===0?`เหตุผลนี้ตรงกับชนิดข้อ: ${k}`:'เหตุผลนี้ยังไม่พอพิสูจน์จากผู้ใช้จริง';}); const title=$('h3',box); if(title)title.textContent=`ตรวจเหตุผล • ${node()} • ${k}`; box.dataset.reasonVarietyV6='1';}
-  let t=0; function schedule(){clearTimeout(t); t=setTimeout(apply,20);} if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true}); else schedule(); new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
+
+  const VERSION = 'v20260712-item-specific-reasons';
+
+  function markVersion() {
+    document.documentElement.dataset.uxqReasonVariety = VERSION;
+
+    /* Remove only obsolete diagnostic wording left by an already-rendered
+       legacy version. Do not alter prompts, choices, reasons, IDs, or scores. */
+    document.querySelectorAll('.verify').forEach((box) => {
+      delete box.dataset.reasonVarietyV6;
+      const title = box.querySelector('h3');
+      if (title && /^ตรวจเหตุผล\s*•\s*(?:W|B)\d+/i.test(title.textContent || '')) {
+        title.textContent = 'ตรวจเหตุผล';
+      }
+      box.querySelectorAll('.option span').forEach((small) => {
+        if (/^เหตุผลนี้(?:ตรงกับชนิดข้อ|ยังไม่พอพิสูจน์)/.test((small.textContent || '').trim())) {
+          small.textContent = '';
+        }
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', markVersion, { once: true });
+  } else {
+    markVersion();
+  }
+
+  new MutationObserver(() => markVersion()).observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
 })();
