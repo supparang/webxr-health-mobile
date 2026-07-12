@@ -1,14 +1,16 @@
 /* =========================================================
-   EAP Hero Player Resume API v3
+   EAP Hero Player Resume API v3 (LEGACY HELPER ONLY)
 
-   - Reads only this learner's summary data by studentId + section.
-   - Canonicalizes 1 / S1 / Session 1 variants.
-   - Enforces the S1–S15 Session–Skill Contract before resume/unlock.
-   - Invalid historic rows are returned as quarantined audit data only;
-     they never affect the student Map, scores, or unlocks.
+   IMPORTANT:
+   - The live action=player_resume handler is now provided by
+     apps-script/EAP_CloudResume_v132.gs.
+   - This legacy summary-only implementation is intentionally renamed to
+     eapPlayerResumeLegacy_ so it cannot override the cloud resume handler.
+   - Cloud resume must scan eap-v132-events, attempts, evidence, summary,
+     EAP_Attempts, EAP_Evidence, EAP_Summary and eap-v132-quality-audit.
 ========================================================= */
 
-function eapPlayerResume_(params) {
+function eapPlayerResumeLegacy_(params) {
   params = params || {};
 
   const section = text_(params.section, EAP_CONFIG.DEFAULT_SECTION);
@@ -84,7 +86,7 @@ function eapPlayerResume_(params) {
 
   return {
     ok: true,
-    source: 'verified_summary_contract_v3',
+    source: 'verified_summary_contract_v3_legacy',
     student: {
       studentId: studentId,
       studentName: text_(latestProfile.studentName, requestedName || 'Student'),
