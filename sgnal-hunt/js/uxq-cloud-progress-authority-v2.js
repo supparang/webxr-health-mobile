@@ -1,14 +1,11 @@
-/* UX Quest • Cloud Progress Authority v3
- * Mission Control progress is authoritative from Google Sheet.
- * - Every load/profile change replaces local progress with Sheet results.
- * - localStorage is cache only and never decides passed/locked status.
- * - No browser-only Start Over state; the former button reloads from Sheet.
+/* UX Quest • Cloud Progress Authority v2.1
+ * Final guard for Mission Control.
+ * Sheet is authoritative; local progress is only a rendered cache.
  */
 (() => {
   'use strict';
 
   const STATUS_ID = 'uxqCloudProgressStatus';
-  let restoring = null;
 
   function show(message, tone = 'ok') {
     let box = document.getElementById(STATUS_ID);
@@ -34,17 +31,16 @@
     return store.get();
   }
 
-  function replaceWithSheet(result) {
+  function replaceWithCloud(cloud) {
     const store = window.UXQProgress;
     if (!store) throw new Error('UXQProgress ยังไม่พร้อม');
-
     const progress = blank();
     const missions = {};
 
-    Object.keys(result?.missions || {}).forEach((rawId) => {
+    Object.keys(cloud?.missions || {}).forEach((rawId) => {
       const id = String(rawId || '').trim().toLowerCase();
       if (!store.MISSION_IDS.includes(id)) return;
-      const remote = result.missions[rawId] || {};
+      const remote = cloud.missions[rawId] || {};
       const attempt = {
         completedAt: remote.lastCompletedAt || remote.completedAt || new Date().toISOString(),
         score: Number(remote.bestScore || remote.score || 0),
@@ -75,69 +71,67 @@
     return store.save(progress);
   }
 
-  function removeBrowserResetState() {
-    try {
-      localStorage.removeItem('uxq.cloud.progress.startOver.v1');
-      localStorage.removeItem('uxq.cloud.progress.lastSync.v1');
-    } catch (error) {}
+  function clearStartOverMark() {
+    try { localStorage.removeItem('uxq.cloud.progress.startOver.v1'); } catch (e) {}
   }
 
-  function relabelControls() {
-    const start = document.getElementById('uxqStartOverBtn');
-    if (start) {
-      start.textContent = 'ดึงใหม่จาก Sheet';
-      start.dataset.action = 'sheet-refresh';
-      start.title = 'โหลดสถานะผ่านและภารกิจถัดไปจาก Google Sheet';
-    }
-    const restore = document.getElementById('uxqRestoreProgressBtn');
-    if (restore) restore.textContent = 'เรียกคืนจาก Sheet';
-  }
+  async function authoritativeRestore() {
+    const cloud = window.UXQCloudProgress;
+    const identity = window.UXQIdentity;
+    if (!cloud?.request || !identity) throw new Error('ระบบเรียกคืนข้อมูลยังไม่พร้อม');
+    const profile = identity.get();
+    if (!identity.isComplete(profile)) throw new Error('กรุณาระบุข้อมูลผู้เรียนให้ครบ');
 
-  async function authoritativeRestore(options = {}) {
-    if (restoring) return restoring;
-    restoring = (async () => {
-      const cloud = window.UXQCloudProgress;
-      const identity = window.UXQIdentity;
-      if (!cloud?.request || !identity) throw new Error('ระบบเรียกคืนข้อมูลยังไม่พร้อม');
-      const profile = identity.get();
-      if (!identity.isComplete(profile)) throw new Error('กรุณาระบุข้อมูลผู้เรียนให้ครบ');
+    show('กำลังตรวจประวัติจาก Google Sheet ของ ' + profile.studentName + '…');
+    const result = await cloud.request(profile);
+    if (!result || !result.ok) throw new Error(result?.error || 'ไม่พบคำตอบจากระบบ');
 
-      if (!options.silent) show('กำลังดึงความก้าวหน้าจาก Google Sheet ของ ' + profile.studentName + '…');
-      const result = await cloud.request(profile);
-      if (!result || !result.ok) throw new Error(result?.error || 'ไม่พบคำตอบจากระบบ');
-
-      removeBrowserResetState();
-      const saved = replaceWithSheet(result);
-      const completed = Number(saved?.quest?.completedNodes || 0);
-      const next = String(result.nextMission || 'w1').toUpperCase();
-      show(result.found
-        ? `ดึงจาก Sheet แล้ว ${completed}/19 ด่าน • ด่านถัดไป ${next}`
-        : 'Sheet ยังไม่มีประวัติของโปรไฟล์นี้ • 0/19 • เริ่มจาก W1', 'ok');
-      return result;
-    })();
-
-    try { return await restoring; }
-    finally { restoring = null; }
+    clearStartOverMark();
+    const saved = replaceWithCloud(result);
+    const completed = Number(saved?.quest?.completedNodes || 0);
+    const next = String(result.nextMission || 'w1').toUpperCase();
+    show(result.found
+      ? `ดึงจาก Sheet แล้ว ${completed}/19 ด่าน • ด่านถัดไป ${next}`
+      : 'Google Sheet ไม่มีประวัติของโปรไฟล์นี้ • 0/19 • เริ่มจาก W1', 'ok');
+    return result;
   }
 
   function intercept(event) {
     const restore = event.target.closest?.('#uxqRestoreProgressBtn');
-    const refresh = event.target.closest?.('#uxqStartOverBtn');
-    if (!restore && !refresh) return;
+    if (!restore) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     authoritativeRestore().catch(error => show(error.message || String(error), 'error'));
   }
 
-  function autoRestore() {
-    relabelControls();
+  function suppressStaleNoHistoryToast() {
+    const box = document.getElementById(STATUS_ID);
+    if (!box) return;
+    const text = String(box.textContent || '');
+    const completed = Number(window.UXQProgress?.get?.()?.quest?.completedNodes || 0);
+    if (completed > 0 && /ยังไม่พบประวัติเดิม|เริ่มเล่นจาก W1/i.test(text)) {
+      box.dataset.show = '0';
+      box.textContent = '';
+    }
+  }
+
+  function observeStatus() {
+    const observer = new MutationObserver(suppressStaleNoHistoryToast);
+    observer.observe(document.documentElement, { childList:true, subtree:true, characterData:true });
+    window.addEventListener('uxq-progress-updated', () => setTimeout(suppressStaleNoHistoryToast, 0));
+  }
+
+  async function boot() {
+    observeStatus();
     const identity = window.UXQIdentity;
     if (!identity?.isComplete?.(identity.get?.())) return;
-    authoritativeRestore({ silent:true }).catch(error => show('ดึงข้อมูลจาก Sheet ไม่สำเร็จ: ' + (error.message || error), 'error'));
+    try { await authoritativeRestore(); }
+    catch (error) { show('ดึงจาก Sheet ไม่สำเร็จ: ' + (error.message || error), 'error'); }
   }
 
   document.addEventListener('click', intercept, true);
-  document.addEventListener('DOMContentLoaded', () => setTimeout(autoRestore, 500));
-  window.addEventListener('uxq-profile-updated', () => setTimeout(autoRestore, 80));
-  window.UXQCloudProgressAuthority = Object.freeze({ authoritativeRestore, replaceWithSheet });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 350), { once:true });
+  else setTimeout(boot, 350);
+
+  window.UXQCloudProgressAuthority = Object.freeze({ authoritativeRestore, replaceWithCloud });
 })();
