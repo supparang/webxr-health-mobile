@@ -1,9 +1,15 @@
 /* =========================================================
- * UX Quest • Cross-device Progress Restore v1
+ * UX Quest • Cross-device Progress Restore v1.1
  * Add this file to the SAME Apps Script project that owns UXQuest_Attempts.
  * Route from the project's existing doGet(e):
  *   if (String(e.parameter.action||'') === 'uxq_student_progress') return UXQ_getStudentProgress_(e);
  * Supports JSON and JSONP for GitHub Pages clients.
+ *
+ * v1.1
+ * - Self-contained sheet lookup. It no longer depends on UXQ_getAttemptsSheet_()
+ *   being defined in another .gs file.
+ * - Reads Spreadsheet ID from existing UXQ_RECEIVER_SPREADSHEET_ID when present,
+ *   Script Property UXQ_RECEIVER_SPREADSHEET_ID, or the bound active spreadsheet.
  * ========================================================= */
 
 function UXQ_getStudentProgress_(e) {
@@ -18,7 +24,7 @@ function UXQ_getStudentProgress_(e) {
       return UXQ_restoreOutput_({ ok:false, error:'missing_identity' }, callback);
     }
 
-    const sheet = UXQ_getAttemptsSheet_();
+    const sheet = UXQ_restoreAttemptsSheet_();
     if (!sheet || sheet.getLastRow() < 2) {
       return UXQ_restoreOutput_(UXQ_restoreEmpty_(studentId, section, courseId), callback);
     }
@@ -102,6 +108,36 @@ function UXQ_getStudentProgress_(e) {
   } catch (error) {
     return UXQ_restoreOutput_({ ok:false, error:String(error && error.message ? error.message : error) }, '');
   }
+}
+
+function UXQ_restoreAttemptsSheet_() {
+  const sheetName = (typeof UXQ_ATTEMPTS_SHEET !== 'undefined' && UXQ_ATTEMPTS_SHEET)
+    ? String(UXQ_ATTEMPTS_SHEET)
+    : 'UXQuest_Attempts';
+
+  let spreadsheetId = '';
+  try {
+    if (typeof UXQ_RECEIVER_SPREADSHEET_ID !== 'undefined' && UXQ_RECEIVER_SPREADSHEET_ID) {
+      spreadsheetId = String(UXQ_RECEIVER_SPREADSHEET_ID).trim();
+    }
+  } catch (error) {}
+
+  if (!spreadsheetId) {
+    try {
+      spreadsheetId = String(PropertiesService.getScriptProperties().getProperty('UXQ_RECEIVER_SPREADSHEET_ID') || '').trim();
+    } catch (error) {}
+  }
+
+  let ss = null;
+  if (spreadsheetId) ss = SpreadsheetApp.openById(spreadsheetId);
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) {
+    throw new Error('ไม่พบ Spreadsheet: ตั้ง Script Property UXQ_RECEIVER_SPREADSHEET_ID หรือผูก Apps Script กับ Google Sheet');
+  }
+
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) throw new Error('ไม่พบชีต ' + sheetName);
+  return sheet;
 }
 
 function UXQ_restoreEmpty_(studentId, section, courseId) {
