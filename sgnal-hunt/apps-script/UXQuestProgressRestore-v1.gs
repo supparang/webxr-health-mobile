@@ -1,24 +1,26 @@
 /* =========================================================
- * UX Quest • Cross-device Progress Restore v1.1
+ * UX Quest • Cross-device Progress Restore v1.2
  * Add this file to the SAME Apps Script project that owns UXQuest_Attempts.
  * Route from the project's existing doGet(e):
  *   if (String(e.parameter.action||'') === 'uxq_student_progress') return UXQ_getStudentProgress_(e);
  * Supports JSON and JSONP for GitHub Pages clients.
  *
- * v1.1
- * - Self-contained sheet lookup. It no longer depends on UXQ_getAttemptsSheet_()
- *   being defined in another .gs file.
- * - Reads Spreadsheet ID from existing UXQ_RECEIVER_SPREADSHEET_ID when present,
- *   Script Property UXQ_RECEIVER_SPREADSHEET_ID, or the bound active spreadsheet.
+ * v1.2
+ * - Sheet is authoritative.
+ * - Accepts historical rows whose courseId and/or eventType are blank.
+ * - Requires only studentId, section and missionId columns.
+ * - Normalizes numeric-looking IDs/sections and mission labels.
+ * - Returns diagnostics so a wrong deployment/Sheet can be identified immediately.
  * ========================================================= */
 
 function UXQ_getStudentProgress_(e) {
+  let callback = '';
   try {
     const p = (e && e.parameter) || {};
-    const studentId = UXQ_restoreText_(p.studentId, 80);
-    const section = UXQ_restoreText_(p.section, 80);
+    const studentId = UXQ_restoreIdentity_(p.studentId, 80);
+    const section = UXQ_restoreIdentity_(p.section, 80);
     const courseId = UXQ_restoreText_(p.courseId || 'UXQ-ACT1-2026', 120);
-    const callback = UXQ_restoreCallback_(p.callback);
+    callback = UXQ_restoreCallback_(p.callback);
 
     if (!studentId || !section || !courseId) {
       return UXQ_restoreOutput_({ ok:false, error:'missing_identity' }, callback);
@@ -26,43 +28,70 @@ function UXQ_getStudentProgress_(e) {
 
     const sheet = UXQ_restoreAttemptsSheet_();
     if (!sheet || sheet.getLastRow() < 2) {
-      return UXQ_restoreOutput_(UXQ_restoreEmpty_(studentId, section, courseId), callback);
+      return UXQ_restoreOutput_(UXQ_restoreEmpty_(studentId, section, courseId, {
+        sheetName: sheet ? sheet.getName() : '', lastRow: sheet ? sheet.getLastRow() : 0
+      }), callback);
     }
 
     const values = sheet.getDataRange().getDisplayValues();
     const headers = values.shift().map(UXQ_restoreKey_);
     const col = {};
-    headers.forEach(function(key, index) { if (key) col[key] = index; });
+    headers.forEach(function(key, index) { if (key && col[key] === undefined) col[key] = index; });
 
-    const required = ['studentid','section','courseid','missionid','eventtype'];
+    const required = ['studentid','section','missionid'];
     for (let i = 0; i < required.length; i += 1) {
       if (col[required[i]] === undefined) {
-        return UXQ_restoreOutput_({ ok:false, error:'missing_sheet_column', column:required[i] }, callback);
+        return UXQ_restoreOutput_({
+          ok:false, error:'missing_sheet_column', column:required[i],
+          sheetName:sheet.getName(), headers:headers
+        }, callback);
       }
     }
 
     const missions = {};
-    let matchingRows = 0;
+    let matchingIdentityRows = 0;
+    let matchingCourseRows = 0;
+    let matchingEventRows = 0;
+    let acceptedRows = 0;
+    const seenSections = {};
+    const seenCourses = {};
+    const seenEvents = {};
+
     values.forEach(function(row) {
-      if (UXQ_restoreText_(row[col.studentid], 80) !== studentId) return;
-      if (UXQ_restoreText_(row[col.section], 80) !== section) return;
-      if (UXQ_restoreText_(row[col.courseid], 120) !== courseId) return;
-      if (String(row[col.eventtype] || '').trim() !== 'mission_completed') return;
+      const rowStudentId = UXQ_restoreIdentity_(row[col.studentid], 80);
+      const rowSection = UXQ_restoreIdentity_(row[col.section], 80);
+      if (rowStudentId !== studentId || rowSection !== section) return;
+      matchingIdentityRows += 1;
 
-      const id = String(row[col.missionid] || '').trim().toLowerCase();
-      if (!/^(?:w(?:[1-9]|1[0-5])|b[1-4])$/.test(id)) return;
-      matchingRows += 1;
+      const rowCourseId = col.courseid === undefined ? '' : UXQ_restoreText_(row[col.courseid], 120);
+      seenCourses[rowCourseId || '(blank)'] = true;
+      if (rowCourseId && rowCourseId !== courseId) return;
+      matchingCourseRows += 1;
 
-      const score = UXQ_restoreNum_(row[col.score]);
-      const stars = UXQ_restoreNum_(row[col.stars]);
-      const accuracy = UXQ_restoreNum_(row[col.accuracy]);
-      const correct = UXQ_restoreNum_(row[col.correct]);
-      const total = UXQ_restoreNum_(row[col.total]);
-      const hints = UXQ_restoreNum_(row[col.hints]);
-      const durationSec = UXQ_restoreNum_(row[col.durationsec]);
-      const passed = UXQ_restoreBool_(row[col.passed]) || stars >= 2;
-      const completedAt = UXQ_restoreText_(row[col.completedat] || row[col.receivedat], 80);
-      const badge = UXQ_restoreText_(row[col.badge], 120);
+      const eventType = col.eventtype === undefined ? '' : String(row[col.eventtype] || '').trim().toLowerCase();
+      seenEvents[eventType || '(blank)'] = true;
+      // Historical mission rows may have blank eventType. Reject only an explicit non-completion event.
+      if (eventType && eventType !== 'mission_completed') return;
+      matchingEventRows += 1;
+
+      const id = UXQ_restoreMissionId_(row[col.missionid]);
+      if (!id) return;
+      acceptedRows += 1;
+
+      const score = UXQ_restoreColNum_(row, col, 'score');
+      const stars = UXQ_restoreColNum_(row, col, 'stars');
+      const accuracy = UXQ_restoreColNum_(row, col, 'accuracy');
+      const correct = UXQ_restoreColNum_(row, col, 'correct');
+      const total = UXQ_restoreColNum_(row, col, 'total');
+      const hints = UXQ_restoreColNum_(row, col, 'hints');
+      const durationSec = UXQ_restoreColNum_(row, col, 'durationsec');
+      const passedCell = col.passed === undefined ? '' : row[col.passed];
+      const passed = UXQ_restoreBool_(passedCell) || stars >= 2;
+      const completedAt = UXQ_restoreText_(
+        (col.completedat === undefined ? '' : row[col.completedat]) ||
+        (col.receivedat === undefined ? '' : row[col.receivedat]), 80
+      );
+      const badge = UXQ_restoreText_(col.badge === undefined ? '' : row[col.badge], 120);
 
       const previous = missions[id] || {
         id:id, attempts:0, completed:false, bestScore:0, bestStars:0,
@@ -95,18 +124,29 @@ function UXQ_getStudentProgress_(e) {
 
     return UXQ_restoreOutput_({
       ok:true,
-      found:matchingRows > 0,
+      found:acceptedRows > 0,
       studentId:studentId,
       section:section,
       courseId:courseId,
-      matchingRows:matchingRows,
+      matchingRows:acceptedRows,
       completedNodes:completedNodes,
       nextMission:nextMission,
       missions:missions,
+      diagnostics:{
+        version:'uxq-progress-restore-v1.2',
+        sheetName:sheet.getName(),
+        lastRow:sheet.getLastRow(),
+        matchingIdentityRows:matchingIdentityRows,
+        matchingCourseRows:matchingCourseRows,
+        matchingEventRows:matchingEventRows,
+        acceptedRows:acceptedRows,
+        seenCourses:Object.keys(seenCourses),
+        seenEvents:Object.keys(seenEvents)
+      },
       restoredAt:new Date().toISOString()
     }, callback);
   } catch (error) {
-    return UXQ_restoreOutput_({ ok:false, error:String(error && error.message ? error.message : error) }, '');
+    return UXQ_restoreOutput_({ ok:false, error:String(error && error.message ? error.message : error) }, callback);
   }
 }
 
@@ -131,24 +171,41 @@ function UXQ_restoreAttemptsSheet_() {
   let ss = null;
   if (spreadsheetId) ss = SpreadsheetApp.openById(spreadsheetId);
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) {
-    throw new Error('ไม่พบ Spreadsheet: ตั้ง Script Property UXQ_RECEIVER_SPREADSHEET_ID หรือผูก Apps Script กับ Google Sheet');
-  }
+  if (!ss) throw new Error('ไม่พบ Spreadsheet: ตั้ง UXQ_RECEIVER_SPREADSHEET_ID ใน Script Properties');
 
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) throw new Error('ไม่พบชีต ' + sheetName);
   return sheet;
 }
 
-function UXQ_restoreEmpty_(studentId, section, courseId) {
+function UXQ_restoreEmpty_(studentId, section, courseId, diagnostics) {
   return {
     ok:true, found:false, studentId:studentId, section:section, courseId:courseId,
-    matchingRows:0, completedNodes:0, nextMission:'w1', missions:{}, restoredAt:new Date().toISOString()
+    matchingRows:0, completedNodes:0, nextMission:'w1', missions:{},
+    diagnostics:Object.assign({ version:'uxq-progress-restore-v1.2' }, diagnostics || {}),
+    restoredAt:new Date().toISOString()
   };
+}
+
+function UXQ_restoreMissionId_(value) {
+  const text = String(value == null ? '' : value).trim().toLowerCase().replace(/\s+/g, '');
+  const match = text.match(/(?:^|[^a-z0-9])(w(?:[1-9]|1[0-5])|b[1-4])(?:$|[^a-z0-9])/i) || text.match(/^(w(?:[1-9]|1[0-5])|b[1-4])$/i);
+  return match ? String(match[1]).toLowerCase() : '';
+}
+
+function UXQ_restoreColNum_(row, col, key) {
+  return col[key] === undefined ? 0 : UXQ_restoreNum_(row[col[key]]);
 }
 
 function UXQ_restoreKey_(value) {
   return String(value == null ? '' : value).trim().toLowerCase().replace(/[^a-z0-9ก-๙]+/g, '');
+}
+
+function UXQ_restoreIdentity_(value, max) {
+  let text = String(value == null ? '' : value).trim();
+  if (/^\d+\.0+$/.test(text)) text = text.replace(/\.0+$/, '');
+  if (max && text.length > max) text = text.slice(0, max);
+  return text;
 }
 
 function UXQ_restoreText_(value, max) {
@@ -164,7 +221,7 @@ function UXQ_restoreNum_(value) {
 
 function UXQ_restoreBool_(value) {
   const text = String(value == null ? '' : value).trim().toLowerCase();
-  return value === true || value === 1 || text === 'true' || text === '1' || text === 'yes' || text === 'passed';
+  return value === true || value === 1 || text === 'true' || text === '1' || text === 'yes' || text === 'passed' || text === 'ผ่าน';
 }
 
 function UXQ_restoreCallback_(value) {
