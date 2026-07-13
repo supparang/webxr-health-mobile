@@ -1,5 +1,7 @@
-/* UX Quest • Cloud Progress Restore v1
+/* UX Quest • Cloud Progress Restore v1.1
  * Restores best W1–W15 / B1–B4 results from the classroom Sheet by studentId + section + courseId.
+ * Adds same-profile Start Over mode: clears browser progress and suppresses automatic cloud restore
+ * until the learner explicitly chooses “เรียกคืนข้อมูลเดิม”. Cloud/Sheet history is never deleted.
  */
 (() => {
   'use strict';
@@ -7,6 +9,7 @@
   const STATUS_ID = 'uxqCloudProgressStatus';
   const PROFILE_ROW_ID = 'uxqCloudProfileRow';
   const LAST_SYNC_KEY = 'uxq.cloud.progress.lastSync.v1';
+  const START_OVER_KEY = 'uxq.cloud.progress.startOver.v1';
   const config = () => window.UXQ_CLASSROOM_CONFIG || {};
   const identity = () => window.UXQIdentity;
   const progressStore = () => window.UXQProgress;
@@ -26,6 +29,8 @@
       .uxq-cloud-profile__info{display:grid;gap:2px;min-width:190px;flex:1}.uxq-cloud-profile__info b{font-size:.83rem}.uxq-cloud-profile__info small{color:#aebfe4;font-size:.72rem;line-height:1.35}
       .uxq-cloud-profile button{min-height:34px;border:1px solid rgba(123,232,255,.38);border-radius:10px;padding:7px 11px;background:rgba(55,154,210,.18);color:#eef8ff;font:inherit;font-size:.76rem;font-weight:900;cursor:pointer}
       .uxq-cloud-profile button:hover{background:rgba(76,194,238,.28)}
+      .uxq-cloud-profile button[data-action="start-over"]{border-color:rgba(255,196,110,.5);background:rgba(196,118,31,.17)}
+      .uxq-cloud-profile button[data-action="start-over"]:hover{background:rgba(196,118,31,.28)}
       .uxq-cloud-status{position:fixed;right:18px;bottom:18px;z-index:9998;max-width:min(390px,calc(100vw - 36px));padding:11px 14px;border:1px solid rgba(123,232,255,.36);border-radius:13px;background:#10274e;color:#eef8ff;box-shadow:0 18px 44px rgba(0,0,0,.35);font-size:.82rem;line-height:1.45;opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s ease}
       .uxq-cloud-status[data-show="1"]{opacity:1;transform:none}.uxq-cloud-status[data-tone="ok"]{border-color:rgba(84,235,174,.55)}.uxq-cloud-status[data-tone="error"]{border-color:rgba(255,137,159,.58)}
     `;
@@ -48,6 +53,29 @@
     box.dataset.show = '1';
     clearTimeout(status.timer);
     status.timer = setTimeout(() => { box.dataset.show = '0'; }, tone === 'error' ? 7000 : 4200);
+  }
+
+  function profileKey(profile){
+    const cfg = config();
+    const p = profile || {};
+    return [String(p.studentId || '').trim(), String(p.section || '').trim(), String(cfg.courseId || 'UXQ-ACT1-2026').trim()].join('|');
+  }
+
+  function readStartOver(){
+    try { return JSON.parse(localStorage.getItem(START_OVER_KEY) || 'null'); }
+    catch (error) { return null; }
+  }
+
+  function isStartOver(profile){
+    const mark = readStartOver();
+    return Boolean(mark && mark.profileKey === profileKey(profile) && mark.active === true);
+  }
+
+  function setStartOver(profile, active){
+    try {
+      if (!active) localStorage.removeItem(START_OVER_KEY);
+      else localStorage.setItem(START_OVER_KEY, JSON.stringify({ active:true, profileKey:profileKey(profile), startedAt:new Date().toISOString() }));
+    } catch (error) {}
   }
 
   function cleanMissionId(value){ return String(value || '').trim().toLowerCase(); }
@@ -142,7 +170,7 @@
   }
 
   async function restore(options){
-    const opt = Object.assign({ silent:false }, options || {});
+    const opt = Object.assign({ silent:false, explicit:false }, options || {});
     const id = identity();
     if (!id) throw new Error('UXQIdentity ยังไม่พร้อม');
     let profile = id.get();
@@ -150,6 +178,8 @@
       profile = await id.open({ title:'เข้าสู่ระบบผู้เรียนและเรียกคืนความก้าวหน้า' });
       if (!profile || profile.guest) return null;
     }
+    if (isStartOver(profile) && !opt.explicit) return null;
+    if (opt.explicit) setStartOver(profile, false);
     if (!opt.silent) status('กำลังเรียกคืนความก้าวหน้าของ ' + profile.studentName + '…');
     const result = await request(profile);
     if (!result || !result.ok) throw new Error(result?.error || 'ไม่พบคำตอบจากระบบ');
@@ -163,12 +193,26 @@
     return result;
   }
 
+  function startOver(){
+    const id = identity();
+    const profile = id?.get?.() || {};
+    if (!id?.isComplete?.(profile)) return;
+    const ok = window.confirm(`เริ่มใหม่สำหรับ ${profile.studentName} • ${profile.studentId} • Section ${profile.section} ใช่หรือไม่?\n\nระบบจะล้างเฉพาะความคืบหน้าในเบราว์เซอร์นี้ ข้อมูลเดิมใน Google Sheet จะยังอยู่ และสามารถกด “เรียกคืนข้อมูลเดิม” ภายหลังได้`);
+    if (!ok) return;
+    setStartOver(profile, true);
+    progressStore()?.resetQuest?.();
+    try { localStorage.removeItem(LAST_SYNC_KEY); } catch (error) {}
+    status('เริ่มใหม่แล้วสำหรับโปรไฟล์นี้ • เริ่มจาก W1 • ข้อมูลใน Sheet ไม่ถูกลบ', 'ok');
+    setTimeout(() => location.reload(), 180);
+  }
+
   function profileText(){
     const id = identity();
     const p = id?.get?.() || {};
-    return id?.isComplete?.(p)
+    const base = id?.isComplete?.(p)
       ? `${p.studentName} • ${p.studentId} • Section ${p.section}`
       : 'ยังไม่ได้ระบุผู้เรียน';
+    return id?.isComplete?.(p) && isStartOver(p) ? `${base} • เริ่มใหม่จาก W1` : base;
   }
 
   function mount(){
@@ -179,17 +223,18 @@
     const row = document.createElement('div');
     row.id = PROFILE_ROW_ID;
     row.className = 'uxq-cloud-profile';
-    row.innerHTML = `<div class="uxq-cloud-profile__info"><b>LEARNER CLOUD PROFILE</b><small id="uxqCloudProfileText"></small></div><button type="button" id="uxqEditProfileBtn">แก้ไข Profile</button><button type="button" id="uxqRestoreProgressBtn">เรียกคืนข้อมูลเดิม</button>`;
+    row.innerHTML = `<div class="uxq-cloud-profile__info"><b>LEARNER CLOUD PROFILE</b><small id="uxqCloudProfileText"></small></div><button type="button" id="uxqEditProfileBtn">แก้ไข Profile</button><button type="button" id="uxqStartOverBtn" data-action="start-over">เริ่มใหม่</button><button type="button" id="uxqRestoreProgressBtn">เรียกคืนข้อมูลเดิม</button>`;
     topbar.insertAdjacentElement('afterend', row);
     row.querySelector('#uxqEditProfileBtn').addEventListener('click', async () => {
       const id = identity();
       const updated = await id.open({ title:'แก้ไขข้อมูลผู้เรียน' });
       if (updated && !updated.guest) {
         renderProfile();
-        restore().catch(error => status(error.message || String(error), 'error'));
+        restore({ explicit:true }).catch(error => status(error.message || String(error), 'error'));
       }
     });
-    row.querySelector('#uxqRestoreProgressBtn').addEventListener('click', () => restore().catch(error => status(error.message || String(error), 'error')));
+    row.querySelector('#uxqStartOverBtn').addEventListener('click', startOver);
+    row.querySelector('#uxqRestoreProgressBtn').addEventListener('click', () => restore({ explicit:true }).catch(error => status(error.message || String(error), 'error')));
     renderProfile();
   }
 
@@ -201,6 +246,7 @@
   async function autoRestore(){
     const id = identity();
     if (!id || !id.isComplete(id.get())) return;
+    if (isStartOver(id.get())) return;
     try { await restore({ silent:true }); }
     catch (error) { status('เรียกคืนอัตโนมัติไม่สำเร็จ: ' + (error.message || error), 'error'); }
   }
@@ -210,5 +256,5 @@
     setTimeout(autoRestore, 250);
   });
   window.addEventListener('uxq-profile-updated', renderProfile);
-  window.UXQCloudProgress = Object.freeze({ restore, mergeCloud, request });
+  window.UXQCloudProgress = Object.freeze({ restore, mergeCloud, request, startOver, isStartOver });
 })();
