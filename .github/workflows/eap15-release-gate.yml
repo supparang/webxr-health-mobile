@@ -37,68 +37,85 @@ jobs:
         with:
           node-version: '22'
       - name: 1. Probe deployed Apps Script and new identity
-        id: probe
-        continue-on-error: true
         env:
           EAP_PHASE: probe
-        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-apps-script-probe.log 2>&1
+        run: |
+          set +e
+          node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-apps-script-probe.log 2>&1
+          echo "$?" > eap-apps-script-probe.status
+          exit 0
       - name: Preserve Apps Script probe
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: eap-apps-script-probe
-          path: eap-apps-script-probe.log
+          path: |
+            eap-apps-script-probe.log
+            eap-apps-script-probe.status
           retention-days: 14
       - name: 2. Verify S1 write and player_resume round-trip
-        id: s1
         if: always()
-        continue-on-error: true
         env:
           EAP_PHASE: s1
-        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-s1-roundtrip-probe.log 2>&1
+        run: |
+          set +e
+          node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-s1-roundtrip-probe.log 2>&1
+          echo "$?" > eap-s1-roundtrip-probe.status
+          exit 0
       - name: Preserve S1 round-trip probe
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: eap-s1-roundtrip-probe
-          path: eap-s1-roundtrip-probe.log
+          path: |
+            eap-s1-roundtrip-probe.log
+            eap-s1-roundtrip-probe.status
           retention-days: 14
       - name: 3. Verify canonical Boss Speaking pending-review block
-        id: boss
         if: always()
-        continue-on-error: true
         env:
           EAP_PHASE: boss
-        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-boss-review-probe.log 2>&1
+        run: |
+          set +e
+          node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-boss-review-probe.log 2>&1
+          echo "$?" > eap-boss-review-probe.status
+          exit 0
       - name: Preserve Boss review probe
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: eap-boss-review-probe
-          path: eap-boss-review-probe.log
+          path: |
+            eap-boss-review-probe.log
+            eap-boss-review-probe.status
           retention-days: 14
       - name: 4. Verify live Teacher Dashboard evidence
-        id: dashboard
         if: always()
-        continue-on-error: true
         env:
           EAP_PHASE: dashboard
-        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-teacher-dashboard-probe.log 2>&1
+        run: |
+          set +e
+          node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-teacher-dashboard-probe.log 2>&1
+          echo "$?" > eap-teacher-dashboard-probe.status
+          exit 0
       - name: Preserve Teacher Dashboard probe
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: eap-teacher-dashboard-probe
-          path: eap-teacher-dashboard-probe.log
+          path: |
+            eap-teacher-dashboard-probe.log
+            eap-teacher-dashboard-probe.status
           retention-days: 14
       - name: Enforce all live contracts
         if: always()
         run: |
-          echo "probe=${{ steps.probe.outcome }} s1=${{ steps.s1.outcome }} boss=${{ steps.boss.outcome }} dashboard=${{ steps.dashboard.outcome }}"
-          if [ "${{ steps.probe.outcome }}" != "success" ] || \
-             [ "${{ steps.s1.outcome }}" != "success" ] || \
-             [ "${{ steps.boss.outcome }}" != "success" ] || \
-             [ "${{ steps.dashboard.outcome }}" != "success" ]; then
+          probe=$(cat eap-apps-script-probe.status)
+          s1=$(cat eap-s1-roundtrip-probe.status)
+          boss=$(cat eap-boss-review-probe.status)
+          dashboard=$(cat eap-teacher-dashboard-probe.status)
+          echo "probe=$probe s1=$s1 boss=$boss dashboard=$dashboard"
+          if [ "$probe" -ne 0 ] || [ "$s1" -ne 0 ] || [ "$boss" -ne 0 ] || [ "$dashboard" -ne 0 ]; then
             echo "One or more EAP live contracts failed. Inspect the uploaded probe artifacts."
             exit 1
           fi
