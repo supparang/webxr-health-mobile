@@ -1,0 +1,43 @@
+name: EAP 15 Production ZIP
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/eap15-package-download.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production package
+        run: |
+          set -euo pipefail
+          ROOT='EAP-Hero-15Sessions-Production-20260714'
+          mkdir -p "$ROOT"
+          cp -a eap-hero-save-society-v1 "$ROOT/"
+          cp .github/workflows/eap15-release-gate.yml "$ROOT/PRODUCTION-GATE.yml"
+          cat > "$ROOT/RELEASE-MANIFEST.txt" <<EOF
+          EAP Hero: Save the Society — 15 Sessions Production Package
+          Source branch: main
+          Source commit: ${GITHUB_SHA}
+          Generated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+          Included:
+          - Complete student game S1–S15 and B1–B5
+          - Fast Teacher Console
+          - Thai Teaching Pack for 15 sessions
+          - Apps Script companion files
+          - Browser and live Sheet QA scripts
+          - Production release gate workflow
+          EOF
+          find "$ROOT" -type f | sort > "$ROOT/FILE-LIST.txt"
+      - name: Upload complete production ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: EAP-Hero-15Sessions-Production-20260714
+          path: EAP-Hero-15Sessions-Production-20260714
+          retention-days: 30
+          compression-level: 9
