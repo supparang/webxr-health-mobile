@@ -28,7 +28,7 @@ jobs:
         run: node eap-hero-save-society-v1/qa/eap-browser-release.mjs
   live-sheet-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     env:
       EAP_ENDPOINT: https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec
     steps:
@@ -49,17 +49,23 @@ jobs:
           name: eap-apps-script-probe
           path: eap-apps-script-probe.log
           retention-days: 14
-      - name: Stop when Apps Script probe fails
-        if: steps.probe.outcome != 'success'
-        run: |
-          cat eap-apps-script-probe.log
-          exit 1
       - name: 2. Verify S1 write and player_resume round-trip
+        id: s1
+        if: always()
+        continue-on-error: true
         env:
           EAP_PHASE: s1
-        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs
+        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-s1-roundtrip-probe.log 2>&1
+      - name: Preserve S1 round-trip probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eap-s1-roundtrip-probe
+          path: eap-s1-roundtrip-probe.log
+          retention-days: 14
       - name: 3. Verify canonical Boss Speaking pending-review block
         id: boss
+        if: always()
         continue-on-error: true
         env:
           EAP_PHASE: boss
@@ -71,13 +77,9 @@ jobs:
           name: eap-boss-review-probe
           path: eap-boss-review-probe.log
           retention-days: 14
-      - name: Stop when Boss review contract fails
-        if: steps.boss.outcome != 'success'
-        run: |
-          cat eap-boss-review-probe.log
-          exit 1
       - name: 4. Verify live Teacher Dashboard evidence
         id: dashboard
+        if: always()
         continue-on-error: true
         env:
           EAP_PHASE: dashboard
@@ -89,8 +91,14 @@ jobs:
           name: eap-teacher-dashboard-probe
           path: eap-teacher-dashboard-probe.log
           retention-days: 14
-      - name: Stop when Teacher Dashboard contract fails
-        if: steps.dashboard.outcome != 'success'
+      - name: Enforce all live contracts
+        if: always()
         run: |
-          cat eap-teacher-dashboard-probe.log
-          exit 1
+          echo "probe=${{ steps.probe.outcome }} s1=${{ steps.s1.outcome }} boss=${{ steps.boss.outcome }} dashboard=${{ steps.dashboard.outcome }}"
+          if [ "${{ steps.probe.outcome }}" != "success" ] || \
+             [ "${{ steps.s1.outcome }}" != "success" ] || \
+             [ "${{ steps.boss.outcome }}" != "success" ] || \
+             [ "${{ steps.dashboard.outcome }}" != "success" ]; then
+            echo "One or more EAP live contracts failed. Inspect the uploaded probe artifacts."
+            exit 1
+          fi
