@@ -4,8 +4,9 @@
    - Reads direct columns and nested valueJson event payloads.
    - Returns only valid S1–S15 / B1–B5 records for studentId + section.
    - Boss Speaking is not passed while review is pending/revise/missing.
+   - Uses TextFinder on the studentId column instead of scanning whole sheets.
 ========================================================= */
-var EAP_CLOUD_RESUME_VERSION = 'v20260714-EAP-CLOUD-RESUME-V133-SHEET-AUTHORITY-BOSS-REVIEW';
+var EAP_CLOUD_RESUME_VERSION = 'v20260714-EAP-CLOUD-RESUME-V133-SHEET-AUTHORITY-BOSS-REVIEW-TEXTFINDER';
 var EAP_CLOUD_RESUME_ROUTE_ORDER = [
   'S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'
 ];
@@ -43,20 +44,24 @@ function eapPlayerResume_(p) {
 function eapCloudResumeRowsFromSheet_(sheet,sheetName,studentId,section){
   var lastRow=sheet.getLastRow(),lastCol=sheet.getLastColumn(),out=[],ignored=0;
   if(lastRow<2||lastCol<1)return{rows:out,ignored:ignored};
-  var values=sheet.getRange(1,1,lastRow,lastCol).getValues();
-  var headers=values[0].map(function(v){return eapCloudResumeText_(v);});
-  for(var r=1;r<values.length;r++){
-    var direct=eapCloudResumeObject_(headers,values[r]);
+  var headers=sheet.getRange(1,1,1,lastCol).getValues()[0].map(function(v){return eapCloudResumeText_(v);});
+  var studentColumn=-1;
+  ['studentId','student_id','playerId','id'].some(function(name){studentColumn=headers.indexOf(name);return studentColumn>=0;});
+  if(studentColumn<0)return{rows:out,ignored:ignored};
+  var matches=sheet.getRange(2,studentColumn+1,lastRow-1,1).createTextFinder(studentId).matchEntireCell(true).findAll();
+  matches.forEach(function(cell){
+    var row=sheet.getRange(cell.getRow(),1,1,lastCol).getValues()[0];
+    var direct=eapCloudResumeObject_(headers,row);
     var nested=eapCloudResumeParseJson_(direct.valueJson || direct.rawJson || direct.payloadJson || '');
     var obj=eapCloudResumeMerge_(nested,direct);
     var sid=eapCloudResumeText_(eapCloudResumePick_(obj,['studentId','student_id','playerId','id']));
-    if(sid!==studentId)continue;
+    if(sid!==studentId)return;
     var sec=eapCloudResumeText_(eapCloudResumePick_(obj,['section','classGroup','class','group']));
-    if(sec&&section&&sec!==section)continue;
+    if(sec&&section&&sec!==section)return;
     if(!sec)obj.section=section;
     var record=eapCloudResumeNormalizeRecord_(obj,sheetName,studentId,section);
     if(record&&record.sessionId&&record.skill&&!record.legacyCompletion&&eapCloudResumeIsValidRoute_(record.sessionId))out.push(record);else ignored++;
-  }
+  });
   return{rows:out,ignored:ignored};
 }
 function eapCloudResumeNormalizeRecord_(obj,sheetName,studentId,section){
