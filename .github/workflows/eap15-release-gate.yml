@@ -1,0 +1,40 @@
+name: EAP 15 Production Gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'eap-hero-save-society-v1/**'
+      - '.github/workflows/eap15-release-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright@1.52.0
+      - run: npx playwright install --with-deps chromium
+      - name: Start local player
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/eap-http.log 2>&1 &
+          echo $! > /tmp/eap-http.pid
+          sleep 2
+      - name: Run browser release contract
+        run: node eap-hero-save-society-v1/qa/eap-browser-release.mjs
+  live-sheet-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify live Apps Script and Sheet contract
+        env:
+          EAP_ENDPOINT: https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec
+        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs
