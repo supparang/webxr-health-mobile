@@ -1,4 +1,19 @@
-(()=>{'use strict';const wait=()=>window.AIQuestCloudLogger;const send=(method,p)=>{const c=wait();if(!c||typeof c[method]!=='function')return Promise.reject(new Error('Cloud logger unavailable'));return c[method](p)};window.AIQuestSync={submitProfile:p=>send('sendProfile',p),submitAttempt:p=>send('sendAttempt',p),submitEvent:p=>send('sendEvent',p),lookupProfile:p=>send('getProfile',p),lookupProgress:p=>send('getProgress',p)};
+(()=>{'use strict';
+const wait=()=>window.AIQuestCloudLogger;
+const send=(method,p)=>{const c=wait();if(!c||typeof c[method]!=='function')return Promise.reject(new Error('Cloud logger unavailable'));return c[method](p)};
+window.AIQuestSync={submitProfile:p=>send('sendProfile',p),submitAttempt:p=>send('sendAttempt',p),submitEvent:p=>send('sendEvent',p),lookupProfile:p=>send('getProfile',p),lookupProgress:p=>send('getProgress',p)};
+
+function loadUpperCourseQuality(){
+  if(window.AIQuestUpperCourseQualityV714||document.getElementById('aiquestUpperCourseQuality714'))return;
+  const script=document.createElement('script');
+  script.id='aiquestUpperCourseQuality714';
+  script.async=false;
+  script.src='./js/aiquest-upper-course-quality-v714.js?v=20260714-upper714';
+  script.onload=()=>console.log('[AIQuest] upper-course quality v714 active');
+  script.onerror=()=>console.warn('[AIQuest] upper-course quality layer unavailable');
+  document.head.appendChild(script);
+}
+
 function installSaveProfileButton(){
   const sid=document.getElementById('sid'),name=document.getElementById('name'),load=document.getElementById('load'),note=document.getElementById('note');
   if(!sid||!name||!load||!note||document.getElementById('saveProfileExplicit'))return;
@@ -23,5 +38,31 @@ function installSaveProfileButton(){
   sid.addEventListener('input',show);name.addEventListener('input',show);load.addEventListener('click',()=>setTimeout(show,300));
   setInterval(show,800);show();
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installSaveProfileButton,{once:true});else setTimeout(installSaveProfileButton,0);
-console.log('[AIQuest] sync v27 ready • Sheet-only progress + explicit profile save');})();
+
+function runtimeAudit(){
+  let tries=0;
+  const check=()=>{
+    const C=window.AIQuestAllContentV702;
+    if(C&&typeof C.deck==='function'){
+      const ids=['s1','s2','s3','b1','s4','s5','s6','b2','s7','s8','s9','b3','s10','s11','s12','b4','s13','s14','s15','b5'];
+      const report={};
+      ids.forEach(id=>{
+        try{
+          const d=C.deck(id,97)||[];
+          report[id]={items:d.length,uniqueCorrect:new Set(d.map(x=>String(x.correct||''))).size,uniqueOptions:new Set(d.flatMap(x=>[x.correct,...(x.distractors||[])].map(String))).size,slots:[0,1,2,3].map(s=>d.filter(x=>Number(x.answerSlot)===s).length)};
+        }catch(e){report[id]={error:String(e.message||e)}}
+      });
+      window.CSAI2102_ITEM_QUALITY_AUDIT=report;
+      console.table(report);
+      return;
+    }
+    if(++tries<80)setTimeout(check,100);
+  };
+  check();
+}
+
+loadUpperCourseQuality();
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{installSaveProfileButton();loadUpperCourseQuality();runtimeAudit()},{once:true});
+else setTimeout(()=>{installSaveProfileButton();loadUpperCourseQuality();runtimeAudit()},0);
+console.log('[AIQuest] sync v28 ready • Sheet-only progress + upper-course quality + runtime audit');
+})();
