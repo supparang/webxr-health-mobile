@@ -1,14 +1,20 @@
-/* CSAI2102 AI Quest — Progression Guard v7.2.0
+/* CSAI2102 AI Quest — Progression Guard v7.2.1
    Official progression requires BOTH pass and submitted Reflection.
    Learner-facing labels use S1-S15 / B1-B5 only.
    Uses the fast Apps Script studentGate endpoint and always fails closed.
-   v720 fixes the Reflection submit deadlock caused by a hidden empty select
-   overriding the visible selected Case.
+   v721 makes mission-title rendering idempotent, preventing repeated B1/S labels.
 */
 (()=>{'use strict';
-if(window.AIQuestProgressionGuardV720)return;
-const VERSION='v7.2.0';
+if(window.AIQuestProgressionGuardV721)return;
+const VERSION='v7.2.1';
 const ORDER=['s1','s2','s3','b1','s4','s5','s6','b2','s7','s8','s9','b3','s10','s11','s12','b4','s13','s14','s15','b5'];
+const TITLE_MAP={
+ s1:'AI Spotter',s2:'Agent Builder',s3:'Problem Solving Agent',b1:'Foundation Boss',
+ s4:'Search Explorer',s5:'Heuristic & A* Planner',s6:'Game Search',b2:'Search Strategy Boss',
+ s7:'Knowledge Representation',s8:'Uncertainty Reasoning',s9:'Expert System',b3:'Reasoning Boss',
+ s10:'ML Pipeline',s11:'Supervised Learning',s12:'Clustering & Evaluation',b4:'ML Evaluation Boss',
+ s13:'Neural Network',s14:'NLP / Generative AI / RAG',s15:'AI System Design',b5:'Final AI Quest Boss'
+};
 const norm=x=>String(x||'').toLowerCase().replace(/^mission/,'s').replace(/^m/,'s').replace(/^boss/,'b');
 const hasText=v=>String(v||'').trim().length>=3;
 const $=id=>document.getElementById(id);
@@ -17,7 +23,22 @@ function reflectionDone(a){if(!a)return false;if(a.reflectionSubmitted===true||S
 function passDone(a){if(!a)return false;const s=String(a.gateStatus||a.status||'').toLowerCase();return a.passed===true||a.mastered===true||s==='passed'||s==='mastered'||s==='completed'}
 function officialDone(id,r){const p=(r&&r.progress&&r.progress[id])||{};const attempts=Array.isArray(r&&r.attempts)?r.attempts.filter(a=>norm(a.sessionId||a.missionId)===id):[];return(passDone(p)||attempts.some(passDone))&&(reflectionDone(p)||attempts.some(reflectionDone))}
 function missionId(){return norm(new URL(location.href).searchParams.get('mission')||'s1')}
-function renameSessionLabels(){const id=missionId(),title=$('title');if(title&&id){let t=title.textContent.replace(/^W\d+\s*•\s*/i,'').replace(/^S\d+\s*•\s*/i,'').trim();title.textContent=id.toUpperCase()+' • '+t}document.querySelectorAll('h1,h2,h3,.status,.muted,.notice,#sub').forEach(el=>{if(el.childElementCount===0)el.textContent=el.textContent.replace(/\bW(\d{1,2})\s*•\s*S\1\b/gi,'S$1').replace(/\bW(\d{1,2})\b/gi,'S$1')})}
+function renameSessionLabels(){
+ const id=missionId(),label=id.toUpperCase(),title=$('title');
+ if(title&&id){
+  const canonical=TITLE_MAP[id]||String(title.dataset.baseMissionTitle||'Mission').trim();
+  title.dataset.baseMissionTitle=canonical;
+  const expected=label+' • '+canonical;
+  if(title.textContent.trim()!==expected)title.textContent=expected;
+ }
+ document.querySelectorAll('h1,h2,h3,.status,.muted,.notice,#sub').forEach(el=>{
+  if(el===title||el.childElementCount!==0)return;
+  let t=String(el.textContent||'');
+  t=t.replace(/\bW(\d{1,2})\s*•\s*S\1\b/gi,'S$1').replace(/\bW(\d{1,2})\b/gi,'S$1');
+  if(el.id==='sub')t=t.replace(/^(?:BOSS\s*)?(\d+)\s*•/i,'B$1 •');
+  if(el.textContent!==t)el.textContent=t;
+ });
+}
 async function readProgress(studentId){if(!studentId||!window.AIQuestSync||typeof window.AIQuestSync.lookupProgress!=='function')throw new Error('progress lookup unavailable');return wait(window.AIQuestSync.lookupProgress({studentId,section:'101'}),24000,'studentProgress')}
 async function readGate(studentId,sessionId){
  if(!studentId)throw new Error('studentId is required');
@@ -91,11 +112,7 @@ function enforceResultFlow(){
    else{save.disabled=true;save.textContent='✓ ส่งผลแล้ว';next.style.display='inline-flex';next.removeAttribute('aria-disabled');const idx=ORDER.indexOf(missionId()),nextId=ORDER[idx+1];next.textContent=nextId?'ไป '+nextId.toUpperCase()+' ถัดไป →':'กลับแผนที่'}
   };
   next.addEventListener('click',e=>{if(resultScore()<60||!sentSuccessfully()){e.preventDefault();e.stopImmediatePropagation();update();if(note){note.className='notice bad';note.textContent=resultScore()<60?'ยังไม่ผ่านด่าน กรุณาเล่นใหม่':'ต้องส่ง Reflection ให้สำเร็จก่อนจึงไปด่านถัดไปได้'}}},true);
-  save.addEventListener('click',e=>{
-   const ready=((reflectionFieldsDone()&&caseChosen())||recoveryReady());
-   if(resultScore()<60||!ready){e.preventDefault();e.stopImmediatePropagation();update()}
-   else setTimeout(update,300);
-  },true);
+  save.addEventListener('click',e=>{const ready=((reflectionFieldsDone()&&caseChosen())||recoveryReady());if(resultScore()<60||!ready){e.preventDefault();e.stopImmediatePropagation();update()}else setTimeout(update,300)},true);
   ['r1','r2','r3'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',update)});document.querySelectorAll('select').forEach(el=>el.addEventListener('change',update));
   const ob=new MutationObserver(()=>{clearTimeout(ob._t);ob._t=setTimeout(update,80)});ob.observe(result,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','disabled','data-case-ready','data-reflection-ready','data-evidence-ready']});
   update();setInterval(update,700);
@@ -104,6 +121,6 @@ function enforceResultFlow(){
 }
 function boot(){renameSessionLabels();blockMissionEntry();enforceMap();enforceResultFlow()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-window.AIQuestProgressionGuardV716=window.AIQuestProgressionGuardV717=window.AIQuestProgressionGuardV718=window.AIQuestProgressionGuardV719=window.AIQuestProgressionGuardV720={version:VERSION,officialDone,reflectionDone,readGate};
-console.log('[AIQuest] progression guard v720 active • visible Case authority • no Reflection submit deadlock');
+window.AIQuestProgressionGuardV716=window.AIQuestProgressionGuardV717=window.AIQuestProgressionGuardV718=window.AIQuestProgressionGuardV719=window.AIQuestProgressionGuardV720=window.AIQuestProgressionGuardV721={version:VERSION,officialDone,reflectionDone,readGate,renameSessionLabels};
+console.log('[AIQuest] progression guard v721 active • canonical S/B titles • idempotent label rendering');
 })();
