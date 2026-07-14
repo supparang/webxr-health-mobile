@@ -24,9 +24,7 @@ async function getAction(action, params={}) {
   if (!res.ok) throw new Error(`${action} HTTP ${res.status}: ${text.slice(0,300)}`);
   const data=parse(text); data.__elapsedMs=Date.now()-started; return data;
 }
-async function getResume(studentId, studentName, section) {
-  return getAction('player_resume',{studentId,studentName,section});
-}
+async function getResume(studentId, studentName, section) { return getAction('player_resume',{studentId,studentName,section}); }
 async function post(payload) {
   const started=Date.now();
   const res = await fetch(endpoint, {method:'POST',redirect:'follow',headers:{'content-type':'text/plain;charset=UTF-8'},body:JSON.stringify(payload),signal:AbortSignal.timeout(45000)});
@@ -42,11 +40,12 @@ function canonicalBossPass(row){
 async function probe(){
   console.log('Probe: new identity and deployed endpoint behavior');
   const fresh = await getResume(newId, 'EAP Release New Identity', '122');
-  console.log(JSON.stringify({ok:fresh.ok,version:fresh.version,authorityMode:fresh.authorityMode,recordCount:fresh.records&&fresh.records.length,elapsedMs:fresh.__elapsedMs,scannedSheets:fresh.scannedSheets},null,2));
+  console.log(JSON.stringify({ok:fresh.ok,version:fresh.version,authorityMode:fresh.authorityMode,recordCount:fresh.records&&fresh.records.length,generatedAt:fresh.generatedAt,elapsedMs:fresh.__elapsedMs,scannedSheets:fresh.scannedSheets},null,2));
   assert(fresh.ok === true, `new identity resume not ok: ${JSON.stringify(fresh)}`);
   assert(Array.isArray(fresh.records), 'new identity records is not an array');
   assert(fresh.records.length === 0, `new identity unexpectedly has ${fresh.records.length} records`);
   assert(Number(fresh.__elapsedMs) < 45000, `player_resume too slow: ${fresh.__elapsedMs} ms`);
+  assert(Number.isFinite(Date.parse(fresh.generatedAt)),`player_resume generatedAt missing/invalid: ${fresh.generatedAt}`);
 }
 async function s1(){
   console.log('S1 round-trip: write Reading/Speaking and restore');
@@ -79,16 +78,21 @@ async function boss(){
   assert(canonicalBossPass(row) === false, `pending Boss Speaking must be blocked by canonical Sheet rule: ${JSON.stringify(row)}`);
 }
 async function dashboard(){
-  console.log('Teacher Dashboard: QA learner and S1 evidence must be visible');
-  const data=await getAction('eap_teacher_dashboard_data',{section:qaSection,query:qaId});
-  const learners=Array.isArray(data.learners)?data.learners:[];
-  const learner=learners.find(x=>String(x.studentId)===qaId);
-  console.log(JSON.stringify({ok:data.ok,version:data.version,elapsedMs:data.__elapsedMs,overview:data.overview,learner},null,2));
-  assert(data.ok===true,`teacher dashboard data not ok: ${JSON.stringify(data)}`);
-  assert(learner,`QA learner missing from Teacher Dashboard: ${JSON.stringify(learners)}`);
-  const hero=learner.hero&&Array.isArray(learner.hero.records)?learner.hero.records:[];
-  assert(hero.some(r=>String(r.sessionId)==='S1'&&String(r.skill).toLowerCase()==='reading'),`S1 Reading missing in dashboard: ${JSON.stringify(hero)}`);
-  assert(hero.some(r=>String(r.sessionId)==='S1'&&String(r.skill).toLowerCase()==='speaking'),`S1 Speaking missing in dashboard: ${JSON.stringify(hero)}`);
+  console.log('Fast Teacher Console: roster plus selected-student Sheet evidence');
+  const roster=await getAction('teacher_students',{section:qaSection,q:qaId});
+  const students=Array.isArray(roster.students)?roster.students:[];
+  const learner=students.find(x=>String(x.studentId)===qaId);
+  assert(roster.ok===true,`teacher_students not ok: ${JSON.stringify(roster)}`);
+  assert(learner,`QA learner missing from teacher_students: ${JSON.stringify(students)}`);
+  const detail=await getResume(qaId,learner.studentName||'EAP Automated Release QA',qaSection);
+  const rows=detail.records||[];
+  const s1Reading=rows.find(r=>r.sessionId==='S1'&&String(r.skill).toLowerCase()==='reading');
+  const s1Speaking=rows.find(r=>r.sessionId==='S1'&&String(r.skill).toLowerCase()==='speaking');
+  const bossRow=rows.find(r=>r.sessionId==='B1'&&String(r.skill).toLowerCase()==='speaking');
+  console.log(JSON.stringify({rosterVersion:roster.version,rosterElapsedMs:roster.__elapsedMs,learner,detailVersion:detail.version,detailElapsedMs:detail.__elapsedMs,recordCount:rows.length,s1Reading,s1Speaking,bossRow},null,2));
+  assert(Number(roster.__elapsedMs)<45000,`teacher_students too slow: ${roster.__elapsedMs}`);
+  assert(s1Reading&&s1Speaking,`S1 evidence missing from Fast Teacher Console data: ${JSON.stringify(rows)}`);
+  assert(bossRow&&bossRow.teacherReviewStatus==='pending_teacher_review',`Boss pending review missing from Fast Teacher Console data: ${JSON.stringify(rows)}`);
 }
 if(phase==='probe') await probe();
 else if(phase==='s1') await s1();
