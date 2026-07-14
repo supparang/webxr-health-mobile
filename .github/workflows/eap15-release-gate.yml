@@ -37,9 +37,23 @@ jobs:
         with:
           node-version: '22'
       - name: 1. Probe deployed Apps Script version and new identity
+        id: probe
+        continue-on-error: true
         env:
           EAP_PHASE: probe
-        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs
+        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-apps-script-probe.log 2>&1
+      - name: Preserve Apps Script probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eap-apps-script-probe
+          path: eap-apps-script-probe.log
+          retention-days: 14
+      - name: Stop when deployed Apps Script is stale
+        if: steps.probe.outcome != 'success'
+        run: |
+          cat eap-apps-script-probe.log
+          exit 1
       - name: 2. Verify S1 write and player_resume round-trip
         env:
           EAP_PHASE: s1
