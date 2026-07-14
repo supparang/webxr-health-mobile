@@ -1,76 +1,17 @@
 (()=>{'use strict';
 const U='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 const post=(kind,payload)=>fetch(U,{method:'POST',mode:'no-cors',cache:'no-store',keepalive:true,headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({action:'sync_v23',kind,payload:{...payload,section:'101',clientTs:payload?.clientTs||new Date().toISOString(),pageUrl:payload?.pageUrl||location.href}})}).then(()=>({ok:true,queued:true}));
-
-const jsonpOnce=(action,params={},timeoutMs=30000)=>new Promise((resolve,reject)=>{
-  const callback='__aiquest_jsonp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9);
-  const url=new URL(U);
-  url.searchParams.set('action',action);
-  url.searchParams.set('callback',callback);
-  url.searchParams.set('_cb',Date.now().toString());
-  Object.keys(params).forEach(k=>url.searchParams.set(k,String(params[k]??'')));
-
-  const script=document.createElement('script');
-  let done=false;
-  const cleanup=()=>{
-    if(done)return;
-    done=true;
-    clearTimeout(timer);
-    try{script.remove()}catch(e){}
-    try{delete window[callback]}catch(e){window[callback]=undefined}
-  };
-  const timer=setTimeout(()=>{
-    cleanup();
-    reject(new Error(action+' timeout after '+timeoutMs+'ms'));
-  },timeoutMs);
-
-  window[callback]=data=>{
-    cleanup();
-    resolve(data||{});
-  };
-  script.onerror=()=>{
-    cleanup();
-    reject(new Error(action+' unavailable'));
-  };
-  script.async=true;
-  script.src=url.toString();
-  document.head.appendChild(script);
-});
-
-const jsonp=async(action,params={})=>{
-  let lastError;
-  for(let attempt=1;attempt<=2;attempt++){
-    try{
-      return await jsonpOnce(action,{...params,_attempt:attempt},attempt===1?30000:45000);
-    }catch(err){
-      lastError=err;
-      if(attempt<2) await new Promise(r=>setTimeout(r,1200));
-    }
-  }
-  throw lastError||new Error(action+' failed');
-};
-
+const jsonpOnce=(action,params={},timeoutMs=30000)=>new Promise((resolve,reject)=>{const callback='__aiquest_jsonp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,9),url=new URL(U);url.searchParams.set('action',action);url.searchParams.set('callback',callback);url.searchParams.set('_cb',Date.now().toString());Object.keys(params).forEach(k=>url.searchParams.set(k,String(params[k]??'')));const script=document.createElement('script');let done=false;const cleanup=()=>{if(done)return;done=true;clearTimeout(timer);try{script.remove()}catch(e){}try{delete window[callback]}catch(e){window[callback]=undefined}};const timer=setTimeout(()=>{cleanup();reject(new Error(action+' timeout after '+timeoutMs+'ms'))},timeoutMs);window[callback]=data=>{cleanup();resolve(data||{})};script.onerror=()=>{cleanup();reject(new Error(action+' unavailable'))};script.async=true;script.src=url.toString();document.head.appendChild(script)});
+const jsonp=async(action,params={})=>{let lastError;for(let attempt=1;attempt<=2;attempt++){try{return await jsonpOnce(action,{...params,_attempt:attempt},attempt===1?30000:45000)}catch(err){lastError=err;if(attempt<2)await new Promise(r=>setTimeout(r,1200))}}throw lastError||new Error(action+' failed')};
 const studentIdOf=p=>String(p?.studentId||'').trim();
-const getProfile=async payload=>{
-  const studentId=studentIdOf(payload);
-  if(!studentId)return{ok:false,found:false,error:'studentId is required'};
-  return jsonp('profileLookup',{studentId,section:'101'});
-};
-const getProgress=async payload=>{
-  const studentId=studentIdOf(payload);
-  if(!studentId)return{ok:false,found:false,error:'studentId is required'};
-  return jsonp('studentProgress',{studentId,section:'101'});
-};
-
-window.AIQuestCloudLogger={
-  isCloudReady:()=>true,
-  healthCheck:async()=>jsonp('health',{}),
-  sendProfile:p=>post('profile',p),
-  sendAttempt:p=>post('attempt',p),
-  sendEvent:p=>post('event',p),
-  getProfile,
-  getProgress,
-  flushPending:async()=>({ok:true,queued:true})
-};
-console.log('[AIQuest] cloud logger ready • resilient Sheet-only JSONP v2');
+const sidOf=x=>String(x||'').toLowerCase().replace(/^m/,'s').replace(/^boss/,'b');
+const bossPassed=row=>{const id=sidOf(row?.sessionId||row?.missionId||row?.id),score=Number(row?.score||row?.bestScore||0),status=String(row?.gateStatus||row?.status||'').toLowerCase(),win=row?.bossWin===true||String(row?.bossWin).toLowerCase()==='true';if(!/^b[1-5]$/.test(id))return null;if(status==='passed'||status==='mastered')return true;if(id==='b4')return win&&score>=70;if(id==='b5')return win&&score>=75;return win};
+function sanitizeRows(value){if(Array.isArray(value))return value.map(row=>{if(!row||typeof row!=='object')return row;const passed=bossPassed(row);if(passed===null)return {...row};return passed?{...row,passed:true,status:row.status||'passed'}:{...row,passed:false,status:'not-passed',gateStatus:'not-passed',score:0,bestScore:0,stars:0}});if(value&&typeof value==='object'){const out={};for(const [k,v] of Object.entries(value)){const id=sidOf(k);if(/^b[1-5]$/.test(id)&&v&&typeof v==='object'){const passed=bossPassed({...v,sessionId:id});out[k]=passed?{...v,passed:true,status:v.status||'passed'}:{...v,passed:false,status:'not-passed',gateStatus:'not-passed',score:0,bestScore:0,stars:0}}else out[k]=v}return out}return value}
+function strictProgressResponse(r){if(!r||typeof r!=='object')return r;const out={...r};['progress','missions','summary','attempts'].forEach(k=>{if(k in out)out[k]=sanitizeRows(out[k])});if(out.data&&typeof out.data==='object'){out.data={...out.data};['progress','missions','attempts','summary'].forEach(k=>{if(k in out.data)out.data[k]=sanitizeRows(out.data[k])})}out.bossPassPolicy='B1-B3 require bossWin/passed; B4 bossWin+70; B5 bossWin+75';return out}
+const getProfile=async payload=>{const studentId=studentIdOf(payload);if(!studentId)return{ok:false,found:false,error:'studentId is required'};return jsonp('profileLookup',{studentId,section:'101'})};
+const getProgress=async payload=>{const studentId=studentIdOf(payload);if(!studentId)return{ok:false,found:false,error:'studentId is required'};return strictProgressResponse(await jsonp('studentProgress',{studentId,section:'101'}))};
+window.AIQuestCloudLogger={isCloudReady:()=>true,healthCheck:async()=>jsonp('health',{}),sendProfile:p=>post('profile',p),sendAttempt:p=>post('attempt',p),sendEvent:p=>post('event',p),getProfile,getProgress,flushPending:async()=>({ok:true,queued:true})};
+function loadUpperQuality(){if(document.querySelector('script[data-aiquest-upper714]'))return;const s=document.createElement('script');s.src='./js/aiquest-upper-course-quality-v714.js?v=20260714-upper714';s.async=true;s.dataset.aiquestUpper714='1';document.head.appendChild(s)}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadUpperQuality,{once:true});else loadUpperQuality();
+console.log('[AIQuest] cloud logger ready • strict boss rules • upper quality v714');
 })();
