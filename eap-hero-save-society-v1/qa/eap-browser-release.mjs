@@ -5,7 +5,7 @@ const page = await browser.newPage();
 const pageErrors=[];
 page.on('pageerror', e => pageErrors.push(String(e)));
 await page.goto(`${base}?eapqa=1`, {waitUntil:'domcontentloaded', timeout:60000});
-await page.waitForFunction(() => window.EAP15ReleaseQA && window.EAPRoadmapLockGuard, null, {timeout:60000});
+await page.waitForFunction(() => window.EAP15ReleaseQA && window.EAPRoadmapLockGuard && window.EAPLobbyRouteIsolation, null, {timeout:60000});
 let report = await page.evaluate(() => window.EAP15ReleaseQA.run());
 if (!report.pass) throw new Error(`Browser QA errors: ${JSON.stringify(report.errors.slice(0,10))}`);
 let diag = await page.evaluate(() => window.EAPRoadmapLockGuard.diagnostics());
@@ -19,7 +19,7 @@ await page.evaluate(() => {
   }));
 });
 await page.reload({waitUntil:'domcontentloaded',timeout:60000});
-await page.waitForFunction(() => window.EAPRoadmapLockGuard, null, {timeout:60000});
+await page.waitForFunction(() => window.EAPRoadmapLockGuard && window.EAPLobbyRouteIsolation, null, {timeout:60000});
 const tamper = await page.evaluate(() => ({current:window.EAPRoadmapLockGuard.currentRouteId(),b5:window.EAPRoadmapLockGuard.canOpen('B5'),d:window.EAPRoadmapLockGuard.diagnostics()}));
 if (tamper.current !== 'S1' || tamper.b5 !== false || tamper.d.liveVerified !== false) throw new Error(`localStorage tamper unlocked progress: ${JSON.stringify(tamper)}`);
 
@@ -49,6 +49,33 @@ const boss = await page.evaluate(() => {
   return {pending,reviewed};
 });
 if (boss.pending !== 'B1' || boss.reviewed !== 'S4') throw new Error(`Boss review contract failed: ${JSON.stringify(boss)}`);
+
+await page.evaluate(() => {
+  const app=document.getElementById('app');
+  app.innerHTML='<div id="qa-lobby-shell"><section class="mf-hud">Mission Mode v1z99 Academic Hero Awakening S1 Rescue Clash</section><section id="eap-student-compact-lobby"><div>STUDENT LOBBY</div><button>Start / Continue</button><div>B1 Boss Gate</div><div>KK · ID 50 · Section 122</div></section><div id="eap-student-15week-roadmap">SESSION 1 Session Passed</div></div>';
+  const status=document.createElement('div');status.id='eap-sheet-envelope-status';status.textContent='Sheet: 8 send attempts · S7';document.body.appendChild(status);
+  const manual=document.createElement('button');manual.id='eap-sheet-manual-send';manual.textContent='ส่งผลล่าสุดเข้า Sheet';document.body.appendChild(manual);
+  window.EAPPhaseAActiveTask={sessionId:'S1',taskId:'stale'};
+  window.EAPLobbyRouteIsolation.refresh();
+});
+await page.waitForTimeout(300);
+const lobbyIsolation = await page.evaluate(() => {
+  const visible=sel=>Array.from(document.querySelectorAll(sel)).filter(el=>getComputedStyle(el).display!=='none').length;
+  return {
+    isLobby:window.EAPLobbyRouteIsolation.isLobby(),
+    bodyClass:document.body.classList.contains('eap-canonical-lobby-isolated'),
+    lobbyVisible:visible('#eap-student-compact-lobby'),
+    missionVisible:visible('.mf-hud'),
+    roadmapVisible:visible('#eap-student-15week-roadmap'),
+    sheetStatusVisible:visible('#eap-sheet-envelope-status'),
+    sheetButtonVisible:visible('#eap-sheet-manual-send'),
+    activeTask:window.EAPPhaseAActiveTask
+  };
+});
+if (!lobbyIsolation.isLobby || !lobbyIsolation.bodyClass || lobbyIsolation.lobbyVisible !== 1 || lobbyIsolation.missionVisible || lobbyIsolation.roadmapVisible || lobbyIsolation.sheetStatusVisible || lobbyIsolation.sheetButtonVisible || lobbyIsolation.activeTask !== null) {
+  throw new Error(`B1 lobby isolation failed: ${JSON.stringify(lobbyIsolation)}`);
+}
+
 if (pageErrors.length) throw new Error(`Page errors: ${pageErrors.join(' | ')}`);
-console.log(JSON.stringify({ok:true,qa:`${report.passed}/${report.total}`,tamper,live,boss},null,2));
+console.log(JSON.stringify({ok:true,qa:`${report.passed}/${report.total}`,tamper,live,boss,lobbyIsolation},null,2));
 await browser.close();
