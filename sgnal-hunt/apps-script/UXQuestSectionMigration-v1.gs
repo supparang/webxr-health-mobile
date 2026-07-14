@@ -1,22 +1,15 @@
 /* =========================================================
- * UX Quest • Historical Section Migration v1
- * Purpose:
- *   Correct historical UXQuest_Attempts rows that were saved under
- *   the wrong section, without weakening Sheet-authoritative restore.
+ * UX Quest • Historical Section Migration v1.1
+ * Corrects historical UXQuest_Attempts rows saved under a wrong section.
+ * Google Sheet remains the authoritative source of truth.
  *
- * Default migration below:
- *   studentId: 50
- *   from section: 101
- *   to section: 201
- *   courseId: UXQ-ACT1-2026
- *
- * Run order:
- *   1) UXQ_previewSectionMigration_50_101_to_201()
- *   2) Check Execution log
- *   3) UXQ_applySectionMigration_50_101_to_201()
- *   4) Re-run preview; matchedRows should be 0
+ * Safety:
+ * - Filters by studentId + old section + courseId.
+ * - Creates a hidden backup sheet before changing data.
+ * - Provides preview functions before apply.
  * ========================================================= */
 
+/* ---------- Student 50: 101 -> 201 ---------- */
 function UXQ_previewSectionMigration_50_101_to_201() {
   return UXQ_previewSectionMigration_({
     studentId: '50',
@@ -29,6 +22,25 @@ function UXQ_previewSectionMigration_50_101_to_201() {
 function UXQ_applySectionMigration_50_101_to_201() {
   return UXQ_applySectionMigration_({
     studentId: '50',
+    fromSection: '101',
+    toSection: '201',
+    courseId: 'UXQ-ACT1-2026'
+  });
+}
+
+/* ---------- Student 3 (Kata): 101 -> 201 ---------- */
+function UXQ_previewSectionMigration_3_101_to_201() {
+  return UXQ_previewSectionMigration_({
+    studentId: '3',
+    fromSection: '101',
+    toSection: '201',
+    courseId: 'UXQ-ACT1-2026'
+  });
+}
+
+function UXQ_applySectionMigration_3_101_to_201() {
+  return UXQ_applySectionMigration_({
+    studentId: '3',
     fromSection: '101',
     toSection: '201',
     courseId: 'UXQ-ACT1-2026'
@@ -52,6 +64,7 @@ function UXQ_previewSectionMigration_(options) {
     matches.push({
       rowNumber: r + 1,
       studentId: studentId,
+      studentName: ctx.col.studentname === undefined ? '' : String(row[ctx.col.studentname] || '').trim(),
       section: section,
       courseId: courseId,
       missionId: ctx.col.missionid === undefined ? '' : String(row[ctx.col.missionid] || '').trim(),
@@ -81,6 +94,19 @@ function UXQ_applySectionMigration_(options) {
 
   try {
     const ctx = UXQ_sectionMigrationContext_(options);
+    const preview = UXQ_previewSectionMigration_(options);
+    if (!preview.matchedRows) {
+      return {
+        ok: true,
+        mode: 'apply',
+        changedRows: 0,
+        message: 'ไม่พบแถวที่ต้องแก้',
+        studentId: ctx.options.studentId,
+        fromSection: ctx.options.fromSection,
+        toSection: ctx.options.toSection
+      };
+    }
+
     const backupName = 'UXQuest_Attempts_backup_' + Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyyMMdd_HHmmss');
     const backup = ctx.sheet.copyTo(ctx.ss).setName(backupName);
     backup.hideSheet();
@@ -103,6 +129,7 @@ function UXQ_applySectionMigration_(options) {
     if (changedRows.length) {
       ctx.sheet.getRange(2, 1, ctx.values.length - 1, ctx.values[0].length)
         .setValues(ctx.values.slice(1));
+      SpreadsheetApp.flush();
     }
 
     const result = {
