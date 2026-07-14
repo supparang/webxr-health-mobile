@@ -1,12 +1,12 @@
-/* CSAI2102 AI Quest — Reflection Sheet Confirmation v7.2.5
+/* CSAI2102 AI Quest — Reflection Sheet Confirmation v7.2.6
    The next mission is shown only after Apps Script studentGate confirms that
    the current mission is both passed and has submitted Reflection in Google Sheet.
-   v725 guarantees a single confirmation request and removes the redundant
-   "กำลังตรวจ Sheet…" control immediately after confirmation.
+   v726 replaces the confirmed Next control with a native anchor, removing every
+   stale click handler from the old button, and adds a document-capture fallback.
 */
 (()=>{'use strict';
-if(window.AIQuestReflectionSheetConfirmV725)return;
-const VERSION='v7.2.5';
+if(window.AIQuestReflectionSheetConfirmV726)return;
+const VERSION='v7.2.6';
 const ORDER=['s1','s2','s3','b1','s4','s5','s6','b2','s7','s8','s9','b3','s10','s11','s12','b4','s13','s14','s15','b5'];
 const $=id=>document.getElementById(id);
 const txt=v=>String(v==null?'':v).trim();
@@ -25,25 +25,49 @@ function note(text,kind=''){const n=$('saveNote');if(n){n.className='notice'+(ki
 function nextUrl(){
  const n=nextId();
  if(!n)return new URL('./course-map-all-v715.html?route=student-v715',location.href).toString();
- const u=new URL(location.href);u.searchParams.set('mission',n);u.searchParams.set('_gate',Date.now().toString());return u.toString();
+ const u=new URL(location.href);
+ u.searchParams.set('mission',n);
+ u.searchParams.set('release','challenge711');
+ u.searchParams.set('_gate',Date.now().toString());
+ return u.toString();
 }
-function bindNext(next){
- if(!next||next.dataset.sheetV725Bound==='1')return next;
- next.dataset.sheetV725Bound='1';
- next.addEventListener('click',e=>{
-  if(next.dataset.sheetConfirmed!=='1'){
-   e.preventDefault();e.stopImmediatePropagation();confirmSheet(true);return;
-  }
-  e.preventDefault();e.stopImmediatePropagation();location.assign(nextUrl());
- },true);
- return next;
+function navigateNext(){
+ const c=confirmedState();
+ if(!c){confirmSheet(true);return false}
+ const target=nextUrl();
+ try{window.location.assign(target)}catch(e){window.location.href=target}
+ return true;
 }
-function ensureNextButton(){
- let next=$('nextMission');if(next)return bindNext(next);
+function ensurePendingButton(){
+ let next=$('nextMission');
+ if(next&&next.tagName==='BUTTON')return next;
  const save=$('save'),replay=$('replay');if(!save||!save.parentElement)return null;
+ if(next)next.remove();
  next=document.createElement('button');next.id='nextMission';next.type='button';next.className='btn next';next.style.display='none';
  if(replay&&replay.parentElement===save.parentElement)save.insertAdjacentElement('afterend',next);else save.parentElement.appendChild(next);
- return bindNext(next);
+ return next;
+}
+function makeConfirmedLink(){
+ const old=$('nextMission'),save=$('save'),replay=$('replay');
+ if(!save||!save.parentElement)return null;
+ const href=nextUrl(),n=nextId();
+ let link;
+ if(old&&old.tagName==='A'&&old.dataset.sheetConfirmed==='1')link=old;
+ else{
+  link=document.createElement('a');
+  link.id='nextMission';link.className='btn next';link.href=href;link.setAttribute('role','button');
+  if(old&&old.parentElement)old.replaceWith(link);
+  else if(replay&&replay.parentElement===save.parentElement)save.insertAdjacentElement('afterend',link);
+  else save.parentElement.appendChild(link);
+ }
+ link.href=href;
+ link.dataset.sheetConfirmed='1';
+ link.dataset.nativeNavigation='1';
+ link.removeAttribute('aria-disabled');
+ link.textContent=n?'ไป '+n.toUpperCase()+' ถัดไป →':'กลับแผนที่';
+ link.style.setProperty('display','inline-flex','important');
+ link.style.visibility='visible';link.style.opacity='1';link.style.pointerEvents='auto';link.style.cursor='pointer';
+ return link;
 }
 function ensureVerifyButton(){
  let b=$('verifyReflectionSheet');if(b)return b;
@@ -57,16 +81,13 @@ function hideVerify(){
 }
 function lockNext(message){
  const c=confirmedState();if(c){forceConfirmedUI(c.gate);return}
- const next=ensureNextButton();if(next){next.style.setProperty('display','none','important');next.dataset.sheetConfirmed='0';next.setAttribute('aria-disabled','true')}
+ const next=ensurePendingButton();if(next){next.style.setProperty('display','none','important');next.dataset.sheetConfirmed='0';next.setAttribute('aria-disabled','true')}
  if(message)note(message,'');
 }
 let checking=false,sequence=0;
 function forceConfirmedUI(gate){
- const next=ensureNextButton(),save=$('save');
- checking=false;sequence++;hideVerify();if(!next)return;
- next.dataset.sheetConfirmed='1';next.removeAttribute('aria-disabled');next.disabled=false;
- next.style.setProperty('display','inline-flex','important');next.style.visibility='visible';next.style.opacity='1';
- const n=nextId();next.textContent=n?'ไป '+n.toUpperCase()+' ถัดไป →':'กลับแผนที่';
+ checking=false;sequence++;hideVerify();
+ const link=makeConfirmedLink(),save=$('save');if(!link)return;
  if(save){save.disabled=true;save.textContent='✓ ส่งผลแล้ว';save.dataset.sheetConfirmed='1'}
  window.CSAI2102_REFLECTION_GATE_CONFIRMED={missionId:mission(),confirmedAt:new Date().toISOString(),gate};
  note('✓ ส่งผลเข้า Google Sheets แล้ว • Google Sheet ยืนยันแล้ว: ผ่านและส่ง Reflection '+mission().toUpperCase()+' ครบเรียบร้อย','good');
@@ -80,7 +101,7 @@ async function lookup(){
 async function confirmSheet(force=false){
  const existing=confirmedState();if(existing){forceConfirmedUI(existing.gate);return true}
  if(checking)return false;if(!passed())return false;
- checking=true;const my=++sequence,verify=ensureVerifyButton();ensureNextButton();
+ checking=true;const my=++sequence,verify=ensureVerifyButton();ensurePendingButton();
  if(verify){verify.removeAttribute('aria-hidden');verify.disabled=true;verify.style.setProperty('display','inline-flex','important');verify.textContent='กำลังตรวจ Sheet…'}
  lockNext('ส่งข้อมูลแล้ว กำลังยืนยัน Reflection จาก Google Sheet…');
  try{
@@ -101,15 +122,23 @@ async function confirmSheet(force=false){
   if(confirmedState())hideVerify();
  }
 }
+function captureConfirmedNavigation(e){
+ const target=e.target&&e.target.closest?e.target.closest('#nextMission'):null;
+ if(!target||target.dataset.sheetConfirmed!=='1')return;
+ e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+ navigateNext();
+}
 function boot(){
  const result=$('result'),save=$('save');if(!result||!save){setTimeout(boot,120);return}
- const next=ensureNextButton(),verify=ensureVerifyButton();
+ const verify=ensureVerifyButton();
  if(verify&&!verify.dataset.bound){verify.dataset.bound='1';verify.addEventListener('click',()=>confirmSheet(true))}
+ document.addEventListener('pointerdown',captureConfirmedNavigation,true);
+ document.addEventListener('click',captureConfirmedNavigation,true);
  save.addEventListener('click',()=>{if(confirmedState()){forceConfirmedUI(confirmedState().gate);return}lockNext();setTimeout(()=>{if(sentSignal())confirmSheet(true)},500)},false);
  const observer=new MutationObserver(()=>{
   const c=confirmedState();
   if(c)forceConfirmedUI(c.gate);
-  else if(sentSignal()&&(!next||next.dataset.sheetConfirmed!=='1'))confirmSheet(false);
+  else if(sentSignal()&&(!$('nextMission')||$('nextMission').dataset.sheetConfirmed!=='1'))confirmSheet(false);
  });
  observer.observe(result,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','class','style']});
  setInterval(()=>{
@@ -117,8 +146,8 @@ function boot(){
   if(c)forceConfirmedUI(c.gate);
   else if(sentSignal()&&!checking)confirmSheet(false);
  },650);
- console.log('[AIQuest] Reflection Sheet confirmation v725 active • single-check clean confirmed UI');
+ console.log('[AIQuest] Reflection Sheet confirmation v726 active • native Next link + document capture navigation');
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-window.AIQuestReflectionSheetConfirmV723=window.AIQuestReflectionSheetConfirmV724=window.AIQuestReflectionSheetConfirmV725={version:VERSION,confirmSheet,lookup,ensureNextButton,forceConfirmedUI};
+window.AIQuestReflectionSheetConfirmV723=window.AIQuestReflectionSheetConfirmV724=window.AIQuestReflectionSheetConfirmV725=window.AIQuestReflectionSheetConfirmV726={version:VERSION,confirmSheet,lookup,forceConfirmedUI,navigateNext,nextUrl};
 })();
