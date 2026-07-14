@@ -13,8 +13,8 @@ function loadUpperCourseQuality(){
  loadScriptOnce('aiquestUpperCourseQuality714','./js/aiquest-upper-course-quality-v714.js?v=20260714-upper714',()=>console.log('[AIQuest] upper-course quality v714 active'),()=>console.warn('[AIQuest] upper-course quality layer unavailable'));
 }
 function loadProgressionGuard(){
- if(window.AIQuestProgressionGuardV716)return;
- loadScriptOnce('aiquestProgressionGuard716','./js/aiquest-progression-guard-v716.js?v=20260714-reflection716',()=>console.log('[AIQuest] progression guard v716 loaded'),()=>console.warn('[AIQuest] progression guard unavailable'));
+ if(window.AIQuestProgressionGuardV717)return;
+ loadScriptOnce('aiquestProgressionGuard717','./js/aiquest-progression-guard-v716.js?v=20260714-reflection717',()=>console.log('[AIQuest] progression guard v717 loaded'),()=>console.warn('[AIQuest] progression guard unavailable'));
 }
 function installSaveProfileButton(){
  const sid=document.getElementById('sid'),name=document.getElementById('name'),load=document.getElementById('load'),note=document.getElementById('note');
@@ -57,5 +57,5 @@ function runtimeAudit(){
 loadUpperCourseQuality();loadProgressionGuard();
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{installSaveProfileButton();loadUpperCourseQuality();loadProgressionGuard();runtimeAudit()},{once:true});
 else setTimeout(()=>{installSaveProfileButton();loadUpperCourseQuality();loadProgressionGuard();runtimeAudit()},0);
-console.log('[AIQuest] sync v29 ready • Sheet-only + reflection gate + S-only labels');
+console.log('[AIQuest] sync v30 ready • Sheet-only + mandatory Reflection result flow + S-only labels');
 })();
