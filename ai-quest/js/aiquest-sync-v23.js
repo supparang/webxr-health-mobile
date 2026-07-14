@@ -2,7 +2,14 @@
 const wait=()=>window.AIQuestCloudLogger;
 const send=(method,p)=>{const c=wait();if(!c||typeof c[method]!=='function')return Promise.reject(new Error('Cloud logger unavailable'));return c[method](p)};
 window.AIQuestSync={submitProfile:p=>send('sendProfile',p),submitAttempt:p=>send('sendAttempt',p),submitEvent:p=>send('sendEvent',p),lookupProfile:p=>send('getProfile',p),lookupProgress:p=>send('getProgress',p),lookupGate:p=>send('getGate',p)};
-function loadScriptOnce(id,src,onload,onerror){if(document.getElementById(id))return;const script=document.createElement('script');script.id=id;script.async=false;script.src=src;script.onload=onload||(()=>{});script.onerror=onerror||(()=>{});document.head.appendChild(script)}
+function loadScriptOnce(id,src,onload,onerror){const old=document.getElementById(id);if(old){if(onload)old.addEventListener('load',onload,{once:true});return old}const script=document.createElement('script');script.id=id;script.async=false;script.src=src;script.onload=onload||(()=>{});script.onerror=onerror||(()=>{});document.head.appendChild(script);return script}
+function loadCloudLoggerSafe(done){
+ const finish=()=>{if(typeof done==='function')done()};
+ if(window.AIQuestCloudLogger&&window.AIQuestCloudLogger.version==='v7.2.7'){finish();return}
+ const old=document.getElementById('aiquestCloudLogger727');
+ if(old){old.addEventListener('load',finish,{once:true});setTimeout(()=>{if(window.AIQuestCloudLogger&&window.AIQuestCloudLogger.version==='v7.2.7')finish()},0);return}
+ loadScriptOnce('aiquestCloudLogger727','./js/aiquest-cloud-logger.js?v=20260714-jsonp727',finish,()=>{console.warn('[AIQuest] safe cloud logger unavailable');finish()});
+}
 function loadUpperCourseQuality(){if(window.AIQuestUpperCourseQualityV714)return;loadScriptOnce('aiquestUpperCourseQuality714','./js/aiquest-upper-course-quality-v714.js?v=20260714-upper714',()=>console.log('[AIQuest] upper-course quality v714 active'),()=>console.warn('[AIQuest] upper-course quality layer unavailable'))}
 function loadUniqueAnswer(){if(window.AIQuestUniqueAnswerV720)return;loadScriptOnce('aiquestUniqueAnswer720','./js/aiquest-unique-answer-v720.js?v=20260714-unique720',()=>console.log('[AIQuest] unique-answer finalizer v720 loaded'),()=>console.warn('[AIQuest] unique-answer finalizer unavailable'))}
 function loadProgressionGuard(){if(window.AIQuestProgressionGuardV720)return;loadScriptOnce('aiquestProgressionGuard720','./js/aiquest-progression-guard-v716.js?v=20260714-visiblecase720',()=>{console.log('[AIQuest] progression guard v720 loaded');loadReflectionRecovery();loadSheetConfirmation()},()=>console.warn('[AIQuest] progression guard unavailable'))}
@@ -17,7 +24,9 @@ function installSaveProfileButton(){
  const observer=new MutationObserver(show);observer.observe(name,{attributes:true,attributeFilter:['readonly','disabled']});sid.addEventListener('input',show);name.addEventListener('input',show);load.addEventListener('click',()=>setTimeout(show,300));setInterval(show,800);show();
 }
 function runtimeAudit(){let tries=0;const check=()=>{const C=window.AIQuestAllContentV702;if(C&&C.__unique720&&typeof C.deck==='function'){const ids=['s1','s2','s3','b1','s4','s5','s6','b2','s7','s8','s9','b3','s10','s11','s12','b4','s13','s14','s15','b5'],report={};ids.forEach(id=>{try{const d=C.deck(id,97)||[];report[id]={items:d.length,uniqueCorrect:new Set(d.map(x=>String(x.correct||''))).size,uniqueOptions:new Set(d.flatMap(x=>[x.correct,...(x.distractors||[])].map(String))).size,slots:[0,1,2,3].map(s=>d.filter(x=>Number(x.answerSlot)===s).length),pass:new Set(d.map(x=>String(x.correct||''))).size===15?'PASS':'FAIL'}}catch(e){report[id]={error:String(e.message||e),pass:'FAIL'}}});window.CSAI2102_ITEM_QUALITY_AUDIT=report;console.table(report);return}if(++tries<120)setTimeout(check,100)};check()}
-loadUpperCourseQuality();loadUniqueAnswer();loadProgressionGuard();loadReflectionRecovery();loadSheetConfirmation();
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{installSaveProfileButton();loadUpperCourseQuality();loadUniqueAnswer();loadProgressionGuard();loadReflectionRecovery();loadSheetConfirmation();runtimeAudit()},{once:true});else setTimeout(()=>{installSaveProfileButton();loadUpperCourseQuality();loadUniqueAnswer();loadProgressionGuard();loadReflectionRecovery();loadSheetConfirmation();runtimeAudit()},0);
-console.log('[AIQuest] sync v38 ready • visible Case submit fix + native confirmed Next navigation');
+let layersBooted=false;
+function bootLayers(){if(layersBooted)return;layersBooted=true;loadUpperCourseQuality();loadUniqueAnswer();loadProgressionGuard();loadReflectionRecovery();loadSheetConfirmation();runtimeAudit()}
+loadCloudLoggerSafe(bootLayers);
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{installSaveProfileButton();loadCloudLoggerSafe(bootLayers)},{once:true});else setTimeout(()=>{installSaveProfileButton();loadCloudLoggerSafe(bootLayers)},0);
+console.log('[AIQuest] sync v39 ready • safe JSONP logger before studentGate/progression checks');
 })();
