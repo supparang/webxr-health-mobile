@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>EAP Hero Teacher Console — Fast Evidence View</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#102033;background:#edf3f7}*{box-sizing:border-box}body{margin:0}main{max-width:1240px;margin:auto;padding:20px}.panel{background:#fff;border:1px solid #d8e1e8;border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:0 8px 28px #14314a12}.head{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.controls{display:flex;gap:8px;flex-wrap:wrap}input,button,select{font:inherit;padding:10px 12px;border-radius:11px;border:1px solid #b8c7d2}button{cursor:pointer;background:#0b6477;color:#fff;border:0;font-weight:800}button.secondary{background:#e6f1f4;color:#0b5260}.metrics{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px}.metric{padding:13px;border-radius:13px;background:#f0f6f8}.metric b{font-size:1.45rem;display:block}.grid{display:grid;grid-template-columns:minmax(290px,.8fr) minmax(0,1.7fr);gap:16px}table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #e0e7ec;text-align:left;vertical-align:top}tr[data-id]{cursor:pointer}tr[data-id]:hover{background:#f2f8fa}.pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;background:#e4eef2}.pass{background:#dcfce7;color:#166534}.pending{background:#fef3c7;color:#92400e}.locked{background:#fee2e2;color:#991b1b}.muted{color:#64748b;font-size:13px}.error{background:#fee2e2;color:#991b1b;padding:12px;border-radius:12px}.loading{opacity:.65}.records{overflow:auto;max-height:68vh}@media(max-width:850px){.grid{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}main{padding:10px}}
+  </style>
+</head>
+<body>
+<main>
+  <section class="panel">
+    <div class="head">
+      <div><h1 style="margin:.1em 0">EAP Hero Teacher Console</h1><div class="muted">Fast Evidence View · Section 122 · Google Sheet/Cloud authority</div></div>
+      <div class="controls"><input id="section" value="122" aria-label="Section"><input id="q" placeholder="Student ID / name"><button id="load">โหลดข้อมูล</button><button class="secondary" id="refresh">รีเฟรช</button></div>
+    </div>
+  </section>
+  <section class="panel metrics" id="metrics"><div class="metric"><b>—</b>ผู้เรียน</div><div class="metric"><b>—</b>Needs review</div><div class="metric"><b>—</b>Active</div><div class="metric"><b>—</b>เลือกผู้เรียน</div></section>
+  <div class="grid">
+    <section class="panel"><h2>รายชื่อผู้เรียน</h2><div id="students" class="muted">กดโหลดข้อมูล</div></section>
+    <section class="panel"><div class="head"><div><h2 id="detailTitle">หลักฐานรายคน</h2><div id="detailSub" class="muted">เลือกผู้เรียนจากรายการ</div></div><span class="pill" id="authority">Sheet authority</span></div><div id="detail" class="records"></div></section>
+  </div>
+</main>
+<script>
+(()=>{'use strict';
+const ENDPOINT='https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec';
+const ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
+const $=id=>document.getElementById(id), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let roster=[];
+function jsonp(action,params={}){return new Promise((resolve,reject)=>{const cb='eapFastCb_'+Date.now()+'_'+Math.random().toString(36).slice(2);const s=document.createElement('script');const t=setTimeout(()=>done(new Error(action+' timeout')),30000);function done(err,data){clearTimeout(t);try{delete window[cb]}catch(_){window[cb]=undefined}s.remove();err?reject(err):resolve(data)}window[cb]=data=>done(null,data);const u=new URL(ENDPOINT);u.searchParams.set('action',action);u.searchParams.set('callback',cb);Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));u.searchParams.set('_',Date.now());s.onerror=()=>done(new Error(action+' network error'));s.src=u;document.head.appendChild(s)})}
+function bossPass(r){if(!/^B[1-5]$/.test(String(r.sessionId))||String(r.skill).toLowerCase()!=='speaking')return r.passed===true||Number(r.bestScore||r.score)>=60;const st=String(r.teacherReviewStatus||r.reviewFlag||'').toLowerCase();return /reviewed|approved|accepted|pass|passed|complete|completed/.test(st)&&!/pending|revise|rework|needs[_ -]?work/.test(st)}
+function routeState(r){const pass=bossPass(r);const st=String(r.teacherReviewStatus||r.reviewFlag||'').toLowerCase();if(/pending|revise|rework|needs[_ -]?work/.test(st))return['pending','รอตรวจ/แก้ไข'];return pass?['pass','ผ่าน']:['locked','ยังไม่ผ่าน']}
+function renderRoster(){const q=$('q').value.trim().toLowerCase();const list=roster.filter(x=>!q||[x.studentId,x.studentName,x.section].join(' ').toLowerCase().includes(q));$('students').innerHTML=list.length?'<table><thead><tr><th>ผู้เรียน</th><th>สถานะ</th><th>เฉลี่ย</th></tr></thead><tbody>'+list.map(x=>`<tr data-id="${esc(x.studentId)}"><td><b>${esc(x.studentName||'—')}</b><div class="muted">${esc(x.studentId)}</div></td><td><span class="pill ${x.status==='review'?'pending':'pass'}">${esc(x.status||'active')}</span></td><td>${Number(x.avgBestScore||0)}</td></tr>`).join('')+'</tbody></table>':'<div class="muted">ไม่พบผู้เรียน';$('students').querySelectorAll('tr[data-id]').forEach(tr=>tr.onclick=()=>loadStudent(tr.dataset.id))}
+function renderMetrics(){const review=roster.filter(x=>x.status==='review').length,active=roster.filter(x=>x.status!=='review').length;$('metrics').innerHTML=`<div class="metric"><b>${roster.length}</b>ผู้เรียน</div><div class="metric"><b>${review}</b>Needs review</div><div class="metric"><b>${active}</b>Active</div><div class="metric"><b id="selectedMetric">—</b>เลือกผู้เรียน</div>`}
+async function loadRoster(){document.body.classList.add('loading');$('students').textContent='กำลังโหลด…';try{const section=$('section').value.trim()||'122';const data=await jsonp('teacher_students',{section,q:''});if(!data||data.ok!==true)throw new Error(data&&data.error||'teacher_students failed');roster=Array.isArray(data.students)?data.students:[];renderMetrics();renderRoster()}catch(e){$('students').innerHTML='<div class="error">'+esc(e.message)+'</div>'}finally{document.body.classList.remove('loading')}}
+async function loadStudent(id){const section=$('section').value.trim()||'122',person=roster.find(x=>String(x.studentId)===String(id))||{studentId:id,studentName:''};$('detailTitle').textContent=person.studentName||person.studentId;$('detailSub').textContent=person.studentId+' · Section '+section;$('detail').textContent='กำลังตรวจหลักฐานจาก Sheet…';const sm=$('selectedMetric');if(sm)sm.textContent=person.studentId;try{const d=await jsonp('player_resume',{studentId:person.studentId,studentName:person.studentName||'',section});if(!d||d.ok!==true)throw new Error(d&&d.error||'player_resume failed');const rows=(d.records||[]).slice().sort((a,b)=>ORDER.indexOf(a.sessionId)-ORDER.indexOf(b.sessionId)||String(a.skill).localeCompare(String(b.skill)));const pending=rows.filter(r=>routeState(r)[0]==='pending').length;$('authority').textContent=(d.version||'Cloud resume')+' · '+rows.length+' records'+(pending?' · '+pending+' pending':'');$('detail').innerHTML=rows.length?'<table><thead><tr><th>Route</th><th>Skill</th><th>Best / Latest</th><th>Attempts</th><th>สถานะ</th><th>Updated</th></tr></thead><tbody>'+rows.map(r=>{const state=routeState(r);return `<tr><td><b>${esc(r.sessionId)}</b><div class="muted">${esc(r.sessionTitle||'')}</div></td><td>${esc(r.skill)}</td><td>${Number(r.bestScore??r.score??0)} / ${Number(r.latestScore??r.score??0)}</td><td>${Number(r.attempts||1)}</td><td><span class="pill ${state[0]}">${state[1]}</span>${r.teacherReviewStatus?'<div class="muted">'+esc(r.teacherReviewStatus)+'</div>':''}</td><td class="muted">${esc(r.latestAt||r.updatedAt||'—')}</td></tr>`}).join('')+'</tbody></table>':'<div class="muted">ยังไม่มีหลักฐานใน Sheet — เริ่มที่ S1 เท่านั้น</div>'}catch(e){$('detail').innerHTML='<div class="error">'+esc(e.message)+'</div>'}}
+$('load').onclick=loadRoster;$('refresh').onclick=loadRoster;$('q').addEventListener('input',renderRoster);loadRoster();
+})();
+</script>
+</body>
+</html>
