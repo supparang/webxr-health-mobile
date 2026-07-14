@@ -63,19 +63,31 @@ async function s1(){
   assert(s1.some(r => String(r.skill).toLowerCase() === 'speaking' && r.passed === true), `S1 Speaking not restored: ${JSON.stringify(s1)}`);
 }
 async function boss(){
-  console.log('Boss round-trip: pending teacher review must carry a blocking status');
-  const evidenceId = `qa-${run}-b1-speaking`;
-  const bossPost = await post({action:'submit_evidence',submissionKind:'fresh_evidence_v118',evidenceId,section:qaSection,studentId:qaId,studentName:'EAP Automated Release QA',sessionId:'B1',sessionTitle:'Boss Gate 1: Academic Foundations',skill:'Speaking',evidenceType:'boss_speaking_evidence',taskId:'B1_SPEAKING_INTEGRATED_BOSS_QA',score:90,passed:true,prompt:'Automated release contract check.',output:'This is a synthetic QA record stored outside the teaching section.',durationSec:30,targetRange:'20–40 sec',teacherReviewRequired:true,teacherReviewStatus:'pending_teacher_review',occurredAt:new Date().toISOString(),sourceUrl:'github-actions://eap15-release-gate',consentAudio:false});
-  console.log('Boss POST',JSON.stringify(bossPost));
-  assert(bossPost.ok === true, `submit_evidence failed: ${JSON.stringify(bossPost)}`);
+  console.log('Boss round-trip: pending blocks, reviewed passes');
+  const pendingId = `qa-${run}-b1-speaking-pending`;
+  const pendingPost = await post({action:'submit_evidence',submissionKind:'fresh_evidence_v118',evidenceId:pendingId,section:qaSection,studentId:qaId,studentName:'EAP Automated Release QA',sessionId:'B1',sessionTitle:'Boss Gate 1: Academic Foundations',skill:'Speaking',evidenceType:'boss_speaking_evidence',taskId:'B1_SPEAKING_INTEGRATED_BOSS_QA',score:90,passed:true,prompt:'Automated release contract check.',output:'Synthetic QA evidence for pending teacher review.',durationSec:30,targetRange:'20–40 sec',checklistComplete:true,selectedFrame:'The source suggests that ____.',attemptCount:1,hintUsed:0,replayCount:0,teacherReviewRequired:true,teacherReviewStatus:'pending_teacher_review',occurredAt:new Date().toISOString(),sourceUrl:'github-actions://eap15-release-gate',consentAudio:false});
+  console.log('Pending POST',JSON.stringify(pendingPost));
+  assert(pendingPost.ok === true, `pending submit_evidence failed: ${JSON.stringify(pendingPost)}`);
   await sleep(3500);
-  const withBoss = await getResume(qaId, 'EAP Automated Release QA', qaSection);
-  const row = (withBoss.records||[]).find(r => r.sessionId === 'B1' && String(r.skill).toLowerCase() === 'speaking');
-  console.log(JSON.stringify({version:withBoss.version,elapsedMs:withBoss.__elapsedMs,boss:row,canonicalBossPass:canonicalBossPass(row)},null,2));
-  assert(row, `B1 Speaking not returned by player_resume: ${JSON.stringify(withBoss.records)}`);
-  assert(row.teacherReviewRequired === true, `B1 Speaking reviewRequired lost: ${JSON.stringify(row)}`);
-  assert(String(row.teacherReviewStatus).toLowerCase() === 'pending_teacher_review', `pending status lost: ${JSON.stringify(row)}`);
-  assert(canonicalBossPass(row) === false, `pending Boss Speaking must be blocked by canonical Sheet rule: ${JSON.stringify(row)}`);
+  const pendingResume = await getResume(qaId, 'EAP Automated Release QA', qaSection);
+  const pendingRow = (pendingResume.records||[]).find(r => r.sessionId === 'B1' && String(r.skill).toLowerCase() === 'speaking');
+  console.log(JSON.stringify({stage:'pending',version:pendingResume.version,elapsedMs:pendingResume.__elapsedMs,boss:pendingRow,canonicalBossPass:canonicalBossPass(pendingRow)},null,2));
+  assert(pendingRow, `B1 Speaking pending row not returned: ${JSON.stringify(pendingResume.records)}`);
+  assert(pendingRow.teacherReviewRequired === true, `B1 Speaking reviewRequired lost: ${JSON.stringify(pendingRow)}`);
+  assert(String(pendingRow.teacherReviewStatus).toLowerCase() === 'pending_teacher_review', `pending status lost: ${JSON.stringify(pendingRow)}`);
+  assert(canonicalBossPass(pendingRow) === false, `pending Boss Speaking must be blocked: ${JSON.stringify(pendingRow)}`);
+
+  const reviewedId = `qa-${run}-b1-speaking-reviewed`;
+  const reviewedPost = await post({action:'submit_evidence',submissionKind:'fresh_evidence_v118',evidenceId:reviewedId,section:qaSection,studentId:qaId,studentName:'EAP Automated Release QA',sessionId:'B1',sessionTitle:'Boss Gate 1: Academic Foundations',skill:'Speaking',evidenceType:'boss_speaking_teacher_review',taskId:'B1_SPEAKING_INTEGRATED_BOSS_QA',score:90,passed:true,prompt:'Automated release contract check.',output:'Synthetic QA evidence after teacher review.',durationSec:30,targetRange:'20–40 sec',checklistComplete:true,selectedFrame:'The source suggests that ____.',attemptCount:1,hintUsed:0,replayCount:0,teacherReviewRequired:true,teacherReviewStatus:'reviewed',teacherFeedbackCodes:'CL|EV',teacherComment:'Automated QA reviewed evidence.',teacherReviewedAt:new Date().toISOString(),occurredAt:new Date().toISOString(),sourceUrl:'github-actions://eap15-release-gate',consentAudio:false});
+  console.log('Reviewed POST',JSON.stringify(reviewedPost));
+  assert(reviewedPost.ok === true, `reviewed submit_evidence failed: ${JSON.stringify(reviewedPost)}`);
+  await sleep(3500);
+  const reviewedResume = await getResume(qaId, 'EAP Automated Release QA', qaSection);
+  const reviewedRow = (reviewedResume.records||[]).find(r => r.sessionId === 'B1' && String(r.skill).toLowerCase() === 'speaking');
+  console.log(JSON.stringify({stage:'reviewed',version:reviewedResume.version,elapsedMs:reviewedResume.__elapsedMs,boss:reviewedRow,canonicalBossPass:canonicalBossPass(reviewedRow)},null,2));
+  assert(reviewedRow, `B1 Speaking reviewed row not returned: ${JSON.stringify(reviewedResume.records)}`);
+  assert(String(reviewedRow.teacherReviewStatus).toLowerCase() === 'reviewed', `reviewed status not restored: ${JSON.stringify(reviewedRow)}`);
+  assert(canonicalBossPass(reviewedRow) === true, `reviewed Boss Speaking must pass canonical rule: ${JSON.stringify(reviewedRow)}`);
 }
 async function dashboard(){
   console.log('Fast Teacher Console: roster plus selected-student Sheet evidence');
@@ -89,10 +101,11 @@ async function dashboard(){
   const s1Reading=rows.find(r=>r.sessionId==='S1'&&String(r.skill).toLowerCase()==='reading');
   const s1Speaking=rows.find(r=>r.sessionId==='S1'&&String(r.skill).toLowerCase()==='speaking');
   const bossRow=rows.find(r=>r.sessionId==='B1'&&String(r.skill).toLowerCase()==='speaking');
-  console.log(JSON.stringify({rosterVersion:roster.version,rosterElapsedMs:roster.__elapsedMs,learner,detailVersion:detail.version,detailElapsedMs:detail.__elapsedMs,recordCount:rows.length,s1Reading,s1Speaking,bossRow},null,2));
+  console.log(JSON.stringify({rosterVersion:roster.version,rosterElapsedMs:roster.__elapsedMs,learner,detailVersion:detail.version,detailElapsedMs:detail.__elapsedMs,recordCount:rows.length,s1Reading,s1Speaking,bossRow,canonicalBossPass:canonicalBossPass(bossRow)},null,2));
   assert(Number(roster.__elapsedMs)<45000,`teacher_students too slow: ${roster.__elapsedMs}`);
   assert(s1Reading&&s1Speaking,`S1 evidence missing from Fast Teacher Console data: ${JSON.stringify(rows)}`);
-  assert(bossRow&&bossRow.teacherReviewStatus==='pending_teacher_review',`Boss pending review missing from Fast Teacher Console data: ${JSON.stringify(rows)}`);
+  assert(bossRow&&String(bossRow.teacherReviewStatus).toLowerCase()==='reviewed',`Boss reviewed evidence missing from Fast Teacher Console data: ${JSON.stringify(rows)}`);
+  assert(canonicalBossPass(bossRow)===true,`Fast Teacher Console did not resolve reviewed Boss evidence: ${JSON.stringify(bossRow)}`);
 }
 if(phase==='probe') await probe();
 else if(phase==='s1') await s1();
