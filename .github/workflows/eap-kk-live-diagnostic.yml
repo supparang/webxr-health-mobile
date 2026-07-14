@@ -1,0 +1,28 @@
+name: EAP KK Live Route Diagnostic
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/eap-kk-live-diagnostic.yml'
+      - 'eap-hero-save-society-v1/qa/eap-kk-live-diagnostic.mjs'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Query live player_resume and evaluate canonical route
+        run: node eap-hero-save-society-v1/qa/eap-kk-live-diagnostic.mjs | tee eap-kk-live-diagnostic.log
+      - name: Upload diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: eap-kk-live-route-diagnostic
+          path: |
+            eap-kk-live-diagnostic.json
+            eap-kk-live-diagnostic.log
+          retention-days: 7
