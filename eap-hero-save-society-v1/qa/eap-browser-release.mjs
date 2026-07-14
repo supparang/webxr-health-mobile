@@ -52,13 +52,13 @@ if (boss.pending !== 'B1' || boss.reviewed !== 'S4') throw new Error(`Boss revie
 
 await page.evaluate(() => {
   const app=document.getElementById('app');
-  app.innerHTML='<div id="qa-lobby-shell"><section class="mf-hud">Mission Mode v1z99 Academic Hero Awakening S1 Rescue Clash</section><section id="eap-student-compact-lobby"><div>STUDENT LOBBY</div><button>Start / Continue</button><div>B1 Boss Gate</div><div>KK · ID 50 · Section 122</div></section><div id="eap-student-15week-roadmap">SESSION 1 Session Passed</div></div>';
+  app.innerHTML='<div id="qa-lobby-shell"><h1>EAP Hero: Save the Society</h1><div>Student Mode</div><section class="mf-hud">Mission Mode v1z99 Academic Hero Awakening S1 Rescue Clash</section><section id="eap-student-compact-lobby"><div>STUDENT LOBBY</div><button>Start / Continue</button><div>B1 Boss Gate</div><div>KK · ID 50 · Section 122</div></section><div id="eap-student-15week-roadmap">SESSION 1 Session Passed</div></div>';
   const status=document.createElement('div');status.id='eap-sheet-envelope-status';status.textContent='Sheet: 8 send attempts · S7';document.body.appendChild(status);
   const manual=document.createElement('button');manual.id='eap-sheet-manual-send';manual.textContent='ส่งผลล่าสุดเข้า Sheet';document.body.appendChild(manual);
   window.EAPPhaseAActiveTask={sessionId:'S1',taskId:'stale'};
   window.EAPLobbyRouteIsolation.refresh();
 });
-await page.waitForTimeout(300);
+await page.waitForTimeout(600);
 const lobbyIsolation = await page.evaluate(() => {
   const visible=sel=>Array.from(document.querySelectorAll(sel)).filter(el=>getComputedStyle(el).display!=='none').length;
   return {
