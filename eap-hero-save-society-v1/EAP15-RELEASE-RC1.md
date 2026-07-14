@@ -1,17 +1,27 @@
-# EAP 15 Sessions Release Candidate 1
+# EAP Hero 15-Session Production Release
 
-This release candidate closes the five agreed workstreams:
+## Scope
+- Section 122; Year 2; CEFR A2–B1+.
+- S1–S15 plus B1–B5.
+- Google Sheet/Cloud is the sole official source for progress and unlock decisions.
+- localStorage is limited to UI/profile/runtime cache and cannot unlock a route.
+- Boss Speaking remains blocked while review is pending/revise and advances only after reviewed/approved evidence.
 
-1. Canonical, session-specific content for S1–S15 and B1–B5.
-2. Source-specific four-choice quality with answer-position rotation and balanced option length.
-3. Sheet/Cloud-authoritative runtime guard and localStorage diagnostics.
-4. Automated browser release gate (`?eapqa=1` or `await EAP15ReleaseQA.run()`).
-5. Complete Thai Teaching Pack for all 15 sessions.
+## Production pages
+- Student game: `eap-hero-save-society-v1/index.html`
+- Fast Teacher Console: `eap-hero-save-society-v1/teacher-dashboard-fast.html`
+- Teaching Pack: `eap-hero-save-society-v1/teaching-pack-15-sessions.html`
+- Browser QA: add `?eapqa=1` to the student game URL.
 
-## Release gate
+## Automated release evidence
+- Content and choice contract: 584/584 checks.
+- Browser contract: localStorage tamper cannot open B5; fresh Sheet-shaped S1 records open S2; Boss pending stays at B1; reviewed advances to S4.
+- Live Apps Script/Sheet contract: new identity has no progress; S1 Reading/Speaking write and restore; Boss pending blocks; reviewed evidence passes; fast teacher roster and selected-student evidence resolve correctly.
+- QA writes only to Section `122-QA` and does not mix with teaching Section `122`.
 
-Open the canonical player with `?eapqa=1`. The panel must report no errors before deployment. Warnings require review but do not necessarily block a classroom pilot.
-
-## Manual end-to-end matrix
-
-Test two identities: a new student with no matching Sheet rows and an existing student with verified progress. Run S1→B5, close/reopen the browser at each Boss boundary, replay every normal session at least three times, and confirm Best, Latest, attempt history, Exposure, and Boss Speaking review in the teacher dashboard.
+## Canonical policy
+1. Normal Session: Core + Support at least 60; Exposure does not block.
+2. Boss Gate: Reading + Listening + Writing + Speaking at least 60.
+3. Boss Speaking additionally requires reviewed/approved teacher status.
+4. A student without a matching live Sheet record starts at S1 only.
+5. Best score is retained, while latest evidence metadata remains visible through Cloud records.
