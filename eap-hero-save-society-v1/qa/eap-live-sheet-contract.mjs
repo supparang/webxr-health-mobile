@@ -13,18 +13,19 @@ function parse(text) {
   if (m) return JSON.parse(m[1]);
   throw new Error(`Cannot parse Apps Script response: ${raw.slice(0, 500)}`);
 }
-async function getResume(studentId, studentName, section) {
+async function getAction(action, params={}) {
   const u = new URL(endpoint);
-  u.searchParams.set('action','player_resume');
-  u.searchParams.set('studentId',studentId);
-  u.searchParams.set('studentName',studentName);
-  u.searchParams.set('section',section);
+  u.searchParams.set('action',action);
+  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));
   u.searchParams.set('_',Date.now());
   const started=Date.now();
   const res = await fetch(u, {redirect:'follow',signal:AbortSignal.timeout(45000)});
   const text = await res.text();
-  if (!res.ok) throw new Error(`Resume HTTP ${res.status}: ${text.slice(0,300)}`);
+  if (!res.ok) throw new Error(`${action} HTTP ${res.status}: ${text.slice(0,300)}`);
   const data=parse(text); data.__elapsedMs=Date.now()-started; return data;
+}
+async function getResume(studentId, studentName, section) {
+  return getAction('player_resume',{studentId,studentName,section});
 }
 async function post(payload) {
   const started=Date.now();
@@ -34,6 +35,10 @@ async function post(payload) {
   const data=parse(text); data.__elapsedMs=Date.now()-started; return data;
 }
 function assert(cond, message) { if (!cond) throw new Error(message); }
+function canonicalBossPass(row){
+  const status=String(row&&row.teacherReviewStatus||row&&row.reviewFlag||'').toLowerCase();
+  return !!row && row.teacherReviewRequired===true && /reviewed|approved|accepted|pass|passed|complete|completed/.test(status) && !/pending|revise|revision|rework|needs[_ -]?work/.test(status) && (row.passed===true || Number(row.score)>=60);
+}
 async function probe(){
   console.log('Probe: new identity and deployed endpoint behavior');
   const fresh = await getResume(newId, 'EAP Release New Identity', '122');
@@ -59,7 +64,7 @@ async function s1(){
   assert(s1.some(r => String(r.skill).toLowerCase() === 'speaking' && r.passed === true), `S1 Speaking not restored: ${JSON.stringify(s1)}`);
 }
 async function boss(){
-  console.log('Boss round-trip: pending teacher review must stay unpassed');
+  console.log('Boss round-trip: pending teacher review must carry a blocking status');
   const evidenceId = `qa-${run}-b1-speaking`;
   const bossPost = await post({action:'submit_evidence',submissionKind:'fresh_evidence_v118',evidenceId,section:qaSection,studentId:qaId,studentName:'EAP Automated Release QA',sessionId:'B1',sessionTitle:'Boss Gate 1: Academic Foundations',skill:'Speaking',evidenceType:'boss_speaking_evidence',taskId:'B1_SPEAKING_INTEGRATED_BOSS_QA',score:90,passed:true,prompt:'Automated release contract check.',output:'This is a synthetic QA record stored outside the teaching section.',durationSec:30,targetRange:'20–40 sec',teacherReviewRequired:true,teacherReviewStatus:'pending_teacher_review',occurredAt:new Date().toISOString(),sourceUrl:'github-actions://eap15-release-gate',consentAudio:false});
   console.log('Boss POST',JSON.stringify(bossPost));
@@ -67,14 +72,27 @@ async function boss(){
   await sleep(3500);
   const withBoss = await getResume(qaId, 'EAP Automated Release QA', qaSection);
   const row = (withBoss.records||[]).find(r => r.sessionId === 'B1' && String(r.skill).toLowerCase() === 'speaking');
-  console.log(JSON.stringify({version:withBoss.version,elapsedMs:withBoss.__elapsedMs,boss:row},null,2));
+  console.log(JSON.stringify({version:withBoss.version,elapsedMs:withBoss.__elapsedMs,boss:row,canonicalBossPass:canonicalBossPass(row)},null,2));
   assert(row, `B1 Speaking not returned by player_resume: ${JSON.stringify(withBoss.records)}`);
   assert(row.teacherReviewRequired === true, `B1 Speaking reviewRequired lost: ${JSON.stringify(row)}`);
   assert(String(row.teacherReviewStatus).toLowerCase() === 'pending_teacher_review', `pending status lost: ${JSON.stringify(row)}`);
-  assert(row.passed === false, `pending Boss Speaking must not pass: ${JSON.stringify(row)}`);
+  assert(canonicalBossPass(row) === false, `pending Boss Speaking must be blocked by canonical Sheet rule: ${JSON.stringify(row)}`);
+}
+async function dashboard(){
+  console.log('Teacher Dashboard: QA learner and S1 evidence must be visible');
+  const data=await getAction('eap_teacher_dashboard_data',{section:qaSection,query:qaId});
+  const learners=Array.isArray(data.learners)?data.learners:[];
+  const learner=learners.find(x=>String(x.studentId)===qaId);
+  console.log(JSON.stringify({ok:data.ok,version:data.version,elapsedMs:data.__elapsedMs,overview:data.overview,learner},null,2));
+  assert(data.ok===true,`teacher dashboard data not ok: ${JSON.stringify(data)}`);
+  assert(learner,`QA learner missing from Teacher Dashboard: ${JSON.stringify(learners)}`);
+  const hero=learner.hero&&Array.isArray(learner.hero.records)?learner.hero.records:[];
+  assert(hero.some(r=>String(r.sessionId)==='S1'&&String(r.skill).toLowerCase()==='reading'),`S1 Reading missing in dashboard: ${JSON.stringify(hero)}`);
+  assert(hero.some(r=>String(r.sessionId)==='S1'&&String(r.skill).toLowerCase()==='speaking'),`S1 Speaking missing in dashboard: ${JSON.stringify(hero)}`);
 }
 if(phase==='probe') await probe();
 else if(phase==='s1') await s1();
 else if(phase==='boss') await boss();
-else {await probe();await s1();await boss();}
+else if(phase==='dashboard') await dashboard();
+else {await probe();await s1();await boss();await dashboard();}
 console.log(JSON.stringify({ok:true,phase,qaId,qaSection},null,2));
