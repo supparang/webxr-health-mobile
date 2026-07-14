@@ -17,12 +17,17 @@ jobs:
         with:
           node-version: '22'
       - name: Query live player_resume and evaluate canonical route
-        run: node eap-hero-save-society-v1/qa/eap-kk-live-diagnostic.mjs | tee eap-kk-live-diagnostic.log
+        shell: bash
+        run: |
+          set -o pipefail
+          node eap-hero-save-society-v1/qa/eap-kk-live-diagnostic.mjs 2>&1 | tee eap-kk-live-diagnostic.log
       - name: Upload diagnostic
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: eap-kk-live-route-diagnostic
           path: |
             eap-kk-live-diagnostic.json
             eap-kk-live-diagnostic.log
+          if-no-files-found: warn
           retention-days: 7
