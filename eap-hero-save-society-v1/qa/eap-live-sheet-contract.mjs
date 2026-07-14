@@ -19,13 +19,13 @@ async function getResume(studentId, studentName, section) {
   u.searchParams.set('studentName',studentName);
   u.searchParams.set('section',section);
   u.searchParams.set('_',Date.now());
-  const res = await fetch(u, {redirect:'follow'});
+  const res = await fetch(u, {redirect:'follow',signal:AbortSignal.timeout(45000)});
   const text = await res.text();
   if (!res.ok) throw new Error(`Resume HTTP ${res.status}: ${text.slice(0,300)}`);
   return parse(text);
 }
 async function post(payload) {
-  const res = await fetch(endpoint, {method:'POST',redirect:'follow',headers:{'content-type':'text/plain;charset=UTF-8'},body:JSON.stringify(payload)});
+  const res = await fetch(endpoint, {method:'POST',redirect:'follow',headers:{'content-type':'text/plain;charset=UTF-8'},body:JSON.stringify(payload),signal:AbortSignal.timeout(45000)});
   const text = await res.text();
   if (!res.ok) throw new Error(`POST HTTP ${res.status}: ${text.slice(0,300)}`);
   return parse(text);
