@@ -59,6 +59,20 @@ jobs:
           EAP_PHASE: s1
         run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs
       - name: 3. Verify Boss Speaking pending-review contract
+        id: boss
+        continue-on-error: true
         env:
           EAP_PHASE: boss
-        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs
+        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-boss-review-probe.log 2>&1
+      - name: Preserve Boss review probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eap-boss-review-probe
+          path: eap-boss-review-probe.log
+          retention-days: 14
+      - name: Stop when Boss review contract fails
+        if: steps.boss.outcome != 'success'
+        run: |
+          cat eap-boss-review-probe.log
+          exit 1
