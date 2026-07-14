@@ -28,7 +28,7 @@ jobs:
         run: node eap-hero-save-society-v1/qa/eap-browser-release.mjs
   live-sheet-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     env:
       EAP_ENDPOINT: https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec
     steps:
@@ -36,7 +36,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: 1. Probe deployed Apps Script version and new identity
+      - name: 1. Probe deployed Apps Script and new identity
         id: probe
         continue-on-error: true
         env:
@@ -49,7 +49,7 @@ jobs:
           name: eap-apps-script-probe
           path: eap-apps-script-probe.log
           retention-days: 14
-      - name: Stop when deployed Apps Script is stale
+      - name: Stop when Apps Script probe fails
         if: steps.probe.outcome != 'success'
         run: |
           cat eap-apps-script-probe.log
@@ -58,7 +58,7 @@ jobs:
         env:
           EAP_PHASE: s1
         run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs
-      - name: 3. Verify Boss Speaking pending-review contract
+      - name: 3. Verify canonical Boss Speaking pending-review block
         id: boss
         continue-on-error: true
         env:
@@ -75,4 +75,22 @@ jobs:
         if: steps.boss.outcome != 'success'
         run: |
           cat eap-boss-review-probe.log
+          exit 1
+      - name: 4. Verify live Teacher Dashboard evidence
+        id: dashboard
+        continue-on-error: true
+        env:
+          EAP_PHASE: dashboard
+        run: node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-teacher-dashboard-probe.log 2>&1
+      - name: Preserve Teacher Dashboard probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eap-teacher-dashboard-probe
+          path: eap-teacher-dashboard-probe.log
+          retention-days: 14
+      - name: Stop when Teacher Dashboard contract fails
+        if: steps.dashboard.outcome != 'success'
+        run: |
+          cat eap-teacher-dashboard-probe.log
           exit 1
