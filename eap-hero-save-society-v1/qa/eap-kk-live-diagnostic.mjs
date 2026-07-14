@@ -3,7 +3,11 @@ import vm from 'node:vm';
 
 const endpoint='https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec';
 const root='eap-hero-save-society-v1';
-const context={window:{}}; context.globalThis=context.window; vm.createContext(context);
+class MockCustomEvent{constructor(type,init={}){this.type=type;this.detail=init.detail;}}
+const context={window:{dispatchEvent(){}},CustomEvent:MockCustomEvent};
+context.window.CustomEvent=MockCustomEvent;
+context.globalThis=context.window;
+vm.createContext(context);
 for(const file of [
   'eap-content-data-s01-s03-v20260714.js','eap-content-data-s04-s06-v20260714.js','eap-content-data-s07-s09-v20260714.js','eap-content-data-s10-s12-v20260714.js','eap-content-data-s13-s15-v20260714.js','eap-content-data-bosses-v20260714.js','eap-session-content-pack-v20260708.js'
 ]) vm.runInContext(fs.readFileSync(`${root}/${file}`,'utf8'),context,{filename:file});
