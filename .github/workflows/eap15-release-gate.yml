@@ -26,6 +26,8 @@ jobs:
           sleep 2
       - name: Run browser release contract
         run: node eap-hero-save-society-v1/qa/eap-browser-release.mjs
+      - name: Run progressive dashboard contract
+        run: node eap-hero-save-society-v1/qa/eap-dashboard-browser.mjs
   live-sheet-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 15
