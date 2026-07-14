@@ -1,85 +1,108 @@
-/* CSAI2601 canonical Mission Control — rendered from uxq-csai2601-canonical-content-v1.js
- * Course path: W1-W15 + B1-B4. No B5.
- * Fix v40: route all nodes to all-node choice fairness guard build.
+/* CSAI2601 UX Quest • Mission Control Sheet Authority v5
+ * Google Sheet restore response is the only source used to render official
+ * completion, unlock state and next mission.
+ * localStorage/UXQProgress is not consulted for official Mission Control state.
  */
 (() => {
   'use strict';
 
   const CONTENT = window.CSAI2601_UXQ_CANONICAL_CONTENT_V1;
-  const VERSION = 'clean-v40-choice-fairness-20260709';
+  const VERSION = 'sheet-authority-v5-20260714';
   const NODE_ICONS = {
-    W1:'🔎', W2:'🧭', W3:'🧠', W4:'🕵️', W5:'💡', W6:'🗺️', W7:'📐', W8:'🧩', W9:'🧱', W10:'📱', W11:'🎨', W12:'⚡', W13:'🔗', W14:'🧪', W15:'🏁',
+    W1:'🔎', W2:'🧭', W3:'🧠', W4:'🕵️', W5:'💡', W6:'🗺️', W7:'📐',
+    W8:'🧩', W9:'🧱', W10:'📱', W11:'🎨', W12:'⚡', W13:'🔗', W14:'🧪', W15:'🏁',
     B1:'👹', B2:'🐉', B3:'🛡️', B4:'🔥'
   };
-  const FALLBACK_NODES = [
-    'W1','W2','W3','B1','W4','W5','W6','W7','B2','W8','W9','W10','W11','B3','W12','W13','W14','B4','W15'
-  ].map((id, index) => ({ id, order:index + 1, type:id.startsWith('B') ? 'boss' : 'week', title:id, missionTitle:id, focus:'CSAI2601 canonical mission', artifact:'Studio Artifact' }));
-
-  const nodes = (CONTENT?.nodes && CONTENT.nodes.length ? CONTENT.nodes : FALLBACK_NODES)
+  const ORDER = ['w1','w2','w3','b1','w4','w5','w6','w7','b2','w8','w9','w10','w11','b3','w12','w13','w14','b4','w15'];
+  const FALLBACK_NODES = ORDER.map((key, index) => {
+    const id = key.toUpperCase();
+    return { id, key, order:index + 1, type:key.startsWith('b') ? 'boss' : 'week', title:id, missionTitle:id, focus:'CSAI2601 canonical mission', artifact:'Studio Artifact' };
+  });
+  const nodes = (CONTENT?.nodes?.length ? CONTENT.nodes : FALLBACK_NODES)
     .map((node, index) => ({ ...node, key:String(node.id || '').toLowerCase(), order:Number(node.order || index + 1) }))
     .sort((a, b) => a.order - b.order);
 
-  const $ = (selector) => document.querySelector(selector);
-  const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (char) => ({
+  const $ = selector => document.querySelector(selector);
+  const esc = value => String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
   }[char]));
-  const nodeIcon = (node) => NODE_ICONS[String(node?.id || '').toUpperCase()] || (String(node?.id || '').toUpperCase().startsWith('B') ? '⚔️' : 'UX');
-  const stars = (value) => {
+  const nodeIcon = node => NODE_ICONS[String(node?.id || '').toUpperCase()] || 'UX';
+  const stars = value => {
     const n = Math.max(0, Math.min(3, Number(value || 0)));
     return `${'★'.repeat(n)}${'☆'.repeat(3 - n)}`;
   };
-  const launchUrl = (node) => `./csai2601-canonical-node-clean-v1.html?node=${encodeURIComponent(String(node.id || '').toUpperCase())}&v=${encodeURIComponent(VERSION)}`;
+  const launchUrl = node => `./csai2601-canonical-node-clean-v1.html?node=${encodeURIComponent(String(node.id || '').toUpperCase())}&v=${encodeURIComponent(VERSION)}`;
 
-  function progress() { return window.UXQProgress?.get?.() || { missions:{} }; }
-  function missionRecord(progressData, key) { return progressData?.missions?.[key] || progressData?.missions?.[String(key).toUpperCase()] || {}; }
-  function passed(progressData, key) { return Number(missionRecord(progressData, key).bestStars || 0) >= 2; }
-  function available(progressData, index) { return index === 0 || passed(progressData, nodes[index - 1]?.key); }
-  function statusOf(progressData, node, index) {
-    const record = missionRecord(progressData, node.key);
-    const isPassed = passed(progressData, node.key);
-    const isAvailable = available(progressData, index);
+  let snapshot = null;
+
+  function normalizedMission(raw) {
+    const remote = raw || {};
+    const passed = Boolean(remote.completed || remote.passed || Number(remote.bestStars || remote.stars || 0) >= 2);
     return {
+      passed,
+      stars:Number(remote.bestStars || remote.stars || 0),
+      score:Number(remote.bestScore || remote.score || 0),
+      attempts:Number(remote.attempts || 0)
+    };
+  }
+
+  function missionRecord(key) {
+    return normalizedMission(snapshot?.missions?.[String(key || '').toLowerCase()]);
+  }
+
+  function passed(key) {
+    return missionRecord(key).passed;
+  }
+
+  function canonicalNextKey() {
+    const apiNext = String(snapshot?.nextMission || '').trim().toLowerCase();
+    return ORDER.includes(apiNext) ? apiNext : (ORDER.find(key => !passed(key)) || '');
+  }
+
+  function available(key) {
+    if (!snapshot?.ok) return false;
+    const index = ORDER.indexOf(key);
+    if (index < 0) return false;
+    if (index === 0) return true;
+    if (passed(key)) return true;
+    return key === canonicalNextKey();
+  }
+
+  function stateOf(node) {
+    const record = missionRecord(node.key);
+    const isPassed = record.passed;
+    const isAvailable = available(node.key);
+    return {
+      ...record,
       isPassed,
       isAvailable,
-      stars:Number(record.bestStars || 0),
-      score:Number(record.bestScore || 0),
-      attempts:Number(record.attempts || 0),
       label:isPassed ? 'ผ่านแล้ว' : isAvailable ? 'พร้อมเริ่ม' : 'ล็อกอยู่'
     };
   }
-  function nextNode(progressData) {
-    return nodes.find((node, index) => available(progressData, index) && !passed(progressData, node.key)) || nodes[nodes.length - 1] || null;
-  }
 
-  function card(node, index, progressData) {
+  function card(node) {
     const boss = node.type === 'boss' || node.key.startsWith('b');
-    const state = statusOf(progressData, node, index);
-    const previous = nodes[index - 1];
+    const state = stateOf(node);
+    const index = ORDER.indexOf(node.key);
+    const previousId = index > 0 ? ORDER[index - 1].toUpperCase() : '';
     const url = state.isAvailable ? launchUrl(node) : '#';
-    const typeLabel = boss ? 'BOSS GATE' : 'WEEKLY MISSION';
-    const icon = nodeIcon(node);
     const hint = state.isPassed
-      ? `${stars(state.stars)} • เล่นซ้ำได้ด้วย case variant ใหม่`
+      ? `${stars(state.stars)} • ${state.attempts || 1} attempt${state.attempts === 1 ? '' : 's'} • เล่นซ้ำได้`
       : state.isAvailable
-        ? `${node.artifact ? `Artifact: ${node.artifact}` : 'ต้องผ่าน 2★ เพื่อไปต่อ'}`
-        : `ต้องผ่าน ${previous?.id || 'ด่านก่อนหน้า'} ที่ 2★ ก่อน`;
+        ? (node.artifact ? `Artifact: ${node.artifact}` : 'ต้องผ่าน 2★ เพื่อไปต่อ')
+        : `ต้องผ่าน ${previousId || 'ด่านก่อนหน้า'} จาก Sheet ก่อน`;
     const rounds = Array.isArray(node.missionRounds) ? node.missionRounds.slice(0, 3).join(' → ') : '';
     const desc = state.isAvailable
       ? `${node.focus || ''}${rounds ? ` • ${rounds}` : ''}`
-      : 'ปลดล็อกตามลำดับเพื่อรักษาเส้นทางเรียนรู้จากหลักฐานไปสู่ prototype และ evaluation';
+      : 'ล็อกตามลำดับ Canonical Path โดยใช้หลักฐาน mission_completed จาก Google Sheet';
 
     return `<article class="${boss ? 'boss-preview' : 'compact-stage'} campaign-preview ${state.isAvailable ? 'is-ready' : 'is-locked'} ${state.isPassed ? 'is-cleared' : ''}" data-node="${esc(node.id)}">
       <div class="${boss ? 'boss-preview__top' : 'compact-stage__top'}">
-        <span class="stage-number">${esc(node.id)}</span>
-        <span class="stage-state">${esc(state.label)}</span>
+        <span class="stage-number">${esc(node.id)}</span><span class="stage-state">${esc(state.label)}</span>
       </div>
       <div class="${boss ? 'boss-preview__body' : 'compact-stage__content'}">
-        <span class="${boss ? 'boss-preview__icon' : 'compact-stage__icon'}" aria-hidden="true">${icon}</span>
-        <div>
-          <p class="compact-stage__type">${typeLabel}</p>
-          <h3>${esc(node.missionTitle || node.title)}</h3>
-          <p>${esc(desc)}</p>
-        </div>
+        <span class="${boss ? 'boss-preview__icon' : 'compact-stage__icon'}" aria-hidden="true">${nodeIcon(node)}</span>
+        <div><p class="compact-stage__type">${boss ? 'BOSS GATE' : 'WEEKLY MISSION'}</p><h3>${esc(node.missionTitle || node.title)}</h3><p>${esc(desc)}</p></div>
       </div>
       <div class="${boss ? 'boss-preview__footer' : 'compact-stage__footer'}">
         <span>${esc(hint)}</span>
@@ -88,41 +111,70 @@
     </article>`;
   }
 
-  function draw() {
-    const grid = $('#grid') || $('.up-next-grid');
-    const progressData = progress();
-    const done = nodes.filter((node) => passed(progressData, node.key)).length;
-    const total = nodes.length;
-    const progressText = `${done}/${total} ด่าน`;
-    if ($('#progress')) $('#progress').textContent = progressText;
+  function renderLoading(message) {
+    if ($('#progress')) $('#progress').textContent = 'กำลังดึงจาก Sheet…';
+    if ($('#nextTitle')) $('#nextTitle').textContent = message || 'กำลังตรวจความก้าวหน้าจาก Google Sheet';
+    if ($('#nextDesc')) $('#nextDesc').textContent = 'ระบบยังไม่ปลดล็อกด่านจนกว่าจะได้รับคำตอบจาก Sheet';
+    if ($('#nextLink')) {
+      $('#nextLink').href = '#';
+      $('#nextLink').textContent = 'กำลังโหลด…';
+      $('#nextLink').setAttribute('aria-disabled', 'true');
+    }
+    const grid = $('#grid');
+    if (grid) grid.innerHTML = '<div class="campaign-separator">Google Sheet เป็นแหล่งข้อมูลหลัก • กำลังโหลดสถานะผู้เรียน</div>';
+  }
 
-    if (grid) {
-      grid.innerHTML = `<div class="campaign-separator">CSAI2601 • 15 Weeks + 4 Boss Gates • ${total} nodes • canonical player ${esc(CONTENT?.version || 'fallback')} • mission icons v39 • choice fairness v40</div>` +
-        nodes.map((node, index) => card(node, index, progressData)).join('');
-      grid.querySelectorAll('a[aria-disabled="true"]').forEach((link) => link.addEventListener('click', (event) => event.preventDefault()));
+  function drawFromSheet(result) {
+    snapshot = result && result.ok ? result : null;
+    if (!snapshot) {
+      renderLoading('ยังไม่ได้รับสถานะจาก Google Sheet');
+      return;
     }
 
-    const next = nextNode(progressData);
+    const canonicalPassed = Array.isArray(snapshot?.diagnostics?.canonicalPassedMissionIds)
+      ? snapshot.diagnostics.canonicalPassedMissionIds.map(value => String(value).toLowerCase())
+      : ORDER.filter(key => passed(key));
+    const completed = canonicalPassed.length;
+    const nextKey = canonicalNextKey();
+    const next = nodes.find(node => node.key === nextKey) || null;
+
+    if ($('#progress')) $('#progress').textContent = `${completed}/${ORDER.length} ด่าน • Sheet`;
+    const grid = $('#grid');
+    if (grid) {
+      grid.innerHTML = `<div class="campaign-separator">CSAI2601 • Sheet Authority v5 • ${completed}/${ORDER.length} nodes • policy ${esc(snapshot?.diagnostics?.policy || 'mission_completed_contiguous')}</div>` + nodes.map(card).join('');
+      grid.querySelectorAll('a[aria-disabled="true"]').forEach(link => link.addEventListener('click', event => event.preventDefault()));
+    }
+
     if (next) {
-      const nextState = statusOf(progressData, next, nodes.indexOf(next));
-      const icon = nodeIcon(next);
       if ($('#nextTitle')) $('#nextTitle').textContent = `${next.id} • ${next.missionTitle || next.title}`;
       if ($('#nextDesc')) $('#nextDesc').textContent = `${next.focus || ''}${next.artifact ? ` • ส่งงาน: ${next.artifact}` : ''}`;
-      if ($('.current-card__icon')) $('.current-card__icon').textContent = icon;
+      if ($('.current-card__icon')) $('.current-card__icon').textContent = nodeIcon(next);
       if ($('#nextLink')) {
         $('#nextLink').href = launchUrl(next);
-        $('#nextLink').textContent = nextState.isPassed ? 'เล่นซ้ำ →' : 'เริ่มภารกิจ →';
+        $('#nextLink').textContent = 'เริ่มภารกิจ →';
+        $('#nextLink').setAttribute('aria-disabled', 'false');
+      }
+    } else {
+      if ($('#nextTitle')) $('#nextTitle').textContent = 'ผ่านครบทุกด่านแล้ว';
+      if ($('#nextDesc')) $('#nextDesc').textContent = 'สถานะยืนยันจาก Google Sheet';
+      if ($('#nextLink')) {
+        $('#nextLink').href = '#';
+        $('#nextLink').textContent = 'ครบ 19/19 ด่าน';
+        $('#nextLink').setAttribute('aria-disabled', 'true');
       }
     }
+
+    document.body.dataset.uxqCloudLoading = '0';
   }
 
   function boot() {
-    draw();
-    window.addEventListener('uxq-progress-updated', draw);
-    window.addEventListener('storage', draw);
-    window.addEventListener('csai2601:uxq-content-ready', draw);
+    renderLoading();
+    window.addEventListener('uxq-sheet-progress-restored', event => drawFromSheet(event.detail));
+    // Intentionally do not listen to uxq-progress-updated or storage events.
+    // Official Mission Control UI must only change after a Sheet restore response.
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });
   else boot();
+  window.UXQMissionControlSheetAuthority = Object.freeze({ drawFromSheet, version:VERSION });
 })();
