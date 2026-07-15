@@ -1,17 +1,18 @@
-/* CSAI2102 AI Quest — Reflection Sheet Confirmation v7.2.8
+/* CSAI2102 AI Quest — Reflection Sheet Confirmation v7.2.9
    Confirms pass + Reflection from Google Sheet before showing Next.
-   v728 uses studentGate first, falls back to studentProgress, and requests one
+   Uses studentGate first, falls back to studentProgress, and requests one
    idempotent Reflection re-dispatch when the first read has not caught up yet.
 */
 (()=>{'use strict';
-if(window.AIQuestReflectionSheetConfirmV728)return;
-const VERSION='v7.2.8';
+if(window.AIQuestReflectionSheetConfirmV729)return;
+const VERSION='v7.2.9';
 const ORDER=['s1','s2','s3','b1','s4','s5','s6','b2','s7','s8','s9','b3','s10','s11','s12','b4','s13','s14','s15','b5'];
 const $=id=>document.getElementById(id),txt=v=>String(v==null?'':v).trim(),norm=x=>txt(x).toLowerCase().replace(/^mission/,'s').replace(/^m/,'s').replace(/^boss/,'b');
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 const bounded=(promise,ms,label)=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error((label||'request')+' timeout')),ms))]);
 function mission(){return norm(new URL(location.href).searchParams.get('mission')||'s1')}
-function passed(){return Number(txt($('score')&&$('score').textContent).replace(/[^0-9.]/g,''))>=60}
+function threshold(id){return id==='b5'?75:id==='b4'?70:60}
+function passed(){return Number(txt($('score')&&$('score').textContent).replace(/[^0-9.]/g,''))>=threshold(mission())}
 function confirmedState(){const c=window.CSAI2102_REFLECTION_GATE_CONFIRMED;return c&&c.missionId===mission()?c:null}
 function sentSignal(){const n=txt($('saveNote')&&$('saveNote').textContent),b=$('save');return /ส่งผลเข้า Google Sheets แล้ว|ส่งผลแล้ว|บันทึก.*แล้ว|Google Sheet ยืนยันแล้ว|ส่งข้อมูลแล้ว/i.test(n)||!!(b&&b.dataset.directSubmitted==='1')||!!(b&&/ส่งผลแล้ว|ส่ง Reflection แล้ว/i.test(txt(b.textContent)))||!!confirmedState()}
 function nextId(){const i=ORDER.indexOf(mission());return i>=0?ORDER[i+1]||'':''}
@@ -30,26 +31,10 @@ let checking=false,sequence=0,lastCycleEnded=0,resendUsed=false,lastGate=null;
 function forceConfirmedUI(gate){checking=false;sequence++;setVerify('hide');const link=makeConfirmedLink(),save=$('save');if(!link)return;if(save){save.disabled=true;save.textContent='✓ ส่งผลแล้ว';save.dataset.sheetConfirmed='1'}lastGate=gate;window.CSAI2102_REFLECTION_GATE_CONFIRMED={missionId:mission(),confirmedAt:new Date().toISOString(),gate};note('✓ ส่งผลเข้า Google Sheets แล้ว • Google Sheet ยืนยันแล้ว: ผ่านและส่ง Reflection '+mission().toUpperCase()+' ครบเรียบร้อย','good')}
 async function lookupGate(){const sid=txt($('sid')&&$('sid').value);if(!sid)throw new Error('ไม่พบรหัสนักศึกษา');if(!window.AIQuestSync||typeof window.AIQuestSync.lookupGate!=='function')throw new Error('Backend ยังไม่รองรับ studentGate');return bounded(window.AIQuestSync.lookupGate({studentId:sid,sessionId:mission(),section:'101'}),15000,'studentGate')}
 async function lookupProgressFallback(){const sid=txt($('sid')&&$('sid').value);if(!sid||!window.AIQuestSync||typeof window.AIQuestSync.lookupProgress!=='function')return null;try{return completionFromProgress(await bounded(window.AIQuestSync.lookupProgress({studentId:sid,section:'101'}),24000,'studentProgress'))}catch(_){return null}}
-async function maybeResend(){if(resendUsed)return;resendUsed=true;const direct=window.AIQuestReflectionDirectSubmitV730||window.AIQuestReflectionDirectSubmitV729;if(direct&&typeof direct.resend==='function'){try{await direct.resend()}catch(_){}}}
-async function confirmSheet(force=false){
- const existing=confirmedState();if(existing){forceConfirmedUI(existing.gate);return true}
- if(checking||!passed())return false;checking=true;const my=++sequence;ensurePendingButton();setVerify('checking');lockNext('ส่งข้อมูลแล้ว กำลังยืนยัน Reflection จาก Google Sheet…');
- try{
-  for(let i=0;i<3;i++){
-   if(my!==sequence)return false;
-   try{const gate=await lookupGate();lastGate=gate;if(gate&&gate.completed===true){forceConfirmedUI(gate);return true}}catch(_){ }
-   if(i===0)await maybeResend();
-   if(i<2)await delay(i===0?1800:2600);
-  }
-  const fallback=await lookupProgressFallback();if(fallback&&fallback.completed===true){forceConfirmedUI(fallback);return true}
-  if(my!==sequence||confirmedState())return true;
-  setVerify('retry');const detail=lastGate?' สถานะล่าสุด: passed='+String(!!lastGate.passed)+', reflection='+String(!!lastGate.reflectionSubmitted):'';note('ข้อมูลถูกส่งแล้ว แต่ Sheet ยังไม่ยืนยัน completed=true'+detail+' กรุณากด “ตรวจผลจาก Sheet อีกครั้ง” โดยไม่ต้องเล่นใหม่','bad');return false;
- }catch(err){
-  if(my!==sequence||confirmedState())return true;setVerify('retry');note('ตรวจยืนยันจาก Sheet ยังไม่สำเร็จ: '+txt(err&&err.message||err)+' กรุณากด “ตรวจผลจาก Sheet อีกครั้ง”','bad');return false;
- }finally{if(my===sequence)checking=false;lastCycleEnded=Date.now();if(confirmedState())setVerify('hide')}
-}
+async function maybeResend(){if(resendUsed)return;resendUsed=true;const direct=window.AIQuestReflectionDirectSubmitV731||window.AIQuestReflectionDirectSubmitV730||window.AIQuestReflectionDirectSubmitV729;if(direct&&typeof direct.resend==='function'){try{await direct.resend()}catch(_){}}}
+async function confirmSheet(force=false){const existing=confirmedState();if(existing){forceConfirmedUI(existing.gate);return true}if(checking||!passed())return false;checking=true;const my=++sequence;ensurePendingButton();setVerify('checking');lockNext('ส่งข้อมูลแล้ว กำลังยืนยัน Reflection จาก Google Sheet…');try{for(let i=0;i<3;i++){if(my!==sequence)return false;try{const gate=await lookupGate();lastGate=gate;if(gate&&gate.completed===true){forceConfirmedUI(gate);return true}}catch(_){ }if(i===0)await maybeResend();if(i<2)await delay(i===0?1800:2600)}const fallback=await lookupProgressFallback();if(fallback&&fallback.completed===true){forceConfirmedUI(fallback);return true}if(my!==sequence||confirmedState())return true;setVerify('retry');const detail=lastGate?' สถานะล่าสุด: passed='+String(!!lastGate.passed)+', reflection='+String(!!lastGate.reflectionSubmitted):'';note('ข้อมูลถูกส่งแล้ว แต่ Sheet ยังไม่ยืนยัน completed=true'+detail+' กรุณากด “ตรวจผลจาก Sheet อีกครั้ง” โดยไม่ต้องเล่นใหม่','bad');return false}catch(err){if(my!==sequence||confirmedState())return true;setVerify('retry');note('ตรวจยืนยันจาก Sheet ยังไม่สำเร็จ: '+txt(err&&err.message||err)+' กรุณากด “ตรวจผลจาก Sheet อีกครั้ง”','bad');return false}finally{if(my===sequence)checking=false;lastCycleEnded=Date.now();if(confirmedState())setVerify('hide')}}
 function captureConfirmedNavigation(e){const target=e.target&&e.target.closest?e.target.closest('#nextMission'):null;if(!target||target.dataset.sheetConfirmed!=='1')return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();navigateNext()}
-function boot(){const result=$('result'),save=$('save');if(!result||!save){setTimeout(boot,120);return}const verify=ensureVerifyButton();if(verify&&!verify.dataset.bound){verify.dataset.bound='1';verify.addEventListener('click',()=>confirmSheet(true))}document.addEventListener('pointerdown',captureConfirmedNavigation,true);document.addEventListener('click',captureConfirmedNavigation,true);save.addEventListener('click',()=>{if(confirmedState()){forceConfirmedUI(confirmedState().gate);return}lockNext();setTimeout(()=>{if(sentSignal())confirmSheet(true)},1300)},false);const observer=new MutationObserver(()=>{const c=confirmedState();if(c)forceConfirmedUI(c.gate);else if(sentSignal()&&!checking&&Date.now()-lastCycleEnded>3500)confirmSheet(false)});observer.observe(result,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','class','style','data-direct-submitted']});console.log('[AIQuest] Reflection Sheet confirmation v728 active • gate + progress fallback + one safe resend')}
+function boot(){const result=$('result'),save=$('save');if(!result||!save){setTimeout(boot,120);return}const verify=ensureVerifyButton();if(verify&&!verify.dataset.bound){verify.dataset.bound='1';verify.addEventListener('click',()=>confirmSheet(true))}document.addEventListener('pointerdown',captureConfirmedNavigation,true);document.addEventListener('click',captureConfirmedNavigation,true);save.addEventListener('click',()=>{if(confirmedState()){forceConfirmedUI(confirmedState().gate);return}lockNext();setTimeout(()=>{if(sentSignal())confirmSheet(true)},1300)},false);const observer=new MutationObserver(()=>{const c=confirmedState();if(c)forceConfirmedUI(c.gate);else if(sentSignal()&&!checking&&Date.now()-lastCycleEnded>3500)confirmSheet(false)});observer.observe(result,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','class','style','data-direct-submitted']});console.log('[AIQuest] Reflection Sheet confirmation v729 active • strict thresholds + gate/progress fallback')}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-window.AIQuestReflectionSheetConfirmV723=window.AIQuestReflectionSheetConfirmV724=window.AIQuestReflectionSheetConfirmV725=window.AIQuestReflectionSheetConfirmV726=window.AIQuestReflectionSheetConfirmV727=window.AIQuestReflectionSheetConfirmV728={version:VERSION,confirmSheet,lookupGate,lookupProgressFallback,forceConfirmedUI,navigateNext,nextUrl,completionFromProgress};
+window.AIQuestReflectionSheetConfirmV723=window.AIQuestReflectionSheetConfirmV724=window.AIQuestReflectionSheetConfirmV725=window.AIQuestReflectionSheetConfirmV726=window.AIQuestReflectionSheetConfirmV727=window.AIQuestReflectionSheetConfirmV728=window.AIQuestReflectionSheetConfirmV729={version:VERSION,confirmSheet,lookupGate,lookupProgressFallback,forceConfirmedUI,navigateNext,nextUrl,completionFromProgress};
 })();
