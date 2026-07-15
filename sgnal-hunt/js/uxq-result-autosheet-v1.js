@@ -1,12 +1,12 @@
-/* CSAI2601 UX Quest • Result Auto Sheet Sync v3
- * Single responsibility: automatically submit mission_completed when the result screen appears.
+/* CSAI2601 UX Quest • Result Auto Sheet Sync v4
+ * Single responsibility: silently submit mission_completed when the result screen appears.
  * Artifact submission/status belongs exclusively to uxq-production-support-v2.js.
- * This separation prevents competing button handlers and flickering status text.
+ * No mission status card is rendered, preventing duplicate status messages in the result UI.
  */
 (() => {
   'use strict';
 
-  const SENT_KEY = 'csai2601.uxq.mission.sheet.sent.v3';
+  const SENT_KEY = 'csai2601.uxq.mission.sheet.sent.v4';
   const q = () => new URLSearchParams(location.search || '');
   const nodeId = () => String(q().get('node') || q().get('id') || 'W1').toUpperCase();
   const nodeKey = () => nodeId().toLowerCase();
@@ -65,93 +65,49 @@
     const courseId = clean(config().courseId || 'UXQ-ACT1-2026', 120);
     const completedAt = clean(result.completedAt || now, 80);
     const eventId = stableId(['mission', courseId, p.section, p.studentId, node.toLowerCase(), completedAt, result.score, result.stars]);
+    const caseId = recentCaseId();
     return {
-      app: 'ux-quest',
-      schema: 'uxq.mission.v3',
-      eventType: 'mission_completed',
-      eventId,
-      attemptId: eventId,
-      occurredAt: now,
-      startedAt: '',
-      completedAt,
+      app: 'ux-quest', schema: 'uxq.mission.v4', eventType: 'mission_completed',
+      eventId, attemptId: eventId, occurredAt: now, startedAt: '', completedAt,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Bangkok',
-      pageUrl: clean(location.href, 500),
-      courseId,
+      pageUrl: clean(location.href, 500), courseId,
       courseLabel: clean(config().courseLabel || 'CSAI2601 • UX Quest', 160),
-      studentId: p.studentId,
-      studentName: p.studentName,
-      section: p.section,
-      nodeId: node,
-      missionId: node.toLowerCase(),
-      missionTitle: missionTitle(),
-      caseId: recentCaseId(),
-      caseIds: recentCaseId() ? [recentCaseId()] : [],
-      score: Number(result.score || 0),
-      stars: Number(result.stars || 0),
-      accuracy: Number(result.accuracy || 0),
-      correct: Number(result.correct || 0),
-      total: Number(result.total || 0),
-      hints: Number(result.hints || 0),
-      durationSec: Number(result.durationSec || 0),
-      passed: Boolean(result.passed),
-      verifiedCorrect: Number(result.correct || 0),
-      verifiedTotal: Number(result.total || 0),
-      verifiedAccuracy: Number(result.accuracy || 0),
-      maxCombo: Number(result.correct || 0),
-      attemptNo: 0,
-      badge: clean(result.badge || `${node} ${missionTitle()}`, 120),
-      answers: [],
-      source: 'csai2601-result-autosheet-v3-mission-only'
+      studentId: p.studentId, studentName: p.studentName, section: p.section,
+      nodeId: node, missionId: node.toLowerCase(), missionTitle: missionTitle(),
+      caseId, caseIds: caseId ? [caseId] : [],
+      score: Number(result.score || 0), stars: Number(result.stars || 0),
+      accuracy: Number(result.accuracy || 0), correct: Number(result.correct || 0),
+      total: Number(result.total || 0), hints: Number(result.hints || 0),
+      durationSec: Number(result.durationSec || 0), passed: Boolean(result.passed),
+      verifiedCorrect: Number(result.correct || 0), verifiedTotal: Number(result.total || 0),
+      verifiedAccuracy: Number(result.accuracy || 0), maxCombo: Number(result.correct || 0),
+      attemptNo: 0, badge: clean(result.badge || `${node} ${missionTitle()}`, 120),
+      answers: [], source: 'csai2601-result-autosheet-v4-mission-silent'
     };
   }
   function post(item) {
     const url = endpoint();
     if (!item || !url) return Promise.resolve({ state: 'not_configured' });
     return fetch(url, {
-      method: 'POST',
-      mode: 'no-cors',
-      cache: 'no-store',
-      keepalive: true,
+      method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true,
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify(item)
     }).then(() => ({ state: 'dispatched_unverified' }))
       .catch((error) => ({ state: 'error', error: String(error?.message || error) }));
   }
-  function setMissionStatus(text, state) {
-    const results = document.querySelector('.results');
-    if (!results) return;
-    let el = results.querySelector('[data-mission-sheet-status-v3]');
-    if (!el) {
-      el = document.createElement('div');
-      el.setAttribute('data-mission-sheet-status-v3', '1');
-      el.setAttribute('aria-live', 'polite');
-      el.style.cssText = 'margin:12px 0 0;padding:10px 12px;border:1px solid rgba(110,231,255,.35);border-radius:12px;background:rgba(7,17,36,.55);font-weight:800;line-height:1.4';
-      results.appendChild(el);
-    }
-    if (el.dataset.state === state && el.textContent === text) return;
-    el.dataset.state = state;
-    el.textContent = text;
+  function removeLegacyStatus() {
+    document.querySelectorAll('[data-mission-sheet-status-v3],[data-mission-sheet-status-v4]').forEach((el) => el.remove());
   }
   function autoMission() {
+    removeLegacyStatus();
     if (!document.querySelector('.results')) return;
     const item = payload();
     if (!item) return;
     const sent = readJson(SENT_KEY, {});
-    if (sent && sent[item.eventId]) {
-      setMissionStatus('ส่งผลภารกิจเข้า Google Sheet แล้ว', 'sent');
-      return;
-    }
+    if (sent && sent[item.eventId]) return;
     sent[item.eventId] = new Date().toISOString();
     writeJson(SENT_KEY, sent);
-    setMissionStatus('กำลังส่งผลภารกิจเข้า Google Sheet…', 'sending');
-    post(item).then((outcome) => {
-      setMissionStatus(
-        outcome.state === 'dispatched_unverified'
-          ? 'ส่งผลภารกิจเข้า Google Sheet แล้ว'
-          : 'ยังส่งผลภารกิจไม่ได้ กรุณาตรวจโปรไฟล์หรือ Receiver',
-        outcome.state
-      );
-    });
+    post(item);
   }
 
   let timer = 0;
