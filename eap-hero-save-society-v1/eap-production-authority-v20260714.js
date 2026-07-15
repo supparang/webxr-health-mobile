@@ -1,17 +1,19 @@
 /* =========================================================
-   EAP Hero Production Authority v20260714
+   EAP Hero Production Authority v20260715
    LIVE-SHEET-ONLY / Section 122
    - Official progress and unlocks come only from a fresh player_resume response.
    - localStorage may cache UI/profile data but cannot complete or unlock a route.
    - A learner without a live matching Sheet record starts at S1 only.
-   - Boss Speaking counts only after teacher review is no longer pending/revise.
+   - Boss Speaking passes the route from the verified Sheet score/pass result.
+   - Teacher Review remains a separate evidence-quality workflow and never re-locks
+     a Boss Gate that the learner has already cleared in the game.
 ========================================================= */
 (function(){
   'use strict';
-  if (window.__EAP_PRODUCTION_AUTHORITY_V1__) return;
-  window.__EAP_PRODUCTION_AUTHORITY_V1__ = true;
+  if (window.__EAP_PRODUCTION_AUTHORITY_V2__) return;
+  window.__EAP_PRODUCTION_AUTHORITY_V2__ = true;
 
-  var VERSION = 'v20260714-EAP-PRODUCTION-AUTHORITY-LIVE-SHEET-ONLY-V1';
+  var VERSION = 'v20260715-EAP-PRODUCTION-AUTHORITY-LIVE-SHEET-ONLY-V2-NONBLOCKING-REVIEW';
   var ORDER = ['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
   var SKILLS = ['reading','listening','writing','speaking'];
   var PASS = 60;
@@ -61,17 +63,24 @@
     if (!Number.isFinite(stamp)) return false;
     return Math.abs(Date.now() - stamp) <= 180000;
   }
-  function reviewPass(row, rid, sk){
-    if (!/^B[1-5]$/.test(rid) || sk !== 'speaking') return true;
-    var status = text(row.teacherReviewStatus || row.reviewStatus).toLowerCase();
-    if (!status || /pending|revise|revision|rework|needs[_ -]?work|not[_ -]?reviewed/.test(status)) return false;
-    return /reviewed|approved|accepted|pass|passed|complete|completed/.test(status);
+  function teacherReviewState(row, rid, sk){
+    if (!/^B[1-5]$/.test(rid) || sk !== 'speaking') return 'not_required';
+    var value = text(row.teacherReviewStatus || row.reviewStatus).toLowerCase();
+    if (/reviewed|approved|accepted|pass|passed|complete|completed/.test(value)) return 'approved';
+    if (/revise|revision|rework|needs[_ -]?work/.test(value)) return 'revise';
+    return 'pending';
   }
   function recordPass(row){
     var rid = norm(row.routeId || row.sessionId || row.session);
     var sk = skill(row.skill || row.skillName);
     var score = Math.max(number(row.bestScore), number(row.latestScore), number(row.score));
-    return !!rid && !!sk && (bool(row.passed) || score >= PASS) && reviewPass(row, rid, sk);
+    /*
+      Unlock policy:
+      A verified Sheet result with passed=true or score >= 60 clears the skill.
+      Boss Speaking teacher review is asynchronous feedback. It remains visible in
+      diagnostics/dashboard but does not send a learner back to a cleared Boss Gate.
+    */
+    return !!rid && !!sk && (bool(row.passed) || score >= PASS);
   }
   function bestMap(){
     var out = {};
@@ -82,19 +91,36 @@
       if (!rid || !sk || ORDER.indexOf(rid) < 0 || SKILLS.indexOf(sk) < 0) return;
       var score = Math.max(number(row.bestScore), number(row.latestScore), number(row.score));
       var key = rid + '|' + sk;
-      var item = { score:score, passed:recordPass(row), row:row };
-      if (!out[key] || item.score > out[key].score || item.passed) out[key] = item;
+      var item = {
+        score:score,
+        passed:recordPass(row),
+        reviewState:teacherReviewState(row, rid, sk),
+        row:row
+      };
+      if (!out[key] || item.score > out[key].score || (item.passed && !out[key].passed)) out[key] = item;
     });
     return out;
   }
   function status(id){
-    var rid = norm(id), req = required(rid), best = bestMap(), passed = [], missing = [], scores = {};
+    var rid = norm(id), req = required(rid), best = bestMap(), passed = [], missing = [], scores = {}, pendingReview = [], reviseReview = [];
     req.forEach(function(sk){
       var item = best[rid + '|' + sk];
       scores[sk] = item ? item.score : 0;
       if (item && item.passed) passed.push(sk); else missing.push(sk);
+      if (item && item.reviewState === 'pending') pendingReview.push(sk);
+      if (item && item.reviewState === 'revise') reviseReview.push(sk);
     });
-    return { routeId:rid, required:req, passed:passed, missing:missing, scores:scores, complete:req.length > 0 && missing.length === 0, liveVerified:live.verified };
+    return {
+      routeId:rid,
+      required:req,
+      passed:passed,
+      missing:missing,
+      scores:scores,
+      pendingTeacherReview:pendingReview,
+      teacherRevisionRequested:reviseReview,
+      complete:req.length > 0 && missing.length === 0,
+      liveVerified:live.verified
+    };
   }
   function firstIncomplete(){
     if (!live.verified) return 0;
@@ -109,7 +135,7 @@
     if (!live.verified) return 'กำลังตรวจความคืบหน้าจาก Google Sheet — เปิดได้เฉพาะ S1';
     for (var i=0; i<idx; i++) {
       var st = status(ORDER[i]);
-      if (!st.complete) return 'ต้องผ่าน ' + st.routeId + ' ก่อน: ' + st.missing.join(' + ') + ' ≥ 60/100' + (/^B/.test(st.routeId) && st.missing.indexOf('speaking') >= 0 ? ' และรอ Teacher Review' : '');
+      if (!st.complete) return 'ต้องผ่าน ' + st.routeId + ' ก่อน: ' + st.missing.join(' + ') + ' ≥ 60/100';
     }
     return '';
   }
@@ -143,8 +169,8 @@
     return norm(args[0]);
   }
   function patchMethod(obj,name){
-    if (!obj || typeof obj[name] !== 'function' || obj[name].__eapLiveSheetOnly) return false;
-    var original = obj[name];
+    if (!obj || typeof obj[name] !== 'function' || obj[name].__eapLiveSheetOnlyV2) return false;
+    var original = obj[name].__original || obj[name];
     var guarded = function(){
       var rid = routeArg(name, arguments);
       if (rid && !canOpen(rid)) {
@@ -154,6 +180,7 @@
       }
       return original.apply(this, arguments);
     };
+    guarded.__eapLiveSheetOnlyV2 = true;
     guarded.__eapLiveSheetOnly = true;
     guarded.__original = original;
     obj[name] = guarded;
@@ -179,6 +206,7 @@
       el.classList.toggle('eap-done', done);
       el.setAttribute('aria-disabled', open ? 'false' : 'true');
       if (!open) el.title = reason(rid);
+      else el.removeAttribute('title');
     });
     var diag = diagnostics();
     document.documentElement.dataset.eapAuthority = VERSION;
@@ -216,6 +244,7 @@
     return {
       version:VERSION,
       authorityMode:'live-sheet-only',
+      bossTeacherReviewMode:'non_blocking_async_feedback',
       acceptsLocalEvidence:false,
       acceptsCompletedSessionsCache:false,
       liveVerified:live.verified,
@@ -247,6 +276,7 @@
   window.EAPRoadmapLockGuard = {
     version:VERSION,
     authorityMode:'live-sheet-only',
+    bossTeacherReviewMode:'non_blocking_async_feedback',
     currentRoute:function(){ return route(currentId()); },
     currentRouteId:currentId,
     isUnlocked:canOpen,
