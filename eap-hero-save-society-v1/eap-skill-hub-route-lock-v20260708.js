@@ -1,22 +1,20 @@
 /* =========================================================
    EAP Hero Skill Hub Route Lock v20260708
-   V3 ROBUST BOSS ROUTE START
+   V4 LIVE-SHEET AUTHORITY FIRST
    - Start / Continue must open only the current route from Cloud/Sheet.
+   - Live Sheet Finalizer is checked before any legacy browser state.
    - Skill Mission Hub must not expose S1-S15 as free navigation.
-   - If current route is a Boss Gate, start it through EAPBossFourSkillV4
-     even if EAPHero.startGateBoss has not been patched yet.
-   - EAPHero.skillHub/openSkillMission are guarded so locked/future sessions
-     cannot be opened by stale buttons or old scripts.
+   - If current route is a Boss Gate, start it through EAPBossFourSkillV4.
    - UI/routing only. Does not change scores, pass/fail, Sheet, evidence,
      teacher review, or the stored profile.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260710-EAP-SKILL-HUB-ROUTE-LOCK-V3-ROBUST-BOSS-START';
+  const VERSION = 'v20260715-EAP-SKILL-HUB-ROUTE-LOCK-V4-LIVE-SHEET-FIRST';
   const STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PACK_NAME = 'EAP_HERO_SESSION_CONTENT_PACK';
-  const STYLE_ID = 'eap-skill-hub-route-lock-style-v3';
+  const STYLE_ID = 'eap-skill-hub-route-lock-style-v4';
   const NOTICE_ID = 'eap-skill-hub-route-lock-notice';
   const REROUTE_FLAG = 'data-eap-skillhub-rerouting';
   let lastRerouteAt = 0;
@@ -32,7 +30,23 @@
   function gateNo(route){ const m = clean(route && route.routeId || route).match(/^B(\d+)$/i); return m ? Number(m[1]) : 0; }
   function isCloudState(s){ s = s || readState(); return !!(s.serverResume || s.cloudResumeStatus === 'ok' || clean(s.currentCloudRoute)); }
 
+  function liveVerifiedRoute(){
+    try {
+      const api = window.EAPLiveSheetRouteFinalizer;
+      if (!api || typeof api.currentRoute !== 'function') return null;
+      const d = typeof api.diagnostics === 'function' ? api.diagnostics() : null;
+      if (!d || d.liveVerified !== true) return null;
+      return routeById(api.currentRoute());
+    } catch(error) { return null; }
+  }
+
   function currentRoute(){
+    // Absolute first authority: fresh player_resume accepted by the live Sheet
+    // finalizer. This prevents old B1/currentCloudRoute values in the oversized
+    // legacy state from redirecting a verified S4 launch back to Boss Gate 1.
+    const fromLive = liveVerifiedRoute();
+    if (fromLive) return fromLive;
+
     const state = readState();
     if (isCloudState(state) && clean(state.currentCloudRoute)) { const fromCloud = routeById(state.currentCloudRoute); if (fromCloud) return fromCloud; }
     try { if (window.EAPRoadmapLockGuard && typeof window.EAPRoadmapLockGuard.currentRoute === 'function') { const fromGuard = window.EAPRoadmapLockGuard.currentRoute(); if (fromGuard && fromGuard.routeId) return fromGuard; } } catch(error) {}
@@ -99,7 +113,7 @@
   }
   function blockSessionButtonClicks(event){ if (!isSkillHub()) return; const btn = event.target && event.target.closest && event.target.closest('button,a,[role="button"]'); if (!isSessionButton(btn)) return; event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation(); runCurrentRoute(); }
   let timer = null; function schedule(){ clearTimeout(timer); timer = setTimeout(function(){ patchHero(); hideSessionSwitcher(); enforceVisibleHubRoute(); }, 120); }
-  function start(){ addStyle(); document.addEventListener('click', blockSessionButtonClicks, true); window.addEventListener('load', schedule); window.addEventListener('storage', schedule); window.addEventListener('eap:resume-synced', schedule); new MutationObserver(schedule).observe(document.documentElement, { childList:true, subtree:true, characterData:true }); schedule(); setInterval(schedule, 900); }
+  function start(){ addStyle(); document.addEventListener('click', blockSessionButtonClicks, true); window.addEventListener('load', schedule); window.addEventListener('storage', schedule); window.addEventListener('eap:resume-synced', schedule); window.addEventListener('eap:live-sheet-route-finalized', schedule); new MutationObserver(schedule).observe(document.documentElement, { childList:true, subtree:true, characterData:true }); schedule(); setInterval(schedule, 900); }
   window.EAPSkillHubRouteLock = { version: VERSION, refresh: schedule, currentRoute, visibleSkillHubSession, runCurrentRoute };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true }); else start();
 })();
