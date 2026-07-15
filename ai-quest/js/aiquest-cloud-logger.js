@@ -1,6 +1,6 @@
 (()=>{'use strict';
-if(window.__AIQUEST_CLOUD_LOGGER_V739__)return;window.__AIQUEST_CLOUD_LOGGER_V739__=true;
-const VERSION='v7.3.9';
+if(window.__AIQUEST_CLOUD_LOGGER_V740__)return;window.__AIQUEST_CLOUD_LOGGER_V740__=true;
+const VERSION='v7.4.0';
 const U='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 const inflight=window.__AIQUEST_JSONP_INFLIGHT__=window.__AIQUEST_JSONP_INFLIGHT__||new Map();
 const clean=v=>String(v==null?'':v).trim();
@@ -23,8 +23,8 @@ const getProgress=async payload=>{const studentId=studentIdOf(payload);if(!stude
 const getGate=async payload=>{const studentId=studentIdOf(payload),sessionId=sidOf(payload?.sessionId||payload?.missionId);if(!studentId)return{ok:false,found:false,error:'studentId is required'};if(!sessionId)return{ok:false,found:false,error:'sessionId is required'};return jsonpFast('studentGate',{studentId,sessionId,section:'101'})};
 window.AIQuestCloudLogger={version:VERSION,isCloudReady:()=>true,healthCheck:async()=>jsonp('health',{}),sendProfile:p=>post('profile',p),sendAttempt:p=>post('attempt',p),sendEvent:p=>post('event',p),getProfile,getProgress,getGate,normalizeAttemptPayload,flushPending:async()=>({ok:true,queued:true})};
 function loadOnce(id,src){if(document.getElementById(id))return;const s=document.createElement('script');s.id=id;s.src=src;s.async=false;document.head.appendChild(s)}
-function loadRuntimeSafety(){loadOnce('aiquestVerifiedGateCache741Bootstrap','./js/aiquest-verified-gate-cache-v740.js?v=20260715-gatebridge741');loadOnce('aiquestNextMissionPrewarm750Bootstrap2','./js/aiquest-next-mission-prewarm-v750.js?v=20260715-prewarm750b');loadOnce('aiquestProgressionGuard721Bootstrap9','./js/aiquest-progression-guard-v716.js?v=20260715-canonicaltitle721i');loadOnce('aiquestReflectionRecovery723Bootstrap5','./js/aiquest-reflection-submit-recovery-v721.js?v=20260715-loopfix723e');loadOnce('aiquestReflectionDirectSubmit731Bootstrap8','./js/aiquest-reflection-direct-submit-v729.js?v=20260715-direct731h');loadOnce('aiquestReflectionSheetConfirm733Bootstrap','./js/aiquest-reflection-sheet-confirm-v723.js?v=20260715-sheet733')}
+function loadRuntimeSafety(){loadOnce('aiquestVerifiedGateCache742Bootstrap','./js/aiquest-verified-gate-cache-v740.js?v=20260715-gatebridge742');loadOnce('aiquestNextMissionPrewarm750Bootstrap3','./js/aiquest-next-mission-prewarm-v750.js?v=20260715-prewarm750c');loadOnce('aiquestProgressionGuard721Bootstrap10','./js/aiquest-progression-guard-v716.js?v=20260715-canonicaltitle721j');loadOnce('aiquestReflectionRecovery723Bootstrap6','./js/aiquest-reflection-submit-recovery-v721.js?v=20260715-loopfix723f');loadOnce('aiquestReflectionDirectSubmit731Bootstrap9','./js/aiquest-reflection-direct-submit-v729.js?v=20260715-direct731i');loadOnce('aiquestReflectionSheetConfirm733Bootstrap2','./js/aiquest-reflection-sheet-confirm-v723.js?v=20260715-sheet733b')}
 function loadUpperQuality(){if(document.querySelector('script[data-aiquest-upper714]'))return;const s=document.createElement('script');s.src='./js/aiquest-upper-course-quality-v714.js?v=20260714-upper714';s.async=true;s.dataset.aiquestUpper714='1';document.head.appendChild(s)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{loadUpperQuality();loadRuntimeSafety()},{once:true});else{loadUpperQuality();loadRuntimeSafety()}
-console.log('[AIQuest] cloud logger v739 ready • immediate verified Boss/Session gate bridge');
+console.log('[AIQuest] cloud logger v740 ready • duplicate-check safe verified gate bridge v742');
 })();
