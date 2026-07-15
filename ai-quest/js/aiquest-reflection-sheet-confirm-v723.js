@@ -1,19 +1,19 @@
-/* CSAI2102 AI Quest — Reflection Sheet Confirmation v7.2.7
-   Confirms pass + Reflection from Apps Script studentGate before showing Next.
-   v727 bounds the full confirmation cycle, avoids an indefinite "กำลังตรวจ Sheet…"
-   state, and leaves a clear retry control when Apps Script is still processing.
+/* CSAI2102 AI Quest — Reflection Sheet Confirmation v7.2.8
+   Confirms pass + Reflection from Google Sheet before showing Next.
+   v728 uses studentGate first, falls back to studentProgress, and requests one
+   idempotent Reflection re-dispatch when the first read has not caught up yet.
 */
 (()=>{'use strict';
-if(window.AIQuestReflectionSheetConfirmV727)return;
-const VERSION='v7.2.7';
+if(window.AIQuestReflectionSheetConfirmV728)return;
+const VERSION='v7.2.8';
 const ORDER=['s1','s2','s3','b1','s4','s5','s6','b2','s7','s8','s9','b3','s10','s11','s12','b4','s13','s14','s15','b5'];
 const $=id=>document.getElementById(id),txt=v=>String(v==null?'':v).trim(),norm=x=>txt(x).toLowerCase().replace(/^mission/,'s').replace(/^m/,'s').replace(/^boss/,'b');
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
-const bounded=(promise,ms)=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error('studentGate timeout')),ms))]);
+const bounded=(promise,ms,label)=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error((label||'request')+' timeout')),ms))]);
 function mission(){return norm(new URL(location.href).searchParams.get('mission')||'s1')}
 function passed(){return Number(txt($('score')&&$('score').textContent).replace(/[^0-9.]/g,''))>=60}
 function confirmedState(){const c=window.CSAI2102_REFLECTION_GATE_CONFIRMED;return c&&c.missionId===mission()?c:null}
-function sentSignal(){const n=txt($('saveNote')&&$('saveNote').textContent),b=$('save');return /ส่งผลเข้า Google Sheets แล้ว|ส่งผลแล้ว|บันทึก.*แล้ว|Google Sheet ยืนยันแล้ว|กำลังยืนยัน Reflection/i.test(n)||!!(b&&/ส่งผลแล้ว/i.test(txt(b.textContent)))||!!confirmedState()}
+function sentSignal(){const n=txt($('saveNote')&&$('saveNote').textContent),b=$('save');return /ส่งผลเข้า Google Sheets แล้ว|ส่งผลแล้ว|บันทึก.*แล้ว|Google Sheet ยืนยันแล้ว|ส่งข้อมูลแล้ว/i.test(n)||!!(b&&b.dataset.directSubmitted==='1')||!!(b&&/ส่งผลแล้ว|ส่ง Reflection แล้ว/i.test(txt(b.textContent)))||!!confirmedState()}
 function nextId(){const i=ORDER.indexOf(mission());return i>=0?ORDER[i+1]||'':''}
 function note(text,kind=''){const n=$('saveNote');if(n){n.className='notice'+(kind?' '+kind:'');n.textContent=text}}
 function nextUrl(){const n=nextId();if(!n)return new URL('./course-map-all-v715.html?route=student-v715',location.href).toString();const u=new URL(location.href);u.searchParams.set('mission',n);u.searchParams.set('release','challenge711');u.searchParams.set('_gate',Date.now().toString());return u.toString()}
@@ -23,12 +23,33 @@ function makeConfirmedLink(){const old=$('nextMission'),save=$('save'),replay=$(
 function ensureVerifyButton(){let b=$('verifyReflectionSheet');if(b)return b;const save=$('save');if(!save||!save.parentElement)return null;b=document.createElement('button');b.id='verifyReflectionSheet';b.type='button';b.className='btn next';b.textContent='ตรวจผลจาก Sheet อีกครั้ง';b.style.display='none';save.insertAdjacentElement('afterend',b);return b}
 function setVerify(mode){const b=ensureVerifyButton();if(!b)return;if(mode==='hide'){b.disabled=false;b.textContent='ตรวจผลจาก Sheet อีกครั้ง';b.style.setProperty('display','none','important');b.setAttribute('aria-hidden','true');return}b.removeAttribute('aria-hidden');b.style.setProperty('display','inline-flex','important');b.disabled=mode==='checking';b.textContent=mode==='checking'?'กำลังตรวจ Sheet…':'ตรวจผลจาก Sheet อีกครั้ง'}
 function lockNext(message){const c=confirmedState();if(c){forceConfirmedUI(c.gate);return}const next=ensurePendingButton();if(next){next.style.setProperty('display','none','important');next.dataset.sheetConfirmed='0';next.setAttribute('aria-disabled','true')}if(message)note(message,'')}
-let checking=false,sequence=0,lastCycleEnded=0;
-function forceConfirmedUI(gate){checking=false;sequence++;setVerify('hide');const link=makeConfirmedLink(),save=$('save');if(!link)return;if(save){save.disabled=true;save.textContent='✓ ส่งผลแล้ว';save.dataset.sheetConfirmed='1'}window.CSAI2102_REFLECTION_GATE_CONFIRMED={missionId:mission(),confirmedAt:new Date().toISOString(),gate};note('✓ ส่งผลเข้า Google Sheets แล้ว • Google Sheet ยืนยันแล้ว: ผ่านและส่ง Reflection '+mission().toUpperCase()+' ครบเรียบร้อย','good')}
-async function lookup(){const sid=txt($('sid')&&$('sid').value);if(!sid)throw new Error('ไม่พบรหัสนักศึกษา');if(!window.AIQuestSync||typeof window.AIQuestSync.lookupGate!=='function')throw new Error('Backend ยังไม่รองรับ studentGate');return bounded(window.AIQuestSync.lookupGate({studentId:sid,sessionId:mission(),section:'101'}),7000)}
-async function confirmSheet(force=false){const existing=confirmedState();if(existing){forceConfirmedUI(existing.gate);return true}if(checking||!passed())return false;checking=true;const my=++sequence;ensurePendingButton();setVerify('checking');lockNext('ส่งข้อมูลแล้ว กำลังยืนยัน Reflection จาก Google Sheet…');try{for(let i=0;i<3;i++){if(my!==sequence)return false;try{const gate=await lookup();if(gate&&gate.completed===true){forceConfirmedUI(gate);return true}}catch(err){}if(i<2)await delay(i===0?1200:1800)}if(my!==sequence||confirmedState())return true;setVerify('retry');note('ข้อมูลถูกส่งแล้ว แต่ Google Sheet ยังประมวลผลไม่เสร็จ กรุณากด “ตรวจผลจาก Sheet อีกครั้ง” โดยไม่ต้องเล่นใหม่','bad');return false}catch(err){if(my!==sequence||confirmedState())return true;setVerify('retry');note('ตรวจยืนยันจาก Sheet ยังไม่สำเร็จ กรุณากด “ตรวจผลจาก Sheet อีกครั้ง” โดยไม่ต้องเล่นใหม่','bad');return false}finally{if(my===sequence)checking=false;lastCycleEnded=Date.now();if(confirmedState())setVerify('hide')}}
+function rowPass(row,id){if(!row)return false;const status=txt(row.gateStatus||row.status).toLowerCase(),score=Number(row.score||row.bestScore||0),win=row.bossWin===true||txt(row.bossWin).toLowerCase()==='true';if(row.passed===true||row.mastered===true||['passed','mastered','completed'].includes(status))return true;if(!/^b/.test(id))return score>=60;if(id==='b4')return win&&score>=70;if(id==='b5')return win&&score>=75;return win}
+function rowReflection(row){if(!row)return false;return row.completed===true||row.reflectionSubmitted===true||txt(row.reflectionStatus).toLowerCase()==='submitted'||[row.reflection1,row.reflection2,row.reflection3].every(v=>txt(v).length>=3)}
+function completionFromProgress(r){const id=mission(),p=r&&r.progress&&r.progress[id]||{},attempts=Array.isArray(r&&r.attempts)?r.attempts.filter(a=>norm(a.sessionId||a.missionId)===id):[];const passedAny=rowPass(p,id)||attempts.some(a=>rowPass(a,id)),reflectedAny=rowReflection(p)||attempts.some(rowReflection);return{ok:true,action:'studentProgress-fallback',sessionId:id,passed:passedAny,reflectionSubmitted:reflectedAny,completed:passedAny&&reflectedAny,version:r&&r.version||'',attemptCount:attempts.length}}
+let checking=false,sequence=0,lastCycleEnded=0,resendUsed=false,lastGate=null;
+function forceConfirmedUI(gate){checking=false;sequence++;setVerify('hide');const link=makeConfirmedLink(),save=$('save');if(!link)return;if(save){save.disabled=true;save.textContent='✓ ส่งผลแล้ว';save.dataset.sheetConfirmed='1'}lastGate=gate;window.CSAI2102_REFLECTION_GATE_CONFIRMED={missionId:mission(),confirmedAt:new Date().toISOString(),gate};note('✓ ส่งผลเข้า Google Sheets แล้ว • Google Sheet ยืนยันแล้ว: ผ่านและส่ง Reflection '+mission().toUpperCase()+' ครบเรียบร้อย','good')}
+async function lookupGate(){const sid=txt($('sid')&&$('sid').value);if(!sid)throw new Error('ไม่พบรหัสนักศึกษา');if(!window.AIQuestSync||typeof window.AIQuestSync.lookupGate!=='function')throw new Error('Backend ยังไม่รองรับ studentGate');return bounded(window.AIQuestSync.lookupGate({studentId:sid,sessionId:mission(),section:'101'}),15000,'studentGate')}
+async function lookupProgressFallback(){const sid=txt($('sid')&&$('sid').value);if(!sid||!window.AIQuestSync||typeof window.AIQuestSync.lookupProgress!=='function')return null;try{return completionFromProgress(await bounded(window.AIQuestSync.lookupProgress({studentId:sid,section:'101'}),24000,'studentProgress'))}catch(_){return null}}
+async function maybeResend(){if(resendUsed)return;resendUsed=true;const direct=window.AIQuestReflectionDirectSubmitV730||window.AIQuestReflectionDirectSubmitV729;if(direct&&typeof direct.resend==='function'){try{await direct.resend()}catch(_){}}}
+async function confirmSheet(force=false){
+ const existing=confirmedState();if(existing){forceConfirmedUI(existing.gate);return true}
+ if(checking||!passed())return false;checking=true;const my=++sequence;ensurePendingButton();setVerify('checking');lockNext('ส่งข้อมูลแล้ว กำลังยืนยัน Reflection จาก Google Sheet…');
+ try{
+  for(let i=0;i<3;i++){
+   if(my!==sequence)return false;
+   try{const gate=await lookupGate();lastGate=gate;if(gate&&gate.completed===true){forceConfirmedUI(gate);return true}}catch(_){ }
+   if(i===0)await maybeResend();
+   if(i<2)await delay(i===0?1800:2600);
+  }
+  const fallback=await lookupProgressFallback();if(fallback&&fallback.completed===true){forceConfirmedUI(fallback);return true}
+  if(my!==sequence||confirmedState())return true;
+  setVerify('retry');const detail=lastGate?' สถานะล่าสุด: passed='+String(!!lastGate.passed)+', reflection='+String(!!lastGate.reflectionSubmitted):'';note('ข้อมูลถูกส่งแล้ว แต่ Sheet ยังไม่ยืนยัน completed=true'+detail+' กรุณากด “ตรวจผลจาก Sheet อีกครั้ง” โดยไม่ต้องเล่นใหม่','bad');return false;
+ }catch(err){
+  if(my!==sequence||confirmedState())return true;setVerify('retry');note('ตรวจยืนยันจาก Sheet ยังไม่สำเร็จ: '+txt(err&&err.message||err)+' กรุณากด “ตรวจผลจาก Sheet อีกครั้ง”','bad');return false;
+ }finally{if(my===sequence)checking=false;lastCycleEnded=Date.now();if(confirmedState())setVerify('hide')}
+}
 function captureConfirmedNavigation(e){const target=e.target&&e.target.closest?e.target.closest('#nextMission'):null;if(!target||target.dataset.sheetConfirmed!=='1')return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();navigateNext()}
-function boot(){const result=$('result'),save=$('save');if(!result||!save){setTimeout(boot,120);return}const verify=ensureVerifyButton();if(verify&&!verify.dataset.bound){verify.dataset.bound='1';verify.addEventListener('click',()=>confirmSheet(true))}document.addEventListener('pointerdown',captureConfirmedNavigation,true);document.addEventListener('click',captureConfirmedNavigation,true);save.addEventListener('click',()=>{if(confirmedState()){forceConfirmedUI(confirmedState().gate);return}lockNext();setTimeout(()=>{if(sentSignal())confirmSheet(true)},900)},false);const observer=new MutationObserver(()=>{const c=confirmedState();if(c)forceConfirmedUI(c.gate);else if(sentSignal()&&!checking&&Date.now()-lastCycleEnded>2500)confirmSheet(false)});observer.observe(result,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','class','style']});console.log('[AIQuest] Reflection Sheet confirmation v727 active • bounded confirmation + explicit retry')}
+function boot(){const result=$('result'),save=$('save');if(!result||!save){setTimeout(boot,120);return}const verify=ensureVerifyButton();if(verify&&!verify.dataset.bound){verify.dataset.bound='1';verify.addEventListener('click',()=>confirmSheet(true))}document.addEventListener('pointerdown',captureConfirmedNavigation,true);document.addEventListener('click',captureConfirmedNavigation,true);save.addEventListener('click',()=>{if(confirmedState()){forceConfirmedUI(confirmedState().gate);return}lockNext();setTimeout(()=>{if(sentSignal())confirmSheet(true)},1300)},false);const observer=new MutationObserver(()=>{const c=confirmedState();if(c)forceConfirmedUI(c.gate);else if(sentSignal()&&!checking&&Date.now()-lastCycleEnded>3500)confirmSheet(false)});observer.observe(result,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','class','style','data-direct-submitted']});console.log('[AIQuest] Reflection Sheet confirmation v728 active • gate + progress fallback + one safe resend')}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-window.AIQuestReflectionSheetConfirmV723=window.AIQuestReflectionSheetConfirmV724=window.AIQuestReflectionSheetConfirmV725=window.AIQuestReflectionSheetConfirmV726=window.AIQuestReflectionSheetConfirmV727={version:VERSION,confirmSheet,lookup,forceConfirmedUI,navigateNext,nextUrl};
+window.AIQuestReflectionSheetConfirmV723=window.AIQuestReflectionSheetConfirmV724=window.AIQuestReflectionSheetConfirmV725=window.AIQuestReflectionSheetConfirmV726=window.AIQuestReflectionSheetConfirmV727=window.AIQuestReflectionSheetConfirmV728={version:VERSION,confirmSheet,lookupGate,lookupProgressFallback,forceConfirmedUI,navigateNext,nextUrl,completionFromProgress};
 })();
