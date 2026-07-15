@@ -1,5 +1,5 @@
-/* CSAI2102 AI Quest — Fast Student Gate v4.4.5
-   Replace the previous v4.4.4 module in the Sheet-bound Apps Script project.
+/* CSAI2102 AI Quest — Fast Student Gate v4.4.6
+   Replace the previous v4.4.5 module in the Sheet-bound Apps Script project.
 
    Required doGet route (before studentProgress):
 
@@ -8,9 +8,9 @@
      return jsonOutMaybe_(aqStudentGate_(p), callback);
    }
 
-   v4.4.5 keeps Google Sheet as the sole official source of truth and fixes
-   Boss rows whose explicit pass evidence is stored in extraJson/raw rather
-   than only in the legacy top-level bossWin field.
+   v4.4.6 keeps Google Sheet as the sole official source of truth and fixes
+   legacy Boss attempts that contain an official score/stars result but whose
+   bossWin/passed columns were not written by older frontend logger versions.
 */
 
 function gateNorm_(value) {
@@ -96,7 +96,7 @@ function gatePassState_(sessionId, row) {
 
   const statusPassed = statuses.some(function(s) {
     return s === 'passed' || s === 'mastered' || s === 'completed' ||
-      s === 'reflection-submitted' || s === 'passed-awaiting-reflection';
+      s === 'passed-awaiting-reflection';
   });
 
   const score = Math.max(
@@ -104,26 +104,53 @@ function gatePassState_(sessionId, row) {
     gateNum_(extra.bestScore), gateNum_(extra.score),
     gateNum_(raw.bestScore), gateNum_(raw.score)
   );
+  const stars = Math.max(
+    gateNum_(row.stars), gateNum_(extra.stars), gateNum_(raw.stars)
+  );
+  const correct = Math.max(
+    gateNum_(row.correct), gateNum_(extra.correct), gateNum_(raw.correct)
+  );
+  const total = Math.max(
+    gateNum_(row.total), gateNum_(extra.total), gateNum_(raw.total)
+  );
 
   const bossWin = [row.bossWin, extra.bossWin, raw.bossWin].some(gateBool_);
-  let passed = explicitPassed || statusPassed;
+  const isReflectionFollowup =
+    statuses.indexOf('reflection-submitted') >= 0 ||
+    gateBool_(row.reflectionSubmitted) || gateBool_(extra.reflectionSubmitted) || gateBool_(raw.reflectionSubmitted);
 
+  // Older logger builds wrote the official Boss score/stars but omitted the
+  // boolean bossWin/passed columns. A score-bearing row in the official Sheet
+  // is therefore accepted as legacy pass evidence using the same pass marks.
+  // Reflection-only rows may carry the copied score; they are accepted because
+  // that score originated from the completed challenge attempt and remains in
+  // the Sheet as official evidence.
+  let legacyScorePassed = false;
   if (/^b[1-3]$/.test(id)) {
-    passed = passed || bossWin;
+    legacyScorePassed = score >= 70 && (stars >= 1 || (total > 0 && correct / total >= 0.70));
   } else if (id === 'b4') {
-    passed = (passed || bossWin) && score >= 70;
+    legacyScorePassed = score >= 70 && (stars >= 1 || (total > 0 && correct / total >= 0.70));
   } else if (id === 'b5') {
-    passed = (passed || bossWin) && score >= 75;
-  } else if (!passed && typeof officialPassForSession_ === 'function') {
+    legacyScorePassed = score >= 75 && (stars >= 1 || (total > 0 && correct / total >= 0.75));
+  }
+
+  let passed = explicitPassed || statusPassed || bossWin || legacyScorePassed;
+
+  if (!/^b[1-5]$/.test(id) && !passed && typeof officialPassForSession_ === 'function') {
     passed = officialPassForSession_(id, row);
   }
 
   return {
     passed: !!passed,
     score: score,
+    stars: stars,
+    correct: correct,
+    total: total,
     explicitPassed: explicitPassed,
     statusPassed: statusPassed,
     bossWin: bossWin,
+    legacyScorePassed: legacyScorePassed,
+    reflectionFollowup: isReflectionFollowup,
     statuses: statuses.filter(function(s) { return !!s; })
   };
 }
@@ -158,10 +185,10 @@ function aqStudentGate_(params) {
   const requestedSection = gateNorm_(params.section || SECTION_LOCK);
 
   if (!/^[A-Za-z0-9_-]{1,32}$/.test(studentId)) {
-    return {ok:false, action:'studentGate', found:false, error:'Invalid studentId', version:APP_VERSION, gateModuleVersion:'v4.4.5', serverTs:bangkokIsoNow()};
+    return {ok:false, action:'studentGate', found:false, error:'Invalid studentId', version:APP_VERSION, gateModuleVersion:'v4.4.6', serverTs:bangkokIsoNow()};
   }
   if (!sessionId) {
-    return {ok:false, action:'studentGate', found:false, error:'Invalid sessionId', studentId:studentId, version:APP_VERSION, gateModuleVersion:'v4.4.5', serverTs:bangkokIsoNow()};
+    return {ok:false, action:'studentGate', found:false, error:'Invalid sessionId', studentId:studentId, version:APP_VERSION, gateModuleVersion:'v4.4.6', serverTs:bangkokIsoNow()};
   }
 
   let passed = false;
@@ -188,14 +215,14 @@ function aqStudentGate_(params) {
     matchedProgressRows++;
     const pass = gatePassState_(sessionId, row);
     passed = passed || pass.passed;
-    passDiagnostics.push({source:'progress', passed:pass.passed, explicitPassed:pass.explicitPassed, statusPassed:pass.statusPassed, bossWin:pass.bossWin, score:pass.score, statuses:pass.statuses});
+    passDiagnostics.push({source:'progress', passed:pass.passed, explicitPassed:pass.explicitPassed, statusPassed:pass.statusPassed, bossWin:pass.bossWin, legacyScorePassed:pass.legacyScorePassed, score:pass.score, stars:pass.stars, correct:pass.correct, total:pass.total, statuses:pass.statuses});
 
     const state = gateReflectionState_(row);
     reflected = reflected || gateNorm_(row.status).toLowerCase() === 'completed' || state.submitted;
     if (state.submitted) reflectionDiagnostics.push({source:'progress', directFlag:state.directFlag, extraFlag:state.extraFlag, rawFlag:state.rawFlag, directText:state.directText, rawText:state.rawText});
 
     score = Math.max(score, pass.score, gateNum_(row.bestScore), gateNum_(row.score));
-    stars = Math.max(stars, gateNum_(row.stars));
+    stars = Math.max(stars, pass.stars, gateNum_(row.stars));
     latestTs = String(row.updatedAt || row.serverTs || latestTs || '');
   });
 
@@ -207,14 +234,14 @@ function aqStudentGate_(params) {
     matchedAttemptRows++;
     const pass = gatePassState_(sessionId, row);
     passed = passed || pass.passed;
-    passDiagnostics.push({source:'attempt', attemptId:gateNorm_(row.attemptId), passed:pass.passed, explicitPassed:pass.explicitPassed, statusPassed:pass.statusPassed, bossWin:pass.bossWin, score:pass.score, statuses:pass.statuses});
+    passDiagnostics.push({source:'attempt', attemptId:gateNorm_(row.attemptId), passed:pass.passed, explicitPassed:pass.explicitPassed, statusPassed:pass.statusPassed, bossWin:pass.bossWin, legacyScorePassed:pass.legacyScorePassed, reflectionFollowup:pass.reflectionFollowup, score:pass.score, stars:pass.stars, correct:pass.correct, total:pass.total, statuses:pass.statuses});
 
     const state = gateReflectionState_(row);
     reflected = reflected || state.submitted || (typeof reflectionSubmitted_ === 'function' && reflectionSubmitted_(row));
     if (state.submitted) reflectionDiagnostics.push({source:'attempt', attemptId:gateNorm_(row.attemptId), directFlag:state.directFlag, extraFlag:state.extraFlag, rawFlag:state.rawFlag, directText:state.directText, rawText:state.rawText});
 
     score = Math.max(score, pass.score, gateNum_(row.score));
-    stars = Math.max(stars, gateNum_(row.stars));
+    stars = Math.max(stars, pass.stars, gateNum_(row.stars));
     const ts = String(row.serverTs || row.clientTs || '');
     if (dateValue_(ts) >= dateValue_(latestTs)) latestTs = ts;
   });
@@ -238,10 +265,10 @@ function aqStudentGate_(params) {
     matchedProgressRows:matchedProgressRows,
     submittedAt:latestTs,
     reflectionDiagnostics:reflectionDiagnostics.slice(-3),
-    passDiagnostics:passDiagnostics.slice(-5),
+    passDiagnostics:passDiagnostics.filter(function(x) { return x.passed || x.score > 0; }).slice(-8),
     elapsedMs:Date.now() - startedAt,
     version:APP_VERSION,
-    gateModuleVersion:'v4.4.5',
+    gateModuleVersion:'v4.4.6',
     serverTs:bangkokIsoNow()
   };
 }
