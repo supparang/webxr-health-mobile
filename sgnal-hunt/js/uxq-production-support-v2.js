@@ -1,17 +1,19 @@
-/* CSAI2601 UX Quest • Production Support v2
- * Evidence, progressive hint, misconception trace, and artifact Sheet sync only.
- * Does not rewrite answer/reason choice text.
+/* CSAI2601 UX Quest • Production Support v2.1
+ * Compact evidence, progressive hint, misconception trace, and artifact Sheet sync.
+ * Evidence uses progressive disclosure: one-line summary before answering,
+ * optional detail on demand, while deep explanation remains after the decision.
  */
 (function(){
   'use strict';
   var q=new URLSearchParams(location.search||'');
   var nodeId=String(q.get('node')||q.get('id')||'').toUpperCase();
   if(!nodeId||nodeId==='W7')return;
-  var VERSION='production-support-v2-20260714';
+  var VERSION='production-support-v2.1-20260715';
   var QUEUE_KEY='csai2601.uxq.production.pending.v2';
   var scheduled=0,lastStage='';
   var cfg=function(){return window.UXQ_CLASSROOM_CONFIG||{};};
   var clean=function(v,n){return String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,n||1200);};
+  var esc=function(v){return String(v||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});};
   function profile(){var p={};try{p=window.UXQIdentity&&window.UXQIdentity.get?window.UXQIdentity.get():{};}catch(e){}return {studentId:clean(p.studentId||q.get('studentId')||'',80),studentName:clean(p.studentName||q.get('studentName')||'',120),section:clean(p.section||q.get('section')||cfg().defaultSection||'',80)};}
   function complete(p){return !!(p.studentId&&p.studentName&&p.section);}
   function uid(x){return x+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);}
@@ -19,10 +21,35 @@
   function send(x){var url=clean(cfg().receiverUrl||'',700);if(!url)return Promise.resolve({ok:false,reason:'no_receiver'});return fetch(url,{method:'POST',mode:'no-cors',cache:'no-store',keepalive:true,headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(x)}).then(function(){return {ok:true};}).catch(function(e){return {ok:false,count:queue(x),reason:String(e&&e.message||e)};});}
   function stageIndex(){var t=clean((document.querySelector('.hud .meter b')||document.querySelector('.case h1')||{}).textContent,180),m=t.match(/([1-9])\s*\/\s*([1-9])|(?:ข้อ|รอบภารกิจ|รอบบอส)\s*([1-9])/i);return Math.max(0,Number((m&&(m[1]||m[3]))||1)-1);}
   function kind(){var t=clean((document.querySelector('.case .kicker')||document.querySelector('.case h1')||{}).textContent,240).toLowerCase();if(/friction|pain|issue|จุดติดขัด/.test(t))return 'evidence';if(/goal|persona|empath/.test(t))return 'goal';if(/impact|cognitive|diagnos|memory|attention/.test(t))return 'diagnose';if(/proof|test|valid|metric/.test(t))return 'test';return 'decision';}
-  function detail(){return clean((document.querySelector('.case p:last-child')||document.querySelector('.instruction')||{}).textContent,220)||'ผู้ใช้พบอุปสรรคระหว่างงานหลัก';}
-  function patchEvidence(){var box=document.querySelector('.question');if(!box)return;var key=nodeId+'-'+stageIndex()+'-'+detail(),el=box.querySelector('[data-production-evidence-v2]');if(el&&el.dataset.key===key)return;if(!el){el=document.createElement('section');el.setAttribute('data-production-evidence-v2','1');el.style.cssText='margin:0 0 14px;padding:12px 14px;border:1px solid rgba(110,231,255,.38);border-radius:15px;background:rgba(110,231,255,.07);display:grid;gap:6px';box.insertBefore(el,box.firstChild);}el.dataset.key=key;el.innerHTML='<b style="color:#9fefff">หลักฐานจากสถานการณ์</b><span style="line-height:1.5;color:#d9e7ff">'+detail().replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];})+'</span><small style="color:#aebfe4">แยกสิ่งที่เกิดกับงานผู้ใช้ออกจากความชอบหรือข้อจำกัดของทีม</small>';}
+  function detail(){return clean((document.querySelector('.case p:last-child')||document.querySelector('.instruction')||{}).textContent,240)||'ผู้ใช้พบอุปสรรคระหว่างงานหลัก';}
+  function focusLabel(){var t=clean((document.querySelector('.case .kicker')||document.querySelector('.case h1')||{}).textContent,120);return t.replace(/\s*[•·]\s*(FRICTION|FIX|IMPACT|PROOF)$/i,'').replace(/^(?:รอบภารกิจ|รอบบอส|ข้อ)\s*\d+\s*:\s*/i,'').trim()||'หลักฐาน';}
+  function compactDetail(){var d=detail();return d.length>105?d.slice(0,102)+'…':d;}
+  function installStyle(){
+    if(document.getElementById('uxq-production-support-v21-style'))return;
+    var s=document.createElement('style');s.id='uxq-production-support-v21-style';s.textContent=`
+      [data-production-evidence-v2]{margin:0 0 12px!important;border:1px solid rgba(110,231,255,.34)!important;border-radius:13px!important;background:rgba(110,231,255,.065)!important;overflow:hidden!important}
+      [data-production-evidence-v2] summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:9px;align-items:center;padding:9px 12px;color:#dff7ff;font-size:.88rem;line-height:1.35}
+      [data-production-evidence-v2] summary::-webkit-details-marker{display:none}
+      [data-production-evidence-v2] summary:after{content:'ดูเพิ่ม';font-size:.73rem;font-weight:850;color:#8fe9ff;border:1px solid rgba(110,231,255,.32);border-radius:999px;padding:3px 7px}
+      [data-production-evidence-v2][open] summary:after{content:'ย่อ'}
+      [data-production-evidence-v2] .evidenceIcon{font-size:1rem}
+      [data-production-evidence-v2] .evidenceLine{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      [data-production-evidence-v2] .evidenceDetail{padding:0 12px 10px 37px;color:#afc0df;font-size:.82rem;line-height:1.45}
+      .hint{min-height:0!important}
+      @media(max-width:720px){[data-production-evidence-v2] summary{grid-template-columns:auto minmax(0,1fr);padding:9px 10px}[data-production-evidence-v2] summary:after{grid-column:2;width:max-content}[data-production-evidence-v2] .evidenceDetail{padding:0 10px 10px 34px}}
+    `;document.head.appendChild(s);
+  }
+  function patchEvidence(){
+    var box=document.querySelector('.question');if(!box)return;
+    var key=nodeId+'-'+stageIndex()+'-'+detail();
+    var el=box.querySelector('[data-production-evidence-v2]');
+    if(el&&el.dataset.key===key)return;
+    if(!el){el=document.createElement('details');el.setAttribute('data-production-evidence-v2','1');box.insertBefore(el,box.firstChild);}
+    el.dataset.key=key;el.removeAttribute('open');
+    el.innerHTML='<summary><span class="evidenceIcon">🔎</span><span class="evidenceLine"><b>'+esc(focusLabel())+'</b> · '+esc(compactDetail())+'</span></summary><div class="evidenceDetail">ใช้ข้อมูลนี้ตัดสินใจ โดยแยกสิ่งที่เกิดกับงานผู้ใช้ออกจากความเห็นหรือข้อจำกัดของทีม</div>';
+  }
   function hintLevel(){try{return Number(sessionStorage.getItem('uxq.hint.'+nodeId+'.'+stageIndex())||0);}catch(e){return 0;}}
-  function patchHint(){var el=document.querySelector('.hint');if(!el)return;var levels={evidence:['ดูขั้นตอนที่งานหยุดหรือย้อน','แยกสิ่งที่ผู้ใช้พูดออกจากสิ่งที่ทำ','เลือกหลักฐานที่ตรวจซ้ำได้'],goal:['ดูว่างานใดต้องสำเร็จ','ดูข้อมูลที่ต้องรู้ก่อนทำต่อ','ตัดเป้าหมายด้านความสวยออก'],diagnose:['แยกภาพ flow และ feedback','หา layer ที่ทำให้ task สะดุด','อย่าใช้ต้นทุนทีมแทนผลผู้ใช้'],decision:['วางข้อมูลใกล้จุดตัดสินใจ','ตรวจว่า action ตรงกับ next step','เลือกแนวทางที่ทดสอบผลได้'],test:['ใช้ task เดิมก่อนและหลัง','วัด success เวลา error และ next step','อย่าใช้ความชอบหรือ traffic อย่างเดียว']};var a=levels[kind()]||levels.decision,lv=Math.min(2,hintLevel());el.textContent='คำใบ้ระดับ '+(lv+1)+': '+a[lv];}
+  function patchHint(){var el=document.querySelector('.hint');if(!el)return;var levels={evidence:['ดูขั้นตอนที่งานหยุดหรือย้อน','แยกสิ่งที่ผู้ใช้พูดออกจากสิ่งที่ทำ','เลือกหลักฐานที่ตรวจซ้ำได้'],goal:['ดูว่างานใดต้องสำเร็จ','ดูข้อมูลที่ต้องรู้ก่อนทำต่อ','ตัดเป้าหมายด้านความสวยออก'],diagnose:['แยกภาพ flow และ feedback','หา layer ที่ทำให้ task สะดุด','อย่าใช้ต้นทุนทีมแทนผลผู้ใช้'],decision:['วางข้อมูลใกล้จุดตัดสินใจ','ตรวจว่า action ตรงกับ next step','เลือกแนวทางที่ทดสอบผลได้'],test:['ใช้ task เดิมก่อนและหลัง','วัด success เวลา error และ next step','อย่าใช้ความชอบหรือ traffic อย่างเดียว']};var a=levels[kind()]||levels.decision,lv=Math.min(2,hintLevel());el.textContent='💡 คำใบ้ระดับ '+(lv+1)+': '+a[lv];}
   function base(eventType,schema){var p=profile(),now=new Date().toISOString();return {app:'ux-quest',schema:schema,eventType:eventType,eventId:uid(nodeId.toLowerCase()+'-'+eventType),attemptId:uid(nodeId.toLowerCase()+'-attempt'),courseId:clean(cfg().courseId||'UXQ-ACT1-2026',120),courseLabel:clean(cfg().courseLabel||'CSAI2601 • UX Quest',160),studentId:p.studentId,studentName:p.studentName,section:p.section,missionId:nodeId.toLowerCase(),missionTitle:nodeId+' • UX Quest',completedAt:now,occurredAt:now,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'Asia/Bangkok',pageUrl:clean(location.href,500),source:VERSION};}
   function misconception(){var fb=document.querySelector('.feedback.bad');if(!fb||fb.dataset.productionLoggedV2==='1')return;fb.dataset.productionLoggedV2='1';var p=profile();if(!complete(p))return;var x=base('reason_retry_submitted','uxq.reason-retry.v2');x.linkedAttemptId=x.attemptId;x.reasonRetry={response:clean(fb.textContent,420),verifiedAccuracy:0,focus:[{stageKey:kind(),count:1,mainCorrect:false}],submittedAt:x.completedAt};send(x);}
   function status(t){var art=document.querySelector('.artifact');if(!art)return;var el=art.querySelector('[data-production-artifact-status-v2]');if(!el){el=document.createElement('div');el.setAttribute('data-production-artifact-status-v2','1');el.style.cssText='padding:10px 12px;border:1px solid rgba(110,231,255,.4);border-radius:12px;background:rgba(7,17,36,.65);font-weight:800';art.appendChild(el);}el.textContent=t;}
@@ -30,7 +57,7 @@
   function fields(){var out={};Array.prototype.slice.call(document.querySelectorAll('.artifact textarea')).forEach(function(a,i){out['field'+(i+1)]=clean(a.value,1800);});return out;}
   function artifactPayload(d){var x=base('artifact_submitted','uxq.artifact.global.v2'),vals=Object.keys(d).map(function(k){return d[k];});x.artifactSubmitted=true;x.artifactType=nodeId.toLowerCase()+'_studio_artifact';x.problemSeen=vals[0]||'';x.uxReason=vals[1]||'';x.fixAndTest=vals.slice(2,4).join(' | ');x.reflection=vals.join(' | ');x.learnedPoint=vals[vals.length-1]||'';x.artifactFields=Object.keys(d).map(function(k){return {key:k,value:d[k]};});x.artifactSubmittedAt=x.completedAt;return x;}
   document.addEventListener('click',function(e){var h=e.target.closest&&e.target.closest('[data-hint]');if(h){try{var k='uxq.hint.'+nodeId+'.'+stageIndex();sessionStorage.setItem(k,String(hintLevel()+1));}catch(x){}setTimeout(patchHint,50);}var b=e.target.closest&&e.target.closest('[data-production-artifact-submit-v2]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();var p=profile();if(!complete(p)){status('ส่งไม่ได้: โปรไฟล์ผู้เรียนไม่ครบ');return;}var d=fields(),ks=Object.keys(d),bad=ks.filter(function(k){return d[k].length<20;});if(!ks.length||bad.length){status('กรอกทุกช่องอย่างน้อย 20 ตัวอักษรก่อนส่ง');return;}b.disabled=true;status('กำลังส่งเข้า Google Sheet...');send(artifactPayload(d)).then(function(o){b.disabled=false;status(o.ok?'ส่งคำขอเข้า Google Sheet แล้ว':'ส่งไม่สำเร็จ • เก็บคิวชั่วคราว '+(o.count||1));});},true);
-  function run(){var sig=nodeId+'|'+stageIndex()+'|'+!!document.querySelector('.verify')+'|'+!!document.querySelector('.artifact');if(sig!==lastStage){lastStage=sig;patchEvidence();patchHint();patchArtifact();}misconception();}
+  function run(){installStyle();var sig=nodeId+'|'+stageIndex()+'|'+!!document.querySelector('.verify')+'|'+!!document.querySelector('.artifact');if(sig!==lastStage){lastStage=sig;patchEvidence();patchHint();patchArtifact();}misconception();}
   function schedule(){clearTimeout(scheduled);scheduled=setTimeout(run,45);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else run();
   var root=document.getElementById('uxqCanonicalNode')||document.body;new MutationObserver(schedule).observe(root,{childList:true,subtree:true});
