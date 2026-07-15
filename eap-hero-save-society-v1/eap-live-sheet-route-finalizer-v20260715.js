@@ -1,19 +1,20 @@
 /* =========================================================
    EAP Hero Live Sheet Route Finalizer v20260715
    FINAL CLOUD-FIRST ROUTE AUTHORITY / Section 122
+   V2 SAFE LOBBY RENDER
    - Fetches player_resume live from Apps Script after profile is known.
    - Google Sheet response is the only authority for official progress/unlocks.
    - localStorage is used only to read the active identity and cache UI route.
-   - Boss gameplay unlock uses verified four-skill pass; teacher review remains
-     an evidence/dashboard workflow and does not send a passed learner back.
-   - Keeps Lobby, Map and Start/Continue on the same verified current route.
+   - Never rewrites a generic ancestor with innerHTML.
+   - Refreshes only the owned Student Lobby fields, then asks the canonical
+     lobby/map lifecycle modules to render themselves.
 ========================================================= */
 (function(){
   'use strict';
-  if (window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V1__) return;
-  window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V1__ = true;
+  if (window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V2__) return;
+  window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V2__ = true;
 
-  var VERSION = 'v20260715-EAP-LIVE-SHEET-ROUTE-FINALIZER-V1';
+  var VERSION = 'v20260715-EAP-LIVE-SHEET-ROUTE-FINALIZER-V2-SAFE-LOBBY';
   var ORDER = ['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
   var SKILLS = ['reading','listening','writing','speaking'];
   var PASS = 60;
@@ -104,16 +105,14 @@
       receivedAt:new Date().toISOString()
     };
 
-    // Feed the normalized LIVE response to the existing guard.
     try {
-      var fixed=Object.assign({},data,{studentId:p.studentId,studentName:text(data.studentName||p.studentName),section:p.section,generatedAt:new Date().toISOString()});
+      var fixed=Object.assign({},data,{studentId:p.studentId,studentName:text(data.studentName||p.studentName),section:p.section,generatedAt:new Date().toISOString(),currentCloudRoute:verified.currentRoute,currentRoute:verified.currentRoute});
       if (window.EAPRoadmapLockGuard && typeof window.EAPRoadmapLockGuard.acceptResume==='function') {
         window.EAPRoadmapLockGuard.acceptResume({detail:{data:fixed,source:'live_sheet_finalizer',live:true}});
       }
       window.dispatchEvent(new CustomEvent('eap:resume-synced',{detail:{data:fixed,source:'live_sheet_finalizer',live:true,changed:true,cloudFirst:true}}));
     } catch(_) {}
 
-    // UI-only route cache. It never creates completion or unlock evidence.
     try {
       localStorage.setItem('EAP_HERO_ACTIVE_ROUTE',verified.currentRoute);
       localStorage.setItem('EAP_HERO_CURRENT_ROUTE',verified.currentRoute);
@@ -157,38 +156,51 @@
         if (window.EAPHero && typeof window.EAPHero.startGateBoss==='function') return window.EAPHero.startGateBoss(rid)!==false;
         if (window.EAPHero && typeof window.EAPHero.openBoss==='function') return window.EAPHero.openBoss(rid)!==false;
       } else {
-        if (window.EAPHero && typeof window.EAPHero.skillHub==='function') return window.EAPHero.skillHub(rid)!==false;
+        if (window.EAPHero && typeof window.EAPHero.skillHub==='function') return window.EAPHero.skillHub(Number(rid.slice(1)))!==false;
       }
     } catch(_) {}
     return false;
   }
+
+  // IMPORTANT: update only the canonical lobby's owned fields.
+  // The previous generic div/section search could select #app and replace the
+  // whole application with the small "ตอนนี้" card.
   function refreshLobby(){
     if (!verified) return;
-    var rid=verified.currentRoute, r=routeDef(rid), title=text(r&&r.title||r&&r.sessionTitle||'');
-    document.querySelectorAll('button,a').forEach(function(el){
-      var t=text(el.textContent);
-      if (/start\s*\/\s*continue|continue session|^continue$/i.test(t)) {
-        el.dataset.eapLiveCurrentRoute=rid;
+    var rid=verified.currentRoute, r=routeDef(rid), title=text(r&&r.title||r&&r.sessionTitle||rid);
+
+    try {
+      if (window.EAPStudentHomeLobby && typeof window.EAPStudentHomeLobby.refresh==='function') {
+        window.EAPStudentHomeLobby.refresh();
       }
-    });
-    var cards=Array.prototype.slice.call(document.querySelectorAll('div,section,article')).filter(function(el){
-      return /ตอนนี้/.test(text(el.textContent)) && /Week\s*\d+\s*\/\s*S\d+|Boss/i.test(text(el.textContent));
-    });
-    cards.sort(function(a,b){return a.children.length-b.children.length;});
-    var card=cards[0];
-    if (card) {
-      var week=/^S/.test(rid)?Number(rid.slice(1)):Math.ceil((ORDER.indexOf(rid)+1)*3/4);
-      card.innerHTML='<div style="color:#9ff3df;font-weight:900;font-size:12px">ตอนนี้</div>'+
-        '<div style="font-weight:950;font-size:22px;margin-top:4px">'+(/^S/.test(rid)?('Week '+week+' / '+rid):rid+' Boss Gate')+'</div>'+
-        '<div style="font-weight:800;margin-top:5px">'+(title||rid)+'</div>'+
-        '<div style="font-size:13px;margin-top:5px">'+text(verified.profile.studentName)+' · ID '+text(verified.profile.studentId)+' · Section '+text(verified.profile.section)+'</div>'+
-        '<div style="font-size:12px;margin-top:10px;opacity:.82">ความคืบหน้ายืนยันจาก Google Sheet แล้ว</div>';
-    }
+    } catch(_) {}
+
+    var lobby=document.getElementById('eap-student-compact-lobby');
+    if (!lobby) return;
+
+    var now=lobby.querySelector('.lob-now');
+    if (!now) return;
+
+    var kicker=now.querySelector('.lob-kicker');
+    var titleEl=now.querySelector('.lob-title');
+    var metas=now.querySelectorAll('.lob-meta');
+    var hint=now.querySelector('.profile-hint');
+    var week=/^S/.test(rid)?Number(rid.slice(1)):Math.ceil((ORDER.indexOf(rid)+1)*3/4);
+
+    if (kicker) kicker.textContent='ตอนนี้';
+    if (titleEl) titleEl.textContent=/^S/.test(rid)?('Week '+week+' / '+rid):(rid+' Boss Gate');
+    if (metas[0]) metas[0].textContent=title||rid;
+    if (metas[1]) metas[1].textContent=text(verified.profile.studentName)+' · ID '+text(verified.profile.studentId)+' · Section '+text(verified.profile.section);
+    if (hint) hint.textContent='ความคืบหน้ายืนยันจาก Google Sheet แล้ว · กด Start / Continue เพื่อเล่นด่านนี้';
+
+    var btn=lobby.querySelector('[data-eap-lobby-action="continue"]');
+    if (btn) btn.setAttribute('data-eap-live-current-route',rid);
   }
   function refreshAll(){
-    refreshLobby();
     try{ if(window.EAPRoadmapLockGuard&&typeof window.EAPRoadmapLockGuard.refresh==='function')window.EAPRoadmapLockGuard.refresh(); }catch(_){}
     try{ if(window.EAPCloudResumeLifecycleCompletion&&typeof window.EAPCloudResumeLifecycleCompletion.refresh==='function')window.EAPCloudResumeLifecycleCompletion.refresh(); }catch(_){}
+    try{ if(window.EAPStudentHomeLobby&&typeof window.EAPStudentHomeLobby.refresh==='function')window.EAPStudentHomeLobby.refresh(); }catch(_){}
+    setTimeout(refreshLobby,80);
   }
   function diagnostics(){ return {version:VERSION,liveVerified:!!verified,currentRoute:verified&&verified.currentRoute||'S1',recordCount:verified&&verified.records.length||0,profile:verified&&verified.profile||profile(),statuses:verified&&verified.statuses||{}}; }
 
