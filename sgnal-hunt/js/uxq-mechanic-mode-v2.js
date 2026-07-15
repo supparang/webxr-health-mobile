@@ -1,36 +1,38 @@
-/* CSAI2601 UX Quest • Mechanic Mode v2.1
+/* CSAI2601 UX Quest • Mechanic Mode v2.2
  * W7 master-reading layout for W1-W15 and B1-B4.
- * Keeps mission identity and learning prompts, but removes the duplicated
- * mechanic panel and secondary choice clutter that increased cognitive load.
+ * - One mission identity strip only.
+ * - Stage-specific prompt derived from the current learning focus.
+ * - Main choices show decision text only before answering.
+ * - Deep explanation remains available in feedback / Reason Check.
  * Presentation only: answer truth, scoring, progress, gates and Sheet sync stay unchanged.
  */
 (() => {
   'use strict';
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
-  const text=(el)=>String(el?.textContent||'').trim();
+  const text=(el)=>String(el?.textContent||'').replace(/\s+/g,' ').trim();
   const qp=()=>new URLSearchParams(location.search||'');
   const nodeId=()=>String(qp().get('node')||qp().get('id')||'W1').toUpperCase();
   const mechanics={
-    W1:{icon:'🔎',mode:'SCAN',action:'เลือกหลักฐานที่ชี้ friction หลัก'},
-    W2:{icon:'🧭',mode:'LAB',action:'เลือก evidence / assumption ที่น่าเชื่อถือ'},
-    W3:{icon:'🧠',mode:'DIAGNOSE',action:'เลือกหลักจิตวิทยาและ repair ที่ตรง'},
-    W4:{icon:'🕵️',mode:'DETECT',action:'เลือกคำถามหรือหลักฐานที่ไม่ชี้นำ'},
-    W5:{icon:'💡',mode:'DEFINE',action:'เลือก node ที่ทำให้ problem definition แข็งแรง'},
-    W6:{icon:'🗺️',mode:'FLOW',action:'เลือก card ที่ควรอยู่ตำแหน่งถัดไปใน flow'},
-    W7:{icon:'📐',mode:'SORT',action:'เลือก element ที่ควรเด่นที่สุดตอนนี้'},
-    W8:{icon:'🧩',mode:'REVIEW',action:'เลือก mismatch หรือ revision ที่ควรแก้ก่อน'},
-    W9:{icon:'🧱',mode:'SYSTEM',action:'เลือก pattern หรือ state rule ที่ตรง'},
-    W10:{icon:'📱',mode:'AUDIT',action:'เลือก issue หรือ fix ที่กระทบ task มากที่สุด'},
-    W11:{icon:'🎨',mode:'SIGNAL',action:'เลือก visual decision ที่อ่านและเข้าใจได้จริง'},
-    W12:{icon:'⚡',mode:'STATE',action:'เลือก state หรือ microcopy ที่ทำให้ผู้ใช้มั่นใจ'},
-    W13:{icon:'🔗',mode:'LINK',action:'เลือก link หรือ state ที่ต้องแก้เพื่อให้ทดสอบได้'},
-    W14:{icon:'🧪',mode:'RANK',action:'เลือก finding หรือ fix ที่ควรจัดลำดับก่อน'},
-    W15:{icon:'🏁',mode:'DEFEND',action:'เลือก proof หรือ narrative ที่ทำให้ case study น่าเชื่อถือ'},
-    B1:{icon:'👹',mode:'BOSS',action:'เลือกคำตอบที่เชื่อมหลายชั้น'},
-    B2:{icon:'🐉',mode:'BOSS',action:'เลือก chain defense ที่แน่นที่สุด'},
-    B3:{icon:'🛡️',mode:'BOSS',action:'เลือก system decision ที่ครบทั้ง consistency และ usability'},
-    B4:{icon:'🔥',mode:'BOSS',action:'เลือก state, prototype, fix และ retest ที่ป้องกันได้ครบ'}
+    W1:{icon:'🔎',action:'เลือกหลักฐานที่ชี้จุดติดขัดหลัก'},
+    W2:{icon:'🧭',action:'เลือกหลักฐานผู้ใช้ที่น่าเชื่อถือ'},
+    W3:{icon:'🧠',action:'เลือกหลักจิตวิทยาและแนวแก้ที่ตรง'},
+    W4:{icon:'🕵️',action:'เลือกคำถามหรือหลักฐานที่ไม่ชี้นำ'},
+    W5:{icon:'💡',action:'เลือกขั้นที่ทำให้ Problem Definition แข็งแรง'},
+    W6:{icon:'🗺️',action:'เลือกขั้นถัดไปที่ทำให้ Flow เดินต่อ'},
+    W7:{icon:'📐',action:'เลือกการจัดลำดับที่ช่วยให้ตัดสินใจได้'},
+    W8:{icon:'🧩',action:'เลือกจุดไม่สอดคล้องที่ต้องแก้ก่อน'},
+    W9:{icon:'🧱',action:'เลือกกฎของ Pattern หรือ State ที่ตรง'},
+    W10:{icon:'📱',action:'เลือก Issue หรือ Fix ที่กระทบ Task มากที่สุด'},
+    W11:{icon:'🎨',action:'เลือก Visual Decision ที่สื่อความหมายชัด'},
+    W12:{icon:'⚡',action:'เลือก State หรือ Microcopy ที่ช่วยให้มั่นใจ'},
+    W13:{icon:'🔗',action:'เลือก Link หรือ State ที่ทำให้ทดสอบ Task ได้'},
+    W14:{icon:'🧪',action:'เลือก Finding หรือ Fix ที่ควรทำก่อน'},
+    W15:{icon:'🏁',action:'เลือก Proof ที่ทำให้ Case Study น่าเชื่อถือ'},
+    B1:{icon:'👹',action:'เลือกคำตอบที่เชื่อม UX, Evidence และ Psychology'},
+    B2:{icon:'🐉',action:'เลือก Chain จาก Evidence ถึง Wireframe ที่แน่นที่สุด'},
+    B3:{icon:'🛡️',action:'เลือก System Decision ที่ครบและใช้งานได้'},
+    B4:{icon:'🔥',action:'เลือก Validation Chain ที่พิสูจน์ผลได้'}
   };
 
   function style(){
@@ -38,60 +40,85 @@
     const s=document.createElement('style');
     s.id='uxq-mechanic-v2-style';
     s.textContent=`
-      /* Production uses one mission identity strip only. */
       .uxqMechanicPanel{display:none!important}
       [data-w7-authority]{display:none!important}
-      .question[data-mechanic-mode] .options{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important}
-      .question[data-mechanic-mode] .option{min-height:132px!important;border-left-width:1px!important;overflow:visible!important}
-      .question[data-mechanic-mode] .option:before{display:none!important;content:none!important}
-      .question[data-mechanic-mode]>.prompt{margin-top:0!important}
-      .uxqMissionIdentity{margin:0!important;border-left:0!important;border-right:0!important;border-radius:0!important;padding:11px 16px!important;background:linear-gradient(90deg,rgba(110,231,255,.10),rgba(155,140,255,.10))!important}
-      .uxqMissionIdentity .miIcon{font-size:1.35rem!important}
-      .uxqMissionIdentity b{font-size:.98rem!important}
-      .uxqMissionIdentity span{font-size:.86rem!important;line-height:1.35!important}
-      .uxqMissionIdentity small{font-size:.78rem!important;margin-top:2px!important}
+      .question .options:first-of-type{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important}
+      .question .options:first-of-type .option{min-height:112px!important;display:flex!important;flex-direction:column!important;justify-content:flex-start!important;padding:18px!important;overflow:visible!important}
+      .question .options:first-of-type .option:before{display:none!important;content:none!important}
+      .question .options:first-of-type .option>b{font-size:1rem!important;line-height:1.48!important}
+      .question:not(.has-feedback) .options:first-of-type .option>span,
+      .question:not(.has-feedback) .options:first-of-type .option>small,
+      .question:not(.has-feedback) .options:first-of-type .option>p{display:none!important}
+      .question>.prompt{margin:0 0 8px!important;line-height:1.25!important}
+      .question>.instruction{margin:0 0 14px!important}
+      .uxqMissionIdentity{margin:0!important;border-left:0!important;border-right:0!important;border-radius:0!important;padding:10px 16px!important;background:linear-gradient(90deg,rgba(110,231,255,.10),rgba(155,140,255,.10))!important}
+      .uxqMissionIdentity .miIcon{font-size:1.25rem!important}
+      .uxqMissionIdentity b{font-size:.96rem!important}
+      .uxqMissionIdentity span{font-size:.84rem!important;line-height:1.3!important}
+      .uxqMissionIdentity small{font-size:.76rem!important;margin-top:2px!important}
       @media(max-width:900px){
-        .question[data-mechanic-mode] .options{grid-template-columns:1fr!important}
-        .question[data-mechanic-mode] .option{min-height:0!important}
+        .question .options:first-of-type{grid-template-columns:1fr!important}
+        .question .options:first-of-type .option{min-height:0!important}
       }
     `;
     document.head.appendChild(s);
   }
 
   function current(){return mechanics[nodeId()]||mechanics.W1;}
-  function neutralLabel(i){return ['A','B','C','D'][i]||String(i+1);}
-
-  function removeDuplicatePanel(q){
-    $$('.uxqMechanicPanel',q).forEach(el=>el.remove());
+  function stageNo(){
+    const raw=text($('.hud .meter b'))+' '+text($('.case h1'));
+    const m=raw.match(/(?:^|\s)([1-5])\s*\/\s*5|(?:ข้อ|รอบภารกิจ|รอบบอส)\s*([1-5])/i);
+    return Math.max(1,Number((m&&(m[1]||m[2]))||1));
+  }
+  function focusText(){return (text($('.case .kicker'))+' '+text($('.case h1'))).toLowerCase();}
+  function stagePrompt(){
+    const f=focusText();
+    const rules=[
+      [/extract insight|insight/, 'เลือก Insight ที่อธิบายความหมายเบื้องหลังสิ่งที่สังเกตได้'],
+      [/root cause/, 'เลือก Root Cause ที่อธิบายว่าทำไมปัญหาจึงเกิด'],
+      [/problem statement|write problem/, 'เลือก Problem Statement ที่ระบุผู้ใช้ บริบท และผลกระทบชัด'],
+      [/\bhmw\b|how might we/, 'เลือก HMW ที่เปิดทางเลือกโดยไม่ซ่อน Solution ไว้แล้ว'],
+      [/concept/, 'เลือก Concept ที่ตอบ Problem และยังนำไปทดสอบได้'],
+      [/classify evidence|evidence/, 'เลือกหลักฐานผู้ใช้ที่นำไปใช้ตัดสินใจได้'],
+      [/assumption/, 'เลือก Assumption ที่ต้องตรวจสอบก่อนออกแบบ'],
+      [/diagnose|cognitive|memory|attention|mental model/, 'เลือกหลักจิตวิทยาที่อธิบายพฤติกรรมในสถานการณ์นี้'],
+      [/research question/, 'เลือก Research Question ที่ไม่ชี้นำและตอบได้จากผู้ใช้จริง'],
+      [/pain point|persona need/, 'เลือก Pain Point หรือ Need ที่มีหลักฐานรองรับ'],
+      [/sitemap|group|information architecture/, 'เลือกการจัดกลุ่มที่ตรงกับ Mental Model ของผู้ใช้'],
+      [/navigation|happy path|error path|flow/, 'เลือกขั้นถัดไปที่ทำให้ผู้ใช้เดินงานต่อได้'],
+      [/visual priority|hierarchy/, 'เลือกข้อมูลที่ควรเด่นตามเป้าหมายการตัดสินใจ'],
+      [/wireframe|layout/, 'เลือกโครงหน้าจอที่รองรับลำดับงานของผู้ใช้'],
+      [/primary cta|cta/, 'เลือก CTA ที่ตรงกับ Next Step ของผู้ใช้'],
+      [/mobile|responsive/, 'เลือกการปรับจอเล็กที่ยังรักษา Task Order'],
+      [/prototype|link/, 'เลือกการเชื่อมที่ทำให้ทดสอบ Task ได้จริง'],
+      [/severity|retest|validation|test/, 'เลือก Finding หรือ Fix ที่พิสูจน์ผลได้'],
+      [/boss|identify problem/, 'เลือกคำตอบที่เชื่อมหลายชั้นและมีหลักฐานรองรับ']
+    ];
+    for(const [re,label] of rules){if(re.test(f))return label;}
+    return current().action;
   }
 
+  function removeDuplicatePanel(q){$$('.uxqMechanicPanel',q).forEach(el=>el.remove());}
   function simplifyMainChoices(q){
-    const groups=$$('.options',q);
-    const main=groups[0];
+    const main=$$('.options',q)[0];
     if(!main)return;
-    $$('.option[data-choice],button.option',main).forEach((btn,i)=>{
-      btn.setAttribute('data-mechanic-label',neutralLabel(i));
-      /* W7 is easier to scan because main cards show one decision statement only.
-         Remove only secondary display copy; button value/click logic is untouched. */
-      $$(':scope > span',btn).forEach(span=>span.remove());
+    $$('.option[data-choice],button.option,.option',main).forEach(btn=>{
+      $$(':scope > span,:scope > small,:scope > p',btn).forEach(el=>el.remove());
     });
   }
+  function markFeedbackState(q){q.classList.toggle('has-feedback',!!q.querySelector('.feedback,.verify'));}
 
   function inject(){
     style();
     const q=$('.question');
     if(!q)return;
-    const m=current();
-    const mark=`${nodeId()}-${text($('.hud .meter b'))}`;
     removeDuplicatePanel(q);
-    q.dataset.mechanicMode=m.mode;
-    q.dataset.mechanicV2Mark=mark;
     simplifyMainChoices(q);
+    markFeedbackState(q);
     const prompt=$(':scope > .prompt',q);
-    if(prompt && !prompt.dataset.masterReadingPrompt){
-      prompt.textContent=`${m.icon} ${m.action}`;
-      prompt.dataset.masterReadingPrompt='1';
-    }
+    const wanted=`${current().icon} ${stagePrompt()}`;
+    if(prompt && prompt.textContent!==wanted)prompt.textContent=wanted;
+    if(prompt)prompt.dataset.masterReadingPrompt=`${nodeId()}-${stageNo()}`;
   }
 
   let t=0;
