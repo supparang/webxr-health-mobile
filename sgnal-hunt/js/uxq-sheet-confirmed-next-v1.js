@@ -1,16 +1,18 @@
-/* CSAI2601 UX Quest • Sheet-confirmed Next Mission Gate v1
+/* CSAI2601 UX Quest • Sheet-confirmed Next Mission Gate v1.1
  * Google Sheet is the sole authority for navigation after a mission result.
  *
  * Contract
  * - A local 2★ result may submit mission_completed, but never unlocks the next link by itself.
  * - The next link remains disabled until uxq_student_progress confirms the current mission
- *   in the contiguous canonical path and returns the expected nextMission.
+ *   in the contiguous canonical path.
+ * - A replay of an earlier completed mission may continue to its canonical successor when
+ *   that successor is already confirmed in the contiguous Sheet history.
  * - localStorage is not consulted for official navigation approval.
  */
 (() => {
   'use strict';
 
-  const VERSION = 'uxq-sheet-confirmed-next-v1-20260715';
+  const VERSION = 'uxq-sheet-confirmed-next-v1.1-20260715';
   const STATUS_ATTR = 'data-sheet-next-status';
   const LINK_ATTR = 'data-sheet-next-gate';
   const ORDER = [
@@ -61,6 +63,10 @@
     }
   }
 
+  function cleanNodeUrl(nodeId) {
+    return `./csai2601-canonical-node-clean-v1.html?node=${encodeURIComponent(String(nodeId || '').toUpperCase())}&v=sheet-next-gate-v1.1-20260715`;
+  }
+
   function nextLink() {
     const results = document.querySelector('.results');
     if (!results || !expectedNext) return null;
@@ -95,7 +101,6 @@
   }
 
   function lock(link) {
-    if (!link.dataset.sheetNextHref) link.dataset.sheetNextHref = link.getAttribute('href') || '#';
     link.setAttribute(LINK_ATTR, 'locked');
     link.setAttribute('aria-disabled', 'true');
     link.setAttribute('href', '#');
@@ -105,7 +110,7 @@
   function unlock(link) {
     link.setAttribute(LINK_ATTR, 'confirmed');
     link.setAttribute('aria-disabled', 'false');
-    link.setAttribute('href', link.dataset.sheetNextHref || `./csai2601-canonical-node-clean-v1.html?node=${expectedNext.toUpperCase()}`);
+    link.setAttribute('href', cleanNodeUrl(expectedNext));
     link.textContent = `ไปต่อ ${expectedNext.toUpperCase()} →`;
     setStatus(link, `Google Sheet ยืนยัน ${current.toUpperCase()} แล้ว • เปิด ${expectedNext.toUpperCase()} ได้`, 'ok');
   }
@@ -158,15 +163,27 @@
     }
   }
 
-  function sheetConfirms(result) {
-    if (!result || !result.ok) return false;
-    const mission = result.missions?.[current];
-    const currentPassed = Boolean(mission && (mission.completed || mission.passed || Number(mission.bestStars || mission.stars || 0) >= 2));
-    const next = String(result.nextMission || '').trim().toLowerCase();
+  function confirmation(result) {
+    if (!result || !result.ok) return { ok:false, reason:'invalid_response' };
     const canonicalPassed = Array.isArray(result.diagnostics?.canonicalPassedMissionIds)
       ? result.diagnostics.canonicalPassedMissionIds.map(value => String(value).toLowerCase())
       : [];
-    return currentPassed && canonicalPassed.includes(current) && next === expectedNext;
+    const mission = result.missions?.[current];
+    const currentPassed = Boolean(
+      canonicalPassed.includes(current) && mission &&
+      (mission.completed || mission.passed || Number(mission.bestStars || mission.stars || 0) >= 2)
+    );
+    const apiNext = String(result.nextMission || '').trim().toLowerCase();
+    const successorAlreadyPassed = canonicalPassed.includes(expectedNext);
+    const expectedIsOfficialNext = apiNext === expectedNext;
+    return {
+      ok: currentPassed && (expectedIsOfficialNext || successorAlreadyPassed),
+      currentPassed,
+      expectedIsOfficialNext,
+      successorAlreadyPassed,
+      apiNext,
+      canonicalPassed
+    };
   }
 
   async function confirm(link, token) {
@@ -177,9 +194,12 @@
       setStatus(link, `กำลังรอ Google Sheet ยืนยันผล ${current.toUpperCase()}… (${i + 1}/${attempts})`);
       try {
         const result = await requestProgress();
-        if (sheetConfirms(result)) {
+        const checked = confirmation(result);
+        if (checked.ok) {
           unlock(link);
-          window.dispatchEvent(new CustomEvent('uxq-sheet-next-confirmed', { detail:{ current, next:expectedNext, result } }));
+          window.dispatchEvent(new CustomEvent('uxq-sheet-next-confirmed', {
+            detail:{ current, next:expectedNext, result, confirmation:checked }
+          }));
           return;
         }
       } catch (error) {
@@ -193,7 +213,7 @@
   }
 
   function begin(link) {
-    if (!link || link === activeLink && link.getAttribute(LINK_ATTR) === 'locked') return;
+    if (!link || (link === activeLink && link.getAttribute(LINK_ATTR) === 'locked')) return;
     activeLink = link;
     ensureStyle();
 
@@ -236,5 +256,5 @@
   else scan();
   new MutationObserver(scan).observe(document.getElementById('uxqCanonicalNode') || document.body, { childList:true, subtree:true });
 
-  window.UXQSheetConfirmedNext = Object.freeze({ version:VERSION, requestProgress, scan });
+  window.UXQSheetConfirmedNext = Object.freeze({ version:VERSION, requestProgress, confirmation, scan });
 })();
