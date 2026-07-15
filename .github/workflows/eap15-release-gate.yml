@@ -17,6 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Run canonical analytics contract
+        run: node eap-hero-save-society-v1/qa/eap-analytics-canonical-contract.mjs
       - run: npm install --no-save playwright@1.52.0
       - run: npx playwright install --with-deps chromium
       - name: Start local player
