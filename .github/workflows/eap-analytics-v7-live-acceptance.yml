@@ -1,0 +1,24 @@
+name: EAP Analytics v7 Live Acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      section:
+        description: Section to verify
+        required: true
+        default: '122'
+permissions:
+  contents: read
+jobs:
+  verify-deployed-v7:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      EAP_ENDPOINT: https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec
+      EAP_SECTION: ${{ inputs.section }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify canonical v7 on deployed Apps Script
+        run: node eap-hero-save-society-v1/qa/eap-analytics-v7-live-acceptance.mjs
