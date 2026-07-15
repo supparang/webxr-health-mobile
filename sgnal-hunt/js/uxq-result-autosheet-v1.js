@@ -1,14 +1,12 @@
-/* CSAI2601 UX Quest • Result Auto Sheet Sync v2
- * Sheet-only classroom logging.
- * - Sends mission_completed automatically when the result screen appears.
- * - Replaces local-note save with Sheet submit for debrief/artifact.
- * - Prevents the old local-only save handler from overriding classroom status.
+/* CSAI2601 UX Quest • Result Auto Sheet Sync v3
+ * Single responsibility: automatically submit mission_completed when the result screen appears.
+ * Artifact submission/status belongs exclusively to uxq-production-support-v2.js.
+ * This separation prevents competing button handlers and flickering status text.
  */
 (() => {
   'use strict';
 
-  const SENT_KEY = 'csai2601.uxq.mission.sheet.sent.v2';
-  const ARTIFACT_LAST_KEY = 'csai2601.uxq.artifact.sheet.autosync.last.v2';
+  const SENT_KEY = 'csai2601.uxq.mission.sheet.sent.v3';
   const q = () => new URLSearchParams(location.search || '');
   const nodeId = () => String(q().get('node') || q().get('id') || 'W1').toUpperCase();
   const nodeKey = () => nodeId().toLowerCase();
@@ -26,22 +24,18 @@
     try { sessionStorage.setItem(key, text); return true; } catch (error) {}
     return false;
   }
-  function uid(prefix) {
-    const rnd = Math.random().toString(36).slice(2, 9);
-    return `${prefix || 'uxq'}-${Date.now().toString(36)}-${rnd}`;
-  }
   function stableId(parts) {
-    return parts.map((part) => clean(part, 90).replace(/[^a-z0-9ก-๙_-]+/gi, '-')).filter(Boolean).join('-').slice(0, 160) || uid('mission');
+    return parts.map((part) => clean(part, 90).replace(/[^a-z0-9ก-๙_-]+/gi, '-'))
+      .filter(Boolean).join('-').slice(0, 160);
   }
   function profile() {
-    const stored = (() => {
-      try { return window.UXQIdentity?.get?.() || readJson('uxq.classroom.profile.v1', {}) || {}; }
-      catch (error) { return readJson('uxq.classroom.profile.v1', {}) || {}; }
-    })();
-    const section = clean(stored.section || q().get('section') || q().get('class') || config().defaultSection || '101', 80);
+    let stored = {};
+    try { stored = window.UXQIdentity?.get?.() || readJson('uxq.classroom.profile.v1', {}) || {}; }
+    catch (error) { stored = readJson('uxq.classroom.profile.v1', {}) || {}; }
+    const section = clean(stored.section || q().get('section') || q().get('class') || config().defaultSection || '', 80);
     return {
-      studentId: clean(stored.studentId || q().get('studentId') || q().get('sid') || q().get('pid') || `TEST-${section}`, 80),
-      studentName: clean(stored.studentName || q().get('studentName') || q().get('name') || 'UX Quest Test Learner', 120),
+      studentId: clean(stored.studentId || q().get('studentId') || q().get('sid') || q().get('pid') || '', 80),
+      studentName: clean(stored.studentName || q().get('studentName') || q().get('name') || '', 120),
       section
     };
   }
@@ -54,21 +48,35 @@
     return Array.isArray(recent) && recent.length ? clean(recent[0], 100) : '';
   }
   function missionTitle() {
-    const brand = document.querySelector('.brand span:last-child')?.textContent || '';
-    const h1 = document.querySelector('.results h1, .case h1, .title')?.textContent || '';
-    return clean(brand || h1 || nodeId(), 180);
+    return clean(
+      document.querySelector('.brand span:last-child')?.textContent ||
+      document.querySelector('.results h1, .case h1, .title')?.textContent ||
+      nodeId(),
+      180
+    );
   }
-  function base(eventType, schema) {
+  function payload() {
+    const result = lastResult();
+    if (!result || !Number(result.total || 0)) return null;
     const p = profile();
+    if (!p.studentId || !p.studentName || !p.section) return null;
     const now = new Date().toISOString();
     const node = nodeId();
+    const courseId = clean(config().courseId || 'UXQ-ACT1-2026', 120);
+    const completedAt = clean(result.completedAt || now, 80);
+    const eventId = stableId(['mission', courseId, p.section, p.studentId, node.toLowerCase(), completedAt, result.score, result.stars]);
     return {
-      app: 'ux-quest', schema, eventType,
+      app: 'ux-quest',
+      schema: 'uxq.mission.v3',
+      eventType: 'mission_completed',
+      eventId,
+      attemptId: eventId,
       occurredAt: now,
-      completedAt: now,
+      startedAt: '',
+      completedAt,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Bangkok',
       pageUrl: clean(location.href, 500),
-      courseId: clean(config().courseId || 'UXQ-ACT1-2026', 120),
+      courseId,
       courseLabel: clean(config().courseLabel || 'CSAI2601 • UX Quest', 160),
       studentId: p.studentId,
       studentName: p.studentName,
@@ -76,19 +84,8 @@
       nodeId: node,
       missionId: node.toLowerCase(),
       missionTitle: missionTitle(),
-      caseId: recentCaseId()
-    };
-  }
-  function missionPayload() {
-    const result = lastResult();
-    if (!result || !Number(result.total || 0)) return null;
-    const common = base('mission_completed', 'uxq.mission.v2');
-    const id = stableId(['mission', common.courseId, common.section, common.studentId, common.missionId, result.completedAt || common.completedAt, result.score, result.stars]);
-    return Object.assign(common, {
-      eventId: id,
-      attemptId: id,
-      startedAt: '',
-      completedAt: clean(result.completedAt || common.completedAt, 80),
+      caseId: recentCaseId(),
+      caseIds: recentCaseId() ? [recentCaseId()] : [],
       score: Number(result.score || 0),
       stars: Number(result.stars || 0),
       accuracy: Number(result.accuracy || 0),
@@ -102,128 +99,68 @@
       verifiedAccuracy: Number(result.accuracy || 0),
       maxCombo: Number(result.correct || 0),
       attemptNo: 0,
-      badge: clean(result.badge || `${common.nodeId} ${common.missionTitle}`, 120),
-      caseIds: common.caseId ? [common.caseId] : [],
+      badge: clean(result.badge || `${node} ${missionTitle()}`, 120),
       answers: [],
-      source: 'csai2601-result-autosheet-v2-sheet-only'
-    });
-  }
-  function collectArtifact() {
-    const values = {};
-    const labels = [];
-    Array.from(document.querySelectorAll('.artifact textarea, textarea[data-artifact-field], textarea[data-debrief-index]')).forEach((area, position) => {
-      const idx = String(area.dataset.artifactField || area.dataset.debriefIndex || position);
-      if (values[idx] != null) return;
-      values[idx] = clean(area.value, 1500);
-      const label = area.closest('label')?.querySelector('b')?.textContent || `field ${idx}`;
-      labels.push({ index: idx, label: clean(label, 160), value: values[idx] });
-    });
-    return { values, labels };
-  }
-  function artifactPayload(forceEmpty) {
-    const result = lastResult();
-    const artifact = collectArtifact();
-    const problem = artifact.values['0'] || '';
-    const why = artifact.values['1'] || '';
-    const fixTest = artifact.values['2'] || '';
-    const reflection = [problem, why, fixTest].filter(Boolean).join(' | ');
-    if (!reflection && !forceEmpty) return null;
-    return Object.assign(base('artifact_submitted', 'uxq.artifact.v2'), {
-      eventId: uid('artifact'),
-      attemptId: uid('artifact-attempt'),
-      artifactSubmitted: true,
-      artifactType: 'postgame_debrief_3min',
-      problemSeen: problem,
-      uxReason: why,
-      fixAndTest: fixTest,
-      reflection: clean(reflection || 'submitted without debrief text', 3000),
-      learnedPoint: clean(why || problem || 'submitted without debrief text', 1500),
-      artifactFields: artifact.labels,
-      score: Number(result.score || 0),
-      stars: Number(result.stars || 0),
-      accuracy: Number(result.accuracy || 0),
-      correct: Number(result.correct || 0),
-      total: Number(result.total || 0),
-      hints: Number(result.hints || 0),
-      durationSec: Number(result.durationSec || 0),
-      passed: Boolean(result.passed),
-      source: 'csai2601-result-autosheet-v2-sheet-only'
-    });
-  }
-  function status(text) {
-    let el = document.querySelector('[data-save-status]');
-    const artifact = document.querySelector('.artifact');
-    if (!el && artifact) {
-      el = document.createElement('small');
-      el.setAttribute('data-save-status', '');
-      const actions = artifact.querySelector('.actions') || artifact;
-      actions.appendChild(el);
-    }
-    if (el) el.textContent = text;
+      source: 'csai2601-result-autosheet-v3-mission-only'
+    };
   }
   function post(item) {
     const url = endpoint();
-    if (!item || !url) return Promise.resolve({ state:'local_only' });
+    if (!item || !url) return Promise.resolve({ state: 'not_configured' });
     return fetch(url, {
       method: 'POST',
       mode: 'no-cors',
       cache: 'no-store',
       keepalive: true,
-      headers: { 'Content-Type':'text/plain;charset=UTF-8' },
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify(item)
-    }).then(() => ({ state:'dispatched_unverified' }))
-      .catch((error) => ({ state:'error', error:String(error?.message || error) }));
+    }).then(() => ({ state: 'dispatched_unverified' }))
+      .catch((error) => ({ state: 'error', error: String(error?.message || error) }));
+  }
+  function setMissionStatus(text, state) {
+    const results = document.querySelector('.results');
+    if (!results) return;
+    let el = results.querySelector('[data-mission-sheet-status-v3]');
+    if (!el) {
+      el = document.createElement('div');
+      el.setAttribute('data-mission-sheet-status-v3', '1');
+      el.setAttribute('aria-live', 'polite');
+      el.style.cssText = 'margin:12px 0 0;padding:10px 12px;border:1px solid rgba(110,231,255,.35);border-radius:12px;background:rgba(7,17,36,.55);font-weight:800;line-height:1.4';
+      results.appendChild(el);
+    }
+    if (el.dataset.state === state && el.textContent === text) return;
+    el.dataset.state = state;
+    el.textContent = text;
   }
   function autoMission() {
     if (!document.querySelector('.results')) return;
-    const item = missionPayload();
+    const item = payload();
     if (!item) return;
     const sent = readJson(SENT_KEY, {});
-    if (sent && sent[item.eventId]) return;
+    if (sent && sent[item.eventId]) {
+      setMissionStatus('ส่งผลภารกิจเข้า Google Sheet แล้ว', 'sent');
+      return;
+    }
     sent[item.eventId] = new Date().toISOString();
     writeJson(SENT_KEY, sent);
-    status('กำลังส่งผลการเล่นเข้า Sheet...');
+    setMissionStatus('กำลังส่งผลภารกิจเข้า Google Sheet…', 'sending');
     post(item).then((outcome) => {
-      if (outcome.state === 'dispatched_unverified') status('ส่งผลการเล่นเข้า Sheet แล้ว');
-      else status('ยังส่ง Sheet ไม่ได้: ตรวจ receiverUrl / profile');
+      setMissionStatus(
+        outcome.state === 'dispatched_unverified'
+          ? 'ส่งผลภารกิจเข้า Google Sheet แล้ว'
+          : 'ยังส่งผลภารกิจไม่ได้ กรุณาตรวจโปรไฟล์หรือ Receiver',
+        outcome.state
+      );
     });
   }
-  function hardenSheetOnlyUi() {
-    document.querySelectorAll('[data-save-artifact]').forEach((button) => {
-      button.textContent = 'ส่งเข้า Sheet';
-      button.classList.remove('secondary');
-      button.setAttribute('title', 'ส่ง debrief/artifact เข้า Google Sheet เท่านั้น');
-    });
-    document.querySelectorAll('.artifact p, .artifact .kicker').forEach((el) => {
-      el.textContent = el.textContent
-        .replace(/บันทึก note ในเครื่อง/g, 'ส่งเข้า Sheet')
-        .replace(/นำผลการเล่นไปเติมใบงาน\/portfolio ตามหัวข้อต่อไปนี้/g, 'กรอกสั้น ๆ แล้วส่งเข้า Google Sheet เท่านั้น');
-    });
-  }
-  function bindArtifactButton() {
-    document.querySelectorAll('[data-save-artifact]').forEach((button) => {
-      if (button.dataset.sheetOnlyBound === '1') return;
-      button.dataset.sheetOnlyBound = '1';
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        const item = artifactPayload(false);
-        if (!item) { status('ผลการเล่นส่งเข้า Sheet แล้ว • กรอก debrief อย่างน้อย 1 ช่องแล้วกดส่งเข้า Sheet'); return; }
-        writeJson(ARTIFACT_LAST_KEY, item);
-        status('กำลังส่ง debrief เข้า Sheet...');
-        post(item).then((outcome) => {
-          if (outcome.state === 'dispatched_unverified') status('ส่ง debrief เข้า Sheet แล้ว');
-          else status('ยังส่ง Sheet ไม่ได้: เก็บคิวในเครื่องชั่วคราวแล้ว');
-        });
-      }, true);
-    });
-  }
+
   let timer = 0;
-  function run() {
+  function schedule() {
     clearTimeout(timer);
-    timer = setTimeout(() => { autoMission(); hardenSheetOnlyUi(); bindArtifactButton(); }, 60);
+    timer = setTimeout(autoMission, 80);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once:true }); else run();
-  new MutationObserver(run).observe(document.documentElement, { childList:true, subtree:true });
-  window.CSAI2601UXQAutoSheet = Object.freeze({ missionPayload, artifactPayload, autoMission });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule, { once: true });
+  else schedule();
+  new MutationObserver(schedule).observe(document.getElementById('uxqCanonicalNode') || document.body, { childList: true, subtree: true });
+  window.CSAI2601UXQAutoSheet = Object.freeze({ payload, autoMission });
 })();
