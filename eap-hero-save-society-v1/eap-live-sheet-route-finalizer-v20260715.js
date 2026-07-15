@@ -1,20 +1,21 @@
 /* =========================================================
    EAP Hero Live Sheet Route Finalizer v20260715
    FINAL CLOUD-FIRST ROUTE AUTHORITY / Section 122
-   V2 SAFE LOBBY RENDER
+   V3 VERIFIED DIRECT SESSION LAUNCH
    - Fetches player_resume live from Apps Script after profile is known.
    - Google Sheet response is the only authority for official progress/unlocks.
    - localStorage is used only to read the active identity and cache UI route.
    - Never rewrites a generic ancestor with innerHTML.
-   - Refreshes only the owned Student Lobby fields, then asks the canonical
-     lobby/map lifecycle modules to render themselves.
+   - Refreshes only the owned Student Lobby fields.
+   - Start / Continue bypasses stale legacy route wrappers and launches the
+     exact Sheet-verified route (for example S4 must never fall back to B1).
 ========================================================= */
 (function(){
   'use strict';
-  if (window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V2__) return;
-  window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V2__ = true;
+  if (window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V3__) return;
+  window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V3__ = true;
 
-  var VERSION = 'v20260715-EAP-LIVE-SHEET-ROUTE-FINALIZER-V2-SAFE-LOBBY';
+  var VERSION = 'v20260715-EAP-LIVE-SHEET-ROUTE-FINALIZER-V3-VERIFIED-DIRECT-LAUNCH';
   var ORDER = ['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
   var SKILLS = ['reading','listening','writing','speaking'];
   var PASS = 60;
@@ -92,6 +93,14 @@
     return {currentRoute:ORDER[first]||'S1',currentIndex:first,statuses:statuses,best:best};
   }
   function endpoint(){ return text((window.EAP_SHEET_CONFIG||{}).webAppUrl||''); }
+  function cacheVerifiedRoute(){
+    if (!verified) return;
+    try {
+      localStorage.setItem('EAP_HERO_ACTIVE_ROUTE',verified.currentRoute);
+      localStorage.setItem('EAP_HERO_CURRENT_ROUTE',verified.currentRoute);
+      if (/^S/.test(verified.currentRoute)) localStorage.setItem('EAP_HERO_CURRENT_SESSION',String(Number(verified.currentRoute.slice(1))));
+    } catch(_) {}
+  }
   function applyLive(data,p){
     if (!data || data.ok!==true || !Array.isArray(data.records)) return false;
     var ev=evaluate(data.records);
@@ -105,18 +114,14 @@
       receivedAt:new Date().toISOString()
     };
 
+    cacheVerifiedRoute();
+
     try {
       var fixed=Object.assign({},data,{studentId:p.studentId,studentName:text(data.studentName||p.studentName),section:p.section,generatedAt:new Date().toISOString(),currentCloudRoute:verified.currentRoute,currentRoute:verified.currentRoute});
       if (window.EAPRoadmapLockGuard && typeof window.EAPRoadmapLockGuard.acceptResume==='function') {
         window.EAPRoadmapLockGuard.acceptResume({detail:{data:fixed,source:'live_sheet_finalizer',live:true}});
       }
       window.dispatchEvent(new CustomEvent('eap:resume-synced',{detail:{data:fixed,source:'live_sheet_finalizer',live:true,changed:true,cloudFirst:true}}));
-    } catch(_) {}
-
-    try {
-      localStorage.setItem('EAP_HERO_ACTIVE_ROUTE',verified.currentRoute);
-      localStorage.setItem('EAP_HERO_CURRENT_ROUTE',verified.currentRoute);
-      if (/^S/.test(verified.currentRoute)) localStorage.setItem('EAP_HERO_CURRENT_SESSION',String(Number(verified.currentRoute.slice(1))));
     } catch(_) {}
 
     refreshAll();
@@ -148,23 +153,45 @@
     var idx=ORDER.indexOf(norm(id));
     return !!verified && idx>=0 && idx<=verified.currentIndex;
   }
+  function hero(){ return window.EAPHero || window.EapHero || window.eapHero || null; }
+  function openVerifiedSession(sessionNo){
+    var api=hero();
+    if (!api) return false;
+
+    // Route Lock wraps skillHub and may still read an old B1 value from the
+    // oversized legacy state. Call its preserved canonical skillHub directly.
+    if (typeof api.__skillHubRouteLockOriginalSkillHub === 'function') {
+      api.__skillHubRouteLockCalling=true;
+      try { api.__skillHubRouteLockOriginalSkillHub.call(api,sessionNo); }
+      finally { api.__skillHubRouteLockCalling=false; }
+      return true;
+    }
+    if (typeof api.skillHub === 'function') {
+      api.__skillHubRouteLockCalling=true;
+      try { api.skillHub(sessionNo); }
+      finally { api.__skillHubRouteLockCalling=false; }
+      return true;
+    }
+    return false;
+  }
   function openRoute(id){
     var rid=norm(id||verified&&verified.currentRoute||'S1');
     if (!canOpen(rid)) return false;
+    cacheVerifiedRoute();
     try {
       if (/^B/.test(rid)) {
-        if (window.EAPHero && typeof window.EAPHero.startGateBoss==='function') return window.EAPHero.startGateBoss(rid)!==false;
-        if (window.EAPHero && typeof window.EAPHero.openBoss==='function') return window.EAPHero.openBoss(rid)!==false;
+        var gate=Number(rid.slice(1));
+        if (window.EAPBossFourSkillV4 && typeof window.EAPBossFourSkillV4.start==='function') { window.EAPBossFourSkillV4.start(gate); return true; }
+        var api=hero();
+        if (api && typeof api.startGateBoss==='function') return api.startGateBoss(rid)!==false;
+        if (api && typeof api.openBoss==='function') return api.openBoss(rid)!==false;
       } else {
-        if (window.EAPHero && typeof window.EAPHero.skillHub==='function') return window.EAPHero.skillHub(Number(rid.slice(1)))!==false;
+        return openVerifiedSession(Number(rid.slice(1)));
       }
     } catch(_) {}
     return false;
   }
 
-  // IMPORTANT: update only the canonical lobby's owned fields.
-  // The previous generic div/section search could select #app and replace the
-  // whole application with the small "ตอนนี้" card.
   function refreshLobby(){
     if (!verified) return;
     var rid=verified.currentRoute, r=routeDef(rid), title=text(r&&r.title||r&&r.sessionTitle||rid);
@@ -177,26 +204,23 @@
 
     var lobby=document.getElementById('eap-student-compact-lobby');
     if (!lobby) return;
-
     var now=lobby.querySelector('.lob-now');
     if (!now) return;
-
     var kicker=now.querySelector('.lob-kicker');
     var titleEl=now.querySelector('.lob-title');
     var metas=now.querySelectorAll('.lob-meta');
     var hint=now.querySelector('.profile-hint');
     var week=/^S/.test(rid)?Number(rid.slice(1)):Math.ceil((ORDER.indexOf(rid)+1)*3/4);
-
     if (kicker) kicker.textContent='ตอนนี้';
     if (titleEl) titleEl.textContent=/^S/.test(rid)?('Week '+week+' / '+rid):(rid+' Boss Gate');
     if (metas[0]) metas[0].textContent=title||rid;
     if (metas[1]) metas[1].textContent=text(verified.profile.studentName)+' · ID '+text(verified.profile.studentId)+' · Section '+text(verified.profile.section);
     if (hint) hint.textContent='ความคืบหน้ายืนยันจาก Google Sheet แล้ว · กด Start / Continue เพื่อเล่นด่านนี้';
-
     var btn=lobby.querySelector('[data-eap-lobby-action="continue"]');
     if (btn) btn.setAttribute('data-eap-live-current-route',rid);
   }
   function refreshAll(){
+    cacheVerifiedRoute();
     try{ if(window.EAPRoadmapLockGuard&&typeof window.EAPRoadmapLockGuard.refresh==='function')window.EAPRoadmapLockGuard.refresh(); }catch(_){}
     try{ if(window.EAPCloudResumeLifecycleCompletion&&typeof window.EAPCloudResumeLifecycleCompletion.refresh==='function')window.EAPCloudResumeLifecycleCompletion.refresh(); }catch(_){}
     try{ if(window.EAPStudentHomeLobby&&typeof window.EAPStudentHomeLobby.refresh==='function')window.EAPStudentHomeLobby.refresh(); }catch(_){}
@@ -209,8 +233,9 @@
     if(!el)return;
     var t=text(el.textContent);
     if(!/start\s*\/\s*continue|continue session|^continue$/i.test(t))return;
-    if(!verified){ sync(true); return; }
+    if(!verified){ e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); sync(true); return; }
     e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    cacheVerifiedRoute();
     openRoute(verified.currentRoute);
   },true);
 
