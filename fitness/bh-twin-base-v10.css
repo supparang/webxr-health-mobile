@@ -1,0 +1,31 @@
+:root{
+  --safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);
+  --safe-left:env(safe-area-inset-left,0px);--safe-right:env(safe-area-inset-right,0px);
+  --ink:#102033;--muted:#64748b;--line:rgba(14,165,233,.28);--card:rgba(255,255,255,.90);
+  --blue:#38bdf8;--cyan:#22d3ee;--mint:#34d399;--lime:#a3e635;--yellow:#fde047;
+  --orange:#fb923c;--pink:#fb7185;--violet:#a78bfa;--shadow:0 18px 44px rgba(14,116,144,.18);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden}
+body{font-family:ui-rounded,"SF Pro Rounded","Nunito","Noto Sans Thai",system-ui,sans-serif;color:var(--ink);background:linear-gradient(180deg,#dff7ff,#e0fdf4 52%,#fff8dd)}
+button,input,select{font:inherit;color:inherit}button{border:0;cursor:pointer}.hidden{display:none!important}
+.app{position:fixed;inset:0;padding:calc(8px + var(--safe-top)) calc(8px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(8px + var(--safe-left));display:grid;grid-template-rows:auto 1fr;gap:8px}
+.glass{background:var(--card);border:2px solid var(--line);box-shadow:var(--shadow);backdrop-filter:blur(12px)}
+.topbar{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;z-index:30}
+.brand{border-radius:999px;padding:8px 12px;display:flex;gap:10px;align-items:center;min-width:0}
+.brandIcon{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--cyan),var(--mint));font-size:22px;color:white;flex:0 0 auto}
+.brandTitle{font-weight:1000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brandSub{font-size:11px;color:var(--muted);font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topPill{border-radius:999px;padding:9px 12px;font-size:12px;font-weight:1000;white-space:nowrap}.iconBtn{width:44px;height:44px;border-radius:50%;font-weight:1000;background:rgba(255,255,255,.9);border:2px solid var(--line)}
+.stage{position:relative;min-height:0;overflow:hidden;border-radius:30px;background:#07111f}
+#camera{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:.88;background:#000}
+#poseCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.tint{position:absolute;inset:0;background:linear-gradient(180deg,rgba(2,6,23,.12),rgba(14,116,144,.08) 45%,rgba(15,23,42,.40));pointer-events:none}
+.crystalWorld{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(1px);opacity:.46;animation:float 6s ease-in-out infinite}.orb.a{width:160px;height:160px;left:-40px;top:12%;background:radial-gradient(circle,#a5f3fc,transparent 68%)}.orb.b{width:220px;height:220px;right:-70px;top:18%;background:radial-gradient(circle,#ddd6fe,transparent 68%);animation-delay:-2s}.orb.c{width:180px;height:180px;left:36%;bottom:-70px;background:radial-gradient(circle,#fef08a,transparent 68%);animation-delay:-4s}
+@keyframes float{50%{transform:translateY(-18px) scale(1.05)}}
+.safeZone{position:absolute;left:50%;bottom:3%;transform:translateX(-50%);width:min(560px,76vw);height:80px;border-radius:50%;border:3px dashed rgba(52,211,153,.55);background:radial-gradient(ellipse,rgba(52,211,153,.25),transparent 68%);transition:.2s}.safeZone.warn{border-color:rgba(251,146,60,.92);background:radial-gradient(ellipse,rgba(251,146,60,.28),transparent 68%)}
+.poseGhost{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(300px,46vw);height:min(430px,60vh);opacity:.76;pointer-events:none}
+.ghostHead,.ghostBody,.ghostArm,.ghostLeg{position:absolute;background:rgba(255,255,255,.28);border:3px dashed rgba(255,255,255,.78);box-shadow:0 0 28px rgba(34,211,238,.18)}
+.ghostHead{width:64px;height:64px;border-radius:50%;left:50%;top:5%;transform:translateX(-50%)}.ghostBody{width:6px;height:150px;left:50%;top:20%;transform:translateX(-50%);border:0;background:rgba(255,255,255,.72)}
+.ghostArm{width:44%;height:6px;top:27%;border:0;background:rgba(255,255,255,.72);transform-origin:center}.ghostArm.l{right:50%}.ghostArm.r{left:50%}.ghostLeg{width:6px;height:135px;top:54%;border:0;background:rgba(255,255,255,.72);transform-origin:top}.ghostLeg.l{left:48%;transform:rotate(8deg)}.ghostLeg.r{right:48%;transform:rotate(-8deg)}
+.poseGhost.left .ghostArm.l{transform:rotate(-24deg)}.poseGhost.left .ghostArm.r{transform:rotate(-8deg)}.poseGhost.left .ghostBody{transform:translateX(-50%) rotate(-8deg);transform-origin:bottom}.poseGhost.right .ghostArm.r{transform:rotate(24deg)}.poseGhost.right .ghostArm.l{transform:rotate(8deg)}.poseGhost.right .ghostBody{transform:translateX(-50%) rotate(8deg);transform-origin:bottom}
