@@ -1,0 +1,203 @@
+    if(state.stepEvidence[step.id][slot]==null) state.stepEvidence[step.id][slot]=0;
+  }
+
+  function decayCurrentEvidence(step,dt) {
+    const slots=state.stepEvidence[step.id]||{};
+    Object.keys(slots).forEach(slot=>{if(slots[slot]<1)slots[slot]=Math.max(0,slots[slot]-dt*.035)});
+  }
+
+  function stepDone(step) {
+    const vals=Object.values(state.stepEvidence[step.id]||{});
+    if(!step.side) return (state.stepEvidence[step.id]?.both||0)>=1;
+    return vals.filter(v=>v>=1).length>=2;
+  }
+
+  function completeStep(step,passMode) {
+    state.stepPassMode[step.id]=passMode;
+    if(passMode==='strict')state.strictPassCount+=1;else state.gracePassCount+=1;
+    addScore(passMode==='strict'?220:165);
+    logEvent('step_complete',{stepId:step.id,passMode,quality:stepQualityPercent(step.id),timeSec:round(state.stepTime[step.id],2)});
+    beep(passMode==='strict'?920:760,.10);vibrate([25,30,25]);showToast(`ผ่าน ${step.label} • ${passMode==='strict'?'Strict Gesture':'Adaptive Coach'}`);
+    state.scrubIndex+=1;state.stabilityHold=0;state.activeSlot='';state.pairMemory=null;
+    if(state.scrubIndex>=STEPS.length){state.foam=Math.max(state.foam,88);addScore(300);setPhase('rinse');}
+    else setPhase('scrub');
+  }
+
+  function toggleFaucet() {
+    unlockAudio();
+    if(!state.running){showToast('กดเริ่ม Reality Lab ก่อน');return;}
+    state.waterOn=!state.waterOn;
+    el.faucetBtn.classList.toggle('primary',state.waterOn);
+    beep(state.waterOn?520:340,.06);
+    logEvent('faucet_toggle',{waterOn:state.waterOn,phase:state.phase});
+    if(state.phase==='closeBeforeSoap'&&!state.waterOn) state.phaseProgress=.15;
+    if(state.phase==='closeAfterRinse'&&!state.waterOn) state.phaseProgress=.15;
+    if(state.phase==='rinse'&&state.waterOn) showToast('ล้างฟองออกให้หมด');
+    updateUI();
+  }
+
+  function tapPractice() {
+    if(!state.running){showToast('กดเริ่ม Reality Lab ก่อน');return;}
+    state.fallbackUsed=true;
+    if(state.phase==='calibrate'){state.calibrationHold=1.2;}
+    else if(state.phase==='wet'){if(!state.waterOn)state.waterOn=true;state.phaseProgress+=.34;}
+    else if(state.phase==='closeBeforeSoap'||state.phase==='closeAfterRinse'){state.waterOn=false;state.phaseProgress+=.5;}
+    else if(state.phase==='soap'){state.phaseProgress+=.42;}
+    else if(state.phase==='scrub'){
+      const step=STEPS[state.scrubIndex];const slot=step.side?(state.tapSide++%2?'right':'left'):'both';ensureEvidenceSlot(step,slot);state.stepEvidence[step.id][slot]=clamp(state.stepEvidence[step.id][slot]+.28,0,1);state.foam=clamp(state.foam+5,0,100);if(stepDone(step))completeStep(step,'grace');
+    } else if(state.phase==='rinse'){state.waterOn=true;state.foam=Math.max(0,state.foam-28);state.rinseHold+=.55;}
+    else if(state.phase==='dry'){state.dryHold+=.65;state.phaseProgress=clamp(state.dryHold/1.7,0,1);}
+    else if(state.phase==='scan'){state.phaseProgress+=.36;}
+    addScore(8);showToast('Tap Practice • ผลจะระบุว่าใช้โหมดช่วย');updateUI();
+  }
+
+  function finishRun(reason) {
+    if(!state.running)return;
+    state.running=false;state.endReason=reason;state.endedAt=new Date().toISOString();state.waterOn=false;setPhase('summary',true);
+    const result=buildResult();saveResult(result);renderSummary(result);el.summaryOverlay.classList.add('show');sendResult(result);
+    logEvent('run_end',{reason,score:result.score,accuracy:result.accuracy});
+  }
+
+  function buildResult() {
+    const stepRows=STEPS.map(step=>({
+      id:step.id,label:step.label,completed:state.stepPassMode[step.id]!=='not-complete',passMode:state.stepPassMode[step.id],
+      quality:stepQualityPercent(step.id),timeSec:round(state.stepTime[step.id],2),evidence:Object.fromEntries(Object.entries(state.stepEvidence[step.id]||{}).map(([k,v])=>[k,round(v*100,1)]))
+    }));
+    const completed=stepRows.filter(x=>x.completed).length;
+    const gestureAccuracy=Math.round(avgNumber(stepRows.map(x=>x.quality)));
+    const waterSaveScore=Math.round(clamp(100-Math.max(0,state.waterUseSec-15)*3.2-state.waterWasteSec*6,0,100));
+    const germRemoval=Math.round(clamp(100-state.germLoad,0,100));
+    const processScore=Math.round(clamp((completed/7)*55+(germRemoval/100)*25+(waterSaveScore/100)*20,0,100));
+    const accuracy=Math.round(clamp(gestureAccuracy*.68+processScore*.32,0,100));
+    const passed=completed===7&&germRemoval>=80&&reasonPass(state.endReason);
+    const stars=accuracy>=88&&waterSaveScore>=70?3:accuracy>=72?2:accuracy>=52?1:0;
+    const rawScore=Math.round(state.score+accuracy*8+waterSaveScore*3+(passed?500:0));
+    return {
+      api:'handwash_result',version:VERSION,gameId:'handwash-realistic-v3',zone:'hygiene',attemptId:state.attemptId,
+      participantId:qs.get('pid')||'anon',studentName:el.nameInput.value.trim()||'Hero',classLevel:el.classInput.value.trim()||'P5',
+      section:qs.get('section')||'',studyId:qs.get('studyId')||'HYGIENE-P5-2026',difficulty:DIFF,
+      mode:state.fallbackUsed?'camera-ar-with-tap-assist':state.detectorReady?'camera-ar':'tap-fallback',
+      startedAt:state.startedAt,endedAt:state.endedAt,durationSec:round(RUN_TIME-state.remaining,2),endReason:state.endReason,
+      score:rawScore,stars,passed,accuracy,gestureAccuracy,processScore,waterUseSec:round(state.waterUseSec,2),waterWasteSec:round(state.waterWasteSec,2),waterSaveScore,
+      foamPeak:Math.round(state.foamPeak),finalGermLoad:Math.round(state.germLoad),germRemoval,completedSteps:completed,totalSteps:7,
+      strictPassCount:state.strictPassCount,gracePassCount:state.gracePassCount,twoHandsVisibleRate:state.trackingFrames?round(state.twoHandFrames/state.trackingFrames*100,1):0,
+      trackingLostCount:state.trackingLostCount,cameraReady:state.cameraReady,detectorReady:state.detectorReady,fallbackUsed:state.fallbackUsed,
+      processErrors:state.processErrors,steps:stepRows,events:state.eventLog.slice(-80),sourceUrl:location.href,userAgent:navigator.userAgent,timestamp:new Date().toISOString()
+    };
+  }
+
+  function reasonPass(reason){return reason==='completed'}
+
+  function saveResult(result) {
+    const attempts=readJson(STORAGE.attempts,[]);attempts.unshift(result);writeJson(STORAGE.attempts,attempts.slice(0,40));
+    const best=readJson(STORAGE.best,null);if(!best||result.score>Number(best.score||0))writeJson(STORAGE.best,result);
+    const progress=readJson(STORAGE.progress,{});const old=progress.handwash||{};
+    progress.handwash={status:result.passed?'completed':'attempted',stars:Math.max(Number(old.stars||0),result.stars),bestScore:Math.max(Number(old.bestScore||0),result.score),accuracy:Math.max(Number(old.accuracy||0),result.accuracy),grade:result.passed?(result.stars===3?'Reality Master':'Clean Hero'):'Practice',badge:result.strictPassCount>=6?'Strict Gesture Master':result.passed?'Handwash Hero':'Keep Practicing',lastPlayedAt:result.timestamp,source:'hygiene-zone/handwash-realistic-v3'};
+    writeJson(STORAGE.progress,progress);
+    try{window.dispatchEvent(new CustomEvent('herohealth:game-result',{detail:result}));}catch(_){}
+  }
+
+  function renderSummary(result) {
+    el.summaryHero.textContent=result.passed?(result.stars===3?'🏆':'✅'):'💪';
+    el.summaryTitle.textContent=result.passed?'ล้างมือครบและผ่าน Reality Lab':'ยังมีขั้นที่ควรฝึกเพิ่ม';
+    el.summarySub.textContent=`${result.mode} • เห็นมือสองข้าง ${result.twoHandsVisibleRate}% • Germ Removal ${result.germRemoval}%`;
+    el.sumScore.textContent=result.score.toLocaleString();el.sumStars.textContent='⭐'.repeat(result.stars)+'☆'.repeat(3-result.stars);el.sumAccuracy.textContent=`${result.accuracy}%`;el.sumWater.textContent=`${result.waterSaveScore}%`;
+    el.resultList.innerHTML=result.steps.map((row,i)=>`<div class="result-row"><span>${i+1}. ${escapeHtml(row.label)}</span><span>${row.quality}%</span><span>${row.passMode==='strict'?'Strict':row.passMode==='grace'?'Coach':'ยังไม่ครบ'}</span></div>`).join('');
+    el.deliveryText.textContent='บันทึกผลในเครื่องแล้ว และกำลังส่งเข้าคิว Teacher/Research Sheet';
+  }
+
+  function sendResult(result) {
+    const outbox=readJson(STORAGE.outbox,[]);outbox.push({id:result.attemptId,payload:result,tries:0,createdAt:Date.now()});writeJson(STORAGE.outbox,outbox.slice(-20));flushOutbox();
+  }
+
+  async function flushOutbox() {
+    if(!ENDPOINT||!navigator.onLine)return;
+    const outbox=readJson(STORAGE.outbox,[]);if(!outbox.length)return;
+    const remaining=[];
+    for(const item of outbox){
+      try{
+        await fetch(ENDPOINT,{method:'POST',mode:'no-cors',cache:'no-store',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(item.payload)});
+      }catch(error){item.tries=Number(item.tries||0)+1;remaining.push(item);}
+    }
+    writeJson(STORAGE.outbox,remaining);
+    if(el.deliveryText&&el.summaryOverlay.classList.contains('show'))el.deliveryText.textContent=remaining.length?'เก็บไว้ใน Outbox และจะส่งซ้ำเมื่อออนไลน์':'ส่งผลออกจาก Outbox แล้ว';
+  }
+
+  function saveEmergencySnapshot(){try{localStorage.setItem('herohealth:hygiene:handwash:v3:emergency',JSON.stringify({attemptId:state.attemptId,phase:state.phase,remaining:state.remaining,at:Date.now()}))}catch(_){}
+
+  function updateUI() {
+    el.timeText.textContent=Math.ceil(state.remaining);el.scoreText.textContent=Math.round(state.score).toLocaleString();el.waterText.textContent=`${Math.round(state.waterUseSec)}s`;el.stepText.textContent=`${Math.min(state.scrubIndex,7)}/7`;
+    el.foamText.textContent=`${Math.round(state.foam)}%`;el.foamFill.style.width=`${state.foam}%`;el.germText.textContent=`${Math.round(state.germLoad)}%`;el.germFill.style.width=`${state.germLoad}%`;
+    const step=STEPS[state.scrubIndex];const evidence=state.phase==='scrub'&&step?currentEvidencePercent(step):Math.round(state.phaseProgress*100);el.evidenceText.textContent=`${evidence}%`;el.evidenceFill.style.width=`${evidence}%`;
+    const quality=state.lastGesture?Math.round(state.lastGesture.score*100):state.frameQualityCount?Math.round(state.frameQualitySum/state.frameQualityCount*100):0;el.qualityText.textContent=`${quality}%`;
+    el.faucetBtn.classList.toggle('primary',state.waterOn);el.faucetBtn.querySelector('b').textContent=state.waterOn?'ปิดน้ำ':'เปิดน้ำ';
+    document.querySelectorAll('.step').forEach((row,i)=>{const s=STEPS[i];row.classList.toggle('active',state.phase==='scrub'&&i===state.scrubIndex);row.classList.toggle('done',state.stepPassMode[s.id]!=='not-complete');row.querySelector('em').textContent=`${stepEvidencePercent(s)}%`;});
+    if(state.phase==='scrub'&&step){el.missionTitle.textContent=`ขั้น ${state.scrubIndex+1}/7 • ${step.label}`;el.missionTip.textContent=step.tip;}
+  }
+
+  function updateTrackingChips(hands) {
+    setChip(el.chipHands,hands.length>=2,`✋ ${hands.length} มือ`);
+    const g=state.lastGesture;setChip(el.chipContact,g?.contactOK,`🤝 ${g?Math.round(g.contact*100):0}%`);setChip(el.chipMotion,g?.motionOK,`↔ ${g?Math.round(g.trajectory*100):0}%`);setChip(el.chipPose,g?.poseOK,`🧭 ${g?Math.round(g.pose*100):0}%`);
+    const step=STEPS[state.scrubIndex];const slots=step?Object.values(state.stepEvidence[step.id]||{}).filter(v=>v>=1).length:0;setChip(el.chipSwitch,!step?.side||slots>=1,`🔄 ${slots}/${step?.side?2:1}`);setChip(el.chipTrack,state.detectorReady,`📷 ${state.detectorReady?'AR':'Tap'}`);
+  }
+
+  function setChip(node,good,text){node.textContent=text;node.classList.toggle('good',!!good);node.classList.toggle('bad',good===false)}
+  function coach(message,reason){if(message&&el.coachText.textContent!==message)el.coachText.textContent=message;state.coachReason=reason||''}
+  function speakCoach(){unlockAudio();const text=el.coachText.textContent||el.missionTip.textContent;if('speechSynthesis'in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='th-TH';u.rate=.92;speechSynthesis.speak(u)}else showToast(text)}
+
+  function renderAR(hands,ts) {
+    const ctx=el.ctx,w=el.arCanvas.clientWidth,h=el.arCanvas.clientHeight;ctx.clearRect(0,0,w,h);
+    drawWater(ctx,w,h,ts);
+    hands.forEach((hand,index)=>drawHand(ctx,hand,index,ts));
+    if(state.phase==='scrub'&&state.lastGesture){const r=el.scrubZone.getBoundingClientRect();ctx.strokeStyle=state.lastGesture.score>.65?'rgba(99,236,166,.95)':'rgba(255,226,122,.78)';ctx.lineWidth=4;ctx.beginPath();ctx.arc(r.left+r.width/2,r.top+r.height/2,Math.min(r.width,r.height)*(.30+.05*Math.sin(ts/180)),0,Math.PI*2);ctx.stroke()}
+  }
+
+  function drawHand(ctx,hand,index,ts) {
+    const pts=hand.landmarks.map(p=>({x:p.x*el.arCanvas.clientWidth,y:p.y*el.arCanvas.clientHeight}));
+    ctx.save();ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=index===0?'rgba(85,221,255,.92)':'rgba(99,236,166,.92)';ctx.lineWidth=3;
+    CONNECTIONS.forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(pts[a].x,pts[a].y);ctx.lineTo(pts[b].x,pts[b].y);ctx.stroke()});
+    pts.forEach((p,i)=>{ctx.fillStyle=i===0?'rgba(255,226,122,.95)':'rgba(235,252,255,.92)';ctx.beginPath();ctx.arc(p.x,p.y,i===0?5:3,0,Math.PI*2);ctx.fill()});
+    const palm={x:hand.palm.x*el.arCanvas.clientWidth,y:hand.palm.y*el.arCanvas.clientHeight};
+    const germCount=Math.round(state.germLoad/10);for(let i=0;i<germCount;i++){const angle=(i*2.39+index*1.2);const radius=9+(i%4)*7;const x=palm.x+Math.cos(angle)*radius,y=palm.y+Math.sin(angle)*radius;ctx.fillStyle=`rgba(255,${90+i*8},105,.82)`;ctx.beginPath();ctx.arc(x,y,2.5+(i%2),0,Math.PI*2);ctx.fill()}
+    const bubbles=Math.round(state.foam/12);for(let i=0;i<bubbles;i++){const angle=(i*1.71+ts/800+index);const radius=12+(i%5)*6;ctx.strokeStyle='rgba(235,253,255,.78)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(palm.x+Math.cos(angle)*radius,palm.y+Math.sin(angle)*radius,3+(i%3),0,Math.PI*2);ctx.stroke()}
+    ctx.restore();
+  }
+
+  function drawWater(ctx,w,h,ts) {
+    if(!state.waterOn)return;const r=el.waterZone.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height*.55;ctx.save();for(let i=0;i<18;i++){const ox=Math.sin(i*4.1+ts/170)*22;const yy=y+((ts*.18+i*29)%(h-y+30));ctx.strokeStyle=`rgba(85,221,255,${.25+(i%4)*.12})`;ctx.lineWidth=2+(i%3);ctx.beginPath();ctx.moveTo(x+ox,yy-14);ctx.lineTo(x+ox*.75,yy+7);ctx.stroke()}ctx.restore();
+  }
+
+  function resizeCanvas(){const d=Math.min(devicePixelRatio||1,2),r=el.arCanvas.getBoundingClientRect();el.arCanvas.width=Math.round(r.width*d);el.arCanvas.height=Math.round(r.height*d);el.ctx.setTransform(d,0,0,d,0,0)}
+  function getZones(){return{water:el.waterZone.getBoundingClientRect(),soap:el.soapZone.getBoundingClientRect(),towel:el.towelZone.getBoundingClientRect(),scrub:el.scrubZone.getBoundingClientRect()}}
+  function inRectPx(p,rect){const x=p.x*innerWidth,y=p.y*innerHeight;return x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom}
+  function clearZoneStates(){[el.waterZone,el.soapZone,el.towelZone,el.scrubZone].forEach(x=>x.classList.remove('active','hit'))}
+  function currentEvidencePercent(step){const vals=Object.values(state.stepEvidence[step.id]||{});if(!vals.length)return 0;if(step.side){const top=vals.sort((a,b)=>b-a).slice(0,2);return Math.round((top.reduce((a,b)=>a+b,0)/2)*100)}return Math.round((vals[0]||0)*100)}
+  function stepEvidencePercent(step){if(state.stepPassMode[step.id]!=='not-complete')return 100;return currentEvidencePercent(step)}
+  function stepQualityPercent(id){const q=state.stepQuality[id];return q?.samples?Math.round(clamp(q.sum/q.samples,0,1)*100):0}
+
+  function addScore(value,refresh=true){state.score=Math.max(0,state.score+Number(value||0));if(refresh)updateUI()}
+  function logEvent(type,extra={}){state.eventLog.push({seq:state.eventLog.length+1,type,at:new Date().toISOString(),phase:state.phase,remainingSec:round(state.remaining,2),score:Math.round(state.score),...extra});if(state.eventLog.length>100)state.eventLog.shift()}
+  function showToast(text){clearTimeout(toastTimer);el.toast.textContent=text;el.toast.classList.add('show');toastTimer=setTimeout(()=>el.toast.classList.remove('show'),1800)}
+  function goZone(){location.href=ZONE_URL}
+  function stopCameraTracks(){try{cameraStream?.getTracks?.().forEach(t=>t.stop())}catch(_){}}
+  function unlockAudio(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch(_){}}if(audioCtx?.state==='suspended')audioCtx.resume()}
+  function beep(freq=600,duration=.06){unlockAudio();if(!audioCtx)return;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=freq;o.type='sine';g.gain.setValueAtTime(.04,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+duration)}
+  function vibrate(pattern){try{navigator.vibrate?.(pattern)}catch(_){}}
+  function readJson(key,fallback){try{const raw=localStorage.getItem(key);return raw?JSON.parse(raw):fallback}catch(_){return fallback}}
+  function writeJson(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch(_){}}
+  function escapeHtml(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
+  function pointLm(lm){return{x:1-Number(lm.x||0),y:Number(lm.y||0),z:Number(lm.z||0)}}
+  function pointLm3(lm){return{x:1-Number(lm.x||0),y:Number(lm.y||0),z:Number(lm.z||0)}}
+  function palmNormal(p){const a=sub3(p[5],p[0]),b=sub3(p[17],p[0]);return norm3(cross3(a,b))}
+  function avg(points){return{x:avgNumber(points.map(p=>p.x)),y:avgNumber(points.map(p=>p.y)),z:avgNumber(points.map(p=>p.z||0))}}
+  function avgNumber(values){return values.length?values.reduce((a,b)=>a+Number(b||0),0)/values.length:0}
+  function dist(a,b){return Math.hypot((a.x||0)-(b.x||0),(a.y||0)-(b.y||0),(a.z||0)-(b.z||0))}
+  function sub3(a,b){return{x:a.x-b.x,y:a.y-b.y,z:(a.z||0)-(b.z||0)}}
+  function cross3(a,b){return{x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x}}
+  function norm3(v){const n=Math.hypot(v.x,v.y,v.z)||1;return{x:v.x/n,y:v.y/n,z:v.z/n}}
+  function dot3(a,b){return clamp(a.x*b.x+a.y*b.y+a.z*b.z,-1,1)}
+  function wrapAngle(a){while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a}
+  function weighted(values){let total=0,w=0;for(let i=0;i<values.length;i+=2){total+=Number(values[i]||0)*Number(values[i+1]||0);w+=Number(values[i+1]||0)}return w?total/w:0}
+  function clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
+  function round(v,d=0){const m=10**d;return Math.round((Number(v)||0)*m)/m}
+})();
