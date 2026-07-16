@@ -126,6 +126,13 @@ function FDBP_normalizePose_(raw) {
   const studentId = String(FDBP_pick_(raw,['studentId','student_id','sid','pid','playerId']) || '');
   const studentName = String(FDBP_pick_(raw,['studentName','student_name','player','name']) || '');
   const timestamp = String(FDBP_pick_(raw,['serverTimestamp','timestampLocal','timestamp','clientTimestamp','ts']) || '');
+  const poseAccuracy = percent(['poseAccuracy']);
+  const stabilityScore = percent(['stabilityScore','holdStability']);
+  const transitionScore = percent(['transitionScore','transitionControl']);
+  const safeZoneScore = percent(['safeZoneScore','safeZone']);
+  const trackingCoverage = percent(['trackingCoverage']);
+  const releaseVersion = String(FDBP_pick_(raw,['releaseVersion','version']) || '');
+  const poseAvailable = poseAccuracy !== null || stabilityScore !== null || transitionScore !== null || safeZoneScore !== null || trackingCoverage !== null || releaseVersion.indexOf('TWIN-POSE') !== -1;
   return {
     attemptId: attemptId,
     roundId: roundId,
@@ -137,11 +144,11 @@ function FDBP_normalizePose_(raw) {
     timestamp: timestamp,
     score: FDBP_num_(FDBP_pick_(raw,['score','finalScore'])) || 0,
     assessmentScore: percent(['assessmentScore','focusScore']),
-    poseAccuracy: percent(['poseAccuracy','accuracy','accPct']),
-    stabilityScore: percent(['stabilityScore','holdStability','stability']),
-    transitionScore: percent(['transitionScore','transitionControl','controlScore']),
-    safeZoneScore: percent(['safeZoneScore','safeZone','safetyScore']),
-    trackingCoverage: percent(['trackingCoverage','trackingQualityScore']),
+    poseAccuracy: poseAccuracy,
+    stabilityScore: stabilityScore,
+    transitionScore: transitionScore,
+    safeZoneScore: safeZoneScore,
+    trackingCoverage: trackingCoverage,
     trackingConfidence: percent(['trackingConfidence','confidence']),
     validHoldRatio: percent(['validHoldRatio','holdRatio']),
     completionRate: percent(['completionRate']),
@@ -152,6 +159,9 @@ function FDBP_normalizePose_(raw) {
     assistUsed: FDBP_bool_(FDBP_pick_(raw,['assistUsed'])) || (FDBP_num_(FDBP_pick_(raw,['assistLevelMax'])) || 0) > 0,
     calibrationStatus: String(FDBP_pick_(raw,['calibrationStatus']) || ''),
     poseSequence: String(FDBP_pick_(raw,['poseSequence']) || ''),
+    sequencePatternId: String(FDBP_pick_(raw,['sequencePatternId']) || ''),
+    releaseVersion: releaseVersion,
+    poseAvailable: poseAvailable,
     passed: FDBP_bool_(FDBP_pick_(raw,['passed','pass','grade'])),
     sourceSheet: raw.__sheet,
     rowNumber: raw.__row
@@ -171,7 +181,7 @@ function FDBP_keys_(r) {
 
 function FDBP_index_(rows) {
   const idx = {};
-  rows.forEach(function(r) { FDBP_keys_(r).forEach(function(k) { if (!idx[k]) idx[k] = r; }); });
+  rows.filter(function(r){return r.poseAvailable;}).forEach(function(r) { FDBP_keys_(r).forEach(function(k) { if (!idx[k]) idx[k] = r; }); });
   return idx;
 }
 
@@ -182,9 +192,9 @@ function FDBP_match_(r, idx) {
 }
 
 function FDBP_enrich_(row, pose) {
-  if (!pose) return row;
+  if (!pose || !pose.poseAvailable) return row;
   const out = Object.assign({}, row);
-  ['assessmentScore','poseAccuracy','stabilityScore','transitionScore','safeZoneScore','trackingCoverage','trackingConfidence','validHoldRatio','completedPoses','totalPoses','lostPoseCount','assistLevelMax','assistUsed','calibrationStatus','poseSequence','passed'].forEach(function(k) {
+  ['assessmentScore','poseAccuracy','stabilityScore','transitionScore','safeZoneScore','trackingCoverage','trackingConfidence','validHoldRatio','completedPoses','totalPoses','lostPoseCount','assistLevelMax','assistUsed','calibrationStatus','poseSequence','sequencePatternId','releaseVersion','passed'].forEach(function(k) {
     if (pose[k] !== null && pose[k] !== undefined && pose[k] !== '') out[k] = pose[k];
   });
   out.balancePoseAvailable = true;
@@ -200,19 +210,21 @@ function FDBP_avg_(rows, key) {
 }
 
 function FDBP_buildPanel_(rows) {
-  const latest = rows.slice().sort(function(a,b) {
+  const poseOnly = rows.filter(function(r){return !!r.balancePoseAvailable;});
+  const latest = poseOnly.slice().sort(function(a,b) {
     return (new Date(b.serverTimestamp || b.clientTimestamp || 0).getTime() || b.rowNumber || 0) - (new Date(a.serverTimestamp || a.clientTimestamp || 0).getTime() || a.rowNumber || 0);
   }).slice(0,120);
   return {
-    available: rows.some(function(r){return !!r.balancePoseAvailable;}),
-    rounds: rows.length,
-    avgPoseAccuracy: FDBP_avg_(rows,'poseAccuracy'),
-    avgStability: FDBP_avg_(rows,'stabilityScore'),
-    avgTransition: FDBP_avg_(rows,'transitionScore'),
-    avgSafeZone: FDBP_avg_(rows,'safeZoneScore'),
-    avgTracking: FDBP_avg_(rows,'trackingCoverage'),
-    totalLostPose: rows.reduce(function(s,r){return s + Number(r.lostPoseCount || 0);},0),
-    assistedRounds: rows.filter(function(r){return r.assistUsed || Number(r.assistLevelMax || 0)>0;}).length,
+    available: poseOnly.length > 0,
+    rounds: poseOnly.length,
+    legacyRoundsExcluded: Math.max(0, rows.length - poseOnly.length),
+    avgPoseAccuracy: FDBP_avg_(poseOnly,'poseAccuracy'),
+    avgStability: FDBP_avg_(poseOnly,'stabilityScore'),
+    avgTransition: FDBP_avg_(poseOnly,'transitionScore'),
+    avgSafeZone: FDBP_avg_(poseOnly,'safeZoneScore'),
+    avgTracking: FDBP_avg_(poseOnly,'trackingCoverage'),
+    totalLostPose: poseOnly.reduce(function(s,r){return s + Number(r.lostPoseCount || 0);},0),
+    assistedRounds: poseOnly.filter(function(r){return r.assistUsed || Number(r.assistLevelMax || 0)>0;}).length,
     rows: latest
   };
 }
@@ -222,6 +234,7 @@ function FDBP_mergeSupport_(base, rows) {
   const existing = {};
   out.forEach(function(r){existing[String(r.studentId||r.player||'') + ':' + String(r.game||r.gameLabel||'')] = true;});
   rows.forEach(function(r) {
+    if (!r.balancePoseAvailable) return;
     const weak = Number(r.stabilityScore || 0) < 60 || Number(r.transitionScore || 0) < 60 || Number(r.safeZoneScore || 0) < 65 || Number(r.trackingCoverage || 0) < 70;
     if (!weak) return;
     const id = String(r.studentId || r.playerId || r.player || '');
