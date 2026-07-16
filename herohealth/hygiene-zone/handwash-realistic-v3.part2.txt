@@ -1,0 +1,203 @@
+      state.stepPassMode[step.id] = 'not-complete';
+    });
+    setPhase('ready', true);
+    el.summaryOverlay.classList.remove('show');
+    if (showStart) el.startOverlay.classList.add('show');
+    updateUI();
+  }
+
+  async function startCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      el.detectStatus.textContent = 'Tap Practice';
+      return;
+    }
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } },
+        audio: false
+      });
+      el.video.srcObject = cameraStream;
+      await el.video.play();
+      state.cameraReady = true;
+      el.detectStatus.textContent = 'Camera พร้อม';
+      initDetector();
+    } catch (error) {
+      console.warn('camera', error);
+      state.cameraReady = false;
+      el.detectStatus.textContent = 'กล้องไม่ได้ • Tap';
+      showToast('เปิดกล้องไม่ได้ ยังเล่นด้วย Tap Practice ได้');
+    }
+  }
+
+  function initDetector() {
+    if (!window.Hands) {
+      el.detectStatus.textContent = 'Detector ไม่พร้อม';
+      return;
+    }
+    try {
+      handsModel = new Hands({ locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+      handsModel.setOptions({
+        maxNumHands: 2,
+        modelComplexity: DIFF === 'hard' ? 1 : 1,
+        minDetectionConfidence: DIFF === 'hard' ? .70 : .62,
+        minTrackingConfidence: DIFF === 'hard' ? .68 : .58
+      });
+      handsModel.onResults(onHands);
+      state.detectorReady = true;
+      el.detectStatus.textContent = 'รอมือ 2 ข้าง';
+      detectorLoop();
+    } catch (error) {
+      console.warn('detector', error);
+      state.detectorReady = false;
+      el.detectStatus.textContent = 'Tap Practice';
+    }
+  }
+
+  async function detectorLoop() {
+    if (!handsModel) return;
+    if (!loopBusy && el.video.readyState >= 2 && !document.hidden) {
+      loopBusy = true;
+      try { await handsModel.send({ image: el.video }); } catch (_) {}
+      loopBusy = false;
+    }
+    requestAnimationFrame(detectorLoop);
+  }
+
+  function onHands(results) {
+    const now = performance.now();
+    const dt = clamp((now - (lastDetectTs || now - 33)) / 1000, .012, .12);
+    lastDetectTs = now;
+    const handedness = results?.multiHandedness || [];
+    const world = results?.multiHandWorldLandmarks || [];
+    const list = (results?.multiHandLandmarks || []).slice(0, 2).map((lm, i) => buildHand(lm, handedness[i]?.label || `hand-${i}`, world[i] || lm, dt)).filter(Boolean);
+    lastHands = stabilizeHandKeys(list);
+    state.lastHandsCount = lastHands.length;
+    if (state.running) {
+      state.trackingFrames += 1;
+      if (lastHands.length) state.handsSeenFrames += 1;
+      if (lastHands.length >= 2) state.twoHandFrames += 1;
+      if (!lastHands.length && state.wasTracking) {
+        state.trackingLostCount += 1;
+        logEvent('tracking_lost');
+      }
+      if (lastHands.length && !state.wasTracking) logEvent('tracking_recovered', { handCount: lastHands.length });
+      state.wasTracking = !!lastHands.length;
+    }
+    el.detectStatus.textContent = lastHands.length >= 2 ? 'Detect: 2 มือ' : lastHands.length === 1 ? 'ต้องเห็น 2 มือ' : 'กำลังหามือ';
+    updateTrackingChips(lastHands);
+    renderAR(lastHands, now);
+  }
+
+  function stabilizeHandKeys(hands) {
+    const used = new Set();
+    return hands.sort((a,b) => a.palm.x - b.palm.x).map((hand, index) => {
+      let key = String(hand.label || '').toLowerCase().includes('left') ? 'left' : String(hand.label || '').toLowerCase().includes('right') ? 'right' : `screen-${index}`;
+      if (used.has(key)) key = `screen-${index}`;
+      used.add(key);
+      hand.key = key;
+      return hand;
+    });
+  }
+
+  function buildHand(landmarks, label, worldLandmarks, dt) {
+    if (!landmarks || landmarks.length < 21) return null;
+    const p = landmarks.map(pointLm);
+    const w = (worldLandmarks || landmarks).map(pointLm3);
+    const palm = avg([p[0],p[5],p[9],p[17]]);
+    const knuckles = avg([p[5],p[9],p[13],p[17]]);
+    const tipsCenter = avg([p[4],p[8],p[12],p[16],p[20]]);
+    const fingerTips = [p[8],p[12],p[16],p[20]];
+    const scale = Math.max(dist(p[0],p[9]), dist(p[5],p[17]), .045);
+    const extension = fingerTips.reduce((sum, x) => sum + dist(x,palm) / scale, 0) / 4;
+    const openScore = clamp((extension - .92) / .88, 0, 1);
+    const fistScore = clamp((1.42 - extension) / .68, 0, 1);
+    const spread = clamp(([dist(p[8],p[12]),dist(p[12],p[16]),dist(p[16],p[20])].reduce((a,b)=>a+b,0) / 3 / scale - .18) / .38, 0, 1);
+    const thumbExtension = clamp((dist(p[4],p[5]) / scale - .35) / .7, 0, 1);
+    const angle = Math.atan2(p[9].y - p[0].y, p[9].x - p[0].x);
+    const rawKey = String(label).toLowerCase();
+    const history = histories.get(rawKey) || { palm, angle, velocity:{x:0,y:0}, path:0, rotation:0, directionChanges:0, lastDirection:null };
+    const vx = (palm.x - history.palm.x) / Math.max(dt,.016);
+    const vy = (palm.y - history.palm.y) / Math.max(dt,.016);
+    const speed = Math.hypot(vx,vy);
+    const angleDelta = wrapAngle(angle - history.angle);
+    const direction = Math.abs(vx) > Math.abs(vy) ? Math.sign(vx) : Math.sign(vy) * 2;
+    const directionChanges = history.lastDirection && direction && history.lastDirection !== direction ? history.directionChanges + 1 : history.directionChanges;
+    const nextHistory = {
+      palm, angle, velocity:{x:vx,y:vy}, path:history.path + Math.hypot(palm.x-history.palm.x,palm.y-history.palm.y),
+      rotation:history.rotation + Math.abs(angleDelta), directionChanges, lastDirection:direction || history.lastDirection
+    };
+    histories.set(rawKey, nextHistory);
+    const normal = palmNormal(w);
+    return {
+      label, key:rawKey, landmarks:p, world:w, palm, wrist:p[0], knuckles, tipsCenter,
+      thumbTip:p[4], indexTip:p[8], middleTip:p[12], ringTip:p[16], pinkyTip:p[20],
+      scale, openScore, fistScore, spread, thumbExtension, speed,
+      motionScore:clamp((speed-.025)/.34,0,1), rotationScore:clamp(Math.abs(angleDelta)/.16,0,1),
+      angle, normal, history:nextHistory
+    };
+  }
+
+  function startRun() {
+    resetRun(false);
+    const name = el.nameInput.value.trim() || qs.get('name') || 'Hero';
+    const classLevel = el.classInput.value.trim() || qs.get('classLevel') || 'P5';
+    writeJson(STORAGE.profile, { name, classLevel, updatedAt:Date.now() });
+    state.running = true;
+    state.startedAt = new Date().toISOString();
+    state.lastFrameAt = performance.now();
+    el.startOverlay.classList.remove('show');
+    setPhase('calibrate');
+    logEvent('run_start', { mode: state.detectorReady ? 'camera-ar' : 'tap-fallback', difficulty: DIFF });
+    beep(620,.08);
+    updateUI();
+  }
+
+  function setPhase(phase, silent = false) {
+    state.phase = phase;
+    state.phaseProgress = 0;
+    state.stabilityHold = 0;
+    clearZoneStates();
+    const map = {
+      ready:['🧼','เตรียม Reality Lab','กดเริ่มเพื่อเปิดการตรวจท่าล้างมือ'],
+      calibrate:['📷','Calibration มือสองข้าง','ยกมือให้อยู่กลางจอและค้างให้เห็นชัด'],
+      wet:['🚰','ทำมือให้เปียก','เปิดน้ำ แล้ววางมือสองข้างใต้ก๊อก AR'],
+      closeBeforeSoap:['💧','ปิดน้ำก่อนใช้สบู่','กดปิดน้ำเพื่อลดการใช้น้ำโดยไม่จำเป็น'],
+      soap:['🧴','กดสบู่','เลื่อนฝ่ามือไปที่ขวดสบู่ AR จนปั๊มสำเร็จ'],
+      scrub:['🤲','ล้างมือ 7 ขั้น','ทำท่าตาม AI Gesture Coach ให้ครบและสลับมือ'],
+      rinse:['🚿','ล้างฟองออก','เปิดน้ำและล้างจน Foam Coverage เหลือศูนย์'],
+      closeAfterRinse:['💧','ปิดน้ำหลังล้าง','ปิดก๊อกทันทีเพื่อเก็บคะแนนประหยัดน้ำ'],
+      dry:['🧻','เช็ดมือให้แห้ง','เลื่อนมือไปที่ผ้าและเช็ดด้วยการเคลื่อนไหวต่อเนื่อง'],
+      scan:['🔬','UV Germ Scan','ค้างมือกลางจอเพื่อตรวจคราบเชื้อจำลองรอบสุดท้าย'],
+      summary:['🏆','สรุปผล','ดูคุณภาพท่าล้างมือและการประหยัดน้ำ']
+    };
+    const m = map[phase] || map.ready;
+    el.missionIcon.textContent = m[0];
+    el.missionTitle.textContent = m[1];
+    el.missionTip.textContent = m[2];
+    el.phaseText.textContent = phase.toUpperCase().replace('CLOSEBEFORESOAP','CLOSE').replace('CLOSEAFTERRINSE','CLOSE');
+    if (phase === 'wet' || phase === 'rinse') el.waterZone.classList.add('active');
+    if (phase === 'soap') el.soapZone.classList.add('active');
+    if (phase === 'scrub' || phase === 'calibrate' || phase === 'scan') el.scrubZone.classList.add('active');
+    if (phase === 'dry') el.towelZone.classList.add('active');
+    if (phase === 'scrub') {
+      state.stepStartedAt = performance.now();
+      ensureStepEvidence(STEPS[state.scrubIndex]);
+      logEvent('step_start', { stepId: STEPS[state.scrubIndex]?.id, stepIndex:state.scrubIndex+1 });
+    }
+    if (!silent) {
+      logEvent('phase_enter', { phase });
+      showToast(m[2]);
+    }
+    updateUI();
+  }
+
+  function animationLoop(ts) {
+    const dt = clamp((ts - (lastRenderTs || ts - 16)) / 1000, .008, .08);
+    lastRenderTs = ts;
+    if (state.running) updateGame(dt, ts);
+    if (ts - lastDetectTs > 120) renderAR(lastHands, ts);
+    requestAnimationFrame(animationLoop);
+  }
+
+  function updateGame(dt) {
+    state.remaining = Math.max(0, state.remaining - dt);
