@@ -31,6 +31,7 @@ function FD_getDashboardDataV37(filters) {
   data.version = String(data.version || '') + ' + ' + FDBP_VERSION;
   data.balancePoseVersion = FDBP_VERSION;
   data.needsSupport = FDBP_mergeSupport_(data.needsSupport || [], matchedBalance);
+  if (data.summary) data.summary.needsSupportRounds = data.needsSupport.length;
   return data;
 }
 
@@ -93,7 +94,8 @@ function FDBP_readRows_(ss) {
   ss.getSheets().forEach(function(sh) {
     if (seenSheets[sh.getSheetId()]) return;
     const compact = String(sh.getName() || '').toLowerCase().replace(/[\s_-]+/g, '');
-    if (compact.indexOf('balancehold') === -1 || compact.indexOf('event') !== -1 || compact.indexOf('raw') !== -1) return;
+    if (compact.indexOf('balancehold') === -1) return;
+    if (compact.indexOf('summary') === -1 && compact.indexOf('result') === -1) return;
     FDBP_readSheet_(sh).forEach(function(r) { rows.push(r); });
   });
   return rows;
@@ -229,21 +231,31 @@ function FDBP_buildPanel_(rows) {
   };
 }
 
+function FDBP_isBalanceSupport_(r) {
+  const compact = String(r.game || r.gameLabel || '').toLowerCase().replace(/[\s_-]+/g, '');
+  return compact.indexOf('balancehold') !== -1 || compact === 'balance';
+}
+
 function FDBP_mergeSupport_(base, rows) {
-  const out = (base || []).slice();
+  const out = (base || []).filter(function(r){return !FDBP_isBalanceSupport_(r);});
   const existing = {};
   out.forEach(function(r){existing[String(r.studentId||r.player||'') + ':' + String(r.game||r.gameLabel||'')] = true;});
   rows.forEach(function(r) {
     if (!r.balancePoseAvailable) return;
-    const weak = Number(r.stabilityScore || 0) < 60 || Number(r.transitionScore || 0) < 60 || Number(r.safeZoneScore || 0) < 65 || Number(r.trackingCoverage || 0) < 70;
-    if (!weak) return;
+    const stable = FDBP_num_(r.stabilityScore), transition = FDBP_num_(r.transitionScore);
+    const safe = FDBP_num_(r.safeZoneScore), tracking = FDBP_num_(r.trackingCoverage);
+    const weakStable = stable !== null && stable < 60;
+    const weakTransition = transition !== null && transition < 60;
+    const weakSafe = safe !== null && safe < 65;
+    const weakTracking = tracking !== null && tracking < 70;
+    if (!weakStable && !weakTransition && !weakSafe && !weakTracking) return;
     const id = String(r.studentId || r.playerId || r.player || '');
     const key = id + ':balancehold'; if (existing[key]) return; existing[key] = true;
     let advice = 'ฝึก Balance Hold เพิ่ม';
-    if (Number(r.trackingCoverage || 0) < 70) advice = 'ปรับระยะกล้องและแสงให้เห็นทั้งตัวต่อเนื่อง';
-    else if (Number(r.stabilityScore || 0) < 60) advice = 'ฝึก Sky Shield โดยหายใจช้าและลดการสั่นของลำตัว';
-    else if (Number(r.transitionScore || 0) < 60) advice = 'ฝึกเปลี่ยนจาก Center ไป Star Reach ให้ช้าลง';
-    else if (Number(r.safeZoneScore || 0) < 65) advice = 'รักษาเท้าทั้งสองใน Safe Zone และลดการโยกสะโพก';
+    if (weakTracking) advice = 'ปรับระยะกล้องและแสงให้เห็นทั้งตัวต่อเนื่อง';
+    else if (weakStable) advice = 'ฝึก Sky Shield โดยหายใจช้าและลดการสั่นของลำตัว';
+    else if (weakTransition) advice = 'ฝึกเปลี่ยนจาก Center ไป Star Reach ให้ช้าลง';
+    else if (weakSafe) advice = 'รักษาเท้าทั้งสองใน Safe Zone และลดการโยกสะโพก';
     out.push({player:r.player||r.studentName||'Hero',studentId:id,game:'balancehold',gameLabel:'Balance Hold',accuracy:r.poseAccuracy||r.accuracy||0,advice:advice});
   });
   return out;
