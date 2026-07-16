@@ -1,63 +1,143 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
-  <meta name="theme-color" content="#071827" />
-  <meta name="color-scheme" content="dark" />
-  <title>HeroHealth • Handwash Reality Lab V3</title>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <style>
-    :root{
-      --ink:#effbff;--muted:#b8cfda;--panel:rgba(6,24,38,.78);--line:rgba(139,226,255,.28);
-      --cyan:#55ddff;--green:#63eca6;--yellow:#ffe27a;--red:#ff7188;--blue:#3ba8ff;
-      --sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);
-    }
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#06131f;color:var(--ink);font-family:ui-rounded,"Noto Sans Thai","Segoe UI",system-ui,sans-serif}
-    button,input{font:inherit}button{cursor:pointer}.hidden{display:none!important}
-    .app{position:fixed;inset:0;overflow:hidden;background:radial-gradient(circle at 20% 8%,#153e52,#071827 52%,#03101a)}
-    .camera{position:absolute;inset:0;overflow:hidden;background:linear-gradient(145deg,#193f51,#071827)}
-    #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);filter:saturate(.92) contrast(1.05) brightness(.82)}
-    #arCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-    .camera-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(1,14,24,.54),transparent 30%,transparent 68%,rgba(1,14,24,.72)),radial-gradient(circle at center,transparent 28%,rgba(0,8,14,.25))}
-    .top{position:absolute;z-index:20;top:calc(8px + var(--sat));left:calc(8px + var(--sal));right:calc(8px + var(--sar));display:grid;gap:7px;pointer-events:none}
-    .toprow{display:flex;gap:7px;align-items:center}.glass{border:1px solid var(--line);background:var(--panel);box-shadow:0 16px 42px rgba(0,0,0,.28);backdrop-filter:blur(15px);border-radius:18px}
-    .iconbtn{width:44px;height:44px;border:1px solid var(--line);border-radius:15px;color:var(--ink);background:var(--panel);pointer-events:auto;font-size:20px;font-weight:1000}
-    .brand{min-width:0;flex:1;padding:8px 11px}.brand small{display:block;color:var(--cyan);font-size:9px;font-weight:1000;letter-spacing:.13em}.brand strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px;line-height:1.12}
-    .detect{min-width:104px;height:44px;display:grid;place-items:center;padding:0 9px;text-align:center;color:#d8fbff;font-size:10px;font-weight:1000}
-    .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.stat{padding:6px 4px;text-align:center}.stat span{display:block;color:var(--muted);font-size:8px;font-weight:900}.stat b{display:block;margin-top:1px;font-size:16px;line-height:1.05}
-    .mission{padding:9px 11px;display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center}.mission-icon{width:39px;height:39px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(145deg,#2b9fff,#54e4c0);font-size:23px}.mission h1{margin:0;font-size:15px;line-height:1.16}.mission p{margin:2px 0 0;color:var(--muted);font-size:10px;font-weight:800;line-height:1.25}.quality{min-width:64px;text-align:right}.quality b{display:block;color:var(--yellow);font-size:17px}.quality span{font-size:8px;color:var(--muted);font-weight:900}
-    .steps{position:absolute;z-index:15;left:calc(8px + var(--sal));top:calc(198px + var(--sat));width:min(205px,34vw);display:grid;gap:5px;pointer-events:none}.step{min-height:35px;display:grid;grid-template-columns:27px 1fr 34px;gap:5px;align-items:center;padding:4px 6px;border:1px solid rgba(139,226,255,.18);border-radius:13px;background:rgba(4,19,31,.58);backdrop-filter:blur(10px);opacity:.54;transition:.15s}.step.active{opacity:1;border-color:rgba(255,226,122,.72);background:rgba(54,43,12,.72);transform:translateX(3px)}.step.done{opacity:.82;border-color:rgba(99,236,166,.54);background:rgba(8,55,42,.66)}.step i{font-style:normal;font-size:17px}.step strong{font-size:9px;line-height:1.1}.step em{font-style:normal;text-align:right;font-size:9px;font-weight:1000;color:var(--cyan)}
-    .zones{position:absolute;z-index:8;inset:0;pointer-events:none}.zone{position:absolute;display:grid;place-items:center;border:2px dashed rgba(139,226,255,.42);background:rgba(70,202,255,.09);box-shadow:0 0 0 0 rgba(85,221,255,.24);border-radius:26px;color:#eaffff;text-align:center;font-weight:1000;transition:.16s}.zone b{display:block;font-size:28px}.zone span{display:block;font-size:9px}.zone.active{border-style:solid;border-color:rgba(255,226,122,.86);background:rgba(255,226,122,.16);animation:pulse 1s infinite alternate}.zone.hit{border-color:rgba(99,236,166,.95);background:rgba(99,236,166,.22)}
-    #waterZone{left:50%;top:25%;width:128px;height:92px;transform:translateX(-50%)}#soapZone{left:4%;bottom:20%;width:108px;height:96px}#towelZone{right:4%;bottom:20%;width:108px;height:96px}#scrubZone{left:50%;top:53%;width:min(270px,54vw);height:min(230px,33vh);transform:translate(-50%,-50%);border-radius:42px}
-    @keyframes pulse{to{box-shadow:0 0 0 14px rgba(85,221,255,0);transform:translateX(-50%) scale(1.03)}}#soapZone.active,#towelZone.active{animation:pulseSide 1s infinite alternate}@keyframes pulseSide{to{box-shadow:0 0 0 14px rgba(85,221,255,0);transform:scale(1.04)}}#scrubZone.active{animation:pulseScrub 1s infinite alternate}@keyframes pulseScrub{to{box-shadow:0 0 0 18px rgba(85,221,255,0);transform:translate(-50%,-50%) scale(1.03)}}
-    .bottom{position:absolute;z-index:20;left:calc(8px + var(--sal));right:calc(8px + var(--sar));bottom:calc(8px + var(--sab));display:grid;gap:6px}.meters{padding:8px 10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.meter label{display:flex;justify-content:space-between;color:var(--muted);font-size:8px;font-weight:900}.track{height:8px;margin-top:4px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.12)}.track i{display:block;height:100%;width:0;border-radius:999px;transition:width .12s;background:linear-gradient(90deg,var(--blue),var(--green))}.meter.foam .track i{background:linear-gradient(90deg,#eaffff,#82d9ff)}.meter.germ .track i{background:linear-gradient(90deg,var(--green),var(--yellow),var(--red))}
-    .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.control{min-height:50px;border:1px solid var(--line);border-radius:17px;color:var(--ink);background:var(--panel);box-shadow:0 12px 26px rgba(0,0,0,.22);font-weight:1000}.control span{display:block;font-size:19px;line-height:1}.control b{display:block;margin-top:3px;font-size:9px}.control.primary{background:linear-gradient(145deg,#167cb8,#20b68c)}.control.warn{background:linear-gradient(145deg,#725b16,#aa7f12)}
-    .coach{position:absolute;z-index:18;right:calc(8px + var(--sar));top:calc(198px + var(--sat));width:min(250px,38vw);padding:10px}.coach strong{display:block;font-size:11px}.coach p{margin:4px 0 0;color:var(--muted);font-size:9px;line-height:1.35;font-weight:800}.coach-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:7px}.coach-chip{padding:5px 3px;border-radius:10px;background:rgba(255,255,255,.08);text-align:center;font-size:8px;font-weight:1000}.coach-chip.good{background:rgba(99,236,166,.20);color:#c8ffe2}.coach-chip.bad{background:rgba(255,113,136,.18);color:#ffd7de}
-    .overlay{position:absolute;z-index:50;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(2,14,24,.72);backdrop-filter:blur(12px)}.overlay.show{display:flex}.card{width:min(650px,100%);max-height:92vh;overflow:auto;padding:20px;border:1px solid var(--line);border-radius:28px;background:rgba(5,25,40,.96);box-shadow:0 28px 90px rgba(0,0,0,.45)}.hero{width:74px;height:74px;margin:0 auto 10px;display:grid;place-items:center;border-radius:25px;background:linear-gradient(145deg,#2b9fff,#54e4c0);font-size:40px}.card h2{margin:0;text-align:center;font-size:25px}.card>p{margin:8px auto 0;max-width:560px;text-align:center;color:var(--muted);font-size:12px;line-height:1.5;font-weight:800}.form{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.form label{display:grid;gap:4px;color:var(--muted);font-size:10px;font-weight:900}.form input{height:42px;padding:0 12px;border:1px solid var(--line);border-radius:14px;color:var(--ink);background:rgba(255,255,255,.07);outline:none}.rules{margin-top:13px;display:grid;grid-template-columns:1fr 1fr;gap:7px}.rule{padding:9px;border-radius:14px;background:rgba(255,255,255,.06);font-size:10px;line-height:1.35;font-weight:850}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}.bigbtn{min-height:48px;border:0;border-radius:16px;color:#052131;font-weight:1000;background:linear-gradient(145deg,#7ee8ff,#6cf0ad)}.bigbtn.soft{color:var(--ink);background:rgba(255,255,255,.09);border:1px solid var(--line)}
-    .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:14px}.summary-box{padding:10px 7px;border-radius:16px;text-align:center;background:rgba(255,255,255,.07)}.summary-box span{display:block;color:var(--muted);font-size:8px;font-weight:900}.summary-box b{display:block;margin-top:3px;font-size:20px}.result-list{display:grid;gap:5px;margin-top:12px}.result-row{display:grid;grid-template-columns:1fr 70px 70px;gap:6px;padding:7px 9px;border-radius:12px;background:rgba(255,255,255,.06);font-size:9px;font-weight:900}.delivery{margin-top:10px;padding:9px;border-radius:13px;background:rgba(85,221,255,.10);font-size:9px;text-align:center;color:#d8fbff;font-weight:900}.toast{position:absolute;z-index:80;left:50%;top:50%;max-width:82vw;padding:12px 16px;border-radius:18px;background:rgba(3,20,33,.94);box-shadow:0 20px 55px rgba(0,0,0,.4);font-size:12px;font-weight:1000;text-align:center;opacity:0;pointer-events:none;transform:translate(-50%,-45%) scale(.94);transition:.16s}.toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
-    @media(max-width:720px){.steps{top:calc(188px + var(--sat));width:37vw}.coach{top:calc(188px + var(--sat));width:38vw}.stats{grid-template-columns:repeat(5,1fr)}.stat b{font-size:14px}.mission{grid-template-columns:auto 1fr}.quality{display:none}.meters{padding:7px}.zone b{font-size:23px}.form,.rules{grid-template-columns:1fr}.summary-grid{grid-template-columns:1fr 1fr}.result-row{grid-template-columns:1fr 55px 60px}.card{padding:16px}.control{min-height:47px}}
-    @media(max-width:480px){.detect{min-width:83px}.brand strong{font-size:14px}.steps{top:calc(184px + var(--sat));width:38vw}.step{grid-template-columns:22px 1fr}.step em{display:none}.coach{top:calc(184px + var(--sat));width:39vw}.coach-grid{grid-template-columns:1fr}.coach-chip:nth-child(n+4){display:none}#scrubZone{width:52vw;height:28vh}.controls{grid-template-columns:repeat(4,1fr)}.control b{font-size:8px}}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
+<meta name="theme-color" content="#061521" />
+<meta name="color-scheme" content="dark" />
+<title>HeroHealth • Handwash Reality Lab: WHO Technique</title>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<style>
+:root{
+--ink:#effbff;--muted:#afd0dc;--panel:rgba(5,24,37,.80);--line:rgba(132,226,255,.30);
+--cyan:#57dfff;--green:#67eda9;--yellow:#ffe27b;--red:#ff7089;--blue:#409fff;
+--sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);
+--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px)
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#04101a;color:var(--ink);font-family:ui-rounded,"Noto Sans Thai","Segoe UI",system-ui,sans-serif}
+button,input{font:inherit}button{cursor:pointer}.hidden{display:none!important}
+.app{position:fixed;inset:0;overflow:hidden;background:radial-gradient(circle at 18% 8%,#16445a,#071827 52%,#03101a)}
+.camera{position:absolute;inset:0;background:linear-gradient(160deg,#102e3c,#06131f);overflow:hidden}
+video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:.82}
+canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(1,12,20,.48),transparent 27%,transparent 67%,rgba(1,12,20,.74));pointer-events:none}
+.hud{position:absolute;z-index:10;inset:calc(10px + var(--sat)) calc(10px + var(--sar)) auto calc(10px + var(--sal));display:grid;gap:8px;pointer-events:none}
+.row{display:flex;align-items:center;gap:8px}.glass{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(14px);box-shadow:0 12px 34px rgba(0,0,0,.22)}
+.back{width:46px;height:46px;border:1px solid var(--line);border-radius:15px;color:var(--ink);background:var(--panel);font-size:22px;font-weight:1000;pointer-events:auto}
+.title{min-width:0;flex:1;padding:9px 12px;border-radius:17px}.title small{display:block;color:var(--cyan);font-size:10px;font-weight:1000;letter-spacing:.09em}.title strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(16px,3vw,22px)}
+.detect{min-width:116px;min-height:46px;display:grid;place-items:center;padding:5px 9px;border-radius:15px;color:var(--yellow);font-size:11px;font-weight:1000;text-align:center}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.stat{padding:7px 6px;border-radius:14px;text-align:center}.stat span{display:block;color:var(--muted);font-size:10px;font-weight:900}.stat b{display:block;margin-top:1px;font-size:clamp(15px,3.6vw,22px)}
+.stat.time.good b{color:var(--green)}.stat.time.warn b{color:var(--yellow)}.stat.time.bad b{color:var(--red)}
+.mission{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:18px}.mission .icon{width:43px;height:43px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(145deg,#dffaff,#fff3bb);font-size:25px}.mission h1{margin:0;font-size:clamp(15px,3vw,20px);line-height:1.12}.mission p{margin:2px 0 0;color:var(--muted);font-size:clamp(11px,2.2vw,14px);font-weight:800;line-height:1.25}
+.who-strip{display:flex;gap:5px;overflow-x:auto;padding:6px;border-radius:16px;scrollbar-width:none}.who-strip::-webkit-scrollbar{display:none}
+.phase-chip{flex:0 0 auto;min-width:67px;padding:5px 7px;border:1px solid rgba(132,226,255,.18);border-radius:11px;color:var(--muted);background:rgba(3,18,29,.66);font-size:9px;font-weight:1000;text-align:center}
+.phase-chip.active{color:#061521;background:var(--yellow);border-color:var(--yellow)}.phase-chip.done{color:#062519;background:var(--green);border-color:var(--green)}
+.zones{position:absolute;z-index:4;inset:0;pointer-events:none}.zone{position:absolute;display:grid;place-items:center;border:2px dashed rgba(132,226,255,.30);border-radius:26px;background:rgba(5,28,42,.20);transition:.16s}.zone div{text-align:center;filter:drop-shadow(0 4px 12px rgba(0,0,0,.28))}.zone b{display:block;font-size:35px}.zone span{display:block;margin-top:2px;color:#dff8ff;font-size:10px;font-weight:1000;letter-spacing:.08em}
+.zone.active{border-style:solid;border-color:var(--yellow);background:rgba(255,226,123,.12);box-shadow:0 0 0 8px rgba(255,226,123,.05)}.zone.hit{border-color:var(--green);background:rgba(103,237,169,.14)}
+#waterZone{top:29%;left:50%;width:128px;height:106px;transform:translateX(-50%)}#soapZone{left:16px;bottom:174px;width:108px;height:104px}#towelZone{right:16px;bottom:174px;width:108px;height:104px}#scrubZone{top:51%;left:50%;width:min(48vw,330px);height:min(31vh,230px);transform:translate(-50%,-50%);border-radius:42%}
+.coach{position:absolute;z-index:8;top:33%;right:12px;width:min(285px,35vw);padding:12px;border-radius:18px}.coach strong{display:block;color:var(--yellow);font-size:11px}.coach p{margin:4px 0 0;font-size:clamp(11px,2vw,14px);font-weight:900;line-height:1.35}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}.chip{padding:4px 7px;border-radius:999px;color:var(--muted);background:rgba(2,15,24,.64);font-size:9px;font-weight:1000}.chip.good{color:#062519;background:var(--green)}.chip.bad{color:#321016;background:var(--red)}
+.bottom{position:absolute;z-index:10;right:calc(10px + var(--sar));bottom:calc(10px + var(--sab));left:calc(10px + var(--sal));display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px}
+.meters{padding:10px;border-radius:18px}.meter+.meter{margin-top:7px}.meter label{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:10px;font-weight:1000}.track{height:7px;margin-top:4px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.11)}.track i{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--blue),var(--cyan));transition:width .16s}.meter.foam .track i{background:linear-gradient(90deg,#c8f7ff,#fff)}.meter.germ .track i{background:linear-gradient(90deg,var(--green),var(--yellow),var(--red))}
+.controls{display:grid;grid-template-columns:repeat(2,78px);gap:6px}.control{min-height:58px;border:1px solid var(--line);border-radius:16px;color:var(--ink);background:var(--panel);font-size:10px;font-weight:1000}.control span{display:block;font-size:22px}.control.primary{color:#052132;background:var(--cyan);border-color:var(--cyan)}.control.warn{color:#321016;background:var(--red);border-color:var(--red)}
+.overlay{position:absolute;z-index:40;inset:0;display:none;place-items:center;padding:calc(18px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));background:rgba(1,11,18,.78);backdrop-filter:blur(12px);overflow:auto}.overlay.show{display:grid}.card{width:min(760px,100%);padding:22px;border:1px solid var(--line);border-radius:28px;background:linear-gradient(160deg,rgba(9,37,53,.96),rgba(4,21,33,.96));box-shadow:0 24px 70px rgba(0,0,0,.40)}.hero{text-align:center;font-size:52px}.card h2{margin:4px 0 0;text-align:center;font-size:clamp(25px,5vw,38px)}.card>p{margin:8px auto 15px;max-width:630px;color:var(--muted);text-align:center;line-height:1.45;font-weight:800}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:8px}.form label{color:var(--muted);font-size:11px;font-weight:1000}.form input{width:100%;margin-top:4px;padding:12px;border:1px solid var(--line);border-radius:14px;color:var(--ink);background:rgba(1,14,23,.72);outline:none}
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:13px 0}.rule{padding:10px;border-radius:14px;color:#dff7ff;background:rgba(255,255,255,.055);font-size:11px;font-weight:850;line-height:1.35}.rule b{color:var(--yellow)}
+.actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}.bigbtn{min-height:50px;padding:0 20px;border:0;border-radius:16px;color:#052132;background:linear-gradient(180deg,#80ebff,#53d9f8);font-weight:1000}.bigbtn.soft{color:var(--ink);background:rgba(255,255,255,.09);border:1px solid var(--line)}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}.summary-box{padding:11px;border-radius:15px;background:rgba(255,255,255,.06);text-align:center}.summary-box span{display:block;color:var(--muted);font-size:10px;font-weight:900}.summary-box b{display:block;margin-top:3px;font-size:20px}
+.result-list{display:grid;gap:5px;max-height:31vh;overflow:auto}.result-row{display:grid;grid-template-columns:minmax(0,1fr) 68px 100px;gap:6px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.055);font-size:10px;font-weight:900}.result-row span:nth-child(n+2){text-align:right}.delivery{margin:10px 0;padding:9px;border-radius:12px;color:var(--muted);background:rgba(1,14,23,.58);font-size:10px;font-weight:850;text-align:center}
+.toast{position:absolute;z-index:60;left:50%;bottom:calc(92px + var(--sab));width:min(92vw,520px);padding:12px 15px;border-radius:15px;color:#061521;background:#f4fbff;font-weight:1000;text-align:center;opacity:0;pointer-events:none;transform:translate(-50%,15px);transition:.18s}.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:760px){.stats{grid-template-columns:repeat(5,1fr)}.coach{top:auto;right:10px;bottom:174px;width:min(58vw,260px)}.bottom{grid-template-columns:1fr}.controls{grid-template-columns:repeat(4,1fr)}.control{min-height:48px}.control span{display:inline;margin-right:4px;font-size:17px}.form,.rules{grid-template-columns:1fr}.summary-grid{grid-template-columns:repeat(2,1fr)}#scrubZone{top:48%;width:58vw;height:24vh}.result-list{max-height:25vh}}
+@media(max-width:480px){.detect{min-width:94px}.stat{padding:6px 3px}.title strong{font-size:15px}.coach{width:64vw}.phase-chip{min-width:61px}.result-row{grid-template-columns:minmax(0,1fr) 52px 75px}}
+</style>
 </head>
 <body>
-  <main id="app" class="app">
-    <section class="camera"><video id="video" playsinline muted autoplay></video><canvas id="arCanvas"></canvas><div class="camera-shade"></div></section>
-    <header class="top">
-      <div class="toprow"><button id="backBtn" class="iconbtn" type="button">←</button><div class="brand glass"><small>HYGIENE ZONE • REALITY LAB</small><strong>Handwash AR V3 — ล้างมือเสมือนจริง</strong></div><div id="detectStatus" class="detect glass">กำลังเปิดกล้อง</div></div>
-      <div class="stats"><div class="stat glass"><span>PHASE</span><b id="phaseText">READY</b></div><div class="stat glass"><span>เวลา</span><b id="timeText">90</b></div><div class="stat glass"><span>คะแนน</span><b id="scoreText">0</b></div><div class="stat glass"><span>น้ำ</span><b id="waterText">0s</b></div><div class="stat glass"><span>ขั้น</span><b id="stepText">0/7</b></div></div>
-      <section class="mission glass"><div id="missionIcon" class="mission-icon">🧼</div><div><h1 id="missionTitle">เตรียมกล้องและมือสองข้าง</h1><p id="missionTip">ตั้งกล้องให้เห็นมือครบทั้งสองข้าง ระบบไม่บันทึกวิดีโอ</p></div><div class="quality"><b id="qualityText">0%</b><span>REALISM QUALITY</span></div></section>
-    </header>
-    <section id="stepRail" class="steps"></section>
-    <section id="coachPanel" class="coach glass"><strong id="coachTitle">AI Gesture Coach</strong><p id="coachText">ยกมือสองข้างไว้กลางจอ</p><div class="coach-grid"><div id="chipHands" class="coach-chip">✋ 0 มือ</div><div id="chipContact" class="coach-chip">🤝 Contact</div><div id="chipMotion" class="coach-chip">↔ Motion</div><div id="chipPose" class="coach-chip">🧭 Pose</div><div id="chipSwitch" class="coach-chip">🔄 Switch</div><div id="chipTrack" class="coach-chip">📷 Track</div></div></section>
-    <section class="zones"><div id="waterZone" class="zone"><div><b>🚰</b><span>WATER</span></div></div><div id="soapZone" class="zone"><div><b>🧴</b><span>SOAP</span></div></div><div id="towelZone" class="zone"><div><b>🧻</b><span>TOWEL</span></div></div><div id="scrubZone" class="zone"><div><b>🤲</b><span>GESTURE LAB</span></div></div></section>
-    <section class="bottom"><div class="meters glass"><div class="meter"><label><span>Gesture Evidence</span><b id="evidenceText">0%</b></label><div class="track"><i id="evidenceFill"></i></div></div><div class="meter foam"><label><span>Foam Coverage</span><b id="foamText">0%</b></label><div class="track"><i id="foamFill"></i></div></div><div class="meter germ"><label><span>Germ Load</span><b id="germText">100%</b></label><div class="track"><i id="germFill" style="width:100%"></i></div></div></div><div class="controls"><button id="faucetBtn" class="control primary" type="button"><span>🚰</span><b>เปิด/ปิดน้ำ</b></button><button id="coachBtn" class="control" type="button"><span>🤖</span><b>ฟังคำแนะนำ</b></button><button id="tapBtn" class="control" type="button"><span>👆</span><b>Tap Practice</b></button><button id="stopBtn" class="control warn" type="button"><span>⏹</span><b>จบรอบ</b></button></div></section>
-    <section id="startOverlay" class="overlay show"><div class="card"><div class="hero">🧼</div><h2>Handwash Reality Lab V3</h2><p>ระบบตรวจมือสองข้าง ทิศฝ่ามือ การสัมผัส การเคลื่อนที่ การหมุน และการสลับมือ เพื่อจำแนกท่าล้างมือ 7 ขั้น ไม่ใช่เพียงตรวจว่ามือขยับ</p><div class="form"><label>ชื่อผู้เล่น<input id="nameInput" placeholder="Hero" /></label><label>ชั้น/ห้อง<input id="classInput" placeholder="P5" /></label></div><div class="rules"><div class="rule">📷 วางมือถือห่างประมาณ 50–70 ซม. ให้เห็นมือสองข้างเต็มเฟรม</div><div class="rule">🧼 เปิดน้ำ → เปียกมือ → ปิดน้ำ → สบู่ → ถู 7 ขั้น → ล้าง → ปิดน้ำ → เช็ด</div><div class="rule">🫧 ฟองเกิดจากการสัมผัสและถูต่อเนื่องจริง ไม่เพิ่มจากการโบกมือเฉย ๆ</div><div class="rule">🔒 ประมวลผลภาพในเครื่อง ไม่บันทึกหรืออัปโหลดวิดีโอ</div></div><div class="actions"><button id="startBtn" class="bigbtn" type="button">เริ่ม Reality Lab</button><button id="zoneBtn" class="bigbtn soft" type="button">กลับ Hygiene Zone</button></div></div></section>
-    <section id="summaryOverlay" class="overlay"><div class="card"><div id="summaryHero" class="hero">🏆</div><h2 id="summaryTitle">สรุปผลการล้างมือ</h2><p id="summarySub">ผลนี้เป็นการประเมินการฝึกจากกล้อง ไม่ใช่เครื่องมือทางการแพทย์</p><div class="summary-grid"><div class="summary-box"><span>คะแนน</span><b id="sumScore">0</b></div><div class="summary-box"><span>ดาว</span><b id="sumStars">☆☆☆</b></div><div class="summary-box"><span>Gesture</span><b id="sumAccuracy">0%</b></div><div class="summary-box"><span>ประหยัดน้ำ</span><b id="sumWater">0%</b></div></div><div id="resultList" class="result-list"></div><div id="deliveryText" class="delivery">กำลังบันทึกผล...</div><div class="actions"><button id="replayBtn" class="bigbtn" type="button">เล่นอีกครั้ง</button><button id="summaryZoneBtn" class="bigbtn soft" type="button">กลับ Hygiene Zone</button></div></div></section>
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  </main>
-  <script src="./handwash-realistic-v3.js?v=20260716-r2"></script>
+<main id="app" class="app">
+<section class="camera"><video id="video" playsinline muted></video><canvas id="arCanvas"></canvas><div class="shade"></div></section>
+<header class="hud">
+<div class="row">
+<button id="backBtn" class="back" type="button" aria-label="กลับ Hygiene Zone">←</button>
+<div class="title glass"><small>HYGIENE ZONE • WHO STANDARD</small><strong>Handwash Reality Lab: WHO Technique</strong></div>
+<div id="detectStatus" class="detect glass">กำลังเปิดกล้อง</div>
+</div>
+<div class="stats">
+<div class="stat glass"><span>WHO STEP</span><b id="stepText">0/11</b></div>
+<div id="timeStat" class="stat time glass"><span>40–60 SEC</span><b id="timeText">0.0</b></div>
+<div class="stat glass"><span>SCORE</span><b id="scoreText">0</b></div>
+<div class="stat glass"><span>WATER</span><b id="waterText">0s</b></div>
+<div class="stat glass"><span>RUB</span><b id="rubText">0/6</b></div>
+</div>
+<section class="mission glass">
+<div id="missionIcon" class="icon">🧼</div>
+<div><h1 id="missionTitle">เตรียมมือสองข้าง</h1><p id="missionTip">ให้กล้องเห็นมือเต็มเฟรม แล้วระบบจะเริ่มขั้นตอน WHO</p></div>
+</section>
+<section id="whoStrip" class="who-strip glass"></section>
+</header>
+<section class="zones">
+<div id="waterZone" class="zone"><div><b>🚰</b><span>FAUCET / WATER</span></div></div>
+<div id="soapZone" class="zone"><div><b>🧴</b><span>SOAP</span></div></div>
+<div id="towelZone" class="zone"><div><b>🧻</b><span>SINGLE-USE TOWEL</span></div></div>
+<div id="scrubZone" class="zone"><div><b>🤲</b><span>WHO RUB ZONE</span></div></div>
+</section>
+<aside class="coach glass">
+<strong>WHO AI COACH</strong>
+<p id="coachText">ตั้งมือถือห่างประมาณ 50–70 ซม. ให้เห็นมือสองข้าง</p>
+<div class="chips">
+<span id="chipHands" class="chip">✋ 0 มือ</span>
+<span id="chipContact" class="chip">🤝 Contact</span>
+<span id="chipMotion" class="chip">↔ Motion</span>
+<span id="chipPose" class="chip">🧭 Pose</span>
+<span id="chipSwitch" class="chip">🔄 Side</span>
+<span id="chipTowel" class="chip">🧻 Towel</span>
+</div>
+</aside>
+<section class="bottom">
+<div class="meters glass">
+<div class="meter"><label><span>WHO Evidence</span><b id="evidenceText">0%</b></label><div class="track"><i id="evidenceFill"></i></div></div>
+<div class="meter foam"><label><span>Foam Coverage</span><b id="foamText">0%</b></label><div class="track"><i id="foamFill"></i></div></div>
+<div class="meter germ"><label><span>Simulated Germ Load</span><b id="germText">100%</b></label><div class="track"><i id="germFill" style="width:100%"></i></div></div>
+</div>
+<div class="controls">
+<button id="faucetBtn" class="control primary" type="button"><span>🚰</span><b>เปิดน้ำ</b></button>
+<button id="coachBtn" class="control" type="button"><span>🤖</span><b>ฟังคำแนะนำ</b></button>
+<button id="tapBtn" class="control" type="button"><span>👆</span><b>Tap Assist</b></button>
+<button id="stopBtn" class="control warn" type="button"><span>⏹</span><b>จบรอบ</b></button>
+</div>
+</section>
+<section id="startOverlay" class="overlay show">
+<div class="card">
+<div class="hero">🧼</div>
+<h2>Handwash Reality Lab: WHO Technique</h2>
+<p>ฝึกตามโปสเตอร์ WHO “How to Handwash?” ครบลำดับ ตั้งแต่เปียกมือจนใช้กระดาษเช็ดมือปิดก๊อก โดยตั้งเป้าเวลาทั้งกระบวนการ 40–60 วินาที</p>
+<div class="form"><label>ชื่อผู้เล่น<input id="nameInput" placeholder="Hero" /></label><label>ชั้น/ห้อง<input id="classInput" placeholder="P5" /></label></div>
+<div class="rules">
+<div class="rule"><b>WHO 0–1</b> เปียกมือ แล้วใช้สบู่ให้ครอบคลุมทุกพื้นผิว</div>
+<div class="rule"><b>WHO 2–7</b> ฝ่ามือ หลังมือ ประสานนิ้ว หลังนิ้ว หัวแม่มือ และปลายนิ้ว</div>
+<div class="rule"><b>WHO 8–10</b> ล้างน้ำ เช็ดด้วยกระดาษใช้ครั้งเดียว แล้วใช้กระดาษปิดก๊อก</div>
+<div class="rule"><b>ความเป็นส่วนตัว</b> ประมวลผลท่ามือในเครื่อง ไม่อัปโหลดหรือบันทึกวิดีโอ</div>
+</div>
+<div class="actions"><button id="startBtn" class="bigbtn" type="button">เริ่ม WHO Technique</button><button id="zoneBtn" class="bigbtn soft" type="button">กลับ Hygiene Zone</button></div>
+</div>
+</section>
+<section id="summaryOverlay" class="overlay">
+<div class="card">
+<div id="summaryHero" class="hero">🏆</div>
+<h2 id="summaryTitle">สรุปผล WHO Handwashing</h2>
+<p id="summarySub">ผลนี้เป็นการประเมินกิจกรรมฝึกจากกล้อง ไม่ใช่เครื่องมือทางการแพทย์</p>
+<div class="summary-grid">
+<div class="summary-box"><span>คะแนน</span><b id="sumScore">0</b></div>
+<div class="summary-box"><span>ดาว</span><b id="sumStars">☆☆☆</b></div>
+<div class="summary-box"><span>WHO Accuracy</span><b id="sumAccuracy">0%</b></div>
+<div class="summary-box"><span>เวลา</span><b id="sumTime">0s</b></div>
+</div>
+<div id="resultList" class="result-list"></div>
+<div id="deliveryText" class="delivery">กำลังบันทึกผล...</div>
+<div class="actions"><button id="replayBtn" class="bigbtn" type="button">เล่นอีกครั้ง</button><button id="summaryZoneBtn" class="bigbtn soft" type="button">กลับ Hygiene Zone</button></div>
+</div>
+</section>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+</main>
+<script src="./handwash-who-v4.js?v=20260716-r1"></script>
 </body>
 </html>

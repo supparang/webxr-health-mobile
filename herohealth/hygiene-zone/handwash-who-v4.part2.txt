@@ -1,0 +1,237 @@
+}
+el.detectStatus.textContent = hands.length >= 2 ? 'Detect: 2 มือ' : hands.length === 1 ? 'ต้องเห็น 2 มือ' : 'กำลังหามือ';
+renderAR(hands,now);
+updateTrackingChips(hands);
+if (state.running) updateGame(hands,dt);
+}
+function buildHand(landmarks,worldLandmarks,label,index,dt){
+if (!landmarks || landmarks.length < 21) return null;
+const p = landmarks.map(pointLm);
+const world = worldLandmarks.map(pointLm3);
+const wrist=p[0],thumbTip=p[4],indexTip=p[8],middleTip=p[12],ringTip=p[16],pinkyTip=p[20];
+const palm=avg([p[0],p[5],p[9],p[17]]);
+const knuckles=avg([p[5],p[9],p[13],p[17]]);
+const tipsCenter=avg([p[8],p[12],p[16],p[20]]);
+const scale=Math.max(dist(p[0],p[9]),dist(p[5],p[17]),.045);
+const extension=avgNumber([p[8],p[12],p[16],p[20]].map(t=>dist(t,palm)/scale));
+const openScore=clamp((extension-.92)/.85,0,1);
+const fistScore=clamp((1.36-extension)/.68,0,1);
+const spread=clamp(avgNumber([dist(p[8],p[12]),dist(p[12],p[16]),dist(p[16],p[20])])/scale/.34,0,1);
+const thumbExtension=clamp(dist(thumbTip,palm)/scale/1.05,0,1);
+const key=normalizeHand(label,index);
+const prev=histories.get(key);
+const speed=prev?dist(palm,prev.palm)/Math.max(dt,.016):0;
+const angle=Math.atan2(palm.y-(prev?.palm?.y ?? palm.y),palm.x-(prev?.palm?.x ?? palm.x));
+const angleDelta=prev?Math.abs(wrapAngle(angle-(prev.angle||angle))):0;
+histories.set(key,{palm,angle,at:performance.now()});
+const normal=palmNormal(world);
+return {
+key,label,index,landmarks:p,wrist,thumbTip,indexTip,middleTip,ringTip,pinkyTip,palm,knuckles,tipsCenter,
+scale,openScore,fistScore,spread,thumbExtension,speed,
+motionScore:clamp((speed-.025)/.22,0,1),turnScore:clamp(angleDelta/.72,0,1),normal
+};
+}
+function updateGame(hands,dt){
+state.stepTime[state.phase] = Number(state.stepTime[state.phase] || 0) + dt;
+if (state.procedureStartedAt) {
+state.procedureSec = (Date.now() - Date.parse(state.procedureStartedAt))/1000;
+if (state.waterOn) {
+state.waterUseSec += dt;
+if (!['wet','rinse','dry','towelFaucet'].includes(state.phase)) state.waterWasteSec += dt;
+}
+}
+clearZoneStates();
+updateZones();
+if (state.phase === 'calibrate') {
+if (hands.length >= 2 && hands.every(h => inRect(h.palm,el.scrubZone.getBoundingClientRect()))) {
+state.phaseProgress += dt/1.2;
+coach('ดีมาก เห็นมือสองข้างชัดแล้ว กำลังเริ่ม WHO Step 0','good');
+} else {
+state.phaseProgress = Math.max(0,state.phaseProgress-dt*.4);
+coach('ยกมือสองข้างให้เห็นเต็มเฟรมและอยู่กลางกรอบ','hands');
+}
+if (state.phaseProgress >= 1) setPhase('wet');
+updateUI();
+return;
+}
+const phase = currentPhase();
+if (!phase) return;
+if (phase.kind === 'rub') updateRub(phase,hands,dt);
+else updateProcess(phase,hands,dt);
+updateUI();
+}
+function updateProcess(phase,hands,dt){
+const palms=hands.map(h=>h.palm);
+const inWater=palms.filter(p=>inRect(p,el.waterZone.getBoundingClientRect())).length;
+const inSoap=palms.filter(p=>inRect(p,el.soapZone.getBoundingClientRect())).length;
+const inTowel=palms.filter(p=>inRect(p,el.towelZone.getBoundingClientRect())).length;
+if (phase.id === 'wet') {
+if (state.waterOn && inWater >= 2) {
+state.phaseProgress += dt/phase.targetSec;
+state.germLoad = Math.max(96,state.germLoad-dt*.5);
+hitZone(el.waterZone);
+coach('WHO 0: ทำให้มือทั้งสองข้างเปียกทั่ว','good');
+} else coach(state.waterOn?'นำมือสองข้างเข้าใต้น้ำ':'เปิดน้ำก่อน แล้วนำมือสองข้างเข้าใต้น้ำ','water');
+}
+if (phase.id === 'soap') {
+if (state.waterOn) {
+coach('ปิดน้ำก่อนใช้สบู่ เพื่อลดการใช้น้ำเกินจำเป็น','water');
+state.waterWasteSec += dt;
+} else if (inSoap >= 1) {
+state.phaseProgress += dt/phase.targetSec;
+state.foam = clamp(state.foam+dt*12,0,28);
+state.foamPeak=Math.max(state.foamPeak,state.foam);
+hitZone(el.soapZone);
+coach('WHO 1: ใช้สบู่ให้ครอบคลุมทุกพื้นผิวมือ','good');
+} else coach('แตะบริเวณสบู่ด้วยมือหนึ่งข้าง','soap');
+}
+if (phase.id === 'rinse') {
+if (state.waterOn && inWater >= 2) {
+state.phaseProgress += dt/phase.targetSec;
+state.foam = Math.max(0,state.foam-dt*25);
+state.germLoad = Math.max(4,state.germLoad-dt*4.5);
+hitZone(el.waterZone);
+coach('WHO 8: ล้างสบู่ออกจากมือให้หมด','good');
+} else coach(state.waterOn?'นำมือสองข้างเข้าใต้น้ำเพื่อล้างฟอง':'เปิดน้ำเพื่อล้างฟอง','water');
+}
+if (phase.id === 'dry') {
+if (inTowel >= 1) {
+state.phaseProgress += dt/phase.targetSec;
+state.towelHeld = true;
+hitZone(el.towelZone);
+coach('WHO 9: เช็ดมือให้แห้งทั่วด้วยกระดาษใช้ครั้งเดียว','good');
+} else coach('นำมือไปที่กระดาษใช้ครั้งเดียวและเช็ดให้ทั่ว','towel');
+}
+if (phase.id === 'towelFaucet') {
+if (!state.towelHeld) {
+coach('หยิบกระดาษที่ใช้เช็ดมือก่อน','towel');
+} else if (state.waterOn && inWater >= 1) {
+state.phaseProgress += dt/phase.targetSec;
+hitZone(el.waterZone);
+coach('WHO 10: ใช้กระดาษปิดก๊อก ไม่สัมผัสก๊อกด้วยมือสะอาด','good');
+} else if (!state.waterOn) {
+coach('ก๊อกถูกปิดก่อนใช้กระดาษ ระบบจะนับเป็นความเสี่ยงปนเปื้อนซ้ำ','contamination');
+} else coach('ถือกระดาษแล้วนำมือไปบริเวณก๊อกน้ำ','towel');
+}
+state.phaseProgress=clamp(state.phaseProgress,0,1);
+if (state.phaseProgress >= 1) completeProcess(phase);
+}
+function completeProcess(phase){
+state.passMode[phase.id]=state.fallbackUsed?'assist':'strict';
+addScore(phase.id==='towelFaucet'?260:120);
+logEvent('process_complete',{phase:phase.id,whoStep:phase.who,timeSec:round(state.stepTime[phase.id],2)});
+beep(phase.id==='towelFaucet'?980:760,.09);
+vibrate([20,25,20]);
+if (phase.id === 'wet') {
+setPhase('soap');
+showToast('WHO 0 ผ่านแล้ว • ปิดน้ำและใช้สบู่');
+return;
+}
+if (phase.id === 'soap') {
+state.foam=Math.max(state.foam,24);
+setPhase('palm');
+showToast('WHO 1 ผ่านแล้ว • เริ่ม 6 ท่าถูมือ');
+return;
+}
+if (phase.id === 'rinse') {
+state.foam=0;
+setPhase('dry');
+showToast('WHO 8 ผ่านแล้ว • เช็ดให้แห้ง');
+return;
+}
+if (phase.id === 'dry') {
+setPhase('towelFaucet');
+showToast('WHO 9 ผ่านแล้ว • ใช้กระดาษปิดก๊อก');
+return;
+}
+if (phase.id === 'towelFaucet') {
+state.towelFaucetPassed=true;
+setWater(false);
+finishRun('completed');
+}
+}
+function updateRub(phase,hands,dt){
+if (hands.length < 2) {
+coach('ต้องเห็นมือสองข้างเพื่อประเมินท่า WHO','hands');
+decayEvidence(phase,dt);
+return;
+}
+const evaluation=evaluateGesture(phase,hands,dt);
+state.lastGesture=evaluation;
+const quality=state.quality[phase.id];
+quality.sum+=evaluation.score;quality.samples+=1;quality.best=Math.max(quality.best,evaluation.score);
+const elapsed=state.stepTime[phase.id];
+const graceActive=elapsed>(DIFF==='easy'?7:9);
+const threshold=graceActive?phase.grace:phase.strict;
+const eligible=evaluation.inZone&&evaluation.contactOK&&evaluation.poseOK&&evaluation.motionOK&&evaluation.score>=threshold;
+state.stability=eligible?Math.min(.5,state.stability+dt):Math.max(0,state.stability-dt*1.7);
+if (eligible && state.stability>=.26) {
+const slot=phase.side?evaluation.slot:'both';
+if (slot) {
+ensureEvidence(phase,slot);
+const gain=dt*(.48+.52*evaluation.score)/phase.targetSec;
+state.evidence[phase.id][slot]=clamp(state.evidence[phase.id][slot]+gain,0,1);
+state.foam=clamp(state.foam+dt*(5.2+evaluation.score*4.6),0,100);
+state.foamPeak=Math.max(state.foamPeak,state.foam);
+state.germLoad=Math.max(18,state.germLoad-dt*(1.6+evaluation.score*2.0));
+state.activeSlot=slot;
+addScore(dt*(30+evaluation.score*25),false);
+coach(evaluation.coach,'good');
+hitZone(el.scrubZone);
+}
+} else {
+decayEvidence(phase,dt);
+coach(evaluation.coach,evaluation.reason || 'pose');
+}
+if (rubDone(phase)) completeRub(phase,graceActive?'grace':'strict');
+}
+function completeRub(phase,passMode){
+state.passMode[phase.id]=passMode;
+addScore(passMode==='strict'?230:175);
+logEvent('rub_complete',{phase:phase.id,whoStep:phase.who,passMode,quality:phaseQuality(phase.id),timeSec:round(state.stepTime[phase.id],2)});
+beep(passMode==='strict'?920:780,.10);vibrate([25,25,25]);
+showToast(`WHO ${phase.who} ผ่าน • ${passMode==='strict'?'Strict Gesture':'Adaptive Coach'}`);
+nextPhase();
+}
+function evaluateGesture(phase,hands,dt){
+const [a,b]=hands;
+const pair=pairMetrics(a,b,dt);
+const scrubRect=el.scrubZone.getBoundingClientRect();
+const bothIn=inRect(a.palm,scrubRect)&&inRect(b.palm,scrubRect);
+const motion=clamp((a.motionScore+b.motionScore+pair.relativeMotion)/3,0,1);
+let score=0,contact=0,pose=0,trajectory=0,slot='';
+if (phase.id==='palm') {
+contact=clamp((1.20-pair.palmDistance)/.78,0,1);
+pose=avgNumber([a.openScore,b.openScore,pair.oppositeNormal]);
+trajectory=avgNumber([pair.oscillation,motion]);
+score=weighted([contact,.30,pose,.34,trajectory,.36]);
+} else if (phase.id==='dorsum') {
+const dAB=dist(a.palm,b.knuckles)/pair.scale,dBA=dist(b.palm,a.knuckles)/pair.scale;
+slot=dAB<dBA?b.key:a.key;
+contact=clamp((.96-Math.min(dAB,dBA))/.70,0,1);
+pose=avgNumber([a.openScore,b.openScore,Math.max(pair.sameNormal,pair.oppositeNormal*.62)]);
+trajectory=avgNumber([pair.oscillation,motion]);
+score=weighted([contact,.38,pose,.28,trajectory,.34]);
+} else if (phase.id==='interlaced') {
+contact=clamp((1.05-pair.tipDistance)/.66,0,1);
+pose=avgNumber([a.openScore,b.openScore,a.spread,b.spread]);
+trajectory=avgNumber([pair.oscillation,motion]);
+score=weighted([contact,.34,pose,.34,trajectory,.32]);
+} else if (phase.id==='backsFingers') {
+const dAB=dist(a.knuckles,b.palm)/pair.scale,dBA=dist(b.knuckles,a.palm)/pair.scale;
+contact=clamp((.88-Math.min(dAB,dBA))/.60,0,1);
+pose=avgNumber([Math.max(a.fistScore,b.fistScore),Math.max(a.openScore,b.openScore)]);
+trajectory=avgNumber([pair.oscillation,motion]);
+score=weighted([contact,.40,pose,.30,trajectory,.30]);
+} else if (phase.id==='thumbs') {
+const dAB=dist(a.thumbTip,b.palm)/pair.scale,dBA=dist(b.thumbTip,a.palm)/pair.scale;
+slot=dAB<dBA?a.key:b.key;
+contact=clamp((.80-Math.min(dAB,dBA))/.56,0,1);
+pose=avgNumber([Math.max(a.thumbExtension,b.thumbExtension),Math.max(a.openScore,b.openScore)*.7+.3]);
+trajectory=avgNumber([pair.circularity,motion]);
+score=weighted([contact,.40,pose,.24,trajectory,.36]);
+} else if (phase.id==='fingertips') {
+const dAB=dist(a.tipsCenter,b.palm)/pair.scale,dBA=dist(b.tipsCenter,a.palm)/pair.scale;
+slot=dAB<dBA?a.key:b.key;
+contact=clamp((.77-Math.min(dAB,dBA))/.53,0,1);
+pose=avgNumber([Math.max(a.fistScore,a.openScore*.42),Math.max(b.fistScore,b.openScore*.42)]);

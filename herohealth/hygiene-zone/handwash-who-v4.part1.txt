@@ -1,0 +1,242 @@
+(() => {
+'use strict';
+const VERSION = '20260716-HANDWASH-WHO-V4-R1';
+const STANDARD = 'WHO How to Handwash?';
+const WHO_POSTER_DATE = '2009-05';
+const qs = new URLSearchParams(location.search);
+const ZONE_URL = qs.get('zone') || '../hygiene-zone-v2.html';
+const ENDPOINT = qs.get('sheet') || window.HH_HANDWASH_SHEET_ENDPOINT ||
+'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
+const DIFF = ['easy','normal','hard'].includes((qs.get('diff') || '').toLowerCase())
+? qs.get('diff').toLowerCase() : 'normal';
+const STORAGE = {
+attempts: 'herohealth:hygiene:handwash:attempts',
+best: 'herohealth:hygiene:handwash:best',
+progress: 'herohealth:hygiene:progress',
+outbox: 'herohealth:hygiene:handwash:who:v4:outbox',
+profile: 'herohealth:hygiene:profile'
+};
+const PHASES = [
+{ id:'wet', who:'0', icon:'💧', label:'เปียกมือ', tip:'เปิดน้ำและทำให้มือทั้งสองข้างเปียกทั่ว', kind:'process', targetSec:3.0 },
+{ id:'soap', who:'1', icon:'🧴', label:'ใช้สบู่', tip:'ใช้สบู่ให้เพียงพอและครอบคลุมทุกพื้นผิวมือ', kind:'process', targetSec:2.5 },
+{ id:'palm', who:'2', icon:'🖐️', label:'ฝ่ามือ', tip:'ถูฝ่ามือเข้าหากันไป–กลับอย่างต่อเนื่อง', kind:'rub', targetSec:4.0, strict:.64, grace:.51, side:false },
+{ id:'dorsum', who:'3', icon:'🤚', label:'หลังมือและซอกนิ้ว', tip:'ฝ่ามือขวาถูหลังมือซ้ายพร้อมประสานนิ้ว แล้วสลับข้าง', kind:'rub', targetSec:3.5, strict:.61, grace:.48, side:true },
+{ id:'interlaced', who:'4', icon:'👐', label:'ฝ่ามือประสานนิ้ว', tip:'ฝ่ามือประกบกันและประสานนิ้ว ถูซอกนิ้วไป–กลับ', kind:'rub', targetSec:4.0, strict:.62, grace:.49, side:false },
+{ id:'backsFingers', who:'5', icon:'✊', label:'หลังนิ้ว', tip:'วางหลังนิ้วบนฝ่ามืออีกข้าง โดยนิ้วเกี่ยวกัน แล้วถูไป–กลับ', kind:'rub', targetSec:3.5, strict:.58, grace:.46, side:false },
+{ id:'thumbs', who:'6', icon:'👍', label:'หัวแม่มือ', tip:'กำรอบหัวแม่มือแล้วหมุนถู จากนั้นสลับอีกข้าง', kind:'rub', targetSec:3.0, strict:.60, grace:.47, side:true },
+{ id:'fingertips', who:'7', icon:'💅', label:'ปลายนิ้วและเล็บ', tip:'หมุนถูปลายนิ้วบนฝ่ามืออีกข้างไป–กลับ แล้วสลับ', kind:'rub', targetSec:3.0, strict:.60, grace:.47, side:true },
+{ id:'rinse', who:'8', icon:'🚿', label:'ล้างน้ำ', tip:'ล้างสบู่ออกจากมือทั้งสองข้างให้หมด', kind:'process', targetSec:4.0 },
+{ id:'dry', who:'9', icon:'🧻', label:'เช็ดให้แห้ง', tip:'เช็ดมือให้แห้งทั่วด้วยกระดาษหรือผ้าใช้ครั้งเดียว', kind:'process', targetSec:4.0 },
+{ id:'towelFaucet', who:'10', icon:'🚰', label:'ใช้กระดาษปิดก๊อก', tip:'ถือกระดาษที่ใช้เช็ดมือ แล้วใช้กระดาษนั้นปิดก๊อก', kind:'process', targetSec:1.8 }
+];
+const RUB_PHASES = PHASES.filter(x => x.kind === 'rub');
+const CONNECTIONS = [
+[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],
+[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]
+];
+const el = {};
+let handsModel = null;
+let stream = null;
+let loopBusy = false;
+let lastDetectAt = 0;
+let lastFrameAt = 0;
+let lastHands = [];
+let toastTimer = null;
+let audioCtx = null;
+const histories = new Map();
+const state = {
+running:false, phase:'ready', phaseIndex:-1, attemptId:'', startedAt:'', procedureStartedAt:'', endedAt:'',
+procedureSec:0, score:0, waterOn:false, waterUseSec:0, waterWasteSec:0, foam:0, foamPeak:0,
+germLoad:100, phaseProgress:0, stability:0, towelHeld:false, towelFaucetPassed:false,
+sequenceCorrect:true, recontaminationCount:0, fallbackUsed:false, detectorReady:false, cameraReady:false,
+trackingFrames:0, twoHandFrames:0, trackingLostCount:0, previousHadHands:false,
+evidence:{}, passMode:{}, quality:{}, stepTime:{}, activeSlot:'', tapSide:0,
+lastGesture:null, eventLog:[], processErrors:[], procedureTimer:null, timeoutTimer:null
+};
+document.addEventListener('DOMContentLoaded', init);
+function init(){
+cache();
+buildWhoStrip();
+bind();
+loadProfile();
+resetRun(true);
+resizeCanvas();
+addEventListener('resize', resizeCanvas);
+addEventListener('online', flushOutbox);
+startCamera();
+flushOutbox();
+}
+function cache(){
+[
+'app','video','arCanvas','backBtn','detectStatus','stepText','timeStat','timeText','scoreText','waterText','rubText',
+'missionIcon','missionTitle','missionTip','whoStrip','waterZone','soapZone','towelZone','scrubZone','coachText',
+'chipHands','chipContact','chipMotion','chipPose','chipSwitch','chipTowel','evidenceText','evidenceFill','foamText',
+'foamFill','germText','germFill','faucetBtn','coachBtn','tapBtn','stopBtn','startOverlay','nameInput','classInput',
+'startBtn','zoneBtn','summaryOverlay','summaryHero','summaryTitle','summarySub','sumScore','sumStars','sumAccuracy',
+'sumTime','resultList','deliveryText','replayBtn','summaryZoneBtn','toast'
+].forEach(id => el[id] = document.getElementById(id));
+el.ctx = el.arCanvas.getContext('2d');
+}
+function buildWhoStrip(){
+el.whoStrip.innerHTML = PHASES.map((phase,index) =>
+`<div class="phase-chip" data-phase="${phase.id}">WHO ${phase.who}<br>${index+1}. ${escapeHtml(phase.label)}</div>`
+).join('');
+}
+function bind(){
+el.backBtn.onclick = goZone;
+el.zoneBtn.onclick = goZone;
+el.summaryZoneBtn.onclick = goZone;
+el.startBtn.onclick = startRun;
+el.replayBtn.onclick = startRun;
+el.faucetBtn.onclick = toggleFaucet;
+el.coachBtn.onclick = speakCoach;
+el.tapBtn.onclick = tapAssist;
+el.stopBtn.onclick = () => {
+if (!state.running) return;
+finishRun('stopped');
+};
+document.addEventListener('visibilitychange', () => {
+if (document.hidden && state.running) saveEmergencySnapshot();
+});
+}
+function loadProfile(){
+const profile = readJson(STORAGE.profile,{});
+el.nameInput.value = qs.get('name') || profile.name || '';
+el.classInput.value = qs.get('classLevel') || profile.classLevel || '';
+}
+function saveProfile(){
+const profile = readJson(STORAGE.profile,{});
+profile.name = el.nameInput.value.trim();
+profile.classLevel = el.classInput.value.trim();
+profile.participantId = qs.get('pid') || profile.participantId || 'anon';
+profile.difficulty = DIFF;
+writeJson(STORAGE.profile,profile);
+}
+function resetRun(showStart){
+clearInterval(state.procedureTimer);
+clearTimeout(state.timeoutTimer);
+Object.assign(state,{
+running:false,phase:'ready',phaseIndex:-1,attemptId:createId(),startedAt:'',procedureStartedAt:'',endedAt:'',
+procedureSec:0,score:0,waterOn:false,waterUseSec:0,waterWasteSec:0,foam:0,foamPeak:0,germLoad:100,
+phaseProgress:0,stability:0,towelHeld:false,towelFaucetPassed:false,sequenceCorrect:true,recontaminationCount:0,
+fallbackUsed:false,trackingFrames:0,twoHandFrames:0,trackingLostCount:0,previousHadHands:false,
+evidence:{},passMode:{},quality:{},stepTime:{},activeSlot:'',tapSide:0,lastGesture:null,eventLog:[],processErrors:[]
+});
+PHASES.forEach(phase => {
+state.evidence[phase.id] = {};
+state.passMode[phase.id] = 'not-complete';
+state.quality[phase.id] = {sum:0,samples:0,best:0};
+state.stepTime[phase.id] = 0;
+});
+setWater(false);
+setPhase('ready',true);
+el.summaryOverlay.classList.remove('show');
+if (showStart) el.startOverlay.classList.add('show');
+updateUI();
+}
+function startRun(){
+saveProfile();
+resetRun(false);
+state.running = true;
+state.startedAt = new Date().toISOString();
+el.startOverlay.classList.remove('show');
+setPhase('calibrate',true);
+logEvent('game_start',{standard:STANDARD,posterDate:WHO_POSTER_DATE});
+state.timeoutTimer = setTimeout(() => {
+if (state.running) finishRun('timeup');
+}, 90000);
+showToast('ยกมือสองข้างเข้ากลางจอเพื่อ Calibration');
+}
+function setPhase(id,force){
+if (!force && state.phase === id) return;
+state.phase = id;
+state.phaseProgress = 0;
+state.stability = 0;
+state.activeSlot = '';
+state.lastGesture = null;
+state.pairMemory = null;
+state.phaseIndex = PHASES.findIndex(x => x.id === id);
+if (id === 'wet' && !state.procedureStartedAt) {
+state.procedureStartedAt = new Date().toISOString();
+state.procedureTimer = setInterval(() => {
+if (!state.running) return;
+state.procedureSec = (Date.now() - Date.parse(state.procedureStartedAt)) / 1000;
+updateUI();
+},100);
+}
+logEvent('phase_enter',{phase:id,whoStep:currentPhase()?.who || ''});
+updateMission();
+updateZones();
+updateUI();
+}
+function currentPhase(){
+return PHASES[state.phaseIndex] || null;
+}
+function nextPhase(){
+const next = PHASES[state.phaseIndex + 1];
+if (next) setPhase(next.id);
+else finishRun('completed');
+}
+async function startCamera(){
+if (!navigator.mediaDevices?.getUserMedia) {
+el.detectStatus.textContent = 'Tap Assist';
+return;
+}
+try{
+stream = await navigator.mediaDevices.getUserMedia({
+video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:false
+});
+el.video.srcObject = stream;
+await el.video.play();
+state.cameraReady = true;
+initHands();
+}catch(error){
+el.detectStatus.textContent = 'เปิดกล้องไม่ได้';
+showToast('ใช้ Tap Assist ได้ แต่ผลจะระบุว่าเป็นโหมดช่วย');
+}
+}
+function initHands(){
+if (!window.Hands) {
+el.detectStatus.textContent = 'Tap Assist';
+return;
+}
+try{
+handsModel = new Hands({
+locateFile:file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+handsModel.setOptions({
+maxNumHands:2,modelComplexity:1,minDetectionConfidence:.62,minTrackingConfidence:.58
+});
+handsModel.onResults(onHands);
+state.detectorReady = true;
+el.detectStatus.textContent = 'รอมือ 2 ข้าง';
+detectLoop();
+}catch(error){
+el.detectStatus.textContent = 'Tap Assist';
+}
+}
+async function detectLoop(){
+requestAnimationFrame(detectLoop);
+if (!handsModel || loopBusy || el.video.readyState < 2) return;
+const now = performance.now();
+if (now - lastDetectAt < 34) return;
+lastDetectAt = now;
+loopBusy = true;
+try{ await handsModel.send({image:el.video}); }catch(_){}
+loopBusy = false;
+}
+function onHands(results){
+const now = performance.now();
+const dt = clamp((now-lastFrameAt)/1000 || .033,.012,.12);
+lastFrameAt = now;
+const handedness = results?.multiHandedness || [];
+const worlds = results?.multiHandWorldLandmarks || [];
+const hands = (results?.multiHandLandmarks || []).slice(0,2).map((landmarks,index) =>
+buildHand(landmarks,worlds[index] || landmarks,handedness[index]?.label || `Hand-${index}`,index,dt)
+).filter(Boolean);
+lastHands = hands;
+if (state.running) {
+state.trackingFrames += 1;
+if (hands.length >= 2) state.twoHandFrames += 1;
+if (!hands.length && state.previousHadHands) state.trackingLostCount += 1;
+state.previousHadHands = hands.length > 0;

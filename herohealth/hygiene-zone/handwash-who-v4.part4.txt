@@ -1,0 +1,151 @@
+return;
+}
+const phase=currentPhase();
+if (!phase) return;
+el.missionIcon.textContent=phase.icon;
+el.missionTitle.textContent=`WHO ${phase.who} • ${phase.label}`;
+el.missionTip.textContent=phase.tip;
+}
+function updateZones(){
+[el.waterZone,el.soapZone,el.towelZone,el.scrubZone].forEach(x=>x.classList.remove('active'));
+if (['wet','rinse','towelFaucet'].includes(state.phase)) el.waterZone.classList.add('active');
+if (state.phase==='soap') el.soapZone.classList.add('active');
+if (state.phase==='dry') el.towelZone.classList.add('active');
+if (currentPhase()?.kind==='rub'||state.phase==='calibrate') el.scrubZone.classList.add('active');
+}
+function updateUI(){
+const done=PHASES.filter(x=>state.passMode[x.id]!=='not-complete').length;
+const rubDoneCount=RUB_PHASES.filter(x=>state.passMode[x.id]!=='not-complete').length;
+el.stepText.textContent=`${done}/11`;
+el.rubText.textContent=`${rubDoneCount}/6`;
+el.timeText.textContent=state.procedureSec.toFixed(1);
+el.timeStat.classList.toggle('good',state.procedureSec>=40&&state.procedureSec<=60);
+el.timeStat.classList.toggle('warn',state.procedureSec>0&&state.procedureSec<40);
+el.timeStat.classList.toggle('bad',state.procedureSec>60);
+el.scoreText.textContent=Math.round(state.score).toLocaleString();
+el.waterText.textContent=`${Math.round(state.waterUseSec)}s`;
+el.faucetBtn.classList.toggle('primary',state.waterOn);
+el.faucetBtn.querySelector('b').textContent=state.waterOn?'ปิดน้ำ':'เปิดน้ำ';
+const phase=currentPhase();
+const evidence=phase?.kind==='rub'?evidencePercent(phase):Math.round(clamp(state.phaseProgress,0,1)*100);
+el.evidenceText.textContent=`${evidence}%`;el.evidenceFill.style.width=`${evidence}%`;
+el.foamText.textContent=`${Math.round(state.foam)}%`;el.foamFill.style.width=`${state.foam}%`;
+el.germText.textContent=`${Math.round(state.germLoad)}%`;el.germFill.style.width=`${state.germLoad}%`;
+document.querySelectorAll('.phase-chip').forEach(node=>{
+const id=node.dataset.phase,index=PHASES.findIndex(x=>x.id===id);
+node.classList.toggle('done',state.passMode[id]!=='not-complete');
+node.classList.toggle('active',index===state.phaseIndex);
+});
+}
+function updateTrackingChips(hands){
+setChip(el.chipHands,hands.length>=2,`✋ ${hands.length} มือ`);
+const g=state.lastGesture;
+setChip(el.chipContact,g?.contactOK,`🤝 ${g?Math.round(g.contact*100):0}%`);
+setChip(el.chipMotion,g?.motionOK,`↔ ${g?Math.round(g.trajectory*100):0}%`);
+setChip(el.chipPose,g?.poseOK,`🧭 ${g?Math.round(g.pose*100):0}%`);
+const phase=currentPhase();
+const completedSides=phase?.side?Object.values(state.evidence[phase.id]||{}).filter(v=>v>=1).length:0;
+setChip(el.chipSwitch,!phase?.side||completedSides>=1,`🔄 ${phase?.side?completedSides+'/2':'N/A'}`);
+setChip(el.chipTowel,state.towelHeld,`🧻 ${state.towelHeld?'พร้อม':'ยังไม่มี'}`);
+}
+function renderAR(hands,ts){
+const ctx=el.ctx,w=el.arCanvas.clientWidth,h=el.arCanvas.clientHeight;
+ctx.clearRect(0,0,w,h);
+drawWater(ctx,w,h,ts);
+hands.forEach((hand,index)=>drawHand(ctx,hand,index,ts));
+}
+function drawHand(ctx,hand,index,ts){
+const pts=hand.landmarks.map(p=>({x:p.x*el.arCanvas.clientWidth,y:p.y*el.arCanvas.clientHeight}));
+ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+ctx.strokeStyle=index===0?'rgba(87,223,255,.94)':'rgba(103,237,169,.94)';ctx.lineWidth=3;
+CONNECTIONS.forEach(([a,b])=>{ctx.beginPath();ctx.moveTo(pts[a].x,pts[a].y);ctx.lineTo(pts[b].x,pts[b].y);ctx.stroke()});
+pts.forEach((p,i)=>{ctx.fillStyle=i===0?'rgba(255,226,123,.96)':'rgba(238,252,255,.94)';ctx.beginPath();ctx.arc(p.x,p.y,i===0?5:3,0,Math.PI*2);ctx.fill()});
+const palm={x:hand.palm.x*el.arCanvas.clientWidth,y:hand.palm.y*el.arCanvas.clientHeight};
+const germs=Math.round(state.germLoad/12);
+for(let i=0;i<germs;i++){const a=i*2.39+index,r=10+(i%4)*7;ctx.fillStyle=`rgba(255,${92+i*8},112,.82)`;ctx.beginPath();ctx.arc(palm.x+Math.cos(a)*r,palm.y+Math.sin(a)*r,2.5+(i%2),0,Math.PI*2);ctx.fill()}
+const bubbles=Math.round(state.foam/12);
+for(let i=0;i<bubbles;i++){const a=i*1.71+ts/850+index,r=13+(i%5)*6;ctx.strokeStyle='rgba(235,253,255,.82)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(palm.x+Math.cos(a)*r,palm.y+Math.sin(a)*r,3+(i%3),0,Math.PI*2);ctx.stroke()}
+if(state.towelHeld&&['dry','towelFaucet'].includes(state.phase)){ctx.fillStyle='rgba(255,255,245,.78)';ctx.fillRect(palm.x-28,palm.y-20,56,40)}
+ctx.restore();
+}
+function drawWater(ctx,w,h,ts){
+if(!state.waterOn)return;
+const r=el.waterZone.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height*.58;
+ctx.save();
+for(let i=0;i<18;i++){const ox=Math.sin(i*4.1+ts/170)*22,yy=y+((ts*.18+i*29)%(h-y+30));ctx.strokeStyle=`rgba(87,223,255,${.25+(i%4)*.12})`;ctx.lineWidth=2+(i%3);ctx.beginPath();ctx.moveTo(x+ox,yy-14);ctx.lineTo(x+ox*.75,yy+7);ctx.stroke()}
+ctx.restore();
+}
+function coachMessage(phase,reason,slot){
+if (!reason) return phase.side&&slot?`ดีมาก ทำข้าง ${slotLabel(slot)} ต่อเนื่อง แล้วสลับอีกข้าง`:phase.tip;
+if (reason==='zone') return 'นำมือทั้งสองข้างเข้ากลาง WHO RUB ZONE';
+if (reason==='contact') return 'ให้พื้นผิวมือสัมผัสกันมากขึ้นตามภาพท่า';
+if (reason==='pose') return 'จัดรูปมือและทิศฝ่ามือให้ตรงกับท่า WHO';
+if (reason==='motion') return phase.id==='thumbs'||phase.id==='fingertips'?'หมุนถูเป็นวงให้ต่อเนื่อง':'ถูไป–กลับให้ต่อเนื่อง';
+if (reason==='switch') return 'ทำอีกข้างและสลับมือให้ครบ';
+return phase.tip;
+}
+function ensureEvidence(phase,slot){
+if(state.evidence[phase.id][slot]==null)state.evidence[phase.id][slot]=0;
+}
+function decayEvidence(phase,dt){
+Object.keys(state.evidence[phase.id]||{}).forEach(slot=>{
+if(state.evidence[phase.id][slot]<1)state.evidence[phase.id][slot]=Math.max(0,state.evidence[phase.id][slot]-dt*.025);
+});
+}
+function rubDone(phase){
+const values=Object.values(state.evidence[phase.id]||{});
+if(!phase.side)return (state.evidence[phase.id]?.both||0)>=1;
+return values.filter(v=>v>=1).length>=2;
+}
+function evidencePercent(phase){
+const values=Object.values(state.evidence[phase.id]||{});
+if(!values.length)return 0;
+if(phase.side){
+const top=[...values].sort((a,b)=>b-a).slice(0,2);
+while(top.length<2)top.push(0);
+return Math.round(avgNumber(top)*100);
+}
+return Math.round((state.evidence[phase.id]?.both||0)*100);
+}
+function phaseQuality(id){
+const q=state.quality[id];
+return q?.samples?Math.round(clamp(q.sum/q.samples,0,1)*100):0;
+}
+function clearZoneStates(){[el.waterZone,el.soapZone,el.towelZone,el.scrubZone].forEach(x=>x.classList.remove('hit'))}
+function hitZone(node){node.classList.add('hit')}
+function setWater(on){state.waterOn=!!on;updateUI()}
+function setChip(node,good,text){node.textContent=text;node.classList.toggle('good',good===true);node.classList.toggle('bad',good===false)}
+function coach(message){if(message&&el.coachText.textContent!==message)el.coachText.textContent=message}
+function addScore(value){state.score=Math.max(0,state.score+Number(value||0))}
+function logEvent(type,extra={}){state.eventLog.push({seq:state.eventLog.length+1,type,at:new Date().toISOString(),phase:state.phase,procedureSec:round(state.procedureSec,2),score:Math.round(state.score),...extra});if(state.eventLog.length>120)state.eventLog.shift()}
+function showToast(text){clearTimeout(toastTimer);el.toast.textContent=text;el.toast.classList.add('show');toastTimer=setTimeout(()=>el.toast.classList.remove('show'),1900)}
+function speakCoach(){unlockAudio();const text=el.coachText.textContent||el.missionTip.textContent;if('speechSynthesis'in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='th-TH';u.rate=.92;speechSynthesis.speak(u)}else showToast(text)}
+function goZone(){stopCamera();location.href=ZONE_URL}
+function stopCamera(){try{stream?.getTracks?.().forEach(t=>t.stop())}catch(_){}}
+function saveEmergencySnapshot(){try{localStorage.setItem('herohealth:hygiene:handwash:who:v4:emergency',JSON.stringify({attemptId:state.attemptId,phase:state.phase,procedureSec:state.procedureSec,at:Date.now()}))}catch(_){}}
+function resizeCanvas(){const d=Math.min(devicePixelRatio||1,2),r=el.arCanvas.getBoundingClientRect();el.arCanvas.width=Math.round(r.width*d);el.arCanvas.height=Math.round(r.height*d);el.ctx.setTransform(d,0,0,d,0,0)}
+function inRect(p,rect){const x=p.x*innerWidth,y=p.y*innerHeight;return x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom}
+function unlockAudio(){if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch(_){}}if(audioCtx?.state==='suspended')audioCtx.resume()}
+function beep(freq=600,duration=.06){unlockAudio();if(!audioCtx)return;const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=freq;o.type='sine';g.gain.setValueAtTime(.04,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+duration)}
+function vibrate(pattern){try{navigator.vibrate?.(pattern)}catch(_){}}
+function readJson(key,fallback){try{const raw=localStorage.getItem(key);return raw?JSON.parse(raw):fallback}catch(_){return fallback}}
+function writeJson(key,value){try{localStorage.setItem(key,JSON.stringify(value))}catch(_){}}
+function escapeHtml(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
+function pointLm(lm){return{x:1-Number(lm.x||0),y:Number(lm.y||0),z:Number(lm.z||0)}}
+function pointLm3(lm){return{x:1-Number(lm.x||0),y:Number(lm.y||0),z:Number(lm.z||0)}}
+function normalizeHand(label,index){const raw=String(label||'').toLowerCase();return raw.includes('left')?'left':raw.includes('right')?'right':`hand-${index}`}
+function palmNormal(points){const a=sub3(points[5],points[0]),b=sub3(points[17],points[0]);return norm3(cross3(a,b))}
+function avg(points){return{x:avgNumber(points.map(p=>p.x)),y:avgNumber(points.map(p=>p.y)),z:avgNumber(points.map(p=>p.z||0))}}
+function avgNumber(values){return values.length?values.reduce((a,b)=>a+Number(b||0),0)/values.length:0}
+function dist(a,b){return Math.hypot((a.x||0)-(b.x||0),(a.y||0)-(b.y||0),(a.z||0)-(b.z||0))}
+function sub3(a,b){return{x:a.x-b.x,y:a.y-b.y,z:(a.z||0)-(b.z||0)}}
+function cross3(a,b){return{x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x}}
+function norm3(v){const n=Math.hypot(v.x,v.y,v.z)||1;return{x:v.x/n,y:v.y/n,z:v.z/n}}
+function dot3(a,b){return clamp(a.x*b.x+a.y*b.y+a.z*b.z,-1,1)}
+function wrapAngle(a){while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a}
+function weighted(values){let total=0,w=0;for(let i=0;i<values.length;i+=2){total+=Number(values[i]||0)*Number(values[i+1]||0);w+=Number(values[i+1]||0)}return w?total/w:0}
+function clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
+function round(v,d=0){const m=10**d;return Math.round((Number(v)||0)*m)/m}
+function slotLabel(slot){return slot==='left'?'ซ้าย':slot==='right'?'ขวา':slot}
+function createId(){return `HWHO-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`}
+})();
