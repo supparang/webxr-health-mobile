@@ -39,14 +39,14 @@ Object.keys(BANK).forEach(level=>{
   const cfg=BH.CONFIG[level];if(!cfg)return;
   Object.defineProperty(cfg,'sequence',{configurable:true,enumerable:true,get(){return choose(level)}});
 });
-BH.SEQUENCE_BANK=BANK;BH.chooseSequence=choose;
+BH.SEQUENCE_BANK=BANK;BH.chooseSequence=choose;BH.RELEASE_VERSION=RELEASE;
 function installSummaryHook(){
   if(BH.__sequenceSummaryHooked||typeof BH.calcSummary!=='function'||typeof BH.payload!=='function')return false;
   BH.__sequenceSummaryHooked=true;
   const baseCalc=BH.calcSummary;
   BH.calcSummary=function(reason){
     const x=baseCalc(reason)||{};
-    x.releaseVersion=RELEASE;x.sequencePatternId=BH.state.sequencePatternId||'';
+    x.version=RELEASE;x.releaseVersion=RELEASE;x.sequencePatternId=BH.state.sequencePatternId||'';
     x.sequencePatternLevel=BH.state.sequencePatternLevel||BH.el?.difficulty?.value||'';
     x.bossPoseCount=(x.poseSequence||[]).filter(v=>v==='boss').length;
     x.recoveryRequired=x.official!==false;x.canonicalPath='/webxr-health-mobile/fitness/balance-hold-ar2.html';
@@ -55,7 +55,7 @@ function installSummaryHook(){
   const basePayload=BH.payload;
   BH.payload=function(x){
     const p=basePayload(x)||{};
-    p.releaseVersion=x.releaseVersion||RELEASE;p.sequencePatternId=x.sequencePatternId||'';
+    p.version=x.version||RELEASE;p.releaseVersion=x.releaseVersion||RELEASE;p.sequencePatternId=x.sequencePatternId||'';
     p.sequencePatternLevel=x.sequencePatternLevel||'';p.bossPoseCount=Number(x.bossPoseCount||0);
     p.recoveryRequired=x.recoveryRequired?'yes':'no';p.canonicalPath=x.canonicalPath||'/webxr-health-mobile/fitness/balance-hold-ar2.html';
     return p;
