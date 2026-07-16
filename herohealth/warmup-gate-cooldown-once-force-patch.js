@@ -1,21 +1,14 @@
 /* === HeroHealth Warmup Gate Patch
- * PATCH v20260506i-GATE-COOLDOWN-ONCE-FORCE-FIX
+ * PATCH v20260716-GATE-COOLDOWN-FORCE-AND-HANDWASH-WHO-ROUTE
  *
- * PURPOSE:
- * - If warmup-gate.html is opened as phase=cooldown&forceCooldownOnce=1,
- *   the first cooldown of the day must NOT be skipped to zone immediately.
- * - Existing cooldown-done keys for today are ignored/cleared only for this forced first entry.
- * - Prevents early "cooldown done" marking during the first few seconds of gate boot.
- *
- * WHERE TO PLACE:
- * - Put this script as early as possible in warmup-gate.html,
- *   ideally inside <head> BEFORE the existing gate-core / daily-skip script.
+ * Keeps the Brush forced-cooldown compatibility behavior and adds a
+ * canonical Handwash warmup route that cannot loop back to warmup-gate.
  */
 
 (function(){
   'use strict';
 
-  var PATCH = 'v20260506i-GATE-COOLDOWN-ONCE-FORCE-FIX';
+  var PATCH = 'v20260716-GATE-COOLDOWN-FORCE-AND-HANDWASH-WHO-ROUTE';
 
   function params(){
     try{ return new URLSearchParams(location.search || ''); }
@@ -103,7 +96,7 @@
           localStorage.removeItem(k);
         }
       });
-    }catch(_){}
+    }catch(_){ }
 
     return removed;
   }
@@ -130,7 +123,7 @@
           localStorage.setItem('HHA_GATE_' + ph + '_' + pid + '_brush_' + m + '_' + ymd, JSON.stringify(payload));
         });
       });
-    }catch(_){}
+    }catch(_){ }
   }
 
   function installLocalStorageGuard(){
@@ -142,20 +135,13 @@
     var realSet = Storage.prototype.setItem;
 
     Storage.prototype.getItem = function(k){
-      if(isCooldownKey(k)){
-        return null;
-      }
+      if(isCooldownKey(k)) return null;
       return realGet.call(this, k);
     };
 
     Storage.prototype.setItem = function(k, v){
-      // Some gate versions mark cooldown done immediately on load.
-      // Block that only during initial boot; after the activity is actually completed,
-      // normal setItem works again.
       if(isCooldownKey(k) && Date.now() < bootUntil){
-        try{
-          console.warn('[HHA Gate Patch] blocked early cooldown-done set:', k);
-        }catch(_){}
+        try{ console.warn('[HHA Gate Patch] blocked early cooldown-done set:', k); }catch(_){ }
         return;
       }
       return realSet.call(this, k, v);
@@ -193,10 +179,9 @@
         mode:mode,
         ymd:ymd
       });
-    }catch(_){}
+    }catch(_){ }
   }
 
-  // General helper for console inspection.
   window.HHA_GATE_DEBUG = Object.assign(window.HHA_GATE_DEBUG || {}, {
     patch:PATCH,
     ctx:function(){
@@ -213,4 +198,154 @@
       }catch(_){ return []; }
     }
   });
+})();
+
+(function(){
+  'use strict';
+
+  var PATCH = 'v20260716-HANDWASH-WHO-WARMUP-DIRECT-R1';
+  var q;
+  try{ q = new URLSearchParams(location.search || ''); }
+  catch(_){ q = new URLSearchParams(''); }
+
+  var game = String(q.get('game') || q.get('gameId') || q.get('theme') || '').trim().toLowerCase();
+  var phase = String(q.get('phase') || q.get('gatePhase') || 'warmup').trim().toLowerCase();
+
+  if(game !== 'handwash' || phase === 'cooldown') return;
+
+  function heroBase(){
+    try{
+      var marker = '/herohealth/';
+      var index = location.pathname.indexOf(marker);
+      if(index >= 0){
+        return location.origin + location.pathname.slice(0, index + marker.length);
+      }
+      return new URL('./', location.href).toString();
+    }catch(_){
+      return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+    }
+  }
+
+  function targetUrl(){
+    var target = new URL('hygiene-zone/handwash-realistic-v3.html', heroBase());
+
+    [
+      'pid','name','nick','studentId','playerId','classId','classLevel','section',
+      'diff','time','view','mode','hub','hubRoot','launcher','plannerReturn',
+      'studyId','conditionGroup','session_code','log','api','seed','sheet'
+    ].forEach(function(key){
+      var value = q.get(key);
+      if(value) target.searchParams.set(key, value);
+    });
+
+    target.searchParams.set('game', 'handwash');
+    target.searchParams.set('gameId', 'handwash');
+    target.searchParams.set('zone', 'hygiene');
+    target.searchParams.set('cat', 'hygiene');
+    target.searchParams.set('entry', 'who-warmup-complete');
+    target.searchParams.set('fromWarmup', '1');
+    target.searchParams.set('wgok', '1');
+    target.searchParams.set('who', '1');
+
+    target.searchParams.delete('phase');
+    target.searchParams.delete('gatePhase');
+    target.searchParams.delete('runFile');
+    target.searchParams.delete('runUrl');
+    target.searchParams.delete('forcegate');
+    target.searchParams.delete('forceGate');
+    target.searchParams.delete('resetGate');
+
+    return target.toString();
+  }
+
+  var TARGET = targetUrl();
+  var fired = false;
+
+  q.set('next', TARGET);
+  q.set('runUrl', TARGET);
+  q.set('runFile', TARGET);
+  q.set('wgok', '1');
+
+  try{
+    history.replaceState(null, '', location.pathname + '?' + q.toString() + (location.hash || ''));
+  }catch(_){ }
+
+  window.HH_GATE_FORCE_NEXT = TARGET;
+  window.HHA_GATE_RETURN_URL = TARGET;
+  window.HHA_GATE_DONE_URL = TARGET;
+  window.HHA_NEXT_URL = TARGET;
+  window.HHA_HANDWASH_WHO_TARGET = TARGET;
+
+  window.HHA_GATE_BOOT = window.HHA_GATE_BOOT || {};
+  window.HHA_GATE_BOOT.nextHref = TARGET;
+  window.HHA_GATE_BOOT.handwashWhoWarmupTarget = TARGET;
+  window.HHA_GATE_BOOT.handwashWarmupPatch = PATCH;
+
+  function mainButton(node){
+    if(!node || !node.closest) return null;
+    var button = node.closest('button,a,[role="button"]');
+    if(!button) return null;
+
+    var text = String(
+      button.textContent ||
+      button.getAttribute('aria-label') ||
+      button.getAttribute('title') ||
+      ''
+    ).replace(/\s+/g, ' ').trim().toLowerCase();
+
+    var id = String(button.id || '').toLowerCase();
+    var cls = String(button.className || '').toLowerCase();
+
+    var isBack = text.indexOf('กลับ') !== -1 || text.indexOf('hub') !== -1;
+    if(isBack) return null;
+
+    var isMain =
+      text.indexOf('เข้าเกมหลัก') !== -1 ||
+      text.indexOf('เริ่มเกมหลัก') !== -1 ||
+      text.indexOf('ไปต่อ') !== -1 ||
+      id.indexOf('continue') !== -1 ||
+      id.indexOf('next') !== -1 ||
+      cls.indexOf('primary') !== -1;
+
+    return isMain ? button : null;
+  }
+
+  function go(event){
+    if(event){
+      try{ event.preventDefault(); }catch(_){ }
+      try{ event.stopPropagation(); }catch(_){ }
+      try{ if(event.stopImmediatePropagation) event.stopImmediatePropagation(); }catch(_){ }
+    }
+
+    if(fired) return false;
+    fired = true;
+
+    try{
+      sessionStorage.setItem('HHA_HANDWASH_WHO_WARMUP_ROUTE', JSON.stringify({
+        patch:PATCH,
+        target:TARGET,
+        at:new Date().toISOString()
+      }));
+    }catch(_){ }
+
+    location.replace(TARGET);
+    return false;
+  }
+
+  ['click','pointerup','touchend'].forEach(function(type){
+    document.addEventListener(type, function(event){
+      if(mainButton(event.target)) return go(event);
+    }, type === 'touchend' ? {capture:true,passive:false} : true);
+  });
+
+  window.HHA_GATE_GO_NEXT = go;
+  window.goNext = go;
+
+  window.HHA_HANDWASH_WHO_WARMUP_FIX = {
+    patch:PATCH,
+    target:TARGET,
+    go:go
+  };
+
+  try{ console.info('[Handwash WHO warmup direct]', TARGET); }catch(_){ }
 })();
