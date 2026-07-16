@@ -1,9 +1,11 @@
-/* CSAI2601 UX Quest • Mechanic Mode v2.2
+/* CSAI2601 UX Quest • Mechanic Mode v2.3
  * W7 master-reading layout for W1-W15 and B1-B4.
  * - One mission identity strip only.
  * - Stage-specific prompt derived from the current learning focus.
  * - Main choices show decision text only before answering.
  * - Deep explanation remains available in feedback / Reason Check.
+ * - W1 rounds use their own goal / impact / fix / proof prompts.
+ * - Hint labels are normalized so decorative bulb icons do not duplicate.
  * Presentation only: answer truth, scoring, progress, gates and Sheet sync stay unchanged.
  */
 (() => {
@@ -71,7 +73,18 @@
     return Math.max(1,Number((m&&(m[1]||m[2]))||1));
   }
   function focusText(){return (text($('.case .kicker'))+' '+text($('.case h1'))).toLowerCase();}
+  function w1StagePrompt(){
+    const map={
+      1:'เลือกหลักฐานที่ชี้จุดติดขัดหลักของผู้ใช้',
+      2:'เลือกเป้าหมายหลักที่ผู้ใช้ต้องทำให้สำเร็จ',
+      3:'เลือกกรอบปัญหา UI, UX หรือ Feedback ให้ตรงชั้น',
+      4:'เลือกแนวทางแก้ที่สัมพันธ์กับ Friction หลัก',
+      5:'เลือกวิธีทดสอบที่พิสูจน์ว่า UX ดีขึ้นจริง'
+    };
+    return map[stageNo()]||map[1];
+  }
   function stagePrompt(){
+    if(nodeId()==='W1')return w1StagePrompt();
     const f=focusText();
     const rules=[
       [/extract insight|insight/, 'เลือก Insight ที่อธิบายความหมายเบื้องหลังสิ่งที่สังเกตได้'],
@@ -107,6 +120,12 @@
     });
   }
   function markFeedbackState(q){q.classList.toggle('has-feedback',!!q.querySelector('.feedback,.verify'));}
+  function normalizeHint(){
+    const hint=$('.hint');
+    if(!hint)return;
+    const cleaned=text(hint).replace(/^(?:💡\s*)+/u,'');
+    if(hint.textContent!==cleaned)hint.textContent=cleaned;
+  }
 
   function inject(){
     style();
@@ -115,6 +134,7 @@
     removeDuplicatePanel(q);
     simplifyMainChoices(q);
     markFeedbackState(q);
+    normalizeHint();
     const prompt=$(':scope > .prompt',q);
     const wanted=`${current().icon} ${stagePrompt()}`;
     if(prompt && prompt.textContent!==wanted)prompt.textContent=wanted;
