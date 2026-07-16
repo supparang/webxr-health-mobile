@@ -1,0 +1,203 @@
+    if (state.remaining <= 0) return finishRun('timeup');
+    if (state.waterOn) {
+      state.waterUseSec += dt;
+      if (!['wet','rinse'].includes(state.phase)) state.waterWasteSec += dt;
+    }
+    const hands = lastHands;
+    const twoHands = hands.length >= 2;
+    const zones = getZones();
+    const inWater = hands.filter(h => inRectPx(h.palm,zones.water)).length;
+    const inSoap = hands.filter(h => inRectPx(h.palm,zones.soap)).length;
+    const inTowel = hands.filter(h => inRectPx(h.palm,zones.towel)).length;
+    const inScrub = hands.filter(h => inRectPx(h.palm,zones.scrub)).length;
+
+    if (state.phase === 'calibrate') {
+      if (twoHands && inScrub >= 2) state.calibrationHold += dt; else state.calibrationHold = Math.max(0,state.calibrationHold-dt*.7);
+      state.phaseProgress = clamp(state.calibrationHold / 1.2,0,1);
+      coach(twoHands ? 'ค้างมือกลางกรอบอีกนิด ระบบกำลังวัดขนาดมือ' : 'ยกมือสองข้างให้เห็นเต็มเฟรม', twoHands ? 'calibrating':'hands');
+      if (state.calibrationHold >= 1.2) setPhase('wet');
+    } else if (state.phase === 'wet') {
+      if (!state.waterOn) coach('กดปุ่มก๊อกน้ำก่อน แล้ววางมือใต้สายน้ำ', 'water');
+      if (state.waterOn && inWater >= 2) {
+        state.phaseProgress += dt / 1.25;
+        state.germLoad = Math.max(92,state.germLoad-dt*1.4);
+        el.waterZone.classList.add('hit');
+      } else el.waterZone.classList.remove('hit');
+      if (state.phaseProgress >= 1) {
+        addScore(120); beep(760,.08); setPhase('closeBeforeSoap');
+      }
+    } else if (state.phase === 'closeBeforeSoap') {
+      coach(state.waterOn ? 'ปิดน้ำก่อนใช้สบู่ จะได้คะแนน Clean Habit' : 'เยี่ยมมาก ปิดน้ำแล้ว', 'water');
+      if (!state.waterOn) {
+        state.phaseProgress += dt / .55;
+        if (state.phaseProgress >= 1) { addScore(140); setPhase('soap'); }
+      }
+    } else if (state.phase === 'soap') {
+      if (inSoap >= 1) {
+        const pumpMotion = Math.max(...hands.map(h=>h.motionScore),0);
+        state.phaseProgress += dt * (.55 + pumpMotion) / .85;
+        el.soapZone.classList.add('hit');
+      } else el.soapZone.classList.remove('hit');
+      if (state.phaseProgress >= 1) {
+        state.soapPumps += 1; state.foam = 10; state.foamPeak = 10; addScore(120); beep(820,.09); setPhase('scrub');
+      }
+    } else if (state.phase === 'scrub') {
+      if (twoHands) updateScrub(hands, dt, zones); else coach('ต้องเห็นมือสองข้างเพื่อแยกท่าล้างมือ', 'hands');
+    } else if (state.phase === 'rinse') {
+      if (!state.waterOn) coach('เปิดน้ำแล้วล้างฟองออกจากมือทั้งสองข้าง', 'water');
+      if (state.waterOn && inWater >= 2) {
+        const motion = avgNumber(hands.map(h=>h.motionScore));
+        state.rinseHold += dt * (.7 + motion);
+        state.foam = Math.max(0,state.foam-dt*(17+motion*13));
+        state.germLoad = Math.max(0,state.germLoad-dt*(10+motion*5));
+        state.phaseProgress = clamp((100-state.foam)/100,0,1);
+        el.waterZone.classList.add('hit');
+      } else el.waterZone.classList.remove('hit');
+      if (state.foam <= 1 && state.rinseHold >= 1.4) { state.foam=0; addScore(180); setPhase('closeAfterRinse'); }
+    } else if (state.phase === 'closeAfterRinse') {
+      coach(state.waterOn ? 'ปิดน้ำทันทีหลังล้างฟอง' : 'ปิดน้ำแล้ว เยี่ยมมาก', 'water');
+      if (!state.waterOn) {
+        state.phaseProgress += dt / .55;
+        if (state.phaseProgress >= 1) { addScore(160); setPhase('dry'); }
+      }
+    } else if (state.phase === 'dry') {
+      if (inTowel >= 1) {
+        const motion = avgNumber(hands.map(h=>h.motionScore));
+        state.dryHold += dt*(.55+motion);
+        state.phaseProgress = clamp(state.dryHold/1.7,0,1);
+        el.towelZone.classList.add('hit');
+      } else el.towelZone.classList.remove('hit');
+      if (state.phaseProgress >= 1) { addScore(150); setPhase('scan'); }
+    } else if (state.phase === 'scan') {
+      if (twoHands && inScrub >= 2) {
+        state.phaseProgress += dt/2.2;
+        state.germLoad = Math.max(0,state.germLoad-dt*3.5);
+        coach('กำลังสแกนคราบเชื้อจำลอง… ค้างมือให้นิ่ง', 'scan');
+      } else coach('นำมือสองข้างกลับมากลางจอเพื่อ UV Scan', 'hands');
+      if (state.phaseProgress >= 1) finishRun('completed');
+    }
+    updateUI();
+  }
+
+  function updateScrub(hands, dt, zones) {
+    const step = STEPS[state.scrubIndex];
+    if (!step) return setPhase('rinse');
+    state.stepTime[step.id] += dt;
+    const evaluation = evaluateGesture(step, hands, dt, zones);
+    state.lastGesture = evaluation;
+    const quality = state.stepQuality[step.id];
+    quality.sum += evaluation.score;
+    quality.samples += 1;
+    quality.best = Math.max(quality.best,evaluation.score);
+    state.frameQualitySum += evaluation.score;
+    state.frameQualityCount += 1;
+    const elapsed = (performance.now()-state.stepStartedAt)/1000;
+    const graceActive = elapsed > (DIFF==='easy'?6:8);
+    const threshold = graceActive ? step.grace : step.strict;
+    const eligible = evaluation.inZone && evaluation.motionOK && evaluation.poseOK && evaluation.contactOK && evaluation.score >= threshold;
+    if (eligible) state.stabilityHold = Math.min(.42,state.stabilityHold+dt); else state.stabilityHold = Math.max(0,state.stabilityHold-dt*1.8);
+    const stable = state.stabilityHold >= .28;
+    if (eligible && stable) {
+      const slot = step.side ? evaluation.slot : 'both';
+      if (slot) {
+        ensureEvidenceSlot(step,slot);
+        const gain = dt*(.44+.56*evaluation.score)/step.targetSec;
+        state.stepEvidence[step.id][slot] = clamp(state.stepEvidence[step.id][slot]+gain,0,1);
+        state.foam = clamp(state.foam+dt*(4.8+evaluation.score*4),0,100);
+        state.foamPeak = Math.max(state.foamPeak,state.foam);
+        state.germLoad = Math.max(12,state.germLoad-dt*(1.7+evaluation.score*2.2));
+        state.activeSlot = slot;
+        addScore(dt*(28+evaluation.score*25),false);
+        coach(evaluation.coach,'good');
+        vibrate(8);
+      }
+    } else {
+      decayCurrentEvidence(step,dt);
+      coach(evaluation.coach,evaluation.reason || 'pose');
+    }
+    const done = stepDone(step);
+    if (done) completeStep(step, graceActive ? 'grace' : 'strict');
+  }
+
+  function evaluateGesture(step, hands, dt, zones) {
+    const [a,b] = hands;
+    const pair = pairMetrics(a,b,dt);
+    const bothIn = inRectPx(a.palm,zones.scrub) && inRectPx(b.palm,zones.scrub);
+    const motion = clamp((a.motionScore+b.motionScore+pair.relativeMotionScore)/3,0,1);
+    let score=0, contact=0, pose=0, trajectory=0, slot='';
+    const commonContact = clamp((1.20-pair.palmDistance)/.78,0,1);
+    if (step.id === 'palm') {
+      contact=commonContact; pose=avgNumber([a.openScore,b.openScore,pair.oppositeNormal]); trajectory=avgNumber([pair.oscillation,motion]);
+      score=weighted([contact,.30,pose,.34,trajectory,.36]);
+    } else if (step.id === 'backHand') {
+      const dAB=dist(a.palm,b.knuckles)/pair.scale,dBA=dist(b.palm,a.knuckles)/pair.scale;
+      slot=dAB<dBA?b.key:a.key; contact=clamp((.95-Math.min(dAB,dBA))/.7,0,1); pose=avgNumber([a.openScore,b.openScore,Math.max(pair.sameNormal,pair.oppositeNormal*.65)]); trajectory=avgNumber([pair.oscillation,motion]);
+      score=weighted([contact,.37,pose,.28,trajectory,.35]);
+    } else if (step.id === 'betweenFingers') {
+      contact=clamp((1.05-pair.tipDistance)/.65,0,1); pose=avgNumber([a.openScore,b.openScore,a.spread,b.spread]); trajectory=avgNumber([pair.oscillation,motion]);
+      score=weighted([contact,.34,pose,.34,trajectory,.32]);
+    } else if (step.id === 'backFingers') {
+      const dAB=dist(a.knuckles,b.palm)/pair.scale,dBA=dist(b.knuckles,a.palm)/pair.scale;
+      slot=dAB<dBA?a.key:b.key; contact=clamp((.86-Math.min(dAB,dBA))/.58,0,1); pose=avgNumber([Math.max(a.fistScore,b.fistScore),Math.max(a.openScore,b.openScore)]); trajectory=avgNumber([pair.oscillation,motion]);
+      score=weighted([contact,.40,pose,.30,trajectory,.30]);
+    } else if (step.id === 'thumbs') {
+      const dAB=dist(a.thumbTip,b.palm)/pair.scale,dBA=dist(b.thumbTip,a.palm)/pair.scale;
+      slot=dAB<dBA?a.key:b.key; contact=clamp((.78-Math.min(dAB,dBA))/.55,0,1); pose=avgNumber([Math.max(a.thumbExtension,b.thumbExtension),Math.max(a.openScore,b.openScore)*.7+.3]); trajectory=avgNumber([pair.circularity,motion]);
+      score=weighted([contact,.40,pose,.24,trajectory,.36]);
+    } else if (step.id === 'fingertips') {
+      const dAB=dist(a.tipsCenter,b.palm)/pair.scale,dBA=dist(b.tipsCenter,a.palm)/pair.scale;
+      slot=dAB<dBA?a.key:b.key; contact=clamp((.75-Math.min(dAB,dBA))/.52,0,1); pose=avgNumber([Math.max(a.fistScore,a.openScore*.45),Math.max(b.fistScore,b.openScore*.45)]); trajectory=avgNumber([pair.circularity,motion]);
+      score=weighted([contact,.39,pose,.23,trajectory,.38]);
+    } else if (step.id === 'wrists') {
+      const dAB=dist(a.palm,b.wrist)/pair.scale,dBA=dist(b.palm,a.wrist)/pair.scale;
+      slot=dAB<dBA?b.key:a.key; contact=clamp((.88-Math.min(dAB,dBA))/.62,0,1); pose=avgNumber([Math.max(a.openScore,b.openScore),pair.overlap]); trajectory=avgNumber([pair.circularity,motion]);
+      score=weighted([contact,.40,pose,.22,trajectory,.38]);
+    }
+    const contactOK=contact>.42, poseOK=pose>.40, motionOK=trajectory>.33 && motion>.20;
+    let reason='';
+    if(!bothIn) reason='zone'; else if(!contactOK) reason='contact'; else if(!poseOK) reason='pose'; else if(!motionOK) reason='motion'; else if(step.side && !slot) reason='switch';
+    return { score:clamp(score,0,1), slot, inZone:bothIn, contactOK, poseOK, motionOK, contact, pose, trajectory, motion, reason, coach:coachMessage(step,reason,slot) };
+  }
+
+  function pairMetrics(a,b,dt) {
+    const scale=Math.max((a.scale+b.scale)/2,.04);
+    const palmDistance=dist(a.palm,b.palm)/scale;
+    const tipDistance=dist(a.tipsCenter,b.tipsCenter)/scale;
+    const dotN=dot3(a.normal,b.normal);
+    const oppositeNormal=clamp((-dotN+.35)/1.35,0,1);
+    const sameNormal=clamp((dotN+.35)/1.35,0,1);
+    const overlap=clamp((1.45-palmDistance)/1.0,0,1);
+    const rel={x:a.palm.x-b.palm.x,y:a.palm.y-b.palm.y};
+    const previous=state.pairMemory;
+    let relativeMotion=0,oscillation=0,circularity=0;
+    if(previous){
+      const dx=rel.x-previous.rel.x,dy=rel.y-previous.rel.y;
+      relativeMotion=Math.hypot(dx,dy)/Math.max(dt,.016);
+      const dotMove=dx*previous.delta.x+dy*previous.delta.y;
+      const reversal=dotMove<-.00002?1:0;
+      const cross=Math.abs(previous.delta.x*dy-previous.delta.y*dx);
+      oscillation=clamp(previous.oscillation*.78+reversal*.42+relativeMotion*.8,0,1);
+      circularity=clamp(previous.circularity*.76+cross*180+Math.abs(a.rotationScore+b.rotationScore)*.14,0,1);
+      state.pairMemory={rel,delta:{x:dx,y:dy},oscillation,circularity};
+    } else state.pairMemory={rel,delta:{x:0,y:0},oscillation:0,circularity:0};
+    return {scale,palmDistance,tipDistance,oppositeNormal,sameNormal,overlap,oscillation,circularity,relativeMotionScore:clamp((relativeMotion-.018)/.30,0,1)};
+  }
+
+  function coachMessage(step,reason,slot) {
+    if(reason==='zone') return 'เลื่อนมือทั้งสองข้างเข้ากลางกรอบ Gesture Lab';
+    if(reason==='contact') return `ให้มือสัมผัสกันตามท่า “${step.label}” มากขึ้น`;
+    if(reason==='pose') return step.tip;
+    if(reason==='motion') return step.id==='thumbs'||step.id==='fingertips'||step.id==='wrists'?'หมุนเป็นวงต่อเนื่อง ไม่ใช่แตะค้าง':'ถูไป–มาอย่างต่อเนื่องและสม่ำเสมอ';
+    if(reason==='switch') return 'สลับทำอีกมือให้ครบ';
+    if(step.side && slot) return `ตรวจพบ ${slot==='left'?'มือซ้าย':slot==='right'?'มือขวา':'ด้านนี้'} — ทำต่อเนื่อง`; 
+    return 'ท่าถูกแล้ว ทำต่อเนื่องเพื่อสะสมหลักฐาน';
+  }
+
+  function ensureStepEvidence(step) {
+    if(!step) return;
+    if(!state.stepEvidence[step.id]) state.stepEvidence[step.id]={};
+    if(!step.side && state.stepEvidence[step.id].both==null) state.stepEvidence[step.id].both=0;
+  }
+
+  function ensureEvidenceSlot(step,slot) {
+    ensureStepEvidence(step);
