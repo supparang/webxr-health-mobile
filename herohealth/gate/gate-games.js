@@ -1,8 +1,8 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL REPLACEMENT v20260622-GATE-GAMES-FRR-V17-LOADER
+// FULL REPLACEMENT v20260716-GATE-GAMES-GROUPS-AR-V25
 // Shared registry for HeroHealth Gate.
 
-export const PATCH = 'v20260624-GATE-GAMES-FRR-V24-SIDE-STRETCH';
+export const PATCH = 'v20260716-GATE-GAMES-GROUPS-AR-V25';
 
 const FITNESS_MODULE =
   './games/fitness/fitness-readiness-recovery.js?v=20260624-frr-v24-side-stretch';
@@ -105,8 +105,9 @@ export const GAME_REGISTRY = {
     title: 'Food Groups AR',
     emoji: '🥦',
     zone: 'nutrition',
-    runFile: '../vr-groups/groups.html',
+    runFile: '../vr-groups/groups-ar.html',
     runCandidates: [
+      '../vr-groups/groups-ar.html',
       '../vr-groups/groups.html',
       '../groups-vr.html'
     ],
@@ -273,6 +274,9 @@ const ALIAS = {
   'hydration-vr': 'hydration',
   'plate-vr': 'plate',
   'groups-vr': 'groups',
+  'groups-ar': 'groups',
+  foodgroups: 'groups',
+  'food-groups-ar': 'groups',
 
   germdetective: 'germ-detective',
   'mask-cough': 'maskcough',
