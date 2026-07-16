@@ -1,0 +1,203 @@
+(() => {
+  'use strict';
+
+  const VERSION = '20260716-HANDWASH-REALITY-LAB-V3-R1';
+  const qs = new URLSearchParams(location.search);
+  const ZONE_URL = qs.get('zone') || '../hygiene-zone-v2.html';
+  const ENDPOINT = qs.get('sheet') || window.HH_HANDWASH_SHEET_ENDPOINT || 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
+  const DIFF = ['easy', 'normal', 'hard'].includes((qs.get('diff') || '').toLowerCase()) ? qs.get('diff').toLowerCase() : 'normal';
+  const RUN_TIME = clamp(Number(qs.get('time') || (DIFF === 'easy' ? 150 : DIFF === 'hard' ? 95 : 120)), 70, 240);
+  const STORAGE = {
+    progress: 'herohealth:hygiene:progress',
+    best: 'herohealth:hygiene:handwash:best',
+    attempts: 'herohealth:hygiene:handwash:attempts',
+    outbox: 'herohealth:hygiene:handwash:v3:outbox',
+    profile: 'herohealth:hygiene:profile'
+  };
+
+  const STEPS = [
+    { id: 'palm', icon: '🖐️', label: 'ถูฝ่ามือ', tip: 'ประกบฝ่ามือและถูไป–มา', side: false, targetSec: 2.1, strict: .66, grace: .53 },
+    { id: 'backHand', icon: '🤚', label: 'หลังมือและซอกนิ้ว', tip: 'ฝ่ามือถูหลังมืออีกข้าง แล้วสลับ', side: true, targetSec: 1.65, strict: .63, grace: .50 },
+    { id: 'betweenFingers', icon: '👐', label: 'ซอกนิ้วด้านฝ่ามือ', tip: 'ประสานนิ้วแล้วถูซอกนิ้วไป–มา', side: false, targetSec: 2.0, strict: .64, grace: .51 },
+    { id: 'backFingers', icon: '✊', label: 'หลังนิ้วกับฝ่ามือ', tip: 'งอนิ้ว วางข้อนิ้วบนฝ่ามือ แล้วถู', side: true, targetSec: 1.45, strict: .59, grace: .47 },
+    { id: 'thumbs', icon: '👍', label: 'นิ้วหัวแม่มือ', tip: 'กำรอบหัวแม่มือแล้วหมุนถู สลับข้าง', side: true, targetSec: 1.55, strict: .61, grace: .48 },
+    { id: 'fingertips', icon: '💅', label: 'ปลายนิ้วและเล็บ', tip: 'รวมปลายนิ้ว วนบนฝ่ามือ แล้วสลับ', side: true, targetSec: 1.55, strict: .61, grace: .48 },
+    { id: 'wrists', icon: '⌚', label: 'รอบข้อมือ', tip: 'กำรอบข้อมือแล้วหมุนถู สลับข้าง', side: true, targetSec: 1.45, strict: .60, grace: .47 }
+  ];
+
+  const CONNECTIONS = [
+    [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],
+    [9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]
+  ];
+
+  const el = {};
+  let handsModel = null;
+  let cameraStream = null;
+  let loopBusy = false;
+  let lastDetectTs = 0;
+  let lastRenderTs = 0;
+  let lastHands = [];
+  let toastTimer = null;
+  let audioCtx = null;
+  const histories = new Map();
+
+  const state = {
+    running: false,
+    phase: 'ready',
+    remaining: RUN_TIME,
+    startedAt: '',
+    endedAt: '',
+    endReason: '',
+    score: 0,
+    waterOn: false,
+    waterUseSec: 0,
+    waterWasteSec: 0,
+    foam: 0,
+    foamPeak: 0,
+    germLoad: 100,
+    phaseProgress: 0,
+    calibrationHold: 0,
+    scrubIndex: 0,
+    stepStartedAt: 0,
+    stepEvidence: {},
+    stepQuality: {},
+    stepTime: {},
+    stepPassMode: {},
+    strictPassCount: 0,
+    gracePassCount: 0,
+    activeSlot: '',
+    stabilityHold: 0,
+    fallbackUsed: false,
+    tapSide: 0,
+    handsSeenFrames: 0,
+    twoHandFrames: 0,
+    trackingFrames: 0,
+    trackingLostCount: 0,
+    wasTracking: false,
+    cameraReady: false,
+    detectorReady: false,
+    lastHandsCount: 0,
+    lastGesture: null,
+    coachReason: '',
+    soapPumps: 0,
+    rinseHold: 0,
+    dryHold: 0,
+    processErrors: 0,
+    eventLog: [],
+    frameQualitySum: 0,
+    frameQualityCount: 0,
+    pairMemory: null,
+    lastFrameAt: 0,
+    attemptId: ''
+  };
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    cache();
+    buildStepRail();
+    hydrateProfile();
+    bind();
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas, { passive: true });
+    window.addEventListener('online', flushOutbox);
+    resetRun(false);
+    startCamera();
+    requestAnimationFrame(animationLoop);
+    flushOutbox();
+  }
+
+  function cache() {
+    [
+      'app','video','arCanvas','backBtn','detectStatus','phaseText','timeText','scoreText','waterText','stepText',
+      'missionIcon','missionTitle','missionTip','qualityText','stepRail','coachTitle','coachText','chipHands','chipContact',
+      'chipMotion','chipPose','chipSwitch','chipTrack','waterZone','soapZone','towelZone','scrubZone','evidenceText',
+      'evidenceFill','foamText','foamFill','germText','germFill','faucetBtn','coachBtn','tapBtn','stopBtn','startOverlay',
+      'nameInput','classInput','startBtn','zoneBtn','summaryOverlay','summaryHero','summaryTitle','summarySub','sumScore',
+      'sumStars','sumAccuracy','sumWater','resultList','deliveryText','replayBtn','summaryZoneBtn','toast'
+    ].forEach(id => { el[id] = document.getElementById(id); });
+    el.ctx = el.arCanvas.getContext('2d');
+  }
+
+  function bind() {
+    el.backBtn.addEventListener('click', goZone);
+    el.zoneBtn.addEventListener('click', goZone);
+    el.summaryZoneBtn.addEventListener('click', goZone);
+    el.startBtn.addEventListener('click', startRun);
+    el.replayBtn.addEventListener('click', startRun);
+    el.faucetBtn.addEventListener('click', toggleFaucet);
+    el.coachBtn.addEventListener('click', speakCoach);
+    el.tapBtn.addEventListener('click', tapPractice);
+    el.stopBtn.addEventListener('click', () => state.running && finishRun('stopped'));
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && state.running) logEvent('visibility_hidden');
+    });
+    window.addEventListener('pagehide', () => {
+      if (state.running) saveEmergencySnapshot();
+      stopCameraTracks();
+    });
+  }
+
+  function hydrateProfile() {
+    const profile = readJson(STORAGE.profile, {});
+    el.nameInput.value = qs.get('name') || profile.name || profile.studentName || '';
+    el.classInput.value = qs.get('classLevel') || qs.get('class') || profile.classLevel || 'P5';
+  }
+
+  function buildStepRail() {
+    el.stepRail.innerHTML = STEPS.map((s, i) => `
+      <div class="step" data-step="${s.id}"><i>${s.icon}</i><strong>${i + 1}. ${s.label}</strong><em>0%</em></div>
+    `).join('');
+  }
+
+  function resetRun(showStart = true) {
+    state.running = false;
+    state.phase = 'ready';
+    state.remaining = RUN_TIME;
+    state.startedAt = '';
+    state.endedAt = '';
+    state.endReason = '';
+    state.score = 0;
+    state.waterOn = false;
+    state.waterUseSec = 0;
+    state.waterWasteSec = 0;
+    state.foam = 0;
+    state.foamPeak = 0;
+    state.germLoad = 100;
+    state.phaseProgress = 0;
+    state.calibrationHold = 0;
+    state.scrubIndex = 0;
+    state.stepStartedAt = 0;
+    state.stepEvidence = {};
+    state.stepQuality = {};
+    state.stepTime = {};
+    state.stepPassMode = {};
+    state.strictPassCount = 0;
+    state.gracePassCount = 0;
+    state.activeSlot = '';
+    state.stabilityHold = 0;
+    state.fallbackUsed = false;
+    state.tapSide = 0;
+    state.handsSeenFrames = 0;
+    state.twoHandFrames = 0;
+    state.trackingFrames = 0;
+    state.trackingLostCount = 0;
+    state.wasTracking = false;
+    state.lastHandsCount = 0;
+    state.lastGesture = null;
+    state.coachReason = '';
+    state.soapPumps = 0;
+    state.rinseHold = 0;
+    state.dryHold = 0;
+    state.processErrors = 0;
+    state.eventLog = [];
+    state.frameQualitySum = 0;
+    state.frameQualityCount = 0;
+    state.pairMemory = null;
+    state.lastFrameAt = performance.now();
+    state.attemptId = `hwv3-${Date.now()}-${Math.random().toString(16).slice(2,8)}`;
+    histories.clear();
+    STEPS.forEach(step => {
+      state.stepEvidence[step.id] = {};
+      state.stepQuality[step.id] = { sum: 0, samples: 0, best: 0 };
+      state.stepTime[step.id] = 0;
