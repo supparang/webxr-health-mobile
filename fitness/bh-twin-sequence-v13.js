@@ -21,7 +21,7 @@ const BANK={
     {id:'H1-RL-R-B-C',steps:['center','right','center','left','center','right','center','boss','center']},
     {id:'H2-LR-L-B-C',steps:['center','left','center','right','center','left','center','boss','center']},
     {id:'H3-B-L-R-B-C',steps:['center','boss','center','left','center','right','center','boss','center']},
-    {id:'H4-L-B-R-L-B-C',steps:['center','left','center','boss','center','right','center','left','center','boss','center']}
+    {id:'H4-L-B-R-B-C',steps:['center','left','center','boss','center','right','center','boss','center']}
   ]
 };
 function safeGet(){try{return JSON.parse(sessionStorage.getItem(KEY)||'{}')}catch(_){return {}}}
