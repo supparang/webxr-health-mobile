@@ -32,7 +32,7 @@ Release: `20260716-BALANCE-HOLD-TWIN-POSE-V13-END-TO-END`
 - `bh-twin-polish-v12.css`
 - `fitness-postgame-recovery-bridge.js`
 
-`balance-hold.html` is a legacy redirect to the canonical game and preserves query parameters.
+`balance-hold.html` and `balance-hold-ar.html` are legacy redirects to the canonical game and preserve query parameters. `fitness/balance-hold/run.html` is a separate legacy DOM/VR activity and is not an entry point for the current four-game AR Fitness Hub.
 
 ## Apps Script dashboard deployment
 
