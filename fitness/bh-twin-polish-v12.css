@@ -1,0 +1,125 @@
+/* Balance Hold Guardian — Visual Polish v12
+   Improves pose readability, layering and safe-zone placement without changing scoring logic. */
+.poseGhost{
+  width:min(440px,54vw);
+  height:min(590px,68vh);
+  top:52%;
+  opacity:.92;
+  z-index:15;
+  filter:drop-shadow(0 0 12px rgba(34,211,238,.42)) drop-shadow(0 12px 22px rgba(0,0,0,.28));
+  transition:transform .24s ease,filter .24s ease;
+}
+.ghostHead,.ghostBody,.ghostArm,.ghostLeg{
+  border-color:rgba(255,255,255,.92);
+  background:rgba(255,255,255,.82);
+  box-shadow:0 0 18px rgba(34,211,238,.45),0 0 3px rgba(255,255,255,.9);
+}
+.ghostHead{
+  width:18%;height:auto;aspect-ratio:1;
+  max-width:86px;min-width:62px;
+  top:3%;
+  border-width:4px;
+  background:rgba(255,255,255,.16);
+}
+.ghostBody{
+  width:8px;height:36%;top:19%;
+  border-radius:999px;
+  transform-origin:50% 90%;
+}
+.ghostArm{
+  width:44%;height:8px;top:28%;
+  border-radius:999px;
+}
+.ghostArm.l{right:50%;transform-origin:100% 50%}
+.ghostArm.r{left:50%;transform-origin:0 50%}
+.ghostLeg{
+  width:8px;height:36%;top:54%;
+  border-radius:999px;
+  transform-origin:50% 0;
+}
+.ghostLeg.l{left:48%;transform:rotate(7deg)}
+.ghostLeg.r{right:48%;transform:rotate(-7deg)}
+
+/* Make the requested direction unmistakable. */
+.poseGhost::after{
+  position:absolute;
+  top:18%;
+  z-index:4;
+  font-size:clamp(46px,5vw,78px);
+  line-height:1;
+  font-weight:1000;
+  color:#fde047;
+  text-shadow:0 4px 18px rgba(0,0,0,.72),0 0 22px rgba(253,224,71,.7);
+  animation:directionPulse 1s ease-in-out infinite;
+}
+.poseGhost.left::after{content:'←';left:-20%}
+.poseGhost.right::after{content:'→';right:-20%}
+@keyframes directionPulse{50%{transform:scale(1.12);opacity:.72}}
+
+.poseGhost.left .ghostHead{left:44%;top:4%}
+.poseGhost.left .ghostBody{left:46%;transform:translateX(-50%) rotate(-11deg)}
+.poseGhost.left .ghostArm.l{width:49%;right:54%;transform:rotate(18deg)}
+.poseGhost.left .ghostArm.r{width:48%;left:46%;transform:rotate(8deg)}
+.poseGhost.left .ghostLeg.l{left:43%;transform:rotate(4deg)}
+.poseGhost.left .ghostLeg.r{right:51%;transform:rotate(-11deg)}
+
+.poseGhost.right .ghostHead{left:56%;top:4%}
+.poseGhost.right .ghostBody{left:54%;transform:translateX(-50%) rotate(11deg)}
+.poseGhost.right .ghostArm.r{width:49%;left:54%;transform:rotate(-18deg)}
+.poseGhost.right .ghostArm.l{width:48%;right:46%;transform:rotate(-8deg)}
+.poseGhost.right .ghostLeg.r{right:43%;transform:rotate(-4deg)}
+.poseGhost.right .ghostLeg.l{left:51%;transform:rotate(11deg)}
+
+/* Keep game effects behind the instructional pose. */
+.crystal{
+  top:49%;
+  width:76px;height:102px;
+  z-index:9;
+  opacity:.18;
+}
+.crystal.active{opacity:.62;transform:translate(-50%,-50%) scale(1.04)}
+.holdRing{
+  top:49%;
+  width:190px;height:190px;
+  z-index:11;
+  opacity:.92;
+  box-shadow:0 0 34px rgba(52,211,153,.2);
+}
+.holdRing:after{width:154px;height:154px;background:rgba(2,6,23,.18)}
+.holdText{top:49%;z-index:17;font-size:26px}
+
+/* Feet target must remain visible above the coach panel. */
+.safeZone{
+  bottom:12%;
+  width:min(620px,70vw);
+  height:94px;
+  z-index:8;
+  border-width:4px;
+  box-shadow:0 0 32px rgba(52,211,153,.18);
+}
+.energy{bottom:104px;width:min(340px,calc(100% - 20px))}
+.coach{bottom:12px;width:min(740px,calc(100% - 20px))}
+.poseBanner{top:84px}
+.poseCue{font-size:15px;letter-spacing:.01em}
+
+@media(max-width:900px){
+  .poseGhost{width:min(400px,60vw);height:min(560px,64vh);top:51%}
+  .safeZone{bottom:13.5%;width:min(520px,72vw)}
+}
+@media(max-width:760px){
+  .poseGhost{width:min(360px,68vw);height:min(500px,58vh);top:50%}
+  .ghostHead{min-width:52px}
+  .poseGhost::after{font-size:46px;top:20%}
+  .poseGhost.left::after{left:-12%}.poseGhost.right::after{right:-12%}
+  .safeZone{bottom:15%;width:76vw;height:70px}
+  .holdRing{width:154px;height:154px}.holdRing:after{width:124px;height:124px}
+  .holdText{font-size:22px}
+  .energy{bottom:88px;width:min(300px,calc(100% - 16px))}
+  .poseCue{font-size:13px}
+}
+@media(max-height:650px) and (orientation:landscape){
+  .poseGhost{height:58vh;width:min(350px,44vw);top:51%}
+  .safeZone{bottom:16%;height:60px}
+  .energy{bottom:78px;transform:scale(.9);transform-origin:left bottom}
+  .coach{padding:7px 10px}
+}
