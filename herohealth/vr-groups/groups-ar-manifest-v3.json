@@ -1,0 +1,93 @@
+{
+  "app": "HeroHealth Food Groups AR",
+  "version": "groups-ar-v3.1.1",
+  "learningContract": {
+    "primaryQuestion": "อาหารนี้อยู่หมู่ไหน?",
+    "unitOfThinking": "individual food or ingredient",
+    "excludedFromScoring": [
+      "plate proportion",
+      "whole-meal balance",
+      "half-plate vegetables",
+      "total meal energy"
+    ],
+    "nextGame": "Plate AR applies food-group knowledge to whole-meal design"
+  },
+  "routes": {
+    "launcher": "../groups-vr.html",
+    "canonical": "./groups-ar.html",
+    "production": "./groups-ar-v3.html",
+    "deviceCheck": "./groups-ar-check-v2.html",
+    "teacher": "../groups-ar-teacher.html",
+    "receiverSource": "./apps-script/GroupsAR_Receiver.gs"
+  },
+  "runtime": {
+    "contentBank": "./groups-ar-bank-v3.js",
+    "engine": "./groups-ar-runtime-v311.js",
+    "styles": "./groups-ar-v3.css",
+    "handTracking": "MediaPipe Hand Landmarker",
+    "fallback": "touchFallback",
+    "qaProfileKey": "HHA_GROUPS_AR_QA_PROFILE",
+    "lastResultKey": "HHA_GROUPS_AR_LAST_RESULT",
+    "recentItemsKey": "HHA_GROUPS_AR_RECENT_ITEMS"
+  },
+  "contentCounts": {
+    "foodsTotal": 150,
+    "foodsPerGroup": 30,
+    "mixedMealCases": 40,
+    "reasonChecks": 100
+  },
+  "flow": [
+    "Camera Check",
+    "Power Basket Training",
+    "Sort Wave",
+    "Speed Wave",
+    "Reason Check",
+    "Retry Rescue",
+    "Boss Phase 1 — Single Sort",
+    "Boss Phase 2 — Confusion Attack",
+    "Boss Phase 3 — Meal Breaker"
+  ],
+  "bossMastery": {
+    "phase1": "master all five food groups",
+    "phase2": "master at least 75 percent of confusing-food items",
+    "phase3": "master every ingredient in the selected mixed dish",
+    "retryPolicy": "unmastered boss items repeat until mastered or the timer expires"
+  },
+  "gradedPass": {
+    "overallAccuracyMinimum": 75,
+    "reasonAccuracyMinimum": 67,
+    "eachGroupAccuracyMinimum": 60,
+    "allBossPhasesRequired": true
+  },
+  "threeStars": {
+    "overallAccuracyMinimum": 85,
+    "reasonAccuracyMinimum": 80,
+    "retryAccuracyMinimum": 70,
+    "eachGroupAccuracyMinimum": 60,
+    "allBossPhasesRequired": true
+  },
+  "evidence": [
+    "latest and best attempt",
+    "accuracy by food group",
+    "confusion matrix",
+    "first-attempt accuracy",
+    "retry recovery",
+    "reason accuracy",
+    "boss phase results",
+    "input mode",
+    "camera and hand readiness",
+    "hand-seen rate and confidence",
+    "pinch count and fallback count",
+    "device QA profile"
+  ],
+  "releaseStatus": {
+    "codeComplete": true,
+    "appsScriptDeploymentRequired": true,
+    "realDeviceQaRequired": true,
+    "testedDeviceClassesRequired": [
+      "Android phone",
+      "iPhone",
+      "tablet"
+    ]
+  }
+}
