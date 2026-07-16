@@ -1,183 +1,36 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HeroHealth — Handwash (Launcher)</title>
-  <meta name="color-scheme" content="dark light"/>
-  <link rel="icon" href="./favicon.ico"/>
-  <style>
-    :root{
-      --bg:#020617; --panel:rgba(2,6,23,.72); --panel2:rgba(15,23,42,.55);
-      --stroke:rgba(148,163,184,.18); --text:#e5e7eb; --muted:#94a3b8;
-      --good:#22c55e; --cyan:#22d3ee; --violet:#a78bfa; --warn:#f59e0b;
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --r:20px;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
-    a{color:inherit;text-decoration:none}
-    .wrap{min-height:100%;padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));max-width:980px;margin:0 auto}
-    header{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
-    .title{font-weight:1000;letter-spacing:.2px;font-size:22px;margin:0}
-    .sub{color:var(--muted);font-size:12px;font-weight:800;margin:6px 0 0 0;max-width:72ch;line-height:1.35}
-    .chiprow{display:flex;gap:8px;flex-wrap:wrap}
-    .chip{border:1px solid var(--stroke);background:rgba(2,6,23,.35);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900}
-    .chip b{color:#fff}
-    .grid{margin-top:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    @media (max-width: 860px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
-    @media (max-width: 560px){ .grid{grid-template-columns:1fr;} }
-    .card{border:1px solid var(--stroke);background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.55));border-radius:var(--r);padding:14px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
-    .card h3{margin:0;font-size:14px;font-weight:1000}
-    .card p{margin:6px 0 0 0;color:rgba(229,231,235,.78);font-weight:750;font-size:12px;line-height:1.35}
-    .btn{display:flex;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--stroke);
-      background:rgba(2,6,23,.35);padding:12px 12px;border-radius:16px;margin-top:10px;font-weight:1000}
-    .btn .k{display:flex;flex-direction:column;gap:3px}
-    .btn .k span{font-size:13px}
-    .btn .k small{font-size:11px;color:rgba(229,231,235,.70);font-weight:800}
-    .pill{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:1000;white-space:nowrap}
-    .pill.good{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.14)}
-    .pill.cyan{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.10)}
-    .pill.violet{border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.12)}
-    .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-    .bar{margin-top:14px;border:1px solid var(--stroke);border-radius:18px;padding:12px;background:rgba(2,6,23,.35);display:flex;gap:10px;align-items:flex-start}
-    .dot{width:10px;height:10px;border-radius:999px;margin-top:5px;background:var(--warn)}
-    .bar h4{margin:0;font-size:13px;font-weight:1000}
-    .bar p{margin:4px 0 0 0;font-size:12px;color:rgba(229,231,235,.78);font-weight:750;line-height:1.35}
-  </style>
-</head>
-<body>
-<div class="wrap">
-  <header>
-    <div>
-      <h1 class="title">🧼 Handwash — Launcher</h1>
-      <p class="sub">เลือกโหมดเข้าเล่น • ส่งพารามิเตอร์ run/diff/time/seed/pid/hub/log ต่อให้เกมอัตโนมัติ</p>
-    </div>
-    <div class="chiprow">
-      <div class="chip">run: <b id="cRun">play</b></div>
-      <div class="chip">diff: <b id="cDiff">normal</b></div>
-      <div class="chip">time: <b id="cTime">80</b>s</div>
-      <div class="chip">pid: <b id="cPid">anon</b></div>
-    </div>
-  </header>
-
-  <div class="grid">
-    <div class="card">
-      <h3>🖥️ PC (คลิก/เมาส์)</h3>
-      <p>เหมาะเดโมหน้าห้อง • ภาพนิ่ง คุมง่าย</p>
-      <a class="btn" id="goPC" href="./hygiene-vr/hygiene-vr.html">
-        <div class="k"><span>เข้าเล่น (PC)</span><small>view=pc</small></div>
-        <span class="pill good">Recommended</span>
-      </a>
-      <div class="row">
-        <span class="pill">เสถียร</span><span class="pill">ดีสำหรับครู</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>📱 Mobile (แตะจอ)</h3>
-      <p>เหมาะนักเรียน • จิ้มเป้าไว</p>
-      <a class="btn" id="goMobile" href="./hygiene-vr/hygiene-vr.html">
-        <div class="k"><span>เข้าเล่น (Mobile)</span><small>view=mobile</small></div>
-        <span class="pill cyan">Touch</span>
-      </a>
-      <div class="row">
-        <span class="pill">แตะไว</span><span class="pill">fullscreen</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>🕶️ Cardboard / cVR</h3>
-      <p>ยิงด้วยกากบาทกลางจอ (vr-ui.js)</p>
-      <a class="btn" id="goCVR" href="./hygiene-vr/hygiene-vr.html">
-        <div class="k"><span>เข้าเล่น (cVR)</span><small>view=cvr</small></div>
-        <span class="pill violet">VR</span>
-      </a>
-      <div class="row">
-        <span class="pill">crosshair</span><span class="pill">tap-to-shoot</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="bar">
-    <div class="dot"></div>
-    <div>
-      <h4>Tip</h4>
-      <p>ถ้าคุณอยาก “จำโหมดล่าสุด” ไว้ให้เด็กกดครั้งเดียวเข้าเลย — ไฟล์นี้ทำให้แล้ว ✅</p>
-    </div>
-  </div>
-</div>
-
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#061521" />
+<title>กำลังเปิด Handwash WHO Technique…</title>
+<style>
+html,body{height:100%;margin:0;background:#061521;color:#effbff;font-family:system-ui,"Noto Sans Thai",sans-serif}
+main{min-height:100%;display:grid;place-items:center;padding:24px;text-align:center}.card{width:min(520px,100%);padding:28px;border:1px solid rgba(132,226,255,.3);border-radius:28px;background:#0b2232}.icon{font-size:54px}h1{margin:10px 0 6px;font-size:28px}p{margin:0;color:#afd0dc;font-weight:700}a{display:inline-block;margin-top:18px;padding:13px 20px;border-radius:15px;color:#052132;background:#57dfff;text-decoration:none;font-weight:1000}
+</style>
 <script>
 (function(){
   'use strict';
-  function qs(k,d=''){ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } }
-  function clamp(v,min,max){ v=Number(v); if(!Number.isFinite(v)) v=min; return Math.max(min, Math.min(max, v)); }
-  function nowSeed(){ return String(Date.now()); }
-
-  const P = {
-    run:  String(qs('run','play')).toLowerCase() || 'play',
-    diff: String(qs('diff','normal')).toLowerCase() || 'normal',
-    time: clamp(qs('time','80'), 20, 300),
-    seed: String(qs('seed','') || nowSeed()),
-    pid:  String(qs('pid','')).trim() || 'anon',
-    view: String(qs('view','')).toLowerCase(),
-    log:  String(qs('log','')),
-    studyId: String(qs('studyId','')),
-    phase: String(qs('phase','')),
-    conditionGroup: String(qs('conditionGroup','')),
-    hub: String(qs('hub','./hub.html')) || './hub.html'
-  };
-
-  document.getElementById('cRun').textContent = P.run;
-  document.getElementById('cDiff').textContent = P.diff;
-  document.getElementById('cTime').textContent = String(P.time);
-  document.getElementById('cPid').textContent = P.pid;
-
-  const LS = 'HHA_LAST_VIEW::handwash';
-  function remember(v){ try{ localStorage.setItem(LS, v); }catch(_){} }
-  function recall(){ try{ return localStorage.getItem(LS)||''; }catch(_){ return ''; } }
-
-  function withCommon(url, view){
-    const u = new URL(url, location.href);
-    const sp = u.searchParams;
-    sp.set('hub', P.hub || './hub.html');
-    sp.set('run', P.run);
-    sp.set('diff', P.diff);
-    sp.set('time', String(P.time));
-    sp.set('seed', P.seed);
-    sp.set('pid', P.pid);
-    sp.set('view', view);
-    if(P.log) sp.set('log', P.log);
-    if(P.studyId) sp.set('studyId', P.studyId);
-    if(P.phase) sp.set('phase', P.phase);
-    if(P.conditionGroup) sp.set('conditionGroup', P.conditionGroup);
-    return u.toString();
-  }
-
-  const runHref = './hygiene-vr/hygiene-vr.html';
-  const aPC = document.getElementById('goPC');
-  const aM  = document.getElementById('goMobile');
-  const aV  = document.getElementById('goCVR');
-
-  aPC.href = withCommon(runHref, 'pc');
-  aM.href  = withCommon(runHref, 'mobile');
-  aV.href  = withCommon(runHref, 'cvr');
-
-  aPC.addEventListener('click', ()=>remember('pc'), {passive:true});
-  aM.addEventListener('click',  ()=>remember('mobile'), {passive:true});
-  aV.addEventListener('click',  ()=>remember('cvr'), {passive:true});
-
-  // auto-redirect if ?autostart=1
-  const auto = (qs('autostart','0')==='1');
-  if(auto){
-    const last = P.view || recall() || 'pc';
-    location.href = withCommon(runHref, last);
-  }
+  var q = new URLSearchParams(location.search || '');
+  var target = new URL('./hygiene-zone/handwash-realistic-v3.html', location.href);
+  q.forEach(function(value,key){ target.searchParams.set(key,value); });
+  target.searchParams.set('game','handwash');
+  target.searchParams.set('gameId','handwash');
+  target.searchParams.set('zone','hygiene');
+  target.searchParams.set('cat','hygiene');
+  target.searchParams.set('who','1');
+  target.searchParams.set('wgok','1');
+  target.searchParams.set('fromWarmup','1');
+  target.searchParams.set('entry','legacy-launcher-to-who-v4');
+  ['phase','gatePhase','runFile','runUrl','forcegate','forceGate','resetGate','next'].forEach(function(key){target.searchParams.delete(key);});
+  window.HHA_HANDWASH_CANONICAL_TARGET = target.toString();
+  location.replace(window.HHA_HANDWASH_CANONICAL_TARGET);
 })();
 </script>
+</head>
+<body>
+<main><section class="card"><div class="icon">🧼</div><h1>Handwash WHO Technique</h1><p>กำลังพาเข้าสู่เกมมาตรฐาน WHO รุ่นล่าสุด</p><a id="manualLink" href="./hygiene-zone/handwash-realistic-v3.html">เข้าเกม</a></section></main>
+<script>document.getElementById('manualLink').href=window.HHA_HANDWASH_CANONICAL_TARGET||document.getElementById('manualLink').href;</script>
 </body>
 </html>
