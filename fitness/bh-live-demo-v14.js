@@ -2,11 +2,14 @@
 'use strict';
 const BH=window.BH;if(!BH||!BH.state||!BH.el)return;
 const s=BH.state,e=BH.el,$=BH.$;
-const RELEASE='20260717-BALANCE-HOLD-LIVE-DEMO-SUMMARY-GUARD-V24';
+const RELEASE='20260717-BALANCE-HOLD-LIVE-DEMO-ENDSCREEN-V25';
 
 BH.demoEvaluation=(key)=>BH.evaluatePose(s.latest,key);
 
+function removeDemoEnd(){document.getElementById('bhDemoEndV25')?.remove()}
+
 BH.startLiveDemo=async()=>{
+  removeDemoEnd();
   BH.syncContext();BH.cancelCountdown();s.gameToken++;
   s.demo=true;s.demoFinalizing=false;s.demoSummaryShown=false;
   s.roundId=BH.stableId('BHLIVEDEMO');s.calValidMs=0;s.calLast=BH.now();s.calHistory=[];
@@ -25,23 +28,6 @@ function stopDemoCapture(){
   try{const ctx=e.poseCanvas?.getContext?.('2d');if(ctx)ctx.clearRect(0,0,e.poseCanvas.width,e.poseCanvas.height)}catch(_){}
 }
 
-function decorateDemoSummary(x){
-  const modal=e.resultOverlay?.querySelector('.modal');
-  const icon=modal?.querySelector('.modalIcon'),title=modal?.querySelector('h2'),lead=modal?.querySelector('.lead');
-  const scoreCard=modal?.querySelector('.bigScore'),replay=$('replayBtn'),csv=$('csvBtn');
-  if(icon)icon.textContent='🎬';
-  if(title)title.textContent='Live Demo Complete!';
-  if(lead)lead.innerHTML='ทำครบทุกท่าแล้ว 🎉<br><b>รอบสาธิตนี้ไม่บันทึกคะแนน ไม่ส่ง Sheet และไม่เปลี่ยน Personal Best</b>';
-  if(scoreCard){const p=scoreCard.querySelector('p');if(p)p.textContent='🎥 DEMO ONLY • ผลสำหรับทดลองระบบเท่านั้น'}
-  if(replay){replay.textContent='🎥 ทดลอง Demo อีกครั้ง';replay.title='กลับไปเริ่ม Live Demo ใหม่'}
-  if(csv)csv.style.display='none';
-  e.status.textContent='✅ Live Demo Complete • Camera OFF • Not Saved';
-  e.holdText.textContent='100%';e.holdRing.style.setProperty('--hold','360deg');e.poseBar.style.width='100%';
-  e.hudPose.textContent=`${x.totalPoses}/${x.totalPoses}`;
-  e.resultOverlay.classList.remove('hidden');
-  s.demoSummaryShown=true;
-}
-
 function makeDemoSummary(reason='completed'){
   let x;
   try{x=BH.calcSummary(reason)}catch(err){
@@ -55,33 +41,57 @@ function makeDemoSummary(reason='completed'){
   return x;
 }
 
-function forceDemoSummary(reason='completed'){
+function showIndependentDemoEnd(x){
+  removeDemoEnd();
+  const done=Math.max(x.completedPoses||0,s.sequence?.length||0);
+  const total=Math.max(1,x.totalPoses||s.sequence?.length||1);
+  const screen=document.createElement('section');
+  screen.id='bhDemoEndV25';
+  screen.setAttribute('role','dialog');screen.setAttribute('aria-modal','true');
+  screen.style.cssText='position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:18px;background:rgba(2,6,23,.94);backdrop-filter:blur(12px);font-family:inherit';
+  screen.innerHTML=`<div style="width:min(720px,100%);max-height:92vh;overflow:auto;border-radius:30px;padding:26px;background:linear-gradient(180deg,#effcff,#ffffff);color:#0f172a;border:3px solid #67e8f9;box-shadow:0 30px 100px rgba(0,0,0,.65);text-align:center">
+    <div style="font-size:64px">🎬</div>
+    <h2 style="font-size:clamp(28px,5vw,48px);margin:4px 0 8px">Live Demo Complete!</h2>
+    <p style="font-size:18px;line-height:1.55;margin:0 0 18px">ทำครบทุกท่าแล้ว 🎉<br><b>รอบสาธิตนี้ไม่บันทึกคะแนน ไม่ส่ง Google Sheet และไม่เปลี่ยน Personal Best</b></p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0">
+      <div style="padding:14px;border-radius:18px;background:#ecfeff"><small>COMPLETION</small><div style="font-size:28px;font-weight:1000">${done}/${total}</div></div>
+      <div style="padding:14px;border-radius:18px;background:#f0fdf4"><small>TRACKING</small><div style="font-size:28px;font-weight:1000">${Math.round(x.trackingCoverage||0)}%</div></div>
+      <div style="padding:14px;border-radius:18px;background:#fefce8"><small>MODE</small><div style="font-size:22px;font-weight:1000">DEMO ONLY</div></div>
+    </div>
+    <div style="padding:12px;border-radius:16px;background:#dcfce7;color:#166534;font-weight:900;margin-bottom:18px">✅ Camera OFF • Not Saved</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <button id="bhDemoReplayV25" type="button" style="min-height:56px;border:0;border-radius:17px;background:linear-gradient(135deg,#06b6d4,#2563eb);color:white;font-size:17px;font-weight:1000;cursor:pointer">🎥 ทดลอง Demo อีกครั้ง</button>
+      <button id="bhDemoBackV25" type="button" style="min-height:56px;border:0;border-radius:17px;background:#0f172a;color:white;font-size:17px;font-weight:1000;cursor:pointer">🏠 กลับ Fitness</button>
+    </div>
+  </div>`;
+  document.body.appendChild(screen);
+  document.getElementById('bhDemoReplayV25').onclick=()=>{
+    removeDemoEnd();
+    e.resultOverlay?.classList.add('hidden');e.startOverlay.classList.remove('hidden');
+    s.phase='setup';s.calibration=null;s.demo=false;s.demoFinalizing=false;s.demoSummaryShown=false;
+  };
+  document.getElementById('bhDemoBackV25').onclick=()=>{
+    const hub=BH.q?.('hub','./hub.html')||'./hub.html';location.href=hub;
+  };
+  s.demoSummaryShown=true;
+  e.status.textContent='✅ Live Demo Complete • Camera OFF • Not Saved';
+}
+
+function forceDemoEnd(reason='completed'){
   if(s.demoSummaryShown)return;
   s.phase='summary';stopDemoCapture();e.pauseBtn.textContent='Ⅱ';
   const x=makeDemoSummary(reason);
-  try{BH.renderSummary(x)}catch(err){
-    console.warn('[BalanceHold] renderSummary fallback',err);
-    e.resultOverlay.innerHTML=`<section class="modal"><div class="modalHead"><div class="modalIcon">🎬</div><div><h2>Live Demo Complete!</h2><p class="lead">ทำครบทุกท่าแล้ว 🎉<br><b>ไม่บันทึกคะแนน ไม่ส่ง Sheet และไม่เปลี่ยน Personal Best</b></p></div></div><div class="summaryGrid"><div class="resultCard bigScore"><div><div class="scoreNum">${x.score||0}</div><b>DEMO ONLY</b><p>ผลสำหรับทดลองระบบเท่านั้น</p></div></div><div class="metrics"><div class="metricRow"><span>Completion</span><b>${x.completedPoses||0}/${x.totalPoses||0}</b></div><div class="metricRow"><span>Tracking</span><b>${x.trackingCoverage||0}%</b></div></div></div><div class="sheetStatus ok">✅ Demo Complete • ไม่ส่ง Google Sheet</div><div class="actions"><button class="btn primary" id="replayBtn">🎥 ทดลอง Demo อีกครั้ง</button><button class="btn blue" id="backBtn">🏠 กลับ Fitness</button></div></section>`;
-    e.resultOverlay.classList.remove('hidden');
-    $('replayBtn').onclick=()=>{e.resultOverlay.classList.add('hidden');e.startOverlay.classList.remove('hidden');s.phase='setup';s.calibration=null;s.demo=false};
-    $('backBtn').onclick=()=>BH.plannerReturn?.(x);
-  }
-  decorateDemoSummary(x);
-  try{BH.submitSummary(x)}catch(_){}
+  showIndependentDemoEnd(x);
 }
 
 const officialFinish=BH.finish;
 BH.finish=function(reason){
   if(!s.demo)return officialFinish(reason);
-  if(s.demoSummaryShown)return;
-  forceDemoSummary(reason);
+  forceDemoEnd(reason);
 };
 
 const baseSubmit=BH.submitSummary;
-BH.submitSummary=async x=>{
-  if(!s.demo)return baseSubmit(x);
-  const n=$('sheetStatus');if(n){n.textContent='✅ Demo Complete • ไม่ส่ง Google Sheet ไม่บันทึกผล และไม่เปลี่ยน Personal Best';n.className='sheetStatus ok'}
-};
+BH.submitSummary=async x=>{if(!s.demo)return baseSubmit(x)};
 
 function finalizeDisplayedHundred(ev,p){
   if(!s.demo||s.demoFinalizing||s.demoSummaryShown||s.phase!=='play')return false;
@@ -90,13 +100,15 @@ function finalizeDisplayedHundred(ev,p){
   s.demoFinalizing=true;
   const cfg=BH.CONFIG[e.difficulty?.value]||BH.CONFIG.normal;
   const required=(cfg.hold+(s.currentKey==='boss'?450:0))*(1-(s.assistLevel||0)*.075);
-  s.holdMs=Math.max(s.holdMs||0,required);e.holdText.textContent='100%';e.holdRing.style.setProperty('--hold','360deg');
-  e.energyLabel.textContent='🎉 Demo Complete!';e.coachSub.textContent='ทำครบทุกท่าแล้ว • กำลังปิดกล้องและเปิดหน้าสรุป';
+  s.holdMs=Math.max(s.holdMs||0,required);
+  e.holdText.textContent='100%';e.holdRing.style.setProperty('--hold','360deg');
+  e.energyLabel.textContent='🎉 Demo Complete!';e.coachSub.textContent='ทำครบทุกท่าแล้ว • กำลังเปิดหน้าจบ Demo';
   setTimeout(()=>{
-    if(s.demoSummaryShown)return;
-    try{if(s.phase==='play')BH.completePose(ev,required)}catch(err){console.warn('[BalanceHold] completePose fallback',err)}
-    setTimeout(()=>{if(!s.demoSummaryShown)forceDemoSummary('completed')},250);
-  },80);
+    try{
+      if(s.phase==='play'&&s.results?.length<(s.sequence?.length||0))BH.completePose(ev,required);
+    }catch(err){console.warn('[BalanceHold] completePose bypassed',err)}
+    setTimeout(()=>forceDemoEnd('completed'),120);
+  },60);
   return true;
 }
 
@@ -116,5 +128,5 @@ BH.updateGameUI=(ev,p)=>{
 const demoBtn=$('demoBtn');
 if(demoBtn){demoBtn.textContent='🎥 Live Demo • กล้องจริง ไม่บันทึก';demoBtn.title='เปิดกล้องและตรวจ Pose จริง แต่ไม่ส่ง Sheet และไม่บันทึก Personal Best';demoBtn.onclick=BH.startLiveDemo}
 if(e.status&&s.phase==='setup')e.status.textContent='📷 Pose Ready • Live Demo available';
-console.info('[BalanceHold] Live Demo Summary Guard v24 ready',RELEASE);
+console.info('[BalanceHold] Independent Demo End Screen v25 ready',RELEASE);
 })();
