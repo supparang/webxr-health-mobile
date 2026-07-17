@@ -1,7 +1,8 @@
-/* CSAI2601 UX Quest • Result Auto Sheet Sync v4
+/* CSAI2601 UX Quest • Result Auto Sheet Sync v4.1
  * Single responsibility: silently submit mission_completed when the result screen appears.
  * Artifact submission/status belongs exclusively to uxq-production-support-v2.js.
- * No mission status card is rendered, preventing duplicate status messages in the result UI.
+ * Google Sheet remains the sole authority for official progress and unlocking.
+ * v4.1: sent cache is written only after dispatch and Sheet gate may force a safe re-dispatch.
  */
 (() => {
   'use strict';
@@ -67,7 +68,7 @@
     const eventId = stableId(['mission', courseId, p.section, p.studentId, node.toLowerCase(), completedAt, result.score, result.stars]);
     const caseId = recentCaseId();
     return {
-      app: 'ux-quest', schema: 'uxq.mission.v4', eventType: 'mission_completed',
+      app: 'ux-quest', schema: 'uxq.mission.v4.1', eventType: 'mission_completed',
       eventId, attemptId: eventId, occurredAt: now, startedAt: '', completedAt,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Bangkok',
       pageUrl: clean(location.href, 500), courseId,
@@ -78,11 +79,11 @@
       score: Number(result.score || 0), stars: Number(result.stars || 0),
       accuracy: Number(result.accuracy || 0), correct: Number(result.correct || 0),
       total: Number(result.total || 0), hints: Number(result.hints || 0),
-      durationSec: Number(result.durationSec || 0), passed: Boolean(result.passed),
+      durationSec: Number(result.durationSec || 0), passed: Boolean(result.passed || Number(result.stars || 0) >= 2),
       verifiedCorrect: Number(result.correct || 0), verifiedTotal: Number(result.total || 0),
       verifiedAccuracy: Number(result.accuracy || 0), maxCombo: Number(result.correct || 0),
       attemptNo: 0, badge: clean(result.badge || `${node} ${missionTitle()}`, 120),
-      answers: [], source: 'csai2601-result-autosheet-v4-mission-silent'
+      answers: [], source: 'csai2601-result-autosheet-v4.1-mission-silent'
     };
   }
   function post(item) {
@@ -92,31 +93,37 @@
       method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true,
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify(item)
-    }).then(() => ({ state: 'dispatched_unverified' }))
-      .catch((error) => ({ state: 'error', error: String(error?.message || error) }));
+    }).then(() => ({ state: 'dispatched_unverified', eventId: item.eventId }))
+      .catch((error) => ({ state: 'error', error: String(error?.message || error), eventId: item.eventId }));
   }
   function removeLegacyStatus() {
     document.querySelectorAll('[data-mission-sheet-status-v3],[data-mission-sheet-status-v4]').forEach((el) => el.remove());
   }
-  function autoMission() {
+  async function autoMission(options = {}) {
     removeLegacyStatus();
-    if (!document.querySelector('.results')) return;
+    if (!document.querySelector('.results')) return { state: 'no_results' };
     const item = payload();
-    if (!item) return;
+    if (!item) return { state: 'no_payload' };
+    const force = Boolean(options && options.force);
     const sent = readJson(SENT_KEY, {});
-    if (sent && sent[item.eventId]) return;
-    sent[item.eventId] = new Date().toISOString();
-    writeJson(SENT_KEY, sent);
-    post(item);
+    if (!force && sent && sent[item.eventId]) return { state: 'cached', eventId: item.eventId };
+
+    const outcome = await post(item);
+    if (outcome.state === 'dispatched_unverified') {
+      sent[item.eventId] = new Date().toISOString();
+      writeJson(SENT_KEY, sent);
+      window.dispatchEvent(new CustomEvent('uxq-mission-sheet-dispatched', { detail:{ item, outcome, force } }));
+    }
+    return outcome;
   }
 
   let timer = 0;
   function schedule() {
     clearTimeout(timer);
-    timer = setTimeout(autoMission, 80);
+    timer = setTimeout(() => { autoMission(); }, 80);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule, { once: true });
   else schedule();
   new MutationObserver(schedule).observe(document.getElementById('uxqCanonicalNode') || document.body, { childList: true, subtree: true });
-  window.CSAI2601UXQAutoSheet = Object.freeze({ payload, autoMission });
+  window.CSAI2601UXQAutoSheet = Object.freeze({ version:'4.1', payload, post, autoMission });
 })();
