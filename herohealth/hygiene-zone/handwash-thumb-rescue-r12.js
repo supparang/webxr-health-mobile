@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const RELEASE = '20260717-HANDWASH-RUNTIME-RESCUE-R14';
+  const RELEASE = '20260717-HANDWASH-THUMB-PROGRESS-R15';
   const NativeBlob = window.Blob;
 
   const hook = `function updateRub(phase,hands,dt){
@@ -15,26 +15,30 @@ const evaluation=evaluateGesture(phase,hands,dt);`;
   const fix = `function updateRub(phase,hands,dt){
 const rescueElapsed=Number(state.stepTime[phase.id]||0);
 const rescuePhase=phase.id==='thumbs'||phase.id==='fingertips';
-if(rescuePhase&&hands.length>=1&&rescueElapsed>2.5){
+if(rescuePhase&&hands.length>=1&&rescueElapsed>2.2){
 const rect=el.scrubZone.getBoundingClientRect();
 const visible=hands.filter(h=>inRect(h.palm,rect));
-const moving=visible.some(h=>h.motionScore>.035||h.speed>.014||h.turnScore>.045);
+const moving=visible.some(h=>h.motionScore>.018||h.speed>.009||h.turnScore>.025);
 if(visible.length&&moving){
 const evidence=state.evidence[phase.id]||{};
-const slot=Number(evidence.left||0)<.96?'left':'right';
+const sideTarget=phase.id==='thumbs'?.58:.68;
+const leftNow=Number(evidence.left||0),rightNow=Number(evidence.right||0);
+const slot=leftNow<sideTarget?'left':'right';
 ensureEvidence(phase,slot);
-const phaseBoost=phase.id==='thumbs'?1.12:1.24;
-const gain=dt*phaseBoost*(rescueElapsed>7?.72:.54)/Math.max(1.35,phase.targetSec*.46);
-state.evidence[phase.id][slot]=clamp(Number(state.evidence[phase.id][slot]||0)+gain,0,1);
+const baseRate=phase.id==='thumbs'?.26:.23;
+const rescueRate=rescueElapsed>8?baseRate*1.65:rescueElapsed>5?baseRate*1.28:baseRate;
+state.evidence[phase.id][slot]=clamp(Number(state.evidence[phase.id][slot]||0)+dt*rescueRate,0,1);
 state.activeSlot=slot;
 state.foam=clamp(state.foam+dt*4.5,0,100);
 state.foamPeak=Math.max(state.foamPeak,state.foam);
 state.germLoad=Math.max(18,state.germLoad-dt*1.45);
 addScore(dt*20,false);
 hitZone(el.scrubZone);
+const leftDone=Number(state.evidence[phase.id].left||0)>=sideTarget;
+const rightDone=Number(state.evidence[phase.id].right||0)>=sideTarget;
 const label=phase.id==='thumbs'?'หัวแม่มือ':'ปลายนิ้ว';
-coach(slot==='left'?'โหมดช่วย'+label+' ✅ หมุนเป็นวงต่ออีกนิด':'ข้างแรกผ่านแล้ว ✅ ทำซ้ำอีกข้าง','good');
-if(rubDone(phase)) completeRub(phase,'assist');
+coach(!leftDone?'โหมดช่วย'+label+' ✅ ทำข้างแรกต่ออีกนิด':!rightDone?'ข้างแรกผ่านแล้ว ✅ สลับทำอีกข้าง':'ครบสองข้างแล้ว ✅','good');
+if(leftDone&&rightDone){completeRub(phase,'assist');return;}
 return;
 }
 if(hands.length<2){
@@ -54,12 +58,12 @@ const evaluation=evaluateGesture(phase,hands,dt);`;
     if (!source.includes('function updateRub(phase,hands,dt){')) return source;
     if (!source.includes('WHO Final R7') && !source.includes('HANDWASH-FINAL-R7')) return source;
     if (!source.includes(hook)) {
-      console.warn('[Handwash R14] compiled updateRub hook not found');
+      console.warn('[Handwash R15] compiled updateRub hook not found');
       return source;
     }
     const patched = source.replace(hook, fix);
     document.documentElement.dataset.handwashRescue = RELEASE;
-    console.info('[Handwash R14] post-integrity thumb/fingertip rescue installed');
+    console.info('[Handwash R15] faster thumb/fingertip rescue installed');
     return patched;
   }
 
