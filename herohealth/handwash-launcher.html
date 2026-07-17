@@ -11,62 +11,22 @@
 </head>
 <body>
 <main class="page">
-<section class="card"><div class="badges"><span class="badge">🧼 HYGIENE ZONE</span><span class="badge">WHO V4</span><span class="badge">CANONICAL R4</span></div><h1>Handwash WHO Technique</h1><p class="lead">เส้นทางผลิตจริงแบบสั้น: Launcher → Warmup → WHO Technique → Cooldown → Hygiene Zone</p><div class="flow"><div class="step">1<br>ตั้งค่า</div><div class="step">2<br>Warmup</div><div class="step">3<br>WHO Game</div><div class="step">4<br>Cooldown</div><div class="step">5<br>Hygiene Zone</div></div></section>
+<section class="card"><div class="badges"><span class="badge">🧼 HYGIENE ZONE</span><span class="badge">WHO V4</span><span class="badge">WARMUP R10</span></div><h1>Handwash WHO Technique</h1><p class="lead">เส้นทางผลิตจริง: Launcher → Dedicated Warmup R10 → WHO Technique → Cooldown → Hygiene Zone</p><div class="flow"><div class="step">1<br>ตั้งค่า</div><div class="step">2<br>Warmup</div><div class="step">3<br>WHO Game</div><div class="step">4<br>Cooldown</div><div class="step">5<br>Hygiene Zone</div></div></section>
 <section class="card config"><div class="field"><label for="name">ชื่อผู้เล่น</label><input id="name" placeholder="Hero"></div><div class="field"><label for="classLevel">ชั้น/ห้อง</label><input id="classLevel" placeholder="P5"></div><div class="field"><label for="diff">ความยาก</label><select id="diff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></div><div class="field"><label for="view">อุปกรณ์</label><select id="view"><option value="mobile">Mobile</option><option value="pc">PC</option><option value="cvr">Cardboard</option></select></div></section>
-<section class="card"><div class="actions"><button id="start" class="btn primary" type="button">เริ่ม Warmup และเข้า WHO Technique</button><a id="back" class="btn soft" href="./hygiene-zone.html">กลับ Hygiene Zone</a></div><p class="note">Canonical R4 จะไม่ฝัง Hygiene Zone ซ้ำในค่า <b>hub</b> และไม่คัดลอก Game URL ซ้ำใน <b>runUrl/runFile</b></p><button id="debugBtn" class="btn soft" type="button">ดู Canonical URL</button><pre id="debug" class="debug"></pre></section>
+<section class="card"><div class="actions"><button id="start" class="btn primary" type="button">เริ่ม Warmup และเข้า WHO Technique</button><a id="back" class="btn soft" href="./hygiene-zone.html">กลับ Hygiene Zone</a></div><p class="note">Warmup R10 เป็นหน้าเฉพาะของ Handwash จึงไม่ติด cache จาก Gate เดิม และปุ่มเข้าเกมหลักจะอยู่บนจอเสมอ</p><button id="debugBtn" class="btn soft" type="button">ดู Canonical URL</button><pre id="debug" class="debug"></pre></section>
 </main>
 <script>
 (()=>{'use strict';
-const RELEASE='20260717-HANDWASH-CANONICAL-WHO-V4-R4-SHORT-URL';
-const q=new URLSearchParams(location.search);
-const $=id=>document.getElementById(id);
-const name=$('name'),classLevel=$('classLevel'),diff=$('diff'),view=$('view'),back=$('back'),debug=$('debug');
+const RELEASE='20260717-HANDWASH-WARMUP-R10';
+const q=new URLSearchParams(location.search);const $=id=>document.getElementById(id);const name=$('name'),classLevel=$('classLevel'),diff=$('diff'),view=$('view'),back=$('back'),debug=$('debug');
 function base(){const marker='/herohealth/';const i=location.pathname.indexOf(marker);return i>=0?location.origin+location.pathname.slice(0,i+marker.length):new URL('./',location.href).toString()}
 function first(...xs){for(const x of xs){const v=String(x||'').trim();if(v)return v}return''}
-function safeHub(){
-  const fallback=new URL('hub-v2.html',base()).toString();
-  const raw=q.get('hub')||q.get('hubRoot')||'';
-  if(!raw)return fallback;
-  try{
-    const u=new URL(raw,base());
-    if(/\/(hub|hub-v2)\.html$/i.test(u.pathname)){
-      u.search='';u.hash='';
-      return u.toString();
-    }
-  }catch(_){ }
-  return fallback;
-}
-function identity(){return{pid:first(q.get('pid'),'anon'),name:first(name.value,q.get('name'),q.get('nick'),'Hero'),classLevel:first(classLevel.value,q.get('classLevel'),'P5'),section:q.get('section')||'',diff:diff.value,view:view.value,studyId:first(q.get('studyId'),'HYGIENE-P5-2026'),conditionGroup:q.get('conditionGroup')||'',sheet:q.get('sheet')||''}}
-function zoneUrl(){
-  const u=new URL('hygiene-zone.html',base());
-  const p=identity();
-  ['pid','name','classLevel','section','diff','view','studyId','conditionGroup','sheet'].forEach(k=>{if(p[k])u.searchParams.set(k,p[k])});
-  u.searchParams.set('hub',safeHub());
-  u.searchParams.set('cv',RELEASE);
-  return u.toString();
-}
-function gameUrl(){
-  const u=new URL('hygiene-zone/handwash-realistic-v3.html',base());
-  const p=identity();
-  Object.entries(p).forEach(([k,v])=>{if(v)u.searchParams.set(k,v)});
-  u.searchParams.set('mode','ar');u.searchParams.set('game','handwash');u.searchParams.set('gameId','handwash');u.searchParams.set('zone','hygiene');
-  u.searchParams.set('zoneReturn',zoneUrl());
-  u.searchParams.set('hub',safeHub());
-  u.searchParams.set('cv',RELEASE);
-  return u.toString();
-}
-function warmupUrl(){
-  const u=new URL('warmup-gate.html',base());
-  const p=identity();
-  Object.entries(p).forEach(([k,v])=>{if(v)u.searchParams.set(k,v)});
-  u.searchParams.set('phase','warmup');u.searchParams.set('game','handwash');u.searchParams.set('gameId','handwash');u.searchParams.set('mode','ar');
-  u.searchParams.set('next',gameUrl());
-  u.searchParams.set('zoneReturn',zoneUrl());
-  u.searchParams.set('hub',safeHub());
-  u.searchParams.set('cv',RELEASE);
-  return u.toString();
-}
-function sync(){back.href=zoneUrl();debug.textContent=['RELEASE: '+RELEASE,'','Warmup URL length: '+warmupUrl().length,'','Warmup:',warmupUrl(),'','Game:',gameUrl(),'','Return:',zoneUrl(),'','Hub:',safeHub()].join('\n')}
+function safeHub(){const fallback=new URL('hub-v2.html',base()).toString();const raw=q.get('hub')||q.get('hubRoot')||'';if(!raw)return fallback;try{const u=new URL(raw,base());if(/\/(hub|hub-v2)\.html$/i.test(u.pathname)){u.search='';u.hash='';return u.toString()}}catch(_){}return fallback}
+function identity(){return{pid:first(q.get('pid'),'anon'),name:first(name.value,q.get('name'),q.get('nick'),'Hero'),classLevel:first(classLevel.value,q.get('classLevel'),'P5'),section:q.get('section')||'',diff:diff.value,view:view.value,studyId:first(q.get('studyId'),'HYGIENE-P5-2026'),conditionGroup:q.get('conditionGroup')||'',sheet:q.get('sheet')||'',time:q.get('time')||'150'}}
+function zoneUrl(){const u=new URL('hygiene-zone.html',base());const p=identity();Object.entries(p).forEach(([k,v])=>{if(v)u.searchParams.set(k,v)});u.searchParams.set('hub',safeHub());u.searchParams.set('cv',RELEASE);return u.toString()}
+function gameUrl(){const u=new URL('hygiene-zone/handwash-realistic-v3.html',base());const p=identity();Object.entries(p).forEach(([k,v])=>{if(v)u.searchParams.set(k,v)});u.searchParams.set('mode','ar');u.searchParams.set('game','handwash');u.searchParams.set('gameId','handwash');u.searchParams.set('zone','hygiene');u.searchParams.set('zoneReturn',zoneUrl());u.searchParams.set('hub',safeHub());u.searchParams.set('cv',RELEASE);return u.toString()}
+function warmupUrl(){const u=new URL('handwash-warmup-r10.html',base());const p=identity();Object.entries(p).forEach(([k,v])=>{if(v)u.searchParams.set(k,v)});u.searchParams.set('phase','warmup');u.searchParams.set('game','handwash');u.searchParams.set('gameId','handwash');u.searchParams.set('next',gameUrl());u.searchParams.set('zoneReturn',zoneUrl());u.searchParams.set('hub',safeHub());u.searchParams.set('cv',RELEASE);return u.toString()}
+function sync(){back.href=zoneUrl();debug.textContent=['RELEASE: '+RELEASE,'','Warmup:',warmupUrl(),'','Game:',gameUrl(),'','Return:',zoneUrl()].join('\n')}
 name.value=first(q.get('name'),q.get('nick'),'Hero');classLevel.value=first(q.get('classLevel'),'P5');diff.value=['easy','normal','hard'].includes(q.get('diff'))?q.get('diff'):'normal';view.value=['mobile','pc','cvr'].includes(q.get('view'))?q.get('view'):'mobile';['input','change'].forEach(ev=>document.addEventListener(ev,sync));$('start').onclick=()=>location.href=warmupUrl();$('debugBtn').onclick=()=>{sync();debug.classList.toggle('show')};sync();
 })();
 </script>
