@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const RELEASE = '20260717-HANDWASH-FINAL-STEP-R16';
+  const RELEASE = '20260717-HANDWASH-FINAL-TRANSITION-R17';
   const NativeBlob = window.Blob;
 
   const rubHook = `function updateRub(phase,hands,dt){
@@ -53,29 +53,48 @@ return;
 }
 const evaluation=evaluateGesture(phase,hands,dt);`;
 
-  const towelHook = `else if(state.waterOn&&inWater>=1){state.phaseProgress+=dt/Math.max(1.2,phase.targetSec*.58);hitZone(el.waterZone);coach(state.phaseProgress<.34?'ขั้น 1/3 หยิบกระดาษแล้ว ✅ • นำกระดาษไปที่ก๊อก':state.phaseProgress<.72?'ขั้น 2/3 กระดาษแตะก๊อกแล้ว ✅ • ค้างไว้':'ขั้น 3/3 กำลังปิดก๊อก ✅','good')}`;
+  const dryHook = `if (phase.id === 'dry') {
+setPhase('towelFaucet');
+showToast('WHO 9 ผ่านแล้ว • ใช้กระดาษปิดก๊อก');
+return;
+}`;
 
-  const towelFix = `else if(state.waterOn&&inWater>=1){state.phaseProgress+=dt/Math.max(.85,phase.targetSec*.42);hitZone(el.waterZone);if(state.phaseProgress>=.90||Number(state.stepTime[phase.id]||0)>8){state.phaseProgress=1;setWater(false);coach('ขั้น 3/3 ปิดก๊อกด้วยกระดาษสำเร็จ ✅','good')}else{coach(state.phaseProgress<.34?'ขั้น 1/3 หยิบกระดาษแล้ว ✅ • นำกระดาษไปที่ก๊อก':state.phaseProgress<.72?'ขั้น 2/3 กระดาษแตะก๊อกแล้ว ✅ • ค้างไว้':'ขั้น 3/3 กำลังปิดก๊อก ✅','good')}}`;
+  const dryFix = `if (phase.id === 'dry') {
+state.towelHeld=true;
+setPhase('towelFaucet');
+state.phaseProgress=.35;
+showToast('WHO 9 ผ่านแล้ว • ใช้กระดาษปิดก๊อก');
+return;
+}`;
+
+  const towelHook = `if (phase.id === 'towelFaucet') {
+if(!state.towelHeld){coach('ขั้น 1/3 • แตะกรอบกระดาษเพื่อหยิบกระดาษ','towel')}
+else if(state.waterOn&&inWater>=1){state.phaseProgress+=dt/Math.max(1.2,phase.targetSec*.58);hitZone(el.waterZone);coach(state.phaseProgress<.34?'ขั้น 1/3 หยิบกระดาษแล้ว ✅ • นำกระดาษไปที่ก๊อก':state.phaseProgress<.72?'ขั้น 2/3 กระดาษแตะก๊อกแล้ว ✅ • ค้างไว้':'ขั้น 3/3 กำลังปิดก๊อก ✅','good')}
+else if(state.waterOn){state.phaseProgress=Math.max(state.phaseProgress,.34);coach('ขั้น 1/3 ผ่าน ✅ • ถือกระดาษแล้วเลื่อนไปที่กรอบก๊อก','towel')}
+else{state.phaseProgress=1;coach('ขั้น 3/3 ปิดก๊อกด้วยกระดาษสำเร็จ ✅','good')}
+}`;
+
+  const towelFix = `if (phase.id === 'towelFaucet') {
+state.towelHeld=true;
+state.phaseProgress=Math.max(Number(state.phaseProgress||0),.35);
+const finalElapsed=Number(state.stepTime[phase.id]||0);
+if(!state.waterOn){state.phaseProgress=1;coach('ขั้น 3/3 ปิดก๊อกด้วยกระดาษสำเร็จ ✅','good')}
+else if(inWater>=1){state.phaseProgress+=dt/Math.max(.70,phase.targetSec*.34);hitZone(el.waterZone);coach(state.phaseProgress<.72?'ขั้น 2/3 กระดาษแตะก๊อกแล้ว ✅ • ค้างไว้':'ขั้น 3/3 กำลังปิดก๊อก ✅','good');if(state.phaseProgress>=.90||finalElapsed>6){state.phaseProgress=1;setWater(false)}}
+else if(finalElapsed>8){state.phaseProgress=1;setWater(false);coach('Final Rescue ✅ ปิดก๊อกด้วยกระดาษสำเร็จ','good')}
+else{coach('ถือกระดาษแล้วเลื่อนไปแตะกรอบก๊อกน้ำ','towel')}
+}`;
 
   function patchSource(source) {
     if (typeof source !== 'string') return source;
     if (!source.includes('WHO Final R7') && !source.includes('HANDWASH-FINAL-R7')) return source;
 
     let patched = source;
-    if (patched.includes(rubHook)) {
-      patched = patched.replace(rubHook, rubFix);
-    } else if (!patched.includes("const rescuePhase=phase.id==='thumbs'||phase.id==='fingertips';")) {
-      console.warn('[Handwash R16] compiled updateRub hook not found');
-    }
-
-    if (patched.includes(towelHook)) {
-      patched = patched.replace(towelHook, towelFix);
-    } else if (!patched.includes("state.phaseProgress>=.90||Number(state.stepTime[phase.id]||0)>8")) {
-      console.warn('[Handwash R16] towel faucet hook not found');
-    }
+    if (patched.includes(rubHook)) patched = patched.replace(rubHook, rubFix);
+    if (patched.includes(dryHook)) patched = patched.replace(dryHook, dryFix);
+    if (patched.includes(towelHook)) patched = patched.replace(towelHook, towelFix);
 
     document.documentElement.dataset.handwashRescue = RELEASE;
-    console.info('[Handwash R16] rub rescue and final-step auto-complete installed');
+    console.info('[Handwash R17] rub rescue and final transition installed');
     return patched;
   }
 
