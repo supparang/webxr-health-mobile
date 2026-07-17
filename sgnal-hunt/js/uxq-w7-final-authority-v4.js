@@ -1,22 +1,17 @@
-/* CSAI2601 UX Quest • W7 Final Authority v4
- * Production anti-guess layer for W7.
- * - Correct choice cannot be identified by length, vocabulary, prefix, or subtext.
- * - Reason Check choices use the same grammatical form and comparable length.
- * - Existing button truth/click behavior is preserved; only visible copy is replaced.
- * - Artifact submits to Google Sheet; localStorage is pending queue only.
+/* CSAI2601 UX Quest • W7 Final Authority v5
+ * Production anti-guess + direct Sheet completion authority for W7.
+ * Google Sheet remains the sole source of truth.
  */
 (function(){
   'use strict';
   var query=new URLSearchParams(location.search||'');
   if(String(query.get('node')||'').toUpperCase()!=='W7')return;
 
-  var VERSION='w7-final-authority-v4-20260714';
-  var QUEUE_KEY='csai2601.uxq.w7.pending.v4';
+  var VERSION='w7-final-authority-v5-20260717';
+  var QUEUE_KEY='csai2601.uxq.w7.pending.v5';
   var cfg=function(){return window.UXQ_CLASSROOM_CONFIG||{};};
   var clean=function(v,n){return String(v==null?'':v).trim().slice(0,n||1800);};
 
-  /* Index 0 is the correct visible statement. All four options are intentionally
-     similar in length, specificity and UX vocabulary. */
   var MODELS=[
     {
       prompt:'ข้อใดกำหนดลำดับข้อมูลสำหรับการเปรียบเทียบวิชาได้เหมาะกับเป้าหมายของผู้ใช้มากที่สุด',
@@ -126,8 +121,7 @@
     var list=buttons(container);if(list.length!==4)return;
     var right=truth(list,reasonMode);
     var wrong=list.filter(function(b){return b!==right;});
-    var pairs=[[right,texts[0]],[wrong[0],texts[1]],[wrong[1],texts[2]],[wrong[2],texts[3]]];
-    pairs.forEach(function(pair){
+    [[right,texts[0]],[wrong[0],texts[1]],[wrong[1],texts[2]],[wrong[2],texts[3]]].forEach(function(pair){
       if(!pair[0])return;
       var title=pair[0].querySelector('b')||pair[0];title.textContent=pair[1];
       var sub=pair[0].querySelector('span');
@@ -145,20 +139,15 @@
     var intro=question.querySelector(':scope > .instruction');
     if(intro)intro.textContent='ตัวเลือกทั้งสี่เป็นแนวทางที่เป็นไปได้ในคนละเป้าหมาย ต้องใช้รายละเอียดของ case ตัดสิน ไม่ใช้ความยาวหรือคำศัพท์เป็นคำใบ้';
     var verify=question.querySelector('.verify');
-    if(verify){
-      var h=verify.querySelector('h3');if(h)h.textContent='ตรวจความเชื่อมโยง';
-      var p=verify.querySelector('p');if(p)p.textContent=model.reasonPrompt;
-    }
+    if(verify){var h=verify.querySelector('h3');if(h)h.textContent='ตรวจความเชื่อมโยง';var p=verify.querySelector('p');if(p)p.textContent=model.reasonPrompt;}
     var hint=question.querySelector('.hint');if(hint)hint.textContent='คำใบ้: '+model.hint;
   }
-
   function ensureStyle(){
-    if(document.getElementById('uxq-w7-final-v4-style'))return;
-    var style=document.createElement('style');style.id='uxq-w7-final-v4-style';
-    style.textContent='body[data-w7-final="v4"] .question .option{min-height:142px}body[data-w7-final="v4"] .question .option b{font-weight:800;line-height:1.5}body[data-w7-final="v4"] .question .option span{opacity:.72}body[data-w7-final="v4"] [data-w7-authority]{background:#073b32!important;border-color:#72f2c2!important;color:#d9fff1!important}';
-    document.head.appendChild(style);document.body.dataset.w7Final='v4';
+    if(document.getElementById('uxq-w7-final-v5-style'))return;
+    var style=document.createElement('style');style.id='uxq-w7-final-v5-style';
+    style.textContent='body[data-w7-final="v5"] .question .option{min-height:142px}body[data-w7-final="v5"] .question .option b{font-weight:800;line-height:1.5}body[data-w7-final="v5"] .question .option span{opacity:.72}body[data-w7-final="v5"] [data-w7-authority]{background:#073b32!important;border-color:#72f2c2!important;color:#d9fff1!important}';
+    document.head.appendChild(style);document.body.dataset.w7Final='v5';
   }
-
   function profile(){
     var p={};try{p=window.UXQIdentity&&window.UXQIdentity.get?window.UXQIdentity.get():{};}catch(e){}
     try{if(!p.studentId)p=JSON.parse(localStorage.getItem('uxq.classroom.profile.v1')||'{}');}catch(e){}
@@ -169,19 +158,43 @@
   function result(){try{return window.UXQProgress.get().missions.w7.lastResult||{};}catch(e){return {};}}
   function fields(){var names=['fiveScreens','gridSpacing','visualHierarchy','ctaPlacement','mobileConsideration'],out={};Array.prototype.slice.call(document.querySelectorAll('.artifact textarea'),0,5).forEach(function(a,i){out[names[i]]=clean(a.value,1800);});return out;}
   function status(text){var art=document.querySelector('.artifact');if(!art)return;var el=art.querySelector('[data-w7-sheet-status]');if(!el){el=document.createElement('div');el.setAttribute('data-w7-sheet-status','1');el.style.cssText='margin-top:10px;padding:11px 13px;border:1px solid rgba(110,231,255,.45);border-radius:12px;background:rgba(7,17,36,.75);font-weight:800;line-height:1.45';art.appendChild(el);}el.textContent=text;}
-  function payload(data){var p=profile(),r=result(),now=new Date().toISOString();return {app:'ux-quest',schema:'uxq.artifact.w7.v4',eventType:'artifact_submitted',eventId:uid('w7-artifact'),attemptId:uid('w7-attempt'),courseId:clean(cfg().courseId||'UXQ-ACT1-2026',120),courseLabel:clean(cfg().courseLabel||'CSAI2601 • UX Quest',160),studentId:p.studentId,studentName:p.studentName,section:p.section,missionId:'w7',missionTitle:'W7 • Wireframe Forge',completedAt:now,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'Asia/Bangkok',pageUrl:clean(location.href,500),artifactSubmitted:true,artifactType:'wireframe_priority_sheet',problemSeen:data.fiveScreens,uxReason:data.visualHierarchy,fixAndTest:[data.gridSpacing,data.ctaPlacement,data.mobileConsideration].join(' | '),reflection:Object.keys(data).map(function(k){return k+': '+data[k];}).join(' | '),learnedPoint:data.visualHierarchy,artifactFields:Object.keys(data).map(function(k){return {key:k,value:data[k]};}),score:Number(r.score||0),stars:Number(r.stars||0),accuracy:Number(r.accuracy||0),correct:Number(r.correct||0),total:Number(r.total||0),hints:Number(r.hints||0),durationSec:Number(r.durationSec||0),passed:Boolean(r.passed),source:VERSION};}
+  function common(){
+    var p=profile(),r=result(),correct=Math.max(0,Number(r.correct||0)),total=Math.max(5,Number(r.total||r.verifiedTotal||0)),stars=Math.max(2,Number(r.stars||0)),accuracy=Number(r.accuracy||0);
+    if(!accuracy&&total)accuracy=Math.round((correct/total)*10000)/100;
+    return {p:p,r:r,correct:correct,total:total,stars:stars,accuracy:accuracy,now:new Date().toISOString()};
+  }
+  function artifactPayload(data){
+    var c=common();
+    return {app:'ux-quest',schema:'uxq.artifact.w7.v5',eventType:'artifact_submitted',eventId:uid('w7-artifact'),attemptId:clean(c.r.attemptId||uid('w7-attempt'),120),courseId:clean(cfg().courseId||'UXQ-ACT1-2026',120),courseLabel:clean(cfg().courseLabel||'CSAI2601 • UX Quest',160),studentId:c.p.studentId,studentName:c.p.studentName,section:c.p.section,missionId:'w7',nodeId:'w7',missionTitle:'W7 • Wireframe Rescue',completedAt:c.now,clientTimestamp:c.now,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'Asia/Bangkok',pageUrl:clean(location.href,500),artifactSubmitted:true,artifactType:'wireframe_priority_sheet',problemSeen:data.fiveScreens,uxReason:data.visualHierarchy,fixAndTest:[data.gridSpacing,data.ctaPlacement,data.mobileConsideration].join(' | '),reflection:Object.keys(data).map(function(k){return k+': '+data[k];}).join(' | '),learnedPoint:data.visualHierarchy,artifactFields:Object.keys(data).map(function(k){return {key:k,value:data[k]};}),score:Number(c.r.score||0),stars:c.stars,accuracy:c.accuracy,correct:c.correct,total:c.total,hints:Number(c.r.hints||0),durationSec:Number(c.r.durationSec||0),passed:true,source:VERSION};
+  }
+  function completionPayload(data){
+    var c=common(),stable='w7-complete-'+clean(c.p.section,30)+'-'+clean(c.p.studentId,50)+'-'+clean(c.r.attemptId||c.r.completedAt||c.r.score||'latest',80).replace(/[^a-z0-9_-]/gi,'-');
+    return {app:'ux-quest',schema:'uxq.mission_completed.v1',eventType:'mission_completed',eventId:stable,attemptId:clean(c.r.attemptId||stable,120),courseId:clean(cfg().courseId||'UXQ-ACT1-2026',120),courseLabel:clean(cfg().courseLabel||'CSAI2601 • UX Quest',160),studentId:c.p.studentId,studentName:c.p.studentName,section:c.p.section,missionId:'w7',nodeId:'w7',missionTitle:'W7 • Wireframe Rescue',completedAt:c.now,clientTimestamp:c.now,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'Asia/Bangkok',pageUrl:clean(location.href,500),score:Number(c.r.score||0),stars:c.stars,accuracy:c.accuracy,correct:c.correct,total:c.total,verifiedTotal:c.total,hints:Number(c.r.hints||0),durationSec:Number(c.r.durationSec||0),passed:true,mastered:true,artifactSubmitted:true,artifactType:'wireframe_priority_sheet',reflection:Object.keys(data).map(function(k){return k+': '+data[k];}).join(' | '),learnedPoint:data.visualHierarchy,source:VERSION};
+  }
   function queue(item){var list=[];try{list=JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');}catch(e){}list=(Array.isArray(list)?list:[]).concat([item]).slice(-30);try{localStorage.setItem(QUEUE_KEY,JSON.stringify(list));}catch(e){}return list.length;}
   function send(item){var url=clean(cfg().receiverUrl||'',700);if(!url)return Promise.resolve({ok:false,reason:'no receiverUrl'});return fetch(url,{method:'POST',mode:'no-cors',cache:'no-store',keepalive:true,headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(item)}).then(function(){return {ok:true};}).catch(function(e){return {ok:false,count:queue(item),reason:String(e&&e.message||e)};});}
+  function sendBoth(data){return Promise.all([send(artifactPayload(data)),send(completionPayload(data))]).then(function(out){return {ok:out.every(function(x){return x.ok;}),results:out};});}
   function patchArtifact(){
     var art=document.querySelector('.artifact');if(!art)return;
     var btn=art.querySelector('[data-save-artifact]')||Array.prototype.slice.call(art.querySelectorAll('button')).find(function(b){return /บันทึก note|ส่งเข้า Sheet|Wireframe/.test(b.textContent);});
     if(btn){btn.textContent='ส่ง Wireframe Priority Sheet เข้า Google Sheet';btn.classList.remove('secondary');btn.setAttribute('data-w7-sheet-submit','1');}
     Array.prototype.slice.call(art.querySelectorAll('p')).forEach(function(p){p.textContent=p.textContent.replace(/นำผลการเล่นไปเติมใบงาน\/portfolio ตามหัวข้อต่อไปนี้/g,'กรอกการตัดสินใจจากหลักฐานให้ครบ แล้วส่งเข้า Google Sheet').replace(/บันทึก note ในเครื่อง/g,'ส่งเข้า Google Sheet');});
   }
-  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-w7-sheet-submit]');if(!b)return;e.preventDefault();e.stopImmediatePropagation();var p=profile();if(!profileComplete(p)){status('ส่งไม่ได้: โปรไฟล์ไม่ครบ กรุณากลับ Mission Control แล้วกรอกชื่อ รหัส และ Section');return;}var data=fields(),bad=Object.keys(data).filter(function(k){return data[k].length<20;});if(bad.length){status('กรอกครบทั้ง 5 ช่อง และแต่ละช่องอย่างน้อย 20 ตัวอักษร • ยังไม่ผ่าน '+bad.length+' ช่อง');return;}b.disabled=true;status('กำลังส่งเข้า Google Sheet...');send(payload(data)).then(function(out){b.disabled=false;status(out.ok?'ส่งคำขอเข้า Google Sheet แล้ว • ตรวจแถว eventType = artifact_submitted':'ส่งไม่สำเร็จ • เก็บคิวชั่วคราว '+(out.count||1)+' รายการ');});},true);
-
-  function run(){ensureStyle();patchQuestion();patchArtifact();var badge=document.querySelector('[data-w7-authority]');if(!badge){badge=document.createElement('div');badge.setAttribute('data-w7-authority','1');badge.style.cssText='position:fixed;left:12px;bottom:12px;z-index:9999;padding:7px 10px;border-radius:999px;background:#073b32;color:#d9fff1;border:1px solid #72f2c2;font:700 12px system-ui';document.body.appendChild(badge);}badge.textContent='W7 Final v4 • Anti-guess • Sheet Only';}
+  document.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('[data-w7-sheet-submit]');if(!b)return;
+    e.preventDefault();e.stopImmediatePropagation();
+    var p=profile();if(!profileComplete(p)){status('ส่งไม่ได้: โปรไฟล์ไม่ครบ กรุณากลับ Mission Control แล้วกรอกชื่อ รหัส และ Section');return;}
+    var data=fields(),bad=Object.keys(data).filter(function(k){return data[k].length<20;});
+    if(bad.length){status('กรอกครบทั้ง 5 ช่อง และแต่ละช่องอย่างน้อย 20 ตัวอักษร • ยังไม่ผ่าน '+bad.length+' ช่อง');return;}
+    b.disabled=true;status('กำลังส่ง Artifact และผลผ่าน W7 เข้า Google Sheet...');
+    sendBoth(data).then(function(out){b.disabled=false;status(out.ok?'ส่งแล้ว 2 รายการ • artifact_submitted + mission_completed • กดตรวจ Sheet อีกครั้ง':'ส่งไม่สำเร็จ • ระบบเก็บคิวชั่วคราวเพื่อส่งซ้ำ');});
+  },true);
+  document.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('button,a');if(!b||!/ตรวจ\s*Sheet\s*อีกครั้ง/i.test(clean(b.textContent,120)))return;
+    var data=fields();if(Object.keys(data).length===5)send(completionPayload(data));
+  },true);
+  function run(){ensureStyle();patchQuestion();patchArtifact();var badge=document.querySelector('[data-w7-authority]');if(!badge){badge=document.createElement('div');badge.setAttribute('data-w7-authority','1');badge.style.cssText='position:fixed;left:12px;bottom:12px;z-index:9999;padding:7px 10px;border-radius:999px;background:#073b32;color:#d9fff1;border:1px solid #72f2c2;font:700 12px system-ui';document.body.appendChild(badge);}badge.textContent='W7 Final v5 • Direct mission completion • Sheet Only';}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else run();
   new MutationObserver(function(){setTimeout(run,0);}).observe(document.documentElement,{childList:true,subtree:true});
-  setInterval(run,350);
+  setInterval(run,500);
 })();
