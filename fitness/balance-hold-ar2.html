@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Guardian Twin Pose Classroom Release | v20260717.16 -->
+<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Guardian Eight Pose Classroom Release | v20260717.17 -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="./bh-twin-base-v11.css?v=20260716.11" />
   <link rel="stylesheet" href="./bh-twin-ui-v11.css?v=20260716.11" />
   <link rel="stylesheet" href="./bh-twin-polish-v12.css?v=20260716.12" />
+  <link rel="stylesheet" href="./bh-eight-pose-v17.css?v=20260717.17" />
 </head>
 <body>
 <main class="app" id="app">
@@ -18,7 +19,7 @@
       <div class="brandIcon">💎</div>
       <div>
         <div class="brandTitle">Balance Hold • Guardian of the Crystal</div>
-        <div class="brandSub">Twin Pose Challenge • Full-body Pose • Grade 5 / ป.5</div>
+        <div class="brandSub">Eight Pose Challenge • Full-body Pose • Grade 5 / ป.5</div>
       </div>
     </div>
     <div class="topPill glass" id="statusPill">📷 Pose: Ready</div>
@@ -46,7 +47,7 @@
     <div class="hud">
       <div class="hudCard glass"><small>TIME</small><b id="hudTime">60</b><div class="meter"><i id="timeBar"></i></div></div>
       <div class="hudCard glass"><small>SCORE</small><b id="hudScore">0</b><div class="meter"><i id="scoreBar"></i></div></div>
-      <div class="hudCard glass"><small>POSE</small><b id="hudPose">0/5</b><div class="meter"><i id="poseBar"></i></div></div>
+      <div class="hudCard glass"><small>POSE</small><b id="hudPose">0/7</b><div class="meter"><i id="poseBar"></i></div></div>
       <div class="hudCard glass"><small>CONFIDENCE</small><b id="hudConfidence">0%</b><div class="meter"><i id="confidenceBar"></i></div></div>
       <div class="hudCard glass"><small>STABILITY</small><b id="hudStability">0%</b><div class="meter"><i id="stabilityBar"></i></div></div>
       <div class="hudCard glass"><small>TRACKING</small><b id="hudTracking">0%</b><div class="meter"><i id="trackingBar"></i></div></div>
@@ -68,7 +69,7 @@
 
     <div class="coach glass">
       <div class="coachIcon" id="coachIcon">🧘</div>
-      <div class="coachText"><div id="coachMain">เตรียมพื้นที่ให้โล่งและให้กล้องเห็นทั้งตัว</div><small id="coachSub">ยืนสองเท้าตลอดเกม ไม่ต้องยืนขาเดียว</small></div>
+      <div class="coachText"><div id="coachMain">เตรียมพื้นที่ให้โล่งและให้กล้องเห็นทั้งตัว</div><small id="coachSub">Easy ใช้สองเท้า • Normal/Hard มีท่ายกเท้าต่ำแบบปลอดภัย</small></div>
       <div class="coachBadge" id="coachBadge">READY</div>
     </div>
 
@@ -82,14 +83,18 @@
       <section class="modal">
         <div class="modalHead"><div class="modalIcon">💎</div><div>
           <h1>Guardian of the Crystal</h1>
-          <p class="lead">เกมทรงตัวแบบ Pose Tracking จริง ใช้สองท่าหลัก: <b>Sky Shield</b> สำหรับสมดุลนิ่ง และ <b>Star Reach</b> สำหรับสมดุลขณะเอื้อมซ้าย–ขวา โดยวางเท้าทั้งสองข้างบนพื้นตลอดเวลา</p>
+          <p class="lead">เกมทรงตัวแบบ Pose Tracking จริง มี <b>8 ท่า</b> แบ่งเป็น Foundation, Intermediate และ Advanced โดยระบบสุ่มเฉพาะท่าที่เหมาะกับระดับที่เลือก</p>
         </div></div>
 
         <div class="concept">
-          <div class="conceptCard">🛡️ <b>Sky Shield</b><br>กางแขนระดับไหล่ ค้างให้นิ่ง</div>
-          <div class="conceptCard">⭐ <b>Star Reach</b><br>เอื้อมซ้ายหรือขวาอย่างควบคุม</div>
-          <div class="conceptCard">📷 <b>Multi-joint</b><br>ตรวจไหล่ ข้อมือ สะโพก เข่า และข้อเท้า</div>
-          <div class="conceptCard">🔀 <b>Safe Sequence Bank</b><br>สุ่มลำดับโดยมี Center คั่นเพื่อความปลอดภัย</div>
+          <div class="conceptCard">🛡️ <b>Foundation</b><br>Sky Shield + Star Reach ซ้าย/ขวา</div>
+          <div class="conceptCard">🌳 <b>Intermediate</b><br>Tree Balance ซ้าย/ขวาแบบยกเท้าต่ำ</div>
+          <div class="conceptCard">✈️ <b>Advanced</b><br>Airplane ซ้าย/ขวาแบบเอนเล็กน้อย</div>
+          <div class="conceptCard">💎 <b>Boss</b><br>Crystal Guardian ปิดภารกิจ</div>
+        </div>
+        <div class="eightPoseLegend">
+          <span>1 Sky Shield</span><span>2 Star Reach Left</span><span>3 Star Reach Right</span><span>4 Tree Left</span>
+          <span>5 Tree Right</span><span>6 Airplane Left</span><span>7 Airplane Right</span><span>8 Crystal Guardian</span>
         </div>
 
         <div class="formGrid">
@@ -97,7 +102,7 @@
           <div class="field"><label for="studentId">รหัสนักเรียน</label><input id="studentId" placeholder="เช่น P001" autocomplete="off" /></div>
           <div class="field"><label for="classId">กลุ่ม/ห้อง</label><input id="classId" value="ป.5" /></div>
           <div class="field"><label for="section">Section</label><input id="section" placeholder="เช่น P5-1" autocomplete="off" /></div>
-          <div class="field"><label for="difficulty">ระดับ</label><select id="difficulty"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></div>
+          <div class="field"><label for="difficulty">ระดับ</label><select id="difficulty"><option value="easy">Easy • 3 ท่าพื้นฐาน</option><option value="normal" selected>Normal • เพิ่ม Tree Balance</option><option value="hard">Hard • เพิ่ม Airplane + Boss</option></select></div>
           <div class="field"><label for="duration">เวลา</label><select id="duration"><option value="45">45 วินาที</option><option value="60" selected>60 วินาที</option><option value="75">75 วินาที</option><option value="90">90 วินาที</option></select></div>
         </div>
 
@@ -112,7 +117,7 @@
           <button class="btn blue" id="cameraTestBtn" type="button">🧪 ทดสอบกล้อง</button>
           <button class="btn" id="demoBtn" type="button">🎥 Live Demo • กล้องจริง ไม่บันทึก</button>
         </div>
-        <p class="lead safetyNote">ข้อควรระวัง: พื้นต้องไม่ลื่น มีพื้นที่ว่างรอบตัว ยืนสองเท้าตลอดเกม และหยุดทันทีหากเวียนศีรษะหรือเจ็บเข่า</p>
+        <p class="lead safetyNote">ข้อควรระวัง: พื้นต้องไม่ลื่น มีพื้นที่ว่าง ใช้พนักเก้าอี้ช่วยได้ใน Tree/Airplane ยกเท้าเพียงต่ำ ๆ และหยุดทันทีหากเสียสมดุล เวียนศีรษะ หรือเจ็บเข่า</p>
       </section>
     </div>
 
@@ -148,6 +153,7 @@
 <script src="./bh-twin-evaluator-v11.js?v=20260716.11"></script>
 <script src="./bh-twin-game-v11.js?v=20260716.11"></script>
 <script src="./bh-twin-results-v11.js?v=20260716.11"></script>
+<script src="./bh-eight-pose-v17.js?v=20260717.17"></script>
 <script src="./bh-live-demo-v14.js?v=20260717.14"></script>
 <script src="./bh-camera-calibration-fix-v15.js?v=20260717.15"></script>
 <script src="./bh-camera-fullbody-fit-v16.js?v=20260717.16"></script>
