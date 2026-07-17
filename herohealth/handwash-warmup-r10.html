@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#020617">
+<title>HeroHealth • Handwash Warmup R10</title>
+<style>
+:root{--bg:#020617;--panel:#0f172a;--line:rgba(148,163,184,.2);--text:#f8fafc;--muted:#94a3b8;--cyan:#38bdf8;--green:#22c55e;--red:#ef4444;--sab:env(safe-area-inset-bottom,0px)}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#020617,#0f172a);color:var(--text);font-family:system-ui,"Noto Sans Thai",sans-serif}body{min-height:100dvh}.page{width:min(980px,100%);min-height:100dvh;margin:auto;padding:14px 14px calc(96px + var(--sab));display:grid;align-content:start;gap:12px}.hero,.board{border:1px solid var(--line);border-radius:24px;background:rgba(15,23,42,.9)}.hero{padding:18px}.hero small{color:#7dd3fc;font-weight:900}.hero h1{margin:6px 0;font-size:clamp(26px,5vw,42px)}.hero p{margin:0;color:#cbd5e1;font-weight:700}.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}.chip{padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-size:12px;font-weight:900}.board{padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:14px}.panel{padding:14px;border:1px dashed var(--line);border-radius:20px;background:rgba(2,6,23,.45)}.panel h2{margin:0 0 4px;font-size:18px}.panel p{margin:0 0 12px;color:var(--muted);font-size:13px}.list{display:grid;gap:9px}.row,.choice{min-height:66px;padding:11px 12px;border:1px solid var(--line);border-radius:16px;background:rgba(15,23,42,.8);color:var(--text);text-align:left;font:inherit;font-weight:850}.row.done{border-color:rgba(34,197,94,.5);background:rgba(20,83,45,.3)}.choice{cursor:pointer}.choice:hover{transform:translateY(-1px)}.choice:disabled{opacity:.45;cursor:not-allowed}.choice.bad{border-color:rgba(239,68,68,.7)}.n{display:inline-grid;place-items:center;width:28px;height:28px;margin-right:8px;border-radius:9px;background:rgba(56,189,248,.18)}.footer{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 14px calc(10px + var(--sab));background:rgba(2,6,23,.96);border-top:1px solid rgba(125,211,252,.3);backdrop-filter:blur(14px)}.footer-inner{width:min(980px,100%);margin:auto;display:flex;gap:10px;justify-content:center}.btn{min-height:54px;padding:0 22px;border:0;border-radius:17px;font:inherit;font-weight:1000;cursor:pointer}.primary{background:linear-gradient(135deg,#67e8f9,#2563eb);color:white;min-width:min(360px,88vw)}.soft{background:#1e293b;color:white}.status{padding:10px 12px;border-radius:14px;background:rgba(2,6,23,.55);text-align:center;font-weight:900;color:#cbd5e1}.ready{color:#86efac}@media(max-width:760px){.board{grid-template-columns:1fr}.page{padding:8px 8px calc(154px + var(--sab))}.hero{padding:14px}.board{padding:9px}.panel{padding:11px}.footer-inner{flex-direction:column}.btn{width:100%}}
+</style>
+</head>
+<body>
+<main class="page">
+<section class="hero"><small>HEROHEALTH • HANDWASH WARMUP R10</small><h1>เรียง 3 ขั้นก่อนล้างมือ</h1><p>แตะตัวเลือกตามลำดับ: เปียกมือ → ใช้สบู่ → ถูฝ่ามือ</p><div class="chips"><span class="chip">handwash</span><span class="chip">warmup</span><span class="chip" id="countChip">0/3</span></div></section>
+<section class="board"><div class="panel"><h2>ลำดับที่ถูกต้อง</h2><p>ทำครบ 3 ขั้นแล้วปุ่มเข้าเกมหลักจะพร้อมทันที</p><div id="steps" class="list"></div></div><div class="panel"><h2>ตัวเลือก</h2><p>เลือกทีละข้อให้ตรงกับขั้นถัดไป</p><div id="choices" class="list"></div></div></section>
+<div id="status" class="status">เริ่มจาก “ทำมือให้เปียก”</div>
+</main>
+<footer class="footer"><div class="footer-inner"><button id="continueBtn" class="btn primary" disabled>เรียงให้ครบ 3/3 ก่อน</button><button id="backBtn" class="btn soft">กลับ Hygiene Zone</button></div></footer>
+<script>
+(()=>{'use strict';
+const q=new URLSearchParams(location.search);const target=['wet','soap','palm'];const items=[{id:'wet',e:'💧',t:'ทำมือให้เปียก',d:'เริ่มด้วยน้ำสะอาด'},{id:'soap',e:'🧼',t:'ใช้สบู่ให้ทั่วมือ',d:'ให้สบู่ครอบคลุมทุกพื้นผิวมือ'},{id:'palm',e:'👐',t:'ถูฝ่ามือ',d:'เริ่มท่า WHO ด้วยการถูฝ่ามือเข้าหากัน'},{id:'dry',e:'🧻',t:'เช็ดมือก่อนล้าง',d:'ยังไม่ใช่ขั้นตอนนี้'},{id:'play',e:'🏃',t:'ไปเล่นต่อเลย',d:'ยังไม่ควรข้ามการล้างมือ'},{id:'eat',e:'🍪',t:'หยิบขนมกินก่อน',d:'ต้องล้างมือก่อน'}];let index=0;let shuffled=[...items].sort(()=>Math.random()-.5);const $=id=>document.getElementById(id);
+function safe(raw,fallback){try{return raw?new URL(raw,location.href).toString():fallback}catch(_){return fallback}}
+const zone=safe(q.get('zoneReturn')||q.get('return')||q.get('back'),new URL('hygiene-zone.html',location.href).toString());const game=safe(q.get('next')||q.get('runUrl')||q.get('runFile'),new URL('hygiene-zone/handwash-realistic-v3.html',location.href).toString());
+function render(){ $('countChip').textContent=index+'/3';$('steps').innerHTML=target.map((id,i)=>{const x=items.find(v=>v.id===id);const done=i<index;return `<div class="row ${done?'done':''}"><span class="n">${i+1}</span>${done?x.e+' '+x.t:'ยังไม่ได้เลือก'}<br><small>${done?x.d:'รอการเลือก'}</small></div>`}).join('');$('choices').innerHTML=shuffled.map(x=>`<button class="choice" data-id="${x.id}" ${index>=3?'disabled':''}>${x.e} <b>${x.t}</b><br><small>${x.d}</small></button>`).join('');document.querySelectorAll('.choice').forEach(b=>b.onclick=()=>choose(b));if(index>=3){$('status').textContent='พร้อมเริ่มเกมหลักแล้ว ✅';$('status').classList.add('ready');$('continueBtn').disabled=false;$('continueBtn').textContent='เข้าเกมหลัก • WHO Technique'} }
+function choose(btn){if(index>=3)return;const id=btn.dataset.id;if(id===target[index]){index++;$('status').textContent=index>=3?'พร้อมเริ่มเกมหลักแล้ว ✅':'ถูกต้อง! เลือกขั้นที่ '+(index+1)+' ต่อ';render()}else{btn.classList.add('bad');$('status').textContent='ยังไม่ใช่ขั้นถัดไป ลองใหม่';setTimeout(()=>btn.classList.remove('bad'),350)}}
+$('continueBtn').onclick=()=>{if(index>=3)location.href=game};$('backBtn').onclick=()=>location.href=zone;render();
+})();
+</script>
+</body>
+</html>
