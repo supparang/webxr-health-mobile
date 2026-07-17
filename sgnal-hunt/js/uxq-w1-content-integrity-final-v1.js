@@ -1,7 +1,7 @@
-/* CSAI2601 UX Quest • W1 Final Content Integrity Authority v1
+/* CSAI2601 UX Quest • W1 Final Content Integrity Authority v1.1
  * Final visible-content authority for W1 only.
  * Preserves answer IDs/correctness and rewrites only learner-facing text.
- * Loaded last to prevent generic quality scripts from flattening all five rounds.
+ * Uses idempotent DOM writes to prevent MutationObserver feedback loops.
  */
 (() => {
   'use strict';
@@ -13,6 +13,13 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const clean = value => String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+  const setText = (element, value) => {
+    if (!element) return false;
+    const wanted = String(value == null ? '' : value);
+    if (element.textContent === wanted) return false;
+    element.textContent = wanted;
+    return true;
+  };
 
   const STAGES = {
     1: {
@@ -147,34 +154,33 @@
       const label = $('b', button);
       if (!label) return;
       if (id === `c${stageNo - 1}`) {
-        label.textContent = stage.choices.correct;
+        setText(label, stage.choices.correct);
       } else {
         const index = optionIndexFromId(id);
-        if (index >= 0 && stage.choices.wrong[index]) label.textContent = stage.choices.wrong[index];
+        if (index >= 0 && stage.choices.wrong[index]) setText(label, stage.choices.wrong[index]);
       }
       $$(':scope > span,:scope > small,:scope > p', button).forEach(el => el.remove());
     });
   }
 
-  function applyReasonChoices(stageNo, stage, verify) {
+  function applyReasonChoices(stage, verify) {
     if (!verify) return;
     const question = $(':scope > p', verify);
-    if (question) question.textContent = stage.reasonQuestion;
+    setText(question, stage.reasonQuestion);
     $$('.option[data-reason]', verify).forEach(button => {
       const id = String(button.dataset.reason || '');
       const label = $('b', button);
       if (!label) return;
       const match = id.match(/reason-w1-stage-[1-5]-(\d+)$/i);
       const index = match ? Number(match[1]) : -1;
-      label.textContent = index === 0 ? stage.reasons.correct : (stage.reasons.wrong[index - 1] || label.textContent);
+      if (index === 0) setText(label, stage.reasons.correct);
+      else if (index > 0 && stage.reasons.wrong[index - 1]) setText(label, stage.reasons.wrong[index - 1]);
       $$(':scope > span,:scope > small,:scope > p', button).forEach(el => el.remove());
     });
   }
 
   function normalizeHint(stage) {
-    const hint = $('.hint');
-    if (!hint) return;
-    hint.textContent = `คำใบ้ระดับ 1: ${stage.hint}`;
+    setText($('.hint'), `คำใบ้ระดับ 1: ${stage.hint}`);
   }
 
   function apply() {
@@ -184,15 +190,14 @@
     const stage = STAGES[number];
     if (!stage) return;
 
-    const prompt = $(':scope > .prompt', question);
-    const instruction = $(':scope > .instruction', question);
-    if (prompt) prompt.textContent = stage.prompt;
-    if (instruction) instruction.textContent = stage.instruction;
-
+    setText($(':scope > .prompt', question), stage.prompt);
+    setText($(':scope > .instruction', question), stage.instruction);
     applyMainChoices(number, stage, question);
-    applyReasonChoices(number, stage, $('.verify', question));
+    applyReasonChoices(stage, $('.verify', question));
     normalizeHint(stage);
-    question.dataset.w1ContentIntegrity = `stage-${number}`;
+
+    const marker = `stage-${number}`;
+    if (question.dataset.w1ContentIntegrity !== marker) question.dataset.w1ContentIntegrity = marker;
   }
 
   let timer = 0;
@@ -205,5 +210,5 @@
   else schedule();
   new MutationObserver(schedule).observe(document.getElementById('uxqCanonicalNode') || document.body, { childList: true, subtree: true });
 
-  window.UXQW1ContentIntegrityFinal = Object.freeze({ version: 'v1', apply });
+  window.UXQW1ContentIntegrityFinal = Object.freeze({ version: 'v1.1', apply });
 })();
