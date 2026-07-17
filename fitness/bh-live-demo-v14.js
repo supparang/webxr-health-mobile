@@ -2,7 +2,7 @@
 'use strict';
 const BH=window.BH;if(!BH||!BH.state||!BH.el)return;
 const s=BH.state,e=BH.el,$=BH.$;
-const RELEASE='20260717-BALANCE-HOLD-LIVE-DEMO-V14';
+const RELEASE='20260717-BALANCE-HOLD-LIVE-DEMO-COMPLETE-V22';
 
 // Demo uses the same real MediaPipe evaluation as an official round.
 // The only difference is that demo results are never persisted or submitted.
@@ -43,21 +43,68 @@ BH.startLiveDemo=async()=>{
   );
 };
 
+function stopDemoCapture(){
+  s.gameToken++;
+  try{BH.stopCamera?.()}catch(_){ }
+  try{
+    const ctx=e.poseCanvas?.getContext?.('2d');
+    if(ctx)ctx.clearRect(0,0,e.poseCanvas.width,e.poseCanvas.height);
+  }catch(_){ }
+}
+
+function decorateDemoSummary(x){
+  if(!s.demo)return;
+  const modal=e.resultOverlay?.querySelector('.modal');
+  const icon=modal?.querySelector('.modalIcon');
+  const title=modal?.querySelector('h2');
+  const lead=modal?.querySelector('.lead');
+  const scoreCard=modal?.querySelector('.bigScore');
+  const replay=$('replayBtn');
+  const csv=$('csvBtn');
+
+  if(icon)icon.textContent='🎬';
+  if(title)title.textContent='Live Demo Complete!';
+  if(lead)lead.innerHTML='ทำครบทุกท่าแล้ว 🎉<br><b>รอบสาธิตนี้ไม่บันทึกคะแนน ไม่ส่ง Sheet และไม่เปลี่ยน Personal Best</b>';
+  if(scoreCard){
+    const p=scoreCard.querySelector('p');
+    if(p)p.textContent='🎥 DEMO ONLY • ผลสำหรับทดลองระบบเท่านั้น';
+  }
+  if(replay){
+    replay.textContent='🎥 ทดลอง Demo อีกครั้ง';
+    replay.title='กลับไปเริ่ม Live Demo ใหม่';
+  }
+  if(csv)csv.style.display='none';
+  e.status.textContent='✅ Live Demo Complete • Camera OFF • Not Saved';
+  e.holdText.textContent='100%';
+  e.holdRing.style.setProperty('--hold','360deg');
+  e.poseBar.style.width='100%';
+  e.hudPose.textContent=`${x.totalPoses}/${x.totalPoses}`;
+}
+
 // Keep demo completely outside local progress, latest result and Personal Best.
 BH.finish=(()=>{
   return function(endReason){
     if(s.phase==='summary')return;
-    s.phase='summary';s.gameToken++;e.pauseBtn.textContent='Ⅱ';
+    const wasDemo=!!s.demo;
+    s.phase='summary';
+    s.gameToken++;
+    e.pauseBtn.textContent='Ⅱ';
+    if(wasDemo)stopDemoCapture();
+
     const x=BH.calcSummary(endReason);
-    x.demoPolicy=s.demo?'live-camera-score-off':'official';
+    x.demoPolicy=wasDemo?'live-camera-score-off':'official';
     x.releaseVersion=BH.RELEASE_VERSION||RELEASE;
-    if(!s.demo){
+    x.demoCompleted=wasDemo&&endReason==='completed';
+
+    if(!wasDemo){
       try{
         localStorage.setItem(BH.KEY_LAST,JSON.stringify(x));
         if(x.isNewBest)localStorage.setItem(BH.KEY_BEST,String(x.score));
-      }catch(_){}
+      }catch(_){ }
     }
+
     BH.renderSummary(x);
+    if(wasDemo)decorateDemoSummary(x);
     BH.submitSummary(x);
   };
 })();
@@ -67,8 +114,8 @@ BH.submitSummary=async x=>{
   if(!s.demo)return baseSubmit(x);
   const n=$('sheetStatus');
   if(n){
-    n.textContent='🎥 Live Demo • ตรวจ Pose ด้วยกล้องจริง • ไม่ส่ง Sheet ไม่บันทึกผล และไม่เปลี่ยน Personal Best';
-    n.className='sheetStatus warn';
+    n.textContent='✅ Demo Complete • ไม่ส่ง Google Sheet ไม่บันทึกผล และไม่เปลี่ยน Personal Best';
+    n.className='sheetStatus ok';
   }
 };
 
@@ -80,6 +127,12 @@ BH.updateGameUI=(ev,p)=>{
     e.coachSub.textContent=ev.valid
       ?'ตรวจด้วยกล้องจริง • ผลรอบนี้ไม่ถูกบันทึก'
       :'ปรับตามคำแนะนำ • ผลรอบนี้ไม่ถูกบันทึก';
+
+    const lastPose=s.sequence?.length>0&&s.index===s.sequence.length-1;
+    if(lastPose&&p>=.92){
+      e.energyLabel.textContent='ท่าสุดท้าย • ค้างให้ครบ 100%';
+      e.coachSub.textContent='อีกนิดเดียว Demo จะจบและหยุดกล้องอัตโนมัติ';
+    }
   }
 };
 
@@ -91,5 +144,5 @@ if(demoBtn){
 }
 
 if(e.status&&s.phase==='setup')e.status.textContent='📷 Pose Ready • Live Demo available';
-console.info('[BalanceHold] Live Demo v14 ready',RELEASE);
+console.info('[BalanceHold] Live Demo Complete v22 ready',RELEASE);
 })();
