@@ -1,0 +1,1 @@
+R14 renames injected elapsed to rescueElapsed so the compiled runtime keeps the original elapsed declaration without a SyntaxError.
