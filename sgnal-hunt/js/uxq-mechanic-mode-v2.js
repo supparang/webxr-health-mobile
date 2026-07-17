@@ -1,11 +1,10 @@
-/* CSAI2601 UX Quest • Mechanic Mode v2.3
+/* CSAI2601 UX Quest • Mechanic Mode v2.4
  * W7 master-reading layout for W1-W15 and B1-B4.
  * - One mission identity strip only.
  * - Stage-specific prompt derived from the current learning focus.
  * - Main choices show decision text only before answering.
  * - Deep explanation remains available in feedback / Reason Check.
- * - W1 rounds use their own goal / impact / fix / proof prompts.
- * - Hint labels are normalized so decorative bulb icons do not duplicate.
+ * - W1 learner-facing copy is owned exclusively by W1 Final Content Authority.
  * Presentation only: answer truth, scoring, progress, gates and Sheet sync stay unchanged.
  */
 (() => {
@@ -67,24 +66,8 @@
   }
 
   function current(){return mechanics[nodeId()]||mechanics.W1;}
-  function stageNo(){
-    const raw=text($('.hud .meter b'))+' '+text($('.case h1'));
-    const m=raw.match(/(?:^|\s)([1-5])\s*\/\s*5|(?:ข้อ|รอบภารกิจ|รอบบอส)\s*([1-5])/i);
-    return Math.max(1,Number((m&&(m[1]||m[2]))||1));
-  }
   function focusText(){return (text($('.case .kicker'))+' '+text($('.case h1'))).toLowerCase();}
-  function w1StagePrompt(){
-    const map={
-      1:'เลือกหลักฐานที่ชี้จุดติดขัดหลักของผู้ใช้',
-      2:'เลือกเป้าหมายหลักที่ผู้ใช้ต้องทำให้สำเร็จ',
-      3:'เลือกกรอบปัญหา UI, UX หรือ Feedback ให้ตรงชั้น',
-      4:'เลือกแนวทางแก้ที่สัมพันธ์กับ Friction หลัก',
-      5:'เลือกวิธีทดสอบที่พิสูจน์ว่า UX ดีขึ้นจริง'
-    };
-    return map[stageNo()]||map[1];
-  }
   function stagePrompt(){
-    if(nodeId()==='W1')return w1StagePrompt();
     const f=focusText();
     const rules=[
       [/extract insight|insight/, 'เลือก Insight ที่อธิบายความหมายเบื้องหลังสิ่งที่สังเกตได้'],
@@ -134,11 +117,17 @@
     removeDuplicatePanel(q);
     simplifyMainChoices(q);
     markFeedbackState(q);
+
+    // W1 Final Content Authority is the only owner of learner-facing W1 copy.
+    if(nodeId()==='W1'){
+      q.dataset.mechanicPresentationOnly='true';
+      return;
+    }
+
     normalizeHint();
     const prompt=$(':scope > .prompt',q);
     const wanted=`${current().icon} ${stagePrompt()}`;
     if(prompt && prompt.textContent!==wanted)prompt.textContent=wanted;
-    if(prompt)prompt.dataset.masterReadingPrompt=`${nodeId()}-${stageNo()}`;
   }
 
   let t=0;
