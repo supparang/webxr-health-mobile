@@ -1,0 +1,122 @@
+/* Handwash Warmup R9 — compact board + always-visible continuation */
+
+.hha-gate-shell{
+  place-items:start center !important;
+  min-height:100dvh;
+  padding:12px 12px calc(92px + env(safe-area-inset-bottom,0px)) !important;
+}
+
+.hha-gate-card{
+  margin:0 auto;
+  overflow:visible !important;
+}
+
+.hha-gate-stage{
+  min-height:0 !important;
+  padding:12px !important;
+}
+
+.hha-gate-panel{
+  min-height:0 !important;
+  padding:14px !important;
+}
+
+.handwash-layer{
+  min-height:0 !important;
+  padding:8px !important;
+}
+
+.handwash-playfield{
+  min-height:0 !important;
+  overflow:visible !important;
+}
+
+.handwash-board{
+  min-height:0 !important;
+  align-items:start;
+  padding:14px !important;
+  gap:14px !important;
+}
+
+.handwash-dropzone{
+  min-height:0 !important;
+  padding:14px !important;
+}
+
+.handwash-choice-list,
+.handwash-slots{
+  gap:8px !important;
+}
+
+.hw-choice{
+  padding:11px 12px !important;
+}
+
+.hw-step-card{
+  padding:11px 12px !important;
+}
+
+/* The action footer must never fall below the viewport after 3/3. */
+.hha-gate-footer{
+  position:sticky !important;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:80;
+  min-height:74px;
+  padding:11px 14px calc(11px + env(safe-area-inset-bottom,0px)) !important;
+  background:linear-gradient(180deg,rgba(2,6,23,.94),rgba(2,6,23,.99));
+  border-top:1px solid rgba(125,211,252,.28) !important;
+  box-shadow:0 -14px 34px rgba(0,0,0,.34);
+  backdrop-filter:blur(16px);
+}
+
+.hha-gate-footer:empty{
+  min-height:0;
+  padding:0 !important;
+  border-top:0 !important;
+  box-shadow:none;
+}
+
+.hha-gate-footer .hha-gate-btn.primary{
+  min-width:min(360px,90vw);
+  font-size:16px;
+  background:linear-gradient(135deg,#67e8f9,#2563eb) !important;
+}
+
+@media (max-width:900px){
+  .handwash-board{
+    grid-template-columns:1fr !important;
+  }
+}
+
+@media (max-width:640px){
+  .hha-gate-shell{
+    padding:8px 8px calc(86px + env(safe-area-inset-bottom,0px)) !important;
+  }
+  .hha-gate-hero{
+    padding:14px !important;
+  }
+  .hha-gate-title{
+    font-size:clamp(24px,8vw,32px) !important;
+  }
+  .handwash-board{
+    padding:9px !important;
+  }
+  .handwash-goal{
+    margin-bottom:9px !important;
+  }
+  .handwash-dropzone-title{
+    font-size:16px !important;
+  }
+  .handwash-dropzone-sub{
+    margin-bottom:9px !important;
+  }
+  .hha-gate-footer{
+    flex-direction:column;
+  }
+  .hha-gate-footer .hha-gate-btn{
+    width:100%;
+    min-width:0;
+  }
+}

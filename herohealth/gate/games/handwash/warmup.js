@@ -3,7 +3,8 @@ import { mulberry32 } from '../../helpers/rng.js';
 import { mountSequenceWarmup } from '../../helpers/sequence-warmup.js';
 
 export function loadStyle(){
-  loadCssOnce('./gate/games/handwash/style.css?v=20260717-warmup-r1');
+  loadCssOnce('./gate/games/handwash/style.css?v=20260717-warmup-r9');
+  loadCssOnce('./gate/games/handwash/warmup-r9.css?v=20260717-warmup-r9');
 }
 
 export async function mount(container, ctx, api){
