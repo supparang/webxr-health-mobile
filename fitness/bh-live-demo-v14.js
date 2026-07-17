@@ -2,9 +2,10 @@
 'use strict';
 const BH=window.BH;if(!BH||!BH.state||!BH.el)return;
 const s=BH.state,e=BH.el,$=BH.$;
-const RELEASE='20260717-BALANCE-HOLD-ATOMIC-END-V28';
+const RELEASE='20260717-BALANCE-HOLD-ATOMIC-END-V29';
 const officialFinish=BH.finish;
 const officialSubmit=BH.submitSummary;
+const baseStartGame=BH.startGame;
 
 BH.demoEvaluation=key=>BH.evaluatePose(s.latest,key);
 
@@ -48,6 +49,13 @@ function showAtomicDemoEnd(){
   document.title='Live Demo Complete • Balance Hold';
 }
 
+BH.startGame=function(){
+  s.officialFinalizing=false;
+  s.demoFinalizing=false;
+  s.demoEndShown=false;
+  return baseStartGame();
+};
+
 BH.startLiveDemo=async()=>{
   BH.syncContext();BH.cancelCountdown();s.gameToken++;
   s.demo=true;s.demoFinalizing=false;s.demoEndShown=false;s.officialFinalizing=false;
@@ -68,23 +76,28 @@ BH.finish=reason=>{
 
 BH.submitSummary=async x=>{if(!s.demo)return officialSubmit(x)};
 
-function finalizeOfficialDisplayedHundred(ev,p){
-  if(s.demo||s.officialFinalizing||s.phase!=='play')return false;
+function finalizeOfficial(ev,p){
+  if(s.demo||s.phase!=='play'||s.officialFinalizing)return false;
   const last=s.sequence?.length>0&&s.index===s.sequence.length-1;
-  if(!last||p<.995)return false;
+  if(!last||p<.99)return false;
   s.officialFinalizing=true;
   const cfg=BH.CONFIG[e.difficulty?.value]||BH.CONFIG.normal;
   const required=(cfg.hold+(s.currentKey==='boss'?450:0))*(1-(s.assistLevel||0)*.075);
   s.holdMs=Math.max(s.holdMs||0,required);
   e.holdText.textContent='100%';e.holdRing.style.setProperty('--hold','360deg');
-  e.energyLabel.textContent='🎉 ภารกิจสำเร็จ!';
-  e.coachSub.textContent='กำลังบันทึกผลและเปิดหน้าสรุป';
-  try{BH.completePose(ev,required)}
-  catch(err){
-    console.error('[BalanceHold] official finalizer error',err);
-    s.officialFinalizing=false;
-    try{officialFinish('completed')}catch(inner){console.error('[BalanceHold] official finish fallback error',inner)}
+  e.energyLabel.textContent='🎉 ภารกิจสำเร็จ!';e.coachSub.textContent='กำลังบันทึกผลและเปิดหน้าสรุป';
+  try{
+    BH.completePose(ev,required);
+  }catch(err){
+    console.error('[BalanceHold] official complete error',err);
+    try{officialFinish('completed')}catch(inner){console.error('[BalanceHold] official finish error',inner)}
   }
+  requestAnimationFrame(()=>{
+    if(s.phase!=='summary'){
+      console.warn('[BalanceHold] official summary watchdog');
+      try{officialFinish('completed')}catch(err){console.error('[BalanceHold] watchdog finish error',err)}
+    }
+  });
   return true;
 }
 
@@ -94,11 +107,11 @@ BH.updateGameUI=(ev,p)=>{
   baseUpdate(ev,p);
   const last=s.sequence?.length>0&&s.index===s.sequence.length-1;
   if(!s.demo){
-    if(last&&p>=.995)finalizeOfficialDisplayedHundred(ev,p);
+    if(last&&p>=.99)finalizeOfficial(ev,p);
     return;
   }
   e.status.textContent=`🎥 Live Demo • Pose ${Math.round(ev.confidence)}% • Score OFF`;
-  if(last&&p>=.995){
+  if(last&&p>=.99){
     e.holdText.textContent='100%';e.holdRing.style.setProperty('--hold','360deg');e.energyLabel.textContent='🎉 Demo Complete!';showAtomicDemoEnd();return;
   }
   e.coachSub.textContent=ev.valid?'ตรวจด้วยกล้องจริง • ผลรอบนี้ไม่ถูกบันทึก':'ปรับตามคำแนะนำ • ผลรอบนี้ไม่ถูกบันทึก';
@@ -107,5 +120,5 @@ BH.updateGameUI=(ev,p)=>{
 const demoBtn=$('demoBtn');
 if(demoBtn){demoBtn.textContent='🎥 Live Demo • กล้องจริง ไม่บันทึก';demoBtn.title='เปิดกล้องและตรวจ Pose จริง แต่ไม่ส่ง Sheet และไม่บันทึก Personal Best';demoBtn.onclick=BH.startLiveDemo}
 if(e.status&&s.phase==='setup')e.status.textContent='📷 Pose Ready • Live Demo available';
-console.info('[BalanceHold] Atomic Demo + Official End v28 ready',RELEASE);
+console.info('[BalanceHold] Atomic Demo + Official End v29 ready',RELEASE);
 })();
