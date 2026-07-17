@@ -1,8 +1,7 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL REPLACEMENT v20260622-GATE-GAMES-FRR-V17-LOADER
 // Shared registry for HeroHealth Gate.
 
-export const PATCH = 'v20260624-GATE-GAMES-FRR-V24-SIDE-STRETCH';
+export const PATCH = 'v20260717-GATE-GAMES-HANDWASH-WARMUP-R1';
 
 const FITNESS_MODULE =
   './games/fitness/fitness-readiness-recovery.js?v=20260624-frr-v24-side-stretch';
@@ -126,15 +125,19 @@ export const GAME_REGISTRY = {
   }),
 
   handwash: meta('handwash', {
-    title: 'Handwash AR',
+    title: 'Handwash WHO Technique',
     emoji: '🧼',
     zone: 'hygiene',
-    runFile: '../vr-handwash/handwash-vr.html',
+    warmupFile: './games/handwash/warmup.js?v=20260717-warmup-r1',
+    styleFile: './games/handwash/style.css?v=20260717-warmup-r1',
+    warmupTitle: 'Handwash Warmup • WHO Quick Prep',
+    runFile: '../hygiene-zone/handwash-realistic-v3.html',
     runCandidates: [
+      '../hygiene-zone/handwash-realistic-v3.html',
       '../vr-handwash/handwash-vr.html',
       '../handwash-vr.html'
     ],
-    summaryPath: '../hygiene-zone.html'
+    summaryPath: '../hygiene-zone-v2.html'
   }),
 
   'germ-detective': meta('germ-detective', {
