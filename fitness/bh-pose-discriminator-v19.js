@@ -52,7 +52,7 @@ function signature(key,m){
     }
     case 'treeLeft': {
       const leg=m.rightFootLift>(normal?.010:.016)||m.rightKnee<(normal?166:160)||m.rightKneeLift>(normal?.008:.014);
-      const support=m.leftKnee>(145&&Math.abs(m.hipShift)<.78;
+      const support=m.leftKnee>145&&Math.abs(m.hipShift)<.78;
       return{ok:m.kneesVisible&&leg&&support,message:!m.kneesVisible?'ให้กล้องเห็นเข่าทั้งสองข้าง':!leg?'งอหรือยกขาขวาขึ้นเล็กน้อยก่อนเริ่มนับ':'ลงน้ำหนักบนขาซ้ายและยืนนิ่ง'};
     }
     case 'treeRight': {
