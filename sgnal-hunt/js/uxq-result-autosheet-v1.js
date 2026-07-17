@@ -1,8 +1,8 @@
-/* CSAI2601 UX Quest • Result Auto Sheet Sync v4.1
+/* CSAI2601 UX Quest • Result Auto Sheet Sync v4.2
  * Single responsibility: silently submit mission_completed when the result screen appears.
  * Artifact submission/status belongs exclusively to uxq-production-support-v2.js.
  * Google Sheet remains the sole authority for official progress and unlocking.
- * v4.1: sent cache is written only after dispatch and Sheet gate may force a safe re-dispatch.
+ * v4.2: tolerate legacy/special-node results that omit total; infer canonical 5-item total.
  */
 (() => {
   'use strict';
@@ -56,9 +56,20 @@
       180
     );
   }
+  function normalizedResult(raw) {
+    const result = raw || {};
+    const stars = Number(result.stars || 0);
+    const correct = Number(result.correct || 0);
+    const passed = Boolean(result.passed || stars >= 2);
+    let total = Number(result.total || result.verifiedTotal || 0);
+    if (!total && correct > 0) total = Math.max(5, correct);
+    if (!total && passed) total = 5;
+    const accuracy = Number(result.accuracy || (total ? Math.round((correct / total) * 100) : 0));
+    return { ...result, stars, correct, passed, total, accuracy };
+  }
   function payload() {
-    const result = lastResult();
-    if (!result || !Number(result.total || 0)) return null;
+    const result = normalizedResult(lastResult());
+    if (!result || !result.total) return null;
     const p = profile();
     if (!p.studentId || !p.studentName || !p.section) return null;
     const now = new Date().toISOString();
@@ -68,7 +79,7 @@
     const eventId = stableId(['mission', courseId, p.section, p.studentId, node.toLowerCase(), completedAt, result.score, result.stars]);
     const caseId = recentCaseId();
     return {
-      app: 'ux-quest', schema: 'uxq.mission.v4.1', eventType: 'mission_completed',
+      app: 'ux-quest', schema: 'uxq.mission.v4.2', eventType: 'mission_completed',
       eventId, attemptId: eventId, occurredAt: now, startedAt: '', completedAt,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Bangkok',
       pageUrl: clean(location.href, 500), courseId,
@@ -76,19 +87,19 @@
       studentId: p.studentId, studentName: p.studentName, section: p.section,
       nodeId: node, missionId: node.toLowerCase(), missionTitle: missionTitle(),
       caseId, caseIds: caseId ? [caseId] : [],
-      score: Number(result.score || 0), stars: Number(result.stars || 0),
-      accuracy: Number(result.accuracy || 0), correct: Number(result.correct || 0),
-      total: Number(result.total || 0), hints: Number(result.hints || 0),
-      durationSec: Number(result.durationSec || 0), passed: Boolean(result.passed || Number(result.stars || 0) >= 2),
-      verifiedCorrect: Number(result.correct || 0), verifiedTotal: Number(result.total || 0),
-      verifiedAccuracy: Number(result.accuracy || 0), maxCombo: Number(result.correct || 0),
-      attemptNo: 0, badge: clean(result.badge || `${node} ${missionTitle()}`, 120),
-      answers: [], source: 'csai2601-result-autosheet-v4.1-mission-silent'
+      score: Number(result.score || 0), stars: result.stars,
+      accuracy: result.accuracy, correct: result.correct,
+      total: result.total, hints: Number(result.hints || 0),
+      durationSec: Number(result.durationSec || 0), passed: result.passed,
+      verifiedCorrect: result.correct, verifiedTotal: result.total,
+      verifiedAccuracy: result.accuracy, maxCombo: Number(result.maxCombo || result.correct || 0),
+      attemptNo: Number(result.attemptNo || 0), badge: clean(result.badge || `${node} ${missionTitle()}`, 120),
+      answers: Array.isArray(result.answers) ? result.answers : [], source: 'csai2601-result-autosheet-v4.2-mission-silent'
     };
   }
   function post(item) {
     const url = endpoint();
-    if (!item || !url) return Promise.resolve({ state: 'not_configured' });
+    if (!item || !url) return Promise.resolve({ state: item ? 'not_configured' : 'no_payload' });
     return fetch(url, {
       method: 'POST', mode: 'no-cors', cache: 'no-store', keepalive: true,
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
@@ -125,5 +136,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule, { once: true });
   else schedule();
   new MutationObserver(schedule).observe(document.getElementById('uxqCanonicalNode') || document.body, { childList: true, subtree: true });
-  window.CSAI2601UXQAutoSheet = Object.freeze({ version:'4.1', payload, post, autoMission });
+  window.CSAI2601UXQAutoSheet = Object.freeze({ version:'4.2', payload, post, autoMission });
 })();
