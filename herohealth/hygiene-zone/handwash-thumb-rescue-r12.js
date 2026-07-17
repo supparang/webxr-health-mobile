@@ -1,81 +1,76 @@
 (() => {
   'use strict';
 
-  const RELEASE = '20260717-HANDWASH-THUMB-RESCUE-R12';
-  const originalFetch = window.fetch.bind(window);
+  const RELEASE = '20260717-HANDWASH-RUNTIME-RESCUE-R13';
+  const NativeBlob = window.Blob;
 
-  window.fetch = async function patchedHandwashThumbFetch(input, init) {
-    const response = await originalFetch(input, init);
-    const url = typeof input === 'string' ? input : String(input && input.url || '');
-
-    if (!url.includes('handwash-who-v4.part2.txt')) return response;
-
-    const source = await response.text();
-    const hook = `function updateRub(phase,hands,dt){
+  const hook = `function updateRub(phase,hands,dt){
 if (hands.length < 2) {
 coach('ต้องเห็นมือสองข้างเพื่อประเมินท่า WHO','hands');
 decayEvidence(phase,dt);
 return;
-}`;
+}
+const evaluation=evaluateGesture(phase,hands,dt);`;
 
-    const fix = `function updateRub(phase,hands,dt){
-if (hands.length < 2) {
+  const fix = `function updateRub(phase,hands,dt){
 const elapsed=Number(state.stepTime[phase.id]||0);
-const rescuePhase=phase.id==='fingertips'||phase.id==='thumbs';
-const oneHandRescue=rescuePhase&&hands.length===1&&elapsed>2.5;
-if(oneHandRescue){
-const h=hands[0];
+const rescuePhase=phase.id==='thumbs'||phase.id==='fingertips';
+if(rescuePhase&&hands.length>=1&&elapsed>2.5){
 const rect=el.scrubZone.getBoundingClientRect();
-const inZone=inRect(h.palm,rect);
-const moving=h.motionScore>.035||h.speed>.015||h.turnScore>.04;
-if(inZone&&moving){
+const visible=hands.filter(h=>inRect(h.palm,rect));
+const moving=visible.some(h=>h.motionScore>.035||h.speed>.014||h.turnScore>.045);
+if(visible.length&&moving){
 const evidence=state.evidence[phase.id]||{};
 const slot=Number(evidence.left||0)<.96?'left':'right';
 ensureEvidence(phase,slot);
-const baseGain=phase.id==='thumbs'?.58:.50;
-const gain=dt*(elapsed>6?baseGain+.18:baseGain)/Math.max(1.35,phase.targetSec*.46);
+const phaseBoost=phase.id==='thumbs'?1.12:1.24;
+const gain=dt*phaseBoost*(elapsed>7?.72:.54)/Math.max(1.35,phase.targetSec*.46);
 state.evidence[phase.id][slot]=clamp(Number(state.evidence[phase.id][slot]||0)+gain,0,1);
 state.activeSlot=slot;
-state.foam=clamp(state.foam+dt*4.4,0,100);
+state.foam=clamp(state.foam+dt*4.5,0,100);
 state.foamPeak=Math.max(state.foamPeak,state.foam);
 state.germLoad=Math.max(18,state.germLoad-dt*1.45);
-addScore(dt*19,false);
+addScore(dt*20,false);
 hitZone(el.scrubZone);
-coach(phase.id==='thumbs'?(slot==='left'?'โหมดช่วยหัวแม่มือ ✅ กำรอบนิ้วแล้วหมุนต่อ':'ข้างแรกผ่านแล้ว ✅ ทำซ้ำอีกข้าง'):(slot==='left'?'โหมดมือเดียว ✅ หมุนปลายนิ้วเป็นวงต่อ':'ข้างแรกผ่านแล้ว ✅ ทำซ้ำอีกข้าง'),'good');
+const label=phase.id==='thumbs'?'หัวแม่มือ':'ปลายนิ้ว';
+coach(slot==='left'?'โหมดช่วย'+label+' ✅ หมุนเป็นวงต่ออีกนิด':'ข้างแรกผ่านแล้ว ✅ ทำซ้ำอีกข้าง','good');
 if(rubDone(phase)) completeRub(phase,'assist');
-}else{
-coach(phase.id==='thumbs'?'วางมือในกรอบสีเหลือง • กำรอบหัวแม่มือแล้วหมุน':'วางมือในกรอบสีเหลือง • หมุนปลายนิ้วเป็นวง','hands');
-}
 return;
 }
-coach(rescuePhase?'ยกมือหนึ่งข้างเข้ากรอบ • ระบบจะช่วยตรวจทีละข้าง':'ต้องเห็นมือสองข้างเพื่อประเมินท่า WHO','hands');
+if(hands.length<2){
+coach(phase.id==='thumbs'?'ยกมือเข้ากรอบแล้วหมุนรอบหัวแม่มือ':'ยกมือเข้ากรอบแล้วหมุนปลายนิ้วเป็นวง','hands');
+return;
+}
+}
+if (hands.length < 2) {
+coach('ต้องเห็นมือสองข้างเพื่อประเมินท่า WHO','hands');
 decayEvidence(phase,dt);
 return;
-}`;
+}
+const evaluation=evaluateGesture(phase,hands,dt);`;
 
-    let patched = source;
-
-    if (patched.includes(hook)) {
-      patched = patched.replace(hook, fix);
-    } else if (!patched.includes("const rescuePhase=phase.id==='fingertips'||phase.id==='thumbs';")) {
-      console.warn('[Handwash R12] updateRub hook not found');
+  function patchSource(source) {
+    if (typeof source !== 'string') return source;
+    if (!source.includes('function updateRub(phase,hands,dt){')) return source;
+    if (!source.includes('WHO Final R7') && !source.includes('HANDWASH-FINAL-R7')) return source;
+    if (!source.includes(hook)) {
+      console.warn('[Handwash R13] compiled updateRub hook not found');
+      return source;
     }
+    const patched = source.replace(hook, fix);
+    document.documentElement.dataset.handwashRescue = RELEASE;
+    console.info('[Handwash R13] post-integrity thumb/fingertip rescue installed');
+    return patched;
+  }
 
-    const eligibleHook = "const eligible=evaluation.inZone&&evaluation.contactOK&&evaluation.poseOK&&evaluation.motionOK&&evaluation.score>=threshold;";
-    const eligibleFix = "const adaptive=elapsed>(DIFF==='easy'?2.5:4.2);const coreOK=[evaluation.contactOK,evaluation.poseOK,evaluation.motionOK].filter(Boolean).length;const thumbAssist=phase.id==='thumbs'&&elapsed>3.5&&evaluation.inZone&&evaluation.motion>.06&&evaluation.score>=Math.max(.24,threshold-.24);const fingertipAssist=phase.id==='fingertips'&&elapsed>4&&evaluation.contact>.20&&evaluation.motion>.06;const eligible=evaluation.inZone&&(thumbAssist||fingertipAssist||(adaptive?(coreOK>=2&&evaluation.score>=Math.max(.27,threshold-.19)):(coreOK===3&&evaluation.score>=threshold)));";
-    if (patched.includes(eligibleHook)) patched = patched.replace(eligibleHook, eligibleFix);
+  function RescueBlob(parts, options) {
+    const patchedParts = Array.isArray(parts)
+      ? parts.map(part => typeof part === 'string' ? patchSource(part) : part)
+      : parts;
+    return new NativeBlob(patchedParts, options);
+  }
 
-    const gainHook = "const gain=dt*(.48+.52*evaluation.score)/phase.targetSec;";
-    const gainFix = "const rescueBoost=phase.id==='thumbs'?1.58:phase.id==='fingertips'?1.68:1;const gain=dt*(.72+.62*evaluation.score)*rescueBoost/Math.max(1.45,phase.targetSec*.56);";
-    if (patched.includes(gainHook)) patched = patched.replace(gainHook, gainFix);
-
-    console.info('[Handwash R12] thumb rescue installed');
-    document.documentElement.dataset.handwashThumbRescue = RELEASE;
-
-    return new Response(patched, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers
-    });
-  };
+  RescueBlob.prototype = NativeBlob.prototype;
+  Object.setPrototypeOf(RescueBlob, NativeBlob);
+  window.Blob = RescueBlob;
 })();
