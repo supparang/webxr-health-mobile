@@ -1,0 +1,1 @@
+R12 QA target: WHO 6 must accumulate evidence with two hands rotating in rub zone; one-hand fallback starts after 2.5 seconds; WHO 7 rescue remains available.
