@@ -1,0 +1,2 @@
+20260717-HANDWASH-WARMUP-R10
+Dedicated Handwash warmup page bypassing stale gate-core cache.
