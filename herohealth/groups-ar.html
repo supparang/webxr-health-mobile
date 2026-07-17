@@ -1,42 +1,9 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#103c3a">
-  <title>HeroHealth • Food Groups AR</title>
-  <meta name="description" content="HeroHealth Food Groups Camera AR — จำแนกอาหารตามหมู่ 1–5">
-  <script>
-    (function () {
-      'use strict';
-      var target = new URL('./vr-groups/groups-ar-v3.html', location.href);
-      new URLSearchParams(location.search).forEach(function (value, key) {
-        target.searchParams.set(key, value);
-      });
-      target.searchParams.set('canonical', 'groups-ar');
-      location.replace(target.toString());
-    })();
-  </script>
-  <style>
-    *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:linear-gradient(135deg,#dff5ff,#fff7df);color:#214f64}body{display:grid;place-items:center;padding:24px}.card{width:min(520px,100%);padding:28px;border-radius:30px;background:rgba(255,255,255,.9);box-shadow:0 18px 55px rgba(37,89,121,.14);text-align:center}.icon{font-size:64px}h1{margin:8px 0}p{color:#6f8fa1;font-weight:800;line-height:1.5}a{display:inline-block;margin-top:8px;padding:12px 18px;border-radius:999px;background:#55b8ff;color:#fff;text-decoration:none;font-weight:1000}
-  </style>
-</head>
-<body>
-  <main class="card">
-    <div class="icon">🥦</div>
-    <h1>Food Groups AR</h1>
-    <p>กำลังเปิดเกม Camera AR…</p>
-    <a id="fallback" href="./vr-groups/groups-ar-v3.html">เปิดเกม</a>
-  </main>
-  <script>
-    (function () {
-      var target = new URL('./vr-groups/groups-ar-v3.html', location.href);
-      new URLSearchParams(location.search).forEach(function (value, key) {
-        target.searchParams.set(key, value);
-      });
-      target.searchParams.set('canonical', 'groups-ar');
-      document.getElementById('fallback').href = target.toString();
-    })();
-  </script>
-</body>
-</html>
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><title>HeroHealth • Food Groups AR</title><meta name="theme-color" content="#103c3a"><meta name="description" content="HeroHealth Food Groups Camera AR — จำแนกอาหารตามหมู่ 1–5"><link rel="stylesheet" href="./vr-groups/groups-ar-v3.css?v=20260717-1"><script>(function(){const u=new URL(location.href);if(!u.searchParams.get('hub')){u.searchParams.set('hub',new URL('./nutrition-zone.html',location.href).toString());history.replaceState(null,'',u.toString())}})();</script></head><body>
+<video id="camera" autoplay muted playsinline></video><div class="shade"></div><div class="app">
+<header class="hud"><section class="brand"><div class="brandIcon">🥦</div><div><h1>Food Groups AR</h1><p>Classification Game • อะไรอยู่หมู่ไหน</p></div></section><section class="stats"><div class="stat"><small>คะแนน</small><b id="score">0</b></div><div class="stat"><small>ถูกต้อง</small><b id="acc">0%</b></div><div class="stat"><small>คอมโบ</small><b id="combo">0</b></div><div class="stat"><small>เวลา</small><b id="time">--</b></div><div class="stat"><small>Boss</small><b id="bossPhase">-</b></div></section></header>
+<main class="arena" id="arena"><section class="phase"><b id="phaseTitle">Camera Check</b><small id="phaseSub">เตรียมกล้องและท่าหนีบเพื่อหยิบอาหาร</small></section><div class="cameraBadge" id="cameraBadge"><span class="dot"></span><span id="cameraText">ยังไม่เริ่ม</span></div><section class="boss" id="boss"><div class="bossFace">👾</div><div><div class="bossTop"><span>Mix-Up Monster</span><span>Phase <b id="bossLabel">1</b></span></div><div class="hp"><i id="bossHp"></i></div><div class="bossSkill" id="bossSkill">Single Sort</div></div></section><div class="foodLayer" id="foodLayer"></div><div class="hand" id="hand"></div><div class="centerCue" id="cue"><b id="cueTitle"></b><small id="cueSub"></small></div><section class="bins"><div class="bin g1" data-group="1"><span class="n">1</span><span class="t">โปรตีน</span><span class="p">โตและซ่อมแซม</span></div><div class="bin g2" data-group="2"><span class="n">2</span><span class="t">ข้าว/แป้ง</span><span class="p">ให้พลังงาน</span></div><div class="bin g3" data-group="3"><span class="n">3</span><span class="t">ผัก</span><span class="p">วิตามิน/ใยอาหาร</span></div><div class="bin g4" data-group="4"><span class="n">4</span><span class="t">ผลไม้</span><span class="p">วิตามิน/ใยอาหาร</span></div><div class="bin g5" data-group="5"><span class="n">5</span><span class="t">ไขมัน</span><span class="p">พลังงานสำรอง</span></div></section></main>
+<footer class="footer"><div class="feedback" id="feedback">พร้อมช่วยกู้ตะกร้าพลังอาหารทั้ง 5</div><div class="controls"><button class="btn" id="touchBtn">👆 Touch</button><button class="btn gold" id="qaBtn">🧪 Check</button><button class="btn" id="teacherBtn">📊 ครู</button><button class="btn" id="zoneBtn">🥗 Zone</button></div></footer></div>
+<section class="overlay" id="intro"><div class="sheet"><div class="sheetIcon">🥦</div><h2>Rescue the Five Power Baskets</h2><p>หยิบอาหารและปล่อยลงประตูหมู่ 1–5 ให้ถูกต้อง จากนั้นผ่าน Reason Check, Retry Rescue และ Boss 3 Phase</p><div class="steps"><div class="step"><span>🤏</span><b>หยิบ</b><small>หนีบนิ้วโป้ง–นิ้วชี้ หรือแตะลาก</small></div><div class="step"><span>🏠</span><b>จัดหมู่</b><small>ส่งอาหารเข้าหมู่ที่ถูก ไม่วัดสัดส่วนจาน</small></div><div class="step"><span>👾</span><b>สู้ Boss</b><small>Single Sort • Confusion • Meal Breaker</small></div></div><div class="warning">ระบบใช้ค่าจาก Device Check อัตโนมัติ หากกล้องหรือ Hand Tracking ไม่พร้อมจะเปลี่ยนเป็น Touch Fallback โดยไม่เกิดหน้าขาว</div><div class="sheetActions"><button class="big" id="startCamera">📷 เริ่ม Camera AR</button><button class="big alt" id="startTouch">👆 เริ่ม Touch AR</button><button class="big alt" id="openQa">🧪 Device Check</button></div></div></section>
+<section class="reason" id="reason"><div class="reasonCard"><div class="reasonLabel" id="reasonLabel">Reason Check</div><h3 id="reasonQ"></h3><div class="answers" id="answers"></div></div></section>
+<section class="overlay hidden" id="summary"><div class="sheet"><div class="sheetIcon" id="sumIcon">🏆</div><h2 id="sumTitle">สรุปผล</h2><p id="sumSub"></p><div class="summaryGrid" id="summaryGrid"></div><div class="bars" id="bars"></div><div class="warning" id="delivery">กำลังบันทึกผล...</div><div class="sheetActions"><button class="big" id="replay">เล่นอีกครั้ง</button><button class="big alt" id="sumZone">กลับ Nutrition Zone</button></div></div></section>
+<script src="./vr-groups/groups-ar-bank-v3.js?v=20260717-1"></script><script src="./vr-groups/groups-ar-runtime-v311.js?v=20260717-1"></script><script>(function(){const q=new URLSearchParams(location.search);function copy(path){const u=new URL(path,location.href);q.forEach((v,k)=>u.searchParams.set(k,v));return u}const qa=()=>location.assign(copy('./vr-groups/groups-ar-check-v2.html'));document.getElementById('qaBtn').onclick=qa;document.getElementById('openQa').onclick=qa;document.getElementById('teacherBtn').onclick=()=>location.assign(copy('./groups-ar-teacher.html'));})();</script></body></html>
