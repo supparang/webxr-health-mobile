@@ -1,4 +1,4 @@
-/* CSAI2601 UX Quest • Thai Year 2 Student Support v1
+/* CSAI2601 UX Quest • Thai Year 2 Student Support v1.1
  * Thai-first wording for Thai Year 2 learners. English UX terms remain only as support terms.
  */
 (() => {
@@ -21,7 +21,31 @@
     ['Accuracy', 'ความถูกต้อง'],
     ['Reason', 'เหตุผล'],
     ['Hints', 'คำใบ้'],
-    ['Time', 'เวลา']
+    ['Time', 'เวลา'],
+    ['selectedFriction', 'จุดติดขัดที่เลือก'],
+    ['selectedFix', 'แนวทางแก้ที่เลือก'],
+    ['reasonCheck', 'เหตุผลประกอบ'],
+    ['retryCount', 'จำนวนครั้งที่ลองใหม่'],
+    ['learnedPoint', 'สิ่งที่ได้เรียนรู้'],
+    ['processOrder', 'ลำดับกระบวนการที่เลือก'],
+    ['evidenceVsAssumptionAccuracy', 'ความแม่นยำในการแยกหลักฐานกับข้อสมมติ'],
+    ['userGroupChoice', 'กลุ่มผู้ใช้ที่เลือกศึกษา'],
+    ['reflection', 'การสะท้อนการเรียนรู้'],
+    ['psychologyConcept', 'หลักจิตวิทยาที่เลือก'],
+    ['selectedRepair', 'แนวทางแก้ตามหลักจิตวิทยา'],
+    ['wrongConcepts', 'แนวคิดที่ยังสับสน'],
+    ['retryImprovement', 'พัฒนาการหลังลองใหม่'],
+    ['bossGatePassed', 'ผลการผ่านด่านบอส'],
+    ['reasonDefenseScore', 'คะแนนการอธิบายเหตุผล'],
+    ['evidenceMatchAccuracy', 'ความแม่นยำในการจับคู่หลักฐาน'],
+    ['problemStatementQuality', 'คุณภาพของ Problem Statement'],
+    ['hmwQuality', 'คุณภาพของ HMW'],
+    ['solutionFit', 'ความสอดคล้องของแนวทางแก้'],
+    ['storyboardSubmitted', 'การส่ง Storyboard'],
+    ['hierarchyChoice', 'ลำดับชั้นข้อมูลที่เลือก'],
+    ['ctaPlacement', 'ตำแหน่งปุ่มหลัก'],
+    ['mobileConsideration', 'การคำนึงถึงหน้าจอมือถือ'],
+    ['wireframeSubmitted', 'การส่ง Wireframe']
   ]);
 
   const PARTIAL = [
@@ -77,7 +101,7 @@
     document.querySelectorAll('textarea').forEach((area) => {
       const label = area.closest('label')?.querySelector('b')?.textContent?.trim() || '';
       const hint = FIELD_HINTS.get(label) || 'ตอบเป็นภาษาไทยได้: เขียนจากหลักฐานผู้ใช้ → สิ่งที่เลือก → เหตุผล → วิธีพิสูจน์';
-      area.placeholder = hint;
+      if (area.placeholder !== hint) area.placeholder = hint;
       area.lang = 'th';
     });
 
