@@ -1,0 +1,205 @@
+trajectory=avgNumber([pair.circularity,motion]);
+score=weighted([contact,.39,pose,.23,trajectory,.38]);
+}
+const contactOK=contact>.41,poseOK=pose>.39,motionOK=trajectory>.32&&motion>.19;
+let reason='';
+if(!bothIn)reason='zone';else if(!contactOK)reason='contact';else if(!poseOK)reason='pose';else if(!motionOK)reason='motion';else if(phase.side&&!slot)reason='switch';
+return {
+score:clamp(score,0,1),slot,inZone:bothIn,contactOK,poseOK,motionOK,contact,pose,trajectory,motion,reason,
+coach:coachMessage(phase,reason,slot)
+};
+}
+function pairMetrics(a,b,dt){
+const scale=Math.max((a.scale+b.scale)/2,.04);
+const palmDistance=dist(a.palm,b.palm)/scale;
+const tipDistance=dist(a.tipsCenter,b.tipsCenter)/scale;
+const sameNormal=clamp((dot3(a.normal,b.normal)+1)/2,0,1);
+const oppositeNormal=clamp((1-dot3(a.normal,b.normal))/2,0,1);
+const pairCenter=avg([a.palm,b.palm]);
+const prev=state.pairMemory;
+const relative=prev?Math.abs(palmDistance-prev.palmDistance)/Math.max(dt,.016):0;
+const centerSpeed=prev?dist(pairCenter,prev.center)/Math.max(dt,.016):0;
+const vector={x:b.palm.x-a.palm.x,y:b.palm.y-a.palm.y,z:(b.palm.z||0)-(a.palm.z||0)};
+const angle=Math.atan2(vector.y,vector.x);
+const angleDelta=prev?Math.abs(wrapAngle(angle-prev.angle)):0;
+state.pairMemory={palmDistance,center:pairCenter,angle};
+return {
+scale,palmDistance,tipDistance,sameNormal,oppositeNormal,
+relativeMotion:clamp((relative-.10)/1.25,0,1),
+oscillation:clamp((relative-.06)/.70,0,1),
+circularity:clamp(angleDelta/.19,0,1),
+overlap:clamp((1.20-palmDistance)/.82,0,1),
+centerMotion:clamp((centerSpeed-.02)/.18,0,1)
+};
+}
+function toggleFaucet(){
+unlockAudio();
+if (!state.running) return showToast('กดเริ่ม WHO Technique ก่อน');
+if (state.phase==='towelFaucet') {
+state.recontaminationCount+=1;
+state.processErrors.push('bare_hand_faucet_touch');
+state.sequenceCorrect=false;
+state.germLoad=clamp(state.germLoad+18,0,100);
+addScore(-180);
+showToast('อย่าใช้มือสะอาดปิดก๊อก • ใช้กระดาษที่เช็ดมือแล้ว');
+coach('ใช้กระดาษปิดก๊อกเพื่อป้องกันการปนเปื้อนซ้ำ','contamination');
+return;
+}
+state.waterOn=!state.waterOn;
+beep(state.waterOn?530:340,.06);
+logEvent('faucet_toggle',{waterOn:state.waterOn,phase:state.phase});
+updateUI();
+}
+function tapAssist(){
+if (!state.running) return showToast('กดเริ่ม WHO Technique ก่อน');
+state.fallbackUsed=true;
+const phase=currentPhase();
+if (state.phase==='calibrate') state.phaseProgress=1;
+else if (!phase) return;
+else if (phase.kind==='rub') {
+const slot=phase.side?(state.tapSide++%2?'right':'left'):'both';
+ensureEvidence(phase,slot);
+state.evidence[phase.id][slot]=clamp(state.evidence[phase.id][slot]+.24,0,1);
+state.foam=clamp(state.foam+4,0,100);
+if (rubDone(phase)) completeRub(phase,'assist');
+} else if (phase.id==='wet') {
+state.waterOn=true;state.phaseProgress+=.30;
+} else if (phase.id==='soap') {
+state.waterOn=false;state.phaseProgress+=.35;state.foam=Math.max(state.foam,22);
+} else if (phase.id==='rinse') {
+state.waterOn=true;state.phaseProgress+=.28;state.foam=Math.max(0,state.foam-24);
+} else if (phase.id==='dry') {
+state.towelHeld=true;state.phaseProgress+=.28;
+} else if (phase.id==='towelFaucet') {
+state.towelHeld=true;state.waterOn=true;state.phaseProgress+=.35;
+}
+state.phaseProgress=clamp(state.phaseProgress,0,1);
+if (phase?.kind==='process'&&state.phaseProgress>=1) completeProcess(phase);
+addScore(5);
+showToast('Tap Assist • ผลจะระบุว่าใช้โหมดช่วย');
+updateUI();
+}
+function finishRun(reason){
+if (!state.running) return;
+state.running=false;
+clearInterval(state.procedureTimer);
+clearTimeout(state.timeoutTimer);
+state.endedAt=new Date().toISOString();
+if (state.procedureStartedAt) state.procedureSec=(Date.now()-Date.parse(state.procedureStartedAt))/1000;
+setWater(false);
+const result=buildResult(reason);
+saveResult(result);
+renderSummary(result);
+sendResult(result);
+el.summaryOverlay.classList.add('show');
+logEvent('game_end',{reason,score:result.score,passed:result.passed});
+}
+function buildResult(endReason){
+const rows=PHASES.map(phase=>({
+id:phase.id,whoStep:phase.who,label:phase.label,kind:phase.kind,
+completed:state.passMode[phase.id]!=='not-complete',passMode:state.passMode[phase.id],
+quality:phase.kind==='rub'?phaseQuality(phase.id):Math.round(clamp(state.phase===phase.id?state.phaseProgress:state.passMode[phase.id]!=='not-complete'?1:0,0,1)*100),
+timeSec:round(state.stepTime[phase.id],2),
+evidence:Object.fromEntries(Object.entries(state.evidence[phase.id]||{}).map(([k,v])=>[k,round(v*100,1)]))
+}));
+const rubCompleted=rows.filter(x=>x.kind==='rub'&&x.completed).length;
+const processCompleted=rows.filter(x=>x.kind==='process'&&x.completed).length;
+const gestureAccuracy=Math.round(avgNumber(rows.filter(x=>x.kind==='rub').map(x=>x.quality)));
+const sequenceScore=Math.round(clamp((rubCompleted/6)*60+(processCompleted/5)*30+(state.towelFaucetPassed?10:0),0,100));
+const withinWhoTime=state.procedureSec>=40&&state.procedureSec<=60;
+const timeScore=withinWhoTime?100:state.procedureSec<40?clamp(state.procedureSec/40*100,0,99):clamp(100-(state.procedureSec-60)*3,0,99);
+const waterSaveScore=Math.round(clamp(100-Math.max(0,state.waterUseSec-22)*2.5-state.waterWasteSec*5,0,100));
+const germRemoval=Math.round(clamp(100-state.germLoad,0,100));
+const accuracy=Math.round(clamp(gestureAccuracy*.55+sequenceScore*.30+timeScore*.15,0,100));
+const techniquePassed=rubCompleted===6&&processCompleted===5&&state.towelFaucetPassed&&state.sequenceCorrect;
+const passed=endReason==='completed'&&techniquePassed&&withinWhoTime;
+const stars=passed&&accuracy>=88&&waterSaveScore>=70?3:passed&&accuracy>=74?2:techniquePassed?1:0;
+const score=Math.max(0,Math.round(state.score+accuracy*9+waterSaveScore*3+germRemoval*2+(passed?650:0)-state.recontaminationCount*150));
+return {
+api:'handwash_result',version:VERSION,gameId:'handwash-who-v4',zone:'hygiene',
+standard:STANDARD,whoPosterDate:WHO_POSTER_DATE,attemptId:state.attemptId,
+participantId:qs.get('pid')||'anon',studentName:el.nameInput.value.trim()||'Hero',
+classLevel:el.classInput.value.trim()||'P5',section:qs.get('section')||'',
+studyId:qs.get('studyId')||'HYGIENE-P5-2026',difficulty:DIFF,
+mode:state.fallbackUsed?'camera-ar-with-tap-assist':state.detectorReady?'camera-ar':'tap-fallback',
+startedAt:state.startedAt,procedureStartedAt:state.procedureStartedAt,endedAt:state.endedAt,
+procedureDurationSec:round(state.procedureSec,2),targetDurationMinSec:40,targetDurationMaxSec:60,
+withinWhoTime,endReason,passed,techniquePassed,sequenceCorrect:state.sequenceCorrect,
+towelFaucetPassed:state.towelFaucetPassed,recontaminationCount:state.recontaminationCount,
+score,stars,accuracy,gestureAccuracy,sequenceScore,timeScore,waterUseSec:round(state.waterUseSec,2),
+waterWasteSec:round(state.waterWasteSec,2),waterSaveScore,foamPeak:Math.round(state.foamPeak),
+finalGermLoad:Math.round(state.germLoad),germRemoval,completedRubSteps:rubCompleted,totalRubSteps:6,
+completedProcessSteps:processCompleted,totalProcessSteps:5,
+twoHandsVisibleRate:state.trackingFrames?round(state.twoHandFrames/state.trackingFrames*100,1):0,
+trackingLostCount:state.trackingLostCount,cameraReady:state.cameraReady,detectorReady:state.detectorReady,
+fallbackUsed:state.fallbackUsed,processErrors:state.processErrors,steps:rows,events:state.eventLog.slice(-100),
+sourceUrl:location.href,userAgent:navigator.userAgent,timestamp:new Date().toISOString()
+};
+}
+function saveResult(result){
+const attempts=readJson(STORAGE.attempts,[]);
+attempts.unshift(result);
+writeJson(STORAGE.attempts,attempts.slice(0,50));
+const best=readJson(STORAGE.best,null);
+if (!best||result.score>Number(best.score||0)) writeJson(STORAGE.best,result);
+const progress=readJson(STORAGE.progress,{});
+const old=progress.handwash||{};
+progress.handwash={
+status:result.passed?'completed':'attempted',
+stars:Math.max(Number(old.stars||0),result.stars),
+bestScore:Math.max(Number(old.bestScore||0),result.score),
+accuracy:Math.max(Number(old.accuracy||0),result.accuracy),
+grade:result.passed?'WHO Standard Passed':result.techniquePassed?'WHO Technique • Timing Practice':'Practice',
+badge:result.passed&&result.stars===3?'WHO Handwashing Master':result.techniquePassed?'WHO Sequence Hero':'Keep Practicing',
+lastPlayedAt:result.timestamp,source:'hygiene-zone/handwash-who-v4'
+};
+writeJson(STORAGE.progress,progress);
+try{window.dispatchEvent(new CustomEvent('herohealth:game-result',{detail:result}));}catch(_){}
+}
+function renderSummary(result){
+el.summaryHero.textContent=result.passed?'🏆':result.techniquePassed?'⏱️':'💪';
+el.summaryTitle.textContent=result.passed?'ผ่าน WHO Handwashing Standard':result.techniquePassed?'ลำดับถูกต้อง แต่เวลายังไม่อยู่ในช่วง 40–60 วินาที':'ยังมีขั้น WHO ที่ควรฝึกเพิ่ม';
+el.summarySub.textContent=`${result.mode} • WHO ${result.completedRubSteps}/6 ท่าถู • ใช้กระดาษปิดก๊อก ${result.towelFaucetPassed?'สำเร็จ':'ยังไม่สำเร็จ'}`;
+el.sumScore.textContent=result.score.toLocaleString();
+el.sumStars.textContent='⭐'.repeat(result.stars)+'☆'.repeat(3-result.stars);
+el.sumAccuracy.textContent=`${result.accuracy}%`;
+el.sumTime.textContent=`${result.procedureDurationSec.toFixed(1)}s`;
+el.resultList.innerHTML=result.steps.map(row=>
+`<div class="result-row"><span>WHO ${escapeHtml(row.whoStep)} • ${escapeHtml(row.label)}</span><span>${row.quality}%</span><span>${row.completed?(row.passMode==='strict'?'Strict':row.passMode==='grace'?'Coach':'Assist'):'ยังไม่ครบ'}</span></div>`
+).join('');
+el.deliveryText.textContent='บันทึกผลในเครื่องแล้ว และกำลังส่ง WHO Evidence เข้า Teacher/Research Sheet';
+}
+function sendResult(result){
+const outbox=readJson(STORAGE.outbox,[]);
+outbox.push({id:result.attemptId,payload:result,tries:0,createdAt:Date.now()});
+writeJson(STORAGE.outbox,outbox.slice(-25));
+flushOutbox();
+}
+async function flushOutbox(){
+if (!ENDPOINT||!navigator.onLine) return;
+const outbox=readJson(STORAGE.outbox,[]);
+if (!outbox.length) return;
+const remaining=[];
+for (const item of outbox) {
+try{
+await fetch(ENDPOINT,{
+method:'POST',mode:'no-cors',cache:'no-store',keepalive:true,
+headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(item.payload)
+});
+}catch(error){
+item.tries=Number(item.tries||0)+1;
+remaining.push(item);
+}
+}
+writeJson(STORAGE.outbox,remaining);
+if (el.summaryOverlay.classList.contains('show')) {
+el.deliveryText.textContent=remaining.length?'เก็บไว้ใน Outbox และจะส่งซ้ำเมื่อออนไลน์':'ส่งผลออกจาก Outbox แล้ว';
+}
+}
+function updateMission(){
+if (state.phase==='ready') {
+el.missionIcon.textContent='🧼';el.missionTitle.textContent='เตรียม WHO Handwashing';el.missionTip.textContent='กดเริ่มแล้วให้กล้องเห็นมือสองข้างเต็มเฟรม';
+return;
+}
+if (state.phase==='calibrate') {
+el.missionIcon.textContent='📷';el.missionTitle.textContent='Calibration';el.missionTip.textContent='ยกมือสองข้างให้อยู่กลางกรอบก่อนเริ่มจับเวลา WHO';

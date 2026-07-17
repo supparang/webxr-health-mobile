@@ -1,0 +1,42 @@
+/* Balance Hold Calibration Visibility v15 */
+body.bh-calibrating #calibrationOverlay{
+  background:linear-gradient(180deg,rgba(2,6,23,.08),rgba(2,6,23,.18));
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+  pointer-events:none;
+  align-items:start;
+  padding-top:18px;
+}
+body.bh-calibrating #calibrationOverlay .modal{
+  pointer-events:auto;
+  width:min(900px,calc(100% - 24px));
+  max-height:none;
+  padding:14px 16px;
+  background:rgba(255,255,255,.92);
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
+body.bh-calibrating #camera{opacity:1;filter:none}
+body.bh-calibrating .tint{background:linear-gradient(180deg,rgba(2,6,23,.04),rgba(2,6,23,.10))}
+body.bh-calibrating .crystalWorld,
+body.bh-calibrating .safeZone,
+body.bh-calibrating .poseGhost,
+body.bh-calibrating .crystal,
+body.bh-calibrating .holdRing,
+body.bh-calibrating .holdText,
+body.bh-calibrating .hud,
+body.bh-calibrating .poseBanner,
+body.bh-calibrating .energy,
+body.bh-calibrating .coach{display:none!important}
+body.bh-calibrating #poseCanvas{z-index:5}
+body.bh-calibrating #calibrationOverlay{z-index:60}
+.bh-cal-status{display:flex;justify-content:center;gap:8px;align-items:center;margin-top:10px;padding:8px 11px;border-radius:14px;background:#eff6ff;border:1px solid #93c5fd;color:#1d4ed8;font-size:12px;font-weight:1000}
+.bh-cal-status.warn{background:#fff7ed;border-color:#fdba74;color:#9a3412}
+.bh-cal-status.ok{background:#ecfdf5;border-color:#86efac;color:#047857}
+@media(max-width:760px){
+  body.bh-calibrating #calibrationOverlay{padding:8px;align-items:start}
+  body.bh-calibrating #calibrationOverlay .modal{width:100%;padding:12px}
+  body.bh-calibrating .modalHead{grid-template-columns:auto 1fr}
+  body.bh-calibrating .modalIcon{width:48px;height:48px;border-radius:16px;font-size:24px}
+  body.bh-calibrating .modal h2{font-size:24px}
+}

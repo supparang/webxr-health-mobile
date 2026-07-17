@@ -1,0 +1,30 @@
+/* Balance Hold Eight Pose Visual Guide v17 */
+.poseGhost.tree-left .ghostArm.l,.poseGhost.tree-left .ghostArm.r,
+.poseGhost.tree-right .ghostArm.l,.poseGhost.tree-right .ghostArm.r{top:31%;width:32%;transform:rotate(42deg)}
+.poseGhost.tree-left .ghostArm.l{right:49%;transform:rotate(-42deg)}
+.poseGhost.tree-left .ghostArm.r{left:49%;transform:rotate(42deg)}
+.poseGhost.tree-right .ghostArm.l{right:49%;transform:rotate(-42deg)}
+.poseGhost.tree-right .ghostArm.r{left:49%;transform:rotate(42deg)}
+.poseGhost.tree-left .ghostLeg.l{left:48%;transform:rotate(2deg)}
+.poseGhost.tree-left .ghostLeg.r{right:47%;height:92px;transform:rotate(-58deg);transform-origin:top}
+.poseGhost.tree-right .ghostLeg.r{right:48%;transform:rotate(-2deg)}
+.poseGhost.tree-right .ghostLeg.l{left:47%;height:92px;transform:rotate(58deg);transform-origin:top}
+.poseGhost.airplane-left .ghostBody,.poseGhost.airplane-right .ghostBody{top:27%;height:138px;transform-origin:bottom}
+.poseGhost.airplane-left .ghostBody{transform:translateX(-50%) rotate(18deg)}
+.poseGhost.airplane-right .ghostBody{transform:translateX(-50%) rotate(-18deg)}
+.poseGhost.airplane-left .ghostArm,.poseGhost.airplane-right .ghostArm{top:31%;width:47%}
+.poseGhost.airplane-left .ghostArm.l,.poseGhost.airplane-right .ghostArm.l{right:50%;transform:rotate(-5deg)}
+.poseGhost.airplane-left .ghostArm.r,.poseGhost.airplane-right .ghostArm.r{left:50%;transform:rotate(5deg)}
+.poseGhost.airplane-left .ghostLeg.l{left:48%;transform:rotate(4deg)}
+.poseGhost.airplane-left .ghostLeg.r{right:48%;transform:rotate(-52deg);height:145px}
+.poseGhost.airplane-right .ghostLeg.r{right:48%;transform:rotate(-4deg)}
+.poseGhost.airplane-right .ghostLeg.l{left:48%;transform:rotate(52deg);height:145px}
+.poseGhost.crystal-boss .ghostArm{top:25%;width:43%}
+.poseGhost.crystal-boss .ghostArm.l{right:49%;transform:rotate(-28deg)}
+.poseGhost.crystal-boss .ghostArm.r{left:49%;transform:rotate(28deg)}
+.poseGhost.crystal-boss .ghostLeg.l{left:46%;transform:rotate(13deg)}
+.poseGhost.crystal-boss .ghostLeg.r{right:46%;transform:rotate(-13deg)}
+.poseTierBadge{display:inline-flex;margin-left:7px;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.72);color:white;font-size:10px;font-weight:1000;vertical-align:middle}
+.eightPoseLegend{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:10px 0 2px}
+.eightPoseLegend span{padding:7px 8px;border-radius:13px;background:rgba(255,255,255,.76);border:1px solid rgba(125,211,252,.42);font-size:11px;font-weight:900;text-align:center}
+@media(max-width:760px){.eightPoseLegend{grid-template-columns:repeat(2,1fr)}.poseGhost.tree-left,.poseGhost.tree-right,.poseGhost.airplane-left,.poseGhost.airplane-right{transform:translate(-50%,-50%) scale(.88)}}

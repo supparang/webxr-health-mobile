@@ -1,409 +1,81 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Fitness AR Teacher Dashboard</title>
-  <style>
-    :root{
-      --bg:#08111f;
-      --panel:#111c30;
-      --panel2:#1a263a;
-      --line:#324058;
-      --text:#f8fafc;
-      --muted:#b9c4d6;
-      --soft:#dbeafe;
-      --good:#34d399;
-      --warn:#fbbf24;
-      --bad:#fb7185;
-      --accent:#60a5fa;
-      --accent2:#22d3ee;
-      --shadow:0 20px 60px rgba(0,0,0,.35);
-      --radius:24px;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai", sans-serif;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      min-height:100vh;
-      color:var(--text);
-      background:
-        radial-gradient(circle at 15% 8%, rgba(96,165,250,.22), transparent 34%),
-        radial-gradient(circle at 80% 0%, rgba(236,72,153,.16), transparent 28%),
-        linear-gradient(135deg, #06101d, #0b1221 48%, #111827);
-    }
-    .wrap{max-width:1440px;margin:0 auto;padding:28px}
-    .hero{
-      display:flex;align-items:center;justify-content:space-between;gap:18px;
-      background:rgba(15,23,42,.72);
-      border:1px solid rgba(148,163,184,.22);
-      box-shadow:var(--shadow);
-      border-radius:32px;
-      padding:28px;
-      backdrop-filter: blur(12px);
-    }
-    h1{font-size:clamp(34px,4vw,58px);line-height:1;margin:0}
-    .subtitle{margin-top:10px;color:var(--muted);font-weight:800;font-size:18px}
-    .badge{
-      border:1px solid rgba(148,163,184,.30);
-      background:rgba(30,41,59,.72);
-      color:#e2e8f0;
-      padding:10px 16px;border-radius:999px;font-weight:900;white-space:nowrap;
-    }
-    .filters{
-      margin-top:20px;
-      display:grid;
-      grid-template-columns: repeat(7, minmax(120px, 1fr));
-      gap:12px;
-    }
-    label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-weight:850;font-size:13px}
-    input,select,button{
-      border:1px solid rgba(148,163,184,.25);
-      background:#0d1728;
-      color:var(--text);
-      border-radius:16px;
-      padding:12px 14px;
-      font-weight:850;
-      outline:none;
-      min-height:44px;
-    }
-    button{
-      cursor:pointer;
-      background:linear-gradient(135deg,#22c55e,#38bdf8,#6366f1);
-      border:0;
-      box-shadow:0 12px 28px rgba(59,130,246,.2);
-    }
-    button.secondary{background:#1f2937;border:1px solid rgba(148,163,184,.25);box-shadow:none}
-    .grid{display:grid;gap:16px}
-    .kpis{margin-top:20px;grid-template-columns:repeat(6,1fr)}
-    .card{
-      background:rgba(15,23,42,.76);
-      border:1px solid rgba(148,163,184,.20);
-      border-radius:var(--radius);
-      padding:20px;
-      box-shadow:0 14px 34px rgba(0,0,0,.22);
-    }
-    .card h3{margin:0 0 12px;font-size:18px}
-    .kpiLabel{color:var(--muted);font-weight:900;font-size:13px}
-    .kpiValue{font-size:34px;font-weight:1000;margin-top:6px}
-    .kpiHint{color:var(--muted);font-size:12px;font-weight:800;margin-top:6px}
-    .main{
-      margin-top:16px;
-      display:grid;
-      grid-template-columns:1.15fr .85fr;
-      gap:16px;
-    }
-    .games{grid-template-columns:repeat(4,1fr)}
-    .gameCard .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
-    .pill{font-size:12px;color:#e0f2fe;background:rgba(14,165,233,.16);padding:6px 10px;border-radius:999px;font-weight:900}
-    .bar{height:10px;background:#172033;border-radius:999px;overflow:hidden;margin:10px 0}
-    .bar > span{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#38bdf8,#6366f1);border-radius:999px;width:0}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:11px 10px;border-bottom:1px solid rgba(148,163,184,.13);text-align:left;font-size:13px;vertical-align:middle}
-    th{color:#cbd5e1;font-weight:1000;background:rgba(15,23,42,.45);position:sticky;top:0}
-    td{color:#f8fafc;font-weight:720}
-    .muted{color:var(--muted)}
-    .right{text-align:right}
-    .statusGood{color:var(--good);font-weight:1000}
-    .statusWarn{color:var(--warn);font-weight:1000}
-    .statusBad{color:var(--bad);font-weight:1000}
-    .scroll{max-height:520px;overflow:auto;border-radius:18px}
-    .sectionTitle{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:12px}
-    .sectionTitle h2{margin:0;font-size:22px}
-    .loading{
-      display:flex;align-items:center;justify-content:center;min-height:240px;
-      color:var(--muted);font-weight:900;font-size:20px;
-    }
-    .toast{
-      position:fixed;right:24px;bottom:24px;background:#0f172a;border:1px solid rgba(148,163,184,.25);
-      color:#fff;padding:14px 16px;border-radius:16px;box-shadow:var(--shadow);display:none;font-weight:900;z-index:20;
-    }
-    @media (max-width:1100px){
-      .filters{grid-template-columns:repeat(3,1fr)}
-      .kpis{grid-template-columns:repeat(3,1fr)}
-      .main{grid-template-columns:1fr}
-      .games{grid-template-columns:repeat(2,1fr)}
-    }
-    @media (max-width:720px){
-      .wrap{padding:14px}
-      .hero{flex-direction:column;align-items:flex-start}
-      .filters,.kpis,.games{grid-template-columns:1fr}
-      .card{padding:16px}
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fitness AR Teacher Dashboard</title>
+<style>
+:root{--bg:#07101d;--panel:#101c2e;--panel2:#16243a;--line:#30435f;--text:#f8fafc;--muted:#aebbd0;--good:#34d399;--warn:#fbbf24;--bad:#fb7185;--accent:#38bdf8;--accent2:#818cf8;--shadow:0 20px 55px rgba(0,0,0,.34);font-family:Inter,ui-sans-serif,system-ui,"Noto Sans Thai",sans-serif}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;color:var(--text);background:radial-gradient(circle at 12% 0,rgba(56,189,248,.20),transparent 30%),radial-gradient(circle at 88% 0,rgba(129,140,248,.16),transparent 28%),linear-gradient(135deg,#06101c,#0b1220 48%,#111827)}
+.wrap{max-width:1500px;margin:auto;padding:24px}.card,.hero{background:rgba(15,23,42,.78);border:1px solid rgba(148,163,184,.20);border-radius:24px;box-shadow:var(--shadow)}
+.hero{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:24px}.hero h1{margin:0;font-size:clamp(30px,4vw,54px);line-height:1}.sub{color:var(--muted);font-weight:800;margin-top:8px}.badge,.pill{display:inline-flex;align-items:center;border-radius:999px;padding:8px 12px;background:rgba(30,41,59,.86);border:1px solid rgba(148,163,184,.25);font-size:12px;font-weight:900}
+.filters{display:grid;grid-template-columns:repeat(8,minmax(120px,1fr));gap:10px;margin-top:16px;padding:16px}.filters label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:12px;font-weight:900}.filters input,.filters select,button{min-height:44px;border-radius:14px;border:1px solid rgba(148,163,184,.24);background:#0c1728;color:var(--text);padding:10px 12px;font-weight:850;outline:none}button{cursor:pointer;background:linear-gradient(135deg,#22c55e,#38bdf8,#6366f1);border:0}.secondary{background:#1f2937;border:1px solid rgba(148,163,184,.25)}
+.grid{display:grid;gap:14px}.kpis{grid-template-columns:repeat(6,1fr);margin-top:16px}.kpi{padding:17px}.kpi small{display:block;color:var(--muted);font-weight:900}.kpi b{display:block;font-size:32px;margin-top:5px}.kpi em{display:block;color:var(--muted);font-size:11px;font-style:normal;margin-top:4px}
+.games{grid-template-columns:repeat(4,1fr);margin-top:14px}.game{padding:17px}.gameTop{display:flex;justify-content:space-between;align-items:center;gap:8px}.game h3{margin:0}.muted{color:var(--muted)}.bar{height:9px;border-radius:999px;background:#1c2a40;overflow:hidden;margin:9px 0}.bar i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#38bdf8,#818cf8)}
+.section{margin-top:14px;padding:18px}.sectionHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.sectionHead h2{margin:0;font-size:22px}.poseKpis{grid-template-columns:repeat(7,1fr)}.poseKpi{padding:13px;background:rgba(30,41,59,.62);border:1px solid rgba(148,163,184,.16);border-radius:17px}.poseKpi small{color:var(--muted);font-weight:900}.poseKpi b{display:block;font-size:25px;margin-top:4px}
+.two{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-top:14px}.scroll{overflow:auto;max-height:520px;border-radius:17px}table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:10px 9px;border-bottom:1px solid rgba(148,163,184,.13);text-align:left;font-size:12px;vertical-align:middle}th{position:sticky;top:0;background:#122037;color:#dbeafe;font-weight:1000;z-index:2}td{font-weight:750}.right{text-align:right}.good{color:var(--good);font-weight:1000}.warn{color:var(--warn);font-weight:1000}.bad{color:var(--bad);font-weight:1000}.empty{padding:28px;text-align:center;color:var(--muted);font-weight:900}.toast{position:fixed;right:18px;bottom:18px;display:none;z-index:50;padding:12px 15px;border-radius:14px;background:#0f172a;border:1px solid var(--line);box-shadow:var(--shadow);font-weight:900}.fallback{margin-top:10px;color:var(--warn);font-size:12px;font-weight:850}
+@media(max-width:1150px){.filters{grid-template-columns:repeat(4,1fr)}.kpis{grid-template-columns:repeat(3,1fr)}.games{grid-template-columns:repeat(2,1fr)}.poseKpis{grid-template-columns:repeat(4,1fr)}.two{grid-template-columns:1fr}}
+@media(max-width:720px){.wrap{padding:12px}.hero{align-items:flex-start;flex-direction:column}.filters,.kpis,.games,.poseKpis{grid-template-columns:1fr 1fr}.section{padding:13px}.hideMobile{display:none}}
+@media(max-width:440px){.filters,.kpis,.games,.poseKpis{grid-template-columns:1fr}}
+@media print{body{background:#fff;color:#111}.filters,.heroActions,.toast{display:none!important}.card,.hero{box-shadow:none;border:1px solid #ccc;background:#fff}.muted,.sub{color:#555}th{position:static;background:#eee;color:#111}}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <div>
-        <h1>Fitness AR Teacher Dashboard</h1>
-        <div class="subtitle">แดชบอร์ดรวม 4 เกม: Shadow Breaker • Rhythm Boxer • Jump Duck • Balance Hold</div>
-      </div>
-      <div class="badge" id="versionBadge"><?= version ?></div>
-    </section>
+<div class="wrap">
+  <section class="hero">
+    <div><h1>Fitness AR Teacher Dashboard</h1><div class="sub">Shadow Breaker • Rhythm Boxer • Jump Duck • Balance Hold Twin Pose</div><div id="fallbackNote" class="fallback"></div></div>
+    <div class="heroActions"><span class="badge" id="versionBadge"><?= version ?></span> <button class="secondary" id="printBtn">🖨️ Print</button></div>
+  </section>
 
-    <section class="filters card">
-      <label>จากวันที่ <input type="date" id="fromDate"></label>
-      <label>ถึงวันที่ <input type="date" id="toDate"></label>
-      <label>เกม
-        <select id="gameFilter">
-          <option value="all">ทุกเกม</option>
-          <option value="shadowbreaker">Shadow Breaker</option>
-          <option value="rhythmboxer">Rhythm Boxer</option>
-          <option value="jumpduck">Jump Duck</option>
-          <option value="balancehold">Balance Hold</option>
-        </select>
-      </label>
-      <label>ระดับ
-        <select id="diffFilter">
-          <option value="all">ทุกระดับ</option>
-          <option value="easy">Easy</option>
-          <option value="normal">Normal</option>
-          <option value="hard">Hard</option>
-        </select>
-      </label>
-      <label>ชั้น/กลุ่ม <input id="classFilter" placeholder="เช่น ป.5 หรือ FITNESS-P5"></label>
-      <label>ค้นหานักเรียน <input id="playerFilter" placeholder="ชื่อ/รหัส"></label>
-      <label>&nbsp;<button id="refreshBtn">Refresh</button></label>
-    </section>
+  <section class="filters card">
+    <label>จากวันที่<input type="date" id="fromDate"></label><label>ถึงวันที่<input type="date" id="toDate"></label>
+    <label>เกม<select id="gameFilter"><option value="all">ทุกเกม</option><option value="shadowbreaker">Shadow Breaker</option><option value="rhythmboxer">Rhythm Boxer</option><option value="jumpduck">Jump Duck</option><option value="balancehold">Balance Hold</option></select></label>
+    <label>ระดับ<select id="diffFilter"><option value="all">ทุกระดับ</option><option value="easy">Easy</option><option value="normal">Normal</option><option value="hard">Hard</option></select></label>
+    <label>ชั้น/กลุ่ม<input id="classFilter" list="classOptions" placeholder="เช่น ป.5"></label><datalist id="classOptions"></datalist>
+    <label>นักเรียน<input id="playerFilter" list="studentOptions" placeholder="ชื่อ/รหัส"></label><datalist id="studentOptions"></datalist>
+    <label>ข้อมูล<select id="assessmentMode"><option value="assessment">Assessment Ready</option><option value="all">ทุกการเล่น</option></select></label>
+    <label>ขอบเขต<select id="classroomScope"><option value="classroom">Classroom</option><option value="all">รวม Demo/Test</option></select></label>
+    <button id="refreshBtn">Refresh</button><button class="secondary" id="csvBtn">Export CSV</button>
+  </section>
 
-    <section class="grid kpis" id="kpis">
-      <div class="card"><div class="kpiLabel">รอบที่เล่น</div><div class="kpiValue" id="kRounds">-</div><div class="kpiHint">หลังตัดรอบซ้ำ</div></div>
-      <div class="card"><div class="kpiLabel">นักเรียนที่เล่น</div><div class="kpiValue" id="kStudents">-</div><div class="kpiHint">นับตามชื่อ/รหัส</div></div>
-      <div class="card"><div class="kpiLabel">คะแนนเฉลี่ย</div><div class="kpiValue" id="kScore">-</div><div class="kpiHint">ทุกเกมรวมกัน</div></div>
-      <div class="card"><div class="kpiLabel">Accuracy เฉลี่ย</div><div class="kpiValue" id="kAccuracy">-</div><div class="kpiHint">ความแม่นยำ</div></div>
-      <div class="card"><div class="kpiLabel">Completion เฉลี่ย</div><div class="kpiValue" id="kCompletion">-</div><div class="kpiHint">ผ่านภารกิจ/บอส</div></div>
-      <div class="card"><div class="kpiLabel">ต้องช่วยเสริม</div><div class="kpiValue" id="kSupport">-</div><div class="kpiHint">รอบที่เสี่ยง/ควรฝึกเพิ่ม</div></div>
-    </section>
+  <section class="grid kpis">
+    <div class="card kpi"><small>รอบที่เล่น</small><b id="kRounds">-</b><em>หลังตัดรอบซ้ำ</em></div><div class="card kpi"><small>นักเรียน</small><b id="kStudents">-</b><em>Canonical identity</em></div><div class="card kpi"><small>คะแนนเฉลี่ย</small><b id="kScore">-</b><em>ทุกเกม</em></div><div class="card kpi"><small>Accuracy</small><b id="kAccuracy">-</b><em>ค่าเฉลี่ย</em></div><div class="card kpi"><small>Completion</small><b id="kCompletion">-</b><em>ค่าเฉลี่ย</em></div><div class="card kpi"><small>ต้องช่วยเสริม</small><b id="kSupport">-</b><em>Action list</em></div>
+  </section>
+  <section class="grid games" id="gameCards"></section>
 
-    <section class="grid games" id="gameCards"></section>
+  <section class="card section" id="balancePoseSection">
+    <div class="sectionHead"><div><h2>💎 Balance Hold • Twin Pose Analytics</h2><div class="muted">แยกท่าถูก ความนิ่ง การเปลี่ยนท่า Safe Zone และคุณภาพ Tracking</div></div><span class="pill" id="balanceAvailability">กำลังโหลด</span></div>
+    <div class="grid poseKpis"><div class="poseKpi"><small>Pose Accuracy</small><b id="pPose">-</b></div><div class="poseKpi"><small>Stability</small><b id="pStable">-</b></div><div class="poseKpi"><small>Transition</small><b id="pTransition">-</b></div><div class="poseKpi"><small>Safe Zone</small><b id="pSafe">-</b></div><div class="poseKpi"><small>Tracking</small><b id="pTracking">-</b></div><div class="poseKpi"><small>Lost Pose</small><b id="pLost">-</b></div><div class="poseKpi"><small>Assist Rounds</small><b id="pAssist">-</b></div></div>
+    <div class="scroll" style="margin-top:12px"><table><thead><tr><th>เวลา</th><th>นักเรียน</th><th>ระดับ</th><th class="right">Score</th><th class="right">Pose</th><th class="right">Stability</th><th class="right">Transition</th><th class="right">Safe</th><th class="right">Tracking</th><th class="right">Lost</th><th class="right">Assist</th><th>ผล</th></tr></thead><tbody id="balanceBody"><tr><td colspan="12" class="empty">กำลังโหลด...</td></tr></tbody></table></div>
+  </section>
 
-    <section class="main">
-      <div class="card">
-        <div class="sectionTitle">
-          <h2>Leaderboard นักเรียน</h2>
-          <button class="secondary" id="csvBtn">Export Dashboard CSV</button>
-        </div>
-        <div class="scroll">
-          <table>
-            <thead><tr><th>#</th><th>นักเรียน</th><th>รอบ</th><th>เกม</th><th class="right">Best</th><th class="right">Avg Acc</th><th class="right">Completion</th></tr></thead>
-            <tbody id="leaderBody"><tr><td colspan="7" class="loading">กำลังโหลด...</td></tr></tbody>
-          </table>
-        </div>
-      </div>
+  <section class="two">
+    <div class="card section"><div class="sectionHead"><h2>Leaderboard นักเรียน</h2><span class="pill">Latest + Best</span></div><div class="scroll"><table><thead><tr><th>#</th><th>นักเรียน</th><th>รอบ</th><th>เกม</th><th class="right">Best</th><th class="right">Avg Acc</th><th class="right">Completion</th></tr></thead><tbody id="leaderBody"></tbody></table></div></div>
+    <div class="card section"><div class="sectionHead"><h2>ควรช่วยเสริม</h2><span class="pill">Action list</span></div><div class="scroll"><table><thead><tr><th>นักเรียน</th><th>เกม</th><th class="right">Acc</th><th>คำแนะนำ</th></tr></thead><tbody id="supportBody"></tbody></table></div></div>
+  </section>
 
-      <div class="card">
-        <div class="sectionTitle"><h2>ควรช่วยเสริม</h2><span class="pill">Action list</span></div>
-        <div class="scroll">
-          <table>
-            <thead><tr><th>นักเรียน</th><th>เกม</th><th class="right">Acc</th><th>คำแนะนำ</th></tr></thead>
-            <tbody id="supportBody"><tr><td colspan="4" class="loading">กำลังโหลด...</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <section class="card" style="margin-top:16px">
-      <div class="sectionTitle"><h2>รอบล่าสุด</h2><span class="pill" id="sheetLink"></span></div>
-      <div class="scroll">
-        <table>
-          <thead><tr><th>เวลา</th><th>เกม</th><th>นักเรียน</th><th>ระดับ</th><th class="right">Score</th><th class="right">Acc</th><th class="right">Hit</th><th class="right">Miss</th><th class="right">Bomb</th><th>ผล</th></tr></thead>
-          <tbody id="latestBody"><tr><td colspan="10" class="loading">กำลังโหลด...</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-  </div>
-
-  <div class="toast" id="toast"></div>
-
-  <script>
-    let DASH_DATA = null;
-
-    function $(id){ return document.getElementById(id); }
-    function fmt(n){ return Number(n || 0).toLocaleString('th-TH'); }
-    function pct(n){ return `${Number(n || 0).toFixed(1)}%`; }
-    function dateShort(s){
-      if(!s) return '-';
-      const d = new Date(s);
-      if(Number.isNaN(d.getTime())) return String(s).slice(0,16);
-      return d.toLocaleString('th-TH', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
-    }
-    function clsAcc(n){
-      n = Number(n || 0);
-      if(n >= 80) return 'statusGood';
-      if(n >= 60) return 'statusWarn';
-      return 'statusBad';
-    }
-    function toast(msg){
-      const el = $('toast');
-      el.textContent = msg;
-      el.style.display = 'block';
-      setTimeout(() => el.style.display = 'none', 2200);
-    }
-
-    function defaultDates(){
-      const now = new Date();
-      const past = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      $('toDate').value = now.toISOString().slice(0,10);
-      $('fromDate').value = past.toISOString().slice(0,10);
-    }
-
-    function filters(){
-      return {
-        from: $('fromDate').value,
-        to: $('toDate').value,
-        game: $('gameFilter').value,
-        difficulty: $('diffFilter').value,
-        classId: $('classFilter').value.trim(),
-        player: $('playerFilter').value.trim()
-      };
-    }
-
-    function load(){
-      setLoading();
-      const f = filters();
-
-      if(!window.google || !google.script || !google.script.run){
-        renderError('หน้านี้ต้องเปิดผ่าน Apps Script Web App เท่านั้น');
-        return;
-      }
-
-      google.script.run
-        .withSuccessHandler(render)
-        .withFailureHandler(err => renderError(err && err.message ? err.message : String(err)))
-        .FD_getDashboardData(f);
-    }
-
-    function setLoading(){
-      ['leaderBody','supportBody','latestBody'].forEach(id => {
-        $(id).innerHTML = `<tr><td colspan="10" class="loading">กำลังโหลดข้อมูล...</td></tr>`;
-      });
-    }
-
-    function renderError(msg){
-      toast(msg);
-      $('leaderBody').innerHTML = `<tr><td colspan="7" class="statusBad">${msg}</td></tr>`;
-      $('supportBody').innerHTML = `<tr><td colspan="4" class="statusBad">${msg}</td></tr>`;
-      $('latestBody').innerHTML = `<tr><td colspan="10" class="statusBad">${msg}</td></tr>`;
-    }
-
-    function render(data){
-      DASH_DATA = data;
-      const s = data.summary || {};
-      $('kRounds').textContent = fmt(s.totalRounds);
-      $('kStudents').textContent = fmt(s.activeStudents);
-      $('kScore').textContent = fmt(s.avgScore);
-      $('kAccuracy').textContent = pct(s.avgAccuracy);
-      $('kCompletion').textContent = pct(s.avgCompletion);
-      $('kSupport').textContent = fmt(s.needsSupportRounds);
-
-      $('versionBadge').textContent = data.version || 'Fitness Dashboard';
-      $('sheetLink').innerHTML = data.spreadsheetUrl ? `<a style="color:#bfdbfe;text-decoration:none" href="${data.spreadsheetUrl}" target="_blank">เปิด Google Sheet</a>` : '';
-
-      renderGameCards(data.gameStats || []);
-      renderLeaderboard(data.leaderboard || []);
-      renderSupport(data.needsSupport || []);
-      renderLatest(data.latest || []);
-    }
-
-    function renderGameCards(items){
-      const html = items.map(g => {
-        const acc = Math.max(0, Math.min(100, Number(g.avgAccuracy || 0)));
-        const comp = Math.max(0, Math.min(100, Number(g.avgCompletion || 0)));
-        return `
-          <div class="card gameCard">
-            <div class="top"><h3>${g.label}</h3><span class="pill">${fmt(g.rounds)} rounds</span></div>
-            <div class="muted">Students ${fmt(g.students)} • Best ${fmt(g.bestScore)}</div>
-            <div class="bar"><span style="width:${acc}%"></span></div>
-            <div class="muted">Avg Accuracy <b class="${clsAcc(acc)}">${pct(acc)}</b></div>
-            <div class="bar"><span style="width:${comp}%"></span></div>
-            <div class="muted">Completion <b class="${clsAcc(comp)}">${pct(comp)}</b></div>
-          </div>
-        `;
-      }).join('');
-      $('gameCards').innerHTML = html || `<div class="card">ยังไม่มีข้อมูลเกมในช่วงที่เลือก</div>`;
-    }
-
-    function renderLeaderboard(rows){
-      if(!rows.length){
-        $('leaderBody').innerHTML = `<tr><td colspan="7" class="muted">ยังไม่มีข้อมูล</td></tr>`;
-        return;
-      }
-      $('leaderBody').innerHTML = rows.map((r,i)=>`
-        <tr>
-          <td>${i+1}</td>
-          <td><b>${r.player || '-'}</b><div class="muted">${r.studentId || r.classId || ''}</div></td>
-          <td>${fmt(r.rounds)}</td>
-          <td>${fmt(r.gamesPlayed)}/4</td>
-          <td class="right">${fmt(r.bestScore)}</td>
-          <td class="right ${clsAcc(r.avgAccuracy)}">${pct(r.avgAccuracy)}</td>
-          <td class="right ${clsAcc(r.avgCompletion)}">${pct(r.avgCompletion)}</td>
-        </tr>
-      `).join('');
-    }
-
-    function renderSupport(rows){
-      if(!rows.length){
-        $('supportBody').innerHTML = `<tr><td colspan="4" class="statusGood">ยังไม่พบกลุ่มเสี่ยงในช่วงที่เลือก</td></tr>`;
-        return;
-      }
-      $('supportBody').innerHTML = rows.map(r=>`
-        <tr>
-          <td><b>${r.player || '-'}</b><div class="muted">${r.studentId || ''}</div></td>
-          <td>${r.gameLabel}</td>
-          <td class="right ${clsAcc(r.accuracy)}">${pct(r.accuracy)}</td>
-          <td>${r.advice || '-'}</td>
-        </tr>
-      `).join('');
-    }
-
-    function renderLatest(rows){
-      if(!rows.length){
-        $('latestBody').innerHTML = `<tr><td colspan="10" class="muted">ยังไม่มีข้อมูล</td></tr>`;
-        return;
-      }
-      $('latestBody').innerHTML = rows.map(r=>`
-        <tr>
-          <td>${dateShort(r.serverTimestamp || r.clientTimestamp)}</td>
-          <td>${r.gameLabel}</td>
-          <td><b>${r.studentName || r.player || '-'}</b></td>
-          <td>${r.difficulty || '-'}</td>
-          <td class="right">${fmt(r.score)}</td>
-          <td class="right ${clsAcc(r.accuracy)}">${pct(r.accuracy)}</td>
-          <td class="right">${fmt(r.hit)}</td>
-          <td class="right">${fmt(r.miss)}</td>
-          <td class="right">${fmt(r.bomb)}</td>
-          <td>${r.rank || r.endReason || '-'}</td>
-        </tr>
-      `).join('');
-    }
-
-    function exportCsv(){
-      if(!DASH_DATA || !DASH_DATA.records) return toast('ยังไม่มีข้อมูลให้ export');
-      const cols = ['serverTimestamp','gameLabel','studentName','studentId','classId','section','difficulty','duration','score','accuracy','completionRate','hit','miss','bomb','bestCombo','hitRatePerMin','rank'];
-      const lines = [cols.join(',')].concat(DASH_DATA.records.map(r => cols.map(c => {
-        const v = r[c] == null ? '' : String(r[c]).replace(/"/g,'""');
-        return `"${v}"`;
-      }).join(',')));
-      const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `fitness-ar-dashboard-${new Date().toISOString().slice(0,10)}.csv`;
-      a.click();
-      setTimeout(()=>URL.revokeObjectURL(url), 500);
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      defaultDates();
-      $('refreshBtn').addEventListener('click', load);
-      $('csvBtn').addEventListener('click', exportCsv);
-      ['fromDate','toDate','gameFilter','diffFilter'].forEach(id => $(id).addEventListener('change', load));
-      ['classFilter','playerFilter'].forEach(id => $(id).addEventListener('keydown', ev => {
-        if(ev.key === 'Enter') load();
-      }));
-      load();
-    });
-  </script>
+  <section class="card section"><div class="sectionHead"><h2>รอบล่าสุด</h2><span class="pill" id="sheetLink"></span></div><div class="scroll"><table><thead><tr><th>เวลา</th><th>เกม</th><th>นักเรียน</th><th>ระดับ</th><th class="right">Score</th><th class="right">Acc</th><th class="right">Completion</th><th class="right">Hit</th><th class="right">Miss</th><th>ผล</th></tr></thead><tbody id="latestBody"></tbody></table></div></section>
+</div><div class="toast" id="toast"></div>
+<script>
+'use strict';let DASH_DATA=null,USED_FALLBACK=false;const $=id=>document.getElementById(id),num=v=>Number(v||0),fmt=v=>num(v).toLocaleString('th-TH'),pct=v=>num(v).toFixed(1)+'%';
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function dateShort(v){if(!v)return'-';const d=new Date(v);return isNaN(d)?esc(String(v).slice(0,16)):d.toLocaleString('th-TH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+function cls(v){return num(v)>=80?'good':num(v)>=60?'warn':'bad'}function toast(v){$('toast').textContent=v;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2300)}
+function defaultDates(){const n=new Date(),p=new Date(Date.now()-7*86400000);$('toDate').value=n.toISOString().slice(0,10);$('fromDate').value=p.toISOString().slice(0,10)}
+function filters(){return{from:$('fromDate').value,to:$('toDate').value,game:$('gameFilter').value,difficulty:$('diffFilter').value,classId:$('classFilter').value.trim(),player:$('playerFilter').value.trim(),assessmentMode:$('assessmentMode').value,classroomScope:$('classroomScope').value}}
+function loading(){['leaderBody','supportBody','latestBody','balanceBody'].forEach(id=>$(id).innerHTML='<tr><td colspan="12" class="empty">กำลังโหลดข้อมูล...</td></tr>')}
+function load(){loading();$('fallbackNote').textContent='';if(!window.google?.script?.run)return error('หน้านี้ต้องเปิดผ่าน Apps Script Web App เท่านั้น');USED_FALLBACK=false;google.script.run.withSuccessHandler(render).withFailureHandler(()=>{USED_FALLBACK=true;google.script.run.withSuccessHandler(render).withFailureHandler(e=>error(e?.message||String(e))).FD_getDashboardData(filters())}).FD_getDashboardDataV37(filters())}
+function error(msg){toast(msg);['leaderBody','supportBody','latestBody','balanceBody'].forEach(id=>$(id).innerHTML=`<tr><td colspan="12" class="bad">${esc(msg)}</td></tr>`)}
+function render(data){DASH_DATA=data||{};const s=data.summary||{};$('kRounds').textContent=fmt(s.totalRounds);$('kStudents').textContent=fmt(s.activeStudents);$('kScore').textContent=fmt(s.avgScore);$('kAccuracy').textContent=pct(s.avgAccuracy);$('kCompletion').textContent=pct(s.avgCompletion);$('kSupport').textContent=fmt(s.needsSupportRounds);$('versionBadge').textContent=data.version||'Fitness Dashboard';$('sheetLink').innerHTML=data.spreadsheetUrl?`<a style="color:#bfdbfe;text-decoration:none" href="${esc(data.spreadsheetUrl)}" target="_blank">เปิด Google Sheet</a>`:'';$('fallbackNote').textContent=USED_FALLBACK?'⚠️ ใช้ Backend v3.6 fallback — วางไฟล์ fitness-dashboard-balance-pose-v3-7.gs แล้ว Deploy ใหม่เพื่อดู Pose metrics ครบ':'';options(data);games(data.gameStats||[]);leader(data.leaderboard||[]);support(data.needsSupport||[]);latest(data.latest||[]);balance(data.balancePose||null,data.records||[])}
+function options(d){$('studentOptions').innerHTML=(d.studentOptions||[]).map(o=>`<option value="${esc(o.studentId||o.value||o.label||'')}">${esc(o.label||o.studentName||'')}</option>`).join('');$('classOptions').innerHTML=(d.classOptions||[]).map(o=>`<option value="${esc(o.value||o.classId||o)}"></option>`).join('')}
+function games(rows){$('gameCards').innerHTML=rows.map(g=>`<div class="card game"><div class="gameTop"><h3>${esc(g.label)}</h3><span class="pill">${fmt(g.rounds)} rounds</span></div><div class="muted">Students ${fmt(g.students)} • Best ${fmt(g.bestScore)}</div><div class="bar"><i style="width:${Math.min(100,num(g.avgAccuracy))}%"></i></div><div>Accuracy <b class="${cls(g.avgAccuracy)}">${pct(g.avgAccuracy)}</b></div><div class="bar"><i style="width:${Math.min(100,num(g.avgCompletion))}%"></i></div><div>Completion <b class="${cls(g.avgCompletion)}">${pct(g.avgCompletion)}</b></div></div>`).join('')||'<div class="card empty">ยังไม่มีข้อมูล</div>'}
+function leader(rows){$('leaderBody').innerHTML=rows.length?rows.map((r,i)=>`<tr><td>${i+1}</td><td><b>${esc(r.player||'-')}</b><div class="muted">${esc(r.studentId||r.classId||'')}</div></td><td>${fmt(r.rounds)}</td><td>${fmt(r.gamesPlayed)}/4</td><td class="right">${fmt(r.bestScore)}</td><td class="right ${cls(r.avgAccuracy)}">${pct(r.avgAccuracy)}</td><td class="right ${cls(r.avgCompletion)}">${pct(r.avgCompletion)}</td></tr>`).join(''):'<tr><td colspan="7" class="empty">ยังไม่มีข้อมูล</td></tr>'}
+function support(rows){$('supportBody').innerHTML=rows.length?rows.map(r=>`<tr><td><b>${esc(r.player||'-')}</b><div class="muted">${esc(r.studentId||'')}</div></td><td>${esc(r.gameLabel||r.game||'-')}</td><td class="right ${cls(r.accuracy)}">${pct(r.accuracy)}</td><td>${esc(r.advice||'-')}</td></tr>`).join(''):'<tr><td colspan="4" class="good">ยังไม่พบกลุ่มเสี่ยง</td></tr>'}
+function latest(rows){$('latestBody').innerHTML=rows.length?rows.map(r=>`<tr><td>${dateShort(r.serverTimestamp||r.clientTimestamp)}</td><td>${esc(r.gameLabel||r.game)}</td><td><b>${esc(r.studentName||r.player||'-')}</b><div class="muted">${esc(r.studentId||'')}</div></td><td>${esc(r.difficulty||'-')}</td><td class="right">${fmt(r.score)}</td><td class="right ${cls(r.accuracy)}">${pct(r.accuracy)}</td><td class="right ${cls(r.completionRate)}">${pct(r.completionRate)}</td><td class="right">${fmt(r.hit)}</td><td class="right">${fmt(r.miss)}</td><td>${esc(r.rank||r.endReason||'-')}</td></tr>`).join(''):'<tr><td colspan="10" class="empty">ยังไม่มีข้อมูล</td></tr>'}
+function average(rows,k){const v=rows.map(r=>Number(r[k])).filter(Number.isFinite);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0}
+function balance(panel,records){let rows=panel?.rows||records.filter(r=>r.game==='balancehold'&&r.balancePoseAvailable);const has=!!panel?.available||rows.some(r=>r.poseAccuracy!=null);$('balanceAvailability').textContent=has?`${fmt(panel?.rounds||rows.length)} rounds • Pose data ready`:'รอ Backend v3.7 / ข้อมูลรอบใหม่';const m=panel||{avgPoseAccuracy:average(rows,'poseAccuracy'),avgStability:average(rows,'stabilityScore'),avgTransition:average(rows,'transitionScore'),avgSafeZone:average(rows,'safeZoneScore'),avgTracking:average(rows,'trackingCoverage'),totalLostPose:rows.reduce((s,r)=>s+num(r.lostPoseCount),0),assistedRounds:rows.filter(r=>num(r.assistLevelMax)>0).length};$('pPose').textContent=pct(m.avgPoseAccuracy);$('pStable').textContent=pct(m.avgStability);$('pTransition').textContent=pct(m.avgTransition);$('pSafe').textContent=pct(m.avgSafeZone);$('pTracking').textContent=pct(m.avgTracking);$('pLost').textContent=fmt(m.totalLostPose);$('pAssist').textContent=fmt(m.assistedRounds);$('balanceBody').innerHTML=rows.length?rows.slice(0,120).map(r=>`<tr><td>${dateShort(r.serverTimestamp||r.clientTimestamp||r.timestamp)}</td><td><b>${esc(r.studentName||r.player||'-')}</b><div class="muted">${esc(r.studentId||'')}</div></td><td>${esc(r.difficulty||'-')}</td><td class="right">${fmt(r.score)}</td><td class="right ${cls(r.poseAccuracy)}">${pct(r.poseAccuracy)}</td><td class="right ${cls(r.stabilityScore)}">${pct(r.stabilityScore)}</td><td class="right ${cls(r.transitionScore)}">${pct(r.transitionScore)}</td><td class="right ${cls(r.safeZoneScore)}">${pct(r.safeZoneScore)}</td><td class="right ${cls(r.trackingCoverage)}">${pct(r.trackingCoverage)}</td><td class="right">${fmt(r.lostPoseCount)}</td><td class="right">${fmt(r.assistLevelMax)}</td><td>${esc(r.rank||r.endReason||'-')}</td></tr>`).join(''):'<tr><td colspan="12" class="empty">ยังไม่มี Pose metrics ในช่วงที่เลือก</td></tr>'}
+function exportCsv(){if(!DASH_DATA?.records)return toast('ยังไม่มีข้อมูล');const cols=['serverTimestamp','gameLabel','studentName','studentId','classId','section','difficulty','duration','score','accuracy','completionRate','poseAccuracy','stabilityScore','transitionScore','safeZoneScore','trackingCoverage','lostPoseCount','assistLevelMax','rank'],lines=[cols.join(',')].concat(DASH_DATA.records.map(r=>cols.map(c=>`"${String(r[c]??'').replace(/"/g,'""')}"`).join(','))),blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=`fitness-ar-dashboard-${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(u),500)}
+document.addEventListener('DOMContentLoaded',()=>{defaultDates();$('refreshBtn').onclick=load;$('csvBtn').onclick=exportCsv;$('printBtn').onclick=()=>print();['fromDate','toDate','gameFilter','diffFilter','assessmentMode','classroomScope'].forEach(id=>$(id).onchange=load);['classFilter','playerFilter'].forEach(id=>$(id).onkeydown=e=>{if(e.key==='Enter')load()});load()});
+</script>
 </body>
 </html>
