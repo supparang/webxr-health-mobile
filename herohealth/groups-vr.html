@@ -1,24 +1,1545 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#dff5ff">
-<title>HeroHealth • Food Groups Launcher</title>
-<style>
-:root{--ink:#214f64;--muted:#6f8fa1;--line:#d6edf7;--blue:#55b8ff;--green:#7ed957;--gold:#ffd966;--orange:#ff9d3d;--purple:#8e76ff;--shadow:0 18px 55px rgba(37,89,121,.14);--sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px)}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:radial-gradient(circle at 12% 6%,rgba(126,217,87,.24),transparent 28%),radial-gradient(circle at 88% 10%,rgba(85,184,255,.25),transparent 30%),linear-gradient(135deg,#dff5ff,#fff7df);overflow-x:hidden}button{font:inherit}.page{width:min(1180px,100%);margin:auto;padding:calc(14px + var(--sat)) 12px calc(28px + var(--sab));display:grid;gap:16px}.panel{background:rgba(255,255,255,.86);border:2px solid rgba(255,255,255,.92);border-radius:30px;box-shadow:var(--shadow);backdrop-filter:blur(13px)}.hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:20px}.brand{display:flex;gap:14px;align-items:center}.icon{width:76px;height:76px;border-radius:25px;display:grid;place-items:center;font-size:43px;background:linear-gradient(135deg,#d8ffe1,#73e099)}h1{margin:0;font-size:clamp(2rem,5vw,3.6rem);line-height:1}.hero p{margin:7px 0 0;color:var(--muted);font-weight:850;line-height:1.4}.heroActions,.cta{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}.pill,.btn{border:0;border-radius:999px;min-height:44px;padding:9px 14px;font-weight:1000;cursor:pointer}.pill{background:#fff;border:2px solid var(--line);cursor:default}.btn.soft{background:#eef8ff;color:var(--ink);border:2px solid var(--line)}.btn.teacher{background:linear-gradient(135deg,#c8baff,#8e76ff);color:#fff}.section{padding:18px}.head{display:flex;justify-content:space-between;gap:12px;align-items:end;margin-bottom:13px}.head h2{margin:0;font-size:clamp(1.55rem,3.2vw,2.35rem)}.head p{margin:4px 0 0;color:var(--muted);font-weight:820}.grid{display:grid;gap:11px}.entryGrid{grid-template-columns:repeat(5,minmax(160px,1fr))}.modeGrid{grid-template-columns:repeat(4,minmax(170px,1fr))}.card{position:relative;border:3px solid var(--line);border-radius:25px;background:rgba(255,255,255,.86);padding:15px;min-height:180px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;cursor:pointer;box-shadow:0 9px 23px rgba(37,89,121,.08);transition:.16s}.card:hover{transform:translateY(-3px)}.card.active{border-color:var(--blue);background:linear-gradient(180deg,#f2fcff,#fff)}.card.recommended{border-color:#72d68a}.card .emoji{width:69px;height:69px;border-radius:22px;display:grid;place-items:center;font-size:38px;background:#f5fbff;border:2px solid var(--line)}.card h3{margin:2px 0 0;font-size:1.25rem}.card p{margin:0;color:var(--muted);font-size:.82rem;font-weight:820;line-height:1.28}.badge{position:absolute;top:9px;right:9px;border-radius:999px;padding:4px 8px;background:#efffea;color:#2f7a31;border:1px solid #bde8c5;font-size:.66rem;font-weight:1000}.badge.blue{background:#eef8ff;color:#34708e;border-color:#bfe7f9}.badge.gold{background:#fff8df;color:#80610a;border-color:#f1dc8c}.summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px}.summary h2{margin:0;font-size:1.45rem}.summary p{margin:6px 0 0;color:var(--muted);font-weight:820;line-height:1.4}.start{border:0;border-radius:999px;min-height:57px;padding:12px 22px;background:linear-gradient(135deg,var(--orange),#ff7f36);color:#fff;font-size:1.18rem;font-weight:1000;cursor:pointer}.check{border:0;border-radius:999px;min-height:52px;padding:11px 17px;background:linear-gradient(135deg,#86e39b,#52c94b);color:#173d22;font-weight:1000;cursor:pointer}.note{padding:13px 15px;border-radius:18px;background:#fff8df;border:1px dashed #ead68a;color:#745b12;font-weight:850;line-height:1.45}.contract{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.contract div{padding:13px;border-radius:18px;background:#f7fcff;border:1px solid var(--line)}.contract b{display:block}.contract small{display:block;margin-top:4px;color:var(--muted);font-weight:800;line-height:1.35}@media(max-width:1020px){.entryGrid{grid-template-columns:repeat(2,1fr)}.modeGrid{grid-template-columns:repeat(2,1fr)}}@media(max-width:700px){.hero,.summary{grid-template-columns:1fr}.heroActions,.cta{justify-content:flex-start}.entryGrid,.modeGrid,.contract{grid-template-columns:1fr}.card{min-height:150px}.head{display:block}}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#dff5ff" />
+  <meta name="color-scheme" content="light" />
+
+  <title>HeroHealth • Food Groups Launcher</title>
+
+  <style>
+    :root{
+      --bg1:#dff5ff;
+      --bg2:#fff7df;
+      --card:#ffffff;
+      --card2:#f7fdff;
+      --text:#214f64;
+      --muted:#6f8fa1;
+      --line:#d6edf7;
+      --line2:#bee7fb;
+      --blue:#55b8ff;
+      --blue2:#2f95ff;
+      --green:#7ed957;
+      --green2:#52c94b;
+      --yellow:#ffd966;
+      --orange:#ff9d3d;
+      --red:#ff6b6b;
+      --purple:#8e76ff;
+      --shadow:0 20px 70px rgba(37,89,121,.16);
+      --softShadow:0 12px 32px rgba(37,89,121,.11);
+      --safeTop:env(safe-area-inset-top,0px);
+      --safeBottom:env(safe-area-inset-bottom,0px);
+    }
+
+    *{
+      box-sizing:border-box;
+    }
+
+    html,
+    body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 14% 8%, rgba(126,217,87,.24), transparent 28%),
+        radial-gradient(circle at 86% 9%, rgba(85,184,255,.25), transparent 32%),
+        radial-gradient(circle at 60% 92%, rgba(255,217,102,.20), transparent 34%),
+        linear-gradient(135deg,var(--bg1),var(--bg2));
+      overflow-x:hidden;
+    }
+
+    body{
+      padding:
+        calc(18px + var(--safeTop))
+        clamp(12px,2.4vw,28px)
+        calc(28px + var(--safeBottom));
+    }
+
+    a{
+      color:inherit;
+      text-decoration:none;
+    }
+
+    button{
+      font-family:inherit;
+    }
+
+    .page{
+      width:min(1500px,100%);
+      margin:0 auto;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:18px;
+      align-items:center;
+      padding:clamp(18px,3vw,28px);
+      border-radius:36px;
+      background:rgba(255,255,255,.78);
+      border:2px solid rgba(255,255,255,.85);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(14px);
+      margin-bottom:22px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:16px;
+      min-width:0;
+    }
+
+    .brandIcon{
+      width:78px;
+      height:78px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      font-size:44px;
+      background:linear-gradient(135deg,#fff5a8,#ffd966);
+      box-shadow:0 14px 34px rgba(255,190,60,.22);
+      flex:0 0 auto;
+    }
+
+    .hero h1{
+      margin:0;
+      font-size:clamp(30px,4.4vw,58px);
+      line-height:1.02;
+      letter-spacing:-1px;
+    }
+
+    .hero p{
+      margin:8px 0 0;
+      color:var(--muted);
+      font-weight:850;
+      font-size:clamp(15px,2vw,20px);
+      line-height:1.35;
+    }
+
+    .heroActions{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      gap:10px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      min-height:42px;
+      padding:9px 14px;
+      border-radius:999px;
+      border:2px solid rgba(214,237,247,.95);
+      background:rgba(255,255,255,.86);
+      color:var(--text);
+      font-weight:950;
+      box-shadow:0 8px 20px rgba(37,89,121,.08);
+      white-space:nowrap;
+    }
+
+    .pill.green{
+      border-color:rgba(126,217,87,.55);
+      background:rgba(239,255,234,.88);
+      color:#2f7a31;
+    }
+
+    .pill.yellow{
+      border-color:rgba(255,217,102,.8);
+      background:rgba(255,250,226,.9);
+      color:#8b6810;
+    }
+
+    .section{
+      background:rgba(255,255,255,.80);
+      border:2px solid rgba(255,255,255,.9);
+      border-radius:36px;
+      box-shadow:var(--softShadow);
+      padding:clamp(18px,2.8vw,28px);
+      margin:22px 0;
+      backdrop-filter:blur(12px);
+    }
+
+    .sectionHead{
+      display:grid;
+      grid-template-columns:1fr auto;
+      align-items:center;
+      gap:12px;
+      margin-bottom:18px;
+    }
+
+    .section h2{
+      margin:0;
+      font-size:clamp(30px,4vw,52px);
+      line-height:1.05;
+      letter-spacing:-.8px;
+    }
+
+    .section .sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-weight:850;
+      font-size:clamp(14px,1.8vw,18px);
+      line-height:1.35;
+    }
+
+    .grid{
+      display:grid;
+      gap:14px;
+    }
+
+    .modeGrid{
+      grid-template-columns:repeat(5,minmax(170px,1fr));
+    }
+
+    .deviceGrid{
+      grid-template-columns:repeat(3,minmax(220px,1fr));
+    }
+
+    .variantGrid{
+      grid-template-columns:repeat(4,minmax(220px,1fr));
+    }
+
+    .card{
+      position:relative;
+      min-height:176px;
+      border-radius:28px;
+      background:rgba(255,255,255,.78);
+      border:3px solid rgba(214,237,247,.95);
+      box-shadow:0 10px 24px rgba(37,89,121,.08);
+      padding:18px;
+      cursor:pointer;
+      text-align:center;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      overflow:hidden;
+      transition:
+        transform .18s ease,
+        box-shadow .18s ease,
+        border-color .18s ease,
+        background .18s ease,
+        opacity .18s ease;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .card::before{
+      content:"";
+      position:absolute;
+      right:-40px;
+      top:-44px;
+      width:150px;
+      height:150px;
+      border-radius:999px;
+      background:rgba(214,237,247,.5);
+      pointer-events:none;
+    }
+
+    .card:hover{
+      transform:translateY(-3px);
+      box-shadow:0 18px 38px rgba(37,89,121,.15);
+    }
+
+    .card.active{
+      border-color:rgba(85,184,255,.95);
+      background:linear-gradient(180deg,rgba(245,253,255,.98),rgba(255,255,255,.92));
+      box-shadow:0 18px 44px rgba(47,149,255,.18);
+    }
+
+    .card.disabled{
+      opacity:.56;
+      filter:grayscale(.2);
+      cursor:not-allowed;
+      transform:none !important;
+    }
+
+    .card .emoji{
+      position:relative;
+      z-index:1;
+      width:74px;
+      height:74px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      font-size:40px;
+      background:linear-gradient(135deg,#f5fbff,#ffffff);
+      border:2px solid rgba(214,237,247,.9);
+      box-shadow:0 10px 24px rgba(37,89,121,.08);
+    }
+
+    .card h3{
+      position:relative;
+      z-index:1;
+      margin:4px 0 0;
+      font-size:clamp(23px,2.7vw,32px);
+      line-height:1.08;
+      letter-spacing:-.4px;
+    }
+
+    .card p{
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--muted);
+      font-weight:850;
+      font-size:clamp(13px,1.6vw,16px);
+      line-height:1.28;
+    }
+
+    .badge{
+      position:absolute;
+      right:12px;
+      top:12px;
+      z-index:3;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:30px;
+      padding:5px 10px;
+      border-radius:999px;
+      background:#fff8df;
+      color:#8b6810;
+      border:2px solid rgba(255,217,102,.78);
+      font-weight:950;
+      font-size:13px;
+      line-height:1;
+      white-space:nowrap;
+    }
+
+    .badge.ready{
+      background:#efffea;
+      color:#2f7a31;
+      border-color:rgba(126,217,87,.65);
+    }
+
+    .badge.soon{
+      background:#fff7e6;
+      color:#8b6810;
+      border-color:rgba(255,217,102,.75);
+    }
+
+    .badge.locked{
+      background:#f3f8fb;
+      color:#7794a5;
+      border-color:rgba(214,237,247,.95);
+    }
+
+    .selectedBox{
+      display:grid;
+      grid-template-columns:1.2fr auto;
+      gap:18px;
+      align-items:center;
+      margin-top:22px;
+      padding:18px;
+      border-radius:30px;
+      background:rgba(255,255,255,.82);
+      border:2px solid rgba(214,237,247,.95);
+      box-shadow:0 10px 24px rgba(37,89,121,.08);
+    }
+
+    .summary h3{
+      margin:0;
+      font-size:clamp(22px,2.8vw,34px);
+      line-height:1.12;
+    }
+
+    .summary p{
+      margin:8px 0 0;
+      color:var(--muted);
+      font-weight:850;
+      line-height:1.35;
+    }
+
+    .ctaRow{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      gap:12px;
+    }
+
+    .btn{
+      border:0;
+      min-height:58px;
+      padding:13px 22px;
+      border-radius:999px;
+      font-weight:950;
+      font-size:clamp(18px,2vw,24px);
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      box-shadow:0 14px 30px rgba(0,0,0,.12);
+      transition:transform .16s ease, filter .16s ease, opacity .16s ease;
+      white-space:nowrap;
+    }
+
+    .btn:hover{
+      transform:translateY(-2px);
+      filter:brightness(1.02);
+    }
+
+    .btn.primary{
+      color:white;
+      background:linear-gradient(135deg,var(--orange),#ff7f36);
+    }
+
+    .btn.blue{
+      color:white;
+      background:linear-gradient(135deg,var(--blue),var(--blue2));
+    }
+
+    .btn.soft{
+      color:var(--text);
+      background:#eef8ff;
+      border:2px solid rgba(214,237,247,.95);
+      box-shadow:0 10px 24px rgba(37,89,121,.08);
+    }
+
+    .btn.green{
+      color:white;
+      background:linear-gradient(135deg,var(--green),var(--green2));
+    }
+
+    .btn[disabled]{
+      cursor:not-allowed;
+      opacity:.55;
+      filter:grayscale(.2);
+      transform:none;
+    }
+
+    .info{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:12px;
+      margin-top:16px;
+    }
+
+    .infoBox{
+      padding:12px 14px;
+      border-radius:22px;
+      background:rgba(245,253,255,.86);
+      border:2px solid rgba(214,237,247,.9);
+      text-align:center;
+    }
+
+    .infoBox b{
+      display:block;
+      font-size:clamp(18px,2vw,25px);
+      line-height:1.15;
+    }
+
+    .infoBox span{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-weight:850;
+      font-size:13px;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(20px + var(--safeBottom));
+      transform:translateX(-50%) translateY(18px);
+      z-index:999999;
+      width:min(92vw,560px);
+      padding:12px 16px;
+      border-radius:20px;
+      background:rgba(21,48,74,.94);
+      color:white;
+      text-align:center;
+      font-weight:900;
+      box-shadow:0 18px 44px rgba(0,0,0,.25);
+      opacity:0;
+      pointer-events:none;
+      transition:.18s ease;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .debug{
+      display:none;
+      margin-top:14px;
+      padding:12px;
+      border-radius:18px;
+      background:#f5fbff;
+      border:1px solid var(--line);
+      color:#537184;
+      font-size:12px;
+      font-weight:800;
+      word-break:break-all;
+    }
+
+    body.debug-on .debug{
+      display:block;
+    }
+
+    @media (max-width:1100px){
+      .modeGrid{
+        grid-template-columns:repeat(2,minmax(220px,1fr));
+      }
+
+      .variantGrid{
+        grid-template-columns:repeat(2,minmax(220px,1fr));
+      }
+    }
+
+    @media (max-width:820px){
+      body{
+        padding:12px 10px calc(22px + var(--safeBottom));
+      }
+
+      .hero{
+        grid-template-columns:1fr;
+        border-radius:28px;
+      }
+
+      .brandIcon{
+        width:64px;
+        height:64px;
+        font-size:36px;
+        border-radius:20px;
+      }
+
+      .heroActions{
+        justify-content:flex-start;
+      }
+
+      .section{
+        border-radius:28px;
+        padding:16px;
+      }
+
+      .sectionHead{
+        grid-template-columns:1fr;
+      }
+
+      .modeGrid,
+      .deviceGrid,
+      .variantGrid{
+        grid-template-columns:1fr;
+      }
+
+      .card{
+        min-height:150px;
+        border-radius:24px;
+      }
+
+      .selectedBox{
+        grid-template-columns:1fr;
+      }
+
+      .ctaRow{
+        justify-content:stretch;
+      }
+
+      .btn{
+        width:100%;
+      }
+
+      .info{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
 </head>
+
 <body>
-<main class="page">
-<section class="hero panel"><div class="brand"><div class="icon">🥦</div><div><h1>Food Groups</h1><p>ถามเพียง “อาหารนี้อยู่หมู่ไหน?” — Camera AR มี Warmup และ Cooldown ก่อน–หลังเกม</p></div></div><div class="heroActions"><span class="pill" id="playerPill">👤 Hero</span><span class="pill" id="qaPill">🧪 ยังไม่ตรวจเครื่อง</span><button class="btn teacher" id="teacher">📊 Teacher View</button><button class="btn soft" id="zone">🥗 Nutrition Zone</button></div></section>
-<section class="section panel"><div class="head"><div><h2>1. เลือกวิธีเล่น</h2><p>Camera AR เป็นเส้นทางแนะนำ: Warmup AR → Game AR → Cooldown AR</p></div></div><div class="grid entryGrid"><button class="card recommended active" data-entry="ar"><span class="badge">แนะนำ</span><span class="emoji">📷</span><h3>Camera AR</h3><p>Warmup • Pinch & Drop • Boss • Cooldown</p></button><button class="card" data-entry="check"><span class="badge blue">ตรวจเครื่อง</span><span class="emoji">🧪</span><h3>Device Check</h3><p>วัด FPS มือ Pinch และประตูทั้ง 5</p></button><button class="card" data-entry="mobile"><span class="badge blue">โหมดเดิม</span><span class="emoji">📱</span><h3>Mobile</h3><p>แตะหน้าจอผ่าน Groups เดิม</p></button><button class="card" data-entry="pc"><span class="badge blue">โหมดเดิม</span><span class="emoji">🖥️</span><h3>PC</h3><p>เมาส์และคีย์บอร์ดผ่าน Groups เดิม</p></button><button class="card" data-entry="cvr"><span class="badge gold">Cardboard</span><span class="emoji">🥽</span><h3>Cardboard</h3><p>เปิดประสบการณ์ cVR เดิม</p></button></div></section>
-<section class="section panel"><div class="head"><div><h2>2. เลือกระดับภารกิจ</h2><p>ทุกระดับวัด Classification ไม่ปนสัดส่วนจาน</p></div></div><div class="grid modeGrid"><button class="card" data-variant="learn"><span class="emoji">🌱</span><h3>Learn</h3><p>คำใบ้ชัด • ทีละชิ้น • เวลาไม่กดดัน</p></button><button class="card active" data-variant="normal"><span class="emoji">⚡</span><h3>Normal</h3><p>Training, Sort, Speed, Reason, Retry และ Boss</p></button><button class="card" data-variant="challenge"><span class="emoji">🔥</span><h3>Challenge</h3><p>อาหารชวนสับสนมากขึ้นและคำใบ้น้อยลง</p></button><button class="card" data-variant="boss-rush"><span class="emoji">👾</span><h3>Boss Rush</h3><p>เข้า Boss 3 Phase ทันทีสำหรับการเล่นซ้ำ</p></button></div></section>
-<section class="summary panel"><div><h2 id="summaryTitle">พร้อมเริ่ม Camera AR • Normal</h2><p id="summaryText">ระบบจะเริ่ม Warmup AR-lite ก่อนเข้าตัวเกม และเปิด Touch Fallback หากกล้องหรือมือไม่พร้อม</p></div><div class="cta"><button class="check" id="deviceCheck">🧪 ตรวจอุปกรณ์</button><button class="start" id="start">เริ่ม Warmup AR</button></div></section>
-<section class="section panel"><div class="head"><div><h2>Canonical Flow</h2></div></div><div class="contract"><div><b>Warmup AR-lite</b><small>เห็นมือ • Pinch 3 ครั้ง • เอื้อมครบ 5 จุด</small></div><div><b>Groups AR</b><small>Classification • Reason • Retry • Boss 3 Phase</small></div><div><b>Cooldown AR-lite</b><small>พักมือ • หายใจช้า ๆ • กลับ Nutrition Zone</small></div></div><div class="note" id="qaNote">แนะนำให้เปิด Device Check อย่างน้อยหนึ่งครั้งบนอุปกรณ์จริงก่อนใช้ในชั้นเรียน</div></section>
-</main>
-<script>
-(function(){'use strict';const q=new URLSearchParams(location.search),$=id=>document.getElementById(id);const state={entry:'ar',variant:(q.get('variant')||'normal').toLowerCase()};const get=(k,d)=>q.get(k)||d,qa=(()=>{try{return JSON.parse(localStorage.getItem('HHA_GROUPS_AR_QA_PROFILE')||'null')}catch(_){return null}})();$('playerPill').textContent='👤 '+get('name',get('studentName','Hero'));if(qa&&qa.version){$('qaPill').textContent=`🧪 FPS ${qa.fps||'-'} • มือ ${qa.handSeenRate||0}%`;$('qaNote').textContent=`พบ Device QA profile: Pinch ${qa.pinchClose}/${qa.pinchOpen}, Detect ${qa.detectEveryMs} ms`}const labels={ar:'Camera AR',check:'Device Check',mobile:'Mobile',pc:'PC',cvr:'Cardboard'},variants={learn:'Learn',normal:'Normal',challenge:'Challenge','boss-rush':'Boss Rush'};function active(sel,attr,val){document.querySelectorAll(sel).forEach(el=>el.classList.toggle('active',el.getAttribute(attr)===val))}function update(){active('[data-entry]','data-entry',state.entry);active('[data-variant]','data-variant',state.variant);$('summaryTitle').textContent=`พร้อมเริ่ม ${labels[state.entry]} • ${variants[state.variant]}`;$('summaryText').textContent=state.entry==='ar'?'เริ่ม Warmup AR-lite ก่อนเข้าเกม และจบด้วย Cooldown AR-lite':state.entry==='check'?'ตรวจอุปกรณ์ก่อนส่งค่าปรับเข้าสู่ Camera AR':'เปิด Groups โหมดเดิมโดยเก็บข้อมูลผู้เล่นและทางกลับ Nutrition Zone';$('start').textContent=state.entry==='ar'?'เริ่ม Warmup AR':state.entry==='check'?'เริ่ม Device Check':'เริ่มเล่น'}document.querySelectorAll('[data-entry]').forEach(el=>el.onclick=()=>{state.entry=el.dataset.entry;update()});document.querySelectorAll('[data-variant]').forEach(el=>el.onclick=()=>{state.variant=el.dataset.variant;update()});function base(path){const u=new URL(path,location.href);['pid','name','studentId','studentName','section','classSection','studyId','conditionGroup','api','log','teacher','debug','seed'].forEach(k=>{const v=q.get(k);if(v)u.searchParams.set(k,v)});u.searchParams.set('pid',get('pid',get('studentId','anon')));u.searchParams.set('name',get('name',get('studentName','Hero')));u.searchParams.set('diff',state.variant==='learn'?'easy':state.variant==='challenge'?'hard':get('diff','normal'));u.searchParams.set('variant',state.variant);u.searchParams.set('time',get('time',state.variant==='learn'?'420':'300'));u.searchParams.set('zone','nutrition');u.searchParams.set('game','groups');u.searchParams.set('gameId','groups');u.searchParams.set('hub',new URL('./nutrition-zone.html',location.href).toString());return u}function openAr(){const game=base('./groups-ar.html'),zone=base('./nutrition-zone.html'),gate=base('./groups-ar-gate.html');gate.searchParams.set('phase','warmup');gate.searchParams.set('next',game.toString());gate.searchParams.set('back',zone.toString());location.assign(gate)}function go(entry=state.entry){if(entry==='ar')return openAr();let u;if(entry==='check')u=base('./vr-groups/groups-ar-check-v2.html');else{u=base('./vr-groups/groups.html');u.searchParams.set('view',entry);u.searchParams.set('mode','solo');u.searchParams.set('run','play')}location.assign(u)}$('start').onclick=()=>go();$('deviceCheck').onclick=()=>go('check');$('zone').onclick=()=>location.assign(base('./nutrition-zone.html'));$('teacher').onclick=()=>location.assign(base('./groups-ar-teacher.html'));update()})();
+  <div class="page">
+    <header class="hero">
+      <div class="brand">
+        <div class="brandIcon">🥦</div>
+        <div>
+          <h1>Food Groups</h1>
+          <p>
+            เลือกโหมดใหญ่ → เลือกอุปกรณ์ → เลือกรูปแบบ Solo แล้วเริ่มเล่น
+          </p>
+        </div>
+      </div>
+
+      <div class="heroActions">
+        <span class="pill green" id="statusPill">🌱 Solo Ready</span>
+        <a class="pill yellow" id="zoneLink" href="#">กลับ Nutrition Zone</a>
+      </div>
+    </header>
+
+    <section class="section" aria-labelledby="modeTitle">
+      <div class="sectionHead">
+        <div>
+          <h2 id="modeTitle">1) เลือกโหมดเกม</h2>
+          <p class="sub">
+            ตอนนี้ปิดงาน Solo ให้สมบูรณ์ก่อน ส่วน Multiplayer เตรียมต่อยอดด้วย Room Code ภายหลัง
+          </p>
+        </div>
+        <span class="pill yellow" id="modePill">🌱 Solo</span>
+      </div>
+
+      <div class="grid modeGrid" id="modeGrid">
+        <button class="card active" type="button" data-mode="solo">
+          <span class="badge ready">พร้อมเล่น</span>
+          <span class="emoji">🌱</span>
+          <h3>Solo</h3>
+          <p>เล่นคนเดียว แข่งกับเวลา เหมาะสำหรับวัดผลรายบุคคล</p>
+        </button>
+
+        <button class="card disabled" type="button" data-mode="race" data-disabled="1">
+          <span class="badge soon">เตรียมทำต่อ</span>
+          <span class="emoji">🏁</span>
+          <h3>Race</h3>
+          <p>แข่งความเร็ว ใครตอบถูกถึงเป้าก่อนชนะ</p>
+        </button>
+
+        <button class="card disabled" type="button" data-mode="battle" data-disabled="1">
+          <span class="badge soon">เตรียมทำต่อ</span>
+          <span class="emoji">⚔️</span>
+          <h3>Battle</h3>
+          <p>ตอบถูกสะสมพลัง ส่งตัวหลอกหรือ Shield ใส่คู่แข่ง</p>
+        </button>
+
+        <button class="card disabled" type="button" data-mode="duet" data-disabled="1">
+          <span class="badge soon">เตรียมทำต่อ</span>
+          <span class="emoji">🧑‍🤝‍🧑</span>
+          <h3>Duet</h3>
+          <p>เล่น 2 คน แบ่งหน้าที่ Spotter / Gate Keeper</p>
+        </button>
+
+        <button class="card disabled" type="button" data-mode="coop" data-disabled="1">
+          <span class="badge soon">เตรียมทำต่อ</span>
+          <span class="emoji">🤝</span>
+          <h3>Coop</h3>
+          <p>ช่วยกันทำภารกิจ เติมอาหารให้ครบทุกหมู่</p>
+        </button>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="deviceTitle">
+      <div class="sectionHead">
+        <div>
+          <h2 id="deviceTitle">2) เลือกอุปกรณ์</h2>
+          <p class="sub" id="deviceSub">
+            Solo รองรับ PC / Mobile / Cardboard VR ครบ ส่วน Multiplayer เริ่มจาก PC/Mobile ภายหลัง
+          </p>
+        </div>
+        <span class="pill yellow" id="devicePill">💻 PC / Notebook</span>
+      </div>
+
+      <div class="grid deviceGrid" id="deviceGrid">
+        <button class="card active" type="button" data-view="pc">
+          <span class="badge ready">พร้อมเล่น</span>
+          <span class="emoji">💻</span>
+          <h3>PC / Notebook</h3>
+          <p>จอใหญ่ หลายเลน คลิกอาหาร + กดเลข 1–5 ได้</p>
+        </button>
+
+        <button class="card" type="button" data-view="mobile">
+          <span class="badge ready">พร้อมเล่น</span>
+          <span class="emoji">📱</span>
+          <h3>Mobile</h3>
+          <p>UI โล่ง แตะง่าย เหมาะกับมือถือและแท็บเล็ต</p>
+        </button>
+
+        <button class="card" type="button" data-view="cvr">
+          <span class="badge ready">พร้อมเล่น</span>
+          <span class="emoji">🥽</span>
+          <h3>Cardboard VR</h3>
+          <p>เล็งด้วย crosshair แล้วแตะจอ เพื่อยิงในโหมด cVR</p>
+        </button>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="variantTitle" id="soloVariantSection">
+      <div class="sectionHead">
+        <div>
+          <h2 id="variantTitle">3) เลือกรูปแบบ Solo</h2>
+          <p class="sub">
+            เปิดจริงก่อนคือ Solo Arena และ Practice ส่วน Challenge / Storm Focus เตรียมทำต่อหลัง core stable
+          </p>
+        </div>
+        <span class="pill green" id="variantPill">🌱 Solo Arena</span>
+      </div>
+
+      <div class="grid variantGrid" id="variantGrid">
+        <button class="card active" type="button" data-variant="arena" data-enabled="1">
+          <span class="badge ready">พร้อมเล่น</span>
+          <span class="emoji">🚀</span>
+          <h3>Solo Arena</h3>
+          <p>โหมดหลัก จับอาหารเข้าประตูหมู่ 1–5 ให้ถูกก่อนหมดเวลา</p>
+        </button>
+
+        <button class="card" type="button" data-variant="practice" data-enabled="1">
+          <span class="badge ready">พร้อมเล่น</span>
+          <span class="emoji">🧪</span>
+          <h3>Practice</h3>
+          <p>ช้าลง หัวใจเยอะขึ้น เหมาะสำหรับลองจำหมู่ก่อนเล่นจริง</p>
+        </button>
+
+        <button class="card disabled" type="button" data-variant="challenge" data-disabled="1">
+          <span class="badge soon">เตรียมทำต่อ</span>
+          <span class="emoji">🔥</span>
+          <h3>Challenge</h3>
+          <p>เร็วขึ้น บอสป่วนมากขึ้น เหมาะกับผู้เล่นที่จำหมู่ได้แล้ว</p>
+        </button>
+
+        <button class="card disabled" type="button" data-variant="storm" data-disabled="1">
+          <span class="badge soon">เตรียมทำต่อ</span>
+          <span class="emoji">🌪️</span>
+          <h3>Storm Focus</h3>
+          <p>เข้าเกมพร้อม seed ใหม่ เล่นซ้ำแล้วลำดับอาหารเปลี่ยน</p>
+        </button>
+      </div>
+    </section>
+
+    <section class="selectedBox" aria-label="Start selected mode">
+      <div class="summary">
+        <h3 id="summaryTitle">พร้อมเริ่ม: Solo Arena • PC</h3>
+        <p id="summaryText">
+          ระบบจะเปิดไฟล์ตัวจริง /herohealth/vr-groups/groups.html พร้อม mode=solo, variant=arena, view=pc
+        </p>
+
+        <div class="info">
+          <div class="infoBox">
+            <b id="infoMode">Solo</b>
+            <span>โหมดใหญ่</span>
+          </div>
+          <div class="infoBox">
+            <b id="infoView">PC</b>
+            <span>อุปกรณ์</span>
+          </div>
+          <div class="infoBox">
+            <b id="infoVariant">Arena</b>
+            <span>รูปแบบ Solo</span>
+          </div>
+        </div>
+
+        <div class="debug" id="debugUrl"></div>
+      </div>
+
+      <div class="ctaRow">
+        <button class="btn primary" type="button" id="startBtn">เริ่มเล่น</button>
+        <button class="btn soft" type="button" id="copyBtn">คัดลอกลิงก์</button>
+        <button class="btn soft" type="button" id="zoneBtn">กลับ Zone</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+  /* =========================================================
+     HeroHealth Food Groups Launcher
+     PATCH: v20260522-groups-vr-launcher-solo-first-01
+     File: /herohealth/groups-vr.html
+
+     Canonical:
+     - Launcher: /herohealth/groups-vr.html
+     - Solo run: /herohealth/vr-groups/groups.html
+     - Zone: /herohealth/nutrition-zone.html
+
+     Strategy:
+     - Big modes: Solo / Race / Battle / Duet / Coop
+     - Devices: PC / Mobile / Cardboard VR
+     - Solo variants: Arena / Practice / Challenge / Storm
+     - Now enabled: Solo Arena + Practice
+  ========================================================= */
+  (function(){
+    'use strict';
+
+    const PATCH_ID = 'v20260522-groups-vr-launcher-solo-first-01';
+    const qs = new URLSearchParams(location.search);
+
+    const state = {
+      mode:'solo',
+      view:normalizeView(qs.get('view') || ''),
+      variant:'arena'
+    };
+
+    window.HHA_GROUPS_LAUNCHER = {
+      patch:PATCH_ID,
+      state:state,
+      buildRunUrl:buildRunUrl
+    };
+
+    function repoBase(){
+      const path = location.pathname;
+      const marker = '/herohealth/';
+      const idx = path.indexOf(marker);
+
+      if (idx >= 0) {
+        return location.origin + path.slice(0, idx);
+      }
+
+      return location.origin + '/webxr-health-mobile';
+    }
+
+    const BASE = repoBase();
+    const HERO = BASE + '/herohealth';
+    const SOLO_RUN = HERO + '/vr-groups/groups.html';
+    const ZONE = HERO + '/nutrition-zone.html';
+
+    const modeLabels = {
+      solo:'Solo',
+      race:'Race',
+      battle:'Battle',
+      duet:'Duet',
+      coop:'Coop'
+    };
+
+    const viewLabels = {
+      pc:'PC',
+      mobile:'Mobile',
+      cvr:'Cardboard VR'
+    };
+
+    const variantLabels = {
+      arena:'Solo Arena',
+      practice:'Practice',
+      challenge:'Challenge',
+      storm:'Storm Focus'
+    };
+
+    function getParam(name, fallback){
+      const v = qs.get(name);
+      return v === null || v === '' ? fallback : v;
+    }
+
+    function isMobileUA(){
+      return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent || '');
+    }
+
+    function normalizeView(v){
+      const raw = String(v || '').toLowerCase();
+
+      if (['pc','desktop','notebook','laptop'].includes(raw)) return 'pc';
+      if (['mobile','phone','touch','tablet'].includes(raw)) return 'mobile';
+      if (['cvr','cardboard','cardboard-vr','vr','webxr'].includes(raw)) return 'cvr';
+
+      return isMobileUA() ? 'mobile' : 'pc';
+    }
+
+    function buildZoneUrl(){
+      const out = new URL(ZONE);
+
+      [
+        'pid',
+        'name',
+        'studentId',
+        'studentName',
+        'classSection',
+        'diff',
+        'time',
+        'view',
+        'studyId',
+        'conditionGroup',
+        'api',
+        'log'
+      ].forEach(function(k){
+        const v = qs.get(k);
+        if (v !== null && v !== '') out.searchParams.set(k, v);
+      });
+
+      out.searchParams.set('pid', getParam('pid', 'anon'));
+      out.searchParams.set('name', getParam('name', 'Hero'));
+      out.searchParams.set('diff', getParam('diff', 'normal'));
+      out.searchParams.set('time', getParam('time', '90'));
+      out.searchParams.set('view', state.view);
+      out.searchParams.set('zone', 'nutrition');
+      out.searchParams.set('cat', 'nutrition');
+      out.searchParams.set('game', 'groups');
+
+      return out.toString();
+    }
+
+    function buildRunUrl(extra){
+      const out = new URL(SOLO_RUN);
+
+      [
+        'pid',
+        'name',
+        'studentId',
+        'studentName',
+        'classSection',
+        'studyId',
+        'conditionGroup',
+        'api',
+        'log',
+        'qa',
+        'debug',
+        'teacher'
+      ].forEach(function(k){
+        const v = qs.get(k);
+        if (v !== null && v !== '') out.searchParams.set(k, v);
+      });
+
+      const zoneUrl = buildZoneUrl();
+
+      out.searchParams.set('pid', getParam('pid', 'anon'));
+      out.searchParams.set('name', getParam('name', 'Hero'));
+
+      out.searchParams.set('mode', 'solo');
+      out.searchParams.set('variant', state.variant);
+      out.searchParams.set('view', state.view);
+      out.searchParams.set('run', 'play');
+
+      out.searchParams.set('zone', 'nutrition');
+      out.searchParams.set('cat', 'nutrition');
+      out.searchParams.set('game', 'groups');
+      out.searchParams.set('gameId', 'groups');
+      out.searchParams.set('entry', 'groups-vr-launcher');
+      out.searchParams.set('theme', 'food-groups');
+
+      out.searchParams.set('hub', getParam('hub', zoneUrl));
+      out.searchParams.set('back', getParam('back', zoneUrl));
+      out.searchParams.set('return', getParam('return', zoneUrl));
+      out.searchParams.set('returnTo', getParam('returnTo', zoneUrl));
+
+      if (state.variant === 'practice') {
+        out.searchParams.set('diff', 'easy');
+        out.searchParams.set('time', getParam('time', '120'));
+        out.searchParams.set('assist', '1');
+        out.searchParams.set('practice', '1');
+      } else if (state.variant === 'challenge') {
+        out.searchParams.set('diff', 'hard');
+        out.searchParams.set('time', getParam('time', '90'));
+        out.searchParams.set('challenge', '1');
+      } else if (state.variant === 'storm') {
+        out.searchParams.set('diff', getParam('diff', 'normal'));
+        out.searchParams.set('time', getParam('time', '90'));
+        out.searchParams.set('storm', '1');
+      } else {
+        out.searchParams.set('diff', getParam('diff', 'normal'));
+        out.searchParams.set('time', getParam('time', '90'));
+      }
+
+      const currentSeed = qs.get('seed');
+
+      if (state.variant === 'storm') {
+        out.searchParams.set('seed', String(Date.now()));
+      } else {
+        out.searchParams.set('seed', currentSeed || String(Date.now()));
+      }
+
+      Object.entries(extra || {}).forEach(function(pair){
+        const k = pair[0];
+        const v = pair[1];
+
+        if (v === null || v === undefined) out.searchParams.delete(k);
+        else out.searchParams.set(k, String(v));
+      });
+
+      return out.toString();
+    }
+
+    function toast(message){
+      const box = document.getElementById('toast');
+      if (!box) return;
+
+      box.textContent = String(message || '');
+      box.classList.add('show');
+
+      clearTimeout(window.__HHA_GROUPS_LAUNCHER_TOAST_TIMER__);
+      window.__HHA_GROUPS_LAUNCHER_TOAST_TIMER__ = setTimeout(function(){
+        box.classList.remove('show');
+      }, 1800);
+    }
+
+    function setActive(groupSelector, attrName, value){
+      document.querySelectorAll(groupSelector).forEach(function(el){
+        const isActive = el.getAttribute(attrName) === value;
+        el.classList.toggle('active', isActive);
+      });
+    }
+
+    function updateDeviceAvailability(){
+      const isSolo = state.mode === 'solo';
+
+      document.querySelectorAll('[data-view]').forEach(function(el){
+        const view = el.getAttribute('data-view');
+
+        if (isSolo) {
+          el.classList.remove('disabled');
+          el.removeAttribute('data-disabled');
+          const badge = el.querySelector('.badge');
+          if (badge) {
+            badge.textContent = 'พร้อมเล่น';
+            badge.className = 'badge ready';
+          }
+          return;
+        }
+
+        if (view === 'cvr') {
+          el.classList.add('disabled');
+          el.setAttribute('data-disabled', '1');
+          const badge = el.querySelector('.badge');
+          if (badge) {
+            badge.textContent = 'ทำทีหลัง';
+            badge.className = 'badge soon';
+          }
+        } else {
+          el.classList.remove('disabled');
+          el.removeAttribute('data-disabled');
+          const badge = el.querySelector('.badge');
+          if (badge) {
+            badge.textContent = 'PC/Mobile ก่อน';
+            badge.className = 'badge ready';
+          }
+        }
+      });
+
+      if (!isSolo && state.view === 'cvr') {
+        state.view = 'pc';
+      }
+    }
+
+    function updateVariantSection(){
+      const section = document.getElementById('soloVariantSection');
+
+      if (!section) return;
+
+      section.style.display = state.mode === 'solo' ? '' : 'none';
+    }
+
+    function updateSummary(){
+      updateDeviceAvailability();
+      updateVariantSection();
+
+      setActive('[data-mode]', 'data-mode', state.mode);
+      setActive('[data-view]', 'data-view', state.view);
+      setActive('[data-variant]', 'data-variant', state.variant);
+
+      const modeLabel = modeLabels[state.mode] || state.mode;
+      const viewLabel = viewLabels[state.view] || state.view;
+      const variantLabel = variantLabels[state.variant] || state.variant;
+
+      const modePill = document.getElementById('modePill');
+      const devicePill = document.getElementById('devicePill');
+      const variantPill = document.getElementById('variantPill');
+      const statusPill = document.getElementById('statusPill');
+
+      if (modePill) modePill.textContent = state.mode === 'solo' ? '🌱 Solo' : '🧩 ' + modeLabel;
+      if (devicePill) devicePill.textContent = deviceIcon(state.view) + ' ' + viewLabel;
+      if (variantPill) variantPill.textContent = variantIcon(state.variant) + ' ' + variantLabel;
+      if (statusPill) statusPill.textContent = state.mode === 'solo' ? '🌱 Solo Ready' : '🧩 Multiplayer Soon';
+
+      const summaryTitle = document.getElementById('summaryTitle');
+      const summaryText = document.getElementById('summaryText');
+
+      if (summaryTitle) {
+        summaryTitle.textContent = state.mode === 'solo'
+          ? 'พร้อมเริ่ม: ' + variantLabel + ' • ' + viewLabel
+          : modeLabel + ' ยังเตรียมทำต่อ';
+      }
+
+      if (summaryText) {
+        if (state.mode === 'solo') {
+          summaryText.textContent =
+            'ระบบจะเปิดไฟล์ตัวจริง /herohealth/vr-groups/groups.html พร้อม mode=solo, variant=' +
+            state.variant +
+            ', view=' +
+            state.view;
+        } else {
+          summaryText.textContent =
+            'Multiplayer จะเริ่มจาก PC/Mobile ก่อน และ Cardboard VR สำหรับ multiplayer จะทำทีหลัง';
+        }
+      }
+
+      const infoMode = document.getElementById('infoMode');
+      const infoView = document.getElementById('infoView');
+      const infoVariant = document.getElementById('infoVariant');
+
+      if (infoMode) infoMode.textContent = modeLabel;
+      if (infoView) infoView.textContent = viewLabel;
+      if (infoVariant) infoVariant.textContent = state.mode === 'solo' ? variantLabel : 'Room Code';
+
+      const debug = document.getElementById('debugUrl');
+      if (debug) debug.textContent = buildRunUrl();
+
+      const startBtn = document.getElementById('startBtn');
+      if (startBtn) {
+        if (state.mode === 'solo' && ['arena','practice'].includes(state.variant)) {
+          startBtn.disabled = false;
+          startBtn.textContent = 'เริ่มเล่น';
+        } else if (state.mode === 'solo') {
+          startBtn.disabled = true;
+          startBtn.textContent = 'เตรียมทำต่อ';
+        } else {
+          startBtn.disabled = true;
+          startBtn.textContent = 'Multiplayer เตรียมทำต่อ';
+        }
+      }
+    }
+
+    function deviceIcon(view){
+      if (view === 'mobile') return '📱';
+      if (view === 'cvr') return '🥽';
+      return '💻';
+    }
+
+    function variantIcon(variant){
+      if (variant === 'practice') return '🧪';
+      if (variant === 'challenge') return '🔥';
+      if (variant === 'storm') return '🌪️';
+      return '🌱';
+    }
+
+    function bindCards(){
+      document.querySelectorAll('[data-mode]').forEach(function(el){
+        el.addEventListener('click', function(){
+          const disabled = el.getAttribute('data-disabled') === '1';
+          const mode = el.getAttribute('data-mode');
+
+          if (disabled) {
+            toast('ตอนนี้โฟกัสปิด Solo ให้จบก่อน แล้วค่อยทำ ' + (modeLabels[mode] || mode));
+            return;
+          }
+
+          state.mode = mode || 'solo';
+
+          if (state.mode !== 'solo') {
+            state.variant = 'arena';
+          }
+
+          updateSummary();
+        });
+      });
+
+      document.querySelectorAll('[data-view]').forEach(function(el){
+        el.addEventListener('click', function(){
+          if (el.getAttribute('data-disabled') === '1') {
+            toast('Cardboard VR สำหรับ multiplayer จะทำทีหลัง');
+            return;
+          }
+
+          state.view = normalizeView(el.getAttribute('data-view'));
+          updateSummary();
+        });
+      });
+
+      document.querySelectorAll('[data-variant]').forEach(function(el){
+        el.addEventListener('click', function(){
+          const variant = el.getAttribute('data-variant');
+
+          if (el.getAttribute('data-disabled') === '1') {
+            toast((variantLabels[variant] || variant) + ' เตรียมทำต่อหลัง Solo core จบ');
+            return;
+          }
+
+          state.variant = variant || 'arena';
+          updateSummary();
+        });
+      });
+    }
+
+    function bindActions(){
+      const zoneUrl = buildZoneUrl();
+
+      const zoneLink = document.getElementById('zoneLink');
+      const zoneBtn = document.getElementById('zoneBtn');
+      const copyBtn = document.getElementById('copyBtn');
+      const startBtn = document.getElementById('startBtn');
+
+      if (zoneLink) zoneLink.href = zoneUrl;
+
+      if (zoneBtn) {
+        zoneBtn.addEventListener('click', function(){
+          location.href = buildZoneUrl();
+        });
+      }
+
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function(){
+          const url = buildRunUrl();
+
+          try {
+            navigator.clipboard.writeText(url);
+            toast('คัดลอกลิงก์ Groups Solo แล้ว');
+          } catch(e) {
+            toast(url);
+          }
+        });
+      }
+
+      if (startBtn) {
+        startBtn.addEventListener('click', function(){
+          if (startBtn.disabled) {
+            toast('โหมดนี้ยังเตรียมทำต่อ');
+            return;
+          }
+
+          const url = buildRunUrl({
+            seed: Date.now()
+          });
+
+          console.info('[Groups Launcher] start', {
+            patch: PATCH_ID,
+            url:url,
+            state:Object.assign({}, state)
+          });
+
+          location.href = url;
+        });
+      }
+    }
+
+    function applyDebug(){
+      if (
+        qs.get('debug') === '1' ||
+        qs.get('qa') === '1' ||
+        qs.get('teacher') === '1'
+      ) {
+        document.body.classList.add('debug-on');
+      }
+    }
+
+    function boot(){
+      applyDebug();
+      bindCards();
+      bindActions();
+      updateSummary();
+
+      console.info('[HeroHealth Groups Launcher]', PATCH_ID, {
+        base:BASE,
+        soloRun:SOLO_RUN,
+        zone:ZONE,
+        state:state
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', boot, { once:true });
+    } else {
+      boot();
+    }
+  })();
+  </script>
+  <script src="https://supparang.github.io/webxr-health-mobile/herohealth/patches/groups/groups-vr-hard-start-override.js?v=20260522-hardstart02"></script>
+  <script>
+/* =========================================================
+   GroupsVR Launcher INLINE HARD START
+   PATCH: v20260522-inline-hard-start-final
+   Put this as the LAST script before </body> in:
+   /herohealth/groups-vr.html
+========================================================= */
+(function(){
+  'use strict';
+
+  var PATCH_ID = 'v20260522-inline-hard-start-final';
+
+  if (window.__HHA_GROUPS_VR_INLINE_HARD_START_FINAL__) return;
+  window.__HHA_GROUPS_VR_INLINE_HARD_START_FINAL__ = true;
+
+  function repoBase(){
+    var path = location.pathname;
+    var marker = '/herohealth/';
+    var idx = path.indexOf(marker);
+    if (idx >= 0) return location.origin + path.slice(0, idx);
+    return location.origin + '/webxr-health-mobile';
+  }
+
+  var BASE = repoBase();
+  var HERO = BASE + '/herohealth';
+  var RUN = HERO + '/vr-groups/groups.html';
+  var ZONE = HERO + '/nutrition-zone.html';
+
+  function qs(){
+    return new URLSearchParams(location.search);
+  }
+
+  function getParam(name, fallback){
+    var q = qs();
+    var v = q.get(name);
+    return v === null || v === '' ? fallback : v;
+  }
+
+  function textOf(el){
+    return String(el && (
+      el.innerText ||
+      el.textContent ||
+      (el.getAttribute && el.getAttribute('aria-label')) ||
+      el.value ||
+      ''
+    ) || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function isMobileUA(){
+    return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent || '');
+  }
+
+  function normalizeView(v){
+    v = String(v || '').toLowerCase();
+
+    if (['pc','desktop','notebook','laptop'].indexOf(v) >= 0) return 'pc';
+    if (['mobile','phone','touch','tablet'].indexOf(v) >= 0) return 'mobile';
+    if (['cvr','cardboard','cardboard-vr','vr','webxr'].indexOf(v) >= 0) return 'cvr';
+
+    return isMobileUA() ? 'mobile' : 'pc';
+  }
+
+  function activeAttr(selector, attr, fallback){
+    var active = document.querySelector(selector + '.active');
+    var v = active && active.getAttribute(attr);
+    return v || fallback;
+  }
+
+  function getState(){
+    var s = window.HHA_GROUPS_LAUNCHER && window.HHA_GROUPS_LAUNCHER.state || {};
+
+    return {
+      mode: String(s.mode || activeAttr('[data-mode]', 'data-mode', 'solo') || 'solo').toLowerCase(),
+      view: normalizeView(s.view || activeAttr('[data-view]', 'data-view', getParam('view', 'pc'))),
+      variant: String(s.variant || activeAttr('[data-variant]', 'data-variant', 'arena') || 'arena').toLowerCase()
+    };
+  }
+
+  function buildZoneUrl(view){
+    var out = new URL(ZONE);
+    var q = qs();
+
+    [
+      'pid','name','studentId','studentName','classSection',
+      'studyId','conditionGroup','api','log','qa','debug','teacher'
+    ].forEach(function(k){
+      var v = q.get(k);
+      if (v !== null && v !== '') out.searchParams.set(k, v);
+    });
+
+    out.searchParams.set('pid', getParam('pid', 'anon'));
+    out.searchParams.set('name', getParam('name', 'Hero'));
+    out.searchParams.set('diff', getParam('diff', 'normal'));
+    out.searchParams.set('time', getParam('time', '90'));
+    out.searchParams.set('view', view || 'pc');
+    out.searchParams.set('zone', 'nutrition');
+    out.searchParams.set('cat', 'nutrition');
+    out.searchParams.set('game', 'groups');
+    out.searchParams.set('gameId', 'groups');
+
+    return out.toString();
+  }
+
+  function buildRunUrl(){
+    var st = getState();
+    var out = new URL(RUN);
+    var q = qs();
+    var zoneUrl = buildZoneUrl(st.view);
+
+    [
+      'pid','name','studentId','studentName','classSection',
+      'studyId','conditionGroup','api','log','qa','debug','teacher'
+    ].forEach(function(k){
+      var v = q.get(k);
+      if (v !== null && v !== '') out.searchParams.set(k, v);
+    });
+
+    out.searchParams.set('pid', getParam('pid', 'anon'));
+    out.searchParams.set('name', getParam('name', 'Hero'));
+
+    out.searchParams.set('mode', 'solo');
+    out.searchParams.set('variant', st.variant);
+    out.searchParams.set('view', st.view);
+    out.searchParams.set('run', 'play');
+
+    out.searchParams.set('zone', 'nutrition');
+    out.searchParams.set('cat', 'nutrition');
+    out.searchParams.set('game', 'groups');
+    out.searchParams.set('gameId', 'groups');
+    out.searchParams.set('entry', 'groups-vr-inline-hard-start');
+    out.searchParams.set('from', 'groups-vr');
+    out.searchParams.set('theme', 'food-groups');
+
+    /* สำคัญ: ห้ามกลับมาหน้า intro ซ้ำ */
+    out.searchParams.set('skipIntro', '1');
+    out.searchParams.set('nointro', '1');
+    out.searchParams.set('autostart', '1');
+    out.searchParams.set('direct', '1');
+    out.searchParams.set('intro', '0');
+
+    out.searchParams.set('hub', getParam('hub', zoneUrl));
+    out.searchParams.set('back', getParam('back', zoneUrl));
+    out.searchParams.set('return', getParam('return', zoneUrl));
+    out.searchParams.set('returnTo', getParam('returnTo', zoneUrl));
+
+    if (st.variant === 'practice') {
+      out.searchParams.set('diff', 'easy');
+      out.searchParams.set('time', getParam('time', '120'));
+      out.searchParams.set('assist', '1');
+      out.searchParams.set('practice', '1');
+    } else {
+      out.searchParams.set('diff', getParam('diff', 'normal'));
+      out.searchParams.set('time', getParam('time', '90'));
+    }
+
+    out.searchParams.set('seed', String(Date.now()));
+    out.searchParams.set('t', String(Date.now()));
+
+    return out.toString();
+  }
+
+  function findStartButton(){
+    var byId = document.getElementById('startBtn');
+    if (byId) return byId;
+
+    var all = Array.prototype.slice.call(
+      document.querySelectorAll('button,a,[role="button"],.btn,div,span')
+    );
+
+    return all.find(function(el){
+      var t = textOf(el);
+      var r = el.getBoundingClientRect();
+
+      return (
+        r.width > 40 &&
+        r.height > 25 &&
+        (
+          t === 'เริ่มเล่น' ||
+          t.indexOf('เริ่มเล่น') >= 0 ||
+          t.indexOf('Start') >= 0 ||
+          t.indexOf('Play') >= 0
+        )
+      );
+    }) || null;
+  }
+
+  function forceButton(){
+    var btn = findStartButton();
+    if (!btn) return;
+
+    btn.setAttribute('data-hha-inline-hard-start', PATCH_ID);
+    btn.setAttribute('role', 'button');
+    btn.setAttribute('tabindex', '0');
+
+    if (btn.tagName === 'A') {
+      btn.setAttribute('href', '#start-groups-direct');
+    }
+
+    btn.disabled = false;
+    btn.style.pointerEvents = 'auto';
+    btn.style.cursor = 'pointer';
+
+    if (!btn.__hhaInlineHardStartBound) {
+      btn.__hhaInlineHardStartBound = true;
+
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        startDirect('button-click');
+        return false;
+      }, true);
+
+      btn.addEventListener('keydown', function(ev){
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        startDirect('button-key');
+        return false;
+      }, true);
+    }
+  }
+
+  function startDirect(reason){
+    var st = getState();
+
+    if (st.mode !== 'solo') {
+      alert('โหมด Multiplayer ยังเป็น TEST ตอนนี้ให้ปิด Solo ก่อน');
+      return;
+    }
+
+    if (st.variant !== 'arena' && st.variant !== 'practice') {
+      alert('โหมดนี้เตรียมทำต่อ');
+      return;
+    }
+
+    var url = buildRunUrl();
+
+    try {
+      sessionStorage.setItem('HHA_GROUPS_DIRECT_START_URL', url);
+      sessionStorage.setItem('HHA_GROUPS_DIRECT_START_REASON', reason || 'start');
+    } catch(e) {}
+
+    console.info('[GroupsVR INLINE HARD START]', PATCH_ID, {
+      reason: reason,
+      state: st,
+      url: url
+    });
+
+    location.replace(url);
+  }
+
+  function bindGlobalClick(){
+    if (document.__hhaInlineHardStartGlobalBound) return;
+    document.__hhaInlineHardStartGlobalBound = true;
+
+    document.addEventListener('click', function(ev){
+      var hit = ev.target && ev.target.closest &&
+        ev.target.closest('#startBtn,button,a,[role="button"],.btn,div,span');
+
+      if (!hit) return;
+
+      var t = textOf(hit);
+
+      if (
+        t === 'เริ่มเล่น' ||
+        t.indexOf('เริ่มเล่น') >= 0 ||
+        t.indexOf('Start') >= 0 ||
+        t.indexOf('Play') >= 0
+      ) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        startDirect('global-click');
+        return false;
+      }
+    }, true);
+  }
+
+  function boot(){
+    bindGlobalClick();
+    forceButton();
+
+    setTimeout(forceButton, 100);
+    setTimeout(forceButton, 400);
+    setTimeout(forceButton, 900);
+    setTimeout(forceButton, 1600);
+
+    var mo = new MutationObserver(function(){
+      clearTimeout(window.__HHA_INLINE_HARD_START_SCAN__);
+      window.__HHA_INLINE_HARD_START_SCAN__ = setTimeout(forceButton, 50);
+    });
+
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true,
+      characterData:true,
+      attributes:true,
+      attributeFilter:['class','disabled','href','style']
+    });
+
+    console.info('[GroupsVR INLINE HARD START]', PATCH_ID, 'ready', {
+      run: RUN
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  } else {
+    boot();
+  }
+
+})();
 </script>
-</body></html>
+  <script src="https://supparang.github.io/webxr-health-mobile/herohealth/patches/groups/groups-vr-device-run-router.js?v=20260522-device-router01"></script>
+  <script src="./vr-groups/groups-race-route-v15-guard-v19.js?v=20260609-route-v19"></script>
+  <script src="./vr-groups/groups-vr-race-unlock-v21.js?v=20260609-race-unlock-v21"></script>
+</body>
+</html>
