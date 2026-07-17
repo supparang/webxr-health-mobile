@@ -1,8 +1,7 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL REPLACEMENT v20260717-GATE-GAMES-GROUPS-CANONICAL-V26
 // Shared registry for HeroHealth Gate.
 
-export const PATCH = 'v20260717-GATE-GAMES-GROUPS-CANONICAL-V26';
+export const PATCH = 'v20260717-GATE-GAMES-GROUPS-CANONICAL-R2';
 
 const FITNESS_MODULE =
   './games/fitness/fitness-readiness-recovery.js?v=20260624-frr-v24-side-stretch';
@@ -34,7 +33,9 @@ function meta(id, options) {
     ? cfg.runCandidates.filter(Boolean)
     : [];
 
-  if (!runs.length && cfg.runFile) runs.push(cfg.runFile);
+  if (!runs.length && cfg.runFile) {
+    runs.push(cfg.runFile);
+  }
 
   return {
     id: clean(id),
@@ -57,30 +58,50 @@ function meta(id, options) {
 
 export const GAME_REGISTRY = {
   hydration: meta('hydration', {
-    title: 'Hydration Hero', emoji: '💧', zone: 'nutrition',
+    title: 'Hydration Hero',
+    emoji: '💧',
+    zone: 'nutrition',
     runFile: '../hydration-vr/hydration-vr.html',
-    runCandidates: ['../hydration-vr/hydration-vr.html','../hydration-v2.html','../vr-hydration-v2/index.html'],
-    warmupFile: './games/hydration/warmup.js', cooldownFile: './games/hydration/cooldown.js',
-    styleFile: './games/hydration/style.css', summaryPath: '../nutrition-zone.html'
+    runCandidates: [
+      '../hydration-vr/hydration-vr.html',
+      '../hydration-v2.html',
+      '../vr-hydration-v2/index.html'
+    ],
+    warmupFile: './games/hydration/warmup.js',
+    cooldownFile: './games/hydration/cooldown.js',
+    styleFile: './games/hydration/style.css',
+    summaryPath: '../nutrition-zone.html'
   }),
 
   goodjunk: meta('goodjunk', {
-    title: 'GoodJunk Solo Boss', emoji: '🍎', zone: 'nutrition',
+    title: 'GoodJunk Solo Boss',
+    emoji: '🍎',
+    zone: 'nutrition',
     runFile: '../vr-goodjunk/goodjunk-solo-boss.html',
     runCandidates: ['../vr-goodjunk/goodjunk-solo-boss.html'],
-    warmupFile: './games/goodjunk/warmup.js', cooldownFile: './games/goodjunk/cooldown.js',
-    styleFile: './games/goodjunk/style.css', summaryPath: '../goodjunk-launcher.html'
+    warmupFile: './games/goodjunk/warmup.js',
+    cooldownFile: './games/goodjunk/cooldown.js',
+    styleFile: './games/goodjunk/style.css',
+    summaryPath: '../goodjunk-launcher.html'
   }),
 
   plate: meta('plate', {
-    title: 'Balanced Plate AR', emoji: '🍽️', zone: 'nutrition',
+    title: 'Balanced Plate AR',
+    emoji: '🍽️',
+    zone: 'nutrition',
     runFile: '../plate/plate-ar.html',
-    runCandidates: ['../plate/plate-ar.html','../plate/plate-vr.html','../plate-vr.html'],
+    runCandidates: [
+      '../plate/plate-ar.html',
+      '../plate/plate-vr.html',
+      '../plate-vr.html'
+    ],
     summaryPath: '../nutrition-zone.html'
   }),
 
   groups: meta('groups', {
-    title: 'Food Groups AR', emoji: '🥦', zone: 'nutrition',
+    title: 'Food Groups AR',
+    emoji: '🥦',
+    zone: 'nutrition',
     runFile: '../groups-vr.html',
     runCandidates: [
       '../groups-vr.html',
@@ -95,109 +116,219 @@ export const GAME_REGISTRY = {
   }),
 
   brush: meta('brush', {
-    title: 'Brush AR', emoji: '🪥', zone: 'hygiene',
-    runFile: '../brush-vr.html', runCandidates: ['../brush-vr.html','../brush-vr-kids.html'],
+    title: 'Brush AR',
+    emoji: '🪥',
+    zone: 'hygiene',
+    runFile: '../brush-vr.html',
+    runCandidates: ['../brush-vr.html', '../brush-vr-kids.html'],
     summaryPath: '../hygiene-zone.html'
   }),
 
   handwash: meta('handwash', {
-    title: 'Handwash AR', emoji: '🧼', zone: 'hygiene',
-    runFile: '../vr-handwash/handwash-vr.html',
-    runCandidates: ['../vr-handwash/handwash-vr.html','../handwash-vr.html'],
-    summaryPath: '../hygiene-zone.html'
+    title: 'Handwash WHO Technique',
+    emoji: '🧼',
+    zone: 'hygiene',
+    warmupFile: './games/handwash/warmup.js?v=20260717-warmup-r1',
+    styleFile: './games/handwash/style.css?v=20260717-warmup-r1',
+    warmupTitle: 'Handwash Warmup • WHO Quick Prep',
+    runFile: '../hygiene-zone/handwash-realistic-v3.html',
+    runCandidates: [
+      '../hygiene-zone/handwash-realistic-v3.html',
+      '../vr-handwash/handwash-vr.html',
+      '../handwash-vr.html'
+    ],
+    summaryPath: '../hygiene-zone-v2.html'
   }),
 
   'germ-detective': meta('germ-detective', {
-    title: 'Germ Detective AR', emoji: '🦠', zone: 'hygiene',
-    runFile: '../germ-detective.html', runCandidates: ['../germ-detective.html','../germ-detective-v2.html'],
+    title: 'Germ Detective AR',
+    emoji: '🦠',
+    zone: 'hygiene',
+    runFile: '../germ-detective.html',
+    runCandidates: ['../germ-detective.html', '../germ-detective-v2.html'],
     summaryPath: '../hygiene-zone.html'
   }),
 
   bath: meta('bath', {
-    title: 'Bath Hero AR', emoji: '🛁', zone: 'hygiene',
-    runFile: '../bath.html', runCandidates: ['../bath.html','../bath-vr.html'],
+    title: 'Bath Hero AR',
+    emoji: '🛁',
+    zone: 'hygiene',
+    runFile: '../bath.html',
+    runCandidates: ['../bath.html', '../bath-vr.html'],
     summaryPath: '../hygiene-zone.html'
   }),
 
   maskcough: meta('maskcough', {
-    title: 'Mask & Cough AR', emoji: '😷', zone: 'hygiene',
-    runFile: '../maskcough-v2.html', runCandidates: ['../maskcough-v2.html'],
+    title: 'Mask & Cough AR',
+    emoji: '😷',
+    zone: 'hygiene',
+    runFile: '../maskcough-v2.html',
+    runCandidates: ['../maskcough-v2.html'],
     summaryPath: '../hygiene-zone.html'
   }),
 
   'shadow-breaker': meta('shadow-breaker', {
-    title: 'Shadow Breaker AR', emoji: '🥊', zone: 'fitness',
-    warmupFile: FITNESS_MODULE, cooldownFile: FITNESS_MODULE, styleFile: FITNESS_STYLE,
-    warmupTitle: 'Hero Ready Mission • Punch Power', cooldownTitle: 'Hero Recovery Mission • Arms & Shoulders',
+    title: 'Shadow Breaker AR',
+    emoji: '🥊',
+    zone: 'fitness',
+    warmupFile: FITNESS_MODULE,
+    cooldownFile: FITNESS_MODULE,
+    styleFile: FITNESS_STYLE,
+    warmupTitle: 'Hero Ready Mission • Punch Power',
+    cooldownTitle: 'Hero Recovery Mission • Arms & Shoulders',
     runFile: '../fitness/shadow-breaker-ar.html',
-    runCandidates: ['../fitness/shadow-breaker-ar.html','../fitness/shadow-breaker.html'],
+    runCandidates: ['../fitness/shadow-breaker-ar.html', '../fitness/shadow-breaker.html'],
     summaryPath: '../fitness-zone.html'
   }),
 
   'rhythm-boxer': meta('rhythm-boxer', {
-    title: 'Rhythm Boxer AR', emoji: '🥁', zone: 'fitness',
-    warmupFile: FITNESS_MODULE, cooldownFile: FITNESS_MODULE, styleFile: FITNESS_STYLE,
-    warmupTitle: 'Hero Ready Mission • Beat Control', cooldownTitle: 'Hero Recovery Mission • Rhythm Reset',
+    title: 'Rhythm Boxer AR',
+    emoji: '🥁',
+    zone: 'fitness',
+    warmupFile: FITNESS_MODULE,
+    cooldownFile: FITNESS_MODULE,
+    styleFile: FITNESS_STYLE,
+    warmupTitle: 'Hero Ready Mission • Beat Control',
+    cooldownTitle: 'Hero Recovery Mission • Rhythm Reset',
     runFile: '../fitness/rhythm-boxer-ar.html',
-    runCandidates: ['../fitness/rhythm-boxer-ar.html','../fitness/rhythm-boxer.html'],
+    runCandidates: ['../fitness/rhythm-boxer-ar.html', '../fitness/rhythm-boxer.html'],
     summaryPath: '../fitness-zone.html'
   }),
 
   'jump-duck': meta('jump-duck', {
-    title: 'JumpDuck AR', emoji: '🐶', zone: 'fitness',
-    warmupFile: FITNESS_MODULE, cooldownFile: FITNESS_MODULE, styleFile: FITNESS_STYLE,
-    warmupTitle: 'Hero Ready Mission • Agility', cooldownTitle: 'Hero Recovery Mission • Legs & Ankles',
+    title: 'JumpDuck AR',
+    emoji: '🐶',
+    zone: 'fitness',
+    warmupFile: FITNESS_MODULE,
+    cooldownFile: FITNESS_MODULE,
+    styleFile: FITNESS_STYLE,
+    warmupTitle: 'Hero Ready Mission • Agility',
+    cooldownTitle: 'Hero Recovery Mission • Legs & Ankles',
     runFile: '../fitness/jumpduck-ar.html',
-    runCandidates: ['../fitness/jumpduck-ar.html','../fitness/jump-duck.html','../fitness/jumpduck.html'],
+    runCandidates: [
+      '../fitness/jumpduck-ar.html',
+      '../fitness/jump-duck.html',
+      '../fitness/jumpduck.html'
+    ],
     summaryPath: '../fitness-zone.html'
   }),
 
   'balance-hold': meta('balance-hold', {
-    title: 'Balance Hold AR', emoji: '🧘', zone: 'fitness',
-    warmupFile: FITNESS_MODULE, cooldownFile: FITNESS_MODULE, styleFile: FITNESS_STYLE,
-    warmupTitle: 'Hero Ready Mission • Stability', cooldownTitle: 'Hero Recovery Mission • Calm Balance',
+    title: 'Balance Hold AR',
+    emoji: '🧘',
+    zone: 'fitness',
+    warmupFile: FITNESS_MODULE,
+    cooldownFile: FITNESS_MODULE,
+    styleFile: FITNESS_STYLE,
+    warmupTitle: 'Hero Ready Mission • Stability',
+    cooldownTitle: 'Hero Recovery Mission • Calm Balance',
     runFile: '../fitness/balance-hold-ar2.html',
-    runCandidates: ['../fitness/balance-hold-ar2.html','../fitness/balance-hold.html'],
+    runCandidates: ['../fitness/balance-hold-ar2.html', '../fitness/balance-hold.html'],
     summaryPath: '../fitness-zone.html'
   }),
 
   'fitness-planner': meta('fitness-planner', {
-    title: 'Fitness Planner', emoji: '📅', zone: 'fitness',
+    title: 'Fitness Planner',
+    emoji: '📅',
+    zone: 'fitness',
     runFile: '../fitness-planner.html',
-    runCandidates: ['../fitness-planner.html','../fitness-planner/index.html'],
+    runCandidates: ['../fitness-planner.html', '../fitness-planner/index.html'],
     summaryPath: '../fitness-zone.html'
   })
 };
 
 const ALIAS = {
-  shadowbreaker:'shadow-breaker','shadow-breaker-ar':'shadow-breaker',shadow:'shadow-breaker',
-  rhythmboxer:'rhythm-boxer','rhythm-boxer-ar':'rhythm-boxer',
-  jumpduck:'jump-duck','jumpduck-ar':'jump-duck','jump-duck-ar':'jump-duck',
-  balancehold:'balance-hold','balance-hold-ar2':'balance-hold',
-  'goodjunk-vr':'goodjunk','hydration-vr':'hydration','plate-vr':'plate','groups-vr':'groups',
-  'groups-ar':'groups',foodgroups:'groups','food-groups-ar':'groups',
-  germdetective:'germ-detective','mask-cough':'maskcough',fitnessplanner:'fitness-planner'
+  shadowbreaker: 'shadow-breaker',
+  'shadow-breaker-ar': 'shadow-breaker',
+  shadow: 'shadow-breaker',
+  rhythmboxer: 'rhythm-boxer',
+  'rhythm-boxer-ar': 'rhythm-boxer',
+  jumpduck: 'jump-duck',
+  'jumpduck-ar': 'jump-duck',
+  'jump-duck-ar': 'jump-duck',
+  balancehold: 'balance-hold',
+  'balance-hold-ar2': 'balance-hold',
+  'goodjunk-vr': 'goodjunk',
+  'hydration-vr': 'hydration',
+  'plate-vr': 'plate',
+  'groups-vr': 'groups',
+  'groups-ar': 'groups',
+  foodgroups: 'groups',
+  'food-groups-ar': 'groups',
+  germdetective: 'germ-detective',
+  'mask-cough': 'maskcough',
+  fitnessplanner: 'fitness-planner'
 };
 
 export function normalizeGameId(id) {
-  const raw=String(id||'').trim().toLowerCase();
-  if(!raw) return '';
-  const key=clean(raw);
-  return ALIAS[raw]||ALIAS[key]||key;
+  const raw = String(id || '').trim().toLowerCase();
+  if (!raw) return '';
+  const key = clean(raw);
+  return ALIAS[raw] || ALIAS[key] || key;
 }
 
 export function getGameMeta(id) {
-  const key=normalizeGameId(id);
-  if(!key) return null;
-  return GAME_REGISTRY[key] || meta(key,{title:title(key),zone:key.indexOf('fitness')>=0?'fitness':''});
+  const key = normalizeGameId(id);
+  if (!key) return null;
+  if (GAME_REGISTRY[key]) return GAME_REGISTRY[key];
+  return meta(key, {
+    title: title(key),
+    zone: key.indexOf('fitness') >= 0 ? 'fitness' : ''
+  });
 }
 
-export function hasGameMeta(id){ return !!getGameMeta(id); }
-export function getPhaseFile(id,phase){ const game=getGameMeta(id); if(!game)return''; return String(phase||'warmup').toLowerCase()==='cooldown'?(game.cooldownFile||''):(game.warmupFile||''); }
-export function getGameStyleFile(id){ const game=getGameMeta(id); return game?game.styleFile||'':''; }
-export function getRunFile(id){ const game=getGameMeta(id); return game?game.runFile||'':''; }
-export function getRunCandidates(id){ const game=getGameMeta(id); return game&&Array.isArray(game.runCandidates)?game.runCandidates.slice():[]; }
-export function getSummaryPath(id){ const game=getGameMeta(id); return game?game.summaryPath||'':''; }
-export function listGameIds(){ return Object.keys(GAME_REGISTRY); }
+export function hasGameMeta(id) {
+  return !!getGameMeta(id);
+}
 
-export default {PATCH,GAME_REGISTRY,normalizeGameId,getGameMeta,hasGameMeta,getPhaseFile,getGameStyleFile,getRunFile,getRunCandidates,getSummaryPath,listGameIds};
+export function getPhaseFile(id, phase) {
+  const game = getGameMeta(id);
+  if (!game) return '';
+  const normalizedPhase =
+    String(phase || 'warmup').toLowerCase() === 'cooldown'
+      ? 'cooldown'
+      : 'warmup';
+  return normalizedPhase === 'warmup'
+    ? game.warmupFile || ''
+    : game.cooldownFile || '';
+}
+
+export function getGameStyleFile(id) {
+  const game = getGameMeta(id);
+  return game ? game.styleFile || '' : '';
+}
+
+export function getRunFile(id) {
+  const game = getGameMeta(id);
+  return game ? game.runFile || '' : '';
+}
+
+export function getRunCandidates(id) {
+  const game = getGameMeta(id);
+  return game && Array.isArray(game.runCandidates)
+    ? game.runCandidates.slice()
+    : [];
+}
+
+export function getSummaryPath(id) {
+  const game = getGameMeta(id);
+  return game ? game.summaryPath || '' : '';
+}
+
+export function listGameIds() {
+  return Object.keys(GAME_REGISTRY);
+}
+
+export default {
+  PATCH,
+  GAME_REGISTRY,
+  normalizeGameId,
+  getGameMeta,
+  hasGameMeta,
+  getPhaseFile,
+  getGameStyleFile,
+  getRunFile,
+  getRunCandidates,
+  getSummaryPath,
+  listGameIds
+};
