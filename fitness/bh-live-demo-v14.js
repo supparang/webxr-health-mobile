@@ -2,7 +2,7 @@
 'use strict';
 const BH=window.BH;if(!BH||!BH.state||!BH.el)return;
 const s=BH.state,e=BH.el,$=BH.$;
-const RELEASE='20260717-BALANCE-HOLD-LIVE-DEMO-COMPLETE-V22';
+const RELEASE='20260717-BALANCE-HOLD-LIVE-DEMO-FINALIZE-V23';
 
 // Demo uses the same real MediaPipe evaluation as an official round.
 // The only difference is that demo results are never persisted or submitted.
@@ -13,6 +13,7 @@ BH.startLiveDemo=async()=>{
   BH.cancelCountdown();
   s.gameToken++;
   s.demo=true;
+  s.demoFinalizing=false;
   s.roundId=BH.stableId('BHLIVEDEMO');
   s.calValidMs=0;
   s.calLast=BH.now();
@@ -119,6 +120,30 @@ BH.submitSummary=async x=>{
   }
 };
 
+function finalizeDisplayedHundred(ev,p){
+  if(!s.demo||s.demoFinalizing||s.phase!=='play')return false;
+  const lastPose=s.sequence?.length>0&&s.index===s.sequence.length-1;
+  if(!lastPose||p<.995)return false;
+
+  s.demoFinalizing=true;
+  const cfg=BH.CONFIG[e.difficulty?.value]||BH.CONFIG.normal;
+  const assistHoldFactor=1-(s.assistLevel||0)*.075;
+  const required=(cfg.hold+(s.currentKey==='boss'?450:0))*assistHoldFactor;
+  s.holdMs=Math.max(s.holdMs||0,required);
+  e.holdText.textContent='100%';
+  e.holdRing.style.setProperty('--hold','360deg');
+  e.energyLabel.textContent='🎉 Demo Complete!';
+  e.coachSub.textContent='ทำครบทุกท่าแล้ว • กำลังปิดกล้องและเปิดหน้าสรุป';
+
+  // Complete through the normal path so the final pose is included in 7/7 results.
+  setTimeout(()=>{
+    if(s.phase!=='play')return;
+    try{BH.completePose(ev,required)}
+    catch(err){console.warn('[BalanceHold] demo finalizer fallback',err);BH.finish('completed')}
+  },80);
+  return true;
+}
+
 const baseUpdate=BH.updateGameUI;
 BH.updateGameUI=(ev,p)=>{
   baseUpdate(ev,p);
@@ -133,6 +158,7 @@ BH.updateGameUI=(ev,p)=>{
       e.energyLabel.textContent='ท่าสุดท้าย • ค้างให้ครบ 100%';
       e.coachSub.textContent='อีกนิดเดียว Demo จะจบและหยุดกล้องอัตโนมัติ';
     }
+    finalizeDisplayedHundred(ev,p);
   }
 };
 
@@ -144,5 +170,5 @@ if(demoBtn){
 }
 
 if(e.status&&s.phase==='setup')e.status.textContent='📷 Pose Ready • Live Demo available';
-console.info('[BalanceHold] Live Demo Complete v22 ready',RELEASE);
+console.info('[BalanceHold] Live Demo Finalize v23 ready',RELEASE);
 })();
