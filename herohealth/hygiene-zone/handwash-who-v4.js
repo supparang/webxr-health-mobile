@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-const RELEASE='20260717-HANDWASH-KID-COACH-R5';
+const RELEASE='20260717-HANDWASH-WET-STEP-R6';
 const RUNTIME_MARKER='20260716-HANDWASH-WHO-V4-R1';
 const DOM_HOOK="document.addEventListener('DOMContentLoaded', init);";
 const DOM_FIX="if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init,{once:true});}else{init();}";
@@ -30,6 +30,29 @@ const TIP_HOOK='el.missionTip.textContent=phase.tip;';
 const TIP_FIX="el.missionTip.textContent=kidGuide(phase.id,'start');";
 const DECAY_HOOK="state.evidence[phase.id][slot]=Math.max(0,state.evidence[phase.id][slot]-dt*.025);";
 const DECAY_FIX="state.evidence[phase.id][slot]=Math.max(0,state.evidence[phase.id][slot]-dt*.003);";
+const WET_HOOK=`if (phase.id === 'wet') {
+if (state.waterOn && inWater >= 2) {
+state.phaseProgress += dt/phase.targetSec;
+state.germLoad = Math.max(96,state.germLoad-dt*.5);
+hitZone(el.waterZone);
+coach('WHO 0: ทำให้มือทั้งสองข้างเปียกทั่ว','good');
+} else coach(state.waterOn?'นำมือสองข้างเข้าใต้น้ำ':'เปิดน้ำก่อน แล้วนำมือสองข้างเข้าใต้น้ำ','water');
+}`;
+const WET_FIX=`if (phase.id === 'wet') {
+const waterRect=el.waterZone.getBoundingClientRect();
+const expanded={left:waterRect.left-waterRect.width*.85,right:waterRect.right+waterRect.width*.85,top:waterRect.top-waterRect.height*.15,bottom:waterRect.bottom+waterRect.height*1.9};
+const underWater=palms.filter(p=>inRect(p,expanded)).length;
+if (state.waterOn && underWater >= 1) {
+const speed=underWater>=2?1.45:1.0;
+state.phaseProgress += dt*speed/Math.max(1.8,phase.targetSec*.72);
+state.germLoad = Math.max(96,state.germLoad-dt*.5);
+hitZone(el.waterZone);
+coach(underWater>=2?'ดีมาก น้ำโดนมือสองข้างแล้ว • ค้างไว้อีกนิด':'น้ำโดนมือหนึ่งข้างแล้ว • ขยับอีกมือเข้ามา หรือค้างต่อได้','good');
+} else if (state.waterOn && hands.length>=1) {
+state.phaseProgress += dt*.22;
+coach('เปิดน้ำแล้ว ✅ เลื่อนฝ่ามือมาใต้สายน้ำบริเวณกลางจอ','water');
+} else coach(state.waterOn?'เลื่อนฝ่ามือมาใต้สายน้ำบริเวณกลางจอ':'กดปุ่ม เปิดน้ำ ก่อน','water');
+}`;
 const COACH_HOOK=`function coachMessage(phase,reason,slot){
 if (!reason) return phase.side&&slot?\`ดีมาก ทำข้าง \${slotLabel(slot)} ต่อเนื่อง แล้วสลับอีกข้าง\`:phase.tip;
 if (reason==='zone') return 'นำมือทั้งสองข้างเข้ากลาง WHO RUB ZONE';
@@ -62,26 +85,28 @@ const files=[1,2,3,4].map(n=>`./handwash-who-v4.part${n}.txt?cv=${RELEASE}`);
 installLayout();document.documentElement.dataset.handwashRuntime='loading';
 Promise.all(files.map(url=>fetch(url,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`load failed ${r.status}: ${url}`);return r.text()}))).then(parts=>{
 const source=parts.join('');
-const required=[RUNTIME_MARKER,DOM_HOOK,PHASE_HOOK,SUMMARY_HOOK,GO_HOOK,ELIGIBLE_HOOK,GAIN_HOOK,QUALITY_HOOK,TIP_HOOK,DECAY_HOOK,COACH_HOOK];
+const required=[RUNTIME_MARKER,DOM_HOOK,PHASE_HOOK,SUMMARY_HOOK,GO_HOOK,ELIGIBLE_HOOK,GAIN_HOOK,QUALITY_HOOK,TIP_HOOK,DECAY_HOOK,WET_HOOK,COACH_HOOK];
 const valid=source.trimStart().startsWith('(() => {')&&source.trimEnd().endsWith('})();')&&required.every(x=>source.includes(x))&&source.length>40000;
-if(!valid)throw new Error('WHO Kid Coach runtime integrity check failed');
-let runtime=source.replace(DOM_HOOK,DOM_FIX).replace(PHASE_HOOK,PHASE_FIX).replace(SUMMARY_HOOK,SUMMARY_FIX).replace(GO_HOOK,GO_FIX).replace(ELIGIBLE_HOOK,ELIGIBLE_FIX).replace(GAIN_HOOK,GAIN_FIX).replace(QUALITY_HOOK,QUALITY_FIX).replace(TIP_HOOK,TIP_FIX).replace(DECAY_HOOK,DECAY_FIX).replace(COACH_HOOK,COACH_FIX);
+if(!valid)throw new Error('WHO Wet Step R6 runtime integrity check failed');
+let runtime=source.replace(DOM_HOOK,DOM_FIX).replace(PHASE_HOOK,PHASE_FIX).replace(SUMMARY_HOOK,SUMMARY_FIX).replace(GO_HOOK,GO_FIX).replace(ELIGIBLE_HOOK,ELIGIBLE_FIX).replace(GAIN_HOOK,GAIN_FIX).replace(QUALITY_HOOK,QUALITY_FIX).replace(TIP_HOOK,TIP_FIX).replace(DECAY_HOOK,DECAY_FIX).replace(WET_HOOK,WET_FIX).replace(COACH_HOOK,COACH_FIX);
 if(runtime.includes(ZONE_HOOK))runtime=runtime.replace(ZONE_HOOK,ZONE_FIX);
 const blobUrl=URL.createObjectURL(new Blob([runtime],{type:'text/javascript;charset=utf-8'}));
 const script=document.createElement('script');script.src=blobUrl;script.async=false;script.dataset.handwashWhoRuntime=RELEASE;
 script.onload=()=>{document.documentElement.dataset.handwashRuntime='ready';enableStart();URL.revokeObjectURL(blobUrl)};
 script.onerror=()=>{URL.revokeObjectURL(blobUrl);showFailure('compiled runtime could not start')};document.head.appendChild(script);
 }).catch(error=>showFailure(error?.message||String(error)));
-function enableStart(){const b=document.getElementById('startBtn');if(b){b.disabled=false;b.textContent='เริ่ม WHO Technique • Kid Coach'}}
+function enableStart(){const b=document.getElementById('startBtn');if(b){b.disabled=false;b.textContent='เริ่ม WHO Technique • Wet Fix R6'}}
 function showFailure(message){console.error('Handwash WHO loader',message);document.documentElement.dataset.handwashRuntime='failed';const s=document.getElementById('detectStatus');if(s)s.textContent='โหลดเกมไม่สำเร็จ';const b=document.getElementById('startBtn');if(b){b.disabled=false;b.textContent='แตะเพื่อลองโหลดใหม่';b.onclick=()=>location.reload()}const t=document.getElementById('toast');if(t){t.textContent='โหลด WHO Technique ไม่สำเร็จ กรุณารีเฟรช';t.classList.add('show')}}
-function installLayout(){const style=document.createElement('style');style.id='handwashKidCoachR5Layout';style.textContent=`
+function installLayout(){const style=document.createElement('style');style.id='handwashWetStepR6Layout';style.textContent=`
 :root{--hw-side:clamp(14px,2.2vw,34px)}
 #scrubZone{top:60%!important;left:50%!important;width:min(55vw,790px)!important;height:min(43vh,420px)!important;min-width:430px;min-height:260px;transform:translate(-50%,-50%)!important;border-radius:38px!important}
 html[data-handwash-phase="calibrate"] #scrubZone{top:60%!important;width:min(68vw,960px)!important;height:min(51vh,510px)!important;border-radius:44px!important;background:rgba(255,226,123,.10)!important}
-#waterZone{top:34%!important;left:50%!important;width:140px!important;height:108px!important}#soapZone{left:var(--hw-side)!important;bottom:156px!important;width:126px!important;height:112px!important}#towelZone{right:var(--hw-side)!important;bottom:156px!important;width:126px!important;height:112px!important}
+#waterZone{top:30%!important;left:50%!important;width:190px!important;height:190px!important;transform:translateX(-50%)!important;border-radius:34px!important}
+html[data-handwash-phase="wet"] #waterZone,html[data-handwash-phase="rinse"] #waterZone{height:250px!important;background:linear-gradient(180deg,rgba(87,223,255,.18),rgba(87,223,255,.05))!important}
+#soapZone{left:var(--hw-side)!important;bottom:156px!important;width:126px!important;height:112px!important}#towelZone{right:var(--hw-side)!important;bottom:156px!important;width:126px!important;height:112px!important}
 .coach{top:39%!important;right:var(--hw-side)!important;width:min(340px,31vw)!important;max-height:38vh;overflow:auto;border:2px solid rgba(255,226,123,.48)!important}.coach strong{font-size:12px!important}.coach p{font-size:clamp(12px,1.9vw,16px)!important;line-height:1.5!important}.who-strip{min-height:48px}.phase-chip{min-width:82px!important;font-size:10px!important;line-height:1.2!important;padding:7px 8px!important}html[data-handwash-runtime="loading"] #startBtn{opacity:.72;cursor:wait}
 @media(max-width:900px){#scrubZone{top:58%!important;width:74vw!important;height:37vh!important;min-width:0;min-height:225px}.coach{top:auto!important;right:12px!important;bottom:174px!important;width:min(350px,48vw)!important}.phase-chip{min-width:76px!important}}
-@media(max-width:760px){#scrubZone{top:55%!important;width:88vw!important;height:34vh!important;min-height:215px}html[data-handwash-phase="calibrate"] #scrubZone{top:54%!important;width:92vw!important;height:40vh!important}#waterZone{top:31%!important;width:112px!important;height:88px!important}#soapZone{left:10px!important;bottom:168px!important;width:98px!important;height:92px!important}#towelZone{right:10px!important;bottom:168px!important;width:98px!important;height:92px!important}.coach{right:8px!important;bottom:158px!important;width:min(76vw,330px)!important;max-height:27vh}.coach p{font-size:13px!important}.who-strip{min-height:44px}.phase-chip{min-width:70px!important;font-size:9px!important}.overlay{place-items:start center!important}.card{margin:auto 0;max-height:calc(100dvh - 24px);overflow:auto}.card h2{font-size:clamp(24px,8vw,34px)!important}}
+@media(max-width:760px){#scrubZone{top:55%!important;width:88vw!important;height:34vh!important;min-height:215px}html[data-handwash-phase="calibrate"] #scrubZone{top:54%!important;width:92vw!important;height:40vh!important}#waterZone{top:28%!important;width:150px!important;height:210px!important}html[data-handwash-phase="wet"] #waterZone,html[data-handwash-phase="rinse"] #waterZone{height:290px!important}#soapZone{left:10px!important;bottom:168px!important;width:98px!important;height:92px!important}#towelZone{right:10px!important;bottom:168px!important;width:98px!important;height:92px!important}.coach{right:8px!important;bottom:158px!important;width:min(76vw,330px)!important;max-height:27vh}.coach p{font-size:13px!important}.who-strip{min-height:44px}.phase-chip{min-width:70px!important;font-size:9px!important}.overlay{place-items:start center!important}.card{margin:auto 0;max-height:calc(100dvh - 24px);overflow:auto}.card h2{font-size:clamp(24px,8vw,34px)!important}}
 @media(max-width:480px){#scrubZone{top:54%!important;width:91vw!important;height:31vh!important;min-height:195px}.coach{width:80vw!important}.zone b{font-size:28px!important}.zone span{font-size:8px!important}}
 `;document.head.appendChild(style)}
 })();
