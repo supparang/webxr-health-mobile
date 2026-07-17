@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#103c3a">
+  <title>HeroHealth • Food Groups AR</title>
+  <meta name="description" content="HeroHealth Food Groups Camera AR — จำแนกอาหารตามหมู่ 1–5">
+  <script>
+    (function () {
+      'use strict';
+      var target = new URL('./vr-groups/groups-ar-v3.html', location.href);
+      new URLSearchParams(location.search).forEach(function (value, key) {
+        target.searchParams.set(key, value);
+      });
+      target.searchParams.set('canonical', 'groups-ar');
+      location.replace(target.toString());
+    })();
+  </script>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:linear-gradient(135deg,#dff5ff,#fff7df);color:#214f64}body{display:grid;place-items:center;padding:24px}.card{width:min(520px,100%);padding:28px;border-radius:30px;background:rgba(255,255,255,.9);box-shadow:0 18px 55px rgba(37,89,121,.14);text-align:center}.icon{font-size:64px}h1{margin:8px 0}p{color:#6f8fa1;font-weight:800;line-height:1.5}a{display:inline-block;margin-top:8px;padding:12px 18px;border-radius:999px;background:#55b8ff;color:#fff;text-decoration:none;font-weight:1000}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="icon">🥦</div>
+    <h1>Food Groups AR</h1>
+    <p>กำลังเปิดเกม Camera AR…</p>
+    <a id="fallback" href="./vr-groups/groups-ar-v3.html">เปิดเกม</a>
+  </main>
+  <script>
+    (function () {
+      var target = new URL('./vr-groups/groups-ar-v3.html', location.href);
+      new URLSearchParams(location.search).forEach(function (value, key) {
+        target.searchParams.set(key, value);
+      });
+      target.searchParams.set('canonical', 'groups-ar');
+      document.getElementById('fallback').href = target.toString();
+    })();
+  </script>
+</body>
+</html>
