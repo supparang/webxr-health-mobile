@@ -44,7 +44,7 @@ BH.startLiveDemo=async()=>{
 };
 
 // Keep demo completely outside local progress, latest result and Personal Best.
-BH.finish=(reason=>{
+BH.finish=(()=>{
   return function(endReason){
     if(s.phase==='summary')return;
     s.phase='summary';s.gameToken++;e.pauseBtn.textContent='Ⅱ';
@@ -60,7 +60,17 @@ BH.finish=(reason=>{
     BH.renderSummary(x);
     BH.submitSummary(x);
   };
-})(BH.finish);
+})();
+
+const baseSubmit=BH.submitSummary;
+BH.submitSummary=async x=>{
+  if(!s.demo)return baseSubmit(x);
+  const n=$('sheetStatus');
+  if(n){
+    n.textContent='🎥 Live Demo • ตรวจ Pose ด้วยกล้องจริง • ไม่ส่ง Sheet ไม่บันทึกผล และไม่เปลี่ยน Personal Best';
+    n.className='sheetStatus warn';
+  }
+};
 
 const baseUpdate=BH.updateGameUI;
 BH.updateGameUI=(ev,p)=>{
@@ -80,9 +90,6 @@ if(demoBtn){
   demoBtn.onclick=BH.startLiveDemo;
 }
 
-// Make the policy obvious before the user starts.
-const status=e.status;
-if(status&&s.phase==='setup')status.textContent='📷 Pose Ready • Live Demo available';
-
+if(e.status&&s.phase==='setup')e.status.textContent='📷 Pose Ready • Live Demo available';
 console.info('[BalanceHold] Live Demo v14 ready',RELEASE);
 })();
