@@ -1,7 +1,7 @@
 // === /herohealth/gate/gate-games.js ===
 // Shared registry for HeroHealth Gate.
 
-export const PATCH = 'v20260717-GATE-GAMES-HANDWASH-WARMUP-R1';
+export const PATCH = 'v20260717-GATE-GAMES-GROUPS-CANONICAL-R2';
 
 const FITNESS_MODULE =
   './games/fitness/fitness-readiness-recovery.js?v=20260624-frr-v24-side-stretch';
@@ -78,9 +78,7 @@ export const GAME_REGISTRY = {
     emoji: '🍎',
     zone: 'nutrition',
     runFile: '../vr-goodjunk/goodjunk-solo-boss.html',
-    runCandidates: [
-      '../vr-goodjunk/goodjunk-solo-boss.html'
-    ],
+    runCandidates: ['../vr-goodjunk/goodjunk-solo-boss.html'],
     warmupFile: './games/goodjunk/warmup.js',
     cooldownFile: './games/goodjunk/cooldown.js',
     styleFile: './games/goodjunk/style.css',
@@ -104,12 +102,17 @@ export const GAME_REGISTRY = {
     title: 'Food Groups AR',
     emoji: '🥦',
     zone: 'nutrition',
-    runFile: '../vr-groups/groups.html',
+    runFile: '../groups-vr.html',
     runCandidates: [
-      '../vr-groups/groups.html',
-      '../groups-vr.html'
+      '../groups-vr.html',
+      '../groups-ar-gate.html?phase=warmup',
+      '../groups-ar.html',
+      '../vr-groups/groups-ar.html',
+      '../vr-groups/groups.html'
     ],
-    summaryPath: '../nutrition-zone.html'
+    summaryPath: '../nutrition-zone.html',
+    warmupTitle: 'Groups AR • Hand & Basket Ready',
+    cooldownTitle: 'Groups AR • Five Basket Reset'
   }),
 
   brush: meta('brush', {
@@ -117,10 +120,7 @@ export const GAME_REGISTRY = {
     emoji: '🪥',
     zone: 'hygiene',
     runFile: '../brush-vr.html',
-    runCandidates: [
-      '../brush-vr.html',
-      '../brush-vr-kids.html'
-    ],
+    runCandidates: ['../brush-vr.html', '../brush-vr-kids.html'],
     summaryPath: '../hygiene-zone.html'
   }),
 
@@ -145,10 +145,7 @@ export const GAME_REGISTRY = {
     emoji: '🦠',
     zone: 'hygiene',
     runFile: '../germ-detective.html',
-    runCandidates: [
-      '../germ-detective.html',
-      '../germ-detective-v2.html'
-    ],
+    runCandidates: ['../germ-detective.html', '../germ-detective-v2.html'],
     summaryPath: '../hygiene-zone.html'
   }),
 
@@ -157,10 +154,7 @@ export const GAME_REGISTRY = {
     emoji: '🛁',
     zone: 'hygiene',
     runFile: '../bath.html',
-    runCandidates: [
-      '../bath.html',
-      '../bath-vr.html'
-    ],
+    runCandidates: ['../bath.html', '../bath-vr.html'],
     summaryPath: '../hygiene-zone.html'
   }),
 
@@ -169,9 +163,7 @@ export const GAME_REGISTRY = {
     emoji: '😷',
     zone: 'hygiene',
     runFile: '../maskcough-v2.html',
-    runCandidates: [
-      '../maskcough-v2.html'
-    ],
+    runCandidates: ['../maskcough-v2.html'],
     summaryPath: '../hygiene-zone.html'
   }),
 
@@ -185,10 +177,7 @@ export const GAME_REGISTRY = {
     warmupTitle: 'Hero Ready Mission • Punch Power',
     cooldownTitle: 'Hero Recovery Mission • Arms & Shoulders',
     runFile: '../fitness/shadow-breaker-ar.html',
-    runCandidates: [
-      '../fitness/shadow-breaker-ar.html',
-      '../fitness/shadow-breaker.html'
-    ],
+    runCandidates: ['../fitness/shadow-breaker-ar.html', '../fitness/shadow-breaker.html'],
     summaryPath: '../fitness-zone.html'
   }),
 
@@ -202,10 +191,7 @@ export const GAME_REGISTRY = {
     warmupTitle: 'Hero Ready Mission • Beat Control',
     cooldownTitle: 'Hero Recovery Mission • Rhythm Reset',
     runFile: '../fitness/rhythm-boxer-ar.html',
-    runCandidates: [
-      '../fitness/rhythm-boxer-ar.html',
-      '../fitness/rhythm-boxer.html'
-    ],
+    runCandidates: ['../fitness/rhythm-boxer-ar.html', '../fitness/rhythm-boxer.html'],
     summaryPath: '../fitness-zone.html'
   }),
 
@@ -237,10 +223,7 @@ export const GAME_REGISTRY = {
     warmupTitle: 'Hero Ready Mission • Stability',
     cooldownTitle: 'Hero Recovery Mission • Calm Balance',
     runFile: '../fitness/balance-hold-ar2.html',
-    runCandidates: [
-      '../fitness/balance-hold-ar2.html',
-      '../fitness/balance-hold.html'
-    ],
+    runCandidates: ['../fitness/balance-hold-ar2.html', '../fitness/balance-hold.html'],
     summaryPath: '../fitness-zone.html'
   }),
 
@@ -249,10 +232,7 @@ export const GAME_REGISTRY = {
     emoji: '📅',
     zone: 'fitness',
     runFile: '../fitness-planner.html',
-    runCandidates: [
-      '../fitness-planner.html',
-      '../fitness-planner/index.html'
-    ],
+    runCandidates: ['../fitness-planner.html', '../fitness-planner/index.html'],
     summaryPath: '../fitness-zone.html'
   })
 };
@@ -261,22 +241,20 @@ const ALIAS = {
   shadowbreaker: 'shadow-breaker',
   'shadow-breaker-ar': 'shadow-breaker',
   shadow: 'shadow-breaker',
-
   rhythmboxer: 'rhythm-boxer',
   'rhythm-boxer-ar': 'rhythm-boxer',
-
   jumpduck: 'jump-duck',
   'jumpduck-ar': 'jump-duck',
   'jump-duck-ar': 'jump-duck',
-
   balancehold: 'balance-hold',
   'balance-hold-ar2': 'balance-hold',
-
   'goodjunk-vr': 'goodjunk',
   'hydration-vr': 'hydration',
   'plate-vr': 'plate',
   'groups-vr': 'groups',
-
+  'groups-ar': 'groups',
+  foodgroups: 'groups',
+  'food-groups-ar': 'groups',
   germdetective: 'germ-detective',
   'mask-cough': 'maskcough',
   fitnessplanner: 'fitness-planner'
@@ -284,23 +262,15 @@ const ALIAS = {
 
 export function normalizeGameId(id) {
   const raw = String(id || '').trim().toLowerCase();
-
   if (!raw) return '';
-
   const key = clean(raw);
-
   return ALIAS[raw] || ALIAS[key] || key;
 }
 
 export function getGameMeta(id) {
   const key = normalizeGameId(id);
-
   if (!key) return null;
-
-  if (GAME_REGISTRY[key]) {
-    return GAME_REGISTRY[key];
-  }
-
+  if (GAME_REGISTRY[key]) return GAME_REGISTRY[key];
   return meta(key, {
     title: title(key),
     zone: key.indexOf('fitness') >= 0 ? 'fitness' : ''
@@ -313,14 +283,11 @@ export function hasGameMeta(id) {
 
 export function getPhaseFile(id, phase) {
   const game = getGameMeta(id);
-
   if (!game) return '';
-
   const normalizedPhase =
     String(phase || 'warmup').toLowerCase() === 'cooldown'
       ? 'cooldown'
       : 'warmup';
-
   return normalizedPhase === 'warmup'
     ? game.warmupFile || ''
     : game.cooldownFile || '';
@@ -338,7 +305,6 @@ export function getRunFile(id) {
 
 export function getRunCandidates(id) {
   const game = getGameMeta(id);
-
   return game && Array.isArray(game.runCandidates)
     ? game.runCandidates.slice()
     : [];
