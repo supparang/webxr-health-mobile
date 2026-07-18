@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const RELEASE = '20260718-HANDWASH-FINISH-COMMIT-R21';
+  const RELEASE = '20260718-HANDWASH-SUMMARY-OVERLAY-FORCE-R22';
   const NativeBlob = window.Blob;
 
   const rubHook = `function updateRub(phase,hands,dt){
@@ -130,17 +130,38 @@ clearInterval(state.procedureTimer);
 clearTimeout(state.timeoutTimer);
 state.endedAt=new Date().toISOString();
 if(state.procedureStartedAt)state.procedureSec=(Date.now()-Date.parse(state.procedureStartedAt))/1000;
-try{setWater(false)}catch(error){console.warn('[Handwash R21] setWater failed',error)}
+try{setWater(false)}catch(error){console.warn('[Handwash R22] setWater failed',error)}
 let result;
 try{result=buildResult(reason)}catch(error){
-console.error('[Handwash R21] buildResult failed',error);
+console.error('[Handwash R22] buildResult failed',error);
 result={attemptId:state.attemptId||('hw-'+Date.now()),score:Math.round(Number(state.score||0)),stars:0,accuracy:0,procedureDurationSec:Number(state.procedureSec||0),completedRubSteps:6,towelFaucetPassed:true,techniquePassed:true,passed:reason==='completed',mode:'camera-ar',steps:[],timestamp:new Date().toISOString(),endReason:reason};
 }
-try{renderSummary(result)}catch(error){console.error('[Handwash R21] renderSummary failed',error)}
-if(el.summaryOverlay)el.summaryOverlay.classList.add('show');
+try{renderSummary(result)}catch(error){console.error('[Handwash R22] renderSummary failed',error)}
+const overlay=el.summaryOverlay||document.getElementById('summaryOverlay');
+if(overlay){
+if(overlay.parentElement!==document.body)document.body.appendChild(overlay);
+overlay.classList.add('show');
+overlay.removeAttribute('hidden');
+overlay.setAttribute('aria-hidden','false');
+overlay.style.setProperty('display','grid','important');
+overlay.style.setProperty('position','fixed','important');
+overlay.style.setProperty('inset','0','important');
+overlay.style.setProperty('z-index','2147483647','important');
+overlay.style.setProperty('visibility','visible','important');
+overlay.style.setProperty('opacity','1','important');
+overlay.style.setProperty('pointer-events','auto','important');
+overlay.scrollTop=0;
+void overlay.offsetHeight;
+}
 document.documentElement.dataset.handwashFinish='committed';
-console.info('[Handwash R21] summary opened',reason);
-setTimeout(()=>{try{saveResult(result)}catch(error){console.error('[Handwash R21] saveResult failed',error)}try{sendResult(result)}catch(error){console.error('[Handwash R21] sendResult failed',error)}try{logEvent('game_end',{reason,score:result.score,passed:result.passed})}catch(error){}},0);
+document.documentElement.dataset.handwashSummaryVisible=overlay?'true':'missing';
+console.info('[Handwash R22] summary overlay forced',reason,!!overlay,overlay?getComputedStyle(overlay).display:'missing');
+setTimeout(()=>{
+if(overlay){overlay.classList.add('show');overlay.style.setProperty('display','grid','important');overlay.style.setProperty('z-index','2147483647','important');}
+try{saveResult(result)}catch(error){console.error('[Handwash R22] saveResult failed',error)}
+try{sendResult(result)}catch(error){console.error('[Handwash R22] sendResult failed',error)}
+try{logEvent('game_end',{reason,score:result.score,passed:result.passed})}catch(error){}
+},50);
 }`;
 
   function patchSource(source) {
@@ -157,7 +178,7 @@ setTimeout(()=>{try{saveResult(result)}catch(error){console.error('[Handwash R21
 
     document.documentElement.dataset.handwashRescue = RELEASE;
     document.documentElement.dataset.handwashRescuePatches = String(patchedCount);
-    console.info('[Handwash R21] finish commit installed; patches=' + patchedCount);
+    console.info('[Handwash R22] summary overlay force installed; patches=' + patchedCount);
     return patched;
   }
 
