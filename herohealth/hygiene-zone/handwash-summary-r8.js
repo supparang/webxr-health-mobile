@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const RELEASE='20260717-HANDWASH-SUMMARY-R8';
+const RELEASE='20260718-HANDWASH-SUMMARY-WHO10-WATCHDOG-R20';
 const STEP_NAMES={
 '0':'เปียกมือ','1':'ใช้สบู่','2':'ฝ่ามือ','3':'หลังมือและซอกนิ้ว','4':'ฝ่ามือประสานนิ้ว','5':'หลังนิ้ว','6':'หัวแม่มือ','7':'ปลายนิ้วและเล็บ','8':'ล้างน้ำ','9':'เช็ดมือ','10':'ปิดก๊อกด้วยกระดาษ'
 };
@@ -50,6 +50,61 @@ function polish(){
  note.textContent=finished?`คะแนนการเรียนรู้ ${learningScore}% • ${stars===3?'พร้อมท้าทายเวลา':stars===2?'ทำครบดีมาก ฝึกท่าที่ Coach ช่วยอีกนิด':'ผ่านครบแล้ว รอบหน้าฝึกท่าที่คะแนนต่ำที่สุด'}`:'ทำต่อให้ครบทุกขั้น แล้ว AI Coach จะสรุปท่าที่ควรฝึก';
  document.documentElement.dataset.handwashSummaryRelease=RELEASE;
 }
+
+/* WHO10 Watchdog R20
+ * Runtime functions live inside a compiled closure. The public Tap Assist button
+ * is the safest supported bridge into completeProcess()/finishRun().
+ */
+let who10EnteredAt=0;
+let watchdogBursts=0;
+let burstRunning=false;
+function summaryVisible(){return !!document.getElementById('summaryOverlay')?.classList.contains('show');}
+function phaseNow(){return document.documentElement.dataset.handwashPhase||'';}
+function fireAssistBurst(){
+ if(burstRunning||summaryVisible())return;
+ const button=document.getElementById('tapBtn');
+ if(!button||button.disabled)return;
+ burstRunning=true;
+ watchdogBursts+=1;
+ console.warn('[Handwash R20] WHO10 watchdog assist burst '+watchdogBursts);
+ [0,260,520,900].forEach((delay,index)=>setTimeout(()=>{
+  if(summaryVisible()||phaseNow()!=='towelFaucet')return;
+  button.click();
+  if(index===3)burstRunning=false;
+ },delay));
+ setTimeout(()=>{burstRunning=false;},1300);
+}
+function watchWho10(){
+ const phase=phaseNow();
+ if(summaryVisible()){
+  who10EnteredAt=0;
+  return;
+ }
+ if(phase!=='towelFaucet'){
+  who10EnteredAt=0;
+  watchdogBursts=0;
+  return;
+ }
+ if(!who10EnteredAt){
+  who10EnteredAt=Date.now();
+  const coach=document.getElementById('coachText');
+  if(coach)coach.textContent='WHO 10 • ถือกระดาษแตะกรอบก๊อก ระบบจะจบให้อัตโนมัติหากตรวจจับยาก';
+  console.info('[Handwash R20] WHO10 watchdog armed');
+  return;
+ }
+ const elapsed=Date.now()-who10EnteredAt;
+ if(elapsed>=5000&&watchdogBursts===0)fireAssistBurst();
+ if(elapsed>=8500&&watchdogBursts===1)fireAssistBurst();
+ if(elapsed>=12000&&watchdogBursts===2){
+  const stop=document.getElementById('stopBtn');
+  console.error('[Handwash R20] WHO10 final fallback: stop and show summary');
+  stop?.click();
+  watchdogBursts=3;
+ }
+}
+setInterval(watchWho10,250);
+console.info('[Handwash R20] WHO10 DOM watchdog installed');
+
 new MutationObserver(polish).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
 document.addEventListener('DOMContentLoaded',polish,{once:true});
 const bridge=document.createElement('script');
