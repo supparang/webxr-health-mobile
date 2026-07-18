@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const RELEASE = '20260718-HANDWASH-WHO10-PROCESS-GUARD-R19';
+  const RELEASE = '20260718-HANDWASH-FINISH-COMMIT-R21';
   const NativeBlob = window.Blob;
 
   const rubHook = `function updateRub(phase,hands,dt){
@@ -106,6 +106,43 @@ showToast('WHO 10 ผ่านแล้ว • กำลังเปิดสร
 state.phaseProgress=clamp(state.phaseProgress,0,1);
 if (state.phaseProgress >= 1) completeProcess(phase);`;
 
+  const finishHook = `function finishRun(reason){
+if (!state.running) return;
+state.running=false;
+clearInterval(state.procedureTimer);
+clearTimeout(state.timeoutTimer);
+state.endedAt=new Date().toISOString();
+if (state.procedureStartedAt) state.procedureSec=(Date.now()-Date.parse(state.procedureStartedAt))/1000;
+setWater(false);
+const result=buildResult(reason);
+saveResult(result);
+renderSummary(result);
+sendResult(result);
+el.summaryOverlay.classList.add('show');
+logEvent('game_end',{reason,score:result.score,passed:result.passed});
+}`;
+
+  const finishFix = `function finishRun(reason){
+if(state.finishCommitted)return;
+state.finishCommitted=true;
+state.running=false;
+clearInterval(state.procedureTimer);
+clearTimeout(state.timeoutTimer);
+state.endedAt=new Date().toISOString();
+if(state.procedureStartedAt)state.procedureSec=(Date.now()-Date.parse(state.procedureStartedAt))/1000;
+try{setWater(false)}catch(error){console.warn('[Handwash R21] setWater failed',error)}
+let result;
+try{result=buildResult(reason)}catch(error){
+console.error('[Handwash R21] buildResult failed',error);
+result={attemptId:state.attemptId||('hw-'+Date.now()),score:Math.round(Number(state.score||0)),stars:0,accuracy:0,procedureDurationSec:Number(state.procedureSec||0),completedRubSteps:6,towelFaucetPassed:true,techniquePassed:true,passed:reason==='completed',mode:'camera-ar',steps:[],timestamp:new Date().toISOString(),endReason:reason};
+}
+try{renderSummary(result)}catch(error){console.error('[Handwash R21] renderSummary failed',error)}
+if(el.summaryOverlay)el.summaryOverlay.classList.add('show');
+document.documentElement.dataset.handwashFinish='committed';
+console.info('[Handwash R21] summary opened',reason);
+setTimeout(()=>{try{saveResult(result)}catch(error){console.error('[Handwash R21] saveResult failed',error)}try{sendResult(result)}catch(error){console.error('[Handwash R21] sendResult failed',error)}try{logEvent('game_end',{reason,score:result.score,passed:result.passed})}catch(error){}},0);
+}`;
+
   function patchSource(source) {
     if (typeof source !== 'string') return source;
     if (!source.includes('WHO Final R7') && !source.includes('HANDWASH-FINAL-R7')) return source;
@@ -116,10 +153,11 @@ if (state.phaseProgress >= 1) completeProcess(phase);`;
     if (patched.includes(dryHook)) { patched = patched.replace(dryHook, dryFix); patchedCount += 1; }
     if (patched.includes(towelHook)) { patched = patched.replace(towelHook, towelFix); patchedCount += 1; }
     if (patched.includes(processHook)) { patched = patched.replace(processHook, processFix); patchedCount += 1; }
+    if (patched.includes(finishHook)) { patched = patched.replace(finishHook, finishFix); patchedCount += 1; }
 
     document.documentElement.dataset.handwashRescue = RELEASE;
     document.documentElement.dataset.handwashRescuePatches = String(patchedCount);
-    console.info('[Handwash R19] WHO10 process guard installed; patches=' + patchedCount);
+    console.info('[Handwash R21] finish commit installed; patches=' + patchedCount);
     return patched;
   }
 
