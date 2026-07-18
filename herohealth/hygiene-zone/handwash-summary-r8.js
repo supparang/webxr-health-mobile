@@ -52,4 +52,9 @@ function polish(){
 }
 new MutationObserver(polish).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
 document.addEventListener('DOMContentLoaded',polish,{once:true});
+const bridge=document.createElement('script');
+bridge.src='./handwash-research-bridge-r18.js?cv=20260718-HANDWASH-RESEARCH-BRIDGE-R18';
+bridge.async=false;
+bridge.onerror=()=>console.error('[Handwash Research R18] bridge load failed');
+document.head.appendChild(bridge);
 })();
