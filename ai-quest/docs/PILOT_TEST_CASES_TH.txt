@@ -1,0 +1,18 @@
+
+MODULE 2 PILOT TEST CASES
+
+[ ] S1 เปิดได้เมื่อ Backend อนุญาต
+[ ] S2-S3-B1 เปิดตรงตาม Progress Contract
+[ ] เปิด Coding Lab พร้อม session parameter ได้
+[ ] Starter Code แสดงถูกต้อง
+[ ] Predict ถูก/ผิดถูกบันทึก
+[ ] Output ว่างทำให้ runScore = 0
+[ ] Modify สำเร็จให้ 50 คะแนน
+[ ] Challenge สำเร็จให้ 20 คะแนน
+[ ] คะแนนรวม Coding ไม่เกิน 100
+[ ] ส่งซ้ำด้วย codingAttemptId เดิมไม่สร้างข้อมูลซ้ำ
+[ ] ข้าม URL ไป Lab ที่ยังล็อกต้องถูก Core ปฏิเสธตอนส่ง
+[ ] coding_attempts ได้ข้อมูล student_id + section + session_id
+[ ] เปลี่ยน Browser แล้วยังอ่าน Progress จาก Sheet
+[ ] S1 Finalize ไม่ผ่านถ้า Coding ต่ำกว่า 60
+[ ] S1 Finalize ผ่านแล้วเปิด S2

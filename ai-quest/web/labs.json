@@ -1,0 +1,38 @@
+{
+  "S1": {
+    "title": "S1 Coding Lab — AI vs Automation",
+    "concept": "ใช้เงื่อนไขเพื่อสร้างระบบตอบสนองแบบอัตโนมัติ และอภิปรายว่าเหตุใดระบบกฎอย่างเดียวอาจยังไม่ใช่ AI",
+    "starter": "temperature = 38\n\nif temperature >= 37.5:\n    print('High temperature alert')\nelse:\n    print('Normal')",
+    "predict": "เมื่อ temperature = 38 โปรแกรมจะแสดงอะไร",
+    "modify": "เปลี่ยน threshold เป็น 38.5 และทดสอบค่า 38 กับ 39",
+    "challenge": "เพิ่มเงื่อนไข Low, Normal และ High อย่างน้อย 3 ระดับ",
+    "expected": "High temperature alert"
+  },
+  "S2": {
+    "title": "S2 Coding Lab — Intelligent Agent",
+    "concept": "Agent รับ percept แล้วเลือก action ตามกฎหรือ policy",
+    "starter": "def agent(percept):\n    if percept == 'dirty':\n        return 'clean'\n    return 'move'\n\nprint(agent('dirty'))",
+    "predict": "เมื่อ percept = dirty โปรแกรมจะแสดงอะไร",
+    "modify": "เพิ่ม percept = obstacle แล้วให้ agent ตอบ turn",
+    "challenge": "เพิ่ม battery_low และ goal_found พร้อม action ที่เหมาะสม",
+    "expected": "clean"
+  },
+  "S3": {
+    "title": "S3 Coding Lab — Breadth-First Search",
+    "concept": "BFS ใช้ Queue สำรวจโหนดตามระดับและเหมาะกับการหาเส้นทางสั้นในกราฟที่ไม่มีน้ำหนัก",
+    "starter": "from collections import deque\n\ngraph = {\n    'A': ['B', 'C'],\n    'B': ['D'],\n    'C': ['E'],\n    'D': [],\n    'E': []\n}\n\nqueue = deque(['A'])\nvisited = []\n\nwhile queue:\n    node = queue.popleft()\n    if node not in visited:\n        visited.append(node)\n        queue.extend(graph[node])\n\nprint(visited)",
+    "predict": "ลำดับ visited จะเป็นอย่างไร",
+    "modify": "เพิ่มโหนด F ใต้ D และสังเกตลำดับใหม่",
+    "challenge": "แก้โค้ดให้หยุดเมื่อพบ goal และคืน path",
+    "expected": "['A', 'B', 'C', 'D', 'E']"
+  },
+  "B1": {
+    "title": "B1 Coding Boss — AI Foundations",
+    "concept": "บูรณาการ AI vs Automation, Agent และ Search ในสถานการณ์เดียว",
+    "starter": "from collections import deque\n\ndef choose_action(percept):\n    if percept == 'blocked':\n        return 'search_new_route'\n    return 'move_forward'\n\nprint(choose_action('blocked'))",
+    "predict": "Agent จะเลือก action ใดเมื่อ percept เป็น blocked",
+    "modify": "เพิ่ม percept อีก 2 แบบและ action ที่สมเหตุสมผล",
+    "challenge": "เชื่อม agent เข้ากับ BFS เพื่อค้นหาเส้นทางใหม่เมื่อ blocked",
+    "expected": "search_new_route"
+  }
+}

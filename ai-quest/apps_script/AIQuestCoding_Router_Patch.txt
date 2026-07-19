@@ -1,0 +1,11 @@
+
+เพิ่ม branch นี้ใน doPost(e) เดิม หลัง parse payload แล้ว:
+
+if (String(payload.module || '').toUpperCase() === 'AIQCODING') {
+  return jsonOutput(AIQCODING.handle(payload));
+}
+
+หากระบบเดิมใช้ชื่อฟังก์ชัน output ต่างออกไป ให้เปลี่ยน jsonOutput(...)
+เป็นฟังก์ชัน JSON response เดิมของโปรเจกต์
+
+ห้ามประกาศ doPost(e) หรือ doGet(e) ซ้ำ
