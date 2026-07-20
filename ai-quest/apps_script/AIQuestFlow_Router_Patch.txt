@@ -1,0 +1,48 @@
+CSAI2102 AI QUEST — INTEGRATED FLOW ROUTER PATCH v1
+
+1) เพิ่มไฟล์ AIQuestFlow_Receiver.gs เข้า Apps Script โปรเจกต์เดียวกับ Code.gs
+
+2) เปิด Code.gs และหา function doPost(e)
+
+3) หลังจาก parse payload แล้ว และยังอยู่ภายใน doPost(e) ให้เพิ่มก้อนนี้ก่อน Router ทั่วไป:
+
+// =====================================================
+// AI QUEST INTEGRATED FLOW ROUTER
+// Profile -> Mission -> Coding -> Reflection -> Unlock
+// =====================================================
+if (
+  String(payload.module || '').trim().toUpperCase() === 'AIQFLOW' ||
+  String(payload.action || '').trim().toUpperCase() === 'LOOKUP_PROFILE' ||
+  String(payload.action || '').trim().toUpperCase() === 'SUBMIT_REFLECTION' ||
+  String(payload.action || '').trim().toUpperCase() === 'GET_SESSION_STATUS' ||
+  String(payload.action || '').trim().toUpperCase() === 'GET_FLOW_PROGRESS'
+) {
+  if (
+    typeof AIQFLOW === 'undefined' ||
+    typeof AIQFLOW.handle !== 'function'
+  ) {
+    return jsonOut({
+      ok: false,
+      code: 'AIQFLOW_MODULE_MISSING',
+      action: payload.action || '',
+      module: payload.module || ''
+    });
+  }
+
+  return jsonOut(AIQFLOW.handle(payload));
+}
+
+ข้อสำคัญ
+- ห้ามวางก้อนนี้นอก doPost(e) เพราะจะเกิด Illegal return statement
+- ใช้ jsonOut(...) ตาม Code.gs ตัวจริง
+- ห้ามสร้าง doPost(e) ใหม่
+- Save แล้ว Deploy > Manage deployments > Edit > New version > Deploy
+
+Sheets ที่ระบบจะสร้างอัตโนมัติเมื่อส่ง Reflection:
+- aiquest_reflections
+- aiquest_session_completion
+
+Sheets ที่ระบบอ่าน:
+- student_profiles / students-profile / profiles
+- session_attempts / attempts / teacher_summary / session_summary
+- coding_attempts
