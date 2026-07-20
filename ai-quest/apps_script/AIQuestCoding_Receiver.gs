@@ -1,12 +1,12 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v2
- * Server-side evidence validation for S1-S3 and B1.
+ * CSAI2102 AI Quest Coding Receiver v2.1
+ * Server-side evidence validation + official coding status lookup.
  * Requires AIQ3 Core and AIQuestCoding_Config.gs.
  * Does NOT declare doGet/doPost.
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20260720-AIQ-CODING-RECEIVER-V2.0.0';
+AIQCODING.VERSION = '20260720-AIQ-CODING-RECEIVER-V2.1.0';
 
 AIQCODING.text_ = function(v) {
   return String(v == null ? '' : v).trim();
@@ -106,11 +106,64 @@ AIQCODING.submit_ = function(payload) {
   return coreResult;
 };
 
+AIQCODING.getStatus_ = function(payload) {
+  payload = payload || {};
+  var studentId = AIQCODING.text_(payload.studentId);
+  var section = AIQCODING.text_(payload.section);
+  var sessionId = AIQCODING.text_(payload.sessionId).toUpperCase();
+
+  if (!studentId || !section || !sessionId) {
+    return {ok:false, code:'MISSING_STATUS_IDENTITY'};
+  }
+  if (!AIQCODING.allowedLab_(sessionId)) {
+    return {ok:false, code:'LAB_NOT_AVAILABLE', sessionId:sessionId};
+  }
+  if (typeof AIQ3 === 'undefined' || typeof AIQ3.findRows_ !== 'function') {
+    return {ok:false, code:'AIQ3_CORE_MISSING'};
+  }
+
+  var rows = AIQ3.findRows_(AIQ3.SHEETS.CODING_ATTEMPTS, function(r){
+    return AIQCODING.text_(r.student_id) === studentId &&
+      AIQCODING.text_(r.section) === section &&
+      AIQCODING.text_(r.session_id).toUpperCase() === sessionId;
+  });
+
+  rows.sort(function(a,b){
+    return Number(a.attempt_number || 0) - Number(b.attempt_number || 0);
+  });
+
+  var latest = rows.length ? rows[rows.length - 1] : null;
+  var best = rows.reduce(function(acc, row){
+    return !acc || Number(row.coding_score || 0) > Number(acc.coding_score || 0) ? row : acc;
+  }, null);
+  var bestScore = best ? Number(best.coding_score || 0) : 0;
+  var latestScore = latest ? Number(latest.coding_score || 0) : 0;
+
+  return {
+    ok:true,
+    studentId:studentId,
+    section:section,
+    sessionId:sessionId,
+    found:rows.length > 0,
+    completed:bestScore >= 60,
+    latestScore:latestScore,
+    bestScore:bestScore,
+    attemptCount:rows.length,
+    latestAttempt:latest ? Number(latest.attempt_number || 0) : 0,
+    submittedAt:latest ? latest.submitted_at || '' : '',
+    version:AIQCODING.VERSION
+  };
+};
+
 AIQCODING.handle = function(payload) {
   var action = AIQCODING.text_((payload || {}).action).toUpperCase();
 
   if (action === 'SUBMIT_CODING_LAB') {
     return AIQCODING.submit_(payload);
+  }
+
+  if (action === 'GET_CODING_STATUS') {
+    return AIQCODING.getStatus_(payload);
   }
 
   if (action === 'GET_LAB_CONFIG') {
