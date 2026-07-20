@@ -1,199 +1,35 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CSAI2102 Coding Lab</title>
 <style>
-body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f4f7fb;color:#172033}
-main{max-width:980px;margin:auto;padding:24px}
-.card{background:white;border-radius:18px;padding:22px;margin:16px 0;box-shadow:0 8px 30px rgba(0,0,0,.08)}
-textarea,input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}
-textarea.code{min-height:260px;font-family:ui-monospace,monospace}
-button{padding:12px 18px;border:0;border-radius:12px;font-weight:700;cursor:pointer}
-button:disabled{opacity:.55;cursor:not-allowed}
-.primary{background:#172033;color:white}
-.secondary{background:#e8eef8}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.badge{display:inline-block;background:#e9f7ef;padding:6px 10px;border-radius:999px}
-.notice{background:#fff7d6;border:1px solid #ead27a;border-radius:12px;padding:12px;margin-top:12px}
-pre{white-space:pre-wrap;background:#101827;color:#f8fafc;padding:14px;border-radius:12px}
-@media(max-width:700px){.grid{grid-template-columns:1fr}}
+body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f4f7fb;color:#172033}main{max-width:980px;margin:auto;padding:24px}.card{background:#fff;border-radius:18px;padding:22px;margin:16px 0;box-shadow:0 8px 30px rgba(0,0,0,.08)}textarea,input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}textarea.code{min-height:220px;font-family:ui-monospace,monospace}button{padding:12px 18px;border:0;border-radius:12px;font-weight:700;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}.primary{background:#172033;color:#fff}.secondary{background:#e8eef8}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.badge{display:inline-block;background:#e9f7ef;padding:6px 10px;border-radius:999px}.notice{background:#fff7d6;border:1px solid #ead27a;border-radius:12px;padding:12px;margin-top:12px}.check{margin-top:10px;padding:10px;border-radius:10px;background:#eef2f7}.ok{background:#e8f8ee}.bad{background:#fff0f0}pre{white-space:pre-wrap;background:#101827;color:#f8fafc;padding:14px;border-radius:12px}@media(max-width:700px){.grid{grid-template-columns:1fr}}
 </style>
 </head>
-<body>
-<main>
-  <div class="card">
-    <span class="badge" id="sessionBadge"></span>
-    <h1 id="title">Coding Lab</h1>
-    <p id="concept"></p>
-    <div class="notice" id="endpointNotice">กำลังตรวจสอบการเชื่อมต่อ Apps Script...</div>
-  </div>
-
-  <div class="card">
-    <h2>1. Predict</h2>
-    <p id="predictPrompt"></p>
-    <input id="prediction" placeholder="พิมพ์คำตอบก่อนรัน">
-  </div>
-
-  <div class="card">
-    <h2>2. Starter Code</h2>
-    <textarea id="code" class="code"></textarea>
-    <p>เปิดโค้ดนี้ใน Google Colab หรือ Python แล้วรัน</p>
-  </div>
-
-  <div class="card">
-    <h2>3. Output</h2>
-    <textarea id="output" rows="4" placeholder="วางผลลัพธ์ที่รันได้"></textarea>
-  </div>
-
-  <div class="card">
-    <h2>4. Modify</h2>
-    <p id="modifyPrompt"></p>
-    <label><input type="checkbox" id="modifyPassed" style="width:auto"> ทำสำเร็จและตรวจผลแล้ว</label>
-  </div>
-
-  <div class="card">
-    <h2>5. Challenge</h2>
-    <p id="challengePrompt"></p>
-    <label><input type="checkbox" id="challengePassed" style="width:auto"> ทำ Challenge สำเร็จ</label>
-  </div>
-
-  <div class="card">
-    <h2>6. ส่งผล</h2>
-    <div class="grid">
-      <input id="studentId" placeholder="รหัสนักศึกษา">
-      <input id="studentName" placeholder="ชื่อ-นามสกุล">
-      <input id="section" value="101" placeholder="Section">
-      <input id="runCount" type="number" min="1" value="1" placeholder="จำนวนครั้งที่รัน">
-    </div>
-    <br>
-    <button class="primary" id="submitBtn">ส่ง Coding Lab</button>
-    <button class="secondary" id="copyBtn">คัดลอกโค้ด</button>
-    <pre id="status">ยังไม่ได้ส่ง</pre>
-  </div>
+<body><main>
+<div class="card"><span class="badge" id="sessionBadge"></span><h1 id="title">Coding Lab</h1><p id="concept"></p><div class="notice" id="endpointNotice">กำลังตรวจสอบการเชื่อมต่อ Apps Script...</div></div>
+<div class="card"><h2>1. Predict</h2><p id="predictPrompt"></p><input id="prediction" placeholder="พิมพ์คำตอบก่อนรัน"><div id="predictCheck" class="check">ยังไม่ได้ตรวจ</div></div>
+<div class="card"><h2>2. Starter Code</h2><textarea id="code" class="code" readonly></textarea><p>คัดลอกไปเปิดใน Google Colab หรือ Python แล้วรัน</p><button class="secondary" id="copyBtn">คัดลอก Starter Code</button></div>
+<div class="card"><h2>3. Output Evidence</h2><textarea id="output" rows="4" placeholder="วางผลลัพธ์ที่รันได้จริง"></textarea><div id="outputCheck" class="check">ยังไม่ได้ตรวจ</div></div>
+<div class="card"><h2>4. Modify Code</h2><p id="modifyPrompt"></p><textarea id="modifiedCode" class="code" placeholder="วางโค้ดที่แก้ไขแล้ว"></textarea><div id="modifyHint"></div><div id="modifyCheck" class="check">ยังไม่ได้ตรวจ</div></div>
+<div class="card"><h2>5. Challenge Code</h2><p id="challengePrompt"></p><textarea id="challengeCode" class="code" placeholder="วางโค้ด Challenge หรือเว้นว่างได้"></textarea><div id="challengeHint"></div><div id="challengeCheck" class="check">ยังไม่ได้ตรวจ</div></div>
+<div class="card"><h2>6. ตรวจหลักฐานและส่งผล</h2><div class="grid"><input id="studentId" placeholder="รหัสนักศึกษา"><input id="studentName" placeholder="ชื่อ-นามสกุล"><input id="section" value="101" placeholder="Section"><input id="runCount" type="number" min="1" value="1" placeholder="จำนวนครั้งที่รัน"></div><br><button class="secondary" id="validateBtn">ตรวจหลักฐาน</button> <button class="primary" id="submitBtn" disabled>ส่ง Coding Lab</button><pre id="status">ยังไม่ได้ตรวจหลักฐาน</pre></div>
 </main>
-
-<script src="aiquest-coding-client.js"></script>
-<script src="aiquest-core-client.js"></script>
+<script src="aiquest-coding-client.js"></script><script src="aiquest-core-client.js"></script>
 <script>
-(function(){
-  'use strict';
-  const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
-  const qs = new URLSearchParams(location.search);
-  const sessionId = (qs.get('session') || 'S1').toUpperCase();
-  const endpoint = qs.get('endpoint') || window.AIQ_WEB_APP_URL || DEFAULT_ENDPOINT;
-  const startedAt = Date.now();
-  let lab = null;
-
-  function setStatus(message){
-    document.getElementById('status').textContent = message;
-  }
-
-  function applyCachedProfile(){
-    if (!window.AIQ3CoreClient) return;
-    const profile = AIQ3CoreClient.loadProfileCache();
-    if (!profile) return;
-    if (profile.studentId) studentId.value = profile.studentId;
-    if (profile.studentName) studentName.value = profile.studentName;
-    if (profile.section) section.value = profile.section;
-  }
-
-  function validateIdentity(){
-    if (!studentId.value.trim()) throw new Error('กรุณากรอกรหัสนักศึกษา');
-    if (!studentName.value.trim()) throw new Error('กรุณากรอกชื่อ-นามสกุล');
-    if (!section.value.trim()) throw new Error('กรุณากรอก Section');
-  }
-
-  endpointNotice.textContent = 'เชื่อมต่อ Apps Script: พร้อมใช้งาน';
-  applyCachedProfile();
-
-  fetch('labs.json', {cache:'no-store'})
-    .then(function(r){
-      if (!r.ok) throw new Error('โหลด labs.json ไม่สำเร็จ');
-      return r.json();
-    })
-    .then(function(data){
-      lab = data[sessionId];
-      if (!lab) throw new Error('ไม่พบ Lab ' + sessionId);
-      sessionBadge.textContent = sessionId;
-      title.textContent = lab.title;
-      concept.textContent = lab.concept;
-      predictPrompt.textContent = lab.predict;
-      code.value = lab.starter;
-      modifyPrompt.textContent = lab.modify;
-      challengePrompt.textContent = lab.challenge;
-    })
-    .catch(function(err){ setStatus(err.message); });
-
-  copyBtn.onclick = async function(){
-    try {
-      await navigator.clipboard.writeText(code.value);
-      setStatus('คัดลอกโค้ดแล้ว');
-    } catch (err) {
-      setStatus('คัดลอกไม่สำเร็จ: ' + err.message);
-    }
-  };
-
-  submitBtn.onclick = async function(){
-    if (!lab) return;
-
-    try {
-      validateIdentity();
-    } catch (err) {
-      setStatus(err.message);
-      return;
-    }
-
-    const predictionAnswer = prediction.value.trim();
-    const predictionCorrect =
-      predictionAnswer.toLowerCase().replace(/\s+/g,'') ===
-      String(lab.expected).toLowerCase().replace(/\s+/g,'');
-
-    const out = output.value.trim();
-    const runScore = out.length > 0 ? 30 : 0;
-    const modifyScore = modifyPassed.checked ? 50 : 0;
-    const challengeScore = challengePassed.checked ? 20 : 0;
-
-    const client = new AIQCodingClient({endpoint:endpoint});
-    submitBtn.disabled = true;
-    setStatus('กำลังส่ง...');
-
-    try {
-      const result = await client.submit({
-        studentId: studentId.value.trim(),
-        studentName: studentName.value.trim(),
-        section: section.value.trim(),
-        sessionId: sessionId,
-        codingAttemptId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-        predictionAnswer: predictionAnswer,
-        predictionCorrect: predictionCorrect,
-        runScore: runScore,
-        modifyScore: modifyScore,
-        challengeScore: challengeScore,
-        runCount: Number(runCount.value || 1),
-        errorCount: 0,
-        errorTypes: [],
-        output: out,
-        usedTimeSec: Math.round((Date.now() - startedAt) / 1000)
-      });
-
-      if (window.AIQ3CoreClient) {
-        AIQ3CoreClient.saveProfileCache({
-          studentId: studentId.value.trim(),
-          studentName: studentName.value.trim(),
-          section: section.value.trim()
-        });
-      }
-
-      setStatus(JSON.stringify(result, null, 2));
-    } catch (err) {
-      setStatus('ส่งไม่สำเร็จ: ' + (err.code || err.message));
-    } finally {
-      submitBtn.disabled = false;
-    }
-  };
+(function(){'use strict';
+const DEFAULT_ENDPOINT='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
+const qs=new URLSearchParams(location.search),sessionId=(qs.get('session')||'S1').toUpperCase(),endpoint=qs.get('endpoint')||window.AIQ_WEB_APP_URL||DEFAULT_ENDPOINT,startedAt=Date.now();let lab=null,lastValidation=null;
+const $=id=>document.getElementById(id), norm=v=>String(v||'').toLowerCase().replace(/\s+/g,'');
+function mark(id,ok,msg){const el=$(id);el.textContent=msg;el.className='check '+(ok?'ok':'bad');}
+function profile(){if(!window.AIQ3CoreClient)return;const p=AIQ3CoreClient.loadProfileCache();if(!p)return;if(p.studentId)$('studentId').value=p.studentId;if(p.studentName)$('studentName').value=p.studentName;if(p.section)$('section').value=p.section;}
+function identity(){if(!$('studentId').value.trim())throw Error('กรุณากรอกรหัสนักศึกษา');if(!$('studentName').value.trim())throw Error('กรุณากรอกชื่อ-นามสกุล');if(!$('section').value.trim())throw Error('กรุณากรอก Section');}
+function validateCode(sid,kind,code){const c=String(code||'').toLowerCase();if(kind==='modify'){if(sid==='S1')return c.includes('38.5')&&c.includes('38')&&c.includes('39');if(sid==='S2')return c.includes('obstacle')&&c.includes('turn');if(sid==='S3')return c.includes("'f'")&&c.includes("'d'");if(sid==='B1')return (c.match(/percept/g)||[]).length>=3&&(c.match(/return/g)||[]).length>=3;}if(kind==='challenge'){if(!c.trim())return false;if(sid==='S1')return c.includes('if')&&c.includes('elif')&&c.includes('else')&&c.includes('low')&&c.includes('normal')&&c.includes('high');if(sid==='S2')return c.includes('battery_low')&&c.includes('goal_found')&&c.includes('return');if(sid==='S3')return c.includes('goal')&&c.includes('path')&&(c.includes('break')||c.includes('return'));if(sid==='B1')return c.includes('deque')&&c.includes('blocked')&&(c.includes('path')||c.includes('route'));}return false;}
+function validate(){try{identity();if(!lab)throw Error('Lab ยังโหลดไม่เสร็จ');const predictionCorrect=norm($('prediction').value)===norm(lab.expected);const outputCorrect=norm($('output').value).includes(norm(lab.expected));const modifyPassed=validateCode(sessionId,'modify',$('modifiedCode').value);const challengePassed=validateCode(sessionId,'challenge',$('challengeCode').value);mark('predictCheck',predictionCorrect,predictionCorrect?'Prediction ถูกต้อง':'Prediction ยังไม่ตรงกับผลลัพธ์');mark('outputCheck',outputCorrect,outputCorrect?'Output ผ่าน':'Output ยังไม่ตรงกับผลที่คาด');mark('modifyCheck',modifyPassed,modifyPassed?'Modify evidence ผ่าน':'Modify code ยังไม่ครบเงื่อนไข');mark('challengeCheck',challengePassed,challengePassed?'Challenge evidence ผ่าน':'Challenge ยังไม่ผ่านหรือเว้นว่าง');lastValidation={predictionCorrect,outputCorrect,modifyPassed,challengePassed,runScore:outputCorrect?30:0,modifyScore:modifyPassed?50:0,challengeScore:challengePassed?20:0};$('submitBtn').disabled=!(outputCorrect&&modifyPassed);$('status').textContent='คะแนนเบื้องต้น '+(lastValidation.runScore+lastValidation.modifyScore+lastValidation.challengeScore)+'/100 — ต้องผ่าน Output และ Modify จึงส่งได้';}catch(e){$('status').textContent=e.message;$('submitBtn').disabled=true;}}
+$('endpointNotice').textContent='เชื่อมต่อ Apps Script: พร้อมใช้งาน';profile();
+fetch('labs.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('โหลด labs.json ไม่สำเร็จ');return r.json();}).then(data=>{lab=data[sessionId];if(!lab)throw Error('ไม่พบ Lab '+sessionId);$('sessionBadge').textContent=sessionId;$('title').textContent=lab.title;$('concept').textContent=lab.concept;$('predictPrompt').textContent=lab.predict;$('code').value=lab.starter;$('modifyPrompt').textContent=lab.modify;$('challengePrompt').textContent=lab.challenge;$('modifyHint').textContent='เกณฑ์ตรวจ: '+(lab.modifyHint||'');$('challengeHint').textContent='เกณฑ์ตรวจ: '+(lab.challengeHint||'');}).catch(e=>$('status').textContent=e.message);
+$('copyBtn').onclick=async()=>{await navigator.clipboard.writeText($('code').value);$('status').textContent='คัดลอก Starter Code แล้ว';};$('validateBtn').onclick=validate;
+$('submitBtn').onclick=async()=>{validate();if($('submitBtn').disabled||!lastValidation)return;const client=new AIQCodingClient({endpoint});$('submitBtn').disabled=true;$('status').textContent='กำลังส่ง...';try{const result=await client.submit({studentId:$('studentId').value.trim(),studentName:$('studentName').value.trim(),section:$('section').value.trim(),sessionId,codingAttemptId:crypto.randomUUID?crypto.randomUUID():String(Date.now()),predictionAnswer:$('prediction').value.trim(),predictionCorrect:lastValidation.predictionCorrect,runScore:lastValidation.runScore,modifyScore:lastValidation.modifyScore,challengeScore:lastValidation.challengeScore,runCount:Number($('runCount').value||1),errorCount:0,errorTypes:[],output:$('output').value.trim(),modifiedCode:$('modifiedCode').value,challengeCode:$('challengeCode').value,usedTimeSec:Math.round((Date.now()-startedAt)/1000)});if(window.AIQ3CoreClient)AIQ3CoreClient.saveProfileCache({studentId:$('studentId').value.trim(),studentName:$('studentName').value.trim(),section:$('section').value.trim()});$('status').textContent=JSON.stringify(result,null,2);}catch(e){$('status').textContent='ส่งไม่สำเร็จ: '+(e.code||e.message);}finally{$('submitBtn').disabled=false;}};
 })();
-</script>
-</body>
-</html>
+</script></body></html>
