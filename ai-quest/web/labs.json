@@ -6,7 +6,9 @@
     "predict": "เมื่อ temperature = 38 โปรแกรมจะแสดงอะไร",
     "modify": "เปลี่ยน threshold เป็น 38.5 และทดสอบค่า 38 กับ 39",
     "challenge": "เพิ่มเงื่อนไข Low, Normal และ High อย่างน้อย 3 ระดับ",
-    "expected": "High temperature alert"
+    "expected": "High temperature alert",
+    "modifyHint": "ต้องมี 38.5 และมีการทดสอบค่า 38 กับ 39",
+    "challengeHint": "ต้องมี if, elif, else และข้อความ Low, Normal, High"
   },
   "S2": {
     "title": "S2 Coding Lab — Intelligent Agent",
@@ -15,7 +17,9 @@
     "predict": "เมื่อ percept = dirty โปรแกรมจะแสดงอะไร",
     "modify": "เพิ่ม percept = obstacle แล้วให้ agent ตอบ turn",
     "challenge": "เพิ่ม battery_low และ goal_found พร้อม action ที่เหมาะสม",
-    "expected": "clean"
+    "expected": "clean",
+    "modifyHint": "ต้องมี obstacle และ turn",
+    "challengeHint": "ต้องมี battery_low และ goal_found พร้อม return/action"
   },
   "S3": {
     "title": "S3 Coding Lab — Breadth-First Search",
@@ -24,7 +28,9 @@
     "predict": "ลำดับ visited จะเป็นอย่างไร",
     "modify": "เพิ่มโหนด F ใต้ D และสังเกตลำดับใหม่",
     "challenge": "แก้โค้ดให้หยุดเมื่อพบ goal และคืน path",
-    "expected": "['A', 'B', 'C', 'D', 'E']"
+    "expected": "['A', 'B', 'C', 'D', 'E']",
+    "modifyHint": "ต้องมีโหนด F และเชื่อมจาก D",
+    "challengeHint": "ต้องมี goal, การหยุดค้นหา และตัวแปร path"
   },
   "B1": {
     "title": "B1 Coding Boss — AI Foundations",
@@ -33,6 +39,8 @@
     "predict": "Agent จะเลือก action ใดเมื่อ percept เป็น blocked",
     "modify": "เพิ่ม percept อีก 2 แบบและ action ที่สมเหตุสมผล",
     "challenge": "เชื่อม agent เข้ากับ BFS เพื่อค้นหาเส้นทางใหม่เมื่อ blocked",
-    "expected": "search_new_route"
+    "expected": "search_new_route",
+    "modifyHint": "ต้องมี percept เพิ่มอย่างน้อย 2 แบบและ action ของแต่ละแบบ",
+    "challengeHint": "ต้องมี deque/BFS, blocked และ path หรือ route"
   }
 }
