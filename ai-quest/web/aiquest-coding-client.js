@@ -4,7 +4,7 @@
   function CodingClient(options) {
     options = options || {};
     this.endpoint = options.endpoint || '';
-    this.timeoutMs = Number(options.timeoutMs || 20000);
+    this.timeoutMs = Number(options.timeoutMs || 45000);
   }
 
   CodingClient.prototype.buildPayload_ = function(payload) {
@@ -58,7 +58,7 @@
     }
   };
 
-  CodingClient.prototype.submitByForm_ = function(body) {
+  CodingClient.prototype.submitByForm_ = function(body, reason) {
     var endpoint = this.endpoint;
     return new Promise(function(resolve, reject){
       if (!endpoint) {
@@ -105,6 +105,7 @@
           ok: true,
           accepted: true,
           transport: 'form-post-fallback',
+          fallbackReason: reason || '',
           pendingVerification: true,
           codingAttemptId: body.codingAttemptId || '',
           message: 'ส่งข้อมูลไปยัง Apps Script แล้ว กรุณาตรวจสอบแท็บ coding_attempts'
@@ -130,11 +131,12 @@
           ok: true,
           accepted: true,
           transport: 'form-post-fallback',
+          fallbackReason: reason || '',
           pendingVerification: true,
           codingAttemptId: body.codingAttemptId || '',
           message: 'ส่งคำขอแล้ว แต่ Browser ไม่อนุญาตให้อ่านผลตอบกลับข้ามโดเมน กรุณาตรวจสอบแท็บ coding_attempts'
         });
-      }, 5000);
+      }, 7000);
     });
   };
 
@@ -145,13 +147,20 @@
       return await this.submitByFetch_(body);
     } catch (err) {
       var msg = String(err && (err.message || err) || '');
-      var corsLike = err instanceof TypeError ||
+      var name = String(err && err.name || '');
+      var code = String(err && err.code || '');
+      var fallbackAllowed =
+        err instanceof TypeError ||
+        name === 'AbortError' ||
+        code === '20' ||
+        msg.indexOf('signal is aborted') >= 0 ||
         msg.indexOf('Failed to fetch') >= 0 ||
         msg.indexOf('NetworkError') >= 0 ||
-        msg.indexOf('Load failed') >= 0;
+        msg.indexOf('Load failed') >= 0 ||
+        msg.indexOf('timed out') >= 0;
 
-      if (!corsLike) throw err;
-      return this.submitByForm_(body);
+      if (!fallbackAllowed) throw err;
+      return this.submitByForm_(body, name || code || msg || 'network-fallback');
     }
   };
 
