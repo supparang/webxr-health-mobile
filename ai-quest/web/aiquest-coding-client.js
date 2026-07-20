@@ -27,11 +27,29 @@
         signal: controller.signal
       });
 
-      if (!res.ok) throw new Error('HTTP_' + res.status);
-      var data = await res.json();
+      var raw = await res.text();
+      var data = null;
+      try { data = raw ? JSON.parse(raw) : {}; }
+      catch (parseErr) {
+        var invalid = new Error('INVALID_JSON_RESPONSE');
+        invalid.code = 'INVALID_JSON_RESPONSE';
+        invalid.httpStatus = res.status;
+        invalid.rawResponse = raw.slice(0, 2000);
+        throw invalid;
+      }
+
+      if (!res.ok) {
+        var httpErr = new Error(data.message || data.code || ('HTTP_' + res.status));
+        httpErr.code = data.code || ('HTTP_' + res.status);
+        httpErr.httpStatus = res.status;
+        httpErr.serverResponse = data;
+        throw httpErr;
+      }
+
       if (!data.ok) {
-        var err = new Error(data.message || data.code || 'SUBMIT_FAILED');
-        err.code = data.code || 'SUBMIT_FAILED';
+        var err = new Error(data.message || data.code || data.error || 'SUBMIT_FAILED');
+        err.code = data.code || data.error || 'SUBMIT_FAILED';
+        err.serverResponse = data;
         throw err;
       }
       return data;
