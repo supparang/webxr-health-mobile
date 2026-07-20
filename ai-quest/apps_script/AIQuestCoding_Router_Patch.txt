@@ -1,10 +1,9 @@
-CSAI2102 AI QUEST — CODING ROUTER PATCH v2
+CSAI2102 AI QUEST — CODING ROUTER PATCH v2.1
 
-สาเหตุของ error:
-Unknown type/action / action=SUBMIT_CODING_LAB
-
-ไฟล์ Code.gs ตัวจริงใช้ฟังก์ชัน jsonOut(...) ไม่ใช่ jsonOutput(...)
-และ doPost(e) ยังไม่มี branch สำหรับ AIQCODING
+รองรับ:
+- SUBMIT_CODING_LAB
+- GET_CODING_STATUS
+- GET_LAB_CONFIG
 
 ให้เปิด Code.gs แล้วหา:
 
@@ -14,14 +13,15 @@ function doPost(e) {
     const type = payload.type || payload.eventType || payload.api || '';
     setupSheets();
 
-ให้เพิ่มโค้ดนี้ทันทีหลังบรรทัด setupSheets();
+เพิ่มโค้ดนี้ทันทีหลัง setupSheets();
 
     // =====================================================
-    // AI QUEST CODING LAB ROUTER — Production v2
+    // AI QUEST CODING LAB ROUTER — Production v2.1
     // =====================================================
     if (
       String(payload.module || '').trim().toUpperCase() === 'AIQCODING' ||
       String(payload.action || '').trim().toUpperCase() === 'SUBMIT_CODING_LAB' ||
+      String(payload.action || '').trim().toUpperCase() === 'GET_CODING_STATUS' ||
       String(payload.action || '').trim().toUpperCase() === 'GET_LAB_CONFIG'
     ) {
       if (
@@ -40,44 +40,11 @@ function doPost(e) {
       }
 
       return jsonOut(AIQCODING.handle(payload));
-    }
-
-จากนั้น doPost จะมีโครงสร้างช่วงต้นดังนี้:
-
-function doPost(e) {
-  try {
-    const payload = parsePayload_(e);
-    const type = payload.type || payload.eventType || payload.api || '';
-    setupSheets();
-
-    if (
-      String(payload.module || '').trim().toUpperCase() === 'AIQCODING' ||
-      String(payload.action || '').trim().toUpperCase() === 'SUBMIT_CODING_LAB' ||
-      String(payload.action || '').trim().toUpperCase() === 'GET_LAB_CONFIG'
-    ) {
-      if (
-        typeof AIQCODING === 'undefined' ||
-        typeof AIQCODING.handle !== 'function'
-      ) {
-        return jsonOut({
-          ok: false,
-          code: 'AIQCODING_MODULE_MISSING',
-          error: 'AIQCODING_MODULE_MISSING',
-          action: payload.action || '',
-          module: payload.module || '',
-          version: APP_VERSION,
-          serverTs: bangkokIsoNow()
-        });
-      }
-      return jsonOut(AIQCODING.handle(payload));
-    }
-
-    if (payload.action === 'sync_v23') {
-      return jsonOut(aiquest_v23_sync_(payload.kind, payload.payload || {}));
     }
 
 ข้อสำคัญ:
 - ห้ามสร้าง doPost(e) ใหม่
 - ใช้ jsonOut(...) ตาม Code.gs ตัวจริง
 - ต้องมี AIQuestCoding_Config.gs และ AIQuestCoding_Receiver.gs ในโปรเจกต์เดียวกัน
+- แทนที่ AIQuestCoding_Receiver.gs ด้วย v2.1 ล่าสุด
 - หลังแก้ให้ Save และ Deploy เป็น New version
