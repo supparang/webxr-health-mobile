@@ -1,13 +1,65 @@
-
 /**
- * Receives coding lab evidence and forwards it to AIQ3 Core.
- * Requires AIQuest Core v3.0 to already exist in the project.
+ * CSAI2102 AI Quest Coding Receiver v2
+ * Server-side evidence validation for S1-S3 and B1.
+ * Requires AIQ3 Core and AIQuestCoding_Config.gs.
+ * Does NOT declare doGet/doPost.
  */
 var AIQCODING = AIQCODING || {};
 
+AIQCODING.VERSION = '20260720-AIQ-CODING-RECEIVER-V2.0.0';
+
+AIQCODING.text_ = function(v) {
+  return String(v == null ? '' : v).trim();
+};
+
+AIQCODING.norm_ = function(v) {
+  return AIQCODING.text_(v).toLowerCase().replace(/\s+/g, '');
+};
+
+AIQCODING.validateEvidence_ = function(sessionId, payload) {
+  var output = AIQCODING.norm_(payload.output);
+  var modified = AIQCODING.text_(payload.modifiedCode).toLowerCase();
+  var challenge = AIQCODING.text_(payload.challengeCode).toLowerCase();
+  var prediction = AIQCODING.norm_(payload.predictionAnswer);
+  var expected = '';
+  var modifyPassed = false;
+  var challengePassed = false;
+
+  if (sessionId === 'S1') {
+    expected = AIQCODING.norm_('High temperature alert');
+    modifyPassed = modified.indexOf('38.5') >= 0 && modified.indexOf('38') >= 0 && modified.indexOf('39') >= 0;
+    challengePassed = challenge.indexOf('if') >= 0 && challenge.indexOf('elif') >= 0 && challenge.indexOf('else') >= 0 && challenge.indexOf('low') >= 0 && challenge.indexOf('normal') >= 0 && challenge.indexOf('high') >= 0;
+  } else if (sessionId === 'S2') {
+    expected = AIQCODING.norm_('clean');
+    modifyPassed = modified.indexOf('obstacle') >= 0 && modified.indexOf('turn') >= 0;
+    challengePassed = challenge.indexOf('battery_low') >= 0 && challenge.indexOf('goal_found') >= 0 && challenge.indexOf('return') >= 0;
+  } else if (sessionId === 'S3') {
+    expected = AIQCODING.norm_("['A', 'B', 'C', 'D', 'E']");
+    modifyPassed = modified.indexOf("'f'") >= 0 && modified.indexOf("'d'") >= 0;
+    challengePassed = challenge.indexOf('goal') >= 0 && challenge.indexOf('path') >= 0 && (challenge.indexOf('break') >= 0 || challenge.indexOf('return') >= 0);
+  } else if (sessionId === 'B1') {
+    expected = AIQCODING.norm_('search_new_route');
+    modifyPassed = (modified.match(/percept/g) || []).length >= 3 && (modified.match(/return/g) || []).length >= 3;
+    challengePassed = challenge.indexOf('deque') >= 0 && challenge.indexOf('blocked') >= 0 && (challenge.indexOf('path') >= 0 || challenge.indexOf('route') >= 0);
+  }
+
+  var outputPassed = expected && output.indexOf(expected) >= 0;
+  var predictionCorrect = expected && prediction === expected;
+
+  return {
+    predictionCorrect: !!predictionCorrect,
+    outputPassed: !!outputPassed,
+    modifyPassed: !!modifyPassed,
+    challengePassed: !!challengePassed,
+    runScore: outputPassed ? 30 : 0,
+    modifyScore: modifyPassed ? 50 : 0,
+    challengeScore: challengePassed ? 20 : 0
+  };
+};
+
 AIQCODING.submit_ = function(payload) {
   payload = payload || {};
-  var sessionId = String(payload.sessionId || '').trim().toUpperCase();
+  var sessionId = AIQCODING.text_(payload.sessionId).toUpperCase();
 
   if (!AIQCODING.allowedLab_(sessionId)) {
     return {ok:false, code:'LAB_NOT_AVAILABLE', sessionId:sessionId};
@@ -17,11 +69,17 @@ AIQCODING.submit_ = function(payload) {
     return {ok:false, code:'AIQ3_CORE_MISSING'};
   }
 
-  var runScore = Math.max(0, Math.min(30, Number(payload.runScore || 0)));
-  var modifyScore = Math.max(0, Math.min(50, Number(payload.modifyScore || 0)));
-  var challengeScore = Math.max(0, Math.min(20, Number(payload.challengeScore || 0)));
+  var evidence = AIQCODING.validateEvidence_(sessionId, payload);
 
-  return AIQ3.handle({
+  if (!evidence.outputPassed) {
+    return {ok:false, code:'OUTPUT_EVIDENCE_FAILED', evidence:evidence};
+  }
+
+  if (!evidence.modifyPassed) {
+    return {ok:false, code:'MODIFY_EVIDENCE_FAILED', evidence:evidence};
+  }
+
+  var coreResult = AIQ3.handle({
     action: 'SUBMIT_CODING',
     studentId: payload.studentId,
     studentName: payload.studentName,
@@ -29,25 +87,34 @@ AIQCODING.submit_ = function(payload) {
     sessionId: sessionId,
     codingAttemptId: payload.codingAttemptId,
     predictionAnswer: payload.predictionAnswer || '',
-    predictionCorrect: !!payload.predictionCorrect,
-    runScore: runScore,
-    modifyScore: modifyScore,
-    challengeScore: challengeScore,
+    predictionCorrect: evidence.predictionCorrect,
+    runScore: evidence.runScore,
+    modifyScore: evidence.modifyScore,
+    challengeScore: evidence.challengeScore,
     runCount: Number(payload.runCount || 0),
     errorCount: Number(payload.errorCount || 0),
     errorTypes: payload.errorTypes || [],
-    output: String(payload.output || '').slice(0, 5000),
+    output: AIQCODING.text_(payload.output).slice(0, 5000),
     usedTimeSec: Number(payload.usedTimeSec || 0)
   });
+
+  if (coreResult && coreResult.ok) {
+    coreResult.evidence = evidence;
+    coreResult.serverValidated = true;
+    coreResult.version = AIQCODING.VERSION;
+  }
+  return coreResult;
 };
 
 AIQCODING.handle = function(payload) {
-  var action = String((payload || {}).action || '').trim().toUpperCase();
+  var action = AIQCODING.text_((payload || {}).action).toUpperCase();
+
   if (action === 'SUBMIT_CODING_LAB') {
     return AIQCODING.submit_(payload);
   }
+
   if (action === 'GET_LAB_CONFIG') {
-    var sessionId = String(payload.sessionId || '').trim().toUpperCase();
+    var sessionId = AIQCODING.text_(payload.sessionId).toUpperCase();
     if (!AIQCODING.allowedLab_(sessionId)) {
       return {ok:false, code:'LAB_NOT_AVAILABLE'};
     }
@@ -58,5 +125,6 @@ AIQCODING.handle = function(payload) {
       config:AIQCODING.LABS[sessionId]
     };
   }
+
   return {ok:false, code:'UNKNOWN_CODING_ACTION'};
 };
