@@ -11,10 +11,12 @@ main{max-width:980px;margin:auto;padding:24px}
 textarea,input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}
 textarea.code{min-height:260px;font-family:ui-monospace,monospace}
 button{padding:12px 18px;border:0;border-radius:12px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.55;cursor:not-allowed}
 .primary{background:#172033;color:white}
 .secondary{background:#e8eef8}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .badge{display:inline-block;background:#e9f7ef;padding:6px 10px;border-radius:999px}
+.notice{background:#fff7d6;border:1px solid #ead27a;border-radius:12px;padding:12px;margin-top:12px}
 pre{white-space:pre-wrap;background:#101827;color:#f8fafc;padding:14px;border-radius:12px}
 @media(max-width:700px){.grid{grid-template-columns:1fr}}
 </style>
@@ -25,6 +27,7 @@ pre{white-space:pre-wrap;background:#101827;color:#f8fafc;padding:14px;border-ra
     <span class="badge" id="sessionBadge"></span>
     <h1 id="title">Coding Lab</h1>
     <p id="concept"></p>
+    <div class="notice" id="endpointNotice">กำลังตรวจสอบการเชื่อมต่อ Apps Script...</div>
   </div>
 
   <div class="card">
@@ -72,18 +75,45 @@ pre{white-space:pre-wrap;background:#101827;color:#f8fafc;padding:14px;border-ra
 </main>
 
 <script src="aiquest-coding-client.js"></script>
+<script src="aiquest-core-client.js"></script>
 <script>
 (function(){
   'use strict';
+  const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
   const qs = new URLSearchParams(location.search);
   const sessionId = (qs.get('session') || 'S1').toUpperCase();
-  const endpoint = qs.get('endpoint') || window.AIQ_WEB_APP_URL || '';
+  const endpoint = qs.get('endpoint') || window.AIQ_WEB_APP_URL || DEFAULT_ENDPOINT;
   const startedAt = Date.now();
   let lab = null;
 
-  fetch('labs.json')
-    .then(r => r.json())
-    .then(data => {
+  function setStatus(message){
+    document.getElementById('status').textContent = message;
+  }
+
+  function applyCachedProfile(){
+    if (!window.AIQ3CoreClient) return;
+    const profile = AIQ3CoreClient.loadProfileCache();
+    if (!profile) return;
+    if (profile.studentId) studentId.value = profile.studentId;
+    if (profile.studentName) studentName.value = profile.studentName;
+    if (profile.section) section.value = profile.section;
+  }
+
+  function validateIdentity(){
+    if (!studentId.value.trim()) throw new Error('กรุณากรอกรหัสนักศึกษา');
+    if (!studentName.value.trim()) throw new Error('กรุณากรอกชื่อ-นามสกุล');
+    if (!section.value.trim()) throw new Error('กรุณากรอก Section');
+  }
+
+  endpointNotice.textContent = 'เชื่อมต่อ Apps Script: พร้อมใช้งาน';
+  applyCachedProfile();
+
+  fetch('labs.json', {cache:'no-store'})
+    .then(function(r){
+      if (!r.ok) throw new Error('โหลด labs.json ไม่สำเร็จ');
+      return r.json();
+    })
+    .then(function(data){
       lab = data[sessionId];
       if (!lab) throw new Error('ไม่พบ Lab ' + sessionId);
       sessionBadge.textContent = sessionId;
@@ -94,19 +124,26 @@ pre{white-space:pre-wrap;background:#101827;color:#f8fafc;padding:14px;border-ra
       modifyPrompt.textContent = lab.modify;
       challengePrompt.textContent = lab.challenge;
     })
-    .catch(err => status.textContent = err.message);
+    .catch(function(err){ setStatus(err.message); });
 
   copyBtn.onclick = async function(){
-    await navigator.clipboard.writeText(code.value);
-    status.textContent = 'คัดลอกโค้ดแล้ว';
+    try {
+      await navigator.clipboard.writeText(code.value);
+      setStatus('คัดลอกโค้ดแล้ว');
+    } catch (err) {
+      setStatus('คัดลอกไม่สำเร็จ: ' + err.message);
+    }
   };
 
   submitBtn.onclick = async function(){
-    if (!endpoint) {
-      status.textContent = 'ยังไม่ได้กำหนด endpoint ของ Apps Script';
+    if (!lab) return;
+
+    try {
+      validateIdentity();
+    } catch (err) {
+      setStatus(err.message);
       return;
     }
-    if (!lab) return;
 
     const predictionAnswer = prediction.value.trim();
     const predictionCorrect =
@@ -114,35 +151,46 @@ pre{white-space:pre-wrap;background:#101827;color:#f8fafc;padding:14px;border-ra
       String(lab.expected).toLowerCase().replace(/\s+/g,'');
 
     const out = output.value.trim();
-    const runPassed = out.length > 0;
-    const runScore = runPassed ? 30 : 0;
+    const runScore = out.length > 0 ? 30 : 0;
     const modifyScore = modifyPassed.checked ? 50 : 0;
     const challengeScore = challengePassed.checked ? 20 : 0;
 
-    const client = new AIQCodingClient({endpoint});
-    status.textContent = 'กำลังส่ง...';
+    const client = new AIQCodingClient({endpoint:endpoint});
+    submitBtn.disabled = true;
+    setStatus('กำลังส่ง...');
 
     try {
       const result = await client.submit({
         studentId: studentId.value.trim(),
         studentName: studentName.value.trim(),
         section: section.value.trim(),
-        sessionId,
+        sessionId: sessionId,
         codingAttemptId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-        predictionAnswer,
-        predictionCorrect,
-        runScore,
-        modifyScore,
-        challengeScore,
+        predictionAnswer: predictionAnswer,
+        predictionCorrect: predictionCorrect,
+        runScore: runScore,
+        modifyScore: modifyScore,
+        challengeScore: challengeScore,
         runCount: Number(runCount.value || 1),
         errorCount: 0,
         errorTypes: [],
         output: out,
         usedTimeSec: Math.round((Date.now() - startedAt) / 1000)
       });
-      status.textContent = JSON.stringify(result, null, 2);
+
+      if (window.AIQ3CoreClient) {
+        AIQ3CoreClient.saveProfileCache({
+          studentId: studentId.value.trim(),
+          studentName: studentName.value.trim(),
+          section: section.value.trim()
+        });
+      }
+
+      setStatus(JSON.stringify(result, null, 2));
     } catch (err) {
-      status.textContent = 'ส่งไม่สำเร็จ: ' + (err.code || err.message);
+      setStatus('ส่งไม่สำเร็จ: ' + (err.code || err.message));
+    } finally {
+      submitBtn.disabled = false;
     }
   };
 })();
