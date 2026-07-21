@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const PATCH = 'goodjunk-mobile-battle-compact-v2.0.0';
+  const PATCH = 'goodjunk-mobile-camera-lite-v4.0.0';
   const boss = document.getElementById('bossPanel');
   const hp = document.getElementById('bossHpText');
   const phase = document.getElementById('bossPhase');
@@ -39,7 +39,17 @@
     cameraWatchTimer = 0;
   }
 
+  function stopNativeCameraStream() {
+    try {
+      const stream = window.__GJ_CAMERA_STREAM__;
+      if (!stream) return;
+      stream.getTracks().forEach((track) => track.stop());
+      window.__GJ_CAMERA_STREAM__ = null;
+    } catch (_) {}
+  }
+
   function activateTouchRescue(reason) {
+    if (window.__GJ_CAMERA_LITE__) return;
     if (touchRescueActive || typeof state === 'undefined' || !state.playing) return;
     touchRescueActive = true;
     stopCameraWatch();
@@ -67,10 +77,11 @@
 
   function startCameraWatch() {
     stopCameraWatch();
+    if (window.__GJ_CAMERA_LITE__) return;
     lastHandResultAt = Date.now();
     cameraWatchTimer = window.setInterval(() => {
       try {
-        if (!state.playing || mode !== 'camera' || touchRescueActive) return;
+        if (!state.playing || mode !== 'camera' || touchRescueActive || window.__GJ_CAMERA_LITE__) return;
         if (Date.now() - lastHandResultAt > 3500) {
           activateTouchRescue('MediaPipe onResults timeout');
         }
@@ -113,26 +124,12 @@
     syncMissionTitle();
   }
 
-  /*
-   * Hybrid input: Camera AR remains the primary input, but tapping a food
-   * object is always allowed. This prevents a frozen tracker from trapping
-   * the learner on the current mission.
-   */
-  const canvasElement = document.getElementById('canvas');
-  canvasElement?.addEventListener('pointerdown', (event) => {
-    try {
-      if (state.playing && mode === 'camera') {
-        hit(event.clientX, event.clientY);
-      }
-    } catch (_) {}
-  }, true);
-
-  /* Wrap the callback before boot() registers it with MediaPipe Hands. */
+  /* MediaPipe Hands is desktop-only in v4. Mobile Camera Lite uses touch. */
   try {
     const originalOnHands = onHands;
     onHands = function wrappedGoodJunkOnHands(results) {
       lastHandResultAt = Date.now();
-      if (touchRescueActive) return;
+      if (touchRescueActive || window.__GJ_CAMERA_LITE__) return;
       return originalOnHands(results);
     };
   } catch (error) {
@@ -143,11 +140,23 @@
     const originalBoot = window.boot;
     window.boot = async function wrappedGoodJunkBoot(requestedMode) {
       touchRescueActive = false;
-      missionBox?.classList.remove('touchRescue');
+      missionBox?.classList.remove('touchRescue', 'cameraLite');
       stopCameraWatch();
       const result = await originalBoot(requestedMode);
       try {
-        if (requestedMode === 'camera' && mode === 'camera') startCameraWatch();
+        if (requestedMode === 'camera' && mode === 'camera') {
+          if (window.__GJ_CAMERA_LITE__) {
+            document.documentElement.dataset.goodjunkInput = 'camera-lite-touch';
+            missionBox?.classList.add('cameraLite');
+            try { show('Mobile Camera Lite — แตะอาหารเพื่อเลือก'); } catch (_) {}
+            try { ev('camera_lite_started', { inputMode: 'touch', cameraBackground: true }); } catch (_) {}
+          } else {
+            document.documentElement.dataset.goodjunkInput = 'hand-ar';
+            startCameraWatch();
+          }
+        } else {
+          document.documentElement.dataset.goodjunkInput = 'touch';
+        }
       } catch (_) {}
       return result;
     };
@@ -158,11 +167,14 @@
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     try {
-      if (state.playing && mode === 'camera' && !touchRescueActive) {
+      if (state.playing && mode === 'camera' && !touchRescueActive && !window.__GJ_CAMERA_LITE__) {
         lastHandResultAt = Date.now();
       }
     } catch (_) {}
   });
+
+  window.addEventListener('pagehide', stopNativeCameraStream);
+  window.addEventListener('beforeunload', stopNativeCameraStream);
 
   window.matchMedia('(max-width: 760px)').addEventListener?.('change', () => {
     if (!isMobile()) boss?.classList.remove('battleCompact');
@@ -174,7 +186,8 @@
   window.GOODJUNK_AR_COMPACT = {
     patch: PATCH,
     activateTouchRescue,
-    startCameraWatch
+    startCameraWatch,
+    stopNativeCameraStream
   };
   console.info('[GoodJunk AR UI]', PATCH, isMobile() ? 'compact' : 'wide');
 })();
