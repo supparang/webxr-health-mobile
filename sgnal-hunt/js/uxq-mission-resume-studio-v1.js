@@ -1,11 +1,11 @@
-/* CSAI2601 UX Quest • Mission-to-Studio Resume Controller v1
+/* CSAI2601 UX Quest • Mission-to-Studio Resume Controller v2
  * Passed mission from official restored progress opens Studio Practice directly.
  * Replay remains optional via ?replay=1.
  */
 (() => {
   'use strict';
 
-  const VERSION = '20260721-MISSION-RESUME-STUDIO-V1';
+  const VERSION = '20260721-MISSION-RESUME-STUDIO-V2';
   const params = new URLSearchParams(location.search || '');
   const nodeId = String(params.get('node') || params.get('id') || 'W1').trim().toUpperCase();
   const nodeKey = nodeId.toLowerCase();
@@ -24,24 +24,32 @@
     catch (_) { return {}; }
   }
 
+  function trackerSaysPassed() {
+    const tracker = document.getElementById('uxqThreePartCompletion');
+    if (!tracker) return false;
+    const first = tracker.querySelector('.uxq-3part__item');
+    const text = String(first?.textContent || '');
+    return first?.dataset?.state === 'done' || /ผ่านแล้ว|mission_completed/i.test(text);
+  }
+
   function isPassed(record) {
     return Boolean(
       record.completed || record.passed ||
       Number(record.bestStars || 0) >= 2 ||
       Number(record.lastResult?.stars || 0) >= 2 ||
-      record.lastResult?.passed
+      record.lastResult?.passed || trackerSaysPassed()
     );
   }
 
   function replayUrl() {
     const url = new URL(location.href);
     url.searchParams.set('replay', '1');
-    url.searchParams.set('v', 'mission-resume-studio-v1-20260721');
+    url.searchParams.set('v', 'mission-resume-studio-v2-20260721');
     return `${url.pathname}${url.search}`;
   }
 
   function missionControlUrl() {
-    return './csai2601-mission-control.html?v=mission-resume-studio-v1-20260721';
+    return './csai2601-mission-control.html?v=mission-resume-studio-v2-20260721';
   }
 
   function renderResume(record) {
@@ -59,12 +67,12 @@
       <section class="panel">
         <div class="results">
           <p class="kicker">MISSION COMPLETE • ${esc(nodeId)}</p>
-          <div class="stars">${'★'.repeat(Math.max(0, Math.min(3, stars)))}${'☆'.repeat(Math.max(0, 3 - Math.min(3, stars)))}</div>
+          <div class="stars">${'★'.repeat(Math.max(0, Math.min(3, stars || 3)))}${'☆'.repeat(Math.max(0, 3 - Math.min(3, stars || 3)))}</div>
           <h1>${esc(nodeId)} ผ่าน Mission แล้ว</h1>
-          <p>Google Sheet/Progress ยืนยันผล Mission แล้ว จึงไม่ต้องตอบเกมซ้ำ ให้ทำ Studio Practice และ Weekly Reflection ต่อได้ทันที</p>
+          <p>ระบบยืนยันผล Mission แล้ว จึงไม่ต้องตอบเกมซ้ำ ให้ทำ Studio Practice และ Weekly Reflection ต่อได้ทันที</p>
           <div class="result-grid">
             <div><b>${Number(score || 0)}</b><span>Best Score</span></div>
-            <div><b>${Number(stars || 0)}★</b><span>Best Stars</span></div>
+            <div><b>${Number(stars || 3)}★</b><span>Best Stars</span></div>
             <div><b>ผ่านแล้ว</b><span>Mission</span></div>
             <div><b>ต่อเลย</b><span>Studio</span></div>
             <div><b>Sheet</b><span>Authority</span></div>
@@ -86,22 +94,22 @@
   }
 
   let timer = 0;
-  let attempts = 0;
   function check() {
     clearTimeout(timer);
-    attempts += 1;
     const record = missionRecord();
     if (isPassed(record)) {
       renderResume(record);
       return;
     }
-    if (attempts < 40) timer = setTimeout(check, 150);
+    timer = setTimeout(check, 300);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', check, { once:true });
   else check();
+  window.addEventListener('uxq-sheet-progress-restored', check);
   window.addEventListener('uxq-cloud-progress-restored', check);
   window.addEventListener('uxq-progress-restored', check);
+  new MutationObserver(check).observe(root, { childList:true, subtree:true });
 
   window.UXQMissionResumeStudioV1 = Object.freeze({ version:VERSION, check, isPassed });
 })();
