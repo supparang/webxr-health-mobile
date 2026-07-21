@@ -1,7 +1,7 @@
 const GJ_HAND_V7 = (() => {
   'use strict';
 
-  const VERSION = 'goodjunk-mobile-hand-v7.3.0';
+  const VERSION = 'goodjunk-mobile-hand-assist-v7.4.0';
   const TASKS_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm';
   const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
   const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
@@ -19,18 +19,20 @@ const GJ_HAND_V7 = (() => {
   let dwellAnchor = null;
   let dwellStartedAt = 0;
   let dwellFired = false;
+  let lastDetectionAt = 0;
 
   const state = {
     ready: false,
     detected: false,
     confidence: 0,
-    inputMode: 'mobile-handlandmarker',
+    inputMode: 'mobile-hand-assist',
     fallbackAvailable: true,
     error: '',
     lastSelection: '',
     dwellProgress: 0,
     delegate: 'GPU',
-    lastInferenceMs: 0
+    lastInferenceMs: 0,
+    searchMode: true
   };
 
   function mobile() {
@@ -52,9 +54,19 @@ const GJ_HAND_V7 = (() => {
     return { x: (1 - lm.x) * innerWidth, y: lm.y * innerHeight };
   }
 
+  function palmCenter(hand) {
+    const ids = [0, 5, 9, 13, 17];
+    const sum = ids.reduce((acc, id) => {
+      acc.x += hand[id].x;
+      acc.y += hand[id].y;
+      return acc;
+    }, { x: 0, y: 0 });
+    return { x: (1 - sum.x / ids.length) * innerWidth, y: (sum.y / ids.length) * innerHeight };
+  }
+
   function smooth(next) {
     if (!smoothedPoint) smoothedPoint = { ...next };
-    const alpha = 0.58;
+    const alpha = 0.62;
     smoothedPoint.x += (next.x - smoothedPoint.x) * alpha;
     smoothedPoint.y += (next.y - smoothedPoint.y) * alpha;
     return smoothedPoint;
@@ -82,7 +94,7 @@ const GJ_HAND_V7 = (() => {
   }
 
   function updateDwell(p, now) {
-    if (!dwellAnchor || Math.hypot(p.x - dwellAnchor.x, p.y - dwellAnchor.y) > 64) {
+    if (!dwellAnchor || Math.hypot(p.x - dwellAnchor.x, p.y - dwellAnchor.y) > 78) {
       dwellAnchor = { ...p };
       dwellStartedAt = now;
       dwellFired = false;
@@ -90,8 +102,8 @@ const GJ_HAND_V7 = (() => {
       return;
     }
     const elapsed = now - dwellStartedAt;
-    state.dwellProgress = Math.min(1, elapsed / 450);
-    if (!dwellFired && elapsed >= 450) dwellFired = selectAt(p, 'dwell');
+    state.dwellProgress = Math.min(1, elapsed / 380);
+    if (!dwellFired && elapsed >= 380) dwellFired = selectAt(p, 'adaptive-dwell');
   }
 
   function processResult(result) {
@@ -99,17 +111,28 @@ const GJ_HAND_V7 = (() => {
     if (!hand) {
       state.detected = false;
       state.confidence = 0;
+      state.searchMode = performance.now() - lastDetectionAt > 900;
       window.__GJ_HAND_POINTS__ = [];
       smoothedPoint = null;
       resetDwell();
+      if (performance.now() - lastDetectionAt > 1400) {
+        setStatus('ถอยมือให้เห็นทั้งฝ่ามือ • แตะสำรองได้', 'hand');
+      }
       return;
     }
 
     state.detected = true;
+    state.searchMode = false;
+    lastDetectionAt = performance.now();
     state.confidence = Number(result?.handedness?.[0]?.[0]?.score || 0);
-    const indexTip = smooth(point(hand, 8));
-    window.__GJ_HAND_POINTS__ = [{ x: indexTip.x, y: indexTip.y }];
-    updateDwell(indexTip, performance.now());
+
+    const index = hand[8];
+    const indexVisible = index.x >= -0.05 && index.x <= 1.05 && index.y >= -0.05 && index.y <= 1.05;
+    const rawPoint = indexVisible ? point(hand, 8) : palmCenter(hand);
+    const cursor = smooth(rawPoint);
+    window.__GJ_HAND_POINTS__ = [{ x: cursor.x, y: cursor.y }];
+    updateDwell(cursor, performance.now());
+    setStatus('ชี้ค้างเหนืออาหารประมาณ 0.4 วินาที', 'hand');
 
     window.__GJ_HANDLANDMARKER_STATUS__ = {
       detected: true,
@@ -117,55 +140,43 @@ const GJ_HAND_V7 = (() => {
       dwellProgress: Number(state.dwellProgress.toFixed(2)),
       lastSelection: state.lastSelection,
       inferenceMs: state.lastInferenceMs,
-      delegate: state.delegate
+      delegate: state.delegate,
+      searchMode: state.searchMode
     };
-  }
-
-  async function createLandmarker(resolver, delegate) {
-    return await (await import(TASKS_URL)).HandLandmarker.createFromOptions(resolver, {
-      baseOptions: { modelAssetPath: MODEL_URL, delegate },
-      runningMode: 'VIDEO',
-      numHands: 1,
-      minHandDetectionConfidence: 0.30,
-      minHandPresenceConfidence: 0.30,
-      minTrackingConfidence: 0.30
-    });
   }
 
   async function loadModel() {
     if (landmarker) return landmarker;
-    setStatus('กำลังโหลด Mobile Hand AR แบบเบา…');
+    setStatus('กำลังโหลด Adaptive Hand Assist…');
     const vision = await import(TASKS_URL);
     const resolver = await vision.FilesetResolver.forVisionTasks(WASM_URL);
+    const options = delegate => ({
+      baseOptions: { modelAssetPath: MODEL_URL, delegate },
+      runningMode: 'VIDEO',
+      numHands: 1,
+      minHandDetectionConfidence: 0.22,
+      minHandPresenceConfidence: 0.22,
+      minTrackingConfidence: 0.22
+    });
     try {
-      landmarker = await vision.HandLandmarker.createFromOptions(resolver, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
-        runningMode: 'VIDEO', numHands: 1,
-        minHandDetectionConfidence: 0.30,
-        minHandPresenceConfidence: 0.30,
-        minTrackingConfidence: 0.30
-      });
+      landmarker = await vision.HandLandmarker.createFromOptions(resolver, options('GPU'));
       state.delegate = 'GPU';
     } catch (gpuError) {
-      console.warn('[GoodJunk HandLandmarker]', VERSION, 'GPU unavailable, using CPU', gpuError);
-      landmarker = await vision.HandLandmarker.createFromOptions(resolver, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
-        runningMode: 'VIDEO', numHands: 1,
-        minHandDetectionConfidence: 0.30,
-        minHandPresenceConfidence: 0.30,
-        minTrackingConfidence: 0.30
-      });
+      console.warn('[GoodJunk Hand Assist]', VERSION, 'GPU unavailable, using CPU', gpuError);
+      landmarker = await vision.HandLandmarker.createFromOptions(resolver, options('CPU'));
       state.delegate = 'CPU';
     }
     state.ready = true;
     return landmarker;
   }
 
-  function prepareInferenceCanvas() {
-    inferenceCanvas = document.createElement('canvas');
-    inferenceCanvas.width = 256;
-    inferenceCanvas.height = 144;
-    inferenceCtx = inferenceCanvas.getContext('2d', { alpha: false, desynchronized: true });
+  function prepareInferenceCanvas(width, height) {
+    if (!inferenceCanvas) {
+      inferenceCanvas = document.createElement('canvas');
+      inferenceCtx = inferenceCanvas.getContext('2d', { alpha: false, desynchronized: true });
+    }
+    inferenceCanvas.width = width;
+    inferenceCanvas.height = height;
   }
 
   async function infer() {
@@ -174,17 +185,21 @@ const GJ_HAND_V7 = (() => {
     if (!video || video.readyState < 2) return;
 
     try {
-      inferenceCtx.drawImage(video, 0, 0, 256, 144);
+      const searching = performance.now() - lastDetectionAt > 900;
+      const width = searching ? 384 : 256;
+      const height = searching ? 216 : 144;
+      prepareInferenceCanvas(width, height);
+      inferenceCtx.drawImage(video, 0, 0, width, height);
       const started = performance.now();
       const result = landmarker.detectForVideo(inferenceCanvas, started);
       state.lastInferenceMs = Math.round(performance.now() - started);
       failures = 0;
-      slowFrames = state.lastInferenceMs > 850 ? slowFrames + 1 : Math.max(0, slowFrames - 1);
+      slowFrames = state.lastInferenceMs > 950 ? slowFrames + 1 : Math.max(0, slowFrames - 1);
       processResult(result);
       if (slowFrames >= 2) fallback('เครื่องประมวลผล Hand AR ช้าเกินไป');
     } catch (error) {
       failures += 1;
-      console.warn('[GoodJunk HandLandmarker]', VERSION, 'detect failed', failures, error);
+      console.warn('[GoodJunk Hand Assist]', VERSION, 'detect failed', failures, error);
       if (failures >= 3) fallback('HandLandmarker ตรวจจับไม่ต่อเนื่อง');
     }
   }
@@ -194,7 +209,8 @@ const GJ_HAND_V7 = (() => {
     const tick = async () => {
       if (!running) return;
       await infer();
-      timer = window.setTimeout(tick, 320);
+      const searching = performance.now() - lastDetectionAt > 900;
+      timer = window.setTimeout(tick, searching ? 280 : 360);
     };
     timer = window.setTimeout(tick, 120);
   }
@@ -202,7 +218,7 @@ const GJ_HAND_V7 = (() => {
   async function openCamera(video) {
     stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 18, max: 20 } }
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 18, max: 20 } }
     });
     window.__GJ_CAMERA_STREAM__ = stream;
     video.srcObject = stream;
@@ -224,18 +240,18 @@ const GJ_HAND_V7 = (() => {
     if (!mobile()) throw new Error('Mobile HandLandmarker is mobile-only');
     stop(false);
     state.error = '';
-    state.inputMode = 'mobile-handlandmarker';
+    state.inputMode = 'mobile-hand-assist';
     state.lastSelection = '';
     slowFrames = 0;
+    lastDetectionAt = 0;
     resetDwell();
-    prepareInferenceCanvas();
-    setStatus('กำลังเปิดกล้องและ Hand AR แบบเบา…');
+    setStatus('กำลังเปิดกล้องและ Adaptive Hand Assist…');
     await Promise.all([loadModel(), openCamera(video), waitForBridge()]);
     running = true;
     window.__GJ_CAMERA_LITE__ = false;
     window.__GJ_HANDLANDMARKER_V7__ = true;
     window.__GJ_HAND_POINTS__ = [];
-    setStatus('ชี้ค้างเหนืออาหารประมาณครึ่งวินาที • แตะสำรองได้', 'hand');
+    setStatus('ยื่นมือให้เห็นทั้งฝ่ามือ • ชี้ค้างเพื่อเลือก', 'hand');
     schedule();
     return true;
   }
@@ -274,4 +290,4 @@ const GJ_HAND_V7 = (() => {
 })();
 
 window.GJMobileHandV7 = GJ_HAND_V7;
-console.info('[GoodJunk Mobile HandLandmarker]', GJ_HAND_V7.VERSION, 'loaded');
+console.info('[GoodJunk Mobile Hand Assist]', GJ_HAND_V7.VERSION, 'loaded');
