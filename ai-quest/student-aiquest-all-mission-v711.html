@@ -26,7 +26,24 @@
   var target=new URL('./student-aiquest-all-mission-v711-core.html',location.href);
   q.forEach(function(v,k){target.searchParams.set(k,v);});
   target.searchParams.set('integrated',integrated?'1':'0');
-  target.searchParams.set('ui','compact-wrapper-v1');
+  target.searchParams.set('ui','compact-wrapper-v2-mapfix');
+
+  function mapUrl(){
+    var u=new URL('./course-map-all-v716.html',location.href);
+    if(studentId)u.searchParams.set('studentId',studentId);
+    if(studentName)u.searchParams.set('studentName',studentName);
+    u.searchParams.set('section',section||'101');
+    u.searchParams.set('from','mission');
+    u.searchParams.set('ui','mapfix-v2');
+    return u.toString();
+  }
+
+  function goMap(event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    var url=mapUrl();
+    try{window.top.location.assign(url);}catch(e){window.location.assign(url);}
+    return false;
+  }
 
   function innerDoc(){
     try{return frame.contentDocument||frame.contentWindow.document;}catch(e){return null;}
@@ -40,10 +57,27 @@
     d.head.appendChild(style);
   }
 
+  function bindMapButtons(d){
+    if(!d)return;
+    d.querySelectorAll('a,button').forEach(function(el){
+      var text=String(el.textContent||'').trim();
+      var href=String(el.getAttribute&&el.getAttribute('href')||'');
+      if(text==='แผนที่'||/course-map/i.test(href)){
+        el.style.display='';
+        if(el.tagName==='A')el.setAttribute('href',mapUrl());
+        if(el.dataset.mapFixBound!=='1'){
+          el.dataset.mapFixBound='1';
+          el.addEventListener('click',goMap,true);
+        }
+      }
+    });
+  }
+
   function patch(){
     var d=innerDoc();
     if(!d)return;
     addCompactStyle(d);
+    bindMapButtons(d);
     if(!integrated)return;
     d.body&&d.body.classList.add('integrated-mode');
 
@@ -59,10 +93,6 @@
       var profileCard=saveProfile.closest('.card');
       if(profileCard)profileCard.classList.add('integrated-profile-card');
     }
-
-    d.querySelectorAll('a,button').forEach(function(el){
-      if(String(el.textContent||'').trim()==='แผนที่')el.style.display='none';
-    });
 
     var h1=d.querySelector('main.wrap>header.top h1');
     var title=d.getElementById('title');
@@ -80,9 +110,9 @@
     if(d&&d.documentElement){
       var observer=new MutationObserver(patch);
       observer.observe(d.documentElement,{subtree:true,childList:true,attributes:true});
-      setTimeout(function(){observer.disconnect();},15000);
+      setTimeout(function(){observer.disconnect();},30000);
     }
-    [250,700,1500,3000].forEach(function(ms){setTimeout(patch,ms);});
+    [100,250,700,1500,3000,6000].forEach(function(ms){setTimeout(patch,ms);});
   });
 
   frame.addEventListener('error',function(){
