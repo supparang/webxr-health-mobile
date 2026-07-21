@@ -17,7 +17,7 @@
   'use strict';
 
   var LEGACY_COMMIT = '9eaea23c1bfe2300570ff87ea663b1806563e939';
-  var LEGACY_DIR = 'https://raw.githubusercontent.com/supparang/webxr-health-mobile/' + LEGACY_COMMIT + '/ai-quest/';
+  var LEGACY_DIR = 'https://cdn.jsdelivr.net/gh/supparang/webxr-health-mobile@' + LEGACY_COMMIT + '/ai-quest/';
   var LEGACY_URL = LEGACY_DIR + 'student-aiquest-all-mission-v711.html';
   var params = new URLSearchParams(location.search);
   var studentId = String(params.get('studentId') || '').trim();
@@ -69,7 +69,14 @@
     '</style>';
   }
 
-  fetch(LEGACY_URL + '?v=20260721-integrated-gate2', {cache:'no-store'})
+  function fetchWithTimeout(url, timeoutMs){
+    var controller = new AbortController();
+    var timer = setTimeout(function(){ controller.abort(); }, timeoutMs);
+    return fetch(url, {cache:'no-store', signal:controller.signal})
+      .finally(function(){ clearTimeout(timer); });
+  }
+
+  fetchWithTimeout(LEGACY_URL + '?v=20260721-integrated-gate3', 8000)
     .then(function(response){
       if(!response.ok) throw new Error('LEGACY_FETCH_FAILED_' + response.status);
       return response.text();
