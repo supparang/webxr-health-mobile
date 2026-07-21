@@ -1,138 +1,190 @@
-# CSAI2601 UX Quest — Studio Practice Phase 1
+# CSAI2601 UX Quest — Studio Practice, Reflection, Review and Portfolio
 
-Version: `20260721-STUDIO-PRACTICE-PHASE1-V1`
+Version: `20260721-STUDIO-WORKFLOW-V1`
 
-Scope: **W1, W2, W3 and B1**
+Scope: **W1–W15 + B1–B4**
 
 ## Purpose
 
-This phase replaces the generic post-game note with structured studio evidence that matches the canonical CSAI2601 content exactly.
+This package extends CSAI2601 from a mission-only game into the same learning-platform pattern used by CSAI2102:
 
-It does **not** change the current official unlock contract. Google Sheet `mission_completed` rows and the contiguous canonical path remain the sole authority for Mission Control and next-node access.
+```text
+Mission → Studio Practice → Weekly Reflection → Teacher Review → Revision → Portfolio
+```
 
-## Canonical alignment
+Google Sheet remains the sole source of truth for official progress, studio submissions, reviews and portfolio readiness. `localStorage` is used only for temporary drafts and an unsent queue.
 
-| Node | Canonical content | Studio artifact |
-|---|---|---|
-| W1 | UI vs UX, user goal, task, context, friction, impact, fix, test idea | UX First Impression Audit |
-| W2 | HCD / Design Thinking, evidence vs assumption, research planning | UX Process Map / HCD Sprint Brief |
-| W3 | Cognitive load, attention, recognition vs recall, feedback, mental model, error prevention | Cognitive Load Repair Note + Before–After Redesign |
-| B1 | W1–W3 synthesis | Foundation UX Defense Sheet |
+## Canonical Studio artifacts
+
+| Node | Studio artifact |
+|---|---|
+| W1 | UX First Impression Audit |
+| W2 | UX Process Map / HCD Sprint Brief |
+| W3 | Cognitive Load Repair Note + Before–After |
+| B1 | Foundation UX Defense Sheet |
+| W4 | Interview Note + Persona Lite |
+| W5 | Problem Statement + HMW + Concept Storyboard |
+| W6 | Sitemap + Main User Flow + Error Path |
+| W7 | Low-fi Wireframe 5 Screens |
+| B2 | Flow/Wireframe Defense Sheet |
+| W8 | Midterm UX Blueprint |
+| W9 | UI Kit Charter |
+| W10 | Responsive + Accessibility Plan |
+| W11 | Visual Style Guide |
+| B3 | Interface System Defense Sheet |
+| W12 | Component State Specification |
+| W13 | Clickable Hi-fi Prototype |
+| W14 | Usability Iteration Log |
+| B4 | Prototype Validation Defense Sheet |
+| W15 | Final UX/UI Case Study Portfolio |
 
 ## Files
 
+### Student
+
 - `js/uxq-studio-practice-canonical-v1.js`
-  - Data-first studio specification.
-  - Required fields, practice steps, self-checks, rubric, evidence mappings.
+- `js/uxq-studio-practice-canonical-all-v2.js`
 - `js/uxq-studio-practice-ui-v1.js`
-  - Replaces the generic artifact block after the mission result.
-  - Validates required fields, minimum evidence length, URL and self-checks.
-  - Uses localStorage only for a temporary draft.
 - `js/uxq-studio-practice-submit-v1.js`
-  - Sends `artifact_submitted` through the existing Student Receiver contract.
-  - Adds structured `artifactFields`.
-  - Links the studio event to the stable `mission_completed` event ID through `linkedAttemptId`.
-  - Includes an offline retry queue.
+- `js/uxq-studio-status-v1.js`
 - `csai2601-canonical-node-clean-v1.html`
-  - Loads the three Phase 1 modules.
+- `csai2601-mission-control.html`
 
-## Data contract
+### Apps Script
 
-The structured studio submission continues to use:
+- `UXQuestStudioWorkflow-v1.gs`
+- `UXQuestStudioRouterPatch-v1.gs`
+- `UXQuestStudioDashboard-v1.html`
+- `UXQuestPortfolioBuilder-v1.html`
+
+### Tests
+
+- `test_csai2601_studio_phase1.js`
+- `test_csai2601_studio_all19.js`
+
+## Data contracts
+
+Mission completion remains:
+
+```text
+mission_completed
+```
+
+Student Studio submission remains backward compatible with Receiver v4:
 
 ```text
 eventType = artifact_submitted
 schema = uxq.studio-artifact.v1
 ```
 
-Important fields:
+Teacher review is stored in `UXQuest_Studio_Reviews` and audit events in `UXQuest_Studio_Audit`.
+
+Review statuses:
 
 ```text
-studentId
-studentName
-section
-missionId
-attemptId
-linkedAttemptId
-projectId
-figmaUrl
-canonicalArtifact
-artifactFields[]
-problemSeen
-uxReason
-fixAndTest
-reflection
-learnedPoint
-studioVersion
+submitted
+reviewing
+need_revision
+approved
 ```
-
-The existing Receiver v4 can accept the submission because the event remains `artifact_submitted`. Structured fields are preserved in `artifactFields` and the raw JSON. `linkedAttemptId` uses the existing receiver column.
 
 ## Project continuity
 
-Students must use the same `projectId` from W1 through W15.
+Every node requires the same `projectId` from W1 through W15.
 
-Recommended pattern:
+Recommended format:
 
 ```text
 UXQ-<SECTION>-<STUDENT_ID>-<PROJECT_SLUG>
 ```
 
-Example:
+The Student Studio Status and Teacher Dashboard flag multiple Project IDs for the same student.
+
+## Teacher review rubric
+
+Five dimensions use 0–4 points:
+
+- Evidence — 25%
+- UX Reasoning — 25%
+- Artifact Quality — 25%
+- Validation — 15%
+- Reflection & Revision — 10%
+
+The backend converts the weighted rubric to a 0–100 score.
+
+## Deployment
+
+### Student Receiver / Progress Web App
+
+Copy `UXQuestStudioWorkflow-v1.gs` and `UXQuestStudioRouterPatch-v1.gs` into the Apps Script project that already contains the Student Receiver and Progress Restore.
+
+Add before the unknown-action fallback in the existing `doGet(e)`:
+
+```javascript
+const studio = UXQ_routeStudioGet_(e);
+if (studio) return studio;
+```
+
+Run once:
+
+```javascript
+UXQ_setupStudioWorkflow()
+```
+
+Redeploy the Web App.
+
+### Private Teacher Dashboard Web App
+
+Copy the two `.gs` files plus `UXQuestStudioDashboard-v1.html` and `UXQuestPortfolioBuilder-v1.html`.
+
+Add before the current default Teacher Dashboard output:
+
+```javascript
+const studio = UXQ_routeStudioTeacherGet_(e);
+if (studio) return studio;
+```
+
+Teacher URLs:
 
 ```text
-UXQ-201-6500123-StudentService
+/exec?view=studio
+/exec?view=portfolio
 ```
+
+The Teacher Web App must remain private and execute as the teacher.
 
 ## Unlock policy
 
-Phase 1 deliberately keeps the current production rule:
+This package deliberately does not change the production unlock rule:
 
 ```text
-Official unlock = Sheet-confirmed mission_completed on the contiguous canonical path
+Official unlock = contiguous Sheet-confirmed mission_completed rows
 ```
 
-Studio submission is visible learning evidence, but it does not yet block or unlock the next node.
-
-This avoids changing production progression until the following are complete:
-
-1. Receiver deployment is confirmed.
-2. Teacher Studio Progress dashboard is available.
-3. Artifact receipt confirmation is implemented.
-4. W1–W3+B1 acceptance tests pass.
-5. The instructor explicitly approves migration to `mission + studio submitted`.
+Studio and Reflection are displayed and reviewed, but they do not yet block the next node. Teacher approval should never block the next node because delayed review could stop the entire class.
 
 ## Acceptance tests
 
-### UI
+1. All 19 nodes show the correct Studio Artifact and a node-specific Reflection.
+2. Every node has exactly eight Receiver-safe fields.
+3. Required fields, URL validation and five self-checks block incomplete submissions.
+4. Network failure queues the submission and reconnect retries it.
+5. Mission Control shows Sheet-backed Studio and review status.
+6. Studio status never changes mission unlock.
+7. Sheet rows contain `schema = uxq.studio-artifact.v1`, all eight fields and a correct `linkedAttemptId`.
+8. Teacher Dashboard filters by Section and Student/Project.
+9. Teacher can open Figma evidence and set Reviewing, Need Revision or Approved.
+10. Weighted rubric score is correct and an audit row is written.
+11. Portfolio Builder renders all 19 nodes and can Print/Save PDF.
+12. A student with no Sheet record still starts at W1 and cross-device resume remains Sheet-authoritative.
 
-1. Complete W1 and confirm the generic note becomes `UX First Impression Audit`.
-2. Confirm W2 does not ask for Persona or HMW.
-3. Confirm W3 asks for Cognitive Load diagnosis and Before–After evidence.
-4. Confirm B1 synthesizes W1–W3.
-5. Confirm required fields and self-checks prevent an incomplete submission.
-6. Confirm responsive layout on Android and desktop Chrome.
+## Production blockers
 
-### Data
+Before merge/deployment:
 
-7. Submit W1 and verify one `artifact_submitted` row.
-8. Confirm `schema = uxq.studio-artifact.v1`.
-9. Confirm `linkedAttemptId` matches the stable W1 `mission_completed` event ID.
-10. Confirm `artifactFields` includes `projectId`, `figmaUrl` and the W-specific evidence keys.
-11. Disable the network, submit, reconnect and confirm the retry queue sends.
-12. Confirm the submission does not alter official Mission Control unlock.
-
-### Regression
-
-13. W4–W15 and B2–B4 retain the existing artifact UI.
-14. Mission score, Reason Check, anti-guessing and Sheet-confirmed next-node behavior remain unchanged.
-15. A new learner with no Sheet progress still starts at W1.
-
-## Next phase
-
-After Phase 1 passes acceptance tests:
-
-- Phase 2: W4–W8 + B2
-- Phase 3: W9–W15 + B3–B4
-- Teacher Dashboard: Studio Progress, review queue, revision status and project continuity checks
-- Optional later migration: unlock next node only after mission pass + studio submission
+- Rebase the branch onto current `main`.
+- Resolve conflicts in the canonical node and Mission Control files.
+- Run browser QA on desktop and mobile.
+- Deploy Receiver v4 Artifacts and the Studio GET route.
+- Test one complete student flow against the real Sheet.
+- Confirm the private Teacher Dashboard cannot be opened anonymously.
