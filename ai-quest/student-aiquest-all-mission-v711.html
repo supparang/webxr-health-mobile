@@ -4,98 +4,62 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#071426">
-<title>CSAI2102 • Mission v711 Integrated</title>
+<title>CSAI2102 • Mission v711 Stable Loader</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;color:#e8f1ff;font-family:system-ui,-apple-system,'Segoe UI',sans-serif}#legacyFrame{display:block;width:100%;height:100%;border:0;background:#071426}.loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#071426;color:#dbeafe;text-align:center;z-index:10}.loading.bad{color:#fecdd3}.loading.hide{display:none}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;color:#e8f1ff;font-family:system-ui,-apple-system,'Segoe UI',sans-serif}#missionFrame{display:block;width:100%;height:100%;border:0;background:#071426}.loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#071426;color:#dbeafe;text-align:center;z-index:10}.loading.hide{display:none}.loading.bad{color:#fecdd3}
 </style>
 </head>
 <body>
 <div id="loading" class="loading">กำลังเปิด Mission…</div>
-<iframe id="legacyFrame" title="CSAI2102 Mission"></iframe>
+<iframe id="missionFrame" title="CSAI2102 Mission" referrerpolicy="no-referrer"></iframe>
 <script>
 (function(){
   'use strict';
 
-  var LEGACY_COMMIT = '9eaea23c1bfe2300570ff87ea663b1806563e939';
-  var LEGACY_DIR = 'https://cdn.jsdelivr.net/gh/supparang/webxr-health-mobile@' + LEGACY_COMMIT + '/ai-quest/';
-  var LEGACY_URL = LEGACY_DIR + 'student-aiquest-all-mission-v711.html';
+  var SNAPSHOT = 'https://cdn.jsdelivr.net/gh/supparang/webxr-health-mobile@9eaea23c1bfe2300570ff87ea663b1806563e939/ai-quest/student-aiquest-all-mission-v711.html';
   var params = new URLSearchParams(location.search);
-  var studentId = String(params.get('studentId') || '').trim();
-  var studentName = String(params.get('studentName') || '').trim();
-  var section = String(params.get('section') || '101').trim();
-  var mission = String(params.get('mission') || 's1').toLowerCase();
-  var integrated = !!studentId || String(params.get('release') || '').toLowerCase().indexOf('integrated') >= 0;
-  var frame = document.getElementById('legacyFrame');
+  var frame = document.getElementById('missionFrame');
   var loading = document.getElementById('loading');
+  var target = new URL(SNAPSHOT);
 
-  function esc(value){
-    return JSON.stringify(String(value == null ? '' : value));
+  params.forEach(function(value, key){
+    target.searchParams.set(key, value);
+  });
+
+  target.searchParams.set('snapshot', '20260721-stable-direct');
+
+  var finished = false;
+
+  function hideLoading(){
+    if (finished) return;
+    finished = true;
+    loading.className = 'loading hide';
   }
 
-  function baseTag(){
-    return '<base href="' + LEGACY_DIR + '">';
-  }
+  frame.addEventListener('load', function(){
+    hideLoading();
+  }, {once:true});
 
-  function patchScript(){
-    return '<script>(function(){"use strict";' +
-      'var SID=' + esc(studentId) + ',SNAME=' + esc(studentName) + ',SEC=' + esc(section) + ',INTEGRATED=' + (integrated ? 'true' : 'false') + ';' +
-      'function apply(){try{' +
-        'var sid=document.getElementById("sid"),name=document.getElementById("name"),sec=document.getElementById("section");' +
-        'if(sid&&SID){sid.value=SID;sid.readOnly=true;}if(name&&SNAME){name.value=SNAME;name.readOnly=true;}if(sec){sec.value=SEC;sec.readOnly=true;}' +
-        'document.querySelectorAll("a,button").forEach(function(el){if(String(el.textContent||"").trim()==="แผนที่")el.style.display="none";});' +
-        'if(INTEGRATED){' +
-          'var save=document.getElementById("saveProfile");if(save){var card=save.closest(".card");if(card)card.style.display="none";}' +
-          'var note=document.getElementById("profileNote");if(note){note.style.display="none";}' +
-          'document.querySelectorAll(".notice.bad,.fb.bad").forEach(function(el){if(/studentGate|ตรวจสิทธิ์จาก Sheet ไม่สำเร็จ|unavailable/i.test(String(el.textContent||""))){el.style.display="none";}});' +
-          'var start=document.getElementById("start");if(start){start.disabled=false;start.removeAttribute("disabled");start.style.display="inline-flex";if(/ตรวจสิทธิ์|ไม่สำเร็จ|unavailable/i.test(String(start.textContent||"")))start.textContent="▶ เริ่ม Challenge Deck";}' +
-          'var entry=document.getElementById("entry");if(entry)entry.classList.add("on");' +
-          'var header=document.querySelector("main.wrap > header.top");if(header){var h1=header.querySelector("h1");if(h1)h1.textContent=' + esc(mission.toUpperCase() + ' • Mission') + ';var sub=header.querySelector("#sub");if(sub)sub.style.display="none";}' +
-        '}' +
-      '}catch(e){console.error("[AIQuest integrated patch]",e);}}' +
-      'document.addEventListener("DOMContentLoaded",apply);window.addEventListener("load",apply);apply();' +
-      'var observer=new MutationObserver(apply);observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true});' +
-      'var count=0,t=setInterval(function(){apply();count++;if(count>80){clearInterval(t);observer.disconnect();}},250);' +
-      '})();<\/script>';
-  }
+  frame.addEventListener('error', function(){
+    finished = true;
+    loading.className = 'loading bad';
+    loading.textContent = 'เปิด Mission ไม่สำเร็จ กรุณารีเฟรชหน้าอีกครั้ง';
+  }, {once:true});
 
-  function mobileCss(){
-    return '<style>' +
-      '@media(max-width:780px){' +
-        '.wrap{padding:10px!important}.card{margin:9px 0!important;padding:14px!important;border-radius:15px!important}' +
-        'main.wrap>header.top{margin-bottom:4px!important}main.wrap>header.top h1{font-size:25px!important;line-height:1.2!important}' +
-        '#entry>.card:first-child h2{font-size:25px!important}.muted{line-height:1.45!important}' +
-        '.notice{padding:10px!important;font-size:14px!important}.btn{padding:11px 13px!important}' +
-      '}' +
-    '</style>';
-  }
+  frame.src = target.toString();
 
-  function fetchWithTimeout(url, timeoutMs){
-    var controller = new AbortController();
-    var timer = setTimeout(function(){ controller.abort(); }, timeoutMs);
-    return fetch(url, {cache:'no-store', signal:controller.signal})
-      .finally(function(){ clearTimeout(timer); });
-  }
+  setTimeout(function(){
+    if (!finished) {
+      loading.textContent = 'Mission ใช้เวลาโหลดนานกว่าปกติ กรุณารอสักครู่…';
+    }
+  }, 5000);
 
-  fetchWithTimeout(LEGACY_URL + '?v=20260721-integrated-gate3', 8000)
-    .then(function(response){
-      if(!response.ok) throw new Error('LEGACY_FETCH_FAILED_' + response.status);
-      return response.text();
-    })
-    .then(function(html){
-      html = html.replace('<head>', '<head>' + baseTag());
-      html = html.replace('</head>', mobileCss() + '</head>');
-      html = html.replace('</body>', patchScript() + '</body>');
-      frame.srcdoc = html;
-      frame.addEventListener('load', function(){
-        loading.className = 'loading hide';
-      }, {once:true});
-      setTimeout(function(){ loading.className = 'loading hide'; }, 2200);
-    })
-    .catch(function(error){
-      console.error('[AIQuest mission wrapper]', error);
+  setTimeout(function(){
+    if (!finished) {
       loading.className = 'loading bad';
       loading.textContent = 'เปิด Mission ไม่สำเร็จ กรุณารีเฟรชหน้าอีกครั้ง';
-    });
+    }
+  }, 15000);
 })();
 </script>
 </body>
