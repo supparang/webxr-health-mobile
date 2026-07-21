@@ -16,7 +16,9 @@
 (function(){
   'use strict';
 
-  var LEGACY_URL = 'https://raw.githubusercontent.com/supparang/webxr-health-mobile/9eaea23c1bfe2300570ff87ea663b1806563e939/ai-quest/student-aiquest-all-mission-v711.html';
+  var LEGACY_COMMIT = '9eaea23c1bfe2300570ff87ea663b1806563e939';
+  var LEGACY_DIR = 'https://raw.githubusercontent.com/supparang/webxr-health-mobile/' + LEGACY_COMMIT + '/ai-quest/';
+  var LEGACY_URL = LEGACY_DIR + 'student-aiquest-all-mission-v711.html';
   var params = new URLSearchParams(location.search);
   var studentId = String(params.get('studentId') || '').trim();
   var studentName = String(params.get('studentName') || '').trim();
@@ -30,6 +32,10 @@
     return JSON.stringify(String(value == null ? '' : value));
   }
 
+  function baseTag(){
+    return '<base href="' + LEGACY_DIR + '">';
+  }
+
   function patchScript(){
     return '<script>(function(){"use strict";' +
       'var SID=' + esc(studentId) + ',SNAME=' + esc(studentName) + ',SEC=' + esc(section) + ',INTEGRATED=' + (integrated ? 'true' : 'false') + ';' +
@@ -39,14 +45,16 @@
         'document.querySelectorAll("a,button").forEach(function(el){if(String(el.textContent||"").trim()==="แผนที่")el.style.display="none";});' +
         'if(INTEGRATED){' +
           'var save=document.getElementById("saveProfile");if(save){var card=save.closest(".card");if(card)card.style.display="none";}' +
-          'var note=document.getElementById("profileNote");if(note){note.className="notice good";note.textContent="✓ ใช้ข้อมูลผู้เรียนจาก Session หลักแล้ว";}' +
-          'var start=document.getElementById("start");if(start){start.disabled=false;start.removeAttribute("disabled");if(/ตรวจสิทธิ์|ไม่สำเร็จ|unavailable/i.test(String(start.textContent||"")))start.textContent="▶ เริ่ม Challenge Deck";}' +
-          'document.querySelectorAll(".notice.bad").forEach(function(el){if(/studentGate|ตรวจสิทธิ์จาก Sheet ไม่สำเร็จ|unavailable/i.test(String(el.textContent||""))){el.style.display="none";}});' +
+          'var note=document.getElementById("profileNote");if(note){note.style.display="none";}' +
+          'document.querySelectorAll(".notice.bad,.fb.bad").forEach(function(el){if(/studentGate|ตรวจสิทธิ์จาก Sheet ไม่สำเร็จ|unavailable/i.test(String(el.textContent||""))){el.style.display="none";}});' +
+          'var start=document.getElementById("start");if(start){start.disabled=false;start.removeAttribute("disabled");start.style.display="inline-flex";if(/ตรวจสิทธิ์|ไม่สำเร็จ|unavailable/i.test(String(start.textContent||"")))start.textContent="▶ เริ่ม Challenge Deck";}' +
+          'var entry=document.getElementById("entry");if(entry)entry.classList.add("on");' +
           'var header=document.querySelector("main.wrap > header.top");if(header){var h1=header.querySelector("h1");if(h1)h1.textContent=' + esc(mission.toUpperCase() + ' • Mission') + ';var sub=header.querySelector("#sub");if(sub)sub.style.display="none";}' +
         '}' +
       '}catch(e){console.error("[AIQuest integrated patch]",e);}}' +
       'document.addEventListener("DOMContentLoaded",apply);window.addEventListener("load",apply);apply();' +
-      'var count=0,t=setInterval(function(){apply();count++;if(count>30)clearInterval(t);},250);' +
+      'var observer=new MutationObserver(apply);observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true});' +
+      'var count=0,t=setInterval(function(){apply();count++;if(count>80){clearInterval(t);observer.disconnect();}},250);' +
       '})();<\/script>';
   }
 
@@ -61,19 +69,20 @@
     '</style>';
   }
 
-  fetch(LEGACY_URL, {cache:'no-store'})
+  fetch(LEGACY_URL + '?v=20260721-integrated-gate2', {cache:'no-store'})
     .then(function(response){
       if(!response.ok) throw new Error('LEGACY_FETCH_FAILED_' + response.status);
       return response.text();
     })
     .then(function(html){
+      html = html.replace('<head>', '<head>' + baseTag());
       html = html.replace('</head>', mobileCss() + '</head>');
       html = html.replace('</body>', patchScript() + '</body>');
       frame.srcdoc = html;
       frame.addEventListener('load', function(){
         loading.className = 'loading hide';
       }, {once:true});
-      setTimeout(function(){ loading.className = 'loading hide'; }, 1600);
+      setTimeout(function(){ loading.className = 'loading hide'; }, 2200);
     })
     .catch(function(error){
       console.error('[AIQuest mission wrapper]', error);
