@@ -13,10 +13,14 @@
   <div class="loading">🍎 กำลังเตรียม GoodJunk AR Production…</div>
   <script>
     (async () => {
-      const FINAL_URL = './goodjunk-ar-production-final.html?v=20260721-mobile-camera-lite-v4';
-      const PATCH_CSS = './patches/goodjunk/goodjunk-mobile-battle-compact-v1.css?v=20260721-2';
-      const PATCH_JS = './patches/goodjunk/goodjunk-mobile-battle-compact-v1.js?v=20260721-4';
-      const MOBILE_DEVICE = /Android|iPhone|iPad|iPod|Mobile|SamsungBrowser/i.test(navigator.userAgent || '') || innerWidth <= 760;
+      const FINAL_URL = './goodjunk-ar-production-final.html?v=20260721-dual-mobile-input-v5';
+      const PATCH_CSS = './patches/goodjunk/goodjunk-mobile-battle-compact-v1.css?v=20260721-5';
+      const PATCH_JS = './patches/goodjunk/goodjunk-mobile-battle-compact-v1.js?v=20260721-5';
+      const UA = navigator.userAgent || '';
+      const MOBILE_DEVICE = /Android|iPhone|iPad|iPod|Mobile/i.test(UA) || innerWidth <= 760;
+      const IS_SAMSUNG = /SamsungBrowser/i.test(UA);
+      const IS_ANDROID_CHROME = /Android/i.test(UA) && /Chrome\//i.test(UA) && !IS_SAMSUNG && !/EdgA|OPR\//i.test(UA);
+      const MOBILE_LITE = MOBILE_DEVICE && !IS_ANDROID_CHROME;
 
       const OLD_SAFE = `function safe(r){const cx=innerWidth/2,cy=innerHeight*.52;for(let n=0;n<100;n++){const p={x:r+20+Math.random()*(innerWidth-r*2-40),y:130+r+Math.random()*Math.max(1,innerHeight-240-r*2)};if(Math.hypot(p.x-cx,p.y-cy)<Math.min(innerWidth*.22,210))continue;if(state.objects.every(o=>Math.hypot(o.x-p.x,o.y-p.y)>o.r+r+14))return p}return{x:r+20,y:innerHeight/2}}`;
       const NEW_SAFE = `function safe(r){const mobile=innerWidth<=760,boss=state.phase==='boss',gap=mobile?10:14,rawTop=mobile?(boss?220:140):(boss?165:120),top=Math.min(rawTop,innerHeight*.42),bottom=Math.max(top+r*2+gap,innerHeight-(mobile?95:85)),left=r+12,right=Math.max(left+1,innerWidth-r-12),usableW=Math.max(1,right-left),usableH=Math.max(1,bottom-top),cols=Math.max(2,Math.floor(usableW/(r*2+gap))+1),rows=Math.max(2,Math.floor(usableH/(r*2+gap))+1),slots=[];for(let row=0;row<rows;row++){for(let col=0;col<cols;col++){const x=left+usableW*(cols===1?.5:col/(cols-1)),y=top+usableH*(rows===1?.5:row/(rows-1));slots.push({x,y})}}const mixed=shuffle(slots);let best=mixed[0]||{x:innerWidth/2,y:innerHeight/2},bestClear=-Infinity;for(const p of mixed){const clear=state.objects.length?Math.min(...state.objects.map(o=>Math.hypot(o.x-p.x,o.y-p.y)-o.r-r)):999;if(clear>bestClear){best=p;bestClear=clear}if(clear>=gap)return p}return best}`;
@@ -25,7 +29,7 @@
       const NEW_UPDATE = `function update(){const mobile=innerWidth<=760,boss=state.phase==='boss',rawTop=mobile?(boss?220:140):(boss?165:120),top=Math.min(rawTop,innerHeight*.42),bottom=innerHeight-(mobile?95:85),gap=mobile?8:12;state.objects.forEach(o=>{o.w+=.03;let sx=o.vx,sy=o.vy;if(o.move==='zigzag')sx+=Math.sin(o.w)*.55;if(o.move==='bounce')sy+=Math.sin(o.w)*.35;if(o.move==='escape')sx+=Math.sign(o.x-innerWidth/2)*.12;o.x+=sx;o.y+=sy;if(o.x<o.r){o.x=o.r;o.vx=Math.abs(o.vx)}else if(o.x>innerWidth-o.r){o.x=innerWidth-o.r;o.vx=-Math.abs(o.vx)}if(o.y<top){o.y=top;o.vy=Math.abs(o.vy)}else if(o.y>bottom){o.y=bottom;o.vy=-Math.abs(o.vy)}});for(let i=0;i<state.objects.length;i++){for(let j=i+1;j<state.objects.length;j++){const a=state.objects[i],b=state.objects[j],dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy)||.001,min=a.r+b.r+gap;if(dist<min){const push=(min-dist)/2,nx=dx/dist,ny=dy/dist;a.x-=nx*push;a.y-=ny*push;b.x+=nx*push;b.y+=ny*push;a.x=Math.max(a.r,Math.min(innerWidth-a.r,a.x));b.x=Math.max(b.r,Math.min(innerWidth-b.r,b.x));a.y=Math.max(top,Math.min(bottom,a.y));b.y=Math.max(top,Math.min(bottom,b.y))}}}}`;
 
       const OLD_BOOT = `window.boot=async m=>{mode=m;canvas=$('canvas');video=$('video');ctx=canvas.getContext('2d');resize();addEventListener('resize',resize);canvas.addEventListener('pointerdown',e=>{if(mode==='touch'&&state.playing)hit(e.clientX,e.clientY)});$('loadMsg').textContent=m==='camera'?'กำลังเปิดกล้อง…':'กำลังเปิด Touch Mode…';if(m==='camera'){try{hands=new Hands({locateFile:f=>\`https://cdn.jsdelivr.net/npm/@mediapipe/hands/\${f}\`});hands.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:.55,minTrackingConfidence:.55});hands.onResults(onHands);camera=new Camera(video,{onFrame:async()=>{if(state.playing)await hands.send({image:video})},width:640,height:480});await camera.start()}catch(e){mode='touch';$('loadMsg').textContent='กล้องไม่พร้อม จึงสลับเป็น Touch Mode'}}$('start').classList.add('hidden');$('game').classList.remove('hidden');startFullGame()};`;
-      const NEW_BOOT = `window.boot=async m=>{mode=m;canvas=$('canvas');video=$('video');ctx=canvas.getContext('2d');resize();addEventListener('resize',resize);canvas.addEventListener('pointerdown',e=>{if(state.playing)hit(e.clientX,e.clientY)});$('loadMsg').textContent=m==='camera'?'กำลังเปิดกล้อง…':'กำลังเปิด Touch Mode…';window.__GJ_HAND_POINTS__=[];window.__GJ_HAND_BUSY__=false;window.__GJ_LAST_HAND_SEND_AT__=0;window.__GJ_CAMERA_LITE__=false;if(m==='camera'){try{const mobile=/Android|iPhone|iPad|iPod|Mobile|SamsungBrowser/i.test(navigator.userAgent||'')||innerWidth<=760;if(mobile){window.__GJ_CAMERA_LITE__=true;const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:24,max:30}}});window.__GJ_CAMERA_STREAM__=stream;video.srcObject=stream;video.muted=true;video.setAttribute('playsinline','');await video.play();mode='camera';$('loadMsg').textContent='Camera Lite พร้อม — แตะอาหารเพื่อเลือก'}else{hands=new Hands({locateFile:f=>\`https://cdn.jsdelivr.net/npm/@mediapipe/hands/\${f}\`});hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:.55,minTrackingConfidence:.55});hands.onResults(onHands);camera=new Camera(video,{onFrame:()=>{if(!state.playing||window.__GJ_HAND_BUSY__)return;const now=performance.now();if(now-window.__GJ_LAST_HAND_SEND_AT__<55)return;window.__GJ_LAST_HAND_SEND_AT__=now;window.__GJ_HAND_BUSY__=true;Promise.resolve(hands.send({image:video})).catch(()=>{}).finally(()=>{window.__GJ_HAND_BUSY__=false})},width:640,height:480});await camera.start()}}catch(e){mode='touch';window.__GJ_CAMERA_LITE__=false;$('loadMsg').textContent='กล้องไม่พร้อม จึงสลับเป็น Touch Mode'}}$('start').classList.add('hidden');$('game').classList.remove('hidden');startFullGame()};`;
+      const NEW_BOOT = `window.boot=async m=>{mode=m;canvas=$('canvas');video=$('video');ctx=canvas.getContext('2d');resize();addEventListener('resize',resize);canvas.addEventListener('pointerdown',e=>{if(state.playing)hit(e.clientX,e.clientY)});$('loadMsg').textContent=m==='camera'?'กำลังเปิดกล้อง…':'กำลังเปิด Touch Mode…';window.__GJ_HAND_POINTS__=[];window.__GJ_HAND_BUSY__=false;window.__GJ_LAST_HAND_SEND_AT__=0;window.__GJ_CAMERA_LITE__=false;window.__GJ_HAND_LITE__=false;if(m==='camera'){try{const ua=navigator.userAgent||'',mobile=/Android|iPhone|iPad|iPod|Mobile/i.test(ua)||innerWidth<=760,samsung=/SamsungBrowser/i.test(ua),androidChrome=/Android/i.test(ua)&&/Chrome\\//i.test(ua)&&!samsung&&!/EdgA|OPR\\//i.test(ua),useLite=mobile&&!androidChrome;if(useLite){window.__GJ_CAMERA_LITE__=true;const stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:24,max:30}}});window.__GJ_CAMERA_STREAM__=stream;video.srcObject=stream;video.muted=true;video.setAttribute('playsinline','');await video.play();mode='camera';$('loadMsg').textContent='Camera Lite พร้อม — แตะอาหารเพื่อเลือก'}else{const handLite=mobile&&androidChrome;window.__GJ_HAND_LITE__=handLite;hands=new Hands({locateFile:f=>\`https://cdn.jsdelivr.net/npm/@mediapipe/hands/\${f}\`});hands.setOptions({maxNumHands:1,modelComplexity:handLite?0:1,minDetectionConfidence:handLite?.45:.55,minTrackingConfidence:handLite?.45:.55});hands.onResults(onHands);camera=new Camera(video,{onFrame:()=>{if(!state.playing||window.__GJ_HAND_BUSY__)return;const now=performance.now(),gap=handLite?165:55;if(now-window.__GJ_LAST_HAND_SEND_AT__<gap)return;window.__GJ_LAST_HAND_SEND_AT__=now;window.__GJ_HAND_BUSY__=true;Promise.resolve(hands.send({image:video})).catch(()=>{}).finally(()=>{window.__GJ_HAND_BUSY__=false})},width:handLite?320:640,height:handLite?240:480});await camera.start();$('loadMsg').textContent=handLite?'Hand AR Lite พร้อม — แตะสำรองได้':'Hand AR พร้อม'}}catch(e){mode='touch';window.__GJ_CAMERA_LITE__=false;window.__GJ_HAND_LITE__=false;$('loadMsg').textContent='กล้องไม่พร้อม จึงสลับเป็น Touch Mode'}}$('start').classList.add('hidden');$('game').classList.remove('hidden');startFullGame()};`;
 
       const OLD_LOOP = `function loop(){if(!state.playing)return;if(mode==='touch'){drawBg();update();draw()}raf=requestAnimationFrame(loop)}`;
       const NEW_LOOP = `function loop(ts=0){if(!state.playing)return;raf=requestAnimationFrame(loop);const mobile=innerWidth<=760,minFrameMs=mobile?40:20;if(ts-(window.__GJ_LAST_RENDER_AT__||0)<minFrameMs)return;window.__GJ_LAST_RENDER_AT__=ts;ctx.clearRect(0,0,innerWidth,innerHeight);if(mode==='camera'&&video&&video.readyState>=2){ctx.save();ctx.translate(innerWidth,0);ctx.scale(-1,1);ctx.drawImage(video,0,0,innerWidth,innerHeight);ctx.restore();ctx.fillStyle='#02061718';ctx.fillRect(0,0,innerWidth,innerHeight)}else{drawBg()}update();draw();(window.__GJ_HAND_POINTS__||[]).forEach(p=>pointer(p.x,p.y))}`;
@@ -38,7 +42,7 @@
         if (!response.ok) throw new Error('HTTP ' + response.status);
         let html = await response.text();
 
-        if (MOBILE_DEVICE) {
+        if (MOBILE_LITE) {
           html = html.replace(/<script[^>]+@mediapipe\/camera_utils\/[^>]*><\/script>/gi, '');
           html = html.replace(/<script[^>]+@mediapipe\/hands\/[^>]*><\/script>/gi, '');
         }
@@ -71,12 +75,15 @@
         html = html.replace('</body>', jsTag + '</body>');
         html = html.replace(
           '<title>HeroHealth • GoodJunk AR Production Final</title>',
-          '<title>HeroHealth • GoodJunk AR Mobile Camera Lite v4</title>'
+          '<title>HeroHealth • GoodJunk AR Dual Mobile Input v5</title>'
         );
 
         console.info('[GoodJunk Production Loader]', {
-          release: '20260721-MOBILE-CAMERA-LITE-V4',
+          release: '20260721-DUAL-MOBILE-INPUT-V5',
           mobileDevice: MOBILE_DEVICE,
+          samsungInternet: IS_SAMSUNG,
+          androidChrome: IS_ANDROID_CHROME,
+          mobileLite: MOBILE_LITE,
           patchStatus
         });
 
