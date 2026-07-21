@@ -1,75 +1,51 @@
-const GJ_HAND_V7 = (() => {
+const GJ_HAND_V8 = (() => {
   'use strict';
 
-  const VERSION = 'goodjunk-mobile-hand-assist-v7.4.0';
-  const TASKS_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm';
-  const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
-  const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
+  const VERSION = 'goodjunk-mobile-worker-hand-v8.0.0';
+  const WORKER_URL = new URL('./goodjunk-hand-worker-v8.js?v=20260721-80', import.meta.url);
 
-  let landmarker = null;
-  let running = false;
+  let worker = null;
   let stream = null;
-  let timer = 0;
-  let inferenceCanvas = null;
-  let inferenceCtx = null;
-  let lastPickAt = 0;
-  let failures = 0;
-  let slowFrames = 0;
-  let smoothedPoint = null;
+  let video = null;
+  let running = false;
+  let captureTimer = 0;
+  let framePending = false;
+  let frameId = 0;
+  let pendingSince = 0;
+  let lastResultAt = 0;
+  let lastDetectionAt = 0;
+  let cursor = null;
   let dwellAnchor = null;
   let dwellStartedAt = 0;
   let dwellFired = false;
-  let lastDetectionAt = 0;
+  let lastSelectionAt = 0;
+  let workerReady = false;
 
   const state = {
-    ready: false,
+    version: VERSION,
     detected: false,
-    confidence: 0,
-    inputMode: 'mobile-hand-assist',
-    fallbackAvailable: true,
-    error: '',
-    lastSelection: '',
+    delegate: '',
+    inferenceMs: 0,
     dwellProgress: 0,
-    delegate: 'GPU',
-    lastInferenceMs: 0,
-    searchMode: true
+    lastSelection: '',
+    fallback: false,
+    workerReady: false
   };
 
-  function mobile() {
-    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') || innerWidth <= 760;
-  }
-
-  function setStatus(text, type = 'info') {
-    document.documentElement.dataset.goodjunkInput = state.inputMode;
-    const missionBox = document.querySelector('.missionBox');
-    missionBox?.classList.remove('cameraLite', 'handLite', 'touchRescue');
-    if (type === 'hand') missionBox?.classList.add('handLite');
-    if (type === 'fallback') missionBox?.classList.add('touchRescue');
+  function setStatus(message, cls = 'handLite') {
+    const box = document.querySelector('.missionBox');
+    box?.classList.remove('cameraLite', 'handLite', 'touchRescue');
+    if (cls) box?.classList.add(cls);
     const msg = document.getElementById('loadMsg');
-    if (msg) msg.textContent = text;
-  }
-
-  function point(landmarks, index) {
-    const lm = landmarks[index];
-    return { x: (1 - lm.x) * innerWidth, y: lm.y * innerHeight };
-  }
-
-  function palmCenter(hand) {
-    const ids = [0, 5, 9, 13, 17];
-    const sum = ids.reduce((acc, id) => {
-      acc.x += hand[id].x;
-      acc.y += hand[id].y;
-      return acc;
-    }, { x: 0, y: 0 });
-    return { x: (1 - sum.x / ids.length) * innerWidth, y: (sum.y / ids.length) * innerHeight };
+    if (msg) msg.textContent = message;
   }
 
   function smooth(next) {
-    if (!smoothedPoint) smoothedPoint = { ...next };
-    const alpha = 0.62;
-    smoothedPoint.x += (next.x - smoothedPoint.x) * alpha;
-    smoothedPoint.y += (next.y - smoothedPoint.y) * alpha;
-    return smoothedPoint;
+    if (!cursor) cursor = { ...next };
+    const alpha = 0.68;
+    cursor.x += (next.x - cursor.x) * alpha;
+    cursor.y += (next.y - cursor.y) * alpha;
+    return cursor;
   }
 
   function resetDwell() {
@@ -79,203 +55,231 @@ const GJ_HAND_V7 = (() => {
     state.dwellProgress = 0;
   }
 
-  function selectAt(p, source) {
-    if (performance.now() - lastPickAt < 520) return false;
-    const bridge = window.__GJ_SELECT_AT__;
-    if (typeof bridge !== 'function') return false;
-    const selected = bridge(p.x, p.y, source) !== false;
-    if (selected) {
-      lastPickAt = performance.now();
+  function selectAt(point, source) {
+    if (performance.now() - lastSelectionAt < 520) return false;
+    const select = window.__GJ_SELECT_AT__;
+    if (typeof select !== 'function') return false;
+    const ok = select(point.x, point.y, source) !== false;
+    if (ok) {
+      lastSelectionAt = performance.now();
       state.lastSelection = source;
       try { navigator.vibrate?.(35); } catch (_) {}
       try { window.__GJ_SHOW__?.('🎯 เลือกแล้ว'); } catch (_) {}
     }
-    return selected;
+    return ok;
   }
 
-  function updateDwell(p, now) {
-    if (!dwellAnchor || Math.hypot(p.x - dwellAnchor.x, p.y - dwellAnchor.y) > 78) {
-      dwellAnchor = { ...p };
+  function updateDwell(point) {
+    const now = performance.now();
+    if (!dwellAnchor || Math.hypot(point.x - dwellAnchor.x, point.y - dwellAnchor.y) > 86) {
+      dwellAnchor = { ...point };
       dwellStartedAt = now;
       dwellFired = false;
       state.dwellProgress = 0;
       return;
     }
+
     const elapsed = now - dwellStartedAt;
-    state.dwellProgress = Math.min(1, elapsed / 380);
-    if (!dwellFired && elapsed >= 380) dwellFired = selectAt(p, 'adaptive-dwell');
+    state.dwellProgress = Math.min(1, elapsed / 420);
+    if (!dwellFired && elapsed >= 420) {
+      dwellFired = selectAt(point, 'worker-dwell');
+    }
   }
 
-  function processResult(result) {
-    const hand = result?.landmarks?.[0];
-    if (!hand) {
+  function onWorkerMessage(event) {
+    const data = event.data || {};
+
+    if (data.type === 'ready') {
+      workerReady = true;
+      state.workerReady = true;
+      state.delegate = data.delegate || '';
+      setStatus('Worker Hand AR พร้อม • ยื่นมือให้เห็นทั้งฝ่ามือ', 'handLite');
+      return;
+    }
+
+    if (data.type === 'error') {
+      framePending = false;
+      console.warn('[GoodJunk Worker Hand]', VERSION, data.message);
+      if (!workerReady || performance.now() - lastResultAt > 5000) {
+        fallback('Worker Hand AR ไม่พร้อม');
+      }
+      return;
+    }
+
+    if (data.type !== 'result') return;
+
+    framePending = false;
+    pendingSince = 0;
+    lastResultAt = performance.now();
+    state.inferenceMs = Number(data.inferenceMs || 0);
+
+    if (!data.detected || !data.cursor) {
       state.detected = false;
-      state.confidence = 0;
-      state.searchMode = performance.now() - lastDetectionAt > 900;
       window.__GJ_HAND_POINTS__ = [];
-      smoothedPoint = null;
       resetDwell();
-      if (performance.now() - lastDetectionAt > 1400) {
-        setStatus('ถอยมือให้เห็นทั้งฝ่ามือ • แตะสำรองได้', 'hand');
+      if (performance.now() - lastDetectionAt > 1600) {
+        setStatus('ถอยมือให้เห็นทั้งฝ่ามือ • แตะสำรองได้', 'handLite');
       }
       return;
     }
 
     state.detected = true;
-    state.searchMode = false;
     lastDetectionAt = performance.now();
-    state.confidence = Number(result?.handedness?.[0]?.[0]?.score || 0);
-
-    const index = hand[8];
-    const indexVisible = index.x >= -0.05 && index.x <= 1.05 && index.y >= -0.05 && index.y <= 1.05;
-    const rawPoint = indexVisible ? point(hand, 8) : palmCenter(hand);
-    const cursor = smooth(rawPoint);
-    window.__GJ_HAND_POINTS__ = [{ x: cursor.x, y: cursor.y }];
-    updateDwell(cursor, performance.now());
-    setStatus('ชี้ค้างเหนืออาหารประมาณ 0.4 วินาที', 'hand');
+    const point = smooth({
+      x: Math.max(0, Math.min(innerWidth, data.cursor.x * innerWidth)),
+      y: Math.max(0, Math.min(innerHeight, data.cursor.y * innerHeight))
+    });
+    window.__GJ_HAND_POINTS__ = [{ x: point.x, y: point.y }];
+    updateDwell(point);
+    setStatus('ชี้ค้างเหนืออาหารประมาณ 0.4 วินาที', 'handLite');
 
     window.__GJ_HANDLANDMARKER_STATUS__ = {
       detected: true,
-      confidence: state.confidence,
-      dwellProgress: Number(state.dwellProgress.toFixed(2)),
-      lastSelection: state.lastSelection,
-      inferenceMs: state.lastInferenceMs,
+      confidence: Number(data.confidence || 0),
+      inferenceMs: state.inferenceMs,
       delegate: state.delegate,
-      searchMode: state.searchMode
+      dwellProgress: Number(state.dwellProgress.toFixed(2)),
+      worker: true
     };
   }
 
-  async function loadModel() {
-    if (landmarker) return landmarker;
-    setStatus('กำลังโหลด Adaptive Hand Assist…');
-    const vision = await import(TASKS_URL);
-    const resolver = await vision.FilesetResolver.forVisionTasks(WASM_URL);
-    const options = delegate => ({
-      baseOptions: { modelAssetPath: MODEL_URL, delegate },
-      runningMode: 'VIDEO',
-      numHands: 1,
-      minHandDetectionConfidence: 0.22,
-      minHandPresenceConfidence: 0.22,
-      minTrackingConfidence: 0.22
-    });
-    try {
-      landmarker = await vision.HandLandmarker.createFromOptions(resolver, options('GPU'));
-      state.delegate = 'GPU';
-    } catch (gpuError) {
-      console.warn('[GoodJunk Hand Assist]', VERSION, 'GPU unavailable, using CPU', gpuError);
-      landmarker = await vision.HandLandmarker.createFromOptions(resolver, options('CPU'));
-      state.delegate = 'CPU';
-    }
-    state.ready = true;
-    return landmarker;
-  }
+  async function captureFrame() {
+    if (!running || !workerReady || framePending || document.hidden) return;
+    if (!video || video.readyState < 2 || !video.videoWidth) return;
 
-  function prepareInferenceCanvas(width, height) {
-    if (!inferenceCanvas) {
-      inferenceCanvas = document.createElement('canvas');
-      inferenceCtx = inferenceCanvas.getContext('2d', { alpha: false, desynchronized: true });
-    }
-    inferenceCanvas.width = width;
-    inferenceCanvas.height = height;
-  }
-
-  async function infer() {
-    if (!running || !landmarker || document.hidden) return;
-    const video = document.getElementById('video');
-    if (!video || video.readyState < 2) return;
+    framePending = true;
+    pendingSince = performance.now();
+    const id = ++frameId;
 
     try {
-      const searching = performance.now() - lastDetectionAt > 900;
-      const width = searching ? 384 : 256;
-      const height = searching ? 216 : 144;
-      prepareInferenceCanvas(width, height);
-      inferenceCtx.drawImage(video, 0, 0, width, height);
-      const started = performance.now();
-      const result = landmarker.detectForVideo(inferenceCanvas, started);
-      state.lastInferenceMs = Math.round(performance.now() - started);
-      failures = 0;
-      slowFrames = state.lastInferenceMs > 950 ? slowFrames + 1 : Math.max(0, slowFrames - 1);
-      processResult(result);
-      if (slowFrames >= 2) fallback('เครื่องประมวลผล Hand AR ช้าเกินไป');
+      const bitmap = await createImageBitmap(
+        video,
+        0,
+        0,
+        video.videoWidth,
+        video.videoHeight,
+        { resizeWidth: 320, resizeHeight: 180, resizeQuality: 'low' }
+      );
+      worker.postMessage({ type: 'frame', id, bitmap, timestamp: performance.now() }, [bitmap]);
     } catch (error) {
-      failures += 1;
-      console.warn('[GoodJunk Hand Assist]', VERSION, 'detect failed', failures, error);
-      if (failures >= 3) fallback('HandLandmarker ตรวจจับไม่ต่อเนื่อง');
+      framePending = false;
+      console.warn('[GoodJunk Worker Hand]', VERSION, 'capture failed', error);
+      fallback('อุปกรณ์ไม่รองรับ Worker Hand AR');
     }
   }
 
-  function schedule() {
-    clearTimeout(timer);
-    const tick = async () => {
+  function scheduleCapture() {
+    clearInterval(captureTimer);
+    captureTimer = window.setInterval(() => {
       if (!running) return;
-      await infer();
-      const searching = performance.now() - lastDetectionAt > 900;
-      timer = window.setTimeout(tick, searching ? 280 : 360);
-    };
-    timer = window.setTimeout(tick, 120);
+
+      if (framePending && performance.now() - pendingSince > 2400) {
+        framePending = false;
+        pendingSince = 0;
+        fallback('Worker ตรวจมือนานเกินไป');
+        return;
+      }
+
+      captureFrame();
+    }, 420);
   }
 
-  async function openCamera(video) {
+  async function openCamera(targetVideo) {
     stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
-      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 18, max: 20 } }
+      video: {
+        facingMode: 'user',
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        frameRate: { ideal: 18, max: 20 }
+      }
     });
     window.__GJ_CAMERA_STREAM__ = stream;
-    video.srcObject = stream;
-    video.muted = true;
-    video.setAttribute('playsinline', '');
-    await video.play();
+    targetVideo.srcObject = stream;
+    targetVideo.muted = true;
+    targetVideo.setAttribute('playsinline', '');
+    await targetVideo.play();
   }
 
   async function waitForBridge(timeoutMs = 3500) {
     const started = performance.now();
     while (performance.now() - started < timeoutMs) {
-      if (typeof window.__GJ_SELECT_AT__ === 'function') return;
+      if (typeof window.__GJ_SELECT_AT__ === 'function') return true;
       await new Promise(resolve => setTimeout(resolve, 50));
     }
-    throw new Error('Gameplay selection bridge not ready');
+    throw new Error('Gameplay bridge unavailable');
   }
 
-  async function start(video) {
-    if (!mobile()) throw new Error('Mobile HandLandmarker is mobile-only');
+  async function waitForWorker(timeoutMs = 12000) {
+    const started = performance.now();
+    while (performance.now() - started < timeoutMs) {
+      if (workerReady) return true;
+      await new Promise(resolve => setTimeout(resolve, 80));
+    }
+    throw new Error('Worker model load timeout');
+  }
+
+  async function start(targetVideo) {
     stop(false);
-    state.error = '';
-    state.inputMode = 'mobile-hand-assist';
-    state.lastSelection = '';
-    slowFrames = 0;
-    lastDetectionAt = 0;
+    if (typeof Worker !== 'function' || typeof createImageBitmap !== 'function') {
+      throw new Error('Worker Hand AR unsupported');
+    }
+
+    video = targetVideo;
+    state.fallback = false;
+    state.detected = false;
+    workerReady = false;
+    framePending = false;
+    cursor = null;
     resetDwell();
-    setStatus('กำลังเปิดกล้องและ Adaptive Hand Assist…');
-    await Promise.all([loadModel(), openCamera(video), waitForBridge()]);
+    setStatus('กำลังเปิด Worker Hand AR…', 'handLite');
+
+    worker = new Worker(WORKER_URL, { type: 'module', name: 'goodjunk-hand-v8' });
+    worker.onmessage = onWorkerMessage;
+    worker.onerror = event => {
+      console.error('[GoodJunk Worker Hand]', VERSION, event.message || event);
+      fallback('Worker Hand AR เกิดข้อผิดพลาด');
+    };
+    worker.postMessage({ type: 'init' });
+
+    await Promise.all([openCamera(video), waitForBridge(), waitForWorker()]);
     running = true;
+    lastResultAt = performance.now();
+    lastDetectionAt = 0;
     window.__GJ_CAMERA_LITE__ = false;
     window.__GJ_HANDLANDMARKER_V7__ = true;
     window.__GJ_HAND_POINTS__ = [];
-    setStatus('ยื่นมือให้เห็นทั้งฝ่ามือ • ชี้ค้างเพื่อเลือก', 'hand');
-    schedule();
+    setStatus('ยื่นมือให้เห็นทั้งฝ่ามือ • ชี้ค้างเพื่อเลือก', 'handLite');
+    scheduleCapture();
     return true;
   }
 
   function fallback(reason) {
-    if (!running && state.inputMode === 'mobile-camera-touch') return;
-    state.error = reason || 'HandLandmarker unavailable';
-    state.inputMode = 'mobile-camera-touch';
+    if (state.fallback) return;
+    state.fallback = true;
     running = false;
-    clearTimeout(timer);
-    timer = 0;
+    clearInterval(captureTimer);
+    captureTimer = 0;
+    framePending = false;
     window.__GJ_HAND_POINTS__ = [];
     window.__GJ_CAMERA_LITE__ = true;
     resetDwell();
-    setStatus('Hand Tracking ช้า • แตะอาหารเพื่อเล่นต่อ', 'fallback');
-    try { window.__GJ_SHOW__?.('Hand Tracking ช้า — แตะอาหารเพื่อเล่นต่อ'); } catch (_) {}
+    try { worker?.terminate(); } catch (_) {}
+    worker = null;
+    setStatus('Hand Tracking ไม่พร้อม • แตะอาหารเพื่อเล่นต่อ', 'touchRescue');
+    try { window.__GJ_SHOW__?.(reason || 'แตะอาหารเพื่อเล่นต่อ'); } catch (_) {}
   }
 
   function stop(stopCamera = true) {
     running = false;
-    clearTimeout(timer);
-    timer = 0;
+    clearInterval(captureTimer);
+    captureTimer = 0;
+    framePending = false;
+    workerReady = false;
+    try { worker?.terminate(); } catch (_) {}
+    worker = null;
     window.__GJ_HAND_POINTS__ = [];
-    smoothedPoint = null;
+    cursor = null;
     resetDwell();
     if (stopCamera && stream) {
       try { stream.getTracks().forEach(track => track.stop()); } catch (_) {}
@@ -289,5 +293,5 @@ const GJ_HAND_V7 = (() => {
   return { VERSION, state, start, stop, fallback };
 })();
 
-window.GJMobileHandV7 = GJ_HAND_V7;
-console.info('[GoodJunk Mobile Hand Assist]', GJ_HAND_V7.VERSION, 'loaded');
+window.GJMobileHandV7 = GJ_HAND_V8;
+console.info('[GoodJunk Mobile Worker Hand]', GJ_HAND_V8.VERSION, 'loaded');
