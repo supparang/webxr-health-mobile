@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const PATCH = 'goodjunk-mobile-stable-touch-v6.0.0';
+  const PATCH = 'goodjunk-mobile-handlandmarker-v7.0.0';
   const UA = navigator.userAgent || '';
   const mobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(UA) || innerWidth <= 760;
   const boss = document.getElementById('bossPanel');
@@ -43,6 +43,7 @@
 
   function stopNativeCameraStream() {
     try {
+      window.GJMobileHandV7?.stop?.(true);
       const stream = window.__GJ_CAMERA_STREAM__;
       if (!stream) return;
       stream.getTracks().forEach((track) => track.stop());
@@ -51,7 +52,10 @@
   }
 
   function activateTouchRescue(reason) {
-    if (mobileDevice || window.__GJ_CAMERA_LITE__) return;
+    if (mobileDevice) {
+      window.GJMobileHandV7?.fallback?.(reason || 'Mobile HandLandmarker timeout');
+      return;
+    }
     if (touchRescueActive || typeof state === 'undefined' || !state.playing) return;
     touchRescueActive = true;
     stopCameraWatch();
@@ -75,7 +79,6 @@
     }
 
     try { show('Hand Tracking หยุด — แตะอาหารเพื่อเล่นต่อ'); } catch (_) {}
-    console.warn('[GoodJunk AR]', PATCH, 'touch rescue activated:', reason);
   }
 
   function startCameraWatch() {
@@ -102,14 +105,13 @@
   function labelAvailableInput() {
     cameraButtons().forEach((button) => {
       if (mobileDevice) {
-        button.textContent = '📷 Mobile Camera AR • แตะเล่น';
-        button.setAttribute('aria-label', 'เปิดกล้อง AR บนมือถือและแตะอาหารเพื่อเล่น');
+        button.textContent = '🖐️ Mobile Hand AR • Pinch เล่น';
+        button.setAttribute('aria-label', 'เปิด Mobile Hand AR ใช้ Pinch เพื่อเลือก และแตะสำรองได้');
       } else {
         button.textContent = '🖐️ Hand AR';
       }
     });
-
-    document.documentElement.dataset.goodjunkBrowser = mobileDevice ? 'mobile-stable-touch' : 'desktop-hand-ar';
+    document.documentElement.dataset.goodjunkBrowser = mobileDevice ? 'mobile-handlandmarker-v7' : 'desktop-hand-ar';
   }
 
   if (boss) {
@@ -136,9 +138,7 @@
   }
 
   if (mission) {
-    const syncMissionTitle = () => {
-      mission.title = mission.textContent.trim();
-    };
+    const syncMissionTitle = () => { mission.title = mission.textContent.trim(); };
     new MutationObserver(syncMissionTitle).observe(mission, {
       childList: true,
       characterData: true,
@@ -154,9 +154,7 @@
       if (touchRescueActive || window.__GJ_CAMERA_LITE__) return;
       return originalOnHands(results);
     };
-  } catch (error) {
-    console.warn('[GoodJunk AR]', PATCH, 'could not wrap onHands', error);
-  }
+  } catch (_) {}
 
   try {
     const originalBoot = window.boot;
@@ -167,11 +165,14 @@
       const result = await originalBoot(requestedMode);
       try {
         if (requestedMode === 'camera' && mode === 'camera') {
-          if (mobileDevice || window.__GJ_CAMERA_LITE__) {
-            document.documentElement.dataset.goodjunkInput = 'mobile-camera-touch';
-            missionBox?.classList.add('cameraLite');
-            try { show('Mobile Camera AR — แตะอาหารเพื่อเลือก'); } catch (_) {}
-            try { ev('mobile_camera_ar_started', { inputMode: 'touch', cameraBackground: true }); } catch (_) {}
+          if (mobileDevice && window.__GJ_HANDLANDMARKER_V7__) {
+            document.documentElement.dataset.goodjunkInput = 'mobile-handlandmarker+touch';
+            missionBox?.classList.add('handLite');
+            try { show('Mobile Hand AR — Pinch เพื่อเลือก • แตะสำรองได้'); } catch (_) {}
+            try { ev('mobile_handlandmarker_started', { inputMode: 'pinch+touch', version: 'v7' }); } catch (_) {}
+          } else if (mobileDevice) {
+            document.documentElement.dataset.goodjunkInput = 'mobile-camera-touch-fallback';
+            missionBox?.classList.add('touchRescue');
           } else {
             document.documentElement.dataset.goodjunkInput = 'desktop-hand-ar';
             startCameraWatch();
@@ -182,18 +183,7 @@
       } catch (_) {}
       return result;
     };
-  } catch (error) {
-    console.warn('[GoodJunk AR]', PATCH, 'could not wrap boot', error);
-  }
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden || mobileDevice) return;
-    try {
-      if (state.playing && mode === 'camera' && !touchRescueActive && !window.__GJ_CAMERA_LITE__) {
-        lastHandResultAt = Date.now();
-      }
-    } catch (_) {}
-  });
+  } catch (_) {}
 
   window.addEventListener('pagehide', stopNativeCameraStream);
   window.addEventListener('beforeunload', stopNativeCameraStream);
@@ -211,7 +201,7 @@
     activateTouchRescue,
     startCameraWatch,
     stopNativeCameraStream,
-    inputProfile: mobileDevice ? 'mobile-camera-touch' : 'desktop-hand-ar'
+    inputProfile: mobileDevice ? 'mobile-handlandmarker+touch' : 'desktop-hand-ar'
   };
   console.info('[GoodJunk AR UI]', PATCH, window.GOODJUNK_AR_COMPACT.inputProfile);
 })();
