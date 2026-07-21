@@ -13,15 +13,15 @@
   <div class="loading">🍎 กำลังเตรียม GoodJunk AR Production…</div>
   <script>
     (async () => {
-      const FINAL_URL = './goodjunk-ar-production-final.html?v=20260721-mobile-battle-compact-v1';
-      const PATCH_CSS = './patches/goodjunk/goodjunk-mobile-battle-compact-v1.css?v=20260721-1';
-      const PATCH_JS = './patches/goodjunk/goodjunk-mobile-battle-compact-v1.js?v=20260721-1';
+      const FINAL_URL = './goodjunk-ar-production-final.html?v=20260721-mobile-battle-compact-v2';
+      const PATCH_CSS = './patches/goodjunk/goodjunk-mobile-battle-compact-v1.css?v=20260721-2';
+      const PATCH_JS = './patches/goodjunk/goodjunk-mobile-battle-compact-v1.js?v=20260721-2';
 
       const OLD_SAFE = `function safe(r){const cx=innerWidth/2,cy=innerHeight*.52;for(let n=0;n<100;n++){const p={x:r+20+Math.random()*(innerWidth-r*2-40),y:130+r+Math.random()*Math.max(1,innerHeight-240-r*2)};if(Math.hypot(p.x-cx,p.y-cy)<Math.min(innerWidth*.22,210))continue;if(state.objects.every(o=>Math.hypot(o.x-p.x,o.y-p.y)>o.r+r+14))return p}return{x:r+20,y:innerHeight/2}}`;
-      const NEW_SAFE = `function safe(r){const mobile=innerWidth<=760,boss=state.phase==='boss',gap=mobile?10:14,rawTop=mobile?(boss?190:110):(boss?165:120),top=Math.min(rawTop,innerHeight*.38),bottom=Math.max(top+r*2+gap,innerHeight-(mobile?95:85)),left=r+12,right=Math.max(left+1,innerWidth-r-12),usableW=Math.max(1,right-left),usableH=Math.max(1,bottom-top),cols=Math.max(2,Math.floor(usableW/(r*2+gap))+1),rows=Math.max(2,Math.floor(usableH/(r*2+gap))+1),slots=[];for(let row=0;row<rows;row++){for(let col=0;col<cols;col++){const x=left+usableW*(cols===1?.5:col/(cols-1)),y=top+usableH*(rows===1?.5:row/(rows-1));slots.push({x,y})}}const mixed=shuffle(slots);let best=mixed[0]||{x:innerWidth/2,y:innerHeight/2},bestClear=-Infinity;for(const p of mixed){const clear=state.objects.length?Math.min(...state.objects.map(o=>Math.hypot(o.x-p.x,o.y-p.y)-o.r-r)):999;if(clear>bestClear){best=p;bestClear=clear}if(clear>=gap)return p}return best}`;
+      const NEW_SAFE = `function safe(r){const mobile=innerWidth<=760,boss=state.phase==='boss',gap=mobile?10:14,rawTop=mobile?(boss?220:140):(boss?165:120),top=Math.min(rawTop,innerHeight*.42),bottom=Math.max(top+r*2+gap,innerHeight-(mobile?95:85)),left=r+12,right=Math.max(left+1,innerWidth-r-12),usableW=Math.max(1,right-left),usableH=Math.max(1,bottom-top),cols=Math.max(2,Math.floor(usableW/(r*2+gap))+1),rows=Math.max(2,Math.floor(usableH/(r*2+gap))+1),slots=[];for(let row=0;row<rows;row++){for(let col=0;col<cols;col++){const x=left+usableW*(cols===1?.5:col/(cols-1)),y=top+usableH*(rows===1?.5:row/(rows-1));slots.push({x,y})}}const mixed=shuffle(slots);let best=mixed[0]||{x:innerWidth/2,y:innerHeight/2},bestClear=-Infinity;for(const p of mixed){const clear=state.objects.length?Math.min(...state.objects.map(o=>Math.hypot(o.x-p.x,o.y-p.y)-o.r-r)):999;if(clear>bestClear){best=p;bestClear=clear}if(clear>=gap)return p}return best}`;
 
       const OLD_UPDATE = `function update(){state.objects.forEach(o=>{o.w+=.03;let sx=o.vx,sy=o.vy;if(o.move==='zigzag')sx+=Math.sin(o.w)*.55;if(o.move==='bounce')sy+=Math.sin(o.w)*.35;if(o.move==='escape')sx+=Math.sign(o.x-innerWidth/2)*.12;o.x+=sx;o.y+=sy;if(o.x<o.r||o.x>innerWidth-o.r)o.vx*=-1;if(o.y<120+o.r||o.y>innerHeight-85-o.r)o.vy*=-1})}`;
-      const NEW_UPDATE = `function update(){const mobile=innerWidth<=760,boss=state.phase==='boss',rawTop=mobile?(boss?190:110):(boss?165:120),top=Math.min(rawTop,innerHeight*.38),bottom=innerHeight-(mobile?95:85),gap=mobile?8:12;state.objects.forEach(o=>{o.w+=.03;let sx=o.vx,sy=o.vy;if(o.move==='zigzag')sx+=Math.sin(o.w)*.55;if(o.move==='bounce')sy+=Math.sin(o.w)*.35;if(o.move==='escape')sx+=Math.sign(o.x-innerWidth/2)*.12;o.x+=sx;o.y+=sy;if(o.x<o.r){o.x=o.r;o.vx=Math.abs(o.vx)}else if(o.x>innerWidth-o.r){o.x=innerWidth-o.r;o.vx=-Math.abs(o.vx)}if(o.y<top){o.y=top;o.vy=Math.abs(o.vy)}else if(o.y>bottom){o.y=bottom;o.vy=-Math.abs(o.vy)}});for(let i=0;i<state.objects.length;i++){for(let j=i+1;j<state.objects.length;j++){const a=state.objects[i],b=state.objects[j],dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy)||.001,min=a.r+b.r+gap;if(dist<min){const push=(min-dist)/2,nx=dx/dist,ny=dy/dist;a.x-=nx*push;a.y-=ny*push;b.x+=nx*push;b.y+=ny*push;a.x=Math.max(a.r,Math.min(innerWidth-a.r,a.x));b.x=Math.max(b.r,Math.min(innerWidth-b.r,b.x));a.y=Math.max(top,Math.min(bottom,a.y));b.y=Math.max(top,Math.min(bottom,b.y))}}}}`;
+      const NEW_UPDATE = `function update(){const mobile=innerWidth<=760,boss=state.phase==='boss',rawTop=mobile?(boss?220:140):(boss?165:120),top=Math.min(rawTop,innerHeight*.42),bottom=innerHeight-(mobile?95:85),gap=mobile?8:12;state.objects.forEach(o=>{o.w+=.03;let sx=o.vx,sy=o.vy;if(o.move==='zigzag')sx+=Math.sin(o.w)*.55;if(o.move==='bounce')sy+=Math.sin(o.w)*.35;if(o.move==='escape')sx+=Math.sign(o.x-innerWidth/2)*.12;o.x+=sx;o.y+=sy;if(o.x<o.r){o.x=o.r;o.vx=Math.abs(o.vx)}else if(o.x>innerWidth-o.r){o.x=innerWidth-o.r;o.vx=-Math.abs(o.vx)}if(o.y<top){o.y=top;o.vy=Math.abs(o.vy)}else if(o.y>bottom){o.y=bottom;o.vy=-Math.abs(o.vy)}});for(let i=0;i<state.objects.length;i++){for(let j=i+1;j<state.objects.length;j++){const a=state.objects[i],b=state.objects[j],dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy)||.001,min=a.r+b.r+gap;if(dist<min){const push=(min-dist)/2,nx=dx/dist,ny=dy/dist;a.x-=nx*push;a.y-=ny*push;b.x+=nx*push;b.y+=ny*push;a.x=Math.max(a.r,Math.min(innerWidth-a.r,a.x));b.x=Math.max(b.r,Math.min(innerWidth-b.r,b.x));a.y=Math.max(top,Math.min(bottom,a.y));b.y=Math.max(top,Math.min(bottom,b.y))}}}}`;
 
       try {
         const response = await fetch(FINAL_URL, { cache: 'no-store' });
@@ -48,7 +48,7 @@
         );
 
         console.info('[GoodJunk Production Loader]', {
-          release: '20260721-MOBILE-BATTLE-COMPACT-V1',
+          release: '20260721-MOBILE-BATTLE-COMPACT-V2',
           safePatched,
           updatePatched
         });
