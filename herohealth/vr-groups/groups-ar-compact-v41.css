@@ -1,0 +1,469 @@
+/* HeroHealth Groups AR • Mobile Compact UI v4.1
+   Keeps the desktop layout intact and returns vertical space on phones. */
+
+#menuBtn,
+.quickMenu,
+.menuScrim {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .app {
+    gap: 4px;
+    padding:
+      calc(4px + var(--sat))
+      calc(4px + var(--sar))
+      calc(4px + var(--sab))
+      calc(4px + var(--sal));
+  }
+
+  .hud {
+    grid-template-columns: minmax(124px, .82fr) minmax(0, 1.18fr);
+    gap: 4px;
+    align-items: stretch;
+  }
+
+  .brand {
+    min-height: 46px;
+    gap: 6px;
+    padding: 4px 7px;
+    border-radius: 16px;
+  }
+
+  .brandIcon {
+    width: 35px;
+    height: 35px;
+    border-radius: 12px;
+    font-size: 21px;
+  }
+
+  .brand h1 {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: .92rem;
+    line-height: 1.05;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .brand p {
+    display: none;
+  }
+
+  .stats {
+    min-height: 46px;
+    gap: 0;
+    padding: 3px;
+    border-radius: 16px;
+    justify-content: stretch;
+  }
+
+  .stat {
+    min-width: 0;
+    flex: 1 1 0;
+    padding: 2px 3px;
+  }
+
+  .stat small {
+    font-size: .46rem;
+    line-height: 1.05;
+  }
+
+  .stat b {
+    margin-top: 2px;
+    font-size: .77rem;
+  }
+
+  .comboStat,
+  .bossStat {
+    display: none;
+  }
+
+  .arena {
+    border-radius: 19px;
+  }
+
+  .phase {
+    top: 5px;
+    left: 5px;
+    max-width: calc(100% - 132px);
+    min-height: 30px;
+    padding: 5px 8px;
+    border-radius: 14px;
+  }
+
+  .phase b {
+    overflow: hidden;
+    font-size: .72rem;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .phase small {
+    overflow: hidden;
+    margin-top: 1px;
+    font-size: .52rem;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cameraBadge {
+    top: 5px;
+    right: 5px;
+    min-height: 30px;
+    max-width: 124px;
+    padding: 5px 8px;
+    gap: 5px;
+    font-size: .57rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    box-shadow: 0 0 0 4px rgba(255, 215, 94, .14);
+  }
+
+  .boss {
+    top: 42px;
+    width: calc(100% - 10px);
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 7px;
+    padding: 6px 8px;
+    border-radius: 15px;
+  }
+
+  .bossFace {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    font-size: 24px;
+  }
+
+  .bossTop {
+    font-size: .61rem;
+  }
+
+  .bossSkill {
+    font-size: .52rem;
+  }
+
+  .foodLayer {
+    inset: 0 0 59px;
+  }
+
+  .food {
+    width: 78px;
+    height: 78px;
+    border-width: 3px;
+  }
+
+  .food .emoji {
+    font-size: 38px;
+  }
+
+  .food .name {
+    bottom: 4px;
+    max-width: 92px;
+    overflow: hidden;
+    padding: 2px 6px;
+    font-size: .51rem;
+    text-overflow: ellipsis;
+  }
+
+  .hand {
+    width: 48px;
+    height: 48px;
+    margin: -24px 0 0 -24px;
+    border-width: 3px;
+  }
+
+  .hand::after {
+    font-size: 21px;
+  }
+
+  .bins {
+    right: 4px;
+    bottom: 4px;
+    left: 4px;
+    gap: 3px;
+  }
+
+  .bin {
+    min-height: 51px;
+    padding: 3px 1px;
+    border-radius: 12px;
+  }
+
+  .bin .n {
+    font-size: .85rem;
+    line-height: 1;
+  }
+
+  .bin .t {
+    font-size: .47rem;
+  }
+
+  .bin .p {
+    display: none;
+  }
+
+  .centerCue {
+    width: min(360px, 82%);
+    padding: 9px 11px;
+    border-radius: 16px;
+  }
+
+  .centerCue b {
+    font-size: .88rem;
+  }
+
+  .centerCue small {
+    font-size: .64rem;
+  }
+
+  .footer {
+    display: block;
+    min-height: 45px;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 48px;
+    gap: 5px;
+  }
+
+  .btn {
+    min-height: 45px;
+    padding: 6px 10px;
+    border-radius: 15px;
+    font-size: .82rem;
+  }
+
+  .secondaryAction {
+    display: none;
+  }
+
+  #menuBtn {
+    display: grid;
+    place-items: center;
+    padding: 0;
+    font-size: 1.35rem;
+    line-height: 1;
+  }
+
+  .feedback {
+    position: fixed;
+    z-index: 88;
+    right: 8px;
+    bottom: calc(108px + var(--sab));
+    left: 8px;
+    display: flex;
+    min-height: 0;
+    justify-content: center;
+    padding: 8px 11px;
+    border-radius: 14px;
+    font-size: .65rem;
+    line-height: 1.25;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px) scale(.98);
+    transition: opacity .16s ease, transform .16s ease;
+  }
+
+  .feedback.toastShow {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  .menuScrim {
+    position: fixed;
+    inset: 0;
+    z-index: 108;
+    display: block;
+    border: 0;
+    background: rgba(3, 22, 25, .46);
+    backdrop-filter: blur(3px);
+  }
+
+  .menuScrim[hidden],
+  .quickMenu[hidden] {
+    display: none !important;
+  }
+
+  .quickMenu {
+    position: fixed;
+    right: max(8px, var(--sar));
+    bottom: calc(58px + var(--sab));
+    z-index: 109;
+    display: grid;
+    width: min(250px, calc(100vw - 16px));
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, .72);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 20px 55px rgba(0, 0, 0, .28);
+    backdrop-filter: blur(16px);
+  }
+
+  .quickMenu button {
+    min-height: 44px;
+    border: 0;
+    border-radius: 13px;
+    background: #f1f8f7;
+    color: var(--ink);
+    text-align: left;
+    padding: 9px 12px;
+    font-weight: 1000;
+  }
+
+  .quickMenu button:last-child {
+    background: #fff2c9;
+  }
+
+  .sheet {
+    max-height: 92dvh;
+    padding: 15px;
+    border-radius: 23px;
+  }
+
+  .sheetIcon {
+    width: 62px;
+    height: 62px;
+    border-radius: 20px;
+    font-size: 36px;
+  }
+
+  .sheet h2 {
+    font-size: clamp(1.35rem, 7vw, 1.9rem);
+  }
+
+  .sheet > p {
+    margin: 8px 0;
+    font-size: .82rem;
+  }
+
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    margin: 8px 0;
+  }
+
+  .step {
+    padding: 7px 4px;
+    border-radius: 13px;
+  }
+
+  .step small {
+    font-size: .61rem;
+  }
+
+  .warning {
+    margin: 8px 0;
+    padding: 7px 9px;
+    font-size: .65rem;
+  }
+
+  .big {
+    min-height: 44px;
+    padding: 9px 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  .hud {
+    grid-template-columns: 116px minmax(0, 1fr);
+  }
+
+  .brand {
+    padding-right: 5px;
+    padding-left: 5px;
+  }
+
+  .brandIcon {
+    width: 32px;
+    height: 32px;
+    font-size: 19px;
+  }
+
+  .brand h1 {
+    font-size: .84rem;
+  }
+
+  .stat small {
+    font-size: .43rem;
+  }
+
+  .stat b {
+    font-size: .71rem;
+  }
+
+  .phase small {
+    display: none;
+  }
+
+  .phase {
+    display: flex;
+    min-height: 29px;
+    align-items: center;
+  }
+
+  .food {
+    width: 72px;
+    height: 72px;
+  }
+
+  .food .emoji {
+    font-size: 35px;
+  }
+
+  .bin {
+    min-height: 48px;
+  }
+}
+
+@media (max-height: 620px) and (orientation: landscape) {
+  .app {
+    grid-template-rows: 40px minmax(0, 1fr) 40px;
+  }
+
+  .brand,
+  .stats {
+    min-height: 40px;
+  }
+
+  .brandIcon {
+    width: 30px;
+    height: 30px;
+    font-size: 18px;
+  }
+
+  .phase small,
+  .brand p {
+    display: none;
+  }
+
+  .food {
+    width: 68px;
+    height: 68px;
+  }
+
+  .food .emoji {
+    font-size: 33px;
+  }
+
+  .bin {
+    min-height: 44px;
+  }
+
+  .footer,
+  .btn {
+    min-height: 40px;
+  }
+}
