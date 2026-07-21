@@ -1,13 +1,14 @@
-/* HeroHealth GoodJunk AR • Mobile Battle Compact v1
-   Goal: preserve tappable food size while returning play space on phones. */
+/* HeroHealth GoodJunk AR • Mobile Battle Compact v2
+   Two-row mission HUD + camera-stall touch rescue. */
 
 @media (max-width: 760px) {
   .hud {
     top: max(6px, env(safe-area-inset-top));
     right: max(6px, env(safe-area-inset-right));
     left: max(6px, env(safe-area-inset-left));
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
+    grid-template-columns: max-content max-content;
+    justify-content: space-between;
+    align-items: start;
     gap: 5px;
   }
 
@@ -16,41 +17,63 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 5px 9px;
+    padding: 5px 10px;
     border-width: 2px;
     border-radius: 14px;
-    font-size: .76rem;
+    font-size: .78rem;
     line-height: 1.05;
   }
 
   .missionBox {
-    grid-column: auto;
-    grid-row: auto;
-    width: auto;
-    min-width: 0;
+    grid-column: 1 / 3;
+    grid-row: 2;
+    width: 100%;
+    min-height: 56px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     gap: 4px;
     overflow: hidden;
-    padding-right: 7px;
-    padding-left: 7px;
-    white-space: nowrap;
+    padding: 7px 10px;
+    text-align: center;
+    white-space: normal;
   }
 
   .missionBox #mission {
-    min-width: 0;
+    display: block;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    color: #111827;
+    font-size: .98rem;
+    font-weight: 900;
+    line-height: 1.15;
+    text-align: center;
+    text-wrap: balance;
   }
 
   .phaseBadge {
     flex: none;
-    margin-right: 1px;
-    padding: 2px 6px;
-    font-size: .58rem;
+    margin-right: 0;
+    padding: 2px 8px;
+    font-size: .56rem;
+    letter-spacing: .03em;
+  }
+
+  .missionBox.touchRescue {
+    border-color: #ef4444;
+    background: rgba(255, 237, 213, .97);
+  }
+
+  .missionBox.touchRescue::after {
+    content: 'แตะอาหารเพื่อเล่นต่อ';
+    display: block;
+    color: #b91c1c;
+    font-size: .62rem;
+    font-weight: 900;
+    line-height: 1;
   }
 
   .bossPanel {
-    top: calc(max(6px, env(safe-area-inset-top)) + 48px);
+    top: calc(max(6px, env(safe-area-inset-top)) + 104px);
     width: calc(100vw - 12px);
     padding: 7px 9px;
     border-width: 2px;
@@ -117,7 +140,7 @@
   }
 
   .feedback {
-    top: 18%;
+    top: 20%;
     width: min(88vw, 460px);
     font-size: clamp(1.05rem, 5vw, 1.65rem);
     line-height: 1.2;
@@ -132,8 +155,14 @@
     font-size: .69rem;
   }
 
-  .phaseBadge {
-    display: none;
+  .missionBox {
+    min-height: 52px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .missionBox #mission {
+    font-size: .88rem;
   }
 
   .bossHead {
@@ -150,8 +179,19 @@
     min-height: 36px;
   }
 
+  .missionBox {
+    min-height: 44px;
+    gap: 2px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
+  .missionBox #mission {
+    font-size: .82rem;
+  }
+
   .bossPanel {
-    top: calc(max(4px, env(safe-area-inset-top)) + 40px);
+    top: calc(max(4px, env(safe-area-inset-top)) + 78px);
   }
 
   .bottom .mini {
