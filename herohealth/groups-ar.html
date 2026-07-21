@@ -16,6 +16,12 @@
       }
       /* Gameplay-first phase: never enable remote logging automatically. */
       if (!url.searchParams.has('log')) url.searchParams.set('log', '0');
+
+      /* Mobile-friendly pinch profile: easier grab with stable release hysteresis. */
+      if (!url.searchParams.has('pinchClose')) url.searchParams.set('pinchClose', '0.075');
+      if (!url.searchParams.has('pinchOpen')) url.searchParams.set('pinchOpen', '0.115');
+      if (!url.searchParams.has('detectEveryMs')) url.searchParams.set('detectEveryMs', '42');
+
       history.replaceState(null, '', url.toString());
     })();
   </script>
@@ -30,7 +36,7 @@
         <div class="brandIcon">🥦</div>
         <div>
           <h1>Food Groups AR</h1>
-          <p>Mobile Compact v4.1.3 • Android Compatible</p>
+          <p>Mobile Compact v4.1.4 • Easy Pinch</p>
         </div>
       </section>
 
@@ -46,7 +52,7 @@
     <main class="arena" id="arena">
       <section class="phase">
         <b id="phaseTitle">Camera Check</b>
-        <small id="phaseSub">เตรียมกล้องและท่า Pinch เพื่อหยิบอาหาร</small>
+        <small id="phaseSub">เอานิ้วโป้งเข้าใกล้นิ้วชี้เล็กน้อยเพื่อหยิบอาหาร</small>
       </section>
 
       <div class="cameraBadge" id="cameraBadge">
@@ -101,8 +107,8 @@
       <h2>Rescue the Five Power Baskets</h2>
       <p>หยิบอาหารและปล่อยลงประตูหมู่ 1–5 ให้ถูกต้อง ผ่าน Reason Check, Retry Rescue และ Boss 3 Phase</p>
       <div class="steps">
-        <div class="step"><span>🤏</span><b>หยิบ</b><small>Pinch นิ้วโป้ง–นิ้วชี้ หรือแตะลาก</small></div>
-        <div class="step"><span>🏠</span><b>จัดหมู่</b><small>ส่งอาหารเข้าหมู่ที่ถูก ไม่วัดสัดส่วนจาน</small></div>
+        <div class="step"><span>🤏</span><b>หยิบง่ายขึ้น</b><small>เอานิ้วโป้งเข้าใกล้นิ้วชี้ ไม่ต้องบีบชิดมาก</small></div>
+        <div class="step"><span>🏠</span><b>จัดหมู่</b><small>ลากไปยังหมู่ที่ถูก แล้วกางนิ้วเพื่อปล่อย</small></div>
         <div class="step"><span>👾</span><b>สู้ Boss</b><small>Five Groups • Confusion • Meal Breaker</small></div>
       </div>
       <div class="warning">หากกล้องหรือ Hand Tracking ไม่พร้อม เกมจะเปลี่ยนเป็น Touch Fallback โดยไม่เกิดหน้าขาว และผลรอบนี้จะเก็บในเครื่องเท่านั้น ยังไม่ส่ง Google Sheet</div>
