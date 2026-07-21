@@ -1,0 +1,32 @@
+const fs = require('fs');
+const vm = require('vm');
+const file = process.argv[2] || 'sgnal-hunt/js/uxq-studio-practice-canonical-all-v2.js';
+const context = { window:{} };
+vm.createContext(context);
+vm.runInContext(fs.readFileSync(file,'utf8'), context, {filename:file});
+const pack = context.window.CSAI2601_UXQ_STUDIO_PRACTICE_V1;
+const assert = (ok,msg) => { if (!ok) throw new Error(msg); };
+const order = ['W1','W2','W3','B1','W4','W5','W6','W7','B2','W8','W9','W10','W11','B3','W12','W13','W14','B4','W15'];
+assert(pack && pack.phase === 'ALL19','Full Studio pack missing');
+assert(pack.policy.unlockChangedByThisPack === false,'Studio must not alter official unlock');
+assert(JSON.stringify(pack.items.map(x=>x.id)) === JSON.stringify(order),'Canonical node order mismatch');
+for (const item of pack.items) {
+  assert(item.fields.length === 8,`${item.id}: Receiver v4 requires exactly 8 fields`);
+  assert(item.fields[0].key === 'projectId',`${item.id}: projectId must be first`);
+  assert(item.fields[1].key === 'figmaUrl',`${item.id}: figmaUrl must be second`);
+  assert(item.fields[7].key === 'reflection',`${item.id}: reflection must be final structured field`);
+  assert(item.reflectionPrompt && item.reflectionPrompt.length >= 25,`${item.id}: node-specific reflection missing`);
+  assert(item.selfChecks.length === 5,`${item.id}: expected five self-checks`);
+  assert(item.practiceFlow.length === 5,`${item.id}: expected five studio steps`);
+  assert(new Set(item.fields.map(x=>x.key)).size === 8,`${item.id}: duplicate field key`);
+}
+assert(!pack.byId('W2').fields.some(x=>/persona|hmw/i.test(x.key)),'W2 must not jump ahead to Persona/HMW');
+assert(/Persona/.test(pack.byId('W4').studioTitle),'W4 must include Persona Lite');
+assert(/Wireframe/.test(pack.byId('W7').studioTitle),'W7 must include Wireframe');
+assert(/Midterm/.test(pack.byId('W8').studioTitle),'W8 must be Midterm Studio');
+assert(/Responsive/.test(pack.byId('W10').studioTitle),'W10 must include Responsive');
+assert(/Visual Style/.test(pack.byId('W11').studioTitle),'W11 must be Visual Style Guide');
+assert(/Prototype/.test(pack.byId('W13').studioTitle),'W13 must be Prototype');
+assert(/Usability/.test(pack.byId('W14').studioTitle),'W14 must be Usability Test');
+assert(/Portfolio/.test(pack.byId('W15').studioTitle),'W15 must be Portfolio');
+console.log(`PASS ${pack.version}: ${pack.items.length} nodes, ${pack.items.length*8} fields, ${pack.items.length} reflections`);
