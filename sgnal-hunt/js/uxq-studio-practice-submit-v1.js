@@ -32,8 +32,8 @@
   }
 
   function stableId(parts) {
-    return parts.map(part => clean(part, 100).replace(/[^a-z0-9ก-๙_-]+/gi, '-'))
-      .filter(Boolean).join('-').slice(0, 180);
+    return parts.map(part => clean(part, 90).replace(/[^a-z0-9ก-๙_-]+/gi, '-'))
+      .filter(Boolean).join('-').slice(0, 160);
   }
 
   function missionAttemptId(p, result) {
