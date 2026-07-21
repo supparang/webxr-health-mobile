@@ -6,7 +6,8 @@
   <title>HeroHealth • Food Groups AR</title>
   <meta name="theme-color" content="#103c3a">
   <meta name="description" content="HeroHealth Food Groups Camera AR — จำแนกอาหารตามหมู่ 1–5">
-  <link rel="stylesheet" href="./vr-groups/groups-ar-v3.css?v=20260721-gameplay-v4">
+  <link rel="stylesheet" href="./vr-groups/groups-ar-v3.css?v=20260717-5">
+  <link rel="stylesheet" href="./vr-groups/groups-ar-compact-v41.css?v=20260721-compact-v410">
   <script>
     (() => {
       const url = new URL(location.href);
@@ -29,15 +30,16 @@
         <div class="brandIcon">🥦</div>
         <div>
           <h1>Food Groups AR</h1>
-          <p>Production Gameplay v4 • จำแนกอาหาร 5 หมู่</p>
+          <p>Mobile Compact v4.1 • จำแนกอาหาร 5 หมู่</p>
         </div>
       </section>
-      <section class="stats">
-        <div class="stat"><small>คะแนน</small><b id="score">0</b></div>
-        <div class="stat"><small>ถูกต้อง</small><b id="acc">0%</b></div>
-        <div class="stat"><small>คอมโบ</small><b id="combo">0</b></div>
-        <div class="stat"><small>เวลา</small><b id="time">--</b></div>
-        <div class="stat"><small>Boss</small><b id="bossPhase">-</b></div>
+
+      <section class="stats" aria-label="สถานะการเล่น">
+        <div class="stat scoreStat"><small>คะแนน</small><b id="score">0</b></div>
+        <div class="stat accuracyStat"><small>ถูกต้อง</small><b id="acc">0%</b></div>
+        <div class="stat comboStat"><small>คอมโบ</small><b id="combo">0</b></div>
+        <div class="stat timeStat"><small>เวลา</small><b id="time">--</b></div>
+        <div class="stat bossStat"><small>Boss</small><b id="bossPhase">-</b></div>
       </section>
     </header>
 
@@ -64,7 +66,7 @@
       <div class="hand" id="hand"></div>
       <div class="centerCue" id="cue"><b id="cueTitle"></b><small id="cueSub"></small></div>
 
-      <section class="bins">
+      <section class="bins" aria-label="ตะกร้าอาหาร 5 หมู่">
         <div class="bin g1" data-group="1"><span class="n">1</span><span class="t">โปรตีน</span><span class="p">โตและซ่อมแซม</span></div>
         <div class="bin g2" data-group="2"><span class="n">2</span><span class="t">ข้าว/แป้ง</span><span class="p">ให้พลังงาน</span></div>
         <div class="bin g3" data-group="3"><span class="n">3</span><span class="t">ผัก</span><span class="p">วิตามิน/ใยอาหาร</span></div>
@@ -74,14 +76,22 @@
     </main>
 
     <footer class="footer">
-      <div class="feedback" id="feedback">พร้อมช่วยกู้ตะกร้าพลังอาหารทั้ง 5</div>
+      <div class="feedback" id="feedback" role="status" aria-live="polite">พร้อมช่วยกู้ตะกร้าพลังอาหารทั้ง 5</div>
       <div class="controls">
         <button class="btn" id="touchBtn">👆 Touch</button>
-        <button class="btn gold" id="qaBtn">🧪 Check</button>
-        <button class="btn" id="zoneBtn">🥗 Zone</button>
+        <button class="btn gold secondaryAction" id="qaBtn">🧪 Check</button>
+        <button class="btn secondaryAction" id="zoneBtn">🥗 Zone</button>
+        <button class="btn" id="menuBtn" type="button" aria-label="เปิดเมนูเพิ่มเติม" aria-controls="quickMenu" aria-expanded="false">⋯</button>
       </div>
     </footer>
   </div>
+
+  <button class="menuScrim" id="menuScrim" type="button" aria-label="ปิดเมนู" hidden></button>
+  <section class="quickMenu" id="quickMenu" aria-label="เมนูเพิ่มเติม" hidden>
+    <button id="menuQaBtn" type="button">🧪 ตรวจอุปกรณ์และกล้อง</button>
+    <button id="menuZoneBtn" type="button">🥗 กลับ Nutrition Zone</button>
+    <button id="menuCloseBtn" type="button">ปิดเมนู</button>
+  </section>
 
   <section class="overlay" id="intro">
     <div class="sheet">
@@ -127,5 +137,6 @@
 
   <script src="./vr-groups/groups-ar-bank-v3.js?v=20260717-5"></script>
   <script src="./vr-groups/groups-ar-runtime-v400.js?v=20260721-gameplay-v4"></script>
+  <script src="./vr-groups/groups-ar-ui-v410.js?v=20260721-compact-v410"></script>
 </body>
 </html>
