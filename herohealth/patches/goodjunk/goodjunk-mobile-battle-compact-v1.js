@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const PATCH = 'goodjunk-mobile-handlandmarker-v7.0.0';
+  const PATCH = 'goodjunk-mobile-handlandmarker-v7.0.1';
   const UA = navigator.userAgent || '';
   const mobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(UA) || innerWidth <= 760;
   const boss = document.getElementById('bossPanel');
@@ -14,13 +14,20 @@
   let lastHandResultAt = 0;
   let touchRescueActive = false;
 
-  function isMobile() {
-    return window.matchMedia('(max-width: 760px)').matches;
+  try {
+    if (!Object.getOwnPropertyDescriptor(window, 'state')) {
+      Object.defineProperty(window, 'state', { configurable: true, get: () => state });
+    }
+    if (typeof window.hit !== 'function' && typeof hit === 'function') window.hit = (x, y) => hit(x, y);
+    if (typeof window.ev !== 'function' && typeof ev === 'function') window.ev = (type, payload) => ev(type, payload);
+    if (typeof window.show !== 'function' && typeof show === 'function') window.show = (text) => show(text);
+    window.__GJ_GLOBAL_BRIDGE_V7__ = true;
+  } catch (error) {
+    console.warn('[GoodJunk Bridge v7]', error);
   }
 
-  function bossVisible() {
-    return boss && !boss.classList.contains('hidden');
-  }
+  function isMobile() { return window.matchMedia('(max-width: 760px)').matches; }
+  function bossVisible() { return boss && !boss.classList.contains('hidden'); }
 
   function collapseBoss(delay = 1700) {
     window.clearTimeout(collapseTimer);
@@ -60,24 +67,14 @@
     touchRescueActive = true;
     stopCameraWatch();
     missionBox?.classList.add('touchRescue');
-
     try {
       ev('camera_stall_touch_rescue', {
         reason,
         inputBeforeRescue: 'desktop-hand-ar',
-        secondsWithoutHandFrame: lastHandResultAt
-          ? Number(((Date.now() - lastHandResultAt) / 1000).toFixed(1))
-          : null
+        secondsWithoutHandFrame: lastHandResultAt ? Number(((Date.now() - lastHandResultAt) / 1000).toFixed(1)) : null
       });
     } catch (_) {}
-
-    try {
-      mode = 'touch';
-      camera?.stop?.();
-    } catch (_) {
-      try { mode = 'touch'; } catch (_) {}
-    }
-
+    try { mode = 'touch'; camera?.stop?.(); } catch (_) { try { mode = 'touch'; } catch (_) {} }
     try { show('Hand Tracking หยุด — แตะอาหารเพื่อเล่นต่อ'); } catch (_) {}
   }
 
@@ -88,9 +85,7 @@
     cameraWatchTimer = window.setInterval(() => {
       try {
         if (!state.playing || mode !== 'camera' || touchRescueActive || window.__GJ_CAMERA_LITE__) return;
-        if (Date.now() - lastHandResultAt > 3500) {
-          activateTouchRescue('MediaPipe onResults timeout');
-        }
+        if (Date.now() - lastHandResultAt > 3500) activateTouchRescue('MediaPipe onResults timeout');
       } catch (_) {}
     }, 750);
   }
@@ -107,43 +102,21 @@
       if (mobileDevice) {
         button.textContent = '🖐️ Mobile Hand AR • Pinch เล่น';
         button.setAttribute('aria-label', 'เปิด Mobile Hand AR ใช้ Pinch เพื่อเลือก และแตะสำรองได้');
-      } else {
-        button.textContent = '🖐️ Hand AR';
-      }
+      } else button.textContent = '🖐️ Hand AR';
     });
     document.documentElement.dataset.goodjunkBrowser = mobileDevice ? 'mobile-handlandmarker-v7' : 'desktop-hand-ar';
   }
 
-  if (boss) {
-    new MutationObserver(() => {
-      if (bossVisible()) revealBoss(1900);
-      else boss.classList.remove('battleCompact');
-    }).observe(boss, { attributes: true, attributeFilter: ['class'] });
-  }
+  if (boss) new MutationObserver(() => {
+    if (bossVisible()) revealBoss(1900); else boss.classList.remove('battleCompact');
+  }).observe(boss, { attributes: true, attributeFilter: ['class'] });
 
-  if (hp) {
-    new MutationObserver(() => revealBoss(720)).observe(hp, {
-      childList: true,
-      characterData: true,
-      subtree: true
-    });
-  }
-
-  if (phase) {
-    new MutationObserver(() => revealBoss(1200)).observe(phase, {
-      childList: true,
-      characterData: true,
-      subtree: true
-    });
-  }
+  if (hp) new MutationObserver(() => revealBoss(720)).observe(hp, { childList: true, characterData: true, subtree: true });
+  if (phase) new MutationObserver(() => revealBoss(1200)).observe(phase, { childList: true, characterData: true, subtree: true });
 
   if (mission) {
     const syncMissionTitle = () => { mission.title = mission.textContent.trim(); };
-    new MutationObserver(syncMissionTitle).observe(mission, {
-      childList: true,
-      characterData: true,
-      subtree: true
-    });
+    new MutationObserver(syncMissionTitle).observe(mission, { childList: true, characterData: true, subtree: true });
     syncMissionTitle();
   }
 
@@ -177,9 +150,7 @@
             document.documentElement.dataset.goodjunkInput = 'desktop-hand-ar';
             startCameraWatch();
           }
-        } else {
-          document.documentElement.dataset.goodjunkInput = 'touch';
-        }
+        } else document.documentElement.dataset.goodjunkInput = 'touch';
       } catch (_) {}
       return result;
     };
@@ -187,10 +158,8 @@
 
   window.addEventListener('pagehide', stopNativeCameraStream);
   window.addEventListener('beforeunload', stopNativeCameraStream);
-
   window.matchMedia('(max-width: 760px)').addEventListener?.('change', () => {
-    if (!isMobile()) boss?.classList.remove('battleCompact');
-    else if (bossVisible()) collapseBoss(200);
+    if (!isMobile()) boss?.classList.remove('battleCompact'); else if (bossVisible()) collapseBoss(200);
   });
 
   labelAvailableInput();
