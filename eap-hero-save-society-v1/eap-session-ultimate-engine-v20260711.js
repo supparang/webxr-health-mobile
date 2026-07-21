@@ -20,7 +20,7 @@
 
   var SESSION_SKILLS = {
     S1:['Reading','Speaking'], S2:['Reading','Writing'], S3:['Reading','Writing'],
-    S4:['Reading','Listening'], S5:['Reading','Writing'], S6:['Writing','Reading'],
+    S4:['Reading','Listening'], S5:['Reading','Speaking'], S6:['Writing','Reading'],
     S7:['Writing','Speaking'], S8:['Reading','Writing'], S9:['Writing','Speaking'],
     S10:['Reading','Writing'], S11:['Writing','Speaking'], S12:['Reading','Writing'],
     S13:['Listening','Writing'], S14:['Speaking','Writing'], S15:['Writing','Speaking']
