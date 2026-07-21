@@ -15,112 +15,145 @@
 <script>
 (function(){
   'use strict';
-  var q=new URLSearchParams(location.search);
-  var mission=String(q.get('mission')||'s1').toLowerCase();
-  var studentId=String(q.get('studentId')||'').trim();
-  var studentName=String(q.get('studentName')||'').trim();
-  var section=String(q.get('section')||'101').trim();
-  var integrated=!!studentId||String(q.get('release')||'').toLowerCase().indexOf('integrated')>=0;
-  var frame=document.getElementById('missionCore');
-  var loading=document.getElementById('loading');
-  var target=new URL('./student-aiquest-all-mission-v711-core.html',location.href);
-  q.forEach(function(v,k){target.searchParams.set(k,v);});
-  target.searchParams.set('integrated',integrated?'1':'0');
-  target.searchParams.set('ui','compact-wrapper-v2-mapfix');
+
+  var q = new URLSearchParams(location.search);
+  var mission = String(q.get('mission') || 's1').toLowerCase();
+  var studentId = String(q.get('studentId') || '').trim();
+  var studentName = String(q.get('studentName') || '').trim();
+  var section = String(q.get('section') || '101').trim();
+  var integrated = !!studentId || String(q.get('release') || '').toLowerCase().indexOf('integrated') >= 0;
+  var frame = document.getElementById('missionCore');
+  var loading = document.getElementById('loading');
+  var target = new URL('./student-aiquest-all-mission-v711-core.html', location.href);
+  var patchTimers = [];
+
+  q.forEach(function(v,k){ target.searchParams.set(k,v); });
+  target.searchParams.set('mission', mission);
+  target.searchParams.set('integrated', integrated ? '1' : '0');
+  target.searchParams.set('ui', 'stable-patch-v3');
+
+  function innerDoc(){
+    try { return frame.contentDocument || frame.contentWindow.document; }
+    catch (_) { return null; }
+  }
 
   function mapUrl(){
-    var u=new URL('./course-map-all-v716.html',location.href);
-    if(studentId)u.searchParams.set('studentId',studentId);
-    if(studentName)u.searchParams.set('studentName',studentName);
-    u.searchParams.set('section',section||'101');
-    u.searchParams.set('from','mission');
-    u.searchParams.set('ui','mapfix-v2');
-    return u.toString();
+    var url = new URL('./course-map-all-v716.html', location.href);
+    if (studentId) url.searchParams.set('studentId', studentId);
+    if (studentName) url.searchParams.set('studentName', studentName);
+    url.searchParams.set('section', section || '101');
+    url.searchParams.set('from', mission);
+    url.searchParams.set('ui', 'map-return-v3');
+    return url.toString();
   }
 
   function goMap(event){
-    if(event){event.preventDefault();event.stopPropagation();}
-    var url=mapUrl();
-    try{window.top.location.assign(url);}catch(e){window.location.assign(url);}
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    }
+    window.top.location.href = mapUrl();
     return false;
   }
 
-  function innerDoc(){
-    try{return frame.contentDocument||frame.contentWindow.document;}catch(e){return null;}
-  }
-
   function addCompactStyle(d){
-    if(!d||d.getElementById('integratedCompactStyle'))return;
-    var style=d.createElement('style');
-    style.id='integratedCompactStyle';
-    style.textContent='body.integrated-mode .wrap{max-width:900px}body.integrated-mode main.wrap>header.top{margin-bottom:4px}body.integrated-mode main.wrap>header.top h1{font-size:28px}body.integrated-mode main.wrap>header.top #sub{display:none}body.integrated-mode #entry>.card{margin:10px 0}body.integrated-mode #entry>.card:first-child{padding:14px}body.integrated-mode #entry>.card:first-child .notice{font-size:14px;padding:9px}body.integrated-mode .integrated-profile-card{display:none!important}@media(max-width:780px){body.integrated-mode .wrap{padding:10px}body.integrated-mode main.wrap>header.top{display:none}body.integrated-mode #entry>.card:first-child{margin-top:0;padding:13px}body.integrated-mode #entry>.card:first-child h2{font-size:25px}body.integrated-mode #entry>.card:first-child .muted{font-size:15px;line-height:1.45}body.integrated-mode #entry>.card:first-child .notice{font-size:13px;line-height:1.45}body.integrated-mode #entry>.card:last-child{padding:12px}body.integrated-mode #start{width:100%;justify-content:center;padding:13px}}';
+    if (!d || d.getElementById('integratedCompactStyle')) return;
+    var style = d.createElement('style');
+    style.id = 'integratedCompactStyle';
+    style.textContent =
+      'body.integrated-mode .wrap{max-width:900px}' +
+      'body.integrated-mode main.wrap>header.top{margin-bottom:4px}' +
+      'body.integrated-mode main.wrap>header.top h1{font-size:28px}' +
+      'body.integrated-mode main.wrap>header.top #sub{display:none}' +
+      'body.integrated-mode #entry>.card{margin:10px 0}' +
+      'body.integrated-mode #entry>.card:first-child{padding:14px}' +
+      'body.integrated-mode #entry>.card:first-child .notice{font-size:14px;padding:9px}' +
+      'body.integrated-mode .integrated-profile-card{display:none!important}' +
+      '@media(max-width:780px){' +
+        'body.integrated-mode .wrap{padding:10px}' +
+        'body.integrated-mode main.wrap>header.top{display:none}' +
+        'body.integrated-mode #entry>.card:first-child{margin-top:0;padding:13px}' +
+        'body.integrated-mode #entry>.card:first-child h2{font-size:25px}' +
+        'body.integrated-mode #entry>.card:first-child .muted{font-size:15px;line-height:1.45}' +
+        'body.integrated-mode #entry>.card:first-child .notice{font-size:13px;line-height:1.45}' +
+        'body.integrated-mode #entry>.card:last-child{padding:12px}' +
+        'body.integrated-mode #start{width:100%;justify-content:center;padding:13px}' +
+      '}';
     d.head.appendChild(style);
   }
 
   function bindMapButtons(d){
-    if(!d)return;
-    d.querySelectorAll('a,button').forEach(function(el){
-      var text=String(el.textContent||'').trim();
-      var href=String(el.getAttribute&&el.getAttribute('href')||'');
-      if(text==='แผนที่'||/course-map/i.test(href)){
-        el.style.display='';
-        if(el.tagName==='A')el.setAttribute('href',mapUrl());
-        if(el.dataset.mapFixBound!=='1'){
-          el.dataset.mapFixBound='1';
-          el.addEventListener('click',goMap,true);
-        }
+    if (!d) return;
+    Array.prototype.forEach.call(d.querySelectorAll('a,button'), function(el){
+      var text = String(el.textContent || '').trim();
+      var href = String(el.getAttribute && el.getAttribute('href') || '');
+      if (text === 'แผนที่' || /course-map-all/i.test(href)) {
+        if (el.dataset.aiqMapBound === '1') return;
+        el.dataset.aiqMapBound = '1';
+        el.style.display = '';
+        if (el.tagName === 'A') el.href = mapUrl();
+        el.addEventListener('click', goMap, true);
       }
     });
   }
 
   function patch(){
-    var d=innerDoc();
-    if(!d)return;
+    var d = innerDoc();
+    if (!d || !d.body) return;
+
     addCompactStyle(d);
     bindMapButtons(d);
-    if(!integrated)return;
-    d.body&&d.body.classList.add('integrated-mode');
 
-    var sid=d.getElementById('sid');
-    var name=d.getElementById('name');
-    var sec=d.getElementById('section');
-    if(sid&&studentId){sid.value=studentId;sid.readOnly=true;}
-    if(name&&studentName){name.value=studentName;name.readOnly=true;}
-    if(sec){sec.value=section;sec.readOnly=true;}
+    if (!integrated) return;
+    d.body.classList.add('integrated-mode');
 
-    var saveProfile=d.getElementById('saveProfile');
-    if(saveProfile){
-      var profileCard=saveProfile.closest('.card');
-      if(profileCard)profileCard.classList.add('integrated-profile-card');
+    var sid = d.getElementById('sid');
+    var name = d.getElementById('name');
+    var sec = d.getElementById('section');
+    if (sid && studentId) { sid.value = studentId; sid.readOnly = true; }
+    if (name && studentName) { name.value = studentName; name.readOnly = true; }
+    if (sec) { sec.value = section; sec.readOnly = true; }
+
+    var saveProfile = d.getElementById('saveProfile');
+    if (saveProfile) {
+      var profileCard = saveProfile.closest('.card');
+      if (profileCard) profileCard.classList.add('integrated-profile-card');
     }
 
-    var h1=d.querySelector('main.wrap>header.top h1');
-    var title=d.getElementById('title');
-    if(h1)h1.textContent=mission.toUpperCase()+' • '+(title?String(title.textContent||'Mission').replace(/^S\d+\s*•\s*/i,''):'Mission');
+    var h1 = d.querySelector('main.wrap>header.top h1');
+    var title = d.getElementById('title');
+    if (h1 && h1.dataset.aiqCompact !== '1') {
+      h1.dataset.aiqCompact = '1';
+      h1.textContent = mission.toUpperCase() + ' • ' +
+        (title ? String(title.textContent || 'Mission').replace(/^S\d+\s*•\s*/i,'') : 'Mission');
+    }
 
-    d.querySelectorAll('.notice.bad,.fb.bad').forEach(function(el){
-      if(/studentGate unavailable|ตรวจสิทธิ์จาก Sheet ไม่สำเร็จ/i.test(String(el.textContent||'')))el.style.display='none';
+    Array.prototype.forEach.call(d.querySelectorAll('.notice.bad,.fb.bad'), function(el){
+      if (/studentGate unavailable|ตรวจสิทธิ์จาก Sheet ไม่สำเร็จ/i.test(String(el.textContent || ''))) {
+        el.style.display = 'none';
+      }
     });
   }
 
-  frame.addEventListener('load',function(){
-    loading.className='loading hide';
+  frame.addEventListener('load', function(){
+    loading.className = 'loading hide';
     patch();
-    var d=innerDoc();
-    if(d&&d.documentElement){
-      var observer=new MutationObserver(patch);
-      observer.observe(d.documentElement,{subtree:true,childList:true,attributes:true});
-      setTimeout(function(){observer.disconnect();},30000);
-    }
-    [100,250,700,1500,3000,6000].forEach(function(ms){setTimeout(patch,ms);});
+    [250, 700, 1500, 3000].forEach(function(ms){
+      patchTimers.push(setTimeout(patch, ms));
+    });
+  }, {once:true});
+
+  frame.addEventListener('error', function(){
+    loading.className = 'loading bad';
+    loading.textContent = 'เปิด Mission ไม่สำเร็จ กรุณารีเฟรชหน้าอีกครั้ง';
+  }, {once:true});
+
+  window.addEventListener('beforeunload', function(){
+    patchTimers.forEach(clearTimeout);
   });
 
-  frame.addEventListener('error',function(){
-    loading.className='loading bad';
-    loading.textContent='เปิด Mission ไม่สำเร็จ กรุณารีเฟรชหน้าอีกครั้ง';
-  });
-
-  frame.src=target.toString();
+  frame.src = target.toString();
 })();
 </script>
 </body>
