@@ -1,5 +1,5 @@
-/* HeroHealth GoodJunk AR • Mobile Battle Compact v5
-   Two-row mission HUD + explicit mobile input profiles. */
+/* HeroHealth GoodJunk AR • Mobile Battle Compact v6
+   Stable mobile Camera AR with touch input; desktop retains Hand AR. */
 
 @media (max-width: 760px) {
   .hud {
@@ -64,8 +64,7 @@
   }
 
   .missionBox.touchRescue::after,
-  .missionBox.cameraLite::after,
-  .missionBox.handLite::after {
+  .missionBox.cameraLite::after {
     display: block;
     font-size: .62rem;
     font-weight: 900;
@@ -82,17 +81,8 @@
   }
 
   .missionBox.cameraLite::after {
-    content: 'Camera Lite • แตะอาหารเพื่อเลือก';
+    content: 'Mobile Camera AR • แตะอาหารเพื่อเลือก';
     color: #075985;
-  }
-
-  .missionBox.handLite {
-    border-color: #22c55e;
-  }
-
-  .missionBox.handLite::after {
-    content: 'Hand AR Lite • ใช้นิ้วชี้ หรือแตะสำรอง';
-    color: #166534;
   }
 
   .bossPanel {
