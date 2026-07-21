@@ -1,14 +1,19 @@
 (() => {
   'use strict';
 
-  const PATCH = 'groups-ar-runtime-compat-v4.1.2';
+  const PATCH = 'groups-ar-runtime-compat-v4.1.3';
   const ua = String(navigator.userAgent || '');
+  const isAndroid = /Android/i.test(ua);
   const isSamsungInternet = /SamsungBrowser/i.test(ua);
-  const isAndroidWebView = /; wv\)/i.test(ua) || (/Android/i.test(ua) && /Version\/\d+/i.test(ua));
+  const isAndroidWebView = /; wv\)/i.test(ua) || (isAndroid && /Version\/\d+/i.test(ua));
   const hasDecompressionName = typeof window.DecompressionStream === 'function';
 
-  /* Samsung Internet can expose the API name but still fail on gzip streams. */
-  const useNativeRuntime = hasDecompressionName && !isSamsungInternet && !isAndroidWebView;
+  /*
+   * Android Chromium may expose DecompressionStream while gzip decoding still
+   * fails inside the compressed production runtime. Use the stable compatible
+   * runtime on every Android browser. Desktop Chromium may use native runtime.
+   */
+  const useNativeRuntime = hasDecompressionName && !isAndroid;
 
   function copyParams(path) {
     const source = new URLSearchParams(location.search);
@@ -77,7 +82,7 @@
   function loadLegacy(reason) {
     updateModeLabel('legacy');
     load(
-      './vr-groups/groups-ar-runtime-v311.js?v=20260721-samsung-direct-v412',
+      './vr-groups/groups-ar-runtime-v311.js?v=20260721-android-stable-v413',
       () => {
         patchRoutes();
         window.dispatchEvent(new CustomEvent('groups-runtime-ready', {
@@ -90,11 +95,13 @@
   }
 
   if (!useNativeRuntime) {
-    const reason = isSamsungInternet
-      ? 'Samsung Internet forced legacy runtime'
-      : isAndroidWebView
-        ? 'Android WebView forced legacy runtime'
-        : 'DecompressionStream unavailable';
+    const reason = isAndroid
+      ? (isSamsungInternet
+          ? 'Samsung Internet forced compatible runtime'
+          : isAndroidWebView
+            ? 'Android WebView forced compatible runtime'
+            : 'Android Chrome forced compatible runtime')
+      : 'DecompressionStream unavailable';
     loadLegacy(reason);
     return;
   }
