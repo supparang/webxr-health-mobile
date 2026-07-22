@@ -1,17 +1,17 @@
 /* =========================================================
-   EAP Hero • Full Route Truth v153
-   - Resolves the complete route including B1-B5 checkpoints.
-   - Prevents Resume from entering S10 while B3 is incomplete.
-   - Keeps Lobby, Continue, Session selector and Boss entry consistent.
-   - Uses existing boss completion signals; does not fabricate passes.
+   EAP Hero • Full Route Truth v154 Strict Checkpoint
+   - Resolves S1-S15 together with B1-B5 checkpoints.
+   - IMPORTANT: unlockedRoutes/unlockedSessions mean "may enter", not "passed".
+   - A Boss Gate counts as passed only from explicit completion evidence.
+   - Prevents Resume/Skill Hub from entering S10/S11 while B3 is incomplete.
 ========================================================= */
 (function(){
   'use strict';
 
-  var VERSION='20260722-EAP-FULL-ROUTE-TRUTH-V153';
+  var VERSION='20260722-EAP-FULL-ROUTE-TRUTH-V154-STRICT-CHECKPOINT';
   var STATE_KEY='EAP_HERO_PROGRESS_V3';
   var SENT_KEY='EAP_HERO_BOSS_COMPLETION_SENT_V5';
-  var NOTICE_ID='eap-full-route-notice-v153';
+  var NOTICE_ID='eap-full-route-notice-v154';
   var timer=0;
   var GROUPS=[
     {sessions:[1,2,3],gate:'B1',next:'S4'},
@@ -24,7 +24,7 @@
   function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
   function read(key,fallback){try{var raw=localStorage.getItem(key);return raw?JSON.parse(raw):fallback;}catch(_){return fallback;}}
   function write(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true;}catch(_){return false;}}
-  function gateNo(v){var m=clean(v).toUpperCase().match(/B(?:OSS\s*GATE\s*)?([1-5])/);return m?Number(m[1]):0;}
+  function gateNo(v){var m=clean(v).toUpperCase().match(/(?:B|GATE|BOSS\s*GATE)\s*([1-5])/);return m?Number(m[1]):0;}
   function sessionNo(v){var m=clean(v).toUpperCase().match(/(?:SESSION\s*|\bS)(1[0-5]|[1-9])\b/);return m?Number(m[1]):0;}
 
   function diagnostics(){
@@ -38,24 +38,34 @@
     return row.passed===true||row.complete===true;
   }
 
-  function sentBoss(gate){
+  function sentBossCompletion(gate){
     var sent=read(SENT_KEY,{}),needle='-'+gate.toLowerCase()+'-';
-    return Object.keys(sent||{}).some(function(k){return String(k).toLowerCase().indexOf(needle)>=0;});
+    return Object.keys(sent||{}).some(function(k){
+      var item=sent[k]||{},key=String(k).toLowerCase();
+      return key.indexOf(needle)>=0 && (/boss-clash-|boss-gate-complete-/i.test(k)) && item.score>=60;
+    });
   }
 
   function bossPassed(gate,state){
     state=state||read(STATE_KEY,{});
     var n=gateNo(gate),sp=state.sessionProgress||{};
     var row=sp[gate]||sp['GATE'+n]||{};
+
+    /* Explicit completion only. Never use unlockedRoutes/unlockedSessions here. */
     if(row.passed===true||row.complete===true||row.bossWin===true||row.bossGateComplete===true)return true;
-    var collections=[state.unlockedRoutes,state.unlockedSessions,state.completedRoutes,state.completedBosses,state.bossProgress];
-    for(var i=0;i<collections.length;i++){
-      var c=collections[i];
-      if(c&&typeof c==='object'&&(c[gate]===true||(c[gate]&&c[gate].passed===true)))return true;
+
+    var completed=[state.completedBosses,state.completedRoutes,state.bossProgress];
+    for(var i=0;i<completed.length;i++){
+      var c=completed[i];
+      if(!c||typeof c!=='object')continue;
+      var v=c[gate]||c['GATE'+n];
+      if(v===true||(v&&typeof v==='object'&&(v.passed===true||v.complete===true||v.bossWin===true||v.bossGateComplete===true)))return true;
     }
+
     var adv=state.bossCompletionLocalAdvance||{};
-    if(gateNo(adv.gate)>=n&&n>0)return true;
-    if(sentBoss(gate))return true;
+    if(clean(adv.gate).toUpperCase()===gate && clean(adv.nextRoute))return true;
+
+    if(sentBossCompletion(gate))return true;
     return false;
   }
 
@@ -81,13 +91,13 @@
   function persist(route){
     var state=read(STATE_KEY,{}),rid=route.routeId;
     state.currentRoute=rid;state.currentCloudRoute=rid;state.activeRoute=rid;
-    if(route.session)state.currentSession=route.session;
+    state.currentSession=route.session||maxSession(route);
     state.fullRouteTruthVersion=VERSION;
     write(STATE_KEY,state);
     try{
       localStorage.setItem('EAP_HERO_ACTIVE_ROUTE',rid);
       localStorage.setItem('EAP_HERO_CURRENT_ROUTE',rid);
-      if(route.session)localStorage.setItem('EAP_HERO_CURRENT_SESSION',String(route.session));
+      localStorage.setItem('EAP_HERO_CURRENT_SESSION',String(state.currentSession));
     }catch(_){ }
   }
 
@@ -138,6 +148,12 @@
     });
   }
 
+  function currentVisibleSession(){
+    var app=clean((document.getElementById('app')||{}).innerText||'');
+    var m=app.match(/Session\s*(1[0-5]|[1-9])\s*:/i);
+    return m?Number(m[1]):0;
+  }
+
   function guard(e){
     var b=e.target&&e.target.closest&&e.target.closest('button,a,[role="button"]');if(!b)return;
     var text=clean(b.textContent),action=clean(b.getAttribute('data-eap-lobby-action'));
@@ -149,14 +165,28 @@
     if(n>max){
       e.preventDefault();e.stopImmediatePropagation();e.stopPropagation();
       showNotice('S'+n+' ยังเข้าไม่ได้ กรุณาผ่าน '+route.routeId+' ก่อน');
-      if(route.routeType==='boss_gate')setTimeout(function(){open(route);},250);
+      setTimeout(function(){open(route);},180);
       return false;
     }
   }
 
   function reconcile(){
     var route=resolve();persist(route);updateLobby(route);applyLocks(route);
-    window.EAPFullRouteTruth={version:VERSION,resolve:resolve,open:function(){return open(resolve());},bossPassed:function(g){return bossPassed(String(g).toUpperCase(),read(STATE_KEY,{}));},diagnostics:function(){return{route:resolve(),state:read(STATE_KEY,{})};}};
+
+    /* If an old renderer already opened a future Session, immediately correct it. */
+    var shown=currentVisibleSession(),max=maxSession(route);
+    if(shown>max && !document.documentElement.dataset.eapRouteCorrecting){
+      document.documentElement.dataset.eapRouteCorrecting='true';
+      setTimeout(function(){open(route);setTimeout(function(){delete document.documentElement.dataset.eapRouteCorrecting;},500);},80);
+    }
+
+    window.EAPFullRouteTruth={
+      version:VERSION,
+      resolve:resolve,
+      open:function(){return open(resolve());},
+      bossPassed:function(g){return bossPassed(String(g).toUpperCase(),read(STATE_KEY,{}));},
+      diagnostics:function(){return{route:resolve(),state:read(STATE_KEY,{})};}
+    };
     document.documentElement.dataset.eapFullRouteTruthVersion=VERSION;
   }
 
