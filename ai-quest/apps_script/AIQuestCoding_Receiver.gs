@@ -1,18 +1,19 @@
 /**
- * CSAI2102 AI Quest Coding Receiver v2.2
+ * CSAI2102 AI Quest Coding Receiver v3.1
  * Direct Google Sheet implementation for S1-S15 and B1-B5.
- * Server-side evidence validation + official coding status lookup.
+ * Supports Teaching Activity Engine v3.1 and legacy v2 evidence.
  * Does NOT declare doGet(e) / doPost(e).
  */
 var AIQCODING = AIQCODING || {};
 
-AIQCODING.VERSION = '20260722-AIQ-CODING-RECEIVER-V2.2.0-DIRECT-SHEET-20';
+AIQCODING.VERSION = '20260722-AIQ-CODING-RECEIVER-V3.1.0-TEACHING-EVIDENCE';
 AIQCODING.SHEET = 'coding_attempts';
 AIQCODING.HEADERS = [
   'submitted_at','coding_attempt_id','student_id','student_name','section','session_id',
-  'attempt_number','prediction_answer','prediction_correct','run_score','modify_score',
-  'challenge_score','coding_score','completed','run_count','error_count','error_types_json',
-  'output','used_time_sec','version'
+  'attempt_number','prediction_answer','prediction_reason','prediction_correct',
+  'run_score','modify_score','challenge_score','quiz_score','coding_score','completed',
+  'run_count','error_count','error_types_json','output','completed_code','modified_code',
+  'challenge_code','challenge_level','validation_mode','used_time_sec','version'
 ];
 
 AIQCODING.text_ = function(v){ return String(v == null ? '' : v).trim(); };
@@ -29,6 +30,9 @@ AIQCODING.minCounts_ = function(text, counts){
     var escaped = String(k).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
     return (text.match(new RegExp(escaped,'g')) || []).length >= Number(counts[k] || 1);
   });
+};
+AIQCODING.allowedLab_ = function(sessionId){
+  return /^(S(?:[1-9]|1[0-5])|B[1-5])$/.test(AIQCODING.text_(sessionId).toUpperCase());
 };
 
 AIQCODING.RULES = Object.freeze({
@@ -79,9 +83,64 @@ AIQCODING.rows_ = function(){
   return values.slice(1).map(function(row){var o={};headers.forEach(function(h,i){if(h)o[h]=row[i];});return o;});
 };
 
-AIQCODING.validateEvidence_ = function(sessionId,payload){
+AIQCODING.parseV31_ = function(payload){
+  var predictionRaw = AIQCODING.text_(payload.predictionAnswer);
+  var reasonMarker = ' | Reason: ';
+  var reasonAt = predictionRaw.indexOf(reasonMarker);
+  var predictionAnswer = reasonAt >= 0 ? predictionRaw.slice(0,reasonAt).trim() : predictionRaw;
+  var predictionReason = reasonAt >= 0 ? predictionRaw.slice(reasonAt + reasonMarker.length).trim() : AIQCODING.text_(payload.predictionReason);
+
+  var modifiedRaw = AIQCODING.text_(payload.modifiedCode);
+  var scenarioMarker = '# Scenario Modification';
+  var scenarioAt = modifiedRaw.indexOf(scenarioMarker);
+  var completedCode = scenarioAt >= 0 ? modifiedRaw.slice(0,scenarioAt).trim() : AIQCODING.text_(payload.completedCode);
+  var scenarioCode = scenarioAt >= 0 ? modifiedRaw.slice(scenarioAt + scenarioMarker.length).trim() : modifiedRaw;
+
+  var challengeRaw = AIQCODING.text_(payload.challengeCode);
+  var quizMatch = challengeRaw.match(/#\s*QuizScore\s+(\d+)\s*\/\s*5/i);
+  var levelMatch = challengeRaw.match(/#\s*Level\s+([^\r\n]+)/i);
+
+  return {
+    predictionAnswer:predictionAnswer,
+    predictionReason:predictionReason,
+    completedCode:completedCode,
+    scenarioCode:scenarioCode,
+    challengeCode:challengeRaw,
+    quizScore:quizMatch ? Math.max(0,Math.min(5,Number(quizMatch[1]))) : Number(payload.quizScore||0),
+    challengeLevel:levelMatch ? AIQCODING.text_(levelMatch[1]) : AIQCODING.text_(payload.challengeLevel)
+  };
+};
+
+AIQCODING.validateEvidenceV31_ = function(sessionId,payload){
+  var x = AIQCODING.parseV31_(payload);
+  var output = AIQCODING.text_(payload.output);
+  var predictionPassed = x.predictionAnswer.length >= 2 && x.predictionReason.length >= 20;
+  var completedCodePassed = x.completedCode.length >= 40 && !/\bTODO\b/i.test(x.completedCode);
+  var outputPassed = output.length >= 2;
+  var modifyPassed = x.scenarioCode.length >= 30;
+  var quizPassed = x.quizScore >= 4;
+  var challengePassed = x.challengeCode.replace(/#\s*(Level|QuizScore)[^\r\n]*/gi,'').trim().length >= 20;
+
+  return {
+    mode:'TEACHING_V3_1',
+    predictionCorrect:predictionPassed,
+    completedCodePassed:completedCodePassed,
+    outputPassed:outputPassed,
+    modifyPassed:modifyPassed,
+    challengePassed:challengePassed,
+    quizPassed:quizPassed,
+    quizScore:x.quizScore,
+    runScore:(completedCodePassed && outputPassed) ? 25 : 0,
+    modifyScore:modifyPassed ? 35 : 0,
+    challengeScore:challengePassed ? 20 : 0,
+    quizPoint:quizPassed ? 20 : x.quizScore * 4,
+    parsed:x
+  };
+};
+
+AIQCODING.validateEvidenceLegacy_ = function(sessionId,payload){
   var rule = AIQCODING.RULES[sessionId];
-  if (!rule) return {predictionCorrect:false,outputPassed:false,modifyPassed:false,challengePassed:false,runScore:0,modifyScore:0,challengeScore:0};
+  if (!rule) return {mode:'LEGACY_V2',predictionCorrect:false,outputPassed:false,modifyPassed:false,challengePassed:false,quizScore:0,runScore:0,modifyScore:0,challengeScore:0,quizPoint:0,parsed:{}};
   var output = AIQCODING.norm_(payload.output);
   var prediction = AIQCODING.norm_(payload.predictionAnswer);
   var modified = AIQCODING.text_(payload.modifiedCode).toLowerCase();
@@ -91,7 +150,14 @@ AIQCODING.validateEvidence_ = function(sessionId,payload){
   var challengePassed = AIQCODING.hasAll_(challenge,rule.c) && AIQCODING.hasAny_(challenge,rule.ca) && AIQCODING.minCounts_(challenge,rule.cc);
   var outputPassed = !!expected && output.indexOf(expected)>=0;
   var predictionCorrect = !!expected && prediction===expected;
-  return {predictionCorrect:predictionCorrect,outputPassed:outputPassed,modifyPassed:modifyPassed,challengePassed:challengePassed,runScore:outputPassed?30:0,modifyScore:modifyPassed?50:0,challengeScore:challengePassed?20:0};
+  return {mode:'LEGACY_V2',predictionCorrect:predictionCorrect,completedCodePassed:true,outputPassed:outputPassed,modifyPassed:modifyPassed,challengePassed:challengePassed,quizPassed:true,quizScore:0,runScore:outputPassed?30:0,modifyScore:modifyPassed?50:0,challengeScore:challengePassed?20:0,quizPoint:0,parsed:{predictionAnswer:AIQCODING.text_(payload.predictionAnswer),predictionReason:'',completedCode:'',scenarioCode:AIQCODING.text_(payload.modifiedCode),challengeCode:AIQCODING.text_(payload.challengeCode),challengeLevel:''}};
+};
+
+AIQCODING.validateEvidence_ = function(sessionId,payload){
+  var modified = AIQCODING.text_(payload.modifiedCode);
+  var challenge = AIQCODING.text_(payload.challengeCode);
+  var isV31 = modified.indexOf('# Scenario Modification') >= 0 || /#\s*QuizScore\s+\d+\s*\/\s*5/i.test(challenge) || AIQCODING.text_(payload.completedCode);
+  return isV31 ? AIQCODING.validateEvidenceV31_(sessionId,payload) : AIQCODING.validateEvidenceLegacy_(sessionId,payload);
 };
 
 AIQCODING.submit_ = function(payload){
@@ -102,26 +168,36 @@ AIQCODING.submit_ = function(payload){
   var studentName = AIQCODING.text_(payload.studentName);
   var section = AIQCODING.text_(payload.section || '101');
   if (!studentId || !studentName || !section) return {ok:false,code:'MISSING_IDENTITY',version:AIQCODING.VERSION};
+
   var evidence = AIQCODING.validateEvidence_(sessionId,payload);
+  if (!evidence.predictionCorrect) return {ok:false,code:'PREDICTION_REASON_FAILED',evidence:evidence,version:AIQCODING.VERSION};
+  if (!evidence.completedCodePassed) return {ok:false,code:'COMPLETED_CODE_FAILED',evidence:evidence,version:AIQCODING.VERSION};
   if (!evidence.outputPassed) return {ok:false,code:'OUTPUT_EVIDENCE_FAILED',evidence:evidence,version:AIQCODING.VERSION};
   if (!evidence.modifyPassed) return {ok:false,code:'MODIFY_EVIDENCE_FAILED',evidence:evidence,version:AIQCODING.VERSION};
+  if (!evidence.quizPassed) return {ok:false,code:'QUIZ_NOT_PASSED',evidence:evidence,version:AIQCODING.VERSION};
+
   var rows = AIQCODING.rows_().filter(function(r){return AIQCODING.text_(r.student_id)===studentId&&AIQCODING.text_(r.section)===section&&AIQCODING.text_(r.session_id).toUpperCase()===sessionId;});
   var attemptNumber = rows.length + 1;
-  var score = evidence.runScore + evidence.modifyScore + evidence.challengeScore;
+  var score = evidence.runScore + evidence.modifyScore + evidence.challengeScore + evidence.quizPoint;
   var now = Utilities.formatDate(new Date(),'Asia/Bangkok',"yyyy-MM-dd'T'HH:mm:ssXXX");
   var attemptId = AIQCODING.text_(payload.codingAttemptId || Utilities.getUuid());
   var duplicate = AIQCODING.rows_().some(function(r){return AIQCODING.text_(r.coding_attempt_id)===attemptId;});
+
   if (!duplicate) {
     var sh = AIQCODING.ensureSheet_();
+    var x = evidence.parsed || {};
     var obj = {
       submitted_at:now,coding_attempt_id:attemptId,student_id:studentId,student_name:studentName,section:section,session_id:sessionId,
-      attempt_number:attemptNumber,prediction_answer:AIQCODING.text_(payload.predictionAnswer),prediction_correct:evidence.predictionCorrect,
-      run_score:evidence.runScore,modify_score:evidence.modifyScore,challenge_score:evidence.challengeScore,coding_score:score,completed:score>=60,
+      attempt_number:attemptNumber,prediction_answer:x.predictionAnswer||AIQCODING.text_(payload.predictionAnswer),prediction_reason:x.predictionReason||'',prediction_correct:evidence.predictionCorrect,
+      run_score:evidence.runScore,modify_score:evidence.modifyScore,challenge_score:evidence.challengeScore,quiz_score:evidence.quizScore,coding_score:score,completed:score>=60,
       run_count:Number(payload.runCount||0),error_count:Number(payload.errorCount||0),error_types_json:JSON.stringify(payload.errorTypes||[]),
-      output:AIQCODING.text_(payload.output).slice(0,5000),used_time_sec:Number(payload.usedTimeSec||0),version:AIQCODING.VERSION
+      output:AIQCODING.text_(payload.output).slice(0,5000),completed_code:AIQCODING.text_(x.completedCode).slice(0,20000),modified_code:AIQCODING.text_(x.scenarioCode).slice(0,20000),
+      challenge_code:AIQCODING.text_(x.challengeCode).slice(0,20000),challenge_level:x.challengeLevel||'',validation_mode:evidence.mode,
+      used_time_sec:Number(payload.usedTimeSec||0),version:AIQCODING.VERSION
     };
     sh.appendRow(AIQCODING.HEADERS.map(function(h){return obj[h] == null ? '' : obj[h];}));
   }
+
   return {ok:true,duplicate:duplicate,studentId:studentId,section:section,sessionId:sessionId,attemptNumber:attemptNumber,codingScore:score,completed:score>=60,evidence:evidence,serverValidated:true,version:AIQCODING.VERSION};
 };
 
@@ -145,7 +221,7 @@ AIQCODING.handle = function(payload){
   if (action==='GET_LAB_CONFIG') {
     var sessionId = AIQCODING.text_(payload.sessionId).toUpperCase();
     if (!AIQCODING.allowedLab_(sessionId)) return {ok:false,code:'LAB_NOT_AVAILABLE',version:AIQCODING.VERSION};
-    return {ok:true,version:AIQCODING.VERSION,sessionId:sessionId,config:AIQCODING.LABS[sessionId]};
+    return {ok:true,version:AIQCODING.VERSION,sessionId:sessionId,config:AIQCODING.RULES[sessionId]};
   }
   return {ok:false,code:'UNKNOWN_CODING_ACTION',action:action,version:AIQCODING.VERSION};
 };
