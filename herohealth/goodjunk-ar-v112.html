@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>GoodJunk AR v11.2</title><style>html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#ecfdf5;font-family:system-ui,sans-serif}.loading{font-weight:900;text-align:center;padding:24px}</style></head><body><div class="loading">🖐️ กำลังเปิด GoodJunk AR v11.2…</div><script>
+(async()=>{try{
+let html=await(await fetch('./goodjunk-ar-v11.html?v=20260722-112-source&t='+Date.now(),{cache:'no-store'})).text();
+const oldState=`attemptId:'',missionHistory:[],lastSpawnCenters:[],inputArmed:true,roundLocked:false,lastCursor:null};`;
+const newState=`attemptId:'',missionHistory:[],lastSpawnCenters:[],inputArmed:true,roundLocked:false,lastCursor:null,lastAcceptedCursor:null,rearmAt:0};`;
+if(!html.includes(oldState))throw new Error('state hotfix signature not found');
+html=html.replace(oldState,newState);
+const oldHit=`function hit(x,y){const now=Date.now();state.lastCursor={x,y};const nearest=state.objects.reduce((a,o)=>Math.min(a,Math.hypot(o.x-x,o.y-y)-o.r),999);if(!state.inputArmed){if(nearest>70)state.inputArmed=true;return}if(state.roundLocked||now-state.lastHit<500)return;for(const o of [...state.objects].reverse()){if(Math.hypot(o.x-x,o.y-y)<o.r+24){state.inputArmed=false;state.roundLocked=true;state.lastHit=now;state.touches++;const reaction=(now-state.missionAt)/1000;state.reactionSum+=reaction;state.reactionN++;if(o.valid)right(o);else wrong(o);adapt();hud();break}}}`;
+const newHit=`function hit(x,y){const now=Date.now();state.lastCursor={x,y};if(!state.inputArmed){const moved=!state.lastAcceptedCursor||Math.hypot(x-state.lastAcceptedCursor.x,y-state.lastAcceptedCursor.y)>95;if(moved||now>=state.rearmAt)state.inputArmed=true;else return}if(state.roundLocked||now-state.lastHit<420)return;for(const o of [...state.objects].reverse()){if(Math.hypot(o.x-x,o.y-y)<o.r+24){state.inputArmed=false;state.roundLocked=true;state.lastAcceptedCursor={x,y};state.rearmAt=now+720;state.lastHit=now;state.touches++;const reaction=(now-state.missionAt)/1000;state.reactionSum+=reaction;state.reactionN++;if(o.valid)right(o);else wrong(o);adapt();hud();break}}}`;
+if(!html.includes(oldHit))throw new Error('hit hotfix signature not found');
+html=html.replace(oldHit,newHit);
+html=html.replaceAll('20260722-111','20260722-112').replaceAll('v11.1','v11.2').replace('<title>GoodJunk AR v11</title>','<title>GoodJunk AR v11.2</title>');
+document.open();document.write(html);document.close();
+}catch(e){document.body.innerHTML='<div class="loading">⚠️ เปิด GoodJunk AR v11.2 ไม่สำเร็จ<br><small>'+String(e.message||e)+'</small></div>'}})();
+</script></body></html>
