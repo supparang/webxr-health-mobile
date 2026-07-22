@@ -1,5 +1,5 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-QA-TEST-ROSTER-OPEN",
+  platformVersion: "2026.07-QA-PRETEST-HANDWASH-FLOW",
   appName: "HeroHealth Learning Platform",
   deploymentState: "QA_TEST_OPEN",
   sourceOfTruthMode: "qa-roster-guarded-frontend",
@@ -12,7 +12,7 @@ window.HH_CONFIG = {
   passingScore: 70,
   teacherPin: "",
   routes: {
-    pretest: "#pretest",
+    pretest: "./assessment/pretest.html",
     posttest: "#posttest",
     reflection: "#reflection",
     certificate: "#certificate"
