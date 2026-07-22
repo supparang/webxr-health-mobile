@@ -1,0 +1,4 @@
+runtime=main-thread-v10
+worker=false
+browser_branching=false
+model_required_before_game_start=true
