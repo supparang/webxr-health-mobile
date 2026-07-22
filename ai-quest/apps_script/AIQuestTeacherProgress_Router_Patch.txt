@@ -1,4 +1,4 @@
-CSAI2102 AI QUEST — TEACHER PROGRESS ROUTER PATCH v1
+CSAI2102 AI QUEST — TEACHER PROGRESS ROUTER PATCH v1.1
 
 1) เพิ่มไฟล์ AIQuestTeacherProgress_Receiver.gs เข้า Apps Script โปรเจกต์เดียวกับ Code.gs และ AIQuestFlow_Receiver.gs
 
@@ -7,11 +7,13 @@ CSAI2102 AI QUEST — TEACHER PROGRESS ROUTER PATCH v1
 3) หลัง parse payload แล้ว และก่อน Router ทั่วไป ให้เพิ่ม:
 
 // =====================================================
-// AI QUEST TEACHER PROGRESS ROUTER
-// Multi-student class overview and student detail
+// AI QUEST TEACHER PROGRESS ROUTER v1.1
+// Multi-student class overview, detail and diagnostics
 // =====================================================
 if (
   String(payload.module || '').trim().toUpperCase() === 'AIQTEACHER' ||
+  String(payload.action || '').trim().toUpperCase() === 'PING' ||
+  String(payload.action || '').trim().toUpperCase() === 'TEACHER_PING' ||
   String(payload.action || '').trim().toUpperCase() === 'GET_CLASS_OVERVIEW' ||
   String(payload.action || '').trim().toUpperCase() === 'GET_STUDENT_DETAIL'
 ) {
@@ -22,6 +24,7 @@ if (
     return jsonOut({
       ok: false,
       code: 'AIQTEACHER_MODULE_MISSING',
+      message: 'ยังไม่ได้เพิ่ม AIQuestTeacherProgress_Receiver.gs หรือ deployment ยังเป็นเวอร์ชันเก่า',
       action: payload.action || '',
       module: payload.module || ''
     });
@@ -32,9 +35,34 @@ if (
 ข้อสำคัญ
 - ต้องมี AIQuestFlow_Receiver.gs เพราะ AIQTEACHER ใช้ฟังก์ชันอ่าน Mission/Coding/Reflection จาก AIQFLOW
 - ห้ามสร้าง doPost(e) ใหม่
-- Save แล้ว Deploy > Manage deployments > Edit > New version > Deploy
+- ต้องวาง Router นี้ก่อน Router ทั่วไป มิฉะนั้น request อาจถูก Router อื่นรับไปก่อน
+- Save ทุกไฟล์
+- Deploy > Manage deployments > Edit > Version: New version > Deploy
+- ใช้ URL ที่ลงท้าย /exec เดิมได้ แต่ต้องสร้าง New version จริง
+
+ทดสอบหลัง Deploy
+ส่ง payload:
+{
+  "module":"AIQTEACHER",
+  "action":"PING"
+}
+
+ผลที่ถูกต้อง:
+{
+  "ok":true,
+  "code":"READY",
+  "module":"AIQTEACHER",
+  "version":"20260722-AIQ-TEACHER-PROGRESS-V1.1.0-DIAGNOSTIC"
+}
+
+รหัสวินิจฉัย
+- AIQTEACHER_MODULE_MISSING = ไม่มี Receiver หรือยังไม่ได้ Deploy เวอร์ชันใหม่
+- AIQFLOW_DEPENDENCY_MISSING = ไม่มี/เก่าเกินไป AIQuestFlow_Receiver.gs
+- SPREADSHEET_NOT_FOUND = Apps Script ไม่ได้ผูกกับ Google Sheet ที่ถูกต้อง
+- UNKNOWN_TEACHER_ACTION = Router ส่งถึงโมดูลแล้ว แต่ action ไม่รองรับ
 
 Actions
+- PING / TEACHER_PING
 - GET_CLASS_OVERVIEW: รับ section, query
 - GET_STUDENT_DETAIL: รับ section, studentId
 
