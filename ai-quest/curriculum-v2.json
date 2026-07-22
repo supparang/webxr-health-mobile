@@ -1,0 +1,194 @@
+{
+  "version": "20260722-CSAI2102-CURRICULUM-V2.0",
+  "course": "CSAI2102 Principles of Artificial Intelligence",
+  "completionRule": ["mission", "coding", "reflection"],
+  "sourceBasis": [
+    "UC Berkeley CS188 Introduction to Artificial Intelligence",
+    "Wolfgang Ertel Introduction to Artificial Intelligence",
+    "Marc Toussaint Introduction to Artificial Intelligence",
+    "Philip C. Jackson Jr. Introduction to Artificial Intelligence",
+    "WTTC-Microsoft Introduction to AI Technology"
+  ],
+  "sessions": {
+    "S1": {
+      "title": "AI Foundations: AI, Automation and Intelligent Systems",
+      "outcomes": ["แยก AI, Automation, Machine Learning และ Deep Learning", "อธิบายแนวคิด rational behavior และ intelligent system", "วิเคราะห์โอกาสและข้อจำกัดของ AI จากกรณีจริง"],
+      "coreTopics": ["นิยาม AI", "think/act humanly and rationally", "AI timeline", "AI vs automation", "AI vs ML vs DL", "algorithms-data-computing power", "weak AI and strong AI", "applications and limitations"],
+      "mission": "จำแนกระบบจากสถานการณ์จริงว่าเป็น Automation, Rule-based AI, Machine Learning หรือ Generative AI พร้อมให้เหตุผล",
+      "codingFocus": "Rule-based decision system และการปรับ threshold",
+      "reflection": ["จาก Mission ระบบใดเป็น Automation และระบบใดเป็น AI เพราะเหตุใด", "การเปลี่ยน threshold ใน Coding Lab ส่งผลต่อการตัดสินใจของระบบอย่างไร", "ยกตัวอย่างงานหนึ่งที่ควรใช้ AI และงานหนึ่งที่ Automation ธรรมดาเพียงพอ พร้อมความเสี่ยง"],
+      "quizFocus": ["นิยาม AI", "AI vs automation", "AI/ML/DL relationship"]
+    },
+    "S2": {
+      "title": "Intelligent Agents and Task Environments",
+      "outcomes": ["ออกแบบ PEAS สำหรับ agent", "จำแนก task environment", "เปรียบเทียบ reflex, model-based, goal-based, utility-based และ learning agent"],
+      "coreTopics": ["rational agent", "sensors and actuators", "PEAS", "fully/partially observable", "deterministic/stochastic", "static/dynamic", "single/multi-agent", "known/unknown environment", "agent architectures"],
+      "mission": "ออกแบบ agent สำหรับหุ่นยนต์ส่งของและจำแนก environment พร้อมเลือกสถาปัตยกรรม agent",
+      "codingFocus": "Agent function ที่ใช้ percept, internal state และ goal",
+      "reflection": ["PEAS ของ agent ที่คุณออกแบบประกอบด้วยอะไรบ้าง", "Environment ของภารกิจเป็น observable, deterministic และ static หรือไม่ เพราะเหตุใด", "โค้ดของคุณควรใช้ percept ปัจจุบันอย่างเดียวหรือเก็บ internal state ด้วย เพราะเหตุใด"],
+      "quizFocus": ["PEAS", "environment types", "agent types"]
+    },
+    "S3": {
+      "title": "Search Fundamentals and Breadth-First Search",
+      "outcomes": ["กำหนด search problem ได้ครบ", "อธิบาย state space graph และ search tree", "เปรียบเทียบ DFS และ BFS ด้าน completeness, optimality, time และ space"],
+      "coreTopics": ["state space", "actions", "transition model", "action cost", "start state", "goal test", "world state vs search state", "frontier", "tree search vs graph search", "repeated-state checking", "DFS", "BFS", "branching factor and complexity"],
+      "mission": "สร้าง search formulation สำหรับเขาวงกตและเลือก BFS/DFS ให้เหมาะกับเงื่อนไข",
+      "codingFocus": "BFS ด้วย FIFO queue, visited set และ path reconstruction",
+      "reflection": ["องค์ประกอบของ search problem ใน Mission มีอะไรบ้าง", "BFS และ DFS ต่างกันด้าน frontier, completeness และ memory อย่างไร", "การใช้ visited set ในโค้ดช่วยป้องกันปัญหาใด"],
+      "quizFocus": ["search formulation", "BFS/DFS", "complexity"]
+    },
+    "B1": {
+      "title": "Boss 1: Agent and Search Foundations",
+      "outcomes": ["บูรณาการ AI classification, PEAS, agent architecture และ uninformed search", "ให้เหตุผลการเลือก agent/search strategy", "ประเมินข้อจำกัดของแบบจำลอง"],
+      "coreTopics": ["AI foundations", "PEAS", "task environments", "agent types", "state space", "BFS and DFS", "graph search"],
+      "mission": "ออกแบบหุ่นยนต์ส่งของที่รับรู้สิ่งกีดขวาง วางแผนเส้นทาง และอธิบายเหตุผลการเลือก agent/search",
+      "codingFocus": "เชื่อม agent decision กับ BFS route planning",
+      "reflection": ["คุณเชื่อม percept, internal state, goal และ search เข้าด้วยกันอย่างไร", "เหตุใดจึงเลือก BFS หรือ DFS สำหรับสถานการณ์นี้", "แบบจำลองของคุณละเลยข้อมูลจริงอะไร และอาจกระทบผลลัพธ์อย่างไร"],
+      "quizFocus": ["agent-search integration", "environment analysis", "algorithm justification"]
+    },
+    "S4": {
+      "title": "Uniform Cost Search and Cost-aware Planning",
+      "outcomes": ["อธิบาย UCS และ priority queue", "คำนวณ path cost g(n)", "เปรียบเทียบ BFS, UCS และ Dijkstra", "ระบุเงื่อนไข completeness และ optimality"],
+      "coreTopics": ["path cost", "step cost", "priority queue", "lowest-cost frontier", "nonnegative costs", "completeness", "optimality", "UCS vs BFS", "UCS vs Dijkstra", "time and space complexity"],
+      "mission": "เลือกเส้นทางส่งสินค้าที่มีระยะทาง ค่าผ่านทาง และความเสี่ยงต่างกันโดยใช้ต้นทุนรวม",
+      "codingFocus": "UCS ด้วย heapq, best cost, parent และ path reconstruction",
+      "reflection": ["UCS ต่างจาก BFS อย่างไรเมื่อ step cost ไม่เท่ากัน", "priority queue และ g(n) ในโค้ดควบคุมลำดับการขยายอย่างไร", "UCS รับประกัน optimality ภายใต้เงื่อนไขใด"],
+      "quizFocus": ["priority queue", "path cost", "optimality"]
+    },
+    "S5": {
+      "title": "Heuristic Search: Greedy and A*",
+      "outcomes": ["อธิบาย g(n), h(n), f(n)", "ออกแบบ heuristic จาก relaxed problem", "ตรวจ admissibility และ consistency", "เปรียบเทียบ Greedy, UCS และ A*"],
+      "coreTopics": ["heuristic", "relaxed problem", "Manhattan distance", "Greedy best-first", "A*", "f=g+h", "admissible heuristic", "consistent heuristic", "optimality", "memory limitations"],
+      "mission": "ออกแบบ heuristic สำหรับเส้นทางในแผนที่และทดสอบว่าประเมินสูงเกินจริงหรือไม่",
+      "codingFocus": "A* ด้วย heapq, gScore, heuristic และ path reconstruction",
+      "reflection": ["g(n), h(n) และ f(n) มีบทบาทต่างกันอย่างไร", "heuristic ของคุณมาจาก relaxed problem ใด", "ถ้า heuristic ไม่ admissible ผลลัพธ์อาจผิดอย่างไร"],
+      "quizFocus": ["Greedy vs A*", "admissibility", "consistency"]
+    },
+    "S6": {
+      "title": "Game AI: Minimax, Alpha-Beta and MCTS Overview",
+      "outcomes": ["สร้าง game tree และใช้ minimax", "อธิบาย alpha-beta pruning", "ออกแบบ evaluation function", "อธิบายแนวคิด exploration-exploitation และ MCTS เบื้องต้น"],
+      "coreTopics": ["adversarial search", "MAX and MIN", "utility", "minimax", "alpha-beta pruning", "evaluation function", "depth cutoff", "multi-armed bandit overview", "UCB/UCT overview", "MCTS overview"],
+      "mission": "เลือกการเดินเกมที่ดีที่สุดและระบุกิ่งที่ alpha-beta สามารถตัดทิ้งได้",
+      "codingFocus": "Recursive minimax และ challenge alpha-beta pruning",
+      "reflection": ["Minimax สมมติพฤติกรรมของคู่แข่งอย่างไร", "Alpha-beta ลดการคำนวณโดยไม่เปลี่ยนคำตอบได้อย่างไร", "Evaluation function ที่ไม่ดีทำให้ agent เล่นผิดอย่างไร"],
+      "quizFocus": ["minimax", "alpha-beta", "evaluation"]
+    },
+    "B2": {
+      "title": "Boss 2: Search Strategy Selection",
+      "outcomes": ["เลือก DFS, BFS, UCS, Greedy, A* หรือ Minimax ตามปัญหา", "เปรียบเทียบ completeness, optimality, time และ space", "ให้เหตุผลจากโครงสร้างและต้นทุนของปัญหา"],
+      "coreTopics": ["uninformed search", "cost-aware search", "heuristic search", "adversarial search", "algorithm trade-offs"],
+      "mission": "วิเคราะห์หลายสถานการณ์แล้วเลือก search algorithm ที่เหมาะสมพร้อมหลักฐาน",
+      "codingFocus": "Strategy selector และ test cases หลายรูปแบบ",
+      "reflection": ["เกณฑ์หลักที่ใช้เลือก algorithm คืออะไร", "กรณีใด BFS และ UCS ให้คำตอบต่างกัน", "การเลือก algorithm ผิดส่งผลต่อเวลา memory cost หรือ optimality อย่างไร"],
+      "quizFocus": ["strategy comparison", "trade-offs", "algorithm selection"]
+    },
+    "S7": {
+      "title": "Knowledge Representation and Inference",
+      "outcomes": ["แทนความรู้ด้วย facts, rules และ logic", "อธิบาย knowledge base และ entailment", "ใช้ forward/backward chaining", "เปรียบเทียบ semantic networks และ frames"],
+      "coreTopics": ["facts and rules", "knowledge base", "propositional logic", "predicate logic overview", "semantic networks", "frames", "Horn clauses", "forward chaining", "backward chaining", "entailment and consistency"],
+      "mission": "สร้าง knowledge base สำหรับจำแนกสิ่งมีชีวิตและจัดการข้อยกเว้น",
+      "codingFocus": "Forward chaining engine จาก facts และ rules",
+      "reflection": ["facts, rules และ inference ในระบบของคุณเชื่อมกันอย่างไร", "ข้อยกเว้นเช่น penguin แสดงข้อจำกัดของกฎทั่วไปอย่างไร", "จะตรวจความขัดแย้งใน knowledge base ได้อย่างไร"],
+      "quizFocus": ["knowledge representation", "Horn rules", "chaining"]
+    },
+    "S8": {
+      "title": "Probability, Bayes and Bayesian Networks",
+      "outcomes": ["คำนวณ conditional probability และ Bayes theorem", "อธิบาย prior, likelihood, evidence, posterior", "อ่าน Bayesian network และ conditional independence", "อธิบาย inference เบื้องต้น"],
+      "coreTopics": ["random variables", "joint and conditional probability", "Bayes theorem", "prior", "likelihood", "evidence", "posterior", "conditional independence", "Bayesian networks", "inference and MAP overview"],
+      "mission": "วิเคราะห์ระบบวินิจฉัยที่มี false positive และ dependency ระหว่างอาการ",
+      "codingFocus": "Bayes function และ challenge Bayesian network ขนาดเล็ก",
+      "reflection": ["prior, likelihood, evidence และ posterior เชื่อมกันอย่างไร", "conditional independence ช่วยลดการคำนวณใน Bayes net อย่างไร", "เหตุใดผล probability จึงไม่ควรถูกสื่อสารเป็นความแน่นอน"],
+      "quizFocus": ["Bayes theorem", "conditional independence", "Bayesian network"]
+    },
+    "S9": {
+      "title": "Logic and Expert Systems",
+      "outcomes": ["ใช้ truth tables และ logical operators", "อธิบาย implication, entailment และ resolution", "สร้าง rule-based expert system", "ให้ explanation และกำหนด human referral"],
+      "coreTopics": ["AND OR NOT implication", "truth tables", "entailment", "CNF overview", "resolution", "Horn clauses", "forward/backward chaining", "expert system components", "inference engine", "explanation facility", "MYCIN/DENDRAL examples"],
+      "mission": "สร้าง expert system สำหรับให้คำแนะนำสุขภาพโดยแสดงกฎและเหตุผล",
+      "codingFocus": "Inference engine ที่คืน recommendation, matched rule และ explanation",
+      "reflection": ["Expert system ประกอบด้วย knowledge base, inference engine และ explanation อย่างไร", "กฎใดถูกเรียกใช้ในโค้ดและเพราะข้อมูลใด", "ระบบควรส่งต่อให้ผู้เชี่ยวชาญมนุษย์เมื่อใด"],
+      "quizFocus": ["logic operators", "resolution/chaining", "expert systems"]
+    },
+    "B3": {
+      "title": "Boss 3: Knowledge, Logic and Uncertainty",
+      "outcomes": ["รวม logic และ probabilistic reasoning", "อธิบาย decision พร้อม confidence และ evidence", "เลือก inference method ตาม uncertainty"],
+      "coreTopics": ["knowledge base", "logic inference", "Bayesian reasoning", "expert system", "explanation", "confidence and uncertainty"],
+      "mission": "วิเคราะห์ Medical AI ที่ใช้ rules และ Bayesian evidence พร้อมจัดการกรณีข้อมูลไม่พอ",
+      "codingFocus": "Decision object ที่มี decision, confidence, evidence และ explanation",
+      "reflection": ["ระบบของคุณใช้ logic และ probability ในส่วนใด", "confidence และ evidence สนับสนุน decision อย่างไร", "ความไม่แน่นอนและ bias ใดอาจทำให้คำแนะนำคลาดเคลื่อน"],
+      "quizFocus": ["logic-probability integration", "explanation", "uncertainty"]
+    },
+    "S10": {
+      "title": "Machine Learning Workflow and Evaluation",
+      "outcomes": ["อธิบาย ML pipeline", "แบ่ง train-validation-test อย่างถูกต้อง", "ตรวจ data leakage", "อธิบาย underfitting/overfitting", "คำนวณ evaluation metrics"],
+      "coreTopics": ["dataset feature label", "data cleaning", "feature preparation", "train validation test", "data leakage", "baseline", "generalization", "underfitting", "overfitting", "confusion matrix", "accuracy precision recall F1", "reproducibility"],
+      "mission": "ตรวจ ML workflow ที่มี leakage และเลือก metric ให้เหมาะกับปัญหา",
+      "codingFocus": "Data split, leakage check และ evaluation function",
+      "reflection": ["ML pipeline ตั้งแต่ข้อมูลถึง evaluation มีขั้นตอนใดบ้าง", "คุณตรวจ data leakage ในโค้ดอย่างไร", "เหตุใด accuracy อย่างเดียวอาจไม่เพียงพอ"],
+      "quizFocus": ["data split", "leakage", "evaluation metrics"]
+    },
+    "S11": {
+      "title": "Supervised Learning",
+      "outcomes": ["แยก classification และ regression", "อธิบาย KNN, decision tree, Naive Bayes และ SVM เบื้องต้น", "เลือกโมเดลและ metric ตามปัญหา"],
+      "coreTopics": ["supervised learning", "classification", "regression", "KNN", "decision tree", "entropy and information gain", "Naive Bayes", "SVM overview", "threshold", "confusion matrix", "cross-validation"],
+      "mission": "เลือก supervised model สำหรับชุดข้อมูลและอธิบาย trade-off",
+      "codingFocus": "Threshold classifier, confusion matrix และ accuracy/precision/recall",
+      "reflection": ["ปัญหาของคุณเป็น classification หรือ regression เพราะเหตุใด", "เมื่อเปลี่ยน threshold ค่า false positive/false negative เปลี่ยนอย่างไร", "จะเลือก metric ใดให้เหมาะกับผลกระทบของความผิดพลาด"],
+      "quizFocus": ["classification/regression", "model comparison", "metrics"]
+    },
+    "S12": {
+      "title": "Unsupervised Learning and Dimensionality Reduction",
+      "outcomes": ["อธิบาย clustering แบบไม่มี label", "ใช้ k-means และ hierarchical clustering", "ประเมินจำนวน cluster", "อธิบาย PCA เบื้องต้น"],
+      "coreTopics": ["unsupervised learning", "similarity and distance", "k-means", "centroids", "initialization", "hierarchical clustering", "cluster evaluation", "number of clusters", "PCA overview", "dimensionality reduction", "visualization"],
+      "mission": "จัดกลุ่มข้อมูลผู้ใช้และตรวจว่าจำนวน cluster สมเหตุผลหรือไม่",
+      "codingFocus": "k-means iterations, assignment และ centroid update",
+      "reflection": ["Clustering ต่างจาก supervised learning อย่างไร", "การเริ่ม centroid ต่างกันทำให้ผลเปลี่ยนได้อย่างไร", "PCA หรือการลดมิติช่วย visualization และมีความเสี่ยงอะไร"],
+      "quizFocus": ["k-means", "hierarchical clustering", "PCA"]
+    },
+    "B4": {
+      "title": "Boss 4: End-to-end Machine Learning",
+      "outcomes": ["ออกแบบ ML workflow ตั้งแต่ข้อมูลถึง evaluation", "เลือก model และ metric", "วินิจฉัย underfitting/overfitting", "อธิบายผลโมเดลอย่างรับผิดชอบ"],
+      "coreTopics": ["data pipeline", "supervised/unsupervised choice", "model selection", "validation", "metrics", "overfitting", "explanation"],
+      "mission": "แก้ Case ML ที่มีข้อมูลไม่สมดุล leakage และ metric ที่ชวนเข้าใจผิด",
+      "codingFocus": "evaluate_model คืน diagnosis, metrics และ recommendation",
+      "reflection": ["คุณเลือก model และ metric จากลักษณะข้อมูลอย่างไร", "หลักฐานใดบอกว่าโมเดล overfit หรือ underfit", "ก่อน deploy ต้องตรวจข้อมูล performance และผลกระทบอะไร"],
+      "quizFocus": ["pipeline design", "model evaluation", "deployment readiness"]
+    },
+    "S13": {
+      "title": "Neural Networks and Deep Learning",
+      "outcomes": ["คำนวณ neuron output", "อธิบาย weight, bias, activation และ loss", "อธิบาย gradient และ backpropagation", "เปรียบเทียบ CNN, RNN และ Transformer ระดับภาพรวม"],
+      "coreTopics": ["perceptron", "weighted sum", "bias", "ReLU sigmoid softmax", "loss function", "gradient descent", "backpropagation", "hidden layers", "deep learning", "CNN", "RNN", "Transformer overview", "interpretability limitations"],
+      "mission": "ติดตาม forward pass และระบุว่าพารามิเตอร์ใดควรปรับเมื่อลด loss",
+      "codingFocus": "Neuron/dense layer และ activation; challenge gradient update",
+      "reflection": ["weight, bias และ activation ส่งผลต่อ output อย่างไร", "Backpropagation ใช้ gradient เพื่อลด loss อย่างไร", "Neural network ที่ซับซ้อนสร้างปัญหา interpretability อะไร"],
+      "quizFocus": ["neuron", "backpropagation", "network architectures"]
+    },
+    "S14": {
+      "title": "Reinforcement Learning and Sequential Decision Making",
+      "outcomes": ["กำหนด MDP", "อธิบาย policy, value และ Bellman equation", "อัปเดต Q-value ด้วย TD/Q-learning", "จัดสมดุล exploration-exploitation"],
+      "coreTopics": ["MDP", "state action transition reward", "policy", "value function", "Bellman optimality", "value iteration", "Q-function", "temporal difference", "Q-learning", "gamma", "epsilon-greedy", "model-based vs model-free", "reward design"],
+      "mission": "ออกแบบ reward และ policy สำหรับ agent พร้อมตรวจ reward hacking",
+      "codingFocus": "Q-learning update และ epsilon-greedy action selection",
+      "reflection": ["องค์ประกอบของ MDP ในภารกิจมีอะไรบ้าง", "gamma และ epsilon มีผลต่อพฤติกรรม agent อย่างไร", "reward ที่ออกแบบไม่ดีทำให้ reward hacking ได้อย่างไร"],
+      "quizFocus": ["MDP", "Bellman/Q-learning", "exploration-exploitation"]
+    },
+    "S15": {
+      "title": "Generative AI, LLM and Retrieval-Augmented Generation",
+      "outcomes": ["แยก foundation model, LLM และ generative AI", "ออกแบบ prompt อย่างมีโครงสร้าง", "อธิบาย RAG pipeline", "ตรวจ hallucination, grounding และ citation", "เปรียบเทียบ prompting, RAG และ fine-tuning"],
+      "coreTopics": ["foundation models", "large language models", "tokens and context", "prompt engineering", "embeddings", "chunking", "vector search", "retrieval", "context augmentation", "generation", "RAG", "hallucination", "grounding", "source citation", "fallback", "fine-tuning overview", "privacy and safety"],
+      "mission": "ตรวจคำตอบ GenAI ที่ไม่มีหลักฐาน แล้วออกแบบ RAG workflow พร้อม citation และ fallback",
+      "codingFocus": "Simple retrieval/RAG ที่คืน answer, sources และ no-evidence fallback",
+      "reflection": ["LLM, foundation model และ generative AI ต่างกันอย่างไร", "Retrieval, context, generation และ citation ใน RAG เชื่อมกันอย่างไร", "ระบบควรปฏิเสธตอบหรือส่งต่อมนุษย์เมื่อไม่พบหลักฐานเมื่อใด"],
+      "quizFocus": ["LLM and prompting", "RAG pipeline", "hallucination and grounding"]
+    },
+    "B5": {
+      "title": "Final Boss: Trustworthy and Responsible AI",
+      "outcomes": ["บูรณาการ agent, search, reasoning, ML, neural networks, RL และ GenAI", "ประเมิน fairness, privacy, transparency, safety และ accountability", "ออกแบบ human oversight, audit trail และ appeal process", "อธิบายและจัดการความเสี่ยง AI"],
+      "coreTopics": ["end-to-end AI system", "explainable AI", "interpretability", "fairness and bias", "privacy", "transparency", "accountability", "human oversight", "audit log", "safety testing", "risk management", "model/data documentation", "monitoring", "incident response", "appeal and redress"],
+      "mission": "ออกแบบและตรวจระบบ AI ที่มีผลกระทบสูง โดยต้องให้ evidence, confidence, explanation, fairness check, human review และ audit log",
+      "codingFocus": "trustworthy_ai_decision คืน decision, confidence, evidence, explanation, fairness_check, human_review และ audit_log",
+      "reflection": ["ระบบของคุณใช้ AI components ใดและแต่ละส่วนสร้างความเสี่ยงอะไร", "คุณตรวจ fairness, privacy, explanation และ safety อย่างไร", "human oversight, audit log และช่องทางอุทธรณ์ควรทำงานอย่างไรเมื่อระบบตัดสินผิด"],
+      "quizFocus": ["AI integration", "explainability and fairness", "governance and oversight"]
+    }
+  }
+}
