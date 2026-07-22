@@ -1,30 +1,57 @@
-import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm';
+import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
 
+const VERSION = 'goodjunk-hand-worker-v8.1.0';
 const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
-const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task';
+const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 
 let landmarker = null;
 let ready = false;
+let initializing = false;
+
+function postError(stage, error, extra = {}) {
+  postMessage({
+    type: 'error',
+    stage,
+    message: String(error?.message || error),
+    stack: String(error?.stack || ''),
+    version: VERSION,
+    ...extra
+  });
+}
 
 async function init() {
-  const resolver = await FilesetResolver.forVisionTasks(WASM_URL);
-  const options = delegate => ({
-    baseOptions: { modelAssetPath: MODEL_URL, delegate },
-    runningMode: 'VIDEO',
-    numHands: 1,
-    minHandDetectionConfidence: 0.24,
-    minHandPresenceConfidence: 0.24,
-    minTrackingConfidence: 0.24
-  });
-
+  if (ready || initializing) return;
+  initializing = true;
+  const started = performance.now();
   try {
-    landmarker = await HandLandmarker.createFromOptions(resolver, options('GPU'));
-    postMessage({ type: 'ready', delegate: 'GPU' });
-  } catch (gpuError) {
-    landmarker = await HandLandmarker.createFromOptions(resolver, options('CPU'));
-    postMessage({ type: 'ready', delegate: 'CPU' });
+    postMessage({ type: 'status', stage: 'wasm', message: 'กำลังโหลด MediaPipe WASM…', version: VERSION });
+    const resolver = await FilesetResolver.forVisionTasks(WASM_URL);
+
+    postMessage({ type: 'status', stage: 'model', message: 'กำลังโหลดโมเดลตรวจมือ…', version: VERSION });
+    landmarker = await HandLandmarker.createFromOptions(resolver, {
+      baseOptions: {
+        modelAssetPath: MODEL_URL,
+        delegate: 'CPU'
+      },
+      runningMode: 'VIDEO',
+      numHands: 1,
+      minHandDetectionConfidence: 0.30,
+      minHandPresenceConfidence: 0.30,
+      minTrackingConfidence: 0.30
+    });
+
+    ready = true;
+    postMessage({
+      type: 'ready',
+      delegate: 'CPU',
+      version: VERSION,
+      initMs: Math.round(performance.now() - started)
+    });
+  } catch (error) {
+    postError('init', error, { initMs: Math.round(performance.now() - started) });
+  } finally {
+    initializing = false;
   }
-  ready = true;
 }
 
 function cursorFromHand(hand) {
@@ -43,12 +70,14 @@ function cursorFromHand(hand) {
 
 self.onmessage = async event => {
   const data = event.data || {};
+
+  if (data.type === 'ping') {
+    postMessage({ type: 'pong', version: VERSION, ready, workerScope: typeof WorkerGlobalScope !== 'undefined' });
+    return;
+  }
+
   if (data.type === 'init') {
-    try {
-      await init();
-    } catch (error) {
-      postMessage({ type: 'error', message: String(error?.message || error) });
-    }
+    await init();
     return;
   }
 
@@ -56,20 +85,21 @@ self.onmessage = async event => {
   const bitmap = data.bitmap;
   if (!ready || !landmarker || !bitmap) {
     try { bitmap?.close?.(); } catch (_) {}
-    postMessage({ type: 'result', id: data.id, detected: false, skipped: true });
+    postMessage({ type: 'result', id: data.id, detected: false, skipped: true, version: VERSION });
     return;
   }
 
   const started = performance.now();
   try {
-    const result = landmarker.detectForVideo(bitmap, data.timestamp || started);
+    const result = landmarker.detectForVideo(bitmap, Number(data.timestamp || started));
     const hand = result?.landmarks?.[0];
     if (!hand) {
       postMessage({
         type: 'result',
         id: data.id,
         detected: false,
-        inferenceMs: Math.round(performance.now() - started)
+        inferenceMs: Math.round(performance.now() - started),
+        version: VERSION
       });
     } else {
       const cursor = cursorFromHand(hand);
@@ -79,12 +109,21 @@ self.onmessage = async event => {
         detected: true,
         cursor,
         confidence: Number(result?.handedness?.[0]?.[0]?.score || 0),
-        inferenceMs: Math.round(performance.now() - started)
+        inferenceMs: Math.round(performance.now() - started),
+        version: VERSION
       });
     }
   } catch (error) {
-    postMessage({ type: 'error', id: data.id, message: String(error?.message || error) });
+    postError('detect', error, { id: data.id, inferenceMs: Math.round(performance.now() - started) });
   } finally {
     try { bitmap.close(); } catch (_) {}
   }
 };
+
+self.addEventListener('unhandledrejection', event => {
+  postError('unhandledrejection', event.reason || 'Unknown worker rejection');
+});
+
+self.addEventListener('error', event => {
+  postError('worker-error', event.error || event.message || 'Unknown worker error');
+});
