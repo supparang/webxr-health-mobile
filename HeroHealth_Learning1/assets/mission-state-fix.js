@@ -42,11 +42,19 @@ function granularProgress(s){
 function patchProgress(){
  const s=load();if(!s||!s.profile)return;
  const pct=granularProgress(s);
- document.querySelectorAll('.progress span').forEach(el=>el.style.width=pct+'%');
- document.querySelectorAll('p').forEach(el=>{if(/% ของภารกิจ/.test(el.textContent||''))el.textContent=pct+'% ของภารกิจ'});
+ document.querySelectorAll('.progress span').forEach(el=>{const v=pct+'%';if(el.style.width!==v)el.style.width=v});
+ document.querySelectorAll('p').forEach(el=>{if(/% ของภารกิจ/.test(el.textContent||'')){const v=pct+'% ของภารกิจ';if(el.textContent!==v)el.textContent=v}});
 }
 sanitize();
-const obs=new MutationObserver(()=>patchProgress());
-obs.observe(document.documentElement,{childList:true,subtree:true});
-addEventListener('DOMContentLoaded',patchProgress);
+let scheduled=false;
+const obs=new MutationObserver(()=>{
+ if(scheduled)return;
+ scheduled=true;
+ requestAnimationFrame(()=>{scheduled=false;patchProgress()});
+});
+addEventListener('DOMContentLoaded',()=>{
+ patchProgress();
+ const app=document.getElementById('app');
+ if(app)obs.observe(app,{childList:true,subtree:true});
+});
 })();
