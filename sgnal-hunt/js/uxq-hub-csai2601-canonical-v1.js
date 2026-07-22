@@ -1,12 +1,12 @@
-/* CSAI2601 UX Quest • Mission Control Sheet Authority v5.1
- * Google Sheet mission_completed controls official unlock only.
- * Full node completion is calculated separately from Mission + Studio + Reflection.
+/* CSAI2601 UX Quest • Mission Control Sheet Authority v5.2
+ * Google Sheet canonicalPassedMissionIds controls official mission status and unlock.
+ * Scores, stars and attempts are display metadata only.
  */
 (() => {
   'use strict';
 
   const CONTENT = window.CSAI2601_UXQ_CANONICAL_CONTENT_V1;
-  const VERSION = 'sheet-authority-v5.1-20260721';
+  const VERSION = 'sheet-authority-v5.2-20260722';
   const NODE_ICONS = {
     W1:'🔎', W2:'🧭', W3:'🧠', W4:'🕵️', W5:'💡', W6:'🗺️', W7:'📐',
     W8:'🧩', W9:'🧱', W10:'📱', W11:'🎨', W12:'⚡', W13:'🔗', W14:'🧪', W15:'🏁',
@@ -34,9 +34,14 @@
 
   let snapshot = null;
 
-  function normalizedMission(raw) {
-    const remote = raw || {};
-    const missionPassed = Boolean(remote.completed || remote.passed || Number(remote.bestStars || remote.stars || 0) >= 2);
+  function canonicalPassedSet() {
+    const list = snapshot?.diagnostics?.canonicalPassedMissionIds;
+    return new Set(Array.isArray(list) ? list.map(value => String(value || '').trim().toLowerCase()).filter(id => ORDER.includes(id)) : []);
+  }
+
+  function normalizedMission(key) {
+    const remote = snapshot?.missions?.[String(key || '').toLowerCase()] || snapshot?.missions?.[String(key || '').toUpperCase()] || {};
+    const missionPassed = canonicalPassedSet().has(String(key || '').toLowerCase());
     return {
       missionPassed,
       passed:missionPassed,
@@ -46,13 +51,12 @@
     };
   }
 
-  function missionRecord(key) {
-    return normalizedMission(snapshot?.missions?.[String(key || '').toLowerCase()]);
-  }
+  function missionRecord(key) { return normalizedMission(key); }
   function passed(key) { return missionRecord(key).missionPassed; }
   function canonicalNextKey() {
     const apiNext = String(snapshot?.nextMission || '').trim().toLowerCase();
-    return ORDER.includes(apiNext) ? apiNext : (ORDER.find(key => !passed(key)) || '');
+    if (ORDER.includes(apiNext)) return apiNext;
+    return ORDER.find(key => !passed(key)) || '';
   }
   function available(key) {
     if (!snapshot?.ok) return false;
@@ -77,7 +81,7 @@
     const hint = state.isPassed
       ? `${stars(state.stars)} • ${state.attempts || 1} attempt${state.attempts === 1 ? '' : 's'} • รอตรวจ Studio/Reflection`
       : state.isAvailable
-        ? (node.artifact ? `Artifact: ${node.artifact}` : 'ต้องผ่าน 2★ เพื่อไปต่อ')
+        ? (state.attempts > 0 ? `${stars(state.stars)} • เล่นแล้วแต่ Sheet ยังไม่ยืนยัน mission_completed` : (node.artifact ? `Artifact: ${node.artifact}` : 'ต้องผ่าน 2★ เพื่อไปต่อ'))
         : `ต้องผ่าน ${previousId || 'ด่านก่อนหน้า'} จาก Sheet ก่อน`;
     const rounds = Array.isArray(node.missionRounds) ? node.missionRounds.slice(0, 3).join(' → ') : '';
     const desc = state.isAvailable
@@ -102,7 +106,7 @@
   function renderLoading(message) {
     if ($('#progress')) $('#progress').textContent = 'กำลังดึง Mission จาก Sheet…';
     if ($('#nextTitle')) $('#nextTitle').textContent = message || 'กำลังตรวจความก้าวหน้าจาก Google Sheet';
-    if ($('#nextDesc')) $('#nextDesc').textContent = 'ระบบยังไม่ปลดล็อกจนกว่าจะได้รับสถานะ Mission จาก Sheet';
+    if ($('#nextDesc')) $('#nextDesc').textContent = 'ระบบยังไม่ปลดล็อกจนกว่าจะได้รับ canonicalPassedMissionIds จาก Sheet';
     if ($('#nextLink')) { $('#nextLink').href = '#'; $('#nextLink').textContent = 'กำลังโหลด…'; $('#nextLink').setAttribute('aria-disabled', 'true'); }
     const grid = $('#grid');
     if (grid) grid.innerHTML = '<div class="campaign-separator">Google Sheet เป็นแหล่งข้อมูลหลัก • กำลังโหลดสถานะ Mission</div>';
@@ -113,9 +117,7 @@
     window.UXQMissionSheetSnapshot = snapshot;
     if (!snapshot) { renderLoading('ยังไม่ได้รับสถานะจาก Google Sheet'); return; }
 
-    const canonicalPassed = Array.isArray(snapshot?.diagnostics?.canonicalPassedMissionIds)
-      ? snapshot.diagnostics.canonicalPassedMissionIds.map(value => String(value).toLowerCase())
-      : ORDER.filter(key => passed(key));
+    const canonicalPassed = Array.from(canonicalPassedSet());
     const missionCompleted = canonicalPassed.length;
     const nextKey = canonicalNextKey();
     const next = nodes.find(node => node.key === nextKey) || null;
@@ -123,7 +125,7 @@
     if ($('#progress')) $('#progress').textContent = `Mission ${missionCompleted}/${ORDER.length} • รอรวม Studio/Reflection`;
     const grid = $('#grid');
     if (grid) {
-      grid.innerHTML = `<div class="campaign-separator">Mission ผ่าน ${missionCompleted}/${ORDER.length} • การปลดล็อกใช้ mission_completed • การจบ Node ต้องครบ 3/3</div>` + nodes.map(card).join('');
+      grid.innerHTML = `<div class="campaign-separator">Mission ผ่าน ${missionCompleted}/${ORDER.length} • ยืนยันจาก canonicalPassedMissionIds • การจบ Node ต้องครบ 3/3</div>` + nodes.map(card).join('');
       grid.querySelectorAll('a[aria-disabled="true"]').forEach(link => link.addEventListener('click', event => event.preventDefault()));
     }
 
@@ -139,7 +141,7 @@
     }
 
     document.body.dataset.uxqCloudLoading = '0';
-    window.dispatchEvent(new CustomEvent('uxq-mission-control-sheet-snapshot', { detail:{ snapshot, missionCompleted, order:ORDER.slice(), nodes:nodes.slice() } }));
+    window.dispatchEvent(new CustomEvent('uxq-mission-control-sheet-snapshot', { detail:{ snapshot, missionCompleted, canonicalPassedMissionIds:canonicalPassed, order:ORDER.slice(), nodes:nodes.slice() } }));
   }
 
   function boot() {
