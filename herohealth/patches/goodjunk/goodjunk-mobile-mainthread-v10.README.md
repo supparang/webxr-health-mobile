@@ -1,0 +1,1 @@
+Mobile v10 uses one browser-independent main-thread HandLandmarker runtime. The game does not start Camera Hand AR until the runtime and model report ready; failures remain visible instead of silently starting a non-detecting camera session.
