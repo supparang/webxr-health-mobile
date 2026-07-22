@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>GoodJunk • Samsung Hand AR v9.2</title>
+  <title>GoodJunk • Mobile Hand AR v10</title>
   <style>
     html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#ecfdf5;font-family:system-ui,sans-serif;color:#166534}
     .loading{padding:24px;text-align:center;font-size:clamp(18px,4vw,28px);font-weight:900}
   </style>
 </head>
 <body>
-  <div class="loading">🖐️ กำลังเปิด Samsung Hand AR Direct v9.2…</div>
+  <div class="loading">🖐️ กำลังเปิด Mobile Hand AR v10…</div>
   <script>
     (async () => {
-      const RELEASE = '20260722-SAMSUNG-DIRECT-V92';
+      const RELEASE = '20260722-MOBILE-MAINTHREAD-V10';
       try {
         const response = await fetch('./goodjunk-ar-production-final.html?release=' + RELEASE + '&t=' + Date.now(), { cache: 'no-store' });
         if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -29,7 +29,7 @@
         const newUpdate = `function update(){const mobile=innerWidth<=760,boss=state.phase==='boss',rawTop=mobile?(boss?220:140):(boss?165:120),top=Math.min(rawTop,innerHeight*.42),bottom=innerHeight-(mobile?95:85),gap=mobile?8:12;state.objects.forEach(o=>{o.w+=.03;let sx=o.vx,sy=o.vy;if(o.move==='zigzag')sx+=Math.sin(o.w)*.55;if(o.move==='bounce')sy+=Math.sin(o.w)*.35;if(o.move==='escape')sx+=Math.sign(o.x-innerWidth/2)*.12;o.x+=sx;o.y+=sy;if(o.x<o.r){o.x=o.r;o.vx=Math.abs(o.vx)}else if(o.x>innerWidth-o.r){o.x=innerWidth-o.r;o.vx=-Math.abs(o.vx)}if(o.y<top){o.y=top;o.vy=Math.abs(o.vy)}else if(o.y>bottom){o.y=bottom;o.vy=-Math.abs(o.vy)}});for(let i=0;i<state.objects.length;i++){for(let j=i+1;j<state.objects.length;j++){const a=state.objects[i],b=state.objects[j],dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy)||.001,min=a.r+b.r+gap;if(dist<min){const push=(min-dist)/2,nx=dx/dist,ny=dy/dist;a.x-=nx*push;a.y-=ny*push;b.x+=nx*push;b.y+=ny*push;a.x=Math.max(a.r,Math.min(innerWidth-a.r,a.x));b.x=Math.max(b.r,Math.min(innerWidth-b.r,b.x));a.y=Math.max(top,Math.min(bottom,a.y));b.y=Math.max(top,Math.min(bottom,b.y))}}}}`;
 
         const oldBoot = `window.boot=async m=>{mode=m;canvas=$('canvas');video=$('video');ctx=canvas.getContext('2d');resize();addEventListener('resize',resize);canvas.addEventListener('pointerdown',e=>{if(mode==='touch'&&state.playing)hit(e.clientX,e.clientY)});$('loadMsg').textContent=m==='camera'?'กำลังเปิดกล้อง…':'กำลังเปิด Touch Mode…';if(m==='camera'){try{hands=new Hands({locateFile:f=>\`https://cdn.jsdelivr.net/npm/@mediapipe/hands/\${f}\`});hands.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:.55,minTrackingConfidence:.55});hands.onResults(onHands);camera=new Camera(video,{onFrame:async()=>{if(state.playing)await hands.send({image:video})},width:640,height:480});await camera.start()}catch(e){mode='touch';$('loadMsg').textContent='กล้องไม่พร้อม จึงสลับเป็น Touch Mode'}}$('start').classList.add('hidden');$('game').classList.remove('hidden');startFullGame()};`;
-        const newBoot = `window.boot=async m=>{mode=m;canvas=$('canvas');video=$('video');ctx=canvas.getContext('2d');resize();addEventListener('resize',resize);window.__GJ_SELECT_AT__=(x,y,source='unknown')=>{if(!state.playing)return false;let target=null,best=Infinity;for(const o of state.objects){const d=Math.hypot(o.x-x,o.y-y),limit=o.r+90;if(d<=limit&&d<best){target=o;best=d}}if(!target)return false;hit(target.x,target.y);try{ev('hand_select_attempt',{source,food:target.name,distancePx:Math.round(best)})}catch(_){}return true};window.__GJ_IS_PLAYING__=()=>!!state.playing;window.__GJ_SHOW__=t=>show(t);canvas.addEventListener('pointerdown',e=>{if(state.playing)window.__GJ_SELECT_AT__(e.clientX,e.clientY,'touch')});$('loadMsg').textContent=m==='camera'?'กำลังเปิด Samsung Hand AR…':'กำลังเปิด Touch Mode…';if(m==='camera'){try{if(!window.GJMobileHandV7)throw new Error('Samsung Hand runtime v9.2 not loaded');await window.GJMobileHandV7.start(video);mode='camera';$('loadMsg').textContent='Samsung Hand AR v9.2 พร้อม'}catch(e){console.warn('Samsung Hand AR fallback',e);mode=video?.srcObject?'camera':'touch';$('loadMsg').textContent='Samsung Hand AR สะดุด • แตะอาหารได้'}}$('start').classList.add('hidden');$('game').classList.remove('hidden');startFullGame()};`;
+        const newBoot = `window.boot=async m=>{mode=m;canvas=$('canvas');video=$('video');ctx=canvas.getContext('2d');resize();addEventListener('resize',resize);window.__GJ_SELECT_AT__=(x,y,source='unknown')=>{if(!state.playing)return false;let target=null,best=Infinity;for(const o of state.objects){const d=Math.hypot(o.x-x,o.y-y),limit=o.r+90;if(d<=limit&&d<best){target=o;best=d}}if(!target)return false;hit(target.x,target.y);try{ev('hand_select_attempt',{source,food:target.name,distancePx:Math.round(best)})}catch(_){}return true};window.__GJ_IS_PLAYING__=()=>!!state.playing;window.__GJ_SHOW__=t=>show(t);canvas.addEventListener('pointerdown',e=>{if(state.playing)window.__GJ_SELECT_AT__(e.clientX,e.clientY,'touch')});$('loadMsg').textContent=m==='camera'?'กำลังเตรียม Mobile Hand AR v10…':'กำลังเปิด Touch Mode…';if(m==='camera'){try{const started=performance.now();while(!window.GJMobileHandV7&&performance.now()-started<15000){await new Promise(r=>setTimeout(r,100))}if(!window.GJMobileHandV7)throw new Error('Mobile Hand runtime v10 load timeout');$('loadMsg').textContent='กำลังโหลดโมเดลตรวจมือ…';await window.GJMobileHandV7.start(video);if(!window.GJMobileHandV7.state?.workerReady)throw new Error('Hand model not ready');mode='camera';$('loadMsg').textContent='Mobile Hand AR v10 พร้อม'}catch(e){console.error('Mobile Hand AR start failed',e);$('loadMsg').textContent='Hand AR Error: '+String(e?.message||e);alert('Mobile Hand AR เปิดไม่สำเร็จ: '+String(e?.message||e));return}}$('start').classList.add('hidden');$('game').classList.remove('hidden');startFullGame()};`;
 
         const oldLoop = `function loop(){if(!state.playing)return;if(mode==='touch'){drawBg();update();draw()}raf=requestAnimationFrame(loop)}`;
         const newLoop = `function loop(ts=0){if(!state.playing)return;raf=requestAnimationFrame(loop);if(ts-(window.__GJ_LAST_RENDER_AT__||0)<50)return;window.__GJ_LAST_RENDER_AT__=ts;ctx.clearRect(0,0,innerWidth,innerHeight);if(mode==='camera'&&video&&video.readyState>=2){ctx.save();ctx.translate(innerWidth,0);ctx.scale(-1,1);ctx.drawImage(video,0,0,innerWidth,innerHeight);ctx.restore();ctx.fillStyle='#02061718';ctx.fillRect(0,0,innerWidth,innerHeight)}else{drawBg()}update();draw();(window.__GJ_HAND_POINTS__||[]).forEach(p=>pointer(p.x,p.y))}`;
@@ -49,24 +49,24 @@
           status[name] = html.includes(oldCode);
           if (status[name]) html = html.replace(oldCode, newCode);
         }
-        if (!status.boot || !status.loop) throw new Error('Samsung direct patch signature mismatch');
+        if (!status.boot || !status.loop) throw new Error('Mobile v10 patch signature mismatch');
 
         html = html.replace("ev('correct',{food:o.name,topic:state.mission.topic,reaction});", "ev('correct',{food:o.name,topic:state.mission.topic,reactionSec:state.reactionN?Number((state.reactionSum/state.reactionN).toFixed(3)):0});");
 
-        const css = '<link rel="stylesheet" href="./patches/goodjunk/goodjunk-mobile-battle-compact-v1.css?v=20260722-92"><link rel="stylesheet" href="./patches/goodjunk/goodjunk-worker-v83-status.css?v=20260722-92">';
-        const runtime = '<scr' + 'ipt type="module" src="./patches/goodjunk/goodjunk-mobile-hand-runtime-v9.js?v=20260722-92"></scr' + 'ipt>';
-        const proof = '<scr' + 'ipt src="./patches/goodjunk/goodjunk-samsung-loader-proof-v92.js?v=20260722-92"></scr' + 'ipt>';
-        const ui = '<scr' + 'ipt src="./patches/goodjunk/goodjunk-mobile-battle-compact-v1.js?v=20260722-92"></scr' + 'ipt>';
+        const css = '<link rel="stylesheet" href="./patches/goodjunk/goodjunk-mobile-battle-compact-v1.css?v=20260722-100"><link rel="stylesheet" href="./patches/goodjunk/goodjunk-worker-v83-status.css?v=20260722-100">';
+        const runtime = '<scr' + 'ipt type="module" src="./patches/goodjunk/goodjunk-mobile-hand-runtime-v10.js?v=20260722-100"></scr' + 'ipt>';
+        const proof = '<scr' + 'ipt>window.__GJ_RUNTIME_PROOF__={release:"20260722-MOBILE-MAINTHREAD-V10",worker:false,runtime:"main-thread-v10"};console.info("[GoodJunk Runtime Proof]",window.__GJ_RUNTIME_PROOF__)</scr' + 'ipt>';
+        const ui = '<scr' + 'ipt src="./patches/goodjunk/goodjunk-mobile-battle-compact-v1.js?v=20260722-100"></scr' + 'ipt>';
         html = html.replace('</head>', css + '</head>');
         html = html.replace('</body>', runtime + proof + ui + '</body>');
-        html = html.replace('<title>HeroHealth • GoodJunk AR Production Final</title>', '<title>HeroHealth • GoodJunk Samsung Direct v9.2</title>');
+        html = html.replace('<title>HeroHealth • GoodJunk AR Production Final</title>', '<title>HeroHealth • GoodJunk Mobile Hand AR v10</title>');
 
-        console.info('[GoodJunk Samsung Direct Loader]', { release: RELEASE, status });
+        console.info('[GoodJunk Mobile v10 Loader]', { release: RELEASE, status });
         document.open();
         document.write(html);
         document.close();
       } catch (error) {
-        document.body.innerHTML = '<div class="loading">⚠️ Samsung Hand AR v9.2 เปิดไม่สำเร็จ<br><small>' + String(error.message || error) + '</small><br><button onclick="location.reload()" style="margin-top:14px;min-height:46px;padding:9px 15px;border:0;border-radius:14px;font:inherit;font-weight:900">ลองใหม่</button></div>';
+        document.body.innerHTML = '<div class="loading">⚠️ Mobile Hand AR v10 เปิดไม่สำเร็จ<br><small>' + String(error.message || error) + '</small><br><button onclick="location.reload()" style="margin-top:14px;min-height:46px;padding:9px 15px;border:0;border-radius:14px;font:inherit;font-weight:900">ลองใหม่</button></div>';
       }
     })();
   </script>
