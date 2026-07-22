@@ -1,9 +1,10 @@
 /* =========================================================
-   EAP Hero Production Authority v20260715
+   EAP Hero Production Authority v20260722
    LIVE-SHEET-ONLY / Section 122
    - Official progress and unlocks come only from a fresh player_resume response.
    - localStorage may cache UI/profile data but cannot complete or unlock a route.
    - A learner without a live matching Sheet record starts at S1 only.
+   - Boss route aliases GATE1 / BOSS GATE 1 / BOSS1 normalize to B1.
    - Boss Speaking passes the route from the verified Sheet score/pass result.
    - Teacher Review remains a separate evidence-quality workflow and never re-locks
      a Boss Gate that the learner has already cleared in the game.
@@ -13,7 +14,7 @@
   if (window.__EAP_PRODUCTION_AUTHORITY_V2__) return;
   window.__EAP_PRODUCTION_AUTHORITY_V2__ = true;
 
-  var VERSION = 'v20260715-EAP-PRODUCTION-AUTHORITY-LIVE-SHEET-ONLY-V2-NONBLOCKING-REVIEW';
+  var VERSION = 'v20260722-EAP-PRODUCTION-AUTHORITY-V3-GATE-ALIAS-NATIVE';
   var ORDER = ['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
   var SKILLS = ['reading','listening','writing','speaking'];
   var PASS = 60;
@@ -26,7 +27,9 @@
     var raw = text(v && v.routeId || v).toUpperCase();
     var m = raw.match(/^S(?:ESSION)?\s*0?(1[0-5]|[1-9])$/i);
     if (m) return 'S' + Number(m[1]);
-    m = raw.match(/^B(?:OSS)?\s*0?([1-5])$/i);
+    m = raw.match(/^(?:B|BOSS)\s*0?([1-5])$/i);
+    if (m) return 'B' + Number(m[1]);
+    m = raw.match(/^(?:GATE|BOSS\s*GATE)\s*0?([1-5])$/i);
     if (m) return 'B' + Number(m[1]);
     if (/^\d+$/.test(raw)) return 'S' + Number(raw);
     return raw;
@@ -74,12 +77,6 @@
     var rid = norm(row.routeId || row.sessionId || row.session);
     var sk = skill(row.skill || row.skillName);
     var score = Math.max(number(row.bestScore), number(row.latestScore), number(row.score));
-    /*
-      Unlock policy:
-      A verified Sheet result with passed=true or score >= 60 clears the skill.
-      Boss Speaking teacher review is asynchronous feedback. It remains visible in
-      diagnostics/dashboard but does not send a learner back to a cleared Boss Gate.
-    */
     return !!rid && !!sk && (bool(row.passed) || score >= PASS);
   }
   function bestMap(){
@@ -91,12 +88,7 @@
       if (!rid || !sk || ORDER.indexOf(rid) < 0 || SKILLS.indexOf(sk) < 0) return;
       var score = Math.max(number(row.bestScore), number(row.latestScore), number(row.score));
       var key = rid + '|' + sk;
-      var item = {
-        score:score,
-        passed:recordPass(row),
-        reviewState:teacherReviewState(row, rid, sk),
-        row:row
-      };
+      var item = { score:score, passed:recordPass(row), reviewState:teacherReviewState(row, rid, sk), row:row };
       if (!out[key] || item.score > out[key].score || (item.passed && !out[key].passed)) out[key] = item;
     });
     return out;
@@ -111,15 +103,9 @@
       if (item && item.reviewState === 'revise') reviseReview.push(sk);
     });
     return {
-      routeId:rid,
-      required:req,
-      passed:passed,
-      missing:missing,
-      scores:scores,
-      pendingTeacherReview:pendingReview,
-      teacherRevisionRequested:reviseReview,
-      complete:req.length > 0 && missing.length === 0,
-      liveVerified:live.verified
+      routeId:rid, required:req, passed:passed, missing:missing, scores:scores,
+      pendingTeacherReview:pendingReview, teacherRevisionRequested:reviseReview,
+      complete:req.length > 0 && missing.length === 0, liveVerified:live.verified
     };
   }
   function firstIncomplete(){
@@ -205,8 +191,7 @@
       el.classList.toggle('eap-current', rid === current);
       el.classList.toggle('eap-done', done);
       el.setAttribute('aria-disabled', open ? 'false' : 'true');
-      if (!open) el.title = reason(rid);
-      else el.removeAttribute('title');
+      if (!open) el.title = reason(rid); else el.removeAttribute('title');
     });
     var diag = diagnostics();
     document.documentElement.dataset.eapAuthority = VERSION;
@@ -220,13 +205,7 @@
       if (detail.source === 'cache' || detail.live === false) schedule();
       return false;
     }
-    live = {
-      verified:true,
-      records:data.records.slice(),
-      generatedAt:text(data.generatedAt),
-      identity:identityKey(),
-      source:'live_player_resume'
-    };
+    live = { verified:true, records:data.records.slice(), generatedAt:text(data.generatedAt), identity:identityKey(), source:'live_player_resume' };
     schedule();
     window.dispatchEvent(new CustomEvent('eap:live-sheet-authority-applied',{detail:diagnostics()}));
     return true;
@@ -242,17 +221,10 @@
   }
   function diagnostics(){
     return {
-      version:VERSION,
-      authorityMode:'live-sheet-only',
-      bossTeacherReviewMode:'non_blocking_async_feedback',
-      acceptsLocalEvidence:false,
-      acceptsCompletedSessionsCache:false,
-      liveVerified:live.verified,
-      liveGeneratedAt:live.generatedAt,
-      liveRecordCount:live.records.length,
-      identity:live.identity || identityKey(),
-      verifiedCurrent:currentId(),
-      routeStatus:ORDER.reduce(function(out,id){ out[id] = status(id); return out; },{})
+      version:VERSION, authorityMode:'live-sheet-only', bossTeacherReviewMode:'non_blocking_async_feedback',
+      acceptsLocalEvidence:false, acceptsCompletedSessionsCache:false, liveVerified:live.verified,
+      liveGeneratedAt:live.generatedAt, liveRecordCount:live.records.length, identity:live.identity || identityKey(),
+      verifiedCurrent:currentId(), routeStatus:ORDER.reduce(function(out,id){ out[id] = status(id); return out; },{})
     };
   }
 
@@ -283,6 +255,7 @@
     canOpen:canOpen,
     routeStatus:status,
     reason:reason,
+    normalizeRoute:norm,
     refresh:schedule,
     diagnostics:diagnostics,
     acceptResume:acceptResume,
