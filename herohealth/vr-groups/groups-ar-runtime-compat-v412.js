@@ -1,19 +1,7 @@
 (() => {
   'use strict';
 
-  const PATCH = 'groups-ar-runtime-compat-v4.1.3';
-  const ua = String(navigator.userAgent || '');
-  const isAndroid = /Android/i.test(ua);
-  const isSamsungInternet = /SamsungBrowser/i.test(ua);
-  const isAndroidWebView = /; wv\)/i.test(ua) || (isAndroid && /Version\/\d+/i.test(ua));
-  const hasDecompressionName = typeof window.DecompressionStream === 'function';
-
-  /*
-   * Android Chromium may expose DecompressionStream while gzip decoding still
-   * fails inside the compressed production runtime. Use the stable compatible
-   * runtime on every Android browser. Desktop Chromium may use native runtime.
-   */
-  const useNativeRuntime = hasDecompressionName && !isAndroid;
+  const PATCH = 'groups-ar-runtime-compat-v4.1.4-classroom-stable';
 
   function copyParams(path) {
     const source = new URLSearchParams(location.search);
@@ -51,71 +39,45 @@
     if (sumZone) sumZone.onclick = cooldown;
   }
 
-  function updateModeLabel(mode) {
-    document.documentElement.dataset.groupsRuntime = mode;
+  function updateModeLabel() {
+    document.documentElement.dataset.groupsRuntime = 'legacy';
     const cameraText = document.getElementById('cameraText');
     if (cameraText && cameraText.textContent === 'ยังไม่เริ่ม') {
-      cameraText.textContent = mode === 'legacy' ? 'Compatible Mode' : 'Ready';
+      cameraText.textContent = 'Compatible Mode';
     }
-  }
-
-  function load(path, onLoaded, onFailed) {
-    const script = document.createElement('script');
-    script.src = path;
-    script.async = false;
-    script.dataset.groupsRuntimeLoader = PATCH;
-    script.onload = onLoaded;
-    script.onerror = onFailed;
-    document.head.appendChild(script);
   }
 
   function renderLoadError() {
     document.body.innerHTML = [
       '<main style="min-height:100dvh;padding:28px;font-family:system-ui;background:#103c3a;color:white">',
-      '<h1>โหลดไฟล์เกมไม่ครบ</h1>',
-      '<p>กรุณาตรวจอินเทอร์เน็ต แล้วกดปุ่มลองใหม่</p>',
+      '<h1>เปิดเกมไม่สำเร็จ</h1>',
+      '<p>ไฟล์เกมโหลดไม่ครบ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่</p>',
       '<button onclick="location.reload()" style="min-height:48px;padding:10px 16px;border:0;border-radius:14px;font:inherit;font-weight:900">ลองใหม่</button>',
       '</main>'
     ].join('');
   }
 
-  function loadLegacy(reason) {
-    updateModeLabel('legacy');
-    load(
-      './vr-groups/groups-ar-runtime-v311.js?v=20260721-android-stable-v413',
-      () => {
-        patchRoutes();
-        window.dispatchEvent(new CustomEvent('groups-runtime-ready', {
-          detail: { patch: PATCH, mode: 'legacy', reason }
-        }));
-        console.info('[Groups AR Runtime]', PATCH, 'legacy', reason);
-      },
-      renderLoadError
-    );
-  }
-
-  if (!useNativeRuntime) {
-    const reason = isAndroid
-      ? (isSamsungInternet
-          ? 'Samsung Internet forced compatible runtime'
-          : isAndroidWebView
-            ? 'Android WebView forced compatible runtime'
-            : 'Android Chrome forced compatible runtime')
-      : 'DecompressionStream unavailable';
-    loadLegacy(reason);
-    return;
-  }
-
-  updateModeLabel('native');
-  load(
-    './vr-groups/groups-ar-runtime-v400.js?v=20260721-gameplay-v4',
-    () => {
+  function loadStableRuntime() {
+    updateModeLabel();
+    const script = document.createElement('script');
+    script.src = './vr-groups/groups-ar-runtime-v311.js?v=20260722-classroom-stable-v414';
+    script.async = false;
+    script.dataset.groupsRuntimeLoader = PATCH;
+    script.onload = () => {
       patchRoutes();
       window.dispatchEvent(new CustomEvent('groups-runtime-ready', {
-        detail: { patch: PATCH, mode: 'native' }
+        detail: { patch: PATCH, mode: 'legacy', reason: 'classroom stable runtime' }
       }));
-      console.info('[Groups AR Runtime]', PATCH, 'native runtime');
-    },
-    () => loadLegacy('native runtime script failed')
-  );
+      console.info('[Groups AR Runtime]', PATCH, 'stable compatible runtime');
+    };
+    script.onerror = renderLoadError;
+    document.head.appendChild(script);
+  }
+
+  /*
+   * Classroom Mode uses one stable runtime on every browser.
+   * This avoids the compressed native runtime failure seen inside Game Shell,
+   * especially during QA on desktop Chrome and on mixed Android devices.
+   */
+  loadStableRuntime();
 })();
