@@ -1,26 +1,28 @@
 /* =========================================================
-   EAP Hero Cloud Resume v134 — Sheet Authority + Identity Lookup
-   - player_resume is the sole official source for progress/unlocks.
-   - Reads direct columns and nested valueJson event payloads.
-   - Returns only valid S1–S15 / B1–B5 records for studentId + section.
-   - Resolves the official student name from matching Sheet records.
-   - Boss Speaking is not passed while review is pending/revise/missing.
-   - Uses TextFinder on the studentId column instead of scanning whole sheets.
+   EAP Hero Cloud Resume v135 — Official Progress Builder
+   - Google Sheet evidence is the sole authority for progress/unlocks.
+   - Route/event logs never count as completion unless a valid skill result exists.
+   - Identity key is studentId + section; names are display/audit metadata only.
+   - A route passes only when all four required skills pass.
+   - currentRoute is always the first incomplete route in the fixed learning path.
 ========================================================= */
-var EAP_CLOUD_RESUME_VERSION = 'v20260722-EAP-CLOUD-RESUME-V134-IDENTITY-LOOKUP';
+var EAP_CLOUD_RESUME_VERSION = 'v20260722-EAP-CLOUD-RESUME-V135-OFFICIAL-PROGRESS';
 var EAP_CLOUD_RESUME_ROUTE_ORDER = [
   'S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'
 ];
+var EAP_CLOUD_RESUME_REQUIRED_SKILLS = ['Listening','Speaking','Reading','Writing'];
 var EAP_CLOUD_RESUME_SHEETS = [
   'eap-v132-events','attempts','evidence','summary','events',
   'EAP_Attempts','EAP_Evidence','EAP_Summary','eap-v132-quality-audit'
 ];
+
 function eapPlayerResume_(p) {
   p = p || {};
   var studentId = eapCloudResumeText_(p.studentId || p.id || p.playerId || '');
   var requestedName = eapCloudResumeText_(p.studentName || p.name || '');
   var section = eapCloudResumeText_(p.section || '122') || '122';
   if (!studentId) return {ok:false,service:'eap-cloud-resume',version:EAP_CLOUD_RESUME_VERSION,error:'missing_studentId'};
+
   var ss = eapCloudResumeSpreadsheet_();
   var all = [], scanned = [], ignored = 0;
   EAP_CLOUD_RESUME_SHEETS.forEach(function(sheetName){
@@ -31,30 +33,130 @@ function eapPlayerResume_(p) {
     all = all.concat(result.rows);
     ignored += result.ignored;
   });
+
   var records = eapCloudResumeDeduplicate_(all);
-  var resolvedName = eapCloudResumeResolveStudentName_(records) || requestedName;
+  var identity = eapCloudResumeIdentityAudit_(records, requestedName);
+  var official = eapCloudResumeBuildOfficialProgress_(records);
+
   return {
-    ok:true,service:'eap-cloud-resume',version:EAP_CLOUD_RESUME_VERSION,
-    authorityMode:'sheet-only',studentId:studentId,studentName:resolvedName,section:section,
-    identityFound:!!eapCloudResumeResolveStudentName_(records),
-    recordCount:records.length,records:records,scannedSheets:scanned,
-    ignoredInvalidRouteRows:ignored,validRouteOrder:EAP_CLOUD_RESUME_ROUTE_ORDER.slice(),
-    latestActivity:records.length ? records[records.length-1].updatedAt : '',
+    ok:true,
+    service:'eap-cloud-resume',
+    version:EAP_CLOUD_RESUME_VERSION,
+    authorityMode:'sheet-only',
+    progressPolicy:'first-incomplete-route-four-skills',
+    studentId:studentId,
+    studentName:identity.resolvedName,
+    requestedName:requestedName,
+    section:section,
+    identityFound:identity.found,
+    identityStatus:identity.status,
+    identityNameVariants:identity.nameVariants,
+    identityConflict:identity.conflict,
+    dataQualityStatus:identity.conflict ? 'IDENTITY_REVIEW' : 'OK',
+    recordCount:records.length,
+    records:records,
+    routeProgress:official.routeProgress,
+    sessionProgress:official.routeProgress,
+    passedRoutes:official.passedRoutes,
+    completedRoutes:official.passedRoutes,
+    unlockedRouteList:official.unlockedRouteList,
+    unlockedRoutes:official.unlockedRoutes,
+    unlockedSessions:official.unlockedSessions,
+    currentRoute:official.currentRoute,
+    currentCloudRoute:official.currentRoute,
+    nextRoute:official.currentRoute,
+    courseCompleted:official.courseCompleted,
+    scannedSheets:scanned,
+    ignoredInvalidRouteRows:ignored,
+    validRouteOrder:EAP_CLOUD_RESUME_ROUTE_ORDER.slice(),
+    requiredSkills:EAP_CLOUD_RESUME_REQUIRED_SKILLS.slice(),
+    latestActivity:official.latestActivity,
     generatedAt:new Date().toISOString(),
     serverRevision:Utilities.formatDate(new Date(),Session.getScriptTimeZone() || 'Asia/Bangkok',"yyyyMMdd'T'HHmmss")
   };
 }
-function eapCloudResumeResolveStudentName_(records){
-  var counts = {}, order = [];
+
+function eapCloudResumeBuildOfficialProgress_(records){
+  var byRoute = {};
+  EAP_CLOUD_RESUME_ROUTE_ORDER.forEach(function(routeId){
+    var skills = {};
+    EAP_CLOUD_RESUME_REQUIRED_SKILLS.forEach(function(skill){
+      skills[skill] = {passed:false,score:0,updatedAt:'',sourceSheet:'',teacherReviewStatus:''};
+    });
+    byRoute[routeId] = {routeId:routeId,completed:false,passed:false,skills:skills,passedSkillCount:0,requiredSkillCount:4,updatedAt:''};
+  });
+
+  (records || []).forEach(function(record){
+    var routeId = eapCloudResumeRouteId_(record.sessionId || record.routeId);
+    var skill = eapCloudResumeCanonicalSkill_(record.skill);
+    if (!byRoute[routeId] || !skill) return;
+    var target = byRoute[routeId].skills[skill];
+    if (!target) return;
+    target.passed = record.passed === true;
+    target.score = Number(record.bestScore || record.score || 0);
+    target.updatedAt = record.updatedAt || '';
+    target.sourceSheet = record.sourceSheet || '';
+    target.teacherReviewStatus = record.teacherReviewStatus || '';
+    if (String(target.updatedAt) > String(byRoute[routeId].updatedAt)) byRoute[routeId].updatedAt = target.updatedAt;
+  });
+
+  var passedRoutes = [], currentRoute = '', latestActivity = '';
+  EAP_CLOUD_RESUME_ROUTE_ORDER.forEach(function(routeId){
+    var route = byRoute[routeId];
+    var count = 0;
+    EAP_CLOUD_RESUME_REQUIRED_SKILLS.forEach(function(skill){ if (route.skills[skill].passed === true) count++; });
+    route.passedSkillCount = count;
+    route.completed = count === EAP_CLOUD_RESUME_REQUIRED_SKILLS.length;
+    route.passed = route.completed;
+    if (route.completed && !currentRoute) passedRoutes.push(routeId);
+    else if (!currentRoute) currentRoute = routeId;
+    if (String(route.updatedAt) > String(latestActivity)) latestActivity = route.updatedAt;
+  });
+
+  var courseCompleted = !currentRoute;
+  if (courseCompleted) currentRoute = 'B5';
+  var unlockedRouteList = passedRoutes.slice();
+  if (unlockedRouteList.indexOf(currentRoute) < 0) unlockedRouteList.push(currentRoute);
+  var unlockedRoutes = {}, unlockedSessions = {};
+  unlockedRouteList.forEach(function(routeId){
+    unlockedRoutes[routeId] = true;
+    var m = routeId.match(/^S(\d+)$/);
+    if (m) unlockedSessions[String(Number(m[1]))] = true;
+  });
+
+  return {
+    routeProgress:byRoute,
+    passedRoutes:passedRoutes,
+    currentRoute:currentRoute,
+    courseCompleted:courseCompleted,
+    unlockedRouteList:unlockedRouteList,
+    unlockedRoutes:unlockedRoutes,
+    unlockedSessions:unlockedSessions,
+    latestActivity:latestActivity
+  };
+}
+
+function eapCloudResumeIdentityAudit_(records, requestedName){
+  var counts = {}, display = {};
   (records || []).forEach(function(record){
     var name = eapCloudResumeText_(record && record.studentName || '');
     if (!name) return;
-    if (!counts[name]) { counts[name] = 0; order.push(name); }
-    counts[name]++;
+    var key = name.toLocaleUpperCase();
+    counts[key] = (counts[key] || 0) + 1;
+    if (!display[key]) display[key] = name;
   });
-  order.sort(function(a,b){ return counts[b] - counts[a]; });
-  return order.length ? order[0] : '';
+  var keys = Object.keys(counts).sort(function(a,b){ return counts[b]-counts[a]; });
+  var requestedKey = eapCloudResumeText_(requestedName).toLocaleUpperCase();
+  var resolved = requestedKey && display[requestedKey] ? display[requestedKey] : (keys.length ? display[keys[0]] : requestedName);
+  return {
+    found:keys.length > 0,
+    resolvedName:resolved || requestedName,
+    nameVariants:keys.map(function(key){return {name:display[key],count:counts[key]};}),
+    conflict:keys.length > 1,
+    status:keys.length > 1 ? 'multiple_names_same_student_id_section' : (keys.length ? 'verified' : 'not_found')
+  };
 }
+
 function eapCloudResumeRowsFromSheet_(sheet,sheetName,studentId,section){
   var lastRow=sheet.getLastRow(),lastCol=sheet.getLastColumn(),out=[],ignored=0;
   if(lastRow<2||lastCol<1)return{rows:out,ignored:ignored};
@@ -78,15 +180,16 @@ function eapCloudResumeRowsFromSheet_(sheet,sheetName,studentId,section){
   });
   return{rows:out,ignored:ignored};
 }
+
 function eapCloudResumeNormalizeRecord_(obj,sheetName,studentId,section){
   obj=obj||{};
   var routeId=eapCloudResumeRouteId_(eapCloudResumePick_(obj,['routeId','sessionId','session','missionId','stage']));
-  var skill=eapCloudResumeSkill_(eapCloudResumePick_(obj,['skill','skillName','skillKey','focusSkill']));
+  var skill=eapCloudResumeCanonicalSkill_(eapCloudResumePick_(obj,['skill','skillName','skillKey','focusSkill']));
   if(!routeId||!skill||!eapCloudResumeIsValidRoute_(routeId))return null;
   var score=eapCloudResumeNumber_(eapCloudResumePick_(obj,['bestScore','latestScore','score','teacherScore']),0);
   var accuracy=eapCloudResumeNumber_(eapCloudResumePick_(obj,['bestAccuracy','accuracy','accuracyPct','accPct']),'');
   var basePassed=eapCloudResumeBool_(eapCloudResumePick_(obj,['passed','pass','mastered','verifiedPassed']))||score>=60;
-  var reviewRequired=eapCloudResumeBool_(obj.teacherReviewRequired)||(/^B[1-5]$/.test(routeId)&&skill.toLowerCase()==='speaking');
+  var reviewRequired=eapCloudResumeBool_(obj.teacherReviewRequired)||(/^B[1-5]$/.test(routeId)&&skill==='Speaking');
   var reviewStatus=eapCloudResumeText_(obj.teacherReviewStatus||obj.reviewStatus||'').toLowerCase();
   var reviewPass=true;
   if(reviewRequired){
@@ -106,10 +209,11 @@ function eapCloudResumeNormalizeRecord_(obj,sheetName,studentId,section){
     teacherReviewRequired:reviewRequired,teacherReviewStatus:reviewStatus,legacyCompletion:legacy
   };
 }
+
 function eapCloudResumeDeduplicate_(rows){
   var best={};
   (rows||[]).forEach(function(row){
-    var key=row.sessionId+'|'+eapCloudResumeSkill_(row.skill).toLowerCase();
+    var key=row.sessionId+'|'+eapCloudResumeCanonicalSkill_(row.skill);
     var current=best[key];
     if(!current){best[key]=row;return;}
     if(row.passed&&!current.passed){best[key]=row;return;}
@@ -122,12 +226,16 @@ function eapCloudResumeDeduplicate_(rows){
     return ai!==bi?ai-bi:String(a.skill).localeCompare(String(b.skill));
   });
 }
-function eapCloudResumeMerge_(nested,direct){
-  var out={},n=nested&&typeof nested==='object'?nested:{},d=direct&&typeof direct==='object'?direct:{};
-  Object.keys(n).forEach(function(k){out[k]=n[k];});
-  Object.keys(d).forEach(function(k){var v=d[k];if(v!==''&&v!==null&&v!==undefined)out[k]=v;});
-  return out;
+
+function eapCloudResumeCanonicalSkill_(v){
+  var s=eapCloudResumeText_(v).toLowerCase().replace(/[^a-z]/g,'');
+  if(s==='listening'||s==='listen')return'Listening';
+  if(s==='speaking'||s==='speak')return'Speaking';
+  if(s==='reading'||s==='read')return'Reading';
+  if(s==='writing'||s==='write')return'Writing';
+  return'';
 }
+function eapCloudResumeMerge_(nested,direct){var out={},n=nested&&typeof nested==='object'?nested:{},d=direct&&typeof direct==='object'?direct:{};Object.keys(n).forEach(function(k){out[k]=n[k];});Object.keys(d).forEach(function(k){var v=d[k];if(v!==''&&v!==null&&v!==undefined)out[k]=v;});return out;}
 function eapCloudResumeParseJson_(value){try{var v=JSON.parse(String(value||'{}'));return v&&typeof v==='object'?v:{};}catch(_){return{};}}
 function eapCloudResumeObject_(headers,row){var obj={};headers.forEach(function(h,i){if(h)obj[h]=row[i];});return obj;}
 function eapCloudResumePick_(obj,keys){for(var i=0;i<keys.length;i++){var v=obj[keys[i]];if(v!==''&&v!==null&&v!==undefined)return v;}return '';}
@@ -135,7 +243,6 @@ function eapCloudResumeText_(v){return String(v==null?'':v).replace(/\s+/g,' ').
 function eapCloudResumeNumber_(v,fallback){var n=Number(v);return isFinite(n)?n:fallback;}
 function eapCloudResumeBool_(v){return v===true||String(v).toLowerCase()==='true'||String(v)==='1'||String(v).toLowerCase()==='yes';}
 function eapCloudResumeRouteId_(v){var raw=eapCloudResumeText_(v).toUpperCase(),m;if(/^\d+$/.test(raw))return'S'+Number(raw);m=raw.match(/^S(?:ESSION)?\s*0?(1[0-5]|[1-9])$/);if(m)return'S'+Number(m[1]);m=raw.match(/^B(?:OSS)?\s*0?([1-5])$/);if(m)return'B'+Number(m[1]);return raw;}
-function eapCloudResumeSkill_(v){var s=eapCloudResumeText_(v).toLowerCase();return s?s.charAt(0).toUpperCase()+s.slice(1):'';}
 function eapCloudResumeIsValidRoute_(routeId){return EAP_CLOUD_RESUME_ROUTE_ORDER.indexOf(eapCloudResumeRouteId_(routeId))>=0;}
 function eapCloudResumeSpreadsheet_(){
   if(typeof eapSheetV132Spreadsheet_==='function')return eapSheetV132Spreadsheet_();
