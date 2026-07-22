@@ -1,0 +1,46 @@
+CSAI2102 AI QUEST — TEACHER PROGRESS ROUTER PATCH v1
+
+1) เพิ่มไฟล์ AIQuestTeacherProgress_Receiver.gs เข้า Apps Script โปรเจกต์เดียวกับ Code.gs และ AIQuestFlow_Receiver.gs
+
+2) เปิด Code.gs และหา function doPost(e)
+
+3) หลัง parse payload แล้ว และก่อน Router ทั่วไป ให้เพิ่ม:
+
+// =====================================================
+// AI QUEST TEACHER PROGRESS ROUTER
+// Multi-student class overview and student detail
+// =====================================================
+if (
+  String(payload.module || '').trim().toUpperCase() === 'AIQTEACHER' ||
+  String(payload.action || '').trim().toUpperCase() === 'GET_CLASS_OVERVIEW' ||
+  String(payload.action || '').trim().toUpperCase() === 'GET_STUDENT_DETAIL'
+) {
+  if (
+    typeof AIQTEACHER === 'undefined' ||
+    typeof AIQTEACHER.handle !== 'function'
+  ) {
+    return jsonOut({
+      ok: false,
+      code: 'AIQTEACHER_MODULE_MISSING',
+      action: payload.action || '',
+      module: payload.module || ''
+    });
+  }
+  return jsonOut(AIQTEACHER.handle(payload));
+}
+
+ข้อสำคัญ
+- ต้องมี AIQuestFlow_Receiver.gs เพราะ AIQTEACHER ใช้ฟังก์ชันอ่าน Mission/Coding/Reflection จาก AIQFLOW
+- ห้ามสร้าง doPost(e) ใหม่
+- Save แล้ว Deploy > Manage deployments > Edit > New version > Deploy
+
+Actions
+- GET_CLASS_OVERVIEW: รับ section, query
+- GET_STUDENT_DETAIL: รับ section, studentId
+
+Sheets ที่อ่าน
+- student_profiles / students-profile / profiles / student_profile
+- session_attempts / attempts / teacher_summary / session_summary
+- coding_attempts
+- aiquest_reflections
+- aiquest_session_completion
