@@ -1,0 +1,28 @@
+{
+  "release": "20260722-AIQUEST-FRONTEND-COMPLETE-V1",
+  "course": "CSAI2102",
+  "section": "101",
+  "backendDeferred": true,
+  "officialProgressSource": "Google Sheet / Apps Script when backend work resumes",
+  "order": ["S1","S2","S3","B1","S4","S5","S6","B2","S7","S8","S9","B3","S10","S11","S12","B4","S13","S14","S15","B5"],
+  "frontend": {
+    "map": "course-map-all-v716.html",
+    "integratedSession": "student-session-integrated-v720.html",
+    "mission": "student-aiquest-all-mission-v711.html",
+    "codingLab": "web/coding-lab.html",
+    "codingData": "web/labs.json",
+    "qa": "frontend-qa-v1.html"
+  },
+  "completionRule": ["mission", "coding", "reflection"],
+  "contentStatus": {
+    "missions": 20,
+    "codingLabs": 20,
+    "reflectionSets": 20,
+    "bosses": 5
+  },
+  "notes": [
+    "Frontend content and navigation are complete for S1-S15 and B1-B5.",
+    "Apps Script deployment and live Sheet submission testing are intentionally deferred.",
+    "S14 is Reinforcement Learning; S15 is NLP, Generative AI and RAG."
+  ]
+}
