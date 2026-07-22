@@ -1,0 +1,21 @@
+import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+
+const VERSION='goodjunk-hand-runtime-v11.0.0';
+const DESKTOP=matchMedia('(pointer:fine)').matches&&innerWidth>760;
+const WASM='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
+const MODEL='https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+let model,initPromise,stream,video,work,workCtx,running=false,busy=false,timer=0,cursor=null,noHand=0;
+const state={version:VERSION,workerReady:false,detected:false,delegate:'',inferenceMs:0,profile:DESKTOP?'desktop-fast':'mobile-safe',error:''};
+function status(t,c='handLite'){const b=document.querySelector('.missionBox');b?.classList.remove('handLite','touchRescue','cameraLite');b?.classList.add(c);if(b)b.dataset.handStatus=t;const m=document.getElementById('loadMsg');if(m)m.textContent=t}
+function smooth(p){if(!cursor)cursor={...p};const a=DESKTOP?.82:.68;cursor.x+=(p.x-cursor.x)*a;cursor.y+=(p.y-cursor.y)*a;return cursor}
+async function load(){if(model)return model;if(initPromise)return initPromise;initPromise=(async()=>{status('กำลังโหลด Hand AR v11…');const r=await FilesetResolver.forVisionTasks(WASM);const opt=d=>({baseOptions:{modelAssetPath:MODEL,delegate:d},runningMode:'VIDEO',numHands:1,minHandDetectionConfidence:DESKTOP?.35:.20,minHandPresenceConfidence:DESKTOP?.35:.20,minTrackingConfidence:DESKTOP?.35:.20});try{model=await HandLandmarker.createFromOptions(r,opt('GPU'));state.delegate='GPU'}catch(e){model=await HandLandmarker.createFromOptions(r,opt('CPU'));state.delegate='CPU'}state.workerReady=true;return model})().catch(e=>{state.error=String(e?.message||e);initPromise=null;throw e});return initPromise}
+async function camera(target){stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:DESKTOP?960:640},height:{ideal:DESKTOP?540:480},frameRate:{ideal:DESKTOP?30:18,max:DESKTOP?30:20}}});window.__GJ_CAMERA_STREAM__=stream;target.srcObject=stream;target.muted=true;target.playsInline=true;await target.play()}
+function prep(){work=document.createElement('canvas');work.width=DESKTOP?320:224;work.height=DESKTOP?180:126;workCtx=work.getContext('2d',{alpha:false,desynchronized:true})}
+function delay(){if(DESKTOP)return state.inferenceMs>80?110:70;return state.inferenceMs>500?950:state.inferenceMs>250?650:420}
+function schedule(){clearTimeout(timer);if(!running)return;timer=setTimeout(()=>infer().finally(schedule),delay())}
+async function infer(){if(!running||busy||document.hidden||!model||video.readyState<2)return;busy=true;const t=performance.now();try{workCtx.drawImage(video,0,0,work.width,work.height);const r=model.detectForVideo(work,t);state.inferenceMs=Math.round(performance.now()-t);const h=r?.landmarks?.[0];if(!h){state.detected=false;window.__GJ_HAND_POINTS__=[];if(++noHand>2)status('ถอยมือให้เห็นทั้งฝ่ามือ');return}noHand=0;state.detected=true;const i=h[8],p=smooth({x:(1-i.x)*innerWidth,y:i.y*innerHeight});window.__GJ_HAND_POINTS__=[p];status(`ตรวจพบนิ้ว • ${state.delegate} ${state.inferenceMs}ms`);window.__GJ_SELECT_AT__?.(p.x,p.y,'hand-v11');window.__GJ_HANDLANDMARKER_STATUS__={...state,cursor:p}}catch(e){state.error=String(e?.message||e);status('Hand AR สะดุด • แตะสำรองได้','touchRescue')}finally{busy=false}}
+async function waitBridge(){const t=performance.now();while(performance.now()-t<5000){if(typeof window.__GJ_SELECT_AT__==='function')return;await new Promise(r=>setTimeout(r,50))}throw new Error('selection bridge unavailable')}
+async function start(v){stop(false);video=v;prep();await Promise.all([load(),camera(v),waitBridge()]);running=true;window.__GJ_HAND_POINTS__=[];status(`Hand AR v11 พร้อม • ${state.profile}`);schedule();return true}
+function stop(close=true){running=false;clearTimeout(timer);busy=false;window.__GJ_HAND_POINTS__=[];if(close&&stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
+window.GJMobileHandV7={VERSION,state,start,stop,preload:load,retryNow:async()=>{running=true;schedule();return true}};
+setTimeout(()=>load().catch(()=>{}),200);window.addEventListener('pagehide',()=>stop(true));
