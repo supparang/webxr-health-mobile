@@ -1,5 +1,5 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-MOBILE-V1",
+  platformVersion: "2026.07-CLASSROOM60-MOBILE-TOOTHBRUSH-V2",
   appName: "HeroHealth Learning Platform",
   deploymentState: "QA_TEST_OPEN",
   sourceOfTruthMode: "qa-roster-guarded-frontend",
@@ -47,7 +47,7 @@ window.HH_CONFIG = {
       description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
         { id:"handwash", title:"Handwash Realistic AR", thai:"ภารกิจล้างมือ", url:"../herohealth/hygiene-zone/handwash-realistic-v3.html", status:"classroom-core", requiredReturnContract:true },
-        { id:"toothbrush", title:"Toothbrush AR", thai:"ภารกิจแปรงฟัน", url:"../herohealth/vr-brush-kids/brush-launcher.html", status:"classroom-core", requiredReturnContract:true },
+        { id:"toothbrush", title:"Toothbrush Classroom Mobile", thai:"ภารกิจแปรงฟัน", url:"../herohealth/vr-brush-kids/toothbrush-classroom-mobile.html", status:"classroom-core-mobile-v2", requiredReturnContract:true },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"clean-objects", title:"Clean Objects", thai:"ภารกิจทำความสะอาดสิ่งของ", url:"../herohealth/clean-objects-v3/clean-objects.html", status:"catalog-only", requiredReturnContract:true },
