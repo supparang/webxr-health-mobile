@@ -1,14 +1,15 @@
 /* =========================================================
-   EAP Hero • ID-first Profile v117
+   EAP Hero • ID-first Profile v118
    - Student enters Student ID + Section first.
    - Looks up the official name from Sheet via player_resume.
-   - Shows manual name input only when no matching Sheet identity exists.
+   - If Sheet is unavailable or no identity is found, immediately opens
+     the manual name field so testing/gameplay is never blocked.
    - Preserves EAPPlayerProfile player-scoped storage and resume flow.
 ========================================================= */
 (function(){
   'use strict';
 
-  var VERSION='20260722-EAP-ID-FIRST-PROFILE-V117';
+  var VERSION='20260722-EAP-ID-FIRST-PROFILE-V118-NONBLOCKING-FALLBACK';
   var ENDPOINT=String((window.EAP_SHEET_CONFIG||{}).webAppUrl||'');
   var MODAL_ID='eap-profile-modal-v116';
   var STYLE_ID='eap-profile-id-first-v117-style';
@@ -50,7 +51,7 @@
       if(!ENDPOINT){reject(new Error('missing_endpoint'));return;}
       var callback='__eapIdentityLookup_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
       var script=document.createElement('script'),finished=false;
-      var timeout=setTimeout(function(){finish();reject(new Error('timeout'));},25000);
+      var timeout=setTimeout(function(){finish();reject(new Error('timeout'));},8000);
       function finish(){
         if(finished)return;finished=true;clearTimeout(timeout);
         try{delete window[callback];}catch(_){window[callback]=undefined;}
@@ -68,11 +69,11 @@
       document.head.appendChild(script);
     });
   }
-  function saveAndContinue(profile,wrap,msg,button){
+  function saveAndContinue(profile,wrap,msg,button,fromSheet){
     try{
       var ok=window.EAPPlayerProfile&&typeof window.EAPPlayerProfile.save==='function'&&window.EAPPlayerProfile.save(profile);
       if(!ok){status(msg,'ไม่สามารถบันทึกข้อมูลในเบราว์เซอร์นี้ได้','error');button.disabled=false;button.textContent='เรียนต่อ';return;}
-      status(msg,'พบข้อมูลแล้ว กำลังเปิดความคืบหน้าจาก Sheet…','ok');
+      status(msg,fromSheet?'พบข้อมูลแล้ว กำลังเปิดความคืบหน้าจาก Sheet…':'บันทึกผู้เล่นทดสอบแล้ว กำลังเข้าสู่เกม…','ok');
       setTimeout(function(){wrap.remove();location.reload();},450);
     }catch(err){
       status(msg,'เกิดข้อผิดพลาดขณะบันทึกข้อมูล กรุณาลองอีกครั้ง','error');
@@ -97,12 +98,18 @@
 
     var found=document.createElement('div');found.className='eap117-found-name';found.hidden=true;
     nameWrap.parentNode.insertBefore(found,nameWrap);
-    var help=document.createElement('p');help.className='eap117-help';help.textContent='กรอกรหัสนักศึกษาและ Section ก่อน ระบบจะค้นหาชื่อจาก Sheet ให้อัตโนมัติ';
+    var help=document.createElement('p');help.className='eap117-help';help.textContent='กรอกรหัสนักศึกษาและ Section ก่อน ระบบจะลองค้นหาชื่อจาก Sheet ให้อัตโนมัติ';
     idEl.insertAdjacentElement('afterend',help);
     oldMsg.className='eap117-lookup-status';
     status(oldMsg,'พร้อมค้นหาข้อมูลผู้เรียนจาก Sheet','');
 
     function resetIdentity(){found.hidden=true;found.textContent='';nameWrap.hidden=true;nameEl.value='';status(oldMsg,'พร้อมค้นหาข้อมูลผู้เรียนจาก Sheet','');}
+    function openManual(message,kind){
+      found.hidden=true;found.textContent='';nameWrap.hidden=false;nameEl.value='';
+      status(oldMsg,message,kind||'warn');
+      button.disabled=false;button.textContent='เรียนต่อ';
+      setTimeout(function(){nameEl.focus();},50);
+    }
     idEl.addEventListener('input',resetIdentity);
     secEl.addEventListener('input',resetIdentity);
 
@@ -114,9 +121,9 @@
 
       if(!nameWrap.hidden){
         var manualName=clean(nameEl.value);
-        if(!manualName){status(oldMsg,'ไม่พบรหัสใน Sheet กรุณากรอกชื่อ-นามสกุล','error');nameEl.focus();return;}
+        if(!manualName){status(oldMsg,'กรุณากรอกชื่อ-นามสกุลหรือชื่อทดสอบ','error');nameEl.focus();return;}
         button.disabled=true;button.textContent='กำลังบันทึก…';
-        saveAndContinue({studentId:studentId,studentName:manualName,section:section},wrap,oldMsg,button);
+        saveAndContinue({studentId:studentId,studentName:manualName,section:section},wrap,oldMsg,button,false);
         return;
       }
 
@@ -130,15 +137,13 @@
           found.hidden=false;found.textContent='✓ '+officialName;
           nameEl.value=officialName;
           button.textContent='กำลังเปิด…';
-          saveAndContinue({studentId:studentId,studentName:officialName,section:section},wrap,oldMsg,button);
+          saveAndContinue({studentId:studentId,studentName:officialName,section:section},wrap,oldMsg,button,true);
           return;
         }
-        nameWrap.hidden=false;nameEl.value='';nameEl.focus();
-        status(oldMsg,'ไม่พบรหัสนี้ใน Sheet กรุณากรอกชื่อ-นามสกุลเพื่อเริ่มใหม่ที่ S1','warn');
+        openManual('ไม่พบรหัสนี้ใน Sheet กรุณากรอกชื่อเพื่อเริ่มใหม่ที่ S1','warn');
       }catch(err){
-        status(oldMsg,'เชื่อมต่อ Sheet ไม่สำเร็จ กรุณาลองอีกครั้ง','error');
+        openManual('ขณะนี้ยังเชื่อม Sheet ไม่ได้ กรุณากรอกชื่อเพื่อทดสอบเกมต่อได้ทันที','warn');
       }
-      button.disabled=false;button.textContent='เรียนต่อ';
     };
     document.documentElement.dataset.eapProfileFlowVersion=VERSION;
   }
