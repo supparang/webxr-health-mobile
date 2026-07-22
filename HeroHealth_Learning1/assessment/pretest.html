@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f766e"><title>HeroHealth Pre-test</title><style>
+:root{font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;color:#12302c;background:#f3fbf9}*{box-sizing:border-box}body{margin:0}.wrap{width:min(860px,100%);margin:auto;padding:18px}.head,.card{background:#fff;border:1px solid #d6e9e4;border-radius:22px;box-shadow:0 12px 30px rgba(15,118,110,.1)}.head{padding:22px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff}.head p{margin:6px 0 0;color:#d9fffa}.card{padding:18px;margin-top:14px}.q{font-size:18px;font-weight:900;margin-bottom:12px}.opts{display:grid;gap:9px}.opt{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid #cfe3df;border-radius:14px;cursor:pointer}.opt:has(input:checked){border-color:#0f766e;background:#e8f8f4}.btn{width:100%;border:0;border-radius:15px;padding:14px;font:inherit;font-weight:900;background:#0f766e;color:#fff;cursor:pointer}.muted{color:#5f7470}.progress{height:10px;background:#dcebe8;border-radius:99px;overflow:hidden}.progress i{display:block;height:100%;background:#14b8a6}.hidden{display:none}</style></head>
+<body><main class="wrap"><section class="head"><small>HSAS-P5 • QA FORM A</small><h1>Pre-test ก่อนเริ่มภารกิจ</h1><p id="who">กำลังตรวจข้อมูลผู้เล่น</p><div class="progress"><i id="bar" style="width:0%"></i></div></section><form id="form"></form><section id="result" class="card hidden"></section></main><script>
+(()=>{'use strict';const q=new URLSearchParams(location.search);const sid=q.get('studentId')||'';const back=q.get('return')||'../index.html';document.getElementById('who').textContent=`รหัส ${sid||'-'} • 15 ข้อ • ใช้เวลาประมาณ 5 นาที`;
+const items=[
+['ก่อนกินอาหารควรทำอะไร',['ล้างมือด้วยสบู่','เช็ดมือกับเสื้อ','เป่ามืออย่างเดียว','ไม่ต้องทำอะไร'],0],
+['เมื่อจะจามควรปิดปากและจมูกด้วยอะไร',['ข้อพับแขน','ฝ่ามือแล้วจับของต่อ','ไหล่เพื่อน','ไม่ต้องปิด'],0],
+['ของใช้ใดไม่ควรใช้ร่วมกัน',['แปรงสีฟัน','หนังสือ','ลูกบอล','ดินสอสี'],0],
+['หลังเล่นจนเหงื่อออกควรทำอย่างไร',['อาบน้ำและเปลี่ยนเสื้อผ้า','ใส่เสื้อตัวเดิมนอน','ฉีดน้ำหอมแทน','ไม่ต้องทำอะไร'],0],
+['เมื่อพบพื้นเปียกควรทำอย่างไร',['แจ้งผู้ใหญ่และหลีกเลี่ยง','วิ่งข้าม','ชวนเพื่อนกระโดด','ปล่อยไว้'],0],
+['เมื่อกระหายน้ำควรเลือกอะไร',['น้ำเปล่า','น้ำอัดลม','ชานม','น้ำหวาน'],0],
+['จานอาหารที่ดีควรเป็นอย่างไร',['มีอาหารหลายกลุ่มพอเหมาะ','มีของทอดทั้งหมด','มีขนมทั้งหมด','มีข้าวอย่างเดียว'],0],
+['ข้อใดเป็นอาหารกลุ่มโปรตีน',['ไข่','น้ำหวาน','ลูกอม','น้ำอัดลม'],0],
+['วิธีใดช่วยลดน้ำตาล',['เลือกหวานน้อยหรือไม่หวาน','เติมน้ำเชื่อม','เพิ่มท็อปปิง','ดื่มหลายแก้ว'],0],
+['ของว่างใดเหมาะกว่า',['ผลไม้สด','ลูกอม','มันทอด','น้ำอัดลม'],0],
+['ก่อนออกกำลังกายควรทำอะไร',['อบอุ่นร่างกาย','วิ่งเต็มแรงทันที','นั่งนิ่ง','กินมื้อใหญ่'],0],
+['เมื่อรู้สึกเจ็บระหว่างเล่นควรทำอย่างไร',['หยุดและบอกครู','ฝืนเล่นต่อ','เพิ่มความเร็ว','ไม่บอกใคร'],0],
+['กิจกรรมใดช่วยฝึกการทรงตัว',['ยืนขาเดียวอย่างปลอดภัย','นั่งอ่าน','ร้องเพลง','วาดรูป'],0],
+['หลังออกกำลังกายควรเลือกอะไร',['น้ำเปล่า','น้ำอัดลม','น้ำหวานจัด','ชานม'],0],
+['นิสัยใดเหมาะสมที่สุด',['เคลื่อนไหวสม่ำเสมอและพักพอ','ออกแรงหนักวันเดียว','นั่งทั้งวัน','เล่นแม้เจ็บ'],0]
+];
+const form=document.getElementById('form');form.innerHTML=items.map((it,i)=>`<section class="card"><div class="q">${i+1}. ${it[0]}</div><div class="opts">${it[1].map((o,j)=>`<label class="opt"><input type="radio" name="q${i}" value="${j}" required><span>${String.fromCharCode(65+j)}. ${o}</span></label>`).join('')}</div></section>`).join('')+`<section class="card"><button class="btn">ส่งคำตอบ Pre-test</button><p class="muted">ต้องตอบครบทุกข้อก่อนส่ง</p></section>`;
+form.addEventListener('change',()=>{const n=form.querySelectorAll('input:checked').length;document.getElementById('bar').style.width=`${n/items.length*100}%`});
+form.addEventListener('submit',e=>{e.preventDefault();let score=0;items.forEach((it,i)=>{if(Number(new FormData(form).get(`q${i}`))===it[2])score++});form.classList.add('hidden');const r=document.getElementById('result');r.classList.remove('hidden');r.innerHTML=`<h2>ส่ง Pre-test แล้ว</h2><p>คะแนนทดสอบ ${score}/15</p><button id="back" class="btn">กลับ HeroHealth</button>`;document.getElementById('back').onclick=()=>{const u=new URL(back,location.href);u.searchParams.set('hhReturn','assessment');u.searchParams.set('task','pretest');u.searchParams.set('score',score);u.searchParams.set('studentId',sid);location.href=u.href};window.scrollTo({top:0,behavior:'smooth'})});})();
+</script></body></html>
