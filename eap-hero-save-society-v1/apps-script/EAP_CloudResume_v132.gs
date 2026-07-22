@@ -1,12 +1,13 @@
 /* =========================================================
-   EAP Hero Cloud Resume v133 — Sheet Authority + Boss Review
+   EAP Hero Cloud Resume v134 — Sheet Authority + Identity Lookup
    - player_resume is the sole official source for progress/unlocks.
    - Reads direct columns and nested valueJson event payloads.
    - Returns only valid S1–S15 / B1–B5 records for studentId + section.
+   - Resolves the official student name from matching Sheet records.
    - Boss Speaking is not passed while review is pending/revise/missing.
    - Uses TextFinder on the studentId column instead of scanning whole sheets.
 ========================================================= */
-var EAP_CLOUD_RESUME_VERSION = 'v20260714-EAP-CLOUD-RESUME-V133-SHEET-AUTHORITY-BOSS-REVIEW-TEXTFINDER';
+var EAP_CLOUD_RESUME_VERSION = 'v20260722-EAP-CLOUD-RESUME-V134-IDENTITY-LOOKUP';
 var EAP_CLOUD_RESUME_ROUTE_ORDER = [
   'S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'
 ];
@@ -17,7 +18,7 @@ var EAP_CLOUD_RESUME_SHEETS = [
 function eapPlayerResume_(p) {
   p = p || {};
   var studentId = eapCloudResumeText_(p.studentId || p.id || p.playerId || '');
-  var studentName = eapCloudResumeText_(p.studentName || p.name || '');
+  var requestedName = eapCloudResumeText_(p.studentName || p.name || '');
   var section = eapCloudResumeText_(p.section || '122') || '122';
   if (!studentId) return {ok:false,service:'eap-cloud-resume',version:EAP_CLOUD_RESUME_VERSION,error:'missing_studentId'};
   var ss = eapCloudResumeSpreadsheet_();
@@ -31,15 +32,28 @@ function eapPlayerResume_(p) {
     ignored += result.ignored;
   });
   var records = eapCloudResumeDeduplicate_(all);
+  var resolvedName = eapCloudResumeResolveStudentName_(records) || requestedName;
   return {
     ok:true,service:'eap-cloud-resume',version:EAP_CLOUD_RESUME_VERSION,
-    authorityMode:'sheet-only',studentId:studentId,studentName:studentName,section:section,
+    authorityMode:'sheet-only',studentId:studentId,studentName:resolvedName,section:section,
+    identityFound:!!eapCloudResumeResolveStudentName_(records),
     recordCount:records.length,records:records,scannedSheets:scanned,
     ignoredInvalidRouteRows:ignored,validRouteOrder:EAP_CLOUD_RESUME_ROUTE_ORDER.slice(),
     latestActivity:records.length ? records[records.length-1].updatedAt : '',
     generatedAt:new Date().toISOString(),
     serverRevision:Utilities.formatDate(new Date(),Session.getScriptTimeZone() || 'Asia/Bangkok',"yyyyMMdd'T'HHmmss")
   };
+}
+function eapCloudResumeResolveStudentName_(records){
+  var counts = {}, order = [];
+  (records || []).forEach(function(record){
+    var name = eapCloudResumeText_(record && record.studentName || '');
+    if (!name) return;
+    if (!counts[name]) { counts[name] = 0; order.push(name); }
+    counts[name]++;
+  });
+  order.sort(function(a,b){ return counts[b] - counts[a]; });
+  return order.length ? order[0] : '';
 }
 function eapCloudResumeRowsFromSheet_(sheet,sheetName,studentId,section){
   var lastRow=sheet.getLastRow(),lastCol=sheet.getLastColumn(),out=[],ignored=0;
