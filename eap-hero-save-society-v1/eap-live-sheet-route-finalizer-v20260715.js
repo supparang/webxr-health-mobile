@@ -1,21 +1,19 @@
 /* =========================================================
    EAP Hero Live Sheet Route Finalizer v20260715
    FINAL CLOUD-FIRST ROUTE AUTHORITY / Section 122
-   V3 VERIFIED DIRECT SESSION LAUNCH
+   V4 LATE JSONP RESPONSE SAFE
    - Fetches player_resume live from Apps Script after profile is known.
    - Google Sheet response is the only authority for official progress/unlocks.
    - localStorage is used only to read the active identity and cache UI route.
-   - Never rewrites a generic ancestor with innerHTML.
-   - Refreshes only the owned Student Lobby fields.
-   - Start / Continue bypasses stale legacy route wrappers and launches the
-     exact Sheet-verified route (for example S4 must never fall back to B1).
+   - Keeps timed-out JSONP callbacks as no-op tombstones so late responses
+     never throw ReferenceError in the browser console.
 ========================================================= */
 (function(){
   'use strict';
-  if (window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V3__) return;
-  window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V3__ = true;
+  if (window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V4__) return;
+  window.__EAP_LIVE_SHEET_ROUTE_FINALIZER_V4__ = true;
 
-  var VERSION = 'v20260715-EAP-LIVE-SHEET-ROUTE-FINALIZER-V3-VERIFIED-DIRECT-LAUNCH';
+  var VERSION = 'v20260722-EAP-LIVE-SHEET-ROUTE-FINALIZER-V4-LATE-JSONP-SAFE';
   var ORDER = ['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
   var SKILLS = ['reading','listening','writing','speaking'];
   var PASS = 60;
@@ -133,9 +131,31 @@
     if (!p.studentId || !url || syncing || (!force && now-lastSync<12000)) return false;
     syncing=true; lastSync=now;
     var cb='__eapLiveFinal_'+now+'_'+Math.random().toString(36).slice(2,7);
-    var script=document.createElement('script'),done=false,timer;
-    function finish(){ if(done)return; done=true; syncing=false; clearTimeout(timer); try{delete window[cb];}catch(_){window[cb]=void 0;} if(script.parentNode)script.remove(); }
-    window[cb]=function(data){ finish(); applyLive(data,p); };
+    var script=document.createElement('script'),done=false,timer,cleanupTimer;
+    function tombstone(){
+      window[cb]=function(){ return false; };
+      clearTimeout(cleanupTimer);
+      cleanupTimer=setTimeout(function(){
+        try{ delete window[cb]; }catch(_){ window[cb]=void 0; }
+      },120000);
+    }
+    function finish(){
+      if(done)return;
+      done=true;
+      syncing=false;
+      clearTimeout(timer);
+      if(script.parentNode)script.remove();
+      tombstone();
+    }
+    window[cb]=function(data){
+      if(done)return false;
+      done=true;
+      syncing=false;
+      clearTimeout(timer);
+      if(script.parentNode)script.remove();
+      tombstone();
+      return applyLive(data,p);
+    };
     script.onerror=function(){ finish(); };
     timer=setTimeout(finish,20000);
     var u=new URL(url,location.href);
@@ -158,8 +178,6 @@
     var api=hero();
     if (!api) return false;
 
-    // Route Lock wraps skillHub and may still read an old B1 value from the
-    // oversized legacy state. Call its preserved canonical skillHub directly.
     if (typeof api.__skillHubRouteLockOriginalSkillHub === 'function') {
       api.__skillHubRouteLockCalling=true;
       try { api.__skillHubRouteLockOriginalSkillHub.call(api,sessionNo); }
