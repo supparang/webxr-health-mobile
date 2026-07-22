@@ -1,0 +1,31 @@
+@media (max-width: 760px) {
+  .missionBox.touchRescue::after,
+  .missionBox.handLite::after,
+  .missionBox.cameraLite::after {
+    content: attr(data-hand-status) !important;
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    color: #b91c1c;
+    font-size: .62rem;
+    font-weight: 900;
+    line-height: 1.15;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .missionBox.handLite::after {
+    color: #166534;
+  }
+
+  .missionBox[data-hand-status^='ตรวจพบมือแล้ว'] {
+    border-color: #22c55e;
+    background: rgba(240, 253, 244, .97);
+  }
+
+  .missionBox[data-hand-status^='กำลังเชื่อม'] {
+    border-color: #f59e0b;
+    background: rgba(255, 251, 235, .97);
+  }
+}

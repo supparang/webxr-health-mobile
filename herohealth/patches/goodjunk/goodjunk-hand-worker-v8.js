@@ -1,12 +1,14 @@
 import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
 
-const VERSION = 'goodjunk-hand-worker-v8.1.0';
+const VERSION = 'goodjunk-hand-worker-v8.3.0';
 const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
 const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 
 let landmarker = null;
 let ready = false;
 let initializing = false;
+let frameCanvas = null;
+let frameContext = null;
 
 function postError(stage, error, extra = {}) {
   postMessage({
@@ -24,6 +26,18 @@ async function init() {
   initializing = true;
   const started = performance.now();
   try {
+    if (typeof OffscreenCanvas !== 'function') {
+      throw new Error('OffscreenCanvas unsupported in Worker');
+    }
+
+    frameCanvas = new OffscreenCanvas(320, 180);
+    frameContext = frameCanvas.getContext('2d', {
+      alpha: false,
+      desynchronized: true,
+      willReadFrequently: false
+    });
+    if (!frameContext) throw new Error('Cannot create Worker 2D canvas');
+
     postMessage({ type: 'status', stage: 'wasm', message: 'กำลังโหลด MediaPipe WASM…', version: VERSION });
     const resolver = await FilesetResolver.forVisionTasks(WASM_URL);
 
@@ -35,9 +49,9 @@ async function init() {
       },
       runningMode: 'VIDEO',
       numHands: 1,
-      minHandDetectionConfidence: 0.30,
-      minHandPresenceConfidence: 0.30,
-      minTrackingConfidence: 0.30
+      minHandDetectionConfidence: 0.25,
+      minHandPresenceConfidence: 0.25,
+      minTrackingConfidence: 0.25
     });
 
     ready = true;
@@ -45,6 +59,7 @@ async function init() {
       type: 'ready',
       delegate: 'CPU',
       version: VERSION,
+      input: 'OffscreenCanvas',
       initMs: Math.round(performance.now() - started)
     });
   } catch (error) {
@@ -72,7 +87,13 @@ self.onmessage = async event => {
   const data = event.data || {};
 
   if (data.type === 'ping') {
-    postMessage({ type: 'pong', version: VERSION, ready, workerScope: typeof WorkerGlobalScope !== 'undefined' });
+    postMessage({
+      type: 'pong',
+      version: VERSION,
+      ready,
+      workerScope: typeof WorkerGlobalScope !== 'undefined',
+      offscreenCanvas: typeof OffscreenCanvas === 'function'
+    });
     return;
   }
 
@@ -83,7 +104,7 @@ self.onmessage = async event => {
 
   if (data.type !== 'frame') return;
   const bitmap = data.bitmap;
-  if (!ready || !landmarker || !bitmap) {
+  if (!ready || !landmarker || !bitmap || !frameCanvas || !frameContext) {
     try { bitmap?.close?.(); } catch (_) {}
     postMessage({ type: 'result', id: data.id, detected: false, skipped: true, version: VERSION });
     return;
@@ -91,8 +112,15 @@ self.onmessage = async event => {
 
   const started = performance.now();
   try {
-    const result = landmarker.detectForVideo(bitmap, Number(data.timestamp || started));
+    /*
+     * MediaPipe Tasks is more reliable on Samsung Internet when detectForVideo
+     * receives a canvas-like source instead of a transferred ImageBitmap.
+     */
+    frameContext.clearRect(0, 0, frameCanvas.width, frameCanvas.height);
+    frameContext.drawImage(bitmap, 0, 0, frameCanvas.width, frameCanvas.height);
+    const result = landmarker.detectForVideo(frameCanvas, Number(data.timestamp || started));
     const hand = result?.landmarks?.[0];
+
     if (!hand) {
       postMessage({
         type: 'result',
