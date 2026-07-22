@@ -1,17 +1,1 @@
-<!doctype html>
-<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>GoodJunk Mobile Stable v12</title><style>html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#ecfdf5;font-family:system-ui,sans-serif}.loading{font-weight:900;text-align:center;padding:24px}</style></head><body><div class="loading">📱 กำลังเปิด GoodJunk Mobile Stable v12…</div><script>
-(async()=>{try{
-let html=await(await fetch('./goodjunk-ar-v11.html?v=20260722-120-source&t='+Date.now(),{cache:'no-store'})).text();
-const oldState=`attemptId:'',missionHistory:[],lastSpawnCenters:[],inputArmed:true,roundLocked:false,lastCursor:null};`;
-const newState=`attemptId:'',missionHistory:[],lastSpawnCenters:[],inputArmed:true,roundLocked:false,lastCursor:null,lastAcceptedCursor:null,rearmAt:0,mobileWatchdogAt:0};`;
-if(!html.includes(oldState))throw new Error('state patch signature not found');html=html.replace(oldState,newState);
-const oldHit=`function hit(x,y){const now=Date.now();state.lastCursor={x,y};const nearest=state.objects.reduce((a,o)=>Math.min(a,Math.hypot(o.x-x,o.y-y)-o.r),999);if(!state.inputArmed){if(nearest>70)state.inputArmed=true;return}if(state.roundLocked||now-state.lastHit<500)return;for(const o of [...state.objects].reverse()){if(Math.hypot(o.x-x,o.y-y)<o.r+24){state.inputArmed=false;state.roundLocked=true;state.lastHit=now;state.touches++;const reaction=(now-state.missionAt)/1000;state.reactionSum+=reaction;state.reactionN++;if(o.valid)right(o);else wrong(o);adapt();hud();break}}}`;
-const newHit=`function hit(x,y){const now=Date.now();state.lastCursor={x,y};if(!state.inputArmed){const moved=!state.lastAcceptedCursor||Math.hypot(x-state.lastAcceptedCursor.x,y-state.lastAcceptedCursor.y)>72;if(moved||now>=state.rearmAt)state.inputArmed=true;else return}if(state.roundLocked||now-state.lastHit<360)return;for(const o of [...state.objects].reverse()){if(Math.hypot(o.x-x,o.y-y)<o.r+30){state.inputArmed=false;state.roundLocked=true;state.lastAcceptedCursor={x,y};state.rearmAt=now+620;state.lastHit=now;state.touches++;const reaction=(now-state.missionAt)/1000;state.reactionSum+=reaction;state.reactionN++;if(o.valid)right(o);else wrong(o);adapt();hud();break}}}`;
-if(!html.includes(oldHit))throw new Error('hit patch signature not found');html=html.replace(oldHit,newHit);
-html=html.replace(`slice(0,state.phase==='boss'?6:4)`,`slice(0,state.phase==='boss'?4:3)`);
-html=html.replace(`const min=innerWidth>760?16:50`,`const min=50`);
-html=html.replace('./patches/goodjunk/goodjunk-hand-runtime-v11.js?v=20260722-111','./patches/goodjunk/goodjunk-hand-runtime-v12.js?v=20260722-120');
-html=html.replaceAll('20260722-111','20260722-120').replaceAll('v11.1','Mobile Stable v12').replace('<title>GoodJunk AR v11</title>','<title>GoodJunk Mobile Stable v12</title>');
-document.open();document.write(html);document.close();
-}catch(e){document.body.innerHTML='<div class="loading">⚠️ เปิด GoodJunk Mobile Stable v12 ไม่สำเร็จ<br><small>'+String(e.message||e)+'</small></div>'}})();
-</script></body></html>
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GoodJunk Mobile Stable v12.1</title><script>location.replace('./goodjunk-ar-mobile-stable-v12-hotfix.html?v=20260722-121&t='+Date.now())</script>
