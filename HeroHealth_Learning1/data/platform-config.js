@@ -64,7 +64,7 @@ window.HH_CONFIG = {
       description: "จำแนกอาหาร เลือกอาหาร ดื่มน้ำ และจัดจานสุขภาพ",
       games: [
         { id:"groups", title:"Food Groups AR", thai:"ภารกิจอาหาร 5 หมู่", url:"../herohealth/groups-ar-gate.html", status:"provided-production", requiredReturnContract:true },
-        { id:"goodjunk", title:"GoodJunk AR", thai:"ภารกิจเลือกอาหารดี", url:"../herohealth/goodjunk-ar-mobile-v10.html", status:"provided-production", requiredReturnContract:true },
+        { id:"goodjunk", title:"GoodJunk AR", thai:"ภารกิจเลือกอาหารดี", url:"../herohealth/goodjunk-ar-v11.html", status:"provided-production", requiredReturnContract:true },
         { id:"hydration", title:"Hydration", thai:"ภารกิจพิทักษ์น้ำ", url:"../herohealth/hydration-v2.html", status:"needs-qa", requiredReturnContract:true },
         { id:"balanced-plate", title:"Balanced Plate", thai:"ภารกิจจานสุขภาพ", url:"../herohealth/plate/plate-launcher.html", status:"needs-qa", requiredReturnContract:true }
       ]
