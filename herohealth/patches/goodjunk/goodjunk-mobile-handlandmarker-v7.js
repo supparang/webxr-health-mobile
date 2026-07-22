@@ -1,14 +1,17 @@
 const GJ_HAND_V8 = (() => {
   'use strict';
 
-  const VERSION = 'goodjunk-mobile-worker-hand-v8.1.0';
-  const WORKER_URL = new URL('./goodjunk-hand-worker-v8.js?v=20260721-81', import.meta.url);
+  const VERSION = 'goodjunk-mobile-worker-hand-v8.2.0';
+  const WORKER_URL = new URL('./goodjunk-hand-worker-v8.js?v=20260722-82', import.meta.url);
+  const QUICK_RETRY_DELAYS = [800, 1800, 3500];
+  const COOLDOWN_RETRY_MS = 15000;
 
   let worker = null;
   let stream = null;
   let video = null;
   let running = false;
   let captureTimer = 0;
+  let reconnectTimer = 0;
   let framePending = false;
   let frameId = 0;
   let pendingSince = 0;
@@ -21,6 +24,9 @@ const GJ_HAND_V8 = (() => {
   let lastSelectionAt = 0;
   let workerReady = false;
   let lastWorkerError = '';
+  let reconnecting = false;
+  let retryIndex = 0;
+  let manualStop = false;
 
   const state = {
     version: VERSION,
@@ -32,7 +38,10 @@ const GJ_HAND_V8 = (() => {
     fallback: false,
     workerReady: false,
     workerStage: '',
-    workerError: ''
+    workerError: '',
+    reconnecting: false,
+    retryCount: 0,
+    recoveryCount: 0
   };
 
   function setStatus(message, cls = 'handLite') {
@@ -43,12 +52,12 @@ const GJ_HAND_V8 = (() => {
     if (msg) msg.textContent = message;
   }
 
-  function visibleError(stage, message) {
+  function cleanError(stage, message) {
     const clean = String(message || 'Unknown error').replace(/\s+/g, ' ').slice(0, 140);
     lastWorkerError = `${stage || 'worker'}: ${clean}`;
     state.workerStage = stage || '';
     state.workerError = clean;
-    setStatus(`Hand AR Error [${stage || 'worker'}] • ${clean} • แตะเล่นได้`, 'touchRescue');
+    return clean;
   }
 
   function smooth(next) {
@@ -94,6 +103,66 @@ const GJ_HAND_V8 = (() => {
     if (!dwellFired && elapsed >= 420) dwellFired = selectAt(point, 'worker-dwell');
   }
 
+  function terminateWorker() {
+    try { worker?.terminate(); } catch (_) {}
+    worker = null;
+    workerReady = false;
+    state.workerReady = false;
+    framePending = false;
+    pendingSince = 0;
+  }
+
+  function nextRetryDelay() {
+    if (retryIndex < QUICK_RETRY_DELAYS.length) return QUICK_RETRY_DELAYS[retryIndex++];
+    retryIndex = 0;
+    return COOLDOWN_RETRY_MS;
+  }
+
+  function scheduleReconnect(stage, message) {
+    if (manualStop || reconnecting) return;
+    const clean = cleanError(stage, message);
+    const delay = nextRetryDelay();
+    reconnecting = true;
+    state.reconnecting = true;
+    state.retryCount += 1;
+    state.detected = false;
+    window.__GJ_HAND_POINTS__ = [];
+    resetDwell();
+    terminateWorker();
+
+    const seconds = Math.max(1, Math.round(delay / 1000));
+    setStatus(`Hand Tracking สะดุด • กำลังเชื่อมใหม่ใน ${seconds} วิ • แตะเล่นต่อได้`, 'touchRescue');
+    try {
+      window.ev?.('hand_worker_reconnect_scheduled', {
+        stage,
+        message: clean,
+        delayMs: delay,
+        retryCount: state.retryCount
+      });
+    } catch (_) {}
+
+    clearTimeout(reconnectTimer);
+    reconnectTimer = window.setTimeout(async () => {
+      reconnecting = false;
+      state.reconnecting = false;
+      if (manualStop || !video?.srcObject) return;
+      try {
+        setStatus('กำลังเชื่อม Hand Tracking ใหม่…', 'handLite');
+        await createAndInitWorker();
+        running = true;
+        state.fallback = false;
+        state.recoveryCount += 1;
+        retryIndex = 0;
+        lastResultAt = performance.now();
+        setStatus('Hand Tracking กลับมาแล้ว • ชี้ค้างเหนืออาหาร', 'handLite');
+        scheduleCapture();
+        try { window.ev?.('hand_worker_recovered', { recoveryCount: state.recoveryCount }); } catch (_) {}
+      } catch (error) {
+        scheduleReconnect('reconnect', error?.message || error);
+      }
+    }, delay);
+  }
+
   function onWorkerMessage(event) {
     const data = event.data || {};
 
@@ -113,6 +182,7 @@ const GJ_HAND_V8 = (() => {
       state.workerReady = true;
       state.delegate = data.delegate || '';
       state.workerStage = 'ready';
+      state.workerError = '';
       setStatus(`Worker Hand AR พร้อม • ${state.delegate || 'CPU'} • ยื่นมือให้เห็นทั้งฝ่ามือ`, 'handLite');
       return;
     }
@@ -122,8 +192,7 @@ const GJ_HAND_V8 = (() => {
       const stage = data.stage || 'worker';
       const message = data.message || 'Worker error';
       console.warn('[GoodJunk Worker Hand]', VERSION, stage, message, data.stack || '');
-      visibleError(stage, message);
-      if (!workerReady || performance.now() - lastResultAt > 5000) fallback(lastWorkerError, true);
+      scheduleReconnect(stage, message);
       return;
     }
 
@@ -157,12 +226,13 @@ const GJ_HAND_V8 = (() => {
       delegate: state.delegate,
       dwellProgress: Number(state.dwellProgress.toFixed(2)),
       worker: true,
-      version: data.version || VERSION
+      version: data.version || VERSION,
+      recoveryCount: state.recoveryCount
     };
   }
 
   async function captureFrame() {
-    if (!running || !workerReady || framePending || document.hidden) return;
+    if (!running || reconnecting || !workerReady || framePending || document.hidden) return;
     if (!video || video.readyState < 2 || !video.videoWidth) return;
     framePending = true;
     pendingSince = performance.now();
@@ -176,27 +246,26 @@ const GJ_HAND_V8 = (() => {
       worker.postMessage({ type: 'frame', id, bitmap, timestamp: performance.now() }, [bitmap]);
     } catch (error) {
       framePending = false;
-      visibleError('capture', error?.message || error);
-      fallback(lastWorkerError, true);
+      scheduleReconnect('capture', error?.message || error);
     }
   }
 
   function scheduleCapture() {
     clearInterval(captureTimer);
     captureTimer = window.setInterval(() => {
-      if (!running) return;
-      if (framePending && performance.now() - pendingSince > 3000) {
+      if (!running || reconnecting) return;
+      if (framePending && performance.now() - pendingSince > 4500) {
         framePending = false;
         pendingSince = 0;
-        visibleError('timeout', 'Worker ตรวจมือนานเกิน 3 วินาที');
-        fallback(lastWorkerError, true);
+        scheduleReconnect('timeout', 'Worker ตรวจมือนานเกิน 4.5 วินาที');
         return;
       }
       captureFrame();
-    }, 460);
+    }, 520);
   }
 
   async function openCamera(targetVideo) {
+    if (stream?.active && targetVideo.srcObject === stream) return;
     stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 18, max: 20 } }
@@ -221,14 +290,32 @@ const GJ_HAND_V8 = (() => {
     const started = performance.now();
     while (performance.now() - started < timeoutMs) {
       if (workerReady) return true;
-      if (state.fallback) throw new Error(lastWorkerError || 'Worker initialization failed');
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     throw new Error(`Worker model load timeout • stage=${state.workerStage || 'unknown'}`);
   }
 
+  async function createAndInitWorker() {
+    terminateWorker();
+    state.workerStage = 'create';
+    worker = new Worker(WORKER_URL, { type: 'module', name: `goodjunk-hand-v82-${Date.now()}` });
+    worker.onmessage = onWorkerMessage;
+    worker.onerror = event => {
+      const detail = `${event.message || 'Worker script error'} @ ${event.filename || 'unknown'}:${event.lineno || 0}`;
+      console.error('[GoodJunk Worker Hand]', VERSION, detail);
+      scheduleReconnect('script', detail);
+    };
+    worker.onmessageerror = event => {
+      scheduleReconnect('message', event?.data ? String(event.data) : 'Worker message could not be decoded');
+    };
+    worker.postMessage({ type: 'ping' });
+    worker.postMessage({ type: 'init' });
+    await waitForWorker();
+  }
+
   async function start(targetVideo) {
     stop(false);
+    manualStop = false;
     if (typeof Worker !== 'function') throw new Error('Web Worker unsupported');
     if (typeof createImageBitmap !== 'function') throw new Error('createImageBitmap unsupported');
 
@@ -237,28 +324,18 @@ const GJ_HAND_V8 = (() => {
     state.detected = false;
     state.workerError = '';
     state.workerStage = 'create';
-    workerReady = false;
+    state.retryCount = 0;
+    state.recoveryCount = 0;
+    retryIndex = 0;
+    reconnecting = false;
+    state.reconnecting = false;
     framePending = false;
     cursor = null;
     resetDwell();
-    setStatus('กำลังสร้าง Worker Hand AR v8.1…', 'handLite');
+    setStatus('กำลังสร้าง Worker Hand AR v8.2…', 'handLite');
 
-    worker = new Worker(WORKER_URL, { type: 'module', name: 'goodjunk-hand-v81' });
-    worker.onmessage = onWorkerMessage;
-    worker.onerror = event => {
-      const detail = `${event.message || 'Worker script error'} @ ${event.filename || 'unknown'}:${event.lineno || 0}`;
-      console.error('[GoodJunk Worker Hand]', VERSION, detail);
-      visibleError('script', detail);
-      fallback(lastWorkerError, true);
-    };
-    worker.onmessageerror = event => {
-      visibleError('message', event?.data ? String(event.data) : 'Worker message could not be decoded');
-      fallback(lastWorkerError, true);
-    };
-    worker.postMessage({ type: 'ping' });
-    worker.postMessage({ type: 'init' });
-
-    await Promise.all([openCamera(video), waitForBridge(), waitForWorker()]);
+    await Promise.all([openCamera(video), waitForBridge()]);
+    await createAndInitWorker();
     running = true;
     lastResultAt = performance.now();
     lastDetectionAt = 0;
@@ -270,30 +347,43 @@ const GJ_HAND_V8 = (() => {
     return true;
   }
 
-  function fallback(reason, preserveError = false) {
-    if (state.fallback) return;
+  async function retryNow() {
+    if (manualStop || !video?.srcObject) return false;
+    clearTimeout(reconnectTimer);
+    reconnecting = false;
+    state.reconnecting = false;
+    retryIndex = 0;
+    try {
+      setStatus('กำลังลอง Hand Tracking อีกครั้ง…', 'handLite');
+      await createAndInitWorker();
+      running = true;
+      state.fallback = false;
+      scheduleCapture();
+      return true;
+    } catch (error) {
+      scheduleReconnect('manual-retry', error?.message || error);
+      return false;
+    }
+  }
+
+  function fallback(reason) {
     state.fallback = true;
-    running = false;
-    clearInterval(captureTimer);
-    captureTimer = 0;
-    framePending = false;
-    window.__GJ_HAND_POINTS__ = [];
-    window.__GJ_CAMERA_LITE__ = true;
-    resetDwell();
-    try { worker?.terminate(); } catch (_) {}
-    worker = null;
-    if (!preserveError) setStatus('Hand Tracking ไม่พร้อม • แตะอาหารเพื่อเล่นต่อ', 'touchRescue');
-    try { window.__GJ_SHOW__?.(reason || 'แตะอาหารเพื่อเล่นต่อ'); } catch (_) {}
+    setStatus('Hand Tracking กำลังพัก • แตะเล่นได้ และระบบจะลองใหม่อัตโนมัติ', 'touchRescue');
+    scheduleReconnect('fallback', reason || 'Temporary Hand Tracking failure');
   }
 
   function stop(stopCamera = true) {
+    manualStop = true;
     running = false;
+    reconnecting = false;
+    state.reconnecting = false;
     clearInterval(captureTimer);
+    clearTimeout(reconnectTimer);
     captureTimer = 0;
+    reconnectTimer = 0;
     framePending = false;
     workerReady = false;
-    try { worker?.terminate(); } catch (_) {}
-    worker = null;
+    terminateWorker();
     window.__GJ_HAND_POINTS__ = [];
     cursor = null;
     resetDwell();
@@ -303,10 +393,13 @@ const GJ_HAND_V8 = (() => {
     }
   }
 
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !manualStop && video?.srcObject && !workerReady && !reconnecting) retryNow();
+  });
   window.addEventListener('pagehide', () => stop(true));
   window.addEventListener('beforeunload', () => stop(true));
 
-  return { VERSION, state, start, stop, fallback };
+  return { VERSION, state, start, stop, fallback, retryNow };
 })();
 
 window.GJMobileHandV7 = GJ_HAND_V8;
