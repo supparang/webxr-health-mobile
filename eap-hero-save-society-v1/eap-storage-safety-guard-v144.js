@@ -1,18 +1,19 @@
 /* =========================================================
-   EAP Hero • Storage Safety Guard v144
+   EAP Hero • Storage Safety Guard v145
    - Prevents QuotaExceededError for EAP_HERO_PROGRESS_V3.
+   - Preserves authoritative Cloud Resume fields when legacy scripts rewrite state.
    - Keeps core progress, best Session+Skill scores, and latest useful evidence.
    - Drops duplicate/oversized transient payloads before retrying writes.
-   - Also compacts player-scoped snapshots that contain the same state.
 ========================================================= */
 (function(){
   'use strict';
-  var VERSION='20260722-EAP-STORAGE-SAFETY-GUARD-V144';
+  var VERSION='20260722-EAP-STORAGE-SAFETY-GUARD-V145-CLOUD-FIELD-PRESERVE';
   var MAIN_KEY='EAP_HERO_PROGRESS_V3';
   var SNAP_PREFIX='EAP_HERO_PLAYER_STATE_V1_';
   var MAX_PORTFOLIO=80;
   var MAX_EVENTS=120;
   var originalSetItem=Storage.prototype.setItem;
+  var PROTECTED=['cloudResumeStatus','serverResume','currentCloudRoute','unlockedRoutes','unlockedSessions','sessionProgress','passedRoutes','resumeLoadedAt','cloudResumeLoadedAt','cloudResumeRevision','cloudResumeSource'];
 
   function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
   function skill(v){var t=clean(v).toLowerCase();return ['Reading','Writing','Listening','Speaking'].find(function(s){return t.indexOf(s.toLowerCase())>=0;})||'';}
@@ -20,6 +21,25 @@
   function score(r){var vals=[r&&r.bestScore,r&&r.latestScore,r&&r.score,r&&r.autoScore,r&&r.missionTaskScore,r&&r.accuracy];for(var i=0;i<vals.length;i++){var n=Number(vals[i]);if(Number.isFinite(n)&&n>=0&&n<=100)return n;}return 0;}
   function stamp(r){var vals=[r&&r.updatedAt,r&&r.latestAt,r&&r.completedAt,r&&r.createdAt,r&&r.clientTimestamp,r&&r.timestamp];for(var i=0;i<vals.length;i++){var d=new Date(vals[i]);if(vals[i]&&!isNaN(d.getTime()))return d.toISOString();}return'';}
   function shortText(v,max){var t=clean(v);return t.length>max?t.slice(0,max):t;}
+  function parseJson(v){try{return JSON.parse(v);}catch(_){return null;}}
+  function identity(s){
+    s=s&&typeof s==='object'?s:{};
+    var p=Object.assign({},s.profile||{},s.player||{},s.user||{});
+    return clean(p.section||s.section)+'__'+clean(p.studentId||p.id||s.studentId||s.id);
+  }
+  function preserveCloudFields(key,value){
+    if(key!==MAIN_KEY)return value;
+    var incoming=parseJson(value);if(!incoming||typeof incoming!=='object')return value;
+    var existing=parseJson(localStorage.getItem(MAIN_KEY)||'{}')||{};
+    var oldId=identity(existing),newId=identity(incoming);
+    var sameIdentity=!oldId||!newId||oldId===newId;
+    if(!sameIdentity)return value;
+    PROTECTED.forEach(function(k){
+      var missing=incoming[k]===undefined||incoming[k]===null||incoming[k]==='';
+      if(missing&&existing[k]!==undefined)incoming[k]=existing[k];
+    });
+    return JSON.stringify(incoming);
+  }
   function compactRecord(r){
     var out={};
     ['sessionId','routeId','session','skill','score','bestScore','latestScore','passed','updatedAt','latestAt','studentId','studentName','section','pendingSheetSync','cloudVerified','serverVerified','teacherReviewRequired','teacherReviewStatus','evidenceId','attemptId'].forEach(function(k){if(r&&r[k]!==undefined&&r[k]!==null&&r[k]!=='')out[k]=r[k];});
@@ -50,7 +70,6 @@
     s.storageSafetyVersion=VERSION;s.storageCompactedAt=new Date().toISOString();
     return s;
   }
-  function parseJson(v){try{return JSON.parse(v);}catch(_){return null;}}
   function shouldHandle(key){return key===MAIN_KEY||String(key).indexOf(SNAP_PREFIX)===0;}
   function compactString(value){var parsed=parseJson(value);if(!parsed)return value;return JSON.stringify(compactState(parsed));}
   function purgeDisposable(){
@@ -58,6 +77,7 @@
     keys.forEach(function(k){try{localStorage.removeItem(k);}catch(_){}});
   }
   function safeWrite(key,value){
+    value=preserveCloudFields(key,value);
     try{originalSetItem.call(localStorage,key,value);return true;}catch(err){
       if(!(err&&(/QuotaExceeded/i.test(err.name)||/quota/i.test(String(err.message)))))throw err;
       var compacted=shouldHandle(key)?compactString(value):value;
@@ -80,5 +100,5 @@
   }
   compactExisting();
   window.addEventListener('load',function(){setTimeout(compactExisting,300);setTimeout(compactExisting,1600);});
-  window.EAPStorageSafetyGuard={version:VERSION,compactExisting:compactExisting,compactState:compactState};
+  window.EAPStorageSafetyGuard={version:VERSION,compactExisting:compactExisting,compactState:compactState,preserveCloudFields:preserveCloudFields};
 })();
