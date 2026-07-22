@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>GoodJunk AR v11.1</title><style>html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#ecfdf5;font-family:system-ui,sans-serif}.loading{font-weight:900;text-align:center;padding:24px}</style></head><body><div class="loading">🖐️ กำลังเปิด GoodJunk AR v11.1…</div><script>
+(async()=>{try{
+let html=await (await fetch('./goodjunk-ar-v11.html?source=20260722-111&t='+Date.now(),{cache:'no-store'})).text();
+const oldWrong=`function wrong(o){state.wrong++;state.combo=0;state.score=Math.max(0,state.score-4);state.topicStats[state.mission.topic].wrong++;if(state.phase==='boss'){state.boss.misses++;state.boss.streak=0;state.time=Math.max(0,state.time-2);show('👑 Boss โต้กลับ -2 วิ')}else show(\`คิดอีกครั้ง: \${o.th}\`);ev('wrong',{food:o.name,topic:state.mission.topic});state.objects=state.objects.filter(x=>x!==o);if(!state.objects.some(x=>x.valid))spawn()}`;
+const newWrong=`function wrong(o){state.wrong++;state.combo=0;state.score=Math.max(0,state.score-4);state.topicStats[state.mission.topic].wrong++;if(state.phase==='boss'){state.boss.misses++;state.boss.streak=0;state.time=Math.max(0,state.time-2);show('👑 Boss โต้กลับ -2 วิ')}else show(\`คิดอีกครั้ง: \${o.th}\`);ev('wrong',{food:o.name,topic:state.mission.topic});state.objects=state.objects.filter(x=>x!==o);if(!state.objects.some(x=>x.valid))spawn();setTimeout(()=>{state.roundLocked=false},240)}`;
+if(!html.includes(oldWrong))throw new Error('wrong() hotfix signature not found');
+html=html.replace(oldWrong,newWrong).replaceAll('20260722-110','20260722-111').replaceAll('GoodJunk AR v11','GoodJunk AR v11.1');
+document.open();document.write(html);document.close();
+}catch(e){document.body.innerHTML='<div class="loading">⚠️ เปิด GoodJunk AR v11.1 ไม่สำเร็จ<br><small>'+String(e.message||e)+'</small></div>'}})();
+</script></body></html>
