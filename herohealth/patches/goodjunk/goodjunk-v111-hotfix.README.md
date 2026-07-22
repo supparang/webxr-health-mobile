@@ -1,0 +1,1 @@
+GoodJunk v11.1 releases roundLocked 240 ms after a wrong answer while keeping inputArmed false until the pointer leaves all food targets. This prevents both the frozen-round defect and same-position repeat scoring.
