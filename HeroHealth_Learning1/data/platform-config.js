@@ -1,8 +1,8 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-PRODUCTION-RC2-GAME-CATALOG",
+  platformVersion: "2026.07-QA-TEST-ROSTER-OPEN",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "LOCKED_FOR_STUDENT_QA",
-  sourceOfTruthMode: "roster-guarded-frontend",
+  deploymentState: "QA_TEST_OPEN",
+  sourceOfTruthMode: "qa-roster-guarded-frontend",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
   allowPrototypeCompletion: false,
