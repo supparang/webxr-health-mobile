@@ -1,0 +1,103 @@
+{
+  "version": "20260722-CSAI2102-LAB-UPGRADES-V2",
+  "labs": {
+    "S2": {
+      "concept": "ออกแบบ Rational Agent ด้วย PEAS วิเคราะห์ประเภท Environment และใช้ percept ร่วมกับ internal state และ goal",
+      "starter": "def agent(percept, state, goal):\n    if percept == 'obstacle':\n        state['blocked'] = True\n        return 'turn'\n    if state.get('blocked'):\n        state['blocked'] = False\n        return 'replan'\n    if percept == goal:\n        return 'stop'\n    return 'move'\n\nstate = {'blocked': False}\nprint(agent('obstacle', state, 'destination'))",
+      "predict": "เมื่อ percept เป็น obstacle โปรแกรมจะแสดง action ใด",
+      "modify": "เพิ่ม battery_low ให้ agent เลือก recharge และบันทึกค่า battery ใน internal state",
+      "challenge": "สร้าง planning_agent ที่รับ percept history, internal state และ goal แล้วคืน action พร้อม reason",
+      "expected": "turn",
+      "modifyHint": "ต้องมี battery_low, recharge, battery และ state",
+      "challengeHint": "ต้องมี planning_agent, history, state, goal, action และ reason",
+      "modifyKeywords": ["battery_low", "recharge", "battery", "state"],
+      "challengeKeywords": ["planning_agent", "history", "state", "goal", "action", "reason"]
+    },
+    "S3": {
+      "concept": "กำหนด Search Problem และใช้ Graph BFS ด้วย FIFO queue, visited set และการสร้าง path",
+      "starter": "from collections import deque\n\ngraph = {'A':['B','C'],'B':['D'],'C':['E'],'D':[],'E':[]}\nfrontier = deque([('A',['A'])])\nvisited = set()\nwhile frontier:\n    node, path = frontier.popleft()\n    if node in visited:\n        continue\n    visited.add(node)\n    if node == 'E':\n        print(path)\n        break\n    for nxt in graph[node]:\n        frontier.append((nxt, path + [nxt]))",
+      "predict": "เส้นทางที่ BFS คืนจาก A ไป E คืออะไร",
+      "modify": "เพิ่ม cycle E ไป A แล้วตรวจว่า visited set ป้องกันการวนซ้ำได้",
+      "challenge": "สร้าง bfs(graph,start,goal) และ dfs(graph,start,goal) แล้วเปรียบเทียบ path และจำนวน expanded nodes",
+      "expected": "['A', 'C', 'E']",
+      "modifyHint": "ต้องมี E เชื่อม A และใช้ visited set",
+      "challengeHint": "ต้องมี bfs, dfs, expanded, frontier และ path",
+      "modifyKeywords": ["'e'", "'a'", "visited"],
+      "challengeKeywords": ["bfs", "dfs", "expanded", "frontier", "path"]
+    },
+    "S4": {
+      "concept": "UCS ขยาย frontier ตาม path cost g(n) ต่ำสุด ใช้ priority queue และรับประกัน optimality เมื่อ step cost ไม่ติดลบ",
+      "starter": "import heapq\n\ngraph = {'A':[('B',2),('C',5)],'B':[('D',4),('C',1)],'C':[('D',1)],'D':[]}\nfrontier = [(0,'A',['A'])]\nbest_cost = {'A':0}\nwhile frontier:\n    cost,node,path = heapq.heappop(frontier)\n    if node == 'D':\n        print(path, cost)\n        break\n    if cost > best_cost.get(node, float('inf')):\n        continue\n    for nxt,w in graph[node]:\n        new_cost = cost + w\n        if new_cost < best_cost.get(nxt, float('inf')):\n            best_cost[nxt] = new_cost\n            heapq.heappush(frontier,(new_cost,nxt,path+[nxt]))",
+      "predict": "UCS จะคืน path และ cost ใดจาก A ไป D",
+      "modify": "เพิ่มเส้นทางตรง A ไป D ต้นทุน 10 และยืนยันว่า UCS ยังเลือกเส้นทางต้นทุนต่ำสุด",
+      "challenge": "สร้าง ucs ที่คืน path, total_cost, expanded_count และปฏิเสธกราฟที่มี negative edge",
+      "expected": "['A', 'B', 'C', 'D'] 4",
+      "modifyHint": "ต้องมี A-D cost 10 และ best_cost",
+      "challengeHint": "ต้องมี ucs, path, total_cost, expanded_count และ negative edge check",
+      "modifyKeywords": ["'a'", "'d'", "10", "best_cost"],
+      "challengeKeywords": ["ucs", "path", "total_cost", "expanded_count", "negative"]
+    },
+    "S5": {
+      "concept": "A* รวม backward cost g(n) กับ heuristic h(n); heuristic ที่ admissible และ consistent ช่วยรักษา optimality",
+      "starter": "g = {'A':0,'B':2,'C':4}\nh = {'A':5,'B':2,'C':0}\nfor node in ['A','B','C']:\n    f = g[node] + h[node]\n    print(node, f)",
+      "predict": "ค่า f(n) ของ B เท่ากับเท่าไร",
+      "modify": "เพิ่มการตรวจ admissible โดยเปรียบเทียบ h(n) กับ true_cost_to_goal",
+      "challenge": "สร้าง astar พร้อม g_score, came_from, heuristic และฟังก์ชันตรวจ consistency ของทุก edge",
+      "expected": "B 4",
+      "modifyHint": "ต้องมี admissible, true_cost และ heuristic",
+      "challengeHint": "ต้องมี astar, g_score, came_from, heuristic และ consistent/consistency",
+      "modifyKeywords": ["admissible", "true_cost", "heuristic"],
+      "challengeKeywords": ["astar", "g_score", "came_from", "heuristic"],
+      "challengeAnyKeywords": ["consistent", "consistency"]
+    },
+    "S6": {
+      "concept": "Game AI ใช้ Minimax, Alpha-Beta Pruning และ Evaluation Function; MCTS เป็นแนวคิดเสริมสำหรับเกมขนาดใหญ่",
+      "starter": "scores = [3,5,2,9]\nleft = min(scores[0], scores[1])\nright = min(scores[2], scores[3])\nprint(max(left, right))",
+      "predict": "ราก MAX จะเลือก utility เท่าไร",
+      "modify": "เขียน minimax แบบ recursive พร้อม depth และ maximizing_player",
+      "challenge": "เพิ่ม alpha_beta(node, depth, alpha, beta, maximizing_player) และนับ pruned branches",
+      "expected": "3",
+      "modifyHint": "ต้องมี minimax, depth, maximizing_player, max และ min",
+      "challengeHint": "ต้องมี alpha_beta, alpha, beta, pruning/pruned และ maximizing_player",
+      "modifyKeywords": ["minimax", "depth", "maximizing_player", "max", "min"],
+      "challengeKeywords": ["alpha_beta", "alpha", "beta", "maximizing_player"],
+      "challengeAnyKeywords": ["pruning", "pruned"]
+    },
+    "S8": {
+      "concept": "ใช้ Conditional Probability, Bayes theorem, Conditional Independence และ Bayesian Network เพื่อ reasoning ภายใต้ความไม่แน่นอน",
+      "starter": "prior = 0.01\nsensitivity = 0.90\nfalse_positive = 0.05\nevidence = sensitivity*prior + false_positive*(1-prior)\nposterior = sensitivity*prior/evidence\nprint(round(posterior,3))",
+      "predict": "posterior ที่ปัด 3 ตำแหน่งเท่ากับเท่าไร",
+      "modify": "เพิ่ม second_test และคำนวณ posterior ใหม่โดยสมมติ conditional independence",
+      "challenge": "สร้าง bayes_net_query สำหรับโครงข่าย Disease → Test และ Disease → Symptom พร้อมคืน posterior และ MAP state",
+      "expected": "0.154",
+      "modifyHint": "ต้องมี second_test, conditional independence และ posterior",
+      "challengeHint": "ต้องมี bayes_net_query, disease, test, symptom, posterior และ map",
+      "modifyKeywords": ["second_test", "conditional", "posterior"],
+      "challengeKeywords": ["bayes_net_query", "disease", "test", "symptom", "posterior", "map"]
+    },
+    "S14": {
+      "concept": "Reinforcement Learning ใช้ MDP, policy, value, Bellman equation, TD และ Q-learning พร้อมสมดุล exploration–exploitation",
+      "starter": "q = 0.5\nreward = 1\nalpha = 0.1\ngamma = 0.9\nnext_max_q = 0.8\nnew_q = q + alpha*(reward + gamma*next_max_q - q)\nprint(round(new_q,3))",
+      "predict": "ค่า new_q ที่ปัด 3 ตำแหน่งเท่ากับเท่าไร",
+      "modify": "เพิ่ม terminal state เพื่อไม่ใช้ gamma*next_max_q เมื่อ episode จบ",
+      "challenge": "สร้าง q_learning_update และ epsilon_greedy พร้อมแยก explore/exploit และรองรับ terminal state",
+      "expected": "0.622",
+      "modifyHint": "ต้องมี terminal และเงื่อนไขไม่ bootstrap เมื่อจบ episode",
+      "challengeHint": "ต้องมี q_learning_update, epsilon_greedy, explore, exploit, gamma และ terminal",
+      "modifyKeywords": ["terminal", "gamma", "next_max_q"],
+      "challengeKeywords": ["q_learning_update", "epsilon_greedy", "explore", "exploit", "gamma", "terminal"]
+    },
+    "B5": {
+      "concept": "ออกแบบ Trustworthy AI ที่ตรวจ performance, fairness, explainability, privacy, human oversight และ auditability",
+      "starter": "result = {'decision':'approve','confidence':0.91,'evidence':['income','history'],'fairness_gap':0.03}\nif result['confidence'] >= 0.9 and result['fairness_gap'] <= 0.05:\n    print('human_review_with_evidence')",
+      "predict": "ระบบจะแสดงสถานะใด",
+      "modify": "เพิ่ม privacy_check และส่งต่อ human_review เมื่อ confidence ต่ำหรือ fairness gap สูง",
+      "challenge": "สร้าง trustworthy_ai_decision ที่คืน decision, confidence, evidence, explanation, fairness_check, privacy_check, human_oversight และ audit_log",
+      "expected": "human_review_with_evidence",
+      "modifyHint": "ต้องมี privacy_check, human_review, confidence และ fairness_gap",
+      "challengeHint": "ต้องมี trustworthy_ai_decision และองค์ประกอบความน่าเชื่อถือครบ",
+      "modifyKeywords": ["privacy_check", "human_review", "confidence", "fairness_gap"],
+      "challengeKeywords": ["trustworthy_ai_decision", "decision", "confidence", "evidence", "explanation", "fairness_check", "privacy_check", "human_oversight", "audit_log"]
+    }
+  }
+}
