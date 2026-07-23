@@ -1,13 +1,14 @@
 /**
  * HeroHealth Classroom Receiver + Authoritative Resume API
- * Version: 2026-07-23-PRODUCTION-V4-AUTHORITY-RECONCILE
+ * Version: 2026-07-23-PRODUCTION-V5-ROTATION-RECONCILE
  *
  * Google Sheet is the sole authority for official progress.
- * Legacy certificate rule preserves learners whose old HH_Live_Status
- * proves certificate + 100% + 9 completed steps.
+ * - Preserves verified legacy certificate learners.
+ * - Recovers legacy pre-test completion only from Sheet-backed Live/Progress evidence.
+ * - Computes the next game from the learner's A-J rotation, not a fixed zone order.
  */
 
-const HH_VERSION = '2026-07-23-PRODUCTION-V4-AUTHORITY-RECONCILE';
+const HH_VERSION = '2026-07-23-PRODUCTION-V5-ROTATION-RECONCILE';
 
 const HH_SHEETS = {
   profiles: 'HH_Profiles',
@@ -25,6 +26,19 @@ const HH_GAME_CATALOG = {
   hygiene: ['handwash', 'toothbrush'],
   nutrition: ['groups', 'goodjunk'],
   fitness: ['jumpduck', 'balance-hold']
+};
+
+const HH_ROTATION = {
+  A: ['hygiene','nutrition','fitness'],
+  B: ['nutrition','fitness','hygiene'],
+  C: ['fitness','hygiene','nutrition'],
+  D: ['hygiene','fitness','nutrition'],
+  E: ['nutrition','hygiene','fitness'],
+  F: ['fitness','nutrition','hygiene'],
+  G: ['hygiene','nutrition','fitness'],
+  H: ['nutrition','fitness','hygiene'],
+  I: ['fitness','hygiene','nutrition'],
+  J: ['hygiene','fitness','nutrition']
 };
 
 const HH_HEADERS = {};
@@ -136,7 +150,8 @@ function buildStudentAuthority_(ss,sid){
   const pre=latestMatching_(assessments,r=>normalizeAssessment_(r.assessment)==='pretest');
   const post=latestMatching_(assessments,r=>normalizeAssessment_(r.assessment)==='posttest');
   const legacyVerified=isLegacyCertificate_(live);
-  const completed={pretest:!!pre,hygiene:false,nutrition:false,fitness:false,posttest:!!post,reflection:reflections.length>0};
+  const legacyPretestVerified=!pre&&isLegacyPretest_(live,latestProgress,games);
+  const completed={pretest:!!pre||legacyPretestVerified,hygiene:false,nutrition:false,fitness:false,posttest:!!post,reflection:reflections.length>0};
   const gameCompleted={hygiene:{},nutrition:{},fitness:{}},gameScores={},gameResults={};
   Object.keys(HH_GAME_CATALOG).forEach(zone=>{
     HH_GAME_CATALOG[zone].forEach(gameId=>{
@@ -150,26 +165,37 @@ function buildStudentAuthority_(ss,sid){
     completed.pretest=completed.hygiene=completed.nutrition=completed.fitness=completed.posttest=completed.reflection=true;
     Object.keys(HH_GAME_CATALOG).forEach(z=>HH_GAME_CATALOG[z].forEach(g=>gameCompleted[z][g]=true));
   }
+  const group=text_(profile&&profile.group||live&&live.group).toUpperCase();
   const evidenceCount=legacyVerified?9:(completed.pretest?1:0)+countGames_(gameCompleted)+(completed.posttest?1:0)+(completed.reflection?1:0);
-  const nextStep=legacyVerified?'certificate':authoritativeNextStep_(completed,gameCompleted,live,latestProgress);
+  const nextStep=legacyVerified?'certificate':authoritativeNextStep_(completed,gameCompleted,live,latestProgress,group);
   const reflection=latestBy_(reflections,'serverTs');
   const state={
     profile:profile?{studentId:sid,fullName:text_(profile.fullName),section:text_(profile.section),group:text_(profile.group)}:null,
-    group:text_(profile&&profile.group||live&&live.group),completed,scores:{pretest:pre?number_(pre.score):undefined,posttest:post?number_(post.score):undefined},gameCompleted,gameScores,gameResults,
+    group,completed,scores:{pretest:pre?number_(pre.score):undefined,posttest:post?number_(post.score):undefined},gameCompleted,gameScores,gameResults,
     reflection:reflection?{understand:number_(reflection.understand),best:text_(reflection.best),action:text_(reflection.action),submittedAt:iso_(reflection.submittedAt||reflection.serverTs)}:null,
     progress:{progressPct:Math.round(evidenceCount*100/9),completedCount:evidenceCount,totalSteps:9,nextStep,missionComplete:evidenceCount===9},
-    sheetAuthority:true,legacyVerified,legacySource:legacyVerified?'HH_Live_Status':''
+    sheetAuthority:true,legacyVerified,legacyPretestVerified,legacySource:legacyVerified?'HH_Live_Status':legacyPretestVerified?'HH_Live_Status/HH_Progress':''
   };
-  return{ok:true,version:HH_VERSION,authority:'google_sheet',studentId:sid,found:!!(profile||assessments.length||games.length||reflections.length||progresses.length||live),legacyVerified,profile:state.profile,live:live?normalizeLive_(live):null,completed,scores:state.scores,gameCompleted,gameScores,gameResults,reflection:state.reflection,progress:state.progress,authoritativeState:state,evidence:{assessments:assessments.length,games:games.length,reflections:reflections.length,progressRows:progresses.length,pretestEventId:pre?text_(pre.eventId):'',posttestEventId:post?text_(post.eventId):''},generatedAt:new Date().toISOString()};
+  return{ok:true,version:HH_VERSION,authority:'google_sheet',studentId:sid,found:!!(profile||assessments.length||games.length||reflections.length||progresses.length||live),legacyVerified,legacyPretestVerified,profile:state.profile,live:live?normalizeLive_(live):null,completed,scores:state.scores,gameCompleted,gameScores,gameResults,reflection:state.reflection,progress:state.progress,authoritativeState:state,evidence:{assessments:assessments.length,games:games.length,reflections:reflections.length,progressRows:progresses.length,pretestEventId:pre?text_(pre.eventId):'',posttestEventId:post?text_(post.eventId):''},generatedAt:new Date().toISOString()};
 }
 
 function isLegacyCertificate_(live){return !!live&&text_(live.currentStep)==='certificate'&&bool_(live.missionComplete)&&number_(live.completedCount)>=9&&number_(live.progressPct)>=100;}
+function isLegacyPretest_(live,p,games){
+  if(!live&&!p)return false;
+  const liveStep=text_(live&&live.currentStep),progressStep=text_(p&&p.nextStep);
+  const liveEvidence=number_(live&&live.completedCount)>=1&&number_(live&&live.progressPct)>=11&&liveStep&&liveStep!=='pretest';
+  const progressEvidence=number_(p&&p.completedCount)>=1&&number_(p&&p.progressPct)>=11&&progressStep&&progressStep!=='pretest';
+  const gameEvidence=Array.isArray(games)&&games.some(r=>bool_(r.completed));
+  return liveEvidence||progressEvidence||gameEvidence;
+}
 function countGames_(g){let n=0;Object.keys(HH_GAME_CATALOG).forEach(z=>HH_GAME_CATALOG[z].forEach(id=>{if(g[z][id]===true)n++;}));return n;}
-function authoritativeNextStep_(c,g,live,p){
+function rotationOrder_(group){return HH_ROTATION[text_(group).toUpperCase()]||HH_ROTATION.A;}
+function authoritativeNextStep_(c,g,live,p,group){
   if(!c.pretest)return'pretest';
   const sheetNext=text_(p&&p.nextStep||live&&live.currentStep);
   if(sheetNext&&!isStepCompleted_(sheetNext,c,g))return sheetNext;
-  const order=['hygiene:handwash','hygiene:toothbrush','nutrition:groups','nutrition:goodjunk','fitness:jumpduck','fitness:balance-hold'];
+  const order=[];
+  rotationOrder_(group).forEach(zone=>HH_GAME_CATALOG[zone].forEach(gameId=>order.push(zone+':'+gameId)));
   for(let i=0;i<order.length;i++)if(!isStepCompleted_(order[i],c,g))return order[i];
   if(!c.posttest)return'posttest';if(!c.reflection)return'reflection';return'certificate';
 }
@@ -178,9 +204,9 @@ function isStepCompleted_(step,c,g){const v=text_(step);if(['pretest','posttest'
 function HH_rebuildStudentLive(studentId){
   const sid=cleanStudentId_(studentId);if(!sid)return{ok:false,error:'missing_studentId'};
   const ss=SpreadsheetApp.getActive(),api=buildStudentAuthority_(ss,sid),s=api.authoritativeState,p=s.profile||{},liveSh=ensureSheet_(ss,HH_SHEETS.live,HH_HEADERS[HH_SHEETS.live]),row=findRow_(liveSh,1,sid),old=api.live||{};
-  const values=[sid,p.fullName||old.fullName||'',p.section||old.section||'',p.group||old.group||'',s.progress.nextStep,s.legacyVerified?'Legacy certificate verified':'Reconciled from Sheet evidence',s.progress.progressPct,s.progress.completedCount,s.progress.missionComplete,false,new Date(),'reconcile','HH-RECONCILE-'+sid+'-'+Date.now()];
+  const values=[sid,p.fullName||old.fullName||'',p.section||old.section||'',p.group||old.group||'',s.progress.nextStep,s.legacyVerified?'Legacy certificate verified':s.legacyPretestVerified?'Legacy pre-test reconciled':'Reconciled from Sheet evidence',s.progress.progressPct,s.progress.completedCount,s.progress.missionComplete,false,new Date(),'reconcile','HH-RECONCILE-'+sid+'-'+Date.now()];
   if(row)liveSh.getRange(row,1,1,values.length).setValues([values]);else liveSh.appendRow(values);
-  return{ok:true,studentId:sid,legacyVerified:s.legacyVerified,progress:s.progress,version:HH_VERSION};
+  return{ok:true,studentId:sid,legacyVerified:s.legacyVerified,legacyPretestVerified:s.legacyPretestVerified,progress:s.progress,version:HH_VERSION};
 }
 function HH_rebuildAllLive(){
   const ss=SpreadsheetApp.getActive(),ids={};
