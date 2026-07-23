@@ -88,7 +88,9 @@
       const score=Math.max(num(raw.score),num(document.getElementById('score')?.textContent),num(document.querySelector('#summaryGrid')?.textContent?.match(/คะแนน\s*([0-9,.]+)/)?.[1]));
       const accuracy=Math.max(num(raw.accuracy),num(document.getElementById('acc')?.textContent),num(document.querySelector('#summaryGrid')?.textContent?.match(/Accuracy\s*([0-9.]+)/i)?.[1]));
       const passed=raw.passed===true||raw.challenge_passed==='yes'||/ผ่าน\s*(Food Groups AR)?/i.test(title+' '+summaryText);
-      return {completed:true,passed,score,accuracy,eventId:raw.eventId||raw.record_id||`groups-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,finishedAt:new Date().toISOString(),source:'groups-ar-summary-bridge-v1'};
+      const sourceEventId=raw.eventId||raw.record_id||'';
+      const eventId=`HH-classroom-groups-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+      return {completed:true,passed,score,accuracy,eventId,sourceEventId,finishedAt:new Date().toISOString(),source:'groups-ar-summary-bridge-v2-fresh-event'};
     }
     function summaryVisible(){
       const s=document.getElementById('summary');
