@@ -2,10 +2,11 @@
 'use strict';
 const ACTIVE='herohealth_learning_platform_rc2';
 const CURRENT_RESUME='herohealth_student_resume_v6:';
+const CURRENT_QUEUE='herohealth_backend_queue_v4';
+const CURRENT_SENT='herohealth_backend_sent_v4';
 const REMOVE_PREFIXES=[
  'herohealth_student_resume_v2:','herohealth_student_resume_v3:','herohealth_student_resume_v4:',
- 'herohealth_student_resume_v5:','herohealth_student_resume_store:',
- 'herohealth_backend_sent_','herohealth_backend_queue_'
+ 'herohealth_student_resume_v5:','herohealth_student_resume_store:'
 ];
 const nativeSet=Storage.prototype.setItem;
 let quotaBlocked=false;
@@ -13,13 +14,7 @@ function isQuota(err){return !!err&&(err.name==='QuotaExceededError'||err.name==
 function compactState(value){
  try{
   const s=JSON.parse(value||'{}');
-  return JSON.stringify({
-   profile:s.profile||null,pendingProfile:s.pendingProfile||null,view:s.view||'student',
-   completed:s.completed||{},scores:s.scores||{},gameCompleted:s.gameCompleted||{},gameScores:s.gameScores||{},
-   group:s.group||null,activeMissionProfile:s.activeMissionProfile||'CLASS_60',
-   sheetAuthority:s.sheetAuthority===true,legacyVerified:s.legacyVerified===true,
-   authoritativeProgress:s.authoritativeProgress||null,lastAuthoritySyncAt:s.lastAuthoritySyncAt||''
-  });
+  return JSON.stringify({profile:s.profile||null,pendingProfile:s.pendingProfile||null,view:s.view||'student',completed:s.completed||{},scores:s.scores||{},gameCompleted:s.gameCompleted||{},gameScores:s.gameScores||{},group:s.group||null,activeMissionProfile:s.activeMissionProfile||'CLASS_60',sheetAuthority:s.sheetAuthority===true,legacyVerified:s.legacyVerified===true,authoritativeProgress:s.authoritativeProgress||null,lastAuthoritySyncAt:s.lastAuthoritySyncAt||''});
  }catch(_){return value}
 }
 function cleanup(storage){
@@ -27,9 +22,14 @@ function cleanup(storage){
   const remove=[];
   for(let i=0;i<storage.length;i++){
    const k=storage.key(i)||'';
-   if(REMOVE_PREFIXES.some(p=>k.startsWith(p))&&!k.startsWith(CURRENT_RESUME))remove.push(k);
+   if(REMOVE_PREFIXES.some(p=>k.startsWith(p)))remove.push(k);
+   if(k.startsWith('herohealth_backend_queue_')&&k!==CURRENT_QUEUE)remove.push(k);
+   if(k.startsWith('herohealth_backend_sent_')&&k!==CURRENT_SENT)remove.push(k);
   }
-  remove.forEach(k=>storage.removeItem(k));
+  [...new Set(remove)].forEach(k=>storage.removeItem(k));
+  for(const [k,max] of [[CURRENT_QUEUE,40],[CURRENT_SENT,100]]){
+   try{const v=JSON.parse(storage.getItem(k)||'[]');if(Array.isArray(v)&&v.length>max)nativeSet.call(storage,k,JSON.stringify(v.slice(-max)))}catch(_){}
+  }
   const resumes=[];
   for(let i=0;i<storage.length;i++){
    const k=storage.key(i)||'';
@@ -46,9 +46,7 @@ Storage.prototype.setItem=function(key,value){
   if(!isQuota(err))throw err;
   cleanup(this);
   try{return nativeSet.call(this,key,key===ACTIVE?compactState(value):value)}catch(err2){
-   if(key===ACTIVE){
-    try{return nativeSet.call(this,key,compactState(value))}catch(_){}
-   }
+   if(key===ACTIVE){try{return nativeSet.call(this,key,compactState(value))}catch(_){}}
    quotaBlocked=true;
   }
  }
