@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071426">
+<title>CSAI2102 AI Quest</title>
+<style>
+:root{--bg:#061325;--panel:#0f2039;--panel2:#152b49;--line:#2d4969;--text:#eef6ff;--muted:#aac0d9;--blue:#0ea5e9;--green:#10b981;--amber:#f59e0b;--bad:#fb7185}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 15% 5%,#123a65 0,transparent 32%),linear-gradient(180deg,#061325,#081a30);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif}body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}main{width:min(1100px,100%);margin:auto;padding:28px 16px 48px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.brand{font-weight:900;letter-spacing:.02em}.version{font-size:12px;color:#bfdbfe;border:1px solid var(--line);padding:6px 10px;border-radius:999px}.hero{display:grid;grid-template-columns:1.25fr .75fr;gap:16px}.card{background:rgba(15,32,57,.94);border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 18px 50px rgba(0,0,0,.23)}h1{font-size:clamp(32px,6vw,64px);line-height:1.02;margin:10px 0 14px}.lead{font-size:clamp(16px,2.2vw,20px);line-height:1.65;color:var(--muted);max-width:720px}.pill{display:inline-flex;align-items:center;gap:7px;background:#063f36;color:#b7f7df;padding:7px 11px;border-radius:999px;font-weight:800}.steps{display:grid;gap:10px;margin-top:20px}.step{display:flex;align-items:center;gap:10px;color:#dbeafe}.step b{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#075985}.login h2{margin-top:0}.field{display:grid;gap:6px;margin:12px 0}.field label{font-size:13px;color:#c9ddf2;font-weight:700}input{width:100%;min-height:48px;background:#102743;color:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 13px;font:inherit}input:focus{outline:2px solid var(--blue);border-color:transparent}.actions{display:grid;gap:9px;margin-top:15px}.btn{min-height:49px;border:0;border-radius:13px;padding:11px 15px;font:inherit;font-weight:900;cursor:pointer}.primary{background:linear-gradient(135deg,#0284c7,#0ea5e9);color:#fff}.secondary{background:#173452;color:#eaf5ff;border:1px solid var(--line)}.btn:disabled{opacity:.55;cursor:wait}.status{margin-top:13px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#102743;color:var(--muted);line-height:1.5}.status.ok{background:#06382e;border-color:#168465;color:#c8ffe9}.status.bad{background:#451827;border-color:#be3454;color:#ffd4df}.resume{display:none;margin-top:16px}.resume.show{display:block}.resumeGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:13px}.metric small{color:var(--muted)}.metric strong{display:block;font-size:22px;margin-top:4px}.continue{margin-top:13px;width:100%;background:linear-gradient(135deg,#059669,#10b981);color:#fff}.note{margin-top:16px;color:var(--muted);font-size:13px;line-height:1.55}.footer{text-align:center;color:#7796b8;font-size:12px;margin-top:22px}@media(max-width:800px){main{padding:16px 11px 35px}.hero{grid-template-columns:1fr}.card{padding:17px;border-radius:18px}.top{margin-bottom:10px}.resumeGrid{grid-template-columns:1fr 1fr}h1{margin-top:7px}}@media(max-width:420px){.resumeGrid{grid-template-columns:1fr}.version{display:none}}
+</style>
+</head>
+<body>
+<main>
+<header class="top"><div class="brand">⚡ CSAI2102 · AI Quest</div><div class="version">Production Landing v4.0</div></header>
+<section class="hero">
+<div class="card">
+<span class="pill">🎓 Principles of Artificial Intelligence</span>
+<h1>เรียนรู้ AI<br>ผ่านภารกิจจริง</h1>
+<p class="lead">ทำ Mission เขียน Coding Lab สะท้อนการเรียนรู้ และปลดล็อก Session ถัดไปตามผลอย่างเป็นทางการจาก Google Sheet</p>
+<div class="steps">
+<div class="step"><b>1</b><span>Mission — ทำความเข้าใจแนวคิดและแก้สถานการณ์</span></div>
+<div class="step"><b>2</b><span>Coding Lab — ทดลองโค้ดและส่งหลักฐาน</span></div>
+<div class="step"><b>3</b><span>Reflection — สรุปสิ่งที่เรียนรู้ก่อนปลดล็อก</span></div>
+</div>
+<p class="note">ความก้าวหน้าอย่างเป็นทางการอ่านจาก Backend เท่านั้น ข้อมูลในเครื่องใช้เพื่อช่วยกรอกแบบฟอร์มและไม่ใช้ตัดสินการปลดล็อก</p>
+</div>
+<div class="card login">
+<h2>เข้าสู่ AI Quest</h2>
+<div class="field"><label for="studentId">รหัสนักศึกษา</label><input id="studentId" inputmode="numeric" autocomplete="off" placeholder="เช่น 6811500000"></div>
+<div class="field"><label for="studentName">ชื่อผู้เรียน</label><input id="studentName" autocomplete="name" placeholder="ชื่อ–นามสกุล"></div>
+<div class="field"><label for="section">Section</label><input id="section" value="101" autocomplete="off"></div>
+<div class="actions"><button id="resumeBtn" class="btn primary">ตรวจสอบและเรียนต่อ</button><button id="freshBtn" class="btn secondary">เริ่มจาก S1</button></div>
+<div id="status" class="status">กรอกรหัสนักศึกษา ชื่อ และ Section เพื่อโหลดความก้าวหน้าจากระบบ</div>
+<div id="resume" class="resume">
+<div class="resumeGrid"><div class="metric"><small>เรียนครบแล้ว</small><strong id="completedCount">0/20</strong></div><div class="metric"><small>Session ถัดไป</small><strong id="nextSession">S1</strong></div><div class="metric"><small>สถานะ</small><strong id="nextStatus">พร้อมเริ่ม</strong></div></div>
+<button id="continueBtn" class="btn continue">เข้า Session</button>
+</div>
+</div>
+</section>
+<div class="footer">CSAI2102 AI Quest · Section 101 · Sheet-backed progress</div>
+</main>
+<script>
+(function(){'use strict';
+const ENDPOINT='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
+const ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
+const $=id=>document.getElementById(id);let target='S1';
+function profile(){return{studentId:$('studentId').value.trim(),studentName:$('studentName').value.trim(),section:$('section').value.trim()||'101'}}
+function setStatus(text,type){$('status').textContent=text;$('status').className='status'+(type?' '+type:'')}
+function saveCache(p){try{localStorage.setItem('aiq_profile_cache',JSON.stringify(p))}catch(e){}}
+function loadCache(){try{const p=JSON.parse(localStorage.getItem('aiq_profile_cache')||'null');if(p){$('studentId').value=p.studentId||'';$('studentName').value=p.studentName||'';$('section').value=p.section||'101'}}catch(e){}}
+async function post(data){const r=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data),cache:'no-store'});const text=await r.text();let json;try{json=JSON.parse(text)}catch(e){throw new Error('SERVER_RESPONSE_INVALID')}if(!json.ok)throw new Error(json.code||json.message||'REQUEST_FAILED');return json}
+function sessionUrl(session,p){const params=new URLSearchParams({mission:session.toLowerCase(),session:session,studentId:p.studentId,studentName:p.studentName,section:p.section,release:'v4'});return './student-session-integrated-v721.html?'+params.toString()}
+function showResume(progress,p){let completed=0;target='S1';let foundTarget=false;ORDER.forEach(s=>{const row=progress[s.toLowerCase()]||{};if(row.completed)completed++;if(!foundTarget&&row.unlocked&&!row.completed){target=s;foundTarget=true}});if(completed===ORDER.length){target='B5'}$('completedCount').textContent=completed+'/'+ORDER.length;$('nextSession').textContent=target;const row=progress[target.toLowerCase()]||{};$('nextStatus').textContent=completed===ORDER.length?'ครบหลักสูตร':String(row.status||'พร้อมเริ่ม').replaceAll('-',' ');$('resume').classList.add('show');$('continueBtn').textContent=completed===0?'เริ่ม S1':'เรียนต่อ '+target;$('continueBtn').onclick=()=>location.href=sessionUrl(target,p)}
+async function resume(){const p=profile();if(!p.studentId||!p.studentName){setStatus('กรุณากรอกรหัสนักศึกษาและชื่อผู้เรียน','bad');return}$('resumeBtn').disabled=true;$('freshBtn').disabled=true;$('resume').classList.remove('show');setStatus('กำลังตรวจสอบข้อมูลผู้เรียนและความก้าวหน้าจาก Google Sheet…');try{const lookup=await post({action:'LOOKUP_PROFILE',studentId:p.studentId,section:p.section});if(!lookup.found){setStatus('ไม่พบรหัสนี้ในรายชื่ออย่างเป็นทางการ กรุณาตรวจสอบรหัส/Section หรือติดต่อผู้สอน','bad');return}if(lookup.profile&&lookup.profile.studentName){p.studentName=lookup.profile.studentName;$('studentName').value=p.studentName}saveCache(p);const result=await post({action:'GET_FLOW_PROGRESS',studentId:p.studentId,section:p.section});showResume(result.progress||{},p);setStatus(result.found?'โหลดความก้าวหน้าจาก Google Sheet สำเร็จ':'พบรายชื่อแล้วและยังไม่มีผลการเรียน เริ่มได้ที่ S1','ok')}catch(e){setStatus('โหลดข้อมูลไม่สำเร็จ: '+String(e.message||e),'bad')}finally{$('resumeBtn').disabled=false;$('freshBtn').disabled=false}}
+async function fresh(){const p=profile();if(!p.studentId||!p.studentName){setStatus('กรุณากรอกรหัสนักศึกษาและชื่อผู้เรียน','bad');return}$('freshBtn').disabled=true;setStatus('กำลังตรวจสอบรายชื่อก่อนเริ่ม S1…');try{const lookup=await post({action:'LOOKUP_PROFILE',studentId:p.studentId,section:p.section});if(!lookup.found){setStatus('ไม่พบรหัสนี้ในรายชื่ออย่างเป็นทางการ จึงยังไม่สามารถเริ่มเกมได้','bad');return}if(lookup.profile&&lookup.profile.studentName){p.studentName=lookup.profile.studentName;$('studentName').value=p.studentName}saveCache(p);location.href=sessionUrl('S1',p)}catch(e){setStatus('ตรวจสอบไม่สำเร็จ: '+String(e.message||e),'bad')}finally{$('freshBtn').disabled=false}}
+$('resumeBtn').onclick=resume;$('freshBtn').onclick=fresh;loadCache();
+const q=new URLSearchParams(location.search);if(q.get('studentId'))$('studentId').value=q.get('studentId');if(q.get('studentName'))$('studentName').value=q.get('studentName');if(q.get('section'))$('section').value=q.get('section');
+})();
+</script>
+</body></html>
