@@ -6,3 +6,7 @@ window.HH_CONFIG.backend = {
   duplicateGuard: true,
   syncIntervalMs: 15000
 };
+window.HH_CONFIG.teacherAccess = {
+  sessionKey: "herohealth_teacher_authorized_v1",
+  pin: "7319"
+};
