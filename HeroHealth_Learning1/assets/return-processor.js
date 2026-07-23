@@ -1,44 +1,34 @@
 (()=>{
 'use strict';
-const KEY='herohealth_learning_platform_rc2';
-const q=new URLSearchParams(location.search);
-const kind=q.get('hhReturn');
-if(!kind)return;
+const KEY='herohealth_learning_platform_rc2',R=window.HHRotation;
+const q=new URLSearchParams(location.search),kind=q.get('hhReturn');
+if(!kind||!R)return;
 function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return null}}
 function save(s){localStorage.setItem(KEY,JSON.stringify(s))}
-function clean(){['hhReturn','task','zone','gameId','passed','completed','score','accuracy','eventId','studentId'].forEach(k=>q.delete(k));const next=location.pathname+(q.toString()?`?${q}`:'')+location.hash;history.replaceState({},'',next)}
-function requiredGames(cfg,s,zoneId){const profileId=s.activeMissionProfile||cfg.activeMissionProfile||'CLASS_60';return cfg.missionProfiles?.[profileId]?.games?.[zoneId]||[]}
-function route(cfg,s){const seq=cfg.rotation?.[s.group]||[];const out=[];seq.forEach(zoneId=>requiredGames(cfg,s,zoneId).forEach(gameId=>out.push({zoneId,gameId})));return out}
-function allGamesDone(cfg,s){return route(cfg,s).every(x=>s.gameCompleted?.[x.zoneId]?.[x.gameId]===true)}
-function expectedGame(cfg,s){return route(cfg,s).find(x=>s.gameCompleted?.[x.zoneId]?.[x.gameId]!==true)||null}
-function syncZones(cfg,s){s.completed=s.completed||{};['hygiene','nutrition','fitness'].forEach(zoneId=>{const ids=requiredGames(cfg,s,zoneId);s.completed[zoneId]=ids.length>0&&ids.every(id=>s.gameCompleted?.[zoneId]?.[id]===true)})}
-const s=load();
-if(!s||!s.profile){clean();return}
-const sid=String(q.get('studentId')||'').trim();
-if(sid&&sid!==String(s.profile.studentId||'').trim()){clean();return}
-const cfg=window.HH_CONFIG||{};
+function clean(){['hhReturn','task','zone','gameId','passed','completed','score','accuracy','eventId','studentId','sessionId','startedAt'].forEach(k=>q.delete(k));const next=location.pathname+(q.toString()?`?${q}`:'')+location.hash;history.replaceState({},'',next)}
+const s=load();if(!s||!s.profile){clean();return}
+const sid=String(q.get('studentId')||'').trim();if(sid&&sid!==String(s.profile.studentId||'').trim()){clean();return}
 if(kind==='assessment'){
- const task=q.get('task');
- if(!['pretest','posttest','reflection'].includes(task)){clean();return}
+ const task=q.get('task');if(!['pretest','posttest','reflection'].includes(task)){clean();return}
  s.completed=s.completed||{};s.scores=s.scores||{};
+ const st=R.status(s),gamesDone=st.route.filter(x=>x.type==='game').every(x=>R.done(s,x));
  if(task==='pretest'&&s.completed.pretest!==true){s.completed.pretest=true;s.scores.pretest=Number(q.get('score'))||0}
- else if(task==='posttest'&&s.completed.pretest===true&&allGamesDone(cfg,s)){s.completed.posttest=true;s.scores.posttest=Number(q.get('score'))||0}
+ else if(task==='posttest'&&s.completed.pretest===true&&gamesDone){s.completed.posttest=true;s.scores.posttest=Number(q.get('score'))||0}
  else if(task==='reflection'&&s.completed.posttest===true){s.completed.reflection=true;s.scores.reflection=Number(q.get('score'))||0}
- else {clean();return}
+ else{clean();return}
  save(s);clean();location.reload();return;
 }
 if(kind==='game'){
- const zone=q.get('zone'),gameId=q.get('gameId');
- const finished=q.get('completed')==='true'||q.get('passed')==='true';
- if(!finished||!s.completed?.pretest||!['hygiene','nutrition','fitness'].includes(zone)||!gameId){clean();return}
- s.gameCompleted=s.gameCompleted||{hygiene:{},nutrition:{},fitness:{}};
- ['hygiene','nutrition','fitness'].forEach(z=>s.gameCompleted[z]=s.gameCompleted[z]||{});
- const expected=expectedGame(cfg,s);
+ const zone=q.get('zone'),gameId=q.get('gameId'),finished=q.get('completed')==='true'||q.get('passed')==='true';
+ if(!finished||!s.completed?.pretest||!zone||!gameId){clean();return}
+ s.gameCompleted=s.gameCompleted||{};R.ZONE_ORDER.forEach(z=>s.gameCompleted[z]=s.gameCompleted[z]||{});
+ const expected=R.expectedGame(s);
  if(!expected||expected.zoneId!==zone||expected.gameId!==gameId){clean();return}
  s.gameCompleted[zone][gameId]=true;
  s.gameScores=s.gameScores||{};s.gameScores[`${zone}:${gameId}`]=Number(q.get('score'))||0;
- s.gameResults=s.gameResults||{};s.gameResults[`${zone}:${gameId}`]={completed:true,passed:q.get('passed')==='true',score:Number(q.get('score'))||0,accuracy:Number(q.get('accuracy'))||0,finishedAt:new Date().toISOString()};
- syncZones(cfg,s);
+ s.gameResults=s.gameResults||{};s.gameResults[`${zone}:${gameId}`]={completed:true,passed:q.get('passed')==='true',score:Number(q.get('score'))||0,accuracy:Number(q.get('accuracy'))||0,finishedAt:new Date().toISOString(),sessionId:q.get('sessionId')||'',startedAt:q.get('startedAt')||'',rotationGroup:R.groupOf(s),rotationZones:R.zonesFor(s)};
+ R.syncZoneCompletion(s);
+ s.rotationGroup=R.groupOf(s);s.rotationZones=R.zonesFor(s);
  const eventId=q.get('eventId');if(eventId){s.processedEventIds=Array.isArray(s.processedEventIds)?s.processedEventIds:[];if(!s.processedEventIds.includes(eventId))s.processedEventIds.push(eventId);s.processedEventIds=s.processedEventIds.slice(-200)}
  save(s);clean();location.reload();
 }
