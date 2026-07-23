@@ -3,13 +3,21 @@
 const ACTIVE_KEY='herohealth_learning_platform_rc2';
 const PREFIX='herohealth_student_resume_v6:';
 const C=window.HH_CONFIG||{};
+let lastSignature='';
 function read(k,f=null){try{const r=localStorage.getItem(k);return r==null?f:JSON.parse(r)}catch(_){return f}}
 function write(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(_){return false}}
 function id(v){return String(v||'').trim().replace(/\s+/g,'')}
 function key(sid){return PREFIX+id(sid)}
 function blank(){return{profile:null,pendingProfile:null,view:'student',completed:{pretest:false,hygiene:false,nutrition:false,fitness:false,posttest:false,reflection:false},scores:{},gameCompleted:{hygiene:{handwash:false,toothbrush:false},nutrition:{groups:false,goodjunk:false},fitness:{jumpduck:false,'balance-hold':false}},gameScores:{},gameResults:{},group:null,stationRound:1,classRunning:false,secondsLeft:(C.stationMinutes||10)*60,processedEventIds:[],activeMissionProfile:C.activeMissionProfile||'CLASS_60',sheetAuthority:false,legacyVerified:false}}
 function current(){return read(ACTIVE_KEY,{})||{}}
-function save(s=current()){const sid=id(s?.profile?.studentId);if(!sid)return false;const out={...s,pendingProfile:null,view:'student',savedAt:new Date().toISOString()};write(key(sid),out);return true}
+function signature(s){try{return JSON.stringify({studentId:s?.profile?.studentId||'',completed:s?.completed||{},gameCompleted:s?.gameCompleted||{},scores:s?.scores||{},gameScores:s?.gameScores||{},reflection:s?.reflection||null,lastAuthoritySyncAt:s?.lastAuthoritySyncAt||''})}catch(_){return String(Date.now())}}
+function save(s=current(),force=false){
+ const sid=id(s?.profile?.studentId);if(!sid)return false;
+ const sig=signature(s);if(!force&&sig===lastSignature)return true;lastSignature=sig;
+ const out={...s,pendingProfile:null,view:'student',savedAt:new Date().toISOString()};
+ if(window.HHStorageGuard?.isQuotaBlocked?.())return false;
+ return write(key(sid),out)
+}
 function endpoint(){return String(C.backend?.webAppUrl||'').trim()}
 function jsonp(params,timeout=15000){return new Promise((resolve,reject)=>{const base=endpoint();if(!base)return reject(new Error('backend_not_configured'));const cb='HHCB_'+Date.now()+'_'+Math.random().toString(36).slice(2),script=document.createElement('script');let doneFlag=false;const timer=setTimeout(()=>finish(new Error('sheet_timeout')),timeout);function finish(err,data){if(doneFlag)return;doneFlag=true;clearTimeout(timer);try{delete window[cb]}catch(_){};script.remove();err?reject(err):resolve(data)}window[cb]=data=>finish(null,data);script.onerror=()=>finish(new Error('sheet_load_failed'));const q=new URLSearchParams({...params,callback:cb,_:String(Date.now())});script.src=base+(base.includes('?')?'&':'?')+q.toString();document.head.appendChild(script)})}
 function getStudent(sid){return jsonp({action:'student',studentId:id(sid)})}
@@ -18,11 +26,11 @@ function officialState(profile,api){const a=api?.authoritativeState||{};const b=
 function clearForeignSession(sid){for(const k of ['HH_PRETEST_LAST','HH_POSTTEST_LAST']){try{const v=JSON.parse(sessionStorage.getItem(k)||'null');if(v&&id(v.studentId)!==sid)sessionStorage.removeItem(k)}catch(_){sessionStorage.removeItem(k)}}}
 function setLoginBusy(on,msg){document.documentElement.dataset.hhLoginBusy=on?'1':'0';let box=document.getElementById('hh-sheet-login-status');if(on&&!box){box=document.createElement('div');box.id='hh-sheet-login-status';box.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.78);display:grid;place-items:center;padding:24px;color:white;font:600 18px system-ui;text-align:center';document.body.appendChild(box)}if(box){box.textContent=msg||'กำลังตรวจสอบความคืบหน้าจาก Google Sheet…';if(!on)box.remove()}}
 function toast(msg){let n=document.createElement('div');n.className='toast';n.textContent=msg;document.body.appendChild(n);setTimeout(()=>n.remove(),2800)}
-async function login(profile){const sid=id(profile?.studentId);if(!sid)return;clearForeignSession(sid);setLoginBusy(true,'กำลังตรวจสอบความคืบหน้าของ '+sid+' จาก Google Sheet…');try{let api=await getStudent(sid);if(!api?.ok)throw new Error(api?.error||'sheet_error');try{await reconcile(sid);api=await getStudent(sid)}catch(_){}const next=officialState(profile,api);write(ACTIVE_KEY,next);write(key(sid),next);location.reload()}catch(err){setLoginBusy(false);alert('ยังเชื่อมต่อ Google Sheet ไม่สำเร็จ\nกรุณาตรวจอินเทอร์เน็ตแล้วลองเข้าสู่ระบบอีกครั้ง\n\n'+String(err.message||err))}}
-function install(){if(!window.HH){setTimeout(install,30);return}if(window.HH.__resumeV6Fix2)return;
- // Keep app.js lookup/cancel flow intact so its in-memory state renders the confirmation page.
+async function login(profile){const sid=id(profile?.studentId);if(!sid)return;clearForeignSession(sid);setLoginBusy(true,'กำลังตรวจสอบความคืบหน้าของ '+sid+' จาก Google Sheet…');try{let api=await getStudent(sid);if(!api?.ok)throw new Error(api?.error||'sheet_error');try{await reconcile(sid);api=await getStudent(sid)}catch(_){}const next=officialState(profile,api);write(ACTIVE_KEY,next);if(!window.HHStorageGuard?.isQuotaBlocked?.())write(key(sid),next);location.reload()}catch(err){setLoginBusy(false);alert('ยังเชื่อมต่อ Google Sheet ไม่สำเร็จ\nกรุณาตรวจอินเทอร์เน็ตแล้วลองเข้าสู่ระบบอีกครั้ง\n\n'+String(err.message||err))}}
+function install(){if(!window.HH){setTimeout(install,30);return}if(window.HH.__resumeV6Fix4)return;
  window.HH.confirmLogin=function(){const p=current().pendingProfile;if(!p?.studentId){toast('ไม่พบข้อมูลที่รอยืนยัน กรุณากรอกรหัสใหม่');return}login(p)};
- window.HH.logout=function(){const s=current();if(!s?.profile)return;if(!confirm('ออกจาก Hero Passport ของผู้เล่นนี้?\nความคืบหน้าทางการเก็บอยู่ใน Google Sheet'))return;save(s);write(ACTIVE_KEY,blank());location.reload()};
- window.HH.__resumeV6=true;window.HH.__resumeV6Fix2=true}
-const initial=current();if(!initial?.profile&&!initial?.pendingProfile)write(ACTIVE_KEY,blank());addEventListener('pagehide',()=>save());addEventListener('visibilitychange',()=>{if(document.hidden)save()});setInterval(()=>save(),3000);install();window.HHStudentResume={save,getStudent,reconcile,officialState,blank,login};
+ window.HH.logout=function(){const s=current();if(!s?.profile)return;if(!confirm('ออกจาก Hero Passport ของผู้เล่นนี้?\nความคืบหน้าทางการเก็บอยู่ใน Google Sheet'))return;save(s,true);write(ACTIVE_KEY,blank());location.reload()};
+ window.HH.__resumeV6=true;window.HH.__resumeV6Fix4=true
+}
+const initial=current();if(!initial?.profile&&!initial?.pendingProfile)write(ACTIVE_KEY,blank());addEventListener('pagehide',()=>save(current(),true));addEventListener('visibilitychange',()=>{if(document.hidden)save(current(),true)});setInterval(()=>save(),30000);install();window.HHStudentResume={save,getStudent,reconcile,officialState,blank,login};
 })();
