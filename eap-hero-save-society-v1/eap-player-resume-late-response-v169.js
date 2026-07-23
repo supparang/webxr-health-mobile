@@ -1,16 +1,17 @@
 /* =========================================================
-   EAP Hero • Player Resume Late Response Recovery v169
-   - Adds one resilient JSONP request for slow Apps Script responses.
-   - Does not discard the callback at the 35-second warning point.
+   EAP Hero • Player Resume Late Response Recovery v170
+   - One resilient JSONP request for slow Apps Script responses.
+   - Uses the same protected __eapCloudResume_ callback namespace.
+   - Never deletes the callback or script before the server responds.
    - Applies only the official server response through EAPPlayerResume.
    - Never derives route or unlocks locally.
 ========================================================= */
 (function(){
   'use strict';
-  if (window.__EAP_PLAYER_RESUME_LATE_RESPONSE_V169__) return;
-  window.__EAP_PLAYER_RESUME_LATE_RESPONSE_V169__ = true;
+  if (window.__EAP_PLAYER_RESUME_LATE_RESPONSE_V170__) return;
+  window.__EAP_PLAYER_RESUME_LATE_RESPONSE_V170__ = true;
 
-  var VERSION='20260723-EAP-PLAYER-RESUME-LATE-RESPONSE-V169';
+  var VERSION='20260723-EAP-PLAYER-RESUME-LATE-RESPONSE-V170-PERSISTENT-CALLBACK';
   var PROFILE_KEY='EAP_HERO_PLAYER_PROFILE_V1';
   var STATE_KEY='EAP_HERO_PROGRESS_V3';
   var endpoint=String((window.EAP_SHEET_CONFIG||{}).webAppUrl||'');
@@ -18,6 +19,8 @@
   var active=false;
   var lastStartedAt=0;
   var sequence=0;
+  var activeCallback='';
+  var activeScript=null;
 
   function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
   function read(key){try{return JSON.parse(localStorage.getItem(key)||'{}')||{};}catch(_){return{};}}
@@ -34,44 +37,57 @@
   function valid(p){return !!(p.studentId&&p.studentName&&p.studentId.toLowerCase()!=='guest');}
   function ready(){return !!(window.EAPPlayerResume&&typeof window.EAPPlayerResume.applyCloudResponse==='function');}
 
+  function setDiagnostic(message){
+    try {
+      var s=read(STATE_KEY);
+      s.cloudResumeDiagnostic=message;
+      s.cloudResumeDiagnosticAt=new Date().toISOString();
+      localStorage.setItem(STATE_KEY,JSON.stringify(s));
+    } catch(_) {}
+  }
+
+  function finishSuccess(){
+    active=false;
+    setDiagnostic('official_server_response_received');
+    /* Keep callback and script alive to absorb redirected/late duplicate delivery. */
+  }
+
   function request(force){
     var p=profile();
     if(!endpoint||!valid(p)||!ready()) return false;
     var now=Date.now();
     if(active) return true;
-    if(!force&&now-lastStartedAt<30000) return true;
+    if(!force&&now-lastStartedAt<120000) return true;
 
     active=true;
     lastStartedAt=now;
     sequence+=1;
 
-    var cb='__eapResumeLateV169_'+now+'_'+sequence;
+    var cb='__eapCloudResume_persistent_'+now+'_'+sequence;
     var script=document.createElement('script');
-    var hardTimer=0;
-
-    function finish(){
-      active=false;
-      clearTimeout(hardTimer);
-      if(script.parentNode) script.parentNode.removeChild(script);
-      /* Keep a harmless callback for genuinely late redirected responses. */
-      setTimeout(function(){
-        try { window[cb]=function(){}; } catch(_) {}
-      },0);
-    }
+    activeCallback=cb;
+    activeScript=script;
 
     window[cb]=function(data){
+      if(!data||data.ok!==true){
+        setDiagnostic('server_callback_not_ok');
+        return;
+      }
       try {
-        if(data&&data.ok===true){
-          window.EAPPlayerResume.applyCloudResponse(data);
-          window.dispatchEvent(new CustomEvent('eap:resume-synced',{detail:{data:data,changed:true,lateRecovery:true,version:VERSION}}));
-        }
-      } finally {
-        finish();
+        window.EAPPlayerResume.applyCloudResponse(data);
+        window.dispatchEvent(new CustomEvent('eap:resume-synced',{
+          detail:{data:data,changed:true,lateRecovery:true,version:VERSION}
+        }));
+        finishSuccess();
+      } catch(error) {
+        setDiagnostic('apply_cloud_response_error:'+String(error&&error.message||error));
       }
     };
 
-    script.onerror=function(){finish();};
-    hardTimer=setTimeout(function(){finish();},180000);
+    script.onerror=function(){
+      active=false;
+      setDiagnostic('persistent_jsonp_script_error');
+    };
 
     var url=new URL(endpoint,location.href);
     url.searchParams.set('action','player_resume');
@@ -81,18 +97,22 @@
     url.searchParams.set('callback',cb);
     url.searchParams.set('nocache',String(now));
     script.async=true;
-    script.referrerPolicy='no-referrer';
     script.src=url.toString();
     document.head.appendChild(script);
+    setDiagnostic('persistent_jsonp_started:'+cb);
     return true;
   }
 
   function boot(){
-    setTimeout(function(){request(true);},700);
-    setTimeout(function(){request(false);},12000);
+    setTimeout(function(){request(true);},500);
   }
 
-  window.EAPPlayerResumeLateRecovery={version:VERSION,request:request};
+  window.EAPPlayerResumeLateRecovery={
+    version:VERSION,
+    request:request,
+    activeCallback:function(){return activeCallback;},
+    activeScript:function(){return activeScript;}
+  };
   window.addEventListener('eap:profile-changed',function(){setTimeout(function(){request(true);},250);});
   window.addEventListener('online',function(){request(false);});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot,{once:true});
