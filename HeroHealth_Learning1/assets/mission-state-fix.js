@@ -1,49 +1,41 @@
 (()=>{
 'use strict';
 const KEY='herohealth_learning_platform_rc2';
-const ZONE_GAMES={
- hygiene:[{id:'hygiene:handwash',label:'Handwash AR',type:'game',zoneId:'hygiene',gameId:'handwash'},{id:'hygiene:toothbrush',label:'Toothbrush AR',type:'game',zoneId:'hygiene',gameId:'toothbrush'}],
- nutrition:[{id:'nutrition:groups',label:'Groups AR',type:'game',zoneId:'nutrition',gameId:'groups'},{id:'nutrition:goodjunk',label:'GoodJunk AR',type:'game',zoneId:'nutrition',gameId:'goodjunk'}],
- fitness:[{id:'fitness:jumpduck',label:'JumpDuck AR',type:'game',zoneId:'fitness',gameId:'jumpduck'},{id:'fitness:balance-hold',label:'Balance Hold AR',type:'game',zoneId:'fitness',gameId:'balance-hold'}]
-};
+const R=window.HHRotation;
+if(!R)return;
 function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return null}}
 function save(s){localStorage.setItem(KEY,JSON.stringify(s))}
-function groupRoute(s){
- const C=window.HH_CONFIG||{};
- const group=s?.group||s?.profile?.group||'A';
- const zones=(C.rotation&&C.rotation[group])||['hygiene','nutrition','fitness'];
- return [{id:'pretest',label:'Pre-test',type:'assessment'}]
-  .concat(zones.flatMap(z=>ZONE_GAMES[z]||[]))
-  .concat([{id:'posttest',label:'Post-test',type:'assessment'},{id:'reflection',label:'Reflection',type:'assessment'}]);
-}
-function done(s,step){return step.type==='game'?s?.gameCompleted?.[step.zoneId]?.[step.gameId]===true:s?.completed?.[step.id]===true}
 function normalize(s){
- if(!s||!s.profile)return {state:s,changed:false};
- const before=JSON.stringify(s),route=groupRoute(s);
+ if(!s||!s.profile)return{state:s,changed:false};
+ const before=JSON.stringify(s),route=R.routeFor(s);
  s.completed=s.completed||{};s.gameCompleted=s.gameCompleted||{};
- ['hygiene','nutrition','fitness'].forEach(z=>{s.gameCompleted[z]=s.gameCompleted[z]||{}});
+ R.syncZoneCompletion(s);
  let gap=!s.completed.pretest;
- route.filter(x=>x.type==='game').forEach(step=>{const ok=done(s,step);if(gap&&ok)delete s.gameCompleted[step.zoneId][step.gameId];if(!ok)gap=true});
- s.completed.hygiene=['handwash','toothbrush'].every(id=>s.gameCompleted.hygiene[id]===true);
- s.completed.nutrition=['groups','goodjunk'].every(id=>s.gameCompleted.nutrition[id]===true);
- s.completed.fitness=['jumpduck','balance-hold'].every(id=>s.gameCompleted.fitness[id]===true);
- const allGamesDone=s.completed.hygiene&&s.completed.nutrition&&s.completed.fitness;
+ route.filter(x=>x.type==='game').forEach(step=>{
+  const ok=R.done(s,step);
+  if(gap&&ok)delete s.gameCompleted[step.zoneId][step.gameId];
+  if(!ok)gap=true;
+ });
+ R.syncZoneCompletion(s);
+ const allGamesDone=R.ZONE_ORDER.every(z=>s.completed[z]===true);
  if(!allGamesDone){s.completed.posttest=false;s.completed.reflection=false}
  if(!s.completed.posttest)s.completed.reflection=false;
- return {state:s,changed:before!==JSON.stringify(s)};
+ s.rotationGroup=R.groupOf(s);
+ s.rotationZones=R.zonesFor(s);
+ return{state:s,changed:before!==JSON.stringify(s)};
 }
-function pct(s){const route=groupRoute(s);return Math.round(route.filter(step=>done(s,step)).length/route.length*100)}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function patch(){
  const s=load();if(!s||!s.profile)return;
- const route=groupRoute(s),value=pct(s),width=value+'%';
+ const st=R.status(s),width=st.progressPct+'%';
  document.querySelectorAll('.progress span').forEach(el=>{if(el.style.width!==width)el.style.width=width});
- document.querySelectorAll('p').forEach(el=>{if(/% ของภารกิจ/.test(el.textContent||'')){const text=value+'% ของภารกิจ';if(el.textContent!==text)el.textContent=text}});
+ document.querySelectorAll('p').forEach(el=>{if(/% ของภารกิจ/.test(el.textContent||'')){const text=st.progressPct+'% ของภารกิจ';if(el.textContent!==text)el.textContent=text}});
  const timeline=document.querySelector('.timeline');
  if(timeline){
-  const current=route.findIndex(step=>!done(s,step));
-  const html=route.map((step,i)=>{const ok=done(s,step),now=!ok&&i===current;return `<div class="step ${ok?'done':''}"><div class="num">${ok?'✓':i+1}</div><div><b>${esc(step.label)}</b><div class="small muted">${ok?'เสร็จแล้ว':now?'ภารกิจถัดไป':'รอดำเนินการ'}</div></div><span class="badge ${ok?'ok':now?'warn':''}">${ok?'ผ่าน':now?'ถัดไป':'รอ'}</span></div>`}).join('');
-  if(timeline.dataset.groupRoute!==html){timeline.innerHTML=html;timeline.dataset.groupRoute=html}
+  const current=st.route.findIndex(step=>!R.done(s,step));
+  const html=st.route.map((step,i)=>{const ok=R.done(s,step),now=!ok&&i===current;return `<div class="step ${ok?'done':''}"><div class="num">${ok?'✓':i+1}</div><div><b>${esc(step.label)}</b><div class="small muted">${ok?'เสร็จแล้ว':now?'ภารกิจถัดไป':'รอดำเนินการ'}</div></div><span class="badge ${ok?'ok':now?'warn':''}">${ok?'ผ่าน':now?'ถัดไป':'รอ'}</span></div>`}).join('');
+  const signature=R.groupOf(s)+'|'+html;
+  if(timeline.dataset.rotationRoute!==signature){timeline.innerHTML=html;timeline.dataset.rotationRoute=signature}
  }
 }
 const result=normalize(load());if(result.state&&result.changed)save(result.state);
