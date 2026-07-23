@@ -1,9 +1,10 @@
 /* =========================================================
    EAP Hero Player Resume JSONP Guard v20260723
-   V3 ABSORB LATE CALLBACKS — NO AUTO RETRY LOOP
+   V4 PRESERVE LATE HANDLERS — NO AUTO RETRY LOOP
 
    Purpose:
    - Keep late Apps Script JSONP callbacks defined.
+   - Preserve the real callback when the resume module attempts cleanup.
    - Prevent __eapCloudResume_xxx is not defined errors.
    - Never trigger a new resume request from a late callback.
    - The official EAPPlayerResume module alone owns retry timing.
@@ -12,7 +13,7 @@
 (function(){
   'use strict';
 
-  var VERSION = 'v20260723-EAP-PLAYER-RESUME-JSONP-GUARD-V3-NO-RETRY-STORM';
+  var VERSION = 'v20260723-EAP-PLAYER-RESUME-JSONP-GUARD-V4-PRESERVE-LATE-HANDLERS';
   var PREFIX = '__eapCloudResume_';
   var watched = Object.create(null);
 
@@ -54,7 +55,15 @@
         configurable: false,
         enumerable: false,
         get: function(){ return handler || safe; },
-        set: function(fn){ handler = typeof fn === 'function' ? fn : safe; }
+        set: function(fn){
+          /*
+             Resume cleanup uses `delete window[cb]`, then falls back to
+             `window[cb] = undefined` when deletion is blocked. Do not let
+             that fallback erase the real callback; Apps Script may deliver
+             the JSONP response after the client timeout.
+          */
+          if (typeof fn === 'function') handler = fn;
+        }
       });
     } catch (_) {
       try {
