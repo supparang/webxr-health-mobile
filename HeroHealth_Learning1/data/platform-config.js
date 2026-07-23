@@ -1,5 +1,5 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-PRODUCTION-CANONICAL-FLOW-V1",
+  platformVersion: "2026.07-CLASSROOM60-PRODUCTION-GROUP-ROTATION-V2",
   appName: "HeroHealth Learning Platform",
   deploymentState: "QA_TEST_OPEN",
   sourceOfTruthMode: "qa-roster-guarded-frontend",
@@ -23,7 +23,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "ทุกกลุ่มใช้ลำดับเดียวกัน เกมละหนึ่งรอบ ไม่บังคับผ่าน ไม่มี Retry และไม่มี Boss",
+      description: "แต่ละกลุ่มเริ่มคนละฐานเพื่อลดความหนาแน่น แต่ทุกคนทำครบ 6 เกม เกมละหนึ่งรอบ ไม่มี Retry และไม่มี Boss",
       games: {
         hygiene: ["handwash", "toothbrush"],
         nutrition: ["groups", "goodjunk"],
@@ -77,14 +77,14 @@ window.HH_CONFIG = {
   ],
   rotation: {
     A:["hygiene","nutrition","fitness"],
-    B:["hygiene","nutrition","fitness"],
-    C:["hygiene","nutrition","fitness"],
-    D:["hygiene","nutrition","fitness"],
-    E:["hygiene","nutrition","fitness"],
-    F:["hygiene","nutrition","fitness"],
+    B:["nutrition","fitness","hygiene"],
+    C:["fitness","hygiene","nutrition"],
+    D:["hygiene","fitness","nutrition"],
+    E:["nutrition","hygiene","fitness"],
+    F:["fitness","nutrition","hygiene"],
     G:["hygiene","nutrition","fitness"],
-    H:["hygiene","nutrition","fitness"],
-    I:["hygiene","nutrition","fitness"],
-    J:["hygiene","nutrition","fitness"]
+    H:["nutrition","fitness","hygiene"],
+    I:["fitness","hygiene","nutrition"],
+    J:["hygiene","fitness","nutrition"]
   }
 };
