@@ -1,8 +1,11 @@
 (()=>{
 'use strict';
 const ACTIVE_KEY='herohealth_learning_platform_rc2';
+let scheduled=false;
 function state(){try{return JSON.parse(localStorage.getItem(ACTIVE_KEY)||'{}')}catch(_){return{}}}
+function setText(el,text){if(el&&el.textContent!==text)el.textContent=text}
 function simplify(){
+  scheduled=false;
   const s=state();
   if(s?.profile||s?.pendingProfile)return;
   const app=document.getElementById('app');
@@ -12,26 +15,28 @@ function simplify(){
   const cards=hero.querySelectorAll(':scope > .card');
   if(cards.length<2)return;
   const intro=cards[0],form=cards[1];
+  if(intro.dataset.hhSimplified==='1'&&form.dataset.hhSimplified==='1')return;
+  intro.dataset.hhSimplified='1';
+  form.dataset.hhSimplified='1';
   intro.classList.add('hh-classroom60-intro');
-  const badge=intro.querySelector('.badge');
-  if(badge)badge.textContent='ภารกิจห้องเรียน 60 นาที';
-  const heading=intro.querySelector('h1');
-  if(heading)heading.textContent='เป็นฮีโร่สุขภาพใน 60 นาที';
-  const profileText=intro.querySelector('p.muted');
-  if(profileText)profileText.textContent='ภารกิจเดียวสำหรับคาบนี้ • Mobile Only • ระบบจัดลำดับฐานให้อัตโนมัติ';
+  setText(intro.querySelector('.badge'),'ภารกิจห้องเรียน 60 นาที');
+  setText(intro.querySelector('h1'),'เป็นฮีโร่สุขภาพใน 60 นาที');
+  setText(intro.querySelector('p.muted'),'ภารกิจเดียวสำหรับคาบนี้ • Mobile Only • ระบบจัดลำดับฐานให้อัตโนมัติ');
   const kpis=intro.querySelector('.kpis');
   if(kpis)kpis.remove();
   form.classList.add('hh-classroom60-login');
-  const formTitle=form.querySelector('h2');
-  if(formTitle)formTitle.textContent='ใส่รหัสนักเรียนเพื่อเริ่มภารกิจ';
-  const formHelp=form.querySelector('p.muted');
-  if(formHelp)formHelp.textContent='ระบบจะดึงชื่อ ห้อง กลุ่ม และความคืบหน้าจาก Google Sheet ให้อัตโนมัติ';
-  const submit=form.querySelector('button[type="submit"],button.btn-primary');
-  if(submit)submit.textContent='ตรวจสอบและเข้าสู่ภารกิจ';
+  setText(form.querySelector('h2'),'ใส่รหัสนักเรียนเพื่อเริ่มภารกิจ');
+  setText(form.querySelector('p.muted'),'ระบบจะดึงชื่อ ห้อง กลุ่ม และความคืบหน้าจาก Google Sheet ให้อัตโนมัติ');
+  setText(form.querySelector('button[type="submit"],button.btn-primary'),'ตรวจสอบและเข้าสู่ภารกิจ');
   const nav=app.querySelector('.topbar .nav');
-  if(nav)nav.hidden=true;
+  if(nav&&!nav.hidden)nav.hidden=true;
   const teacher=app.querySelector('.topbar > .btn');
-  if(teacher)teacher.hidden=true;
+  if(teacher&&!teacher.hidden)teacher.hidden=true;
+}
+function requestSimplify(){
+  if(scheduled)return;
+  scheduled=true;
+  requestAnimationFrame(simplify);
 }
 const style=document.createElement('style');
 style.textContent=`
@@ -44,10 +49,10 @@ style.textContent=`
   .hh-classroom60-login .field input{min-height:56px!important;font-size:20px!important}
   .hh-classroom60-login .btn{min-height:56px!important;font-size:18px!important}
   .hero:has(.hh-classroom60-login){display:grid!important;grid-template-columns:1fr!important;gap:16px!important}
-  .topbar:has(+ main .hh-classroom60-login){padding:12px 16px!important}
 }
 `;
 document.head.appendChild(style);
-new MutationObserver(simplify).observe(document.documentElement,{subtree:true,childList:true});
-simplify();
+const app=document.getElementById('app');
+if(app)new MutationObserver(requestSimplify).observe(app,{childList:true});
+requestSimplify();
 })();
