@@ -59,7 +59,7 @@ window.HH_CONFIG = {
       description: "จำแนกอาหารและเลือกอาหารที่เหมาะสม",
       games: [
         { id:"groups", title:"Food Groups AR", thai:"Groups AR", url:"../herohealth/groups-ar-gate.html", status:"classroom-core", requiredReturnContract:true },
-        { id:"goodjunk", title:"GoodJunk AR", thai:"GoodJunk AR", url:"../herohealth/goodjunk-ar-v11.html", status:"classroom-core", requiredReturnContract:true },
+        { id:"goodjunk", title:"GoodJunk AR", thai:"GoodJunk AR", url:"../herohealth/goodjunk-ar-classroom-v12.html", status:"classroom-core-v12", requiredReturnContract:true },
         { id:"hydration", title:"Hydration", thai:"ภารกิจพิทักษ์น้ำ", url:"../herohealth/hydration-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"balanced-plate", title:"Balanced Plate", thai:"ภารกิจจานสุขภาพ", url:"../herohealth/plate/plate-launcher.html", status:"catalog-only", requiredReturnContract:true }
       ]
