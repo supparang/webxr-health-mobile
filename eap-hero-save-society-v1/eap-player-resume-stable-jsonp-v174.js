@@ -1,19 +1,19 @@
 /* =========================================================
-   EAP Hero • Stable Official Resume JSONP v174
-   - Uses one permanent callback name for Apps Script redirects/slow delivery.
+   EAP Hero • Stable Official Resume JSONP v175
+   - Uses one permanent protected callback name for Apps Script redirects/slow delivery.
    - Applies only the official player_resume response.
    - Never derives route, unlocks, scores, or completion locally.
    - Retries one request at a time without creating a callback storm.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_PLAYER_RESUME_STABLE_JSONP_V174__)return;
-  window.__EAP_PLAYER_RESUME_STABLE_JSONP_V174__=true;
+  if(window.__EAP_PLAYER_RESUME_STABLE_JSONP_V175__)return;
+  window.__EAP_PLAYER_RESUME_STABLE_JSONP_V175__=true;
 
-  var VERSION='20260725-EAP-PLAYER-RESUME-STABLE-JSONP-V174';
+  var VERSION='20260725-EAP-PLAYER-RESUME-STABLE-JSONP-V175';
   var PROFILE_KEY='EAP_HERO_PLAYER_PROFILE_V1';
   var STATE_KEY='EAP_HERO_PROGRESS_V3';
-  var CALLBACK='EAPPlayerResumeOfficialCallback';
+  var CALLBACK='__eapCloudResume_official_v175';
   var endpoint=String((window.EAP_SHEET_CONFIG||{}).webAppUrl||'');
   var defaultSection=String((window.EAP_SHEET_CONFIG||{}).section||'122');
   var activeScript=null;
@@ -79,7 +79,7 @@
     }
     var now=Date.now();
     if(activeScript){
-      if(now-activeSince<90000)return true;
+      if(now-activeSince<120000)return true;
       removeActive();
     }
     if(!force&&lastSuccessAt&&now-lastSuccessAt<45000)return true;
