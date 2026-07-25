@@ -1,4 +1,4 @@
-/* CSAI2601 UX Quest • Project + Figma Access Authority v1
+/* CSAI2601 UX Quest • Project + Figma Access Authority v1.1
  * Guarantees visible Project/Figma controls for W1-W15 + B1-B4.
  * Syncs directly with the canonical figmaUrl field used by validation and submit.
  */
@@ -13,7 +13,7 @@
   const IS_W1 = NODE_ID === 'W1';
   const IS_BOSS = /^B[1-4]$/.test(NODE_ID);
   const FIGMA_RE = /^https:\/\/(?:www\.)?figma\.com\/(?:design|file|proto|board|slides|make)\//i;
-  const VERSION = '20260722-PROJECT-FIGMA-ACCESS-AUTHORITY-V1';
+  const VERSION = '20260722-PROJECT-FIGMA-ACCESS-AUTHORITY-V1.1';
 
   function identityKey() {
     let profile = {};
@@ -42,7 +42,9 @@
     const style = document.createElement('style');
     style.id = 'uxq-project-figma-authority-style-v1';
     style.textContent = `
-      .uxq-project-access{display:grid;gap:12px;margin:14px 0;padding:15px;border:1px solid rgba(110,231,255,.48);border-radius:17px;background:linear-gradient(135deg,rgba(16,56,105,.52),rgba(38,28,92,.42));box-shadow:0 16px 34px rgba(0,0,0,.2)}
+      .artifact[data-production-rewrite='1']>.uxq-project-access,
+      .artifact[data-studio-practice-v1]>.uxq-project-access{display:grid!important}
+      .uxq-project-access{display:grid!important;gap:12px;margin:14px 0;padding:15px;border:1px solid rgba(110,231,255,.48);border-radius:17px;background:linear-gradient(135deg,rgba(16,56,105,.52),rgba(38,28,92,.42));box-shadow:0 16px 34px rgba(0,0,0,.2)}
       .uxq-project-access__head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.uxq-project-access__head h3{margin:0;color:#fff}.uxq-project-access__head p{margin:4px 0 0;color:#c9d9ef;line-height:1.5}.uxq-project-access__badge{white-space:nowrap;padding:5px 9px;border-radius:999px;background:rgba(110,231,255,.12);color:#c9f8ff;font-size:.72rem;font-weight:900}
       .uxq-project-access__grid{display:grid;grid-template-columns:minmax(220px,.8fr) minmax(0,1.35fr);gap:12px;align-items:end}.uxq-project-access__field{display:grid;gap:6px}.uxq-project-access__field label{font-weight:900;color:#fff}.uxq-project-access__field input{width:100%;min-height:48px;padding:10px 12px;border:1px solid rgba(181,205,255,.34);border-radius:12px;background:#07142e;color:#fff;font:inherit;box-sizing:border-box}
       .uxq-project-access__actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.uxq-project-access__button{display:grid;place-items:center;min-height:46px;padding:10px 13px;border-radius:12px;text-decoration:none;font-weight:950}.uxq-project-access__button.primary{background:linear-gradient(90deg,#6ee7ff,#79eda5);color:#071124}.uxq-project-access__button.secondary{border:1px solid rgba(110,231,255,.38);color:#e2eeff;background:rgba(255,255,255,.04)}.uxq-project-access__button[aria-disabled='true']{opacity:.45;pointer-events:none}
