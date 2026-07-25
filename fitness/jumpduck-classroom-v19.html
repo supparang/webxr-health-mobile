@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0f766e">
-  <title>JumpDuck Classroom v19.1</title>
+  <title>JumpDuck Classroom v20</title>
   <style>html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#07111f;font-family:system-ui,sans-serif;color:#fff}.loading{text-align:center;font-weight:900;padding:24px}</style>
 </head>
 <body>
@@ -12,26 +12,27 @@
 <script>
 (async()=>{
   try{
-    let html=await (await fetch('./jumpduck-ar.html?v=20260725-classroom191&t='+Date.now(),{cache:'no-store'})).text();
+    let html=await (await fetch('./jumpduck-ar.html?v=20260725-classroom20&t='+Date.now(),{cache:'no-store'})).text();
     const css=`<style id="hh-jd-classroom-css">
       #start-screen .hide-short,#start-screen .setup-mini,#start-screen .setup-details,
       #start-screen .diff-btn,#start-screen .time-btn,#start-screen details,
       #start-screen #btn-teacher-mode,#start-screen #btn-home-start,
-      #start-screen .meta-input,#start-screen [data-diff],#start-screen [data-time]{display:none!important}
+      #start-screen .meta-input,#start-screen [data-diff],#start-screen [data-time],
+      #start-screen [id*="warm"],#start-screen [class*="warm"],
+      #start-screen button:not(#hh-jd-oneclick){display:none!important}
       #start-screen #start-controls{display:block!important;margin-top:14px!important}
       #start-screen #btn-start{display:none!important}
-      #hh-jd-oneclick{display:flex;align-items:center;justify-content:center;width:100%;min-height:58px;border:0;border-radius:22px;background:linear-gradient(90deg,#10b981,#06b6d4);color:white;font:900 20px system-ui;box-shadow:0 10px 24px rgba(6,95,70,.25);cursor:pointer}
+      #hh-jd-oneclick{display:flex!important;align-items:center;justify-content:center;width:100%;min-height:58px;border:0;border-radius:22px;background:linear-gradient(90deg,#10b981,#06b6d4);color:white;font:900 20px system-ui;box-shadow:0 10px 24px rgba(6,95,70,.25);cursor:pointer}
       #hh-jd-oneclick:disabled{opacity:.65;cursor:wait}
       #hh-jd-default-note{margin:10px 0 0;color:#047857;font:800 13px system-ui}
       #hh-jd-status{min-height:22px;margin:8px 0 0;color:#475569;font:700 13px system-ui}
-      #hh-jd-version{margin:10px 0 0;color:#059669;font:800 11px system-ui}
       @media(max-width:560px){#start-screen .start-panel{padding:18px!important}#start-screen h1{font-size:38px!important}}
     </style>`;
     const bridge=`<script>(()=>{
       'use strict';
       const stateKey='herohealth_learning_platform_rc2';
       const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-      const byText=(tests)=>[...document.querySelectorAll('button,[role="button"],a')].find(el=>tests.some(t=>String(el.textContent||'').toLowerCase().includes(t)));
+      let launching=false;
       function applyDefaults(){
         document.querySelector('[data-diff="easy"]')?.click();
         document.querySelector('[data-time="60"]')?.click();
@@ -41,45 +42,47 @@
           Object.entries(map).forEach(([id,v])=>{const el=document.getElementById(id);if(el&&v)el.value=v});
         }catch(_){}
       }
-      function hideLegacyWarmup(){
-        const warm=byText(['เริ่ม warm-up','warm-up ar','เตรียมร่างกาย']);
-        if(!warm)return null;
-        let box=warm.parentElement;
-        while(box&&box.parentElement&&box.parentElement.id!=='start-controls')box=box.parentElement;
-        if(box&&box.id!=='start-controls'){box.style.setProperty('display','none','important');box.setAttribute('aria-hidden','true')}
-        return warm;
+      function hideLegacy(){
+        const start=document.getElementById('btn-start');
+        if(start)start.style.setProperty('display','none','important');
+        document.querySelectorAll('#start-screen button').forEach(el=>{if(el.id!=='hh-jd-oneclick')el.style.setProperty('display','none','important')});
+      }
+      async function launch(btn,status){
+        if(launching)return;launching=true;btn.disabled=true;btn.textContent='กำลังเตรียมกล้อง…';status.textContent='โปรดอนุญาตกล้อง และยืนในพื้นที่ปลอดภัย';
+        applyDefaults();
+        const until=Date.now()+35000;
+        while(Date.now()<until){
+          hideLegacy();
+          const init=document.getElementById('init-loading');
+          const start=document.getElementById('btn-start');
+          if(start && (!init || init.classList.contains('hidden') || getComputedStyle(init).display==='none')){
+            start.disabled=false;start.removeAttribute('disabled');
+            status.textContent='พร้อมแล้ว กำลังเริ่มเกม…';
+            start.click();
+            parent.postMessage({type:'HEROHEALTH_GAME_STARTED'},location.origin);
+            return;
+          }
+          await sleep(200);
+        }
+        launching=false;btn.disabled=false;btn.textContent='▶ ลองเตรียมกล้องอีกครั้ง';status.textContent='ยังไม่พร้อม โปรดตรวจสิทธิ์กล้องแล้วลองอีกครั้ง';
       }
       function install(){
         const controls=document.getElementById('start-controls');
         if(!controls)return;
-        hideLegacyWarmup();
-        [...controls.querySelectorAll('p')].forEach(p=>{if(/v18|student context|auto sheet/i.test(p.textContent||''))p.style.display='none'});
-        if(document.getElementById('hh-jd-oneclick'))return;
-        applyDefaults();
-        const btn=document.createElement('button');
-        btn.id='hh-jd-oneclick';btn.type='button';btn.textContent='▶ เตรียมกล้องและเริ่มเกม';
-        const note=document.createElement('p');note.id='hh-jd-default-note';note.textContent='ค่าเริ่มต้น: Easy • 60 วินาที • ตรวจจับอัตโนมัติ';
-        const status=document.createElement('p');status.id='hh-jd-status';status.textContent='กดครั้งเดียว ระบบจะเตรียมกล้องและเริ่มให้เอง';
-        const version=document.createElement('p');version.id='hh-jd-version';version.textContent='Classroom v19.1 • One Tap Start';
-        controls.prepend(version);controls.prepend(status);controls.prepend(note);controls.prepend(btn);
-        btn.addEventListener('click',async()=>{
-          if(btn.disabled)return;btn.disabled=true;btn.textContent='กำลังเตรียมกล้อง…';status.textContent='โปรดอนุญาตกล้อง แล้วอยู่ในพื้นที่ปลอดภัย';
-          applyDefaults();
-          const warm=hideLegacyWarmup();
-          if(warm&&!warm.disabled)warm.click();
-          const until=Date.now()+30000;
-          while(Date.now()<until){
-            const start=document.getElementById('btn-start');
-            if(start&&!start.disabled){status.textContent='พร้อมแล้ว กำลังเริ่มเกม…';start.click();parent.postMessage({type:'HEROHEALTH_GAME_STARTED'},location.origin);return}
-            await sleep(250);
-          }
-          btn.disabled=false;btn.textContent='▶ ลองเตรียมกล้องอีกครั้ง';status.textContent='ยังไม่พร้อม โปรดตรวจสิทธิ์กล้องและลองอีกครั้ง';
-        });
+        hideLegacy();applyDefaults();
+        let btn=document.getElementById('hh-jd-oneclick');
+        if(!btn){
+          btn=document.createElement('button');btn.id='hh-jd-oneclick';btn.type='button';btn.textContent='▶ เตรียมกล้องและเริ่มเกม';
+          const note=document.createElement('p');note.id='hh-jd-default-note';note.textContent='ค่าเริ่มต้น: Easy • 60 วินาที • ตรวจจับอัตโนมัติ';
+          const status=document.createElement('p');status.id='hh-jd-status';status.textContent='กดครั้งเดียว ระบบจะเตรียมกล้องและเริ่มเกมให้เอง';
+          controls.prepend(status);controls.prepend(note);controls.prepend(btn);
+          btn.addEventListener('click',()=>launch(btn,status));
+        }
       }
-      new MutationObserver(install).observe(document.documentElement,{subtree:true,childList:true});
-      addEventListener('DOMContentLoaded',install);setInterval(install,1000);
+      new MutationObserver(()=>{install();hideLegacy()}).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','disabled']});
+      addEventListener('DOMContentLoaded',install);setInterval(()=>{install();hideLegacy()},400);
     })();<\/script>`;
-    html=html.replace('</head>',css+'</head>').replace('</body>',bridge+'</body>').replace(/<title>[^<]*<\/title>/,'<title>JumpDuck Classroom v19.1</title>');
+    html=html.replace('</head>',css+'</head>').replace('</body>',bridge+'</body>').replace(/<title>[^<]*<\/title>/,'<title>JumpDuck Classroom v20</title>');
     document.open();document.write(html);document.close();
   }catch(e){document.body.innerHTML='<div class="loading">⚠️ เปิด JumpDuck Classroom ไม่สำเร็จ<br><small>'+String(e.message||e)+'</small></div>'}
 })();
