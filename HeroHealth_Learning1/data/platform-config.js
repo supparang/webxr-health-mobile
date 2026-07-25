@@ -1,5 +1,5 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-JUMPDUCK-PRODUCTION-V3.2",
+  platformVersion: "2026.07-CLASSROOM60-JUMPDUCK-PRODUCTION-V3.3-FINAL",
   appName: "HeroHealth Learning Platform",
   deploymentState: "QA_TEST_OPEN",
   sourceOfTruthMode: "qa-roster-guarded-frontend",
@@ -68,7 +68,7 @@ window.HH_CONFIG = {
       id: "fitness", label: "Fitness Hero", thai: "ฐานการเคลื่อนไหว", emoji: "🏃", accent: "#f97316",
       description: "ฝึกการตอบสนองและการทรงตัวอย่างปลอดภัย",
       games: [
-        { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260725-production-v32-adaptive", status:"classroom-core-production-v3.2-adaptive-runner", requiredReturnContract:true },
+        { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260725-production-v33-classroom-final", status:"classroom-core-production-v3.3-auto-submit-final", requiredReturnContract:true },
         { id:"rhythm-boxer", title:"Rhythm Boxer AR", thai:"ชกตามจังหวะ", url:"../fitness/rhythm-boxer-ar.html", status:"catalog-only", requiredReturnContract:true },
         { id:"balance-hold", title:"Balance Hold AR", thai:"Balance Hold AR", url:"../fitness/balance-hold-ar2.html", status:"classroom-core", requiredReturnContract:true },
         { id:"shadow-breaker", title:"Shadow Breaker AR", thai:"ตอบสนองและเคลื่อนไหว", url:"../fitness/shadow-breaker-ar.html", status:"catalog-only", requiredReturnContract:true }
