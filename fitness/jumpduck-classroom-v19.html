@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0f766e">
-  <title>JumpDuck Classroom v21</title>
+  <title>JumpDuck Classroom v22</title>
   <style>
     html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#07111f;font-family:system-ui,sans-serif;color:#fff}
     .loading{text-align:center;font-weight:900;padding:24px}
@@ -15,7 +15,7 @@
 <script>
 (async()=>{
   try{
-    let html=await (await fetch('./jumpduck-ar.html?v=20260725-classroom21',{cache:'no-store'})).text();
+    let html=await (await fetch('./jumpduck-ar.html?v=20260725-classroom22',{cache:'no-store'})).text();
     const css=`<style id="hh-jd-classroom-css">
       #start-screen .hide-short,#start-screen .setup-mini,#start-screen .setup-details,
       #start-screen .diff-btn,#start-screen .time-btn,#start-screen details,
@@ -35,8 +35,11 @@
       'use strict';
       const stateKey='herohealth_learning_platform_rc2';
       const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+      const query=new URLSearchParams(location.search);
+      const returnedFromWarmup=query.get('warmupDone')==='1'||query.get('gateWarmupDone')==='1'||query.get('fromGate')==='1';
       let launching=false;
       let installed=false;
+      let metadataRecovered=false;
 
       function applyDefaults(){
         document.querySelector('[data-diff="easy"]')?.click();
@@ -48,32 +51,47 @@
         }catch(_){}
       }
 
+      function recoverCameraMetadata(){
+        if(metadataRecovered)return;
+        const video=document.getElementById('webcam');
+        if(!video||!video.srcObject)return;
+        if(video.readyState>=1||video.videoWidth>0){
+          metadataRecovered=true;
+          try{video.dispatchEvent(new Event('loadedmetadata'))}catch(_){}
+          try{video.play()?.catch?.(()=>{})}catch(_){}
+        }
+      }
+
       async function launch(btn,status){
         if(launching)return;
         launching=true;
         btn.disabled=true;
-        btn.textContent='กำลังเตรียมกล้อง…';
-        status.textContent='โปรดอนุญาตกล้อง และยืนในพื้นที่ปลอดภัย';
+        btn.textContent='กำลังโหลด AI และกล้อง…';
+        status.textContent='โปรดรอสักครู่ ระบบจะเริ่มเกมให้อัตโนมัติ';
         applyDefaults();
-        const until=Date.now()+45000;
+        const until=Date.now()+60000;
         while(Date.now()<until){
+          recoverCameraMetadata();
           const init=document.getElementById('init-loading');
+          const controls=document.getElementById('start-controls');
           const start=document.getElementById('btn-start');
-          const modelReady=start && (!init || init.classList.contains('hidden') || getComputedStyle(init).display==='none');
-          if(modelReady){
+          const controlsReady=controls&&(!controls.classList.contains('hidden')&&getComputedStyle(controls).display!=='none');
+          const initDone=!init||init.classList.contains('hidden')||getComputedStyle(init).display==='none';
+          if(start&&controlsReady&&initDone){
+            applyDefaults();
             start.disabled=false;
             start.removeAttribute('disabled');
-            status.textContent='พร้อมแล้ว กำลังเริ่มเกม…';
+            status.textContent='พร้อมแล้ว กำลังเริ่ม JumpDuck…';
             start.click();
-            parent.postMessage({type:'HEROHEALTH_GAME_STARTED'},location.origin);
+            try{parent.postMessage({type:'HEROHEALTH_GAME_STARTED'},location.origin)}catch(_){}
             return;
           }
-          await sleep(350);
+          await sleep(250);
         }
         launching=false;
         btn.disabled=false;
-        btn.textContent='▶ ลองเตรียมกล้องอีกครั้ง';
-        status.textContent='ยังไม่พร้อม โปรดตรวจสิทธิ์กล้องแล้วลองอีกครั้ง';
+        btn.textContent='▶ ลองเริ่มเกมอีกครั้ง';
+        status.textContent='AI หรือกล้องยังไม่พร้อม โปรดตรวจสิทธิ์กล้องแล้วกดอีกครั้ง';
       }
 
       function install(){
@@ -84,31 +102,34 @@
         const btn=document.createElement('button');
         btn.id='hh-jd-oneclick';
         btn.type='button';
-        btn.textContent='▶ เตรียมกล้องและเริ่มเกม';
+        btn.textContent=returnedFromWarmup?'กำลังเริ่ม JumpDuck…':'▶ เตรียมกล้องและเริ่มเกม';
         const note=document.createElement('p');
         note.id='hh-jd-default-note';
         note.textContent='ค่าเริ่มต้น: Easy • 60 วินาที • ตรวจจับอัตโนมัติ';
         const status=document.createElement('p');
         status.id='hh-jd-status';
-        status.textContent='กดครั้งเดียว ระบบจะเตรียมกล้องและเริ่มเกมให้เอง';
+        status.textContent=returnedFromWarmup?'Warm-up ผ่านแล้ว ระบบกำลังเริ่มเกมให้อัตโนมัติ':'กดครั้งเดียว ระบบจะเตรียมกล้องและเริ่มเกมให้เอง';
         controls.prepend(status);
         controls.prepend(note);
         controls.prepend(btn);
-        btn.addEventListener('click',()=>launch(btn,status),{passive:true});
+        btn.addEventListener('click',()=>launch(btn,status));
         installed=true;
+        if(returnedFromWarmup)setTimeout(()=>launch(btn,status),150);
         return true;
       }
 
+      const metadataTimer=setInterval(recoverCameraMetadata,200);
+      setTimeout(()=>clearInterval(metadataTimer),20000);
       let attempts=0;
       const timer=setInterval(()=>{
         attempts++;
-        if(install()||attempts>=120)clearInterval(timer);
-      },500);
+        if(install()||attempts>=160)clearInterval(timer);
+      },250);
       addEventListener('DOMContentLoaded',install,{once:true});
     })();<\/script>`;
     html=html.replace('</head>',css+'</head>')
       .replace('</body>',bridge+'</body>')
-      .replace(/<title>[^<]*<\/title>/,'<title>JumpDuck Classroom v21</title>');
+      .replace(/<title>[^<]*<\/title>/,'<title>JumpDuck Classroom v22</title>');
     document.open();
     document.write(html);
     document.close();
