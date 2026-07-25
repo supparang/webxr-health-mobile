@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0f766e">
-  <title>JumpDuck Classroom v22</title>
+  <title>JumpDuck Classroom v23</title>
   <style>
     html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#07111f;font-family:system-ui,sans-serif;color:#fff}
     .loading{text-align:center;font-weight:900;padding:24px}
@@ -15,7 +15,7 @@
 <script>
 (async()=>{
   try{
-    let html=await (await fetch('./jumpduck-ar.html?v=20260725-classroom22',{cache:'no-store'})).text();
+    let html=await (await fetch('./jumpduck-ar.html?v=20260725-classroom23',{cache:'no-store'})).text();
     const css=`<style id="hh-jd-classroom-css">
       #start-screen .hide-short,#start-screen .setup-mini,#start-screen .setup-details,
       #start-screen .diff-btn,#start-screen .time-btn,#start-screen details,
@@ -129,10 +129,22 @@
     })();<\/script>`;
     html=html.replace('</head>',css+'</head>')
       .replace('</body>',bridge+'</body>')
-      .replace(/<title>[^<]*<\/title>/,'<title>JumpDuck Classroom v22</title>');
+      .replace(/<title>[^<]*<\/title>/,'<title>JumpDuck Classroom v23</title>');
     document.open();
     document.write(html);
     document.close();
+
+    // The wrapper fetches and writes the real game after this page's original
+    // DOMContentLoaded has already fired. Re-dispatch it once so JumpDuck's
+    // webcam + AI bootstrap listener actually runs.
+    setTimeout(()=>{
+      try{
+        if(!window.__HH_JD_BOOTSTRAP_DISPATCHED__){
+          window.__HH_JD_BOOTSTRAP_DISPATCHED__=true;
+          document.dispatchEvent(new Event('DOMContentLoaded',{bubbles:true,cancelable:false}));
+        }
+      }catch(err){console.error('[JumpDuck Classroom bootstrap]',err)}
+    },50);
   }catch(e){
     document.body.innerHTML='<div class="loading">⚠️ เปิด JumpDuck Classroom ไม่สำเร็จ<br><small>'+String(e.message||e)+'</small></div>';
   }
