@@ -1,5 +1,5 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HYGIENE-WRAPPER-V1",
+  platformVersion: "2026.07-CLASSROOM60-ALL6-WRAPPER-V2",
   appName: "HeroHealth Learning Platform",
   deploymentState: "QA_TEST_OPEN",
   sourceOfTruthMode: "qa-roster-guarded-frontend",
@@ -37,8 +37,8 @@ window.HH_CONFIG = {
     {
       id: "hygiene", label: "Hygiene Hero", thai: "ฐานสุขอนามัย", emoji: "🧼", accent: "#0ea5e9", description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
-        { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260725-wrapper1", status:"classroom-core-wrapper-v1", requiredReturnContract:true },
-        { id:"toothbrush", title:"Toothbrush Hero AR", thai:"Toothbrush AR", url:"./classroom-contract-wrapper.html?wrappedGame=toothbrush&v=20260725-wrapper1", status:"classroom-core-wrapper-v1", requiredReturnContract:true },
+        { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260725-wrapper2", status:"classroom-core-wrapper-v2", requiredReturnContract:true },
+        { id:"toothbrush", title:"Toothbrush Hero AR", thai:"Toothbrush AR", url:"./classroom-contract-wrapper.html?wrappedGame=toothbrush&v=20260725-wrapper2", status:"classroom-core-wrapper-v2", requiredReturnContract:true },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"clean-objects", title:"Clean Objects", thai:"ภารกิจทำความสะอาดสิ่งของ", url:"../herohealth/clean-objects-v3/clean-objects.html", status:"catalog-only", requiredReturnContract:true },
@@ -48,8 +48,8 @@ window.HH_CONFIG = {
     {
       id: "nutrition", label: "Nutrition Hero", thai: "ฐานโภชนาการ", emoji: "🥗", accent: "#22c55e", description: "จำแนกอาหารและเลือกอาหารที่เหมาะสม",
       games: [
-        { id:"groups", title:"Food Groups AR", thai:"Groups AR", url:"../herohealth/groups-ar-gate.html", status:"classroom-core", requiredReturnContract:true },
-        { id:"goodjunk", title:"GoodJunk AR", thai:"GoodJunk AR", url:"../herohealth/goodjunk-ar-classroom-v12.html", status:"classroom-core-v12", requiredReturnContract:true },
+        { id:"groups", title:"Food Groups AR", thai:"Groups AR", url:"./classroom-contract-wrapper.html?wrappedGame=groups&v=20260725-wrapper2", status:"classroom-core-wrapper-v2", requiredReturnContract:true },
+        { id:"goodjunk", title:"GoodJunk AR", thai:"GoodJunk AR", url:"./classroom-contract-wrapper.html?wrappedGame=goodjunk&v=20260725-wrapper2", status:"classroom-core-wrapper-v2", requiredReturnContract:true },
         { id:"hydration", title:"Hydration", thai:"ภารกิจพิทักษ์น้ำ", url:"../herohealth/hydration-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"balanced-plate", title:"Balanced Plate", thai:"ภารกิจจานสุขภาพ", url:"../herohealth/plate/plate-launcher.html", status:"catalog-only", requiredReturnContract:true }
       ]
