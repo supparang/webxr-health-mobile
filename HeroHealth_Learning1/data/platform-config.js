@@ -68,7 +68,7 @@ window.HH_CONFIG = {
       id: "fitness", label: "Fitness Hero", thai: "ฐานการเคลื่อนไหว", emoji: "🏃", accent: "#f97316",
       description: "ฝึกการตอบสนองและการทรงตัวอย่างปลอดภัย",
       games: [
-        { id:"jumpduck", title:"JumpDuck AR", thai:"JumpDuck AR", url:"../fitness/jumpduck-classroom-v19.html", status:"classroom-core-v19", requiredReturnContract:true },
+        { id:"jumpduck", title:"JumpDuck AR", thai:"JumpDuck AR", url:"../fitness/jumpduck-classroom-v19.html?v=20260725-classroom20", status:"classroom-core-v20", requiredReturnContract:true },
         { id:"rhythm-boxer", title:"Rhythm Boxer AR", thai:"ชกตามจังหวะ", url:"../fitness/rhythm-boxer-ar.html", status:"catalog-only", requiredReturnContract:true },
         { id:"balance-hold", title:"Balance Hold AR", thai:"Balance Hold AR", url:"../fitness/balance-hold-ar2.html", status:"classroom-core", requiredReturnContract:true },
         { id:"shadow-breaker", title:"Shadow Breaker AR", thai:"ตอบสนองและเคลื่อนไหว", url:"../fitness/shadow-breaker-ar.html", status:"catalog-only", requiredReturnContract:true }
