@@ -1,13 +1,14 @@
 /* =========================================================
-   EAP Hero Player Resume v7 — Server Official Progress
+   EAP Hero Player Resume v8 — Server Official Progress Core
    - Google Sheet player_resume response is the only progress authority.
    - Frontend never derives official route/unlocks from local portfolio.
    - localStorage is only a scoped cache of the latest server response.
+   - Stable JSONP transport owns boot/retry when available.
 ========================================================= */
 (function(){
 'use strict';
 
-var VERSION='v20260722-EAP-PLAYER-RESUME-V7-SERVER-OFFICIAL-PROGRESS';
+var VERSION='v20260725-EAP-PLAYER-RESUME-V8-STABLE-TRANSPORT-DELEGATION';
 var STATE_KEY='EAP_HERO_PROGRESS_V3';
 var PROFILE_KEY='EAP_HERO_PLAYER_PROFILE_V1';
 var ACTIVE_KEY='EAP_HERO_ACTIVE_PLAYER_V1';
@@ -17,7 +18,7 @@ var PACK_NAME='EAP_HERO_SESSION_CONTENT_PACK';
 var ENDPOINT=String((window.EAP_SHEET_CONFIG||{}).webAppUrl||'');
 var SECTION=String((window.EAP_SHEET_CONFIG||{}).section||'122');
 var PASS=60;
-var RESUME_TIMEOUT_MS=35000;
+var RESUME_TIMEOUT_MS=120000;
 var SILENT_RETRY_MS=60000;
 var lastSyncAt=0;
 var syncing=false;
@@ -109,10 +110,10 @@ function notifyCore(data,changed){window.dispatchEvent(new CustomEvent('eap:resu
 function hasUsableResume(p){var c=valid(p)?cached(p):null;if(c&&c.ok&&clean(c.currentRoute))return true;var s=read(STATE_KEY,{});return !!(s&&s.serverResume&&clean(s.serverResume.resumeKey)&&s.cloudResumeStatus==='ok');}
 function useCacheIfAny(p){var c=valid(p)?cached(p):null;if(c&&c.ok){var count=apply(ensureScope(p),c.records||[],c,p);notifyCore(c,count>0);return true;}return false;}
 function markUnavailable(p,message){var state=ensureScope(p);if(hasUsableResume(p)){state.cloudResumeStatus='ok';state.cloudResumeMessage='latest_cloud_retry_slow';}else{state.cloudResumeStatus='unavailable';state.cloudResumeMessage=message||'Cloud/Sheet resume unavailable';}state.cloudResumeRequired=true;state.cloudFirst=true;write(STATE_KEY,state);write(scopedKey(p),state);try{window.dispatchEvent(new StorageEvent('storage',{key:STATE_KEY,newValue:JSON.stringify(state),storageArea:localStorage}));}catch(_){} }
-function jsonp(p,opts){opts=opts||{};if(!ENDPOINT||!valid(p)){return false;}var cb='__eapCloudResume_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),done=false,timer=null,script=document.createElement('script');function cleanup(){if(done)return;done=true;clearTimeout(timer);try{delete window[cb];}catch(_){window[cb]=undefined;}if(script.parentNode)script.parentNode.removeChild(script);syncing=false;}function softFail(message,visibleMessage){var already=hasUsableResume(p)||useCacheIfAny(p);cleanup();markUnavailable(p,message);if(!opts.silent&&!already)show(visibleMessage,'warn');}
-window[cb]=function(data){cleanup();if(!data||data.ok!==true){markUnavailable(p,'server_not_ok');if(!opts.silent&&!hasUsableResume(p))show('ยังดึง Cloud/Sheet ไม่สำเร็จ: ตรวจ Apps Script player_resume ก่อน','warn');return;}cache(p,data);var count=apply(ensureScope(p),data.records||[],data,p);notifyCore(data,true);if(!opts.silent)show('ยืนยันความคืบหน้าจาก Google Sheet แล้ว · '+sid(data.currentRoute||'S1'),'ok');};script.onerror=function(){softFail('script_error','เชื่อม Cloud/Sheet ไม่สำเร็จ · ยังไม่เปลี่ยนสถานะการเรียน');};timer=setTimeout(function(){softFail('timeout','Cloud/Sheet ตอบช้า · ยังไม่เปลี่ยนสถานะการเรียน');},RESUME_TIMEOUT_MS);var u=new URL(ENDPOINT,location.href);u.searchParams.set('action','player_resume');u.searchParams.set('studentId',p.studentId);u.searchParams.set('studentName',p.studentName);u.searchParams.set('section',p.section);u.searchParams.set('callback',cb);u.searchParams.set('_',String(Date.now()));script.async=true;script.referrerPolicy='no-referrer';script.src=u.toString();document.head.appendChild(script);return true;}
-function sync(opts){opts=opts||{};var p=profile();if(!valid(p))return false;ensureScope(p);if(syncing)return true;var now=Date.now();if(opts.silent&&now-lastSyncAt<15000)return true;lastSyncAt=now;syncing=true;if(!opts.silent&&!hasUsableResume(p))show('กำลังตรวจสอบความคืบหน้าจาก Google Sheet…','loading');return jsonp(p,opts);}
-function boot(){var p=profile();if(valid(p)){ensureScope(p);var c=cached(p),used=false;if(c&&c.ok&&clean(c.currentRoute)){used=true;apply(ensureScope(p),c.records||[],c,p);}setTimeout(function(){sync({silent:used});},160);setInterval(function(){sync({silent:true});},SILENT_RETRY_MS);}}
+function jsonp(p,opts){opts=opts||{};if(!ENDPOINT||!valid(p)){return false;}var cb='__eapCloudResume_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),done=false,timer=null,script=document.createElement('script');function cleanup(){if(done)return;done=true;clearTimeout(timer);try{delete window[cb];}catch(_){window[cb]=undefined;}if(script.parentNode)script.parentNode.removeChild(script);syncing=false;}function softFail(message,visibleMessage){var already=hasUsableResume(p)||useCacheIfAny(p);cleanup();markUnavailable(p,message);if(!opts.silent&&!already&&!window.EAPPlayerResumeStableJSONP)show(visibleMessage,'warn');}
+window[cb]=function(data){cleanup();if(!data||data.ok!==true){markUnavailable(p,'server_not_ok');if(!opts.silent&&!hasUsableResume(p)&&!window.EAPPlayerResumeStableJSONP)show('ยังดึง Cloud/Sheet ไม่สำเร็จ: ตรวจ Apps Script player_resume ก่อน','warn');return;}cache(p,data);var count=apply(ensureScope(p),data.records||[],data,p);notifyCore(data,true);if(!opts.silent)show('ยืนยันความคืบหน้าจาก Google Sheet แล้ว · '+sid(data.currentRoute||'S1'),'ok');};script.onerror=function(){softFail('script_error','เชื่อม Cloud/Sheet ไม่สำเร็จ · ยังไม่เปลี่ยนสถานะการเรียน');};timer=setTimeout(function(){softFail('timeout','Cloud/Sheet ตอบช้า · ยังไม่เปลี่ยนสถานะการเรียน');},RESUME_TIMEOUT_MS);var u=new URL(ENDPOINT,location.href);u.searchParams.set('action','player_resume');u.searchParams.set('studentId',p.studentId);u.searchParams.set('studentName',p.studentName);u.searchParams.set('section',p.section);u.searchParams.set('callback',cb);u.searchParams.set('_',String(Date.now()));script.async=true;script.referrerPolicy='no-referrer';script.src=u.toString();document.head.appendChild(script);return true;}
+function sync(opts){opts=opts||{};var p=profile();if(!valid(p))return false;ensureScope(p);if(window.EAPPlayerResumeStableJSONP&&typeof window.EAPPlayerResumeStableJSONP.request==='function')return window.EAPPlayerResumeStableJSONP.request(!opts.silent);if(syncing)return true;var now=Date.now();if(opts.silent&&now-lastSyncAt<15000)return true;lastSyncAt=now;syncing=true;if(!opts.silent&&!hasUsableResume(p))show('กำลังตรวจสอบความคืบหน้าจาก Google Sheet…','loading');return jsonp(p,opts);}
+function boot(){var p=profile();if(!valid(p))return;ensureScope(p);var c=cached(p),used=false;if(c&&c.ok&&clean(c.currentRoute)){used=true;apply(ensureScope(p),c.records||[],c,p);}setTimeout(function(){if(window.EAPPlayerResumeStableJSONP&&typeof window.EAPPlayerResumeStableJSONP.request==='function')window.EAPPlayerResumeStableJSONP.request(true);else sync({silent:used});},160);setInterval(function(){sync({silent:true});},SILENT_RETRY_MS);}
 window.EAPPlayerResume={version:VERSION,sync:sync,profile:profile,cache:function(){var p=profile();return valid(p)?cached(p):null;},hasUsableResume:function(){return hasUsableResume(profile());},applyCloudResponse:function(response){var p=profile();if(!valid(p)||!response||response.ok!==true)return false;cache(p,response);apply(ensureScope(p),response.records||[],response,p);notifyCore(response,true);return true;}};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
