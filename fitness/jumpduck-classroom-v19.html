@@ -3,151 +3,56 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#0f766e">
-  <title>JumpDuck Classroom v23</title>
+  <meta name="theme-color" content="#ecfdf5">
+  <title>JumpDuck Classroom</title>
   <style>
-    html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#07111f;font-family:system-ui,sans-serif;color:#fff}
-    .loading{text-align:center;font-weight:900;padding:24px}
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:linear-gradient(135deg,#cffafe,#ecfccb);color:#12352f}
+    body{display:grid;place-items:center;padding:20px}
+    .card{width:min(430px,94vw);background:#fff;border:4px solid #facc15;border-radius:28px;padding:28px;text-align:center;box-shadow:0 18px 45px rgba(15,118,110,.18)}
+    .icon{width:82px;height:82px;border-radius:50%;display:grid;place-items:center;margin:0 auto 14px;background:#fde047;border:4px solid #eab308;font-size:44px}
+    .badge{display:inline-block;padding:7px 12px;border-radius:999px;background:#d1fae5;color:#047857;font-size:12px;font-weight:900}
+    h1{margin:14px 0 8px;font-size:42px;line-height:1;color:#059669}
+    p{margin:0;color:#475569;font-weight:700;line-height:1.5}
+    .defaults{margin:20px 0 12px;padding:13px;border-radius:16px;background:#f0fdf4;color:#047857;font-weight:900}
+    button{width:100%;min-height:62px;border:0;border-radius:20px;background:linear-gradient(90deg,#10b981,#06b6d4);color:#fff;font:900 20px system-ui;box-shadow:0 10px 22px rgba(5,150,105,.24);cursor:pointer}
+    button:disabled{opacity:.65;cursor:wait}
+    #status{min-height:24px;margin-top:12px;font-size:13px;color:#475569}
   </style>
 </head>
 <body>
-<div class="loading">🦆 กำลังเตรียม JumpDuck Classroom…</div>
+  <main class="card">
+    <div class="icon">🦆</div>
+    <span class="badge">CLASSROOM • BODY TRACKING</span>
+    <h1>JumpDuck Dash</h1>
+    <p>หลบสิ่งกีดขวางด้วย Jump / Duck / Left / Right</p>
+    <div class="defaults">Easy • 60 วินาที • ตรวจจับอัตโนมัติ</div>
+    <button id="start" type="button">▶ เตรียมกล้องและเริ่มเกม</button>
+    <div id="status">กดครั้งเดียว แล้วระบบจะเข้าสู่เกมโดยตรง</div>
+  </main>
 <script>
-(async()=>{
-  try{
-    let html=await (await fetch('./jumpduck-ar.html?v=20260725-classroom23',{cache:'no-store'})).text();
-    const css=`<style id="hh-jd-classroom-css">
-      #start-screen .hide-short,#start-screen .setup-mini,#start-screen .setup-details,
-      #start-screen .diff-btn,#start-screen .time-btn,#start-screen details,
-      #start-screen #btn-teacher-mode,#start-screen #btn-home-start,
-      #start-screen .meta-input,#start-screen [data-diff],#start-screen [data-time],
-      #start-screen [id*="warm"],#start-screen [class*="warm"],
-      #start-screen button:not(#hh-jd-oneclick){display:none!important}
-      #start-screen #start-controls{display:block!important;margin-top:14px!important}
-      #start-screen #btn-start{display:none!important}
-      #hh-jd-oneclick{display:flex!important;align-items:center;justify-content:center;width:100%;min-height:58px;border:0;border-radius:22px;background:linear-gradient(90deg,#10b981,#06b6d4);color:white;font:900 20px system-ui;box-shadow:0 10px 24px rgba(6,95,70,.25);cursor:pointer}
-      #hh-jd-oneclick:disabled{opacity:.65;cursor:wait}
-      #hh-jd-default-note{margin:10px 0 0;color:#047857;font:800 13px system-ui}
-      #hh-jd-status{min-height:22px;margin:8px 0 0;color:#475569;font:700 13px system-ui}
-      @media(max-width:560px){#start-screen .start-panel{padding:18px!important}#start-screen h1{font-size:38px!important}}
-    </style>`;
-    const bridge=`<script>(()=>{
-      'use strict';
-      const stateKey='herohealth_learning_platform_rc2';
-      const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-      const query=new URLSearchParams(location.search);
-      const returnedFromWarmup=query.get('warmupDone')==='1'||query.get('gateWarmupDone')==='1'||query.get('fromGate')==='1';
-      let launching=false;
-      let installed=false;
-      let metadataRecovered=false;
-
-      function applyDefaults(){
-        document.querySelector('[data-diff="easy"]')?.click();
-        document.querySelector('[data-time="60"]')?.click();
-        try{
-          const s=JSON.parse(localStorage.getItem(stateKey)||'{}'),p=s.profile||{};
-          const map={'input-class':p.section||'','input-student':p.studentId||'','input-name':p.fullName||'','input-teacher':''};
-          Object.entries(map).forEach(([id,v])=>{const el=document.getElementById(id);if(el&&v)el.value=v});
-        }catch(_){}
-      }
-
-      function recoverCameraMetadata(){
-        if(metadataRecovered)return;
-        const video=document.getElementById('webcam');
-        if(!video||!video.srcObject)return;
-        if(video.readyState>=1||video.videoWidth>0){
-          metadataRecovered=true;
-          try{video.dispatchEvent(new Event('loadedmetadata'))}catch(_){}
-          try{video.play()?.catch?.(()=>{})}catch(_){}
-        }
-      }
-
-      async function launch(btn,status){
-        if(launching)return;
-        launching=true;
-        btn.disabled=true;
-        btn.textContent='กำลังโหลด AI และกล้อง…';
-        status.textContent='โปรดรอสักครู่ ระบบจะเริ่มเกมให้อัตโนมัติ';
-        applyDefaults();
-        const until=Date.now()+60000;
-        while(Date.now()<until){
-          recoverCameraMetadata();
-          const init=document.getElementById('init-loading');
-          const controls=document.getElementById('start-controls');
-          const start=document.getElementById('btn-start');
-          const controlsReady=controls&&(!controls.classList.contains('hidden')&&getComputedStyle(controls).display!=='none');
-          const initDone=!init||init.classList.contains('hidden')||getComputedStyle(init).display==='none';
-          if(start&&controlsReady&&initDone){
-            applyDefaults();
-            start.disabled=false;
-            start.removeAttribute('disabled');
-            status.textContent='พร้อมแล้ว กำลังเริ่ม JumpDuck…';
-            start.click();
-            try{parent.postMessage({type:'HEROHEALTH_GAME_STARTED'},location.origin)}catch(_){}
-            return;
-          }
-          await sleep(250);
-        }
-        launching=false;
-        btn.disabled=false;
-        btn.textContent='▶ ลองเริ่มเกมอีกครั้ง';
-        status.textContent='AI หรือกล้องยังไม่พร้อม โปรดตรวจสิทธิ์กล้องแล้วกดอีกครั้ง';
-      }
-
-      function install(){
-        if(installed)return true;
-        const controls=document.getElementById('start-controls');
-        if(!controls)return false;
-        applyDefaults();
-        const btn=document.createElement('button');
-        btn.id='hh-jd-oneclick';
-        btn.type='button';
-        btn.textContent=returnedFromWarmup?'กำลังเริ่ม JumpDuck…':'▶ เตรียมกล้องและเริ่มเกม';
-        const note=document.createElement('p');
-        note.id='hh-jd-default-note';
-        note.textContent='ค่าเริ่มต้น: Easy • 60 วินาที • ตรวจจับอัตโนมัติ';
-        const status=document.createElement('p');
-        status.id='hh-jd-status';
-        status.textContent=returnedFromWarmup?'Warm-up ผ่านแล้ว ระบบกำลังเริ่มเกมให้อัตโนมัติ':'กดครั้งเดียว ระบบจะเตรียมกล้องและเริ่มเกมให้เอง';
-        controls.prepend(status);
-        controls.prepend(note);
-        controls.prepend(btn);
-        btn.addEventListener('click',()=>launch(btn,status));
-        installed=true;
-        if(returnedFromWarmup)setTimeout(()=>launch(btn,status),150);
-        return true;
-      }
-
-      const metadataTimer=setInterval(recoverCameraMetadata,200);
-      setTimeout(()=>clearInterval(metadataTimer),20000);
-      let attempts=0;
-      const timer=setInterval(()=>{
-        attempts++;
-        if(install()||attempts>=160)clearInterval(timer);
-      },250);
-      addEventListener('DOMContentLoaded',install,{once:true});
-    })();<\/script>`;
-    html=html.replace('</head>',css+'</head>')
-      .replace('</body>',bridge+'</body>')
-      .replace(/<title>[^<]*<\/title>/,'<title>JumpDuck Classroom v23</title>');
-    document.open();
-    document.write(html);
-    document.close();
-
-    // The wrapper fetches and writes the real game after this page's original
-    // DOMContentLoaded has already fired. Re-dispatch it once so JumpDuck's
-    // webcam + AI bootstrap listener actually runs.
-    setTimeout(()=>{
-      try{
-        if(!window.__HH_JD_BOOTSTRAP_DISPATCHED__){
-          window.__HH_JD_BOOTSTRAP_DISPATCHED__=true;
-          document.dispatchEvent(new Event('DOMContentLoaded',{bubbles:true,cancelable:false}));
-        }
-      }catch(err){console.error('[JumpDuck Classroom bootstrap]',err)}
-    },50);
-  }catch(e){
-    document.body.innerHTML='<div class="loading">⚠️ เปิด JumpDuck Classroom ไม่สำเร็จ<br><small>'+String(e.message||e)+'</small></div>';
-  }
+(()=>{
+  'use strict';
+  const btn=document.getElementById('start');
+  const status=document.getElementById('status');
+  btn.addEventListener('click',()=>{
+    if(btn.disabled)return;
+    btn.disabled=true;
+    btn.textContent='กำลังเปิด JumpDuck…';
+    status.textContent='โปรดอนุญาตกล้องเมื่อเบราว์เซอร์ถาม';
+    const incoming=new URLSearchParams(location.search);
+    const target=new URL('./jumpduck-ar.html',location.href);
+    incoming.forEach((value,key)=>{
+      if(!['v','jumpduck'].includes(key))target.searchParams.set(key,value);
+    });
+    target.searchParams.set('diff','easy');
+    target.searchParams.set('time','60');
+    target.searchParams.set('classroom','1');
+    target.searchParams.set('warmupDone','1');
+    target.searchParams.set('autostart','1');
+    target.searchParams.set('_',Date.now());
+    location.replace(target.href);
+  });
 })();
 </script>
 </body>
