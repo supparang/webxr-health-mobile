@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#16a34a">
+  <title>GoodJunk AR Classroom v12</title>
+  <style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020617}iframe{width:100%;height:100%;border:0;background:#ecfdf5}.status{position:fixed;z-index:20;right:10px;bottom:10px;max-width:calc(100vw - 20px);padding:7px 10px;border-radius:999px;background:#052e16dd;color:#fff;font:700 12px system-ui;pointer-events:none;opacity:0;transition:.2s}.status.show{opacity:1}</style>
+</head>
+<body>
+  <iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe>
+  <div id="status" class="status"></div>
+  <script>
+  (()=>{'use strict';
+    const q=new URLSearchParams(location.search);
+    const sid=q.get('studentId')||q.get('pid')||'';
+    const section=q.get('section')||'';
+    const group=q.get('group')||'';
+    const frame=document.getElementById('game');
+    const status=document.getElementById('status');
+    let forwarded=false;
+    const show=t=>{status.textContent=t;status.classList.add('show');setTimeout(()=>status.classList.remove('show'),2600)};
+    const endpoint=()=>String(parent?.HH_CONFIG?.backend?.webAppUrl||'').trim();
+    const post=payload=>{
+      const url=endpoint();
+      if(!url||!sid)return Promise.resolve(false);
+      const form=new URLSearchParams();form.set('payload',JSON.stringify(payload));const body=form.toString();
+      try{if(navigator.sendBeacon&&navigator.sendBeacon(url,new Blob([body],{type:'application/x-www-form-urlencoded;charset=UTF-8'})))return Promise.resolve(true)}catch(_){}
+      return fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body,keepalive:true}).then(()=>true).catch(()=>false);
+    };
+    addEventListener('message',async e=>{
+      if(e.source!==frame.contentWindow)return;
+      const m=e.data||{};
+      if(m.type==='HEROHEALTH_GAME_STARTED'){parent.postMessage(m,location.origin);return}
+      if(m.type!=='HEROHEALTH_GAME_COMPLETE'||!m.payload||forwarded)return;
+      forwarded=true;
+      const eventId=String(m.payload.eventId||`HH-classroom-goodjunk-${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
+      const payload={eventType:'game',eventId,studentId:sid,profile:{section,group},clientTs:new Date().toISOString(),currentStep:'nutrition:goodjunk',status:'จบ goodjunk',game:{zone:'nutrition',gameId:'goodjunk',score:Number(m.payload.score)||0,accuracy:Number(m.payload.accuracy)||0,passed:m.payload.passed===true,completed:true,finishedAt:new Date().toISOString(),inputMode:q.get('inputMode')||'classroom'}};
+      show('กำลังสำรองผล GoodJunk เข้า Google Sheet…');
+      await post(payload);
+      setTimeout(()=>parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:{...m.payload,eventId,completed:true}},location.origin),700);
+    });
+    const child=new URL('./goodjunk-ar-v11.html',location.href);q.forEach((v,k)=>child.searchParams.set(k,v));child.searchParams.set('classroomBridge','12');child.searchParams.set('_',Date.now());frame.src=child.href;
+  })();
+  </script>
+</body>
+</html>
