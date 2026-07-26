@@ -1,8 +1,9 @@
 /* =========================================================
- * CSAI2601 UX Quest • Completed Node Exit Guard v1
+ * CSAI2601 UX Quest • Completed Node Exit Guard v1.1
  * Google Sheet / authoritative tracker decides completion.
  * A completed node exits to Mission Control by default.
- * Add replay=1 to intentionally practise the completed node.
+ * Add replay=1 or practice=1 to practise.
+ * Add review=1 to inspect submitted Studio and Reflection.
  * ========================================================= */
 (() => {
   'use strict';
@@ -10,7 +11,7 @@
   const params = new URLSearchParams(location.search || '');
   const node = String(params.get('node') || '').trim().toUpperCase();
   if (!/^(W(?:[1-9]|1[0-5])|B[1-4])$/.test(node)) return;
-  if (params.get('replay') === '1' || params.get('practice') === '1') return;
+  if (params.get('replay') === '1' || params.get('practice') === '1' || params.get('review') === '1') return;
 
   let redirected = false;
   let observer = null;
