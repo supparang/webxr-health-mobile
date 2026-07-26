@@ -14,7 +14,7 @@ window.HH_CONFIG = {
   oneRoundPerGame: true,
   requireGamePassToContinue: false,
   teacherPin: "",
-  assessmentApiUrl: "",
+  assessmentApiUrl: "https://script.google.com/macros/s/AKfycbwGTGnz1fg_bz4aBjvOZa7AbptWg6JXDDyF8I7cG7eIskjYZVAIoy148s7db5QmX-JP/exec",
   routes: {
     pretest: "./assessment/pretest.html",
     posttest: "./assessment/posttest.html",
