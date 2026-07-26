@@ -1,74 +1,49 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1230" />
-  <title>UX Quest • ศูนย์ภารกิจ</title>
-  <link rel="stylesheet" href="./css/uxq-core.css" />
-  <link rel="stylesheet" href="./css/uxq-hub.css" />
-  <link rel="stylesheet" href="./css/uxq-hub-act2.css?v=20260704-campaign-v2" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="theme-color" content="#0b1230">
+  <title>CSAI2601 UX Quest</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at top, #1d2a61 0, #0b1230 55%, #070b1b 100%); color: #fff; }
+    main { width: min(560px, 100%); padding: 32px; border: 1px solid rgba(255,255,255,.15); border-radius: 24px; background: rgba(11,18,48,.86); box-shadow: 0 24px 70px rgba(0,0,0,.35); text-align: center; }
+    .mark { width: 68px; height: 68px; margin: 0 auto 18px; display: grid; place-items: center; border-radius: 20px; background: #fff; color: #0b1230; font-weight: 900; font-size: 24px; }
+    h1 { margin: 0 0 10px; font-size: clamp(28px, 6vw, 42px); }
+    p { margin: 0 0 22px; color: #cbd5ff; line-height: 1.65; }
+    a { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 22px; border-radius: 14px; background: #fff; color: #0b1230; font-weight: 800; text-decoration: none; }
+    small { display: block; margin-top: 18px; color: #8f9bd1; }
+  </style>
 </head>
-<body class="uxq-hub-page">
-  <main class="hub-shell">
-    <header class="hub-topbar" aria-label="การนำทาง UX Quest">
-      <a class="hub-brand" href="./index.html" aria-label="กลับศูนย์ภารกิจ UX Quest">
-        <span class="hub-brand__mark" aria-hidden="true">UX</span>
-        <span class="hub-brand__copy"><strong>UX Quest</strong><small>ภารกิจกู้ประสบการณ์ผู้ใช้</small></span>
-      </a>
-      <details id="progressMenu" class="hub-menu">
-        <summary aria-label="เมนูความคืบหน้า"><span class="hub-menu__label">ความคืบหน้า</span><span class="hub-menu__dots" aria-hidden="true">•••</span></summary>
-        <div class="hub-menu__panel"><p class="hub-menu__eyebrow">ความคืบหน้าภารกิจ</p><strong id="menuProgressText">0/18 ด่าน • ☆☆☆</strong><small id="menuScoreText">คะแนนสูงสุด 0</small><button id="resetProgressBtn" type="button">รีเซ็ตความก้าวหน้า UX Quest</button></div>
-      </details>
-    </header>
-
-    <section class="overview-grid" aria-labelledby="actTitle">
-      <div class="act-intro">
-        <p class="eyebrow act-intro__eyebrow">ACT I → ACT V • UX/UI DESIGN CAMPAIGN</p>
-        <h1 id="actTitle">เข้าใจผู้ใช้ → สร้างระบบ → พิสูจน์คุณค่าด้วยผู้ใช้จริง</h1>
-        <p class="act-intro__lede">เริ่มจากหลักฐานผู้ใช้ สกัดความเข้าใจเชิงลึก สร้างแนวคิด จัดโครงสร้าง ออกแบบ UI และทดสอบจนผลงานพร้อมนำเสนอ</p>
-        <div class="quick-progress" aria-label="ความก้าวหน้า UX Quest"><span><b id="actProgressText">0/18</b> ด่าน</span><span><b id="heroStars">☆☆☆</b> ระดับความชำนาญ</span><span><b id="heroScore">0</b> คะแนนสูงสุด</span></div>
-      </div>
-
-      <article class="current-card" id="nodeW1" aria-labelledby="w1Title">
-        <div class="current-card__status"><span class="status-dot" id="nowStatusDot" aria-hidden="true"></span><span id="nowStatus">พร้อมเริ่มภารกิจ</span><span class="current-card__week" id="nowWeek">W1 • นักสืบปัญหา UX</span></div>
-        <div class="current-card__main"><div id="nowIcon" class="current-card__icon" aria-hidden="true">⌕</div><div><h2 id="w1Title">คดี UX: ตามหาต้นตอปัญหา</h2><p id="nowSummary">เลือกหลักฐาน ตั้งสมมติฐาน เลือกวิธีแก้ และทดสอบกับผู้ใช้จริง</p></div></div>
-        <div class="current-card__meta"><span>⏱ 8–15 นาที</span><span id="nowReward">★ 2 ระดับความพร้อม เพื่อปลดล็อก W2</span></div>
-        <a id="nowLaunch" class="current-card__cta" href="./w1-ux-crisis-casefile.html?v=20260704-w1-uiux-v2"><span id="nowLaunchText">เริ่มภารกิจ</span><span aria-hidden="true">→</span></a>
-      </article>
-    </section>
-
-    <section class="mission-path" aria-labelledby="pathTitle">
-      <div class="mission-path__heading"><div><p class="eyebrow">เส้นทางภารกิจ</p><h2 id="pathTitle">เส้นทาง UX Quest</h2></div><p id="pathHint">ผ่าน W1 ที่ 2★ ระดับความพร้อม เพื่อปลดล็อก W2</p></div>
-      <ol class="path-rail" aria-label="ลำดับภารกิจ UX Quest">
-        <li class="path-step path-step--available" id="pathW1"><span class="path-step__dot">1</span><span class="path-step__copy"><b>W1 • นักสืบปัญหา UX</b><small id="pathW1State">พร้อมเริ่ม</small></span></li>
-        <li class="path-step" id="pathW2"><span class="path-step__dot">2</span><span class="path-step__copy"><b>W2 • คิดเชิงออกแบบ</b><small id="pathW2State">ผ่าน W1 ที่ 2★ ระดับความพร้อม</small></span></li>
-        <li class="path-step" id="pathW3"><span class="path-step__dot">3</span><span class="path-step__copy"><b>W3 • ลดภาระความคิด</b><small id="pathW3State">ผ่าน W2 ก่อน</small></span></li>
-        <li class="path-step path-step--boss" id="pathB1"><span class="path-step__dot">B</span><span class="path-step__copy"><b>B1 • บอสพายุความสับสน</b><small>ด่านบอส</small></span></li>
-        <li class="path-step" id="pathW4"><span class="path-step__dot">4</span><span class="path-step__copy"><b>W4 • ห้องแล็บถอดรหัสผู้ใช้</b><small id="pathW4State">ผ่าน B1 ที่ 2★ ระดับความพร้อม</small></span></li>
-      </ol>
-    </section>
-
-    <section class="up-next" aria-labelledby="upNextTitle">
-      <div class="section-heading"><div><p class="eyebrow">ภารกิจถัดไป</p><h2 id="upNextTitle">ภารกิจถัดไป</h2></div><p>ปลดล็อกตามเส้นทางเรียน และเล่นซ้ำด้วยคดีสุ่มใหม่ได้</p></div>
-      <div class="up-next-grid">
-        <article class="compact-stage compact-stage--locked" id="nodeW2"><div class="compact-stage__top"><span class="stage-number">W2</span><span class="stage-state" id="w2State">ล็อกอยู่</span></div><div class="compact-stage__content"><span class="compact-stage__icon" aria-hidden="true">↺</span><div><p class="compact-stage__type">กระบวนการ</p><h3>ภารกิจคิดเชิงออกแบบ</h3><p>เข้าใจผู้ใช้ → ตั้งโจทย์ → สร้างแนวคิด → ทำต้นแบบ → ทดสอบ</p></div></div><div class="compact-stage__footer"><span id="w2Note">ผ่าน W1 ที่ 2★ ระดับความพร้อม</span><a id="w2Launch" class="compact-stage__launch is-disabled" href="#" aria-disabled="true"><span id="w2LaunchText">ล็อกอยู่</span><span aria-hidden="true">→</span></a></div></article>
-        <article class="compact-stage compact-stage--locked" id="nodeW3"><div class="compact-stage__top"><span class="stage-number">W3</span><span class="stage-state">ล็อกอยู่</span></div><div class="compact-stage__content"><span class="compact-stage__icon" aria-hidden="true">◌</span><div><p class="compact-stage__type">การคิดและการตัดสินใจ</p><h3>ด่านลดภาระความคิด</h3><p>จัดข้อมูลให้ผู้ใช้เห็นสิ่งสำคัญและไม่ต้องเดา</p></div></div><div class="compact-stage__footer"><span>ผ่าน W2 ก่อน</span><button type="button" disabled>ล็อกอยู่</button></div></article>
-        <article class="boss-preview" id="nodeB1"><div class="boss-preview__top"><span class="stage-number">B1</span><span class="stage-state">ด่านบอส</span></div><div class="boss-preview__body"><span class="boss-preview__icon" aria-hidden="true">⚠</span><div><p class="compact-stage__type">รวมทักษะ</p><h3>บอสพายุความสับสน</h3><p>กู้ระบบที่ผู้ใช้หาไม่เจอ เข้าใจสถานะผิด และไปต่อไม่ถูก</p></div></div><div class="boss-preview__footer"><span>ต้องผ่าน W1–W3 ก่อนเข้าสู่บอส</span><button type="button" disabled>ด่านบอสยังล็อกอยู่</button></div></article>
-        <article class="boss-preview insight-preview" id="nodeW4"><div class="boss-preview__top"><span class="stage-number">W4</span><span class="stage-state">ภารกิจถัดไปยังล็อกอยู่</span></div><div class="boss-preview__body"><span class="boss-preview__icon" aria-hidden="true">◉</span><div><p class="compact-stage__type">ACT II • เข้าใจผู้ใช้เชิงลึก</p><h3>ห้องแล็บถอดรหัสผู้ใช้</h3><p>สแกนเสียงผู้ใช้ แยกสิ่งที่เห็นจริง สกัดความเข้าใจเชิงลึก และตั้งโจทย์</p></div></div><div class="boss-preview__footer"><span>ต้องผ่าน B1 ก่อน</span><button type="button" disabled>ห้องแล็บยังล็อกอยู่</button></div></article>
-      </div>
-    </section>
-
-    <details class="how-card"><summary><span><b>วิธีเล่น UX Quest</b><small>แต่ละด่านใช้กรอบคิดต่างกัน และทุกด่านมีการตรวจเหตุผลเพื่อกันการเดา</small></span><span class="how-card__chevron" aria-hidden="true">⌄</span></summary><ol class="how-card__steps"><li><b>1</b><span><strong>หลักฐาน</strong><small>เลือกหลักฐานที่ช่วยแยกสาเหตุ</small></span></li><li><b>2</b><span><strong>สมมติฐาน</strong><small>ตั้งสาเหตุที่หลักฐานสนับสนุน</small></span></li><li><b>3</b><span><strong>วิธีแก้</strong><small>ลงทุนแก้สาเหตุภายใต้ข้อจำกัด</small></span></li><li><b>4</b><span><strong>ความเข้าใจเชิงลึก</strong><small>สกัดความต้องการที่ซ่อนอยู่ก่อนตั้งโจทย์ใหม่</small></span></li><li><b>5</b><span><strong>เส้นทางงาน</strong><small>ทำให้ผู้ใช้เห็นขั้นถัดไปและไปถึงเป้าหมายจริง</small></span></li></ol></details>
+<body>
+  <main>
+    <div class="mark" aria-hidden="true">UX</div>
+    <h1>CSAI2601 UX Quest</h1>
+    <p>กำลังเข้าสู่ Mission Control ซึ่งใช้ความก้าวหน้าจาก Google Sheet และเส้นทาง W1–W15 พร้อม Boss Gate B1–B4</p>
+    <a id="continueLink" href="./csai2601-mission-control.html">เข้าสู่ Mission Control</a>
+    <small>ระบบจะนำไปยังหน้าหลักอัตโนมัติ</small>
   </main>
-
-  <script src="./js/uxq-classroom-config-v2.js?v=20260704-campaign-v2"></script>
-  <script src="./js/uxq-progress-v4.js?v=20260704-full-campaign-v1"></script>
-  <script src="./js/uxq-identity-v1.js?v=20260704-campaign-v2"></script>
-  <script src="./js/uxq-analytics-v2.js?v=20260704-campaign-v2"></script>
-  <script src="./js/uxq-hub-casefile-v17.js?v=20260704-campaign-v2"></script>
-  <script src="./js/uxq-hub-thai-v1.js?v=20260704-hub-thai-v1"></script>
-  <script src="./js/uxq-hub-w5-extension-v1.js?v=20260704-w5-concept-v1"></script>
-  <script src="./js/uxq-hub-full-campaign-v1.js?v=20260704-full-campaign-v2"></script>
+  <script>
+    (function () {
+      'use strict';
+      var target = new URL('./csai2601-mission-control.html', window.location.href);
+      var incoming = new URLSearchParams(window.location.search);
+      incoming.forEach(function (value, key) {
+        target.searchParams.set(key, value);
+      });
+      target.searchParams.set('entry', incoming.get('entry') || 'legacy-index');
+      target.searchParams.set('v', '20260726-canonical-entry-v1');
+      var link = document.getElementById('continueLink');
+      link.href = target.href;
+      window.setTimeout(function () {
+        window.location.replace(target.href);
+      }, 350);
+    }());
+  </script>
 </body>
 </html>
