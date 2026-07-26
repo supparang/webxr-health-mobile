@@ -1,11 +1,11 @@
-/* CSAI2601 UX Quest • Studio & Reflection Read-only Review v1 */
+/* CSAI2601 UX Quest • Studio & Reflection Read-only Review v2 */
 (() => {
   'use strict';
 
   const params = new URLSearchParams(location.search || '');
   if (params.get('review') !== '1') return;
 
-  const VERSION = '20260726-STUDIO-REFLECTION-REVIEW-V1';
+  const VERSION = '20260726-STUDIO-REFLECTION-REVIEW-V2-COMPLETED-AUTHORITY';
   let applied = false;
 
   function text(el) {
@@ -13,11 +13,12 @@
   }
 
   function installStyle() {
-    if (document.getElementById('uxq-review-style-v1')) return;
+    if (document.getElementById('uxq-review-style-v2')) return;
     const style = document.createElement('style');
-    style.id = 'uxq-review-style-v1';
+    style.id = 'uxq-review-style-v2';
     style.textContent = `
       body[data-uxq-review='1'] .uxq-review-hidden{display:none!important}
+      body[data-uxq-review='1'] #uxqThreePartCompletion{display:none!important}
       .uxq-review-banner{margin:18px auto 14px;max-width:980px;padding:16px 18px;border:1px solid rgba(110,231,255,.48);border-radius:18px;background:linear-gradient(135deg,rgba(22,69,112,.92),rgba(35,38,104,.92));color:#eefbff;box-shadow:0 14px 36px rgba(0,0,0,.2)}
       .uxq-review-banner h2{margin:0 0 5px;font-size:1.25rem}.uxq-review-banner p{margin:0;color:#c8daf3;line-height:1.55}
       .uxq-review-banner a{display:inline-flex;margin-top:12px;padding:10px 14px;border-radius:11px;background:#6ee7ff;color:#071124;text-decoration:none;font-weight:900}
@@ -33,6 +34,7 @@
       const value = params.get(key);
       if (value) url.searchParams.set(key, value);
     });
+    url.searchParams.set('v', 'studio-reflection-review-v2-20260726');
     return url.href;
   }
 
@@ -71,20 +73,22 @@
     const node = String(params.get('node') || '').toUpperCase();
     const banner = document.createElement('section');
     banner.className = 'uxq-review-banner';
-    banner.innerHTML = `<h2>ดู Studio Practice และ Weekly Reflection • ${node}</h2><p>หน้านี้เป็นโหมดอ่านอย่างเดียว ข้อมูลที่แสดงคือผลงานซึ่งส่งและยืนยันผ่าน Google Sheet แล้ว</p><a href="${missionControlUrl()}">← กลับ Mission Control</a>`;
+    banner.innerHTML = `<h2>ดู Studio Practice และ Weekly Reflection • ${node}</h2><p>Node นี้ครบ 3/3 แล้ว หน้านี้เป็นโหมดอ่านอย่างเดียวและไม่สร้างการส่งงานรอบใหม่</p><a href="${missionControlUrl()}">← กลับ Mission Control</a>`;
     artifact.parentNode.insertBefore(banner, artifact);
   }
 
   function apply() {
     installStyle();
     document.body.dataset.uxqReview = '1';
+    const tracker = document.getElementById('uxqThreePartCompletion');
+    if (tracker) tracker.classList.add('uxq-review-hidden');
     const artifact = document.querySelector('.artifact[data-studio-practice-v1]');
     if (!artifact) return false;
     hideMissionArea(artifact);
     makeReadOnly(artifact);
     addBanner(artifact);
     applied = true;
-    setTimeout(() => artifact.scrollIntoView({ behavior:'smooth', block:'start' }), 80);
+    setTimeout(() => document.querySelector('.uxq-review-banner')?.scrollIntoView({ behavior:'smooth', block:'start' }), 80);
     return true;
   }
 
