@@ -8,5 +8,6 @@ window.HH_ROSTER = [
   { studentId:"990007", fullName:"นักเรียนทดสอบ 07", nickname:"ฮีโร่ 07", section:"QA-P5", group:"G", active:true, testAccount:true },
   { studentId:"990008", fullName:"นักเรียนทดสอบ 08", nickname:"ฮีโร่ 08", section:"QA-P5", group:"H", active:true, testAccount:true },
   { studentId:"990009", fullName:"นักเรียนทดสอบ 09", nickname:"ฮีโร่ 09", section:"QA-P5", group:"I", active:true, testAccount:true },
-  { studentId:"990010", fullName:"นักเรียนทดสอบ 10", nickname:"ฮีโร่ 10", section:"QA-P5", group:"J", active:true, testAccount:true }
+  { studentId:"990010", fullName:"นักเรียนทดสอบ 10", nickname:"ฮีโร่ 10", section:"QA-P5", group:"J", active:true, testAccount:true },
+  { studentId:"990011", fullName:"นักเรียนทดสอบ Assessment 11", nickname:"ฮีโร่ทดสอบ 11", section:"QA-P5-ASSESSMENT", group:"A", active:true, testAccount:true }
 ];
