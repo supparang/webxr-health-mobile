@@ -14,6 +14,7 @@ window.HH_CONFIG = {
   oneRoundPerGame: true,
   requireGamePassToContinue: false,
   teacherPin: "",
+  assessmentApiUrl: "",
   routes: {
     pretest: "./assessment/pretest.html",
     posttest: "./assessment/posttest.html",
