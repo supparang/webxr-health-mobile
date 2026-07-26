@@ -1,7 +1,8 @@
 /* =========================================================
- * CSAI2601 UX Quest • Three-Part AI Quest Visual v2
- * Reads the authoritative tracker, but renders an isolated visual copy.
- * The original tracker remains the logic/source-of-truth surface.
+ * CSAI2601 UX Quest • Three-Part AI Quest Visual v2.1
+ * Reads the authoritative tracker and renders an isolated visual copy.
+ * Render-safe: observes only the source tracker and updates only when data changes.
+ * Google Sheet remains the sole source of truth.
  * ========================================================= */
 (() => {
   'use strict';
@@ -9,6 +10,11 @@
   const SOURCE_ID = 'uxqThreePartCompletion';
   const VISUAL_ID = 'uxqThreePartAIQuestVisualV2';
   const STYLE_ID = 'uxqThreePartAIQuestVisualV2Style';
+
+  let sourceObserver = null;
+  let observedSource = null;
+  let lastSignature = '';
+  let scheduled = false;
 
   const norm = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
   const esc = v => String(v == null ? '' : v)
@@ -21,17 +27,14 @@
     style.id = STYLE_ID;
     style.textContent = `
       #${SOURCE_ID}.uxq-3part-source-hidden{
-        position:absolute!important;
-        width:1px!important;height:1px!important;
-        margin:-1px!important;padding:0!important;
-        overflow:hidden!important;clip:rect(0 0 0 0)!important;
-        white-space:nowrap!important;border:0!important;
+        position:absolute!important;width:1px!important;height:1px!important;
+        margin:-1px!important;padding:0!important;overflow:hidden!important;
+        clip:rect(0 0 0 0)!important;white-space:nowrap!important;border:0!important;
         pointer-events:none!important;
       }
       #${VISUAL_ID}{
-        width:min(100%,1120px);margin:24px auto;padding:20px;
-        box-sizing:border-box;border-radius:20px;
-        border:1px solid rgba(68,224,181,.5);
+        width:min(100%,1120px);margin:24px auto;padding:20px;box-sizing:border-box;
+        border-radius:20px;border:1px solid rgba(68,224,181,.5);
         background:linear-gradient(180deg,rgba(7,41,58,.98),rgba(5,27,44,.98));
         box-shadow:0 18px 48px rgba(0,0,0,.22);
       }
@@ -64,43 +67,46 @@
   }
 
   function getItem(source, index) {
-    const items = Array.from(source.querySelectorAll('.uxq-3part__item'));
-    const item = items[index];
+    const item = source.querySelectorAll('.uxq-3part__item')[index];
     if (!item) return { state:'missing', status:'ยังไม่ครบ', detail:'รอข้อมูลจากระบบ' };
-    const state = item.getAttribute('data-state') || 'missing';
-    const statusNode = item.querySelector('span');
-    const detailNode = item.querySelector('small');
     return {
-      state,
-      status: norm(statusNode ? statusNode.textContent : ''),
-      detail: norm(detailNode ? detailNode.textContent : '')
+      state:item.getAttribute('data-state') || 'missing',
+      status:norm(item.querySelector('span')?.textContent || ''),
+      detail:norm(item.querySelector('small')?.textContent || '')
     };
   }
 
   function read(source) {
     const countText = norm(source.querySelector('.uxq-3part__count')?.textContent || '0/3 ยืนยันจากระบบ');
     const countMatch = countText.match(/([0-3])\s*\/\s*3/);
-    const count = countMatch ? Number(countMatch[1]) : 0;
     const head = norm(source.querySelector('.uxq-3part__head h3')?.textContent || 'ตรวจความครบ 3 ส่วน');
     const nodeMatch = head.match(/(?:•|\s)(W(?:[1-9]|1[0-5])|B[1-4])\b/i);
-    const node = nodeMatch ? nodeMatch[1].toUpperCase() : String(new URLSearchParams(location.search).get('node') || 'W1').toUpperCase();
     return {
-      node,
-      count,
+      node:nodeMatch ? nodeMatch[1].toUpperCase() : String(new URLSearchParams(location.search).get('node') || 'W1').toUpperCase(),
+      count:countMatch ? Number(countMatch[1]) : 0,
       countText,
       steps:[getItem(source,0),getItem(source,1),getItem(source,2)]
     };
   }
 
+  function signature(data) {
+    return JSON.stringify(data);
+  }
+
   function render(source) {
     installStyle();
     const data = read(source);
+    const sig = signature(data);
+    if (sig === lastSignature && document.getElementById(VISUAL_ID)) return;
+    lastSignature = sig;
+
     let visual = document.getElementById(VISUAL_ID);
     if (!visual) {
       visual = document.createElement('section');
       visual.id = VISUAL_ID;
       source.parentNode.insertBefore(visual, source);
     }
+
     const labels = ['Mission / Game','Studio Practice','Weekly Reflection'];
     const cards = data.steps.map((s,i) => `
       <article class="uxq-aiqv2-step" data-state="${esc(s.state)}">
@@ -109,24 +115,34 @@
         <p class="uxq-aiqv2-status">${esc(s.status || (s.state === 'done' ? 'ยืนยันแล้ว' : 'ยังไม่ครบ'))}</p>
         <p class="uxq-aiqv2-detail">${esc(s.detail || 'รอการยืนยันจาก Google Sheet')}</p>
       </article>`);
+
     visual.innerHTML = `
       <div class="uxq-aiqv2-head">
         <div><h2 class="uxq-aiqv2-title">เส้นทางภารกิจ ${esc(data.node)} แบบ 1–2–3</h2><p class="uxq-aiqv2-sub">Mission → Studio Practice → Weekly Reflection โดยใช้ Google Sheet เป็นหลักฐานทางการ</p></div>
         <div class="uxq-aiqv2-count">${esc(data.countText)}</div>
       </div>
-      <div class="uxq-aiqv2-grid">
-        ${cards[0]}<div class="uxq-aiqv2-arrow" aria-hidden="true">→</div>${cards[1]}<div class="uxq-aiqv2-arrow" aria-hidden="true">→</div>${cards[2]}
-      </div>
+      <div class="uxq-aiqv2-grid">${cards[0]}<div class="uxq-aiqv2-arrow" aria-hidden="true">→</div>${cards[1]}<div class="uxq-aiqv2-arrow" aria-hidden="true">→</div>${cards[2]}</div>
       <div class="uxq-aiqv2-foot ${data.count === 3 ? 'is-done' : ''}">${data.count === 3 ? `✅ ${esc(data.node)} Complete — Google Sheet ยืนยันครบทั้ง 3 ขั้นตอน` : `ทำตามลำดับ 1 → 2 → 3 ให้ครบ เพื่อจบ ${esc(data.node)}`}</div>`;
+
     source.classList.add('uxq-3part-source-hidden');
   }
 
-  let scheduled = false;
+  function observeSource(source) {
+    if (observedSource === source) return;
+    sourceObserver?.disconnect();
+    observedSource = source;
+    sourceObserver = new MutationObserver(schedule);
+    sourceObserver.observe(source, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['data-state'] });
+  }
+
   function apply() {
     scheduled = false;
     const source = document.getElementById(SOURCE_ID);
-    if (source) render(source);
+    if (!source) return;
+    observeSource(source);
+    render(source);
   }
+
   function schedule() {
     if (scheduled) return;
     scheduled = true;
@@ -135,6 +151,11 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule, {once:true});
   else schedule();
-  new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['data-state']});
-  setTimeout(schedule,400);setTimeout(schedule,1200);setTimeout(schedule,2600);
+
+  // Short bootstrap only. No document-wide permanent observer and no recurring interval.
+  const bootstrap = setInterval(() => {
+    schedule();
+    if (document.getElementById(SOURCE_ID)) clearInterval(bootstrap);
+  }, 300);
+  setTimeout(() => clearInterval(bootstrap), 5000);
 })();
