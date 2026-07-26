@@ -4,12 +4,35 @@ const ACTIVE_KEY='herohealth_learning_platform_rc2';
 let scheduled=false;
 function state(){try{return JSON.parse(localStorage.getItem(ACTIVE_KEY)||'{}')}catch(_){return{}}}
 function setText(el,text){if(el&&el.textContent!==text)el.textContent=text}
+function compactStudent(app){
+  const s=state();
+  if(!s?.profile)return;
+  const main=app.querySelector('main.container');
+  if(!main)return;
+  main.classList.add('hh-student-mobile-compact');
+  const headings=[...main.querySelectorAll(':scope > h2')];
+  const learningHeading=headings.find(h=>/ฐานเรียนรู้/.test(String(h.textContent||'')));
+  if(learningHeading){
+    learningHeading.classList.add('hh-learning-details-heading');
+    const grid=learningHeading.nextElementSibling;
+    if(grid?.classList.contains('grid'))grid.classList.add('hh-learning-details-grid');
+  }
+  const hero=main.querySelector(':scope > .hero');
+  if(hero){
+    const cards=hero.querySelectorAll(':scope > .card');
+    cards[0]?.classList.add('hh-passport-compact');
+    cards[1]?.classList.add('hh-next-action-compact');
+  }
+  const timeline=main.querySelector(':scope > .timeline');
+  timeline?.classList.add('hh-timeline-compact');
+}
 function simplify(){
   scheduled=false;
   const s=state();
-  if(s?.profile||s?.pendingProfile)return;
   const app=document.getElementById('app');
   if(!app)return;
+  if(s?.profile){compactStudent(app);return;}
+  if(s?.pendingProfile)return;
   const hero=app.querySelector('.hero');
   if(!hero)return;
   const cards=hero.querySelectorAll(':scope > .card');
@@ -49,10 +72,29 @@ style.textContent=`
   .hh-classroom60-login .field input{min-height:56px!important;font-size:20px!important}
   .hh-classroom60-login .btn{min-height:56px!important;font-size:18px!important}
   .hero:has(.hh-classroom60-login){display:grid!important;grid-template-columns:1fr!important;gap:16px!important}
+
+  .hh-student-mobile-compact{padding-top:14px!important;padding-bottom:28px!important}
+  .hh-student-mobile-compact>.hero{gap:12px!important}
+  .hh-passport-compact{padding:18px!important}
+  .hh-passport-compact .passport{grid-template-columns:74px 1fr!important;gap:14px!important}
+  .hh-passport-compact .avatar{width:74px!important;height:74px!important;font-size:40px!important}
+  .hh-passport-compact h1{font-size:clamp(29px,8vw,40px)!important;line-height:1.1!important;margin:7px 0!important}
+  .hh-passport-compact p{font-size:16px!important}
+  .hh-next-action-compact{padding:20px!important}
+  .hh-next-action-compact h2{font-size:27px!important;margin:0 0 8px!important}
+  .hh-next-action-compact .muted{font-size:18px!important;margin:8px 0 14px!important}
+  .hh-next-action-compact .btn{min-height:52px!important;font-size:18px!important}
+  .hh-student-mobile-compact>:scope>h2{font-size:28px!important;margin:20px 0 12px!important}
+  .hh-timeline-compact{gap:8px!important}
+  .hh-timeline-compact .step{padding:13px 14px!important;min-height:72px!important}
+  .hh-timeline-compact .step .num{width:44px!important;height:44px!important;font-size:20px!important}
+  .hh-timeline-compact .step b{font-size:18px!important}
+  .hh-timeline-compact .step .small{font-size:14px!important}
+  .hh-learning-details-heading,.hh-learning-details-grid{display:none!important}
 }
 `;
 document.head.appendChild(style);
 const app=document.getElementById('app');
-if(app)new MutationObserver(requestSimplify).observe(app,{childList:true});
+if(app)new MutationObserver(requestSimplify).observe(app,{childList:true,subtree:true});
 requestSimplify();
 })();
