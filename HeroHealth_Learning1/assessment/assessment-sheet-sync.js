@@ -2,6 +2,7 @@
   'use strict';
 
   const queueKey = 'HH_ASSESSMENT_SYNC_QUEUE_V1';
+  const SEND_TIMEOUT_MS = 4500;
 
   function endpoint() {
     const q = new URLSearchParams(location.search);
@@ -48,18 +49,30 @@
 
   function queue(payload) {
     const items = readQueue();
-    items.push({ payload, queuedAt: new Date().toISOString() });
+    const fingerprint = [payload.studentId, payload.mode, payload.form, payload.submittedAt].join('|');
+    if (!items.some(item => item.fingerprint === fingerprint)) {
+      items.push({ payload, fingerprint, queuedAt: new Date().toISOString() });
+    }
     writeQueue(items);
   }
 
-  async function post(url, payload) {
-    await fetch(url, {
-      method: 'POST',
-      mode: 'no-cors',
-      cache: 'no-store',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'assessment_submit', payload })
-    });
+  async function post(url, payload, timeoutMs = SEND_TIMEOUT_MS) {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(() => controller?.abort(), timeoutMs);
+    try {
+      await fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        cache: 'no-store',
+        keepalive: true,
+        signal: controller?.signal,
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'assessment_submit', payload })
+      });
+      return true;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async function flush() {
@@ -67,11 +80,16 @@
     if (!url) return { ok: false, configured: false, sent: 0 };
     const items = readQueue();
     if (!items.length) return { ok: true, configured: true, sent: 0 };
+
     let sent = 0;
     const remaining = [];
     for (const item of items) {
-      try { await post(url, item.payload); sent += 1; }
-      catch (_) { remaining.push(item); }
+      try {
+        await post(url, item.payload, 3000);
+        sent += 1;
+      } catch (_) {
+        remaining.push(item);
+      }
     }
     writeQueue(remaining);
     return { ok: remaining.length === 0, configured: true, sent, remaining: remaining.length };
@@ -82,15 +100,22 @@
     const url = endpoint();
     if (!url) {
       queue(payload);
-      return { ok: false, configured: false, queued: true };
+      return { ok: false, configured: false, queued: true, reason: 'endpoint_missing' };
     }
+
     try {
-      await flush();
-      await post(url, payload);
+      await post(url, payload, SEND_TIMEOUT_MS);
+      setTimeout(() => { flush().catch(() => {}); }, 0);
       return { ok: true, configured: true, queued: false };
     } catch (error) {
       queue(payload);
-      return { ok: false, configured: true, queued: true, error: String(error) };
+      return {
+        ok: false,
+        configured: true,
+        queued: true,
+        reason: error?.name === 'AbortError' ? 'timeout' : 'send_failed',
+        error: String(error)
+      };
     }
   }
 
