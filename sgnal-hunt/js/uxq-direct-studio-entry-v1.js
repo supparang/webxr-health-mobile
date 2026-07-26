@@ -1,11 +1,11 @@
-/* CSAI2601 UX Quest • Direct Studio Entry v2
- * ?view=studio|reflection verifies the official mission progress endpoint.
- * Google Sheet mission_completed is the sole authority for opening Studio.
+/* CSAI2601 UX Quest • Direct Studio Entry v3
+ * ?view=studio|reflection verifies official Mission and Studio/Reflection progress.
+ * Completed 3/3 nodes are redirected to read-only review mode.
  */
 (() => {
   'use strict';
 
-  const VERSION = '20260726-DIRECT-STUDIO-ENTRY-V2-OFFICIAL-PROGRESS';
+  const VERSION = '20260726-DIRECT-STUDIO-ENTRY-V3-COMPLETED-REVIEW';
   const params = new URLSearchParams(location.search || '');
   const view = String(params.get('view') || '').trim().toLowerCase();
   if (!['studio', 'reflection'].includes(view)) return;
@@ -31,7 +31,7 @@
 
   const loading = document.createElement('div');
   loading.className = 'uxq-direct-loading';
-  loading.innerHTML = `<section><p>กำลังตรวจ Google Sheet</p><h1>กำลังเปิด ${view === 'reflection' ? 'Weekly Reflection' : 'Studio Practice'} • ${nodeId}</h1><p>ตรวจสถานะ Mission จากระบบทางการ นักศึกษาไม่ต้องเล่นซ้ำเมื่อผ่านแล้ว</p></section>`;
+  loading.innerHTML = `<section><p>กำลังตรวจ Google Sheet</p><h1>กำลังเปิด ${view === 'reflection' ? 'Weekly Reflection' : 'Studio Practice'} • ${nodeId}</h1><p>ระบบกำลังตรวจ Mission, Studio และ Reflection จากแหล่งข้อมูลทางการ</p></section>`;
   document.body.appendChild(loading);
 
   function profile() {
@@ -52,19 +52,29 @@
     return missions[nodeKey] || missions[nodeId] || {};
   }
 
+  function studioRow(data) {
+    return data?.nodes?.[nodeKey] || data?.nodes?.[nodeId] ||
+      data?.items?.find?.(item => String(item.nodeId || item.missionId || '').toLowerCase() === nodeKey) || {};
+  }
+
   function officiallyPassed(data) {
     const canonical = data?.diagnostics?.canonicalPassedMissionIds;
     if (Array.isArray(canonical) && canonical.map(value => String(value).toLowerCase()).includes(nodeKey)) return true;
-
     const raw = data?.diagnostics?.rawPassedMissionIds;
     if (Array.isArray(raw) && raw.map(value => String(value).toLowerCase()).includes(nodeKey)) return true;
-
     const row = missionRow(data);
+    return Boolean(row.completed || row.passed || Number(row.bestStars || row.stars || 0) >= 2);
+  }
+
+  function studioDone(row) {
     return Boolean(
-      row.completed ||
-      row.passed ||
-      Number(row.bestStars || row.stars || 0) >= 2
+      row.submitted || row.artifactSubmitted || row.studioSubmitted ||
+      ['submitted','approved','need_revision','reviewing'].includes(String(row.reviewStatus || row.status || '').toLowerCase())
     );
+  }
+
+  function reflectionDone(row) {
+    return Boolean(row.reflectionSubmitted || row.hasReflection || clean(row.reflection || '', 5000).length > 0);
   }
 
   function reveal(error = '') {
@@ -77,25 +87,22 @@
     }
   }
 
-  function jsonp(url) {
+  function jsonp(url, action) {
     return new Promise((resolve, reject) => {
-      const callback = `UXQDirectOfficial_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const callback = `UXQDirect_${action}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       const script = document.createElement('script');
       const timer = setTimeout(() => done(new Error('หมดเวลารอ Google Sheet')), 12000);
-
       function done(error, data) {
         clearTimeout(timer);
         try { delete window[callback]; } catch (_) { window[callback] = undefined; }
         script.remove();
         error ? reject(error) : resolve(data);
       }
-
       window[callback] = data => done(null, data);
       script.onerror = () => done(new Error('เชื่อม Google Sheet ไม่สำเร็จ'));
-
       const learner = profile();
       const query = new URLSearchParams({
-        action: 'uxq_student_progress',
+        action,
         studentId: learner.studentId,
         section: learner.section,
         courseId: clean(config().courseId || 'UXQ-ACT1-2026', 120),
@@ -107,6 +114,15 @@
     });
   }
 
+  function redirectToReview() {
+    const url = new URL(location.href);
+    url.searchParams.delete('view');
+    url.searchParams.set('review', '1');
+    url.searchParams.set('complete', '1');
+    url.searchParams.set('v', 'completed-review-authority-v1-20260726');
+    location.replace(url.href);
+  }
+
   async function run() {
     const learner = profile();
     const endpoint = receiverUrl();
@@ -114,18 +130,34 @@
     if (!endpoint) return reveal('ยังไม่ได้ตั้งค่า Receiver');
 
     try {
-      const data = await jsonp(endpoint);
-      if (!data?.ok) return reveal(data?.error || 'Google Sheet ตอบกลับไม่สมบูรณ์');
-      if (!officiallyPassed(data)) return reveal(`Google Sheet ยังไม่ยืนยันผล Mission ของ ${nodeId} อย่างน้อย 2 ดาว`);
+      const [missionData, studioData] = await Promise.all([
+        jsonp(endpoint, 'uxq_student_progress'),
+        jsonp(endpoint, 'uxq_student_studio_progress')
+      ]);
+
+      if (!missionData?.ok) return reveal(missionData?.error || 'Google Sheet ตอบกลับ Mission ไม่สมบูรณ์');
+      if (!officiallyPassed(missionData)) return reveal(`Google Sheet ยังไม่ยืนยันผล Mission ของ ${nodeId} อย่างน้อย 2 ดาว`);
+
+      const row = studioRow(studioData);
+      const confirmedStudio = Boolean(studioData?.ok && studioDone(row));
+      const confirmedReflection = Boolean(studioData?.ok && reflectionDone(row));
+
+      if (confirmedStudio && confirmedReflection) {
+        redirectToReview();
+        return;
+      }
 
       window.UXQDirectStudioConfirmed = {
         nodeId,
         nodeKey,
         view,
-        data,
-        mission: missionRow(data),
+        missionData,
+        studioData,
+        studioDone: confirmedStudio,
+        reflectionDone: confirmedReflection,
+        mission: missionRow(missionData),
         confirmed: true,
-        authority: 'uxq_student_progress',
+        authority: 'uxq_student_progress+uxq_student_studio_progress',
         version: VERSION
       };
       window.dispatchEvent(new CustomEvent('uxq-direct-studio-confirmed', { detail: window.UXQDirectStudioConfirmed }));
