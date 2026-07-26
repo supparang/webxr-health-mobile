@@ -1,13 +1,16 @@
-/* CSAI2601 UX Quest • Direct Studio Entry v3
+/* CSAI2601 UX Quest • Direct Studio Entry v4
  * ?view=studio|reflection verifies official Mission and Studio/Reflection progress.
- * Completed 3/3 nodes are redirected to read-only review mode.
+ * ?review=1 bootstraps Studio renderer directly in read-only mode.
+ * Completed 3/3 nodes redirect to review only from normal Studio entry, never from review itself.
  */
 (() => {
   'use strict';
 
-  const VERSION = '20260726-DIRECT-STUDIO-ENTRY-V3-COMPLETED-REVIEW';
+  const VERSION = '20260726-DIRECT-STUDIO-ENTRY-V4-REVIEW-BOOTSTRAP';
   const params = new URLSearchParams(location.search || '');
-  const view = String(params.get('view') || '').trim().toLowerCase();
+  const reviewMode = params.get('review') === '1';
+  const requestedView = String(params.get('view') || '').trim().toLowerCase();
+  const view = requestedView || (reviewMode ? 'studio' : '');
   if (!['studio', 'reflection'].includes(view)) return;
 
   const nodeId = String(params.get('node') || params.get('id') || 'W1').trim().toUpperCase();
@@ -31,7 +34,7 @@
 
   const loading = document.createElement('div');
   loading.className = 'uxq-direct-loading';
-  loading.innerHTML = `<section><p>กำลังตรวจ Google Sheet</p><h1>กำลังเปิด ${view === 'reflection' ? 'Weekly Reflection' : 'Studio Practice'} • ${nodeId}</h1><p>ระบบกำลังตรวจ Mission, Studio และ Reflection จากแหล่งข้อมูลทางการ</p></section>`;
+  loading.innerHTML = `<section><p>กำลังตรวจ Google Sheet</p><h1>กำลังเปิด ${reviewMode ? 'ผลงานที่ส่งแล้ว' : (view === 'reflection' ? 'Weekly Reflection' : 'Studio Practice')} • ${nodeId}</h1><p>ระบบกำลังตรวจ Mission, Studio และ Reflection จากแหล่งข้อมูลทางการ</p></section>`;
   document.body.appendChild(loading);
 
   function profile() {
@@ -83,7 +86,7 @@
     document.documentElement.dataset.uxqDirectStudio = error ? 'error' : 'ready';
     if (root) root.style.visibility = '';
     if (error && root) {
-      root.innerHTML = `<div class="uxq-direct-loading"><section><h1>ยังเปิด ${view === 'reflection' ? 'Weekly Reflection' : 'Studio Practice'} ไม่ได้</h1><p>${error}</p><p><a href="./csai2601-mission-control.html" style="color:#6ee7ff">กลับ Mission Control</a></p></section></div>`;
+      root.innerHTML = `<div class="uxq-direct-loading"><section><h1>ยังเปิด ${reviewMode ? 'ผลงานที่ส่งแล้ว' : (view === 'reflection' ? 'Weekly Reflection' : 'Studio Practice')} ไม่ได้</h1><p>${error}</p><p><a href="./csai2601-mission-control.html" style="color:#6ee7ff">กลับ Mission Control</a></p></section></div>`;
     }
   }
 
@@ -119,8 +122,28 @@
     url.searchParams.delete('view');
     url.searchParams.set('review', '1');
     url.searchParams.set('complete', '1');
-    url.searchParams.set('v', 'completed-review-authority-v1-20260726');
+    url.searchParams.set('v', 'review-bootstrap-v5-20260726');
     location.replace(url.href);
+  }
+
+  function publishConfirmed(missionData, studioData, confirmedStudio, confirmedReflection) {
+    window.UXQDirectStudioConfirmed = {
+      nodeId,
+      nodeKey,
+      view,
+      reviewMode,
+      readOnly: reviewMode,
+      missionData,
+      studioData,
+      studioDone: confirmedStudio,
+      reflectionDone: confirmedReflection,
+      mission: missionRow(missionData),
+      studio: studioRow(studioData),
+      confirmed: true,
+      authority: 'uxq_student_progress+uxq_student_studio_progress',
+      version: VERSION
+    };
+    window.dispatchEvent(new CustomEvent('uxq-direct-studio-confirmed', { detail: window.UXQDirectStudioConfirmed }));
   }
 
   async function run() {
@@ -142,25 +165,16 @@
       const confirmedStudio = Boolean(studioData?.ok && studioDone(row));
       const confirmedReflection = Boolean(studioData?.ok && reflectionDone(row));
 
-      if (confirmedStudio && confirmedReflection) {
+      if (confirmedStudio && confirmedReflection && !reviewMode) {
         redirectToReview();
         return;
       }
 
-      window.UXQDirectStudioConfirmed = {
-        nodeId,
-        nodeKey,
-        view,
-        missionData,
-        studioData,
-        studioDone: confirmedStudio,
-        reflectionDone: confirmedReflection,
-        mission: missionRow(missionData),
-        confirmed: true,
-        authority: 'uxq_student_progress+uxq_student_studio_progress',
-        version: VERSION
-      };
-      window.dispatchEvent(new CustomEvent('uxq-direct-studio-confirmed', { detail: window.UXQDirectStudioConfirmed }));
+      if (reviewMode && !(confirmedStudio && confirmedReflection)) {
+        return reveal(`Google Sheet ยังไม่พบ Studio Practice และ Weekly Reflection ที่ยืนยันครบของ ${nodeId}`);
+      }
+
+      publishConfirmed(missionData, studioData, confirmedStudio, confirmedReflection);
 
       setTimeout(() => {
         if (!finished && document.documentElement.dataset.uxqDirectStudio === 'loading') {
@@ -173,8 +187,11 @@
   }
 
   window.addEventListener('uxq-mission-resume-studio', () => reveal());
+  window.addEventListener('uxq-studio-practice-ready', () => {
+    if (reviewMode) reveal();
+  });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once: true });
   else run();
 
-  window.UXQDirectStudioEntryV1 = Object.freeze({ view, nodeId, version: VERSION });
+  window.UXQDirectStudioEntryV1 = Object.freeze({ view, nodeId, reviewMode, version: VERSION });
 })();
