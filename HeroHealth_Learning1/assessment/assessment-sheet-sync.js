@@ -2,6 +2,7 @@
   'use strict';
 
   const queueKey = 'HH_ASSESSMENT_SYNC_QUEUE_V1';
+  const durablePrefix = 'HH_ASSESSMENT_LAST_V2:';
   const SEND_TIMEOUT_MS = 4500;
 
   function endpoint() {
@@ -35,6 +36,19 @@
         sourceUrl: location.href
       }
     };
+  }
+
+  function persistCompleted(payload) {
+    try {
+      const sid = String(payload.studentId || '').trim();
+      const mode = String(payload.mode || '').toLowerCase();
+      if (!sid || !['pre', 'post'].includes(mode)) return;
+      localStorage.setItem(durablePrefix + sid + ':' + mode, JSON.stringify({
+        ...payload,
+        persistedAt: new Date().toISOString(),
+        classroomAuthorityPending: true
+      }));
+    } catch (_) {}
   }
 
   function readQueue() {
@@ -97,6 +111,7 @@
 
   async function submit(rawPayload) {
     const payload = enrich(rawPayload);
+    persistCompleted(payload);
     const url = endpoint();
     if (!url) {
       queue(payload);
