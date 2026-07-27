@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#061521">
-  <title>HeroHealth • Handwash Strict 7-Step</title>
+  <title>HeroHealth • Handwash 7-Step</title>
   <style>
     html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#061521;color:#effbff;font-family:system-ui,sans-serif}
     .loading{padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Complete 7 steps + Learning Analytics</small></div>
+  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Completion + Learning Analytics R30</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260727-HANDWASH-COMPLETION-R29';
+    const RELEASE='20260727-HANDWASH-COMPLETION-R30';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     fetch(sourceUrl,{cache:'no-store'})
@@ -30,8 +30,8 @@
           /<script src="\.\/handwash-who-v4\.js[^>]*><\/script>/i,
           '<script src="./handwash-7step-runtime-patch-r28.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-who-v4.js?cv='+RELEASE+'"><\/script>'+ 
-          '<script src="./handwash-unified-analytics-r28.js?cv='+RELEASE+'"><\/script>'+ 
-          '<script src="./handwash-summary-strict-r28.js?cv='+RELEASE+'"><\/script>'
+          '<script src="./handwash-unified-analytics-r30.js?cv='+RELEASE+'"><\/script>'+ 
+          '<script src="./handwash-summary-completion-r30.js?cv='+RELEASE+'"><\/script>'
         );
         html=html.replace('ฝึก 6 ท่าถูมือตาม WHO','ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ');
         document.open();document.write(html);document.close();
