@@ -19,11 +19,17 @@
   <script src="./assets/app.js?v=20260726-mobile-compact-v3"></script>
   <script src="./assets/classroom60-login-simplifier.js?v=20260726-mobile-compact-v3"></script>
   <script src="./assets/return-processor.js?v=20260727-assessment-return-v2"></script>
-  <script src="./assets/assessment-authority-recovery.js?v=20260727-recovery-v1"></script>
-  <script src="./assets/student-resume-v7-mobile.js?v=20260727-assessment-hold-v71"></script>
-  <script src="./assets/student-only-guard.js?v=20260726-mobile-compact-v3"></script>
-  <script src="./assets/mission-state-fix.js?v=20260726-mobile-compact-v3"></script>
-  <script src="./assets/game-shell-launcher.js?v=20260727-classroom-once-v2"></script>
-  <script src="./assets/backend-sync.js?v=20260726-mobile-compact-v3"></script>
+  <script src="./assets/assessment-authority-recovery.js?v=20260727-recovery-v2"></script>
+  <script>
+    (async()=>{
+      try { await window.HHAssessmentRecoveryReady; } catch (_) {}
+      const s=document.createElement('script');
+      s.src='./assets/student-resume-v7-mobile.js?v=20260727-assessment-gated-v72';
+      s.onload=()=>{
+        ['./assets/student-only-guard.js?v=20260726-mobile-compact-v3','./assets/mission-state-fix.js?v=20260726-mobile-compact-v3','./assets/game-shell-launcher.js?v=20260727-classroom-once-v2','./assets/backend-sync.js?v=20260727-assessment-durable-v2'].forEach(src=>{const x=document.createElement('script');x.src=src;document.body.appendChild(x)});
+      };
+      document.body.appendChild(s);
+    })();
+  </script>
 </body>
 </html>
