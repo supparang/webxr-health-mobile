@@ -1,14 +1,14 @@
-/* CSAI2601 UX Quest • Canonical Mission Count Authority v1
+/* CSAI2601 UX Quest • Canonical Mission Count Authority v1.1
  * Mission totals and unlocks must use only contiguous canonicalPassedMissionIds.
  * Raw/non-contiguous/alias mission rows are diagnostic only.
  */
 (() => {
   'use strict';
 
-  const VERSION = '20260727-CANONICAL-MISSION-COUNT-AUTHORITY-V1';
+  const VERSION = '20260727-CANONICAL-MISSION-COUNT-AUTHORITY-V1.1';
   const ORDER = ['w1','w2','w3','b1','w4','w5','w6','w7','b2','w8','w9','w10','w11','b3','w12','w13','w14','b4','w15'];
   let missionSnapshot = window.UXQMissionSheetSnapshot || null;
-  let latestCombined = null;
+  let latestCombined = window.UXQCombinedCourseProgress || null;
   let applying = false;
 
   const cleanId = value => String(value || '').trim().toLowerCase();
@@ -60,25 +60,25 @@
       completeCount:states.filter(state => state.complete).length,
       contiguous,
       canonicalPassedMissionIds:[...passed],
-      authority:'canonical_mission_count_v1',
+      authority:'canonical_mission_count_v1_1',
       version:VERSION
     };
   }
 
   function updateOverview(detail) {
     const overview = document.getElementById('uxqStudioOverview');
-    if (!overview) return;
+    if (!overview || !detail) return;
 
     const summaryItems = [...overview.querySelectorAll('.studio-summary > span')];
-    summaryItems.forEach(item => {
-      const label = String(item.childNodes?.[0]?.textContent || item.textContent || '').trim();
+    summaryItems.forEach((item, index) => {
+      const text = String(item.textContent || '').replace(/\s+/g, ' ').trim();
       const value = item.querySelector('b');
       if (!value) return;
-      if (/^Mission Completed/i.test(label)) value.textContent = `${detail.missionCount}/${ORDER.length}`;
-      else if (/^Studio Submitted/i.test(label)) value.textContent = `${detail.studioCount}/${ORDER.length}`;
-      else if (/^Reflection Submitted/i.test(label)) value.textContent = `${detail.reflectionCount}/${ORDER.length}`;
-      else if (/^Course Complete/i.test(label)) value.textContent = `${detail.contiguous}/${ORDER.length}`;
-      else if (/^Nodes with 3\/3/i.test(label)) value.textContent = `${detail.completeCount}/${ORDER.length}`;
+      if (/Mission Completed/i.test(text) || index === 0) value.textContent = `${detail.missionCount}/${ORDER.length}`;
+      else if (/Studio Submitted/i.test(text) || index === 1) value.textContent = `${detail.studioCount}/${ORDER.length}`;
+      else if (/Reflection Submitted/i.test(text) || index === 2) value.textContent = `${detail.reflectionCount}/${ORDER.length}`;
+      else if (/Course Complete/i.test(text) || index === 3) value.textContent = `${detail.contiguous}/${ORDER.length}`;
+      else if (/Nodes with 3\/3/i.test(text) || index === 4) value.textContent = `${detail.completeCount}/${ORDER.length}`;
     });
 
     const primaryValue = overview.querySelector('.course-primary__value strong');
@@ -107,18 +107,25 @@
     }
   }
 
+  function bootstrap() {
+    missionSnapshot = window.UXQMissionSheetSnapshot || missionSnapshot;
+    const combined = window.UXQCombinedCourseProgress || latestCombined;
+    if (missionSnapshot && Array.isArray(combined?.states)) apply(combined);
+    else if (latestCombined) updateOverview(latestCombined);
+  }
+
   window.addEventListener('uxq-mission-control-sheet-snapshot', event => {
     missionSnapshot = event.detail?.snapshot || null;
-    if (latestCombined) apply(latestCombined);
+    bootstrap();
   });
 
   window.addEventListener('uxq-sheet-progress-restored', event => {
     missionSnapshot = event.detail || null;
-    if (latestCombined) apply(latestCombined);
+    bootstrap();
   });
 
   window.addEventListener('uxq-three-part-course-progress', event => {
-    if (event.detail?.authority === 'canonical_mission_count_v1') {
+    if (String(event.detail?.authority || '').startsWith('canonical_mission_count')) {
       latestCombined = event.detail;
       updateOverview(event.detail);
       return;
@@ -128,10 +135,16 @@
 
   const observer = new MutationObserver(() => {
     if (latestCombined) requestAnimationFrame(() => updateOverview(latestCombined));
+    else requestAnimationFrame(bootstrap);
   });
-  const start = () => observer.observe(document.body, { childList:true, subtree:true });
+
+  const start = () => {
+    observer.observe(document.body, { childList:true, subtree:true });
+    [0, 250, 750, 1500, 3000].forEach(delay => setTimeout(bootstrap, delay));
+  };
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once:true });
   else start();
 
-  window.UXQCanonicalMissionCountAuthorityV1 = Object.freeze({ version:VERSION, apply, canonicalIds });
+  window.UXQCanonicalMissionCountAuthorityV1 = Object.freeze({ version:VERSION, apply, canonicalIds, bootstrap });
 })();
