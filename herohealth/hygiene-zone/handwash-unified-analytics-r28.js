@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const RELEASE='20260727-HANDWASH-UNIFIED-ANALYTICS-R28';
+const RELEASE='20260727-HANDWASH-UNIFIED-ANALYTICS-R29';
 const RESULT_KEY='HHA_HANDWASH_LAST_RESULT';
 const STEPS=[
  {stepId:0,id:'wet',label:'เปียกมือ',group:'process'},
@@ -65,7 +65,9 @@ function enrich(input){
  const waterSaveScore=num(raw.waterSaveScore??Math.max(0,100-Math.max(0,waterUseSec-22)*2.5-waterWasteSec*5));
  const germRemoval=num(raw.germRemoval??(100-num(raw.finalGermLoad)));
  const assistUsed=bool(raw.assistUsed)||bool(raw.fallbackUsed)||num(raw.assistTapCount)>0||String(raw.mode||'').includes('assist')||String(raw.mode||'').includes('fallback');
- const strictPassed=bool(raw.passed)&&completedRubSteps===7&&completedProcessSteps===5&&wristsPassed&&String(raw.endReason||raw.end_reason||'')==='completed';
+ const endReason=String(raw.endReason||raw.end_reason||'');
+ const procedureCompleted=completedRubSteps===7&&completedProcessSteps===5&&wristsPassed&&endReason==='completed';
+ const skillPassed=bool(raw.passed)&&procedureCompleted;
  const accuracy=num(raw.accuracy)||Math.round(gestureAccuracy*.68+((completedRubSteps+completedProcessSteps)/12*100)*.32);
  const events=Array.isArray(raw.events)?raw.events.slice(-500):Array.isArray(raw.eventLog)?raw.eventLog.slice(-500):[];
  const result={
@@ -75,8 +77,8 @@ function enrich(input){
   eventId:raw.eventId||raw.attemptId||`HH-handwash-${Date.now()}`,
   finishedAt:raw.finishedAt||raw.timestamp||raw.endedAt||new Date().toISOString(),
   durationSec,score:num(raw.score),scoreAvailable:raw.score!=null,accuracy,masteryPct:accuracy,
-  passed:strictPassed,completed:strictPassed,skillCriteriaMet:strictPassed,
-  completionPolicy:'strict-7-rub-12-phase',singleAttemptPolicy:true,
+  passed:skillPassed,completed:procedureCompleted,skillCriteriaMet:skillPassed,procedureCompleted,
+  completionPolicy:'complete-7-rub-12-phase-single-round',singleAttemptPolicy:true,
   totalSteps:12,completedSteps:completedRubSteps+completedProcessSteps,
   totalWhoRubSteps:7,whoStepsTotal:7,whoStepsCompleted:completedRubSteps,completedRubSteps,
   totalProcessSteps:5,completedProcessSteps,wristsPassed,processCompliancePct:Math.round((completedRubSteps+completedProcessSteps)/12*100),
@@ -93,12 +95,14 @@ function enrich(input){
   research:{
    hygieneMasteryPct:accuracy,proceduralCompliancePct:Math.round((completedRubSteps+completedProcessSteps)/12*100),
    waterConservationPct:Math.round(waterSaveScore),trackingQualityPct:Math.round((twoHandsVisibleRate+handSeenRate)/2),
-   assistDependency:assistUsed?1:0,sevenRubCompletion:completedRubSteps===7?1:0,wristsCompletion:wristsPassed?1:0
+   assistDependency:assistUsed?1:0,sevenRubCompletion:completedRubSteps===7?1:0,wristsCompletion:wristsPassed?1:0,
+   skillPass:skillPassed?1:0,procedureCompletion:procedureCompleted?1:0
   }
  };
  const audit=completeness(result);
  result.metricCompletenessPct=audit.pct;
- result.analyticsAudit={release:RELEASE,strictPassed,requiredRubSteps:7,completedRubSteps,requiredProcessSteps:5,completedProcessSteps,wristsPassed,missingMetrics:audit.missing,metricCompletenessPct:audit.pct};
+ result.progressionEligible=procedureCompleted&&audit.pct>=90;
+ result.analyticsAudit={release:RELEASE,procedureCompleted,skillPassed,progressionEligible:result.progressionEligible,requiredRubSteps:7,completedRubSteps,requiredProcessSteps:5,completedProcessSteps,wristsPassed,missingMetrics:audit.missing,metricCompletenessPct:audit.pct};
  return result;
 }
 function save(result){
@@ -120,10 +124,10 @@ window.addEventListener('herohealth:game-result',event=>{
  const result=enrich(event.detail||readStored()||{});
  if(event.detail&&typeof event.detail==='object')Object.assign(event.detail,result);
  save(result);
- console.info('[Handwash Analytics R28] strict unified result saved',result.analyticsAudit);
+ console.info('[Handwash Analytics R29] unified result saved',result.analyticsAudit);
 },{capture:true});
 window.addEventListener('beforeunload',()=>{exitCount++;});
 window.HH_HANDWASH_ANALYTICS={version:RELEASE,enrich,read:readStored};
 document.documentElement.dataset.handwashUnifiedAnalytics=RELEASE;
-console.info('[Handwash Analytics R28] installed');
+console.info('[Handwash Analytics R29] installed');
 })();
