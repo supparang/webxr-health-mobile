@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#071426">
 <meta http-equiv="Cache-Control" content="no-store,no-cache,must-revalidate,max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
-<title>CSAI2102 • Mission v7.3.0</title>
+<title>CSAI2102 • Mission v7.3.1</title>
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;color:#e8f1ff;font-family:system-ui,-apple-system,'Segoe UI',sans-serif}
@@ -23,7 +23,8 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
   'use strict';
 
   var q = new URLSearchParams(location.search);
-  var mission = String(q.get('mission') || q.get('session') || 's1').toLowerCase();
+  var mission = String(q.get('mission') || q.get('session') || 's1').toLowerCase()
+    .replace(/^m(?=\d)/,'s').replace(/^boss/,'b');
   var studentId = String(q.get('studentId') || '').trim();
   var studentName = String(q.get('studentName') || '').trim();
   var section = String(q.get('section') || '101').trim();
@@ -32,6 +33,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
   var loading = document.getElementById('loading');
   var target = new URL('./student-aiquest-all-mission-v711-core.html', location.href);
   var patchTimers = [];
+  var patchInterval = 0;
 
   var REFLECTION_PROMPTS = {
     s1:['หลักฐานใดทำให้จัดระบบใน Case เป็น AI, Automation, ML หรือ GenAI','threshold หรือข้อมูลใดทำให้การตัดสินใจเปลี่ยน และเพราะเหตุใด','งานใดใน Case ควรใช้ AI และงานใดใช้ Automation ก็เพียงพอ พร้อมความเสี่ยง'],
@@ -41,15 +43,15 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
     s4:['UCS ต่างจาก BFS อย่างไรเมื่อ step cost ใน Case ไม่เท่ากัน','priority queue, g(n), best cost และ parent ทำงานร่วมกันอย่างไร','UCS รับประกัน optimality ภายใต้เงื่อนไขใด และ Case นี้ตรงเงื่อนไขหรือไม่'],
     s5:['อธิบายบทบาท g(n), h(n) และ f(n) ใน Case','heuristic มาจาก relaxed problem ใด และ admissible/consistent หรือไม่','ถ้า heuristic overestimate ผลต่อคำตอบและ optimality จะเป็นอย่างไร'],
     s6:['ระบุ MAX, MIN, terminal utility และ action ที่ minimax เลือก','alpha-beta ตัดกิ่งใดได้ และ move ordering ส่งผลอย่างไร','evaluation function หรือ depth cutoff ที่ไม่ดีทำให้ Agent เล่นผิดอย่างไร'],
-    b2:['เลือก UCS, A* หรือ Minimax ให้ Case พร้อมเหตุผล','การเลือก algorithm ผิดกระทบ time memory cost หรือ optimality อย่างไร','ควรตรวจ cost, heuristic, opponent response และ fallback อะไรก่อนผ่าน Boss'],
+    b2:['เชื่อม S4–S6 และเลือก UCS, A* หรือ Minimax ให้ Case พร้อมเหตุผล','การเลือก algorithm ผิดกระทบ time memory cost หรือ optimality อย่างไร','ควรตรวจ cost, heuristic, opponent response และ fallback อะไรก่อนผ่าน Boss'],
     s7:['แยก facts, rules, relations และข้อสรุปที่ entail จาก Case','forward chaining และ backward chaining เหมาะกับส่วนใด','ข้อยกเว้น conflict หรือ inconsistency ใดต้องจัดการ พร้อม explanation trace'],
     s8:['ระบุ prior, likelihood, evidence และ posterior ใน Case','base rate และ conditional independence ส่งผลต่อการคำนวณอย่างไร','ควรสื่อสาร probability และ uncertainty อย่างไรไม่ให้เข้าใจว่าเป็นความแน่นอน'],
     s9:['ระบุ knowledge base, inference engine, matched rule และ explanation','logical conflict หรือ rule conflict ใดเกิดขึ้น และแก้อย่างไร','เมื่อใดระบบควรหยุดสรุปและส่งต่อผู้เชี่ยวชาญมนุษย์'],
-    b3:['อธิบายว่า Case ใช้ logic, knowledge และ probability ในส่วนใด','confidence, evidence และ explanation สนับสนุน decision อย่างไร','ความไม่แน่นอน bias หรือ rule conflict ใดต้องให้ expert review ก่อนผ่าน Boss'],
+    b3:['เชื่อม S7–S9 โดยอธิบายว่า Case ใช้ logic, knowledge และ probability ในส่วนใด','confidence, evidence และ explanation สนับสนุน decision อย่างไร','ความไม่แน่นอน bias หรือ rule conflict ใดต้องให้ expert review ก่อนผ่าน Boss'],
     s10:['อธิบาย features, labels และ train-validation-test split ของ Case','จุดใดเสี่ยง data leakage, dirty labels หรือ sampling bias','ควรบันทึก seed, version, preprocessing และ evaluation อย่างไรให้ทำซ้ำได้'],
     s11:['Case เป็น classification หรือ regression และควรใช้ model/metric ใด','threshold ทำให้ false positive และ false negative เปลี่ยนอย่างไร','metric ใดเหมาะกับ cost ของ error และผลกระทบต่อผู้ใช้'],
     s12:['อธิบาย assignment, centroid update และการเลือก k ใน Case','initialization, outlier หรือ minority group ทำให้ cluster เปลี่ยนอย่างไร','PCA/hierarchical clustering ช่วยอะไร และมีข้อจำกัดในการตีความอะไร'],
-    b4:['อธิบาย pipeline, model choice, metric และหลักฐาน generalization','มี leakage, imbalance, overfitting หรือ underfitting ตรงไหน','ก่อน deploy ต้องตรวจ performance fairness limitations monitoring และ rollback อะไร'],
+    b4:['เชื่อม S10–S12 โดยอธิบาย pipeline, model, metric และหลักฐาน generalization','มี leakage, imbalance, overfitting หรือ underfitting ตรงไหน','ก่อน deploy ต้องตรวจ performance fairness limitations monitoring และ rollback อะไร'],
     s13:['weight, bias และ activation ทำให้ neuron output เปลี่ยนอย่างไร','loss, gradient และ backpropagation ใช้อัปเดต network อย่างไร','ข้อมูลของ Case เหมาะกับ CNN, RNN หรือ Transformer เพราะเหตุใด'],
     s14:['กำหนด states, actions, transitions, rewards และ policy ของ MDP','alpha, gamma, TD target และ epsilon ส่งผลต่อ Q-learning อย่างไร','reward design ใดอาจทำให้ reward hacking และควรป้องกันอย่างไร'],
     s15:['LLM, foundation model และ generative AI ใน Case ต่างกันอย่างไร','retrieval, context, generation, grounding และ citation เชื่อมกันอย่างไร','เมื่อหลักฐานไม่พอ ระบบควร fallback, ปฏิเสธตอบ หรือส่งต่อมนุษย์เมื่อใด'],
@@ -59,8 +61,8 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
   q.forEach(function(v,k){ target.searchParams.set(k,v); });
   target.searchParams.set('mission', mission);
   target.searchParams.set('integrated', integrated ? '1' : '0');
-  target.searchParams.set('ui', 'stable-patch-v4');
-  target.searchParams.set('contentRelease', 'aligned730');
+  target.searchParams.set('ui', 'stable-patch-v5');
+  target.searchParams.set('contentRelease', 'aligned731');
   target.searchParams.set('_', Date.now());
 
   function innerDoc(){
@@ -74,8 +76,9 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
     if (studentName) url.searchParams.set('studentName', studentName);
     url.searchParams.set('section', section || '101');
     url.searchParams.set('from', mission);
-    url.searchParams.set('ui', 'map-return-v4');
-    url.searchParams.set('release', 'aligned730');
+    url.searchParams.set('ui', 'map-return-v5');
+    url.searchParams.set('release', 'aligned731');
+    url.searchParams.set('_', Date.now());
     return url.toString();
   }
 
@@ -118,14 +121,14 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
   function patchReflectionPrompts(d){
     if (!d) return;
     var prompts = REFLECTION_PROMPTS[mission] || REFLECTION_PROMPTS.s1;
-    var l1 = d.getElementById('l1');
-    var l2 = d.getElementById('l2');
-    var l3 = d.getElementById('l3');
+    var labels = [d.getElementById('l1'), d.getElementById('l2'), d.getElementById('l3')];
+    labels.forEach(function(label,index){
+      var expected = (index + 1) + ') ' + prompts[index];
+      if (label && label.textContent !== expected) label.textContent = expected;
+    });
     var intro = d.getElementById('promptIntro');
-    if (l1) l1.textContent = '1) ' + prompts[0];
-    if (l2) l2.textContent = '2) ' + prompts[1];
-    if (l3) l3.textContent = '3) ' + prompts[2];
-    if (intro) intro.textContent = mission.toUpperCase() + ' • Reflection ต้องอ้างอิง Case และแนวคิดเฉพาะของด่านนี้';
+    var introText = mission.toUpperCase() + ' • Reflection ต้องอ้างอิง Case และแนวคิดเฉพาะของด่านนี้';
+    if (intro && intro.textContent !== introText) intro.textContent = introText;
   }
 
   function patchContentLabels(d){
@@ -135,8 +138,8 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
     try {
       var C = frame.contentWindow.AIQuestAllContentV702;
       var s = C && C.spec ? C.spec(mission) : null;
-      if (s && title) title.textContent = s.code + ' • ' + s.title;
-      if (s && desc) desc.textContent = s.mission + ' • ' + s.theme;
+      if (s && title && title.textContent !== s.code + ' • ' + s.title) title.textContent = s.code + ' • ' + s.title;
+      if (s && desc && desc.textContent !== s.mission + ' • ' + s.theme) desc.textContent = s.mission + ' • ' + s.theme;
     } catch (_) {}
   }
 
@@ -145,7 +148,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
     Array.prototype.forEach.call(d.querySelectorAll('a,button'), function(el){
       var text = String(el.textContent || '').trim();
       var href = String(el.getAttribute && el.getAttribute('href') || '');
-      if (text === 'แผนที่' || /course-map-all/i.test(href)) {
+      if (text === 'แผนที่' || /course-map/i.test(href)) {
         if (el.dataset.aiqMapBound === '1') return;
         el.dataset.aiqMapBound = '1';
         el.style.display = '';
@@ -158,7 +161,6 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
   function patch(){
     var d = innerDoc();
     if (!d || !d.body) return;
-
     addCompactStyle(d);
     bindMapButtons(d);
     patchReflectionPrompts(d);
@@ -166,7 +168,6 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
 
     if (!integrated) return;
     d.body.classList.add('integrated-mode');
-
     var sid = d.getElementById('sid');
     var name = d.getElementById('name');
     var sec = d.getElementById('section');
@@ -189,18 +190,15 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
     }
 
     Array.prototype.forEach.call(d.querySelectorAll('.notice.bad,.fb.bad'), function(el){
-      if (/studentGate unavailable|ตรวจสิทธิ์จาก Sheet ไม่สำเร็จ/i.test(String(el.textContent || ''))) {
-        el.style.display = 'none';
-      }
+      if (/studentGate unavailable|ตรวจสิทธิ์จาก Sheet ไม่สำเร็จ/i.test(String(el.textContent || ''))) el.style.display = 'none';
     });
   }
 
   frame.addEventListener('load', function(){
     loading.className = 'loading hide';
     patch();
-    [180, 450, 900, 1600, 3000, 5000].forEach(function(ms){
-      patchTimers.push(setTimeout(patch, ms));
-    });
+    [160, 400, 850, 1500, 2800, 5000].forEach(function(ms){ patchTimers.push(setTimeout(patch, ms)); });
+    patchInterval = setInterval(patch, 700);
   }, {once:true});
 
   frame.addEventListener('error', function(){
@@ -210,6 +208,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071426;col
 
   window.addEventListener('beforeunload', function(){
     patchTimers.forEach(clearTimeout);
+    if (patchInterval) clearInterval(patchInterval);
   });
 
   frame.src = target.toString();
