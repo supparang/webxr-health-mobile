@@ -1,19 +1,15 @@
 /* =========================================================
- * UX Quest • Cross-device Progress Restore v1.4
+ * UX Quest • Cross-device Progress Restore v1.5 STRICT SECTION
  * Google Sheet is the sole source of truth.
  *
- * v1.4
- * - Counts ONLY eventType = mission_completed as official progress.
- * - artifact_submitted / reason_retry_submitted never unlock missions.
- * - Uses explicit per-student historical section aliases only.
- * - Computes completedNodes as the contiguous canonical path from W1.
- * - Returns detailed per-event and per-mission diagnostics.
+ * Official identity policy:
+ * - studentId + section + courseId must match exactly.
+ * - Historical section aliases are NOT merged automatically.
+ * - Only eventType = mission_completed can unlock missions.
+ * - Progress is the contiguous canonical path from W1.
  * ========================================================= */
 
-const UXQ_PROGRESS_SECTION_ALIASES = {
-  '3|201': ['101'],
-  '50|201': ['101']
-};
+const UXQ_PROGRESS_SECTION_ALIASES = {}; // v1.5: strict section; no automatic cross-section merge
 
 const UXQ_PROGRESS_ORDER = [
   'w1','w2','w3','b1','w4','w5','w6','w7','b2',
@@ -30,10 +26,14 @@ function UXQ_getStudentProgress_(e) {
     callback = UXQ_restoreCallback_(p.callback);
 
     if (!studentId || !section || !courseId) {
-      return UXQ_restoreOutput_({ ok:false, error:'missing_identity' }, callback);
+      return UXQ_restoreOutput_({
+        ok:false,
+        error:'missing_identity',
+        required:['studentId','section','courseId']
+      }, callback);
     }
 
-    const allowedSections = UXQ_restoreAllowedSections_(studentId, section);
+    const allowedSections = [section];
     const sheet = UXQ_restoreAttemptsSheet_();
     if (!sheet || sheet.getLastRow() < 2) {
       return UXQ_restoreOutput_(UXQ_restoreEmpty_(studentId, section, courseId, {
@@ -51,9 +51,7 @@ function UXQ_getStudentProgress_(e) {
     });
 
     ['studentid','section','missionid','eventtype'].forEach(function(required) {
-      if (col[required] === undefined) {
-        throw new Error('missing_sheet_column:' + required);
-      }
+      if (col[required] === undefined) throw new Error('missing_sheet_column:' + required);
     });
 
     const missions = {};
@@ -67,7 +65,7 @@ function UXQ_getStudentProgress_(e) {
     let matchingCourseRows = 0;
     let missionCompletedRows = 0;
     let acceptedRows = 0;
-    let aliasRowsUsed = 0;
+    let rejectedSectionRows = 0;
 
     values.forEach(function(row) {
       const rowStudentId = UXQ_restoreIdentity_(row[col.studentid], 80);
@@ -76,10 +74,13 @@ function UXQ_getStudentProgress_(e) {
 
       matchingStudentRows += 1;
       seenSections[rowSection || '(blank)'] = true;
-      if (allowedSections.indexOf(rowSection) === -1) return;
 
+      // Strict identity: never merge another section automatically.
+      if (rowSection !== section) {
+        rejectedSectionRows += 1;
+        return;
+      }
       matchingIdentityRows += 1;
-      if (rowSection !== section) aliasRowsUsed += 1;
 
       const rowCourseId = col.courseid === undefined ? '' : UXQ_restoreText_(row[col.courseid], 120);
       seenCourses[rowCourseId || '(blank)'] = true;
@@ -88,8 +89,6 @@ function UXQ_getStudentProgress_(e) {
 
       const eventType = String(row[col.eventtype] || '').trim().toLowerCase();
       seenEvents[eventType || '(blank)'] = (seenEvents[eventType || '(blank)'] || 0) + 1;
-
-      // Official progress contract: only mission_completed can unlock a node.
       if (eventType !== 'mission_completed') {
         rejectedEvents[eventType || '(blank)'] = (rejectedEvents[eventType || '(blank)'] || 0) + 1;
         return;
@@ -143,14 +142,12 @@ function UXQ_getStudentProgress_(e) {
       return Boolean(mission && (mission.completed || Number(mission.bestStars || 0) >= 2));
     }
 
-    // Official campaign progress is contiguous. Future stray rows never skip a missing prerequisite.
     let completedNodes = 0;
     while (completedNodes < UXQ_PROGRESS_ORDER.length && isPassed(UXQ_PROGRESS_ORDER[completedNodes])) {
       completedNodes += 1;
     }
     const nextMission = UXQ_PROGRESS_ORDER[completedNodes] || '';
 
-    // Return only the canonical contiguous missions to the student client.
     const canonicalMissions = {};
     UXQ_PROGRESS_ORDER.slice(0, completedNodes).forEach(function(id) {
       if (missions[id]) canonicalMissions[id] = missions[id];
@@ -168,17 +165,19 @@ function UXQ_getStudentProgress_(e) {
       nextMission:nextMission,
       missions:canonicalMissions,
       diagnostics:{
-        version:'uxq-progress-restore-v1.4',
-        policy:'sheet_only_mission_completed_contiguous',
+        version:'uxq-progress-restore-v1.5-strict-section',
+        policy:'sheet_only_exact_identity_mission_completed_contiguous',
         sheetName:sheet.getName(),
         lastRow:sheet.getLastRow(),
         matchingStudentRows:matchingStudentRows,
         matchingIdentityRows:matchingIdentityRows,
         matchingCourseRows:matchingCourseRows,
+        rejectedSectionRows:rejectedSectionRows,
         missionCompletedRows:missionCompletedRows,
         acceptedRows:acceptedRows,
         allowedSections:allowedSections,
-        aliasRowsUsed:aliasRowsUsed,
+        aliasRowsUsed:0,
+        aliasesDisabled:true,
         seenSections:Object.keys(seenSections),
         seenCourses:Object.keys(seenCourses),
         seenEvents:seenEvents,
@@ -192,19 +191,14 @@ function UXQ_getStudentProgress_(e) {
   } catch (error) {
     return UXQ_restoreOutput_({
       ok:false,
-      error:String(error && error.message ? error.message : error)
+      error:String(error && error.message ? error.message : error),
+      restoredAt:new Date().toISOString()
     }, callback);
   }
 }
 
 function UXQ_restoreAllowedSections_(studentId, canonicalSection) {
-  const aliases = UXQ_PROGRESS_SECTION_ALIASES[studentId + '|' + canonicalSection] || [];
-  const result = [canonicalSection];
-  aliases.forEach(function(value) {
-    const normalized = UXQ_restoreIdentity_(value, 80);
-    if (normalized && result.indexOf(normalized) === -1) result.push(normalized);
-  });
-  return result;
+  return [UXQ_restoreIdentity_(canonicalSection, 80)].filter(Boolean);
 }
 
 function UXQ_restoreAttemptsSheet_() {
@@ -234,8 +228,9 @@ function UXQ_restoreEmpty_(studentId, section, courseId, diagnostics) {
     canonicalSection:section, courseId:courseId, matchingRows:0,
     completedNodes:0, nextMission:'w1', missions:{},
     diagnostics:Object.assign({
-      version:'uxq-progress-restore-v1.4',
-      policy:'sheet_only_mission_completed_contiguous'
+      version:'uxq-progress-restore-v1.5-strict-section',
+      policy:'sheet_only_exact_identity_mission_completed_contiguous',
+      aliasesDisabled:true
     }, diagnostics || {}),
     restoredAt:new Date().toISOString()
   };
