@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#082f49">
+  <title>HeroHealth Classroom Game</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#03131d;font-family:system-ui,sans-serif}
+    .bar{position:fixed;z-index:20;top:0;left:0;right:0;height:60px;display:flex;align-items:center;gap:8px;padding:8px 10px;background:#03131df5;color:#fff}
+    .bar b{flex:1}.bar button,.btn{border:0;border-radius:12px;min-height:44px;padding:9px 12px;font:inherit;font-weight:900}.back{background:#173b4b;color:#fff}.status{font-size:13px;opacity:.9}
+    iframe{position:fixed;top:60px;left:0;width:100%;height:calc(100% - 60px);border:0;background:#000}
+    .overlay{position:fixed;z-index:50;inset:60px 0 0;display:none;place-items:center;padding:18px;background:#010a12e8}.overlay.show{display:grid}
+    .card{width:min(520px,96vw);padding:24px;border-radius:24px;background:#fff;color:#12302c;text-align:center}.score{font-size:42px;font-weight:1000;color:#0f766e}
+    .btn{width:100%;background:#0f766e;color:#fff}.btn:disabled{opacity:.55}.sync{min-height:48px;font-weight:800;color:#0f766e}
+    .loading{position:fixed;z-index:45;inset:60px 0 0;display:grid;place-items:center;background:#03131d;color:#fff}.loading.hide{display:none}
+  </style>
+</head>
+<body>
+  <header class="bar"><button id="back" class="back">← ออกชั่วคราว</button><b id="title">HeroHealth</b><small id="status" class="status">กำลังเตรียมเกม</small></header>
+  <iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe>
+  <section id="loading" class="loading"><b>กำลังเตรียมภารกิจ</b></section>
+  <section id="overlay" class="overlay"><div class="card"><div style="font-size:56px">🏆</div><h1>จบภารกิจแล้ว</h1><div id="score" class="score">0 คะแนน</div><p id="sync" class="sync">กำลังเตรียมบันทึกผล</p><button id="returnBtn" class="btn">บันทึกผลและไปภารกิจถัดไป</button><p>Classroom 60 นาที: เล่นหนึ่งรอบแล้วไปต่อ ข้อมูลทักษะยังถูกเก็บเพื่อการวิเคราะห์</p></div></section>
+  <script src="./data/backend-config.js?v=20260727-public-mobile-receiver-v3"></script>
+  <script src="./assets/mobile-classroom-ui-v1.js?v=20260726-mobile-all-pages-v1"></script>
+  <script>
+  (()=>{
+    'use strict';
+    const STATE_KEY='herohealth_learning_platform_rc2',QUEUE_KEY='herohealth_backend_queue_v7';
+    const q=new URLSearchParams(location.search),target=q.get('target'),back=q.get('return')||'./index.html',sid=q.get('studentId')||'',zone=q.get('zone')||'',gameId=q.get('gameId')||'',section=q.get('section')||'',group=q.get('group')||'';
+    const f=document.getElementById('game'),ov=document.getElementById('overlay'),loading=document.getElementById('loading'),statusEl=document.getElementById('status'),returnBtn=document.getElementById('returnBtn'),syncEl=document.getElementById('sync'),endpoint=String(window.HH_CONFIG?.backend?.webAppUrl||'').trim();
+    const sessionId=`GS-ONCE-${sid}-${zone}-${gameId}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,openedAt=new Date().toISOString();
+    let startedAt='',ended=false,syncing=false,result={completed:false,passed:false,score:0,accuracy:0,eventId:''};
+    document.getElementById('title').textContent=q.get('title')||gameId;
+    if(!target){statusEl.textContent='ไม่พบเกม';return}
+    const num=v=>{const n=Number(String(v??'').replace(/[^0-9.\-]/g,''));return Number.isFinite(n)?n:0};
+    const eid=()=>`HH-game-${zone}-${gameId}-${sid}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    function readJson(k,fallback){try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(fallback))}catch(_){return fallback}}
+    function writeJson(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(_){return false}}
+    function state(){return readJson(STATE_KEY,{})}
+    function enqueue(payload){const list=readJson(QUEUE_KEY,[]);if(!list.some(x=>x.eventId===payload.eventId)){list.push(payload);writeJson(QUEUE_KEY,list.slice(-80))}}
+    function dequeue(eventId){writeJson(QUEUE_KEY,readJson(QUEUE_KEY,[]).filter(x=>x.eventId!==eventId))}
+    function jsonp(params,timeout=30000){return new Promise((resolve,reject)=>{const cb='HHGAME_'+Date.now()+'_'+Math.random().toString(36).slice(2),s=document.createElement('script');let done=false;const finish=(e,d)=>{if(done)return;done=true;clearTimeout(t);try{delete window[cb]}catch(_){}s.remove();e?reject(e):resolve(d)};const t=setTimeout(()=>finish(new Error('sheet_timeout')),timeout);window[cb]=d=>finish(null,d);s.onerror=()=>finish(new Error('sheet_load_failed'));s.src=endpoint+(endpoint.includes('?')?'&':'?')+new URLSearchParams({...params,callback:cb,_:Date.now()});document.head.appendChild(s)})}
+    function onStart(){if(!startedAt){startedAt=new Date().toISOString();statusEl.textContent='กำลังเล่น'}}
+    function visible(el,w){if(!el)return false;const cs=w.getComputedStyle(el),r=el.getBoundingClientRect();return cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>0&&r.width>0&&r.height>0}
+    function rawResult(){try{const w=f.contentWindow;for(const k of ['HHA_GROUPS_AR_LAST_RESULT','HHA_GOODJUNK_AR_LAST_RESULT','HHA_HANDWASH_LAST_RESULT','HHA_TOOTHBRUSH_LAST_RESULT','toothbrush_pending_result']){try{const v=JSON.parse(w.localStorage.getItem(k)||'null');if(v)return v}catch(_){}}return w.__TOOTHBRUSH_LAST_RESULT__||w.__HANDWASH_LAST_RESULT__||w.__GROUPS_LAST_RESULT__||w.__GOODJUNK_LAST_RESULT__||{}}catch(_){return{}}}
+    function read(){try{const d=f.contentDocument,raw=rawResult();let score=num(raw.score??raw.totalScore);for(const id of ['score','scoreText','summaryScore','sumScore','finalScore'])score=Math.max(score,num(d?.getElementById(id)?.textContent));let accuracy=num(raw.accuracy??raw.direction_accuracy??raw.overall_direction_accuracy);for(const id of ['accuracy','accuracyText','summaryAccuracy','sumAccuracy'])accuracy=Math.max(accuracy,num(d?.getElementById(id)?.textContent));result={...result,...raw,completed:true,passed:true,score,accuracy,eventId:raw.eventId||raw.record_id||result.eventId||eid(),singleAttemptPolicy:true,skillCriteriaMet:raw.passed===true||raw.learning_complete===true||String(raw.learning_complete||'').toLowerCase()==='yes',originalPassed:raw.passed===true}}catch(_){result={...result,completed:true,passed:true,eventId:result.eventId||eid(),singleAttemptPolicy:true}}return result}
+    function show(payload={}){if(ended)return;result={...result,...payload};read();ended=true;document.getElementById('score').textContent=`${result.score} คะแนน`;ov.classList.add('show');statusEl.textContent='จบเกมแล้ว';syncEl.textContent='เล่นครบหนึ่งรอบ • พร้อมบันทึกและไปต่อ';setTimeout(finishAndGo,700)}
+    function makePayload(){const p=state().profile||{},eventId=result.eventId||eid();result.eventId=eventId;return{eventType:'game',eventId,studentId:sid,profile:{fullName:p.fullName||'',section:section||p.section||'',group:group||p.group||''},clientTs:new Date().toISOString(),currentStep:`${zone}:${gameId}`,status:'จบหนึ่งรอบ '+gameId,game:{zone,gameId,score:num(result.score),accuracy:num(result.accuracy),passed:true,completed:true,finishedAt:new Date().toISOString(),sessionId,openedAt,startedAt:startedAt||openedAt,durationSec:Math.max(0,Math.round((Date.now()-Date.parse(startedAt||openedAt))/1000)),inputMode:result.inputMode||result.play_mode||'classroom-ar',gameVersion:result.gameVersion||result.version||'',singleAttemptPolicy:true,skillCriteriaMet:result.skillCriteriaMet===true,originalPassed:result.originalPassed===true,rawLearningComplete:result.learning_complete??'',rawChallengePassed:result.challenge_passed??'',rawEndReason:result.end_reason??''}}}
+    function returnUrl(){const u=new URL(back,location.href);u.searchParams.set('authorityRefresh',Date.now());u.searchParams.set('gameSync','1');return u.href}
+    async function finishAndGo(){if(syncing)return;read();syncing=true;returnBtn.disabled=true;const p=makePayload();enqueue(p);try{syncEl.textContent='กำลังส่งผลเข้า Google Sheet…';const ack=await jsonp({action:'submit',payload:JSON.stringify(p)},30000);if(!ack?.ok)throw new Error(ack?.error||'submit_failed');if(String(ack.eventId||'')!==String(p.eventId))throw new Error('event_ack_mismatch');dequeue(p.eventId);syncEl.textContent='Google Sheet รับผลแล้ว • กำลังไปภารกิจถัดไป…';setTimeout(()=>location.replace(returnUrl()),500)}catch(e){syncing=false;returnBtn.disabled=false;syncEl.textContent='ยังบันทึกไม่สำเร็จ: '+String(e.message||e)+' — กดส่งใหม่';statusEl.textContent='รอส่งผล'}}
+    returnBtn.onclick=finishAndGo;
+    document.getElementById('back').onclick=()=>location.href=new URL(back,location.href).href;
+    function detectFinish(){if(ended)return;try{const w=f.contentWindow,d=f.contentDocument;if(!d)return;const done=[d.getElementById('resultOverlay'),d.getElementById('resultScreen'),d.getElementById('summaryScreen'),d.getElementById('result'),d.getElementById('summary'),d.getElementById('endOverlay'),d.getElementById('finalModal')].some(e=>visible(e,w));const raw=rawResult();if(done||raw.record_id||raw.end_reason)show(raw)}catch(_){}}
+    f.src=target;
+    f.addEventListener('load',()=>{loading.classList.add('hide');statusEl.textContent='พร้อมเริ่มเกม';try{const d=f.contentDocument;d.addEventListener('click',e=>{if(/เริ่ม|start|เปิดกล้อง|calibration/i.test(String(e.target?.textContent||'')))onStart()},{capture:true});new MutationObserver(detectFinish).observe(d.documentElement,{subtree:true,childList:true,characterData:true,attributes:true})}catch(_){}});
+    setInterval(detectFinish,700);
+    addEventListener('message',e=>{if(e.origin!==location.origin)return;const m=e.data||{};if(m.type==='HEROHEALTH_GAME_STARTED')onStart();if(m.type==='HEROHEALTH_GAME_COMPLETE'&&m.payload)show(m.payload)});
+  })();
+  </script>
+</body>
+</html>
