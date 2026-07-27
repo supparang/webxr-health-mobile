@@ -17,10 +17,10 @@ iframe{position:fixed;inset:0;width:100%;height:100%;border:0}
 <div id="status" class="status">กำลังเตรียมเกม Classroom…</div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260727-CLASSROOM-WRAPPER-STRICT7-R28';
+const RELEASE='20260727-CLASSROOM-WRAPPER-COMPLETE7-R29';
 const q=new URLSearchParams(location.search),kind=q.get('wrappedGame')||q.get('gameId')||'',sid=q.get('studentId')||q.get('pid')||'';
 const targets={
- handwash:'./handwash-classroom-7step.html?strict7=1',
+ handwash:'./handwash-classroom-7step.html?strict7=1&v=20260727-complete7-r29',
  toothbrush:'../herohealth/hygiene-zone/toothbrush-ar.html?mode=learning&diff=easy&time=90&classroom=1',
  groups:'../herohealth/groups-ar-gate.html?phase=warmup&next=./groups-ar.html',
  goodjunk:'../herohealth/goodjunk-ar-classroom-v12.html?classroom=1&mode=solo&time=60'
@@ -56,8 +56,9 @@ function handwashAudit(raw){
  const wrist=rows.find(row=>String(row?.id||'').toLowerCase()==='wrists'||num(row?.stepId??row?.whoStep)===8||/ข้อมือ/.test(String(row?.label||'')));
  const wristsPassed=yes(raw?.wristsPassed)||rowDone(wrist);
  const analyticsReady=String(raw?.analyticsSchemaVersion||'').includes('V2')&&num(raw?.metricCompletenessPct)>=90&&rows.length>=12&&Array.isArray(raw?.events);
- const valid=yes(raw?.passed)&&yes(raw?.completed)&&rubDone>=7&&rubTotal>=7&&processDone>=5&&processTotal>=5&&wristsPassed&&analyticsReady;
- return {valid,rubDone,rubTotal,processDone,processTotal,wristsPassed,analyticsReady,rows:rows.length,metricCompletenessPct:num(raw?.metricCompletenessPct)};
+ const procedureCompleted=yes(raw?.completed)&&rubDone>=7&&rubTotal>=7&&processDone>=5&&processTotal>=5&&wristsPassed;
+ const valid=procedureCompleted&&analyticsReady;
+ return {valid,procedureCompleted,skillPassed:yes(raw?.passed),rubDone,rubTotal,processDone,processTotal,wristsPassed,analyticsReady,rows:rows.length,metricCompletenessPct:num(raw?.metricCompletenessPct)};
 }
 function installHandDetectionQuality(w){
  if(kind!=='handwash'||!w||w.__HH_HAND_STRICT_OPTIONS__)return;
@@ -84,11 +85,11 @@ function fill(d){
  else s.textContent='#back,.back,#homeBtn,[data-action="home"]{display:none!important}';
  d.head.appendChild(s);
 }
-function realPass(raw){
+function realCompletion(raw){
  if(kind==='handwash')return handwashAudit(raw).valid;
  if(kind==='toothbrush'){const learning=String(raw.play_mode||'').toLowerCase()==='learning';return learning?yes(raw.learning_complete)&&yes(raw.challenge_passed):yes(raw.challenge_passed)}
- if(Object.prototype.hasOwnProperty.call(raw,'passed'))return yes(raw.passed);
  if(Object.prototype.hasOwnProperty.call(raw,'completed'))return yes(raw.completed);
+ if(Object.prototype.hasOwnProperty.call(raw,'passed'))return yes(raw.passed);
  return false;
 }
 function finishCheck(){
@@ -99,20 +100,22 @@ function finishCheck(){
   const done=[d.getElementById('resultOverlay'),d.getElementById('resultScreen'),d.getElementById('summaryScreen'),d.getElementById('result'),d.getElementById('summary'),d.getElementById('endOverlay'),d.getElementById('finalModal')].some(e=>visible(e,w))||/(จบภารกิจ|สรุปผล|Healthy Hero|ภารกิจสำเร็จ|Mission Complete|ผลการเล่น|คะแนนรวม)/i.test(text);
   if(!done)return;
   const raw=stored(w);
+  let audit=null;
   if(kind==='handwash'){
-   const audit=handwashAudit(raw),attempt=String(raw.eventId||raw.attemptId||raw.timestamp||'');
+   audit=handwashAudit(raw);const attempt=String(raw.eventId||raw.attemptId||raw.timestamp||'');
    if(!audit.valid){
-    if(attempt!==lastRejected){lastRejected=attempt;console.warn('[Handwash strict audit] rejected',audit,raw)}
-    status.textContent=`ยังไม่ผ่าน • ท่าถู ${audit.rubDone}/7 • กระบวนการ ${audit.processDone}/5 • Analytics ${audit.metricCompletenessPct}%`;
+    if(attempt!==lastRejected){lastRejected=attempt;console.warn('[Handwash completion audit] rejected',audit,raw)}
+    status.textContent=`ยังไม่จบภารกิจ • ท่าถู ${audit.rubDone}/7 • กระบวนการ ${audit.processDone}/5 • Analytics ${audit.metricCompletenessPct}%`;
     status.className='status err';
     return;
    }
   }
   const ids=['scoreText','summaryScore','sumScore','finalScore','score','hudScore','resultScore'];let score=num(raw.score??raw.totalScore);for(const id of ids)score=Math.max(score,num(d.getElementById(id)?.textContent));
   let accuracy=num(raw.accuracy??raw.direction_accuracy??raw.correctRate);for(const id of ['accuracyText','summaryAccuracy','sumAccuracy','finalAcc','accuracy','resultAccuracy'])accuracy=Math.max(accuracy,num(d.getElementById(id)?.textContent));
-  const passed=realPass(raw);if(!passed){status.textContent='ยังไม่ผ่าน • กรุณาเล่นใหม่';status.className='status err';return}
-  const payload={...raw,completed:true,passed:true,score,accuracy,assistUsed:raw.assistUsed===true,completionPolicy:kind==='handwash'?'strict-7-rub-12-phase':'game-result',eventId:raw.eventId||raw.record_id||raw.attemptId||`HH-game-${zone}-${kind}-${sid}-${Date.now()}`,inputMode:raw.inputMode||raw.mode||'classroom-ar',gameVersion:raw.gameVersion||raw.version||`${kind}-classroom-wrapper-${RELEASE}`,autoSubmit:true};
-  sent=true;status.textContent='ผ่านเกณฑ์จริง • กำลังส่งผลและ Analytics';status.className='status ok';
+  const completed=realCompletion(raw);if(!completed){status.textContent='ยังไม่จบภารกิจ • กรุณาทำให้ครบ';status.className='status err';return}
+  const skillPassed=kind==='handwash'?audit.skillPassed:yes(raw.passed);
+  const payload={...raw,completed:true,passed:skillPassed,score,accuracy,assistUsed:raw.assistUsed===true,completionPolicy:kind==='handwash'?'complete-7-rub-12-phase-single-round':'game-result',eventId:raw.eventId||raw.record_id||raw.attemptId||`HH-game-${zone}-${kind}-${sid}-${Date.now()}`,inputMode:raw.inputMode||raw.mode||'classroom-ar',gameVersion:raw.gameVersion||raw.version||`${kind}-classroom-wrapper-${RELEASE}`,skillCriteriaMet:skillPassed,progressionEligible:true,autoSubmit:true};
+  sent=true;status.textContent=skillPassed?'ทำครบและผ่านเกณฑ์ • กำลังส่งผล':'ทำครบ 7 ขั้นแล้ว • กำลังส่งผลและข้อเสนอแนะ';status.className='status ok';
   parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin);
   setTimeout(()=>{try{parent.document.getElementById('returnBtn')?.click()}catch(_){}},1300);
  }catch(error){status.textContent='กำลังรอผลเกม'}
