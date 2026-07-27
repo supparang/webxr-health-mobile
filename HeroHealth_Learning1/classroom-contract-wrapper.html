@@ -1,33 +1,126 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#071827"><title>HeroHealth Classroom Game</title><style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071827;font-family:system-ui,sans-serif}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}.status{position:fixed;z-index:20;left:50%;bottom:12px;transform:translateX(-50%);max-width:92vw;padding:8px 13px;border-radius:999px;background:#0f172dcc;color:#fff;font-size:12px;font-weight:900;pointer-events:none}.status.ok{background:#065f46dd}.status.err{background:#991b1bdd}</style></head><body><iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe><div id="status" class="status">กำลังเตรียมเกม Classroom…</div><script>
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#071827">
+<title>HeroHealth Classroom Game</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071827;font-family:system-ui,sans-serif}
+iframe{position:fixed;inset:0;width:100%;height:100%;border:0}
+.status{position:fixed;z-index:20;left:50%;bottom:12px;transform:translateX(-50%);max-width:94vw;padding:9px 14px;border-radius:999px;background:#0f172ddd;color:#fff;font-size:12px;font-weight:900;text-align:center;pointer-events:none}
+.status.ok{background:#065f46ee}.status.err{background:#991b1bee}.status.wait{background:#92400eee}
+</style>
+</head>
+<body>
+<iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe>
+<div id="status" class="status">กำลังเตรียมเกม Classroom…</div>
+<script>
 (()=>{'use strict';
+const RELEASE='20260727-CLASSROOM-WRAPPER-STRICT7-R28';
 const q=new URLSearchParams(location.search),kind=q.get('wrappedGame')||q.get('gameId')||'',sid=q.get('studentId')||q.get('pid')||'';
-const targets={handwash:'../herohealth/hygiene-zone/handwash-realistic-v3.html',toothbrush:'../herohealth/hygiene-zone/toothbrush-ar.html?mode=learning&diff=easy&time=90&classroom=1',groups:'../herohealth/groups-ar-gate.html?phase=warmup&next=./groups-ar.html',goodjunk:'../herohealth/goodjunk-ar-classroom-v12.html?classroom=1&mode=solo&time=60'};
+const targets={
+ handwash:'./handwash-classroom-7step.html?strict7=1',
+ toothbrush:'../herohealth/hygiene-zone/toothbrush-ar.html?mode=learning&diff=easy&time=90&classroom=1',
+ groups:'../herohealth/groups-ar-gate.html?phase=warmup&next=./groups-ar.html',
+ goodjunk:'../herohealth/goodjunk-ar-classroom-v12.html?classroom=1&mode=solo&time=60'
+};
 const zones={handwash:'hygiene',toothbrush:'hygiene',groups:'nutrition',goodjunk:'nutrition'};
-const target=targets[kind],zone=zones[kind]||q.get('zone')||'',f=document.getElementById('game'),status=document.getElementById('status');let sent=false,started=false;
+const target=targets[kind],zone=zones[kind]||q.get('zone')||'',f=document.getElementById('game'),status=document.getElementById('status');
+let sent=false,started=false,lastRejected='';
 if(!target){status.textContent='ไม่พบเกมที่ต้องเปิด';status.className='status err';return}
-const u=new URL(target,location.href);for(const [k,v] of q.entries())if(!['target','return','wrappedGame'].includes(k))u.searchParams.set(k,v);u.searchParams.set('classroom','1');u.searchParams.set('studentId',sid);u.searchParams.set('pid',sid);u.searchParams.set('gameId',kind);u.searchParams.set('zone',zone);u.searchParams.set('ui','compact');f.src=u.href;
+const u=new URL(target,location.href);
+for(const [k,v] of q.entries())if(!['target','return','wrappedGame'].includes(k))u.searchParams.set(k,v);
+u.searchParams.set('classroom','1');u.searchParams.set('studentId',sid);u.searchParams.set('pid',sid);u.searchParams.set('gameId',kind);u.searchParams.set('zone',zone);u.searchParams.set('ui','compact');u.searchParams.set('wrapperRelease',RELEASE);f.src=u.href;
 const num=v=>{const n=Number(String(v??'').replace(/[^0-9.\-]/g,''));return Number.isFinite(n)?n:0};
 const yes=v=>v===true||v===1||String(v||'').toLowerCase()==='true'||String(v||'').toLowerCase()==='yes'||String(v||'')==='1';
-function postStart(){if(started)return;started=true;status.textContent='กำลังเล่น';try{parent.postMessage({type:'HEROHEALTH_GAME_STARTED'},location.origin)}catch(_){}}
+function postStart(){if(started)return;started=true;status.textContent='กำลังเล่น';status.className='status';try{parent.postMessage({type:'HEROHEALTH_GAME_STARTED'},location.origin)}catch(_){}}
 function visible(el,w){if(!el)return false;const cs=w.getComputedStyle(el),r=el.getBoundingClientRect();return cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>0&&r.width>0&&r.height>0}
-function stored(w){const keys=['HHA_HANDWASH_LAST_RESULT','toothbrush_pending_result','HHA_TOOTHBRUSH_LAST_RESULT','HHA_GROUPS_AR_LAST_RESULT','groups_ar_last_result','HHA_GOODJUNK_AR_LAST_RESULT','GOODJUNK_AR_LAST_RESULT','goodjunk_pending_result'];for(const k of keys){try{const v=JSON.parse(w.localStorage.getItem(k)||'null');if(v)return v}catch(_){}}return w.__HANDWASH_LAST_RESULT__||w.__TOOTHBRUSH_LAST_RESULT__||w.__GROUPS_LAST_RESULT__||w.__GOODJUNK_LAST_RESULT__||{}}
-function installHandAssist(w){if(kind!=='handwash'||!w||w.__HH_HAND_ASSIST_INSTALLED__)return;const patch=()=>{const Hands=w.Hands;if(!Hands||!Hands.prototype)return false;const p=Hands.prototype;if(p.__hhAssistPatched)return true;p.__hhAssistPatched=true;const originalSet=p.setOptions;p.setOptions=function(options){const next={...(options||{}),modelComplexity:0,minDetectionConfidence:.42,minTrackingConfidence:.38,maxNumHands:2};return originalSet.call(this,next)};const originalOn=p.onResults;p.onResults=function(callback){let lastTwo=null,lastTwoAt=0,oneSince=0;const clonePoints=(points,dx)=>Array.isArray(points)?points.map(pt=>({...pt,x:Math.max(0.02,Math.min(.98,Number(pt.x||0)+dx))})):points;const wrap=result=>{try{const now=w.performance.now();let landmarks=(result?.multiHandLandmarks||[]).slice();let world=(result?.multiHandWorldLandmarks||[]).slice();let handed=(result?.multiHandedness||[]).slice();if(landmarks.length>=2){lastTwo={landmarks:landmarks.slice(0,2),world:world.slice(0,2),handed:handed.slice(0,2)};lastTwoAt=now;oneSince=0}else if(landmarks.length===1){if(!oneSince)oneSince=now;if(lastTwo&&now-lastTwoAt<1600){landmarks=lastTwo.landmarks;world=lastTwo.world;handed=lastTwo.handed}else if(now-oneSince>900){const first=landmarks[0],dx=(first?.[9]?.x||.5)>.5?-.085:.085;landmarks=[first,clonePoints(first,dx)];world=[world[0]||first,clonePoints(world[0]||first,dx)];handed=[handed[0]||{label:'Left',score:.7},{label:String(handed[0]?.label||'Left').toLowerCase().includes('left')?'Right':'Left',score:.62}];w.__HH_HAND_ASSIST_USED__=true}}else if(lastTwo&&now-lastTwoAt<1300){landmarks=lastTwo.landmarks;world=lastTwo.world;handed=lastTwo.handed}callback({...result,multiHandLandmarks:landmarks,multiHandWorldLandmarks:world,multiHandedness:handed})}catch(_){callback(result)}};return originalOn.call(this,wrap)};w.__HH_HAND_ASSIST_INSTALLED__=true;return true};if(patch())return;let tries=0;const timer=w.setInterval(()=>{tries++;if(patch()||tries>80)w.clearInterval(timer)},50)}
-function fill(d){const set=(ids,v)=>ids.forEach(id=>{const e=d.getElementById(id);if(e&&v){e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))}});set(['studentId','studentIdInput','pid'],sid);set(['section','sectionInput','classSection'],q.get('section')||'');set(['classInput','classId'],q.get('group')||q.get('section')||'');set(['nameInput','playerName','studentName'],q.get('fullName')||q.get('name')||q.get('studentName')||'Hero');let s=d.getElementById('hh-wrapper-style');if(!s){s=d.createElement('style');s.id='hh-wrapper-style';if(kind==='handwash')s.textContent=`
-#startOverlay .form,#backBtn{display:none!important}
-@media(max-width:760px){
-.hud{inset:calc(4px + var(--sat)) 6px auto 6px!important;gap:4px!important}
-.hud .row{gap:5px!important}.title{padding:5px 8px!important;border-radius:12px!important}.title small{display:none!important}.title strong{font-size:15px!important}.detect{min-width:72px!important;min-height:34px!important;padding:3px 6px!important;border-radius:11px!important;font-size:9px!important}
-.stats{grid-template-columns:repeat(3,1fr)!important;gap:4px!important}.stats .stat:nth-child(4),.stats .stat:nth-child(5){display:none!important}.stat{padding:4px 3px!important;border-radius:10px!important}.stat span{font-size:7px!important}.stat b{font-size:14px!important}
-.mission{padding:6px 8px!important;border-radius:12px!important}.mission .icon{width:31px!important;height:31px!important;border-radius:9px!important;font-size:18px!important}.mission h1{font-size:13px!important}.mission p{font-size:10px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
-.who-strip{display:none!important}
-.coach{left:8px!important;right:8px!important;bottom:104px!important;padding:8px 10px!important;border-radius:14px!important}.coach strong{display:none!important}.coach p{margin:0!important;font-size:15px!important;line-height:1.3!important;text-align:center!important}.chips{display:none!important}
-.bottom{left:8px!important;right:8px!important;bottom:calc(6px + var(--sab))!important;display:block!important}.meters{display:none!important}.controls{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}.control{display:none!important;min-height:58px!important;border-radius:16px!important;font-size:13px!important}.control span{font-size:23px!important}#faucetBtn,#stopBtn{display:block!important}#faucetBtn{background:var(--cyan)!important;color:#052132!important}#stopBtn{background:var(--red)!important;color:#321016!important}
-.zone{border-radius:20px!important}.zone b{font-size:30px!important}.zone span{font-size:9px!important}
-.toast{bottom:84px!important}
+function stored(w){
+ const keys=['HHA_HANDWASH_LAST_RESULT','toothbrush_pending_result','HHA_TOOTHBRUSH_LAST_RESULT','HHA_GROUPS_AR_LAST_RESULT','groups_ar_last_result','HHA_GOODJUNK_AR_LAST_RESULT','GOODJUNK_AR_LAST_RESULT','goodjunk_pending_result'];
+ for(const k of keys){try{const v=JSON.parse(w.localStorage.getItem(k)||'null');if(v)return v}catch(_){}}
+ return w.__HANDWASH_LAST_RESULT__||w.__TOOTHBRUSH_LAST_RESULT__||w.__GROUPS_LAST_RESULT__||w.__GOODJUNK_LAST_RESULT__||{};
 }
-`;else if(kind==='toothbrush')s.textContent='#homeBtn,.field{display:none!important}';else s.textContent='#back,.back,#homeBtn,[data-action="home"]{display:none!important}';d.head.appendChild(s)}}
-function realPass(raw){if(kind==='toothbrush'){const learning=String(raw.play_mode||'').toLowerCase()==='learning';return learning?yes(raw.learning_complete)&&yes(raw.challenge_passed):yes(raw.challenge_passed)}if(Object.prototype.hasOwnProperty.call(raw,'passed'))return yes(raw.passed);if(Object.prototype.hasOwnProperty.call(raw,'completed'))return yes(raw.completed);return false}
-function finishCheck(){if(sent)return;try{const w=f.contentWindow,d=f.contentDocument;if(!d)return;fill(d);const text=String(d.body?.innerText||'');const done=[d.getElementById('resultOverlay'),d.getElementById('resultScreen'),d.getElementById('summaryScreen'),d.getElementById('result'),d.getElementById('summary'),d.getElementById('endOverlay'),d.getElementById('finalModal')].some(e=>visible(e,w))||/(จบภารกิจ|สรุปผล|Healthy Hero|ภารกิจสำเร็จ|Mission Complete|ผลการเล่น|คะแนนรวม)/i.test(text);if(!done)return;const raw=stored(w);const ids=['scoreText','summaryScore','sumScore','finalScore','score','hudScore','resultScore'];let score=num(raw.score??raw.totalScore);for(const id of ids)score=Math.max(score,num(d.getElementById(id)?.textContent));let accuracy=num(raw.accuracy??raw.direction_accuracy??raw.correctRate);for(const id of ['accuracyText','summaryAccuracy','sumAccuracy','finalAcc','accuracy','resultAccuracy'])accuracy=Math.max(accuracy,num(d.getElementById(id)?.textContent));const explicitFail=/(ยังไม่ผ่าน|หมดเวลา|time\s*up|ต้องลองใหม่|เล่นใหม่)/i.test(text);const passed=kind==='handwash'?(done&&!explicitFail):realPass(raw);const payload={...raw,completed:passed,passed,score,accuracy,assistUsed:raw.assistUsed===true||w.__HH_HAND_ASSIST_USED__===true,completionPolicy:kind==='handwash'?'single-round-summary':'game-result',eventId:raw.eventId||raw.record_id||`HH-game-${zone}-${kind}-${sid}-${Date.now()}`,inputMode:raw.inputMode||raw.mode||'classroom-ar',gameVersion:raw.gameVersion||`${kind}-classroom-wrapper-v5-single-round`,autoSubmit:true};sent=true;status.textContent=passed?'ผ่านแล้ว • กำลังส่งผล':'ยังไม่ผ่าน • กรุณาเล่นใหม่';status.className=passed?'status ok':'status err';parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin);if(passed)setTimeout(()=>{try{parent.document.getElementById('returnBtn')?.click()}catch(_){}},1300)}catch(e){status.textContent='กำลังรอผลเกม'}}
-f.addEventListener('load',()=>{status.textContent='พร้อมเริ่มเกม';try{const w=f.contentWindow,d=f.contentDocument;installHandAssist(w);fill(d);d.addEventListener('click',e=>{if(/เริ่ม|start|เปิดกล้อง|calibration|ไปต่อ/i.test(String(e.target?.textContent||'')))postStart()},{capture:true});new MutationObserver(finishCheck).observe(d.documentElement,{subtree:true,childList:true,characterData:true,attributes:true})}catch(_){}});setInterval(finishCheck,800);
+function stepRows(raw){return Array.isArray(raw?.steps)?raw.steps:Array.isArray(raw?.stepResults)?raw.stepResults:[]}
+function handwashAudit(raw){
+ const rows=stepRows(raw);
+ const rubRows=rows.filter(row=>String(row.group||row.kind||'').toLowerCase().includes('rub'));
+ const processRows=rows.filter(row=>String(row.group||row.kind||'').toLowerCase()==='process');
+ const rowDone=row=>yes(row?.completed)||['strict','grace','assist','pass','passed'].includes(String(row?.passMode||'').toLowerCase());
+ const countedRub=rubRows.filter(rowDone).length;
+ const countedProcess=processRows.filter(rowDone).length;
+ const rubDone=num(raw?.completedRubSteps??raw?.whoStepsCompleted)||countedRub;
+ const rubTotal=num(raw?.totalWhoRubSteps??raw?.totalRubSteps??raw?.whoStepsTotal)||rubRows.length;
+ const processDone=num(raw?.completedProcessSteps)||countedProcess;
+ const processTotal=num(raw?.totalProcessSteps)||processRows.length;
+ const wrist=rows.find(row=>String(row?.id||'').toLowerCase()==='wrists'||num(row?.stepId??row?.whoStep)===8||/ข้อมือ/.test(String(row?.label||'')));
+ const wristsPassed=yes(raw?.wristsPassed)||rowDone(wrist);
+ const analyticsReady=String(raw?.analyticsSchemaVersion||'').includes('V2')&&num(raw?.metricCompletenessPct)>=90&&rows.length>=12&&Array.isArray(raw?.events);
+ const valid=yes(raw?.passed)&&yes(raw?.completed)&&rubDone>=7&&rubTotal>=7&&processDone>=5&&processTotal>=5&&wristsPassed&&analyticsReady;
+ return {valid,rubDone,rubTotal,processDone,processTotal,wristsPassed,analyticsReady,rows:rows.length,metricCompletenessPct:num(raw?.metricCompletenessPct)};
+}
+function installHandDetectionQuality(w){
+ if(kind!=='handwash'||!w||w.__HH_HAND_STRICT_OPTIONS__)return;
+ const patch=()=>{const Hands=w.Hands;if(!Hands||!Hands.prototype)return false;const p=Hands.prototype;if(p.__hhStrictOptionsPatched)return true;p.__hhStrictOptionsPatched=true;const original=p.setOptions;p.setOptions=function(options){return original.call(this,{...(options||{}),modelComplexity:0,minDetectionConfidence:.46,minTrackingConfidence:.42,maxNumHands:2})};w.__HH_HAND_STRICT_OPTIONS__=true;return true};
+ if(patch())return;let tries=0;const timer=w.setInterval(()=>{tries++;if(patch()||tries>100)w.clearInterval(timer)},50);
+}
+function fill(d){
+ const set=(ids,v)=>ids.forEach(id=>{const e=d.getElementById(id);if(e&&v){e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))}});
+ set(['studentId','studentIdInput','pid'],sid);set(['section','sectionInput','classSection'],q.get('section')||'');set(['classInput','classId'],q.get('group')||q.get('section')||'');set(['nameInput','playerName','studentName'],q.get('fullName')||q.get('name')||q.get('studentName')||'Hero');
+ let s=d.getElementById('hh-wrapper-style');if(s)return;
+ s=d.createElement('style');s.id='hh-wrapper-style';
+ if(kind==='handwash')s.textContent=`
+ #startOverlay .form,#backBtn{display:none!important}
+ @media(max-width:760px){
+ .hud{inset:calc(4px + var(--sat)) 6px auto 6px!important;gap:4px!important}.hud .row{gap:5px!important}.title{padding:5px 8px!important}.title small{display:none!important}.title strong{font-size:15px!important}.detect{min-width:72px!important;min-height:34px!important;font-size:9px!important}
+ .stats{grid-template-columns:repeat(4,1fr)!important;gap:4px!important}.stats .stat:nth-child(4){display:none!important}.stat{padding:4px 3px!important}.stat span{font-size:7px!important}.stat b{font-size:14px!important}
+ .mission{padding:6px 8px!important}.mission .icon{width:31px!important;height:31px!important;font-size:18px!important}.mission h1{font-size:13px!important}.mission p{font-size:10px!important}
+ .who-strip{display:flex!important;padding:4px!important;min-height:42px!important}.phase-chip{min-width:70px!important;font-size:8px!important;padding:5px!important}
+ .coach{left:8px!important;right:8px!important;bottom:104px!important;padding:8px 10px!important}.coach strong{display:none!important}.coach p{margin:0!important;font-size:14px!important;text-align:center!important}.chips{display:none!important}
+ .bottom{left:8px!important;right:8px!important;bottom:calc(6px + var(--sab))!important;display:block!important}.meters{display:none!important}.controls{display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}.control{display:none!important;min-height:58px!important}#faucetBtn,#stopBtn{display:block!important}
+ .zone{border-radius:20px!important}.zone b{font-size:30px!important}.zone span{font-size:9px!important}.toast{bottom:84px!important}
+ }`;
+ else if(kind==='toothbrush')s.textContent='#homeBtn,.field{display:none!important}';
+ else s.textContent='#back,.back,#homeBtn,[data-action="home"]{display:none!important}';
+ d.head.appendChild(s);
+}
+function realPass(raw){
+ if(kind==='handwash')return handwashAudit(raw).valid;
+ if(kind==='toothbrush'){const learning=String(raw.play_mode||'').toLowerCase()==='learning';return learning?yes(raw.learning_complete)&&yes(raw.challenge_passed):yes(raw.challenge_passed)}
+ if(Object.prototype.hasOwnProperty.call(raw,'passed'))return yes(raw.passed);
+ if(Object.prototype.hasOwnProperty.call(raw,'completed'))return yes(raw.completed);
+ return false;
+}
+function finishCheck(){
+ if(sent)return;
+ try{
+  const w=f.contentWindow,d=f.contentDocument;if(!d)return;fill(d);
+  const text=String(d.body?.innerText||'');
+  const done=[d.getElementById('resultOverlay'),d.getElementById('resultScreen'),d.getElementById('summaryScreen'),d.getElementById('result'),d.getElementById('summary'),d.getElementById('endOverlay'),d.getElementById('finalModal')].some(e=>visible(e,w))||/(จบภารกิจ|สรุปผล|Healthy Hero|ภารกิจสำเร็จ|Mission Complete|ผลการเล่น|คะแนนรวม)/i.test(text);
+  if(!done)return;
+  const raw=stored(w);
+  if(kind==='handwash'){
+   const audit=handwashAudit(raw),attempt=String(raw.eventId||raw.attemptId||raw.timestamp||'');
+   if(!audit.valid){
+    if(attempt!==lastRejected){lastRejected=attempt;console.warn('[Handwash strict audit] rejected',audit,raw)}
+    status.textContent=`ยังไม่ผ่าน • ท่าถู ${audit.rubDone}/7 • กระบวนการ ${audit.processDone}/5 • Analytics ${audit.metricCompletenessPct}%`;
+    status.className='status err';
+    return;
+   }
+  }
+  const ids=['scoreText','summaryScore','sumScore','finalScore','score','hudScore','resultScore'];let score=num(raw.score??raw.totalScore);for(const id of ids)score=Math.max(score,num(d.getElementById(id)?.textContent));
+  let accuracy=num(raw.accuracy??raw.direction_accuracy??raw.correctRate);for(const id of ['accuracyText','summaryAccuracy','sumAccuracy','finalAcc','accuracy','resultAccuracy'])accuracy=Math.max(accuracy,num(d.getElementById(id)?.textContent));
+  const passed=realPass(raw);if(!passed){status.textContent='ยังไม่ผ่าน • กรุณาเล่นใหม่';status.className='status err';return}
+  const payload={...raw,completed:true,passed:true,score,accuracy,assistUsed:raw.assistUsed===true,completionPolicy:kind==='handwash'?'strict-7-rub-12-phase':'game-result',eventId:raw.eventId||raw.record_id||raw.attemptId||`HH-game-${zone}-${kind}-${sid}-${Date.now()}`,inputMode:raw.inputMode||raw.mode||'classroom-ar',gameVersion:raw.gameVersion||raw.version||`${kind}-classroom-wrapper-${RELEASE}`,autoSubmit:true};
+  sent=true;status.textContent='ผ่านเกณฑ์จริง • กำลังส่งผลและ Analytics';status.className='status ok';
+  parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin);
+  setTimeout(()=>{try{parent.document.getElementById('returnBtn')?.click()}catch(_){}},1300);
+ }catch(error){status.textContent='กำลังรอผลเกม'}
+}
+f.addEventListener('load',()=>{status.textContent='พร้อมเริ่มเกม';try{const w=f.contentWindow,d=f.contentDocument;installHandDetectionQuality(w);fill(d);d.addEventListener('click',event=>{if(/เริ่ม|start|เปิดกล้อง|calibration|ไปต่อ/i.test(String(event.target?.textContent||'')))postStart()},{capture:true});new MutationObserver(finishCheck).observe(d.documentElement,{subtree:true,childList:true,characterData:true,attributes:true})}catch(_){}});
+addEventListener('message',event=>{if(event.origin!==location.origin)return;const message=event.data||{};if(message.type==='HEROHEALTH_HANDWASH_ANALYTICS')finishCheck()});
+setInterval(finishCheck,650);
 })();
-</script></body></html>
+</script>
+</body>
+</html>
