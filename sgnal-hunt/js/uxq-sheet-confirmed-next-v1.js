@@ -1,18 +1,11 @@
-/* CSAI2601 UX Quest • Sheet-confirmed Next Mission Gate v1.1
+/* CSAI2601 UX Quest • Sheet-confirmed Next Mission Gate v1.2
  * Google Sheet is the sole authority for navigation after a mission result.
- *
- * Contract
- * - A local 2★ result may submit mission_completed, but never unlocks the next link by itself.
- * - The next link remains disabled until uxq_student_progress confirms the current mission
- *   in the contiguous canonical path.
- * - A replay of an earlier completed mission may continue to its canonical successor when
- *   that successor is already confirmed in the contiguous Sheet history.
- * - localStorage is not consulted for official navigation approval.
+ * GET transport uses JSONP only to avoid Apps Script CORS restrictions.
  */
 (() => {
   'use strict';
 
-  const VERSION = 'uxq-sheet-confirmed-next-v1.1-20260715';
+  const VERSION = 'uxq-sheet-confirmed-next-v1.2-20260727';
   const STATUS_ATTR = 'data-sheet-next-status';
   const LINK_ATTR = 'data-sheet-next-gate';
   const ORDER = [
@@ -64,7 +57,7 @@
   }
 
   function cleanNodeUrl(nodeId) {
-    return `./csai2601-canonical-node-clean-v1.html?node=${encodeURIComponent(String(nodeId || '').toUpperCase())}&v=sheet-next-gate-v1.1-20260715`;
+    return `./csai2601-canonical-node-clean-v1.html?node=${encodeURIComponent(String(nodeId || '').toUpperCase())}&v=sheet-next-gate-v1.2-20260727`;
   }
 
   function nextLink() {
@@ -127,8 +120,11 @@
     return new Promise((resolve, reject) => {
       const callback = '__uxqNextGate_' + Date.now() + '_' + Math.random().toString(36).slice(2);
       const script = document.createElement('script');
-      const timer = setTimeout(() => finish(new Error('หมดเวลารอ Google Sheet')), 15000);
+      let settled = false;
+      const timer = setTimeout(() => finish(new Error('หมดเวลารอ Google Sheet')), 20000);
       function finish(error, value) {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         try { delete window[callback]; } catch (_) { window[callback] = undefined; }
         script.remove();
@@ -137,8 +133,10 @@
       window[callback] = value => finish(null, value);
       const u = new URL(url);
       u.searchParams.set('callback', callback);
+      u.searchParams.set('_jsonp', String(Date.now()));
+      script.async = true;
       script.src = u.href;
-      script.onerror = () => finish(new Error('เชื่อมต่อ Apps Script ไม่สำเร็จ'));
+      script.onerror = () => finish(new Error('เชื่อมต่อ Apps Script แบบ JSONP ไม่สำเร็จ'));
       document.head.appendChild(script);
     });
   }
@@ -154,13 +152,7 @@
     url.searchParams.set('section', p.section);
     url.searchParams.set('courseId', String(cfg().courseId || 'UXQ-ACT1-2026'));
     url.searchParams.set('_', String(Date.now()));
-    try {
-      const response = await fetch(url.href, { method:'GET', cache:'no-store', redirect:'follow' });
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      return JSON.parse(await response.text());
-    } catch (_) {
-      return jsonp(url.href);
-    }
+    return jsonp(url.href);
   }
 
   function confirmation(result) {
