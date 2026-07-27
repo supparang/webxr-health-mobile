@@ -1,5 +1,5 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-COMPLETE7-R29",
+  platformVersion: "2026.07-CLASSROOM60-HANDWASH-COMPLETE7-R30",
   appName: "HeroHealth Learning Platform",
   deploymentState: "QA_HANDWASH_RETEST_REQUIRED",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
@@ -39,7 +39,7 @@ window.HH_CONFIG = {
     {
       id: "hygiene", label: "Hygiene Hero", thai: "ฐานสุขอนามัย", emoji: "🧼", accent: "#0ea5e9", description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
-        { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260727-complete7-r29", status:"qa-retest-complete-7-rub-12-phase-r29", requiredReturnContract:true, qaClosed:false, progressionByCompletion:true },
+        { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260727-complete7-r30", status:"qa-retest-complete-7-rub-12-phase-r30", requiredReturnContract:true, qaClosed:false, progressionByCompletion:true },
         { id:"toothbrush", title:"Toothbrush Hero AR", thai:"Toothbrush AR", url:"./classroom-contract-wrapper.html?wrappedGame=toothbrush&v=20260727-toothbrush-next-qa", status:"qa-next-after-handwash-retest", requiredReturnContract:true },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
