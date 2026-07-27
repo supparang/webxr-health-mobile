@@ -1,1 +1,30 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#071426"><title>CSAI2102 • เปิด Quest Map v719</title><script>(function(){var q=new URLSearchParams(location.search),saved={};try{saved=JSON.parse(sessionStorage.getItem('CSAI2102_IDENTITY_V1')||localStorage.getItem('CSAI2102_IDENTITY_V1')||'{}')}catch(e){}var u=new URL('./course-map-all-v719.html',location.href);var sid=(q.get('studentId')||saved.studentId||'').trim(),name=(q.get('studentName')||saved.studentName||'').trim(),section=(q.get('section')||saved.section||'101').trim();q.forEach(function(v,k){if(v)u.searchParams.set(k,v)});if(sid)u.searchParams.set('studentId',sid);if(name)u.searchParams.set('studentName',name);u.searchParams.set('section',section||'101');u.searchParams.set('release','map719-idguard');u.searchParams.set('_',Date.now());location.replace(u.href)})();</script></head><body style="margin:0;background:#071426;color:#eef6ff;font-family:system-ui;padding:24px">กำลังเปิด CSAI2102 Quest Map รุ่นแก้ไขตัวตน…</body></html>
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#071426">
+<title>CSAI2102 • เปิด Quest Map v720</title>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search), saved={};
+  try{saved=JSON.parse(sessionStorage.getItem('CSAI2102_IDENTITY_V1')||localStorage.getItem('CSAI2102_IDENTITY_V1')||'{}')}catch(e){}
+  var sid=(q.get('studentId')||saved.studentId||'').trim();
+  var name=(q.get('studentName')||saved.studentName||'').trim();
+  var section=(q.get('section')||saved.section||'101').trim()||'101';
+  var u=new URL('./course-map-all-v720.html',location.href);
+  q.forEach(function(v,k){if(v&&k!=='release'&&k!=='_')u.searchParams.set(k,v)});
+  if(sid)u.searchParams.set('studentId',sid);
+  if(name)u.searchParams.set('studentName',name);
+  u.searchParams.set('section',section);
+  u.searchParams.set('release','map720-from-v718');
+  u.searchParams.set('_',Date.now());
+  location.replace(u.href);
+})();
+</script>
+</head>
+<body style="margin:0;background:#071426;color:#eef6ff;font-family:system-ui;padding:24px">กำลังเปิด CSAI2102 Quest Map รุ่นล่าสุด…</body>
+</html>
