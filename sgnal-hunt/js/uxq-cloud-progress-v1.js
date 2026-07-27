@@ -1,6 +1,7 @@
-/* UX Quest • Sheet-authoritative Cross-device Progress v3
+/* UX Quest • Sheet-authoritative Cross-device Progress v3.1
  * Google Sheet is the sole source of truth for official mission progress.
  * localStorage is only a replaceable cache and never unlocks missions by itself.
+ * GET transport: JSONP only, because Apps Script Web Apps do not provide CORS headers.
  */
 (() => {
   'use strict';
@@ -64,18 +65,25 @@
     return new Promise((resolve, reject) => {
       const callback = '__uxqSheetProgress_' + Date.now() + '_' + Math.random().toString(36).slice(2);
       const script = document.createElement('script');
-      const timer = setTimeout(() => finish(new Error('หมดเวลารอข้อมูลจาก Sheet')), 15000);
+      let settled = false;
+      const timer = setTimeout(() => finish(new Error('หมดเวลารอข้อมูลจาก Sheet')), 20000);
+
       function finish(error, value) {
+        if (settled) return;
+        settled = true;
         clearTimeout(timer);
         try { delete window[callback]; } catch (_) { window[callback] = undefined; }
         script.remove();
         error ? reject(error) : resolve(value);
       }
+
       window[callback] = value => finish(null, value);
       const u = new URL(url);
       u.searchParams.set('callback', callback);
+      u.searchParams.set('_jsonp', String(Date.now()));
+      script.async = true;
       script.src = u.href;
-      script.onerror = () => finish(new Error('เชื่อมต่อ Apps Script ไม่สำเร็จ'));
+      script.onerror = () => finish(new Error('เชื่อมต่อ Apps Script แบบ JSONP ไม่สำเร็จ'));
       document.head.appendChild(script);
     });
   }
@@ -89,14 +97,7 @@
     url.searchParams.set('section', String(profile.section || '').trim());
     url.searchParams.set('courseId', cfg.courseId || 'UXQ-ACT1-2026');
     url.searchParams.set('_', String(Date.now()));
-    try {
-      const response = await fetch(url.href, { method: 'GET', cache: 'no-store', redirect: 'follow' });
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      const text = await response.text();
-      try { return JSON.parse(text); } catch (_) { throw new Error('Apps Script ไม่ได้ตอบ JSON'); }
-    } catch (_) {
-      return jsonp(url.href);
-    }
+    return jsonp(url.href);
   }
 
   function blankProgress() {
