@@ -16,6 +16,8 @@ if(kind==='assessment'){
  else if(task==='posttest'&&s.completed.pretest===true&&gamesDone){s.completed.posttest=true;s.scores.posttest=Number(q.get('score'))||0}
  else if(task==='reflection'&&s.completed.posttest===true){s.completed.reflection=true;s.scores.reflection=Number(q.get('score'))||0}
  else{clean();return}
+ s.lastLocalAssessmentReturn={task,score:Number(q.get('score'))||0,studentId:String(s.profile.studentId||''),returnedAt:new Date().toISOString(),pendingClassroomSync:true};
+ try{sessionStorage.setItem('hh_recent_assessment_return:'+String(s.profile.studentId||''),String(Date.now()))}catch(_){}
  save(s);clean();location.reload();return;
 }
 if(kind==='game'){
