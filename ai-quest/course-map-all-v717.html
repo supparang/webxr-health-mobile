@@ -43,138 +43,32 @@ const TITLES={s1:'AI Spotter',s2:'Agent Builder',s3:'Search Maze',b1:'AI Foundat
 const TOPICS={s1:'AI vs Automation',s2:'Intelligent Agent และ PEAS',s3:'State Space และ Breadth-First Search',b1:'AI + Agent + Search',s4:'Uniform Cost Search',s5:'Heuristic และ A* Search',s6:'Game Search และ Minimax',b2:'UCS + A* + Minimax',s7:'Facts • Rules • Inference',s8:'Prior • Evidence • Posterior',s9:'Expert System • Explanation',b3:'Knowledge + Bayes + Expert System',s10:'Train • Validation • Test',s11:'Metrics • Threshold',s12:'Clusters • Outliers',b4:'Machine Learning Integration',s13:'Neural Network • Overfitting',s14:'Reinforcement Learning • Safe Reward',s15:'NLP • Generative AI • RAG',b5:'Applied AI Integration'};
 const $=id=>document.getElementById(id);
 let studentId='',verified=false,progress={},activeRequest=0;
-
 function bool(v){return v===true||['true','1','yes','passed','completed','mastered','submitted'].includes(String(v??'').toLowerCase())}
 function norm(v){return String(v??'').toLowerCase().replace(/^m/,'s').replace(/^boss/,'b')}
-function finite(v){const n=Number(v);return Number.isFinite(n)?n:null}
+function finite(v){if(v===null||v===undefined||String(v).trim()==='')return null;const n=Number(v);return Number.isFinite(n)?n:null}
 function firstFinite(){for(const v of arguments){const n=finite(v);if(n!==null)return n}return null}
 function say(text,type='',detail=''){$('note').className='notice'+(type?' '+type:'');$('note').innerHTML='<span>'+escapeHtml(text)+'</span>'+(detail?'<small>'+escapeHtml(detail)+'</small>':'')}
 function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
 function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
 function emptyRow(id){return{sessionId:id.toUpperCase(),missionPassed:false,missionScore:null,missionAccuracy:null,missionCorrect:null,missionTotal:null,codingPassed:false,codingScore:null,reflectionSubmitted:false,completed:false,unlocked:id==='s1',dataKnown:false}}
-function normalizeRow(id,row){
-  row=row||{};const m=row.mission||{},c=row.coding||{},r=row.reflection||{};
-  const missionPassed=bool(row.missionPassed)||bool(row.missionCompleted)||bool(m.completed)||bool(m.passed)||bool(row.passed&&row.codingPassed===undefined&&row.reflectionSubmitted===undefined);
-  const codingPassed=bool(row.codingPassed)||bool(row.codingCompleted)||bool(c.completed)||bool(c.passed);
-  const reflectionSubmitted=bool(row.reflectionSubmitted)||bool(row.reflectionCompleted)||bool(r.completed)||bool(r.submitted);
-  const missionScore=firstFinite(row.missionScore,m.bestScore,m.score,row.score,row.bestScore);
-  const missionAccuracy=firstFinite(row.missionAccuracy,m.accuracy,row.accuracy);
-  const missionCorrect=firstFinite(row.missionCorrect,m.correct,row.correct,row.correctCount);
-  const missionTotal=firstFinite(row.missionTotal,m.total,row.total,row.questionCount);
-  const dataKnown=Object.keys(row).length>0||Object.keys(m).length>0||Object.keys(c).length>0||Object.keys(r).length>0;
-  return{sessionId:String(row.sessionId||row.session||id).toUpperCase(),missionPassed,missionScore,missionAccuracy,missionCorrect,missionTotal,codingPassed,codingScore:firstFinite(row.codingScore,c.bestScore,c.score),reflectionSubmitted,completed:bool(row.completed)||bool(row.sessionCompleted)||(missionPassed&&codingPassed&&reflectionSubmitted),unlocked:bool(row.unlocked)||id==='s1',dataKnown};
-}
+function normalizeRow(id,row){row=row||{};const m=row.mission||{},c=row.coding||{},r=row.reflection||{};const missionPassed=bool(row.missionPassed)||bool(row.missionCompleted)||bool(m.completed)||bool(m.passed)||bool(row.passed&&row.codingPassed===undefined&&row.reflectionSubmitted===undefined);const codingPassed=bool(row.codingPassed)||bool(row.codingCompleted)||bool(c.completed)||bool(c.passed);const reflectionSubmitted=bool(row.reflectionSubmitted)||bool(row.reflectionCompleted)||bool(r.completed)||bool(r.submitted);const missionScore=firstFinite(row.missionScore,m.bestScore,m.score,row.score,row.bestScore);const missionAccuracy=firstFinite(row.missionAccuracy,m.accuracy,row.accuracy);const missionCorrect=firstFinite(row.missionCorrect,m.correct,row.correct,row.correctCount);const missionTotal=firstFinite(row.missionTotal,m.total,row.total,row.questionCount);const dataKnown=Object.keys(row).length>0||Object.keys(m).length>0||Object.keys(c).length>0||Object.keys(r).length>0;return{sessionId:String(row.sessionId||row.session||id).toUpperCase(),missionPassed,missionScore,missionAccuracy,missionCorrect,missionTotal,codingPassed,codingScore:firstFinite(row.codingScore,c.bestScore,c.score),reflectionSubmitted,completed:bool(row.completed)||bool(row.sessionCompleted)||(missionPassed&&codingPassed&&reflectionSubmitted),unlocked:bool(row.unlocked)||id==='s1',dataKnown}}
 function derive(rows){ORDER.forEach((id,i)=>{if(!rows[id])rows[id]=emptyRow(id);rows[id].unlocked=id==='s1'||!!rows[ORDER[i-1]]?.completed});return rows}
-function parse(response){
-  const out={};ORDER.forEach(id=>out[id]=emptyRow(id));
-  const src=response&&(response.progress||response.data?.progress||response.sessions||response.data?.sessions);
-  if(src&&typeof src==='object'){
-    if(Array.isArray(src))src.forEach(v=>{const id=norm(v?.sessionId||v?.session||v?.missionId);if(ORDER.includes(id))out[id]=normalizeRow(id,v)});
-    else Object.entries(src).forEach(([k,v])=>{const id=norm(k);if(ORDER.includes(id))out[id]=normalizeRow(id,v)});
-  }
-  return derive(out);
-}
-function responseHasProgress(response){
-  if(!response||response.ok!==true)return false;
-  const src=response.progress||response.data?.progress||response.sessions||response.data?.sessions;
-  return !!(src&&typeof src==='object');
-}
-async function post(action,payload,timeoutMs=20000){
-  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);
-  try{
-    const response=await fetch(ENDPOINT,{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(Object.assign({module:'AIQFLOW',action,section:'101',requestId:Date.now()+'-'+Math.random().toString(36).slice(2)},payload||{})),signal:controller.signal});
-    if(!response.ok)throw Error('HTTP_'+response.status);
-    const text=await response.text();let data;
-    try{data=JSON.parse(text)}catch(e){throw Error('BACKEND_NOT_JSON')}
-    return data;
-  }catch(e){if(e&&e.name==='AbortError')throw Error('REQUEST_TIMEOUT');throw e}
-  finally{clearTimeout(timer)}
-}
-async function retry(label,task,attempts=3){
-  let lastError=null;
-  for(let i=1;i<=attempts;i++){
-    try{return await task(i)}catch(e){lastError=e;if(i<attempts){say(label+' • ระบบกำลังลองใหม่อัตโนมัติ…','loading','ครั้งที่ '+(i+1)+' จาก '+attempts);await sleep(i===1?700:1400)}}
-  }
-  throw lastError||Error('RETRY_FAILED');
-}
-async function loadFlow(){
-  return retry('กำลังโหลดสถานะจาก Google Sheet',async()=>{
-    const response=await post('GET_FLOW_PROGRESS',{studentId},22000);
-    if(!responseHasProgress(response))throw Error(response?.code||'FLOW_PROGRESS_INCOMPLETE');
-    return parse(response);
-  },3);
-}
-async function fallback(){
-  const out={};let success=0;
-  for(let i=0;i<ORDER.length;i+=4){
-    const batch=ORDER.slice(i,i+4);
-    const rows=await Promise.all(batch.map(async id=>{
-      try{const r=await retry('กำลังตรวจรายละเอียด '+id.toUpperCase(),()=>post('GET_SESSION_STATUS',{studentId,sessionId:id.toUpperCase()},18000),2);if(!r?.ok)throw Error(r?.code||'SESSION_STATUS_FAILED');return[id,normalizeRow(id,r)]}catch(e){return[id,null]}
-    }));
-    rows.forEach(([id,row])=>{out[id]=row||emptyRow(id);if(row)success++});
-  }
-  if(!success)throw Error('SESSION_STATUS_FALLBACK_FAILED');
-  return derive(out);
-}
+function parse(response){const out={};ORDER.forEach(id=>out[id]=emptyRow(id));const src=response&&(response.progress||response.data?.progress||response.sessions||response.data?.sessions);if(src&&typeof src==='object'){if(Array.isArray(src))src.forEach(v=>{const id=norm(v?.sessionId||v?.session||v?.missionId);if(ORDER.includes(id))out[id]=normalizeRow(id,v)});else Object.entries(src).forEach(([k,v])=>{const id=norm(k);if(ORDER.includes(id))out[id]=normalizeRow(id,v)})}return derive(out)}
+function responseHasProgress(response){if(!response||response.ok!==true)return false;const src=response.progress||response.data?.progress||response.sessions||response.data?.sessions;return !!(src&&typeof src==='object')}
+async function post(action,payload,timeoutMs=20000){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);try{const response=await fetch(ENDPOINT,{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(Object.assign({module:'AIQFLOW',action,section:'101',requestId:Date.now()+'-'+Math.random().toString(36).slice(2)},payload||{})),signal:controller.signal});if(!response.ok)throw Error('HTTP_'+response.status);const text=await response.text();let data;try{data=JSON.parse(text)}catch(e){throw Error('BACKEND_NOT_JSON')}return data}catch(e){if(e&&e.name==='AbortError')throw Error('REQUEST_TIMEOUT');throw e}finally{clearTimeout(timer)}}
+async function retry(label,task,attempts=3){let lastError=null;for(let i=1;i<=attempts;i++){try{return await task(i)}catch(e){lastError=e;if(i<attempts){say(label+' • ระบบกำลังลองใหม่อัตโนมัติ…','loading','ครั้งที่ '+(i+1)+' จาก '+attempts);await sleep(i===1?700:1400)}}}throw lastError||Error('RETRY_FAILED')}
+async function loadFlow(){return retry('กำลังโหลดสถานะจาก Google Sheet',async()=>{const response=await post('GET_FLOW_PROGRESS',{studentId},22000);if(!responseHasProgress(response))throw Error(response?.code||'FLOW_PROGRESS_INCOMPLETE');return parse(response)},3)}
+function missingMissionDetails(row){return !!(row&&row.missionPassed&&row.missionScore===null&&row.missionAccuracy===null&&row.missionCorrect===null&&row.missionTotal===null)}
+async function enrichMissingMissionDetails(rows){const ids=ORDER.filter(id=>missingMissionDetails(rows[id]));if(!ids.length)return rows;for(let i=0;i<ids.length;i+=4){const batch=ids.slice(i,i+4);const details=await Promise.all(batch.map(async id=>{try{const r=await retry('กำลังเติมรายละเอียดคะแนน '+id.toUpperCase(),()=>post('GET_SESSION_STATUS',{studentId,sessionId:id.toUpperCase()},18000),2);if(!r?.ok)throw Error(r?.code||'SESSION_DETAIL_FAILED');return[id,normalizeRow(id,r)]}catch(e){console.warn('detail unavailable',id,e);return[id,null]}}));details.forEach(([id,row])=>{if(row){const base=rows[id]||emptyRow(id);rows[id]=Object.assign({},base,row,{unlocked:base.unlocked,completed:base.completed||row.completed})}})}return derive(rows)}
+async function fallback(){const out={};let success=0;for(let i=0;i<ORDER.length;i+=4){const batch=ORDER.slice(i,i+4);const rows=await Promise.all(batch.map(async id=>{try{const r=await retry('กำลังตรวจรายละเอียด '+id.toUpperCase(),()=>post('GET_SESSION_STATUS',{studentId,sessionId:id.toUpperCase()},18000),2);if(!r?.ok)throw Error(r?.code||'SESSION_STATUS_FAILED');return[id,normalizeRow(id,r)]}catch(e){return[id,null]}}));rows.forEach(([id,row])=>{out[id]=row||emptyRow(id);if(row)success++})}if(!success)throw Error('SESSION_STATUS_FALLBACK_FAILED');return derive(out)}
 function part(label,passed,locked){return'<div class="part '+(passed?'ok':locked?'lock':'wait')+'">'+(passed?'✓':locked?'🔒':'○')+' '+label+'</div>'}
 function stage(row,open){if(row.completed)return'ผ่านครบ 3 ส่วนแล้ว';if(!open)return row.missionPassed?'Mission ผ่านแล้ว • รอด่านก่อนหน้า':'ล็อก';if(!row.missionPassed)return'เปิดเล่น';if(!row.codingPassed)return'เหลือ Coding Lab + Reflection';if(!row.reflectionSubmitted)return'เหลือ Reflection';return'กำลังตรวจ'}
 function button(row){if(row.completed)return'↻ ทบทวน / เล่นซ้ำ';if(!row.missionPassed)return'▶ เริ่ม Mission';if(!row.codingPassed)return'▶ ทำ Coding Lab';return'▶ ส่ง Reflection'}
 function link(id){const u=new URL('./student-session-integrated-v721.html',location.href);u.searchParams.set('mission',id);u.searchParams.set('session',id.toUpperCase());u.searchParams.set('studentId',studentId);u.searchParams.set('studentName',$('name').value.trim());u.searchParams.set('section','101');u.searchParams.set('release','map717');return u.href}
-function resultHtml(row){
-  if(!row.missionPassed)return'';
-  const score=row.missionScore,accuracy=row.missionAccuracy??score,correct=row.missionCorrect,total=row.missionTotal;
-  const pieces=[];
-  if(score!==null)pieces.push(Math.round(score)+'%');
-  if(accuracy!==null)pieces.push('Accuracy '+Math.round(accuracy)+'%');
-  if(correct!==null&&total!==null)pieces.push(Math.round(correct)+'/'+Math.round(total)+' ข้อ');
-  if(!pieces.length)return'<div class="result unknown">ผ่านแล้ว • ยังไม่พบรายละเอียดคะแนนใน Sheet</div>';
-  return'<div class="result">'+pieces.map(escapeHtml).join(' • ')+'</div>';
-}
-function render(){
-  const g=$('grid');g.innerHTML='';
-  ORDER.forEach(id=>{
-    if(BLOCKS[id])g.insertAdjacentHTML('beforeend','<div class="block">'+escapeHtml(BLOCKS[id])+'</div>');
-    const row=progress[id]||emptyRow(id),open=verified&&row.unlocked,locked=!open,classes=['mission'];
-    if(id[0]==='b')classes.push('boss');if(row.completed)classes.push('done');else if(locked)classes.push('locked');else if(row.missionPassed||row.codingPassed)classes.push('partial');else classes.push('active');
-    const action=open?'<a class="btn '+(row.completed?'good':!row.missionPassed?'info':!row.codingPassed?'violet':'warn')+'" href="'+escapeHtml(link(id))+'">'+button(row)+'</a>':'<span class="btn">ต้องครบ 3 ส่วนของด่านก่อนหน้า</span>';
-    const card=document.createElement('article');card.className=classes.join(' ');
-    card.innerHTML='<div class="status">'+escapeHtml(stage(row,open))+'</div><h3>'+id.toUpperCase()+' • '+escapeHtml(TITLES[id])+'</h3><div class="subtitle">'+escapeHtml(TOPICS[id])+'</div><div class="parts">'+part('1. Mission',row.missionPassed,locked&&!row.missionPassed)+part('2. Coding Lab',row.codingPassed,locked)+part('3. Reflection',row.reflectionSubmitted,locked)+'</div>'+resultHtml(row)+'<div class="actions">'+action+'</div>';
-    g.appendChild(card);
-  });
-}
-async function load(){
-  const myRequest=++activeRequest;studentId=$('sid').value.trim();
-  if(!studentId)return say('กรุณากรอกรหัสนักศึกษา','bad');
-  verified=false;progress={};render();$('load').disabled=true;$('load').textContent='กำลังโหลด…';$('syncMeta').textContent='';
-  say('กำลังตรวจ Profile จาก Google Sheet…','loading','ระบบจะลองใหม่อัตโนมัติเมื่อ Apps Script เริ่มทำงานช้า');
-  try{
-    const profile=await retry('กำลังตรวจ Profile จาก Google Sheet',()=>post('LOOKUP_PROFILE',{studentId},20000),3);
-    if(myRequest!==activeRequest)return;
-    if(!(profile?.ok&&profile?.found&&profile?.profile)){
-      verified=true;$('name').readOnly=false;$('name').value='';progress=derive({});render();
-      say('ไม่พบข้อมูลใน Sheet — ผู้ใช้ใหม่เริ่มได้เฉพาะ S1','good','กรอกชื่อให้ครบก่อนเปิด S1');return;
-    }
-    $('name').value=profile.profile.studentName||profile.profile.name||'';$('name').readOnly=true;
-    say('พบ Profile แล้ว • กำลังโหลดผล Mission, Coding และ Reflection…','loading');
-    try{progress=await loadFlow()}catch(flowError){console.warn('GET_FLOW_PROGRESS failed; using fallback',flowError);say('ข้อมูลรวมยังมาไม่ครบ • กำลังตรวจราย Session อัตโนมัติ…','loading');progress=await fallback()}
-    if(myRequest!==activeRequest)return;
-    verified=true;render();
-    const completed=ORDER.filter(id=>progress[id]?.completed).length;
-    say('โหลด official progress จาก Sheet ครบแล้ว: '+studentId+' • Section 101','good',completed+'/'+ORDER.length+' ด่านผ่านครบ 3 ส่วน');
-    $('syncMeta').textContent='อัปเดตล่าสุด '+new Date().toLocaleString('th-TH',{timeZone:'Asia/Bangkok'});
-  }catch(e){
-    if(myRequest!==activeRequest)return;
-    verified=false;progress={};render();console.error(e);
-    say('เชื่อมต่อข้อมูลจาก Sheet ไม่สำเร็จ','bad','ระบบลองใหม่อัตโนมัติแล้ว • กด “โหลดจาก Sheet” เพื่อลองอีกครั้ง');
-  }finally{
-    if(myRequest===activeRequest){$('load').disabled=false;$('load').textContent='โหลดจาก Sheet'}
-  }
-}
-$('load').onclick=load;
-$('sid').addEventListener('keydown',e=>{if(e.key==='Enter')load()});
-$('sid').addEventListener('input',()=>{activeRequest++;verified=false;progress={};$('name').value='';$('name').readOnly=false;render();say('กรอกรหัสนักศึกษา แล้วโหลดข้อมูลจาก Sheet');$('syncMeta').textContent=''});
-const q=new URLSearchParams(location.search);if(q.get('studentId')){$('sid').value=q.get('studentId');$('name').value=q.get('studentName')||'';setTimeout(load,80)}
-render();
+function resultHtml(row){if(!row.missionPassed)return'';const score=row.missionScore,accuracy=row.missionAccuracy??score,correct=row.missionCorrect,total=row.missionTotal;const pieces=[];if(score!==null)pieces.push(Math.round(score)+'%');if(accuracy!==null)pieces.push('Accuracy '+Math.round(accuracy)+'%');if(correct!==null&&total!==null)pieces.push(Math.round(correct)+'/'+Math.round(total)+' ข้อ');if(!pieces.length)return'<div class="result unknown">ผ่านแล้ว • ยังไม่พบรายละเอียดคะแนนใน Sheet</div>';return'<div class="result">'+pieces.map(escapeHtml).join(' • ')+'</div>'}
+function render(){const g=$('grid');g.innerHTML='';ORDER.forEach(id=>{if(BLOCKS[id])g.insertAdjacentHTML('beforeend','<div class="block">'+escapeHtml(BLOCKS[id])+'</div>');const row=progress[id]||emptyRow(id),open=verified&&row.unlocked,locked=!open,classes=['mission'];if(id[0]==='b')classes.push('boss');if(row.completed)classes.push('done');else if(locked)classes.push('locked');else if(row.missionPassed||row.codingPassed)classes.push('partial');else classes.push('active');const action=open?'<a class="btn '+(row.completed?'good':!row.missionPassed?'info':!row.codingPassed?'violet':'warn')+'" href="'+escapeHtml(link(id))+'">'+button(row)+'</a>':'<span class="btn">ต้องครบ 3 ส่วนของด่านก่อนหน้า</span>';const card=document.createElement('article');card.className=classes.join(' ');card.innerHTML='<div class="status">'+escapeHtml(stage(row,open))+'</div><h3>'+id.toUpperCase()+' • '+escapeHtml(TITLES[id])+'</h3><div class="subtitle">'+escapeHtml(TOPICS[id])+'</div><div class="parts">'+part('1. Mission',row.missionPassed,locked&&!row.missionPassed)+part('2. Coding Lab',row.codingPassed,locked)+part('3. Reflection',row.reflectionSubmitted,locked)+'</div>'+resultHtml(row)+'<div class="actions">'+action+'</div>';g.appendChild(card)})}
+async function load(){const myRequest=++activeRequest;studentId=$('sid').value.trim();if(!studentId)return say('กรุณากรอกรหัสนักศึกษา','bad');verified=false;progress={};render();$('load').disabled=true;$('load').textContent='กำลังโหลด…';$('syncMeta').textContent='';say('กำลังตรวจ Profile จาก Google Sheet…','loading','ระบบจะลองใหม่อัตโนมัติเมื่อ Apps Script เริ่มทำงานช้า');try{const profile=await retry('กำลังตรวจ Profile จาก Google Sheet',()=>post('LOOKUP_PROFILE',{studentId},20000),3);if(myRequest!==activeRequest)return;if(!(profile?.ok&&profile?.found&&profile?.profile)){verified=true;$('name').readOnly=false;$('name').value='';progress=derive({});render();say('ไม่พบข้อมูลใน Sheet — ผู้ใช้ใหม่เริ่มได้เฉพาะ S1','good','กรอกชื่อให้ครบก่อนเปิด S1');return}$('name').value=profile.profile.studentName||profile.profile.name||'';$('name').readOnly=true;say('พบ Profile แล้ว • กำลังโหลดผล Mission, Coding และ Reflection…','loading');try{progress=await loadFlow();if(ORDER.some(id=>missingMissionDetails(progress[id]))){say('โหลดสถานะแล้ว • กำลังเติมรายละเอียดคะแนนจาก Sheet…','loading');progress=await enrichMissingMissionDetails(progress)}}catch(flowError){console.warn('GET_FLOW_PROGRESS failed; using fallback',flowError);say('ข้อมูลรวมยังมาไม่ครบ • กำลังตรวจราย Session อัตโนมัติ…','loading');progress=await fallback()}if(myRequest!==activeRequest)return;verified=true;render();const completed=ORDER.filter(id=>progress[id]?.completed).length;say('โหลด official progress จาก Sheet ครบแล้ว: '+studentId+' • Section 101','good',completed+'/'+ORDER.length+' ด่านผ่านครบ 3 ส่วน');$('syncMeta').textContent='อัปเดตล่าสุด '+new Date().toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}catch(e){if(myRequest!==activeRequest)return;verified=false;progress={};render();console.error(e);say('เชื่อมต่อข้อมูลจาก Sheet ไม่สำเร็จ','bad','ระบบลองใหม่อัตโนมัติแล้ว • กด “โหลดจาก Sheet” เพื่อลองอีกครั้ง')}finally{if(myRequest===activeRequest){$('load').disabled=false;$('load').textContent='โหลดจาก Sheet'}}}
+$('load').onclick=load;$('sid').addEventListener('keydown',e=>{if(e.key==='Enter')load()});$('sid').addEventListener('input',()=>{activeRequest++;verified=false;progress={};$('name').value='';$('name').readOnly=false;render();say('กรอกรหัสนักศึกษา แล้วโหลดข้อมูลจาก Sheet');$('syncMeta').textContent=''});const q=new URLSearchParams(location.search);if(q.get('studentId')){$('sid').value=q.get('studentId');$('name').value=q.get('studentName')||'';setTimeout(load,80)}render();
 })();
 </script>
 </body>
