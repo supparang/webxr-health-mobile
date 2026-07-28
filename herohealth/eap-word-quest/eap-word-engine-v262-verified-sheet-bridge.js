@@ -2,22 +2,23 @@
    EAP Word Quest • Compatibility Bootstrap Loader
    File kept as v262 because older cached index.html already loads this path.
 
-   Version: 20260728-V277-SHEET-CONFIRMED-BOOTSTRAP
-   - Disable retired V272/V274 authority clients.
-   - Load V275 verification-proof authority.
-   - Load V276 official-name search fallback.
+   Version: 20260728-V278-RUNTIME-IDENTITY-BOOTSTRAP
+   - Load V275 Google Sheet authority.
+   - Load V276 official-name fallback.
+   - Load V278 runtime identity proof before the result sender.
    - Load V277 Sheet-confirmed summary/progress bridge.
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260728-V277-SHEET-CONFIRMED-BOOTSTRAP';
+  var VERSION = '20260728-V278-RUNTIME-IDENTITY-BOOTSTRAP';
   var AUTH_TAG = 'eap-word-authority-v275-bootstrap';
   var NAME_TAG = 'eap-word-name-fallback-v276-bootstrap';
+  var PROOF_TAG = 'eap-word-identity-proof-v278-bootstrap';
   var SUMMARY_TAG = 'eap-word-v277-sheet-confirmed-bootstrap';
 
-  if (window.__EAP_WORD_V277_BOOTSTRAP__) return;
-  window.__EAP_WORD_V277_BOOTSTRAP__ = true;
+  if (window.__EAP_WORD_V278_BOOTSTRAP__) return;
+  window.__EAP_WORD_V278_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
@@ -86,9 +87,19 @@
     );
   }
 
+  function loadIdentityProof() {
+    loadScript(
+      './eap-word-identity-proof-v278.js?v=20260728-v278-runtime-proof-1',
+      PROOF_TAG,
+      '__EAP_WORD_IDENTITY_PROOF_V278__',
+      function () { console.info('[EAP Word Quest] V278 runtime identity proof loaded',{bootstrap:VERSION}); },
+      function () { console.error('[EAP Word Quest] V278 runtime identity proof could not load',{bootstrap:VERSION}); }
+    );
+  }
+
   function loadSheetConfirmedProgress() {
     loadScript(
-      './eap-word-engine-v277-sheet-confirmed-progress.js?v=20260728-v277-sheet-confirmed-1',
+      './eap-word-engine-v277-sheet-confirmed-progress.js?v=20260728-v277-sheet-confirmed-2',
       SUMMARY_TAG,
       '__EAP_WORD_V277_SHEET_CONFIRMED_PROGRESS__',
       function () { console.info('[EAP Word Quest] V277 Sheet-confirmed progress loaded',{bootstrap:VERSION}); },
@@ -98,6 +109,7 @@
 
   loadAuthority();
   setTimeout(loadNameFallback,120);
-  setTimeout(loadSheetConfirmedProgress,700);
+  setTimeout(loadIdentityProof,430);
+  setTimeout(loadSheetConfirmedProgress,760);
   console.info('[EAP Word Quest] compatibility bootstrap ready',{version:VERSION});
 })();
