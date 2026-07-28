@@ -1,13 +1,13 @@
 /* =========================================================
    EAP Word Quest • Exact Summary Compatibility Shim
    Former V271 sender is retired.
-   Version: 20260728-EAPWQ-V278-SHIM-FROM-V271
+   Version: 20260728-EAPWQ-V279-SHIM-FROM-V271
 ========================================================= */
 (function () {
   'use strict';
 
   var PROOF_TAG = 'eap-word-v278-from-v271';
-  var SUMMARY_TAG = 'eap-word-v277-from-v271';
+  var SUBMIT_TAG = 'eap-word-v279-from-v271';
 
   function load(src,tag,guard) {
     var script;
@@ -31,9 +31,9 @@
   );
   setTimeout(function () {
     load(
-      './eap-word-engine-v277-sheet-confirmed-progress.js?v=20260728-v277-sheet-confirmed-2',
-      SUMMARY_TAG,
-      '__EAP_WORD_V277_SHEET_CONFIRMED_PROGRESS__'
+      './eap-word-engine-v279-jsonp-receipt.js?v=20260728-v279-jsonp-receipt-1',
+      SUBMIT_TAG,
+      '__EAP_WORD_V279_JSONP_RECEIPT__'
     );
   },180);
 })();
