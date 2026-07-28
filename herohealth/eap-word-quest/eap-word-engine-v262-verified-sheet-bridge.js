@@ -2,23 +2,23 @@
    EAP Word Quest • Compatibility Bootstrap Loader
    File kept as v262 because older cached index.html already loads this path.
 
-   Version: 20260728-V278-RUNTIME-IDENTITY-BOOTSTRAP
+   Version: 20260728-V279-JSONP-RECEIPT-BOOTSTRAP
    - Load V275 Google Sheet authority.
    - Load V276 official-name fallback.
-   - Load V278 runtime identity proof before the result sender.
-   - Load V277 Sheet-confirmed summary/progress bridge.
+   - Load V278 runtime identity proof before submit.
+   - Load V279 JSONP submit + explicit receipt.
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260728-V278-RUNTIME-IDENTITY-BOOTSTRAP';
+  var VERSION = '20260728-V279-JSONP-RECEIPT-BOOTSTRAP';
   var AUTH_TAG = 'eap-word-authority-v275-bootstrap';
   var NAME_TAG = 'eap-word-name-fallback-v276-bootstrap';
   var PROOF_TAG = 'eap-word-identity-proof-v278-bootstrap';
-  var SUMMARY_TAG = 'eap-word-v277-sheet-confirmed-bootstrap';
+  var SUBMIT_TAG = 'eap-word-v279-jsonp-bootstrap';
 
-  if (window.__EAP_WORD_V278_BOOTSTRAP__) return;
-  window.__EAP_WORD_V278_BOOTSTRAP__ = true;
+  if (window.__EAP_WORD_V279_BOOTSTRAP__) return;
+  window.__EAP_WORD_V279_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
@@ -97,19 +97,19 @@
     );
   }
 
-  function loadSheetConfirmedProgress() {
+  function loadJsonpReceiptSender() {
     loadScript(
-      './eap-word-engine-v277-sheet-confirmed-progress.js?v=20260728-v277-sheet-confirmed-2',
-      SUMMARY_TAG,
-      '__EAP_WORD_V277_SHEET_CONFIRMED_PROGRESS__',
-      function () { console.info('[EAP Word Quest] V277 Sheet-confirmed progress loaded',{bootstrap:VERSION}); },
-      function () { console.error('[EAP Word Quest] V277 Sheet-confirmed progress could not load',{bootstrap:VERSION}); }
+      './eap-word-engine-v279-jsonp-receipt.js?v=20260728-v279-jsonp-receipt-1',
+      SUBMIT_TAG,
+      '__EAP_WORD_V279_JSONP_RECEIPT__',
+      function () { console.info('[EAP Word Quest] V279 JSONP receipt sender loaded',{bootstrap:VERSION}); },
+      function () { console.error('[EAP Word Quest] V279 JSONP receipt sender could not load',{bootstrap:VERSION}); }
     );
   }
 
   loadAuthority();
   setTimeout(loadNameFallback,120);
   setTimeout(loadIdentityProof,430);
-  setTimeout(loadSheetConfirmedProgress,760);
+  setTimeout(loadJsonpReceiptSender,760);
   console.info('[EAP Word Quest] compatibility bootstrap ready',{version:VERSION});
 })();
