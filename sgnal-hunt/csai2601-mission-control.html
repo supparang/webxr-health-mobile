@@ -10,14 +10,19 @@
   <script>
     (() => {
       const p = new URLSearchParams(location.search || '');
-      window.UXQ_CONTENT_PREVIEW = p.get('contentPreview') === '1';
+      const legacyPreview = /^content-preview/i.test(p.get('v') || '');
+      window.UXQ_CONTENT_PREVIEW = p.get('contentPreview') === '1' || legacyPreview;
       window.UXQ_STUDENT_MODE = !window.UXQ_CONTENT_PREVIEW;
+      if (legacyPreview && p.get('contentPreview') !== '1') {
+        p.set('contentPreview','1');
+        history.replaceState(null,'',location.pathname + '?' + p.toString() + location.hash);
+      }
       document.documentElement.dataset.uxqMode = window.UXQ_CONTENT_PREVIEW ? 'preview' : 'student';
       document.documentElement.dataset.uxqContentPreview = window.UXQ_CONTENT_PREVIEW ? '1' : '0';
     })();
   </script>
-  <link rel="stylesheet" href="./css/uxq-core.css?v=mode-split-v3-20260728">
-  <link rel="stylesheet" href="./css/uxq-hub.css?v=mode-split-v3-20260728">
+  <link rel="stylesheet" href="./css/uxq-core.css?v=mode-split-v4-20260728">
+  <link rel="stylesheet" href="./css/uxq-hub.css?v=mode-split-v4-20260728">
   <style>
     html[data-uxq-mode="student"] [data-preview-only]{display:none!important}
     html[data-uxq-mode="preview"] [data-student-only]{display:none!important}
@@ -45,7 +50,7 @@
   <script>
     (() => {
       const base = './js/';
-      const version = window.UXQ_CONTENT_PREVIEW ? 'content-preview-v10-20260728' : 'student-runtime-v6-20260728';
+      const version = window.UXQ_CONTENT_PREVIEW ? 'content-preview-v11-20260728' : 'student-runtime-v7-20260728';
       const previewFiles = [
         'uxq-runtime-mode-authority-v1.js','uxq-identity-v1.js','uxq-csai2601-canonical-content-v1.js',
         'uxq-canonical-content-enrichment-w1-w6-v1.js','uxq-content-preview-mission-control-v1.js',
