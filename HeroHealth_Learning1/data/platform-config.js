@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-TOOTHBRUSH-FINGER-V19",
+  platformVersion: "2026.07-CLASSROOM60-TOOTHBRUSH-FINGER-V19.1",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_TOOTHBRUSH_STABLE_FINGER_GATE",
+  deploymentState: "QA_TOOTHBRUSH_STABLE_FINGER_GATE_DIRECT_LOADER",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -15,7 +15,7 @@ window.HH_CONFIG = {
   requireGamePassToContinue: false,
   strictGamePass: { handwash: false, toothbrush: false },
   handwashContract: { requiredRubSteps: 7, requiredProcessSteps: 5, requiredTotalSteps: 12, requireWrists: true, requireAnalyticsReceipt: true, progressionByCompletion: true },
-  toothbrushContract: { mode: "classroom_coach", durationSec: 90, zones: 6, settingsVisible: false, progressionByCompletion: true, input: "index-finger-primary-touch-fallback", trackingProfile: "index-finger-stable-gate-v19", cameraProfile: "480x360-24fps", inferenceInput: "320x240", coordinateMapping: "object-fit-cover-corrected", stableFramesRequired: 4, timerPausesWhenTrackingLost: true, zonePositionAssist: false },
+  toothbrushContract: { mode: "classroom_coach", durationSec: 90, zones: 6, settingsVisible: false, progressionByCompletion: true, input: "index-finger-primary-touch-fallback", trackingProfile: "index-finger-stable-gate-v19.1", cameraProfile: "480x360-24fps", inferenceInput: "320x240", coordinateMapping: "object-fit-cover-corrected", stableFramesRequired: 4, timerPausesWhenTrackingLost: true, zonePositionAssist: false },
   teacherPin: "",
   routes: {
     pretest: "./assessment/pretest.html",
@@ -41,7 +41,7 @@ window.HH_CONFIG = {
       id: "hygiene", label: "Hygiene Hero", thai: "ฐานสุขอนามัย", emoji: "🧼", accent: "#0ea5e9", description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
         { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260727-complete7-r30", status:"qa-complete-7-rub-12-phase-r30", requiredReturnContract:true, qaClosed:true, progressionByCompletion:true },
-        { id:"toothbrush", title:"Toothbrush Finger Tracking AR", thai:"Toothbrush AR", url:"./toothbrush-classroom-finger-v19.html?v=20260728-finger-gate-v19", status:"qa-index-finger-stable-gate-v19", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false },
+        { id:"toothbrush", title:"Toothbrush Finger Tracking AR", thai:"Toothbrush AR", url:"./toothbrush-classroom-finger-v19.html?v=20260728-finger-gate-v19-1", status:"qa-index-finger-stable-gate-v19-1", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"clean-objects", title:"Clean Objects", thai:"ภารกิจทำความสะอาดสิ่งของ", url:"../herohealth/clean-objects-v3/clean-objects.html", status:"catalog-only", requiredReturnContract:true },
