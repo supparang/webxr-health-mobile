@@ -2,22 +2,22 @@
    EAP Word Quest • Compatibility Bootstrap Loader
    File kept as v262 because older cached index.html already loads this path.
 
-   Version: 20260728-V276-NAME-FALLBACK-BOOTSTRAP
-   - Disable retired V272/V274 clients.
-   - Load V275 verification-proof client immediately.
+   Version: 20260728-V277-SHEET-CONFIRMED-BOOTSTRAP
+   - Disable retired V272/V274 authority clients.
+   - Load V275 verification-proof authority.
    - Load V276 official-name search fallback.
-   - Keep the exact-summary Sheet sender.
+   - Load V277 Sheet-confirmed summary/progress bridge.
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260728-V276-NAME-FALLBACK-BOOTSTRAP';
+  var VERSION = '20260728-V277-SHEET-CONFIRMED-BOOTSTRAP';
   var AUTH_TAG = 'eap-word-authority-v275-bootstrap';
   var NAME_TAG = 'eap-word-name-fallback-v276-bootstrap';
-  var SUMMARY_TAG = 'exact-summary-sheet-submit-v271';
+  var SUMMARY_TAG = 'eap-word-v277-sheet-confirmed-bootstrap';
 
-  if (window.__EAP_WORD_V276_BOOTSTRAP__) return;
-  window.__EAP_WORD_V276_BOOTSTRAP__ = true;
+  if (window.__EAP_WORD_V277_BOOTSTRAP__) return;
+  window.__EAP_WORD_V277_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
@@ -49,73 +49,55 @@
           host.appendChild(panel);
         }
       }
-      panel.textContent = 'โหลดระบบยืนยันตัวตน V275 ไม่สำเร็จ กรุณาปิดแท็บแล้วเปิดหน้าใหม่';
+      panel.textContent = 'โหลดระบบยืนยันตัวตนไม่สำเร็จ กรุณาปิดแท็บแล้วเปิดหน้าใหม่';
     });
   }
 
-  function loadAuthority() {
+  function loadScript(src,tag,guard,onload,onerror) {
     var script;
-    if (
-      window.__EAP_WORD_AUTHORITY_V275__ ||
-      document.querySelector('script[data-eap-runtime="' + AUTH_TAG + '"]')
-    ) {
-      return;
-    }
+    if (window[guard]) return;
+    if (document.querySelector('script[data-eap-runtime="' + tag + '"]')) return;
     script = document.createElement('script');
-    script.src = './eap-word-authority-v275.js?v=20260728-v275-proof-1';
+    script.src = src;
     script.async = false;
-    script.setAttribute('data-eap-runtime',AUTH_TAG);
-    script.onload = function () {
-      console.info('[EAP Word Quest] V275 Sheet Authority loaded',{bootstrap:VERSION});
-    };
-    script.onerror = function () {
-      console.error('[EAP Word Quest] V275 Sheet Authority could not load',{bootstrap:VERSION,src:script.src});
-      showAuthorityLoadError();
-    };
+    script.setAttribute('data-eap-runtime',tag);
+    if (onload) script.onload = onload;
+    if (onerror) script.onerror = onerror;
     document.head.appendChild(script);
+  }
+
+  function loadAuthority() {
+    loadScript(
+      './eap-word-authority-v275.js?v=20260728-v275-proof-1',
+      AUTH_TAG,
+      '__EAP_WORD_AUTHORITY_V275__',
+      function () { console.info('[EAP Word Quest] V275 Sheet Authority loaded',{bootstrap:VERSION}); },
+      function () { console.error('[EAP Word Quest] V275 Sheet Authority could not load',{bootstrap:VERSION}); showAuthorityLoadError(); }
+    );
   }
 
   function loadNameFallback() {
-    var script;
-    if (
-      window.__EAP_WORD_NAME_FALLBACK_V276__ ||
-      document.querySelector('script[data-eap-runtime="' + NAME_TAG + '"]')
-    ) {
-      return;
-    }
-    script = document.createElement('script');
-    script.src = './eap-word-name-fallback-v276.js?v=20260728-v276-name-fallback-1';
-    script.async = false;
-    script.setAttribute('data-eap-runtime',NAME_TAG);
-    script.onload = function () {
-      console.info('[EAP Word Quest] V276 official-name fallback loaded',{bootstrap:VERSION});
-    };
-    script.onerror = function () {
-      console.error('[EAP Word Quest] V276 name fallback could not load',{bootstrap:VERSION,src:script.src});
-    };
-    document.head.appendChild(script);
+    loadScript(
+      './eap-word-name-fallback-v276.js?v=20260728-v276-name-fallback-1',
+      NAME_TAG,
+      '__EAP_WORD_NAME_FALLBACK_V276__',
+      function () { console.info('[EAP Word Quest] V276 official-name fallback loaded',{bootstrap:VERSION}); },
+      function () { console.error('[EAP Word Quest] V276 name fallback could not load',{bootstrap:VERSION}); }
+    );
   }
 
-  function loadExactSummarySender() {
-    var script;
-    if (
-      window.__EAP_WORD_V271_EXACT_SUMMARY_SUBMIT__ ||
-      document.querySelector('script[data-eap-runtime="' + SUMMARY_TAG + '"]')
-    ) {
-      return;
-    }
-    script = document.createElement('script');
-    script.src = './eap-word-engine-v271-exact-summary-sheet-submit.js?v=20260701-exact-summary-v271';
-    script.async = false;
-    script.setAttribute('data-eap-runtime',SUMMARY_TAG);
-    script.onerror = function () {
-      console.warn('[EAP Word Quest] exact summary Sheets sender could not load');
-    };
-    document.head.appendChild(script);
+  function loadSheetConfirmedProgress() {
+    loadScript(
+      './eap-word-engine-v277-sheet-confirmed-progress.js?v=20260728-v277-sheet-confirmed-1',
+      SUMMARY_TAG,
+      '__EAP_WORD_V277_SHEET_CONFIRMED_PROGRESS__',
+      function () { console.info('[EAP Word Quest] V277 Sheet-confirmed progress loaded',{bootstrap:VERSION}); },
+      function () { console.error('[EAP Word Quest] V277 Sheet-confirmed progress could not load',{bootstrap:VERSION}); }
+    );
   }
 
   loadAuthority();
   setTimeout(loadNameFallback,120);
-  setTimeout(loadExactSummarySender,700);
+  setTimeout(loadSheetConfirmedProgress,700);
   console.info('[EAP Word Quest] compatibility bootstrap ready',{version:VERSION});
 })();
