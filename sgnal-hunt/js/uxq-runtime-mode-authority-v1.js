@@ -16,6 +16,18 @@
     document.body.dataset.uxqContentPreview = preview ? '1' : '0';
   }
 
+  const style = document.createElement('style');
+  style.id = 'uxq-runtime-mode-authority-style';
+  style.textContent = `
+    [data-uxq-mode='preview'] [data-student-only],
+    [data-uxq-mode='preview'] .sheet-status-card,
+    [data-uxq-mode='preview'] [data-sheet-status],
+    [data-uxq-mode='preview'] .studio-status-panel{display:none!important}
+    [data-uxq-mode='student'] [data-preview-only],
+    [data-uxq-mode='student'] .uxq-preview-profile{display:none!important}
+  `;
+  document.head.appendChild(style);
+
   const isCourseHref = href => /csai2601-(?:mission-control|canonical-node-clean-v1)\.html/i.test(href || '');
 
   function preserveMode(root = document) {
@@ -43,22 +55,41 @@
       const text = String(el.textContent || '').replace(/\s+/g,'');
       const hasLegacyIcons = text.includes('👊') && (text.includes('🌼') || text.includes('🌸'));
       if (!hasLegacyIcons) return;
-      const style = getComputedStyle(el);
-      const nearBottom = style.position === 'fixed' || style.position === 'sticky' || /dock|bottom|mobile-nav|tabbar/i.test(el.className || '');
+      const computed = getComputedStyle(el);
+      const nearBottom = computed.position === 'fixed' || computed.position === 'sticky' || /dock|bottom|mobile-nav|tabbar/i.test(el.className || '');
       if (nearBottom) el.remove();
     });
   }
 
-  function fixModeCopy() {
+  function fixStudentCopy() {
     if (preview) return;
-    document.querySelectorAll('[data-preview-only]').forEach(el => el.remove());
+    document.querySelectorAll('[data-preview-only],.uxq-preview-profile').forEach(el => el.remove());
+  }
+
+  function fixPreviewResult() {
+    if (!preview) return;
     document.querySelectorAll('body *').forEach(el => {
       if (el.children.length) return;
-      const text = String(el.textContent || '');
-      if (/CONTENT PREVIEW|LOCAL QA MODE|ไม่ใช้ Sheet/i.test(text)) {
-        const container = el.closest('[data-preview-only],.uxq-preview-profile');
-        if (container) container.remove();
+      const text = String(el.textContent || '').trim();
+      if (/^ผ่านแล้ว[:：]?|คะแนนดีที่สุด|เล่นซ้ำเพื่อฝึก/i.test(text)) {
+        const box = el.closest('.result-card,.completion-card,.mission-result,.result-summary') || el;
+        if (/เล่นซ้ำเพื่อฝึก/i.test(text)) {
+          el.textContent = 'ตรวจ Case ใหม่ →';
+        } else if (box === el) {
+          el.remove();
+        } else {
+          box.querySelectorAll('*').forEach(child => {
+            const childText = String(child.textContent || '').trim();
+            if (/^ผ่านแล้ว[:：]?|คะแนนดีที่สุด/i.test(childText)) child.remove();
+          });
+        }
       }
+    });
+  }
+
+  function labelMissionControlLinks() {
+    document.querySelectorAll('a[href*="csai2601-mission-control.html"]').forEach(anchor => {
+      if (preview && /กลับ Mission Control/i.test(anchor.textContent || '')) anchor.textContent = 'กลับหน้าตรวจเนื้อหา';
     });
   }
 
@@ -67,7 +98,9 @@
     queued = false;
     preserveMode();
     removeLegacyDock();
-    fixModeCopy();
+    fixStudentCopy();
+    fixPreviewResult();
+    labelMissionControlLinks();
   }
   function queue() {
     if (queued) return;
@@ -81,7 +114,7 @@
   window.addEventListener('pageshow',queue);
 
   window.UXQRuntimeModeAuthority = Object.freeze({
-    version:'20260728-MODE-AUTHORITY-V1',
+    version:'20260728-MODE-AUTHORITY-V1.1',
     preview,
     student:!preview,
     refresh:queue
