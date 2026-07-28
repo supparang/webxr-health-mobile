@@ -16,8 +16,8 @@
       document.documentElement.dataset.uxqContentPreview = window.UXQ_CONTENT_PREVIEW ? '1' : '0';
     })();
   </script>
-  <link rel="stylesheet" href="./css/uxq-core.css?v=mode-split-v2-20260728">
-  <link rel="stylesheet" href="./css/uxq-hub.css?v=mode-split-v2-20260728">
+  <link rel="stylesheet" href="./css/uxq-core.css?v=mode-split-v3-20260728">
+  <link rel="stylesheet" href="./css/uxq-hub.css?v=mode-split-v3-20260728">
   <style>
     html[data-uxq-mode="student"] [data-preview-only]{display:none!important}
     html[data-uxq-mode="preview"] [data-student-only]{display:none!important}
@@ -45,7 +45,7 @@
   <script>
     (() => {
       const base = './js/';
-      const version = window.UXQ_CONTENT_PREVIEW ? 'content-preview-v9-20260728' : 'student-runtime-v5-20260728';
+      const version = window.UXQ_CONTENT_PREVIEW ? 'content-preview-v10-20260728' : 'student-runtime-v6-20260728';
       const previewFiles = [
         'uxq-runtime-mode-authority-v1.js','uxq-identity-v1.js','uxq-csai2601-canonical-content-v1.js',
         'uxq-canonical-content-enrichment-w1-w6-v1.js','uxq-content-preview-mission-control-v1.js',
@@ -57,7 +57,8 @@
         'uxq-hub-csai2601-canonical-v1.js','uxq-cloud-progress-v1.js','uxq-studio-status-v1.js',
         'uxq-mission-control-unlock-policy-v1.js','uxq-mobile-progress-v1.js','uxq-mobile-final-polish-v1.js',
         'uxq-mission-control-load-recovery-v1.js','uxq-mission-control-review-action-v1.js',
-        'uxq-mission-control-three-part-final-authority-v1.js','uxq-canonical-mission-count-authority-v1.js'
+        'uxq-mission-control-three-part-final-authority-v1.js','uxq-canonical-mission-count-authority-v1.js',
+        'uxq-student-recovery-final-authority-v1.js'
       ];
       const files = window.UXQ_CONTENT_PREVIEW ? previewFiles : studentFiles;
       const loadNext = index => {
