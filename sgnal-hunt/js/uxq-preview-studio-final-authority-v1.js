@@ -28,7 +28,7 @@
     style.textContent = `
       body[data-uxq-mode='preview'] .artifact[data-preview-studio-final='1'] > :not(.studio-head):not(#${WIZARD_ID}){display:none!important}
       body[data-uxq-mode='preview'] .artifact[data-preview-studio-final='1']{display:grid!important;gap:14px!important;max-width:1040px!important;margin-inline:auto!important}
-      #${WIZARD_ID}{display:grid;gap:14px;min-width:0}
+      #${WIZARD_ID}{display:grid!important;gap:14px;min-width:0}
       #${WIZARD_ID} .uxq-ps__progress{display:grid;gap:9px;padding:14px;border:1px solid rgba(110,231,255,.35);border-radius:16px;background:rgba(5,18,42,.94)}
       #${WIZARD_ID} .uxq-ps__top{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#fff}
       #${WIZARD_ID} .uxq-ps__top span{color:#b8cae8;font-size:.86rem}
@@ -132,6 +132,7 @@
 
     const wizard = document.createElement('div');
     wizard.id = WIZARD_ID;
+    wizard.className = 'uxq-pr uxq-preview-studio';
 
     const panels = [];
     const intro = document.createElement('section');
@@ -217,5 +218,5 @@
   new MutationObserver(() => schedule(120)).observe(ROOT,{childList:true,subtree:true});
   [300,800,1600,3000].forEach(ms => setTimeout(build,ms));
 
-  window.UXQPreviewStudioFinalAuthorityV1 = Object.freeze({version:'20260728-PREVIEW-STUDIO-FINAL-V1',build});
+  window.UXQPreviewStudioFinalAuthorityV1 = Object.freeze({version:'20260728-PREVIEW-STUDIO-FINAL-V1.1',build});
 })();
