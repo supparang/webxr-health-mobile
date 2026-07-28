@@ -16,8 +16,8 @@
       document.documentElement.dataset.uxqContentPreview = window.UXQ_CONTENT_PREVIEW ? '1' : '0';
     })();
   </script>
-  <link rel="stylesheet" href="./css/uxq-core.css?v=mode-split-v1-20260728">
-  <link rel="stylesheet" href="./css/uxq-hub.css?v=mode-split-v1-20260728">
+  <link rel="stylesheet" href="./css/uxq-core.css?v=mode-split-v2-20260728">
+  <link rel="stylesheet" href="./css/uxq-hub.css?v=mode-split-v2-20260728">
   <style>
     html[data-uxq-mode="student"] [data-preview-only]{display:none!important}
     html[data-uxq-mode="preview"] [data-student-only]{display:none!important}
@@ -35,10 +35,7 @@
     <section class="overview-grid">
       <div class="act-intro"><p class="eyebrow">CANONICAL COURSE PATH</p><h1>Design with AI, Design for Humans</h1><p class="act-intro__lede">โครงการ UX/UI เดียวต่อเนื่อง W1–W15 ครบ UX/UI, Front-end Thinking, Responsive, Accessibility, Interaction, Design System, Prototype, Evaluation และ Professional Portfolio</p></div>
       <article class="current-card">
-        <div class="current-card__status">
-          <span data-preview-only>CONTENT PREVIEW • LOCAL QA MODE</span>
-          <span data-student-only>STUDENT MODE • OFFICIAL COURSE PATH</span>
-        </div>
+        <div class="current-card__status"><span data-preview-only>CONTENT PREVIEW • LOCAL QA MODE</span><span data-student-only>STUDENT MODE • OFFICIAL COURSE PATH</span></div>
         <div class="current-card__main"><div class="current-card__icon">UX</div><div><h2 id="nextTitle">กำลังโหลดภารกิจถัดไป</h2><p id="nextDesc">Mission + Studio/Artifact + Reflection</p></div></div>
         <a id="nextLink" class="current-card__cta" href="#" aria-disabled="true">กำลังโหลด…</a>
       </article>
@@ -48,10 +45,11 @@
   <script>
     (() => {
       const base = './js/';
-      const version = window.UXQ_CONTENT_PREVIEW ? 'content-preview-v8-20260728' : 'student-runtime-v4-20260728';
+      const version = window.UXQ_CONTENT_PREVIEW ? 'content-preview-v9-20260728' : 'student-runtime-v5-20260728';
       const previewFiles = [
         'uxq-runtime-mode-authority-v1.js','uxq-identity-v1.js','uxq-csai2601-canonical-content-v1.js',
-        'uxq-canonical-content-enrichment-w1-w6-v1.js','uxq-content-preview-mission-control-v1.js'
+        'uxq-canonical-content-enrichment-w1-w6-v1.js','uxq-content-preview-mission-control-v1.js',
+        'uxq-content-preview-mobile-polish-v1.js'
       ];
       const studentFiles = [
         'uxq-runtime-mode-authority-v1.js','uxq-classroom-config-v2.js','uxq-identity-v1.js','uxq-progress-v4.js','uxq-canonical-progress-sanitizer-v1.js',
