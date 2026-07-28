@@ -1,6 +1,7 @@
 (()=>{
 'use strict';
 const q=new URLSearchParams(location.search);
+const gameId=String(q.get('gameId')||q.get('wrappedGame')||'').toLowerCase().replace(/[^a-z0-9-]/g,'');
 function detectDevice(){
  const forced=String(q.get('device')||'').toLowerCase();
  if(['mobile','tablet','desktop'].includes(forced))return forced;
@@ -17,16 +18,18 @@ function detectView(){
 let device=detectDevice(),view=detectView();
 function mark(root=document.documentElement){
  root.classList.remove('device-mobile','device-tablet','device-desktop','view-portrait','view-landscape');
- root.classList.add('device-'+device,'view-'+view);
- root.dataset.device=device;root.dataset.view=view;root.dataset.classroom='1';
+ root.classList.add('device-'+device,'view-'+view);if(gameId)root.classList.add('game-'+gameId);
+ root.dataset.device=device;root.dataset.view=view;root.dataset.classroom='1';root.dataset.gameId=gameId;
 }
 mark();
-const style=document.createElement('style');style.id='hh-responsive-shell-v2';style.textContent=`
+const style=document.createElement('style');style.id='hh-responsive-shell-v3';style.textContent=`
 :root{--hh-shell-h:56px;--hh-safe-b:env(safe-area-inset-bottom,0px)}html,body{height:100%;overflow:hidden}
 .device-mobile{--hh-shell-h:44px}.device-tablet{--hh-shell-h:50px}
+.device-mobile.game-toothbrush{--hh-shell-h:38px}
 .bar{height:var(--hh-shell-h)!important;padding:5px 8px!important;gap:7px!important}.bar b{min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar button{touch-action:manipulation}
 iframe{top:var(--hh-shell-h)!important;height:calc(100dvh - var(--hh-shell-h))!important}.loading,.overlay{inset:var(--hh-shell-h) 0 0!important}
 .device-mobile .bar b{font-size:15px!important}.device-mobile .bar .back{min-height:34px!important;height:34px!important;padding:4px 9px!important;font-size:13px!important}.device-mobile .bar .status{font-size:11px!important;max-width:64px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.device-mobile.game-toothbrush .bar{padding:2px 6px!important}.device-mobile.game-toothbrush .bar b{font-size:13px!important}.device-mobile.game-toothbrush .bar .back{min-height:30px!important;height:30px!important;padding:2px 8px!important;font-size:12px!important}.device-mobile.game-toothbrush .bar .status{display:none!important}
 .device-mobile .overlay{padding:6px!important;align-items:end!important}.device-mobile .overlay .card{width:100%!important;max-width:none!important;max-height:62dvh!important;overflow:auto!important;border-radius:22px 22px 0 0!important;padding:16px 14px calc(14px + var(--hh-safe-b))!important}.device-mobile .overlay h1{font-size:24px!important;margin:4px 0!important}.device-mobile .overlay .score{font-size:32px!important}.device-mobile .overlay p{font-size:14px!important;margin:6px 0!important}.device-mobile .overlay .btn{min-height:48px!important}
 .device-tablet .overlay .card{width:min(620px,94vw)!important;max-height:78dvh!important;overflow:auto!important}.device-desktop .overlay .card{width:min(620px,92vw)!important}
 .view-landscape.device-mobile .bar .status{display:none!important}.view-landscape.device-mobile .overlay .card{max-height:82dvh!important;width:min(620px,94vw)!important;border-radius:18px!important}
@@ -47,8 +50,8 @@ function childCss(){return`
 function inject(doc){
  if(!doc?.documentElement)return;
  doc.documentElement.classList.remove('device-mobile','device-tablet','device-desktop','view-portrait','view-landscape');
- doc.documentElement.classList.add('device-'+device,'view-'+view);doc.documentElement.dataset.device=device;doc.documentElement.dataset.view=view;doc.documentElement.dataset.classroom='1';
- let s=doc.getElementById('hh-responsive-child-v2');if(!s){s=doc.createElement('style');s.id='hh-responsive-child-v2';doc.head.appendChild(s)}s.textContent=childCss();
+ doc.documentElement.classList.add('device-'+device,'view-'+view);if(gameId)doc.documentElement.classList.add('game-'+gameId);doc.documentElement.dataset.device=device;doc.documentElement.dataset.view=view;doc.documentElement.dataset.classroom='1';doc.documentElement.dataset.gameId=gameId;
+ let s=doc.getElementById('hh-responsive-child-v3');if(!s){s=doc.createElement('style');s.id='hh-responsive-child-v3';doc.head.appendChild(s)}s.textContent=childCss();
  [...doc.querySelectorAll('.advanced-settings,.settings-advanced,.debug-panel,.qaPanel,.desktop-only')].forEach(e=>{if(device==='mobile')e.style.display='none'});
  const start=doc.querySelector('#startOverlay,.startOverlay,.warmup-overlay,.launcher-overlay');if(start)start.style.alignItems='center';
 }
