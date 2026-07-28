@@ -1,16 +1,13 @@
-/* CSAI2601 UX Quest • Instructor Content Preview Mission Control v3
- * Content Preview is independent from Google Sheet.
- * Add ?studentMode=1 or ?contentPreview=0 to use Sheet-authoritative student mode.
+/* CSAI2601 UX Quest • Instructor Content Preview Mission Control v4
+ * Student Sheet mode is the default.
+ * Content Preview is enabled only with ?contentPreview=1.
  * Preview never writes progress and never changes official unlock status.
  */
 (() => {
   'use strict';
 
   const params = new URLSearchParams(location.search || '');
-  const studentMode = params.get('studentMode') === '1';
-  const previewRequested = params.get('contentPreview') === '1';
-  const previewDisabled = params.get('contentPreview') === '0';
-  const previewMode = previewRequested || (!studentMode && !previewDisabled);
+  const previewMode = params.get('contentPreview') === '1';
   if (!previewMode) return;
 
   const content = window.CSAI2601_UXQ_CANONICAL_CONTENT_V1;
@@ -25,7 +22,7 @@
       url.searchParams.set('node', node.id);
       url.searchParams.set('contentPreview', '1');
       url.searchParams.set('replay', '1');
-      url.searchParams.set('v', 'content-preview-v3-20260728');
+      url.searchParams.set('v', 'content-preview-v4-20260728');
       const concepts = (node.concepts || []).slice(0,5).join(' • ');
       const scenario = node.casePrompt || node.bossScenario || '';
       return `<article class="campaign-card" data-node-id="${esc(node.id.toLowerCase())}">
@@ -54,7 +51,7 @@
     if (nextTitle) nextTitle.textContent = 'ตรวจหน้าเกมและเนื้อหาครบ 19 Node';
     if (nextDesc) nextDesc.textContent = 'Content Preview ไม่เชื่อม ไม่อ่าน และไม่ส่ง Google Sheet';
     if (nextLink) {
-      nextLink.href = './csai2601-canonical-node-clean-v1.html?node=W1&contentPreview=1&replay=1&v=content-preview-v3-20260728';
+      nextLink.href = './csai2601-canonical-node-clean-v1.html?node=W1&contentPreview=1&replay=1&v=content-preview-v4-20260728';
       nextLink.textContent = 'เริ่มตรวจ W1 →';
       nextLink.setAttribute('aria-disabled', 'false');
       nextLink.classList.remove('is-disabled');
@@ -64,47 +61,12 @@
     if (currentStatus) currentStatus.textContent = 'CONTENT PREVIEW • ไม่ใช้ Google Sheet';
 
     const grid = document.getElementById('grid');
-    if (grid && !grid.dataset.contentPreviewRendered) {
+    if (grid) {
       grid.innerHTML = nodeCards();
       grid.dataset.contentPreviewRendered = '1';
     }
-
-    const heading = document.querySelector('.up-next .section-heading');
-    if (heading && !heading.querySelector('[data-content-preview-note]')) {
-      const note = document.createElement('p');
-      note.dataset.contentPreviewNote = '1';
-      note.textContent = 'CONTENT PREVIEW: เปิดได้ทุก Node เพื่อ QA หน้าเกม เนื้อหา Case, Concept, Mission, Reason Check และ Artifact โดยไม่ใช้ Apps Script';
-      heading.appendChild(note);
-    }
   }
 
-  let applying = false;
-  function enforcePreview() {
-    if (applying) return;
-    applying = true;
-    try { applyPreview(); } finally { applying = false; }
-  }
-
-  enforcePreview();
-
-  // Sheet recovery modules may finish after preview and overwrite the card.
-  // Re-apply only preview-owned UI whenever those asynchronous mutations occur.
-  const observer = new MutationObserver(() => {
-    const title = document.getElementById('nextTitle')?.textContent || '';
-    const status = document.querySelector('.current-card__status span')?.textContent || '';
-    if (!title.includes('ตรวจหน้าเกมและเนื้อหา') || !status.includes('CONTENT PREVIEW')) {
-      enforcePreview();
-    }
-  });
-  observer.observe(document.body, { subtree:true, childList:true, characterData:true, attributes:true, attributeFilter:['href','aria-disabled','class'] });
-
-  ['uxq-sheet-progress-restored','uxq-mission-control-sheet-snapshot','uxq-sheet-progress-error'].forEach(name => {
-    window.addEventListener(name, enforcePreview);
-  });
-
-  window.UXQContentPreviewMissionControl = Object.freeze({
-    version:'content-preview-v3-20260728',
-    active:true,
-    refresh:enforcePreview
-  });
+  applyPreview();
+  window.UXQContentPreviewMissionControl = Object.freeze({ version:'content-preview-v4-20260728', active:true, refresh:applyPreview });
 })();
