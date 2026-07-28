@@ -7,56 +7,88 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>CSAI2601 UX Quest Mission Control</title>
-  <link rel="stylesheet" href="./css/uxq-core.css?v=content-preview-v5-20260728">
-  <link rel="stylesheet" href="./css/uxq-hub.css?v=content-preview-v5-20260728">
+  <script>
+    (() => {
+      const p = new URLSearchParams(location.search || '');
+      window.UXQ_STUDENT_MODE = p.get('studentMode') === '1';
+      window.UXQ_CONTENT_PREVIEW = !window.UXQ_STUDENT_MODE && p.get('contentPreview') !== '0';
+      document.documentElement.dataset.uxqContentPreview = window.UXQ_CONTENT_PREVIEW ? '1' : '0';
+    })();
+  </script>
+  <link rel="stylesheet" href="./css/uxq-core.css?v=content-preview-v6-20260728">
+  <link rel="stylesheet" href="./css/uxq-hub.css?v=content-preview-v6-20260728">
 </head>
 <body class="uxq-hub-page" data-uxq-cloud-loading="0">
   <main class="hub-shell">
     <header class="hub-topbar">
-      <a class="hub-brand" href="./csai2601-mission-control.html?v=content-preview-v5-20260728">
+      <a class="hub-brand" href="./csai2601-mission-control.html?v=content-preview-v6-20260728">
         <span class="hub-brand__mark">UX</span>
         <span class="hub-brand__copy"><strong>CSAI2601 UX Quest</strong><small>15 Weeks + 4 Boss Gates</small></span>
       </a>
       <div class="hub-menu__panel"><strong id="progress">กำลังเตรียมเส้นทางรายวิชา…</strong></div>
     </header>
     <section class="overview-grid">
-      <div class="act-intro"><p class="eyebrow">CANONICAL COURSE PATH</p><h1>Design with AI, Design for Humans</h1><p class="act-intro__lede">โครงการ UX/UI เดียวต่อเนื่อง W1–W15 ครบ UX/UI, Front-end Thinking, Responsive, Accessibility, Interaction, Design System, Prototype, Evaluation และ Professional Portfolio</p></div>
+      <div class="act-intro">
+        <p class="eyebrow">CANONICAL COURSE PATH</p>
+        <h1>Design with AI, Design for Humans</h1>
+        <p class="act-intro__lede">โครงการ UX/UI เดียวต่อเนื่อง W1–W15 ครบ UX/UI, Front-end Thinking, Responsive, Accessibility, Interaction, Design System, Prototype, Evaluation และ Professional Portfolio</p>
+      </div>
       <article class="current-card">
         <div class="current-card__status"><span>CONTENT PREVIEW • LOCAL QA MODE</span></div>
-        <div class="current-card__main"><div class="current-card__icon">UX</div><div><h2 id="nextTitle">กำลังโหลดเนื้อหา 19 Node</h2><p id="nextDesc">Mission + Studio/Artifact + Reflection</p></div></div>
+        <div class="current-card__main">
+          <div class="current-card__icon">UX</div>
+          <div><h2 id="nextTitle">กำลังโหลดเนื้อหา 19 Node</h2><p id="nextDesc">Mission + Studio/Artifact + Reflection</p></div>
+        </div>
         <a id="nextLink" class="current-card__cta" href="#" aria-disabled="true">กำลังโหลด…</a>
       </article>
     </section>
-    <section class="up-next"><div class="section-heading"><div><p class="eyebrow">19 NODES • ONE PROJECT</p><h2>เส้นทาง CSAI2601 ที่สอดคล้องกับคำอธิบายรายวิชา</h2></div></div><div id="grid" class="up-next-grid" aria-live="polite"></div></section>
+    <section class="up-next">
+      <div class="section-heading"><div><p class="eyebrow">19 NODES • ONE PROJECT</p><h2>เส้นทาง CSAI2601 ที่สอดคล้องกับคำอธิบายรายวิชา</h2></div></div>
+      <div id="grid" class="up-next-grid" aria-live="polite"></div>
+    </section>
   </main>
-
-  <script src="./js/uxq-classroom-config-v2.js?v=content-preview-v5-20260728"></script>
-  <script src="./js/uxq-identity-v1.js?v=content-preview-v5-20260728"></script>
-  <script src="./js/uxq-progress-v4.js?v=content-preview-v5-20260728"></script>
-  <script src="./js/uxq-canonical-progress-sanitizer-v1.js?v=content-preview-v5-20260728"></script>
-  <script src="./js/uxq-csai2601-canonical-content-v1.js?v=content-preview-v5-20260728"></script>
-  <script src="./js/uxq-canonical-phase1-authority-v1.js?v=content-preview-v5-20260728"></script>
-  <script src="./js/uxq-hub-csai2601-canonical-v1.js?v=content-preview-v5-20260728"></script>
 
   <script>
     (() => {
-      const p = new URLSearchParams(location.search || '');
-      const studentMode = p.get('studentMode') === '1';
-      if (!studentMode) return;
-      document.body.dataset.uxqCloudLoading = '1';
-      [
-        'uxq-cloud-progress-v1.js','uxq-studio-status-v1.js','uxq-mission-control-unlock-policy-v1.js',
-        'uxq-mobile-progress-v1.js','uxq-mobile-final-polish-v1.js','uxq-mission-control-load-recovery-v1.js',
-        'uxq-mission-control-review-action-v1.js','uxq-mission-control-three-part-final-authority-v1.js',
+      const base = './js/';
+      const version = window.UXQ_CONTENT_PREVIEW ? 'content-preview-v6-20260728' : 'student-runtime-v2-20260728';
+      const previewFiles = [
+        'uxq-identity-v1.js',
+        'uxq-csai2601-canonical-content-v1.js',
+        'uxq-content-preview-mission-control-v1.js'
+      ];
+      const studentFiles = [
+        'uxq-classroom-config-v2.js',
+        'uxq-identity-v1.js',
+        'uxq-progress-v4.js',
+        'uxq-canonical-progress-sanitizer-v1.js',
+        'uxq-csai2601-canonical-content-v1.js',
+        'uxq-canonical-phase1-authority-v1.js',
+        'uxq-hub-csai2601-canonical-v1.js',
+        'uxq-cloud-progress-v1.js',
+        'uxq-studio-status-v1.js',
+        'uxq-mission-control-unlock-policy-v1.js',
+        'uxq-mobile-progress-v1.js',
+        'uxq-mobile-final-polish-v1.js',
+        'uxq-mission-control-load-recovery-v1.js',
+        'uxq-mission-control-review-action-v1.js',
+        'uxq-mission-control-three-part-final-authority-v1.js',
         'uxq-canonical-mission-count-authority-v1.js'
-      ].forEach(file => {
+      ];
+      const files = window.UXQ_CONTENT_PREVIEW ? previewFiles : studentFiles;
+      const loadNext = index => {
+        if (index >= files.length) return;
         const script = document.createElement('script');
-        script.src = './js/' + file + '?v=student-runtime-v1-20260728';
-        script.async = false;
+        script.src = base + files[index] + '?v=' + version;
+        script.onload = () => loadNext(index + 1);
+        script.onerror = () => {
+          console.error('[UXQ runtime] load failed:', files[index]);
+          loadNext(index + 1);
+        };
         document.body.appendChild(script);
-      });
+      };
+      loadNext(0);
     })();
   </script>
-  <script src="./js/uxq-content-preview-mission-control-v1.js?v=content-preview-v5-20260728"></script>
 </body>
 </html>
