@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#dff7ff">
+  <title>HeroHealth • Toothbrush Finger V18</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#dff7ff;color:#0f172a;font-family:system-ui,sans-serif}
+    .loading{width:min(370px,88vw);padding:22px;border-radius:24px;background:#fff;text-align:center;box-shadow:0 20px 60px #0f172a24}
+    .loading b{display:block;font-size:21px}.loading small{display:block;margin-top:8px;color:#64748b;line-height:1.5}
+  </style>
+</head>
+<body>
+  <div class="loading"><b>กำลังเตรียม Toothbrush AR</b><small>Direct Index Finger Mapping • Camera Crop Corrected • Smooth Follow</small></div>
+  <script>
+  (()=>{
+    'use strict';
+    const RELEASE='20260728-TOOTHBRUSH-FINGER-COVER-V18';
+    const sourceUrl=new URL('./toothbrush-classroom-finger-v17.html',location.href);
+    sourceUrl.searchParams.set('v',RELEASE);
+    sourceUrl.searchParams.set('_',Date.now());
+
+    function required(text,pattern,replacement,label){
+      const next=text.replace(pattern,replacement);
+      if(next===text)throw new Error('patch_not_applied:'+label);
+      return next;
+    }
+
+    fetch(sourceUrl,{cache:'no-store'})
+      .then(response=>{if(!response.ok)throw new Error('โหลดเกมฐานไม่สำเร็จ '+response.status);return response.text()})
+      .then(source=>{
+        let html=source;
+        html=html.split('20260728-TOOTHBRUSH-FINGER-EASY-V17').join(RELEASE);
+        html=html.split('Toothbrush Finger V17').join('Toothbrush Finger V18');
+        html=html.split('Easy Finger Control • Zone Assist • Smooth Mobile Tracking').join('Direct Finger Mapping • Camera Crop Corrected • Smooth Follow');
+        html=html.split('โหมดห้องเรียน • Detect นิ้วชี้ • Easy Control').join('โหมดห้องเรียน • Detect นิ้วชี้ • Direct Follow');
+        html=html.split('ชูนิ้วชี้ไว้กลางกล้อง 1 วินาทีเพื่อเทียบตำแหน่ง<br>จากนั้นขยับนิ้วเพียงเล็กน้อย แปรงจะตามแบบ Smooth และช่วยเกาะโซนเป้าหมาย').join('ชูนิ้วชี้ให้กล้องเห็น แปรงและวงสีเขียวต้องอยู่ตรงปลายนิ้ว<br>ไม่มีการดึงแปรงไปหาโซนเอง • ขยับนิ้วแล้วแปรงตามโดยตรง');
+
+        html=required(
+          html,
+          /function calibrateFinger\(raw,t\)\{[\s\S]*?\n\}\nfunction mapFinger\(raw,t\)\{[\s\S]*?\n\}\nfunction filterFinger/,
+          `function cameraCoverPoint(lm){
+  const vw=Number(D.camera.videoWidth||640),vh=Number(D.camera.videoHeight||480);
+  const scale=Math.max(innerWidth/vw,innerHeight/vh);
+  const renderW=vw*scale,renderH=vh*scale;
+  const cropX=(renderW-innerWidth)/2,cropY=(renderH-innerHeight)/2;
+  return{x:(1-lm.x)*renderW-cropX,y:lm.y*renderH-cropY};
+}
+function filterFinger`,
+          'remove-relative-calibration-zone-assist'
+        );
+
+        html=required(
+          html,
+          /function filterFinger\(raw,t\)\{[\s\S]*?\n\}\nfunction detectFingerOnce/,
+          `function filterFinger(raw,t){
+  const hs=state.handState;
+  if(!hs.filtered){hs.filtered={x:raw.x,y:raw.y};hs.velocity={x:0,y:0};hs.filterTs=t;return{x:raw.x,y:raw.y}}
+  const dt=Math.max(.016,Math.min(.16,(t-(hs.filterTs||t))/1000));hs.filterTs=t;
+  const dx=raw.x-hs.filtered.x,dy=raw.y-hs.filtered.y,distance=Math.hypot(dx,dy);
+  const alpha=distance>110?.82:distance>55?.70:distance>22?.58:.46;
+  const oldX=hs.filtered.x,oldY=hs.filtered.y;
+  hs.filtered.x+=dx*alpha;hs.filtered.y+=dy*alpha;
+  hs.velocity.x=hs.velocity.x*.50+((hs.filtered.x-oldX)/dt)*.50;
+  hs.velocity.y=hs.velocity.y*.50+((hs.filtered.y-oldY)/dt)*.50;
+  const lead=distance>35?.018:0;
+  return{x:hs.filtered.x+hs.velocity.x*lead,y:hs.filtered.y+hs.velocity.y*lead};
+}
+function detectFingerOnce`,
+          'single-responsive-filter'
+        );
+
+        html=required(
+          html,
+          /const h=r\.landmarks\[0\],tip=screenPoint\(h\[8\]\),dip=screenPoint\(h\[7\]\),mcp=screenPoint\(h\[5\]\);\s*const rawTip=\{x:tip\.x\+\(tip\.x-dip\.x\)\*\.08,y:tip\.y\+\(tip\.y-dip\.y\)\*\.08\};\s*const mapped=mapFinger\(rawTip,t\),target=filterFinger\(mapped,t\);/,
+          `const h=r.landmarks[0],tip=cameraCoverPoint(h[8]),dip=cameraCoverPoint(h[7]),mcp=cameraCoverPoint(h[5]);
+    const rawTip={x:tip.x+(tip.x-dip.x)*.05,y:tip.y+(tip.y-dip.y)*.05};
+    const target=filterFinger(rawTip,t);`,
+          'cover-corrected-landmark-map'
+        );
+
+        html=required(
+          html,
+          /fingerCursor\(hs\.target\.x,hs\.target\.y,true\);if\(!isLearning\(\)\)trackingBadge\("finger","นิ้วชี้: ตรวจพบ"\);/,
+          `fingerCursor(rawTip.x,rawTip.y,true);trackingBadge("finger","นิ้วชี้: Direct Follow");`,
+          'cursor-at-real-fingertip'
+        );
+
+        html=required(
+          html,
+          /const b=state\.brush,dx=target\.x-b\.x,dy=target\.y-b\.y,distance=Math\.hypot\(dx,dy\),alpha=distance>90\?\.90:distance>35\?\.78:\.64;/,
+          `const b=state.brush,dx=target.x-b.x,dy=target.y-b.y,distance=Math.hypot(dx,dy),alpha=distance>90?.96:distance>35?.90:.82;`,
+          'direct-render-follow'
+        );
+
+        html=html.split('trackingProfile:"index-finger-easy-control-v17"').join('trackingProfile:"index-finger-cover-map-v18"');
+        html=html.split('completionPolicy:"single-classroom-round-finger-easy"').join('completionPolicy:"single-classroom-round-finger-cover-map"');
+        html=html.split('inferenceInput:"256x192"').join('inferenceInput:"256x192",coordinateMapping:"object-fit-cover-corrected",zonePositionAssist:false');
+        html=html.split('showCoach("ชูนิ้วชี้กลางกล้อง 1 วินาทีเพื่อเทียบตำแหน่ง")').join('showCoach("ชูนิ้วชี้ให้กล้องเห็น — แปรงต้องอยู่ตรงปลายนิ้ว")');
+        html=html.split('showCoach("ชูนิ้วชี้กลางกล้อง 1 วินาที แล้วขยับนิ้วเล็กน้อย")').join('showCoach("ชูนิ้วชี้ให้เห็น แล้วปัดตามลูกศร")');
+        html=html.split('state.handState.controlOrigin=null;state.handState.brushOrigin=null;').join('');
+        html=html.split('state.handState.zoneAssistFrames=0;').join('');
+
+        document.open();document.write(html);document.close();
+      })
+      .catch(error=>{
+        document.body.innerHTML='<div class="loading"><b>เปิด Toothbrush AR ไม่สำเร็จ</b><small>'+String(error.message||error)+'</small><button onclick="location.reload()" style="margin-top:14px;min-height:48px;padding:0 18px;border:0;border-radius:14px;font-weight:900">ลองใหม่</button></div>';
+      });
+  })();
+  </script>
+</body>
+</html>
