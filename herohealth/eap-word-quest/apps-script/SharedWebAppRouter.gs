@@ -7,6 +7,7 @@
    - Keep this as the ONLY file in the project containing doGet() / doPost().
    - EAPHero.gs owns eapHeroDoGet_ / eapHeroDoPost_.
    - EAPWordQuest.gs owns eapWordFinalDoGet_ / eapWordFinalDoPost_.
+   - EAPWordQuestAuthority.gs owns official roster lookup / player resume.
    - EAP_TeacherDashboard.gs owns the Teacher Dashboard.
    - EAP_PlayerResume.gs owns eapPlayerResume_.
    - EAP_EvidenceReview.gs owns submitEvidence_ / submitSpeakingAudio_.
@@ -36,6 +37,20 @@ function doGet(e) {
 
   if (action === 'eap_teacher_dashboard_data') {
     return eapTeacherDashboardJson_(params);
+  }
+
+  /* =========================================================
+     EAP Word Quest — Official roster + Sheet authority
+  ========================================================= */
+  const wordAuthorityActions = [
+    'eap_word_authority_health',
+    'eap_word_roster_setup',
+    'eap_word_profile_lookup',
+    'eap_word_player_resume'
+  ];
+
+  if (wordAuthorityActions.includes(action)) {
+    return eapRouterJson_(eapWordAuthorityDoGet_(params), callback);
   }
 
   /* =========================================================
@@ -108,7 +123,7 @@ function doPost(e) {
 
 /* =========================================================
    Shared response helper
-   Supports JSON for normal calls and JSONP for the GitHub Pages resume call.
+   Supports JSON for normal calls and JSONP for GitHub Pages.
 ========================================================= */
 function eapRouterJson_(data, callback) {
   const json = JSON.stringify(data || {});
