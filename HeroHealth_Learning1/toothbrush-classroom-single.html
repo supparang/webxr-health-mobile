@@ -12,11 +12,11 @@
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Toothbrush AR</b><small>โหมดห้องเรียนหนึ่งโหมด • Hand Tracking แบบตอบสนองเร็ว • Mobile First</small></div>
+  <div class="loading"><b>กำลังเตรียม Toothbrush AR</b><small>Hybrid Hand + Touch • Anti-freeze Watchdog • Mobile First</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260728-TOOTHBRUSH-CLASSROOM-SINGLE-V12-SMOOTH-HAND';
+    const RELEASE='20260728-TOOTHBRUSH-CLASSROOM-V13-HYBRID-WATCHDOG';
     const q=new URLSearchParams(location.search);
     const playerName=String(q.get('fullName')||q.get('studentName')||q.get('name')||'นักเรียน').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
     const classLevel=String(q.get('section')||'ป.5').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -34,7 +34,7 @@
       .then(source=>{
         let html=source;
         html=replaceRequired(html,'<head>',`<head><base href="../herohealth/hygiene-zone/">
-<style id="hh-toothbrush-classroom-single-css">
+<style id="hh-toothbrush-classroom-v13-css">
   html,body{overscroll-behavior:none!important}
   .actions{right:calc(6px + var(--safe-right))!important;top:calc(6px + var(--safe-top))!important;display:flex!important;grid-template-columns:none!important;width:auto!important}
   .actions #faceBtn,.actions #handBtn,.actions #muteBtn{display:none!important}
@@ -48,7 +48,7 @@
   .status{display:none!important}
   .coach{top:calc(101px + var(--safe-top))!important;width:calc(100vw - 24px)!important;padding:7px 10px!important;border-radius:14px!important;font-size:11px!important}
   .mouth{top:57%!important;width:min(560px,90vw)!important;height:min(390px,62vw)!important;transition:none!important}
-  .brush{transition:opacity .08s!important;will-change:left,top,transform!important}
+  .brush{transition:opacity .06s!important;will-change:left,top,transform!important;contain:layout style!important}
   .mission{left:calc(7px + var(--safe-left))!important;bottom:calc(7px + var(--safe-bottom))!important;max-width:calc(100vw - 58px)!important;padding:7px 10px!important;border-radius:14px!important;font-size:11px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
   #startScreen .card{width:min(520px,92vw)!important;padding:20px 18px!important;overflow:hidden!important}
   #startScreen .title{font-size:clamp(30px,8vw,44px)!important}
@@ -70,7 +70,7 @@
 
         html=replaceRequired(html,
           /<section id="startScreen" class="screen show">[\s\S]*?<\/section>/,
-          `<section id="startScreen" class="screen show"><div class="card"><h1 class="title">🪥 Toothbrush AR</h1><p class="sub">แปรงฟันให้ครบ 6 โซนตามคำแนะนำของ AR Coach</p><input id="playerName" type="hidden" value="${playerName}"><input id="classLevel" type="hidden" value="${classLevel}"><div class="single-mode">โหมดห้องเรียน • 90 วินาที • ไม่มีการตั้งค่า</div><div class="single-help">ชูนิ้วชี้ให้กล้องเห็น แปรงจะตามนิ้วอัตโนมัติ<br>ฟันบน <b>ปัดลง</b> • ฟันล่าง <b>ปัดขึ้น</b></div><button id="startBtn" class="button primary">เริ่ม Toothbrush AR</button><button id="zoneBtn" hidden>กลับ</button></div></section>`,
+          `<section id="startScreen" class="screen show"><div class="card"><h1 class="title">🪥 Toothbrush AR</h1><p class="sub">แปรงฟันให้ครบ 6 โซนตามคำแนะนำของ AR Coach</p><input id="playerName" type="hidden" value="${playerName}"><input id="classLevel" type="hidden" value="${classLevel}"><div class="single-mode">โหมดห้องเรียน • 90 วินาที • ไม่มีการตั้งค่า</div><div class="single-help">ชูนิ้วชี้ให้กล้องเห็น แปรงจะตามมืออัตโนมัติ<br>ถ้า Tracking สะดุด <b>แตะลากบนจอได้ทันที</b></div><button id="startBtn" class="button primary">เริ่ม Toothbrush AR</button><button id="zoneBtn" hidden>กลับ</button></div></section>`,
           'start-screen');
 
         html=replaceRequired(html,/const VERSION="[^"]+";/,`const VERSION="${RELEASE}";`,'version');
@@ -87,39 +87,52 @@ function grip`,
         html=replaceRequired(html,
           /function runHand\(t\)\{[\s\S]*?\}\nfunction moveBrush\(x,y,angle=null\)\{[\s\S]*?\}\nfunction brushNormalized/,
           `function runHand(t){
-  if(!state.handOn||!state.hand||!state.cameraReady||D.camera.readyState<2)return;
+  if(!state.handOn||!state.hand||!state.cameraReady||D.camera.readyState<2||state.phase!=="playing")return;
   const hs=state.handState;
-  if(t-(hs.lastInference||0)<42)return;
+  if(t<(hs.manualUntil||0))return;
+  const interval=Number(hs.inferenceInterval||88);
+  if(t-(hs.lastInference||0)<interval)return;
   const videoTime=Number(D.camera.currentTime||0);
   if(videoTime&&videoTime===hs.lastVideoTime)return;
   hs.lastInference=t;hs.lastVideoTime=videoTime;
+  const started=performance.now();
   try{
     const r=state.hand.detectForVideo(D.camera,t);
+    const cost=performance.now()-started;
+    hs.inferenceSamples=(hs.inferenceSamples||0)+1;
+    hs.inferenceCostTotal=(hs.inferenceCostTotal||0)+cost;
+    hs.inferenceInterval=cost>70?150:cost>48?120:cost>30?95:76;
     if(!r.landmarks?.length){
-      if(t-(hs.lastSeen||0)>220){hs.quality=0;hs.ghost=true;state.brush.active=false;D.brush.classList.add("ghost")}
+      hs.missCount=(hs.missCount||0)+1;
+      if(t-(hs.lastSeen||0)>520){
+        hs.quality=0;hs.ghost=true;state.brush.active=false;D.brush.classList.add("ghost");
+        if(t-(hs.lastFallbackCoach||0)>2600){hs.lastFallbackCoach=t;showCoach("ไม่พบมือ — แตะลากแปรงบนจอได้ทันที",2200)}
+      }
       return;
     }
     const h=r.landmarks[0],tip=screenPoint(h[8]),dip=screenPoint(h[7]),mcp=screenPoint(h[5]);
-    const target={x:tip.x+(tip.x-dip.x)*.12,y:tip.y+(tip.y-dip.y)*.12};
-    const rawPrev=hs.rawPoint||target;
-    const vx=target.x-rawPrev.x,vy=target.y-rawPrev.y;
-    hs.rawPoint=target;
-    const prev=hs.point||target;
-    const distance=Math.hypot(target.x-prev.x,target.y-prev.y);
-    const alpha=clamp(.58+distance/260,.58,.88);
-    hs.point={
-      x:prev.x+(target.x-prev.x)*alpha+clamp(vx*.22,-16,16),
-      y:prev.y+(target.y-prev.y)*alpha+clamp(vy*.22,-16,16)
-    };
-    hs.angle=Math.atan2(tip.y-mcp.y,tip.x-mcp.x)*180/Math.PI-8;
-    hs.lastSeen=t;hs.last=t;hs.ghost=false;hs.quality=100;
-    grip(h);
+    const target={x:tip.x+(tip.x-dip.x)*.10,y:tip.y+(tip.y-dip.y)*.10};
+    hs.target=target;hs.targetAngle=Math.atan2(tip.y-mcp.y,tip.x-mcp.x)*180/Math.PI-8;
+    hs.lastSeen=t;hs.last=t;hs.ghost=false;hs.quality=100;hs.missCount=0;
     state.brush.active=true;
-    const countFrom=hs.lastCountAt||t;hs.totalGrip+=Math.max(0,t-countFrom);hs.lastCountAt=t;
-    moveBrush(hs.point.x,hs.point.y,hs.angle);
   }catch(error){
-    if(t-(hs.lastSeen||0)>300){hs.quality=0;state.brush.active=false;D.brush.classList.add("ghost")}
+    hs.errorCount=(hs.errorCount||0)+1;
+    hs.inferenceInterval=Math.min(220,Math.max(120,(hs.inferenceInterval||88)+30));
+    if(t-(hs.lastSeen||0)>520){hs.quality=0;state.brush.active=false;D.brush.classList.add("ghost")}
+    if(hs.errorCount>=4&&t-(hs.lastErrorCoach||0)>3000){hs.lastErrorCoach=t;showCoach("Tracking สะดุด — ใช้นิ้วแตะลากบนจอได้",2300)}
   }
+}
+function renderBrushFrame(t){
+  const hs=state.handState;
+  let target=null,angle=null;
+  if(t<(hs.manualUntil||0)&&hs.manualPoint){target=hs.manualPoint;angle=hs.manualAngle}
+  else if(hs.target&&t-(hs.lastSeen||0)<760){target=hs.target;angle=hs.targetAngle;state.brush.active=true}
+  if(!target)return;
+  const b=state.brush;
+  const dx=target.x-b.x,dy=target.y-b.y,distance=Math.hypot(dx,dy);
+  const alpha=clamp(.30+distance/420,.30,.62);
+  const nextX=b.x+dx*alpha,nextY=b.y+dy*alpha;
+  moveBrush(nextX,nextY,Number.isFinite(angle)?angle:null);
 }
 function moveBrush(x,y,angle=null){
   const b=state.brush,t=now(),dt=Math.max(8,t-b.lastT);
@@ -130,31 +143,71 @@ function moveBrush(x,y,angle=null){
   D.brush.style.left=b.x+"px";D.brush.style.top=b.y+"px";D.brush.style.transform=\`translate(-17px,-50%) rotate(\${b.angle}deg)\`;D.brush.classList.toggle("ghost",!b.active);
 }
 function brushNormalized`,
-          'smooth-hand-runtime');
+          'hybrid-hand-runtime');
 
         html=replaceRequired(html,
           /async function initVision\(\)\{[\s\S]*?\}\nasync function initCamera/,
           `async function initVision(){
   try{
     const v=await FilesetResolver.forVisionTasks(CONFIG.wasm);
-    const options={baseOptions:{modelAssetPath:CONFIG.handModel,delegate:"GPU"},runningMode:"VIDEO",numHands:1,minHandDetectionConfidence:.28,minHandPresenceConfidence:.28,minTrackingConfidence:.28};
-    try{state.hand=await HandLandmarker.createFromOptions(v,options)}catch(gpuError){options.baseOptions.delegate="CPU";state.hand=await HandLandmarker.createFromOptions(v,options)}
+    const cpu={baseOptions:{modelAssetPath:CONFIG.handModel,delegate:"CPU"},runningMode:"VIDEO",numHands:1,minHandDetectionConfidence:.25,minHandPresenceConfidence:.25,minTrackingConfidence:.25};
+    try{state.hand=await HandLandmarker.createFromOptions(v,cpu)}catch(cpuError){cpu.baseOptions.delegate="GPU";state.hand=await HandLandmarker.createFromOptions(v,cpu)}
     state.face=null;state.faceOn=false;state.handOn=true;state.visionReady=true;
-  }catch(error){state.handOn=false;state.faceOn=false;state.visionReady=false}
+  }catch(error){state.handOn=false;state.faceOn=false;state.visionReady=false;showCoach("เปิด Hand Tracking ไม่สำเร็จ — แตะลากบนจอเพื่อเล่น",2600)}
 }
 async function initCamera`,
-          'hand-only-vision');
+          'stable-hand-vision');
 
         html=replaceRequired(html,
           /async function initCamera\(\)\{[\s\S]*?\}\nfunction bind/,
           `async function initCamera(){
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640,max:640},height:{ideal:480,max:480},frameRate:{ideal:24,max:30}},audio:false});
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:480,max:480},height:{ideal:360,max:360},frameRate:{ideal:20,max:24}},audio:false});
     D.camera.srcObject=stream;await D.camera.play();state.cameraReady=true;
-  }catch(error){state.cameraReady=false}
+  }catch(error){state.cameraReady=false;showCoach("เปิดกล้องไม่สำเร็จ — แตะลากบนจอเพื่อเล่น",2600)}
 }
 function bind`,
-          'mobile-camera');
+          'lightweight-camera');
+
+        html=replaceRequired(html,
+          /function bind\(\)\{[\s\S]*?\}\nasync function boot/,
+          `function bind(){
+  document.querySelectorAll("[data-diff]").forEach(b=>b.onclick=()=>{});
+  document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{});
+  $("startBtn").onclick=start;
+  $("replayBtn").onclick=()=>showScreen($("startScreen"));
+  $("zoneBtn").onclick=$("resultZoneBtn").onclick=()=>location.href=CONFIG.hygieneZoneUrl;
+  $("pauseBtn").onclick=()=>{if(state.phase==="playing"){state.phase="pause";state.pausedAt=now();$("pauseBtn").textContent="▶"}else if(state.phase==="pause"){state.pauseMs+=now()-state.pausedAt;state.phase="playing";state.last=now();$("pauseBtn").textContent="⏸"}};
+  const manual=e=>{
+    if(e.target.closest(".screen")||e.target.closest(".actions"))return;
+    const hs=state.handState,t=now();
+    hs.manualUntil=t+1400;hs.manualPoint={x:e.clientX,y:e.clientY};hs.manualAngle=null;hs.touchFallbackCount=(hs.touchFallbackCount||0)+1;
+    state.brush.active=true;D.brush.classList.remove("ghost");moveBrush(e.clientX,e.clientY);
+    if(e.cancelable)e.preventDefault();
+  };
+  addEventListener("pointerdown",manual,{passive:false});
+  addEventListener("pointermove",e=>{if(e.buttons||e.pointerType==="touch")manual(e)},{passive:false});
+  addEventListener("resize",()=>updateMouthAnchor(state.faceAnchor));
+}
+async function boot`,
+          'always-touch-fallback');
+
+        html=replaceRequired(html,
+          /function loop\(t\)\{[\s\S]*?\}\nasync function initVision/,
+          `function loop(t){
+  requestAnimationFrame(loop);
+  renderBrushFrame(t);
+  runHand(t);
+  if(state.phase!=="playing")return;
+  const dt=Math.min(80,t-state.last||16);state.last=t;
+  state.left=clamp(state.time-(t-state.start-state.pauseMs)/1000,0,state.time);
+  updateGuided(t,dt);maybeSpawn(t);hitPlaques(t,dt);
+  if(state.gum<=0&&!isLearning())end("gum_damage_stop");
+  if(state.left<=0)end("timeup");
+  updateHud();
+}
+async function initVision`,
+          'nonblocking-loop');
 
         html=replaceRequired(html,
           /function finishZone\(zid\)\{[\s\S]*?\}\nfunction updateGuided/,
@@ -164,15 +217,15 @@ function updateGuided`,
 
         html=replaceRequired(html,
           /async function send\(reason,s\)\{[\s\S]*?\}\nfunction showScreen/,
-          `async function send(reason,s){if(state.resultSent)return;state.resultSent=true;const base=payload(reason,s);const p={...base,zone:"hygiene",gameId:"toothbrush",game_id:"toothbrush",game_key:"toothbrush",play_mode:"classroom_coach",mode:"classroom_coach",completed:true,passed:s.pass===true,skillCriteriaMet:s.pass===true,procedureCompleted:state.guided.complete===true,progressionEligible:true,completionPolicy:"single-classroom-round-no-settings",analyticsSchemaVersion:"HH-UNIFIED-GAME-ANALYTICS-V2",gameVersion:VERSION,finishedAt:new Date().toISOString(),eventId:state.recordId||uid("HH-TOOTHBRUSH"),trackingProfile:"hand-only-adaptive-smoothing-v12",handTrackingIntervalMs:42,cameraProfile:"640x480-24fps"};window.__TOOTHBRUSH_LAST_RESULT__=p;try{localStorage.setItem("HHA_TOOTHBRUSH_LAST_RESULT",JSON.stringify(p));localStorage.setItem("toothbrush_pending_result",JSON.stringify(p))}catch(_){}try{window.parent.postMessage({type:"HEROHEALTH_GAME_COMPLETE",payload:p},location.origin)}catch(_){}}
+          `async function send(reason,s){if(state.resultSent)return;state.resultSent=true;const base=payload(reason,s),hs=state.handState;const p={...base,zone:"hygiene",gameId:"toothbrush",game_id:"toothbrush",game_key:"toothbrush",play_mode:"classroom_coach",mode:"classroom_coach",completed:true,passed:s.pass===true,skillCriteriaMet:s.pass===true,procedureCompleted:state.guided.complete===true,progressionEligible:true,completionPolicy:"single-classroom-round-no-settings",analyticsSchemaVersion:"HH-UNIFIED-GAME-ANALYTICS-V2",gameVersion:VERSION,finishedAt:new Date().toISOString(),eventId:state.recordId||uid("HH-TOOTHBRUSH"),trackingProfile:"hybrid-hand-touch-watchdog-v13",cameraProfile:"480x360-20fps",handInferenceAverageMs:Math.round((hs.inferenceCostTotal||0)/Math.max(1,hs.inferenceSamples||0)),handInferenceErrors:Number(hs.errorCount||0),handMissCount:Number(hs.missCount||0),touchFallbackCount:Number(hs.touchFallbackCount||0),inputMode:(hs.touchFallbackCount||0)>0?"hybrid-hand-touch":"hand-tracking"};window.__TOOTHBRUSH_LAST_RESULT__=p;try{localStorage.setItem("HHA_TOOTHBRUSH_LAST_RESULT",JSON.stringify(p));localStorage.setItem("toothbrush_pending_result",JSON.stringify(p))}catch(_){}try{window.parent.postMessage({type:"HEROHEALTH_GAME_COMPLETE",payload:p},location.origin)}catch(_){} }
 function showScreen`,
           'unified-send');
 
-        html=replaceRequired(html,'function start(){','function start(){try{window.parent.postMessage({type:"HEROHEALTH_GAME_STARTED"},location.origin)}catch(_){};state.mode="learning";state.diff="easy";state.faceOn=false;state.handOn=true;','start-contract');
+        html=replaceRequired(html,'function start(){','function start(){try{window.parent.postMessage({type:"HEROHEALTH_GAME_STARTED"},location.origin)}catch(_){};state.mode="learning";state.diff="easy";state.faceOn=false;state.handOn=true;state.handState.inferenceInterval=88;state.handState.errorCount=0;state.handState.touchFallbackCount=0;','start-contract');
         html=html.replace('Fresh Smile Hero • Learning Complete ✨','จบภารกิจ Toothbrush ✨');
         html=html.replace('Zone Learning Retry 💪','จบรอบ Toothbrush • เก็บผลเพื่อพัฒนา');
         html=html.replace('พร้อมแล้ว! ลอง Challenge Mode เพื่อใช้ทักษะที่เรียนไปในสถานการณ์เต็มรูปแบบ','ทำครบทั้ง 6 โซนแล้ว รักษาทิศทางการแปรงที่ถูกต้องต่อไป');
-        html=html.replace('showCoach("กล้องพร้อมแล้ว เลือก Learning Mode เพื่อฝึกทีละโซน")','showCoach("กล้องพร้อมแล้ว ชูนิ้วชี้ให้เห็น แล้วกดเริ่มเกม")');
+        html=html.replace('showCoach("กล้องพร้อมแล้ว เลือก Learning Mode เพื่อฝึกทีละโซน")','showCoach("พร้อมแล้ว: ใช้มือ หรือแตะลากบนจอได้ทันที")');
         html=html.replace(/\$\("rPass"\)\.textContent=s\.pass[\s\S]*?: "Retry";/,'$("rPass").textContent=s.pass ? "ผ่านเกณฑ์" : "จบรอบ";');
 
         document.open();document.write(html);document.close();
