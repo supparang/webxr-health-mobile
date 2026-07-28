@@ -1,406 +1,351 @@
 // === /sgnal-hunt/js/uxq-csai2601-canonical-content-v1.js ===
 // CSAI2601 UX Quest Canonical Content Pack
 // Scope: W1-W15 + B1-B4. No B5.
-// This file is intentionally data-first so weekly game pages, Mission Control and Teacher Dashboard
-// can reuse the same curriculum map without hard-coding inconsistent labels.
+// Revision: full course-description alignment for UX/UI, front-end thinking,
+// responsive design, accessibility, interaction, design systems, evaluation,
+// developer handoff and responsible AI-assisted design.
 
 (function () {
   'use strict';
 
   const COURSE_ID = 'CSAI2601';
-  const VERSION = 'v20260708-canonical-w15-b4';
+  const VERSION = 'v20260728-course-description-100pct-alignment';
+
+  const COURSE_ALIGNMENT = {
+    vision: 'Design with AI, Design for Humans',
+    projectModel: 'โครงการ UX/UI เดียวต่อเนื่องตั้งแต่ W1 ถึง W15',
+    requiredFlow: ['Mission', 'Studio/Artifact', 'Reflection', 'Unlock'],
+    requiredEvidence: ['Figma URL', 'Project URL', 'Evidence URL'],
+    domains: [
+      'UX/UI foundations', 'Human-centered design', 'User research',
+      'Cognitive psychology', 'Information architecture', 'Interaction design',
+      'Responsive and mobile-first design', 'Accessibility and inclusive design',
+      'Visual design', 'Design systems', 'Front-end thinking',
+      'Prototype and developer handoff', 'Evaluation and iteration',
+      'Responsible AI-assisted design', 'Professional portfolio'
+    ]
+  };
 
   const DASHBOARD_FIELDS = [
     'studentId','studentName','section','courseId','nodeId','caseId','missionId',
     'score','stars','accuracy','correct','wrong','timeUsed','retryCount','hintUsed',
     'selectedAnswer','selectedReason','reasonCheckPassed','artifactSubmitted',
-    'reflection','learnedPoint','misconception','bossGatePassed','timestamp'
+    'figmaUrl','projectUrl','evidenceUrl','reflection','learnedPoint','misconception',
+    'aiToolUsed','aiContribution','humanDecision','aiRiskChecked','accessibilityChecked',
+    'responsiveChecked','handoffReady','bossGatePassed','timestamp'
   ];
 
   const ANTI_GUESSING_RULES = [
     'Shuffle answer order every attempt.',
     'Rotate case variants and keep a recent-case no-repeat window.',
-    'Do not make the longest option consistently correct.',
     'Use plausible distractors tagged by misconception.',
-    'Require Reason Check for high mastery.',
-    'Do not award 3 stars from speed alone.',
+    'Require a reason check for high mastery.',
+    'Do not award mastery from speed alone.',
     'Record retry improvement and reasoning changes.',
-    'Boss Gates must combine multiple prior concepts.'
+    'Boss Gates must synthesize prior weeks.',
+    'AI-generated output must be reviewed and justified by the student.'
   ];
 
   const RUBRIC = {
-    excellent: 'วิเคราะห์จากหลักฐาน เชื่อมโยง UX/UI ถูกต้อง อธิบายเหตุผลชัด ผลงานเชื่อม user → problem → flow → interface → prototype → evaluation ได้ครบ',
-    good: 'เข้าใจหลักการส่วนใหญ่ วิเคราะห์ได้ค่อนข้างถูก แต่บางจุดยังขาดหลักฐานหรือเหตุผลประกอบ',
-    developing: 'เข้าใจบางส่วน แต่ยังสับสนระหว่าง UI/UX หรือออกแบบจากความเห็นส่วนตัวมากกว่าหลักฐาน',
-    beginning: 'ตอบหรือออกแบบโดยไม่มีเหตุผลชัด ไม่เชื่อมโยงกับผู้ใช้ ปัญหา หรือหลักฐาน'
+    excellent: 'ใช้หลักฐานผู้ใช้ เชื่อม problem → flow → interface → prototype → evaluation → iteration ได้ครบ ออกแบบเข้าถึงได้ ตอบสนองหลายหน้าจอ ส่งต่อพัฒนาได้ และอธิบายบทบาท AI กับการตัดสินใจของมนุษย์ชัดเจน',
+    good: 'เชื่อมกระบวนการออกแบบได้เกือบครบ มีเหตุผลและหลักฐานส่วนใหญ่ แต่บางจุดยังขาด accessibility, responsive, handoff หรือการตรวจสอบ AI',
+    developing: 'เข้าใจบางส่วน แต่การตัดสินใจยังอิงความชอบส่วนตัว หลักฐานไม่พอ หรือผลงานแต่ละส่วนยังไม่เชื่อมกัน',
+    beginning: 'ผลงานขาดหลักฐานผู้ใช้ เหตุผล กระบวนการทดสอบ และไม่สามารถอธิบายการตัดสินใจด้าน UX/UI ได้'
+  };
+
+  const common = {
+    completionRule: 'Mission + Studio/Artifact + Reflection ครบ และมี Figma URL + Project URL + Evidence URL',
+    sourceOfTruth: 'Google Sheet',
+    aiRule: 'AI ช่วยค้นทางเลือก วิเคราะห์ หรือร่างได้ แต่ผู้เรียนต้องตรวจสอบ อธิบาย และรับผิดชอบการตัดสินใจสุดท้าย'
   };
 
   const nodes = [
     {
-      id: 'W1', type: 'week', order: 1, unlockAfter: null,
-      title: 'UX First Contact', missionTitle: 'UX First Responder',
-      focus: 'เข้าใจ UI, UX และ Front-end Design',
-      concepts: ['UI vs UX','Front-end Design','User goal','Task','Context','Friction','Impact','Fix','Test idea'],
-      learningOutcomes: [
-        'แยก UI, UX และ Front-end Design ได้',
-        'วิเคราะห์ user/task/context/friction ได้',
-        'อธิบายปัญหาจากหลักฐาน ไม่ใช่ความรู้สึกส่วนตัว'
-      ],
-      casePrompt: 'ระบบลงทะเบียนเรียนดูสวยแต่ผู้ใช้หาปุ่มยืนยันไม่พบ ต้องวิเคราะห์ว่าเป็นปัญหา UI, UX หรือ front-end feedback',
-      missionRounds: ['Identify friction','Match user goal','Judge UI/UX/front-end impact','Choose fix','Plan test'],
-      reasonChecks: [
-        'หลักฐานใดทำให้คิดว่านี่คือปัญหา UX ไม่ใช่แค่ UI',
-        'ถ้าแก้สีหรือปุ่มอย่างเดียว ปัญหาจะหายจริงหรือไม่ เพราะอะไร',
-        'ผู้ใช้จะล้มเหลวที่ขั้นตอนไหน'
-      ],
-      artifact: 'UX First Impression Audit',
-      artifactChecklist: ['Screenshot/description','User goal','Friction','Impact','Suggested fix','Test idea'],
-      dashboardEvidence: ['selectedFriction','selectedFix','reasonCheck','retryCount','learnedPoint'],
-      seedCases: [
-        { id:'W1-C01', context:'ระบบลงทะเบียนเรียน', friction:'ปุ่มยืนยันไม่เด่น', misconception:'คิดว่าแค่เปลี่ยนสีคือแก้ UX ครบ' },
-        { id:'W1-C02', context:'เว็บห้องสมุด', friction:'ค้นหาหนังสือแล้วไม่รู้สถานะว่าง/ถูกยืม', misconception:'เพิ่มข้อความยาวโดยไม่แก้ feedback' },
-        { id:'W1-C03', context:'ระบบคำร้องออนไลน์', friction:'ผู้ใช้ไม่รู้ว่าต้องแนบไฟล์ใดก่อนส่ง', misconception:'โทษผู้ใช้ว่าอ่านไม่ละเอียด' },
-        { id:'W1-C04', context:'แอปกิจกรรมนักศึกษา', friction:'เมนูสำคัญซ่อนอยู่ลึก', misconception:'เพิ่มไอคอนโดยไม่จัดลำดับงานผู้ใช้' }
-      ]
+      id:'W1', type:'week', order:1, unlockAfter:null,
+      title:'UX/UI & Front-end Foundations', missionTitle:'UX First Responder',
+      focus:'แยก UI, UX และ Front-end พร้อมตรวจประสบการณ์ใช้งานจริง',
+      concepts:['UI vs UX','Front-end role','User goal','Task','Context','Friction','Feedback','Evidence-based UX audit'],
+      learningOutcomes:['แยก UI/UX/front-end ได้','วิเคราะห์ user-task-context-friction ได้','เสนอ fix และ test idea จากหลักฐานได้'],
+      casePrompt:'ตรวจระบบบริการนักศึกษาที่ดูสวยแต่ผู้ใช้ทำงานหลักไม่สำเร็จ',
+      missionRounds:['Identify friction','Classify UI/UX/front-end','Trace task failure','Choose fix','Plan validation'],
+      reasonChecks:['หลักฐานใดชี้ว่าปัญหาไม่ได้อยู่ที่ความสวย','front-end feedback ที่ขาดส่งผลต่อ UX อย่างไร','จะพิสูจน์ว่าแนวทางแก้ดีขึ้นได้อย่างไร'],
+      artifact:'UX Audit + Project Brief',
+      artifactChecklist:['Screenshot/evidence','Target user','User goal','Friction','Impact','Fix hypothesis','Test idea','Project scope'],
+      dashboardEvidence:['uxAuditQuality','frontEndClassification','evidenceQuality'],
+      seedCases:[{id:'W1-C01',context:'ระบบลงทะเบียน',issue:'ปุ่มยืนยันและสถานะส่งไม่ชัด'},{id:'W1-C02',context:'เว็บห้องสมุด',issue:'ค้นหาได้แต่ไม่รู้สถานะหนังสือ'}],
+      ...common
     },
     {
-      id: 'W2', type: 'week', order: 2, unlockAfter: 'W1',
-      title: 'Human-Centered Design', missionTitle: 'Evidence Before Design',
-      focus: 'ออกแบบจากผู้ใช้ ไม่ใช่จากความชอบส่วนตัว',
-      concepts: ['Human-Centered Design','Design Thinking','Empathize','Define','Ideate','Prototype','Test','Evidence vs assumption'],
-      learningOutcomes: [
-        'อธิบายกระบวนการ HCD / Design Thinking ได้',
-        'แยก evidence กับ assumption ได้',
-        'เลือกวิธีเริ่มออกแบบจากข้อมูลผู้ใช้ได้เหมาะสม'
-      ],
-      casePrompt: 'ทีมต้องปรับระบบจองคิวห้องพยาบาลมหาวิทยาลัย โดยมีผู้ใช้หลายกลุ่มและข้อจำกัดเวลา',
-      missionRounds: ['Classify evidence','Order HCD process','Detect assumption trap','Choose research target','Plan small test'],
-      reasonChecks: [
-        'ทำไมจึงไม่ควรเริ่มจากการวาดหน้าจอทันที',
-        'ข้อมูลใดเป็น evidence และข้อมูลใดเป็น assumption',
-        'ถ้าเวลาเก็บข้อมูลจำกัด ควรเก็บจากใครก่อน เพราะอะไร'
-      ],
-      artifact: 'UX Process Map / HCD Sprint Brief',
-      artifactChecklist: ['Initial problem','User groups','Data collection method','Insight to find','Design decision path'],
-      dashboardEvidence: ['processOrder','evidenceVsAssumptionAccuracy','userGroupChoice','reasonCheck','reflection'],
-      seedCases: [
-        { id:'W2-C01', context:'จองคิวห้องพยาบาล', user:'นักศึกษาใหม่', risk:'รีบทำ prototype ก่อนรู้สาเหตุ' },
-        { id:'W2-C02', context:'ระบบยืมห้องเรียน', user:'เจ้าหน้าที่ตารางสอน', risk:'ฟังเฉพาะผู้บริหาร ไม่ฟังผู้ใช้จริง' },
-        { id:'W2-C03', context:'เว็บทุนการศึกษา', user:'นักศึกษาทุน', risk:'ใช้ assumption ว่าเด็กอ่านประกาศครบ' },
-        { id:'W2-C04', context:'ระบบแจ้งซ่อม', user:'แม่บ้าน/ช่าง/ผู้แจ้ง', risk:'ออกแบบจาก flow ของคนทำระบบ ไม่ใช่ผู้แจ้งปัญหา' }
-      ]
+      id:'W2', type:'week', order:2, unlockAfter:'W1',
+      title:'Human-Centered Design & User Research', missionTitle:'Evidence Before Design',
+      focus:'เข้าใจผู้ใช้ด้วยการวิจัย ไม่ออกแบบจากสมมติฐาน',
+      concepts:['HCD','Design Thinking','Interview','Observation','Survey','Ethics','Sampling','Evidence vs assumption','Persona','Empathy map'],
+      learningOutcomes:['วางแผนวิจัยผู้ใช้เบื้องต้นได้','สร้าง persona/empathy map จากข้อมูลได้','คำนึงถึงจริยธรรมและความเป็นส่วนตัวได้'],
+      casePrompt:'ศึกษาผู้ใช้หลายกลุ่มของระบบจองบริการมหาวิทยาลัยภายใต้เวลาจำกัด',
+      missionRounds:['Choose research method','Repair leading question','Classify evidence','Synthesize insight','Build persona'],
+      reasonChecks:['ทำไมวิธีวิจัยนี้เหมาะกับคำถาม','คำถามใดมีอคติ','ข้อมูลใดห้ามสรุปเกินหลักฐาน'],
+      artifact:'Research Plan + Persona + Empathy Map',
+      artifactChecklist:['Research objective','Participants','Method','Ethics/privacy','Interview questions','Evidence notes','Persona','Empathy map'],
+      dashboardEvidence:['researchMethodFit','questionQuality','ethicsChecked','personaEvidence'],
+      seedCases:[{id:'W2-C01',context:'จองคิวห้องพยาบาล',issue:'ทีมฟังเฉพาะผู้บริหาร'},{id:'W2-C02',context:'ระบบแจ้งซ่อม',issue:'คำถามสัมภาษณ์ชี้นำคำตอบ'}],
+      ...common
     },
     {
-      id: 'W3', type: 'week', order: 3, unlockAfter: 'W2',
-      title: 'Psychology for Interface Design', missionTitle: 'Mind Load Rescue',
-      focus: 'จิตวิทยาผู้ใช้กับการออกแบบหน้าจอ',
-      concepts: ['Cognitive load','Recognition vs recall','Attention','Affordance','Feedback','Mental model','Error prevention','Decision fatigue'],
-      learningOutcomes: [
-        'อธิบายผลของ cognitive load ต่อการใช้หน้าจอได้',
-        'เลือก feedback/error prevention ที่ลดภาระผู้ใช้ได้',
-        'วิเคราะห์ปัญหาจาก mental model และ attention ได้'
-      ],
-      casePrompt: 'ผู้ใช้กรอกฟอร์มสมัครสมาชิกแล้วระบบแจ้ง error หลังจากกดส่ง โดยไม่บอกว่าช่องใดผิด',
-      missionRounds: ['Diagnose load','Find missing feedback','Choose prevention','Reduce recall','Validate repair'],
-      reasonChecks: [
-        'ปัญหานี้เกี่ยวกับ memory, attention หรือ feedback อย่างไร',
-        'การเพิ่มคำอธิบายมาก ๆ อาจทำให้ UX แย่ลงอย่างไร',
-        'วิธีใดช่วยให้ผู้ใช้จำได้น้อยลงแต่ทำได้มากขึ้น'
-      ],
-      artifact: 'Cognitive Load Repair Note',
-      artifactChecklist: ['Confusing point','Type of cognitive load','Psychology concept','Repair decision','Why it helps'],
-      dashboardEvidence: ['psychologyConcept','selectedRepair','reasonCheck','wrongConcepts','retryImprovement'],
-      seedCases: [
-        { id:'W3-C01', context:'ฟอร์มสมัครสมาชิก', issue:'error รวมหลัง submit', concept:'feedback/error prevention' },
-        { id:'W3-C02', context:'เมนูตั้งค่าระบบ', issue:'ชื่อเมนูไม่ตรง mental model', concept:'mental model' },
-        { id:'W3-C03', context:'หน้าชำระเงิน', issue:'มีตัวเลือกมากเกินไป', concept:'decision fatigue' },
-        { id:'W3-C04', context:'ระบบค้นหาวิชา', issue:'ต้องจำรหัสวิชาเอง', concept:'recognition over recall' }
-      ]
+      id:'W3', type:'week', order:3, unlockAfter:'W2',
+      title:'Cognitive UX & Task Flow', missionTitle:'Mind Load Rescue',
+      focus:'ใช้จิตวิทยาการรับรู้เพื่อออกแบบ task flow และ low-fi wireframe',
+      concepts:['Cognitive load','Recognition vs recall','Attention','Mental model','Affordance','Feedback','Error prevention','Task flow','Low-fi wireframe'],
+      learningOutcomes:['วิเคราะห์ cognitive friction ได้','สร้าง task flow ที่ลดภาระผู้ใช้ได้','ออกแบบ low-fi ก่อน–หลังพร้อมเหตุผลได้'],
+      casePrompt:'ผู้ใช้กรอกฟอร์มยาวและพบ error หลัง submit โดยไม่รู้ว่าต้องแก้ตรงไหน',
+      missionRounds:['Diagnose cognitive load','Map task flow','Find memory burden','Choose prevention','Repair wireframe'],
+      reasonChecks:['จุดใดบังคับให้ผู้ใช้จำ','feedback ใดต้องเกิดก่อน submit','wireframe ใหม่ลด cognitive load อย่างไร'],
+      artifact:'Cognitive UX Analysis + Task Flow + Before–After Low-fi Wireframe',
+      artifactChecklist:['Current task flow','Cognitive issue','Psychology principle','Revised flow','Before wireframe','After wireframe','Design rationale'],
+      dashboardEvidence:['cognitiveDiagnosis','flowQuality','beforeAfterReason'],
+      seedCases:[{id:'W3-C01',context:'ฟอร์มสมัครสมาชิก',issue:'error รวมหลัง submit'},{id:'W3-C02',context:'ค้นหารายวิชา',issue:'ต้องจำรหัสวิชาเอง'}],
+      ...common
     },
     {
-      id: 'B1', type: 'boss', order: 4, unlockAfter: 'W3', covers: ['W1','W2','W3'],
-      title: 'Foundation Boss', missionTitle: 'Cognitive Storm',
-      focus: 'UI/UX + HCD + Psychology Defense',
-      bossScenario: 'ระบบบริการนักศึกษามี 3 ปัญหา: หาเมนูไม่เจอ, error ไม่ชัด, ข้อมูลมากจนตัดสินใจไม่ได้ ผู้เรียนต้องวิเคราะห์จาก UI/UX, HCD และ psychology',
-      missionRounds: ['Identify problem','Match evidence','Choose fix','Reason defense','Retry improvement'],
-      passCriteria: { minAccuracy: 70, minReasonPass: 3, reflectionRequired: true },
-      reasonChecks: [
-        'ปัญหานี้มีหลักฐานจากพฤติกรรมผู้ใช้อะไร',
-        'ควรเก็บข้อมูลเพิ่มก่อนออกแบบอะไร',
-        'แนวทางแก้เกี่ยวข้องกับ psychology อย่างไร'
-      ],
-      artifact: 'Foundation UX Defense Sheet',
-      dashboardEvidence: ['bossGatePassed','reasonDefenseScore','evidenceMatchAccuracy','retryImprovement','reflection'],
-      seedCases: [
-        { id:'B1-C01', context:'ระบบบริการนักศึกษา', concepts:['UI','UX','HCD','cognitive load'] },
-        { id:'B1-C02', context:'ระบบขอเอกสารออนไลน์', concepts:['user goal','feedback','error prevention'] },
-        { id:'B1-C03', context:'แอปกิจกรรมมหาวิทยาลัย', concepts:['attention','assumption','test idea'] }
-      ]
+      id:'B1', type:'boss', order:4, unlockAfter:'W3', covers:['W1','W2','W3'],
+      title:'Foundation Evidence Defense', missionTitle:'Cognitive Storm',
+      focus:'ป้องกันแนวคิดโครงการด้วย UX audit, research และ cognitive reasoning',
+      bossScenario:'วิเคราะห์ระบบจริงและป้องกันข้อเสนอ redesign ด้วยหลักฐานผู้ใช้และหลักจิตวิทยา',
+      missionRounds:['Audit defense','Evidence defense','Cognitive diagnosis','Flow repair','Reflection defense'],
+      passCriteria:{minAccuracy:70,minReasonPassPct:70,artifactRequired:true,reflectionRequired:true},
+      reasonChecks:['หลักฐานใดรองรับ problem','research insight เปลี่ยน design decision อย่างไร','แนวทางแก้ลด cognitive friction อย่างไร'],
+      artifact:'Foundation Defense Pack',
+      artifactChecklist:['UX audit','Research evidence','Persona/empathy map','Task flow','Before–after wireframe','Reason defense'],
+      dashboardEvidence:['bossGatePassed','evidenceChain','reasonDefenseScore'],
+      seedCases:[{id:'B1-C01',context:'student service portal',concepts:['UI/UX','research','cognitive load','task flow']}],
+      ...common
     },
     {
-      id: 'W4', type: 'week', order: 5, unlockAfter: 'B1',
-      title: 'User Empathy & Research', missionTitle: 'Empathy Detective',
-      focus: 'เข้าใจผู้ใช้ด้วยข้อมูลจริง',
-      concepts: ['User research','Interview question','Observation','Pain point','Need','Goal','Motivation','Empathy map','Persona lite'],
-      learningOutcomes: ['ออกแบบคำถามสัมภาษณ์เบื้องต้นได้','แยก fact/opinion/pain point/design opportunity ได้','สร้าง persona lite จากหลักฐานได้'],
-      casePrompt: 'ออกแบบระบบจองอุปกรณ์ห้องปฏิบัติการโดยต้องเข้าใจปัญหาของนักศึกษาและเจ้าหน้าที่',
-      missionRounds: ['Choose interview question','Classify evidence','Extract pain point','Build persona lite','Select opportunity'],
-      reasonChecks: ['คำถามใดเป็นคำถามนำ','Insight ใดนำไปสู่การออกแบบได้จริง','Persona ที่ดีต้องมีข้อมูลอะไรที่เกี่ยวข้องกับการใช้งาน'],
-      artifact: 'Interview Note + Persona Lite',
-      artifactChecklist: ['Interview objective','3-5 questions','Observed pain points','Persona goal','Persona constraint'],
-      dashboardEvidence: ['interviewQuestionQuality','painPointDetected','personaCompleteness','reasonCheck'],
-      seedCases: [
-        { id:'W4-C01', context:'จองอุปกรณ์แล็บ', user:'นักศึกษา', data:'ไม่รู้สถานะอนุมัติ' },
-        { id:'W4-C02', context:'แจ้งซ่อมห้องเรียน', user:'เจ้าหน้าที่', data:'รับเรื่องซ้ำหลายช่องทาง' },
-        { id:'W4-C03', context:'สมัครกิจกรรม', user:'นักศึกษาทำงานพิเศษ', data:'พลาด deadline เพราะประกาศกระจัดกระจาย' }
-      ]
+      id:'W4', type:'week', order:5, unlockAfter:'B1',
+      title:'Define, HMW & Inclusive Design', missionTitle:'Problem Framer',
+      focus:'สังเคราะห์ insight เป็นปัญหาที่ออกแบบได้และครอบคลุมผู้ใช้หลากหลาย',
+      concepts:['Affinity mapping','Insight','Root cause','Problem statement','How Might We','Inclusive design','Accessibility needs','Bias'],
+      learningOutcomes:['สังเคราะห์ข้อมูลเป็น insight ได้','เขียน problem statement/HMW ได้','ระบุ excluded users และความเสี่ยงด้านอคติได้'],
+      casePrompt:'ข้อมูลผู้ใช้หลายกลุ่มขัดแย้งกัน ต้องเลือกปัญหาที่ควรแก้และไม่ทิ้งผู้ใช้ชายขอบ',
+      missionRounds:['Cluster evidence','Find root cause','Write problem statement','Select HMW','Check inclusion'],
+      reasonChecks:['problem นี้มาจากหลักฐานใด','ใครอาจถูกกีดกัน','HMW เปิดทางเลือกมากพอหรือไม่'],
+      artifact:'Insight Map + Problem Statement + HMW + Inclusion Check',
+      artifactChecklist:['Evidence clusters','Insight','Root cause','Problem statement','HMW','Excluded-user check','Bias note'],
+      dashboardEvidence:['insightQuality','problemFrameQuality','inclusionChecked'],
+      seedCases:[{id:'W4-C01',context:'ระบบทุนการศึกษา',issue:'ภาษาซับซ้อนและไม่รองรับผู้ใช้บางกลุ่ม'}],
+      ...common
     },
     {
-      id: 'W5', type: 'week', order: 6, unlockAfter: 'W4',
-      title: 'Define Problem & Ideation', missionTitle: 'Problem Alchemist',
-      focus: 'จาก insight สู่แนวคิดออกแบบ',
-      concepts: ['Problem statement','How Might We','Root cause','Ideation','Crazy 8s','Concept selection','Storyboard'],
-      learningOutcomes: ['เขียน problem statement ได้เฉพาะเจาะจง','สร้าง HMW ที่เปิดทางแก้หลายแบบ','เลือก solution ที่แก้ root cause ได้'],
-      casePrompt: 'นักศึกษาไม่ส่งคำร้องออนไลน์เพราะไม่รู้ว่าเอกสารใดจำเป็น ต้องเขียน HMW และเลือกแนวคิดแก้ปัญหา',
-      missionRounds: ['Find root cause','Write problem frame','Select HMW','Choose concept','Storyboard next step'],
-      reasonChecks: ['Problem statement นี้เฉพาะเจาะจงพอหรือไม่','Solution แก้ root cause หรือแค่ปลายเหตุ','HMW ที่ดีเปิดทางให้คิดหลายวิธีอย่างไร'],
-      artifact: 'Problem Statement + HMW + Concept Storyboard',
-      artifactChecklist: ['User group','Need/problem','Root cause','HMW','Concept storyboard'],
-      dashboardEvidence: ['problemStatementQuality','hmwQuality','solutionFit','storyboardSubmitted'],
-      seedCases: [
-        { id:'W5-C01', context:'คำร้องออนไลน์', rootCause:'ไม่รู้เอกสารจำเป็น' },
-        { id:'W5-C02', context:'จองห้องประชุม', rootCause:'ไม่เห็นข้อจำกัดก่อนจอง' },
-        { id:'W5-C03', context:'เว็บทุน', rootCause:'เงื่อนไขกระจัดกระจายและภาษายาก' }
-      ]
+      id:'W5', type:'week', order:6, unlockAfter:'W4',
+      title:'Ideation, AI-assisted Design & Ethics', missionTitle:'Idea Lab',
+      focus:'สร้างและคัดเลือกแนวคิดอย่างมีเหตุผล พร้อมใช้ AI อย่างรับผิดชอบ',
+      concepts:['Ideation','Crazy 8s','Concept selection','Feasibility','Desirability','Viability','AI-assisted ideation','Bias','Privacy','Transparency'],
+      learningOutcomes:['สร้างทางเลือกหลายแบบได้','คัดเลือกแนวคิดด้วยเกณฑ์ได้','บันทึกบทบาท AI และตรวจความเสี่ยงได้'],
+      casePrompt:'ใช้ AI ช่วยเสนอแนวทาง แต่ต้องแยกข้อเสนอของ AI ออกจากการตัดสินใจของทีม',
+      missionRounds:['Generate alternatives','Check AI suggestion','Score concepts','Detect bias/risk','Select concept'],
+      reasonChecks:['AI ช่วยส่วนใด','ข้อเสนอใดต้องไม่เชื่อโดยอัตโนมัติ','เหตุใดแนวคิดที่เลือกจึงเหมาะกับผู้ใช้'],
+      artifact:'Concept Matrix + Storyboard + AI Contribution Record',
+      artifactChecklist:['At least 3 concepts','Selection criteria','Concept matrix','Storyboard','AI tool/prompt summary','AI risk check','Human final decision'],
+      dashboardEvidence:['conceptDiversity','selectionReason','aiContribution','aiRiskChecked','humanDecision'],
+      seedCases:[{id:'W5-C01',context:'AI ideation for student portal',issue:'ข้อเสนอทั่วไปไม่อิง evidence'}],
+      ...common
     },
     {
-      id: 'W6', type: 'week', order: 7, unlockAfter: 'W5',
-      title: 'Information Architecture & User Flow', missionTitle: 'Flow Architect',
-      focus: 'โครงสร้างข้อมูลและเส้นทางผู้ใช้',
-      concepts: ['Information architecture','Content grouping','Navigation','Sitemap','User flow','Happy path','Error path','Alternative path'],
-      learningOutcomes: ['จัดกลุ่มข้อมูลและเมนูได้','สร้าง sitemap ได้','ออกแบบ user flow ที่มี happy path และ error path ได้'],
-      casePrompt: 'ระบบยืมอุปกรณ์ออนไลน์มีเมนูซ้ำ ผู้ใช้ไม่รู้ว่าเริ่มจากจอง ยืม หรือตรวจสอบสถานะ',
-      missionRounds: ['Group content','Select navigation','Build happy path','Add error path','Find bottleneck'],
-      reasonChecks: ['เมนูใดควรรวม/แยก เพราะอะไร','จุดใดใน flow เสี่ยงทำให้ผู้ใช้หลุด','Error path ที่จำเป็นคืออะไร'],
-      artifact: 'Sitemap + Main User Flow + Error Path',
-      artifactChecklist: ['Sitemap','Start point','Decision points','Confirmation','Error/alternative path'],
-      dashboardEvidence: ['sitemapQuality','flowCompleteness','errorPathIncluded','reasonCheck'],
-      seedCases: [
-        { id:'W6-C01', context:'ยืมอุปกรณ์ออนไลน์', issue:'เมนูซ้ำและสถานะไม่ชัด' },
-        { id:'W6-C02', context:'จองคิวคลินิก', issue:'เลือกบริการก่อนรู้เวลาว่างไม่ได้' },
-        { id:'W6-C03', context:'สมัครอบรม', issue:'flow ขาดเมื่อที่นั่งเต็ม' }
-      ]
+      id:'W6', type:'week', order:7, unlockAfter:'W5',
+      title:'Information Architecture & Navigation', missionTitle:'Flow Architect',
+      focus:'จัดโครงสร้างข้อมูลและ navigation ให้ตรง mental model',
+      concepts:['Information architecture','Content inventory','Card sorting','Sitemap','Navigation','Labeling','Search','Findability'],
+      learningOutcomes:['จัดกลุ่มข้อมูลได้','สร้าง sitemap/navigation ได้','ทดสอบ labeling และ findability ได้'],
+      casePrompt:'ระบบมีเมนูซ้ำ ชื่อไม่ตรงภาษาผู้ใช้ และค้นหางานหลักไม่พบ',
+      missionRounds:['Inventory content','Group content','Choose labels','Build sitemap','Test findability'],
+      reasonChecks:['label ใดตรง mental model','เมนูใดควรรวม','จะทดสอบ IA อย่างไร'],
+      artifact:'Content Inventory + Sitemap + Navigation Test',
+      artifactChecklist:['Content list','Grouping rationale','Sitemap','Navigation labels','Search/filter note','Tree-test plan'],
+      dashboardEvidence:['iaQuality','labelingQuality','findabilityPlan'],
+      seedCases:[{id:'W6-C01',context:'ระบบยืมอุปกรณ์',issue:'เมนูจอง/ยืม/สถานะซ้ำซ้อน'}],
+      ...common
     },
     {
-      id: 'W7', type: 'week', order: 8, unlockAfter: 'W6',
-      title: 'Wireframe, Grid & Visual Hierarchy', missionTitle: 'Wireframe Rescue',
-      focus: 'วางหน้าจอให้ผู้ใช้เห็นสิ่งสำคัญก่อน',
-      concepts: ['Low-fi wireframe','Grid system','Layout','Visual hierarchy','Content priority','CTA placement','Scannability','Mobile-first'],
-      learningOutcomes: ['สร้าง low-fi wireframe ได้','จัด priority ของเนื้อหาได้','วาง CTA และ layout ให้สอดคล้องกับ user goal ได้'],
-      casePrompt: 'หน้าแรกระบบบริการนักศึกษามีประกาศ ข่าว เมนูด่วน และสถานะคำร้องปนกัน ต้องจัดลำดับใหม่',
-      missionRounds: ['Rank content priority','Choose layout','Place CTA','Check scannability','Adapt to mobile'],
-      reasonChecks: ['องค์ประกอบใดสำคัญที่สุดสำหรับ user goal','CTA ควรอยู่ตรงไหน เพราะอะไร','ถ้าใช้บนมือถือ layout ต้องเปลี่ยนอย่างไร'],
-      artifact: 'Low-fi Wireframe 5 screens',
-      artifactChecklist: ['5 screens','Grid/spacing','Visual hierarchy','CTA placement','Mobile consideration'],
-      dashboardEvidence: ['hierarchyChoice','ctaPlacement','mobileConsideration','wireframeSubmitted'],
-      seedCases: [
-        { id:'W7-C01', context:'หน้าแรกบริการนักศึกษา', goal:'ตรวจสถานะคำร้องเร็ว' },
-        { id:'W7-C02', context:'หน้าเลือกวิชา', goal:'เปรียบเทียบเวลา/หน่วยกิต' },
-        { id:'W7-C03', context:'หน้าสมัครกิจกรรม', goal:'เห็นเงื่อนไขและปุ่มสมัครทันที' }
-      ]
+      id:'W7', type:'week', order:8, unlockAfter:'W6',
+      title:'User Flow, Wireframe & Responsive Foundations', missionTitle:'Wireframe Rescue',
+      focus:'ออกแบบเส้นทางและหน้าจอแบบ mobile-first ที่รองรับ happy/error/alternative paths',
+      concepts:['User flow','Happy path','Error path','Alternative path','Low-fi wireframe','Grid','Visual hierarchy','Mobile-first','Responsive planning'],
+      learningOutcomes:['สร้าง user flow ครบเส้นทางได้','สร้าง low-fi wireframe ได้','วาง responsive behavior เบื้องต้นได้'],
+      casePrompt:'ออกแบบ flow งานหลักให้ทำได้ทั้งมือถือและ desktop โดยไม่สูญเสียลำดับความสำคัญ',
+      missionRounds:['Build happy path','Add error path','Rank content','Wireframe mobile','Plan desktop adaptation'],
+      reasonChecks:['จุดตัดสินใจใดสำคัญ','mobile-first เปลี่ยนลำดับข้อมูลอย่างไร','error path ช่วย recovery อย่างไร'],
+      artifact:'User Flow + Low-fi Responsive Wireframe',
+      artifactChecklist:['Happy path','Error/alternative path','5 screens','Mobile wireframe','Desktop adaptation note','CTA hierarchy'],
+      dashboardEvidence:['flowCompleteness','wireframeQuality','responsiveChecked'],
+      seedCases:[{id:'W7-C01',context:'สมัครกิจกรรม',issue:'มือถือเห็น CTA ช้าและไม่มี error recovery'}],
+      ...common
     },
     {
-      id: 'B2', type: 'boss', order: 9, unlockAfter: 'W7', covers: ['W4','W5','W6','W7'],
-      title: 'Flow & Wireframe Boss', missionTitle: 'Flow Fortress',
-      focus: 'Research to Structure Defense',
-      bossScenario: 'ผู้เรียนได้รับ brief ระบบจองบริการมหาวิทยาลัย ต้องวิเคราะห์ผู้ใช้ จัดกลุ่มปัญหา วาง user flow และเลือก wireframe ที่เหมาะสม',
-      missionRounds: ['Identify user need','Select problem statement','Build flow','Detect broken flow','Wireframe defense'],
-      passCriteria: { requiredFlow: ['start','decision','confirmation','errorPath'], minReasonPassPct: 70 },
-      reasonChecks: ['Wireframe ตอบ persona ใด','Flow มี error path ครบหรือไม่','ปัญหาที่แก้เชื่อมกับ insight ใด'],
-      artifact: 'Flow/Wireframe Defense Sheet',
-      dashboardEvidence: ['bossGatePassed','flowCompleteness','wireframeDefense','reasonDefenseScore','reflection'],
-      seedCases: [
-        { id:'B2-C01', context:'จองบริการมหาวิทยาลัย', concepts:['persona','problem','flow','wireframe'] },
-        { id:'B2-C02', context:'ระบบยืมคืนอุปกรณ์', concepts:['insight','IA','error path','CTA'] }
-      ]
+      id:'B2', type:'boss', order:9, unlockAfter:'W7', covers:['W4','W5','W6','W7'],
+      title:'Research-to-Wireframe Defense', missionTitle:'Flow Fortress',
+      focus:'ป้องกันสายธาร evidence → problem → idea → IA → flow → wireframe',
+      bossScenario:'นำเสนอและป้องกันโครงสร้างกับ wireframe ที่พัฒนาจากหลักฐานจริง พร้อม inclusion และ AI record',
+      missionRounds:['Evidence chain','Problem defense','IA defense','Flow defense','Responsive wireframe defense'],
+      passCriteria:{minReasonPassPct:70,evidenceChainRequired:true,inclusionRequired:true,responsiveRequired:true},
+      reasonChecks:['wireframe เชื่อม insight ใด','IA สอดคล้อง mental model อย่างไร','AI มีอิทธิพลต่อแนวคิดอย่างไรและตรวจสอบแล้วหรือไม่'],
+      artifact:'Research-to-Wireframe Defense Pack',
+      artifactChecklist:['Insight/problem/HMW','Concept decision','AI record','Sitemap','User flow','Responsive low-fi','Inclusion check'],
+      dashboardEvidence:['bossGatePassed','evidenceChain','iaDefense','flowDefense','responsiveChecked'],
+      seedCases:[{id:'B2-C01',context:'university service system',concepts:['problem','AI ideation','IA','flow','responsive wireframe']}],
+      ...common
     },
     {
-      id: 'W8', type: 'week', order: 10, unlockAfter: 'B2',
-      title: 'Midterm Studio', missionTitle: 'Midterm Studio Checkpoint',
-      focus: 'Design Review & Blueprint',
-      concepts: ['Midterm design review','UX blueprint','Evidence-based critique','Design rationale','Revision plan','Peer feedback'],
-      learningOutcomes: ['รวมงาน W1-W7 เป็น UX Blueprint ได้','รับ feedback และจัดลำดับการแก้ได้','เชื่อม problem/persona/flow/wireframe ได้'],
-      casePrompt: 'ตรวจ blueprint ที่ persona ไม่ตรง flow, problem ไม่ตรง wireframe หรือ wireframe ไม่มี evidence รองรับ',
-      missionRounds: ['Check evidence chain','Find mismatch','Rank critique','Choose revision','Write rationale'],
-      reasonChecks: ['จุดใดในงานยังไม่มีหลักฐานรองรับ','Feedback ใดควรแก้ก่อน เพราะกระทบผู้ใช้มากที่สุด','ถ้าต้องตัดงานบางส่วน ควรรักษาส่วนใดไว้'],
-      artifact: 'Midterm UX Blueprint',
-      artifactChecklist: ['Problem','Persona','User flow','Wireframe','Evidence','Revision plan'],
-      dashboardEvidence: ['blueprintCompleteness','critiqueQuality','revisionPriority','reflection'],
-      seedCases: [
-        { id:'W8-C01', context:'Blueprint mismatch', issue:'Persona บอกใช้มือถือ แต่ wireframe desktop-only' },
-        { id:'W8-C02', context:'Evidence gap', issue:'Flow เพิ่มขั้นตอนโดยไม่มีหลักฐานผู้ใช้' }
-      ]
+      id:'W8', type:'week', order:10, unlockAfter:'B2',
+      title:'Midterm Studio & Design Critique', missionTitle:'Midterm Checkpoint',
+      focus:'รวมงานครึ่งภาค ตรวจความสอดคล้อง และวาง revision backlog',
+      concepts:['Design critique','Evidence chain','Peer review','UX blueprint','Prioritization','Revision backlog','Presentation'],
+      learningOutcomes:['รวมงานเป็น blueprint ได้','วิจารณ์ด้วยหลักฐานได้','จัดลำดับ revision ได้'],
+      casePrompt:'ตรวจความไม่สอดคล้องระหว่าง persona, problem, IA, flow และ wireframe',
+      missionRounds:['Check evidence chain','Find mismatch','Give critique','Prioritize revision','Defend blueprint'],
+      reasonChecks:['ส่วนใดขาดหลักฐาน','feedback ใดควรแก้ก่อน','การแก้ใดกระทบ user goal มากที่สุด'],
+      artifact:'Midterm UX Blueprint + Revision Backlog',
+      artifactChecklist:['Evidence chain','Problem','Persona','IA','Flow','Wireframe','Critique notes','Prioritized backlog'],
+      dashboardEvidence:['blueprintCompleteness','critiqueQuality','revisionPriority'],
+      seedCases:[{id:'W8-C01',context:'midterm blueprint',issue:'persona mobile-first แต่ wireframe desktop-only'}],
+      ...common
     },
     {
-      id: 'W9', type: 'week', order: 11, unlockAfter: 'W8',
-      title: 'Pattern Library & Design System', missionTitle: 'Pattern Keeper',
-      focus: 'สร้างระบบออกแบบให้สม่ำเสมอ',
-      concepts: ['Design system','Pattern library','UI kit','Component','Variant','State','Naming convention','Consistency'],
-      learningOutcomes: ['อธิบาย design system/pattern library ได้','สร้าง component states ได้','วาง naming convention ได้'],
-      casePrompt: 'เว็บไซต์มีปุ่ม 8 แบบ สีไม่สม่ำเสมอ และ CTA ไม่เป็นระบบ ต้องจัด pattern ใหม่',
-      missionRounds: ['Detect inconsistency','Merge pattern','Define states','Name component','Explain consistency'],
-      reasonChecks: ['Component ใดควรรวมเป็น pattern เดียวกัน','State ของปุ่มต้องมีอะไรบ้าง','Consistency ช่วยผู้ใช้อย่างไร ไม่ใช่แค่ช่วยนักออกแบบอย่างไร'],
-      artifact: 'UI Kit Charter',
-      artifactChecklist: ['Button','Input','Card','Navigation','Alert','Default/hover/focus/disabled/error/success states'],
-      dashboardEvidence: ['componentConsistency','stateCompleteness','namingQuality','patternReason'],
-      seedCases: [
-        { id:'W9-C01', context:'ปุ่มหลายแบบ', issue:'primary/secondary ใช้สีปนกัน' },
-        { id:'W9-C02', context:'ฟอร์มหลายหน้า', issue:'error state ไม่สม่ำเสมอ' }
-      ]
+      id:'W9', type:'week', order:11, unlockAfter:'W8',
+      title:'Visual Design, UI Kit & Design Tokens', missionTitle:'Visual System Builder',
+      focus:'สร้างภาษาภาพและ foundations ที่สม่ำเสมอ',
+      concepts:['Color','Typography','Spacing','Grid','Iconography','Design token','UI kit','Visual hierarchy','Contrast'],
+      learningOutcomes:['สร้าง visual system ได้','กำหนด tokens ได้','ตรวจ contrast/readability ได้'],
+      casePrompt:'สร้าง visual language จาก low-fi โดยไม่สูญเสีย usability และ accessibility',
+      missionRounds:['Define visual tone','Create tokens','Build hierarchy','Check contrast','Apply UI kit'],
+      reasonChecks:['token ช่วย consistency อย่างไร','สีใดมีความหมายเชิงสถานะ','visual choice ใดเสี่ยงต่อ accessibility'],
+      artifact:'Visual Style Guide + UI Kit Foundations',
+      artifactChecklist:['Color tokens','Typography scale','Spacing/grid tokens','Icon rule','Contrast evidence','Core UI elements'],
+      dashboardEvidence:['tokenQuality','visualHierarchy','accessibilityChecked'],
+      seedCases:[{id:'W9-C01',context:'student app UI kit',issue:'สีและ spacing ไม่เป็นระบบ'}],
+      ...common
     },
     {
-      id: 'W10', type: 'week', order: 12, unlockAfter: 'W9',
-      title: 'Responsive Design & Accessibility', missionTitle: 'Responsive Guardian',
-      focus: 'ออกแบบให้ใช้ได้หลายอุปกรณ์และเข้าถึงได้',
-      concepts: ['Responsive web design','Breakpoints','Mobile-first','Flexible grid','Touch target','Accessibility','Contrast','Keyboard focus','Alt text','Form accessibility'],
-      learningOutcomes: ['ออกแบบ responsive layout ได้','ระบุ accessibility issue ได้','เลือก breakpoint/touch target/focus state ได้เหมาะสม'],
-      casePrompt: 'ระบบลงทะเบียนดีบน desktop แต่บนมือถือปุ่มเล็ก ตารางล้นจอ และข้อความ error อ่านไม่ชัด',
-      missionRounds: ['Find responsive issue','Find a11y issue','Choose breakpoint','Fix touch target','Check focus/contrast'],
-      reasonChecks: ['ปัญหาใดเป็น responsive issue','ปัญหาใดเป็น accessibility issue','การออกแบบที่เข้าถึงได้ช่วยผู้ใช้ทั่วไปอย่างไร'],
-      artifact: 'Responsive + Accessibility Plan',
-      artifactChecklist: ['Desktop layout','Mobile layout','Breakpoint decision','Contrast check','Keyboard/focus note','Touch target note'],
-      dashboardEvidence: ['responsiveFix','accessibilityDetection','contrastDecision','mobileReason'],
-      seedCases: [
-        { id:'W10-C01', context:'ตารางลงทะเบียน', issue:'ล้นจอบนมือถือ' },
-        { id:'W10-C02', context:'ฟอร์มสมัคร', issue:'focus state ไม่ชัดและ label หาย' }
-      ]
+      id:'W10', type:'week', order:12, unlockAfter:'W9',
+      title:'Responsive & Accessible Interface', missionTitle:'Inclusive Responsive Guardian',
+      focus:'ออกแบบ mobile, tablet และ desktop ตาม WCAG-oriented practice',
+      concepts:['Responsive design','Breakpoints','Flexible layout','Touch target','WCAG','Contrast','Keyboard','Focus','Label','Alt text','Semantic structure'],
+      learningOutcomes:['ออกแบบ responsive behavior ได้','ตรวจ accessibility issue ได้','กำหนด focus/keyboard/form accessibility ได้'],
+      casePrompt:'ซ่อม interface ที่ใช้ได้บน desktop แต่ล้มเหลวบน mobile และ keyboard',
+      missionRounds:['Diagnose responsive issue','Choose breakpoint','Repair touch target','Repair focus/form','Verify accessibility'],
+      reasonChecks:['breakpoint นี้มาจาก content หรือ device','keyboard user ทำ task ได้ครบหรือไม่','accessibility fix ช่วยผู้ใช้ทั่วไปอย่างไร'],
+      artifact:'Responsive Screens + Accessibility Audit',
+      artifactChecklist:['Mobile/tablet/desktop','Breakpoint rationale','Touch targets','Contrast','Keyboard/focus','Labels/alt text','Accessibility findings'],
+      dashboardEvidence:['responsiveChecked','accessibilityChecked','breakpointReason','keyboardPath'],
+      seedCases:[{id:'W10-C01',context:'registration table',issue:'ล้นจอ ปุ่มเล็ก และ focus ไม่ชัด'}],
+      ...common
     },
     {
-      id: 'W11', type: 'week', order: 13, unlockAfter: 'W10',
-      title: 'Color, Typography & Visual Accessibility', missionTitle: 'Visual Signal Control',
-      focus: 'ภาษาภาพของอินเทอร์เฟซ',
-      concepts: ['Color system','Typography','Readability','Contrast','Visual tone','Brand personality','Spacing scale','Visual accessibility'],
-      learningOutcomes: ['เลือกสีและ type hierarchy ตามความหมายได้','ตรวจ readability/contrast ได้','สร้าง visual style guide ได้'],
-      casePrompt: 'แอปสุขภาพใช้สีแดงจำนวนมากจนผู้ใช้คิดว่าเป็น error ทุกจุด และใช้ font เล็กเกินไป',
-      missionRounds: ['Map color meaning','Choose type hierarchy','Check contrast','Adjust spacing','Defend visual decision'],
-      reasonChecks: ['สีใดควรใช้กับ action/warning/success/error','Typography hierarchy ช่วยการอ่านอย่างไร','Visual style ที่สวยแต่ contrast ต่ำควรผ่านหรือไม่ เพราะอะไร'],
-      artifact: 'Visual Style Guide',
-      artifactChecklist: ['Color tokens','Typography scale','Spacing scale','Status color','Accessibility note'],
-      dashboardEvidence: ['colorMeaningAccuracy','typographyHierarchy','accessibilityReason','styleGuideSubmitted'],
-      seedCases: [
-        { id:'W11-C01', context:'แอปสุขภาพ', issue:'สีแดงถูกใช้ทั้ง error และ CTA' },
-        { id:'W11-C02', context:'เว็บสมัครเรียน', issue:'หัวข้อ/เนื้อหา/คำเตือนไม่มีลำดับสายตา' }
-      ]
+      id:'W11', type:'week', order:13, unlockAfter:'W10',
+      title:'Design System, Components & Front-end Thinking', missionTitle:'System Architect',
+      focus:'สร้าง component library ที่เชื่อม Figma กับการพัฒนา front-end',
+      concepts:['Design system','Component','Variant','State','Token','Naming','Reusable pattern','HTML semantics','CSS layout thinking','Component specification'],
+      learningOutcomes:['สร้าง reusable components ได้','กำหนด naming/variants/states ได้','อธิบาย mapping จาก design สู่ front-end ได้'],
+      casePrompt:'รวม UI ที่ซ้ำและไม่สม่ำเสมอให้เป็น component system พร้อม specification',
+      missionRounds:['Detect duplication','Define component','Create variants','Map token/state','Write implementation note'],
+      reasonChecks:['อะไรควรเป็น component','state ใดห้ามขาด','developer ต้องรู้อะไรจาก design spec'],
+      artifact:'Design System + Component Specification',
+      artifactChecklist:['Tokens','Buttons/inputs/cards/navigation','Variants','States','Naming','Responsive behavior','Semantic/front-end notes'],
+      dashboardEvidence:['componentConsistency','stateCompleteness','frontEndMapping','handoffReady'],
+      seedCases:[{id:'W11-C01',context:'multi-page portal',issue:'ปุ่ม 8 แบบและ error state ไม่ตรงกัน'}],
+      ...common
     },
     {
-      id: 'B3', type: 'boss', order: 14, unlockAfter: 'W11', covers: ['W9','W10','W11'],
-      title: 'Interface System Boss', missionTitle: 'Design System Siege',
-      focus: 'Pattern, Responsive & Accessibility Defense',
-      bossScenario: 'UI ชุดหนึ่งมี component ไม่สม่ำเสมอ responsive พัง และ accessibility ต่ำ ต้องซ่อมระบบด้วยเหตุผล',
-      missionRounds: ['Detect inconsistency','Fix component state','Responsive repair','Accessibility check','System defense'],
-      passCriteria: { consistencyRequired: true, responsiveDecisionRequired: true, accessibilityIssueRequired: true, minReasonPassPct: 70 },
-      reasonChecks: ['ระบบ component ลดภาระผู้ใช้อย่างไร','Responsive decision ใดจำเป็นที่สุด','Accessibility issue ใดกระทบงานหลักที่สุด'],
-      artifact: 'Interface System Defense Sheet',
-      dashboardEvidence: ['bossGatePassed','componentConsistency','responsiveDecision','a11yDetection','reasonDefenseScore'],
-      seedCases: [
-        { id:'B3-C01', context:'ระบบบริการนักศึกษา multi-page', concepts:['component','responsive','contrast','typography'] },
-        { id:'B3-C02', context:'portal สมัครกิจกรรม', concepts:['design system','touch target','visual hierarchy'] }
-      ]
+      id:'B3', type:'boss', order:14, unlockAfter:'W11', covers:['W9','W10','W11'],
+      title:'Interface System Defense', missionTitle:'Design System Siege',
+      focus:'ป้องกัน visual, responsive, accessibility และ component system',
+      bossScenario:'ตรวจและซ่อม interface system ที่ไม่สม่ำเสมอ ไม่ responsive และไม่ accessible พร้อมส่งต่อ front-end',
+      missionRounds:['Visual audit','Responsive repair','Accessibility repair','Component defense','Front-end handoff defense'],
+      passCriteria:{minReasonPassPct:70,responsiveRequired:true,accessibilityRequired:true,handoffRequired:true},
+      reasonChecks:['system นี้ลด cognitive burden อย่างไร','accessibility issue ใดกระทบ task หลัก','spec ใดช่วยลดความคลาดเคลื่อนตอนพัฒนา'],
+      artifact:'Interface System Defense Pack',
+      artifactChecklist:['Visual system','Responsive evidence','Accessibility audit','Component library','Front-end mapping','Defense rationale'],
+      dashboardEvidence:['bossGatePassed','systemConsistency','responsiveChecked','accessibilityChecked','handoffReady'],
+      seedCases:[{id:'B3-C01',context:'responsive service portal',concepts:['tokens','a11y','components','front-end handoff']}],
+      ...common
     },
     {
-      id: 'W12', type: 'week', order: 15, unlockAfter: 'B3',
-      title: 'Interaction Design & Component States', missionTitle: 'Interaction Signal',
-      focus: 'อินเทอร์แอกชันที่ทำให้ผู้ใช้มั่นใจ',
-      concepts: ['Interaction design','Component states','Feedback','Loading','Empty state','Error state','Success state','Confirmation','Microcopy'],
-      learningOutcomes: ['ออกแบบ state ของ component ได้','เลือก feedback ที่ลดความกังวลผู้ใช้ได้','เขียน microcopy สำหรับ error/success ได้'],
-      casePrompt: 'ผู้ใช้กดส่งคำร้องแล้วไม่รู้ว่าระบบกำลังโหลด สำเร็จ หรือผิดพลาด จึงกดซ้ำหลายรอบ',
-      missionRounds: ['Choose loading state','Prevent double submit','Write microcopy','Choose confirmation','Design recovery'],
-      reasonChecks: ['State ใดจำเป็นก่อน/หลังการกดปุ่ม','Microcopy ใดลดความกังวลของผู้ใช้','Confirmation จำเป็นเมื่อใด และเมื่อใดไม่ควรใช้'],
-      artifact: 'Component State Spec',
-      artifactChecklist: ['Button state','Form state','Loading state','Error message','Empty state','Success feedback'],
-      dashboardEvidence: ['stateSelection','feedbackQuality','microcopyReason','errorPreventionChoice'],
-      seedCases: [
-        { id:'W12-C01', context:'ส่งคำร้อง', issue:'กดซ้ำเพราะไม่มี loading/disabled state' },
-        { id:'W12-C02', context:'ค้นหาข้อมูลว่าง', issue:'empty state ไม่บอกทางไปต่อ' }
-      ]
+      id:'W12', type:'week', order:15, unlockAfter:'B3',
+      title:'Interaction Design, Micro-interactions & Content', missionTitle:'Interaction Signal',
+      focus:'ออกแบบ behavior, states, feedback และ microcopy ตลอด interaction',
+      concepts:['Interaction design','Micro-interaction','Trigger','Rule','Feedback','Loop','Loading','Empty','Error','Success','Confirmation','Microcopy'],
+      learningOutcomes:['ออกแบบ interaction states ได้','ใช้ microcopy ลดความกังวลได้','ออกแบบ recovery และ prevention ได้'],
+      casePrompt:'ผู้ใช้กดส่งซ้ำเพราะไม่มี loading, disabled, confirmation หรือ recovery state',
+      missionRounds:['Map trigger/rule','Design feedback','Prevent duplicate action','Write microcopy','Design recovery'],
+      reasonChecks:['feedback ต้องเกิดเมื่อใด','animation ใดมีประโยชน์หรือรบกวน','error message ช่วย recovery อย่างไร'],
+      artifact:'Interaction Specification + State Matrix',
+      artifactChecklist:['Trigger/rule/feedback','Loading/empty/error/success','Keyboard/focus behavior','Microcopy','Motion note','Recovery path'],
+      dashboardEvidence:['interactionQuality','stateCompleteness','microcopyReason','accessibilityChecked'],
+      seedCases:[{id:'W12-C01',context:'submit request',issue:'ไม่มี loading และกดซ้ำได้'}],
+      ...common
     },
     {
-      id: 'W13', type: 'week', order: 16, unlockAfter: 'W12',
-      title: 'High-fidelity Prototype', missionTitle: 'Prototype Builder',
-      focus: 'สร้างต้นแบบที่ทดสอบได้จริง',
-      concepts: ['High-fidelity design','Prototype flow','Interactive link','Figma prototype','Scenario-based prototype','Prototype limitation','Design rationale'],
-      learningOutcomes: ['สร้าง prototype ที่ทดสอบ task ได้จริง','ตรวจ flow/link/state ใน prototype ได้','อธิบาย design rationale ได้'],
-      casePrompt: 'แปลง wireframe และ UI kit เป็น prototype ที่ผู้ใช้ทดลองงานหลักได้อย่างน้อย 1 flow',
-      missionRounds: ['Check testable task','Find missing link','Check modal/overlay','Validate error path','Defend rationale'],
-      reasonChecks: ['Prototype นี้ทดสอบ task ใดได้จริง','จุดใดยังเป็น mockup ไม่ใช่ prototype','ถ้าผู้ใช้หลงทางใน prototype แปลว่าปัญหาอยู่ที่อะไร'],
-      artifact: 'Clickable Hi-fi Prototype',
-      artifactChecklist: ['5-8 screens','1 main flow','1 error/alternative path','Important component states','Design rationale'],
-      dashboardEvidence: ['prototypeCompleteness','flowTestable','interactionIssueDetected','rationaleSubmitted'],
-      seedCases: [
-        { id:'W13-C01', context:'Prototype จองบริการ', issue:'ปุ่ม confirm ไม่มี destination' },
-        { id:'W13-C02', context:'Prototype form', issue:'error path ไม่สามารถกลับไปแก้ได้' }
-      ]
+      id:'W13', type:'week', order:16, unlockAfter:'W12',
+      title:'High-fidelity Prototype & Developer Handoff', missionTitle:'Prototype Builder',
+      focus:'สร้าง prototype ที่ทดสอบได้และเตรียมส่งต่อพัฒนา',
+      concepts:['High-fidelity prototype','Interactive flow','Figma prototype','Variables/variants','Prototype limitation','Design specification','Asset export','Developer handoff'],
+      learningOutcomes:['สร้าง prototype ครบ task ได้','ตรวจ states/links/error paths ได้','จัดทำ handoff package ได้'],
+      casePrompt:'แปลงระบบออกแบบเป็น prototype ที่ใช้งานทดสอบได้พร้อม specification',
+      missionRounds:['Build testable task','Repair missing link','Verify states','Document behavior','Prepare handoff'],
+      reasonChecks:['prototype ทดสอบอะไรได้จริง','ส่วนใดเป็นเพียงภาพจำลอง','developer ต้องใช้ข้อมูลใด'],
+      artifact:'Clickable Hi-fi Prototype + Handoff Package',
+      artifactChecklist:['Main task','Error/alternative path','States','Responsive prototype','Component references','Measurements/tokens','Assets','Developer notes'],
+      dashboardEvidence:['prototypeCompleteness','flowTestable','handoffReady','frontEndMapping'],
+      seedCases:[{id:'W13-C01',context:'booking prototype',issue:'confirm link และ error recovery ขาด'}],
+      ...common
     },
     {
-      id: 'W14', type: 'week', order: 17, unlockAfter: 'W13',
-      title: 'Evaluation & Iteration', missionTitle: 'Evidence Lab',
-      focus: 'ทดสอบ ใช้หลักฐาน และปรับปรุง',
-      concepts: ['Heuristic evaluation','Cognitive walkthrough','Usability test','Task success','Error','Time on task','Severity','Evidence-based iteration','Test-modify-retest'],
-      learningOutcomes: ['วาง usability test แบบย่อได้','จัดระดับ severity จากหลักฐานได้','เลือก fix และ retest idea ได้'],
-      casePrompt: 'ผู้ใช้ทดลอง prototype แล้วทำ task ไม่สำเร็จ 2 จุด ต้องจัดลำดับความรุนแรงและเลือกแก้ก่อน',
-      missionRounds: ['Read test evidence','Classify finding','Rank severity','Choose evidence-based fix','Plan retest'],
-      reasonChecks: ['ปัญหาใดมี severity สูงสุด เพราะอะไร','หลักฐานใดมาจากผู้ใช้ ไม่ใช่ความเห็นของทีม','การแก้ไขใดควรทดสอบซ้ำ'],
-      artifact: 'Usability Iteration Log',
-      artifactChecklist: ['Test task','Participant note','Finding','Severity','Fix','Before/after','Retest idea'],
-      dashboardEvidence: ['evaluationMethod','severityDecision','evidenceBasedFix','iterationLogSubmitted'],
-      seedCases: [
-        { id:'W14-C01', context:'Usability test 5 คน', issue:'3 คนหา submit ไม่เจอ' },
-        { id:'W14-C02', context:'Walkthrough', issue:'ผู้ใช้เข้าใจคำว่า verify ผิด' }
-      ]
+      id:'W14', type:'week', order:17, unlockAfter:'W13',
+      title:'Heuristic Evaluation, Usability Testing & Iteration', missionTitle:'Evidence Lab',
+      focus:'ประเมินด้วยหลายวิธี วัดผล และปรับปรุงจากหลักฐาน',
+      concepts:['Heuristic evaluation','Cognitive walkthrough','Usability testing','Task success','Time on task','Error rate','SUS','Severity','Think-aloud','Iteration','Retest'],
+      learningOutcomes:['เลือกวิธีประเมินได้','เก็บและตีความ usability metrics ได้','จัดลำดับ fix และ retest ได้'],
+      casePrompt:'เปรียบเทียบ heuristic findings กับผลทดสอบผู้ใช้และเลือกสิ่งที่ต้องแก้ก่อน',
+      missionRounds:['Choose method','Read evidence','Calculate/interpret metrics','Rank severity','Plan iteration/retest'],
+      reasonChecks:['method ใดตอบคำถามนี้','finding ใดเป็น evidence จากผู้ใช้','ผลดีขึ้นวัดจากอะไร'],
+      artifact:'Evaluation Report + Iteration Log',
+      artifactChecklist:['Method','Participants/tasks','Metrics','Findings','Severity','Before/after','Fix rationale','Retest plan','Limitations'],
+      dashboardEvidence:['evaluationMethod','metricInterpretation','severityDecision','evidenceBasedFix'],
+      seedCases:[{id:'W14-C01',context:'usability test',issue:'3/5 คนหา submit ไม่พบและ task time สูง'}],
+      ...common
     },
     {
-      id: 'B4', type: 'boss', order: 18, unlockAfter: 'W14', covers: ['W12','W13','W14'],
-      title: 'Validation Boss', missionTitle: 'Prototype Validation Defense',
-      focus: 'Prototype & Evaluation Defense',
-      bossScenario: 'Prototype มีผลทดสอบจากผู้ใช้ 5 คน พบปัญหาหลายระดับ ผู้เรียนต้องจัดลำดับ แก้ไข และอธิบายเหตุผลจากหลักฐาน',
-      missionRounds: ['Read test evidence','Rank severity','Choose fix','Defend iteration','Final reflection'],
-      passCriteria: { severityRequired: true, evidenceFixRequired: true, beforeAfterRequired: true, minReasonPassPct: 70 },
-      reasonChecks: ['Fix ที่เลือกสัมพันธ์กับ evidence ใด','Before/after ดีขึ้นเพราะอะไร','ควร retest จุดใดก่อนส่ง final'],
-      artifact: 'Prototype Validation Defense Sheet',
-      dashboardEvidence: ['bossGatePassed','severityDecision','evidenceBasedFix','beforeAfterReason','reflection'],
-      seedCases: [
-        { id:'B4-C01', context:'Prototype service portal', concepts:['state','prototype','usability test','iteration'] },
-        { id:'B4-C02', context:'Student request app', concepts:['microcopy','flow','severity','retest'] }
-      ]
+      id:'B4', type:'boss', order:18, unlockAfter:'W14', covers:['W12','W13','W14'],
+      title:'Prototype Validation & Handoff Defense', missionTitle:'Validation Defense',
+      focus:'ป้องกัน interaction, prototype, evaluation, iteration และ handoff',
+      bossScenario:'ใช้หลักฐานทดสอบตัดสินใจแก้ prototype และยืนยันความพร้อมก่อนส่งมอบ',
+      missionRounds:['Interaction defense','Prototype audit','Evidence defense','Iteration defense','Handoff readiness'],
+      passCriteria:{minReasonPassPct:70,evidenceFixRequired:true,beforeAfterRequired:true,handoffRequired:true},
+      reasonChecks:['fix เชื่อม evidence ใด','before/after ดีขึ้นจาก metric ใด','สิ่งใดยังเป็นข้อจำกัดก่อนพัฒนา'],
+      artifact:'Prototype Validation & Handoff Defense Pack',
+      artifactChecklist:['Interaction spec','Prototype','Evaluation evidence','Metrics','Before/after','Retest','Handoff checklist','Limitations'],
+      dashboardEvidence:['bossGatePassed','evidenceBasedFix','beforeAfterReason','handoffReady'],
+      seedCases:[{id:'B4-C01',context:'validated service prototype',concepts:['interaction','prototype','metrics','iteration','handoff']}],
+      ...common
     },
     {
-      id: 'W15', type: 'week', order: 19, unlockAfter: 'B4',
-      title: 'Final Studio & UX/UI Portfolio', missionTitle: 'Portfolio Finalizer',
-      focus: 'สรุปงานเป็นกรณีศึกษา',
-      concepts: ['UX case study','Portfolio structure','Storytelling','Evidence-decision-design-test','Final presentation','Reflection','Professional critique'],
-      learningOutcomes: ['จัดทำ UX/UI case study ได้ครบกระบวนการ','นำเสนอ evidence-decision-design-test ได้','สะท้อนการเรียนรู้และการปรับปรุงงานได้'],
-      casePrompt: 'ตรวจ portfolio ที่มีแต่ภาพสวยแต่ขาด narrative, evidence, testing result และ design decision',
-      missionRounds: ['Check case narrative','Find evidence gap','Order portfolio story','Select testing proof','Prepare presentation defense'],
-      reasonChecks: ['Case study ที่ดีต้องเริ่มจากอะไร','ภาพ prototype อย่างเดียวพอหรือไม่','หลักฐานใดควรนำมาใช้ใน final presentation'],
-      artifact: 'Final UX/UI Case Study Portfolio',
-      artifactChecklist: ['Project title','Problem background','Target user','Research evidence','Persona/Journey/Flow','Wireframe','UI system','Prototype','Usability findings','Iteration','Final reflection'],
-      dashboardEvidence: ['portfolioCompleteness','evidenceCoverage','presentationReadiness','finalReflection'],
-      seedCases: [
-        { id:'W15-C01', context:'Portfolio review', issue:'มี final UI แต่ไม่มี problem/evidence' },
-        { id:'W15-C02', context:'Presentation rehearsal', issue:'อธิบาย decision ไม่เชื่อม usability finding' }
-      ]
+      id:'W15', type:'week', order:19, unlockAfter:'B4',
+      title:'Final UX/UI Case Study & Professional Portfolio', missionTitle:'Portfolio Finalizer',
+      focus:'สื่อสารกระบวนการ ผลลัพธ์ จริยธรรม และการเตรียมพัฒนาจริง',
+      concepts:['UX case study','Portfolio storytelling','Evidence-decision-design-test','Outcome','Limitations','AI contribution record','Professional presentation','Front-end readiness'],
+      learningOutcomes:['จัดทำ case study ครบกระบวนการได้','นำเสนอผลลัพธ์และข้อจำกัดได้','อธิบาย AI contribution และ human accountability ได้'],
+      casePrompt:'ปรับ portfolio ที่มีเพียงภาพสวยให้เป็นกรณีศึกษาที่พิสูจน์กระบวนการและผลลัพธ์',
+      missionRounds:['Build narrative','Check evidence','Show iteration','Disclose AI contribution','Defend professional readiness'],
+      reasonChecks:['case study ต้องพิสูจน์อะไร','ผลลัพธ์ใดวัดได้','AI ช่วยอะไรและมนุษย์ตรวจสอบอะไร'],
+      artifact:'Final UX/UI Case Study Portfolio + Presentation',
+      artifactChecklist:['Problem/context','Target users','Research evidence','Problem/HMW','IA/flow','Wireframe','Visual/design system','Responsive/accessibility','Interaction/prototype','Evaluation metrics','Iteration','Handoff','AI contribution record','Limitations','Final reflection'],
+      dashboardEvidence:['portfolioCompleteness','evidenceCoverage','aiContribution','humanDecision','presentationReadiness'],
+      seedCases:[{id:'W15-C01',context:'portfolio review',issue:'มี final UI แต่ขาด evidence, metrics และ AI disclosure'}],
+      ...common
     }
   ];
 
   const progression = nodes.map((node) => ({
-    id: node.id,
-    type: node.type,
-    order: node.order,
-    unlockAfter: node.unlockAfter,
-    title: node.title,
-    missionTitle: node.missionTitle,
-    focus: node.focus,
-    artifact: node.artifact
+    id:node.id, type:node.type, order:node.order, unlockAfter:node.unlockAfter,
+    title:node.title, missionTitle:node.missionTitle, focus:node.focus, artifact:node.artifact
   }));
 
   function byId(id) {
@@ -427,12 +372,13 @@
   }
 
   window.CSAI2601_UXQ_CANONICAL_CONTENT_V1 = {
-    courseId: COURSE_ID,
-    version: VERSION,
-    scope: 'W1-W15 + B1-B4; no B5',
-    dashboardFields: DASHBOARD_FIELDS,
-    antiGuessingRules: ANTI_GUESSING_RULES,
-    rubric: RUBRIC,
+    courseId:COURSE_ID,
+    version:VERSION,
+    scope:'W1-W15 + B1-B4; no B5',
+    courseAlignment:COURSE_ALIGNMENT,
+    dashboardFields:DASHBOARD_FIELDS,
+    antiGuessingRules:ANTI_GUESSING_RULES,
+    rubric:RUBRIC,
     nodes,
     progression,
     byId,
@@ -442,6 +388,6 @@
   };
 
   window.dispatchEvent(new CustomEvent('csai2601:uxq-content-ready', {
-    detail: { courseId: COURSE_ID, version: VERSION, nodeCount: nodes.length }
+    detail:{courseId:COURSE_ID,version:VERSION,nodeCount:nodes.length}
   }));
 })();
