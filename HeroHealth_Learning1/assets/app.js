@@ -4,6 +4,13 @@
   const ROSTER = Array.isArray(window.HH_ROSTER) ? window.HH_ROSTER : [];
   const KEY = 'herohealth_learning_platform_rc2';
   const BUS_KEY = 'herohealth_classroom_control_rc2';
+  const ACTIVE_STUDENT_KEY = 'herohealth_active_student_id';
+  const VOLATILE_RESULT_KEYS = [
+    'HHA_HANDWASH_LAST_RESULT','HHA_TOOTHBRUSH_LAST_RESULT','toothbrush_pending_result',
+    'HHA_GROUPS_AR_LAST_RESULT','groups_ar_last_result','HHA_GOODJUNK_AR_LAST_RESULT',
+    'GOODJUNK_AR_LAST_RESULT','goodjunk_pending_result','HHA_JUMPDUCK_LAST_RESULT',
+    'HHA_BALANCE_HOLD_LAST_RESULT','HHA_TOOTHBRUSH_CLASSROOM_CHALLENGE_LAST'
+  ];
   const defaultCompleted = {pretest:false,hygiene:false,nutrition:false,fitness:false,posttest:false,reflection:false};
   const defaultState = {
     profile:null, pendingProfile:null, view:'student', completed:{...defaultCompleted}, scores:{},
@@ -46,6 +53,23 @@
   function validateProfile(s){return s&&s.studentId&&s.fullName&&s.section&&C.rotation&&C.rotation[s.group];}
   function activeGameCount(){return (C.zones||[]).reduce((sum,z)=>sum+requiredGameIds(z.id).length,0);}
   function allGameCount(){return (C.zones||[]).reduce((sum,z)=>sum+(z.games||[]).length,0);}
+  function clearVolatileGameResults(){
+    VOLATILE_RESULT_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});
+    try{document.getElementById('hh-handwash-recovery-r31')?.remove()}catch(_){}
+    try{delete window.__HH_HANDWASH_RECOVERY_ERROR__;delete window.__HANDWASH_LAST_RESULT__;delete window.__TOOTHBRUSH_LAST_RESULT__;delete window.__GROUPS_LAST_RESULT__;delete window.__GOODJUNK_LAST_RESULT__}catch(_){}
+  }
+  function prepareRequestedStudent(){
+    const requested=normalizeId(getQueryId());
+    if(!requested)return;
+    const active=normalizeId(state?.profile?.studentId||localStorage.getItem(ACTIVE_STUDENT_KEY));
+    if(!active||active===requested)return;
+    clearVolatileGameResults();
+    state=clone(defaultState);
+    const student=findStudent(requested);
+    if(student&&validateProfile(student))state.pendingProfile=clone(student);
+    localStorage.setItem(KEY,JSON.stringify(state));
+    localStorage.removeItem(ACTIVE_STUDENT_KEY);
+  }
 
   function topbar(){return `<header class="topbar"><div class="brand"><div class="logo">❤</div><div>${esc(C.appName||'HeroHealth')}<div class="small muted">${esc(C.platformVersion||'')}</div></div></div><nav class="nav"><button class="${state.view==='student'?'active':''}" onclick="HH.go('student')">นักเรียน</button><button class="${state.view==='classroom'?'active':''}" onclick="HH.go('classroom')">จอห้องเรียน</button><button class="${state.view==='teacher'?'active':''}" onclick="HH.go('teacher')">ครู</button></nav><button class="btn btn-soft" onclick="HH.go('${state.view==='teacher'?'student':'teacher'}')">${state.view==='teacher'?'โหมดนักเรียน':'Teacher'}</button></header>`;}
   function lockedBanner(){return isLocked()?`<div class="card" style="border-left:6px solid #f59e0b;margin-bottom:16px"><span class="badge warn">SYSTEM QA LOCK</span><h3 style="margin:10px 0 4px">ยังไม่เปิดให้นักเรียนใช้งานจริง</h3><p class="muted" style="margin:0">กำลังตรวจ URL เกมทั้ง ${allGameCount()} เกม ระบบรับผล และรายชื่อนักเรียน</p></div>`:'';}
@@ -66,13 +90,15 @@
     if(event.origin!==location.origin)return;
     const m=event.data||{};if(m.type!=='HEROHEALTH_GAME_COMPLETE'||!m.payload)return;
     const p=m.payload;if(!state.profile||normalizeId(p.studentId)!==normalizeId(state.profile.studentId))return;
-    if(!p.eventId||state.processedEventIds.includes(p.eventId)||p.passed!==true)return;
+    const eligible=p.completed===true&&(p.progressionEligible===true||p.passed===true);
+    if(!p.eventId||state.processedEventIds.includes(p.eventId)||!eligible)return;
     const zid=nextZone();const expected=nextGame(zid);
     if(!zid||p.zone!==zid||!expected||p.gameId!==expected.id)return;
     state.processedEventIds.push(p.eventId);state.processedEventIds=state.processedEventIds.slice(-200);
     state.gameCompleted[zid][p.gameId]=true;state.gameScores[`${zid}:${p.gameId}`]=Number(p.score)||0;
     syncZoneCompletion(zid);persist();toast(state.completed[zid]?`ผ่าน ${zone(zid)?.thai} ครบแล้ว`:`บันทึก ${expected.thai} แล้ว`);
   }
+  prepareRequestedStudent();
   addEventListener('message',receiveGameResult);
   addEventListener('storage',e=>{if(e.key===BUS_KEY&&e.newValue){const x=JSON.parse(e.newValue);state.stationRound=x.stationRound;state.classRunning=x.classRunning;state.secondsLeft=x.secondsLeft;persist();}});
 
@@ -80,8 +106,13 @@
     go(v){state.view=v;persist();},
     lookup(form){const id=normalizeId(new FormData(form).get('studentId'));const s=findStudent(id);if(!s){toast('ไม่พบรหัสนักเรียน กรุณาติดต่อครูประจำฐาน');return;}if(!validateProfile(s)){toast('ข้อมูลนักเรียนไม่สมบูรณ์ กรุณาติดต่อครู');return;}state.pendingProfile=clone(s);persist();},
     cancelLogin(){state.pendingProfile=null;persist();},
-    confirmLogin(){if(isLocked()){toast('ระบบยังไม่เปิดให้นักเรียนใช้งาน');return;}state.profile=clone(state.pendingProfile);state.group=state.profile.group;state.pendingProfile=null;persist();},
-    logout(){if(confirm('ออกจาก Hero Passport ของผู้เล่นนี้?')){state=clone(defaultState);persist();}},
+    confirmLogin(){
+      if(isLocked()){toast('ระบบยังไม่เปิดให้นักเรียนใช้งาน');return;}
+      const next=clone(state.pendingProfile),previous=normalizeId(state?.profile?.studentId||localStorage.getItem(ACTIVE_STUDENT_KEY));
+      if(previous!==normalizeId(next.studentId))clearVolatileGameResults();
+      state.profile=next;state.group=state.profile.group;state.pendingProfile=null;localStorage.setItem(ACTIVE_STUDENT_KEY,state.profile.studentId);persist();
+    },
+    logout(){if(confirm('ออกจาก Hero Passport ของผู้เล่นนี้?')){clearVolatileGameResults();localStorage.removeItem(ACTIVE_STUDENT_KEY);state=clone(defaultState);persist();}},
     openNextGame(zoneId){
       if(isLocked()){toast('ระบบยังล็อกสำหรับ QA');return;}
       if(zoneId!==nextZone()){toast('ยังไม่ถึงฐานนี้');return;}
