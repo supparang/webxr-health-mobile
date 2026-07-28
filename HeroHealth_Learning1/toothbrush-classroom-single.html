@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#dff7ff">
+  <title>HeroHealth • Toothbrush Classroom</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#dff7ff;color:#0f172a;font-family:system-ui,sans-serif}
+    .loading{width:min(360px,88vw);padding:22px;border-radius:24px;background:#fff;text-align:center;box-shadow:0 20px 60px #0f172a24}
+    .loading b{display:block;font-size:21px}.loading small{display:block;margin-top:8px;color:#64748b;line-height:1.45}
+  </style>
+</head>
+<body>
+  <div class="loading"><b>กำลังเตรียม Toothbrush AR</b><small>โหมดห้องเรียนหนึ่งโหมด • สอนทีละโซน • Mobile First</small></div>
+  <script>
+  (()=>{
+    'use strict';
+    const RELEASE='20260728-TOOTHBRUSH-CLASSROOM-SINGLE-V11';
+    const q=new URLSearchParams(location.search);
+    const playerName=String(q.get('fullName')||q.get('studentName')||q.get('name')||'นักเรียน').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const classLevel=String(q.get('section')||'ป.5').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const sourceUrl=new URL('../herohealth/hygiene-zone/toothbrush-ar.html',location.href);
+    sourceUrl.searchParams.set('classroomSource',RELEASE);
+
+    function replaceRequired(html,pattern,replacement,label){
+      const next=html.replace(pattern,replacement);
+      if(next===html)throw new Error('patch_not_applied:'+label);
+      return next;
+    }
+
+    fetch(sourceUrl,{cache:'no-store'})
+      .then(response=>{if(!response.ok)throw new Error('โหลดเกมไม่สำเร็จ '+response.status);return response.text()})
+      .then(source=>{
+        let html=source;
+        html=replaceRequired(html,'<head>',`<head><base href="../herohealth/hygiene-zone/">
+<style id="hh-toothbrush-classroom-single-css">
+  html,body{overscroll-behavior:none!important}
+  .actions{right:calc(6px + var(--safe-right))!important;top:calc(6px + var(--safe-top))!important;display:flex!important;grid-template-columns:none!important;width:auto!important}
+  .actions #faceBtn,.actions #handBtn,.actions #muteBtn{display:none!important}
+  .actions #pauseBtn{display:block!important;width:38px!important;height:38px!important;min-height:38px!important;padding:0!important;border-radius:13px!important}
+  .hud{top:calc(6px + var(--safe-top))!important;left:calc(6px + var(--safe-left))!important;right:calc(50px + var(--safe-right))!important;gap:4px!important;flex-wrap:nowrap!important}
+  .hud .pill{min-height:30px!important;padding:5px 8px!important;font-size:11px!important;white-space:nowrap!important}
+  .hud .pill:nth-child(2),.hud .pill:nth-child(3),.hud .pill:nth-child(5){display:none!important}
+  .hud .bar{width:58px!important;height:7px!important}
+  .learning{top:calc(43px + var(--safe-top))!important;width:calc(100vw - 16px)!important;padding:7px 10px!important;border-radius:15px!important}
+  .learning h3{font-size:13px!important}.learning small{font-size:10px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}.learning .chip{font-size:10px!important;padding:3px 6px!important}.learning .progress{height:6px!important;margin-top:4px!important}
+  .status{display:none!important}
+  .coach{top:calc(101px + var(--safe-top))!important;width:calc(100vw - 24px)!important;padding:7px 10px!important;border-radius:14px!important;font-size:11px!important}
+  .mouth{top:57%!important;width:min(560px,90vw)!important;height:min(390px,62vw)!important}
+  .mission{left:calc(7px + var(--safe-left))!important;bottom:calc(7px + var(--safe-bottom))!important;max-width:calc(100vw - 58px)!important;padding:7px 10px!important;border-radius:14px!important;font-size:11px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  #startScreen .card{width:min(520px,92vw)!important;padding:20px 18px!important;overflow:hidden!important}
+  #startScreen .title{font-size:clamp(30px,8vw,44px)!important}
+  #startScreen .sub{margin:9px auto 12px!important;font-size:15px!important}
+  .single-mode{margin:12px auto;padding:11px 13px;border-radius:18px;background:linear-gradient(135deg,#ecfeff,#dcfce7);color:#065f46;font-weight:1000}
+  .single-help{margin:10px auto 14px;color:#475569;font-size:14px;font-weight:850;line-height:1.55}
+  #startBtn{width:100%!important;min-height:58px!important;font-size:19px!important}
+  #resultScreen .card{max-height:88dvh!important;padding:16px!important}
+  #resultScreen .title{font-size:30px!important}
+  #resultScreen .summary{grid-template-columns:repeat(2,1fr)!important;gap:7px!important;margin:10px 0!important}
+  #resultScreen .sum{padding:9px!important}#resultScreen .sum b{font-size:21px!important}
+  @media(max-width:420px){.mouth{width:92vw!important;height:64vw!important}.hud .pill{font-size:10px!important;padding:5px 6px!important}.hud .bar{width:46px!important}.learning{width:calc(100vw - 12px)!important}.coach{top:calc(96px + var(--safe-top))!important}}
+</style>`, 'head');
+
+        html=replaceRequired(html,
+          /<nav class="actions">[\s\S]*?<\/nav>/,
+          '<nav class="actions"><button id="pauseBtn" class="icon" title="พักเกม">⏸</button><button id="faceBtn" hidden>😀</button><button id="handBtn" hidden>✋</button><button id="muteBtn" hidden>🔊</button></nav>',
+          'actions');
+
+        html=replaceRequired(html,
+          /<section id="startScreen" class="screen show">[\s\S]*?<\/section>/,
+          `<section id="startScreen" class="screen show"><div class="card"><h1 class="title">🪥 Toothbrush AR</h1><p class="sub">แปรงฟันให้ครบ 6 โซนตามคำแนะนำของ AR Coach</p><input id="playerName" type="hidden" value="${playerName}"><input id="classLevel" type="hidden" value="${classLevel}"><div class="single-mode">โหมดห้องเรียน • 90 วินาที • ไม่มีการตั้งค่า</div><div class="single-help">ฟันบน <b>ปัดลง</b> • ฟันล่าง <b>ปัดขึ้น</b><br>ระบบจะแนะนำทีละโซน และจบรอบอัตโนมัติเมื่อทำครบ</div><button id="startBtn" class="button primary">เริ่ม Toothbrush AR</button><button id="zoneBtn" hidden>กลับ</button></div></section>`,
+          'start-screen');
+
+        html=replaceRequired(html,/const VERSION="[^"]+";/,`const VERSION="${RELEASE}";`,'version');
+        html=replaceRequired(html,'difficulty:{easy:{duration:55','difficulty:{easy:{duration:90','duration-config');
+        html=replaceRequired(html,'time:55,left:55','time:90,left:90','duration-state');
+
+        html=replaceRequired(html,
+          /function finishZone\(zid\)\{[\s\S]*?\}\nfunction updateGuided/,
+          `function finishZone(zid){const g=state.guided;if(g.completed[zid])return;g.completed[zid]=true;state.score+=120;state.clean=clamp(state.clean+16.7,0,100);state.technique=clamp(state.technique+3,35,100);tone("win");strokeFlash(\`ผ่านโซน \${zoneById(zid).label}!\`,"good");let n=g.targetIndex+1;if(n>=ZONES.length){g.complete=true;showCoach("🏆 ครบ 6 โซนแล้ว กำลังสรุปผล");clearPlaques();updateGuides();setTimeout(()=>end("classroom_complete"),700)}else{g.targetIndex=n;g.targetId=ZONES[n].id;clearPlaques();ensureTargetPlaques();showCoach(\`ดีมาก! ต่อไป \${zoneById(g.targetId).label} — \${directionName(expected(g.targetId))}\`)}}
+function updateGuided`,
+          'auto-finish');
+
+        html=replaceRequired(html,
+          /async function send\(reason,s\)\{[\s\S]*?\}\nfunction showScreen/,
+          `async function send(reason,s){if(state.resultSent)return;state.resultSent=true;const base=payload(reason,s);const p={...base,zone:"hygiene",gameId:"toothbrush",game_id:"toothbrush",game_key:"toothbrush",play_mode:"classroom_coach",mode:"classroom_coach",completed:true,passed:s.pass===true,skillCriteriaMet:s.pass===true,procedureCompleted:state.guided.complete===true,progressionEligible:true,completionPolicy:"single-classroom-round-no-settings",analyticsSchemaVersion:"HH-UNIFIED-GAME-ANALYTICS-V2",gameVersion:VERSION,finishedAt:new Date().toISOString(),eventId:state.recordId||uid("HH-TOOTHBRUSH")};window.__TOOTHBRUSH_LAST_RESULT__=p;try{localStorage.setItem("HHA_TOOTHBRUSH_LAST_RESULT",JSON.stringify(p));localStorage.setItem("toothbrush_pending_result",JSON.stringify(p))}catch(_){}try{window.parent.postMessage({type:"HEROHEALTH_GAME_COMPLETE",payload:p},location.origin)}catch(_){}}
+function showScreen`,
+          'unified-send');
+
+        html=replaceRequired(html,'function start(){','function start(){try{window.parent.postMessage({type:"HEROHEALTH_GAME_STARTED"},location.origin)}catch(_){};state.mode="learning";state.diff="easy";','start-contract');
+        html=html.replace('Fresh Smile Hero • Learning Complete ✨','จบภารกิจ Toothbrush ✨');
+        html=html.replace('Zone Learning Retry 💪','จบรอบ Toothbrush • เก็บผลเพื่อพัฒนา');
+        html=html.replace('พร้อมแล้ว! ลอง Challenge Mode เพื่อใช้ทักษะที่เรียนไปในสถานการณ์เต็มรูปแบบ','ทำครบทั้ง 6 โซนแล้ว รักษาทิศทางการแปรงที่ถูกต้องต่อไป');
+        html=html.replace('showCoach("กล้องพร้อมแล้ว เลือก Learning Mode เพื่อฝึกทีละโซน")','showCoach("กล้องพร้อมแล้ว กดเริ่มเกมเพื่อฝึกครบ 6 โซน")');
+        html=html.replace(/\$\("rPass"\)\.textContent=s\.pass[\s\S]*?: "Retry";/,'$("rPass").textContent=s.pass ? "ผ่านเกณฑ์" : "จบรอบ";');
+
+        document.open();document.write(html);document.close();
+      })
+      .catch(error=>{
+        document.body.innerHTML='<div class="loading"><b>เปิด Toothbrush AR ไม่สำเร็จ</b><small>'+String(error.message||error)+'</small><button onclick="location.reload()" style="margin-top:14px;min-height:48px;padding:0 18px;border:0;border-radius:14px;font-weight:900">ลองใหม่</button></div>';
+      });
+  })();
+  </script>
+</body>
+</html>
