@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#dff7ff">
+  <title>HeroHealth • Toothbrush Finger V19</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#dff7ff;color:#0f172a;font-family:system-ui,sans-serif}
+    .loading{width:min(380px,90vw);padding:22px;border-radius:24px;background:#fff;text-align:center;box-shadow:0 20px 60px #0f172a24}
+    .loading b{display:block;font-size:21px}.loading small{display:block;margin-top:8px;color:#64748b;line-height:1.5}
+  </style>
+</head>
+<body>
+  <div class="loading"><b>กำลังเตรียม Toothbrush AR</b><small>Stable Finger Gate • Full-hand Acquisition • Timer Pause on Tracking Loss</small></div>
+  <script>
+  (()=>{
+    'use strict';
+    const RELEASE='20260728-TOOTHBRUSH-FINGER-GATE-V19';
+    const sourceUrl=new URL('./toothbrush-classroom-finger-v18.html',location.href);
+    for(const [key,value] of new URLSearchParams(location.search).entries())sourceUrl.searchParams.set(key,value);
+    sourceUrl.searchParams.set('v',RELEASE);
+    sourceUrl.searchParams.set('_',Date.now());
+
+    function required(text,pattern,replacement,label){
+      const next=text.replace(pattern,replacement);
+      if(next===text)throw new Error('patch_not_applied:'+label);
+      return next;
+    }
+
+    fetch(sourceUrl,{cache:'no-store'})
+      .then(response=>{if(!response.ok)throw new Error('โหลดเกมฐานไม่สำเร็จ '+response.status);return response.text()})
+      .then(source=>{
+        let outer=source;
+        outer=outer.split('20260728-TOOTHBRUSH-FINGER-COVER-V18').join(RELEASE);
+        outer=outer.split('Toothbrush Finger V18').join('Toothbrush Finger V19');
+        outer=outer.split('Direct Index Finger Mapping • Camera Crop Corrected • Smooth Follow').join('Stable Finger Gate • Full-hand Acquisition • Smooth Follow');
+
+        outer=required(
+          outer,
+          '        document.open();document.write(html);document.close();',
+          `        html=html.replace('</head>',\`<style id="hh-finger-gate-v19-css">
+#trackingGateV19{position:fixed;z-index:45;inset:0;display:none;place-items:center;padding:22px;background:rgba(2,16,24,.64);pointer-events:none}
+#trackingGateV19.show{display:grid}
+#trackingGateV19 .gate-card{width:min(360px,88vw);padding:18px;border-radius:24px;background:rgba(255,255,255,.96);color:#0f172a;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.30)}
+#trackingGateV19 .gate-icon{font-size:54px;line-height:1}#trackingGateV19 b{display:block;margin-top:8px;font-size:20px}#trackingGateV19 span{display:block;margin-top:6px;color:#475569;font:800 14px/1.45 system-ui}
+#trackingGateV19 .gate-progress{height:9px;margin-top:13px;border-radius:999px;background:#e2e8f0;overflow:hidden}#trackingGateV19 .gate-progress i{display:block;width:0;height:100%;background:linear-gradient(90deg,#06b6d4,#22c55e);transition:width .12s}
+.brush.tracking-hidden{opacity:0!important}.finger-cursor.tracking-hidden{opacity:0!important}
+</style></head>\`);
+        html=html.replace('</body>',\`<div id="trackingGateV19"><div class="gate-card"><div class="gate-icon">☝️</div><b id="trackingGateTitleV19">ให้กล้องเห็นมือก่อน</b><span id="trackingGateTextV19">ถอยมือออกเล็กน้อย ให้เห็นฝ่ามือและนิ้วชี้ทั้งมือ ไม่วางนิ้วชิดขอบจอ</span><div class="gate-progress"><i id="trackingGateBarV19"></i></div></div></div></body>\`);
+        html=html.replace('inferenceInput:"256x192",coordinateMapping:', 'inferenceInput:"320x240",trackingGate:"stable-4-frames",timerPausesWhenLost:true,coordinateMapping:');
+        html=html.replace(/if\(c\.width!==256\)\{c\.width=256;c\.height=192;hs\.inputCtx=c\.getContext\("2d",\{alpha:false,desynchronized:true\}\)\}/, 'if(c.width!==320){c.width=320;c.height=240;hs.inputCtx=c.getContext("2d",{alpha:false,desynchronized:true})}');
+        html=html.replace('hs.inputCtx.drawImage(D.camera,0,0,256,192);','hs.inputCtx.drawImage(D.camera,0,0,320,240);');
+        html=html.replace('minHandDetectionConfidence:.24,minHandPresenceConfidence:.24,minTrackingConfidence:.24','minHandDetectionConfidence:.18,minHandPresenceConfidence:.18,minTrackingConfidence:.18');
+        html=html.replace('trackingProfile:"index-finger-cover-map-v18"','trackingProfile:"index-finger-stable-gate-v19"');
+        html=html.replace('completionPolicy:"single-classroom-round-finger-cover-map"','completionPolicy:"single-classroom-round-finger-stable-gate"');
+
+        html=required(
+          html,
+          /function startFingerDetector\(\)\{[\s\S]*?\n\}/,
+          \`function trackingGateV19(show,title,text,pct){
+  const gate=document.getElementById("trackingGateV19"),bar=document.getElementById("trackingGateBarV19"),titleEl=document.getElementById("trackingGateTitleV19"),textEl=document.getElementById("trackingGateTextV19");
+  if(gate)gate.classList.toggle("show",!!show);if(bar)bar.style.width=Math.max(0,Math.min(100,Number(pct||0)))+"%";if(titleEl&&title)titleEl.textContent=title;if(textEl&&text)textEl.textContent=text;
+}
+function startFingerDetector(){
+  const hs=state.handState;if(hs.detectorStarted)return;hs.detectorStarted=true;
+  const tick=()=>{
+    const t=performance.now(),seenBefore=hs.lastSeen||0;detectFingerOnce(t);
+    const fresh=t-(hs.lastSeen||0)<420;
+    if(state.phase==="playing"){
+      if(fresh){
+        hs.stableHits=(hs.stableHits||0)+1;
+        if(!hs.trackingReady){
+          const pct=Math.min(100,(hs.stableHits/4)*100);trackingGateV19(true,"กำลังจับตำแหน่งนิ้ว","ค้างมือให้นิ่งชั่วครู่ แล้วแปรงจะเริ่มตามนิ้ว",pct);
+          if(hs.stableHits>=4){hs.trackingReady=true;hs.lostSince=0;trackingGateV19(false,"","",100);D.brush.classList.remove("tracking-hidden");fingerCursor(hs.target?.x,hs.target?.y,true);showCoach("พร้อมแล้ว — แปรงกำลังตามปลายนิ้ว",1200)}
+        }
+      }else{
+        hs.stableHits=0;
+        if(!hs.lostSince)hs.lostSince=t;
+        if(t-hs.lostSince>650){
+          hs.trackingReady=false;state.brush.active=false;D.brush.classList.add("tracking-hidden");fingerCursor(0,0,false);trackingBadge("lost","ไม่พบนิ้ว • เวลาหยุดแล้ว");trackingGateV19(true,"ยังไม่เห็นมือครบ","ถอยมือออกเล็กน้อย ให้เห็นฝ่ามือและนิ้วชี้ทั้งมือ ไม่ชิดขอบจอ",0);
+        }
+      }
+    }else trackingGateV19(false,"","",0);
+    setTimeout(tick,Number(hs.detectInterval||78));
+  };tick();
+}\`,
+          'stable-tracking-gate'
+        );
+
+        html=required(
+          html,
+          /function loop\(t\)\{requestAnimationFrame\(loop\);renderBrushFrame\(t\);if\(state\.phase!=="playing"\)return;const dt=Math\.min\(80,t-state\.last\|\|16\);state\.last=t;state\.left=clamp\(state\.time-\(t-state\.start-state\.pauseMs\)\/1000,0,state\.time\);updateGuided\(t,dt\);maybeSpawn\(t\);hitPlaques\(t,dt\);if\(state\.left<=0\)end\("timeup"\);updateHud\(\)\}/,
+          \`function loop(t){
+  requestAnimationFrame(loop);renderBrushFrame(t);if(state.phase!=="playing")return;
+  const dt=Math.min(80,t-state.last||16);state.last=t;
+  if(!state.handState.trackingReady){state.pauseMs+=Math.max(0,dt);state.left=clamp(state.time-(t-state.start-state.pauseMs)/1000,0,state.time);updateHud();return}
+  state.left=clamp(state.time-(t-state.start-state.pauseMs)/1000,0,state.time);updateGuided(t,dt);maybeSpawn(t);hitPlaques(t,dt);if(state.left<=0)end("timeup");updateHud();
+}\`,
+          'pause-timer-while-tracking-lost'
+        );
+
+        html=html.replace('state.handState.lastSeen=0;', 'state.handState.lastSeen=0;state.handState.trackingReady=false;state.handState.stableHits=0;state.handState.lostSince=0;trackingGateV19(true,"ให้กล้องเห็นมือก่อน","ถอยมือออกเล็กน้อย ให้เห็นฝ่ามือและนิ้วชี้ทั้งมือ ไม่วางนิ้วชิดขอบจอ",0);D.brush.classList.add("tracking-hidden");');
+        html=html.replace('fingerCursor(rawTip.x,rawTip.y,true);trackingBadge("finger","นิ้วชี้: Direct Follow");','if(state.handState.trackingReady){fingerCursor(rawTip.x,rawTip.y,true);D.brush.classList.remove("tracking-hidden");trackingBadge("finger","นิ้วชี้: Direct Follow");}');
+        html=html.replace('showCoach("ชูนิ้วชี้ให้กล้องเห็น — แปรงต้องอยู่ตรงปลายนิ้ว")','showCoach("ให้เห็นฝ่ามือและนิ้วชี้ทั้งมือก่อนเริ่ม")');
+        html=html.replace('ชูนิ้วชี้ให้กล้องเห็น แปรงและวงสีเขียวต้องอยู่ตรงปลายนิ้ว<br>ไม่มีการดึงแปรงไปหาโซนเอง • ขยับนิ้วแล้วแปรงตามโดยตรง','ถอยมือออกเล็กน้อย ให้เห็นฝ่ามือและนิ้วชี้ทั้งมือ<br>ระบบจะหยุดเวลาไว้จนตรวจนิ้วได้ต่อเนื่อง แล้วแปรงจะตามปลายนิ้วโดยตรง');
+        document.open();document.write(html);document.close();`,
+          'inject-v19-runtime'
+        );
+
+        document.open();document.write(outer);document.close();
+      })
+      .catch(error=>{
+        document.body.innerHTML='<div class="loading"><b>เปิด Toothbrush AR ไม่สำเร็จ</b><small>'+String(error.message||error)+'</small><button onclick="location.reload()" style="margin-top:14px;min-height:48px;padding:0 18px;border:0;border-radius:14px;font-weight:900">ลองใหม่</button></div>';
+      });
+  })();
+  </script>
+</body>
+</html>
