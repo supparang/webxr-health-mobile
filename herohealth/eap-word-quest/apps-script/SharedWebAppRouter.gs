@@ -8,6 +8,7 @@
    - EAPHero.gs owns eapHeroDoGet_ / eapHeroDoPost_.
    - EAPWordQuest.gs owns eapWordFinalDoGet_ / eapWordFinalDoPost_.
    - EAPWordQuestAuthority.gs owns official roster lookup / player resume.
+   - EAPWordQuestNameLookup.gs owns official roster name search.
    - EAP_TeacherDashboard.gs owns the Teacher Dashboard.
    - EAP_PlayerResume.gs owns eapPlayerResume_.
    - EAP_EvidenceReview.gs owns submitEvidence_ / submitSpeakingAudio_.
@@ -37,6 +38,15 @@ function doGet(e) {
 
   if (action === 'eap_teacher_dashboard_data') {
     return eapTeacherDashboardJson_(params);
+  }
+
+  /* =========================================================
+     EAP Word Quest — Official roster name search
+     This remains separate from profile lookup so free-form names
+     never become official identities.
+  ========================================================= */
+  if (action === 'eap_word_name_lookup') {
+    return eapRouterJson_(eapWordNameLookup_(params), callback);
   }
 
   /* =========================================================
