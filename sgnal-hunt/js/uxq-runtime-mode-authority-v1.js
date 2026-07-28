@@ -1,12 +1,17 @@
-/* CSAI2601 UX Quest • Runtime Mode Authority v1
- * Explicit preview only with ?contentPreview=1. Default is Student Mode.
- * Preserves mode across node/mission-control links and removes legacy emoji dock.
+/* CSAI2601 UX Quest • Runtime Mode Authority v1.2
+ * Explicit preview with ?contentPreview=1, plus compatibility for legacy ?v=content-preview-* links.
  */
 (() => {
   'use strict';
 
   const params = new URLSearchParams(location.search || '');
-  const preview = params.get('contentPreview') === '1';
+  const legacyPreview = /^content-preview/i.test(params.get('v') || '');
+  const preview = params.get('contentPreview') === '1' || legacyPreview;
+  if (legacyPreview && params.get('contentPreview') !== '1') {
+    params.set('contentPreview','1');
+    history.replaceState(null,'',location.pathname + '?' + params.toString() + location.hash);
+  }
+
   window.UXQ_CONTENT_PREVIEW = preview;
   window.UXQ_STUDENT_MODE = !preview;
   document.documentElement.dataset.uxqMode = preview ? 'preview' : 'student';
@@ -39,9 +44,11 @@
         if (url.origin !== location.origin) return;
         if (preview) {
           url.searchParams.set('contentPreview','1');
+          url.searchParams.set('v','content-preview-v11-20260728');
           url.searchParams.delete('studentMode');
         } else {
           url.searchParams.delete('contentPreview');
+          if (/^content-preview/i.test(url.searchParams.get('v') || '')) url.searchParams.delete('v');
           url.searchParams.delete('studentMode');
         }
         anchor.href = url.pathname + url.search + url.hash;
@@ -73,16 +80,11 @@
       const text = String(el.textContent || '').trim();
       if (/^ผ่านแล้ว[:：]?|คะแนนดีที่สุด|เล่นซ้ำเพื่อฝึก/i.test(text)) {
         const box = el.closest('.result-card,.completion-card,.mission-result,.result-summary') || el;
-        if (/เล่นซ้ำเพื่อฝึก/i.test(text)) {
-          el.textContent = 'ตรวจ Case ใหม่ →';
-        } else if (box === el) {
-          el.remove();
-        } else {
-          box.querySelectorAll('*').forEach(child => {
-            const childText = String(child.textContent || '').trim();
-            if (/^ผ่านแล้ว[:：]?|คะแนนดีที่สุด/i.test(childText)) child.remove();
-          });
-        }
+        if (/เล่นซ้ำเพื่อฝึก/i.test(text)) el.textContent = 'ตรวจ Case ใหม่ →';
+        else if (box === el) el.remove();
+        else box.querySelectorAll('*').forEach(child => {
+          if (/^ผ่านแล้ว[:：]?|คะแนนดีที่สุด/i.test(String(child.textContent || '').trim())) child.remove();
+        });
       }
     });
   }
@@ -113,10 +115,5 @@
   new MutationObserver(queue).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['href']});
   window.addEventListener('pageshow',queue);
 
-  window.UXQRuntimeModeAuthority = Object.freeze({
-    version:'20260728-MODE-AUTHORITY-V1.1',
-    preview,
-    student:!preview,
-    refresh:queue
-  });
+  window.UXQRuntimeModeAuthority = Object.freeze({version:'20260728-MODE-AUTHORITY-V1.2',preview,student:!preview,refresh:queue});
 })();
