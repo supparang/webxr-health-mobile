@@ -9,6 +9,7 @@
    - EAPWordQuest.gs owns eapWordFinalDoGet_ / eapWordFinalDoPost_.
    - EAPWordQuestAuthority.gs owns official roster lookup / player resume.
    - EAPWordQuestNameLookup.gs owns official roster name search.
+   - EAPWordQuestSubmitJsonp.gs owns JSONP attempt submit + receipt.
    - EAP_TeacherDashboard.gs owns the Teacher Dashboard.
    - EAP_PlayerResume.gs owns eapPlayerResume_.
    - EAP_EvidenceReview.gs owns submitEvidence_ / submitSpeakingAudio_.
@@ -38,6 +39,13 @@ function doGet(e) {
 
   if (action === 'eap_teacher_dashboard_data') {
     return eapTeacherDashboardJson_(params);
+  }
+
+  /* =========================================================
+     EAP Word Quest — Attempt submit with explicit JSONP receipt
+  ========================================================= */
+  if (action === 'eap_word_submit_jsonp') {
+    return eapRouterJson_(eapWordSubmitJsonp_(params), callback);
   }
 
   /* =========================================================
