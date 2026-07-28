@@ -9,6 +9,7 @@
    - EAPWordQuest.gs owns eapWordFinalDoGet_ / eapWordFinalDoPost_.
    - EAPWordQuestAuthority.gs owns official roster lookup / player resume.
    - EAPWordQuestNameLookup.gs owns official roster name search.
+   - EAPWordQuestSubmitJsonp.gs owns JSONP attempt submit + receipt.
    - EAP_TeacherDashboard.gs owns the Teacher Dashboard.
    - EAP_PlayerResume.gs owns eapPlayerResume_.
    - EAP_EvidenceReview.gs owns submitEvidence_ / submitSpeakingAudio_.
@@ -20,18 +21,10 @@ function doGet(e) {
   const module = String(params.module || '').toLowerCase();
   const callback = String(params.callback || '');
 
-  /* =========================================================
-     EAP Hero — Player Resume
-     Identity is studentId + section; name is display only.
-     JSONP is used because the student game is hosted on GitHub Pages.
-  ========================================================= */
   if (action === 'player_resume') {
     return eapRouterJson_(eapPlayerResume_(params), callback);
   }
 
-  /* =========================================================
-     EAP Teacher Dashboard
-  ========================================================= */
   if (action === 'eap_teacher_dashboard') {
     return eapTeacherDashboardPage_();
   }
@@ -40,18 +33,14 @@ function doGet(e) {
     return eapTeacherDashboardJson_(params);
   }
 
-  /* =========================================================
-     EAP Word Quest — Official roster name search
-     This remains separate from profile lookup so free-form names
-     never become official identities.
-  ========================================================= */
+  if (action === 'eap_word_submit_jsonp') {
+    return eapRouterJson_(eapWordSubmitJsonp_(params), callback);
+  }
+
   if (action === 'eap_word_name_lookup') {
     return eapRouterJson_(eapWordNameLookup_(params), callback);
   }
 
-  /* =========================================================
-     EAP Word Quest — Official roster + Sheet authority
-  ========================================================= */
   const wordAuthorityActions = [
     'eap_word_authority_health',
     'eap_word_roster_setup',
@@ -63,11 +52,6 @@ function doGet(e) {
     return eapRouterJson_(eapWordAuthorityDoGet_(params), callback);
   }
 
-  /* =========================================================
-     EAP Word Quest
-     Do NOT intercept generic `setup` unless module=eap_word.
-     This protects any existing EAP Hero setup endpoint.
-  ========================================================= */
   const wordQuestActions = [
     'eap_word_health',
     'eap_word_teacher',
@@ -79,9 +63,6 @@ function doGet(e) {
     return eapWordFinalDoGet_(e);
   }
 
-  /* =========================================================
-     EAP Hero default
-  ========================================================= */
   return eapHeroDoGet_(e);
 }
 
@@ -99,11 +80,6 @@ function doPost(e) {
 
   const action = String(payload.action || payload.type || '').toLowerCase();
 
-  /* =========================================================
-     EAP Hero — Evidence compatibility
-     Keeps one shared doPost() while enabling the newer Boss Evidence
-     and optional consent-based audio handlers.
-  ========================================================= */
   if (action === 'submit_evidence') {
     return eapRouterJson_(submitEvidence_(payload));
   }
@@ -112,9 +88,6 @@ function doPost(e) {
     return eapRouterJson_(submitSpeakingAudio_(payload));
   }
 
-  /* =========================================================
-     EAP Word Quest
-  ========================================================= */
   const wordQuestActions = [
     'eap_word_attempt',
     'eap_word_batch',
@@ -125,16 +98,9 @@ function doPost(e) {
     return eapWordFinalDoPost_(e);
   }
 
-  /* =========================================================
-     EAP Hero default
-  ========================================================= */
   return eapHeroDoPost_(e);
 }
 
-/* =========================================================
-   Shared response helper
-   Supports JSON for normal calls and JSONP for GitHub Pages.
-========================================================= */
 function eapRouterJson_(data, callback) {
   const json = JSON.stringify(data || {});
   const safeCallback = String(callback || '').trim();
