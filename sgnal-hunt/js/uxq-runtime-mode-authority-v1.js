@@ -1,4 +1,4 @@
-/* CSAI2601 UX Quest • Runtime Mode Authority v1.2
+/* CSAI2601 UX Quest • Runtime Mode Authority v1.3
  * Explicit preview with ?contentPreview=1, plus compatibility for legacy ?v=content-preview-* links.
  */
 (() => {
@@ -44,7 +44,7 @@
         if (url.origin !== location.origin) return;
         if (preview) {
           url.searchParams.set('contentPreview','1');
-          url.searchParams.set('v','content-preview-v11-20260728');
+          url.searchParams.set('v','content-preview-v12-20260728');
           url.searchParams.delete('studentMode');
         } else {
           url.searchParams.delete('contentPreview');
@@ -73,26 +73,18 @@
     document.querySelectorAll('[data-preview-only],.uxq-preview-profile').forEach(el => el.remove());
   }
 
-  function fixPreviewResult() {
-    if (!preview) return;
-    document.querySelectorAll('body *').forEach(el => {
-      if (el.children.length) return;
-      const text = String(el.textContent || '').trim();
-      if (/^ผ่านแล้ว[:：]?|คะแนนดีที่สุด|เล่นซ้ำเพื่อฝึก/i.test(text)) {
-        const box = el.closest('.result-card,.completion-card,.mission-result,.result-summary') || el;
-        if (/เล่นซ้ำเพื่อฝึก/i.test(text)) el.textContent = 'ตรวจ Case ใหม่ →';
-        else if (box === el) el.remove();
-        else box.querySelectorAll('*').forEach(child => {
-          if (/^ผ่านแล้ว[:：]?|คะแนนดีที่สุด/i.test(String(child.textContent || '').trim())) child.remove();
-        });
-      }
-    });
-  }
-
   function labelMissionControlLinks() {
     document.querySelectorAll('a[href*="csai2601-mission-control.html"]').forEach(anchor => {
       if (preview && /กลับ Mission Control/i.test(anchor.textContent || '')) anchor.textContent = 'กลับหน้าตรวจเนื้อหา';
     });
+  }
+
+  function ensurePreviewResultAuthority() {
+    if (!preview || document.querySelector('script[data-uxq-preview-result-authority]')) return;
+    const script = document.createElement('script');
+    script.dataset.uxqPreviewResultAuthority = '1';
+    script.src = './js/uxq-preview-result-final-authority-v1.js?v=preview-result-final-v1-20260728';
+    document.body.appendChild(script);
   }
 
   let queued = false;
@@ -101,8 +93,8 @@
     preserveMode();
     removeLegacyDock();
     fixStudentCopy();
-    fixPreviewResult();
     labelMissionControlLinks();
+    ensurePreviewResultAuthority();
   }
   function queue() {
     if (queued) return;
@@ -115,5 +107,5 @@
   new MutationObserver(queue).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['href']});
   window.addEventListener('pageshow',queue);
 
-  window.UXQRuntimeModeAuthority = Object.freeze({version:'20260728-MODE-AUTHORITY-V1.2',preview,student:!preview,refresh:queue});
+  window.UXQRuntimeModeAuthority = Object.freeze({version:'20260728-MODE-AUTHORITY-V1.3',preview,student:!preview,refresh:queue});
 })();
