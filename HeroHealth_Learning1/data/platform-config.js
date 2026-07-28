@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-TOOTHBRUSH-MOBILE-V20.2",
+  platformVersion: "2026.07-CLASSROOM60-TOOTHBRUSH-CHALLENGE-V21",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_TOOTHBRUSH_MOBILE_ONE_EURO_SPRING",
+  deploymentState: "QA_TOOTHBRUSH_CLASSROOM_CHALLENGE_SINGLE_MODE",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -15,7 +15,28 @@ window.HH_CONFIG = {
   requireGamePassToContinue: false,
   strictGamePass: { handwash: false, toothbrush: false },
   handwashContract: { requiredRubSteps: 7, requiredProcessSteps: 5, requiredTotalSteps: 12, requireWrists: true, requireAnalyticsReceipt: true, progressionByCompletion: true },
-  toothbrushContract: { mode: "classroom_mobile", durationSec: 90, zones: 6, settingsVisible: false, progressionByCompletion: true, input: "index-finger-only", trackingProfile: "standalone-mobile-one-euro-spring-v20.2", cameraProfile: "480x360-24fps", inferenceInput: "256x192-adaptive", coordinateMapping: "video-rect-cover-mirrored", stableFramesRequired: 2, timerPausesWhenTrackingLost: true, markerBrushSameCoordinate: true, touchFallbackEnabled: false, zonePositionAssist: false, renderInterpolation: "one-euro-plus-critical-spring", architecture: "single-file-no-runtime-html-patching" },
+  toothbrushContract: {
+    mode: "classroom_challenge",
+    durationSec: 90,
+    zones: 6,
+    settingsVisible: false,
+    progressionByCompletion: true,
+    completionPolicy: "one-classroom-challenge-round-completes-no-forced-retry",
+    retryRequired: false,
+    skillThresholds: { coverageZones: 6, directionAccuracyPct: 45, trackingQualityPct: 60 },
+    input: "index-finger-only",
+    trackingProfile: "standalone-mobile-one-euro-spring-v20.2",
+    cameraProfile: "480x360-24fps",
+    inferenceInput: "256x192-adaptive",
+    coordinateMapping: "video-rect-cover-mirrored",
+    stableFramesRequired: 2,
+    timerPausesWhenTrackingLost: true,
+    markerBrushSameCoordinate: true,
+    touchFallbackEnabled: false,
+    zonePositionAssist: false,
+    renderInterpolation: "one-euro-plus-critical-spring",
+    architecture: "single-game-plus-classroom-challenge-policy-shell"
+  },
   teacherPin: "",
   routes: {
     pretest: "./assessment/pretest.html",
@@ -26,7 +47,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "แต่ละกลุ่มเริ่มคนละฐาน ทุกเกมเล่นหนึ่งรอบ Handwash ต้องครบ 7 ท่าถูและ 5 ขั้นกระบวนการ ส่วน Toothbrush เป็นไฟล์ standalone สำหรับมือถือ วงสีเขียว หัวแปรง และ hitbox ใช้พิกัดเดียวกัน ใช้ One Euro Filter ลด noise ของ landmark และ critically damped spring วาดการเคลื่อนที่ทุกเฟรมโดยไม่เดาตำแหน่งล่วงหน้า การตรวจมือทำงานแบบ adaptive ระบบหยุดเวลาและซ่อนแปรงเมื่อ Tracking หลุด ไม่มี Touch fallback ระหว่าง QA ไม่มีหน้าตั้งค่า คะแนนทักษะใช้เพื่อวิเคราะห์และไม่บังคับ Retry",
+      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Toothbrush ใช้ Classroom Challenge เป็นโหมดเดียว: AR Coach นำทางครบ 6 โซนภายใน 90 วินาที เล่นหนึ่งรอบถือว่าจบภารกิจและปลดล็อกเกมถัดไปโดยไม่บังคับ Retry ส่วน Coverage, Direction Accuracy และ Tracking Quality เก็บแยกเป็นผลทักษะและ Learning Analytics สำหรับการวิเคราะห์",
       games: { hygiene: ["handwash", "toothbrush"], nutrition: ["groups", "goodjunk"], fitness: ["jumpduck", "balance-hold"] }
     },
     FULL_PLATFORM: {
@@ -41,7 +62,7 @@ window.HH_CONFIG = {
       id: "hygiene", label: "Hygiene Hero", thai: "ฐานสุขอนามัย", emoji: "🧼", accent: "#0ea5e9", description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
         { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260727-complete7-r30", status:"qa-complete-7-rub-12-phase-r30", requiredReturnContract:true, qaClosed:true, progressionByCompletion:true },
-        { id:"toothbrush", title:"Toothbrush Mobile Stable Smooth AR", thai:"Toothbrush AR", url:"./toothbrush-mobile-v20-1.html?v=20260728-mobile-one-euro-v20-2", status:"qa-standalone-mobile-one-euro-spring-v20-2", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false },
+        { id:"toothbrush", title:"Toothbrush Classroom Challenge", thai:"Toothbrush Challenge", url:"./toothbrush-classroom-challenge-v21.html?v=20260728-classroom-challenge-v21", status:"qa-classroom-challenge-single-mode-v21", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false, oneRoundCompletes:true, retryRequired:false },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"clean-objects", title:"Clean Objects", thai:"ภารกิจทำความสะอาดสิ่งของ", url:"../herohealth/clean-objects-v3/clean-objects.html", status:"catalog-only", requiredReturnContract:true },
