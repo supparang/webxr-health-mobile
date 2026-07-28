@@ -1,20 +1,29 @@
-/* CSAI2601 UX Quest • Sheet-Authoritative Unlock Guard v3
- * Official unlock contract: the previous node must have mission_completed in Google Sheet.
- * IMPORTANT: unlock reads uxq_student_progress, not Studio/Reflection progress.
- * Studio/Reflection completion is tracked separately and never substitutes for mission_completed.
+/* CSAI2601 UX Quest • Sheet-Authoritative Unlock Guard v3.1
+ * Official student mode: previous node must be confirmed by Google Sheet.
+ * Instructor content preview: ?contentPreview=1 bypasses Sheet unlock only for frontend QA.
  */
 (() => {
   'use strict';
-  const VERSION='20260726-SHEET-AUTHORITATIVE-UNLOCK-V3';
+  const VERSION='20260728-SHEET-AUTHORITATIVE-UNLOCK-V3.1-CONTENT-PREVIEW';
   const ORDER=['w1','w2','w3','b1','w4','w5','w6','w7','b2','w8','w9','w10','w11','b3','w12','w13','w14','b4','w15'];
   const params=new URLSearchParams(location.search||'');
   const node=String(params.get('node')||params.get('id')||'w1').trim().toLowerCase();
   const index=ORDER.indexOf(node);
   if(index<0)return;
+  const preview=params.get('contentPreview')==='1';
   const root=document.getElementById('uxqCanonicalNode')||document.body;
   const config=window.UXQ_CLASSROOM_CONFIG||{};
   const clean=(v,m=500)=>String(v==null?'':v).trim().slice(0,m);
   const number=v=>Number.isFinite(Number(v))?Number(v):0;
+
+  if(preview){
+    document.body.dataset.uxqThreePartLocked='0';
+    document.body.dataset.uxqContentPreview='1';
+    document.documentElement.style.visibility='visible';
+    window.dispatchEvent(new CustomEvent('uxq-content-preview-active',{detail:{node,version:VERSION}}));
+    window.UXQThreePartUnlockGuard=Object.freeze({version:VERSION,preview:true,run:async()=>true});
+    return;
+  }
 
   function identity(){
     let p={};try{p=window.UXQIdentity?.get?.()||{}}catch(_){}
@@ -51,7 +60,7 @@
   function contextUrl(path){
     const url=new URL(path,location.href);
     ['device','studentId','studentName','section','sid','name','courseId'].forEach(k=>{const v=params.get(k);if(v)url.searchParams.set(k,v)});
-    url.searchParams.set('v','sheet-authoritative-unlock-v3-20260726');
+    url.searchParams.set('v','sheet-authoritative-unlock-v3-1-20260728');
     return `${url.pathname}${url.search}`;
   }
   function showLocked(previous,error,data){
@@ -79,5 +88,5 @@
   const reveal=()=>{document.documentElement.style.visibility='visible'};
   Promise.resolve(run()).finally(reveal);
   setTimeout(reveal,13000);
-  window.UXQThreePartUnlockGuard=Object.freeze({version:VERSION,run});
+  window.UXQThreePartUnlockGuard=Object.freeze({version:VERSION,preview:false,run});
 })();
