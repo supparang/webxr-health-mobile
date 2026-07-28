@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#dff7ff">
+  <title>HeroHealth • Toothbrush Classroom Challenge</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#dff7ff;font-family:system-ui,sans-serif}
+    #game{position:fixed;inset:0;width:100%;height:100%;border:0;background:#dff7ff}
+    #loading{position:fixed;z-index:10;inset:0;display:grid;place-items:center;padding:22px;background:linear-gradient(145deg,#dff7ff,#fff7ed);color:#102a2a;text-align:center}
+    #loading.hide{display:none}
+    .card{width:min(380px,90vw);padding:22px;border-radius:26px;background:#fff;box-shadow:0 22px 60px rgba(15,23,42,.16)}
+    .card b{display:block;font-size:22px}.card span{display:block;margin-top:8px;color:#607676;font-weight:800;line-height:1.5}
+  </style>
+</head>
+<body>
+  <iframe id="game" title="Toothbrush Classroom Challenge" allow="camera; autoplay" referrerpolicy="same-origin"></iframe>
+  <div id="loading"><div class="card"><b>กำลังเปิด Toothbrush Classroom Challenge</b><span>โหมดเดียวสำหรับห้องเรียน • เล่นหนึ่งรอบ • ไม่บังคับ Retry</span></div></div>
+  <script>
+  (()=>{
+    'use strict';
+    const CHALLENGE_VERSION='20260728-TOOTHBRUSH-CLASSROOM-CHALLENGE-V21';
+    const frame=document.getElementById('game');
+    const loading=document.getElementById('loading');
+    const source=new URL('./toothbrush-mobile-v20-1.html',location.href);
+    const incoming=new URLSearchParams(location.search);
+    for(const [key,value] of incoming.entries())source.searchParams.set(key,value);
+    source.searchParams.set('challenge','1');
+    source.searchParams.set('v',CHALLENGE_VERSION);
+    source.searchParams.set('_',Date.now());
+    let lastPayload=null;
+
+    function number(value,fallback=0){const n=Number(value);return Number.isFinite(n)?n:fallback}
+    function passportUrl(){
+      const url=new URL('./index.html',location.href);
+      for(const key of ['studentId','pid','fullName','studentName','name','section','group']){
+        const value=incoming.get(key);if(value)url.searchParams.set(key,value);
+      }
+      url.searchParams.set('returnedGame','toothbrush');
+      url.searchParams.set('gameCompleted','1');
+      url.searchParams.set('challenge','1');
+      url.searchParams.set('v',CHALLENGE_VERSION);
+      return url.href;
+    }
+    function buildChallengePayload(original={}){
+      const coverage=number(original.coverageZones,number(original.coverage,0));
+      const direction=number(original.directionAccuracy,number(original.accuracy,0));
+      const tracking=number(original.trackingVisiblePct,number(original.trackingPct,0));
+      const coverageComplete=coverage>=6;
+      const directionMet=direction>=45;
+      const trackingAcceptable=tracking>=60;
+      const skillMet=coverageComplete&&directionMet;
+      return {
+        ...original,
+        version:CHALLENGE_VERSION,
+        gameVersion:CHALLENGE_VERSION,
+        zone:'hygiene',
+        gameId:'toothbrush',game_id:'toothbrush',game_key:'toothbrush',
+        mode:'classroom_challenge',play_mode:'classroom_challenge',classroomMode:'challenge',
+        completed:true,challengeCompleted:true,progressionEligible:true,procedureCompleted:coverageComplete,
+        passed:skillMet,skillMet,
+        completionPolicy:'one-classroom-challenge-round-completes-no-forced-retry',
+        retryRequired:false,
+        challengeCoverageComplete:coverageComplete,
+        challengeDirectionMet:directionMet,
+        challengeTrackingAcceptable:trackingAcceptable,
+        challengeDirectionThreshold:45,
+        challengeTrackingThreshold:60,
+        challengeCoverageZones:coverage,
+        challengeTrackingQuality:tracking,
+        finishedAt:original.finishedAt||new Date().toISOString(),
+        analyticsSchemaVersion:original.analyticsSchemaVersion||'HH-UNIFIED-GAME-ANALYTICS-V2'
+      };
+    }
+    function savePayload(payload){
+      lastPayload=payload;
+      try{
+        localStorage.setItem('HHA_TOOTHBRUSH_LAST_RESULT',JSON.stringify(payload));
+        localStorage.setItem('toothbrush_pending_result',JSON.stringify(payload));
+        localStorage.setItem('HHA_TOOTHBRUSH_CLASSROOM_CHALLENGE_LAST',JSON.stringify(payload));
+      }catch(_){ }
+    }
+    function updateResultUi(payload){
+      let doc;try{doc=frame.contentDocument}catch(_){return}
+      if(!doc)return;
+      const title=doc.querySelector('#resultScreen .title');
+      const text=doc.querySelector('#resultText');
+      if(title)title.textContent='จบ Toothbrush Classroom Challenge ✨';
+      if(text){
+        text.textContent=payload.skillMet
+          ? 'จบภารกิจแล้ว • ทักษะถึงเกณฑ์ห้องเรียน'
+          : 'จบภารกิจแล้ว • บันทึกผลเพื่อฝึกต่อครั้งหน้า';
+      }
+      let badge=doc.getElementById('challengeResultBadge');
+      if(!badge){
+        badge=doc.createElement('div');badge.id='challengeResultBadge';
+        badge.style.cssText='margin:10px 0;padding:10px 12px;border-radius:16px;font-weight:1000;line-height:1.45';
+        const summary=doc.querySelector('#resultScreen .summary');
+        if(summary)summary.before(badge);
+      }
+      badge.style.background=payload.skillMet?'#dcfce7':'#fef3c7';
+      badge.style.color=payload.skillMet?'#166534':'#92400e';
+      badge.textContent=payload.skillMet
+        ? 'Skill Met • Coverage ครบและ Direction ถึงเกณฑ์'
+        : 'Mission Completed • ไม่บังคับ Retry และไปเกมถัดไปได้';
+    }
+    function patchInner(){
+      let doc;try{doc=frame.contentDocument}catch(_){return false}
+      if(!doc||!doc.body)return false;
+      const start=doc.getElementById('startScreen');
+      if(start){
+        const title=start.querySelector('.title');
+        const sub=start.querySelector('.sub');
+        const mode=start.querySelector('.modeBox');
+        const help=start.querySelector('.help');
+        const button=doc.getElementById('startBtn');
+        if(title)title.textContent='🪥 Toothbrush Classroom Challenge';
+        if(sub)sub.textContent='ภารกิจหลักสำหรับห้องเรียนบนมือถือ';
+        if(mode)mode.textContent='Challenge โหมดเดียว • 90 วินาที • 6 โซน';
+        if(help)help.innerHTML='AR Coach บอกโซนและทิศทางทีละขั้น<br>เล่นหนึ่งรอบถือว่าจบภารกิจ<br>คะแนนทักษะใช้วิเคราะห์และไม่บังคับ Retry';
+        if(button)button.textContent='เริ่ม Classroom Challenge';
+      }
+      const result=doc.getElementById('resultScreen');
+      if(result){
+        const title=result.querySelector('.title');if(title)title.textContent='จบ Toothbrush Classroom Challenge ✨';
+        const replay=doc.getElementById('replayBtn');
+        const back=doc.getElementById('returnBtn');
+        const buttons=result.querySelector('.resultButtons');
+        if(back){back.textContent='จบภารกิจและกลับ Passport';back.classList.remove('secondary');back.classList.add('primary');back.onclick=()=>{window.top.location.href=passportUrl()}}
+        if(replay){replay.textContent='ฝึกเพิ่มอีกครั้ง';replay.classList.remove('primary');replay.classList.add('secondary')}
+        if(buttons&&back&&replay){buttons.replaceChildren(back,replay)}
+      }
+      doc.title='HeroHealth • Toothbrush Classroom Challenge';
+      if(lastPayload)updateResultUi(lastPayload);
+      return true;
+    }
+
+    frame.addEventListener('load',()=>{
+      loading.classList.add('hide');
+      patchInner();
+      let tries=0;const timer=setInterval(()=>{patchInner();if(++tries>30)clearInterval(timer)},250);
+    });
+    window.addEventListener('message',event=>{
+      if(event.source!==frame.contentWindow)return;
+      const data=event.data||{};
+      if(data.type!=='HEROHEALTH_GAME_COMPLETE')return;
+      const payload=buildChallengePayload(data.payload||{});
+      savePayload(payload);updateResultUi(payload);
+      try{if(window.parent!==window)window.parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin)}catch(_){ }
+    });
+    frame.src=source.href;
+  })();
+  </script>
+</body>
+</html>
