@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-TOOTHBRUSH-FINGER-V19.1",
+  platformVersion: "2026.07-CLASSROOM60-TOOTHBRUSH-FINGER-V19.2",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_TOOTHBRUSH_STABLE_FINGER_GATE_DIRECT_LOADER",
+  deploymentState: "QA_TOOTHBRUSH_MARKER_BRUSH_LOCK",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -15,7 +15,7 @@ window.HH_CONFIG = {
   requireGamePassToContinue: false,
   strictGamePass: { handwash: false, toothbrush: false },
   handwashContract: { requiredRubSteps: 7, requiredProcessSteps: 5, requiredTotalSteps: 12, requireWrists: true, requireAnalyticsReceipt: true, progressionByCompletion: true },
-  toothbrushContract: { mode: "classroom_coach", durationSec: 90, zones: 6, settingsVisible: false, progressionByCompletion: true, input: "index-finger-primary-touch-fallback", trackingProfile: "index-finger-stable-gate-v19.1", cameraProfile: "480x360-24fps", inferenceInput: "320x240", coordinateMapping: "object-fit-cover-corrected", stableFramesRequired: 4, timerPausesWhenTrackingLost: true, zonePositionAssist: false },
+  toothbrushContract: { mode: "classroom_coach", durationSec: 90, zones: 6, settingsVisible: false, progressionByCompletion: true, input: "index-finger-only", trackingProfile: "index-finger-marker-brush-lock-v19.2", cameraProfile: "480x360-24fps", inferenceInput: "320x240", coordinateMapping: "object-fit-cover-corrected", stableFramesRequired: 3, timerPausesWhenTrackingLost: true, markerBrushSameCoordinate: true, touchFallbackEnabled: false, zonePositionAssist: false },
   teacherPin: "",
   routes: {
     pretest: "./assessment/pretest.html",
@@ -26,7 +26,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "แต่ละกลุ่มเริ่มคนละฐาน ทุกเกมเล่นหนึ่งรอบ Handwash ต้องครบ 7 ท่าถูและ 5 ขั้นกระบวนการ ส่วน Toothbrush ตรวจปลายนิ้วชี้เป็นตัวควบคุมหลัก โดยต้องเห็นฝ่ามือและนิ้วชี้ทั้งมืออย่างต่อเนื่องก่อนเริ่ม ระบบหยุดเวลาอัตโนมัติเมื่อ Tracking หลุดและซ่อนแปรงที่ค้างอยู่ Touch ใช้เฉพาะเป็น fallback ไม่มีหน้าตั้งค่า คะแนนทักษะใช้เพื่อวิเคราะห์และไม่บังคับ Retry",
+      description: "แต่ละกลุ่มเริ่มคนละฐาน ทุกเกมเล่นหนึ่งรอบ Handwash ต้องครบ 7 ท่าถูและ 5 ขั้นกระบวนการ ส่วน Toothbrush ตรวจปลายนิ้วชี้เป็นตัวควบคุมหลัก เมื่อ Detect สำเร็จวงสีเขียวและหัวแปรงใช้พิกัดเดียวกันและต้องอยู่ตรงปลายนิ้ว ระบบหยุดเวลาและซ่อนทั้งวงกับแปรงทันทีเมื่อ Tracking หลุด ไม่มี Touch fallback ระหว่าง QA ไม่มีหน้าตั้งค่า คะแนนทักษะใช้เพื่อวิเคราะห์และไม่บังคับ Retry",
       games: { hygiene: ["handwash", "toothbrush"], nutrition: ["groups", "goodjunk"], fitness: ["jumpduck", "balance-hold"] }
     },
     FULL_PLATFORM: {
@@ -41,7 +41,7 @@ window.HH_CONFIG = {
       id: "hygiene", label: "Hygiene Hero", thai: "ฐานสุขอนามัย", emoji: "🧼", accent: "#0ea5e9", description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
         { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260727-complete7-r30", status:"qa-complete-7-rub-12-phase-r30", requiredReturnContract:true, qaClosed:true, progressionByCompletion:true },
-        { id:"toothbrush", title:"Toothbrush Finger Tracking AR", thai:"Toothbrush AR", url:"./toothbrush-classroom-finger-v19.html?v=20260728-finger-gate-v19-1", status:"qa-index-finger-stable-gate-v19-1", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false },
+        { id:"toothbrush", title:"Toothbrush Finger Tracking AR", thai:"Toothbrush AR", url:"./toothbrush-classroom-finger-v19.html?v=20260728-finger-marker-lock-v19-2", status:"qa-index-finger-marker-brush-lock-v19-2", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"clean-objects", title:"Clean Objects", thai:"ภารกิจทำความสะอาดสิ่งของ", url:"../herohealth/clean-objects-v3/clean-objects.html", status:"catalog-only", requiredReturnContract:true },
