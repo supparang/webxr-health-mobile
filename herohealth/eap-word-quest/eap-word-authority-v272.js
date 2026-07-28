@@ -1,26 +1,22 @@
 /* =========================================================
    EAP Word Quest • Authority Compatibility Shim
-   Former V272 observer client has been retired.
-   Version: 20260728-V274-SHIM-NO-DOM-OBSERVER
+   Former V272 observer client is retired.
+   Version: 20260728-V275-SHIM-FROM-V272
 ========================================================= */
 (function () {
   'use strict';
-
-  var TAG = 'eap-word-authority-v274-shim';
+  var TAG = 'eap-word-authority-v275-from-v272';
   var script;
-
-  if (window.__EAP_WORD_AUTHORITY_V274__) return;
+  if (window.__EAP_WORD_AUTHORITY_V275__) return;
   if (document.querySelector('script[data-eap-runtime="' + TAG + '"]')) return;
-
-  /* Mark the former implementation as disabled for all cached loaders. */
   window.__EAP_WORD_AUTHORITY_V272__ = true;
-
+  window.__EAP_WORD_AUTHORITY_V274__ = true;
   script = document.createElement('script');
-  script.src = './eap-word-authority-v274.js?v=20260728-v274-no-observer-2';
+  script.src = './eap-word-authority-v275.js?v=20260728-v275-proof-1';
   script.async = false;
   script.setAttribute('data-eap-runtime',TAG);
   script.onerror = function () {
-    console.error('[EAP Word Quest] V274 Authority client could not load from V272 shim');
+    console.error('[EAP Word Quest] V275 Authority client could not load from V272 shim');
   };
   document.head.appendChild(script);
 })();
