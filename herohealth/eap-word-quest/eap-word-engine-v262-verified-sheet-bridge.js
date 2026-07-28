@@ -2,20 +2,22 @@
    EAP Word Quest • Compatibility Bootstrap Loader
    File kept as v262 because older cached index.html already loads this path.
 
-   Version: 20260728-V275-VERIFICATION-PROOF-BOOTSTRAP
+   Version: 20260728-V276-NAME-FALLBACK-BOOTSTRAP
    - Disable retired V272/V274 clients.
    - Load V275 verification-proof client immediately.
+   - Load V276 official-name search fallback.
    - Keep the exact-summary Sheet sender.
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260728-V275-VERIFICATION-PROOF-BOOTSTRAP';
+  var VERSION = '20260728-V276-NAME-FALLBACK-BOOTSTRAP';
   var AUTH_TAG = 'eap-word-authority-v275-bootstrap';
+  var NAME_TAG = 'eap-word-name-fallback-v276-bootstrap';
   var SUMMARY_TAG = 'exact-summary-sheet-submit-v271';
 
-  if (window.__EAP_WORD_V275_BOOTSTRAP__) return;
-  window.__EAP_WORD_V275_BOOTSTRAP__ = true;
+  if (window.__EAP_WORD_V276_BOOTSTRAP__) return;
+  window.__EAP_WORD_V276_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
@@ -73,6 +75,27 @@
     document.head.appendChild(script);
   }
 
+  function loadNameFallback() {
+    var script;
+    if (
+      window.__EAP_WORD_NAME_FALLBACK_V276__ ||
+      document.querySelector('script[data-eap-runtime="' + NAME_TAG + '"]')
+    ) {
+      return;
+    }
+    script = document.createElement('script');
+    script.src = './eap-word-name-fallback-v276.js?v=20260728-v276-name-fallback-1';
+    script.async = false;
+    script.setAttribute('data-eap-runtime',NAME_TAG);
+    script.onload = function () {
+      console.info('[EAP Word Quest] V276 official-name fallback loaded',{bootstrap:VERSION});
+    };
+    script.onerror = function () {
+      console.error('[EAP Word Quest] V276 name fallback could not load',{bootstrap:VERSION,src:script.src});
+    };
+    document.head.appendChild(script);
+  }
+
   function loadExactSummarySender() {
     var script;
     if (
@@ -92,6 +115,7 @@
   }
 
   loadAuthority();
+  setTimeout(loadNameFallback,120);
   setTimeout(loadExactSummarySender,700);
   console.info('[EAP Word Quest] compatibility bootstrap ready',{version:VERSION});
 })();
