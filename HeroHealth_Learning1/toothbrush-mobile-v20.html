@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#dff7ff">
   <meta name="color-scheme" content="light">
-  <title>HeroHealth • Toothbrush Mobile V20</title>
+  <title>HeroHealth • Toothbrush Mobile V20.1</title>
   <style>
     :root{
       --safe-top:env(safe-area-inset-top,0px);
@@ -39,11 +39,11 @@
     #arrow{position:absolute;z-index:7;left:50%;top:50%;width:56px;height:56px;display:grid;place-items:center;transform:translate(-50%,-50%);border-radius:19px;background:rgba(255,255,255,.94);box-shadow:0 10px 22px rgba(15,23,42,.16);font-size:32px}
     #plaque{position:absolute;z-index:8;width:48px;height:48px;margin:-24px;display:grid;place-items:center;border-radius:18px;background:rgba(255,255,255,.88);border:2px solid rgba(255,255,255,.95);box-shadow:0 10px 18px rgba(15,23,42,.18);font-size:27px}
 
-    #fingerMarker{position:absolute;z-index:26;width:38px;height:38px;margin:-19px 0 0 -19px;border-radius:50%;border:4px solid #22c55e;background:rgba(255,255,255,.14);box-shadow:0 0 0 8px rgba(6,182,212,.22);pointer-events:none;opacity:0;visibility:hidden;will-change:left,top}
+    #fingerMarker{position:absolute;z-index:26;left:0;top:0;width:38px;height:38px;margin:-19px 0 0 -19px;border-radius:50%;border:4px solid #22c55e;background:rgba(255,255,255,.14);box-shadow:0 0 0 8px rgba(6,182,212,.22);pointer-events:none;opacity:0;visibility:hidden;will-change:transform,opacity}
     #fingerMarker.show{opacity:1;visibility:visible}
     #rawMarker{position:absolute;z-index:27;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#ef4444;pointer-events:none;display:none}
     body.debug #rawMarker{display:block}
-    #brush{position:absolute;z-index:25;width:96px;height:46px;left:50%;top:78%;pointer-events:none;opacity:0;visibility:hidden;transform-origin:18px 50%;filter:drop-shadow(0 10px 14px rgba(15,23,42,.25));will-change:left,top,transform}
+    #brush{position:absolute;z-index:25;left:0;top:0;width:96px;height:46px;pointer-events:none;opacity:0;visibility:hidden;transform-origin:18px 50%;filter:drop-shadow(0 10px 14px rgba(15,23,42,.25));will-change:transform,opacity}
     #brush.show{opacity:1;visibility:visible}
     .brushHead{position:absolute;left:0;top:8px;width:36px;height:30px;border-radius:10px;border:3px solid rgba(255,255,255,.88);background:repeating-linear-gradient(90deg,#a7f3d0 0 4px,#67e8f9 4px 8px)}
     .brushHandle{position:absolute;left:30px;top:17px;width:67px;height:13px;border-radius:999px;background:linear-gradient(90deg,#06b6d4,#6366f1)}
@@ -81,7 +81,7 @@
   <div id="brush"><div class="brushHead"></div><div class="brushHandle"></div></div>
   <div id="coach">ให้เห็นฝ่ามือและนิ้วชี้ทั้งมือ</div><div id="trackingStatus">ยังไม่ Detect นิ้ว</div>
 
-  <section id="startScreen" class="screen show"><div class="card"><h1 class="title">🪥 Toothbrush AR</h1><p class="sub">เกมใหม่สำหรับมือถือโดยตรง ไม่โหลดหรือ Patch เกมเวอร์ชันเก่า</p><div class="modeBox">Mobile First • 90 วินาที • 6 โซน • Detect นิ้วชี้</div><div class="help">ให้กล้องเห็นฝ่ามือและนิ้วชี้ทั้งมือ<br>วงสีเขียวและหัวแปรงใช้พิกัดเดียวกันเสมอ<br>เมื่อ Tracking หลุด ระบบจะหยุดเวลาและซ่อนแปรง</div><button id="startBtn" class="primary">เริ่ม Toothbrush AR</button><div id="loadingText"></div></div></section>
+  <section id="startScreen" class="screen show"><div class="card"><h1 class="title">🪥 Toothbrush AR</h1><p class="sub">Mobile First V20.1 • วาดการเคลื่อนที่ทุกเฟรม</p><div class="modeBox">90 วินาที • 6 โซน • Detect นิ้วชี้</div><div class="help">ให้กล้องเห็นฝ่ามือและนิ้วชี้ทั้งมือ<br>วงสีเขียว หัวแปรง และ hitbox ใช้ตำแหน่งเดียวกัน<br>ระบบแทรกการเคลื่อนที่ระหว่างผล Detect เพื่อให้ตามนิ้วลื่นขึ้น</div><button id="startBtn" class="primary">เริ่ม Toothbrush AR</button><div id="loadingText"></div></div></section>
   <section id="resultScreen" class="screen"><div class="card"><h1 class="title">จบภารกิจ Toothbrush ✨</h1><p id="resultText" class="sub"></p><div class="summary"><div class="sum"><small>Coverage</small><b id="resultCoverage">0/6</b></div><div class="sum"><small>Direction</small><b id="resultDirection">0%</b></div><div class="sum"><small>Tracking</small><b id="resultTracking">0%</b></div><div class="sum"><small>เวลาใช้จริง</small><b id="resultTime">0s</b></div></div><div class="resultButtons"><button id="replayBtn" class="primary">เล่นใหม่</button><button id="returnBtn" class="secondary">กลับสู่ Passport</button></div></div></section>
   <section id="trackingGate"><div class="gateCard"><div class="gateIcon">☝️</div><b id="gateTitle">ให้กล้องเห็นมือก่อน</b><span id="gateText">ถอยมือออกเล็กน้อย ให้เห็นฝ่ามือและนิ้วชี้ทั้งมือ ไม่ชิดขอบจอ</span><div class="gateProgress"><i id="gateBar"></i></div></div></section>
 </main>
@@ -89,11 +89,11 @@
 <script type="module">
 import {FilesetResolver,HandLandmarker} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18";
 
-const VERSION="20260728-TOOTHBRUSH-MOBILE-FIRST-V20";
+const VERSION="20260728-TOOTHBRUSH-MOBILE-SMOOTH-V20.1";
 const q=new URLSearchParams(location.search);
 const CONFIG={
   durationSec:90,requiredStrokes:2,minDwellMs:280,strokeWindowMs:250,strokeMinPx:11,strokeCooldownMs:210,
-  detectIntervalMs:78,lostAfterMs:650,stableFrames:3,
+  detectPeriodMinMs:52,detectPeriodMaxMs:88,lostAfterMs:900,stableFrames:2,maxPredictionMs:26,
   wasm:"https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm",
   model:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
 };
@@ -108,10 +108,10 @@ const ZONES=[
 const $=id=>document.getElementById(id),clamp=(n,a,b)=>Math.max(a,Math.min(b,n)),now=()=>performance.now();
 const D={camera:$("camera"),mouth:$("mouth"),target:$("target"),arrow:$("arrow"),plaque:$("plaque"),marker:$("fingerMarker"),raw:$("rawMarker"),brush:$("brush"),status:$("trackingStatus"),gate:$("trackingGate"),gateTitle:$("gateTitle"),gateText:$("gateText"),gateBar:$("gateBar")};
 const state={
- phase:"start",hand:null,cameraReady:false,modelReady:false,detectBusy:false,lastVideoTime:-1,lastDetectAt:0,lastSeen:0,lostSince:0,stableHits:0,trackingReady:false,
+ phase:"start",hand:null,cameraReady:false,modelReady:false,detectBusy:false,lastVideoTime:-1,lastSeen:0,lostSince:0,stableHits:0,trackingReady:false,
  duration:CONFIG.durationSec,left:CONFIG.durationSec,startAt:0,lastFrame:0,pausedMs:0,pauseStartedAt:0,
- pointer:{rawX:0,rawY:0,x:innerWidth/2,y:innerHeight*.7,prevX:innerWidth/2,prevY:innerHeight*.7,angle:-24,speed:0,lastT:now(),filtered:null},
- zoneIndex:0,zones:{},samples:[],lastSampleAt:0,lastStrokeAt:0,totalStrokes:0,correctStrokes:0,trackingVisibleMs:0,trackingLostCount:0,inferenceTotalMs:0,inferenceCount:0,inferenceErrors:0,frameCount:0,fpsStartedAt:now(),renderFps:0,resultSent:false
+ pointer:{rawX:0,rawY:0,x:innerWidth/2,y:innerHeight*.7,prevX:innerWidth/2,prevY:innerHeight*.7,targetX:innerWidth/2,targetY:innerHeight*.7,targetAngle:-24,angle:-24,targetVX:0,targetVY:0,lastTargetT:0,moveT:0,speed:0,filtered:null,initialized:false},
+ zoneIndex:0,zones:{},samples:[],lastSampleAt:0,lastStrokeAt:0,totalStrokes:0,correctStrokes:0,trackingVisibleMs:0,trackingLostCount:0,inferenceTotalMs:0,inferenceCount:0,inferenceErrors:0,detectPeriodTotalMs:0,detectPeriodCount:0,lastDetectCycleAt:0,frameCount:0,fpsStartedAt:now(),renderFps:0,resultSent:false
 };
 for(const z of ZONES)state.zones[z.id]={dwell:0,strokes:0,complete:false,completedAtSec:null};
 
@@ -122,30 +122,38 @@ function trackingGate(show,title,text,pct=0){D.gate.classList.toggle("show",show
 function showTracking(ok,text){D.status.classList.toggle("ok",ok);D.status.textContent=text}
 function hidePointer(){D.marker.classList.remove("show");D.brush.classList.remove("show")}
 function showPointer(x,y,angle){
-  D.marker.style.left=x+"px";D.marker.style.top=y+"px";D.marker.classList.add("show");
-  D.brush.style.left=x+"px";D.brush.style.top=y+"px";D.brush.style.transform=`translate(-18px,-50%) rotate(${angle}deg)`;D.brush.classList.add("show");
+  D.marker.style.transform=`translate3d(${x}px,${y}px,0)`;D.marker.classList.add("show");
+  D.brush.style.transform=`translate3d(${x}px,${y}px,0) translate(-18px,-50%) rotate(${angle}deg)`;D.brush.classList.add("show");
 }
 function cameraPoint(lm){
   const rect=D.camera.getBoundingClientRect();
   const vw=Number(D.camera.videoWidth||640),vh=Number(D.camera.videoHeight||480);
   const scale=Math.max(rect.width/vw,rect.height/vh),drawW=vw*scale,drawH=vh*scale;
   const cropX=(drawW-rect.width)/2,cropY=(drawH-rect.height)/2;
-  // Preview is mirrored by CSS scaleX(-1), detector input is not mirrored.
   return{x:rect.left+(1-lm.x)*drawW-cropX,y:rect.top+lm.y*drawH-cropY};
 }
 function filterPoint(raw,t){
   const p=state.pointer;
-  if(!p.filtered){p.filtered={x:raw.x,y:raw.y};p.lastT=t;return{x:raw.x,y:raw.y}}
-  const dt=Math.max(.016,Math.min(.16,(t-p.lastT)/1000));p.lastT=t;
+  if(!p.filtered){p.filtered={x:raw.x,y:raw.y};p.lastFilterT=t;return{x:raw.x,y:raw.y}}
   const dx=raw.x-p.filtered.x,dy=raw.y-p.filtered.y,dist=Math.hypot(dx,dy);
-  const alpha=dist>120?.90:dist>60?.80:dist>25?.70:.58;
-  p.filtered.x+=dx*alpha;p.filtered.y+=dy*alpha;
-  return{x:p.filtered.x,y:p.filtered.y,dt};
+  const alpha=clamp(.52+Math.min(1,dist/120)*.38,.52,.90);
+  p.filtered.x+=dx*alpha;p.filtered.y+=dy*alpha;p.lastFilterT=t;
+  return{x:p.filtered.x,y:p.filtered.y};
 }
-function syncPointer(target,angle,t){
-  const p=state.pointer,dt=Math.max(8,t-(p.moveT||t));
-  p.prevX=p.x;p.prevY=p.y;p.x=target.x;p.y=target.y;p.angle=angle;p.speed=Math.hypot(p.x-p.prevX,p.y-p.prevY)/dt*1000;p.moveT=t;
-  showPointer(p.x,p.y,p.angle);
+function shortestAngle(from,to){let d=(to-from+540)%360-180;return from+d}
+function updatePointerTarget(target,angle,t){
+  const p=state.pointer;
+  if(!p.initialized){p.x=target.x;p.y=target.y;p.targetX=target.x;p.targetY=target.y;p.angle=angle;p.targetAngle=angle;p.prevX=target.x;p.prevY=target.y;p.initialized=true;p.lastTargetT=t;return}
+  const dt=Math.max(16,t-(p.lastTargetT||t)),vx=(target.x-p.targetX)/dt*1000,vy=(target.y-p.targetY)/dt*1000;
+  p.targetVX=p.targetVX*.55+clamp(vx,-1800,1800)*.45;p.targetVY=p.targetVY*.55+clamp(vy,-1800,1800)*.45;
+  p.targetX=target.x;p.targetY=target.y;p.targetAngle=shortestAngle(p.angle,angle);p.lastTargetT=t;
+}
+function renderPointer(t,dt){
+  const p=state.pointer;if(!state.trackingReady||!p.initialized)return;
+  const age=clamp(t-state.lastSeen,0,CONFIG.maxPredictionMs),predX=p.targetX+p.targetVX*age/1000,predY=p.targetY+p.targetVY*age/1000;
+  const dist=Math.hypot(predX-p.x,predY-p.y),tau=dist>95?24:dist>40?36:58,alpha=1-Math.exp(-Math.max(1,dt)/tau),angleAlpha=1-Math.exp(-Math.max(1,dt)/65);
+  p.prevX=p.x;p.prevY=p.y;p.x+= (predX-p.x)*alpha;p.y+=(predY-p.y)*alpha;p.angle+= (p.targetAngle-p.angle)*angleAlpha;
+  p.speed=Math.hypot(p.x-p.prevX,p.y-p.prevY)/Math.max(8,dt)*1000;p.moveT=t;showPointer(p.x,p.y,p.angle);
 }
 function brushPercent(){const r=D.mouth.getBoundingClientRect();return{x:(state.pointer.x-r.left)/r.width*100,y:(state.pointer.y-r.top)/r.height*100}}
 function pointerInsideZone(zone){const p=brushPercent();return p.x>=zone.x1&&p.x<=zone.x2&&p.y>=zone.y1&&p.y<=zone.y2}
@@ -160,8 +168,7 @@ function detectStroke(t){
 }
 function positionZone(){
   const z=currentZone();D.target.style.left=z.x1+"%";D.target.style.top=z.y1+"%";D.target.style.width=(z.x2-z.x1)+"%";D.target.style.height=(z.y2-z.y1)+"%";D.arrow.textContent=z.dir==="down"?"⬇":"⬆";
-  const cx=(z.x1+z.x2)/2,cy=(z.y1+z.y2)/2;D.plaque.style.left=cx+"%";D.plaque.style.top=cy+"%";
-  updateMission();
+  const cx=(z.x1+z.x2)/2,cy=(z.y1+z.y2)/2;D.plaque.style.left=cx+"%";D.plaque.style.top=cy+"%";updateMission();
 }
 function updateMission(){
   const z=currentZone(),row=state.zones[z.id];$("missionTitle").textContent=`ภารกิจโซน: ${z.label}`;$("missionHint").textContent=`${directionName(z.dir)} • Stroke ถูก ${row.strokes}/${CONFIG.requiredStrokes} • อยู่ในโซน ${(Math.min(row.dwell,CONFIG.minDwellMs)/1000).toFixed(2)}/${(CONFIG.minDwellMs/1000).toFixed(2)}s`;$("zoneChip").textContent=`Zone ${state.zoneIndex+1}/6`;
@@ -200,24 +207,28 @@ function detectOnce(t){
     const result=state.hand.detectForVideo(state.inferCanvas,t);const cost=performance.now()-started;state.inferenceTotalMs+=cost;state.inferenceCount++;
     if(!result.landmarks?.length){handleLost(t);return}
     const hand=result.landmarks[0],tip=cameraPoint(hand[8]),dip=cameraPoint(hand[7]),mcp=cameraPoint(hand[5]);
-    const raw={x:tip.x+(tip.x-dip.x)*.035,y:tip.y+(tip.y-dip.y)*.035};
-    D.raw.style.left=raw.x+"px";D.raw.style.top=raw.y+"px";
+    const raw={x:tip.x+(tip.x-dip.x)*.035,y:tip.y+(tip.y-dip.y)*.035};D.raw.style.left=raw.x+"px";D.raw.style.top=raw.y+"px";
     const filtered=filterPoint(raw,t),angle=Math.atan2(tip.y-mcp.y,tip.x-mcp.x)*180/Math.PI-8;
-    state.pointer.rawX=raw.x;state.pointer.rawY=raw.y;state.lastSeen=t;state.lostSince=0;state.stableHits++;
+    state.pointer.rawX=raw.x;state.pointer.rawY=raw.y;updatePointerTarget(filtered,angle,t);state.lastSeen=t;state.lostSince=0;state.stableHits++;
     if(!state.trackingReady){trackingGate(true,"กำลังจับปลายนิ้ว","ค้างมือให้นิ่งชั่วครู่ วงสีเขียวและแปรงจะปรากฏพร้อมกัน",Math.min(100,state.stableHits/CONFIG.stableFrames*100));if(state.stableHits>=CONFIG.stableFrames){state.trackingReady=true;trackingGate(false,"","",100)}}
-    if(state.trackingReady){syncPointer(filtered,angle,t);showTracking(true,"Detect แล้ว • วงและแปรงตรงนิ้ว")}
+    if(state.trackingReady)showTracking(true,"Detect แล้ว • Smooth Follow");
   }catch(error){state.inferenceErrors++;handleLost(t)}finally{state.detectBusy=false}
 }
-function detectLoop(){if(state.phase!=="ended")detectOnce(performance.now());setTimeout(detectLoop,CONFIG.detectIntervalMs)}
+function detectLoop(){
+  const cycleStart=performance.now();if(state.phase!=="ended")detectOnce(cycleStart);
+  if(state.lastDetectCycleAt){const period=cycleStart-state.lastDetectCycleAt;state.detectPeriodTotalMs+=period;state.detectPeriodCount++}state.lastDetectCycleAt=cycleStart;
+  const avgInference=state.inferenceTotalMs/Math.max(1,state.inferenceCount),targetPeriod=clamp(avgInference*1.22,CONFIG.detectPeriodMinMs,CONFIG.detectPeriodMaxMs),elapsed=performance.now()-cycleStart;
+  setTimeout(detectLoop,Math.max(4,targetPeriod-elapsed));
+}
 function renderLoop(t){
   requestAnimationFrame(renderLoop);state.frameCount++;if(t-state.fpsStartedAt>=1000){state.renderFps=Math.round(state.frameCount*1000/(t-state.fpsStartedAt));state.frameCount=0;state.fpsStartedAt=t}
-  if(state.phase!=="playing")return;const dt=Math.min(80,t-(state.lastFrame||t));state.lastFrame=t;
+  if(state.phase!=="playing")return;const dt=Math.min(50,t-(state.lastFrame||t));state.lastFrame=t;
   if(!state.trackingReady){state.pausedMs+=Math.max(0,dt);state.left=clamp(state.duration-(t-state.startAt-state.pausedMs)/1000,0,state.duration);$("time").textContent=Math.ceil(state.left)+"s";return}
-  state.trackingVisibleMs+=Math.max(0,dt);state.left=clamp(state.duration-(t-state.startAt-state.pausedMs)/1000,0,state.duration);$("time").textContent=Math.ceil(state.left)+"s";updateGameplay(t,dt);if(state.left<=0)finishGame("timeup");
+  renderPointer(t,dt);state.trackingVisibleMs+=Math.max(0,dt);state.left=clamp(state.duration-(t-state.startAt-state.pausedMs)/1000,0,state.duration);$("time").textContent=Math.ceil(state.left)+"s";updateGameplay(t,dt);if(state.left<=0)finishGame("timeup");
 }
 function buildPayload(reason){
   const completed=ZONES.filter(z=>state.zones[z.id].complete).length,dirAcc=Math.round(state.correctStrokes/Math.max(1,state.totalStrokes)*100),activeMs=Math.max(1,now()-state.startAt-state.pausedMs),trackingPct=Math.round(state.trackingVisibleMs/activeMs*100);
-  return{version:VERSION,zone:"hygiene",gameId:"toothbrush",game_id:"toothbrush",game_key:"toothbrush",studentId:q.get("studentId")||q.get("pid")||"",fullName:q.get("fullName")||q.get("studentName")||q.get("name")||"",section:q.get("section")||"",group:q.get("group")||"",mode:"classroom_mobile",play_mode:"classroom_mobile",completed:true,passed:completed===6,progressionEligible:true,procedureCompleted:completed===6,reason,score:completed*100+dirAcc,accuracy:dirAcc,coverageZones:completed,totalZones:6,durationSec:Math.round(activeMs/100)/10,finishedAt:new Date().toISOString(),eventId:`HH-TOOTHBRUSH-V20-${Date.now()}`,analyticsSchemaVersion:"HH-UNIFIED-GAME-ANALYTICS-V2",trackingProfile:"standalone-mobile-index-finger-v20",coordinateMapping:"video-rect-cover-mirrored",markerBrushSameCoordinate:true,touchFallbackEnabled:false,trackingVisiblePct:trackingPct,trackingLostCount:state.trackingLostCount,avgInferenceMs:Math.round(state.inferenceTotalMs/Math.max(1,state.inferenceCount)),inferenceErrors:state.inferenceErrors,renderFps:state.renderFps,totalStrokes:state.totalStrokes,correctStrokes:state.correctStrokes,directionAccuracy:dirAcc,zoneMetrics:Object.fromEntries(ZONES.map(z=>[z.id,{...state.zones[z.id]}]))};
+  return{version:VERSION,zone:"hygiene",gameId:"toothbrush",game_id:"toothbrush",game_key:"toothbrush",studentId:q.get("studentId")||q.get("pid")||"",fullName:q.get("fullName")||q.get("studentName")||q.get("name")||"",section:q.get("section")||"",group:q.get("group")||"",mode:"classroom_mobile",play_mode:"classroom_mobile",completed:true,passed:completed===6,progressionEligible:true,procedureCompleted:completed===6,reason,score:completed*100+dirAcc,accuracy:dirAcc,coverageZones:completed,totalZones:6,durationSec:Math.round(activeMs/100)/10,finishedAt:new Date().toISOString(),eventId:`HH-TOOTHBRUSH-V20-1-${Date.now()}`,analyticsSchemaVersion:"HH-UNIFIED-GAME-ANALYTICS-V2",trackingProfile:"standalone-mobile-raf-interpolated-v20.1",motionProfile:"adaptive-target-plus-raf-interpolation",coordinateMapping:"video-rect-cover-mirrored",markerBrushSameCoordinate:true,touchFallbackEnabled:false,trackingVisiblePct:trackingPct,trackingLostCount:state.trackingLostCount,avgInferenceMs:Math.round(state.inferenceTotalMs/Math.max(1,state.inferenceCount)),avgDetectPeriodMs:Math.round(state.detectPeriodTotalMs/Math.max(1,state.detectPeriodCount)),inferenceErrors:state.inferenceErrors,renderFps:state.renderFps,totalStrokes:state.totalStrokes,correctStrokes:state.correctStrokes,directionAccuracy:dirAcc,zoneMetrics:Object.fromEntries(ZONES.map(z=>[z.id,{...state.zones[z.id]}]))};
 }
 function sendResult(payload){
   if(state.resultSent)return;state.resultSent=true;try{localStorage.setItem("HHA_TOOTHBRUSH_LAST_RESULT",JSON.stringify(payload));localStorage.setItem("toothbrush_pending_result",JSON.stringify(payload))}catch(_){}
@@ -227,7 +238,7 @@ function finishGame(reason){
   if(state.phase==="ended")return;state.phase="ended";hidePointer();trackingGate(false,"","",0);const payload=buildPayload(reason);sendResult(payload);const completed=payload.coverageZones;$("resultCoverage").textContent=`${completed}/6`;$("resultDirection").textContent=payload.directionAccuracy+"%";$("resultTracking").textContent=payload.trackingVisiblePct+"%";$("resultTime").textContent=payload.durationSec+"s";$("resultText").textContent=completed===6?"ทำครบทั้ง 6 โซนแล้ว":"จบรอบและบันทึกผลแล้ว";$("resultScreen").classList.add("show")
 }
 function resetGame(){
-  state.phase="playing";state.duration=CONFIG.durationSec;state.left=CONFIG.durationSec;state.startAt=now();state.lastFrame=state.startAt;state.pausedMs=0;state.zoneIndex=0;state.samples=[];state.lastStrokeAt=0;state.totalStrokes=0;state.correctStrokes=0;state.trackingVisibleMs=0;state.trackingLostCount=0;state.stableHits=0;state.trackingReady=false;state.lostSince=0;state.resultSent=false;state.pointer.filtered=null;
+  state.phase="playing";state.duration=CONFIG.durationSec;state.left=CONFIG.durationSec;state.startAt=now();state.lastFrame=state.startAt;state.pausedMs=0;state.zoneIndex=0;state.samples=[];state.lastStrokeAt=0;state.totalStrokes=0;state.correctStrokes=0;state.trackingVisibleMs=0;state.trackingLostCount=0;state.stableHits=0;state.trackingReady=false;state.lostSince=0;state.resultSent=false;state.pointer.filtered=null;state.pointer.initialized=false;state.pointer.targetVX=0;state.pointer.targetVY=0;state.detectPeriodTotalMs=0;state.detectPeriodCount=0;
   for(const z of ZONES)state.zones[z.id]={dwell:0,strokes:0,complete:false,completedAtSec:null};$("resultScreen").classList.remove("show");hidePointer();positionZone();trackingGate(true,"ให้กล้องเห็นมือก่อน","ถอยมือออกเล็กน้อย ให้เห็นฝ่ามือและนิ้วชี้ทั้งมือ ไม่ชิดขอบจอ",0);showTracking(false,"ยังไม่ Detect นิ้ว");$("time").textContent="90s";
 }
 async function start(){
