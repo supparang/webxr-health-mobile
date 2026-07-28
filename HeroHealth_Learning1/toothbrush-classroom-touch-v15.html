@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#dff7ff">
+  <title>HeroHealth • Toothbrush Touch V15</title>
+  <style>
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#dff7ff;touch-action:none;overscroll-behavior:none}
+    #game{position:fixed;inset:0;width:100%;height:100%;border:0;background:#dff7ff}
+    #touchPad{position:fixed;z-index:40;left:0;right:0;top:108px;bottom:0;display:none;touch-action:none;overscroll-behavior:none;background:transparent}
+    #touchPad.on{display:block}
+    #touchDot{position:fixed;z-index:42;width:34px;height:34px;margin:-17px 0 0 -17px;border:4px solid rgba(6,182,212,.95);border-radius:50%;background:rgba(255,255,255,.18);box-shadow:0 0 0 7px rgba(34,197,94,.18);pointer-events:none;opacity:0;transform:scale(.8);transition:opacity .08s,transform .08s}
+    #touchDot.show{opacity:1;transform:scale(1)}
+    #ready{position:fixed;z-index:45;left:50%;bottom:18px;transform:translateX(-50%);padding:7px 12px;border-radius:999px;background:rgba(6,95,70,.90);color:#fff;font:900 12px/1.2 system-ui;pointer-events:none;opacity:0;transition:.18s;white-space:nowrap}
+    #ready.show{opacity:1}
+  </style>
+</head>
+<body>
+  <iframe id="game" allow="camera; fullscreen; autoplay" referrerpolicy="same-origin"></iframe>
+  <div id="touchPad" aria-label="พื้นที่ลากแปรง"></div>
+  <div id="touchDot"></div>
+  <div id="ready">แตะค้างแล้วลากนิ้วเพื่อควบคุมแปรง</div>
+  <script>
+  (()=>{
+    'use strict';
+    const RELEASE='20260728-TOOTHBRUSH-NATIVE-TOUCH-BRIDGE-V15';
+    const q=new URLSearchParams(location.search);
+    const frame=document.getElementById('game');
+    const pad=document.getElementById('touchPad');
+    const dot=document.getElementById('touchDot');
+    const ready=document.getElementById('ready');
+    const target=new URL('./toothbrush-classroom-touch-v14.html',location.href);
+    for(const [k,v] of q.entries())target.searchParams.set(k,v);
+    target.searchParams.set('bridge',RELEASE);
+    target.searchParams.set('v','20260728-touch-v15-inner');
+    frame.src=target.href;
+
+    let active=false,pointerId=915,lastPoint=null,started=false;
+    const pointFromTouch=e=>{
+      const t=e.touches?.[0]||e.changedTouches?.[0];
+      return t?{x:t.clientX,y:t.clientY}:lastPoint;
+    };
+    function dispatch(type,p,buttons){
+      if(!p||!frame.contentWindow||!frame.contentDocument)return;
+      lastPoint=p;
+      const targetEl=frame.contentDocument.body||frame.contentDocument.documentElement;
+      const ev=new PointerEvent(type,{bubbles:true,cancelable:true,composed:true,pointerId,pointerType:'touch',isPrimary:true,clientX:p.x,clientY:p.y,screenX:p.x,screenY:p.y,buttons,button:buttons?0:-1,pressure:buttons?.65:0});
+      targetEl.dispatchEvent(ev);
+    }
+    function showDot(p){if(!p)return;dot.style.left=p.x+'px';dot.style.top=p.y+'px';dot.classList.add('show')}
+    function begin(e){
+      const p=pointFromTouch(e);if(!p)return;
+      active=true;showDot(p);dispatch('pointerdown',p,1);ready.classList.remove('show');
+      if(e.cancelable)e.preventDefault();
+    }
+    function move(e){
+      if(!active)return;const p=pointFromTouch(e);if(!p)return;
+      showDot(p);dispatch('pointermove',p,1);
+      if(e.cancelable)e.preventDefault();
+    }
+    function end(e){
+      if(!active)return;const p=pointFromTouch(e)||lastPoint;
+      dispatch('pointerup',p,0);active=false;dot.classList.remove('show');
+      if(e.cancelable)e.preventDefault();
+    }
+    pad.addEventListener('touchstart',begin,{passive:false});
+    pad.addEventListener('touchmove',move,{passive:false});
+    pad.addEventListener('touchend',end,{passive:false});
+    pad.addEventListener('touchcancel',end,{passive:false});
+
+    // Pointer fallback for stylus or browsers that expose pointer events reliably.
+    pad.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;active=true;const p={x:e.clientX,y:e.clientY};showDot(p);dispatch('pointerdown',p,1);e.preventDefault()});
+    pad.addEventListener('pointermove',e=>{if(!active||e.pointerType==='touch')return;const p={x:e.clientX,y:e.clientY};showDot(p);dispatch('pointermove',p,1);e.preventDefault()});
+    pad.addEventListener('pointerup',e=>{if(e.pointerType==='touch')return;dispatch('pointerup',{x:e.clientX,y:e.clientY},0);active=false;dot.classList.remove('show');e.preventDefault()});
+
+    function syncPad(){
+      try{
+        const d=frame.contentDocument;
+        const start=d?.getElementById('startScreen');
+        const result=d?.getElementById('resultScreen');
+        const playing=!!d&&!start?.classList.contains('show')&&!result?.classList.contains('show');
+        pad.classList.toggle('on',playing);
+        if(playing&&!started){started=true;ready.classList.add('show');setTimeout(()=>ready.classList.remove('show'),2200)}
+        if(!playing){active=false;dot.classList.remove('show')}
+      }catch(_){pad.classList.remove('on')}
+    }
+    frame.addEventListener('load',()=>{syncPad();setInterval(syncPad,250)});
+
+    addEventListener('message',event=>{
+      if(event.source!==frame.contentWindow||event.origin!==location.origin)return;
+      if(window.parent!==window)window.parent.postMessage(event.data,location.origin);
+    });
+    document.documentElement.dataset.toothbrushTouchBridge=RELEASE;
+  })();
+  </script>
+</body>
+</html>
