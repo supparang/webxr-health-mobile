@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-COMPLETE7-R30",
+  platformVersion: "2026.07-CLASSROOM60-TOOTHBRUSH-SINGLE-V11",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_HANDWASH_RETEST_REQUIRED",
+  deploymentState: "QA_TOOTHBRUSH_SINGLE_MODE",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -13,8 +13,9 @@ window.HH_CONFIG = {
   mobileOnly: true,
   oneRoundPerGame: true,
   requireGamePassToContinue: false,
-  strictGamePass: { handwash: false },
+  strictGamePass: { handwash: false, toothbrush: false },
   handwashContract: { requiredRubSteps: 7, requiredProcessSteps: 5, requiredTotalSteps: 12, requireWrists: true, requireAnalyticsReceipt: true, progressionByCompletion: true },
+  toothbrushContract: { mode: "classroom_coach", durationSec: 90, zones: 6, settingsVisible: false, progressionByCompletion: true },
   teacherPin: "",
   routes: {
     pretest: "./assessment/pretest.html",
@@ -25,7 +26,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "แต่ละกลุ่มเริ่มคนละฐาน ทุกเกมเล่นหนึ่งรอบ โดย Handwash ต้องทำครบ 7 ท่าถู + 5 ขั้นกระบวนการ และ Sheet ต้องยืนยัน Analytics ก่อนปลดล็อกเกมถัดไป คะแนนทักษะใช้เพื่อวิเคราะห์ ไม่บังคับ Retry",
+      description: "แต่ละกลุ่มเริ่มคนละฐาน ทุกเกมเล่นหนึ่งรอบ Handwash ต้องครบ 7 ท่าถูและ 5 ขั้นกระบวนการ ส่วน Toothbrush ใช้โหมด Classroom Coach เดียว ไม่มีหน้าตั้งค่า คะแนนทักษะใช้เพื่อวิเคราะห์และไม่บังคับ Retry",
       games: { hygiene: ["handwash", "toothbrush"], nutrition: ["groups", "goodjunk"], fitness: ["jumpduck", "balance-hold"] }
     },
     FULL_PLATFORM: {
@@ -39,8 +40,8 @@ window.HH_CONFIG = {
     {
       id: "hygiene", label: "Hygiene Hero", thai: "ฐานสุขอนามัย", emoji: "🧼", accent: "#0ea5e9", description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
-        { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260727-complete7-r30", status:"qa-retest-complete-7-rub-12-phase-r30", requiredReturnContract:true, qaClosed:false, progressionByCompletion:true },
-        { id:"toothbrush", title:"Toothbrush Hero AR", thai:"Toothbrush AR", url:"./classroom-contract-wrapper.html?wrappedGame=toothbrush&v=20260727-toothbrush-next-qa", status:"qa-next-after-handwash-retest", requiredReturnContract:true },
+        { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260727-complete7-r30", status:"qa-complete-7-rub-12-phase-r30", requiredReturnContract:true, qaClosed:true, progressionByCompletion:true },
+        { id:"toothbrush", title:"Toothbrush Classroom Coach", thai:"Toothbrush AR", url:"./toothbrush-classroom-single.html?v=20260728-single-v11", status:"qa-single-mode-mobile-v11", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"clean-objects", title:"Clean Objects", thai:"ภารกิจทำความสะอาดสิ่งของ", url:"../herohealth/clean-objects-v3/clean-objects.html", status:"catalog-only", requiredReturnContract:true },
