@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-TOOTHBRUSH-CHALLENGE-V21",
+  platformVersion: "2026.07-CLASSROOM60-TOOTHBRUSH-LOW-LATENCY-V22",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_TOOTHBRUSH_CLASSROOM_CHALLENGE_SINGLE_MODE",
+  deploymentState: "QA_TOOTHBRUSH_EASIER_DETECTION_LOW_LATENCY",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -25,17 +25,24 @@ window.HH_CONFIG = {
     retryRequired: false,
     skillThresholds: { coverageZones: 6, directionAccuracyPct: 45, trackingQualityPct: 60 },
     input: "index-finger-only",
-    trackingProfile: "standalone-mobile-one-euro-spring-v20.2",
-    cameraProfile: "480x360-24fps",
-    inferenceInput: "256x192-adaptive",
+    trackingProfile: "video-frame-low-latency-v22",
+    cameraProfile: "480x360-30fps",
+    inferenceInput: "direct-video-frame",
     coordinateMapping: "video-rect-cover-mirrored",
-    stableFramesRequired: 2,
+    handDetectionConfidence: 0.20,
+    handPresenceConfidence: 0.18,
+    handTrackingConfidence: 0.18,
+    stableFramesRequired: 1,
+    shortLossHoldMs: 420,
+    timerPausesAfterLossMs: 520,
+    pointerHidesAfterLossMs: 1100,
     timerPausesWhenTrackingLost: true,
     markerBrushSameCoordinate: true,
     touchFallbackEnabled: false,
     zonePositionAssist: false,
-    renderInterpolation: "one-euro-plus-critical-spring",
-    architecture: "single-game-plus-classroom-challenge-policy-shell"
+    renderInterpolation: "three-sample-weighted-plus-fast-rAF-follow",
+    detectionScheduler: "requestVideoFrameCallback",
+    architecture: "single-standalone-classroom-challenge-file"
   },
   teacherPin: "",
   routes: {
@@ -47,7 +54,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Toothbrush ใช้ Classroom Challenge เป็นโหมดเดียว: AR Coach นำทางครบ 6 โซนภายใน 90 วินาที เล่นหนึ่งรอบถือว่าจบภารกิจและปลดล็อกเกมถัดไปโดยไม่บังคับ Retry ส่วน Coverage, Direction Accuracy และ Tracking Quality เก็บแยกเป็นผลทักษะและ Learning Analytics สำหรับการวิเคราะห์",
+      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Toothbrush ใช้ Classroom Challenge โหมดเดียวและสร้างเป็นไฟล์ standalone สำหรับมือถือโดยตรง ตรวจมือทุกเฟรมวิดีโอที่พร้อม ลดค่า threshold เพื่อให้ Detect ง่ายขึ้น เริ่มติดตามได้ตั้งแต่เฟรมแรก และคงตำแหน่งผ่านเฟรมที่หลุดสั้น ๆ เพื่อลดอาการกระตุก วงสีเขียว หัวแปรง และ hitbox ใช้พิกัดเดียวกัน เล่นหนึ่งรอบถือว่าจบภารกิจโดยไม่บังคับ Retry ส่วน Coverage, Direction Accuracy, Tracking, Detection FPS และ Render FPS เก็บเป็น Learning Analytics",
       games: { hygiene: ["handwash", "toothbrush"], nutrition: ["groups", "goodjunk"], fitness: ["jumpduck", "balance-hold"] }
     },
     FULL_PLATFORM: {
@@ -62,7 +69,7 @@ window.HH_CONFIG = {
       id: "hygiene", label: "Hygiene Hero", thai: "ฐานสุขอนามัย", emoji: "🧼", accent: "#0ea5e9", description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
         { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260727-complete7-r30", status:"qa-complete-7-rub-12-phase-r30", requiredReturnContract:true, qaClosed:true, progressionByCompletion:true },
-        { id:"toothbrush", title:"Toothbrush Classroom Challenge", thai:"Toothbrush Challenge", url:"./toothbrush-classroom-challenge-v21.html?v=20260728-classroom-challenge-v21", status:"qa-classroom-challenge-single-mode-v21", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false, oneRoundCompletes:true, retryRequired:false },
+        { id:"toothbrush", title:"Toothbrush Classroom Challenge", thai:"Toothbrush Challenge", url:"./toothbrush-classroom-challenge-v22.html?v=20260728-low-latency-v22", status:"qa-mobile-easier-detection-low-latency-v22", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false, oneRoundCompletes:true, retryRequired:false },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"clean-objects", title:"Clean Objects", thai:"ภารกิจทำความสะอาดสิ่งของ", url:"../herohealth/clean-objects-v3/clean-objects.html", status:"catalog-only", requiredReturnContract:true },
