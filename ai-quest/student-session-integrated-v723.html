@@ -6,108 +6,87 @@
 <meta name="theme-color" content="#071426">
 <meta http-equiv="Cache-Control" content="no-store,no-cache,must-revalidate,max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
-<title>CSAI2102 Integrated Session v7.3.0</title>
+<title>CSAI2102 • Integrated Session v7.3.3</title>
 <style>
-*{box-sizing:border-box}
-[hidden]{display:none!important}
-html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#071426;color:#e8f1ff}
-.bar{position:sticky;top:0;z-index:20;padding:10px 14px;background:#0d1a2d;border-bottom:1px solid #334155}
-.top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.brand{font-weight:950;margin-right:auto}
-.btn{border:1px solid #334155;border-radius:11px;padding:10px 13px;background:#17263f;color:#fff;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
-.btn.primary{background:#0369a1}.btn.good{background:#07875a}.btn:disabled{opacity:.48;cursor:not-allowed}
-.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
-.step{padding:8px 10px;border:1px solid #334155;border-radius:10px;background:#132238;font-size:13px}.step small{display:block;margin-top:3px;color:#cbd5e1}
-.step.good{border-color:#10b981;background:#09352e}.step.active{border-color:#38bdf8;background:#102744}
-.notice{margin-top:8px;padding:10px 11px;border-radius:10px;background:#132238;color:#dbeafe;font-size:13px;line-height:1.45}
-.notice.good{background:#064e3b;color:#d1fae5}.notice.bad{background:#4c1d2b;color:#fecdd3}.notice.wait{background:#3a2505;color:#fde68a;border:1px solid #a16207}
-.loading{display:grid;place-items:center;min-height:55vh;font-weight:850;color:#cbd5e1;padding:24px;text-align:center}.loading.off{display:none!important}
-.frame{display:none;width:100%;height:calc(100vh - 190px);min-height:560px;border:0;background:#071426}.frame.on{display:block}
-.reflection{display:none;max-width:1000px;margin:18px auto 100px;padding:20px;border:1px solid #38bdf8;border-radius:18px;background:#0f1d33}.reflection.on{display:block}
-.reflection .intro{color:#bfdbfe;line-height:1.55}.reflection textarea{width:100%;min-height:110px;padding:12px;border:1px solid #475569;border-radius:12px;background:#17263f;color:#fff;font:inherit}.reflection label{display:block;font-weight:800;margin:14px 0 7px;line-height:1.45}
-.status{white-space:pre-wrap;background:#071426;padding:12px;border-radius:12px;border:1px solid #334155;margin-top:12px}.bottom{display:none}
-@media(max-width:760px){body{padding-bottom:72px}.bar{padding:8px 10px}.top .btn{display:none}.brand{font-size:18px}.flow{display:none}.frame{height:calc(100vh - 120px);min-height:520px}.reflection{margin:10px 9px 90px;padding:14px}.bottom{display:grid;position:fixed;left:0;right:0;bottom:0;z-index:40;grid-template-columns:repeat(4,1fr);gap:5px;padding:7px 8px calc(7px + env(safe-area-inset-bottom));background:rgba(7,20,38,.97);border-top:1px solid #334155}.nav{min-height:54px;border:1px solid #334155;border-radius:11px;background:#132238;color:#dbeafe;font-size:11px;font-weight:850;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none}.nav.active{background:#0369a1}.nav.good{background:#065f46}.nav:disabled{opacity:.48}}
+:root{--bg:#071426;--panel:#101d33;--line:#334155;--text:#e8f1ff;--muted:#a9bad3;--blue:#0369a1;--green:#07875a;--amber:#b45309;--bad:#9f1239}
+*{box-sizing:border-box;min-width:0}[hidden]{display:none!important}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif}
+.bar{position:sticky;top:0;z-index:30;padding:10px 14px;background:#0d1a2d;border-bottom:1px solid var(--line)}.top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.brand{font-weight:950;margin-right:auto}.btn{min-height:44px;padding:9px 13px;border:1px solid var(--line);border-radius:11px;background:#17263f;color:#fff;font:inherit;font-weight:850;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.btn.blue{background:var(--blue)}.btn.green{background:var(--green)}.btn:disabled{opacity:.48;cursor:not-allowed}
+.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}.step{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#132238;font-size:13px}.step small{display:block;margin-top:3px;color:#cbd5e1}.step.good{border-color:#10b981;background:#09352e}.step.active{border-color:#38bdf8;background:#102744}.step.lock{opacity:.62}
+.notice{margin-top:8px;padding:10px 11px;border-radius:10px;background:#132238;color:#dbeafe;border:1px solid var(--line);font-size:13px;line-height:1.45;white-space:pre-wrap}.notice.good{background:#064e3b;color:#d1fae5;border-color:#15803d}.notice.bad{background:#4c1d2b;color:#fecdd3;border-color:var(--bad)}.notice.wait{background:#3a2505;color:#fde68a;border-color:#a16207}
+.loading{display:grid;place-items:center;min-height:55vh;font-weight:850;color:#cbd5e1;padding:24px;text-align:center}.loading.off{display:none!important}.frame{display:none;width:100%;height:calc(100vh - 190px);min-height:560px;border:0;background:var(--bg)}.frame.on{display:block}
+.reflection{display:none;max-width:1000px;margin:18px auto 100px;padding:20px;border:1px solid #38bdf8;border-radius:18px;background:#0f1d33}.reflection.on{display:block}.reflection .intro{color:#bfdbfe;line-height:1.55}.reflection textarea{width:100%;min-height:112px;padding:12px;border:1px solid #475569;border-radius:12px;background:#17263f;color:#fff;font:inherit}.reflection label{display:block;font-weight:850;margin:14px 0 7px;line-height:1.45}.counter{font-size:12px;color:#a9bad3;text-align:right;margin-top:4px}.counter.ok{color:#bbf7d0}.status{white-space:pre-wrap;background:#071426;padding:12px;border-radius:12px;border:1px solid var(--line);margin-top:12px}.bottom{display:none}
+@media(max-width:760px){body{padding-bottom:72px}.bar{padding:8px 10px}.top .btn{display:none}.brand{font-size:18px}.flow{display:none}.frame{height:calc(100vh - 120px);min-height:520px}.reflection{margin:10px 9px 90px;padding:14px}.bottom{display:grid;position:fixed;left:0;right:0;bottom:0;z-index:40;grid-template-columns:repeat(4,1fr);gap:5px;padding:7px 8px calc(7px + env(safe-area-inset-bottom));background:rgba(7,20,38,.97);border-top:1px solid var(--line)}.nav{min-height:54px;border:1px solid var(--line);border-radius:11px;background:#132238;color:#dbeafe;font-size:11px;font-weight:850;display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none}.nav.active{background:var(--blue)}.nav.good{background:#065f46}.nav:disabled{opacity:.48}}
 </style>
 </head>
 <body>
 <header class="bar">
- <div class="top"><div id="brand" class="brand">CSAI2102</div><button id="missionBtn" class="btn primary">1 • Mission</button><button id="codingBtn" class="btn good">2 • Coding Lab</button><button id="reflectionBtn" class="btn" disabled>3 • Reflection</button><a id="mapBtn" class="btn">แผนที่</a></div>
- <div class="flow"><div id="mStep" class="step"><b>1. Mission</b><small id="mText">กำลังตรวจ</small></div><div id="cStep" class="step"><b>2. Coding Lab</b><small id="cText">กำลังตรวจ</small></div><div id="rStep" class="step"><b>3. Reflection</b><small id="rText">กำลังตรวจ</small></div></div>
+ <div class="top"><div id="brand" class="brand">CSAI2102</div><button id="missionBtn" class="btn blue">1 • Mission</button><button id="codingBtn" class="btn green" disabled>2 • Coding Lab</button><button id="reflectionBtn" class="btn" disabled>3 • Reflection</button><a id="mapBtn" class="btn">แผนที่</a></div>
+ <div class="flow"><div id="mStep" class="step"><b>1. Mission</b><small id="mText">กำลังตรวจ</small></div><div id="cStep" class="step lock"><b>2. Coding Lab</b><small id="cText">รอ Mission</small></div><div id="rStep" class="step lock"><b>3. Reflection</b><small id="rText">รอ Mission + Coding</small></div></div>
  <div id="notice" class="notice wait">กำลังตรวจสถานะล่าสุดจาก Google Sheet…</div>
 </header>
 <div id="loading" class="loading">กำลังตรวจขั้นตอนที่ต้องทำต่อ…</div>
-<iframe id="missionFrame" class="frame" title="AI Quest Mission"></iframe>
+<iframe id="missionFrame" class="frame" title="CSAI2102 Graded Mission"></iframe>
 <section id="reflectionPanel" class="reflection">
  <h2 id="reflectionTitle">Reflection</h2>
- <p id="reflectionIntro" class="intro">ตอบโดยเชื่อมหลักฐานจาก Mission กับผลที่ทดลองใน Coding Lab ข้อละอย่างน้อย 20 ตัวอักษร</p>
- <label id="r1Label" for="r1">1. Reflection</label><textarea id="r1"></textarea>
- <label id="r2Label" for="r2">2. Reflection</label><textarea id="r2"></textarea>
- <label id="r3Label" for="r3">3. Reflection</label><textarea id="r3"></textarea>
- <p><button id="submit" class="btn primary">ส่ง Reflection และจบ Session</button> <button id="back" class="btn">กลับ Mission</button></p>
+ <p id="reflectionIntro" class="intro">ตอบโดยเชื่อมหลักฐานจาก Mission กับผลที่ทดลองใน Coding Lab ข้อละอย่างน้อย 55 ตัวอักษร คำตอบทั้ง 3 ข้อต้องเป็นคนละประเด็น</p>
+ <label id="r1Label" for="r1">1. Reflection</label><textarea id="r1"></textarea><div id="c1" class="counter">0/55</div>
+ <label id="r2Label" for="r2">2. Reflection</label><textarea id="r2"></textarea><div id="c2" class="counter">0/55</div>
+ <label id="r3Label" for="r3">3. Reflection</label><textarea id="r3"></textarea><div id="c3" class="counter">0/55</div>
+ <p><button id="submit" class="btn blue" disabled>ส่ง Reflection และจบ Session</button> <button id="back" class="btn">กลับ Mission</button></p>
  <div id="status" class="status">ยังไม่ได้ส่ง</div>
 </section>
-<nav class="bottom"><button id="navMission" class="nav"><span>🎯</span><span>Mission</span></button><button id="navCoding" class="nav"><span>💻</span><span>Coding</span></button><button id="navReflection" class="nav" disabled><span>📝</span><span>Reflection</span></button><a id="navMap" class="nav"><span>🗺️</span><span>แผนที่</span></a></nav>
+<nav class="bottom"><button id="navMission" class="nav"><span>🎯</span><span>Mission</span></button><button id="navCoding" class="nav" disabled><span>💻</span><span>Coding</span></button><button id="navReflection" class="nav" disabled><span>📝</span><span>Reflection</span></button><a id="navMap" class="nav"><span>🗺️</span><span>แผนที่</span></a></nav>
 <script>
-(function(){
-'use strict';
+(function(){'use strict';
 const API='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
-const p=new URLSearchParams(location.search);
+const p=new URLSearchParams(location.search),$=id=>document.getElementById(id),MIN=55;
 const rawMission=(p.get('mission')||p.get('session')||'s1').toLowerCase();
-const mission=rawMission.replace(/^m(?=\d)/,'s').replace(/^boss/,'b');
-const session=mission.toUpperCase();
-const sid=(p.get('studentId')||'').trim();
-const sname=(p.get('studentName')||'').trim();
-const section=(p.get('section')||'101').trim();
-const $=id=>document.getElementById(id);
-let state={mission:false,coding:false,reflection:false,completed:false};
-let routed=false,verifyToken=0;
-
+const mission=rawMission.replace(/^m(?=\d)/,'s').replace(/^boss/,'b'),session=mission.toUpperCase();
+const sid=(p.get('studentId')||'').trim(),sname=(p.get('studentName')||'').trim(),section='101';
+let state={mission:false,coding:false,reflection:false,completed:false},routed=false,verifyToken=0;
 const PROMPTS={
- s1:['จาก Mission หลักฐานใดทำให้จัดระบบเป็น AI, Automation, ML หรือ Generative AI','ใน Coding Lab การเปลี่ยน threshold หรือข้อมูลทดสอบทำให้ผลเปลี่ยนอย่างไร','เสนอกรณีที่ควรใช้ AI และกรณีที่ Automation ธรรมดาเพียงพอ พร้อมความเสี่ยง'],
- s2:['ระบุ PEAS และประเภท task environment ของ Agent ใน Mission','Completed Code ใช้ percept, internal state, goal หรือ utility อย่างไร','ถ้า sensor ไม่ครบหรือผิดพลาด Agent ควรมี safe fallback และ human oversight แบบใด'],
- s3:['กำหนด start state, goal, actions, transition และ cost ของ Search Problem','BFS และ DFS ต่างกันด้าน frontier, completeness, optimality และ memory อย่างไร','visited set และ parent/path ใน Coding Lab ช่วยป้องกันหรือแก้ปัญหาใด'],
- b1:['อธิบายการเชื่อม AI identity, PEAS และ BFS/DFS ในระบบ Boss','Coding Lab เชื่อม percept, internal state, goal และ route planning อย่างไร','ข้อจำกัดใดต้องมี evidence, safe fallback และ human review ก่อนผ่าน Boss'],
- s4:['UCS ต่างจาก BFS อย่างไรเมื่อ step cost ไม่เท่ากัน','priority queue, g(n), best cost และ parent ใน Coding Lab ทำงานร่วมกันอย่างไร','UCS รับประกัน optimality ภายใต้เงื่อนไขใด และ Case นี้ตรงเงื่อนไขหรือไม่'],
- s5:['อธิบายบทบาท g(n), h(n) และ f(n) ใน Mission','heuristic และ path reconstruction ใน Coding Lab ทำงานอย่างไร','heuristic ที่ไม่ admissible หรือไม่ consistent อาจทำให้ผลผิดอย่างไร'],
- s6:['ระบุ MAX, MIN, utility และ action ที่ minimax เลือก','recursive minimax หรือ alpha-beta ใน Coding Lab ลดหรือจัดการการค้นหาอย่างไร','evaluation function, depth cutoff หรือ move ordering ที่ไม่ดีส่งผลอย่างไร'],
- b2:['เกณฑ์ใดทำให้เลือก UCS, A* หรือ Minimax ใน Boss','Strategy selector ใน Coding Lab ตรวจ weighted, heuristic และ opponent อย่างไร','การเลือก algorithm ผิดกระทบ time, memory, cost หรือ optimality อย่างไร'],
- s7:['แยก facts, rules, relations และข้อสรุปจาก Mission','forward chaining ใน Coding Lab เพิ่ม fact และ explanation trace อย่างไร','exception, conflict หรือ inconsistency ใดต้องจัดการก่อนใช้ผลจริง'],
- s8:['ระบุ prior, likelihood, evidence และ posterior จาก Mission','Bayes function ใน Coding Lab คำนวณและ normalize อย่างไร','base rate, dependency และ uncertainty ควรถูกสื่อสารอย่างไร'],
- s9:['ระบุ knowledge base, inference engine, matched rule และ explanation','Coding Lab แสดง reasoning trace หรือ conflict resolution อย่างไร','เมื่อข้อมูลไม่ครบหรือความเสี่ยงสูง ระบบควรส่งต่อ expert เมื่อใด'],
- b3:['Logic, knowledge และ probability ถูกใช้ส่วนใดของ Boss','decision, confidence, evidence และ explanation ใน Coding Lab เชื่อมกันอย่างไร','bias, uncertainty หรือ rule conflict ใดต้อง expert review ก่อนผ่าน Boss'],
- s10:['อธิบาย features, labels และ train-validation-test split ของ Mission','Coding Lab ตรวจ leakage และ reproducibility ด้วยวิธีใด','เหตุใด evaluation บนข้อมูลที่เคยเห็นหรือ accuracy อย่างเดียวจึงไม่น่าเชื่อถือ'],
- s11:['ปัญหาใน Mission เป็น classification หรือ regression และควรใช้ metric ใด','threshold และ confusion matrix ใน Coding Lab ทำให้ FP/FN เปลี่ยนอย่างไร','เลือก precision, recall หรือ F1 จาก cost ของ error และผลกระทบอย่างไร'],
- s12:['อธิบาย assignment, centroid update และการเลือก k','Coding Lab จัดการ tie, iterations และ centroid อย่างไร','initialization, outlier, PCA หรือ minority group ทำให้การตีความคลาดเคลื่อนอย่างไร'],
- b4:['อธิบาย pipeline, model, metric และหลักฐาน generalization ใน Boss','Coding Lab วินิจฉัย overfitting/underfitting และให้ recommendation อย่างไร','ก่อน deploy ต้องตรวจ leakage, imbalance, fairness, monitoring และ rollback อะไร'],
- s13:['weight, bias และ activation ทำให้ neuron output เปลี่ยนอย่างไร','dense layer, loss, gradient หรือ backprop ใน Coding Lab เชื่อมกันอย่างไร','ข้อมูลแบบใดเหมาะกับ CNN, RNN หรือ Transformer และมีข้อจำกัดด้าน interpretability อะไร'],
- s14:['กำหนด states, actions, transitions, rewards และ policy ของ MDP','Q-learning update ใช้ alpha, gamma, TD target และ next max Q อย่างไร','epsilon-greedy และ reward design อาจทำให้ exploration หรือ reward hacking อย่างไร'],
- s15:['LLM, foundation model และ generative AI ใน Mission ต่างกันอย่างไร','simple RAG เชื่อม retrieval, context, answer, sources และ citation อย่างไร','เมื่อหลักฐานไม่พอ ระบบควร fallback, ปฏิเสธตอบ หรือส่งต่อมนุษย์เมื่อใด'],
- b5:['ระบบ Boss บูรณาการ Agent, Search, Reasoning, ML, NN, RL และ GenAI อย่างไร','trustworthy_ai_decision ตรวจ evidence, confidence, fairness, privacy และ explanation อย่างไร','human oversight, audit log, monitoring, incident response และ appeal ควรทำงานอย่างไรเมื่อระบบผิด']
+ s1:['จาก Mission หลักฐานใดทำให้จัดระบบเป็น AI, Automation, ML หรือ Generative AI','ใน Coding Lab การเปลี่ยน Threshold หรือข้อมูลทดสอบทำให้ผลเปลี่ยนอย่างไร','เสนอกรณีที่ควรใช้ AI และกรณีที่ Automation ธรรมดาเพียงพอ พร้อมความเสี่ยง'],
+ s2:['ระบุ PEAS และประเภท Task environment ของ Agent ใน Mission','Completed Code ใช้ Percept, Internal state, Goal หรือ Utility อย่างไร','ถ้า Sensor ไม่ครบหรือผิดพลาด Agent ควรมี Safe fallback และ Human oversight แบบใด'],
+ s3:['กำหนด Start state, Goal, Actions, Transition และ Cost ของ Search problem','BFS และ DFS ต่างกันด้าน Frontier, Completeness, Optimality และ Memory อย่างไร','Visited set และ Parent/Path ใน Coding Lab ช่วยป้องกันหรือแก้ปัญหาใด'],
+ b1:['อธิบายการเชื่อม AI identity, PEAS และ BFS/DFS ในระบบ Boss','Coding Lab เชื่อม Percept, Internal state, Goal และ Route planning อย่างไร','ข้อจำกัดใดต้องมี Evidence, Safe fallback และ Human review ก่อนผ่าน Boss'],
+ s4:['UCS ต่างจาก BFS อย่างไรเมื่อ Step cost ไม่เท่ากัน','Priority queue, g(n), Best cost และ Parent ใน Coding Lab ทำงานร่วมกันอย่างไร','UCS รับประกัน Optimality ภายใต้เงื่อนไขใด และ Case นี้ตรงเงื่อนไขหรือไม่'],
+ s5:['อธิบายบทบาท g(n), h(n) และ f(n) ใน Mission','Heuristic และ Path reconstruction ใน Coding Lab ทำงานอย่างไร','Heuristic ที่ไม่ Admissible หรือไม่ Consistent อาจทำให้ผลผิดอย่างไร'],
+ s6:['ระบุ MAX, MIN, Utility และ Action ที่ Minimax เลือก','Recursive Minimax หรือ Alpha-beta ใน Coding Lab ลดหรือจัดการการค้นหาอย่างไร','Evaluation function, Depth cutoff หรือ Move ordering ที่ไม่ดีส่งผลอย่างไร'],
+ b2:['เกณฑ์ใดทำให้เลือก UCS, A* หรือ Minimax ใน Boss','Strategy selector ใน Coding Lab ตรวจ Weighted, Heuristic และ Opponent อย่างไร','การเลือก Algorithm ผิดกระทบ Time, Memory, Cost หรือ Optimality อย่างไร'],
+ s7:['แยก Facts, Rules, Relations และข้อสรุปจาก Mission','Forward chaining ใน Coding Lab เพิ่ม Fact และ Explanation trace อย่างไร','Exception, Conflict หรือ Inconsistency ใดต้องจัดการก่อนใช้ผลจริง'],
+ s8:['ระบุ Prior, Likelihood, Evidence และ Posterior จาก Mission','Bayes function ใน Coding Lab คำนวณและ Normalize อย่างไร','Base rate, Dependency และ Uncertainty ควรถูกสื่อสารอย่างไร'],
+ s9:['ระบุ Knowledge base, Inference engine, Matched rule และ Explanation','Coding Lab แสดง Reasoning trace หรือ Conflict resolution อย่างไร','เมื่อข้อมูลไม่ครบหรือความเสี่ยงสูง ระบบควรส่งต่อ Expert เมื่อใด'],
+ b3:['Logic, Knowledge และ Probability ถูกใช้ส่วนใดของ Boss','Decision, Confidence, Evidence และ Explanation ใน Coding Lab เชื่อมกันอย่างไร','Bias, Uncertainty หรือ Rule conflict ใดต้อง Expert review ก่อนผ่าน Boss'],
+ s10:['อธิบาย Features, Labels และ Train-Validation-Test split ของ Mission','Coding Lab ตรวจ Leakage และ Reproducibility ด้วยวิธีใด','เหตุใด Evaluation บนข้อมูลที่เคยเห็นหรือ Accuracy อย่างเดียวจึงไม่น่าเชื่อถือ'],
+ s11:['ปัญหาใน Mission เป็น Classification หรือ Regression และควรใช้ Metric ใด','Threshold และ Confusion matrix ใน Coding Lab ทำให้ FP/FN เปลี่ยนอย่างไร','เลือก Precision, Recall หรือ F1 จาก Cost ของ Error และผลกระทบอย่างไร'],
+ s12:['อธิบาย Assignment, Centroid update และการเลือก k','Coding Lab จัดการ Tie, Iterations และ Centroid อย่างไร','Initialization, Outlier, PCA หรือ Minority group ทำให้การตีความคลาดเคลื่อนอย่างไร'],
+ b4:['อธิบาย Pipeline, Model, Metric และหลักฐาน Generalization ใน Boss','Coding Lab วินิจฉัย Overfitting/Underfitting และให้ Recommendation อย่างไร','ก่อน Deploy ต้องตรวจ Leakage, Imbalance, Fairness, Monitoring และ Rollback อะไร'],
+ s13:['Weight, Bias และ Activation ทำให้ Neuron output เปลี่ยนอย่างไร','Dense layer, Loss, Gradient หรือ Backprop ใน Coding Lab เชื่อมกันอย่างไร','ข้อมูลแบบใดเหมาะกับ CNN, RNN หรือ Transformer และมีข้อจำกัดด้าน Interpretability อะไร'],
+ s14:['กำหนด States, Actions, Transitions, Rewards และ Policy ของ MDP','Alpha, Gamma, TD target และ Epsilon ใน Coding Lab เปลี่ยน Q-learning อย่างไร','Reward design ใดเสี่ยง Reward hacking และควรเพิ่ม Safety constraint หรือ Human override แบบใด'],
+ s15:['LLM, Foundation model และ Generative AI ใน Mission ต่างกันอย่างไร','Retrieval, Context, Generation, Grounding และ Citation ใน Coding Lab เชื่อมกันอย่างไร','เมื่อ Retrieval ไม่พบหลักฐาน ระบบควร Fallback, ปฏิเสธตอบ หรือส่งต่อมนุษย์เมื่อใด'],
+ b5:['ระบบ Boss บูรณาการ Agent, Search, Reasoning, ML, NN, RL และ GenAI อย่างไร','Trustworthy AI decision ตรวจ Evidence, Confidence, Fairness, Privacy และ Explanation อย่างไร','Human oversight, Audit log, Monitoring, Incident response และ Appeal ควรทำงานอย่างไรเมื่อระบบผิด']
 };
-
-$('brand').textContent='CSAI2102 • '+session;
-$('reflectionTitle').textContent=session+' • Reflection';
 const prompts=PROMPTS[mission]||PROMPTS.s1;
-$('r1Label').textContent='1. '+prompts[0];
-$('r2Label').textContent='2. '+prompts[1];
-$('r3Label').textContent='3. '+prompts[2];
-
-function idUrl(path){const u=new URL(path,location.href);u.searchParams.set('mission',mission);u.searchParams.set('session',session);u.searchParams.set('studentId',sid);u.searchParams.set('studentName',sname);u.searchParams.set('section',section);u.searchParams.set('release','aligned730');u.searchParams.set('_',Date.now());return u}
-function mapUrl(){return idUrl('./course-map-all-v720.html')}
-function missionUrl(){const u=idUrl('./student-aiquest-all-mission-v711.html');u.searchParams.set('integrated','1');return u}
-function codingUrl(){const u=idUrl('./coding-lab-mobile-gate-v1.html');u.searchParams.set('returnUrl',location.href);return u}
-async function post(module,action,data,timeout=22000){const ctl=new AbortController();const timer=setTimeout(()=>ctl.abort(),timeout);try{const r=await fetch(API,{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(Object.assign({module,action,studentId:sid,studentName:sname,section,sessionId:session,requestId:Date.now()+'-'+Math.random()},data||{})),signal:ctl.signal});if(!r.ok)throw Error('HTTP_'+r.status);const text=await r.text();try{return JSON.parse(text)}catch(e){throw Error('BACKEND_NOT_JSON')}}finally{clearTimeout(timer)}}
-function applyFlow(d){state.mission=!!(d?.mission?.completed||d?.mission?.passed||d?.missionPassed||d?.missionCompleted);state.reflection=!!(d?.reflection?.completed||d?.reflection?.submitted||d?.reflectionSubmitted||d?.reflectionCompleted);state.completed=!!(d?.completed||d?.sessionCompleted)}
-async function codingStatus(){try{const d=await post('AIQCODING','GET_CODING_STATUS',{});state.coding=!!(d?.completed||Number(d?.bestScore||0)>=60);return d}catch(e){return null}}
-function paint(){const ready=state.mission&&state.coding;$('mStep').className='step '+(state.mission?'good':'active');$('cStep').className='step '+(state.coding?'good':state.mission?'active':'');$('rStep').className='step '+(state.reflection?'good':ready?'active':'');$('mText').textContent=state.mission?'ผ่านแล้ว':'ต้องทำ Mission';$('cText').textContent=state.coding?'ผ่านแล้ว':state.mission?'ขั้นตอนถัดไป':'รอ Mission';$('rText').textContent=state.reflection?'ส่งแล้ว':ready?'พร้อมทำ Reflection':'รอ Mission + Coding';$('reflectionBtn').disabled=!ready;$('navReflection').disabled=!ready;$('navMission').className='nav '+(state.mission?'good':'active');$('navCoding').className='nav '+(state.coding?'good':state.mission?'active':'');$('navReflection').className='nav '+(state.reflection?'good':ready?'active':'')}
-function showView(name){$('loading').classList.add('off');$('missionFrame').classList.toggle('on',name==='mission');$('reflectionPanel').classList.toggle('on',name==='reflection');if(name!=='mission')$('missionFrame').classList.remove('on');if(name!=='reflection')$('reflectionPanel').classList.remove('on')}
-function showMission(){routed=true;showView('mission');if(!$('missionFrame').src)$('missionFrame').src=missionUrl().href;window.scrollTo({top:0,behavior:'auto'})}
-function openCoding(){routed=true;location.href=codingUrl().href}
-function openReflection(){routed=true;showView('reflection');window.scrollTo({top:0,behavior:'auto'});setTimeout(()=>$('r1').focus({preventScroll:true}),80)}
-function route(){if(routed)return;if(state.completed){$('notice').className='notice good';$('notice').textContent='✓ Session Complete';showMission()}else if(!state.mission){$('notice').className='notice';$('notice').textContent='เริ่มทำ Mission';showMission()}else if(!state.coding){$('notice').className='notice';$('notice').textContent='Mission ผ่านแล้ว • ทำ Coding Lab ต่อ';$('loading').textContent='กำลังเปิด Coding Gate…';setTimeout(openCoding,250)}else{$('notice').className='notice good';$('notice').textContent='✓ Coding Lab ผ่านแล้ว • ทำ Reflection ต่อ';openReflection()}}
-async function verify(){const token=++verifyToken;if(!sid){$('notice').className='notice bad';$('notice').textContent='ไม่พบรหัสนักศึกษา';$('loading').textContent='กรุณากลับไปเลือกผู้เรียนจากแผนที่';return}routed=false;$('loading').classList.remove('off');$('loading').textContent='กำลังตรวจขั้นตอนที่ต้องทำต่อ…';$('missionFrame').classList.remove('on');$('reflectionPanel').classList.remove('on');try{const flow=await post('AIQFLOW','GET_SESSION_STATUS',{});if(token!==verifyToken)return;if(flow?.ok)applyFlow(flow);await codingStatus();if(token!==verifyToken)return;state.completed=state.completed||(state.mission&&state.coding&&state.reflection);paint();route()}catch(e){if(token!==verifyToken)return;$('notice').className='notice bad';$('notice').textContent='ตรวจสถานะไม่สำเร็จ: '+String(e.message||e);$('loading').textContent='กดรีเฟรชเพื่อตรวจใหม่ ข้อมูลเดิมไม่หาย'}}
-[$('mapBtn'),$('navMap')].forEach(a=>a.href=mapUrl().href);$('missionBtn').onclick=showMission;$('navMission').onclick=showMission;$('codingBtn').onclick=openCoding;$('navCoding').onclick=openCoding;$('reflectionBtn').onclick=openReflection;$('navReflection').onclick=openReflection;$('back').onclick=showMission;
-$('submit').onclick=async()=>{const a=[$('r1').value.trim(),$('r2').value.trim(),$('r3').value.trim()];if(a.some(x=>x.length<20)){$('status').textContent='แต่ละคำตอบต้องมีอย่างน้อย 20 ตัวอักษรและต้องตอบให้ตรงกับคำถามของ '+session;return}$('submit').disabled=true;$('status').textContent='กำลังส่ง…';try{const d=await post('AIQFLOW','SUBMIT_REFLECTION',{reflection1:a[0],reflection2:a[1],reflection3:a[2],reflectionPrompt1:prompts[0],reflectionPrompt2:prompts[1],reflectionPrompt3:prompts[2],contentVersion:'aligned730'});$('status').textContent=d?.ok?'✓ ส่ง Reflection สำเร็จ':JSON.stringify(d);if(d?.ok){state.reflection=true;state.completed=true;paint();$('notice').className='notice good';$('notice').textContent='✓ Session Complete'}}catch(e){$('status').textContent='ส่งไม่สำเร็จ: '+String(e.message||e)}finally{$('submit').disabled=false}};
-verify();window.addEventListener('pageshow',event=>{if(event.persisted)verify()});
+$('brand').textContent='CSAI2102 • '+session;$('reflectionTitle').textContent=session+' • Reflection';$('r1Label').textContent='1. '+prompts[0];$('r2Label').textContent='2. '+prompts[1];$('r3Label').textContent='3. '+prompts[2];
+function idUrl(path){const u=new URL(path,location.href);u.searchParams.set('mission',mission);u.searchParams.set('session',session);u.searchParams.set('studentId',sid);u.searchParams.set('studentName',sname);u.searchParams.set('section',section);u.searchParams.set('release','integrated733');u.searchParams.set('_',Date.now());return u;}
+function mapUrl(){return idUrl('./course-map-all-v720.html');}
+function missionUrl(){const u=idUrl('./student-mission-graded-v733.html');u.searchParams.set('returnUrl',location.href);return u;}
+function codingUrl(){const u=idUrl('./coding-lab-mobile-gate-v1.html');u.searchParams.set('returnUrl',location.href);return u;}
+async function post(module,action,data,timeout=22000){const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),timeout);try{const r=await fetch(API,{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(Object.assign({module,action,studentId:sid,studentName:sname,section,sessionId:session,requestId:Date.now()+'-'+Math.random()},data||{})),signal:ctl.signal});if(!r.ok)throw Error('HTTP_'+r.status);const text=await r.text();try{return JSON.parse(text)}catch(e){throw Error('BACKEND_NOT_JSON')}}finally{clearTimeout(timer)}}
+function applyFlow(d){state.mission=!!(d?.mission?.completed||d?.mission?.passed||d?.missionPassed||d?.missionCompleted);state.reflection=!!(d?.reflection?.completed||d?.reflection?.submitted||d?.reflectionSubmitted||d?.reflectionCompleted);state.completed=!!(d?.completed||d?.sessionCompleted);}
+async function codingStatus(){try{const d=await post('AIQCODING','GET_CODING_STATUS',{});state.coding=!!(d?.completed||Number(d?.bestScore||0)>=60);return d}catch(e){state.coding=false;return null}}
+function paint(){const ready=state.mission&&state.coding;$('mStep').className='step '+(state.mission?'good':'active');$('cStep').className='step '+(state.coding?'good':state.mission?'active':'lock');$('rStep').className='step '+(state.reflection?'good':ready?'active':'lock');$('mText').textContent=state.mission?'ผ่านแล้ว':'ต้องทำ Mission';$('cText').textContent=state.coding?'ผ่านแล้ว':state.mission?'ขั้นตอนถัดไป':'รอ Mission';$('rText').textContent=state.reflection?'ส่งแล้ว':ready?'พร้อมทำ Reflection':'รอ Mission + Coding';$('codingBtn').disabled=!state.mission;$('navCoding').disabled=!state.mission;$('reflectionBtn').disabled=!ready;$('navReflection').disabled=!ready;$('navMission').className='nav '+(state.mission?'good':'active');$('navCoding').className='nav '+(state.coding?'good':state.mission?'active':'');$('navReflection').className='nav '+(state.reflection?'good':ready?'active':'');}
+function showView(name){$('loading').classList.add('off');$('missionFrame').classList.toggle('on',name==='mission');$('reflectionPanel').classList.toggle('on',name==='reflection');}
+function showMission(){routed=true;showView('mission');$('missionFrame').src=missionUrl().href;scrollTo({top:0,behavior:'auto'});}
+function openCoding(){if(!state.mission)return;routed=true;location.href=codingUrl().href;}
+function openReflection(){if(!(state.mission&&state.coding))return;routed=true;showView('reflection');scrollTo({top:0,behavior:'auto'});setTimeout(()=>$('r1').focus({preventScroll:true}),80);}
+function route(){if(routed)return;if(state.completed){$('notice').className='notice good';$('notice').textContent='✓ Session Complete • ครบ Mission + Coding + Reflection';showMission();}else if(!state.mission){$('notice').className='notice';$('notice').textContent='ขั้นตอน 1: ทำ Graded Mission';showMission();}else if(!state.coding){$('notice').className='notice';$('notice').textContent='✓ Mission ผ่านแล้ว • ขั้นตอน 2: Coding Lab';$('loading').textContent='กำลังเปิด Coding Gate…';setTimeout(openCoding,250);}else{$('notice').className='notice good';$('notice').textContent='✓ Mission และ Coding ผ่านแล้ว • ขั้นตอน 3: Reflection';openReflection();}}
+async function verify(){const token=++verifyToken;if(!sid||!sname){$('notice').className='notice bad';$('notice').textContent='Identity ไม่ครบ กรุณากลับแผนที่และโหลด Profile จาก Sheet';$('loading').textContent='ไม่อนุญาตให้ใช้ข้อมูลจาก localStorage เป็นสถานะทางการ';return}routed=false;$('loading').classList.remove('off');$('loading').textContent='กำลังตรวจขั้นตอนที่ต้องทำต่อ…';$('missionFrame').classList.remove('on');$('reflectionPanel').classList.remove('on');try{const flow=await post('AIQFLOW','GET_SESSION_STATUS',{});if(token!==verifyToken)return;if(!flow?.ok)throw Error(flow?.code||'FLOW_STATUS_FAILED');applyFlow(flow);await codingStatus();if(token!==verifyToken)return;state.completed=state.completed||(state.mission&&state.coding&&state.reflection);paint();route();}catch(e){if(token!==verifyToken)return;$('notice').className='notice bad';$('notice').textContent='ตรวจสถานะไม่สำเร็จ: '+String(e.message||e);$('loading').textContent='ข้อมูลเดิมไม่หาย แต่ระบบจะไม่ปลดล็อกจนกว่า Sheet จะยืนยัน';}}
+function normalize(v){return String(v||'').toLowerCase().replace(/\s+/g,'').replace(/[^a-z0-9ก-๙]/g,'');}
+function updateReflection(){const a=[$('r1').value,$('r2').value,$('r3').value],counts=a.map(x=>String(x).replace(/\s/g,'').length);counts.forEach((n,i)=>{const c=$('c'+(i+1));c.textContent=n+'/'+MIN;c.className='counter '+(n>=MIN?'ok':'')});const distinct=new Set(a.map(normalize).filter(Boolean)).size===3;const ok=counts.every(n=>n>=MIN)&&distinct;$('submit').disabled=!ok;$('status').textContent=ok?'Reflection ครบตามเกณฑ์ พร้อมส่ง':'ต้องตอบข้อละอย่างน้อย '+MIN+' ตัวอักษร และทั้ง 3 ข้อต้องเป็นคนละประเด็น';}
+[$('mapBtn'),$('navMap')].forEach(a=>a.href=mapUrl().href);$('missionBtn').onclick=showMission;$('navMission').onclick=showMission;$('codingBtn').onclick=openCoding;$('navCoding').onclick=openCoding;$('reflectionBtn').onclick=openReflection;$('navReflection').onclick=openReflection;$('back').onclick=showMission;['r1','r2','r3'].forEach(id=>$(id).addEventListener('input',updateReflection));
+$('submit').onclick=async()=>{const a=[$('r1').value.trim(),$('r2').value.trim(),$('r3').value.trim()],counts=a.map(x=>x.replace(/\s/g,'').length);if(!counts.every(n=>n>=MIN)||new Set(a.map(normalize)).size!==3){updateReflection();return}$('submit').disabled=true;$('status').textContent='กำลังส่งและตรวจยืนยันจาก Sheet…';try{const d=await post('AIQFLOW','SUBMIT_REFLECTION',{reflection1:a[0],reflection2:a[1],reflection3:a[2],reflectionPrompt1:prompts[0],reflectionPrompt2:prompts[1],reflectionPrompt3:prompts[2],contentVersion:'integrated733-min55'});if(!d?.ok)throw Error(d?.message||d?.code||'SUBMIT_FAILED');$('status').textContent='✓ ส่ง Reflection สำเร็จ • Session Complete';state.reflection=true;state.completed=true;paint();$('notice').className='notice good';$('notice').textContent='✓ Session Complete • ด่านถัดไปจะเปิดจาก Sheet';setTimeout(()=>{location.href=mapUrl().href},900);}catch(e){$('status').textContent='ส่งไม่สำเร็จ: '+String(e.message||e);$('submit').disabled=false;}};
+updateReflection();verify();window.addEventListener('pageshow',()=>verify());
 })();
 </script>
 </body>
