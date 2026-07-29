@@ -1,8 +1,8 @@
 (() => {
   'use strict';
-  const VERSION='20260729-POSTTEST-SHEET-GATE-V2';
+  const VERSION='20260729-POSTTEST-SHEET-GATE-V3-PUBLIC-RECEIVER';
   const KEY='herohealth_learning_platform_rc2';
-  const ENDPOINT='https://script.google.com/macros/s/AKfycbwa-OSdqWS7uPne01wNr5a42PgKfAoxmUUm7yMcUx2D0C0OnbjrbppNUHkfjUxm79Fz/exec';
+  const ENDPOINT='https://script.google.com/macros/s/AKfycbxU82Rg4KFStuZToOGlyX-rgzVkLpZ7yO1tW-gzui782eR7akes_HNZ5ec2TDUDh8J1/exec';
   const REQUIRED={hygiene:['handwash','toothbrush'],nutrition:['groups','goodjunk'],fitness:['jumpduck','balance-hold']};
   const q=new URLSearchParams(location.search);
   const read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return{}}};
