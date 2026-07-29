@@ -1,18 +1,19 @@
 /* =========================================================
    EAP Word Quest • Core Summary + Arc Path Guide
    File: /herohealth/eap-word-quest/eap-word-engine-v195-stable-score-core-progress.js
-   Runtime Version: v2.0.3-SUMMARY-ARC-PATH-DEDUPE-122
+   Runtime Version: v2.0.4-SUMMARY-ACTION-COPY-122
 
    Fix:
    - Keep one Arc Path card only; remove v202 duplicate cards.
    - Preserve Core XP, Combo, Weak Words and pass truth.
    - Explain in Thai when a replay is lower than an already-passed best run.
+   - Use retry-oriented primary action copy when the current run has not passed.
 ========================================================= */
 
 (() => {
   "use strict";
 
-  const VERSION = "v2.0.3-SUMMARY-ARC-PATH-DEDUPE-122";
+  const VERSION = "v2.0.4-SUMMARY-ACTION-COPY-122";
   const BOSS_IDS = new Set(["BG1","BG2","BG3","BG4","BG5"]);
   const ARCS = [
     { id:"ARC1", title:"Foundation Arc", sessions:["S1","S2","S3"], boss:"BG1" },
@@ -193,8 +194,17 @@
 
     const nextButton = $("nextMissionBtn");
     if(nextButton){
-      nextButton.textContent = next === "DONE" ? "สรุปผลการเรียน" : `ไปทำ ${next} ต่อ`;
-      nextButton.title = next === "DONE" ? "ครบทุก Vocabulary Mission แล้ว" : `${next} · ${nextTitle}`;
+      const currentRunNeedsRetry = !result.passed && next === result.sessionId;
+      nextButton.textContent = next === "DONE"
+        ? "สรุปผลการเรียน"
+        : currentRunNeedsRetry
+          ? `ฝึก ${result.sessionId} ต่อ`
+          : `ไปทำ ${next} ต่อ`;
+      nextButton.title = next === "DONE"
+        ? "ครบทุก Vocabulary Mission แล้ว"
+        : currentRunNeedsRetry
+          ? `${result.sessionId} ยังไม่ผ่านเกณฑ์ กรุณาฝึกต่อหรือเล่นใหม่`
+          : `${next} · ${nextTitle}`;
     }
   }
 
@@ -260,24 +270,12 @@
   });
 
   document.addEventListener("click",event => {
-    const watched = event.target && event.target.closest
-      ? event.target.closest("#choicesEl .eap192-choice,#nextBtn,#replayBtn,#nextMissionBtn")
-      : null;
-    if(watched) [80,240,560].forEach(delay => setTimeout(tick,delay));
+    if(event.target && event.target.closest && event.target.closest("#nextMissionBtn,#replayBtn,#weakStartBtn,#summaryWeakWords,#summaryScreen")){
+      [0,80,220].forEach(delay => setTimeout(tick,delay));
+    }
   },true);
 
   injectStyle();
-  [0,150,500,1000].forEach(delay => setTimeout(tick,delay));
-  setInterval(tick,1200);
-
-  window.inspectEapV203 = () => ({
-    version:VERSION,
-    result:sourceResult() ? normalizeResult(sourceResult()) : null,
-    loggerMarked:markLogger(),
-    pathBoxes:document.querySelectorAll("#eapV203PathBox").length,
-    legacyPathBoxes:document.querySelectorAll("#eapV202PathBox,#eapV195SummaryBox").length,
-    summaryVisible:Boolean(summaryRoot())
-  });
-
-  console.info("[EAP Word Quest] v203 summary path dedupe ready",{version:VERSION,loggerMarked:markLogger()});
+  [0,250,700,1500].forEach(delay => setTimeout(tick,delay));
+  console.info("[EAP Word Quest] v2.0.4 summary action copy ready",{version:VERSION});
 })();
