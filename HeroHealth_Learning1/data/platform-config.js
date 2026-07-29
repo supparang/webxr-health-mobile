@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R42-TOOTHBRUSH-V27-STUDENT-RESULT-R3-JUMPDUCK-V40-BALANCE-SIX-POSE-V35",
+  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R42-TOOTHBRUSH-V27-STUDENT-RESULT-R3-JUMPDUCK-V41-BALANCE-SIX-POSE-V35",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_HANDWASH_LOADER_PREFLIGHT_R42_TOOTHBRUSH_CHILD_FRIENDLY_RESULT_R3_JUMPDUCK_MOBILE_FREEZE_GUARD_V40_BALANCE_FIXED_SIX_POSE_V35",
+  deploymentState: "QA_HANDWASH_LOADER_PREFLIGHT_R42_TOOTHBRUSH_CHILD_FRIENDLY_RESULT_R3_JUMPDUCK_WORKER_DEADLINE_V41_BALANCE_FIXED_SIX_POSE_V35",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -107,7 +107,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Handwash R42 เพิ่ม Loader Preflight ก่อน Runtime โดยกำหนด timeout และ retry สำหรับไฟล์ย่อยทั้ง 4 ไฟล์ เพื่อไม่ให้หน้าจอค้างที่กำลังโหลดอย่างไม่มีกำหนด พร้อมคง Grade 5 Easy 120 วินาที การแยกผลภารกิจกับผลทักษะ และข้อมูล Analytics รายขั้น Toothbrush ใช้ Classroom Challenge สำหรับมือถือ แบ่งช่องปากเป็น 6 โซนและมีคราบพลัค 26 จุด ใช้คราบ 4 รูปแบบที่มี Hit Area และเกณฑ์ผ่านเท่ากัน ระบบวัด Direction Accuracy และ Spatial Plaque Coverage พร้อม Camera Recovery และ Tracking Analytics รุ่น Student Result R3 คง Return Contract มาตรฐานเดียวกับ JumpDuck แต่ปรับหน้าสรุปเป็นภาษาไทยสำหรับเด็ก ป.5 ได้แก่ ครบทุกโซน ทิศทางถูกต้อง การตรวจจับ และกำจัดคราบ พร้อมข้อความจบภารกิจที่ไม่ใช้ศัพท์ระบบ Retry หรือ Mission Completed และยังไม่บังคับเล่นซ้ำ JumpDuck V40 ลดภาระ MediaPipe บนมือถือด้วยการจำกัด Pose Inference ประมาณ 10 FPS ไม่ประมวลผลเฟรมกล้องซ้ำ และใช้ Wall-clock Watchdog ปิดรอบอัตโนมัติเมื่อ setInterval ล่าช้าหรือค้างที่ 1 วินาที โดยยังคง Renderer และการควบคุมเป็ดทำงานแยกจาก AI Balance Hold V35 ใช้ลำดับคงที่ 6 ท่า ได้แก่ Sky Shield, Star Reach ซ้าย/ขวา, Tree Balance ซ้าย/ขวาแบบยกต่ำ และ Crystal Guardian เพื่อเพิ่มความหลากหลายโดยยังเปรียบเทียบข้อมูลระหว่างนักเรียนได้ตรงกัน",
+      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Handwash R42 เพิ่ม Loader Preflight ก่อน Runtime โดยกำหนด timeout และ retry สำหรับไฟล์ย่อยทั้ง 4 ไฟล์ เพื่อไม่ให้หน้าจอค้างที่กำลังโหลดอย่างไม่มีกำหนด พร้อมคง Grade 5 Easy 120 วินาที การแยกผลภารกิจกับผลทักษะ และข้อมูล Analytics รายขั้น Toothbrush ใช้ Classroom Challenge สำหรับมือถือ แบ่งช่องปากเป็น 6 โซนและมีคราบพลัค 26 จุด ใช้คราบ 4 รูปแบบที่มี Hit Area และเกณฑ์ผ่านเท่ากัน ระบบวัด Direction Accuracy และ Spatial Plaque Coverage พร้อม Camera Recovery และ Tracking Analytics รุ่น Student Result R3 คง Return Contract มาตรฐานเดียวกับ JumpDuck แต่ปรับหน้าสรุปเป็นภาษาไทยสำหรับเด็ก ป.5 ได้แก่ ครบทุกโซน ทิศทางถูกต้อง การตรวจจับ และกำจัดคราบ พร้อมข้อความจบภารกิจที่ไม่ใช้ศัพท์ระบบ Retry หรือ Mission Completed และยังไม่บังคับเล่นซ้ำ JumpDuck V41 ใช้ Web Worker เป็นนาฬิกาอิสระ ลด Pose Inference เหลือประมาณ 8 FPS ลด Renderer เหลือประมาณ 30 FPS หยุด AI และกล้องก่อนสิ้นสุดรอบ แล้วเรียก Game Clock โดยตรงเมื่อครบ 60 วินาที พร้อมปุ่มจบรอบฉุกเฉินเฉพาะเมื่อระบบยังไม่เปิดหน้าสรุป จึงไม่พึ่ง setInterval บน Main Thread เพียงอย่างเดียว Balance Hold V35 ใช้ลำดับคงที่ 6 ท่า ได้แก่ Sky Shield, Star Reach ซ้าย/ขวา, Tree Balance ซ้าย/ขวาแบบยกต่ำ และ Crystal Guardian เพื่อเพิ่มความหลากหลายโดยยังเปรียบเทียบข้อมูลระหว่างนักเรียนได้ตรงกัน",
       games: { hygiene: ["handwash", "toothbrush"], nutrition: ["groups", "goodjunk"], fitness: ["jumpduck", "balance-hold"] }
     },
     FULL_PLATFORM: {
@@ -141,7 +141,7 @@ window.HH_CONFIG = {
     {
       id: "fitness", label: "Fitness Hero", thai: "ฐานการเคลื่อนไหว", emoji: "🏃", accent: "#f97316", description: "ฝึกการตอบสนองและการทรงตัวอย่างปลอดภัย",
       games: [
-        { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260729-freeze-guard-v40", status:"classroom-core-direct-body-v4.0-mobile-freeze-guard-wall-clock-finish", requiredReturnContract:true },
+        { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260729-worker-deadline-v41", status:"classroom-core-direct-body-v4.1-worker-deadline-hard-finish", requiredReturnContract:true },
         { id:"rhythm-boxer", title:"Rhythm Boxer AR", thai:"ชกตามจังหวะ", url:"../fitness/rhythm-boxer-ar.html", status:"catalog-only", requiredReturnContract:true },
         { id:"balance-hold", title:"Balance Hold AR", thai:"Balance Hold AR", url:"../fitness/balance-hold-ar2.html?classroom=1&mode=classroom&source=herohealth&v=20260729-balance-six-pose-v35", status:"classroom-core-autostart-v35-fixed-six-distinct-poses", requiredReturnContract:true },
         { id:"shadow-breaker", title:"Shadow Breaker AR", thai:"ตอบสนองและเคลื่อนไหว", url:"../fitness/shadow-breaker-ar.html", status:"catalog-only", requiredReturnContract:true }
