@@ -12,6 +12,11 @@
     #touchBtn,#startTouch{display:none!important}
     .arOnlyBlock .sheet{width:min(560px,100%)}
     .arOnlyBlock .warning{margin-top:12px}
+    body.passportMode #replay,
+    body.passportMode #sumZone,
+    body.passportMode #zoneBtn,
+    body.passportMode #menuZoneBtn{display:none!important}
+    body.passportMode #summary .sheetActions:empty{display:none!important}
   </style>
   <script>
     (() => {
@@ -36,7 +41,7 @@
     <header class="hud">
       <section class="brand">
         <div class="brandIcon">🥦</div>
-        <div><h1>Food Groups AR</h1><p>Mobile Compact v4.1.5 • Hand AR Only</p></div>
+        <div><h1>Food Groups AR</h1><p>Mobile Compact v4.1.6 • Hand AR Only</p></div>
       </section>
       <section class="stats" aria-label="สถานะการเล่น">
         <div class="stat scoreStat"><small>คะแนน</small><b id="score">0</b></div>
@@ -72,13 +77,34 @@
 
   <section class="reason" id="reason"><div class="reasonCard"><div class="reasonLabel" id="reasonLabel">Reason Check</div><h3 id="reasonQ"></h3><div class="answers" id="answers"></div></div></section>
 
-  <section class="overlay hidden" id="summary"><div class="sheet"><div class="sheetIcon" id="sumIcon">🏆</div><h2 id="sumTitle">สรุปผล</h2><p id="sumSub"></p><div class="summaryGrid" id="summaryGrid"></div><div class="bars" id="bars"></div><div class="warning" id="delivery">กำลังบันทึกผลในเครื่อง...</div><div class="sheetActions"><button class="big" id="replay">เล่นอีกครั้ง</button><button class="big alt" id="sumZone">🌿 Cooldown แล้วกลับ Zone</button></div></div></section>
+  <section class="overlay hidden" id="summary"><div class="sheet"><div class="sheetIcon" id="sumIcon">🏆</div><h2 id="sumTitle">สรุปผล</h2><p id="sumSub"></p><div class="summaryGrid" id="summaryGrid"></div><div class="bars" id="bars"></div><div class="warning" id="delivery">กำลังส่งผลกลับ Passport...</div><div class="sheetActions" id="summaryActions"><button class="big" id="replay">เล่นอีกครั้ง</button><button class="big alt" id="sumZone">🌿 Cooldown แล้วกลับ Zone</button></div></div></section>
 
   <section class="overlay hidden arOnlyBlock" id="arOnlyBlock" role="alertdialog" aria-modal="true" aria-labelledby="arOnlyTitle"><div class="sheet"><div class="sheetIcon">📷</div><h2 id="arOnlyTitle">Groups ต้องใช้ AR</h2><p id="arOnlyMessage">ไม่สามารถเริ่ม Camera AR หรือ Hand Tracking ได้</p><div class="warning">เกมนี้ไม่อนุญาตให้เปลี่ยนเป็น Touch กรุณาเปิดสิทธิ์กล้อง จัดแสงให้เห็นมือชัด แล้วลองใหม่</div><div class="sheetActions"><button class="big" id="retryAr" type="button">ลองเปิด AR อีกครั้ง</button><button class="big alt" id="arOnlyQa" type="button">🧪 Device Check</button><button class="big alt" id="arOnlyZone" type="button">🥗 กลับ Zone</button></div></div></section>
 
   <script src="./vr-groups/groups-ar-bank-v3.js?v=20260717-5"></script>
   <script src="./vr-groups/groups-ar-runtime-compat-v412.js?v=20260721-android-stable-v413"></script>
   <script src="./vr-groups/groups-ar-ui-v410.js?v=20260721-compact-v410"></script>
+  <script>
+  (()=>{
+    'use strict';
+    const params=new URLSearchParams(location.search);
+    const passportMode=window.parent!==window||params.get('classroom')==='1'||params.get('passport')==='1'||params.get('embedded')==='1'||params.get('from')==='passport';
+    if(passportMode){
+      document.body.classList.add('passportMode');
+      ['replay','sumZone','zoneBtn','menuZoneBtn'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(!el)return;
+        el.hidden=true;
+        el.disabled=true;
+        el.setAttribute('aria-hidden','true');
+        el.setAttribute('tabindex','-1');
+      });
+      const actions=document.getElementById('summaryActions');
+      if(actions)actions.hidden=true;
+    }
+    window.HH_GROUPS_PASSPORT_MODE=passportMode;
+  })();
+  </script>
   <script>
   (()=>{
     'use strict';
@@ -119,9 +145,9 @@
       const score=Math.max(num(raw.score),num(document.getElementById('score')?.textContent),num(document.querySelector('#summaryGrid')?.textContent?.match(/คะแนน\s*([0-9,.]+)/)?.[1]));
       const accuracy=Math.max(num(raw.accuracy),num(document.getElementById('acc')?.textContent),num(document.querySelector('#summaryGrid')?.textContent?.match(/Accuracy\s*([0-9.]+)/i)?.[1]));
       const passed=raw.passed===true||raw.challenge_passed==='yes'||/ผ่าน\s*(Food Groups AR)?/i.test(title+' '+summaryText);
-      const sourceEventId=raw.eventId||raw.record_id||'';
+      const sourceEventId=raw.eventId||raw.record_id||raw.attemptId||'';
       const eventId=`HH-classroom-groups-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-      return {completed:true,passed,score,accuracy,eventId,sourceEventId,finishedAt:new Date().toISOString(),source:'groups-ar-summary-bridge-v3-ar-only'};
+      return {...raw,completed:true,procedureCompleted:true,progressionEligible:true,passed,score,accuracy,eventId,sourceEventId,finishedAt:new Date().toISOString(),source:'groups-ar-summary-bridge-v4-passport-return'};
     }
     function summaryVisible(){
       const s=document.getElementById('summary');
@@ -132,9 +158,11 @@
     function notifyComplete(){
       if(sent||!summaryVisible())return;
       const payload=readResult();
-      if(!payload.passed)return;
       sent=true;
-      try{localStorage.setItem('HHA_GROUPS_AR_LAST_RESULT',JSON.stringify(payload))}catch(_){}
+      if(window.HH_GROUPS_PASSPORT_MODE){
+        const delivery=document.getElementById('delivery');
+        if(delivery)delivery.textContent='กำลังส่งผลและกลับ Passport...';
+      }
       if(parent!==window) parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin);
     }
     document.getElementById('startCamera')?.addEventListener('click',notifyStarted,{once:true});
