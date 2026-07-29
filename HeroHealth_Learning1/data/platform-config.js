@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R42-TOOTHBRUSH-V27-PASSPORT-R2-JUMPDUCK-V39-BALANCE-SIX-POSE-V35",
+  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R42-TOOTHBRUSH-V27-PASSPORT-R2-JUMPDUCK-V40-BALANCE-SIX-POSE-V35",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_HANDWASH_LOADER_PREFLIGHT_R42_TOOTHBRUSH_JUMPDUCK_RETURN_STANDARD_R2_JUMPDUCK_OUTCOME_WORDING_V39_BALANCE_FIXED_SIX_POSE_V35",
+  deploymentState: "QA_HANDWASH_LOADER_PREFLIGHT_R42_TOOTHBRUSH_JUMPDUCK_RETURN_STANDARD_R2_JUMPDUCK_MOBILE_FREEZE_GUARD_V40_BALANCE_FIXED_SIX_POSE_V35",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -105,7 +105,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Handwash R42 เพิ่ม Loader Preflight ก่อน Runtime โดยกำหนด timeout และ retry สำหรับไฟล์ย่อยทั้ง 4 ไฟล์ เพื่อไม่ให้หน้าจอค้างที่กำลังโหลดอย่างไม่มีกำหนด พร้อมคง Grade 5 Easy 120 วินาที การแยกผลภารกิจกับผลทักษะ และข้อมูล Analytics รายขั้น Toothbrush ใช้ Classroom Challenge สำหรับมือถือ แบ่งช่องปากเป็น 6 โซนและมีคราบพลัค 26 จุด ใช้คราบ 4 รูปแบบที่มี Hit Area และเกณฑ์ผ่านเท่ากัน ระบบวัด Direction Accuracy และ Spatial Plaque Coverage พร้อม Camera Recovery และ Tracking Analytics รุ่น Passport Return R2 ยกเลิกปุ่มฝึกเพิ่มใน Student Classroom Mode เหลือปุ่มกลับ Passport เพียงปุ่มเดียว และใช้ Return Contract มาตรฐานเดียวกับ JumpDuck ได้แก่เรียกปุ่มของ Wrapper ก่อน รองรับ return/back URL ส่งต่อข้อมูลนักเรียน กำหนด fromGame และสั่ง authorityRefresh เพื่อโหลดสถานะล่าสุดจาก Google Sheet Balance Hold V35 ใช้ลำดับคงที่ 6 ท่า ได้แก่ Sky Shield, Star Reach ซ้าย/ขวา, Tree Balance ซ้าย/ขวาแบบยกต่ำ และ Crystal Guardian เพื่อเพิ่มความหลากหลายโดยยังเปรียบเทียบข้อมูลระหว่างนักเรียนได้ตรงกัน",
+      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Handwash R42 เพิ่ม Loader Preflight ก่อน Runtime โดยกำหนด timeout และ retry สำหรับไฟล์ย่อยทั้ง 4 ไฟล์ เพื่อไม่ให้หน้าจอค้างที่กำลังโหลดอย่างไม่มีกำหนด พร้อมคง Grade 5 Easy 120 วินาที การแยกผลภารกิจกับผลทักษะ และข้อมูล Analytics รายขั้น Toothbrush ใช้ Classroom Challenge สำหรับมือถือ แบ่งช่องปากเป็น 6 โซนและมีคราบพลัค 26 จุด ใช้คราบ 4 รูปแบบที่มี Hit Area และเกณฑ์ผ่านเท่ากัน ระบบวัด Direction Accuracy และ Spatial Plaque Coverage พร้อม Camera Recovery และ Tracking Analytics รุ่น Passport Return R2 ยกเลิกปุ่มฝึกเพิ่มใน Student Classroom Mode เหลือปุ่มกลับ Passport เพียงปุ่มเดียว และใช้ Return Contract มาตรฐานเดียวกับ JumpDuck ได้แก่เรียกปุ่มของ Wrapper ก่อน รองรับ return/back URL ส่งต่อข้อมูลนักเรียน กำหนด fromGame และสั่ง authorityRefresh เพื่อโหลดสถานะล่าสุดจาก Google Sheet JumpDuck V40 ลดภาระ MediaPipe บนมือถือด้วยการจำกัด Pose Inference ประมาณ 10 FPS ไม่ประมวลผลเฟรมกล้องซ้ำ และใช้ Wall-clock Watchdog ปิดรอบอัตโนมัติเมื่อ setInterval ล่าช้าหรือค้างที่ 1 วินาที โดยยังคง Renderer และการควบคุมเป็ดทำงานแยกจาก AI Balance Hold V35 ใช้ลำดับคงที่ 6 ท่า ได้แก่ Sky Shield, Star Reach ซ้าย/ขวา, Tree Balance ซ้าย/ขวาแบบยกต่ำ และ Crystal Guardian เพื่อเพิ่มความหลากหลายโดยยังเปรียบเทียบข้อมูลระหว่างนักเรียนได้ตรงกัน",
       games: { hygiene: ["handwash", "toothbrush"], nutrition: ["groups", "goodjunk"], fitness: ["jumpduck", "balance-hold"] }
     },
     FULL_PLATFORM: {
@@ -139,7 +139,7 @@ window.HH_CONFIG = {
     {
       id: "fitness", label: "Fitness Hero", thai: "ฐานการเคลื่อนไหว", emoji: "🏃", accent: "#f97316", description: "ฝึกการตอบสนองและการทรงตัวอย่างปลอดภัย",
       games: [
-        { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260729-outcome-wording-v39", status:"classroom-core-direct-body-v3.9-round-complete-mission-outcome-separated", requiredReturnContract:true },
+        { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260729-freeze-guard-v40", status:"classroom-core-direct-body-v4.0-mobile-freeze-guard-wall-clock-finish", requiredReturnContract:true },
         { id:"rhythm-boxer", title:"Rhythm Boxer AR", thai:"ชกตามจังหวะ", url:"../fitness/rhythm-boxer-ar.html", status:"catalog-only", requiredReturnContract:true },
         { id:"balance-hold", title:"Balance Hold AR", thai:"Balance Hold AR", url:"../fitness/balance-hold-ar2.html?classroom=1&mode=classroom&source=herohealth&v=20260729-balance-six-pose-v35", status:"classroom-core-autostart-v35-fixed-six-distinct-poses", requiredReturnContract:true },
         { id:"shadow-breaker", title:"Shadow Breaker AR", thai:"ตอบสนองและเคลื่อนไหว", url:"../fitness/shadow-breaker-ar.html", status:"catalog-only", requiredReturnContract:true }
