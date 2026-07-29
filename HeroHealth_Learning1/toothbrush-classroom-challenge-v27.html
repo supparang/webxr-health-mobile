@@ -11,21 +11,62 @@
   </style>
 </head>
 <body>
-  <div class="loading" id="loading">กำลังเตรียมกล้องสำหรับมือถือ…</div>
+  <div class="loading" id="loading">กำลังเตรียมกล้องและคราบพลัคหลายรูปแบบ…</div>
   <script>
   (async()=>{
+    const replaceRequired=(source,search,replacement,label)=>{
+      if(!source.includes(search))throw new Error('ไม่พบจุดแก้ไข '+label);
+      return source.replace(search,replacement);
+    };
+
     try{
       const response=await fetch('./toothbrush-classroom-challenge-v26.html?v=20260729-camera-base-r1',{cache:'no-store'});
       if(!response.ok)throw new Error('โหลดเกมหลักไม่สำเร็จ HTTP '+response.status);
       let html=await response.text();
-      html=html.replace('HeroHealth • Toothbrush Challenge V26','HeroHealth • Toothbrush Challenge V27');
-      html=html.replace('Skill Practice V26','Skill Practice V27 • Camera Recovery');
-      html=html.replace('const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V26";','const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V27-CAMERA-RECOVERY";');
-      html=html.replace('ต้องอยู่ในแต่ละโซนรวมอย่างน้อย 0.6 วินาที','ระบบจะลองเปิดกล้องหลายโหมดอัตโนมัติ และคืนกล้องเมื่อออกจากเกม');
+
+      html=replaceRequired(html,'HeroHealth • Toothbrush Challenge V26','HeroHealth • Toothbrush Challenge V27','title');
+      html=replaceRequired(html,'Skill Practice V26','Skill Practice V27 • Visual Variety','version label');
+      html=replaceRequired(
+        html,
+        'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V26";',
+        'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V27-VISUAL-VARIETY-R1";',
+        'analytics version'
+      );
+      html=replaceRequired(
+        html,
+        'ต้องอยู่ในแต่ละโซนรวมอย่างน้อย 0.6 วินาที',
+        'คราบมี 4 รูปแบบ แต่ขนาดเป้าหมายและเกณฑ์ผ่านเท่ากันทุกแบบ',
+        'instruction'
+      );
+
+      const oldPlaqueCss='.plaque{position:absolute;width:34px;height:34px;margin:-17px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;background:#ffffffea;box-shadow:0 4px 12px #0002;font-size:22px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}';
+      const newPlaqueCss='.plaque{position:absolute;width:32px;height:32px;margin:-16px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;box-shadow:0 4px 12px #0002;font-size:20px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque-green-germ{background:#f0fdf4ea;border-color:#86efac}\n    .plaque-yellow-plaque{background:#fefce8ea;border-color:#fde047}\n    .plaque-germ-cluster{background:#ecfeffea;border-color:#67e8f9}\n    .plaque-sticky-plaque{background:#fff7edea;border-color:#fdba74}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}';
+      html=replaceRequired(html,oldPlaqueCss,newPlaqueCss,'plaque styles');
+
+      const oldLayouts="const TARGET_LAYOUTS={\n  4:[{x:22,y:28},{x:76,y:31},{x:31,y:72},{x:72,y:70}],\n  5:[{x:16,y:31},{x:50,y:23},{x:84,y:32},{x:29,y:73},{x:71,y:72}]\n};";
+      const newLayouts="const TARGET_LAYOUTS={\n  4:[{x:16,y:18},{x:82,y:18},{x:18,y:82},{x:82,y:82}],\n  5:[{x:10,y:18},{x:50,y:18},{x:90,y:18},{x:27,y:82},{x:73,y:82}]\n};\nconst PLAQUE_VARIANTS=[\n  {key:'green-germ',icon:'🦠',label:'แบคทีเรียสีเขียว'},\n  {key:'yellow-plaque',icon:'🟡',label:'คราบพลัคสีเหลือง'},\n  {key:'germ-cluster',icon:'🧫',label:'กลุ่มแบคทีเรีย'},\n  {key:'sticky-plaque',icon:'🟠',label:'คราบพลัคเหนียว'}\n];\nconst PLAQUE_VARIANT_OFFSET={tl:0,tm:1,tr:2,bl:3,bm:0,br:1};";
+      html=replaceRequired(html,oldLayouts,newLayouts,'target layouts and variants');
+
+      const oldMakeZoneRow="function makeZoneRow(z){return{dwell:0,strokes:0,complete:false,targets:TARGET_LAYOUTS[z.targetCount].map((p,i)=>({id:`${z.id}-${i+1}`,x:p.x,y:p.y,clean:false}))}}";
+      const newMakeZoneRow="function makeZoneRow(z){const offset=PLAQUE_VARIANT_OFFSET[z.id]||0;return{dwell:0,strokes:0,complete:false,targets:TARGET_LAYOUTS[z.targetCount].map((p,i)=>{const variant=PLAQUE_VARIANTS[(offset+i)%PLAQUE_VARIANTS.length];return{id:`${z.id}-${i+1}`,x:p.x,y:p.y,clean:false,variantKey:variant.key,variantIcon:variant.icon,variantLabel:variant.label}})}}";
+      html=replaceRequired(html,oldMakeZoneRow,newMakeZoneRow,'zone target creation');
+
+      const oldRender="function renderPlaques(z,row){\n  D.plaques.replaceChildren();\n  for(const target of row.targets){\n    const e=document.createElement('span');\n    e.className='plaque'+(target.clean?' clean':'');\n    e.textContent=target.clean?'✨':'🦠';\n    e.style.left=(z.x1+(z.x2-z.x1)*target.x/100)+'%';\n    e.style.top=(z.y1+(z.y2-z.y1)*target.y/100)+'%';\n    e.dataset.targetId=target.id;\n    D.plaques.appendChild(e);\n  }\n}";
+      const newRender="function renderPlaques(z,row){\n  D.plaques.replaceChildren();\n  for(const target of row.targets){\n    const e=document.createElement('span');\n    e.className='plaque plaque-'+(target.variantKey||'green-germ')+(target.clean?' clean':'');\n    e.textContent=target.clean?'✨':(target.variantIcon||'🦠');\n    e.style.left=(z.x1+(z.x2-z.x1)*target.x/100)+'%';\n    e.style.top=(z.y1+(z.y2-z.y1)*target.y/100)+'%';\n    e.dataset.targetId=target.id;\n    e.dataset.variant=target.variantKey||'green-germ';\n    e.setAttribute('aria-label',target.variantLabel||'คราบพลัค');\n    D.plaques.appendChild(e);\n  }\n}";
+      html=replaceRequired(html,oldRender,newRender,'plaque rendering');
+
+      html=replaceRequired(
+        html,
+        "motionProfile:'multi-plaque-spatial-coverage-v26',markerBrushSameCoordinate:true",
+        "motionProfile:'multi-plaque-spatial-coverage-v27-visual-variety-r1',plaqueVariantPolicy:'four-balanced-visuals-equal-hitbox',plaqueVariantCount:PLAQUE_VARIANTS.length,markerBrushSameCoordinate:true",
+        'analytics variant policy'
+      );
+
       const moduleOpen='<scr'+'ipt type="module">';
       const guard='<scr'+'ipt src="./assets/camera-start-guard-v1.js?v=20260729-camera-r1"></scr'+'ipt>';
       if(!html.includes(moduleOpen))throw new Error('ไม่พบจุดเริ่มระบบเกม');
       html=html.replace(moduleOpen,guard+moduleOpen);
+
       document.open('text/html','replace');
       document.write(html);
       document.close();
