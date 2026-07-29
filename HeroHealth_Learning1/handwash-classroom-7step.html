@@ -16,6 +16,12 @@
   (()=>{
     'use strict';
     const RELEASE='20260729-HANDWASH-GRADE5-ADAPTIVE-R40';
+    const runtimeUrl=new URL(location.href);
+    if(!runtimeUrl.searchParams.has('diff'))runtimeUrl.searchParams.set('diff','easy');
+    if(!runtimeUrl.searchParams.has('time'))runtimeUrl.searchParams.set('time','120');
+    if(!runtimeUrl.searchParams.has('roundMode'))runtimeUrl.searchParams.set('roundMode','standard');
+    if(!runtimeUrl.searchParams.has('view'))runtimeUrl.searchParams.set('view','mobile');
+    if(runtimeUrl.href!==location.href)history.replaceState(null,'',runtimeUrl.href);
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     fetch(sourceUrl,{cache:'no-store'})
