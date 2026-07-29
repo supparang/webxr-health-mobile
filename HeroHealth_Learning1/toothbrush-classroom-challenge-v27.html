@@ -25,11 +25,11 @@
       let html=await response.text();
 
       html=replaceRequired(html,'HeroHealth • Toothbrush Challenge V26','HeroHealth • Toothbrush Challenge V27','title');
-      html=replaceRequired(html,'Skill Practice V26','Skill Practice V27 • Passport Return','version label');
+      html=replaceRequired(html,'Skill Practice V26','Skill Practice V27 • Student Result','version label');
       html=replaceRequired(
         html,
         'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V26";',
-        'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V27-PASSPORT-RETURN-R2";',
+        'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V27-STUDENT-RESULT-R3";',
         'analytics version'
       );
       html=replaceRequired(
@@ -58,15 +58,29 @@
       html=replaceRequired(
         html,
         '<section id="result" class="screen"><div class="card"><h1>จบภารกิจ ✨</h1><p id="resultText"></p><div id="badge" class="badge"></div><div class="sum"><div>Coverage<b id="resultCoverage">0/6</b></div><div>Direction<b id="resultDirection">0%</b></div><div>Tracking<b id="resultTracking">0%</b></div><div>Plaque<b id="resultStrokes">0/26</b></div></div><button id="back" class="btn">กลับ Passport</button><button id="again" class="btn alt">ฝึกเพิ่ม</button></div></section>',
-        '<section id="result" class="screen"><div class="card"><h1>จบภารกิจ ✨</h1><p id="resultText"></p><div id="badge" class="badge"></div><div class="sum"><div>Coverage<b id="resultCoverage">0/6</b></div><div>Direction<b id="resultDirection">0%</b></div><div>Tracking<b id="resultTracking">0%</b></div><div>Plaque<b id="resultStrokes">0/26</b></div></div><button id="back" class="btn">← กลับ Passport</button><p style="margin:12px 0 0;color:#64748b;font-size:12px">ผลอย่างเป็นทางการและภารกิจถัดไปยึดตาม Google Sheet</p></div></section>',
+        '<section id="result" class="screen"><div class="card"><h1>จบภารกิจ ✨</h1><p id="resultText"></p><div id="badge" class="badge"></div><div class="sum"><div>ครบทุกโซน<b id="resultCoverage">0/6</b></div><div>ทิศทางถูกต้อง<b id="resultDirection">0%</b></div><div>การตรวจจับ<b id="resultTracking">0%</b></div><div>กำจัดคราบ<b id="resultStrokes">0/26</b></div></div><button id="back" class="btn">← กลับ Passport</button><p style="margin:12px 0 0;color:#64748b;font-size:12px">ระบบจะนำผลไปอัปเดตใน Passport และภารกิจถัดไป</p></div></section>',
         'student result actions'
       );
 
       html=replaceRequired(
         html,
         "motionProfile:'multi-plaque-spatial-coverage-v26',markerBrushSameCoordinate:true",
-        "motionProfile:'multi-plaque-spatial-coverage-v27-passport-return-r2',plaqueVariantPolicy:'four-balanced-visuals-equal-hitbox',plaqueVariantCount:PLAQUE_VARIANTS.length,returnContract:'jumpduck-compatible-passport-return-v1',studentRetryVisible:false,markerBrushSameCoordinate:true",
+        "motionProfile:'multi-plaque-spatial-coverage-v27-student-result-r3',plaqueVariantPolicy:'four-balanced-visuals-equal-hitbox',plaqueVariantCount:PLAQUE_VARIANTS.length,returnContract:'jumpduck-compatible-passport-return-v1',studentRetryVisible:false,studentResultLanguage:'thai-child-friendly-r1',markerBrushSameCoordinate:true",
         'analytics return contract'
+      );
+
+      html=replaceRequired(
+        html,
+        "$('resultText').textContent=p.skillMet?'จบภารกิจและทักษะถึงเกณฑ์':'จบภารกิจแล้ว บันทึกผลเพื่อฝึกต่อ';",
+        "$('resultText').textContent=p.skillMet?'จบภารกิจแล้ว และทักษะถึงเกณฑ์':'จบภารกิจแล้ว ระบบบันทึกผลเรียบร้อย';",
+        'student completion text'
+      );
+
+      html=replaceRequired(
+        html,
+        "$('badge').textContent=p.skillMet?'Skill Met • กำจัดคราบครบ 26 จุด':'Mission Completed • ไม่บังคับ Retry';",
+        "$('badge').textContent=p.skillMet?'ทักษะถึงเกณฑ์ • กำจัดคราบครบ 26 จุด':'จบภารกิจแล้ว • ไม่ต้องเล่นซ้ำ';",
+        'student badge text'
       );
 
       html=replaceRequired(
