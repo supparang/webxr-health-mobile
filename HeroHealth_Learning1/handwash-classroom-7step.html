@@ -22,6 +22,7 @@
     if(!runtimeUrl.searchParams.has('roundMode'))runtimeUrl.searchParams.set('roundMode','standard');
     if(!runtimeUrl.searchParams.has('view'))runtimeUrl.searchParams.set('view','mobile');
     if(runtimeUrl.href!==location.href)history.replaceState(null,'',runtimeUrl.href);
+    const recoveryMode=runtimeUrl.searchParams.get('bootRetry')==='1';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     sourceUrl.searchParams.set('cv',String(Date.now()));
@@ -29,6 +30,7 @@
       .then(response=>{if(!response.ok)throw new Error('โหลดหน้าเกมไม่สำเร็จ '+response.status);return response.text();})
       .then(source=>{
         let html=source;
+        const runtimePatch=recoveryMode?'':'<script src="./handwash-7step-runtime-patch-r28.js?cv='+RELEASE+'"><\/script>';
         html=html.replace('<head>','<head><base href="../herohealth/hygiene-zone/">');
         html=html.replace('id="stepText">0/11','id="stepText">0/12');
         html=html.replace('id="rubText">0/6','id="rubText">0/7');
@@ -40,7 +42,7 @@
         html=html.replace(/<script src="\.\/handwash-summary-r8\.js[^>]*><\/script>/i,'');
         html=html.replace(
           /<script src="\.\/handwash-who-v4\.js[^>]*><\/script>/i,
-          '<script src="./handwash-7step-runtime-patch-r28.js?cv='+RELEASE+'"><\/script>'+ 
+          runtimePatch+
           '<script src="./handwash-who-v4.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-unified-analytics-r30.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-summary-completion-r30.js?cv='+RELEASE+'"><\/script>'+ 
@@ -51,7 +53,7 @@
           '<script src="./handwash-grade5-summary-r40.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-loader-watchdog-r41.js?cv='+RELEASE+'"><\/script>'
         );
-        html=html.replace('ฝึก 6 ท่าถูมือตาม WHO','ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ');
+        html=html.replace('ฝึก 6 ท่าถูมือตาม WHO',recoveryMode?'ฝึกล้างมือตาม WHO • Safe Core Mode':'ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ');
         document.open();document.write(html);document.close();
       })
       .catch(error=>{
