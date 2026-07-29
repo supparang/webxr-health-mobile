@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#061521">
-  <title>HeroHealth • Handwash Grade 5 Adaptive</title>
+  <title>HeroHealth • Handwash Grade 5</title>
   <style>
     html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#061521;color:#effbff;font-family:system-ui,sans-serif}
     .loading{padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Handwash สำหรับ ป.5</b><small>Adaptive Easy R40 • ครบภารกิจแยกจากผลทักษะ</small></div>
+  <div class="loading"><b>กำลังเตรียม Handwash สำหรับ ป.5</b><small>Stable Boot R41 • Standard 120 วินาที</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260729-HANDWASH-GRADE5-ADAPTIVE-R40';
+    const RELEASE='20260729-HANDWASH-STABLE-BOOT-R41';
     const runtimeUrl=new URL(location.href);
     if(!runtimeUrl.searchParams.has('diff'))runtimeUrl.searchParams.set('diff','easy');
     if(!runtimeUrl.searchParams.has('time'))runtimeUrl.searchParams.set('time','120');
@@ -24,6 +24,7 @@
     if(runtimeUrl.href!==location.href)history.replaceState(null,'',runtimeUrl.href);
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
+    sourceUrl.searchParams.set('cv',String(Date.now()));
     fetch(sourceUrl,{cache:'no-store'})
       .then(response=>{if(!response.ok)throw new Error('โหลดหน้าเกมไม่สำเร็จ '+response.status);return response.text();})
       .then(source=>{
@@ -47,9 +48,10 @@
           '<script src="./handwash-mobile-fullviewport-r37.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-active-target-r38.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-summary-actions-r39.js?cv='+RELEASE+'"><\/script>'+ 
-          '<script src="./handwash-grade5-summary-r40.js?cv='+RELEASE+'"><\/script>'
+          '<script src="./handwash-grade5-summary-r40.js?cv='+RELEASE+'"><\/script>'+ 
+          '<script src="./handwash-loader-watchdog-r41.js?cv='+RELEASE+'"><\/script>'
         );
-        html=html.replace('ฝึก 6 ท่าถูมือตาม WHO','ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ • ระบบช่วยเมื่อค้างนาน');
+        html=html.replace('ฝึก 6 ท่าถูมือตาม WHO','ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ');
         document.open();document.write(html);document.close();
       })
       .catch(error=>{
