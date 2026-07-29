@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R40-TOOTHBRUSH-V27-PASSPORT-R2-JUMPDUCK-V38-BALANCE-ADAPTIVE-V34",
+  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R40-TOOTHBRUSH-V27-PASSPORT-R2-JUMPDUCK-V39-BALANCE-ADAPTIVE-V34",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_HANDWASH_GRADE5_ADAPTIVE_R40_TOOTHBRUSH_JUMPDUCK_RETURN_STANDARD_R2_JUMPDUCK_RESULT_POLISH_V38_BALANCE_WIDE_CAMERA_KNEE_CALIBRATION_V34",
+  deploymentState: "QA_HANDWASH_GRADE5_ADAPTIVE_R40_TOOTHBRUSH_JUMPDUCK_RETURN_STANDARD_R2_JUMPDUCK_OUTCOME_WORDING_V39_BALANCE_WIDE_CAMERA_KNEE_CALIBRATION_V34",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -138,7 +138,7 @@ window.HH_CONFIG = {
     {
       id: "fitness", label: "Fitness Hero", thai: "ฐานการเคลื่อนไหว", emoji: "🏃", accent: "#f97316", description: "ฝึกการตอบสนองและการทรงตัวอย่างปลอดภัย",
       games: [
-        { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260729-result-polish-v38", status:"classroom-core-direct-body-v3.8-clean-result-reaction-analytics", requiredReturnContract:true },
+        { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260729-outcome-wording-v39", status:"classroom-core-direct-body-v3.9-round-complete-mission-outcome-separated", requiredReturnContract:true },
         { id:"rhythm-boxer", title:"Rhythm Boxer AR", thai:"ชกตามจังหวะ", url:"../fitness/rhythm-boxer-ar.html", status:"catalog-only", requiredReturnContract:true },
         { id:"balance-hold", title:"Balance Hold AR", thai:"Balance Hold AR", url:"../fitness/balance-hold-ar2.html?classroom=1&mode=classroom&source=herohealth&v=20260729-balance-adaptive-v34", status:"classroom-core-autostart-v34-wide-4x3-knee-calibration", requiredReturnContract:true },
         { id:"shadow-breaker", title:"Shadow Breaker AR", thai:"ตอบสนองและเคลื่อนไหว", url:"../fitness/shadow-breaker-ar.html", status:"catalog-only", requiredReturnContract:true }
