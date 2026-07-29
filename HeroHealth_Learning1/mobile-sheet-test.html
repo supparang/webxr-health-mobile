@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HeroHealth Mobile Sheet Test</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#f0fdfa;color:#123;padding:18px}.card{max-width:720px;margin:auto;background:#fff;border:1px solid #cde5e1;border-radius:22px;padding:20px;box-shadow:0 12px 30px #0f766e18}h1{font-size:26px}.btn{width:100%;min-height:56px;border:0;border-radius:16px;background:#0f766e;color:#fff;font-size:18px;font-weight:800}.log{white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#e2e8f0;border-radius:14px;padding:14px;margin-top:14px;min-height:180px;font:14px/1.55 ui-monospace,monospace}.ok{color:#16a34a}.bad{color:#dc2626}input{width:100%;box-sizing:border-box;min-height:50px;border:1px solid #bddbd7;border-radius:12px;padding:10px;font-size:18px;margin:8px 0 14px}
+</style>
+</head>
+<body><main class="card"><h1>HeroHealth Mobile Sheet Diagnostic</h1><p>เปิดด้วย Chrome ปกติ แล้วกดทดสอบ ระบบจะลอง Apps Script แบบเดียวกับหน้าเกม</p><label>รหัสนักเรียน</label><input id="sid" value="990014" inputmode="numeric"><button class="btn" id="go">ทดสอบการเชื่อมต่อ</button><div id="status"></div><div class="log" id="log">รอทดสอบ…</div></main>
+<script>
+(()=>{
+const DEPLOY='AKfycbwa-OSdqWS7uPne01wNr5a42PgKfAoxmUUm7yMcUx2D0C0OnbjrbppNUHkfjUxm79Fz';
+const routes=[
+ 'https://script.google.com/macros/s/'+DEPLOY+'/exec',
+ 'https://script.google.com/macros/u/0/s/'+DEPLOY+'/exec',
+ 'https://script.google.com/macros/u/1/s/'+DEPLOY+'/exec'
+];
+const log=document.getElementById('log'),status=document.getElementById('status');
+function add(x){log.textContent+='\n'+x}
+function test(base,sid,timeout=25000){return new Promise((resolve,reject)=>{const cb='HHDIAG_'+Date.now()+'_'+Math.random().toString(36).slice(2);const s=document.createElement('script');let done=false;const finish=(err,data)=>{if(done)return;done=true;clearTimeout(t);s.onerror=null;window[cb]=()=>{};setTimeout(()=>{try{delete window[cb]}catch(_){};s.remove()},60000);err?reject(err):resolve(data)};window[cb]=data=>finish(null,data);s.onerror=()=>finish(new Error('SCRIPT_LOAD_ERROR'));const t=setTimeout(()=>finish(new Error('CALLBACK_TIMEOUT')),timeout);s.src=base+'?action=student&studentId='+encodeURIComponent(sid)+'&callback='+encodeURIComponent(cb)+'&_='+Date.now();document.head.appendChild(s)})}
+async function run(){const sid=document.getElementById('sid').value.trim();log.textContent='เริ่มทดสอบ '+new Date().toLocaleString()+'\nUA: '+navigator.userAgent;status.textContent='กำลังทดสอบ…';for(let i=0;i<routes.length;i++){add('\n['+(i+1)+'] '+routes[i]);try{const data=await test(routes[i],sid);add('SUCCESS: '+JSON.stringify({ok:data&&data.ok,version:data&&data.version,studentId:data&&data.studentId,progress:data&&data.progress,live:data&&data.live}));status.innerHTML='<p class="ok"><b>เชื่อมต่อสำเร็จด้วยเส้นทาง '+(i+1)+'</b></p>';return}catch(e){add('FAILED: '+(e&&e.message||e))}}status.innerHTML='<p class="bad"><b>ทั้ง 3 เส้นทางล้มเหลว</b></p>';add('\nกรุณาถ่ายภาพผลลัพธ์ทั้งหมดส่งกลับมา')}
+document.getElementById('go').onclick=run;
+})();
+</script></body></html>
