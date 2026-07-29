@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#061521">
-  <title>HeroHealth • Handwash 7-Step</title>
+  <title>HeroHealth • Handwash Grade 5 Adaptive</title>
   <style>
     html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#061521;color:#effbff;font-family:system-ui,sans-serif}
     .loading{padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Summary Actions R39 + Active Target R38 + Full Viewport R37</small></div>
+  <div class="loading"><b>กำลังเตรียม Handwash สำหรับ ป.5</b><small>Adaptive Easy R40 • ครบภารกิจแยกจากผลทักษะ</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260729-HANDWASH-SUMMARY-ACTIONS-R39';
+    const RELEASE='20260729-HANDWASH-GRADE5-ADAPTIVE-R40';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     fetch(sourceUrl,{cache:'no-store'})
@@ -28,7 +28,7 @@
         html=html.replace('<section id="summaryOverlay"','<button id="zoneBtn" type="button" hidden aria-hidden="true"></button><section id="summaryOverlay"');
         html=html.replace(/(<section id="summaryOverlay"[^>]*><div class="card">)<div class="hero">/i,'$1<div id="summaryHero" class="hero">');
         html=html.replace('id="summaryText"','id="summarySub"');
-        html=html.replace('<div id="summaryGrid" class="summary-grid"></div>','<div id="summaryGrid" class="summary-grid"><div class="summary-box"><span>คะแนน</span><b id="sumScore">0</b></div><div class="summary-box"><span>ดาว</span><b id="sumStars">☆☆☆</b></div><div class="summary-box"><span>WHO Accuracy</span><b id="sumAccuracy">0%</b></div><div class="summary-box"><span>เวลา</span><b id="sumTime">0.0s</b></div></div>');
+        html=html.replace('<div id="summaryGrid" class="summary-grid"></div>','<div id="summaryGrid" class="summary-grid"><div class="summary-box"><span>คะแนน</span><b id="sumScore">0</b></div><div class="summary-box"><span>ดาว</span><b id="sumStars">☆☆☆</b></div><div class="summary-box"><span>ความแม่นยำ</span><b id="sumAccuracy">0%</b></div><div class="summary-box"><span>เวลา</span><b id="sumTime">0.0s</b></div></div>');
         html=html.replace('id="retryBtn"','id="replayBtn"');
         html=html.replace(/<script src="\.\/handwash-summary-r8\.js[^>]*><\/script>/i,'');
         html=html.replace(
@@ -40,9 +40,10 @@
           '<script src="./handwash-step-coach-r33.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-mobile-fullviewport-r37.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-active-target-r38.js?cv='+RELEASE+'"><\/script>'+ 
-          '<script src="./handwash-summary-actions-r39.js?cv='+RELEASE+'"><\/script>'
+          '<script src="./handwash-summary-actions-r39.js?cv='+RELEASE+'"><\/script>'+ 
+          '<script src="./handwash-grade5-summary-r40.js?cv='+RELEASE+'"><\/script>'
         );
-        html=html.replace('ฝึก 6 ท่าถูมือตาม WHO','ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ');
+        html=html.replace('ฝึก 6 ท่าถูมือตาม WHO','ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ • ระบบช่วยเมื่อค้างนาน');
         document.open();document.write(html);document.close();
       })
       .catch(error=>{
