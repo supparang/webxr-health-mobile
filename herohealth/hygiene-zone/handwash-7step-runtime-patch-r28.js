@@ -1,17 +1,17 @@
 (()=>{
 'use strict';
-const RELEASE='20260729-HANDWASH-STABLE-BOOT-R41';
+const RELEASE='20260727-HANDWASH-STRICT7-R28';
 const NativeBlob=window.Blob;
 
 function patchRuntime(source){
  if(!source.includes('20260716-HANDWASH-WHO-V4-R1'))return source;
  let out=source;
  const replace=(before,after,label)=>{
-  if(!out.includes(before)){console.warn('[Handwash R41] hook missing:',label);return;}
+  if(!out.includes(before)){console.warn('[Handwash R28] hook missing:',label);return;}
   out=out.replace(before,after);
  };
 
- replace("const VERSION = '20260716-HANDWASH-WHO-V4-R1';","const VERSION = '20260729-HANDWASH-STABLE-BOOT-R41';",'version');
+ replace("const VERSION = '20260716-HANDWASH-WHO-V4-R1';","const VERSION = '20260727-HANDWASH-STRICT7-R28';",'version');
 
  replace(
 `{ id:'fingertips', who:'7', icon:'💅', label:'ปลายนิ้วและเล็บ', tip:'หมุนถูปลายนิ้วบนฝ่ามืออีกข้างไป–กลับ แล้วสลับ', kind:'rub', targetSec:3.0, strict:.60, grace:.47, side:true },
@@ -90,33 +90,31 @@ landmarkConfidence:state.handednessConfidenceCount?round(state.handednessConfide
 wrongStepCount:state.processErrors.length,retryCount:state.trackingLostCount+state.assistTapCount,
 soapDurationSec:round(state.stepTime.soap||0,2),completedSteps:rubCompleted+processCompleted,totalSteps:12,
 whoStepsCompleted:rubCompleted,whoStepsTotal:7,totalWhoRubSteps:7,completedProcessSteps:processCompleted,totalProcessSteps:5,
-processCompliancePct:Math.round((rubCompleted+processCompleted)/12*100),skillCriteriaMet:passed,completed:techniquePassed,
-completionPolicy:'stable-7-rub-12-phase',analyticsSchemaVersion:'HH-UNIFIED-GAME-ANALYTICS-V2',
+processCompliancePct:Math.round((rubCompleted+processCompleted)/12*100),skillCriteriaMet:passed,completed:passed,
+completionPolicy:'strict-7-rub-12-phase',analyticsSchemaVersion:'HH-UNIFIED-GAME-ANALYTICS-V2',
 processErrors:state.processErrors,steps:rows,stepResults:rows,events:state.eventLog.slice(-100),
 sourceUrl:location.href,userAgent:navigator.userAgent,timestamp:new Date().toISOString()`,
  'result-telemetry');
 
  replace("saveResult(result);\nrenderSummary(result);\nsendResult(result);","saveResult(result);\nrenderSummary(result);\nif(qs.get('classroom')!=='1')sendResult(result);",'single-authority-delivery');
 
- out=out.replace("const RELEASE='20260717-HANDWASH-FINAL-R7';","const RELEASE='20260729-HANDWASH-STABLE-BOOT-R41';");
- out=out.replace("})();","document.documentElement.dataset.handwashStrictRuntime='20260729-HANDWASH-STABLE-BOOT-R41';\n})();");
- console.info('[Handwash R41] stable runtime interceptor installed');
+ out=out.replace("const RELEASE='20260717-HANDWASH-FINAL-R7';","const RELEASE='20260727-HANDWASH-STRICT7-R28';");
+ out=out.replace("})();","document.documentElement.dataset.handwashStrictRuntime='20260727-HANDWASH-STRICT7-R28';\n})();");
+ console.info('[Handwash R28] compiled runtime patched for strict 7-step completion');
  return out;
 }
 
 function PatchedBlob(parts,options){
  try{
   if(options&&String(options.type||'').includes('javascript')&&Array.isArray(parts)&&parts.length===1&&typeof parts[0]==='string'){
-   const patched=patchRuntime(parts[0]);
-   try{new Function(patched)}catch(error){console.error('[Handwash R41] runtime syntax validation failed',error);return new NativeBlob(parts,options);}
-   return new NativeBlob([patched],options);
+   return new NativeBlob([patchRuntime(parts[0])],options);
   }
- }catch(error){console.error('[Handwash R41] runtime patch failed',error);}
+ }catch(error){console.error('[Handwash R28] runtime patch failed',error);}
  return new NativeBlob(parts,options);
 }
 PatchedBlob.prototype=NativeBlob.prototype;
 Object.setPrototypeOf(PatchedBlob,NativeBlob);
 window.Blob=PatchedBlob;
 document.documentElement.dataset.handwashStrictPatch=RELEASE;
-console.info('[Handwash R41] stable interceptor installed');
+console.info('[Handwash R28] strict runtime interceptor installed');
 })();
