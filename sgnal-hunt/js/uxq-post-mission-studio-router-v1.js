@@ -1,7 +1,7 @@
-/* CSAI2601 UX Quest • Post-Mission Studio Router v1
- * Prevents a passed Mission from being rendered/started again when the learner
- * chooses Studio Practice. Front-end routing only; Google Sheet remains the
- * official authority for completion and unlocking.
+/* CSAI2601 UX Quest • Post-Mission Studio Router v2
+ * Authoritative routing after a passed Mission. A capture-phase click guard
+ * prevents legacy Mission listeners from restarting the game.
+ * Front-end only; Google Sheet remains the official completion authority.
  */
 (() => {
   'use strict';
@@ -12,7 +12,7 @@
   const ROOT = document.getElementById('uxqCanonicalNode') || document.body;
   const NODE = String(q.get('node') || q.get('id') || 'W1').trim().toUpperCase();
   const KEY = NODE.toLowerCase();
-  const STYLE_ID = 'uxq-post-mission-studio-router-v1-style';
+  const STYLE_ID = 'uxq-post-mission-studio-router-v2-style';
   const PHASE_KEY = `csai2601.uxq.phase.${KEY}`;
   let queued = false;
 
@@ -32,23 +32,23 @@
   }
 
   function requestedPhase() {
-    if (new URLSearchParams(location.search || '').get('phase') === 'studio') return 'studio';
-    try { return sessionStorage.getItem(PHASE_KEY) === 'studio' ? 'studio' : ''; }
+    const current = new URLSearchParams(location.search || '').get('phase');
+    if (current === 'studio' || current === 'reflection') return current;
+    try { return sessionStorage.getItem(PHASE_KEY) || ''; }
     catch (_) { return ''; }
   }
 
-  function setStudioPhase() {
-    try { sessionStorage.setItem(PHASE_KEY, 'studio'); } catch (_) {}
+  function studioUrl() {
     const url = new URL(location.href);
     url.searchParams.set('phase', 'studio');
-    history.replaceState({}, '', url.pathname + url.search + url.hash);
-    document.body.dataset.uxqRoutePhase = 'studio';
-    apply();
-    requestAnimationFrame(() => {
-      const studio = studioRoot();
-      studio?.scrollIntoView({behavior:'smooth', block:'start'});
-      window.UXQStudentStudioFinalAuthorityV2?.build?.();
-    });
+    url.searchParams.set('v', 'unified-runtime-v8-20260729');
+    return url.pathname + url.search + url.hash;
+  }
+
+  function enterStudio() {
+    if (!missionPassed()) return;
+    try { sessionStorage.setItem(PHASE_KEY, 'studio'); } catch (_) {}
+    location.assign(studioUrl());
   }
 
   function installStyle() {
@@ -56,7 +56,6 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      body[data-uxq-route-phase='studio'] #uxqCanonicalNode > .shell > .panel,
       body[data-uxq-route-phase='studio'] #uxqCanonicalNode .panel[data-uxq-mission-panel='1'],
       body[data-uxq-route-phase='studio'] #uxqCanonicalNode [data-uxq-mission-runtime='1']{
         display:none!important
@@ -91,26 +90,19 @@
     if (panel) panel.dataset.uxqMissionPanel = '1';
   }
 
-  function replaceStudioCTA() {
-    if (!missionPassed()) return;
-    const controls = Array.from(ROOT.querySelectorAll('a,button'));
-    controls.forEach(control => {
-      const text = String(control.textContent || '').replace(/\s+/g, ' ').trim();
-      if (!/ทำ\s*Studio Practice\s*ต่อ|ไปทำ\s*Studio Practice/i.test(text)) return;
-      if (control.dataset.uxqCleanStudioRoute === '1') return;
+  function isStudioCTA(control) {
+    const text = String(control?.textContent || '').replace(/\s+/g, ' ').trim();
+    return /ทำ\s*Studio Practice\s*ต่อ|ไปทำ\s*Studio Practice|เริ่มทำ\s*Studio Practice/i.test(text);
+  }
 
-      const replacement = document.createElement('button');
-      replacement.type = 'button';
-      replacement.className = control.className;
-      replacement.textContent = 'ทำ Studio Practice ต่อ →';
-      replacement.dataset.uxqCleanStudioRoute = '1';
-      replacement.setAttribute('aria-label', `ทำ Studio Practice ${NODE} ต่อ`);
-      replacement.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        setStudioPhase();
-      }, true);
-      control.replaceWith(replacement);
+  function normalizeStudioCTA() {
+    if (!missionPassed()) return;
+    ROOT.querySelectorAll('a,button').forEach(control => {
+      if (!isStudioCTA(control)) return;
+      control.dataset.uxqCleanStudioRoute = '1';
+      control.setAttribute('role', 'button');
+      control.setAttribute('aria-label', `ทำ Studio Practice ${NODE} ต่อ`);
+      if (control.tagName === 'A') control.setAttribute('href', studioUrl());
     });
   }
 
@@ -127,17 +119,26 @@
   function normalizePhase() {
     const studio = requestedPhase() === 'studio' && missionPassed();
     document.body.dataset.uxqRoutePhase = studio ? 'studio' : 'summary';
-    if (studio) {
-      markMissionPanel();
-      window.UXQStudentStudioFinalAuthorityV2?.build?.();
-    }
+    if (!studio) return;
+    markMissionPanel();
+    window.UXQStudentStudioFinalAuthorityV2?.build?.();
+    requestAnimationFrame(() => studioRoot()?.scrollIntoView({block:'start'}));
+  }
+
+  function captureStudioRoute(event) {
+    const control = event.target?.closest?.('a,button');
+    if (!control || !isStudioCTA(control) || !missionPassed()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    enterStudio();
   }
 
   function apply() {
     queued = false;
     installStyle();
     markMissionPanel();
-    replaceStudioCTA();
+    normalizeStudioCTA();
     suppressMissionReplayControls();
     normalizePhase();
   }
@@ -148,16 +149,17 @@
     requestAnimationFrame(apply);
   }
 
+  document.addEventListener('click', captureStudioRoute, true);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', queue, {once:true});
   else queue();
 
   new MutationObserver(queue).observe(ROOT, {childList:true, subtree:true, characterData:true});
   ['uxq-progress-updated','uxq-mission-completed','uxq-sheet-progress-restored'].forEach(name => window.addEventListener(name, queue));
-  [150,500,1100,2200].forEach(ms => setTimeout(queue, ms));
+  [100,350,800,1600,3000].forEach(ms => setTimeout(queue, ms));
 
   window.UXQPostMissionStudioRouterV1 = Object.freeze({
-    version:'20260729-POST-MISSION-STUDIO-ROUTER-V1',
-    enterStudio:setStudioPhase,
+    version:'20260729-POST-MISSION-STUDIO-ROUTER-V2',
+    enterStudio,
     refresh:queue
   });
 })();
