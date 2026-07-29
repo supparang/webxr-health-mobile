@@ -6,6 +6,8 @@ const nativeClearInterval=window.clearInterval.bind(window);
 const intervalWatchdogs=new Map();
 const POSE_MIN_GAP_MS=95;
 let lastPoseScheduleAt=0;
+let activeGameClockTick=null;
+let activeGameClockId=null;
 
 /* Limit body-pose inference to about 10 FPS on mobile. The game renderer remains full-speed. */
 window.requestAnimationFrame=function(callback){
@@ -68,12 +70,15 @@ window.setInterval=function(callback,delay,...args){
     return callback(...callArgs);
   };
   intervalId=nativeSetInterval(guarded,delay,...args);
+  activeGameClockTick=guarded;
+  activeGameClockId=intervalId;
   const watchdogId=nativeSetInterval(()=>{
     const resultVisible=resultEl&&!resultEl.classList.contains('hidden');
     const shown=Number(timeEl&&timeEl.textContent);
     if(resultVisible||Number.isFinite(shown)&&shown<=0){
       nativeClearInterval(watchdogId);
       intervalWatchdogs.delete(intervalId);
+      if(activeGameClockId===intervalId){activeGameClockTick=null;activeGameClockId=null}
       return;
     }
     const elapsedMs=Date.now()-startedAt;
@@ -91,10 +96,11 @@ window.clearInterval=function(id){
     nativeClearInterval(watchdogId);
     intervalWatchdogs.delete(id);
   }
+  if(activeGameClockId===id){activeGameClockTick=null;activeGameClockId=null}
   return nativeClearInterval(id);
 };
 
-/* Final safety net: if the UI reaches 1 second and stalls, finish on wall-clock. */
+/* Final safety net: if the UI reaches 1 second and stalls, invoke the real game-clock callback. */
 let oneSecondSeenAt=0;
 nativeSetInterval(()=>{
   const timeEl=document.getElementById('time');
@@ -107,12 +113,9 @@ nativeSetInterval(()=>{
   const shown=Number(timeEl.textContent);
   if(shown===1){
     if(!oneSecondSeenAt)oneSecondSeenAt=Date.now();
-    if(Date.now()-oneSecondSeenAt>1800){
-      const timerCallbacks=[...intervalWatchdogs.keys()];
-      if(timerCallbacks.length){
-        timeEl.textContent='0';
-        /* The protected interval will close the game on its next watchdog pass. */
-      }
+    if(Date.now()-oneSecondSeenAt>1800&&typeof activeGameClockTick==='function'){
+      activeGameClockTick();
+      oneSecondSeenAt=0;
     }
   }else oneSecondSeenAt=0;
 },300);
