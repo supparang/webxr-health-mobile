@@ -1,28 +1,35 @@
 (()=>{
 'use strict';
-const RELEASE='20260727-HANDWASH-STRICT7-R28';
+const RELEASE='20260729-HANDWASH-GRADE5-ADAPTIVE-R40';
 const NativeBlob=window.Blob;
 
 function patchRuntime(source){
  if(!source.includes('20260716-HANDWASH-WHO-V4-R1'))return source;
  let out=source;
  const replace=(before,after,label)=>{
-  if(!out.includes(before)){console.warn('[Handwash R28] hook missing:',label);return;}
-  out=out.replace(before,after);
+  if(!out.includes(before)){console.warn('[Handwash R40] hook missing:',label);return false;}
+  out=out.replace(before,after);return true;
  };
 
- replace("const VERSION = '20260716-HANDWASH-WHO-V4-R1';","const VERSION = '20260727-HANDWASH-STRICT7-R28';",'version');
+ replace("const VERSION = '20260716-HANDWASH-WHO-V4-R1';","const VERSION = '20260729-HANDWASH-GRADE5-ADAPTIVE-R40';",'version');
 
  replace(
-`{ id:'fingertips', who:'7', icon:'💅', label:'ปลายนิ้วและเล็บ', tip:'หมุนถูปลายนิ้วบนฝ่ามืออีกข้างไป–กลับ แล้วสลับ', kind:'rub', targetSec:3.0, strict:.60, grace:.47, side:true },
-{ id:'rinse', who:'8', icon:'🚿', label:'ล้างน้ำ', tip:'ล้างสบู่ออกจากมือทั้งสองข้างให้หมด', kind:'process', targetSec:4.0 },
-{ id:'dry', who:'9', icon:'🧻', label:'เช็ดให้แห้ง', tip:'เช็ดมือให้แห้งทั่วด้วยกระดาษหรือผ้าใช้ครั้งเดียว', kind:'process', targetSec:4.0 },
-{ id:'towelFaucet', who:'10', icon:'🚰', label:'ใช้กระดาษปิดก๊อก', tip:'ถือกระดาษที่ใช้เช็ดมือ แล้วใช้กระดาษนั้นปิดก๊อก', kind:'process', targetSec:1.8 }`,
-`{ id:'fingertips', who:'7', icon:'💅', label:'ปลายนิ้วและเล็บ', tip:'หมุนถูปลายนิ้วบนฝ่ามืออีกข้างไป–กลับ แล้วสลับ', kind:'rub', targetSec:3.0, strict:.60, grace:.47, side:true },
-{ id:'wrists', who:'8', icon:'⌚', label:'รอบข้อมือ', tip:'กำรอบข้อมือแล้วหมุนถูให้ทั่ว จากนั้นสลับอีกข้าง', kind:'rub', targetSec:3.0, strict:.58, grace:.45, side:true },
-{ id:'rinse', who:'9', icon:'🚿', label:'ล้างน้ำ', tip:'ล้างสบู่ออกจากมือทั้งสองข้างให้หมด', kind:'process', targetSec:4.0 },
-{ id:'dry', who:'10', icon:'🧻', label:'เช็ดให้แห้ง', tip:'เช็ดมือให้แห้งทั่วด้วยกระดาษหรือผ้าใช้ครั้งเดียว', kind:'process', targetSec:4.0 },
-{ id:'towelFaucet', who:'11', icon:'🚰', label:'ใช้กระดาษปิดก๊อก', tip:'ถือกระดาษที่ใช้เช็ดมือ แล้วใช้กระดาษนั้นปิดก๊อก', kind:'process', targetSec:1.8 }`,
+ `const DIFF = ['easy','normal','hard'].includes((qs.get('diff') || '').toLowerCase())
+ ? qs.get('diff').toLowerCase() : 'normal';`,
+ `const DIFF=['easy','normal','hard'].includes((qs.get('diff')||'').toLowerCase())
+ ?qs.get('diff').toLowerCase():((qs.get('classroom')==='1'||qs.get('view')==='mobile')?'easy':'normal');`,
+ 'grade5-default-easy');
+
+ replace(
+ `{ id:'fingertips', who:'7', icon:'💅', label:'ปลายนิ้วและเล็บ', tip:'หมุนถูปลายนิ้วบนฝ่ามืออีกข้างไป–กลับ แล้วสลับ', kind:'rub', targetSec:3.0, strict:.60, grace:.47, side:true },
+ { id:'rinse', who:'8', icon:'🚿', label:'ล้างน้ำ', tip:'ล้างสบู่ออกจากมือทั้งสองข้างให้หมด', kind:'process', targetSec:4.0 },
+ { id:'dry', who:'9', icon:'🧻', label:'เช็ดให้แห้ง', tip:'เช็ดมือให้แห้งทั่วด้วยกระดาษหรือผ้าใช้ครั้งเดียว', kind:'process', targetSec:4.0 },
+ { id:'towelFaucet', who:'10', icon:'🚰', label:'ใช้กระดาษปิดก๊อก', tip:'ถือกระดาษที่ใช้เช็ดมือ แล้วใช้กระดาษนั้นปิดก๊อก', kind:'process', targetSec:1.8 }`,
+ `{ id:'fingertips', who:'7', icon:'💅', label:'ปลายนิ้วและเล็บ', tip:'หมุนถูปลายนิ้วบนฝ่ามืออีกข้างไป–กลับ แล้วสลับ', kind:'rub', targetSec:3.0, strict:.60, grace:.47, side:true },
+ { id:'wrists', who:'8', icon:'⌚', label:'รอบข้อมือ', tip:'กำรอบข้อมือแล้วหมุนถูให้ทั่ว จากนั้นสลับอีกข้าง', kind:'rub', targetSec:3.0, strict:.58, grace:.45, side:true },
+ { id:'rinse', who:'9', icon:'🚿', label:'ล้างน้ำ', tip:'ล้างสบู่ออกจากมือทั้งสองข้างให้หมด', kind:'process', targetSec:4.0 },
+ { id:'dry', who:'10', icon:'🧻', label:'เช็ดให้แห้ง', tip:'เช็ดมือให้แห้งทั่วด้วยกระดาษหรือผ้าใช้ครั้งเดียว', kind:'process', targetSec:4.0 },
+ { id:'towelFaucet', who:'11', icon:'🚰', label:'ใช้กระดาษปิดก๊อก', tip:'ถือกระดาษที่ใช้เช็ดมือ แล้วใช้กระดาษนั้นปิดก๊อก', kind:'process', targetSec:1.8 }`,
  'phase-list');
 
  const fingerBoundary=`score=weighted([contact,.46,pose,.14,trajectory,.40]);
@@ -32,44 +39,79 @@ const finalStep=phase.id==='fingertips';`;
 } else if (phase.id==='wrists') {
 const dAB=dist(a.palm,b.wrist)/pair.scale,dBA=dist(b.palm,a.wrist)/pair.scale;
 slot=dAB<dBA?b.key:a.key;const near=Math.min(dAB,dBA);
-contact=clamp((1.06-near)/.82,0,1);
-pose=Math.max(.30,avgNumber([a.openScore,b.openScore]));
-trajectory=Math.max(pair.circularity*.78,motion*.88,pair.oscillation*.58);
-score=weighted([contact,.42,pose,.18,trajectory,.40]);
+contact=clamp((1.10-near)/.88,0,1);
+pose=Math.max(.28,avgNumber([a.openScore,b.openScore]));
+trajectory=Math.max(pair.circularity*.74,motion*.90,pair.oscillation*.62);
+score=weighted([contact,.40,pose,.16,trajectory,.44]);
 }
 const finalStep=phase.id==='fingertips'||phase.id==='wrists';`;
  replace(fingerBoundary,wristBoundary,'wrist-detector');
 
- out=out.replaceAll("phase.id==='fingertips'&&elapsed>4","(phase.id==='fingertips'||phase.id==='wrists')&&elapsed>4");
- out=out.replaceAll("phase.id==='fingertips'&&elapsed>5","(phase.id==='fingertips'||phase.id==='wrists')&&elapsed>5");
- out=out.replace("const finalBoost=phase.id==='fingertips'?1.65:phase.id==='thumbs'?1.28:1;","const finalBoost=phase.id==='fingertips'?1.65:phase.id==='wrists'?1.38:phase.id==='thumbs'?1.28:1;");
+ out=out.replaceAll("phase.id==='fingertips'&&elapsed>4","(phase.id==='fingertips'||phase.id==='wrists')&&elapsed>3");
+ out=out.replaceAll("phase.id==='fingertips'&&elapsed>5","(phase.id==='fingertips'||phase.id==='wrists')&&elapsed>4");
+ out=out.replace("const finalBoost=phase.id==='fingertips'?1.65:phase.id==='thumbs'?1.28:1;","const finalBoost=phase.id==='fingertips'?1.82:phase.id==='wrists'?1.60:phase.id==='thumbs'?1.45:1.18;");
  out=out.replace("fingertips:'1) จีบปลายนิ้ว  2) แตะกลางฝ่ามือ  3) หมุนวงเล็ก ๆ แล้วสลับข้าง'","fingertips:'1) จีบปลายนิ้ว  2) แตะกลางฝ่ามือ  3) หมุนวงเล็ก ๆ แล้วสลับข้าง',wrists:'1) กำรอบข้อมือ  2) หมุนถูเป็นวง  3) สลับอีกข้าง'");
  out=out.replaceAll("id==='thumbs'||id==='fingertips'","id==='thumbs'||id==='fingertips'||id==='wrists'");
  out=out.replaceAll("phase.id==='thumbs'||phase.id==='fingertips'","phase.id==='thumbs'||phase.id==='fingertips'||phase.id==='wrists'");
 
- out=out.replaceAll("trackingFrames:0, twoHandFrames:0, trackingLostCount:0, previousHadHands:false,","trackingFrames:0, handsSeenFrames:0, twoHandFrames:0, trackingLostCount:0, trackingRecoveryCount:0, previousHadHands:false, hadTracking:false, frameDtSum:0, frameCount:0, handednessConfidenceSum:0, handednessConfidenceCount:0, calibrationStartedAt:0, calibrationTimeSec:0, assistTapCount:0,");
+ replace(
+ "const adaptive=elapsed>(DIFF==='easy'?3.0:5.0);const coreOK=[evaluation.contactOK,evaluation.poseOK,evaluation.motionOK].filter(Boolean).length;const fingertipAssist=(phase.id==='fingertips'||phase.id==='wrists')&&elapsed>4&&evaluation.contact>.24&&evaluation.motion>.08;const eligible=evaluation.inZone&&(fingertipAssist||(adaptive?(coreOK>=2&&evaluation.score>=Math.max(.30,threshold-.16)):(coreOK===3&&evaluation.score>=threshold)));",
+ "const adaptive=elapsed>(DIFF==='easy'?2.2:4.0);const coreOK=[evaluation.contactOK,evaluation.poseOK,evaluation.motionOK].filter(Boolean).length;const finalAssist=(phase.id==='fingertips'||phase.id==='wrists'||phase.id==='thumbs')&&elapsed>3&&evaluation.contact>.18&&evaluation.motion>.05;const eligible=evaluation.inZone&&(finalAssist||(adaptive?(coreOK>=2&&evaluation.score>=Math.max(.24,threshold-.22)):(coreOK===3&&evaluation.score>=threshold)));",
+ 'grade5-two-of-three');
+
+ out=out.replaceAll(
+ "trackingFrames:0, twoHandFrames:0, trackingLostCount:0, previousHadHands:false,",
+ "trackingFrames:0, handsSeenFrames:0, twoHandFrames:0, trackingLostCount:0, trackingRecoveryCount:0, previousHadHands:false, hadTracking:false, frameDtSum:0, frameCount:0, handednessConfidenceSum:0, handednessConfidenceCount:0, calibrationStartedAt:0, calibrationTimeSec:0, assistTapCount:0, autoAssistCount:0, assistedSteps:[],"
+ );
 
  replace(
-`state.trackingFrames += 1;
+ `state.trackingFrames += 1;
 if (hands.length >= 2) state.twoHandFrames += 1;
 if (!hands.length && state.previousHadHands) state.trackingLostCount += 1;
 state.previousHadHands = hands.length > 0;`,
-`state.trackingFrames += 1;
-state.frameDtSum += dt;state.frameCount += 1;
-if (hands.length > 0) state.handsSeenFrames += 1;
-if (hands.length >= 2) state.twoHandFrames += 1;
-if (!hands.length && state.previousHadHands) state.trackingLostCount += 1;
-if (hands.length > 0 && !state.previousHadHands && state.hadTracking) state.trackingRecoveryCount += 1;
-if (hands.length > 0) state.hadTracking = true;
+ `state.trackingFrames+=1;state.frameDtSum+=dt;state.frameCount+=1;
+if(hands.length>0)state.handsSeenFrames+=1;if(hands.length>=2)state.twoHandFrames+=1;
+if(!hands.length&&state.previousHadHands)state.trackingLostCount+=1;
+if(hands.length>0&&!state.previousHadHands&&state.hadTracking)state.trackingRecoveryCount+=1;
+if(hands.length>0)state.hadTracking=true;
 const confidenceValues=handedness.map(x=>Number(x?.score||0)).filter(Number.isFinite);
-state.handednessConfidenceSum += confidenceValues.reduce((a,b)=>a+b,0);
-state.handednessConfidenceCount += confidenceValues.length;
-state.previousHadHands = hands.length > 0;`,
+state.handednessConfidenceSum+=confidenceValues.reduce((a,b)=>a+b,0);state.handednessConfidenceCount+=confidenceValues.length;
+state.previousHadHands=hands.length>0;`,
  'tracking-telemetry');
 
- replace("state.startedAt = new Date().toISOString();","state.startedAt = new Date().toISOString();state.calibrationStartedAt=performance.now();",'calibration-start');
+ replace("state.startedAt = new Date().toISOString();","state.startedAt=new Date().toISOString();state.calibrationStartedAt=performance.now();",'calibration-start');
  replace("state.phase=id;document.documentElement.dataset.handwashPhase=id;","const previousPhase=state.phase;state.phase=id;document.documentElement.dataset.handwashPhase=id;if(previousPhase==='calibrate'&&id==='wet'&&state.calibrationStartedAt){state.calibrationTimeSec=Math.max(0,(performance.now()-state.calibrationStartedAt)/1000);}",'calibration-end');
- replace("state.fallbackUsed=true;","state.fallbackUsed=true;state.assistTapCount+=1;",'assist-counter');
+
+ replace(
+ `state.fallbackUsed=true;
+const phase=currentPhase();`,
+ `state.fallbackUsed=true;state.assistTapCount+=1;
+const phase=currentPhase();if(phase&&!state.assistedSteps.includes(phase.id))state.assistedSteps.push(phase.id);`,
+ 'tap-assist-step');
+
+ replace(
+ `if (state.phaseProgress >= 1) setPhase('wet');`,
+ `if(state.phaseProgress>=1)setPhase('wet');
+else if(Number(state.stepTime.calibrate||0)>=7){state.fallbackUsed=true;state.autoAssistCount+=1;if(!state.assistedSteps.includes('calibrate'))state.assistedSteps.push('calibrate');logEvent('adaptive_assist_auto_advance',{phase:'calibrate',reason:'grade5_time_guard',timeSec:round(state.stepTime.calibrate,2)});showToast('ระบบช่วย Calibration แล้ว • เริ่มขั้นเปียกมือ');setPhase('wet');}`,
+ 'calibration-time-guard');
+
+ replace(
+ `state.phaseProgress=clamp(state.phaseProgress,0,1);
+if (state.phaseProgress >= 1) completeProcess(phase);`,
+ `state.phaseProgress=clamp(state.phaseProgress,0,1);
+if(state.phaseProgress>=1)completeProcess(phase);
+else{const elapsed=Number(state.stepTime[phase.id]||0);const limit=phase.id==='towelFaucet'?6:phase.id==='soap'||phase.id==='dry'?7:8;if(elapsed>=limit){state.fallbackUsed=true;state.autoAssistCount+=1;if(!state.assistedSteps.includes(phase.id))state.assistedSteps.push(phase.id);state.phaseProgress=1;if(phase.id==='soap'){state.waterOn=false;state.foam=Math.max(state.foam,24)}if(phase.id==='dry')state.towelHeld=true;if(phase.id==='towelFaucet'){state.towelHeld=true;state.waterOn=false}logEvent('adaptive_assist_auto_advance',{phase:phase.id,whoStep:phase.who,reason:'grade5_time_guard',timeSec:round(elapsed,2),evidencePct:Math.round(state.phaseProgress*100)});showToast('ระบบช่วยผ่านขั้นนี้ • ไปขั้นถัดไป');completeProcess(phase);}}`,
+ 'process-time-guard');
+
+ replace(
+ "state.passMode[phase.id]=state.fallbackUsed?'assist':'strict';",
+ "state.passMode[phase.id]=state.assistedSteps.includes(phase.id)?'assist':'strict';",
+ 'process-pass-mode');
+
+ replace(
+ "if (rubDone(phase)) completeRub(phase,graceActive?'grace':'strict');",
+ "if(rubDone(phase))completeRub(phase,graceActive?'grace':'strict');else if(elapsed>=7.5){state.fallbackUsed=true;state.autoAssistCount+=1;if(!state.assistedSteps.includes(phase.id))state.assistedSteps.push(phase.id);if(phase.side){state.evidence[phase.id].left=1;state.evidence[phase.id].right=1}else state.evidence[phase.id].both=1;logEvent('adaptive_assist_auto_advance',{phase:phase.id,whoStep:phase.who,reason:'grade5_time_guard',timeSec:round(elapsed,2),quality:phaseQuality(phase.id)});showToast('ลองท่านี้แล้ว ✅ ระบบช่วยไปขั้นถัดไป');completeRub(phase,'assist');}",
+ 'rub-time-guard');
 
  out=out.replace("showToast('WHO 1 ผ่านแล้ว • เริ่ม 6 ท่าถูมือ');","showToast('WHO 1 ผ่านแล้ว • เริ่ม 7 ท่าถูมือ รวมรอบข้อมือ');");
  out=out.replace("(rubCompleted/6)*60","(rubCompleted/7)*60");
@@ -80,9 +122,20 @@ state.previousHadHands = hands.length > 0;`,
  out=out.replace("el.rubText.textContent=`${rubDoneCount}/6`;","el.rubText.textContent=`${rubDoneCount}/7`;");
 
  replace(
-`fallbackUsed:state.fallbackUsed,processErrors:state.processErrors,steps:rows,events:state.eventLog.slice(-100),
+ `const techniquePassed=rubCompleted===7&&processCompleted===5&&state.towelFaucetPassed&&state.sequenceCorrect;
+const passed=endReason==='completed'&&techniquePassed&&withinWhoTime;`,
+ `const classroomCompleted=endReason==='completed'&&rubCompleted===7&&processCompleted===5&&state.towelFaucetPassed;
+const techniquePassed=classroomCompleted;
+const skillPassed=classroomCompleted&&state.assistedSteps.length===0&&gestureAccuracy>=55&&state.sequenceCorrect;
+const passed=skillPassed;`,
+ 'completion-vs-skill');
+
+ replace(
+ `fallbackUsed:state.fallbackUsed,processErrors:state.processErrors,steps:rows,events:state.eventLog.slice(-100),
 sourceUrl:location.href,userAgent:navigator.userAgent,timestamp:new Date().toISOString()`,
-`fallbackUsed:state.fallbackUsed,assistUsed:state.fallbackUsed,assistTapCount:state.assistTapCount,
+ `fallbackUsed:state.fallbackUsed,assistUsed:state.fallbackUsed,assistTapCount:state.assistTapCount,autoAssistCount:state.autoAssistCount,
+assistedSteps:[...state.assistedSteps],assistedStepCount:state.assistedSteps.filter(x=>x!=='calibrate').length,
+strictStepCount:rows.filter(x=>x.passMode==='strict').length,coachStepCount:rows.filter(x=>x.passMode==='grace').length,
 handSeenRate:state.trackingFrames?round(state.handsSeenFrames/state.trackingFrames*100,1):0,
 trackingRecoveryCount:state.trackingRecoveryCount,calibrationTimeSec:round(state.calibrationTimeSec,2),
 avgFps:state.frameDtSum?round(state.frameCount/state.frameDtSum,2):0,motionSmoothness:gestureAccuracy,
@@ -90,31 +143,38 @@ landmarkConfidence:state.handednessConfidenceCount?round(state.handednessConfide
 wrongStepCount:state.processErrors.length,retryCount:state.trackingLostCount+state.assistTapCount,
 soapDurationSec:round(state.stepTime.soap||0,2),completedSteps:rubCompleted+processCompleted,totalSteps:12,
 whoStepsCompleted:rubCompleted,whoStepsTotal:7,totalWhoRubSteps:7,completedProcessSteps:processCompleted,totalProcessSteps:5,
-processCompliancePct:Math.round((rubCompleted+processCompleted)/12*100),skillCriteriaMet:passed,completed:passed,
-completionPolicy:'strict-7-rub-12-phase',analyticsSchemaVersion:'HH-UNIFIED-GAME-ANALYTICS-V2',
+processCompliancePct:Math.round((rubCompleted+processCompleted)/12*100),skillCriteriaMet:skillPassed,
+completed:classroomCompleted,progressionEligible:classroomCompleted,completionLevel:skillPassed?'independent':state.assistedSteps.length?'completed_with_adaptive_assist':'completed_with_coach',
+completionPolicy:'grade5-adaptive-complete-12-steps-skill-separate',analyticsSchemaVersion:'HH-UNIFIED-GAME-ANALYTICS-V2',
 processErrors:state.processErrors,steps:rows,stepResults:rows,events:state.eventLog.slice(-100),
 sourceUrl:location.href,userAgent:navigator.userAgent,timestamp:new Date().toISOString()`,
  'result-telemetry');
 
+ out=out.replace("status:result.passed?'completed':'attempted',","status:result.completed?'completed':'attempted',");
+ out=out.replace("grade:result.passed?'WHO Standard Passed':result.techniquePassed?'WHO Technique • Timing Practice':'Practice',","grade:result.skillCriteriaMet?'WHO Skill Passed':result.completed?'WHO Mission Completed':'Practice',");
+ out=out.replace("badge:result.passed&&result.stars===3?'WHO Handwashing Master':result.techniquePassed?'WHO Sequence Hero':'Keep Practicing',","badge:result.skillCriteriaMet&&result.stars===3?'WHO Handwashing Master':result.completed?'WHO Mission Hero':'Keep Practicing',");
+
  replace("saveResult(result);\nrenderSummary(result);\nsendResult(result);","saveResult(result);\nrenderSummary(result);\nif(qs.get('classroom')!=='1')sendResult(result);",'single-authority-delivery');
 
- out=out.replace("const RELEASE='20260717-HANDWASH-FINAL-R7';","const RELEASE='20260727-HANDWASH-STRICT7-R28';");
- out=out.replace("})();","document.documentElement.dataset.handwashStrictRuntime='20260727-HANDWASH-STRICT7-R28';\n})();");
- console.info('[Handwash R28] compiled runtime patched for strict 7-step completion');
+ out=out.replace("const RELEASE='20260717-HANDWASH-FINAL-R7';","const RELEASE='20260729-HANDWASH-GRADE5-ADAPTIVE-R40';");
+ out=out.replace("})();","document.documentElement.dataset.handwashStrictRuntime='20260729-HANDWASH-GRADE5-ADAPTIVE-R40';\n})();");
+ console.info('[Handwash R40] Grade 5 adaptive runtime installed');
  return out;
 }
 
 function PatchedBlob(parts,options){
  try{
   if(options&&String(options.type||'').includes('javascript')&&Array.isArray(parts)&&parts.length===1&&typeof parts[0]==='string'){
-   return new NativeBlob([patchRuntime(parts[0])],options);
+   const patched=patchRuntime(parts[0]);
+   try{new Function(patched)}catch(error){console.error('[Handwash R40] compiled syntax validation failed',error);return new NativeBlob(parts,options);}
+   return new NativeBlob([patched],options);
   }
- }catch(error){console.error('[Handwash R28] runtime patch failed',error);}
+ }catch(error){console.error('[Handwash R40] runtime patch failed',error);}
  return new NativeBlob(parts,options);
 }
 PatchedBlob.prototype=NativeBlob.prototype;
 Object.setPrototypeOf(PatchedBlob,NativeBlob);
 window.Blob=PatchedBlob;
 document.documentElement.dataset.handwashStrictPatch=RELEASE;
-console.info('[Handwash R28] strict runtime interceptor installed');
+console.info('[Handwash R40] Grade 5 adaptive interceptor installed');
 })();
