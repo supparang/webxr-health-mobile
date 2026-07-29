@@ -1,7 +1,10 @@
 (() => {
   'use strict';
 
-  const RELEASE = '20260718-HANDWASH-SUMMARY-OVERLAY-FORCE-R22';
+  const RELEASE = '20260729-HANDWASH-SUMMARY-OVERLAY-FORCE-R22.1-CAMERA-BOOT';
+  if (!document.documentElement.dataset.handwashCameraPatch && document.readyState === 'loading') {
+    document.write('<script src="./handwash-camera-start-patch-r35.js?cv=20260729-HANDWASH-CAMERA-BOOT-R36"><\\/script>');
+  }
   const NativeBlob = window.Blob;
 
   const rubHook = `function updateRub(phase,hands,dt){
