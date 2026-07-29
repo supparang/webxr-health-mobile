@@ -5,9 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <title>HeroHealth • Food Groups AR</title>
   <meta name="theme-color" content="#103c3a">
-  <meta name="description" content="HeroHealth Food Groups Camera AR — จำแนกอาหารตามหมู่ 1–5">
+  <meta name="description" content="HeroHealth Food Groups Camera AR — จำแนกอาหารตามหมู่ 1–5 ด้วยกล้องและ Hand Tracking">
   <link rel="stylesheet" href="./vr-groups/groups-ar-v3.css?v=20260717-5">
   <link rel="stylesheet" href="./vr-groups/groups-ar-compact-v41.css?v=20260721-compact-v410">
+  <style>
+    #touchBtn,#startTouch{display:none!important}
+    .arOnlyBlock .sheet{width:min(560px,100%)}
+    .arOnlyBlock .warning{margin-top:12px}
+  </style>
   <script>
     (() => {
       const url = new URL(location.href);
@@ -18,6 +23,7 @@
       if (!url.searchParams.has('pinchClose')) url.searchParams.set('pinchClose', '0.075');
       if (!url.searchParams.has('pinchOpen')) url.searchParams.set('pinchOpen', '0.115');
       if (!url.searchParams.has('detectEveryMs')) url.searchParams.set('detectEveryMs', '42');
+      url.searchParams.set('inputMode', 'hand-ar-only');
       history.replaceState(null, '', url.toString());
     })();
   </script>
@@ -30,7 +36,7 @@
     <header class="hud">
       <section class="brand">
         <div class="brandIcon">🥦</div>
-        <div><h1>Food Groups AR</h1><p>Mobile Compact v4.1.4 • Easy Pinch</p></div>
+        <div><h1>Food Groups AR</h1><p>Mobile Compact v4.1.5 • Hand AR Only</p></div>
       </section>
       <section class="stats" aria-label="สถานะการเล่น">
         <div class="stat scoreStat"><small>คะแนน</small><b id="score">0</b></div>
@@ -55,22 +61,47 @@
       </section>
     </main>
 
-    <footer class="footer"><div class="feedback" id="feedback" role="status" aria-live="polite">พร้อมช่วยกู้ตะกร้าพลังอาหารทั้ง 5</div><div class="controls"><button class="btn" id="touchBtn">👆 Touch</button><button class="btn gold secondaryAction" id="qaBtn">🧪 Check</button><button class="btn secondaryAction" id="zoneBtn">🥗 Zone</button><button class="btn" id="menuBtn" type="button" aria-label="เปิดเมนูเพิ่มเติม" aria-controls="quickMenu" aria-expanded="false">⋯</button></div></footer>
+    <footer class="footer"><div class="feedback" id="feedback" role="status" aria-live="polite">พร้อมช่วยกู้ตะกร้าพลังอาหารทั้ง 5</div><div class="controls"><button class="btn" id="touchBtn" hidden aria-hidden="true" tabindex="-1">Touch disabled</button><button class="btn gold secondaryAction" id="qaBtn">🧪 Check</button><button class="btn secondaryAction" id="zoneBtn">🥗 Zone</button><button class="btn" id="menuBtn" type="button" aria-label="เปิดเมนูเพิ่มเติม" aria-controls="quickMenu" aria-expanded="false">⋯</button></div></footer>
   </div>
 
   <button class="menuScrim" id="menuScrim" type="button" aria-label="ปิดเมนู" hidden></button>
   <section class="quickMenu" id="quickMenu" aria-label="เมนูเพิ่มเติม" hidden><button id="menuQaBtn" type="button">🧪 ตรวจอุปกรณ์และกล้อง</button><button id="menuZoneBtn" type="button">🥗 กลับ Nutrition Zone</button><button id="menuCloseBtn" type="button">ปิดเมนู</button></section>
   <button id="teacherBtn" type="button" hidden aria-hidden="true"></button>
 
-  <section class="overlay" id="intro"><div class="sheet"><div class="sheetIcon">🥦</div><h2>Rescue the Five Power Baskets</h2><p>หยิบอาหารและปล่อยลงประตูหมู่ 1–5 ให้ถูกต้อง ผ่าน Reason Check, Retry Rescue และ Boss 3 Phase</p><div class="steps"><div class="step"><span>🤏</span><b>หยิบง่ายขึ้น</b><small>เอานิ้วโป้งเข้าใกล้นิ้วชี้ ไม่ต้องบีบชิดมาก</small></div><div class="step"><span>🏠</span><b>จัดหมู่</b><small>ลากไปยังหมู่ที่ถูก แล้วกางนิ้วเพื่อปล่อย</small></div><div class="step"><span>👾</span><b>สู้ Boss</b><small>Five Groups • Confusion • Meal Breaker</small></div></div><div class="warning">หากกล้องหรือ Hand Tracking ไม่พร้อม เกมจะเปลี่ยนเป็น Touch Fallback โดยไม่เกิดหน้าขาว และผลรอบนี้จะเก็บในเครื่องเท่านั้น ยังไม่ส่ง Google Sheet</div><div class="sheetActions"><button class="big" id="startCamera">📷 เริ่ม Camera AR</button><button class="big alt" id="startTouch">👆 เริ่ม Touch AR</button><button class="big alt" id="openQa">🧪 Device Check</button></div></div></section>
+  <section class="overlay" id="intro"><div class="sheet"><div class="sheetIcon">🥦</div><h2>Rescue the Five Power Baskets</h2><p>หยิบอาหารและปล่อยลงประตูหมู่ 1–5 ให้ถูกต้อง ผ่าน Reason Check, Retry Rescue และ Boss 3 Phase</p><div class="steps"><div class="step"><span>🤏</span><b>หยิบด้วย Pinch</b><small>เอานิ้วโป้งเข้าใกล้นิ้วชี้ ไม่ต้องบีบชิดมาก</small></div><div class="step"><span>🏠</span><b>จัดหมู่</b><small>ขยับมือไปยังหมู่ที่ถูก แล้วกางนิ้วเพื่อปล่อย</small></div><div class="step"><span>👾</span><b>สู้ Boss</b><small>Five Groups • Confusion • Meal Breaker</small></div></div><div class="warning">เกม Groups ใช้ Camera AR และ Hand Tracking เท่านั้น หากกล้องหรือการตรวจจับมือไม่พร้อม ต้องแก้สิทธิ์กล้องหรือทำ Device Check ก่อนเริ่ม ไม่มี Touch Fallback</div><div class="sheetActions"><button class="big" id="startCamera">📷 เริ่ม Camera AR</button><button class="big alt" id="startTouch" hidden aria-hidden="true" tabindex="-1">Touch disabled</button><button class="big alt" id="openQa">🧪 Device Check</button></div></div></section>
 
   <section class="reason" id="reason"><div class="reasonCard"><div class="reasonLabel" id="reasonLabel">Reason Check</div><h3 id="reasonQ"></h3><div class="answers" id="answers"></div></div></section>
 
   <section class="overlay hidden" id="summary"><div class="sheet"><div class="sheetIcon" id="sumIcon">🏆</div><h2 id="sumTitle">สรุปผล</h2><p id="sumSub"></p><div class="summaryGrid" id="summaryGrid"></div><div class="bars" id="bars"></div><div class="warning" id="delivery">กำลังบันทึกผลในเครื่อง...</div><div class="sheetActions"><button class="big" id="replay">เล่นอีกครั้ง</button><button class="big alt" id="sumZone">🌿 Cooldown แล้วกลับ Zone</button></div></div></section>
 
+  <section class="overlay hidden arOnlyBlock" id="arOnlyBlock" role="alertdialog" aria-modal="true" aria-labelledby="arOnlyTitle"><div class="sheet"><div class="sheetIcon">📷</div><h2 id="arOnlyTitle">Groups ต้องใช้ AR</h2><p id="arOnlyMessage">ไม่สามารถเริ่ม Camera AR หรือ Hand Tracking ได้</p><div class="warning">เกมนี้ไม่อนุญาตให้เปลี่ยนเป็น Touch กรุณาเปิดสิทธิ์กล้อง จัดแสงให้เห็นมือชัด แล้วลองใหม่</div><div class="sheetActions"><button class="big" id="retryAr" type="button">ลองเปิด AR อีกครั้ง</button><button class="big alt" id="arOnlyQa" type="button">🧪 Device Check</button><button class="big alt" id="arOnlyZone" type="button">🥗 กลับ Zone</button></div></div></section>
+
   <script src="./vr-groups/groups-ar-bank-v3.js?v=20260717-5"></script>
   <script src="./vr-groups/groups-ar-runtime-compat-v412.js?v=20260721-android-stable-v413"></script>
   <script src="./vr-groups/groups-ar-ui-v410.js?v=20260721-compact-v410"></script>
+  <script>
+  (()=>{
+    'use strict';
+    const touchPattern=/touch|fallback/i;
+    const block=document.getElementById('arOnlyBlock');
+    const message=document.getElementById('arOnlyMessage');
+    const cameraText=document.getElementById('cameraText');
+    const copyParams=path=>{const u=new URL(path,location.href);new URLSearchParams(location.search).forEach((v,k)=>u.searchParams.set(k,v));return u};
+    function stopCamera(){try{document.getElementById('camera')?.srcObject?.getTracks?.().forEach(t=>t.stop())}catch(_){}}
+    function showBlock(text){message.textContent=text||'Camera AR หรือ Hand Tracking ไม่พร้อม';block.classList.remove('hidden');document.getElementById('feedback').textContent='Groups ใช้ AR เท่านั้น • กรุณาแก้กล้องแล้วลองใหม่'}
+    function checkMode(){const text=(cameraText?.textContent||'').trim();if(touchPattern.test(text))showBlock('ระบบตรวจพบว่ากล้องหรือ Hand Tracking ไม่พร้อม จึงหยุดเกมไว้แทนการใช้ Touch Fallback')}
+    function preventTouchFallback(ev){const target=ev.target?.closest?.('#startTouch,#touchBtn');if(target){ev.preventDefault();ev.stopImmediatePropagation();showBlock('เกม Groups ไม่เปิดโหมด Touch');return}if(touchPattern.test(cameraText?.textContent||'')&&ev.target?.closest?.('.food,.foodLayer,.bin')){ev.preventDefault();ev.stopImmediatePropagation();showBlock('ไม่อนุญาตให้ควบคุมอาหารด้วยการแตะหน้าจอ')}}
+    ['pointerdown','touchstart','click'].forEach(type=>document.addEventListener(type,preventTouchFallback,true));
+    if(cameraText)new MutationObserver(checkMode).observe(cameraText,{childList:true,characterData:true,subtree:true});
+    window.addEventListener('groups-runtime-ready',()=>{document.getElementById('startTouch')?.setAttribute('disabled','');document.getElementById('touchBtn')?.setAttribute('disabled','');checkMode()});
+    document.getElementById('retryAr').onclick=()=>location.reload();
+    document.getElementById('arOnlyQa').onclick=()=>location.assign(copyParams('./vr-groups/groups-ar-check-v2.html'));
+    document.getElementById('arOnlyZone').onclick=()=>{stopCamera();const hub=new URLSearchParams(location.search).get('hub')||'./nutrition-zone.html';location.assign(new URL(hub,location.href))};
+    document.getElementById('startTouch').disabled=true;
+    document.getElementById('touchBtn').disabled=true;
+    checkMode();
+  })();
+  </script>
   <script>
   (()=>{
     'use strict';
@@ -90,7 +121,7 @@
       const passed=raw.passed===true||raw.challenge_passed==='yes'||/ผ่าน\s*(Food Groups AR)?/i.test(title+' '+summaryText);
       const sourceEventId=raw.eventId||raw.record_id||'';
       const eventId=`HH-classroom-groups-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-      return {completed:true,passed,score,accuracy,eventId,sourceEventId,finishedAt:new Date().toISOString(),source:'groups-ar-summary-bridge-v2-fresh-event'};
+      return {completed:true,passed,score,accuracy,eventId,sourceEventId,finishedAt:new Date().toISOString(),source:'groups-ar-summary-bridge-v3-ar-only'};
     }
     function summaryVisible(){
       const s=document.getElementById('summary');
@@ -106,7 +137,7 @@
       try{localStorage.setItem('HHA_GROUPS_AR_LAST_RESULT',JSON.stringify(payload))}catch(_){}
       if(parent!==window) parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin);
     }
-    ['startCamera','startTouch'].forEach(id=>document.getElementById(id)?.addEventListener('click',notifyStarted,{once:true}));
+    document.getElementById('startCamera')?.addEventListener('click',notifyStarted,{once:true});
     const observer=new MutationObserver(()=>{notifyComplete()});
     const summary=document.getElementById('summary');
     if(summary)observer.observe(summary,{attributes:true,childList:true,subtree:true,characterData:true});
