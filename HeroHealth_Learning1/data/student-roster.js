@@ -11,5 +11,6 @@ window.HH_ROSTER = [
   { studentId:"990010", fullName:"นักเรียนทดสอบ 10", nickname:"ฮีโร่ 10", section:"QA-P5", group:"J", active:true, testAccount:true },
   { studentId:"990011", fullName:"นักเรียนทดสอบ Assessment 11", nickname:"ฮีโร่ทดสอบ 11", section:"QA-P5-ASSESSMENT", group:"A", active:true, testAccount:true },
   { studentId:"990012", fullName:"นักเรียนทดสอบ Hygiene 12", nickname:"ฮีโร่ Hygiene", section:"QA-P5-HYGIENE", group:"A", active:true, testAccount:true },
-  { studentId:"990013", fullName:"นักเรียนทดสอบ Hygiene E2E 13", nickname:"ฮีโร่ Hygiene E2E", section:"QA-P5-HYGIENE-E2E", group:"A", active:true, testAccount:true }
+  { studentId:"990013", fullName:"นักเรียนทดสอบ Hygiene E2E 13", nickname:"ฮีโร่ Hygiene E2E", section:"QA-P5-HYGIENE-E2E", group:"A", active:true, testAccount:true },
+  { studentId:"990014", fullName:"นักเรียนทดสอบ Assessment V5 14", nickname:"ฮีโร่ Assessment V5", section:"QA-P5-ASSESSMENT-V5", group:"A", active:true, testAccount:true }
 ];
