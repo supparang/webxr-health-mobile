@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const PATCH = 'groups-ar-runtime-compat-v4.1.6-passport-safety-return';
+  const PATCH = 'groups-ar-runtime-compat-v4.1.7-passport-safety-visible';
 
   function copyParams(path) {
     const source = new URLSearchParams(location.search);
@@ -138,7 +138,6 @@
     const actions = document.getElementById('summaryActions') || summary?.querySelector('.sheetActions');
     if (!summary || !actions || document.getElementById('passportSafetyReturn')) return;
 
-    actions.hidden = false;
     const button = document.createElement('button');
     button.id = 'passportSafetyReturn';
     button.type = 'button';
@@ -152,11 +151,14 @@
     let timer = 0;
 
     const showSafety = () => {
-      if (armed || !summaryVisible(summary)) return;
+      if (!summaryVisible(summary)) return;
+      actions.hidden = false;
+      if (armed) return;
       armed = true;
       clearTimeout(timer);
       timer = setTimeout(() => {
         if (!summaryVisible(summary)) return;
+        actions.hidden = false;
         button.hidden = false;
         const delivery = document.getElementById('delivery');
         if (delivery) delivery.textContent = 'หากระบบยังไม่กลับอัตโนมัติ กด “กลับ Passport” ได้';
@@ -189,6 +191,7 @@
       characterData: true
     });
     setInterval(showSafety, 500);
+    setTimeout(() => { if (summaryVisible(summary)) actions.hidden = false; }, 0);
     showSafety();
   }
 
