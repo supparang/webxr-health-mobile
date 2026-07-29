@@ -2,23 +2,23 @@
    EAP Word Quest • Compatibility Bootstrap Loader
    File kept as v262 because older cached index.html already loads this path.
 
-   Version: 20260728-V279-JSONP-RECEIPT-BOOTSTRAP
+   Version: 20260729-V280-COMPACT-SUBMIT-BOOTSTRAP
    - Load V275 Google Sheet authority.
    - Load V276 official-name fallback.
    - Load V278 runtime identity proof before submit.
-   - Load V279 JSONP submit + explicit receipt.
+   - Load V280 compact JSONP submit with longer timeout.
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260728-V279-JSONP-RECEIPT-BOOTSTRAP';
+  var VERSION = '20260729-V280-COMPACT-SUBMIT-BOOTSTRAP';
   var AUTH_TAG = 'eap-word-authority-v275-bootstrap';
   var NAME_TAG = 'eap-word-name-fallback-v276-bootstrap';
   var PROOF_TAG = 'eap-word-identity-proof-v278-bootstrap';
-  var SUBMIT_TAG = 'eap-word-v279-jsonp-bootstrap';
+  var SUBMIT_TAG = 'eap-word-v280-compact-bootstrap';
 
-  if (window.__EAP_WORD_V279_BOOTSTRAP__) return;
-  window.__EAP_WORD_V279_BOOTSTRAP__ = true;
+  if (window.__EAP_WORD_V280_BOOTSTRAP__) return;
+  window.__EAP_WORD_V280_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
@@ -97,19 +97,19 @@
     );
   }
 
-  function loadJsonpReceiptSender() {
+  function loadCompactSubmit() {
     loadScript(
-      './eap-word-engine-v279-jsonp-receipt.js?v=20260728-v279-jsonp-receipt-1',
+      './eap-word-engine-v280-compact-submit.js?v=20260729-v280-compact-submit-1',
       SUBMIT_TAG,
-      '__EAP_WORD_V279_JSONP_RECEIPT__',
-      function () { console.info('[EAP Word Quest] V279 JSONP receipt sender loaded',{bootstrap:VERSION}); },
-      function () { console.error('[EAP Word Quest] V279 JSONP receipt sender could not load',{bootstrap:VERSION}); }
+      '__EAP_WORD_V280_COMPACT_SUBMIT__',
+      function () { console.info('[EAP Word Quest] V280 compact submit loaded',{bootstrap:VERSION}); },
+      function () { console.error('[EAP Word Quest] V280 compact submit could not load',{bootstrap:VERSION}); }
     );
   }
 
   loadAuthority();
   setTimeout(loadNameFallback,120);
   setTimeout(loadIdentityProof,430);
-  setTimeout(loadJsonpReceiptSender,760);
+  setTimeout(loadCompactSubmit,760);
   console.info('[EAP Word Quest] compatibility bootstrap ready',{version:VERSION});
 })();
