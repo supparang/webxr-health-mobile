@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-STEP-R33-SUMMARY-R34",
+  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R34-TOOTHBRUSH-V26",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_HANDWASH_STEP_R33_SUMMARY_R34",
+  deploymentState: "QA_HANDWASH_R34_TOOTHBRUSH_MULTI_PLAQUE_V26",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -17,23 +17,25 @@ window.HH_CONFIG = {
   handwashContract: { requiredRubSteps: 7, requiredProcessSteps: 5, requiredTotalSteps: 12, requireWrists: true, requireAnalyticsReceipt: true, progressionByCompletion: true },
   toothbrushContract: {
     mode: "classroom_challenge",
-    durationSec: 90,
+    durationSec: 120,
     zones: 6,
-    strokesPerZone: 3,
-    requiredStrokesTotal: 18,
+    plaqueTargetsPerZone: { tl: 4, tm: 5, tr: 4, bl: 4, bm: 5, br: 4 },
+    requiredPlaqueTargetsTotal: 26,
+    requiredStrokesTotal: 26,
     dwellMsPerZone: 600,
     strokeMinDistancePx: 13,
     strokeResetDistancePx: 10,
     strokeCooldownMs: 240,
-    strokePolicy: "three-deliberate-strokes-per-zone-with-return-reset",
+    targetHitRadiusPct: 32,
+    strokePolicy: "multi-plaque-spatial-coverage-with-deliberate-directional-return-reset",
     settingsVisible: false,
     progressionByCompletion: true,
     completionPolicy: "one-classroom-challenge-round-completes-no-forced-retry",
     retryRequired: false,
-    skillThresholds: { coverageZones: 6, directionAccuracyPct: 45, trackingQualityPct: 60 },
+    skillThresholds: { coverageZones: 6, directionAccuracyPct: 55, precisionAccuracyPct: 70, trackingQualityPct: 60 },
     input: "index-finger-only",
     trackingProfile: "adaptive-hysteresis-reacquire-v24",
-    motionProfile: "three-stroke-reset-gate-v25",
+    motionProfile: "multi-plaque-spatial-coverage-v26",
     cameraProfile: "320x240-24fps",
     inferenceInput: "256x192-tracking-320x240-reacquire",
     coordinateMapping: "video-rect-cover-mirrored",
@@ -57,6 +59,7 @@ window.HH_CONFIG = {
     transientLossDoesNotFlashGate: true,
     repeatedMotionGuard: true,
     returnMovementRequiredBetweenStrokes: true,
+    plaqueTargetsRequireSpatialHit: true,
     plaqueReducesPerValidStroke: true,
     lowerZoneMobileSafeArea: true,
     timerPausesWhenTrackingLost: true,
@@ -65,7 +68,7 @@ window.HH_CONFIG = {
     zonePositionAssist: false,
     renderInterpolation: "three-sample-fast-rAF-follow",
     detectionScheduler: "adaptive-throttled-independent-loop",
-    architecture: "single-standalone-classroom-challenge-three-stroke-skill-practice"
+    architecture: "single-standalone-classroom-challenge-multi-plaque-spatial-coverage"
   },
   teacherPin: "",
   routes: {
@@ -77,7 +80,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Toothbrush ใช้ Classroom Challenge โหมดเดียวสำหรับมือถือ โดยแต่ละโซนต้องปัดถูกทิศทาง 3 ครั้ง รวม 18 strokes และอยู่ในโซนรวมอย่างน้อย 0.6 วินาที หลังนับแต่ละ stroke ผู้เล่นต้องเลื่อนแปรงกลับอย่างน้อย 10 px ก่อนเริ่ม stroke ถัดไป จึงไม่สามารถใช้การสั่นหรือปัดยาวครั้งเดียวให้ระบบนับหลายครั้งได้ คราบลดลงทีละชั้นตาม stroke ที่ถูกต้อง ระบบยังใช้ Tracking Hysteresis, Adaptive Reacquisition และ Recovery Watchdog เล่นหนึ่งรอบถือว่าจบภารกิจโดยไม่บังคับ Retry พร้อมเก็บ Stroke Policy, Direction Accuracy, Tracking, Reacquire และ Recovery เป็น Learning Analytics",
+      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Toothbrush ใช้ Classroom Challenge สำหรับมือถือ โดยแบ่งช่องปากเป็น 6 โซน โซนด้านข้างมีคราบพลัค 4 จุด และโซนกลางมี 5 จุด รวม 26 จุด ผู้เล่นต้องปัดผ่านคราบให้ถูกทิศทางและเลื่อนแปรงกลับอย่างน้อย 10 px ก่อนเริ่มครั้งถัดไป ระบบจึงวัดทั้ง Direction Accuracy และ Spatial Plaque Coverage ไม่สามารถปัดอยู่ตำแหน่งเดียวเพื่อผ่านทั้งโซนได้ ระบบยังใช้ Tracking Hysteresis, Adaptive Reacquisition และ Recovery Watchdog เล่นหนึ่งรอบถือว่าจบภารกิจโดยไม่บังคับ Retry พร้อมเก็บ Plaque Target, Precision, Direction, Tracking, Reacquire และ Recovery เป็น Learning Analytics",
       games: { hygiene: ["handwash", "toothbrush"], nutrition: ["groups", "goodjunk"], fitness: ["jumpduck", "balance-hold"] }
     },
     FULL_PLATFORM: {
@@ -92,7 +95,7 @@ window.HH_CONFIG = {
       id: "hygiene", label: "Hygiene Hero", thai: "ฐานสุขอนามัย", emoji: "🧼", accent: "#0ea5e9", description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
         { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260729-handwash-step-r33-summary-r34", status:"qa-step-guide-r33-fullscreen-summary-r34", requiredReturnContract:true, qaClosed:false, progressionByCompletion:true },
-        { id:"toothbrush", title:"Toothbrush Classroom Challenge", thai:"Toothbrush Challenge", url:"./toothbrush-classroom-challenge-v25.html?v=20260728-three-strokes-v25", status:"qa-three-deliberate-strokes-per-zone-v25", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false, oneRoundCompletes:true, retryRequired:false },
+        { id:"toothbrush", title:"Toothbrush Classroom Challenge", thai:"Toothbrush Challenge", url:"./toothbrush-classroom-challenge-v26.html?v=20260729-multi-plaque-v26", status:"qa-multi-plaque-spatial-coverage-v26", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false, oneRoundCompletes:true, retryRequired:false },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"clean-objects", title:"Clean Objects", thai:"ภารกิจทำความสะอาดสิ่งของ", url:"../herohealth/clean-objects-v3/clean-objects.html", status:"catalog-only", requiredReturnContract:true },
