@@ -35,7 +35,7 @@
 </head>
 <body>
 <div id="app"></div>
-<script src="./data/platform-config.js?v=20260729-handwash-direct-camera-r36"></script>
+<script src="./data/platform-config.js?v=20260729-toothbrush-camera-recovery-v27"></script>
 <script>
 (()=>{'use strict';
 const q=new URLSearchParams(location.search),cfg=window.HH_CONFIG||{},RUN=q.get('run')||'',STORE='hh_mobile_game_qa_v1';
@@ -50,7 +50,7 @@ const game=all.find(g=>g.id===RUN);
 function mark(id,state){const data=read();data[id]={state,at:new Date().toISOString(),screen:`${innerWidth}x${innerHeight}`,dpr:devicePixelRatio||1,orientation:matchMedia('(orientation:portrait)').matches?'portrait':'landscape'};write(data);if(RUN)toast(state==='pass'?'บันทึกว่า หน้าจอผ่าน':'บันทึกว่า ต้องแก้ไข');else renderHub()}
 function stateLabel(v){return v==='pass'?'ผ่านหน้าจอ':v==='fail'?'ต้องแก้':'ยังไม่ตรวจ'}
 function stateClass(v){return v==='pass'?'pass':v==='fail'?'fail':''}
-function launch(id){const u=new URL(location.href);u.search='';u.searchParams.set('run',id);u.searchParams.set('build','20260729-handwash-r36-toothbrush-v26');location.href=u.href}
+function launch(id){const u=new URL(location.href);u.search='';u.searchParams.set('run',id);u.searchParams.set('build','20260729-handwash-r36-toothbrush-v27');location.href=u.href}
 function renderHub(){
  const data=read(),pass=all.filter(g=>data[g.id]?.state==='pass').length,fail=all.filter(g=>data[g.id]?.state==='fail').length;
  app.innerHTML=`<main class="wrap">
