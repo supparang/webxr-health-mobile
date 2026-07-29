@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const PATCH = 'groups-ar-runtime-compat-v4.1.5-passport-standalone-return';
+  const PATCH = 'groups-ar-runtime-compat-v4.1.6-passport-safety-return';
 
   function copyParams(path) {
     const source = new URLSearchParams(location.search);
@@ -41,10 +41,18 @@
 
   function isPassportMode() {
     const q = new URLSearchParams(location.search);
-    return q.get('classroom') === '1' ||
+    return window.parent !== window ||
+      q.get('classroom') === '1' ||
       q.get('passport') === '1' ||
       q.get('embedded') === '1' ||
       q.get('from') === 'passport';
+  }
+
+  function summaryVisible(summary) {
+    if (!summary) return false;
+    const css = getComputedStyle(summary);
+    return !summary.classList.contains('hidden') &&
+      css.display !== 'none' && css.visibility !== 'hidden';
   }
 
   function resolveStandaloneReturn() {
@@ -75,11 +83,7 @@
 
     let returning = false;
     const check = () => {
-      if (returning) return;
-      const css = getComputedStyle(summary);
-      const visible = !summary.classList.contains('hidden') &&
-        css.display !== 'none' && css.visibility !== 'hidden';
-      if (!visible) return;
+      if (returning || !summaryVisible(summary)) return;
 
       returning = true;
       const delivery = document.getElementById('delivery');
@@ -96,6 +100,96 @@
     });
     setInterval(check, 500);
     check();
+  }
+
+  function fallbackPassportUrl() {
+    const q = new URLSearchParams(location.search);
+    let target = null;
+
+    try {
+      if (window.parent !== window) {
+        const shellUrl = new URL(window.top.location.href);
+        const returnValue = shellUrl.searchParams.get('return');
+        if (returnValue) target = new URL(returnValue, shellUrl);
+      }
+    } catch (_) {}
+
+    if (!target) {
+      const requested = q.get('return') || q.get('returnUrl') || '';
+      try {
+        if (requested) target = new URL(requested, location.href);
+      } catch (_) {}
+    }
+
+    if (!target) target = new URL('../HeroHealth_Learning1/index.html', location.href);
+
+    const sid = q.get('studentId') || q.get('pid') || '';
+    if (sid) target.searchParams.set('sid', sid);
+    target.searchParams.set('authorityRefresh', String(Date.now()));
+    target.searchParams.set('gameSync', '1');
+    target.searchParams.set('pendingGameSync', 'nutrition:groups');
+    return target;
+  }
+
+  function installPassportSafetyButton() {
+    if (window.parent === window || !isPassportMode()) return;
+
+    const summary = document.getElementById('summary');
+    const actions = document.getElementById('summaryActions') || summary?.querySelector('.sheetActions');
+    if (!summary || !actions || document.getElementById('passportSafetyReturn')) return;
+
+    actions.hidden = false;
+    const button = document.createElement('button');
+    button.id = 'passportSafetyReturn';
+    button.type = 'button';
+    button.className = 'big alt';
+    button.textContent = '← กลับ Passport';
+    button.hidden = true;
+    button.setAttribute('aria-label', 'กลับ Passport หากระบบไม่กลับอัตโนมัติ');
+    actions.appendChild(button);
+
+    let armed = false;
+    let timer = 0;
+
+    const showSafety = () => {
+      if (armed || !summaryVisible(summary)) return;
+      armed = true;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!summaryVisible(summary)) return;
+        button.hidden = false;
+        const delivery = document.getElementById('delivery');
+        if (delivery) delivery.textContent = 'หากระบบยังไม่กลับอัตโนมัติ กด “กลับ Passport” ได้';
+      }, 6000);
+    };
+
+    button.onclick = () => {
+      button.disabled = true;
+      button.textContent = 'กำลังกลับ Passport…';
+
+      try {
+        const shellBack = window.top.document.getElementById('back');
+        if (shellBack) {
+          shellBack.click();
+          return;
+        }
+      } catch (_) {}
+
+      try {
+        window.top.location.replace(fallbackPassportUrl().href);
+      } catch (_) {
+        location.replace(fallbackPassportUrl().href);
+      }
+    };
+
+    new MutationObserver(showSafety).observe(summary, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+    setInterval(showSafety, 500);
+    showSafety();
   }
 
   function updateModeLabel() {
@@ -125,6 +219,7 @@
     script.onload = () => {
       patchRoutes();
       installStandalonePassportReturn();
+      installPassportSafetyButton();
       window.dispatchEvent(new CustomEvent('groups-runtime-ready', {
         detail: { patch: PATCH, mode: 'legacy', reason: 'classroom stable runtime' }
       }));
