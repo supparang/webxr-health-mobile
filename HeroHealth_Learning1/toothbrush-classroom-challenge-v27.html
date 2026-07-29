@@ -11,7 +11,7 @@
   </style>
 </head>
 <body>
-  <div class="loading" id="loading">กำลังเตรียมกล้องและคราบพลัคหลายรูปแบบ…</div>
+  <div class="loading" id="loading">กำลังเตรียมกล้อง คราบพลัค และระบบกลับ Passport…</div>
   <script>
   (async()=>{
     const replaceRequired=(source,search,replacement,label)=>{
@@ -25,11 +25,11 @@
       let html=await response.text();
 
       html=replaceRequired(html,'HeroHealth • Toothbrush Challenge V26','HeroHealth • Toothbrush Challenge V27','title');
-      html=replaceRequired(html,'Skill Practice V26','Skill Practice V27 • Visual Variety','version label');
+      html=replaceRequired(html,'Skill Practice V26','Skill Practice V27 • Passport Return','version label');
       html=replaceRequired(
         html,
         'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V26";',
-        'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V27-VISUAL-VARIETY-R1";',
+        'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V27-PASSPORT-RETURN-R2";',
         'analytics version'
       );
       html=replaceRequired(
@@ -40,7 +40,7 @@
       );
 
       const oldPlaqueCss='.plaque{position:absolute;width:34px;height:34px;margin:-17px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;background:#ffffffea;box-shadow:0 4px 12px #0002;font-size:22px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}';
-      const newPlaqueCss='.plaque{position:absolute;width:32px;height:32px;margin:-16px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;box-shadow:0 4px 12px #0002;font-size:20px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque-green-germ{background:#f0fdf4ea;border-color:#86efac}\n    .plaque-yellow-plaque{background:#fefce8ea;border-color:#fde047}\n    .plaque-germ-cluster{background:#ecfeffea;border-color:#67e8f9}\n    .plaque-sticky-plaque{background:#fff7edea;border-color:#fdba74}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}';
+      const newPlaqueCss='.plaque{position:absolute;width:32px;height:32px;margin:-16px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;box-shadow:0 4px 12px #0002;font-size:20px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque-green-germ{background:#f0fdf4ea;border-color:#86efac}\n    .plaque-yellow-plaque{background:#fefce8ea;border-color:#fde047}\n    .plaque-germ-cluster{background:#ecfeffea;border-color:#67e8f9}\n    .plaque-sticky-plaque{background:#fff7edea;border-color:#fdba74}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}\n    #back:disabled{opacity:.72;cursor:wait}';
       html=replaceRequired(html,oldPlaqueCss,newPlaqueCss,'plaque styles');
 
       const oldLayouts="const TARGET_LAYOUTS={\n  4:[{x:22,y:28},{x:76,y:31},{x:31,y:72},{x:72,y:70}],\n  5:[{x:16,y:31},{x:50,y:23},{x:84,y:32},{x:29,y:73},{x:71,y:72}]\n};";
@@ -57,9 +57,30 @@
 
       html=replaceRequired(
         html,
+        '<section id="result" class="screen"><div class="card"><h1>จบภารกิจ ✨</h1><p id="resultText"></p><div id="badge" class="badge"></div><div class="sum"><div>Coverage<b id="resultCoverage">0/6</b></div><div>Direction<b id="resultDirection">0%</b></div><div>Tracking<b id="resultTracking">0%</b></div><div>Plaque<b id="resultStrokes">0/26</b></div></div><button id="back" class="btn">กลับ Passport</button><button id="again" class="btn alt">ฝึกเพิ่ม</button></div></section>',
+        '<section id="result" class="screen"><div class="card"><h1>จบภารกิจ ✨</h1><p id="resultText"></p><div id="badge" class="badge"></div><div class="sum"><div>Coverage<b id="resultCoverage">0/6</b></div><div>Direction<b id="resultDirection">0%</b></div><div>Tracking<b id="resultTracking">0%</b></div><div>Plaque<b id="resultStrokes">0/26</b></div></div><button id="back" class="btn">← กลับ Passport</button><p style="margin:12px 0 0;color:#64748b;font-size:12px">ผลอย่างเป็นทางการและภารกิจถัดไปยึดตาม Google Sheet</p></div></section>',
+        'student result actions'
+      );
+
+      html=replaceRequired(
+        html,
         "motionProfile:'multi-plaque-spatial-coverage-v26',markerBrushSameCoordinate:true",
-        "motionProfile:'multi-plaque-spatial-coverage-v27-visual-variety-r1',plaqueVariantPolicy:'four-balanced-visuals-equal-hitbox',plaqueVariantCount:PLAQUE_VARIANTS.length,markerBrushSameCoordinate:true",
-        'analytics variant policy'
+        "motionProfile:'multi-plaque-spatial-coverage-v27-passport-return-r2',plaqueVariantPolicy:'four-balanced-visuals-equal-hitbox',plaqueVariantCount:PLAQUE_VARIANTS.length,returnContract:'jumpduck-compatible-passport-return-v1',studentRetryVisible:false,markerBrushSameCoordinate:true",
+        'analytics return contract'
+      );
+
+      html=replaceRequired(
+        html,
+        "function passport(){const u=new URL('./index.html',location.href);for(const k of ['studentId','pid','fullName','studentName','name','section','group']){const v=query.get(k);if(v)u.searchParams.set(k,v)}u.searchParams.set('returnedGame','toothbrush');u.searchParams.set('gameCompleted','1');u.searchParams.set('v',VERSION);location.href=u}",
+        "function passport(){const btn=$('back');if(btn){btn.disabled=true;btn.textContent='กำลังกลับ Passport…'}try{window.HH_releaseCamera?.()}catch(_){}if(window.parent!==window){try{const returnBtn=parent.document.getElementById('returnBtn');const leaveBtn=parent.document.getElementById('leaveBtn');const backBtn=parent.document.getElementById('back');if(returnBtn&&!returnBtn.disabled){returnBtn.click();return}if(leaveBtn&&!leaveBtn.disabled){leaveBtn.click();return}if(backBtn){backBtn.click();return}}catch(_){}}const target=query.get('return')||query.get('back')||'./index.html';const u=new URL(target,location.href);for(const k of ['studentId','sid','pid','fullName','studentName','name','section','group']){const v=query.get(k);if(v)u.searchParams.set(k,v)}const sid=query.get('studentId')||query.get('sid')||query.get('pid');if(sid){u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid)}u.searchParams.set('returnedGame','toothbrush');u.searchParams.set('gameCompleted','1');u.searchParams.set('fromGame','toothbrush');u.searchParams.set('authorityRefresh',String(Date.now()));u.searchParams.set('v',VERSION);location.href=u.href}",
+        'passport return function'
+      );
+
+      html=replaceRequired(
+        html,
+        "$('go').onclick=start;$('again').onclick=reset;$('back').onclick=passport;$('pause').onclick=()=>",
+        "$('go').onclick=start;$('back').onclick=passport;$('pause').onclick=()=>",
+        'student result bindings'
       );
 
       const moduleOpen='<scr'+'ipt type="module">';
