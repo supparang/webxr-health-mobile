@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R34-TOOTHBRUSH-V26",
+  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R36-TOOTHBRUSH-V26",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_HANDWASH_R34_TOOTHBRUSH_MULTI_PLAQUE_V26",
+  deploymentState: "QA_HANDWASH_DIRECT_CAMERA_R36_TOOTHBRUSH_MULTI_PLAQUE_V26",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -94,7 +94,7 @@ window.HH_CONFIG = {
     {
       id: "hygiene", label: "Hygiene Hero", thai: "ฐานสุขอนามัย", emoji: "🧼", accent: "#0ea5e9", description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
-        { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260729-handwash-step-r33-summary-r34", status:"qa-step-guide-r33-fullscreen-summary-r34", requiredReturnContract:true, qaClosed:false, progressionByCompletion:true },
+        { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260729-handwash-direct-camera-r36", status:"qa-direct-camera-r36-step-guide-r33-summary-r34", requiredReturnContract:true, qaClosed:false, progressionByCompletion:true },
         { id:"toothbrush", title:"Toothbrush Classroom Challenge", thai:"Toothbrush Challenge", url:"./toothbrush-classroom-challenge-v26.html?v=20260729-multi-plaque-v26", status:"qa-multi-plaque-spatial-coverage-v26", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false, oneRoundCompletes:true, retryRequired:false },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
