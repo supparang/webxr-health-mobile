@@ -1,7 +1,8 @@
-/* CSAI2601 UX Quest • Unified Student Runtime Authority v1
+/* CSAI2601 UX Quest • Unified Student Runtime Authority v1.1
  * One final controller for every W1-W15 / B1-B4 student node.
  * Coordinates learner identity, mission state, canonical layout, project/studio,
- * navigation and late-render cleanup. Google Sheet remains official authority.
+ * three-part status, navigation and late-render cleanup.
+ * Google Sheet remains the only official authority.
  */
 (() => {
   'use strict';
@@ -70,10 +71,11 @@
       #${BANNER_ID} small{color:#ffd98e;font-size:.72rem;line-height:1.35}#${BANNER_ID} .uxq-sra__actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
       #${BANNER_ID} button,#${BANNER_ID} a{display:grid;place-items:center;min-height:38px;padding:8px 11px;border-radius:10px;border:1px solid rgba(110,231,255,.34);background:rgba(255,255,255,.045);color:#edf5ff;text-decoration:none;font:inherit;font-size:.8rem;font-weight:900;cursor:pointer}
       body[data-uxq-identity-locked='1'] #uxqCanonicalNode{pointer-events:none;user-select:none;filter:saturate(.55)}body[data-uxq-identity-locked='1'] .uxq-profile-layer{pointer-events:auto;filter:none}
-      /* One canonical project/studio presentation only. */
       #uxqCanonicalNode > #uxqProjectFigmaEvidenceV4,#uxqCanonicalNode > .uxq-project-figma-card{display:none!important}
       .artifact[data-student-studio-final='1'] > :not(.studio-head):not(#uxqStudentStudioFinalV2){display:none!important}
-      @media(max-width:720px){#${BANNER_ID}{position:static;grid-template-columns:auto minmax(0,1fr);width:calc(100% - 16px);margin:8px auto}#${BANNER_ID} .uxq-sra__actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}#${BANNER_ID} button,#${BANNER_ID} a{width:100%}}
+      #uxqThreePartCompletion{width:min(1280px,calc(100% - 24px));margin:18px auto!important}
+      #uxqThreePartCompletion[data-sheet-state='unavailable'] .uxq-3part__count{background:rgba(251,191,36,.12);color:#ffe6a3}
+      @media(max-width:720px){#${BANNER_ID}{position:static;grid-template-columns:auto minmax(0,1fr);width:calc(100% - 16px);margin:8px auto}#${BANNER_ID} .uxq-sra__actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}#${BANNER_ID} button,#${BANNER_ID} a{width:100%}#uxqThreePartCompletion{width:calc(100% - 16px)}}
     `;
     document.head.appendChild(s);
   }
@@ -121,11 +123,55 @@
     if(primary){ primary.textContent = m.localPass ? (count===3?`ทบทวน ${NODE} →`:'ทำ Studio Practice ต่อ →') : `เล่น ${NODE} ใหม่ →`; }
   }
 
+  function normalizeThreePart(){
+    const box=document.getElementById('uxqThreePartCompletion');
+    const hero=ROOT.querySelector('.panel .hero');
+    if(!box||!hero?.parentNode) return;
+
+    const heroPanel=hero.closest('.panel') || hero;
+    const target=heroPanel.nextSibling;
+    if(box.parentNode!==heroPanel.parentNode || box.previousElementSibling!==heroPanel){
+      heroPanel.parentNode.insertBefore(box,target);
+    }
+
+    const text=String(box.textContent||'');
+    const unavailable=/เชื่อม Receiver|หมดเวลารอ|ยังตรวจ .*Sheet ไม่ได้|ไม่สำเร็จ/i.test(text);
+    box.dataset.sheetState=unavailable?'unavailable':'available';
+    if(!unavailable) return;
+
+    const badge=box.querySelector('.uxq-3part__count');
+    if(badge) badge.textContent='ยังไม่ยืนยันจาก Sheet';
+    const cards=box.querySelectorAll('.uxq-3part__item');
+    const local=missionSummary();
+    if(cards[0]){
+      const status=cards[0].querySelector('span');
+      const detail=cards[0].querySelector('small');
+      if(local.attempted){
+        if(status) status.textContent=local.localPass?'มีผลผ่านในเครื่อง • รอ Sheet':'มีผลในเครื่อง • ยังไม่ผ่าน';
+        if(detail) detail.textContent=`ผลบนอุปกรณ์นี้ ${local.stars}/3 ดาว${local.score?` • ${local.score.toLocaleString('th-TH')} คะแนน`:''} ยังไม่ใช่สถานะทางการ`;
+        cards[0].dataset.state=local.localPass?'pending':'retry';
+      } else {
+        if(status) status.textContent='ยังไม่มีผลที่ยืนยันได้';
+        if(detail) detail.textContent='ไม่พบผลที่ผูกกับผู้เรียนปัจจุบันบนอุปกรณ์นี้ และยังอ่าน Google Sheet ไม่สำเร็จ';
+        cards[0].dataset.state='pending';
+      }
+    }
+    [cards[1],cards[2]].forEach((card,index)=>{
+      if(!card) return;
+      const status=card.querySelector('span');
+      const detail=card.querySelector('small');
+      if(status) status.textContent='ยังไม่ยืนยันจาก Sheet';
+      if(detail) detail.textContent=index===0?'กรอก Studio ได้เมื่อ Mission ผ่านในเครื่อง แต่สถานะทางการรอ Sheet':'กรอก Reflection ได้เมื่อ Mission ผ่านในเครื่อง แต่สถานะทางการรอ Sheet';
+      card.dataset.state='pending';
+    });
+    const foot=box.querySelector('.uxq-3part__foot');
+    if(foot) foot.textContent='Google Sheet ยังไม่ตอบกลับ จึงยังสรุป 0/3 หรือ 3/3 ไม่ได้ ระบบจะแสดงผลในเครื่องแยกต่างหากโดยไม่เดาสถานะทางการ';
+  }
+
   function normalizeLayout(){
     document.querySelectorAll('#uxqActiveLearnerBanner').forEach(x=>x.remove());
     const artifact=ROOT.querySelector('.artifact[data-studio-practice-v1]');
     if(artifact){
-      // Use the existing V2 studio implementation as the single canonical studio renderer.
       window.UXQStudentStudioFinalAuthorityV2?.build?.();
       artifact.dataset.studentStudioFinal='1';
     }
@@ -135,11 +181,11 @@
     });
   }
 
-  function apply(){queued=false;installStyle();mountBanner();normalizeMissionStatus();normalizeLayout();}
+  function apply(){queued=false;installStyle();mountBanner();normalizeMissionStatus();normalizeLayout();normalizeThreePart();}
   function queue(){if(queued)return;queued=true;requestAnimationFrame(apply);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',queue,{once:true});else queue();
   new MutationObserver(queue).observe(ROOT,{childList:true,subtree:true,characterData:true});
   ['uxq-profile-updated','uxq-progress-updated','uxq-mission-completed','uxq-sheet-progress-restored','uxq-studio-artifact-dispatched'].forEach(n=>window.addEventListener(n,queue));
   [150,500,1200,2500,4500].forEach(ms=>setTimeout(queue,ms));
-  window.UXQStudentRuntimeAuthorityV1=Object.freeze({version:'20260729-UNIFIED-STUDENT-RUNTIME-V1',refresh:queue,openIdentity});
+  window.UXQStudentRuntimeAuthorityV1=Object.freeze({version:'20260729-UNIFIED-STUDENT-RUNTIME-V1.1',refresh:queue,openIdentity});
 })();
