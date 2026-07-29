@@ -1,4 +1,4 @@
-/* UX Quest • Sheet-authoritative Cross-device Progress v3.1
+/* UX Quest • Sheet-authoritative Cross-device Progress v3.2
  * Google Sheet is the sole source of truth for official mission progress.
  * localStorage is only a replaceable cache and never unlocks missions by itself.
  * GET transport: JSONP only, because Apps Script Web Apps do not provide CORS headers.
@@ -12,6 +12,7 @@
   const config = () => window.UXQ_CLASSROOM_CONFIG || {};
   const identity = () => window.UXQIdentity;
   const store = () => window.UXQProgress;
+  let booted = false;
 
   function ensureStyle() {
     if (document.getElementById('uxq-sheet-progress-style-v3')) return;
@@ -211,6 +212,8 @@
   }
 
   async function boot() {
+    if (booted) return;
+    booted = true;
     mount();
     const idApi = identity();
     if (!idApi || !idApi.isComplete(idApi.get())) return;
@@ -218,7 +221,8 @@
     catch (error) { status('ดึงจาก Sheet ไม่สำเร็จ: ' + (error.message || error), 'error'); }
   }
 
-  document.addEventListener('DOMContentLoaded', boot, { once: true });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+  else queueMicrotask(boot);
   window.addEventListener('uxq-profile-updated', renderProfile);
-  window.UXQCloudProgress = Object.freeze({ request, restore, replaceFromSheet });
+  window.UXQCloudProgress = Object.freeze({ request, restore, replaceFromSheet, boot });
 })();
