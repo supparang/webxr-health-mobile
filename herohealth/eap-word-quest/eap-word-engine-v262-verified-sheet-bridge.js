@@ -2,7 +2,8 @@
    EAP Word Quest • Compatibility Bootstrap Loader
    File kept as v262 because older cached index.html already loads this path.
 
-   Version: 20260729-V280-COMPACT-SUBMIT-BOOTSTRAP
+   Version: 20260729-V281-SHEET-REHYDRATE-BOOTSTRAP
+   - Load V281 before Authority so it can catch the resume-ready event.
    - Load V275 Google Sheet authority.
    - Load V276 official-name fallback.
    - Load V278 runtime identity proof before submit.
@@ -11,14 +12,15 @@
 (function () {
   'use strict';
 
-  var VERSION = '20260729-V280-COMPACT-SUBMIT-BOOTSTRAP';
+  var VERSION = '20260729-V281-SHEET-REHYDRATE-BOOTSTRAP';
+  var REHYDRATE_TAG = 'eap-word-v281-sheet-rehydrate-bootstrap';
   var AUTH_TAG = 'eap-word-authority-v275-bootstrap';
   var NAME_TAG = 'eap-word-name-fallback-v276-bootstrap';
   var PROOF_TAG = 'eap-word-identity-proof-v278-bootstrap';
   var SUBMIT_TAG = 'eap-word-v280-compact-bootstrap';
 
-  if (window.__EAP_WORD_V280_BOOTSTRAP__) return;
-  window.__EAP_WORD_V280_BOOTSTRAP__ = true;
+  if (window.__EAP_WORD_V281_BOOTSTRAP__) return;
+  window.__EAP_WORD_V281_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
@@ -67,6 +69,16 @@
     document.head.appendChild(script);
   }
 
+  function loadSheetRehydrate() {
+    loadScript(
+      './eap-word-sheet-resume-rehydrate-v281.js?v=20260729-v281-sheet-rehydrate-1',
+      REHYDRATE_TAG,
+      '__EAP_WORD_V281_SHEET_REHYDRATE__',
+      function () { console.info('[EAP Word Quest] V281 Sheet rehydrate loaded',{bootstrap:VERSION}); },
+      function () { console.error('[EAP Word Quest] V281 Sheet rehydrate could not load',{bootstrap:VERSION}); }
+    );
+  }
+
   function loadAuthority() {
     loadScript(
       './eap-word-authority-v275.js?v=20260728-v275-proof-1',
@@ -107,9 +119,10 @@
     );
   }
 
-  loadAuthority();
-  setTimeout(loadNameFallback,120);
-  setTimeout(loadIdentityProof,430);
-  setTimeout(loadCompactSubmit,760);
+  loadSheetRehydrate();
+  setTimeout(loadAuthority,40);
+  setTimeout(loadNameFallback,160);
+  setTimeout(loadIdentityProof,470);
+  setTimeout(loadCompactSubmit,800);
   console.info('[EAP Word Quest] compatibility bootstrap ready',{version:VERSION});
 })();
