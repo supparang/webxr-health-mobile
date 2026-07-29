@@ -1,10 +1,10 @@
 (()=>{
 'use strict';
-const VERSION='20260729-HANDWASH-MOBILE-GRADE5-RESCUE-V3-PROGRESS-RAIL';
+const VERSION='20260729-HANDWASH-MOBILE-GRADE5-RESCUE-V3.1-NO-OBSERVER-LOOP';
 const mobile=matchMedia('(max-width:760px)').matches||/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 if(!mobile)return;
 
-document.documentElement.dataset.handwashMobileRescue='3';
+document.documentElement.dataset.handwashMobileRescue='3.1';
 const style=document.createElement('style');
 style.id='handwashMobileGrade5Rescue';
 style.textContent=`
@@ -21,22 +21,17 @@ style.textContent=`
   #hhMobileStepRail i{display:block!important;height:7px!important;border-radius:999px!important;background:rgba(255,255,255,.13)!important;border:1px solid rgba(255,255,255,.05)!important}
   #hhMobileStepRail i.done{background:#67eda9!important}
   #hhMobileStepRail i.active{background:#ffe27b!important;box-shadow:0 0 0 2px rgba(255,226,123,.18)!important}
-
   #scrubZone{top:60%!important;left:50%!important;width:97vw!important;height:50vh!important;min-width:0!important;min-height:340px!important;max-height:600px!important;transform:translate(-50%,-50%)!important;border-width:3px!important;border-radius:30px!important}
   html[data-handwash-phase="calibrate"] #scrubZone{top:59%!important;width:98vw!important;height:53vh!important}
   #waterZone{top:34%!important;width:180px!important;height:210px!important}
   html[data-handwash-phase="wet"] #waterZone,html[data-handwash-phase="rinse"] #waterZone{height:280px!important}
   #soapZone{left:7px!important;bottom:112px!important;width:94px!important;height:92px!important}
   #towelZone{right:7px!important;bottom:112px!important;width:94px!important;height:92px!important}
-
   .coach{left:8px!important;right:8px!important;top:272px!important;bottom:auto!important;width:auto!important;max-height:58px!important;min-height:0!important;padding:6px 9px!important;border-radius:12px!important;overflow:hidden!important;display:flex!important;align-items:center!important;gap:7px!important}
   .coach strong{flex:0 0 auto!important;font-size:8px!important}.coach p{flex:1 1 auto!important;font-size:10px!important;line-height:1.2!important;margin:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}.chips{display:none!important}
-
   .bottom{bottom:calc(4px + var(--sab))!important;left:6px!important;right:6px!important;gap:4px!important;grid-template-columns:1fr!important}
   .meters{display:none!important}.controls{grid-template-columns:repeat(4,1fr)!important;gap:4px!important}.control{min-height:54px!important;border-radius:12px!important;font-size:8px!important}.control span{font-size:18px!important}
-
   .toast{position:fixed!important;left:50%!important;bottom:calc(68px + var(--sab))!important;width:min(88vw,430px)!important;max-height:56px!important;overflow:hidden!important;padding:8px 11px!important;border-radius:12px!important;font-size:11px!important;line-height:1.25!important;z-index:120!important;transform:translate(-50%,8px)!important}.toast.show{transform:translate(-50%,0)!important}
-
   .overlay{padding:10px!important}.card{padding:14px!important;border-radius:20px!important}.hero{font-size:38px!important}.card h2{font-size:24px!important}.card>p{font-size:12px!important;margin:6px auto 10px!important}.rules{gap:5px!important;margin:8px 0!important}.rule{padding:7px!important;font-size:10px!important}.bigbtn{min-height:46px!important}
 }
 `;
@@ -58,19 +53,29 @@ function handCount(){return numberFrom(document.getElementById('chipHands')?.tex
 function evidence(){return Math.max(0,Math.min(100,numberFrom(document.getElementById('evidenceText')?.textContent||'0')))}
 function phase(){return document.documentElement.dataset.handwashPhase||''}
 function running(){return !document.getElementById('startOverlay')?.classList.contains('show')&&!document.getElementById('summaryOverlay')?.classList.contains('show')}
+let lastProgressSignature='';
 function updateProgress(){
   installProgress();
   const p=phase(),idx=PHASE_ORDER.indexOf(p),ev=evidence();
   const completed=idx<0?0:idx;
   const percent=idx<0?0:Math.min(100,Math.round(((completed+(ev/100))/PHASE_ORDER.length)*100));
+  const labelText=idx<0?'เตรียมเริ่มภารกิจ 11 ขั้น':'ขั้น '+(idx+1)+'/11 • '+PHASE_LABELS[idx];
+  const signature=p+'|'+percent+'|'+labelText;
+  if(signature===lastProgressSignature)return;
+  lastProgressSignature=signature;
   const label=document.getElementById('hhMobileProgressLabel');
   const pct=document.getElementById('hhMobileProgressPct');
-  if(label)label.textContent=idx<0?'เตรียมเริ่มภารกิจ 11 ขั้น':'ขั้น '+(idx+1)+'/11 • '+PHASE_LABELS[idx];
-  if(pct)pct.textContent=percent+'%';
-  document.querySelectorAll('#hhMobileStepRail i').forEach((node,i)=>{node.classList.toggle('done',i<idx);node.classList.toggle('active',i===idx)});
+  if(label&&label.textContent!==labelText)label.textContent=labelText;
+  const pctText=percent+'%';
+  if(pct&&pct.textContent!==pctText)pct.textContent=pctText;
+  document.querySelectorAll('#hhMobileStepRail i').forEach((node,i)=>{
+    const done=i<idx,active=i===idx;
+    if(node.classList.contains('done')!==done)node.classList.toggle('done',done);
+    if(node.classList.contains('active')!==active)node.classList.toggle('active',active);
+  });
   const active=document.querySelector('#whoStrip .phase-chip.active');
   if(active&&active.dataset.hhCentered!==p){
-    document.querySelectorAll('#whoStrip .phase-chip').forEach(x=>delete x.dataset.hhCentered);
+    document.querySelectorAll('#whoStrip .phase-chip[data-hh-centered]').forEach(x=>delete x.dataset.hhCentered);
     active.dataset.hhCentered=p;
     try{active.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})}catch(_){active.parentElement.scrollLeft=Math.max(0,active.offsetLeft-active.parentElement.clientWidth/2+active.clientWidth/2)}
   }
@@ -99,13 +104,6 @@ function tick(){
   }
 }
 setInterval(tick,500);
-
-const observer=new MutationObserver(()=>{
-  updateProgress();
-  const status=document.getElementById('detectStatus');
-  if(status&&/พร้อม|ตรวจ|มือ/.test(status.textContent||''))status.title='Grade 5 Mobile Rescue '+VERSION;
-});
-observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','data-handwash-phase']});
 addEventListener('DOMContentLoaded',()=>{installProgress();updateProgress()},{once:true});
 window.HHHandwashMobileGrade5Rescue={version:VERSION,updateProgress,get assistCount(){return assistCount}};
 })();
