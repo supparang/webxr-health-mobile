@@ -35,7 +35,7 @@
 </head>
 <body>
 <div id="app"></div>
-<script src="./data/platform-config.js?v=20260729-toothbrush-multi-plaque-v26"></script>
+<script src="./data/platform-config.js?v=20260729-handwash-direct-camera-r36"></script>
 <script>
 (()=>{'use strict';
 const q=new URLSearchParams(location.search),cfg=window.HH_CONFIG||{},RUN=q.get('run')||'',STORE='hh_mobile_game_qa_v1';
@@ -50,15 +50,15 @@ const game=all.find(g=>g.id===RUN);
 function mark(id,state){const data=read();data[id]={state,at:new Date().toISOString(),screen:`${innerWidth}x${innerHeight}`,dpr:devicePixelRatio||1,orientation:matchMedia('(orientation:portrait)').matches?'portrait':'landscape'};write(data);if(RUN)toast(state==='pass'?'บันทึกว่า หน้าจอผ่าน':'บันทึกว่า ต้องแก้ไข');else renderHub()}
 function stateLabel(v){return v==='pass'?'ผ่านหน้าจอ':v==='fail'?'ต้องแก้':'ยังไม่ตรวจ'}
 function stateClass(v){return v==='pass'?'pass':v==='fail'?'fail':''}
-function launch(id){const u=new URL(location.href);u.search='';u.searchParams.set('run',id);u.searchParams.set('build','20260729-toothbrush-v26');location.href=u.href}
+function launch(id){const u=new URL(location.href);u.search='';u.searchParams.set('run',id);u.searchParams.set('build','20260729-handwash-r36-toothbrush-v26');location.href=u.href}
 function renderHub(){
  const data=read(),pass=all.filter(g=>data[g.id]?.state==='pass').length,fail=all.filter(g=>data[g.id]?.state==='fail').length;
  app.innerHTML=`<main class="wrap">
- <section class="hero"><small>HEROHEALTH • MOBILE-ONLY QA V2</small><h1>ทดสอบเกมทีละเกมบนมือถือ</h1><p>เปิดเกมจริงทีละเกมโดยไม่ผ่าน Pre-test, Passport หรือ Flow รวม เพื่อดูว่า HUD กล้อง ปุ่ม และหน้าสรุปอยู่ในจอมือถือครบหรือไม่</p><div class="badges"><span class="badge">เกมปัจจุบัน ${all.length} เกม</span><span class="badge">ผ่าน ${pass}/${all.length}</span><span class="badge">ต้องแก้ ${fail}</span><span class="badge">ไม่ใช้ผล QA ปลดล็อก Flow</span></div></section>
+ <section class="hero"><small>HEROHEALTH • MOBILE-ONLY QA V3</small><h1>ทดสอบเกมทีละเกมบนมือถือ</h1><p>เปิดเกมจริงทีละเกมโดยไม่ผ่าน Pre-test, Passport หรือ Flow รวม เพื่อดูว่า HUD กล้อง ปุ่ม และหน้าสรุปอยู่ในจอมือถือครบหรือไม่</p><div class="badges"><span class="badge">เกมปัจจุบัน ${all.length} เกม</span><span class="badge">ผ่าน ${pass}/${all.length}</span><span class="badge">ต้องแก้ ${fail}</span><span class="badge">ไม่ใช้ผล QA ปลดล็อก Flow</span></div></section>
  <section class="card"><div class="notice">ใช้มือถือจริงในแนวตั้งเป็นหลัก แล้วทดสอบตั้งแต่หน้าเริ่ม → เปิดกล้อง → Gameplay → หน้าจบเกม ทุกเกม ปุ่ม “ผ่าน” และ “ต้องแก้” ในหน้านี้เก็บเฉพาะเครื่องทดสอบเท่านั้น</div><div class="device"><div class="metric"><b>${innerWidth}×${innerHeight}</b><span>CSS viewport</span></div><div class="metric"><b>${devicePixelRatio||1}</b><span>Device pixel ratio</span></div><div class="metric"><b>${matchMedia('(orientation:portrait)').matches?'แนวตั้ง':'แนวนอน'}</b><span>Orientation</span></div><div class="metric"><b>${navigator.maxTouchPoints||0}</b><span>Touch points</span></div></div></section>
  ${zones.map(z=>`<section class="zone"><div class="zone-title"><span>${esc(z.emoji||'🎯')}</span><h2>${esc(z.thai||z.id)}</h2></div><div class="grid">${z.required.map(g=>{const st=data[g.id]?.state||'';return `<article class="game"><div class="game-head"><div><h3>${esc(g.thai||g.title||g.id)}</h3><small>${esc(g.title||g.id)} • ${esc(g.status||'')}</small></div><span class="state ${stateClass(st)}">${stateLabel(st)}</span></div><div class="actions"><button class="btn play" data-play="${esc(g.id)}">เปิดเกมเต็มจอ</button><button class="btn pass" data-mark-pass="${esc(g.id)}">ผ่าน</button><button class="btn fail" data-mark-fail="${esc(g.id)}">ต้องแก้</button></div>${data[g.id]?`<button class="btn reset" data-reset="${esc(g.id)}">ล้างผลตรวจเกมนี้ • ${esc(data[g.id].screen||'')} ${esc(data[g.id].orientation||'')}</button>`:''}</article>`}).join('')}</div></section>`).join('')}
  <section class="card"><h2>เกณฑ์ตรวจหน้าจอมือถือ</h2><div class="checks"><div class="check"><b>1</b><span>ไม่มีส่วนใดล้นซ้าย–ขวา และหน้าไม่เกิด horizontal scroll</span></div><div class="check"><b>2</b><span>HUD ด้านบนไม่ชนรอยบาก กล้องหน้า หรือแถบสถานะ</span></div><div class="check"><b>3</b><span>ปุ่มสำคัญด้านล่างอยู่เหนือ browser bar และกดได้ด้วยนิ้วโป้ง</span></div><div class="check"><b>4</b><span>พื้นที่ Gameplay ใหญ่พอ ไม่ถูกข้อความหรือกล่องคะแนนบัง</span></div><div class="check"><b>5</b><span>หน้าเริ่ม เปิดกล้อง วิธีเล่น หน้าผล และปุ่มออก แสดงครบทุกช่วง</span></div><div class="check"><b>6</b><span>หมุนจอหรือกลับจากแอปอื่นแล้วเกมไม่ค้าง ไม่ย่อผิดสัดส่วน และปุ่มยังตอบสนอง</span></div></div></section>
- <div class="footer">HeroHealth Mobile Game Test Hub V2 • ใช้รายการเกมจาก platform-config.js • ${esc(cfg.platformVersion||'')}</div></main>`;
+ <div class="footer">HeroHealth Mobile Game Test Hub V3 • ${esc(cfg.platformVersion||'')}</div></main>`;
  app.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>launch(b.dataset.play));
  app.querySelectorAll('[data-mark-pass]').forEach(b=>b.onclick=()=>mark(b.dataset.markPass,'pass'));
  app.querySelectorAll('[data-mark-fail]').forEach(b=>b.onclick=()=>mark(b.dataset.markFail,'fail'));
