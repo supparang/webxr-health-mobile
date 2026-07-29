@@ -11,11 +11,11 @@
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Completion + Learning Analytics R31</small></div>
+  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Step Guide + Live Correct Feedback R32</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260729-HANDWASH-DOM-COMPAT-R31';
+    const RELEASE='20260729-HANDWASH-STEP-COACH-R32';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     fetch(sourceUrl,{cache:'no-store'})
@@ -27,9 +27,8 @@
         html=html.replace('id="rubText">0/6','id="rubText">0/7');
 
         /* Runtime DOM compatibility.
-         * WHO Final R7 still expects the legacy summary element IDs during init.
-         * The current mobile HTML uses summaryText / retryBtn and omitted zoneBtn,
-         * which caused bind() to throw before startBtn.onclick was assigned.
+         * WHO Final R7 expects the legacy summary IDs during init.
+         * Missing IDs used to stop bind() before startBtn.onclick.
          */
         html=html.replace(
           '<section id="summaryOverlay"',
@@ -52,7 +51,8 @@
           '<script src="./handwash-7step-runtime-patch-r28.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-who-v4.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-unified-analytics-r30.js?cv='+RELEASE+'"><\/script>'+ 
-          '<script src="./handwash-summary-completion-r30.js?cv='+RELEASE+'"><\/script>'
+          '<script src="./handwash-summary-completion-r30.js?cv='+RELEASE+'"><\/script>'+ 
+          '<script src="./handwash-step-coach-r32.js?cv='+RELEASE+'"><\/script>'
         );
         html=html.replace('ฝึก 6 ท่าถูมือตาม WHO','ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ');
         document.open();document.write(html);document.close();
