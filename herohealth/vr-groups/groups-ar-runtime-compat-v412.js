@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const PATCH = 'groups-ar-runtime-compat-v4.1.4-classroom-stable';
+  const PATCH = 'groups-ar-runtime-compat-v4.1.5-passport-standalone-return';
 
   function copyParams(path) {
     const source = new URLSearchParams(location.search);
@@ -39,6 +39,65 @@
     if (sumZone) sumZone.onclick = cooldown;
   }
 
+  function isPassportMode() {
+    const q = new URLSearchParams(location.search);
+    return q.get('classroom') === '1' ||
+      q.get('passport') === '1' ||
+      q.get('embedded') === '1' ||
+      q.get('from') === 'passport';
+  }
+
+  function resolveStandaloneReturn() {
+    const q = new URLSearchParams(location.search);
+    const requested = q.get('return') || q.get('returnUrl') || '';
+    if (requested) {
+      try {
+        const url = new URL(requested, location.href);
+        if (url.origin === location.origin && url.href !== location.href) return url;
+      } catch (_) {}
+    }
+
+    try {
+      if (document.referrer) {
+        const referrer = new URL(document.referrer);
+        if (referrer.origin === location.origin && referrer.href !== location.href) return referrer;
+      }
+    } catch (_) {}
+
+    return new URL('../HeroHealth_Learning1/index.html', location.href);
+  }
+
+  function installStandalonePassportReturn() {
+    if (window.parent !== window || !isPassportMode()) return;
+
+    const summary = document.getElementById('summary');
+    if (!summary) return;
+
+    let returning = false;
+    const check = () => {
+      if (returning) return;
+      const css = getComputedStyle(summary);
+      const visible = !summary.classList.contains('hidden') &&
+        css.display !== 'none' && css.visibility !== 'hidden';
+      if (!visible) return;
+
+      returning = true;
+      const delivery = document.getElementById('delivery');
+      if (delivery) delivery.textContent = 'ทดสอบแบบเปิดตรง • กำลังกลับ Passport...';
+      const target = resolveStandaloneReturn();
+      setTimeout(() => location.replace(target.href), 1400);
+    };
+
+    new MutationObserver(check).observe(summary, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+    setInterval(check, 500);
+    check();
+  }
+
   function updateModeLabel() {
     document.documentElement.dataset.groupsRuntime = 'legacy';
     const cameraText = document.getElementById('cameraText');
@@ -65,6 +124,7 @@
     script.dataset.groupsRuntimeLoader = PATCH;
     script.onload = () => {
       patchRoutes();
+      installStandalonePassportReturn();
       window.dispatchEvent(new CustomEvent('groups-runtime-ready', {
         detail: { patch: PATCH, mode: 'legacy', reason: 'classroom stable runtime' }
       }));
