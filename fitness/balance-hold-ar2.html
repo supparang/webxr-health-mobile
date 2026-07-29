@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Guardian Eight Pose Classroom Release | v20260729.33-mobile-calibration -->
+<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Guardian Eight Pose Classroom Release | v20260729.34-adaptive-camera -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -36,7 +36,7 @@
     </div>
     <div class="poseBanner"><div class="poseName glass" id="poseName">🛡️ Sky Shield</div><div class="poseCue" id="poseCue">ยืนสองเท้า กางแขนระดับไหล่ และมองตรง</div></div>
     <div class="energy glass"><div class="energyTitle"><span>⚡ Balance Energy</span><span id="energyLabel">รอจับท่า</span></div><div class="energyGrid"><div class="energyItem">POSE<div class="meter"><i id="poseEnergy"></i></div></div><div class="energyItem">STABILITY<div class="meter"><i id="stabilityEnergy"></i></div></div><div class="energyItem">CONTROL<div class="meter"><i id="controlEnergy"></i></div></div></div></div>
-    <div class="coach glass"><div class="coachIcon" id="coachIcon">🧘</div><div class="coachText"><div id="coachMain">เตรียมพื้นที่ให้โล่งและให้กล้องเห็นทั้งตัว</div><small id="coachSub">Easy ใช้สองเท้า • Normal/Hard มีท่ายกเท้าต่ำแบบปลอดภัย</small></div><div class="coachBadge" id="coachBadge">READY</div></div>
+    <div class="coach glass"><div class="coachIcon" id="coachIcon">🧘</div><div class="coachText"><div id="coachMain">เตรียมพื้นที่ให้โล่งและให้กล้องเห็นช่วงศีรษะถึงเข่า</div><small id="coachSub">Easy ใช้สองเท้า • Normal/Hard มีท่ายกเท้าต่ำแบบปลอดภัย</small></div><div class="coachBadge" id="coachBadge">READY</div></div>
     <div class="qaPanel glass hidden" id="qaPanel"><b>QA</b><span id="qaFps">FPS -</span><span id="qaThreshold">Gate -</span><span id="qaLoss">Lost 0</span><span id="qaAssist">Assist 0</span></div>
     <div class="countdown hidden" id="countdown">3</div>
     <div class="overlay" id="startOverlay">
@@ -50,7 +50,7 @@
         <p class="lead safetyNote">ข้อควรระวัง: พื้นต้องไม่ลื่น มีพื้นที่ว่าง ใช้พนักเก้าอี้ช่วยได้ใน Tree/Airplane ยกเท้าเพียงต่ำ ๆ และหยุดทันทีหากเสียสมดุล เวียนศีรษะ หรือเจ็บเข่า</p>
       </section>
     </div>
-    <div class="overlay hidden" id="calibrationOverlay"><section class="modal calibrationModal"><div class="modalHead"><div class="modalIcon">📐</div><div><h2>Personal Pose Calibration</h2><p class="lead" id="calibrationText">ถอยให้กล้องเห็นตั้งแต่ศีรษะถึงข้อเท้า แล้วกางแขนระดับไหล่</p></div></div><div class="calibrationSteps"><div class="calStep" id="calBody">1. เห็นทั้งตัว</div><div class="calStep" id="calArms">2. กางแขน</div><div class="calStep" id="calStable">3. ค้างนิ่ง</div></div><div class="calMeter"><i id="calibrationBar"></i></div><div class="cameraHints"><span>📏 ห่างประมาณ 1.5–2 เมตร</span><span>🦵 อย่างน้อยต้องเห็นเข่าทั้งสอง</span><span>💡 แสงส่องด้านหน้า</span></div><div class="actions"><button class="btn blue" id="retryCameraBtn" type="button">🔄 เปิดกล้องใหม่</button><button class="btn" id="cancelCalibrationBtn" type="button">ยกเลิก</button></div></section></div>
+    <div class="overlay hidden" id="calibrationOverlay"><section class="modal calibrationModal"><div class="modalHead"><div class="modalIcon">📐</div><div><h2>Personal Pose Calibration</h2><p class="lead" id="calibrationText">ให้เห็นศีรษะ ไหล่ สะโพก และเข่าทั้งสอง — ไม่ต้องเห็นข้อเท้า</p></div></div><div class="calibrationSteps"><div class="calStep" id="calBody">1. เห็นศีรษะ–เข่า</div><div class="calStep" id="calArms">2. กางแขน</div><div class="calStep" id="calStable">3. ค้างนิ่ง</div></div><div class="calMeter"><i id="calibrationBar"></i></div><div class="cameraHints"><span>📏 ยืนในระยะที่ปลอดภัย</span><span>🦵 ให้เห็นเข่าทั้งสอง</span><span>💡 แสงส่องด้านหน้า</span></div><div class="actions"><button class="btn blue" id="retryCameraBtn" type="button">🔄 เปิดกล้องใหม่</button><button class="btn" id="cancelCalibrationBtn" type="button">ยกเลิก</button></div></section></div>
     <div class="overlay hidden" id="resultOverlay"></div>
   </section>
 </main>
@@ -70,10 +70,11 @@
 <script src="./bh-camera-calibration-fix-v15.js?v=20260717.15"></script>
 <script src="./bh-camera-fullbody-fit-v16.js?v=20260717.16"></script>
 <script src="./bh-calibration-mobile-layout-v32.js?v=20260729.33"></script>
+<script src="./bh-mobile-camera-adaptive-v34.js?v=20260729.34"></script>
 <!-- Balance Hold classroom flow intentionally has no separate warm-up/recovery bridge. -->
 <script src="./bh-twin-recovery-v13.js?v=20260716.13"></script>
 <script src="./bh-live-demo-v14.js?v=20260717.28"></script>
-<script src="./bh-classroom-autostart-v30.js?v=20260729.33-mobile-calibration"></script>
-<script src="../HeroHealth_Learning1/assets/classroom-game-contract-v1.js?v=20260729-balance-mobile-v33"></script>
+<script src="./bh-classroom-autostart-v30.js?v=20260729.34-adaptive-camera"></script>
+<script src="../HeroHealth_Learning1/assets/classroom-game-contract-v1.js?v=20260729-balance-mobile-v34"></script>
 </body>
 </html>
