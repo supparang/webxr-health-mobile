@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Guardian Eight Pose Classroom Release | v20260729.35-six-pose -->
+<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Guardian Six Pose Classroom Release | v20260729.36-passport-result -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -41,13 +41,13 @@
     <div class="countdown hidden" id="countdown">3</div>
     <div class="overlay" id="startOverlay">
       <section class="modal">
-        <div class="modalHead"><div class="modalIcon">💎</div><div><h1>Guardian of the Crystal</h1><p class="lead">เกมทรงตัวแบบ Pose Tracking จริง มี <b>8 ท่า</b> แบ่งเป็น Foundation, Intermediate และ Advanced โดยระบบสุ่มเฉพาะท่าที่เหมาะกับระดับที่เลือก</p></div></div>
-        <div class="concept"><div class="conceptCard">🛡️ <b>Foundation</b><br>Sky Shield + Star Reach ซ้าย/ขวา</div><div class="conceptCard">🌳 <b>Intermediate</b><br>Tree Balance ซ้าย/ขวาแบบยกเท้าต่ำ</div><div class="conceptCard">✈️ <b>Advanced</b><br>Airplane ซ้าย/ขวาแบบเอนเล็กน้อย</div><div class="conceptCard">💎 <b>Boss</b><br>Crystal Guardian ปิดภารกิจ</div></div>
-        <div class="eightPoseLegend"><span>1 Sky Shield</span><span>2 Star Reach Left</span><span>3 Star Reach Right</span><span>4 Tree Left</span><span>5 Tree Right</span><span>6 Airplane Left</span><span>7 Airplane Right</span><span>8 Crystal Guardian</span></div>
+        <div class="modalHead"><div class="modalIcon">💎</div><div><h1>Guardian of the Crystal</h1><p class="lead">โหมดห้องเรียนใช้ 6 ภารกิจที่แตกต่างกัน พร้อมตรวจท่าทางและความนิ่งด้วย Pose Tracking</p></div></div>
+        <div class="concept"><div class="conceptCard">🛡️ <b>Foundation</b><br>Sky Shield + Star Reach ซ้าย/ขวา</div><div class="conceptCard">🌳 <b>Intermediate</b><br>Tree Balance ซ้าย/ขวาแบบยกเท้าต่ำ</div><div class="conceptCard">💎 <b>Boss</b><br>Crystal Guardian ปิดภารกิจ</div></div>
+        <div class="eightPoseLegend"><span>1 Sky Shield</span><span>2 Star Reach Left</span><span>3 Star Reach Right</span><span>4 Tree Left</span><span>5 Tree Right</span><span>6 Crystal Guardian</span></div>
         <div class="formGrid"><div class="field"><label for="playerName">ชื่อผู้เล่น</label><input id="playerName" value="Hero" autocomplete="name" /></div><div class="field"><label for="studentId">รหัสนักเรียน</label><input id="studentId" placeholder="เช่น P001" autocomplete="off" /></div><div class="field"><label for="classId">กลุ่ม/ห้อง</label><input id="classId" value="ป.5" /></div><div class="field"><label for="section">Section</label><input id="section" placeholder="เช่น P5-1" autocomplete="off" /></div><div class="field"><label for="difficulty">ระดับ</label><select id="difficulty"><option value="easy">Easy • 6 ท่าห้องเรียน</option><option value="normal" selected>Normal • เพิ่ม Tree Balance</option><option value="hard">Hard • เพิ่ม Airplane + Boss</option></select></div><div class="field"><label for="duration">เวลา</label><select id="duration"><option value="45">45 วินาที</option><option value="60" selected>60 วินาที</option><option value="75">75 วินาที</option><option value="90">90 วินาที</option></select></div></div>
         <div class="toggles"><label class="toggle"><input id="showSkeleton" type="checkbox" checked> แสดง Skeleton Guide</label><label class="toggle"><input id="soundOn" type="checkbox" checked> เสียงสัญญาณ</label><label class="toggle"><input id="safeMode" type="checkbox" checked> Safe Mode ป.5</label></div>
         <div class="actions"><button class="btn primary" id="startBtn" type="button">📷 เริ่ม Calibration และเล่น</button><button class="btn blue" id="cameraTestBtn" type="button">🧪 ทดสอบกล้อง</button><button class="btn" id="demoBtn" type="button">🎥 Live Demo • กล้องจริง ไม่บันทึก</button></div>
-        <p class="lead safetyNote">ข้อควรระวัง: พื้นต้องไม่ลื่น มีพื้นที่ว่าง ใช้พนักเก้าอี้ช่วยได้ใน Tree/Airplane ยกเท้าเพียงต่ำ ๆ และหยุดทันทีหากเสียสมดุล เวียนศีรษะ หรือเจ็บเข่า</p>
+        <p class="lead safetyNote">ข้อควรระวัง: พื้นต้องไม่ลื่น มีพื้นที่ว่าง ใช้พนักเก้าอี้ช่วยได้ใน Tree Balance ยกเท้าเพียงต่ำ ๆ และหยุดทันทีหากเสียสมดุล เวียนศีรษะ หรือเจ็บเข่า</p>
       </section>
     </div>
     <div class="overlay hidden" id="calibrationOverlay"><section class="modal calibrationModal"><div class="modalHead"><div class="modalIcon">📐</div><div><h2>Personal Pose Calibration</h2><p class="lead" id="calibrationText">ให้เห็นศีรษะ ไหล่ สะโพก และเข่าทั้งสอง — ไม่ต้องเห็นข้อเท้า</p></div></div><div class="calibrationSteps"><div class="calStep" id="calBody">1. เห็นศีรษะ–เข่า</div><div class="calStep" id="calArms">2. กางแขน</div><div class="calStep" id="calStable">3. ค้างนิ่ง</div></div><div class="calMeter"><i id="calibrationBar"></i></div><div class="cameraHints"><span>📏 ยืนในระยะที่ปลอดภัย</span><span>🦵 ให้เห็นเข่าทั้งสอง</span><span>💡 แสงส่องด้านหน้า</span></div><div class="actions"><button class="btn blue" id="retryCameraBtn" type="button">🔄 เปิดกล้องใหม่</button><button class="btn" id="cancelCalibrationBtn" type="button">ยกเลิก</button></div></section></div>
@@ -72,10 +72,11 @@
 <script src="./bh-calibration-mobile-layout-v32.js?v=20260729.33"></script>
 <script src="./bh-mobile-camera-adaptive-v34.js?v=20260729.34"></script>
 <script src="./bh-classroom-six-pose-v35.js?v=20260729.35"></script>
+<script src="./bh-classroom-result-v36.js?v=20260729.36"></script>
 <!-- Balance Hold classroom flow intentionally has no separate warm-up/recovery bridge. -->
 <script src="./bh-twin-recovery-v13.js?v=20260716.13"></script>
 <script src="./bh-live-demo-v14.js?v=20260717.28"></script>
-<script src="./bh-classroom-autostart-v30.js?v=20260729.35-six-pose"></script>
-<script src="../HeroHealth_Learning1/assets/classroom-game-contract-v1.js?v=20260729-balance-mobile-v35"></script>
+<script src="./bh-classroom-autostart-v30.js?v=20260729.36-passport-result"></script>
+<script src="../HeroHealth_Learning1/assets/classroom-game-contract-v1.js?v=20260729-balance-mobile-v36"></script>
 </body>
 </html>
