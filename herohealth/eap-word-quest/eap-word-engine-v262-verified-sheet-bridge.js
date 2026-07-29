@@ -2,25 +2,27 @@
    EAP Word Quest • Compatibility Bootstrap Loader
    File kept as v262 because older cached index.html already loads this path.
 
-   Version: 20260729-V281-SHEET-REHYDRATE-BOOTSTRAP
+   Version: 20260729-V282-MOBILE-NAME-RETRY-BOOTSTRAP
    - Load V281 before Authority so it can catch the resume-ready event.
    - Load V275 Google Sheet authority.
    - Load V276 official-name fallback.
+   - Load V282 mobile name lookup retry/error separation.
    - Load V278 runtime identity proof before submit.
    - Load V280 compact JSONP submit with longer timeout.
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260729-V281-SHEET-REHYDRATE-BOOTSTRAP';
+  var VERSION = '20260729-V282-MOBILE-NAME-RETRY-BOOTSTRAP';
   var REHYDRATE_TAG = 'eap-word-v281-sheet-rehydrate-bootstrap';
   var AUTH_TAG = 'eap-word-authority-v275-bootstrap';
   var NAME_TAG = 'eap-word-name-fallback-v276-bootstrap';
+  var NAME_MOBILE_TAG = 'eap-word-name-mobile-retry-v282-bootstrap';
   var PROOF_TAG = 'eap-word-identity-proof-v278-bootstrap';
   var SUBMIT_TAG = 'eap-word-v280-compact-bootstrap';
 
-  if (window.__EAP_WORD_V281_BOOTSTRAP__) return;
-  window.__EAP_WORD_V281_BOOTSTRAP__ = true;
+  if (window.__EAP_WORD_V282_BOOTSTRAP__) return;
+  window.__EAP_WORD_V282_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
@@ -99,6 +101,16 @@
     );
   }
 
+  function loadMobileNameRetry() {
+    loadScript(
+      './eap-word-name-mobile-retry-v282.js?v=20260729-v282-mobile-name-retry-1',
+      NAME_MOBILE_TAG,
+      '__EAP_WORD_NAME_MOBILE_RETRY_V282__',
+      function () { console.info('[EAP Word Quest] V282 mobile name retry loaded',{bootstrap:VERSION}); },
+      function () { console.error('[EAP Word Quest] V282 mobile name retry could not load',{bootstrap:VERSION}); }
+    );
+  }
+
   function loadIdentityProof() {
     loadScript(
       './eap-word-identity-proof-v278.js?v=20260728-v278-runtime-proof-1',
@@ -122,7 +134,8 @@
   loadSheetRehydrate();
   setTimeout(loadAuthority,40);
   setTimeout(loadNameFallback,160);
-  setTimeout(loadIdentityProof,470);
-  setTimeout(loadCompactSubmit,800);
+  setTimeout(loadMobileNameRetry,360);
+  setTimeout(loadIdentityProof,560);
+  setTimeout(loadCompactSubmit,900);
   console.info('[EAP Word Quest] compatibility bootstrap ready',{version:VERSION});
 })();
