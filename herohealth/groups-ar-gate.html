@@ -5,42 +5,72 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#123b3b">
 <title>HeroHealth • Groups AR Gate</title>
+<script>
+(()=>{const q=new URLSearchParams(location.search);if(window.parent!==window||q.get('classroom')==='1'||q.get('embedded')==='1')document.documentElement.classList.add('compactClassroom')})();
+</script>
 <style>
 :root{--ink:#173b3d;--muted:#617d7e;--good:#43cf7b;--gold:#ffd75e;--blue:#65c9ff;--sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#102f34;color:#fff}
 button{font:inherit;touch-action:manipulation}
 video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);background:radial-gradient(circle at 50% 18%,#39787a,#102f34 72%)}
-.shade{position:fixed;inset:0;background:linear-gradient(180deg,rgba(2,19,21,.58),rgba(2,19,21,.08) 40%,rgba(2,19,21,.74));pointer-events:none}
+.shade{position:fixed;inset:0;background:linear-gradient(180deg,rgba(2,19,21,.5),rgba(2,19,21,.04) 38%,rgba(2,19,21,.62));pointer-events:none}
 .app{position:fixed;inset:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:8px;padding:calc(8px + var(--sat)) 8px calc(8px + var(--sab))}
-.glass{background:rgba(255,255,255,.92);color:var(--ink);border:1px solid rgba(255,255,255,.62);box-shadow:0 12px 34px rgba(0,0,0,.18);backdrop-filter:blur(13px)}
+.glass{background:rgba(255,255,255,.9);color:var(--ink);border:1px solid rgba(255,255,255,.62);box-shadow:0 10px 28px rgba(0,0,0,.16);backdrop-filter:blur(12px)}
 header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
 .title{border-radius:22px;padding:10px 13px}.title h1{margin:0;font-size:clamp(1.08rem,4vw,1.55rem);line-height:1.16}.title p{margin:4px 0 0;color:var(--muted);font-size:.72rem;font-weight:850;line-height:1.25}
 .stats{display:flex;gap:5px}.stat{min-width:68px;border-radius:18px;padding:7px;text-align:center}.stat small{display:block;color:var(--muted);font-size:.57rem;font-weight:900}.stat b{display:block;margin-top:1px;font-size:.94rem}
 .stage{position:relative;min-height:0;border-radius:27px;overflow:hidden;border:1px solid rgba(255,255,255,.34)}
 .coach{position:absolute;left:9px;right:9px;top:9px;border-radius:19px;padding:10px 12px;z-index:12}.coach b{display:block;font-size:1.02rem;line-height:1.2}.coach small{display:block;margin-top:3px;color:var(--muted);font-size:.78rem;font-weight:800;line-height:1.35;white-space:normal}
-.orb{position:absolute;left:50%;top:51%;width:138px;height:138px;transform:translate(-50%,-50%);border-radius:50%;display:grid;place-items:center;text-align:center;border:4px dashed rgba(255,255,255,.88);background:rgba(7,31,34,.42);font-weight:1000;transition:.2s}.orb.breathe{animation:breathe 4s ease-in-out infinite}.orb.ready{border-style:solid;border-color:var(--good);box-shadow:0 0 0 12px rgba(67,207,123,.17)}
+.orb{position:absolute;left:50%;top:50%;width:142px;height:142px;transform:translate(-50%,-50%);border-radius:50%;display:grid;place-items:center;text-align:center;border:4px dashed rgba(255,255,255,.9);background:rgba(7,31,34,.38);font-weight:1000;transition:.2s}.orb.breathe{animation:breathe 4s ease-in-out infinite}.orb.ready{border-style:solid;border-color:var(--good);box-shadow:0 0 0 10px rgba(67,207,123,.16)}
 @keyframes breathe{0%,100%{transform:translate(-50%,-50%) scale(.82)}50%{transform:translate(-50%,-50%) scale(1.12)}}
 .cursor{position:absolute;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;border:4px solid #fff;background:rgba(101,201,255,.35);box-shadow:0 0 0 9px rgba(101,201,255,.14);opacity:0;pointer-events:none;z-index:20}.cursor.show{opacity:1}.cursor.pinch{background:rgba(67,207,123,.55);transform:scale(.78)}.cursor:after{content:"✋";position:absolute;inset:0;display:grid;place-items:center;font-size:25px}
-.targets{position:absolute;left:7px;right:7px;bottom:7px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;z-index:30;pointer-events:none}.target{min-width:0;min-height:69px;border:0;border-radius:16px;padding:5px 2px;background:rgba(255,255,255,.95);color:var(--ink);font-weight:1000;position:relative;z-index:31}.target.done{outline:4px solid var(--good);transform:translateY(-5px);background:#eaffef}.target span,.target small{display:block;pointer-events:none}.target span{font-size:1.15rem}.target small{font-size:.55rem;color:var(--muted);line-height:1.1}
+.targets{position:absolute;left:7px;right:7px;bottom:7px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;z-index:30;pointer-events:none}.target{min-width:0;min-height:67px;border:0;border-radius:16px;padding:5px 2px;background:rgba(255,255,255,.94);color:var(--ink);font-weight:1000;position:relative;z-index:31}.target.done{outline:4px solid var(--good);transform:translateY(-4px);background:#eaffef}.target span,.target small{display:block;pointer-events:none}.target span{font-size:1.15rem}.target small{font-size:.55rem;color:var(--muted);line-height:1.1}
 footer{display:grid;grid-template-columns:1fr;gap:6px;min-width:0}.status{min-width:0;min-height:40px;border-radius:16px;padding:8px 12px;font-size:.76rem;font-weight:900;line-height:1.3;display:flex;align-items:center;justify-content:center;text-align:center;overflow-wrap:anywhere}.actions{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,.85fr);gap:6px;min-width:0}.btn{width:100%;min-width:0;border:0;border-radius:16px;min-height:48px;padding:8px 7px;font-size:.8rem;line-height:1.15;font-weight:1000;cursor:pointer;background:#eef8f7;color:var(--ink);white-space:normal}.btn.primary{background:linear-gradient(180deg,#91ebb0,#43cf7b)}.btn.gold{background:linear-gradient(180deg,#fff0a9,#ffd75e)}.btn:disabled{opacity:.45;cursor:not-allowed}
 .overlay{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(3,22,24,.72);backdrop-filter:blur(10px)}.overlay.hidden{display:none}.sheet{width:min(660px,100%);max-height:93dvh;overflow:auto;border-radius:27px;padding:19px;text-align:center;background:#fff;color:var(--ink)}.sheet h2{margin:0;font-size:1.8rem}.sheet p{color:var(--muted);font-weight:800;line-height:1.5}.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.step{padding:10px;border-radius:17px;background:#f3faf9}.step b,.step small{display:block}.step small{margin-top:3px;color:var(--muted);font-size:.72rem;font-weight:800}.sheetActions{display:flex;justify-content:center;flex-wrap:wrap;gap:8px}.big{border:0;border-radius:17px;min-height:49px;padding:10px 15px;background:linear-gradient(180deg,#91ebb0,#43cf7b);font-weight:1000;cursor:pointer}
 @media(max-width:720px){
-  .app{gap:7px;padding:calc(7px + var(--sat)) 7px calc(76px + var(--sab))}
-  header{grid-template-columns:1fr;gap:6px}
-  .title{padding:9px 12px}.title h1{font-size:1.12rem}.title p{font-size:.66rem}
-  .stats{gap:5px}.stat{min-width:0;flex:1;padding:6px 4px}.stat small{font-size:.52rem}.stat b{font-size:.88rem}
-  .coach{left:7px;right:7px;top:7px;padding:9px 10px}.coach b{font-size:.94rem}.coach small{font-size:.7rem}
-  .orb{width:112px;height:112px;top:50%;font-size:.9rem}
-  .targets{left:5px;right:5px;bottom:5px;gap:4px}.target{min-height:64px;border-radius:14px}.target span{font-size:1.05rem}.target small{font-size:.49rem}
-  footer{gap:5px}.status{min-height:37px;padding:7px 10px;font-size:.7rem}.actions{grid-template-columns:1.2fr 1fr .8fr;gap:5px}.btn{min-height:46px;padding:7px 5px;font-size:.74rem;border-radius:15px}
+  .app{gap:6px;padding:calc(6px + var(--sat)) 6px calc(6px + var(--sab))}
+  header{grid-template-columns:1fr;gap:5px}
+  .title{padding:8px 11px}.title h1{font-size:1.08rem}.title p{font-size:.64rem}
+  .stats{gap:4px}.stat{min-width:0;flex:1;padding:5px 3px}.stat small{font-size:.5rem}.stat b{font-size:.85rem}
+  .coach{left:6px;right:6px;top:6px;padding:8px 10px}.coach b{font-size:.9rem}.coach small{font-size:.67rem}
+  .orb{width:130px;height:130px;top:49%;font-size:.9rem}
+  .targets{left:5px;right:5px;bottom:5px;gap:4px}.target{min-height:60px;border-radius:14px}.target span{font-size:1rem}.target small{font-size:.47rem}
+  footer{gap:5px}.status{min-height:36px;padding:6px 9px;font-size:.68rem}.actions{grid-template-columns:1.2fr 1fr .8fr;gap:5px}.btn{min-height:44px;padding:6px 5px;font-size:.72rem;border-radius:14px}
   .steps{grid-template-columns:1fr}
 }
+html.compactClassroom .app{gap:4px;padding:4px}
+html.compactClassroom header{grid-template-columns:82px minmax(0,1fr);gap:4px}
+html.compactClassroom .title{display:flex;align-items:center;border-radius:14px;padding:5px 7px;min-width:0}
+html.compactClassroom .title h1{font-size:.8rem;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.compactClassroom .title p{display:none}
+html.compactClassroom .stats{gap:4px;min-width:0}
+html.compactClassroom .stat{min-width:0;flex:1;border-radius:14px;padding:3px 2px}
+html.compactClassroom .stat small{font-size:.43rem;line-height:1}
+html.compactClassroom .stat b{font-size:.78rem;line-height:1.05}
+html.compactClassroom .stage{border-radius:20px}
+html.compactClassroom .coach{left:5px;right:5px;top:5px;border-radius:14px;padding:5px 8px;background:rgba(255,255,255,.84)}
+html.compactClassroom .coach b{font-size:.76rem;line-height:1.1}
+html.compactClassroom .coach small{font-size:.59rem;line-height:1.16;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.compactClassroom .orb{width:154px;height:154px;top:48%;font-size:.95rem;background:rgba(7,31,34,.3)}
+html.compactClassroom .targets{left:5px;right:5px;bottom:5px;gap:4px}
+html.compactClassroom .target{min-height:56px;border-radius:13px;padding:3px 1px}
+html.compactClassroom .target span{font-size:.95rem}
+html.compactClassroom .target small{font-size:.43rem}
+html.compactClassroom footer{display:block;min-height:44px}
+html.compactClassroom .status{display:none!important}
+html.compactClassroom .actions{display:grid!important;grid-template-columns:1fr!important;gap:0!important}
+html.compactClassroom .actions .btn{min-height:44px!important;border-radius:14px!important;font-size:.76rem!important}
+html.compactClassroom #back{display:none!important}
+html.compactClassroom:not(.ar-ready) #continue{display:none!important}
+html.compactClassroom.ar-ready #start{display:none!important}
+html.compactClassroom .overlay{padding:10px}
+html.compactClassroom .sheet{max-height:calc(100dvh - 20px);padding:15px;border-radius:22px}
 @media(max-width:390px){
-  .title h1{font-size:1.02rem}.title p{font-size:.62rem}.stat b{font-size:.82rem}
-  .coach b{font-size:.88rem}.coach small{font-size:.65rem}
-  .target{min-height:58px}.target span{font-size:.95rem}.target small{font-size:.45rem}
-  .btn{font-size:.68rem;min-height:44px}
+  html.compactClassroom header{grid-template-columns:74px minmax(0,1fr)}
+  html.compactClassroom .title h1{font-size:.72rem}
+  html.compactClassroom .orb{width:142px;height:142px}
+  html.compactClassroom .target{min-height:52px}
 }
 </style>
 </head>
@@ -49,30 +79,29 @@ footer{display:grid;grid-template-columns:1fr;gap:6px;min-width:0}.status{min-wi
 <div class="app">
 <header><section class="title glass"><h1 id="pageTitle">🥦 Groups AR Warmup</h1><p id="pageSub">เตรียมมือ กล้อง และระยะเอื้อมก่อนเริ่มเกม</p></section><section class="stats"><div class="stat glass"><small>เห็นมือ</small><b id="handRate">0%</b></div><div class="stat glass"><small>Pinch</small><b id="pinches">0/3</b></div><div class="stat glass"><small>เป้าหมาย</small><b id="drops">0/5</b></div></section></header>
 <main class="stage" id="stage"><section class="coach glass"><b id="coachTitle">เตรียมพร้อม</b><small id="coachSub">เปิดกล้อง แล้วยกมือให้อยู่กลางภาพ</small></section><div class="orb" id="orb">✋<br><span id="orbText">ยกมือ</span></div><div class="cursor" id="cursor"></div><section class="targets" id="targets"><button type="button" class="target" data-g="1"><span>1</span><small>ซ้ายสุด</small></button><button type="button" class="target" data-g="2"><span>2</span><small>ซ้าย</small></button><button type="button" class="target" data-g="3"><span>3</span><small>กลาง</small></button><button type="button" class="target" data-g="4"><span>4</span><small>ขวา</small></button><button type="button" class="target" data-g="5"><span>5</span><small>ขวาสุด</small></button></section></main>
-<footer><div class="status glass" id="status">กดเปิด AR เพื่อเริ่มตรวจจับมือ</div><div class="actions"><button class="btn primary" id="start">📷 เปิด AR</button><button class="btn gold" id="continue" disabled>ไปต่อ</button><button class="btn" id="back">Zone</button></div></footer>
+<footer><div class="status glass" id="status">กดเปิด AR เพื่อเริ่มตรวจจับมือ</div><div class="actions"><button class="btn primary" id="start">📷 เปิด AR</button><button class="btn gold" id="continue" disabled>เข้าเกม</button><button class="btn" id="back">Zone</button></div></footer>
 </div>
 <div class="overlay" id="intro"><section class="sheet"><h2 id="introTitle">Warmup Groups AR</h2><p id="introText">ใช้กล้องและ Hand Tracking เท่านั้น เพื่อเช็กว่ากล้องเห็นมือ ท่า Pinch ทำงาน และเอื้อมถึงประตูทั้ง 5</p><div class="steps"><div class="step"><span>✋</span><b>เห็นมือ</b><small>วางมือกลางภาพ</small></div><div class="step"><span>🤏</span><b>Pinch 3 ครั้ง</b><small>นิ้วโป้งแตะนิ้วชี้</small></div><div class="step"><span>↔️</span><b>เอื้อมครบ 5 จุด</b><small>ปล่อย Pinch เหนือจุดเป้าหมาย</small></div></div><div class="sheetActions"><button class="big" id="introStart">เริ่ม Groups AR</button></div></section></div>
 <script type="module">
 const q=new URLSearchParams(location.search),$=id=>document.getElementById(id),phase=(q.get('phase')||'warmup').toLowerCase()==='cooldown'?'cooldown':'warmup';
+const compact=document.documentElement.classList.contains('compactClassroom');
 const state={stream:null,tracker:null,ready:false,frames:0,handFrames:0,pinching:false,pinches:0,drops:new Set(),lastVideo:-1,lastDetect:0,error:'',permission:'unknown',permissionBlocked:false,breathStarted:0,breathDone:false,navigating:false};
 const targets=[...document.querySelectorAll('.target')],next=q.get('next')||'./groups-ar.html',back=q.get('back')||q.get('hub')||'./nutrition-zone.html';
 function copyTarget(raw){const u=new URL(raw,location.href);['pid','name','studentId','studentName','section','classSection','studyId','conditionGroup','api','log','diff','variant','time','view','seed','hub'].forEach(k=>{const v=q.get(k);if(v&&!u.searchParams.has(k))u.searchParams.set(k,v)});u.searchParams.set('game','groups');u.searchParams.set('gameId','groups');u.searchParams.set('zone','nutrition');u.searchParams.set('inputMode','hand-ar-only');if(phase==='warmup')u.searchParams.set('warmup','1');return u.toString()}
 function setText(a,b,status=b){$('coachTitle').textContent=a;$('coachSub').textContent=b;$('status').textContent=status}
+function syncLayout(){document.documentElement.classList.toggle('ar-ready',state.ready)}
 function stopCamera(){try{state.stream?.getTracks().forEach(t=>t.stop())}catch(_){}state.stream=null}
 function goNext(){if(state.navigating)return;state.navigating=true;stopCamera();location.assign(copyTarget(next))}
-function update(){const rate=state.frames?Math.round(state.handFrames/state.frames*100):0;$('handRate').textContent=rate+'%';$('pinches').textContent=Math.min(3,state.pinches)+'/3';$('drops').textContent=state.drops.size+'/5';targets.forEach(t=>t.classList.toggle('done',state.drops.has(+t.dataset.g)));const ok=phase==='cooldown'?state.ready&&state.breathDone&&state.handFrames>10:state.ready&&state.pinches>=3&&state.drops.size===5&&rate>=35;$('continue').disabled=!ok;$('orb').classList.toggle('ready',ok);if(ok)setText(phase==='cooldown'?'พักมือครบแล้ว':'พร้อมเข้าเกม',phase==='cooldown'?'พร้อมกลับ Nutrition Zone':'กำลังพาเข้า Food Groups AR…')}
+function update(){const rate=state.frames?Math.round(state.handFrames/state.frames*100):0;$('handRate').textContent=rate+'%';$('pinches').textContent=Math.min(3,state.pinches)+'/3';$('drops').textContent=state.drops.size+'/5';targets.forEach(t=>t.classList.toggle('done',state.drops.has(+t.dataset.g)));const ok=phase==='cooldown'?state.ready&&state.breathDone&&state.handFrames>10:state.ready&&state.pinches>=3&&state.drops.size===5&&rate>=35;$('continue').disabled=!ok;$('orb').classList.toggle('ready',ok);syncLayout();if(ok)setText(phase==='cooldown'?'พักมือครบแล้ว':'พร้อมเข้าเกม',phase==='cooldown'?'พร้อมกลับ Nutrition Zone':'กำลังพาเข้า Food Groups AR…')}
 function hit(x,y){const r=$('stage').getBoundingClientRect();if(y<r.height*.64)return 0;return Math.max(1,Math.min(5,Math.floor(x/Math.max(1,r.width)*5)+1))}
 function cameraPolicyAllowed(){try{const p=document.permissionsPolicy||document.featurePolicy;return !p||p.allowsFeature('camera')}catch(_){return true}}
 async function cameraPermission(){try{if(!navigator.permissions?.query)return'unknown';const result=await navigator.permissions.query({name:'camera'});state.permission=result.state||'unknown';result.onchange=()=>{state.permission=result.state||'unknown';if(state.permission==='granted'&&state.permissionBlocked&&!state.ready)camera()};return state.permission}catch(_){return'unknown'}}
 function permissionFailure(error){
   const name=String(error?.name||'');
-  state.ready=false;state.error=`${name}:${String(error?.message||error||'camera_error')}`;stopCamera();$('cursor').classList.remove('show','pinch');$('continue').disabled=true;$('start').disabled=false;$('start').textContent='📷 ลองใหม่';
+  state.ready=false;syncLayout();state.error=`${name}:${String(error?.message||error||'camera_error')}`;stopCamera();$('cursor').classList.remove('show','pinch');$('continue').disabled=true;$('start').disabled=false;$('start').textContent='📷 ลองใหม่';
   if(!isSecureContext){setText('หน้าเว็บไม่ปลอดภัย','กล้องต้องเปิดผ่าน HTTPS เท่านั้น','ต้องเปิดหน้า HTTPS');return}
   if(!cameraPolicyAllowed()){setText('หน้าแม่ไม่อนุญาตกล้อง','เปิดเกม Groups ในแท็บหลัก หรือเพิ่ม allow="camera" ให้ iframe','Camera policy ถูกบล็อก');return}
-  if(name==='NotAllowedError'||name==='SecurityError'||state.permission==='denied'){
-    state.permissionBlocked=true;
-    setText('Chrome บล็อกกล้องอยู่','แตะไอคอนปรับแต่งซ้าย URL → สิทธิ์ → กล้อง → อนุญาต','เปิดสิทธิ์กล้อง แล้วกลับมากด “ลองใหม่”');return;
-  }
+  if(name==='NotAllowedError'||name==='SecurityError'||state.permission==='denied'){state.permissionBlocked=true;setText('Chrome บล็อกกล้องอยู่','แตะไอคอนซ้าย URL → สิทธิ์ → กล้อง → อนุญาต','เปิดสิทธิ์กล้อง แล้วกด “ลองใหม่”');return}
   if(name==='NotFoundError'||name==='DevicesNotFoundError'){setText('ไม่พบกล้อง','ตรวจว่าอุปกรณ์มีกล้องและ Chrome มองเห็นกล้อง','ไม่พบอุปกรณ์กล้อง');return}
   if(name==='NotReadableError'||name==='TrackStartError'){setText('กล้องถูกใช้งานอยู่','ปิดแอปกล้องหรือแท็บอื่น แล้วกด “ลองใหม่”','ปิดแอปที่ใช้กล้องก่อน');return}
   if(name==='OverconstrainedError'||name==='ConstraintNotSatisfiedError'){setText('ตั้งค่ากล้องไม่รองรับ','กำลังลองเปิดด้วยค่าพื้นฐาน','ลองเปิดกล้องแบบพื้นฐาน');return}
@@ -80,7 +109,7 @@ function permissionFailure(error){
 }
 async function camera(){
   if($('start').disabled)return;
-  state.permissionBlocked=false;state.ready=false;state.frames=0;state.handFrames=0;state.pinches=0;state.drops.clear();update();
+  state.permissionBlocked=false;state.ready=false;syncLayout();state.frames=0;state.handFrames=0;state.pinches=0;state.drops.clear();update();
   if(!navigator.mediaDevices?.getUserMedia){permissionFailure(Object.assign(new Error('getUserMedia unavailable'),{name:'NotSupportedError'}));return}
   if(!cameraPolicyAllowed()){permissionFailure(Object.assign(new Error('camera blocked by permissions policy'),{name:'SecurityError'}));return}
   const permission=await cameraPermission();
@@ -92,12 +121,12 @@ async function camera(){
     $('camera').srcObject=state.stream;await $('camera').play();state.permission='granted';setText('กล้องพร้อม','กำลังโหลด Hand Tracking…');await hand();
   }catch(e){permissionFailure(e)}finally{if(state.ready){$('start').disabled=false;$('start').textContent='📷 AR พร้อม'}else $('start').disabled=false}
 }
-async function hand(){try{const vision=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs');const files=await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');state.tracker=await vision.HandLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',delegate:'GPU'},runningMode:'VIDEO',numHands:1,minHandDetectionConfidence:.42,minHandPresenceConfidence:.42,minTrackingConfidence:.38});state.ready=true;setText('Hand Tracking พร้อม',phase==='cooldown'?'วางมือสบาย ๆ แล้วหายใจตามวงกลม':'Pinch 3 ครั้ง แล้วปล่อยเหนือช่อง 1–5');if(phase==='cooldown')startBreath();requestAnimationFrame(loop)}catch(e){permissionFailure(e)}}
+async function hand(){try{const vision=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs');const files=await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');state.tracker=await vision.HandLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',delegate:'GPU'},runningMode:'VIDEO',numHands:1,minHandDetectionConfidence:.42,minHandPresenceConfidence:.42,minTrackingConfidence:.38});state.ready=true;syncLayout();setText('Hand Tracking พร้อม',phase==='cooldown'?'วางมือสบาย ๆ แล้วหายใจตามวงกลม':'Pinch 3 ครั้ง แล้วปล่อยเหนือช่อง 1–5');if(phase==='cooldown')startBreath();requestAnimationFrame(loop)}catch(e){permissionFailure(e)}}
 function startBreath(){if(state.breathStarted)return;state.breathStarted=performance.now();$('orb').classList.add('breathe');$('orbText').textContent='หายใจช้า ๆ';setTimeout(()=>{state.breathDone=true;$('orb').classList.remove('breathe');$('orbText').textContent='ผ่อนคลายแล้ว';update()},8000)}
 function loop(ts){if(!state.ready)return;if($('camera').readyState>=2&&$('camera').currentTime!==state.lastVideo&&ts-state.lastDetect>38){state.lastVideo=$('camera').currentTime;state.lastDetect=ts;state.frames++;try{process(state.tracker.detectForVideo($('camera'),performance.now()))}catch(e){state.error=String(e?.message||e)}}requestAnimationFrame(loop)}
 function process(res){const lm=res?.landmarks?.[0];if(!lm){$('cursor').classList.remove('show','pinch');update();return}state.handFrames++;const i=lm[8],t=lm[4],r=$('stage').getBoundingClientRect(),x=(1-i.x)*r.width,y=i.y*r.height,d=Math.hypot(i.x-t.x,i.y-t.y),pin=state.pinching?d<.095:d<.062;$('cursor').style.left=x+'px';$('cursor').style.top=y+'px';$('cursor').classList.add('show');$('cursor').classList.toggle('pinch',pin);if(pin&&!state.pinching)state.pinches++;if(!pin&&state.pinching&&phase==='warmup'){const g=hit(x,y);if(g){state.drops.add(g);update();if(state.pinches>=3&&state.drops.size===5)setTimeout(goNext,450)}}state.pinching=pin;update()}
-$('pageTitle').textContent=phase==='cooldown'?'🌿 Groups AR Cooldown':'🥦 Groups AR Warmup';$('pageSub').textContent=phase==='cooldown'?'พักมือและหายใจช้า ๆ หลังจบเกม':'เตรียมมือ กล้อง และระยะเอื้อมก่อนเริ่มเกม';$('introTitle').textContent=phase==='cooldown'?'Cooldown Groups AR':'Warmup Groups AR';$('introText').textContent=phase==='cooldown'?'เปิดกล้อง วางมือสบาย ๆ และหายใจตามวงกลมก่อนกลับ Nutrition Zone':'ใช้กล้องและ Hand Tracking เท่านั้น เพื่อเช็กมือ Pinch และระยะเอื้อมทั้ง 5 จุด';if(phase==='cooldown'){$('targets').style.display='none';$('drops').parentElement.style.display='none';$('pinches').parentElement.style.display='none';$('orbText').textContent='พักมือ'}
-$('start').onclick=()=>{$('intro').classList.add('hidden');camera()};$('introStart').onclick=$('start').onclick;$('continue').onclick=goNext;$('back').onclick=()=>{stopCamera();location.assign(copyTarget(back))};document.addEventListener('visibilitychange',async()=>{if(!document.hidden&&state.permissionBlocked&&!state.ready){const p=await cameraPermission();if(p==='granted')camera()}});window.addEventListener('beforeunload',stopCamera);cameraPermission();update();
+$('pageTitle').textContent=phase==='cooldown'?(compact?'🌿 Cooldown':'🌿 Groups AR Cooldown'):(compact?'🥦 Warmup':'🥦 Groups AR Warmup');$('pageSub').textContent=phase==='cooldown'?'พักมือและหายใจช้า ๆ หลังจบเกม':'เตรียมมือ กล้อง และระยะเอื้อมก่อนเริ่มเกม';$('introTitle').textContent=phase==='cooldown'?'Cooldown Groups AR':'Warmup Groups AR';$('introText').textContent=phase==='cooldown'?'เปิดกล้อง วางมือสบาย ๆ และหายใจตามวงกลมก่อนกลับ Nutrition Zone':'ใช้กล้องและ Hand Tracking เท่านั้น เพื่อเช็กมือ Pinch และระยะเอื้อมทั้ง 5 จุด';if(phase==='cooldown'){$('targets').style.display='none';$('drops').parentElement.style.display='none';$('pinches').parentElement.style.display='none';$('orbText').textContent='พักมือ'}
+$('start').onclick=()=>{$('intro').classList.add('hidden');camera()};$('introStart').onclick=$('start').onclick;$('continue').onclick=goNext;$('back').onclick=()=>{stopCamera();location.assign(copyTarget(back))};document.addEventListener('visibilitychange',async()=>{if(!document.hidden&&state.permissionBlocked&&!state.ready){const p=await cameraPermission();if(p==='granted')camera()}});window.addEventListener('beforeunload',stopCamera);cameraPermission();syncLayout();update();
 </script>
 </body>
 </html>
