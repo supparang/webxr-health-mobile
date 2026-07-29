@@ -1,23 +1,41 @@
 /* =========================================================
    EAP Word Quest • Next Mission Truth + Home Thai Labels
    File: /herohealth/eap-word-quest/eap-word-engine-v207-next-mission-thai.js
-   Version: v2.0.7-NEXT-MISSION-TRUTH-THAI-122
+   Version: v2.0.8-HOME-CTA-RETRY-TRUTH-122
 
    Student-facing UI only:
-   - Home "continue" button always reflects the Core controller's next mission.
-   - Keeps v196 click handling unchanged; this only fixes its visible label.
+   - Home "continue" button reflects the Core controller's next mission.
+   - If the authoritative next mission is a previously attempted but unpassed
+     session, show "ฝึก <session> ต่อ" instead of wording that implies advance.
+   - Keeps click handling unchanged; this only fixes visible labels.
    - Localizes remaining setup labels without touching progress, gates or logs.
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.0.7-NEXT-MISSION-TRUTH-THAI-122";
+  const VERSION = "v2.0.8-HOME-CTA-RETRY-TRUTH-122";
 
   if (window.__EAP_WORD_V207_NEXT_MISSION__) return;
   window.__EAP_WORD_V207_NEXT_MISSION__ = true;
 
   const $ = (id) => document.getElementById(id);
   const norm = (value) => String(value == null ? "" : value).replace(/\s+/g, " ").trim();
+  const num = (value,fallback=0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  function sessionState(sessionId) {
+    try {
+      const snapshot = typeof window.inspectEapV196 === "function"
+        ? window.inspectEapV196()
+        : null;
+      const sessions = snapshot && snapshot.sessions ? snapshot.sessions : {};
+      return sessions && sessions[sessionId] ? sessions[sessionId] : {};
+    } catch (err) {
+      return {};
+    }
+  }
 
   function nextInfo() {
     try {
@@ -25,7 +43,7 @@
         ? window.getEapCoreProgress()
         : null;
       const id = norm(progress && progress.next);
-      if (!id) return { id:"", title:"" };
+      if (!id) return { id:"", title:"", attempted:false, passed:false };
 
       let title = "";
       if (id !== "DONE" && typeof window.getEapCoreSession === "function") {
@@ -36,9 +54,18 @@
         const boss = window.getEapCoreBoss(id);
         title = norm(boss && boss.title);
       }
-      return { id, title };
+
+      const state = id === "DONE" ? {} : sessionState(id);
+      const attempted = Boolean(
+        state.played ||
+        num(state.rounds) > 0 ||
+        num(state.attempts) > 0 ||
+        state.lastPlayed
+      );
+      const passed = Boolean(state.passed);
+      return { id, title, attempted, passed };
     } catch (err) {
-      return { id:"", title:"" };
+      return { id:"", title:"", attempted:false, passed:false };
     }
   }
 
@@ -59,6 +86,20 @@
     if (next.id === "DONE") {
       button.textContent = "ดูสรุปความก้าวหน้า";
       button.title = "ผ่าน Vocabulary Mission ครบแล้ว";
+      button.setAttribute("aria-label", "ดูสรุปความก้าวหน้า");
+      return;
+    }
+
+    const retryingCurrent = next.attempted && !next.passed;
+    if (retryingCurrent) {
+      button.textContent = `ฝึก ${next.id} ต่อ`;
+      button.title = next.title
+        ? `${next.id} · ${next.title} ยังไม่ผ่านเกณฑ์ กรุณาฝึกต่อ`
+        : `${next.id} ยังไม่ผ่านเกณฑ์ กรุณาฝึกต่อ`;
+      button.setAttribute(
+        "aria-label",
+        next.title ? `ฝึก ${next.id} ${next.title} ต่อ` : `ฝึก ${next.id} ต่อ`
+      );
       return;
     }
 
