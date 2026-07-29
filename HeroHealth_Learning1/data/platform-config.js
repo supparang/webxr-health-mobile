@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R37-TOOTHBRUSH-V27-JUMPDUCK-V37-BALANCE-DIRECT-V32",
+  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R37-TOOTHBRUSH-V27-VISUAL-R1-JUMPDUCK-V37-BALANCE-DIRECT-V32",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_HANDWASH_MOBILE_FULLVIEWPORT_R37_TOOTHBRUSH_CAMERA_RECOVERY_V27_JUMPDUCK_PASSPORT_RETURN_V37_BALANCE_DIRECT_CLASSROOM_V32",
+  deploymentState: "QA_HANDWASH_MOBILE_FULLVIEWPORT_R37_TOOTHBRUSH_VISUAL_VARIETY_R1_JUMPDUCK_PASSPORT_RETURN_V37_BALANCE_DIRECT_CLASSROOM_V32",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -35,8 +35,11 @@ window.HH_CONFIG = {
     skillThresholds: { coverageZones: 6, directionAccuracyPct: 55, precisionAccuracyPct: 70, trackingQualityPct: 60 },
     input: "index-finger-only",
     trackingProfile: "adaptive-hysteresis-reacquire-v24",
-    motionProfile: "multi-plaque-spatial-coverage-v27-camera-recovery",
+    motionProfile: "multi-plaque-spatial-coverage-v27-visual-variety-r1",
     cameraProfile: "mobile-three-stage-constraints-fallback-release-v1",
+    plaqueVariantCount: 4,
+    plaqueVariantPolicy: "four-balanced-visuals-equal-hitbox",
+    plaqueVariantRandomization: false,
     inferenceInput: "256x192-tracking-320x240-reacquire",
     coordinateMapping: "video-rect-cover-mirrored",
     handDetectionConfidence: 0.22,
@@ -70,7 +73,7 @@ window.HH_CONFIG = {
     zonePositionAssist: false,
     renderInterpolation: "three-sample-fast-rAF-follow",
     detectionScheduler: "adaptive-throttled-independent-loop",
-    architecture: "standalone-classroom-challenge-multi-plaque-with-camera-recovery-entry"
+    architecture: "standalone-classroom-challenge-multi-plaque-camera-recovery-balanced-visual-variety"
   },
   teacherPin: "",
   routes: {
@@ -82,7 +85,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Toothbrush ใช้ Classroom Challenge สำหรับมือถือ โดยแบ่งช่องปากเป็น 6 โซน โซนด้านข้างมีคราบพลัค 4 จุด และโซนกลางมี 5 จุด รวม 26 จุด ผู้เล่นต้องปัดผ่านคราบให้ถูกทิศทางและเลื่อนแปรงกลับอย่างน้อย 10 px ก่อนเริ่มครั้งถัดไป ระบบจึงวัดทั้ง Direction Accuracy และ Spatial Plaque Coverage ไม่สามารถปัดอยู่ตำแหน่งเดียวเพื่อผ่านทั้งโซนได้ รุ่น V27 เพิ่มการเปิดกล้องแบบสามระดับ constraints fallback การคืนกล้องเมื่อออกจากหน้า และข้อความแนะนำเฉพาะกรณีกล้องถูกแท็บหรือแอปอื่นใช้งาน ระบบยังใช้ Tracking Hysteresis, Adaptive Reacquisition และ Recovery Watchdog เล่นหนึ่งรอบถือว่าจบภารกิจโดยไม่บังคับ Retry พร้อมเก็บ Plaque Target, Precision, Direction, Tracking, Reacquire และ Recovery เป็น Learning Analytics",
+      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Toothbrush ใช้ Classroom Challenge สำหรับมือถือ โดยแบ่งช่องปากเป็น 6 โซน โซนด้านข้างมีคราบพลัค 4 จุด และโซนกลางมี 5 จุด รวม 26 จุด ผู้เล่นต้องปัดผ่านคราบให้ถูกทิศทางและเลื่อนแปรงกลับอย่างน้อย 10 px ก่อนเริ่มครั้งถัดไป ระบบจึงวัดทั้ง Direction Accuracy และ Spatial Plaque Coverage ไม่สามารถปัดอยู่ตำแหน่งเดียวเพื่อผ่านทั้งโซนได้ รุ่น V27 Visual Variety ใช้คราบ 4 รูปแบบแบบสมดุลโดยคงขนาดเป้าหมาย Hit Area คะแนน และเกณฑ์ผ่านเท่ากันทุกแบบ พร้อมกระจายตำแหน่งให้เห็นเป็นเป้าหมายแยกกันชัดขึ้นโดยไม่สุ่มความยาก รุ่นนี้ยังมีการเปิดกล้องแบบสามระดับ constraints fallback การคืนกล้องเมื่อออกจากหน้า Tracking Hysteresis, Adaptive Reacquisition และ Recovery Watchdog เล่นหนึ่งรอบถือว่าจบภารกิจโดยไม่บังคับ Retry พร้อมเก็บ Plaque Variant, Plaque Target, Precision, Direction, Tracking, Reacquire และ Recovery เป็น Learning Analytics",
       games: { hygiene: ["handwash", "toothbrush"], nutrition: ["groups", "goodjunk"], fitness: ["jumpduck", "balance-hold"] }
     },
     FULL_PLATFORM: {
@@ -97,7 +100,7 @@ window.HH_CONFIG = {
       id: "hygiene", label: "Hygiene Hero", thai: "ฐานสุขอนามัย", emoji: "🧼", accent: "#0ea5e9", description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
         { id:"handwash", title:"Handwash Realistic AR", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&v=20260729-handwash-mobile-fullviewport-r37", status:"qa-mobile-fullviewport-r37-camera-r36-step-guide-r33-summary-r34", requiredReturnContract:true, qaClosed:false, progressionByCompletion:true },
-        { id:"toothbrush", title:"Toothbrush Classroom Challenge", thai:"Toothbrush Challenge", url:"./toothbrush-classroom-challenge-v27.html?v=20260729-camera-recovery-v27", status:"qa-multi-plaque-camera-recovery-v27", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false, oneRoundCompletes:true, retryRequired:false },
+        { id:"toothbrush", title:"Toothbrush Classroom Challenge", thai:"Toothbrush Challenge", url:"./toothbrush-classroom-challenge-v27.html?v=20260729-visual-variety-r1", status:"qa-multi-plaque-camera-recovery-visual-variety-v27-r1", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false, oneRoundCompletes:true, retryRequired:false },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"clean-objects", title:"Clean Objects", thai:"ภารกิจทำความสะอาดสิ่งของ", url:"../herohealth/clean-objects-v3/clean-objects.html", status:"catalog-only", requiredReturnContract:true },
