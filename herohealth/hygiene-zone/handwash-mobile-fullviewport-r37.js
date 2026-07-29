@@ -2,7 +2,7 @@
 'use strict';
 const RELEASE='20260729-HANDWASH-MOBILE-FULLVIEWPORT-R37';
 const qs=new URLSearchParams(location.search);
-const coarse=matchMedia?.('(pointer:coarse)')?.matches===true;
+const coarse=window.matchMedia?.('(pointer:coarse)')?.matches===true;
 const touch=Number(navigator.maxTouchPoints||0)>0;
 const requested=['mobile','phone'].includes(String(qs.get('view')||'').toLowerCase())||qs.get('classroom')==='1'||qs.get('qa')==='1'||qs.get('qaStandalone')==='1';
 const smallScreen=Math.min(Number(screen.width||9999),Number(screen.height||9999))<=800;
@@ -88,14 +88,24 @@ html.hh-handwash-mobile-r37 .toast.show{transform:translateY(0)!important}
 document.head.appendChild(style);
 
 function viewportWidth(){
- const values=[innerWidth,document.documentElement.clientWidth,visualViewport?.width||0];
+ const values=[innerWidth,document.documentElement.clientWidth,window.visualViewport?.width||0];
  try{if(frameElement)values.push(frameElement.getBoundingClientRect().width)}catch(_){}
  return Math.max(1,...values.filter(Number.isFinite));
 }
 function viewportHeight(){
- const values=[innerHeight,document.documentElement.clientHeight,visualViewport?.height||0];
+ const values=[innerHeight,document.documentElement.clientHeight,window.visualViewport?.height||0];
  try{if(frameElement)values.push(frameElement.getBoundingClientRect().height)}catch(_){}
  return Math.max(1,...values.filter(Number.isFinite));
+}
+function resizeCanvasDirect(canvas){
+ if(!canvas)return;
+ const rect=canvas.getBoundingClientRect();
+ const d=Math.min(devicePixelRatio||1,2);
+ const width=Math.max(1,Math.round(rect.width*d));
+ const height=Math.max(1,Math.round(rect.height*d));
+ if(canvas.width!==width)canvas.width=width;
+ if(canvas.height!==height)canvas.height=height;
+ const ctx=canvas.getContext('2d');ctx?.setTransform(d,0,0,d,0,0);
 }
 function apply(){
  const w=Math.round(viewportWidth()),h=Math.round(viewportHeight());
@@ -105,11 +115,11 @@ function apply(){
  document.body.style.width='100vw';document.body.style.height='100dvh';
  const app=document.getElementById('app');if(app){app.style.width='100vw';app.style.height='100dvh';app.style.left='0';app.style.right='auto';}
  const video=document.getElementById('video');if(video){video.style.width='100%';video.style.height='100%';}
- const canvas=document.getElementById('arCanvas');if(canvas){canvas.style.width='100%';canvas.style.height='100%';window.dispatchEvent(new Event('resize'));}
+ const canvas=document.getElementById('arCanvas');if(canvas){canvas.style.width='100%';canvas.style.height='100%';resizeCanvasDirect(canvas);}
  scrollTo(0,0);
 }
 apply();requestAnimationFrame(apply);setTimeout(apply,120);setTimeout(apply,650);
 addEventListener('resize',apply,{passive:true});addEventListener('orientationchange',()=>setTimeout(apply,180),{passive:true});
-visualViewport?.addEventListener('resize',apply,{passive:true});
+window.visualViewport?.addEventListener('resize',apply,{passive:true});
 console.info('[Handwash Mobile R37] full viewport force installed',{innerWidth,screenWidth:screen.width,touch,coarse,requested});
 })();
