@@ -11,11 +11,11 @@
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Step Guide + Live Correct Feedback R32</small></div>
+  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Step Guide + Live Correct Feedback R33</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260729-HANDWASH-STEP-COACH-R32';
+    const RELEASE='20260729-HANDWASH-STEP-COACH-R33';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     fetch(sourceUrl,{cache:'no-store'})
@@ -25,26 +25,11 @@
         html=html.replace('<head>','<head><base href="../herohealth/hygiene-zone/">');
         html=html.replace('id="stepText">0/11','id="stepText">0/12');
         html=html.replace('id="rubText">0/6','id="rubText">0/7');
-
-        /* Runtime DOM compatibility.
-         * WHO Final R7 expects the legacy summary IDs during init.
-         * Missing IDs used to stop bind() before startBtn.onclick.
-         */
-        html=html.replace(
-          '<section id="summaryOverlay"',
-          '<button id="zoneBtn" type="button" hidden aria-hidden="true"></button><section id="summaryOverlay"'
-        );
-        html=html.replace(
-          /(<section id="summaryOverlay"[^>]*><div class="card">)<div class="hero">/i,
-          '$1<div id="summaryHero" class="hero">'
-        );
+        html=html.replace('<section id="summaryOverlay"','<button id="zoneBtn" type="button" hidden aria-hidden="true"></button><section id="summaryOverlay"');
+        html=html.replace(/(<section id="summaryOverlay"[^>]*><div class="card">)<div class="hero">/i,'$1<div id="summaryHero" class="hero">');
         html=html.replace('id="summaryText"','id="summarySub"');
-        html=html.replace(
-          '<div id="summaryGrid" class="summary-grid"></div>',
-          '<div id="summaryGrid" class="summary-grid"><div class="summary-box"><span>คะแนน</span><b id="sumScore">0</b></div><div class="summary-box"><span>ดาว</span><b id="sumStars">☆☆☆</b></div><div class="summary-box"><span>WHO Accuracy</span><b id="sumAccuracy">0%</b></div><div class="summary-box"><span>เวลา</span><b id="sumTime">0.0s</b></div></div>'
-        );
+        html=html.replace('<div id="summaryGrid" class="summary-grid"></div>','<div id="summaryGrid" class="summary-grid"><div class="summary-box"><span>คะแนน</span><b id="sumScore">0</b></div><div class="summary-box"><span>ดาว</span><b id="sumStars">☆☆☆</b></div><div class="summary-box"><span>WHO Accuracy</span><b id="sumAccuracy">0%</b></div><div class="summary-box"><span>เวลา</span><b id="sumTime">0.0s</b></div></div>');
         html=html.replace('id="retryBtn"','id="replayBtn"');
-
         html=html.replace(/<script src="\.\/handwash-summary-r8\.js[^>]*><\/script>/i,'');
         html=html.replace(
           /<script src="\.\/handwash-who-v4\.js[^>]*><\/script>/i,
@@ -52,7 +37,7 @@
           '<script src="./handwash-who-v4.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-unified-analytics-r30.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-summary-completion-r30.js?cv='+RELEASE+'"><\/script>'+ 
-          '<script src="./handwash-step-coach-r32.js?cv='+RELEASE+'"><\/script>'
+          '<script src="./handwash-step-coach-r33.js?cv='+RELEASE+'"><\/script>'
         );
         html=html.replace('ฝึก 6 ท่าถูมือตาม WHO','ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ');
         document.open();document.write(html);document.close();
