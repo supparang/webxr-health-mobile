@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-const RELEASE='20260717-HANDWASH-FINAL-R7';
+const RELEASE='20260729-HANDWASH-DIRECT-CAMERA-R36';
 const RUNTIME_MARKER='20260716-HANDWASH-WHO-V4-R1';
 const DOM_HOOK="document.addEventListener('DOMContentLoaded', init);";
 const DOM_FIX="if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init,{once:true});}else{init();}";
@@ -108,19 +108,93 @@ const COACH_FIX=`function kidGuide(id,reason,slot){
 const guides={palm:'1) ประกบฝ่ามือ  2) กางนิ้ว  3) ถูซ้าย–ขวาช้า ๆ',dorsum:'1) ฝ่ามือทับหลังมือ  2) สอดนิ้ว  3) ถูแล้วสลับข้าง',interlaced:'1) ประกบฝ่ามือ  2) ประสานนิ้ว  3) ถูซอกนิ้ว',backsFingers:'1) งอนิ้ว  2) หลังนิ้วแตะฝ่ามือ  3) ถูไป–กลับ',thumbs:'1) กำหัวแม่มือ  2) หมุนเป็นวง  3) สลับข้าง',fingertips:'1) จีบปลายนิ้ว  2) แตะกลางฝ่ามือ  3) หมุนวงเล็ก ๆ แล้วสลับข้าง'};
 const base=guides[id]||'ทำตามคำแนะนำบนจอช้า ๆ';if(reason==='zone')return 'ย้ายมือเข้ากรอบสีเหลือง • '+base;if(reason==='contact')return id==='fingertips'?'ให้ปลายนิ้วแตะกลางฝ่ามือจริง ๆ • '+base:'ให้มือแตะกันจริง • '+base;if(reason==='pose')return 'หยุด 1 วินาที แล้วจัดมือใหม่ • '+base;if(reason==='motion')return id==='thumbs'||id==='fingertips'?'หมุนวงเล็ก ๆ ช้า ๆ ต่อเนื่อง • '+base:'ถูไป–กลับระยะสั้น • '+base;if(reason==='switch')return 'ข้างแรกผ่านแล้ว ✅ สลับทำอีกข้าง';if(slot)return 'จับท่าได้แล้ว ✅ ทำข้าง '+slotLabel(slot)+' ต่ออีกนิด';return base}
 function coachMessage(phase,reason,slot){return kidGuide(phase.id,reason,slot)}`;
+
+const CAMERA_STATE_HOOK='let handsModel = null;';
+const CAMERA_STATE_FIX='let handsModel=null;let detectionLoopStarted=false;let cameraStarting=false;';
+const INIT_CAMERA_HOOK=`addEventListener('online', flushOutbox);
+startCamera();
+flushOutbox();`;
+const INIT_CAMERA_FIX=`addEventListener('online',flushOutbox);addEventListener('pagehide',stopCamera);
+document.documentElement.dataset.handwashCamera='waiting-user';
+el.detectStatus.textContent='แตะเริ่มเพื่อเปิดกล้อง';
+flushOutbox();`;
+const START_RUN_HOOK=`function startRun(){
+saveProfile();
+resetRun(false);
+state.running = true;`;
+const START_RUN_FIX=`async function startRun(){
+if(cameraStarting)return;
+el.startBtn.disabled=true;el.startBtn.textContent='กำลังเปิดกล้อง…';
+const cameraOK=await startCamera();
+if(!cameraOK){state.running=false;el.startOverlay.classList.add('show');el.startBtn.disabled=false;el.startBtn.textContent='ลองเปิดกล้องอีกครั้ง';return;}
+saveProfile();
+resetRun(false);
+state.running = true;`;
+const START_CAMERA_HOOK=`async function startCamera(){
+if (!navigator.mediaDevices?.getUserMedia) {
+el.detectStatus.textContent = 'Tap Assist';
+return;
+}
+try{
+stream = await navigator.mediaDevices.getUserMedia({
+video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:false
+});
+el.video.srcObject = stream;
+await el.video.play();
+state.cameraReady = true;
+initHands();
+}catch(error){
+el.detectStatus.textContent = 'เปิดกล้องไม่ได้';
+showToast('ใช้ Tap Assist ได้ แต่ผลจะระบุว่าเป็นโหมดช่วย');
+}
+}`;
+const START_CAMERA_FIX=`async function startCamera(){
+if(cameraStarting)return false;
+if(stream?.active&&stream.getVideoTracks?.().some(track=>track.readyState==='live')&&el.video.readyState>=2){state.cameraReady=true;document.documentElement.dataset.handwashCamera='ready';return true;}
+if(!navigator.mediaDevices?.getUserMedia){state.cameraReady=false;document.documentElement.dataset.handwashCamera='unsupported';el.detectStatus.textContent='เครื่องไม่รองรับกล้อง';showToast('อุปกรณ์นี้ไม่รองรับการเปิดกล้อง');return false;}
+cameraStarting=true;state.cameraReady=false;document.documentElement.dataset.handwashCamera='requesting';el.detectStatus.textContent='กำลังเปิดกล้อง…';
+try{
+try{stream?.getTracks?.().forEach(track=>track.stop())}catch(_){}
+stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'user'},width:{ideal:640,max:1280},height:{ideal:480,max:720},frameRate:{ideal:24,max:30}},audio:false});
+el.video.setAttribute('playsinline','');el.video.muted=true;el.video.srcObject=stream;await el.video.play();
+const track=stream.getVideoTracks?.()[0];if(!track||track.readyState!=='live')throw new Error('camera_track_not_live');
+track.addEventListener('ended',()=>{state.cameraReady=false;document.documentElement.dataset.handwashCamera='ended';el.detectStatus.textContent='กล้องหยุดทำงาน';},{once:true});
+state.cameraReady=true;document.documentElement.dataset.handwashCamera='ready';el.detectStatus.textContent='กำลังโหลดตัวตรวจมือ…';
+if(!handsModel)initHands();else{state.detectorReady=true;el.detectStatus.textContent='รอมือ 2 ข้าง';if(!detectionLoopStarted){detectionLoopStarted=true;detectLoop();}}
+return true;
+}catch(error){
+state.cameraReady=false;const name=String(error?.name||'');const busy=name==='NotReadableError'||name==='AbortError';const denied=name==='NotAllowedError'||name==='SecurityError';
+document.documentElement.dataset.handwashCamera=busy?'busy':denied?'denied':'failed';el.detectStatus.textContent=busy?'กล้องถูกแท็บอื่นใช้อยู่':denied?'ยังไม่ได้อนุญาตกล้อง':'เปิดกล้องไม่ได้';
+showToast(busy?'ปิดแท็บเกมเก่า แล้วแตะลองเปิดกล้องอีกครั้ง':denied?'กดอนุญาตใช้กล้อง แล้วแตะลองใหม่':'ตรวจสิทธิ์กล้อง แล้วแตะลองใหม่');console.error('[Handwash Camera R36]',error);return false;
+}finally{cameraStarting=false;}
+}`;
+const HANDS_SUCCESS_HOOK=`state.detectorReady = true;
+el.detectStatus.textContent = 'รอมือ 2 ข้าง';
+detectLoop();`;
+const HANDS_SUCCESS_FIX=`state.detectorReady=true;document.documentElement.dataset.handwashDetector='ready';el.detectStatus.textContent='รอมือ 2 ข้าง';if(!detectionLoopStarted){detectionLoopStarted=true;detectLoop();}`;
+const HANDS_FAIL_HOOK=`}catch(error){
+el.detectStatus.textContent = 'Tap Assist';
+}
+}`;
+const HANDS_FAIL_FIX=`}catch(error){state.detectorReady=false;document.documentElement.dataset.handwashDetector='failed';el.detectStatus.textContent='โหลดตัวตรวจมือไม่ได้';showToast('โหลดระบบตรวจมือไม่สำเร็จ กรุณาลองใหม่');console.error('[Handwash Detector R36]',error);}
+}`;
+const STOP_CAMERA_HOOK=`function stopCamera(){try{stream?.getTracks?.().forEach(t=>t.stop())}catch(_){}}`;
+const STOP_CAMERA_FIX=`function stopCamera(){try{stream?.getTracks?.().forEach(t=>t.stop())}catch(_){}try{el.video.pause();el.video.srcObject=null}catch(_){}stream=null;state.cameraReady=false;document.documentElement.dataset.handwashCamera='stopped';}`;
+
 const files=[1,2,3,4].map(n=>`./handwash-who-v4.part${n}.txt?cv=${RELEASE}`);
 installLayout();document.documentElement.dataset.handwashRuntime='loading';
 Promise.all(files.map(url=>fetch(url,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`load failed ${r.status}: ${url}`);return r.text()}))).then(parts=>{
 const source=parts.join('');
-const required=[RUNTIME_MARKER,DOM_HOOK,PHASE_HOOK,SUMMARY_HOOK,GO_HOOK,ELIGIBLE_HOOK,SLOT_HOOK,GAIN_HOOK,QUALITY_HOOK,TIP_HOOK,DECAY_HOOK,TIMEOUT_HOOK,WET_HOOK,RINSE_HOOK,TOWEL_HOOK,FINGER_HOOK,TIME_SCORE_HOOK,TARGET_HOOK,SUMMARY_TITLE_HOOK,COACH_HOOK];
+const required=[RUNTIME_MARKER,DOM_HOOK,PHASE_HOOK,SUMMARY_HOOK,GO_HOOK,ELIGIBLE_HOOK,SLOT_HOOK,GAIN_HOOK,QUALITY_HOOK,TIP_HOOK,DECAY_HOOK,TIMEOUT_HOOK,WET_HOOK,RINSE_HOOK,TOWEL_HOOK,FINGER_HOOK,TIME_SCORE_HOOK,TARGET_HOOK,SUMMARY_TITLE_HOOK,COACH_HOOK,CAMERA_STATE_HOOK,INIT_CAMERA_HOOK,START_RUN_HOOK,START_CAMERA_HOOK,HANDS_SUCCESS_HOOK,HANDS_FAIL_HOOK,STOP_CAMERA_HOOK];
 const valid=source.trimStart().startsWith('(() => {')&&source.trimEnd().endsWith('})();')&&required.every(x=>source.includes(x))&&source.length>40000;
-if(!valid)throw new Error('WHO Final R7 runtime integrity check failed');
-let runtime=source.replace(DOM_HOOK,DOM_FIX).replace(PHASE_HOOK,PHASE_FIX).replace(SUMMARY_HOOK,SUMMARY_FIX).replace(GO_HOOK,GO_FIX).replace(ELIGIBLE_HOOK,ELIGIBLE_FIX).replace(SLOT_HOOK,SLOT_FIX).replace(GAIN_HOOK,GAIN_FIX).replace(QUALITY_HOOK,QUALITY_FIX).replace(TIP_HOOK,TIP_FIX).replace(DECAY_HOOK,DECAY_FIX).replace(TIMEOUT_HOOK,TIMEOUT_FIX).replace(WET_HOOK,WATER_FIX).replace(RINSE_HOOK,RINSE_FIX).replace(TOWEL_HOOK,TOWEL_FIX).replace(FINGER_HOOK,FINGER_FIX).replace(TIME_SCORE_HOOK,TIME_SCORE_FIX).replace(TARGET_HOOK,TARGET_FIX).replace(SUMMARY_TITLE_HOOK,SUMMARY_TITLE_FIX).replace(COACH_HOOK,COACH_FIX);
+if(!valid)throw new Error('WHO R36 runtime integrity check failed');
+let runtime=source.replace(DOM_HOOK,DOM_FIX).replace(PHASE_HOOK,PHASE_FIX).replace(SUMMARY_HOOK,SUMMARY_FIX).replace(GO_HOOK,GO_FIX).replace(ELIGIBLE_HOOK,ELIGIBLE_FIX).replace(SLOT_HOOK,SLOT_FIX).replace(GAIN_HOOK,GAIN_FIX).replace(QUALITY_HOOK,QUALITY_FIX).replace(TIP_HOOK,TIP_FIX).replace(DECAY_HOOK,DECAY_FIX).replace(TIMEOUT_HOOK,TIMEOUT_FIX).replace(WET_HOOK,WATER_FIX).replace(RINSE_HOOK,RINSE_FIX).replace(TOWEL_HOOK,TOWEL_FIX).replace(FINGER_HOOK,FINGER_FIX).replace(TIME_SCORE_HOOK,TIME_SCORE_FIX).replace(TARGET_HOOK,TARGET_FIX).replace(SUMMARY_TITLE_HOOK,SUMMARY_TITLE_FIX).replace(COACH_HOOK,COACH_FIX).replace(CAMERA_STATE_HOOK,CAMERA_STATE_FIX).replace(INIT_CAMERA_HOOK,INIT_CAMERA_FIX).replace(START_RUN_HOOK,START_RUN_FIX).replace(START_CAMERA_HOOK,START_CAMERA_FIX).replace(HANDS_SUCCESS_HOOK,HANDS_SUCCESS_FIX).replace(HANDS_FAIL_HOOK,HANDS_FAIL_FIX).replace(STOP_CAMERA_HOOK,STOP_CAMERA_FIX);
 if(runtime.includes(ZONE_HOOK))runtime=runtime.replace(ZONE_HOOK,ZONE_FIX);
-const blobUrl=URL.createObjectURL(new Blob([runtime],{type:'text/javascript;charset=utf-8'}));const script=document.createElement('script');script.src=blobUrl;script.async=false;script.dataset.handwashWhoRuntime=RELEASE;script.onload=()=>{document.documentElement.dataset.handwashRuntime='ready';enableStart();URL.revokeObjectURL(blobUrl)};script.onerror=()=>{URL.revokeObjectURL(blobUrl);showFailure('compiled runtime could not start')};document.head.appendChild(script)
+try{new Function(runtime)}catch(error){throw new Error('compiled runtime syntax error: '+error.message)}
+const blobUrl=URL.createObjectURL(new Blob([runtime],{type:'text/javascript;charset=utf-8'}));const script=document.createElement('script');script.src=blobUrl;script.async=false;script.dataset.handwashWhoRuntime=RELEASE;script.onload=()=>{setTimeout(()=>{const b=document.getElementById('startBtn');if(typeof b?.onclick!=='function'){URL.revokeObjectURL(blobUrl);showFailure('runtime loaded but start handler was not bound');return}document.documentElement.dataset.handwashRuntime='ready';enableStart();URL.revokeObjectURL(blobUrl)},0)};script.onerror=()=>{URL.revokeObjectURL(blobUrl);showFailure('compiled runtime could not start')};document.head.appendChild(script)
 }).catch(error=>showFailure(error?.message||String(error)));
-function enableStart(){const b=document.getElementById('startBtn');if(b){b.disabled=false;b.textContent='เริ่ม WHO Technique • Final R7'}}
-function showFailure(message){console.error('Handwash WHO loader',message);document.documentElement.dataset.handwashRuntime='failed';const s=document.getElementById('detectStatus');if(s)s.textContent='โหลดเกมไม่สำเร็จ';const b=document.getElementById('startBtn');if(b){b.disabled=false;b.textContent='แตะเพื่อลองโหลดใหม่';b.onclick=()=>location.reload()}const t=document.getElementById('toast');if(t){t.textContent='โหลด WHO Final R7 ไม่สำเร็จ กรุณารีเฟรช';t.classList.add('show')}}
+function enableStart(){const b=document.getElementById('startBtn');if(b){b.disabled=false;b.textContent='เริ่ม WHO Technique • Camera R36'}}
+function showFailure(message){console.error('Handwash WHO loader',message);document.documentElement.dataset.handwashRuntime='failed';const s=document.getElementById('detectStatus');if(s)s.textContent='โหลดเกมไม่สำเร็จ';const b=document.getElementById('startBtn');if(b){b.disabled=false;b.textContent='แตะเพื่อลองโหลดใหม่';b.onclick=()=>location.reload()}const t=document.getElementById('toast');if(t){t.textContent='โหลดเกมไม่สำเร็จ: '+message;t.classList.add('show')}}
 function installLayout(){const style=document.createElement('style');style.id='handwashFinalR7Layout';style.textContent=`
 :root{--hw-side:clamp(14px,2.2vw,34px)}#scrubZone{top:60%!important;left:50%!important;width:min(57vw,820px)!important;height:min(44vh,430px)!important;min-width:430px;min-height:260px;transform:translate(-50%,-50%)!important;border-radius:38px!important}html[data-handwash-phase="calibrate"] #scrubZone{width:min(68vw,960px)!important;height:min(51vh,510px)!important}#waterZone{top:29%!important;left:50%!important;width:200px!important;height:210px!important;transform:translateX(-50%)!important;border-radius:34px!important}html[data-handwash-phase="wet"] #waterZone,html[data-handwash-phase="rinse"] #waterZone{height:280px!important;background:linear-gradient(180deg,rgba(87,223,255,.20),rgba(87,223,255,.05))!important}#soapZone{left:var(--hw-side)!important;bottom:156px!important;width:126px!important;height:112px!important}#towelZone{right:var(--hw-side)!important;bottom:156px!important;width:126px!important;height:112px!important}.coach{top:39%!important;right:var(--hw-side)!important;width:min(350px,32vw)!important;max-height:39vh;overflow:auto;border:2px solid rgba(255,226,123,.5)!important}.coach p{font-size:clamp(12px,1.9vw,16px)!important;line-height:1.5!important}.who-strip{min-height:48px}.phase-chip{min-width:82px!important;font-size:10px!important;padding:7px 8px!important}html[data-handwash-runtime="loading"] #startBtn{opacity:.72;cursor:wait}
 @media(max-width:760px){#scrubZone{top:55%!important;width:91vw!important;height:35vh!important;min-width:0;min-height:215px}#waterZone{top:27%!important;width:160px!important;height:225px!important}html[data-handwash-phase="wet"] #waterZone,html[data-handwash-phase="rinse"] #waterZone{height:310px!important}.coach{right:8px!important;bottom:158px!important;top:auto!important;width:min(80vw,340px)!important;max-height:28vh}.coach p{font-size:13px!important}#soapZone{left:10px!important;bottom:168px!important;width:98px!important;height:92px!important}#towelZone{right:10px!important;bottom:168px!important;width:98px!important;height:92px!important}.overlay{place-items:start center!important}.card{margin:auto 0;max-height:calc(100dvh - 24px);overflow:auto}}
