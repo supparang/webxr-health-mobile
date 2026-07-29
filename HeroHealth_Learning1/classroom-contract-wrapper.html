@@ -17,10 +17,10 @@ iframe{position:fixed;inset:0;width:100%;height:100%;border:0}
 <div id="status" class="status">กำลังเตรียมเกม Classroom…</div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260727-CLASSROOM-WRAPPER-COMPLETE7-R29';
+const RELEASE='20260729-CLASSROOM-WRAPPER-HANDWASH-START-GATE-R31';
 const q=new URLSearchParams(location.search),kind=q.get('wrappedGame')||q.get('gameId')||'',sid=q.get('studentId')||q.get('pid')||'';
 const targets={
- handwash:'./handwash-classroom-7step.html?strict7=1&v=20260727-complete7-r29',
+ handwash:'./handwash-classroom-7step.html?strict7=1&v=20260729-handwash-dom-compat-r31',
  toothbrush:'../herohealth/hygiene-zone/toothbrush-ar.html?mode=learning&diff=easy&time=90&classroom=1',
  groups:'../herohealth/groups-ar-gate.html?phase=warmup&next=./groups-ar.html',
  goodjunk:'../herohealth/goodjunk-ar-classroom-v12.html?classroom=1&mode=solo&time=60'
@@ -94,6 +94,7 @@ function realCompletion(raw){
 }
 function finishCheck(){
  if(sent)return;
+ if(kind==='handwash'&&!started)return;
  try{
   const w=f.contentWindow,d=f.contentDocument;if(!d)return;fill(d);
   const text=String(d.body?.innerText||'');
@@ -120,7 +121,7 @@ function finishCheck(){
   setTimeout(()=>{try{parent.document.getElementById('returnBtn')?.click()}catch(_){}},1300);
  }catch(error){status.textContent='กำลังรอผลเกม'}
 }
-f.addEventListener('load',()=>{status.textContent='พร้อมเริ่มเกม';try{const w=f.contentWindow,d=f.contentDocument;installHandDetectionQuality(w);fill(d);d.addEventListener('click',event=>{if(/เริ่ม|start|เปิดกล้อง|calibration|ไปต่อ/i.test(String(event.target?.textContent||'')))postStart()},{capture:true});new MutationObserver(finishCheck).observe(d.documentElement,{subtree:true,childList:true,characterData:true,attributes:true})}catch(_){}});
+f.addEventListener('load',()=>{status.textContent=kind==='handwash'?'พร้อมเริ่ม Handwash':'พร้อมเริ่มเกม';status.className='status';try{const w=f.contentWindow,d=f.contentDocument;installHandDetectionQuality(w);fill(d);d.addEventListener('click',event=>{if(/เริ่ม|start|เปิดกล้อง|calibration|ไปต่อ/i.test(String(event.target?.textContent||'')))postStart()},{capture:true});new MutationObserver(finishCheck).observe(d.documentElement,{subtree:true,childList:true,characterData:true,attributes:true})}catch(_){}});
 addEventListener('message',event=>{if(event.origin!==location.origin)return;const message=event.data||{};if(message.type==='HEROHEALTH_HANDWASH_ANALYTICS')finishCheck()});
 setInterval(finishCheck,650);
 })();
