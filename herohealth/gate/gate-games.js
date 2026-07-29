@@ -1,13 +1,16 @@
 // === /herohealth/gate/gate-games.js ===
 // Shared registry for HeroHealth Gate.
 
-export const PATCH = 'v20260717-GATE-GAMES-GROUPS-CANONICAL-R2';
+export const PATCH = 'v20260729-GATE-GAMES-BALANCE-POSE-CHECK-R1';
 
 const FITNESS_MODULE =
   './games/fitness/fitness-readiness-recovery.js?v=20260624-frr-v24-side-stretch';
 
 const FITNESS_STYLE =
   './games/fitness/fitness-readiness-recovery.css?v=20260622-frr-v19-direct-exit';
+
+const BALANCE_POSE_MODULE =
+  './games/fitness/balance-pose-check.js?v=20260729-balance-pose-check-r1';
 
 function clean(id) {
   return String(id || '')
@@ -217,10 +220,10 @@ export const GAME_REGISTRY = {
     title: 'Balance Hold AR',
     emoji: '🧘',
     zone: 'fitness',
-    warmupFile: FITNESS_MODULE,
+    warmupFile: BALANCE_POSE_MODULE,
     cooldownFile: FITNESS_MODULE,
     styleFile: FITNESS_STYLE,
-    warmupTitle: 'Hero Ready Mission • Stability',
+    warmupTitle: 'Balance Hold • Pose Check',
     cooldownTitle: 'Hero Recovery Mission • Calm Balance',
     runFile: '../fitness/balance-hold-ar2.html',
     runCandidates: ['../fitness/balance-hold-ar2.html', '../fitness/balance-hold.html'],
