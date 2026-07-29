@@ -1,35 +1,24 @@
 (()=>{
 'use strict';
-const VERSION='20260727-ASSESSMENT-RETURN-AUTHORITY-BRIDGE-V2';
+const VERSION='20260729-ASSESSMENT-RETURN-AUTHORITY-BRIDGE-V3';
 const STATE_KEY='herohealth_learning_platform_rc2';
 const EXEC='https://script.google.com/macros/s/AKfycbwa-OSdqWS7uPne01wNr5a42PgKfAoxmUUm7yMcUx2D0C0OnbjrbppNUHkfjUxm79Fz/exec';
 const q=new URLSearchParams(location.search);
 const form=String(q.get('form')||'').toUpperCase();
 const synced=String(q.get('sheetSync')||'').toLowerCase()==='sent';
-const isPre=/^PRE(?:-|$)/.test(form);
-const isPost=/^POST(?:-|$)/.test(form);
+const isPre=/^PRE(?:-|$)/.test(form),isPost=/^POST(?:-|$)/.test(form);
 if(!synced||(!isPre&&!isPost))return;
 function readJSON(storage,key){try{return JSON.parse(storage.getItem(key)||'null')}catch(_){return null}}
 function writeJSON(storage,key,value){try{storage.setItem(key,JSON.stringify(value));return true}catch(_){return false}}
 function clean(v){return String(v==null?'':v).trim().replace(/\s+/g,'')}
-function findResult(type,sid){const names=type==='pre'?['HH_PRETEST_LAST','HH_ASSESSMENT_LAST_PRE','HH_LAST_ASSESSMENT']:['HH_POSTTEST_LAST','HH_ASSESSMENT_LAST_POST','HH_LAST_ASSESSMENT'];for(const store of [sessionStorage,localStorage])for(const name of names){const x=readJSON(store,name);if(x&&(!x.studentId||clean(x.studentId)===sid))return x}const durable=readJSON(localStorage,'HH_ASSESSMENT_DURABLE_LAST:'+sid+':'+type);return durable||null}
-function jsonp(payload){return new Promise((resolve,reject)=>{const cb='HHARB_'+Date.now()+'_'+Math.random().toString(36).slice(2),s=document.createElement('script');let ended=false;const timer=setTimeout(()=>finish(new Error('authority_timeout')),30000);function finish(err,data){if(ended)return;ended=true;clearTimeout(timer);try{delete window[cb]}catch(_){};try{s.remove()}catch(_){};err?reject(err):resolve(data)}window[cb]=d=>finish(null,d);s.onerror=()=>finish(new Error('authority_load_failed'));s.async=true;s.referrerPolicy='no-referrer';s.src=EXEC+'?'+new URLSearchParams({action:'submit',payload:JSON.stringify(payload),callback:cb,_:String(Date.now()),mobile:'1'});(document.head||document.documentElement).appendChild(s)})}
-const state=readJSON(localStorage,STATE_KEY)||{};
-const profile=state.profile||{};
-const sid=clean(profile.studentId);
-if(!sid)return;
-const type=isPre?'pre':'post',task=isPre?'pretest':'posttest',last=findResult(type,sid)||{};
-const score=Number.isFinite(Number(last.score))?Number(last.score):0;
-const total=Number(last.total)||15;
-state.completed=state.completed||{};
-state.scores=state.scores||{};
-state.completed[task]=true;
-state.scores[task]=score;
-state.sheetAuthority=false;
-state.pendingAssessmentAuthority={task,studentId:sid,score,total,form:form||last.form||task.toUpperCase(),source:'sheetSync-return',scoreRecovered:!!last,createdAt:new Date().toISOString(),version:VERSION};
-writeJSON(localStorage,STATE_KEY,state);
+function findResult(type,sid){const names=type==='pre'?['HH_PRETEST_LAST','HH_ASSESSMENT_LAST_PRE','HH_LAST_ASSESSMENT']:['HH_POSTTEST_LAST','HH_ASSESSMENT_LAST_POST','HH_LAST_ASSESSMENT'];for(const store of [sessionStorage,localStorage])for(const name of names){const x=readJSON(store,name);if(x&&(!x.studentId||clean(x.studentId)===sid))return x}return readJSON(localStorage,`HH_${type.toUpperCase()}TEST_LAST_${sid}`)||readJSON(localStorage,'HH_ASSESSMENT_DURABLE_LAST:'+sid+':'+type)||null}
+function jsonp(params,timeout=30000){return new Promise((resolve,reject)=>{const cb='HHARB3_'+Date.now()+'_'+Math.random().toString(36).slice(2),s=document.createElement('script');let ended=false;const timer=setTimeout(()=>finish(new Error('authority_timeout')),timeout);function finish(err,data){if(ended)return;ended=true;clearTimeout(timer);try{delete window[cb]}catch(_){};try{s.remove()}catch(_){};err?reject(err):resolve(data)}window[cb]=d=>finish(null,d);s.onerror=()=>finish(new Error('authority_load_failed'));s.async=true;s.referrerPolicy='no-referrer';s.src=EXEC+'?'+new URLSearchParams({...params,callback:cb,_:String(Date.now()),mobile:'1'});(document.head||document.documentElement).appendChild(s)})}
+const state=readJSON(localStorage,STATE_KEY)||{},profile=state.profile||{},sid=clean(profile.studentId);if(!sid)return;
+const type=isPre?'pre':'post',task=isPre?'pretest':'posttest',last=findResult(type,sid)||{},score=Number.isFinite(Number(last.score))?Number(last.score):0,total=Number(last.total)||15;
+state.pendingAssessmentAuthority={task,studentId:sid,score,total,form:form||last.form||task.toUpperCase(),attemptId:last.attemptId||q.get('attemptId')||'',source:'sheetSync-return',scoreRecovered:!!last,createdAt:new Date().toISOString(),version:VERSION};
+state.sheetAuthority=false;writeJSON(localStorage,STATE_KEY,state);
 try{sessionStorage.setItem('hh_recent_assessment_return:'+sid,String(Date.now()))}catch(_){}
-const payload={eventType:'assessment',eventId:'HH-ASSESSMENT-BRIDGE-'+task+'-'+sid+'-'+Date.now(),studentId:sid,profile:{fullName:profile.fullName||profile.name||'',section:profile.section||'',group:profile.group||state.group||''},platformVersion:(window.HH_CONFIG&&window.HH_CONFIG.platformVersion)||'',currentStep:task,status:'รับผล '+(isPre?'Pre-test':'Post-test')+' จาก Assessment Analytics',clientTs:last.submittedAt||new Date().toISOString(),assessment:{type:task,form:form||last.form||task.toUpperCase(),score,total,responses:Array.isArray(last.responses)?last.responses:[],submittedAt:last.submittedAt||new Date().toISOString(),assessmentVersion:q.get('assessmentVersion')||last.assessmentVersion||'3.0',bridgeVersion:VERSION,scoreRecovered:!!last}};
+const payload={eventType:'assessment',eventId:'HH-ASSESSMENT-BRIDGE-'+task+'-'+sid+'-'+Date.now(),studentId:sid,profile:{fullName:profile.fullName||profile.name||'',section:profile.section||'',group:profile.group||state.group||''},platformVersion:(window.HH_CONFIG&&window.HH_CONFIG.platformVersion)||'',currentStep:task,status:'รับผล '+(isPre?'Pre-test':'Post-test')+' จาก Assessment Analytics',clientTs:last.submittedAt||new Date().toISOString(),assessment:{type:task,form:form||last.form||task.toUpperCase(),score,total,responses:Array.isArray(last.responses)?last.responses:[],submittedAt:last.submittedAt||new Date().toISOString(),assessmentVersion:q.get('assessmentVersion')||last.assessmentVersion||'4.0',attemptId:last.attemptId||q.get('attemptId')||'',bridgeVersion:VERSION,scoreRecovered:!!last}};
 window.__HH_ASSESSMENT_BRIDGE_PENDING__=true;
-jsonp(payload).then(result=>{if(!result||result.ok!==true)throw new Error(result&&result.error||'authority_rejected');const s=readJSON(localStorage,STATE_KEY)||state;s.completed=s.completed||{};s.scores=s.scores||{};s.completed[task]=true;s.scores[task]=score;s.sheetAuthority=true;s.pendingAssessmentAuthority=null;s.lastAssessmentAuthorityBridge={task,studentId:sid,score,total,completedAt:new Date().toISOString(),version:VERSION};writeJSON(localStorage,STATE_KEY,s);['form','assessmentVersion','sheetSync'].forEach(k=>q.delete(k));history.replaceState({},'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash);location.reload()}).catch(err=>{console.error('[HeroHealth assessment bridge]',err);setTimeout(()=>location.reload(),12000)});
+jsonp({action:'submit',payload:JSON.stringify(payload)}).then(async result=>{if(!result||result.ok!==true)throw new Error(result&&result.error||'authority_rejected');let authority=result;if(!result.authoritativeState){try{authority=await jsonp({action:'student',studentId:sid,force:'1'},22000)}catch(_){authority=result}}const a=authority.authoritativeState||authority;const confirmed=task==='pretest'?(a.completed?.pretest===true||a.pretestCompleted===true||authority.pretestCompleted===true):(a.completed?.posttest===true||a.posttestCompleted===true||authority.posttestCompleted===true);if(!confirmed)throw new Error('assessment_not_confirmed_by_sheet');const s=readJSON(localStorage,STATE_KEY)||state;s.completed=s.completed||{};s.scores=s.scores||{};s.completed[task]=true;s.scores[task]=score;s.sheetAuthority=true;s.pendingAssessmentAuthority=null;s.lastAssessmentAuthorityBridge={task,studentId:sid,score,total,completedAt:new Date().toISOString(),version:VERSION};writeJSON(localStorage,STATE_KEY,s);['form','assessmentVersion','sheetSync','attemptId'].forEach(k=>q.delete(k));history.replaceState({},'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash);location.reload()}).catch(err=>{console.error('[HeroHealth assessment bridge]',err);const s=readJSON(localStorage,STATE_KEY)||state;s.sheetAuthority=false;s.pendingAssessmentAuthority={...(s.pendingAssessmentAuthority||{}),error:String(err?.message||err),lastTriedAt:new Date().toISOString(),version:VERSION};writeJSON(localStorage,STATE_KEY,s)});
 })();
