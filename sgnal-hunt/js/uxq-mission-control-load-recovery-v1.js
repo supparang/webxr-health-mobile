@@ -1,4 +1,4 @@
-/* CSAI2601 UX Quest • Mission Control Load Recovery v2
+/* CSAI2601 UX Quest • Mission Control Load Recovery v3
  * Front-end only. Google Sheet remains the sole official authority.
  * Prevents permanent loading, explains network failures, and offers safe retry
  * or Content Preview without creating local official progress.
@@ -11,11 +11,12 @@
   let started = false;
   let finished = false;
   let retryCount = 0;
+  let booted = false;
 
   const previewHref = () => {
     const url = new URL('./csai2601-mission-control.html', location.href);
     url.searchParams.set('contentPreview','1');
-    url.searchParams.set('v','content-preview-v10-20260728');
+    url.searchParams.set('v','content-preview-v11-20260728');
     return url.pathname + url.search;
   };
 
@@ -36,7 +37,16 @@
     return Boolean(String(p?.studentId || '').trim() && String(p?.section || '').trim());
   }
 
+  function updateHubGrid(message, tone='warning') {
+    const grid = document.getElementById('grid');
+    if (!grid) return;
+    grid.dataset.state = tone;
+    grid.innerHTML = `<div class="campaign-separator" data-mission-control-state="${tone}">${String(message || '')}</div>`;
+  }
+
   function updateProgressPanel(title, detail, state='warning') {
+    const progress = document.getElementById('progress');
+    if (progress) progress.textContent = title;
     const candidates = [
       document.querySelector('.studio-status-panel'),
       document.querySelector('.sheet-status-card'),
@@ -119,14 +129,18 @@
         action:'profile'
       });
       updateProgressPanel('ยังไม่ได้ระบุผู้เรียน','ระบบยังไม่อ่านหรือสร้างความก้าวหน้าใด ๆ','idle');
+      updateHubGrid('กรุณาระบุ Profile ก่อนโหลดเส้นทางรายวิชา','idle');
       return false;
     }
 
     if (!api?.restore) return false;
     started = true;
     setLoading(true);
+    updateProgressPanel('กำลังเชื่อมต่อ Google Sheet','กำลังตรวจสถานะ Mission, Studio และ Reflection','loading');
+    updateHubGrid('กำลังโหลดสถานะรายวิชาจาก Google Sheet…','loading');
     try {
-      await api.restore({ silent:true });
+      const result = await api.restore({ silent:true });
+      if (!result?.ok) throw new Error(result?.error || 'ไม่พบคำตอบที่ถูกต้องจาก Apps Script');
       finished = true;
       updateProgressPanel('เชื่อมต่อ Google Sheet แล้ว','ใช้ข้อมูลจาก Sheet เป็นสถานะทางการ','success');
       return true;
@@ -139,12 +153,13 @@
       const code = String(error?.code || error?.message || 'network_error');
       updateFallbackCopy({
         title:'ยังเชื่อมต่อ Google Sheet ไม่สำเร็จ',
-        desc:'หน้าไม่ค้างแล้ว และระบบจะไม่สร้างความก้าวหน้าจากข้อมูลในเครื่อง สามารถลองใหม่หรือเปิด Content Preview เพื่อตรวจ Front-end',
+        desc:'ระบบยังไม่ได้รับข้อมูลทางการและจะไม่สร้างความก้าวหน้าจากเครื่องนี้ สามารถลองเชื่อมต่อใหม่หรือเปิด Content Preview',
         button:'ลองเชื่อมต่อ Sheet อีกครั้ง',
         disabled:false,
         action:'retry'
       });
       updateProgressPanel('ยังไม่ได้รับข้อมูลทางการจาก Sheet',`การเชื่อมต่อล้มเหลว: ${code}`,'error');
+      updateHubGrid(`ยังไม่ได้รับสถานะจาก Google Sheet • ${code}`,'error');
       return false;
     } finally {
       setLoading(false);
@@ -170,30 +185,35 @@
       setLoading(false);
       updateFallbackCopy({
         title:'ส่วนเชื่อมต่อข้อมูลยังโหลดไม่ครบ',
-        desc:'หน้าไม่ค้างแล้ว ระบบยังไม่เปลี่ยนสถานะผู้เรียน สามารถลองใหม่หรือเปิด Content Preview',
+        desc:'ระบบยังไม่เปลี่ยนสถานะผู้เรียน สามารถลองใหม่หรือเปิด Content Preview',
         button:'ลองโหลดระบบอีกครั้ง',
         disabled:false,
         action:'retry'
       });
       updateProgressPanel('ส่วนเชื่อมต่อข้อมูลไม่พร้อม','ยังไม่มีการอ่านหรือเขียนความก้าวหน้า','error');
+      updateHubGrid('ส่วนเชื่อมต่อข้อมูลยังโหลดไม่ครบ • กรุณาลองอีกครั้ง','error');
       return false;
     }
     return tryRestore(force);
   }
 
   function boot() {
+    if (booted) return;
+    booted = true;
     setTimeout(() => {
       if (!started || !finished) setLoading(false);
     },MAX_WAIT_MS + 1000);
     scheduleRestore(false);
   }
 
-  document.addEventListener('DOMContentLoaded',boot,{once:true});
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else queueMicrotask(boot);
   window.addEventListener('uxq-profile-updated',() => scheduleRestore(true));
   window.addEventListener('online',() => { retryCount = 0; scheduleRestore(true); });
 
   window.UXQMissionControlLoadRecoveryV1 = Object.freeze({
     restore:() => scheduleRestore(true),
-    version:'20260728-MISSION-CONTROL-LOAD-RECOVERY-V2'
+    boot,
+    version:'20260729-MISSION-CONTROL-LOAD-RECOVERY-V3'
   });
 })();
