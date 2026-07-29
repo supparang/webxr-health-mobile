@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R37-TOOTHBRUSH-V27-JUMPDUCK-V36",
+  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R37-TOOTHBRUSH-V27-JUMPDUCK-V36-BALANCE-DIRECT-V32",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_HANDWASH_MOBILE_FULLVIEWPORT_R37_TOOTHBRUSH_CAMERA_RECOVERY_V27_JUMPDUCK_DIRECT_BODY_V36",
+  deploymentState: "QA_HANDWASH_MOBILE_FULLVIEWPORT_R37_TOOTHBRUSH_CAMERA_RECOVERY_V27_JUMPDUCK_DIRECT_BODY_V36_BALANCE_DIRECT_CLASSROOM_V32",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -118,7 +118,7 @@ window.HH_CONFIG = {
       games: [
         { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260729-direct-body-v36", status:"classroom-core-direct-body-v3.6-touch-assist", requiredReturnContract:true },
         { id:"rhythm-boxer", title:"Rhythm Boxer AR", thai:"ชกตามจังหวะ", url:"../fitness/rhythm-boxer-ar.html", status:"catalog-only", requiredReturnContract:true },
-        { id:"balance-hold", title:"Balance Hold AR", thai:"Balance Hold AR", url:"../fitness/balance-hold-ar2.html?classroom=1&mode=classroom&source=herohealth&v=20260725-classroom-autostart-v30", status:"classroom-core-autostart-v30-auto-submit", requiredReturnContract:true },
+        { id:"balance-hold", title:"Balance Hold AR", thai:"Balance Hold AR", url:"../fitness/balance-hold-ar2.html?classroom=1&mode=classroom&source=herohealth&v=20260729-balance-direct-v32", status:"classroom-core-autostart-v32-no-external-warmup", requiredReturnContract:true },
         { id:"shadow-breaker", title:"Shadow Breaker AR", thai:"ตอบสนองและเคลื่อนไหว", url:"../fitness/shadow-breaker-ar.html", status:"catalog-only", requiredReturnContract:true }
       ]
     }
