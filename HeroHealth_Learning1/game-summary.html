@@ -1,138 +1,40 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#0f766e">
-  <title>สรุปการเล่น HeroHealth</title>
-  <style>
-    :root{font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;color:#12302c;background:#f3fbf9}*{box-sizing:border-box}body{margin:0}.wrap{width:min(920px,100%);margin:auto;padding:14px}.hero,.card{background:#fff;border:1px solid #d6e9e4;border-radius:22px;box-shadow:0 12px 30px rgba(15,118,110,.1)}.hero{padding:22px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff}.hero p{color:#dcfffa}.card{padding:17px;margin-top:14px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.zone{border-top:6px solid var(--accent)}.games{display:grid;gap:8px;margin-top:12px}.game{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:11px 12px;border-radius:14px;background:#f4faf8}.game small{grid-column:1/-1}.ok{color:#087b62;font-weight:900}.missing{color:#b91c1c;font-weight:900}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}.kpi{padding:13px;border-radius:16px;background:rgba(255,255,255,.16);text-align:center}.kpi b{display:block;font-size:24px}.btn{width:100%;min-height:52px;border:0;border-radius:15px;padding:14px;font:inherit;font-weight:900;background:#0f766e;color:#fff}.btn:disabled{opacity:.45}.btn-soft{background:#e8f8f4;color:#087b62;margin-top:10px}.notice{padding:13px;border-radius:14px;background:#fff5db;color:#875d00;font-weight:800}.ready{background:#e8f8f4;color:#087b62}.error{background:#feecec;color:#991b1b}.muted{color:#5f7470}.authority{display:inline-flex;gap:7px;align-items:center;padding:7px 11px;border-radius:999px;background:#e8f8f4;color:#087b62;font-size:13px;font-weight:900}.spinner{width:18px;height:18px;border:3px solid #cfe3df;border-top-color:#0f766e;border-radius:50%;display:inline-block;animation:spin .8s linear infinite;vertical-align:middle}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:760px){.grid,.kpis{grid-template-columns:1fr}.hero{padding:18px}.wrap{padding:10px}}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0f766e">
+<title>สรุปการเล่น HeroHealth</title>
+<style>
+:root{font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;color:#12302c;background:#f3fbf9}*{box-sizing:border-box}body{margin:0}.wrap{width:min(920px,100%);margin:auto;padding:14px}.hero,.card{background:#fff;border:1px solid #d6e9e4;border-radius:22px;box-shadow:0 12px 30px rgba(15,118,110,.1)}.hero{padding:22px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff}.hero p{color:#dcfffa}.card{padding:17px;margin-top:14px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.zone{border-top:6px solid var(--accent)}.games{display:grid;gap:8px;margin-top:12px}.game{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:11px 12px;border-radius:14px;background:#f4faf8}.game small{grid-column:1/-1}.ok{color:#087b62;font-weight:900}.missing{color:#b91c1c;font-weight:900}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}.kpi{padding:13px;border-radius:16px;background:rgba(255,255,255,.16);text-align:center}.kpi b{display:block;font-size:24px}.btn{width:100%;min-height:52px;border:0;border-radius:15px;padding:14px;font:inherit;font-weight:900;background:#0f766e;color:#fff}.btn:disabled{opacity:.45}.btn-soft{background:#e8f8f4;color:#087b62;margin-top:10px}.notice{padding:13px;border-radius:14px;background:#fff5db;color:#875d00;font-weight:800}.ready{background:#e8f8f4;color:#087b62}.error{background:#fee2e2;color:#991b1b}.muted{color:#5f7470}.authority{display:inline-block;margin-left:8px;padding:4px 8px;border-radius:999px;background:#d1fae5;color:#065f46;font-size:12px}.spinner{display:inline-block;width:16px;height:16px;border:3px solid #cbd5e1;border-top-color:#0f766e;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-3px}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:760px){.grid,.kpis{grid-template-columns:1fr}.hero{padding:18px}.wrap{padding:10px}}
+</style>
 </head>
 <body>
 <main class="wrap">
-  <section class="hero">
-    <small>HEROHEALTH • SHEET-AUTHORITATIVE SUMMARY V2</small>
-    <h1>สรุปการเล่นทั้งหมด</h1>
-    <p id="who">กำลังตรวจผลการเล่นจาก Google Sheet</p>
-    <div class="kpis">
-      <div class="kpi"><span>เกมที่กำหนด</span><b id="total">6</b></div>
-      <div class="kpi"><span>เล่นครบ</span><b id="done">–</b></div>
-      <div class="kpi"><span>คะแนนเฉลี่ย</span><b id="avg">–</b></div>
-      <div class="kpi"><span>ความพร้อม</span><b id="ready">กำลังตรวจ</b></div>
-    </div>
-  </section>
-  <section id="status" class="card"><div class="notice"><span class="spinner"></span> กำลังขอข้อมูลทางการจาก Google Sheet กรุณาไม่ปิดหน้านี้</div></section>
-  <section id="zones" class="grid"></section>
-  <section class="card">
-    <h2>ก่อนทำ Post-test</h2>
-    <p class="muted">Google Sheet ต้องยืนยันว่าภารกิจทั้ง 6 เกมถูกบันทึกครบแล้ว จึงจะเปิด Post-test ได้ สถานะในเครื่องไม่สามารถปลดล็อกแทน Sheet ได้</p>
-    <button id="continue" class="btn" disabled>กำลังตรวจ Google Sheet…</button>
-    <button id="retry" class="btn btn-soft">ตรวจ Google Sheet อีกครั้ง</button>
-    <button id="back" class="btn btn-soft">กลับ Hero Passport</button>
-  </section>
+<section class="hero"><small>HEROHEALTH • SHEET-AUTHORITATIVE SUMMARY</small><h1>สรุปการเล่นทั้งหมด</h1><p id="who">กำลังตรวจผลจาก Google Sheet</p><div class="kpis"><div class="kpi"><span>เกมที่กำหนด</span><b id="total">0</b></div><div class="kpi"><span>เล่นครบ</span><b id="done">0</b></div><div class="kpi"><span>คะแนนเฉลี่ย</span><b id="avg">–</b></div><div class="kpi"><span>ความพร้อม</span><b id="ready">–</b></div></div></section>
+<section id="status" class="card"></section>
+<section id="zones" class="grid"></section>
+<section class="card"><h2>ก่อนทำ Post-test</h2><p class="muted">ระบบใช้ Google Sheet เป็นแหล่งข้อมูลทางการเพียงแห่งเดียว และจะไม่ใช้ข้อมูลในเครื่องปลดล็อก Post-test</p><button id="continue" class="btn" disabled>กำลังตรวจ Google Sheet…</button><button id="retry" class="btn btn-soft">ตรวจ Google Sheet อีกครั้ง</button><button id="back" class="btn btn-soft">กลับ Hero Passport</button></section>
 </main>
-<script src="./data/platform-config.js?v=20260729-summary-authority-v2"></script>
-<script src="./data/backend-config.js?v=20260729-summary-authority-v2"></script>
-<script src="./assets/student-resume-v7-mobile.js?v=20260729-summary-authority-v2"></script>
+<script src="./data/platform-config.js?v=20260729-legacy-certificate-fix-v1"></script>
+<script src="./data/backend-config.js?v=20260729-legacy-certificate-fix-v1"></script>
+<script src="./assets/student-resume-v7-mobile.js?v=20260729-legacy-certificate-fix-v1"></script>
+<script src="./assets/legacy-certificate-authority-fix-v1.js?v=20260729-legacy-certificate-fix-v1"></script>
 <script>
-(() => {
-  'use strict';
-  const KEY='herohealth_learning_platform_rc2';
-  const q=new URLSearchParams(location.search);
-  const cfg=window.HH_CONFIG||{};
-  const zoneIds=['hygiene','nutrition','fitness'];
-  const $=id=>document.getElementById(id);
-  const read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return{}}};
-  const write=s=>localStorage.setItem(KEY,JSON.stringify(s));
-  const norm=v=>String(v||'').trim().replace(/\s+/g,'');
-  const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
-  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-
-  function missionFor(state){return cfg.missionProfiles?.[state.activeMissionProfile||cfg.activeMissionProfile]||cfg.missionProfiles?.CLASS_60||{games:{}}}
-  function resultMeta(state,zoneId,gameId){
-    const key=zoneId+':'+gameId;
-    const r=state.gameResults?.[key]||state.gameResults?.[gameId]||{};
-    return {
-      score:num(state.gameScores?.[key]??r.bestScore??r.score),
-      attempts:num(r.attempts??r.attemptCount??r.totalAttempts),
-      duration:num(r.durationSec??r.duration??r.timeSeconds),
-      passed:r.passed===true,
-      syncedAt:r.syncedAt||r.completedAt||r.timestamp||''
-    };
-  }
-  function build(state){
-    const mission=missionFor(state);
-    return zoneIds.map(id=>{
-      const z=(cfg.zones||[]).find(x=>x.id===id)||{id,thai:id,emoji:'🎯',accent:'#0f766e',games:[]};
-      const games=(mission.games?.[id]||[]).map(gameId=>{
-        const g=(z.games||[]).find(x=>x.id===gameId)||{id:gameId,thai:gameId};
-        const meta=resultMeta(state,id,gameId);
-        return {...g,...meta,complete:state.gameCompleted?.[id]?.[gameId]===true};
-      });
-      return {...z,requiredGames:games};
-    });
-  }
-  function render(state,{error='' }={}){
-    const p=state.profile||{};
-    const studentId=norm(q.get('studentId')||p.studentId);
-    const fullName=q.get('fullName')||p.fullName||'';
-    const section=q.get('section')||p.section||'';
-    const group=q.get('group')||state.group||p.group||'';
-    const zones=build(state),allGames=zones.flatMap(z=>z.requiredGames),completed=allGames.filter(g=>g.complete);
-    const scores=completed.map(g=>g.score).filter(Number.isFinite);
-    const sheetFresh=state.sheetAuthority===true&&!state.offlineAuthority&&!!state.lastAuthoritySyncAt;
-    const allZonesDone=zoneIds.every(id=>state.completed?.[id]===true);
-    const allGamesDone=allGames.length===6&&completed.length===allGames.length;
-    const eligible=sheetFresh&&allZonesDone&&allGamesDone;
-    $('who').textContent=`${fullName||'นักเรียน'} • รหัส ${studentId||'-'} • ห้อง ${section||'-'} • กลุ่ม ${group||'-'}`;
-    $('total').textContent=String(allGames.length);
-    $('done').textContent=String(completed.length);
-    $('avg').textContent=scores.length?`${Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)}%`:'–';
-    $('ready').textContent=eligible?'พร้อม':sheetFresh?'ยังไม่ครบ':'รอ Sheet';
-    if(error){$('status').innerHTML=`<div class="notice error">❌ ยังเชื่อม Google Sheet ไม่สำเร็จ: ${esc(error)}<br><span class="muted">ระบบไม่อนุญาตให้ใช้ localStorage ปลดล็อก Post-test</span></div>`}
-    else if(eligible){$('status').innerHTML=`<div class="notice ready">✅ Google Sheet ยืนยันครบทั้ง 6 เกมแล้ว <span class="authority">Sheet Authority</span></div>`}
-    else if(sheetFresh){$('status').innerHTML=`<div class="notice">⚠️ Google Sheet ยืนยันแล้วว่ายังขาด ${Math.max(0,allGames.length-completed.length)} เกม กรุณากลับไปทำภารกิจที่ยังไม่ครบ</div>`}
-    else{$('status').innerHTML='<div class="notice"><span class="spinner"></span> กำลังตรวจข้อมูลทางการจาก Google Sheet</div>'}
-    $('zones').innerHTML=zones.map(z=>{
-      const done=z.requiredGames.filter(g=>g.complete).length;
-      const zs=z.requiredGames.map(g=>g.score).filter(Number.isFinite);
-      const avg=zs.length?Math.round(zs.reduce((a,b)=>a+b,0)/zs.length):null;
-      return `<article class="card zone" style="--accent:${esc(z.accent||'#0f766e')}"><h2>${z.emoji||'🎯'} ${esc(z.thai||z.id)}</h2><p class="muted">ครบ ${done}/${z.requiredGames.length}${avg!==null?` • เฉลี่ย ${avg}%`:''}</p><div class="games">${z.requiredGames.map(g=>{const extra=[];if(Number.isFinite(g.attempts))extra.push(`ลอง ${g.attempts} ครั้ง`);if(Number.isFinite(g.duration))extra.push(`เวลา ${Math.round(g.duration)} วินาที`);return `<div class="game"><span>${g.complete?'✅':'⬜'} ${esc(g.thai||g.id)}</span><span class="${g.complete?'ok':'missing'}">${g.complete?(Number.isFinite(g.score)?`${g.score}%`:'บันทึกแล้ว'):'ยังไม่ครบ'}</span>${extra.length?`<small class="muted">${extra.join(' • ')}</small>`:''}</div>`}).join('')}</div></article>`;
-    }).join('');
-    const btn=$('continue');btn.disabled=!eligible;btn.textContent=eligible?'ยืนยันสรุปและเริ่ม Post-test':'Post-test ยังล็อก';
-    btn.onclick=()=>{
-      if(!eligible)return;
-      const acknowledgedAt=new Date().toISOString();
-      state.completed={...(state.completed||{}),gameSummary:true};
-      state.gameSummaryViewedAt=acknowledgedAt;
-      state.gameSummaryAuthority={studentId,sheetVersion:state.sheetVersion||'',lastAuthoritySyncAt:state.lastAuthoritySyncAt,requiredGames:allGames.map(g=>g.id),completedGames:completed.map(g=>g.id),acknowledgedAt};
-      write(state);
-      sessionStorage.setItem('hh_summary_authority:'+studentId,JSON.stringify(state.gameSummaryAuthority));
-      const u=new URL('./assessment/posttest.html',location.href);
-      [['studentId',studentId],['fullName',fullName],['section',section],['group',group],['summaryAuthority','1'],['return','../index.html']].forEach(([k,v])=>{if(v)u.searchParams.set(k,v)});
-      location.replace(u.href);
-    };
-  }
-  async function refresh(){
-    const local=read(),sid=norm(q.get('studentId')||local.profile?.studentId);
-    if(!sid){render(local,{error:'ไม่พบรหัสนักเรียน'});return}
-    $('continue').disabled=true;$('continue').textContent='กำลังตรวจ Google Sheet…';
-    $('status').innerHTML='<div class="notice"><span class="spinner"></span> กำลังโหลดข้อมูลล่าสุดจาก Google Sheet</div>';
-    try{
-      if(!window.HHStudentResume?.getStudent||!window.HHStudentResume?.officialState)throw new Error('โหลดระบบ Sheet Authority ไม่สำเร็จ');
-      const api=await window.HHStudentResume.getStudent(sid);
-      const baseProfile={...(local.profile||{}),studentId:sid,fullName:q.get('fullName')||local.profile?.fullName||'',section:q.get('section')||local.profile?.section||'',group:q.get('group')||local.profile?.group||local.group||''};
-      const official=window.HHStudentResume.officialState(baseProfile,api);
-      official.offlineAuthority=false;
-      write(official);
-      render(official);
-    }catch(e){render(local,{error:String(e?.message||e)})}
-  }
-  $('retry').onclick=refresh;
-  $('back').onclick=()=>location.href=q.get('return')||'./index.html';
-  render(read());
-  setTimeout(refresh,0);
+(()=>{
+'use strict';
+const KEY='herohealth_learning_platform_rc2',q=new URLSearchParams(location.search),cfg=window.HH_CONFIG||{},zoneIds=['hygiene','nutrition','fitness'],$=id=>document.getElementById(id),read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return{}}},write=s=>localStorage.setItem(KEY,JSON.stringify(s)),norm=v=>String(v||'').trim().replace(/\s+/g,''),num=v=>{const n=Number(v);return Number.isFinite(n)?n:null},esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function missionFor(s){return cfg.missionProfiles?.[s.activeMissionProfile||cfg.activeMissionProfile]||cfg.missionProfiles?.CLASS_60||{games:{}}}
+function resultMeta(s,z,g){const k=z+':'+g,r=s.gameResults?.[k]||s.gameResults?.[g]||{};return{score:num(s.gameScores?.[k]??r.bestScore??r.score),attempts:num(r.attempts??r.attemptCount??r.totalAttempts),duration:num(r.durationSec??r.duration??r.timeSeconds)}}
+function build(s){const m=missionFor(s);return zoneIds.map(id=>{const z=(cfg.zones||[]).find(x=>x.id===id)||{id,thai:id,emoji:'🎯',accent:'#0f766e',games:[]};return{...z,requiredGames:(m.games?.[id]||[]).map(gameId=>{const g=(z.games||[]).find(x=>x.id===gameId)||{id:gameId,thai:gameId};return{...g,...resultMeta(s,id,gameId),complete:s.gameCompleted?.[id]?.[gameId]===true}})}})}
+function render(s,opt={}){const p=s.profile||{},sid=norm(q.get('studentId')||p.studentId),name=q.get('fullName')||p.fullName||'',section=q.get('section')||p.section||'',group=q.get('group')||s.group||p.group||'',zones=build(s),all=zones.flatMap(z=>z.requiredGames),done=all.filter(g=>g.complete),scores=done.map(g=>g.score).filter(Number.isFinite),fresh=s.sheetAuthority===true&&!s.offlineAuthority&&!!s.lastAuthoritySyncAt,allZones=zoneIds.every(id=>s.completed?.[id]===true),eligible=fresh&&all.length===6&&done.length===6&&allZones;
+$('who').textContent=`${name||'นักเรียน'} • รหัส ${sid||'-'} • ห้อง ${section||'-'} • กลุ่ม ${group||'-'}`;$('total').textContent=String(all.length);$('done').textContent=String(done.length);$('avg').textContent=scores.length?`${Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)}%`:'–';$('ready').textContent=eligible?'พร้อม':fresh?'ยังไม่ครบ':'รอ Sheet';
+if(opt.error)$('status').innerHTML=`<div class="notice error">❌ ยังเชื่อม Google Sheet ไม่สำเร็จ: ${esc(opt.error)}<br><span class="muted">Post-test ยังคงล็อก</span></div>`;else if(s.legacyCertificateRestored)$('status').innerHTML='<div class="notice ready">✅ พบ Certificate เดิมใน Google Sheet ระบบยืนยันว่าจบภารกิจแล้ว <span class="authority">Legacy Certificate Restored</span></div>';else if(eligible)$('status').innerHTML='<div class="notice ready">✅ Google Sheet ยืนยันครบทั้ง 6 เกมแล้ว <span class="authority">Sheet Authority</span></div>';else if(fresh)$('status').innerHTML=`<div class="notice">⚠️ Google Sheet ยืนยันแล้วว่ายังขาด ${Math.max(0,all.length-done.length)} เกม</div>`;else $('status').innerHTML='<div class="notice"><span class="spinner"></span> กำลังตรวจข้อมูลทางการจาก Google Sheet</div>';
+$('zones').innerHTML=zones.map(z=>{const zd=z.requiredGames.filter(g=>g.complete).length,zs=z.requiredGames.map(g=>g.score).filter(Number.isFinite),za=zs.length?Math.round(zs.reduce((a,b)=>a+b,0)/zs.length):null;return `<article class="card zone" style="--accent:${esc(z.accent||'#0f766e')}"><h2>${z.emoji||'🎯'} ${esc(z.thai||z.id)}</h2><p class="muted">ครบ ${zd}/${z.requiredGames.length}${za!==null?` • เฉลี่ย ${za}%`:''}</p><div class="games">${z.requiredGames.map(g=>{const extra=[];if(Number.isFinite(g.attempts))extra.push(`ลอง ${g.attempts} ครั้ง`);if(Number.isFinite(g.duration))extra.push(`เวลา ${Math.round(g.duration)} วินาที`);return `<div class="game"><span>${g.complete?'✅':'⬜'} ${esc(g.thai||g.id)}</span><span class="${g.complete?'ok':'missing'}">${g.complete?(Number.isFinite(g.score)?`${g.score}%`:'บันทึกแล้ว'):'ยังไม่ครบ'}</span>${extra.length?`<small class="muted">${extra.join(' • ')}</small>`:''}</div>`}).join('')}</div></article>`}).join('');
+const btn=$('continue');btn.disabled=!eligible;btn.textContent=eligible?'ยืนยันสรุปและเริ่ม Post-test':'Post-test ยังล็อก';btn.onclick=()=>{if(!eligible)return;const at=new Date().toISOString();s.completed={...(s.completed||{}),gameSummary:true};s.gameSummaryViewedAt=at;s.gameSummaryAuthority={studentId:sid,sheetVersion:s.sheetVersion||'',lastAuthoritySyncAt:s.lastAuthoritySyncAt,requiredGames:all.map(g=>g.id),completedGames:done.map(g=>g.id),acknowledgedAt:at};write(s);sessionStorage.setItem('hh_summary_authority:'+sid,JSON.stringify(s.gameSummaryAuthority));const u=new URL('./assessment/posttest.html',location.href);[['studentId',sid],['fullName',name],['section',section],['group',group],['summaryAuthority','1'],['return','../index.html']].forEach(([k,v])=>{if(v)u.searchParams.set(k,v)});location.replace(u.href)};
+}
+async function refresh(){const local=read(),sid=norm(q.get('studentId')||local.profile?.studentId);if(!sid){render(local,{error:'ไม่พบรหัสนักเรียน'});return}$('continue').disabled=true;$('continue').textContent='กำลังตรวจ Google Sheet…';try{if(!window.HHStudentResume?.getStudent||!window.HHStudentResume?.officialState)throw new Error('โหลดระบบ Sheet Authority ไม่สำเร็จ');const api=await window.HHStudentResume.getStudent(sid),base={...(local.profile||{}),studentId:sid,fullName:q.get('fullName')||local.profile?.fullName||'',section:q.get('section')||local.profile?.section||'',group:q.get('group')||local.profile?.group||local.group||''},official=window.HHStudentResume.officialState(base,api);official.offlineAuthority=false;write(official);render(official)}catch(e){render(local,{error:String(e?.message||e)})}}
+$('retry').onclick=refresh;$('back').onclick=()=>location.href=q.get('return')||'./index.html';render(read());setTimeout(refresh,100);
 })();
 </script>
 </body>
