@@ -8,26 +8,26 @@
 <style>
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#03131d;font-family:system-ui,sans-serif}
 .bar{position:fixed;z-index:20;top:0;left:0;right:0;height:60px;display:flex;align-items:center;gap:8px;padding:8px 10px;background:#03131df5;color:#fff}.bar b{flex:1}.bar button,.btn{border:0;border-radius:12px;min-height:44px;padding:9px 12px;font:inherit;font-weight:900}.back{background:#173b4b;color:#fff}.status{font-size:13px;opacity:.9}
-iframe{position:fixed;top:60px;left:0;width:100%;height:calc(100% - 60px);border:0;background:#000}.overlay{position:fixed;z-index:50;inset:60px 0 0;display:none;place-items:center;padding:18px;background:#010a12e8}.overlay.show{display:grid}.card{width:min(560px,96vw);padding:24px;border-radius:24px;background:#fff;color:#12302c;text-align:center}.score{font-size:36px;font-weight:1000;color:#0f766e}.btn{width:100%;background:#0f766e;color:#fff}.btn:disabled{opacity:.55}.sync{min-height:54px;font-weight:800;color:#0f766e;white-space:pre-line}.loading{position:fixed;z-index:45;inset:60px 0 0;display:grid;place-items:center;background:#03131d;color:#fff}.loading.hide{display:none}.audit{margin:12px 0;padding:10px;border-radius:12px;background:#ecfdf5;color:#065f46;font-size:12px;font-weight:800}.error{color:#b91c1c}.secondary{margin-top:9px;background:#e6f6f4;color:#0f766e}
+iframe{position:fixed;top:60px;left:0;width:100%;height:calc(100% - 60px);border:0;background:#000}.overlay{position:fixed;z-index:50;inset:60px 0 0;display:none;place-items:center;padding:18px;background:#010a12e8}.overlay.show{display:grid}.card{width:min(560px,96vw);padding:24px;border-radius:24px;background:#fff;color:#12302c;text-align:center}.score{font-size:36px;font-weight:1000;color:#0f766e}.btn{width:100%;background:#0f766e;color:#fff}.btn:disabled{opacity:.55}.sync{min-height:54px;font-weight:800;color:#0f766e;white-space:pre-line}.loading{position:fixed;z-index:45;inset:60px 0 0;display:grid;place-items:center;background:#03131d;color:#fff}.loading.hide{display:none}.audit{margin:12px 0;padding:10px;border-radius:12px;background:#ecfdf5;color:#065f46;font-size:12px;font-weight:800}.audit.fail{background:#fff7ed;color:#9a3412}.error{color:#b91c1c}.secondary{margin-top:9px;background:#e6f6f4;color:#0f766e}
 </style>
 </head>
 <body>
 <header class="bar"><button id="back" class="back">← กลับ Passport</button><b id="title">HeroHealth</b><small id="status" class="status">กำลังเตรียมเกม</small></header>
 <iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe>
 <section id="loading" class="loading"><b>กำลังเตรียมภารกิจ</b></section>
-<section id="overlay" class="overlay"><div class="card"><div style="font-size:56px">🏆</div><h1 id="overlayTitle">จบภารกิจแล้ว</h1><div id="score" class="score">ทำภารกิจครบแล้ว</div><div id="audit" class="audit">กำลังตรวจสอบผล</div><p id="sync" class="sync">กำลังเตรียมบันทึกผล</p><button id="returnBtn" class="btn">บันทึกผลและกลับ Passport</button><button id="leaveBtn" class="btn secondary">กลับ Passport โดยรอ Sheet ยืนยันภายหลัง</button></div></section>
+<section id="overlay" class="overlay"><div class="card"><div id="overlayIcon" style="font-size:56px">🏆</div><h1 id="overlayTitle">จบภารกิจแล้ว</h1><div id="score" class="score">ทำภารกิจครบแล้ว</div><div id="audit" class="audit">กำลังตรวจสอบผล</div><p id="sync" class="sync">กำลังเตรียมบันทึกผล</p><button id="returnBtn" class="btn">บันทึกผลและกลับ Passport</button><button id="leaveBtn" class="btn secondary">กลับ Passport โดยรอ Sheet ยืนยันภายหลัง</button></div></section>
 <script src="./data/backend-config.js?v=20260728-authority-reconcile-r32"></script>
 <script src="./assets/mobile-classroom-ui-v1.js?v=20260726-mobile-all-pages-v1"></script>
 <script>
 (()=>{'use strict';
-const RELEASE='20260728-GAME-SHELL-AUTHORITY-RECONCILE-R32';
+const RELEASE='20260729-GAME-SHELL-GOODJUNK-PASS-GUARD-R33';
 const STATE_KEY='herohealth_learning_platform_rc2',QUEUE_KEY='herohealth_backend_queue_v7',RESUME_PREFIX='herohealth_student_resume_v6:';
-const RESULT_KEYS=['HHA_GROUPS_AR_LAST_RESULT','HHA_GOODJUNK_AR_LAST_RESULT','HHA_HANDWASH_LAST_RESULT','HHA_TOOTHBRUSH_LAST_RESULT','toothbrush_pending_result','HHA_JUMPDUCK_LAST_RESULT','HHA_BALANCE_HOLD_LAST_RESULT'];
+const RESULT_KEYS=['HHA_GROUPS_AR_LAST_RESULT','HHA_GOODJUNK_AR_LAST_RESULT','HHA_GOODJUNK_AR_LAST','HHA_HANDWASH_LAST_RESULT','HHA_TOOTHBRUSH_LAST_RESULT','toothbrush_pending_result','HHA_JUMPDUCK_LAST_RESULT','HHA_BALANCE_HOLD_LAST_RESULT'];
 const q=new URLSearchParams(location.search),target=q.get('target'),back=q.get('return')||'./index.html',sid=String(q.get('studentId')||'').trim(),zone=String(q.get('zone')||'').trim(),gameId=String(q.get('gameId')||'').trim(),section=q.get('section')||'',group=q.get('group')||'';
-const strictHandwash=gameId==='handwash';
+const strictHandwash=gameId==='handwash',strictGoodjunk=gameId==='goodjunk';
 const f=document.getElementById('game'),ov=document.getElementById('overlay'),loading=document.getElementById('loading'),statusEl=document.getElementById('status'),returnBtn=document.getElementById('returnBtn'),leaveBtn=document.getElementById('leaveBtn'),syncEl=document.getElementById('sync'),auditEl=document.getElementById('audit'),endpoint=String(window.HH_CONFIG?.backend?.webAppUrl||'').trim();
-const openedAtMs=Date.now(),openedAt=new Date(openedAtMs).toISOString(),sessionId=`GS-R32-${sid}-${zone}-${gameId}-${openedAtMs}-${Math.random().toString(36).slice(2,7)}`;
-let startedAt='',startedAtMs=0,ended=false,syncing=false,result={completed:false,passed:false,score:0,accuracy:0,eventId:'',scoreAvailable:false},automaticRounds=0,lastError='';
+const openedAtMs=Date.now(),openedAt=new Date(openedAtMs).toISOString(),sessionId=`GS-R33-${sid}-${zone}-${gameId}-${openedAtMs}-${Math.random().toString(36).slice(2,7)}`;
+let startedAt='',startedAtMs=0,ended=false,syncing=false,result={completed:false,procedureCompleted:false,progressionEligible:false,passed:false,score:0,accuracy:0,eventId:'',scoreAvailable:false},automaticRounds=0,lastError='';
 document.getElementById('title').textContent=q.get('title')||gameId;
 if(!target){statusEl.textContent='ไม่พบเกม';throw new Error('missing_target')}
 if(!sid||!zone||!gameId){statusEl.textContent='ข้อมูลผู้เล่นไม่ครบ';throw new Error('missing_classroom_identity')}
@@ -40,7 +40,7 @@ function writeJson(k,v){try{localStorage.setItem(k,JSON.stringify(v));return tru
 function state(){return readJson(STATE_KEY,{})}
 function enqueue(payload){const list=readJson(QUEUE_KEY,[]);if(!list.some(x=>x.eventId===payload.eventId)){list.push(payload);writeJson(QUEUE_KEY,list.slice(-80))}}
 function dequeue(eventId){writeJson(QUEUE_KEY,readJson(QUEUE_KEY,[]).filter(x=>x.eventId!==eventId))}
-function jsonp(params,timeout=30000){return new Promise((resolve,reject)=>{if(!endpoint){reject(new Error('backend_url_missing'));return}const cb='HHGAME32_'+Date.now()+'_'+Math.random().toString(36).slice(2),s=document.createElement('script');let done=false;const finish=(e,d)=>{if(done)return;done=true;clearTimeout(t);try{delete window[cb]}catch(_){}s.remove();e?reject(e):resolve(d)};const t=setTimeout(()=>finish(new Error('sheet_timeout')),timeout);window[cb]=d=>finish(null,d);s.onerror=()=>finish(new Error('sheet_load_failed'));s.src=endpoint+(endpoint.includes('?')?'&':'?')+new URLSearchParams({...params,callback:cb,_:Date.now()});document.head.appendChild(s)})}
+function jsonp(params,timeout=30000){return new Promise((resolve,reject)=>{if(!endpoint){reject(new Error('backend_url_missing'));return}const cb='HHGAME33_'+Date.now()+'_'+Math.random().toString(36).slice(2),s=document.createElement('script');let done=false;const finish=(e,d)=>{if(done)return;done=true;clearTimeout(t);try{delete window[cb]}catch(_){}s.remove();e?reject(e):resolve(d)};const t=setTimeout(()=>finish(new Error('sheet_timeout')),timeout);window[cb]=d=>finish(null,d);s.onerror=()=>finish(new Error('sheet_load_failed'));s.src=endpoint+(endpoint.includes('?')?'&':'?')+new URLSearchParams({...params,callback:cb,_:Date.now()});document.head.appendChild(s)})}
 function onStart(){if(!startedAt){startedAtMs=Date.now();startedAt=new Date(startedAtMs).toISOString();statusEl.textContent='กำลังเล่น'}}
 function clearStaleResults(){try{const w=f.contentWindow;RESULT_KEYS.forEach(k=>{try{w.localStorage.removeItem(k)}catch(_){}});for(const k of ['__TOOTHBRUSH_LAST_RESULT__','__HANDWASH_LAST_RESULT__','__GROUPS_LAST_RESULT__','__GOODJUNK_LAST_RESULT__','__JUMPDUCK_LAST_RESULT__','__BALANCE_HOLD_LAST_RESULT__'])try{delete w[k]}catch(_){} }catch(_){} }
 function resultTimestamp(raw){for(const k of ['finishedAt','submittedAt','timestamp','ts','endedAt','createdAt']){const v=raw?.[k];if(!v)continue;const t=typeof v==='number'?v:Date.parse(v);if(Number.isFinite(t))return t}return 0}
@@ -61,29 +61,47 @@ function handwashAudit(raw){
  const valid=yes(raw?.completed)&&rubDone>=7&&rubTotal>=7&&processDone>=5&&processTotal>=5&&wristsPassed&&analyticsReady;
  return{valid,skillPassed:yes(raw?.passed),rubDone,rubTotal,processDone,processTotal,wristsPassed,analyticsReady,metricCompletenessPct:num(raw?.metricCompletenessPct),rowCount:rows.length};
 }
+function textNum(d,id,fallback=0){return Math.max(num(fallback),num(d?.getElementById(id)?.textContent))}
+function goodjunkAudit(raw,d){
+ const score=textNum(d,'mScore',raw?.score??raw?.totalScore);
+ const accuracy=textNum(d,'mAcc',raw?.accuracy);
+ const reasonAccuracy=textNum(d,'mReason',raw?.reasonAccuracy);
+ const retryAccuracy=textNum(d,'mRetry',raw?.retryAccuracy);
+ const bossText=String(d?.getElementById('mBoss')?.textContent||'').trim();
+ const bossWin=yes(raw?.bossWin)||(/ผ่าน/.test(bossText)&&!/ยังไม่ผ่าน/.test(bossText));
+ const passed=score>=60&&accuracy>=70&&reasonAccuracy>=70&&retryAccuracy>=70&&bossWin;
+ return{passed,score,accuracy,reasonAccuracy,retryAccuracy,bossWin,criteria:'score>=60; accuracy>=70; reason>=70; retry>=70; bossWin=true'};
+}
 function read(){
  try{
-  const d=f.contentDocument,raw=rawResult();let score=num(raw.score??raw.totalScore);for(const id of ['score','scoreText','summaryScore','sumScore','finalScore'])score=Math.max(score,num(d?.getElementById(id)?.textContent));let accuracy=num(raw.accuracy??raw.direction_accuracy??raw.overall_direction_accuracy);for(const id of ['accuracy','accuracyText','summaryAccuracy','sumAccuracy','finalAcc'])accuracy=Math.max(accuracy,num(d?.getElementById(id)?.textContent));
+  const d=f.contentDocument,raw=rawResult();let score=num(raw.score??raw.totalScore);for(const id of ['score','scoreText','summaryScore','sumScore','finalScore','mScore'])score=Math.max(score,num(d?.getElementById(id)?.textContent));let accuracy=num(raw.accuracy??raw.direction_accuracy??raw.overall_direction_accuracy);for(const id of ['accuracy','accuracyText','summaryAccuracy','sumAccuracy','finalAcc','mAcc'])accuracy=Math.max(accuracy,num(d?.getElementById(id)?.textContent));
   const scoreAvailable=score>0||raw.scoreAvailable===true;
   if(strictHandwash){const audit=handwashAudit({...result,...raw});result={...result,...raw,studentId:sid,zone,gameId,completed:audit.valid,procedureCompleted:audit.valid,progressionEligible:audit.valid,passed:audit.skillPassed,score,accuracy,scoreAvailable,eventId:raw.eventId||raw.attemptId||result.eventId||eid(),singleAttemptPolicy:true,skillCriteriaMet:audit.skillPassed,originalPassed:raw.passed===true,handwashAudit:audit};}
+  else if(strictGoodjunk){const audit=goodjunkAudit({...result,...raw},d);result={...result,...raw,studentId:sid,zone,gameId,completed:audit.passed,procedureCompleted:true,progressionEligible:audit.passed,passed:audit.passed,score:audit.score,accuracy:audit.accuracy,reasonAccuracy:audit.reasonAccuracy,retryAccuracy:audit.retryAccuracy,bossWin:audit.bossWin,scoreAvailable:true,eventId:raw.eventId||raw.attemptId||raw.record_id||result.eventId||eid(),singleAttemptPolicy:false,retryRequired:!audit.passed,skillCriteriaMet:audit.passed,originalPassed:raw.passed===true,goodjunkAudit:audit};}
   else result={...result,...raw,studentId:sid,zone,gameId,completed:true,procedureCompleted:true,progressionEligible:true,passed:raw.passed!==false,score,accuracy,scoreAvailable,eventId:raw.eventId||raw.record_id||result.eventId||eid(),singleAttemptPolicy:true,skillCriteriaMet:raw.passed===true||raw.skillMet===true||raw.learning_complete===true||String(raw.learning_complete||'').toLowerCase()==='yes',originalPassed:raw.passed===true};
- }catch(_){if(!strictHandwash)result={...result,studentId:sid,zone,gameId,completed:true,procedureCompleted:true,progressionEligible:true,passed:true,eventId:result.eventId||eid(),singleAttemptPolicy:true}}
+ }catch(_){if(!strictHandwash&&!strictGoodjunk)result={...result,studentId:sid,zone,gameId,completed:true,procedureCompleted:true,progressionEligible:true,passed:true,eventId:result.eventId||eid(),singleAttemptPolicy:true}}
  return result;
 }
+function configureDefaultButtons(){returnBtn.onclick=()=>{automaticRounds=0;finishAndGo(false)};leaveBtn.onclick=leavePending;document.getElementById('back').onclick=leavePending}
 function show(payload={}){
  if(ended||!startedAtMs)return;
  result={...result,...payload,studentId:sid,zone,gameId};read();
  if(strictHandwash&&!result.completed){const a=result.handwashAudit||handwashAudit(result);statusEl.textContent=`ยังไม่จบ • ${a.rubDone}/7 ท่าถู • Analytics ${a.metricCompletenessPct}%`;return}
- ended=true;document.getElementById('score').textContent=result.scoreAvailable?`${result.score} คะแนน`:'ทำภารกิจครบแล้ว';document.getElementById('overlayTitle').textContent=strictHandwash?'ทำ Handwash ครบ 7 ขั้น':'จบภารกิจแล้ว';
- if(strictHandwash){const a=result.handwashAudit||handwashAudit(result);auditEl.textContent=`ท่าถู ${a.rubDone}/7 • กระบวนการ ${a.processDone}/5 • รอบข้อมือผ่าน • Analytics ${a.metricCompletenessPct}% • ผลทักษะ ${a.skillPassed?'ผ่าน':'ควรพัฒนา'}`}
+ if(strictGoodjunk&&!result.passed){
+  ended=true;const a=result.goodjunkAudit||goodjunkAudit(result,f.contentDocument);document.getElementById('overlayIcon').textContent='🔁';document.getElementById('overlayTitle').textContent='GoodJunk ยังไม่ผ่าน';document.getElementById('score').textContent=`${a.score} คะแนน`;auditEl.classList.add('fail');auditEl.textContent=`Accuracy ${a.accuracy}% • Reason ${a.reasonAccuracy}% • Retry ${a.retryAccuracy}% • Boss ${a.bossWin?'ผ่าน':'ยังไม่ผ่าน'}`;syncEl.classList.remove('error');syncEl.textContent='รอบนี้จะบันทึกเป็นข้อมูลการลอง แต่ Passport จะยังไม่ติ๊ก GoodJunk และจะไม่ปลดล็อกภารกิจถัดไป';returnBtn.textContent='เล่น GoodJunk ใหม่';leaveBtn.textContent='บันทึกผลการลองและกลับ Passport';returnBtn.disabled=false;leaveBtn.disabled=false;returnBtn.onclick=restartGoodjunk;leaveBtn.onclick=saveFailedGoodjunkAndReturn;document.getElementById('back').onclick=saveFailedGoodjunkAndReturn;ov.classList.add('show');statusEl.textContent='ยังไม่ผ่าน • Passport ไม่เปลี่ยน';return;
+ }
+ ended=true;document.getElementById('overlayIcon').textContent='🏆';document.getElementById('score').textContent=result.scoreAvailable?`${result.score} คะแนน`:'ทำภารกิจครบแล้ว';document.getElementById('overlayTitle').textContent=strictHandwash?'ทำ Handwash ครบ 7 ขั้น':'จบภารกิจแล้ว';
+ auditEl.classList.remove('fail');if(strictHandwash){const a=result.handwashAudit||handwashAudit(result);auditEl.textContent=`ท่าถู ${a.rubDone}/7 • กระบวนการ ${a.processDone}/5 • รอบข้อมือผ่าน • Analytics ${a.metricCompletenessPct}% • ผลทักษะ ${a.skillPassed?'ผ่าน':'ควรพัฒนา'}`}
+ else if(strictGoodjunk){const a=result.goodjunkAudit;auditEl.textContent=`GoodJunk ผ่าน • Accuracy ${a.accuracy}% • Reason ${a.reasonAccuracy}% • Retry ${a.retryAccuracy}% • Boss ผ่าน`}
  else auditEl.textContent='เล่นครบหนึ่งรอบตาม Classroom Policy';
- ov.classList.add('show');statusEl.textContent='ทำภารกิจครบแล้ว';syncEl.textContent='กำลังบันทึกผลและยืนยัน Passport…';setTimeout(()=>finishAndGo(true),500);
+ configureDefaultButtons();ov.classList.add('show');statusEl.textContent='ทำภารกิจครบแล้ว';syncEl.textContent='กำลังบันทึกผลและยืนยัน Passport…';setTimeout(()=>finishAndGo(true),500);
 }
 function compactForSheet(value,depth=0){if(depth>5||value==null)return value==null?value:undefined;if(typeof value==='number'||typeof value==='boolean')return value;if(typeof value==='string')return value.slice(0,4000);if(Array.isArray(value))return value.slice(0,500).map(v=>compactForSheet(v,depth+1)).filter(v=>v!==undefined);if(typeof value==='object'){const out={};Object.keys(value).slice(0,300).forEach(k=>{if(/base64|imageData|videoData|rawFrame|blob/i.test(k))return;const v=compactForSheet(value[k],depth+1);if(v!==undefined)out[k]=v});return out}return undefined}
 function makePayload(){
- const profile=state().profile||{},eventId=result.eventId||eid();result.eventId=eventId;const raw=compactForSheet(result)||{},procedureCompleted=result.completed===true,progressionEligible=result.completed===true;
- const game={...raw,studentId:sid,profile:{fullName:profile.fullName||'',section:section||profile.section||'',group:group||profile.group||''},zone,gameId,game_id:gameId,game_key:gameId,score:num(result.score),accuracy:num(result.accuracy),scoreAvailable:result.scoreAvailable===true,passed:result.passed===true,completed:procedureCompleted,procedureCompleted,progressionEligible,finishedAt:new Date().toISOString(),sessionId,openedAt,startedAt:startedAt||openedAt,durationSec:Math.max(0,Math.round((Date.now()-Date.parse(startedAt||openedAt))/1000)),inputMode:result.inputMode||result.play_mode||'classroom-ar',gameVersion:result.gameVersion||result.version||'',singleAttemptPolicy:true,retryRequired:false,completionPolicy:strictHandwash?'7-rub-5-process-analytics-sheet-authority':'one-classroom-round-completes',skillCriteriaMet:result.skillCriteriaMet===true,originalPassed:result.originalPassed===true,rawLearningComplete:result.learning_complete??'',rawChallengePassed:result.challenge_passed??'',rawEndReason:result.end_reason??result.endReason??'',analyticsSchemaVersion:result.analyticsSchemaVersion||'HH-UNIFIED-GAME-ANALYTICS-V2',shellRelease:RELEASE};
- return{eventType:'game',type:'game',eventId,studentId:sid,zone,gameId,completed:procedureCompleted,procedureCompleted,progressionEligible,passed:result.passed===true,profile:game.profile,clientTs:new Date().toISOString(),currentStep:`${zone}:${gameId}`,status:procedureCompleted?`Completed ${zone}:${gameId}; awaiting Sheet authority`:`Incomplete ${zone}:${gameId}`,game};
+ const profile=state().profile||{},eventId=result.eventId||eid();result.eventId=eventId;const raw=compactForSheet(result)||{},procedureCompleted=result.procedureCompleted===true||result.completed===true,progressionEligible=result.progressionEligible===true,completed=strictGoodjunk?progressionEligible:result.completed===true;
+ const completionPolicy=strictHandwash?'7-rub-5-process-analytics-sheet-authority':strictGoodjunk?'goodjunk-pass-required-score60-accuracy70-reason70-retry70-boss':'one-classroom-round-completes';
+ const game={...raw,studentId:sid,profile:{fullName:profile.fullName||'',section:section||profile.section||'',group:group||profile.group||''},zone,gameId,game_id:gameId,game_key:gameId,score:num(result.score),accuracy:num(result.accuracy),scoreAvailable:result.scoreAvailable===true,passed:result.passed===true,completed,procedureCompleted,progressionEligible,finishedAt:new Date().toISOString(),sessionId,openedAt,startedAt:startedAt||openedAt,durationSec:Math.max(0,Math.round((Date.now()-Date.parse(startedAt||openedAt))/1000)),inputMode:result.inputMode||result.play_mode||'classroom-ar',gameVersion:result.gameVersion||result.version||'',singleAttemptPolicy:strictGoodjunk?false:true,retryRequired:strictGoodjunk&&!progressionEligible,completionPolicy,skillCriteriaMet:result.skillCriteriaMet===true,originalPassed:result.originalPassed===true,rawLearningComplete:result.learning_complete??'',rawChallengePassed:result.challenge_passed??'',rawEndReason:result.end_reason??result.endReason??'',analyticsSchemaVersion:result.analyticsSchemaVersion||'HH-UNIFIED-GAME-ANALYTICS-V2',shellRelease:RELEASE};
+ return{eventType:'game',type:'game',eventId,studentId:sid,zone,gameId,completed,procedureCompleted,progressionEligible,passed:result.passed===true,profile:game.profile,clientTs:new Date().toISOString(),currentStep:`${zone}:${gameId}`,status:completed?`Completed ${zone}:${gameId}; awaiting Sheet authority`:`Attempt saved; ${zone}:${gameId} not passed`,game};
 }
 function gameConfirmedIn(obj){if(!obj||typeof obj!=='object')return false;const gc=obj.gameCompleted;if(gc?.[zone]?.[gameId]===true)return true;if(gc===true&&String(obj.gameId||obj.game_id||gameId)===gameId)return true;const games=obj.completedGames||obj.progress?.completedGames;if(Array.isArray(games)&&games.some(v=>String(v)===`${zone}:${gameId}`||String(v)===gameId))return true;return false}
 function authorityHasGame(api){if(!api)return false;const a=api.authoritativeState||{};if(gameConfirmedIn(a)||gameConfirmedIn(api))return true;if(api.completionConfirmed===true&&String(api.studentId||sid)===sid&&(String(api.gameId||api.game_id||gameId)===gameId||String(api.eventId||'')===String(result.eventId||'')))return true;return false}
@@ -96,7 +114,7 @@ function applyAuthority(api){
 }
 async function reconcileStudent(){
  syncEl.textContent='Google Sheet รับผลแล้ว\nกำลัง Reconcile ความคืบหน้าของผู้เล่น…';
- try{return await jsonp({action:'reconcileStudent',studentId:sid,force:'1'},30000)}catch(error){console.warn('[R32 reconcile]',error);return{ok:false,error:String(error?.message||error)}}
+ try{return await jsonp({action:'reconcileStudent',studentId:sid,force:'1'},30000)}catch(error){console.warn('[R33 reconcile]',error);return{ok:false,error:String(error?.message||error)}}
 }
 async function waitForAuthority(seed){
  if(seed&&authorityHasGame(seed)){applyAuthority(seed);return seed}
@@ -110,8 +128,16 @@ async function waitForAuthority(seed){
  throw new Error(last?.error||'authority_not_advanced_after_reconcile');
 }
 function returnUrl(authority,pending=false){const u=new URL(back,location.href);u.searchParams.set('sid',sid);u.searchParams.set('authorityRefresh',Date.now());u.searchParams.set('gameSync','1');u.searchParams.set('autoNext','1');if(pending)u.searchParams.set('pendingGameSync',`${zone}:${gameId}`);const next=authority?.authoritativeState?.progress?.nextStep||authority?.progress?.nextStep;if(next)u.searchParams.set('confirmedNext',next);return u.href}
+function failedReturnUrl(pending=false){const u=new URL(back,location.href);u.searchParams.set('sid',sid);u.searchParams.set('authorityRefresh',Date.now());u.searchParams.set('attemptSaved','1');u.searchParams.set('goodjunkPassed','0');if(pending)u.searchParams.set('pendingAttempt',`${zone}:${gameId}`);return u.href}
+function restartGoodjunk(){
+ ov.classList.remove('show');auditEl.classList.remove('fail');ended=false;syncing=false;automaticRounds=0;startedAt='';startedAtMs=0;result={completed:false,procedureCompleted:false,progressionEligible:false,passed:false,score:0,accuracy:0,eventId:'',scoreAvailable:false};returnBtn.textContent='บันทึกผลและกลับ Passport';leaveBtn.textContent='กลับ Passport โดยรอ Sheet ยืนยันภายหลัง';configureDefaultButtons();clearStaleResults();loading.classList.remove('hide');const u=new URL(target,location.href);u.searchParams.set('_retry',Date.now());f.src=u.href;
+}
+async function saveFailedGoodjunkAndReturn(){
+ if(syncing)return;read();syncing=true;returnBtn.disabled=true;leaveBtn.disabled=true;const payload=makePayload();enqueue(payload);syncEl.classList.remove('error');syncEl.textContent='กำลังบันทึกผลการลองลง Google Sheet…';
+ try{const ack=await jsonp({action:'submit',payload:JSON.stringify(payload)},30000);if(!ack?.ok)throw new Error(ack?.error||'submit_failed');dequeue(payload.eventId);syncEl.textContent='บันทึกผลการลองแล้ว • Passport ยังไม่เปลี่ยน';setTimeout(()=>location.replace(failedReturnUrl(false)),450)}catch(error){lastError=String(error?.message||error);syncEl.classList.add('error');syncEl.textContent=`ยังส่งผลการลองไม่ได้ (${lastError})\nระบบเก็บคิวไว้แล้วและจะไม่ติ๊ก Passport`;setTimeout(()=>location.replace(failedReturnUrl(true)),900)}
+}
 async function finishAndGo(automatic=false){
- if(syncing)return;read();if(strictHandwash&&!result.completed){syncEl.textContent='Handwash ยังทำไม่ครบ 7 ท่าถูและ 5 ขั้นกระบวนการ';return}
+ if(syncing)return;read();if(strictHandwash&&!result.completed){syncEl.textContent='Handwash ยังทำไม่ครบ 7 ท่าถูและ 5 ขั้นกระบวนการ';return}if(strictGoodjunk&&!result.passed){syncEl.textContent='GoodJunk ยังไม่ผ่าน • Passport จะไม่เปลี่ยน';return}
  syncing=true;returnBtn.disabled=true;leaveBtn.disabled=true;const payload=makePayload();enqueue(payload);
  try{
   syncEl.classList.remove('error');syncEl.textContent='กำลังส่งผลและ Learning Analytics เข้า Google Sheet…';
@@ -122,14 +148,13 @@ async function finishAndGo(automatic=false){
   const authority=await waitForAuthority(ack);
   dequeue(payload.eventId);const next=authority?.authoritativeState?.progress?.nextStep||authority?.progress?.nextStep||'ภารกิจถัดไป';syncEl.textContent=`Passport ยืนยันแล้ว • ถัดไป ${next}`;statusEl.textContent='ปลดล็อกภารกิจถัดไปแล้ว';setTimeout(()=>location.replace(returnUrl(authority)),450);
  }catch(error){
-  lastError=String(error?.message||error);console.error('[HeroHealth R32 authority]',error);syncing=false;automaticRounds++;
+  lastError=String(error?.message||error);console.error('[HeroHealth R33 authority]',error);syncing=false;automaticRounds++;
   if(automatic&&automaticRounds<3){syncEl.classList.remove('error');syncEl.textContent=`Google Sheet ยังประมวลผลไม่เสร็จ (${lastError})\nระบบจะ Reconcile และลองใหม่อัตโนมัติ…`;setTimeout(()=>finishAndGo(true),2500);return}
   syncEl.classList.add('error');syncEl.textContent=`Google Sheet ยังไม่ยืนยันภารกิจ\nรหัส: ${lastError}\nกดปุ่มเพื่อลอง Submit + Reconcile อีกครั้ง`;statusEl.textContent='รอ Google Sheet ยืนยัน';returnBtn.textContent='ลอง Submit + Reconcile อีกครั้ง';returnBtn.disabled=false;leaveBtn.disabled=false;
  }
 }
-returnBtn.onclick=()=>{automaticRounds=0;finishAndGo(false)};
 function leavePending(){location.href=returnUrl(null,true)}
-leaveBtn.onclick=leavePending;document.getElementById('back').onclick=leavePending;
+configureDefaultButtons();
 f.src=target;
 f.addEventListener('load',()=>{loading.classList.add('hide');statusEl.textContent='พร้อมเริ่มเกม';clearStaleResults();try{const d=f.contentDocument;d.addEventListener('click',event=>{if(/เริ่ม|start|เปิดกล้อง|calibration|coach/i.test(String(event.target?.textContent||'')))onStart()},{capture:true})}catch(_){}});
 addEventListener('message',event=>{if(event.origin!==location.origin)return;const message=event.data||{};if(message.type==='HEROHEALTH_GAME_STARTED')onStart();if(message.type==='HEROHEALTH_GAME_COMPLETE'&&message.payload){if(!startedAtMs)onStart();show(message.payload)}});
