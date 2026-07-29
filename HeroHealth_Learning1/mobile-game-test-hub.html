@@ -6,18 +6,13 @@
 <meta name="theme-color" content="#0f766e">
 <title>HeroHealth Mobile Game Test Hub</title>
 <style>
-:root{
-  font-family:Inter,"Noto Sans Thai",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  color:#17332f;background:#effaf7;
-  --sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);
-  --sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px)
-}
+:root{font-family:Inter,"Noto Sans Thai",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17332f;background:#effaf7;--sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px)}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#effaf7}button{font:inherit}
 .wrap{width:min(980px,100%);margin:auto;padding:calc(12px + var(--sat)) max(12px,var(--sar)) calc(24px + var(--sab)) max(12px,var(--sal))}
 .hero,.card{background:#fff;border:1px solid #d6ebe5;border-radius:22px;box-shadow:0 12px 30px rgba(15,118,110,.09)}
 .hero{padding:20px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff}.hero h1{margin:4px 0 8px;font-size:clamp(25px,7vw,38px);line-height:1.12}.hero p{margin:0;color:#e6fffa;line-height:1.55}
 .badges{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}.badge{padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.16);font-size:12px;font-weight:850}
-.card{padding:16px;margin-top:12px}.card h2{margin:0 0 8px}.muted{color:#617a75}.notice{padding:12px 14px;border-radius:14px;background:#fff5d9;color:#825800;font-weight:800;line-height:1.45}
+.card{padding:16px;margin-top:12px}.card h2{margin:0 0 8px}.notice{padding:12px 14px;border-radius:14px;background:#fff5d9;color:#825800;font-weight:800;line-height:1.45}
 .device{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.metric{padding:10px;border-radius:14px;background:#f1faf7;text-align:center}.metric b{display:block;font-size:18px;color:#0f766e}.metric span{font-size:11px;color:#617a75}
 .zone{margin-top:16px}.zone-title{display:flex;align-items:center;gap:9px;margin:0 0 9px}.zone-title span{font-size:24px}.zone-title h2{margin:0;font-size:20px}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.game{padding:15px;border:1px solid #d9ece7;border-radius:18px;background:#fff;box-shadow:0 8px 20px rgba(16,93,80,.06)}
@@ -30,12 +25,11 @@
 .qa-reveal{position:fixed;z-index:49;right:max(8px,var(--sar));bottom:calc(8px + var(--sab));width:42px;height:42px;border:0;border-radius:50%;background:rgba(7,24,39,.88);color:#fff;font-weight:900;box-shadow:0 6px 20px #0005}
 .qa-toast{position:fixed;z-index:51;left:50%;bottom:calc(62px + var(--sab));transform:translateX(-50%);max-width:92vw;padding:10px 14px;border-radius:999px;background:#0f172ae8;color:#fff;font-size:12px;font-weight:900;text-align:center;opacity:0;pointer-events:none;transition:.2s}.qa-toast.show{opacity:1}
 @media(max-width:720px){.grid{grid-template-columns:1fr}.device{grid-template-columns:repeat(2,1fr)}.wrap{padding-left:max(9px,var(--sal));padding-right:max(9px,var(--sar))}.hero,.card{border-radius:18px}.actions{grid-template-columns:1fr auto auto}.game{padding:13px}}
-@media(orientation:landscape) and (max-height:520px){.qa-tools{top:calc(4px + var(--sat));padding:4px}.qa-tools button{min-height:34px;padding:6px 9px}}
 </style>
 </head>
 <body>
 <div id="app"></div>
-<script src="./data/platform-config.js?v=20260729-toothbrush-visual-variety-r1"></script>
+<script src="./data/platform-config.js?v=20260729-handwash-grade5-adaptive-r40"></script>
 <script>
 (()=>{'use strict';
 const q=new URLSearchParams(location.search),cfg=window.HH_CONFIG||{},RUN=q.get('run')||'',STORE='hh_mobile_game_qa_v1';
@@ -50,19 +44,14 @@ const game=all.find(g=>g.id===RUN);
 function mark(id,state){const data=read();data[id]={state,at:new Date().toISOString(),screen:`${innerWidth}x${innerHeight}`,dpr:devicePixelRatio||1,orientation:matchMedia('(orientation:portrait)').matches?'portrait':'landscape'};write(data);if(RUN)toast(state==='pass'?'บันทึกว่า หน้าจอผ่าน':'บันทึกว่า ต้องแก้ไข');else renderHub()}
 function stateLabel(v){return v==='pass'?'ผ่านหน้าจอ':v==='fail'?'ต้องแก้':'ยังไม่ตรวจ'}
 function stateClass(v){return v==='pass'?'pass':v==='fail'?'fail':''}
-function launch(id){const u=new URL(location.href);u.search='';u.searchParams.set('run',id);u.searchParams.set('build','20260729-toothbrush-visual-variety-r1');location.href=u.href}
+function launch(id){const u=new URL(location.href);u.search='';u.searchParams.set('run',id);u.searchParams.set('build','20260729-handwash-grade5-adaptive-r40');location.href=u.href}
 function renderHub(){
  const data=read(),pass=all.filter(g=>data[g.id]?.state==='pass').length,fail=all.filter(g=>data[g.id]?.state==='fail').length;
- app.innerHTML=`<main class="wrap">
- <section class="hero"><small>HEROHEALTH • MOBILE-ONLY QA V3</small><h1>ทดสอบเกมทีละเกมบนมือถือ</h1><p>เปิดเกมจริงทีละเกมโดยไม่ผ่าน Pre-test, Passport หรือ Flow รวม เพื่อดูว่า HUD กล้อง ปุ่ม และหน้าสรุปอยู่ในจอมือถือครบหรือไม่</p><div class="badges"><span class="badge">เกมปัจจุบัน ${all.length} เกม</span><span class="badge">ผ่าน ${pass}/${all.length}</span><span class="badge">ต้องแก้ ${fail}</span><span class="badge">ไม่ใช้ผล QA ปลดล็อก Flow</span></div></section>
- <section class="card"><div class="notice">ใช้มือถือจริงในแนวตั้งเป็นหลัก แล้วทดสอบตั้งแต่หน้าเริ่ม → เปิดกล้อง → Gameplay → หน้าจบเกม ทุกเกม ปุ่ม “ผ่าน” และ “ต้องแก้” ในหน้านี้เก็บเฉพาะเครื่องทดสอบเท่านั้น</div><div class="device"><div class="metric"><b>${innerWidth}×${innerHeight}</b><span>CSS viewport</span></div><div class="metric"><b>${devicePixelRatio||1}</b><span>Device pixel ratio</span></div><div class="metric"><b>${matchMedia('(orientation:portrait)').matches?'แนวตั้ง':'แนวนอน'}</b><span>Orientation</span></div><div class="metric"><b>${navigator.maxTouchPoints||0}</b><span>Touch points</span></div></div></section>
- ${zones.map(z=>`<section class="zone"><div class="zone-title"><span>${esc(z.emoji||'🎯')}</span><h2>${esc(z.thai||z.id)}</h2></div><div class="grid">${z.required.map(g=>{const st=data[g.id]?.state||'';return `<article class="game"><div class="game-head"><div><h3>${esc(g.thai||g.title||g.id)}</h3><small>${esc(g.title||g.id)} • ${esc(g.status||'')}</small></div><span class="state ${stateClass(st)}">${stateLabel(st)}</span></div><div class="actions"><button class="btn play" data-play="${esc(g.id)}">เปิดเกมเต็มจอ</button><button class="btn pass" data-mark-pass="${esc(g.id)}">ผ่าน</button><button class="btn fail" data-mark-fail="${esc(g.id)}">ต้องแก้</button></div>${data[g.id]?`<button class="btn reset" data-reset="${esc(g.id)}">ล้างผลตรวจเกมนี้ • ${esc(data[g.id].screen||'')} ${esc(data[g.id].orientation||'')}</button>`:''}</article>`}).join('')}</div></section>`).join('')}
- <section class="card"><h2>เกณฑ์ตรวจหน้าจอมือถือ</h2><div class="checks"><div class="check"><b>1</b><span>ไม่มีส่วนใดล้นซ้าย–ขวา และหน้าไม่เกิด horizontal scroll</span></div><div class="check"><b>2</b><span>HUD ด้านบนไม่ชนรอยบาก กล้องหน้า หรือแถบสถานะ</span></div><div class="check"><b>3</b><span>ปุ่มสำคัญด้านล่างอยู่เหนือ browser bar และกดได้ด้วยนิ้วโป้ง</span></div><div class="check"><b>4</b><span>พื้นที่ Gameplay ใหญ่พอ ไม่ถูกข้อความหรือกล่องคะแนนบัง</span></div><div class="check"><b>5</b><span>หน้าเริ่ม เปิดกล้อง วิธีเล่น หน้าผล และปุ่มออก แสดงครบทุกช่วง</span></div><div class="check"><b>6</b><span>หมุนจอหรือกลับจากแอปอื่นแล้วเกมไม่ค้าง ไม่ย่อผิดสัดส่วน และปุ่มยังตอบสนอง</span></div></div></section>
- <div class="footer">HeroHealth Mobile Game Test Hub V3 • ${esc(cfg.platformVersion||'')}</div></main>`;
+ app.innerHTML=`<main class="wrap"><section class="hero"><small>HEROHEALTH • MOBILE-ONLY QA V4</small><h1>ทดสอบเกมทีละเกมบนมือถือ</h1><p>เปิดเกมจริงทีละเกมโดยไม่ผ่าน Pre-test, Passport หรือ Flow รวม เพื่อตรวจหน้าเริ่ม กล้อง Gameplay และหน้าสรุป</p><div class="badges"><span class="badge">เกม ${all.length}</span><span class="badge">ผ่าน ${pass}/${all.length}</span><span class="badge">ต้องแก้ ${fail}</span><span class="badge">ผล QA ไม่ปลดล็อก Flow</span></div></section><section class="card"><div class="notice">Handwash R40 ต้องทดสอบว่าเกมเดินครบ 12 ขั้นภายในประมาณ 120 วินาที ระบบช่วยเมื่อค้างนาน และหน้าสรุปแยก “จบภารกิจ” ออกจาก “ผลทักษะ”</div><div class="device"><div class="metric"><b>${innerWidth}×${innerHeight}</b><span>Viewport</span></div><div class="metric"><b>${devicePixelRatio||1}</b><span>DPR</span></div><div class="metric"><b>${matchMedia('(orientation:portrait)').matches?'แนวตั้ง':'แนวนอน'}</b><span>Orientation</span></div><div class="metric"><b>${navigator.maxTouchPoints||0}</b><span>Touch</span></div></div></section>${zones.map(z=>`<section class="zone"><div class="zone-title"><span>${esc(z.emoji||'🎯')}</span><h2>${esc(z.thai||z.id)}</h2></div><div class="grid">${z.required.map(g=>{const st=data[g.id]?.state||'';return `<article class="game"><div class="game-head"><div><h3>${esc(g.thai||g.title||g.id)}</h3><small>${esc(g.title||g.id)} • ${esc(g.status||'')}</small></div><span class="state ${stateClass(st)}">${stateLabel(st)}</span></div><div class="actions"><button class="btn play" data-play="${esc(g.id)}">เปิดเกมเต็มจอ</button><button class="btn pass" data-mark-pass="${esc(g.id)}">ผ่าน</button><button class="btn fail" data-mark-fail="${esc(g.id)}">ต้องแก้</button></div>${data[g.id]?`<button class="btn reset" data-reset="${esc(g.id)}">ล้างผลตรวจเกมนี้ • ${esc(data[g.id].screen||'')}</button>`:''}</article>`}).join('')}</div></section>`).join('')}<section class="card"><h2>เกณฑ์ตรวจ</h2><div class="checks"><div class="check"><b>1</b><span>ไม่มีส่วนล้นซ้าย–ขวา</span></div><div class="check"><b>2</b><span>กล้องและ Detection ทำงาน</span></div><div class="check"><b>3</b><span>เป้าหมายของขั้นปัจจุบันมองเห็น</span></div><div class="check"><b>4</b><span>ระบบช่วยเลื่อนไปขั้นถัดไปเมื่อค้าง</span></div><div class="check"><b>5</b><span>จบภารกิจไม่บังคับ Retry</span></div><div class="check"><b>6</b><span>หน้าสรุปและปุ่มไม่ทับเนื้อหา</span></div></div></section><div class="footer">HeroHealth Mobile Game Test Hub V4 • ${esc(cfg.platformVersion||'')}</div></main>`;
  app.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>launch(b.dataset.play));
  app.querySelectorAll('[data-mark-pass]').forEach(b=>b.onclick=()=>mark(b.dataset.markPass,'pass'));
  app.querySelectorAll('[data-mark-fail]').forEach(b=>b.onclick=()=>mark(b.dataset.markFail,'fail'));
- app.querySelectorAll('[data-reset]').forEach(b=>b.onclick=()=>{const d=read();delete d[b.dataset.reset];write(d);renderHub()});
+ app.querySelectorAll('[data-reset]').forEach(b=>b.onclick=()=>{const data=read();delete data[b.dataset.reset];write(data);renderHub()});
 }
 function toast(text){const e=document.getElementById('qaToast');if(!e)return;e.textContent=text;e.classList.add('show');clearTimeout(window.__qaToast);window.__qaToast=setTimeout(()=>e.classList.remove('show'),1800)}
 function renderRun(){
@@ -70,7 +59,8 @@ function renderRun(){
  const target=new URL(game.url,location.href),hub=new URL(location.href);hub.search='';
  const qaId=q.get('studentId')||'QA-MOBILE-001';
  const params={studentId:qaId,pid:qaId,fullName:'Mobile QA',name:'Mobile QA',section:'QA',group:'QA',classroom:'1',mode:'classroom',view:'mobile',source:'mobile-game-test-hub',qa:'1',qaStandalone:'1',dryRun:'1',noSubmit:'1',testOnly:'1',qaRun:String(Date.now()),return:hub.href,hub:hub.href};
- Object.entries(params).forEach(([k,v])=>target.searchParams.set(k,v));
+ if(game.id==='handwash'){params.diff='easy';params.time='120';params.roundMode='standard'}
+ Object.entries(params).forEach(([key,value])=>target.searchParams.set(key,value));
  app.innerHTML=`<main class="run"><iframe id="gameFrame" title="${esc(game.thai||game.title)}" allow="camera;microphone;fullscreen;autoplay;gyroscope;accelerometer" allowfullscreen></iframe><div id="qaTools" class="qa-tools"><button class="qa-back" id="qaBack">← รายการเกม</button><div class="qa-label">${esc(game.zoneEmoji||'🎯')} ${esc(game.thai||game.title)} • ${innerWidth}×${innerHeight}</div><button class="qa-mark-pass" id="qaPass">ผ่าน</button><button class="qa-mark-fail" id="qaFail">ต้องแก้</button><button class="qa-hide" id="qaHide">ซ่อน</button></div><button class="qa-reveal" id="qaReveal" aria-label="แสดงแถบ QA">QA</button><div id="qaToast" class="qa-toast"></div></main>`;
  const frame=document.getElementById('gameFrame'),tools=document.getElementById('qaTools');frame.src=target.href;
  document.getElementById('qaBack').onclick=()=>location.href=hub.href;
@@ -79,7 +69,7 @@ function renderRun(){
  document.getElementById('qaHide').onclick=()=>tools.classList.add('hidden');
  document.getElementById('qaReveal').onclick=()=>tools.classList.remove('hidden');
  setTimeout(()=>tools.classList.add('hidden'),2500);
- addEventListener('message',event=>{if(event.origin!==location.origin)return;const m=event.data||{};if(/COMPLETE|RESULT|FINISH/i.test(String(m.type||'')))toast('เกมแจ้งว่าจบแล้ว • ผล QA ไม่ใช้ปลดล็อก Flow')});
+ addEventListener('message',event=>{if(event.origin!==location.origin)return;const message=event.data||{};if(/COMPLETE|RESULT|FINISH/i.test(String(message.type||'')))toast('เกมแจ้งว่าจบแล้ว • ผล QA ไม่ใช้ปลดล็อก Flow')});
 }
 RUN?renderRun():renderHub();
 })();
