@@ -11,11 +11,11 @@
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Mobile Full Viewport R37 + Camera R36</small></div>
+  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Active Target R38 + Full Viewport R37 + Camera R36</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260729-HANDWASH-MOBILE-FULLVIEWPORT-R37';
+    const RELEASE='20260729-HANDWASH-ACTIVE-TARGET-R38';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     fetch(sourceUrl,{cache:'no-store'})
@@ -38,7 +38,8 @@
           '<script src="./handwash-unified-analytics-r30.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-summary-completion-r30.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-step-coach-r33.js?cv='+RELEASE+'"><\/script>'+ 
-          '<script src="./handwash-mobile-fullviewport-r37.js?cv='+RELEASE+'"><\/script>'
+          '<script src="./handwash-mobile-fullviewport-r37.js?cv='+RELEASE+'"><\/script>'+ 
+          '<script src="./handwash-active-target-r38.js?cv='+RELEASE+'"><\/script>'
         );
         html=html.replace('ฝึก 6 ท่าถูมือตาม WHO','ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ');
         document.open();document.write(html);document.close();
