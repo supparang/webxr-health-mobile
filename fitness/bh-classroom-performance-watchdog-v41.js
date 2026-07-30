@@ -4,157 +4,114 @@
 const BH=window.BH;
 if(!BH||!BH.state||!BH.el)return;
 
-const RELEASE='20260730-BALANCE-CLASSROOM-PERFORMANCE-WATCHDOG-V43';
+const RELEASE='20260730-BALANCE-CLASSROOM-ULTRALITE-V44';
 const q=new URLSearchParams(location.search);
 const classroom=q.get('classroom')==='1'||q.get('mode')==='classroom'||q.get('source')==='herohealth';
 if(!classroom)return;
 
 const s=BH.state;
 const e=BH.el;
-const TARGET_INTERVAL_MS=165; // ~6 FPS, sufficient for slow balance poses
-const SOFT_FINISH_SEC=56;     // stop before the common mobile renderer stall at 0 sec
-const MAX_AI_SEC=44;          // release MediaPipe before long-run memory pressure
-let worker=null;
-let workerUrl='';
-let intervalId=0;
-let finishing=false;
-let lastPoseSendAt=0;
-let poseSendBusy=false;
+const SNAPSHOT_INTERVAL_MS=500; // 2 FPS; balance poses are slow and do not need video-rate inference
+const MAX_AI_SEC=48;
+const ROUND_END_SEC=58;
+const inputCanvas=document.createElement('canvas');
+inputCanvas.width=192;
+inputCanvas.height=144;
+const inputContext=inputCanvas.getContext('2d',{alpha:false,desynchronized:true});
+let timer=0;
+let deadlineWorker=null;
+let deadlineUrl='';
+let poseBusy=false;
+let lastPoseAt=0;
 let aiStopped=false;
+let finishing=false;
 let runtimeErrors=0;
 
-function phaseIsPlay(){return String(s.phase||'').toLowerCase()==='play'}
-function safeText(node,value){if(node)node.textContent=String(value)}
-function elapsedSeconds(){return s.startedAt?Math.max(0,(performance.now()-Number(s.startedAt))/1000):0}
+function isPlaying(){return String(s.phase||'').toLowerCase()==='play'}
+function elapsed(){return s.startedAt?Math.max(0,(performance.now()-Number(s.startedAt))/1000):0}
+function remaining(){return Math.max(0,Number(s.timeLimit||60)-elapsed())}
+function setText(node,value){if(node)node.textContent=String(value)}
 
-function stopDeadline(){
-  if(worker){try{worker.postMessage({type:'stop'})}catch(_){}try{worker.terminate()}catch(_){}worker=null}
-  if(workerUrl){try{URL.revokeObjectURL(workerUrl)}catch(_){}workerUrl=''}
-  if(intervalId){clearInterval(intervalId);intervalId=0}
+// At 2 FPS, the latest landmark sample remains valid between snapshots.
+BH.poseFresh=()=>!!(s.latest&&BH.now()-s.latestAt<1350);
+
+// Skeleton rendering is decorative and expensive on low-memory mobile Chrome.
+BH.drawPose=()=>{
+  try{
+    const canvas=e.canvas;
+    const context=canvas?.getContext?.('2d');
+    if(context)context.clearRect(0,0,canvas.width,canvas.height);
+  }catch(_){}
+};
+if(e.showSkeleton)e.showSkeleton.checked=false;
+
+function stopClock(){
+  if(timer){clearInterval(timer);timer=0}
+  if(deadlineWorker){try{deadlineWorker.postMessage({type:'stop'})}catch(_){}try{deadlineWorker.terminate()}catch(_){}deadlineWorker=null}
+  if(deadlineUrl){try{URL.revokeObjectURL(deadlineUrl)}catch(_){}deadlineUrl=''}
 }
 
-function stopAI(reason='ai_runtime_limit'){
+function stopAI(reason='finish'){
   if(aiStopped)return;
   aiStopped=true;
   s.aiStoppedEarly=true;
   s.aiStopReason=reason;
-  s.aiActiveMs=Math.round(elapsedSeconds()*1000);
+  s.aiActiveMs=Math.round(elapsed()*1000);
   try{BH.stopPoseLoop?.()}catch(_){}
-  try{s.pose?.close?.()}catch(_){}
-  s.pose=null;
-  poseSendBusy=false;
+  // Do not call Pose.close while send() is unresolved; it can stall Chrome.
+  if(!poseBusy){
+    try{s.pose?.close?.()}catch(_){}
+    s.pose=null;
+  }
 }
 
-function remainingSeconds(){
-  if(!s.startedAt||!s.timeLimit)return Math.max(0,Number(s.timeLeft||0));
-  return Math.max(0,Number(s.timeLimit)-(performance.now()-Number(s.startedAt))/1000);
-}
-
-function completeCurrentAccumulator(){
-  try{
-    const acc=s.currentAccumulator;
-    if(!acc)return;
-    const samples=Math.max(1,Number(acc.samples||0));
-    if(!Array.isArray(s.results))s.results=[];
-    const already=s.results.some(item=>item&&item.key===s.currentKey&&item.technicalCompletion===true);
-    if(already)return;
-    s.results.push({
-      key:s.currentKey,
-      name:BH.POSES?.[s.currentKey]?.name||s.currentKey||'pose',
-      pose:Math.round(Number(acc.poseSum||0)/samples),
-      stability:Math.round(Number(acc.stabilitySum||0)/samples),
-      control:Math.round(Number(acc.controlSum||0)/samples),
-      safe:Math.round(Number(acc.safeSum||0)/samples),
-      confidence:Math.round(Number(acc.confidenceSum||0)/samples),
-      trackedMs:Number(acc.trackedMs||0),
-      validMs:Number(acc.validMs||0),
-      technicalCompletion:true,
-      technicalReason:'mobile_soft_deadline'
-    });
-  }catch(error){console.warn('[BalanceHold V43] accumulator finalize skipped',error)}
-}
-
-function hardFinish(reason='timeup_watchdog'){
-  if(finishing||!phaseIsPlay())return;
+function finishRound(reason='mobile_deadline'){
+  if(finishing||!isPlaying())return;
   finishing=true;
-  stopDeadline();
+  stopClock();
   stopAI(reason);
-  completeCurrentAccumulator();
+  s.timeLeft=0;
+  setText(e.hudTime,0);
+  if(e.timeBar)e.timeBar.style.width='0%';
   try{
-    s.timeLeft=0;
-    s.softDeadlineUsed=reason==='mobile_soft_deadline';
-    safeText(e.hudTime,0);
-    if(e.timeBar)e.timeBar.style.width='0%';
     BH.finish(reason);
   }catch(error){
-    console.error('[BalanceHold V43] finish recovery failed',error);
+    console.error('[BalanceHold V44] normal finish failed',error);
     try{
       s.phase='summary';
       const summary=BH.calcSummary?.(reason)||{};
-      summary.softDeadlineUsed=s.softDeadlineUsed===true;
-      summary.aiStoppedEarly=s.aiStoppedEarly===true;
-      summary.aiStopReason=s.aiStopReason||'';
-      summary.aiActiveMs=s.aiActiveMs||0;
+      summary.performanceProfile='snapshot-192x144-2fps-v44';
+      summary.runtimeErrors=runtimeErrors;
       BH.renderSummary?.(summary);
       BH.submitSummary?.(summary);
-    }catch(inner){console.error('[BalanceHold V43] emergency summary failed',inner)}
+    }catch(inner){console.error('[BalanceHold V44] emergency summary failed',inner)}
   }
-  window.setTimeout(()=>{try{BH.stopCamera?.()}catch(_){}},250);
+  window.setTimeout(()=>{try{BH.stopCamera?.()}catch(_){}},350);
 }
 
-function deadlineTick(){
-  if(!phaseIsPlay())return;
-  const elapsed=elapsedSeconds();
-  const left=remainingSeconds();
+function clockTick(){
+  if(!isPlaying())return;
+  const seconds=elapsed();
+  const left=remaining();
   s.timeLeft=left;
-  safeText(e.hudTime,Math.ceil(left));
+  setText(e.hudTime,Math.ceil(left));
   if(e.timeBar)e.timeBar.style.width=Math.max(0,Math.min(100,left/Math.max(1,s.timeLimit)*100))+'%';
-
-  if(!aiStopped&&elapsed>=MAX_AI_SEC)stopAI('max_ai_runtime_44s');
-
-  // End the round before Chrome reaches the known time-zero freeze point.
-  if(elapsed>=SOFT_FINISH_SEC||left<=4.0){
-    hardFinish('mobile_soft_deadline');
-    return;
-  }
-
-  if(left<=0.02)hardFinish('timeup_watchdog');
+  if(!aiStopped&&seconds>=MAX_AI_SEC)stopAI('mobile_ai_limit_48s');
+  if(seconds>=ROUND_END_SEC||left<=2)finishRound('mobile_deadline_v44');
 }
 
-function startDeadline(){
-  stopDeadline();
+function startClock(){
+  stopClock();
   finishing=false;
   aiStopped=false;
-  const durationMs=Math.max(1000,Number(s.timeLimit||60)*1000);
-  const startedAt=Number(s.startedAt||performance.now());
-
+  timer=window.setInterval(clockTick,350);
   try{
-    const source=`
-      let timer=0,deadline=0;
-      self.onmessage=e=>{
-        const d=e.data||{};
-        if(d.type==='start'){
-          clearInterval(timer);
-          deadline=Date.now()+Math.max(1000,Number(d.durationMs)||60000);
-          timer=setInterval(()=>self.postMessage({type:'tick',leftMs:Math.max(0,deadline-Date.now())}),250);
-        }else if(d.type==='stop'){
-          clearInterval(timer);close();
-        }
-      };`;
-    workerUrl=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
-    worker=new Worker(workerUrl);
-    worker.onmessage=event=>{
-      if(event.data?.type!=='tick'||!phaseIsPlay())return;
-      deadlineTick();
-      if(Number(event.data.leftMs)<=4000)hardFinish('mobile_soft_deadline');
-    };
-    const elapsed=Math.max(0,performance.now()-startedAt);
-    worker.postMessage({type:'start',durationMs:Math.max(1000,durationMs-elapsed)});
-  }catch(error){
-    console.warn('[BalanceHold V43] Worker unavailable, using interval',error);
-  }
-
-  intervalId=window.setInterval(deadlineTick,300);
+    const source=`let t=0,d=0;onmessage=e=>{const x=e.data||{};if(x.type==='start'){clearInterval(t);d=Date.now()+x.ms;t=setInterval(()=>postMessage(Math.max(0,d-Date.now())),300)}else if(x.type==='stop'){clearInterval(t);close()}}`;
+    deadlineUrl=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
+    deadlineWorker=new Worker(deadlineUrl);
+    deadlineWorker.onmessage=event=>{if(isPlaying()&&Number(event.data)<=2000)finishRound('worker_deadline_v44')};
+    deadlineWorker.postMessage({type:'start',ms:Math.max(1000,Number(s.timeLimit||60)*1000)});
+  }catch(error){console.warn('[BalanceHold V44] deadline worker unavailable',error)}
 }
 
 BH.poseLoop=()=>{
@@ -162,12 +119,24 @@ BH.poseLoop=()=>{
   s.looping=true;
   const run=async timestamp=>{
     if(!s.looping||aiStopped)return;
-    if(e.camera?.readyState>=2&&s.pose&&!poseSendBusy&&timestamp-lastPoseSendAt>=TARGET_INTERVAL_MS){
-      lastPoseSendAt=timestamp;
-      poseSendBusy=true;
-      try{await s.pose.send({image:e.camera})}
-      catch(error){console.warn('[BalanceHold V43] pose frame skipped',error)}
-      finally{poseSendBusy=false}
+    if(e.camera?.readyState>=2&&s.pose&&!poseBusy&&timestamp-lastPoseAt>=SNAPSHOT_INTERVAL_MS){
+      lastPoseAt=timestamp;
+      poseBusy=true;
+      try{
+        inputContext.save();
+        inputContext.setTransform(1,0,0,1,0,0);
+        inputContext.fillStyle='#000';
+        inputContext.fillRect(0,0,inputCanvas.width,inputCanvas.height);
+        inputContext.drawImage(e.camera,0,0,inputCanvas.width,inputCanvas.height);
+        inputContext.restore();
+        await s.pose.send({image:inputCanvas});
+      }catch(error){
+        runtimeErrors++;
+        console.warn('[BalanceHold V44] pose snapshot skipped',error);
+      }finally{
+        poseBusy=false;
+        if(aiStopped){try{s.pose?.close?.()}catch(_){}s.pose=null}
+      }
     }
     if(s.looping&&!aiStopped)requestAnimationFrame(run);
   };
@@ -180,12 +149,18 @@ BH.initPose=()=>{
   if(!window.Pose)return baseInitPose?.()||false;
   try{
     s.pose=new Pose({locateFile:file=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`});
-    s.pose.setOptions({modelComplexity:0,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:.46,minTrackingConfidence:.46});
+    s.pose.setOptions({
+      modelComplexity:0,
+      smoothLandmarks:false,
+      enableSegmentation:false,
+      minDetectionConfidence:.42,
+      minTrackingConfidence:.42
+    });
     s.pose.onResults(BH.onPoseResults);
-    s.posePerformanceProfile='lite-6fps-soft-deadline-v43';
+    s.posePerformanceProfile='snapshot-192x144-2fps-v44';
     return true;
   }catch(error){
-    console.warn('[BalanceHold V43] lite pose init failed',error);
+    console.warn('[BalanceHold V44] pose init failed',error);
     s.pose=null;
     return baseInitPose?.()||false;
   }
@@ -194,7 +169,7 @@ BH.initPose=()=>{
 const baseStartGame=BH.startGame;
 BH.startGame=()=>{
   const result=baseStartGame();
-  startDeadline();
+  startClock();
   return result;
 };
 
@@ -202,19 +177,21 @@ const baseFinish=BH.finish;
 BH.finish=reason=>{
   if(finishing&&String(s.phase||'').toLowerCase()==='summary')return;
   finishing=true;
-  stopDeadline();
+  stopClock();
   stopAI(reason||'finish');
   const result=baseFinish(reason);
-  window.setTimeout(()=>{try{BH.stopCamera?.()}catch(_){}},250);
+  window.setTimeout(()=>{try{BH.stopCamera?.()}catch(_){}},350);
   return result;
 };
 
-const baseCalcSummary=BH.calcSummary;
-if(typeof baseCalcSummary==='function'){
+const baseSummary=BH.calcSummary;
+if(typeof baseSummary==='function'){
   BH.calcSummary=reason=>{
-    const summary=baseCalcSummary(reason)||{};
-    summary.performanceProfile='lite-6fps-soft-deadline-v43';
-    summary.softDeadlineUsed=s.softDeadlineUsed===true;
+    const summary=baseSummary(reason)||{};
+    summary.performanceProfile='snapshot-192x144-2fps-v44';
+    summary.poseInferenceFps=2;
+    summary.poseInferenceWidth=192;
+    summary.poseInferenceHeight=144;
     summary.aiStoppedEarly=s.aiStoppedEarly===true;
     summary.aiStopReason=s.aiStopReason||'';
     summary.aiActiveMs=s.aiActiveMs||0;
@@ -227,15 +204,14 @@ const baseGameLoop=BH.gameLoop;
 BH.gameLoop=(timestamp,token)=>{
   try{return baseGameLoop(timestamp,token)}
   catch(error){
-    runtimeErrors+=1;
-    console.error('[BalanceHold V43] game loop recovered',error);
-    s.runtimeErrors=runtimeErrors;
-    hardFinish('runtime_recovery');
+    runtimeErrors++;
+    console.error('[BalanceHold V44] game loop error',error);
+    finishRound('runtime_recovery_v44');
   }
 };
 
-window.addEventListener('pagehide',()=>{stopDeadline();stopAI('pagehide')},{once:true});
-window.addEventListener('beforeunload',()=>{stopDeadline();stopAI('beforeunload')},{once:true});
+window.addEventListener('pagehide',()=>{stopClock();stopAI('pagehide')},{once:true});
+window.addEventListener('beforeunload',()=>{stopClock();stopAI('beforeunload')},{once:true});
 
-console.info('[BalanceHold] Performance watchdog ready',RELEASE);
+console.info('[BalanceHold] Ultra-lite snapshot runtime ready',RELEASE);
 })();
