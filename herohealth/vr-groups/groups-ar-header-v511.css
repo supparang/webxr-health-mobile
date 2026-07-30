@@ -1,0 +1,90 @@
+/* HeroHealth Groups AR • Mobile header title fix v5.1.1
+   Keeps the compact one-row HUD while showing the full Thai game title. */
+
+@media (max-width: 720px) {
+  .hud {
+    grid-template-columns: minmax(158px, 1.05fr) minmax(0, .95fr) !important;
+  }
+
+  .brand {
+    min-width: 0 !important;
+    min-height: 46px !important;
+    padding: 4px 6px !important;
+  }
+
+  .brandIcon {
+    width: 33px !important;
+    height: 33px !important;
+    flex: 0 0 33px !important;
+    font-size: 20px !important;
+  }
+
+  .brand > div:last-child {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .brand h1 {
+    display: -webkit-box !important;
+    max-width: none !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    font-size: .78rem !important;
+    line-height: 1.08 !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+  }
+
+  .stats {
+    min-width: 0 !important;
+  }
+
+  .stat {
+    min-width: 0 !important;
+    padding-right: 2px !important;
+    padding-left: 2px !important;
+  }
+
+  .stat small {
+    font-size: .44rem !important;
+  }
+
+  .stat b {
+    font-size: .75rem !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .hud {
+    grid-template-columns: 148px minmax(0, 1fr) !important;
+  }
+
+  .brand {
+    gap: 5px !important;
+    padding-right: 5px !important;
+    padding-left: 5px !important;
+  }
+
+  .brandIcon {
+    width: 31px !important;
+    height: 31px !important;
+    flex-basis: 31px !important;
+    font-size: 18px !important;
+  }
+
+  .brand h1 {
+    font-size: .72rem !important;
+    line-height: 1.06 !important;
+  }
+
+  .stat small {
+    font-size: .4rem !important;
+  }
+
+  .stat b {
+    font-size: .68rem !important;
+  }
+}
