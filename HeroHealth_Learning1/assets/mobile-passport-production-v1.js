@@ -1,13 +1,12 @@
 (()=>{
 'use strict';
-const VERSION='20260730-MOBILE-PASSPORT-PRODUCTION-V1';
+const VERSION='20260730-MOBILE-PASSPORT-PRODUCTION-V1.1';
 const KEY='herohealth_learning_platform_rc2';
 const C=window.HH_CONFIG||{};
 const R=window.HHRotation;
 if(!R)return;
 
 function read(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return{}}}
-function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function gameMeta(step){
   if(!step||step.type!=='game')return null;
   return C.zones?.find(z=>z.id===step.zoneId)?.games?.find(g=>g.id===step.gameId)||null;
@@ -34,7 +33,9 @@ function ensureSyncIndicator(s){
   if(!passport)return;
   let el=document.getElementById('hh-sheet-sync-indicator');
   if(!el){el=document.createElement('div');el.id='hh-sheet-sync-indicator';passport.appendChild(el)}
-  const sync=syncStatus(s);el.dataset.status=sync.key;el.textContent=sync.text;
+  const sync=syncStatus(s);
+  if(el.dataset.status!==sync.key)el.dataset.status=sync.key;
+  if(el.textContent!==sync.text)el.textContent=sync.text;
 }
 function ensureMobileCta(s){
   let bar=document.getElementById('hh-mobile-next-cta');
@@ -47,13 +48,13 @@ function ensureMobileCta(s){
     bar.innerHTML='<span class="hh-mobile-sync-dot" aria-hidden="true"></span><button type="button"></button>';
     document.body.appendChild(bar);
   }
-  const sync=syncStatus(s),action=actionFor(s),button=bar.querySelector('button');
-  bar.dataset.sync=sync.key;
-  button.textContent=action.label+' ›';
-  button.setAttribute('aria-label',action.label);
+  const sync=syncStatus(s),action=actionFor(s),button=bar.querySelector('button'),label=action.label+' ›';
+  if(bar.dataset.sync!==sync.key)bar.dataset.sync=sync.key;
+  if(button.dataset.busy!=='1'&&button.textContent!==label)button.textContent=label;
+  if(button.getAttribute('aria-label')!==action.label)button.setAttribute('aria-label',action.label);
   button.onclick=()=>{
     if(button.dataset.busy==='1')return;
-    button.dataset.busy='1';button.disabled=true;const original=button.textContent;button.textContent='กำลังเปิด…';
+    button.dataset.busy='1';button.disabled=true;const original=label;button.textContent='กำลังเปิด…';
     try{action.run()}catch(err){console.error('[HeroHealth mobile CTA]',err)}
     setTimeout(()=>{button.dataset.busy='0';button.disabled=false;button.textContent=original},2200);
   };
