@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R42-TOOTHBRUSH-V27-GAMEPLAY-R7-JUMPDUCK-V48-BALANCE-CLOSE-RANGE-LEAN-V41",
+  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R42-TOOTHBRUSH-V27-GAMEPLAY-R7-JUMPDUCK-V48-BALANCE-HARD-DEADLINE-V42",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_HANDWASH_LOADER_PREFLIGHT_R42_TOOTHBRUSH_SPACED_PLAQUE_UNIFIED_GUIDE_R7_JUMPDUCK_ADAPTIVE_HYBRID_V48_BALANCE_CLOSE_RANGE_GENTLE_LEAN_V41",
+  deploymentState: "QA_HANDWASH_LOADER_PREFLIGHT_R42_TOOTHBRUSH_SPACED_PLAQUE_UNIFIED_GUIDE_R7_JUMPDUCK_ADAPTIVE_HYBRID_V48_BALANCE_LITE_POSE_HARD_FINISH_V42",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -117,7 +117,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Handwash R42 เพิ่ม Loader Preflight ก่อน Runtime โดยกำหนด timeout และ retry สำหรับไฟล์ย่อยทั้ง 4 ไฟล์ เพื่อไม่ให้หน้าจอค้างที่กำลังโหลดอย่างไม่มีกำหนด พร้อมคง Grade 5 Easy 120 วินาที การแยกผลภารกิจกับผลทักษะ และข้อมูล Analytics รายขั้น Toothbrush Gameplay R7 คงหน้าเริ่มและหน้าผลภาษาไทยเดิม แต่ลดภาพคราบเหลือ 26 px โดยไม่ลด Hit Area กระจายเป้าหมายไปยังขอบของแต่ละโซนเพื่อลดการซ้อนและการปัดโดนหลายจุดโดยไม่ตั้งใจ และรวมสถานะตรวจจับกับคำแนะนำการปัดไว้ในแถบเดียว เช่น ตรวจพบนิ้วแล้ว • ปัดผ่านคราบตามลูกศร จึงไม่เกิดข้อความสองแถบซ้อนกัน พร้อมคงคราบ 4 รูปแบบ Camera Recovery Tracking Analytics Return Contract แบบเดียวกับ JumpDuck และไม่บังคับเล่นซ้ำ JumpDuck V48 ใช้ Adaptive Hybrid เพื่อลดการค้างบนมือถือ โดยใช้ Pose AI ช่วงต้นแล้วสลับเป็นปุ่มแตะ พร้อมบันทึกโหมดอินพุตอย่างโปร่งใส Balance Hold V41 คงระบบเปิดกล้องแบบ one-tap single-flight และลำดับ 6 ท่า แต่ปรับท่าพร้อมเล่นให้ยืนใกล้ขึ้นได้ โดยต้องเห็นเพียงศีรษะ ไหล่ สะโพก และเข่าบางส่วน ไม่ต้องเห็นข้อเท้า ใช้ข้อศอกแทนข้อมือเมื่อมือออกนอกจอ ลดเวลาค้าง Calibration เหลือ 0.85 วินาที และปรับการตรวจเอียงซ้าย–ขวาให้สมมาตร ยอมรับการเอียงและเอื้อมเพียงเล็กน้อยโดยยังต้องเห็นเข่าและรักษาสะโพกในขอบเขตปลอดภัย",
+      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Handwash R42 เพิ่ม Loader Preflight ก่อน Runtime โดยกำหนด timeout และ retry สำหรับไฟล์ย่อยทั้ง 4 ไฟล์ เพื่อไม่ให้หน้าจอค้างที่กำลังโหลดอย่างไม่มีกำหนด พร้อมคง Grade 5 Easy 120 วินาที การแยกผลภารกิจกับผลทักษะ และข้อมูล Analytics รายขั้น Toothbrush Gameplay R7 คงหน้าเริ่มและหน้าผลภาษาไทยเดิม แต่ลดภาพคราบเหลือ 26 px โดยไม่ลด Hit Area กระจายเป้าหมายไปยังขอบของแต่ละโซนเพื่อลดการซ้อนและการปัดโดนหลายจุดโดยไม่ตั้งใจ และรวมสถานะตรวจจับกับคำแนะนำการปัดไว้ในแถบเดียว เช่น ตรวจพบนิ้วแล้ว • ปัดผ่านคราบตามลูกศร จึงไม่เกิดข้อความสองแถบซ้อนกัน พร้อมคงคราบ 4 รูปแบบ Camera Recovery Tracking Analytics Return Contract แบบเดียวกับ JumpDuck และไม่บังคับเล่นซ้ำ JumpDuck V48 ใช้ Adaptive Hybrid เพื่อลดการค้างบนมือถือ โดยใช้ Pose AI ช่วงต้นแล้วสลับเป็นปุ่มแตะ พร้อมบันทึกโหมดอินพุตอย่างโปร่งใส Balance Hold V42 คงระบบ one-tap, Calibration ระยะใกล้, Tree Balance และการเอียงซ้าย–ขวาของ V41 แต่แก้อาการค้างเมื่อเวลาเป็นศูนย์โดยลด Pose inference จากประมาณ 24 FPS เหลือประมาณ 8.5 FPS ใช้ MediaPipe Lite modelComplexity 0 ป้องกันคำสั่ง inference ซ้อน มี Web Worker และ interval สำรองควบคุมเส้นตาย 60 วินาที แยกจาก requestAnimationFrame หาก Game Loop เกิดข้อผิดพลาดจะเข้าสู่หน้าสรุปทันที และหยุด Pose กับกล้องหลังจบรอบเพื่อลดหน่วยความจำบนมือถือ",
       games: { hygiene: ["handwash", "toothbrush"], nutrition: ["groups", "goodjunk"], fitness: ["jumpduck", "balance-hold"] }
     },
     FULL_PLATFORM: {
@@ -153,7 +153,7 @@ window.HH_CONFIG = {
       games: [
         { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260730-adaptive-hybrid-v48", status:"classroom-core-adaptive-hybrid-v4.8-ai-12s-touch-fallback", requiredReturnContract:true },
         { id:"rhythm-boxer", title:"Rhythm Boxer AR", thai:"ชกตามจังหวะ", url:"../fitness/rhythm-boxer-ar.html", status:"catalog-only", requiredReturnContract:true },
-        { id:"balance-hold", title:"Balance Hold AR", thai:"Balance Hold AR", url:"../fitness/balance-hold-ar2.html?classroom=1&mode=classroom&source=herohealth&v=20260730-balance-close-range-lean-v41", status:"classroom-core-v41-close-range-readiness-symmetric-gentle-lean", requiredReturnContract:true, progressionByCompletion:true, oneRoundCompletes:true, retryRequired:false, studentRetryVisible:false },
+        { id:"balance-hold", title:"Balance Hold AR", thai:"Balance Hold AR", url:"../fitness/balance-hold-ar2.html?classroom=1&mode=classroom&source=herohealth&v=20260730-balance-hard-deadline-v42", status:"classroom-core-v42-lite-pose-worker-deadline-runtime-recovery", requiredReturnContract:true, progressionByCompletion:true, oneRoundCompletes:true, retryRequired:false, studentRetryVisible:false },
         { id:"shadow-breaker", title:"Shadow Breaker AR", thai:"ตอบสนองและเคลื่อนไหว", url:"../fitness/shadow-breaker-ar.html", status:"catalog-only", requiredReturnContract:true }
       ]
     }
