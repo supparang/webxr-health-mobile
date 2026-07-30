@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='20260730-MISSION-TIMELINE-UI-V5';
+const VERSION='20260730-MISSION-TIMELINE-UI-V6-MOBILE-CTA';
 const KEY='herohealth_learning_platform_rc2';
 const R=window.HHRotation;
 if(!R)return;
@@ -51,7 +51,7 @@ function patch(){
   const html=st.route.map((step,i)=>{
    const ok=R.done(s,step),now=!ok&&i===current;
    const rowClass=ok?'done':now?'current':'locked';
-   const detail=ok?'เสร็จเรียบร้อยแล้ว':now?'ภารกิจปัจจุบัน — กดปุ่ม “เริ่มเกมถัดไป” ด้านบน':'ยังไม่ถึงขั้นนี้';
+   const detail=ok?'เสร็จเรียบร้อยแล้ว':now?'ภารกิจปัจจุบัน — กดปุ่มเริ่มด้านบนหรือแถบด้านล่าง':'ยังไม่ถึงขั้นนี้';
    const badge=ok?'✓ ผ่านแล้ว':now?'พร้อมเริ่ม':'🔒 ยังไม่เปิด';
    return `<div class="step ${rowClass}" data-step-id="${esc(step.id)}" aria-current="${now?'step':'false'}"><div class="num">${ok?'✓':i+1}</div><div><b>${esc(displayLabel(step))}</b><div class="small muted">${detail}</div></div><span class="badge ${ok?'ok':now?'warn':'locked'}">${badge}</span></div>`;
   }).join('');
