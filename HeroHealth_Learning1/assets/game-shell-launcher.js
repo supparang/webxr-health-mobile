@@ -2,7 +2,7 @@
 'use strict';
 const original=window.HH?.openNextGame;
 const R=window.HHRotation;
-const RELEASE='20260728-AUTHORITY-RECONCILE-R32';
+const RELEASE='20260730-GAME-SHELL-CORE-FIRST-R38';
 if(!window.HH||!R)return;
 function detectDevice(){
  const q=new URLSearchParams(location.search),forced=String(q.get('device')||'').toLowerCase();
