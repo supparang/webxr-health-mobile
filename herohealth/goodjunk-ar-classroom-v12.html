@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#16a34a">
-  <title>GoodJunk AR Classroom v12</title>
+  <title>GoodJunk Hand AR • Classroom</title>
   <style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020617}iframe{width:100%;height:100%;border:0;background:#ecfdf5}.status{position:fixed;z-index:20;right:10px;bottom:10px;max-width:calc(100vw - 20px);padding:7px 10px;border-radius:999px;background:#052e16dd;color:#fff;font:700 12px system-ui;pointer-events:none;opacity:0;transition:.2s}.status.show{opacity:1}</style>
 </head>
 <body>
@@ -12,13 +12,14 @@
   <div id="status" class="status"></div>
   <script>
   (()=>{'use strict';
+    const RELEASE='20260730-GOODJUNK-CLASSROOM-STUDENT-UI-V13';
     const q=new URLSearchParams(location.search);
     const sid=q.get('studentId')||q.get('pid')||'';
     const section=q.get('section')||'';
     const group=q.get('group')||'';
     const frame=document.getElementById('game');
     const status=document.getElementById('status');
-    let forwarded=false;
+    let forwarded=false,uiObserver=null;
     const show=t=>{status.textContent=t;status.classList.add('show');setTimeout(()=>status.classList.remove('show'),2600)};
     const endpoint=()=>String(parent?.HH_CONFIG?.backend?.webAppUrl||'').trim();
     const post=payload=>{
@@ -28,6 +29,51 @@
       try{if(navigator.sendBeacon&&navigator.sendBeacon(url,new Blob([body],{type:'application/x-www-form-urlencoded;charset=UTF-8'})))return Promise.resolve(true)}catch(_){}
       return fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body,keepalive:true}).then(()=>true).catch(()=>false);
     };
+    function setText(doc,selector,text){const el=doc.querySelector(selector);if(el&&el.textContent!==text)el.textContent=text;return el}
+    function setMetricLabel(doc,id,label){const value=doc.getElementById(id),box=value?.closest('.metric');if(!box)return;let node=[...box.childNodes].find(n=>n.nodeType===3);if(!node){node=doc.createTextNode(label);box.insertBefore(node,box.firstChild)}else if(node.nodeValue.trim()!==label)node.nodeValue=label}
+    function thaiPhase(value){const v=String(value||'').trim().toUpperCase();return v==='TRAINING'?'รอบฝึก':v==='CHALLENGE'?'รอบท้าทาย':v==='BOSS'?'ด่านท้าทาย':value}
+    function localize(doc,win){
+      if(!doc?.head||doc.getElementById('hh-goodjunk-student-ui-v13'))return;
+      const style=doc.createElement('style');style.id='hh-goodjunk-student-ui-v13';style.textContent=`
+        .arOnlyNote{font-size:.92rem!important;line-height:1.4!important}
+        .grid2 .box{min-height:66px;display:flex;align-items:center;justify-content:center;line-height:1.35}
+        .missionBox.touchRescue::after{content:'กล้องมองไม่เห็นนิ้ว • ยกมือให้เห็นชัดแล้วลองอีกครั้ง'!important;color:#b91c1c!important}
+        .missionBox.cameraLite::after{content:'ชี้นิ้วค้างบนอาหารที่ต้องการเลือก'!important;color:#075985!important}
+        #result .stickyActions{display:none!important}
+        #result .resultBody{padding-bottom:calc(18px + env(safe-area-inset-bottom))!important}
+        #result .studentSaveNote{margin:8px 0 2px;padding:10px 12px;border:2px solid #86efac;border-radius:14px;background:#ecfdf5;color:#166534;font-weight:900;font-size:.86rem;line-height:1.4;text-align:center}
+        #achievement,#bossStats{display:none!important}
+        @media(max-width:760px){#start .lead{font-size:.94rem;line-height:1.5}.grid2{grid-template-columns:1fr 1fr!important}.grid2 .box{padding:9px 7px;font-size:.84rem}.reasonScreen h1,#reasonScreen h1{font-size:1.65rem!important}.reflectionScreen h1,#reflectionScreen h1{font-size:1.65rem!important}}
+      `;doc.head.appendChild(style);
+      const apply=()=>{
+        const start=doc.getElementById('start');
+        if(start){
+          setText(doc,'#start h1','🍎 GoodJunk Hand AR');
+          setText(doc,'#start .lead','ใช้นิ้วชี้เลือกอาหารที่เหมาะสมตามโจทย์ ชี้ค้างบนคำตอบจนวงสีเหลืองเต็ม');
+          const boxes=[...doc.querySelectorAll('#start .grid2 .box')];
+          ['👆 ชี้นิ้วเพื่อเลือก','✅ เรียนรู้จากคำอธิบาย','🧠 ฝึกคิดและประยุกต์ใช้','📊 ดูผลเมื่อจบเกม'].forEach((text,i)=>{if(boxes[i]&&boxes[i].textContent!==text)boxes[i].textContent=text});
+          const startBtn=doc.getElementById('gjStartAr')||doc.querySelector('#start .btn.good');if(startBtn&&!/กำลัง/.test(startBtn.textContent))startBtn.textContent='📷 เปิดกล้องและเริ่มเกม';
+          const note=doc.querySelector('#start .arOnlyNote');if(note)note.textContent='ใช้กล้องตรวจจับนิ้วชี้ • ชี้ค้างบนอาหารที่ต้องการเลือก';
+          const load=doc.getElementById('loadMsg');if(load&&(!load.textContent||/แตะปุ่ม|พร้อม/.test(load.textContent)))load.textContent='แตะปุ่มเพื่ออนุญาตใช้กล้อง';
+        }
+        const phase=doc.getElementById('phase');if(phase){const t=thaiPhase(phase.textContent);if(t!==phase.textContent)phase.textContent=t}
+        setText(doc,'#reasonScreen h1 span','ตรวจเหตุผล');
+        const reasonTitle=doc.getElementById('reasonTitle');if(reasonTitle){const raw=reasonTitle.textContent.trim();const text=raw==='Transfer Retry'?'ลองใช้ความรู้กับสถานการณ์ใหม่':raw==='Reason Check'?'ตรวจเหตุผล':raw;if(text!==raw)reasonTitle.textContent=text}
+        const reasonNext=doc.getElementById('reasonNext');if(reasonNext&&reasonNext.textContent.trim()==='ไป Reflection')reasonNext.textContent='ไปทบทวนสิ่งที่เรียนรู้';
+        setText(doc,'#reflectionScreen h1','💭 ทบทวนสิ่งที่เรียนรู้');
+        setText(doc,'#reflectionScreen .lead','หลังจบเกม นักเรียนอยากปรับพฤติกรรมเรื่องใดมากที่สุด?');
+        setText(doc,'#reflectionScreen .btn.good','ดูสรุปผล');
+        setText(doc,'#result .resultHead h1','🎉 เล่นครบหนึ่งรอบแล้ว');
+        setMetricLabel(doc,'mScore','คะแนนรวม');setMetricLabel(doc,'mAcc','ความแม่นยำ');setMetricLabel(doc,'mReason','ตอบเหตุผล');setMetricLabel(doc,'mRetry','ประยุกต์ใช้');setMetricLabel(doc,'mCombo','คอมโบสูงสุด');setMetricLabel(doc,'mBoss','ด่านท้าทาย');
+        const rank=doc.getElementById('rank');if(rank){rank.textContent=rank.textContent.replace('🏆 Nutrition Master','🏆 นักโภชนาการตัวน้อย').replace('🌟 Healthy Hero','🌟 ฮีโร่อาหารสุขภาพ').replace('🥦 Food Balance Explorer','🥦 นักสำรวจอาหารสมดุล')}
+        const bossPhase=doc.getElementById('bossPhase');if(bossPhase&&/^Phase\s*\d+/i.test(bossPhase.textContent))bossPhase.textContent=bossPhase.textContent.replace(/Phase/i,'รอบ');
+        const bossHead=doc.querySelector('.bossHead');if(bossHead){const spans=bossHead.querySelectorAll(':scope > span');if(spans[0]&&spans[0].firstChild)spans[0].firstChild.nodeValue='👑 ด่านราชาขยะ • ';if(spans[1]&&spans[1].firstChild)spans[1].firstChild.nodeValue='พลัง '}
+        const bossMsg=doc.getElementById('bossMsg');if(bossMsg)bossMsg.textContent=String(bossMsg.textContent).replace('Sugar Storm','พายุน้ำตาล').replace('Fake Healthy','อาหารสุขภาพลวงตา').replace('Chaos','ความวุ่นวาย');
+        const resultBody=doc.querySelector('#result .resultBody');if(resultBody&&!doc.getElementById('hhStudentSaveNote')){const n=doc.createElement('div');n.id='hhStudentSaveNote';n.className='studentSaveNote';n.textContent='ระบบจะบันทึกผลและกลับ Passport อัตโนมัติ • ไม่ต้องเล่นซ้ำ';resultBody.appendChild(n)}
+        const send=doc.getElementById('sendStatus');if(send&&/กำลังเตรียม|กำลังส่ง|บันทึก/.test(send.textContent))send.textContent='กำลังบันทึกผลการเล่น…';
+      };
+      apply();uiObserver=new win.MutationObserver(apply);uiObserver.observe(doc.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});
+    }
     addEventListener('message',async e=>{
       if(e.source!==frame.contentWindow)return;
       const m=e.data||{};
@@ -35,12 +81,13 @@
       if(m.type!=='HEROHEALTH_GAME_COMPLETE'||!m.payload||forwarded)return;
       forwarded=true;
       const eventId=String(m.payload.eventId||`HH-classroom-goodjunk-${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
-      const payload={eventType:'game',eventId,studentId:sid,profile:{section,group},clientTs:new Date().toISOString(),currentStep:'nutrition:goodjunk',status:'จบ goodjunk',game:{zone:'nutrition',gameId:'goodjunk',score:Number(m.payload.score)||0,accuracy:Number(m.payload.accuracy)||0,passed:m.payload.passed===true,completed:true,finishedAt:new Date().toISOString(),inputMode:q.get('inputMode')||'classroom'}};
-      show('กำลังสำรองผล GoodJunk เข้า Google Sheet…');
+      const payload={eventType:'game',eventId,studentId:sid,profile:{section,group},clientTs:new Date().toISOString(),currentStep:'nutrition:goodjunk',status:'เล่น GoodJunk ครบหนึ่งรอบ',game:{zone:'nutrition',gameId:'goodjunk',score:Number(m.payload.score)||0,accuracy:Number(m.payload.accuracy)||0,passed:m.payload.passed===true,completed:true,progressionEligible:true,retryRequired:false,completionPolicy:'one-classroom-round-completes-skill-separate',finishedAt:new Date().toISOString(),inputMode:q.get('inputMode')||'hand-ar'}};
+      show('กำลังบันทึกผล GoodJunk…');
       await post(payload);
-      setTimeout(()=>parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:{...m.payload,eventId,completed:true}},location.origin),700);
+      setTimeout(()=>parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:{...m.payload,eventId,completed:true,progressionEligible:true,retryRequired:false}},location.origin),700);
     });
-    const child=new URL('./goodjunk-ar-v11.html',location.href);q.forEach((v,k)=>child.searchParams.set(k,v));child.searchParams.set('classroomBridge','12');child.searchParams.set('_',Date.now());frame.src=child.href;
+    const child=new URL('./goodjunk-ar-v11.html',location.href);q.forEach((v,k)=>child.searchParams.set(k,v));child.searchParams.set('classroomBridge','13');child.searchParams.set('studentUi','1');child.searchParams.set('_',Date.now());frame.src=child.href;
+    frame.addEventListener('load',()=>{try{localize(frame.contentDocument,frame.contentWindow)}catch(error){console.warn('[GoodJunk student UI]',error)}});
   })();
   </script>
 </body>
