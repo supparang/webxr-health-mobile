@@ -2,7 +2,7 @@
 'use strict';
 const original=window.HH?.openNextGame;
 const R=window.HHRotation;
-const RELEASE='20260730-GAME-SHELL-CORE-FIRST-R38';
+const RELEASE='20260730-GAME-SHELL-AUTHORITY-FIRST-R39';
 if(!window.HH||!R)return;
 function detectDevice(){
  const q=new URLSearchParams(location.search),forced=String(q.get('device')||'').toLowerCase();
@@ -25,7 +25,7 @@ window.HH.openNextGame=function(zoneId){
  if(zoneId!==expected.zoneId){alert('ภารกิจถัดไปคือ '+expected.label);return}
  const z=C.zones?.find(x=>x.id===expected.zoneId),g=z?.games?.find(x=>x.id===expected.gameId);
  if(!g?.url){alert('ยังไม่ได้กำหนด URL ของ '+expected.label);return}
- const shell=new URL('./game-shell-once.html',location.href),target=new URL(g.url,location.href),group=R.groupOf(s),device=detectDevice(),view=detectView();
+ const shell=new URL('./game-shell-authority-r39.html',location.href),target=new URL(g.url,location.href),group=R.groupOf(s),device=detectDevice(),view=detectView();
  shell.searchParams.set('shellVersion',RELEASE);shell.searchParams.set('_',Date.now());
  target.searchParams.set('launchVersion',RELEASE);target.searchParams.set('_',Date.now());
  const common=[['studentId',s.profile.studentId],['section',s.profile.section],['group',group],['zone',expected.zoneId],['gameId',expected.gameId],['missionProfile',R.profileIdOf(s)],['rotationOrder',R.zonesFor(s).join(',')],['device',device],['view',view],['classroom','1'],['mobileOnly',C.mobileOnly?'1':'0'],['singleAttempt','1']];
