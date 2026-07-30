@@ -14,12 +14,12 @@ window.HH_CONFIG = {
   oneRoundPerGame: true,
   requireGamePassToContinue: false,
   teacherPin: "",
-  assessmentApiUrl: "https://script.google.com/macros/s/AKfycbxU82Rg4KFStuZToOGlyX-rgzVkLpZ7yO1tW-gzui782eR7akes_HNZ5ec2TDUDh8J1/exec",
+  assessmentApiUrl: "https://script.google.com/macros/s/AKfycbwa-OSdqWS7uPne01wNr5a42PgKfAoxmUUm7yMcUx2D0C0OnbjrbppNUHkfjUxm79Fz/exec",
   routes: {
-    pretest: "./assessment/pretest.html?v=20260729-public-assessment-v81",
-    posttest: "./assessment/posttest.html?v=20260729-public-assessment-v81",
-    reflection: "./assessment/reflection.html?v=20260729-public-assessment-v81",
-    certificate: "./assessment/certificate.html?v=20260729-public-assessment-v81"
+    pretest: "./assessment/pretest.html?v=20260730-active-receiver-v85",
+    posttest: "./assessment/posttest.html?v=20260730-active-receiver-v85",
+    reflection: "./assessment/reflection.html?v=20260730-active-receiver-v85",
+    certificate: "./assessment/certificate.html?v=20260730-active-receiver-v85"
   },
   missionProfiles: {
     CLASS_60: {label:"Classroom Mission 60 นาที • Mobile Only",description:"แต่ละกลุ่มเริ่มคนละฐานเพื่อลดความหนาแน่น แต่ทุกคนทำครบ 6 เกม เกมละหนึ่งรอบ ไม่มี Retry และไม่มี Boss",games:{hygiene:["handwash","toothbrush"],nutrition:["groups","goodjunk"],fitness:["jumpduck","balance-hold"]}},
