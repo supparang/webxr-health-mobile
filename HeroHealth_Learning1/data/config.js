@@ -15,10 +15,10 @@ window.HH_CONFIG = {
   requireGamePassToContinue: false,
   teacherPin: "",
   assessmentApiUrl: "https://script.google.com/macros/s/AKfycbwa-OSdqWS7uPne01wNr5a42PgKfAoxmUUm7yMcUx2D0C0OnbjrbppNUHkfjUxm79Fz/exec",
-  assessmentTransportPolicy: "direct-post-verified-r87",
+  assessmentTransportPolicy: "authority-first-r88",
   routes: {
-    pretest: "./assessment/pretest.html?v=20260730-assessment-direct-post-r87",
-    posttest: "./assessment/posttest.html?v=20260730-assessment-direct-post-r87",
+    pretest: "./assessment/pretest.html?v=20260730-assessment-authority-first-r88",
+    posttest: "./assessment/posttest.html?v=20260730-assessment-authority-first-r88",
     reflection: "./assessment/reflection.html?v=20260730-active-receiver-v85",
     certificate: "./assessment/certificate.html?v=20260730-active-receiver-v85"
   },
