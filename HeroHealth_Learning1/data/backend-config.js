@@ -14,26 +14,23 @@ window.HH_CONFIG.teacherAccess = {
 };
 
 /*
- * Game Shell transport hotfix R35
- *
- * game-shell-once.html historically sends the complete game payload through
- * GET/JSONP. Research telemetry can make that URL too long, producing
- * sheet_load_failed before Apps Script receives the request.
- *
- * This scoped interceptor changes only action=submit + eventType=game into a
- * hidden-form POST. Short JSONP reads (event, student, reconcileStudent) remain
- * unchanged. The original game shell receives a normal acknowledgement only
- * after HH_Events confirms the exact eventId.
+ * Game Shell Core-First Transport R37
+ * - Intercepts only large action=submit game JSONP requests.
+ * - Sends a compact Core Result first so Passport can unlock quickly.
+ * - Keeps the original full payload in a separate analytics queue.
+ * - Uses sendBeacon, hidden-form POST and no-cors fetch as fallbacks.
+ * - Confirms the exact eventId from HH_Events before replying to Game Shell.
  */
 (() => {
   'use strict';
 
-  const VERSION = '20260730-GAME-FORM-POST-VERIFY-R35';
+  const VERSION = '20260730-GAME-CORE-FIRST-R37';
+  const ANALYTICS_QUEUE_KEY = 'HH_GAME_ANALYTICS_QUEUE_V1';
   const shellPath = /\/HeroHealth_Learning1\/game-shell-once\.html$/;
 
   if (!shellPath.test(location.pathname)) return;
-  if (window.__HH_GAME_FORM_POST_R35__) return;
-  window.__HH_GAME_FORM_POST_R35__ = VERSION;
+  if (window.__HH_GAME_CORE_FIRST_R37__) return;
+  window.__HH_GAME_CORE_FIRST_R37__ = VERSION;
 
   const endpoint = String(window.HH_CONFIG?.backend?.webAppUrl || '').trim();
   if (!endpoint) return;
@@ -50,9 +47,122 @@ window.HH_CONFIG.teacherAccess = {
     return originalAppendChild.call(parent, node);
   }
 
-  function shortJsonp(params, timeoutMs = 12000) {
+  function readJson(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw == null ? fallback : JSON.parse(raw);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function preserveFullAnalytics(payload) {
+    try {
+      const queue = readJson(ANALYTICS_QUEUE_KEY, []);
+      const eventId = String(payload?.eventId || '').trim();
+      if (!eventId || queue.some(item => item.eventId === eventId)) return;
+      queue.push({
+        eventId,
+        studentId: String(payload?.studentId || '').trim(),
+        zone: String(payload?.zone || payload?.game?.zone || ''),
+        gameId: String(payload?.gameId || payload?.game?.gameId || ''),
+        queuedAt: new Date().toISOString(),
+        payload
+      });
+      localStorage.setItem(ANALYTICS_QUEUE_KEY, JSON.stringify(queue.slice(-12)));
+    } catch (error) {
+      console.warn('[HeroHealth analytics queue]', error);
+    }
+  }
+
+  function scalar(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+
+  function corePayload(payload) {
+    const game = payload?.game || {};
+    const zone = String(payload?.zone || game.zone || '').trim();
+    const gameId = String(payload?.gameId || game.gameId || game.game_id || '').trim();
+    const profile = payload?.profile || game.profile || {};
+    const handwash = gameId === 'handwash';
+
+    const coreGame = {
+      studentId: String(payload?.studentId || game.studentId || '').trim(),
+      profile: {
+        fullName: String(profile.fullName || payload?.fullName || ''),
+        section: String(profile.section || payload?.section || ''),
+        group: String(profile.group || payload?.group || '')
+      },
+      zone,
+      gameId,
+      game_id: gameId,
+      game_key: gameId,
+      score: scalar(game.score ?? payload?.score),
+      accuracy: scalar(game.accuracy ?? payload?.accuracy),
+      scoreAvailable: game.scoreAvailable === true || game.score != null,
+      passed: game.passed === true || payload?.passed === true,
+      completed: game.completed === true || payload?.completed === true,
+      procedureCompleted: game.procedureCompleted === true || payload?.procedureCompleted === true,
+      progressionEligible: game.progressionEligible === true || payload?.progressionEligible === true,
+      finishedAt: game.finishedAt || payload?.clientTs || new Date().toISOString(),
+      durationSec: scalar(game.durationSec ?? game.elapsedSec),
+      inputMode: String(game.inputMode || game.mode || 'classroom-ar'),
+      gameVersion: String(game.gameVersion || game.version || ''),
+      sessionId: String(game.sessionId || ''),
+      singleAttemptPolicy: true,
+      retryRequired: false,
+      completionPolicy: String(game.completionPolicy || 'one-classroom-round-completes'),
+      skillCriteriaMet: game.skillCriteriaMet === true,
+      originalPassed: game.originalPassed === true,
+      analyticsSchemaVersion: String(game.analyticsSchemaVersion || 'HH-UNIFIED-GAME-ANALYTICS-V2'),
+      metricCompletenessPct: scalar(game.metricCompletenessPct),
+      coreResultOnly: !handwash,
+      fullAnalyticsQueued: true,
+      transportVersion: VERSION
+    };
+
+    if (handwash) {
+      coreGame.completedRubSteps = scalar(game.completedRubSteps ?? game.whoStepsCompleted);
+      coreGame.totalWhoRubSteps = scalar(game.totalWhoRubSteps ?? game.totalRubSteps ?? game.whoStepsTotal);
+      coreGame.completedProcessSteps = scalar(game.completedProcessSteps);
+      coreGame.totalProcessSteps = scalar(game.totalProcessSteps);
+      coreGame.wristsPassed = game.wristsPassed === true;
+      coreGame.steps = Array.isArray(game.steps)
+        ? game.steps.slice(0, 20)
+        : Array.isArray(game.stepResults)
+          ? game.stepResults.slice(0, 20)
+          : [];
+      coreGame.events = Array.isArray(game.events)
+        ? game.events.slice(0, 30)
+        : Array.isArray(game.eventLog)
+          ? game.eventLog.slice(0, 30)
+          : [];
+      coreGame.coreResultOnly = false;
+    }
+
+    return {
+      eventType: 'game',
+      type: 'game',
+      eventId: String(payload?.eventId || '').trim(),
+      studentId: String(payload?.studentId || game.studentId || '').trim(),
+      zone,
+      gameId,
+      completed: coreGame.completed,
+      procedureCompleted: coreGame.procedureCompleted,
+      progressionEligible: coreGame.progressionEligible,
+      passed: coreGame.passed,
+      profile: coreGame.profile,
+      clientTs: payload?.clientTs || new Date().toISOString(),
+      currentStep: payload?.currentStep || `${zone}:${gameId}`,
+      status: `Core result submitted first for ${zone}:${gameId}`,
+      game: coreGame
+    };
+  }
+
+  function shortJsonp(params, timeoutMs = 14000) {
     return new Promise((resolve, reject) => {
-      const callback = 'HHGPOST_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+      const callback = 'HHGCORE_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
       const script = document.createElement('script');
       let settled = false;
 
@@ -73,7 +183,7 @@ window.HH_CONFIG.teacherAccess = {
       script.src = endpoint + '?' + new URLSearchParams({
         ...params,
         callback,
-        transport: 'jsonp-short-r35',
+        transport: 'jsonp-short-core-r37',
         clientVersion: VERSION,
         _: String(Date.now())
       }).toString();
@@ -82,10 +192,22 @@ window.HH_CONFIG.teacherAccess = {
     });
   }
 
-  function hiddenFormPost(payloadText) {
+  function beaconPost(payload) {
+    try {
+      if (!navigator.sendBeacon) return false;
+      return navigator.sendBeacon(
+        endpoint,
+        new Blob([JSON.stringify(payload)], { type: 'text/plain;charset=UTF-8' })
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function hiddenFormPost(payload) {
     return new Promise((resolve, reject) => {
       try {
-        const targetName = 'HH_GAME_POST_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        const targetName = 'HH_GAME_CORE_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
         const iframe = document.createElement('iframe');
         const form = document.createElement('form');
 
@@ -102,8 +224,8 @@ window.HH_CONFIG.teacherAccess = {
 
         const fields = {
           action: 'submit',
-          payload: payloadText,
-          transport: 'hidden-form-post-r35',
+          payload: JSON.stringify(payload),
+          transport: 'hidden-form-core-r37',
           clientVersion: VERSION,
           _: String(Date.now())
         };
@@ -120,20 +242,68 @@ window.HH_CONFIG.teacherAccess = {
         originalAppend(document.body || document.documentElement, form);
         form.submit();
 
-        setTimeout(() => resolve({ ok: true }), 250);
+        setTimeout(() => resolve(true), 300);
         setTimeout(() => {
           try { form.remove(); } catch (_) {}
           try { iframe.remove(); } catch (_) {}
-        }, 60000);
+        }, 45000);
       } catch (error) {
         reject(error);
       }
     });
   }
 
-  async function confirmSubmission(payload, callbackName, interceptedScript) {
-    const eventId = String(payload?.eventId || '').trim();
-    const studentId = String(payload?.studentId || '').trim();
+  async function fetchNoCors(payload) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      await fetch(endpoint, {
+        method: 'POST',
+        mode: 'no-cors',
+        cache: 'no-store',
+        redirect: 'follow',
+        credentials: 'omit',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      return true;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function eventFound(eventId) {
+    const api = await shortJsonp({ action: 'event', eventId }).catch(() => null);
+    return api?.ok === true && api?.found === true;
+  }
+
+  async function waitForEvent(eventId) {
+    const delays = [650, 850, 1050, 1350, 1700, 2200, 2900];
+    for (const baseDelay of delays) {
+      await sleep(baseDelay + Math.floor(Math.random() * 300));
+      if (await eventFound(eventId)) return true;
+    }
+    return false;
+  }
+
+  async function submitCore(core) {
+    if (await eventFound(core.eventId)) return true;
+
+    beaconPost(core);
+    if (await waitForEvent(core.eventId)) return true;
+
+    await hiddenFormPost(core);
+    if (await waitForEvent(core.eventId)) return true;
+
+    await fetchNoCors(core).catch(() => false);
+    return waitForEvent(core.eventId);
+  }
+
+  async function confirmSubmission(fullPayload, callbackName, interceptedScript) {
+    const core = corePayload(fullPayload);
+    const eventId = core.eventId;
+    const studentId = core.studentId;
 
     const reply = data => {
       const callback = window[callbackName];
@@ -145,22 +315,14 @@ window.HH_CONFIG.teacherAccess = {
     };
 
     try {
-      if (!eventId || !studentId) throw new Error('missing_game_event_identity');
-
-      await hiddenFormPost(JSON.stringify(payload));
-
-      const delays = [600, 800, 950, 1100, 1250, 1450, 1650, 1850, 2100, 2400];
-      let eventApi = null;
-
-      for (const baseDelay of delays) {
-        await sleep(baseDelay + Math.floor(Math.random() * 350));
-        eventApi = await shortJsonp({ action: 'event', eventId }).catch(() => null);
-        if (eventApi?.ok === true && eventApi?.found === true) break;
+      if (!eventId || !studentId || !core.zone || !core.gameId) {
+        throw new Error('missing_game_event_identity');
       }
 
-      if (!(eventApi?.ok === true && eventApi?.found === true)) {
-        throw new Error('event_not_found_after_form_post');
-      }
+      preserveFullAnalytics(fullPayload);
+
+      const found = await submitCore(core);
+      if (!found) throw new Error('core_event_not_found_after_all_transports');
 
       const studentApi = await shortJsonp({
         action: 'student',
@@ -173,17 +335,18 @@ window.HH_CONFIG.teacherAccess = {
         ok: true,
         eventId,
         studentId,
-        transport: 'hidden-form-post-r35',
+        transport: 'core-first-r37',
+        fullAnalyticsQueued: true,
         version: studentApi?.version || VERSION
       });
     } catch (error) {
-      console.error('[HeroHealth game form POST]', error);
+      console.error('[HeroHealth game core-first]', error);
       reply({
         ok: false,
         eventId,
         studentId,
         error: String(error?.message || error),
-        transport: 'hidden-form-post-r35',
+        transport: 'core-first-r37',
         version: VERSION
       });
     }
@@ -213,5 +376,5 @@ window.HH_CONFIG.teacherAccess = {
     return originalAppendChild.call(this, node);
   };
 
-  console.info('[HeroHealth] game result transport installed', VERSION);
+  console.info('[HeroHealth] game core-first transport installed', VERSION);
 })();
