@@ -30,7 +30,7 @@
       html=replaceRequired(
         html,
         'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V26";',
-        'const VERSION="20260730-TOOTHBRUSH-MULTI-PLAQUE-V27-THAI-START-R6";',
+        'const VERSION="20260730-TOOTHBRUSH-MULTI-PLAQUE-V27-GAMEPLAY-R7";',
         'analytics version'
       );
       html=replaceRequired(
@@ -40,14 +40,15 @@
         'student instructions'
       );
       html=replaceRequired(html,'เริ่ม Challenge','เริ่มภารกิจ','student start button');
+      html=replaceRequired(html,'<div id="coach">ปัดผ่านคราบพลัคให้ถูกทิศทาง</div><div id="status">รอ Detect นิ้ว</div>','<div id="coach" role="status" aria-live="polite">กำลังหานิ้ว • ชูนิ้วชี้ให้กล้องเห็น</div><div id="status" aria-hidden="true">รอ Detect นิ้ว</div>','unified live guide markup');
 
       const oldPlaqueCss='.plaque{position:absolute;width:34px;height:34px;margin:-17px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;background:#ffffffea;box-shadow:0 4px 12px #0002;font-size:22px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}';
-      const newPlaqueCss='.plaque{position:absolute;width:32px;height:32px;margin:-16px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;box-shadow:0 4px 12px #0002;font-size:20px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque-green-germ{background:#f0fdf4ea;border-color:#86efac}\n    .plaque-yellow-plaque{background:#fefce8ea;border-color:#fde047}\n    .plaque-germ-cluster{background:#ecfeffea;border-color:#67e8f9}\n    .plaque-sticky-plaque{background:#fff7edea;border-color:#fdba74}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}\n    #start .card{padding:clamp(18px,5vw,22px)}\n    #start .card h1{font-size:clamp(26px,7.5vw,38px);line-height:1.15;letter-spacing:-.02em;white-space:nowrap}\n    #start .card>p:first-of-type{margin:8px 0 14px;color:#0f766e;font-size:clamp(17px,4.8vw,23px);line-height:1.35}\n    #start .card>p:nth-of-type(2){margin:16px 0 4px;text-align:left;font-size:clamp(16px,4.4vw,21px);line-height:1.75}\n    #back:disabled{opacity:.72;cursor:wait}';
-      html=replaceRequired(html,oldPlaqueCss,newPlaqueCss,'plaque and start styles');
+      const newPlaqueCss='.plaque{position:absolute;width:26px;height:26px;margin:-13px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:9px;box-shadow:0 4px 10px #0002;font-size:15px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque-green-germ{background:#f0fdf4ea;border-color:#86efac}\n    .plaque-yellow-plaque{background:#fefce8ea;border-color:#fde047}\n    .plaque-germ-cluster{background:#ecfeffea;border-color:#67e8f9}\n    .plaque-sticky-plaque{background:#fff7edea;border-color:#fdba74}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}\n    #status{display:none!important}\n    #coach{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-width:none;min-height:48px;display:flex;align-items:center;justify-content:center;padding:10px 14px;border-radius:18px;background:#fffffff2;color:#12324a;white-space:normal;overflow:visible;text-overflow:clip;text-align:center;font-size:clamp(13px,3.7vw,17px);line-height:1.3;box-shadow:0 7px 20px #0002}\n    #coach[data-mode="ok"]{background:#dcfceff2;color:#065f46}\n    #coach[data-mode="search"],#coach[data-mode="recover"]{background:#f3e8fff2;color:#6b21a8}\n    #coach[data-mode="hold"]{background:#fef3c7f2;color:#92400e}\n    #start .card{padding:clamp(18px,5vw,22px)}\n    #start .card h1{font-size:clamp(26px,7.5vw,38px);line-height:1.15;letter-spacing:-.02em;white-space:nowrap}\n    #start .card>p:first-of-type{margin:8px 0 14px;color:#0f766e;font-size:clamp(17px,4.8vw,23px);line-height:1.35}\n    #start .card>p:nth-of-type(2){margin:16px 0 4px;text-align:left;font-size:clamp(16px,4.4vw,21px);line-height:1.75}\n    #back:disabled{opacity:.72;cursor:wait}';
+      html=replaceRequired(html,oldPlaqueCss,newPlaqueCss,'plaque, start and live guide styles');
 
       const oldLayouts="const TARGET_LAYOUTS={\n  4:[{x:22,y:28},{x:76,y:31},{x:31,y:72},{x:72,y:70}],\n  5:[{x:16,y:31},{x:50,y:23},{x:84,y:32},{x:29,y:73},{x:71,y:72}]\n};";
-      const newLayouts="const TARGET_LAYOUTS={\n  4:[{x:16,y:18},{x:82,y:18},{x:18,y:82},{x:82,y:82}],\n  5:[{x:10,y:18},{x:50,y:18},{x:90,y:18},{x:27,y:82},{x:73,y:82}]\n};\nconst PLAQUE_VARIANTS=[\n  {key:'green-germ',icon:'🦠',label:'แบคทีเรียสีเขียว'},\n  {key:'yellow-plaque',icon:'🟡',label:'คราบพลัคสีเหลือง'},\n  {key:'germ-cluster',icon:'🧫',label:'กลุ่มแบคทีเรีย'},\n  {key:'sticky-plaque',icon:'🟠',label:'คราบพลัคเหนียว'}\n];\nconst PLAQUE_VARIANT_OFFSET={tl:0,tm:1,tr:2,bl:3,bm:0,br:1};";
-      html=replaceRequired(html,oldLayouts,newLayouts,'target layouts and variants');
+      const newLayouts="const TARGET_LAYOUTS={\n  4:[{x:8,y:10},{x:92,y:10},{x:8,y:90},{x:92,y:90}],\n  5:[{x:7,y:10},{x:50,y:8},{x:93,y:10},{x:24,y:90},{x:76,y:90}]\n};\nconst PLAQUE_VARIANTS=[\n  {key:'green-germ',icon:'🦠',label:'แบคทีเรียสีเขียว'},\n  {key:'yellow-plaque',icon:'🟡',label:'คราบพลัคสีเหลือง'},\n  {key:'germ-cluster',icon:'🧫',label:'กลุ่มแบคทีเรีย'},\n  {key:'sticky-plaque',icon:'🟠',label:'คราบพลัคเหนียว'}\n];\nconst PLAQUE_VARIANT_OFFSET={tl:0,tm:1,tr:2,bl:3,bm:0,br:1};";
+      html=replaceRequired(html,oldLayouts,newLayouts,'spaced target layouts and variants');
 
       const oldMakeZoneRow="function makeZoneRow(z){return{dwell:0,strokes:0,complete:false,targets:TARGET_LAYOUTS[z.targetCount].map((p,i)=>({id:`${z.id}-${i+1}`,x:p.x,y:p.y,clean:false}))}}";
       const newMakeZoneRow="function makeZoneRow(z){const offset=PLAQUE_VARIANT_OFFSET[z.id]||0;return{dwell:0,strokes:0,complete:false,targets:TARGET_LAYOUTS[z.targetCount].map((p,i)=>{const variant=PLAQUE_VARIANTS[(offset+i)%PLAQUE_VARIANTS.length];return{id:`${z.id}-${i+1}`,x:p.x,y:p.y,clean:false,variantKey:variant.key,variantIcon:variant.icon,variantLabel:variant.label}})}}";
@@ -56,6 +57,15 @@
       const oldRender="function renderPlaques(z,row){\n  D.plaques.replaceChildren();\n  for(const target of row.targets){\n    const e=document.createElement('span');\n    e.className='plaque'+(target.clean?' clean':'');\n    e.textContent=target.clean?'✨':'🦠';\n    e.style.left=(z.x1+(z.x2-z.x1)*target.x/100)+'%';\n    e.style.top=(z.y1+(z.y2-z.y1)*target.y/100)+'%';\n    e.dataset.targetId=target.id;\n    D.plaques.appendChild(e);\n  }\n}";
       const newRender="function renderPlaques(z,row){\n  D.plaques.replaceChildren();\n  for(const target of row.targets){\n    const e=document.createElement('span');\n    e.className='plaque plaque-'+(target.variantKey||'green-germ')+(target.clean?' clean':'');\n    e.textContent=target.clean?'✨':(target.variantIcon||'🦠');\n    e.style.left=(z.x1+(z.x2-z.x1)*target.x/100)+'%';\n    e.style.top=(z.y1+(z.y2-z.y1)*target.y/100)+'%';\n    e.dataset.targetId=target.id;\n    e.dataset.variant=target.variantKey||'green-germ';\n    e.setAttribute('aria-label',target.variantLabel||'คราบพลัค');\n    D.plaques.appendChild(e);\n  }\n}";
       html=replaceRequired(html,oldRender,newRender,'plaque rendering');
+
+      const oldStatus="function setStatus(mode,text){D.status.className=mode;D.status.textContent=text}";
+      const newStatus="function normalizeLiveStatus(mode,text){if(mode==='ok')return'ตรวจพบนิ้วแล้ว';if(mode==='search')return String(text||'').includes('ยืนยัน')?'กำลังยืนยันตำแหน่งนิ้ว':'กำลังหานิ้ว';if(mode==='recover')return'กำลังกู้คืนการตรวจจับ';if(mode==='hold')return String(text||'').includes('กู้คืนแล้ว')?'ระบบพร้อมแล้ว':String(text||'').includes('รอ Detect')?'กำลังหานิ้ว':'กำลังจับนิ้วต่อ';return String(text||'').replace(/Detector/g,'ระบบตรวจจับ').replace(/Detect/g,'ตรวจจับ').replace(/Stable Follow/g,'ติดตามนิ้วได้')}\nfunction renderLiveGuide(){const coach=$('coach');if(!coach)return;const mode=S.liveStatusMode||'search',status=S.liveStatusText||'กำลังหานิ้ว',action=S.liveCoachText||(mode==='ok'?'ปัดผ่านคราบตามลูกศร':'ชูนิ้วชี้ให้กล้องเห็น');coach.dataset.mode=mode;coach.textContent=status+' • '+action}\nfunction setCoach(text){S.liveCoachText=String(text||'');renderLiveGuide()}\nfunction setStatus(mode,text){D.status.className=mode;D.status.textContent=text;S.liveStatusMode=mode;S.liveStatusText=normalizeLiveStatus(mode,text);if(mode==='hold'&&String(text||'').includes('รอ Detect'))S.liveCoachText='ชูนิ้วชี้ให้กล้องเห็น';renderLiveGuide()}";
+      html=replaceRequired(html,oldStatus,newStatus,'unified status and coach logic');
+
+      const coachPattern=/\$\('coach'\)\.textContent=([^;]+);/g;
+      const coachAssignments=html.match(coachPattern)||[];
+      if(coachAssignments.length<5)throw new Error('ไม่พบคำแนะนำ Gameplay ครบถ้วน');
+      html=html.replace(coachPattern,'setCoach($1);');
 
       html=replaceRequired(
         html,
@@ -67,7 +77,7 @@
       html=replaceRequired(
         html,
         "motionProfile:'multi-plaque-spatial-coverage-v26',markerBrushSameCoordinate:true",
-        "motionProfile:'multi-plaque-spatial-coverage-v27-thai-start-r6',plaqueVariantPolicy:'four-balanced-visuals-equal-hitbox',plaqueVariantCount:PLAQUE_VARIANTS.length,returnContract:'jumpduck-compatible-passport-return-v1',studentRetryVisible:false,studentResultLanguage:'thai-child-friendly-r2',studentStartLanguage:'thai-grade5-compact-r2',startHeadingLayout:'single-line-mobile',visibleTechnicalVersion:false,coverageLabelPolicy:'neutral-completed-zone-count',markerBrushSameCoordinate:true",
+        "motionProfile:'multi-plaque-spatial-coverage-v27-gameplay-r7',plaqueVariantPolicy:'four-balanced-visuals-equal-hitbox',plaqueVariantCount:PLAQUE_VARIANTS.length,plaqueVisualSizePx:26,plaqueLayoutPolicy:'maximum-corner-separation',liveGuidePolicy:'single-unified-tracking-action-bar',returnContract:'jumpduck-compatible-passport-return-v1',studentRetryVisible:false,studentResultLanguage:'thai-child-friendly-r2',studentStartLanguage:'thai-grade5-compact-r2',startHeadingLayout:'single-line-mobile',visibleTechnicalVersion:false,coverageLabelPolicy:'neutral-completed-zone-count',markerBrushSameCoordinate:true",
         'analytics interface contract'
       );
 
