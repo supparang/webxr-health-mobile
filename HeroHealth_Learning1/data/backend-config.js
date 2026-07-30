@@ -2,7 +2,7 @@ window.HH_CONFIG = window.HH_CONFIG || {};
 
 window.HH_CONFIG.backend = {
   enabled: true,
-  webAppUrl: "https://script.google.com/macros/s/AKfycbxU82Rg4KFStuZToOGlyX-rgzVkLpZ7yO1tW-gzui782eR7akes_HNZ5ec2TDUDh8J1/exec",
+  webAppUrl: "https://script.google.com/macros/s/AKfycbwa-OSdqWS7uPne01wNr5a42PgKfAoxmUUm7yMcUx2D0C0OnbjrbppNUHkfjUxm79Fz/exec",
   queueOffline: true,
   duplicateGuard: true,
   syncIntervalMs: 15000
