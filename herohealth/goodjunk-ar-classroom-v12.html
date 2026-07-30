@@ -21,11 +21,12 @@
   <div id="status" class="status"></div>
   <script>
   (()=>{'use strict';
-    const RELEASE='20260730-GOODJUNK-CLASSROOM-BLACKSCREEN-FIX-V14';
+    const RELEASE='20260730-GOODJUNK-CLASSROOM-RESULT-POLISH-V14.1';
     const q=new URLSearchParams(location.search);
     const sid=q.get('studentId')||q.get('pid')||'';
     const section=q.get('section')||'';
     const group=q.get('group')||'';
+    const embedded=window.parent!==window;
     const frame=document.getElementById('game');
     const loader=document.getElementById('loader');
     const loaderText=document.getElementById('loaderText');
@@ -66,23 +67,27 @@
       setText(doc.querySelector('#reflectionScreen .lead'),'หลังจบเกม นักเรียนอยากปรับพฤติกรรมเรื่องใดมากที่สุด?');
       setText(doc.querySelector('#reflectionScreen .btn.good'),'ดูสรุปผล');
       setText(doc.querySelector('#result .resultHead h1'),'🎉 เล่นครบหนึ่งรอบแล้ว');
-      setMetricLabel(doc,'mScore','คะแนนรวม');setMetricLabel(doc,'mAcc','ความแม่นยำ');setMetricLabel(doc,'mReason','ตอบเหตุผล');setMetricLabel(doc,'mRetry','ประยุกต์ใช้');setMetricLabel(doc,'mCombo','คอมโบสูงสุด');setMetricLabel(doc,'mBoss','ด่านท้าทาย');
+      setMetricLabel(doc,'mScore','คะแนนรวม');setMetricLabel(doc,'mAcc','ความแม่นยำ');setMetricLabel(doc,'mReason','ตอบเหตุผล');setMetricLabel(doc,'mRetry','ประยุกต์ใช้');setMetricLabel(doc,'mCombo','คอมโบสูงสุด');setMetricLabel(doc,'mBoss','ด่านเสริม');
+      const scoreSmall=doc.getElementById('mScore')?.closest('.metric')?.querySelector('small');if(scoreSmall)setText(scoreSmall,'เกม 60% • เหตุผล 15% • ประยุกต์ใช้ 15% • ด่านเสริม 10%');
+      const bossValue=doc.getElementById('mBoss');if(bossValue&&bossValue.textContent.trim()==='ยังไม่ผ่าน')setText(bossValue,'ยังไม่สำเร็จ');
       const rank=doc.getElementById('rank');if(rank){const next=rank.textContent.replace('🏆 Nutrition Master','🏆 นักโภชนาการตัวน้อย').replace('🌟 Healthy Hero','🌟 ฮีโร่อาหารสุขภาพ').replace('🥦 Food Balance Explorer','🥦 นักสำรวจอาหารสมดุล');setText(rank,next)}
       const bossPhase=doc.getElementById('bossPhase');if(bossPhase&&/^Phase\s*\d+/i.test(bossPhase.textContent))setText(bossPhase,bossPhase.textContent.replace(/Phase/i,'รอบ'));
       const bossHead=doc.querySelector('.bossHead');if(bossHead){const spans=bossHead.querySelectorAll(':scope > span');setNode(spans[0]?.firstChild,'👑 ด่านราชาขยะ • ');setNode(spans[1]?.firstChild,'พลัง ')}
       const bossMsg=doc.getElementById('bossMsg');if(bossMsg){const next=String(bossMsg.textContent).replace('Sugar Storm','พายุน้ำตาล').replace('Fake Healthy','อาหารสุขภาพลวงตา').replace('Chaos','ความวุ่นวาย');setText(bossMsg,next)}
-      const resultBody=doc.querySelector('#result .resultBody');if(resultBody&&!doc.getElementById('hhStudentSaveNote')){const n=doc.createElement('div');n.id='hhStudentSaveNote';n.className='studentSaveNote';n.textContent='ระบบจะบันทึกผลและกลับ Passport อัตโนมัติ • ไม่ต้องเล่นซ้ำ';resultBody.appendChild(n)}
-      const send=doc.getElementById('sendStatus');if(send&&send.textContent!=='กำลังบันทึกผลการเล่น…'&&/กำลังเตรียม|กำลังส่ง|บันทึก/.test(send.textContent))setText(send,'กำลังบันทึกผลการเล่น…');
+      const resultBody=doc.querySelector('#result .resultBody');if(resultBody&&!doc.getElementById('hhStudentSaveNote')){const n=doc.createElement('div');n.id='hhStudentSaveNote';n.className='studentSaveNote';n.textContent=embedded?'ระบบจะบันทึกผลและกลับ Passport อัตโนมัติ • ไม่ต้องเล่นซ้ำ':'บันทึกผลแล้ว • การทดสอบหน้านี้ไม่เปลี่ยน Passport';resultBody.appendChild(n)}
+      const send=doc.getElementById('sendStatus');if(send){const raw=send.textContent.trim();if(/ส่งผลไปยัง Receiver แล้ว|ถูกบันทึกแล้ว/.test(raw))setText(send,embedded?'บันทึกผลเรียบร้อย • กำลังกลับ Passport':'บันทึกผลเรียบร้อย');else if(/กำลังเตรียมส่ง|กำลังส่ง/.test(raw))setText(send,'กำลังบันทึกผลการเล่น…');else if(/เก็บคิว/.test(raw))setText(send,'ยังออฟไลน์ • เก็บผลไว้และจะส่งใหม่อัตโนมัติ')}
     }
     function queueApply(doc){if(applyQueued||applying)return;applyQueued=true;requestAnimationFrame(()=>{applyQueued=false;if(applying)return;applying=true;try{applyStudentUi(doc)}finally{applying=false}})}
     function installUi(doc,win){
       if(!doc?.head)return false;
-      if(!doc.getElementById('hh-goodjunk-student-ui-v14')){const style=doc.createElement('style');style.id='hh-goodjunk-student-ui-v14';style.textContent=`
+      if(!doc.getElementById('hh-goodjunk-student-ui-v141')){const style=doc.createElement('style');style.id='hh-goodjunk-student-ui-v141';style.textContent=`
         .arOnlyNote{font-size:.92rem!important;line-height:1.4!important}.grid2 .box{min-height:66px;display:flex;align-items:center;justify-content:center;line-height:1.35}
         .missionBox.touchRescue::after{content:'กล้องมองไม่เห็นนิ้ว • ยกมือให้เห็นชัดแล้วลองอีกครั้ง'!important;color:#b91c1c!important}.missionBox.cameraLite::after{content:'ชี้นิ้วค้างบนอาหารที่ต้องการเลือก'!important;color:#075985!important}
         #result .stickyActions{display:none!important}#result .resultBody{padding-bottom:calc(18px + env(safe-area-inset-bottom))!important}#achievement,#bossStats{display:none!important}
         #result .studentSaveNote{margin:8px 0 2px;padding:10px 12px;border:2px solid #86efac;border-radius:14px;background:#ecfdf5;color:#166534;font-weight:900;font-size:.86rem;line-height:1.4;text-align:center}
+        #result .mastery{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
         @media(max-width:760px){#start .lead{font-size:.94rem;line-height:1.5}.grid2{grid-template-columns:1fr 1fr!important}.grid2 .box{padding:9px 7px;font-size:.84rem}#reasonScreen h1,#reflectionScreen h1{font-size:1.65rem!important}}
+        @media(max-width:370px){#result .mastery{grid-template-columns:1fr!important}}
       `;doc.head.appendChild(style)}
       queueApply(doc);
       uiObserver?.disconnect();uiObserver=new win.MutationObserver(()=>queueApply(doc));uiObserver.observe(doc.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});
@@ -93,7 +98,7 @@
     function waitForGame(token){let tries=0;const check=()=>{if(token!==loadToken)return;tries++;try{const doc=frame.contentDocument,win=frame.contentWindow;if(doc?.getElementById('start')&&installUi(doc,win)){markReady();return}}catch(_){}if(tries<120)setTimeout(check,100);else markError('เกมใช้เวลาโหลดนานเกินไป กรุณาลองเปิดใหม่')};check()}
     function loadGame(){
       forwarded=false;loadToken++;const token=loadToken;uiObserver?.disconnect();loader.className='loader';loaderText.textContent='กำลังโหลดหน้าภารกิจสำหรับมือถือ…';frame.classList.remove('ready');
-      const child=new URL('./goodjunk-ar-v11.html',location.href);q.forEach((v,k)=>child.searchParams.set(k,v));child.searchParams.set('classroomBridge','14');child.searchParams.set('studentUi','1');child.searchParams.set('_',Date.now());frame.src=child.href;
+      const child=new URL('./goodjunk-ar-v11.html',location.href);q.forEach((v,k)=>child.searchParams.set(k,v));child.searchParams.set('classroomBridge','14.1');child.searchParams.set('studentUi','1');child.searchParams.set('_',Date.now());frame.src=child.href;
       clearTimeout(readyTimer);readyTimer=setTimeout(()=>{if(token===loadToken&&!frame.classList.contains('ready'))markError('ยังเปิดเกมไม่สำเร็จ กรุณาลองอีกครั้ง')},15000);
     }
     retry.onclick=loadGame;
@@ -104,7 +109,7 @@
       if(m.type!=='HEROHEALTH_GAME_COMPLETE'||!m.payload||forwarded)return;
       forwarded=true;const eventId=String(m.payload.eventId||`HH-classroom-goodjunk-${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
       const payload={eventType:'game',eventId,studentId:sid,profile:{section,group},clientTs:new Date().toISOString(),currentStep:'nutrition:goodjunk',status:'เล่น GoodJunk ครบหนึ่งรอบ',game:{zone:'nutrition',gameId:'goodjunk',score:Number(m.payload.score)||0,accuracy:Number(m.payload.accuracy)||0,passed:m.payload.passed===true,completed:true,progressionEligible:true,retryRequired:false,completionPolicy:'one-classroom-round-completes-skill-separate',finishedAt:new Date().toISOString(),inputMode:q.get('inputMode')||'hand-ar'}};
-      show('กำลังบันทึกผล GoodJunk…');await post(payload);
+      show('กำลังบันทึกผล GoodJunk…');await post(payload);show(embedded?'บันทึกผลแล้ว • กำลังกลับ Passport':'บันทึกผลเรียบร้อย');
       setTimeout(()=>emitUp({type:'HEROHEALTH_GAME_COMPLETE',payload:{...m.payload,eventId,completed:true,progressionEligible:true,retryRequired:false,wrapperRelease:RELEASE}}),500);
     });
     loadGame();
