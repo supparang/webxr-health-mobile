@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='20260730-MISSION-TIMELINE-UI-V6-MOBILE-CTA';
+const VERSION='20260730-MISSION-TIMELINE-UI-V7-DEVICE-GUIDANCE';
 const KEY='herohealth_learning_platform_rc2';
 const R=window.HHRotation;
 if(!R)return;
@@ -40,6 +40,11 @@ function displayLabel(step){
  };
  return labels[step.id]||step.label;
 }
+function currentGuidance(){
+ return matchMedia('(max-width:700px)').matches
+  ?'ภารกิจปัจจุบัน — แตะแถบด้านล่างเพื่อเริ่ม'
+  :'ภารกิจปัจจุบัน — กดปุ่มเริ่มด้านบน';
+}
 function patch(){
  const s=load();if(!s||!s.profile)return;
  const st=R.status(s),width=st.progressPct+'%';
@@ -51,11 +56,11 @@ function patch(){
   const html=st.route.map((step,i)=>{
    const ok=R.done(s,step),now=!ok&&i===current;
    const rowClass=ok?'done':now?'current':'locked';
-   const detail=ok?'เสร็จเรียบร้อยแล้ว':now?'ภารกิจปัจจุบัน — กดปุ่มเริ่มด้านบนหรือแถบด้านล่าง':'ยังไม่ถึงขั้นนี้';
+   const detail=ok?'เสร็จเรียบร้อยแล้ว':now?currentGuidance():'ยังไม่ถึงขั้นนี้';
    const badge=ok?'✓ ผ่านแล้ว':now?'พร้อมเริ่ม':'🔒 ยังไม่เปิด';
    return `<div class="step ${rowClass}" data-step-id="${esc(step.id)}" aria-current="${now?'step':'false'}"><div class="num">${ok?'✓':i+1}</div><div><b>${esc(displayLabel(step))}</b><div class="small muted">${detail}</div></div><span class="badge ${ok?'ok':now?'warn':'locked'}">${badge}</span></div>`;
   }).join('');
-  const signature=VERSION+'|'+R.groupOf(s)+'|'+html;
+  const signature=VERSION+'|'+R.groupOf(s)+'|'+(matchMedia('(max-width:700px)').matches?'mobile':'desktop')+'|'+html;
   if(timeline.dataset.rotationRoute!==signature){timeline.innerHTML=html;timeline.dataset.rotationRoute=signature}
  }
 }
@@ -64,4 +69,6 @@ let scheduled=false;const schedule=()=>{if(scheduled)return;scheduled=true;reque
 const observer=new MutationObserver(schedule);
 addEventListener('DOMContentLoaded',()=>{patch();const app=document.getElementById('app');if(app)observer.observe(app,{childList:true,subtree:true})});
 addEventListener('storage',e=>{if(e.key===KEY)schedule()});
+const media=matchMedia('(max-width:700px)');
+if(media.addEventListener)media.addEventListener('change',schedule);else media.addListener(schedule);
 })();
