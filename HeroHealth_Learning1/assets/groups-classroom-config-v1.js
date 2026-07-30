@@ -8,8 +8,8 @@
 
   groups.title = 'ภารกิจอาหาร 5 หมู่';
   groups.thai = 'ภารกิจอาหาร 5 หมู่';
-  groups.url = '../herohealth/groups-ar-gate.html?phase=warmup&next=./groups-ar.html%3Fv%3D20260730-stable-no-freeze-v513%26pinchClose%3D0.085%26pinchOpen%3D0.14%26interactionAssist%3Dgrade5-stable-easy-v2&v=20260730-stable-no-freeze-gate-v513';
-  groups.status = 'classroom-direct-thai-strict-ar-stable-no-freeze-v513';
+  groups.url = '../herohealth/groups-ar-gate.html?phase=warmup&next=./groups-ar.html%3Fv%3D20260730-static-passport-v514%26pinchClose%3D0.085%26pinchOpen%3D0.14%26interactionAssist%3Dgrade5-stable-easy-v2&v=20260730-static-passport-gate-v514';
+  groups.status = 'classroom-direct-thai-strict-ar-static-passport-v514';
   groups.requiredReturnContract = true;
   groups.progressionByCompletion = true;
   groups.oneRoundCompletes = true;
@@ -31,9 +31,10 @@
     oneRowHud: true
   };
   groups.summaryReturn = {
-    profile: 'always-visible-passport-v512',
+    profile: 'static-always-visible-passport-v514',
     label: '← กลับ Hero Passport',
     alwaysVisible: true,
+    staticHtmlButton: true,
     autoReturnEnabled: true
   };
 })();
