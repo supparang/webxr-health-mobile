@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const PATCH = 'groups-ar-runtime-compat-v5.0.0-thai-strict-ar';
+  const PATCH = 'groups-ar-runtime-compat-v5.0.1-thai-strict-ar';
   const params = new URLSearchParams(location.search);
 
   function passportMode() {
@@ -21,7 +21,6 @@
 
   function fallbackPassportUrl() {
     let target = null;
-
     try {
       if (window.parent !== window) {
         const shellUrl = new URL(window.top.location.href);
@@ -46,7 +45,6 @@
     }
 
     if (!target) target = new URL('../HeroHealth_Learning1/index.html', location.href);
-
     const sid = params.get('studentId') || params.get('pid') || '';
     if (sid) target.searchParams.set('sid', sid);
     target.searchParams.set('authorityRefresh', String(Date.now()));
@@ -55,11 +53,58 @@
     return target;
   }
 
+  function applyStudentUi() {
+    if (!passportMode()) return;
+    const controls = document.querySelector('.footer .controls');
+    if (controls) controls.style.display = 'none';
+    ['qaBtn', 'zoneBtn', 'menuBtn', 'menuZoneBtn', 'arOnlyZone'].forEach((id) => {
+      const element = document.getElementById(id);
+      if (element) element.style.display = 'none';
+    });
+    try {
+      const parentDoc = window.parent.document;
+      const parentStatus = parentDoc.getElementById('status');
+      if (parentStatus) parentStatus.style.display = 'none';
+      const parentTitle = parentDoc.getElementById('title');
+      if (parentTitle) parentTitle.textContent = 'ภารกิจอาหาร 5 หมู่';
+    } catch (_) {}
+  }
+
+  function cleanStudentText() {
+    const replacements = new Map([
+      ['เปิด Camera AR ไม่สำเร็จ', 'เปิดกล้องไม่สำเร็จ'],
+      ['AR ยังไม่พร้อม', 'กล้องยังไม่พร้อม'],
+      ['Camera Check', 'ตรวจกล้องและมือ'],
+      ['Hand AR', 'พร้อมใช้มือ'],
+      ['Touch Fallback', ''],
+      ['Touch AR', '']
+    ]);
+    ['arOnlyTitle', 'cameraText', 'phaseTitle', 'phaseSub', 'feedback'].forEach((id) => {
+      const element = document.getElementById(id);
+      if (!element) return;
+      const replacement = replacements.get(element.textContent.trim());
+      if (replacement !== undefined) element.textContent = replacement;
+    });
+  }
+
+  function installArErrorCameraRelease() {
+    const block = document.getElementById('arOnlyBlock');
+    const video = document.getElementById('camera');
+    if (!block || !video) return;
+    const release = () => {
+      if (block.classList.contains('hidden')) return;
+      try { video.srcObject?.getTracks?.().forEach((track) => track.stop()); }
+      catch (_) {}
+      video.srcObject = null;
+    };
+    new MutationObserver(release).observe(block, { attributes: true, attributeFilter: ['class'] });
+    release();
+  }
+
   function installStandaloneReturn() {
     if (window.parent !== window || !passportMode()) return;
     const summary = document.getElementById('summary');
     if (!summary) return;
-
     let returning = false;
     const check = () => {
       if (returning || !summaryVisible(summary)) return;
@@ -68,7 +113,6 @@
       if (delivery) delivery.textContent = 'กำลังกลับ Hero Passport…';
       setTimeout(() => location.replace(fallbackPassportUrl().href), 1400);
     };
-
     new MutationObserver(check).observe(summary, {
       attributes: true, childList: true, subtree: true, characterData: true
     });
@@ -124,6 +168,17 @@
     show();
   }
 
+  function installTextGuard() {
+    const run = () => {
+      cleanStudentText();
+      applyStudentUi();
+    };
+    new MutationObserver(run).observe(document.documentElement, {
+      childList: true, characterData: true, subtree: true
+    });
+    run();
+  }
+
   function renderLoadError() {
     document.body.innerHTML = [
       '<main style="min-height:100dvh;padding:28px;font-family:system-ui;background:#103c3a;color:white">',
@@ -139,8 +194,10 @@
   script.async = false;
   script.dataset.groupsRuntimeLoader = PATCH;
   script.onload = () => {
+    installArErrorCameraRelease();
     installStandaloneReturn();
     installSafetyButton();
+    installTextGuard();
     window.dispatchEvent(new CustomEvent('groups-runtime-ready', {
       detail: { patch: PATCH, mode: 'hand-ar-only' }
     }));
