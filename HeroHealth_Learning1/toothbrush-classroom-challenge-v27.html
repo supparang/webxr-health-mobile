@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#dff7ff">
-  <title>กำลังเปิด Toothbrush Challenge V27</title>
+  <title>กำลังเปิดภารกิจแปรงฟัน</title>
   <style>
     html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#dff7ff;color:#17324d;font-family:system-ui,sans-serif}
     .loading{width:min(88vw,420px);padding:24px;border-radius:24px;background:#fff;text-align:center;box-shadow:0 18px 50px #0002;font-weight:900}
   </style>
 </head>
 <body>
-  <div class="loading" id="loading">กำลังเตรียมกล้อง คราบพลัค และระบบกลับ Passport…</div>
+  <div class="loading" id="loading">กำลังเตรียมภารกิจแปรงฟัน…</div>
   <script>
   (async()=>{
     const replaceRequired=(source,search,replacement,label)=>{
@@ -24,24 +24,26 @@
       if(!response.ok)throw new Error('โหลดเกมหลักไม่สำเร็จ HTTP '+response.status);
       let html=await response.text();
 
-      html=replaceRequired(html,'HeroHealth • Toothbrush Challenge V26','HeroHealth • Toothbrush Challenge V27','title');
-      html=replaceRequired(html,'Skill Practice V26','Skill Practice V27 • Student Result R4','version label');
+      html=replaceRequired(html,'HeroHealth • Toothbrush Challenge V26','HeroHealth • ภารกิจแปรงฟัน','document title');
+      html=replaceRequired(html,'🪥 Toothbrush Challenge','🪥 ภารกิจแปรงฟัน','student heading');
+      html=replaceRequired(html,'Skill Practice V26','กำจัดคราบให้ครบ 6 โซน','student subtitle');
       html=replaceRequired(
         html,
         'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V26";',
-        'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V27-STUDENT-RESULT-R4";',
+        'const VERSION="20260730-TOOTHBRUSH-MULTI-PLAQUE-V27-THAI-START-R5";',
         'analytics version'
       );
       html=replaceRequired(
         html,
-        'ต้องอยู่ในแต่ละโซนรวมอย่างน้อย 0.6 วินาที',
-        'คราบมี 4 รูปแบบ แต่ขนาดเป้าหมายและเกณฑ์ผ่านเท่ากันทุกแบบ',
-        'instruction'
+        'โซนด้านข้างมี 4 จุด และโซนกลางมี 5 จุด<br>ปัดผ่านคราบให้ถูกทิศทาง แล้วเลื่อนแปรงกลับก่อนเริ่มครั้งถัดไป<br>ต้องอยู่ในแต่ละโซนรวมอย่างน้อย 0.6 วินาที',
+        '<b>1.</b> ชูนิ้วชี้ให้กล้องเห็น<br><b>2.</b> เลื่อนแปรงผ่านคราบตามลูกศร<br><b>3.</b> เลื่อนแปรงกลับก่อนปัดครั้งถัดไป',
+        'student instructions'
       );
+      html=replaceRequired(html,'เริ่ม Challenge','เริ่มภารกิจ','student start button');
 
       const oldPlaqueCss='.plaque{position:absolute;width:34px;height:34px;margin:-17px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;background:#ffffffea;box-shadow:0 4px 12px #0002;font-size:22px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}';
-      const newPlaqueCss='.plaque{position:absolute;width:32px;height:32px;margin:-16px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;box-shadow:0 4px 12px #0002;font-size:20px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque-green-germ{background:#f0fdf4ea;border-color:#86efac}\n    .plaque-yellow-plaque{background:#fefce8ea;border-color:#fde047}\n    .plaque-germ-cluster{background:#ecfeffea;border-color:#67e8f9}\n    .plaque-sticky-plaque{background:#fff7edea;border-color:#fdba74}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}\n    #back:disabled{opacity:.72;cursor:wait}';
-      html=replaceRequired(html,oldPlaqueCss,newPlaqueCss,'plaque styles');
+      const newPlaqueCss='.plaque{position:absolute;width:32px;height:32px;margin:-16px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;box-shadow:0 4px 12px #0002;font-size:20px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque-green-germ{background:#f0fdf4ea;border-color:#86efac}\n    .plaque-yellow-plaque{background:#fefce8ea;border-color:#fde047}\n    .plaque-germ-cluster{background:#ecfeffea;border-color:#67e8f9}\n    .plaque-sticky-plaque{background:#fff7edea;border-color:#fdba74}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}\n    #start .card>p:first-of-type{margin:8px 0 14px;color:#0f766e;font-size:clamp(18px,5vw,24px)}\n    #start .card>p:nth-of-type(2){margin:16px 0 4px;text-align:left;font-size:clamp(16px,4.4vw,21px);line-height:1.75}\n    #back:disabled{opacity:.72;cursor:wait}';
+      html=replaceRequired(html,oldPlaqueCss,newPlaqueCss,'plaque and start styles');
 
       const oldLayouts="const TARGET_LAYOUTS={\n  4:[{x:22,y:28},{x:76,y:31},{x:31,y:72},{x:72,y:70}],\n  5:[{x:16,y:31},{x:50,y:23},{x:84,y:32},{x:29,y:73},{x:71,y:72}]\n};";
       const newLayouts="const TARGET_LAYOUTS={\n  4:[{x:16,y:18},{x:82,y:18},{x:18,y:82},{x:82,y:82}],\n  5:[{x:10,y:18},{x:50,y:18},{x:90,y:18},{x:27,y:82},{x:73,y:82}]\n};\nconst PLAQUE_VARIANTS=[\n  {key:'green-germ',icon:'🦠',label:'แบคทีเรียสีเขียว'},\n  {key:'yellow-plaque',icon:'🟡',label:'คราบพลัคสีเหลือง'},\n  {key:'germ-cluster',icon:'🧫',label:'กลุ่มแบคทีเรีย'},\n  {key:'sticky-plaque',icon:'🟠',label:'คราบพลัคเหนียว'}\n];\nconst PLAQUE_VARIANT_OFFSET={tl:0,tm:1,tr:2,bl:3,bm:0,br:1};";
@@ -65,8 +67,8 @@
       html=replaceRequired(
         html,
         "motionProfile:'multi-plaque-spatial-coverage-v26',markerBrushSameCoordinate:true",
-        "motionProfile:'multi-plaque-spatial-coverage-v27-student-result-r4',plaqueVariantPolicy:'four-balanced-visuals-equal-hitbox',plaqueVariantCount:PLAQUE_VARIANTS.length,returnContract:'jumpduck-compatible-passport-return-v1',studentRetryVisible:false,studentResultLanguage:'thai-child-friendly-r2',coverageLabelPolicy:'neutral-completed-zone-count',markerBrushSameCoordinate:true",
-        'analytics return contract'
+        "motionProfile:'multi-plaque-spatial-coverage-v27-thai-start-r5',plaqueVariantPolicy:'four-balanced-visuals-equal-hitbox',plaqueVariantCount:PLAQUE_VARIANTS.length,returnContract:'jumpduck-compatible-passport-return-v1',studentRetryVisible:false,studentResultLanguage:'thai-child-friendly-r2',studentStartLanguage:'thai-grade5-three-step-r1',visibleTechnicalVersion:false,coverageLabelPolicy:'neutral-completed-zone-count',markerBrushSameCoordinate:true",
+        'analytics interface contract'
       );
 
       html=replaceRequired(
