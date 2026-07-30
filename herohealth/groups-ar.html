@@ -19,11 +19,13 @@
     body.passportMode #zoneBtn,
     body.passportMode #menuZoneBtn,
     body.passportMode #arOnlyZone{display:none!important}
-    body.passportMode #summary .sheetActions:empty{display:none!important}
+    #summaryActions{display:flex!important;visibility:visible!important;opacity:1!important}
+    #passportSafetyReturn{display:inline-flex!important;align-items:center;justify-content:center;visibility:visible!important;opacity:1!important}
     @media(max-width:720px){
       .brand h1{font-size:1rem!important}
       .bossTop span:first-child{font-size:.76rem!important}
       .footer .feedback{font-size:.72rem!important}
+      #passportSafetyReturn{width:100%!important;min-height:48px!important}
     }
   </style>
   <link rel="stylesheet" href="./vr-groups/groups-ar-header-v511.css?v=20260730-header-full-title-v511">
@@ -35,9 +37,9 @@
       }
       if (!url.searchParams.has('log')) url.searchParams.set('log', '0');
       if (!url.searchParams.has('pinchClose')) url.searchParams.set('pinchClose', '0.085');
-      if (!url.searchParams.has('pinchOpen')) url.searchParams.set('pinchOpen', '0.145');
+      if (!url.searchParams.has('pinchOpen')) url.searchParams.set('pinchOpen', '0.14');
       if (!url.searchParams.has('detectEveryMs')) url.searchParams.set('detectEveryMs', '42');
-      if (!url.searchParams.has('interactionAssist')) url.searchParams.set('interactionAssist', 'grade5-easy-grab-v1');
+      if (!url.searchParams.has('interactionAssist')) url.searchParams.set('interactionAssist', 'grade5-stable-easy-v2');
       url.searchParams.set('inputMode', 'hand-ar-only');
       history.replaceState(null, '', url.toString());
     })();
@@ -142,6 +144,7 @@
       <div class="sheetActions" id="summaryActions">
         <button class="big" id="replay">เล่นใหม่</button>
         <button class="big alt" id="sumZone">กลับฐานโภชนาการ</button>
+        <button class="big alt" id="passportSafetyReturn" type="button">← กลับ Hero Passport</button>
       </div>
     </div>
   </section>
@@ -161,7 +164,7 @@
   </section>
 
   <script src="./vr-groups/groups-ar-bank-v3.js?v=20260717-5"></script>
-  <script src="./vr-groups/groups-ar-runtime-compat-v412.js?v=20260730-grade5-easy-grab-v510"></script>
+  <script src="./vr-groups/groups-ar-runtime-compat-v412.js?v=20260730-static-passport-v514"></script>
   <script src="./vr-groups/groups-ar-ui-v410.js?v=20260730-student-ui-v500"></script>
   <script>
   (() => {
@@ -170,6 +173,29 @@
     const passportMode = window.parent !== window ||
       params.get('classroom') === '1' || params.get('passport') === '1' ||
       params.get('embedded') === '1' || params.get('from') === 'passport';
+
+    function passportUrl() {
+      let target = null;
+      try {
+        if (window.parent !== window) {
+          const shellUrl = new URL(window.top.location.href);
+          const returnValue = shellUrl.searchParams.get('return');
+          if (returnValue) target = new URL(returnValue, shellUrl);
+        }
+      } catch (_) {}
+      if (!target) {
+        const requested = params.get('return') || params.get('returnUrl') || '';
+        try { if (requested) target = new URL(requested, location.href); }
+        catch (_) {}
+      }
+      if (!target) target = new URL('../HeroHealth_Learning1/index.html', location.href);
+      const sid = params.get('studentId') || params.get('pid') || '';
+      if (sid) target.searchParams.set('sid', sid);
+      target.searchParams.set('authorityRefresh', String(Date.now()));
+      target.searchParams.set('gameSync', '1');
+      target.searchParams.set('pendingGameSync', 'nutrition:groups');
+      return target;
+    }
 
     if (passportMode) {
       document.body.classList.add('passportMode');
@@ -181,8 +207,30 @@
         element.setAttribute('aria-hidden', 'true');
         element.setAttribute('tabindex', '-1');
       });
-      const actions = document.getElementById('summaryActions');
-      if (actions) actions.hidden = true;
+    }
+
+    const passportButton = document.getElementById('passportSafetyReturn');
+    const summaryActions = document.getElementById('summaryActions');
+    if (summaryActions) {
+      summaryActions.hidden = false;
+      summaryActions.style.setProperty('display', 'flex', 'important');
+    }
+    if (passportButton) {
+      passportButton.hidden = false;
+      passportButton.style.setProperty('display', 'inline-flex', 'important');
+      passportButton.onclick = () => {
+        passportButton.disabled = true;
+        passportButton.textContent = 'กำลังกลับ Hero Passport…';
+        try {
+          const shellBack = window.top.document.getElementById('back');
+          if (window.parent !== window && shellBack) {
+            shellBack.click();
+            return;
+          }
+        } catch (_) {}
+        try { window.top.location.replace(passportUrl().href); }
+        catch (_) { location.replace(passportUrl().href); }
+      };
     }
     window.HH_GROUPS_PASSPORT_MODE = passportMode;
   })();
@@ -246,7 +294,7 @@
         sourceEventId,
         interactionAssistProfile: raw.interactionAssistProfile || window.HH_GROUPS_INTERACTION_ASSIST || null,
         finishedAt: new Date().toISOString(),
-        source: 'groups-ar-summary-bridge-v5-grade5-easy-grab'
+        source: 'groups-ar-summary-bridge-v5-static-passport-v514'
       };
     }
 
@@ -263,7 +311,7 @@
       sent = true;
       if (window.HH_GROUPS_PASSPORT_MODE) {
         const delivery = document.getElementById('delivery');
-        if (delivery) delivery.textContent = 'กำลังส่งผลและกลับ Hero Passport…';
+        if (delivery) delivery.textContent = 'ส่งผลแล้ว • กดกลับ Hero Passport ได้';
       }
       if (parent !== window) parent.postMessage({ type: 'HEROHEALTH_GAME_COMPLETE', payload }, location.origin);
     }
