@@ -1,5 +1,6 @@
 (()=>{
 'use strict';
+const VERSION='20260730-MISSION-TIMELINE-UI-V2';
 const KEY='herohealth_learning_platform_rc2';
 const R=window.HHRotation;
 if(!R)return;
@@ -25,6 +26,20 @@ function normalize(s){
  return{state:s,changed:before!==JSON.stringify(s)};
 }
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function displayLabel(step){
+ const labels={
+  pretest:'Pre-test',
+  'nutrition:groups':'ภารกิจอาหาร 5 หมู่',
+  'nutrition:goodjunk':'GoodJunk AR — เลือกอาหารสุขภาพ',
+  'fitness:jumpduck':'JumpDuck AR — กระโดดและหลบ',
+  'fitness:balance-hold':'Balance Hold AR — ฝึกการทรงตัว',
+  'hygiene:handwash':'Handwash AR — ล้างมือ 7 ขั้นตอน',
+  'hygiene:toothbrush':'Toothbrush AR — แปรงฟันให้สะอาด',
+  posttest:'Post-test',
+  reflection:'Reflection — สะท้อนการเรียนรู้'
+ };
+ return labels[step.id]||step.label;
+}
 function patch(){
  const s=load();if(!s||!s.profile)return;
  const st=R.status(s),width=st.progressPct+'%';
@@ -33,8 +48,14 @@ function patch(){
  const timeline=document.querySelector('.timeline');
  if(timeline){
   const current=st.route.findIndex(step=>!R.done(s,step));
-  const html=st.route.map((step,i)=>{const ok=R.done(s,step),now=!ok&&i===current;return `<div class="step ${ok?'done':''}"><div class="num">${ok?'✓':i+1}</div><div><b>${esc(step.label)}</b><div class="small muted">${ok?'เสร็จแล้ว':now?'ภารกิจถัดไป':'รอดำเนินการ'}</div></div><span class="badge ${ok?'ok':now?'warn':''}">${ok?'ผ่าน':now?'ถัดไป':'รอ'}</span></div>`}).join('');
-  const signature=R.groupOf(s)+'|'+html;
+  const html=st.route.map((step,i)=>{
+   const ok=R.done(s,step),now=!ok&&i===current,locked=!ok&&!now;
+   const rowClass=ok?'done':now?'current':'locked';
+   const detail=ok?'เสร็จเรียบร้อยแล้ว':now?'ภารกิจปัจจุบัน — แตะปุ่มเริ่มด้านบน':'ยังไม่ถึงขั้นนี้';
+   const badge=ok?'✓ ผ่านแล้ว':now?'เริ่มภารกิจ ›':'🔒 ยังไม่เปิด';
+   return `<div class="step ${rowClass}" data-step-id="${esc(step.id)}" aria-current="${now?'step':'false'}"><div class="num">${ok?'✓':i+1}</div><div><b>${esc(displayLabel(step))}</b><div class="small muted">${detail}</div></div><span class="badge ${ok?'ok':now?'warn':'locked'}">${badge}</span></div>`;
+  }).join('');
+  const signature=VERSION+'|'+R.groupOf(s)+'|'+html;
   if(timeline.dataset.rotationRoute!==signature){timeline.innerHTML=html;timeline.dataset.rotationRoute=signature}
  }
 }
