@@ -17,7 +17,7 @@ iframe{position:fixed;inset:0;width:100%;height:100%;border:0}
 <div id="status" class="status">กำลังเตรียมเกม Classroom…</div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260729-CLASSROOM-WRAPPER-HANDWASH-R39-ROLLBACK';
+const RELEASE='20260730-CLASSROOM-WRAPPER-ONE-ROUND-R40';
 const q=new URLSearchParams(location.search);
 const kind=q.get('wrappedGame')||q.get('gameId')||'';
 const sid=q.get('studentId')||q.get('pid')||'';
@@ -25,8 +25,8 @@ const qaMode=q.get('qa')==='1'||q.get('qaStandalone')==='1'||q.get('testOnly')==
 const targets={
  handwash:'./handwash-classroom-7step.html?strict7=1&v=20260729-handwash-r39-rollback',
  toothbrush:'../herohealth/hygiene-zone/toothbrush-ar.html?mode=learning&diff=easy&time=90&classroom=1',
- groups:'../herohealth/groups-ar-gate.html?phase=warmup&next=./groups-ar.html',
- goodjunk:'../herohealth/goodjunk-ar-classroom-v12.html?classroom=1&mode=solo&time=60'
+ groups:'../herohealth/groups-ar-classroom-v13.html?classroom=1&diff=easy&time=120&maxFoods=1&v=20260730-groups-student-v13',
+ goodjunk:'../herohealth/goodjunk-ar-classroom-v12.html?classroom=1&mode=solo&time=60&v=20260730-result-polish-141'
 };
 const zones={handwash:'hygiene',toothbrush:'hygiene',groups:'nutrition',goodjunk:'nutrition'};
 const target=targets[kind],zone=zones[kind]||q.get('zone')||'';
@@ -91,38 +91,53 @@ function fill(doc){
 }
 function realCompletion(raw){
  if(kind==='handwash')return handwashAudit(raw).valid;
- if(kind==='toothbrush'){const learning=String(raw.play_mode||'').toLowerCase()==='learning';return learning?yes(raw.learning_complete)&&yes(raw.challenge_passed):yes(raw.challenge_passed)}
+ if(kind==='toothbrush'){const learning=String(raw.play_mode||'').toLowerCase()==='learning';return learning?yes(raw.learning_complete)||yes(raw.completed):yes(raw.challenge_passed)||yes(raw.completed)}
+ if(kind==='groups'||kind==='goodjunk')return yes(raw.completed)||yes(raw.procedureCompleted)||Boolean(raw.attemptId||raw.completionReason||raw.finishedAt);
  if(Object.prototype.hasOwnProperty.call(raw,'completed'))return yes(raw.completed);
  if(Object.prototype.hasOwnProperty.call(raw,'passed'))return yes(raw.passed);
  return false;
+}
+function completionPolicy(raw){if(kind==='handwash')return'strict-7-rub-12-phase';if(kind==='groups'||kind==='goodjunk')return'one-classroom-round-completes-skill-separate';return raw.completionPolicy||'one-classroom-round-completes'}
+function forwardCompletion(raw={}){
+ if(sent)return false;
+ let audit=null;
+ if(kind==='handwash'){
+  audit=handwashAudit(raw);
+  const attempt=String(raw.eventId||raw.attemptId||raw.timestamp||'');
+  if(!audit.valid){if(attempt!==lastRejected){lastRejected=attempt;console.warn('[Handwash completion audit] rejected',audit,raw)}if(!qaMode){status.textContent=`ยังไม่จบภารกิจ • ทำครบ ${audit.rubDone+audit.processDone}/12`;status.className='status err'}return false}
+ }
+ if(!realCompletion(raw))return false;
+ const skillPassed=kind==='handwash'?audit.skillPassed:yes(raw.skillCriteriaMet??raw.passed);
+ const payload={...raw,completed:true,procedureCompleted:true,progressionEligible:true,passed:skillPassed,score:num(raw.score??raw.totalScore),accuracy:num(raw.accuracy??raw.direction_accuracy??raw.correctRate),assistUsed:yes(raw.assistUsed),completionPolicy:completionPolicy(raw),eventId:raw.eventId||raw.record_id||raw.attemptId||`HH-game-${zone}-${kind}-${sid}-${Date.now()}`,inputMode:raw.inputMode||raw.mode||'classroom-ar',gameVersion:raw.gameVersion||raw.version||`${kind}-classroom-wrapper-${RELEASE}`,skillCriteriaMet:skillPassed,retryRequired:false,autoSubmit:true,wrapperRelease:RELEASE};
+ sent=true;if(!qaMode){status.textContent=skillPassed?'ทำครบและผ่านเกณฑ์ • กำลังส่งผล':'เล่นครบหนึ่งรอบแล้ว • กำลังส่งผล';status.className='status ok'}
+ parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin);
+ if(!qaMode)setTimeout(()=>{try{parent.document.getElementById('returnBtn')?.click()}catch(_){}},1300);
+ return true;
 }
 function finishCheck(){
  if(sent||kind==='handwash'&&!started)return;
  try{
   const win=frame.contentWindow,doc=frame.contentDocument;if(!doc)return;fill(doc);
   const text=String(doc.body?.innerText||'');
-  const summaryVisible=[doc.getElementById('resultOverlay'),doc.getElementById('resultScreen'),doc.getElementById('summaryScreen'),doc.getElementById('result'),doc.getElementById('summary'),doc.getElementById('endOverlay'),doc.getElementById('finalModal'),doc.getElementById('summaryOverlay')].some(element=>visible(element,win))||/(จบภารกิจ|สรุปผล|Healthy Hero|ภารกิจสำเร็จ|Mission Complete|ผลการเล่น|คะแนนรวม)/i.test(text);
+  const summaryVisible=[doc.getElementById('resultOverlay'),doc.getElementById('resultScreen'),doc.getElementById('summaryScreen'),doc.getElementById('result'),doc.getElementById('summary'),doc.getElementById('endOverlay'),doc.getElementById('finalModal'),doc.getElementById('summaryOverlay')].some(element=>visible(element,win))||/(จบภารกิจ|เล่นครบหนึ่งรอบ|สรุปผล|Healthy Hero|ภารกิจสำเร็จ|Mission Complete|ผลการเล่น|คะแนนรวม)/i.test(text);
   if(!summaryVisible)return;
-  const raw=stored(win);let audit=null;
-  if(kind==='handwash'){
-   audit=handwashAudit(raw);const attempt=String(raw.eventId||raw.attemptId||raw.timestamp||'');
-   if(!audit.valid){if(attempt!==lastRejected){lastRejected=attempt;console.warn('[Handwash completion audit] rejected',audit,raw)}if(!qaMode){status.textContent=`ยังไม่จบภารกิจ • ทำครบ ${audit.rubDone+audit.processDone}/12`;status.className='status err'}return}
-  }
+  const raw=stored(win);
   const ids=['scoreText','summaryScore','sumScore','finalScore','score','hudScore','resultScore'];let score=num(raw.score??raw.totalScore);for(const id of ids)score=Math.max(score,num(doc.getElementById(id)?.textContent));
   let accuracy=num(raw.accuracy??raw.direction_accuracy??raw.correctRate);for(const id of ['accuracyText','summaryAccuracy','sumAccuracy','finalAcc','accuracy','resultAccuracy'])accuracy=Math.max(accuracy,num(doc.getElementById(id)?.textContent));
-  if(!realCompletion(raw)){if(!qaMode){status.textContent='ยังไม่จบภารกิจ • กรุณาทำให้ครบ';status.className='status err'}return}
-  const skillPassed=kind==='handwash'?audit.skillPassed:yes(raw.skillCriteriaMet??raw.passed);
-  const payload={...raw,completed:true,passed:skillPassed,score,accuracy,assistUsed:yes(raw.assistUsed),completionPolicy:raw.completionPolicy||(kind==='handwash'?'strict-7-rub-12-phase':'game-result'),eventId:raw.eventId||raw.record_id||raw.attemptId||`HH-game-${zone}-${kind}-${sid}-${Date.now()}`,inputMode:raw.inputMode||raw.mode||'classroom-ar',gameVersion:raw.gameVersion||raw.version||`${kind}-classroom-wrapper-${RELEASE}`,skillCriteriaMet:skillPassed,progressionEligible:true,autoSubmit:true};
-  sent=true;if(!qaMode){status.textContent=skillPassed?'ทำครบและผ่านเกณฑ์ • กำลังส่งผล':'จบภารกิจแล้ว • กำลังส่งผล';status.className='status ok'}
-  parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin);
-  if(!qaMode)setTimeout(()=>{try{parent.document.getElementById('returnBtn')?.click()}catch(_){}},1300);
+  forwardCompletion({...raw,score,accuracy,completed:kind==='groups'||kind==='goodjunk'?true:raw.completed,procedureCompleted:kind==='groups'||kind==='goodjunk'?true:raw.procedureCompleted});
  }catch(error){if(!qaMode)status.textContent='กำลังรอผลเกม'}
 }
 frame.addEventListener('load',()=>{
  if(!qaMode){status.textContent=kind==='handwash'?'พร้อมเริ่ม Handwash':'พร้อมเริ่มเกม';status.className='status'}
  try{const win=frame.contentWindow,doc=frame.contentDocument;installHandDetectionQuality(win);fill(doc);doc.addEventListener('click',event=>{if(/เริ่ม|start|เปิดกล้อง|calibration|ไปต่อ/i.test(String(event.target?.textContent||'')))postStart()},{capture:true});new MutationObserver(finishCheck).observe(doc.documentElement,{subtree:true,childList:true,characterData:true,attributes:true})}catch(_){}
 });
-addEventListener('message',event=>{if(event.origin!==location.origin)return;const message=event.data||{};if(message.type==='HEROHEALTH_HANDWASH_ANALYTICS')finishCheck()});
+addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
+ const message=event.data||{};
+ if(message.type==='HEROHEALTH_GAME_STARTED'){postStart();return}
+ if(message.type==='HEROHEALTH_GAME_COMPLETE'&&message.payload){if(!started)postStart();forwardCompletion(message.payload)}
+ if(message.type==='HEROHEALTH_HANDWASH_ANALYTICS')finishCheck();
+});
 setInterval(finishCheck,650);
 })();
 </script>
