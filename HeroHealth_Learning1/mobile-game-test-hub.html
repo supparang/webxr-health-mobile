@@ -17,7 +17,7 @@
 <script>
 (()=>{'use strict';
 const q=new URLSearchParams(location.search),cfg=window.HH_CONFIG||{},RUN=q.get('run')||'',STORE='hh_mobile_game_qa_v1',app=document.getElementById('app');
-const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]));
+const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const read=()=>{try{return JSON.parse(localStorage.getItem(STORE)||'{}')}catch(_){return{}}};const write=v=>localStorage.setItem(STORE,JSON.stringify(v));
 const active=cfg.missionProfiles?.[cfg.activeMissionProfile||'CLASS_60']||cfg.missionProfiles?.CLASS_60||{games:{}};
 const zones=(cfg.zones||[]).map(zone=>({...zone,required:(active.games?.[zone.id]||[]).map(id=>(zone.games||[]).find(g=>g.id===id)).filter(Boolean)})).filter(z=>z.required.length);
