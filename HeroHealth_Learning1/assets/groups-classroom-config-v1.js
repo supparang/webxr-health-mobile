@@ -8,8 +8,8 @@
 
   groups.title = 'ภารกิจอาหาร 5 หมู่';
   groups.thai = 'ภารกิจอาหาร 5 หมู่';
-  groups.url = '../herohealth/groups-ar-gate.html?phase=warmup&next=./groups-ar.html%3Fv%3D20260730-grade5-easy-grab-v510%26pinchClose%3D0.085%26pinchOpen%3D0.145%26interactionAssist%3Dgrade5-easy-grab-v1&v=20260730-grade5-easy-grab-gate-v510';
-  groups.status = 'classroom-direct-thai-strict-ar-grade5-easy-grab-v510';
+  groups.url = '../herohealth/groups-ar-gate.html?phase=warmup&next=./groups-ar.html%3Fv%3D20260730-header-full-title-v511%26pinchClose%3D0.085%26pinchOpen%3D0.145%26interactionAssist%3Dgrade5-easy-grab-v1&v=20260730-header-full-title-gate-v511';
+  groups.status = 'classroom-direct-thai-strict-ar-grade5-easy-grab-header-v511';
   groups.requiredReturnContract = true;
   groups.progressionByCompletion = true;
   groups.oneRoundCompletes = true;
@@ -24,5 +24,11 @@
     stickyGrabUntilBin: true,
     pinchClose: 0.085,
     pinchOpen: 0.145
+  };
+  groups.mobileHeader = {
+    profile: 'compact-full-title-v511',
+    title: 'ภารกิจอาหาร 5 หมู่',
+    maxLines: 2,
+    oneRowHud: true
   };
 })();
