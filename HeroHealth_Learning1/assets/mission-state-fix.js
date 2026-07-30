@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='20260730-MISSION-TIMELINE-UI-V2';
+const VERSION='20260730-MISSION-TIMELINE-UI-V3';
 const KEY='herohealth_learning_platform_rc2';
 const R=window.HHRotation;
 if(!R)return;
@@ -29,7 +29,7 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 function displayLabel(step){
  const labels={
   pretest:'Pre-test',
-  'nutrition:groups':'ภารกิจอาหาร 5 หมู่',
+  'nutrition:groups':'Food Groups AR — จัดอาหารให้ถูก 5 หมู่',
   'nutrition:goodjunk':'GoodJunk AR — เลือกอาหารสุขภาพ',
   'fitness:jumpduck':'JumpDuck AR — กระโดดและหลบ',
   'fitness:balance-hold':'Balance Hold AR — ฝึกการทรงตัว',
@@ -49,9 +49,9 @@ function patch(){
  if(timeline){
   const current=st.route.findIndex(step=>!R.done(s,step));
   const html=st.route.map((step,i)=>{
-   const ok=R.done(s,step),now=!ok&&i===current,locked=!ok&&!now;
+   const ok=R.done(s,step),now=!ok&&i===current;
    const rowClass=ok?'done':now?'current':'locked';
-   const detail=ok?'เสร็จเรียบร้อยแล้ว':now?'ภารกิจปัจจุบัน — แตะปุ่มเริ่มด้านบน':'ยังไม่ถึงขั้นนี้';
+   const detail=ok?'เสร็จเรียบร้อยแล้ว':now?'ภารกิจปัจจุบัน — แตะ “เริ่มภารกิจ” ด้านขวา':'ยังไม่ถึงขั้นนี้';
    const badge=ok?'✓ ผ่านแล้ว':now?'เริ่มภารกิจ ›':'🔒 ยังไม่เปิด';
    return `<div class="step ${rowClass}" data-step-id="${esc(step.id)}" aria-current="${now?'step':'false'}"><div class="num">${ok?'✓':i+1}</div><div><b>${esc(displayLabel(step))}</b><div class="small muted">${detail}</div></div><span class="badge ${ok?'ok':now?'warn':'locked'}">${badge}</span></div>`;
   }).join('');
