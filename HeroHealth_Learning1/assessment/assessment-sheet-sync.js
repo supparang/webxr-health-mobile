@@ -1,9 +1,9 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260729-ASSESSMENT-MOBILE-CONFIRM-V82';
-  const queueKey = 'HH_ASSESSMENT_SYNC_QUEUE_V2';
-  const durablePrefix = 'HH_ASSESSMENT_LAST_V3:';
+  const VERSION = '20260730-ASSESSMENT-AUTHORITY-CONFIRM-V83';
+  const QUEUE_KEY = 'HH_ASSESSMENT_SYNC_QUEUE_V3';
+  const DURABLE_PREFIX = 'HH_ASSESSMENT_LAST_V3:';
   const SEND_TIMEOUT_MS = 22000;
   const VERIFY_TIMEOUT_MS = 45000;
 
@@ -14,54 +14,66 @@
 
   function profile() {
     try {
-      const state = JSON.parse(localStorage.getItem('herohealth_learning_platform_rc2') || '{}');
-      return state.profile || {};
+      return JSON.parse(localStorage.getItem('herohealth_learning_platform_rc2') || '{}').profile || {};
     } catch (_) {
       return {};
     }
   }
 
-  function enrich(payload) {
+  function enrich(raw) {
     const p = profile();
     return {
-      ...payload,
+      ...raw,
       clientSubmitVersion: VERSION,
-      studentName: payload.studentName || p.fullName || p.name || '',
-      section: payload.section || p.section || '',
-      groupCode: payload.groupCode || p.group || p.groupCode || '',
-      meta: {
-        ...(payload.meta || {}),
-        studentName: payload.studentName || p.fullName || p.name || '',
-        section: payload.section || p.section || '',
-        groupCode: payload.groupCode || p.group || p.groupCode || '',
-        device: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
-        userAgent: navigator.userAgent,
-        sourceUrl: location.href,
-        submitVersion: VERSION
-      }
+      studentName: raw.studentName || p.fullName || p.name || '',
+      section: raw.section || p.section || '',
+      groupCode: raw.groupCode || p.group || p.groupCode || ''
     };
   }
 
-  function persistCompleted(payload) {
-    try {
-      const sid = String(payload.studentId || '').trim();
-      const mode = String(payload.mode || '').toLowerCase();
-      if (!sid || !['pre', 'post'].includes(mode)) return;
-      localStorage.setItem(durablePrefix + sid + ':' + mode, JSON.stringify({
-        ...payload,
-        persistedAt: new Date().toISOString(),
-        classroomAuthorityPending: true
-      }));
-    } catch (_) {}
+  function toReceiverEvent(payload) {
+    const sid = String(payload.studentId || '').trim();
+    const mode = String(payload.mode || '').toLowerCase();
+    const assessmentType = mode === 'post' ? 'posttest' : 'pretest';
+    const attemptId = String(payload.attemptId || `${assessmentType}-${sid}-${Date.now()}`);
+    return {
+      eventId: `HH-ASSESSMENT-${attemptId}`,
+      eventType: 'assessment',
+      studentId: sid,
+      fullName: payload.studentName || '',
+      section: payload.section || '',
+      group: payload.groupCode || '',
+      profile: {
+        fullName: payload.studentName || '',
+        section: payload.section || '',
+        group: payload.groupCode || ''
+      },
+      assessment: {
+        type: assessmentType,
+        form: payload.form || '',
+        score: Number(payload.score || 0),
+        total: Number(payload.total || 0),
+        responses: Array.isArray(payload.responses) ? payload.responses : [],
+        attemptId,
+        assessmentVersion: payload.assessmentVersion || '',
+        engineVersion: payload.engineVersion || '',
+        bankVersion: payload.bankVersion || '',
+        studyId: payload.studyId || '',
+        blueprint: payload.blueprint || {},
+        researchMetadata: payload.researchMetadata || {},
+        rawPayload: payload
+      },
+      clientTs: payload.submittedAt || new Date().toISOString()
+    };
   }
 
   function readQueue() {
-    try { return JSON.parse(localStorage.getItem(queueKey) || '[]'); }
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); }
     catch (_) { return []; }
   }
 
   function writeQueue(items) {
-    try { localStorage.setItem(queueKey, JSON.stringify(items.slice(-30))); }
+    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(items.slice(-30))); }
     catch (_) {}
   }
 
@@ -72,6 +84,19 @@
       items.push({ payload, fingerprint, queuedAt: new Date().toISOString() });
     }
     writeQueue(items);
+  }
+
+  function persistCompleted(payload) {
+    try {
+      const sid = String(payload.studentId || '').trim();
+      const mode = String(payload.mode || '').toLowerCase();
+      if (!sid || !['pre', 'post'].includes(mode)) return;
+      localStorage.setItem(DURABLE_PREFIX + sid + ':' + mode, JSON.stringify({
+        ...payload,
+        persistedAt: new Date().toISOString(),
+        classroomAuthorityPending: true
+      }));
+    } catch (_) {}
   }
 
   function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
@@ -88,7 +113,7 @@
         keepalive: false,
         signal: controller?.signal,
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'assessment_submit', payload })
+        body: JSON.stringify(toReceiverEvent(payload))
       });
       return true;
     } finally {
@@ -130,10 +155,10 @@
     const completed = api.authoritativeState?.completed || api.completed || {};
     const scores = api.authoritativeState?.scores || api.scores || {};
     if (mode === 'pre') {
-      return completed.pretest === true || Number.isFinite(Number(scores.pretest));
+      return completed.pretest === true || completed.pre === true || Number.isFinite(Number(scores.pretest ?? scores.pre));
     }
     if (mode === 'post') {
-      return completed.posttest === true || Number.isFinite(Number(scores.posttest));
+      return completed.posttest === true || completed.post === true || Number.isFinite(Number(scores.posttest ?? scores.post));
     }
     return false;
   }
@@ -143,7 +168,11 @@
     let last = null;
     while (Date.now() - started < maxMs) {
       try {
-        last = await jsonp(url, { action: 'student', studentId: String(payload.studentId || '').trim() }, 16000);
+        last = await jsonp(url, {
+          action: 'student',
+          studentId: String(payload.studentId || '').trim(),
+          reconcile: '1'
+        }, 16000);
         if (assessmentConfirmed(last, payload)) return { ok: true, api: last };
       } catch (_) {}
       await sleep(2500);
@@ -154,16 +183,45 @@
   async function sendAndVerify(url, payload) {
     let lastError = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        await post(url, payload, SEND_TIMEOUT_MS);
-      } catch (error) {
-        lastError = error;
-      }
-      const check = await verify(url, payload, attempt === 1 ? 22000 : 15000);
+      try { await post(url, payload, SEND_TIMEOUT_MS); }
+      catch (error) { lastError = error; }
+      const check = await verify(url, payload, attempt === 1 ? 24000 : 16000);
       if (check.ok) return { ok: true, confirmed: true, attempt, api: check.api };
       if (attempt < 3) await sleep(1500 * attempt);
     }
-    return { ok: false, confirmed: false, reason: lastError?.name === 'AbortError' ? 'timeout' : 'sheet_not_confirmed', error: String(lastError || '') };
+    return {
+      ok: false,
+      confirmed: false,
+      reason: lastError?.name === 'AbortError' ? 'timeout' : 'sheet_not_confirmed',
+      error: String(lastError || '')
+    };
+  }
+
+  async function submit(rawPayload) {
+    const payload = enrich(rawPayload);
+    persistCompleted(payload);
+    const url = endpoint();
+    if (!url) {
+      queue(payload);
+      return { ok: false, configured: false, queued: true, confirmed: false, reason: 'endpoint_missing' };
+    }
+    const result = await sendAndVerify(url, payload);
+    if (result.ok) {
+      try {
+        const sid = String(payload.studentId || '').trim();
+        const mode = String(payload.mode || '').toLowerCase();
+        localStorage.setItem(DURABLE_PREFIX + sid + ':' + mode + ':CONFIRMED', JSON.stringify({
+          attemptId: payload.attemptId,
+          score: payload.score,
+          total: payload.total,
+          confirmedAt: new Date().toISOString(),
+          sheetVersion: result.api?.version || ''
+        }));
+      } catch (_) {}
+      return { ok: true, configured: true, queued: false, confirmed: true, attempt: result.attempt };
+    }
+    queue(payload);
+    return { ok: false, configured: true, queued: true, confirmed: false, reason: result.reason || 'sheet_not_confirmed', error: result.error || '' };
   }
 
   async function flush() {
@@ -180,33 +238,6 @@
     }
     writeQueue(remaining);
     return { ok: remaining.length === 0, configured: true, sent, remaining: remaining.length };
-  }
-
-  async function submit(rawPayload) {
-    const payload = enrich(rawPayload);
-    persistCompleted(payload);
-    const url = endpoint();
-    if (!url) {
-      queue(payload);
-      return { ok: false, configured: false, queued: true, confirmed: false, reason: 'endpoint_missing' };
-    }
-    const result = await sendAndVerify(url, payload);
-    if (result.ok) {
-      try {
-        const sid = String(payload.studentId || '').trim();
-        const mode = String(payload.mode || '').toLowerCase();
-        localStorage.setItem(durablePrefix + sid + ':' + mode + ':CONFIRMED', JSON.stringify({
-          attemptId: payload.attemptId,
-          score: payload.score,
-          total: payload.total,
-          confirmedAt: new Date().toISOString(),
-          sheetVersion: result.api?.version || ''
-        }));
-      } catch (_) {}
-      return { ok: true, configured: true, queued: false, confirmed: true, attempt: result.attempt };
-    }
-    queue(payload);
-    return { ok: false, configured: true, queued: true, confirmed: false, reason: result.reason || 'sheet_not_confirmed', error: result.error || '' };
   }
 
   window.HHAssessmentSync = { submit, flush, endpoint, verify, version: VERSION };
