@@ -1,23 +1,28 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260730-ASSESSMENT-AUTHORITY-CONFIRM-V83';
-  const QUEUE_KEY = 'HH_ASSESSMENT_SYNC_QUEUE_V3';
-  const DURABLE_PREFIX = 'HH_ASSESSMENT_LAST_V3:';
-  const SEND_TIMEOUT_MS = 22000;
-  const VERIFY_TIMEOUT_MS = 45000;
+  const VERSION = '20260730-ASSESSMENT-JSONP-SUBMIT-V84';
+  const QUEUE_KEY = 'HH_ASSESSMENT_SYNC_QUEUE_V4';
+  const DURABLE_PREFIX = 'HH_ASSESSMENT_LAST_V4:';
+  const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwa-OSdqWS7uPne01wNr5a42PgKfAoxmUUm7yMcUx2D0C0OnbjrbppNUHkfjUxm79Fz/exec';
 
   function endpoint() {
     const q = new URLSearchParams(location.search);
-    return String(q.get('sheet') || window.HH_CONFIG?.assessmentApiUrl || '').trim();
+    const configured = String(window.HH_CONFIG?.assessmentApiUrl || '').trim();
+    return String(q.get('sheet') || configured || DEFAULT_ENDPOINT).trim();
+  }
+
+  function readJson(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw == null ? fallback : JSON.parse(raw);
+    } catch (_) {
+      return fallback;
+    }
   }
 
   function profile() {
-    try {
-      return JSON.parse(localStorage.getItem('herohealth_learning_platform_rc2') || '{}').profile || {};
-    } catch (_) {
-      return {};
-    }
+    return readJson('herohealth_learning_platform_rc2', {})?.profile || {};
   }
 
   function enrich(raw) {
@@ -36,6 +41,7 @@
     const mode = String(payload.mode || '').toLowerCase();
     const assessmentType = mode === 'post' ? 'posttest' : 'pretest';
     const attemptId = String(payload.attemptId || `${assessmentType}-${sid}-${Date.now()}`);
+
     return {
       eventId: `HH-ASSESSMENT-${attemptId}`,
       eventType: 'assessment',
@@ -68,13 +74,13 @@
   }
 
   function readQueue() {
-    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); }
-    catch (_) { return []; }
+    return readJson(QUEUE_KEY, []);
   }
 
   function writeQueue(items) {
-    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(items.slice(-30))); }
-    catch (_) {}
+    try {
+      localStorage.setItem(QUEUE_KEY, JSON.stringify(items.slice(-30)));
+    } catch (_) {}
   }
 
   function queue(payload) {
@@ -99,53 +105,43 @@
     } catch (_) {}
   }
 
-  function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
-
-  async function post(url, payload, timeoutMs = SEND_TIMEOUT_MS) {
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer = setTimeout(() => controller?.abort(), timeoutMs);
-    try {
-      await fetch(url, {
-        method: 'POST',
-        mode: 'no-cors',
-        cache: 'no-store',
-        redirect: 'follow',
-        keepalive: false,
-        signal: controller?.signal,
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(toReceiverEvent(payload))
-      });
-      return true;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  function jsonp(url, params, timeoutMs = 18000) {
+  function jsonp(url, params, timeoutMs = 30000) {
     return new Promise((resolve, reject) => {
-      const cb = 'HHAV' + Date.now() + Math.random().toString(36).slice(2);
+      const cb = 'HHAS_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
       const script = document.createElement('script');
-      let done = false;
-      const finish = (err, data) => {
-        if (done) return;
-        done = true;
+      let settled = false;
+
+      const cleanup = () => {
         clearTimeout(timer);
         script.onerror = null;
-        window[cb] = () => {};
         setTimeout(() => {
           try { delete window[cb]; } catch (_) {}
           try { script.remove(); } catch (_) {}
-        }, 30000);
-        err ? reject(err) : resolve(data);
+        }, 100);
       };
-      const timer = setTimeout(() => finish(new Error('verify_timeout')), timeoutMs);
+
+      const finish = (error, data) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        error ? reject(error) : resolve(data);
+      };
+
+      const timer = setTimeout(() => finish(new Error('sheet_timeout')), timeoutMs);
       window[cb] = data => finish(null, data);
-      script.onerror = () => finish(new Error('verify_load_failed'));
-      const query = new URLSearchParams({ ...params, callback: cb, _: String(Date.now()), mobile: '1' });
+      script.onerror = () => finish(new Error('sheet_load_failed'));
+
+      const query = new URLSearchParams({
+        ...params,
+        callback: cb,
+        _: String(Date.now()),
+        transport: 'jsonp',
+        clientVersion: VERSION
+      });
+
       script.async = true;
-      script.referrerPolicy = 'no-referrer';
       script.src = url + (url.includes('?') ? '&' : '?') + query.toString();
-      (document.head || document.documentElement).appendChild(script);
+      (document.body || document.head || document.documentElement).appendChild(script);
     });
   }
 
@@ -155,56 +151,88 @@
     const completed = api.authoritativeState?.completed || api.completed || {};
     const scores = api.authoritativeState?.scores || api.scores || {};
     if (mode === 'pre') {
-      return completed.pretest === true || completed.pre === true || Number.isFinite(Number(scores.pretest ?? scores.pre));
+      return completed.pretest === true || Number.isFinite(Number(scores.pretest));
     }
     if (mode === 'post') {
-      return completed.posttest === true || completed.post === true || Number.isFinite(Number(scores.posttest ?? scores.post));
+      return completed.posttest === true || Number.isFinite(Number(scores.posttest));
     }
     return false;
   }
 
-  async function verify(url, payload, maxMs = VERIFY_TIMEOUT_MS) {
-    const started = Date.now();
-    let last = null;
-    while (Date.now() - started < maxMs) {
-      try {
-        last = await jsonp(url, {
-          action: 'student',
-          studentId: String(payload.studentId || '').trim(),
-          reconcile: '1'
-        }, 16000);
-        if (assessmentConfirmed(last, payload)) return { ok: true, api: last };
-      } catch (_) {}
-      await sleep(2500);
+  async function submitEvent(url, payload) {
+    const event = toReceiverEvent(payload);
+    const result = await jsonp(url, {
+      action: 'submit',
+      payload: JSON.stringify(event)
+    }, 35000);
+
+    if (!result || result.ok !== true) {
+      throw new Error(result?.error || 'assessment_submit_failed');
     }
-    return { ok: false, api: last, reason: 'sheet_not_confirmed' };
+
+    if (result.eventId && result.eventId !== event.eventId) {
+      throw new Error('assessment_event_mismatch');
+    }
+
+    return result;
+  }
+
+  async function verify(url, payload) {
+    const api = await jsonp(url, {
+      action: 'student',
+      studentId: String(payload.studentId || '').trim(),
+      reconcile: '1'
+    }, 30000);
+
+    return assessmentConfirmed(api, payload)
+      ? { ok: true, api }
+      : { ok: false, api, reason: 'sheet_not_confirmed' };
   }
 
   async function sendAndVerify(url, payload) {
     let lastError = null;
+
     for (let attempt = 1; attempt <= 3; attempt++) {
-      try { await post(url, payload, SEND_TIMEOUT_MS); }
-      catch (error) { lastError = error; }
-      const check = await verify(url, payload, attempt === 1 ? 24000 : 16000);
-      if (check.ok) return { ok: true, confirmed: true, attempt, api: check.api };
-      if (attempt < 3) await sleep(1500 * attempt);
+      try {
+        const submitResult = await submitEvent(url, payload);
+        const check = await verify(url, payload);
+        if (check.ok) {
+          return {
+            ok: true,
+            confirmed: true,
+            attempt,
+            submitResult,
+            api: check.api
+          };
+        }
+      } catch (error) {
+        lastError = error;
+        console.error('[HeroHealth assessment sync]', error);
+      }
+
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 1200 * attempt));
+      }
     }
+
     return {
       ok: false,
       confirmed: false,
-      reason: lastError?.name === 'AbortError' ? 'timeout' : 'sheet_not_confirmed',
-      error: String(lastError || '')
+      reason: 'sheet_not_confirmed',
+      error: String(lastError?.message || lastError || '')
     };
   }
 
   async function submit(rawPayload) {
     const payload = enrich(rawPayload);
     persistCompleted(payload);
+
     const url = endpoint();
     if (!url) {
       queue(payload);
       return { ok: false, configured: false, queued: true, confirmed: false, reason: 'endpoint_missing' };
     }
+
     const result = await sendAndVerify(url, payload);
     if (result.ok) {
       try {
@@ -218,28 +246,64 @@
           sheetVersion: result.api?.version || ''
         }));
       } catch (_) {}
-      return { ok: true, configured: true, queued: false, confirmed: true, attempt: result.attempt };
+
+      return {
+        ok: true,
+        configured: true,
+        queued: false,
+        confirmed: true,
+        attempt: result.attempt,
+        version: VERSION
+      };
     }
+
     queue(payload);
-    return { ok: false, configured: true, queued: true, confirmed: false, reason: result.reason || 'sheet_not_confirmed', error: result.error || '' };
+    return {
+      ok: false,
+      configured: true,
+      queued: true,
+      confirmed: false,
+      reason: result.reason,
+      error: result.error
+    };
   }
 
   async function flush() {
     const url = endpoint();
     if (!url) return { ok: false, configured: false, sent: 0 };
+
     const items = readQueue();
-    if (!items.length) return { ok: true, configured: true, sent: 0 };
+    if (!items.length) return { ok: true, configured: true, sent: 0, remaining: 0 };
+
     let sent = 0;
     const remaining = [];
+
     for (const item of items) {
       const result = await sendAndVerify(url, item.payload);
       if (result.ok) sent += 1;
       else remaining.push(item);
     }
+
     writeQueue(remaining);
-    return { ok: remaining.length === 0, configured: true, sent, remaining: remaining.length };
+    return {
+      ok: remaining.length === 0,
+      configured: true,
+      sent,
+      remaining: remaining.length,
+      version: VERSION
+    };
   }
 
-  window.HHAssessmentSync = { submit, flush, endpoint, verify, version: VERSION };
-  addEventListener('online', () => { flush().catch(() => {}); });
+  window.HHAssessmentSync = {
+    submit,
+    flush,
+    endpoint,
+    verify,
+    toReceiverEvent,
+    version: VERSION
+  };
+
+  addEventListener('online', () => {
+    flush().catch(error => console.error('[HeroHealth assessment queue]', error));
+  });
 })();
