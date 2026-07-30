@@ -1,13 +1,13 @@
 (()=>{
 'use strict';
-const RELEASE='20260729-ASSESSMENT-LOCAL-ROUTE-V6';
+const RELEASE='20260730-ASSESSMENT-AUTHORITY-FIRST-R88';
 const STATE_KEY='herohealth_learning_platform_rc2';
 const STUDY_ID='HEROHEALTH-P5-2026';
 const LOCAL_ROUTES={
- pretest:'./assessment/pretest.html?v=20260729-public-assessment-v81',
- posttest:'./assessment/posttest.html?v=20260729-public-assessment-v81',
- reflection:'./assessment/reflection.html?v=20260729-public-assessment-v81',
- certificate:'./assessment/certificate.html?v=20260729-public-assessment-v81'
+ pretest:'./assessment/pretest.html?v=20260730-assessment-authority-first-r88',
+ posttest:'./assessment/posttest.html?v=20260730-assessment-authority-first-r88',
+ reflection:'./assessment/reflection.html?v=20260730-active-receiver-v85',
+ certificate:'./assessment/certificate.html?v=20260730-active-receiver-v85'
 };
 const original=window.HH?.openRoute;
 if(!window.HH||typeof original!=='function')return;
@@ -20,7 +20,7 @@ window.HH.openRoute=function(id){
  const route=LOCAL_ROUTES[id];
  if(!route)return original.call(window.HH,id);
  const url=new URL(route,location.href),sid=String(profile.studentId).trim(),testSessionId=sessionId(sid);
- url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.set('fullName',profile.fullName||'');url.searchParams.set('section',profile.section||'');url.searchParams.set('group',profile.group||s.group||'');url.searchParams.set('studyId',STUDY_ID);url.searchParams.set('testSessionId',testSessionId);url.searchParams.set('return',new URL('./index.html?v=20260729-public-assessment-v81',location.href).href);url.searchParams.set('routeRelease',RELEASE);
+ url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.set('fullName',profile.fullName||'');url.searchParams.set('section',profile.section||'');url.searchParams.set('group',profile.group||s.group||'');url.searchParams.set('studyId',STUDY_ID);url.searchParams.set('testSessionId',testSessionId);url.searchParams.set('return',new URL('./index.html?v=20260730-assessment-authority-first-r88',location.href).href);url.searchParams.set('routeRelease',RELEASE);url.searchParams.set('_',Date.now());
  if(id==='pretest'){const attempt=token('PRE',sid);localStorage.setItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`,attempt);localStorage.setItem(`HH_ASSESSMENT_TEST_SESSION_ACTIVE_${sid}`,testSessionId);url.searchParams.set('attemptId',attempt)}
  if(id==='posttest'){const attempt=token('POST',sid),preAttempt=localStorage.getItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`)||'';localStorage.setItem(`HH_ASSESSMENT_POST_ATTEMPT_${sid}`,attempt);url.searchParams.set('attemptId',attempt);if(preAttempt)url.searchParams.set('preAttemptId',preAttempt)}
  location.assign(url.href);
