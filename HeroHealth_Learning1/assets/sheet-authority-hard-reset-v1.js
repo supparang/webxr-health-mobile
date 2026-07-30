@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='20260730-SHEET-AUTHORITY-HARD-RESET-V4-ASSESSMENT-EVIDENCE-GUARD';
+const VERSION='20260730-SHEET-AUTHORITY-HARD-RESET-V5-ASSESSMENT-ROW-GUARD';
 const KEY='herohealth_learning_platform_rc2';
 const PREFIX='herohealth_student_resume_v6:';
 const R=window.HHRotation;
@@ -26,8 +26,10 @@ function assessmentEvidence(api,base,type){
   const a=api?.authoritativeState||{};
   const completed=a.completed||api?.completed||{};
   const scores=a.scores||api?.scores||{};
+  const assessmentRows=Math.max(Number(api?.evidence?.assessments)||0,Number(a?.evidence?.assessments)||0);
   if(completed[type]===true)return true;
   if(finiteScore(scores[type]))return true;
+  if(type==='pretest'&&assessmentRows>0)return true;
   if(base?.completed?.[type]===true&&base?.sheetAuthority===true)return true;
   if(finiteScore(base?.scores?.[type])&&base?.sheetAuthority===true)return true;
   if(localAssessmentEvidence(sid,type))return true;
