@@ -1,84 +1,22 @@
 (()=>{
 'use strict';
-const VERSION='20260730-SHEET-PROFILE-LOGIN-AUTHORITY-V3-TRANSPORT-FALLBACK';
+const VERSION='20260730-SHEET-PROFILE-LOGIN-AUTHORITY-V4-CAPTURE-JSONP-RETRY';
 const KEY='herohealth_learning_platform_rc2';
 const ENDPOINT=(window.HH_CONFIG?.backend?.webAppUrl||'https://script.google.com/macros/s/AKfycbwa-OSdqWS7uPne01wNr5a42PgKfAoxmUUm7yMcUx2D0C0OnbjrbppNUHkfjUxm79Fz/exec').trim();
 const clean=v=>String(v??'').trim().replace(/\s+/g,'');
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return{}}};
-const write=v=>localStorage.setItem(KEY,JSON.stringify(v));
-function toast(text){let n=document.createElement('div');n.className='toast';n.textContent=text;document.body.appendChild(n);setTimeout(()=>n.remove(),7000)}
-function busy(on,text){let box=document.getElementById('hh-sheet-profile-login');if(on&&!box){box=document.createElement('div');box.id='hh-sheet-profile-login';box.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.9);display:grid;place-items:center;padding:24px;color:#fff;font:800 18px system-ui;text-align:center;line-height:1.6;white-space:pre-line';document.body.appendChild(box)}if(box){box.textContent=text||'กำลังตรวจสอบรหัสจาก Google Sheet…';if(!on)box.remove()}}
-function parsePayload(text){
-  const raw=String(text||'').trim();
-  if(!raw)throw new Error('sheet_empty_response');
-  try{return JSON.parse(raw)}catch(_){}
-  const first=raw.indexOf('('),last=raw.lastIndexOf(')');
-  if(first>0&&last>first){try{return JSON.parse(raw.slice(first+1,last))}catch(_){}}
-  throw new Error('sheet_invalid_response');
-}
-async function fetchTransport(studentId,paramName){
-  const q=new URLSearchParams({action:'student',callback:'',_:String(Date.now()),loginAuthority:'sheet-v3'});
-  q.set(paramName,studentId);
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),15000);
-  try{
-    const res=await fetch(ENDPOINT+'?'+q.toString(),{method:'GET',cache:'no-store',redirect:'follow',credentials:'omit',signal:controller.signal});
-    if(!res.ok)throw new Error('sheet_http_'+res.status);
-    return parsePayload(await res.text());
-  }finally{clearTimeout(timer)}
-}
-function jsonpTransport(studentId,paramName){
-  return new Promise((resolve,reject)=>{
-    const cb='HHLOGIN_'+Date.now()+'_'+Math.random().toString(36).slice(2),s=document.createElement('script');
-    let done=false;
-    const finish=(err,data)=>{if(done)return;done=true;clearTimeout(timer);try{delete window[cb]}catch(_){};s.remove();err?reject(err):resolve(data)};
-    const timer=setTimeout(()=>finish(new Error('sheet_timeout')),18000);
-    window[cb]=data=>finish(null,data);
-    s.onerror=()=>finish(new Error('sheet_load_failed'));
-    const q=new URLSearchParams({action:'student',callback:cb,_:String(Date.now()),loginAuthority:'sheet-v3'});
-    q.set(paramName,studentId);
-    s.src=ENDPOINT+'?'+q.toString();
-    s.async=true;
-    s.referrerPolicy='no-referrer';
-    (document.head||document.body).appendChild(s);
-  });
-}
-async function requestStudent(studentId){
-  const attempts=[];
-  for(const paramName of ['studentId','sid','pid']){
-    try{return await fetchTransport(studentId,paramName)}catch(err){attempts.push('fetch:'+paramName+':'+(err?.message||err))}
-    try{return await jsonpTransport(studentId,paramName)}catch(err){attempts.push('jsonp:'+paramName+':'+(err?.message||err))}
-  }
-  const e=new Error('sheet_all_transports_failed');e.attempts=attempts;throw e;
-}
-function validProfile(api,sid){
-  const p=api?.authoritativeState?.profile||api?.student?.profile||api?.profile||api?.student||null;
-  const found=api?.found===true||api?.ok===true&&!!p;
-  if(!found||!p)return null;
-  const resolvedId=clean(p.studentId||p.sid||p.pid||api.studentId||api.sid||api.pid);
-  if(resolvedId!==sid)return null;
-  const group=String(p.group||api?.authoritativeState?.group||api?.group||'').trim().toUpperCase();
-  const fullName=String(p.fullName||p.studentName||p.name||'').trim();
-  const section=String(p.section||api?.section||'').trim();
-  if(!fullName||!section||!group)return null;
-  return{studentId:resolvedId,fullName,section,group,nickname:String(p.nickname||'').trim(),active:true,sheetAuthority:true,source:'HH_Profiles'};
-}
-async function lookup(form){
-  const sid=clean(new FormData(form).get('studentId'));
-  if(!sid){toast('กรุณากรอกรหัสนักเรียน');return}
-  busy(true,'กำลังตรวจสอบรหัส '+sid+'\nจาก HH_Profiles ใน Google Sheet');
-  try{
-    localStorage.removeItem('hh_mobile_working_endpoint');
-    const api=await requestStudent(sid),profile=validProfile(api,sid);
-    if(!profile){busy(false);toast('ไม่พบรหัสนักเรียนที่ใช้งานได้ใน HH_Profiles กรุณาติดต่อครู');return}
-    const state=read();
-    state.pendingProfile=profile;state.profile=null;state.view='student';state.sheetLoginAuthority=VERSION;state.sheetLoginVerifiedAt=new Date().toISOString();
-    write(state);localStorage.removeItem('herohealth_active_student_id');busy(false);location.reload();
-  }catch(err){
-    busy(false);console.error('[Sheet Profile Login]',err,err?.attempts||[]);
-    toast('เชื่อม Google Sheet ไม่สำเร็จ ระบบลองทุกช่องทางแล้ว กรุณาตรวจ Apps Script Deployment');
-  }
-}
-function install(){if(!window.HH){setTimeout(install,30);return}window.HH.lookup=lookup;window.HH.__sheetProfileLoginAuthority=VERSION;document.documentElement.dataset.hhSheetProfileLogin='V3';console.info('[HeroHealth] Sheet profile login authority installed',VERSION)}
+const write=value=>localStorage.setItem(KEY,JSON.stringify(value));
+function toast(text,duration=8500){const node=document.createElement('div');node.className='toast';node.textContent=text;document.body.appendChild(node);setTimeout(()=>node.remove(),duration)}
+function busy(on,text){let box=document.getElementById('hh-sheet-profile-login');if(on&&!box){box=document.createElement('div');box.id='hh-sheet-profile-login';box.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.92);display:grid;place-items:center;padding:24px;color:#fff;font:800 18px system-ui;text-align:center;line-height:1.6;white-space:pre-line';document.body.appendChild(box)}if(box){box.textContent=text||'กำลังตรวจสอบรหัสจาก Google Sheet…';if(!on)box.remove()}}
+function parsePayload(text){const raw=String(text||'').trim();if(!raw)throw new Error('sheet_empty_response');try{return JSON.parse(raw)}catch(_){}const first=raw.indexOf('('),last=raw.lastIndexOf(')');if(first>0&&last>first){try{return JSON.parse(raw.slice(first+1,last))}catch(_){}}throw new Error('sheet_invalid_response')}
+function jsonpStudent(studentId,timeoutMs=26000){return new Promise((resolve,reject)=>{const callback='HHLOGIN4_'+Date.now()+'_'+Math.random().toString(36).slice(2,9);const script=document.createElement('script');let settled=false;const finish=(error,data)=>{if(settled)return;settled=true;clearTimeout(timer);script.onerror=null;try{delete window[callback]}catch(_){}try{script.remove()}catch(_){}error?reject(error):resolve(data)};const timer=setTimeout(()=>finish(new Error('sheet_timeout')),timeoutMs);window[callback]=data=>finish(null,data);script.onerror=()=>finish(new Error('sheet_load_failed'));script.async=true;script.referrerPolicy='no-referrer';script.src=ENDPOINT+'?'+new URLSearchParams({action:'student',studentId,callback,_:String(Date.now()),loginAuthority:'sheet-v4-capture'}).toString();(document.head||document.body||document.documentElement).appendChild(script)})}
+async function fetchStudent(studentId){const query=new URLSearchParams({action:'student',studentId,_:String(Date.now()),loginAuthority:'sheet-v4-fetch'});const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);try{const response=await fetch(ENDPOINT+'?'+query.toString(),{method:'GET',cache:'no-store',redirect:'follow',credentials:'omit',signal:controller.signal});if(!response.ok)throw new Error('sheet_http_'+response.status);return parsePayload(await response.text())}finally{clearTimeout(timer)}}
+async function requestStudent(studentId){const errors=[];for(let attempt=1;attempt<=3;attempt++){try{const api=await jsonpStudent(studentId,22000+attempt*3000);if(api?.ok===false)throw new Error(api.error||'sheet_api_error');return api}catch(error){errors.push('jsonp'+attempt+':'+String(error?.message||error))}if(attempt===2){try{const api=await fetchStudent(studentId);if(api?.ok===false)throw new Error(api.error||'sheet_api_error');return api}catch(error){errors.push('fetch:'+String(error?.message||error))}}await sleep(500+attempt*450)}const error=new Error('sheet_all_transports_failed');error.attempts=errors;throw error}
+function validProfile(api,sid){const profile=api?.authoritativeState?.profile||api?.student?.profile||api?.profile||api?.student||null;const found=api?.found===true||(api?.ok===true&&!!profile);if(!found||!profile)return null;const resolvedId=clean(profile.studentId||profile.sid||profile.pid||api.studentId||api.sid||api.pid);if(resolvedId!==sid)return null;const group=String(profile.group||api?.authoritativeState?.group||api?.group||'').trim().toUpperCase();const fullName=String(profile.fullName||profile.studentName||profile.name||'').trim();const section=String(profile.section||api?.section||'').trim();if(!fullName||!section||!group)return null;return{studentId:resolvedId,fullName,section,group,nickname:String(profile.nickname||'').trim(),active:true,sheetAuthority:true,source:'HH_Profiles',sheetLoginVersion:VERSION}}
+async function lookupForm(form){const sid=clean(new FormData(form).get('studentId'));if(!sid){toast('กรุณากรอกรหัสนักเรียน');return}busy(true,'กำลังตรวจสอบรหัส '+sid+'\nจาก HH_Profiles ใน Google Sheet');try{localStorage.removeItem('hh_mobile_working_endpoint');const api=await requestStudent(sid);const profile=validProfile(api,sid);if(!profile){busy(false);toast('ไม่พบข้อมูลรหัส '+sid+' ที่สมบูรณ์ใน HH_Profiles กรุณาตรวจ studentId, fullName, section และ group');return}const state=read();state.pendingProfile=profile;state.profile=null;state.view='student';state.sheetLoginAuthority=VERSION;state.sheetLoginVerifiedAt=new Date().toISOString();state.lastLoginAuthorityResponse={found:api?.found===true,version:api?.version||'',generatedAt:api?.generatedAt||''};write(state);localStorage.removeItem('herohealth_active_student_id');busy(false);const url=new URL(location.href);url.searchParams.set('loginVerified',sid);url.searchParams.set('v','20260730-sheet-login-v4');location.replace(url.href)}catch(error){busy(false);console.error('[HeroHealth Sheet Login V4]',error,error?.attempts||[]);const detail=(error?.attempts||[]).slice(-3).join(' | ')||String(error?.message||error);toast('เชื่อม Google Sheet ไม่สำเร็จ: '+detail,12000)}}
+function isLoginForm(form){if(!(form instanceof HTMLFormElement))return false;if(!form.querySelector('input[name="studentId"]'))return false;const state=read();return !state?.profile&&state?.view!=='teacher'}
+document.addEventListener('submit',event=>{const form=event.target;if(!isLoginForm(form))return;event.preventDefault();event.stopImmediatePropagation();lookupForm(form)},true);
+function install(){if(!window.HH){setTimeout(install,30);return}window.HH.lookup=lookupForm;window.HH.__sheetProfileLoginAuthority=VERSION;document.documentElement.dataset.hhSheetProfileLogin='V4';console.info('[HeroHealth] Sheet profile login authority installed',VERSION)}
 install();
 })();
