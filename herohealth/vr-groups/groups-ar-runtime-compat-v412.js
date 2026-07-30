@@ -1,8 +1,15 @@
 (() => {
   'use strict';
 
-  const PATCH = 'groups-ar-runtime-compat-v5.0.1-thai-strict-ar';
+  const PATCH = 'groups-ar-runtime-compat-v5.1.0-grade5-easy-grab';
   const params = new URLSearchParams(location.search);
+  const ASSIST = {
+    effectiveGrabRadiusPx: 152,
+    grabDistanceScale: 0.66,
+    binStartRatio: 0.645,
+    stickyGrabUntilBin: true,
+    visualFollowMs: 55
+  };
 
   function passportMode() {
     return window.parent !== window ||
@@ -10,6 +17,104 @@
       params.get('passport') === '1' ||
       params.get('embedded') === '1' ||
       params.get('from') === 'passport';
+  }
+
+  function installEasyInteractionAssist() {
+    if (window.__HH_GROUPS_EASY_GRAB_INSTALLED__) return;
+    window.__HH_GROUPS_EASY_GRAB_INSTALLED__ = true;
+    window.HH_GROUPS_INTERACTION_ASSIST = { ...ASSIST, patch: PATCH };
+
+    const url = new URL(location.href);
+    const currentClose = Number(url.searchParams.get('pinchClose')) || 0;
+    const currentOpen = Number(url.searchParams.get('pinchOpen')) || 0;
+    if (currentClose < 0.085) url.searchParams.set('pinchClose', '0.085');
+    if (currentOpen < 0.145) url.searchParams.set('pinchOpen', '0.145');
+    url.searchParams.set('interactionAssist', 'grade5-easy-grab-v1');
+    history.replaceState(null, '', url.href);
+
+    const arena = document.getElementById('arena');
+    if (arena && !arena.__hhOriginalRect) {
+      const originalRect = arena.getBoundingClientRect.bind(arena);
+      arena.__hhOriginalRect = originalRect;
+      arena.getBoundingClientRect = function assistedArenaRect() {
+        const rect = originalRect();
+        const stack = String(new Error().stack || '');
+        if (!/\bbinAt\b/.test(stack)) return rect;
+        const assistedHeight = rect.height * 0.86;
+        return {
+          x: rect.x, y: rect.y, top: rect.top, left: rect.left,
+          right: rect.right, bottom: rect.top + assistedHeight,
+          width: rect.width, height: assistedHeight,
+          toJSON: () => ({
+            x: rect.x, y: rect.y, top: rect.top, left: rect.left,
+            right: rect.right, bottom: rect.top + assistedHeight,
+            width: rect.width, height: assistedHeight
+          })
+        };
+      };
+    }
+
+    if (!Math.__hhGroupsOriginalHypot) {
+      const originalHypot = Math.hypot.bind(Math);
+      Math.__hhGroupsOriginalHypot = originalHypot;
+      Math.hypot = function assistedHypot(...values) {
+        const distance = originalHypot(...values);
+        if (values.length !== 2) return distance;
+
+        const maxMagnitude = Math.max(Math.abs(Number(values[0]) || 0), Math.abs(Number(values[1]) || 0));
+        if (maxMagnitude > 2) return distance * ASSIST.grabDistanceScale;
+
+        const selected = document.querySelector('.food.selected');
+        if (selected && distance >= 0.145) {
+          const hand = document.getElementById('hand');
+          const gameArena = document.getElementById('arena');
+          const handY = Number.parseFloat(hand?.style.top || '0');
+          const height = gameArena?.clientHeight || 1;
+          if (handY < height * ASSIST.binStartRatio) return 0.12;
+        }
+        return distance;
+      };
+    }
+
+    const style = document.createElement('style');
+    style.id = 'hh-groups-grade5-easy-grab-style';
+    style.textContent = `
+      .food{box-shadow:0 0 0 7px rgba(255,255,255,.18),0 19px 54px rgba(0,0,0,.25)!important}
+      .food.selected{transition:left ${ASSIST.visualFollowMs}ms linear,top ${ASSIST.visualFollowMs}ms linear,filter .1s,box-shadow .1s!important;box-shadow:0 0 0 13px rgba(67,207,123,.34),0 25px 70px rgba(0,0,0,.3)!important;filter:brightness(1.1) saturate(1.15)!important}
+      .hand{width:66px!important;height:66px!important;margin:-33px 0 0 -33px!important;box-shadow:0 0 0 12px rgba(101,201,255,.18),0 10px 30px rgba(0,0,0,.25)!important}
+      .hand.pinch{box-shadow:0 0 0 14px rgba(67,207,123,.24),0 10px 30px rgba(0,0,0,.25)!important}
+      .bin{min-height:74px!important;border-width:2px!important}
+      .bin.hover{transform:translateY(-9px) scale(1.07)!important;outline:4px solid rgba(67,207,123,.9)!important;box-shadow:0 0 0 8px rgba(67,207,123,.2),0 15px 46px rgba(0,0,0,.18)!important}
+      @media(max-width:520px){.food{width:94px!important;height:94px!important}.food .emoji{font-size:44px!important}.bin{min-height:69px!important}}
+    `;
+    document.head.appendChild(style);
+
+    const feedback = document.getElementById('feedback');
+    const foodLayer = document.getElementById('foodLayer');
+    if (foodLayer && feedback) {
+      const updateGrabHint = () => {
+        const selected = foodLayer.querySelector('.food.selected');
+        if (selected) feedback.textContent = '✅ หยิบติดมือแล้ว • เลื่อนลงเหนือหมู่ที่เลือก แล้วกางนิ้ว';
+      };
+      new MutationObserver(updateGrabHint).observe(foodLayer, {
+        childList: true, subtree: true, attributes: true, attributeFilter: ['class']
+      });
+    }
+
+    const summary = document.getElementById('summary');
+    if (summary) {
+      const annotate = () => {
+        if (summary.classList.contains('hidden')) return;
+        try {
+          const key = 'HHA_GROUPS_AR_LAST_RESULT';
+          const result = JSON.parse(localStorage.getItem(key) || 'null');
+          if (!result || result.interactionAssistProfile) return;
+          result.interactionAssistProfile = { ...ASSIST, profile: 'grade5-easy-grab-v1' };
+          localStorage.setItem(key, JSON.stringify(result));
+        } catch (_) {}
+      };
+      new MutationObserver(annotate).observe(summary, { attributes: true, childList: true, subtree: true });
+    }
   }
 
   function summaryVisible(summary) {
@@ -189,6 +294,8 @@
     ].join('');
   }
 
+  installEasyInteractionAssist();
+
   const script = document.createElement('script');
   script.src = './vr-groups/groups-ar-runtime-v311.js?v=20260730-thai-strict-ar-v500';
   script.async = false;
@@ -199,9 +306,9 @@
     installSafetyButton();
     installTextGuard();
     window.dispatchEvent(new CustomEvent('groups-runtime-ready', {
-      detail: { patch: PATCH, mode: 'hand-ar-only' }
+      detail: { patch: PATCH, mode: 'hand-ar-only', interactionAssist: ASSIST }
     }));
-    console.info('[Groups AR Runtime]', PATCH);
+    console.info('[Groups AR Runtime]', PATCH, ASSIST);
   };
   script.onerror = renderLoadError;
   document.head.appendChild(script);
