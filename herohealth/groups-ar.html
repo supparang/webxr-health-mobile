@@ -33,9 +33,10 @@
         url.searchParams.set('hub', new URL('./nutrition-zone.html', location.href).toString());
       }
       if (!url.searchParams.has('log')) url.searchParams.set('log', '0');
-      if (!url.searchParams.has('pinchClose')) url.searchParams.set('pinchClose', '0.075');
-      if (!url.searchParams.has('pinchOpen')) url.searchParams.set('pinchOpen', '0.115');
+      if (!url.searchParams.has('pinchClose')) url.searchParams.set('pinchClose', '0.085');
+      if (!url.searchParams.has('pinchOpen')) url.searchParams.set('pinchOpen', '0.145');
       if (!url.searchParams.has('detectEveryMs')) url.searchParams.set('detectEveryMs', '42');
+      if (!url.searchParams.has('interactionAssist')) url.searchParams.set('interactionAssist', 'grade5-easy-grab-v1');
       url.searchParams.set('inputMode', 'hand-ar-only');
       history.replaceState(null, '', url.toString());
     })();
@@ -112,7 +113,7 @@
         <div class="step"><span>✋</span><b>กางนิ้วเพื่อปล่อย</b><small>ปล่อยเหนือหมู่อาหารที่เลือก</small></div>
         <div class="step"><span>👾</span><b>ผ่าน 3 ด่านบอส</b><small>จัดหมู่ แก้ข้อพลาด และแยกส่วนประกอบ</small></div>
       </div>
-      <div class="warning">เกมนี้ใช้กล้องและมือจริงเท่านั้น จัดแสงให้เห็นมือชัดและอนุญาตการใช้กล้อง</div>
+      <div class="warning">เมื่อหยิบติดแล้ว อาหารจะเกาะมือจนเลื่อนลงถึงตะกร้า จึงไม่หลุดกลางทางง่าย</div>
       <div class="sheetActions">
         <button class="big" id="startCamera">📷 เปิดกล้องและเริ่มเกม</button>
         <button class="big alt" id="startTouch" hidden aria-hidden="true" tabindex="-1">ปิดใช้งาน</button>
@@ -159,8 +160,8 @@
   </section>
 
   <script src="./vr-groups/groups-ar-bank-v3.js?v=20260717-5"></script>
-  <script src="./vr-groups/groups-ar-runtime-compat-v412.js?v=20260730-thai-strict-ar-v500"></script>
-  <script src="./vr-groups/groups-ar-ui-v410.js?v=20260721-compact-v410"></script>
+  <script src="./vr-groups/groups-ar-runtime-compat-v412.js?v=20260730-grade5-easy-grab-v510"></script>
+  <script src="./vr-groups/groups-ar-ui-v410.js?v=20260730-student-ui-v500"></script>
   <script>
   (() => {
     'use strict';
@@ -242,8 +243,9 @@
         accuracy,
         eventId,
         sourceEventId,
+        interactionAssistProfile: raw.interactionAssistProfile || window.HH_GROUPS_INTERACTION_ASSIST || null,
         finishedAt: new Date().toISOString(),
-        source: 'groups-ar-summary-bridge-v5-thai-strict-ar'
+        source: 'groups-ar-summary-bridge-v5-grade5-easy-grab'
       };
     }
 
