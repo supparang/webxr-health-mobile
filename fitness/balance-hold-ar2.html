@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Guardian Six Pose Classroom Release | v20260730.39-no-stall -->
+<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Stable Classroom Release | v20260730.40-one-tap -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -7,18 +7,41 @@
   <meta name="theme-color" content="#dff7ff" />
   <meta name="color-scheme" content="light" />
   <title>Balance Hold • ภารกิจทรงตัว</title>
+  <script>
+    (()=>{
+      const q=new URLSearchParams(location.search);
+      const standalone=q.get('classroom')==='0'||q.get('standalone')==='1'||q.get('qa')==='1'||['standalone','research','demo','qa'].includes(String(q.get('mode')||'').toLowerCase());
+      if(standalone)return;
+      const url=new URL(location.href);
+      if(!url.searchParams.has('classroom'))url.searchParams.set('classroom','1');
+      if(!url.searchParams.has('mode'))url.searchParams.set('mode','classroom');
+      if(!url.searchParams.has('source'))url.searchParams.set('source','herohealth');
+      if(!url.searchParams.has('diff'))url.searchParams.set('diff','easy');
+      if(!url.searchParams.has('time'))url.searchParams.set('time','60');
+      try{history.replaceState(history.state,'',url.href)}catch(_){}
+    })();
+  </script>
   <link rel="stylesheet" href="./bh-twin-base-v11.css?v=20260716.11" />
   <link rel="stylesheet" href="./bh-twin-ui-v11.css?v=20260716.11" />
   <link rel="stylesheet" href="./bh-twin-polish-v12.css?v=20260716.12" />
   <link rel="stylesheet" href="./bh-eight-pose-v17.css?v=20260717.17" />
   <link rel="stylesheet" href="./bh-pose-contrast-v20.css?v=20260717.20" />
+  <style>
+    body.bh-classroom-stable .topActions,body.bh-classroom-stable #statusPill{display:none!important}
+    body.bh-classroom-stable #startOverlay .bh-hidden-config{display:none!important}
+    body.bh-classroom-stable #startOverlay .modal{width:min(92vw,430px);max-height:none;overflow:visible;text-align:center}
+    body.bh-classroom-stable #startOverlay .modalHead{display:block}
+    body.bh-classroom-stable #startOverlay .modalIcon{margin:0 auto 8px}
+    body.bh-classroom-stable #startOverlay .actions{display:block}
+    body.bh-classroom-stable #startBtn{width:100%;min-height:56px}
+  </style>
 </head>
-<body>
+<body class="bh-classroom-stable">
 <main class="app" id="app">
   <header class="topbar">
     <div class="brand glass"><div class="brandIcon">💎</div><div><div class="brandTitle">Balance Hold</div><div class="brandSub">ภารกิจทรงตัว 6 ท่า</div></div></div>
-    <div class="topPill glass" id="statusPill">📷 กล้องพร้อม</div>
-    <div class="topActions"><button class="iconBtn" id="recalibrateBtn" type="button" title="ตรวจท่าทางใหม่">◎</button><button class="iconBtn" id="pauseBtn" type="button" title="พักเกม">Ⅱ</button><button class="iconBtn primary" id="homeBtn" type="button" title="กลับ Passport">⌂</button></div>
+    <div class="topPill glass" id="statusPill" hidden>📷 กล้องพร้อม</div>
+    <div class="topActions" hidden><button class="iconBtn" id="recalibrateBtn" type="button">◎</button><button class="iconBtn" id="pauseBtn" type="button">Ⅱ</button><button class="iconBtn primary" id="homeBtn" type="button">⌂</button></div>
   </header>
   <section class="stage" id="stage">
     <video id="camera" playsinline muted autoplay></video><canvas id="poseCanvas"></canvas><div class="tint"></div>
@@ -36,20 +59,24 @@
     </div>
     <div class="poseBanner"><div class="poseName glass" id="poseName">🛡️ ยืนกางแขน</div><div class="poseCue" id="poseCue">ยืนสองเท้า กางแขนระดับไหล่ และมองตรง</div></div>
     <div class="energy glass"><div class="energyTitle"><span>⚡ พลังการทรงตัว</span><span id="energyLabel">รอจับท่า</span></div><div class="energyGrid"><div class="energyItem">ท่าทาง<div class="meter"><i id="poseEnergy"></i></div></div><div class="energyItem">ความนิ่ง<div class="meter"><i id="stabilityEnergy"></i></div></div><div class="energyItem">ควบคุม<div class="meter"><i id="controlEnergy"></i></div></div></div></div>
-    <div class="coach glass"><div class="coachIcon" id="coachIcon">🧘</div><div class="coachText"><div id="coachMain">เตรียมพื้นที่ให้โล่งและให้กล้องเห็นช่วงศีรษะถึงเข่า</div><small id="coachSub">โหมดห้องเรียน • 6 ท่า • Easy • Safe Mode</small></div><div class="coachBadge" id="coachBadge">พร้อม</div></div>
+    <div class="coach glass"><div class="coachIcon" id="coachIcon">🧘</div><div class="coachText"><div id="coachMain">ให้กล้องเห็นศีรษะ ไหล่ สะโพก และเข่าทั้งสอง</div><small id="coachSub">ภารกิจทรงตัว 6 ท่า • โหมดปลอดภัย</small></div><div class="coachBadge" id="coachBadge">พร้อม</div></div>
     <div class="qaPanel glass hidden" id="qaPanel"><b>QA</b><span id="qaFps">FPS -</span><span id="qaThreshold">Gate -</span><span id="qaLoss">Lost 0</span><span id="qaAssist">Assist 0</span></div>
     <div class="countdown hidden" id="countdown">3</div>
+
     <div class="overlay" id="startOverlay">
       <section class="modal">
         <div class="modalHead"><div class="modalIcon">💎</div><div><h1>ภารกิจทรงตัว</h1><p class="lead">ทำท่าตามหน้าจอ 6 ท่า ยกขาเพียงต่ำ ๆ และค้างให้นิ่ง</p></div></div>
-        <div class="concept"><div class="conceptCard">🛡️ <b>ท่าพื้นฐาน</b><br>ยืนกางแขนและเอื้อมซ้าย–ขวา</div><div class="conceptCard">🌳 <b>ท่าทรงตัว</b><br>ยกเท้าต่ำหรือแตะปลายเท้า</div><div class="conceptCard">💎 <b>ท่าปิดภารกิจ</b><br>ค้างท่าสุดท้ายให้นิ่ง</div></div>
-        <div class="eightPoseLegend"><span>1 ยืนกางแขน</span><span>2 เอื้อมซ้าย</span><span>3 เอื้อมขวา</span><span>4 ทรงตัวซ้าย</span><span>5 ทรงตัวขวา</span><span>6 ท่าปิดภารกิจ</span></div>
-        <div class="formGrid"><div class="field"><label for="playerName">ชื่อผู้เล่น</label><input id="playerName" value="Hero" autocomplete="name" /></div><div class="field"><label for="studentId">รหัสนักเรียน</label><input id="studentId" placeholder="เช่น P001" autocomplete="off" /></div><div class="field"><label for="classId">กลุ่ม/ห้อง</label><input id="classId" value="ป.5" /></div><div class="field"><label for="section">Section</label><input id="section" placeholder="เช่น P5-1" autocomplete="off" /></div><div class="field"><label for="difficulty">ระดับ</label><select id="difficulty"><option value="easy">Easy • 6 ท่าห้องเรียน</option><option value="normal" selected>Normal • เพิ่ม Tree Balance</option><option value="hard">Hard • เพิ่ม Airplane + Boss</option></select></div><div class="field"><label for="duration">เวลา</label><select id="duration"><option value="45">45 วินาที</option><option value="60" selected>60 วินาที</option><option value="75">75 วินาที</option><option value="90">90 วินาที</option></select></div></div>
-        <div class="toggles"><label class="toggle"><input id="showSkeleton" type="checkbox" checked> แสดงโครงท่าทาง</label><label class="toggle"><input id="soundOn" type="checkbox" checked> เสียงสัญญาณ</label><label class="toggle"><input id="safeMode" type="checkbox" checked> โหมดปลอดภัย ป.5</label></div>
-        <div class="actions"><button class="btn primary" id="startBtn" type="button">📷 เริ่มภารกิจ</button><button class="btn blue" id="cameraTestBtn" type="button">ทดสอบกล้อง</button><button class="btn" id="demoBtn" type="button">โหมดสาธิต</button></div>
-        <p class="lead safetyNote">พื้นต้องไม่ลื่นและมีพื้นที่ว่าง ยกเท้าเพียงต่ำ ๆ หยุดทันทีหากเสียสมดุล เวียนศีรษะ หรือเจ็บเข่า</p>
+        <div class="actions"><button class="btn primary" id="startBtn" type="button">📷 เริ่มภารกิจ</button></div>
+        <div class="bh-hidden-config" aria-hidden="true">
+          <input id="playerName" value="Hero" /><input id="studentId" /><input id="classId" value="ป.5" /><input id="section" />
+          <select id="difficulty"><option value="easy" selected>Easy</option><option value="normal">Normal</option><option value="hard">Hard</option></select>
+          <select id="duration"><option value="45">45</option><option value="60" selected>60</option><option value="75">75</option><option value="90">90</option></select>
+          <input id="showSkeleton" type="checkbox" checked /><input id="soundOn" type="checkbox" checked /><input id="safeMode" type="checkbox" checked />
+          <button id="cameraTestBtn" type="button" hidden></button><button id="demoBtn" type="button" hidden></button>
+        </div>
       </section>
     </div>
+
     <div class="overlay hidden" id="calibrationOverlay"><section class="modal calibrationModal"><div class="modalHead"><div class="modalIcon">📐</div><div><h2>ตรวจท่าทางก่อนเริ่ม</h2><p class="lead" id="calibrationText">ให้กล้องเห็นศีรษะ ไหล่ สะโพก และเข่าทั้งสอง</p></div></div><div class="calibrationSteps"><div class="calStep" id="calBody">1. ศีรษะ–เข่า</div><div class="calStep" id="calArms">2. กางแขน</div><div class="calStep" id="calStable">3. ยืนนิ่ง</div></div><div class="calMeter"><i id="calibrationBar"></i></div><div class="cameraHints"><span>ยืนในระยะที่ปลอดภัย</span><span>ให้เห็นเข่าทั้งสอง</span><span>แสงส่องด้านหน้า</span></div><div class="actions"><button class="btn blue" id="retryCameraBtn" type="button">↻ ลองเปิดกล้องใหม่</button><button class="btn" id="cancelCalibrationBtn" type="button">ยกเลิก</button></div></section></div>
     <div class="overlay hidden" id="resultOverlay"></div>
   </section>
@@ -73,9 +100,8 @@
 <script src="./bh-mobile-camera-adaptive-v34.js?v=20260729.34"></script>
 <script src="./bh-classroom-six-pose-v35.js?v=20260729.35"></script>
 <script src="./bh-classroom-tree-knee-proof-v37.js?v=20260730.37"></script>
-<script src="./bh-live-demo-v14.js?v=20260717.28"></script>
-<script src="./bh-classroom-autostart-v30.js?v=20260730.39-no-stall"></script>
-<script src="../HeroHealth_Learning1/assets/classroom-game-contract-v1.js?v=20260730-balance-mobile-v39"></script>
-<script src="./bh-classroom-ui-final-v38.js?v=20260730.39"></script>
+<script src="./bh-classroom-launcher-v40.js?v=20260730.40"></script>
+<script src="../HeroHealth_Learning1/assets/classroom-game-contract-v1.js?v=20260730-balance-mobile-v40"></script>
+<script src="./bh-classroom-ui-stable-v40.js?v=20260730.40"></script>
 </body>
 </html>
