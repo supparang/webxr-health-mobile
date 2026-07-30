@@ -21,7 +21,7 @@
   <div id="status" class="status"></div>
   <script>
   (()=>{'use strict';
-    const RELEASE='20260730-GOODJUNK-CLASSROOM-RESULT-POLISH-V14.1';
+    const RELEASE='20260730-GOODJUNK-CLASSROOM-PASSPORT-BUTTON-V14.2';
     const q=new URLSearchParams(location.search);
     const sid=q.get('studentId')||q.get('pid')||'';
     const section=q.get('section')||'';
@@ -32,7 +32,7 @@
     const loaderText=document.getElementById('loaderText');
     const retry=document.getElementById('retry');
     const status=document.getElementById('status');
-    let forwarded=false,uiObserver=null,readyTimer=0,loadToken=0,applyQueued=false,applying=false;
+    let forwarded=false,uiObserver=null,readyTimer=0,loadToken=0,applyQueued=false,applying=false,lastCompletionPayload=null;
     const show=t=>{status.textContent=t;status.classList.add('show');setTimeout(()=>status.classList.remove('show'),2600)};
     const endpoint=()=>String(parent?.HH_CONFIG?.backend?.webAppUrl||'').trim();
     const post=payload=>{
@@ -44,6 +44,14 @@
     function emitUp(message){
       try{parent.postMessage(message,location.origin)}catch(_){}
       try{if(parent!==parent.parent)parent.parent.postMessage(message,location.origin)}catch(_){}
+    }
+    function returnToPassport(){
+      const payload={...(lastCompletionPayload||{}),completed:true,passed:lastCompletionPayload?.passed!==false,progressionEligible:true,retryRequired:false,manualPassportReturn:true,wrapperRelease:RELEASE};
+      if(embedded){show('กำลังกลับ Passport…');emitUp({type:'HEROHEALTH_GAME_COMPLETE',payload});return}
+      const requested=q.get('return')||q.get('returnUrl')||q.get('passportUrl')||'';
+      if(requested){try{location.replace(new URL(requested,location.href).href);return}catch(_){}}
+      if(document.referrer&&document.referrer!==location.href){location.replace(document.referrer);return}
+      location.replace('../HeroHealth_Learning1/index.html?authorityRefresh='+Date.now()+'&gameSync=1&pendingGameSync=nutrition:goodjunk'+(sid?'&sid='+encodeURIComponent(sid):''));
     }
     function setText(el,text){if(el&&el.textContent!==text)el.textContent=text}
     function setNode(node,text){if(node&&node.nodeValue!==text)node.nodeValue=text}
@@ -74,16 +82,21 @@
       const bossPhase=doc.getElementById('bossPhase');if(bossPhase&&/^Phase\s*\d+/i.test(bossPhase.textContent))setText(bossPhase,bossPhase.textContent.replace(/Phase/i,'รอบ'));
       const bossHead=doc.querySelector('.bossHead');if(bossHead){const spans=bossHead.querySelectorAll(':scope > span');setNode(spans[0]?.firstChild,'👑 ด่านราชาขยะ • ');setNode(spans[1]?.firstChild,'พลัง ')}
       const bossMsg=doc.getElementById('bossMsg');if(bossMsg){const next=String(bossMsg.textContent).replace('Sugar Storm','พายุน้ำตาล').replace('Fake Healthy','อาหารสุขภาพลวงตา').replace('Chaos','ความวุ่นวาย');setText(bossMsg,next)}
-      const resultBody=doc.querySelector('#result .resultBody');if(resultBody&&!doc.getElementById('hhStudentSaveNote')){const n=doc.createElement('div');n.id='hhStudentSaveNote';n.className='studentSaveNote';n.textContent=embedded?'ระบบจะบันทึกผลและกลับ Passport อัตโนมัติ • ไม่ต้องเล่นซ้ำ':'บันทึกผลแล้ว • การทดสอบหน้านี้ไม่เปลี่ยน Passport';resultBody.appendChild(n)}
-      const send=doc.getElementById('sendStatus');if(send){const raw=send.textContent.trim();if(/ส่งผลไปยัง Receiver แล้ว|ถูกบันทึกแล้ว/.test(raw))setText(send,embedded?'บันทึกผลเรียบร้อย • กำลังกลับ Passport':'บันทึกผลเรียบร้อย');else if(/กำลังเตรียมส่ง|กำลังส่ง/.test(raw))setText(send,'กำลังบันทึกผลการเล่น…');else if(/เก็บคิว/.test(raw))setText(send,'ยังออฟไลน์ • เก็บผลไว้และจะส่งใหม่อัตโนมัติ')}
+      const resultBody=doc.querySelector('#result .resultBody');if(resultBody&&!doc.getElementById('hhStudentSaveNote')){const n=doc.createElement('div');n.id='hhStudentSaveNote';n.className='studentSaveNote';n.textContent=embedded?'ระบบบันทึกผลอัตโนมัติ • กดปุ่มด้านล่างเพื่อกลับ Passport':'บันทึกผลแล้ว • กดปุ่มด้านล่างเพื่อกลับ Passport';resultBody.appendChild(n)}
+      const send=doc.getElementById('sendStatus');if(send){const raw=send.textContent.trim();if(/ส่งผลไปยัง Receiver แล้ว|ถูกบันทึกแล้ว/.test(raw))setText(send,'บันทึกผลเรียบร้อย');else if(/กำลังเตรียมส่ง|กำลังส่ง/.test(raw))setText(send,'กำลังบันทึกผลการเล่น…');else if(/เก็บคิว/.test(raw))setText(send,'ยังออฟไลน์ • เก็บผลไว้และจะส่งใหม่อัตโนมัติ')}
+      const actions=doc.querySelector('#result .stickyActions');
+      if(actions&&!doc.getElementById('hhGoodJunkPassportBtn')){
+        [...actions.children].forEach(el=>el.style.display='none');
+        const btn=doc.createElement('button');btn.id='hhGoodJunkPassportBtn';btn.className='btn good';btn.type='button';btn.textContent='🏠 กลับ Passport';btn.addEventListener('click',returnToPassport);actions.appendChild(btn);
+      }
     }
     function queueApply(doc){if(applyQueued||applying)return;applyQueued=true;requestAnimationFrame(()=>{applyQueued=false;if(applying)return;applying=true;try{applyStudentUi(doc)}finally{applying=false}})}
     function installUi(doc,win){
       if(!doc?.head)return false;
-      if(!doc.getElementById('hh-goodjunk-student-ui-v141')){const style=doc.createElement('style');style.id='hh-goodjunk-student-ui-v141';style.textContent=`
+      if(!doc.getElementById('hh-goodjunk-student-ui-v142')){const style=doc.createElement('style');style.id='hh-goodjunk-student-ui-v142';style.textContent=`
         .arOnlyNote{font-size:.92rem!important;line-height:1.4!important}.grid2 .box{min-height:66px;display:flex;align-items:center;justify-content:center;line-height:1.35}
         .missionBox.touchRescue::after{content:'กล้องมองไม่เห็นนิ้ว • ยกมือให้เห็นชัดแล้วลองอีกครั้ง'!important;color:#b91c1c!important}.missionBox.cameraLite::after{content:'ชี้นิ้วค้างบนอาหารที่ต้องการเลือก'!important;color:#075985!important}
-        #result .stickyActions{display:none!important}#result .resultBody{padding-bottom:calc(18px + env(safe-area-inset-bottom))!important}#achievement,#bossStats{display:none!important}
+        #result .stickyActions{display:flex!important}#result .stickyActions>button:not(#hhGoodJunkPassportBtn){display:none!important}#hhGoodJunkPassportBtn{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:min(360px,92vw)!important;min-height:52px!important;font-size:1.05rem!important}#result .resultBody{padding-bottom:12px!important}#achievement,#bossStats{display:none!important}
         #result .studentSaveNote{margin:8px 0 2px;padding:10px 12px;border:2px solid #86efac;border-radius:14px;background:#ecfdf5;color:#166534;font-weight:900;font-size:.86rem;line-height:1.4;text-align:center}
         #result .mastery{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
         @media(max-width:760px){#start .lead{font-size:.94rem;line-height:1.5}.grid2{grid-template-columns:1fr 1fr!important}.grid2 .box{padding:9px 7px;font-size:.84rem}#reasonScreen h1,#reflectionScreen h1{font-size:1.65rem!important}}
@@ -97,8 +110,8 @@
     function markError(message){loader.classList.add('error');loaderText.textContent=message||'โหลดเกมไม่สำเร็จ กรุณาลองใหม่';frame.classList.remove('ready')}
     function waitForGame(token){let tries=0;const check=()=>{if(token!==loadToken)return;tries++;try{const doc=frame.contentDocument,win=frame.contentWindow;if(doc?.getElementById('start')&&installUi(doc,win)){markReady();return}}catch(_){}if(tries<120)setTimeout(check,100);else markError('เกมใช้เวลาโหลดนานเกินไป กรุณาลองเปิดใหม่')};check()}
     function loadGame(){
-      forwarded=false;loadToken++;const token=loadToken;uiObserver?.disconnect();loader.className='loader';loaderText.textContent='กำลังโหลดหน้าภารกิจสำหรับมือถือ…';frame.classList.remove('ready');
-      const child=new URL('./goodjunk-ar-v11.html',location.href);q.forEach((v,k)=>child.searchParams.set(k,v));child.searchParams.set('classroomBridge','14.1');child.searchParams.set('studentUi','1');child.searchParams.set('_',Date.now());frame.src=child.href;
+      forwarded=false;lastCompletionPayload=null;loadToken++;const token=loadToken;uiObserver?.disconnect();loader.className='loader';loaderText.textContent='กำลังโหลดหน้าภารกิจสำหรับมือถือ…';frame.classList.remove('ready');
+      const child=new URL('./goodjunk-ar-v11.html',location.href);q.forEach((v,k)=>child.searchParams.set(k,v));child.searchParams.set('classroomBridge','14.2');child.searchParams.set('studentUi','1');child.searchParams.set('_',Date.now());frame.src=child.href;
       clearTimeout(readyTimer);readyTimer=setTimeout(()=>{if(token===loadToken&&!frame.classList.contains('ready'))markError('ยังเปิดเกมไม่สำเร็จ กรุณาลองอีกครั้ง')},15000);
     }
     retry.onclick=loadGame;
@@ -108,9 +121,10 @@
       if(m.type==='HEROHEALTH_GAME_STARTED'){emitUp(m);return}
       if(m.type!=='HEROHEALTH_GAME_COMPLETE'||!m.payload||forwarded)return;
       forwarded=true;const eventId=String(m.payload.eventId||`HH-classroom-goodjunk-${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
+      lastCompletionPayload={...m.payload,eventId,completed:true,progressionEligible:true,retryRequired:false};
       const payload={eventType:'game',eventId,studentId:sid,profile:{section,group},clientTs:new Date().toISOString(),currentStep:'nutrition:goodjunk',status:'เล่น GoodJunk ครบหนึ่งรอบ',game:{zone:'nutrition',gameId:'goodjunk',score:Number(m.payload.score)||0,accuracy:Number(m.payload.accuracy)||0,passed:m.payload.passed===true,completed:true,progressionEligible:true,retryRequired:false,completionPolicy:'one-classroom-round-completes-skill-separate',finishedAt:new Date().toISOString(),inputMode:q.get('inputMode')||'hand-ar'}};
-      show('กำลังบันทึกผล GoodJunk…');await post(payload);show(embedded?'บันทึกผลแล้ว • กำลังกลับ Passport':'บันทึกผลเรียบร้อย');
-      setTimeout(()=>emitUp({type:'HEROHEALTH_GAME_COMPLETE',payload:{...m.payload,eventId,completed:true,progressionEligible:true,retryRequired:false,wrapperRelease:RELEASE}}),500);
+      show('กำลังบันทึกผล GoodJunk…');await post(payload);show('บันทึกผลเรียบร้อย • กดกลับ Passport');
+      setTimeout(()=>emitUp({type:'HEROHEALTH_GAME_COMPLETE',payload:{...lastCompletionPayload,wrapperRelease:RELEASE}}),500);
     });
     loadGame();
   })();
