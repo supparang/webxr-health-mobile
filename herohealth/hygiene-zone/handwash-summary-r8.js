@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const RELEASE='20260718-HANDWASH-TOP-LAYER-SUMMARY-R24';
+const RELEASE='20260730-HANDWASH-PASSPORT-SUMMARY-R25';
 const STEP_NAMES={'0':'เปียกมือ','1':'ใช้สบู่','2':'ฝ่ามือ','3':'หลังมือและซอกนิ้ว','4':'ฝ่ามือประสานนิ้ว','5':'หลังนิ้ว','6':'หัวแม่มือ','7':'ปลายนิ้วและเล็บ','8':'ล้างน้ำ','9':'เช็ดมือ','10':'ปิดก๊อกด้วยกระดาษ'};
 let who10EnteredAt=0;
 let watchdogBursts=0;
@@ -42,7 +42,7 @@ function fireAssistBurst(){
  if(!button||button.disabled)return;
  burstRunning=true;
  watchdogBursts+=1;
- console.warn('[Handwash R24] WHO10 assist burst '+watchdogBursts);
+ console.warn('[Handwash R25] WHO10 assist burst '+watchdogBursts);
  [0,260,520,900].forEach((delay,index)=>setTimeout(()=>{
   if(topSummaryVisible()||phaseNow()!=='towelFaucet')return;
   button.click();
@@ -58,7 +58,7 @@ function watchWho10(){
   who10EnteredAt=Date.now();
   const coach=document.getElementById('coachText');
   if(coach)coach.textContent='WHO 10 • ถือกระดาษแตะกรอบก๊อก ระบบจะสรุปผลให้อัตโนมัติ';
-  console.info('[Handwash R24] WHO10 watchdog armed');
+  console.info('[Handwash R25] WHO10 watchdog armed');
   return;
  }
  const elapsed=Date.now()-who10EnteredAt;
@@ -92,11 +92,10 @@ function ensureDialog(){
  #handwashTopLayerSummaryR24 .hw24-delivery{margin:12px 0;padding:10px;border-radius:12px;background:rgba(1,14,23,.7);color:#afd0dc;text-align:center}
  #handwashTopLayerSummaryR24 .hw24-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
  #handwashTopLayerSummaryR24 button{min-height:50px;padding:0 22px;border:0;border-radius:15px;font:inherit;font-weight:900;cursor:pointer;background:#57dfff;color:#052132}
- #handwashTopLayerSummaryR24 button.hw24-soft{border:1px solid rgba(132,226,255,.3);background:rgba(255,255,255,.09);color:#effbff}
+ #handwashTopLayerSummaryR24 button.hw24-soft{border:1px solid rgba(132,226,255,.3);background:#57dfff;color:#052132;min-width:240px}
  @media(max-width:620px){#handwashTopLayerSummaryR24 .hw24-grid{grid-template-columns:repeat(2,1fr)}#handwashTopLayerSummaryR24 .hw24-row{grid-template-columns:minmax(0,1fr) 55px}#handwashTopLayerSummaryR24 .hw24-row em{grid-column:1/-1;text-align:left}}
- </style><div class="hw24-wrap"><section class="hw24-card"><div class="hw24-hero">🏆</div><h1 id="hw24Title">ผ่านครบ WHO Handwashing 🎉</h1><p id="hw24Sub" class="hw24-sub"></p><div class="hw24-grid"><div class="hw24-box"><small>คะแนน</small><strong id="hw24Score">0</strong></div><div class="hw24-box"><small>ดาว</small><strong id="hw24Stars">⭐</strong></div><div class="hw24-box"><small>WHO Accuracy</small><strong id="hw24Accuracy">0%</strong></div><div class="hw24-box"><small>เวลา</small><strong id="hw24Time">0s</strong></div></div><div id="hw24Rows" class="hw24-rows"></div><div id="hw24Delivery" class="hw24-delivery">กำลังยืนยันข้อมูลกับ Research Sheet</div><div class="hw24-actions"><button id="hw24Replay">เล่นอีกครั้ง</button><button id="hw24Zone" class="hw24-soft">ไป Cooldown / Hygiene Zone</button></div></section></div>`;
+ </style><div class="hw24-wrap"><section class="hw24-card"><div class="hw24-hero">🏆</div><h1 id="hw24Title">ผ่านครบ WHO Handwashing 🎉</h1><p id="hw24Sub" class="hw24-sub"></p><div class="hw24-grid"><div class="hw24-box"><small>คะแนน</small><strong id="hw24Score">0</strong></div><div class="hw24-box"><small>ดาว</small><strong id="hw24Stars">⭐</strong></div><div class="hw24-box"><small>WHO Accuracy</small><strong id="hw24Accuracy">0%</strong></div><div class="hw24-box"><small>เวลา</small><strong id="hw24Time">0s</strong></div></div><div id="hw24Rows" class="hw24-rows"></div><div id="hw24Delivery" class="hw24-delivery">กำลังยืนยันข้อมูลกับ Research Sheet</div><div class="hw24-actions"><button id="hw24Zone" class="hw24-soft">ไป Cooldown / กลับ Hero Passport</button></div></section></div>`;
  document.body.appendChild(dialog);
- dialog.querySelector('#hw24Replay').addEventListener('click',()=>location.reload());
  dialog.querySelector('#hw24Zone').addEventListener('click',()=>{
   const native=document.getElementById('summaryZoneBtn');
   if(native){native.click();return;}
@@ -131,7 +130,7 @@ function openTopSummary(result){
  try{
   if(!dialog.open)dialog.showModal();
  }catch(error){
-  console.error('[Handwash R24] showModal failed; using open fallback',error);
+  console.error('[Handwash R25] showModal failed; using open fallback',error);
   dialog.setAttribute('open','');
   dialog.style.setProperty('display','block','important');
   dialog.style.setProperty('position','fixed','important');
@@ -140,7 +139,7 @@ function openTopSummary(result){
  }
  summaryOpened=true;
  document.documentElement.dataset.handwashTopSummary='open';
- console.info('[Handwash R24] TOP-LAYER SUMMARY OPENED',dialog.open,getComputedStyle(dialog).display);
+ console.info('[Handwash R25] TOP-LAYER SUMMARY OPENED',dialog.open,getComputedStyle(dialog).display);
 }
 
 window.addEventListener('herohealth:game-result',event=>{
@@ -155,7 +154,7 @@ function poll(){
 setInterval(poll,160);
 new MutationObserver(poll).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','data-handwash-finish']});
 document.addEventListener('DOMContentLoaded',()=>{ensureDialog();poll();},{once:true});
-console.info('[Handwash R24] browser top-layer summary installed');
+console.info('[Handwash R25] passport summary installed');
 
 const bridge=document.createElement('script');
 bridge.src='./handwash-research-bridge-r18.js?cv=20260718-HANDWASH-RESEARCH-BRIDGE-R18';
