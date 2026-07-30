@@ -12,90 +12,45 @@
     .loaderCard{width:min(430px,92vw);padding:24px 18px;border:4px solid #4ade80;border-radius:26px;background:#fffffff2;box-shadow:0 20px 45px #0f172a24}.loaderIcon{font-size:54px}.loader h1{margin:8px 0 6px;font-size:1.45rem}.loader p{margin:0;color:#475569;font-weight:750;line-height:1.5}
     .retry{display:none;width:100%;margin-top:16px;border:0;border-radius:16px;padding:13px;background:#16a34a;color:#fff;font:900 1rem system-ui}.loader.error .retry{display:block}
     .status{position:fixed;z-index:40;right:10px;bottom:10px;max-width:calc(100vw - 20px);padding:7px 10px;border-radius:999px;background:#052e16dd;color:#fff;font:700 12px system-ui;pointer-events:none;opacity:0;transition:.2s}.status.show{opacity:1}
+    .mobileGate{position:fixed;z-index:60;inset:0;display:none;place-items:center;padding:24px;background:linear-gradient(145deg,#ecfdf5,#dbeafe);text-align:center}.mobileGate.show{display:grid}.mobileCard{width:min(470px,94vw);padding:28px 22px;border:4px solid #4ade80;border-radius:28px;background:#fff;box-shadow:0 22px 50px #0f172a2b;color:#14532d}.mobileCard .icon{font-size:64px}.mobileCard h1{margin:8px 0 10px;font-size:1.7rem}.mobileCard p{margin:0 0 10px;color:#475569;font-weight:750;line-height:1.55}.mobileCard code{display:block;margin:12px 0;padding:10px;border-radius:14px;background:#f1f5f9;color:#0f172a;font-size:.82rem;word-break:break-all}.mobileCard button{width:100%;min-height:48px;margin-top:8px;border:0;border-radius:15px;background:#16a34a;color:#fff;font:900 1rem system-ui}
   </style>
 </head>
 <body>
   <iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe>
   <section id="loader" class="loader" aria-live="polite"><div class="loaderCard"><div class="loaderIcon">🥗</div><h1>กำลังเตรียม Groups Hand AR</h1><p id="loaderText">กำลังโหลดภารกิจอาหาร 5 หมู่สำหรับมือถือ…</p><button id="retry" class="retry">ลองเปิดเกมอีกครั้ง</button></div></section>
+  <section id="mobileGate" class="mobileGate" aria-live="polite"><div class="mobileCard"><div class="icon">📱</div><h1>เกมนี้เล่นบนมือถือเท่านั้น</h1><p>Groups Hand AR ต้องใช้กล้องหน้าและการจีบนิ้ว จึงออกแบบสำหรับ Android และ iPhone แนวตั้ง</p><p>เปิดลิงก์นี้บนมือถือเพื่อทดสอบการหยิบ เลื่อน และปล่อยอาหาร</p><code id="mobileUrl"></code><button id="copyUrl">คัดลอกลิงก์สำหรับมือถือ</button></div></section>
   <div id="status" class="status"></div>
   <script>
   (()=>{'use strict';
-    const RELEASE='20260730-GROUPS-CLASSROOM-STUDENT-UI-V13.1';
+    const RELEASE='20260730-GROUPS-CLASSROOM-MOBILE-ONLY-V13.2';
     const q=new URLSearchParams(location.search),embedded=window.parent!==window;
     const frame=document.getElementById('game'),loader=document.getElementById('loader'),loaderText=document.getElementById('loaderText'),retry=document.getElementById('retry'),status=document.getElementById('status');
+    const mobileGate=document.getElementById('mobileGate'),mobileUrl=document.getElementById('mobileUrl'),copyUrl=document.getElementById('copyUrl');
     let forwarded=false,observer=null,readyTimer=0,loadToken=0,queued=false,applying=false;
+    const isMobile=/Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent)||Math.min(innerWidth,screen.width)<=760;
+    const allowDesktop=q.get('desktopQa')==='1';
     const show=text=>{status.textContent=text;status.classList.add('show');setTimeout(()=>status.classList.remove('show'),2400)};
     function emitUp(message){try{parent.postMessage(message,location.origin)}catch(_){}try{if(parent!==parent.parent)parent.parent.postMessage(message,location.origin)}catch(_){}}
     function setText(el,text){if(el&&String(el.textContent||'').trim()!==text)el.textContent=text}
     function metric(doc,index,label){const box=doc.querySelectorAll('#summaryGrid .sum')[index];if(!box)return;setText(box.querySelector('small'),label)}
     function readResult(win){try{return JSON.parse(win.localStorage.getItem('HHA_GROUPS_AR_LAST_RESULT')||'null')||{}}catch(_){return{}}}
-    function insight(result){
-      const needs=[];
-      if(Number(result.reasonAccuracy)<67)needs.push('การอธิบายเหตุผล');
-      if(Number(result.retryAccuracy)<70)needs.push('การประยุกต์ใช้');
-      const weak=Object.entries(result.groupAccuracy||{}).filter(([,v])=>Number(v)<60).map(([g])=>`หมู่ ${g}`);
-      if(weak.length)needs.push(weak.join(', '));
-      if(result.bossWin!==true)needs.push('ด่านเสริม');
-      return needs.length?`ทำภารกิจครบแล้ว • เรื่องที่ควรฝึกต่อ: ${needs.join(' • ')}`:'ทำภารกิจครบแล้ว • ทำได้ดีครบทั้ง 5 หมู่';
-    }
-    function installStyles(doc){if(doc.getElementById('hh-groups-classroom-v131'))return;const style=doc.createElement('style');style.id='hh-groups-classroom-v131';style.textContent=`
-      #qaBtn,#zoneBtn,#menuBtn,#quickMenu,#menuScrim,#replay,#sumZone,#menuZoneBtn,#arOnlyZone,#teacherBtn{display:none!important}
-      .footer .controls,#summaryActions{display:none!important}.brand h1{color:#15803d!important}.brand p{display:none!important}
-      #intro .sheet{width:min(620px,calc(100vw - 20px))!important;max-height:calc(100dvh - 20px)!important;overflow:auto!important;border:4px solid #4ade80!important;border-radius:26px!important}
-      #intro .steps{grid-template-columns:repeat(3,minmax(0,1fr))!important}.step{min-height:112px!important;display:flex!important;flex-direction:column!important;justify-content:center!important}
+    function insight(result){const needs=[];if(Number(result.reasonAccuracy)<67)needs.push('การอธิบายเหตุผล');if(Number(result.retryAccuracy)<70)needs.push('การประยุกต์ใช้');const weak=Object.entries(result.groupAccuracy||{}).filter(([,v])=>Number(v)<60).map(([g])=>`หมู่ ${g}`);if(weak.length)needs.push(weak.join(', '));if(result.bossWin!==true)needs.push('ด่านเสริม');return needs.length?`ทำภารกิจครบแล้ว • เรื่องที่ควรฝึกต่อ: ${needs.join(' • ')}`:'ทำภารกิจครบแล้ว • ทำได้ดีครบทั้ง 5 หมู่'}
+    function installStyles(doc){if(doc.getElementById('hh-groups-classroom-v132'))return;const style=doc.createElement('style');style.id='hh-groups-classroom-v132';style.textContent=`
+      #qaBtn,#zoneBtn,#menuBtn,#quickMenu,#menuScrim,#replay,#sumZone,#menuZoneBtn,#arOnlyZone,#teacherBtn{display:none!important}.footer .controls,#summaryActions{display:none!important}.brand h1{color:#15803d!important}.brand p{display:none!important}
+      #intro .sheet{width:min(620px,calc(100vw - 20px))!important;max-height:calc(100dvh - 20px)!important;overflow:auto!important;border:4px solid #4ade80!important;border-radius:26px!important}#intro .steps{grid-template-columns:1fr!important}.step{min-height:0!important;padding:9px!important;display:flex!important;flex-direction:column!important;justify-content:center!important}
       .bossTop span:first-child{font-size:.78rem!important}.hh-groups-note{margin:10px 0 2px;padding:10px 12px;border:2px solid #86efac;border-radius:14px;background:#ecfdf5;color:#166534;font-weight:900;font-size:.86rem;line-height:1.45;text-align:center}
-      #summary .sheet{width:min(700px,calc(100vw - 18px))!important;max-height:calc(100dvh - 18px)!important;overflow:auto!important;border:4px solid #4ade80!important;border-radius:24px!important}
-      #summary .summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.warning{line-height:1.45!important}.hh-qa-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}.hh-qa-actions button{min-height:48px;border:0;border-radius:14px;background:#16a34a;color:#fff;font:900 1rem system-ui}
-      @media(min-width:900px){#summary .sheet{width:min(760px,72vw)!important;padding:22px!important}#summary .summaryGrid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important}#summary .sum{padding:12px!important}#summary .bars{gap:8px!important}.barRow{font-size:.86rem!important}.hh-groups-note{font-size:.95rem!important}}
-      @media(max-width:520px){#intro .steps{grid-template-columns:1fr!important}.step{min-height:0!important;padding:9px!important}#summary .sheet{padding:13px!important}.bars{gap:6px!important}.barRow{font-size:.74rem!important}.hud{padding:5px!important}.stats{gap:3px!important}.stat{padding:4px 3px!important}.stat small{font-size:.52rem!important}.stat b{font-size:.82rem!important}}
+      #summary .sheet{width:calc(100vw - 18px)!important;max-height:calc(100dvh - 18px)!important;overflow:auto!important;border:4px solid #4ade80!important;border-radius:24px!important;padding:13px!important}#summary .summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.warning{line-height:1.45!important}.hh-qa-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}.hh-qa-actions button{min-height:48px;border:0;border-radius:14px;background:#16a34a;color:#fff;font:900 1rem system-ui}
+      .bars{gap:6px!important}.barRow{font-size:.74rem!important}.hud{padding:5px!important}.stats{gap:3px!important}.stat{padding:4px 3px!important}.stat small{font-size:.52rem!important}.stat b{font-size:.82rem!important}
     `;doc.head.appendChild(style)}
-    function apply(doc,win){
-      installStyles(doc);
-      setText(doc.querySelector('.brand h1'),'Groups Hand AR');
-      setText(doc.querySelector('#intro h2'),'🥗 Groups Hand AR');
-      setText(doc.querySelector('#intro > .sheet > p'),'จีบนิ้วเพื่อหยิบอาหาร เลื่อนลงไปยังตะกร้าที่ถูกต้อง แล้วกางนิ้วเพื่อปล่อย');
-      const steps=[...doc.querySelectorAll('#intro .step')];
-      if(steps[0]){setText(steps[0].querySelector('b'),'จีบนิ้วเพื่อหยิบ');setText(steps[0].querySelector('small'),'วางวงมือบนอาหาร แล้วจีบนิ้วชี้กับนิ้วโป้ง')}
-      if(steps[1]){setText(steps[1].querySelector('b'),'เลื่อนไปยังตะกร้า');setText(steps[1].querySelector('small'),'อาหารจะติดตามมือจนถึงตะกร้าด้านล่าง')}
-      if(steps[2]){setText(steps[2].querySelector('b'),'กางนิ้วเพื่อปล่อย');setText(steps[2].querySelector('small'),'ปล่อยอาหารเหนือหมู่ที่เลือก ไม่ต้องรีบ')}
-      setText(doc.querySelector('#intro .warning'),'เล่นให้ครบหนึ่งรอบ คะแนนใช้บอกจุดแข็งและเรื่องที่ควรฝึก ไม่บังคับเล่นซ้ำ');
-      setText(doc.getElementById('startCamera'),'📷 เปิดกล้องและเริ่มเกม');
-      const phase=doc.getElementById('phaseTitle');if(phase)setText(phase,String(phase.textContent).replace(/ด่านบอส/g,'ด่านเสริม'));
-      const bossLabel=doc.querySelector('.bossTop span:first-child');if(bossLabel)setText(bossLabel,'ด่านเสริมอาหาร 5 หมู่');
-      const bossStat=doc.querySelector('.bossStat small');if(bossStat)setText(bossStat,'ด่านเสริม');
-      const summary=doc.getElementById('summary');if(summary&&!summary.classList.contains('hidden')){
-        const result=readResult(win);
-        setText(doc.getElementById('sumIcon'),'🥗');
-        setText(doc.getElementById('sumTitle'),'🎉 เล่นครบหนึ่งรอบแล้ว');
-        setText(doc.getElementById('sumSub'),insight(result));
-        metric(doc,0,'คะแนนรวม');metric(doc,1,'ความแม่นยำ');metric(doc,2,'รอบแรก');metric(doc,3,'ตอบเหตุผล');metric(doc,4,'ประยุกต์ใช้');metric(doc,5,'ด่านเสริม');
-        const last=doc.querySelectorAll('#summaryGrid .sum')[5]?.querySelector('b');if(last&&/ยังไม่ครบ|ยังไม่ผ่าน/.test(last.textContent))setText(last,'ยังไม่สำเร็จ');
-        const body=summary.querySelector('.sheet');if(body&&!doc.getElementById('hhGroupsClassroomNote')){const note=doc.createElement('div');note.id='hhGroupsClassroomNote';note.className='hh-groups-note';note.textContent=embedded?'ระบบจะบันทึกผลและกลับ Passport อัตโนมัติ • ไม่ต้องเล่นซ้ำ':'บันทึกผลแล้ว • การทดสอบหน้านี้ไม่เปลี่ยน Passport';body.appendChild(note)}
-        if(!embedded&&body&&!doc.getElementById('hhGroupsQaActions')){const actions=doc.createElement('div');actions.id='hhGroupsQaActions';actions.className='hh-qa-actions';const button=doc.createElement('button');button.type='button';button.textContent='ทดสอบ Groups ใหม่';button.onclick=()=>location.reload();actions.appendChild(button);body.appendChild(actions)}
-      }
-      const delivery=doc.getElementById('delivery');if(delivery){const raw=String(delivery.textContent||'').trim();if(/กำลังส่งผล|กำลังบันทึก/.test(raw))setText(delivery,'กำลังบันทึกผลการเล่น…');else if(/บันทึกผลการเล่นแล้ว/.test(raw))setText(delivery,embedded?'บันทึกผลเรียบร้อย • กำลังกลับ Passport':'บันทึกผลเรียบร้อย');else if(/เครือข่าย/.test(raw))setText(delivery,'ยังออฟไลน์ • เก็บผลไว้และจะส่งใหม่อัตโนมัติ')}
-      setText(doc.getElementById('arOnlyTitle'),'กล้องหรือระบบตรวจจับมือยังไม่พร้อม');
-      setText(doc.getElementById('retryAr'),'ลองเปิดกล้องอีกครั้ง');
-      setText(doc.getElementById('arOnlyQa'),'ตรวจกล้องและมือ');
-    }
+    function apply(doc,win){installStyles(doc);setText(doc.querySelector('.brand h1'),'Groups Hand AR');setText(doc.querySelector('#intro h2'),'🥗 Groups Hand AR');setText(doc.querySelector('#intro > .sheet > p'),'จีบนิ้วเพื่อหยิบอาหาร เลื่อนลงไปยังตะกร้าที่ถูกต้อง แล้วกางนิ้วเพื่อปล่อย');const steps=[...doc.querySelectorAll('#intro .step')];if(steps[0]){setText(steps[0].querySelector('b'),'จีบนิ้วเพื่อหยิบ');setText(steps[0].querySelector('small'),'วางวงมือบนอาหาร แล้วจีบนิ้วชี้กับนิ้วโป้ง')}if(steps[1]){setText(steps[1].querySelector('b'),'เลื่อนไปยังตะกร้า');setText(steps[1].querySelector('small'),'อาหารจะติดตามมือจนถึงตะกร้าด้านล่าง')}if(steps[2]){setText(steps[2].querySelector('b'),'กางนิ้วเพื่อปล่อย');setText(steps[2].querySelector('small'),'ปล่อยอาหารเหนือหมู่ที่เลือก ไม่ต้องรีบ')}setText(doc.querySelector('#intro .warning'),'เล่นให้ครบหนึ่งรอบ คะแนนใช้บอกจุดแข็งและเรื่องที่ควรฝึก ไม่บังคับเล่นซ้ำ');setText(doc.getElementById('startCamera'),'📷 เปิดกล้องและเริ่มเกม');const phase=doc.getElementById('phaseTitle');if(phase)setText(phase,String(phase.textContent).replace(/ด่านบอส/g,'ด่านเสริม'));const bossLabel=doc.querySelector('.bossTop span:first-child');if(bossLabel)setText(bossLabel,'ด่านเสริมอาหาร 5 หมู่');const bossStat=doc.querySelector('.bossStat small');if(bossStat)setText(bossStat,'ด่านเสริม');const summary=doc.getElementById('summary');if(summary&&!summary.classList.contains('hidden')){const result=readResult(win);setText(doc.getElementById('sumIcon'),'🥗');setText(doc.getElementById('sumTitle'),'🎉 เล่นครบหนึ่งรอบแล้ว');setText(doc.getElementById('sumSub'),insight(result));metric(doc,0,'คะแนนรวม');metric(doc,1,'ความแม่นยำ');metric(doc,2,'รอบแรก');metric(doc,3,'ตอบเหตุผล');metric(doc,4,'ประยุกต์ใช้');metric(doc,5,'ด่านเสริม');const last=doc.querySelectorAll('#summaryGrid .sum')[5]?.querySelector('b');if(last&&/ยังไม่ครบ|ยังไม่ผ่าน/.test(last.textContent))setText(last,'ยังไม่สำเร็จ');const body=summary.querySelector('.sheet');if(body&&!doc.getElementById('hhGroupsClassroomNote')){const note=doc.createElement('div');note.id='hhGroupsClassroomNote';note.className='hh-groups-note';note.textContent=embedded?'ระบบจะบันทึกผลและกลับ Passport อัตโนมัติ • ไม่ต้องเล่นซ้ำ':'บันทึกผลแล้ว • การทดสอบหน้านี้ไม่เปลี่ยน Passport';body.appendChild(note)}if(!embedded&&body&&!doc.getElementById('hhGroupsQaActions')){const actions=doc.createElement('div');actions.id='hhGroupsQaActions';actions.className='hh-qa-actions';const button=doc.createElement('button');button.type='button';button.textContent='ทดสอบ Groups ใหม่';button.onclick=()=>location.reload();actions.appendChild(button);body.appendChild(actions)}}const delivery=doc.getElementById('delivery');if(delivery){const raw=String(delivery.textContent||'').trim();if(/กำลังส่งผล|กำลังบันทึก/.test(raw))setText(delivery,'กำลังบันทึกผลการเล่น…');else if(/บันทึกผลการเล่นแล้ว/.test(raw))setText(delivery,embedded?'บันทึกผลเรียบร้อย • กำลังกลับ Passport':'บันทึกผลเรียบร้อย');else if(/เครือข่าย/.test(raw))setText(delivery,'ยังออฟไลน์ • เก็บผลไว้และจะส่งใหม่อัตโนมัติ')}setText(doc.getElementById('arOnlyTitle'),'กล้องหรือระบบตรวจจับมือยังไม่พร้อม');setText(doc.getElementById('retryAr'),'ลองเปิดกล้องอีกครั้ง');setText(doc.getElementById('arOnlyQa'),'ตรวจกล้องและมือ')}
     function queue(doc,win){if(queued||applying)return;queued=true;requestAnimationFrame(()=>{queued=false;if(applying)return;applying=true;try{apply(doc,win)}finally{applying=false}})}
     function install(doc,win){if(!doc?.head)return false;queue(doc,win);observer?.disconnect();observer=new win.MutationObserver(()=>queue(doc,win));observer.observe(doc.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});return true}
     function markReady(){clearTimeout(readyTimer);loader.classList.add('hide');frame.classList.add('ready')}
     function markError(text){loader.classList.add('error');loaderText.textContent=text||'โหลดเกมไม่สำเร็จ กรุณาลองใหม่';frame.classList.remove('ready')}
     function waitForGame(token){let tries=0;const check=()=>{if(token!==loadToken)return;tries++;try{const doc=frame.contentDocument,win=frame.contentWindow;if(doc?.getElementById('intro')&&install(doc,win)){markReady();return}}catch(_){}if(tries<150)setTimeout(check,100);else markError('เกมใช้เวลาโหลดนานเกินไป กรุณาลองเปิดใหม่')};check()}
-    function loadGame(){
-      forwarded=false;loadToken++;const token=loadToken;observer?.disconnect();loader.className='loader';loaderText.textContent='กำลังโหลดภารกิจอาหาร 5 หมู่สำหรับมือถือ…';frame.classList.remove('ready');
-      const child=new URL('./groups-ar.html',location.href);q.forEach((value,key)=>child.searchParams.set(key,value));child.searchParams.set('classroom','1');child.searchParams.set('passport','1');child.searchParams.set('diff',q.get('diff')||'easy');child.searchParams.set('time',q.get('time')||'120');child.searchParams.set('maxFoods',q.get('maxFoods')||'1');child.searchParams.set('pinchClose',q.get('pinchClose')||'0.085');child.searchParams.set('pinchOpen',q.get('pinchOpen')||'0.145');child.searchParams.set('interactionAssist','grade5-easy-grab-v1');child.searchParams.set('classroomUi','13.1');child.searchParams.set('_',Date.now());frame.src=child.href;
-      clearTimeout(readyTimer);readyTimer=setTimeout(()=>{if(token===loadToken&&!frame.classList.contains('ready'))markError('ยังเปิดเกมไม่สำเร็จ กรุณาลองอีกครั้ง')},18000);
-    }
-    retry.onclick=loadGame;frame.addEventListener('load',()=>waitForGame(loadToken));
-    addEventListener('message',event=>{
-      if(event.origin!==location.origin||event.source!==frame.contentWindow)return;const message=event.data||{};
-      if(message.type==='HEROHEALTH_GAME_STARTED'){emitUp(message);return}
-      if(message.type!=='HEROHEALTH_GAME_COMPLETE'||!message.payload||forwarded)return;
-      forwarded=true;const payload={...message.payload,completed:true,procedureCompleted:true,progressionEligible:true,retryRequired:false,completionPolicy:'one-classroom-round-completes-skill-separate',wrapperRelease:RELEASE};
-      show('บันทึกผลแล้ว • กำลังกลับ Passport');setTimeout(()=>emitUp({type:'HEROHEALTH_GAME_COMPLETE',payload}),350);
-    });
+    function loadGame(){forwarded=false;loadToken++;const token=loadToken;observer?.disconnect();loader.className='loader';loaderText.textContent='กำลังโหลดภารกิจอาหาร 5 หมู่สำหรับมือถือ…';frame.classList.remove('ready');const child=new URL('./groups-ar.html',location.href);q.forEach((value,key)=>child.searchParams.set(key,value));child.searchParams.set('classroom','1');child.searchParams.set('passport','1');child.searchParams.set('diff',q.get('diff')||'easy');child.searchParams.set('time',q.get('time')||'120');child.searchParams.set('maxFoods',q.get('maxFoods')||'1');child.searchParams.set('pinchClose',q.get('pinchClose')||'0.085');child.searchParams.set('pinchOpen',q.get('pinchOpen')||'0.145');child.searchParams.set('interactionAssist','grade5-easy-grab-v1');child.searchParams.set('classroomUi','13.2');child.searchParams.set('_',Date.now());frame.src=child.href;clearTimeout(readyTimer);readyTimer=setTimeout(()=>{if(token===loadToken&&!frame.classList.contains('ready'))markError('ยังเปิดเกมไม่สำเร็จ กรุณาลองอีกครั้ง')},18000)}
+    retry.onclick=loadGame;frame.addEventListener('load',()=>waitForGame(loadToken));addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==frame.contentWindow)return;const message=event.data||{};if(message.type==='HEROHEALTH_GAME_STARTED'){emitUp(message);return}if(message.type!=='HEROHEALTH_GAME_COMPLETE'||!message.payload||forwarded)return;forwarded=true;const payload={...message.payload,completed:true,procedureCompleted:true,progressionEligible:true,retryRequired:false,completionPolicy:'one-classroom-round-completes-skill-separate',wrapperRelease:RELEASE};show('บันทึกผลแล้ว • กำลังกลับ Passport');setTimeout(()=>emitUp({type:'HEROHEALTH_GAME_COMPLETE',payload}),350)});
+    if(!isMobile&&!allowDesktop){loader.classList.add('hide');mobileGate.classList.add('show');const u=new URL(location.href);u.searchParams.delete('desktopQa');mobileUrl.textContent=u.href;copyUrl.onclick=async()=>{try{await navigator.clipboard.writeText(u.href);copyUrl.textContent='คัดลอกแล้ว • เปิดบนมือถือ'}catch(_){copyUrl.textContent='คัดลอกไม่สำเร็จ • เลือกข้อความด้านบน'}};return}
     loadGame();
   })();
   </script>
