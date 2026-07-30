@@ -11,16 +11,35 @@
 </head>
 <body>
 <main class="wrap"><section class="card"><div class="icon" id="icon">↻</div><h1 id="title">กำลังกู้ผลแบบทดสอบ</h1><p class="muted" id="message">กำลังอ่านคำตอบที่บันทึกไว้ในเครื่องและส่งเข้า Google Sheet</p><div class="badge wait" id="badge">กำลังตรวจสอบ</div><div class="details" id="details"></div><button class="btn" id="retry" hidden>ลองส่งอีกครั้ง</button><button class="btn secondary" id="passport" hidden>กลับ Hero Passport</button></section></main>
-<script src="../data/config.js?v=20260730-assessment-post-v85"></script>
-<script src="assessment-sheet-sync.js?v=20260730-assessment-post-v85"></script>
+<script src="../data/config.js?v=20260730-assessment-form-post-v86"></script>
+<script src="assessment-sheet-sync.js?v=20260730-assessment-form-post-v86"></script>
 <script>
 (()=>{'use strict';
 const q=new URLSearchParams(location.search),sid=String(q.get('studentId')||q.get('sid')||'').trim(),mode=String(q.get('mode')||'pre').toLowerCase()==='post'?'post':'pre',prefix=mode==='post'?'HH_POSTTEST_LAST_':'HH_PRETEST_LAST_',key=prefix+sid;
 const el=id=>document.getElementById(id),set=(title,message,badge,kind,icon)=>{el('title').textContent=title;el('message').textContent=message;el('badge').textContent=badge;el('badge').className='badge '+(kind||'');el('icon').textContent=icon||'↻'};
 function read(){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(_){return null}}
 function showDetails(payload,result){el('details').textContent=`รหัส ${sid||'-'} • ${mode==='pre'?'Pre-test':'Post-test'} • Attempt ${payload?.attemptId||'-'} • คะแนน ${payload?.score??'-'}/${payload?.total??'-'}${result?.eventId?' • Event '+result.eventId:''}`}
-async function run(){el('retry').hidden=true;el('passport').hidden=true;if(!sid){set('ไม่พบรหัสนักเรียน','เปิดหน้านี้พร้อม studentId','ไม่สามารถกู้ผล','error','!');return}const payload=read();if(!payload){set('ไม่พบคำตอบที่บันทึกไว้','ต้องเปิดหน้านี้จากเบราว์เซอร์และอุปกรณ์เครื่องเดิมที่ทำแบบทดสอบ','ไม่พบข้อมูล','error','!');el('passport').hidden=false;return}set('กำลังส่งผลเดิมเข้า Google Sheet','ไม่ต้องทำแบบทดสอบใหม่ กรุณารอการยืนยัน','กำลังส่งและตรวจสอบ','wait','↻');showDetails(payload);try{const result=await window.HHAssessmentSync.submit(payload);showDetails(payload,result);if(result?.ok){set('Google Sheet ยืนยันแล้ว','บันทึกผลแบบทดสอบเดิมสำเร็จ สามารถกลับ Hero Passport ได้','✓ ยืนยันจาก Google Sheet','','✓');el('passport').hidden=false;return}throw new Error(result?.error||result?.reason||'sheet_not_confirmed')}catch(err){console.error(err);set('ยังไม่ได้รับการยืนยัน','คำตอบเดิมยังอยู่ในเครื่อง กดลองส่งอีกครั้งได้โดยไม่ต้องทำข้อสอบใหม่','ยังไม่เข้า Google Sheet','error','!');el('retry').hidden=false;el('passport').hidden=false}}
-el('retry').onclick=run;el('passport').onclick=()=>location.href='../index.html?studentId='+encodeURIComponent(sid)+'&authorityRefresh=1&v=20260730-assessment-post-v85';run();
+async function run(){
+  el('retry').hidden=true;el('passport').hidden=true;
+  if(!sid){set('ไม่พบรหัสนักเรียน','เปิดหน้านี้พร้อม studentId','ไม่สามารถกู้ผล','error','!');return}
+  const payload=read();
+  if(!payload){set('ไม่พบคำตอบที่บันทึกไว้','ต้องเปิดหน้านี้จากเบราว์เซอร์และอุปกรณ์เครื่องเดิมที่ทำแบบทดสอบ','ไม่พบข้อมูล','error','!');el('passport').hidden=false;return}
+  set('กำลังส่งผลเดิมเข้า Google Sheet','ใช้ Hidden Form POST เพื่อไม่ติด CORS และไม่ติดข้อจำกัด URL กรุณารอการยืนยัน','กำลังส่งและตรวจสอบ','wait','↻');
+  showDetails(payload);
+  try{
+    const result=await window.HHAssessmentSync.submit(payload);
+    showDetails(payload,result);
+    if(result?.ok){set('Google Sheet ยืนยันแล้ว','บันทึกผลแบบทดสอบเดิมสำเร็จ สามารถกลับ Hero Passport ได้','✓ ยืนยันจาก Google Sheet','','✓');el('passport').hidden=false;return}
+    throw new Error(result?.error||result?.reason||'sheet_not_confirmed');
+  }catch(err){
+    console.error(err);
+    set('ยังไม่ได้รับการยืนยัน','คำตอบเดิมยังอยู่ในเครื่อง กดลองส่งอีกครั้งได้โดยไม่ต้องทำข้อสอบใหม่','ยังไม่เข้า Google Sheet','error','!');
+    el('retry').hidden=false;el('passport').hidden=false;
+  }
+}
+el('retry').onclick=run;
+el('passport').onclick=()=>location.href='../index.html?studentId='+encodeURIComponent(sid)+'&authorityRefresh=1&v=20260730-assessment-form-post-v86';
+run();
 })();
 </script>
 </body>
