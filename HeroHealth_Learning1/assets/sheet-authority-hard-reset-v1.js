@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='20260730-SHEET-AUTHORITY-HARD-RESET-V5-ASSESSMENT-ROW-GUARD';
+const VERSION='20260730-SHEET-AUTHORITY-HARD-RESET-V6-ROBUST-ASSESSMENT-EVIDENCE';
 const KEY='herohealth_learning_platform_rc2';
 const PREFIX='herohealth_student_resume_v6:';
 const R=window.HHRotation;
@@ -21,12 +21,23 @@ function localAssessmentEvidence(sid,type){
   const legacy=read((type==='pretest'?'HH_PRETEST_LAST_':'HH_POSTTEST_LAST_')+sid,null);
   return !!(legacy&&id(legacy.studentId)===sid)
 }
+function numericEvidence(...values){return Math.max(0,...values.map(v=>Number(v)||0))}
+function assessmentEvidenceCount(api,a){
+  const arrays=[api?.assessments,api?.assessmentRows,api?.assessmentHistory,api?.evidence?.assessmentRows,a?.assessments,a?.assessmentRows,a?.assessmentHistory,a?.evidence?.assessmentRows];
+  const arrayCount=Math.max(0,...arrays.map(v=>Array.isArray(v)?v.length:0));
+  return Math.max(arrayCount,numericEvidence(
+    api?.evidence?.assessments,api?.evidence?.assessmentCount,api?.evidence?.assessmentsCount,api?.evidence?.assessmentRows,
+    api?.counts?.assessments,api?.counts?.assessmentRows,api?.assessmentCount,api?.assessmentsCount,
+    a?.evidence?.assessments,a?.evidence?.assessmentCount,a?.evidence?.assessmentsCount,a?.evidence?.assessmentRows,
+    a?.counts?.assessments,a?.counts?.assessmentRows,a?.assessmentCount,a?.assessmentsCount
+  ))
+}
 function assessmentEvidence(api,base,type){
   const sid=id(base?.profile?.studentId||api?.studentId||api?.profile?.studentId);
   const a=api?.authoritativeState||{};
   const completed=a.completed||api?.completed||{};
   const scores=a.scores||api?.scores||{};
-  const assessmentRows=Math.max(Number(api?.evidence?.assessments)||0,Number(a?.evidence?.assessments)||0);
+  const assessmentRows=assessmentEvidenceCount(api,a);
   if(completed[type]===true)return true;
   if(finiteScore(scores[type]))return true;
   if(type==='pretest'&&assessmentRows>0)return true;
@@ -42,7 +53,7 @@ function topProgress(api){
   const candidates=[authoritative,top,live].filter(Boolean);
   if(!candidates.length)return null;
   candidates.sort((a,b)=>rank(b)-rank(a));
-  return candidates[0];
+  return candidates[0]
 }
 function rebuildFromNextStep(base,api){
   const progress=topProgress(api);if(!progress||!isFalse(progress.missionComplete))return null;
@@ -71,11 +82,12 @@ function rebuildFromNextStep(base,api){
   if(s.completed.pretest&&effectiveIndex<1)effectiveIndex=1;
   const effectiveNext=route[effectiveIndex]?.id||(s.completed.pretest?'hygiene:handwash':next||'pretest');
   s.authoritativeProgress={progressPct:Math.max(Number(progress.progressPct)||0,Math.round(effectiveIndex/route.length*100)),completedCount:Math.max(Number(progress.completedCount)||0,effectiveIndex),totalSteps:Number(progress.totalSteps)||route.length,nextStep:effectiveNext,missionComplete:false};
+  s.assessmentEvidenceCount=assessmentEvidenceCount(api,api?.authoritativeState||{});
   s.sheetAuthority=true;s.offlineAuthority=false;s.legacyVerified=false;s.lastAuthoritySyncAt=new Date().toISOString();s.hardResetVersion=VERSION;
   delete s.legacySource;delete s.legacyCertificateRestored;delete s.legacyCertificateAuthorityVersion;delete s.gameSummaryAuthority;
   return s
 }
 async function run(){const state=read(KEY,{}),sid=id(state?.profile?.studentId);if(!sid||!window.HHStudentResume?.getStudent)return;try{const api=await window.HHStudentResume.getStudent(sid);const next=rebuildFromNextStep(state,api);if(!next)return;write(KEY,next);write(PREFIX+sid,next);sessionStorage.setItem('hh_authority_bootstrap:'+sid,String(Date.now()));const changed=JSON.stringify(state.completed)!==JSON.stringify(next.completed)||JSON.stringify(state.gameCompleted)!==JSON.stringify(next.gameCompleted)||Number(state?.authoritativeProgress?.progressPct)!==Number(next?.authoritativeProgress?.progressPct);if(changed)location.reload()}catch(err){console.error('[HeroHealth hard reset]',err)}}
 addEventListener('DOMContentLoaded',()=>setTimeout(run,700));
-window.HHSheetAuthorityHardReset={run,rebuildFromNextStep,topProgress,assessmentEvidence,version:VERSION};
+window.HHSheetAuthorityHardReset={run,rebuildFromNextStep,topProgress,assessmentEvidence,assessmentEvidenceCount,version:VERSION};
 })();
