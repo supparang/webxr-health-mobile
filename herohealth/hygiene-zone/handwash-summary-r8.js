@@ -1,13 +1,12 @@
 (()=>{
 'use strict';
-const RELEASE='20260730-HANDWASH-CONDITIONAL-SUMMARY-R27';
+const RELEASE='20260730-HANDWASH-ENCOURAGING-SUMMARY-R28';
 const STEP_NAMES={'0':'เปียกมือ','1':'ใช้สบู่','2':'ฝ่ามือ','3':'หลังมือและซอกนิ้ว','4':'ฝ่ามือประสานนิ้ว','5':'หลังนิ้ว','6':'หัวแม่มือ','7':'ปลายนิ้วและเล็บ','8':'ล้างน้ำ','9':'เช็ดมือ','10':'ปิดก๊อกด้วยกระดาษ'};
 let who10EnteredAt=0;
 let watchdogBursts=0;
 let burstRunning=false;
 let latestResult=null;
 let summaryOpened=false;
-
 function phaseNow(){return document.documentElement.dataset.handwashPhase||'';}
 function finishCommitted(){return document.documentElement.dataset.handwashFinish==='committed';}
 function text(id,fallback){return (document.getElementById(id)?.textContent||fallback||'').trim();}
@@ -51,7 +50,6 @@ function enforceNativeSummary(result=latestResult){
   zone.onclick=event=>{event.preventDefault();event.stopImmediatePropagation();goPassport();};
  }
 }
-
 function parseRows(){
  return [...document.querySelectorAll('#resultList .result-row')].map(row=>{
   const cells=[...row.querySelectorAll('span')];
@@ -77,7 +75,7 @@ function fireAssistBurst(){
  if(!button||button.disabled)return;
  burstRunning=true;
  watchdogBursts+=1;
- console.warn('[Handwash R27] WHO10 assist burst '+watchdogBursts);
+ console.warn('[Handwash R28] WHO10 assist burst '+watchdogBursts);
  [0,260,520,900].forEach((delay,index)=>setTimeout(()=>{
   if(topSummaryVisible()||phaseNow()!=='towelFaucet')return;
   button.click();
@@ -92,7 +90,7 @@ function watchWho10(){
   who10EnteredAt=Date.now();
   const coach=document.getElementById('coachText');
   if(coach)coach.textContent='WHO 10 • ถือกระดาษแตะกรอบก๊อก ระบบจะสรุปผลให้อัตโนมัติ';
-  console.info('[Handwash R27] WHO10 watchdog armed');
+  console.info('[Handwash R28] WHO10 watchdog armed');
   return;
  }
  const elapsed=Date.now()-who10EnteredAt;
@@ -147,8 +145,8 @@ function openTopSummary(result){
  const used=latestResult?.procedureDurationSec!=null?`${Number(latestResult.procedureDurationSec).toFixed(1)}s`:text('sumTime',text('timeText','0s'));
  const completedRub=Number(latestResult?.completedRubSteps??0);
  const towelPassed=latestResult?.towelFaucetPassed===true;
- const title=passed?'ผ่าน WHO Handwashing Standard 🏆':'ยังไม่ผ่าน ลองฝึกอีกครั้งนะ';
- const sub=passed?`ทำครบ ${completedRub}/6 ท่าถู • ใช้กระดาษปิดก๊อกสำเร็จ • ด่านถัดไปจะปลดล็อกจาก Hero Passport`:`ทำครบ ${completedRub}/6 ท่าถู • ปิดก๊อกด้วยกระดาษ ${towelPassed?'สำเร็จ':'ยังไม่สำเร็จ'} • ยังไม่ปลดล็อกด่านถัดไป`;
+ const title=passed?'ผ่าน WHO Handwashing Standard 🏆':'เกือบสำเร็จแล้ว!';
+ const sub=passed?`ทำครบ ${completedRub}/6 ท่าถู • ใช้กระดาษปิดก๊อกสำเร็จ • กลับ Hero Passport เพื่อไปภารกิจถัดไป`:`ทำครบ ${completedRub}/6 ท่าถู • ปิดก๊อกด้วยกระดาษ ${towelPassed?'สำเร็จ':'ยังต้องฝึกอีกนิด'} • ลองฝึกอีกครั้งเพื่อรับตรา Handwash Hero`;
  dialog.querySelector('#hw24Hero').textContent=passed?'🏆':'💪';
  dialog.querySelector('#hw24Title').textContent=title;
  dialog.querySelector('#hw24Sub').textContent=sub;
@@ -159,9 +157,9 @@ function openTopSummary(result){
  dialog.querySelector('#hw24Retry').hidden=passed;
  dialog.querySelector('#hw24Retry').style.display=passed?'none':'';
  dialog.querySelector('#hw24Rows').innerHTML=rows.length?rows.map(row=>`<div class="hw24-row"><span>WHO ${esc(row.step)} • ${esc(row.label||STEP_NAMES[row.step]||'')}</span><b>${esc(row.quality)}%</b><em>${esc(row.mode||'ผ่านแล้ว')}</em></div>`).join(''):'<div class="hw24-row"><span>ยังไม่มีรายละเอียดขั้นตอน</span><b>—</b><em>ลองอีกครั้ง</em></div>';
- dialog.querySelector('#hw24Delivery').textContent=text('deliveryText',passed?'บันทึกผลแล้ว กำลังยืนยันการปลดล็อกจาก Research Sheet':'บันทึกความพยายามแล้ว ด่านถัดไปยังไม่ถูกปลดล็อก');
+ dialog.querySelector('#hw24Delivery').textContent=text('deliveryText',passed?'บันทึกผลเรียบร้อยแล้ว':'บันทึกความพยายามแล้ว พร้อมลองใหม่ได้เลย');
  try{if(!dialog.open)dialog.showModal();}catch(error){
-  console.error('[Handwash R27] showModal failed; using open fallback',error);
+  console.error('[Handwash R28] showModal failed; using open fallback',error);
   dialog.setAttribute('open','');
   dialog.style.setProperty('display','block','important');
   dialog.style.setProperty('position','fixed','important');
@@ -171,7 +169,7 @@ function openTopSummary(result){
  summaryOpened=true;
  document.documentElement.dataset.handwashTopSummary='open';
  document.documentElement.dataset.handwashResult=passed?'passed':'not-passed';
- console.info('[Handwash R27] CONDITIONAL SUMMARY OPENED',{passed});
+ console.info('[Handwash R28] ENCOURAGING SUMMARY OPENED',{passed});
 }
 window.addEventListener('herohealth:game-result',event=>{
  latestResult=event.detail||latestResult;
@@ -185,7 +183,7 @@ function poll(){
 setInterval(poll,160);
 new MutationObserver(poll).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','data-handwash-finish']});
 document.addEventListener('DOMContentLoaded',()=>{enforceNativeSummary();ensureDialog();poll();},{once:true});
-console.info('[Handwash R27] conditional pass/fail summary installed');
+console.info('[Handwash R28] encouraging pass/fail summary installed');
 const bridge=document.createElement('script');
 bridge.src='./handwash-research-bridge-r18.js?cv=20260718-HANDWASH-RESEARCH-BRIDGE-R18';
 bridge.async=false;
