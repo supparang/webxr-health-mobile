@@ -26,11 +26,11 @@
 
       html=replaceRequired(html,'HeroHealth • Toothbrush Challenge V26','HeroHealth • ภารกิจแปรงฟัน','document title');
       html=replaceRequired(html,'🪥 Toothbrush Challenge','🪥 ภารกิจแปรงฟัน','student heading');
-      html=replaceRequired(html,'Skill Practice V26','กำจัดคราบให้ครบ 6 โซน','student subtitle');
+      html=replaceRequired(html,'Skill Practice V26','แปรงตามลูกศร กำจัดคราบให้หมด','student subtitle');
       html=replaceRequired(
         html,
         'const VERSION="20260729-TOOTHBRUSH-MULTI-PLAQUE-V26";',
-        'const VERSION="20260730-TOOTHBRUSH-MULTI-PLAQUE-V27-THAI-START-R5";',
+        'const VERSION="20260730-TOOTHBRUSH-MULTI-PLAQUE-V27-THAI-START-R6";',
         'analytics version'
       );
       html=replaceRequired(
@@ -42,7 +42,7 @@
       html=replaceRequired(html,'เริ่ม Challenge','เริ่มภารกิจ','student start button');
 
       const oldPlaqueCss='.plaque{position:absolute;width:34px;height:34px;margin:-17px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;background:#ffffffea;box-shadow:0 4px 12px #0002;font-size:22px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}';
-      const newPlaqueCss='.plaque{position:absolute;width:32px;height:32px;margin:-16px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;box-shadow:0 4px 12px #0002;font-size:20px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque-green-germ{background:#f0fdf4ea;border-color:#86efac}\n    .plaque-yellow-plaque{background:#fefce8ea;border-color:#fde047}\n    .plaque-germ-cluster{background:#ecfeffea;border-color:#67e8f9}\n    .plaque-sticky-plaque{background:#fff7edea;border-color:#fdba74}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}\n    #start .card>p:first-of-type{margin:8px 0 14px;color:#0f766e;font-size:clamp(18px,5vw,24px)}\n    #start .card>p:nth-of-type(2){margin:16px 0 4px;text-align:left;font-size:clamp(16px,4.4vw,21px);line-height:1.75}\n    #back:disabled{opacity:.72;cursor:wait}';
+      const newPlaqueCss='.plaque{position:absolute;width:32px;height:32px;margin:-16px;display:grid;place-items:center;border:2px solid #ffffffd9;border-radius:13px;box-shadow:0 4px 12px #0002;font-size:20px;transition:opacity .18s,transform .18s,filter .18s;will-change:transform,opacity}\n    .plaque-green-germ{background:#f0fdf4ea;border-color:#86efac}\n    .plaque-yellow-plaque{background:#fefce8ea;border-color:#fde047}\n    .plaque-germ-cluster{background:#ecfeffea;border-color:#67e8f9}\n    .plaque-sticky-plaque{background:#fff7edea;border-color:#fdba74}\n    .plaque.clean{opacity:.30;transform:scale(.58);filter:saturate(.45)}\n    #start .card{padding:clamp(18px,5vw,22px)}\n    #start .card h1{font-size:clamp(26px,7.5vw,38px);line-height:1.15;letter-spacing:-.02em;white-space:nowrap}\n    #start .card>p:first-of-type{margin:8px 0 14px;color:#0f766e;font-size:clamp(17px,4.8vw,23px);line-height:1.35}\n    #start .card>p:nth-of-type(2){margin:16px 0 4px;text-align:left;font-size:clamp(16px,4.4vw,21px);line-height:1.75}\n    #back:disabled{opacity:.72;cursor:wait}';
       html=replaceRequired(html,oldPlaqueCss,newPlaqueCss,'plaque and start styles');
 
       const oldLayouts="const TARGET_LAYOUTS={\n  4:[{x:22,y:28},{x:76,y:31},{x:31,y:72},{x:72,y:70}],\n  5:[{x:16,y:31},{x:50,y:23},{x:84,y:32},{x:29,y:73},{x:71,y:72}]\n};";
@@ -67,7 +67,7 @@
       html=replaceRequired(
         html,
         "motionProfile:'multi-plaque-spatial-coverage-v26',markerBrushSameCoordinate:true",
-        "motionProfile:'multi-plaque-spatial-coverage-v27-thai-start-r5',plaqueVariantPolicy:'four-balanced-visuals-equal-hitbox',plaqueVariantCount:PLAQUE_VARIANTS.length,returnContract:'jumpduck-compatible-passport-return-v1',studentRetryVisible:false,studentResultLanguage:'thai-child-friendly-r2',studentStartLanguage:'thai-grade5-three-step-r1',visibleTechnicalVersion:false,coverageLabelPolicy:'neutral-completed-zone-count',markerBrushSameCoordinate:true",
+        "motionProfile:'multi-plaque-spatial-coverage-v27-thai-start-r6',plaqueVariantPolicy:'four-balanced-visuals-equal-hitbox',plaqueVariantCount:PLAQUE_VARIANTS.length,returnContract:'jumpduck-compatible-passport-return-v1',studentRetryVisible:false,studentResultLanguage:'thai-child-friendly-r2',studentStartLanguage:'thai-grade5-compact-r2',startHeadingLayout:'single-line-mobile',visibleTechnicalVersion:false,coverageLabelPolicy:'neutral-completed-zone-count',markerBrushSameCoordinate:true",
         'analytics interface contract'
       );
 
