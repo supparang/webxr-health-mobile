@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>HeroHealth Assessment Recovery</title>
+<style>
+:root{font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;color:#12302c;background:#f3fbf9}*{box-sizing:border-box}body{margin:0}.wrap{width:min(720px,100%);margin:auto;padding:18px}.card{background:#fff;border:1px solid #d6e9e4;border-radius:24px;box-shadow:0 12px 30px rgba(15,118,110,.12);padding:28px;text-align:center;margin-top:8vh}.icon{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;margin:0 auto 16px;background:#e8f8f4;font-size:38px}.badge{display:inline-block;border-radius:999px;padding:8px 13px;background:#e8f8f4;color:#087b62;font-weight:900}.badge.wait{background:#fff5db;color:#9a6700}.badge.error{background:#fee2e2;color:#991b1b}.btn{width:100%;min-height:52px;border:0;border-radius:15px;padding:14px;font:inherit;font-weight:900;background:#0f766e;color:#fff;margin-top:14px}.btn.secondary{background:#e8f8f4;color:#087b62}.muted{color:#5f7470;line-height:1.6}.details{font-size:13px;overflow-wrap:anywhere;background:#f5faf9;border-radius:14px;padding:12px;margin-top:14px;text-align:left}@media(max-width:600px){.wrap{padding:12px}.card{padding:24px 18px;margin-top:4vh}}
+</style>
+</head>
+<body>
+<main class="wrap"><section class="card"><div class="icon" id="icon">↻</div><h1 id="title">กำลังกู้ผลแบบทดสอบ</h1><p class="muted" id="message">กำลังอ่านคำตอบที่บันทึกไว้ในเครื่องและส่งเข้า Google Sheet</p><div class="badge wait" id="badge">กำลังตรวจสอบ</div><div class="details" id="details"></div><button class="btn" id="retry" hidden>ลองส่งอีกครั้ง</button><button class="btn secondary" id="passport" hidden>กลับ Hero Passport</button></section></main>
+<script src="../data/config.js?v=20260730-assessment-post-v85"></script>
+<script src="assessment-sheet-sync.js?v=20260730-assessment-post-v85"></script>
+<script>
+(()=>{'use strict';
+const q=new URLSearchParams(location.search),sid=String(q.get('studentId')||q.get('sid')||'').trim(),mode=String(q.get('mode')||'pre').toLowerCase()==='post'?'post':'pre',prefix=mode==='post'?'HH_POSTTEST_LAST_':'HH_PRETEST_LAST_',key=prefix+sid;
+const el=id=>document.getElementById(id),set=(title,message,badge,kind,icon)=>{el('title').textContent=title;el('message').textContent=message;el('badge').textContent=badge;el('badge').className='badge '+(kind||'');el('icon').textContent=icon||'↻'};
+function read(){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(_){return null}}
+function showDetails(payload,result){el('details').textContent=`รหัส ${sid||'-'} • ${mode==='pre'?'Pre-test':'Post-test'} • Attempt ${payload?.attemptId||'-'} • คะแนน ${payload?.score??'-'}/${payload?.total??'-'}${result?.eventId?' • Event '+result.eventId:''}`}
+async function run(){el('retry').hidden=true;el('passport').hidden=true;if(!sid){set('ไม่พบรหัสนักเรียน','เปิดหน้านี้พร้อม studentId','ไม่สามารถกู้ผล','error','!');return}const payload=read();if(!payload){set('ไม่พบคำตอบที่บันทึกไว้','ต้องเปิดหน้านี้จากเบราว์เซอร์และอุปกรณ์เครื่องเดิมที่ทำแบบทดสอบ','ไม่พบข้อมูล','error','!');el('passport').hidden=false;return}set('กำลังส่งผลเดิมเข้า Google Sheet','ไม่ต้องทำแบบทดสอบใหม่ กรุณารอการยืนยัน','กำลังส่งและตรวจสอบ','wait','↻');showDetails(payload);try{const result=await window.HHAssessmentSync.submit(payload);showDetails(payload,result);if(result?.ok){set('Google Sheet ยืนยันแล้ว','บันทึกผลแบบทดสอบเดิมสำเร็จ สามารถกลับ Hero Passport ได้','✓ ยืนยันจาก Google Sheet','','✓');el('passport').hidden=false;return}throw new Error(result?.error||result?.reason||'sheet_not_confirmed')}catch(err){console.error(err);set('ยังไม่ได้รับการยืนยัน','คำตอบเดิมยังอยู่ในเครื่อง กดลองส่งอีกครั้งได้โดยไม่ต้องทำข้อสอบใหม่','ยังไม่เข้า Google Sheet','error','!');el('retry').hidden=false;el('passport').hidden=false}}
+el('retry').onclick=run;el('passport').onclick=()=>location.href='../index.html?studentId='+encodeURIComponent(sid)+'&authorityRefresh=1&v=20260730-assessment-post-v85';run();
+})();
+</script>
+</body>
+</html>
