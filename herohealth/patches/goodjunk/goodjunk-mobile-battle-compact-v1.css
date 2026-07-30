@@ -1,4 +1,4 @@
-/* HeroHealth GoodJunk AR • Mobile Battle Compact v7 */
+/* HeroHealth GoodJunk AR • Mobile Battle Compact v8 */
 @media(max-width:760px){
 .hud{top:max(6px,env(safe-area-inset-top));right:max(6px,env(safe-area-inset-right));left:max(6px,env(safe-area-inset-left));grid-template-columns:max-content max-content;justify-content:space-between;align-items:start;gap:5px}
 .hudBox{min-height:42px;display:flex;align-items:center;justify-content:center;padding:5px 10px;border-width:2px;border-radius:14px;font-size:.78rem;line-height:1.05}
@@ -6,9 +6,9 @@
 .missionBox #mission{display:block;overflow:hidden;color:#111827;font-size:.98rem;font-weight:900;line-height:1.15;text-align:center;text-wrap:balance}
 .phaseBadge{flex:none;margin-right:0;padding:2px 8px;font-size:.56rem;letter-spacing:.03em}
 .missionBox.touchRescue{border-color:#ef4444;background:rgba(255,237,213,.97)}
-.missionBox.touchRescue::after,.missionBox.cameraLite::after{display:block;font-size:.62rem;font-weight:900;line-height:1}
-.missionBox.touchRescue::after{content:'Hand Tracking หยุด • แตะอาหารเพื่อเล่นต่อ';color:#b91c1c}
-.missionBox.cameraLite{border-color:#0ea5e9}.missionBox.cameraLite::after{content:'Mobile Camera AR • แตะอาหารเพื่อเลือก';color:#075985}
+.missionBox.touchRescue::after,.missionBox.cameraLite::after{display:block;font-size:.62rem;font-weight:900;line-height:1.15}
+.missionBox.touchRescue::after{content:'กล้องมองไม่เห็นนิ้ว • ยกมือให้เห็นชัดแล้วลองอีกครั้ง';color:#b91c1c}
+.missionBox.cameraLite{border-color:#0ea5e9}.missionBox.cameraLite::after{content:'ชี้นิ้วค้างบนอาหารที่ต้องการเลือก';color:#075985}
 .bossPanel{top:calc(max(6px,env(safe-area-inset-top)) + 104px);width:calc(100vw - 12px);padding:7px 9px;border-width:2px;border-radius:15px;transition:padding .18s ease,opacity .18s ease,transform .18s ease}
 .bossHead{align-items:center;gap:6px;font-size:.72rem;line-height:1.15}.hp{height:9px;margin-top:4px}.bossMsg{margin-top:3px;font-size:.62rem;line-height:1.2}
 .bossPanel.battleCompact{padding-top:5px;padding-bottom:5px;background:rgba(20,20,30,.82)}.bossPanel.battleCompact .bossMsg{display:none}.bossPanel.battleCompact .hp{height:7px;margin-top:3px}
