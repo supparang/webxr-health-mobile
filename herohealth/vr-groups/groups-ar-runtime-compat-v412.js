@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const PATCH = 'groups-ar-runtime-compat-v5.1.0-grade5-easy-grab';
+  const PATCH = 'groups-ar-runtime-compat-v5.1.2-summary-passport-button';
   const params = new URLSearchParams(location.search);
   const ASSIST = {
     effectiveGrabRadiusPx: 152,
@@ -85,6 +85,7 @@
       .hand.pinch{box-shadow:0 0 0 14px rgba(67,207,123,.24),0 10px 30px rgba(0,0,0,.25)!important}
       .bin{min-height:74px!important;border-width:2px!important}
       .bin.hover{transform:translateY(-9px) scale(1.07)!important;outline:4px solid rgba(67,207,123,.9)!important;box-shadow:0 0 0 8px rgba(67,207,123,.2),0 15px 46px rgba(0,0,0,.18)!important}
+      #passportSafetyReturn{display:block!important;width:100%!important;max-width:420px!important;margin:0 auto!important;background:linear-gradient(180deg,#dff8f2,#bdebe0)!important;color:#173b3d!important;border:1px solid #a7dcd0!important}
       @media(max-width:520px){.food{width:94px!important;height:94px!important}.food .emoji{font-size:44px!important}.bin{min-height:69px!important}}
     `;
     document.head.appendChild(style);
@@ -216,7 +217,7 @@
       returning = true;
       const delivery = document.getElementById('delivery');
       if (delivery) delivery.textContent = 'กำลังกลับ Hero Passport…';
-      setTimeout(() => location.replace(fallbackPassportUrl().href), 1400);
+      setTimeout(() => location.replace(fallbackPassportUrl().href), 1800);
     };
     new MutationObserver(check).observe(summary, {
       attributes: true, childList: true, subtree: true, characterData: true
@@ -225,39 +226,27 @@
     check();
   }
 
-  function installSafetyButton() {
-    if (window.parent === window || !passportMode()) return;
+  function installPassportReturnButton() {
     const summary = document.getElementById('summary');
     const actions = document.getElementById('summaryActions') || summary?.querySelector('.sheetActions');
-    if (!summary || !actions || document.getElementById('passportSafetyReturn')) return;
+    if (!summary || !actions) return;
 
-    const button = document.createElement('button');
-    button.id = 'passportSafetyReturn';
-    button.type = 'button';
-    button.className = 'big alt';
-    button.textContent = '← กลับ Hero Passport';
-    button.hidden = true;
-    actions.appendChild(button);
-
-    let armed = false;
-    const show = () => {
-      if (!summaryVisible(summary) || armed) return;
-      armed = true;
-      setTimeout(() => {
-        if (!summaryVisible(summary)) return;
-        actions.hidden = false;
-        button.hidden = false;
-        const delivery = document.getElementById('delivery');
-        if (delivery) delivery.textContent = 'หากยังไม่กลับอัตโนมัติ กดปุ่มด้านล่างได้';
-      }, 6000);
-    };
+    let button = document.getElementById('passportSafetyReturn');
+    if (!button) {
+      button = document.createElement('button');
+      button.id = 'passportSafetyReturn';
+      button.type = 'button';
+      button.className = 'big alt';
+      button.textContent = '← กลับ Hero Passport';
+      actions.appendChild(button);
+    }
 
     button.onclick = () => {
       button.disabled = true;
-      button.textContent = 'กำลังกลับ Passport…';
+      button.textContent = 'กำลังกลับ Hero Passport…';
       try {
         const shellBack = window.top.document.getElementById('back');
-        if (shellBack) {
+        if (window.parent !== window && shellBack) {
           shellBack.click();
           return;
         }
@@ -266,10 +255,19 @@
       catch (_) { location.replace(fallbackPassportUrl().href); }
     };
 
+    const show = () => {
+      if (!summaryVisible(summary)) return;
+      actions.hidden = false;
+      actions.style.display = 'flex';
+      button.hidden = false;
+      button.disabled = false;
+      if (!/กำลังกลับ/.test(button.textContent)) button.textContent = '← กลับ Hero Passport';
+    };
+
     new MutationObserver(show).observe(summary, {
       attributes: true, childList: true, subtree: true, characterData: true
     });
-    setInterval(show, 500);
+    setInterval(show, 400);
     show();
   }
 
@@ -303,7 +301,7 @@
   script.onload = () => {
     installArErrorCameraRelease();
     installStandaloneReturn();
-    installSafetyButton();
+    installPassportReturnButton();
     installTextGuard();
     window.dispatchEvent(new CustomEvent('groups-runtime-ready', {
       detail: { patch: PATCH, mode: 'hand-ar-only', interactionAssist: ASSIST }
