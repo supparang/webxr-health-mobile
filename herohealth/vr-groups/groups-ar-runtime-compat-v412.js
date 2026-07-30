@@ -1,13 +1,15 @@
 (() => {
   'use strict';
 
-  const PATCH = 'groups-ar-runtime-compat-v5.1.3-stable-no-freeze';
+  const PATCH = 'groups-ar-runtime-compat-v5.1.5-stable-easy-drop';
   const params = new URLSearchParams(location.search);
   const ASSIST = {
-    profile: 'grade5-stable-easy-v2',
+    profile: 'grade5-stable-easy-drop-v3',
     pinchClose: 0.085,
     pinchOpen: 0.14,
     visualGrabAssist: true,
+    dropStartRatio: 0.63,
+    originalDropStartRatio: 0.75,
     globalMathPatch: false
   };
 
@@ -61,16 +63,51 @@
     history.replaceState(null, '', url.href);
     window.HH_GROUPS_INTERACTION_ASSIST = { ...ASSIST, patch: PATCH };
 
+    const arena = document.getElementById('arena');
+    if (arena && !arena.__hhGroupsDropRectInstalled) {
+      arena.__hhGroupsDropRectInstalled = true;
+      const originalRect = arena.getBoundingClientRect.bind(arena);
+      arena.__hhGroupsOriginalRect = originalRect;
+      arena.getBoundingClientRect = function grade5DropRect() {
+        const rect = originalRect();
+        const stack = String(new Error().stack || '');
+        if (!/\b(binAt|hoverBin)\b/.test(stack)) return rect;
+        const heightScale = ASSIST.dropStartRatio / ASSIST.originalDropStartRatio;
+        const assistedHeight = rect.height * heightScale;
+        return {
+          x: rect.x,
+          y: rect.y,
+          top: rect.top,
+          left: rect.left,
+          right: rect.right,
+          bottom: rect.top + assistedHeight,
+          width: rect.width,
+          height: assistedHeight,
+          toJSON: () => ({
+            x: rect.x,
+            y: rect.y,
+            top: rect.top,
+            left: rect.left,
+            right: rect.right,
+            bottom: rect.top + assistedHeight,
+            width: rect.width,
+            height: assistedHeight
+          })
+        };
+      };
+    }
+
     const style = document.createElement('style');
-    style.id = 'hh-groups-stable-assist-v513';
+    style.id = 'hh-groups-stable-assist-v515';
     style.textContent = `
       .food{box-shadow:0 0 0 7px rgba(255,255,255,.18),0 19px 54px rgba(0,0,0,.25)!important}
       .food.selected{box-shadow:0 0 0 13px rgba(67,207,123,.34),0 25px 70px rgba(0,0,0,.3)!important;filter:brightness(1.1) saturate(1.15)!important}
       .hand{width:66px!important;height:66px!important;margin:-33px 0 0 -33px!important;box-shadow:0 0 0 12px rgba(101,201,255,.18),0 10px 30px rgba(0,0,0,.25)!important}
       .hand.pinch{box-shadow:0 0 0 14px rgba(67,207,123,.24),0 10px 30px rgba(0,0,0,.25)!important}
-      .bin{min-height:72px!important;border-width:2px!important}
-      .bin.hover{transform:translateY(-7px) scale(1.05)!important;outline:4px solid rgba(67,207,123,.9)!important;box-shadow:0 0 0 8px rgba(67,207,123,.2),0 15px 46px rgba(0,0,0,.18)!important}
-      @media(max-width:520px){.food{width:92px!important;height:92px!important}.food .emoji{font-size:43px!important}.bin{min-height:67px!important}}
+      .bins{padding-top:9px!important}
+      .bin{min-height:78px!important;border-width:3px!important}
+      .bin.hover{transform:translateY(-10px) scale(1.07)!important;outline:5px solid rgba(67,207,123,.95)!important;box-shadow:0 0 0 10px rgba(67,207,123,.22),0 15px 46px rgba(0,0,0,.18)!important}
+      @media(max-width:520px){.food{width:92px!important;height:92px!important}.food .emoji{font-size:43px!important}.bin{min-height:73px!important}}
     `;
     document.head.appendChild(style);
 
@@ -79,7 +116,7 @@
     if (foodLayer && feedback) {
       new MutationObserver(() => {
         if (foodLayer.querySelector('.food.selected')) {
-          feedback.textContent = '✅ หยิบติดแล้ว • เลื่อนลงเหนือหมู่ที่เลือก แล้วกางนิ้ว';
+          feedback.textContent = '✅ หยิบติดแล้ว • เลื่อนให้ตะกร้าเป็นสีเขียว แล้วกางนิ้ว';
         }
       }).observe(foodLayer, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
     }
@@ -143,8 +180,9 @@
     const show = () => {
       if (!summaryVisible(summary)) return;
       actions.hidden = false;
-      actions.style.display = 'flex';
+      actions.style.setProperty('display', 'flex', 'important');
       button.hidden = false;
+      button.style.setProperty('display', 'inline-flex', 'important');
     };
     new MutationObserver(show).observe(summary, { attributes: true, childList: true, subtree: true });
     setInterval(show, 500);
@@ -158,7 +196,7 @@
   applyStudentUi();
 
   const script = document.createElement('script');
-  script.src = './vr-groups/groups-ar-runtime-v311.js?v=20260730-stable-no-freeze-v513';
+  script.src = './vr-groups/groups-ar-runtime-v311.js?v=20260730-stable-easy-drop-v515';
   script.async = false;
   script.dataset.groupsRuntimeLoader = PATCH;
   script.onload = () => {
