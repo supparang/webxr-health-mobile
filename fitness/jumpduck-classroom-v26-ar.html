@@ -4,19 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0f766e">
-  <title>JumpDuck Dash Production v4.9 Continuous Body Motion</title>
-  <script src="../HeroHealth_Learning1/data/backend-config.js?v=20260730-jumpduck-prod49-body-motion"></script>
+  <title>JumpDuck Dash Production v4.9.1 Body Landmark Fix</title>
+  <script src="../HeroHealth_Learning1/data/backend-config.js?v=20260730-jumpduck-prod491-body-landmark-fix"></script>
   <link rel="stylesheet" href="./jumpduck-classroom-v35.css?v=20260729-result-polish-v38">
 </head>
 <body>
-<div style="position:fixed;z-index:9998;right:8px;top:calc(8px + env(safe-area-inset-top));padding:5px 10px;border-radius:999px;background:#0f172dcc;color:#fff;font:900 11px system-ui;pointer-events:none">JD v4.9</div>
-<section id="intro" class="screen"><div class="card"><div class="logo">🦆⚡</div><span class="badge">CLASSROOM FINAL • BODY DETECTION</span><h1>JumpDuck Dash</h1><p class="muted">เกมตรวจจับการขยับร่างกายตลอดทั้งรอบ ไม่เปลี่ยนเป็นปุ่มควบคุมกลางเกม</p><p class="muted">ขยับลำตัวซ้าย–กลาง–ขวา กระโดด หรือย่อตัว เพื่อควบคุมเป็ด</p><button id="start" class="primary">▶ เริ่มเกม</button><div id="startStatus" class="status">รอบละ 50 วินาที • ตรวจจับการเคลื่อนไหวจากกล้องแบบเบาสำหรับมือถือ</div></div></section>
-<section id="countdown" class="screen hidden"><div class="card"><div class="count" id="count">3</div><h2>กำลังปรับตำแหน่งร่างกาย</h2><p class="muted">ยืนตรงกลางและขยับเล็กน้อยให้กล้องเห็นการเคลื่อนไหว</p></div></section>
+<div style="position:fixed;z-index:9998;right:8px;top:calc(8px + env(safe-area-inset-top));padding:5px 10px;border-radius:999px;background:#0f172dcc;color:#fff;font:900 11px system-ui;pointer-events:none">JD v4.9.1</div>
+<section id="intro" class="screen"><div class="card"><div class="logo">🦆⚡</div><span class="badge">CLASSROOM FINAL • BODY LANDMARK FIX</span><h1>JumpDuck Dash</h1><p class="muted">เกมตรวจจับการขยับร่างกายตลอดทั้งรอบ ไม่เปลี่ยนเป็นปุ่มควบคุมกลางเกม</p><p class="muted">ขยับลำตัวซ้าย–กลาง–ขวา กระโดด หรือย่อตัว เพื่อควบคุมเป็ด</p><button id="start" class="primary">▶ เริ่มเกม</button><div id="startStatus" class="status">รอบละ 50 วินาที • ตรวจจับการเคลื่อนไหวจากกล้องแบบเบาสำหรับมือถือ</div></div></section>
+<section id="countdown" class="screen hidden"><div class="card"><div class="count" id="count">3</div><h2>กำลังปรับตำแหน่งร่างกาย</h2><p class="muted">ยืนให้เห็นตั้งแต่ศีรษะถึงสะโพก แล้วขยับเล็กน้อยระหว่างนับถอยหลัง</p></div></section>
 <main id="game" class="game hidden"><canvas id="world"></canvas><div class="hud"><div class="pill">⭐ <span id="score">0</span> • x<span id="multi">1</span></div><div class="pill">🔥 Combo <span id="combo">0</span></div><div class="pill">⏱️ <span id="time">50</span>s</div></div><div class="mission"><span id="missionText">MISSION 1 • เก็บอาหารดี</span> <b><span id="missionNow">0</span>/<span id="missionGoal">5</span></b><div class="bar"><i id="missionBar"></i></div></div><div id="warning" class="warning"></div><div id="toast" class="toast"></div><div id="poseText" class="pose">กำลังตรวจจับการขยับร่างกาย…</div><div class="camera"><video id="video" autoplay muted playsinline></video><canvas id="poseCanvas"></canvas></div></main>
 <button id="finishRoundBtn" class="hidden" type="button" style="position:fixed;z-index:9999;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(88vw,420px);min-height:60px;border:0;border-radius:20px;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;font:900 20px system-ui;box-shadow:0 8px 0 #c2410c,0 12px 30px #0007;touch-action:manipulation;pointer-events:auto">จบรอบและดูผล</button>
 <section id="result" class="screen hidden"><div class="card"><div class="logo">🏆</div><div id="rank" class="rank">A</div><div id="stars" class="stars">⭐⭐⭐</div><h1>Healthy Hero!</h1><div class="resultGrid"><div class="stat">คะแนน<b id="finalScore">0</b></div><div class="stat">Accuracy<b id="finalAcc">0%</b></div><div class="stat">Max Combo<b id="finalCombo">0</b></div><div class="stat">Health Coins<b id="finalGood">0</b></div><div class="stat">Perfect<b id="finalPerfect">0</b></div><div class="stat">Movement<b id="finalMove">0</b></div></div><p id="resultText" class="muted"></p><p id="syncText" class="syncing">กำลังสรุปผล…</p><button id="passportBtn" class="primary passport-btn">← กลับ Passport</button><button id="done" class="primary retry-btn hidden">ลองส่งผลอีกครั้ง</button><p class="small result-note">ผลอย่างเป็นทางการและภารกิจถัดไปยึดตาม Google Sheet</p></div></section>
 <script src="./jumpduck-result-v38.js?v=20260729-outcome-wording-v39"></script>
-<script src="./jumpduck-body-motion-v49.js?v=20260730-continuous-body-motion-v49"></script>
+<script src="./jumpduck-body-motion-v49.js?v=20260730-complete-landmarks-v491"></script>
 <script src="./jumpduck-classroom-v45.js?v=20260730-result-before-camera-release-v45"></script>
 <script src="./jumpduck-safe-round-v46.js?v=20260730-stable-50s-round-v46"></script>
 <script>
