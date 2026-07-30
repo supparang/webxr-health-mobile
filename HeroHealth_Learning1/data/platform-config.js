@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R42-TOOTHBRUSH-V27-STUDENT-RESULT-R4-JUMPDUCK-V45-BALANCE-RESULT-V36",
+  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R42-TOOTHBRUSH-V27-THAI-START-R5-JUMPDUCK-V45-BALANCE-RESULT-V36",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_HANDWASH_LOADER_PREFLIGHT_R42_TOOTHBRUSH_NEUTRAL_ZONE_LABEL_R4_JUMPDUCK_RESULT_BEFORE_CAMERA_RELEASE_V45_BALANCE_PASSPORT_RESULT_V36",
+  deploymentState: "QA_HANDWASH_LOADER_PREFLIGHT_R42_TOOTHBRUSH_THAI_GRADE5_START_R5_JUMPDUCK_RESULT_BEFORE_CAMERA_RELEASE_V45_BALANCE_PASSPORT_RESULT_V36",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -51,6 +51,11 @@ window.HH_CONFIG = {
     resultLanguage: "thai-child-friendly-r2",
     resultLabels: { coverage: "โซนที่ทำครบ", direction: "ทิศทางถูกต้อง", tracking: "การตรวจจับ", plaque: "กำจัดคราบ" },
     coverageLabelPolicy: "neutral-completed-zone-count",
+    startLanguage: "thai-grade5-three-step-r1",
+    startHeading: "ภารกิจแปรงฟัน",
+    startSubtitle: "กำจัดคราบให้ครบ 6 โซน",
+    startButton: "เริ่มภารกิจ",
+    visibleTechnicalVersion: false,
     returnContract: "jumpduck-compatible-passport-return-v1",
     returnQuerySupport: ["return", "back"],
     returnIdentityCarry: ["studentId", "sid", "pid", "fullName", "studentName", "name", "section", "group"],
@@ -58,7 +63,7 @@ window.HH_CONFIG = {
     skillThresholds: { coverageZones: 6, directionAccuracyPct: 55, precisionAccuracyPct: 70, trackingQualityPct: 60 },
     input: "index-finger-only",
     trackingProfile: "adaptive-hysteresis-reacquire-v24",
-    motionProfile: "multi-plaque-spatial-coverage-v27-student-result-r4",
+    motionProfile: "multi-plaque-spatial-coverage-v27-thai-start-r5",
     cameraProfile: "mobile-three-stage-constraints-fallback-release-v1",
     plaqueVariantCount: 4,
     plaqueVariantPolicy: "four-balanced-visuals-equal-hitbox",
@@ -96,7 +101,7 @@ window.HH_CONFIG = {
     zonePositionAssist: false,
     renderInterpolation: "three-sample-fast-rAF-follow",
     detectionScheduler: "adaptive-throttled-independent-loop",
-    architecture: "standalone-classroom-challenge-multi-plaque-camera-recovery-balanced-visual-variety-jumpduck-return-standard-child-friendly-result-neutral-zone-label"
+    architecture: "standalone-classroom-challenge-multi-plaque-camera-recovery-balanced-visual-variety-jumpduck-return-standard-child-friendly-result-thai-grade5-start"
   },
   teacherPin: "",
   routes: {
@@ -108,7 +113,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Handwash R42 เพิ่ม Loader Preflight ก่อน Runtime โดยกำหนด timeout และ retry สำหรับไฟล์ย่อยทั้ง 4 ไฟล์ เพื่อไม่ให้หน้าจอค้างที่กำลังโหลดอย่างไม่มีกำหนด พร้อมคง Grade 5 Easy 120 วินาที การแยกผลภารกิจกับผลทักษะ และข้อมูล Analytics รายขั้น Toothbrush ใช้ Classroom Challenge สำหรับมือถือ แบ่งช่องปากเป็น 6 โซนและมีคราบพลัค 26 จุด ใช้คราบ 4 รูปแบบที่มี Hit Area และเกณฑ์ผ่านเท่ากัน ระบบวัด Direction Accuracy และ Spatial Plaque Coverage พร้อม Camera Recovery และ Tracking Analytics รุ่น Student Result R4 คง Return Contract มาตรฐานเดียวกับ JumpDuck และใช้คำว่า โซนที่ทำครบ ซึ่งถูกต้องทั้งกรณี 6/6 และกรณีที่ทำได้ไม่ครบ เช่น 5/6 พร้อมภาษาไทยสำหรับเด็ก ป.5 และไม่บังคับเล่นซ้ำ JumpDuck V45 ย้ายการเปิดหน้าสรุปให้เกิดก่อนคืนทรัพยากรกล้อง โดยหยุดส่ง Pose inference แต่ไม่เรียก video.pause หรือ MediaStreamTrack.stop ระหว่างหน้าการเล่น จากนั้นซ่อน Gameplay แสดง Result บันทึก Payload และส่ง Classroom Contract ก่อน แล้วจึงคืนกล้องหลังหน้าผลวาดเสร็จสองเฟรมและรอเพิ่ม 500 ms พร้อมจบอัตโนมัติที่ 1 วินาทีและปุ่มจบรอบที่เรียก Core Finish โดยตรง Balance Hold V36 ใช้ลำดับคงที่ 6 ท่า พร้อมหน้าสรุปมือถือแบบ 6 ตัวชี้วัดที่ไม่ล้นกรอบ เหลือปุ่มกลับ Passport เพียงปุ่มเดียว เก็บผลใน Classroom Contract และไม่แสดงว่า Google Sheet ยืนยันจนกว่าจะผ่าน Sheet Authority",
+      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Handwash R42 เพิ่ม Loader Preflight ก่อน Runtime โดยกำหนด timeout และ retry สำหรับไฟล์ย่อยทั้ง 4 ไฟล์ เพื่อไม่ให้หน้าจอค้างที่กำลังโหลดอย่างไม่มีกำหนด พร้อมคง Grade 5 Easy 120 วินาที การแยกผลภารกิจกับผลทักษะ และข้อมูล Analytics รายขั้น Toothbrush ใช้ Classroom Challenge สำหรับมือถือ แบ่งช่องปากเป็น 6 โซนและมีคราบพลัค 26 จุด ใช้คราบ 4 รูปแบบที่มี Hit Area และเกณฑ์ผ่านเท่ากัน ระบบวัด Direction Accuracy และ Spatial Plaque Coverage พร้อม Camera Recovery และ Tracking Analytics รุ่น Thai Start R5 ไม่แสดงเลขเวอร์ชันหรือศัพท์ระบบแก่นักเรียน เปลี่ยนชื่อเป็น ภารกิจแปรงฟัน ใช้คำสั่งสั้น 3 ขั้นตอน และปุ่ม เริ่มภารกิจ ส่วนหน้าผลยังใช้ โซนที่ทำครบ ซึ่งถูกต้องทั้งผลเต็มและผลไม่เต็ม พร้อม Return Contract แบบเดียวกับ JumpDuck และไม่บังคับเล่นซ้ำ JumpDuck V45 ย้ายการเปิดหน้าสรุปให้เกิดก่อนคืนทรัพยากรกล้อง โดยหยุดส่ง Pose inference แต่ไม่เรียก video.pause หรือ MediaStreamTrack.stop ระหว่างหน้าการเล่น จากนั้นซ่อน Gameplay แสดง Result บันทึก Payload และส่ง Classroom Contract ก่อน แล้วจึงคืนกล้องหลังหน้าผลวาดเสร็จสองเฟรมและรอเพิ่ม 500 ms พร้อมจบอัตโนมัติที่ 1 วินาทีและปุ่มจบรอบที่เรียก Core Finish โดยตรง Balance Hold V36 ใช้ลำดับคงที่ 6 ท่า พร้อมหน้าสรุปมือถือแบบ 6 ตัวชี้วัดที่ไม่ล้นกรอบ เหลือปุ่มกลับ Passport เพียงปุ่มเดียว เก็บผลใน Classroom Contract และไม่แสดงว่า Google Sheet ยืนยันจนกว่าจะผ่าน Sheet Authority",
       games: { hygiene: ["handwash", "toothbrush"], nutrition: ["groups", "goodjunk"], fitness: ["jumpduck", "balance-hold"] }
     },
     FULL_PLATFORM: {
@@ -123,7 +128,7 @@ window.HH_CONFIG = {
       id: "hygiene", label: "Hygiene Hero", thai: "ฐานสุขอนามัย", emoji: "🧼", accent: "#0ea5e9", description: "ฝึกสุขอนามัยที่จำเป็นในชีวิตประจำวัน",
       games: [
         { id:"handwash", title:"Handwash Grade 5 Adaptive", thai:"Handwash AR", url:"./classroom-contract-wrapper.html?wrappedGame=handwash&diff=easy&time=120&roundMode=standard&v=20260729-handwash-loader-preflight-r42", status:"qa-loader-preflight-r42-no-infinite-spinner", requiredReturnContract:true, qaClosed:false, progressionByCompletion:true, oneRoundCompletes:true, retryRequired:false },
-        { id:"toothbrush", title:"Toothbrush Classroom Challenge", thai:"Toothbrush Challenge", url:"./toothbrush-classroom-challenge-v27.html?v=20260729-student-result-r4", status:"qa-multi-plaque-neutral-completed-zone-label-v27-r4", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false, oneRoundCompletes:true, retryRequired:false, studentRetryVisible:false },
+        { id:"toothbrush", title:"Toothbrush Classroom Challenge", thai:"ภารกิจแปรงฟัน", url:"./toothbrush-classroom-challenge-v27.html?v=20260730-thai-grade5-start-r5", status:"qa-thai-grade5-three-step-start-v27-r5", requiredReturnContract:true, progressionByCompletion:true, settingsVisible:false, oneRoundCompletes:true, retryRequired:false, studentRetryVisible:false },
         { id:"bath", title:"Bath AR", thai:"ภารกิจอาบน้ำ", url:"../herohealth/hygiene-zone/bath-ar-v5.html", status:"catalog-only", requiredReturnContract:true },
         { id:"maskcough", title:"Mask & Cough", thai:"ภารกิจป้องกันไอจาม", url:"../herohealth/maskcough-v2.html", status:"catalog-only", requiredReturnContract:true },
         { id:"clean-objects", title:"Clean Objects", thai:"ภารกิจทำความสะอาดสิ่งของ", url:"../herohealth/clean-objects-v3/clean-objects.html", status:"catalog-only", requiredReturnContract:true },
