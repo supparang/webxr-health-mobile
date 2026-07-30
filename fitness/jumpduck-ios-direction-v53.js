@@ -1,64 +1,66 @@
 (()=>{'use strict';
-if(window.__JUMPDUCK_IOS_DIRECTION_V531__)return;
-window.__JUMPDUCK_IOS_DIRECTION_V531__=true;
+if(window.__JUMPDUCK_HORIZONTAL_FIX_V55__)return;
+window.__JUMPDUCK_HORIZONTAL_FIX_V55__=true;
+window.__JUMPDUCK_HORIZONTAL_POLICY__='front-camera-output-x-inversion-v55';
 
-const ua=navigator.userAgent||'';
-const platform=navigator.platform||'';
-const touchPoints=Number(navigator.maxTouchPoints||0);
-const isIOS=/iPhone|iPad|iPod/i.test(ua)||(platform==='MacIntel'&&touchPoints>1);
-window.__JUMPDUCK_IS_IOS__=isIOS;
-window.__JUMPDUCK_HORIZONTAL_POLICY__=isIOS?'ios-selfie-movenet-flip-on':'default-movenet-flip';
-if(!isIOS)return;
-
-/*
- * The game preview is mirrored with CSS (selfie view). The gameplay coordinate
- * must therefore also use MoveNet's horizontal flip. v5.3 incorrectly forced
- * flipHorizontal=false on iOS, which made physical left move the duck right.
- * This patch preserves/forces flipHorizontal=true only on iOS. Android and
- * other devices are untouched because the file returns above for non-iOS.
- */
 function patchPoseDetection(){
   const pd=window.poseDetection;
   if(!pd||typeof pd.createDetector!=='function')return false;
-  if(pd.__jumpduckIOSDirection531Patched)return true;
+  if(pd.__jumpduckHorizontalV55Patched)return true;
   const nativeCreate=pd.createDetector.bind(pd);
   pd.createDetector=async function(...args){
     const detector=await nativeCreate(...args);
-    if(detector&&typeof detector.estimatePoses==='function'&&!detector.__jumpduckIOSDirection531Patched){
+    if(detector&&typeof detector.estimatePoses==='function'&&!detector.__jumpduckHorizontalV55Patched){
       const nativeEstimate=detector.estimatePoses.bind(detector);
-      detector.estimatePoses=function(image,config={}){
-        return nativeEstimate(image,{...config,flipHorizontal:true});
+      detector.estimatePoses=async function(image,config={}){
+        const poses=await nativeEstimate(image,config);
+        const width=Number(image?.videoWidth||image?.width||0);
+        if(!width||!Array.isArray(poses))return poses;
+        for(const pose of poses){
+          if(!Array.isArray(pose?.keypoints))continue;
+          for(const kp of pose.keypoints){
+            if(Number.isFinite(kp?.x))kp.x=width-kp.x;
+          }
+        }
+        return poses;
       };
-      detector.__jumpduckIOSDirection531Patched=true;
+      detector.__jumpduckHorizontalV55Patched=true;
     }
     return detector;
   };
-  pd.__jumpduckIOSDirection531Patched=true;
+  pd.__jumpduckHorizontalV55Patched=true;
   return true;
+}
+
+function removeLegacyMirror(){
+  document.getElementById('jdIOSDirectionV53Style')?.remove();
 }
 
 function patchPayload(){
   const nativeSetItem=Storage.prototype.setItem;
-  Storage.prototype.setItem=function(key,value){
+  if(nativeSetItem.__jumpduckHorizontalV55Patched)return;
+  function patchedSetItem(key,value){
     if(String(key)==='HHA_JUMPDUCK_LAST_RESULT'){
       try{
         const payload=JSON.parse(String(value||'{}'));
-        payload.gameVersion='jumpduck-production-v5.3.1-ios-direction-correction';
-        payload.horizontalDirectionPolicy='ios-selfie-movenet-flip-on';
-        payload.deviceIOS=true;
+        payload.gameVersion='jumpduck-production-v5.5-universal-horizontal-fix';
+        payload.horizontalDirectionPolicy='front-camera-output-x-inversion-v55';
         value=JSON.stringify(payload);
       }catch(_){ }
     }
     return nativeSetItem.call(this,key,value);
-  };
+  }
+  patchedSetItem.__jumpduckHorizontalV55Patched=true;
+  Storage.prototype.setItem=patchedSetItem;
 }
 
+removeLegacyMirror();
 patchPayload();
 if(!patchPoseDetection()){
   let tries=0;
   const timer=setInterval(()=>{
     tries++;
-    if(patchPoseDetection()||tries>40)clearInterval(timer);
+    if(patchPoseDetection()||tries>60)clearInterval(timer);
   },50);
 }
 })();
