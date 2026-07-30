@@ -4,21 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0f766e">
-  <title>JumpDuck Dash Production v4.4 Result First</title>
+  <title>JumpDuck Dash Production v4.5 Result Before Camera Release</title>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
-  <script src="../HeroHealth_Learning1/data/backend-config.js?v=20260730-jumpduck-prod44-result-first"></script>
+  <script src="../HeroHealth_Learning1/data/backend-config.js?v=20260730-jumpduck-prod45-result-before-camera-release"></script>
   <link rel="stylesheet" href="./jumpduck-classroom-v35.css?v=20260729-result-polish-v38">
 </head>
 <body>
-<div style="position:fixed;z-index:9998;right:8px;top:calc(8px + env(safe-area-inset-top));padding:5px 10px;border-radius:999px;background:#0f172dcc;color:#fff;font:900 11px system-ui;pointer-events:none">JD v4.4</div>
-<section id="intro" class="screen"><div class="card"><div class="logo">🦆⚡</div><span class="badge">CLASSROOM FINAL • RESULT FIRST</span><h1>JumpDuck Dash</h1><p class="muted">วิ่ง หลบ เก็บอาหารดี และพิชิต 3 ภารกิจด้วยร่างกายจริง</p><p class="muted">ขยับลำตัวไปทางซ้าย–กลาง–ขวา เป็ดจะตามตำแหน่งโดยตรง</p><button id="start" class="primary">▶ เริ่มเกม</button><div id="startStatus" class="status">ยืนห่างกล้องประมาณ 1.5–2 เมตร • หากขยับไม่ทัน แตะช่องถนนช่วยได้</div></div></section>
+<div style="position:fixed;z-index:9998;right:8px;top:calc(8px + env(safe-area-inset-top));padding:5px 10px;border-radius:999px;background:#0f172dcc;color:#fff;font:900 11px system-ui;pointer-events:none">JD v4.5</div>
+<section id="intro" class="screen"><div class="card"><div class="logo">🦆⚡</div><span class="badge">CLASSROOM FINAL • RESULT BEFORE CAMERA RELEASE</span><h1>JumpDuck Dash</h1><p class="muted">วิ่ง หลบ เก็บอาหารดี และพิชิต 3 ภารกิจด้วยร่างกายจริง</p><p class="muted">ขยับลำตัวไปทางซ้าย–กลาง–ขวา เป็ดจะตามตำแหน่งโดยตรง</p><button id="start" class="primary">▶ เริ่มเกม</button><div id="startStatus" class="status">ยืนห่างกล้องประมาณ 1.5–2 เมตร • หากขยับไม่ทัน แตะช่องถนนช่วยได้</div></div></section>
 <section id="countdown" class="screen hidden"><div class="card"><div class="count" id="count">3</div><h2>กำลังปรับตำแหน่งร่างกาย</h2><p class="muted">ยืนตรงกลางและให้กล้องเห็นศีรษะ ไหล่ และสะโพก</p></div></section>
 <main id="game" class="game hidden"><canvas id="world"></canvas><div class="hud"><div class="pill">⭐ <span id="score">0</span> • x<span id="multi">1</span></div><div class="pill">🔥 Combo <span id="combo">0</span></div><div class="pill">⏱️ <span id="time">60</span>s</div></div><div class="mission"><span id="missionText">MISSION 1 • เก็บอาหารดี</span> <b><span id="missionNow">0</span>/<span id="missionGoal">5</span></b><div class="bar"><i id="missionBar"></i></div></div><div id="warning" class="warning"></div><div id="toast" class="toast"></div><div id="poseText" class="pose">กำลังตรวจจับร่างกาย…</div><div class="camera"><video id="video" autoplay muted playsinline></video><canvas id="poseCanvas"></canvas></div></main>
 <button id="finishRoundBtn" class="hidden" type="button" style="position:fixed;z-index:9999;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(88vw,420px);min-height:60px;border:0;border-radius:20px;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;font:900 20px system-ui;box-shadow:0 8px 0 #c2410c,0 12px 30px #0007;touch-action:manipulation;pointer-events:auto">จบรอบและดูผล</button>
 <section id="result" class="screen hidden"><div class="card"><div class="logo">🏆</div><div id="rank" class="rank">A</div><div id="stars" class="stars">⭐⭐⭐</div><h1>Healthy Hero!</h1><div class="resultGrid"><div class="stat">คะแนน<b id="finalScore">0</b></div><div class="stat">Accuracy<b id="finalAcc">0%</b></div><div class="stat">Max Combo<b id="finalCombo">0</b></div><div class="stat">Health Coins<b id="finalGood">0</b></div><div class="stat">Perfect<b id="finalPerfect">0</b></div><div class="stat">Movement<b id="finalMove">0</b></div></div><p id="resultText" class="muted"></p><p id="syncText" class="syncing">กำลังสรุปผล…</p><button id="passportBtn" class="primary passport-btn">← กลับ Passport</button><button id="done" class="primary retry-btn hidden">ลองส่งผลอีกครั้ง</button><p class="small result-note">ผลอย่างเป็นทางการและภารกิจถัดไปยึดตาม Google Sheet</p></div></section>
 <script src="./jumpduck-result-v38.js?v=20260729-outcome-wording-v39"></script>
-<script src="./jumpduck-classroom-v43.js?v=20260729-native-finish-v43"></script>
-<script src="./jumpduck-failsafe-v44.js?v=20260730-result-first-v44"></script>
+<script src="./jumpduck-classroom-v45.js?v=20260730-result-before-camera-release-v45"></script>
 <script>
 (()=>{'use strict';
  const btn=document.getElementById('passportBtn');
