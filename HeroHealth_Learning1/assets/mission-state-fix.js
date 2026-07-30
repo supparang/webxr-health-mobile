@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='20260730-MISSION-TIMELINE-UI-V3';
+const VERSION='20260730-MISSION-TIMELINE-UI-V4';
 const KEY='herohealth_learning_platform_rc2';
 const R=window.HHRotation;
 if(!R)return;
@@ -28,14 +28,14 @@ function normalize(s){
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function displayLabel(step){
  const labels={
-  pretest:'Pre-test',
+  pretest:'Pre-test — แบบทดสอบก่อนเริ่มภารกิจ',
   'nutrition:groups':'Food Groups AR — จัดอาหารให้ถูก 5 หมู่',
   'nutrition:goodjunk':'GoodJunk AR — เลือกอาหารสุขภาพ',
   'fitness:jumpduck':'JumpDuck AR — กระโดดและหลบ',
   'fitness:balance-hold':'Balance Hold AR — ฝึกการทรงตัว',
   'hygiene:handwash':'Handwash AR — ล้างมือ 7 ขั้นตอน',
   'hygiene:toothbrush':'Toothbrush AR — แปรงฟันให้สะอาด',
-  posttest:'Post-test',
+  posttest:'Post-test — แบบทดสอบหลังจบภารกิจ',
   reflection:'Reflection — สะท้อนการเรียนรู้'
  };
  return labels[step.id]||step.label;
