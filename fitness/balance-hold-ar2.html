@@ -1,12 +1,12 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Guardian Six Pose Classroom Release | v20260730.37-tree-knee-proof -->
+<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Guardian Six Pose Classroom Release | v20260730.38-final-ui -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#dff7ff" />
   <meta name="color-scheme" content="light" />
-  <title>Balance Hold • Guardian of the Crystal</title>
+  <title>Balance Hold • ภารกิจทรงตัว</title>
   <link rel="stylesheet" href="./bh-twin-base-v11.css?v=20260716.11" />
   <link rel="stylesheet" href="./bh-twin-ui-v11.css?v=20260716.11" />
   <link rel="stylesheet" href="./bh-twin-polish-v12.css?v=20260716.12" />
@@ -16,9 +16,9 @@
 <body>
 <main class="app" id="app">
   <header class="topbar">
-    <div class="brand glass"><div class="brandIcon">💎</div><div><div class="brandTitle">Balance Hold • Guardian of the Crystal</div><div class="brandSub">Six Pose Classroom Mission • Grade 5 / ป.5</div></div></div>
-    <div class="topPill glass" id="statusPill">📷 Pose: Ready</div>
-    <div class="topActions"><button class="iconBtn" id="recalibrateBtn" type="button" title="Calibration ใหม่">◎</button><button class="iconBtn" id="pauseBtn" type="button" title="พักเกม">Ⅱ</button><button class="iconBtn primary" id="homeBtn" type="button" title="กลับ Fitness Hub">⌂</button></div>
+    <div class="brand glass"><div class="brandIcon">💎</div><div><div class="brandTitle">Balance Hold</div><div class="brandSub">ภารกิจทรงตัว 6 ท่า</div></div></div>
+    <div class="topPill glass" id="statusPill">📷 กล้องพร้อม</div>
+    <div class="topActions"><button class="iconBtn" id="recalibrateBtn" type="button" title="ตรวจท่าทางใหม่">◎</button><button class="iconBtn" id="pauseBtn" type="button" title="พักเกม">Ⅱ</button><button class="iconBtn primary" id="homeBtn" type="button" title="กลับ Passport">⌂</button></div>
   </header>
   <section class="stage" id="stage">
     <video id="camera" playsinline muted autoplay></video><canvas id="poseCanvas"></canvas><div class="tint"></div>
@@ -27,30 +27,30 @@
     <div class="poseGhost center" id="poseGhost"><div class="ghostHead"></div><div class="ghostBody"></div><div class="ghostArm l"></div><div class="ghostArm r"></div><div class="ghostLeg l"></div><div class="ghostLeg r"></div></div>
     <div class="crystal" id="crystal"></div><div class="holdRing" id="holdRing"></div><div class="holdText" id="holdText">0%</div>
     <div class="hud">
-      <div class="hudCard glass"><small>TIME</small><b id="hudTime">60</b><div class="meter"><i id="timeBar"></i></div></div>
-      <div class="hudCard glass"><small>SCORE</small><b id="hudScore">0</b><div class="meter"><i id="scoreBar"></i></div></div>
-      <div class="hudCard glass"><small>POSE</small><b id="hudPose">0/6</b><div class="meter"><i id="poseBar"></i></div></div>
-      <div class="hudCard glass"><small>CONFIDENCE</small><b id="hudConfidence">0%</b><div class="meter"><i id="confidenceBar"></i></div></div>
-      <div class="hudCard glass"><small>STABILITY</small><b id="hudStability">0%</b><div class="meter"><i id="stabilityBar"></i></div></div>
-      <div class="hudCard glass"><small>TRACKING</small><b id="hudTracking">0%</b><div class="meter"><i id="trackingBar"></i></div></div>
+      <div class="hudCard glass"><small>เวลา</small><b id="hudTime">60</b><div class="meter"><i id="timeBar"></i></div></div>
+      <div class="hudCard glass"><small>คะแนน</small><b id="hudScore">0</b><div class="meter"><i id="scoreBar"></i></div></div>
+      <div class="hudCard glass"><small>ท่า</small><b id="hudPose">0/6</b><div class="meter"><i id="poseBar"></i></div></div>
+      <div class="hudCard glass"><small>ความชัด</small><b id="hudConfidence">0%</b><div class="meter"><i id="confidenceBar"></i></div></div>
+      <div class="hudCard glass"><small>ความนิ่ง</small><b id="hudStability">0%</b><div class="meter"><i id="stabilityBar"></i></div></div>
+      <div class="hudCard glass"><small>การติดตาม</small><b id="hudTracking">0%</b><div class="meter"><i id="trackingBar"></i></div></div>
     </div>
-    <div class="poseBanner"><div class="poseName glass" id="poseName">🛡️ Sky Shield</div><div class="poseCue" id="poseCue">ยืนสองเท้า กางแขนระดับไหล่ และมองตรง</div></div>
-    <div class="energy glass"><div class="energyTitle"><span>⚡ Balance Energy</span><span id="energyLabel">รอจับท่า</span></div><div class="energyGrid"><div class="energyItem">POSE<div class="meter"><i id="poseEnergy"></i></div></div><div class="energyItem">STABILITY<div class="meter"><i id="stabilityEnergy"></i></div></div><div class="energyItem">CONTROL<div class="meter"><i id="controlEnergy"></i></div></div></div></div>
-    <div class="coach glass"><div class="coachIcon" id="coachIcon">🧘</div><div class="coachText"><div id="coachMain">เตรียมพื้นที่ให้โล่งและให้กล้องเห็นช่วงศีรษะถึงเข่า</div><small id="coachSub">โหมดห้องเรียน • 6 ท่า • Easy • Safe Mode</small></div><div class="coachBadge" id="coachBadge">READY</div></div>
+    <div class="poseBanner"><div class="poseName glass" id="poseName">🛡️ ยืนกางแขน</div><div class="poseCue" id="poseCue">ยืนสองเท้า กางแขนระดับไหล่ และมองตรง</div></div>
+    <div class="energy glass"><div class="energyTitle"><span>⚡ พลังการทรงตัว</span><span id="energyLabel">รอจับท่า</span></div><div class="energyGrid"><div class="energyItem">ท่าทาง<div class="meter"><i id="poseEnergy"></i></div></div><div class="energyItem">ความนิ่ง<div class="meter"><i id="stabilityEnergy"></i></div></div><div class="energyItem">ควบคุม<div class="meter"><i id="controlEnergy"></i></div></div></div></div>
+    <div class="coach glass"><div class="coachIcon" id="coachIcon">🧘</div><div class="coachText"><div id="coachMain">เตรียมพื้นที่ให้โล่งและให้กล้องเห็นช่วงศีรษะถึงเข่า</div><small id="coachSub">โหมดห้องเรียน • 6 ท่า • Easy • Safe Mode</small></div><div class="coachBadge" id="coachBadge">พร้อม</div></div>
     <div class="qaPanel glass hidden" id="qaPanel"><b>QA</b><span id="qaFps">FPS -</span><span id="qaThreshold">Gate -</span><span id="qaLoss">Lost 0</span><span id="qaAssist">Assist 0</span></div>
     <div class="countdown hidden" id="countdown">3</div>
     <div class="overlay" id="startOverlay">
       <section class="modal">
-        <div class="modalHead"><div class="modalIcon">💎</div><div><h1>Guardian of the Crystal</h1><p class="lead">โหมดห้องเรียนใช้ 6 ภารกิจที่แตกต่างกัน พร้อมตรวจท่าทางและความนิ่งด้วย Pose Tracking</p></div></div>
-        <div class="concept"><div class="conceptCard">🛡️ <b>Foundation</b><br>Sky Shield + Star Reach ซ้าย/ขวา</div><div class="conceptCard">🌳 <b>Intermediate</b><br>Tree Balance ซ้าย/ขวาแบบยกเท้าต่ำ</div><div class="conceptCard">💎 <b>Boss</b><br>Crystal Guardian ปิดภารกิจ</div></div>
-        <div class="eightPoseLegend"><span>1 Sky Shield</span><span>2 Star Reach Left</span><span>3 Star Reach Right</span><span>4 Tree Left</span><span>5 Tree Right</span><span>6 Crystal Guardian</span></div>
+        <div class="modalHead"><div class="modalIcon">💎</div><div><h1>ภารกิจทรงตัว</h1><p class="lead">ทำท่าตามหน้าจอ 6 ท่า ยกขาเพียงต่ำ ๆ และค้างให้นิ่ง</p></div></div>
+        <div class="concept"><div class="conceptCard">🛡️ <b>ท่าพื้นฐาน</b><br>ยืนกางแขนและเอื้อมซ้าย–ขวา</div><div class="conceptCard">🌳 <b>ท่าทรงตัว</b><br>ยกเท้าต่ำหรือแตะปลายเท้า</div><div class="conceptCard">💎 <b>ท่าปิดภารกิจ</b><br>ค้างท่าสุดท้ายให้นิ่ง</div></div>
+        <div class="eightPoseLegend"><span>1 ยืนกางแขน</span><span>2 เอื้อมซ้าย</span><span>3 เอื้อมขวา</span><span>4 ทรงตัวซ้าย</span><span>5 ทรงตัวขวา</span><span>6 ท่าปิดภารกิจ</span></div>
         <div class="formGrid"><div class="field"><label for="playerName">ชื่อผู้เล่น</label><input id="playerName" value="Hero" autocomplete="name" /></div><div class="field"><label for="studentId">รหัสนักเรียน</label><input id="studentId" placeholder="เช่น P001" autocomplete="off" /></div><div class="field"><label for="classId">กลุ่ม/ห้อง</label><input id="classId" value="ป.5" /></div><div class="field"><label for="section">Section</label><input id="section" placeholder="เช่น P5-1" autocomplete="off" /></div><div class="field"><label for="difficulty">ระดับ</label><select id="difficulty"><option value="easy">Easy • 6 ท่าห้องเรียน</option><option value="normal" selected>Normal • เพิ่ม Tree Balance</option><option value="hard">Hard • เพิ่ม Airplane + Boss</option></select></div><div class="field"><label for="duration">เวลา</label><select id="duration"><option value="45">45 วินาที</option><option value="60" selected>60 วินาที</option><option value="75">75 วินาที</option><option value="90">90 วินาที</option></select></div></div>
-        <div class="toggles"><label class="toggle"><input id="showSkeleton" type="checkbox" checked> แสดง Skeleton Guide</label><label class="toggle"><input id="soundOn" type="checkbox" checked> เสียงสัญญาณ</label><label class="toggle"><input id="safeMode" type="checkbox" checked> Safe Mode ป.5</label></div>
-        <div class="actions"><button class="btn primary" id="startBtn" type="button">📷 เริ่ม Calibration และเล่น</button><button class="btn blue" id="cameraTestBtn" type="button">🧪 ทดสอบกล้อง</button><button class="btn" id="demoBtn" type="button">🎥 Live Demo • กล้องจริง ไม่บันทึก</button></div>
-        <p class="lead safetyNote">ข้อควรระวัง: พื้นต้องไม่ลื่น มีพื้นที่ว่าง ใช้พนักเก้าอี้ช่วยได้ใน Tree Balance ยกเท้าเพียงต่ำ ๆ และหยุดทันทีหากเสียสมดุล เวียนศีรษะ หรือเจ็บเข่า</p>
+        <div class="toggles"><label class="toggle"><input id="showSkeleton" type="checkbox" checked> แสดงโครงท่าทาง</label><label class="toggle"><input id="soundOn" type="checkbox" checked> เสียงสัญญาณ</label><label class="toggle"><input id="safeMode" type="checkbox" checked> โหมดปลอดภัย ป.5</label></div>
+        <div class="actions"><button class="btn primary" id="startBtn" type="button">📷 เริ่มภารกิจ</button><button class="btn blue" id="cameraTestBtn" type="button">ทดสอบกล้อง</button><button class="btn" id="demoBtn" type="button">โหมดสาธิต</button></div>
+        <p class="lead safetyNote">พื้นต้องไม่ลื่นและมีพื้นที่ว่าง ยกเท้าเพียงต่ำ ๆ หยุดทันทีหากเสียสมดุล เวียนศีรษะ หรือเจ็บเข่า</p>
       </section>
     </div>
-    <div class="overlay hidden" id="calibrationOverlay"><section class="modal calibrationModal"><div class="modalHead"><div class="modalIcon">📐</div><div><h2>Personal Pose Calibration</h2><p class="lead" id="calibrationText">ให้เห็นศีรษะ ไหล่ สะโพก และเข่าทั้งสอง — ไม่ต้องเห็นข้อเท้า</p></div></div><div class="calibrationSteps"><div class="calStep" id="calBody">1. เห็นศีรษะ–เข่า</div><div class="calStep" id="calArms">2. กางแขน</div><div class="calStep" id="calStable">3. ค้างนิ่ง</div></div><div class="calMeter"><i id="calibrationBar"></i></div><div class="cameraHints"><span>📏 ยืนในระยะที่ปลอดภัย</span><span>🦵 ให้เห็นเข่าทั้งสอง</span><span>💡 แสงส่องด้านหน้า</span></div><div class="actions"><button class="btn blue" id="retryCameraBtn" type="button">🔄 เปิดกล้องใหม่</button><button class="btn" id="cancelCalibrationBtn" type="button">ยกเลิก</button></div></section></div>
+    <div class="overlay hidden" id="calibrationOverlay"><section class="modal calibrationModal"><div class="modalHead"><div class="modalIcon">📐</div><div><h2>ตรวจท่าทางก่อนเริ่ม</h2><p class="lead" id="calibrationText">ให้กล้องเห็นศีรษะ ไหล่ สะโพก และเข่าทั้งสอง</p></div></div><div class="calibrationSteps"><div class="calStep" id="calBody">1. ศีรษะ–เข่า</div><div class="calStep" id="calArms">2. กางแขน</div><div class="calStep" id="calStable">3. ยืนนิ่ง</div></div><div class="calMeter"><i id="calibrationBar"></i></div><div class="cameraHints"><span>ยืนในระยะที่ปลอดภัย</span><span>ให้เห็นเข่าทั้งสอง</span><span>แสงส่องด้านหน้า</span></div><div class="actions"><button class="btn blue" id="retryCameraBtn" type="button">↻ ลองเปิดกล้องใหม่</button><button class="btn" id="cancelCalibrationBtn" type="button">ยกเลิก</button></div></section></div>
     <div class="overlay hidden" id="resultOverlay"></div>
   </section>
 </main>
@@ -73,11 +73,9 @@
 <script src="./bh-mobile-camera-adaptive-v34.js?v=20260729.34"></script>
 <script src="./bh-classroom-six-pose-v35.js?v=20260729.35"></script>
 <script src="./bh-classroom-tree-knee-proof-v37.js?v=20260730.37"></script>
-<script src="./bh-classroom-result-v36.js?v=20260729.36"></script>
-<!-- Balance Hold classroom flow intentionally has no separate warm-up/recovery bridge. -->
-<script src="./bh-twin-recovery-v13.js?v=20260716.13"></script>
 <script src="./bh-live-demo-v14.js?v=20260717.28"></script>
-<script src="./bh-classroom-autostart-v30.js?v=20260730.37-tree-knee-proof"></script>
-<script src="../HeroHealth_Learning1/assets/classroom-game-contract-v1.js?v=20260730-balance-mobile-v37"></script>
+<script src="./bh-classroom-autostart-v30.js?v=20260730.38-final-ui"></script>
+<script src="../HeroHealth_Learning1/assets/classroom-game-contract-v1.js?v=20260730-balance-mobile-v38"></script>
+<script src="./bh-classroom-ui-final-v38.js?v=20260730.38"></script>
 </body>
 </html>
