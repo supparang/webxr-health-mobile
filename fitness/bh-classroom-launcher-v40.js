@@ -1,13 +1,13 @@
 (()=>{
 'use strict';
 
-const RELEASE='20260730-BALANCE-CLASSROOM-LAUNCHER-V40';
-const original=new URLSearchParams(location.search);
+const RELEASE='20260730-BALANCE-CLASSROOM-LAUNCHER-V40.1';
+const originalQuery=new URLSearchParams(location.search);
 const standalone=
-  original.get('classroom')==='0'||
-  original.get('standalone')==='1'||
-  original.get('qa')==='1'||
-  ['standalone','research','demo','qa'].includes(String(original.get('mode')||'').toLowerCase());
+  originalQuery.get('classroom')==='0'||
+  originalQuery.get('standalone')==='1'||
+  originalQuery.get('qa')==='1'||
+  ['standalone','research','demo','qa'].includes(String(originalQuery.get('mode')||'').toLowerCase());
 if(standalone)return;
 
 const normalized=new URL(location.href);
@@ -20,8 +20,7 @@ try{history.replaceState(history.state,'',normalized.href)}catch(_){}
 
 const q=new URLSearchParams(location.search);
 const byId=id=>document.getElementById(id);
-let started=false;
-let fallbackTimer=0;
+let inFlight=false;
 
 function setValue(id,value){
   const element=byId(id);
@@ -59,13 +58,16 @@ function prepare(){
   }
 }
 
-function phaseStarted(){
+function activePhase(){
   const phase=String(window.BH?.state?.phase||'').toLowerCase();
-  return ['calibration','countdown','playing','transition','ended'].includes(phase);
+  if(phase==='camera'){
+    return !!(window.BH?.state?.stream||byId('camera')?.srcObject);
+  }
+  return ['calibration','ready','countdown','play','paused','transition','summary','ended'].includes(phase);
 }
 
-function showFallback(message){
-  if(phaseStarted())return;
+function showStart(message){
+  if(activePhase())return;
   const overlay=byId('startOverlay');
   const button=byId('startBtn');
   const lead=overlay?.querySelector('.lead');
@@ -73,17 +75,14 @@ function showFallback(message){
     overlay.classList.remove('hidden');
     overlay.style.display='flex';
   }
-  if(lead)lead.textContent=message||'แตะเริ่มอีกครั้งเพื่อเปิดกล้อง';
+  if(lead)lead.textContent=message||'แตะปุ่มเพื่อเปิดกล้องและเริ่มตรวจท่าทาง';
   if(button){
     button.disabled=false;
     button.textContent='📷 เริ่มภารกิจ';
   }
-  started=false;
 }
 
-function handleStart(){
-  if(started)return;
-  started=true;
+function hideStart(){
   const overlay=byId('startOverlay');
   const button=byId('startBtn');
   if(button){
@@ -94,18 +93,32 @@ function handleStart(){
     overlay.classList.add('hidden');
     overlay.style.display='none';
   }
-
-  clearTimeout(fallbackTimer);
-  fallbackTimer=window.setTimeout(()=>{
-    if(!phaseStarted())showFallback('กล้องยังไม่เริ่ม กรุณาแตะปุ่มอีกครั้ง');
-  },4500);
 }
 
 function bind(){
   prepare();
   const button=byId('startBtn');
   if(!button)return;
-  button.addEventListener('click',handleStart,{capture:true});
+
+  const originalStart=typeof button.onclick==='function'
+    ? button.onclick.bind(button)
+    : (typeof window.BH?.beginCalibration==='function'?window.BH.beginCalibration.bind(window.BH):null);
+
+  button.onclick=async event=>{
+    if(inFlight||activePhase())return;
+    inFlight=true;
+    hideStart();
+    try{
+      if(!originalStart)throw new Error('balance_start_handler_missing');
+      await originalStart(event);
+      if(!activePhase())showStart('เปิดกล้องไม่สำเร็จ กรุณาตรวจสิทธิ์กล้องแล้วลองใหม่');
+    }catch(error){
+      console.warn('[BalanceHold Launcher] start failed',error);
+      showStart('เปิดกล้องไม่สำเร็จ กรุณาตรวจสิทธิ์กล้องแล้วลองใหม่');
+    }finally{
+      inFlight=false;
+    }
+  };
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});
