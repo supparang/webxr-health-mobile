@@ -1,7 +1,7 @@
 window.HH_CONFIG = {
-  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R42-TOOTHBRUSH-V27-THAI-START-R6-JUMPDUCK-V47-BALANCE-TREE-KNEE-V37",
+  platformVersion: "2026.07-CLASSROOM60-HANDWASH-R42-TOOTHBRUSH-V27-THAI-START-R6-JUMPDUCK-V48-BALANCE-TREE-KNEE-V37",
   appName: "HeroHealth Learning Platform",
-  deploymentState: "QA_HANDWASH_LOADER_PREFLIGHT_R42_TOOTHBRUSH_SINGLE_LINE_THAI_START_R6_JUMPDUCK_MOBILE_LITE_V47_BALANCE_TREE_KNEE_PROOF_V37",
+  deploymentState: "QA_HANDWASH_LOADER_PREFLIGHT_R42_TOOTHBRUSH_SINGLE_LINE_THAI_START_R6_JUMPDUCK_ADAPTIVE_HYBRID_V48_BALANCE_TREE_KNEE_PROOF_V37",
   sourceOfTruthMode: "google-sheet-authority-with-complete-game-contract",
   allowUnknownStudent: false,
   allowStudentGroupSelection: false,
@@ -114,7 +114,7 @@ window.HH_CONFIG = {
   missionProfiles: {
     CLASS_60: {
       label: "Classroom Mission 60 นาที • Mobile Only",
-      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Handwash R42 เพิ่ม Loader Preflight ก่อน Runtime โดยกำหนด timeout และ retry สำหรับไฟล์ย่อยทั้ง 4 ไฟล์ เพื่อไม่ให้หน้าจอค้างที่กำลังโหลดอย่างไม่มีกำหนด พร้อมคง Grade 5 Easy 120 วินาที การแยกผลภารกิจกับผลทักษะ และข้อมูล Analytics รายขั้น Toothbrush รุ่น Thai Start R6 ปรับหัวเรื่อง ภารกิจแปรงฟัน ให้อยู่บรรทัดเดียวบนมือถือ ลดขนาดอย่างตอบสนองตามหน้าจอ และเปลี่ยนคำรองเป็น แปรงตามลูกศร กำจัดคราบให้หมด เพื่อลดข้อความซ้ำกับแถบ 6 โซน คราบพลัค 26 จุด โดยยังคงคำสั่งสั้น 3 ขั้นตอน คราบ 4 รูปแบบ Hit Area เท่ากัน Camera Recovery Tracking Analytics หน้าผลภาษาไทย Return Contract แบบเดียวกับ JumpDuck และไม่บังคับเล่นซ้ำ JumpDuck V47 คงรอบ 50 วินาที แต่แก้ต้นเหตุด้านประสิทธิภาพโดยจำกัดกล้องเป็น 320x240 ที่ 12–15 FPS ย่อภาพสำหรับ Pose เป็น 256x192 จำกัด AI ประมาณ 4 FPS และลด Canvas Game Loop เหลือประมาณ 25 FPS เพื่อไม่ให้หน่วยความจำและ Main Thread สะสมจนค้างช่วงท้าย พร้อมคง Result-before-camera-release และบันทึก mobile-safe-50s-round Balance Hold V37 คงลำดับ 6 ท่าและหน้าผล Passport V36 แต่แก้ Tree Balance บนมือถือให้ตรวจการยกขาหรือแตะปลายเท้าจากการเคลื่อนของสะโพกและเข่าเทียบกับค่า Calibration ไม่บังคับให้เห็นข้อเท้า ใช้หลักฐานต่อเนื่องก่อนผ่าน และยังป้องกันการยืนตรงแล้วผ่านอัตโนมัติ",
+      description: "แต่ละกลุ่มเริ่มคนละฐานและเล่นแต่ละเกมหนึ่งรอบ Handwash R42 เพิ่ม Loader Preflight ก่อน Runtime โดยกำหนด timeout และ retry สำหรับไฟล์ย่อยทั้ง 4 ไฟล์ เพื่อไม่ให้หน้าจอค้างที่กำลังโหลดอย่างไม่มีกำหนด พร้อมคง Grade 5 Easy 120 วินาที การแยกผลภารกิจกับผลทักษะ และข้อมูล Analytics รายขั้น Toothbrush รุ่น Thai Start R6 ปรับหัวเรื่อง ภารกิจแปรงฟัน ให้อยู่บรรทัดเดียวบนมือถือ ลดขนาดอย่างตอบสนองตามหน้าจอ และเปลี่ยนคำรองเป็น แปรงตามลูกศร กำจัดคราบให้หมด เพื่อลดข้อความซ้ำกับแถบ 6 โซน คราบพลัค 26 จุด โดยยังคงคำสั่งสั้น 3 ขั้นตอน คราบ 4 รูปแบบ Hit Area เท่ากัน Camera Recovery Tracking Analytics หน้าผลภาษาไทย Return Contract แบบเดียวกับ JumpDuck และไม่บังคับเล่นซ้ำ JumpDuck V48 เปลี่ยนเป็น Adaptive Hybrid เพื่อยุติการค้างจาก MediaPipe ต่อเนื่องบนอุปกรณ์ทดสอบ โดยใช้ Pose AI ความละเอียด 192x144 ไม่เกินประมาณ 2 FPS เฉพาะ 12 วินาทีแรก แล้วสลับเป็นปุ่มแตะซ้าย กลาง ขวาอย่างชัดเจนตลอดเวลาที่เหลือ คงกล้องเป็นภาพประกอบโดยไม่ส่งเข้า AI ต่อ ลด Canvas เหลือประมาณ 22 FPS และบันทึก aiActiveMs, aiFallbackActivated, aiFallbackReason และ inputMode แยกใน Payload เพื่อวิเคราะห์ข้อมูลวิจัยได้อย่างโปร่งใส Balance Hold V37 คงลำดับ 6 ท่าและหน้าผล Passport V36 แต่แก้ Tree Balance บนมือถือให้ตรวจการยกขาหรือแตะปลายเท้าจากการเคลื่อนของสะโพกและเข่าเทียบกับค่า Calibration ไม่บังคับให้เห็นข้อเท้า ใช้หลักฐานต่อเนื่องก่อนผ่าน และยังป้องกันการยืนตรงแล้วผ่านอัตโนมัติ",
       games: { hygiene: ["handwash", "toothbrush"], nutrition: ["groups", "goodjunk"], fitness: ["jumpduck", "balance-hold"] }
     },
     FULL_PLATFORM: {
@@ -148,7 +148,7 @@ window.HH_CONFIG = {
     {
       id: "fitness", label: "Fitness Hero", thai: "ฐานการเคลื่อนไหว", emoji: "🏃", accent: "#f97316", description: "ฝึกการตอบสนองและการทรงตัวอย่างปลอดภัย",
       games: [
-        { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260730-mobile-lite-v47", status:"classroom-core-direct-body-v4.7-mobile-lite-50s", requiredReturnContract:true },
+        { id:"jumpduck", title:"JumpDuck Dash AR", thai:"JumpDuck Dash", url:"../fitness/jumpduck-classroom-v26-ar.html?v=20260730-adaptive-hybrid-v48", status:"classroom-core-adaptive-hybrid-v4.8-ai-12s-touch-fallback", requiredReturnContract:true },
         { id:"rhythm-boxer", title:"Rhythm Boxer AR", thai:"ชกตามจังหวะ", url:"../fitness/rhythm-boxer-ar.html", status:"catalog-only", requiredReturnContract:true },
         { id:"balance-hold", title:"Balance Hold AR", thai:"Balance Hold AR", url:"../fitness/balance-hold-ar2.html?classroom=1&mode=classroom&source=herohealth&v=20260730-balance-tree-knee-v37", status:"classroom-core-autostart-v37-tree-knee-proof", requiredReturnContract:true, progressionByCompletion:true, oneRoundCompletes:true, retryRequired:false, studentRetryVisible:false },
         { id:"shadow-breaker", title:"Shadow Breaker AR", thai:"ตอบสนองและเคลื่อนไหว", url:"../fitness/shadow-breaker-ar.html", status:"catalog-only", requiredReturnContract:true }
