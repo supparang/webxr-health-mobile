@@ -1,23 +1,32 @@
 (()=>{'use strict';
-if(window.__JUMPDUCK_BODY_MOTION_V49__)return;
-window.__JUMPDUCK_BODY_MOTION_V49__=true;
+if(window.__JUMPDUCK_BODY_MOTION_V491__)return;
+window.__JUMPDUCK_BODY_MOTION_V491__=true;
 
 const W=96,H=72,PROCESS_GAP_MS=120;
-let callback=null,lastAt=0,previous=null,centerX=.5,centerY=.5,confidence=.92;
+let callback=null,lastAt=0,previous=null,centerX=.5,centerY=.5,confidence=.92,motionScore=0;
 const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
 const ctx=canvas.getContext('2d',{alpha:false,desynchronized:true,willReadFrequently:true});
 
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function point(x,y){return{x:clamp(x,.01,.99),y:clamp(y,.01,.99),visibility:confidence}}
 function landmarks(){
   const dy=clamp((centerY-.5)*1.25,-.14,.14);
   const shoulderY=.38+dy*.88,hipY=.62+dy*.66,noseY=.22+dy;
-  const span=.065;
-  const lm=[];
-  lm[0]={x:centerX,y:noseY,visibility:confidence};
-  lm[11]={x:centerX-span,y:shoulderY,visibility:confidence};
-  lm[12]={x:centerX+span,y:shoulderY,visibility:confidence};
-  lm[23]={x:centerX-span*.72,y:hipY,visibility:confidence};
-  lm[24]={x:centerX+span*.72,y:hipY,visibility:confidence};
+  const shoulderSpan=.065,elbowSpan=.105,wristSpan=.135,hipSpan=.047;
+  const lm=Array.from({length:33},()=>point(centerX,.5));
+  lm[0]=point(centerX,noseY);
+  lm[11]=point(centerX-shoulderSpan,shoulderY);
+  lm[12]=point(centerX+shoulderSpan,shoulderY);
+  lm[13]=point(centerX-elbowSpan,shoulderY+.095);
+  lm[14]=point(centerX+elbowSpan,shoulderY+.095);
+  lm[15]=point(centerX-wristSpan,shoulderY+.19);
+  lm[16]=point(centerX+wristSpan,shoulderY+.19);
+  lm[23]=point(centerX-hipSpan,hipY);
+  lm[24]=point(centerX+hipSpan,hipY);
+  lm[25]=point(centerX-hipSpan*.82,hipY+.17);
+  lm[26]=point(centerX+hipSpan*.82,hipY+.17);
+  lm[27]=point(centerX-hipSpan*.78,hipY+.34);
+  lm[28]=point(centerX+hipSpan*.78,hipY+.34);
   return lm;
 }
 function analyze(image){
@@ -30,26 +39,25 @@ function analyze(image){
     for(let y=5;y<H-5;y++){
       for(let x=5;x<W-5;x++){
         const p=y*W+x,d=Math.abs(gray[p]-previous[p]);
-        if(d<16)continue;
-        const weight=Math.min(42,d)-15;
+        if(d<14)continue;
+        const weight=Math.min(44,d)-13;
         sum+=weight;sx+=x*weight;sy+=y*weight;count++;
       }
     }
-    if(sum>520&&count>34){
+    motionScore=sum;
+    if(sum>430&&count>28){
       const mx=clamp(sx/sum/W,.08,.92),my=clamp(sy/sum/H,.14,.88);
-      centerX=centerX*.64+mx*.36;
-      centerY=centerY*.68+my*.32;
-      confidence=clamp(.68+Math.min(.3,sum/7000),.68,.98);
+      centerX=centerX*.58+mx*.42;
+      centerY=centerY*.64+my*.36;
+      confidence=clamp(.72+Math.min(.26,sum/6500),.72,.98);
     }else{
-      confidence=Math.max(.78,confidence*.995);
-      centerY=centerY*.985+.5*.015;
+      confidence=Math.max(.76,confidence*.994);
+      centerY=centerY*.988+.5*.012;
     }
   }
   previous=gray;
 }
 
-/* Replace the heavy MediaPipe Pose class with a lightweight continuous camera-motion detector.
-   The existing JumpDuck core still receives Pose-like landmarks, so lane and jump/duck logic stay unchanged. */
 class BodyMotionPose{
   constructor(){ }
   setOptions(){ }
@@ -60,14 +68,13 @@ class BodyMotionPose{
     lastAt=now;
     const image=payload&&payload.image;
     if(!image)return;
-    try{analyze(image)}catch(e){console.warn('[JumpDuck v4.9 body motion]',e)}
-    callback&&callback({poseLandmarks:landmarks(),bodyMotion:true});
+    try{analyze(image)}catch(e){console.warn('[JumpDuck v4.9.1 body motion]',e)}
+    callback&&callback({poseLandmarks:landmarks(),bodyMotion:true,motionScore,engine:'frame-difference-centroid-v1.1'});
   }
   close(){callback=null;previous=null}
 }
 window.Pose=BodyMotionPose;
 
-/* Constrain the camera and renderer for predictable mobile performance. */
 try{
   const media=navigator.mediaDevices;
   const nativeGet=media&&media.getUserMedia&&media.getUserMedia.bind(media);
@@ -76,7 +83,7 @@ try{
     video:{facingMode:'user',width:{ideal:320,max:320},height:{ideal:240,max:240},frameRate:{ideal:12,max:15}},
     audio:false
   });
-}catch(e){console.warn('[JumpDuck v4.9 camera]',e)}
+}catch(e){console.warn('[JumpDuck v4.9.1 camera]',e)}
 
 const nativeRAF=window.requestAnimationFrame.bind(window),nativeTimeout=window.setTimeout.bind(window);
 let lastFrame=0;
@@ -90,13 +97,14 @@ window.requestAnimationFrame=function(fn){
 
 function patchPayload(payload){
   if(!payload||typeof payload!=='object')return payload;
-  payload.gameVersion='jumpduck-production-v4.9-continuous-body-motion';
+  payload.gameVersion='jumpduck-production-v4.9.1-complete-body-landmarks';
   payload.inputMode='continuous-camera-body-motion';
-  payload.bodyDetectionEngine='frame-difference-centroid-v1';
+  payload.bodyDetectionEngine='frame-difference-centroid-v1.1';
   payload.bodyDetectionContinuous=true;
   payload.touchFallbackVisible=false;
   payload.inferenceInput='96x72';
   payload.inferenceRateHz=Math.round(1000/PROCESS_GAP_MS);
+  payload.syntheticLandmarkSchema='mediapipe-compatible-33-point-lite';
   return payload;
 }
 const nativeSetItem=Storage.prototype.setItem;
