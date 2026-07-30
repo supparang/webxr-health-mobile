@@ -1,20 +1,105 @@
 (()=>{
 'use strict';
-const VERSION='20260729-ASSESSMENT-AUTHORITY-RECOVERY-V4-PUBLIC';
+const VERSION='20260730-ASSESSMENT-AUTHORITY-WATCHER-V5';
 const STATE_KEY='herohealth_learning_platform_rc2';
-const PREFIXES=['HH_ASSESSMENT_LAST_V3:','HH_ASSESSMENT_LAST_V2:'];
-const EXEC='https://script.google.com/macros/s/AKfycbxU82Rg4KFStuZToOGlyX-rgzVkLpZ7yO1tW-gzui782eR7akes_HNZ5ec2TDUDh8J1/exec';
-const read=(k,f=null)=>{try{const v=localStorage.getItem(k);return v==null?f:JSON.parse(v)}catch(_){return f}};
-const write=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true}catch(_){return false}};
-const readSession=k=>{try{return JSON.parse(sessionStorage.getItem(k)||'null')}catch(_){return null}};
-const clean=v=>String(v==null?'':v).trim().replace(/\s+/g,'');
-function hash(v){let h=2166136261>>>0,s=JSON.stringify(v);for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return(h>>>0).toString(36)}
-function jsonp(params,timeout=30000){return new Promise((resolve,reject)=>{const cb='HHAR_'+Date.now()+'_'+Math.random().toString(36).slice(2),s=document.createElement('script');let done=false;const finish=(e,d)=>{if(done)return;done=true;clearTimeout(t);s.onerror=null;window[cb]=()=>{};setTimeout(()=>{try{delete window[cb]}catch(_){}try{s.remove()}catch(_){}},30000);e?reject(e):resolve(d)};const t=setTimeout(()=>finish(new Error('assessment_authority_timeout')),timeout);window[cb]=d=>finish(null,d);s.onerror=()=>finish(new Error('assessment_authority_load_failed'));s.async=true;s.referrerPolicy='no-referrer';s.src=EXEC+'?'+new URLSearchParams({...params,callback:cb,_:String(Date.now()),mobile:'1'});(document.head||document.documentElement).appendChild(s)})}
-function latestFor(state,type){const sid=clean(state.profile?.studentId);if(!sid)return null;const mode=type==='pre'?'pre':'post';const session=readSession(type==='pre'?'HH_PRETEST_LAST':'HH_POSTTEST_LAST');if(session&&clean(session.studentId)===sid)return session;for(const prefix of PREFIXES){const value=read(prefix+sid+':'+mode,null);if(value&&clean(value.studentId)===sid)return value}const legacy=read((type==='pre'?'HH_PRETEST_LAST_':'HH_POSTTEST_LAST_')+sid,null);return legacy&&clean(legacy.studentId)===sid?legacy:null}
-function envelope(state,last,type){const p=state.profile||{},sid=clean(p.studentId||last.studentId),group=String(p.group||state.group||last.groupCode||'').trim(),assessmentType=type==='pre'?'pretest':'posttest';return{eventType:'assessment',eventId:'HH-assessment-recovery-'+assessmentType+'-'+sid+'-'+hash({sid,type,submittedAt:last.submittedAt,form:last.form,score:last.score,total:last.total,attemptId:last.attemptId}),studentId:sid,profile:{fullName:p.fullName||last.studentName||'',section:p.section||last.section||'',group},platformVersion:(window.HH_CONFIG&&window.HH_CONFIG.platformVersion)||'',currentStep:assessmentType,status:'กู้คืน '+(type==='pre'?'Pre-test':'Post-test')+' จากคำตอบที่บันทึกในอุปกรณ์',clientTs:last.submittedAt||new Date().toISOString(),assessment:{type:assessmentType,form:last.form||assessmentType.toUpperCase(),score:Number(last.score)||0,total:Number(last.total)||15,responses:Array.isArray(last.responses)?last.responses:[],submittedAt:last.submittedAt||new Date().toISOString(),assessmentVersion:last.assessmentVersion||'5.0',attemptId:last.attemptId||''}}}
-async function submit(last,state,type){const payload=envelope(state,last,type);let r=await jsonp({action:'submit',payload:JSON.stringify(payload)},30000);if(r?.ok)return r;r=await jsonp({action:'event',payload:JSON.stringify(payload)},30000);if(r?.ok)return r;throw new Error(r?.error||'assessment_authority_rejected')}
-async function verify(sid,type){const wanted=type==='pre'?'pretest':'posttest';for(let i=0;i<8;i++){try{const api=await jsonp({action:'student',studentId:sid},18000),completed=api?.authoritativeState?.completed||api?.completed||{},scores=api?.authoritativeState?.scores||api?.scores||{};if(completed[wanted]===true||Number.isFinite(Number(scores[wanted])))return api}catch(_){}await new Promise(r=>setTimeout(r,2200))}return null}
-async function recoverOne(state,type,last){if(!last)return false;const sid=clean(state.profile?.studentId);if(!sid||clean(last.studentId)!==sid)return false;const key=type==='pre'?'pretest':'posttest';if(state.completed?.[key]===true&&state.sheetAuthority===true)return false;await submit(last,state,type);const api=await verify(sid,type);if(!api)throw new Error('assessment_not_confirmed_by_sheet');const official=api.authoritativeState||api;state.completed={...(state.completed||{}),...(official.completed||api.completed||{})};state.scores={...(state.scores||{}),...(official.scores||api.scores||{})};state.completed[key]=true;state.scores[key]=Number((official.scores||api.scores||{})[key]??last.score??0);state.authoritativeProgress=api.progress||official.progress||state.authoritativeProgress;state.lastLocalAssessmentReturn={task:key,score:Number(last.score)||0,studentId:sid,returnedAt:new Date().toISOString(),pendingClassroomSync:false,recovered:true,version:VERSION};state.sheetAuthority=true;write(STATE_KEY,state);try{sessionStorage.setItem('hh_recent_assessment_return:'+sid,String(Date.now()));sessionStorage.setItem('hh_assessment_recovered:'+sid+':'+key,String(Date.now()))}catch(_){}return true}
-async function run(){const state=read(STATE_KEY,{});if(!state?.profile?.studentId)return false;let changed=false;try{changed=(await recoverOne(state,'pre',latestFor(state,'pre')))||changed;if(state.completed?.pretest===true)changed=(await recoverOne(state,'post',latestFor(state,'post')))||changed;if(changed)setTimeout(()=>location.reload(),350);return changed}catch(err){console.error('[HeroHealth assessment recovery]',err);setTimeout(run,15000);return false}}
-window.HHAssessmentAuthorityRecovery={run,latestFor,version:VERSION};window.HHAssessmentRecoveryReady=run();
+const DEFAULT_ENDPOINT='https://script.google.com/macros/s/AKfycbwa-OSdqWS7uPne01wNr5a42PgKfAoxmUUm7yMcUx2D0C0OnbjrbppNUHkfjUxm79Fz/exec';
+const ENDPOINT=String(window.HH_CONFIG?.assessmentApiUrl||window.HH_CONFIG?.backend?.webAppUrl||DEFAULT_ENDPOINT).trim();
+const read=(key,fallback=null)=>{try{const value=localStorage.getItem(key);return value==null?fallback:JSON.parse(value)}catch(_){return fallback}};
+const write=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));return true}catch(_){return false}};
+const clean=value=>String(value==null?'':value).trim().replace(/\s+/g,'');
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+let running=false;
+let stopped=false;
+
+function jsonp(params,timeout=18000){return new Promise((resolve,reject)=>{
+ const callback='HHAW5_'+Date.now()+'_'+Math.random().toString(36).slice(2,9);
+ const script=document.createElement('script');
+ let settled=false;
+ const finish=(error,data)=>{if(settled)return;settled=true;clearTimeout(timer);script.onerror=null;try{delete window[callback]}catch(_){}try{script.remove()}catch(_){}error?reject(error):resolve(data)};
+ const timer=setTimeout(()=>finish(new Error('authority_timeout')),timeout);
+ window[callback]=data=>finish(null,data);
+ script.onerror=()=>finish(new Error('authority_load_failed'));
+ script.async=true;
+ script.referrerPolicy='no-referrer';
+ script.src=ENDPOINT+'?'+new URLSearchParams({...params,callback,_:String(Date.now()),clientVersion:VERSION}).toString();
+ (document.head||document.body||document.documentElement).appendChild(script);
+})}
+
+function scoreExists(scores,key){
+ if(!scores||!Object.prototype.hasOwnProperty.call(scores,key))return false;
+ const value=scores[key];
+ const normalized=typeof value==='object'?(value.score??value.value??value.percent):value;
+ return normalized!==null&&normalized!==undefined&&normalized!==''&&Number.isFinite(Number(normalized));
+}
+
+function isConfirmed(api,task){
+ if(!api||api.ok!==true)return false;
+ const authority=api.authoritativeState||api;
+ const completed=authority.completed||api.completed||{};
+ const scores=authority.scores||api.scores||{};
+ return completed[task]===true||scoreExists(scores,task);
+}
+
+function apply(api,task,sid){
+ const authority=api.authoritativeState||api;
+ const state=read(STATE_KEY,{})||{};
+ state.completed={...(state.completed||{}),...(authority.completed||api.completed||{})};
+ state.scores={...(state.scores||{}),...(authority.scores||api.scores||{})};
+ state.completed[task]=true;
+ state.profile={...(state.profile||{}),...(authority.profile||api.profile||{}),studentId:sid};
+ state.gameCompleted=authority.gameCompleted||api.gameCompleted||state.gameCompleted||{hygiene:{},nutrition:{},fitness:{}};
+ state.authoritativeProgress=authority.progress||api.progress||state.authoritativeProgress||null;
+ state.sheetAuthority=true;
+ state.pendingAssessmentAuthority=null;
+ state.lastAssessmentAuthorityWatcher={task,studentId:sid,confirmedAt:new Date().toISOString(),version:VERSION};
+ write(STATE_KEY,state);
+ document.getElementById('hh-assessment-authority-wait')?.remove();
+ return state;
+}
+
+function refreshClean(){
+ const url=new URL(location.href);
+ ['hhReturn','task','form','assessmentVersion','sheetSync','attemptId','score'].forEach(key=>url.searchParams.delete(key));
+ url.searchParams.set('authorityRefresh',String(Date.now()));
+ url.searchParams.set('v','20260730-assessment-authority-watcher-v5');
+ location.replace(url.href);
+}
+
+async function run(){
+ if(running||stopped)return false;
+ const state=read(STATE_KEY,{})||{};
+ const pending=state.pendingAssessmentAuthority;
+ const sid=clean(pending?.studentId||state.profile?.studentId);
+ const task=String(pending?.task||'');
+ if(!sid||!['pretest','posttest'].includes(task))return false;
+ running=true;
+ try{
+  if(navigator.onLine===false)return false;
+  const api=await jsonp({action:'student',studentId:sid,reconcile:'1',force:'1'},18000);
+  if(!isConfirmed(api,task))return false;
+  stopped=true;
+  apply(api,task,sid);
+  setTimeout(refreshClean,250);
+  return true;
+ }catch(error){
+  console.warn('[Assessment Authority Watcher V5]',error);
+  return false;
+ }finally{
+  running=false;
+ }
+}
+
+async function loop(){
+ while(!stopped){
+  await sleep(3500);
+  await run();
+  const state=read(STATE_KEY,{})||{};
+  if(!state.pendingAssessmentAuthority)break;
+ }
+}
+
+window.HHAssessmentAuthorityRecovery={run,version:VERSION};
+setTimeout(()=>{run();loop()},1800);
+addEventListener('online',run);
+addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')run()});
 })();
