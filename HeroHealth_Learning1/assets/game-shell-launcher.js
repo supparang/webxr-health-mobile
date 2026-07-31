@@ -2,7 +2,7 @@
 'use strict';
 const original=window.HH?.openNextGame;
 const R=window.HHRotation;
-const RELEASE='20260731-GAME-SHELL-FULL-ANALYTICS-R40';
+const RELEASE='20260731-GAME-SHELL-FULL-ANALYTICS-R40.1';
 if(!window.HH||!R)return;
 function detectDevice(){
  const q=new URLSearchParams(location.search),forced=String(q.get('device')||'').toLowerCase();
