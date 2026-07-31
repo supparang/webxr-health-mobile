@@ -9,7 +9,7 @@
 
   if (!document.querySelector('script[data-uxq-sheet-display-final]')) {
     const s = document.createElement('script');
-    s.src = './js/uxq-node-sheet-display-final-authority-v1.js?v=node-sheet-display-final-v1-20260731';
+    s.src = './js/uxq-node-sheet-display-final-authority-v1.js?v=node-sheet-display-final-v2-20260731';
     s.async = false;
     s.dataset.uxqSheetDisplayFinal = '1';
     document.head.appendChild(s);
