@@ -1,6 +1,6 @@
-/* CSAI2601 UX Quest • Node Studio Container Authority v3
+/* CSAI2601 UX Quest • Node Studio Container Authority v4
  * Ensures Sheet-authoritative display on every node, repairs phase=studio,
- * and removes duplicate post-mission controls once the Studio wizard is open.
+ * and enforces one clear Studio action path.
  */
 (() => {
   'use strict';
@@ -36,19 +36,38 @@
       body[data-uxq-route-phase='studio'] .results{display:none!important}
       body[data-uxq-route-phase='studio'] .artifact[data-studio-practice-v1]{display:grid!important;visibility:visible!important;opacity:1!important;width:min(1120px,calc(100% - 28px));margin:28px auto;padding:20px;border:1px solid rgba(110,231,255,.34);border-radius:22px;background:linear-gradient(145deg,rgba(12,38,77,.98),rgba(22,25,77,.98));box-shadow:0 20px 50px rgba(0,0,0,.28);min-height:220px}
       body[data-uxq-route-phase='studio'] .artifact[data-studio-practice-v1][data-uxq-building='1']::before{content:'กำลังเตรียม Studio Practice…';display:grid;place-items:center;min-height:170px;color:#d9e8ff;font-weight:900;font-size:1.1rem}
-      body[data-uxq-route-phase='studio'] [data-uxq-summary-only='1']{display:none!important}
+      body[data-uxq-route-phase='studio'] [data-uxq-summary-only='1']{display:none!important;visibility:hidden!important;pointer-events:none!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;overflow:hidden!important}
       body[data-uxq-route-phase='studio'] #uxqStudentStudioFinalV2 .uxq-sv2__next,
       body[data-uxq-route-phase='studio'] #uxqStudentStudioFinalV2 .uxq-sv2__prev{pointer-events:auto!important}
     `;
     document.head.appendChild(style);
   }
 
+  function isInsideWizard(control) {
+    return Boolean(control.closest('#uxqStudentStudioFinalV2,.artifact[data-studio-practice-v1]'));
+  }
+
+  function hideDuplicateControl(control) {
+    control.dataset.uxqSummaryOnly = '1';
+    control.setAttribute('aria-hidden', 'true');
+    control.tabIndex = -1;
+    control.style.setProperty('display', 'none', 'important');
+    const wrapper = control.closest('.uxq-final-primary-action,#uxqRuntimeNextCard,.uxq-runtime-next-card,.actions,.result-actions,.hero-actions');
+    if (wrapper && !wrapper.closest('#uxqStudentStudioFinalV2,.artifact[data-studio-practice-v1]')) {
+      const visibleControls = Array.from(wrapper.querySelectorAll('a,button')).filter(item => item !== control && !item.dataset.uxqSummaryOnly);
+      if (!visibleControls.length) {
+        wrapper.dataset.uxqSummaryOnly = '1';
+        wrapper.style.setProperty('display', 'none', 'important');
+      }
+    }
+  }
+
   function markSummaryControls() {
-    ROOT.querySelectorAll('a,button').forEach(control => {
-      if (control.closest('#uxqStudentStudioFinalV2,.artifact[data-studio-practice-v1]')) return;
+    document.querySelectorAll('a,button').forEach(control => {
+      if (isInsideWizard(control)) return;
       const label = String(control.textContent || '').replace(/\s+/g, ' ').trim();
-      if (/ทำ\s*Studio Practice|เล่น\s*Mission\s*ซ้ำ|เล่นซ้ำเพื่อฝึกเพิ่มเติม/i.test(label)) {
-        control.dataset.uxqSummaryOnly = '1';
+      if (/^ทำ\s*Studio Practice(?:\s*[•·-]\s*[WB]\d+)?$/i.test(label) || /เล่น\s*Mission\s*ซ้ำ|เล่นซ้ำเพื่อฝึกเพิ่มเติม/i.test(label)) {
+        hideDuplicateControl(control);
       }
     });
   }
@@ -67,7 +86,8 @@
 
   function build() {
     if (running || !missionConfirmed()) return;
-    running = true; attempts += 1;
+    running = true;
+    attempts += 1;
     try {
       installStyle();
       document.body.dataset.uxqMissionPass = '1';
@@ -87,18 +107,25 @@
         requestAnimationFrame(() => wizard.scrollIntoView({block:'start'}));
         return;
       }
-    } finally { running = false; }
+    } finally {
+      running = false;
+    }
     if (attempts < 40) setTimeout(build, Math.min(180 + attempts * 70, 900));
   }
 
   function boot() {
     installStyle();
+    document.body.dataset.uxqRoutePhase = 'studio';
+    markSummaryControls();
     build();
-    [250,600,1200,2200,4000,7000].forEach(ms => setTimeout(build,ms));
+    [100,250,600,1200,2200,4000,7000].forEach(ms => setTimeout(() => {
+      markSummaryControls();
+      build();
+    }, ms));
     new MutationObserver(() => {
       markSummaryControls();
       if (!document.getElementById('uxqStudentStudioFinalV2')) build();
-    }).observe(ROOT,{childList:true,subtree:true});
+    }).observe(document.body, {childList:true,subtree:true,characterData:true});
   }
 
   window.addEventListener('uxq-node-sheet-authority-ready', build);
