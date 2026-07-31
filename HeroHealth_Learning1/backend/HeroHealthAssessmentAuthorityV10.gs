@@ -179,8 +179,8 @@ function HHV10_saveItems_(ss,p,a,type) {
   const sh = HHV10_ensureSheet_(ss,HH_V10_ITEMS,HH_V10_ITEM_HEADERS);
   const existing = new Set();
   if (sh.getLastRow()>1) {
-    const rows=sh.getRange(2,2,sh.getLastRow()-1,2).getDisplayValues();
-    rows.forEach(r=>existing.add(String(r[0])+'|'+String(r[1])));
+    const rows=sh.getRange(2,1,sh.getLastRow()-1,HH_V10_ITEM_HEADERS.length).getDisplayValues();
+    rows.forEach(r=>existing.add(String(r[1])+'|'+String(r[15])));
   }
   const pr=p.profile||{},rows=[];
   responses.forEach((r,index)=>{
