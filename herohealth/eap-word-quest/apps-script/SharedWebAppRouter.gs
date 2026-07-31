@@ -11,8 +11,8 @@
    - EAPWordQuestNameLookup.gs owns official roster name search.
    - EAPWordQuestSubmitJsonp.gs owns JSONP attempt submit + receipt.
    - EAP_TeacherDashboard.gs owns the Teacher Dashboard.
-   - EAP_PlayerResume.gs owns eapPlayerResume_.
-   - EAP_EvidenceReview.gs owns submitEvidence_ / submitSpeakingAudio_.
+   - EAP_SessionAuthority_v137.gs owns official EAP Session resume/progression
+     and the resume-readable submit_evidence handler.
 ========================================================= */
 
 function doGet(e) {
@@ -22,7 +22,10 @@ function doGet(e) {
   const callback = String(params.callback || '');
 
   if (action === 'player_resume') {
-    return eapRouterJson_(eapPlayerResume_(params), callback);
+    const resume = typeof eapPlayerResumeV137_ === 'function'
+      ? eapPlayerResumeV137_(params)
+      : eapPlayerResume_(params);
+    return eapRouterJson_(resume, callback);
   }
 
   if (action === 'eap_teacher_dashboard') {
@@ -81,7 +84,10 @@ function doPost(e) {
   const action = String(payload.action || payload.type || '').toLowerCase();
 
   if (action === 'submit_evidence') {
-    return eapRouterJson_(submitEvidence_(payload));
+    const result = typeof eapSubmitEvidenceV137_ === 'function'
+      ? eapSubmitEvidenceV137_(payload)
+      : submitEvidence_(payload);
+    return eapRouterJson_(result);
   }
 
   if (action === 'submit_speaking_audio') {
