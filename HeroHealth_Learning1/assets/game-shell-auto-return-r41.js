@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const RELEASE='20260731-GAME-SHELL-AUTO-RETURN-R41';
+const RELEASE='20260731-GAME-SHELL-AUTO-RETURN-R41.1-RECEIPT-GUARD';
 const path=String(location.pathname||'');
 if(!/game-shell-authority-r40\.html$/i.test(path))return;
 
@@ -161,7 +161,33 @@ function childFriendlyUi(mode='checking'){
     primary.textContent=mode==='confirmed'?'กำลังกลับ Hero Passport…':'กำลังตรวจสอบผล…';
     primary.disabled=true;
   }
-  if(secondary)secondary.style.display='none';
+  if(secondary){
+    secondary.style.display='none';
+    secondary.disabled=true;
+    secondary.setAttribute('aria-hidden','true');
+    secondary.tabIndex=-1;
+  }
+}
+function installReceiptGuard(){
+  const overlay=document.getElementById('overlay');
+  const secondary=document.getElementById('leaveBtn');
+  const backButton=document.getElementById('back');
+  if(secondary){
+    secondary.style.display='none';
+    secondary.disabled=true;
+    secondary.setAttribute('aria-hidden','true');
+    secondary.tabIndex=-1;
+  }
+  if(backButton&&!backButton.dataset.hhReceiptGuard){
+    backButton.dataset.hhReceiptGuard='1';
+    backButton.addEventListener('click',event=>{
+      if(!overlay?.classList.contains('show')&&!polling&&!navigating)return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      childFriendlyUi('checking');
+      schedule();
+    },true);
+  }
 }
 async function confirmCurrentPayload(payload){
   if(!payload)return null;
@@ -175,7 +201,7 @@ async function confirmCurrentPayload(payload){
     const api=await jsonp({action:'student',studentId:sid,reconcile:'1',force:'1'},15000).catch(()=>null);
     if(currentResultMatches(api,payload))return api;
     if(api?.ok===true&&authorityGameCompleted(api)&&currentResultMatches(api,payload))return api;
-  }catch(error){console.warn('[R41 authority check]',error)}
+  }catch(error){console.warn('[R41.1 authority check]',error)}
   return null;
 }
 async function navigateConfirmed(api,payload){
@@ -191,6 +217,7 @@ async function navigateConfirmed(api,payload){
 }
 async function poll(){
   if(polling||navigating)return;
+  installReceiptGuard();
   const overlay=document.getElementById('overlay');
   const payload=currentPayload();
   if(!overlay?.classList.contains('show')&&!payload)return;
@@ -205,19 +232,32 @@ async function poll(){
       const sync=document.getElementById('sync');
       const primary=document.getElementById('returnBtn');
       const secondary=document.getElementById('leaveBtn');
-      if(sync)sync.textContent='ผลถูกเก็บไว้แล้ว • กลับ Hero Passport เพื่อให้ระบบตรวจต่อได้';
-      if(primary){primary.textContent='กลับ Hero Passport';primary.disabled=false;primary.onclick=()=>location.replace(returnUrl(null,true))}
-      if(secondary)secondary.style.display='none';
+      if(sync){
+        sync.classList.add('error');
+        sync.textContent='Google Sheet ยังไม่ตอบกลับ • ผลยังไม่ยืนยัน กรุณาตรวจผลอีกครั้ง';
+      }
+      if(primary){
+        primary.textContent='ตรวจผลอีกครั้ง';
+        primary.disabled=false;
+        primary.onclick=()=>{
+          pollStartedAt=Date.now();
+          primary.disabled=true;
+          primary.textContent='กำลังตรวจสอบผล…';
+          schedule();
+        };
+      }
+      if(secondary){secondary.style.display='none';secondary.disabled=true}
       return;
     }
   }finally{polling=false}
 }
 
 function schedule(){setTimeout(poll,80)}
-new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class']});
-addEventListener('DOMContentLoaded',schedule);
+new MutationObserver(()=>{installReceiptGuard();schedule()}).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class']});
+addEventListener('DOMContentLoaded',()=>{installReceiptGuard();schedule()});
 addEventListener('online',schedule);
 setInterval(poll,1400);
+installReceiptGuard();
 
-window.HHGameShellAutoReturnR41={release:RELEASE,poll,currentPayload,get lastConfirmedApi(){return lastConfirmedApi}};
+window.HHGameShellAutoReturnR41={release:RELEASE,poll,currentPayload,installReceiptGuard,get lastConfirmedApi(){return lastConfirmedApi}};
 })();
