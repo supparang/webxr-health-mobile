@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HeroHealth Assessment V6 QA</title>
+<style>
+:root{font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;color:#12302c;background:#f3fbf9}body{margin:0}.wrap{width:min(900px,100%);margin:auto;padding:18px}.card{background:#fff;border:1px solid #d6e9e4;border-radius:20px;padding:20px;margin:12px 0;box-shadow:0 10px 24px rgba(15,118,110,.09)}.ok{color:#087b62}.bad{color:#b91c1c}.row{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid #e4efed}.row:last-child{border:0}code{overflow-wrap:anywhere}.badge{display:inline-block;border-radius:999px;padding:6px 10px;background:#e8f8f4;font-weight:900}.bad .badge{background:#fee2e2}
+</style>
+</head>
+<body><main class="wrap"><section class="card"><h1>Assessment V6 QA</h1><p>ตรวจ Student-stable Assignment และ Parallel Form โดยไม่แก้ข้อมูลนักเรียนหรือ Google Sheet</p><div id="summary"></div></section><section class="card" id="results"></section></main>
+<script src="assessment-bank-v3.js?v=20260731-assessment-stable-v6"></script>
+<script src="assessment-engine-v6.js?v=20260731-assessment-stable-v6"></script>
+<script>
+(()=>{'use strict';
+const E=window.HHAssessmentEngineV6,B=window.HH_ASSESSMENT_BANK_V3||[],studyId='HEROHEALTH-P5-2026',tests=[];
+function test(name,run){try{const detail=run();tests.push({name,ok:true,detail})}catch(err){tests.push({name,ok:false,detail:String(err?.message||err)})}}
+function assert(value,message){if(!value)throw new Error(message)}
+function counts(pairs,key){return pairs.reduce((a,x)=>(a[x[key]]=(a[x[key]]||0)+1,a),{})}
+const a1=E.assignPairs(B,{studentId:'990015',studyId}),a2=E.assignPairs(B,{studentId:'990015',studyId}),b=E.assignPairs(B,{studentId:'990016',studyId});
+const pre1=E.buildItems(a1.pairs,{mode:'pre',studentId:'990015',studyId}),pre2=E.buildItems(a2.pairs,{mode:'pre',studentId:'990015',studyId}),post=E.buildItems(a1.pairs,{mode:'post',studentId:'990015',studyId});
+test('คลังมี 45 คู่ / 90 ข้อ',()=>{assert(B.length===45,'bank pair count='+B.length);return'45 parallel pairs'});
+test('นักเรียนเดิมได้ Pair ID เดิม',()=>{assert(JSON.stringify(a1.pairIds)===JSON.stringify(a2.pairIds),'pairIds changed');return a1.assignmentFingerprint});
+test('นักเรียนเดิมได้ลำดับ Pre-test เดิม',()=>{assert(JSON.stringify(pre1.questionOrder)===JSON.stringify(pre2.questionOrder),'question order changed');assert(JSON.stringify(pre1.optionOrders)===JSON.stringify(pre2.optionOrders),'option order changed');return pre1.orderSeed});
+test('Pre/Post ใช้ Pair ID เดียวกัน',()=>{assert(JSON.stringify(a1.pairIds)===JSON.stringify(post.items.map(x=>x.pairId).sort((x,y)=>a1.pairIds.indexOf(x)-a1.pairIds.indexOf(y))),'pair mismatch');assert(pre1.items.every((x,i)=>x.id!==post.items[i]?.id),'pre and post item IDs should differ');return'15 matched parallel pairs'});
+test('Blueprint Domain = 5–5–5',()=>{const c=counts(a1.pairs,'domain');assert(c.hygiene===5&&c.nutrition===5&&c.fitness===5,JSON.stringify(c));return JSON.stringify(c)});
+test('Blueprint Difficulty = 6–6–3',()=>{const c=counts(a1.pairs,'difficulty');assert(c.easy===6&&c.medium===6&&c.hard===3,JSON.stringify(c));return JSON.stringify(c)});
+test('ตำแหน่งคำตอบถูกกระจายสมดุล',()=>{const c=pre1.correctPositionDistribution,v=Object.values(c);assert(Math.max(...v)-Math.min(...v)<=1,JSON.stringify(c));return JSON.stringify(c)});
+test('รหัสต่างกันไม่ได้ถูกบังคับให้ชุดเดียวกัน',()=>{const common=E.overlap(a1.pairIds,b.pairIds);assert(common.common<15,'all 15 pairs identical');return`ซ้ำ ${common.common}/15 คู่`});
+const passed=tests.filter(x=>x.ok).length;
+document.getElementById('summary').innerHTML=`<span class="badge">ผ่าน ${passed}/${tests.length}</span> <code>${E.VERSION}</code>`;
+document.getElementById('results').innerHTML=tests.map(t=>`<div class="row ${t.ok?'ok':'bad'}"><div><b>${t.ok?'✓':'✗'} ${t.name}</b><div><code>${t.detail}</code></div></div><span class="badge">${t.ok?'PASS':'FAIL'}</span></div>`).join('');
+})();
+</script></body></html>
