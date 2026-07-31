@@ -1,4 +1,4 @@
-/* CSAI2601 UX Quest • Node Sheet + Studio Authority v1
+/* CSAI2601 UX Quest • Node Sheet + Studio Authority v1.1
  * Google Sheet is authoritative in Student Mode.
  * Restores mission/studio/reflection on a canonical node and guarantees
  * phase=studio builds the Studio wizard after Sheet confirms the mission.
@@ -7,6 +7,14 @@
   'use strict';
   const q = new URLSearchParams(location.search || '');
   if (q.get('contentPreview') === '1' || /^content-preview/i.test(q.get('v') || '')) return;
+
+  if (!document.querySelector('script[data-uxq-node-header-layout-final]')) {
+    const layoutScript = document.createElement('script');
+    layoutScript.src = './js/uxq-node-header-layout-final-authority-v1.js?v=node-header-layout-final-v1-20260731';
+    layoutScript.async = false;
+    layoutScript.dataset.uxqNodeHeaderLayoutFinal = '1';
+    document.head.appendChild(layoutScript);
+  }
 
   const NODE = String(q.get('node') || q.get('id') || 'W1').trim().toUpperCase();
   const KEY = NODE.toLowerCase();
@@ -80,7 +88,7 @@
     const r = missionRow();
     const sr = studioRow();
     window.UXQNodeSheetAuthority = Object.freeze({
-      version: '20260731-NODE-SHEET-STUDIO-AUTHORITY-V1',
+      version: '20260731-NODE-SHEET-STUDIO-AUTHORITY-V1.1',
       nodeId: NODE,
       missionPassed: missionPassed(),
       mission: r,
@@ -108,7 +116,6 @@
         studio.removeAttribute('hidden');
         studio.style.setProperty('display', 'grid', 'important');
         document.getElementById('uxqStudioRouteFallback')?.remove();
-        requestAnimationFrame(() => studio.scrollIntoView({ block: 'start' }));
         return;
       }
       if (tries < 30) setTimeout(build, Math.min(180 + tries * 80, 900));
