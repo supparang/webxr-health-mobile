@@ -1,23 +1,24 @@
 /* =========================================================
    EAP Word Quest • Student Home Thai Polish
    File: /herohealth/eap-word-quest/eap-word-engine-v206-home-thai-polish.js
-   Version: v2.0.6-HOME-THAI-POLISH-122
+   Version: v2.0.6.1-HOME-THAI-EVENT-DRIVEN-122
 
    Student-facing UI only:
    - Translate Core session-card states, labels and action buttons.
    - Keep English Session titles and target terms for learning.
    - Remove runtime/version badges from the student header.
-   - Does not change questions, scoring, gating or logs.
+   - Event-driven only: no perpetual interval / DOM repaint loop.
 ========================================================= */
 (() => {
   "use strict";
 
-  const VERSION = "v2.0.6-HOME-THAI-POLISH-122";
+  const VERSION = "v2.0.6.1-HOME-THAI-EVENT-DRIVEN-122";
 
   if (window.__EAP_WORD_V206_HOME_THAI__) return;
   window.__EAP_WORD_V206_HOME_THAI__ = true;
 
   const norm = (value) => String(value == null ? "" : value).replace(/\s+/g, " ").trim();
+  let patchQueued = false;
 
   function addStyle() {
     if (document.getElementById("eapV206HomeStyle")) return;
@@ -36,8 +37,8 @@
     if (!top) return;
     Array.from(top.querySelectorAll(".eap192-core-badge,[data-eap-debug-badge='true']")).forEach((node) => node.remove());
     Array.from(top.querySelectorAll("span,div")).forEach((node) => {
-      const text = norm(node.textContent);
-      if (/^(Core AI|Core Bank|Core)\s+v\d+/i.test(text)) node.remove();
+      const value = norm(node.textContent);
+      if (/^(Core AI|Core Bank|Core)\s+v\d+/i.test(value)) node.remove();
     });
   }
 
@@ -49,8 +50,8 @@
       "Professional Academic Communication": "Arc 4 • การสื่อสารเชิงวิชาการ",
       "Global Academic Communication": "Arc 5 • บูรณาการการสื่อสาร"
     };
-    const text = norm(node.textContent).replace(/\s*🔒\s*$/, "");
-    if (map[text]) node.textContent = map[text] + (norm(node.textContent).includes("🔒") ? " 🔒" : "");
+    const value = norm(node.textContent).replace(/\s*🔒\s*$/, "");
+    if (map[value]) node.textContent = map[value] + (norm(node.textContent).includes("🔒") ? " 🔒" : "");
   }
 
   function translateTag(node) {
@@ -59,8 +60,8 @@
     const matchTargets = raw.match(/^(\d+)\s+targets$/i);
     const matchItems = raw.match(/^(\d+)\s+item variants$/i);
     const matchBest = raw.match(/^Best\s+(.+)$/i);
-
     let translated = raw;
+
     if (raw === "Passed") translated = "ผ่านแล้ว";
     else if (raw === "Open") translated = "เปิดเล่นได้";
     else if (raw === "Locked") translated = "ยังล็อก";
@@ -70,7 +71,7 @@
     else if (matchBest) translated = `สูงสุด ${matchBest[1]}`;
 
     if (node.textContent !== translated) node.textContent = translated;
-    if (["Passed","Open","Locked"].includes(raw)) node.classList.add("eap206-status");
+    if (["Passed", "Open", "Locked"].includes(raw)) node.classList.add("eap206-status");
   }
 
   function translateHomeStats() {
@@ -84,7 +85,7 @@
     document.querySelectorAll("#homeStats .stat span").forEach((node) => {
       const raw = norm(node.dataset.eap206Raw || node.textContent);
       node.dataset.eap206Raw = raw;
-      if (labels[raw]) node.textContent = labels[raw];
+      if (labels[raw] && node.textContent !== labels[raw]) node.textContent = labels[raw];
     });
   }
 
@@ -95,43 +96,51 @@
     document.querySelectorAll("#sessionGrid .eap192-start").forEach((button) => {
       const raw = norm(button.dataset.eap206Raw || button.textContent);
       button.dataset.eap206Raw = raw;
-      if (raw === "Start") button.textContent = "เริ่มฝึก";
-      if (raw === "Replay") button.textContent = "เล่นซ้ำ";
+      if (raw === "Start" && button.textContent !== "เริ่มฝึก") button.textContent = "เริ่มฝึก";
+      if (raw === "Replay" && button.textContent !== "เล่นซ้ำ") button.textContent = "เล่นซ้ำ";
     });
 
     document.querySelectorAll("#sessionGrid .eap192-session-card").forEach((card) => {
       if (card.querySelector(".eap206-home-note")) return;
       const status = card.querySelector(".eap192-card-top .eap192-tag");
       const raw = norm(status && status.dataset.eap206Raw);
-      if (raw === "Locked") {
-        const note = document.createElement("p");
-        note.className = "eap206-home-note";
-        note.textContent = "ผ่าน Arc ก่อนหน้าและ Vocabulary Boss ก่อน จึงจะเปิดภารกิจนี้";
-        card.querySelector(".eap192-tags")?.insertAdjacentElement("beforebegin", note);
-      }
+      if (raw !== "Locked") return;
+      const note = document.createElement("p");
+      note.className = "eap206-home-note";
+      note.textContent = "ผ่าน Arc ก่อนหน้าและ Vocabulary Boss ก่อน จึงจะเปิดภารกิจนี้";
+      card.querySelector(".eap192-tags")?.insertAdjacentElement("beforebegin", note);
     });
   }
 
   function patch() {
+    patchQueued = false;
     addStyle();
     removeRuntimeBadges();
     translateHomeStats();
     translateCards();
   }
 
-  document.addEventListener("click", () => {
-    [60, 220, 700].forEach((delay) => setTimeout(patch, delay));
-  }, true);
+  function schedulePatch() {
+    if (patchQueued) return;
+    patchQueued = true;
+    requestAnimationFrame(patch);
+  }
 
-  [0, 120, 450, 1000, 1800].forEach((delay) => setTimeout(patch, delay));
-  setInterval(patch, 1800);
+  document.addEventListener("click", () => setTimeout(schedulePatch, 80), true);
+  window.addEventListener("eap-word-authority-ready", schedulePatch);
+  window.addEventListener("eap-word-sheet-confirmed", schedulePatch);
+  window.addEventListener("pageshow", schedulePatch);
+  window.addEventListener("eap-word-home-rendered", schedulePatch);
+
+  [0, 120, 450, 1000].forEach((delay) => setTimeout(schedulePatch, delay));
 
   window.inspectEapV206 = () => ({
     version: VERSION,
+    intervalFree: true,
     runtimeBadges: document.querySelectorAll(".topbar-right .eap192-core-badge").length,
     homeCards: document.querySelectorAll("#sessionGrid .eap192-session-card").length,
     thaiStatuses: Array.from(document.querySelectorAll("#sessionGrid .eap192-card-top .eap192-tag")).filter((node) => /ผ่านแล้ว|เปิดเล่นได้|ยังล็อก/.test(norm(node.textContent))).length
   });
 
-  console.info("[EAP Word Quest] v206 home Thai polish ready", { version: VERSION });
+  console.info("[EAP Word Quest] v206 event-driven Thai polish ready", { version: VERSION });
 })();
