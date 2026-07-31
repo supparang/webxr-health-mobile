@@ -1,131 +1,62 @@
 /* =========================================================
    EAP Word Quest • Compatibility Bootstrap Loader
-   File kept as v262 because older cached index.html already loads this path.
-
-   Version: 20260731-V287-NAME-SELECTION-PERSIST-BOOTSTRAP
-   - Load V281 before Authority.
-   - Load V286 before Authority to sync Sheet resume into V196 Core state.
-   - Load V287 before name selection/Authority reload to preserve profile.
-   - Load V275 Google Sheet authority.
-   - Load V276/V283 official-name fallback.
-   - Load V282 mobile name lookup retry/error separation.
-   - Load V278 runtime identity proof before submit.
-   - Load V280 compact JSONP submit.
-   - Load V284 mobile next-question guard.
+   Version: 20260731-V288-SHEET-SINGLE-STATE-BOOTSTRAP
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260731-V287-NAME-SELECTION-PERSIST-BOOTSTRAP';
-  var REHYDRATE_TAG = 'eap-word-v281-sheet-rehydrate-bootstrap';
-  var SHEET_CORE_TAG = 'eap-word-v286-sheet-core-authority-bootstrap';
-  var NAME_PERSIST_TAG = 'eap-word-v287-name-selection-persist-bootstrap';
-  var AUTH_TAG = 'eap-word-authority-v275-bootstrap';
-  var NAME_TAG = 'eap-word-name-fallback-v276-bootstrap';
-  var NAME_MOBILE_TAG = 'eap-word-name-mobile-retry-v282-bootstrap';
-  var PROOF_TAG = 'eap-word-identity-proof-v278-bootstrap';
-  var SUBMIT_TAG = 'eap-word-v280-compact-bootstrap';
-  var MOBILE_NEXT_TAG = 'eap-word-mobile-next-v284-bootstrap';
-
-  if (window.__EAP_WORD_V287_BOOTSTRAP__) return;
-  window.__EAP_WORD_V287_BOOTSTRAP__ = true;
+  var VERSION = '20260731-V288-SHEET-SINGLE-STATE-BOOTSTRAP';
+  if (window.__EAP_WORD_V288_BOOTSTRAP__) return;
+  window.__EAP_WORD_V288_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
-  function afterDomReady(callback) {
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',callback,{once:true});
-    else callback();
-  }
-
-  function showAuthorityLoadError() {
-    afterDomReady(function () {
-      var panel = document.getElementById('eapWordAuthorityPanel');
-      var status;
-      var profileButton;
-      var host;
-      if (!panel) {
-        panel = document.createElement('div');
-        panel.id = 'eapWordAuthorityPanel';
-        panel.setAttribute('aria-live','polite');
-        panel.style.cssText = 'margin-top:12px;padding:13px 15px;border:1px solid #fecaca;border-radius:15px;background:#fff1f2;color:#b42318;font-weight:750;line-height:1.45';
-        status = document.getElementById('profileStatus');
-        if (status && status.parentNode) status.parentNode.insertBefore(panel,status.nextSibling);
-        else {
-          profileButton = document.getElementById('saveProfileBtn');
-          host = profileButton && profileButton.closest ? profileButton.closest('.panel') : document.body;
-          host.appendChild(panel);
-        }
-      }
-      panel.textContent = 'โหลดระบบยืนยันตัวตนไม่สำเร็จ กรุณาปิดแท็บแล้วเปิดหน้าใหม่';
-    });
-  }
-
-  function loadScript(src,tag,guard,onload,onerror) {
+  function loadScript(src, tag, guard, onload, onerror) {
     var script;
     if (window[guard]) return;
     if (document.querySelector('script[data-eap-runtime="' + tag + '"]')) return;
     script = document.createElement('script');
     script.src = src;
     script.async = false;
-    script.setAttribute('data-eap-runtime',tag);
+    script.setAttribute('data-eap-runtime', tag);
     if (onload) script.onload = onload;
     if (onerror) script.onerror = onerror;
     document.head.appendChild(script);
   }
 
-  function loadSheetRehydrate() {
-    loadScript('./eap-word-sheet-resume-rehydrate-v281.js?v=20260729-v281-sheet-rehydrate-1',REHYDRATE_TAG,'__EAP_WORD_V281_SHEET_REHYDRATE__');
+  function showAuthorityLoadError() {
+    var panel = document.getElementById('eapWordAuthorityPanel');
+    if (!panel) return;
+    panel.textContent = 'โหลดระบบยืนยันตัวตนไม่สำเร็จ กรุณาปิดแท็บแล้วเปิดหน้าใหม่';
   }
 
-  function loadSheetCoreAuthority() {
-    loadScript('./eap-word-sheet-ui-authority-v285.js?v=20260731-v286-sheet-core-authority-1',SHEET_CORE_TAG,'__EAP_WORD_V286_SHEET_CORE_AUTHORITY__',function () {
-      console.info('[EAP Word Quest] V286 Sheet Core authority loaded',{bootstrap:VERSION});
+  loadScript('./eap-word-sheet-resume-rehydrate-v281.js?v=20260731-v281-2', 'eap-v281', '__EAP_WORD_V281_SHEET_REHYDRATE__');
+  setTimeout(function () {
+    loadScript('./eap-word-sheet-ui-authority-v285.js?v=20260731-v288-sheet-single-state-1', 'eap-v288', '__EAP_WORD_V288_SHEET_SINGLE_STATE__', function () {
+      console.info('[EAP Word Quest] V288 Sheet single-state authority loaded', { bootstrap: VERSION });
     });
-  }
+  }, 20);
+  setTimeout(function () {
+    loadScript('./eap-word-name-selection-persist-v287.js?v=20260731-v287-name-selection-persist-2', 'eap-v287', '__EAP_WORD_NAME_SELECTION_PERSIST_V287__');
+  }, 35);
+  setTimeout(function () {
+    loadScript('./eap-word-authority-v275.js?v=20260731-v275-2', 'eap-v275', '__EAP_WORD_AUTHORITY_V275__', null, showAuthorityLoadError);
+  }, 80);
+  setTimeout(function () {
+    loadScript('./eap-word-name-fallback-v276.js?v=20260731-v283-2', 'eap-v283', '__EAP_WORD_NAME_FALLBACK_V276__');
+  }, 200);
+  setTimeout(function () {
+    loadScript('./eap-word-name-mobile-retry-v282.js?v=20260731-v282-2', 'eap-v282', '__EAP_WORD_NAME_MOBILE_RETRY_V282__');
+  }, 400);
+  setTimeout(function () {
+    loadScript('./eap-word-identity-proof-v278.js?v=20260731-v278-2', 'eap-v278', '__EAP_WORD_IDENTITY_PROOF_V278__');
+  }, 600);
+  setTimeout(function () {
+    loadScript('./eap-word-engine-v280-compact-submit.js?v=20260731-v280-2', 'eap-v280', '__EAP_WORD_V280_COMPACT_SUBMIT__');
+  }, 940);
+  setTimeout(function () {
+    loadScript('./eap-word-mobile-next-v284.js?v=20260731-v284-2', 'eap-v284', '__EAP_WORD_MOBILE_NEXT_V284__');
+  }, 1080);
 
-  function loadNamePersist() {
-    loadScript('./eap-word-name-selection-persist-v287.js?v=20260731-v287-name-selection-persist-1',NAME_PERSIST_TAG,'__EAP_WORD_NAME_SELECTION_PERSIST_V287__',function () {
-      console.info('[EAP Word Quest] V287 name selection persistence loaded',{bootstrap:VERSION});
-    });
-  }
-
-  function loadAuthority() {
-    loadScript('./eap-word-authority-v275.js?v=20260728-v275-proof-1',AUTH_TAG,'__EAP_WORD_AUTHORITY_V275__',function () {
-      console.info('[EAP Word Quest] V275 Sheet Authority loaded',{bootstrap:VERSION});
-    },function () {
-      console.error('[EAP Word Quest] V275 Sheet Authority could not load',{bootstrap:VERSION});
-      showAuthorityLoadError();
-    });
-  }
-
-  function loadNameFallback() {
-    loadScript('./eap-word-name-fallback-v276.js?v=20260729-v283-mobile-direct-1',NAME_TAG,'__EAP_WORD_NAME_FALLBACK_V276__');
-  }
-
-  function loadMobileNameRetry() {
-    loadScript('./eap-word-name-mobile-retry-v282.js?v=20260729-v282-mobile-name-retry-1',NAME_MOBILE_TAG,'__EAP_WORD_NAME_MOBILE_RETRY_V282__');
-  }
-
-  function loadIdentityProof() {
-    loadScript('./eap-word-identity-proof-v278.js?v=20260728-v278-runtime-proof-1',PROOF_TAG,'__EAP_WORD_IDENTITY_PROOF_V278__');
-  }
-
-  function loadCompactSubmit() {
-    loadScript('./eap-word-engine-v280-compact-submit.js?v=20260729-v280-compact-submit-1',SUBMIT_TAG,'__EAP_WORD_V280_COMPACT_SUBMIT__');
-  }
-
-  function loadMobileNext() {
-    loadScript('./eap-word-mobile-next-v284.js?v=20260729-v284-mobile-next-1',MOBILE_NEXT_TAG,'__EAP_WORD_MOBILE_NEXT_V284__');
-  }
-
-  loadSheetRehydrate();
-  setTimeout(loadSheetCoreAuthority,20);
-  setTimeout(loadNamePersist,35);
-  setTimeout(loadAuthority,80);
-  setTimeout(loadNameFallback,200);
-  setTimeout(loadMobileNameRetry,400);
-  setTimeout(loadIdentityProof,600);
-  setTimeout(loadCompactSubmit,940);
-  setTimeout(loadMobileNext,1080);
-  console.info('[EAP Word Quest] compatibility bootstrap ready',{version:VERSION});
+  console.info('[EAP Word Quest] compatibility bootstrap ready', { version: VERSION });
 })();
