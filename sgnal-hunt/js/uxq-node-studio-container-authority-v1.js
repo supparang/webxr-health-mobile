@@ -1,4 +1,4 @@
-/* CSAI2601 UX Quest • Node Studio Container Authority v5
+/* CSAI2601 UX Quest • Node Studio Container Authority v6
  * Repairs phase=studio and enforces one clear action path.
  */
 (() => {
@@ -8,7 +8,7 @@
 
   if (!document.querySelector('script[data-uxq-sheet-display-final]')) {
     const script = document.createElement('script');
-    script.src = './js/uxq-node-sheet-display-final-authority-v1.js?v=node-sheet-display-final-v3-20260731';
+    script.src = './js/uxq-node-sheet-display-final-authority-v1.js?v=node-sheet-display-final-v4-20260731';
     script.async = false;
     script.dataset.uxqSheetDisplayFinal = '1';
     document.head.appendChild(script);
