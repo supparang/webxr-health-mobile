@@ -2,7 +2,7 @@
 'use strict';
 const original=window.HH?.openNextGame;
 const R=window.HHRotation;
-const RELEASE='20260731-GAME-SHELL-FULL-ANALYTICS-R41-BALANCE-V48';
+const RELEASE='20260731-GAME-SHELL-FULL-ANALYTICS-R41-BALANCE-V49';
 if(!window.HH||!R)return;
 function detectDevice(){
  const q=new URLSearchParams(location.search),forced=String(q.get('device')||'').toLowerCase();
@@ -19,7 +19,7 @@ function detectView(){
 }
 function analyticsTarget(gameId,configured){
  if(gameId==='goodjunk')return new URL('./goodjunk-classroom-analytics-v15.html',location.href);
- if(gameId==='balance-hold')return new URL('../fitness/balance-hold-classroom-analytics-v48.html',location.href);
+ if(gameId==='balance-hold')return new URL('../fitness/balance-hold-classroom-analytics-v49.html',location.href);
  return configured;
 }
 window.HH.openNextGame=function(zoneId){
