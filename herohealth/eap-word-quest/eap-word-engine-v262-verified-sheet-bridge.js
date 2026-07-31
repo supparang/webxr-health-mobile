@@ -1,13 +1,13 @@
 /* =========================================================
    EAP Word Quest • Compatibility Bootstrap Loader
-   Version: 20260731-V290-NO-RELOAD-BOOTSTRAP
+   Version: 20260731-V291-STABLE-PROFILE-PROXY-BOOTSTRAP
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260731-V290-NO-RELOAD-BOOTSTRAP';
-  if (window.__EAP_WORD_V290_BOOTSTRAP__) return;
-  window.__EAP_WORD_V290_BOOTSTRAP__ = true;
+  var VERSION = '20260731-V291-STABLE-PROFILE-PROXY-BOOTSTRAP';
+  if (window.__EAP_WORD_V291_BOOTSTRAP__) return;
+  window.__EAP_WORD_V291_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
@@ -30,7 +30,7 @@
     panel.textContent = 'โหลดระบบยืนยันตัวตนไม่สำเร็จ กรุณาปิดแท็บแล้วเปิดหน้าใหม่';
   }
 
-  loadScript('./eap-word-profile-actions-stability-v289.js?v=20260731-v289-profile-actions-2', 'eap-v289', '__EAP_WORD_PROFILE_ACTIONS_STABILITY_V289__');
+  loadScript('./eap-word-profile-actions-stability-v289.js?v=20260731-v291-stable-profile-proxy-1', 'eap-v291', '__EAP_WORD_PROFILE_ACTIONS_STABILITY_V291__');
   loadScript('./eap-word-sheet-resume-rehydrate-v281.js?v=20260731-v281-3', 'eap-v281', '__EAP_WORD_V281_SHEET_REHYDRATE__');
   setTimeout(function () {
     loadScript('./eap-word-sheet-ui-authority-v285.js?v=20260731-v290-no-reload-1', 'eap-v290', '__EAP_WORD_V290_NO_RELOAD_SINGLE_STATE__', function () {
