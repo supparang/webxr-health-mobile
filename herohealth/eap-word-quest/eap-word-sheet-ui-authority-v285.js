@@ -1,23 +1,26 @@
 /* =========================================================
-   EAP Word Quest • Sheet-authoritative Core + Home UI
-   Version: 20260731-EAPWQ-V286-SHEET-CORE-AUTHORITY
+   EAP Word Quest • Sheet-authoritative Core/Home/Arc
+   Version: 20260731-EAPWQ-V288-SHEET-SINGLE-STATE
 
-   Google Sheet is the official source of truth. This patch:
-   1) writes the official resume into the exact V196 Core state key,
-   2) performs one guarded reload when Core differs from Sheet,
-   3) keeps Home statistics and CTA aligned during the current page.
+   Google Sheet is the sole authority. This patch:
+   - persists the official profile before any reload,
+   - writes the official resume into the exact V196 Core state key,
+   - renders Home statistics and CTA from the same resume,
+   - reloads once when the visible Arc map differs from Sheet.
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260731-EAPWQ-V286-SHEET-CORE-AUTHORITY';
+  var VERSION = '20260731-EAPWQ-V288-SHEET-SINGLE-STATE';
   var FLOW = ['S1','S2','S3','BG1','S4','S5','S6','BG2','S7','S8','S9','BG3','S10','S11','S12','BG4','S13','S14','S15','BG5'];
   var GROUP = '122';
+  var PROFILE_KEY = 'EAP_WORD_QUEST_PROFILE_V01';
   var CORE_PREFIX = 'EAP_WORD_QUEST_CORE_V196_STATE';
-  var RELOAD_PREFIX = 'EAPWQ_V286_CORE_SYNC_';
+  var RELOAD_PREFIX = 'EAPWQ_V288_ARC_SYNC_';
   var latest = null;
 
-  if (window.__EAP_WORD_V286_SHEET_CORE_AUTHORITY__) return;
+  if (window.__EAP_WORD_V288_SHEET_SINGLE_STATE__) return;
+  window.__EAP_WORD_V288_SHEET_SINGLE_STATE__ = true;
   window.__EAP_WORD_V286_SHEET_CORE_AUTHORITY__ = true;
 
   function text(value) {
@@ -59,9 +62,27 @@
       localStorage.setItem(key, JSON.stringify(value));
       return true;
     } catch (error) {
-      console.error('[EAP Word Quest] V286 core write failed', error);
+      console.error('[EAP Word Quest] V288 write failed', key, error);
       return false;
     }
+  }
+
+  function persistProfile(profile) {
+    var saved = {
+      studentName: text(profile.studentName || profile.name),
+      studentId: text(profile.studentId || profile.id),
+      section: text(profile.section || profile.group || GROUP) || GROUP,
+      group: GROUP,
+      official: true,
+      authority: 'google_sheet_roster',
+      updatedAt: new Date().toISOString()
+    };
+    writeJson(PROFILE_KEY, saved);
+    try { sessionStorage.setItem('EAPWQ_V288_PROFILE', JSON.stringify(saved)); } catch (ignore) {}
+    if (byId('studentNameInput')) byId('studentNameInput').value = saved.studentName;
+    if (byId('studentIdInput')) byId('studentIdInput').value = saved.studentId;
+    if (byId('sectionInput')) byId('sectionInput').value = GROUP;
+    return saved;
   }
 
   function passedIds(resume) {
@@ -77,23 +98,28 @@
 
   function compactSession(row) {
     row = row && typeof row === 'object' ? row : {};
+    var latestAccuracy = num(row.latestAccuracy || row.lastAccuracy || row.accuracy);
+    var bestAccuracy = num(row.bestAccuracy || latestAccuracy);
+    var latestScore = num(row.latestScore || row.lastScore || row.score);
+    var bestScore = num(row.bestScore || latestScore);
+    var attempts = num(row.attempts || row.totalAttempts);
     return {
-      played: Boolean(row.played || num(row.attempts) > 0),
+      played: Boolean(row.played || attempts > 0),
       passed: Boolean(row.passed),
-      accuracy: clamp(Math.round(num(row.latestAccuracy || row.bestAccuracy)), 0, 100),
-      bestAccuracy: clamp(Math.round(num(row.bestAccuracy || row.latestAccuracy)), 0, 100),
-      bestScore: Math.max(0, Math.round(num(row.bestScore || row.latestScore))),
-      lastAccuracy: clamp(Math.round(num(row.latestAccuracy || row.bestAccuracy)), 0, 100),
-      lastScore: Math.max(0, Math.round(num(row.latestScore || row.bestScore))),
-      totalAttempts: Math.max(0, Math.round(num(row.attempts))),
-      lastPlayed: text(row.lastPlayed)
+      accuracy: clamp(Math.round(bestAccuracy || latestAccuracy), 0, 100),
+      bestAccuracy: clamp(Math.round(bestAccuracy), 0, 100),
+      bestScore: Math.max(0, Math.round(bestScore)),
+      lastAccuracy: clamp(Math.round(latestAccuracy || bestAccuracy), 0, 100),
+      lastScore: Math.max(0, Math.round(latestScore)),
+      totalAttempts: Math.max(0, Math.round(attempts)),
+      lastPlayed: text(row.lastPlayed || row.latestPlayed)
     };
   }
 
   function fingerprint(resume) {
     return FLOW.map(function (id) {
       var row = resume.sessions && resume.sessions[id] || {};
-      return id + ':' + (row.played ? 1 : 0) + ':' + (row.passed ? 1 : 0) + ':' + num(row.attempts) + ':' + num(row.bestAccuracy);
+      return [id, row.played ? 1 : 0, row.passed ? 1 : 0, num(row.attempts || row.totalAttempts), num(row.bestAccuracy)].join(':');
     }).join('|') + '|next:' + text(resume.currentSession || resume.nextMission);
   }
 
@@ -101,20 +127,9 @@
     var key = coreKey(profile.studentId);
     var old = readJson(key, {}) || {};
     var sessions = {};
-    var changed = false;
-    var officialFingerprint = fingerprint(resume);
-    var localFingerprint;
-
     FLOW.forEach(function (id) {
       sessions[id] = compactSession(resume.sessions && resume.sessions[id]);
     });
-
-    localFingerprint = FLOW.map(function (id) {
-      var row = old.sessions && old.sessions[id] || {};
-      return id + ':' + (row.played ? 1 : 0) + ':' + (row.passed ? 1 : 0) + ':' + num(row.totalAttempts) + ':' + num(row.bestAccuracy);
-    }).join('|') + '|next:' + text(old.currentSession);
-
-    changed = localFingerprint !== officialFingerprint;
 
     writeJson(key, {
       version: 'v1.9.6-CORE-COMPACT-PROGRESS-CONTROLLER-122',
@@ -123,14 +138,12 @@
       sessions: sessions,
       recentItemIds: Array.isArray(old.recentItemIds) ? old.recentItemIds.slice(0, 36) : [],
       weakTargets: old.weakTargets && typeof old.weakTargets === 'object' ? old.weakTargets : {},
-      currentSession: text(resume.currentSession || resume.nextMission || 'S1'),
       sheetAuthority: true,
-      sheetFingerprint: officialFingerprint,
+      sheetFingerprint: fingerprint(resume),
       createdAt: old.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
-
-    return { changed: changed, fingerprint: officialFingerprint, key: key };
+    return key;
   }
 
   function aggregateAccuracy(resume) {
@@ -158,12 +171,12 @@
 
   function totalAttempts(resume) {
     return FLOW.reduce(function (sum, id) {
-      return sum + num(resume.sessions && resume.sessions[id] && resume.sessions[id].attempts);
+      return sum + num(resume.sessions && resume.sessions[id] && (resume.sessions[id].attempts || resume.sessions[id].totalAttempts));
     }, 0);
   }
 
   function statCard(value, label) {
-    return '<div class="stat-card eap-sheet-stat"><strong>' + value + '</strong><span>' + label + '</span></div>';
+    return '<div class="stat"><b>' + value + '</b><span>' + label + '</span></div>';
   }
 
   function renderHome(resume) {
@@ -186,40 +199,57 @@
 
     if (button) {
       if (current === 'DONE') button.textContent = 'ดูสรุปความก้าวหน้า';
-      else button.textContent = (currentRow.played || num(currentRow.attempts) > 0) ? ('ฝึก ' + current + ' ต่อ') : ('ไปทำ ' + current + ' ต่อ');
+      else button.textContent = (currentRow.played || num(currentRow.attempts || currentRow.totalAttempts) > 0) ? ('ฝึก ' + current + ' ต่อ') : ('ไปทำ ' + current + ' ต่อ');
       button.dataset.session = current;
       button.dataset.sheetAuthority = 'true';
       button.disabled = false;
+      button.removeAttribute('aria-disabled');
     }
+  }
+
+  function visiblePassedCount() {
+    return document.querySelectorAll('#sessionGrid .eap192-session-card.passed').length;
+  }
+
+  function visibleCurrentState(current) {
+    var card = document.querySelector('#sessionGrid [data-session-id="' + current + '"]');
+    return Boolean(card && !card.classList.contains('locked'));
+  }
+
+  function reconcile(profile, resume) {
+    var passed = passedIds(resume);
+    var current = text(resume.currentSession || resume.nextMission || 'S1').toUpperCase();
+    var fp = fingerprint(resume);
+    var reloadKey = RELOAD_PREFIX + safeId(profile.studentId);
+    var mismatch = visiblePassedCount() !== passed.length || !visibleCurrentState(current);
+
+    renderHome(resume);
+    if (!mismatch) return;
+    if (sessionStorage.getItem(reloadKey) === fp) return;
+    sessionStorage.setItem(reloadKey, fp);
+    console.info('[EAP Word Quest] V288 reloading mismatched Arc map', {
+      studentId: profile.studentId,
+      passedSheet: passed.length,
+      passedVisible: visiblePassedCount(),
+      currentSession: current
+    });
+    setTimeout(function () { location.reload(); }, 220);
   }
 
   function apply(event) {
     var detail = event && event.detail;
     var profile = detail && detail.profile;
     var resume = detail && detail.resume;
-    var sync;
-    var reloadKey;
-
+    var savedProfile;
     if (!profile || profile.official !== true || !text(profile.studentId)) return;
     if (!resume || resume.ok !== true || resume.official !== true || !resume.sessions) return;
 
-    latest = { profile: profile, resume: resume };
-    sync = syncCore(profile, resume);
-    renderHome(resume);
-
-    if (sync.changed) {
-      reloadKey = RELOAD_PREFIX + safeId(profile.studentId);
-      if (sessionStorage.getItem(reloadKey) !== sync.fingerprint) {
-        sessionStorage.setItem(reloadKey, sync.fingerprint);
-        console.info('[EAP Word Quest] V286 reloading after official Core sync', {
-          version: VERSION,
-          studentId: profile.studentId,
-          currentSession: resume.currentSession,
-          coreKey: sync.key
-        });
-        setTimeout(function () { location.reload(); }, 180);
-      }
-    }
+    savedProfile = persistProfile(profile);
+    latest = { profile: savedProfile, resume: resume };
+    syncCore(savedProfile, resume);
+    [0, 100, 350, 900, 1800].forEach(function (delay) {
+      setTimeout(function () { reconcile(savedProfile, resume); }, delay);
+    });
   }
 
   window.addEventListener('eap-word-authority-ready', apply);
@@ -233,20 +263,22 @@
   });
 
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && latest) renderHome(latest.resume);
+    if (!document.hidden && latest) reconcile(latest.profile, latest.resume);
   });
   window.addEventListener('pageshow', function () {
-    if (latest) renderHome(latest.resume);
+    if (latest) reconcile(latest.profile, latest.resume);
   });
 
-  window.inspectEapWordSheetCoreAuthorityV286 = function () {
+  window.inspectEapWordSheetAuthorityV288 = function () {
     return {
       version: VERSION,
-      currentSession: latest && latest.resume && latest.resume.currentSession,
       studentId: latest && latest.profile && latest.profile.studentId,
+      currentSession: latest && latest.resume && latest.resume.currentSession,
+      passedSheet: latest ? passedIds(latest.resume).length : 0,
+      passedVisible: visiblePassedCount(),
       coreKey: latest && coreKey(latest.profile.studentId)
     };
   };
 
-  console.info('[EAP Word Quest] V286 Sheet Core authority ready', { version: VERSION });
+  console.info('[EAP Word Quest] V288 Sheet single-state authority ready', { version: VERSION });
 })();
