@@ -1,10 +1,11 @@
 /* =========================================================
    EAP Word Quest • Summary CTA Authority
-   Version: 20260731-EAPWQ-V292-SUMMARY-CTA-AUTHORITY
+   Version: 20260731-EAPWQ-V293-SUMMARY-ACTIONS-AUTHORITY
 
-   Keeps the summary primary action consistent with the visible result:
+   Keeps summary actions consistent with the visible result:
    - failed current session -> ฝึก <session> ต่อ
    - passed current session -> ไปทำ <next> ต่อ
+   - replay button -> เล่น <current session> อีกครั้ง
    - completed flow -> สรุปผลการเรียน
 
    No polling loop and no automatic reload.
@@ -12,10 +13,11 @@
 (function () {
   'use strict';
 
-  var VERSION = '20260731-EAPWQ-V292-SUMMARY-CTA-AUTHORITY';
+  var VERSION = '20260731-EAPWQ-V293-SUMMARY-ACTIONS-AUTHORITY';
   var FLOW = ['S1','S2','S3','BG1','S4','S5','S6','BG2','S7','S8','S9','BG3','S10','S11','S12','BG4','S13','S14','S15','BG5'];
 
-  if (window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V292__) return;
+  if (window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V293__) return;
+  window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V293__ = true;
   window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V292__ = true;
 
   function text(value) {
@@ -53,38 +55,45 @@
 
   function patch() {
     var screen = document.getElementById('summaryScreen');
-    var button = document.getElementById('nextMissionBtn');
+    var nextButton = document.getElementById('nextMissionBtn');
+    var replayButton = document.getElementById('replayBtn');
     var sessionId;
     var accuracy;
     var passed;
     var next;
 
-    if (!screen || !button || !screen.classList.contains('active')) return;
+    if (!screen || !screen.classList.contains('active')) return;
 
     sessionId = currentSession();
     accuracy = visibleAccuracy();
     if (!sessionId || !Number.isFinite(accuracy)) return;
 
+    if (replayButton) {
+      replayButton.textContent = 'เล่น ' + sessionId + ' อีกครั้ง';
+      replayButton.setAttribute('aria-label', 'เล่น ' + sessionId + ' อีกครั้ง');
+      replayButton.dataset.eapReplaySession = sessionId;
+    }
+
+    if (!nextButton) return;
+
     passed = accuracy >= passThreshold(sessionId);
     next = nextSession(sessionId);
 
     if (!passed) {
-      button.textContent = 'ฝึก ' + sessionId + ' ต่อ';
-      button.setAttribute('aria-label', 'ฝึก ' + sessionId + ' ต่อ เพราะยังไม่ผ่านเกณฑ์');
-      button.dataset.eapSummaryAction = 'retry-current';
+      nextButton.textContent = 'ฝึก ' + sessionId + ' ต่อ';
+      nextButton.setAttribute('aria-label', 'ฝึก ' + sessionId + ' ต่อ เพราะยังไม่ผ่านเกณฑ์');
+      nextButton.dataset.eapSummaryAction = 'retry-current';
     } else if (next === 'DONE') {
-      button.textContent = 'สรุปผลการเรียน';
-      button.setAttribute('aria-label', 'สรุปผลการเรียน');
-      button.dataset.eapSummaryAction = 'complete';
+      nextButton.textContent = 'สรุปผลการเรียน';
+      nextButton.setAttribute('aria-label', 'สรุปผลการเรียน');
+      nextButton.dataset.eapSummaryAction = 'complete';
     } else {
-      button.textContent = 'ไปทำ ' + next + ' ต่อ';
-      button.setAttribute('aria-label', 'ไปทำ ' + next + ' ต่อ');
-      button.dataset.eapSummaryAction = 'advance';
+      nextButton.textContent = 'ไปทำ ' + next + ' ต่อ';
+      nextButton.setAttribute('aria-label', 'ไปทำ ' + next + ' ต่อ');
+      nextButton.dataset.eapSummaryAction = 'advance';
     }
 
-    if (receiptConfirmed()) {
-      button.dataset.eapSheetConfirmed = 'true';
-    }
+    if (receiptConfirmed()) nextButton.dataset.eapSheetConfirmed = 'true';
   }
 
   function boundedPatch() {
@@ -94,9 +103,7 @@
   }
 
   document.addEventListener('click', function (event) {
-    if (event.target && event.target.closest && event.target.closest('#nextBtn,#quickStartBtn,.eap192-start,#replayBtn')) {
-      boundedPatch();
-    }
+    if (event.target && event.target.closest && event.target.closest('#nextBtn,#quickStartBtn,.eap192-start,#replayBtn')) boundedPatch();
   }, true);
 
   window.addEventListener('eap-word-authority-ready', boundedPatch);
@@ -107,17 +114,19 @@
 
   boundedPatch();
 
-  window.inspectEapWordSummaryCtaV292 = function () {
-    var button = document.getElementById('nextMissionBtn');
+  window.inspectEapWordSummaryCtaV293 = function () {
+    var nextButton = document.getElementById('nextMissionBtn');
+    var replayButton = document.getElementById('replayBtn');
     return {
       version: VERSION,
       sessionId: currentSession(),
       accuracy: visibleAccuracy(),
-      label: text(button && button.textContent),
-      action: button && button.dataset.eapSummaryAction || '',
-      sheetConfirmed: button && button.dataset.eapSheetConfirmed === 'true'
+      nextLabel: text(nextButton && nextButton.textContent),
+      replayLabel: text(replayButton && replayButton.textContent),
+      action: nextButton && nextButton.dataset.eapSummaryAction || '',
+      sheetConfirmed: nextButton && nextButton.dataset.eapSheetConfirmed === 'true'
     };
   };
 
-  console.info('[EAP Word Quest] V292 summary CTA authority ready', { version: VERSION });
+  console.info('[EAP Word Quest] V293 summary actions authority ready', { version: VERSION });
 })();
