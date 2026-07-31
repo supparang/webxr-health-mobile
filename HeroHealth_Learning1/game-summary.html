@@ -52,7 +52,7 @@
 <script>
 (()=>{
 'use strict';
-const RELEASE='20260731-GAME-SUMMARY-NORMALIZED-METRICS-R51';
+const RELEASE='20260731-GAME-SUMMARY-NORMALIZED-METRICS-R52-ZERO-SCORE-LABEL';
 const KEY='herohealth_learning_platform_rc2';
 const q=new URLSearchParams(location.search);
 const cfg=window.HH_CONFIG||{};
@@ -63,7 +63,7 @@ const write=s=>localStorage.setItem(KEY,JSON.stringify(s));
 const norm=v=>String(v||'').trim().replace(/\s+/g,'');
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 const pct=v=>{const n=num(v);return n===null?null:Math.max(0,Math.min(100,n))};
-const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m]));
+const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const formatNumber=v=>Number.isInteger(v)?String(v):Number(v).toFixed(1).replace(/\.0$/,'');
 
 function missionFor(s){
@@ -122,6 +122,19 @@ function displayMetric(game){
   return 'บันทึกแล้ว';
 }
 
+function rawScoreDetail(game){
+  if(Number.isFinite(game.score)&&game.score>0){
+    return `คะแนนดิบ ${formatNumber(game.score)}`;
+  }
+  if(game.score===0&&Number.isFinite(game.accuracy)){
+    return 'วัดผลจากความแม่นยำ';
+  }
+  if(game.score===0){
+    return 'คะแนนดิบ 0';
+  }
+  return '';
+}
+
 function render(s,opt={}){
   const p=s.profile||{};
   const sid=norm(q.get('studentId')||p.studentId);
@@ -165,7 +178,8 @@ function render(s,opt={}){
       <p class="muted">ครบ ${completedCount}/${zone.requiredGames.length}${zoneAverage!==null?` • ความแม่นยำเฉลี่ย ${zoneAverage}%`:''}</p>
       <div class="games">${zone.requiredGames.map(game=>{
         const extra=[];
-        if(Number.isFinite(game.score))extra.push(`คะแนนดิบ ${formatNumber(game.score)}`);
+        const scoreDetail=rawScoreDetail(game);
+        if(scoreDetail)extra.push(scoreDetail);
         if(Number.isFinite(game.attempts))extra.push(`ลอง ${game.attempts} ครั้ง`);
         if(Number.isFinite(game.duration))extra.push(`เวลา ${Math.round(game.duration)} วินาที`);
         return `<div class="game">
