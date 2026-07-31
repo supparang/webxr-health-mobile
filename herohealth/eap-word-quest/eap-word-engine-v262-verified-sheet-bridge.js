@@ -1,13 +1,13 @@
 /* =========================================================
    EAP Word Quest • Compatibility Bootstrap Loader
-   Version: 20260731-V295-FINAL-COMPLETION-BOOTSTRAP
+   Version: 20260731-V296-HOME-REPORT-POLISH-BOOTSTRAP
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260731-V295-FINAL-COMPLETION-BOOTSTRAP';
-  if (window.__EAP_WORD_V295_BOOTSTRAP__) return;
-  window.__EAP_WORD_V295_BOOTSTRAP__ = true;
+  var VERSION = '20260731-V296-HOME-REPORT-POLISH-BOOTSTRAP';
+  if (window.__EAP_WORD_V296_BOOTSTRAP__) return;
+  window.__EAP_WORD_V296_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
@@ -34,6 +34,7 @@
   loadScript('./eap-word-sheet-resume-rehydrate-v281.js?v=20260731-v281-3', 'eap-v281', '__EAP_WORD_V281_SHEET_REHYDRATE__');
   loadScript('./eap-word-summary-cta-authority-v292.js?v=20260731-v294-live-summary-actions-1', 'eap-v294', '__EAP_WORD_SUMMARY_ACTIONS_V294__');
   loadScript('./eap-word-final-completion-authority-v295.js?v=20260731-v295-final-completion-1', 'eap-v295', '__EAP_WORD_FINAL_COMPLETION_V295__');
+  loadScript('./eap-word-home-completion-report-v296.js?v=20260731-v296-home-report-polish-1', 'eap-v296', '__EAP_WORD_HOME_REPORT_V296__');
 
   setTimeout(function () {
     loadScript('./eap-word-sheet-ui-authority-v285.js?v=20260731-v290-no-reload-1', 'eap-v290', '__EAP_WORD_V290_NO_RELOAD_SINGLE_STATE__', function () {
