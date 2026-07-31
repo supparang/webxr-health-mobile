@@ -1,4 +1,4 @@
-/* UX Quest • Classroom Configuration v6.7 • CSAI2601 */
+/* UX Quest • Classroom Configuration v6.8 • CSAI2601 */
 (() => {
   'use strict';
   const query=new URLSearchParams(location.search||''),raw=String(query.get('classroom')||query.get('uxqClassroom')||'').trim().toLowerCase();
@@ -6,10 +6,21 @@
   const section=String(query.get('section')||query.get('uxqSection')||'').trim().replace(/^(?:section|sec)[\s_-]*/i,'').trim().slice(0,80);
   const missionRoute=/(w1-ux-crisis-casefile|w2-design-thinking-sprint|w3-cognitive-load-escape|b1-cognitive-storm|w4-user-insight-lab|w5-concept-forge|w6-flow-rescue|w7-wireframe-heist|b2-flow-fortress|w8-midterm-studio|w9-design-system-vault|w10-responsive-rescue|w11-contrast-cipher|b3-ux-blueprint-gauntlet|w12-component-command|w13-prototype-pulse|w14-validation-lab|b4-design-system-siege|w15-portfolio-launch-studio)\.html/i.test(location.pathname);
   if(missionRoute&&document.readyState==='loading')document.write('<script src="./js/uxq-option-length-guard-v1.js?v=20260705-stable-replay-v4"></'+'script>');
-  /* This same Apps Script Web App serves Teacher Dashboard on GET and public Student Receiver on POST. */
-  const defaults={receiverUrl:'https://script.google.com/macros/s/AKfycbzw1_j4b98wxVWuUlEwFKl_jlZkprDjESt5cHIEdgT4lrT2xbt8bj0vWTu6VpTziBlepQ/exec',courseId:'UXQ-ACT1-2026',courseLabel:'CSAI2601 • UX Quest',defaultSection:section||'',classroomMode:classroomMode?'required':'practice',classroomSection:section,allowGuestPractice:!classroomMode,maxQueuedAttempts:12,version:'20260705-csai2601-v6.7-confirmed-endpoint'};
+
+  /* Latest verified deployment: health + uxq_student_progress JSONP passed on 2026-07-31. */
+  const receiverUrl='https://script.google.com/macros/s/AKfycbzw1_j4b98wxVWuUlEwFKl_jlZkprDjESt5cHIEdgT4lrT2xbt8bj0vWTu6VpTziBlepQ/exec';
+  const defaults={
+    receiverUrl:receiverUrl,
+    receiverDeploymentId:'AKfycbzw1_j4b98wxVWuUlEwFKl_jlZkprDjESt5cHIEdgT4lrT2xbt8bj0vWTu6VpTziBlepQ',
+    receiverVersion:'uxq-receiver-v4.2',
+    progressVersion:'uxq-progress-restore-v1.4',
+    studioConfirmationVersion:'20260726-STUDIO-CONFIRMATION-PRODUCTION-V2',
+    courseId:'UXQ-ACT1-2026',courseLabel:'CSAI2601 • UX Quest',defaultSection:section||'',
+    classroomMode:classroomMode?'required':'practice',classroomSection:section,allowGuestPractice:!classroomMode,
+    maxQueuedAttempts:12,version:'20260731-csai2601-v6.8-latest-deployment'
+  };
   const existing=(window.UXQ_CLASSROOM_CONFIG&&typeof window.UXQ_CLASSROOM_CONFIG==='object')?window.UXQ_CLASSROOM_CONFIG:{};
-  window.UXQ_CLASSROOM_CONFIG=Object.freeze(Object.assign({},defaults,existing,classroomMode?{classroomMode:'required',allowGuestPractice:false,defaultSection:section||existing.defaultSection||'',classroomSection:section||existing.classroomSection||''}:{}));
+  window.UXQ_CLASSROOM_CONFIG=Object.freeze(Object.assign({},existing,defaults,classroomMode?{classroomMode:'required',allowGuestPractice:false,defaultSection:section||existing.defaultSection||'',classroomSection:section||existing.classroomSection||''}:{}));
   const remove=k=>{try{localStorage.removeItem(k)}catch(e){}try{sessionStorage.removeItem(k)}catch(e){}};
   if(classroomMode&&fresh){['uxq.act1.progress.v2','uxq.act1.progress.v1','uxq.classroom.profile.v1','uxq.classroom.queue.v1','uxq.classroom.last-receipt.v1'].forEach(remove);try{const u=new URL(location.href);u.searchParams.delete('fresh');u.searchParams.delete('newLearner');history.replaceState({},'',u.pathname+u.search+u.hash)}catch(e){}}
   function withParams(href){let u;try{u=new URL(href,location.href)}catch(e){return null}if(u.origin!==location.origin||!/\/sgnal-hunt\//.test(u.pathname))return null;if(classroomMode){u.searchParams.set('classroom','1');if(section)u.searchParams.set('section',section)}return u}
