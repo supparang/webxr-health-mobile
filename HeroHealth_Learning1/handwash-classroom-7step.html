@@ -11,11 +11,11 @@
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Stable Boot R44 • Grade 5 Mobile Rescue</small></div>
+  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Stable Boot R44.1 • Grade 5 Mobile Rescue</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260731-HANDWASH-STABLE-R44-GRADE5-MOBILE-RESCUE';
+    const RELEASE='20260731-HANDWASH-STABLE-R44.1-BASEURI-MOBILE-RESCUE';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     sourceUrl.searchParams.set('_',String(Date.now()));
@@ -35,7 +35,7 @@
         html=html.replace(
           /<script src="\.\/handwash-who-v4\.js[^>]*><\/script>/i,
           '<script src="./handwash-7step-runtime-patch-r28.js?cv='+RELEASE+'"><\/script>'+ 
-          '<script src="./handwash-who-loader-r43-2.js?cv='+RELEASE+'"><\/script>'+ 
+          '<script src="./handwash-who-loader-r43-3.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-unified-analytics-r30.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-summary-completion-r30.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-step-coach-r33.js?cv='+RELEASE+'"><\/script>'+ 
