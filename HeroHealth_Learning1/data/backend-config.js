@@ -7,8 +7,10 @@ window.HH_CONFIG.backend = {
   duplicateGuard: true,
   syncIntervalMs: 15000,
   transportPolicy: "full-payload-single-submit",
-  gameShellVersion: "20260731-GAME-SHELL-TOOTHBRUSH-NORMALIZED-SCORE-R53",
-  balanceAnalyticsVersion: "20260731-BALANCE-ANALYTICS-V50-DIRECT-FINISH",
+  gameShellVersion: "20260731-GAME-SHELL-RECEIPT-GUARD-R41.1",
+  receiptGuardVersion: "20260731-GAME-SHELL-AUTO-RETURN-R41.1-RECEIPT-GUARD",
+  balanceAnalyticsVersion: "20260731-BALANCE-ANALYTICS-V50-1-STABILITY",
+  handwashClassroomVersion: "20260731-HANDWASH-STABLE-R49-1-STUDENT-UI",
   handwashSchemaCompatibilityVersion: "20260731-GAME-SHELL-HANDWASH-SCHEMA-V2-R49",
   toothbrushScoreVersion: "20260731-TOOTHBRUSH-NORMALIZED-SKILL-SCORE-R53",
   loginRouteGuardVersion: "20260731-PROFILE-CONFIRM-ROUTE-GUARD-R42"
@@ -33,7 +35,7 @@ if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath)) {
   // Install after the Passport runtime becomes available. This overrides any cached older
   // launcher and forces Balance Hold through the V50 direct-finish analytics wrapper.
   const launcherHotfix = document.createElement('script');
-  launcherHotfix.src = './assets/game-shell-launcher-v50-hotfix.js?v=20260731-v50-direct-finish';
+  launcherHotfix.src = './assets/game-shell-launcher-v50-hotfix.js?v=20260731-v50-1-stability';
   launcherHotfix.async = false;
   launcherHotfix.dataset.hhPatch = 'game-shell-launcher-v50-hotfix';
   document.head.appendChild(launcherHotfix);
@@ -145,11 +147,11 @@ if (/game-shell-authority-r40\.html$/i.test(hhRuntimePath)) {
   });
 
   // Load the authority-confirmed auto-return repair only inside the classroom game shell.
-  // The repair verifies the current attempt from Student Authority when HH_Events receipt
-  // is delayed, then returns the learner to Hero Passport automatically.
+  // The guard blocks early Passport exit after completion, verifies the current attempt,
+  // and returns the learner only after the current Sheet receipt is confirmed.
   const script = document.createElement('script');
-  script.src = './assets/game-shell-auto-return-r41.js?v=20260731-r41-current-authority-receipt';
+  script.src = './assets/game-shell-auto-return-r41.js?v=20260731-r41-1-receipt-guard';
   script.async = false;
-  script.dataset.hhPatch = 'game-shell-auto-return-r41';
+  script.dataset.hhPatch = 'game-shell-auto-return-r41-1';
   document.head.appendChild(script);
 }
