@@ -1,22 +1,41 @@
-/* CSAI2601 UX Quest • Node Sheet + Studio Authority v1.1
+/* CSAI2601 UX Quest • Node Sheet + Studio Authority v1.2
  * Google Sheet is authoritative in Student Mode.
- * Restores mission/studio/reflection on a canonical node and guarantees
- * phase=studio builds the Studio wizard after Sheet confirms the mission.
+ * A canonical node URL must include an explicit node. Bare URLs redirect to
+ * Mission Control and never restore a cached W/B node implicitly.
  */
 (() => {
   'use strict';
   const q = new URLSearchParams(location.search || '');
   if (q.get('contentPreview') === '1' || /^content-preview/i.test(q.get('v') || '')) return;
 
+  const requestedNode = String(q.get('node') || q.get('id') || '').trim();
+  if (!requestedNode) {
+    try {
+      document.documentElement.style.visibility = 'hidden';
+      document.documentElement.style.pointerEvents = 'none';
+      document.body?.setAttribute('aria-busy', 'true');
+      const target = new URL('./csai2601-mission-control.html', location.href);
+      const section = q.get('section');
+      const classroom = q.get('classroom');
+      if (section) target.searchParams.set('section', section);
+      if (classroom) target.searchParams.set('classroom', classroom);
+      target.searchParams.set('v', 'student-runtime-v11-20260731');
+      location.replace(target.href);
+    } catch (_) {
+      location.href = './csai2601-mission-control.html?v=student-runtime-v11-20260731';
+    }
+    return;
+  }
+
   if (!document.querySelector('script[data-uxq-node-header-layout-final]')) {
     const layoutScript = document.createElement('script');
-    layoutScript.src = './js/uxq-node-header-layout-final-authority-v1.js?v=node-header-layout-final-v1-20260731';
+    layoutScript.src = './js/uxq-node-header-layout-final-authority-v1.js?v=node-header-layout-final-v1.4-20260731';
     layoutScript.async = false;
     layoutScript.dataset.uxqNodeHeaderLayoutFinal = '1';
     document.head.appendChild(layoutScript);
   }
 
-  const NODE = String(q.get('node') || q.get('id') || 'W1').trim().toUpperCase();
+  const NODE = requestedNode.toUpperCase();
   const KEY = NODE.toLowerCase();
   const CONFIG = window.UXQ_CLASSROOM_CONFIG || {};
   const ENDPOINT = String(CONFIG.receiverUrl || CONFIG.progressUrl || '').trim();
@@ -88,7 +107,7 @@
     const r = missionRow();
     const sr = studioRow();
     window.UXQNodeSheetAuthority = Object.freeze({
-      version: '20260731-NODE-SHEET-STUDIO-AUTHORITY-V1.1',
+      version: '20260731-NODE-SHEET-STUDIO-AUTHORITY-V1.2',
       nodeId: NODE,
       missionPassed: missionPassed(),
       mission: r,
