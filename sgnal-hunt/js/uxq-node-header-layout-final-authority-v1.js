@@ -1,11 +1,19 @@
-/* CSAI2601 UX Quest • Node Header Layout Final Authority v1
- * Final visual guard: learner profile and course brand must remain separate
- * blocks in normal document flow on desktop, tablet, and mobile.
+/* CSAI2601 UX Quest • Node Header Layout Final Authority v1.1
+ * Final visual guard: learner profile and course brand remain separate blocks.
+ * Also loads the final native Studio scroll guard in phase=studio.
  */
 (() => {
   'use strict';
   const q = new URLSearchParams(location.search || '');
   if (q.get('contentPreview') === '1' || /^content-preview/i.test(q.get('v') || '')) return;
+
+  if (q.get('phase') === 'studio' && !document.querySelector('script[data-uxq-studio-scroll-final]')) {
+    const script = document.createElement('script');
+    script.src = './js/uxq-studio-scroll-final-authority-v1.js?v=studio-scroll-final-v1-20260731';
+    script.async = false;
+    script.dataset.uxqStudioScrollFinal = '1';
+    document.head.appendChild(script);
+  }
 
   const ROOT = document.getElementById('uxqCanonicalNode') || document.body;
   const STYLE_ID = 'uxq-node-header-layout-final-authority-style';
@@ -18,46 +26,26 @@
     style.textContent = `
       #uxqStudentRuntimeBanner,
       #uxqActiveLearnerBanner{
-        position:relative!important;
-        inset:auto!important;
-        top:auto!important;
-        right:auto!important;
-        bottom:auto!important;
-        left:auto!important;
-        transform:none!important;
-        z-index:20!important;
-        box-sizing:border-box!important;
-        width:min(1280px,calc(100% - 48px))!important;
-        margin:16px auto 22px!important;
-        clear:both!important;
+        position:relative!important;inset:auto!important;top:auto!important;right:auto!important;
+        bottom:auto!important;left:auto!important;transform:none!important;z-index:20!important;
+        box-sizing:border-box!important;width:min(1280px,calc(100% - 48px))!important;
+        margin:16px auto 22px!important;clear:both!important
       }
       #uxqStudentRuntimeBanner + #uxqCanonicalNode,
       #uxqActiveLearnerBanner + #uxqCanonicalNode{
-        position:relative!important;
-        inset:auto!important;
-        transform:none!important;
-        clear:both!important;
-        padding-top:14px!important;
+        position:relative!important;inset:auto!important;transform:none!important;
+        clear:both!important;padding-top:14px!important
       }
       #uxqCanonicalNode [data-uxq-course-brand-fixed='1']{
-        position:relative!important;
-        inset:auto!important;
-        top:auto!important;
-        right:auto!important;
-        bottom:auto!important;
-        left:auto!important;
-        transform:none!important;
-        z-index:1!important;
-        margin-top:0!important;
-        clear:both!important;
+        position:relative!important;inset:auto!important;top:auto!important;right:auto!important;
+        bottom:auto!important;left:auto!important;transform:none!important;z-index:1!important;
+        margin-top:0!important;clear:both!important
       }
       @media(max-width:900px){
         #uxqStudentRuntimeBanner,#uxqActiveLearnerBanner{width:calc(100% - 24px)!important;margin:12px auto 18px!important}
         #uxqStudentRuntimeBanner + #uxqCanonicalNode,#uxqActiveLearnerBanner + #uxqCanonicalNode{padding-top:8px!important}
       }
-      @media(max-width:520px){
-        #uxqStudentRuntimeBanner,#uxqActiveLearnerBanner{width:calc(100% - 16px)!important}
-      }
+      @media(max-width:520px){#uxqStudentRuntimeBanner,#uxqActiveLearnerBanner{width:calc(100% - 16px)!important}}
     `;
     document.head.appendChild(style);
   }
@@ -66,21 +54,17 @@
     if (!el || el === ROOT) return false;
     const text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
     if (!/CSAI2601\s+UX\s+Quest/i.test(text)) return false;
-    const descendants = el.querySelectorAll('*').length;
-    return descendants < 24;
+    return el.querySelectorAll('*').length < 24;
   }
 
   function normalizeCourseBrand() {
     const candidates = Array.from(ROOT.querySelectorAll('header,nav,section,div'))
       .filter(isCourseBrand)
       .sort((a,b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
-
     const brand = candidates[0];
     if (!brand) return;
     brand.dataset.uxqCourseBrandFixed = '1';
-    ['position','top','right','bottom','left','transform','translate','inset','z-index'].forEach(name => {
-      brand.style.removeProperty(name);
-    });
+    ['position','top','right','bottom','left','transform','translate','inset','z-index'].forEach(name => brand.style.removeProperty(name));
     brand.style.setProperty('position','relative','important');
     brand.style.setProperty('inset','auto','important');
     brand.style.setProperty('transform','none','important');
