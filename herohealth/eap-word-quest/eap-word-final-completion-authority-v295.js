@@ -64,29 +64,24 @@
       /(?:ความก้าวหน้า\s*100\s*%|สำเร็จครบทุกภารกิจ)/i.test(value);
   }
 
-  function removeLegacyCompletion() {
-    ['eapV234FinalCard', 'eapV238FinalPath'].forEach(function (id) {
-      var node = byId(id);
-      if (node) node.remove();
-    });
-  }
-
   function clearLegacyLabels(button) {
     if (!button || !button.dataset) return;
     [
       'eapV224Label','eapV228Label','eapV230Label','eapV231Label',
       'eapV232Label','eapV233Label','eapV234Label','eapV238Label'
     ].forEach(function (key) {
-      try { delete button.dataset[key]; } catch (ignore) {}
+      if (Object.prototype.hasOwnProperty.call(button.dataset, key)) {
+        try { delete button.dataset[key]; } catch (ignore) {}
+      }
     });
   }
 
   function friendlyReceipt() {
     var node = statusNode();
     var desired = 'BG5 บันทึกและยืนยันจาก Google Sheet แล้ว ✓ สำเร็จครบทุกภารกิจ • ความก้าวหน้า 100%';
-    if (!node || text(node.textContent) === desired) return;
-    node.textContent = desired;
-    node.dataset.eapFinalReceipt = 'true';
+    if (!node) return;
+    if (text(node.textContent) !== desired) node.textContent = desired;
+    if (node.dataset.eapFinalReceipt !== 'true') node.dataset.eapFinalReceipt = 'true';
   }
 
   function ensureCompletionCard() {
@@ -105,17 +100,20 @@
       else root.appendChild(card);
     }
 
-    card.innerHTML = [
-      '<h3>🏆 EAP Word Quest สำเร็จครบแล้ว!</h3>',
-      '<p>คุณผ่านครบทั้ง 20 ภารกิจของ Vocabulary Arc รวมถึง BG5 · Human Override Summit และผลได้รับการยืนยันจาก Google Sheet เรียบร้อยแล้ว</p>',
-      '<p>สามารถกลับหน้าหลักเพื่อดูเส้นทางที่สำเร็จ หรือทบทวน Weak Words ใน Word Deck ได้ตามต้องการ</p>',
-      '<div class="eap-v295-chips">',
-      '<span class="eap-v295-chip">20/20 Missions</span>',
-      '<span class="eap-v295-chip">Boss Gates 5/5</span>',
-      '<span class="eap-v295-chip">Progress 100%</span>',
-      '<span class="eap-v295-chip">Group 122</span>',
-      '</div>'
-    ].join('');
+    if (card.dataset.eapV295Rendered !== VERSION) {
+      card.innerHTML = [
+        '<h3>🏆 EAP Word Quest สำเร็จครบแล้ว!</h3>',
+        '<p>คุณผ่านครบทั้ง 20 ภารกิจของ Vocabulary Arc รวมถึง BG5 · Human Override Summit และผลได้รับการยืนยันจาก Google Sheet เรียบร้อยแล้ว</p>',
+        '<p>สามารถกลับหน้าหลักเพื่อดูเส้นทางที่สำเร็จ หรือทบทวน Weak Words ใน Word Deck ได้ตามต้องการ</p>',
+        '<div class="eap-v295-chips">',
+        '<span class="eap-v295-chip">20/20 Missions</span>',
+        '<span class="eap-v295-chip">Boss Gates 5/5</span>',
+        '<span class="eap-v295-chip">Progress 100%</span>',
+        '<span class="eap-v295-chip">Group 122</span>',
+        '</div>'
+      ].join('');
+      card.dataset.eapV295Rendered = VERSION;
+    }
     return card;
   }
 
@@ -130,22 +128,24 @@
     if (!screen || !nextButton) return;
 
     clearLegacyLabels(nextButton);
-    nextButton.dataset.eapV295Label = 'กลับหน้าหลัก';
-    nextButton.textContent = 'กลับหน้าหลัก';
-    nextButton.setAttribute('aria-label', 'กลับหน้าหลักหลังจบ EAP Word Quest');
-    nextButton.title = 'กลับหน้าหลักหลังจบ EAP Word Quest';
-    nextButton.disabled = false;
-    nextButton.setAttribute('aria-disabled', 'false');
-    nextButton.style.removeProperty('opacity');
-    nextButton.style.removeProperty('cursor');
-    screen.dataset.eapV295Complete = 'true';
+    if (nextButton.dataset.eapV295Label !== 'กลับหน้าหลัก') nextButton.dataset.eapV295Label = 'กลับหน้าหลัก';
+    if (text(nextButton.textContent) !== 'กลับหน้าหลัก') nextButton.textContent = 'กลับหน้าหลัก';
+    if (nextButton.getAttribute('aria-label') !== 'กลับหน้าหลักหลังจบ EAP Word Quest') {
+      nextButton.setAttribute('aria-label', 'กลับหน้าหลักหลังจบ EAP Word Quest');
+    }
+    if (nextButton.title !== 'กลับหน้าหลักหลังจบ EAP Word Quest') nextButton.title = 'กลับหน้าหลักหลังจบ EAP Word Quest';
+    if (nextButton.disabled) nextButton.disabled = false;
+    if (nextButton.getAttribute('aria-disabled') !== 'false') nextButton.setAttribute('aria-disabled', 'false');
+    if (nextButton.style.opacity) nextButton.style.removeProperty('opacity');
+    if (nextButton.style.cursor) nextButton.style.removeProperty('cursor');
+    if (screen.dataset.eapV295Complete !== 'true') screen.dataset.eapV295Complete = 'true';
   }
 
   function clearFinalActions() {
     var screen = byId('summaryScreen');
     var nextButton = byId('nextMissionBtn');
-    if (screen) delete screen.dataset.eapV295Complete;
-    if (nextButton) delete nextButton.dataset.eapV295Label;
+    if (screen && screen.dataset.eapV295Complete) delete screen.dataset.eapV295Complete;
+    if (nextButton && nextButton.dataset.eapV295Label) delete nextButton.dataset.eapV295Label;
   }
 
   function apply() {
@@ -154,7 +154,6 @@
     applying = true;
     try {
       addStyle();
-      removeLegacyCompletion();
 
       if (!summaryIsBg5() || !sheetConfirmed100()) {
         removeCompletionCard();
@@ -182,7 +181,13 @@
     observer = new MutationObserver(function () {
       if (!applying) schedule();
     });
-    observer.observe(screen, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'disabled', 'style'] });
+    observer.observe(screen, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['class', 'disabled', 'style']
+    });
   }
 
   document.addEventListener('click', function (event) {
@@ -211,13 +216,15 @@
   });
 
   window.inspectEapWordFinalCompletionV295 = function () {
+    var legacy234 = byId('eapV234FinalCard');
+    var legacy238 = byId('eapV238FinalPath');
     return {
       version: VERSION,
       bg5Summary: summaryIsBg5(),
       sheetConfirmed100: sheetConfirmed100(),
       singleCard: Boolean(byId('eapV295CompletionCard')),
-      legacyV234: Boolean(byId('eapV234FinalCard')),
-      legacyV238: Boolean(byId('eapV238FinalPath')),
+      legacyV234Hidden: Boolean(legacy234 && window.getComputedStyle(legacy234).display === 'none'),
+      legacyV238Hidden: Boolean(legacy238 && window.getComputedStyle(legacy238).display === 'none'),
       visiblePrimaryLabel: text(byId('nextMissionBtn') && (byId('nextMissionBtn').dataset.eapV295Label || byId('nextMissionBtn').textContent))
     };
   };
