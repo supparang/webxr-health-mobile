@@ -11,13 +11,14 @@
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Stable Boot R43.1 • Runtime Compatibility Bridge</small></div>
+  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Stable Boot R43.2 • Cache-independent WHO Loader</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260731-HANDWASH-STABLE-R43.1-RUNTIME-COMPATIBILITY';
+    const RELEASE='20260731-HANDWASH-STABLE-R43.2-CACHE-INDEPENDENT-LOADER';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
+    sourceUrl.searchParams.set('_',String(Date.now()));
     fetch(sourceUrl,{cache:'no-store'})
       .then(response=>{if(!response.ok)throw new Error('โหลดหน้าเกมไม่สำเร็จ '+response.status);return response.text();})
       .then(source=>{
@@ -33,9 +34,8 @@
         html=html.replace(/<script src="\.\/handwash-summary-r8\.js[^>]*><\/script>/i,'');
         html=html.replace(
           /<script src="\.\/handwash-who-v4\.js[^>]*><\/script>/i,
-          '<script src="./handwash-runtime-source-normalizer-r39-1.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-7step-runtime-patch-r28.js?cv='+RELEASE+'"><\/script>'+ 
-          '<script src="./handwash-who-v4.js?cv='+RELEASE+'"><\/script>'+ 
+          '<script src="./handwash-who-loader-r43-2.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-unified-analytics-r30.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-summary-completion-r30.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-step-coach-r33.js?cv='+RELEASE+'"><\/script>'+ 
