@@ -1,6 +1,6 @@
-/* CSAI2601 UX Quest • Node Sheet Display Final Authority v3
- * Google Sheet is authoritative. This authority never creates a second
- * post-mission CTA; the canonical Quest Progress action is the only launcher.
+/* CSAI2601 UX Quest • Node Sheet Display Final Authority v4
+ * Google Sheet is authoritative. Keeps one clear next action and explains
+ * the remaining three-part requirement without implying Reflection is done.
  */
 (() => {
   'use strict';
@@ -10,14 +10,45 @@
   const NODE = String(q.get('node') || q.get('id') || 'W1').trim().toUpperCase();
   const ROOT = document.getElementById('uxqCanonicalNode') || document.body;
   const IN_STUDIO = q.get('phase') === 'studio';
+  const STYLE_ID = 'uxq-node-sheet-display-final-style-v4';
   let queued = false;
 
   const studioUrl = () => {
     const u = new URL(location.href);
     u.searchParams.set('phase', 'studio');
-    u.searchParams.set('v', 'node-sheet-final-v3-20260731');
+    u.searchParams.set('v', 'node-sheet-final-v4-20260731');
     return u.pathname + u.search + u.hash;
   };
+
+  function installStyle() {
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      [data-uxq-reflection-primary='1']{
+        background:linear-gradient(90deg,#6ee7ff,#79eda5)!important;
+        color:#071124!important;
+        border-color:transparent!important;
+        box-shadow:0 12px 28px rgba(74,222,128,.18)!important;
+        font-weight:950!important;
+        min-height:64px!important;
+        padding:14px 24px!important;
+      }
+      [data-uxq-mission-control-secondary='1']{
+        background:transparent!important;
+        color:#f3f7ff!important;
+        border:1px solid rgba(148,203,255,.35)!important;
+        box-shadow:none!important;
+        font-weight:800!important;
+      }
+      [data-uxq-reflection-note='1']{
+        margin-top:10px!important;
+        color:#d8e7ff!important;
+        font-weight:800!important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
   function leafText(pattern, replacement) {
     ROOT.querySelectorAll('*').forEach(el => {
@@ -36,6 +67,14 @@
     return /Studio Practice\s*(?:ยืนยันแล้ว|✓)|ยืนยันแล้ว\s*Google Sheet พบ Studio Artifact|2\/3\s*ยืนยันจากระบบ/i.test(pageText);
   }
 
+  function reflectionConfirmed() {
+    const authority = window.UXQNodeSheetAuthority || {};
+    const node = authority.studio || authority.node || authority.status || {};
+    if (node.reflectionSubmitted === true || node.hasReflection === true) return true;
+    if (document.body.dataset.uxqSheetReflection === '1') return true;
+    return /Reflection\s*(?:ยืนยันแล้ว|✓)|3\/3\s*ยืนยันจากระบบ/i.test(String(ROOT.textContent || ''));
+  }
+
   function removeGeneratedLargeCTA() {
     document.getElementById('uxqSheetStudioPrimaryCTA')?.remove();
     ROOT.querySelectorAll('.uxq-sheet-studio-cta').forEach(el => el.remove());
@@ -49,10 +88,11 @@
     });
   }
 
-  function normalizeCanonicalStudioAction() {
+  function normalizeActions() {
     ROOT.querySelectorAll('a,button').forEach(control => {
       if (control.closest('#uxqStudentStudioFinalV2,.artifact[data-studio-practice-v1]')) return;
       const label = String(control.textContent || '').replace(/\s+/g, ' ').trim();
+
       if (/^ทำ\s*Studio Practice\s*ต่อ/i.test(label) || /^เปิด\s*Studio Practice$/i.test(label)) {
         if (control.tagName === 'A') control.href = studioUrl();
         control.onclick = event => {
@@ -60,6 +100,17 @@
           location.assign(studioUrl());
         };
       }
+
+      if (/เขียน\s*Weekly Reflection/i.test(label)) {
+        control.dataset.uxqReflectionPrimary = '1';
+        control.removeAttribute('aria-disabled');
+        control.disabled = false;
+      }
+
+      if (/กลับ\s*Mission Control/i.test(label)) {
+        control.dataset.uxqMissionControlSecondary = '1';
+      }
+
       if (/เล่น\s*Mission\s*ซ้ำ|เล่นซ้ำเพื่อฝึกเพิ่มเติม/i.test(label) && IN_STUDIO) {
         control.remove();
       }
@@ -67,14 +118,33 @@
   }
 
   function setReflectionReady() {
-    leafText(/3\.\s*Weekly Reflection/i, '3. Weekly Reflection');
-    leafText(/^ยังไม่เปิด$/i, 'พร้อมเขียน');
-    leafText(/เล่นและผ่าน Mission เพื่อเปิด Reflection/i, 'Studio Practice ยืนยันแล้ว • เขียน Weekly Reflection ต่อได้ทันที');
+    if (reflectionConfirmed()) return;
+
+    leafText(/^พร้อมเขียน$/i, 'ยังไม่ได้ส่ง');
+    leafText(/^ยังไม่เปิด$/i, 'ยังไม่ได้ส่ง');
+    leafText(/Studio Practice ยืนยันแล้ว\s*•\s*เขียน Weekly Reflection ต่อได้ทันที/i,
+      'Studio Practice ยืนยันแล้ว • กรุณาเขียน Weekly Reflection เพื่อให้ครบ 3/3');
+    leafText(/เล่นและผ่าน Mission เพื่อเปิด Reflection/i,
+      'Studio Practice ยืนยันแล้ว • กรุณาเขียน Weekly Reflection เพื่อให้ครบ 3/3');
+    leafText(/ต้องเห็น 3\/3 จึงถือว่าส่งครบ.*$/i,
+      'Mission และ Studio Practice ผ่านแล้ว • เหลือเพียง Weekly Reflection เมื่อส่งแล้ว W นี้จะครบ 3/3');
     leafText(/ขั้นตอนถัดไป:\s*Weekly Reflection/i, 'ขั้นตอนถัดไป: Weekly Reflection');
+
+    const tracker = Array.from(ROOT.querySelectorAll('section,article,div')).find(el => {
+      const value = String(el.textContent || '').replace(/\s+/g, ' ');
+      return /ตรวจความครบ 3 ส่วน/i.test(value) && /2\/3\s*ยืนยันจากระบบ/i.test(value);
+    });
+    if (tracker && !tracker.querySelector('[data-uxq-reflection-note]')) {
+      const note = document.createElement('p');
+      note.dataset.uxqReflectionNote = '1';
+      note.textContent = 'เหลือ 1 ขั้นตอน: เขียน Weekly Reflection แล้วรอ Google Sheet ยืนยัน จึงจะครบ 3/3';
+      tracker.appendChild(note);
+    }
   }
 
   function apply() {
     queued = false;
+    installStyle();
     const authority = window.UXQNodeSheetAuthority;
     if (!authority || !authority.missionPassed) return;
 
@@ -89,7 +159,7 @@
     });
 
     removeGeneratedLargeCTA();
-    normalizeCanonicalStudioAction();
+    normalizeActions();
 
     if (studioConfirmed()) {
       document.body.dataset.uxqSheetStudio = '1';
