@@ -53,8 +53,7 @@ function drawAura(ctx,now,c){
   ctx.fillStyle='#fff7ed';
   for(let i=0;i<4;i++){
    const a=now*.002+i*Math.PI*.5;
-   const x=Math.cos(a)*39,y=-25+Math.sin(a)*45;
-   ellipse(ctx,x,y,2.2,2.2);
+   ellipse(ctx,Math.cos(a)*39,-25+Math.sin(a)*45,2.2,2.2);
   }
  }
  ctx.restore();
@@ -68,7 +67,7 @@ function drawWing(ctx,side,flap,emotion){
  ctx.fillStyle=emotion==='miss'?'#fbbf24':'#facc15';
  ellipse(ctx,sx*2,0,12,17,sx*.38);
  ctx.fillStyle='#fde68a';
- ellipse(ctx,sx*1,-2,5.5,11,sx*.32);
+ ellipse(ctx,sx,-2,5.5,11,sx*.32);
  ctx.restore();
 }
 
@@ -76,43 +75,42 @@ function drawDuck(ctx,now,isDuck,jumpLocal){
  const dt=Math.min(50,now-state.lastNow);state.lastNow=now;
  state.hitPulse=Math.max(0,state.hitPulse-dt/360);
  state.missShake=Math.max(0,state.missShake-dt/420);
- if(now>=state.blinkAt){state.blinkUntil=now+120;state.blinkAt=now+2500+Math.random()*1900}
+ if(now>=state.blinkAt){
+  state.blinkUntil=now+120;
+  state.blinkAt=now+2500+Math.random()*1900;
+ }
  if(now>state.emotionUntil)state.emotion='normal';
 
  const jumping=jumpLocal>7;
  const speed=phaseSpeed();
  const bob=(!jumping&&!isDuck&&!reducedMotion)?Math.sin(now*.015*speed)*2.8:0;
- const flapBase=reducedMotion?.05:(.10+Math.sin(now*.028*speed)*.17);
- const happyFlap=state.emotion==='happy'||state.emotion==='wow'?.12:0;
+ const flapBase=reducedMotion ? .05 : (.10+Math.sin(now*.028*speed)*.17);
+ const happyFlap=(state.emotion==='happy'||state.emotion==='wow') ? .12 : 0;
  const flap=flapBase+happyFlap;
  const shake=state.missShake>0&&!reducedMotion?Math.sin(now*.075)*3.2*state.missShake:0;
  const pulse=1+state.hitPulse*.10;
  const jumpStretch=jumping?1.06:1;
- const squash=isDuck?.92:1;
+ const squash=isDuck ? .92 : 1;
 
  drawShadow(ctx,jumpLocal,isDuck);
  ctx.save();
  ctx.translate(shake,bob);
- ctx.scale(pulse*(jumping?.96:1),pulse*jumpStretch*squash);
+ ctx.scale(pulse*(jumping ? .96 : 1),pulse*jumpStretch*squash);
  drawAura(ctx,now,combo());
 
- // Feet and running cadence
  const step=reducedMotion?0:Math.sin(now*.025*speed)*3.2;
  ctx.strokeStyle='#f97316';ctx.lineWidth=3;ctx.lineCap='round';
  ctx.beginPath();ctx.moveTo(-8,-3);ctx.lineTo(-8+step,5);ctx.moveTo(8,-3);ctx.lineTo(8-step,5);ctx.stroke();
  ctx.fillStyle='#fb923c';ellipse(ctx,-8+step,6,7,2.8,-.12);ellipse(ctx,8-step,6,7,2.8,.12);
 
- // Body
  ctx.fillStyle=state.emotion==='miss'?'#fbbf24':'#facc15';
  ellipse(ctx,0,-20,25,23);
  ctx.fillStyle='#fde68a';ellipse(ctx,0,-17,15,14);
  drawWing(ctx,-1,flap,state.emotion);drawWing(ctx,1,flap,state.emotion);
 
- // Head
  ctx.fillStyle='#facc15';ellipse(ctx,0,-49,17.5,17.5);
  ctx.fillStyle='#fde047';ellipse(ctx,-4,-52,11,10);
 
- // Eyes and expression
  const blink=now<state.blinkUntil;
  ctx.strokeStyle='#1f2937';ctx.fillStyle='#1f2937';ctx.lineWidth=2.8;ctx.lineCap='round';
  if(state.emotion==='happy'||state.emotion==='wow'){
@@ -127,11 +125,9 @@ function drawDuck(ctx,now,isDuck,jumpLocal){
   ctx.fillStyle='#fff';ellipse(ctx,-5.3,-54,0.8,1);ellipse(ctx,6.7,-54,0.8,1);
  }
 
- // Beak
  ctx.fillStyle=state.emotion==='miss'?'#fb7185':'#fb923c';
  ctx.beginPath();ctx.moveTo(-10,-46);ctx.quadraticCurveTo(0,-41,10,-46);ctx.quadraticCurveTo(0,-50,-10,-46);ctx.fill();
 
- // Hero badge for strong combo
  const c=combo();
  if(c>=8){
   ctx.fillStyle='#0ea5e9';ctx.strokeStyle='#fff';ctx.lineWidth=1.5;
