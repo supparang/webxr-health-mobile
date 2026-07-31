@@ -1,18 +1,19 @@
 (()=>{'use strict';
 const config=window.HH_CONFIG;
 if(!config)return;
-config.platformVersion=String(config.platformVersion||'HeroHealth')+'-JUMPDUCK-V56-BALANCE-V47';
-config.deploymentState=String(config.deploymentState||'QA')+'_JUMPDUCK_VISUAL_POLISH_V56_BALANCE_BALANCED_BANK_V47';
+config.platformVersion=String(config.platformVersion||'HeroHealth')+'-JUMPDUCK-V57-BALANCE-V47';
+config.deploymentState=String(config.deploymentState||'QA')+'_JUMPDUCK_RESULT_POLISH_V57_BALANCE_BALANCED_BANK_V47';
 const fitness=(config.zones||[]).find(zone=>zone&&zone.id==='fitness');
 const jumpduck=fitness?.games?.find(game=>game&&game.id==='jumpduck');
 if(jumpduck){
-  jumpduck.url='../fitness/jumpduck-classroom-v26-ar.html?v=20260731-visual-polish-v56';
-  jumpduck.status='classroom-core-v5.6-lightweight-visual-polish';
+  jumpduck.url='../fitness/jumpduck-classroom-v26-ar.html?v=20260731-result-polish-v57';
+  jumpduck.status='classroom-core-v5.7-localized-result-achievements';
   jumpduck.inputMode='movenet-lightning-body-tracking';
   jumpduck.horizontalDirectionPolicy='front-camera-output-x-inversion-v55';
   jumpduck.calibrationPolicy='real-camera-visible-calibration-with-camera-hold-v54';
   jumpduck.centerPolicy='wide-center-asymmetric-hysteresis';
   jumpduck.visualEffectProfile='canvas2d-lightweight-parallax-v56';
+  jumpduck.resultProfile='thai-labels-achievements-save-state-confetti-v57';
   jumpduck.performancePolicy='adaptive-15-22-30fps-low-particle-cap';
 }
 const balance=fitness?.games?.find(game=>game&&game.id==='balance-hold');
@@ -31,6 +32,6 @@ if(balance){
 }
 const classroom=config.missionProfiles?.CLASS_60;
 if(classroom){
-  classroom.description=String(classroom.description||'')+' JumpDuck V5.6 คงระบบตรวจจับร่างกาย ทิศทางซ้าย–ขวา และ Camera Hold เดิมทั้งหมด พร้อมเพิ่ม Parallax ฉากหลัง เมฆ ภูเขา ต้นไม้ ป้ายสุขภาพ Speed Line Combo Aura และ Final Rush Flash ด้วย Canvas 2D แบบแยกชั้น โดยปรับเฟรมเรตและจำนวนอนุภาคตามกำลังอุปกรณ์เพื่อไม่รบกวน MoveNet Balance Hold V47 คง 6 ท่าต่อรอบเพื่อเหมาะกับฐาน 10 นาที แต่สุ่มจากลำดับสมดุล 12 รูปแบบ โดยทุกคนได้รับท่ามาตรฐานชุดเดียวกันครบทั้งซ้าย–ขวาและไม่ซ้ำรูปแบบเดิมทันที พร้อมบันทึก Sequence ID และลำดับจริงเพื่อวิเคราะห์งานวิจัย';
+  classroom.description=String(classroom.description||'')+' JumpDuck V5.7 คง MoveNet ทิศทางซ้าย–ขวา Camera Hold และ Visual Polish เดิมทั้งหมด พร้อมปรับหน้าสรุปเป็นภาษาไทย ซ่อน Reaction เมื่อไม่มีข้อมูล เพิ่มเหรียญความสำเร็จ ระดับผล สถานะส่งผลกลับ Passport เอฟเฟกต์ถ้วยและกระดาษโปรยแบบสั้น โดยไม่แก้ระบบตรวจจับร่างกายหรือเกณฑ์คะแนน Balance Hold V47 คง 6 ท่าต่อรอบเพื่อเหมาะกับฐาน 10 นาที แต่สุ่มจากลำดับสมดุล 12 รูปแบบ โดยทุกคนได้รับท่ามาตรฐานชุดเดียวกันครบทั้งซ้าย–ขวาและไม่ซ้ำรูปแบบเดิมทันที พร้อมบันทึก Sequence ID และลำดับจริงเพื่อวิเคราะห์งานวิจัย';
 }
 })();
