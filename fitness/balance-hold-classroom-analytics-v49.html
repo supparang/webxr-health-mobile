@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#dff7ff">
+<title>Balance Hold • Unified Analytics</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#dff7ff}
+iframe{position:fixed;inset:0;width:100%;height:100%;border:0}
+.tag{position:fixed;z-index:5;right:8px;top:calc(8px + env(safe-area-inset-top));padding:4px 8px;border-radius:999px;background:#0f766ed9;color:#fff;font:900 10px system-ui;pointer-events:none;display:none}
+</style>
+</head>
+<body>
+<iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe><div class="tag">Analytics V49</div>
+<script>
+(()=>{'use strict';
+const RELEASE='20260731-BALANCE-UNIFIED-ANALYTICS-V49-FINAL-POSE-WATCHDOG';
+const q=new URLSearchParams(location.search),frame=document.getElementById('game');
+const child=new URL('./balance-hold-ar2.html',location.href);
+q.forEach((value,key)=>child.searchParams.set(key,value));
+child.searchParams.set('classroom','1');
+child.searchParams.set('mode','classroom');
+child.searchParams.set('source','herohealth');
+child.searchParams.set('unifiedAnalytics','1');
+child.searchParams.set('richAnalyticsRequired','1');
+child.searchParams.set('finishWatchdog','v49');
+child.searchParams.set('_',Date.now());
+frame.src=child.href;
+
+let patchTimer=0;
+let pendingTimer=0;
+let finishTimer=0;
+let lastClock='';
+let lastClockChangedAt=Date.now();
+let recoveryRunning=false;
+const forwarded=new Set();
+
+const clean=value=>String(value==null?'':value).trim();
+const finite=value=>{const n=Number(value);return Number.isFinite(n)?n:undefined};
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+
+function currentEvaluation(BH){
+ const s=BH.state||{};
+ const key=typeof BH.currentPoseKey==='function'?BH.currentPoseKey():(s.currentKey==='boss'?s.bossKey:s.currentKey);
+ try{
+  const evaluated=BH.evaluatePose?.(s.latest,key);
+  if(evaluated&&typeof evaluated==='object')return evaluated;
+ }catch(_){}
+ return{
+  tracked:true,valid:true,
+  pose:finite(s.poseScore)??0,
+  stability:finite(s.stabilityScore)??0,
+  control:finite(s.controlScore)??0,
+  safe:finite(s.safeScore)??0,
+  confidence:finite(s.confidence)??0
+ };
+}
+
+function synthesizeFinalPose(BH,required){
+ const s=BH.state||{},a=s.currentAccumulator||{},ev=currentEvaluation(BH);
+ const total=Array.isArray(s.sequence)?s.sequence.length:0;
+ if(!total||!Array.isArray(s.results)||s.results.length>=total)return;
+ const key=typeof BH.currentPoseKey==='function'?BH.currentPoseKey():(s.currentKey==='boss'?s.bossKey:s.currentKey);
+ const samples=Math.max(1,finite(a.samples)??0);
+ const avg=(sum,fallback)=>Math.round((finite(sum)??0)/samples)||Math.round(finite(fallback)??0);
+ const poseAccuracy=avg(a.poseSum,ev.pose);
+ const stability=avg(a.stabilitySum,ev.stability);
+ const holdControl=avg(a.controlSum,ev.control);
+ const safeZone=avg(a.safeSum,ev.safe);
+ const confidence=avg(a.confidenceSum,ev.confidence);
+ const transitionMs=Math.max(0,(finite(s.firstValidAt)??Date.now())-(finite(s.transitionStart)??Date.now()));
+ const transitionEfficiency=clamp(100-Math.max(0,transitionMs-900)/38-(finite(s.currentLosses)??0)*7-(finite(s.assistLevel)??0)*4,35,100);
+ const transitionControl=Math.round(holdControl*.45+transitionEfficiency*.55);
+ const quality=clamp(Math.round(poseAccuracy*.35+stability*.30+transitionControl*.20+safeZone*.10+5),0,100);
+ const points=Math.max(80,Math.round(120+quality*2.25+(s.currentKey==='boss'?180:0)-(finite(s.assistLevel)??0)*18));
+ s.score=(finite(s.score)??0)+points;
+ s.results.push({
+  index:s.results.length+1,key,
+  title:BH.POSES?.[key]?.name||'Crystal Guardian',
+  poseAccuracy,stability,transitionControl,holdControl,safeZone,confidence,quality,
+  holdMs:Math.round(Math.max(finite(s.holdMs)??0,required)),
+  validMs:Math.round(finite(a.validMs)??required),
+  trackedMs:Math.round(finite(a.trackedMs)??required),
+  requiredMs:Math.round(required),transitionMs:Math.round(transitionMs),
+  losses:finite(s.currentLosses)??0,assistLevel:finite(s.assistLevel)??0,
+  passed:true,recoveredBy:'FINAL-POSE-WATCHDOG-V49'
+ });
+ s.index=total;
+}
+
+function finishRichRound(BH,reason){
+ const s=BH.state||{};
+ if(s.phase==='summary')return true;
+ try{BH.finish?.(reason);return s.phase==='summary'}catch(error){
+  console.error('[Balance Unified V49] finish failed',error);
+  return false;
+ }
+}
+
+function recoverFinalPose(BH,required){
+ if(recoveryRunning)return;
+ recoveryRunning=true;
+ const s=BH.state||{};
+ try{
+  s.holdMs=Math.max(finite(s.holdMs)??0,required);
+  const beforeResults=Array.isArray(s.results)?s.results.length:0;
+  try{BH.completePose?.(currentEvaluation(BH),required)}catch(error){
+   console.warn('[Balance Unified V49] native final-pose completion failed',error);
+  }
+  const total=Array.isArray(s.sequence)?s.sequence.length:0;
+  if((Array.isArray(s.results)?s.results.length:0)===beforeResults&&beforeResults<total){
+   synthesizeFinalPose(BH,required);
+  }
+  if(s.phase!=='summary')finishRichRound(BH,'completed-watchdog-v49');
+  setTimeout(()=>{
+   try{
+    if(BH.state?.phase!=='summary'){
+     synthesizeFinalPose(BH,required);
+     finishRichRound(BH,'completed-watchdog-v49-fallback');
+    }
+   }finally{recoveryRunning=false}
+  },250);
+ }catch(error){
+  recoveryRunning=false;
+  console.error('[Balance Unified V49] final-pose recovery failed',error);
+ }
+}
+
+function checkFinalPose(){
+ let w,BH,s,e;
+ try{w=frame.contentWindow;BH=w?.BH;s=BH?.state;e=BH?.el}catch(_){return}
+ if(!BH||!s||!e)return;
+ if(s.phase==='summary'){clearInterval(finishTimer);return}
+ const clock=clean(e.hudTime?.textContent);
+ if(clock!==lastClock){lastClock=clock;lastClockChangedAt=Date.now()}
+ if(s.phase!=='play'||!Array.isArray(s.sequence)||!s.sequence.length)return;
+ const total=s.sequence.length;
+ if(s.index>=total||s.results?.length>=total){
+  finishRichRound(BH,'completed-watchdog-v49-index');
+  return;
+ }
+ const finalPose=s.index===total-1;
+ if(!finalPose)return;
+ const cfg=BH.CONFIG?.[e.difficulty?.value]||BH.CONFIG?.easy||BH.CONFIG?.normal||{};
+ const assistFactor=1-(finite(s.assistLevel)??0)*.075;
+ const required=Math.max(1,((finite(cfg.hold)??1200)+(s.currentKey==='boss'?450:0))*assistFactor);
+ const progress=clamp((finite(s.holdMs)??0)/required,0,1);
+ const cue=clean(e.coachMain?.textContent||e.coach?.textContent);
+ const passedCue=/ผ่านแล้ว|เยี่ยม/.test(cue);
+ const clockStalled=Date.now()-lastClockChangedAt>=2200;
+ const nearComplete=progress>=.90||(passedCue&&progress>=.82);
+ if(clockStalled&&nearComplete)recoverFinalPose(BH,required);
+}
+
+function patch(){
+ try{
+  const w=frame.contentWindow;
+  if(!w)return false;
+  w.HH_BALANCE_UNIFIED_ONLY=true;
+  if(w.BH){
+   w.BH.ENDPOINT='';
+   w.BH.submitSummary=async summary=>console.info('[Balance Unified V49] legacy endpoint skipped',summary?.roundId||'');
+   w.BH.flushQueue=async()=>{};
+   if(!finishTimer)finishTimer=setInterval(checkFinalPose,250);
+   return true;
+  }
+ }catch(_){}
+ return false;
+}
+frame.addEventListener('load',()=>{
+ let tries=0;
+ clearInterval(patchTimer);clearInterval(finishTimer);finishTimer=0;
+ lastClock='';lastClockChangedAt=Date.now();recoveryRunning=false;
+ patchTimer=setInterval(()=>{tries++;if(patch()||tries>180)clearInterval(patchTimer)},50);
+});
+
+function readStored(){
+ try{
+  const w=frame.contentWindow;
+  const keys=['HHA_BALANCE_HOLD_LAST_RESULT','fitness_balance_hold_last',w?.BH?.KEY_LAST].filter(Boolean);
+  for(const key of keys){
+   try{
+    const parsed=JSON.parse(w.localStorage.getItem(key)||'null');
+    if(parsed&&typeof parsed==='object')return parsed;
+   }catch(_){}
+  }
+  for(const value of [w.__HH_BALANCE_RESULT_V36__,w.__BALANCE_HOLD_LAST_RESULT__]){
+   if(value&&typeof value==='object')return value;
+  }
+ }catch(_){}
+ return null;
+}
+
+function richEnough(raw){
+ if(!raw||typeof raw!=='object')return false;
+ const scalarFields=['assessmentScore','poseAccuracy','stabilityScore','transitionScore','safeZoneScore','trackingCoverage'];
+ const scalarCount=scalarFields.filter(key=>finite(raw[key])!==undefined).length;
+ const poses=Array.isArray(raw.poseResults)&&raw.poseResults.length>0;
+ return scalarCount>=5&&poses;
+}
+
+function poseEvents(poseResults,finishedAt){
+ return poseResults.map((pose,index)=>({
+  eventType:'pose_result',eventName:'pose_result',eventTs:finishedAt,index:index+1,
+  poseKey:pose.key||'',poseTitle:pose.title||'',passed:pose.passed!==false,
+  poseAccuracy:finite(pose.poseAccuracy)??0,stability:finite(pose.stability)??0,
+  transitionControl:finite(pose.transitionControl)??0,safeZone:finite(pose.safeZone)??0,
+  confidence:finite(pose.confidence)??0,holdMs:finite(pose.holdMs)??0,
+  requiredMs:finite(pose.requiredMs)??0,losses:finite(pose.losses)??0,
+  assistLevel:finite(pose.assistLevel)??0,recoveredBy:pose.recoveredBy||''
+ }));
+}
+
+function normalize(raw){
+ const source=raw&&typeof raw==='object'?raw:{};
+ const studentId=clean(source.studentId||q.get('studentId')||q.get('sid'));
+ const eventId=clean(source.eventId||source.record_id||source.roundId||source.attemptId)||`HH-game-fitness-balance-hold-${studentId||'anon'}-${Date.now()}`;
+ const poseResults=Array.isArray(source.poseResults)?source.poseResults:[];
+ const completedPoses=finite(source.completedPoses)??poseResults.length;
+ const totalPoses=Math.max(1,finite(source.totalPoses)??6);
+ const poseAccuracy=finite(source.poseAccuracy)??0;
+ const assessmentScore=finite(source.assessmentScore)??0;
+ const completed=source.completed===true||completedPoses>=totalPoses;
+ const passed=source.passed===true||source.skillCriteriaMet===true||assessmentScore>=60;
+ const finishedAt=source.finishedAt||source.ts||new Date().toISOString();
+ const stepResults=poseEvents(poseResults,finishedAt);
+ return{
+  ...source,eventId,record_id:eventId,studentId,
+  game:'balance-hold',gameId:'balance-hold',zone:'fitness',
+  assessmentScore,poseAccuracy,accuracy:poseAccuracy,
+  stabilityScore:finite(source.stabilityScore)??0,
+  transitionScore:finite(source.transitionScore)??0,
+  safeZoneScore:finite(source.safeZoneScore)??0,
+  trackingCoverage:finite(source.trackingCoverage)??0,
+  trackingConfidence:finite(source.trackingConfidence)??0,
+  validHoldRatio:finite(source.validHoldRatio)??0,
+  completedPoses,totalPoses,poseResults,stepResults,
+  completed,procedureCompleted:completed,progressionEligible:completed,
+  passed,skillCriteriaMet:passed,
+  inputMode:source.inputMode||source.mode||'classroom-pose',
+  gameVersion:source.gameVersion||source.version||RELEASE,
+  analyticsSchemaVersion:'HH-UNIFIED-GAME-ANALYTICS-V3',
+  completionPolicy:'one-classroom-round-completes-skill-separate',
+  retryRequired:false,singleAttemptPolicy:true,coreResultOnly:false,
+  fullAnalyticsSubmitted:true,balanceRichAnalytics:true,
+  analyticsProxyRelease:RELEASE,finishedAt
+ };
+}
+
+function forward(payload){
+ const official=normalize(payload),key=official.eventId;
+ if(forwarded.has(key))return;
+ forwarded.add(key);
+ clearInterval(finishTimer);finishTimer=0;
+ try{parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:official},location.origin)}catch(_){}
+}
+
+async function waitAndForward(seed){
+ clearTimeout(pendingTimer);
+ let candidate=seed;
+ for(let attempt=0;attempt<24;attempt++){
+  const stored=readStored();
+  if(stored&&typeof stored==='object')candidate={...(candidate||{}),...stored};
+  if(richEnough(candidate)){forward(candidate);return true}
+  await sleep(100);
+ }
+ console.warn('[Balance Unified V49] rejected incomplete completion payload',candidate);
+ return false;
+}
+
+addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
+ const message=event.data||{};
+ if(message.type==='HEROHEALTH_GAME_STARTED'){
+  try{parent.postMessage(message,location.origin)}catch(_){}
+  return;
+ }
+ if(message.type==='HEROHEALTH_GAME_COMPLETE'&&message.payload){
+  if(richEnough(message.payload))forward(message.payload);
+  else waitAndForward(message.payload);
+ }
+});
+
+console.info('[Balance Hold] Unified Analytics V49 ready',RELEASE);
+})();
+</script>
+</body>
+</html>
