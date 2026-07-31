@@ -1,6 +1,7 @@
-/* CSAI2601 UX Quest • Studio Scroll Final Authority v1
- * Gives Studio its own native vertical scroll region so students can always
- * reach Self-check and Submit even when older page runtimes constrain body.
+/* CSAI2601 UX Quest • Studio Scroll Final Authority v1.1
+ * Gives Studio its own native vertical scroll region and preserves the user's
+ * position while late-rendered content is added. It never observes or rewrites
+ * its own style mutations in a loop.
  */
 (() => {
   'use strict';
@@ -43,14 +44,25 @@
     queued = false;
     installStyle();
     document.body.dataset.uxqRoutePhase = 'studio';
+
     const artifact = document.querySelector('.artifact[data-studio-practice-v1]');
     if (!artifact) return;
+
+    const previousTop = artifact.scrollTop;
     artifact.style.setProperty('overflow-y','auto','important');
     artifact.style.setProperty('overflow-x','hidden','important');
     artifact.style.setProperty('max-height','calc(100dvh - 118px)','important');
     artifact.style.setProperty('-webkit-overflow-scrolling','touch','important');
     artifact.style.setProperty('touch-action','pan-y pinch-zoom','important');
     artifact.style.setProperty('overscroll-behavior-y','contain','important');
+
+    // Late-rendered Studio fields must not pull a learner back to the top.
+    if (previousTop > 0) {
+      requestAnimationFrame(() => {
+        const maxTop = Math.max(0, artifact.scrollHeight - artifact.clientHeight);
+        artifact.scrollTop = Math.min(previousTop, maxTop);
+      });
+    }
   }
 
   function queue() {
@@ -61,8 +73,11 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',queue,{once:true});
   else queue();
-  new MutationObserver(queue).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class']});
+
+  // Observe only structural changes. Observing style/class caused a feedback loop
+  // because this authority writes those same properties itself.
+  new MutationObserver(queue).observe(document.body,{childList:true,subtree:true});
   window.addEventListener('resize',queue,{passive:true});
   window.addEventListener('orientationchange',()=>setTimeout(queue,120),{passive:true});
-  [100,300,700,1400,2600,5000].forEach(ms=>setTimeout(queue,ms));
+  [100,300,700,1400,2600].forEach(ms=>setTimeout(queue,ms));
 })();
