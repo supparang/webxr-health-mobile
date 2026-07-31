@@ -1,18 +1,18 @@
-/* CSAI2601 UX Quest • Three-Part Restore Authority v1
+/* CSAI2601 UX Quest • Three-Part Restore Authority v1.1
  * Google Sheet remains the sole official authority.
- * Recovers Studio/Reflection progress after mission restore and prevents permanent loading.
+ * Separates historical Sheet submissions from contiguous course completion.
  */
 (() => {
   'use strict';
 
   const ORDER = ['w1','w2','w3','b1','w4','w5','w6','w7','b2','w8','w9','w10','w11','b3','w12','w13','w14','b4','w15'];
-  const VERSION = '20260731-THREE-PART-RESTORE-AUTHORITY-V1';
+  const VERSION = '20260731-THREE-PART-RESTORE-AUTHORITY-V1.1';
   let missionSnapshot = window.UXQMissionSheetSnapshot || null;
   let running = false;
   let lastIdentityKey = '';
 
   const text = (value, max = 500) => String(value == null ? '' : value).trim().slice(0, max);
-  const escapeHtml = value => text(value, 1200).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const escapeHtml = value => text(value, 1200).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[ch]));
 
   function profile() {
     let value = {};
@@ -53,30 +53,6 @@
     }
   }
 
-  function jsonp(url, attempt) {
-    return new Promise((resolve, reject) => {
-      const callback = `__uxqThreePart_${Date.now()}_${attempt}_${Math.random().toString(36).slice(2)}`;
-      const script = document.createElement('script');
-      let settled = false;
-      const timer = setTimeout(() => finish(new Error('studio_progress_timeout')), 18000);
-
-      function finish(error, data) {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        try { delete window[callback]; } catch (_) { window[callback] = undefined; }
-        script.remove();
-        error ? reject(error) : resolve(data);
-      }
-
-      window[callback] = data => finish(null, data);
-      script.onerror = () => finish(new Error('studio_progress_network'));
-      script.async = true;
-      script.src = url;
-      document.head.appendChild(script);
-    });
-  }
-
   async function requestStudio(p) {
     const base = receiverUrl();
     if (!base) throw new Error('receiver_url_missing');
@@ -87,7 +63,6 @@
       url.searchParams.set('studentId', p.studentId);
       url.searchParams.set('section', p.section);
       url.searchParams.set('courseId', window.UXQ_CLASSROOM_CONFIG?.courseId || 'UXQ-ACT1-2026');
-      url.searchParams.set('callback', `__placeholder_${attempt}`);
       url.searchParams.set('_', String(Date.now()));
       const callbackName = `__uxqThreePart_${Date.now()}_${attempt}_${Math.random().toString(36).slice(2)}`;
       url.searchParams.set('callback', callbackName);
@@ -144,7 +119,7 @@
   function nodeHref(state) {
     const url = new URL('./csai2601-canonical-node-clean-v1.html', location.href);
     url.searchParams.set('node', state.id.toUpperCase());
-    url.searchParams.set('v', 'three-part-authority-v1-20260731');
+    url.searchParams.set('v', 'three-part-authority-v1-1-20260731');
     if (state.mission && !state.complete) url.searchParams.set('phase', 'studio');
     return url.pathname + url.search;
   }
@@ -157,11 +132,11 @@
       const badge = card.querySelector('.stage-state');
       const launch = card.querySelector('.campaign-launch');
       if (badge) {
-        badge.textContent = state.complete ? 'ครบ 3/3' : state.mission ? `Mission ผ่านแล้ว • เหลือ ${2 - Number(state.studio) - Number(state.reflection)} ส่วน` : locked ? 'ล็อกตามลำดับ 3/3' : 'พร้อมเริ่ม Mission';
+        badge.textContent = state.complete ? '✅ Complete 3/3' : state.mission ? `Mission ผ่านแล้ว • เหลือ ${2 - Number(state.studio) - Number(state.reflection)} ส่วน` : locked ? '🔒 รอ Node ก่อนหน้าครบ 3/3' : 'พร้อมเริ่ม Mission';
       }
       if (launch) {
         launch.href = locked ? '#' : nodeHref(state);
-        launch.textContent = locked ? 'ล็อก 3/3' : !state.mission ? 'เริ่ม Mission' : !state.studio ? 'ทำ Studio Practice' : !state.reflection ? 'ทำ Weekly Reflection' : 'ดูผลงาน';
+        launch.textContent = locked ? 'ล็อกตามลำดับ' : !state.mission ? 'เริ่ม Mission' : !state.studio ? 'ทำ Studio Practice' : !state.reflection ? 'ทำ Weekly Reflection' : 'ดู Studio & Reflection';
         launch.setAttribute('aria-disabled', locked ? 'true' : 'false');
         launch.onclick = locked ? event => event.preventDefault() : null;
       }
@@ -182,24 +157,25 @@
     if (box) {
       box.innerHTML = `
         <h2>ความก้าวหน้ารายวิชา</h2>
-        <p>Google Sheet ยืนยัน Mission, Studio Practice และ Weekly Reflection แล้ว</p>
+        <p><strong>Course Complete</strong> นับเฉพาะ Node ที่ครบ Mission + Studio Practice + Weekly Reflection ต่อเนื่องตามลำดับรายวิชา</p>
         <div class="studio-summary">
-          <span>Mission Completed<b>${missionCount}/${ORDER.length}</b></span>
-          <span>Studio Submitted<b>${studioCount}/${ORDER.length}</b></span>
-          <span>Reflection Submitted<b>${reflectionCount}/${ORDER.length}</b></span>
-          <span>Complete 3/3<b>${completeCount}/${ORDER.length}</b></span>
+          <span>Mission ที่ Sheet ยืนยัน<b>${missionCount}/${ORDER.length}</b></span>
+          <span>มี Studio ใน Sheet<b>${studioCount}/${ORDER.length}</b></span>
+          <span>มี Reflection ใน Sheet<b>${reflectionCount}/${ORDER.length}</b></span>
+          <span class="good">Course Complete ตามลำดับ<b>${contiguous}/${ORDER.length}</b></span>
         </div>
-        <p>${current ? `งานถัดไป: <strong>${current.id.toUpperCase()}</strong> • ${!current.mission ? 'Mission' : !current.studio ? 'Studio Practice' : 'Weekly Reflection'}` : 'ครบทั้งหลักสูตร 19/19 Nodes แล้ว'}</p>`;
+        <p>${current ? `งานที่ต้องทำต่อเพื่อปลดล็อกตามลำดับ: <strong>${current.id.toUpperCase()}</strong> • ${!current.mission ? 'Mission' : !current.studio ? 'Studio Practice' : 'Weekly Reflection'}` : 'ครบทั้งหลักสูตร 19/19 Nodes แล้ว'}</p>
+        ${completeCount > contiguous ? `<p class="uxq-progress-note">มีข้อมูลครบ 3/3 ใน Sheet รวม ${completeCount} Node แต่ระบบปลดล็อกอย่างเป็นทางการถึง ${contiguous} Node เพราะต้องครบต่อเนื่องตามเส้นทางรายวิชา</p>` : ''}`;
     }
 
     const progress = document.getElementById('progress');
     if (progress) progress.textContent = `Course Complete ${contiguous}/${ORDER.length}`;
 
     if (!current) {
-      setHero('ครบทั้งหลักสูตร 19/19 Nodes', 'Mission, Studio Practice และ Weekly Reflection ครบทุก Node', 'Portfolio พร้อมตรวจ', true);
+      setHero('ครบทั้งหลักสูตร 19/19 Nodes', 'Mission, Studio Practice และ Weekly Reflection ครบต่อเนื่องทุก Node', 'Portfolio พร้อมตรวจ', true);
     } else {
       const next = !current.mission ? 'Mission' : !current.studio ? 'Studio Practice' : 'Weekly Reflection';
-      setHero(`${current.id.toUpperCase()} • ${next}`, `Mission ${missionCount}/19 • Studio ${studioCount}/19 • Reflection ${reflectionCount}/19`, `เปิด ${next}`, false);
+      setHero(`${current.id.toUpperCase()} • ${next}`, `ปลดล็อกตามลำดับแล้ว ${contiguous}/19 • ข้อมูลใน Sheet: Studio ${studioCount}/19 • Reflection ${reflectionCount}/19`, `เปิด ${next}`, false);
       const link = document.getElementById('nextLink');
       if (link) link.href = nodeHref(current);
     }
@@ -214,15 +190,16 @@
     const box = overview();
     const message = text(error?.message || error || 'studio_progress_failed', 300);
     if (box) {
-      box.innerHTML = `<h2>ตรวจ Studio/Reflection ไม่สำเร็จ</h2><p>${escapeHtml(message)}</p><button type="button" id="uxqThreePartRetry">ลองตรวจอีกครั้ง</button>`;
+      box.innerHTML = `<h2>ยังตรวจ Studio/Reflection ไม่สำเร็จ</h2><p>กำลังเชื่อมต่อข้อมูลการเรียน กรุณาลองอีกครั้ง</p><button type="button" id="uxqThreePartRetry">ตรวจสถานะอีกครั้ง</button>`;
       box.querySelector('#uxqThreePartRetry')?.addEventListener('click', () => boot(true));
     }
-    setHero('Mission โหลดแล้ว แต่ยังตรวจ 3 ส่วนไม่สำเร็จ', message, 'ลองตรวจอีกครั้ง', false);
+    setHero('กำลังเชื่อมต่อข้อมูลการเรียน', 'Mission โหลดแล้ว แต่ยังรอข้อมูล Studio และ Reflection จาก Google Sheet', 'ตรวจสถานะอีกครั้ง', false);
     const link = document.getElementById('nextLink');
     if (link) {
       link.href = '#';
       link.onclick = event => { event.preventDefault(); boot(true); };
     }
+    console.error('[UXQ three-part restore]', message);
   }
 
   async function waitReady() {
