@@ -1,13 +1,13 @@
 (()=>{'use strict';
 const config=window.HH_CONFIG;
 if(!config)return;
-config.platformVersion=String(config.platformVersion||'HeroHealth')+'-JUMPDUCK-V62-BALANCE-V47';
-config.deploymentState=String(config.deploymentState||'QA')+'_JUMPDUCK_EASIER_LANE_CONTROL_V62_BALANCE_BALANCED_BANK_V47';
+config.platformVersion=String(config.platformVersion||'HeroHealth')+'-JUMPDUCK-V63-BALANCE-V47';
+config.deploymentState=String(config.deploymentState||'QA')+'_JUMPDUCK_FINAL_CLOSEOUT_V63_BALANCE_BALANCED_BANK_V47';
 const fitness=(config.zones||[]).find(zone=>zone&&zone.id==='fitness');
 const jumpduck=fitness?.games?.find(game=>game&&game.id==='jumpduck');
 if(jumpduck){
-  jumpduck.url='../fitness/jumpduck-classroom-v26-ar.html?v=20260731-easier-lane-control-v62';
-  jumpduck.status='classroom-core-v6.2-easier-lane-control';
+  jumpduck.url='../fitness/jumpduck-classroom-v26-ar.html?v=20260731-final-closeout-v63';
+  jumpduck.status='production-final-v6.3-closed';
   jumpduck.inputMode='movenet-lightning-body-tracking';
   jumpduck.horizontalDirectionPolicy='front-camera-output-x-inversion-v55';
   jumpduck.calibrationPolicy='real-camera-visible-calibration-with-camera-hold-v54';
@@ -16,8 +16,9 @@ if(jumpduck){
   jumpduck.visualEffectProfile='canvas2d-lightweight-parallax-v56';
   jumpduck.duckAnimationProfile='vector-duck-v2-lean-landing-trail-wind-hero-streak-recovery-v60';
   jumpduck.objectResolveVisualPolicy='resolved-object-hidden-immediately-alpha-guard-v61';
-  jumpduck.resultProfile='thai-labels-achievements-save-state-confetti-v57-compact-layout-v58';
+  jumpduck.resultProfile='performance-aware-heading-thai-labels-achievements-save-state-confetti-v63';
   jumpduck.resultViewportPolicy='top-reset-fixed-passport-responsive-height-v58';
+  jumpduck.completionPolicy='one-round-complete-passport-authority';
   jumpduck.performancePolicy='adaptive-15-22-30fps-low-particle-cap';
 }
 const balance=fitness?.games?.find(game=>game&&game.id==='balance-hold');
@@ -36,6 +37,6 @@ if(balance){
 }
 const classroom=config.missionProfiles?.CLASS_60;
 if(classroom){
-  classroom.description=String(classroom.description||'')+' JumpDuck V6.2 คงทิศทางซ้ายไปซ้าย ขวาไปขวา MoveNet Camera Hold ระบบกระโดด ก้ม Visual Polish Duck Polish Pack V2 Object Consume Fix และหน้าสรุปเดิมทั้งหมด พร้อมเพิ่มความไวเฉพาะการเปลี่ยนเลนประมาณ 22% ด้วย Lateral Gain 1.286 ทำให้เกณฑ์ออกจากช่องกลางมีผลเทียบเท่าประมาณ 0.105 และกลับเข้ากลางประมาณ 0.058 โดยไม่เปลี่ยน Direction Fix และไม่กระทบเกมอื่น Balance Hold V47 คง 6 ท่าต่อรอบเพื่อเหมาะกับฐาน 10 นาที แต่สุ่มจากลำดับสมดุล 12 รูปแบบ โดยทุกคนได้รับท่ามาตรฐานชุดเดียวกันครบทั้งซ้าย–ขวาและไม่ซ้ำรูปแบบเดิมทันที พร้อมบันทึก Sequence ID และลำดับจริงเพื่อวิเคราะห์งานวิจัย';
+  classroom.description=String(classroom.description||'')+' JumpDuck V6.3 เป็นเวอร์ชัน Production Final โดยคง MoveNet ทิศทางซ้ายไปซ้าย ขวาไปขวา Camera Hold ระบบกระโดดและก้ม Visual Polish Duck Polish Pack V2 Object Consume Fix และ Lane Sensitivity V62 ทั้งหมด พร้อมปิดงานหน้าสรุปให้เปลี่ยนข้อความตามระดับและจำนวนภารกิจ ใช้คำว่า จังหวะยอดเยี่ยม แทนคำที่กำกวม แสดงการเล่นครบหนึ่งรอบโดยไม่อ้างว่าปลดล็อกก่อนตรวจ Google Sheet และแสดง Confetti เฉพาะผลระดับสูงที่ทำครบ 3 ภารกิจ โดยไม่เปลี่ยนคะแนน การชน หรือข้อมูลวิจัย Balance Hold V47 คง 6 ท่าต่อรอบเพื่อเหมาะกับฐาน 10 นาที แต่สุ่มจากลำดับสมดุล 12 รูปแบบ โดยทุกคนได้รับท่ามาตรฐานชุดเดียวกันครบทั้งซ้าย–ขวาและไม่ซ้ำรูปแบบเดิมทันที พร้อมบันทึก Sequence ID และลำดับจริงเพื่อวิเคราะห์งานวิจัย';
 }
 })();
