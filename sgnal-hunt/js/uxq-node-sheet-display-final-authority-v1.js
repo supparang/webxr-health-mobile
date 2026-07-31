@@ -1,4 +1,7 @@
-/* CSAI2601 UX Quest • Node Sheet Display Final Authority v2 */
+/* CSAI2601 UX Quest • Node Sheet Display Final Authority v3
+ * Google Sheet is authoritative. This authority never creates a second
+ * post-mission CTA; the canonical Quest Progress action is the only launcher.
+ */
 (() => {
   'use strict';
   const q = new URLSearchParams(location.search || '');
@@ -12,7 +15,7 @@
   const studioUrl = () => {
     const u = new URL(location.href);
     u.searchParams.set('phase', 'studio');
-    u.searchParams.set('v', 'node-sheet-final-v2-20260731');
+    u.searchParams.set('v', 'node-sheet-final-v3-20260731');
     return u.pathname + u.search + u.hash;
   };
 
@@ -29,21 +32,38 @@
     const node = authority.studio || authority.node || authority.status || {};
     if (node.studioSubmitted === true || node.artifactSubmitted === true || node.submitted === true) return true;
     if (document.body.dataset.uxqSheetStudio === '1') return true;
-    const text = String(ROOT.textContent || '');
-    return /Studio Practice\s*(?:ยืนยันแล้ว|✓)|ยืนยันแล้ว\s*Google Sheet พบ Studio Artifact|2\/3\s*ยืนยันจากระบบ/i.test(text);
+    const pageText = String(ROOT.textContent || '');
+    return /Studio Practice\s*(?:ยืนยันแล้ว|✓)|ยืนยันแล้ว\s*Google Sheet พบ Studio Artifact|2\/3\s*ยืนยันจากระบบ/i.test(pageText);
   }
 
-  function removeDuplicateSummaryActions() {
+  function removeGeneratedLargeCTA() {
+    document.getElementById('uxqSheetStudioPrimaryCTA')?.remove();
+    ROOT.querySelectorAll('.uxq-sheet-studio-cta').forEach(el => el.remove());
+    ROOT.querySelectorAll('a,button').forEach(control => {
+      const label = String(control.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!/^ทำ\s*Studio Practice\s*[•·-]\s*[WB]\d+$/i.test(label)) return;
+      if (control.closest('#uxqStudentStudioFinalV2,.artifact[data-studio-practice-v1]')) return;
+      const wrapper = control.closest('.uxq-final-primary-action,#uxqRuntimeNextCard,.uxq-runtime-next-card');
+      if (wrapper) wrapper.remove();
+      else control.remove();
+    });
+  }
+
+  function normalizeCanonicalStudioAction() {
     ROOT.querySelectorAll('a,button').forEach(control => {
       if (control.closest('#uxqStudentStudioFinalV2,.artifact[data-studio-practice-v1]')) return;
       const label = String(control.textContent || '').replace(/\s+/g, ' ').trim();
-      if (/ทำ\s*Studio Practice|เปิด\s*Studio Practice|เล่น\s*Mission\s*ซ้ำ|เล่นซ้ำเพื่อฝึกเพิ่มเติม/i.test(label)) {
-        const wrapper = control.closest('#uxqSheetStudioPrimaryCTA,.uxq-sheet-studio-cta,.uxq-final-primary-action');
-        if (wrapper) wrapper.remove();
-        else control.remove();
+      if (/^ทำ\s*Studio Practice\s*ต่อ/i.test(label) || /^เปิด\s*Studio Practice$/i.test(label)) {
+        if (control.tagName === 'A') control.href = studioUrl();
+        control.onclick = event => {
+          event.preventDefault();
+          location.assign(studioUrl());
+        };
+      }
+      if (/เล่น\s*Mission\s*ซ้ำ|เล่นซ้ำเพื่อฝึกเพิ่มเติม/i.test(label) && IN_STUDIO) {
+        control.remove();
       }
     });
-    document.getElementById('uxqSheetStudioPrimaryCTA')?.remove();
   }
 
   function setReflectionReady() {
@@ -51,24 +71,6 @@
     leafText(/^ยังไม่เปิด$/i, 'พร้อมเขียน');
     leafText(/เล่นและผ่าน Mission เพื่อเปิด Reflection/i, 'Studio Practice ยืนยันแล้ว • เขียน Weekly Reflection ต่อได้ทันที');
     leafText(/ขั้นตอนถัดไป:\s*Weekly Reflection/i, 'ขั้นตอนถัดไป: Weekly Reflection');
-  }
-
-  function ensureStudioCTA() {
-    if (IN_STUDIO || studioConfirmed()) {
-      removeDuplicateSummaryActions();
-      return;
-    }
-    let cta = document.getElementById('uxqSheetStudioPrimaryCTA');
-    if (!cta) {
-      cta = document.createElement('a');
-      cta.id = 'uxqSheetStudioPrimaryCTA';
-      cta.href = studioUrl();
-      cta.textContent = `ทำ Studio Practice • ${NODE}`;
-      cta.style.cssText = 'display:grid;place-items:center;width:min(620px,calc(100% - 32px));min-height:58px;margin:22px auto;padding:12px 18px;border-radius:16px;background:linear-gradient(90deg,#6ee7ff,#79eda5);color:#071124;text-decoration:none;font-weight:950;font-size:1.1rem';
-      (ROOT.querySelector('.results') || ROOT).appendChild(cta);
-    } else {
-      cta.href = studioUrl();
-    }
   }
 
   function apply() {
@@ -86,12 +88,12 @@
       return `${Number(mission.bestStars || mission.stars || 3)}/3 ดาว • ${Number(mission.bestScore || mission.score || 793)} คะแนน`;
     });
 
+    removeGeneratedLargeCTA();
+    normalizeCanonicalStudioAction();
+
     if (studioConfirmed()) {
       document.body.dataset.uxqSheetStudio = '1';
       setReflectionReady();
-      removeDuplicateSummaryActions();
-    } else {
-      ensureStudioCTA();
     }
 
     const boxes = Array.from(ROOT.querySelectorAll('*')).filter(el => /1\.\s*Mission\s*\/\s*Game/i.test(el.textContent || ''));
@@ -103,8 +105,6 @@
         if (!el.children.length && /ยังไม่ผ่าน/i.test(el.textContent || '')) el.textContent = 'ผ่านแล้ว';
       });
     });
-
-    if (IN_STUDIO) removeDuplicateSummaryActions();
   }
 
   function queue() {
@@ -118,5 +118,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', queue, { once: true });
   else queue();
   new MutationObserver(queue).observe(ROOT, { childList: true, subtree: true, characterData: true });
-  [300,800,1600,3000].forEach(ms => setTimeout(queue, ms));
+  [100,300,800,1600,3000].forEach(ms => setTimeout(queue, ms));
 })();
