@@ -11,11 +11,11 @@
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Summary Actions R39 + Active Target R38 + Full Viewport R37</small></div>
+  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Stable Boot R39.1 • Runtime Integrity Normalized</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260729-HANDWASH-SUMMARY-ACTIONS-R39-ROLLBACK';
+    const RELEASE='20260731-HANDWASH-STABLE-R39.1-SOURCE-NORMALIZER';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     fetch(sourceUrl,{cache:'no-store'})
@@ -33,6 +33,7 @@
         html=html.replace(/<script src="\.\/handwash-summary-r8\.js[^>]*><\/script>/i,'');
         html=html.replace(
           /<script src="\.\/handwash-who-v4\.js[^>]*><\/script>/i,
+          '<script src="./handwash-runtime-source-normalizer-r39-1.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-7step-runtime-patch-r28.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-who-v4.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-unified-analytics-r30.js?cv='+RELEASE+'"><\/script>'+ 
