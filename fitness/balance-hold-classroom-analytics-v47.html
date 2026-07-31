@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#dff7ff">
+<title>Balance Hold • Unified Analytics</title>
+<style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#dff7ff}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}.tag{position:fixed;z-index:5;right:8px;top:calc(8px + env(safe-area-inset-top));padding:4px 8px;border-radius:999px;background:#0f766ed9;color:#fff;font:900 10px system-ui;pointer-events:none}</style>
+</head>
+<body>
+<iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe><div class="tag">Analytics V47</div>
+<script>
+(()=>{'use strict';
+const RELEASE='20260731-BALANCE-UNIFIED-ANALYTICS-V47';
+const q=new URLSearchParams(location.search),frame=document.getElementById('game');
+const child=new URL('./balance-hold-ar2.html',location.href);
+q.forEach((value,key)=>child.searchParams.set(key,value));
+child.searchParams.set('classroom','1');child.searchParams.set('mode','classroom');child.searchParams.set('source','herohealth');child.searchParams.set('unifiedAnalytics','1');child.searchParams.set('_',Date.now());
+frame.src=child.href;
+let patchTimer=0;
+function patch(){try{const w=frame.contentWindow;if(!w)return false;w.HH_BALANCE_UNIFIED_ONLY=true;if(w.BH){w.BH.ENDPOINT='';w.BH.submitSummary=async summary=>{console.info('[Balance Unified Only] legacy endpoint skipped',summary?.roundId||'')};w.BH.flushQueue=async()=>{};return true}}catch(_){}return false}
+frame.addEventListener('load',()=>{let tries=0;clearInterval(patchTimer);patchTimer=setInterval(()=>{tries++;if(patch()||tries>160)clearInterval(patchTimer)},50)});
+function forward(message){try{parent.postMessage(message,location.origin)}catch(_){}}
+addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==frame.contentWindow)return;const m=event.data||{};if(m.type==='HEROHEALTH_GAME_STARTED'){forward(m);return}if(m.type==='HEROHEALTH_GAME_COMPLETE'&&m.payload){forward({type:m.type,payload:{...m.payload,coreResultOnly:false,fullAnalyticsSubmitted:true,legacyBalanceEndpointSkipped:true,analyticsProxyRelease:RELEASE}})}});
+})();
+</script>
+</body>
+</html>
