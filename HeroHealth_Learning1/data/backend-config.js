@@ -7,7 +7,8 @@ window.HH_CONFIG.backend = {
   duplicateGuard: true,
   syncIntervalMs: 15000,
   transportPolicy: "full-payload-single-submit",
-  gameShellVersion: "20260731-GAME-SHELL-AUTO-RETURN-R41",
+  gameShellVersion: "20260731-GAME-SHELL-AUTO-RETURN-R41-BALANCE-V49",
+  balanceAnalyticsVersion: "20260731-BALANCE-UNIFIED-ANALYTICS-V49-FINAL-POSE-WATCHDOG",
   loginRouteGuardVersion: "20260731-PROFILE-CONFIRM-ROUTE-GUARD-R42"
 };
 
