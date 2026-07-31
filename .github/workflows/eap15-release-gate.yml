@@ -37,7 +37,7 @@ jobs:
         run: node eap-hero-save-society-v1/qa/eap-analytics-v7-ui-browser.mjs
   live-sheet-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       EAP_ENDPOINT: https://script.google.com/macros/s/AKfycbwxHHHw6Pk4rMdDnTM_6jxcL2GYdABc0hHFOlc8r_NS4D-siLYv0P-OZg3cfINE9A8X5A/exec
     steps:
@@ -62,14 +62,20 @@ jobs:
             eap-apps-script-probe.log
             eap-apps-script-probe.status
           retention-days: 14
-      - name: 2. Verify S1 write and player_resume round-trip
+      - name: 2. Verify S1 write, Core Support unlock and player_resume
         if: always()
         env:
           EAP_PHASE: s1
         run: |
           set +e
-          node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs > eap-s1-roundtrip-probe.log 2>&1
-          echo "$?" > eap-s1-roundtrip-probe.status
+          : > eap-s1-roundtrip-probe.log
+          node eap-hero-save-society-v1/qa/eap-live-sheet-contract.mjs >> eap-s1-roundtrip-probe.log 2>&1
+          status=$?
+          if [ "$status" -eq 0 ]; then
+            node eap-hero-save-society-v1/qa/eap-live-progression-policy.mjs >> eap-s1-roundtrip-probe.log 2>&1
+            status=$?
+          fi
+          echo "$status" > eap-s1-roundtrip-probe.status
           exit 0
       - name: Preserve S1 round-trip probe
         if: always()
