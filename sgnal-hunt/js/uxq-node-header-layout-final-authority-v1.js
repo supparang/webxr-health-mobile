@@ -1,5 +1,5 @@
-/* CSAI2601 UX Quest • Node Header Layout Final Authority v1.4
- * One-shot header normalization and one-page Studio scrolling.
+/* CSAI2601 UX Quest • Node Header Layout Final Authority v1.5
+ * One-shot header normalization. Studio scrolling is delegated to one owner.
  */
 (() => {
   'use strict';
@@ -8,7 +8,7 @@
 
   if (q.get('phase') === 'studio' && !document.querySelector('script[data-uxq-studio-scroll-final]')) {
     const script = document.createElement('script');
-    script.src = './js/uxq-studio-scroll-final-authority-v1.js?v=studio-scroll-final-v1.4-20260731';
+    script.src = './js/uxq-studio-scroll-final-authority-v1.js?v=studio-scroll-final-v1.5-20260731';
     script.async = false;
     script.dataset.uxqStudioScrollFinal = '1';
     document.head.appendChild(script);
