@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#16a34a">
+<title>GoodJunk Hand AR • Unified Analytics</title>
+<style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#ecfdf5}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}.tag{position:fixed;z-index:5;right:8px;top:calc(8px + env(safe-area-inset-top));padding:4px 8px;border-radius:999px;background:#052e16d9;color:#fff;font:900 10px system-ui;pointer-events:none}</style>
+</head>
+<body>
+<iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe><div class="tag">Analytics V15</div>
+<script>
+(()=>{'use strict';
+const RELEASE='20260731-GOODJUNK-UNIFIED-ANALYTICS-V15';
+const q=new URLSearchParams(location.search),frame=document.getElementById('game');
+const child=new URL('../herohealth/goodjunk-ar-classroom-v12.html',location.href);
+q.forEach((value,key)=>child.searchParams.set(key,value));
+child.searchParams.set('analyticsProxy','unified-only');child.searchParams.set('wrapperRelease',RELEASE);child.searchParams.set('_',Date.now());
+frame.src=child.href;
+function forward(message){try{parent.postMessage(message,location.origin)}catch(_){}}
+addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==frame.contentWindow)return;const m=event.data||{};if(m.type==='HEROHEALTH_GAME_STARTED'){forward(m);return}if(m.type==='HEROHEALTH_GAME_COMPLETE'&&m.payload){forward({type:m.type,payload:{...m.payload,coreResultOnly:false,fullAnalyticsSubmitted:true,analyticsProxyRelease:RELEASE}})}});
+})();
+</script>
+</body>
+</html>
