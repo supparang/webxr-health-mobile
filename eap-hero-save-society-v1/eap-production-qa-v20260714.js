@@ -1,7 +1,7 @@
-/* EAP 15 Production QA v20260714 */
+/* EAP 15 Production QA v20260731 */
 (function(){
   'use strict';
-  var VERSION='v20260714-EAP15-PRODUCTION-QA-V2';
+  var VERSION='v20260731-EAP15-PRODUCTION-QA-V3-SERVER-RESUME';
   var ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
   function check(id,pass,detail,severity){return{id:id,pass:!!pass,detail:String(detail==null?'':detail),severity:severity||'error'};}
   function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
@@ -42,29 +42,12 @@
     checks.push(check('AUTHORITY_PRESENT',!!authority,authority&&authority.version||'missing'));
     if(authority){
       var d=authority.diagnostics();
-      checks.push(check('AUTHORITY_MODE',d.authorityMode==='live-sheet-only',d.authorityMode));
+      checks.push(check('AUTHORITY_MODE',d.authorityMode==='server-resume-only',d.authorityMode));
       checks.push(check('NO_LOCAL_EVIDENCE_AUTHORITY',d.acceptsLocalEvidence===false,d.acceptsLocalEvidence));
       checks.push(check('NO_COMPLETED_CACHE_AUTHORITY',d.acceptsCompletedSessionsCache===false,d.acceptsCompletedSessionsCache));
-      if(typeof authority.testEvaluate==='function'){
-        var localLike=[
-          {routeId:'S1',skill:'reading',score:100,passed:true},
-          {routeId:'S1',skill:'speaking',score:100,passed:true}
-        ];
-        var evaluated=authority.testEvaluate(localLike);
-        checks.push(check('PURE_SERVER_RECORD_EVALUATOR',evaluated.current==='S2',evaluated.current));
-        var pending=[
-          {routeId:'S1',skill:'reading',score:100,passed:true},{routeId:'S1',skill:'speaking',score:100,passed:true},
-          {routeId:'S2',skill:'reading',score:100,passed:true},{routeId:'S2',skill:'writing',score:100,passed:true},
-          {routeId:'S3',skill:'reading',score:100,passed:true},{routeId:'S3',skill:'writing',score:100,passed:true},
-          {routeId:'B1',skill:'reading',score:100,passed:true},{routeId:'B1',skill:'listening',score:100,passed:true},
-          {routeId:'B1',skill:'writing',score:100,passed:true},{routeId:'B1',skill:'speaking',score:100,passed:true,teacherReviewStatus:'pending_teacher_review'}
-        ];
-        var ep=authority.testEvaluate(pending);
-        checks.push(check('BOSS_PENDING_REVIEW_BLOCKS',ep.current==='B1',ep.current));
-        pending[pending.length-1].teacherReviewStatus='reviewed';
-        var er=authority.testEvaluate(pending);
-        checks.push(check('BOSS_REVIEWED_ADVANCES',er.current==='S4',er.current));
-      }
+      checks.push(check('SERVER_RESUME_ACCEPTOR',typeof authority.acceptResume==='function',typeof authority.acceptResume));
+      checks.push(check('NO_RAW_RECORD_ROUTE_EVALUATOR',typeof authority.testEvaluate!=='function',typeof authority.testEvaluate));
+      checks.push(check('LOCK_GUARD_PRESENT',typeof authority.canOpen==='function'&&typeof authority.currentRouteId==='function','canOpen/currentRouteId'));
       checks.push(check('LIVE_SHEET_CONNECTED',d.liveVerified===true,d.liveVerified?'records='+d.liveRecordCount:'waiting for fresh player_resume','warning'));
     }
     var failed=checks.filter(function(c){return !c.pass;}),errors=failed.filter(function(c){return c.severity==='error';}),warnings=failed.filter(function(c){return c.severity==='warning';});
