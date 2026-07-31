@@ -1,7 +1,7 @@
-/* CSAI2601 UX Quest • Node Sheet + Studio Authority v1.2
+/* CSAI2601 UX Quest • Node Sheet + Studio Authority v1.3
  * Google Sheet is authoritative in Student Mode.
- * A canonical node URL must include an explicit node. Bare URLs redirect to
- * Mission Control and never restore a cached W/B node implicitly.
+ * Bare canonical URLs redirect to Mission Control. Studio restore uses finite
+ * retries and events only; it never observes or rewrites the DOM continuously.
  */
 (() => {
   'use strict';
@@ -19,17 +19,17 @@
       const classroom = q.get('classroom');
       if (section) target.searchParams.set('section', section);
       if (classroom) target.searchParams.set('classroom', classroom);
-      target.searchParams.set('v', 'student-runtime-v11-20260731');
+      target.searchParams.set('v', 'student-runtime-v12-stable-20260731');
       location.replace(target.href);
     } catch (_) {
-      location.href = './csai2601-mission-control.html?v=student-runtime-v11-20260731';
+      location.href = './csai2601-mission-control.html?v=student-runtime-v12-stable-20260731';
     }
     return;
   }
 
   if (!document.querySelector('script[data-uxq-node-header-layout-final]')) {
     const layoutScript = document.createElement('script');
-    layoutScript.src = './js/uxq-node-header-layout-final-authority-v1.js?v=node-header-layout-final-v1.4-20260731';
+    layoutScript.src = './js/uxq-node-header-layout-final-authority-v1.js?v=node-header-layout-final-v1.5-20260731';
     layoutScript.async = false;
     layoutScript.dataset.uxqNodeHeaderLayoutFinal = '1';
     document.head.appendChild(layoutScript);
@@ -107,7 +107,7 @@
     const r = missionRow();
     const sr = studioRow();
     window.UXQNodeSheetAuthority = Object.freeze({
-      version: '20260731-NODE-SHEET-STUDIO-AUTHORITY-V1.2',
+      version: '20260731-NODE-SHEET-STUDIO-AUTHORITY-V1.3',
       nodeId: NODE,
       missionPassed: missionPassed(),
       mission: r,
@@ -120,7 +120,7 @@
   }
 
   function forceStudio() {
-    if (q.get('phase') !== 'studio' || !missionPassed()) return;
+    if (q.get('phase') !== 'studio' || !missionPassed()) return false;
     document.body.dataset.uxqMissionPass = '1';
     document.body.dataset.uxqRoutePhase = 'studio';
     try { sessionStorage.setItem(`csai2601.uxq.phase.${KEY}`, 'studio'); } catch (_) {}
@@ -130,16 +130,19 @@
       tries += 1;
       try { window.UXQStudentStudioFinalAuthorityV2?.build?.(); } catch (_) {}
       try { window.UXQPostMissionStudioRouterV1?.ensureStudio?.(true); } catch (_) {}
+      try { window.UXQNodeStudioContainerAuthorityV1?.build?.(); } catch (_) {}
       const studio = document.getElementById('uxqStudentStudioFinalV2') || document.querySelector('.artifact[data-studio-practice-v1],[data-studio-wizard],.uxq-pr');
       if (studio) {
         studio.removeAttribute('hidden');
         studio.style.setProperty('display', 'grid', 'important');
         document.getElementById('uxqStudioRouteFallback')?.remove();
-        return;
+        try { window.UXQStudioScrollFinalAuthorityV1?.refresh?.(); } catch (_) {}
+        return true;
       }
-      if (tries < 30) setTimeout(build, Math.min(180 + tries * 80, 900));
+      if (tries < 24) setTimeout(build, Math.min(180 + tries * 80, 900));
+      return false;
     };
-    build();
+    return build();
   }
 
   function patchVisibleStatus() {
@@ -151,10 +154,14 @@
       if (/กำลังตรวจการยืนยันจาก Google Sheet/i.test(t)) el.textContent = 'Google Sheet ยืนยัน Mission แล้ว';
     });
     const r = studioRow();
-    const s = studioSubmitted(r), ref = reflectionSubmitted(r);
     document.body.dataset.uxqSheetMission = '1';
-    document.body.dataset.uxqSheetStudio = s ? '1' : '0';
-    document.body.dataset.uxqSheetReflection = ref ? '1' : '0';
+    document.body.dataset.uxqSheetStudio = studioSubmitted(r) ? '1' : '0';
+    document.body.dataset.uxqSheetReflection = reflectionSubmitted(r) ? '1' : '0';
+  }
+
+  function settle() {
+    patchVisibleStatus();
+    forceStudio();
   }
 
   async function refresh() {
@@ -170,8 +177,7 @@
       if (m?.ok) missionData = m;
       if (s?.ok) studioData = s;
       expose();
-      patchVisibleStatus();
-      forceStudio();
+      settle();
     } catch (err) {
       console.error('[UXQ node Sheet authority]', err);
     } finally {
@@ -182,14 +188,14 @@
   const boot = () => {
     refresh();
     [500, 1200, 2500, 5000].forEach(ms => setTimeout(refresh, ms));
-    new MutationObserver(() => {
-      patchVisibleStatus();
-      forceStudio();
-    }).observe(document.getElementById('uxqCanonicalNode') || document.body, { childList: true, subtree: true });
+    [120, 420, 900, 1800, 3600].forEach(ms => setTimeout(settle, ms));
   };
+
   window.addEventListener('uxq-identity-changed', refresh);
   window.addEventListener('uxq-sheet-progress-restored', refresh);
   window.addEventListener('online', refresh);
+  ['uxq-progress-updated','uxq-studio-artifact-dispatched','uxq-studio-container-ready']
+    .forEach(name => window.addEventListener(name, settle));
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
 })();
