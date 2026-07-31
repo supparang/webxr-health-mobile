@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='20260730-MOBILE-PASSPORT-PRODUCTION-V1.2-AUTHORITY-GATE';
+const VERSION='20260731-MOBILE-PASSPORT-PRODUCTION-V1.3-HIDE-RELEASE-LABEL';
 const KEY='herohealth_learning_platform_rc2';
 const C=window.HH_CONFIG||{};
 const R=window.HHRotation;
@@ -38,6 +38,14 @@ function gateFor(s,action){
   }
   // เกม/Post-test/Reflection/Certificate ต้องมี progress authority จาก Sheet
   return s?.sheetAuthority===true?{ready:true,text:''}:{ready:false,text:'กำลังตรวจสอบความคืบหน้าจาก Sheet…'};
+}
+function hideStudentReleaseLabel(){
+  const releaseLabel=document.querySelector('.topbar .brand .small.muted');
+  if(releaseLabel){
+    releaseLabel.hidden=true;
+    releaseLabel.setAttribute('aria-hidden','true');
+    releaseLabel.style.display='none';
+  }
 }
 function ensureSyncIndicator(s){
   const passport=document.querySelector('.hero-card .passport>div:last-child');
@@ -84,6 +92,7 @@ function ensureMobileCta(s){
   applyTopButtonGate(s,action,gate);
 }
 function patch(){
+  hideStudentReleaseLabel();
   const s=read();
   if(!s?.profile||s?.view!=='student'){
     document.getElementById('hh-sheet-sync-indicator')?.remove();
@@ -91,7 +100,7 @@ function patch(){
     return;
   }
   ensureSyncIndicator(s);ensureMobileCta(s);
-  document.documentElement.dataset.hhMobilePassport='V1-2';
+  document.documentElement.dataset.hhMobilePassport='V1-3';
 }
 let queued=false;
 function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;patch()})}
