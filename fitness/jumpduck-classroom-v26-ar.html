@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0f766e">
-  <title>JumpDuck Dash Production v6.0 Duck Polish Pack v2</title>
+  <title>JumpDuck Dash Production v6.1 Object Consume Fix</title>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js" crossorigin="anonymous"></script>
-  <script src="../HeroHealth_Learning1/data/backend-config.js?v=20260731-jumpduck-prod60-duck-polish-v2"></script>
+  <script src="../HeroHealth_Learning1/data/backend-config.js?v=20260731-jumpduck-prod61-consumed-object-hide"></script>
   <link rel="stylesheet" href="./jumpduck-classroom-v35.css?v=20260729-result-polish-v38">
   <link rel="stylesheet" href="./jumpduck-result-layout-v58.css?v=20260731-compact-result-v58">
 </head>
 <body>
-<div style="position:fixed;z-index:9998;right:8px;top:calc(8px + env(safe-area-inset-top));padding:5px 10px;border-radius:999px;background:#0f172dcc;color:#fff;font:900 11px system-ui;pointer-events:none">JD v6.0</div>
-<section id="intro" class="screen"><div class="card"><div class="logo">🦆⚡</div><span class="badge">CLASSROOM FINAL • DUCK POLISH PACK v2</span><h1>JumpDuck Dash</h1><p class="muted">ตรวจจับตำแหน่งไหล่และสะโพกจริงด้วย MoveNet ตลอดทั้งรอบ</p><p class="muted">เป็ดเอียงตัวตามการเปลี่ยนเลน มีแรงกระแทกตอนลงพื้น รอยกระโดด ลมตอนก้ม Hero Mode และปฏิกิริยา Perfect Streak โดยไม่แตะระบบตรวจจับร่างกาย</p><button id="start" class="primary">▶ เริ่มเกม</button><div id="startStatus" class="status">รอบละ 50 วินาที • ยืนให้เห็นตั้งแต่ศีรษะถึงสะโพก</div></div></section>
+<div style="position:fixed;z-index:9998;right:8px;top:calc(8px + env(safe-area-inset-top));padding:5px 10px;border-radius:999px;background:#0f172dcc;color:#fff;font:900 11px system-ui;pointer-events:none">JD v6.1</div>
+<section id="intro" class="screen"><div class="card"><div class="logo">🦆⚡</div><span class="badge">CLASSROOM FINAL • OBJECT CONSUME FIX</span><h1>JumpDuck Dash</h1><p class="muted">ตรวจจับตำแหน่งไหล่และสะโพกจริงด้วย MoveNet ตลอดทั้งรอบ</p><p class="muted">วัตถุที่เป็ดเก็บหรือชนแล้วจะหายทันที พร้อมคงเอฟเฟกต์ดาวและแรงกระแทกไว้ โดยไม่แตะระบบตรวจจับร่างกาย</p><button id="start" class="primary">▶ เริ่มเกม</button><div id="startStatus" class="status">รอบละ 50 วินาที • ยืนให้เห็นตั้งแต่ศีรษะถึงสะโพก</div></div></section>
 <section id="countdown" class="screen hidden"><div class="card"><div class="count" id="count">3</div><h2>กำลังปรับตำแหน่งร่างกาย</h2><p class="muted">ยืนตรงกลาง ให้เห็นไหล่และสะโพกทั้งสองข้าง แล้วอย่าขยับระหว่างนับถอยหลัง</p></div></section>
 <main id="game" class="game hidden"><canvas id="world"></canvas><div class="hud"><div class="pill">⭐ <span id="score">0</span> • x<span id="multi">1</span></div><div class="pill">🔥 Combo <span id="combo">0</span></div><div class="pill">⏱️ <span id="time">50</span>s</div></div><div class="mission"><span id="missionText">MISSION 1 • เก็บอาหารดี</span> <b><span id="missionNow">0</span>/<span id="missionGoal">5</span></b><div class="bar"><i id="missionBar"></i></div></div><div id="warning" class="warning"></div><div id="toast" class="toast"></div><div id="poseText" class="pose">กำลังโหลด MoveNet…</div><div class="camera"><video id="video" autoplay muted playsinline></video><canvas id="poseCanvas"></canvas></div></main>
 <button id="finishRoundBtn" class="hidden" type="button" style="position:fixed;z-index:9999;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(88vw,420px);min-height:60px;border:0;border-radius:20px;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;font:900 20px system-ui;box-shadow:0 8px 0 #c2410c,0 12px 30px #0007;touch-action:manipulation;pointer-events:auto">จบรอบและดูผล</button>
@@ -25,6 +25,7 @@
 <script src="./jumpduck-visual-polish-v56.js?v=20260731-lightweight-parallax-v56"></script>
 <script src="./jumpduck-duck-polish-v59.js?v=20260731-duck-polish-pack-v1-v59"></script>
 <script src="./jumpduck-duck-polish-v60.js?v=20260731-duck-polish-pack-v2-v60b"></script>
+<script src="./jumpduck-consumed-object-hide-v61.js?v=20260731-consumed-object-hide-v61"></script>
 <script src="./jumpduck-result-polish-v57.js?v=20260731-localized-achievements-v57"></script>
 <script>
 (()=>{'use strict';
