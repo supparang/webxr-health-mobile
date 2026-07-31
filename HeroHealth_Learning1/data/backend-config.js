@@ -7,8 +7,8 @@ window.HH_CONFIG.backend = {
   duplicateGuard: true,
   syncIntervalMs: 15000,
   transportPolicy: "full-payload-single-submit",
-  gameShellVersion: "20260731-GAME-SHELL-AUTO-RETURN-R41-BALANCE-V49",
-  balanceAnalyticsVersion: "20260731-BALANCE-UNIFIED-ANALYTICS-V49-FINAL-POSE-WATCHDOG",
+  gameShellVersion: "20260731-GAME-SHELL-AUTO-RETURN-R41-BALANCE-V50",
+  balanceAnalyticsVersion: "20260731-BALANCE-ANALYTICS-V50-DIRECT-FINISH",
   loginRouteGuardVersion: "20260731-PROFILE-CONFIRM-ROUTE-GUARD-R42"
 };
 
@@ -27,6 +27,14 @@ if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath)) {
   loginGuard.async = false;
   loginGuard.dataset.hhPatch = 'profile-confirm-route-guard-r42';
   document.head.appendChild(loginGuard);
+
+  // Install after the Passport runtime becomes available. This overrides any cached older
+  // launcher and forces Balance Hold through the V50 direct-finish analytics wrapper.
+  const launcherHotfix = document.createElement('script');
+  launcherHotfix.src = './assets/game-shell-launcher-v50-hotfix.js?v=20260731-v50-direct-finish';
+  launcherHotfix.async = false;
+  launcherHotfix.dataset.hhPatch = 'game-shell-launcher-v50-hotfix';
+  document.head.appendChild(launcherHotfix);
 }
 
 // Load the authority-confirmed auto-return repair only inside the classroom game shell.
