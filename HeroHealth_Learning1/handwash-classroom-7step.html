@@ -11,11 +11,11 @@
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Stable Boot R44.1 • Grade 5 Mobile Rescue</small></div>
+  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Stable Boot R45 • Final Process Rescue</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260731-HANDWASH-STABLE-R44.1-BASEURI-MOBILE-RESCUE';
+    const RELEASE='20260731-HANDWASH-STABLE-R45-FINAL-PROCESS-RESCUE';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     sourceUrl.searchParams.set('_',String(Date.now()));
@@ -45,7 +45,7 @@
         );
         html=html.replace(
           /<script src="\.\/handwash-mobile-grade5-rescue-v1\.js[^>]*><\/script>/i,
-          '$&<script src="./handwash-mobile-grade5-rescue-r44.js?cv='+RELEASE+'"><\/script>'
+          '$&<script src="./handwash-mobile-grade5-rescue-r44.js?cv='+RELEASE+'"><\/script><script src="./handwash-mobile-final-process-rescue-r45.js?cv='+RELEASE+'"><\/script>'
         );
         html=html.replace('ฝึก 6 ท่าถูมือตาม WHO','ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ');
         document.open();document.write(html);document.close();
