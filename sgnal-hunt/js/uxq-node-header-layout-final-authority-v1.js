@@ -1,6 +1,7 @@
-/* CSAI2601 UX Quest • Node Header Layout Final Authority v1.1
- * Final visual guard: learner profile and course brand remain separate blocks.
- * Also loads the final native Studio scroll guard in phase=studio.
+/* CSAI2601 UX Quest • Node Header Layout Final Authority v1.2
+ * Keeps learner profile and course brand in separate normal-flow blocks.
+ * Avoids observing style/class mutations so this authority cannot trigger a
+ * self-sustaining layout loop or screen shake.
  */
 (() => {
   'use strict';
@@ -9,7 +10,7 @@
 
   if (q.get('phase') === 'studio' && !document.querySelector('script[data-uxq-studio-scroll-final]')) {
     const script = document.createElement('script');
-    script.src = './js/uxq-studio-scroll-final-authority-v1.js?v=studio-scroll-final-v1.1-20260731';
+    script.src = './js/uxq-studio-scroll-final-authority-v1.js?v=studio-scroll-final-v1.2-20260731';
     script.async = false;
     script.dataset.uxqStudioScrollFinal = '1';
     document.head.appendChild(script);
@@ -53,8 +54,7 @@
   function isCourseBrand(el) {
     if (!el || el === ROOT) return false;
     const text = String(el.textContent || '').replace(/\s+/g, ' ').trim();
-    if (!/CSAI2601\s+UX\s+Quest/i.test(text)) return false;
-    return el.querySelectorAll('*').length < 24;
+    return /CSAI2601\s+UX\s+Quest/i.test(text) && el.querySelectorAll('*').length < 24;
   }
 
   function normalizeCourseBrand() {
@@ -62,9 +62,10 @@
       .filter(isCourseBrand)
       .sort((a,b) => a.querySelectorAll('*').length - b.querySelectorAll('*').length);
     const brand = candidates[0];
-    if (!brand) return;
+    if (!brand || brand.dataset.uxqCourseBrandStable === '1') return;
+
     brand.dataset.uxqCourseBrandFixed = '1';
-    ['position','top','right','bottom','left','transform','translate','inset','z-index'].forEach(name => brand.style.removeProperty(name));
+    brand.dataset.uxqCourseBrandStable = '1';
     brand.style.setProperty('position','relative','important');
     brand.style.setProperty('inset','auto','important');
     brand.style.setProperty('transform','none','important');
@@ -75,7 +76,9 @@
     for (let depth=0; parent && parent !== ROOT && depth<3; depth+=1, parent=parent.parentElement) {
       const cs = getComputedStyle(parent);
       if (cs.position === 'absolute' || cs.position === 'fixed' || cs.position === 'sticky' || cs.transform !== 'none') {
+        if (parent.dataset.uxqCourseBrandStable === '1') continue;
         parent.dataset.uxqCourseBrandFixed = '1';
+        parent.dataset.uxqCourseBrandStable = '1';
         parent.style.setProperty('position','relative','important');
         parent.style.setProperty('inset','auto','important');
         parent.style.setProperty('transform','none','important');
@@ -88,7 +91,8 @@
   function normalizeBanner() {
     ['uxqStudentRuntimeBanner','uxqActiveLearnerBanner'].forEach(id => {
       const banner = document.getElementById(id);
-      if (!banner) return;
+      if (!banner || banner.dataset.uxqHeaderStable === '1') return;
+      banner.dataset.uxqHeaderStable = '1';
       banner.style.setProperty('position','relative','important');
       banner.style.setProperty('inset','auto','important');
       banner.style.setProperty('transform','none','important');
@@ -112,7 +116,10 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', queue, {once:true});
   else queue();
-  new MutationObserver(queue).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class']});
+
+  // Observe only structural DOM changes. Watching style/class here creates a
+  // feedback loop because this authority writes those same attributes.
+  new MutationObserver(queue).observe(document.body,{childList:true,subtree:true});
   window.addEventListener('resize',queue,{passive:true});
-  [100,300,700,1400,2800,5000].forEach(ms=>setTimeout(queue,ms));
+  [100,350,900,1800].forEach(ms=>setTimeout(queue,ms));
 })();
