@@ -1,5 +1,5 @@
-/* CSAI2601 UX Quest • Node Studio Container Authority v6
- * Repairs phase=studio and enforces one clear action path.
+/* CSAI2601 UX Quest • Node Studio Container Authority v7
+ * Repairs phase=studio, enforces one clear action path, and restores scrolling.
  */
 (() => {
   'use strict';
@@ -27,13 +27,49 @@
     return document.body.dataset.uxqSheetMission === '1' || document.body.dataset.uxqMissionPass === '1';
   }
 
+  function restoreScroll() {
+    const html = document.documentElement;
+    const body = document.body;
+    [html, body].forEach(el => {
+      if (!el) return;
+      el.style.setProperty('overflow-x', 'hidden', 'important');
+      el.style.setProperty('overflow-y', 'auto', 'important');
+      el.style.setProperty('height', 'auto', 'important');
+      el.style.setProperty('min-height', '100%', 'important');
+      el.style.setProperty('max-height', 'none', 'important');
+      el.style.setProperty('position', 'static', 'important');
+      el.style.setProperty('touch-action', 'pan-y pinch-zoom', 'important');
+      el.style.setProperty('overscroll-behavior-y', 'auto', 'important');
+    });
+    ROOT.style.setProperty('overflow', 'visible', 'important');
+    ROOT.style.setProperty('height', 'auto', 'important');
+    ROOT.style.setProperty('max-height', 'none', 'important');
+    const artifact = ROOT.querySelector('.artifact[data-studio-practice-v1]');
+    if (artifact) {
+      artifact.style.setProperty('overflow', 'visible', 'important');
+      artifact.style.setProperty('height', 'auto', 'important');
+      artifact.style.setProperty('max-height', 'none', 'important');
+      artifact.style.setProperty('touch-action', 'pan-y pinch-zoom', 'important');
+    }
+    const wizard = document.getElementById('uxqStudentStudioFinalV2');
+    if (wizard) {
+      wizard.style.setProperty('overflow', 'visible', 'important');
+      wizard.style.setProperty('height', 'auto', 'important');
+      wizard.style.setProperty('max-height', 'none', 'important');
+      wizard.style.setProperty('touch-action', 'pan-y pinch-zoom', 'important');
+    }
+  }
+
   function installStyle() {
     if (document.getElementById('uxq-node-studio-container-authority-style')) return;
     const style = document.createElement('style');
     style.id = 'uxq-node-studio-container-authority-style';
     style.textContent = `
+      html,body{overflow-x:hidden!important;overflow-y:auto!important;height:auto!important;max-height:none!important;position:static!important;touch-action:pan-y pinch-zoom!important}
+      body[data-uxq-route-phase='studio'] #uxqCanonicalNode{overflow:visible!important;height:auto!important;max-height:none!important;min-height:100vh!important}
       body[data-uxq-route-phase='studio'] .results{display:none!important}
-      body[data-uxq-route-phase='studio'] .artifact[data-studio-practice-v1]{display:grid!important;visibility:visible!important;opacity:1!important;width:min(1120px,calc(100% - 28px));margin:28px auto;padding:20px;border:1px solid rgba(110,231,255,.34);border-radius:22px;background:linear-gradient(145deg,rgba(12,38,77,.98),rgba(22,25,77,.98));box-shadow:0 20px 50px rgba(0,0,0,.28);min-height:220px}
+      body[data-uxq-route-phase='studio'] .artifact[data-studio-practice-v1]{display:grid!important;visibility:visible!important;opacity:1!important;width:min(1120px,calc(100% - 28px));margin:28px auto;padding:20px;border:1px solid rgba(110,231,255,.34);border-radius:22px;background:linear-gradient(145deg,rgba(12,38,77,.98),rgba(22,25,77,.98));box-shadow:0 20px 50px rgba(0,0,0,.28);min-height:220px;height:auto!important;max-height:none!important;overflow:visible!important;touch-action:pan-y pinch-zoom!important}
+      body[data-uxq-route-phase='studio'] #uxqStudentStudioFinalV2{height:auto!important;max-height:none!important;overflow:visible!important;touch-action:pan-y pinch-zoom!important}
       body[data-uxq-route-phase='studio'] .artifact[data-studio-practice-v1][data-uxq-building='1']::before{content:'กำลังเตรียม Studio Practice…';display:grid;place-items:center;min-height:170px;color:#d9e8ff;font-weight:900;font-size:1.1rem}
       body[data-uxq-route-phase='studio'] [data-uxq-summary-only='1']{display:none!important;visibility:hidden!important;pointer-events:none!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;overflow:hidden!important}
       body[data-uxq-route-phase='studio'] #uxqStudentStudioFinalV2 button,
@@ -76,6 +112,7 @@
       installStyle();
       document.body.dataset.uxqMissionPass = '1';
       document.body.dataset.uxqRoutePhase = 'studio';
+      restoreScroll();
       hideSummaryActions();
       const artifact = ensureArtifact();
       try { window.UXQStudentStudioFinalAuthorityV2?.build?.(); } catch (error) { console.error('[UXQ Studio builder]', error); }
@@ -87,6 +124,7 @@
         wizard.removeAttribute('hidden');
         wizard.style.setProperty('display', 'grid', 'important');
         document.getElementById('uxqStudioRouteFallback')?.remove();
+        restoreScroll();
         hideSummaryActions();
         return;
       }
@@ -99,11 +137,14 @@
   function boot() {
     installStyle();
     document.body.dataset.uxqRoutePhase = 'studio';
+    restoreScroll();
     hideSummaryActions();
     build();
-    [100,250,600,1200,2200,4000,7000].forEach(ms => setTimeout(() => { hideSummaryActions(); build(); }, ms));
-    new MutationObserver(() => { hideSummaryActions(); if (!document.getElementById('uxqStudentStudioFinalV2')) build(); })
-      .observe(document.body, { childList:true, subtree:true, characterData:true });
+    [100,250,600,1200,2200,4000,7000].forEach(ms => setTimeout(() => { restoreScroll(); hideSummaryActions(); build(); }, ms));
+    new MutationObserver(() => { restoreScroll(); hideSummaryActions(); if (!document.getElementById('uxqStudentStudioFinalV2')) build(); })
+      .observe(document.body, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['style','class'] });
+    window.addEventListener('resize', restoreScroll, { passive:true });
+    window.addEventListener('orientationchange', () => setTimeout(restoreScroll, 120), { passive:true });
   }
 
   ['uxq-node-sheet-authority-ready','uxq-sheet-progress-restored','uxq-progress-updated'].forEach(name => window.addEventListener(name, build));
