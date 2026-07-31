@@ -1,19 +1,19 @@
 (()=>{'use strict';
 const config=window.HH_CONFIG;
 if(!config)return;
-config.platformVersion=String(config.platformVersion||'HeroHealth')+'-JUMPDUCK-V59-BALANCE-V47';
-config.deploymentState=String(config.deploymentState||'QA')+'_JUMPDUCK_DUCK_POLISH_V59_BALANCE_BALANCED_BANK_V47';
+config.platformVersion=String(config.platformVersion||'HeroHealth')+'-JUMPDUCK-V60-BALANCE-V47';
+config.deploymentState=String(config.deploymentState||'QA')+'_JUMPDUCK_DUCK_POLISH_V60_BALANCE_BALANCED_BANK_V47';
 const fitness=(config.zones||[]).find(zone=>zone&&zone.id==='fitness');
 const jumpduck=fitness?.games?.find(game=>game&&game.id==='jumpduck');
 if(jumpduck){
-  jumpduck.url='../fitness/jumpduck-classroom-v26-ar.html?v=20260731-duck-polish-v59';
-  jumpduck.status='classroom-core-v5.9-duck-polish-pack-v1';
+  jumpduck.url='../fitness/jumpduck-classroom-v26-ar.html?v=20260731-duck-polish-v60';
+  jumpduck.status='classroom-core-v6.0-duck-polish-pack-v2';
   jumpduck.inputMode='movenet-lightning-body-tracking';
   jumpduck.horizontalDirectionPolicy='front-camera-output-x-inversion-v55';
   jumpduck.calibrationPolicy='real-camera-visible-calibration-with-camera-hold-v54';
   jumpduck.centerPolicy='wide-center-asymmetric-hysteresis';
   jumpduck.visualEffectProfile='canvas2d-lightweight-parallax-v56';
-  jumpduck.duckAnimationProfile='vector-duck-bob-blink-wing-shadow-emotion-combo-v59';
+  jumpduck.duckAnimationProfile='vector-duck-v2-lean-landing-trail-wind-hero-streak-recovery-v60';
   jumpduck.resultProfile='thai-labels-achievements-save-state-confetti-v57-compact-layout-v58';
   jumpduck.resultViewportPolicy='top-reset-fixed-passport-responsive-height-v58';
   jumpduck.performancePolicy='adaptive-15-22-30fps-low-particle-cap';
@@ -34,6 +34,6 @@ if(balance){
 }
 const classroom=config.missionProfiles?.CLASS_60;
 if(classroom){
-  classroom.description=String(classroom.description||'')+' JumpDuck V5.9 คง MoveNet ทิศทางซ้าย–ขวา Camera Hold Visual Polish และหน้าสรุปเดิมทั้งหมด พร้อมเปลี่ยนตัวเป็ดจาก Emoji เป็น Vector Duck แบบเบาที่วิ่งเด้ง กระพือปีก กระพริบตา ยืดตัวตอนกระโดด ย่อตัวตอนก้ม มีเงาตามความสูง เปลี่ยนสีหน้าเมื่อ Perfect หรือ Miss และมี Combo Aura โดยไม่แก้ระบบตรวจจับร่างกายหรือเกณฑ์คะแนน Balance Hold V47 คง 6 ท่าต่อรอบเพื่อเหมาะกับฐาน 10 นาที แต่สุ่มจากลำดับสมดุล 12 รูปแบบ โดยทุกคนได้รับท่ามาตรฐานชุดเดียวกันครบทั้งซ้าย–ขวาและไม่ซ้ำรูปแบบเดิมทันที พร้อมบันทึก Sequence ID และลำดับจริงเพื่อวิเคราะห์งานวิจัย';
+  classroom.description=String(classroom.description||'')+' JumpDuck V6.0 คง MoveNet ทิศทางซ้าย–ขวา Camera Hold Visual Polish และหน้าสรุปเดิมทั้งหมด พร้อม Duck Polish Pack V2: เป็ดเอียงตามความเร็วในการเปลี่ยนเลน มี Landing Impact และฝุ่นเบา รอยกระโดด เส้นลมตอนก้ม Hero Mode เมื่อ Combo สูง Perfect Streak Reaction และวง Recovery หลัง Miss โดยจำกัดอนุภาคและรองรับ Reduced Motion เพื่อไม่รบกวนการตรวจจับร่างกายหรือเกณฑ์คะแนน Balance Hold V47 คง 6 ท่าต่อรอบเพื่อเหมาะกับฐาน 10 นาที แต่สุ่มจากลำดับสมดุล 12 รูปแบบ โดยทุกคนได้รับท่ามาตรฐานชุดเดียวกันครบทั้งซ้าย–ขวาและไม่ซ้ำรูปแบบเดิมทันที พร้อมบันทึก Sequence ID และลำดับจริงเพื่อวิเคราะห์งานวิจัย';
 }
 })();
