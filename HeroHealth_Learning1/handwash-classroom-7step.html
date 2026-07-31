@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#061521">
-  <title>HeroHealth • Handwash 7-Step</title>
+  <title>HeroHealth • เกมล้างมือ 7 ขั้น</title>
   <style>
     html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#061521;color:#effbff;font-family:system-ui,sans-serif}
     .loading{padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียม Handwash 7 ขั้น</b><small>Stable Boot R49 • V2 Schema Recovery</small></div>
+  <div class="loading"><b>กำลังเตรียมเกมล้างมือ 7 ขั้น</b><small>เตรียมกล้องและกิจกรรม กรุณารอสักครู่</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260731-HANDWASH-STABLE-R49-V2-SCHEMA-RECOVERY';
+    const RELEASE='20260731-HANDWASH-STABLE-R49-1-STUDENT-UI';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     sourceUrl.searchParams.set('_',String(Date.now()));
@@ -53,7 +53,8 @@
         document.open();document.write(html);document.close();
       })
       .catch(error=>{
-        document.body.innerHTML='<div class="loading"><b>โหลด Handwash ไม่สำเร็จ</b><small>'+String(error.message||error)+'</small><button onclick="location.reload()" style="margin-top:14px;padding:12px 18px;border:0;border-radius:12px;font-weight:900">ลองใหม่</button></div>';
+        console.error('[Handwash bootstrap]',error);
+        document.body.innerHTML='<div class="loading"><b>ยังเข้าเกมล้างมือไม่ได้</b><small>กรุณาตรวจสอบอินเทอร์เน็ต แล้วลองอีกครั้ง</small><button onclick="location.reload()" style="margin-top:14px;padding:12px 18px;border:0;border-radius:12px;font-weight:900">ลองใหม่</button></div>';
       });
   })();
   </script>
