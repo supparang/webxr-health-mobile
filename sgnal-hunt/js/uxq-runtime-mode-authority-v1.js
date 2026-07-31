@@ -1,10 +1,25 @@
-/* CSAI2601 UX Quest • Runtime Mode Authority v1.3
+/* CSAI2601 UX Quest • Runtime Mode Authority v1.4
  * Explicit preview with ?contentPreview=1, plus compatibility for legacy ?v=content-preview-* links.
+ * Missing canonical node routes recover to Mission Control instead of rendering a blank page.
  */
 (() => {
   'use strict';
 
   const params = new URLSearchParams(location.search || '');
+  const isCanonicalNodePage = /\/csai2601-canonical-node-clean-v1\.html$/i.test(location.pathname || '');
+  const requestedNode = String(params.get('node') || params.get('id') || '').trim();
+
+  if (isCanonicalNodePage && !requestedNode) {
+    const recovery = new URL('./csai2601-mission-control.html', location.href);
+    const classroom = String(params.get('classroom') || '').trim();
+    const section = String(params.get('section') || '').trim();
+    if (classroom) recovery.searchParams.set('classroom', classroom);
+    if (section) recovery.searchParams.set('section', section);
+    recovery.searchParams.set('v', 'student-runtime-v10-20260731');
+    location.replace(recovery.href);
+    return;
+  }
+
   const legacyPreview = /^content-preview/i.test(params.get('v') || '');
   const preview = params.get('contentPreview') === '1' || legacyPreview;
   if (legacyPreview && params.get('contentPreview') !== '1') {
@@ -107,5 +122,5 @@
   new MutationObserver(queue).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['href']});
   window.addEventListener('pageshow',queue);
 
-  window.UXQRuntimeModeAuthority = Object.freeze({version:'20260728-MODE-AUTHORITY-V1.3',preview,student:!preview,refresh:queue});
+  window.UXQRuntimeModeAuthority = Object.freeze({version:'20260731-MODE-AUTHORITY-V1.4-NODE-ROUTE-RECOVERY',preview,student:!preview,refresh:queue});
 })();
