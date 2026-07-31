@@ -1,7 +1,9 @@
 (()=>{
 'use strict';
-const RELEASE='20260731-HANDWASH-MOBILE-FINAL-PROCESS-RESCUE-R45';
-const mobile=matchMedia('(max-width:900px)').matches||/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+const RELEASE='20260731-HANDWASH-MOBILE-FINAL-PROCESS-RESCUE-R45.1';
+const qs=new URLSearchParams(location.search);
+const classroom=qs.get('classroom')==='1'||qs.get('view')==='mobile'||qs.get('ui')==='compact';
+const mobile=matchMedia('(max-width:900px)').matches||/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)||classroom;
 if(!mobile)return;
 
 const PROCESS={
@@ -34,7 +36,7 @@ function installTimeoutGrace(){
     if(!timeoutExtended&&ms>=85000&&ms<=130000&&/finishRun\(['\"]timeup['\"]\)/.test(source)){
       timeoutExtended=true;
       document.documentElement.dataset.handwashRoundLimitSec='180';
-      console.info('[Handwash R45] classroom round limit extended',{fromMs:ms,toMs:180000});
+      console.info('[Handwash R45.1] classroom round limit extended',{fromMs:ms,toMs:180000});
       return nativeSetTimeout(handler,180000,...args);
     }
     return nativeSetTimeout(handler,delay,...args);
@@ -91,5 +93,5 @@ installTimeoutGrace();
 setInterval(tick,250);
 document.documentElement.dataset.handwashFinalProcessRescue=RELEASE;
 window.HHHandwashFinalProcessRescueR45={release:RELEASE,get totalAssists(){return totalAssists},get counts(){return {...counts}}};
-console.info('[Handwash Final Process Rescue R45] installed',RELEASE);
+console.info('[Handwash Final Process Rescue R45.1] installed',{release:RELEASE,classroom,mobileViewport:matchMedia('(max-width:900px)').matches});
 })();
