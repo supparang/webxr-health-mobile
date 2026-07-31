@@ -2,9 +2,10 @@
    EAP Word Quest • Compatibility Bootstrap Loader
    File kept as v262 because older cached index.html already loads this path.
 
-   Version: 20260731-V286-SHEET-CORE-AUTHORITY-BOOTSTRAP
+   Version: 20260731-V287-NAME-SELECTION-PERSIST-BOOTSTRAP
    - Load V281 before Authority.
    - Load V286 before Authority to sync Sheet resume into V196 Core state.
+   - Load V287 before name selection/Authority reload to preserve profile.
    - Load V275 Google Sheet authority.
    - Load V276/V283 official-name fallback.
    - Load V282 mobile name lookup retry/error separation.
@@ -15,9 +16,10 @@
 (function () {
   'use strict';
 
-  var VERSION = '20260731-V286-SHEET-CORE-AUTHORITY-BOOTSTRAP';
+  var VERSION = '20260731-V287-NAME-SELECTION-PERSIST-BOOTSTRAP';
   var REHYDRATE_TAG = 'eap-word-v281-sheet-rehydrate-bootstrap';
   var SHEET_CORE_TAG = 'eap-word-v286-sheet-core-authority-bootstrap';
+  var NAME_PERSIST_TAG = 'eap-word-v287-name-selection-persist-bootstrap';
   var AUTH_TAG = 'eap-word-authority-v275-bootstrap';
   var NAME_TAG = 'eap-word-name-fallback-v276-bootstrap';
   var NAME_MOBILE_TAG = 'eap-word-name-mobile-retry-v282-bootstrap';
@@ -25,8 +27,8 @@
   var SUBMIT_TAG = 'eap-word-v280-compact-bootstrap';
   var MOBILE_NEXT_TAG = 'eap-word-mobile-next-v284-bootstrap';
 
-  if (window.__EAP_WORD_V286_BOOTSTRAP__) return;
-  window.__EAP_WORD_V286_BOOTSTRAP__ = true;
+  if (window.__EAP_WORD_V287_BOOTSTRAP__) return;
+  window.__EAP_WORD_V287_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
@@ -78,8 +80,12 @@
   function loadSheetCoreAuthority() {
     loadScript('./eap-word-sheet-ui-authority-v285.js?v=20260731-v286-sheet-core-authority-1',SHEET_CORE_TAG,'__EAP_WORD_V286_SHEET_CORE_AUTHORITY__',function () {
       console.info('[EAP Word Quest] V286 Sheet Core authority loaded',{bootstrap:VERSION});
-    },function () {
-      console.error('[EAP Word Quest] V286 Sheet Core authority could not load',{bootstrap:VERSION});
+    });
+  }
+
+  function loadNamePersist() {
+    loadScript('./eap-word-name-selection-persist-v287.js?v=20260731-v287-name-selection-persist-1',NAME_PERSIST_TAG,'__EAP_WORD_NAME_SELECTION_PERSIST_V287__',function () {
+      console.info('[EAP Word Quest] V287 name selection persistence loaded',{bootstrap:VERSION});
     });
   }
 
@@ -114,11 +120,12 @@
 
   loadSheetRehydrate();
   setTimeout(loadSheetCoreAuthority,20);
-  setTimeout(loadAuthority,70);
-  setTimeout(loadNameFallback,190);
-  setTimeout(loadMobileNameRetry,390);
-  setTimeout(loadIdentityProof,590);
-  setTimeout(loadCompactSubmit,930);
-  setTimeout(loadMobileNext,1070);
+  setTimeout(loadNamePersist,35);
+  setTimeout(loadAuthority,80);
+  setTimeout(loadNameFallback,200);
+  setTimeout(loadMobileNameRetry,400);
+  setTimeout(loadIdentityProof,600);
+  setTimeout(loadCompactSubmit,940);
+  setTimeout(loadMobileNext,1080);
   console.info('[EAP Word Quest] compatibility bootstrap ready',{version:VERSION});
 })();
