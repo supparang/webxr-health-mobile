@@ -1,9 +1,10 @@
 (()=>{
 'use strict';
-const RELEASE='20260731-HANDWASH-MISSION-PASS-BRIDGE-R48.1';
+const RELEASE='20260731-HANDWASH-MISSION-PASS-BRIDGE-R48.2';
 const RESULT_KEY='HHA_HANDWASH_LAST_RESULT';
-const RECOVERY_PREFIX='HH_HANDWASH_R48_RECOVERED:';
+const RECOVERY_PREFIX='HH_HANDWASH_R48_2_RECOVERED:';
 const MAX_RECOVERY_AGE_MS=30*60*1000;
+const ANALYTICS_SCHEMA='HH-UNIFIED-GAME-ANALYTICS-V2';
 
 const yes=v=>v===true||v===1||String(v||'').toLowerCase()==='true'||String(v||'')==='1';
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
@@ -15,7 +16,9 @@ function missionReady(result){
   const process=num(result?.completedProcessSteps);
   const wrists=yes(result?.wristsPassed);
   const analytics=num(result?.metricCompletenessPct)>=90;
-  return completed&&rub>=7&&process>=5&&wrists&&analytics;
+  const rows=Array.isArray(result?.steps)?result.steps:Array.isArray(result?.stepResults)?result.stepResults:[];
+  const events=Array.isArray(result?.events)||Array.isArray(result?.eventLog);
+  return completed&&rub>=7&&process>=5&&wrists&&analytics&&rows.length>=12&&events;
 }
 
 function preserveResearchSkill(result){
@@ -28,10 +31,13 @@ function bridge(input){
   if(!input||typeof input!=='object')return input;
   const independentSkillPassed=preserveResearchSkill(input);
   const missionPassed=missionReady(input);
+  const originalSchema=clean(input.analyticsSchemaVersion);
+  input.analyticsSchemaVersion=ANALYTICS_SCHEMA;
+  if(originalSchema&&originalSchema!==ANALYTICS_SCHEMA)input.analyticsSchemaVersionOriginal=originalSchema;
   input.independentSkillPassed=independentSkillPassed;
   input.skillAssessmentPassed=independentSkillPassed;
   input.missionPassed=missionPassed;
-  input.missionCompletionPolicy='complete-12-steps-unlocks-skill-recorded-separately';
+  input.missionCompletionPolicy='server-validated-7-rub-5-process-wrists-analytics-v2';
   input.missionPassBridgeRelease=RELEASE;
   if(input.research&&typeof input.research==='object'){
     input.research.independentSkillPass=independentSkillPassed?1:0;
@@ -41,8 +47,9 @@ function bridge(input){
     input.completed=true;
     input.procedureCompleted=true;
     input.progressionEligible=true;
-    input.passed=true;
-    input.skillCriteriaMet=true;
+    // Skill quality remains independent from classroom progression.
+    input.passed=independentSkillPassed;
+    input.skillCriteriaMet=independentSkillPassed;
     input.retryRequired=false;
     input.completionLevel=independentSkillPassed?'independent':'completed_with_adaptive_assist';
   }
@@ -59,10 +66,11 @@ function emit(result,source){
   persist(bridged);
   if(!bridged?.missionPassed)return false;
   try{window.parent?.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:bridged},location.origin)}catch(_){}
-  console.info('[Handwash Mission Pass R48.1] mission completion emitted',{
+  console.info('[Handwash Mission Pass R48.2] mission completion emitted',{
     source,
     eventId:bridged.eventId,
     sourceEventId:bridged.sourceEventId||'',
+    analyticsSchemaVersion:bridged.analyticsSchemaVersion,
     completedRubSteps:bridged.completedRubSteps,
     completedProcessSteps:bridged.completedProcessSteps,
     independentSkillPassed:bridged.independentSkillPassed,
@@ -99,22 +107,27 @@ function eligibleForRecovery(result){
   return true;
 }
 
-function recoverFreshCompletedAttempt(){
-  const stored=readStored();
-  if(!eligibleForRecovery(stored))return false;
+function buildRecovery(stored){
   const sourceEventId=clean(stored.sourceEventId||stored.eventId||stored.attemptId);
-  const suffix='mission-r48-'+Date.now();
-  const recovered={
+  const suffix='mission-r48-2-'+Date.now();
+  return bridge({
     ...stored,
     sourceEventId,
     sourceAttemptId:clean(stored.attemptId||stored.roundId||''),
     eventId:`${sourceEventId}-${suffix}`.slice(0,160),
     attemptId:`${clean(stored.attemptId||stored.roundId||sourceEventId)}-${suffix}`.slice(0,160),
     recoveredFromCompletedAttempt:true,
-    recoveryReason:'mission-pass-policy-compatibility',
+    recoveryReason:'analytics-schema-v2-contract-recovery',
     recoveredAt:new Date().toISOString(),
     missionPassRecoveryRelease:RELEASE
-  };
+  });
+}
+
+function recoverFreshCompletedAttempt(){
+  const stored=readStored();
+  if(!eligibleForRecovery(stored))return false;
+  const sourceEventId=clean(stored.sourceEventId||stored.eventId||stored.attemptId);
+  const recovered=buildRecovery(stored);
   try{localStorage.setItem(RECOVERY_PREFIX+sourceEventId,'1')}catch(_){}
   return emit(recovered,'fresh-stored-attempt-recovery');
 }
@@ -127,18 +140,7 @@ const capturedStored=readStored();
 setTimeout(()=>{
   if(capturedStored&&eligibleForRecovery(capturedStored)){
     const sourceEventId=clean(capturedStored.sourceEventId||capturedStored.eventId||capturedStored.attemptId);
-    const suffix='mission-r48-'+Date.now();
-    const recovered={
-      ...capturedStored,
-      sourceEventId,
-      sourceAttemptId:clean(capturedStored.attemptId||capturedStored.roundId||''),
-      eventId:`${sourceEventId}-${suffix}`.slice(0,160),
-      attemptId:`${clean(capturedStored.attemptId||capturedStored.roundId||sourceEventId)}-${suffix}`.slice(0,160),
-      recoveredFromCompletedAttempt:true,
-      recoveryReason:'mission-pass-policy-compatibility',
-      recoveredAt:new Date().toISOString(),
-      missionPassRecoveryRelease:RELEASE
-    };
+    const recovered=buildRecovery(capturedStored);
     try{localStorage.setItem(RECOVERY_PREFIX+sourceEventId,'1')}catch(_){}
     emit(recovered,'captured-before-shell-clear');
   }
@@ -146,5 +148,5 @@ setTimeout(()=>{
 
 window.HHHandwashMissionPassBridgeR48={release:RELEASE,bridge,missionReady,recoverFreshCompletedAttempt};
 document.documentElement.dataset.handwashMissionPassBridge=RELEASE;
-console.info('[Handwash Mission Pass Bridge R48.1] installed',RELEASE);
+console.info('[Handwash Mission Pass Bridge R48.2] installed',RELEASE);
 })();
