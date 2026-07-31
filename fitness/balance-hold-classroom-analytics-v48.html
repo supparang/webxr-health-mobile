@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#dff7ff">
+<title>Balance Hold • Unified Analytics</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#dff7ff}
+iframe{position:fixed;inset:0;width:100%;height:100%;border:0}
+.tag{position:fixed;z-index:5;right:8px;top:calc(8px + env(safe-area-inset-top));padding:4px 8px;border-radius:999px;background:#0f766ed9;color:#fff;font:900 10px system-ui;pointer-events:none;display:none}
+</style>
+</head>
+<body>
+<iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe><div class="tag">Analytics V48</div>
+<script>
+(()=>{'use strict';
+const RELEASE='20260731-BALANCE-UNIFIED-ANALYTICS-V48-RICH-PAYLOAD-GATE';
+const q=new URLSearchParams(location.search),frame=document.getElementById('game');
+const child=new URL('./balance-hold-ar2.html',location.href);
+q.forEach((value,key)=>child.searchParams.set(key,value));
+child.searchParams.set('classroom','1');
+child.searchParams.set('mode','classroom');
+child.searchParams.set('source','herohealth');
+child.searchParams.set('unifiedAnalytics','1');
+child.searchParams.set('richAnalyticsRequired','1');
+child.searchParams.set('_',Date.now());
+frame.src=child.href;
+
+let patchTimer=0;
+let pendingTimer=0;
+const forwarded=new Set();
+
+const clean=value=>String(value==null?'':value).trim();
+const finite=value=>{const n=Number(value);return Number.isFinite(n)?n:undefined};
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+function patch(){
+ try{
+  const w=frame.contentWindow;
+  if(!w)return false;
+  w.HH_BALANCE_UNIFIED_ONLY=true;
+  if(w.BH){
+   w.BH.ENDPOINT='';
+   w.BH.submitSummary=async summary=>console.info('[Balance Unified V48] legacy endpoint skipped',summary?.roundId||'');
+   w.BH.flushQueue=async()=>{};
+   return true;
+  }
+ }catch(_){}
+ return false;
+}
+frame.addEventListener('load',()=>{
+ let tries=0;
+ clearInterval(patchTimer);
+ patchTimer=setInterval(()=>{tries++;if(patch()||tries>180)clearInterval(patchTimer)},50);
+});
+
+function readStored(){
+ try{
+  const w=frame.contentWindow;
+  const keys=['HHA_BALANCE_HOLD_LAST_RESULT','fitness_balance_hold_last',w?.BH?.KEY_LAST].filter(Boolean);
+  for(const key of keys){
+   try{
+    const parsed=JSON.parse(w.localStorage.getItem(key)||'null');
+    if(parsed&&typeof parsed==='object')return parsed;
+   }catch(_){}
+  }
+  for(const value of [w.__HH_BALANCE_RESULT_V36__,w.__BALANCE_HOLD_LAST_RESULT__]){
+   if(value&&typeof value==='object')return value;
+  }
+ }catch(_){}
+ return null;
+}
+
+function richEnough(raw){
+ if(!raw||typeof raw!=='object')return false;
+ const scalarFields=['assessmentScore','poseAccuracy','stabilityScore','transitionScore','safeZoneScore','trackingCoverage'];
+ const scalarCount=scalarFields.filter(key=>finite(raw[key])!==undefined).length;
+ const poses=Array.isArray(raw.poseResults)&&raw.poseResults.length>0;
+ return scalarCount>=5&&poses;
+}
+
+function normalize(raw){
+ const source=raw&&typeof raw==='object'?raw:{};
+ const studentId=clean(source.studentId||q.get('studentId')||q.get('sid'));
+ const eventId=clean(source.eventId||source.record_id||source.roundId||source.attemptId)||`HH-game-fitness-balance-hold-${studentId||'anon'}-${Date.now()}`;
+ const poseResults=Array.isArray(source.poseResults)?source.poseResults:[];
+ const completedPoses=finite(source.completedPoses)??poseResults.length;
+ const totalPoses=Math.max(1,finite(source.totalPoses)??6);
+ const poseAccuracy=finite(source.poseAccuracy)??0;
+ const assessmentScore=finite(source.assessmentScore)??0;
+ const completed=source.completed===true||completedPoses>=totalPoses;
+ const passed=source.passed===true||source.skillCriteriaMet===true||assessmentScore>=60;
+ return{
+  ...source,
+  eventId,
+  record_id:eventId,
+  studentId,
+  game:'balance-hold',
+  gameId:'balance-hold',
+  zone:'fitness',
+  assessmentScore,
+  poseAccuracy,
+  accuracy:poseAccuracy,
+  stabilityScore:finite(source.stabilityScore)??0,
+  transitionScore:finite(source.transitionScore)??0,
+  safeZoneScore:finite(source.safeZoneScore)??0,
+  trackingCoverage:finite(source.trackingCoverage)??0,
+  trackingConfidence:finite(source.trackingConfidence)??0,
+  validHoldRatio:finite(source.validHoldRatio)??0,
+  completedPoses,
+  totalPoses,
+  poseResults,
+  completed,
+  procedureCompleted:completed,
+  progressionEligible:completed,
+  passed,
+  skillCriteriaMet:passed,
+  inputMode:source.inputMode||source.mode||'classroom-pose',
+  gameVersion:source.gameVersion||source.version||RELEASE,
+  analyticsSchemaVersion:'HH-UNIFIED-GAME-ANALYTICS-V3',
+  completionPolicy:'one-classroom-round-completes-skill-separate',
+  retryRequired:false,
+  singleAttemptPolicy:true,
+  coreResultOnly:false,
+  fullAnalyticsSubmitted:true,
+  balanceRichAnalytics:true,
+  analyticsProxyRelease:RELEASE,
+  finishedAt:source.finishedAt||source.ts||new Date().toISOString()
+ };
+}
+
+function forward(payload){
+ const official=normalize(payload);
+ const key=official.eventId;
+ if(forwarded.has(key))return;
+ forwarded.add(key);
+ try{parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:official},location.origin)}catch(_){}
+}
+
+async function waitAndForward(seed){
+ clearTimeout(pendingTimer);
+ let candidate=seed;
+ for(let attempt=0;attempt<18;attempt++){
+  const stored=readStored();
+  if(stored&&typeof stored==='object')candidate={...(candidate||{}),...stored};
+  if(richEnough(candidate)){forward(candidate);return true}
+  await sleep(100);
+ }
+ console.warn('[Balance Unified V48] rejected incomplete completion payload',candidate);
+ return false;
+}
+
+addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
+ const message=event.data||{};
+ if(message.type==='HEROHEALTH_GAME_STARTED'){
+  try{parent.postMessage(message,location.origin)}catch(_){}
+  return;
+ }
+ if(message.type==='HEROHEALTH_GAME_COMPLETE'&&message.payload){
+  if(richEnough(message.payload))forward(message.payload);
+  else waitAndForward(message.payload);
+ }
+});
+
+console.info('[Balance Hold] Unified Analytics V48 ready',RELEASE);
+})();
+</script>
+</body>
+</html>
