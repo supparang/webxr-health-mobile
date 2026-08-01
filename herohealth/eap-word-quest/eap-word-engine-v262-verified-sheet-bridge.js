@@ -1,13 +1,13 @@
 /* =========================================================
    EAP Word Quest • Compatibility Bootstrap Loader
-   Version: 20260731-V296-HOME-REPORT-POLISH-BOOTSTRAP
+   Version: 20260801-V297-ANALYTICS-PAYLOAD-BOOTSTRAP
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260731-V296-HOME-REPORT-POLISH-BOOTSTRAP';
-  if (window.__EAP_WORD_V296_BOOTSTRAP__) return;
-  window.__EAP_WORD_V296_BOOTSTRAP__ = true;
+  var VERSION = '20260801-V297-ANALYTICS-PAYLOAD-BOOTSTRAP';
+  if (window.__EAP_WORD_V297_BOOTSTRAP__) return;
+  window.__EAP_WORD_V297_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
   window.__EAP_WORD_AUTHORITY_V274__ = true;
 
@@ -57,7 +57,10 @@
     loadScript('./eap-word-identity-proof-v278.js?v=20260731-v278-3', 'eap-v278', '__EAP_WORD_IDENTITY_PROOF_V278__');
   }, 600);
   setTimeout(function () {
-    loadScript('./eap-word-engine-v280-compact-submit.js?v=20260731-v280-3', 'eap-v280', '__EAP_WORD_V280_COMPACT_SUBMIT__');
+    loadScript('./eap-word-analytics-payload-v297.js?v=20260801-v297-analytics-payload-1', 'eap-v297', '__EAP_WORD_V297_ANALYTICS_PAYLOAD__');
+  }, 820);
+  setTimeout(function () {
+    loadScript('./eap-word-engine-v280-compact-submit.js?v=20260801-v297-analytics-payload-1', 'eap-v280', '__EAP_WORD_V280_COMPACT_SUBMIT__');
   }, 940);
   setTimeout(function () {
     loadScript('./eap-word-mobile-next-v284.js?v=20260731-v284-3', 'eap-v284', '__EAP_WORD_MOBILE_NEXT_V284__');
