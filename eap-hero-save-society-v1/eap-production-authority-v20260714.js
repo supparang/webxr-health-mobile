@@ -1,15 +1,15 @@
 /* =========================================================
-   EAP Hero Production Authority v4 SERVER-RESUME-ONLY
+   EAP Hero Production Authority v5 SERVER-RESUME-ONLY
    - currentRoute and unlockedRoutes come only from player_resume.
    - Never re-derives progression from raw records in the browser.
    - localStorage is only a cache of the last accepted server resume.
 ========================================================= */
 (function(){
   'use strict';
-  if (window.__EAP_PRODUCTION_AUTHORITY_V4__) return;
-  window.__EAP_PRODUCTION_AUTHORITY_V4__ = true;
+  if (window.__EAP_PRODUCTION_AUTHORITY_V5__) return;
+  window.__EAP_PRODUCTION_AUTHORITY_V5__ = true;
 
-  var VERSION='v20260722-EAP-PRODUCTION-AUTHORITY-V4-SERVER-RESUME-ONLY';
+  var VERSION='v20260731-EAP-PRODUCTION-AUTHORITY-V5-SERVER-RESUME-ONLY';
   var ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
   var live={verified:false,currentRoute:'',unlocked:{},data:null,identity:''};
   var renderTimer=0;
@@ -88,10 +88,10 @@
     return norm(args[0]);
   }
   function patchMethod(obj,name){
-    if(!obj||typeof obj[name]!=='function'||obj[name].__eapServerOnlyV4)return false;
+    if(!obj||typeof obj[name]!=='function'||obj[name].__eapServerOnlyV5)return false;
     var original=obj[name].__original||obj[name];
     var guarded=function(){var rid=routeArg(name,arguments);if(rid&&!canOpen(rid)){toast('ด่าน '+rid+' ยังไม่เปิดจากข้อมูล Google Sheet — '+reason(rid));return false;}return original.apply(this,arguments);};
-    guarded.__eapServerOnlyV4=true;guarded.__original=original;obj[name]=guarded;return true;
+    guarded.__eapServerOnlyV5=true;guarded.__original=original;obj[name]=guarded;return true;
   }
   function patchApis(){var h=window.EAPHero,c=false;c=patchMethod(h,'skillHub')||c;c=patchMethod(h,'openSkillMission')||c;c=patchMethod(h,'startGateBoss')||c;c=patchMethod(h,'openBoss')||c;return c;}
   function decorate(){
@@ -103,7 +103,19 @@
   }
   function schedule(){clearTimeout(renderTimer);renderTimer=setTimeout(function(){patchApis();decorate();},60);}
   function reset(){live={verified:false,currentRoute:'',unlocked:{},data:null,identity:identityKey()};schedule();}
-  function diagnostics(){return{version:VERSION,authorityMode:'server-resume-only',liveVerified:live.verified,currentRoute:live.currentRoute,unlockedRoutes:Object.keys(live.unlocked),identity:live.identity};}
+  function diagnostics(){
+    return{
+      version:VERSION,
+      authorityMode:'server-resume-only',
+      liveVerified:live.verified,
+      liveRecordCount:live.data&&Array.isArray(live.data.records)?live.data.records.length:0,
+      currentRoute:live.currentRoute,
+      unlockedRoutes:Object.keys(live.unlocked),
+      identity:live.identity,
+      acceptsLocalEvidence:false,
+      acceptsCompletedSessionsCache:false
+    };
+  }
 
   document.addEventListener('click',function(event){
     var el=event.target&&event.target.closest&&event.target.closest('[data-eap-roadmap-route],[data-route-id]');if(!el)return;

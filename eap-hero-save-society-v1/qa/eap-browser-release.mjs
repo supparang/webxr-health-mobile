@@ -9,7 +9,8 @@ await page.waitForFunction(() => window.EAP15ReleaseQA && window.EAPRoadmapLockG
 let report = await page.evaluate(() => window.EAP15ReleaseQA.run());
 if (!report.pass) throw new Error(`Browser QA errors: ${JSON.stringify(report.errors.slice(0,10))}`);
 let diag = await page.evaluate(() => window.EAPRoadmapLockGuard.diagnostics());
-if (diag.authorityMode !== 'live-sheet-only') throw new Error(`Wrong authority mode: ${JSON.stringify(diag)}`);
+if (diag.authorityMode !== 'server-resume-only') throw new Error(`Wrong authority mode: ${JSON.stringify(diag)}`);
+if (diag.acceptsLocalEvidence !== false || diag.acceptsCompletedSessionsCache !== false) throw new Error(`Unsafe authority diagnostics: ${JSON.stringify(diag)}`);
 
 await page.evaluate(() => {
   localStorage.setItem('EAP_HERO_PROGRESS_V3', JSON.stringify({
@@ -21,34 +22,52 @@ await page.evaluate(() => {
 await page.reload({waitUntil:'domcontentloaded',timeout:60000});
 await page.waitForFunction(() => window.EAPRoadmapLockGuard && window.EAPLobbyRouteIsolation, null, {timeout:60000});
 const tamper = await page.evaluate(() => ({current:window.EAPRoadmapLockGuard.currentRouteId(),b5:window.EAPRoadmapLockGuard.canOpen('B5'),d:window.EAPRoadmapLockGuard.diagnostics()}));
-if (tamper.current !== 'S1' || tamper.b5 !== false || tamper.d.liveVerified !== false) throw new Error(`localStorage tamper unlocked progress: ${JSON.stringify(tamper)}`);
+if (tamper.current !== '' || tamper.b5 !== false || tamper.d.liveVerified !== false) throw new Error(`localStorage tamper unlocked progress: ${JSON.stringify(tamper)}`);
 
 const live = await page.evaluate(() => {
   const s=JSON.parse(localStorage.getItem('EAP_HERO_PROGRESS_V3')||'{}');
   s.profile={studentId:'QA-LIVE',studentName:'QA Live',section:'122'};
+  delete s.cloudResumeStatus;
+  delete s.currentCloudRoute;
+  delete s.currentRoute;
+  delete s.unlockedRoutes;
   localStorage.setItem('EAP_HERO_PROGRESS_V3',JSON.stringify(s));
   window.dispatchEvent(new CustomEvent('eap:profile-changed'));
-  const data={ok:true,studentId:'QA-LIVE',studentName:'QA Live',section:'122',generatedAt:new Date().toISOString(),serverRevision:'qa',records:[
-    {routeId:'S1',sessionId:'S1',skill:'Reading',score:90,passed:true},
-    {routeId:'S1',sessionId:'S1',skill:'Speaking',score:90,passed:true}
-  ]};
+  const data={
+    ok:true,studentId:'QA-LIVE',studentName:'QA Live',section:'122',
+    generatedAt:new Date().toISOString(),serverRevision:'qa',
+    currentRoute:'S2',unlockedRoutes:['S1','S2'],
+    records:[
+      {routeId:'S1',sessionId:'S1',skill:'Reading',score:90,passed:true},
+      {routeId:'S1',sessionId:'S1',skill:'Speaking',score:90,passed:true}
+    ]
+  };
   window.dispatchEvent(new CustomEvent('eap:resume-synced',{detail:{data}}));
   return {current:window.EAPRoadmapLockGuard.currentRouteId(),s2:window.EAPRoadmapLockGuard.canOpen('S2'),diag:window.EAPRoadmapLockGuard.diagnostics()};
 });
-if (live.current !== 'S2' || live.s2 !== true || live.diag.liveVerified !== true) throw new Error(`fresh resume did not advance: ${JSON.stringify(live)}`);
+if (live.current !== 'S2' || live.s2 !== true || live.diag.liveVerified !== true) throw new Error(`server resume did not advance: ${JSON.stringify(live)}`);
 
 const boss = await page.evaluate(() => {
   const a=window.EAPRoadmapLockGuard;
-  const rows=[];
-  const add=(route,skills)=>skills.forEach(skill=>rows.push({routeId:route,skill,score:90,passed:true}));
-  add('S1',['reading','speaking']); add('S2',['reading','writing']); add('S3',['reading','writing']);
-  add('B1',['reading','listening','writing']); rows.push({routeId:'B1',skill:'speaking',score:90,passed:true,teacherReviewStatus:'pending_teacher_review'});
-  const pending=a.testEvaluate(rows).current;
-  rows[rows.length-1].teacherReviewStatus='reviewed';
-  const reviewed=a.testEvaluate(rows).current;
-  return {pending,reviewed};
+  const pendingData={
+    ok:true,studentId:'QA-LIVE',studentName:'QA Live',section:'122',
+    generatedAt:new Date().toISOString(),serverRevision:'qa-pending',
+    currentRoute:'B1',unlockedRoutes:['S1','S2','S3','B1'],
+    records:[{routeId:'B1',sessionId:'B1',skill:'Speaking',score:90,passed:true,teacherReviewStatus:'pending_teacher_review'}]
+  };
+  const pendingAccepted=a.acceptResume({detail:{data:pendingData}});
+  const pending=a.currentRouteId();
+  const reviewedData={
+    ok:true,studentId:'QA-LIVE',studentName:'QA Live',section:'122',
+    generatedAt:new Date().toISOString(),serverRevision:'qa-reviewed',
+    currentRoute:'S4',unlockedRoutes:['S1','S2','S3','B1','S4'],
+    records:[{routeId:'B1',sessionId:'B1',skill:'Speaking',score:90,passed:true,teacherReviewStatus:'reviewed'}]
+  };
+  const reviewedAccepted=a.acceptResume({detail:{data:reviewedData}});
+  const reviewed=a.currentRouteId();
+  return {pending,pendingAccepted,reviewed,reviewedAccepted,diag:a.diagnostics()};
 });
-if (boss.pending !== 'B1' || boss.reviewed !== 'S4') throw new Error(`Boss review contract failed: ${JSON.stringify(boss)}`);
+if (boss.pending !== 'B1' || boss.pendingAccepted !== true || boss.reviewed !== 'S4' || boss.reviewedAccepted !== true) throw new Error(`Server Boss route contract failed: ${JSON.stringify(boss)}`);
 
 await page.evaluate(() => {
   const app=document.getElementById('app');
