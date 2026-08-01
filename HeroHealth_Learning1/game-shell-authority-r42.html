@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#082f49">
+<title>HeroHealth Classroom Game</title>
+<style>
+html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#03131d;color:#fff;font-family:system-ui,sans-serif}.loading{max-width:88vw;padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}.loading button{margin-top:14px;padding:12px 18px;border:0;border-radius:12px;font:inherit;font-weight:900}
+</style>
+</head>
+<body>
+<div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังเชื่อมต่อระบบบันทึกผล กรุณารอสักครู่</small></div>
+<script>
+(()=>{'use strict';
+const RELEASE='20260801-GAME-SHELL-STRICT-AUTHORITY-R42';
+const sourceUrl=new URL('./game-shell-authority-r40.html',location.href);
+sourceUrl.searchParams.set('strictAuthority',RELEASE);
+sourceUrl.searchParams.set('_',Date.now());
+function replaceRequired(source,search,replacement,label){
+  if(!source.includes(search))throw new Error('patch_missing_'+label);
+  return source.replace(search,replacement);
+}
+fetch(sourceUrl,{cache:'no-store'})
+  .then(response=>{if(!response.ok)throw new Error('shell_load_'+response.status);return response.text()})
+  .then(source=>{
+    let html=source;
+    html=replaceRequired(html,
+      '<script src="./data/backend-config.js?v=20260731-full-analytics-r40"><\\/script>',
+      '<script src="./data/backend-config.js?v=20260801-r42-strict-authority"><\\/script>',
+      'backend_cache');
+    html=replaceRequired(html,
+      '<button id="leaveBtn" class="btn secondary">กลับ Passport โดยให้ระบบตรวจภายหลัง</button>',
+      '<button id="leaveBtn" class="btn secondary" hidden disabled aria-hidden="true" tabindex="-1">กำลังตรวจสอบผล</button>',
+      'pending_button');
+    html=replaceRequired(html,
+      "const RELEASE='20260731-GAME-SHELL-FULL-ANALYTICS-R40.1';",
+      "const RELEASE='20260801-GAME-SHELL-STRICT-AUTHORITY-R42';",
+      'release');
+    html=replaceRequired(html,
+      "async function waitForReceipt(eventId){for(let attempt=1;attempt<=12;attempt++){await sleep(550+attempt*180+Math.floor(Math.random()*250));if(!(await eventFound(eventId)))continue;const authority=await studentAuthority();if(authority)return{ok:true,source:'event-and-student-authority',authority};const reconciled=await reconcileAuthority();if(reconciled)return{ok:true,source:'event-and-reconcile',authority:reconciled};if(attempt>=7)return{ok:true,source:'event-saved-authority-pending',authority:null}}return{ok:false,source:'current-event-not-found',authority:null}}",
+      "async function waitForReceipt(eventId){let eventSeen=false;for(let attempt=1;attempt<=16;attempt++){await sleep(550+attempt*180+Math.floor(Math.random()*250));eventSeen=eventSeen||await eventFound(eventId);if(!eventSeen)continue;const authority=await studentAuthority();if(authority)return{ok:true,source:'event-and-student-authority',authority};const reconciled=await reconcileAuthority();if(reconciled)return{ok:true,source:'event-and-reconcile',authority:reconciled}}return{ok:false,source:eventSeen?'event-saved-authority-not-confirmed':'current-event-not-found',authority:null}}",
+      'receipt');
+    html=replaceRequired(html,
+      "function returnUrl(authority,pending=false){const url=new URL(back,location.href);url.searchParams.set('sid',sid);url.searchParams.set('authorityRefresh',Date.now());url.searchParams.set('gameSync','1');url.searchParams.set('autoNext','1');url.searchParams.set('shellVersion',RELEASE);url.searchParams.set('analyticsMode','full-once');if(pending)url.searchParams.set('pendingGameSync',`${zone}:${gameId}`);const next=authority?.authoritativeState?.progress?.nextStep||authority?.progress?.nextStep;if(next)url.searchParams.set('confirmedNext',next);return url.href}",
+      "function returnUrl(authority){if(!authority||!authorityHasGame(authority))throw new Error('authority_required_before_return');const url=new URL(back,location.href);url.searchParams.set('sid',sid);url.searchParams.set('authorityRefresh',Date.now());url.searchParams.set('gameSync','1');url.searchParams.set('autoNext','1');url.searchParams.set('shellVersion',RELEASE);url.searchParams.set('analyticsMode','full-once');url.searchParams.set('authorityConfirmed','1');const next=authority?.authoritativeState?.progress?.nextStep||authority?.progress?.nextStep;if(next)url.searchParams.set('confirmedNext',next);return url.href}",
+      'return_url');
+    html=replaceRequired(html,
+      "syncEl.textContent=authority?'Google Sheet ยืนยัน Full Analytics และ Passport แล้ว':'Google Sheet บันทึก Full Analytics แล้ว • Passport จะตรวจต่ออัตโนมัติ';statusEl.textContent='บันทึกผลครบแล้ว';setTimeout(()=>location.replace(returnUrl(authority,!authority)),650)",
+      "if(!authority)throw new Error('sheet_authority_not_confirmed');syncEl.textContent='Google Sheet ยืนยันผลและ Passport แล้ว';statusEl.textContent='บันทึกผลครบแล้ว';setTimeout(()=>location.replace(returnUrl(authority)),650)",
+      'finish_navigation');
+    html=replaceRequired(html,
+      "function leavePending(){if(lastPayload){queuePayload(lastPayload);try{beaconPost(lastPayload)}catch(_){}}location.href=returnUrl(null,true)}",
+      "function leavePending(){if(!ended){location.href=back;return}if(lastPayload)queuePayload(lastPayload);syncEl.classList.add('error');syncEl.textContent='ผลยังไม่ยืนยันกับ Google Sheet กรุณากดตรวจและส่งอีกครั้ง';returnBtn.textContent='ตรวจและส่งผลอีกครั้ง';returnBtn.disabled=false;leaveBtn.hidden=true;leaveBtn.disabled=true}",
+      'leave_pending');
+    html=replaceRequired(html,
+      "returnBtn.onclick=()=>{automaticRounds=0;finishAndGo(false)};leaveBtn.onclick=leavePending;document.getElementById('back').onclick=leavePending;",
+      "returnBtn.onclick=()=>{automaticRounds=0;finishAndGo(false)};leaveBtn.hidden=true;leaveBtn.disabled=true;leaveBtn.onclick=event=>event.preventDefault();document.getElementById('back').onclick=leavePending;",
+      'handlers');
+    html=html.replace('</body>','<script>window.HH_GAME_SHELL_R42={release:'+JSON.stringify(RELEASE)+',strictAuthority:true,pendingNavigation:false};<\\/script></body>');
+    document.open();document.write(html);document.close();
+  })
+  .catch(error=>{
+    console.error('[Game Shell R42]',error);
+    document.body.innerHTML='<div class="loading"><b>ยังเตรียมเกมไม่ได้</b><small>กรุณาตรวจสอบอินเทอร์เน็ต แล้วลองใหม่อีกครั้ง</small><button onclick="location.reload()">ลองใหม่</button></div>';
+  });
+})();
+</script>
+</body>
+</html>
