@@ -1,11 +1,11 @@
 /* =========================================================
    EAP Word Quest • Compatibility Bootstrap Loader
-   Version: 20260801-V298-SHEET-DONE-SUMMARY-BOOTSTRAP
+   Version: 20260801-V299-FRIENDLY-DONE-BOOTSTRAP
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260801-V298-SHEET-DONE-SUMMARY-BOOTSTRAP';
+  var VERSION = '20260801-V299-FRIENDLY-DONE-BOOTSTRAP';
   if (window.__EAP_WORD_V296_BOOTSTRAP__) return;
   window.__EAP_WORD_V296_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
@@ -32,7 +32,7 @@
 
   loadScript('./eap-word-profile-actions-stability-v289.js?v=20260731-v291-stable-profile-proxy-1', 'eap-v291', '__EAP_WORD_PROFILE_ACTIONS_STABILITY_V291__');
   loadScript('./eap-word-sheet-resume-rehydrate-v281.js?v=20260731-v281-3', 'eap-v281', '__EAP_WORD_V281_SHEET_REHYDRATE__');
-  loadScript('./eap-word-summary-cta-authority-v292.js?v=20260801-v298-sheet-done-summary-1', 'eap-v294', '__EAP_WORD_SUMMARY_ACTIONS_V294__');
+  loadScript('./eap-word-summary-cta-authority-v292.js?v=20260801-v299-friendly-done-1', 'eap-v294', '__EAP_WORD_SUMMARY_ACTIONS_V294__');
   loadScript('./eap-word-final-completion-authority-v295.js?v=20260731-v295-final-completion-1', 'eap-v295', '__EAP_WORD_FINAL_COMPLETION_V295__');
   loadScript('./eap-word-home-completion-report-v296.js?v=20260731-v296-home-report-polish-1', 'eap-v296', '__EAP_WORD_HOME_REPORT_V296__');
 
