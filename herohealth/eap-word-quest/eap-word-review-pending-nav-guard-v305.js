@@ -42,16 +42,24 @@
     pending = screen.classList.contains('active') && reviewActive() && !receiptConfirmed();
 
     if (pending) {
-      button.dataset.eapHiddenWhileReviewPending = 'true';
-      button.style.setProperty('visibility', 'hidden');
-      button.setAttribute('aria-hidden', 'true');
-      button.setAttribute('tabindex', '-1');
+      if (button.dataset.eapHiddenWhileReviewPending !== 'true') {
+        button.dataset.eapHiddenWhileReviewPending = 'true';
+      }
+      if (button.style.visibility !== 'hidden') {
+        button.style.setProperty('visibility', 'hidden');
+      }
+      if (button.getAttribute('aria-hidden') !== 'true') {
+        button.setAttribute('aria-hidden', 'true');
+      }
+      if (button.getAttribute('tabindex') !== '-1') {
+        button.setAttribute('tabindex', '-1');
+      }
       return;
     }
 
     if (button.dataset.eapHiddenWhileReviewPending === 'true') {
       delete button.dataset.eapHiddenWhileReviewPending;
-      button.style.removeProperty('visibility');
+      if (button.style.visibility) button.style.removeProperty('visibility');
       button.removeAttribute('aria-hidden');
       button.removeAttribute('tabindex');
     }
