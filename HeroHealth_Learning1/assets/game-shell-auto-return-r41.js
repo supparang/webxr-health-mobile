@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const RELEASE='20260731-GAME-SHELL-AUTO-RETURN-R41.1-RECEIPT-GUARD';
+const RELEASE='20260801-GAME-SHELL-AUTO-RETURN-R41.2-STRICT-AUTHORITY';
 const path=String(location.pathname||'');
 if(!/game-shell-authority-r40\.html$/i.test(path))return;
 
@@ -56,7 +56,7 @@ function markSent(payload){
 }
 function jsonp(params,timeout=15000){
   return new Promise((resolve,reject)=>{
-    const cb='HHAR41_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const cb='HHAR412_'+Date.now()+'_'+Math.random().toString(36).slice(2);
     const script=document.createElement('script');
     let done=false;
     const finish=(error,data)=>{
@@ -103,7 +103,10 @@ function currentResultMatches(api,payload){
 }
 function authorityGameCompleted(api){
   const roots=[api,api?.authoritativeState].filter(Boolean);
-  return roots.some(root=>root?.gameCompleted?.[zone]?.[gameId]===true);
+  return roots.some(root=>
+    root?.gameCompleted?.[zone]?.[gameId]===true ||
+    (Array.isArray(root?.completedGames)&&root.completedGames.some(value=>clean(value)===`${zone}:${gameId}`||clean(value)===gameId))
+  );
 }
 function mergeAuthority(api){
   const authority=api?.authoritativeState||api||{};
@@ -128,7 +131,7 @@ function mergeAuthority(api){
   writeJson(STATE_KEY,next);
   writeJson(RESUME_PREFIX+sid,next);
 }
-function returnUrl(api,pending=false){
+function returnUrl(api){
   const url=new URL(back,location.href);
   url.searchParams.set('sid',sid);
   url.searchParams.set('authorityRefresh',Date.now());
@@ -136,7 +139,6 @@ function returnUrl(api,pending=false){
   url.searchParams.set('autoNext','1');
   url.searchParams.set('shellVersion',RELEASE);
   url.searchParams.set('analyticsMode','full-once');
-  if(pending)url.searchParams.set('pendingGameSync',`${zone}:${gameId}`);
   const next=api?.authoritativeState?.progress?.nextStep||api?.progress?.nextStep;
   if(next)url.searchParams.set('confirmedNext',next);
   return url.href;
@@ -154,8 +156,8 @@ function childFriendlyUi(mode='checking'){
   if(sync){
     sync.classList.remove('error');
     sync.textContent=mode==='confirmed'
-      ?'บันทึกผลสำเร็จ • กำลังกลับ Hero Passport…'
-      :'กำลังยืนยันผลกับ Google Sheet และจะกลับ Hero Passport อัตโนมัติ…';
+      ?'Google Sheet ยืนยันผลแล้ว • กำลังกลับ Hero Passport…'
+      :'กำลังยืนยันผลรอบนี้กับ Google Sheet และ Passport…';
   }
   if(primary){
     primary.textContent=mode==='confirmed'?'กำลังกลับ Hero Passport…':'กำลังตรวจสอบผล…';
@@ -189,31 +191,40 @@ function installReceiptGuard(){
     },true);
   }
 }
+async function fetchStudentAuthority(){
+  return jsonp({action:'student',studentId:sid,reconcile:'1',force:'1'},15000).catch(()=>null);
+}
+async function fetchReconciledAuthority(){
+  const reconciled=await jsonp({action:'reconcileStudent',studentId:sid,force:'1'},18000).catch(()=>null);
+  if(reconciled?.ok===true)return reconciled;
+  return fetchStudentAuthority();
+}
 async function confirmCurrentPayload(payload){
-  if(!payload)return null;
+  if(!payload?.eventId)return null;
   try{
     const event=await jsonp({action:'event',eventId:payload.eventId},10000).catch(()=>null);
-    if(event?.ok===true&&event?.found===true){
-      const api=await jsonp({action:'student',studentId:sid,reconcile:'1',force:'1'},15000).catch(()=>null);
-      if(api?.ok===true&&authorityGameCompleted(api))return api;
-      return {ok:true,eventConfirmed:true,authoritativeState:null};
-    }
-    const api=await jsonp({action:'student',studentId:sid,reconcile:'1',force:'1'},15000).catch(()=>null);
-    if(currentResultMatches(api,payload))return api;
-    if(api?.ok===true&&authorityGameCompleted(api)&&currentResultMatches(api,payload))return api;
-  }catch(error){console.warn('[R41.1 authority check]',error)}
+    if(event?.ok!==true||event?.found!==true)return null;
+
+    let api=await fetchStudentAuthority();
+    if(api?.ok===true&&authorityGameCompleted(api))return api;
+
+    api=await fetchReconciledAuthority();
+    if(api?.ok===true&&authorityGameCompleted(api))return api;
+
+    console.info('[R41.2] current event saved but Passport authority not ready',payload.eventId);
+  }catch(error){console.warn('[R41.2 strict authority check]',error)}
   return null;
 }
 async function navigateConfirmed(api,payload){
-  if(navigating)return;
+  if(navigating||!api||!authorityGameCompleted(api))return;
   navigating=true;
   lastConfirmedApi=api;
-  if(api?.authoritativeState||api?.gameCompleted)mergeAuthority(api);
+  mergeAuthority(api);
   dequeue(payload?.eventId);
   markSent(payload);
   childFriendlyUi('confirmed');
   await sleep(500);
-  location.replace(returnUrl(api,false));
+  location.replace(returnUrl(api));
 }
 async function poll(){
   if(polling||navigating)return;
@@ -234,7 +245,7 @@ async function poll(){
       const secondary=document.getElementById('leaveBtn');
       if(sync){
         sync.classList.add('error');
-        sync.textContent='Google Sheet ยังไม่ตอบกลับ • ผลยังไม่ยืนยัน กรุณาตรวจผลอีกครั้ง';
+        sync.textContent='Google Sheet บันทึกหรือ Passport ยังไม่ยืนยัน • กรุณาตรวจผลอีกครั้ง';
       }
       if(primary){
         primary.textContent='ตรวจผลอีกครั้ง';
