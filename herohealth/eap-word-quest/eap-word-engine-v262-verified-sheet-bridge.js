@@ -1,11 +1,11 @@
 /* =========================================================
    EAP Word Quest • Compatibility Bootstrap Loader
-   Version: 20260801-V303-REVIEW-SAFE-BOOTSTRAP
+   Version: 20260801-V305-REVIEW-SAFE-BOOTSTRAP
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260801-V303-REVIEW-SAFE-BOOTSTRAP';
+  var VERSION = '20260801-V305-REVIEW-SAFE-BOOTSTRAP';
   if (window.__EAP_WORD_V296_BOOTSTRAP__) return;
   window.__EAP_WORD_V296_BOOTSTRAP__ = true;
   window.__EAP_WORD_AUTHORITY_V272__ = true;
@@ -33,8 +33,10 @@
   loadScript('./eap-word-profile-actions-stability-v289.js?v=20260731-v291-stable-profile-proxy-1', 'eap-v291', '__EAP_WORD_PROFILE_ACTIONS_STABILITY_V291__');
   loadScript('./eap-word-sheet-resume-rehydrate-v281.js?v=20260731-v281-3', 'eap-v281', '__EAP_WORD_V281_SHEET_REHYDRATE__');
 
+  loadScript('./eap-word-review-replay-guard-v304.js?v=20260801-v304-review-replay-1', 'eap-v304', '__EAP_WORD_V304_REVIEW_REPLAY_GUARD__');
   loadScript('./eap-word-weak-review-mode-v301.js?v=20260801-v301-review-mode-1', 'eap-v301', '__EAP_WORD_V301_WEAK_REVIEW_MODE__');
   loadScript('./eap-word-summary-authority-v303.js?v=20260801-v303-review-summary-1', 'eap-v303', '__EAP_WORD_V303_REVIEW_SUMMARY__');
+  loadScript('./eap-word-review-pending-nav-guard-v305.js?v=20260801-v305-review-pending-1', 'eap-v305', '__EAP_WORD_V305_REVIEW_PENDING_NAV__');
 
   loadScript('./eap-word-final-completion-authority-v295.js?v=20260731-v295-final-completion-1', 'eap-v295', '__EAP_WORD_FINAL_COMPLETION_V295__');
   loadScript('./eap-word-home-completion-report-v296.js?v=20260731-v296-home-report-polish-1', 'eap-v296', '__EAP_WORD_HOME_REPORT_V296__');
