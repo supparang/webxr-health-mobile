@@ -20,6 +20,8 @@ jobs:
           node-version: '22'
       - name: Run Session Authority v137 contract
         run: node eap-hero-save-society-v1/qa/eap-session-authority-v137-contract.mjs
+      - name: Run ID-first profile v119 contract
+        run: node eap-hero-save-society-v1/qa/eap-profile-id-first-v119-contract.mjs
       - name: Run canonical analytics contract
         run: node eap-hero-save-society-v1/qa/eap-analytics-canonical-contract.mjs
       - run: npm install --no-save playwright@1.52.0
