@@ -1,12 +1,15 @@
 /* =========================================================
    EAP Word Quest • Summary Actions Authority
-   Version: 20260731-EAPWQ-V294-LIVE-SUMMARY-ACTIONS
+   Version: 20260801-EAPWQ-V298-SHEET-DONE-SUMMARY-ACTIONS
 
-   Keeps summary actions consistent with the visible result:
+   Keeps summary actions consistent with the visible result and
+   gives Google Sheet completion authority priority over the local
+   session sequence:
+   - Sheet confirms DONE / 100% -> กลับหน้าหลัก
    - failed current session -> ฝึก <session> ต่อ
    - passed current session -> ไปทำ <next> ต่อ
    - replay button -> เล่น <current session> อีกครั้ง
-   - completed flow -> สรุปผลการเรียน
+   - completed final flow -> สรุปผลการเรียน / final authority
 
    Uses one observer scoped to #summaryScreen only.
    No polling loop and no automatic reload.
@@ -14,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '20260731-EAPWQ-V294-LIVE-SUMMARY-ACTIONS';
+  var VERSION = '20260801-EAPWQ-V298-SHEET-DONE-SUMMARY-ACTIONS';
   var FLOW = ['S1','S2','S3','BG1','S4','S5','S6','BG2','S7','S8','S9','BG3','S10','S11','S12','BG4','S13','S14','S15','BG5'];
   var observer = null;
   var scheduled = false;
@@ -24,33 +27,50 @@
   window.__EAP_WORD_SUMMARY_ACTIONS_V294__ = true;
   window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V293__ = true;
   window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V292__ = true;
+  window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V298__ = true;
 
   function text(value) {
     return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
   }
 
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
   function currentSession() {
-    var title = text(document.getElementById('summaryTitle') && document.getElementById('summaryTitle').textContent).toUpperCase();
-    var subtitle = text(document.getElementById('summarySubtitle') && document.getElementById('summarySubtitle').textContent).toUpperCase();
+    var title = text(byId('summaryTitle') && byId('summaryTitle').textContent).toUpperCase();
+    var subtitle = text(byId('summarySubtitle') && byId('summarySubtitle').textContent).toUpperCase();
     var match = (title + ' ' + subtitle).match(/\b(BG[1-5]|S(?:1[0-5]|[1-9]))\b/);
     return match ? match[1] : '';
   }
 
   function visibleAccuracy() {
-    var subtitle = text(document.getElementById('summarySubtitle') && document.getElementById('summarySubtitle').textContent);
-    var stats = text(document.getElementById('summaryStats') && document.getElementById('summaryStats').textContent);
+    var subtitle = text(byId('summarySubtitle') && byId('summarySubtitle').textContent);
+    var stats = text(byId('summaryStats') && byId('summaryStats').textContent);
     var match = (subtitle + ' ' + stats).match(/(\d{1,3})\s*%/);
     return match ? Number(match[1]) : NaN;
   }
 
   function passThreshold(sessionId) {
+    if (sessionId === 'BG5') return 75;
     return /^BG/.test(sessionId) ? 70 : 60;
   }
 
+  function receiptText() {
+    var node = byId('eapWordExactSummaryStatus');
+    return text(node && node.textContent);
+  }
+
   function receiptConfirmed() {
-    var screen = document.getElementById('summaryScreen');
-    var body = text(screen && screen.textContent);
-    return /บันทึกและยืนยันจาก Google Sheet แล้ว|ยืนยันจาก Google Sheet แล้ว/.test(body);
+    return /บันทึกและยืนยันจาก Google Sheet แล้ว|ยืนยันจาก Google Sheet แล้ว/.test(receiptText());
+  }
+
+  function sheetAuthorityDone() {
+    var value = receiptText();
+    if (!receiptConfirmed()) return false;
+    return /เล่นต่อที่\s*DONE\b/i.test(value) ||
+      /ความก้าวหน้า\s*100\s*%/i.test(value) ||
+      /สำเร็จครบทุกภารกิจ/i.test(value);
   }
 
   function nextSession(sessionId) {
@@ -64,14 +84,21 @@
     if (button.getAttribute('aria-label') !== ariaLabel) button.setAttribute('aria-label', ariaLabel);
   }
 
+  function clearSheetDoneState(button) {
+    if (!button || !button.dataset) return;
+    if (button.dataset.eapSummaryAction === 'completed-home') delete button.dataset.eapSummaryAction;
+    if (button.dataset.eapSheetDone === 'true') delete button.dataset.eapSheetDone;
+  }
+
   function patch() {
-    var screen = document.getElementById('summaryScreen');
-    var nextButton = document.getElementById('nextMissionBtn');
-    var replayButton = document.getElementById('replayBtn');
+    var screen = byId('summaryScreen');
+    var nextButton = byId('nextMissionBtn');
+    var replayButton = byId('replayBtn');
     var sessionId;
     var accuracy;
     var passed;
     var next;
+    var authorityDone;
 
     if (applying || !screen || !screen.classList.contains('active')) return;
 
@@ -86,16 +113,30 @@
 
       if (!nextButton) return;
 
+      authorityDone = sheetAuthorityDone();
       passed = accuracy >= passThreshold(sessionId);
       next = nextSession(sessionId);
 
-      if (!passed) {
+      if (authorityDone) {
+        setLabel(nextButton, 'กลับหน้าหลัก', 'กลับหน้าหลักหลังจบ EAP Word Quest');
+        nextButton.dataset.eapSummaryAction = 'completed-home';
+        nextButton.dataset.eapSheetDone = 'true';
+        nextButton.dataset.eapSheetConfirmed = 'true';
+        nextButton.title = 'Google Sheet ยืนยันความก้าวหน้า 100% แล้ว';
+        nextButton.disabled = false;
+        nextButton.setAttribute('aria-disabled', 'false');
+        nextButton.style.removeProperty('opacity');
+        nextButton.style.removeProperty('cursor');
+      } else if (!passed) {
+        clearSheetDoneState(nextButton);
         setLabel(nextButton, 'ฝึก ' + sessionId + ' ต่อ', 'ฝึก ' + sessionId + ' ต่อ เพราะยังไม่ผ่านเกณฑ์');
         nextButton.dataset.eapSummaryAction = 'retry-current';
       } else if (next === 'DONE') {
+        clearSheetDoneState(nextButton);
         setLabel(nextButton, 'สรุปผลการเรียน', 'สรุปผลการเรียน');
         nextButton.dataset.eapSummaryAction = 'complete';
       } else {
+        clearSheetDoneState(nextButton);
         setLabel(nextButton, 'ไปทำ ' + next + ' ต่อ', 'ไปทำ ' + next + ' ต่อ');
         nextButton.dataset.eapSummaryAction = 'advance';
       }
@@ -116,13 +157,13 @@
   }
 
   function connectObserver() {
-    var screen = document.getElementById('summaryScreen');
+    var screen = byId('summaryScreen');
     if (!screen || observer) return;
     observer = new MutationObserver(function (mutations) {
       var relevant = mutations.some(function (mutation) {
         var target = mutation.target && mutation.target.nodeType === 3 ? mutation.target.parentElement : mutation.target;
         if (!target || !target.closest) return false;
-        return Boolean(target.closest('#summaryTitle,#summarySubtitle,#summaryStats,#nextMissionBtn,#replayBtn,#summaryScreen'));
+        return Boolean(target.closest('#summaryTitle,#summarySubtitle,#summaryStats,#eapWordExactSummaryStatus,#nextMissionBtn,#replayBtn,#summaryScreen'));
       });
       if (relevant && !applying) schedulePatch();
     });
@@ -136,6 +177,19 @@
   }
 
   document.addEventListener('click', function (event) {
+    var completedButton = event.target && event.target.closest
+      ? event.target.closest('#nextMissionBtn[data-eap-summary-action="completed-home"]')
+      : null;
+    var home;
+
+    if (completedButton && sheetAuthorityDone()) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      home = byId('homeBtn');
+      if (home) home.click();
+      return;
+    }
+
     if (event.target && event.target.closest && event.target.closest('#nextBtn,#quickStartBtn,.eap192-start,#replayBtn,#nextMissionBtn')) activate();
   }, true);
 
@@ -149,8 +203,8 @@
   else activate();
 
   window.inspectEapWordSummaryActionsV294 = function () {
-    var nextButton = document.getElementById('nextMissionBtn');
-    var replayButton = document.getElementById('replayBtn');
+    var nextButton = byId('nextMissionBtn');
+    var replayButton = byId('replayBtn');
     return {
       version: VERSION,
       sessionId: currentSession(),
@@ -160,9 +214,10 @@
       replaySession: replayButton && replayButton.dataset.eapReplaySession || '',
       action: nextButton && nextButton.dataset.eapSummaryAction || '',
       sheetConfirmed: nextButton && nextButton.dataset.eapSheetConfirmed === 'true',
+      sheetAuthorityDone: sheetAuthorityDone(),
       observerConnected: Boolean(observer)
     };
   };
 
-  console.info('[EAP Word Quest] V294 live summary actions ready', { version: VERSION });
+  console.info('[EAP Word Quest] V298 Sheet-DONE summary actions ready', { version: VERSION });
 })();
