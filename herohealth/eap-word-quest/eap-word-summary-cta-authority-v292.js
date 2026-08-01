@@ -1,23 +1,20 @@
 /* =========================================================
    EAP Word Quest • Summary Actions Authority
-   Version: 20260801-EAPWQ-V299-FRIENDLY-DONE-SUMMARY
+   Version: 20260801-EAPWQ-V300-SINGLE-HOME-ACTION
 
-   Keeps summary actions consistent with the visible result and
-   gives Google Sheet completion authority priority over the local
-   session sequence:
-   - Sheet confirms DONE / 100% -> กลับหน้าหลัก
-   - Internal DONE is replaced with learner-friendly completion text
-   - failed current session -> ฝึก <session> ต่อ
-   - passed current session -> ไปทำ <next> ต่อ
-   - replay button -> เล่น <current session> อีกครั้ง
+   Google Sheet completion authority has priority over the local
+   session sequence. When Sheet confirms DONE / 100%:
+   - show learner-friendly completion receipt
+   - primary CTA becomes “กลับหน้าหลัก”
+   - hide the duplicate legacy “กลับหน้าแรก” action
+   - keep replay, Weak Words and Word Deck actions unchanged
 
-   Uses one observer scoped to #summaryScreen only.
    No polling loop and no automatic reload.
 ========================================================= */
 (function () {
   'use strict';
 
-  var VERSION = '20260801-EAPWQ-V299-FRIENDLY-DONE-SUMMARY';
+  var VERSION = '20260801-EAPWQ-V300-SINGLE-HOME-ACTION';
   var FLOW = ['S1','S2','S3','BG1','S4','S5','S6','BG2','S7','S8','S9','BG3','S10','S11','S12','BG4','S13','S14','S15','BG5'];
   var observer = null;
   var scheduled = false;
@@ -25,10 +22,11 @@
 
   if (window.__EAP_WORD_SUMMARY_ACTIONS_V294__) return;
   window.__EAP_WORD_SUMMARY_ACTIONS_V294__ = true;
-  window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V293__ = true;
   window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V292__ = true;
+  window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V293__ = true;
   window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V298__ = true;
   window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V299__ = true;
+  window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V300__ = true;
 
   function text(value) {
     return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
@@ -84,7 +82,7 @@
     if (!node || !sheetAuthorityDone()) return;
     desired = sessionId + ' บันทึกและยืนยันจาก Google Sheet แล้ว ✓ สำเร็จครบทุกภารกิจ • ความก้าวหน้า 100%';
     if (text(node.textContent) !== desired) node.textContent = desired;
-    if (node.dataset.eapFriendlyDone !== 'true') node.dataset.eapFriendlyDone = 'true';
+    node.dataset.eapFriendlyDone = 'true';
   }
 
   function nextSession(sessionId) {
@@ -98,7 +96,32 @@
     if (button.getAttribute('aria-label') !== ariaLabel) button.setAttribute('aria-label', ariaLabel);
   }
 
-  function clearSheetDoneState(button) {
+  function setSingleHomeAction(enabled) {
+    var screen = byId('summaryScreen');
+    var home = byId('homeBtn');
+    if (!screen || !home) return;
+
+    if (enabled) {
+      screen.dataset.eapSingleHomeAction = 'true';
+      home.dataset.eapHiddenByV300 = 'true';
+      home.hidden = true;
+      home.style.setProperty('display', 'none', 'important');
+      home.setAttribute('aria-hidden', 'true');
+      home.setAttribute('tabindex', '-1');
+      return;
+    }
+
+    if (home.dataset.eapHiddenByV300 === 'true') {
+      delete screen.dataset.eapSingleHomeAction;
+      delete home.dataset.eapHiddenByV300;
+      home.hidden = false;
+      home.style.removeProperty('display');
+      home.removeAttribute('aria-hidden');
+      home.removeAttribute('tabindex');
+    }
+  }
+
+  function clearDoneState(button) {
     if (!button || !button.dataset) return;
     if (button.dataset.eapSummaryAction === 'completed-home') delete button.dataset.eapSummaryAction;
     if (button.dataset.eapSheetDone === 'true') delete button.dataset.eapSheetDone;
@@ -124,12 +147,12 @@
     try {
       setLabel(replayButton, 'เล่น ' + sessionId + ' อีกครั้ง', 'เล่น ' + sessionId + ' อีกครั้ง');
       if (replayButton) replayButton.dataset.eapReplaySession = sessionId;
-
       if (!nextButton) return;
 
       authorityDone = sheetAuthorityDone();
       passed = accuracy >= passThreshold(sessionId);
       next = nextSession(sessionId);
+      setSingleHomeAction(authorityDone);
 
       if (authorityDone) {
         friendlyDoneReceipt(sessionId);
@@ -143,15 +166,15 @@
         nextButton.style.removeProperty('opacity');
         nextButton.style.removeProperty('cursor');
       } else if (!passed) {
-        clearSheetDoneState(nextButton);
+        clearDoneState(nextButton);
         setLabel(nextButton, 'ฝึก ' + sessionId + ' ต่อ', 'ฝึก ' + sessionId + ' ต่อ เพราะยังไม่ผ่านเกณฑ์');
         nextButton.dataset.eapSummaryAction = 'retry-current';
       } else if (next === 'DONE') {
-        clearSheetDoneState(nextButton);
+        clearDoneState(nextButton);
         setLabel(nextButton, 'สรุปผลการเรียน', 'สรุปผลการเรียน');
         nextButton.dataset.eapSummaryAction = 'complete';
       } else {
-        clearSheetDoneState(nextButton);
+        clearDoneState(nextButton);
         setLabel(nextButton, 'ไปทำ ' + next + ' ต่อ', 'ไปทำ ' + next + ' ต่อ');
         nextButton.dataset.eapSummaryAction = 'advance';
       }
@@ -182,13 +205,21 @@
       });
       if (relevant && !applying) schedulePatch();
     });
-    observer.observe(screen, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['class'] });
+    observer.observe(screen, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['class']
+    });
   }
 
   function activate() {
     connectObserver();
     schedulePatch();
-    [60, 220, 700, 1800].forEach(function (delay) { setTimeout(schedulePatch, delay); });
+    [60, 220, 700, 1800].forEach(function (delay) {
+      setTimeout(schedulePatch, delay);
+    });
   }
 
   document.addEventListener('click', function (event) {
@@ -205,7 +236,9 @@
       return;
     }
 
-    if (event.target && event.target.closest && event.target.closest('#nextBtn,#quickStartBtn,.eap192-start,#replayBtn,#nextMissionBtn')) activate();
+    if (event.target && event.target.closest && event.target.closest('#nextBtn,#quickStartBtn,.eap192-start,#replayBtn,#nextMissionBtn')) {
+      activate();
+    }
   }, true);
 
   window.addEventListener('eap-word-authority-ready', activate);
@@ -214,26 +247,32 @@
     if (!document.hidden) activate();
   });
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', activate, { once:true });
-  else activate();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', activate, { once: true });
+  } else {
+    activate();
+  }
 
   window.inspectEapWordSummaryActionsV294 = function () {
     var nextButton = byId('nextMissionBtn');
     var replayButton = byId('replayBtn');
+    var home = byId('homeBtn');
     return {
       version: VERSION,
       sessionId: currentSession(),
       accuracy: visibleAccuracy(),
       nextLabel: text(nextButton && nextButton.textContent),
       replayLabel: text(replayButton && replayButton.textContent),
-      replaySession: replayButton && replayButton.dataset.eapReplaySession || '',
       action: nextButton && nextButton.dataset.eapSummaryAction || '',
-      sheetConfirmed: nextButton && nextButton.dataset.eapSheetConfirmed === 'true',
       sheetAuthorityDone: sheetAuthorityDone(),
       receipt: receiptText(),
+      duplicateHomeHidden: Boolean(home && home.dataset.eapHiddenByV300 === 'true'),
+      visibleHomeActions: [nextButton, home].filter(function (button) {
+        return button && !button.hidden && window.getComputedStyle(button).display !== 'none';
+      }).length,
       observerConnected: Boolean(observer)
     };
   };
 
-  console.info('[EAP Word Quest] V299 friendly DONE summary ready', { version: VERSION });
+  console.info('[EAP Word Quest] V300 single home action ready', { version: VERSION });
 })();
