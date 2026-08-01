@@ -7,8 +7,8 @@ window.HH_CONFIG.backend = {
   duplicateGuard: true,
   syncIntervalMs: 15000,
   transportPolicy: "full-payload-single-submit",
-  gameShellVersion: "20260731-GAME-SHELL-RECEIPT-GUARD-R41.1",
-  receiptGuardVersion: "20260731-GAME-SHELL-AUTO-RETURN-R41.1-RECEIPT-GUARD",
+  gameShellVersion: "20260801-GAME-SHELL-STRICT-AUTHORITY-R41.2",
+  receiptGuardVersion: "20260801-GAME-SHELL-AUTO-RETURN-R41.2-STRICT-AUTHORITY",
   balanceAnalyticsVersion: "20260731-BALANCE-ANALYTICS-V50-1-STABILITY",
   handwashClassroomVersion: "20260731-HANDWASH-STABLE-R49-1-STUDENT-UI",
   handwashSchemaCompatibilityVersion: "20260731-GAME-SHELL-HANDWASH-SCHEMA-V2-R49",
@@ -25,9 +25,6 @@ window.HH_CONFIG.teacherAccess = {
 
 const hhRuntimePath = String(location.pathname || '');
 
-// Reflection Pending Queue R56 runs on Passport and Reflection pages.
-// It stores a server-side Pending copy before committing the final Reflection,
-// and can recover the same answers after the learner changes device.
 if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath) || /\/HeroHealth_Learning1\/assessment\/reflection\.html$/i.test(hhRuntimePath)) {
   const reflectionQueue = document.createElement('script');
   reflectionQueue.src = /\/assessment\/reflection\.html$/i.test(hhRuntimePath)
@@ -38,7 +35,6 @@ if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath) || /\/HeroH
   document.head.appendChild(reflectionQueue);
 }
 
-// Keep the newly verified student identity in the URL before the authority login reload.
 if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath)) {
   const loginGuard = document.createElement('script');
   loginGuard.src = './assets/profile-confirm-route-guard-r42.js?v=20260731-r42-stale-student-route';
@@ -144,8 +140,8 @@ if (/game-shell-authority-r40\.html$/i.test(hhRuntimePath)) {
   });
 
   const script = document.createElement('script');
-  script.src = './assets/game-shell-auto-return-r41.js?v=20260731-r41-1-receipt-guard';
+  script.src = './assets/game-shell-auto-return-r41.js?v=20260801-r41-2-strict-authority';
   script.async = false;
-  script.dataset.hhPatch = 'game-shell-auto-return-r41-1';
+  script.dataset.hhPatch = 'game-shell-auto-return-r41-2';
   document.head.appendChild(script);
 }
