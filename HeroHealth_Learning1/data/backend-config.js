@@ -7,7 +7,8 @@ window.HH_CONFIG.backend = {
   duplicateGuard: true,
   syncIntervalMs: 15000,
   transportPolicy: "full-payload-single-submit",
-  gameShellVersion: "20260801-GAME-SHELL-STRICT-AUTHORITY-R41.2",
+  gameShellVersion: "20260801-GAME-SHELL-STRICT-AUTHORITY-R42",
+  launcherVersion: "20260801-GAME-SHELL-LAUNCHER-R52-STRICT-AUTHORITY",
   receiptGuardVersion: "20260801-GAME-SHELL-AUTO-RETURN-R41.2-STRICT-AUTHORITY",
   balanceAnalyticsVersion: "20260731-BALANCE-ANALYTICS-V50-1-STABILITY",
   handwashClassroomVersion: "20260731-HANDWASH-STABLE-R49-1-STUDENT-UI",
@@ -43,9 +44,9 @@ if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath)) {
   document.head.appendChild(loginGuard);
 
   const launcherHotfix = document.createElement('script');
-  launcherHotfix.src = './assets/game-shell-launcher-v50-hotfix.js?v=20260731-v50-1-stability';
+  launcherHotfix.src = './assets/game-shell-launcher-v50-hotfix.js?v=20260801-r52-strict-authority';
   launcherHotfix.async = false;
-  launcherHotfix.dataset.hhPatch = 'game-shell-launcher-v50-hotfix';
+  launcherHotfix.dataset.hhPatch = 'game-shell-launcher-r52-strict-authority';
   document.head.appendChild(launcherHotfix);
 
   const reflectionRecovery = document.createElement('script');
@@ -55,7 +56,7 @@ if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath)) {
   document.head.appendChild(reflectionRecovery);
 }
 
-if (/game-shell-authority-r40\.html$/i.test(hhRuntimePath)) {
+if (/game-shell-authority-r4(?:0|2)\.html$/i.test(hhRuntimePath)) {
   const handwashSchema = document.createElement('script');
   handwashSchema.src = './assets/game-shell-handwash-schema-v2-r49.js?v=20260731-r49-v2-contract';
   handwashSchema.async = false;
@@ -103,7 +104,7 @@ if (/game-shell-authority-r40\.html$/i.test(hhRuntimePath)) {
     game.masteryPct = score;
     game.scoreDerived = true;
     game.scoreDerivationRelease = TOOTHBRUSH_SCORE_RELEASE;
-    game.skillCriteriaMet = score >= 70 && zones >= totalZones && directionPct >= 55 && precisionPct >= 70;
+    game.skillCriteriaMet = score >= 70 && totalZones > 0 && zones >= totalZones && directionPct >= 55 && precisionPct >= 70;
     return payload;
   }
 
