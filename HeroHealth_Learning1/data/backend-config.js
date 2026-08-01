@@ -13,6 +13,7 @@ window.HH_CONFIG.backend = {
   handwashClassroomVersion: "20260731-HANDWASH-STABLE-R49-1-STUDENT-UI",
   handwashSchemaCompatibilityVersion: "20260731-GAME-SHELL-HANDWASH-SCHEMA-V2-R49",
   toothbrushScoreVersion: "20260731-TOOTHBRUSH-NORMALIZED-SKILL-SCORE-R53",
+  reflectionRecoveryVersion: "20260801-REFLECTION-RECOVERY-MANAGER-R55",
   loginRouteGuardVersion: "20260731-PROFILE-CONFIRM-ROUTE-GUARD-R42"
 };
 
@@ -39,6 +40,14 @@ if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath)) {
   launcherHotfix.async = false;
   launcherHotfix.dataset.hhPatch = 'game-shell-launcher-v50-hotfix';
   document.head.appendChild(launcherHotfix);
+
+  // Recover a locally completed Reflection that has not yet been confirmed by Sheet Authority.
+  // The manager never invents answers; it only resubmits the learner's preserved response.
+  const reflectionRecovery = document.createElement('script');
+  reflectionRecovery.src = './assets/reflection-recovery-manager-r55.js?v=20260801-r55-sheet-authority';
+  reflectionRecovery.async = false;
+  reflectionRecovery.dataset.hhPatch = 'reflection-recovery-manager-r55';
+  document.head.appendChild(reflectionRecovery);
 }
 
 // Load transport compatibility before the classroom shell submits a Handwash payload.
