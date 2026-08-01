@@ -13,7 +13,7 @@ html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;backgr
 <div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังเชื่อมต่อระบบบันทึกผล กรุณารอสักครู่</small></div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260801-GAME-SHELL-STRICT-AUTHORITY-R42';
+const RELEASE='20260801-GAME-SHELL-STRICT-AUTHORITY-R42.1';
 const sourceUrl=new URL('./game-shell-authority-r40.html',location.href);
 sourceUrl.searchParams.set('strictAuthority',RELEASE);
 sourceUrl.searchParams.set('_',Date.now());
@@ -26,8 +26,8 @@ fetch(sourceUrl,{cache:'no-store'})
   .then(source=>{
     let html=source;
     html=replaceRequired(html,
-      '<script src="./data/backend-config.js?v=20260731-full-analytics-r40"><\\/script>',
-      '<script src="./data/backend-config.js?v=20260801-r42-strict-authority"><\\/script>',
+      '<script src="./data/backend-config.js?v=20260731-full-analytics-r40"><\/script>',
+      '<script src="./data/backend-config.js?v=20260801-r42-1-strict-authority"><\/script>',
       'backend_cache');
     html=replaceRequired(html,
       '<button id="leaveBtn" class="btn secondary">กลับ Passport โดยให้ระบบตรวจภายหลัง</button>',
@@ -35,7 +35,7 @@ fetch(sourceUrl,{cache:'no-store'})
       'pending_button');
     html=replaceRequired(html,
       "const RELEASE='20260731-GAME-SHELL-FULL-ANALYTICS-R40.1';",
-      "const RELEASE='20260801-GAME-SHELL-STRICT-AUTHORITY-R42';",
+      "const RELEASE='20260801-GAME-SHELL-STRICT-AUTHORITY-R42.1';",
       'release');
     html=replaceRequired(html,
       "async function waitForReceipt(eventId){for(let attempt=1;attempt<=12;attempt++){await sleep(550+attempt*180+Math.floor(Math.random()*250));if(!(await eventFound(eventId)))continue;const authority=await studentAuthority();if(authority)return{ok:true,source:'event-and-student-authority',authority};const reconciled=await reconcileAuthority();if(reconciled)return{ok:true,source:'event-and-reconcile',authority:reconciled};if(attempt>=7)return{ok:true,source:'event-saved-authority-pending',authority:null}}return{ok:false,source:'current-event-not-found',authority:null}}",
@@ -57,11 +57,11 @@ fetch(sourceUrl,{cache:'no-store'})
       "returnBtn.onclick=()=>{automaticRounds=0;finishAndGo(false)};leaveBtn.onclick=leavePending;document.getElementById('back').onclick=leavePending;",
       "returnBtn.onclick=()=>{automaticRounds=0;finishAndGo(false)};leaveBtn.hidden=true;leaveBtn.disabled=true;leaveBtn.onclick=event=>event.preventDefault();document.getElementById('back').onclick=leavePending;",
       'handlers');
-    html=html.replace('</body>','<script>window.HH_GAME_SHELL_R42={release:'+JSON.stringify(RELEASE)+',strictAuthority:true,pendingNavigation:false};<\\/script></body>');
+    html=html.replace('</body>','<script>window.HH_GAME_SHELL_R42={release:'+JSON.stringify(RELEASE)+',strictAuthority:true,pendingNavigation:false};<\/script></body>');
     document.open();document.write(html);document.close();
   })
   .catch(error=>{
-    console.error('[Game Shell R42]',error);
+    console.error('[Game Shell R42.1]',error);
     document.body.innerHTML='<div class="loading"><b>ยังเตรียมเกมไม่ได้</b><small>กรุณาตรวจสอบอินเทอร์เน็ต แล้วลองใหม่อีกครั้ง</small><button onclick="location.reload()">ลองใหม่</button></div>';
   });
 })();
