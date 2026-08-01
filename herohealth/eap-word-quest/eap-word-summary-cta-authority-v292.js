@@ -1,15 +1,15 @@
 /* =========================================================
    EAP Word Quest • Summary Actions Authority
-   Version: 20260801-EAPWQ-V298-SHEET-DONE-SUMMARY-ACTIONS
+   Version: 20260801-EAPWQ-V299-FRIENDLY-DONE-SUMMARY
 
    Keeps summary actions consistent with the visible result and
    gives Google Sheet completion authority priority over the local
    session sequence:
    - Sheet confirms DONE / 100% -> กลับหน้าหลัก
+   - Internal DONE is replaced with learner-friendly completion text
    - failed current session -> ฝึก <session> ต่อ
    - passed current session -> ไปทำ <next> ต่อ
    - replay button -> เล่น <current session> อีกครั้ง
-   - completed final flow -> สรุปผลการเรียน / final authority
 
    Uses one observer scoped to #summaryScreen only.
    No polling loop and no automatic reload.
@@ -17,7 +17,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '20260801-EAPWQ-V298-SHEET-DONE-SUMMARY-ACTIONS';
+  var VERSION = '20260801-EAPWQ-V299-FRIENDLY-DONE-SUMMARY';
   var FLOW = ['S1','S2','S3','BG1','S4','S5','S6','BG2','S7','S8','S9','BG3','S10','S11','S12','BG4','S13','S14','S15','BG5'];
   var observer = null;
   var scheduled = false;
@@ -28,6 +28,7 @@
   window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V293__ = true;
   window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V292__ = true;
   window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V298__ = true;
+  window.__EAP_WORD_SUMMARY_CTA_AUTHORITY_V299__ = true;
 
   function text(value) {
     return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
@@ -56,8 +57,12 @@
     return /^BG/.test(sessionId) ? 70 : 60;
   }
 
+  function receiptNode() {
+    return byId('eapWordExactSummaryStatus');
+  }
+
   function receiptText() {
-    var node = byId('eapWordExactSummaryStatus');
+    var node = receiptNode();
     return text(node && node.textContent);
   }
 
@@ -71,6 +76,15 @@
     return /เล่นต่อที่\s*DONE\b/i.test(value) ||
       /ความก้าวหน้า\s*100\s*%/i.test(value) ||
       /สำเร็จครบทุกภารกิจ/i.test(value);
+  }
+
+  function friendlyDoneReceipt(sessionId) {
+    var node = receiptNode();
+    var desired;
+    if (!node || !sheetAuthorityDone()) return;
+    desired = sessionId + ' บันทึกและยืนยันจาก Google Sheet แล้ว ✓ สำเร็จครบทุกภารกิจ • ความก้าวหน้า 100%';
+    if (text(node.textContent) !== desired) node.textContent = desired;
+    if (node.dataset.eapFriendlyDone !== 'true') node.dataset.eapFriendlyDone = 'true';
   }
 
   function nextSession(sessionId) {
@@ -118,6 +132,7 @@
       next = nextSession(sessionId);
 
       if (authorityDone) {
+        friendlyDoneReceipt(sessionId);
         setLabel(nextButton, 'กลับหน้าหลัก', 'กลับหน้าหลักหลังจบ EAP Word Quest');
         nextButton.dataset.eapSummaryAction = 'completed-home';
         nextButton.dataset.eapSheetDone = 'true';
@@ -215,9 +230,10 @@
       action: nextButton && nextButton.dataset.eapSummaryAction || '',
       sheetConfirmed: nextButton && nextButton.dataset.eapSheetConfirmed === 'true',
       sheetAuthorityDone: sheetAuthorityDone(),
+      receipt: receiptText(),
       observerConnected: Boolean(observer)
     };
   };
 
-  console.info('[EAP Word Quest] V298 Sheet-DONE summary actions ready', { version: VERSION });
+  console.info('[EAP Word Quest] V299 friendly DONE summary ready', { version: VERSION });
 })();
