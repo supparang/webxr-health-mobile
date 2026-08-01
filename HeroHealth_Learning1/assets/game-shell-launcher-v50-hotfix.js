@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const RELEASE='20260731-GAME-SHELL-LAUNCHER-HOTFIX-V50-DIRECT-FINISH';
+const RELEASE='20260801-GAME-SHELL-LAUNCHER-R52-STRICT-AUTHORITY';
 let attempts=0;
 let timer=0;
 
@@ -26,7 +26,7 @@ function install(){
  attempts++;
  const HH=window.HH,R=window.HHRotation;
  if(!HH||!R){if(attempts>400)clearInterval(timer);return false}
- if(HH.openNextGame?.__hhLauncherV50===true){clearInterval(timer);return true}
+ if(HH.openNextGame?.__hhLauncherR52===true){clearInterval(timer);return true}
  const original=HH.openNextGame?.bind(HH);
  const launcher=function(zoneId){
   const C=window.HH_CONFIG||{};let s;
@@ -37,10 +37,11 @@ function install(){
   if(zoneId!==expected.zoneId){alert('ภารกิจถัดไปคือ '+expected.label);return}
   const z=C.zones?.find(x=>x.id===expected.zoneId),g=z?.games?.find(x=>x.id===expected.gameId);
   if(!g?.url){alert('ยังไม่ได้กำหนด URL ของ '+expected.label);return}
-  const shell=new URL('./game-shell-authority-r40.html',location.href);
+  const shell=new URL('./game-shell-authority-r42.html',location.href);
   const configured=new URL(g.url,location.href),target=analyticsTarget(expected.gameId,configured);
   const group=R.groupOf(s),device=detectDevice(),view=detectView();
   shell.searchParams.set('shellVersion',RELEASE);
+  shell.searchParams.set('strictAuthority','1');
   shell.searchParams.set('analyticsMode','full-once');
   shell.searchParams.set('_',Date.now());
   target.searchParams.set('launchVersion',RELEASE);
@@ -58,15 +59,18 @@ function install(){
   location.href=shell.href;
  };
  launcher.__hhLauncherV50=true;
+ launcher.__hhLauncherR52=true;
  launcher.__hhLauncherRelease=RELEASE;
  HH.openNextGame=launcher;
  HH.__gameShellLauncherV50=RELEASE;
+ HH.__gameShellLauncherR52=RELEASE;
  clearInterval(timer);
- console.info('[HeroHealth] Game Shell Launcher V50 installed',RELEASE);
+ console.info('[HeroHealth] Strict Authority Game Shell Launcher installed',RELEASE);
  return true;
 }
 install();
 timer=setInterval(install,50);
 addEventListener('pageshow',install);
 window.HHGameShellLauncherV50={install,version:RELEASE};
+window.HHGameShellLauncherR52={install,version:RELEASE};
 })();
