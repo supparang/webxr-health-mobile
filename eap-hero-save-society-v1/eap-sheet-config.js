@@ -6,17 +6,25 @@ window.EAP_SHEET_CONFIG={
   course:'EAP Hero: Save the Society'
 };
 
-/* Cache-safe bootstrap for the single Sheet-authority runtime. */
+/* Retire cached legacy transports before their script tags execute. */
+window.__EAP_PLAYER_RESUME_STABLE_JSONP_V175__=true;
+window.__EAP_JSONP_GUARD_RETIRED_V5__=true;
+
+/* Cache-safe bootstrap for the single-flight transport and Sheet authority. */
 (function(){
   'use strict';
-  function loadAuthority(){
-    if(window.__EAP_SINGLE_AUTHORITY_V1__||document.querySelector('script[data-eap-authority-bootstrap="single-v1"]'))return;
+  function load(src,key){
+    if(document.querySelector('script[data-eap-bootstrap="'+key+'"]'))return;
     var script=document.createElement('script');
     script.async=false;
-    script.src='./eap-authority-runtime-v1.js?v=20260802-single-sheet-authority-v1-r1';
-    script.dataset.eapAuthorityBootstrap='single-v1';
+    script.src=src;
+    script.dataset.eapBootstrap=key;
     document.head.appendChild(script);
   }
-  if(document.readyState==='complete')setTimeout(loadAuthority,0);
-  else window.addEventListener('load',loadAuthority,{once:true});
+  function boot(){
+    load('./eap-player-resume-stable-jsonp-v174.js?v=20260802-resume-transport-v176-single-flight-r1','transport-v176');
+    load('./eap-authority-runtime-v1.js?v=20260802-single-sheet-authority-v1-r2','single-authority-v1');
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else boot();
 })();
