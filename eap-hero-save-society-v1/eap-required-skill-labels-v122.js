@@ -1,19 +1,17 @@
 /* =========================================================
-   EAP Hero • Required Skill Labels v122
-   UI-only clarity layer.
-   - Makes required vs supplementary skills visible on the active Session.
-   - Shows per-skill pass state from official/portfolio evidence.
-   - Does not alter scores, evidence, Sheet writes or unlock authority.
+   EAP Hero • Required Skill Labels v123
+   Robust UI-only clarity layer.
+   - Uses data attributes + CSS pseudo-elements so labels survive DOM re-render.
+   - Shows required/support skills and required-skill progress.
+   - Does not alter scores, Sheet writes, evidence, or unlock authority.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_REQUIRED_SKILL_LABELS_V122__) return;
-  window.__EAP_REQUIRED_SKILL_LABELS_V122__=true;
 
-  var VERSION='20260802-EAP-REQUIRED-SKILL-LABELS-V122';
+  var VERSION='20260802-EAP-REQUIRED-SKILL-LABELS-V123';
   var STATE_KEY='EAP_HERO_PROGRESS_V3';
-  var STYLE_ID='eap-required-skill-labels-v122-style';
-  var BANNER_ID='eap-required-skill-contract-v122';
+  var STYLE_ID='eap-required-skill-labels-v123-style';
+  var BANNER_ID='eap-required-skill-contract-v123';
   var PASS=60;
   var SKILLS=['Reading','Writing','Listening','Speaking'];
   var REQUIRED={
@@ -26,23 +24,20 @@
   var timer=0;
 
   function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
-  function visible(n){return !!(n&&n.isConnected&&n.offsetParent!==null);}
-  function state(){try{return JSON.parse(localStorage.getItem(STATE_KEY)||'{}')||{};}catch(_){return{};}}
+  function visible(n){return !!(n&&n.isConnected&&n.getClientRects&&n.getClientRects().length);}
+  function readState(){try{return JSON.parse(localStorage.getItem(STATE_KEY)||'{}')||{};}catch(_){return{};}}
+
   function sessionId(){
-    var heads=[].slice.call(document.querySelectorAll('#app h1,#app h2,#app h3,#app h4'));
-    for(var i=0;i<heads.length;i++){
-      if(!visible(heads[i]))continue;
-      var m=clean(heads[i].textContent).match(/Session\s*:?[\s-]*(1[0-5]|[1-9])\b/i);
+    var nodes=[].slice.call(document.querySelectorAll('#app h1,#app h2,#app h3,#app h4,#app [aria-selected="true"],#app .active'));
+    for(var i=0;i<nodes.length;i++){
+      if(!visible(nodes[i]))continue;
+      var t=clean(nodes[i].textContent);
+      var m=t.match(/Session\s*:?[\s-]*(1[0-5]|[1-9])\b/i)||t.match(/^S(1[0-5]|[1-9])\b/i);
       if(m)return Number(m[1]);
-    }
-    var active=[].slice.call(document.querySelectorAll('#app [aria-selected="true"],#app .active,#app [aria-current="page"]'));
-    for(var j=0;j<active.length;j++){
-      if(!visible(active[j]))continue;
-      var x=clean(active[j].textContent).match(/^S(1[0-5]|[1-9])\b/i);
-      if(x)return Number(x[1]);
     }
     return 0;
   }
+
   function normalizeSession(v){
     var m=clean(v).toUpperCase().match(/S(?:ESSION)?\s*0?(1[0-5]|[1-9])/);
     return m?Number(m[1]):0;
@@ -53,13 +48,13 @@
     return'';
   }
   function scoreOf(row){
-    var values=[row&&row.bestScore,row&&row.latestScore,row&&row.score,row&&row.autoScore,row&&row.missionTaskScore];
-    for(var i=0;i<values.length;i++){var n=Number(values[i]);if(Number.isFinite(n))return n;}
+    var vals=[row&&row.bestScore,row&&row.latestScore,row&&row.score,row&&row.autoScore,row&&row.missionTaskScore];
+    for(var i=0;i<vals.length;i++){var n=Number(vals[i]);if(Number.isFinite(n))return n;}
     return 0;
   }
   function scores(sid){
     var out={Reading:0,Writing:0,Listening:0,Speaking:0};
-    var s=state();
+    var s=readState();
     var rows=[];
     if(Array.isArray(s.portfolio))rows=rows.concat(s.portfolio);
     if(Array.isArray(s.serverResume&&s.serverResume.records))rows=rows.concat(s.serverResume.records);
@@ -71,88 +66,128 @@
     });
     return out;
   }
-  function skillButtons(){
-    var all=[].slice.call(document.querySelectorAll('#app button,#app a[href],#app [role="button"],#app .skill-btn,#app .skill-card'))
-      .filter(function(n){return visible(n)&&!n.closest('#'+BANNER_ID);});
-    var map={};
-    SKILLS.forEach(function(sk){
-      var rx=new RegExp('\\b'+sk+'\\b','i');
-      var matches=all.filter(function(n){return rx.test(clean(n.textContent));});
-      matches.sort(function(a,b){return clean(a.textContent).length-clean(b.textContent).length;});
-      map[sk]=matches[0]||null;
+
+  function findSkillControl(skill){
+    var rx=new RegExp('(?:^|\\s)'+skill+'(?:$|\\s)','i');
+    var nodes=[].slice.call(document.querySelectorAll('#app button,#app [role="button"],#app a,#app div,#app span'));
+    var matches=[];
+    for(var i=0;i<nodes.length;i++){
+      var n=nodes[i];
+      if(!visible(n))continue;
+      var text=clean(n.textContent);
+      if(!rx.test(text))continue;
+      if(text.length>40)continue;
+      var control=n.closest('button,[role="button"],a')||n;
+      if(!visible(control))continue;
+      if(matches.indexOf(control)<0)matches.push(control);
+    }
+    matches.sort(function(a,b){
+      var aa=a.matches('button,[role="button"],a')?0:1;
+      var bb=b.matches('button,[role="button"],a')?0:1;
+      if(aa!==bb)return aa-bb;
+      return clean(a.textContent).length-clean(b.textContent).length;
     });
-    return map;
+    return matches[0]||null;
   }
+
   function injectStyle(){
     if(document.getElementById(STYLE_ID))return;
-    var style=document.createElement('style');style.id=STYLE_ID;
+    var style=document.createElement('style');
+    style.id=STYLE_ID;
     style.textContent='\n'
       +'#'+BANNER_ID+'{margin:10px 0 12px;padding:12px 14px;border:2px solid #f59e0b;border-radius:14px;background:#fff7ed;color:#7c2d12;font:800 13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}\n'
       +'#'+BANNER_ID+' strong{display:block;margin-bottom:4px;font-size:15px;color:#9a3412}\n'
       +'#'+BANNER_ID+' .eap-contract-progress{margin-top:7px;color:#065f46}\n'
-      +'.eap-required-skill-v122{position:relative!important;padding-top:28px!important;outline:3px solid #f59e0b!important;outline-offset:2px!important}\n'
-      +'.eap-supplementary-skill-v122{position:relative!important;opacity:.88!important}\n'
-      +'.eap-skill-badge-v122{position:absolute;z-index:4;top:4px;left:50%;transform:translateX(-50%);padding:3px 9px;border-radius:999px;white-space:nowrap;font:900 10px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none}\n'
-      +'.eap-required-skill-v122>.eap-skill-badge-v122{background:#f59e0b;color:#431407}\n'
-      +'.eap-supplementary-skill-v122>.eap-skill-badge-v122{background:#dbeafe;color:#1e3a8a}\n'
-      +'.eap-required-skill-v122.eap-skill-pass-v122{outline-color:#16a34a!important}\n'
-      +'.eap-required-skill-v122.eap-skill-pass-v122>.eap-skill-badge-v122{background:#16a34a;color:white}\n'
-      +'@media(max-width:700px){#'+BANNER_ID+'{font-size:12px}.eap-skill-badge-v122{font-size:9px;padding:3px 6px}}';
+      +'.eap-skill-contract-v123{position:relative!important;min-height:62px!important;padding-top:30px!important;overflow:visible!important}\n'
+      +'.eap-skill-contract-v123::before{content:attr(data-eap-skill-label);position:absolute;z-index:10;top:4px;left:50%;transform:translateX(-50%);padding:4px 9px;border-radius:999px;white-space:nowrap;font:900 10px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;pointer-events:none}\n'
+      +'.eap-skill-required-v123{outline:3px solid #f59e0b!important;outline-offset:2px!important}\n'
+      +'.eap-skill-required-v123::before{background:#f59e0b;color:#431407}\n'
+      +'.eap-skill-support-v123{opacity:.9!important}\n'
+      +'.eap-skill-support-v123::before{background:#dbeafe;color:#1e3a8a}\n'
+      +'.eap-skill-pass-v123{outline-color:#16a34a!important}\n'
+      +'.eap-skill-pass-v123::before{background:#16a34a!important;color:#fff!important}\n'
+      +'@media(max-width:700px){#'+BANNER_ID+'{font-size:12px}.eap-skill-contract-v123::before{font-size:9px;padding:3px 6px}.eap-skill-contract-v123{min-height:58px!important}}';
     document.head.appendChild(style);
   }
-  function clearOld(){
-    document.querySelectorAll('.eap-required-skill-v122,.eap-supplementary-skill-v122').forEach(function(n){
-      n.classList.remove('eap-required-skill-v122','eap-supplementary-skill-v122','eap-skill-pass-v122');
-      var b=n.querySelector(':scope > .eap-skill-badge-v122');if(b)b.remove();
+
+  function clearStale(){
+    document.querySelectorAll('.eap-skill-contract-v123').forEach(function(n){
+      n.classList.remove('eap-skill-contract-v123','eap-skill-required-v123','eap-skill-support-v123','eap-skill-pass-v123');
+      n.removeAttribute('data-eap-skill-label');
+      n.removeAttribute('data-eap-skill-requirement');
+      n.removeAttribute('data-eap-skill-score');
     });
   }
-  function hostFor(buttons){
-    var nodes=SKILLS.map(function(s){return buttons[s];}).filter(Boolean);
+
+  function commonHost(controls){
+    var nodes=SKILLS.map(function(s){return controls[s];}).filter(Boolean);
     if(!nodes.length)return null;
     var host=nodes[0].parentElement;
     while(host&&host.id!=='app'){
-      if(nodes.every(function(n){return host.contains(n);}))return host;
+      var ok=true;
+      for(var i=0;i<nodes.length;i++)if(!host.contains(nodes[i])){ok=false;break;}
+      if(ok)return host;
       host=host.parentElement;
     }
     return nodes[0].parentElement;
   }
+
   function apply(){
     injectStyle();
-    var sid=sessionId();if(!sid)return;
+    var sid=sessionId();
+    if(!sid)return;
+
+    var controls={};
+    SKILLS.forEach(function(sk){controls[sk]=findSkillControl(sk);});
+    if(SKILLS.filter(function(sk){return controls[sk];}).length<4)return;
+
+    clearStale();
     var req=REQUIRED[sid]||[];
     var sc=scores(sid);
-    var buttons=skillButtons();
-    if(!SKILLS.some(function(s){return buttons[s];}))return;
-    clearOld();
 
     SKILLS.forEach(function(sk){
-      var btn=buttons[sk];if(!btn)return;
+      var el=controls[sk];
+      if(!el)return;
       var required=req.indexOf(sk)>=0;
-      var pass=sc[sk]>=PASS;
-      btn.classList.add(required?'eap-required-skill-v122':'eap-supplementary-skill-v122');
-      if(required&&pass)btn.classList.add('eap-skill-pass-v122');
-      var badge=document.createElement('span');badge.className='eap-skill-badge-v122';
-      badge.textContent=required?(pass?'✓ บังคับ · ผ่านแล้ว':'★ บังคับ · ต้องผ่าน'):'เสริม · ทำเพิ่มได้';
-      btn.insertBefore(badge,btn.firstChild);
-      btn.dataset.eapSkillRequirement=required?'required':'supplementary';
-      btn.dataset.eapSkillScore=String(sc[sk]||0);
+      var passed=sc[sk]>=PASS;
+      el.classList.add('eap-skill-contract-v123',required?'eap-skill-required-v123':'eap-skill-support-v123');
+      if(required&&passed)el.classList.add('eap-skill-pass-v123');
+      el.setAttribute('data-eap-skill-label',required?(passed?'✓ บังคับ · ผ่านแล้ว':'★ บังคับ · ต้องผ่าน'):'เสริม · ทำเพิ่มได้');
+      el.setAttribute('data-eap-skill-requirement',required?'required':'support');
+      el.setAttribute('data-eap-skill-score',String(sc[sk]||0));
     });
 
-    var host=hostFor(buttons);if(!host)return;
+    var host=commonHost(controls);
+    if(!host||!host.parentNode)return;
     var banner=document.getElementById(BANNER_ID);
-    if(!banner){banner=document.createElement('div');banner.id=BANNER_ID;host.parentNode.insertBefore(banner,host);}
-    var passed=req.filter(function(sk){return sc[sk]>=PASS;}).length;
+    if(!banner){
+      banner=document.createElement('div');
+      banner.id=BANNER_ID;
+      host.parentNode.insertBefore(banner,host);
+    }
+    var passedCount=req.filter(function(sk){return sc[sk]>=PASS;}).length;
     var next=sid<15?'S'+(sid+1):'Boss/Completion';
-    banner.innerHTML='<strong>เงื่อนไขบังคับของ S'+sid+'</strong>'+
+    var html='<strong>เงื่อนไขบังคับของ S'+sid+'</strong>'+
       'ต้องผ่าน <b>'+req.join(' + ')+'</b> อย่างน้อย '+PASS+' คะแนนต่อ Skill จึงปลดล็อก <b>'+next+'</b> · '+
-      'Writing/Listening ที่ไม่อยู่ในรายการเป็นกิจกรรมเสริม ไม่ใช้แทน Skill บังคับ'+
-      '<div class="eap-contract-progress">สถานะ Skill บังคับ: <b>'+passed+'/'+req.length+' ผ่านแล้ว</b></div>';
-    banner.dataset.session=String(sid);
-    banner.dataset.version=VERSION;
+      'Skill ที่ติดป้าย “เสริม” ทำเพิ่มได้ แต่ใช้แทน Skill บังคับไม่ได้'+
+      '<div class="eap-contract-progress">สถานะ Skill บังคับ: <b>'+passedCount+'/'+req.length+' ผ่านแล้ว</b></div>';
+    if(banner.innerHTML!==html)banner.innerHTML=html;
+    banner.setAttribute('data-session',String(sid));
+    banner.setAttribute('data-version',VERSION);
   }
-  function schedule(){clearTimeout(timer);timer=setTimeout(apply,120);}
-  new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
-  ['load','storage','eap:resume-synced','eap:cloud-resume-applied','eap:profile-changed'].forEach(function(n){window.addEventListener(n,schedule);});
+
+  function schedule(){clearTimeout(timer);timer=setTimeout(apply,180);}
+  var observer=new MutationObserver(function(mutations){
+    for(var i=0;i<mutations.length;i++){
+      var target=mutations[i].target;
+      if(target&&target.closest&&target.closest('#'+BANNER_ID))continue;
+      schedule();
+      break;
+    }
+  });
+  observer.observe(document.documentElement,{childList:true,subtree:true,characterData:true});
+  ['load','storage','eap:resume-synced','eap:cloud-resume-applied','eap:profile-changed'].forEach(function(name){window.addEventListener(name,schedule);});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
-  window.EAPRequiredSkillLabelsV122={version:VERSION,refresh:apply,required:REQUIRED};
+
+  window.EAPRequiredSkillLabelsV123={version:VERSION,refresh:apply,required:REQUIRED};
 })();
