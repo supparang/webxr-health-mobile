@@ -1,15 +1,16 @@
 /* =========================================================
-   EAP Hero Production Authority v5 SERVER-RESUME-ONLY
+   EAP Hero Production Authority v6 SERVER-RESUME-ONLY
    - currentRoute and unlockedRoutes come only from player_resume.
+   - Persists the complete accepted player_resume payload so cloud records
+     can be rendered by Recent Portfolio after refresh or device transfer.
    - Never re-derives progression from raw records in the browser.
-   - localStorage is only a cache of the last accepted server resume.
 ========================================================= */
 (function(){
   'use strict';
-  if (window.__EAP_PRODUCTION_AUTHORITY_V5__) return;
-  window.__EAP_PRODUCTION_AUTHORITY_V5__ = true;
+  if (window.__EAP_PRODUCTION_AUTHORITY_V6__) return;
+  window.__EAP_PRODUCTION_AUTHORITY_V6__ = true;
 
-  var VERSION='v20260731-EAP-PRODUCTION-AUTHORITY-V5-SERVER-RESUME-ONLY';
+  var VERSION='v20260802-EAP-PRODUCTION-AUTHORITY-V6-FULL-SERVER-RESUME';
   var ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
   var live={verified:false,currentRoute:'',unlocked:{},data:null,identity:''};
   var renderTimer=0;
@@ -47,6 +48,15 @@
     if(p.section&&text(data.section)&&text(data.section)!==p.section)return false;
     return true;
   }
+  function acceptedServerResume(data){
+    var copy={};
+    try{copy=JSON.parse(JSON.stringify(data||{}))||{};}catch(_){copy=Object.assign({},data||{});}
+    copy.resumeKey=text(data.resumeKey||data.generatedAt||data.checkedAt||Date.now());
+    copy.acceptedAt=new Date().toISOString();
+    copy.cloudVerified=true;
+    copy.authorityMode='sheet-only';
+    return copy;
+  }
   function acceptResume(event){
     var detail=event&&event.detail||{},data=detail.data||detail;
     if(!validResume(data))return false;
@@ -58,17 +68,19 @@
       s.currentCloudRoute=rid;
       s.currentRoute=rid;
       s.unlockedRoutes=live.unlocked;
-      s.serverResume=Object.assign({},s.serverResume||{},{resumeKey:text(data.resumeKey||data.generatedAt||Date.now()),acceptedAt:new Date().toISOString()});
+      s.serverResume=acceptedServerResume(data);
       localStorage.setItem('EAP_HERO_PROGRESS_V3',JSON.stringify(s));
     }catch(_){}
     schedule();
+    try{window.dispatchEvent(new CustomEvent('eap:cloud-resume-applied',{detail:{data:data,currentRoute:rid}}));}catch(_){}
+    try{window.dispatchEvent(new CustomEvent('eap:resume-synced-complete',{detail:{data:data,currentRoute:rid}}));}catch(_){}
     window.dispatchEvent(new CustomEvent('eap:live-sheet-authority-applied',{detail:diagnostics()}));
     return true;
   }
   function bootstrap(){
-    var s=readState(),rid=norm(s.currentCloudRoute);
+    var s=readState(),rid=norm(s.currentCloudRoute),saved=s.serverResume||{};
     if(s.cloudResumeStatus==='ok'&&ORDER.indexOf(rid)>=0){
-      live={verified:true,currentRoute:rid,unlocked:unlockMap(s.unlockedRoutes,rid),data:s,identity:identityKey()};
+      live={verified:true,currentRoute:rid,unlocked:unlockMap(s.unlockedRoutes,rid),data:saved&&saved.ok===true?saved:s,identity:identityKey()};
     }
   }
   function currentId(){return live.verified?live.currentRoute:'';}
@@ -88,10 +100,10 @@
     return norm(args[0]);
   }
   function patchMethod(obj,name){
-    if(!obj||typeof obj[name]!=='function'||obj[name].__eapServerOnlyV5)return false;
+    if(!obj||typeof obj[name]!=='function'||obj[name].__eapServerOnlyV6)return false;
     var original=obj[name].__original||obj[name];
     var guarded=function(){var rid=routeArg(name,arguments);if(rid&&!canOpen(rid)){toast('ด่าน '+rid+' ยังไม่เปิดจากข้อมูล Google Sheet — '+reason(rid));return false;}return original.apply(this,arguments);};
-    guarded.__eapServerOnlyV5=true;guarded.__original=original;obj[name]=guarded;return true;
+    guarded.__eapServerOnlyV6=true;guarded.__original=original;obj[name]=guarded;return true;
   }
   function patchApis(){var h=window.EAPHero,c=false;c=patchMethod(h,'skillHub')||c;c=patchMethod(h,'openSkillMission')||c;c=patchMethod(h,'startGateBoss')||c;c=patchMethod(h,'openBoss')||c;return c;}
   function decorate(){
@@ -128,7 +140,7 @@
   setInterval(function(){patchApis();},500);
 
   bootstrap();
-  window.EAPRoadmapLockGuard={version:VERSION,authorityMode:'server-resume-only',currentRoute:function(){return currentId()?route(currentId()):null;},currentRouteId:currentId,isUnlocked:canOpen,canOpen:canOpen,reason:reason,normalizeRoute:norm,refresh:schedule,diagnostics:diagnostics,acceptResume:acceptResume};
+  window.EAPRoadmapLockGuard={version:VERSION,authorityMode:'server-resume-only',currentRoute:function(){return currentId()?route(currentId()):null;},currentRouteId:currentId,isUnlocked:canOpen,canOpen:canOpen,reason:reason,normalizeRoute:norm,refresh:schedule,diagnostics:diagnostics,acceptResume:acceptResume,serverResume:function(){return live.data;}};
   window.EAP15ReleaseRuntime=window.EAPRoadmapLockGuard;
   schedule();
 })();
