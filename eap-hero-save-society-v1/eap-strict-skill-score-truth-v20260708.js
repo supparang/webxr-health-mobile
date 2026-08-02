@@ -289,7 +289,18 @@
     timer = setTimeout(() => patchCards(!!force), 120);
   }
 
+  function loadResultScoreClarity(){
+    if (window.EAPResultScoreClarityV128) return;
+    if (document.querySelector('script[data-eap-result-score-clarity="v128"]')) return;
+    const script = document.createElement('script');
+    script.src = './eap-result-score-clarity-v128.js?v=20260802-result-score-clarity-v128-production';
+    script.async = false;
+    script.dataset.eapResultScoreClarity = 'v128';
+    document.head.appendChild(script);
+  }
+
   function start(){
+    loadResultScoreClarity();
     schedule(true);
     const observer = new MutationObserver(mutations => {
       if (mutations.some(m => !(m.target && m.target.closest && m.target.closest('.' + GUARD_CLASS)))) {
