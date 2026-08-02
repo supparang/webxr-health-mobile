@@ -98,3 +98,15 @@
   ['load','storage','eap:resume-synced','eap:cloud-resume-applied','eap:live-sheet-authority-applied','eap:profile-changed'].forEach(function(n){window.addEventListener(n,schedule);});
   setTimeout(render,100);setTimeout(render,700);setInterval(render,1200);
 })();
+
+/* Load the cache-safe Lobby authority runtime with a unique subresource key. */
+(function(){
+  'use strict';
+  if(window.__EAP_LOBBY_V160_LOADER__)return;
+  window.__EAP_LOBBY_V160_LOADER__=true;
+  var script=document.createElement('script');
+  script.async=false;
+  script.src='./eap-lobby-cloud-loading-truth-v159.js?v=20260802-lobby-v160-official-cache-restore-r1';
+  script.dataset.eapLobbyLoader='v160';
+  document.head.appendChild(script);
+})();
