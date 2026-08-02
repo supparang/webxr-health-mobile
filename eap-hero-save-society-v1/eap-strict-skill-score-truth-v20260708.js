@@ -1,19 +1,21 @@
 /* =========================================================
-   EAP Hero Strict Per-Skill Score Truth Guard v20260708
-   Stable version:
+   EAP Hero Strict Per-Skill Score Truth Guard v20260802
+   Production required/support status renderer.
    - Reads portfolio evidence by Session + Skill.
-   - Adds a truth overlay only when its content changes.
-   - Avoids writing DOM repeatedly, preventing MutationObserver flicker.
+   - Uses the Session card detector already proven in production.
+   - Labels skill controls as required/support at the source card.
    - UI-only. Does not change stored data, Sheet sync, scoring, or unlock logic.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = 'v20260708-STRICT-SKILL-SCORE-TRUTH-V2-NO-FLICKER';
+  const VERSION = 'v20260802-STRICT-SKILL-STATUS-V3-REQUIRED-SUPPORT';
   const STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   const PASS_MARK = 60;
   const STYLE_ID = 'eap-strict-skill-score-truth-style';
   const GUARD_CLASS = 'eap-strict-skill-truth-guard';
+  const CONTROL_CLASS = 'eap-skill-status-control-v3';
+  const BADGE_CLASS = 'eap-skill-status-badge-v3';
   const SKILLS = ['Reading','Writing','Listening','Speaking'];
   const REQUIRED = {
     1: ['Reading','Speaking'],
@@ -70,6 +72,9 @@
   function strictPortfolioBest(){
     const s = state();
     const portfolio = Array.isArray(s.portfolio) ? s.portfolio : [];
+    const serverRecords = Array.isArray(s.serverResume && s.serverResume.records) ? s.serverResume.records : [];
+    const serverAttempts = Array.isArray(s.serverResume && s.serverResume.attempts) ? s.serverResume.attempts : [];
+    const rows = portfolio.concat(serverRecords, serverAttempts);
     const best = {};
 
     for (let sid = 1; sid <= 15; sid++) {
@@ -77,7 +82,7 @@
       SKILLS.forEach(skill => { best[sid][skill] = 0; });
     }
 
-    portfolio.forEach(entry => {
+    rows.forEach(entry => {
       const sid = normalizeSession(entry && (entry.session || entry.sessionId || entry.routeId || entry.sessionCode));
       const skill = normalizeSkill(entry && (entry.skill || entry.skillName || entry.evidenceType || entry.taskId || entry.type));
       if (!sid || !skill) return;
@@ -88,30 +93,55 @@
   }
 
   function injectStyle(){
-    if (document.getElementById(STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
+    let style = document.getElementById(STYLE_ID);
+    if (!style) {
+      style = document.createElement('style');
+      style.id = STYLE_ID;
+      document.head.appendChild(style);
+    }
     style.textContent = `
       .${GUARD_CLASS}{
-        margin-top:8px;
-        padding:9px 10px;
-        border-radius:12px;
+        margin-top:10px;
+        padding:12px 14px;
+        border-radius:14px;
         background:#fff7ed;
-        border:1px solid rgba(234,88,12,.26);
+        border:2px solid rgba(234,88,12,.34);
         color:#7c2d12;
-        font:800 11px Arial,'Noto Sans Thai',sans-serif;
-        line-height:1.35;
+        font:800 12px/1.45 Arial,'Noto Sans Thai',sans-serif;
       }
       .${GUARD_CLASS}.ok{
         background:#ecfdf5;
-        border-color:rgba(16,185,129,.28);
+        border-color:rgba(16,185,129,.42);
         color:#065f46;
       }
+      .${GUARD_CLASS} .title{display:block;font-size:14px;margin-bottom:5px;color:#9a3412}
+      .${GUARD_CLASS}.ok .title{color:#065f46}
+      .${GUARD_CLASS} .condition{display:block;margin-bottom:6px}
       .${GUARD_CLASS} .row{display:block;margin:2px 0}
       .${GUARD_CLASS} .pass{color:#047857}
       .${GUARD_CLASS} .todo{color:#a16207}
+      .${GUARD_CLASS} .support{color:#2563eb}
+      .${GUARD_CLASS} .progress{display:block;margin-top:7px;padding-top:6px;border-top:1px solid rgba(124,45,18,.18);font-size:13px}
+
+      .${CONTROL_CLASS}{position:relative!important;min-height:70px!important;padding-top:30px!important;overflow:visible!important}
+      .${CONTROL_CLASS}.required{outline:3px solid #f59e0b!important;outline-offset:2px!important}
+      .${CONTROL_CLASS}.required.passed{outline-color:#16a34a!important}
+      .${CONTROL_CLASS}.support{opacity:.9!important}
+      .${BADGE_CLASS}{
+        position:absolute!important;z-index:999!important;top:4px!important;left:50%!important;
+        transform:translateX(-50%)!important;white-space:nowrap!important;
+        padding:4px 9px!important;border-radius:999px!important;
+        font:900 10px/1.2 Arial,'Noto Sans Thai',sans-serif!important;
+        pointer-events:none!important;
+      }
+      .${CONTROL_CLASS}.required .${BADGE_CLASS}{background:#f59e0b!important;color:#431407!important}
+      .${CONTROL_CLASS}.required.passed .${BADGE_CLASS}{background:#16a34a!important;color:#fff!important}
+      .${CONTROL_CLASS}.support .${BADGE_CLASS}{background:#dbeafe!important;color:#1e3a8a!important}
+      @media(max-width:700px){
+        .${CONTROL_CLASS}{min-height:62px!important;padding-top:27px!important}
+        .${BADGE_CLASS}{font-size:9px!important;padding:3px 6px!important}
+      }
     `;
-    document.head.appendChild(style);
   }
 
   function sessionCardNodes(){
@@ -120,7 +150,7 @@
       const t = text(node.textContent);
       if (!/^SESSION\s+(1[0-5]|[1-9])\b/i.test(t)) return false;
       const rect = node.getBoundingClientRect();
-      return rect.width >= 120 && rect.height >= 80 && rect.height <= 460;
+      return rect.width >= 120 && rect.height >= 80 && rect.height <= 520;
     });
   }
 
@@ -131,20 +161,87 @@
 
   function modelFor(sid, best){
     const required = REQUIRED[sid] || ['Reading','Writing'];
-    return required.map(skill => {
+    return SKILLS.map(skill => {
       const score = best[sid] && best[sid][skill] ? best[sid][skill] : 0;
-      return { skill, score, pass: score >= PASS_MARK };
+      return {
+        skill,
+        required: required.includes(skill),
+        score,
+        pass: score >= PASS_MARK
+      };
     });
   }
 
   function htmlFor(sid, best){
     const model = modelFor(sid, best);
-    const rows = model.map(row => '<span class="row ' + (row.pass ? 'pass' : 'todo') + '">' +
-      (row.pass ? '✓ ' : '○ ') + row.skill + ': ' + (row.score ? row.score + '/60' : 'ยังไม่พบหลักฐาน') +
-      '</span>').join('');
-    const complete = model.every(row => row.pass);
-    return '<b>คะแนนจริงแยกตาม Skill</b>' + rows +
-      (complete ? '<span class="row pass">Session ผ่านตามหลักฐานจริง</span>' : '<span class="row todo">ยังไม่ครบตามหลักฐานจริง</span>');
+    const requiredRows = model.filter(row => row.required);
+    const supportRows = model.filter(row => !row.required);
+    const passedCount = requiredRows.filter(row => row.pass).length;
+    const complete = passedCount === requiredRows.length;
+    const next = sid < 15 ? 'S' + (sid + 1) : 'Boss/Completion';
+
+    const rows = requiredRows.map(row =>
+      '<span class="row ' + (row.pass ? 'pass' : 'todo') + '">' +
+      (row.pass ? '✓ ' : '○ ') + '<b>' + row.skill + '</b> — บังคับ: ' +
+      (row.score ? row.score + '/60' : 'ยังไม่พบหลักฐาน') + '</span>'
+    ).join('');
+
+    const supportText = supportRows.map(row => row.skill).join(' + ');
+
+    return '<strong class="title">เงื่อนไขบังคับของ S' + sid + '</strong>' +
+      '<span class="condition">ต้องผ่าน <b>' + requiredRows.map(row => row.skill).join(' + ') +
+      '</b> อย่างน้อย 60 คะแนนต่อ Skill จึงปลดล็อก <b>' + next + '</b></span>' +
+      rows +
+      '<span class="row support">Skill เสริม: ' + supportText + ' — ทำเพิ่มได้ แต่ใช้แทน Skill บังคับไม่ได้</span>' +
+      '<span class="progress ' + (complete ? 'pass' : 'todo') + '">สถานะ Skill บังคับ: <b>' +
+      passedCount + '/' + requiredRows.length + ' ผ่านแล้ว</b></span>';
+  }
+
+  function skillControl(node, skill){
+    const candidates = Array.from(node.querySelectorAll('button,[role="button"],a,div,span'));
+    return candidates
+      .filter(el => {
+        const label = text(el.textContent);
+        if (!label || label.length > 30) return false;
+        if (!new RegExp('(?:^|\\s)' + skill + '(?:$|\\s)','i').test(label)) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width >= 90 && rect.height >= 25;
+      })
+      .sort((a,b) => {
+        const aInteractive = a.matches('button,[role="button"],a') ? 0 : 1;
+        const bInteractive = b.matches('button,[role="button"],a') ? 0 : 1;
+        if (aInteractive !== bInteractive) return aInteractive - bInteractive;
+        return a.getBoundingClientRect().width - b.getBoundingClientRect().width;
+      })[0] || null;
+  }
+
+  function patchSkillControls(node, sid, best){
+    const model = modelFor(sid, best);
+
+    model.forEach(row => {
+      const control = skillControl(node, row.skill);
+      if (!control) return;
+
+      control.classList.add(CONTROL_CLASS);
+      control.classList.toggle('required', row.required);
+      control.classList.toggle('support', !row.required);
+      control.classList.toggle('passed', row.required && row.pass);
+      control.dataset.eapSkill = row.skill;
+      control.dataset.eapRequirement = row.required ? 'required' : 'support';
+      control.dataset.eapScore = String(row.score || 0);
+
+      let badge = control.querySelector(':scope > .' + BADGE_CLASS);
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = BADGE_CLASS;
+        badge.setAttribute('aria-hidden','true');
+        control.appendChild(badge);
+      }
+
+      badge.textContent = row.required
+        ? (row.pass ? '✓ บังคับ · ผ่านแล้ว' : '★ บังคับ · ต้องผ่าน')
+        : 'เสริม · ทำเพิ่มได้';
+    });
   }
 
   function patchCards(force){
@@ -152,13 +249,11 @@
     if (!app) return;
     injectStyle();
 
-    const appKey = text(app.textContent).slice(0, 1200);
+    const appKey = text(app.textContent).slice(0, 1600);
     const best = strictPortfolioBest();
     const dataKey = JSON.stringify(best);
 
-    if (!force && appKey === lastAppTextKey && dataKey === lastDataKey) {
-      return;
-    }
+    if (!force && appKey === lastAppTextKey && dataKey === lastDataKey) return;
 
     lastAppTextKey = appKey;
     lastDataKey = dataKey;
@@ -167,36 +262,41 @@
       const sid = sessionFromNode(node);
       if (!sid) return;
 
+      patchSkillControls(node, sid, best);
+
       const model = modelFor(sid, best);
+      const requiredRows = model.filter(row => row.required);
+      const complete = requiredRows.every(row => row.pass);
       const key = JSON.stringify(model);
       let guard = node.querySelector(':scope > .' + GUARD_CLASS);
       const html = htmlFor(sid, best);
-      const complete = model.every(row => row.pass);
 
       if (!guard) {
         guard = document.createElement('div');
-        guard.className = GUARD_CLASS + (complete ? ' ok' : '');
-        guard.dataset.session = String(sid);
-        guard.dataset.truthKey = key;
-        guard.innerHTML = html;
         node.appendChild(guard);
-        return;
       }
 
-      if (guard.dataset.truthKey === key) return;
-      guard.dataset.truthKey = key;
       guard.className = GUARD_CLASS + (complete ? ' ok' : '');
-      guard.innerHTML = html;
+      guard.dataset.session = String(sid);
+      guard.dataset.truthKey = key;
+      guard.dataset.version = VERSION;
+      if (guard.innerHTML !== html) guard.innerHTML = html;
     });
   }
 
   function schedule(force){
     clearTimeout(timer);
-    timer = setTimeout(() => patchCards(!!force), 180);
+    timer = setTimeout(() => patchCards(!!force), 120);
   }
 
   function start(){
     schedule(true);
+    const observer = new MutationObserver(mutations => {
+      if (mutations.some(m => !(m.target && m.target.closest && m.target.closest('.' + GUARD_CLASS)))) {
+        schedule(false);
+      }
+    });
+    observer.observe(document.getElementById('app') || document.documentElement, {childList:true,subtree:true,characterData:true});
     window.addEventListener('storage', () => schedule(true));
     window.addEventListener('eap:resume-synced', () => schedule(true));
     window.addEventListener('eap:profile-saved', () => schedule(true));
