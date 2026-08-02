@@ -1,16 +1,11 @@
 /* =========================================================
-   EAP Required Skill Hub v2 → v122 compatibility loader
-   The former full replacement hub was not reliably activated by every
-   rendered Session layout. v122 annotates the live four-skill controls
-   directly, preserving the current mission UI and all Sheet authority.
+   EAP Required Skill Hub compatibility shim v126
+
+   The production page now loads eap-required-skill-labels-v122.js directly.
+   This former loader must remain inert so an older cached labels script is
+   not injected a second time and does not compete through MutationObserver.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_REQUIRED_SKILL_V122_LOADER__)return;
-  window.__EAP_REQUIRED_SKILL_V122_LOADER__=true;
-  var script=document.createElement('script');
-  script.async=false;
-  script.src='./eap-required-skill-labels-v122.js?v=20260802-required-skill-labels-v122';
-  script.dataset.eapRequiredSkillLoader='v122';
-  document.head.appendChild(script);
+  window.__EAP_REQUIRED_SKILL_HUB_COMPAT_V126__ = true;
 })();
