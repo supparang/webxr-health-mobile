@@ -5,6 +5,7 @@ on:
     paths:
       - 'eap-hero-save-society-v1/**'
       - 'herohealth/eap-word-quest/apps-script/SharedWebAppRouter.gs'
+      - 'herohealth/eap-word-quest/apps-script/EAP_Identity_v121.gs'
       - '.github/workflows/eap15-release-gate.yml'
   workflow_dispatch:
 permissions:
@@ -20,8 +21,8 @@ jobs:
           node-version: '22'
       - name: Run Session Authority v137 contract
         run: node eap-hero-save-society-v1/qa/eap-session-authority-v137-contract.mjs
-      - name: Run ID-first profile v119 contract
-        run: node eap-hero-save-society-v1/qa/eap-profile-id-first-v119-contract.mjs
+      - name: Run Unified Identity v121 contract
+        run: node eap-hero-save-society-v1/qa/eap-identity-v121-contract.mjs
       - name: Run canonical analytics contract
         run: node eap-hero-save-society-v1/qa/eap-analytics-canonical-contract.mjs
       - run: npm install --no-save playwright@1.52.0
