@@ -1,21 +1,12 @@
 /* =========================================================
-   Shared Web App Router v137
+   Shared Web App Router v138
    EAP Hero + EAP Word Quest + Teacher Dashboard
    Section 122
 
    IMPORTANT
    - Keep this as the ONLY file in the project containing doGet() / doPost().
-   - EAPHero.gs owns eapHeroDoGet_ / eapHeroDoPost_.
-   - EAPWordQuest.gs owns eapWordFinalDoGet_ / eapWordFinalDoPost_.
-   - EAPWordQuestAuthority.gs owns official roster lookup / Word Quest resume.
-   - EAPWordQuestNameLookup.gs owns official roster name search.
-   - EAPWordQuestSubmitJsonp.gs owns JSONP attempt submit + receipt.
-   - EAP_TeacherDashboard.gs owns the Teacher Dashboard.
-   - EAP_PlayerResume.gs owns the legacy eapPlayerResume_ fallback.
-   - EAP_EvidenceReview.gs owns legacy submitEvidence_ / submitSpeakingAudio_.
-   - EAP_SheetV132.gs owns health/setup/mirror compatibility helpers.
-   - EAP_SessionAuthority_v137.gs owns official EAP Session resume/progression
-     and the resume-readable submit_evidence handler.
+   - EAP_Identity_v121.gs owns unified identity for Hero + Word Quest.
+   - EAP_SessionAuthority_v137.gs owns official Session progression.
 ========================================================= */
 
 function doGet(e) {
@@ -26,7 +17,22 @@ function doGet(e) {
 
   try {
     /* ---------------------------------------------------------
-       EAP Session resume: Google Sheet is sole authority
+       Unified EAP identity.
+       Legacy Word profile lookup is routed through the same authority.
+    --------------------------------------------------------- */
+    if (
+      action === 'eap_identity_lookup' ||
+      action === 'eap_hero_profile_lookup' ||
+      action === 'eap_word_profile_lookup'
+    ) {
+      if (typeof eapIdentityLookupV121_ !== 'function') {
+        throw new Error('EAP_Identity_v121.gs is not installed');
+      }
+      return eapRouterJson_(eapIdentityLookupV121_(params), callback);
+    }
+
+    /* ---------------------------------------------------------
+       EAP Session resume: Google Sheet is sole authority.
     --------------------------------------------------------- */
     if (action === 'player_resume') {
       const resume = typeof eapPlayerResumeV137_ === 'function'
@@ -43,9 +49,6 @@ function doGet(e) {
       return eapTeacherDashboardJson_(params);
     }
 
-    /* ---------------------------------------------------------
-       Word Quest JSONP / roster services
-    --------------------------------------------------------- */
     if (action === 'eap_word_submit_jsonp') {
       return eapRouterJson_(eapWordSubmitJsonp_(params), callback);
     }
@@ -57,7 +60,6 @@ function doGet(e) {
     const wordAuthorityActions = [
       'eap_word_authority_health',
       'eap_word_roster_setup',
-      'eap_word_profile_lookup',
       'eap_word_player_resume'
     ];
 
@@ -65,10 +67,6 @@ function doGet(e) {
       return eapRouterJson_(eapWordAuthorityDoGet_(params), callback);
     }
 
-    /* ---------------------------------------------------------
-       Sheet v132 compatibility routes
-       Do not run setup during a normal v137 deployment.
-    --------------------------------------------------------- */
     if (action === 'eap_sheet_v132_health' || action === 'sheet_v132_health') {
       return eapRouterJson_(eapSheetV132Health_(), callback);
     }
@@ -103,7 +101,7 @@ function doGet(e) {
   } catch (error) {
     return eapRouterJson_({
       ok: false,
-      service: 'shared-router-v137',
+      service: 'shared-router-v138',
       action: action,
       error: String(error && error.stack ? error.stack : error)
     }, callback);
@@ -120,9 +118,6 @@ function doPost(e) {
   ).toLowerCase();
 
   try {
-    /* ---------------------------------------------------------
-       Preserve the v132 metadata mirror for legacy receivers.
-    --------------------------------------------------------- */
     if (
       typeof eapSheetV132ShouldMirror_ === 'function' &&
       eapSheetV132ShouldMirror_(action, payload)
@@ -155,21 +150,16 @@ function doPost(e) {
   } catch (error) {
     return eapRouterJson_({
       ok: false,
-      service: 'shared-router-v137',
+      service: 'shared-router-v138',
       action: action,
       error: String(error && error.stack ? error.stack : error)
     });
   }
 }
 
-/* =========================================================
-   Robust POST parser
-   Supports JSON text/plain, form post, URL encoded and e.parameter.
-========================================================= */
 function eapRouterParsePost_(e) {
   const params = (e && e.parameter) || {};
   let payload = {};
-
   const raw = e && e.postData && e.postData.contents
     ? String(e.postData.contents)
     : '';
@@ -182,81 +172,47 @@ function eapRouterParsePost_(e) {
     }
   }
 
-  payload = payload && typeof payload === 'object'
-    ? payload
-    : {};
-
+  payload = payload && typeof payload === 'object' ? payload : {};
   Object.keys(params).forEach(function(key) {
     if (payload[key] === undefined || payload[key] === '') {
       payload[key] = params[key];
     }
   });
-
   return payload;
 }
 
 function eapRouterParseUrlEncoded_(raw) {
   const out = {};
   const text = String(raw || '');
-
-  if (text.indexOf('=') < 0) {
-    return out;
-  }
+  if (text.indexOf('=') < 0) return out;
 
   text.split('&').forEach(function(pair) {
     const parts = pair.split('=');
-    const key = decodeURIComponent(
-      String(parts.shift() || '').replace(/\+/g, ' ')
-    );
-    const value = decodeURIComponent(
-      String(parts.join('=') || '').replace(/\+/g, ' ')
-    );
-
-    if (key) {
-      out[key] = value;
-    }
+    const key = decodeURIComponent(String(parts.shift() || '').replace(/\+/g, ' '));
+    const value = decodeURIComponent(String(parts.join('=') || '').replace(/\+/g, ' '));
+    if (key) out[key] = value;
   });
-
   return out;
 }
 
-/* =========================================================
-   Forward the normalized payload to the legacy receiver.
-========================================================= */
 function eapRouterEventWithPayload_(e, payload) {
   const next = {};
-
   Object.keys(e || {}).forEach(function(key) {
     next[key] = e[key];
   });
 
-  next.parameter = Object.assign(
-    {},
-    (e && e.parameter) || {},
-    payload || {}
-  );
-
+  next.parameter = Object.assign({}, (e && e.parameter) || {}, payload || {});
   next.parameters = {};
-
   Object.keys(next.parameter).forEach(function(key) {
     next.parameters[key] = [next.parameter[key]];
   });
-
-  next.postData = Object.assign(
-    {},
-    (e && e.postData) || {},
-    {
-      contents: JSON.stringify(payload || {}),
-      type: 'application/json'
-    }
-  );
-
+  next.postData = Object.assign({}, (e && e.postData) || {}, {
+    contents: JSON.stringify(payload || {}),
+    type: 'application/json'
+  });
   return next;
 }
 
-/* =========================================================
-   Shared JSON / JSONP response helper.
-========================================================= */
 function eapRouterJson_(data, callback) {
   const json = JSON.stringify(data || {});
   const safeCallback = String(callback || '').trim();
