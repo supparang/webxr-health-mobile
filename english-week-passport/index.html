@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f7fbff" />
+  <meta name="description" content="English Week Passport: Vocabulary Adventure" />
+  <title>English Week Passport</title>
+  <link rel="stylesheet" href="./styles.css?v=20260803-1" />
+</head>
+<body>
+  <div id="app" class="app-shell" aria-live="polite">
+    <header class="topbar">
+      <button id="homeBtn" class="icon-btn" type="button" aria-label="กลับหน้า Passport" hidden>🗺️</button>
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true">EW</span>
+        <div>
+          <strong>English Week Passport</strong>
+          <small>Vocabulary Adventure</small>
+        </div>
+      </div>
+      <button id="logoutBtn" class="icon-btn" type="button" aria-label="ออกจากระบบ" hidden>↪</button>
+    </header>
+
+    <main id="screen" class="screen"></main>
+
+    <div id="toast" class="toast" role="status" aria-live="assertive" hidden></div>
+    <div id="loading" class="loading-layer" hidden>
+      <div class="loading-card">
+        <div class="spinner" aria-hidden="true"></div>
+        <strong id="loadingText">กำลังโหลดข้อมูล…</strong>
+        <small>กรุณาอย่าปิดหน้านี้</small>
+      </div>
+    </div>
+  </div>
+
+  <script src="./config.js?v=20260803-1"></script>
+  <script src="./word-bank.js?v=20260803-1"></script>
+  <script src="./authority-client.js?v=20260803-1"></script>
+  <script src="./app.js?v=20260803-1"></script>
+</body>
+</html>
