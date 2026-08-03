@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Passport Rotation V2 Contract</title>
+  <style>
+    body{font-family:system-ui,sans-serif;margin:0;padding:24px;background:#f4f8ff;color:#172033}
+    main{max-width:820px;margin:auto;background:white;padding:24px;border-radius:22px;box-shadow:0 12px 40px rgba(31,63,120,.12)}
+    .pass{color:#087443}.fail{color:#b42318}pre{white-space:pre-wrap;background:#0b1d32;color:#dff7ff;padding:16px;border-radius:14px;overflow:auto}
+  </style>
+</head>
+<body>
+<main>
+  <h1>Passport Rotation V2 Contract</h1>
+  <p id="status">กำลังตรวจ…</p>
+  <pre id="output"></pre>
+</main>
+<script>
+window.EW_CONFIG={appId:"ENGLISH-WEEK-PASSPORT-2026",cacheKeys:{identity:"ew_passport_identity_v1"}};
+</script>
+<script src="../passport-rotation-v2.js?v=20260803-rotation2"></script>
+<script>
+(function(){
+  "use strict";
+  const api=window.EW_ROTATION;
+  const status=document.getElementById("status");
+  const output=document.getElementById("output");
+  const oldIdentity=localStorage.getItem("ew_passport_identity_v1");
+  const checks=[];
+  const counts={P1:0,P2:0,P3:0,P4:0,R1:0,R2:0};
+  const combinations={};
+  let stable=true;
+  let forms=true;
+
+  for(let i=1;i<=200;i+=1){
+    const id=`EW${String(i).padStart(4,"0")}`;
+    const first=api.getAssignment(id);
+    const second=api.getAssignment(id);
+    stable=stable&&JSON.stringify(first)===JSON.stringify(second);
+    forms=forms&&(first.assessmentRotation==="R1"
+      ? first.preForm==="A"&&first.postForm==="B"
+      : first.preForm==="B"&&first.postForm==="A");
+    counts[first.passportRotation]+=1;
+    counts[first.assessmentRotation]+=1;
+    const key=`${first.passportRotation}|${first.assessmentRotation}`;
+    combinations[key]=(combinations[key]||0)+1;
+  }
+
+  localStorage.setItem("ew_passport_identity_v1",JSON.stringify({playerId:"EW0050",nickname:"QA"}));
+  const seedA1=api.stageSeed("word_match","qa");
+  const seedA2=api.stageSeed("word_match","qa");
+  const seedB=api.stageSeed("category_forest","qa");
+  const sample1=api.sample([1,2,3,4,5,6,7,8,9,10],5,"qa-stage","items");
+  const sample2=api.sample([1,2,3,4,5,6,7,8,9,10],5,"qa-stage","items");
+  const passportValues=[counts.P1,counts.P2,counts.P3,counts.P4];
+  const assessmentValues=[counts.R1,counts.R2];
+
+  checks.push({name:"Stable assignment",pass:stable});
+  checks.push({name:"All 8 combinations",pass:Object.keys(combinations).length===8});
+  checks.push({name:"Counterbalanced forms",pass:forms});
+  checks.push({name:"Passport spread <= 25",pass:Math.max(...passportValues)-Math.min(...passportValues)<=25});
+  checks.push({name:"Assessment spread <= 20",pass:Math.max(...assessmentValues)-Math.min(...assessmentValues)<=20});
+  checks.push({name:"Stable stage seed",pass:seedA1===seedA2});
+  checks.push({name:"Different stage seeds",pass:seedA1!==seedB});
+  checks.push({name:"Stable seeded sample",pass:JSON.stringify(sample1)===JSON.stringify(sample2)});
+
+  const passed=checks.every(check=>check.pass);
+  status.className=passed?"pass":"fail";
+  status.textContent=passed?"PASS — Rotation Contract ผ่านทุกเงื่อนไข":"FAIL — พบเงื่อนไขที่ไม่ผ่าน";
+  output.textContent=JSON.stringify({version:api.VERSION,checks,counts,combinations,seedA1,seedB,sample1},null,2);
+
+  for(let i=1;i<=200;i+=1){
+    localStorage.removeItem(`ew_passport_assignment_v2::EW${String(i).padStart(4,"0")}`);
+  }
+  if(oldIdentity===null)localStorage.removeItem("ew_passport_identity_v1");else localStorage.setItem("ew_passport_identity_v1",oldIdentity);
+}());
+</script>
+</body>
+</html>
