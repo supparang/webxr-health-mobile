@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const AR_URL = "./category-ar.html?v=20260803-ar2";
+  const AR_URL = "./category-ar.html?v=20260803-category3";
   const selector = '.stage-card[data-stage="category_forest"].clickable';
 
   function decorateCard() {
