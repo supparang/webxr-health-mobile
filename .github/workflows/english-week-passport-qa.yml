@@ -1,0 +1,35 @@
+name: English Week Passport QA
+
+on:
+  push:
+    paths:
+      - 'english-week-passport/**'
+      - '.github/workflows/english-week-passport-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax check rotation and game adapters
+        run: |
+          node --check english-week-passport/passport-rotation-v2.js
+          node --check english-week-passport/word-match-rotation-v2.js
+          node --check english-week-passport/category-rotation-v4.js
+          node --check english-week-passport/sentence-hand-rotation-v2.js
+          node --check english-week-passport/action-rotation-v5.js
+          node --check english-week-passport/action-detective-loader.js
+
+      - name: Run passport rotation contract
+        run: node english-week-passport/tests/passport-rotation-v2.node.cjs
