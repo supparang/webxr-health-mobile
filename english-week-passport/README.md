@@ -1,70 +1,111 @@
-# English Week Passport: AR Vocabulary Adventure
+# English Week Passport: Solo Multi-Control Adventure
 
-Mobile-first vocabulary game using a HeroHealth-style Passport flow with selective WebAR stages.
+Mobile-first solo English vocabulary game using a HeroHealth-style Passport flow. Every player completes the journey independently on one mobile device.
 
-## Production flow
+## Locked solo flow
 
-`Login → Pre-Challenge → Passport → Word Match 2D → Category Forest AR → Sentence City 2D → Word Detective AR → Final Boss AR Light → Post-Challenge → Certificate`
+`Login → Pre-Challenge → Passport → Word Match Memory → Category Forest AR → Sentence City Builder → Action Detective Lab → Mixed Final Boss → Post-Challenge → Certificate`
 
 Google Sheet is the production source of truth. The browser stores only the latest identity cache and a clearly labelled demo database when no Apps Script endpoint has been configured.
+
+## Control design
+
+| Stage | Primary control | Fallback |
+|---|---|---|
+| Pre-Challenge | Touch quiz | — |
+| Word Match Village | Tap memory cards | — |
+| Category Forest | Rear-camera AR + portal tap | Non-camera scene |
+| Sentence City | Tap ordering + drag/drop | Tap ordering |
+| Action Detective Lab | Body Pose → AR Scan → Hand Tracking | Touch for every round |
+| English Champion Arena | Mixed controls | Touch-safe mixed mode |
+| Post-Challenge | Touch assessment | — |
+| Certificate | Touch / print | — |
+
+Body and hand tracking are never allowed to become progression blockers. Detection rounds must provide a visible framing guide, a short countdown, relaxed confidence thresholds, adaptive assistance, and a touch fallback using the same learning item and pass policy.
 
 ## Current implementation status
 
 | Stage | Mode | Status |
 |---|---|---|
-| Pre-Challenge | 2D | Implemented |
-| Word Match Village | 2D | Implemented |
+| Pre-Challenge | Touch quiz | Implemented |
+| Word Match Village | Memory Pair game | Implemented V1 |
 | Category Forest | Camera AR + non-camera fallback | Implemented V1 |
-| Sentence City | 2D | Implemented |
-| Word Detective Lab | Planned AR | 2D engine currently available |
-| English Champion Arena | Planned AR Light | 2D engine currently available |
-| Post-Challenge | 2D | Implemented |
-| Certificate | 2D | Implemented |
+| Sentence City | Build, order, and repair puzzle | Implemented V1 |
+| Action Detective Lab | Body + AR Scan + Hand / touch fallback | Next production stage |
+| English Champion Arena | Mixed Final Boss | Existing quiz engine; redesign queued |
+| Post-Challenge | Touch assessment | Implemented |
+| Certificate | Personal certificate | Implemented |
 
 ## Stage policy
 
 | Stage | Pass policy |
 |---|---:|
 | Pre-Challenge | completion only |
-| Word Match Village | 70% |
-| Category Forest AR | 70% |
-| Sentence City | 70% |
-| Word Detective Lab | 70% |
-| English Champion Arena | 65% |
+| Word Match Village | 70% mastery |
+| Category Forest AR | 70% accuracy |
+| Sentence City | 70% first-try mastery |
+| Action Detective Lab | 70% combined mission mastery |
+| English Champion Arena | 65% mixed mastery |
 | Post-Challenge | completion only after Final Boss |
 | Certificate | after Post-Challenge |
 
 A client result never unlocks the next stage by itself. The next stage appears only after `submit_game_result` or `submit_assessment` returns a valid authority receipt.
 
+## Word Match Memory V1
+
+- Six English–Thai pairs, displayed as twelve shuffled cards.
+- Tap two cards to reveal and compare them.
+- Combo, flips, mismatches, time, and pair-level attempts are recorded.
+- Mastery uses two-mismatch bands: `10 - floor(mistakes / 2)`.
+- Six mismatches remain at the 70% boundary; eight mismatches fall below it.
+- Direct page: `/english-week-passport/word-match-memory.html`
+- Passport route: `word-match-route.js`.
+
 ## Category Forest AR V1
 
-Category Forest uses camera-overlay WebAR rather than requiring WebXR support. This gives broader compatibility on Android Chrome and iOS browsers while still providing an AR-style camera experience.
+Category Forest uses camera-overlay WebAR rather than requiring WebXR support. This gives broad compatibility while still providing an AR-style camera experience.
 
 - Camera permission is requested only after the player taps **Open Camera AR**.
 - The camera stream is used only as the live background and is not recorded or uploaded.
-- If camera permission is denied or the camera is unavailable, the player can use **non-camera fallback**.
-- Camera and fallback modes use the same 10-item bank, scoring policy, pass mark, Sheet submission, and unlock receipt.
-- Returning from the AR page automatically restores the Passport identity and reloads authority state.
+- If camera permission is denied or unavailable, the player can use a non-camera fallback.
+- Camera and fallback modes use the same item bank, score, pass mark, Sheet submission, and unlock receipt.
+- Direct page: `/english-week-passport/category-ar.html`.
 
-Direct page:
+## Sentence City Builder V1
 
-`/english-week-passport/category-ar.html`
+- Ten tasks across Fill the Gap, Word Order, and Sentence Repair.
+- Tap blocks to build the answer; drag/drop is also enabled where supported.
+- Blocks can be removed and reordered without restarting the task.
+- Players may continue correcting every sentence, but mastery credit is awarded only when the first check is correct.
+- Hint use, task attempts, first-try mastery, duration, points, and input mode are recorded.
+- Direct page: `/english-week-passport/sentence-builder.html`.
+- Passport route: `sentence-route.js`.
 
-The page checks that `category_forest` is unlocked before allowing play. It must normally be entered from the Passport.
+## Action Detective Lab architecture
+
+The existing `word_detective` authority stage will contain three sequential solo rounds so existing progress rows and Sheet schemas remain compatible:
+
+1. **Listening Action** — front camera and Pose Detection for simple English commands such as raise hands, lean, duck, and arms wide.
+2. **AR Clue Scan** — rear camera search-and-scan mission based on English clues.
+3. **Magic Hand** — hand pointer and pinch selection, with large hit targets and immediate touch fallback.
+
+The combined stage submits one `word_detective` receipt and records per-round `inputMode`, `fallbackUsed`, `detectionConfidence`, `retryCount`, `hintUsed`, and item-level correctness.
 
 ## Frontend files
 
-- `index.html` — application shell
-- `styles.css` — responsive mobile UI
+- `index.html` — Passport shell and game route loaders
+- `styles.css` — responsive Passport UI
 - `visibility-hotfix.css` — global hidden-state fix
 - `config.js` — endpoint and version configuration
-- `word-bank.js` — vocabulary bank, Form A/Form B assessments, Final Boss pool
-- `authority-client.js` — Google Apps Script transport, demo authority, resume contract
-- `app.js` — Passport, 2D question engine, unlock flow, certificate, leaderboard
-- `category-ar-route.js` — routes the unlocked Category Forest Passport card to AR
-- `category-ar.html` — Category Forest AR shell
-- `category-ar.css` — camera AR and fallback presentation
-- `category-ar-game.js` — camera permission, AR gameplay, fallback, submission, receipt, and return flow
+- `word-bank.js` — vocabulary bank and parallel assessments
+- `authority-client.js` — Apps Script transport, demo authority, and resume contract
+- `app.js` — Passport, legacy quiz fallback, certificate, and leaderboard
+- `word-match-memory.html/css/js` — Memory Pair game
+- `word-match-route.js` — Word Match Passport routing and resume
+- `category-ar.html/css/game.js` — Category Forest camera/fallback game
+- `category-ar-route.js` — Category Forest Passport routing and resume
+- `sentence-builder.html/css/js` — Sentence City puzzle game
+- `sentence-route.js` — Sentence City Passport routing and resume
 
 ## Google Apps Script setup
 
@@ -73,11 +114,9 @@ The page checks that `category_forest` is unlocked before allowing play. It must
 3. Paste `apps-script/EnglishWeekReceiver.gs` into a single Apps Script file.
 4. Run `EW_setupSheets()` once and grant permissions.
 5. Add participant rows to `EW_Profiles`.
-6. Deploy as a Web App:
-   - Execute as: **Me**
-   - Who has access: **Anyone**
-7. Copy the `/exec` URL into `config.js` as `webAppUrl`.
-8. Commit the config update and test on a real mobile device.
+6. Deploy as a Web App with **Execute as Me** and access set to **Anyone**.
+7. Copy the final public `/exec` URL into `config.js` as `webAppUrl`.
+8. Test resume, failed attempts, successful receipts, and cross-device restoration.
 
 ### `EW_Profiles` minimum columns
 
@@ -85,7 +124,7 @@ The page checks that `category_forest` is unlocked before allowing play. It must
 |---|---|---|---|---|---|
 | EW001 | Test Student | Mint | Group A | School Name | TRUE |
 
-Do not add `/u/0/` or `/u/1/` to the deployed URL. Use the final public `/exec` URL only.
+Do not add `/u/0/` or `/u/1/` to the deployed URL.
 
 ## Sheet authority tabs
 
@@ -102,22 +141,24 @@ Do not add `/u/0/` or `/u/1/` to the deployed URL. Use the final public `/exec` 
 
 ## Demo mode
 
-When `webAppUrl` is blank, the frontend enters **demo mode** and labels it clearly. Demo mode is only for UI and flow testing. It must not be used for event data collection, official scores, certificates, or research analysis.
+When `webAppUrl` is blank, the frontend enters demo mode and labels it clearly. Demo mode is only for UI and flow testing. It must not be used for official event scores, certificates, or research analysis.
 
 ## Acceptance checklist
 
-1. Unknown production player IDs are blocked.
-2. Returning players resume from `EW_Progress` on another device.
-3. A failed stage does not unlock the next stage.
-4. Closing the page before a server receipt does not produce an unlock.
-5. Pre/Post use different fixed parallel forms and shuffle item/option order.
+1. Unknown production IDs are blocked.
+2. Returning players resume from Sheet authority on another device.
+3. A failed stage never unlocks the next stage.
+4. Closing before a server receipt never creates an unlock.
+5. Word Match opens the Memory game rather than the legacy MCQ engine.
 6. Category Forest cannot open before Word Match passes.
-7. Camera permission is requested only from a user gesture.
-8. Denied/unavailable camera leads to fallback without blocking the player.
-9. Camera and fallback modes use the same questions, scoring, pass mark, and receipt flow.
-10. The camera stream stops when leaving or completing the AR stage.
-11. Final Boss is inaccessible before all four zones pass.
-12. Certificate is inaccessible before Post-Challenge completion.
-13. Leaderboard reads server-authorized best scores only.
-14. Every result row includes version and receipt identifiers.
-15. Mobile UI has no overlapping controls at 360–430 px widths.
+7. Denied camera permission leads to a valid non-camera fallback.
+8. Sentence City cannot open before Category Forest passes.
+9. Sentence mastery is based on first-check correctness, not unlimited correction.
+10. Every control mode records `inputMode`.
+11. Pose and hand rounds always expose touch fallback.
+12. Camera streams stop when leaving or completing a camera stage.
+13. Final Boss is inaccessible before all four authority stages pass.
+14. Certificate is inaccessible before Post-Challenge completion.
+15. Leaderboard reads server-authorized best scores only.
+16. Mobile UI has no overlapping controls at 360–430 px widths.
+17. `qa/solo-multicontrol-contract.mjs` passes.
