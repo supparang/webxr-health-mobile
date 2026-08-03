@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const MEMORY_URL = "./word-match-memory.html?v=20260803-memory1";
+  const MEMORY_URL = "./word-match-memory.html?v=20260803-memory2";
   const selector = '.stage-card[data-stage="word_match"].clickable';
 
   function decorateCard() {
@@ -10,9 +10,9 @@
     card.dataset.memoryDecorated = "1";
     card.classList.add("memory-stage-card");
     const detail = card.querySelector("small");
-    if (detail && !detail.textContent.includes("Memory")) detail.textContent += " • Memory Pair";
+    if (detail) detail.textContent = "Tilt + Dwell • A2–B1+ • Rotated Set";
     const state = card.querySelector(".stage-state");
-    if (state && card.classList.contains("ready")) state.innerHTML = "Memory พร้อมเล่น 🧩";
+    if (state && card.classList.contains("ready")) state.innerHTML = "Tilt Mission พร้อมเล่น 🧩";
   }
 
   function openMemory(event) {
@@ -52,9 +52,8 @@
   const style = document.createElement("style");
   style.textContent = `
     .stage-card.memory-stage-card.ready{border-color:#ffbd2e;background:linear-gradient(135deg,#fffdf2,#eef8ff)}
-    .stage-card.memory-stage-card .stage-icon{background:linear-gradient(135deg,#fff3c9,#e9f5ff)}
-    .stage-card.passed.memory-stage-card .stage-icon::after{content:" MEMORY";font-size:.42rem;font-weight:900;color:#8a6200;position:absolute;margin-top:48px}
-    .stage-card.memory-stage-card .stage-icon{position:relative}
+    .stage-card.memory-stage-card .stage-icon{background:linear-gradient(135deg,#fff3c9,#e9f5ff);position:relative}
+    .stage-card.passed.memory-stage-card .stage-icon::after{content:" TILT";font-size:.42rem;font-weight:900;color:#8a6200;position:absolute;margin-top:48px}
   `;
   document.head.appendChild(style);
 
