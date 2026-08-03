@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const AR_URL = "./category-ar.html?v=20260803-category3";
+  const AR_URL = "./category-ar.html?v=20260803-category4";
   const selector = '.stage-card[data-stage="category_forest"].clickable';
 
   function decorateCard() {
@@ -10,9 +10,9 @@
     card.dataset.arDecorated = "1";
     card.classList.add("ar-stage-card");
     const detail = card.querySelector("small");
-    if (detail && !detail.textContent.includes("AR")) detail.textContent += " • AR Camera/Fallback";
+    if (detail) detail.textContent = "Rear AR + Aim/Dwell • 32-word Bank";
     const state = card.querySelector(".stage-state");
-    if (state && card.classList.contains("ready")) state.innerHTML = "AR พร้อมเล่น 📷";
+    if (state && card.classList.contains("ready")) state.innerHTML = "AR Dwell พร้อมเล่น 📷";
   }
 
   function openAr(event) {
@@ -33,9 +33,8 @@
     const params = new URLSearchParams(window.location.search);
     if (params.get("resume") !== "1") return;
     let identity = null;
-    try {
-      identity = JSON.parse(localStorage.getItem(window.EW_CONFIG.cacheKeys.identity) || "null");
-    } catch (_) {}
+    try { identity = JSON.parse(localStorage.getItem(window.EW_CONFIG.cacheKeys.identity) || "null"); }
+    catch (_) {}
     if (!identity?.playerId) return;
     const form = document.getElementById("loginForm");
     const playerInput = document.getElementById("playerId");
