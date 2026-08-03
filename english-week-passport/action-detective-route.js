@@ -1,13 +1,13 @@
 (function(){
   "use strict";
-  const URL="./action-detective.html?v=20260803-action3";
+  const URL="./action-detective.html?v=20260803-action4";
   const selector='.stage-card[data-stage="word_detective"].clickable';
   function decorate(){
     const card=document.querySelector('.stage-card[data-stage="word_detective"]');
     if(!card||card.dataset.actionDecorated==="1")return;
     card.dataset.actionDecorated="1";card.classList.add("action-stage-card");
-    const small=card.querySelector("small");if(small)small.textContent="Body Pose • AR Scan • Hand Tracking";
-    const state=card.querySelector(".stage-state");if(state&&card.classList.contains("ready"))state.innerHTML="Action Lab พร้อมเล่น 🎥";
+    const small=card.querySelector("small");if(small)small.textContent="A2–B1+ • Body Pose • AR Scan • Hand Tracking";
+    const state=card.querySelector(".stage-state");if(state&&card.classList.contains("ready"))state.innerHTML="Detection Lab พร้อมเล่น 🎥";
   }
   function open(event){const card=event.target?.closest?.(selector);if(!card)return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();location.href=URL;}
   function key(event){if(event.key!=="Enter"&&event.key!==" ")return;open(event);}
