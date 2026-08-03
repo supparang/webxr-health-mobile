@@ -1,0 +1,12 @@
+/* English Week Passport mobile visibility hotfix.
+ * Author CSS must never override the semantic hidden attribute.
+ */
+[hidden] {
+  display: none !important;
+}
+
+.loading-layer[hidden],
+.toast[hidden],
+.icon-btn[hidden] {
+  display: none !important;
+}
