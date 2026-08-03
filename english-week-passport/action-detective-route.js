@@ -1,6 +1,6 @@
 (function(){
   "use strict";
-  const URL="./action-detective.html?v=20260803-action1";
+  const URL="./action-detective.html?v=20260803-action2";
   const selector='.stage-card[data-stage="word_detective"].clickable';
   function decorate(){
     const card=document.querySelector('.stage-card[data-stage="word_detective"]');
