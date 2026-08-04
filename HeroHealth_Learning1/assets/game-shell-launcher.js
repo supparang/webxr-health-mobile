@@ -2,7 +2,7 @@
 'use strict';
 const original=window.HH?.openNextGame;
 const R=window.HHRotation;
-const RELEASE='20260804-GAME-LAUNCHER-R44-FIREBASE-INTERACTION-RESCUE';
+const RELEASE='20260804-GAME-LAUNCHER-R45-FIREBASE-RECEIPT-SHELL';
 if(!window.HH||!R)return;
 
 function detectDevice(){
@@ -38,37 +38,31 @@ window.HH.openNextGame=function(zoneId){
  if(!g?.url){alert('ยังไม่ได้กำหนด URL ของ '+expected.label);return}
 
  const configured=new URL(g.url,location.href),target=analyticsTarget(expected.gameId,configured);
- const group=R.groupOf(s),device=detectDevice(),view=detectView();
+ const group=R.groupOf(s),device=detectDevice(),view=detectView(),authority=authorityMode();
+ const firebaseUid=String(new URLSearchParams(location.search).get('firebaseUid')||s?.firebaseAuthority?.uid||window.HH_FIREBASE_AUTHORITY?.uid||'');
  const common=[
-  ['studentId',s.profile.studentId],['section',s.profile.section],['group',group],
+  ['studentId',s.profile.studentId],['sid',s.profile.studentId],['section',s.profile.section],['group',group],
   ['zone',expected.zoneId],['gameId',expected.gameId],['missionProfile',R.profileIdOf(s)],
   ['rotationOrder',R.zonesFor(s).join(',')],['device',device],['view',view],
-  ['classroom','1'],['mobileOnly',C.mobileOnly?'1':'0'],['singleAttempt','1']
+  ['classroom','1'],['mobileOnly',C.mobileOnly?'1':'0'],['singleAttempt','1'],
+  ['authority',authority],['firebaseUid',firebaseUid]
  ];
  common.forEach(([k,v])=>target.searchParams.set(k,v||''));
  target.searchParams.set('launchVersion',RELEASE);
+ target.searchParams.set('analyticsMode','full-once');
+ target.searchParams.set('finishGate',authority==='firebase'?'firebase-receipt-r1':'sheet-event-receipt');
  target.searchParams.set('_',Date.now());
-
- if(authorityMode()==='firebase'){
-  const firebaseUid=String(s?.firebaseAuthority?.uid||window.HH_FIREBASE_AUTHORITY?.uid||'');
-  target.searchParams.set('authority','firebase');
-  target.searchParams.set('firebaseUid',firebaseUid);
-  target.searchParams.set('return',location.href);
-  target.searchParams.set('returnUrl',location.href);
-  location.assign(target.href);
-  return;
- }
 
  const shell=new URL('./game-shell-authority-r42.html',location.href);
  shell.searchParams.set('shellVersion',RELEASE);
  shell.searchParams.set('strictAuthority','1');
+ shell.searchParams.set('authority',authority);
  shell.searchParams.set('analyticsMode','full-once');
  shell.searchParams.set('_',Date.now());
- target.searchParams.set('analyticsMode','full-once');
  [...common,['target',target.href],['title',expected.label],['return',location.href]].forEach(([k,v])=>shell.searchParams.set(k,v||''));
  location.assign(shell.href);
 };
-window.HH.openNextGame.__hhBaseLauncherR44=true;
+window.HH.openNextGame.__hhBaseLauncherR45=true;
 window.HH.openNextGame.__hhLauncherRelease=RELEASE;
 
 function findActionButton(event){
@@ -100,11 +94,11 @@ function rescueAction(event){
  event.stopImmediatePropagation();
  button.disabled=true;
  button.textContent='กำลังเปิดเกม…';
- console.info('[HeroHealth Firebase] interaction rescue',zoneId,button);
+ console.info('[HeroHealth Firebase] receipt-shell interaction rescue',zoneId,button);
  window.HH.openNextGame(zoneId);
 }
 
 document.addEventListener('pointerup',rescueAction,true);
 document.addEventListener('click',rescueAction,true);
-console.info('[HeroHealth Firebase] interaction rescue installed',RELEASE);
+console.info('[HeroHealth Firebase] shared receipt shell launcher installed',RELEASE);
 })();
