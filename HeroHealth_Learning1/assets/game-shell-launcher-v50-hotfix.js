@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const RELEASE='20260801-GAME-SHELL-LAUNCHER-R52-STRICT-AUTHORITY';
+const RELEASE='20260804-GAME-SHELL-LAUNCHER-R53-FIREBASE-RECEIPT';
 let attempts=0;
 let timer=0;
 
@@ -26,7 +26,7 @@ function install(){
  attempts++;
  const HH=window.HH,R=window.HHRotation;
  if(!HH||!R){if(attempts>400)clearInterval(timer);return false}
- if(HH.openNextGame?.__hhLauncherR52===true){clearInterval(timer);return true}
+ if(HH.openNextGame?.__hhLauncherR53===true){clearInterval(timer);return true}
  const original=HH.openNextGame?.bind(HH);
  const launcher=function(zoneId){
   const C=window.HH_CONFIG||{};let s;
@@ -37,22 +37,28 @@ function install(){
   if(zoneId!==expected.zoneId){alert('ภารกิจถัดไปคือ '+expected.label);return}
   const z=C.zones?.find(x=>x.id===expected.zoneId),g=z?.games?.find(x=>x.id===expected.gameId);
   if(!g?.url){alert('ยังไม่ได้กำหนด URL ของ '+expected.label);return}
+  const pageQuery=new URLSearchParams(location.search);
+  const authority=String(pageQuery.get('authority')||window.HH_AUTHORITY_MODE||'sheet').toLowerCase();
+  const firebaseUid=String(pageQuery.get('firebaseUid')||s.firebaseUid||'');
   const shell=new URL('./game-shell-authority-r42.html',location.href);
   const configured=new URL(g.url,location.href),target=analyticsTarget(expected.gameId,configured);
   const group=R.groupOf(s),device=detectDevice(),view=detectView();
   shell.searchParams.set('shellVersion',RELEASE);
   shell.searchParams.set('strictAuthority','1');
+  shell.searchParams.set('authority',authority);
   shell.searchParams.set('analyticsMode','full-once');
   shell.searchParams.set('_',Date.now());
   target.searchParams.set('launchVersion',RELEASE);
+  target.searchParams.set('authority',authority);
   target.searchParams.set('analyticsMode','full-once');
-  target.searchParams.set('finishGate','v50-direct');
+  target.searchParams.set('finishGate',authority==='firebase'?'firebase-receipt-r1':'v50-direct');
   target.searchParams.set('_',Date.now());
   const common=[
-   ['studentId',s.profile.studentId],['section',s.profile.section],['group',group],
+   ['studentId',s.profile.studentId],['sid',s.profile.studentId],['section',s.profile.section],['group',group],
    ['zone',expected.zoneId],['gameId',expected.gameId],['missionProfile',R.profileIdOf(s)],
    ['rotationOrder',R.zonesFor(s).join(',')],['device',device],['view',view],
-   ['classroom','1'],['mobileOnly',C.mobileOnly?'1':'0'],['singleAttempt','1']
+   ['classroom','1'],['mobileOnly',C.mobileOnly?'1':'0'],['singleAttempt','1'],
+   ['authority',authority],['firebaseUid',firebaseUid]
   ];
   common.forEach(([k,v])=>target.searchParams.set(k,v||''));
   [...common,['target',target.href],['title',expected.label],['return',location.href]].forEach(([k,v])=>shell.searchParams.set(k,v||''));
@@ -60,12 +66,14 @@ function install(){
  };
  launcher.__hhLauncherV50=true;
  launcher.__hhLauncherR52=true;
+ launcher.__hhLauncherR53=true;
  launcher.__hhLauncherRelease=RELEASE;
  HH.openNextGame=launcher;
  HH.__gameShellLauncherV50=RELEASE;
  HH.__gameShellLauncherR52=RELEASE;
+ HH.__gameShellLauncherR53=RELEASE;
  clearInterval(timer);
- console.info('[HeroHealth] Strict Authority Game Shell Launcher installed',RELEASE);
+ console.info('[HeroHealth] Firebase-aware Game Shell Launcher installed',RELEASE);
  return true;
 }
 install();
@@ -73,4 +81,5 @@ timer=setInterval(install,50);
 addEventListener('pageshow',install);
 window.HHGameShellLauncherV50={install,version:RELEASE};
 window.HHGameShellLauncherR52={install,version:RELEASE};
+window.HHGameShellLauncherR53={install,version:RELEASE};
 })();
