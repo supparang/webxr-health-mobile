@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const MEMORY_URL = "./word-match-memory.html?v=20260804-smooth13";
+  const MEMORY_URL = "./word-match-memory.html?v=20260804-step14";
   const selector = '.stage-card[data-stage="word_match"].clickable';
 
   function decorateCard() {
@@ -10,7 +10,7 @@
     card.dataset.memoryDecorated = "1";
     card.classList.add("memory-stage-card");
     const detail = card.querySelector("small");
-    if (detail) detail.textContent = "Smooth Tilt • Sensor Relay • CEFR A2–B1+";
+    if (detail) detail.textContent = "Smooth Step • One Gesture = One Card • CEFR A2–B1+";
     const state = card.querySelector(".stage-state");
     if (state && card.classList.contains("ready")) state.innerHTML = "Vocabulary Navigation Lab พร้อมเล่น";
   }
@@ -45,7 +45,7 @@
     params.delete("resume");
     history.replaceState(null, "", `${location.pathname}${params.toString() ? `?${params}` : ""}`);
     if (typeof form.requestSubmit === "function") form.requestSubmit();
-    else form.dispatchEvent(new Event("submit", { bubbles:true, cancelable:true }));
+    else form.dispatchEvent(new Event("submit", { bubbles:true,cancelable:true }));
   }
 
   const style = document.createElement("style");
@@ -56,9 +56,9 @@
   `;
   document.head.appendChild(style);
 
-  document.addEventListener("click", openMemory, true);
-  document.addEventListener("keydown", openMemoryByKeyboard, true);
-  new MutationObserver(decorateCard).observe(document.getElementById("screen") || document.body, { childList:true, subtree:true });
+  document.addEventListener("click",openMemory,true);
+  document.addEventListener("keydown",openMemoryByKeyboard,true);
+  new MutationObserver(decorateCard).observe(document.getElementById("screen")||document.body,{childList:true,subtree:true});
   decorateCard();
-  setTimeout(autoResumeFromMemory, 70);
+  setTimeout(autoResumeFromMemory,70);
 }());
