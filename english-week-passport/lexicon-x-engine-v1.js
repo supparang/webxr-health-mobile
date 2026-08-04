@@ -1,44 +1,11 @@
 (function(){
-"use strict";
-const VERSION="2026-08-04-LEXICON-X-ENGINE-V1";
-const screen=document.getElementById("screen");
-const api=window.EW_AUTHORITY,rotation=window.EW_ROTATION,cfg=window.EW_CONFIG;
-const BANK=[
-{id:"lx01",a:"reliable",b:"น่าเชื่อถือ",level:"B1"},{id:"lx02",a:"deadline",b:"กำหนดส่ง",level:"A2+"},{id:"lx03",a:"conduct research",b:"ดำเนินการวิจัย",level:"B1+"},{id:"lx04",a:"submit",b:"ส่งงาน",level:"A2"},{id:"lx05",a:"collaboration",b:"การทำงานร่วมกัน",level:"B1+"},{id:"lx06",a:"feedback",b:"ข้อมูลป้อนกลับ",level:"B1"},{id:"lx07",a:"academic",b:"เชิงวิชาการ",level:"B1"},{id:"lx08",a:"presentation",b:"การนำเสนอ",level:"A2+"},{id:"lx09",a:"responsibility",b:"ความรับผิดชอบ",level:"B1+"},{id:"lx10",a:"opportunity",b:"โอกาส",level:"B1"},{id:"lx11",a:"schedule",b:"ตารางเวลา",level:"A2"},{id:"lx12",a:"evidence",b:"หลักฐาน",level:"B1"}
-];
-const S={identity:null,pairs:[],deck:[],first:null,locked:false,matched:0,mistakes:0,flips:0,started:0,timer:0,sensor:false,cal:false,count:0,sumG:0,sumB:0,g0:0,b0:0,g:0,b:0,vx:0,vy:0,x:innerWidth/2,y:innerHeight*.58,last:performance.now(),target:null,dwellAt:0,cursor:null,raf:0};
-const h=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-function identity(){try{return JSON.parse(localStorage.getItem(cfg.cacheKeys.identity)||"null");}catch(_){return null;}}
-function goPassport(){stop();location.href="./index.html?resume=memory&v=20260804-lexiconx1";}
-document.getElementById("back").onclick=goPassport;document.getElementById("exit").onclick=goPassport;
-function shell(body){screen.innerHTML=`<section class="panel">${body}</section>`;}
-function intro(msg=""){
- shell(`<div class="intro"><div class="xmark">LX</div><h1>LEXICON X Challenge</h1><p class="lead">เกมจับคู่คำศัพท์ภาษาอังกฤษระดับ A2–B1+ สำหรับนักศึกษาปริญญาตรีปี 1–2<br>เอียงมือถือให้เป้าไหลไปยังการ์ด แล้วหยุดเหนือการ์ดเพื่อเปิดอัตโนมัติ</p>${msg?`<div class="notice">${h(msg)}</div>`:""}<div class="actions"><button id="start" class="btn primary">Start Challenge</button><button id="home" class="btn secondary">Back to Passport</button></div></div>`);
- document.getElementById("start").onclick=start;document.getElementById("home").onclick=goPassport;
-}
-async function requestMotion(){if(typeof DeviceOrientationEvent!=="undefined"&&typeof DeviceOrientationEvent.requestPermission==="function"){const r=await DeviceOrientationEvent.requestPermission();if(r!=="granted")throw new Error("MOTION_DENIED");}}
-function choosePairs(){const pool=rotation?rotation.balancedSample(BANK,8,"lexicon_x:pool",x=>x.level):BANK.slice(0,8);return rotation?rotation.balancedSample(pool,6,"lexicon_x:play",x=>x.level):pool.slice(0,6);}
-function order(items){return rotation?rotation.order(items,"lexicon_x","deck"):items.slice().sort(()=>Math.random()-.5);}
-async function start(){try{await requestMotion();}catch(_){intro("กรุณาอนุญาต Motion Sensor แล้วเปิดเกมใหม่");return;}
- S.pairs=choosePairs();S.deck=order(S.pairs.flatMap(p=>[{id:p.id+"a",pair:p.id,text:p.a,side:"word",level:p.level,flipped:false,matched:false},{id:p.id+"b",pair:p.id,text:p.b,side:"meaning",level:p.level,flipped:false,matched:false}]));S.first=null;S.locked=false;S.matched=0;S.mistakes=0;S.flips=0;S.started=Date.now();S.sensor=false;S.cal=false;S.count=0;S.sumG=0;S.sumB=0;renderGame();window.addEventListener("deviceorientation",onOrientation,true);S.timer=setInterval(updateHud,1000);S.raf=requestAnimationFrame(loop);}
-function renderGame(){shell(`<div class="hud"><div class="stat"><small>PROGRESS</small><strong id="progress">0 / 6</strong></div><div class="stat"><small>ERRORS</small><strong id="errors">0</strong></div><div class="stat"><small>TIME</small><strong id="time">0:00</strong></div></div><p id="instruction" class="instruction">กำลังรอ Motion Sensor…</p><div id="grid" class="grid">${S.deck.map(c=>`<button class="card" data-id="${c.id}" tabindex="-1"><span class="inner"><span class="face back">LEXICON X<small>${c.level}</small></span><span class="face front">${h(c.text)}<small>${c.side==="word"?"ENGLISH":"THAI MEANING"}</small></span></span></button>`).join("")}</div><div id="feedback" class="feedback"></div>`);const cur=document.createElement("div");cur.className="cursor";cur.innerHTML="<span></span>";document.body.appendChild(cur);S.cursor=cur;}
-function updateHud(){const p=document.getElementById("progress"),e=document.getElementById("errors"),t=document.getElementById("time");if(p)p.textContent=`${S.matched} / 6`;if(e)e.textContent=String(S.mistakes);if(t){const sec=Math.floor((Date.now()-S.started)/1000);t.textContent=`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`;}}
-function onOrientation(ev){if(!document.getElementById("grid")||!Number.isFinite(Number(ev.gamma))||!Number.isFinite(Number(ev.beta)))return;S.sensor=true;S.g=Number(ev.gamma);S.b=Number(ev.beta);if(!S.cal){S.sumG+=S.g;S.sumB+=S.b;S.count++;if(S.count>=12){S.g0=S.sumG/S.count;S.b0=S.sumB/S.count;S.cal=true;}}}
-function axis(v){const dead=1.5,max=10,a=Math.abs(v);if(a<=dead)return 0;const n=Math.min(1,(a-dead)/(max-dead));return Math.sign(v)*(n*n*(3-2*n));}
-function cardEls(){return Array.from(document.querySelectorAll(".card:not(.matched)"));}
-function center(el){const r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};}
-function nearest(){let best=null,dist=1e9;for(const el of cardEls()){const p=center(el),d=Math.hypot(p.x-S.x,p.y-S.y);if(d<dist){dist=d;best=el;}}return{el:best,dist};}
-function setInstruction(text){const el=document.getElementById("instruction");if(el&&el.textContent!==text)el.textContent=text;}
-function loop(now){const grid=document.getElementById("grid");if(!grid){return;}const dt=Math.min(.035,Math.max(.008,(now-S.last)/1000));S.last=now;if(!S.sensor){setInstruction("กำลังรอ Motion Sensor…");S.raf=requestAnimationFrame(loop);return;}if(!S.cal){setInstruction("ถือเครื่องนิ่งประมาณครึ่งวินาที");S.raf=requestAnimationFrame(loop);return;}
- const ix=axis(S.g-S.g0),iy=axis(S.b-S.b0);const maxSpeed=190;S.vx=S.vx*.82+ix*maxSpeed*.18;S.vy=S.vy*.82+iy*maxSpeed*.18;S.x+=S.vx*dt;S.y+=S.vy*dt;const r=grid.getBoundingClientRect();S.x=Math.max(r.left+20,Math.min(r.right-20,S.x));S.y=Math.max(r.top+20,Math.min(r.bottom-20,S.y));const n=nearest();if(n.el&&n.dist<110){const p=center(n.el),mag=n.dist<70?.22:.08;S.x+=(p.x-S.x)*mag;S.y+=(p.y-S.y)*mag;}
- if(n.el!==S.target){document.querySelectorAll(".card.target,.card.opening").forEach(x=>{x.classList.remove("target","opening");x.style.removeProperty("--p");delete x.dataset.pct;});S.target=n.el;S.dwellAt=0;if(S.target)S.target.classList.add("target");}
- const speed=Math.hypot(S.vx,S.vy);let pct=0;if(S.target&&!S.target.classList.contains("flipped")&&!S.target.classList.contains("matched")&&n.dist<82&&speed<62&&!S.locked){if(!S.dwellAt)S.dwellAt=now;pct=Math.min(100,(now-S.dwellAt)/520*100);S.target.classList.add("opening");S.target.dataset.pct=String(Math.round(pct));S.target.style.setProperty("--p",pct+"%");setInstruction(`TARGET LOCK • ${Math.round(pct)}%`);if(pct>=100){const id=S.target.dataset.id;S.dwellAt=0;flip(id);}}else{S.dwellAt=0;if(S.target){S.target.classList.remove("opening");S.target.style.removeProperty("--p");delete S.target.dataset.pct;}setInstruction("เอียงเบา ๆ ให้เป้าไหลไปบนการ์ด แล้วชะลอเพื่อเปิด");}
- if(S.cursor){S.cursor.style.transform=`translate3d(${S.x}px,${S.y}px,0)`;S.cursor.querySelector("span").style.setProperty("--deg",pct*3.6+"deg");}S.raf=requestAnimationFrame(loop);}
-function flip(id){if(S.locked)return;const card=S.deck.find(c=>c.id===id);const el=document.querySelector(`.card[data-id="${CSS.escape(id)}"]`);if(!card||!el||card.flipped||card.matched)return;card.flipped=true;S.flips++;el.classList.add("flipped");if(!S.first){S.first=card;document.getElementById("feedback").textContent="เลือกการ์ดอีกใบเพื่อจับคู่";return;}S.locked=true;const first=S.first;const firstEl=document.querySelector(`.card[data-id="${CSS.escape(first.id)}"]`);if(first.pair===card.pair&&first.id!==card.id){first.matched=card.matched=true;firstEl.classList.add("matched");el.classList.add("matched");S.matched++;S.first=null;S.locked=false;document.getElementById("feedback").textContent="MATCH CONFIRMED";updateHud();if(S.matched>=6)setTimeout(finish,650);}else{S.mistakes++;document.getElementById("feedback").textContent="NOT A MATCH";setTimeout(()=>{first.flipped=false;card.flipped=false;firstEl.classList.remove("flipped");el.classList.remove("flipped");S.first=null;S.locked=false;updateHud();},850);}}
-async function finish(){stopMotionOnly();const total=6;const score=Math.max(0,total-Math.min(total,S.mistakes));const accuracy=Math.round(score/total*100);let receipt=null;try{receipt=await api.submitGame({playerId:S.identity.playerId,nickname:S.identity.nickname||S.identity.fullName,stageId:"word_match",score,total,accuracy,mistakes:S.mistakes,flips:S.flips,durationSec:Math.round((Date.now()-S.started)/1000),sourceVersion:VERSION});}catch(_){}
- const rank=accuracy>=95?"S":accuracy>=85?"A":accuracy>=70?"B":"C";shell(`<div class="summary"><div class="xmark">LX</div><h1>Challenge Complete</h1><div class="rank">${rank}</div><p class="lead">Accuracy ${accuracy}% • Mistakes ${S.mistakes} • Flips ${S.flips}</p><div class="notice">${receipt?.passed?"ผ่านด่านและปลดล็อกกิจกรรมถัดไปแล้ว":accuracy>=70?"ผ่านเกณฑ์":"ควรทบทวนคำศัพท์แล้วลองอีกครั้ง"}</div><div class="actions"><button id="passport" class="btn primary">Return to Passport</button><button id="again" class="btn secondary">Play Again</button></div></div>`);document.getElementById("passport").onclick=goPassport;document.getElementById("again").onclick=intro;}
-function stopMotionOnly(){window.removeEventListener("deviceorientation",onOrientation,true);if(S.raf)cancelAnimationFrame(S.raf);S.raf=0;if(S.timer)clearInterval(S.timer);S.timer=0;S.cursor?.remove();S.cursor=null;}
-function stop(){stopMotionOnly();}
-S.identity=identity();if(!S.identity?.playerId){intro("กรุณาเข้าสู่ระบบจากหน้า Passport ก่อนเริ่มเกม");}else intro();
-window.addEventListener("pagehide",stop,{once:true});
+  "use strict";
+  const script=document.createElement("script");
+  script.src="./lexicon-x-engine-v2.js?v=20260804-lexiconx4";
+  script.async=false;
+  script.onerror=()=>{
+    const screen=document.getElementById("screen");
+    if(screen)screen.innerHTML='<section class="panel"><div class="intro"><h1>โหลด LEXICON X ไม่สำเร็จ</h1><p class="lead">กรุณาปิดแท็บแล้วเปิดใหม่</p></div></section>';
+  };
+  document.body.appendChild(script);
 }());
