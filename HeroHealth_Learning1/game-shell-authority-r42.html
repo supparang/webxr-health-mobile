@@ -6,14 +6,47 @@
 <meta name="theme-color" content="#082f49">
 <title>HeroHealth Classroom Game</title>
 <style>
-html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#03131d;color:#fff;font-family:system-ui,sans-serif}.loading{max-width:88vw;padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}.loading button{margin-top:14px;padding:12px 18px;border:0;border-radius:12px;font:inherit;font-weight:900}
+html,body{margin:0;width:100%;height:100%;background:#03131d;color:#fff;font-family:system-ui,sans-serif}.loading{max-width:88vw;padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.center{width:100%;height:100%;display:grid;place-items:center}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}.loading button{margin-top:14px;padding:12px 18px;border:0;border-radius:12px;font:inherit;font-weight:900}.firebase-shell{display:grid;grid-template-rows:auto 1fr;width:100%;height:100%;overflow:hidden}.firebase-bar{display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 12px;background:#0f766e;font-weight:900}.firebase-bar button{padding:9px 13px;border:1px solid #ffffff55;border-radius:11px;background:#ffffff18;color:#fff;font:inherit;font-weight:900}.firebase-bar #receiptStatus{margin-left:auto;text-align:right;font-size:13px}.firebase-shell iframe{width:100%;height:100%;border:0;background:#000}
 </style>
 </head>
 <body>
-<div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังเชื่อมต่อระบบบันทึกผล กรุณารอสักครู่</small></div>
+<div class="center"><div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังเชื่อมต่อระบบบันทึกผล กรุณารอสักครู่</small></div></div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260804-GAME-SHELL-STRICT-AUTHORITY-R42.2-EVENT-RECEIPT';
+const RELEASE='20260804-GAME-SHELL-STRICT-AUTHORITY-R42.3-FIREBASE-ALL-GAMES';
+const shellQuery=new URLSearchParams(location.search);
+const firebaseMode=String(shellQuery.get('authority')||'').toLowerCase()==='firebase';
+
+if(firebaseMode){
+  const target=String(shellQuery.get('target')||'').trim();
+  const back=String(shellQuery.get('return')||'./index.html').trim();
+  if(!target){
+    document.body.innerHTML='<div class="center"><div class="loading"><b>ไม่พบเส้นทางเกม</b><small>กรุณากลับ Passport แล้วเปิดภารกิจใหม่</small></div></div>';
+    return;
+  }
+  const targetUrl=new URL(target,location.href);
+  for(const key of ['authority','studentId','sid','pid','fullName','studentName','name','section','group','firebaseUid','gameId','zone']){
+    const value=shellQuery.get(key);
+    if(value)targetUrl.searchParams.set(key,value);
+  }
+  targetUrl.searchParams.set('authority','firebase');
+  targetUrl.searchParams.set('return',back);
+  targetUrl.searchParams.set('firebaseShellVersion',RELEASE);
+  targetUrl.searchParams.set('_',Date.now());
+  document.body.innerHTML='<main class="firebase-shell"><header class="firebase-bar"><button id="back">← กลับ Passport</button><span id="gameTitle"></span><span id="receiptStatus">พร้อมเล่นเกม</span></header><iframe id="game" allow="camera; microphone; accelerometer; gyroscope; autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></main>';
+  document.getElementById('gameTitle').textContent=shellQuery.get('title')||'HeroHealth';
+  document.getElementById('back').onclick=()=>location.replace(back);
+  const bridge=document.createElement('script');
+  bridge.src='./assets/firebase-game-receipt-bridge-r1.js?v=20260804-r1-all-passport-games';
+  bridge.async=false;
+  bridge.onload=()=>{document.getElementById('game').src=targetUrl.href};
+  bridge.onerror=()=>{document.getElementById('receiptStatus').textContent='โหลด Firebase Receipt Bridge ไม่สำเร็จ'};
+  document.head.appendChild(bridge);
+  window.HH_GAME_SHELL_R42={release:RELEASE,authority:'firebase',firebaseExclusive:true,sharedReceiptBridge:true};
+  console.info('[Game Shell R42.3] Firebase-exclusive shell installed',{gameId:shellQuery.get('gameId'),target:targetUrl.href});
+  return;
+}
+
 const sourceUrl=new URL('./game-shell-authority-r40.html',location.href);
 sourceUrl.searchParams.set('strictAuthority',RELEASE);
 sourceUrl.searchParams.set('_',Date.now());
@@ -27,7 +60,7 @@ fetch(sourceUrl,{cache:'no-store'})
     let html=source;
     html=replaceRequired(html,
       '<script src="./data/backend-config.js?v=20260731-full-analytics-r40"><\/script>',
-      '<script src="./data/backend-config.js?v=20260804-r42-2-event-receipt"><\/script>',
+      '<script src="./data/backend-config.js?v=20260804-r42-3-firebase-all-games"><\/script>',
       'backend_cache');
     html=replaceRequired(html,
       '<button id="leaveBtn" class="btn secondary">กลับ Passport โดยให้ระบบตรวจภายหลัง</button>',
@@ -35,11 +68,11 @@ fetch(sourceUrl,{cache:'no-store'})
       'pending_button');
     html=replaceRequired(html,
       "const RELEASE='20260731-GAME-SHELL-FULL-ANALYTICS-R40.1';",
-      "const RELEASE='20260804-GAME-SHELL-STRICT-AUTHORITY-R42.2-EVENT-RECEIPT';",
+      "const RELEASE='20260804-GAME-SHELL-STRICT-AUTHORITY-R42.3-FIREBASE-ALL-GAMES';",
       'release');
     html=replaceRequired(html,
       "async function waitForReceipt(eventId){for(let attempt=1;attempt<=12;attempt++){await sleep(550+attempt*180+Math.floor(Math.random()*250));if(!(await eventFound(eventId)))continue;const authority=await studentAuthority();if(authority)return{ok:true,source:'event-and-student-authority',authority};const reconciled=await reconcileAuthority();if(reconciled)return{ok:true,source:'event-and-reconcile',authority:reconciled};if(attempt>=7)return{ok:true,source:'event-saved-authority-pending',authority:null}}return{ok:false,source:'current-event-not-found',authority:null}}",
-      "function authorityFromEventReceipt(api,eventId){try{if(!api||api.ok!==true||api.found!==true)return null;const row=api.event||{};if(clean(row.eventId)!==clean(eventId)||clean(row.studentId)!==sid||clean(row.eventType).toLowerCase()!=='game')return null;let payload=row.payloadJson||row.payload||{};if(typeof payload==='string')payload=JSON.parse(payload);const game=payload&&payload.game||{};const eventZone=clean(game.zone||payload.zone);const eventGame=clean(game.gameId||game.game_id||payload.gameId);if(eventZone!==zone||eventGame!==gameId||!yes(game.completed??payload.completed))return null;const gameCompleted={hygiene:{},nutrition:{},fitness:{}};gameCompleted[zone][gameId]=true;const result={zone,gameId,eventId:clean(eventId),score:finite(game.score)??0,accuracy:finite(game.accuracy)??0,passed:yes(game.passed??game.skillCriteriaMet),completed:true,finishedAt:game.finishedAt||row.serverTs||new Date().toISOString()};const receiptState={profile:{...(state().profile||{}),studentId:sid},gameCompleted,gameResults:{[zone+':'+gameId]:result},sheetAuthority:true,authorityVersion:RELEASE,eventReceiptAuthority:true};return{ok:true,version:api.version||RELEASE,authority:'google_sheet_event_receipt',studentId:sid,gameCompleted,gameResults:receiptState.gameResults,authoritativeState:receiptState,eventReceipt:row}}catch(error){console.warn('[R42.2 event receipt]',error);return null}}async function waitForReceipt(eventId){let eventSeen=false;for(let attempt=1;attempt<=16;attempt++){await sleep(550+attempt*180+Math.floor(Math.random()*250));const eventApi=await jsonp({action:'event',eventId},12000).catch(()=>null);eventSeen=eventSeen||Boolean(eventApi?.ok===true&&eventApi?.found===true);if(!eventSeen)continue;const authority=await studentAuthority();if(authority)return{ok:true,source:'event-and-student-authority',authority};const reconciled=await reconcileAuthority();if(reconciled&&authorityHasGame(reconciled))return{ok:true,source:'event-and-reconcile',authority:reconciled};const receiptAuthority=authorityFromEventReceipt(eventApi,eventId);if(receiptAuthority)return{ok:true,source:'exact-sheet-event-receipt',authority:receiptAuthority}}return{ok:false,source:eventSeen?'event-saved-but-receipt-mismatch':'current-event-not-found',authority:null}}",
+      "function authorityFromEventReceipt(api,eventId){try{if(!api||api.ok!==true||api.found!==true)return null;const row=api.event||{};if(clean(row.eventId)!==clean(eventId)||clean(row.studentId)!==sid||clean(row.eventType).toLowerCase()!=='game')return null;let payload=row.payloadJson||row.payload||{};if(typeof payload==='string')payload=JSON.parse(payload);const game=payload&&payload.game||{};const eventZone=clean(game.zone||payload.zone);const eventGame=clean(game.gameId||game.game_id||payload.gameId);if(eventZone!==zone||eventGame!==gameId||!yes(game.completed??payload.completed))return null;const gameCompleted={hygiene:{},nutrition:{},fitness:{}};gameCompleted[zone][gameId]=true;const result={zone,gameId,eventId:clean(eventId),score:finite(game.score)??0,accuracy:finite(game.accuracy)??0,passed:yes(game.passed??game.skillCriteriaMet),completed:true,finishedAt:game.finishedAt||row.serverTs||new Date().toISOString()};const receiptState={profile:{...(state().profile||{}),studentId:sid},gameCompleted,gameResults:{[zone+':'+gameId]:result},sheetAuthority:true,authorityVersion:RELEASE,eventReceiptAuthority:true};return{ok:true,version:api.version||RELEASE,authority:'google_sheet_event_receipt',studentId:sid,gameCompleted,gameResults:receiptState.gameResults,authoritativeState:receiptState,eventReceipt:row}}catch(error){console.warn('[R42.3 event receipt]',error);return null}}async function waitForReceipt(eventId){let eventSeen=false;for(let attempt=1;attempt<=16;attempt++){await sleep(550+attempt*180+Math.floor(Math.random()*250));const eventApi=await jsonp({action:'event',eventId},12000).catch(()=>null);eventSeen=eventSeen||Boolean(eventApi?.ok===true&&eventApi?.found===true);if(!eventSeen)continue;const authority=await studentAuthority();if(authority)return{ok:true,source:'event-and-student-authority',authority};const reconciled=await reconcileAuthority();if(reconciled&&authorityHasGame(reconciled))return{ok:true,source:'event-and-reconcile',authority:reconciled};const receiptAuthority=authorityFromEventReceipt(eventApi,eventId);if(receiptAuthority)return{ok:true,source:'exact-sheet-event-receipt',authority:receiptAuthority}}return{ok:false,source:eventSeen?'event-saved-but-receipt-mismatch':'current-event-not-found',authority:null}}",
       'receipt');
     html=replaceRequired(html,
       "function returnUrl(authority,pending=false){const url=new URL(back,location.href);url.searchParams.set('sid',sid);url.searchParams.set('authorityRefresh',Date.now());url.searchParams.set('gameSync','1');url.searchParams.set('autoNext','1');url.searchParams.set('shellVersion',RELEASE);url.searchParams.set('analyticsMode','full-once');if(pending)url.searchParams.set('pendingGameSync',`${zone}:${gameId}`);const next=authority?.authoritativeState?.progress?.nextStep||authority?.progress?.nextStep;if(next)url.searchParams.set('confirmedNext',next);return url.href}",
@@ -61,8 +94,8 @@ fetch(sourceUrl,{cache:'no-store'})
     document.open();document.write(html);document.close();
   })
   .catch(error=>{
-    console.error('[Game Shell R42.2]',error);
-    document.body.innerHTML='<div class="loading"><b>ยังเตรียมเกมไม่ได้</b><small>กรุณาตรวจสอบอินเทอร์เน็ต แล้วลองใหม่อีกครั้ง</small><button onclick="location.reload()">ลองใหม่</button></div>';
+    console.error('[Game Shell R42.3]',error);
+    document.body.innerHTML='<div class="center"><div class="loading"><b>ยังเตรียมเกมไม่ได้</b><small>กรุณาตรวจสอบอินเทอร์เน็ต แล้วลองใหม่อีกครั้ง</small><button onclick="location.reload()">ลองใหม่</button></div></div>';
   });
 })();
 </script>
