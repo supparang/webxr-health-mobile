@@ -1,3 +1,4 @@
+import "./firebase-direct-game-launch.js";
 import { HHFirebaseClient } from "./herohealth-firebase-client.js";
 
 const params = new URLSearchParams(location.search);
