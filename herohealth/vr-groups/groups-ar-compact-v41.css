@@ -258,27 +258,33 @@
 
   .feedback {
     position: fixed;
-    z-index: 88;
+    z-index: 96;
     right: 8px;
-    bottom: calc(108px + var(--sab));
+    bottom: calc(176px + var(--sab));
     left: 8px;
     display: flex;
-    min-height: 0;
+    min-height: 42px;
+    align-items: center;
     justify-content: center;
     padding: 8px 11px;
+    border: 2px solid rgba(255,255,255,.82);
     border-radius: 14px;
-    font-size: .65rem;
+    background: rgba(6,78,59,.94);
+    color: #fff;
+    box-shadow: 0 8px 22px rgba(0,0,0,.24);
+    font-size: .72rem;
+    font-weight: 900;
     line-height: 1.25;
     text-align: center;
-    opacity: 0;
+    opacity: 1;
     pointer-events: none;
-    transform: translateY(8px) scale(.98);
-    transition: opacity .16s ease, transform .16s ease;
+    transform: none;
+    transition: none;
   }
 
   .feedback.toastShow {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: none;
   }
 
   .menuScrim {
@@ -425,6 +431,11 @@
 
   .bin {
     min-height: 48px;
+  }
+
+  .feedback {
+    bottom: calc(166px + var(--sab));
+    font-size: .68rem;
   }
 }
 
