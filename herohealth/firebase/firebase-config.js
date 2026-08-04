@@ -4,7 +4,7 @@
 // with Firebase Authentication, Firestore Security Rules, and App Check.
 
 export const HEROHEALTH_FIREBASE_CONFIG = Object.freeze({
-  apiKey: "AIzaSyBdLWEf91s2gzUQf7H1pPB8c_hF807CpAc",
+  apiKey: "AIzaSyBdlWEf91s2gzUQf7H1pPB8c_hF807CpAc",
   authDomain: "herohealth-learning.firebaseapp.com",
   projectId: "herohealth-learning",
   storageBucket: "herohealth-learning.firebasestorage.app",
