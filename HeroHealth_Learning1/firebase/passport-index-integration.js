@@ -24,27 +24,32 @@ function suppressSheetResume(studentId) {
 
   if (mode !== "firebase" || !studentId) return;
 
-  // student-resume-v7-mobile.js checks these markers before starting its
-  // automatic Google Sheet bootstrap. Marking this Firebase session as fresh
-  // prevents a second authority from opening the blocking Sheet overlay.
   try {
     localStorage.setItem(`hh_authority_version_synced:${studentId}`, SHEET_RESUME_VERSION);
     sessionStorage.setItem(`hh_authority_bootstrap:${studentId}`, String(Date.now()));
   } catch (_) {}
 
+  // Hide the legacy Sheet blocker even if an older authority module recreates it.
+  const style = document.createElement("style");
+  style.id = "hh-firebase-hide-sheet-overlay";
+  style.textContent = `
+    html[data-hh-authority="firebase"] #hh-sheet-login-status { display:none!important; visibility:hidden!important; pointer-events:none!important; }
+    html[data-hh-authority="firebase"][data-hh-login-busy="1"] body { overflow:auto!important; }
+  `;
+  document.head.appendChild(style);
+
   const removeSheetOverlay = () => {
-    const overlay = document.getElementById("hh-sheet-login-status");
-    if (overlay) overlay.remove();
+    document.querySelectorAll("#hh-sheet-login-status").forEach((node) => node.remove());
     document.documentElement.dataset.hhLoginBusy = "0";
   };
 
   removeSheetOverlay();
   const observer = new MutationObserver(removeSheetOverlay);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  setTimeout(() => observer.disconnect(), 15000);
+  observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-hh-login-busy"] });
+  window.__HH_FIREBASE_SHEET_OVERLAY_OBSERVER__ = observer;
+  window.__HH_FIREBASE_REMOVE_SHEET_OVERLAY__ = removeSheetOverlay;
+  setInterval(removeSheetOverlay, 120);
 
-  // The Sheet resume module is already parsed before this module. Replace its
-  // public entry points as an additional guard; normal Sheet mode is untouched.
   const patchResumeApi = () => {
     const api = window.HHStudentResume;
     if (!api || api.__firebaseGuarded) return false;
@@ -53,6 +58,7 @@ function suppressSheetResume(studentId) {
       api.syncOfficial = skipped;
       api.login = skipped;
       api.getStudent = skipped;
+      api.reconcile = skipped;
       api.__firebaseGuarded = true;
     } catch (_) {}
     return true;
@@ -61,7 +67,7 @@ function suppressSheetResume(studentId) {
     const timer = setInterval(() => {
       if (patchResumeApi()) clearInterval(timer);
     }, 20);
-    setTimeout(() => clearInterval(timer), 3000);
+    setTimeout(() => clearInterval(timer), 10000);
   }
 }
 
@@ -163,13 +169,14 @@ function applyAuthority(event) {
     return;
   }
 
-  document.getElementById("hh-sheet-login-status")?.remove();
-  document.documentElement.dataset.hhLoginBusy = "0";
+  window.__HH_FIREBASE_REMOVE_SHEET_OVERLAY__?.();
   updateBadge(`Firebase • ${authority.studentId} • ${next.firebaseAuthority.currentZone}`, "ok");
   try { window.HH?.go?.("student"); } catch (_) {}
 }
 
 function installAuthorityBadge() {
+  const existing = document.getElementById("hh-firebase-authority-badge");
+  if (existing) return;
   const node = document.createElement("div");
   node.id = "hh-firebase-authority-badge";
   node.textContent = "กำลังโหลด Firebase Authority…";
@@ -199,7 +206,6 @@ function updateBadge(text, kind = "info") {
 
 function showAuthorityError(event) {
   const detail = event.detail || {};
-  document.getElementById("hh-sheet-login-status")?.remove();
-  document.documentElement.dataset.hhLoginBusy = "0";
+  window.__HH_FIREBASE_REMOVE_SHEET_OVERLAY__?.();
   updateBadge(`Firebase error: ${detail.error || "unknown"}`, "error");
 }
