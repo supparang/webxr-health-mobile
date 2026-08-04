@@ -13,14 +13,37 @@ async function ensureAnonymousUser() {
   return credential.user;
 }
 
+function isPermissionError(error) {
+  const code = String(error?.code || "").toLowerCase();
+  const message = String(error?.message || "").toLowerCase();
+  return code.includes("permission-denied") || message.includes("insufficient permission");
+}
+
 async function readRoster(studentId) {
   const user = await ensureAnonymousUser();
   const sid = String(studentId || "").trim();
   if (!sid) return { ok: false, user, reason: "student-required" };
 
-  for (const collectionName of ["students", "studentsSandbox"]) {
+  // The synthetic test account is intentionally stored in studentsSandbox.
+  // Read that collection first so a denied production read cannot prevent the
+  // permitted sandbox fallback from being reached.
+  const collectionOrder = sid === "990014"
+    ? ["studentsSandbox", "students"]
+    : ["students", "studentsSandbox"];
+
+  let lastPermissionError = null;
+  for (const collectionName of collectionOrder) {
     const ref = doc(db, collectionName, sid);
-    const snapshot = await getDoc(ref);
+    let snapshot;
+    try {
+      snapshot = await getDoc(ref);
+    } catch (error) {
+      if (isPermissionError(error)) {
+        lastPermissionError = error;
+        continue;
+      }
+      throw error;
+    }
     if (!snapshot.exists()) continue;
     const roster = snapshot.data();
     if (roster.active === false) {
@@ -29,6 +52,9 @@ async function readRoster(studentId) {
     return { ok: true, user, roster: { ...roster, studentId: sid }, rosterPath: ref.path };
   }
 
+  if (lastPermissionError) {
+    return { ok: false, user, reason: "roster-permission-denied", error: lastPermissionError };
+  }
   return { ok: false, user, reason: "student-not-found" };
 }
 
@@ -59,12 +85,26 @@ async function loadProgress(studentId) {
   const user = await ensureAnonymousUser();
   const sid = String(studentId || "").trim();
   const preferred = progressCollectionFor(sid);
-  for (const collectionName of [preferred, preferred === "studentProgress" ? "studentProgressSandbox" : "studentProgress"]) {
+  const collections = [preferred, preferred === "studentProgress" ? "studentProgressSandbox" : "studentProgress"];
+  let lastPermissionError = null;
+  for (const collectionName of collections) {
     const ref = doc(db, collectionName, sid);
-    const snapshot = await getDoc(ref);
+    let snapshot;
+    try {
+      snapshot = await getDoc(ref);
+    } catch (error) {
+      if (isPermissionError(error)) {
+        lastPermissionError = error;
+        continue;
+      }
+      throw error;
+    }
     if (snapshot.exists()) {
       return { ok: true, user, exists: true, progress: snapshot.data(), path: ref.path };
     }
+  }
+  if (lastPermissionError && preferred !== "studentProgressSandbox") {
+    return { ok: false, user, exists: false, progress: null, path: `${preferred}/${sid}`, reason: "progress-permission-denied", error: lastPermissionError };
   }
   return { ok: true, user, exists: false, progress: null, path: `${preferred}/${sid}` };
 }
