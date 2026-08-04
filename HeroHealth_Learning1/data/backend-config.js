@@ -11,12 +11,12 @@ window.HH_CONFIG.backend = {
   launcherVersion: "20260801-GAME-SHELL-LAUNCHER-R52-STRICT-AUTHORITY",
   receiptGuardVersion: "20260801-GAME-SHELL-AUTO-RETURN-R41.2-STRICT-AUTHORITY",
   balanceAnalyticsVersion: "20260731-BALANCE-ANALYTICS-V50-1-STABILITY",
-  handwashClassroomVersion: "20260731-HANDWASH-STABLE-R49-1-STUDENT-UI",
+  handwashClassroomVersion: "20260804-HANDWASH-R52-FIREBASE-EXCLUSIVE",
   handwashSchemaCompatibilityVersion: "20260731-GAME-SHELL-HANDWASH-SCHEMA-V2-R49",
   toothbrushScoreVersion: "20260731-TOOTHBRUSH-NORMALIZED-SKILL-SCORE-R53",
   reflectionRecoveryVersion: "20260801-REFLECTION-RECOVERY-MANAGER-R55",
   reflectionPendingQueueVersion: "20260801-REFLECTION-PENDING-QUEUE-R56",
-  loginRouteGuardVersion: "20260731-PROFILE-CONFIRM-ROUTE-GUARD-R42"
+  loginRouteGuardVersion: "20260804-PROFILE-CONFIRM-ROUTE-GUARD-R53-FIREBASE-RECEIPT"
 };
 
 window.HH_CONFIG.teacherAccess = {
@@ -25,35 +25,41 @@ window.HH_CONFIG.teacherAccess = {
 };
 
 const hhRuntimePath = String(location.pathname || '');
+const hhRuntimeAuthority = String(new URLSearchParams(location.search).get('authority') || window.HH_AUTHORITY_MODE || 'sheet').toLowerCase();
+const hhFirebaseRuntime = hhRuntimeAuthority === 'firebase';
 
 if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath) || /\/HeroHealth_Learning1\/assessment\/reflection\.html$/i.test(hhRuntimePath)) {
-  const reflectionQueue = document.createElement('script');
-  reflectionQueue.src = /\/assessment\/reflection\.html$/i.test(hhRuntimePath)
-    ? '../assets/reflection-pending-queue-client-r56.js?v=20260801-r56-server-pending'
-    : './assets/reflection-pending-queue-client-r56.js?v=20260801-r56-server-pending';
-  reflectionQueue.async = false;
-  reflectionQueue.dataset.hhPatch = 'reflection-pending-queue-client-r56';
-  document.head.appendChild(reflectionQueue);
+  if (!hhFirebaseRuntime) {
+    const reflectionQueue = document.createElement('script');
+    reflectionQueue.src = /\/assessment\/reflection\.html$/i.test(hhRuntimePath)
+      ? '../assets/reflection-pending-queue-client-r56.js?v=20260801-r56-server-pending'
+      : './assets/reflection-pending-queue-client-r56.js?v=20260801-r56-server-pending';
+    reflectionQueue.async = false;
+    reflectionQueue.dataset.hhPatch = 'reflection-pending-queue-client-r56';
+    document.head.appendChild(reflectionQueue);
+  }
 }
 
 if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath)) {
   const loginGuard = document.createElement('script');
-  loginGuard.src = './assets/profile-confirm-route-guard-r42.js?v=20260731-r42-stale-student-route';
+  loginGuard.src = './assets/profile-confirm-route-guard-r42.js?v=20260804-r53-firebase-receipt-authority';
   loginGuard.async = false;
-  loginGuard.dataset.hhPatch = 'profile-confirm-route-guard-r42';
+  loginGuard.dataset.hhPatch = 'profile-confirm-route-guard-r53-firebase-receipt';
   document.head.appendChild(loginGuard);
 
-  const launcherHotfix = document.createElement('script');
-  launcherHotfix.src = './assets/game-shell-launcher-v50-hotfix.js?v=20260801-r52-strict-authority';
-  launcherHotfix.async = false;
-  launcherHotfix.dataset.hhPatch = 'game-shell-launcher-r52-strict-authority';
-  document.head.appendChild(launcherHotfix);
+  if (!hhFirebaseRuntime) {
+    const launcherHotfix = document.createElement('script');
+    launcherHotfix.src = './assets/game-shell-launcher-v50-hotfix.js?v=20260801-r52-strict-authority';
+    launcherHotfix.async = false;
+    launcherHotfix.dataset.hhPatch = 'game-shell-launcher-r52-strict-authority';
+    document.head.appendChild(launcherHotfix);
 
-  const reflectionRecovery = document.createElement('script');
-  reflectionRecovery.src = './assets/reflection-recovery-manager-r55.js?v=20260801-r55-sheet-authority';
-  reflectionRecovery.async = false;
-  reflectionRecovery.dataset.hhPatch = 'reflection-recovery-manager-r55';
-  document.head.appendChild(reflectionRecovery);
+    const reflectionRecovery = document.createElement('script');
+    reflectionRecovery.src = './assets/reflection-recovery-manager-r55.js?v=20260801-r55-sheet-authority';
+    reflectionRecovery.async = false;
+    reflectionRecovery.dataset.hhPatch = 'reflection-recovery-manager-r55';
+    document.head.appendChild(reflectionRecovery);
+  }
 }
 
 if (/game-shell-authority-r4(?:0|2)\.html$/i.test(hhRuntimePath)) {
@@ -140,9 +146,17 @@ if (/game-shell-authority-r4(?:0|2)\.html$/i.test(hhRuntimePath)) {
     scale: 100
   });
 
-  const script = document.createElement('script');
-  script.src = './assets/game-shell-auto-return-r41.js?v=20260801-r41-2-strict-authority';
-  script.async = false;
-  script.dataset.hhPatch = 'game-shell-auto-return-r41-2';
-  document.head.appendChild(script);
+  if (!hhFirebaseRuntime) {
+    const script = document.createElement('script');
+    script.src = './assets/game-shell-auto-return-r41.js?v=20260801-r41-2-strict-authority';
+    script.async = false;
+    script.dataset.hhPatch = 'game-shell-auto-return-r41-2';
+    document.head.appendChild(script);
+  }
 }
+
+console.info('[HeroHealth Backend Config]', {
+  authority: hhRuntimeAuthority,
+  firebaseRuntime: hhFirebaseRuntime,
+  loginRouteGuardVersion: window.HH_CONFIG.backend.loginRouteGuardVersion
+});
