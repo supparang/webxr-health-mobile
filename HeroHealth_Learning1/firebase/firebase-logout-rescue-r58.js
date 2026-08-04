@@ -5,6 +5,10 @@
   const mode = String(params.get('authority') || '').toLowerCase();
   if (mode !== 'firebase' && mode !== 'dual') return;
 
+  import('./firebase-login-direct-r59.js?v=20260804-login-direct-r59').catch(error => {
+    console.error('[HeroHealth Firebase R58] direct login bridge load failed', error);
+  });
+
   const STATE_KEY = 'herohealth_learning_platform_rc2';
   const ACTIVE_KEY = 'herohealth_active_student_id';
   const QUERY_KEYS = [
