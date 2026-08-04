@@ -15,7 +15,7 @@
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260731-HANDWASH-STABLE-R49-1-STUDENT-UI';
+    const RELEASE='20260804-HANDWASH-DETECTION-EASIER-R45';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     sourceUrl.searchParams.set('_',String(Date.now()));
@@ -47,7 +47,7 @@
         );
         html=html.replace(
           /<script src="\.\/handwash-mobile-grade5-rescue-v1\.js[^>]*><\/script>/i,
-          '$&<script src="./handwash-mobile-grade5-rescue-r44.js?cv='+RELEASE+'"><\/script><script src="./handwash-mobile-final-step-finisher-r46.js?cv='+RELEASE+'"><\/script>'
+          '$&<script src="./handwash-mobile-grade5-rescue-r44.js?cv='+RELEASE+'"><\/script><script src="./handwash-classroom-detection-assist-r45.js?cv='+RELEASE+'"><\/script><script src="./handwash-mobile-final-step-finisher-r46.js?cv='+RELEASE+'"><\/script>'
         );
         html=html.replace('ฝึก 6 ท่าถูมือตาม WHO','ฝึก 7 ท่าถูมือให้ครบ รวมรอบข้อมือ');
         document.open();document.write(html);document.close();
