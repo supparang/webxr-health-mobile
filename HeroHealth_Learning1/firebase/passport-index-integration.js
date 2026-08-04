@@ -1,11 +1,11 @@
-import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260804-passport-r63';
+import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260804-passport-r64';
 
 const params = new URLSearchParams(location.search);
 const mode = String(params.get('authority') || 'firebase').toLowerCase();
 const enabled = mode === 'firebase' || mode === 'dual';
 const STATE_KEY = 'herohealth_learning_platform_rc2';
 const ACTIVE_KEY = 'herohealth_active_student_id';
-const RELEASE = '20260804-PASSPORT-FIREBASE-R63-ATOMIC-LOGOUT';
+const RELEASE = '20260804-PASSPORT-FIREBASE-R64-FORCED-LOGIN';
 const STUDENT_KEYS = ['studentId','sid','pid','firebaseUid','firebaseReady','firebaseLogin','firebaseHydrated','firebaseProgressApplied','firebaseReceipt','firebaseAssessmentReceipt','gameSync','pendingGameSync'];
 const LOCAL_CONTEXT_KEYS = [
   STATE_KEY, ACTIVE_KEY, 'HH_FIREBASE_LAST_STUDENT_ID', 'HH_FIREBASE_BOUND_STUDENT_ID',
@@ -44,48 +44,33 @@ async function hydrate(sid,profile=null){
  badge(`Firebase • กำลังกู้ความคืบหน้าของ ${sid}`);
  const loaded=await HHFirebaseClient.loadProgress(sid);
  if(!loaded?.ok)throw new Error('โหลดความคืบหน้าจาก Firebase ไม่สำเร็จ');
- if(loggingOut)return null;
  const current=readState();
  const recovered=rebuild(loaded.exists&&loaded.progress?loaded.progress:{},current);
  const next={...current,...recovered,profile:profile||current.profile,pendingProfile:null,group:(profile||current.profile)?.group||current.group||'A',view:'student',firebaseAuthority:{mode:'firebase',uid:loaded.user?.uid||'',studentId:sid,progressPath:loaded.path,progressExists:loaded.exists===true,hydratedAt:new Date().toISOString(),release:RELEASE}};
  localStorage.setItem(STATE_KEY,JSON.stringify(next));localStorage.setItem(ACTIVE_KEY,sid);localStorage.setItem('HH_AUTHORITY_MODE','firebase');sessionStorage.setItem('HH_AUTHORITY_MODE','firebase');
- console.info('[HeroHealth Firebase R63] hydrated',{sid,path:loaded.path,recovered});
  return next;
 }
-function loginForm(node){const form=node?.closest?.('form')||(node instanceof HTMLFormElement?node:null);if(!form)return null;const input=form.querySelector('[name="studentId"],input[inputmode="numeric"],input');return input?{form,input}:null}
-async function login(form,button){if(busy||loggingOut)return;const input=form.querySelector('[name="studentId"],input[inputmode="numeric"],input');const sid=String(input?.value||'').trim().replace(/\s+/g,'');if(!sid){input?.focus();return}busy=true;if(button){button.disabled=true;button.textContent='กำลังกู้ความคืบหน้าจาก Firebase…'}try{const roster=await HHFirebaseClient.readRoster(sid);if(!roster?.ok)throw new Error(roster?.reason==='student-not-found'?'ไม่พบรหัสนี้ใน Firebase':roster?.reason==='student-inactive'?'รหัสนี้ถูกปิดใช้งาน':'ตรวจสอบรหัสไม่สำเร็จ');const profile=normalizeRoster(roster.roster||{},sid);await HHFirebaseClient.bindStudent(sid);await hydrate(sid,profile);const url=new URL(location.href);['logout','logoutAt','logoutNonce'].forEach(k=>url.searchParams.delete(k));url.searchParams.set('authority','firebase');url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.set('firebaseReady','1');url.searchParams.set('firebaseHydrated',String(Date.now()));url.searchParams.set('v','20260804-passport-r63');location.replace(url.href)}catch(e){console.error('[HeroHealth Firebase R63] login failed',e);badge(`Firebase • ${e.message||'เกิดข้อผิดพลาด'}`);alert(e.message||'ตรวจสอบ Firebase ไม่สำเร็จ');if(button){button.disabled=false;button.textContent='ตรวจสอบและเข้าสู่ภารกิจ'}busy=false}finally{release()}}
-function installLogin(){const intercept=e=>{if(!enabled||loggingOut)return;const b=e.target?.closest?.('button');if(!b)return;const text=String(b.textContent||'');if(!text.includes('ตรวจสอบ')&&!text.includes('เข้าสู่ภารกิจ'))return;const info=loginForm(b);if(!info)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();login(info.form,b)};document.addEventListener('pointerup',intercept,true);document.addEventListener('click',intercept,true);document.addEventListener('submit',e=>{if(loggingOut)return;const info=loginForm(e.target);if(!info)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();login(info.form,info.form.querySelector('button[type="submit"],button.btn-primary'))},true)}
-function clearStudentContext(){
- LOCAL_CONTEXT_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});
- ['HH_FIREBASE_LAST_STUDENT_ID','HH_FIREBASE_BOUND_STUDENT_ID','HH_ACTIVE_STUDENT_ID','HH_CURRENT_STUDENT_ID'].forEach(k=>{try{sessionStorage.removeItem(k)}catch(_){}});
- try{sessionStorage.setItem('HH_AUTHORITY_MODE','firebase')}catch(_){}
- try{localStorage.setItem('HH_AUTHORITY_MODE','firebase')}catch(_){}
+function renderForcedLogin(){
+ const app=document.getElementById('app');if(!app)return;
+ app.innerHTML=`<div class="shell"><header class="topbar"><div class="brand"><div class="logo">♥</div><div>HeroHealth Learning Platform</div></div></header><main class="container"><section class="hero"><div class="card hero-card"><span class="badge">ภารกิจห้องเรียน 60 นาที</span><h1 style="font-size:clamp(2.4rem,7vw,4.5rem);margin:28px 0 18px;line-height:1.15">เป็นฮีโร่สุขภาพ<br>ใน 60 นาที</h1><p class="muted" style="font-size:1.25rem">ภารกิจเดียวสำหรับคาบนี้ • Mobile Only • ระบบจัดลำดับฐานให้อัตโนมัติ</p></div><form id="hh-firebase-login-form" class="card"><h2>ใส่รหัสนักเรียนเพื่อเริ่มภารกิจ</h2><p class="muted">ระบบจะตรวจรหัส ชื่อ ห้อง กลุ่ม และกู้ความคืบหน้าจาก Firebase โดยอัตโนมัติ</p><label class="field"><b>รหัสนักเรียน</b><input name="studentId" inputmode="numeric" autocomplete="off" placeholder="กรอกรหัสนักเรียน" /></label><button type="submit" class="btn btn-primary" style="width:100%;margin-top:16px;min-height:56px">ตรวจสอบและเข้าสู่ภารกิจ</button></form></section></main></div>`;
+ release();
+ setTimeout(()=>app.querySelector('input[name="studentId"]')?.focus(),50);
+ badge('Firebase • ออกจากผู้เล่นแล้ว • กรุณาใส่รหัสใหม่');
 }
+function loginForm(node){const form=node?.closest?.('form')||(node instanceof HTMLFormElement?node:null);if(!form)return null;const input=form.querySelector('[name="studentId"],input[inputmode="numeric"],input');return input?{form,input}:null}
+async function login(form,button){if(busy||loggingOut)return;const input=form.querySelector('[name="studentId"],input[inputmode="numeric"],input');const sid=String(input?.value||'').trim().replace(/\s+/g,'');if(!sid){input?.focus();return}busy=true;if(button){button.disabled=true;button.textContent='กำลังกู้ความคืบหน้าจาก Firebase…'}try{const roster=await HHFirebaseClient.readRoster(sid);if(!roster?.ok)throw new Error(roster?.reason==='student-not-found'?'ไม่พบรหัสนี้ใน Firebase':roster?.reason==='student-inactive'?'รหัสนี้ถูกปิดใช้งาน':'ตรวจสอบรหัสไม่สำเร็จ');const profile=normalizeRoster(roster.roster||{},sid);await HHFirebaseClient.bindStudent(sid);await hydrate(sid,profile);const url=new URL(location.href);['logout','logoutAt','logoutNonce'].forEach(k=>url.searchParams.delete(k));url.searchParams.set('authority','firebase');url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.set('firebaseReady','1');url.searchParams.set('firebaseHydrated',String(Date.now()));url.searchParams.set('v','20260804-passport-r64');location.replace(url.href)}catch(e){console.error('[HeroHealth Firebase R64] login failed',e);badge(`Firebase • ${e.message||'เกิดข้อผิดพลาด'}`);alert(e.message||'ตรวจสอบ Firebase ไม่สำเร็จ');if(button){button.disabled=false;button.textContent='ตรวจสอบและเข้าสู่ภารกิจ'}busy=false}finally{release()}}
+function installLogin(){const intercept=e=>{if(!enabled||loggingOut)return;const b=e.target?.closest?.('button');if(!b)return;const text=String(b.textContent||'');if(!text.includes('ตรวจสอบ')&&!text.includes('เข้าสู่ภารกิจ'))return;const info=loginForm(b);if(!info)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();login(info.form,b)};document.addEventListener('pointerup',intercept,true);document.addEventListener('click',intercept,true);document.addEventListener('submit',e=>{if(loggingOut)return;const info=loginForm(e.target);if(!info)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();login(info.form,info.form.querySelector('button[type="submit"],button.btn-primary'))},true)}
+function clearStudentContext(){LOCAL_CONTEXT_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(_){}});['HH_FIREBASE_LAST_STUDENT_ID','HH_FIREBASE_BOUND_STUDENT_ID','HH_ACTIVE_STUDENT_ID','HH_CURRENT_STUDENT_ID'].forEach(k=>{try{sessionStorage.removeItem(k)}catch(_){}});try{sessionStorage.setItem('HH_AUTHORITY_MODE','firebase')}catch(_){}try{localStorage.setItem('HH_AUTHORITY_MODE','firebase')}catch(_){}}
 function logout(){
  if(loggingOut)return true;
- loggingOut=true;busy=true;
- document.documentElement.dataset.hhLoggingOut='1';
- badge('Firebase • กำลังออกจากผู้เล่น…');
- clearStudentContext();
- const url=new URL(location.href);
- STUDENT_KEYS.forEach(k=>url.searchParams.delete(k));
- url.searchParams.set('authority','firebase');
- url.searchParams.set('logout','1');
- url.searchParams.set('logoutAt',String(Date.now()));
- url.searchParams.set('logoutNonce',Math.random().toString(36).slice(2));
- url.searchParams.set('v','20260804-passport-r63');
- const target=url.href;
- try{history.replaceState(null,'',target)}catch(_){}
- setTimeout(()=>location.replace(target),0);
- setTimeout(()=>{if(location.href!==target)location.assign(target)},350);
+ loggingOut=true;busy=true;badge('Firebase • กำลังออกจากผู้เล่น…');clearStudentContext();
+ const url=new URL(location.href);STUDENT_KEYS.forEach(k=>url.searchParams.delete(k));url.searchParams.set('authority','firebase');url.searchParams.set('logout','1');url.searchParams.set('logoutAt',String(Date.now()));url.searchParams.set('logoutNonce',Math.random().toString(36).slice(2));url.searchParams.set('v','20260804-passport-r64');
+ try{history.replaceState(null,'',url.href)}catch(_){}
+ renderForcedLogin();
+ loggingOut=false;busy=false;
  return true;
 }
 function isLogoutButton(node){const b=node?.closest?.('button,[role="button"],a');if(!b)return null;const text=String(b.textContent||'').replace(/\s+/g,' ').trim();const onclick=String(b.getAttribute?.('onclick')||'');return text.includes('ออกจากผู้เล่น')||onclick.includes('HH.logout')?b:null}
-function installLogout(){
- const install=()=>{if(window.HH){window.HH.logout=logout;window.HH.logout.__hhFirebaseR63=true}};
- install();[50,150,400,900,1800,3000].forEach(d=>setTimeout(install,d));
- const intercept=e=>{if(!enabled)return;const b=isLogoutButton(e.target);if(!b)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();b.setAttribute('aria-disabled','true');if('disabled'in b)b.disabled=true;logout()};
- ['pointerdown','pointerup','touchend','click'].forEach(type=>document.addEventListener(type,intercept,{capture:true,passive:false}));
-}
-function updateCopy(){const form=document.querySelector('#app form');if(!form)return;const p=form.querySelector('p.muted');if(p)p.textContent='ระบบจะตรวจรหัส ชื่อ ห้อง กลุ่ม และกู้ความคืบหน้าจาก Firebase โดยอัตโนมัติ';const b=form.querySelector('button[type="submit"],button.btn-primary');if(b&&!b.disabled)b.textContent='ตรวจสอบและเข้าสู่ภารกิจ'}
-if(enabled){window.HH_AUTHORITY_MODE=mode;window.HH_DISABLE_SHEET_RESUME=mode==='firebase';document.documentElement.dataset.hhAuthority=mode;const boot=async()=>{release();installLogin();installLogout();new MutationObserver(updateCopy).observe(document.getElementById('app')||document.body,{childList:true,subtree:true});updateCopy();const sid=String(params.get('studentId')||params.get('sid')||'').trim();if(sid&&params.get('logout')!=='1'){try{await hydrate(sid)}catch(e){console.error('[HeroHealth Firebase R63] boot hydrate failed',e);badge(`Firebase • ${e.message||'กู้ความคืบหน้าไม่สำเร็จ'}`)}}else badge(params.get('logout')==='1'?'Firebase • ออกจากผู้เล่นแล้ว • กรุณาใส่รหัสใหม่':'Firebase • พร้อมตรวจสอบรหัส');release()};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot()}
+function installLogout(){const install=()=>{if(window.HH){window.HH.logout=logout;window.HH.logout.__hhFirebaseR64=true}};install();[50,150,400,900,1800].forEach(d=>setTimeout(install,d));const intercept=e=>{if(!enabled)return;const b=isLogoutButton(e.target);if(!b)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();logout()};['pointerdown','pointerup','touchend','click'].forEach(type=>document.addEventListener(type,intercept,{capture:true,passive:false}))}
+function updateCopy(){if(params.get('logout')==='1')return;const form=document.querySelector('#app form');if(!form)return;const p=form.querySelector('p.muted');if(p)p.textContent='ระบบจะตรวจรหัส ชื่อ ห้อง กลุ่ม และกู้ความคืบหน้าจาก Firebase โดยอัตโนมัติ';const b=form.querySelector('button[type="submit"],button.btn-primary');if(b&&!b.disabled)b.textContent='ตรวจสอบและเข้าสู่ภารกิจ'}
+if(enabled){window.HH_AUTHORITY_MODE=mode;window.HH_DISABLE_SHEET_RESUME=mode==='firebase';document.documentElement.dataset.hhAuthority=mode;const boot=async()=>{release();installLogin();installLogout();if(params.get('logout')==='1'){renderForcedLogin();return}new MutationObserver(updateCopy).observe(document.getElementById('app')||document.body,{childList:true,subtree:true});updateCopy();const sid=String(params.get('studentId')||params.get('sid')||'').trim();if(sid){try{await hydrate(sid)}catch(e){console.error('[HeroHealth Firebase R64] boot hydrate failed',e);badge(`Firebase • ${e.message||'กู้ความคืบหน้าไม่สำเร็จ'}`)}}else renderForcedLogin();release()};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot()}
