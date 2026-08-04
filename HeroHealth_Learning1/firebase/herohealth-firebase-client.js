@@ -67,11 +67,97 @@ async function saveProgress(studentId, patch = {}) {
   return loadProgress(studentId);
 }
 
+function plainObject(value) {
+  try {
+    return JSON.parse(JSON.stringify(value, (_key, item) => {
+      if (typeof item === "function" || typeof item === "undefined") return undefined;
+      if (typeof item === "number" && !Number.isFinite(item)) return 0;
+      return item;
+    }));
+  } catch (_error) {
+    return {};
+  }
+}
+
+function receiptToken(studentId, gameId) {
+  const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${String(studentId)}:${String(gameId)}:${random}`;
+}
+
+async function saveGameResult(studentId, gameId, result = {}) {
+  const sid = String(studentId || "").trim();
+  const gid = String(gameId || "").trim();
+  if (!sid) throw new Error("firebase-game-result-student-required");
+  if (!gid) throw new Error("firebase-game-result-game-required");
+
+  const rosterResult = await bindStudent(sid);
+  if (!rosterResult.ok) throw new Error(`firebase-roster-${rosterResult.reason || "failed"}`);
+
+  const user = rosterResult.user;
+  const token = receiptToken(sid, gid);
+  const cleanResult = plainObject(result);
+  const zone = String(cleanResult.zone || cleanResult.zoneId || "hygiene");
+  const ref = doc(db, "studentProgressSandbox", sid);
+  const storedResult = {
+    ...cleanResult,
+    studentId: sid,
+    gameId: gid,
+    zone,
+    completed: true,
+    passed: cleanResult.passed !== false,
+    progressionEligible: cleanResult.progressionEligible !== false,
+    firebaseReceiptToken: token,
+    firebaseSavedByUid: user.uid,
+    firebaseClientSavedAt: new Date().toISOString(),
+    firebaseSavedAt: serverTimestamp(),
+    firebaseBuild: HEROHEALTH_FIREBASE_BUILD
+  };
+
+  await setDoc(ref, {
+    studentId: sid,
+    currentZone: zone,
+    gameCompleted: { [zone]: { [gid]: true } },
+    gameResults: { [gid]: storedResult },
+    lastGame: {
+      gameId: gid,
+      zone,
+      completed: true,
+      passed: storedResult.passed,
+      progressionEligible: storedResult.progressionEligible,
+      firebaseReceiptToken: token
+    },
+    updatedByUid: user.uid,
+    updatedAt: serverTimestamp(),
+    build: HEROHEALTH_FIREBASE_BUILD
+  }, { merge: true });
+
+  const confirmed = await confirmGameResult(sid, gid, token);
+  if (!confirmed.ok) throw new Error("firebase-game-result-receipt-mismatch");
+  return { ...confirmed, user, roster: rosterResult.roster, token, path: ref.path };
+}
+
+async function confirmGameResult(studentId, gameId, expectedToken = "") {
+  const loaded = await loadProgress(studentId);
+  const stored = loaded.progress?.gameResults?.[String(gameId)] || null;
+  const token = String(stored?.firebaseReceiptToken || "");
+  const ok = Boolean(stored && stored.completed === true && (!expectedToken || token === expectedToken));
+  return {
+    ok,
+    user: loaded.user,
+    progress: loaded.progress,
+    result: stored,
+    token,
+    path: loaded.path
+  };
+}
+
 export const HHFirebaseClient = Object.freeze({
   build: HEROHEALTH_FIREBASE_BUILD,
   ensureAnonymousUser,
   readRoster,
   bindStudent,
   loadProgress,
-  saveProgress
+  saveProgress,
+  saveGameResult,
+  confirmGameResult
 });
