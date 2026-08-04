@@ -26,6 +26,8 @@ jobs:
         run: |
           node --check english-week-passport/passport-rotation-v2.js
           node --check english-week-passport/lexicon-x-engine-v1.js
+          node --check english-week-passport/lexicon-x-engine-v5.js
+          node --check english-week-passport/lexicon-x-polish-v6.js
           node --check english-week-passport/word-match-route.js
           node --check english-week-passport/category-rotation-v4.js
           node --check english-week-passport/sentence-hand-rotation-v2.js
