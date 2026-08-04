@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const MEMORY_URL = "./word-match-memory.html?v=20260804-memory9";
+  const MEMORY_URL = "./word-match-memory.html?v=20260804-memory10";
   const selector = '.stage-card[data-stage="word_match"].clickable';
 
   function decorateCard() {
@@ -10,9 +10,9 @@
     card.dataset.memoryDecorated = "1";
     card.classList.add("memory-stage-card");
     const detail = card.querySelector("small");
-    if (detail) detail.textContent = "Tilt Runtime V9 • Board-only • A2–B1+";
+    if (detail) detail.textContent = "Tilt Runtime V9 • Clear Card States • A2–B1+";
     const state = card.querySelector(".stage-state");
-    if (state && card.classList.contains("ready")) state.innerHTML = "Tilt Runtime พร้อมเล่น 🧩";
+    if (state && card.classList.contains("ready")) state.innerHTML = "Tilt Memory พร้อมเล่น 🧩";
   }
 
   function openMemory(event) {
