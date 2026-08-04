@@ -1,7 +1,7 @@
 (function(){
   "use strict";
-  const ENGINE_URL="./word-match-snap-v4.js?v=20260804-map18-engine";
-  const CONTROLLER_URL="./word-match-motion-map-v18.js?v=20260804-map18";
+  const ENGINE_URL="./word-match-snap-v4.js?v=20260804-map19-engine";
+  const CONTROLLER_URL="./word-match-motion-map-v19.js?v=20260804-map19";
 
   function loadController(){
     const script=document.createElement("script");
@@ -26,11 +26,11 @@
         needle,
         "window.EW_WORD_MATCH_OPEN_CARD = function(cardId){ return flipCard(cardId); };\n\n  function flipCard(cardId) {"
       );
-      (0,eval)(`${patched}\n//# sourceURL=word-match-snap-v4-exported-map18.js`);
+      (0,eval)(`${patched}\n//# sourceURL=word-match-snap-v4-exported-map19.js`);
       loadController();
     })
     .catch(error=>{
-      console.error("Word Match engine loader Map V18",error);
+      console.error("Word Match engine loader Map V19",error);
       const root=document.getElementById("memoryRoot");
       if(root) root.innerHTML='<section class="intro-card"><h1>เริ่มเกมไม่สำเร็จ</h1><p class="lead">ไม่สามารถโหลด Engine ได้ กรุณาปิดแท็บแล้วเปิดใหม่</p></section>';
     });
