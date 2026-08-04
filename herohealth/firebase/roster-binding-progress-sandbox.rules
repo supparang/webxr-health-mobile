@@ -45,7 +45,8 @@ service cloud.firestore {
 
     // Sandbox progress is restricted to the single synthetic test student.
     match /studentProgressSandbox/{studentId} {
-      allow read, create, update: if signedIn()
+      allow read: if signedIn() && isTestStudent(studentId);
+      allow create, update: if signedIn()
         && isTestStudent(studentId)
         && request.resource.data.studentId == '990014';
       allow delete: if false;
