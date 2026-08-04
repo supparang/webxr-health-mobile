@@ -1,7 +1,7 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-04-APP-CORE-LOADER-V2";
-  const SOURCE_URL="./app.js?v=20260804-core6-source";
+  const VERSION="2026-08-04-APP-CORE-LOADER-V3-DIRECT-PRESS";
+  const SOURCE_URL="./app.js?v=20260804-core7-source";
 
   function fail(message,error){
     console.error(message,error||"");
@@ -27,12 +27,36 @@
 
       source=source.replace(
         buttonNeedle,
-        '<button id="loginStartBtn" class="btn btn-primary" type="button">ตรวจสอบรหัสและเริ่มภารกิจ</button>'
+        '<button id="loginStartBtn" class="btn btn-primary" type="button" style="touch-action:manipulation!important;pointer-events:auto!important">ตรวจสอบรหัสและเริ่มภารกิจ</button>'
       );
 
       source=source.replace(
         listenerNeedle,
-        `const loginForm = document.getElementById("loginForm");\n    const loginStartBtn = document.getElementById("loginStartBtn");\n    loginStartBtn.addEventListener("click", () => handleLoginFromForm(loginForm));\n    loginForm.addEventListener("keydown", event => {\n      if (event.key !== "Enter") return;\n      event.preventDefault();\n      handleLoginFromForm(loginForm);\n    });`
+        `const loginForm = document.getElementById("loginForm");
+    const loginStartBtn = document.getElementById("loginStartBtn");
+    let loginPressBusy = false;
+    const runLoginDirect = event => {
+      if (event) event.preventDefault();
+      if (loginPressBusy) return;
+      loginPressBusy = true;
+      loginStartBtn.textContent = "กำลังตรวจสอบ…";
+      loginStartBtn.disabled = true;
+      Promise.resolve(handleLoginFromForm(loginForm)).finally(() => {
+        loginPressBusy = false;
+        if (loginStartBtn.isConnected) {
+          loginStartBtn.disabled = false;
+          loginStartBtn.textContent = "ตรวจสอบรหัสและเริ่มภารกิจ";
+        }
+      });
+    };
+    loginStartBtn.addEventListener("pointerdown", runLoginDirect, { passive:false });
+    loginStartBtn.addEventListener("touchstart", runLoginDirect, { passive:false });
+    loginStartBtn.addEventListener("click", runLoginDirect, { passive:false });
+    loginForm.addEventListener("keydown", event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      runLoginDirect(event);
+    });`
       );
 
       source=source.replace(
@@ -40,8 +64,8 @@
         'async function handleLoginFromForm(formElement) {\n    const form = new FormData(formElement);'
       );
 
-      (0,eval)(`${source}\n//# sourceURL=english-week-passport-app-core-v2.js`);
-      window.EW_APP_CORE_LOADER=Object.freeze({version:VERSION,directLogin:true});
+      (0,eval)(`${source}\n//# sourceURL=english-week-passport-app-core-v3.js`);
+      window.EW_APP_CORE_LOADER=Object.freeze({version:VERSION,directPress:true});
     })
     .catch(error=>fail("EW app core loader failed",error));
 }());
