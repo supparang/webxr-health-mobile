@@ -2,7 +2,7 @@
 'use strict';
 const original=window.HH?.openNextGame;
 const R=window.HHRotation;
-const RELEASE='20260804-GAME-LAUNCHER-R45-FIREBASE-RECEIPT-SHELL';
+const RELEASE='20260804-GAME-LAUNCHER-R46-GROUPS-COACH-SAFE';
 if(!window.HH||!R)return;
 
 function detectDevice(){
@@ -19,6 +19,11 @@ function detectView(){
  return(window.innerWidth||0)>(window.innerHeight||0)?'landscape':'portrait';
 }
 function analyticsTarget(gameId,configured){
+ if(gameId==='groups'){
+  const wrapper=new URL('./groups-mobile-coach-fix.html',location.href);
+  wrapper.searchParams.set('source',configured.href);
+  return wrapper;
+ }
  if(gameId==='goodjunk')return new URL('./goodjunk-classroom-analytics-v15.html',location.href);
  if(gameId==='balance-hold')return new URL('../fitness/balance-hold-classroom-analytics-v50.html',location.href);
  return configured;
@@ -62,7 +67,7 @@ window.HH.openNextGame=function(zoneId){
  [...common,['target',target.href],['title',expected.label],['return',location.href]].forEach(([k,v])=>shell.searchParams.set(k,v||''));
  location.assign(shell.href);
 };
-window.HH.openNextGame.__hhBaseLauncherR45=true;
+window.HH.openNextGame.__hhBaseLauncherR46=true;
 window.HH.openNextGame.__hhLauncherRelease=RELEASE;
 
 function findActionButton(event){
