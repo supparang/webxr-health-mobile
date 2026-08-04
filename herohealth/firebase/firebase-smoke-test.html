@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>HeroHealth Firebase Smoke Test</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f4fbff; color: #15324a; }
+    main { width: min(680px, calc(100% - 32px)); background: #fff; border: 1px solid #d9edf7; border-radius: 24px; padding: 24px; box-shadow: 0 18px 50px rgba(32, 89, 117, .12); }
+    h1 { margin-top: 0; }
+    .status { padding: 14px 16px; border-radius: 16px; background: #eef7ff; font-weight: 800; }
+    dl { display: grid; grid-template-columns: 150px 1fr; gap: 10px; }
+    dt { font-weight: 800; }
+    dd { margin: 0; overflow-wrap: anywhere; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .ok { background: #e9f9ef; color: #126b37; }
+    .error { background: #fff0f0; color: #982626; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>HeroHealth Firebase Smoke Test</h1>
+    <p>หน้านี้ตรวจเฉพาะการโหลด Firebase SDK และ Anonymous Authentication โดยยังไม่เขียนข้อมูลลง Firestore</p>
+    <div id="status" class="status">กำลังเชื่อมต่อ Firebase…</div>
+    <dl>
+      <dt>Project</dt><dd id="project">-</dd>
+      <dt>Auth state</dt><dd id="authState">-</dd>
+      <dt>Anonymous UID</dt><dd><code id="uid">-</code></dd>
+      <dt>Test time</dt><dd id="time">-</dd>
+    </dl>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signInAnonymously
+    } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+    import { HEROHEALTH_FIREBASE_CONFIG } from "./firebase-config.js";
+
+    const statusEl = document.getElementById("status");
+    const projectEl = document.getElementById("project");
+    const authStateEl = document.getElementById("authState");
+    const uidEl = document.getElementById("uid");
+    const timeEl = document.getElementById("time");
+
+    projectEl.textContent = HEROHEALTH_FIREBASE_CONFIG.projectId;
+    timeEl.textContent = new Date().toLocaleString("th-TH");
+
+    try {
+      const app = initializeApp(HEROHEALTH_FIREBASE_CONFIG);
+      const auth = getAuth(app);
+
+      onAuthStateChanged(auth, (user) => {
+        if (!user) return;
+        authStateEl.textContent = user.isAnonymous ? "Anonymous authenticated" : "Authenticated";
+        uidEl.textContent = user.uid;
+        statusEl.textContent = "เชื่อมต่อ Firebase Authentication สำเร็จ";
+        statusEl.className = "status ok";
+      });
+
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+    } catch (error) {
+      console.error("HeroHealth Firebase smoke test failed", error);
+      authStateEl.textContent = error?.code || "error";
+      statusEl.textContent = `เชื่อมต่อไม่สำเร็จ: ${error?.message || error}`;
+      statusEl.className = "status error";
+    }
+  </script>
+</body>
+</html>
