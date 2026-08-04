@@ -14,6 +14,7 @@ window.HH_CONFIG.backend = {
   handwashClassroomVersion: "20260804-HANDWASH-R52-FIREBASE-EXCLUSIVE",
   handwashSchemaCompatibilityVersion: "20260731-GAME-SHELL-HANDWASH-SCHEMA-V2-R49",
   toothbrushScoreVersion: "20260731-TOOTHBRUSH-NORMALIZED-SKILL-SCORE-R53",
+  toothbrushFirebaseReceiptVersion: "20260804-TOOTHBRUSH-FIREBASE-RECEIPT-R1",
   reflectionRecoveryVersion: "20260801-REFLECTION-RECOVERY-MANAGER-R55",
   reflectionPendingQueueVersion: "20260801-REFLECTION-PENDING-QUEUE-R56",
   loginRouteGuardVersion: "20260804-PROFILE-CONFIRM-ROUTE-GUARD-R53-FIREBASE-RECEIPT"
@@ -60,6 +61,14 @@ if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath)) {
     reflectionRecovery.dataset.hhPatch = 'reflection-recovery-manager-r55';
     document.head.appendChild(reflectionRecovery);
   }
+}
+
+if (/toothbrush-classroom-challenge-v27\.html$/i.test(hhRuntimePath) && hhFirebaseRuntime) {
+  const toothbrushFirebaseReceipt = document.createElement('script');
+  toothbrushFirebaseReceipt.src = './assets/toothbrush-firebase-receipt-bridge-r1.js?v=20260804-r1-score-receipt-auto-return';
+  toothbrushFirebaseReceipt.async = false;
+  toothbrushFirebaseReceipt.dataset.hhPatch = 'toothbrush-firebase-receipt-r1';
+  document.head.appendChild(toothbrushFirebaseReceipt);
 }
 
 if (/game-shell-authority-r4(?:0|2)\.html$/i.test(hhRuntimePath)) {
@@ -158,5 +167,6 @@ if (/game-shell-authority-r4(?:0|2)\.html$/i.test(hhRuntimePath)) {
 console.info('[HeroHealth Backend Config]', {
   authority: hhRuntimeAuthority,
   firebaseRuntime: hhFirebaseRuntime,
-  loginRouteGuardVersion: window.HH_CONFIG.backend.loginRouteGuardVersion
+  loginRouteGuardVersion: window.HH_CONFIG.backend.loginRouteGuardVersion,
+  toothbrushFirebaseReceiptVersion: window.HH_CONFIG.backend.toothbrushFirebaseReceiptVersion
 });
