@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const RELEASE='20260804-HANDWASH-SUMMARY-RETURN-R51-FIREBASE-RECEIPT';
+const RELEASE='20260804-HANDWASH-SUMMARY-RETURN-R52-FIREBASE-EXCLUSIVE';
 const PASSPORT_STATE_KEY='herohealth_learning_platform_rc2';
 const RESULT_KEY='HHA_HANDWASH_LAST_RESULT';
 const RECEIPT_KEY='HH_FIREBASE_GAME_RECEIPT:990014:handwash';
@@ -118,11 +118,6 @@ function buildPassportUrl(shell,ctx,receipt){
   return url.href;
 }
 
-function emitBeforeReturn(shell,result){
-  try{shell?.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:result},location.origin)}catch(_){}
-  try{window.parent?.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:result},location.origin)}catch(_){}
-}
-
 async function saveFirebaseAndReturn(reason='automatic'){
   if(saving||returned)return false;
   const shell=findShellWindow();
@@ -158,9 +153,8 @@ async function saveFirebaseAndReturn(reason='automatic'){
     result.firebaseReceiptConfirmed=true;
     result.firebaseReceiptPath=receipt.path;
     try{localStorage.setItem(RESULT_KEY,JSON.stringify(result))}catch(_){}
-    emitBeforeReturn(shell,result);
     setStatus('บันทึก Firebase และยืนยันข้อมูลแล้ว • กำลังกลับ Passport');
-    console.info('[Handwash Return R51] Firebase receipt confirmed',receiptRecord);
+    console.info('[Handwash Return R52] Firebase receipt confirmed',receiptRecord);
     returned=true;
     const destination=buildPassportUrl(shell,ctx,receipt);
     setTimeout(()=>{
@@ -170,7 +164,7 @@ async function saveFirebaseAndReturn(reason='automatic'){
     return true;
   }catch(error){
     saving=false;
-    console.error('[Handwash Return R51] Firebase save failed',error);
+    console.error('[Handwash Return R52] Firebase save failed',error);
     setStatus('ยังบันทึก Firebase ไม่สำเร็จ • กดเพื่อลองใหม่',true);
     const button=document.getElementById('summaryZoneBtn');
     if(button)button.disabled=false;
@@ -216,6 +210,6 @@ setTimeout(()=>{
 },600);
 
 document.documentElement.dataset.handwashSummaryReturn=RELEASE;
-window.HHHandwashSummaryPassportReturnR51={release:RELEASE,saveFirebaseAndReturn,isComplete,authorityContext};
-console.info('[Handwash Summary Return R51] automatic Firebase receipt gate installed',RELEASE);
+window.HHHandwashSummaryPassportReturnR52={release:RELEASE,saveFirebaseAndReturn,isComplete,authorityContext};
+console.info('[Handwash Summary Return R52] exclusive Firebase receipt gate installed',RELEASE);
 })();
