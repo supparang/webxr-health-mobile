@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const MEMORY_URL = "./word-match-memory.html?v=20260803-memory3";
+  const MEMORY_URL = "./word-match-memory.html?v=20260804-memory4";
   const selector = '.stage-card[data-stage="word_match"].clickable';
 
   function decorateCard() {
@@ -10,18 +10,18 @@
     card.dataset.memoryDecorated = "1";
     card.classList.add("memory-stage-card");
     const detail = card.querySelector("small");
-    if (detail) detail.textContent = "Tilt Snap + Dwell • A2–B1+ • Rotated Set";
+    if (detail) detail.textContent = "Tilt Snap • Static V4 • A2–B1+";
     const state = card.querySelector(".stage-state");
     if (state && card.classList.contains("ready")) state.innerHTML = "Tilt Snap พร้อมเล่น 🧩";
   }
 
   function openMemory(event) {
-    const card = event.target && event.target.closest ? event.target.closest(selector) : null;
+    const card = event.target?.closest?.(selector);
     if (!card) return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
-    window.location.href = MEMORY_URL;
+    location.href = MEMORY_URL;
   }
 
   function openMemoryByKeyboard(event) {
@@ -30,7 +30,7 @@
   }
 
   function autoResumeFromMemory() {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     if (params.get("resume") !== "memory") return;
     let identity = null;
     try { identity = JSON.parse(localStorage.getItem(window.EW_CONFIG.cacheKeys.identity) || "null"); }
@@ -43,8 +43,7 @@
     const nicknameInput = document.getElementById("nickname");
     if (nicknameInput) nicknameInput.value = identity.nickname || identity.fullName || "";
     params.delete("resume");
-    const cleanQuery = params.toString();
-    history.replaceState(null, "", `${location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}`);
+    history.replaceState(null, "", `${location.pathname}${params.toString() ? `?${params}` : ""}`);
     if (typeof form.requestSubmit === "function") form.requestSubmit();
     else form.dispatchEvent(new Event("submit", { bubbles:true, cancelable:true }));
   }
@@ -61,5 +60,5 @@
   document.addEventListener("keydown", openMemoryByKeyboard, true);
   new MutationObserver(decorateCard).observe(document.getElementById("screen") || document.body, { childList:true, subtree:true });
   decorateCard();
-  window.setTimeout(autoResumeFromMemory, 70);
+  setTimeout(autoResumeFromMemory, 70);
 }());
