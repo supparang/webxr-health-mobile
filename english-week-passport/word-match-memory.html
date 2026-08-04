@@ -7,36 +7,22 @@
   <meta name="description" content="Smooth Hold Vocabulary Navigation Lab for university students" />
   <title>Vocabulary Navigation Lab</title>
   <style>[hidden]{display:none!important}</style>
-  <link rel="stylesheet" href="./word-match-memory.css?v=20260804-hold15" />
-  <link rel="stylesheet" href="./word-match-university-v11.css?v=20260804-hold15" />
-  <link rel="stylesheet" href="./word-match-single-target-v12.css?v=20260804-hold15" />
+  <link rel="stylesheet" href="./word-match-memory.css?v=20260804-hold16" />
+  <link rel="stylesheet" href="./word-match-university-v11.css?v=20260804-hold16" />
+  <link rel="stylesheet" href="./word-match-single-target-v12.css?v=20260804-hold16" />
   <style>
-    .memory-card.opening-target:not(.flipped):not(.matched){
-      box-shadow:0 0 0 5px rgba(56,189,248,.18),0 12px 28px rgba(15,39,66,.18);
-    }
-    .memory-card.opening-target:not(.flipped):not(.matched)::after{
-      content:"OPENING " attr(data-open-pct) "%"!important;
-      background:linear-gradient(90deg,#38bdf8 var(--open-progress,0%),#dce8f1 var(--open-progress,0%))!important;
-      color:#0f2742!important;
-      border-color:#1d5f91!important;
-    }
+    .memory-card.moving-target:not(.flipped):not(.matched){outline:2px dashed rgba(56,189,248,.65);outline-offset:3px}
+    .memory-card.opening-target:not(.flipped):not(.matched){box-shadow:0 0 0 5px rgba(56,189,248,.18),0 12px 28px rgba(15,39,66,.18)}
+    .memory-card.opening-target:not(.flipped):not(.matched)::after{content:"OPENING " attr(data-open-pct) "%"!important;background:linear-gradient(90deg,#38bdf8 var(--open-progress,0%),#dce8f1 var(--open-progress,0%))!important;color:#0f2742!important;border-color:#1d5f91!important}
   </style>
 </head>
 <body>
   <main id="memoryRoot" class="memory-root" aria-live="polite"></main>
-
-  <div id="memoryLoading" class="memory-loading" hidden>
-    <div class="loading-card">
-      <div class="spinner" aria-hidden="true"></div>
-      <strong id="memoryLoadingText">กำลังโหลดข้อมูล…</strong>
-      <small>กรุณาอย่าปิดหน้านี้</small>
-    </div>
-  </div>
-
+  <div id="memoryLoading" class="memory-loading" hidden><div class="loading-card"><div class="spinner" aria-hidden="true"></div><strong id="memoryLoadingText">กำลังโหลดข้อมูล…</strong><small>กรุณาอย่าปิดหน้านี้</small></div></div>
   <script src="./config.js?v=20260803-rotation2"></script>
   <script src="./authority-client.js?v=20260803-1"></script>
   <script src="./passport-rotation-v2.js?v=20260803-rotation2"></script>
-  <script src="./word-match-snap-v4.js?v=20260804-hold15"></script>
-  <script src="./word-match-smooth-hold-v15.js?v=20260804-hold15"></script>
+  <script src="./word-match-snap-v4.js?v=20260804-hold16"></script>
+  <script src="./word-match-smooth-hold-v16.js?v=20260804-hold16"></script>
 </body>
 </html>
