@@ -1,15 +1,14 @@
-/* HeroHealth Shared Firebase Game Receipt Bridge R1
- * Completion authority for Food Groups, GoodJunk, JumpDuck and Balance Hold.
+/* HeroHealth Shared Firebase Game Receipt Bridge R2
+ * Completion authority for all Passport games, including Toothbrush DOM summary.
  */
 (() => {
   'use strict';
 
-  const RELEASE = '20260804-FIREBASE-GAME-RECEIPT-BRIDGE-R1';
+  const RELEASE = '20260804-FIREBASE-GAME-RECEIPT-BRIDGE-R2-TOOTHBRUSH';
   const query = new URLSearchParams(location.search);
-  const authority = String(query.get('authority') || '').toLowerCase();
-  if (authority !== 'firebase') return;
-  if (window.__HH_FIREBASE_GAME_RECEIPT_R1__) return;
-  window.__HH_FIREBASE_GAME_RECEIPT_R1__ = true;
+  if (String(query.get('authority') || '').toLowerCase() !== 'firebase') return;
+  if (window.__HH_FIREBASE_GAME_RECEIPT_R2__) return;
+  window.__HH_FIREBASE_GAME_RECEIPT_R2__ = true;
 
   const FIREBASE_CONFIG = {
     apiKey: 'AIzaSyBdlWEf91s2gzUQf7H1pPB8c_hF807CpAc',
@@ -21,6 +20,8 @@
   };
 
   const GAME_MAP = {
+    toothbrush: { zone: 'hygiene', key: 'toothbrush' },
+    brush: { zone: 'hygiene', key: 'toothbrush' },
     groups: { zone: 'nutrition', key: 'groups' },
     foodgroups: { zone: 'nutrition', key: 'groups' },
     'food-groups': { zone: 'nutrition', key: 'groups' },
@@ -37,10 +38,19 @@
   const collectionName = studentId === '990014' ? 'studentProgressSandbox' : 'studentProgress';
   let saving = false;
   let savedEventId = '';
+  let toothbrushObserved = false;
 
   const clamp = value => Math.max(0, Math.min(100, Number(value) || 0));
   const round1 = value => Math.round((Number(value) || 0) * 10) / 10;
   const cleanKey = value => String(value || '').trim().toLowerCase().replace(/[_\s]+/g, '-');
+  const numberFrom = value => {
+    const match = String(value || '').match(/\d+(?:\.\d+)?/);
+    return match ? Number(match[0]) : 0;
+  };
+  const fractionFrom = value => {
+    const match = String(value || '').match(/(\d+)\s*\/\s*(\d+)/);
+    return match ? { value: Number(match[1]), total: Number(match[2]) } : { value: 0, total: 0 };
+  };
 
   function identifyGame(payload = {}) {
     const candidates = [
@@ -54,11 +64,12 @@
       const compact = raw.replace(/-/g, '');
       if (GAME_MAP[compact]) return GAME_MAP[compact];
     }
-    const path = cleanKey(location.pathname);
-    if (path.includes('goodjunk')) return GAME_MAP.goodjunk;
-    if (path.includes('groups')) return GAME_MAP.groups;
-    if (path.includes('jumpduck')) return GAME_MAP.jumpduck;
-    if (path.includes('balance')) return GAME_MAP.balance;
+    const target = cleanKey(query.get('target') || location.pathname);
+    if (target.includes('toothbrush')) return GAME_MAP.toothbrush;
+    if (target.includes('goodjunk')) return GAME_MAP.goodjunk;
+    if (target.includes('groups')) return GAME_MAP.groups;
+    if (target.includes('jumpduck')) return GAME_MAP.jumpduck;
+    if (target.includes('balance')) return GAME_MAP.balance;
     return null;
   }
 
@@ -75,33 +86,18 @@
     score = round1(clamp(score));
     const passed = data.passed === true || data.completed === true || data.missionCompleted === true || data.skillPassed === true;
     const eventId = String(data.eventId || data.attemptId || data.runId || `${game.key}-${Date.now()}`);
-    return {
-      ...data,
-      gameId: game.key,
-      zone: game.zone,
-      completed: passed,
-      passed,
-      score,
-      scoreScale: 100,
-      eventId,
-      firebaseBridgeRelease: RELEASE,
-      completedAtClient: new Date().toISOString()
-    };
+    return { ...data, gameId: game.key, zone: game.zone, completed: passed, passed, score, scoreScale: 100, eventId, firebaseBridgeRelease: RELEASE, completedAtClient: new Date().toISOString() };
   }
 
   function setShellStatus(text, error = false) {
-    const ids = ['status', 'receiptStatus', 'syncStatus', 'returnStatus'];
-    for (const id of ids) {
+    for (const id of ['status', 'receiptStatus', 'syncStatus', 'returnStatus']) {
       const node = document.getElementById(id);
-      if (node) {
-        node.textContent = text;
-        if (error) node.style.color = '#b91c1c';
-      }
+      if (node) { node.textContent = text; node.style.color = error ? '#fecaca' : ''; }
     }
-    const buttons = [...document.querySelectorAll('button')].filter(btn => /Passport|กลับ/.test(btn.textContent || ''));
-    for (const btn of buttons) {
-      btn.disabled = !error;
-      btn.textContent = error ? 'ลองบันทึก Firebase อีกครั้ง' : text;
+    const back = document.getElementById('back');
+    if (back) {
+      back.disabled = !error;
+      back.textContent = error ? 'ลองบันทึก Firebase อีกครั้ง' : text;
     }
   }
 
@@ -112,10 +108,8 @@
       const value = query.get(key);
       if (value) url.searchParams.set(key, value);
     }
-    if (studentId) {
-      url.searchParams.set('studentId', studentId);
-      url.searchParams.set('sid', studentId);
-    }
+    url.searchParams.set('studentId', studentId);
+    url.searchParams.set('sid', studentId);
     url.searchParams.set('authority', 'firebase');
     url.searchParams.set('firebaseReady', '1');
     url.searchParams.set('firebaseReceipt', '1');
@@ -148,13 +142,11 @@
       const db = getFirestore(app);
       const receiptToken = `${game.key.toUpperCase()}-${studentId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
       const ref = doc(db, collectionName, studentId);
-      const completedPatch = { [game.zone]: { [game.key]: true } };
-      const resultPatch = { [game.key]: { ...result, firebaseReceiptToken: receiptToken, firebaseSavedByUid: uid } };
 
       await setDoc(ref, {
         studentId,
-        gameCompleted: completedPatch,
-        gameResults: resultPatch,
+        gameCompleted: { [game.zone]: { [game.key]: true } },
+        gameResults: { [game.key]: { ...result, firebaseReceiptToken: receiptToken, firebaseSavedByUid: uid } },
         currentZone: game.zone,
         lastGame: game.key,
         lastGameScore: result.score,
@@ -170,30 +162,53 @@
       }
 
       savedEventId = result.eventId;
-      try {
-        localStorage.setItem(`HH_${game.key.toUpperCase()}_FIREBASE_RECEIPT`, JSON.stringify({ studentId, receiptToken, result, savedAt: Date.now() }));
-      } catch (_) {}
+      try { localStorage.setItem(`HH_${game.key.toUpperCase()}_FIREBASE_RECEIPT`, JSON.stringify({ studentId, receiptToken, result, savedAt: Date.now() })); } catch (_) {}
       setShellStatus(`✓ Firebase ยืนยันแล้ว • คะแนน ${result.score}/100`);
       setTimeout(() => returnToPassport(game, receiptToken), 900);
     } catch (error) {
       saving = false;
       setShellStatus(`บันทึก Firebase ไม่สำเร็จ: ${error?.message || error}`, true);
-      console.error('[Firebase Game Receipt Bridge R1]', error);
+      console.error('[Firebase Game Receipt Bridge R2]', error);
     }
+  }
+
+  function toothbrushResultFromFrame() {
+    if (toothbrushObserved || saving || identifyGame()?.key !== 'toothbrush') return;
+    const frame = document.getElementById('game');
+    let doc;
+    try { doc = frame?.contentDocument; } catch (_) { return; }
+    if (!doc) return;
+    const resultNode = doc.getElementById('result');
+    if (!resultNode || resultNode.classList.contains('hidden') || getComputedStyle(resultNode).display === 'none') return;
+    const zones = fractionFrom(doc.getElementById('resultCoverage')?.textContent);
+    const plaque = fractionFrom(doc.getElementById('resultStrokes')?.textContent);
+    const direction = clamp(numberFrom(doc.getElementById('resultDirection')?.textContent));
+    const tracking = clamp(numberFrom(doc.getElementById('resultTracking')?.textContent));
+    const coverage = plaque.total > 0 ? clamp(plaque.value * 100 / plaque.total) : zones.total > 0 ? clamp(zones.value * 100 / zones.total) : 0;
+    const completed = zones.total > 0 && zones.value >= zones.total && plaque.total > 0 && plaque.value >= plaque.total;
+    if (!completed) return;
+    toothbrushObserved = true;
+    persist({
+      gameId: 'toothbrush', zone: 'hygiene', completed: true, passed: true,
+      score: round1(coverage * 0.40 + direction * 0.35 + tracking * 0.25),
+      scoreType: 'normalized_skill_score', scoreFormulaVersion: 'TOOTHBRUSH-MASTERY-V1',
+      zonesCompleted: zones.value, zonesTotal: zones.total,
+      plaqueTargetsCleared: plaque.value, plaqueTargetsTotal: plaque.total,
+      directionAccuracy: round1(direction), trackingAccuracy: round1(tracking),
+      eventId: `toothbrush-${studentId}-${Date.now()}`
+    });
   }
 
   window.addEventListener('message', event => {
     if (event.origin !== location.origin) return;
     const message = event.data || {};
-    if (message.type === 'HEROHEALTH_GAME_COMPLETE' || message.type === 'HH_GAME_COMPLETE' || message.type === 'game_complete') {
-      persist(message.payload || message);
-    }
+    if (['HEROHEALTH_GAME_COMPLETE','HH_GAME_COMPLETE','game_complete'].includes(message.type)) persist(message.payload || message);
   }, true);
-
-  for (const eventName of ['HEROHEALTH_GAME_COMPLETE', 'HH_GAME_COMPLETE', 'herohealth:game-complete']) {
+  for (const eventName of ['HEROHEALTH_GAME_COMPLETE','HH_GAME_COMPLETE','herohealth:game-complete']) {
     window.addEventListener(eventName, event => persist(event.detail || event), true);
   }
 
+  window.setInterval(toothbrushResultFromFrame, 500);
   window.HH_firebasePersistGameResult = persist;
-  console.info('[Firebase Game Receipt Bridge R1] installed', { release: RELEASE, studentId, collectionName });
+  console.info('[Firebase Game Receipt Bridge R2] installed', { release: RELEASE, studentId, collectionName, game: identifyGame() });
 })();
