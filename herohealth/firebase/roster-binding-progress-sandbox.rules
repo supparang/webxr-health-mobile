@@ -1,0 +1,58 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isTestStudent(studentId) {
+      return studentId == '990014';
+    }
+
+    match /firebaseSmokeTests/{uid} {
+      allow create, read, update, delete:
+        if signedIn() && request.auth.uid == uid;
+    }
+
+    match /passportSandbox/{uid} {
+      allow create, read, update, delete:
+        if signedIn() && request.auth.uid == uid;
+    }
+
+    match /passportCrossDeviceSandbox/{studentId} {
+      allow read, create, update:
+        if signedIn() && isTestStudent(studentId);
+      allow delete: if false;
+    }
+
+    // Roster is read-only from the web client. It can be seeded manually for sandbox.
+    match /studentsSandbox/{studentId} {
+      allow read: if signedIn() && isTestStudent(studentId);
+      allow write: if false;
+    }
+
+    // Each anonymous UID may own only its own binding document.
+    match /studentBindingsSandbox/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.studentId == '990014';
+      allow delete: if false;
+    }
+
+    // Sandbox progress is restricted to the single synthetic test student.
+    match /studentProgressSandbox/{studentId} {
+      allow read, create, update: if signedIn()
+        && isTestStudent(studentId)
+        && request.resource.data.studentId == '990014';
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
