@@ -2,7 +2,7 @@
 'use strict';
 const original=window.HH?.openNextGame;
 const R=window.HHRotation;
-const RELEASE='20260804-GAME-LAUNCHER-R43-FIREBASE-DIRECT';
+const RELEASE='20260804-GAME-LAUNCHER-R44-FIREBASE-INTERACTION-RESCUE';
 if(!window.HH||!R)return;
 
 function detectDevice(){
@@ -68,6 +68,43 @@ window.HH.openNextGame=function(zoneId){
  [...common,['target',target.href],['title',expected.label],['return',location.href]].forEach(([k,v])=>shell.searchParams.set(k,v||''));
  location.assign(shell.href);
 };
-window.HH.openNextGame.__hhBaseLauncherR43=true;
+window.HH.openNextGame.__hhBaseLauncherR44=true;
 window.HH.openNextGame.__hhLauncherRelease=RELEASE;
+
+function findActionButton(event){
+ const direct=event.target?.closest?.('button');
+ if(direct)return direct;
+ if(typeof event.clientX!=='number'||typeof event.clientY!=='number')return null;
+ const stack=document.elementsFromPoint(event.clientX,event.clientY)||[];
+ return stack.map(el=>el?.closest?.('button')).find(Boolean)||null;
+}
+function parseZone(button){
+ const onclick=String(button?.getAttribute?.('onclick')||'');
+ const match=onclick.match(/openNextGame\(['\"]([^'\"]+)['\"]\)/);
+ if(match)return match[1];
+ let s;
+ try{s=JSON.parse(localStorage.getItem('herohealth_learning_platform_rc2')||'{}')}catch(_){s={}}
+ return R.expectedGame(s)?.zoneId||null;
+}
+function rescueAction(event){
+ if(authorityMode()!=='firebase')return;
+ const button=findActionButton(event);
+ if(!button||button.disabled)return;
+ const text=String(button.textContent||'').replace(/\s+/g,' ').trim();
+ const onclick=String(button.getAttribute('onclick')||'');
+ if(!(text.includes('เริ่มเกมถัดไป')||text.includes('เริ่มฐาน')||onclick.includes('openNextGame')))return;
+ const zoneId=parseZone(button);
+ if(!zoneId)return;
+ event.preventDefault();
+ event.stopPropagation();
+ event.stopImmediatePropagation();
+ button.disabled=true;
+ button.textContent='กำลังเปิดเกม…';
+ console.info('[HeroHealth Firebase] interaction rescue',zoneId,button);
+ window.HH.openNextGame(zoneId);
+}
+
+document.addEventListener('pointerup',rescueAction,true);
+document.addEventListener('click',rescueAction,true);
+console.info('[HeroHealth Firebase] interaction rescue installed',RELEASE);
 })();
