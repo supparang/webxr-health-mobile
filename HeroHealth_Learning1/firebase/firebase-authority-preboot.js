@@ -22,7 +22,6 @@
     } catch (_) {}
   }
 
-  // Hide only the legacy Sheet blocking overlay. Never hide body or #app.
   const style = document.createElement('style');
   style.id = 'hh-firebase-preboot-style';
   style.textContent = `
@@ -35,25 +34,9 @@
   `;
   document.head.appendChild(style);
 
-  // student-resume-v7-mobile.js schedules its automatic Sheet bootstrap with
-  // setTimeout(bootstrapAuthority, 0). Suppress that one named callback only;
-  // all application timers continue to work normally.
-  const nativeSetTimeout = window.setTimeout.bind(window);
-  window.setTimeout = function firebaseAuthorityTimeoutGuard(callback, delay, ...args) {
-    const callbackName = typeof callback === 'function' ? String(callback.name || '') : '';
-    if (window.HH_DISABLE_SHEET_RESUME && callbackName === 'bootstrapAuthority') {
-      console.info('[HeroHealth Firebase] skipped Google Sheet bootstrap');
-      return 0;
-    }
-    return nativeSetTimeout(callback, delay, ...args);
-  };
-
   const removeLegacyOverlay = () => {
-    const overlay = document.getElementById('hh-sheet-login-status');
-    if (overlay) overlay.remove();
-    if (document.documentElement.dataset.hhLoginBusy !== '0') {
-      document.documentElement.dataset.hhLoginBusy = '0';
-    }
+    document.getElementById('hh-sheet-login-status')?.remove();
+    document.documentElement.dataset.hhLoginBusy = '0';
   };
 
   addEventListener('DOMContentLoaded', removeLegacyOverlay, { once: true });
