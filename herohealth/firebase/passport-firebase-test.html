@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>HeroHealth Passport Firebase Sandbox</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light}
+    body{margin:0;min-height:100vh;background:#f4fbff;color:#15324a;display:grid;place-items:center}
+    main{width:min(760px,calc(100% - 28px));background:#fff;border:1px solid #d9edf7;border-radius:26px;padding:24px;box-shadow:0 18px 50px rgba(32,89,117,.12)}
+    h1{margin:0 0 8px}.muted{opacity:.72}.status{margin:16px 0;padding:14px 16px;border-radius:16px;background:#eef7ff;font-weight:800}.ok{background:#e9f9ef;color:#126b37}.error{background:#fff0f0;color:#982626}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{border:1px solid #dcecf4;border-radius:18px;padding:16px;background:#fbfeff}
+    label{display:block;font-weight:800;margin-bottom:6px}input{width:100%;box-sizing:border-box;min-height:44px;border:1px solid #bfd7e4;border-radius:12px;padding:0 12px;font:inherit}
+    button{min-height:46px;border:0;border-radius:14px;padding:0 18px;font-weight:900;cursor:pointer}.primary{background:#1677ff;color:#fff}.secondary{background:#eaf3ff;color:#164b7a}
+    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}dl{display:grid;grid-template-columns:150px 1fr;gap:8px;margin-bottom:0}dt{font-weight:800}dd{margin:0;overflow-wrap:anywhere}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    @media(max-width:680px){.grid{grid-template-columns:1fr}dl{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<main>
+  <h1>HeroHealth Passport Firebase Sandbox</h1>
+  <p class="muted">ทดสอบบันทึกและกู้คืน Passport ของผู้ทดสอบหนึ่งคน โดยยังไม่แตะหน้า Passport Production และยังไม่ย้ายข้อมูลจาก Google Sheet</p>
+  <div id="status" class="status">กำลังเตรียม Firebase…</div>
+
+  <div class="grid">
+    <section class="card">
+      <label for="studentId">รหัสนักเรียนทดสอบ</label>
+      <input id="studentId" value="990014" inputmode="numeric" maxlength="20">
+      <label for="nickname" style="margin-top:12px">ชื่อเล่น</label>
+      <input id="nickname" value="Firebase Test">
+      <div class="actions">
+        <button id="save" class="primary">บันทึก Passport Sandbox</button>
+        <button id="load" class="secondary">โหลดคืนจาก Firebase</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <dl>
+        <dt>Project</dt><dd id="project">-</dd>
+        <dt>Anonymous UID</dt><dd><code id="uid">-</code></dd>
+        <dt>Document</dt><dd><code id="path">-</code></dd>
+        <dt>Student ID</dt><dd id="savedStudent">-</dd>
+        <dt>Current zone</dt><dd id="zone">-</dd>
+        <dt>Resume count</dt><dd id="resumeCount">-</dd>
+        <dt>Updated</dt><dd id="updated">-</dd>
+      </dl>
+    </section>
+  </div>
+</main>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+  import { HEROHEALTH_FIREBASE_CONFIG } from "./firebase-config.js?v=20260804-1301";
+
+  const el=id=>document.getElementById(id);
+  const status=el('status');
+  const app=initializeApp(HEROHEALTH_FIREBASE_CONFIG);
+  const auth=getAuth(app);
+  const db=getFirestore(app);
+  let currentUser=null;
+
+  el('project').textContent=HEROHEALTH_FIREBASE_CONFIG.projectId;
+
+  function setStatus(message,type=''){
+    status.textContent=message;
+    status.className=`status ${type}`.trim();
+  }
+
+  async function ensureUser(){
+    if(auth.currentUser) return auth.currentUser;
+    const cred=await signInAnonymously(auth);
+    return cred.user;
+  }
+
+  function sandboxRef(user){
+    const ref=doc(db,'passportSandbox',user.uid);
+    el('path').textContent=ref.path;
+    return ref;
+  }
+
+  function render(data){
+    el('savedStudent').textContent=data?.studentId || '-';
+    el('zone').textContent=data?.progress?.currentZone || '-';
+    el('resumeCount').textContent=String(data?.resumeCount ?? 0);
+    const updated=data?.updatedAt?.toDate?.();
+    el('updated').textContent=updated ? updated.toLocaleString('th-TH') : '-';
+    if(data?.studentId) el('studentId').value=data.studentId;
+    if(data?.nickname) el('nickname').value=data.nickname;
+  }
+
+  async function loadSandbox(){
+    const user=await ensureUser();
+    currentUser=user;
+    el('uid').textContent=user.uid;
+    const ref=sandboxRef(user);
+    const snap=await getDoc(ref);
+    if(!snap.exists()){
+      render(null);
+      setStatus('ยังไม่มีข้อมูล Sandbox สำหรับ UID นี้ กรุณากดบันทึกก่อน');
+      return false;
+    }
+    render(snap.data());
+    setStatus('โหลด Passport Sandbox จาก Firebase สำเร็จ','ok');
+    return true;
+  }
+
+  el('save').addEventListener('click',async()=>{
+    try{
+      setStatus('กำลังบันทึก…');
+      const user=await ensureUser();
+      currentUser=user;
+      el('uid').textContent=user.uid;
+      const studentId=el('studentId').value.trim();
+      const nickname=el('nickname').value.trim();
+      if(studentId!=='990014') throw new Error('Sandbox รุ่นนี้อนุญาตเฉพาะรหัสทดสอบ 990014');
+      const ref=sandboxRef(user);
+      await setDoc(ref,{
+        ownerUid:user.uid,
+        studentId,
+        nickname,
+        classId:'herohealth-firebase-sandbox',
+        schemaVersion:'HH-PASSPORT-SANDBOX-V1',
+        progress:{
+          currentZone:'hygiene',
+          pretestCompleted:false,
+          posttestCompleted:false,
+          certificateEligible:false
+        },
+        resumeCount:increment(1),
+        updatedAt:serverTimestamp()
+      },{merge:true});
+      await loadSandbox();
+      setStatus('บันทึกและอ่าน Passport Sandbox สำเร็จ','ok');
+    }catch(error){
+      console.error(error);
+      setStatus(`บันทึกไม่สำเร็จ: ${error?.code || ''} ${error?.message || error}`,'error');
+    }
+  });
+
+  el('load').addEventListener('click',async()=>{
+    try{await loadSandbox();}
+    catch(error){console.error(error);setStatus(`โหลดไม่สำเร็จ: ${error?.code || ''} ${error?.message || error}`,'error');}
+  });
+
+  onAuthStateChanged(auth,async user=>{
+    if(!user) return;
+    currentUser=user;
+    el('uid').textContent=user.uid;
+    sandboxRef(user);
+    try{await loadSandbox();}
+    catch(error){setStatus(`พร้อมใช้งาน แต่ยังโหลดไม่ได้: ${error?.code || ''} ${error?.message || error}`,'error');}
+  });
+
+  try{
+    if(!auth.currentUser) await signInAnonymously(auth);
+  }catch(error){setStatus(`เชื่อม Authentication ไม่สำเร็จ: ${error?.message || error}`,'error');}
+</script>
+</body>
+</html>
