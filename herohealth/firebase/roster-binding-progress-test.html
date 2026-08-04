@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>HeroHealth Roster Binding Progress Sandbox</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4fbff;color:#15324a}
+    main{width:min(820px,calc(100% - 32px));background:#fff;border:1px solid #d9edf7;border-radius:24px;padding:24px;box-shadow:0 18px 50px rgba(32,89,117,.12)}
+    h1{margin:0 0 8px}.status{padding:14px 16px;border-radius:16px;background:#eef7ff;font-weight:800;margin:14px 0}.ok{background:#e9f9ef;color:#126b37}.error{background:#fff0f0;color:#982626}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{border:1px solid #d9edf7;border-radius:18px;padding:16px}
+    label{display:block;font-weight:800;margin:10px 0 6px}input,select,button{width:100%;box-sizing:border-box;min-height:46px;border-radius:13px;border:1px solid #cfe3ef;padding:0 12px;font:inherit}
+    button{margin-top:12px;border:0;background:#1777ff;color:#fff;font-weight:900;cursor:pointer}.secondary{background:#e9f2ff;color:#174a83}
+    dl{display:grid;grid-template-columns:150px 1fr;gap:10px}dt{font-weight:800}dd{margin:0;overflow-wrap:anywhere}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<main>
+  <h1>HeroHealth Roster + Binding + Progress Sandbox</h1>
+  <p>ทดสอบลำดับตรวจ roster → ผูก UID → โหลด/บันทึก progress สำหรับรหัสสังเคราะห์ 990014 เท่านั้น</p>
+  <div id="status" class="status">พร้อมทดสอบ</div>
+  <div class="grid">
+    <section class="card">
+      <label for="studentId">รหัสนักเรียน</label>
+      <input id="studentId" value="990014" inputmode="numeric">
+      <label for="zone">Current zone</label>
+      <select id="zone"><option>hygiene</option><option>nutrition</option><option>fitness</option></select>
+      <button id="verify">1. ตรวจ Roster</button>
+      <button id="bind" class="secondary">2. ผูก UID กับ Student ID</button>
+      <button id="save">3. บันทึก Progress</button>
+      <button id="load" class="secondary">4. โหลด Progress</button>
+    </section>
+    <section class="card">
+      <dl>
+        <dt>Device UID</dt><dd><code id="uid">-</code></dd>
+        <dt>Roster</dt><dd id="roster">-</dd>
+        <dt>Binding</dt><dd id="binding">-</dd>
+        <dt>Student ID</dt><dd id="outStudent">-</dd>
+        <dt>Current zone</dt><dd id="outZone">-</dd>
+        <dt>Updated</dt><dd id="updated">-</dd>
+      </dl>
+    </section>
+  </div>
+</main>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+  import { HEROHEALTH_FIREBASE_CONFIG } from "./firebase-config.js?v=20260804-1301";
+  import { HH_COLLECTIONS, defaultProgress } from "./herohealth-data-contract-v1.js?v=20260804-1345";
+
+  const $=id=>document.getElementById(id);
+  const app=initializeApp(HEROHEALTH_FIREBASE_CONFIG);
+  const auth=getAuth(app);
+  const db=getFirestore(app);
+  const status=$('status');
+  let currentUser=null;
+  let rosterVerified=false;
+
+  function show(message,type=''){
+    status.textContent=message;
+    status.className=`status ${type}`;
+  }
+
+  async function ensureUser(){
+    if(auth.currentUser) return auth.currentUser;
+    return (await signInAnonymously(auth)).user;
+  }
+
+  currentUser=await ensureUser();
+  $('uid').textContent=currentUser.uid;
+
+  $('verify').onclick=async()=>{
+    try{
+      const studentId=$('studentId').value.trim();
+      const snap=await getDoc(doc(db,HH_COLLECTIONS.students,studentId));
+      if(!snap.exists()) throw new Error('ไม่พบรหัสใน studentsSandbox');
+      const data=snap.data();
+      if(data.active!==true) throw new Error('รหัสนี้ไม่ได้เปิดใช้งาน');
+      rosterVerified=true;
+      $('roster').textContent=`ผ่าน: ${data.nickname || data.fullName || studentId}`;
+      show('ตรวจ Roster สำเร็จ','ok');
+    }catch(error){rosterVerified=false;show(`ตรวจ Roster ไม่สำเร็จ: ${error.message}`,'error');}
+  };
+
+  $('bind').onclick=async()=>{
+    try{
+      if(!rosterVerified) throw new Error('ต้องตรวจ Roster ก่อน');
+      const studentId=$('studentId').value.trim();
+      await setDoc(doc(db,HH_COLLECTIONS.bindings,currentUser.uid),{
+        uid:currentUser.uid,studentId,bindingState:'sandbox-verified',updatedAt:serverTimestamp()
+      },{merge:true});
+      $('binding').textContent=`${currentUser.uid} → ${studentId}`;
+      show('ผูก UID กับ Student ID สำเร็จ','ok');
+    }catch(error){show(`Binding ไม่สำเร็จ: ${error.message}`,'error');}
+  };
+
+  $('save').onclick=async()=>{
+    try{
+      const studentId=$('studentId').value.trim();
+      const binding=await getDoc(doc(db,HH_COLLECTIONS.bindings,currentUser.uid));
+      if(!binding.exists() || binding.data().studentId!==studentId) throw new Error('UID ยังไม่ได้ผูกกับรหัสนี้');
+      const payload={...defaultProgress(studentId),currentZone:$('zone').value,lastWriterUid:currentUser.uid,updatedAt:serverTimestamp()};
+      await setDoc(doc(db,HH_COLLECTIONS.progress,studentId),payload,{merge:true});
+      show('บันทึก Student Progress สำเร็จ','ok');
+      await loadProgress(studentId);
+    }catch(error){show(`บันทึกไม่สำเร็จ: ${error.message}`,'error');}
+  };
+
+  async function loadProgress(studentId){
+    const snap=await getDoc(doc(db,HH_COLLECTIONS.progress,studentId));
+    if(!snap.exists()) throw new Error('ยังไม่มี Student Progress');
+    const data=snap.data();
+    $('outStudent').textContent=data.studentId || '-';
+    $('outZone').textContent=data.currentZone || '-';
+    $('zone').value=data.currentZone || 'hygiene';
+    $('updated').textContent=data.updatedAt?.toDate ? data.updatedAt.toDate().toLocaleString('th-TH') : '-';
+  }
+
+  $('load').onclick=async()=>{
+    try{await loadProgress($('studentId').value.trim());show('โหลด Student Progress สำเร็จ','ok');}
+    catch(error){show(`โหลดไม่สำเร็จ: ${error.message}`,'error');}
+  };
+</script>
+</body>
+</html>
