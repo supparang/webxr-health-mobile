@@ -15,47 +15,66 @@ async function ensureAnonymousUser() {
 
 async function readRoster(studentId) {
   const user = await ensureAnonymousUser();
-  const ref = doc(db, "studentsSandbox", String(studentId));
-  const snapshot = await getDoc(ref);
-  if (!snapshot.exists()) return { ok: false, user, reason: "student-not-found" };
-  const roster = snapshot.data();
-  if (roster.active !== true) return { ok: false, user, reason: "student-inactive", roster };
-  return { ok: true, user, roster };
+  const sid = String(studentId || "").trim();
+  if (!sid) return { ok: false, user, reason: "student-required" };
+
+  for (const collectionName of ["students", "studentsSandbox"]) {
+    const ref = doc(db, collectionName, sid);
+    const snapshot = await getDoc(ref);
+    if (!snapshot.exists()) continue;
+    const roster = snapshot.data();
+    if (roster.active === false) {
+      return { ok: false, user, reason: "student-inactive", roster, rosterPath: ref.path };
+    }
+    return { ok: true, user, roster: { ...roster, studentId: sid }, rosterPath: ref.path };
+  }
+
+  return { ok: false, user, reason: "student-not-found" };
 }
 
 async function bindStudent(studentId) {
   const rosterResult = await readRoster(studentId);
   if (!rosterResult.ok) return rosterResult;
   const { user, roster } = rosterResult;
-  const ref = doc(db, "studentBindingsSandbox", user.uid);
+  const sandbox = String(rosterResult.rosterPath || "").startsWith("studentsSandbox/");
+  const bindingCollection = sandbox ? "studentBindingsSandbox" : "studentBindings";
+  const ref = doc(db, bindingCollection, user.uid);
   await setDoc(ref, {
     uid: user.uid,
     studentId: String(studentId),
-    classId: roster.classId || "",
+    classId: roster.classId || roster.section || "",
+    rosterPath: rosterResult.rosterPath || "",
     boundAt: serverTimestamp(),
     build: HEROHEALTH_FIREBASE_BUILD
   }, { merge: true });
-  return { ok: true, user, roster, bindingPath: ref.path };
+  return { ok: true, user, roster, rosterPath: rosterResult.rosterPath, bindingPath: ref.path };
+}
+
+function progressCollectionFor(studentId) {
+  const sid = String(studentId || "").trim();
+  return sid === "990014" ? "studentProgressSandbox" : "studentProgress";
 }
 
 async function loadProgress(studentId) {
   const user = await ensureAnonymousUser();
-  const ref = doc(db, "studentProgressSandbox", String(studentId));
-  const snapshot = await getDoc(ref);
-  return {
-    ok: true,
-    user,
-    exists: snapshot.exists(),
-    progress: snapshot.exists() ? snapshot.data() : null,
-    path: ref.path
-  };
+  const sid = String(studentId || "").trim();
+  const preferred = progressCollectionFor(sid);
+  for (const collectionName of [preferred, preferred === "studentProgress" ? "studentProgressSandbox" : "studentProgress"]) {
+    const ref = doc(db, collectionName, sid);
+    const snapshot = await getDoc(ref);
+    if (snapshot.exists()) {
+      return { ok: true, user, exists: true, progress: snapshot.data(), path: ref.path };
+    }
+  }
+  return { ok: true, user, exists: false, progress: null, path: `${preferred}/${sid}` };
 }
 
 async function saveProgress(studentId, patch = {}) {
   const user = await ensureAnonymousUser();
-  const ref = doc(db, "studentProgressSandbox", String(studentId));
+  const sid = String(studentId || "").trim();
+  const ref = doc(db, progressCollectionFor(sid), sid);
   const safe = {
-    studentId: String(studentId),
+    studentId: sid,
     currentZone: String(patch.currentZone || "hygiene"),
     pretestCompleted: patch.pretestCompleted === true,
     posttestCompleted: patch.posttestCompleted === true,
@@ -64,7 +83,7 @@ async function saveProgress(studentId, patch = {}) {
     build: HEROHEALTH_FIREBASE_BUILD
   };
   await setDoc(ref, safe, { merge: true });
-  return loadProgress(studentId);
+  return loadProgress(sid);
 }
 
 function plainObject(value) {
@@ -97,7 +116,9 @@ async function saveGameResult(studentId, gameId, result = {}) {
   const token = receiptToken(sid, gid);
   const cleanResult = plainObject(result);
   const zone = String(cleanResult.zone || cleanResult.zoneId || "hygiene");
-  const ref = doc(db, "studentProgressSandbox", sid);
+  const sandbox = String(rosterResult.rosterPath || "").startsWith("studentsSandbox/");
+  const progressCollection = sandbox ? "studentProgressSandbox" : "studentProgress";
+  const ref = doc(db, progressCollection, sid);
   const storedResult = {
     ...cleanResult,
     studentId: sid,
