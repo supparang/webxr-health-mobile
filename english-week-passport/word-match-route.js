@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const MEMORY_URL = "./word-match-memory.html?v=20260804-memory5";
+  const MEMORY_URL = "./word-match-memory.html?v=20260804-memory6";
   const selector = '.stage-card[data-stage="word_match"].clickable';
 
   function decorateCard() {
@@ -10,9 +10,9 @@
     card.dataset.memoryDecorated = "1";
     card.classList.add("memory-stage-card");
     const detail = card.querySelector("small");
-    if (detail) detail.textContent = "Tilt Gesture • Auto-Center • A2–B1+";
+    if (detail) detail.textContent = "Tilt Snap • Static Safe Mode • A2–B1+";
     const state = card.querySelector(".stage-state");
-    if (state && card.classList.contains("ready")) state.innerHTML = "Tilt Gesture พร้อมเล่น 🧩";
+    if (state && card.classList.contains("ready")) state.innerHTML = "Tilt Snap พร้อมเล่น 🧩";
   }
 
   function openMemory(event) {
