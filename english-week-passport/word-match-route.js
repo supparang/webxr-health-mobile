@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const MEMORY_URL = "./word-match-memory.html?v=20260804-memory10";
+  const MEMORY_URL = "./word-match-memory.html?v=20260804-smooth11";
   const selector = '.stage-card[data-stage="word_match"].clickable';
 
   function decorateCard() {
@@ -10,9 +10,9 @@
     card.dataset.memoryDecorated = "1";
     card.classList.add("memory-stage-card");
     const detail = card.querySelector("small");
-    if (detail) detail.textContent = "Tilt Runtime V9 • Clear Card States • A2–B1+";
+    if (detail) detail.textContent = "Smooth Tilt Navigation • CEFR A2–B1+";
     const state = card.querySelector(".stage-state");
-    if (state && card.classList.contains("ready")) state.innerHTML = "Tilt Memory พร้อมเล่น 🧩";
+    if (state && card.classList.contains("ready")) state.innerHTML = "Vocabulary Navigation Lab พร้อมเล่น";
   }
 
   function openMemory(event) {
@@ -50,9 +50,9 @@
 
   const style = document.createElement("style");
   style.textContent = `
-    .stage-card.memory-stage-card.ready{border-color:#ffbd2e;background:linear-gradient(135deg,#fffdf2,#eef8ff)}
-    .stage-card.memory-stage-card .stage-icon{background:linear-gradient(135deg,#fff3c9,#e9f5ff);position:relative}
-    .stage-card.passed.memory-stage-card .stage-icon::after{content:" TILT";font-size:.42rem;font-weight:900;color:#8a6200;position:absolute;margin-top:48px}
+    .stage-card.memory-stage-card.ready{border-color:#38bdf8;background:linear-gradient(135deg,#f8fbff,#e8f3fb)}
+    .stage-card.memory-stage-card .stage-icon{background:linear-gradient(135deg,#e9f3fa,#dcecf8);position:relative}
+    .stage-card.passed.memory-stage-card .stage-icon::after{content:" LAB";font-size:.42rem;font-weight:900;color:#184d73;position:absolute;margin-top:48px}
   `;
   document.head.appendChild(style);
 
