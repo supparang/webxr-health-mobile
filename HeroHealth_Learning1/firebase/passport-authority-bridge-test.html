@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>HeroHealth Passport Firebase Authority Bridge Test</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4fbff;color:#15324a}
+    main{width:min(760px,calc(100% - 32px));background:#fff;border:1px solid #d9edf7;border-radius:24px;padding:24px;box-shadow:0 18px 50px rgba(32,89,117,.12)}
+    h1{margin-top:0}.status{padding:14px 16px;border-radius:16px;background:#eef7ff;font-weight:800}.ok{background:#e9f9ef;color:#126b37}.error{background:#fff0f0;color:#982626}
+    dl{display:grid;grid-template-columns:170px 1fr;gap:10px}dt{font-weight:800}dd{margin:0;overflow-wrap:anywhere}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  </style>
+</head>
+<body>
+<main>
+  <h1>HeroHealth Passport Firebase Authority Bridge Test</h1>
+  <p>ตรวจว่า Bridge ในโฟลเดอร์ Passport จริงสามารถอ่าน roster, binding และ progress ของรหัสทดสอบ 990014 ได้</p>
+  <div id="status" class="status">กำลังเริ่ม Firebase Authority Bridge…</div>
+  <dl>
+    <dt>Mode</dt><dd id="mode">-</dd>
+    <dt>Student ID</dt><dd id="student">-</dd>
+    <dt>Firebase UID</dt><dd><code id="uid">-</code></dd>
+    <dt>Roster</dt><dd id="roster">-</dd>
+    <dt>Current zone</dt><dd id="zone">-</dd>
+    <dt>Build</dt><dd><code id="build">-</code></dd>
+  </dl>
+</main>
+<script type="module" src="./firebase-authority-bridge.js?v=20260804-passport-bridge-v1"></script>
+<script>
+  const setText=(id,value)=>document.getElementById(id).textContent=value??'-';
+  window.addEventListener('hh:firebase-authority-ready',(event)=>{
+    const d=event.detail||{};
+    setText('mode',d.mode); setText('student',d.studentId); setText('uid',d.uid);
+    setText('roster',d.roster?.nickname||'ไม่พบ'); setText('zone',d.progress?.currentZone||'ยังไม่มี progress'); setText('build',d.build);
+    const el=document.getElementById('status'); el.textContent='Firebase Authority Bridge พร้อมใช้งาน'; el.className='status ok';
+  });
+  window.addEventListener('hh:firebase-authority-error',(event)=>{
+    const d=event.detail||{}; setText('mode',d.mode); setText('student',d.studentId); setText('uid',d.uid); setText('build',d.build);
+    const el=document.getElementById('status'); el.textContent='Bridge ไม่สำเร็จ: '+(d.error||'unknown'); el.className='status error';
+  });
+</script>
+</body>
+</html>
