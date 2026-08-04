@@ -1,7 +1,13 @@
 (function(){
   "use strict";
+  const screenRoot=document.getElementById("screen");
+  try{
+    if(screenRoot&&!screenRoot.orientation){
+      Object.defineProperty(screenRoot,"orientation",{value:window.screen?.orientation||null,configurable:true});
+    }
+  }catch(_){}
   const script=document.createElement("script");
-  script.src="./lexicon-x-engine-v3.js?v=20260804-lexiconx5";
+  script.src="./lexicon-x-engine-v4.js?v=20260804-playable4";
   script.async=false;
   script.onerror=()=>{
     const screen=document.getElementById("screen");
