@@ -11,6 +11,10 @@ service cloud.firestore {
       return studentId == '990014';
     }
 
+    function isTestAssessmentDocument(documentId) {
+      return documentId.matches('^990014_.*$');
+    }
+
     match /firebaseSmokeTests/{uid} {
       allow create, read, update, delete:
         if signedIn() && request.auth.uid == uid;
@@ -49,6 +53,19 @@ service cloud.firestore {
       allow create, update: if signedIn()
         && isTestStudent(studentId)
         && request.resource.data.studentId == '990014';
+      allow delete: if false;
+    }
+
+    // Assessment attempt and receipt documents for the synthetic sandbox student.
+    // Document IDs must be in the form 990014_<attemptId> and the stored payload
+    // must remain bound to studentId 990014.
+    match /studentAssessmentsSandbox/{documentId} {
+      allow read: if signedIn() && isTestAssessmentDocument(documentId);
+      allow create, update: if signedIn()
+        && isTestAssessmentDocument(documentId)
+        && request.resource.data.studentId == '990014'
+        && request.resource.data.completed == true
+        && request.resource.data.firebaseSavedByUid == request.auth.uid;
       allow delete: if false;
     }
 
