@@ -1,14 +1,11 @@
 (()=>{
 'use strict';
-const RELEASE='20260804-ASSESSMENT-FIREBASE-ROUTE-R7';
+const RELEASE='20260804-ASSESSMENT-FIREBASE-ROUTE-R8';
 const STATE_KEY='herohealth_learning_platform_rc2';
 const STUDY_ID='HEROHEALTH-P5-2026';
-const LOCAL_ROUTES={
- pretest:'./assessment/pretest.html?v=20260804-firebase-assessment-r1',
- posttest:'./assessment/posttest.html?v=20260804-firebase-assessment-r1',
- reflection:'./assessment/reflection.html?v=20260730-active-receiver-v85',
- certificate:'./assessment/certificate.html?v=20260730-active-receiver-v85'
-};
+const SHEET_ROUTES={pretest:'./assessment/pretest.html?v=20260731-assessment-stable-v6',posttest:'./assessment/posttest.html?v=20260731-assessment-stable-v6'};
+const FIREBASE_ROUTES={pretest:'./assessment/pretest-firebase.html?v=20260804-firebase-assessment-r1',posttest:'./assessment/posttest.html?v=20260804-firebase-assessment-r1'};
+const COMMON_ROUTES={reflection:'./assessment/reflection.html?v=20260730-active-receiver-v85',certificate:'./assessment/certificate.html?v=20260730-active-receiver-v85'};
 const original=window.HH?.openRoute;
 if(!window.HH||typeof original!=='function')return;
 function state(){try{return JSON.parse(localStorage.getItem(STATE_KEY)||'{}')}catch(_){return{}}}
@@ -18,41 +15,17 @@ function sessionId(sid){const key=`HH_ASSESSMENT_STUDY_SESSION_${STUDY_ID}_${sid
 window.HH.openRoute=function(id){
  const s=state(),profile=s.profile||{};
  if(!profile.studentId)return original.call(window.HH,id);
- const route=LOCAL_ROUTES[id];
- if(!route)return original.call(window.HH,id);
  const current=new URL(location.href),mode=String(current.searchParams.get('authority')||s?.firebaseAuthority?.mode||'sheet').toLowerCase();
+ const route=COMMON_ROUTES[id]||(mode==='firebase'?FIREBASE_ROUTES[id]:SHEET_ROUTES[id]);
+ if(!route)return original.call(window.HH,id);
  const url=new URL(route,location.href),sid=String(profile.studentId).trim(),testSessionId=sessionId(sid);
- url.searchParams.set('studentId',sid);
- url.searchParams.set('sid',sid);
- url.searchParams.set('fullName',profile.fullName||'');
- url.searchParams.set('section',profile.section||'');
- url.searchParams.set('group',profile.group||s.group||'');
- url.searchParams.set('studyId',STUDY_ID);
- url.searchParams.set('testSessionId',testSessionId);
- url.searchParams.set('authority',mode);
+ url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.set('fullName',profile.fullName||'');url.searchParams.set('section',profile.section||'');url.searchParams.set('group',profile.group||s.group||'');url.searchParams.set('studyId',STUDY_ID);url.searchParams.set('testSessionId',testSessionId);url.searchParams.set('authority',mode);
  if(s?.firebaseAuthority?.uid)url.searchParams.set('firebaseUid',s.firebaseAuthority.uid);
- const returnUrl=new URL('./index.html',location.href);
- returnUrl.searchParams.set('authority',mode);
- returnUrl.searchParams.set('studentId',sid);
- returnUrl.searchParams.set('sid',sid);
- if(mode==='firebase')returnUrl.searchParams.set('firebaseReady','1');
- url.searchParams.set('return',returnUrl.href);
- url.searchParams.set('routeRelease',RELEASE);
- url.searchParams.set('_',Date.now());
- if(id==='pretest'){
-   const attempt=stableAttempt('PRE',sid);
-   localStorage.setItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`,attempt);
-   localStorage.setItem(`HH_ASSESSMENT_TEST_SESSION_ACTIVE_${sid}`,testSessionId);
-   url.searchParams.set('attemptId',attempt);
- }
- if(id==='posttest'){
-   const attempt=stableAttempt('POST',sid);
-   const preAttempt=localStorage.getItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`)||stableAttempt('PRE',sid);
-   localStorage.setItem(`HH_ASSESSMENT_POST_ATTEMPT_${sid}`,attempt);
-   url.searchParams.set('attemptId',attempt);
-   url.searchParams.set('preAttemptId',preAttempt);
- }
+ const returnUrl=new URL('./index.html',location.href);returnUrl.searchParams.set('authority',mode);returnUrl.searchParams.set('studentId',sid);returnUrl.searchParams.set('sid',sid);if(mode==='firebase')returnUrl.searchParams.set('firebaseReady','1');
+ url.searchParams.set('return',returnUrl.href);url.searchParams.set('routeRelease',RELEASE);url.searchParams.set('_',Date.now());
+ if(id==='pretest'){const attempt=stableAttempt('PRE',sid);localStorage.setItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`,attempt);localStorage.setItem(`HH_ASSESSMENT_TEST_SESSION_ACTIVE_${sid}`,testSessionId);url.searchParams.set('attemptId',attempt)}
+ if(id==='posttest'){const attempt=stableAttempt('POST',sid);const preAttempt=localStorage.getItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`)||stableAttempt('PRE',sid);localStorage.setItem(`HH_ASSESSMENT_POST_ATTEMPT_${sid}`,attempt);url.searchParams.set('attemptId',attempt);url.searchParams.set('preAttemptId',preAttempt)}
  location.assign(url.href);
 };
-window.HHAssessmentRouteLauncher={version:RELEASE,studyId:STUDY_ID,localRoutes:LOCAL_ROUTES,stableAttempt};
+window.HHAssessmentRouteLauncher={version:RELEASE,studyId:STUDY_ID,sheetRoutes:SHEET_ROUTES,firebaseRoutes:FIREBASE_ROUTES,stableAttempt};
 })();
