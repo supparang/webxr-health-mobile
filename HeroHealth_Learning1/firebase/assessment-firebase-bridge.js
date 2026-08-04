@@ -6,19 +6,30 @@ import { HEROHEALTH_FIREBASE_CONFIG, HEROHEALTH_FIREBASE_BUILD } from "./firebas
 const app = getApps().length ? getApps()[0] : initializeApp(HEROHEALTH_FIREBASE_CONFIG);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const RELEASE = "20260804-FIREBASE-ASSESSMENT-RECEIPT-R1";
+const RELEASE = "20260804-FIREBASE-ASSESSMENT-RECEIPT-R2-NESTED-ARRAY-SAFE";
 
 async function user() {
   if (auth.currentUser) return auth.currentUser;
   return (await signInAnonymously(auth)).user;
 }
 
-function clean(value) {
-  return JSON.parse(JSON.stringify(value, (_key, item) => {
-    if (typeof item === "undefined" || typeof item === "function") return undefined;
-    if (typeof item === "number" && !Number.isFinite(item)) return 0;
-    return item;
-  }));
+function sanitizeFirestore(value, insideArray = false) {
+  if (typeof value === "undefined" || typeof value === "function") return null;
+  if (typeof value === "number" && !Number.isFinite(value)) return 0;
+  if (value === null || typeof value !== "object") return value;
+
+  if (Array.isArray(value)) {
+    const items = value.map(item => sanitizeFirestore(item, true));
+    // Firestore does not allow an array directly inside another array.
+    // Wrap only nested arrays in a map so all research metadata is preserved.
+    return insideArray ? { values: items } : items;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, item]) => typeof item !== "undefined" && typeof item !== "function")
+      .map(([key, item]) => [key, sanitizeFirestore(item, false)])
+  );
 }
 
 function token(studentId, mode, attemptId) {
@@ -39,8 +50,9 @@ async function saveAssessment(payload = {}) {
   const progressCollection = sid === "990014" ? "studentProgressSandbox" : "studentProgress";
   const assessmentRef = doc(db, collection, `${sid}_${attemptId}`);
   const progressRef = doc(db, progressCollection, sid);
+  const safePayload = sanitizeFirestore(payload);
   const stored = {
-    ...clean(payload),
+    ...safePayload,
     assessmentType,
     completed: true,
     firebaseReceiptToken: receipt,
@@ -48,7 +60,8 @@ async function saveAssessment(payload = {}) {
     firebaseClientSavedAt: new Date().toISOString(),
     firebaseSavedAt: serverTimestamp(),
     firebaseBuild: HEROHEALTH_FIREBASE_BUILD,
-    release: RELEASE
+    release: RELEASE,
+    nestedArrayEncoding: "nested-array-as-map-values-v1"
   };
 
   await setDoc(assessmentRef, stored, { merge: true });
@@ -62,7 +75,8 @@ async function saveAssessment(payload = {}) {
         score: Number(payload.score || 0),
         total: Number(payload.total || 0),
         form: String(payload.form || ""),
-        firebaseReceiptToken: receipt
+        firebaseReceiptToken: receipt,
+        confirmedAtClient: new Date().toISOString()
       }
     },
     updatedByUid: currentUser.uid,
@@ -80,5 +94,5 @@ async function saveAssessment(payload = {}) {
   return { ok: true, receipt, assessmentPath: assessmentRef.path, progressPath: progressRef.path, assessment, progress };
 }
 
-window.HHAssessmentFirebase = Object.freeze({ release: RELEASE, saveAssessment });
-console.info("[HeroHealth Firebase Assessment R1] installed", RELEASE);
+window.HHAssessmentFirebase = Object.freeze({ release: RELEASE, saveAssessment, sanitizeFirestore });
+console.info("[HeroHealth Firebase Assessment R2] installed", RELEASE);
