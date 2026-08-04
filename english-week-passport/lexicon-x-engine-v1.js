@@ -1,7 +1,7 @@
 (function(){
   "use strict";
   const script=document.createElement("script");
-  script.src="./lexicon-x-engine-v2.js?v=20260804-lexiconx4";
+  script.src="./lexicon-x-engine-v3.js?v=20260804-lexiconx5";
   script.async=false;
   script.onerror=()=>{
     const screen=document.getElementById("screen");
