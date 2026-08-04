@@ -25,6 +25,34 @@ button{font:inherit;touch-action:manipulation}
 .feedback{min-height:48px;margin-top:12px;padding:11px 12px;border-radius:15px;background:#f3f8fc;color:var(--muted);text-align:center;line-height:1.45}.feedback.good{background:#e9f8f1;color:#126145}.feedback.bad{background:#fff0f0;color:#8c3333}
 .result-ring{position:relative;display:grid;place-items:center;width:132px;height:132px;margin:14px auto 18px;border-radius:50%;background:conic-gradient(var(--blue) var(--angle,0deg),#e0ebf3 0)}.result-ring:before{content:"";position:absolute;width:100px;height:100px;border-radius:50%;background:#fff}.result-ring div{position:relative}.result-ring strong,.result-ring small{display:block}.result-ring strong{font-size:1.65rem}.result-ring small{color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:15px 0}.metric{padding:11px 7px;border-radius:14px;background:#f3f8fc}.metric strong,.metric small{display:block}.metric small{color:var(--muted);font-size:.72rem}
 .memory-loading{position:fixed;z-index:99;inset:0;display:grid;place-items:center;padding:20px;background:rgba(235,246,255,.86);backdrop-filter:blur(8px)}.loading-card{width:min(100%,300px);padding:24px;border-radius:22px;background:#fff;box-shadow:var(--shadow);text-align:center}.loading-card strong,.loading-card small{display:block}.loading-card small{margin-top:6px;color:var(--muted)}.spinner{width:38px;height:38px;margin:0 auto 14px;border:4px solid #d8e8f5;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+
+/* V10: make current focus and previously opened card unmistakably different. */
+.memory-card.ew-tilt-focus:not(.flipped):not(.matched){z-index:4}
+.memory-card.ew-tilt-focus:not(.flipped):not(.matched)::after,
+.memory-card.flipped:not(.matched)::after,
+.memory-card.matched::after{
+  position:absolute;
+  z-index:8;
+  top:7px;
+  left:50%;
+  transform:translateX(-50%);
+  min-width:74px;
+  padding:4px 8px;
+  border-radius:999px;
+  color:#17324d;
+  font-size:.64rem;
+  font-weight:1000;
+  line-height:1;
+  white-space:nowrap;
+  box-shadow:0 4px 12px rgba(20,58,92,.22);
+  pointer-events:none;
+}
+.memory-card.ew-tilt-focus:not(.flipped):not(.matched)::after{content:"กำลังเลือก";background:#ffe33b;border:1px solid #d8a900}
+.memory-card.flipped:not(.matched)::after{content:"เปิดแล้ว";background:#d8fff7;border:1px solid #14a68f;color:#075e52}
+.memory-card.flipped:not(.matched) .memory-front{border:4px solid #18b9a2;background:#f0fffb;box-shadow:0 0 0 4px rgba(24,185,162,.18),0 10px 22px rgba(20,58,92,.16)}
+.memory-card.matched::after{content:"จับคู่แล้ว";background:#c9f7dd;border:1px solid #2a9a64;color:#126145}
+.memory-card.matched .memory-front{border-width:4px}
+
 @keyframes spin{to{transform:rotate(360deg)}}@keyframes matchPop{50%{transform:scale(1.05)}}@keyframes wrongShake{25%{transform:translateX(-4px)}50%{transform:translateX(4px)}75%{transform:translateX(-3px)}}
 @media(min-width:560px){.memory-grid{grid-template-columns:repeat(4,1fr)}.memory-card{min-height:118px}.game-panel{padding:20px}}
 @media(max-width:370px){.memory-root{padding-left:9px;padding-right:9px}.memory-grid{gap:7px}.memory-card{min-height:96px}.memory-front.word{font-size:.9rem}.memory-front.meaning{font-size:.8rem}.hud{gap:6px}.hud-box{padding:8px}}
