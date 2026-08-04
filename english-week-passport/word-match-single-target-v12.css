@@ -1,0 +1,21 @@
+.memory-card.ew-tilt-focus:not(.smooth-target):not(.flipped):not(.matched){
+  outline:none!important;
+  filter:none!important;
+}
+.memory-card.ew-tilt-focus:not(.smooth-target):not(.flipped):not(.matched)::after{
+  content:none!important;
+  display:none!important;
+}
+.memory-card.smooth-target:not(.flipped):not(.matched){
+  outline:4px solid var(--uni-gold,#f4c95d)!important;
+  outline-offset:3px;
+  filter:drop-shadow(0 0 12px rgba(244,201,93,.38));
+}
+.memory-card.smooth-target:not(.flipped):not(.matched)::after{
+  content:"TARGET"!important;
+  display:block!important;
+  background:var(--uni-gold,#f4c95d)!important;
+  border:1px solid #c99b21!important;
+  color:#25313b!important;
+  letter-spacing:.06em;
+}
