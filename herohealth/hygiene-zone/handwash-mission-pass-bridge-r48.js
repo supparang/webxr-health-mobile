@@ -1,8 +1,8 @@
 (()=>{
 'use strict';
-const RELEASE='20260804-HANDWASH-MISSION-PASS-BRIDGE-R49-CLASSROOM-PASS';
+const RELEASE='20260804-HANDWASH-MISSION-PASS-BRIDGE-R50-FIREBASE-GATE';
 const RESULT_KEY='HHA_HANDWASH_LAST_RESULT';
-const RECOVERY_PREFIX='HH_HANDWASH_R49_RECOVERED:';
+const RECOVERY_PREFIX='HH_HANDWASH_R50_RECOVERED:';
 const MAX_RECOVERY_AGE_MS=30*60*1000;
 const ANALYTICS_SCHEMA='HH-UNIFIED-GAME-ANALYTICS-V2';
 
@@ -38,7 +38,7 @@ function bridge(input){
   input.skillAssessmentPassed=independentSkillPassed;
   input.missionPassed=missionPassed;
   input.classroomMissionPassed=missionPassed;
-  input.missionCompletionPolicy='server-validated-7-rub-5-process-wrists-analytics-r49';
+  input.missionCompletionPolicy='server-validated-7-rub-5-process-wrists-analytics-r50';
   input.missionPassBridgeRelease=RELEASE;
   if(input.research&&typeof input.research==='object'){
     input.research.independentSkillPass=independentSkillPassed?1:0;
@@ -63,12 +63,21 @@ function persist(result){
   try{window.__HANDWASH_LAST_RESULT__=result}catch(_){}
 }
 
+function firebaseReceiptGateActive(){
+  const release=String(document.documentElement.dataset.handwashSummaryReturn||'');
+  return /R51-FIREBASE-RECEIPT/i.test(release)||Boolean(window.HHHandwashSummaryPassportReturnR51);
+}
+
 function emit(result,source){
   const bridged=bridge(result);
   persist(bridged);
   if(!bridged?.missionPassed)return false;
+  if(firebaseReceiptGateActive()){
+    console.info('[Handwash Mission Pass R50] persisted for Firebase receipt gate',{source,eventId:bridged.eventId||'',metricCompletenessPct:bridged.metricCompletenessPct});
+    return true;
+  }
   try{window.parent?.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:bridged},location.origin)}catch(_){}
-  console.info('[Handwash Mission Pass R49] mission completion emitted',{
+  console.info('[Handwash Mission Pass R50] legacy shell completion emitted',{
     source,
     eventId:bridged.eventId,
     sourceEventId:bridged.sourceEventId||'',
@@ -112,7 +121,7 @@ function eligibleForRecovery(result){
 
 function buildRecovery(stored){
   const sourceEventId=clean(stored.sourceEventId||stored.eventId||stored.attemptId);
-  const suffix='mission-r49-'+Date.now();
+  const suffix='mission-r50-'+Date.now();
   return bridge({
     ...stored,
     sourceEventId,
@@ -149,7 +158,7 @@ setTimeout(()=>{
   }
 },180);
 
-window.HHHandwashMissionPassBridgeR49={release:RELEASE,bridge,missionReady,recoverFreshCompletedAttempt};
+window.HHHandwashMissionPassBridgeR50={release:RELEASE,bridge,missionReady,recoverFreshCompletedAttempt};
 document.documentElement.dataset.handwashMissionPassBridge=RELEASE;
-console.info('[Handwash Mission Pass Bridge R49] installed',RELEASE);
+console.info('[Handwash Mission Pass Bridge R50] installed',RELEASE);
 })();
