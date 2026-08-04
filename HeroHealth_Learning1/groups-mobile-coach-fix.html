@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>ภารกิจอาหาร 5 หมู่</title>
+<style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071827}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}</style>
+</head>
+<body>
+<iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe>
+<script>
+(()=>{'use strict';
+const RELEASE='20260804-GROUPS-MOBILE-COACH-SAFE-R1';
+const q=new URLSearchParams(location.search);
+const source=q.get('source')||'./classroom-contract-wrapper.html?wrappedGame=groups';
+const frame=document.getElementById('game');
+const url=new URL(source,location.href);
+for(const [key,value] of q.entries())if(key!=='source')url.searchParams.set(key,value);
+url.searchParams.set('wrappedGame','groups');
+url.searchParams.set('coachSafe','1');
+url.searchParams.set('coachSafeRelease',RELEASE);
+frame.src=url.href;
+
+function injectInto(doc){
+ if(!doc?.head||doc.getElementById('hh-groups-coach-safe-r1'))return;
+ const style=doc.createElement('style');
+ style.id='hh-groups-coach-safe-r1';
+ style.textContent=`
+ @media(max-width:760px){
+   .footer{position:fixed!important;left:10px!important;right:10px!important;bottom:calc(174px + env(safe-area-inset-bottom,0px))!important;z-index:80!important;padding:0!important;background:transparent!important;pointer-events:none!important}
+   .footer .feedback{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;min-height:46px!important;padding:9px 13px!important;border:2px solid rgba(255,255,255,.8)!important;border-radius:16px!important;background:rgba(6,78,59,.92)!important;color:#fff!important;font-size:14px!important;font-weight:900!important;line-height:1.3!important;text-align:center!important;box-shadow:0 8px 22px rgba(0,0,0,.24)!important;white-space:normal!important;overflow:visible!important}
+   .footer .controls{display:none!important}
+   .bins{z-index:70!important;bottom:calc(8px + env(safe-area-inset-bottom,0px))!important}
+   .arena{padding-bottom:226px!important}
+   .phase{max-width:58vw!important;padding:8px 12px!important}
+   .phase small{display:none!important}
+   .hud{padding:5px 7px!important;gap:5px!important}
+   .brand{padding:5px 8px!important}.brand h1{font-size:.92rem!important}
+   .stats{gap:4px!important}.stat{padding:4px 3px!important}.stat small{font-size:.52rem!important}.stat b{font-size:.86rem!important}
+ }
+ `;
+ doc.head.appendChild(style);
+}
+function inspect(){
+ try{
+   const outerDoc=frame.contentDocument;
+   injectInto(outerDoc);
+   const nested=outerDoc?.querySelector('iframe');
+   if(nested?.contentDocument)injectInto(nested.contentDocument);
+ }catch(_){}
+}
+frame.addEventListener('load',()=>{inspect();setTimeout(inspect,250);setTimeout(inspect,900)});
+setInterval(inspect,600);
+addEventListener('message',event=>{
+ if(event.origin!==location.origin)return;
+ if(event.source===frame.contentWindow||event.source===frame.contentWindow?.frames?.[0]){
+   try{parent.postMessage(event.data,location.origin)}catch(_){}
+ }
+},true);
+console.info('[Groups Coach Safe R1]',RELEASE);
+})();
+</script>
+</body>
+</html>
