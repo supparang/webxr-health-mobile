@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-  const GAME_URL = "./word-match-memory.html?v=20260804-playable4";
+  const GAME_URL = "./word-match-memory.html?v=20260804-playable5";
   const selector = '.stage-card[data-stage="word_match"].clickable';
 
   function decorateCard(){
@@ -10,7 +10,7 @@
     const title=card.querySelector("div:nth-child(2) > strong");
     if(title)title.textContent="LEXICON X Challenge";
     const detail=card.querySelector("small");
-    if(detail)detail.textContent="Playable Motion • One Tilt = One Card • CEFR A2–B1+";
+    if(detail)detail.textContent="Adaptive Tilt + Swipe Assist • Auto Open • CEFR A2–B1+";
     const state=card.querySelector(".stage-state");
     if(state&&card.classList.contains("ready"))state.textContent="พร้อมเริ่ม Challenge";
     card.dataset.lexiconDecorated="1";
