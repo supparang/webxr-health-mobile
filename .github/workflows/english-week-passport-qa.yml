@@ -25,7 +25,7 @@ jobs:
       - name: Syntax check rotation and game adapters
         run: |
           node --check english-week-passport/passport-rotation-v2.js
-          node --check english-week-passport/word-match-rotation-v2.js
+          node --check english-week-passport/word-match-snap-v4.js
           node --check english-week-passport/category-rotation-v4.js
           node --check english-week-passport/sentence-hand-rotation-v2.js
           node --check english-week-passport/action-rotation-v5.js
