@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>HeroHealth Passport Cross-device Sandbox</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color-scheme:light}
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f3fbff;color:#17344d}
+    main{width:min(820px,calc(100% - 28px));background:#fff;border:1px solid #d6eaf5;border-radius:26px;padding:24px;box-shadow:0 18px 50px rgba(32,89,117,.12)}
+    h1{margin:0 0 8px}.note{margin:0 0 16px;line-height:1.55}.status{padding:14px 16px;border-radius:16px;background:#edf6ff;font-weight:800}.ok{background:#e8f9ee;color:#126b37}.error{background:#fff0f0;color:#982626}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}.card{border:1px solid #d9e9f2;border-radius:18px;padding:16px}
+    label{display:block;font-weight:800;margin-bottom:6px}input,select{width:100%;min-height:46px;border:1px solid #c9dce8;border-radius:12px;padding:0 12px;font:inherit;margin-bottom:12px}
+    button{min-height:46px;border:0;border-radius:14px;padding:0 16px;font-weight:850;cursor:pointer;margin:4px 6px 4px 0}.primary{background:#1769ff;color:#fff}.secondary{background:#e8f2ff;color:#174f9c}
+    dl{display:grid;grid-template-columns:145px 1fr;gap:9px;margin:0}dt{font-weight:800}dd{margin:0;overflow-wrap:anywhere}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    @media(max-width:720px){.grid{grid-template-columns:1fr}main{padding:18px}}
+  </style>
+</head>
+<body>
+<main>
+  <h1>HeroHealth Passport Cross-device Sandbox</h1>
+  <p class="note">ทดสอบกู้คืนข้อมูลด้วยรหัสนักเรียนเดียวกันจากคนละเบราว์เซอร์หรือคนละเครื่อง ข้อมูลนี้เป็น Sandbox ของรหัสสังเคราะห์ <strong>990014</strong> เท่านั้น และยังไม่แตะ Passport Production</p>
+  <div id="status" class="status">กำลังเตรียม Firebase…</div>
+
+  <div class="grid">
+    <section class="card">
+      <label for="studentId">รหัสนักเรียนทดสอบ</label>
+      <input id="studentId" value="990014" readonly>
+
+      <label for="nickname">ชื่อเล่น</label>
+      <input id="nickname" value="Firebase Cross-device">
+
+      <label for="zone">Current zone</label>
+      <select id="zone">
+        <option value="hygiene">hygiene</option>
+        <option value="nutrition">nutrition</option>
+        <option value="fitness">fitness</option>
+        <option value="completed">completed</option>
+      </select>
+
+      <button id="save" class="primary">บันทึกจากเครื่องนี้</button>
+      <button id="load" class="secondary">โหลดด้วยรหัส 990014</button>
+    </section>
+
+    <section class="card">
+      <dl>
+        <dt>Project</dt><dd id="project">-</dd>
+        <dt>Device UID</dt><dd><code id="uid">-</code></dd>
+        <dt>Document</dt><dd><code id="path">passportCrossDeviceSandbox/990014</code></dd>
+        <dt>Student ID</dt><dd id="outStudent">-</dd>
+        <dt>Nickname</dt><dd id="outNick">-</dd>
+        <dt>Current zone</dt><dd id="outZone">-</dd>
+        <dt>Write count</dt><dd id="outCount">0</dd>
+        <dt>Last writer UID</dt><dd><code id="outWriter">-</code></dd>
+        <dt>Updated</dt><dd id="outUpdated">-</dd>
+      </dl>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+  import { HEROHEALTH_FIREBASE_CONFIG } from "./firebase-config.js?v=20260804-1301";
+
+  const $=id=>document.getElementById(id);
+  const status=$('status'), save=$('save'), load=$('load');
+  const app=initializeApp(HEROHEALTH_FIREBASE_CONFIG);
+  const auth=getAuth(app), db=getFirestore(app);
+  const ref=doc(db,'passportCrossDeviceSandbox','990014');
+  $('project').textContent=HEROHEALTH_FIREBASE_CONFIG.projectId;
+
+  function setStatus(text,type=''){
+    status.textContent=text;
+    status.className='status'+(type?` ${type}`:'');
+  }
+
+  async function ensureUser(){
+    if(auth.currentUser) return auth.currentUser;
+    return (await signInAnonymously(auth)).user;
+  }
+
+  function show(data){
+    $('outStudent').textContent=data?.studentId ?? '-';
+    $('outNick').textContent=data?.nickname ?? '-';
+    $('outZone').textContent=data?.currentZone ?? '-';
+    $('outCount').textContent=data?.writeCount ?? 0;
+    $('outWriter').textContent=data?.lastWriterUid ?? '-';
+    const ts=data?.updatedAt;
+    $('outUpdated').textContent=ts?.toDate ? ts.toDate().toLocaleString('th-TH') : '-';
+    if(data?.nickname) $('nickname').value=data.nickname;
+    if(data?.currentZone) $('zone').value=data.currentZone;
+  }
+
+  async function loadData(successText='โหลดข้อมูลข้ามเครื่องสำเร็จ'){
+    const user=await ensureUser();
+    $('uid').textContent=user.uid;
+    const snap=await getDoc(ref);
+    if(!snap.exists()){
+      show(null);
+      setStatus('ยังไม่มีข้อมูลสำหรับ 990014 ให้บันทึกจากเครื่องแรกก่อน');
+      return null;
+    }
+    show(snap.data());
+    setStatus(successText,'ok');
+    return snap.data();
+  }
+
+  save.addEventListener('click',async()=>{
+    save.disabled=true; load.disabled=true; setStatus('กำลังบันทึก…');
+    try{
+      const user=await ensureUser();
+      $('uid').textContent=user.uid;
+      const oldSnap=await getDoc(ref);
+      const old=oldSnap.exists()?oldSnap.data():{};
+      await setDoc(ref,{
+        studentId:'990014',
+        nickname:$('nickname').value.trim() || 'Firebase Cross-device',
+        currentZone:$('zone').value,
+        writeCount:Number(old.writeCount||0)+1,
+        lastWriterUid:user.uid,
+        schemaVersion:'HH-FIREBASE-CROSS-DEVICE-SANDBOX-V1',
+        updatedAt:serverTimestamp()
+      },{merge:true});
+      await loadData('บันทึกและอ่านข้อมูลด้วย studentId สำเร็จ');
+    }catch(error){
+      console.error(error); setStatus(`ไม่สำเร็จ: ${error?.code || ''} ${error?.message || error}`,'error');
+    }finally{save.disabled=false;load.disabled=false;}
+  });
+
+  load.addEventListener('click',async()=>{
+    save.disabled=true; load.disabled=true; setStatus('กำลังโหลด…');
+    try{await loadData();}
+    catch(error){console.error(error);setStatus(`ไม่สำเร็จ: ${error?.code || ''} ${error?.message || error}`,'error');}
+    finally{save.disabled=false;load.disabled=false;}
+  });
+
+  try{
+    const user=await ensureUser();
+    $('uid').textContent=user.uid;
+    await loadData();
+  }catch(error){
+    console.error(error);setStatus(`เตรียมระบบไม่สำเร็จ: ${error?.code || ''} ${error?.message || error}`,'error');
+  }
+</script>
+</body>
+</html>
