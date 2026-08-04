@@ -72,7 +72,7 @@
     }
   </script>
   <script src="./assets/mobile-passport-production-v1.js?v=20260730-mobile-passport-production-v1-2-authority-gate"></script>
-  <script src="./firebase/firebase-logout-rescue-r58.js?v=20260804-firebase-logout-r58"></script>
-  <script type="module" src="./firebase/passport-index-integration.js?v=20260804-passport-progress-logout-r58"></script>
+  <!-- Firebase mode has exactly one session owner. Legacy direct-session/logout rescue removed to prevent redirect races. -->
+  <script type="module" src="./firebase/passport-index-integration.js?v=20260804-passport-unified-r69"></script>
 </body>
 </html>
