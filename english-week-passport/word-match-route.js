@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-  const GAME_URL = "./lexicon-x-challenge.html?v=20260804-lexiconx2";
+  const GAME_URL = "./word-match-memory.html?v=20260804-lexiconx3";
   const selector = '.stage-card[data-stage="word_match"].clickable';
 
   function decorateCard(){
