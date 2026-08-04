@@ -1,0 +1,49 @@
+{
+  "collection": "studentsSandbox",
+  "documentId": "990014",
+  "data": {
+    "studentId": "990014",
+    "fullName": "นักเรียนทดสอบ Assessment V5 14",
+    "nickname": "Firebase Test",
+    "section": "QA-P5",
+    "group": "A",
+    "rotationGroup": "A",
+    "classId": "QA-P5-ASSESSMENT-V5",
+    "studyId": "HEROHEALTH-P5-2026",
+    "conditionGroup": "sandbox",
+    "active": true,
+    "role": "student",
+    "isTestAccount": true,
+    "authority": "firebase",
+    "createdFor": "HeroHealth Firebase E2E",
+    "schemaVersion": "HH-FIREBASE-ROSTER-V1"
+  },
+  "progressSeed": {
+    "collection": "studentProgressSandbox",
+    "documentId": "990014",
+    "data": {
+      "studentId": "990014",
+      "currentZone": "hygiene",
+      "pretestCompleted": false,
+      "posttestCompleted": false,
+      "reflectionCompleted": false,
+      "certificateEligible": false,
+      "gameCompleted": {
+        "hygiene": {
+          "handwash": false,
+          "toothbrush": false
+        },
+        "nutrition": {
+          "groups": false,
+          "goodjunk": false
+        },
+        "fitness": {
+          "jumpduck": false,
+          "balance": false
+        }
+      },
+      "gameResults": {},
+      "schemaVersion": "HH-FIREBASE-PROGRESS-V1"
+    }
+  }
+}
