@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const MEMORY_URL = "./word-match-memory.html?v=20260804-smooth11";
+  const MEMORY_URL = "./word-match-memory.html?v=20260804-smooth12";
   const selector = '.stage-card[data-stage="word_match"].clickable';
 
   function decorateCard() {
@@ -10,7 +10,7 @@
     card.dataset.memoryDecorated = "1";
     card.classList.add("memory-stage-card");
     const detail = card.querySelector("small");
-    if (detail) detail.textContent = "Smooth Tilt Navigation • CEFR A2–B1+";
+    if (detail) detail.textContent = "Smooth Tilt • Single Target • CEFR A2–B1+";
     const state = card.querySelector(".stage-state");
     if (state && card.classList.contains("ready")) state.innerHTML = "Vocabulary Navigation Lab พร้อมเล่น";
   }
