@@ -1,5 +1,14 @@
 (()=>{
 'use strict';
+const query=new URLSearchParams(location.search);
+if(!query.has('authority')){
+  const url=new URL(location.href);
+  url.searchParams.set('authority','firebase');
+  url.searchParams.set('firebaseEntry','1');
+  location.replace(url.href);
+  return;
+}
+const FIREBASE_MODE=String(query.get('authority')||'firebase').toLowerCase()==='firebase';
 const ACTIVE_KEY='herohealth_learning_platform_rc2';
 let scheduled=false;
 function state(){try{return JSON.parse(localStorage.getItem(ACTIVE_KEY)||'{}')}catch(_){return{}}}
@@ -38,7 +47,6 @@ function simplify(){
   const cards=hero.querySelectorAll(':scope > .card');
   if(cards.length<2)return;
   const intro=cards[0],form=cards[1];
-  if(intro.dataset.hhSimplified==='1'&&form.dataset.hhSimplified==='1')return;
   intro.dataset.hhSimplified='1';
   form.dataset.hhSimplified='1';
   intro.classList.add('hh-classroom60-intro');
@@ -49,7 +57,9 @@ function simplify(){
   if(kpis)kpis.remove();
   form.classList.add('hh-classroom60-login');
   setText(form.querySelector('h2'),'ใส่รหัสนักเรียนเพื่อเริ่มภารกิจ');
-  setText(form.querySelector('p.muted'),'ระบบจะดึงชื่อ ห้อง กลุ่ม และความคืบหน้าจาก Google Sheet ให้อัตโนมัติ');
+  setText(form.querySelector('p.muted'),FIREBASE_MODE
+    ?'ระบบจะตรวจรหัส ชื่อ ห้อง กลุ่ม และความคืบหน้าจาก Firebase โดยอัตโนมัติ'
+    :'ระบบจะดึงชื่อ ห้อง กลุ่ม และความคืบหน้าจาก Google Sheet ให้อัตโนมัติ');
   setText(form.querySelector('button[type="submit"],button.btn-primary'),'ตรวจสอบและเข้าสู่ภารกิจ');
   const nav=app.querySelector('.topbar .nav');
   if(nav&&!nav.hidden)nav.hidden=true;
@@ -72,7 +82,6 @@ style.textContent=`
   .hh-classroom60-login .field input{min-height:56px!important;font-size:20px!important}
   .hh-classroom60-login .btn{min-height:56px!important;font-size:18px!important}
   .hero:has(.hh-classroom60-login){display:grid!important;grid-template-columns:1fr!important;gap:16px!important}
-
   .hh-student-mobile-compact{padding-top:14px!important;padding-bottom:28px!important}
   .hh-student-mobile-compact>.hero{gap:12px!important}
   .hh-passport-compact{padding:18px!important}
@@ -97,4 +106,5 @@ document.head.appendChild(style);
 const app=document.getElementById('app');
 if(app)new MutationObserver(requestSimplify).observe(app,{childList:true,subtree:true});
 requestSimplify();
+console.info('[HeroHealth Classroom Login R55]',{authority:FIREBASE_MODE?'firebase':'sheet'});
 })();
