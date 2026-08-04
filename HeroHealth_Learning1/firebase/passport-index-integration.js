@@ -1,16 +1,68 @@
-import "./firebase-authority-bridge.js";
-
 const params = new URLSearchParams(location.search);
 const mode = String(params.get("authority") || "sheet").toLowerCase();
 const enabled = mode === "firebase" || mode === "dual";
+const studentIdFromUrl = String(params.get("studentId") || params.get("pid") || params.get("sid") || "").trim();
 const STATE_KEY = "herohealth_learning_platform_rc2";
 const ACTIVE_STUDENT_KEY = "herohealth_active_student_id";
 const RELOAD_KEY = "hh_firebase_passport_seed_v1";
+const SHEET_RESUME_VERSION = "20260730-MOBILE-AUTHORITY-V8.3-SYNTAX-FIX";
 
 if (enabled) {
+  suppressSheetResume(studentIdFromUrl);
   installAuthorityBadge();
   window.addEventListener("hh:firebase-authority-ready", applyAuthority, { once: true });
   window.addEventListener("hh:firebase-authority-error", showAuthorityError, { once: true });
+  import("./firebase-authority-bridge.js").catch((error) => {
+    showAuthorityError({ detail: { error: error?.message || String(error) } });
+  });
+}
+
+function suppressSheetResume(studentId) {
+  document.documentElement.dataset.hhAuthority = mode;
+  window.HH_AUTHORITY_MODE = mode;
+  window.HH_DISABLE_SHEET_RESUME = mode === "firebase";
+
+  if (mode !== "firebase" || !studentId) return;
+
+  // student-resume-v7-mobile.js checks these markers before starting its
+  // automatic Google Sheet bootstrap. Marking this Firebase session as fresh
+  // prevents a second authority from opening the blocking Sheet overlay.
+  try {
+    localStorage.setItem(`hh_authority_version_synced:${studentId}`, SHEET_RESUME_VERSION);
+    sessionStorage.setItem(`hh_authority_bootstrap:${studentId}`, String(Date.now()));
+  } catch (_) {}
+
+  const removeSheetOverlay = () => {
+    const overlay = document.getElementById("hh-sheet-login-status");
+    if (overlay) overlay.remove();
+    document.documentElement.dataset.hhLoginBusy = "0";
+  };
+
+  removeSheetOverlay();
+  const observer = new MutationObserver(removeSheetOverlay);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  setTimeout(() => observer.disconnect(), 15000);
+
+  // The Sheet resume module is already parsed before this module. Replace its
+  // public entry points as an additional guard; normal Sheet mode is untouched.
+  const patchResumeApi = () => {
+    const api = window.HHStudentResume;
+    if (!api || api.__firebaseGuarded) return false;
+    const skipped = async () => ({ ok: false, skipped: true, authority: "firebase" });
+    try {
+      api.syncOfficial = skipped;
+      api.login = skipped;
+      api.getStudent = skipped;
+      api.__firebaseGuarded = true;
+    } catch (_) {}
+    return true;
+  };
+  if (!patchResumeApi()) {
+    const timer = setInterval(() => {
+      if (patchResumeApi()) clearInterval(timer);
+    }, 20);
+    setTimeout(() => clearInterval(timer), 3000);
+  }
 }
 
 function normalizeZone(value) {
@@ -77,6 +129,7 @@ function mergeFirebaseState(current, authority) {
     },
     gameScores: { ...(base.gameScores || {}), ...(progress.gameScores || {}) },
     activeMissionProfile: progress.activeMissionProfile || base.activeMissionProfile || "CLASS_60",
+    sheetAuthority: false,
     firebaseAuthority: {
       mode: authority.mode,
       uid: authority.uid,
@@ -98,6 +151,8 @@ function applyAuthority(event) {
   localStorage.setItem(STATE_KEY, JSON.stringify(next));
   localStorage.setItem(ACTIVE_STUDENT_KEY, authority.studentId);
   sessionStorage.setItem(RELOAD_KEY, authority.studentId);
+  sessionStorage.setItem(`hh_authority_bootstrap:${authority.studentId}`, String(Date.now()));
+  localStorage.setItem(`hh_authority_version_synced:${authority.studentId}`, SHEET_RESUME_VERSION);
   window.HH_FIREBASE_PASSPORT_STATE = Object.freeze(next.firebaseAuthority);
   window.dispatchEvent(new CustomEvent("hh:passport-firebase-applied", { detail: next.firebaseAuthority }));
 
@@ -108,9 +163,9 @@ function applyAuthority(event) {
     return;
   }
 
+  document.getElementById("hh-sheet-login-status")?.remove();
+  document.documentElement.dataset.hhLoginBusy = "0";
   updateBadge(`Firebase • ${authority.studentId} • ${next.firebaseAuthority.currentZone}`, "ok");
-  // app.js loaded before this module. Reloading once makes it consume the Firebase-seeded state.
-  // On the ready pass, ask the existing UI to repaint without changing the student's state.
   try { window.HH?.go?.("student"); } catch (_) {}
 }
 
@@ -144,5 +199,7 @@ function updateBadge(text, kind = "info") {
 
 function showAuthorityError(event) {
   const detail = event.detail || {};
+  document.getElementById("hh-sheet-login-status")?.remove();
+  document.documentElement.dataset.hhLoginBusy = "0";
   updateBadge(`Firebase error: ${detail.error || "unknown"}`, "error");
 }
