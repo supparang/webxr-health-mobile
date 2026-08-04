@@ -1,4 +1,4 @@
-import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260804-firebase-login-direct-r59';
+import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260804-firebase-login-direct-r60';
 
 (() => {
   'use strict';
@@ -9,6 +9,7 @@ import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260804-fi
 
   const STATE_KEY = 'herohealth_learning_platform_rc2';
   const ACTIVE_KEY = 'herohealth_active_student_id';
+  const RELEASE = '20260804-FIREBASE-LOGIN-DIRECT-R60-REBUILD-PROGRESS';
   let busy = false;
 
   function readState() {
@@ -40,20 +41,69 @@ import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260804-fi
     };
   }
 
+  function truthyResult(result) {
+    return Boolean(result && (result.completed === true || result.passed === true || result.progressionEligible === true));
+  }
+
+  function rebuildProgress(remote = {}, existing = {}) {
+    const gameResults = remote.gameResults || {};
+    const raw = mergeNested(existing.gameCompleted || { hygiene: {}, nutrition: {}, fitness: {} }, remote.gameCompleted || {});
+
+    const aliases = {
+      handwash: ['handwash'],
+      toothbrush: ['toothbrush', 'brush'],
+      groups: ['groups', 'foodgroups', 'food-groups'],
+      goodjunk: ['goodjunk', 'good-junk'],
+      jumpduck: ['jumpduck', 'jump-duck'],
+      balance: ['balance', 'balancehold', 'balance-hold']
+    };
+    const zoneFor = { handwash: 'hygiene', toothbrush: 'hygiene', groups: 'nutrition', goodjunk: 'nutrition', jumpduck: 'fitness', balance: 'fitness' };
+
+    Object.entries(aliases).forEach(([canonical, ids]) => {
+      const zone = zoneFor[canonical];
+      raw[zone] = raw[zone] || {};
+      const fromMap = ids.some(id => raw?.[zone]?.[id] === true);
+      const fromResult = ids.some(id => truthyResult(gameResults[id]));
+      if (fromMap || fromResult) raw[zone][canonical] = true;
+    });
+
+    const assessmentPre = remote.pretestCompleted === true || remote.assessments?.pretest?.completed === true;
+    const assessmentPost = remote.posttestCompleted === true || remote.assessments?.posttest?.completed === true;
+    const completed = {
+      ...(existing.completed || {}),
+      pretest: assessmentPre,
+      hygiene: raw.hygiene?.handwash === true && raw.hygiene?.toothbrush === true,
+      nutrition: raw.nutrition?.groups === true && raw.nutrition?.goodjunk === true,
+      fitness: raw.fitness?.jumpduck === true && raw.fitness?.balance === true,
+      posttest: assessmentPost
+    };
+
+    return {
+      completed,
+      gameCompleted: raw,
+      pretestCompleted: assessmentPre,
+      posttestCompleted: assessmentPost,
+      gameScores: mergeNested(existing.gameScores || {}, Object.fromEntries(
+        Object.entries(gameResults).map(([id, result]) => [id, Number(result?.score || 0)])
+      )),
+      firebaseGameResults: mergeNested(existing.firebaseGameResults || {}, gameResults),
+      firebaseLastGame: remote.lastGame || existing.firebaseLastGame || null,
+      firebaseAssessments: mergeNested(existing.firebaseAssessments || {}, remote.assessments || {})
+    };
+  }
+
   function loginFormFrom(node) {
     const form = node?.closest?.('form');
     if (!form) return null;
     const input = form.querySelector('[name="studentId"], input[inputmode="numeric"], input');
-    if (!input) return null;
-    return { form, input };
+    return input ? { form, input } : null;
   }
 
   function isLoginButton(node) {
     const button = node?.closest?.('button');
     if (!button) return null;
     const text = String(button.textContent || '').replace(/\s+/g, ' ').trim();
-    if (!text.includes('ตรวจสอบ') && !text.includes('เข้าสู่ภารกิจ')) return null;
-    return loginFormFrom(button) ? button : null;
+    return (text.includes('ตรวจสอบ') || text.includes('เข้าสู่ภารกิจ')) && loginFormFrom(button) ? button : null;
   }
 
   function setStatus(button, text, disabled = true) {
@@ -66,73 +116,56 @@ import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260804-fi
     if (busy) return;
     const input = form.querySelector('[name="studentId"], input[inputmode="numeric"], input');
     const sid = String(input?.value || '').trim().replace(/\s+/g, '');
-    if (!sid) {
-      input?.focus();
-      return;
-    }
+    if (!sid) { input?.focus(); return; }
 
     busy = true;
-    setStatus(button, 'กำลังตรวจสอบจาก Firebase…', true);
+    setStatus(button, 'กำลังกู้ความคืบหน้าจาก Firebase…', true);
 
     try {
       const rosterResult = await HHFirebaseClient.readRoster(sid);
       if (!rosterResult?.ok) {
-        const message = rosterResult?.reason === 'student-not-found'
-          ? 'ไม่พบรหัสนี้ใน Firebase roster'
-          : rosterResult?.reason === 'student-inactive'
-            ? 'รหัสนี้ถูกปิดใช้งาน'
-            : 'ตรวจสอบรหัสจาก Firebase ไม่สำเร็จ';
-        throw new Error(message);
+        throw new Error(rosterResult?.reason === 'student-not-found' ? 'ไม่พบรหัสนี้ใน Firebase roster' : rosterResult?.reason === 'student-inactive' ? 'รหัสนี้ถูกปิดใช้งาน' : 'ตรวจสอบรหัสจาก Firebase ไม่สำเร็จ');
       }
 
+      await HHFirebaseClient.bindStudent(sid);
+      const loaded = await HHFirebaseClient.loadProgress(sid);
       const profile = normalizeRoster(rosterResult.roster || {}, sid);
       const current = readState();
-      let next = {
+      const recovered = loaded?.ok && loaded.exists && loaded.progress
+        ? rebuildProgress(loaded.progress, current)
+        : rebuildProgress({}, current);
+
+      const next = {
         ...current,
+        ...recovered,
         profile,
         pendingProfile: null,
         group: profile.group,
         view: 'student',
-        completed: current.completed || {
-          pretest: false, hygiene: false, nutrition: false,
-          fitness: false, posttest: false, reflection: false
-        },
-        gameCompleted: current.gameCompleted || { hygiene: {}, nutrition: {}, fitness: {} },
         firebaseAuthority: {
           mode: 'firebase',
-          uid: rosterResult.user?.uid || '',
+          uid: rosterResult.user?.uid || loaded?.user?.uid || '',
           studentId: sid,
           rosterPath: rosterResult.rosterPath || '',
-          loggedInAt: new Date().toISOString(),
-          release: '20260804-FIREBASE-LOGIN-DIRECT-R59'
+          progressPath: loaded?.path || '',
+          progressExists: loaded?.exists === true,
+          hydratedAt: new Date().toISOString(),
+          release: RELEASE
         }
       };
-
-      await HHFirebaseClient.bindStudent(sid);
-      const loaded = await HHFirebaseClient.loadProgress(sid);
-      if (loaded?.ok && loaded.exists && loaded.progress) {
-        const remote = loaded.progress;
-        const completed = { ...(next.completed || {}) };
-        if (remote.pretestCompleted === true) completed.pretest = true;
-        if (remote.posttestCompleted === true) completed.posttest = true;
-        next = {
-          ...next,
-          completed,
-          pretestCompleted: remote.pretestCompleted === true,
-          posttestCompleted: remote.posttestCompleted === true,
-          gameCompleted: mergeNested(next.gameCompleted, remote.gameCompleted || {}),
-          gameScores: mergeNested(next.gameScores || {}, Object.fromEntries(
-            Object.entries(remote.gameResults || {}).map(([id, result]) => [id, Number(result?.score || 0)])
-          )),
-          firebaseGameResults: mergeNested(next.firebaseGameResults || {}, remote.gameResults || {}),
-          firebaseLastGame: remote.lastGame || null
-        };
-      }
 
       localStorage.setItem(STATE_KEY, JSON.stringify(next));
       localStorage.setItem(ACTIVE_KEY, sid);
       localStorage.setItem('HH_AUTHORITY_MODE', 'firebase');
       sessionStorage.setItem('HH_AUTHORITY_MODE', 'firebase');
+
+      console.info('[HeroHealth Firebase Login R60] progress rebuilt', {
+        studentId: sid,
+        path: loaded?.path,
+        pretest: next.completed?.pretest,
+        gameCompleted: next.gameCompleted,
+        completed: next.completed
+      });
 
       const url = new URL(location.href);
       ['logout','logoutAt'].forEach(key => url.searchParams.delete(key));
@@ -141,11 +174,12 @@ import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260804-fi
       url.searchParams.set('sid', sid);
       url.searchParams.set('firebaseReady', '1');
       url.searchParams.set('firebaseLoginDirect', '1');
-      url.searchParams.set('v', '20260804-login-direct-r59');
+      url.searchParams.set('firebaseHydrated', String(Date.now()));
+      url.searchParams.set('v', '20260804-login-direct-r60');
       location.replace(url.href);
     } catch (error) {
-      console.error('[HeroHealth Firebase Login R59]', error);
-      alert(error?.message || 'ตรวจสอบรหัสจาก Firebase ไม่สำเร็จ');
+      console.error('[HeroHealth Firebase Login R60]', error);
+      alert(error?.message || 'กู้ความคืบหน้าจาก Firebase ไม่สำเร็จ');
       setStatus(button, 'ตรวจสอบและเข้าสู่ภารกิจ', false);
       busy = false;
     }
@@ -170,9 +204,8 @@ import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260804-fi
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
-    const button = info.form.querySelector('button[type="submit"], button.btn-primary');
-    directLogin(info.form, button);
+    directLogin(info.form, info.form.querySelector('button[type="submit"], button.btn-primary'));
   }, true);
 
-  console.info('[HeroHealth Firebase Login R59] direct mobile login bridge installed');
+  console.info('[HeroHealth Firebase Login R60] receipt-based progress recovery installed');
 })();
