@@ -1,18 +1,28 @@
 (()=>{
 'use strict';
-const VERSION='20260731-MOBILE-PASSPORT-PRODUCTION-V1.3-HIDE-RELEASE-LABEL';
+const VERSION='20260804-MOBILE-PASSPORT-PRODUCTION-V1.4-FIREBASE-AWARE';
 const KEY='herohealth_learning_platform_rc2';
 const C=window.HH_CONFIG||{};
 const R=window.HHRotation;
 if(!R)return;
 
 function read(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return{}}}
+function authorityMode(){
+  const q=String(new URLSearchParams(location.search).get('authority')||'').toLowerCase();
+  return q||String(window.HH_AUTHORITY_MODE||localStorage.getItem('HH_AUTHORITY_MODE')||'firebase').toLowerCase();
+}
+function isFirebase(){return authorityMode()==='firebase'||authorityMode()==='dual'}
 function gameMeta(step){
   if(!step||step.type!=='game')return null;
   return C.zones?.find(z=>z.id===step.zoneId)?.games?.find(g=>g.id===step.gameId)||null;
 }
 function syncStatus(s){
-  if(navigator.onLine===false||s?.offlineAuthority===true)return{key:'offline',text:'ออฟไลน์ — รอเชื่อมต่อ Google Sheet'};
+  if(navigator.onLine===false)return{key:'offline',text:'ออฟไลน์ — รอเชื่อมต่ออินเทอร์เน็ต'};
+  if(isFirebase()){
+    const ready=Boolean(s?.firebaseAuthority?.studentId||s?.profile?.firebaseAuthority===true||s?.firebaseAuthority===true);
+    return ready?{key:'ok',text:'✓ ซิงก์กับ Firebase แล้ว'}:{key:'pending',text:'กำลังตรวจสอบ Firebase…'};
+  }
+  if(s?.offlineAuthority===true)return{key:'offline',text:'ออฟไลน์ — รอเชื่อมต่อ Google Sheet'};
   if(s?.sheetAuthority===true)return{key:'ok',text:'✓ ซิงก์กับ Google Sheet แล้ว'};
   return{key:'pending',text:'กำลังตรวจสอบ Google Sheet…'};
 }
@@ -29,23 +39,29 @@ function actionFor(s){
   return{next:'certificate',label:'ดูผลสำเร็จ',run:()=>window.HH?.openRoute?.('certificate')};
 }
 function gateFor(s,action){
-  const offline=navigator.onLine===false||s?.offlineAuthority===true;
+  if(navigator.onLine===false)return{ready:false,text:'ออฟไลน์ — รอเชื่อมต่ออินเทอร์เน็ต'};
+  if(isFirebase()){
+    const profileReady=Boolean(s?.profile?.studentId);
+    const firebaseReady=Boolean(
+      s?.firebaseAuthority?.studentId||
+      s?.profile?.firebaseAuthority===true||
+      s?.firebaseAuthority===true||
+      new URLSearchParams(location.search).get('firebaseReady')==='1'
+    );
+    if(action.next==='pretest')return profileReady?{ready:true,text:''}:{ready:false,text:'กำลังยืนยันรหัสกับ Firebase…'};
+    return firebaseReady?{ready:true,text:''}:{ready:false,text:'กำลังโหลดความคืบหน้าจาก Firebase…'};
+  }
+  const offline=s?.offlineAuthority===true;
   if(offline)return{ready:false,text:'ออฟไลน์ — รอเชื่อมต่อ Sheet'};
-  // Pre-test เริ่มได้หลังรหัสผ่านการตรวจจาก HH_Profiles แล้ว
   if(action.next==='pretest'){
     const profileVerified=s?.profile?.sheetAuthority===true||s?.sheetAuthority===true;
     return profileVerified?{ready:true,text:''}:{ready:false,text:'กำลังยืนยันรหัสกับ Sheet…'};
   }
-  // เกม/Post-test/Reflection/Certificate ต้องมี progress authority จาก Sheet
   return s?.sheetAuthority===true?{ready:true,text:''}:{ready:false,text:'กำลังตรวจสอบความคืบหน้าจาก Sheet…'};
 }
 function hideStudentReleaseLabel(){
   const releaseLabel=document.querySelector('.topbar .brand .small.muted');
-  if(releaseLabel){
-    releaseLabel.hidden=true;
-    releaseLabel.setAttribute('aria-hidden','true');
-    releaseLabel.style.display='none';
-  }
+  if(releaseLabel){releaseLabel.hidden=true;releaseLabel.setAttribute('aria-hidden','true');releaseLabel.style.display='none'}
 }
 function ensureSyncIndicator(s){
   const passport=document.querySelector('.hero-card .passport>div:last-child');
@@ -100,7 +116,7 @@ function patch(){
     return;
   }
   ensureSyncIndicator(s);ensureMobileCta(s);
-  document.documentElement.dataset.hhMobilePassport='V1-3';
+  document.documentElement.dataset.hhMobilePassport='V1-4-FIREBASE';
 }
 let queued=false;
 function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;patch()})}
@@ -111,7 +127,6 @@ addEventListener('DOMContentLoaded',()=>{
 });
 addEventListener('storage',e=>{if(e.key===KEY)schedule()});
 addEventListener('online',schedule);addEventListener('offline',schedule);
-// Same-tab localStorage writes do not emit a storage event. Poll lightly for authority completion.
 setInterval(schedule,1500);
 window.HHMobilePassportProduction={patch,gateFor,version:VERSION};
 })();
