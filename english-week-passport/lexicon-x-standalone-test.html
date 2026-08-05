@@ -11,7 +11,7 @@ body:has(#grid){--top-h:48px}.app:has(#grid) .top{padding:1px 0}.app:has(#grid) 
 @media(max-height:700px){:root{--top-h:44px}.hud{height:56px}.instruction{height:40px;font-size:.72rem}.feedback{height:22px}.grid{height:calc(100% - 128px);gap:4px}.card{border-radius:10px}.back{font-size:.68rem}.front{font-size:.66rem}}
 </style>
 </head>
-<body><div class="app"><header class="top"><button id="back" class="icon" type="button" aria-label="กลับ Test Hub">←</button><div class="brand"><strong>LEXICON X</strong><small><span class="test-badge">STANDALONE TEST</span> • Full-Screen V2</small></div><button id="exit" class="icon" type="button" aria-label="กลับ Test Hub">⌂</button></header><main id="screen" class="screen"></main></div>
+<body><div class="app"><header class="top"><button id="back" class="icon" type="button" aria-label="กลับ Test Hub">←</button><div class="brand"><strong>LEXICON X</strong><small><span class="test-badge">STANDALONE TEST</span> • Gesture-Gated V6.1</small></div><button id="exit" class="icon" type="button" aria-label="กลับ Test Hub">⌂</button></header><main id="screen" class="screen"></main></div>
 <script src="./config.js?v=20260803-rotation2"></script>
 <script src="./passport-rotation-v2.js?v=20260803-rotation2"></script>
 <script>
@@ -19,7 +19,7 @@ body:has(#grid){--top-h:48px}.app:has(#grid) .top{padding:1px 0}.app:has(#grid) 
   "use strict";
   const key=window.EW_CONFIG?.cacheKeys?.identity||"ew_identity";
   try{localStorage.setItem(key,JSON.stringify({playerId:"TEST-LEXICON",nickname:"Mobile QA",fullName:"Mobile QA"}));}catch(_){}
-  const HUB="./game-test-hub.html?v=20260805-fullscreen2";
+  const HUB="./game-test-hub.html?v=20260805-gated61";
   let pointerAt=0;
   document.addEventListener("pointerup",event=>{
     const id=event.target?.closest?.("button")?.id||"";
@@ -35,14 +35,7 @@ body:has(#grid){--top-h:48px}.app:has(#grid) .top{padding:1px 0}.app:has(#grid) 
     }
     if(performance.now()-pointerAt<650){event.preventDefault();event.stopImmediatePropagation();}
   },true);
-  const clarify=()=>{
-    const instruction=document.getElementById("instruction");
-    if(instruction&&!/กำลังเปิด|MATCH|ตรงกัน|เปิดใบแรก/i.test(instruction.textContent||"")){
-      instruction.textContent="ปัดบนกระดาน 1 ครั้ง = ย้าย 1 ใบ • หยุดที่กรอบเหลืองแล้วเปิดเอง";
-    }
-  };
-  setInterval(clarify,700);
 }());
 </script>
-<script src="./lexicon-x-engine-v6.js?v=20260805-fullscreen2"></script>
+<script src="./lexicon-x-engine-v6.js?v=20260805-gated61"></script>
 </body></html>
