@@ -11,7 +11,7 @@
 <iframe id="proxy" title="เกม Balance Hold" allow="camera;microphone;fullscreen;autoplay"></iframe>
 <script>
 (()=>{'use strict';
-const RELEASE='20260731-BALANCE-ANALYTICS-V50-1-STABILITY';
+const RELEASE='20260805-BALANCE-ANALYTICS-V50-2-FIREBASE-RETURN-RESCUE';
 const q=new URLSearchParams(location.search);
 const proxy=document.getElementById('proxy');
 const target=new URL('./balance-hold-classroom-analytics-v49.html',location.href);
@@ -21,8 +21,6 @@ target.searchParams.set('_',Date.now());
 proxy.src=target.href;
 
 let injectTimer=0;
-let injected=false;
-let scriptRequested=false;
 let completionForwarded=false;
 function deepestGameWindow(){
  try{
@@ -31,33 +29,42 @@ function deepestGameWindow(){
   return gameFrame?.contentWindow||null;
  }catch(_){return null}
 }
-function injectFinishGate(){
+function injectScript(gameWindow,selector,src,datasetKey){
+ if(!gameWindow?.document)return false;
+ if(gameWindow.document.querySelector(selector))return true;
+ const script=gameWindow.document.createElement('script');
+ script.src=new URL(src,gameWindow.location.href).href;
+ script.async=false;
+ script.dataset[datasetKey]='1';
+ script.onload=()=>console.info('[Balance V50.2] injected',src);
+ script.onerror=()=>console.error('[Balance V50.2] injection failed',src);
+ (gameWindow.document.head||gameWindow.document.documentElement).appendChild(script);
+ return false;
+}
+function injectRuntimePatches(){
  const gameWindow=deepestGameWindow();
  if(!gameWindow||!gameWindow.document)return false;
- if(gameWindow.BH_FINAL_POSE_DIRECT_FINISH){injected=true;return true}
- const existing=gameWindow.document.querySelector('script[data-bh-finish-v50]');
- if(existing){scriptRequested=true;return false}
- if(scriptRequested)return false;
- scriptRequested=true;
- const script=gameWindow.document.createElement('script');
- script.src=new URL('./bh-final-pose-finish-v50.js?v=20260731-v50-1-stability',gameWindow.location.href).href;
- script.async=false;
- script.dataset.bhFinishV50='1';
- script.onload=()=>{injected=true;console.info('[Balance V50.1] direct finish gate injected')};
- script.onerror=()=>{scriptRequested=false;console.error('[Balance V50.1] direct finish gate load failed')};
- (gameWindow.document.head||gameWindow.document.documentElement).appendChild(script);
- return true;
+ const finishReady=!!gameWindow.BH_FINAL_POSE_DIRECT_FINISH||injectScript(
+  gameWindow,
+  'script[data-bh-finish-v50]',
+  './bh-final-pose-finish-v50.js?v=20260805-v50-2',
+  'bhFinishV50'
+ );
+ const returnReady=!!gameWindow.__BH_FIREBASE_PASSPORT_RETURN_RESCUE_V54__||injectScript(
+  gameWindow,
+  'script[data-bh-return-v54]',
+  './bh-firebase-passport-return-rescue-v54.js?v=20260805-v54',
+  'bhReturnV54'
+ );
+ return finishReady&&returnReady;
 }
 proxy.addEventListener('load',()=>{
  clearInterval(injectTimer);
- injected=false;
- scriptRequested=false;
  completionForwarded=false;
  let attempts=0;
  injectTimer=setInterval(()=>{
   attempts++;
-  if(injectFinishGate()&&injected){clearInterval(injectTimer);return}
-  if(attempts>200)clearInterval(injectTimer);
+  if(injectRuntimePatches()||attempts>240)clearInterval(injectTimer);
  },100);
 });
 addEventListener('message',event=>{
@@ -74,8 +81,8 @@ addEventListener('message',event=>{
  }
 });
 addEventListener('pagehide',()=>clearInterval(injectTimer),{once:true});
-window.HH_BALANCE_ANALYTICS_V50={release:RELEASE,injectFinishGate,deepestGameWindow};
-console.info('[Balance Hold] Analytics V50.1 wrapper ready',RELEASE);
+window.HH_BALANCE_ANALYTICS_V50={release:RELEASE,injectRuntimePatches,deepestGameWindow};
+console.info('[Balance Hold] Analytics V50.2 wrapper ready',RELEASE);
 })();
 </script>
 </body>
