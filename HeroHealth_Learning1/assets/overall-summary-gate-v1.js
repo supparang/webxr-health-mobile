@@ -3,10 +3,31 @@
 
   const KEY = 'herohealth_learning_platform_rc2';
   const SUMMARY_ROUTE = './game-summary.html';
+  const RELEASE = '20260805-OVERALL-SUMMARY-GATE-FIREBASE-BYPASS-R2';
 
   function readState() {
     try { return JSON.parse(localStorage.getItem(KEY) || '{}'); }
     catch (_) { return {}; }
+  }
+
+  function authorityMode() {
+    const query = new URLSearchParams(location.search);
+    const explicit = String(query.get('authority') || '').toLowerCase();
+    if (explicit) return explicit;
+    try {
+      const stored = String(localStorage.getItem('HH_AUTHORITY_MODE') || sessionStorage.getItem('HH_AUTHORITY_MODE') || '').toLowerCase();
+      if (stored) return stored;
+    } catch (_) {}
+    const state = readState();
+    return String(state?.firebaseAuthority?.mode || state?.authorityMode || '').toLowerCase();
+  }
+
+  // Firebase Passport owns its own completion hydration and Post-test gate.
+  // The legacy summary page is Sheet-authoritative and must never intercept
+  // a Firebase session, otherwise the learner is sent to Google Sheet loading.
+  if (['firebase', 'dual'].includes(authorityMode())) {
+    console.info('[HeroHealth] Legacy Sheet summary gate bypassed for Firebase', RELEASE);
+    return;
   }
 
   function allZonesComplete(state) {
