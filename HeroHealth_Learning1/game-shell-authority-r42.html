@@ -13,7 +13,7 @@ html,body{margin:0;width:100%;height:100%;background:#03131d;color:#fff;font-fam
 <div class="center"><div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังเชื่อมต่อ Firebase Learning Analytics กรุณารอสักครู่</small></div></div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260805-GAME-SHELL-R45-ISOLATED-GAME-TEST';
+const RELEASE='20260805-GAME-SHELL-R46-FORCE-FIREBASE-REHYDRATE';
 const shellQuery=new URLSearchParams(location.search);
 const firebaseMode=String(shellQuery.get('authority')||'').toLowerCase()==='firebase';
 const gameTestMode=String(shellQuery.get('gameTestMode')||'')==='1'||String(shellQuery.get('mode')||'').toLowerCase()==='game-test';
@@ -27,7 +27,34 @@ if(!firebaseMode){
 }
 
 const target=String(shellQuery.get('target')||'').trim();
-const back=String(shellQuery.get('return')||shellQuery.get('back')||(gameTestMode?'./game-test-mode.html':'./index.html')).trim();
+const rawBack=String(shellQuery.get('return')||shellQuery.get('back')||(gameTestMode?'./game-test-mode.html':'./index.html')).trim();
+function sanitizeFirebaseReturn(raw){
+  const u=new URL(raw,location.href);
+  for(const key of [
+    'logout','logoutAt','logoutNonce','firebaseHydratedR71','firebaseHydrated',
+    'firebaseProgressApplied','pendingGameSync','gameSync','firebaseAssessmentReceipt'
+  ])u.searchParams.delete(key);
+  const sid=String(shellQuery.get('studentId')||shellQuery.get('sid')||shellQuery.get('pid')||'').trim();
+  if(sid){u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid)}
+  for(const key of ['fullName','studentName','name','section','group','firebaseUid']){
+    const value=shellQuery.get(key);if(value)u.searchParams.set(key,value);
+  }
+  u.searchParams.set('authority','firebase');
+  u.searchParams.set('firebaseReady','1');
+  u.searchParams.set('authorityRefresh',String(Date.now()));
+  u.searchParams.set('returnSessionPolicy','force-firebase-rehydrate-r46');
+  return u.href;
+}
+const back=sanitizeFirebaseReturn(rawBack);
+shellQuery.set('return',back);
+shellQuery.set('back',back);
+shellQuery.set('shellVersion',RELEASE);
+try{
+  const shellUrl=new URL(location.href);
+  shellUrl.search=shellQuery.toString();
+  history.replaceState(history.state,'',shellUrl.href);
+}catch(_){}
+
 if(!target){
   document.body.innerHTML='<div class="center"><div class="loading"><b>ไม่พบเส้นทางเกม</b><small>กรุณากลับแล้วเปิดภารกิจใหม่</small></div></div>';
   return;
@@ -70,14 +97,14 @@ function loadScript(src){
     document.getElementById('receiptStatus').textContent=gameTestMode?'พร้อมทดสอบ • ไม่กระทบ Progress':'พร้อมเล่นเกม • Analytics เปิดแล้ว';
     document.getElementById('game').src=targetUrl.href;
   }catch(error){
-    console.error('[Game Shell R45]',error);
+    console.error('[Game Shell R46]',error);
     document.getElementById('receiptStatus').textContent='โหลด Firebase Learning Analytics ไม่สำเร็จ';
     backButton.textContent=gameTestMode?'กลับหน้าเลือกเกม':'กลับ Passport';
   }
 })();
 
-window.HH_GAME_SHELL_R45={release:RELEASE,authority:'firebase',firebaseExclusive:true,gameTestMode,affectsProgression:!gameTestMode,learningAnalyticsSchema:gameTestMode?'HH-GAME-TEST-ANALYTICS-V1':'HH-LEARNING-ANALYTICS-V1'};
-console.info('[Game Shell R45] installed',{gameTestMode,gameId:shellQuery.get('gameId'),target:targetUrl.href});
+window.HH_GAME_SHELL_R46={release:RELEASE,authority:'firebase',firebaseExclusive:true,gameTestMode,affectsProgression:!gameTestMode,learningAnalyticsSchema:gameTestMode?'HH-GAME-TEST-ANALYTICS-V1':'HH-LEARNING-ANALYTICS-V1',returnSessionPolicy:'force-firebase-rehydrate'};
+console.info('[Game Shell R46] installed',{gameTestMode,gameId:shellQuery.get('gameId'),target:targetUrl.href,back});
 })();
 </script>
 </body>
