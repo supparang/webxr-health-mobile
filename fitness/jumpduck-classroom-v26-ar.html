@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0f766e">
-  <title>JumpDuck Dash Production v6.3 Final Closeout</title>
+  <title>JumpDuck Dash Production v7.2 Core Canvas Reset</title>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js" crossorigin="anonymous"></script>
-  <script src="../HeroHealth_Learning1/data/backend-config.js?v=20260731-jumpduck-prod63-final-closeout"></script>
+  <script src="../HeroHealth_Learning1/data/backend-config.js?v=20260805-jumpduck-core-canvas-v72"></script>
   <link rel="stylesheet" href="./jumpduck-classroom-v35.css?v=20260729-result-polish-v38">
   <link rel="stylesheet" href="./jumpduck-result-layout-v58.css?v=20260731-compact-result-v58">
 </head>
 <body>
-<div style="position:fixed;z-index:9998;right:8px;top:calc(8px + env(safe-area-inset-top));padding:5px 10px;border-radius:999px;background:#0f172dcc;color:#fff;font:900 11px system-ui;pointer-events:none">JD v6.3</div>
-<section id="intro" class="screen"><div class="card"><div class="logo">🦆⚡</div><span class="badge">PRODUCTION FINAL • JUMPDUCK CLOSED</span><h1>JumpDuck Dash</h1><p class="muted">ตรวจจับตำแหน่งไหล่และสะโพกจริงด้วย MoveNet ตลอดทั้งรอบ</p><p class="muted">เวอร์ชันปิดงาน: ควบคุมซ้าย–ขวาง่ายขึ้น วัตถุหายทันทีหลังตัดสินผล ตัวเป็ดและฉากมีเอฟเฟกต์แบบเบา พร้อมหน้าสรุปตามผลงานจริง</p><button id="start" class="primary">▶ เริ่มเกม</button><div id="startStatus" class="status">รอบละ 50 วินาที • ยืนให้เห็นตั้งแต่ศีรษะถึงสะโพก</div></div></section>
+<div style="position:fixed;z-index:9998;right:8px;top:calc(8px + env(safe-area-inset-top));padding:5px 10px;border-radius:999px;background:#0f172dcc;color:#fff;font:900 11px system-ui;pointer-events:none">JD v7.2</div>
+<section id="intro" class="screen"><div class="card"><div class="logo">🦆⚡</div><span class="badge">CORE CANVAS RESET • STABLE RENDERER</span><h1>JumpDuck Dash</h1><p class="muted">ตรวจจับตำแหน่งไหล่และสะโพกจริงด้วย MoveNet ตลอดทั้งรอบ</p><p class="muted">ถนน เลน เป็ด อาหาร และสิ่งกีดขวางวาดใน canvas หลักเพียงใบเดียว เพื่อความเสถียรบนมือถือ</p><button id="start" class="primary">▶ เริ่มเกม</button><div id="startStatus" class="status">รอบละ 50 วินาที • ยืนให้เห็นตั้งแต่ศีรษะถึงสะโพก</div></div></section>
 <section id="countdown" class="screen hidden"><div class="card"><div class="count" id="count">3</div><h2>กำลังปรับตำแหน่งร่างกาย</h2><p class="muted">ยืนตรงกลาง ให้เห็นไหล่และสะโพกทั้งสองข้าง แล้วอย่าขยับระหว่างนับถอยหลัง</p></div></section>
 <main id="game" class="game hidden"><canvas id="world"></canvas><div class="hud"><div class="pill">⭐ <span id="score">0</span> • x<span id="multi">1</span></div><div class="pill">🔥 Combo <span id="combo">0</span></div><div class="pill">⏱️ <span id="time">50</span>s</div></div><div class="mission"><span id="missionText">MISSION 1 • เก็บอาหารดี</span> <b><span id="missionNow">0</span>/<span id="missionGoal">5</span></b><div class="bar"><i id="missionBar"></i></div></div><div id="warning" class="warning"></div><div id="toast" class="toast"></div><div id="poseText" class="pose">กำลังโหลด MoveNet…</div><div class="camera"><video id="video" autoplay muted playsinline></video><canvas id="poseCanvas"></canvas></div></main>
 <button id="finishRoundBtn" class="hidden" type="button" style="position:fixed;z-index:9999;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(88vw,420px);min-height:60px;border:0;border-radius:20px;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;font:900 20px system-ui;box-shadow:0 8px 0 #c2410c,0 12px 30px #0007;touch-action:manipulation;pointer-events:auto">จบรอบและดูผล</button>
@@ -23,17 +23,22 @@
 <script src="./jumpduck-calibration-camera-hold-v53.js?v=20260730-camera-hold-v54"></script>
 <script src="./jumpduck-calibration-visible-v52.js?v=20260730-real-camera-calibration-v52"></script>
 <script src="./jumpduck-calibration-mobile-rescue-v64.js?v=20260805-mobile-calibration-rescue-v64"></script>
-<script src="./jumpduck-classroom-v50.js?v=20260805-core-renderer-restore-v71"></script>
-<script src="./jumpduck-visual-polish-v56.js?v=20260805-core-renderer-safe-v71"></script>
-<script src="./jumpduck-lane-visibility-v65.js?v=20260805-line-only-lanes-v71"></script>
+<script src="./jumpduck-classroom-v50.js?v=20260805-core-canvas-reset-v72"></script>
 <script src="./jumpduck-result-final-v63.js?v=20260731-final-result-closeout-v63"></script>
 <script>
 (()=>{'use strict';
+ const testQuery=new URLSearchParams(location.search);
+ const testMode=testQuery.get('gameTestMode')==='1'||testQuery.get('mode')==='game-test'||testQuery.get('isTestAttempt')==='true';
  const btn=document.getElementById('passportBtn');
  if(!btn)return;
+ if(testMode){
+  btn.textContent='← กลับหน้าเลือกเกม';
+  const note=document.querySelector('#result .result-note');
+  if(note)note.textContent='ผลรอบนี้บันทึกเป็น Test Attempt และไม่กระทบ Progress หลัก';
+ }
  btn.addEventListener('click',()=>{
   btn.disabled=true;
-  btn.textContent='กำลังกลับ Passport…';
+  btn.textContent=testMode?'กำลังกลับหน้าเลือกเกม…':'กำลังกลับ Passport…';
   if(window.parent!==window){
    try{
     const returnBtn=parent.document.getElementById('returnBtn');
@@ -45,7 +50,8 @@
    }catch(_){ }
   }
   const q=new URLSearchParams(location.search);
-  const target=q.get('return')||q.get('back')||'../HeroHealth_Learning1/index.html';
+  const fallback=testMode?'../HeroHealth_Learning1/game-test-mode.html':'../HeroHealth_Learning1/index.html';
+  const target=q.get('return')||q.get('back')||fallback;
   const u=new URL(target,location.href);
   const carry=['studentId','sid','fullName','studentName','section','group'];
   carry.forEach(k=>{const v=q.get(k);if(v)u.searchParams.set(k,v)});
