@@ -1,7 +1,7 @@
 (function(){
   "use strict";
   const engine=document.createElement("script");
-  engine.src="./lexicon-x-engine-v5.js?v=20260804-playable6-core";
+  engine.src="./lexicon-x-engine-v5.js?v=20260805-buttons7-core";
   engine.async=false;
   engine.onerror=()=>{
     const screen=document.getElementById("screen");
@@ -9,8 +9,9 @@
   };
   engine.onload=()=>{
     const polish=document.createElement("script");
-    polish.src="./lexicon-x-polish-v6.js?v=20260804-playable6";
+    polish.src="./lexicon-x-polish-v7.js?v=20260805-buttons7";
     polish.async=false;
+    polish.onerror=()=>console.warn("LEXICON X polish v7 failed; core game remains available");
     document.body.appendChild(polish);
   };
   document.body.appendChild(engine);
