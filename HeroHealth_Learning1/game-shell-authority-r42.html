@@ -6,16 +6,17 @@
 <meta name="theme-color" content="#082f49">
 <title>HeroHealth Classroom Game</title>
 <style>
-html,body{margin:0;width:100%;height:100%;background:#03131d;color:#fff;font-family:system-ui,sans-serif}.loading{max-width:88vw;padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.center{width:100%;height:100%;display:grid;place-items:center}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}.loading button{margin-top:14px;padding:12px 18px;border:0;border-radius:12px;font:inherit;font-weight:900}.firebase-shell{display:grid;grid-template-rows:auto 1fr;width:100%;height:100%;overflow:hidden}.firebase-bar{display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 12px;background:#0f766e;font-weight:900}.firebase-bar button{padding:9px 13px;border:1px solid #ffffff55;border-radius:11px;background:#ffffff18;color:#fff;font:inherit;font-weight:900}.firebase-bar button:disabled{opacity:.65}.firebase-bar #receiptStatus{margin-left:auto;text-align:right;font-size:13px}.firebase-shell iframe{width:100%;height:100%;border:0;background:#000}
+html,body{margin:0;width:100%;height:100%;background:#03131d;color:#fff;font-family:system-ui,sans-serif}.loading{max-width:88vw;padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.center{width:100%;height:100%;display:grid;place-items:center}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}.loading button{margin-top:14px;padding:12px 18px;border:0;border-radius:12px;font:inherit;font-weight:900}.firebase-shell{display:grid;grid-template-rows:auto 1fr;width:100%;height:100%;overflow:hidden}.firebase-bar{display:flex;align-items:center;gap:12px;min-height:48px;padding:8px 12px;background:#0f766e;font-weight:900}.firebase-bar.test{background:#92400e}.firebase-bar button{padding:9px 13px;border:1px solid #ffffff55;border-radius:11px;background:#ffffff18;color:#fff;font:inherit;font-weight:900}.firebase-bar button:disabled{opacity:.65}.firebase-bar #receiptStatus{margin-left:auto;text-align:right;font-size:13px}.firebase-shell iframe{width:100%;height:100%;border:0;background:#000}
 </style>
 </head>
 <body>
 <div class="center"><div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังเชื่อมต่อ Firebase Learning Analytics กรุณารอสักครู่</small></div></div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260805-GAME-SHELL-R44-FIREBASE-LEARNING-ANALYTICS';
+const RELEASE='20260805-GAME-SHELL-R45-ISOLATED-GAME-TEST';
 const shellQuery=new URLSearchParams(location.search);
 const firebaseMode=String(shellQuery.get('authority')||'').toLowerCase()==='firebase';
+const gameTestMode=String(shellQuery.get('gameTestMode')||'')==='1'||String(shellQuery.get('mode')||'').toLowerCase()==='game-test';
 
 if(!firebaseMode){
   const legacy=new URL('./game-shell-authority-r40.html',location.href);
@@ -26,24 +27,25 @@ if(!firebaseMode){
 }
 
 const target=String(shellQuery.get('target')||'').trim();
-const back=String(shellQuery.get('return')||'./index.html').trim();
+const back=String(shellQuery.get('return')||shellQuery.get('back')||(gameTestMode?'./game-test-mode.html':'./index.html')).trim();
 if(!target){
-  document.body.innerHTML='<div class="center"><div class="loading"><b>ไม่พบเส้นทางเกม</b><small>กรุณากลับ Passport แล้วเปิดภารกิจใหม่</small></div></div>';
+  document.body.innerHTML='<div class="center"><div class="loading"><b>ไม่พบเส้นทางเกม</b><small>กรุณากลับแล้วเปิดภารกิจใหม่</small></div></div>';
   return;
 }
 
 const targetUrl=new URL(target,location.href);
-for(const key of ['authority','studentId','sid','pid','fullName','studentName','name','section','group','firebaseUid','gameId','zone','studyId','conditionGroup','phase','difficulty']){
+for(const key of ['authority','studentId','sid','pid','fullName','studentName','name','section','group','firebaseUid','gameId','zone','studyId','conditionGroup','phase','difficulty','mode','gameTestMode','isTestAttempt','affectsProgression','testRunId']){
   const value=shellQuery.get(key);
   if(value)targetUrl.searchParams.set(key,value);
 }
 targetUrl.searchParams.set('authority','firebase');
 targetUrl.searchParams.set('return',back);
+targetUrl.searchParams.set('back',back);
 targetUrl.searchParams.set('firebaseShellVersion',RELEASE);
 targetUrl.searchParams.set('_',Date.now());
 
-document.body.innerHTML='<main class="firebase-shell"><header class="firebase-bar"><button id="back">← กลับ Passport</button><span id="gameTitle"></span><span id="receiptStatus">กำลังเตรียม Learning Analytics</span></header><iframe id="game" allow="camera; microphone; accelerometer; gyroscope; autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></main>';
-document.getElementById('gameTitle').textContent=shellQuery.get('title')||'HeroHealth';
+document.body.innerHTML='<main class="firebase-shell"><header class="firebase-bar'+(gameTestMode?' test':'')+'"><button id="back">← '+(gameTestMode?'กลับหน้าเลือกเกม':'กลับ Passport')+'</button><span id="gameTitle"></span><span id="receiptStatus">กำลังเตรียม Learning Analytics</span></header><iframe id="game" allow="camera; microphone; accelerometer; gyroscope; autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></main>';
+document.getElementById('gameTitle').textContent=(shellQuery.get('title')||'HeroHealth')+(gameTestMode?' • TEST MODE':'');
 const backButton=document.getElementById('back');
 backButton.onclick=()=>location.replace(back);
 
@@ -57,21 +59,25 @@ function loadScript(src){
 
 (async()=>{
   try{
-    await loadScript('./assets/firebase-game-receipt-bridge-r1.js?v=20260805-r4-learning-analytics');
+    if(gameTestMode){
+      await loadScript('./assets/firebase-game-test-analytics-r1.js?v=20260805-r1');
+    }else{
+      await loadScript('./assets/firebase-game-receipt-bridge-r1.js?v=20260805-r4-learning-analytics');
+    }
     if(String(shellQuery.get('gameId')||'').toLowerCase().includes('goodjunk')||targetUrl.href.toLowerCase().includes('goodjunk')){
       await loadScript('./assets/goodjunk-firebase-completion-patch-r3.js?v=20260805-r3');
     }
-    document.getElementById('receiptStatus').textContent='พร้อมเล่นเกม • Analytics เปิดแล้ว';
+    document.getElementById('receiptStatus').textContent=gameTestMode?'พร้อมทดสอบ • ไม่กระทบ Progress':'พร้อมเล่นเกม • Analytics เปิดแล้ว';
     document.getElementById('game').src=targetUrl.href;
   }catch(error){
-    console.error('[Game Shell R44]',error);
+    console.error('[Game Shell R45]',error);
     document.getElementById('receiptStatus').textContent='โหลด Firebase Learning Analytics ไม่สำเร็จ';
-    backButton.textContent='กลับ Passport';
+    backButton.textContent=gameTestMode?'กลับหน้าเลือกเกม':'กลับ Passport';
   }
 })();
 
-window.HH_GAME_SHELL_R44={release:RELEASE,authority:'firebase',firebaseExclusive:true,sharedReceiptBridge:true,learningAnalyticsSchema:'HH-LEARNING-ANALYTICS-V1'};
-console.info('[Game Shell R44] Firebase Learning Analytics installed',{gameId:shellQuery.get('gameId'),target:targetUrl.href});
+window.HH_GAME_SHELL_R45={release:RELEASE,authority:'firebase',firebaseExclusive:true,gameTestMode,affectsProgression:!gameTestMode,learningAnalyticsSchema:gameTestMode?'HH-GAME-TEST-ANALYTICS-V1':'HH-LEARNING-ANALYTICS-V1'};
+console.info('[Game Shell R45] installed',{gameTestMode,gameId:shellQuery.get('gameId'),target:targetUrl.href});
 })();
 </script>
 </body>
