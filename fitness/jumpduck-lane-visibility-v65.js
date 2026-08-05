@@ -1,15 +1,15 @@
 (()=>{'use strict';
-if(window.__JUMPDUCK_LANE_VISIBILITY_V68__)return;
-window.__JUMPDUCK_LANE_VISIBILITY_V68__=true;
+if(window.__JUMPDUCK_LANE_VISIBILITY_V69__)return;
+window.__JUMPDUCK_LANE_VISIBILITY_V69__=true;
 
-const OVERLAY_ID='jdLaneOverlayV68';
-const STYLE_ID='jdLaneOverlayStyleV68';
+const OVERLAY_ID='jdLaneOverlayV69';
+const STYLE_ID='jdLaneOverlayStyleV69';
 const query=new URLSearchParams(location.search);
 const testMode=query.get('gameTestMode')==='1'||query.get('mode')==='game-test'||query.get('isTestAttempt')==='true';
 
 function installStyle(){
  if(document.getElementById(STYLE_ID))return;
- ['jdLaneOverlayStyleV65','jdLaneOverlayStyleV66','jdLaneOverlayStyleV67'].forEach(id=>document.getElementById(id)?.remove());
+ ['jdLaneOverlayStyleV65','jdLaneOverlayStyleV66','jdLaneOverlayStyleV67','jdLaneOverlayStyleV68'].forEach(id=>document.getElementById(id)?.remove());
  const style=document.createElement('style');
  style.id=STYLE_ID;
  style.textContent=`
@@ -18,12 +18,12 @@ function installStyle(){
  #game{isolation:isolate!important;background:#06121d!important}
  #world{position:absolute!important;inset:0!important;z-index:1!important}
  #${OVERLAY_ID}{position:absolute!important;inset:0!important;z-index:12!important;pointer-events:none!important;overflow:hidden!important}
- #${OVERLAY_ID} svg{position:absolute;inset:0;width:100%;height:100%;display:block}
- #${OVERLAY_ID} .road{fill:url(#jdRoadGradient68);stroke:#facc15;stroke-width:2.4;vector-effect:non-scaling-stroke}
- #${OVERLAY_ID} .divider{fill:none;stroke:#fff;stroke-width:4;stroke-dasharray:17 13;stroke-linecap:round;vector-effect:non-scaling-stroke}
+ #${OVERLAY_ID} svg{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none!important}
+ #${OVERLAY_ID} .road{fill:url(#jdRoadGradient69);stroke:#facc15;stroke-width:2.4;vector-effect:non-scaling-stroke}
+ #${OVERLAY_ID} .divider{fill:none;stroke:rgba(255,255,255,.92);stroke-width:4;stroke-dasharray:17 13;stroke-linecap:round;vector-effect:non-scaling-stroke}
  #${OVERLAY_ID} .edge{fill:none;stroke:#facc15;stroke-width:4.5;vector-effect:non-scaling-stroke}
- #${OVERLAY_ID} .labels{position:absolute;left:4%;right:4%;bottom:9%;display:grid;grid-template-columns:repeat(3,1fr);text-align:center;font:900 12px system-ui;color:#fff;text-shadow:0 2px 7px #000}
- #${OVERLAY_ID} .labels span{justify-self:center;min-width:56px;padding:7px 9px;border-radius:999px;background:rgba(2,20,32,.8);border:1px solid rgba(255,255,255,.55)}
+ #${OVERLAY_ID} .labels{position:absolute;left:4%;right:4%;bottom:9%;display:grid;grid-template-columns:repeat(3,1fr);text-align:center;font:900 12px system-ui;color:#fff;text-shadow:0 2px 7px #000;pointer-events:none!important}
+ #${OVERLAY_ID} .labels span{justify-self:center;min-width:56px;padding:7px 9px;border-radius:999px;background:rgba(2,20,32,.58);border:1px solid rgba(255,255,255,.45)}
  #game>.hud,#game>.mission,#game>.warning,#game>.toast,#game>.pose,#game>.camera{z-index:30!important}
  `;
  document.head.appendChild(style);
@@ -33,7 +33,7 @@ function buildOverlay(){
  const overlay=document.createElement('div');
  overlay.id=OVERLAY_ID;
  overlay.setAttribute('aria-hidden','true');
- overlay.innerHTML=`<svg viewBox="0 0 100 100" preserveAspectRatio="none" role="presentation"><defs><linearGradient id="jdRoadGradient68" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#314d62" stop-opacity=".95"/><stop offset="1" stop-color="#091724" stop-opacity=".99"/></linearGradient></defs><polygon class="road" points="38,31 62,31 99,100 1,100"/><path class="edge" d="M38 31 L1 100"/><path class="edge" d="M62 31 L99 100"/><path class="divider" d="M46 31 L33 100"/><path class="divider" d="M54 31 L67 100"/></svg><div class="labels"><span>ซ้าย</span><span>กลาง</span><span>ขวา</span></div>`;
+ overlay.innerHTML=`<svg viewBox="0 0 100 100" preserveAspectRatio="none" role="presentation"><defs><linearGradient id="jdRoadGradient69" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#31526b" stop-opacity=".10"/><stop offset="1" stop-color="#0b2132" stop-opacity=".18"/></linearGradient></defs><polygon class="road" points="38,31 62,31 99,100 1,100"/><path class="edge" d="M38 31 L1 100"/><path class="edge" d="M62 31 L99 100"/><path class="divider" d="M46 31 L33 100"/><path class="divider" d="M54 31 L67 100"/></svg><div class="labels"><span>ซ้าย</span><span>กลาง</span><span>ขวา</span></div>`;
  return overlay;
 }
 
@@ -56,22 +56,17 @@ function configureTestReturn(){
 
 function install(){
  installStyle();
- ['jdLaneOverlayV65','jdLaneOverlayV66','jdLaneOverlayV67'].forEach(id=>document.getElementById(id)?.remove());
+ ['jdLaneOverlayV65','jdLaneOverlayV66','jdLaneOverlayV67','jdLaneOverlayV68'].forEach(id=>document.getElementById(id)?.remove());
  const game=document.getElementById('game');
- if(game){
-  new MutationObserver(()=>requestAnimationFrame(syncOverlay)).observe(game,{attributes:true,attributeFilter:['class']});
- }
+ if(game)new MutationObserver(()=>requestAnimationFrame(syncOverlay)).observe(game,{attributes:true,attributeFilter:['class']});
  syncOverlay();
  configureTestReturn();
  const start=document.getElementById('start');
- if(start){
-  start.style.setProperty('pointer-events','auto','important');
-  start.style.setProperty('touch-action','manipulation','important');
- }
+ if(start){start.style.setProperty('pointer-events','auto','important');start.style.setProperty('touch-action','manipulation','important');}
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 window.addEventListener('resize',()=>requestAnimationFrame(syncOverlay),{passive:true});
 window.addEventListener('orientationchange',()=>setTimeout(syncOverlay,250),{passive:true});
-console.info('[JumpDuck Lane Visibility V68] gameplay-only overlay installed',{testMode});
+console.info('[JumpDuck Lane Visibility V69] transparent lanes installed',{testMode});
 })();
