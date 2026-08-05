@@ -1,9 +1,9 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-05-PASSPORT-ROUTE-LOADER-AUTH1";
+  const VERSION="2026-08-05-PASSPORT-ROUTE-LOADER-FUN6";
   let loaded=false;
   const routes=[
-    "./word-match-route.js?v=20260805-auth1",
+    "./word-match-route.js?v=20260805-fun6",
     "./category-ar-route.js?v=20260803-category4",
     "./sentence-route.js?v=20260803-sentence2",
     "./action-detective-route.js?v=20260803-action5"
