@@ -33,9 +33,18 @@ jobs:
           node --check english-week-passport/lexicon-x-slow-confirm-loader-v62.js
           node --check english-week-passport/word-match-route.js
           node --check english-week-passport/category-rotation-v4.js
+          node --check english-week-passport/category-forest-v5.js
+          node --check english-week-passport/category-forest-v5-part1.js
+          node --check english-week-passport/category-forest-v5-part2.js
+          node --check english-week-passport/category-forest-v5-part3.js
+          node --check english-week-passport/category-forest-v5-part4.js
+          node --check english-week-passport/category-ar-route.js
           node --check english-week-passport/sentence-hand-rotation-v2.js
           node --check english-week-passport/action-rotation-v5.js
           node --check english-week-passport/action-detective-loader.js
 
       - name: Run passport rotation contract
         run: node english-week-passport/tests/passport-rotation-v2.node.cjs
+
+      - name: Run Category Forest V5 seeded contract
+        run: node english-week-passport/tests/category-forest-v5.node.cjs
