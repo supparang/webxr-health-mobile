@@ -3,7 +3,7 @@
 
   const KEY = 'herohealth_learning_platform_rc2';
   const SUMMARY_ROUTE = './game-summary.html';
-  const RELEASE = '20260805-OVERALL-SUMMARY-GATE-FIREBASE-BYPASS-R2';
+  const RELEASE = '20260805-OVERALL-SUMMARY-GATE-FIREBASE-BYPASS-R3';
 
   function readState() {
     try { return JSON.parse(localStorage.getItem(KEY) || '{}'); }
@@ -22,10 +22,22 @@
     return String(state?.firebaseAuthority?.mode || state?.authorityMode || '').toLowerCase();
   }
 
+  function loadFirebasePosttestLock() {
+    if (document.querySelector('script[data-hh-firebase-posttest-lock]')) return;
+    const script = document.createElement('script');
+    script.src = './assets/firebase-posttest-route-lock-r1.js?v=20260805-route-lock-r1';
+    script.async = false;
+    script.dataset.hhFirebasePosttestLock = '1';
+    script.onload = () => console.info('[HeroHealth] Firebase Post-test route lock loaded', RELEASE);
+    script.onerror = () => console.error('[HeroHealth] Firebase Post-test route lock failed', RELEASE);
+    (document.head || document.documentElement).appendChild(script);
+  }
+
   // Firebase Passport owns its own completion hydration and Post-test gate.
   // The legacy summary page is Sheet-authoritative and must never intercept
   // a Firebase session, otherwise the learner is sent to Google Sheet loading.
   if (['firebase', 'dual'].includes(authorityMode())) {
+    loadFirebasePosttestLock();
     console.info('[HeroHealth] Legacy Sheet summary gate bypassed for Firebase', RELEASE);
     return;
   }
