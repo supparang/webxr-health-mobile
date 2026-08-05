@@ -1,9 +1,9 @@
 (function(){
   "use strict";
   const badge=document.querySelector(".brand small");
-  if(badge)badge.innerHTML='<span class="test-badge">STANDALONE TEST</span> • Smooth Selector V6.3';
+  if(badge)badge.innerHTML='<span class="test-badge">STANDALONE TEST</span> • Smart Skip V6.4';
   const script=document.createElement("script");
-  script.src="./lexicon-x-smooth-selector-loader-v63.js?v=20260805-smooth63";
+  script.src="./lexicon-x-smart-skip-loader-v64.js?v=20260805-skip64";
   script.async=false;
   script.onerror=()=>{
     const root=document.getElementById("screen");
