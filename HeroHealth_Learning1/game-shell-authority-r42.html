@@ -10,10 +10,10 @@ html,body{margin:0;width:100%;height:100%;background:#03131d;color:#fff;font-fam
 </style>
 </head>
 <body>
-<div class="center"><div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังเชื่อมต่อ Firebase Receipt กรุณารอสักครู่</small></div></div>
+<div class="center"><div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังเชื่อมต่อ Firebase Learning Analytics กรุณารอสักครู่</small></div></div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260805-GAME-SHELL-R43-GOODJUNK-RECEIPT-GUARD';
+const RELEASE='20260805-GAME-SHELL-R44-FIREBASE-LEARNING-ANALYTICS';
 const shellQuery=new URLSearchParams(location.search);
 const firebaseMode=String(shellQuery.get('authority')||'').toLowerCase()==='firebase';
 
@@ -33,7 +33,7 @@ if(!target){
 }
 
 const targetUrl=new URL(target,location.href);
-for(const key of ['authority','studentId','sid','pid','fullName','studentName','name','section','group','firebaseUid','gameId','zone']){
+for(const key of ['authority','studentId','sid','pid','fullName','studentName','name','section','group','firebaseUid','gameId','zone','studyId','conditionGroup','phase','difficulty']){
   const value=shellQuery.get(key);
   if(value)targetUrl.searchParams.set(key,value);
 }
@@ -42,7 +42,7 @@ targetUrl.searchParams.set('return',back);
 targetUrl.searchParams.set('firebaseShellVersion',RELEASE);
 targetUrl.searchParams.set('_',Date.now());
 
-document.body.innerHTML='<main class="firebase-shell"><header class="firebase-bar"><button id="back">← กลับ Passport</button><span id="gameTitle"></span><span id="receiptStatus">กำลังเตรียมระบบบันทึกผล</span></header><iframe id="game" allow="camera; microphone; accelerometer; gyroscope; autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></main>';
+document.body.innerHTML='<main class="firebase-shell"><header class="firebase-bar"><button id="back">← กลับ Passport</button><span id="gameTitle"></span><span id="receiptStatus">กำลังเตรียม Learning Analytics</span></header><iframe id="game" allow="camera; microphone; accelerometer; gyroscope; autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></main>';
 document.getElementById('gameTitle').textContent=shellQuery.get('title')||'HeroHealth';
 const backButton=document.getElementById('back');
 backButton.onclick=()=>location.replace(back);
@@ -57,21 +57,21 @@ function loadScript(src){
 
 (async()=>{
   try{
-    await loadScript('./assets/firebase-game-receipt-bridge-r1.js?v=20260805-r3-goodjunk');
+    await loadScript('./assets/firebase-game-receipt-bridge-r1.js?v=20260805-r4-learning-analytics');
     if(String(shellQuery.get('gameId')||'').toLowerCase().includes('goodjunk')||targetUrl.href.toLowerCase().includes('goodjunk')){
       await loadScript('./assets/goodjunk-firebase-completion-patch-r3.js?v=20260805-r3');
     }
-    document.getElementById('receiptStatus').textContent='พร้อมเล่นเกม';
+    document.getElementById('receiptStatus').textContent='พร้อมเล่นเกม • Analytics เปิดแล้ว';
     document.getElementById('game').src=targetUrl.href;
   }catch(error){
-    console.error('[Game Shell R43]',error);
-    document.getElementById('receiptStatus').textContent='โหลดระบบ Firebase Receipt ไม่สำเร็จ';
+    console.error('[Game Shell R44]',error);
+    document.getElementById('receiptStatus').textContent='โหลด Firebase Learning Analytics ไม่สำเร็จ';
     backButton.textContent='กลับ Passport';
   }
 })();
 
-window.HH_GAME_SHELL_R43={release:RELEASE,authority:'firebase',firebaseExclusive:true,sharedReceiptBridge:true,goodjunkReceiptGuard:true};
-console.info('[Game Shell R43] Firebase-exclusive shell installed',{gameId:shellQuery.get('gameId'),target:targetUrl.href});
+window.HH_GAME_SHELL_R44={release:RELEASE,authority:'firebase',firebaseExclusive:true,sharedReceiptBridge:true,learningAnalyticsSchema:'HH-LEARNING-ANALYTICS-V1'};
+console.info('[Game Shell R44] Firebase Learning Analytics installed',{gameId:shellQuery.get('gameId'),target:targetUrl.href});
 })();
 </script>
 </body>
