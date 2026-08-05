@@ -1,14 +1,27 @@
 (() => {
   'use strict';
-  const VERSION='20260729-POSTTEST-SHEET-GATE-V3-PUBLIC-RECEIVER';
+  const VERSION='20260805-POSTTEST-AUTHORITY-GATE-V4-FIREBASE-BYPASS';
   const KEY='herohealth_learning_platform_rc2';
   const ENDPOINT='https://script.google.com/macros/s/AKfycbxU82Rg4KFStuZToOGlyX-rgzVkLpZ7yO1tW-gzui782eR7akes_HNZ5ec2TDUDh8J1/exec';
   const REQUIRED={hygiene:['handwash','toothbrush'],nutrition:['groups','goodjunk'],fitness:['jumpduck','balance-hold']};
   const q=new URLSearchParams(location.search);
   const read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return{}}};
   const norm=v=>String(v||'').trim().replace(/\s+/g,'');
-  const sid=norm(q.get('studentId')||q.get('sid')||read()?.profile?.studentId);
+  const authority=String(q.get('authority')||read()?.firebaseAuthority?.mode||localStorage.getItem('HH_AUTHORITY_MODE')||'sheet').toLowerCase();
 
+  // Firebase has its own Post-test route and Firestore receipt. Never send a
+  // Firebase learner into the legacy Sheet-authoritative summary flow.
+  if(authority==='firebase'||authority==='dual'){
+    const target=new URL('./posttest-firebase.html',location.href);
+    q.forEach((value,key)=>target.searchParams.set(key,value));
+    target.searchParams.set('authority','firebase');
+    target.searchParams.set('gateRelease',VERSION);
+    target.searchParams.set('_',String(Date.now()));
+    location.replace(target.href);
+    return;
+  }
+
+  const sid=norm(q.get('studentId')||q.get('sid')||read()?.profile?.studentId);
   function summaryUrl(reason){
     const state=read(),u=new URL('../game-summary.html',location.href);
     ['studentId','fullName','section','group'].forEach(k=>{const v=q.get(k)||state?.profile?.[k]||(k==='group'?state?.group:'');if(v)u.searchParams.set(k,v)});
