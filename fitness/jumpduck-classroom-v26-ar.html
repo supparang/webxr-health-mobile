@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#0f766e">
-  <title>JumpDuck Dash Production v7.3 Body Control Rescue</title>
+  <title>JumpDuck Dash Production v7.4 Background News Polish</title>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js" crossorigin="anonymous"></script>
-  <script src="../HeroHealth_Learning1/data/backend-config.js?v=20260805-jumpduck-body-control-v73"></script>
+  <script src="../HeroHealth_Learning1/data/backend-config.js?v=20260805-jumpduck-bg-news-v74"></script>
   <link rel="stylesheet" href="./jumpduck-classroom-v35.css?v=20260729-result-polish-v38">
   <link rel="stylesheet" href="./jumpduck-result-layout-v58.css?v=20260731-compact-result-v58">
 </head>
 <body>
-<div style="position:fixed;z-index:9998;right:8px;top:calc(8px + env(safe-area-inset-top));padding:5px 10px;border-radius:999px;background:#0f172dcc;color:#fff;font:900 11px system-ui;pointer-events:none">JD v7.3</div>
-<section id="intro" class="screen"><div class="card"><div class="logo">🦆⚡</div><span class="badge">BODY CONTROL RESCUE • CONTINUOUS TRACKING</span><h1>JumpDuck Dash</h1><p class="muted">ตรวจจับการขยับซ้าย–ขวาจากลำตัวจริง และใช้จุดใบหน้าช่วยเมื่อไหล่หรือสะโพกหลุดชั่วคราว</p><p class="muted">ถนน เลน เป็ด อาหาร และสิ่งกีดขวางวาดใน canvas หลักเพียงใบเดียว เพื่อความเสถียรบนมือถือ</p><button id="start" class="primary">▶ เริ่มเกม</button><div id="startStatus" class="status">รอบละ 50 วินาที • ยืนตรงกลางให้กล้องเห็นใบหน้าและช่วงบน</div></div></section>
+<div style="position:fixed;z-index:9998;right:8px;top:calc(8px + env(safe-area-inset-top));padding:5px 10px;border-radius:999px;background:#0f172dcc;color:#fff;font:900 11px system-ui;pointer-events:none">JD v7.4</div>
+<section id="intro" class="screen"><div class="card"><div class="logo">🦆⚡</div><span class="badge">BG NEWS POLISH • CONTINUOUS TRACKING</span><h1>JumpDuck Dash</h1><p class="muted">ตรวจจับการขยับซ้าย–ขวาจากลำตัวจริง และเติมฉากหลังให้มีบรรยากาศพร้อมข่าวสารสุขภาพระหว่างเล่น</p><p class="muted">ถนน เลน เป็ด อาหาร และสิ่งกีดขวางวาดใน canvas หลักเพียงใบเดียว เพื่อความเสถียรบนมือถือ</p><button id="start" class="primary">▶ เริ่มเกม</button><div id="startStatus" class="status">รอบละ 50 วินาที • ยืนตรงกลางให้กล้องเห็นใบหน้าและช่วงบน</div></div></section>
 <section id="countdown" class="screen hidden"><div class="card"><div class="count" id="count">3</div><h2>กำลังปรับตำแหน่งร่างกาย</h2><p class="muted">ยืนตรงกลางให้เห็นใบหน้าและไหล่ แล้วอย่าขยับระหว่างนับถอยหลัง</p></div></section>
 <main id="game" class="game hidden"><canvas id="world"></canvas><div class="hud"><div class="pill">⭐ <span id="score">0</span> • x<span id="multi">1</span></div><div class="pill">🔥 Combo <span id="combo">0</span></div><div class="pill">⏱️ <span id="time">50</span>s</div></div><div class="mission"><span id="missionText">MISSION 1 • เก็บอาหารดี</span> <b><span id="missionNow">0</span>/<span id="missionGoal">5</span></b><div class="bar"><i id="missionBar"></i></div></div><div id="warning" class="warning"></div><div id="toast" class="toast"></div><div id="poseText" class="pose">กำลังโหลด MoveNet…</div><div class="camera"><video id="video" autoplay muted playsinline></video><canvas id="poseCanvas"></canvas></div></main>
 <button id="finishRoundBtn" class="hidden" type="button" style="position:fixed;z-index:9999;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(88vw,420px);min-height:60px;border:0;border-radius:20px;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;font:900 20px system-ui;box-shadow:0 8px 0 #c2410c,0 12px 30px #0007;touch-action:manipulation;pointer-events:auto">จบรอบและดูผล</button>
@@ -24,6 +24,7 @@
 <script src="./jumpduck-calibration-visible-v52.js?v=20260730-real-camera-calibration-v52"></script>
 <script src="./jumpduck-calibration-mobile-rescue-v64.js?v=20260805-mobile-calibration-rescue-v64"></script>
 <script src="./jumpduck-body-control-rescue-v73.js?v=20260805-body-control-rescue-v73"></script>
+<script src="./jumpduck-bg-news-v74.js?v=20260805-bg-news-v74"></script>
 <script src="./jumpduck-classroom-v50.js?v=20260805-body-control-rescue-v73"></script>
 <script src="./jumpduck-result-final-v63.js?v=20260731-final-result-closeout-v63"></script>
 <script>
