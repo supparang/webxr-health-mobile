@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#070d2a">
+<title>Sentence City AR V5.9 Ready Intro</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;color:#fff;font-family:system-ui,sans-serif}.boot{height:100dvh;display:grid;place-items:center;text-align:center;padding:24px}.boot small{display:block;margin-top:8px;color:#b9c3ee}</style>
+</head>
+<body>
+<div id="boot" class="boot"><div><strong>กำลังเตรียม Sentence City V5.9…</strong><small>Live AR Readiness Intro</small></div></div>
+<script>
+(async function(){
+  try{
+    const response=await fetch('./sentence-city-ar-v54.html?v=20260806-scv59-base',{cache:'no-store'});
+    if(!response.ok)throw new Error('BASE_LOAD_FAILED_'+response.status);
+    let html=await response.text();
+
+    const css=`<style id="v59ReadyIntro">
+      :root{--safe-bottom:max(12px,env(safe-area-inset-bottom))}
+      html,body{height:100%!important;overflow:hidden!important}
+      .app{height:100dvh!important;min-height:100dvh!important;max-height:100dvh!important;padding:env(safe-area-inset-top) 5px var(--safe-bottom)!important;grid-template-rows:50px minmax(0,1fr)!important}
+      .top{grid-template-columns:44px 1fr 44px!important;gap:6px!important}.top button{height:42px!important;border-radius:13px!important}
+      .screen,.panel{height:100%!important;min-height:0!important}.panel{padding:7px!important;border-radius:16px!important;overflow:hidden!important}
+      .intro{height:100%!important;min-height:0!important;display:grid!important;grid-template-rows:auto auto minmax(0,1fr) auto!important;gap:8px!important;padding:5px!important;overflow:hidden!important}
+      .intro-head{text-align:center}.intro-head .mark{font-size:1.85rem!important;line-height:1!important;margin:0 0 3px!important}.intro-head h1{font-size:1.55rem!important;line-height:1!important;margin:0!important}.intro-head h2{font-size:.78rem!important;line-height:1.2!important;margin:5px 0 0!important;color:#cbd4ff}
+      .mini-guide{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.mini-step{padding:7px 4px;border:1px solid #5667b7;border-radius:11px;background:#111a48;text-align:center;font-size:.67rem;line-height:1.25}.mini-step b{display:block;font-size:1.05rem;margin-bottom:2px}
+      .ready-zone{position:relative;min-height:0;border:2px solid #5667b7;border-radius:17px;overflow:hidden;background:linear-gradient(160deg,#101b50,#090f31);display:grid;place-items:center}
+      .ready-zone video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:none}.ready-zone.live video{display:block}.ready-overlay{position:absolute;inset:0;display:grid;place-items:center;padding:16px;background:linear-gradient(transparent 35%,rgba(5,9,31,.82));text-align:center}.ready-card{align-self:end;width:100%;padding:10px;border-radius:13px;background:rgba(8,13,42,.88);font-weight:900}.ready-card small{display:block;color:#d1d9ff;margin-top:3px;font-weight:600}.ready-icon{font-size:3rem;animation:readyFloat 2s ease-in-out infinite}@keyframes readyFloat{50%{transform:translateY(-7px)}}
+      .ready-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffb45f;margin-right:6px;box-shadow:0 0 12px #ffb45f}.ready-zone.hand-ready{border-color:#68ffc5;box-shadow:0 0 26px #68ffc544}.ready-zone.hand-ready .ready-dot{background:#68ffc5;box-shadow:0 0 14px #68ffc5}
+      .intro-actions{display:grid;grid-template-columns:1fr;gap:7px}.intro-actions .btn{min-height:48px!important;border-radius:14px!important;font-size:.88rem!important}.intro-actions .prepare{background:linear-gradient(135deg,#5de2ff,#668dff);color:#10163a}.intro-actions .start-ready{background:linear-gradient(135deg,#77ffc7,#d6ff73)!important;box-shadow:0 0 26px #77ffc766;animation:readyPulse 1.25s ease-in-out infinite}@keyframes readyPulse{50%{transform:scale(1.015)}}.intro-actions button:disabled{opacity:.45;box-shadow:none!important;animation:none!important}
+      @media(max-width:720px){.brand strong{font-size:1rem!important}.brand small{font-size:.61rem!important}.game{grid-template-rows:28px 46px minmax(0,1fr)!important;gap:5px!important;height:100%!important}.head{min-height:28px!important}.head strong{font-size:.8rem!important}.chip{padding:4px 7px!important;font-size:.56rem!important}.stats{gap:5px!important}.stat{padding:5px 7px!important}.stat small{font-size:.56rem!important}.stat b{font-size:.98rem!important}.sky{display:none!important}.mission{grid-template-rows:auto minmax(170px,27dvh) auto auto!important;gap:5px!important;overflow:hidden!important}.prompt{grid-template-columns:28px 1fr!important;gap:3px!important}.prompt .visual{font-size:1.35rem!important}.prompt h3{font-size:.8rem!important;line-height:1.2!important}.camera{min-height:170px!important;height:27dvh!important;max-height:235px!important;border-width:2px!important}.status{left:6px!important;right:6px!important;bottom:5px!important;padding:7px!important;font-size:.72rem!important}.status small{font-size:.61rem!important}.board{gap:5px!important;overflow:auto!important;padding:0 1px 2px!important}.label{font-size:.56rem!important}.slots,.depot{gap:6px!important}.slot,.word{min-width:88px!important;min-height:48px!important;padding:7px 8px!important;border-radius:13px!important;border-width:2px!important;font-size:.74rem!important}.control{position:static!important;min-height:48px!important;padding:8px!important;border-radius:13px!important;font-size:.84rem!important}.feedback{padding:6px!important;font-size:.67rem!important}.summary{justify-content:flex-start!important;gap:7px!important;padding:3px 0 8px!important;overflow:auto!important}.summary .mark{font-size:2rem!important}.summary h1{font-size:1.55rem!important}.summary h2{font-size:.86rem!important}.summary-sky{height:105px!important}.summary-buildings{height:72px!important;bottom:10px!important}.summary-grid,.analytics-grid{gap:5px!important}.summary-grid .stat,.analytics-grid .stat{padding:6px!important}.learning{padding:8px!important;font-size:.7rem!important}.summary .btn{min-height:44px!important}}
+      @media(max-height:760px) and (max-width:720px){.brand small{display:none!important}.intro{gap:6px!important}.intro-head .mark{font-size:1.45rem!important}.intro-head h1{font-size:1.3rem!important}.intro-head h2{display:none!important}.mini-step{padding:5px 3px!important;font-size:.61rem!important}.mini-step b{font-size:.9rem!important}.intro-actions .btn{min-height:43px!important}.mission{grid-template-rows:auto minmax(155px,24dvh) auto auto!important}.camera{height:24dvh!important;min-height:155px!important}}
+    </style>`;
+
+    const replacement=`let previewRaf=0;
+function intro(){
+  shell(\`<div class="intro"><div class="intro-head"><div class="mark">🏙️✋</div><h1>Sentence City</h1><h2>AR Skyline • Ready-to-Play V5.9</h2></div><div class="mini-guide"><div class="mini-step"><b>☝️</b>ชี้คำ</div><div class="mini-step"><b>🤏</b>จีบเพื่อหยิบ</div><div class="mini-step"><b>🏗️</b>วางและสร้าง</div></div><div id="readyZone" class="ready-zone"><video id="previewVideo" autoplay muted playsinline></video><div class="ready-overlay"><div id="readyIcon" class="ready-icon">📷</div><div class="ready-card"><span id="readyDot" class="ready-dot"></span><span id="readyTitle">แตะเปิดกล้องเพื่อเตรียมเล่น</span><small id="readyHelp">ระบบจะตรวจมือก่อนเริ่มภารกิจ</small></div></div></div><div class="intro-actions"><button id="prepare" class="btn prepare">เปิดกล้องเตรียมเล่น</button><button id="start" class="btn primary" disabled>รอเปิดกล้อง…</button><button id="home" class="btn secondary">Back to Test Hub</button></div></div>\`);
+  document.getElementById('prepare').onclick=preparePreview;
+  document.getElementById('start').onclick=start;
+  document.getElementById('home').onclick=goBack;
+}
+async function preparePreview(){
+  const button=document.getElementById('prepare');
+  button.disabled=true;button.textContent='กำลังเปิดกล้องและ AI…';
+  try{
+    if(!S.stream||!S.detector)await openCamera();
+    const video=document.getElementById('previewVideo');
+    video.srcObject=S.stream;await video.play().catch(()=>{});
+    document.getElementById('readyZone').classList.add('live');
+    document.getElementById('readyIcon').style.display='none';
+    document.getElementById('start').disabled=false;
+    document.getElementById('start').textContent='Start AR Mission';
+    button.textContent='กล้องพร้อมแล้ว';
+    previewLoop();
+  }catch(error){
+    console.error(error);button.disabled=false;button.textContent='ลองเปิดกล้องอีกครั้ง';
+    document.getElementById('readyTitle').textContent='เปิดกล้องไม่สำเร็จ';
+    document.getElementById('readyHelp').textContent=String(error.message||error);
+  }
+}
+function previewLoop(){
+  const video=document.getElementById('previewVideo');
+  if(!video||!S.detector)return;
+  if(video.readyState>=2&&video.currentTime!==S.lastVideo){
+    S.lastVideo=video.currentTime;
+    const result=S.detector.detectForVideo(video,performance.now());
+    const hand=result.landmarks?.[0];
+    const zone=document.getElementById('readyZone');
+    const startButton=document.getElementById('start');
+    if(hand){
+      zone?.classList.add('hand-ready');
+      document.getElementById('readyTitle').textContent='พบมือแล้ว • พร้อมเล่น!';
+      document.getElementById('readyHelp').textContent='ยกนิ้วชี้และนิ้วโป้งให้อยู่ในภาพ';
+      startButton?.classList.add('start-ready');
+      startButton.textContent='พร้อมแล้ว • Start AR Mission';
+    }else{
+      zone?.classList.remove('hand-ready');
+      document.getElementById('readyTitle').textContent='กล้องพร้อม • กำลังค้นหามือ';
+      document.getElementById('readyHelp').textContent='ยกมือขึ้นกลางภาพเพื่อทดสอบการตรวจจับ';
+      startButton?.classList.remove('start-ready');
+      startButton.textContent='Start AR Mission';
+    }
+  }
+  previewRaf=requestAnimationFrame(previewLoop);
+}
+async function start(){`;
+
+    html=html
+      .replaceAll('Final Polish V5.4','Ready-to-Play V5.9')
+      .replaceAll('Final Polish','Ready-to-Play')
+      .replaceAll("<span class=\"chip\">V5.4</span>","<span class=\"chip\">V5.9</span>")
+      .replaceAll("version:'V5.4'","version:'V5.9'")
+      .replace(/function intro\(\)\{[\s\S]*?async function start\(\)\{/,replacement)
+      .replace("const b=document.getElementById('start');b.disabled=true;b.textContent='กำลังเปิดกล้อง…';try{await openCamera();","const b=document.getElementById('start');b.disabled=true;b.textContent='กำลังเข้าเมือง…';cancelAnimationFrame(previewRaf);try{if(!S.stream||!S.detector)await openCamera();")
+      .replace("setTimeout(()=>{S.index++;showTask()},950)","showToast(S.phase==='rescue'?'ซ่อมประโยคสำเร็จ!':'สร้างอาคารสำเร็จ!');setTimeout(()=>{S.index++;showTask()},2400)")
+      .replace("const banner=rescueTotal?`<div class=\"banner rescue\">CITY REPAIR CREW • ${S.rescued}/${rescueTotal}</div>`:`<div class=\"banner perfect\">PERFECT SKYLINE</div>`;","const banner=rescueTotal?`<div class=\"banner rescue\">SKYLINE MASTERED • RESCUE ${S.rescued}/${rescueTotal}</div>`:`<div class=\"banner perfect\">PERFECT SKYLINE</div>`;")
+      .replace("function stopCamera(){","function stopCamera(){cancelAnimationFrame(previewRaf);")
+      .replace('</head>',css+'</head>');
+
+    document.open();document.write(html);document.close();
+  }catch(error){
+    console.error(error);
+    document.getElementById('boot').innerHTML='<div><strong>เปิดเกมไม่สำเร็จ</strong><small>'+String(error.message||error)+'</small></div>';
+  }
+})();
+</script>
+</body>
+</html>
