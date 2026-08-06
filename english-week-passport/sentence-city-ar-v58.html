@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#070d2a">
+<title>Sentence City AR V5.8 Compact Responsive</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;color:#fff;font-family:system-ui,sans-serif}.boot{height:100dvh;display:grid;place-items:center;text-align:center;padding:24px}.boot small{display:block;margin-top:8px;color:#b9c3ee}
+</style>
+</head>
+<body>
+<div id="boot" class="boot"><div><strong>กำลังเตรียม Sentence City V5.8…</strong><small>Compact Responsive Build</small></div></div>
+<script>
+(async function(){
+  try{
+    const response=await fetch('./sentence-city-ar-v54.html?v=20260806-scv58-base',{cache:'no-store'});
+    if(!response.ok)throw new Error('BASE_LOAD_FAILED_'+response.status);
+    let html=await response.text();
+    const css=`<style id="v58Responsive">
+      :root{--safe-bottom:max(12px,env(safe-area-inset-bottom))}
+      html,body{height:100%!important;overflow:hidden!important}
+      .app{height:100dvh!important;min-height:100dvh!important;max-height:100dvh!important;padding:env(safe-area-inset-top) 5px var(--safe-bottom)!important;grid-template-rows:50px minmax(0,1fr)!important}
+      .top{grid-template-columns:44px 1fr 44px!important;gap:6px!important}
+      .top button{height:42px!important;border-radius:13px!important}
+      .screen,.panel{min-height:0!important;height:100%!important}
+      .panel{padding:7px!important;border-radius:16px!important;overflow:hidden!important}
+      @media(max-width:720px){
+        .brand strong{font-size:1rem!important;line-height:1.08!important}
+        .brand small{font-size:.62rem!important;line-height:1.1!important}
+        .intro{height:100%!important;min-height:0!important;display:grid!important;grid-template-rows:auto auto auto auto 1fr auto!important;align-content:start!important;justify-content:stretch!important;gap:8px!important;overflow:hidden!important;padding:6px 4px 4px!important}
+        .intro .mark{font-size:2rem!important;line-height:1!important;margin:0!important}
+        .intro h1{font-size:1.72rem!important;line-height:1!important;margin:0!important}
+        .intro h2{font-size:.94rem!important;line-height:1.18!important;margin:0!important}
+        .intro p{font-size:.76rem!important;line-height:1.28!important;margin:0!important}
+        .intro .notice{padding:9px 10px!important;border-radius:13px!important;font-size:.75rem!important;line-height:1.35!important}
+        .intro .actions{align-self:end!important;margin:0!important;gap:7px!important;width:100%!important;padding-bottom:2px!important}
+        .intro .btn{min-height:48px!important;font-size:.9rem!important;border-radius:14px!important}
+        .game{grid-template-rows:28px 46px minmax(0,1fr)!important;gap:5px!important;height:100%!important;min-height:0!important}
+        .head{min-height:28px!important}.head strong{font-size:.8rem!important}.chip{padding:4px 7px!important;font-size:.56rem!important}
+        .stats{gap:5px!important}.stat{padding:5px 7px!important;border-radius:10px!important}.stat small{font-size:.56rem!important}.stat b{font-size:.98rem!important}
+        .sky{display:none!important}
+        .mission{grid-template-rows:auto minmax(180px,29dvh) auto auto!important;gap:5px!important;min-height:0!important;overflow:hidden!important}
+        .prompt{grid-template-columns:28px 1fr!important;gap:3px!important;min-height:32px!important}.prompt .visual{font-size:1.35rem!important}.prompt h3{font-size:.8rem!important;line-height:1.2!important}
+        .camera{min-height:180px!important;height:29dvh!important;max-height:250px!important;border-width:2px!important;border-radius:12px!important}
+        .status{left:6px!important;right:6px!important;bottom:5px!important;padding:7px!important;border-radius:9px!important;font-size:.72rem!important}.status small{font-size:.61rem!important}
+        .board{display:grid!important;grid-template-rows:auto auto auto auto auto!important;gap:5px!important;min-height:0!important;overflow:auto!important;overscroll-behavior:contain!important;padding:0 1px 2px!important}
+        .label{font-size:.56rem!important;margin:0!important}.slots,.depot{gap:6px!important}
+        .slot,.word{min-width:88px!important;min-height:48px!important;padding:7px 8px!important;border-radius:13px!important;border-width:2px!important;font-size:.74rem!important}
+        .control{position:static!important;min-height:48px!important;padding:8px!important;border-radius:13px!important;font-size:.84rem!important;order:5!important}
+        .feedback{padding:6px!important;border-radius:9px!important;font-size:.67rem!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+        .summary{justify-content:flex-start!important;gap:7px!important;padding:3px 0 8px!important;overflow:auto!important}
+        .summary .mark{font-size:2rem!important}.summary h1{font-size:1.55rem!important;line-height:1!important}.summary h2{font-size:.86rem!important}.summary .banner{padding:8px!important;font-size:.76rem!important}
+        .summary-sky{height:105px!important}.summary-buildings{height:72px!important;bottom:10px!important;gap:4px!important}
+        .summary-grid,.analytics-grid{gap:5px!important}.summary-grid .stat,.analytics-grid .stat{padding:6px!important;border-radius:10px!important}.summary-grid .stat small,.analytics-grid .stat small{font-size:.52rem!important}.summary-grid .stat b{font-size:1rem!important}.analytics-grid .stat b{font-size:.78rem!important}
+        .learning{padding:8px!important;font-size:.7rem!important;line-height:1.3!important}.summary .notice{padding:7px!important;font-size:.66rem!important}.summary .btn{min-height:44px!important;font-size:.8rem!important}
+      }
+      @media(max-width:720px) and (max-height:780px){
+        .brand small{display:none!important}.intro .mark{font-size:1.65rem!important}.intro h1{font-size:1.48rem!important}.intro h2{font-size:.82rem!important}.intro p{display:none!important}.intro .notice{font-size:.68rem!important;padding:7px 8px!important}.intro{gap:6px!important}.intro .btn{min-height:44px!important}
+        .camera{height:26dvh!important;min-height:165px!important}.mission{grid-template-rows:auto minmax(165px,26dvh) auto auto!important}
+      }
+      @media(max-width:390px){.top{grid-template-columns:40px 1fr 40px!important}.top button{height:39px!important}.slot,.word{min-width:82px!important;font-size:.7rem!important}}
+    </style>`;
+    html=html
+      .replaceAll('Final Polish V5.4','Compact Responsive V5.8')
+      .replaceAll('Final Polish','Compact Responsive')
+      .replaceAll("<span class=\"chip\">V5.4</span>","<span class=\"chip\">V5.8</span>")
+      .replaceAll("version:'V5.4'","version:'V5.8'")
+      .replace("setTimeout(()=>{S.index++;showTask()},950)","showToast(S.phase==='rescue'?'ซ่อมประโยคสำเร็จ!':'สร้างอาคารสำเร็จ!');setTimeout(()=>{S.index++;showTask()},2400)")
+      .replace("const banner=rescueTotal?`<div class=\"banner rescue\">CITY REPAIR CREW • ${S.rescued}/${rescueTotal}</div>`:`<div class=\"banner perfect\">PERFECT SKYLINE</div>`;","const banner=rescueTotal?`<div class=\"banner rescue\">SKYLINE MASTERED • RESCUE ${S.rescued}/${rescueTotal}</div>`:`<div class=\"banner perfect\">PERFECT SKYLINE</div>`;")
+      .replace('</head>',css+'</head>');
+    document.open();document.write(html);document.close();
+  }catch(error){console.error(error);document.getElementById('boot').innerHTML='<div><strong>เปิดเกมไม่สำเร็จ</strong><small>'+String(error.message||error)+'</small></div>'}
+})();
+</script>
+</body>
+</html>
