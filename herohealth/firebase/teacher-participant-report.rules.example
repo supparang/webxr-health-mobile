@@ -1,0 +1,47 @@
+// HeroHealth • Secure Participant Report Rules Example
+// Merge the relevant match blocks into the deployed Firestore rules only after
+// teacher/researcher accounts receive a Firebase Auth custom claim:
+//   { heroHealthTeacher: true }
+// Do not grant collection-wide student reads to anonymous learners.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isHeroHealthTeacher() {
+      return signedIn() && request.auth.token.heroHealthTeacher == true;
+    }
+
+    // Participant roster: teacher/researcher read only.
+    match /students/{studentId} {
+      allow read: if isHeroHealthTeacher();
+      allow write: if false;
+    }
+
+    // Progress and game completion evidence.
+    match /studentProgress/{studentId} {
+      allow read: if isHeroHealthTeacher();
+      // Keep existing learner write rules here; do not replace them blindly.
+    }
+
+    // Pre-test, post-test, reflection, and certificate receipts.
+    match /studentAssessments/{documentId} {
+      allow read: if isHeroHealthTeacher();
+      // Keep existing learner create/update rules here.
+    }
+
+    // Optional sandbox access for authorised QA personnel.
+    match /studentsSandbox/{studentId} {
+      allow read: if isHeroHealthTeacher();
+    }
+    match /studentProgressSandbox/{studentId} {
+      allow read: if isHeroHealthTeacher();
+    }
+    match /studentAssessmentsSandbox/{documentId} {
+      allow read: if isHeroHealthTeacher();
+    }
+  }
+}
