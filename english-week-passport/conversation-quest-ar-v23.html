@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#241246">
-<title>Conversation Quest AR V2.4.1</title>
-<link rel="stylesheet" href="./conversation-quest-ar-v24.css?v=20260806-cq-v241-focus">
+<title>Conversation Quest AR V2.4.2</title>
+<link rel="stylesheet" href="./conversation-quest-ar-v242.css?v=20260806-cq-v242-speaking-stage-1">
 </head>
 <body>
 <div class="app">
 <header class="top">
   <button id="back" type="button" aria-label="กลับ">←</button>
-  <div class="title"><b>Conversation Quest AR</b><small id="versionLabel">GAME 4 • Responsive Seeded V2.4.1</small></div>
+  <div class="title"><b>Conversation Quest AR</b><small id="versionLabel">GAME 4 • Speaking Stage V2.4.2</small></div>
   <button id="audio" type="button" aria-label="เปิดปิดเสียง">🔊</button>
 </header>
 <main class="screen">
@@ -34,13 +34,13 @@
     <div class="npc"><div class="npc-face">👩‍🏫</div><div class="npc-name">Teacher Maya</div></div>
   </div>
   <div class="dialogue"><div class="speaker">👩‍🏫</div><div id="line" class="line"></div><button id="speakQuestion" type="button" class="sound">🔊</button></div>
-  <div class="playarea">
+  <div id="playarea" class="playarea">
     <div id="choices" class="choices"></div>
     <div id="speakGate" class="speak-gate">
-      <div>🎤 <strong>พูดประโยคที่เลือก</strong></div>
+      <div class="speak-title">🎤 <strong>พูดประโยคที่เลือก</strong></div>
       <div id="target" class="target"></div>
       <div id="keywordHint" class="keyword-hint"></div>
-      <div class="mic-row"><button id="mic" type="button" class="mic">🎤 กดแล้วพูด</button><button id="sample" type="button" class="sample">🔊</button></div>
+      <div class="mic-row"><button id="mic" type="button" class="mic">🎤 กดแล้วพูด</button><button id="sample" type="button" class="sample" aria-label="ฟังตัวอย่าง">🔊</button></div>
       <div id="heard" class="heard">ยังไม่ได้เริ่มพูด</div>
       <div class="meter"><span id="meter"></span></div>
     </div>
@@ -70,8 +70,7 @@
 </main>
 <div id="cursor" class="cursor"></div>
 </div>
-<script src="./conversation-quest-bank-v24.js?v=20260806-cq-v241-focus"></script>
-<script src="./conversation-quest-ar-v24.js?v=20260806-cq-v241-focus"></script>
-<script src="./conversation-quest-speaking-focus-v241.js?v=20260806-cq-v241-focus"></script>
+<script src="./conversation-quest-bank-v24.js?v=20260806-cq-v242-speaking-stage-1"></script>
+<script src="./conversation-quest-ar-v242.js?v=20260806-cq-v242-speaking-stage-1"></script>
 </body>
 </html>
