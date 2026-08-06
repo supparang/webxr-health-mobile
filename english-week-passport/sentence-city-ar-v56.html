@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#070d2a">
+<title>Sentence City AR V5.6 Pace Pass</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;color:#fff;font-family:system-ui,sans-serif}.boot{height:100%;display:grid;place-items:center;text-align:center;padding:24px}.boot strong{font-size:1.2rem}.boot small{display:block;margin-top:8px;color:#b9c3ee}</style>
+</head>
+<body>
+<div id="boot" class="boot"><div><strong>กำลังเตรียม Sentence City V5.6…</strong><small>Pace & Summary Mobile Pass</small></div></div>
+<script>
+(async function(){
+  try{
+    const response=await fetch('./sentence-city-ar-v54.html?v=20260806-scv56-base',{cache:'no-store'});
+    if(!response.ok)throw new Error('BASE_LOAD_FAILED_'+response.status);
+    let html=await response.text();
+
+    html=html
+      .replaceAll('Final Polish V5.4','Pace & Summary V5.6')
+      .replaceAll('Final Polish','Pace & Summary')
+      .replaceAll("<span class=\"chip\">V5.4</span>","<span class=\"chip\">V5.6</span>")
+      .replaceAll("version:'V5.4'","version:'V5.6'")
+      .replace("setTimeout(()=>{S.index++;showTask()},950)","showToast(S.phase==='rescue'?'ซ่อมประโยคสำเร็จ!':'สร้างอาคารสำเร็จ!');setTimeout(()=>{S.index++;showTask()},2400)")
+      .replace("function beginRescue(){S.phase='rescue';","function beginRescue(){showToast('เตรียมเข้าสู่ City Repair Crew…');S.phase='rescue';")
+      .replace("const banner=rescueTotal?`<div class=\"banner rescue\">CITY REPAIR CREW • ${S.rescued}/${rescueTotal}</div>`:`<div class=\"banner perfect\">PERFECT SKYLINE</div>`;","const banner=rescueTotal?`<div class=\"banner rescue\">SKYLINE MASTERED • RESCUE ${S.rescued}/${rescueTotal}</div>`:`<div class=\"banner perfect\">PERFECT SKYLINE</div>`;")
+      .replace('</style>',`\n<style id="v56PaceSummary">
+      .celebrating .camera,.celebrating .board{filter:saturate(1.15) brightness(1.06)}
+      @media(max-width:720px){
+        .summary{justify-content:flex-start!important;gap:8px!important;padding:4px 0 12px!important}
+        .summary .mark{font-size:2.2rem!important;line-height:1!important}
+        .summary h1{font-size:1.7rem!important;line-height:1.05!important;margin:0!important}
+        .summary h2{font-size:.95rem!important;margin:0!important}
+        .summary .banner{padding:9px!important;font-size:.82rem!important}
+        .summary-sky{height:118px!important;border-radius:15px!important}
+        .summary-buildings{height:82px!important;bottom:12px!important;gap:5px!important}
+        .summary-grid{gap:6px!important}
+        .summary-grid .stat{padding:7px!important;border-radius:11px!important}
+        .summary-grid .stat small{font-size:.58rem!important}
+        .summary-grid .stat b{font-size:1.05rem!important}
+        .learning{padding:9px!important;font-size:.76rem!important;line-height:1.35!important}
+        .analytics-grid{gap:5px!important}
+        .analytics-grid .stat{padding:6px!important;border-radius:10px!important}
+        .analytics-grid .stat small{font-size:.53rem!important}
+        .analytics-grid .stat b{font-size:.84rem!important}
+        .summary .notice{padding:8px!important;font-size:.7rem!important}
+        .summary .actions{gap:6px!important}
+        .summary .btn{min-height:46px!important;font-size:.84rem!important;border-radius:13px!important}
+      }
+      @media(max-height:760px) and (max-width:720px){
+        .summary-sky{height:92px!important}
+        .summary-buildings{height:62px!important}
+        .learning{display:none!important}
+      }
+      </style></style>`);
+
+    document.open();
+    document.write(html);
+    document.close();
+  }catch(error){
+    console.error(error);
+    document.getElementById('boot').innerHTML='<div><strong>เปิดเกมไม่สำเร็จ</strong><small>'+String(error.message||error)+'</small></div>';
+  }
+})();
+</script>
+</body>
+</html>
