@@ -7,6 +7,12 @@ const app = getApps().length ? getApps()[0] : initializeApp(HEROHEALTH_FIREBASE_
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+const SANDBOX_STUDENT_IDS = new Set(["990014", "990015", "990016", "990017"]);
+
+function isSandboxStudent(studentId) {
+  return SANDBOX_STUDENT_IDS.has(String(studentId || "").trim());
+}
+
 async function ensureAnonymousUser() {
   if (auth.currentUser) return auth.currentUser;
   const credential = await signInAnonymously(auth);
@@ -24,10 +30,7 @@ async function readRoster(studentId) {
   const sid = String(studentId || "").trim();
   if (!sid) return { ok: false, user, reason: "student-required" };
 
-  // The synthetic test account is intentionally stored in studentsSandbox.
-  // Read that collection first so a denied production read cannot prevent the
-  // permitted sandbox fallback from being reached.
-  const collectionOrder = sid === "990014"
+  const collectionOrder = isSandboxStudent(sid)
     ? ["studentsSandbox", "students"]
     : ["students", "studentsSandbox"];
 
@@ -77,8 +80,7 @@ async function bindStudent(studentId) {
 }
 
 function progressCollectionFor(studentId) {
-  const sid = String(studentId || "").trim();
-  return sid === "990014" ? "studentProgressSandbox" : "studentProgress";
+  return isSandboxStudent(studentId) ? "studentProgressSandbox" : "studentProgress";
 }
 
 async function loadProgress(studentId) {
@@ -214,6 +216,8 @@ async function confirmGameResult(studentId, gameId, expectedToken = "") {
 
 export const HHFirebaseClient = Object.freeze({
   build: HEROHEALTH_FIREBASE_BUILD,
+  sandboxStudentIds: Object.freeze([...SANDBOX_STUDENT_IDS]),
+  isSandboxStudent,
   ensureAnonymousUser,
   readRoster,
   bindStudent,
