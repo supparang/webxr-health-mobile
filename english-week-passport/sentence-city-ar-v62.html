@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#070d2a">
+<title>Sentence City AR V6.2 Clean Bank V2</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a}
+iframe{display:block;width:100%;height:100%;border:0;background:#070d2a}
+</style>
+</head>
+<body>
+<iframe id="game" allow="camera" title="Sentence City AR V6.2 Clean Bank V2"></iframe>
+<script>
+(function(){
+  const frame=document.getElementById('game');
+  const params=new URLSearchParams(location.search);
+  params.set('v','20260806-scv62-clean-bank-v2');
+  frame.src='./sentence-city-ar-v62-clean-bank.html?'+params.toString();
+
+  let attempts=0;
+  const timer=setInterval(()=>{
+    attempts++;
+    try{
+      const doc=frame.contentDocument;
+      if(!doc?.head||!doc.querySelector('.app')){
+        if(attempts>150)clearInterval(timer);
+        return;
+      }
+
+      const inject=(id,src)=>{
+        if(doc.getElementById(id))return;
+        const script=doc.createElement('script');
+        script.id=id;
+        script.src=src;
+        script.onerror=()=>console.error(id+' failed to load');
+        doc.head.appendChild(script);
+      };
+
+      inject('scSingleSubmitGuard','./sentence-city-single-submit-guard-v1.js?v=20260806-sc-submit-guard-v1-1');
+      inject('scMobileGrid','./sentence-city-mobile-grid-v1.js?v=20260806-sc-mobile-grid-v1');
+      inject('scTaskLabels','./sentence-city-task-labels-v1.js?v=20260806-sc-task-labels-v1');
+      inject('scCleanLayoutV2','./sentence-city-clean-layout-v2.js?v=20260806-sc-clean-layout-v2');
+
+      if(doc.getElementById('scSingleSubmitGuard')&&doc.getElementById('scMobileGrid')&&doc.getElementById('scTaskLabels')&&doc.getElementById('scCleanLayoutV2')){
+        clearInterval(timer);
+      }
+    }catch(error){
+      console.error('Sentence City V6.2 enhancement injection failed',error);
+      if(attempts>150)clearInterval(timer);
+    }
+  },200);
+})();
+</script>
+</body>
+</html>
