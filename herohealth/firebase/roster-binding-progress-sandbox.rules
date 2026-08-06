@@ -7,12 +7,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isTeacher() {
+      return signedIn() && request.auth.token.heroHealthTeacher == true;
+    }
+
     function isTestStudent(studentId) {
-      return studentId == '990014';
+      return studentId in ['990014', '990015', '990016', '990017'];
     }
 
     function isTestAssessmentDocument(documentId) {
-      return documentId.matches('^990014_.*$');
+      return documentId.matches('^(990014|990015|990016|990017)_.*$');
     }
 
     function assessmentWriterMatchesAuth() {
@@ -31,47 +35,60 @@ service cloud.firestore {
     }
 
     match /passportCrossDeviceSandbox/{studentId} {
-      allow read, create, update:
+      allow read: if signedIn() && (isTestStudent(studentId) || isTeacher());
+      allow create, update:
         if signedIn() && isTestStudent(studentId);
       allow delete: if false;
     }
 
-    // Roster is read-only from the web client. It can be seeded manually for sandbox.
+    // Sandbox roster is seeded only by Firebase Admin SDK.
     match /studentsSandbox/{studentId} {
-      allow read: if signedIn() && isTestStudent(studentId);
+      allow read: if signedIn() && (isTestStudent(studentId) || isTeacher());
       allow write: if false;
     }
 
-    // Each anonymous UID may own only its own binding document.
+    // Each anonymous UID owns its binding; teachers may read for audit.
     match /studentBindingsSandbox/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
+      allow read: if signedIn() && (request.auth.uid == uid || isTeacher());
       allow create, update: if signedIn()
         && request.auth.uid == uid
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.studentId == '990014';
+        && isTestStudent(request.resource.data.studentId);
       allow delete: if false;
     }
 
-    // Sandbox progress is restricted to the single synthetic test student.
     match /studentProgressSandbox/{studentId} {
-      allow read: if signedIn() && isTestStudent(studentId);
+      allow read: if signedIn() && (isTestStudent(studentId) || isTeacher());
       allow create, update: if signedIn()
         && isTestStudent(studentId)
-        && request.resource.data.studentId == '990014';
+        && request.resource.data.studentId == studentId;
       allow delete: if false;
     }
 
-    // Assessment, Reflection, and Certificate receipt documents for the synthetic
-    // sandbox student. The writer UID may use the current firebaseSavedByUid field
-    // or the legacy createdByUid field used by Certificate Premium R5.2.
     match /studentAssessmentsSandbox/{documentId} {
-      allow read: if signedIn() && isTestAssessmentDocument(documentId);
+      allow read: if signedIn() && (isTestAssessmentDocument(documentId) || isTeacher());
       allow create, update: if signedIn()
         && isTestAssessmentDocument(documentId)
-        && request.resource.data.studentId == '990014'
+        && isTestStudent(request.resource.data.studentId)
         && request.resource.data.completed == true
         && assessmentWriterMatchesAuth();
       allow delete: if false;
+    }
+
+    // Production collections remain teacher-readable only in this sandbox ruleset.
+    match /students/{studentId} {
+      allow read: if isTeacher();
+      allow write: if false;
+    }
+
+    match /studentProgress/{studentId} {
+      allow read: if isTeacher();
+      allow write: if false;
+    }
+
+    match /studentAssessments/{documentId} {
+      allow read: if isTeacher();
+      allow write: if false;
     }
 
     match /{document=**} {
