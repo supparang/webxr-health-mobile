@@ -11,7 +11,7 @@
 </head>
 <body>
 <main class="wrap">
-<section class="head"><small>HERO REFLECTION • FIREBASE RECEIPT R2</small><h1>ฉันได้เรียนรู้อะไรวันนี้</h1><p id="who"></p></section>
+<section class="head"><small>HERO REFLECTION • FIREBASE RECEIPT R3</small><h1>ฉันได้เรียนรู้อะไรวันนี้</h1><p id="who"></p></section>
 <form id="form">
 <section class="card"><h2>1. วันนี้ฉันเข้าใจเรื่องสุขภาพมากขึ้นแค่ไหน</h2><div class="choice"><label><input type="radio" name="understand" value="1" required>🙂 เล็กน้อย</label><label><input type="radio" name="understand" value="2">😊 มากขึ้น</label><label><input type="radio" name="understand" value="3">🌟 มากที่สุด</label></div></section>
 <section class="card"><h2>2. ภารกิจใดช่วยให้ฉันเรียนรู้มากที่สุด</h2><div class="choice"><label><input type="radio" name="best" value="hygiene" required>🧼 สุขอนามัย</label><label><input type="radio" name="best" value="nutrition">🥗 โภชนาการ</label><label><input type="radio" name="best" value="fitness">🏃 การเคลื่อนไหว</label></div></section>
@@ -25,7 +25,7 @@ import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/1
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
 import { HEROHEALTH_FIREBASE_CONFIG, HEROHEALTH_FIREBASE_BUILD } from '../firebase/firebase-config.js';
 
-const RELEASE='20260806-FIREBASE-REFLECTION-RECEIPT-R2-PROGRESS-DOC';
+const RELEASE='20260806-FIREBASE-REFLECTION-RECEIPT-R3-ASSESSMENT-FALLBACK';
 const KEY='herohealth_learning_platform_rc2';
 const q=new URLSearchParams(location.search);
 const read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return{}}};
@@ -55,27 +55,61 @@ form.onsubmit=async event=>{
  try{
   const currentUser=await user(),receipt=receiptToken();
   const progressCollection=sid==='990014'?'studentProgressSandbox':'studentProgress';
+  const evidenceCollection=sid==='990014'?'studentAssessmentsSandbox':'studentAssessments';
   const progressRef=doc(db,progressCollection,sid);
+  const evidenceRef=doc(db,evidenceCollection,`${sid}_REFLECTION`);
   const reflectionRecord={...reflection,completed:true,firebaseReceiptToken:receipt,firebaseSavedByUid:currentUser.uid,firebaseClientSavedAt:new Date().toISOString(),release:RELEASE};
-  await setDoc(progressRef,{
+
+  // Persist a durable Firebase evidence record first. This collection is already
+  // used and permitted by the Pre-test/Post-test receipt workflow.
+  await setDoc(evidenceRef,{
     studentId:sid,
-    reflectionCompleted:true,
-    completed:{reflection:true},
+    assessmentType:'reflection',
+    mode:'reflection',
+    completed:true,
     reflection:reflectionRecord,
-    reflectionReceiptToken:receipt,
-    updatedByUid:currentUser.uid,
-    updatedAt:serverTimestamp(),
-    build:HEROHEALTH_FIREBASE_BUILD
+    firebaseReceiptToken:receipt,
+    firebaseSavedByUid:currentUser.uid,
+    firebaseClientSavedAt:new Date().toISOString(),
+    firebaseSavedAt:serverTimestamp(),
+    firebaseBuild:HEROHEALTH_FIREBASE_BUILD,
+    release:RELEASE
   },{merge:true});
-  const progressSnap=await getDoc(progressRef);
-  const remoteProgress=progressSnap.exists()?progressSnap.data():null;
-  const confirmed=remoteProgress?.reflection?.firebaseReceiptToken===receipt&&remoteProgress?.reflectionReceiptToken===receipt&&remoteProgress?.reflectionCompleted===true&&remoteProgress?.completed?.reflection===true;
-  if(!confirmed)throw new Error('firebase-reflection-receipt-mismatch');
-  state=read();state.reflection=reflectionRecord;state.reflectionCompleted=true;state.completed={...(state.completed||{}),reflection:true};state.firebaseReflection={receipt,confirmedAt:new Date().toISOString(),release:RELEASE,progressPath:progressRef.path};write(state);
-  show('✓ Firebase ยืนยัน Reflection แล้ว\nกำลังกลับ Hero Passport','ok');
-  const url=new URL(back,location.href);url.searchParams.set('authority','firebase');url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.set('firebaseReady','1');url.searchParams.set('firebaseReceipt','1');url.searchParams.set('reflectionReceipt','1');url.searchParams.set('authorityRefresh',String(Date.now()));url.searchParams.set('v',RELEASE);
-  setTimeout(()=>location.replace(url.href),700);
- }catch(error){console.error('[Firebase Reflection R2]',error);show('ยังบันทึก Firebase ไม่สำเร็จ\n'+String(error?.message||error),'error');button.disabled=false;button.textContent='ลองส่ง Reflection ไป Firebase อีกครั้ง'}
+  const evidenceSnap=await getDoc(evidenceRef);
+  const evidence=evidenceSnap.exists()?evidenceSnap.data():null;
+  if(evidence?.firebaseReceiptToken!==receipt||evidence?.completed!==true)throw new Error('firebase-reflection-evidence-receipt-mismatch');
+
+  let progressConfirmed=false,progressError='';
+  try{
+    await setDoc(progressRef,{
+      studentId:sid,
+      reflectionCompleted:true,
+      completed:{reflection:true},
+      reflection:reflectionRecord,
+      reflectionReceiptToken:receipt,
+      updatedByUid:currentUser.uid,
+      updatedAt:serverTimestamp(),
+      build:HEROHEALTH_FIREBASE_BUILD
+    },{merge:true});
+    const progressSnap=await getDoc(progressRef);
+    const remoteProgress=progressSnap.exists()?progressSnap.data():null;
+    progressConfirmed=remoteProgress?.reflection?.firebaseReceiptToken===receipt&&remoteProgress?.reflectionReceiptToken===receipt&&remoteProgress?.reflectionCompleted===true&&remoteProgress?.completed?.reflection===true;
+  }catch(error){progressError=String(error?.message||error);console.warn('[Firebase Reflection R3] progress update fallback',error)}
+
+  state=read();
+  state.reflection=reflectionRecord;
+  state.reflectionCompleted=true;
+  state.completed={...(state.completed||{}),reflection:true};
+  state.firebaseReflection={receipt,confirmedAt:new Date().toISOString(),release:RELEASE,evidencePath:evidenceRef.path,progressPath:progressRef.path,progressConfirmed,progressError};
+  write(state);
+
+  show(progressConfirmed?'✓ Firebase ยืนยัน Reflection และอัปเดต Progress แล้ว\nกำลังกลับ Hero Passport':'✓ Firebase บันทึก Reflection Receipt แล้ว\nกำลังกลับ Hero Passport','ok');
+  const url=new URL(back,location.href);
+  url.searchParams.set('authority','firebase');url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.set('firebaseReady','1');url.searchParams.set('reflectionReceipt','1');url.searchParams.set('reflectionEvidence','1');url.searchParams.set('reflectionProgress',progressConfirmed?'confirmed':'evidence-only');url.searchParams.set('v',RELEASE);
+  // Do not force remote hydration when progress rules are stale; preserve the
+  // verified local completion while the durable Firebase evidence already exists.
+  setTimeout(()=>location.replace(url.href),800);
+ }catch(error){console.error('[Firebase Reflection R3]',error);show('ยังบันทึก Firebase ไม่สำเร็จ\n'+String(error?.message||error),'error');button.disabled=false;button.textContent='ลองส่ง Reflection ไป Firebase อีกครั้ง'}
 };
 </script>
 </body>
