@@ -45,6 +45,7 @@ jobs:
           node --check english-week-passport/category-forest-v5-part4.js
           node --check english-week-passport/category-ar-route.js
           node --check english-week-passport/sentence-city-v3.js
+          node --check english-week-passport/sentence-city-ar-v4-activation.js
           node --check english-week-passport/sentence-city-ar-v4.js
           node --check english-week-passport/sentence-hand-rotation-v2.js
           node --check english-week-passport/action-rotation-v5.js
