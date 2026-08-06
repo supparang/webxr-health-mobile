@@ -55,6 +55,13 @@ jobs:
               html = html.replace('<h1>Champion Command Arena</h1>', '<h1>LEXICON Champion Arena</h1>')
               html = html.replace('Enter Champion Arena', 'Enter LEXICON Arena')
               game_v3.write_text(html, encoding='utf-8')
+
+          # Return from Conversation Quest to the renamed, cache-busted hub.
+          conversation_js = Path('english-week-passport/conversation-quest-ar-v243.js')
+          if conversation_js.exists():
+              js = conversation_js.read_text(encoding='utf-8')
+              js = js.replace('game-test-hub.html?v=20260806-cq-v243-final-reliability', 'game-test-hub.html?v=20260806-name-alignment')
+              conversation_js.write_text(js, encoding='utf-8')
           PY
 
       - name: Upload site
