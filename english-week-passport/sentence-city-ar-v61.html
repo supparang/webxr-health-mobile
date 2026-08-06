@@ -16,7 +16,7 @@ iframe{display:block;width:100%;height:100%;border:0;background:#070d2a}
 (function(){
   const frame=document.getElementById('game');
   const params=new URLSearchParams(location.search);
-  params.set('v','20260806-scv612-single-submit');
+  params.set('v','20260806-scv612-single-submit-2');
   frame.src='./sentence-city-ar-v611-repair-fix.html?'+params.toString();
 
   let attempts=0;
@@ -34,7 +34,7 @@ iframe{display:block;width:100%;height:100%;border:0;background:#070d2a}
       }
       const script=doc.createElement('script');
       script.id='scSingleSubmitGuard';
-      script.src='./sentence-city-single-submit-guard-v1.js?v=20260806-sc-submit-guard-v1';
+      script.src='./sentence-city-single-submit-guard-v1.js?v=20260806-sc-submit-guard-v1-1';
       script.onload=()=>clearInterval(timer);
       script.onerror=()=>console.error('Sentence City submit guard failed to load');
       doc.head.appendChild(script);
