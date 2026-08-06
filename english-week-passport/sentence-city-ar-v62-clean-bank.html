@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#070d2a">
+<title>Sentence City AR V6.2 Clean Bank V2</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;color:#fff;font-family:system-ui,sans-serif}
+.boot{height:100dvh;display:grid;place-items:center;text-align:center;padding:24px}
+.boot small{display:block;margin-top:8px;color:#b9c3ee}
+</style>
+</head>
+<body>
+<div id="boot" class="boot"><div><strong>กำลังเตรียม Sentence City V6.2…</strong><small>Clean Bank V2 • 40 curated tasks</small></div></div>
+<script>
+(async function(){
+  const boot=document.getElementById('boot');
+  try{
+    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260806-scv62-clean-base',{cache:'no-store'});
+    if(!response.ok)throw new Error('V61_CLEAN_LOADER_FAILED_'+response.status);
+    let source=await response.text();
+
+    const replacements=[
+      ['sentence-city-bank-v1.js?v=20260806-sc-bank-v1-128','sentence-city-bank-v2-clean.js?v=20260806-sc-clean-bank-v2-40'],
+      ['globalThis.LexiconXSentenceBank','globalThis.LexiconXSentenceBankV2'],
+      ['LexiconXSentenceBank.hash32','LexiconXSentenceBankV2.hash32'],
+      ['Seeded Question Bank • 128 items','Clean Bank V2 • 40 curated tasks'],
+      ['128 items','40 curated tasks'],
+      ['V6.1','V6.2'],
+      ['Seeded Bank','Clean Bank V2']
+    ];
+    for(const [from,to] of replacements)source=source.split(from).join(to);
+
+    if(!source.includes('sentence-city-bank-v2-clean.js'))throw new Error('CLEAN_BANK_SCRIPT_PATCH_FAILED');
+    if(!source.includes('LexiconXSentenceBankV2'))throw new Error('CLEAN_BANK_GLOBAL_PATCH_FAILED');
+
+    document.open();
+    document.write(source);
+    document.close();
+  }catch(error){
+    console.error(error);
+    boot.innerHTML='<div><strong>เปิดเกมไม่สำเร็จ</strong><small>'+String(error?.message||error)+'</small></div>';
+  }
+})();
+</script>
+</body>
+</html>
