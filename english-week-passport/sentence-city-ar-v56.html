@@ -16,16 +16,7 @@
     if(!response.ok)throw new Error('BASE_LOAD_FAILED_'+response.status);
     let html=await response.text();
 
-    html=html
-      .replaceAll('Final Polish V5.4','Pace & Summary V5.6')
-      .replaceAll('Final Polish','Pace & Summary')
-      .replaceAll("<span class=\"chip\">V5.4</span>","<span class=\"chip\">V5.6</span>")
-      .replaceAll("version:'V5.4'","version:'V5.6'")
-      .replace("setTimeout(()=>{S.index++;showTask()},950)","showToast(S.phase==='rescue'?'ซ่อมประโยคสำเร็จ!':'สร้างอาคารสำเร็จ!');setTimeout(()=>{S.index++;showTask()},2400)")
-      .replace("function beginRescue(){S.phase='rescue';","function beginRescue(){showToast('เตรียมเข้าสู่ City Repair Crew…');S.phase='rescue';")
-      .replace("const banner=rescueTotal?`<div class=\"banner rescue\">CITY REPAIR CREW • ${S.rescued}/${rescueTotal}</div>`:`<div class=\"banner perfect\">PERFECT SKYLINE</div>`;","const banner=rescueTotal?`<div class=\"banner rescue\">SKYLINE MASTERED • RESCUE ${S.rescued}/${rescueTotal}</div>`:`<div class=\"banner perfect\">PERFECT SKYLINE</div>`;")
-      .replace('</style>',`\n<style id="v56PaceSummary">
-      .celebrating .camera,.celebrating .board{filter:saturate(1.15) brightness(1.06)}
+    const extraCss=`<style id="v56PaceSummary">
       @media(max-width:720px){
         .summary{justify-content:flex-start!important;gap:8px!important;padding:4px 0 12px!important}
         .summary .mark{font-size:2.2rem!important;line-height:1!important}
@@ -52,7 +43,17 @@
         .summary-buildings{height:62px!important}
         .learning{display:none!important}
       }
-      </style></style>`);
+    </style>`;
+
+    html=html
+      .replaceAll('Final Polish V5.4','Pace & Summary V5.6')
+      .replaceAll('Final Polish','Pace & Summary')
+      .replaceAll("<span class=\"chip\">V5.4</span>","<span class=\"chip\">V5.6</span>")
+      .replaceAll("version:'V5.4'","version:'V5.6'")
+      .replace("setTimeout(()=>{S.index++;showTask()},950)","showToast(S.phase==='rescue'?'ซ่อมประโยคสำเร็จ!':'สร้างอาคารสำเร็จ!');setTimeout(()=>{S.index++;showTask()},2400)")
+      .replace("function beginRescue(){S.phase='rescue';","function beginRescue(){showToast('เตรียมเข้าสู่ City Repair Crew…');S.phase='rescue';")
+      .replace("const banner=rescueTotal?`<div class=\"banner rescue\">CITY REPAIR CREW • ${S.rescued}/${rescueTotal}</div>`:`<div class=\"banner perfect\">PERFECT SKYLINE</div>`;","const banner=rescueTotal?`<div class=\"banner rescue\">SKYLINE MASTERED • RESCUE ${S.rescued}/${rescueTotal}</div>`:`<div class=\"banner perfect\">PERFECT SKYLINE</div>`;")
+      .replace('</head>',extraCss+'</head>');
 
     document.open();
     document.write(html);
