@@ -1,5 +1,97 @@
-/* Champion Command Arena V2.1 — Mobile Body Camera Layout */
+/* Champion Command Arena V2.2 — Mobile Intro + Body Camera Layout */
 
+/* ---------- Intro: keep all five gates visible and never overlap actions ---------- */
+.intro{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding:10px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+
+.intro > *{flex:0 0 auto}
+.intro .boss-mark{
+  font-size:clamp(2.2rem,11vw,3.3rem);
+  line-height:1;
+  margin:0;
+}
+
+.intro > div:nth-child(2) h1{
+  margin:0;
+  font-size:clamp(1.3rem,6vw,1.8rem);
+  line-height:1.05;
+}
+
+.intro > div:nth-child(2) p{
+  margin:4px 0 0;
+  font-size:clamp(.82rem,3.5vw,.98rem);
+  line-height:1.25;
+}
+
+.intro .mission-set{
+  margin-top:3px;
+  font-size:.74rem;
+  line-height:1.1;
+}
+
+.intro .gate-preview{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+  align-content:start;
+  min-height:0;
+}
+
+.intro .gate-card{
+  min-height:70px;
+  padding:6px 5px;
+  border-radius:14px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  overflow:hidden;
+}
+
+.intro .gate-card.action{
+  grid-column:1/-1;
+  min-height:78px;
+}
+
+.intro .gate-card span{
+  font-size:1.35rem;
+  line-height:1;
+}
+
+.intro .gate-card b{
+  margin-top:3px;
+  font-size:clamp(.84rem,3.7vw,1rem);
+  line-height:1.08;
+}
+
+.intro .gate-card small{
+  margin-top:2px;
+  font-size:clamp(.68rem,3vw,.78rem);
+  line-height:1.08;
+}
+
+.intro > .primary,
+.intro > .secondary{
+  position:static;
+  inset:auto;
+  width:100%;
+  min-height:52px;
+  padding:8px 12px;
+  border-radius:16px;
+  margin:0;
+  z-index:auto;
+}
+
+.intro > .primary{font-size:clamp(1rem,4.5vw,1.2rem)}
+.intro > .secondary{font-size:clamp(.96rem,4.2vw,1.12rem)}
+
+/* ---------- Action gate: maximize usable camera frame ---------- */
 .game:has(.pose-stage){
   grid-template-rows:auto minmax(0,1fr) auto;
   gap:5px;
@@ -87,9 +179,31 @@
 .game:has(.pose-stage) .command-dots{min-height:12px}
 .game:has(.pose-stage) .pose-actions button{min-height:46px;padding:7px 10px;font-size:.88rem}
 
+@media(max-height:760px){
+  .intro{gap:6px;padding:8px}
+  .intro .boss-mark{font-size:2.05rem}
+  .intro > div:nth-child(2) h1{display:none}
+  .intro > div:nth-child(2) p{margin:0;font-size:.78rem}
+  .intro .mission-set{font-size:.68rem}
+  .intro .gate-preview{gap:5px}
+  .intro .gate-card{min-height:62px;padding:5px 4px}
+  .intro .gate-card.action{min-height:68px}
+  .intro .gate-card span{font-size:1.15rem}
+  .intro .gate-card b{font-size:.8rem}
+  .intro .gate-card small{font-size:.64rem}
+  .intro > .primary,.intro > .secondary{min-height:47px;padding:6px 10px}
+}
+
 @media(max-height:700px){
   .game:has(.pose-stage) .pose-stage{min-height:330px}
   .game:has(.pose-stage) .pose-actions button{min-height:42px}
+}
+
+@media(max-width:390px){
+  .intro{padding-left:8px;padding-right:8px}
+  .intro .gate-preview{gap:5px}
+  .intro .gate-card{min-height:66px}
+  .intro .gate-card.action{min-height:72px}
 }
 
 @media(min-height:820px){
