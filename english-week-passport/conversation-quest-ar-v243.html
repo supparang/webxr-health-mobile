@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#241246">
+<title>Conversation Quest AR V2.4.3</title>
+<link rel="stylesheet" href="./conversation-quest-ar-v242.css?v=20260806-cq-v243-final-reliability-newpath">
+</head>
+<body>
+<div class="app">
+<header class="top">
+  <button id="back" type="button" aria-label="กลับ">←</button>
+  <div class="title"><b>Conversation Quest AR</b><small id="versionLabel">GAME 4 • Final Reliability V2.4.3</small></div>
+  <button id="audio" type="button" aria-label="เปิดปิดเสียง">🔊</button>
+</header>
+<main class="screen">
+<section id="intro" class="intro">
+  <div class="hero">🏫💬🎤</div>
+  <div><h1>School Conversation</h1><p>ทุกช่วงต้องเลือกคำตอบที่เหมาะสม<br>แล้วพูดประโยคที่เลือกจึงจะผ่าน</p><div id="missionSetIntro" class="mission-set"></div></div>
+  <div class="flow"><div>① เลือก<br>คำตอบ</div><div>② ฟัง<br>ตัวอย่าง</div><div>③ พูด<br>ให้ผ่าน</div></div>
+  <button id="start" type="button" class="primary">Start Speaking Mission</button>
+  <button id="hubIntro" type="button" class="secondary">Back to Test Hub</button>
+</section>
+<section id="mission" class="mission hidden">
+  <div class="hud">
+    <div class="stat"><small>TURN</small><b id="turn">1 / 5</b></div>
+    <div class="stat"><small>SCORE</small><b id="score">0</b></div>
+    <div class="stat"><small>SPEAKING</small><b id="speaking">0 / 5</b></div>
+  </div>
+  <div id="stage" class="stage">
+    <video id="video" playsinline muted></video>
+    <div class="hand-panel"><div id="handStatus" class="hand-status">กำลังเปิดกล้อง…</div><button id="retryAR" class="retry-ar" type="button">ลอง AR อีกครั้ง</button></div>
+    <div class="npc"><div class="npc-face">👩‍🏫</div><div class="npc-name">Teacher Maya</div></div>
+  </div>
+  <div class="dialogue"><div class="speaker">👩‍🏫</div><div id="line" class="line"></div><button id="speakQuestion" type="button" class="sound">🔊</button></div>
+  <div id="playarea" class="playarea">
+    <div id="choices" class="choices"></div>
+    <div id="speakGate" class="speak-gate">
+      <div class="speak-title">🎤 <strong>พูดประโยคที่เลือก</strong></div>
+      <div id="target" class="target"></div>
+      <div id="keywordHint" class="keyword-hint"></div>
+      <div class="mic-row"><button id="mic" type="button" class="mic">🎤 กดแล้วพูด</button><button id="sample" type="button" class="sample" aria-label="ฟังตัวอย่าง">🔊</button></div>
+      <div id="heard" class="heard">ยังไม่ได้เริ่มพูด</div>
+      <div class="meter"><span id="meter"></span></div>
+    </div>
+  </div>
+  <div id="feedback" class="feedback">ฟังคำถาม แล้วเลือกคำตอบที่เหมาะสม</div>
+</section>
+<section id="summary" class="summary hidden">
+  <div id="summaryScroll" class="summary-scroll">
+    <div class="hero">🏫✨🎤</div>
+    <div id="grade" class="grade">S</div>
+    <h1>Conversation Complete!</h1>
+    <p id="summaryText"></p>
+    <div id="missionSetSummary" class="mission-set"></div>
+    <div class="summary-grid">
+      <div><small>CHOICE ACCURACY</small><b id="accuracy">0%</b></div>
+      <div><small>SPEAKING PASSED</small><b id="speakingPassed">0/5</b></div>
+      <div><small>SCORE</small><b id="finalScore">0</b></div>
+      <div><small>AVG. SPEECH MATCH</small><b id="speechAvg">0%</b></div>
+    </div>
+    <div class="summary-note">โหมดทดสอบ • ยังไม่ส่งผลเข้า Firebase</div>
+  </div>
+  <div class="summary-actions">
+    <button id="replay" type="button" class="primary">Play Another Conversation</button>
+    <button id="hubSummary" type="button" class="secondary">Back to Test Hub</button>
+  </div>
+</section>
+</main>
+<div id="cursor" class="cursor"></div>
+</div>
+<script src="./conversation-quest-bank-v24.js?v=20260806-cq-v243-final-reliability-newpath"></script>
+<script src="./conversation-quest-ar-v243.js?v=20260806-cq-v243-final-reliability-newpath"></script>
+</body>
+</html>
