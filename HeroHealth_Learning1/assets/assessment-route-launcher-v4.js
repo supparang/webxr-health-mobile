@@ -1,11 +1,11 @@
 (()=>{
 'use strict';
-const RELEASE='20260805-ASSESSMENT-FIREBASE-ROUTE-R9';
+const RELEASE='20260806-ASSESSMENT-FIREBASE-ROUTE-R10-REFLECTION';
 const STATE_KEY='herohealth_learning_platform_rc2';
 const STUDY_ID='HEROHEALTH-P5-2026';
-const SHEET_ROUTES={pretest:'./assessment/pretest.html?v=20260731-assessment-stable-v6',posttest:'./assessment/posttest.html?v=20260805-authority-gate-v4'};
-const FIREBASE_ROUTES={pretest:'./assessment/pretest-firebase.html?v=20260804-firebase-assessment-r2',posttest:'./assessment/posttest-firebase.html?v=20260805-firebase-posttest-r3'};
-const COMMON_ROUTES={reflection:'./assessment/reflection.html?v=20260730-active-receiver-v85',certificate:'./assessment/certificate.html?v=20260730-active-receiver-v85'};
+const SHEET_ROUTES={pretest:'./assessment/pretest.html?v=20260731-assessment-stable-v6',posttest:'./assessment/posttest.html?v=20260805-authority-gate-v4',reflection:'./assessment/reflection.html?v=20260731-reflection-r54'};
+const FIREBASE_ROUTES={pretest:'./assessment/pretest-firebase.html?v=20260804-firebase-assessment-r2',posttest:'./assessment/posttest-firebase.html?v=20260805-firebase-posttest-r3',reflection:'./assessment/reflection-firebase.html?v=20260806-firebase-reflection-r1'};
+const COMMON_ROUTES={certificate:'./assessment/certificate.html?v=20260730-active-receiver-v85'};
 if(!window.HH||typeof window.HH.openRoute!=='function')return;
 if(window.HHAssessmentRouteLauncher?.version===RELEASE)return;
 const baseOpenRoute=window.__HH_ASSESSMENT_BASE_OPEN_ROUTE__||window.HH.openRoute.bind(window.HH);
