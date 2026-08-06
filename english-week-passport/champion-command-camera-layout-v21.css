@@ -1,0 +1,97 @@
+/* Champion Command Arena V2.1 — Mobile Body Camera Layout */
+
+.game:has(.pose-stage){
+  grid-template-rows:auto minmax(0,1fr) auto;
+  gap:5px;
+  padding:6px;
+}
+
+.game:has(.pose-stage) .boss{display:none}
+.game:has(.pose-stage) .hud{gap:5px}
+.game:has(.pose-stage) .stat{padding:4px 7px;border-radius:12px}
+.game:has(.pose-stage) .stat small{font-size:.68rem;line-height:1}
+.game:has(.pose-stage) .stat b{font-size:clamp(1.02rem,4.8vw,1.28rem);line-height:1.05}
+
+.game:has(.pose-stage) .arena{
+  padding:5px;
+  gap:6px;
+  align-content:stretch;
+  grid-template-rows:minmax(0,1fr) auto auto auto;
+  overflow:auto;
+}
+
+.game:has(.pose-stage) .gate-head{display:none}
+
+.game:has(.pose-stage) .pose-stage{
+  min-height:clamp(350px,49vh,510px);
+  height:100%;
+  border-radius:18px;
+}
+
+/* Keep the complete horizontal camera frame for arms-wide detection. */
+.game:has(.pose-stage) .pose-stage video{
+  object-fit:contain;
+  background:#071221;
+  opacity:.96;
+}
+
+.game:has(.pose-stage) .pose-shade{
+  background:linear-gradient(180deg,rgba(5,8,22,.03),rgba(5,8,22,.24));
+}
+
+.game:has(.pose-stage) .pose-guide{
+  width:68%;
+  height:86%;
+  transform:translate(-50%,-50%);
+  border-width:2px;
+  box-shadow:0 0 0 999px rgba(4,7,20,.08);
+}
+
+.game:has(.pose-stage) .pose-status{
+  left:8px;
+  right:8px;
+  top:7px;
+  padding:5px 8px;
+  border-radius:11px;
+  font-size:.73rem;
+  line-height:1.2;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  background:rgba(10,18,40,.66);
+  backdrop-filter:blur(5px);
+}
+
+.game:has(.pose-stage) .command-card{
+  left:8px;
+  right:8px;
+  bottom:7px;
+  padding:7px 9px;
+  border-radius:14px;
+  background:rgba(35,22,70,.76);
+  backdrop-filter:blur(5px);
+}
+
+.game:has(.pose-stage) .command-card strong{
+  font-size:clamp(1.02rem,4.9vw,1.34rem);
+  line-height:1.12;
+}
+
+.game:has(.pose-stage) .command-card small{
+  margin-top:2px;
+  font-size:.76rem;
+  line-height:1.15;
+}
+
+.game:has(.pose-stage) .hold{height:10px;margin-top:6px}
+.game:has(.pose-stage) .command-dots{min-height:12px}
+.game:has(.pose-stage) .pose-actions button{min-height:46px;padding:7px 10px;font-size:.88rem}
+
+@media(max-height:700px){
+  .game:has(.pose-stage) .pose-stage{min-height:330px}
+  .game:has(.pose-stage) .pose-actions button{min-height:42px}
+}
+
+@media(min-height:820px){
+  .game:has(.pose-stage) .pose-stage{min-height:clamp(390px,52vh,540px)}
+}
