@@ -4,19 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#070d2a">
-<title>Sentence City AR V6.1.2 Submit Guard</title>
+<title>Sentence City AR V6.1.3 Mobile Grid</title>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a}
 iframe{display:block;width:100%;height:100%;border:0;background:#070d2a}
 </style>
 </head>
 <body>
-<iframe id="game" allow="camera" title="Sentence City AR V6.1.2 Submit Guard"></iframe>
+<iframe id="game" allow="camera" title="Sentence City AR V6.1.3 Mobile Grid"></iframe>
 <script>
 (function(){
   const frame=document.getElementById('game');
   const params=new URLSearchParams(location.search);
-  params.set('v','20260806-scv612-single-submit-2');
+  params.set('v','20260806-scv613-mobile-grid');
   frame.src='./sentence-city-ar-v611-repair-fix.html?'+params.toString();
 
   let attempts=0;
@@ -25,22 +25,28 @@ iframe{display:block;width:100%;height:100%;border:0;background:#070d2a}
     try{
       const doc=frame.contentDocument;
       if(!doc?.head||!doc.querySelector('.app')){
-        if(attempts>100)clearInterval(timer);
+        if(attempts>120)clearInterval(timer);
         return;
       }
-      if(doc.getElementById('scSingleSubmitGuard')){
+
+      const inject=(id,src)=>{
+        if(doc.getElementById(id))return;
+        const script=doc.createElement('script');
+        script.id=id;
+        script.src=src;
+        script.onerror=()=>console.error(id+' failed to load');
+        doc.head.appendChild(script);
+      };
+
+      inject('scSingleSubmitGuard','./sentence-city-single-submit-guard-v1.js?v=20260806-sc-submit-guard-v1-1');
+      inject('scMobileGrid','./sentence-city-mobile-grid-v1.js?v=20260806-sc-mobile-grid-v1');
+
+      if(doc.getElementById('scSingleSubmitGuard')&&doc.getElementById('scMobileGrid')){
         clearInterval(timer);
-        return;
       }
-      const script=doc.createElement('script');
-      script.id='scSingleSubmitGuard';
-      script.src='./sentence-city-single-submit-guard-v1.js?v=20260806-sc-submit-guard-v1-1';
-      script.onload=()=>clearInterval(timer);
-      script.onerror=()=>console.error('Sentence City submit guard failed to load');
-      doc.head.appendChild(script);
     }catch(error){
-      console.error('Sentence City submit guard injection failed',error);
-      if(attempts>100)clearInterval(timer);
+      console.error('Sentence City enhancement injection failed',error);
+      if(attempts>120)clearInterval(timer);
     }
   },200);
 })();
