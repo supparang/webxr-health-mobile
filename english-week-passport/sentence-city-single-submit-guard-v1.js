@@ -1,16 +1,18 @@
-/* Sentence City • Single Submit Guard V1
+/* Sentence City • Single Submit Guard V1.1
  * Prevents repeated AR dwell/pinch submissions during the success delay.
  * Incomplete blueprints remain unsubmitted and receive no score/progress.
  */
 (function(){
   'use strict';
 
-  const VERSION='2026-08-06-SC-SINGLE-SUBMIT-GUARD-V1';
+  const VERSION='2026-08-06-SC-SINGLE-SUBMIT-GUARD-V1-1';
   let observedFeedback=null;
   let feedbackObserver=null;
   let taskLocked=false;
   let taskSerial=0;
   let acceptedSubmissions=0;
+  let incompleteSubmitAttempts=0;
+  let lastIncompleteText='';
 
   function getFeedback(){return document.getElementById('feedback')}
   function getCheck(){return document.getElementById('check')}
@@ -38,17 +40,36 @@
     }
   }
 
+  function markIncomplete(feedback,text){
+    if(text===lastIncompleteText)return;
+    lastIncompleteText=text;
+    incompleteSubmitAttempts++;
+    feedback.textContent='ยังไม่ส่งคำตอบ • วางคำให้ครบทุกช่องก่อน';
+    feedback.classList.add('bad');
+    const check=getCheck();
+    if(check){
+      check.disabled=false;
+      check.removeAttribute('aria-disabled');
+      check.textContent='Build Sentence';
+    }
+  }
+
   function observeFeedback(feedback){
     if(!feedback||feedback===observedFeedback)return;
     feedbackObserver?.disconnect();
     observedFeedback=feedback;
     taskLocked=false;
+    lastIncompleteText='';
     taskSerial++;
 
     feedbackObserver=new MutationObserver(()=>{
       const text=feedback.textContent.trim();
       if(feedback.classList.contains('good')||text.includes('Sentence complete')){
         lockAcceptedTask();
+        return;
+      }
+      if(text.includes('ยังวางคำไม่ครบทุกช่อง')){
+        markIncomplete(feedback,text);
       }
     });
     feedbackObserver.observe(feedback,{attributes:true,attributeFilter:['class'],childList:true,characterData:true,subtree:true});
@@ -85,6 +106,7 @@
     version:VERSION,
     get taskLocked(){return taskLocked},
     get taskSerial(){return taskSerial},
-    get acceptedSubmissions(){return acceptedSubmissions}
+    get acceptedSubmissions(){return acceptedSubmissions},
+    get incompleteSubmitAttempts(){return incompleteSubmitAttempts}
   };
 })();
