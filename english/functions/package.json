@@ -5,11 +5,11 @@
   "engines": {
     "node": "20"
   },
-  "main": "index.js",
+  "main": "main.js",
   "scripts": {
     "serve": "firebase emulators:start --only functions,firestore",
     "deploy": "firebase deploy --only functions",
-    "lint": "echo lint skipped"
+    "lint": "node --check main.js && node --check english-week-authority.js"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0",
