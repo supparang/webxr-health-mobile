@@ -13,14 +13,14 @@
 <div class="shell"><iframe id="gameFrame" class="game-frame" allow="camera; microphone; autoplay" title="LEXICON X Passport Game"></iframe></div>
 <div id="boot" class="boot"><div><div class="spinner"></div><strong id="bootTitle">กำลังเปิดเกมจาก Passport…</strong><small id="bootDetail">กำลังตรวจสอบผู้เล่นและภารกิจ</small></div></div>
 <div id="status" class="status"><div><strong id="statusTitle">กำลังบันทึกผล…</strong><small id="statusDetail">กรุณาอย่าปิดหน้านี้</small></div><button id="statusAction" type="button">กลับ Passport</button></div>
-<script src="./config.js?v=20260806-passport-shell1"></script>
-<script src="./authority-client.js?v=20260806-passport-shell1"></script>
-<script src="./firebase-authority-bridge.js?v=20260806-passport-shell1"></script>
-<script src="./passport-rotation-v2.js?v=20260806-passport-shell1"></script>
+<script src="./config.js?v=20260806-passport-shell11"></script>
+<script src="./authority-client.js?v=20260806-passport-shell11"></script>
+<script src="./firebase-authority-bridge.js?v=20260806-passport-shell11"></script>
+<script src="./passport-rotation-v2.js?v=20260806-passport-shell11"></script>
 <script>
 (function(){
 'use strict';
-const VERSION='2026-08-06-PASSPORT-GAME-SHELL-V1';
+const VERSION='2026-08-06-PASSPORT-GAME-SHELL-V1.1';
 const params=new URLSearchParams(location.search);
 const stageId=params.get('stage')||'';
 const run=params.get('run')||'1';
@@ -40,9 +40,7 @@ const statusDetail=document.getElementById('statusDetail');
 const statusAction=document.getElementById('statusAction');
 let submitting=false,submitted=false,receipt='',returnTimer=0,monitorTimer=0,categorySummaryAt=0,lastResult=null;
 
-function readIdentity(){
-  try{return JSON.parse(localStorage.getItem(window.EW_CONFIG?.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}
-}
+function readIdentity(){try{return JSON.parse(localStorage.getItem(window.EW_CONFIG?.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
 let identity=readIdentity();
 if(!identity?.playerId&&params.get('pid')){
   identity={playerId:params.get('pid'),nickname:params.get('nickname')||params.get('name')||'Player',fullName:params.get('nickname')||params.get('name')||'Player'};
@@ -50,9 +48,7 @@ if(!identity?.playerId&&params.get('pid')){
 }
 const assignment=identity?.playerId?window.EW_ROTATION?.getAssignment(identity.playerId):null;
 
-function showStatus(title,detail,type,buttonText){
-  status.className='status show '+(type||'');statusTitle.textContent=title;statusDetail.textContent=detail||'';statusAction.textContent=buttonText||'กลับ Passport';
-}
+function showStatus(title,detail,type,buttonText){status.className='status show '+(type||'');statusTitle.textContent=title;statusDetail.textContent=detail||'';statusAction.textContent=buttonText||'กลับ Passport'}
 function cleanNumber(value,fallback=0){const number=Number(value);return Number.isFinite(number)?number:fallback}
 function summaryObject(kind,data){return {itemId:'__summary__',kind,gameId:kind,sourceVersion:VERSION,...data}}
 function currentWindow(){
@@ -65,8 +61,15 @@ function currentWindow(){
     return win;
   }catch(_){return null}
 }
-function summaryVisible(win){
-  try{const node=win?.document?.querySelector('.summary,#summary');return Boolean(node&&!node.classList.contains('hidden'))}catch(_){return false}
+function summaryVisible(win){try{const node=win?.document?.querySelector('.summary,#summary');return Boolean(node&&!node.classList.contains('hidden'))}catch(_){return false}}
+function annotateSummary(message,stateClass){
+  const win=currentWindow();if(!win)return;
+  try{
+    const candidates=[...win.document.querySelectorAll('.summary-note,.save-status,.summary .notice,.summary-note')];
+    let target=candidates.find(node=>/โหมดทดสอบ|Firebase|บันทึก/i.test(node.textContent||''));
+    if(!target&&summaryVisible(win)){target=win.document.createElement('div');target.className='summary-note';win.document.querySelector('.summary')?.appendChild(target)}
+    if(target){target.textContent=message;if(stateClass)target.dataset.passportSaveState=stateClass}
+  }catch(_){}
 }
 function resultForStage(){
   const win=currentWindow();if(!win)return null;
@@ -78,12 +81,13 @@ function resultForStage(){
     }
     if(stageId==='category_forest'){
       const gameState=win.CATEGORY_FOREST,S=gameState?.state;if(!S||!summaryVisible(win))return null;
-      if(S.receipt)return {alreadySaved:true,receipt:S.receipt,passed:true};
+      const accuracy=Math.round(cleanNumber(S.firstTryCorrect)/10*100);
+      if(S.receipt)return {alreadySaved:true,receipt:S.receipt,passed:accuracy>=70,accuracy};
       if(!categorySummaryAt)categorySummaryAt=Date.now();
       if(S.submitting&&!S.submitError)return {pending:true};
       if(!S.submitError&&Date.now()-categorySummaryAt<6500)return {pending:true};
       const order=(S.mainItems||[]).map(item=>item.id);
-      return {score:cleanNumber(S.firstTryCorrect),total:10,clientPoints:cleanNumber(S.score),durationMs:Math.max(0,Date.now()-cleanNumber(S.started,Date.now())),wordSetId:gameState.wordSetId,itemOrder:order,answers:[summaryObject('category_forest_summary',{passportRotation:gameState.assignment?.passportRotation,wordSetId:gameState.wordSetId,itemOrder:order,firstTryCorrect:S.firstTryCorrect,firstTryAccuracy:Math.round(cleanNumber(S.firstTryCorrect)/10*100),rescueCorrect:S.rescueCorrect,rescueTotal:S.rescueTotal,wrongAttempts:S.wrong,bestCombo:S.bestCombo}),...(S.events||[])]};
+      return {score:cleanNumber(S.firstTryCorrect),total:10,clientPoints:cleanNumber(S.score),durationMs:Math.max(0,Date.now()-cleanNumber(S.started,Date.now())),wordSetId:gameState.wordSetId,itemOrder:order,answers:[summaryObject('category_forest_summary',{passportRotation:gameState.assignment?.passportRotation,wordSetId:gameState.wordSetId,itemOrder:order,categorySet:S.cats,firstTryCorrect:S.firstTryCorrect,firstTryAccuracy:accuracy,rescueCorrect:S.rescueCorrect,rescueTotal:S.rescueTotal,wrongAttempts:S.wrong,bestCombo:S.bestCombo}),...(S.events||[])]};
     }
     if(stageId==='sentence_city'){
       const R=win.SENTENCE_CITY_LAST_RESULT;if(!R||!summaryVisible(win))return null;
@@ -99,9 +103,7 @@ function resultForStage(){
     }
     if(stageId==='final_boss'){
       const gameState=win.CHAMPION_COMMAND_ARENA,S=gameState?.state;if(!S||!summaryVisible(win))return null;
-      const firstTryPct=Math.round(cleanNumber(S.firstTry)/6*100);
-      const voiceScore=cleanNumber(S.voiceScore);
-      const mastery=Math.round(firstTryPct*.7+voiceScore*.3);
+      const firstTryPct=Math.round(cleanNumber(S.firstTry)/6*100),voiceScore=cleanNumber(S.voiceScore),mastery=Math.round(firstTryPct*.7+voiceScore*.3);
       return {score:mastery,total:100,clientPoints:cleanNumber(S.score),durationMs:0,answers:[summaryObject('champion_command_arena',{firstTry:S.firstTry,firstTryPct,voiceScore,bodyCommands:S.actionCleared,bodyFallbackUsed:Boolean(S.actionFallback),actionEvidence:S.actionEvidence||[],missionSet:gameState.SET,rawScore:S.score})]};
     }
   }catch(error){console.warn('Passport result adapter failed',stageId,error)}
@@ -109,73 +111,50 @@ function resultForStage(){
 }
 async function submitResult(result){
   if(submitted||submitting||!result||result.pending)return;
-  if(result.alreadySaved){submitted=true;receipt=result.receipt||'firebase-saved';showSaved(true,100);return}
-  submitting=true;lastResult=result;showStatus('กำลังบันทึกผลไป Firebase…','รอ Authority receipt ก่อนปลดล็อกด่านถัดไป','','รอสักครู่');statusAction.disabled=true;
+  if(result.alreadySaved){submitted=true;receipt=result.receipt||'firebase-saved';annotateSummary('บันทึก Firebase สำเร็จผ่าน Passport • กำลังกลับหน้าหลัก','saved');showSaved(Boolean(result.passed),cleanNumber(result.accuracy));return}
+  submitting=true;lastResult=result;annotateSummary('กำลังบันทึกผลไป Firebase ผ่าน Passport…','saving');showStatus('กำลังบันทึกผลไป Firebase…','รอ Authority receipt ก่อนปลดล็อกด่านถัดไป','','รอสักครู่');statusAction.disabled=true;
   try{
     if(!identity?.playerId)throw new Error('PLAYER_ID_MISSING');
     if(!window.EW_AUTHORITY?.submitGame)throw new Error('AUTHORITY_NOT_READY');
-    const payload={
-      playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',stageId,
-      score:Math.max(0,Math.round(cleanNumber(result.score))),total:Math.max(1,Math.round(cleanNumber(result.total,100))),
-      durationMs:Math.max(0,Math.round(cleanNumber(result.durationMs))),clientPoints:Math.max(0,Math.round(cleanNumber(result.clientPoints))),
-      answers:Array.isArray(result.answers)?result.answers:[],sourceVersion:VERSION,
-      wordSetId:result.wordSetId||'',itemOrder:Array.isArray(result.itemOrder)?result.itemOrder:[],
-      passportRotation:assignment?.passportRotation,assessmentRotation:assignment?.assessmentRotation,randomSeed:assignment?.randomSeed
-    };
+    const payload={playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',stageId,score:Math.max(0,Math.round(cleanNumber(result.score))),total:Math.max(1,Math.round(cleanNumber(result.total,100))),durationMs:Math.max(0,Math.round(cleanNumber(result.durationMs))),clientPoints:Math.max(0,Math.round(cleanNumber(result.clientPoints))),answers:Array.isArray(result.answers)?result.answers:[],sourceVersion:VERSION,wordSetId:result.wordSetId||'',itemOrder:Array.isArray(result.itemOrder)?result.itemOrder:[],passportRotation:assignment?.passportRotation,assessmentRotation:assignment?.assessmentRotation,randomSeed:assignment?.randomSeed};
     const response=await window.EW_AUTHORITY.submitGame(payload);
     if(!response?.ok)throw new Error(response?.error||'SUBMIT_FAILED');
     const firebaseSaved=response.mode==='firebase'||response.authority?.mode==='firebase';
     if(!firebaseSaved)throw new Error(response.firebaseError||'FIREBASE_RECEIPT_REQUIRED');
     submitted=true;receipt=response.receiptId||response.resultId||'firebase-saved';
     try{sessionStorage.setItem(`ew_passport_receipt::${identity.playerId}::${stageId}`,JSON.stringify({receipt,at:new Date().toISOString(),passed:Boolean(response.passed),accuracy:response.accuracy}))}catch(_){}
-    showSaved(Boolean(response.passed),cleanNumber(response.accuracy));
+    annotateSummary(`บันทึก Firebase สำเร็จ • ${response.passed?'ผ่านด่านและปลดล็อกขั้นถัดไป':'คะแนนยังไม่ถึงเกณฑ์ผ่าน'}`,'saved');showSaved(Boolean(response.passed),cleanNumber(response.accuracy));
   }catch(error){
-    console.error(error);showStatus('บันทึก Firebase ไม่สำเร็จ',String(error?.message||error),'bad','ลองบันทึกอีกครั้ง');statusAction.disabled=false;statusAction.onclick=()=>{submitting=false;submitResult(lastResult||result)};
+    console.error(error);annotateSummary('บันทึก Firebase ไม่สำเร็จ • แตะลองใหม่ที่แถบด้านล่าง','error');showStatus('บันทึก Firebase ไม่สำเร็จ',String(error?.message||error),'bad','ลองบันทึกอีกครั้ง');statusAction.disabled=false;statusAction.onclick=()=>{submitting=false;submitResult(lastResult||result)};
   }finally{submitting=false}
 }
 function showSaved(passed,accuracy){
   const text=passed?'ผ่านด่านและปลดล็อกขั้นถัดไปแล้ว':'บันทึกผลแล้ว แต่คะแนนยังไม่ถึงเกณฑ์ผ่าน';
   showStatus('บันทึก Firebase สำเร็จ ✓',`${text}${Number.isFinite(accuracy)?` • ${Math.round(accuracy)}%`:''}`,'good','กลับ Passport');
-  statusAction.disabled=false;statusAction.onclick=returnToPassport;
-  clearTimeout(returnTimer);returnTimer=setTimeout(returnToPassport,passed?3000:4500);
+  statusAction.disabled=false;statusAction.onclick=returnToPassport;clearTimeout(returnTimer);returnTimer=setTimeout(returnToPassport,passed?3000:4500);
 }
-function returnToPassport(){
-  clearTimeout(returnTimer);clearInterval(monitorTimer);
-  const query=new URLSearchParams({resume:'passport',fromGame:stageId});if(receipt)query.set('receipt',receipt);
-  location.replace('./index.html?'+query.toString());
-}
+function returnToPassport(){clearTimeout(returnTimer);clearInterval(monitorTimer);const query=new URLSearchParams({resume:'passport',fromGame:stageId});if(receipt)query.set('receipt',receipt);location.replace('./index.html?'+query.toString())}
 function interceptWindow(win){
   try{
-    const doc=win.document;if(!doc||doc.documentElement.dataset.passportShellWired==='1')return;
-    doc.documentElement.dataset.passportShellWired='1';
+    const doc=win.document;if(!doc||doc.documentElement.dataset.passportShellWired==='1')return;doc.documentElement.dataset.passportShellWired='1';
     doc.addEventListener('click',event=>{
-      const button=event.target?.closest?.('#done,#hubSummary,#hubIntro,#home,#back,#exit,[data-passport-return]');
-      if(!button)return;
-      event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
-      const result=resultForStage();if(result&&!submitted){submitResult(result);return}
-      returnToPassport();
+      const button=event.target?.closest?.('#done,#hubSummary,#hubIntro,#home,#back,#exit,[data-passport-return]');if(!button)return;
+      event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();const result=resultForStage();if(result&&!submitted){submitResult(result);return}returnToPassport();
     },true);
     doc.querySelectorAll('iframe').forEach(child=>child.addEventListener('load',()=>interceptWindow(child.contentWindow)));
   }catch(_){}
 }
-function monitor(){
-  const win=currentWindow();if(win){interceptWindow(frame.contentWindow);if(win!==frame.contentWindow)interceptWindow(win)}
-  const result=resultForStage();if(result&&!result.pending&&!submitted&&!submitting)submitResult(result);
-}
+function monitor(){const win=currentWindow();if(win){interceptWindow(frame.contentWindow);if(win!==frame.contentWindow)interceptWindow(win)}const result=resultForStage();if(result&&!result.pending&&!submitted&&!submitting)submitResult(result)}
 function launch(){
   if(!game){document.getElementById('bootTitle').textContent='ไม่พบเกมใน Passport';document.getElementById('bootDetail').textContent='Stage: '+stageId;return}
   if(!identity?.playerId){location.replace('./index.html');return}
   document.title=game.title+' • LEXICON X Passport';
-  const gameParams=new URLSearchParams({from:'passport',authority:'firebase',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run,stage:stageId,v:'20260806-passport-shell1'});
+  const gameParams=new URLSearchParams({from:'passport',authority:'firebase',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run,stage:stageId,v:'20260806-passport-shell11'});
   if(assignment){gameParams.set('passportRotation',assignment.passportRotation);gameParams.set('randomSeed',String(assignment.randomSeed))}
   frame.src=game.url+'?'+gameParams.toString();
-  frame.addEventListener('load',()=>{boot.classList.add('hide');setTimeout(()=>interceptWindow(frame.contentWindow),120);});
-  monitorTimer=setInterval(monitor,350);
+  frame.addEventListener('load',()=>{boot.classList.add('hide');setTimeout(()=>interceptWindow(frame.contentWindow),120)});monitorTimer=setInterval(monitor,350);
 }
-statusAction.onclick=returnToPassport;
-window.addEventListener('pagehide',()=>{clearInterval(monitorTimer);clearTimeout(returnTimer)});
-window.EW_PASSPORT_GAME_SHELL={version:VERSION,stageId,get submitted(){return submitted},get receipt(){return receipt},returnToPassport};
-launch();
+statusAction.onclick=returnToPassport;window.addEventListener('pagehide',()=>{clearInterval(monitorTimer);clearTimeout(returnTimer)});window.EW_PASSPORT_GAME_SHELL={version:VERSION,stageId,get submitted(){return submitted},get receipt(){return receipt},returnToPassport};launch();
 })();
 </script>
 </body>
