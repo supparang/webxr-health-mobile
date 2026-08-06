@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#070d2a">
+<title>Sentence City AR V6.1.4 Task Mode Fix</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;color:#fff;font-family:system-ui,sans-serif}
+.boot{height:100dvh;display:grid;place-items:center;text-align:center;padding:24px}
+.boot small{display:block;margin-top:8px;color:#b9c3ee}
+</style>
+</head>
+<body>
+<div id="boot" class="boot"><div><strong>กำลังเตรียม Sentence City V6.1.4…</strong><small>Correct task modes for Fill, Repair, Context and Word Order</small></div></div>
+<script>
+(async function(){
+  const boot=document.getElementById('boot');
+  try{
+    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260806-scv614-task-mode-base',{cache:'no-store'});
+    if(!response.ok)throw new Error('V61_CLEAN_LOAD_FAILED_'+response.status);
+    let source=await response.text();
+    const marker='const MAIN_TASKS=MISSION.tasks;';
+    const patch=[
+      "function phraseIndex(text,phrase){",
+      "  const hay=String(text).toLowerCase();",
+      "  const needle=String(phrase).toLowerCase();",
+      "  let from=0;",
+      "  while(from<=hay.length){",
+      "    const index=hay.indexOf(needle,from);",
+      "    if(index<0)return -1;",
+      "    const before=index===0?' ':hay.charAt(index-1);",
+      "    const after=index+needle.length>=hay.length?' ':hay.charAt(index+needle.length);",
+      "    if(!/[a-z0-9]/i.test(before)&&!/[a-z0-9]/i.test(after))return index;",
+      "    from=index+1;",
+      "  }",
+      "  return -1;",
+      "}",
+      "function cleanSentence(parts){",
+      "  return parts.join(' ').replace(/\\s+([?.!,])/g,'$1').replace(/\\s+/g,' ').trim();",
+      "}",
+      "for(const task of MISSION.tasks){",
+      "  if(task.kind==='Repair'){",
+      "    const original=String(task.prompt).split(':').slice(1).join(':').trim();",
+      "    const wrong=task.tokens.find(token=>!task.answer.includes(token)&&phraseIndex(original,token)>=0);",
+      "    const correct=task.answer.find(token=>phraseIndex(original,token)<0);",
+      "    if(wrong&&correct){",
+      "      const wrongIndex=phraseIndex(original,wrong);",
+      "      task.originalPrompt=task.prompt;",
+      "      task.originalSentence=original;",
+      "      task.repairWrong=wrong;",
+      "      task.repairCorrect=correct;",
+      "      task.taskMode='choose-one';",
+      "      task.prompt='Choose the correct word: '+original.slice(0,wrongIndex)+'___'+original.slice(wrongIndex+wrong.length);",
+      "      task.tokens=[wrong,correct];",
+      "      const repairRandom=tokenRandom(globalThis.LexiconXSentenceBank.hash32(MISSION.meta.seed+'|'+task.id+'|repair-choices'));",
+      "      if(repairRandom()<0.5)task.tokens.reverse();",
+      "      task.answer=[correct];",
+      "    }",
+      "    continue;",
+      "  }",
+      "  if(task.kind==='Context'){",
+      "    const correctSentence=cleanSentence(task.answer);",
+      "    const distractor=task.tokens.find(token=>!task.answer.includes(token));",
+      "    if(distractor){",
+      "      const wrongParts=[...task.answer];",
+      "      wrongParts[wrongParts.length-1]=distractor;",
+      "      const wrongSentence=cleanSentence(wrongParts);",
+      "      task.originalTokens=[...task.tokens];",
+      "      task.originalAnswer=[...task.answer];",
+      "      task.taskMode='choose-one';",
+      "      task.tokens=[correctSentence,wrongSentence];",
+      "      const contextRandom=tokenRandom(globalThis.LexiconXSentenceBank.hash32(MISSION.meta.seed+'|'+task.id+'|context-choices'));",
+      "      if(contextRandom()<0.5)task.tokens.reverse();",
+      "      task.answer=[correctSentence];",
+      "    }",
+      "  }",
+      "}",
+      "const MAIN_TASKS=MISSION.tasks;"
+    ].join('\n');
+    if(!source.includes(marker))throw new Error('TASK_MODE_PATCH_POINT_NOT_FOUND');
+    source=source
+      .replace(marker,patch)
+      .replaceAll('V6.1','V6.1.4')
+      .replaceAll('Seeded Bank','Seeded Bank • Task Mode Fix');
+    document.open();
+    document.write(source);
+    document.close();
+  }catch(error){
+    console.error(error);
+    boot.innerHTML='<div><strong>เปิดเกมไม่สำเร็จ</strong><small>'+String(error?.message||error)+'</small></div>';
+  }
+})();
+</script>
+</body>
+</html>
