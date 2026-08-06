@@ -1,13 +1,8 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-05-PASSPORT-ROUTE-LOADER-CATEGORY5";
+  const VERSION="2026-08-06-PASSPORT-CANONICAL-ROUTE-LOADER-V1";
   let loaded=false;
-  const routes=[
-    "./word-match-route.js?v=20260805-fun6",
-    "./category-ar-route.js?v=20260805-category-prod5",
-    "./sentence-route.js?v=20260803-sentence2",
-    "./action-detective-route.js?v=20260803-action5"
-  ];
+  const routes=["./passport-canonical-routes-v1.js?v=20260806-passport-shell1"];
 
   function loadRoutes(){
     if(loaded||!document.querySelector(".passport-map"))return;
