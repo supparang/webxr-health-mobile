@@ -43,14 +43,17 @@ jobs:
               html = html.replace('LEXICON X • 5 GATES + 1 BOSS • V2', 'LEXICON X • 5 GATES + 1 BOSS • V2.2')
               game.write_text(html, encoding='utf-8')
 
-          # V3 final-flow safeguard: after the Voice Boss is defeated,
-          # the energy bar must remain at 0% instead of returning to 25%.
+          # V3 final-flow safeguards and player-facing naming.
           game_v3 = Path('english-week-passport/english-champion-arena-v3.html')
           if game_v3.exists():
               html = game_v3.read_text(encoding='utf-8')
               old = "function stageEnergy(){if(state.stage<5)return Math.max(25,100-state.stage*15);return 25}"
               new = "function stageEnergy(){if(state.stage<5)return Math.max(25,100-state.stage*15);if(state.stage===5)return 25;return 0}"
               html = html.replace(old, new)
+              html = html.replace('Champion Command Arena • 5 Gates + 1 Boss V3', 'LEXICON Champion Arena • 5 Gates + 1 Boss V3')
+              html = html.replace('<b>Champion Command Arena</b>', '<b>LEXICON Champion Arena</b>')
+              html = html.replace('<h1>Champion Command Arena</h1>', '<h1>LEXICON Champion Arena</h1>')
+              html = html.replace('Enter Champion Arena', 'Enter LEXICON Arena')
               game_v3.write_text(html, encoding='utf-8')
           PY
 
