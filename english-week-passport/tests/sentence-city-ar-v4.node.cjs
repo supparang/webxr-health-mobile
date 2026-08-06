@@ -6,6 +6,7 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'sentence-city-v4.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'sentence-city-ar-v4.css'), 'utf8');
 const js = fs.readFileSync(path.join(root, 'sentence-city-ar-v4.js'), 'utf8');
+const activation = fs.readFileSync(path.join(root, 'sentence-city-ar-v4-activation.js'), 'utf8');
 const hub = fs.readFileSync(path.join(root, 'game-test-hub.html'), 'utf8');
 
 function position(source, token) {
@@ -14,7 +15,8 @@ function position(source, token) {
   return value;
 }
 
-assert.ok(position(html, 'sentence-city-v3.js') < position(html, 'sentence-city-ar-v4.js'), 'V3 engine must load before AR adapter');
+assert.ok(position(html, 'sentence-city-v3.js') < position(html, 'sentence-city-ar-v4-activation.js'), 'V3 engine must load before AR activation bridge');
+assert.ok(position(html, 'sentence-city-ar-v4-activation.js') < position(html, 'sentence-city-ar-v4.js'), 'AR activation bridge must load before hand controller');
 assert.match(html, /AR Hand Detect V4/);
 assert.match(hub, /sentence-city-v4\.html\?v=20260806-scar4/);
 assert.match(hub, /TEST AR V4/);
@@ -37,6 +39,12 @@ assert.match(js, /firstHandLatencyMs/);
 assert.match(js, /targetMissCount/);
 assert.match(js, /pagehide/);
 assert.match(js, /getTracks/);
+
+assert.match(activation, /event\.isTrusted/);
+assert.match(activation, /state\.selected/);
+assert.match(activation, /type:\s*"depot"/);
+assert.match(activation, /target\.dataset\.token/);
+assert.match(activation, /SENTENCE_CITY_AR_ACTIVATION/);
 
 assert.match(css, /#sentenceArPointer/);
 assert.match(css, /\.ew-ar-focus/);
