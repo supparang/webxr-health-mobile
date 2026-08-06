@@ -1,8 +1,8 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-06-PASSPORT-CANONICAL-ROUTE-LOADER-V1";
+  const VERSION="2026-08-06-PASSPORT-CANONICAL-ROUTE-LOADER-V1.1";
   let loaded=false;
-  const routes=["./passport-canonical-routes-v1.js?v=20260806-passport-shell1"];
+  const routes=["./passport-canonical-routes-v1.js?v=20260806-passport-shell11"];
 
   function loadRoutes(){
     if(loaded||!document.querySelector(".passport-map"))return;
