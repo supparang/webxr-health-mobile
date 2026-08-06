@@ -33,6 +33,7 @@
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Number(cfg.requestTimeoutMs || 12000));
     try {
+      const sourceVersion = String(payload?.sourceVersion || cfg.version || "unknown");
       const response = await fetch(runtime.endpoint, {
         method: "POST",
         headers: {
@@ -43,7 +44,8 @@
           ...(payload || {}),
           action,
           appId: cfg.appId || "ENGLISH-WEEK-PASSPORT-2026",
-          sourceVersion: cfg.version || "unknown"
+          sourceVersion,
+          passportVersion: cfg.version || "unknown"
         }),
         signal: controller.signal,
         cache: "no-store",
