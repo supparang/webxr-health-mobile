@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#081827">
+<title>LexiMatch Navigator • Passport</title>
+<style>html,body{margin:0;width:100%;height:100%;background:#06121f;color:#e8f3fb;font-family:system-ui,sans-serif}.boot{height:100dvh;display:grid;place-items:center;text-align:center;padding:24px}.boot small{display:block;margin-top:7px;color:#9fc4d8}</style>
+</head>
+<body>
+<div id="boot" class="boot"><div><strong>กำลังเปิด LexiMatch Navigator…</strong><small>Passport identity • Firebase flow</small></div></div>
+<script>
+(async function(){
+  const boot=document.getElementById('boot');
+  try{
+    const response=await fetch('./lexicon-x-v74-test.html?v=20260806-leximatch-passport-source',{cache:'no-store'});
+    if(!response.ok)throw new Error('LEXIMATCH_SOURCE_'+response.status);
+    let source=await response.text();
+    source=source.replace(/<script>\s*\(function\(\)\{const key=window\.EW_CONFIG[\s\S]*?TEST-LEXIMATCH-[\s\S]*?<\/script>/i,'');
+    source=source.replaceAll('Back to Test Hub','Back to Passport');
+    source=source.replaceAll('aria-label="กลับ Test Hub"','aria-label="กลับ Passport"');
+    source=source.replace('20260805-leximatch81','20260806-leximatch-passport1');
+    if(source.includes('TEST-LEXIMATCH-'))throw new Error('QA_IDENTITY_PATCH_FAILED');
+    document.open();document.write(source);document.close();
+  }catch(error){
+    console.error(error);boot.innerHTML='<div><strong>เปิด LexiMatch ไม่สำเร็จ</strong><small>'+String(error?.message||error)+'</small></div>';
+  }
+})();
+</script>
+</body>
+</html>
