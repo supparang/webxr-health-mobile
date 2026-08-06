@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - 'english-week-passport/**'
+      - 'english/functions/**'
+      - 'english/firebase.json'
+      - 'english/.firebaserc'
       - '.github/workflows/english-week-passport-qa.yml'
   workflow_dispatch:
 
@@ -22,9 +25,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Syntax check rotation and game adapters
+      - name: Syntax check rotation, games and Firebase authority
         run: |
           node --check english-week-passport/passport-rotation-v2.js
+          node --check english-week-passport/firebase-authority-bridge.js
+          node --check english-week-passport/firebase-authority-ui-patch.js
           node --check english-week-passport/lexicon-x-engine-v1.js
           node --check english-week-passport/lexicon-x-engine-v5.js
           node --check english-week-passport/lexicon-x-polish-v6.js
@@ -42,9 +47,14 @@ jobs:
           node --check english-week-passport/sentence-hand-rotation-v2.js
           node --check english-week-passport/action-rotation-v5.js
           node --check english-week-passport/action-detective-loader.js
+          node --check english/functions/main.js
+          node --check english/functions/english-week-authority.js
 
       - name: Run passport rotation contract
         run: node english-week-passport/tests/passport-rotation-v2.node.cjs
 
       - name: Run Category Forest V5 seeded contract
         run: node english-week-passport/tests/category-forest-v5.node.cjs
+
+      - name: Run Firebase authority integration contract
+        run: node english-week-passport/tests/firebase-authority-v1.node.cjs
