@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-06-CANONICAL-FIVE-GAME-ROUTES-V1';
+const VERSION='2026-08-06-CANONICAL-FIVE-GAME-ROUTES-V1.1';
 const ROUTES={
   word_match:{title:'LexiMatch Navigator',detail:'Game 1 • จับคู่คำศัพท์ • Swipe + Tilt • A2–B1+',icon:'🧭'},
   category_forest:{title:'Category Forest',detail:'Game 2 • ลากคำเข้าหมวด • Rescue Learning',icon:'🌲'},
@@ -24,7 +24,7 @@ function decorate(){
 function openStage(stage){
   const identity=(()=>{try{return JSON.parse(localStorage.getItem(window.EW_CONFIG?.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}})();
   if(!identity?.playerId)return;
-  const query=new URLSearchParams({stage,run:'1',v:'20260806-passport-shell1'});
+  const query=new URLSearchParams({stage,run:'1',v:'20260806-passport-shell11'});
   location.assign('./passport-game-shell-v1.html?'+query.toString());
 }
 function intercept(event){
