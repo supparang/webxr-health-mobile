@@ -15,6 +15,11 @@ service cloud.firestore {
       return documentId.matches('^990014_.*$');
     }
 
+    function assessmentWriterMatchesAuth() {
+      return request.resource.data.firebaseSavedByUid == request.auth.uid
+        || request.resource.data.createdByUid == request.auth.uid;
+    }
+
     match /firebaseSmokeTests/{uid} {
       allow create, read, update, delete:
         if signedIn() && request.auth.uid == uid;
@@ -56,16 +61,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Assessment attempt and receipt documents for the synthetic sandbox student.
-    // Document IDs must be in the form 990014_<attemptId> and the stored payload
-    // must remain bound to studentId 990014.
+    // Assessment, Reflection, and Certificate receipt documents for the synthetic
+    // sandbox student. The writer UID may use the current firebaseSavedByUid field
+    // or the legacy createdByUid field used by Certificate Premium R5.2.
     match /studentAssessmentsSandbox/{documentId} {
       allow read: if signedIn() && isTestAssessmentDocument(documentId);
       allow create, update: if signedIn()
         && isTestAssessmentDocument(documentId)
         && request.resource.data.studentId == '990014'
         && request.resource.data.completed == true
-        && request.resource.data.firebaseSavedByUid == request.auth.uid;
+        && assessmentWriterMatchesAuth();
       allow delete: if false;
     }
 
