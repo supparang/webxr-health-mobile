@@ -44,6 +44,7 @@ jobs:
           node --check english-week-passport/category-forest-v5-part3.js
           node --check english-week-passport/category-forest-v5-part4.js
           node --check english-week-passport/category-ar-route.js
+          node --check english-week-passport/sentence-city-v3.js
           node --check english-week-passport/sentence-hand-rotation-v2.js
           node --check english-week-passport/action-rotation-v5.js
           node --check english-week-passport/action-detective-loader.js
@@ -55,6 +56,9 @@ jobs:
 
       - name: Run Category Forest V5 seeded contract
         run: node english-week-passport/tests/category-forest-v5.node.cjs
+
+      - name: Run Sentence City V3 gameplay contract
+        run: node english-week-passport/tests/sentence-city-v3.node.cjs
 
       - name: Run Firebase authority integration contract
         run: node english-week-passport/tests/firebase-authority-v1.node.cjs
