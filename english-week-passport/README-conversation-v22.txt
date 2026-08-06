@@ -1,0 +1,1 @@
+Conversation Quest AR V2.2 direct build is available in conversation-quest-ar-v22.html. GitHub Pages may take time to publish new paths; use conversation-quest-ar-v2.html during propagation.
