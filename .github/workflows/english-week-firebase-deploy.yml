@@ -67,3 +67,30 @@ jobs:
             --project english-d4bfa \
             --only functions:englishWeekAuthority,functions:englishWeekAssessmentCheckpoint \
             --non-interactive
+
+      - name: Install Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          version: 'latest'
+
+      - name: Grant public invoker to English Week functions
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
+        run: |
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
+          gcloud config set project english-d4bfa
+
+          gcloud functions add-invoker-policy-binding englishWeekAuthority \
+            --gen2 \
+            --region=asia-southeast1 \
+            --member=allUsers
+
+          gcloud functions add-invoker-policy-binding englishWeekAssessmentCheckpoint \
+            --gen2 \
+            --region=asia-southeast1 \
+            --member=allUsers
+
+      - name: Print production endpoints
+        run: |
+          echo "Authority: https://asia-southeast1-english-d4bfa.cloudfunctions.net/englishWeekAuthority"
+          echo "Checkpoint: https://asia-southeast1-english-d4bfa.cloudfunctions.net/englishWeekAssessmentCheckpoint"
