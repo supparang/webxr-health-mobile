@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const VERSION = "2026-08-07-FIREBASE-UI-IDEMPOTENT-V2";
+  const VERSION = "2026-08-07-FIRESTORE-DIRECT-UI-V1";
   const authority = window.EW_AUTHORITY;
   let scheduled = false;
 
@@ -10,11 +10,10 @@
   }
 
   function bannerText(status) {
-    if (status.mode === "firebase") return { text: "● เชื่อมต่อ Firebase Authority แล้ว", ok: true };
-    if (status.mode === "demo-fallback") return { text: "⚠ Firebase ยังไม่พร้อม • ใช้ Local QA fallback ชั่วคราว", ok: false };
-    if (status.mode === "error") return { text: "⚠ Firebase Authority ยังไม่ตอบสนอง • ยังไม่ใช่ Production", ok: false };
-    if (status.endpointReady) return { text: "◌ กำลังตรวจสอบ Firebase Authority…", ok: false };
-    return { text: "ยังไม่ได้กำหนด Firebase Authority endpoint", ok: false };
+    if (status.mode === "firebase") return { text: "● เชื่อมต่อ Cloud Firestore แล้ว", ok: true };
+    if (status.mode === "error") return { text: "⚠ Firebase ยังไม่พร้อม • ตรวจ Authentication / Firestore Rules", ok: false };
+    if (status.endpointReady) return { text: "◌ กำลังเชื่อมต่อ Cloud Firestore…", ok: false };
+    return { text: "⚠ Firebase Web SDK / Web App config ยังไม่พร้อม", ok: false };
   }
 
   function setTextIfChanged(element, text) {
@@ -41,8 +40,8 @@
 
     document.querySelectorAll(".note").forEach(note => {
       const current = note.textContent || "";
-      if (/Google Sheet|Web App URL/.test(current)) {
-        setTextIfChanged(note, "ข้อมูลความก้าวหน้าในระบบจริงอ่านจาก Firebase Cloud Authority ทุกครั้ง ไม่ใช้สถานะในเครื่องเป็นหลัก");
+      if (/Google Sheet|Web App URL|Cloud Authority/.test(current)) {
+        setTextIfChanged(note, "ข้อมูลจริงอ่านและบันทึกใน Firebase Cloud Firestore; localStorage ใช้เฉพาะ cache/recovery");
       }
     });
   }
