@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#07121f">
+  <meta name="description" content="LEXICON X Challenge • Lexicon Lens Hunt">
+  <title>Lexicon Lens Hunt • LEXICON X Challenge</title>
+  <style>
+    :root{font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;color-scheme:dark;--bg:#07121f;--panel:rgba(7,23,39,.88);--line:#35566f;--text:#eef9ff;--muted:#aac7d9;--cyan:#6ee7ff;--mint:#7ef0ba;--pink:#ff82b8;--amber:#ffd27d}
+    *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text)}body{position:fixed;inset:0}
+    button,input{font:inherit}.app{position:fixed;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 15%,#173651 0,#07121f 58%)}
+    .camera{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#07121f}.camera.mirror{transform:scaleX(-1)}.shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,13,23,.54),rgba(3,13,23,.08) 30%,rgba(3,13,23,.12) 61%,rgba(3,13,23,.8))}
+    .top{position:absolute;z-index:8;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));top:max(10px,env(safe-area-inset-top));display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:9px;align-items:center}.icon,.chip{min-height:44px;border:1px solid rgba(143,206,239,.38);background:rgba(5,22,37,.82);color:var(--text);border-radius:15px;backdrop-filter:blur(11px)}.icon{width:46px;padding:0;font-size:1.2rem}.brand{min-width:0;padding:9px 12px}.brand strong,.brand small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brand strong{font-size:.97rem}.brand small{font-size:.72rem;color:var(--muted);margin-top:2px}.chip{padding:8px 11px;text-align:center}.chip strong{display:block;font-size:.9rem}.chip small{display:block;color:var(--muted);font-size:.65rem}
+    .mission{position:absolute;z-index:7;left:12px;right:12px;top:calc(max(10px,env(safe-area-inset-top)) + 62px);padding:13px 14px;border:1px solid rgba(131,214,247,.37);border-radius:18px;background:rgba(3,18,31,.78);backdrop-filter:blur(10px);box-shadow:0 12px 28px rgba(0,0,0,.2)}.mission-head{display:flex;justify-content:space-between;gap:12px;align-items:center;color:var(--muted);font-size:.75rem;font-weight:800}.mission h1{font-size:1.05rem;line-height:1.35;margin:8px 0 2px}.mission p{margin:0;color:#d7edf8;font-size:.82rem;line-height:1.42}.progress{height:5px;margin-top:10px;border-radius:99px;background:#19394f;overflow:hidden}.progress span{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--mint));width:0;transition:width .3s ease}
+    .reticle{position:absolute;z-index:5;left:50%;top:53%;width:min(52vw,240px);aspect-ratio:1;transform:translate(-50%,-50%);border:2px solid rgba(122,234,255,.8);border-radius:28px;box-shadow:0 0 0 999px rgba(3,14,24,.05),0 0 34px rgba(87,226,255,.18)}.reticle:before,.reticle:after{content:"";position:absolute;background:var(--cyan);border-radius:99px}.reticle:before{width:44px;height:2px;left:50%;top:50%;transform:translate(-50%,-50%)}.reticle:after{width:2px;height:44px;left:50%;top:50%;transform:translate(-50%,-50%)}.scan-label{position:absolute;z-index:6;left:50%;top:calc(53% + min(29vw,138px));transform:translateX(-50%);width:max-content;max-width:82vw;padding:8px 13px;border-radius:999px;background:rgba(5,22,37,.8);border:1px solid rgba(117,221,248,.35);font-size:.78rem;font-weight:800;color:#dff8ff;backdrop-filter:blur(8px)}
+    .bottom{position:absolute;z-index:9;left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));display:grid;gap:8px}.notice{padding:10px 12px;border:1px solid rgba(123,199,230,.28);border-radius:15px;background:rgba(4,18,31,.87);color:#d7edf8;font-size:.78rem;line-height:1.4;text-align:center;backdrop-filter:blur(9px)}.notice.good{border-color:rgba(126,240,186,.72);color:#dffff0}.notice.bad{border-color:rgba(255,130,184,.72);color:#ffe1ef}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.btn{min-height:48px;border:0;border-radius:15px;padding:10px 13px;font-weight:900}.primary{background:linear-gradient(135deg,var(--cyan),var(--mint));color:#082335}.secondary{background:#183247;color:#eaf8ff;border:1px solid #365b73}.danger{background:#49243b;color:#ffddeb;border:1px solid #78405e}
+    .layer{position:absolute;z-index:20;inset:0;display:grid;place-items:center;padding:18px;background:rgba(2,12,21,.78);backdrop-filter:blur(8px)}.card{width:min(100%,500px);max-height:calc(100dvh - 36px);overflow:auto;padding:21px;border-radius:24px;border:1px solid #31566f;background:linear-gradient(180deg,#0b263c,#081b2d);box-shadow:0 20px 60px rgba(0,0,0,.44)}.hero{font-size:2.5rem;text-align:center}.card h1{font-size:1.45rem;margin:8px 0;text-align:center}.card p{color:#bfd7e5;line-height:1.55;margin:7px 0}.mini{font-size:.8rem}.rule{padding:11px 12px;border-radius:14px;background:#0f3048;margin:10px 0;color:#dff5ff;line-height:1.45}.card .btn{width:100%;margin-top:9px}.question-options{display:grid;gap:8px;margin-top:14px}.option{min-height:52px;border:1px solid #365c74;border-radius:15px;background:#102b40;color:#edfaff;padding:11px 13px;text-align:left;font-weight:800;line-height:1.35}.option.correct{border-color:#78edb7;background:#123f38}.option.wrong{border-color:#ff86b6;background:#45253a}.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}.stat{padding:12px;border-radius:15px;background:#102c42;text-align:center}.stat strong{display:block;font-size:1.35rem}.stat small{color:var(--muted)}
+    .manual{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:10px}.manual input{min-height:46px;border:1px solid #355970;border-radius:13px;background:#071b2b;color:white;padding:0 12px;text-transform:uppercase}.manual button{min-height:46px;border:0;border-radius:13px;padding:0 14px;font-weight:900;background:#264d67;color:#eaf8ff}.hidden{display:none!important}canvas{display:none}
+    @media(max-height:690px){.mission{padding:10px 12px}.mission h1{font-size:.95rem;margin-top:5px}.mission p{font-size:.74rem}.reticle{top:55%;width:min(43vw,190px)}.scan-label{top:calc(55% + min(24vw,108px))}.bottom{gap:5px}.notice{padding:7px 10px}.btn{min-height:44px}}
+  </style>
+</head>
+<body>
+<div id="app" class="app">
+  <video id="camera" class="camera" autoplay muted playsinline></video>
+  <div class="shade"></div>
+  <header class="top">
+    <button id="backBtn" class="icon" type="button" aria-label="กลับ Passport">←</button>
+    <div class="brand chip"><strong>📷 Lexicon Lens Hunt</strong><small>Bonus Mission • LEXICON X Challenge</small></div>
+    <div class="chip"><strong id="scoreText">0</strong><small>คะแนน</small></div>
+  </header>
+  <section class="mission">
+    <div class="mission-head"><span id="missionCount">MISSION 1 / 5</span><span id="levelText">A2–B1+</span></div>
+    <h1 id="clueText">เตรียมค้นหา English Clue</h1>
+    <p id="hintText">หมุนโทรศัพท์เพื่อค้นหา QR Station ที่ตรงกับคำใบ้</p>
+    <div class="progress"><span id="progressBar"></span></div>
+  </section>
+  <div id="reticle" class="reticle"></div>
+  <div id="scanLabel" class="scan-label">เล็ง QR ให้อยู่กลางกรอบ</div>
+  <section class="bottom">
+    <div id="notice" class="notice">กล้องหลังใช้สำหรับค้นหา QR Station • ระบบไม่บันทึกหรืออัปโหลดภาพ</div>
+    <div class="actions"><button id="torchBtn" class="btn secondary" type="button">🔦 ไฟฉาย</button><button id="manualBtn" class="btn secondary" type="button">⌨️ ใส่รหัสทดสอบ</button></div>
+  </section>
+  <canvas id="scanCanvas"></canvas>
+  <div id="intro" class="layer">
+    <section class="card">
+      <div class="hero">🔎📷</div><h1>Lexicon Lens Hunt</h1>
+      <p>ภารกิจโบนัสแบบ Camera Exploration: อ่านคำใบ้ภาษาอังกฤษ → ใช้ <strong>กล้องหลัง</strong> ค้นหา QR Station ที่ตรงกับคำตอบ → ตอบคำถามการใช้คำในบริบท</p>
+      <div class="rule"><strong>5 Missions</strong><br>• สแกนเป้าหมายถูกต้อง = Search Score<br>• ตอบ Context Question = Language Score<br>• เล่นโบนัสได้โดย <strong>ไม่กระทบสิทธิ์ Certificate</strong></div>
+      <p class="mini">ต้องเปิดผ่าน HTTPS และอนุญาต Camera บนมือถือ หากกำลังทดสอบสามารถใช้รหัส Station ด้วยปุ่ม “ใส่รหัสทดสอบ” ได้</p>
+      <button id="startBtn" class="btn primary" type="button">📷 เปิดกล้องหลังและเริ่มภารกิจ</button>
+      <button id="introBackBtn" class="btn secondary" type="button">กลับ Passport</button>
+    </section>
+  </div>
+  <div id="questionLayer" class="layer hidden"></div>
+  <div id="manualLayer" class="layer hidden"></div>
+  <div id="summaryLayer" class="layer hidden"></div>
+</div>
+<script src="./config.js?v=20260806-firebase1"></script>
+<script src="./authority-client.js?v=20260803-1"></script>
+<script src="./firebase-authority-bridge.js?v=20260806-firebase1"></script>
+<script src="./passport-rotation-v2.js?v=20260803-rotation2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="./lexicon-lens-hunt.js?v=20260807-lens1"></script>
+</body>
+</html>
