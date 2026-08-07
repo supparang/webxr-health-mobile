@@ -1,0 +1,219 @@
+/* LEXICON X Challenge • Welcome Single-Screen Responsive Pass V1
+   UI-only: compacts the pre-challenge welcome screen into one mobile viewport.
+   No Firebase, checkpoint, assessment, progression, or game logic changes. */
+
+.screen.welcome-mode {
+  height: calc(100dvh - 64px);
+  min-height: 0;
+  padding-top: 10px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.screen.welcome-mode .hero-card {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: clamp(12px, 1.8dvh, 18px) 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(7px, 1.05dvh, 11px);
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.screen.welcome-mode .hero-emoji {
+  flex: 0 0 auto;
+  width: clamp(62px, 9dvh, 82px);
+  height: clamp(62px, 9dvh, 82px);
+  margin: 0 auto 2px;
+  border-radius: 22px;
+  font-size: clamp(2.2rem, 6.5dvh, 3rem);
+}
+
+.screen.welcome-mode h1 {
+  flex: 0 0 auto;
+  max-width: 100%;
+  margin: 0 auto;
+  font-size: clamp(1.35rem, 5.8vw, 1.85rem);
+  line-height: 1.06;
+  overflow-wrap: anywhere;
+}
+
+.screen.welcome-mode .lead {
+  flex: 0 0 auto;
+  max-width: 34rem;
+  margin: 0 auto;
+  font-size: clamp(.78rem, 3.35vw, .91rem);
+  line-height: 1.3;
+}
+
+.screen.welcome-mode .panel {
+  flex: 0 0 auto;
+  margin-top: 2px !important;
+  padding: 10px 12px !important;
+  border-radius: 16px;
+}
+
+.screen.welcome-mode .panel strong {
+  display: block;
+  font-size: clamp(.92rem, 3.8vw, 1.02rem);
+  line-height: 1.15;
+}
+
+.screen.welcome-mode .panel .note {
+  margin: 4px 0 0 !important;
+  font-size: clamp(.72rem, 3.05vw, .82rem);
+  line-height: 1.3;
+}
+
+.screen.welcome-mode #startPreBtn {
+  flex: 0 0 auto;
+  min-height: 46px;
+  margin-top: 2px !important;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: clamp(.95rem, 4vw, 1.08rem);
+}
+
+body.ew-welcome-single-screen .topbar {
+  min-height: 64px;
+  padding-top: max(7px, env(safe-area-inset-top));
+  padding-bottom: 7px;
+}
+
+body.ew-welcome-single-screen .brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+}
+
+body.ew-welcome-single-screen .brand-lockup strong {
+  font-size: .94rem;
+}
+
+body.ew-welcome-single-screen .brand-lockup small {
+  font-size: .69rem;
+}
+
+@media (max-width: 430px) {
+  .screen.welcome-mode {
+    height: calc(100dvh - 60px);
+    padding-top: 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  body.ew-welcome-single-screen .topbar {
+    min-height: 60px;
+  }
+
+  .screen.welcome-mode .hero-card {
+    padding: clamp(10px, 1.4dvh, 14px) 12px;
+    gap: clamp(5px, .75dvh, 8px);
+    border-radius: 22px;
+  }
+
+  .screen.welcome-mode .hero-emoji {
+    width: clamp(54px, 7.4dvh, 66px);
+    height: clamp(54px, 7.4dvh, 66px);
+    font-size: clamp(2rem, 5.5dvh, 2.5rem);
+  }
+
+  .screen.welcome-mode h1 {
+    font-size: clamp(1.20rem, 5.6vw, 1.55rem);
+    line-height: 1.03;
+  }
+
+  .screen.welcome-mode .lead {
+    font-size: clamp(.74rem, 3.2vw, .84rem);
+    line-height: 1.25;
+  }
+
+  .screen.welcome-mode .panel {
+    padding: 8px 10px !important;
+    border-radius: 14px;
+  }
+
+  .screen.welcome-mode .panel strong {
+    font-size: .92rem;
+  }
+
+  .screen.welcome-mode .panel .note {
+    font-size: .74rem;
+    line-height: 1.24;
+  }
+
+  .screen.welcome-mode #startPreBtn {
+    min-height: 44px;
+    padding: 9px 12px;
+    font-size: .98rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .screen.welcome-mode .hero-card {
+    padding-inline: 10px;
+    gap: 5px;
+  }
+
+  .screen.welcome-mode .hero-emoji {
+    width: 50px;
+    height: 50px;
+    font-size: 1.9rem;
+  }
+
+  .screen.welcome-mode h1 {
+    font-size: 1.18rem;
+  }
+
+  .screen.welcome-mode .lead {
+    font-size: .72rem;
+  }
+
+  .screen.welcome-mode .panel .note {
+    font-size: .70rem;
+  }
+
+  .screen.welcome-mode #startPreBtn {
+    min-height: 42px;
+    font-size: .92rem;
+  }
+}
+
+/* Very short browser viewports: prioritize the CTA and essential context. */
+@media (max-height: 720px) {
+  .screen.welcome-mode .hero-emoji {
+    width: 46px;
+    height: 46px;
+    font-size: 1.75rem;
+  }
+
+  .screen.welcome-mode h1 {
+    font-size: 1.12rem;
+  }
+
+  .screen.welcome-mode .lead {
+    font-size: .70rem;
+    line-height: 1.2;
+  }
+
+  .screen.welcome-mode .panel {
+    padding: 7px 9px !important;
+  }
+
+  .screen.welcome-mode .panel .note {
+    font-size: .67rem;
+    line-height: 1.18;
+  }
+
+  .screen.welcome-mode #startPreBtn {
+    min-height: 40px;
+    padding-block: 8px;
+  }
+}
