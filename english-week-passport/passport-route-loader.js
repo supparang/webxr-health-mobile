@@ -1,9 +1,9 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-07-PASSPORT-ROUTE-LOADER-V1.8-FIRESTORE-SHELL2";
+  const VERSION="2026-08-07-PASSPORT-ROUTE-LOADER-V1.9-INTERACTION-RECOVERY";
   let loaded=false;
   const routes=[
-    "./passport-canonical-routes-v1.js?v=20260807-firestore-shell2",
+    "./passport-canonical-routes-v1.js?v=20260807-interaction-recovery1",
     "./journey-client-v1.js?v=20260807-journey1",
     "./passport-journey-routes-v1.js?v=20260807-journey1"
   ];
