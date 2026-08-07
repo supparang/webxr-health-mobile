@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fbf8ef">
+<title>Certificate • LEXICON X Challenge</title>
+<style>
+:root{font-family:Georgia,"Noto Serif Thai",serif;--ink:#243048;--gold:#967019;--line:#d9c88e;--paper:#fffdf7}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f4f1e8;color:var(--ink)}body{padding:max(16px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(22px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))}.wrap{width:min(100%,900px);margin:auto}.cert{position:relative;background:var(--paper);border:2px solid var(--gold);border-radius:20px;padding:38px 32px;text-align:center;box-shadow:0 12px 40px rgba(67,54,21,.12)}.cert:before{content:"";position:absolute;inset:10px;border:1px solid var(--line);border-radius:13px;pointer-events:none}.eyebrow{letter-spacing:.18em;color:var(--gold);font-weight:700;font-size:.78rem}.cert h1{font-size:2rem;margin:12px 0 6px}.lead{color:#65708a;margin:5px 0}.name{font-size:2rem;color:#2f4772;margin:18px 0 8px}.award{font-size:1.55rem;color:var(--gold);margin:14px 0}.meta{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-top:20px;font-family:Inter,"Noto Sans Thai",sans-serif;font-size:.82rem;color:#667086}.id{font-family:ui-monospace,monospace;font-size:.78rem;color:#7b6d45;margin-top:12px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.btn{min-height:50px;border-radius:15px;border:1px solid #d4cfbe;background:#fff;font:800 .95rem Inter,"Noto Sans Thai",sans-serif;color:#27334e}.btn.primary{background:#7a631d;color:#fff;border-color:#7a631d}.status{padding:20px;text-align:center;background:#fff;border-radius:18px;font-family:Inter,"Noto Sans Thai",sans-serif}@media(max-width:600px){.cert{padding:30px 18px}.cert h1,.name{font-size:1.55rem}.award{font-size:1.25rem}.actions{grid-template-columns:1fr}}@media print{body{padding:0;background:#fff}.wrap{width:100%}.actions{display:none}.cert{box-shadow:none;border-radius:0;min-height:95vh;display:flex;flex-direction:column;justify-content:center}}
+</style>
+</head>
+<body>
+<main class="wrap"><div id="screen" class="status">กำลังตรวจ Firebase และเตรียม Certificate…</div><div id="actions" class="actions" hidden><button id="passportBtn" class="btn" type="button">กลับ Passport</button><button id="printBtn" class="btn primary" type="button">พิมพ์ / บันทึก Certificate</button></div></main>
+<script src="./config.js?v=20260807-journey1"></script>
+<script src="./authority-client.js?v=20260803-1"></script>
+<script src="./firebase-authority-bridge.js?v=20260806-firebase1"></script>
+<script src="./journey-client-v1.js?v=20260807-journey1"></script>
+<script src="./certificate-v1.js?v=20260807-journey1"></script>
+</body>
+</html>
