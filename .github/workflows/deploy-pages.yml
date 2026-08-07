@@ -56,6 +56,40 @@ jobs:
               html = html.replace('Enter Champion Arena', 'Enter LEXICON Arena')
               game_v3.write_text(html, encoding='utf-8')
 
+          # V4.1 Body Friendly pass.
+          # - Lean means leaning while still facing the camera, not turning sideways.
+          # - Keep full MediaPipe landmarks internally but draw only a soft torso guide.
+          # - Remove technical GPU/version text from the student-facing camera status.
+          game_v4 = Path('english-week-passport/lexicon-champion-arena-v4.html')
+          if game_v4.exists():
+              html = game_v4.read_text(encoding='utf-8')
+
+              html = html.replace(
+                  "lean:{id:'lean',command:'Lean to one side.',thai:'เอียงลำตัวไปด้านใดด้านหนึ่ง',icon:'↙️'}",
+                  "lean:{id:'lean',command:'Face the camera and lean left or right.',thai:'หันหน้าเข้ากล้อง แล้วเอียงช่วงบนไปซ้ายหรือขวา • ไม่ต้องหันตัวด้านข้าง',icon:'↙️'}"
+              )
+
+              old_matches = "function vis(p,min=.22){return(p?.visibility??1)>min}function matches(id,l){const LS=l[11],RS=l[12],LE=l[13],RE=l[14],LW=l[15],RW=l[16],LH=l[23],RH=l[24];if(![LS,RS,LW,RW,LH,RH].every(p=>vis(p)))return false;if(id==='hands')return LW.y<Math.min(LE?.y??LS.y,LS.y)-.005&&RW.y<Math.min(RE?.y??RS.y,RS.y)-.005;if(id==='wide'){const sw=Math.max(.08,Math.abs(LS.x-RS.x)),ww=Math.abs(LW.x-RW.x);return Math.abs(LW.y-LS.y)<.25&&Math.abs(RW.y-RS.y)<.25&&ww>sw*1.32}if(id==='lean'){const sh=(LS.x+RS.x)/2,hp=(LH.x+RH.x)/2;return Math.abs(sh-hp)>.035}return false}"
+              new_matches = "function vis(p,min=.22){return(p?.visibility??1)>min}function frontFacing(l){const LS=l[11],RS=l[12],LH=l[23],RH=l[24];if(![LS,RS,LH,RH].every(p=>vis(p)))return false;const shoulderY=(LS.y+RS.y)/2,hipY=(LH.y+RH.y)/2,torsoH=Math.max(.12,Math.abs(hipY-shoulderY)),shoulderW=Math.abs(LS.x-RS.x),hipW=Math.abs(LH.x-RH.x);return shoulderW>Math.max(.12,torsoH*.48)&&hipW>Math.max(.07,torsoH*.28)}function matches(id,l){const LS=l[11],RS=l[12],LE=l[13],RE=l[14],LW=l[15],RW=l[16],LH=l[23],RH=l[24];if(![LS,RS,LW,RW,LH,RH].every(p=>vis(p)))return false;if(id==='hands')return LW.y<Math.min(LE?.y??LS.y,LS.y)-.005&&RW.y<Math.min(RE?.y??RS.y,RS.y)-.005;if(id==='wide'){const sw=Math.max(.08,Math.abs(LS.x-RS.x)),ww=Math.abs(LW.x-RW.x);return frontFacing(l)&&Math.abs(LW.y-LS.y)<.25&&Math.abs(RW.y-RS.y)<.25&&ww>sw*1.32}if(id==='lean'){if(!frontFacing(l))return false;const shoulderX=(LS.x+RS.x)/2,hipX=(LH.x+RH.x)/2,shoulderY=(LS.y+RS.y)/2,hipY=(LH.y+RH.y)/2,torsoH=Math.max(.12,Math.abs(hipY-shoulderY)),leanShift=Math.abs(shoulderX-hipX),shoulderTilt=Math.abs(LS.y-RS.y);return leanShift>Math.max(.022,torsoH*.08)&&shoulderTilt>.012}return false}"
+              html = html.replace(old_matches, new_matches)
+
+              old_draw = "function drawPose(l){const c=$('poseCanvas'),v=$('poseVideo');if(!c||!v)return;const w=v.videoWidth||480,h=v.videoHeight||640;if(c.width!==w||c.height!==h){c.width=w;c.height=h}const x=c.getContext('2d');x.clearRect(0,0,w,h);if(!l)return;const links=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24]];x.lineWidth=Math.max(3,w/150);x.strokeStyle='rgba(98,232,255,.92)';x.lineCap='round';for(const[a,b]of links){if(!vis(l[a])||!vis(l[b]))continue;x.beginPath();x.moveTo(l[a].x*w,l[a].y*h);x.lineTo(l[b].x*w,l[b].y*h);x.stroke()}for(const i of[11,12,13,14,15,16,23,24]){if(!vis(l[i]))continue;x.beginPath();x.fillStyle=i===15||i===16?'#ffd666':'#72f0c0';x.arc(l[i].x*w,l[i].y*h,Math.max(5,w/90),0,Math.PI*2);x.fill()}}"
+              new_draw = "function drawPose(l){const c=$('poseCanvas'),v=$('poseVideo');if(!c||!v)return;const w=v.videoWidth||480,h=v.videoHeight||640;if(c.width!==w||c.height!==h){c.width=w;c.height=h}const x=c.getContext('2d');x.clearRect(0,0,w,h);if(!l)return;const ids=[11,12,24,23];if(!ids.every(i=>vis(l[i])))return;x.beginPath();x.moveTo(l[11].x*w,l[11].y*h);x.lineTo(l[12].x*w,l[12].y*h);x.lineTo(l[24].x*w,l[24].y*h);x.lineTo(l[23].x*w,l[23].y*h);x.closePath();x.fillStyle='rgba(98,232,255,.10)';x.fill();x.lineWidth=Math.max(2,w/220);x.strokeStyle='rgba(98,232,255,.42)';x.stroke();for(const i of ids){x.beginPath();x.fillStyle='rgba(114,240,192,.92)';x.arc(l[i].x*w,l[i].y*h,Math.max(5,w/105),0,Math.PI*2);x.fill()}const s=$('poseStatus');if(s&&!s.textContent.includes('Assisted'))s.textContent=frontFacing(l)?'✨ พบตัวแล้ว • ทำท่าตามคำสั่ง':'↩️ หันหน้าเข้ากล้องก่อน แล้วค่อยทำท่า'}"
+              html = html.replace(old_draw, new_draw)
+
+              html = html.replace(
+                  "$('poseStatus').textContent=`Body Ready • ${state.poseVersion}/${state.poseDelegate}`;",
+                  "$('poseStatus').textContent='✨ กล้องพร้อม • หันหน้าเข้ากล้องและทำท่าตามคำสั่ง';"
+              )
+
+              old_timeout = "function poseTimeout(action){cancelAnimationFrame(state.poseRaf);state.poseRetry++;state.attempts++;feedback('ยังไม่ผ่าน • ถอยเล็กน้อยให้เห็นไหล่ แขน และสะโพก','bad');if(state.poseRetry>=2)showAssisted(action);else setTimeout(()=>countdown(action),800)}"
+              new_timeout = "function poseTimeout(action){cancelAnimationFrame(state.poseRaf);state.poseRetry++;state.attempts++;feedback(action.id==='lean'?'ยังไม่ผ่าน • หันหน้าเข้ากล้อง แล้วเอียงช่วงบนซ้ายหรือขวา • ไม่ต้องหมุนตัว':'ยังไม่ผ่าน • ถอยเล็กน้อยให้เห็นไหล่ แขน และสะโพก','bad');if(state.poseRetry>=2)showAssisted(action);else setTimeout(()=>countdown(action),800)}"
+              html = html.replace(old_timeout, new_timeout)
+
+              html = html.replace('INTEGRATED FINAL CHALLENGE • V4', 'INTEGRATED FINAL CHALLENGE • V4.1')
+              html = html.replace("version:'4.0-integrated-final-challenge'", "version:'4.1-body-friendly'")
+              game_v4.write_text(html, encoding='utf-8')
+
           # Return from Conversation Quest to the renamed, cache-busted hub.
           conversation_js = Path('english-week-passport/conversation-quest-ar-v243.js')
           if conversation_js.exists():
