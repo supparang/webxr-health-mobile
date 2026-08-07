@@ -8,19 +8,20 @@
 <style>html,body{margin:0;width:100%;height:100%;background:#06121f;color:#e8f3fb;font-family:system-ui,sans-serif}.boot{height:100dvh;display:grid;place-items:center;text-align:center;padding:24px}.boot small{display:block;margin-top:7px;color:#9fc4d8}</style>
 </head>
 <body>
-<div id="boot" class="boot"><div><strong>กำลังเปิด LexiMatch Navigator…</strong><small>Passport identity • Firebase Direct flow V1.2</small></div></div>
+<div id="boot" class="boot"><div><strong>กำลังเปิด LexiMatch Navigator…</strong><small>Passport identity • Firebase Direct flow V1.3</small></div></div>
 <script>
 (async function(){
   const boot=document.getElementById('boot');
   try{
-    const response=await fetch('./lexicon-x-v74-test.html?v=20260807-leximatch-firestore1',{cache:'no-store'});
+    const response=await fetch('./lexicon-x-v74-test.html?v=20260807-leximatch-firestore2',{cache:'no-store'});
     if(!response.ok)throw new Error('LEXIMATCH_SOURCE_'+response.status);
     let source=await response.text();
     source=source.replace(/<script>\s*\(function\(\)\{const key=window\.EW_CONFIG[\s\S]*?TEST-LEXIMATCH-[\s\S]*?<\/script>/i,'');
     source=source.replace(/Back\s+to\s+Test\s+Hub/gi,'Back to Passport');
     source=source.replace(/กลับ\s*Test\s*Hub/gi,'กลับ Passport');
     source=source.replaceAll('aria-label="กลับ Test Hub"','aria-label="กลับ Passport"');
-    source=source.replaceAll('20260805-leximatch81','20260807-leximatch-firestore1');
+    source=source.replace(/Mission\s+Accomplished\s*[—-]\s*Ready\s+to\s+Level\s+Up!?/gi,'Mission Complete — ตรวจผลเพื่อปลดล็อกด่านถัดไป');
+    source=source.replaceAll('20260805-leximatch81','20260807-leximatch-firestore2');
     const productionPatch=`<script>(function(){
       function patch(){
         document.querySelectorAll('button,a').forEach(function(el){
@@ -29,6 +30,12 @@
             el.textContent='Back to Passport';
             el.setAttribute('data-passport-return','1');
             el.setAttribute('aria-label','กลับ Passport');
+          }
+        });
+        document.querySelectorAll('div,p,span,strong,h1,h2,h3').forEach(function(el){
+          var text=(el.textContent||'').trim();
+          if(/^Mission\\s+Accomplished\\s*[—-]\\s*Ready\\s+to\\s+Level\\s+Up!?$/i.test(text)){
+            el.textContent='Mission Complete — ตรวจผลเพื่อปลดล็อกด่านถัดไป';
           }
         });
       }
