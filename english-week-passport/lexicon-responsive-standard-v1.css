@@ -1,0 +1,172 @@
+/* LEXICON X Responsive Contract R1
+   Mobile-first production baseline with tablet/desktop fallback.
+   Loaded by Passport and injected by the Firestore Game Shell into Game 1–4.
+*/
+:root{
+  --lx-safe-top:max(env(safe-area-inset-top),0px);
+  --lx-safe-right:max(env(safe-area-inset-right),0px);
+  --lx-safe-bottom:max(env(safe-area-inset-bottom),0px);
+  --lx-safe-left:max(env(safe-area-inset-left),0px);
+  --lx-tap:44px;
+}
+*{box-sizing:border-box;min-width:0}
+html,body{max-width:100%;}
+html[data-lexicon-responsive="1"],html[data-lexicon-responsive="1"] body{width:100%;max-width:100vw;}
+html[data-lexicon-responsive="1"] body{overflow-x:hidden;}
+html[data-lexicon-responsive="1"] img,
+html[data-lexicon-responsive="1"] video,
+html[data-lexicon-responsive="1"] canvas,
+html[data-lexicon-responsive="1"] svg{max-width:100%;}
+html[data-lexicon-responsive="1"] button,
+html[data-lexicon-responsive="1"] [role="button"],
+html[data-lexicon-responsive="1"] input,
+html[data-lexicon-responsive="1"] select,
+html[data-lexicon-responsive="1"] textarea{max-width:100%;}
+html[data-lexicon-responsive="1"] button,
+html[data-lexicon-responsive="1"] [role="button"]{touch-action:manipulation;}
+html[data-lexicon-responsive="1"] .screen,
+html[data-lexicon-responsive="1"] .panel,
+html[data-lexicon-responsive="1"] .game,
+html[data-lexicon-responsive="1"] .mission,
+html[data-lexicon-responsive="1"] .board,
+html[data-lexicon-responsive="1"] .summary{min-width:0;min-height:0;}
+html[data-lexicon-responsive="1"] .intro,
+html[data-lexicon-responsive="1"] .summary{overscroll-behavior:contain;}
+
+/* Mobile baseline: preserve full-screen game feel, but never allow horizontal clipping. */
+@media (max-width:720px){
+  html[data-lexicon-responsive="1"] .app{max-width:100vw!important;}
+  html[data-lexicon-responsive="1"] .top,
+  html[data-lexicon-responsive="1"] .topbar{max-width:100%!important;}
+  html[data-lexicon-responsive="1"] .panel{max-width:100%!important;}
+  html[data-lexicon-responsive="1"] .btn,
+  html[data-lexicon-responsive="1"] button:not(.icon):not(.icon-btn):not(.iconBtn){min-height:var(--lx-tap);}
+}
+
+/* Desktop/tablet contract: center content and let the gameplay panel own vertical scrolling
+   instead of clipping content below the viewport. */
+@media (min-width:721px){
+  html[data-lexicon-responsive="1"] .screen{width:100%;max-width:1440px;margin-inline:auto;}
+  html[data-lexicon-responsive="1"] .panel{max-width:1440px;margin-inline:auto;}
+  html[data-lexicon-responsive="1"] .intro,
+  html[data-lexicon-responsive="1"] .summary{overflow-y:auto;scrollbar-gutter:stable;}
+}
+
+/* ------------------------------------------------------------------
+   GAME 3 — SENTENCE CITY / AR HAND BUILDER
+   The production V6.2 DOM uses .game/.stats/.sky/.mission/.camera/.board.
+   ------------------------------------------------------------------ */
+html[data-lexicon-stage="sentence_city"] body{overflow:hidden!important;}
+html[data-lexicon-stage="sentence_city"] .app{
+  width:100%!important;
+  max-width:100vw!important;
+  height:100dvh!important;
+  max-height:100dvh!important;
+  min-height:0!important;
+}
+html[data-lexicon-stage="sentence_city"] .screen,
+html[data-lexicon-stage="sentence_city"] .panel{height:100%!important;min-height:0!important;}
+html[data-lexicon-stage="sentence_city"] .panel{overflow:hidden!important;}
+html[data-lexicon-stage="sentence_city"] .game{height:100%!important;min-height:0!important;}
+html[data-lexicon-stage="sentence_city"] .mission{min-height:0!important;}
+html[data-lexicon-stage="sentence_city"] .camera video,
+html[data-lexicon-stage="sentence_city"] .camera canvas{width:100%!important;height:100%!important;object-fit:cover!important;}
+html[data-lexicon-stage="sentence_city"] .slots,
+html[data-lexicon-stage="sentence_city"] .depot{max-width:100%!important;}
+
+@media (min-width:721px){
+  html[data-lexicon-stage="sentence_city"] .app{
+    padding:max(4px,var(--lx-safe-top)) max(8px,var(--lx-safe-right)) max(8px,var(--lx-safe-bottom)) max(8px,var(--lx-safe-left))!important;
+    grid-template-rows:48px minmax(0,1fr)!important;
+  }
+  html[data-lexicon-stage="sentence_city"] .top{min-height:44px!important;}
+  html[data-lexicon-stage="sentence_city"] .panel{padding:7px!important;border-radius:16px!important;}
+  html[data-lexicon-stage="sentence_city"] .game{
+    display:grid!important;
+    grid-template-rows:28px 58px 72px minmax(0,1fr)!important;
+    gap:5px!important;
+    overflow:hidden!important;
+  }
+  html[data-lexicon-stage="sentence_city"] .head{min-height:0!important;}
+  html[data-lexicon-stage="sentence_city"] .stats{min-height:0!important;gap:6px!important;}
+  html[data-lexicon-stage="sentence_city"] .stat{padding:6px 9px!important;}
+  html[data-lexicon-stage="sentence_city"] .sky{height:72px!important;min-height:0!important;}
+  html[data-lexicon-stage="sentence_city"] .mission{
+    display:grid!important;
+    grid-template-rows:auto clamp(180px,34dvh,300px) minmax(0,1fr) auto!important;
+    gap:6px!important;
+    overflow:hidden!important;
+    padding:8px!important;
+  }
+  html[data-lexicon-stage="sentence_city"] .prompt{margin:0!important;min-height:36px!important;}
+  html[data-lexicon-stage="sentence_city"] .prompt h3{font-size:clamp(.86rem,1.35vw,1.12rem)!important;line-height:1.2!important;}
+  html[data-lexicon-stage="sentence_city"] .camera{
+    height:clamp(180px,34dvh,300px)!important;
+    min-height:0!important;
+    max-height:300px!important;
+    overflow:hidden!important;
+  }
+  html[data-lexicon-stage="sentence_city"] .board{
+    min-height:0!important;
+    max-height:100%!important;
+    overflow:auto!important;
+    overscroll-behavior:contain!important;
+    scrollbar-gutter:stable!important;
+    padding:2px 4px 8px!important;
+  }
+  html[data-lexicon-stage="sentence_city"] .slots,
+  html[data-lexicon-stage="sentence_city"] .depot{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    justify-content:center!important;
+    gap:6px!important;
+    overflow:visible!important;
+  }
+  html[data-lexicon-stage="sentence_city"] .slot,
+  html[data-lexicon-stage="sentence_city"] .word{
+    min-height:42px!important;
+    height:auto!important;
+    padding:7px 10px!important;
+    font-size:clamp(.72rem,1.1vw,.92rem)!important;
+  }
+  html[data-lexicon-stage="sentence_city"] .control{position:static!important;width:100%!important;min-height:42px!important;}
+  html[data-lexicon-stage="sentence_city"] .feedback{min-height:32px!important;height:auto!important;}
+}
+
+/* Compact desktop / notebook: 768–900px height. */
+@media (min-width:721px) and (max-height:900px){
+  html[data-lexicon-stage="sentence_city"] .app{grid-template-rows:42px minmax(0,1fr)!important;}
+  html[data-lexicon-stage="sentence_city"] .game{grid-template-rows:24px 50px 58px minmax(0,1fr)!important;gap:4px!important;}
+  html[data-lexicon-stage="sentence_city"] .sky{height:58px!important;}
+  html[data-lexicon-stage="sentence_city"] .mission{grid-template-rows:auto clamp(160px,31dvh,250px) minmax(0,1fr) auto!important;gap:4px!important;padding:6px!important;}
+  html[data-lexicon-stage="sentence_city"] .camera{height:clamp(160px,31dvh,250px)!important;max-height:250px!important;}
+  html[data-lexicon-stage="sentence_city"] .slot,
+  html[data-lexicon-stage="sentence_city"] .word{min-height:38px!important;padding:5px 8px!important;}
+  html[data-lexicon-stage="sentence_city"] .control{min-height:38px!important;}
+  html[data-lexicon-stage="sentence_city"] .feedback{min-height:28px!important;}
+}
+
+/* Mobile Sentence City remains the primary experience. Keep camera useful while
+   allowing the board to scroll internally on short phones. */
+@media (max-width:720px){
+  html[data-lexicon-stage="sentence_city"] .mission{min-height:0!important;overflow:hidden!important;}
+  html[data-lexicon-stage="sentence_city"] .board{min-height:0!important;overflow:auto!important;overscroll-behavior:contain!important;}
+  html[data-lexicon-stage="sentence_city"] .camera{max-width:100%!important;}
+}
+
+/* Final Boss / Bonus — keep full-screen camera interactions, but summary/intros may scroll. */
+html[data-lexicon-stage="final_boss"] .intro,
+html[data-lexicon-stage="final_boss"] .summary,
+html[data-lexicon-stage="bonus_lens"] .card{max-width:min(100%,760px);margin-inline:auto;}
+@media (min-width:721px) and (max-height:900px){
+  html[data-lexicon-stage="final_boss"] .intro,
+  html[data-lexicon-stage="final_boss"] .summary{overflow-y:auto!important;}
+  html[data-lexicon-stage="bonus_lens"] .card{max-height:calc(100dvh - 24px)!important;overflow:auto!important;}
+}
+
+/* Passport/assessment/certificate pages: never cut off content on short screens. */
+html[data-lexicon-stage="passport"] body{overflow-x:hidden!important;}
+html[data-lexicon-stage="passport"] .screen{max-width:100%!important;}
+@media (min-width:721px){
+  html[data-lexicon-stage="passport"] .screen{width:min(100%,1180px)!important;margin-inline:auto!important;}
+}
