@@ -1,5 +1,0 @@
-{
-  "firestore": {
-    "rules": "../../herohealth/firebase/roster-binding-progress-sandbox.rules"
-  }
-}
