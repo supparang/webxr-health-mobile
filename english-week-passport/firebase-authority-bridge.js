@@ -5,12 +5,14 @@
   const legacy = window.EW_AUTHORITY || {};
   const params = new URLSearchParams(location.search);
   const qaFallbackAllowed = params.get("qa") === "1" && cfg.allowQaDemoFallback === true;
+  const READ_ACTIONS = new Set(["health", "profile_lookup", "player_resume", "leaderboard"]);
   const runtime = {
     mode: "configured",
     lastError: "",
     lastSuccessAt: "",
     endpoint: String(cfg.firebaseAuthorityUrl || "").trim(),
-    qaFallbackAllowed
+    qaFallbackAllowed,
+    transport: "read-get/write-post"
   };
 
   function endpointReady() {
@@ -31,32 +33,54 @@
     };
   }
 
+  function buildEnvelope(action, payload) {
+    return {
+      ...(payload || {}),
+      action,
+      appId: cfg.appId || "ENGLISH-WEEK-PASSPORT-2026",
+      sourceVersion: String(payload?.sourceVersion || cfg.version || "unknown"),
+      passportVersion: cfg.version || "unknown"
+    };
+  }
+
   async function remote(action, payload) {
     if (!endpointReady()) throw new Error("FIREBASE_AUTHORITY_URL_MISSING");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), Number(cfg.requestTimeoutMs || 12000));
     try {
-      const sourceVersion = String(payload?.sourceVersion || cfg.version || "unknown");
-      const response = await fetch(runtime.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-EW-App-Id": String(cfg.appId || "ENGLISH-WEEK-PASSPORT-2026")
-        },
-        body: JSON.stringify({
-          ...(payload || {}),
-          action,
-          appId: cfg.appId || "ENGLISH-WEEK-PASSPORT-2026",
-          sourceVersion,
-          passportVersion: cfg.version || "unknown"
-        }),
-        signal: controller.signal,
-        cache: "no-store",
-        redirect: "follow"
-      });
+      const envelope = buildEnvelope(action, payload);
+      let response;
+
+      if (READ_ACTIONS.has(action)) {
+        const url = new URL(runtime.endpoint);
+        Object.entries(envelope).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && typeof value !== "object") {
+            url.searchParams.set(key, String(value));
+          }
+        });
+        response = await fetch(url.toString(), {
+          method: "GET",
+          signal: controller.signal,
+          cache: "no-store",
+          redirect: "follow"
+        });
+      } else {
+        response = await fetch(runtime.endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-EW-App-Id": String(cfg.appId || "ENGLISH-WEEK-PASSPORT-2026")
+          },
+          body: JSON.stringify(envelope),
+          signal: controller.signal,
+          cache: "no-store",
+          redirect: "follow"
+        });
+      }
+
       let data = null;
       try { data = await response.json(); }
-      catch (_) { throw new Error("INVALID_FIREBASE_AUTHORITY_RESPONSE"); }
+      catch (_) { throw new Error(`INVALID_FIREBASE_AUTHORITY_RESPONSE_${response.status}`); }
       if (!response.ok || data?.ok === false) throw new Error(data?.error || `FIREBASE_HTTP_${response.status}`);
       runtime.mode = "firebase";
       runtime.lastError = "";
