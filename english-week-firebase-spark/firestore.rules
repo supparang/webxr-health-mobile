@@ -24,6 +24,15 @@ service cloud.firestore {
         && sessionDoc().data.playerId == playerId;
     }
 
+    function ownsCheckpointId(checkpointId) {
+      return signedIn()
+        && sessionExists()
+        && (
+          checkpointId == sessionDoc().data.playerId + '__pre'
+          || checkpointId == sessionDoc().data.playerId + '__post'
+        );
+    }
+
     function activeProfile(playerId) {
       return exists(/databases/$(database)/documents/ewp_profiles/$(playerId))
         && get(/databases/$(database)/documents/ewp_profiles/$(playerId)).data.active == true;
@@ -113,12 +122,16 @@ service cloud.firestore {
     }
 
     match /ewp_assessment_checkpoints/{checkpointId} {
-      allow get: if owns(resource.data.playerId);
-      allow create: if request.resource.data.playerId is string
-        && owns(request.resource.data.playerId);
-      allow update: if request.resource.data.playerId == resource.data.playerId
-        && owns(resource.data.playerId);
-      allow delete: if owns(resource.data.playerId);
+      // GET must also work when the checkpoint does not exist yet.
+      // Authorize by the owned document id instead of resource.data.
+      allow get: if ownsCheckpointId(checkpointId);
+      allow create: if ownsCheckpointId(checkpointId)
+        && request.resource.data.playerId == sessionDoc().data.playerId;
+      allow update: if ownsCheckpointId(checkpointId)
+        && request.resource.data.playerId == resource.data.playerId
+        && request.resource.data.playerId == sessionDoc().data.playerId;
+      allow delete: if ownsCheckpointId(checkpointId)
+        && resource.data.playerId == sessionDoc().data.playerId;
       allow list: if false;
     }
 
