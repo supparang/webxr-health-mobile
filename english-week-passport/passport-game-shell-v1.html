@@ -13,14 +13,14 @@
 <div class="shell"><iframe id="gameFrame" class="game-frame" allow="camera; microphone; autoplay" title="LEXICON X Passport Game"></iframe></div>
 <div id="boot" class="boot"><div><div class="spinner"></div><strong id="bootTitle">กำลังเปิดเกมจาก Passport…</strong><small id="bootDetail">กำลังตรวจสอบผู้เล่นและภารกิจ</small></div></div>
 <div id="status" class="status"><div><strong id="statusTitle">กำลังบันทึกผล…</strong><small id="statusDetail">กรุณาอย่าปิดหน้านี้</small></div><button id="statusAction" type="button">กลับ Passport</button></div>
-<script src="./config.js?v=20260806-passport-shell11"></script>
+<script src="./config.js?v=20260807-firestore-game1"></script>
 <script src="./authority-client.js?v=20260806-passport-shell11"></script>
-<script src="./firebase-authority-bridge.js?v=20260806-passport-shell11"></script>
+<script src="./firebase-authority-bridge.js?v=20260807-spark-direct1"></script>
 <script src="./passport-rotation-v2.js?v=20260806-passport-shell11"></script>
 <script>
 (function(){
 'use strict';
-const VERSION='2026-08-06-PASSPORT-GAME-SHELL-V1.1';
+const VERSION='2026-08-07-PASSPORT-GAME-SHELL-V1.2-FIRESTORE-DIRECT';
 const params=new URLSearchParams(location.search);
 const stageId=params.get('stage')||'';
 const run=params.get('run')||'1';
@@ -149,7 +149,7 @@ function launch(){
   if(!game){document.getElementById('bootTitle').textContent='ไม่พบเกมใน Passport';document.getElementById('bootDetail').textContent='Stage: '+stageId;return}
   if(!identity?.playerId){location.replace('./index.html');return}
   document.title=game.title+' • LEXICON X Passport';
-  const gameParams=new URLSearchParams({from:'passport',authority:'firebase',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run,stage:stageId,v:'20260806-passport-shell11'});
+  const gameParams=new URLSearchParams({from:'passport',authority:'firebase',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run,stage:stageId,v:'20260807-firestore-game1'});
   if(assignment){gameParams.set('passportRotation',assignment.passportRotation);gameParams.set('randomSeed',String(assignment.randomSeed))}
   frame.src=game.url+'?'+gameParams.toString();
   frame.addEventListener('load',()=>{boot.classList.add('hide');setTimeout(()=>interceptWindow(frame.contentWindow),120)});monitorTimer=setInterval(monitor,350);
