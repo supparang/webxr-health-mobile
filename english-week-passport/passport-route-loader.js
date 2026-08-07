@@ -1,18 +1,28 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-07-PASSPORT-CANONICAL-ROUTE-LOADER-V1.5-CHAMPION471";
+  const VERSION="2026-08-07-PASSPORT-ROUTE-LOADER-V1.6-JOURNEY";
   let loaded=false;
-  const routes=["./passport-canonical-routes-v1.js?v=20260807-champion471"];
+  const routes=[
+    "./passport-canonical-routes-v1.js?v=20260807-champion471",
+    "./journey-client-v1.js?v=20260807-journey1",
+    "./passport-journey-routes-v1.js?v=20260807-journey1"
+  ];
 
   function loadRoutes(){
     if(loaded||!document.querySelector(".passport-map"))return;
     loaded=true;
+    let chain=Promise.resolve();
     routes.forEach(src=>{
-      const script=document.createElement("script");
-      script.src=src;
-      script.async=false;
-      document.body.appendChild(script);
+      chain=chain.then(()=>new Promise((resolve,reject)=>{
+        const script=document.createElement("script");
+        script.src=src;
+        script.async=false;
+        script.onload=resolve;
+        script.onerror=reject;
+        document.body.appendChild(script);
+      }));
     });
+    chain.catch(error=>console.error("EW route loader failed",error));
   }
 
   loadRoutes();
