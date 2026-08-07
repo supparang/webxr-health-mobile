@@ -1,13 +1,13 @@
 (function(){
 'use strict';
-const VERSION='2026-08-07-CANONICAL-FIVE-GAME-ROUTES-V1.3-LENS-BONUS';
+const VERSION='2026-08-07-CANONICAL-FIVE-GAME-ROUTES-V1.4-CHAMPION47';
 const ROUTES={
   word_match:{title:'LexiMatch Navigator',detail:'Game 1 • จับคู่คำศัพท์ • Swipe + Tilt • A2–B1+',icon:'🧭'},
   category_forest:{title:'Category Forest',detail:'Game 2 • ลากคำเข้าหมวด • Rescue Learning',icon:'🌲'},
   sentence_city:{title:'Sentence City',detail:'Game 3 • AR Hand Builder • Clean Bank V2',icon:'🏙️'},
-  word_detective:{title:'Conversation Quest AR',detail:'Game 4 • เลือกบทสนทนาและพูดทุกช่วง',icon:'💬'},
+  word_detective:{title:'Conversation Quest',detail:'Game 4 • เลือกบทสนทนาและพูดทุกช่วง',icon:'💬'},
   bonus_lens:{title:'Lexicon Lens Hunt',detail:'Bonus Mission • กล้องหลังค้นหา QR Clue • ไม่บังคับ Certificate',icon:'📷',bonus:true},
-  final_boss:{title:'Champion Command Arena',detail:'Game 5 • 5 Gates + 1 Final Boss',icon:'👑'}
+  final_boss:{title:'LEXICON Champion Arena',detail:'Game 5 • 4 Gates + Final Boss • Move → Decide → Speak',icon:'👑'}
 };
 let scheduled=false;
 function setText(el,text){if(el&&el.textContent!==text)el.textContent=text;}
@@ -19,9 +19,7 @@ function ensureBonusCard(){
   let card=document.querySelector('.stage-card[data-stage="bonus_lens"]');
   const ready=source.classList.contains('passed');
   const identity=readIdentity();const best=bonusBest(identity);
-  if(!card){
-    card=document.createElement('article');card.dataset.stage='bonus_lens';source.insertAdjacentElement('afterend',card);
-  }
+  if(!card){card=document.createElement('article');card.dataset.stage='bonus_lens';source.insertAdjacentElement('afterend',card);}
   card.className=`stage-card canonical-game-card bonus-lens-card ${ready?'ready clickable':'locked'}`;
   card.dataset.canonicalRoute='1';card.dataset.canonicalDecorated=VERSION;
   if(ready){card.tabIndex=0;card.setAttribute('role','button')}else{card.removeAttribute('tabindex');card.removeAttribute('role')}
@@ -50,6 +48,10 @@ function openStage(stage){
   if(stage==='bonus_lens'){
     const query=new URLSearchParams({from:'passport',authority:'firebase',pid:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',stage:'bonus_lens',v:'20260807-lens1'});
     location.assign('./lexicon-lens-hunt.html?'+query.toString());return;
+  }
+  if(stage==='final_boss'){
+    const query=new URLSearchParams({from:'passport',authority:'firebase',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run:'1',stage:'final_boss',v:'20260807-prod47'});
+    location.assign('./lexicon-champion-arena-v47.html?'+query.toString());return;
   }
   const query=new URLSearchParams({stage,run:'1',v:'20260807-passport-shell13'});
   location.assign('./passport-game-shell-v1.html?'+query.toString());
