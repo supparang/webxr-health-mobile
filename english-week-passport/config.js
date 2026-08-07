@@ -1,10 +1,11 @@
 window.EW_CONFIG = Object.freeze({
   appId: "ENGLISH-WEEK-PASSPORT-2026",
-  version: "2026-08-06-PASSPORT-FIREBASE-AUTHORITY-V1",
+  version: "2026-08-07-PASSPORT-JOURNEY-SUMMARY-V1",
   authorityMode: "firebase-first",
   firebaseProjectId: "english-d4bfa",
   firebaseRegion: "asia-southeast1",
   firebaseAuthorityUrl: "https://asia-southeast1-english-d4bfa.cloudfunctions.net/englishWeekAuthority",
+  firebaseJourneyUrl: "https://asia-southeast1-english-d4bfa.cloudfunctions.net/englishWeekJourney",
   firebaseNamespace: "englishWeekPassport/v1",
   webAppUrl: "",
   defaultGroup: "English Week",
