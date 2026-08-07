@@ -5,29 +5,31 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#16a34a">
 <title>GoodJunk Hand AR</title>
-<style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#ecfdf5}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}</style>
+<style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;min-height:100dvh;overflow:hidden;background:#ecfdf5}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}</style>
+<script src="./assets/hh-responsive-runtime-v1.js?v=20260807-r1"></script>
 </head>
 <body>
 <iframe id="game" title="เกม GoodJunk Hand AR" allow="camera;microphone;fullscreen;autoplay"></iframe>
 <script>
 (()=>{'use strict';
-const RELEASE='20260731-GOODJUNK-UNIFIED-ANALYTICS-V15';
+const RELEASE='20260807-GOODJUNK-UNIFIED-ANALYTICS-V16-RESPONSIVE';
 const q=new URLSearchParams(location.search),frame=document.getElementById('game');
+const responsiveRuntimeUrl=new URL('./assets/hh-responsive-runtime-v1.js?v=20260807-r1',location.href).href;
 let completionForwarded=false;
 const child=new URL('../herohealth/goodjunk-ar-classroom-v12.html',location.href);
 q.forEach((value,key)=>child.searchParams.set(key,value));
 child.searchParams.set('analyticsProxy','unified-only');child.searchParams.set('wrapperRelease',RELEASE);child.searchParams.set('_',Date.now());
 frame.src=child.href;
+function installResponsive(){try{const d=frame.contentDocument;if(!d?.head||d.getElementById('hh-responsive-runtime-loader'))return;const s=d.createElement('script');s.id='hh-responsive-runtime-loader';s.src=responsiveRuntimeUrl;s.dataset.injectedBy=RELEASE;d.head.appendChild(s)}catch(error){console.debug('[GoodJunk V16] responsive injection skipped',error)}}
+frame.addEventListener('load',()=>{installResponsive();setTimeout(installResponsive,100);setTimeout(installResponsive,500)});
 function forward(message){try{parent.postMessage(message,location.origin)}catch(_){}}
 addEventListener('message',event=>{
   if(event.origin!==location.origin||event.source!==frame.contentWindow)return;
   const m=event.data||{};
   if(m.type==='HEROHEALTH_GAME_STARTED'){forward(m);return}
-  if(m.type==='HEROHEALTH_GAME_COMPLETE'&&m.payload&&!completionForwarded){
-    completionForwarded=true;
-    forward({type:m.type,payload:{...m.payload,coreResultOnly:false,fullAnalyticsSubmitted:true,analyticsProxyRelease:RELEASE}});
-  }
+  if(m.type==='HEROHEALTH_GAME_COMPLETE'&&m.payload&&!completionForwarded){completionForwarded=true;forward({type:m.type,payload:{...m.payload,coreResultOnly:false,fullAnalyticsSubmitted:true,analyticsProxyRelease:RELEASE}})}
 });
+window.HH_GOODJUNK_ANALYTICS_V16={release:RELEASE,installResponsive};
 })();
 </script>
 </body>
