@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const VERSION='2026-08-07-PASSPORT-FIRESTORE-TIMEOUT-GUARD-V2';
+  const VERSION='2026-08-07-PASSPORT-FIRESTORE-TIMEOUT-GUARD-V3-FAST-RESUME';
   const base=window.EW_AUTHORITY;
   if(!base){
     console.warn('EW timeout guard: authority not ready');
@@ -10,6 +10,9 @@
 
   const TIMEOUT_MS=7000;
   const CHECKPOINT_TIMEOUT_MS=6500;
+  const fastCache={playerId:'',profile:null,at:0};
+
+  function clean(value){ return String(value==null?'':value).trim(); }
 
   function withTimeout(label,fn,ms){
     if(typeof fn!=='function') return fn;
@@ -29,11 +32,66 @@
     };
   }
 
+  const guardedProfileLookup=withTimeout('profileLookup',base.profileLookup,TIMEOUT_MS);
+  const guardedBaseResume=withTimeout('resume',base.resume,TIMEOUT_MS);
+
+  async function profileLookup(playerId,nickname){
+    const result=await guardedProfileLookup(playerId,nickname);
+    if(result?.ok && result?.profile){
+      fastCache.playerId=clean(result.profile.playerId||playerId);
+      fastCache.profile={...result.profile};
+      fastCache.at=Date.now();
+    }
+    return result;
+  }
+
+  function normalizeProgress(playerId,data){
+    const value=data&&typeof data==='object'?{...data}:{};
+    value.playerId=clean(value.playerId||playerId);
+    value.unlocked=Array.isArray(value.unlocked)?value.unlocked:['pre_challenge'];
+    value.passed=Array.isArray(value.passed)?value.passed:[];
+    value.bestScores=value.bestScores&&typeof value.bestScores==='object'?value.bestScores:{};
+    value.preDone=Boolean(value.preDone);
+    value.postDone=Boolean(value.postDone);
+    value.finalDone=Boolean(value.finalDone);
+    value.certificateEligible=Boolean(value.certificateEligible);
+    value.totalScore=Number(value.totalScore||0);
+    return value;
+  }
+
+  async function fastResume(playerId,nickname){
+    const id=clean(playerId);
+    const cacheFresh=fastCache.profile && fastCache.playerId===id && (Date.now()-fastCache.at)<20000;
+    if(!cacheFresh || !window.firebase?.firestore) return guardedBaseResume(playerId,nickname);
+
+    const db=firebase.firestore();
+    const [assignmentSnap,progressSnap]=await Promise.all([
+      db.collection('ewp_assignments').doc(id).get(),
+      db.collection('ewp_progress').doc(id).get()
+    ]);
+
+    // New QA/player bootstrap still goes through the canonical authority once.
+    if(!assignmentSnap.exists || !progressSnap.exists){
+      return guardedBaseResume(playerId,nickname);
+    }
+
+    return {
+      ok:true,
+      mode:'firebase',
+      sourceOfTruth:'Cloud Firestore Direct Authority',
+      profile:{...fastCache.profile},
+      assignment:{playerId:id,...assignmentSnap.data()},
+      progress:normalizeProgress(id,progressSnap.data()),
+      version:VERSION,
+      fastResume:true
+    };
+  }
+
   const guarded={
     ...base,
     health:withTimeout('health',base.health,TIMEOUT_MS),
-    profileLookup:withTimeout('profileLookup',base.profileLookup,TIMEOUT_MS),
-    resume:withTimeout('resume',base.resume,TIMEOUT_MS),
+    profileLookup,
+    resume:withTimeout('fastResume',fastResume,TIMEOUT_MS),
     getAssessmentCheckpoint:withTimeout('getAssessmentCheckpoint',base.getAssessmentCheckpoint,CHECKPOINT_TIMEOUT_MS)
   };
 
@@ -79,19 +137,17 @@
       if(!loading.hidden && loadingText){
         loadingText.textContent='Firestore ตอบช้ากว่าปกติ • กำลังรออีกสักครู่…';
       }
-    },4000);
+    },3500);
     hardTimer=setTimeout(()=>{
       if(!loading.hidden){
         recoverUi('Firebase ตอบช้าเกินกำหนด • กรุณากดลองอีกครั้ง');
       }else{
         clearTimers();
       }
-    },9000);
+    },8500);
   }
 
   if(loading){
-    // IMPORTANT: observe only the hidden attribute. Observing style caused the
-    // watchdog to reset itself every time pointer-events changed.
     new MutationObserver(()=>{
       if(loading.hidden){
         clearTimers();
@@ -107,9 +163,29 @@
     if(loading && !loading.hidden) armWatchdog();
   });
 
+  // Absolute escape hatch: even if another script breaks the observer,
+  // no login overlay may survive longer than 10 seconds.
+  setInterval(()=>{
+    if(!loading || loading.hidden) return;
+    const started=Number(loading.dataset.ewShownAt||0);
+    if(!started){ loading.dataset.ewShownAt=String(Date.now()); return; }
+    if(Date.now()-started>10000){
+      recoverUi('การเชื่อมต่อใช้เวลานานเกินไป • กรุณากดลองอีกครั้ง');
+      delete loading.dataset.ewShownAt;
+    }
+  },1000);
+
+  if(loading){
+    new MutationObserver(()=>{
+      if(loading.hidden) delete loading.dataset.ewShownAt;
+      else if(!loading.dataset.ewShownAt) loading.dataset.ewShownAt=String(Date.now());
+    }).observe(loading,{attributes:true,attributeFilter:['hidden']});
+  }
+
   window.EW_FIRESTORE_TIMEOUT_GUARD=Object.freeze({
     version:VERSION,
     timeoutMs:TIMEOUT_MS,
+    fastResume:true,
     recoverUi
   });
 }());
