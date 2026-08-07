@@ -1,10 +1,15 @@
 (()=>{
 'use strict';
-const VERSION='20260805-MOBILE-PASSPORT-V1.6-SESSION-GATE';
+const VERSION='20260807-MOBILE-PASSPORT-V1.7-RESPONSIVE';
 const KEY='herohealth_learning_platform_rc2';
 const C=window.HH_CONFIG||{};
 const R=window.HHRotation;
 if(!R)return;
+function installResponsiveRuntime(){
+ if(window.HHResponsiveRuntime||document.getElementById('hh-responsive-runtime-loader'))return;
+ const script=document.createElement('script');script.id='hh-responsive-runtime-loader';script.src='./assets/hh-responsive-runtime-v1.js?v=20260807-r1';script.async=false;script.dataset.hhPatch='passport-responsive-r1';document.head.appendChild(script);
+}
+installResponsiveRuntime();
 function read(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return{}}}
 function authorityMode(){const q=String(new URLSearchParams(location.search).get('authority')||'').toLowerCase();return q||String(window.HH_AUTHORITY_MODE||localStorage.getItem('HH_AUTHORITY_MODE')||'firebase').toLowerCase()}
 function isFirebase(){return authorityMode()==='firebase'||authorityMode()==='dual'}
@@ -20,9 +25,9 @@ function installLatestFirebaseRuntime(){
  window.__HH_FIREBASE_ASSESSMENT_RUNTIME_V1=true;
  import('./firebase/passport-index-integration.js?v=20260805-passport-session-r72').catch(err=>console.error('[HeroHealth Firebase R72 loader]',err));
  const script=document.createElement('script');
- script.src='./assets/assessment-route-launcher-v4.js?v=20260804-firebase-route-r8';
- script.async=false;script.dataset.hhPatch='firebase-assessment-route-r8';
- script.onload=()=>console.info('[HeroHealth Firebase Assessment Route R8] loaded');
+ script.src='./assets/assessment-route-launcher-v4.js?v=20260807-responsive-smoke-r12';
+ script.async=false;script.dataset.hhPatch='firebase-assessment-route-r12';
+ script.onload=()=>console.info('[HeroHealth Firebase Assessment Route R12] loaded');
  document.head.appendChild(script);
 }
 function gameMeta(step){if(!step||step.type!=='game')return null;return C.zones?.find(z=>z.id===step.zoneId)?.games?.find(g=>g.id===step.gameId)||null}
@@ -39,10 +44,10 @@ function ensureMobileCta(s){
  if(!bar){bar=document.createElement('div');bar.id='hh-mobile-next-cta';bar.innerHTML='<span class="hh-mobile-sync-dot" aria-hidden="true"></span><button type="button"></button>';document.body.appendChild(bar)}
  const sync=syncStatus(s),action=actionFor(s),gate=gateFor(s,action),button=bar.querySelector('button');const readyLabel=action.label+' ›',label=gate.ready?readyLabel:gate.text;if(bar.dataset.sync!==sync.key)bar.dataset.sync=sync.key;if(button.dataset.busy!=='1'&&button.textContent!==label)button.textContent=label;button.disabled=!gate.ready||button.dataset.busy==='1';button.setAttribute('aria-disabled',String(!gate.ready));button.setAttribute('aria-label',gate.ready?action.label:gate.text);button.onclick=()=>{if(!gate.ready||button.dataset.busy==='1')return;button.dataset.busy='1';button.disabled=true;button.textContent='กำลังเปิด…';try{action.run()}catch(err){console.error('[HeroHealth mobile CTA]',err)}setTimeout(()=>{button.dataset.busy='0';button.disabled=false;button.textContent=readyLabel},2200)};applyTopButtonGate(s,action,gate)
 }
-function patch(){hideStudentReleaseLabel();const s=read();if(!s?.profile||s?.view!=='student'||(isFirebase()&&!firebaseSessionReady(s))){document.getElementById('hh-sheet-sync-indicator')?.remove();document.getElementById('hh-mobile-next-cta')?.remove();return}ensureSyncIndicator(s);ensureMobileCta(s);document.documentElement.dataset.hhMobilePassport='V1-6-SESSION-GATE'}
+function patch(){hideStudentReleaseLabel();const s=read();if(!s?.profile||s?.view!=='student'||(isFirebase()&&!firebaseSessionReady(s))){document.getElementById('hh-sheet-sync-indicator')?.remove();document.getElementById('hh-mobile-next-cta')?.remove();return}ensureSyncIndicator(s);ensureMobileCta(s);document.documentElement.dataset.hhMobilePassport='V1-7-RESPONSIVE'}
 let queued=false;function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;patch()})}
-addEventListener('DOMContentLoaded',()=>{installLatestFirebaseRuntime();patch();const app=document.getElementById('app');if(app)new MutationObserver(schedule).observe(app,{childList:true,subtree:true})});
-if(document.readyState!=='loading')installLatestFirebaseRuntime();
+addEventListener('DOMContentLoaded',()=>{installResponsiveRuntime();installLatestFirebaseRuntime();patch();const app=document.getElementById('app');if(app)new MutationObserver(schedule).observe(app,{childList:true,subtree:true})});
+if(document.readyState!=='loading'){installResponsiveRuntime();installLatestFirebaseRuntime()}
 addEventListener('storage',e=>{if(e.key===KEY)schedule()});addEventListener('online',schedule);addEventListener('offline',schedule);setInterval(schedule,1000);
-window.HHMobilePassportProduction={patch,gateFor,firebaseSessionReady,version:VERSION};
+window.HHMobilePassportProduction={patch,gateFor,firebaseSessionReady,installResponsiveRuntime,version:VERSION};
 })();
