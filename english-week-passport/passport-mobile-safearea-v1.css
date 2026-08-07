@@ -1,0 +1,140 @@
+/* LEXICON X Challenge • Passport Mobile Safe Area V1
+   Fixes the login/header grid when home/logout controls are hidden.
+   UI-only patch: no game, authority, Firebase, or progression logic. */
+
+html,
+body,
+.app-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.topbar {
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  padding-left: max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
+}
+
+/* Keep every item in its canonical grid column even when sibling buttons are hidden. */
+#homeBtn {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+}
+
+.brand-lockup {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+  overflow: hidden;
+}
+
+.brand-lockup > div {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.brand-lockup strong,
+.brand-lockup small {
+  max-width: 100%;
+}
+
+#logoutBtn {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.screen {
+  max-width: 760px;
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  overflow-x: hidden;
+}
+
+.hero-card,
+.panel,
+.question-card,
+.summary-card,
+.profile-strip,
+.stage-card {
+  max-width: 100%;
+}
+
+@media (max-width: 430px) {
+  .topbar {
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
+    gap: 7px;
+    min-height: 64px;
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+  }
+
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+  }
+
+  .brand-lockup {
+    gap: 7px;
+  }
+
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    flex: 0 0 34px;
+  }
+
+  .brand-lockup strong {
+    font-size: .92rem;
+  }
+
+  .brand-lockup small {
+    font-size: .69rem;
+  }
+
+  .screen {
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+
+  .hero-card {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}
+
+@media (max-width: 360px) {
+  .topbar {
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+    gap: 5px;
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+  }
+
+  .icon-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+  }
+
+  .brand-lockup strong {
+    font-size: .86rem;
+  }
+
+  .brand-lockup small {
+    font-size: .65rem;
+  }
+}
