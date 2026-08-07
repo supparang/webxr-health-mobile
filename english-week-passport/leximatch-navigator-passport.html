@@ -1,14 +1,15 @@
 <!doctype html>
-<html lang="th">
+<html lang="th" data-lexicon-responsive="1" data-lexicon-stage="word_match">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#081827">
 <title>LexiMatch Navigator • Passport</title>
+<link rel="stylesheet" href="./lexicon-responsive-standard-v1.css?v=20260807-responsive-r1">
 <style>html,body{margin:0;width:100%;height:100%;background:#06121f;color:#e8f3fb;font-family:system-ui,sans-serif}.boot{height:100dvh;display:grid;place-items:center;text-align:center;padding:24px}.boot small{display:block;margin-top:7px;color:#9fc4d8}</style>
 </head>
 <body>
-<div id="boot" class="boot"><div><strong>กำลังเปิด LexiMatch Navigator…</strong><small>Passport identity • Firebase Direct flow V1.3</small></div></div>
+<div id="boot" class="boot"><div><strong>กำลังเปิด LexiMatch Navigator…</strong><small>Passport identity • Firebase Direct flow V1.4 Responsive</small></div></div>
 <script>
 (async function(){
   const boot=document.getElementById('boot');
@@ -22,6 +23,8 @@
     source=source.replaceAll('aria-label="กลับ Test Hub"','aria-label="กลับ Passport"');
     source=source.replace(/Mission\s+Accomplished\s*[—-]\s*Ready\s+to\s+Level\s+Up!?/gi,'Mission Complete — ตรวจผลเพื่อปลดล็อกด่านถัดไป');
     source=source.replaceAll('20260805-leximatch81','20260807-leximatch-firestore2');
+    const responsiveHead=`<link rel="stylesheet" href="./lexicon-responsive-standard-v1.css?v=20260807-responsive-r1"><script>document.documentElement.dataset.lexiconResponsive='1';document.documentElement.dataset.lexiconStage='word_match';<\/script>`;
+    source=source.replace('</head>',responsiveHead+'</head>');
     const productionPatch=`<script>(function(){
       function patch(){
         document.querySelectorAll('button,a').forEach(function(el){
