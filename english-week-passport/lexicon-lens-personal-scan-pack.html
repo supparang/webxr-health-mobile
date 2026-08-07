@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lexicon Lens Hunt • Personal Scan Pack</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:18px;font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;background:#eef5f9;color:#102536}.top{max-width:900px;margin:0 auto 14px}.top h1{margin:0;font-size:1.45rem}.top p{margin:6px 0;color:#587083;line-height:1.5}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.actions button,.actions a{border:0;border-radius:12px;padding:10px 14px;font-weight:850;background:#153a52;color:white;text-decoration:none}.tip{max-width:900px;margin:0 auto 14px;padding:12px 14px;border-radius:14px;background:#fff8da;border:1px solid #e3c75e;color:#5d4d15;line-height:1.5}.pack{max-width:900px;margin:0 auto 22px;background:white;border:2px solid #183b52;border-radius:18px;padding:14px;break-after:page}.pack-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px}.pack-head strong{font-size:1.05rem}.pack-head span{font-size:.8rem;color:#587083}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.card{border:1.5px solid #9bb2c1;border-radius:14px;padding:10px;text-align:center;min-height:178px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#fff}.icon{font-size:2rem;line-height:1;margin-bottom:5px}.qr{width:104px;height:104px}.qr img,.qr canvas{width:104px!important;height:104px!important}.scan{font-size:.7rem;font-weight:900;letter-spacing:.08em;color:#476376;margin-top:5px}.organizer{display:none;font-size:.68rem;color:#7b5360;margin-top:3px}.show-keys .organizer{display:block}.footer{text-align:center;margin-top:10px;color:#587083;font-size:.78rem;line-height:1.4}@media(max-width:650px){body{padding:10px}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.card{min-height:170px}.qr,.qr img,.qr canvas{width:98px!important;height:98px!important}}@media print{@page{size:A4 portrait;margin:8mm}body{padding:0;background:white}.top,.tip{display:none}.pack{max-width:none;border:0;border-radius:0;padding:0;margin:0;break-after:page}.pack:last-child{break-after:auto}.grid{grid-template-columns:repeat(3,1fr);gap:4mm}.card{min-height:61mm;border-radius:3mm;padding:3mm;page-break-inside:avoid}.icon{font-size:8mm}.qr,.qr img,.qr canvas{width:31mm!important;height:31mm!important}.scan{font-size:7pt}.organizer{display:none!important}.footer{font-size:7pt;margin-top:3mm}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>📷 Lexicon Lens Hunt • Personal Scan Pack</h1>
+  <p>โหมดไม่แย่งกันสแกน: พิมพ์ 1 แผ่นต่อผู้เล่น/ต่อที่นั่ง ผู้เล่นแต่ละคนใช้กล้องหลังสแกนจากแผ่นของตนเองได้พร้อมกัน โดยเกมยังสุ่ม Mission 5 ข้อตามรหัสผู้เล่น</p>
+  <div class="actions"><button id="printBtn" type="button">🖨️ พิมพ์ Personal Pack</button><button id="keyBtn" type="button">🔑 แสดงเฉลยผู้จัด</button><a href="./lexicon-lens-hunt.html?pid=QA-LENS-001&nickname=LensTest&debug=1&v=20260807-personal1">📱 เปิดเกมทดสอบ</a></div>
+</header>
+<div class="tip"><strong>วิธีใช้:</strong> ผู้เล่นอ่านคำใบ้บนมือถือ → มองหา “ภาพสัญลักษณ์” ที่ตรงกับความหมายบนแผ่นของตัวเอง → จ่อกล้องให้ QR เป้าหมายอยู่กลางกรอบ → ระบบตรวจคำตอบและเปิด Context Question ต่อ ไม่ต้องเดินไปรุม QR จุดกลาง และ QR เดียวกันรองรับการสแกนพร้อมกันได้ไม่จำกัดจำนวนเครื่อง</div>
+<main id="packs"></main>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+const stations=[
+  {id:'umbrella',icon:'☂️',key:'Umbrella / ร่ม'},
+  {id:'bottle',icon:'🧴',key:'Bottle / ขวดน้ำ'},
+  {id:'keyboard',icon:'⌨️',key:'Keyboard / แป้นพิมพ์'},
+  {id:'ticket',icon:'🎫',key:'Ticket / บัตร'},
+  {id:'map',icon:'🗺️',key:'Map / แผนที่'},
+  {id:'notebook',icon:'📓',key:'Notebook / สมุด'},
+  {id:'charger',icon:'🔌',key:'Charger / ที่ชาร์จ'},
+  {id:'recycle',icon:'♻️',key:'Recycling bin / จุดรีไซเคิล'},
+  {id:'backpack',icon:'🎒',key:'Backpack / กระเป๋าเป้'},
+  {id:'headphones',icon:'🎧',key:'Headphones / หูฟัง'},
+  {id:'plant',icon:'🪴',key:'Plant / ต้นไม้'},
+  {id:'sign',icon:'🪧',key:'Sign / ป้าย'}
+];
+const layouts=[
+  [0,5,9,2,10,6,4,11,1,8,3,7],
+  [7,1,10,5,3,8,0,6,11,2,9,4],
+  [4,9,2,7,0,11,6,3,8,10,1,5],
+  [10,6,1,8,4,2,11,5,0,7,9,3]
+];
+const params=new URLSearchParams(location.search);const count=Math.max(1,Math.min(40,Number(params.get('copies')||1)));const packs=document.getElementById('packs');
+for(let copy=0;copy<count;copy++){
+  const layout=layouts[copy%layouts.length];const pack=document.createElement('section');pack.className='pack';pack.innerHTML=`<div class="pack-head"><strong>LEXICON X • PERSONAL SCAN PACK ${String(copy+1).padStart(2,'0')}</strong><span>Lens Hunt • A2–B1+</span></div><div class="grid"></div><div class="footer">อ่านข้อความใบ้บนมือถือ • เลือกภาพที่ตรงกับความหมาย • สแกน QR กลางกรอบ • ตอบ Context Question</div>`;packs.appendChild(pack);const grid=pack.querySelector('.grid');
+  layout.forEach((stationIndex,pos)=>{const item=stations[stationIndex];const card=document.createElement('article');card.className='card';card.innerHTML=`<div class="icon">${item.icon}</div><div id="qr-${copy}-${pos}" class="qr"></div><div class="scan">SCAN</div><div class="organizer">${item.key} • LXH:${item.id}</div>`;grid.appendChild(card);new QRCode(card.querySelector('.qr'),{text:'LXH:'+item.id,width:260,height:260,correctLevel:QRCode.CorrectLevel.H});});
+}
+document.getElementById('printBtn').addEventListener('click',()=>window.print());document.getElementById('keyBtn').addEventListener('click',()=>{document.body.classList.toggle('show-keys');document.getElementById('keyBtn').textContent=document.body.classList.contains('show-keys')?'🙈 ซ่อนเฉลยผู้จัด':'🔑 แสดงเฉลยผู้จัด';});
+</script>
+</body>
+</html>
