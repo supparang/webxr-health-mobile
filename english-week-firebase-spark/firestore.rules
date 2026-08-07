@@ -5,23 +5,28 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function qaId(playerId) {
+      return playerId.matches('^(QA|TEST)[-_].*') || playerId.matches('^99[0-9]{4,}$');
+    }
+
+    function sessionExists() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid));
+    }
+
     function sessionDoc() {
       return get(/databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid));
     }
 
     function owns(playerId) {
       return signedIn()
-        && exists(/databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid))
+        && sessionExists()
         && sessionDoc().data.playerId == playerId;
     }
 
     function activeProfile(playerId) {
       return exists(/databases/$(database)/documents/ewp_profiles/$(playerId))
         && get(/databases/$(database)/documents/ewp_profiles/$(playerId)).data.active == true;
-    }
-
-    function qaId(playerId) {
-      return playerId.matches('^(QA|TEST)[-_].*') || playerId.matches('^99[0-9]{4,}$');
     }
 
     match /ewp_profiles/{playerId} {
@@ -43,8 +48,13 @@ service cloud.firestore {
       allow create, update: if signedIn()
         && request.auth.uid == uid
         && request.resource.data.uid == uid
-        && activeProfile(request.resource.data.playerId);
+        && request.resource.data.playerId is string
+        && (
+          qaId(request.resource.data.playerId)
+          || activeProfile(request.resource.data.playerId)
+        );
       allow delete: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
     }
 
     match /ewp_progress/{playerId} {
@@ -53,24 +63,26 @@ service cloud.firestore {
         && request.resource.data.playerId == playerId;
       allow update: if owns(playerId)
         && request.resource.data.playerId == resource.data.playerId;
-      allow delete: if false;
+      allow delete, list: if false;
     }
 
     match /ewp_assignments/{playerId} {
       allow get: if owns(playerId);
       allow create: if owns(playerId)
         && request.resource.data.playerId == playerId;
-      allow update, delete: if false;
+      allow update, delete, list: if false;
     }
 
     match /ewp_assessments/{receiptId} {
-      allow create: if owns(request.resource.data.playerId);
+      allow create: if request.resource.data.playerId is string
+        && owns(request.resource.data.playerId);
       allow get: if owns(resource.data.playerId);
       allow list, update, delete: if false;
     }
 
     match /ewp_game_results/{receiptId} {
-      allow create: if owns(request.resource.data.playerId);
+      allow create: if request.resource.data.playerId is string
+        && owns(request.resource.data.playerId);
       allow get: if owns(resource.data.playerId);
       allow list, update, delete: if false;
     }
@@ -85,7 +97,8 @@ service cloud.firestore {
     }
 
     match /ewp_events/{eventId} {
-      allow create: if owns(request.resource.data.playerId);
+      allow create: if request.resource.data.playerId is string
+        && owns(request.resource.data.playerId);
       allow get: if owns(resource.data.playerId);
       allow list, update, delete: if false;
     }
