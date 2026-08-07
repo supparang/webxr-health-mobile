@@ -1,17 +1,18 @@
 (function(){
   'use strict';
 
-  const VERSION='2026-08-07-PASSPORT-FIRESTORE-TIMEOUT-GUARD-V1';
+  const VERSION='2026-08-07-PASSPORT-FIRESTORE-TIMEOUT-GUARD-V2';
   const base=window.EW_AUTHORITY;
   if(!base){
     console.warn('EW timeout guard: authority not ready');
     return;
   }
 
-  const TIMEOUT_MS=8000;
-  const CHECKPOINT_TIMEOUT_MS=7000;
+  const TIMEOUT_MS=7000;
+  const CHECKPOINT_TIMEOUT_MS=6500;
 
   function withTimeout(label,fn,ms){
+    if(typeof fn!=='function') return fn;
     return function(){
       const args=arguments;
       let timer=0;
@@ -50,36 +51,47 @@
     hardTimer=0;
   }
 
-  function armWatchdog(){
+  function recoverUi(message){
     clearTimers();
-    if(!loading || loading.hidden)return;
+    if(loading){
+      loading.hidden=true;
+      loading.style.pointerEvents='none';
+    }
+    const button=document.getElementById('loginStartBtn');
+    if(button){
+      button.disabled=false;
+      button.textContent='ตรวจสอบรหัสและเริ่มภารกิจ';
+    }
+    const toast=document.getElementById('toast');
+    if(toast && message){
+      toast.textContent=message;
+      toast.hidden=false;
+      setTimeout(()=>{
+        if(toast.textContent===message) toast.hidden=true;
+      },4200);
+    }
+    window.EW_PASSPORT_MOBILE_RECOVERY?.unlockScroll?.();
+  }
 
+  function armWatchdog(){
+    if(!loading || loading.hidden || hardTimer) return;
     slowTimer=setTimeout(()=>{
       if(!loading.hidden && loadingText){
         loadingText.textContent='Firestore ตอบช้ากว่าปกติ • กำลังรออีกสักครู่…';
       }
-    },4500);
-
+    },4000);
     hardTimer=setTimeout(()=>{
-      if(loading.hidden)return;
-      loading.hidden=true;
-      loading.style.pointerEvents='none';
-      const button=document.getElementById('loginStartBtn');
-      if(button){
-        button.disabled=false;
-        button.textContent='ตรวจสอบรหัสและเริ่มภารกิจ';
+      if(!loading.hidden){
+        recoverUi('Firebase ตอบช้าเกินกำหนด • กรุณากดลองอีกครั้ง');
+      }else{
+        clearTimers();
       }
-      const toast=document.getElementById('toast');
-      if(toast){
-        toast.textContent='Firebase ตอบช้าเกินกำหนด • กรุณากดลองอีกครั้ง';
-        toast.hidden=false;
-        setTimeout(()=>{ if(toast.textContent.includes('ตอบช้าเกินกำหนด')) toast.hidden=true; },4200);
-      }
-      window.EW_PASSPORT_MOBILE_RECOVERY?.unlockScroll?.();
-    },10500);
+    },9000);
   }
 
   if(loading){
+    // IMPORTANT: observe only the hidden attribute. Observing style caused the
+    // watchdog to reset itself every time pointer-events changed.
     new MutationObserver(()=>{
       if(loading.hidden){
         clearTimers();
@@ -88,12 +100,16 @@
         loading.style.pointerEvents='auto';
         armWatchdog();
       }
-    }).observe(loading,{attributes:true,attributeFilter:['hidden','style','class']});
+    }).observe(loading,{attributes:true,attributeFilter:['hidden']});
   }
 
   window.addEventListener('pageshow',()=>{
     if(loading && !loading.hidden) armWatchdog();
   });
 
-  window.EW_FIRESTORE_TIMEOUT_GUARD=Object.freeze({version:VERSION,timeoutMs:TIMEOUT_MS});
+  window.EW_FIRESTORE_TIMEOUT_GUARD=Object.freeze({
+    version:VERSION,
+    timeoutMs:TIMEOUT_MS,
+    recoverUi
+  });
 }());
