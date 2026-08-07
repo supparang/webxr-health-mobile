@@ -36,7 +36,7 @@
     <div class="progress"><span id="progressBar"></span></div>
   </section>
   <div id="reticle" class="reticle"></div>
-  <div id="scanLabel" class="scan-label">เล็ง QR ให้อยู่กลางกรอบ</div>
+  <div id="scanLabel" class="scan-label">อ่านเฉพาะ QR ในกรอบนี้</div>
   <section class="bottom">
     <div id="notice" class="notice">กล้องหลังใช้สำหรับค้นหา QR Station • ระบบไม่บันทึกหรืออัปโหลดภาพ</div>
     <div class="actions"><button id="torchBtn" class="btn secondary" type="button">🔦 ไฟฉาย</button><button id="manualBtn" class="btn secondary" type="button">⌨️ ใส่รหัสทดสอบ</button></div>
@@ -47,7 +47,7 @@
       <div class="hero">🔎📷</div><h1>Lexicon Lens Hunt</h1>
       <p>ภารกิจโบนัสแบบ Camera Exploration: อ่านคำใบ้ภาษาอังกฤษ → ใช้ <strong>กล้องหลัง</strong> ค้นหา QR Station ที่ตรงกับคำตอบ → ตอบคำถามการใช้คำในบริบท</p>
       <div class="rule"><strong>5 Missions</strong><br>• สแกนเป้าหมายถูกต้อง = Search Score<br>• ตอบ Context Question = Language Score<br>• เล่นโบนัสได้โดย <strong>ไม่กระทบสิทธิ์ Certificate</strong></div>
-      <p class="mini">ต้องเปิดผ่าน HTTPS และอนุญาต Camera บนมือถือ หากกำลังทดสอบสามารถใช้รหัส Station ด้วยปุ่ม “ใส่รหัสทดสอบ” ได้</p>
+      <p class="mini">ขณะสแกน ให้มี QR เป้าหมายเพียงอันเดียวอยู่ในกรอบฟ้า ระบบรุ่นนี้จะอ่านเฉพาะบริเวณกรอบเพื่อไม่จับ QR ข้างเคียง</p>
       <button id="startBtn" class="btn primary" type="button">📷 เปิดกล้องหลังและเริ่มภารกิจ</button>
       <button id="introBackBtn" class="btn secondary" type="button">กลับ Passport</button>
     </section>
@@ -61,6 +61,6 @@
 <script src="./firebase-authority-bridge.js?v=20260806-firebase1"></script>
 <script src="./passport-rotation-v2.js?v=20260803-rotation2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-<script src="./lexicon-lens-hunt.js?v=20260807-lens1"></script>
+<script src="./lexicon-lens-hunt.js?v=20260807-lens3"></script>
 </body>
 </html>
