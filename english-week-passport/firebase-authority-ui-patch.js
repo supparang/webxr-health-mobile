@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const VERSION = "2026-08-07-FIRESTORE-DIRECT-UI-V1";
+  const VERSION = "2026-08-07-FIRESTORE-DIRECT-UI-V2-ASSESSMENT-COMPLETION";
   const authority = window.EW_AUTHORITY;
   let scheduled = false;
 
@@ -28,6 +28,15 @@
     return true;
   }
 
+  function patchAssessmentCompletionLabels() {
+    ["pre_challenge", "post_challenge"].forEach(stageId => {
+      const card = document.querySelector(`.stage-card[data-stage="${stageId}"]`);
+      if (!card || !card.classList.contains("passed")) return;
+      const state = card.querySelector(".stage-state");
+      setTextIfChanged(state, "ทำครบแล้ว ✓");
+    });
+  }
+
   function patchNow() {
     scheduled = false;
     const status = runtime();
@@ -44,6 +53,11 @@
         setTextIfChanged(note, "ข้อมูลจริงอ่านและบันทึกใน Firebase Cloud Firestore; localStorage ใช้เฉพาะ cache/recovery");
       }
     });
+
+    const refreshBtn = document.getElementById("refreshBtn");
+    if (refreshBtn) setTextIfChanged(refreshBtn, "↻ โหลดสถานะจาก Firestore");
+
+    patchAssessmentCompletionLabels();
   }
 
   function schedulePatch() {
