@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>HeroHealth Student Sandbox Diagnostic</title>
+<style>
+:root{font-family:Inter,"Noto Sans Thai",system-ui,-apple-system,sans-serif;color:#17312d;background:#eef9f7}*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#e5f7f4,#f8fbfa);min-height:100vh}.wrap{width:min(760px,100%);margin:auto;padding:16px}.hero{background:linear-gradient(135deg,#0f766e,#0d9488);color:white;border-radius:0 0 24px 24px;padding:22px 18px;margin:-16px -16px 16px}.hero h1{font-size:24px;margin:0}.hero p{margin:7px 0 0;color:#d9fffa}.card{background:white;border:1px solid #cfe5e1;border-radius:18px;padding:15px;margin:12px 0}.row{display:grid;grid-template-columns:1fr auto;gap:9px}input,button{font:inherit;min-height:50px;border-radius:12px}input{border:1px solid #b9d8d2;padding:10px 12px;width:100%}button{border:0;background:#0f766e;color:#fff;font-weight:900;padding:10px 16px}.result{padding:12px;border-radius:13px;margin:8px 0;font-weight:800;overflow-wrap:anywhere}.ok{background:#dcfce7;color:#166534}.no{background:#fef3c7;color:#92400e}.bad{background:#fee2e2;color:#991b1b}.muted{font-size:13px;color:#657b77}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}.grid{display:grid;gap:8px}@media(max-width:560px){.row{grid-template-columns:1fr}button{width:100%}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<section class="hero"><h1>💚 HeroHealth Student Firebase Diagnostic</h1><p>เช็กตำแหน่ง roster / progress และ Firestore permission จากมือถือโดยตรง</p></section>
+<section class="card">
+<div class="row"><input id="sid" inputmode="numeric" value="990015" placeholder="รหัสนักเรียน"><button id="run">ตรวจสอบ</button></div>
+<p class="muted">หน้านี้ไม่แก้ไขข้อมูล ไม่สร้างเอกสาร และไม่ reset progress</p>
+</section>
+<div id="status" class="result no">รอตรวจสอบ</div>
+<section class="card"><div id="results" class="grid"></div></section>
+<section class="card muted">
+<b>วิธีอ่านผล</b><br>
+• studentsSandbox = EXISTS → roster อยู่ถูก collection<br>
+• studentsSandbox = NOT FOUND แต่ students = DENIED → มีโอกาสวาง roster ไว้ production collection<br>
+• studentsSandbox = DENIED → deployed Firestore Rules ยังไม่อนุญาตรหัสนี้<br>
+• studentProgressSandbox = EXISTS → progress ของรหัสนี้มีอยู่แล้ว
+</section>
+</main>
+<script type="module">
+import{initializeApp,getApps}from'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
+import{getAuth,signInAnonymously}from'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+import{getFirestore,doc,getDoc}from'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+import{HEROHEALTH_FIREBASE_CONFIG}from'./firebase-config.js';
+const app=getApps().length?getApps()[0]:initializeApp(HEROHEALTH_FIREBASE_CONFIG),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id);
+async function inspect(path){
+ const [collection,id]=path.split('/');
+ try{const snap=await getDoc(doc(db,collection,id));return snap.exists()?{state:'EXISTS',type:'ok',keys:Object.keys(snap.data()||{}).slice(0,10).join(', ')}:{state:'NOT FOUND',type:'no',keys:''}}
+ catch(e){const code=String(e?.code||e?.message||'ERROR');return{state:code.includes('permission-denied')||String(e?.message||'').toLowerCase().includes('insufficient')?'DENIED':code,type:'bad',keys:String(e?.message||'')}}
+}
+async function run(){
+ const sid=String($('sid').value||'').trim();if(!sid)return;
+ $('status').className='result no';$('status').textContent='กำลัง Anonymous Auth และตรวจ Firestore…';$('results').innerHTML='';
+ try{const cred=auth.currentUser?{user:auth.currentUser}:await signInAnonymously(auth);const paths=[`studentsSandbox/${sid}`,`studentProgressSandbox/${sid}`,`students/${sid}`,`studentProgress/${sid}`];
+  const rows=[];for(const path of paths){const r=await inspect(path);rows.push(`<div class="result ${r.type}"><div class="mono">${path}</div><div>${r.state}</div>${r.keys?`<div class="muted">${r.keys}</div>`:''}</div>`)}
+  $('results').innerHTML=rows.join('');$('status').className='result ok';$('status').textContent=`Auth OK • UID ${cred.user.uid.slice(0,10)}… • ตรวจ ${sid} แล้ว`;
+ }catch(e){$('status').className='result bad';$('status').textContent='Auth/Diagnostic error: '+(e?.code||e?.message||e)}
+}
+$('run').onclick=run;run();
+</script>
+</body>
+</html>
