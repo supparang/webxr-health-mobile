@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>HeroHealth Teacher Auth Check</title>
+<style>
+:root{font-family:Inter,"Noto Sans Thai",system-ui,-apple-system,sans-serif;color:#17312d;background:#eef9f7}*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#e4f7f3,#f8fbfa);min-height:100vh}.wrap{width:min(760px,100%);margin:auto;padding:18px}.hero{background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;border-radius:0 0 24px 24px;padding:24px 18px;margin:-18px -18px 18px}.hero h1{font-size:25px;line-height:1.15;margin:0}.hero p{margin:8px 0 0;color:#d9fffa}.card{background:#fff;border:1px solid #cfe5e1;border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 8px 25px #0f766e12}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.full{grid-column:1/-1}input,button{font:inherit;width:100%;min-height:48px;border-radius:12px}input{border:1px solid #b9d8d2;padding:10px 12px;background:#fff}button{border:0;font-weight:900;cursor:pointer;padding:10px 14px}.primary{background:#0f766e;color:#fff}.soft{background:#dff7f2;color:#0f766e}.danger{background:#fee2e2;color:#991b1b}.status{border-radius:14px;padding:13px 14px;font-weight:800}.ok{background:#dcfce7;color:#166534}.warn{background:#fef3c7;color:#92400e}.bad{background:#fee2e2;color:#991b1b}.kv{display:grid;grid-template-columns:145px 1fr;gap:8px;padding:8px 0;border-bottom:1px solid #edf3f1}.kv:last-child{border:0}.k{color:#657b77}.v{font-weight:800;overflow-wrap:anywhere}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}.hint{font-size:13px;color:#657b77;line-height:1.55}.small{font-size:12px;color:#657b77}@media(max-width:560px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.kv{grid-template-columns:1fr}.hero h1{font-size:23px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<section class="hero"><h1>💚 HeroHealth Teacher Auth Check</h1><p>Mobile / Cross-device diagnostic • Force token refresh • Custom Claim check</p></section>
+<section class="card">
+<div class="grid">
+<input id="email" type="email" autocomplete="username" placeholder="อีเมลครู">
+<input id="password" type="password" autocomplete="current-password" placeholder="รหัสผ่าน">
+<button id="login" class="primary">เข้าสู่ระบบและตรวจสิทธิ์ใหม่</button>
+<button id="refresh" class="soft">บังคับ Refresh Token</button>
+<button id="test" class="soft">ทดสอบอ่าน Production</button>
+<button id="logout" class="danger">ออกจากระบบ</button>
+</div>
+</section>
+<div id="status" class="status warn">ยังไม่ได้ตรวจบัญชีครู</div>
+<section class="card">
+<div class="kv"><div class="k">Firebase project</div><div id="project" class="v mono">—</div></div>
+<div class="kv"><div class="k">Email</div><div id="outEmail" class="v">—</div></div>
+<div class="kv"><div class="k">UID</div><div id="uid" class="v mono">—</div></div>
+<div class="kv"><div class="k">Teacher claim</div><div id="claim" class="v">—</div></div>
+<div class="kv"><div class="k">Role</div><div id="role" class="v">—</div></div>
+<div class="kv"><div class="k">Token issued</div><div id="issued" class="v">—</div></div>
+<div class="kv"><div class="k">Production read</div><div id="read" class="v">ยังไม่ทดสอบ</div></div>
+<div class="kv"><div class="k">Browser</div><div id="browser" class="v small">—</div></div>
+</section>
+<section class="card hint">
+<b>วิธีอ่านผล</b><br>
+1) ถ้า Login ผ่าน แต่ Teacher claim = FALSE → บัญชี/UID นี้ยังไม่มี Custom Claim ครู หรือ claim ถูกตั้งให้ UID อื่น<br>
+2) ถ้า Teacher claim = TRUE แต่ Production read = DENIED → ตรวจ Firestore Rules/collection permissions<br>
+3) ถ้า Teacher claim = TRUE และ Production read = PASS → มือถือพร้อมใช้ Teacher Console Production และปัญหาอยู่ที่ logic ของ Console R2 เดิม
+</section>
+</main>
+<script type="module">
+import{initializeApp,getApps}from"https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,getIdTokenResult}from"https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import{getFirestore,collection,getDocs,query,limit}from"https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+import{HEROHEALTH_FIREBASE_CONFIG}from"../firebase/firebase-config.js";
+const $=id=>document.getElementById(id);
+const app=getApps().length?getApps()[0]:initializeApp(HEROHEALTH_FIREBASE_CONFIG);
+const auth=getAuth(app),db=getFirestore(app);
+$('project').textContent=HEROHEALTH_FIREBASE_CONFIG.projectId||'(unknown)';
+$('browser').textContent=navigator.userAgent;
+function setStatus(text,type='warn'){$('status').className='status '+type;$('status').textContent=text}
+function reset(){['outEmail','uid','claim','role','issued'].forEach(id=>$(id).textContent='—');$('read').textContent='ยังไม่ทดสอบ'}
+async function inspect(force=true){
+ const u=auth.currentUser;if(!u){reset();setStatus('ยังไม่ได้เข้าสู่ระบบครู','warn');return null}
+ try{
+  const token=await getIdTokenResult(u,force);
+  const teacher=token.claims.heroHealthTeacher===true;
+  $('outEmail').textContent=u.email||'(ไม่มีอีเมล)';$('uid').textContent=u.uid;$('claim').textContent=teacher?'✅ TRUE':'❌ FALSE';$('role').textContent=String(token.claims.heroHealthRole||'—');$('issued').textContent=token.issuedAtTime||'—';
+  setStatus(teacher?'พบ Teacher Custom Claim แล้ว — พร้อมทดสอบ Production':'Login สำเร็จ แต่ยังไม่พบ heroHealthTeacher:true ใน token ปัจจุบัน',teacher?'ok':'bad');
+  return {u,token,teacher};
+ }catch(e){setStatus('อ่าน ID token ไม่สำเร็จ: '+(e.code||e.message),'bad');return null}
+}
+async function testProduction(){
+ $('read').textContent='กำลังทดสอบ…';const info=await inspect(true);if(!info){$('read').textContent='ไม่ได้ทดสอบ';return}
+ try{const snap=await getDocs(query(collection(db,'students'),limit(1)));$('read').textContent='✅ PASS — Firestore Production อ่านได้ ('+snap.size+' sample)';setStatus('มือถือเครื่องนี้ผ่านทั้ง Auth + Claim + Production Firestore แล้ว','ok')}
+ catch(e){$('read').textContent='❌ DENIED — '+(e.code||e.message);setStatus(info.teacher?'มี Teacher claim แล้ว แต่ Firestore Production ยังปฏิเสธ':'ยังไม่มี Teacher claim จึงถูก Production ปฏิเสธ','bad')}
+}
+$('login').onclick=async()=>{try{setStatus('กำลังเข้าสู่ระบบและขอ token ใหม่…','warn');await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value);await inspect(true);await testProduction()}catch(e){setStatus('เข้าสู่ระบบไม่สำเร็จ: '+(e.code||e.message),'bad')}};
+$('refresh').onclick=()=>inspect(true);$('test').onclick=testProduction;$('logout').onclick=async()=>{await signOut(auth);reset();setStatus('ออกจากระบบแล้ว','warn')};
+onAuthStateChanged(auth,u=>{if(u)inspect(true);else reset()});
+</script>
+</body>
+</html>
