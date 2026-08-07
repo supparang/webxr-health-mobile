@@ -76,8 +76,11 @@ service cloud.firestore {
     }
 
     match /ewp_game_summary/{playerId} {
-      allow get, create, update: if owns(playerId)
+      allow get: if owns(playerId);
+      allow create: if owns(playerId)
         && request.resource.data.playerId == playerId;
+      allow update: if owns(playerId)
+        && request.resource.data.playerId == resource.data.playerId;
       allow list, delete: if false;
     }
 
@@ -88,15 +91,22 @@ service cloud.firestore {
     }
 
     match /ewp_certificates/{playerId} {
-      allow get, create, update: if owns(playerId)
+      allow get: if owns(playerId);
+      allow create: if owns(playerId)
         && request.resource.data.playerId == playerId;
+      allow update: if owns(playerId)
+        && request.resource.data.playerId == resource.data.playerId;
       allow list, delete: if false;
     }
 
     match /ewp_assessment_checkpoints/{checkpointId} {
-      allow get, create, update, delete: if signedIn()
-        && request.resource.data.playerId is string
+      allow get: if owns(resource.data.playerId);
+      allow create: if request.resource.data.playerId is string
         && owns(request.resource.data.playerId);
+      allow update: if request.resource.data.playerId == resource.data.playerId
+        && owns(resource.data.playerId);
+      allow delete: if owns(resource.data.playerId);
+      allow list: if false;
     }
 
     match /{document=**} {
