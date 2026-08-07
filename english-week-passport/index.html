@@ -26,17 +26,35 @@
   </div>
 
   <script src="./config.js?v=20260807-firestore-direct2"></script>
+
+  <!-- Production Firebase Web config is bootstrapped inline so Authority never starts before config exists. -->
+  <script>
+    window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
+      apiKey: "AIzaSyBjv6Aph2zxS41V7YTtSmkEAgIBBJfvleI",
+      authDomain: "englishweek-95869.firebaseapp.com",
+      projectId: "englishweek-95869",
+      storageBucket: "englishweek-95869.firebasestorage.app",
+      messagingSenderId: "110133681532",
+      appId: "1:110133681532:web:fce7270a8838b03addd8f9",
+      measurementId: "G-3DCCL4D34V"
+    });
+    window.EW_FIREBASE_CONFIG_BOOT = Object.freeze({
+      version: "2026-08-07-INLINE-CONFIG-BOOT-V1",
+      projectId: window.EW_FIREBASE_WEB_CONFIG.projectId,
+      ready: true
+    });
+  </script>
+
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script src="./firebase-web-config.js?v=20260807-englishweek95869-r2"></script>
 
   <script src="./word-bank.js?v=20260803-1"></script>
   <script src="./category-forest-bank.js?v=20260803-category2"></script>
-  <script src="./firestore-direct-authority-v1.js?v=20260807-direct2"></script>
+  <script src="./firestore-direct-authority-v1.js?v=20260807-inline-config1"></script>
   <script src="./passport-firestore-timeout-guard-v1.js?v=20260807-timeout2"></script>
   <script src="./passport-rotation-v2.js?v=20260803-rotation2"></script>
-  <script src="./app-core-loader-v2.js?v=20260807-timeout2"></script>
+  <script src="./app-core-loader-v2.js?v=20260807-inline-config1"></script>
   <script src="./firebase-authority-ui-patch.js?v=20260807-firestore-direct3"></script>
   <script src="./passport-auto-resume-v1.js?v=20260807-passport-shell13"></script>
   <script src="./passport-route-loader.js?v=20260807-interaction-recovery1"></script>
