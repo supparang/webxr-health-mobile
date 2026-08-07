@@ -1,11 +1,12 @@
-/* Sentence City • Single Submit Guard V1.1
+/* Sentence City • Single Submit Guard V1.2
  * Prevents repeated AR dwell/pinch submissions during the success delay.
  * Incomplete blueprints remain unsubmitted and receive no score/progress.
+ * Normalizes the summary return action for Passport production and direct smoke tests.
  */
 (function(){
   'use strict';
 
-  const VERSION='2026-08-06-SC-SINGLE-SUBMIT-GUARD-V1-1';
+  const VERSION='2026-08-07-SC-SINGLE-SUBMIT-GUARD-V1-2-PASSPORT-RETURN';
   let observedFeedback=null;
   let feedbackObserver=null;
   let taskLocked=false;
@@ -93,9 +94,42 @@
     }
   }
 
+  function hasPassportShell(){
+    try{return Boolean(window.top&&window.top!==window&&window.top.EW_PASSPORT_GAME_SHELL)}catch(_){return false}
+  }
+
+  function directReturnToPassport(){
+    const params=new URLSearchParams(location.search);
+    const q=new URLSearchParams({resume:'passport',fromGame:'sentence_city',v:'20260807-sc-return-v12'});
+    const pid=params.get('pid')||params.get('playerId');
+    if(pid)q.set('pid',pid);
+    try{window.top.location.assign('./index.html?'+q.toString())}catch(_){location.assign('./index.html?'+q.toString())}
+  }
+
+  function repairPassportReturn(){
+    const summary=document.querySelector('.summary');
+    if(!summary)return;
+    document.querySelectorAll('button,a').forEach((element)=>{
+      const text=(element.textContent||'').trim();
+      if(!/Back\s+to\s+Test\s+Hub|กลับ\s*Test\s*Hub/i.test(text))return;
+      element.textContent='กลับ Passport';
+      element.setAttribute('aria-label','กลับ Passport');
+      element.setAttribute('data-passport-return','1');
+      if(!hasPassportShell()&&element.dataset.directPassportFallback!=='1'){
+        element.dataset.directPassportFallback='1';
+        element.addEventListener('click',(event)=>{
+          event.preventDefault();
+          event.stopPropagation();
+          directReturnToPassport();
+        },true);
+      }
+    });
+  }
+
   function scan(){
     observeFeedback(getFeedback());
     repairSummaryTruth();
+    repairPassportReturn();
   }
 
   const rootObserver=new MutationObserver(scan);
@@ -107,6 +141,7 @@
     get taskLocked(){return taskLocked},
     get taskSerial(){return taskSerial},
     get acceptedSubmissions(){return acceptedSubmissions},
-    get incompleteSubmitAttempts(){return incompleteSubmitAttempts}
+    get incompleteSubmitAttempts(){return incompleteSubmitAttempts},
+    get passportShell(){return hasPassportShell()}
   };
 })();
