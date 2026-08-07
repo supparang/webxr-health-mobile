@@ -30,6 +30,9 @@ jobs:
           node --check english-week-passport/passport-rotation-v2.js
           node --check english-week-passport/firebase-authority-bridge.js
           node --check english-week-passport/firebase-authority-ui-patch.js
+          node --check english-week-passport/passport-canonical-routes-v1.js
+          node --check english-week-passport/passport-route-loader.js
+          node --check english-week-passport/lexicon-lens-hunt.js
           node --check english-week-passport/lexicon-x-engine-v1.js
           node --check english-week-passport/lexicon-x-engine-v5.js
           node --check english-week-passport/lexicon-x-polish-v6.js
