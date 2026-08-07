@@ -7,19 +7,24 @@
   <title>HeroHealth • เกมล้างมือ 7 ขั้น</title>
   <style>
     html,body{margin:0;width:100%;height:100%;display:grid;place-items:center;background:#061521;color:#effbff;font-family:system-ui,sans-serif}
-    .loading{padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}
+    .loading{max-width:min(560px,92vw);padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7;line-height:1.45}.loading button{margin-top:14px;min-height:48px;padding:10px 18px;border:0;border-radius:12px;font:inherit;font-weight:900;cursor:pointer}
   </style>
 </head>
 <body>
-  <div class="loading"><b>กำลังเตรียมเกมล้างมือ 7 ขั้น</b><small>เตรียมกล้องและกิจกรรม กรุณารอสักครู่</small></div>
+  <div class="loading"><b>กำลังเตรียมเกมล้างมือ 7 ขั้น</b><small>เตรียม WHO Runtime และกิจกรรม กรุณารอสักครู่</small></div>
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260804-HANDWASH-R52-FIREBASE-EXCLUSIVE';
+    const RELEASE='20260807-HANDWASH-R53-LOADER-R43-4';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     sourceUrl.searchParams.set('_',String(Date.now()));
-    fetch(sourceUrl,{cache:'no-store'})
+    const fetchWithTimeout=(url,ms=10000)=>new Promise((resolve,reject)=>{
+      let done=false;
+      const timer=setTimeout(()=>{if(done)return;done=true;reject(new Error('โหลดหน้าเกมเกินเวลา '+ms+'ms'))},ms);
+      fetch(url,{cache:'no-store'}).then(r=>{if(done)return;done=true;clearTimeout(timer);resolve(r)}).catch(e=>{if(done)return;done=true;clearTimeout(timer);reject(e)});
+    });
+    fetchWithTimeout(sourceUrl.href)
       .then(response=>{if(!response.ok)throw new Error('โหลดหน้าเกมไม่สำเร็จ '+response.status);return response.text();})
       .then(source=>{
         let html=source;
@@ -35,7 +40,7 @@
         html=html.replace(
           /<script src="\.\/handwash-who-v4\.js[^>]*><\/script>/i,
           '<script src="./handwash-7step-runtime-patch-r28.js?cv='+RELEASE+'"><\/script>'+ 
-          '<script src="./handwash-who-loader-r43-3.js?cv='+RELEASE+'"><\/script>'+ 
+          '<script src="./handwash-who-loader-r43-4.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-unified-analytics-r30.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-summary-completion-r30.js?cv='+RELEASE+'"><\/script>'+ 
           '<script src="./handwash-step-coach-r33.js?cv='+RELEASE+'"><\/script>'+ 
@@ -53,8 +58,9 @@
         document.open();document.write(html);document.close();
       })
       .catch(error=>{
-        console.error('[Handwash bootstrap]',error);
-        document.body.innerHTML='<div class="loading"><b>ยังเข้าเกมล้างมือไม่ได้</b><small>กรุณาตรวจสอบอินเทอร์เน็ต แล้วลองอีกครั้ง</small><button onclick="location.reload()" style="margin-top:14px;padding:12px 18px;border:0;border-radius:12px;font-weight:900">ลองใหม่</button></div>';
+        console.error('[Handwash bootstrap R53]',error);
+        document.body.innerHTML='<div class="loading"><b>ยังเข้าเกมล้างมือไม่ได้</b><small>'+String(error?.message||error)+'</small><button id="retryHandwash">ลองใหม่</button></div>';
+        document.getElementById('retryHandwash').onclick=()=>{const u=new URL(location.href);u.searchParams.set('retry',Date.now());location.replace(u.href)};
       });
   })();
   </script>
