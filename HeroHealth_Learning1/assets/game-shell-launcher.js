@@ -2,7 +2,7 @@
 'use strict';
 const original=window.HH?.openNextGame;
 const R=window.HHRotation;
-const RELEASE='20260804-GAME-LAUNCHER-R46-GROUPS-COACH-SAFE';
+const RELEASE='20260807-GAME-LAUNCHER-R47-RESPONSIVE-SMOKE';
 if(!window.HH||!R)return;
 
 function detectDevice(){
@@ -18,6 +18,7 @@ function detectView(){
  if(['portrait','landscape'].includes(forced))return forced;
  return(window.innerWidth||0)>(window.innerHeight||0)?'landscape':'portrait';
 }
+function smokeMode(){return /^(1|true|yes)$/i.test(String(new URLSearchParams(location.search).get('smoke')||new URLSearchParams(location.search).get('smokeTest')||''))}
 function analyticsTarget(gameId,configured){
  if(gameId==='groups'){
   const wrapper=new URL('./groups-mobile-coach-fix.html',location.href);
@@ -28,9 +29,7 @@ function analyticsTarget(gameId,configured){
  if(gameId==='balance-hold')return new URL('../fitness/balance-hold-classroom-analytics-v50.html',location.href);
  return configured;
 }
-function authorityMode(){
- return String(new URLSearchParams(location.search).get('authority')||'sheet').toLowerCase();
-}
+function authorityMode(){return String(new URLSearchParams(location.search).get('authority')||'sheet').toLowerCase()}
 
 window.HH.openNextGame=function(zoneId){
  const C=window.HH_CONFIG||{};let s;
@@ -43,16 +42,16 @@ window.HH.openNextGame=function(zoneId){
  if(!g?.url){alert('ยังไม่ได้กำหนด URL ของ '+expected.label);return}
 
  const configured=new URL(g.url,location.href),target=analyticsTarget(expected.gameId,configured);
- const group=R.groupOf(s),device=detectDevice(),view=detectView(),authority=authorityMode();
+ const group=R.groupOf(s),device=detectDevice(),view=detectView(),authority=authorityMode(),smoke=smokeMode();
  const firebaseUid=String(new URLSearchParams(location.search).get('firebaseUid')||s?.firebaseAuthority?.uid||window.HH_FIREBASE_AUTHORITY?.uid||'');
  const common=[
   ['studentId',s.profile.studentId],['sid',s.profile.studentId],['section',s.profile.section],['group',group],
   ['zone',expected.zoneId],['gameId',expected.gameId],['missionProfile',R.profileIdOf(s)],
   ['rotationOrder',R.zonesFor(s).join(',')],['device',device],['view',view],
   ['classroom','1'],['mobileOnly',C.mobileOnly?'1':'0'],['singleAttempt','1'],
-  ['authority',authority],['firebaseUid',firebaseUid]
+  ['authority',authority],['firebaseUid',firebaseUid],['smoke',smoke?'1':'']
  ];
- common.forEach(([k,v])=>target.searchParams.set(k,v||''));
+ common.forEach(([k,v])=>{if(v!=='')target.searchParams.set(k,v)});
  target.searchParams.set('launchVersion',RELEASE);
  target.searchParams.set('analyticsMode','full-once');
  target.searchParams.set('finishGate',authority==='firebase'?'firebase-receipt-r1':'sheet-event-receipt');
@@ -63,11 +62,12 @@ window.HH.openNextGame=function(zoneId){
  shell.searchParams.set('strictAuthority','1');
  shell.searchParams.set('authority',authority);
  shell.searchParams.set('analyticsMode','full-once');
+ if(smoke)shell.searchParams.set('smoke','1');
  shell.searchParams.set('_',Date.now());
- [...common,['target',target.href],['title',expected.label],['return',location.href]].forEach(([k,v])=>shell.searchParams.set(k,v||''));
+ [...common,['target',target.href],['title',expected.label],['return',location.href]].forEach(([k,v])=>{if(v!=='')shell.searchParams.set(k,v)});
  location.assign(shell.href);
 };
-window.HH.openNextGame.__hhBaseLauncherR46=true;
+window.HH.openNextGame.__hhBaseLauncherR47=true;
 window.HH.openNextGame.__hhLauncherRelease=RELEASE;
 
 function findActionButton(event){
@@ -94,16 +94,13 @@ function rescueAction(event){
  if(!(text.includes('เริ่มเกมถัดไป')||text.includes('เริ่มฐาน')||onclick.includes('openNextGame')))return;
  const zoneId=parseZone(button);
  if(!zoneId)return;
- event.preventDefault();
- event.stopPropagation();
- event.stopImmediatePropagation();
- button.disabled=true;
- button.textContent='กำลังเปิดเกม…';
+ event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
+ button.disabled=true;button.textContent='กำลังเปิดเกม…';
  console.info('[HeroHealth Firebase] receipt-shell interaction rescue',zoneId,button);
  window.HH.openNextGame(zoneId);
 }
 
 document.addEventListener('pointerup',rescueAction,true);
 document.addEventListener('click',rescueAction,true);
-console.info('[HeroHealth Firebase] shared receipt shell launcher installed',RELEASE);
+console.info('[HeroHealth Firebase] shared receipt shell launcher installed',RELEASE,{smoke:smokeMode(),device:detectDevice(),view:detectView()});
 })();
