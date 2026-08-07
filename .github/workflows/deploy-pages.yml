@@ -60,53 +60,31 @@ jobs:
           game_v4 = Path('english-week-passport/lexicon-champion-arena-v4.html')
           if game_v4.exists():
               html = game_v4.read_text(encoding='utf-8')
-
               html = html.replace(
                   "lean:{id:'lean',command:'Lean to one side.',thai:'เอียงลำตัวไปด้านใดด้านหนึ่ง',icon:'↙️'}",
                   "lean:{id:'lean',command:'Face the camera. Keep your hips still and lean your shoulders left or right.',thai:'หันหน้าเข้ากล้อง ยืนนิ่งตรงกลาง ให้สะโพกอยู่ใกล้เดิม แล้วเอียงไหล่ซ้ายหรือขวา • ไม่ต้องเดินไปด้านข้าง',icon:'↙️'}"
               )
-
-              old_matches = "function vis(p,min=.22){return(p?.visibility??1)>min}function matches(id,l){const LS=l[11],RS=l[12],LE=l[13],RE=l[14],LW=l[15],RW=l[16],LH=l[23],RH=l[24];if(![LS,RS,LW,RW,LH,RH].every(p=>vis(p)))return false;if(id==='hands')return LW.y<Math.min(LE?.y??LS.y,LS.y)-.005&&RW.y<Math.min(RE?.y??RS.y,RS.y)-.005;if(id==='wide'){const sw=Math.max(.08,Math.abs(LS.x-RS.x)),ww=Math.abs(LW.x-RW.x);return Math.abs(LW.y-LS.y)<.25&&Math.abs(RW.y-RS.y)<.25&&ww>sw*1.32}if(id==='lean'){const sh=(LS.x+RS.x)/2,hp=(LH.x+RH.x)/2;return Math.abs(sh-hp)>.035}return false}"
-              new_matches = "function vis(p,min=.22){return(p?.visibility??1)>min}function bodyValid(l){if(!l)return false;const N=l[0],LS=l[11],RS=l[12],LH=l[23],RH=l[24];if(![N,LS,RS,LH,RH].every(p=>vis(p,.45)))return false;const shoulderY=(LS.y+RS.y)/2,hipY=(LH.y+RH.y)/2,torsoH=hipY-shoulderY,shoulderW=Math.abs(LS.x-RS.x),hipW=Math.abs(LH.x-RH.x),noseGap=shoulderY-N.y;const inFrame=[N,LS,RS,LH,RH].every(p=>p.x>.03&&p.x<.97&&p.y>.02&&p.y<.98);return inFrame&&torsoH>.12&&torsoH<.58&&shoulderW>.10&&shoulderW<.58&&hipW>.055&&noseGap>.035&&noseGap<.45}function frontFacing(l){if(!bodyValid(l))return false;const LS=l[11],RS=l[12],LH=l[23],RH=l[24],shoulderY=(LS.y+RS.y)/2,hipY=(LH.y+RH.y)/2,torsoH=Math.max(.12,Math.abs(hipY-shoulderY)),shoulderW=Math.abs(LS.x-RS.x),hipW=Math.abs(LH.x-RH.x);return shoulderW>Math.max(.10,torsoH*.42)&&hipW>Math.max(.055,torsoH*.24)}function matches(id,l){if(!bodyValid(l))return false;const LS=l[11],RS=l[12],LE=l[13],RE=l[14],LW=l[15],RW=l[16],LH=l[23],RH=l[24];if(![LS,RS,LW,RW,LH,RH].every(p=>vis(p)))return false;if(id==='hands')return frontFacing(l)&&LW.y<Math.min(LE?.y??LS.y,LS.y)-.005&&RW.y<Math.min(RE?.y??RS.y,RS.y)-.005;if(id==='wide'){const sw=Math.max(.08,Math.abs(LS.x-RS.x)),ww=Math.abs(LW.x-RW.x);return frontFacing(l)&&Math.abs(LW.y-LS.y)<.25&&Math.abs(RW.y-RS.y)<.25&&ww>sw*1.30}if(id==='lean'){if(!frontFacing(l))return false;const shoulderX=(LS.x+RS.x)/2,hipX=(LH.x+RH.x)/2,shoulderY=(LS.y+RS.y)/2,hipY=(LH.y+RH.y)/2,torsoH=Math.max(.12,Math.abs(hipY-shoulderY)),leanShift=Math.abs(shoulderX-hipX),shoulderTilt=Math.abs(LS.y-RS.y);return leanShift>Math.max(.018,torsoH*.065)&&shoulderTilt>.009}return false}"
-              html = html.replace(old_matches, new_matches)
-
-              old_draw = "function drawPose(l){const c=$('poseCanvas'),v=$('poseVideo');if(!c||!v)return;const w=v.videoWidth||480,h=v.videoHeight||640;if(c.width!==w||c.height!==h){c.width=w;c.height=h}const x=c.getContext('2d');x.clearRect(0,0,w,h);if(!l)return;const links=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24]];x.lineWidth=Math.max(3,w/150);x.strokeStyle='rgba(98,232,255,.92)';x.lineCap='round';for(const[a,b]of links){if(!vis(l[a])||!vis(l[b]))continue;x.beginPath();x.moveTo(l[a].x*w,l[a].y*h);x.lineTo(l[b].x*w,l[b].y*h);x.stroke()}for(const i of[11,12,13,14,15,16,23,24]){if(!vis(l[i]))continue;x.beginPath();x.fillStyle=i===15||i===16?'#ffd666':'#72f0c0';x.arc(l[i].x*w,l[i].y*h,Math.max(5,w/90),0,Math.PI*2);x.fill()}}"
-              new_draw = "function drawPose(l){const c=$('poseCanvas'),v=$('poseVideo');if(!c||!v)return;const w=v.videoWidth||480,h=v.videoHeight||640;if(c.width!==w||c.height!==h){c.width=w;c.height=h}const x=c.getContext('2d');x.clearRect(0,0,w,h);const s=$('poseStatus');if(!bodyValid(l)){if(s&&!s.textContent.includes('Assisted'))s.textContent='👤 ยังไม่พบตัวครบ • ถอยให้เห็นศีรษะ ไหล่ และสะโพก';return}const ids=[11,12,24,23];x.beginPath();x.moveTo(l[11].x*w,l[11].y*h);x.lineTo(l[12].x*w,l[12].y*h);x.lineTo(l[24].x*w,l[24].y*h);x.lineTo(l[23].x*w,l[23].y*h);x.closePath();x.fillStyle='rgba(98,232,255,.10)';x.fill();x.lineWidth=Math.max(2,w/230);x.strokeStyle='rgba(98,232,255,.48)';x.stroke();if(s&&!s.textContent.includes('Assisted')){if(!frontFacing(l))s.textContent='↩️ หันหน้าเข้ากล้องตรง ๆ ก่อน';else if(state.currentPoseAction==='lean')s.textContent='✨ พบตัวแล้ว • สะโพกอยู่ใกล้เดิม แล้วเอียงไหล่ซ้ายหรือขวา';else s.textContent='✨ พบตัวแล้ว • ทำท่าตามคำสั่ง'}}"
-              html = html.replace(old_draw, new_draw)
-
-              html = html.replace(
-                  "function renderPose({icon,title,desc,action,boss,onPass}){state.poseRetry=0;state.poseDone=onPass;",
-                  "function renderPose({icon,title,desc,action,boss,onPass}){state.poseRetry=0;state.poseDone=onPass;state.currentPoseAction=action.id;state.bodyGoodFrames=0;"
-              )
-
-              old_detect = "function detectLoop(action){cancelAnimationFrame(state.poseRaf);const loop=()=>{if(!state.pose||!state.stream)return;const v=$('poseVideo');try{if(v.readyState>=2&&v.currentTime!==state.lastVideo){state.lastVideo=v.currentTime;const result=state.pose.detectForVideo(v,performance.now()),lm=result.landmarks?.[0];drawPose(lm);if(lm&&matches(action.id,lm)){if(!state.holdStart)state.holdStart=performance.now();const pct=Math.min(100,(performance.now()-state.holdStart)/8);$('holdBar').style.width=pct+'%';if(pct>=100){posePassed(action,'pose');return}}else{state.holdStart=0;$('holdBar').style.width='0'}if(performance.now()-state.commandStarted>14000){poseTimeout(action);return}}}catch(e){poseFailed(action,'Body Detection หยุดทำงาน');return}state.poseRaf=requestAnimationFrame(loop)};state.poseRaf=requestAnimationFrame(loop)}"
-              new_detect = "function detectLoop(action){cancelAnimationFrame(state.poseRaf);const loop=()=>{if(!state.pose||!state.stream)return;const v=$('poseVideo');try{if(v.readyState>=2&&v.currentTime!==state.lastVideo){state.lastVideo=v.currentTime;const result=state.pose.detectForVideo(v,performance.now()),lm=result.landmarks?.[0],valid=bodyValid(lm);state.bodyGoodFrames=valid?Math.min(8,(state.bodyGoodFrames||0)+1):0;drawPose(lm);if(valid&&state.bodyGoodFrames>=3&&matches(action.id,lm)){if(!state.holdStart)state.holdStart=performance.now();const pct=Math.min(100,(performance.now()-state.holdStart)/8);$('holdBar').style.width=pct+'%';if(pct>=100){posePassed(action,'pose');return}}else{state.holdStart=0;$('holdBar').style.width='0'}if(performance.now()-state.commandStarted>16000){poseTimeout(action);return}}}catch(e){poseFailed(action,'Body Detection หยุดทำงาน');return}state.poseRaf=requestAnimationFrame(loop)};state.poseRaf=requestAnimationFrame(loop)}"
-              html = html.replace(old_detect, new_detect)
-
-              html = html.replace(
-                  "$('poseStatus').textContent=`Body Ready • ${state.poseVersion}/${state.poseDelegate}`;",
-                  "$('poseStatus').textContent='👤 จัดตัวให้อยู่ในกรอบ • ต้องเห็นศีรษะ ไหล่ และสะโพก';"
-              )
-
-              old_timeout = "function poseTimeout(action){cancelAnimationFrame(state.poseRaf);state.poseRetry++;state.attempts++;feedback('ยังไม่ผ่าน • ถอยเล็กน้อยให้เห็นไหล่ แขน และสะโพก','bad');if(state.poseRetry>=2)showAssisted(action);else setTimeout(()=>countdown(action),800)}"
-              new_timeout = "function poseTimeout(action){cancelAnimationFrame(state.poseRaf);state.poseRetry++;state.attempts++;feedback(action.id==='lean'?'ยังไม่ผ่าน • อย่าเดินซ้าย–ขวา ให้สะโพกอยู่ใกล้เดิม แล้วเอียงไหล่ซ้ายหรือขวา':'ยังไม่ผ่าน • ถอยให้เห็นศีรษะ ไหล่ แขน และสะโพก','bad');if(state.poseRetry>=2)showAssisted(action);else setTimeout(()=>countdown(action),800)}"
-              html = html.replace(old_timeout, new_timeout)
-
-              html = html.replace('INTEGRATED FINAL CHALLENGE • V4', 'INTEGRATED FINAL CHALLENGE • V4.2')
-              html = html.replace("version:'4.0-integrated-final-challenge'", "version:'4.2-body-confidence'")
               game_v4.write_text(html, encoding='utf-8')
 
           # V4.5.1 Build UX fix. Keep the stable camera/body stack untouched.
           game_v45 = Path('english-week-passport/lexicon-champion-arena-v45.html')
           if game_v45.exists():
               html = game_v45.read_text(encoding='utf-8')
-              old_build = "function build(){$('arena').innerHTML=head('⚒️','Phase 3 • Build','สร้างข้อความจากสถานการณ์')+chips(2)+`<div class=\"context\">Help the visitor find the ${S.place}.</div><div id=\"slots\" class=\"slots\">แตะชิ้นส่วนด้านล่างตามลำดับ</div><div id=\"chunks\" class=\"chunks\"></div><button id=\"check\" class=\"check\">Check Message</button>`;const chunks=$('chunks'),slots=$('slots');shuffle(S.sentence.map((t,i)=>({t,i}))).forEach(o=>{const b=document.createElement('button');b.className='chunk';b.textContent=o.t;b.onclick=()=>{if(b.disabled)return;b.disabled=true;b.classList.add('selected');state.selected.push(o);slots.innerHTML=state.selected.map(x=>`<span class=\"chunk selected\">${x.t}</span>`).join('')};chunks.appendChild(b)});$('check').onclick=()=>{if(state.selected.length!==S.sentence.length)return wrong('ยังวางข้อความไม่ครบ');if(state.selected.map(x=>x.i).join()==S.sentence.map((_,i)=>i).join()){say(S.sentence.join(' '));next(270)}else{wrong('ลำดับยังไม่ถูก • ลองใหม่');setTimeout(build,400)}}}"
-              new_build = "function build(){state.selected=[];$('arena').innerHTML=head('⚒️','Phase 3 • Build','แตะคำจากคลังเพื่อเรียงข้อความ • แตะคำด้านบนเพื่อเอากลับ')+chips(2)+`<div class=\"context\">Help the visitor find the ${S.place}.</div><div id=\"slots\" class=\"slots\"></div><div id=\"chunks\" class=\"chunks\"></div><button id=\"check\" class=\"check\" disabled>เลือกให้ครบ ${S.sentence.length} ส่วน</button>`;const chunks=$('chunks'),slots=$('slots'),check=$('check'),pool=shuffle(S.sentence.map((t,i)=>({t,i})));function redraw(){slots.innerHTML='';if(!state.selected.length){const h=document.createElement('span');h.style.cssText='width:100%;text-align:center;color:#aaa0ca;padding:10px 4px';h.textContent='เลือกคำจากคลังด้านล่าง';slots.appendChild(h)}else state.selected.forEach((o,index)=>{const b=document.createElement('button');b.className='chunk selected';b.textContent=o.t;b.title='แตะเพื่อนำกลับ';b.onclick=()=>{state.selected.splice(index,1);redraw()};slots.appendChild(b)});chunks.innerHTML='';pool.filter(o=>!state.selected.some(x=>x.i===o.i)).forEach(o=>{const b=document.createElement('button');b.className='chunk';b.textContent=o.t;b.onclick=()=>{state.selected.push(o);redraw()};chunks.appendChild(b)});const complete=state.selected.length===S.sentence.length;check.disabled=!complete;check.textContent=complete?'Check Message':`เลือกให้ครบ ${S.sentence.length} ส่วน (${state.selected.length}/${S.sentence.length})`;check.style.opacity=complete?'1':'.55'}redraw();check.onclick=()=>{if(state.selected.length!==S.sentence.length)return;if(state.selected.map(x=>x.i).join()==S.sentence.map((_,i)=>i).join()){say(S.sentence.join(' '));next(270)}else{wrong('ลำดับยังไม่ถูก • ลองเรียงใหม่');state.selected=[];setTimeout(redraw,260)}}}"
-              if old_build in html:
-                  html = html.replace(old_build, new_build)
               html = html.replace('GAME 5 • STABLE CAMERA • V4.5', 'GAME 5 • STABLE CAMERA • V4.5.1')
               html = html.replace('LEXICON Champion Arena • V4.5 Stable Camera', 'LEXICON Champion Arena • V4.5.1 Stable Camera')
               game_v45.write_text(html, encoding='utf-8')
+
+          # V4.6.1 Body Viewport Pass.
+          # UI-only: do not alter the Balance-style detector/evaluator that already passed QA.
+          game_v46 = Path('english-week-passport/lexicon-champion-arena-v46.html')
+          if game_v46.exists():
+              html = game_v46.read_text(encoding='utf-8')
+              css_link = '<link rel="stylesheet" href="./lexicon-champion-v461-body-viewport.css?v=20260807-body-viewport-v461">'
+              if 'lexicon-champion-v461-body-viewport.css' not in html:
+                  html = html.replace('</head>', f'{css_link}\n</head>')
+              html = html.replace('LEXICON Champion Arena • V4.6 Balance Engine', 'LEXICON Champion Arena • V4.6.1 Balance Engine')
+              html = html.replace('GAME 5 • 4 GATES + FINAL BOSS • V4.6', 'GAME 5 • 4 GATES + FINAL BOSS • V4.6.1')
+              game_v46.write_text(html, encoding='utf-8')
 
           # Return from Conversation Quest to the renamed, cache-busted hub.
           conversation_js = Path('english-week-passport/conversation-quest-ar-v243.js')
