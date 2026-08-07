@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 
-const VERSION='2026-08-07-LEXICON-LENS-HUNT-V1';
+const VERSION='2026-08-07-LEXICON-LENS-HUNT-V1.1';
 const STAGE_ID='bonus_lens';
 const MISSION_COUNT=5;
 const cfg=window.EW_CONFIG||{};
@@ -91,7 +91,7 @@ function stopCamera(){
   scanEnabled=false;cancelAnimationFrame(raf);raf=0;
   if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;track=null;video.srcObject=null;torchOn=false;
 }
-function goPassport(){stopCamera();const q=new URLSearchParams({resume:'passport',fromGame:STAGE_ID,v:'20260807-lens1'});if(savedReceipt)q.set('receipt',savedReceipt);location.replace('./index.html?'+q.toString())}
+function goPassport(){stopCamera();const q=new URLSearchParams({resume:'passport',fromGame:STAGE_ID,v:'20260807-lens2'});if(savedReceipt)q.set('receipt',savedReceipt);location.replace('./index.html?'+q.toString())}
 function logEvent(eventName,payload){
   if(!identity?.playerId||typeof authority?.submitEvent!=='function')return;
   Promise.resolve(authority.submitEvent({playerId:identity.playerId,stageId:STAGE_ID,eventName,payload:{...(payload||{}),missionIndex:index+1,passportRotation:assignment?.passportRotation||'',assessmentRotation:assignment?.assessmentRotation||''},sourceVersion:VERSION})).catch(()=>{});
@@ -122,6 +122,7 @@ async function startCamera(){
   try{
     stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}});
     track=stream.getVideoTracks()[0]||null;video.srcObject=stream;await video.play();intro.classList.add('hidden');prepareGame(true);logEvent('lens_camera_started',{cameraLabel:track?.label||'',width:video.videoWidth,height:video.videoHeight});
+    if(!window.jsQR)setNotice('QR decoder โหลดไม่สำเร็จ • ใช้ “ใส่รหัสทดสอบ” ชั่วคราว','bad');
   }catch(error){
     console.error(error);intro.classList.add('hidden');prepareGame(false);setNotice(error?.name==='NotAllowedError'?'ไม่ได้รับอนุญาตใช้กล้อง • เปิดสิทธิ์ Camera หรือใช้รหัสทดสอบ':'เปิดกล้องหลังไม่สำเร็จ • ใช้รหัสทดสอบได้','bad');logEvent('lens_camera_failed',{error:String(error?.name||error?.message||error)});
   }finally{if(el('startBtn')){el('startBtn').disabled=false;el('startBtn').textContent='📷 เปิดกล้องหลังและเริ่มภารกิจ'}}
@@ -175,15 +176,19 @@ async function finishGame(){
   const payload=summaryPayload();logEvent('lens_game_completed',{score:payload.score,correctContexts,totalScans,durationMs:payload.durationMs});showSummary(payload,false);await saveResult(payload);
 }
 function showSummary(payload,saved,errorMessage){
-  const passed=payload.score>=60;summaryLayer.innerHTML=`<section class="card"><div class="hero">${passed?'🏆':'🔎'}</div><h1>Lexicon Lens Hunt Complete</h1><p style="text-align:center">Bonus Mission ไม่ใช้ล็อก Certificate</p><div class="summary-grid"><div class="stat"><strong>${payload.score}/100</strong><small>Bonus Score</small></div><div class="stat"><strong>${correctContexts}/${MISSION_COUNT}</strong><small>Context Correct</small></div><div class="stat"><strong>${totalScans}</strong><small>QR Scans</small></div><div class="stat"><strong>${Math.round(payload.durationMs/1000)}s</strong><small>เวลา</small></div></div><div class="rule">${saved?'✅ บันทึก Firebase สำเร็จ'+(savedReceipt?` • ${h(savedReceipt)}`:''):errorMessage?'⚠ '+h(errorMessage):'⏳ กำลังบันทึกผลไป Firebase…'}</div>${errorMessage?'<button id="retrySave" class="btn primary" type="button">ลองบันทึกอีกครั้ง</button>':''}<button id="summaryBack" class="btn secondary" type="button">กลับ Passport</button></section>`;summaryLayer.classList.remove('hidden');el('summaryBack').onclick=goPassport;if(el('retrySave'))el('retrySave').onclick=()=>saveResult(payload);
+  const passed=payload.score>=60;summaryLayer.innerHTML=`<section class="card"><div class="hero">${passed?'🏆':'🔎'}</div><h1>Lexicon Lens Hunt Complete</h1><p style="text-align:center">Bonus Mission ไม่ใช้ล็อก Certificate</p><div class="summary-grid"><div class="stat"><strong>${payload.score}/100</strong><small>Bonus Score</small></div><div class="stat"><strong>${correctContexts}/${MISSION_COUNT}</strong><small>Context Correct</small></div><div class="stat"><strong>${totalScans}</strong><small>QR Scans</small></div><div class="stat"><strong>${Math.round(payload.durationMs/1000)}s</strong><small>เวลา</small></div></div><div class="rule">${saved?'✅ บันทึก Firebase Analytics สำเร็จ'+(savedReceipt?` • ${h(savedReceipt)}`:''):errorMessage?'⚠ '+h(errorMessage):'⏳ กำลังบันทึกผลไป Firebase…'}</div>${errorMessage?'<button id="retrySave" class="btn primary" type="button">ลองบันทึกอีกครั้ง</button>':''}<button id="summaryBack" class="btn secondary" type="button">กลับ Passport</button></section>`;summaryLayer.classList.remove('hidden');el('summaryBack').onclick=goPassport;if(el('retrySave'))el('retrySave').onclick=()=>saveResult(payload);
 }
 async function saveResult(payload){
   if(saving)return;saving=true;try{
-    if(typeof authority?.submitGame!=='function')throw new Error('FIREBASE_AUTHORITY_NOT_READY');
-    const response=await authority.submitGame({playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',stageId:STAGE_ID,...payload});
+    if(typeof authority?.submitEvent!=='function')throw new Error('FIREBASE_AUTHORITY_NOT_READY');
+    const response=await authority.submitEvent({playerId:identity.playerId,stageId:STAGE_ID,eventName:'lens_result_summary',payload:{...payload,passed:payload.score>=60,nickname:identity.nickname||identity.fullName||'Player'},sourceVersion:VERSION});
     if(!response?.ok)throw new Error(response?.error||'SAVE_FAILED');
-    if(response.mode!=='firebase'&&response.authority?.mode!=='firebase')throw new Error(response.firebaseError||'FIREBASE_RECEIPT_REQUIRED');
-    savedReceipt=response.receiptId||response.resultId||'firebase-saved';showSummary(payload,true,'');logEvent('lens_result_saved',{receiptId:savedReceipt,score:payload.score,passed:Boolean(response.passed)});
+    if(response.mode!=='firebase')throw new Error(response.firebaseError||'FIREBASE_RECEIPT_REQUIRED');
+    savedReceipt=response.eventId||'firebase-event-saved';
+    try{
+      const key=`ew_bonus_lens_best::${identity.playerId}`;const old=JSON.parse(localStorage.getItem(key)||'null');if(!old||Number(payload.score)>Number(old.score||0))localStorage.setItem(key,JSON.stringify({score:payload.score,receipt:savedReceipt,at:new Date().toISOString()}));
+    }catch(_){}
+    showSummary(payload,true,'');
   }catch(error){console.error(error);showSummary(payload,false,'บันทึก Firebase ไม่สำเร็จ: '+String(error?.message||error));}finally{saving=false}
 }
 
