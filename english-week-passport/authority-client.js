@@ -2,6 +2,9 @@
   "use strict";
 
   const cfg = window.EW_CONFIG;
+  const params = new URLSearchParams(location.search);
+  const qaDemoAllowed = params.get("qa") === "1" && cfg.allowQaDemoFallback === true;
+
   const FLOW = [
     "pre_challenge",
     "word_match",
@@ -41,7 +44,8 @@
   function emptyAuthority(profile) {
     return {
       ok: true,
-      mode: endpointReady() ? "server" : "demo",
+      mode: "demo",
+      sourceOfTruth: "Local QA Authority",
       profile,
       progress: {
         currentStage: "pre_challenge",
@@ -112,7 +116,7 @@
         fullName: nickname || `Player ${playerId}`,
         nickname: nickname || `Player ${playerId}`,
         groupName: cfg.defaultGroup,
-        institution: "Demo",
+        institution: "QA Local",
         active: true
       };
       db[playerId] = emptyAuthority(profile);
@@ -123,7 +127,7 @@
 
   function demoLookup(playerId, nickname) {
     const authority = demoEnsurePlayer(playerId, nickname);
-    return { ok: true, mode: "demo", profile: authority.profile };
+    return { ok: true, mode: "demo", sourceOfTruth: "Local QA Authority", profile: authority.profile };
   }
 
   function demoResume(playerId, nickname) {
@@ -154,7 +158,7 @@
       record.progress.postDone = true;
       record.progress.certificateEligible = true;
       record.progress.certificate = record.progress.certificate || {
-        certificateId: uid("EW-CERT"),
+        certificateId: uid("EW-CERT-QA"),
         issuedAt: nowIso(),
         awardLevel: awardLevel(record.progress.totalScore)
       };
@@ -164,7 +168,7 @@
     record.progress.updatedAt = nowIso();
     db[payload.playerId] = record;
     saveDemoDb(db);
-    return { ok: true, receiptId: uid("assessment"), authority: record };
+    return { ok: true, mode: "demo", sourceOfTruth: "Local QA Authority", receiptId: uid("assessment-qa"), authority: record };
   }
 
   function demoSubmitGame(payload) {
@@ -183,7 +187,7 @@
     record.progress.updatedAt = nowIso();
     db[payload.playerId] = record;
     saveDemoDb(db);
-    return { ok: true, receiptId: uid("game"), passed, accuracy, passMark, authority: record };
+    return { ok: true, mode: "demo", sourceOfTruth: "Local QA Authority", receiptId: uid("game-qa"), passed, accuracy, passMark, authority: record };
   }
 
   function awardLevel(totalScore) {
@@ -205,36 +209,49 @@
       }))
       .sort((a, b) => b.totalScore - a.totalScore)
       .slice(0, limit || cfg.leaderboardLimit);
-    return { ok: true, mode: "demo", rows };
+    return { ok: true, mode: "demo", sourceOfTruth: "Local QA Authority", rows };
   }
 
   async function profileLookup(playerId, nickname) {
     if (!endpointReady()) {
-      if (!cfg.allowDemoWhenEndpointMissing) throw new Error("WEB_APP_URL_MISSING");
-      return demoLookup(playerId, nickname);
+      if (qaDemoAllowed) return demoLookup(playerId, nickname);
+      if (cfg.allowDemoWhenEndpointMissing) return demoLookup(playerId, nickname);
+      throw new Error("WEB_APP_URL_MISSING");
     }
     return jsonp({ action: "profile_lookup", playerId });
   }
 
   async function resume(playerId, nickname) {
-    if (!endpointReady()) return demoResume(playerId, nickname);
+    if (!endpointReady()) {
+      if (qaDemoAllowed) return demoResume(playerId, nickname);
+      throw new Error("WEB_APP_URL_MISSING");
+    }
     return jsonp({ action: "player_resume", playerId, force: 1 });
   }
 
   async function submitAssessment(payload) {
     const body = { ...payload, action: "submit_assessment", appId: cfg.appId, sourceVersion: cfg.version };
-    if (!endpointReady()) return demoSubmitAssessment(body);
+    if (!endpointReady()) {
+      if (qaDemoAllowed) return demoSubmitAssessment(body);
+      throw new Error("WEB_APP_URL_MISSING");
+    }
     return post(body);
   }
 
   async function submitGame(payload) {
     const body = { ...payload, action: "submit_game_result", appId: cfg.appId, sourceVersion: cfg.version };
-    if (!endpointReady()) return demoSubmitGame(body);
+    if (!endpointReady()) {
+      if (qaDemoAllowed) return demoSubmitGame(body);
+      throw new Error("WEB_APP_URL_MISSING");
+    }
     return post(body);
   }
 
   async function leaderboard(limit) {
-    if (!endpointReady()) return demoLeaderboard(limit);
+    if (!endpointReady()) {
+      if (qaDemoAllowed) return demoLeaderboard(limit);
+      throw new Error("WEB_APP_URL_MISSING");
+    }
     return jsonp({ action: "leaderboard", limit: limit || cfg.leaderboardLimit });
   }
 
@@ -242,6 +259,7 @@
     FLOW,
     STAGE_PASS_MARKS,
     endpointReady,
+    qaDemoAllowed,
     profileLookup,
     resume,
     submitAssessment,
