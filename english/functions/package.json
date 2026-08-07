@@ -9,7 +9,7 @@
   "scripts": {
     "serve": "firebase emulators:start --only functions,firestore",
     "deploy": "firebase deploy --only functions",
-    "lint": "node --check main.js && node --check english-week-authority.js && node --check english-week-journey.js"
+    "lint": "node --check main.js && node --check english-week-authority.js && node --check english-week-journey.js && node --check english-week-teacher.js"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0",
