@@ -1,13 +1,6 @@
-name: Deploy English Week Assessment Checkpoint
+name: Deploy English Week Assessment Checkpoint (Manual Fallback)
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'english/functions/english-week-assessment-checkpoint.js'
-      - 'english/functions/main.js'
-      - '.github/workflows/english-week-assessment-checkpoint-deploy.yml'
   workflow_dispatch:
 
 permissions:
