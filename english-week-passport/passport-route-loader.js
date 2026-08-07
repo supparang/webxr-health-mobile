@@ -1,8 +1,8 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-07-PASSPORT-CANONICAL-ROUTE-LOADER-V1.4-CHAMPION47";
+  const VERSION="2026-08-07-PASSPORT-CANONICAL-ROUTE-LOADER-V1.5-CHAMPION471";
   let loaded=false;
-  const routes=["./passport-canonical-routes-v1.js?v=20260807-champion47"];
+  const routes=["./passport-canonical-routes-v1.js?v=20260807-champion471"];
 
   function loadRoutes(){
     if(loaded||!document.querySelector(".passport-map"))return;
