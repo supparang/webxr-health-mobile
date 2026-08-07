@@ -1,6 +1,17 @@
 name: Deploy English Week Firebase Authority
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'english/functions/english-week-authority.js'
+      - 'english/functions/english-week-assessment-checkpoint.js'
+      - 'english/functions/main.js'
+      - 'english/functions/package.json'
+      - 'english/functions/package-lock.json'
+      - 'english/firebase.json'
+      - '.github/workflows/english-week-firebase-deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -38,10 +49,16 @@ jobs:
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
+      - name: Validate English Week function syntax
+        working-directory: english/functions
+        run: |
+          npm run lint
+          node --check english-week-assessment-checkpoint.js
+
       - name: Install Firebase CLI
         run: npm install --global firebase-tools
 
-      - name: Deploy English Week Authority functions
+      - name: Deploy authority and checkpoint functions
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
         run: |
