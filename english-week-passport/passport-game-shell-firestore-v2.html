@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#07121f">
+<title>LEXICON X • Firestore Passport Game</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07121f;font-family:Inter,"Noto Sans Thai",system-ui,sans-serif}body{position:fixed;inset:0}.shell{position:fixed;inset:0}.game-frame{display:block;width:100%;height:100%;border:0;background:#07121f}.status{position:fixed;z-index:80;left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));display:none;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px 11px;border:1px solid #55718a;border-radius:16px;background:rgba(5,18,31,.97);color:#eaf7ff;box-shadow:0 14px 34px rgba(0,0,0,.38)}.status.show{display:grid}.status.good{border-color:#45d8a5}.status.bad{border-color:#ff718d}.status strong{display:block;font-size:.9rem}.status small{display:block;margin-top:2px;color:#a9c7d8;line-height:1.3}.status button{min-height:44px;border:0;border-radius:13px;padding:8px 12px;font-weight:950;background:linear-gradient(135deg,#63e6ff,#79efbd);color:#092034}.status.bad button{background:#ffcf77}.boot{position:fixed;z-index:70;inset:0;display:grid;place-items:center;background:#07121f;color:#eaf7ff;text-align:center;padding:24px}.boot.hide{display:none}.spinner{width:34px;height:34px;margin:0 auto 12px;border:4px solid #25445c;border-top-color:#67e8f9;border-radius:50%;animation:spin .75s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="shell"><iframe id="gameFrame" class="game-frame" allow="camera; microphone; autoplay" title="LEXICON X Passport Game"></iframe></div>
+<div id="boot" class="boot"><div><div class="spinner"></div><strong id="bootTitle">กำลังเปิดเกมจาก Passport…</strong><small id="bootDetail">Direct Firestore • EnglishWeek</small></div></div>
+<div id="status" class="status"><div><strong id="statusTitle">กำลังบันทึกผล…</strong><small id="statusDetail">กรุณาอย่าปิดหน้านี้</small></div><button id="statusAction" type="button">กลับ Passport</button></div>
+<script src="./config.js?v=20260807-game-shell-fs2"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="./firebase-web-config.js?v=20260807-englishweek95869-r2"></script>
+<script src="./firestore-direct-authority-v1.js?v=20260807-direct2"></script>
+<script src="./passport-rotation-v2.js?v=20260807-game-shell-fs2"></script>
+<script>
+(function(){
+'use strict';
+const VERSION='2026-08-07-PASSPORT-GAME-SHELL-FIRESTORE-V2';
+const params=new URLSearchParams(location.search);
+const stageId=params.get('stage')||'';
+const run=params.get('run')||'1';
+const GAMES={
+ word_match:{title:'LexiMatch Navigator',url:'./leximatch-navigator-passport.html?v=20260807-fs2'},
+ category_forest:{title:'Category Forest',url:'./category-forest-v5.html?v=20260807-fs2'},
+ sentence_city:{title:'Sentence City',url:'./sentence-city-ar-v62.html?v=20260807-fs2'},
+ word_detective:{title:'Conversation Quest AR',url:'./conversation-quest-ar-v23.html?v=20260807-fs2'}
+};
+const game=GAMES[stageId];
+const frame=document.getElementById('gameFrame');
+const boot=document.getElementById('boot');
+const status=document.getElementById('status');
+const statusTitle=document.getElementById('statusTitle');
+const statusDetail=document.getElementById('statusDetail');
+const statusAction=document.getElementById('statusAction');
+let submitting=false,submitted=false,receipt='',returnTimer=0,monitorTimer=0,categorySummaryAt=0,lastResult=null;
+
+function readIdentity(){try{return JSON.parse(localStorage.getItem(window.EW_CONFIG?.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
+let identity=readIdentity();
+if(!identity?.playerId&&params.get('pid')){
+ identity={playerId:params.get('pid'),nickname:params.get('nickname')||params.get('name')||'Player',fullName:params.get('nickname')||params.get('name')||'Player'};
+ try{localStorage.setItem(window.EW_CONFIG?.cacheKeys?.identity||'ew_passport_identity_v1',JSON.stringify(identity))}catch(_){}
+}
+const assignment=identity?.playerId?window.EW_ROTATION?.getAssignment(identity.playerId):null;
+function showStatus(title,detail,type,buttonText){status.className='status show '+(type||'');statusTitle.textContent=title;statusDetail.textContent=detail||'';statusAction.textContent=buttonText||'กลับ Passport'}
+function cleanNumber(value,fallback=0){const n=Number(value);return Number.isFinite(n)?n:fallback}
+function summaryObject(kind,data){return {itemId:'__summary__',kind,gameId:kind,sourceVersion:VERSION,...data}}
+function currentWindow(){try{let win=frame.contentWindow;if(stageId==='sentence_city'){const nested=win?.document?.getElementById('game')?.contentWindow;if(nested)win=nested}return win}catch(_){return null}}
+function summaryVisible(win){try{const node=win?.document?.querySelector('.summary,#summary');return Boolean(node&&!node.classList.contains('hidden'))}catch(_){return false}}
+function normalizeGameUi(win){try{if(!win?.document)return;win.document.querySelectorAll('button,a').forEach(el=>{const t=(el.textContent||'').trim();if(/Back to Test Hub/i.test(t))el.textContent=t.replace(/Back to Test Hub/gi,'Back to Passport')});}catch(_){}}
+function annotateSummary(message,stateClass){const win=currentWindow();if(!win)return;try{const candidates=[...win.document.querySelectorAll('.summary-note,.save-status,.summary .notice')];let target=candidates.find(n=>/Firebase|บันทึก|โหมดทดสอบ/i.test(n.textContent||''));if(!target&&summaryVisible(win)){target=win.document.createElement('div');target.className='summary-note';win.document.querySelector('.summary,#summary')?.appendChild(target)}if(target){target.textContent=message;if(stateClass)target.dataset.passportSaveState=stateClass}}catch(_){}}
+
+function resultForStage(){
+ const win=currentWindow();if(!win)return null;
+ try{
+  if(stageId==='word_match'){
+   const S=win.LEXICON_V7?.S;if(!S||S.matched<6||!summaryVisible(win))return null;
+   const accuracy=Math.round(12/Math.max(12,cleanNumber(S.flips,12))*100);
+   return {score:accuracy,total:100,clientPoints:cleanNumber(S.score),durationMs:Math.max(0,Date.now()-cleanNumber(S.started,Date.now())),answers:[summaryObject('leximatch_navigator',{accuracy,matched:S.matched,flips:S.flips,mistakes:S.mistakes,bestCombo:S.bestCombo,seed:S.seed})]};
+  }
+  if(stageId==='category_forest'){
+   const G=win.CATEGORY_FOREST,S=G?.state;if(!S||!summaryVisible(win))return null;
+   const accuracy=Math.round(cleanNumber(S.firstTryCorrect)/10*100);
+   if(S.receipt)return {alreadySaved:true,receipt:S.receipt,passed:accuracy>=70,accuracy};
+   if(!categorySummaryAt)categorySummaryAt=Date.now();if(S.submitting&&!S.submitError)return {pending:true};if(!S.submitError&&Date.now()-categorySummaryAt<6500)return {pending:true};
+   const order=(S.mainItems||[]).map(i=>i.id);
+   return {score:cleanNumber(S.firstTryCorrect),total:10,clientPoints:cleanNumber(S.score),durationMs:Math.max(0,Date.now()-cleanNumber(S.started,Date.now())),wordSetId:G.wordSetId,itemOrder:order,answers:[summaryObject('category_forest_summary',{passportRotation:G.assignment?.passportRotation,wordSetId:G.wordSetId,itemOrder:order,categorySet:S.cats,firstTryCorrect:S.firstTryCorrect,firstTryAccuracy:accuracy,rescueCorrect:S.rescueCorrect,rescueTotal:S.rescueTotal,wrongAttempts:S.wrong,bestCombo:S.bestCombo}),...(S.events||[])]};
+  }
+  if(stageId==='sentence_city'){
+   const R=win.SENTENCE_CITY_LAST_RESULT;if(!R||!summaryVisible(win))return null;
+   return {score:cleanNumber(R.firstTryAccuracy),total:100,clientPoints:cleanNumber(R.score),durationMs:cleanNumber(R.durationSec)*1000,answers:[summaryObject('sentence_city_ar',{...R})]};
+  }
+  if(stageId==='word_detective'){
+   const G=win.CONVERSATION_QUEST,S=G?.state;if(!S||!summaryVisible(win))return null;
+   const total=(G.dialogues||[]).length||5;const choiceAccuracy=Math.round(cleanNumber(S.firstCorrect)/Math.max(1,total)*100);const speechAverage=Math.round((S.speechScores||[]).reduce((sum,v)=>sum+cleanNumber(v),0)/Math.max(1,(S.speechScores||[]).length));const mastery=Math.round(choiceAccuracy*.4+speechAverage*.6);
+   return {score:mastery,total:100,clientPoints:cleanNumber(S.score),durationMs:0,answers:[summaryObject('conversation_quest',{choiceAccuracy,speechAverage,speakingPassed:S.speakingPassed,totalDialogues:total,rawScore:S.score})]};
+  }
+ }catch(error){console.warn('Passport result adapter failed',stageId,error)}
+ return null;
+}
+async function submitResult(result){
+ if(submitted||submitting||!result||result.pending)return;
+ if(result.alreadySaved){submitted=true;receipt=result.receipt||'firebase-saved';showSaved(Boolean(result.passed),cleanNumber(result.accuracy));return}
+ submitting=true;lastResult=result;annotateSummary('กำลังบันทึกผลไป Cloud Firestore…','saving');showStatus('กำลังบันทึกผลไป Cloud Firestore…','รอ Firestore receipt ก่อนปลดล็อกด่านถัดไป','','รอสักครู่');statusAction.disabled=true;
+ try{
+  if(!identity?.playerId)throw new Error('PLAYER_ID_MISSING');
+  if(!window.EW_AUTHORITY?.submitGame)throw new Error('DIRECT_FIRESTORE_AUTHORITY_NOT_READY');
+  const payload={playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',stageId,score:Math.max(0,Math.round(cleanNumber(result.score))),total:Math.max(1,Math.round(cleanNumber(result.total,100))),durationMs:Math.max(0,Math.round(cleanNumber(result.durationMs))),clientPoints:Math.max(0,Math.round(cleanNumber(result.clientPoints))),answers:Array.isArray(result.answers)?result.answers:[],sourceVersion:VERSION,wordSetId:result.wordSetId||'',itemOrder:Array.isArray(result.itemOrder)?result.itemOrder:[],passportRotation:assignment?.passportRotation,assessmentRotation:assignment?.assessmentRotation,randomSeed:assignment?.randomSeed};
+  const response=await window.EW_AUTHORITY.submitGame(payload);
+  if(!response?.ok)throw new Error(response?.error||'SUBMIT_FAILED');
+  if(response.mode!=='firebase'&&response.authority?.mode!=='firebase')throw new Error('FIRESTORE_RECEIPT_REQUIRED');
+  submitted=true;receipt=response.receiptId||response.resultId||'firestore-saved';
+  annotateSummary(`บันทึก Cloud Firestore สำเร็จ • ${response.passed?'ผ่านด่านและปลดล็อกขั้นถัดไป':'คะแนนยังไม่ถึงเกณฑ์ผ่าน'}`,'saved');
+  showSaved(Boolean(response.passed),cleanNumber(response.accuracy));
+ }catch(error){console.error(error);annotateSummary('บันทึก Cloud Firestore ไม่สำเร็จ • แตะลองใหม่ที่แถบด้านล่าง','error');showStatus('บันทึก Cloud Firestore ไม่สำเร็จ',String(error?.message||error),'bad','ลองบันทึกอีกครั้ง');statusAction.disabled=false;statusAction.onclick=()=>{submitting=false;submitResult(lastResult||result)}}finally{submitting=false}
+}
+function showSaved(passed,accuracy){const text=passed?'ผ่านด่านและปลดล็อกขั้นถัดไปแล้ว':'บันทึกผลแล้ว แต่คะแนนยังไม่ถึงเกณฑ์ผ่าน';showStatus('บันทึก Cloud Firestore สำเร็จ ✓',`${text}${Number.isFinite(accuracy)?` • ${Math.round(accuracy)}%`:''}`,'good','กลับ Passport');statusAction.disabled=false;statusAction.onclick=returnToPassport;clearTimeout(returnTimer);returnTimer=setTimeout(returnToPassport,passed?3000:4500)}
+function returnToPassport(){clearTimeout(returnTimer);clearInterval(monitorTimer);const q=new URLSearchParams({resume:'passport',fromGame:stageId,v:'20260807-game-shell-fs2'});if(receipt)q.set('receipt',receipt);location.replace('./index.html?'+q.toString())}
+function interceptWindow(win){try{const doc=win.document;if(!doc)return;normalizeGameUi(win);if(doc.documentElement.dataset.passportShellFs2==='1')return;doc.documentElement.dataset.passportShellFs2='1';doc.addEventListener('click',event=>{const button=event.target?.closest?.('#done,#hubSummary,#hubIntro,#home,#back,#exit,[data-passport-return]');if(!button)return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();const result=resultForStage();if(result&&!submitted){submitResult(result);return}returnToPassport()},true);doc.querySelectorAll('iframe').forEach(child=>child.addEventListener('load',()=>interceptWindow(child.contentWindow)))}catch(_){}}
+function monitor(){const win=currentWindow();if(win){interceptWindow(frame.contentWindow);if(win!==frame.contentWindow)interceptWindow(win);normalizeGameUi(win)}const result=resultForStage();if(result&&!result.pending&&!submitted&&!submitting)submitResult(result)}
+function launch(){if(!game){document.getElementById('bootTitle').textContent='ไม่พบเกมใน Passport';document.getElementById('bootDetail').textContent='Stage: '+stageId;return}if(!identity?.playerId){location.replace('./index.html?v=20260807-game-shell-fs2');return}document.title=game.title+' • LEXICON X Passport';const qp=new URLSearchParams({from:'passport',authority:'firebase-direct',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run,stage:stageId,v:'20260807-game-shell-fs2'});if(assignment){qp.set('passportRotation',assignment.passportRotation);qp.set('randomSeed',String(assignment.randomSeed))}const sep=game.url.includes('?')?'&':'?';frame.src=game.url+sep+qp.toString();frame.addEventListener('load',()=>{boot.classList.add('hide');setTimeout(()=>interceptWindow(frame.contentWindow),120)});monitorTimer=setInterval(monitor,350)}
+statusAction.onclick=returnToPassport;window.addEventListener('pagehide',()=>{clearInterval(monitorTimer);clearTimeout(returnTimer)});window.EW_PASSPORT_GAME_SHELL={version:VERSION,stageId,get submitted(){return submitted},get receipt(){return receipt},returnToPassport};launch();
+})();
+</script>
+</body>
+</html>
