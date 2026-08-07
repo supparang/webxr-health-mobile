@@ -17,7 +17,7 @@
   <p>ทดสอบ EnglishWeek <b>englishweek-95869</b> แบบทีละขั้น เพื่อระบุ rule ที่ถูกปฏิเสธจริง</p>
   <div class="notice">ใช้เฉพาะรหัส <b>QA-*</b> สำหรับหน้านี้ ระบบอาจสร้างเอกสาร QA ใน Firestore</div>
   <div class="grid"><input id="pid" value="QA-RULE-001" autocomplete="off"><button id="run">Run diagnostic</button></div>
-  <div id="meta" class="meta">ยังไม่เริ่ม</div>
+  <div id="meta" class="meta">ยังไม่เริ่ม • diagnostic v2</div>
   <div id="rows"></div>
   <div id="summary" class="meta" hidden></div>
 </div>
@@ -28,6 +28,7 @@
 <script>
 (function(){
 'use strict';
+const VERSION='2026-08-07-RULE-DIAGNOSTIC-V2';
 const stages=['SDK_CONFIG','ANON_AUTH','PROFILE_GET','PROFILE_CREATE','SESSION_CLAIM','PROFILE_UPDATE','PROGRESS_GET','PROGRESS_CREATE','ASSIGNMENT_GET','ASSIGNMENT_CREATE'];
 const rows=document.getElementById('rows');
 const meta=document.getElementById('meta');
@@ -43,11 +44,16 @@ async function run(){
   if(!/^QA[-_]/i.test(playerId)){alert('ใช้รหัส QA-* เท่านั้น');return;}
   try{
     const cfg=window.EW_FIREBASE_WEB_CONFIG||{};
-    await step('SDK_CONFIG',async()=>{if(!cfg.apiKey||!cfg.appId||cfg.projectId!=='englishweek-95869')throw new Error('WEB_CONFIG_INVALID');return `projectId=${cfg.projectId}`;});
+    await step('SDK_CONFIG',async()=>{if(!cfg.apiKey||!cfg.appId||cfg.projectId!=='englishweek-95869')throw new Error('WEB_CONFIG_INVALID');return `projectId=${cfg.projectId} • ${VERSION}`;});
     const app=firebase.apps.length?firebase.app():firebase.initializeApp(cfg);
     const auth=firebase.auth(app); const db=firebase.firestore(app);
-    const user=await step('ANON_AUTH',async()=>{const u=auth.currentUser||(await auth.signInAnonymously()).user;return `uid=${u.uid}`;});
-    meta.textContent=`project=${cfg.projectId} • uid=${user.uid} • player=${playerId}`;
+    let user=null;
+    await step('ANON_AUTH',async()=>{
+      user=auth.currentUser||(await auth.signInAnonymously()).user;
+      if(!user?.uid) throw new Error('ANON_UID_MISSING');
+      return `uid=${user.uid}`;
+    });
+    meta.textContent=`project=${cfg.projectId} • uid=${user.uid} • player=${playerId} • ${VERSION}`;
     const profileRef=db.collection('ewp_profiles').doc(playerId);
     let profileSnap=await step('PROFILE_GET',()=>profileRef.get());
     if(profileSnap.exists){setStage('PROFILE_GET','PASS','exists=true'); setStage('PROFILE_CREATE','PASS','SKIP: profile already exists');}
@@ -55,7 +61,7 @@ async function run(){
       await step('PROFILE_CREATE',()=>profileRef.set({playerId,fullName:`Rule Test ${playerId}`,nickname:`Rule Test ${playerId}`,groupName:'English Week QA',institution:'QA',active:true,profileSource:'rule-diagnostic',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),lastSeenAt:new Date().toISOString()}));
     }
     const sessionRef=db.collection('ewp_player_sessions').doc(user.uid);
-    await step('SESSION_CLAIM',()=>sessionRef.set({uid:user.uid,playerId,claimedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),sourceVersion:'rule-diagnostic-v1'},{merge:true}));
+    await step('SESSION_CLAIM',()=>sessionRef.set({uid:user.uid,playerId,claimedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),sourceVersion:VERSION},{merge:true}));
     await step('PROFILE_UPDATE',()=>profileRef.update({lastSeenAt:new Date().toISOString(),updatedAt:new Date().toISOString()}));
     const progressRef=db.collection('ewp_progress').doc(playerId);
     const progressSnap=await step('PROGRESS_GET',()=>progressRef.get());
@@ -64,7 +70,7 @@ async function run(){
     const asgRef=db.collection('ewp_assignments').doc(playerId);
     const asgSnap=await step('ASSIGNMENT_GET',()=>asgRef.get());
     if(asgSnap.exists){setStage('ASSIGNMENT_GET','PASS','exists=true');setStage('ASSIGNMENT_CREATE','PASS','SKIP: assignment already exists');}
-    else await step('ASSIGNMENT_CREATE',()=>asgRef.set({playerId,passportRotation:'P1',assessmentRotation:'R1',preForm:'A',postForm:'B',randomSeed:1,assignmentVersion:'rule-diagnostic-v1',assignmentSource:'rule-diagnostic',assignmentLocked:true,assignedAt:new Date().toISOString(),updatedAt:new Date().toISOString()}));
+    else await step('ASSIGNMENT_CREATE',()=>asgRef.set({playerId,passportRotation:'P1',assessmentRotation:'R1',preForm:'A',postForm:'B',randomSeed:1,assignmentVersion:VERSION,assignmentSource:'rule-diagnostic',assignmentLocked:true,assignedAt:new Date().toISOString(),updatedAt:new Date().toISOString()}));
     summary.hidden=false;summary.className='meta okbox';summary.textContent='PASS: Authentication + Firestore bootstrap rules ทำงานครบทุกขั้น';
   }catch(e){
     summary.hidden=false;summary.className='meta badbox';summary.textContent=`FAIL @ ${e.diagStage||'UNKNOWN'} • ${e.code||''} • ${e.message||e}`;
