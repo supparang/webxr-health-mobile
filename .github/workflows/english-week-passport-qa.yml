@@ -32,6 +32,11 @@ jobs:
           node --check english-week-passport/firebase-authority-ui-patch.js
           node --check english-week-passport/passport-canonical-routes-v1.js
           node --check english-week-passport/passport-route-loader.js
+          node --check english-week-passport/journey-client-v1.js
+          node --check english-week-passport/passport-journey-routes-v1.js
+          node --check english-week-passport/final-reflection-v1.js
+          node --check english-week-passport/journey-summary-v1.js
+          node --check english-week-passport/certificate-v1.js
           node --check english-week-passport/lexicon-lens-hunt.js
           node --check english-week-passport/lexicon-champion-arena-v47.js
           node --check english-week-passport/lexicon-champion-v47-production-polish.js
@@ -57,6 +62,7 @@ jobs:
           node --check english-week-passport/action-detective-loader.js
           node --check english/functions/main.js
           node --check english/functions/english-week-authority.js
+          node --check english/functions/english-week-journey.js
 
       - name: Run passport rotation contract
         run: node english-week-passport/tests/passport-rotation-v2.node.cjs
