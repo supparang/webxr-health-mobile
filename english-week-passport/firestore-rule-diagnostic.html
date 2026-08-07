@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>English Week • Firestore Rule Diagnostic</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#17324d;background:#eef7ff}
+    *{box-sizing:border-box} body{margin:0;padding:20px;min-height:100vh}.wrap{max-width:820px;margin:auto;background:white;border-radius:24px;padding:24px;box-shadow:0 12px 36px #1232}
+    h1{margin:0 0 6px;font-size:clamp(24px,5vw,36px)} p{color:#65788c}.grid{display:grid;grid-template-columns:1fr auto;gap:10px;margin:18px 0}.grid input{min-width:0;padding:14px;border:2px solid #cfe0ef;border-radius:14px;font-size:18px}.grid button,.again{border:0;border-radius:14px;padding:14px 18px;background:#147ad6;color:#fff;font-weight:800;font-size:16px}.meta{padding:12px 14px;border-radius:14px;background:#f5f9fd;margin:12px 0;font-size:14px;word-break:break-all}.row{display:grid;grid-template-columns:150px 90px 1fr;gap:10px;align-items:start;padding:11px 0;border-bottom:1px solid #edf2f7}.stage{font-weight:800}.status{font-weight:900}.pending{color:#7b8793}.pass{color:#11855b}.fail{color:#c33434}.detail{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;white-space:pre-wrap;word-break:break-word}.notice{padding:12px 14px;border-radius:14px;background:#fff7d7;color:#815d00;margin:12px 0}.okbox{background:#e8fff4;color:#086a45}.badbox{background:#fff0f0;color:#9e2424}
+    @media(max-width:620px){body{padding:10px}.wrap{padding:18px}.row{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.grid button{width:100%}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔥 Firestore Rule Diagnostic</h1>
+  <p>ทดสอบ EnglishWeek <b>englishweek-95869</b> แบบทีละขั้น เพื่อระบุ rule ที่ถูกปฏิเสธจริง</p>
+  <div class="notice">ใช้เฉพาะรหัส <b>QA-*</b> สำหรับหน้านี้ ระบบอาจสร้างเอกสาร QA ใน Firestore</div>
+  <div class="grid"><input id="pid" value="QA-RULE-001" autocomplete="off"><button id="run">Run diagnostic</button></div>
+  <div id="meta" class="meta">ยังไม่เริ่ม</div>
+  <div id="rows"></div>
+  <div id="summary" class="meta" hidden></div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="./firebase-web-config.js?v=20260807-englishweek95869"></script>
+<script>
+(function(){
+'use strict';
+const stages=['SDK_CONFIG','ANON_AUTH','PROFILE_GET','PROFILE_CREATE','SESSION_CLAIM','PROFILE_UPDATE','PROGRESS_GET','PROGRESS_CREATE','ASSIGNMENT_GET','ASSIGNMENT_CREATE'];
+const rows=document.getElementById('rows');
+const meta=document.getElementById('meta');
+const summary=document.getElementById('summary');
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function initRows(){rows.innerHTML=stages.map(s=>`<div class="row" id="r-${s}"><div class="stage">${s}</div><div class="status pending">PENDING</div><div class="detail"></div></div>`).join('');}
+function setStage(name,status,detail=''){const r=document.getElementById('r-'+name); if(!r)return; const st=r.querySelector('.status');st.className='status '+status.toLowerCase();st.textContent=status; r.querySelector('.detail').innerHTML=esc(detail);}
+function errText(e){return `${e?.code||'NO_CODE'}\n${e?.message||String(e)}`;}
+async function step(name,fn){try{const v=await fn();setStage(name,'PASS',typeof v==='string'?v:JSON.stringify(v,null,2));return v;}catch(e){setStage(name,'FAIL',errText(e));throw Object.assign(e,{diagStage:name});}}
+async function run(){
+  initRows(); summary.hidden=true; summary.className='meta';
+  const playerId=document.getElementById('pid').value.trim();
+  if(!/^QA[-_]/i.test(playerId)){alert('ใช้รหัส QA-* เท่านั้น');return;}
+  try{
+    const cfg=window.EW_FIREBASE_WEB_CONFIG||{};
+    await step('SDK_CONFIG',async()=>{if(!cfg.apiKey||!cfg.appId||cfg.projectId!=='englishweek-95869')throw new Error('WEB_CONFIG_INVALID');return `projectId=${cfg.projectId}`;});
+    const app=firebase.apps.length?firebase.app():firebase.initializeApp(cfg);
+    const auth=firebase.auth(app); const db=firebase.firestore(app);
+    const user=await step('ANON_AUTH',async()=>{const u=auth.currentUser||(await auth.signInAnonymously()).user;return `uid=${u.uid}`;});
+    meta.textContent=`project=${cfg.projectId} • uid=${user.uid} • player=${playerId}`;
+    const profileRef=db.collection('ewp_profiles').doc(playerId);
+    let profileSnap=await step('PROFILE_GET',()=>profileRef.get());
+    if(profileSnap.exists){setStage('PROFILE_GET','PASS','exists=true'); setStage('PROFILE_CREATE','PASS','SKIP: profile already exists');}
+    else{
+      await step('PROFILE_CREATE',()=>profileRef.set({playerId,fullName:`Rule Test ${playerId}`,nickname:`Rule Test ${playerId}`,groupName:'English Week QA',institution:'QA',active:true,profileSource:'rule-diagnostic',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),lastSeenAt:new Date().toISOString()}));
+    }
+    const sessionRef=db.collection('ewp_player_sessions').doc(user.uid);
+    await step('SESSION_CLAIM',()=>sessionRef.set({uid:user.uid,playerId,claimedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),sourceVersion:'rule-diagnostic-v1'},{merge:true}));
+    await step('PROFILE_UPDATE',()=>profileRef.update({lastSeenAt:new Date().toISOString(),updatedAt:new Date().toISOString()}));
+    const progressRef=db.collection('ewp_progress').doc(playerId);
+    const progressSnap=await step('PROGRESS_GET',()=>progressRef.get());
+    if(progressSnap.exists){setStage('PROGRESS_GET','PASS','exists=true');setStage('PROGRESS_CREATE','PASS','SKIP: progress already exists');}
+    else await step('PROGRESS_CREATE',()=>progressRef.set({playerId,currentStage:'pre_challenge',unlocked:['pre_challenge'],passed:[],bestScores:{},preDone:false,postDone:false,finalDone:false,certificateEligible:false,certificate:null,totalScore:0,updatedAt:new Date().toISOString()}));
+    const asgRef=db.collection('ewp_assignments').doc(playerId);
+    const asgSnap=await step('ASSIGNMENT_GET',()=>asgRef.get());
+    if(asgSnap.exists){setStage('ASSIGNMENT_GET','PASS','exists=true');setStage('ASSIGNMENT_CREATE','PASS','SKIP: assignment already exists');}
+    else await step('ASSIGNMENT_CREATE',()=>asgRef.set({playerId,passportRotation:'P1',assessmentRotation:'R1',preForm:'A',postForm:'B',randomSeed:1,assignmentVersion:'rule-diagnostic-v1',assignmentSource:'rule-diagnostic',assignmentLocked:true,assignedAt:new Date().toISOString(),updatedAt:new Date().toISOString()}));
+    summary.hidden=false;summary.className='meta okbox';summary.textContent='PASS: Authentication + Firestore bootstrap rules ทำงานครบทุกขั้น';
+  }catch(e){
+    summary.hidden=false;summary.className='meta badbox';summary.textContent=`FAIL @ ${e.diagStage||'UNKNOWN'} • ${e.code||''} • ${e.message||e}`;
+    const idx=stages.indexOf(e.diagStage); if(idx>=0) stages.slice(idx+1).forEach(s=>{const r=document.getElementById('r-'+s);if(r&&r.querySelector('.status').textContent==='PENDING')setStage(s,'PENDING','not executed');});
+  }
+}
+document.getElementById('run').addEventListener('click',run);initRows();
+})();
+</script>
+</body></html>
