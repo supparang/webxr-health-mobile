@@ -41,12 +41,12 @@ jobs:
       - name: Install Firebase CLI
         run: npm install --global firebase-tools
 
-      - name: Deploy English Week Authority function
+      - name: Deploy English Week Authority functions
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
         run: |
           firebase deploy \
             --config english/firebase.json \
             --project english-d4bfa \
-            --only functions:englishWeekAuthority \
+            --only functions:englishWeekAuthority,functions:englishWeekAssessmentCheckpoint \
             --non-interactive
