@@ -1,0 +1,218 @@
+/* LEXICON X Challenge • Login Single-Screen Responsive Pass V1
+   UI-only: compacts the Passport login into one mobile viewport.
+   No Firebase, authority, progression, or game logic changes. */
+
+.screen.login-mode {
+  height: calc(100dvh - 64px);
+  min-height: 0;
+  padding-top: 10px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.screen.login-mode .hero-card {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: clamp(12px, 1.8dvh, 18px) 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: clamp(6px, 1dvh, 10px);
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.screen.login-mode .hero-emoji {
+  flex: 0 0 auto;
+  width: clamp(54px, 8dvh, 68px);
+  height: clamp(54px, 8dvh, 68px);
+  margin: 0 auto 1px;
+  border-radius: 19px;
+  font-size: clamp(1.9rem, 5.8dvh, 2.35rem);
+}
+
+.screen.login-mode h1 {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: clamp(1.38rem, 6.1vw, 1.75rem);
+  line-height: 1.05;
+}
+
+.screen.login-mode .lead {
+  flex: 0 0 auto;
+  margin: 0 auto;
+  max-width: 34rem;
+  font-size: clamp(.80rem, 3.5vw, .92rem);
+  line-height: 1.32;
+}
+
+.screen.login-mode .status-banner {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: clamp(.74rem, 3.15vw, .84rem);
+  line-height: 1.28;
+}
+
+.screen.login-mode .form-grid {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 8px;
+  margin-top: 0;
+}
+
+.screen.login-mode .field label {
+  margin-bottom: 4px;
+  font-size: .90rem;
+  line-height: 1.2;
+}
+
+.screen.login-mode .field input {
+  min-height: 44px;
+  padding: 8px 11px;
+  border-radius: 13px;
+  font-size: .96rem;
+}
+
+.screen.login-mode .btn {
+  min-height: 44px;
+  padding: 9px 12px;
+  border-radius: 13px;
+  font-size: .94rem;
+}
+
+.screen.login-mode .note {
+  flex: 0 0 auto;
+  margin: 0 !important;
+  font-size: .70rem;
+  line-height: 1.25;
+}
+
+/* Compact the header only while the login screen is active. */
+body.ew-login-single-screen .topbar {
+  min-height: 64px;
+  padding-top: max(7px, env(safe-area-inset-top));
+  padding-bottom: 7px;
+}
+
+body.ew-login-single-screen .brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+}
+
+body.ew-login-single-screen .brand-lockup strong {
+  font-size: .94rem;
+}
+
+body.ew-login-single-screen .brand-lockup small {
+  font-size: .69rem;
+}
+
+@media (max-width: 430px) {
+  .screen.login-mode {
+    height: calc(100dvh - 60px);
+    padding-top: 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  body.ew-login-single-screen .topbar {
+    min-height: 60px;
+  }
+
+  .screen.login-mode .hero-card {
+    padding: clamp(10px, 1.45dvh, 14px) 12px;
+    gap: clamp(5px, .8dvh, 8px);
+    border-radius: 22px;
+  }
+
+  .screen.login-mode .hero-emoji {
+    width: clamp(50px, 7dvh, 60px);
+    height: clamp(50px, 7dvh, 60px);
+    font-size: 2rem;
+  }
+
+  .screen.login-mode h1 {
+    font-size: clamp(1.30rem, 6vw, 1.60rem);
+  }
+
+  .screen.login-mode .lead {
+    font-size: clamp(.77rem, 3.35vw, .86rem);
+    line-height: 1.28;
+  }
+
+  .screen.login-mode .status-banner {
+    padding: 7px 9px;
+    font-size: clamp(.71rem, 3vw, .80rem);
+  }
+
+  .screen.login-mode .field input,
+  .screen.login-mode .btn {
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 360px) {
+  .screen.login-mode .hero-card {
+    padding-inline: 10px;
+    gap: 5px;
+  }
+
+  .screen.login-mode .hero-emoji {
+    width: 48px;
+    height: 48px;
+    font-size: 1.85rem;
+  }
+
+  .screen.login-mode h1 {
+    font-size: 1.30rem;
+  }
+
+  .screen.login-mode .lead {
+    font-size: .75rem;
+  }
+
+  .screen.login-mode .status-banner {
+    font-size: .69rem;
+    padding: 6px 8px;
+  }
+
+  .screen.login-mode .field label {
+    font-size: .84rem;
+  }
+
+  .screen.login-mode .field input,
+  .screen.login-mode .btn {
+    min-height: 40px;
+    font-size: .90rem;
+  }
+}
+
+/* Very short browser viewports: keep all actionable controls visible. */
+@media (max-height: 720px) {
+  .screen.login-mode .hero-emoji {
+    width: 46px;
+    height: 46px;
+    font-size: 1.75rem;
+  }
+
+  .screen.login-mode .lead {
+    font-size: .74rem;
+    line-height: 1.22;
+  }
+
+  .screen.login-mode .status-banner {
+    padding-block: 6px;
+  }
+
+  .screen.login-mode .note {
+    display: none;
+  }
+}
