@@ -1,12 +1,13 @@
-/* Sentence City • Single Submit Guard V1.2
+/* Sentence City • Single Submit Guard V1.3
  * Prevents repeated AR dwell/pinch submissions during the success delay.
  * Incomplete blueprints remain unsubmitted and receive no score/progress.
- * Normalizes the summary return action for Passport production and direct smoke tests.
+ * Normalizes the summary return action and publishes a Passport result contract
+ * so the Firestore Game Shell can save, unlock, and auto-return reliably.
  */
 (function(){
   'use strict';
 
-  const VERSION='2026-08-07-SC-SINGLE-SUBMIT-GUARD-V1-2-PASSPORT-RETURN';
+  const VERSION='2026-08-07-SC-SINGLE-SUBMIT-GUARD-V1-3-RESULT-CONTRACT';
   let observedFeedback=null;
   let feedbackObserver=null;
   let taskLocked=false;
@@ -14,6 +15,7 @@
   let acceptedSubmissions=0;
   let incompleteSubmitAttempts=0;
   let lastIncompleteText='';
+  let resultPublished=false;
 
   function getFeedback(){return document.getElementById('feedback')}
   function getCheck(){return document.getElementById('check')}
@@ -76,12 +78,23 @@
     feedbackObserver.observe(feedback,{attributes:true,attributeFilter:['class'],childList:true,characterData:true,subtree:true});
   }
 
+  function findStat(summary,label){
+    const wanted=String(label||'').trim().toUpperCase();
+    const stat=[...summary.querySelectorAll('.summary-grid .stat')].find((node)=>(node.querySelector('small')?.textContent||'').trim().toUpperCase()===wanted);
+    if(!stat)return NaN;
+    return Number((stat.querySelector('b')?.textContent||'').replace(/[^0-9.\-]/g,''));
+  }
+
+  function summaryVisible(summary){
+    if(!summary||summary.classList.contains('hidden'))return false;
+    const style=getComputedStyle(summary);
+    return style.display!=='none'&&style.visibility!=='hidden';
+  }
+
   function repairSummaryTruth(){
     const summary=document.querySelector('.summary');
     if(!summary)return;
-    const stats=[...summary.querySelectorAll('.summary-grid .stat')];
-    const firstStat=stats.find((node)=>node.querySelector('small')?.textContent.trim()==='FIRST-TRY');
-    const firstValue=Number((firstStat?.querySelector('b')?.textContent||'').replace(/[^0-9.]/g,''));
+    const firstValue=findStat(summary,'FIRST-TRY');
     const banner=summary.querySelector('.banner.perfect');
     if(banner&&Number.isFinite(firstValue)&&firstValue<100){
       banner.classList.remove('perfect');
@@ -94,13 +107,53 @@
     }
   }
 
+  function publishPassportResult(){
+    if(resultPublished&&window.SENTENCE_CITY_LAST_RESULT)return;
+    const summary=document.querySelector('.summary');
+    if(!summaryVisible(summary))return;
+
+    const firstTryAccuracy=findStat(summary,'FIRST-TRY');
+    const finalMastery=findStat(summary,'FINAL MASTERY');
+    const score=findStat(summary,'SCORE');
+    const bestCombo=findStat(summary,'BEST COMBO');
+    if(!Number.isFinite(firstTryAccuracy)||!Number.isFinite(finalMastery)||!Number.isFinite(score))return;
+
+    const params=new URLSearchParams(location.search);
+    const result=Object.freeze({
+      firstTryAccuracy:Math.max(0,Math.min(100,Math.round(firstTryAccuracy))),
+      finalMastery:Math.max(0,Math.min(100,Math.round(finalMastery))),
+      score:Math.max(0,Math.round(score)),
+      bestCombo:Number.isFinite(bestCombo)?Math.max(0,Math.round(bestCombo)):0,
+      durationSec:0,
+      completed:true,
+      passed:firstTryAccuracy>=70,
+      missionSet:params.get('passportRotation')||params.get('missionSet')||'',
+      playerId:params.get('pid')||params.get('playerId')||'',
+      sourceVersion:VERSION,
+      completedAt:new Date().toISOString()
+    });
+
+    window.SENTENCE_CITY_LAST_RESULT=result;
+    resultPublished=true;
+    document.documentElement.dataset.passportResultReady='1';
+
+    try{
+      window.parent?.postMessage({
+        type:'LEXICON_GAME_RESULT_READY',
+        stageId:'sentence_city',
+        sourceVersion:VERSION,
+        result
+      },location.origin);
+    }catch(_){}
+  }
+
   function hasPassportShell(){
     try{return Boolean(window.top&&window.top!==window&&window.top.EW_PASSPORT_GAME_SHELL)}catch(_){return false}
   }
 
   function directReturnToPassport(){
     const params=new URLSearchParams(location.search);
-    const q=new URLSearchParams({resume:'passport',fromGame:'sentence_city',v:'20260807-sc-return-v12'});
+    const q=new URLSearchParams({resume:'passport',fromGame:'sentence_city',v:'20260807-sc-return-v13'});
     const pid=params.get('pid')||params.get('playerId');
     if(pid)q.set('pid',pid);
     try{window.top.location.assign('./index.html?'+q.toString())}catch(_){location.assign('./index.html?'+q.toString())}
@@ -111,7 +164,7 @@
     if(!summary)return;
     document.querySelectorAll('button,a').forEach((element)=>{
       const text=(element.textContent||'').trim();
-      if(!/Back\s+to\s+Test\s+Hub|กลับ\s*Test\s*Hub/i.test(text))return;
+      if(!/Back\s+to\s+Test\s+Hub|กลับ\s*Test\s*Hub|Back\s+to\s+Passport/i.test(text))return;
       element.textContent='กลับ Passport';
       element.setAttribute('aria-label','กลับ Passport');
       element.setAttribute('data-passport-return','1');
@@ -129,6 +182,7 @@
   function scan(){
     observeFeedback(getFeedback());
     repairSummaryTruth();
+    publishPassportResult();
     repairPassportReturn();
   }
 
@@ -142,6 +196,8 @@
     get taskSerial(){return taskSerial},
     get acceptedSubmissions(){return acceptedSubmissions},
     get incompleteSubmitAttempts(){return incompleteSubmitAttempts},
-    get passportShell(){return hasPassportShell()}
+    get passportShell(){return hasPassportShell()},
+    get resultPublished(){return resultPublished},
+    publishPassportResult
   };
 })();
