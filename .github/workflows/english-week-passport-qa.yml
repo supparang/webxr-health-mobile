@@ -30,6 +30,8 @@ jobs:
           node --check english-week-passport/passport-rotation-v2.js
           node --check english-week-passport/firebase-authority-bridge.js
           node --check english-week-passport/firebase-authority-ui-patch.js
+          node --check english-week-passport/assessment-checkpoint-bridge-v1.js
+          node --check english-week-passport/app-core-loader-v2.js
           node --check english-week-passport/passport-canonical-routes-v1.js
           node --check english-week-passport/passport-route-loader.js
           node --check english-week-passport/journey-client-v1.js
@@ -63,6 +65,7 @@ jobs:
           node --check english/functions/main.js
           node --check english/functions/english-week-authority.js
           node --check english/functions/english-week-journey.js
+          node --check english/functions/english-week-assessment-checkpoint.js
 
       - name: Run passport rotation contract
         run: node english-week-passport/tests/passport-rotation-v2.node.cjs
@@ -81,6 +84,9 @@ jobs:
 
       - name: Run Champion Arena V4.7.1 polish contract
         run: node english-week-passport/tests/lexicon-champion-v471-polish.node.cjs
+
+      - name: Run assessment resume V1 contract
+        run: node english-week-passport/tests/assessment-resume-v1.node.cjs
 
       - name: Run Firebase authority integration contract
         run: node english-week-passport/tests/firebase-authority-v1.node.cjs
