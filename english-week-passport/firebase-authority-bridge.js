@@ -3,11 +3,14 @@
 
   const cfg = window.EW_CONFIG || {};
   const legacy = window.EW_AUTHORITY || {};
+  const params = new URLSearchParams(location.search);
+  const qaFallbackAllowed = params.get("qa") === "1" && cfg.allowQaDemoFallback === true;
   const runtime = {
     mode: "configured",
     lastError: "",
     lastSuccessAt: "",
-    endpoint: String(cfg.firebaseAuthorityUrl || "").trim()
+    endpoint: String(cfg.firebaseAuthorityUrl || "").trim(),
+    qaFallbackAllowed
   };
 
   function endpointReady() {
@@ -72,7 +75,7 @@
       runtime.mode = "error";
       runtime.lastError = String(error?.message || error);
       emit();
-      if (!cfg.allowDemoWhenFirebaseUnavailable || typeof legacy[legacyName] !== "function") throw error;
+      if (!qaFallbackAllowed || typeof legacy[legacyName] !== "function") throw error;
       const value = await legacy[legacyName](...(legacyArgs || []));
       runtime.mode = "demo-fallback";
       emit();
