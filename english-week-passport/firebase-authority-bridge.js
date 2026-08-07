@@ -1,160 +1,125 @@
 (function () {
   "use strict";
 
-  const cfg = window.EW_CONFIG || {};
+  const VERSION = "2026-08-07-SPARK-DIRECT-COMPAT-BRIDGE-V1";
   const legacy = window.EW_AUTHORITY || {};
-  const params = new URLSearchParams(location.search);
-  const qaFallbackAllowed = params.get("qa") === "1" && cfg.allowQaDemoFallback === true;
-  const READ_ACTIONS = new Set(["health", "profile_lookup", "player_resume", "leaderboard"]);
   const runtime = {
-    mode: "configured",
+    mode: "loading",
     lastError: "",
     lastSuccessAt: "",
-    endpoint: String(cfg.firebaseAuthorityUrl || "").trim(),
-    qaFallbackAllowed,
-    transport: "read-get/write-post"
+    projectId: "englishweek-95869",
+    transport: "firebase-web-sdk-firestore-direct"
   };
 
-  function endpointReady() {
-    return /^https:\/\/[a-z0-9-]+-[a-z0-9-]+\.cloudfunctions\.net\/englishWeekAuthority(?:\?.*)?$/i.test(runtime.endpoint);
-  }
-
   function emit() {
-    window.dispatchEvent(new CustomEvent("ew-authority-status", { detail: { ...runtime } }));
+    window.dispatchEvent(new CustomEvent("ew-authority-status", {
+      detail: { ...runtime, endpointReady: true }
+    }));
   }
 
-  function decorateFallback(value, reason) {
-    if (!value || typeof value !== "object") return value;
-    return {
-      ...value,
-      mode: "demo-fallback",
-      sourceOfTruth: "Local QA fallback",
-      firebaseError: String(reason || runtime.lastError || "FIREBASE_UNAVAILABLE")
-    };
-  }
-
-  function buildEnvelope(action, payload) {
-    return {
-      ...(payload || {}),
-      action,
-      appId: cfg.appId || "ENGLISH-WEEK-PASSPORT-2026",
-      sourceVersion: String(payload?.sourceVersion || cfg.version || "unknown"),
-      passportVersion: cfg.version || "unknown"
-    };
-  }
-
-  async function remote(action, payload) {
-    if (!endpointReady()) throw new Error("FIREBASE_AUTHORITY_URL_MISSING");
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), Number(cfg.requestTimeoutMs || 12000));
-    try {
-      const envelope = buildEnvelope(action, payload);
-      let response;
-
-      if (READ_ACTIONS.has(action)) {
-        const url = new URL(runtime.endpoint);
-        Object.entries(envelope).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && typeof value !== "object") {
-            url.searchParams.set(key, String(value));
-          }
-        });
-        response = await fetch(url.toString(), {
-          method: "GET",
-          signal: controller.signal,
-          cache: "no-store",
-          redirect: "follow"
-        });
-      } else {
-        response = await fetch(runtime.endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-EW-App-Id": String(cfg.appId || "ENGLISH-WEEK-PASSPORT-2026")
-          },
-          body: JSON.stringify(envelope),
-          signal: controller.signal,
-          cache: "no-store",
-          redirect: "follow"
-        });
+  function loadScript(src, readyTest) {
+    if (readyTest && readyTest()) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const existing = [...document.scripts].find(s => s.src && s.src.includes(src.split("?")[0]));
+      if (existing) {
+        if (!readyTest || readyTest()) return resolve();
+        existing.addEventListener("load", resolve, { once: true });
+        existing.addEventListener("error", reject, { once: true });
+        return;
       }
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = false;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error("SCRIPT_LOAD_FAILED: " + src));
+      document.head.appendChild(script);
+    });
+  }
 
-      let data = null;
-      try { data = await response.json(); }
-      catch (_) { throw new Error(`INVALID_FIREBASE_AUTHORITY_RESPONSE_${response.status}`); }
-      if (!response.ok || data?.ok === false) throw new Error(data?.error || `FIREBASE_HTTP_${response.status}`);
+  async function bootstrap() {
+    try {
+      await loadScript(
+        "https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js",
+        () => Boolean(window.firebase && firebase.initializeApp)
+      );
+      await Promise.all([
+        loadScript(
+          "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js",
+          () => Boolean(window.firebase && firebase.auth)
+        ),
+        loadScript(
+          "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js",
+          () => Boolean(window.firebase && firebase.firestore)
+        )
+      ]);
+      await loadScript(
+        "./firebase-web-config.js?v=20260807-englishweek95869-r2",
+        () => Boolean(window.EW_FIREBASE_WEB_CONFIG?.projectId === "englishweek-95869")
+      );
+      await loadScript(
+        "./firestore-direct-authority-v1.js?v=20260807-direct2",
+        () => Boolean(window.EW_AUTHORITY?.directFirestoreVersion)
+      );
+
+      const direct = window.EW_AUTHORITY;
+      if (!direct?.submitGame || !direct?.resume) {
+        throw new Error("DIRECT_FIRESTORE_AUTHORITY_NOT_READY");
+      }
       runtime.mode = "firebase";
       runtime.lastError = "";
       runtime.lastSuccessAt = new Date().toISOString();
+      runtime.projectId = direct.firebaseProjectId || "englishweek-95869";
       emit();
-      return data;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  async function withFallback(action, payload, legacyName, legacyArgs) {
-    try {
-      return await remote(action, payload);
+      return direct;
     } catch (error) {
       runtime.mode = "error";
       runtime.lastError = String(error?.message || error);
       emit();
-      if (!qaFallbackAllowed || typeof legacy[legacyName] !== "function") throw error;
-      const value = await legacy[legacyName](...(legacyArgs || []));
-      runtime.mode = "demo-fallback";
-      emit();
-      return decorateFallback(value, runtime.lastError);
+      throw error;
     }
   }
 
-  async function health() {
-    return withFallback("health", {}, "health", []);
+  const readyPromise = bootstrap();
+
+  async function call(name, args) {
+    const direct = await readyPromise;
+    if (typeof direct?.[name] !== "function") throw new Error("DIRECT_METHOD_MISSING: " + name);
+    return direct[name](...(args || []));
   }
 
-  async function profileLookup(playerId, nickname) {
-    return withFallback("profile_lookup", { playerId, nickname }, "profileLookup", [playerId, nickname]);
-  }
-
-  async function resume(playerId, nickname) {
-    return withFallback("player_resume", { playerId, nickname }, "resume", [playerId, nickname]);
-  }
-
-  async function submitAssessment(payload) {
-    return withFallback("submit_assessment", payload, "submitAssessment", [payload]);
-  }
-
-  async function submitGame(payload) {
-    return withFallback("submit_game_result", payload, "submitGame", [payload]);
-  }
-
-  async function submitEvent(payload) {
-    return withFallback("submit_event", payload, "submitEvent", [payload]);
-  }
-
-  async function leaderboard(limit) {
-    return withFallback("leaderboard", { limit }, "leaderboard", [limit]);
-  }
-
+  function endpointReady() { return true; }
   function getRuntimeStatus() {
-    return Object.freeze({ ...runtime, endpointReady: endpointReady() });
+    const directStatus = window.EW_AUTHORITY?.directFirestoreVersion
+      ? window.EW_AUTHORITY.getRuntimeStatus?.()
+      : null;
+    return Object.freeze({
+      ...runtime,
+      ...(directStatus || {}),
+      endpointReady: true,
+      bridgeVersion: VERSION
+    });
   }
 
-  window.EW_AUTHORITY = Object.freeze({
+  const proxy = Object.freeze({
     ...(legacy || {}),
-    modeName: "firebase-first",
-    sourceOfTruth: "Firebase Cloud Authority",
-    firebaseProjectId: cfg.firebaseProjectId || "english-d4bfa",
+    modeName: "firestore-direct-compat",
+    sourceOfTruth: "Cloud Firestore Direct Authority",
+    firebaseProjectId: "englishweek-95869",
     endpointReady,
-    health,
-    profileLookup,
-    resume,
-    submitAssessment,
-    submitGame,
-    submitEvent,
-    leaderboard,
+    health: (...args) => call("health", args),
+    profileLookup: (...args) => call("profileLookup", args),
+    resume: (...args) => call("resume", args),
+    submitAssessment: (...args) => call("submitAssessment", args),
+    submitGame: (...args) => call("submitGame", args),
+    submitEvent: (...args) => call("submitEvent", args),
+    leaderboard: (...args) => call("leaderboard", args),
+    saveAssessmentCheckpoint: (...args) => call("saveAssessmentCheckpoint", args),
+    getAssessmentCheckpoint: (...args) => call("getAssessmentCheckpoint", args),
+    clearAssessmentCheckpoint: (...args) => call("clearAssessmentCheckpoint", args),
     getRuntimeStatus,
-    legacyFallback: legacy
+    compatibilityBridgeVersion: VERSION
   });
 
+  window.EW_AUTHORITY = proxy;
   emit();
 }());
