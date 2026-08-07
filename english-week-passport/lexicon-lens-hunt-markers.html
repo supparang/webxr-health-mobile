@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lexicon Lens Hunt • QR Stations</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;background:#eef5f9;color:#102536}.top{max-width:1100px;margin:0 auto 20px;display:flex;gap:12px;align-items:flex-end;justify-content:space-between}.top h1{margin:0;font-size:1.55rem}.top p{margin:5px 0 0;color:#587083}.actions{display:flex;gap:8px}.actions button{border:0;border-radius:12px;padding:10px 14px;font-weight:800;background:#153a52;color:white}.grid{max-width:1100px;margin:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{background:white;border:2px solid #183b52;border-radius:18px;padding:16px;text-align:center;break-inside:avoid;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center}.station{font-size:.8rem;font-weight:900;letter-spacing:.12em;color:#476376}.qr{width:180px;height:180px;margin:10px auto}.qr img,.qr canvas{width:180px!important;height:180px!important}.label{font-size:1.05rem;font-weight:900;margin-top:8px}.answer{display:none;font-size:.78rem;color:#6b7f8d;margin-top:5px}.show-answers .answer{display:block}.note{max-width:1100px;margin:18px auto;padding:14px 16px;border-radius:14px;background:#fff8da;border:1px solid #e3c75e;color:#5d4d15;line-height:1.5}@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:520px){body{padding:12px}.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}@media print{body{padding:0;background:white}.top,.note{display:none}.grid{grid-template-columns:repeat(3,1fr);gap:8mm}.card{min-height:82mm;border-radius:4mm;padding:6mm}.answer{display:none!important}.qr,.qr img,.qr canvas{width:42mm!important;height:42mm!important}}
+</style>
+</head>
+<body>
+<div class="top"><div><h1>📷 Lexicon Lens Hunt • QR Stations</h1><p>พิมพ์ ตัด และติดตามจุดจริงสำหรับ Bonus Mission</p></div><div class="actions"><button id="answers">แสดงเฉลยผู้จัด</button><button onclick="print()">พิมพ์ QR Stations</button></div></div>
+<div class="note"><strong>วิธีใช้:</strong> QR แต่ละใบเข้ารหัสเพียง Station ID เช่น <code>LXH:umbrella</code> ผู้เล่นจะเห็นคำใบ้บนมือถือและต้องค้นหา Station ที่ตรงกัน แนะนำให้ติด QR ใกล้วัตถุหรือจุดที่สื่อความหมายจริงเพื่อให้เกิด Environmental Search แทนการวาง QR ทั้งหมดรวมกัน</div>
+<main id="grid" class="grid"></main>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+const stations=[
+['umbrella','Umbrella / ร่ม'],['bottle','Bottle / ขวดน้ำ'],['keyboard','Keyboard / แป้นพิมพ์'],['ticket','Ticket / บัตร'],['map','Map / แผนที่'],['notebook','Notebook / สมุด'],['charger','Charger / ที่ชาร์จ'],['recycle','Recycling bin / จุดรีไซเคิล'],['backpack','Backpack / กระเป๋าเป้'],['headphones','Headphones / หูฟัง'],['plant','Plant / ต้นไม้'],['sign','Sign / ป้าย']];
+const grid=document.getElementById('grid');stations.forEach(([id,label],i)=>{const card=document.createElement('section');card.className='card';card.innerHTML=`<div class="station">LEXICON X • STATION ${String(i+1).padStart(2,'0')}</div><div id="qr${i}" class="qr"></div><div class="label">SCAN THIS STATION</div><div class="answer">Organizer key: ${label} • LXH:${id}</div>`;grid.appendChild(card);new QRCode(document.getElementById('qr'+i),{text:'LXH:'+id,width:360,height:360,correctLevel:QRCode.CorrectLevel.H})});
+document.getElementById('answers').onclick=()=>{document.body.classList.toggle('show-answers');document.getElementById('answers').textContent=document.body.classList.contains('show-answers')?'ซ่อนเฉลยผู้จัด':'แสดงเฉลยผู้จัด'};
+</script>
+</body></html>
