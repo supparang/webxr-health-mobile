@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0f766e">
-<title>HeroHealth Certificate Firebase R7</title>
+<title>HeroHealth Certificate Firebase R7.1</title>
 <style>
 :root{
   font-family:Inter,"Noto Sans Thai",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -14,15 +14,15 @@
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#fbf5e5,#f1e9d4);color:var(--ink)}
 body{min-height:100svh;min-height:100dvh;overflow-x:hidden}
-.page{min-height:100svh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:8px 8px calc(8px + var(--safe-b));gap:8px}
+.page{min-height:100svh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:8px 8px calc(8px + var(--safe-b));gap:8px}
 .cert{
-  position:relative;width:min(900px,100%);flex:1 1 auto;min-height:0;overflow:hidden;background:var(--paper);
+  position:relative;width:min(900px,100%);flex:0 0 auto;min-height:0;overflow:hidden;background:var(--paper);
   border:2px solid var(--gold);border-radius:24px;text-align:center;box-shadow:0 18px 54px rgba(88,57,7,.16);
   padding:clamp(18px,3vh,34px) clamp(14px,4vw,34px) clamp(14px,2.5vh,24px)
 }
 .cert:before{content:"";position:absolute;inset:7px;border:1px solid rgba(201,139,16,.58);border-radius:18px;pointer-events:none}
 .cert:after{content:"";position:absolute;inset:13px;border:1px solid rgba(232,195,90,.38);border-radius:14px;pointer-events:none}
-.content{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:space-between;gap:clamp(4px,.7vh,9px)}
+.content{position:relative;z-index:1;height:auto;display:flex;flex-direction:column;justify-content:flex-start;gap:clamp(4px,.7vh,9px)}
 .head{display:grid;justify-items:center;gap:2px}
 .emblem{width:clamp(48px,7vh,72px);height:clamp(48px,7vh,72px);border-radius:50%;display:grid;place-items:center;font-size:clamp(28px,4.8vh,42px);background:linear-gradient(145deg,#fff9df,#f1cf6f);border:1.5px solid var(--gold2)}
 .program{font-size:clamp(8px,1.15vh,11px);font-weight:1000;letter-spacing:.13em;color:#8b5c00}
@@ -54,12 +54,12 @@ h1{margin:1px 0 0;font-size:clamp(28px,4.5vh,48px);line-height:1.06;color:#75470
 .btn{min-height:46px;border:0;border-radius:15px;padding:10px 12px;font:inherit;font-weight:1000;font-size:clamp(14px,3.7vw,17px);background:linear-gradient(135deg,#0f766e,#10a69b);color:#fff;box-shadow:0 8px 20px rgba(15,118,110,.14)}
 .btn.secondary{background:#e7f7f4;color:#0f766e;box-shadow:none;border:1px solid #c8e9e3}
 
-/* Mobile portrait: one-screen certificate + controls below */
+/* Mobile portrait: compact content-height certificate + controls below */
 @media (max-width:680px) and (orientation:portrait){
   .page{padding:5px 5px calc(5px + var(--safe-b));gap:5px}
-  .cert{border-radius:18px;padding:14px 12px 10px;max-height:calc(100dvh - 63px - var(--safe-b));max-height:calc(100svh - 63px - var(--safe-b))}
+  .cert{border-radius:18px;padding:14px 12px 10px;max-height:none}
   .cert:before{inset:5px;border-radius:14px}.cert:after{inset:9px;border-radius:11px}
-  .content{gap:3px}
+  .content{height:auto;justify-content:flex-start;gap:3px}
   .emblem{width:44px;height:44px;font-size:27px}
   .program{font-size:8px}.english{font-size:8.5px}
   h1{font-size:clamp(25px,7vw,34px)}
@@ -80,23 +80,23 @@ h1{margin:1px 0 0;font-size:clamp(28px,4.5vh,48px);line-height:1.06;color:#75470
 
 /* Landscape phones/tablets: compact two-column body */
 @media (orientation:landscape) and (max-height:700px){
-  .page{padding:5px;gap:5px}.cert{padding:12px 18px 9px;max-height:calc(100dvh - 58px);max-height:calc(100svh - 58px)}
-  .content{display:grid;grid-template-columns:.92fr 1.08fr;grid-template-rows:auto auto 1fr auto;column-gap:18px;row-gap:4px;align-items:center}
+  .page{padding:5px;gap:5px}.cert{padding:12px 18px 9px;max-height:none}
+  .content{height:auto;display:grid;grid-template-columns:.92fr 1.08fr;grid-template-rows:auto auto 1fr auto;column-gap:18px;row-gap:4px;align-items:center}
   .head{grid-column:1;grid-row:1}.recipient{grid-column:1;grid-row:2}.certify{grid-column:1;grid-row:3}.domains{grid-column:1;grid-row:4}
   .project{grid-column:2;grid-row:1}.grid{grid-column:2;grid-row:2}.footer-zone{grid-column:2;grid-row:3/5}
   .emblem{width:38px;height:38px;font-size:23px}.program{font-size:7px}h1{font-size:23px}.english{font-size:7.5px}.award{font-size:8px}.name{font-size:27px}.certify{font-size:9px}.domains{font-size:8.5px}.project-title{font-size:9px}.funding,.project-label{font-size:7px}.box b{font-size:6.5px}.box div{font-size:11px}.signature strong{font-size:7.5px}.signature span,.signature em,.issuer,.team,.meta span,.status{font-size:6.5px}
   .actions{grid-template-columns:1fr 1fr}.btn{min-height:42px;font-size:13px}
 }
 
-/* Desktop/tablet spacious view */
+/* Desktop/tablet keeps content-fit card; print owns full-page sizing */
 @media (min-width:681px) and (min-height:760px){
-  .page{padding:12px 14px calc(12px + var(--safe-b));gap:10px}.cert{min-height:min(780px,calc(100dvh - 78px));}
+  .page{padding:12px 14px calc(12px + var(--safe-b));gap:10px}.cert{min-height:0}
 }
 
 @page{size:A4 portrait;margin:8mm}
 @media print{
   html,body{background:#fff!important}.page{display:block;padding:0!important;min-height:auto}.cert{width:100%;max-width:none;height:281mm;min-height:281mm;max-height:281mm;border-radius:0;box-shadow:none;padding:12mm 12mm 9mm;overflow:hidden}
-  .cert:before{inset:4mm;border-radius:0}.cert:after{inset:7mm;border-radius:0}.content{gap:2.2mm}
+  .cert:before{inset:4mm;border-radius:0}.cert:after{inset:7mm;border-radius:0}.content{height:100%;justify-content:space-between;gap:2.2mm}
   .emblem{width:18mm;height:18mm;font-size:10mm}.program{font-size:8pt}h1{font-size:28pt}.english{font-size:8pt}.award{font-size:9pt}.name{font-size:28pt}.certify{font-size:10pt;line-height:1.4}.domains{font-size:9pt}.project-title{font-size:10pt}.funding,.project-label{font-size:7.5pt}.box b{font-size:7.5pt}.box div{font-size:14pt}.signature strong{font-size:9pt}.signature span,.signature em{font-size:7.5pt}.issuer{font-size:9pt}.team,.meta span,.status{font-size:7.5pt}.actions{display:none!important}
 }
 </style>
@@ -156,8 +156,8 @@ import{initializeApp,getApps}from"https://www.gstatic.com/firebasejs/12.1.0/fire
 import{getAuth,signInAnonymously}from"https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import{getFirestore,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 import{HEROHEALTH_FIREBASE_CONFIG}from"../firebase/firebase-config.js";
-const RELEASE='20260807-CERTIFICATE-FIREBASE-R7-RESPONSIVE-ONE-SCREEN';
-const VERSION='R7';
+const RELEASE='20260807-CERTIFICATE-FIREBASE-R7.1-CONTENT-FIT';
+const VERSION='R7.1';
 const q=new URLSearchParams(location.search);const sid=String(q.get('studentId')||q.get('sid')||'').trim();
 const TEST_IDS=new Set(['990014','990015','990016','990017']);const sandbox=TEST_IDS.has(sid);
 const cols={roster:sandbox?'studentsSandbox':'students',progress:sandbox?'studentProgressSandbox':'studentProgress',assessment:sandbox?'studentAssessmentsSandbox':'studentAssessments'};
@@ -182,7 +182,7 @@ async function boot(){
   if(!eligible){$('status').textContent='ยังไม่ออกใบประกาศ: ต้องครบ 6 เกม + Post-test + Reflection';$('status').classList.add('bad');return}
   let data=certDoc&&!certDoc._error?certDoc:null;const fallbackDate=dateOf(reflDoc?.submittedAt||reflDoc?.completedAt||reflDoc?.updatedAt||progress?.reflection?.submittedAt||progress?.updatedAt)||new Date();
   if(!data){const payload={studentId:sid,certificateId:deterministicId(fallbackDate),certificateVersion:VERSION,certificateIssuedAtIso:fallbackDate.toISOString(),certificateIssuedAt:serverTimestamp(),completed:true,sourceReflectionPath:`${cols.assessment}/${sid}_REFLECTION`,createdByUid:auth.currentUser?.uid||'',build:RELEASE};try{await setDoc(doc(db,cols.assessment,`${sid}_CERTIFICATE`),payload,{merge:false});data=payload}catch(_){data=payload}}
-  const issued=dateOf(data.certificateIssuedAt)||dateOf(data.certificateIssuedAtIso)||fallbackDate;$('date').textContent=fmtDate(issued);$('certificateId').textContent=data.certificateId||deterministicId(issued);$('status').textContent=`Firebase ยืนยันแล้ว • ${cols.progress}/${sid} • R7`;
+  const issued=dateOf(data.certificateIssuedAt)||dateOf(data.certificateIssuedAtIso)||fallbackDate;$('date').textContent=fmtDate(issued);$('certificateId').textContent=data.certificateId||deterministicId(issued);$('status').textContent=`Firebase ยืนยันแล้ว • ${cols.progress}/${sid} • R7.1`;
  }catch(e){$('status').textContent=`อ่าน Firebase ไม่สำเร็จ: ${e?.message||e}`;$('status').classList.add('bad')}
 }
 $('backBtn').onclick=()=>{const u=new URL('../index.html',location.href);u.searchParams.set('authority','firebase');u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.set('authorityRefresh',Date.now().toString());u.searchParams.set('v',RELEASE);location.assign(u.href)};
