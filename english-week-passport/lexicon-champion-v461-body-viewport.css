@@ -1,0 +1,114 @@
+/* LEXICON Champion Arena V4.6.1 • Body Viewport Pass
+   UI-only patch: keep V4.6 Balance-style detection engine unchanged. */
+
+/* Let the camera be the dominant element during body tasks. */
+.poseStage{
+  height:min(52dvh,500px)!important;
+  min-height:330px!important;
+}
+
+/* Calibration becomes a compact glass HUD instead of a large modal
+   that hides the player's body. */
+.cal{
+  inset:48px 8px auto 8px!important;
+  min-height:0!important;
+  padding:6px 7px!important;
+  gap:5px!important;
+  border-radius:12px!important;
+  background:rgba(9,24,42,.76)!important;
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+  align-content:start!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.18);
+}
+.cal h3{display:none!important}
+#calText{
+  font-size:.72rem!important;
+  line-height:1.2!important;
+  font-weight:800;
+  white-space:normal;
+}
+.calsteps{gap:4px!important}
+.calstep{
+  padding:4px 3px!important;
+  min-height:28px;
+  font-size:.60rem!important;
+  line-height:1.12!important;
+  display:grid;
+  place-items:center;
+}
+.calmeter{height:6px!important}
+
+/* While calibration is visible the command card is redundant.
+   Hide it so the torso/hips/knees remain visible. */
+.poseStage:has(.cal:not(.hidden)) .command{display:none!important}
+
+/* Status should be a slim strip rather than a large overlay. */
+.status{
+  left:7px!important;
+  right:7px!important;
+  top:7px!important;
+  padding:5px 7px!important;
+  min-height:32px;
+  font-size:.69rem!important;
+  line-height:1.15!important;
+  background:rgba(8,18,40,.74)!important;
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+}
+
+/* Keep action buttons compact and side-by-side even on a phone. */
+.poseActions{
+  grid-template-columns:1fr 1fr!important;
+  gap:6px!important;
+}
+.poseActions button{
+  min-height:43px!important;
+  padding:7px 6px!important;
+  font-size:.86rem!important;
+}
+
+/* Reduce surrounding headers only while body interaction is on screen. */
+.posewrap{gap:6px!important}
+
+@media(max-width:430px){
+  .poseStage{
+    height:min(51dvh,470px)!important;
+    min-height:320px!important;
+  }
+  .safeZone{
+    top:55%!important;
+    width:62%!important;
+    height:55%!important;
+  }
+  .ghost{
+    top:53%!important;
+    opacity:.30!important;
+  }
+  .cal{
+    inset:45px 6px auto 6px!important;
+    padding:5px 6px!important;
+  }
+  #calText{font-size:.68rem!important}
+  .calstep{font-size:.56rem!important;padding:3px 2px!important}
+  .poseActions button{font-size:.80rem!important;min-height:41px!important}
+}
+
+@media(max-height:760px){
+  .poseStage{
+    height:min(49dvh,440px)!important;
+    min-height:300px!important;
+  }
+  .cal{inset:43px 6px auto 6px!important}
+  .status{font-size:.65rem!important}
+  .command{padding:6px!important}
+}
+
+@media(max-height:680px){
+  .poseStage{
+    height:47dvh!important;
+    min-height:280px!important;
+  }
+  .calstep{min-height:24px!important}
+  .poseActions button{min-height:38px!important}
+}
