@@ -16,7 +16,7 @@
   function readIdentity(){try{return JSON.parse(localStorage.getItem(cfg.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
   function show(message,type){status.textContent=message;status.className='status show '+(type||'')}
   function goPassport(){location.replace('./index.html?resume=1&from=journey_summary&v=20260807-journey1')}
-  function goCertificate(){location.replace('./index.html?resume=1&open=certificate&from=journey_summary&v=20260807-journey1')}
+  function goCertificate(){location.replace('./certificate-v1.html?from=journey_summary&v=20260807-journey1')}
   function duration(ms){const total=Math.max(0,Math.round(Number(ms||0)/1000));const min=Math.floor(total/60);const sec=total%60;return min?`${min}m ${sec}s`:`${sec}s`}
   function signed(value){const n=Number(value||0);return `${n>0?'+':''}${n}%`}
   backBtn.addEventListener('click',goPassport);
