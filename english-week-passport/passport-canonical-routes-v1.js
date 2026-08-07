@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-07-CANONICAL-FIVE-GAME-ROUTES-V1.5-CHAMPION471';
+const VERSION='2026-08-07-CANONICAL-FIVE-GAME-ROUTES-V1.6-FIRESTORE-DIRECT';
 const ROUTES={
   word_match:{title:'LexiMatch Navigator',detail:'Game 1 • จับคู่คำศัพท์ • Swipe + Tilt • A2–B1+',icon:'🧭'},
   category_forest:{title:'Category Forest',detail:'Game 2 • ลากคำเข้าหมวด • Rescue Learning',icon:'🌲'},
@@ -53,7 +53,7 @@ function openStage(stage){
     const query=new URLSearchParams({from:'passport',authority:'firebase',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run:'1',stage:'final_boss',v:'20260807-prod471'});
     location.assign('./lexicon-champion-arena-v47.html?'+query.toString());return;
   }
-  const query=new URLSearchParams({stage,run:'1',v:'20260807-passport-shell13'});
+  const query=new URLSearchParams({stage,run:'1',v:'20260807-firestore-game1'});
   location.assign('./passport-game-shell-v1.html?'+query.toString());
 }
 function intercept(event){
