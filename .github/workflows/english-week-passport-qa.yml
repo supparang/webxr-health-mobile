@@ -33,6 +33,7 @@ jobs:
           node --check english-week-passport/passport-canonical-routes-v1.js
           node --check english-week-passport/passport-route-loader.js
           node --check english-week-passport/lexicon-lens-hunt.js
+          node --check english-week-passport/lexicon-champion-arena-v47.js
           node --check english-week-passport/lexicon-x-engine-v1.js
           node --check english-week-passport/lexicon-x-engine-v5.js
           node --check english-week-passport/lexicon-x-polish-v6.js
@@ -67,6 +68,9 @@ jobs:
 
       - name: Run Sentence City AR Hand Detect V4 contract
         run: node english-week-passport/tests/sentence-city-ar-v4.node.cjs
+
+      - name: Run Champion Arena V4.7 production contract
+        run: node english-week-passport/tests/lexicon-champion-v47.node.cjs
 
       - name: Run Firebase authority integration contract
         run: node english-week-passport/tests/firebase-authority-v1.node.cjs
