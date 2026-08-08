@@ -1,6 +1,6 @@
 window.EW_CONFIG = Object.freeze({
   appId: "ENGLISH-WEEK-PASSPORT-2026",
-  version: "2026-08-08-PASSPORT-MOBILE-SMOKE-R2",
+  version: "2026-08-08-PASSPORT-MOBILE-SMOKE-R3-SCROLL",
   authorityMode: "firestore-direct",
   firebaseProjectId: "englishweek-95869",
   firebaseRegion: "asia-southeast1",
@@ -23,10 +23,11 @@ window.EW_CONFIG = Object.freeze({
   })
 });
 
-/* LEXICON X • Mobile Smoke-Test Contract R2
- * On desktop, ?view=mobile pins a 430px mobile viewport to the exact center.
- * On real mobile the page remains full width. The view flag is propagated
- * into child iframes so the same mobile layout survives the whole Passport flow.
+/* LEXICON X • Mobile Smoke-Test Contract R3
+ * Desktop ?view=mobile = centered mobile viewport.
+ * Passport pages remain vertically scrollable.
+ * Gameplay shells remain fixed/full-screen.
+ * The view flag propagates through nested game iframes.
  */
 (function(){
   'use strict';
@@ -39,7 +40,7 @@ window.EW_CONFIG = Object.freeze({
   if(document.body)document.body.classList.add('ew-mobile-smoke');
 
   const style=document.createElement('style');
-  style.id='ewMobileSmokeContractR2';
+  style.id='ewMobileSmokeContractR3';
   style.textContent=`
     html.ew-mobile-smoke-root{
       width:100%!important;
@@ -63,7 +64,6 @@ window.EW_CONFIG = Object.freeze({
       overflow:hidden!important;
       box-shadow:0 0 0 1px rgba(255,255,255,.08),0 18px 60px rgba(0,0,0,.28)!important;
     }
-    body.ew-mobile-smoke .app-shell,
     body.ew-mobile-smoke .shell{
       width:100%!important;
       max-width:430px!important;
@@ -72,6 +72,7 @@ window.EW_CONFIG = Object.freeze({
       position:absolute!important;
       inset:0!important;
       margin:0!important;
+      overflow:hidden!important;
     }
     body.ew-mobile-smoke iframe,
     body.ew-mobile-smoke .game-frame{
@@ -80,12 +81,41 @@ window.EW_CONFIG = Object.freeze({
       max-width:430px!important;
       height:100%!important;
     }
+
+    /* Passport is a document, not a full-screen game. It must scroll. */
+    html[data-lexicon-stage="passport"].ew-mobile-smoke-root{
+      overflow:hidden!important;
+    }
+    html[data-lexicon-stage="passport"] body.ew-mobile-smoke{
+      overflow-y:auto!important;
+      overflow-x:hidden!important;
+      -webkit-overflow-scrolling:touch!important;
+      overscroll-behavior-y:contain!important;
+      touch-action:pan-y!important;
+      scrollbar-gutter:stable!important;
+    }
+    html[data-lexicon-stage="passport"] body.ew-mobile-smoke .app-shell{
+      width:100%!important;
+      max-width:430px!important;
+      height:auto!important;
+      min-height:100dvh!important;
+      position:relative!important;
+      inset:auto!important;
+      margin:0!important;
+      overflow:visible!important;
+      touch-action:pan-y!important;
+    }
+    html[data-lexicon-stage="passport"] body.ew-mobile-smoke .screen,
+    html[data-lexicon-stage="passport"] body.ew-mobile-smoke .passport-map{
+      overflow:visible!important;
+      touch-action:pan-y!important;
+    }
+
     @media(max-width:720px){
       html.ew-mobile-smoke-root{background:inherit!important;overflow:hidden!important}
       body.ew-mobile-smoke{
         width:100%!important;
         max-width:none!important;
-        position:fixed!important;
         left:0!important;
         transform:none!important;
         box-shadow:none!important;
@@ -121,5 +151,5 @@ window.EW_CONFIG = Object.freeze({
     });
   }).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['src']});
 
-  window.EW_MOBILE_SMOKE=Object.freeze({version:'2026-08-08-MOBILE-SMOKE-R2',active:true,width:430});
+  window.EW_MOBILE_SMOKE=Object.freeze({version:'2026-08-08-MOBILE-SMOKE-R3-SCROLL',active:true,width:430,passportScroll:true});
 })();
