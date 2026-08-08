@@ -1,53 +1,36 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#dff7ff">
-<title>Balance Hold</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#dff7ff"><title>Balance Hold</title>
 <style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;min-height:100dvh;overflow:hidden;background:#dff7ff}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}</style>
-</head>
-<body>
-<iframe id="proxy" title="เกม Balance Hold" allow="camera;microphone;fullscreen;autoplay"></iframe>
+</head><body><iframe id="proxy" title="เกม Balance Hold" allow="camera;microphone;fullscreen;autoplay"></iframe>
 <script>
 (()=>{'use strict';
-const RELEASE='20260808-BALANCE-ANALYTICS-V50-11-TIME-V62';
-const q=new URLSearchParams(location.search);
-const smoke=/^(1|true|yes)$/i.test(String(q.get('smoke')||q.get('smokeTest')||''))||q.get('gameTestMode')==='1';
-const proxy=document.getElementById('proxy');
-const target=new URL(smoke?'./balance-hold-ar2.html':'./balance-hold-classroom-analytics-v49.html',location.href);
-q.forEach((value,key)=>target.searchParams.set(key,value));
-target.searchParams.set('time','90');
-target.searchParams.set('duration','90');
-target.searchParams.set('timePolicy','v62');
-target.searchParams.set('_',Date.now());
-if(smoke){target.searchParams.set('balanceRoute','direct-smoke-v62');target.searchParams.set('finishGate','native-plus-v56');target.searchParams.set('bossGate','v60');target.searchParams.set('warmupGate','v61')}
+const RELEASE='20260808-BALANCE-ANALYTICS-V50-12-SINGLE-RUNTIME-V63';
+const q=new URLSearchParams(location.search);const smoke=/^(1|true|yes)$/i.test(String(q.get('smoke')||q.get('smokeTest')||''))||q.get('gameTestMode')==='1';
+const proxy=document.getElementById('proxy');const target=new URL(smoke?'./balance-hold-ar2.html':'./balance-hold-classroom-analytics-v49.html',location.href);
+q.forEach((value,key)=>target.searchParams.set(key,value));target.searchParams.set('time','90');target.searchParams.set('duration','90');target.searchParams.set('timePolicy','v62');target.searchParams.set('_',Date.now());
+if(smoke){target.searchParams.set('balanceRoute','direct-smoke-v63');target.searchParams.set('finishGate','strict-native-v63');target.searchParams.set('bossGate','v63');target.searchParams.set('warmupGate','v61');target.searchParams.set('runtimeStack','single-v63')}
 proxy.src=target.href;
-
 let injectTimer=0,completionForwarded=false;
 function gameWindow(){try{if(smoke)return proxy.contentWindow||null;const nested=proxy.contentWindow?.document?.getElementById('game');return nested?.contentWindow||null}catch(_){return null}}
 function strictEvidence(){try{const s=gameWindow()?.BH?.state;if(!s)return{valid:false,total:0,results:0,index:0};const total=Array.isArray(s.sequence)?s.sequence.length:0,results=Array.isArray(s.results)?s.results.length:0,index=Number(s.index||0);return{valid:total===6&&results>=6&&index>=6,total,results,index,phase:String(s.phase||'')}}catch(_){return{valid:false,total:0,results:0,index:0}}}
-function inject(w,selector,src,key){if(!w?.document)return false;if(w.document.querySelector(selector))return true;const s=w.document.createElement('script');s.src=new URL(src,w.location.href).href;s.async=false;s.dataset[key]='1';s.onload=()=>console.info('[Balance V62] injected',src);s.onerror=()=>console.error('[Balance V62] injection failed',src);(w.document.head||w.document.documentElement).appendChild(s);return false}
+function inject(w,selector,src,key){if(!w?.document)return false;if(w.document.querySelector(selector))return true;const s=w.document.createElement('script');s.src=new URL(src,w.location.href).href;s.async=false;s.dataset[key]='1';s.onload=()=>console.info('[Balance V63] injected',src);s.onerror=()=>console.error('[Balance V63] injection failed',src);(w.document.head||w.document.documentElement).appendChild(s);return false}
 function injectRuntime(){
  const w=gameWindow();if(!w?.document||!w.BH?.state||typeof w.BH?.evaluatePose!=='function')return false;
- const timePolicy=!!w.BH_CLASSROOM_TIME_POLICY_V62||inject(w,'script[data-bh-time-v62]','./bh-classroom-time-policy-v62.js?v=20260808-v62','bhTimeV62');
- const warmup=!!w.BH_WARMUP_GATE_V61||inject(w,'script[data-bh-warmup-v61]','./bh-warmup-gate-v61.js?v=20260808-v62','bhWarmupV61');
- const boss=!!w.BH_BOSS_GATE_V60||inject(w,'script[data-bh-boss-gate-v60]','./bh-boss-gate-v60.js?v=20260808-v62','bhBossGateV60');
- const ui=!!w.BH_MOBILE_BOSS_UI_V57||inject(w,'script[data-bh-boss-ui-v57]','./bh-classroom-mobile-boss-ui-v57.js?v=20260808-v62','bhBossUiV57');
- const strict=!!w.BH_SUMMARY_STRICT_V56||inject(w,'script[data-bh-summary-v56]','./bh-classroom-summary-passport-v56.js?v=20260808-v62','bhSummaryV56');
+ const timePolicy=!!w.BH_CLASSROOM_TIME_POLICY_V62||inject(w,'script[data-bh-time-v62]','./bh-classroom-time-policy-v62.js?v=20260808-v63','bhTimeV62');
+ const warmup=!!w.BH_WARMUP_GATE_V61||inject(w,'script[data-bh-warmup-v61]','./bh-warmup-gate-v61.js?v=20260808-v63','bhWarmupV61');
+ const boss=!!w.BH_BOSS_GATE_V60||inject(w,'script[data-bh-boss-gate-v63]','./bh-boss-gate-v60.js?v=20260808-v63','bhBossGateV63');
+ const ui=!!w.BH_MOBILE_BOSS_UI_V57||inject(w,'script[data-bh-boss-ui-v57]','./bh-classroom-mobile-boss-ui-v57.js?v=20260808-v63','bhBossUiV57');
+ const strict=!!w.BH_SUMMARY_STRICT_V56||inject(w,'script[data-bh-summary-v56]','./bh-classroom-summary-passport-v56.js?v=20260808-v63','bhSummaryV56');
  let perf=true,smokeReturn=true;
- if(smoke){
-  perf=!!w.BH_SMOKE_PERFORMANCE_V59||inject(w,'script[data-bh-smoke-performance-v59]','./bh-smoke-performance-v59.js?v=20260808-v62','bhSmokePerformanceV59');
-  smokeReturn=!!w.__BH_SMOKE_RETURN_ROUTER_V58__||inject(w,'script[data-bh-smoke-return-v58]','./bh-smoke-return-router-v58.js?v=20260808-v62','bhSmokeReturnV58');
- }
+ if(smoke){perf=!!w.BH_SMOKE_PERFORMANCE_V59||inject(w,'script[data-bh-smoke-performance-v63]','./bh-smoke-performance-v59.js?v=20260808-v63','bhSmokePerformanceV63');smokeReturn=!!w.__BH_SMOKE_RETURN_ROUTER_V58__||inject(w,'script[data-bh-smoke-return-v58]','./bh-smoke-return-router-v58.js?v=20260808-v63','bhSmokeReturnV58')}
  return timePolicy&&warmup&&boss&&ui&&strict&&perf&&smokeReturn;
 }
-proxy.addEventListener('load',()=>{clearInterval(injectTimer);completionForwarded=false;let tries=0;injectTimer=setInterval(()=>{tries++;if(injectRuntime()||tries>180)clearInterval(injectTimer)},120)});
-addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==proxy.contentWindow)return;const m=event.data||{};if(m.type==='HEROHEALTH_GAME_STARTED'){try{parent.postMessage(m,location.origin)}catch(_){}return}if(m.type==='HEROHEALTH_GAME_COMPLETE'&&m.payload&&!completionForwarded){if(smoke){const ev=strictEvidence();if(!ev.valid){console.warn('[Balance V62] blocked incomplete smoke completion',ev);return}completionForwarded=true;clearInterval(injectTimer);try{parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:{...m.payload,strictCompletionEvidence:ev,balanceRoute:'direct-smoke-v62',warmupGateVersion:'v61',bossGateVersion:'v60',timePolicyVersion:'v62'}},location.origin)}catch(_){};return}completionForwarded=true;try{parent.postMessage(m,location.origin)}catch(_){}}});
+proxy.addEventListener('load',()=>{clearInterval(injectTimer);completionForwarded=false;let tries=0;injectTimer=setInterval(()=>{tries++;if(injectRuntime()||tries>120)clearInterval(injectTimer)},150)});
+addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==proxy.contentWindow)return;const m=event.data||{};if(m.type==='HEROHEALTH_GAME_STARTED'){try{parent.postMessage(m,location.origin)}catch(_){}return}if(m.type==='HEROHEALTH_GAME_COMPLETE'&&m.payload&&!completionForwarded){if(smoke){const ev=strictEvidence();if(!ev.valid){console.warn('[Balance V63] blocked incomplete smoke completion',ev);return}completionForwarded=true;clearInterval(injectTimer);try{parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:{...m.payload,strictCompletionEvidence:ev,balanceRoute:'direct-smoke-v63',runtimeStack:'single-v63',warmupGateVersion:'v61',bossGateVersion:'v63',timePolicyVersion:'v62'}},location.origin)}catch(_){};return}completionForwarded=true;try{parent.postMessage(m,location.origin)}catch(_){}}});
 addEventListener('pagehide',()=>clearInterval(injectTimer),{once:true});
-window.HH_BALANCE_ANALYTICS_V50={release:RELEASE,smoke,directSmoke:smoke,warmupGate:'v61',bossGate:'v60',timePolicy:'v62-90s-boss10s',strictCompletion:'v56'};
+window.HH_BALANCE_ANALYTICS_V50={release:RELEASE,smoke,directSmoke:smoke,runtimeStack:'single-v63',warmupGate:'v61',bossGate:'v63-mobile-crop',timePolicy:'v62-90s-boss10s',strictCompletion:'v56'};
 console.info('[Balance Hold] Analytics wrapper ready',window.HH_BALANCE_ANALYTICS_V50);
 })();
-</script>
-</body>
-</html>
+</script></body></html>
