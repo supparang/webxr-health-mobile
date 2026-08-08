@@ -1,13 +1,13 @@
-/* Sentence City • Single Submit Guard V1.3
+/* Sentence City • Single Submit Guard V1.4
  * Prevents repeated AR dwell/pinch submissions during the success delay.
- * Incomplete blueprints remain unsubmitted and receive no score/progress.
- * Normalizes the summary return action and publishes a Passport result contract
- * so the Firestore Game Shell can save, unlock, and auto-return reliably.
+ * Publishes the canonical Passport result contract so the Firestore Game Shell
+ * can save once, receive a receipt, unlock the next stage, and auto-return.
  */
 (function(){
   'use strict';
 
-  const VERSION='2026-08-07-SC-SINGLE-SUBMIT-GUARD-V1-3-RESULT-CONTRACT';
+  const VERSION='2026-08-08-SC-SINGLE-SUBMIT-GUARD-V1-4-AUTO-FIRESTORE-RETURN';
+  const sessionStartedAt=Date.now();
   let observedFeedback=null;
   let feedbackObserver=null;
   let taskLocked=false;
@@ -24,23 +24,18 @@
     if(taskLocked)return;
     taskLocked=true;
     acceptedSubmissions++;
-
     document.querySelectorAll('#mission .ar-target').forEach((element)=>{
       element.classList.remove('ar-target','focus');
       element.setAttribute('aria-disabled','true');
     });
-
     const check=getCheck();
     if(check){
       check.disabled=true;
       check.dataset.submitLocked='1';
       check.textContent='บันทึกแล้ว • กำลังไปข้อถัดไป…';
     }
-
     const status=document.getElementById('status');
-    if(status){
-      status.innerHTML='ส่งคำตอบแล้ว ✓<small>ระบบกำลังเปิดภารกิจถัดไป</small>';
-    }
+    if(status)status.innerHTML='ส่งคำตอบแล้ว ✓<small>ระบบกำลังเปิดภารกิจถัดไป</small>';
   }
 
   function markIncomplete(feedback,text){
@@ -64,16 +59,10 @@
     taskLocked=false;
     lastIncompleteText='';
     taskSerial++;
-
     feedbackObserver=new MutationObserver(()=>{
       const text=feedback.textContent.trim();
-      if(feedback.classList.contains('good')||text.includes('Sentence complete')){
-        lockAcceptedTask();
-        return;
-      }
-      if(text.includes('ยังวางคำไม่ครบทุกช่อง')){
-        markIncomplete(feedback,text);
-      }
+      if(feedback.classList.contains('good')||text.includes('Sentence complete')){lockAcceptedTask();return;}
+      if(text.includes('ยังวางคำไม่ครบทุกช่อง'))markIncomplete(feedback,text);
     });
     feedbackObserver.observe(feedback,{attributes:true,attributeFilter:['class'],childList:true,characterData:true,subtree:true});
   }
@@ -87,6 +76,8 @@
 
   function summaryVisible(summary){
     if(!summary||summary.classList.contains('hidden'))return false;
+    const panel=summary.closest('.panel');
+    if(panel?.classList.contains('hidden'))return false;
     const style=getComputedStyle(summary);
     return style.display!=='none'&&style.visibility!=='hidden';
   }
@@ -120,14 +111,18 @@
 
     const params=new URLSearchParams(location.search);
     const result=Object.freeze({
+      gameId:'sentence_city',
+      stageId:'sentence_city',
       firstTryAccuracy:Math.max(0,Math.min(100,Math.round(firstTryAccuracy))),
       finalMastery:Math.max(0,Math.min(100,Math.round(finalMastery))),
       score:Math.max(0,Math.round(score)),
       bestCombo:Number.isFinite(bestCombo)?Math.max(0,Math.round(bestCombo)):0,
-      durationSec:0,
+      durationSec:Math.max(1,Math.round((Date.now()-sessionStartedAt)/1000)),
       completed:true,
       passed:firstTryAccuracy>=70,
       missionSet:params.get('passportRotation')||params.get('missionSet')||'',
+      passportRotation:params.get('passportRotation')||'',
+      randomSeed:Number(params.get('randomSeed')||0)||0,
       playerId:params.get('pid')||params.get('playerId')||'',
       sourceVersion:VERSION,
       completedAt:new Date().toISOString()
@@ -136,15 +131,8 @@
     window.SENTENCE_CITY_LAST_RESULT=result;
     resultPublished=true;
     document.documentElement.dataset.passportResultReady='1';
-
-    try{
-      window.parent?.postMessage({
-        type:'LEXICON_GAME_RESULT_READY',
-        stageId:'sentence_city',
-        sourceVersion:VERSION,
-        result
-      },location.origin);
-    }catch(_){}
+    try{window.dispatchEvent(new CustomEvent('sentence-city-complete',{detail:result}))}catch(_){}
+    try{window.parent?.postMessage({type:'LEXICON_GAME_RESULT_READY',stageId:'sentence_city',sourceVersion:VERSION,result},location.origin)}catch(_){}
   }
 
   function hasPassportShell(){
@@ -153,9 +141,10 @@
 
   function directReturnToPassport(){
     const params=new URLSearchParams(location.search);
-    const q=new URLSearchParams({resume:'passport',fromGame:'sentence_city',v:'20260807-sc-return-v13'});
+    const q=new URLSearchParams({resume:'passport',fromGame:'sentence_city',v:'20260808-sc-auto-return1'});
     const pid=params.get('pid')||params.get('playerId');
     if(pid)q.set('pid',pid);
+    if(params.get('view')==='mobile')q.set('view','mobile');
     try{window.top.location.assign('./index.html?'+q.toString())}catch(_){location.assign('./index.html?'+q.toString())}
   }
 
@@ -171,9 +160,7 @@
       if(!hasPassportShell()&&element.dataset.directPassportFallback!=='1'){
         element.dataset.directPassportFallback='1';
         element.addEventListener('click',(event)=>{
-          event.preventDefault();
-          event.stopPropagation();
-          directReturnToPassport();
+          event.preventDefault();event.stopPropagation();directReturnToPassport();
         },true);
       }
     });
