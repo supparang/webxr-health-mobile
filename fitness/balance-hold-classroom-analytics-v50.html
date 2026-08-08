@@ -11,20 +11,30 @@
 <iframe id="proxy" title="เกม Balance Hold" allow="camera;microphone;fullscreen;autoplay"></iframe>
 <script>
 (()=>{'use strict';
-const RELEASE='20260808-BALANCE-ANALYTICS-V50-4-BALANCED-DETECTION';
+const RELEASE='20260808-BALANCE-ANALYTICS-V50-5-STRICT-SIX-POSE';
 const q=new URLSearchParams(location.search);
 const proxy=document.getElementById('proxy');
 const target=new URL('./balance-hold-classroom-analytics-v49.html',location.href);
 q.forEach((value,key)=>target.searchParams.set(key,value));
-target.searchParams.set('finishGate','v50-direct');target.searchParams.set('balanceDetection','v54-balanced');target.searchParams.set('_',Date.now());proxy.src=target.href;
+target.searchParams.set('finishGate','v56-strict-six');target.searchParams.set('balanceDetection','v54-balanced');target.searchParams.set('_',Date.now());proxy.src=target.href;
 
 let injectTimer=0,completionForwarded=false;
 function deepestGameWindow(){try{const proxyWindow=proxy.contentWindow;const gameFrame=proxyWindow?.document?.getElementById('game');return gameFrame?.contentWindow||null}catch(_){return null}}
+function strictCompletionEvidence(){
+ try{
+  const w=deepestGameWindow(),s=w?.BH?.state;
+  if(!s)return{valid:false,total:0,results:0,index:0,reason:'state-not-ready'};
+  const total=Array.isArray(s.sequence)?s.sequence.length:0;
+  const results=Array.isArray(s.results)?s.results.length:0;
+  const index=Number(s.index||0);
+  return{valid:total===6&&results>=6&&index>=6,total,results,index,phase:String(s.phase||'')};
+ }catch(error){return{valid:false,total:0,results:0,index:0,reason:String(error)}}
+}
 function injectScript(gameWindow,selector,src,datasetKey){
  if(!gameWindow?.document)return false;
  if(gameWindow.document.querySelector(selector))return true;
  const script=gameWindow.document.createElement('script');script.src=new URL(src,gameWindow.location.href).href;script.async=false;script.dataset[datasetKey]='1';
- script.onload=()=>console.info('[Balance V50.4] injected',src);script.onerror=()=>console.error('[Balance V50.4] injection failed',src);
+ script.onload=()=>console.info('[Balance V50.5] injected',src);script.onerror=()=>console.error('[Balance V50.5] injection failed',src);
  (gameWindow.document.head||gameWindow.document.documentElement).appendChild(script);return false;
 }
 function injectResponsive(gameWindow){
@@ -37,21 +47,28 @@ function injectResponsive(gameWindow){
 function injectRuntimePatches(){
  const gameWindow=deepestGameWindow();if(!gameWindow||!gameWindow.document||!gameWindow.BH?.state||typeof gameWindow.BH?.evaluatePose!=='function')return false;
  const responsiveReady=injectResponsive(gameWindow);
- const balancedReady=!!gameWindow.HH_BALANCE_DETECTION_V54||injectScript(gameWindow,'script[data-bh-balanced-v54]','./bh-classroom-balanced-detection-v54.js?v=20260808-balance-v54-2','bhBalancedV54');
- const finishReady=!!gameWindow.BH_FINAL_POSE_DIRECT_FINISH||injectScript(gameWindow,'script[data-bh-finish-v50]','./bh-final-pose-finish-v50.js?v=20260805-v50-2','bhFinishV50');
- const returnReady=!!gameWindow.__BH_FIREBASE_PASSPORT_RETURN_RESCUE_V54__||injectScript(gameWindow,'script[data-bh-return-v54]','./bh-firebase-passport-return-rescue-v54.js?v=20260805-v54','bhReturnV54');
- return responsiveReady&&balancedReady&&finishReady&&returnReady;
+ const balancedReady=!!gameWindow.HH_BALANCE_DETECTION_V54||injectScript(gameWindow,'script[data-bh-balanced-v54]','./bh-classroom-balanced-detection-v54.js?v=20260808-balance-v56','bhBalancedV54');
+ const strictReady=!!gameWindow.BH_SUMMARY_STRICT_V56||injectScript(gameWindow,'script[data-bh-summary-v56]','./bh-classroom-summary-passport-v56.js?v=20260808-v56-1','bhSummaryV56');
+ const finishReady=!!gameWindow.BH_FINAL_POSE_DIRECT_FINISH||injectScript(gameWindow,'script[data-bh-finish-v50]','./bh-final-pose-finish-v50.js?v=20260808-v56','bhFinishV50');
+ const returnReady=!!gameWindow.__BH_FIREBASE_PASSPORT_RETURN_RESCUE_V54__||injectScript(gameWindow,'script[data-bh-return-v54]','./bh-firebase-passport-return-rescue-v54.js?v=20260808-v56','bhReturnV54');
+ return responsiveReady&&balancedReady&&strictReady&&finishReady&&returnReady;
 }
 proxy.addEventListener('load',()=>{clearInterval(injectTimer);completionForwarded=false;let attempts=0;injectTimer=setInterval(()=>{attempts++;if(injectRuntimePatches()||attempts>240)clearInterval(injectTimer)},100)});
 addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==proxy.contentWindow)return;
  const message=event.data||{};
  if(message.type==='HEROHEALTH_GAME_STARTED'){try{parent.postMessage(message,location.origin)}catch(_){}return}
- if(message.type==='HEROHEALTH_GAME_COMPLETE'&&message.payload&&!completionForwarded){completionForwarded=true;clearInterval(injectTimer);try{parent.postMessage(message,location.origin)}catch(_){}}
+ if(message.type==='HEROHEALTH_GAME_COMPLETE'&&message.payload&&!completionForwarded){
+  const evidence=strictCompletionEvidence();
+  if(!evidence.valid){console.warn('[Balance V50.5] blocked premature completion message',evidence,message.payload);return}
+  completionForwarded=true;clearInterval(injectTimer);
+  const payload={...message.payload,completed:true,procedureCompleted:true,progressionEligible:true,strictCompletionGate:'six-pose-v56',strictCompletionEvidence:evidence};
+  try{parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin)}catch(_){}
+ }
 });
 addEventListener('pagehide',()=>clearInterval(injectTimer),{once:true});
-window.HH_BALANCE_ANALYTICS_V50={release:RELEASE,balancedDetection:'v54',injectRuntimePatches,deepestGameWindow};
-console.info('[Balance Hold] Analytics V50.4 balanced wrapper ready',RELEASE);
+window.HH_BALANCE_ANALYTICS_V50={release:RELEASE,balancedDetection:'v54',strictCompletion:'six-pose-v56',injectRuntimePatches,deepestGameWindow,strictCompletionEvidence};
+console.info('[Balance Hold] Analytics V50.5 strict-six wrapper ready',RELEASE);
 })();
 </script>
 </body>
