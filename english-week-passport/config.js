@@ -1,6 +1,6 @@
 window.EW_CONFIG = Object.freeze({
   appId: "ENGLISH-WEEK-PASSPORT-2026",
-  version: "2026-08-08-PASSPORT-MOBILE-SMOKE-R3-SCROLL",
+  version: "2026-08-08-PASSPORT-MOBILE-SMOKE-R4-CENTER",
   authorityMode: "firestore-direct",
   firebaseProjectId: "englishweek-95869",
   firebaseRegion: "asia-southeast1",
@@ -23,11 +23,11 @@ window.EW_CONFIG = Object.freeze({
   })
 });
 
-/* LEXICON X • Mobile Smoke-Test Contract R3
- * Desktop ?view=mobile = centered mobile viewport.
- * Passport pages remain vertically scrollable.
- * Gameplay shells remain fixed/full-screen.
- * The view flag propagates through nested game iframes.
+/* LEXICON X • Mobile Smoke-Test Contract R4
+ * Desktop ?view=mobile = centered 430px mobile viewport.
+ * Uses the html element as a flex centering host instead of positioning body
+ * with left:50% + transform. This is substantially more stable for the
+ * scrollable Passport document in Chrome.
  */
 (function(){
   'use strict';
@@ -40,26 +40,32 @@ window.EW_CONFIG = Object.freeze({
   if(document.body)document.body.classList.add('ew-mobile-smoke');
 
   const style=document.createElement('style');
-  style.id='ewMobileSmokeContractR3';
+  style.id='ewMobileSmokeContractR4';
   style.textContent=`
     html.ew-mobile-smoke-root{
       width:100%!important;
+      min-width:100%!important;
       min-height:100%!important;
       background:#07121f!important;
       overflow:hidden!important;
+      display:flex!important;
+      justify-content:center!important;
+      align-items:flex-start!important;
     }
     body.ew-mobile-smoke{
+      flex:0 0 430px!important;
       width:430px!important;
       max-width:430px!important;
       min-width:0!important;
       height:100dvh!important;
       min-height:100dvh!important;
-      position:fixed!important;
-      top:0!important;
-      left:50%!important;
+      position:relative!important;
+      inset:auto!important;
+      left:auto!important;
       right:auto!important;
+      top:auto!important;
       bottom:auto!important;
-      transform:translateX(-50%)!important;
+      transform:none!important;
       margin:0!important;
       overflow:hidden!important;
       box-shadow:0 0 0 1px rgba(255,255,255,.08),0 18px 60px rgba(0,0,0,.28)!important;
@@ -82,11 +88,12 @@ window.EW_CONFIG = Object.freeze({
       height:100%!important;
     }
 
-    /* Passport is a document, not a full-screen game. It must scroll. */
+    /* Passport is a scrollable document inside the centered mobile frame. */
     html[data-lexicon-stage="passport"].ew-mobile-smoke-root{
       overflow:hidden!important;
     }
     html[data-lexicon-stage="passport"] body.ew-mobile-smoke{
+      height:100dvh!important;
       overflow-y:auto!important;
       overflow-x:hidden!important;
       -webkit-overflow-scrolling:touch!important;
@@ -112,12 +119,15 @@ window.EW_CONFIG = Object.freeze({
     }
 
     @media(max-width:720px){
-      html.ew-mobile-smoke-root{background:inherit!important;overflow:hidden!important}
+      html.ew-mobile-smoke-root{
+        display:block!important;
+        background:inherit!important;
+        overflow:hidden!important;
+      }
       body.ew-mobile-smoke{
         width:100%!important;
         max-width:none!important;
-        left:0!important;
-        transform:none!important;
+        flex:none!important;
         box-shadow:none!important;
       }
       body.ew-mobile-smoke .app-shell,
@@ -151,5 +161,5 @@ window.EW_CONFIG = Object.freeze({
     });
   }).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['src']});
 
-  window.EW_MOBILE_SMOKE=Object.freeze({version:'2026-08-08-MOBILE-SMOKE-R3-SCROLL',active:true,width:430,passportScroll:true});
+  window.EW_MOBILE_SMOKE=Object.freeze({version:'2026-08-08-MOBILE-SMOKE-R4-CENTER',active:true,width:430,passportScroll:true,centering:'html-flex-host'});
 })();
