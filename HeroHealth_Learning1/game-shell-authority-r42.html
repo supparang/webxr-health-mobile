@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#082f49">
 <title>HeroHealth Classroom Game</title>
 <style>
-html,body{margin:0;width:100%;height:100%;min-height:100dvh;overflow:hidden;background:#03131d;color:#fff;font-family:system-ui,sans-serif}.loading{max-width:88vw;padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.center{width:100%;height:100%;min-height:100dvh;display:grid;place-items:center}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}.loading button{margin-top:14px;padding:12px 18px;border:0;border-radius:12px;font:inherit;font-weight:900}.firebase-shell{display:grid;grid-template-rows:auto minmax(0,1fr);width:100%;height:100%;min-height:100dvh;overflow:hidden}.firebase-bar{display:flex;align-items:center;gap:12px;min-width:0;min-height:48px;padding:8px max(12px,env(safe-area-inset-right)) 8px max(12px,env(safe-area-inset-left));padding-top:max(8px,env(safe-area-inset-top));background:#0f766e;font-weight:900}.firebase-bar.test{background:#92400e}.firebase-bar.smoke{box-shadow:inset 0 -3px 0 #fbbf24}.firebase-bar button{flex:0 0 auto;padding:9px 13px;border:1px solid #ffffff55;border-radius:11px;background:#ffffff18;color:#fff;font:inherit;font-weight:900;touch-action:manipulation}.firebase-bar button:disabled{opacity:.65}.firebase-bar #gameTitle{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.firebase-bar #receiptStatus{flex:0 1 auto;margin-left:auto;text-align:right;font-size:13px;white-space:nowrap}.firebase-shell iframe{display:block;width:100%;height:100%;min-height:0;border:0;background:#000}
-@media(max-width:680px){.firebase-bar{gap:7px;min-height:44px;padding:6px max(8px,env(safe-area-inset-right)) 6px max(8px,env(safe-area-inset-left));padding-top:max(6px,env(safe-area-inset-top));font-size:12px}.firebase-bar button{min-height:38px;padding:7px 10px;font-size:12px}.firebase-bar #gameTitle{font-size:12px}.firebase-bar #receiptStatus{display:none}}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;min-height:100dvh;overflow:hidden;background:#03131d;color:#fff;font-family:system-ui,sans-serif}.loading{max-width:88vw;padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.center{width:100%;height:100%;min-height:100dvh;display:grid;place-items:center}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}.loading button{margin-top:14px;padding:12px 18px;border:0;border-radius:12px;font:inherit;font-weight:900}.firebase-shell{display:grid;grid-template-rows:auto minmax(0,1fr);width:100%;height:100dvh;overflow:hidden}.firebase-shell.smoke-preview{grid-template-rows:auto auto minmax(0,1fr)}.firebase-bar{display:flex;align-items:center;gap:12px;min-width:0;min-height:48px;padding:8px max(12px,env(safe-area-inset-right)) 8px max(12px,env(safe-area-inset-left));padding-top:max(8px,env(safe-area-inset-top));background:#0f766e;font-weight:900}.firebase-bar.test{background:#92400e}.firebase-bar.smoke{box-shadow:inset 0 -3px 0 #fbbf24}.firebase-bar button,.smoke-tools button{flex:0 0 auto;padding:9px 13px;border:1px solid #ffffff55;border-radius:11px;background:#ffffff18;color:#fff;font:inherit;font-weight:900;touch-action:manipulation;cursor:pointer}.firebase-bar button:disabled{opacity:.65}.firebase-bar #gameTitle{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.firebase-bar #receiptStatus{flex:0 1 auto;margin-left:auto;text-align:right;font-size:13px;white-space:nowrap}.firebase-shell>iframe{display:block;width:100%;height:100%;min-height:0;border:0;background:#000}.smoke-tools{display:flex;align-items:center;gap:7px;min-height:44px;padding:6px 10px;background:#111827;border-bottom:1px solid #334155;overflow-x:auto;white-space:nowrap}.smoke-tools b{font-size:12px;color:#fde68a}.smoke-tools button{min-height:32px;padding:6px 10px;border-radius:9px;font-size:11px;background:#1f2937;border-color:#475569}.smoke-tools button.active{background:#0f766e;border-color:#5eead4}.smoke-tools .viewport-label{margin-left:auto;font-size:11px;color:#cbd5e1}.smoke-stage{min-width:0;min-height:0;overflow:auto;display:grid;place-items:start center;padding:10px;background:radial-gradient(circle at top,#172033,#020617 72%)}.smoke-device{position:relative;flex:none;width:390px;height:780px;max-width:none;max-height:none;overflow:hidden;border:2px solid #64748b;border-radius:26px;background:#000;box-shadow:0 20px 50px #000b}.smoke-device:before{content:"MOBILE VIEWPORT";position:absolute;z-index:4;top:5px;left:50%;transform:translateX(-50%);padding:2px 7px;border-radius:999px;background:#020617b8;color:#cbd5e1;font:800 8px system-ui;pointer-events:none}.smoke-device iframe{display:block;width:100%;height:100%;border:0;background:#000}.smoke-stage[data-mode="desktop"]{padding:0}.smoke-stage[data-mode="desktop"] .smoke-device{width:100%!important;height:100%!important;border:0;border-radius:0;box-shadow:none}.smoke-stage[data-mode="desktop"] .smoke-device:before{display:none}
+@media(max-width:680px){.firebase-bar{gap:7px;min-height:44px;padding:6px max(8px,env(safe-area-inset-right)) 6px max(8px,env(safe-area-inset-left));padding-top:max(6px,env(safe-area-inset-top));font-size:12px}.firebase-bar button{min-height:38px;padding:7px 10px;font-size:12px}.firebase-bar #gameTitle{font-size:12px}.firebase-bar #receiptStatus{display:none}.smoke-tools{display:none}.firebase-shell.smoke-preview{grid-template-rows:auto minmax(0,1fr)}.smoke-stage{padding:0;overflow:hidden}.smoke-device{width:100%!important;height:100%!important;border:0;border-radius:0;box-shadow:none}.smoke-device:before{display:none}}
 @media(max-width:380px){.firebase-bar button{max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.firebase-bar #gameTitle{font-size:11px}}
 </style>
 <script src="./assets/hh-responsive-runtime-v1.js?v=20260807-r1"></script>
@@ -16,69 +16,44 @@ html,body{margin:0;width:100%;height:100%;min-height:100dvh;overflow:hidden;back
 <div class="center"><div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังเชื่อมต่อ Firebase Learning Analytics กรุณารอสักครู่</small></div></div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260807-GAME-SHELL-R47-RESPONSIVE-PC-SMOKE';
+const RELEASE='20260808-GAME-SHELL-R48-REAL-MOBILE-VIEWPORT-SMOKE';
 const shellQuery=new URLSearchParams(location.search);
 const firebaseMode=String(shellQuery.get('authority')||'').toLowerCase()==='firebase';
 const gameTestMode=String(shellQuery.get('gameTestMode')||'')==='1'||String(shellQuery.get('mode')||'').toLowerCase()==='game-test';
 const explicitSmoke=/^(1|true|yes)$/i.test(String(shellQuery.get('smoke')||shellQuery.get('smokeTest')||''));
 const desktopLike=!window.matchMedia?.('(pointer:coarse)')?.matches&&(window.innerWidth||1024)>=768;
 const pcSmoke=explicitSmoke||(gameTestMode&&desktopLike);
-if(pcSmoke)shellQuery.set('smoke','1');
+if(pcSmoke){shellQuery.set('smoke','1');if(!shellQuery.get('view'))shellQuery.set('view','mobile');if(!shellQuery.get('physicalDevice'))shellQuery.set('physicalDevice','desktop')}
 
-if(!firebaseMode){
-  const legacy=new URL('./game-shell-authority-r40.html',location.href);
-  shellQuery.forEach((value,key)=>legacy.searchParams.set(key,value));
-  legacy.searchParams.set('shellVersion',RELEASE);
-  location.replace(legacy.href);
-  return;
-}
+if(!firebaseMode){const legacy=new URL('./game-shell-authority-r40.html',location.href);shellQuery.forEach((value,key)=>legacy.searchParams.set(key,value));legacy.searchParams.set('shellVersion',RELEASE);location.replace(legacy.href);return}
 
 const target=String(shellQuery.get('target')||'').trim();
 const rawBack=String(shellQuery.get('return')||shellQuery.get('back')||(gameTestMode?'./game-test-mode.html':'./index.html')).trim();
-function sanitizeFirebaseReturn(raw){
-  const u=new URL(raw,location.href);
-  for(const key of ['logout','logoutAt','logoutNonce','firebaseHydratedR71','firebaseHydrated','firebaseProgressApplied','pendingGameSync','gameSync','firebaseAssessmentReceipt'])u.searchParams.delete(key);
-  const sid=String(shellQuery.get('studentId')||shellQuery.get('sid')||shellQuery.get('pid')||'').trim();
-  if(sid){u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid)}
-  for(const key of ['fullName','studentName','name','section','group','firebaseUid']){const value=shellQuery.get(key);if(value)u.searchParams.set(key,value)}
-  u.searchParams.set('authority','firebase');u.searchParams.set('firebaseReady','1');u.searchParams.set('authorityRefresh',String(Date.now()));u.searchParams.set('returnSessionPolicy','force-firebase-rehydrate-r47');
-  if(pcSmoke)u.searchParams.set('smoke','1');
-  return u.href;
-}
-const back=sanitizeFirebaseReturn(rawBack);
-shellQuery.set('return',back);shellQuery.set('back',back);shellQuery.set('shellVersion',RELEASE);if(pcSmoke)shellQuery.set('smoke','1');
+function sanitizeFirebaseReturn(raw){const u=new URL(raw,location.href);for(const key of ['logout','logoutAt','logoutNonce','firebaseHydratedR71','firebaseHydrated','firebaseProgressApplied','pendingGameSync','gameSync','firebaseAssessmentReceipt'])u.searchParams.delete(key);const sid=String(shellQuery.get('studentId')||shellQuery.get('sid')||shellQuery.get('pid')||'').trim();if(sid){u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid)}for(const key of ['fullName','studentName','name','section','group','firebaseUid']){const value=shellQuery.get(key);if(value)u.searchParams.set(key,value)}u.searchParams.set('authority','firebase');u.searchParams.set('firebaseReady','1');u.searchParams.set('authorityRefresh',String(Date.now()));u.searchParams.set('returnSessionPolicy','force-firebase-rehydrate-r48');if(pcSmoke){u.searchParams.set('smoke','1');u.searchParams.set('view','mobile')}return u.href}
+const back=sanitizeFirebaseReturn(rawBack);shellQuery.set('return',back);shellQuery.set('back',back);shellQuery.set('shellVersion',RELEASE);if(pcSmoke)shellQuery.set('smoke','1');
 try{const shellUrl=new URL(location.href);shellUrl.search=shellQuery.toString();history.replaceState(history.state,'',shellUrl.href)}catch(_){}
-
 if(!target){document.body.innerHTML='<div class="center"><div class="loading"><b>ไม่พบเส้นทางเกม</b><small>กรุณากลับแล้วเปิดภารกิจใหม่</small></div></div>';return}
 
 const targetUrl=new URL(target,location.href);
-for(const key of ['authority','studentId','sid','pid','fullName','studentName','name','section','group','firebaseUid','gameId','zone','studyId','conditionGroup','phase','difficulty','mode','gameTestMode','isTestAttempt','affectsProgression','testRunId','smoke','smokeTest','device','view','mobileOnly']){const value=shellQuery.get(key);if(value)targetUrl.searchParams.set(key,value)}
-targetUrl.searchParams.set('authority','firebase');targetUrl.searchParams.set('return',back);targetUrl.searchParams.set('back',back);targetUrl.searchParams.set('firebaseShellVersion',RELEASE);if(pcSmoke)targetUrl.searchParams.set('smoke','1');targetUrl.searchParams.set('_',Date.now());
+for(const key of ['authority','studentId','sid','pid','fullName','studentName','name','section','group','firebaseUid','gameId','zone','studyId','conditionGroup','phase','difficulty','mode','gameTestMode','isTestAttempt','affectsProgression','testRunId','smoke','smokeTest','device','physicalDevice','view','mobileOnly']){const value=shellQuery.get(key);if(value)targetUrl.searchParams.set(key,value)}
+targetUrl.searchParams.set('authority','firebase');targetUrl.searchParams.set('return',back);targetUrl.searchParams.set('back',back);targetUrl.searchParams.set('firebaseShellVersion',RELEASE);if(pcSmoke){targetUrl.searchParams.set('smoke','1');targetUrl.searchParams.set('view','mobile')}targetUrl.searchParams.set('_',Date.now());
 
-document.body.innerHTML='<main class="firebase-shell"><header class="firebase-bar'+(gameTestMode?' test':'')+(pcSmoke?' smoke':'')+'"><button id="back">← '+(gameTestMode?'กลับหน้าเลือกเกม':'กลับ Passport')+'</button><span id="gameTitle"></span><span id="receiptStatus">กำลังเตรียม Learning Analytics</span></header><iframe id="game" allow="camera; microphone; accelerometer; gyroscope; autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></main>';
+const shellMarkup=pcSmoke?'<main class="firebase-shell smoke-preview"><header class="firebase-bar'+(gameTestMode?' test':'')+' smoke"><button id="back">← '+(gameTestMode?'กลับหน้าเลือกเกม':'กลับ Passport')+'</button><span id="gameTitle"></span><span id="receiptStatus">กำลังเตรียม Learning Analytics</span></header><nav class="smoke-tools" aria-label="PC Smoke viewport"><b>PC SMOKE VIEW</b><button data-vp="portrait">📱 390×780</button><button data-vp="wide">📱 430×820</button><button data-vp="landscape">↔ 844×390</button><button data-vp="desktop">🖥 Desktop Fit</button><span id="viewportLabel" class="viewport-label"></span></nav><section class="smoke-stage" id="smokeStage"><div class="smoke-device" id="smokeDevice"><iframe id="game" allow="camera; microphone; accelerometer; gyroscope; autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></div></section></main>':'<main class="firebase-shell"><header class="firebase-bar'+(gameTestMode?' test':'')+'"><button id="back">← '+(gameTestMode?'กลับหน้าเลือกเกม':'กลับ Passport')+'</button><span id="gameTitle"></span><span id="receiptStatus">กำลังเตรียม Learning Analytics</span></header><iframe id="game" allow="camera; microphone; accelerometer; gyroscope; autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></main>';
+document.body.innerHTML=shellMarkup;
 document.getElementById('gameTitle').textContent=(shellQuery.get('title')||'HeroHealth')+(gameTestMode?' • TEST MODE':pcSmoke?' • PC SMOKE':'');
 const backButton=document.getElementById('back'),gameFrame=document.getElementById('game');backButton.onclick=()=>location.replace(back);
+
+const viewportPresets={portrait:{w:390,h:780,label:'Mobile Portrait • 390×780 CSS px'},wide:{w:430,h:820,label:'Mobile Wide • 430×820 CSS px'},landscape:{w:844,h:390,label:'Mobile Landscape • 844×390 CSS px'},desktop:{w:null,h:null,label:'Desktop Fit • regression only'}};
+function applySmokeViewport(mode){if(!pcSmoke)return;const stage=document.getElementById('smokeStage'),device=document.getElementById('smokeDevice'),label=document.getElementById('viewportLabel');const preset=viewportPresets[mode]||viewportPresets.portrait;stage.dataset.mode=mode;document.querySelectorAll('.smoke-tools [data-vp]').forEach(b=>b.classList.toggle('active',b.dataset.vp===mode));if(mode==='desktop'){device.style.width='100%';device.style.height='100%'}else{device.style.width=preset.w+'px';device.style.height=preset.h+'px'}if(label)label.textContent=preset.label;shellQuery.set('smokeViewport',mode);try{const u=new URL(location.href);u.searchParams.set('smokeViewport',mode);history.replaceState(history.state,'',u.href)}catch(_){}setTimeout(()=>{try{gameFrame.contentWindow?.dispatchEvent(new Event('resize'))}catch(_){}},60)}
+if(pcSmoke){document.querySelectorAll('.smoke-tools [data-vp]').forEach(b=>b.onclick=()=>applySmokeViewport(b.dataset.vp));applySmokeViewport(shellQuery.get('smokeViewport')||'portrait')}
+
 const responsiveRuntimeUrl=new URL('./assets/hh-responsive-runtime-v1.js?v=20260807-r1',location.href).href;
-function installResponsiveRuntime(){
-  try{
-    const d=gameFrame.contentDocument;if(!d?.head||d.getElementById('hh-responsive-runtime-loader'))return;
-    const script=d.createElement('script');script.id='hh-responsive-runtime-loader';script.src=responsiveRuntimeUrl;script.dataset.injectedBy=RELEASE;d.head.appendChild(script);
-  }catch(error){console.debug('[Game Shell R47] responsive runtime injection skipped',error)}
-}
+function installResponsiveRuntime(){try{const d=gameFrame.contentDocument;if(!d?.head||d.getElementById('hh-responsive-runtime-loader'))return;const script=d.createElement('script');script.id='hh-responsive-runtime-loader';script.src=responsiveRuntimeUrl;script.dataset.injectedBy=RELEASE;d.head.appendChild(script)}catch(error){console.debug('[Game Shell R48] responsive runtime injection skipped',error)}}
 gameFrame.addEventListener('load',()=>{installResponsiveRuntime();setTimeout(installResponsiveRuntime,80)});
-
 function loadScript(src){return new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.async=false;script.onload=resolve;script.onerror=()=>reject(new Error('load_failed_'+src));document.head.appendChild(script)})}
-(async()=>{
-  try{
-    if(gameTestMode)await loadScript('./assets/firebase-game-test-analytics-r1.js?v=20260805-r1');else await loadScript('./assets/firebase-game-receipt-bridge-r1.js?v=20260805-r4-learning-analytics');
-    if(String(shellQuery.get('gameId')||'').toLowerCase().includes('goodjunk')||targetUrl.href.toLowerCase().includes('goodjunk'))await loadScript('./assets/goodjunk-firebase-completion-patch-r3.js?v=20260805-r3');
-    document.getElementById('receiptStatus').textContent=gameTestMode?(pcSmoke?'PC Smoke • Test Attempt • ไม่กระทบ Progress':'พร้อมทดสอบ • ไม่กระทบ Progress'):(pcSmoke?'PC Smoke • Firebase Receipt ทำงานตามปกติ':'พร้อมเล่นเกม • Analytics เปิดแล้ว');
-    gameFrame.src=targetUrl.href;
-  }catch(error){console.error('[Game Shell R47]',error);document.getElementById('receiptStatus').textContent='โหลด Firebase Learning Analytics ไม่สำเร็จ';backButton.textContent=gameTestMode?'กลับหน้าเลือกเกม':'กลับ Passport'}
-})();
-
-window.HH_GAME_SHELL_R47={release:RELEASE,authority:'firebase',firebaseExclusive:true,gameTestMode,pcSmoke,affectsProgression:!gameTestMode,learningAnalyticsSchema:gameTestMode?'HH-GAME-TEST-ANALYTICS-V1':'HH-LEARNING-ANALYTICS-V1',returnSessionPolicy:'force-firebase-rehydrate'};
-console.info('[Game Shell R47] installed',{gameTestMode,pcSmoke,gameId:shellQuery.get('gameId'),target:targetUrl.href,back});
+(async()=>{try{if(gameTestMode)await loadScript('./assets/firebase-game-test-analytics-r1.js?v=20260805-r1');else await loadScript('./assets/firebase-game-receipt-bridge-r1.js?v=20260805-r4-learning-analytics');if(String(shellQuery.get('gameId')||'').toLowerCase().includes('goodjunk')||targetUrl.href.toLowerCase().includes('goodjunk'))await loadScript('./assets/goodjunk-firebase-completion-patch-r3.js?v=20260805-r3');document.getElementById('receiptStatus').textContent=gameTestMode?(pcSmoke?'PC Smoke • Mobile View • ไม่กระทบ Progress':'พร้อมทดสอบ • ไม่กระทบ Progress'):(pcSmoke?'PC Smoke • Mobile View • Firebase Receipt ปกติ':'พร้อมเล่นเกม • Analytics เปิดแล้ว');gameFrame.src=targetUrl.href}catch(error){console.error('[Game Shell R48]',error);document.getElementById('receiptStatus').textContent='โหลด Firebase Learning Analytics ไม่สำเร็จ';backButton.textContent=gameTestMode?'กลับหน้าเลือกเกม':'กลับ Passport'}})();
+window.HH_GAME_SHELL_R48={release:RELEASE,authority:'firebase',firebaseExclusive:true,gameTestMode,pcSmoke,smokeViewport:pcSmoke?(shellQuery.get('smokeViewport')||'portrait'):'native',view:targetUrl.searchParams.get('view')||'',physicalDevice:shellQuery.get('physicalDevice')||shellQuery.get('device')||'',affectsProgression:!gameTestMode,learningAnalyticsSchema:gameTestMode?'HH-GAME-TEST-ANALYTICS-V1':'HH-LEARNING-ANALYTICS-V1',returnSessionPolicy:'force-firebase-rehydrate'};
+console.info('[Game Shell R48] installed',{gameTestMode,pcSmoke,view:targetUrl.searchParams.get('view'),gameId:shellQuery.get('gameId'),target:targetUrl.href,back});
 })();
 </script>
 </body>
