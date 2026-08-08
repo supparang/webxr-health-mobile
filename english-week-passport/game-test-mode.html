@@ -12,19 +12,19 @@
 <body>
 <header class="top"><b>LEXICON X • Game Test Mode</b><small id="modeText">ทดสอบรายเกมโดยไม่เปลี่ยน progression หลัก</small></header>
 <main class="wrap">
-<section class="hero"><h1>เลือกเกมที่ต้องการ Smoke Test</h1><p>บน PC จะเปิดเกมใน Mobile View เพื่อให้ตรวจ responsive ได้เหมือนการเล่นบนโทรศัพท์</p><p>โหมด QA รายเกมไม่ควรเปลี่ยน Passport progression; หากต้องการทดสอบ Firebase + Unlock จริง ให้ใช้ปุ่ม <b>Production E2E</b></p></section>
-<div class="notice" id="notice">QA GAME TEST • mobile viewport • ไม่ควรใช้เป็นคะแนนจริง</div>
-<section class="meta"><label for="pid">รหัสผู้เล่นทดสอบ</label><input id="pid" value="QA-FB-002" autocomplete="off"><div class="modeRow"><span class="chip">P1–P4</span><span class="chip">R1–R2</span><span class="chip">player-specific seed</span><span class="chip">Firestore Production available</span></div></section>
+<section class="hero"><h1>เลือกเกมที่ต้องการ Smoke Test</h1><p>บน PC จะเปิดเกมใน Mobile View กลางจอ เพื่อเช็ก responsive แบบเดียวกับการเล่นบนโทรศัพท์</p><p><b>Smoke Test</b> ไม่เปลี่ยน Passport progression ส่วน <b>Production E2E</b> ใช้ Passport + Firestore + auto-return จริง</p></section>
+<div class="notice" id="notice">QA GAME TEST • isolated mobile shell • affectsProgression = false</div>
+<section class="meta"><label for="pid">รหัสผู้เล่นทดสอบ</label><input id="pid" value="QA-FB-002" autocomplete="off"><div class="modeRow"><span class="chip">P1–P4</span><span class="chip">R1–R2</span><span class="chip">player-specific seed</span><span class="chip">Production E2E available</span></div></section>
 <section class="grid" id="games"></section>
 <button class="back" id="passport">← เปิด English Week Passport</button>
 </main>
 <script>
 (()=>{'use strict';
-const RELEASE='20260808-ENGLISH-GAME-TEST-R1';
+const RELEASE='20260808-ENGLISH-GAME-TEST-R2';
 const q=new URLSearchParams(location.search);
 const desktopSmoke=!window.matchMedia?.('(pointer:coarse)')?.matches&&(window.innerWidth||1024)>=768;
 const pid=document.getElementById('pid');pid.value=q.get('pid')||q.get('playerId')||'QA-FB-002';
-if(desktopSmoke){document.getElementById('modeText').textContent='PC Smoke Test • Mobile View • เลือกทดสอบรายเกม';document.getElementById('notice').textContent='PC SMOKE • Mobile-first QA • กล้อง/Hand/Body Detection ต้องยืนยันบนมือถือจริงอีกครั้ง'}
+if(desktopSmoke){document.getElementById('modeText').textContent='PC Smoke Test • Mobile View 390×780 • เลือกทดสอบรายเกม';document.getElementById('notice').textContent='PC SMOKE • เปิดใน QA Shell แยก • ไม่เปลี่ยน progression • กล้อง/Hand/Body Detection ให้ยืนยันบนมือถือจริงอีกครั้ง'}
 const games=[
  {id:'word_match',icon:'🧭',title:'LexiMatch Navigator',desc:'Game 1 • จับคู่คำศัพท์ • Swipe + Tilt',target:'./leximatch-navigator-passport.html'},
  {id:'category_forest',icon:'🌲',title:'Category Forest',desc:'Game 2 • ลากคำเข้าหมวด • Rescue Learning',target:'./category-forest-v5.html'},
@@ -36,12 +36,10 @@ const games=[
 const grid=document.getElementById('games');
 for(const g of games){const card=document.createElement('article');card.className='card';card.innerHTML=`<div class="icon">${g.icon}</div><h2>${g.title}</h2><p>${g.desc}</p><button class="play">Smoke Test เกมนี้</button><button class="prod">Production E2E ผ่าน Passport</button>`;card.querySelector('.play').onclick=()=>launchSmoke(g);card.querySelector('.prod').onclick=()=>launchProduction(g);grid.appendChild(card)}
 function id(){return String(pid.value||'').trim()}
-function launchSmoke(g){const player=id();if(!player){pid.focus();return}if(g.id==='final_boss'){const u=new URL(g.target,location.href);u.searchParams.set('qa','1');u.searchParams.set('pid',player);u.searchParams.set('playerId',player);u.searchParams.set('run','1');u.searchParams.set('stage','final_boss');if(desktopSmoke){u.searchParams.set('view','mobile');u.searchParams.set('smoke','1')}u.searchParams.set('v',RELEASE);location.href=u.href;return}
- if(g.id==='bonus_lens'){const u=new URL(g.target,location.href);u.searchParams.set('pid',player);u.searchParams.set('stage','bonus_lens');u.searchParams.set('qa','1');if(desktopSmoke){u.searchParams.set('view','mobile');u.searchParams.set('smoke','1')}u.searchParams.set('v',RELEASE);location.href=u.href;return}
- const shell=new URL('./passport-game-shell-firestore-v2.html',location.href);shell.searchParams.set('stage',g.id);shell.searchParams.set('run','1');shell.searchParams.set('pid',player);shell.searchParams.set('qa','1');shell.searchParams.set('gameTestMode','1');shell.searchParams.set('isTestAttempt','true');shell.searchParams.set('affectsProgression','false');shell.searchParams.set('testRunId',`TEST-${player}-${g.id}-${Date.now()}`);if(desktopSmoke){shell.searchParams.set('view','mobile');shell.searchParams.set('smoke','1')}shell.searchParams.set('v',RELEASE);location.href=shell.href}
-function launchProduction(g){const player=id();if(!player){pid.focus();return}const u=new URL('./index.html',location.href);u.searchParams.set('pid',player);u.searchParams.set('resume','passport');u.searchParams.set('v',RELEASE);if(desktopSmoke)u.searchParams.set('view','mobile');location.href=u.href}
-document.getElementById('passport').onclick=()=>{const player=id();const u=new URL('./index.html',location.href);if(player)u.searchParams.set('pid',player);u.searchParams.set('resume','passport');if(desktopSmoke)u.searchParams.set('view','mobile');u.searchParams.set('v',RELEASE);location.href=u.href};
-window.EW_GAME_TEST_MODE=Object.freeze({release:RELEASE,desktopSmoke,games:games.map(g=>g.id)});
+function launchSmoke(g){const player=id();if(!player){pid.focus();return}const shell=new URL('./game-test-shell.html',location.href);const back=new URL('./game-test-mode.html',location.href);back.searchParams.set('pid',player);back.searchParams.set('v',RELEASE);shell.searchParams.set('pid',player);shell.searchParams.set('title',g.title+' • TEST');shell.searchParams.set('gameId',g.id);shell.searchParams.set('target',new URL(g.target,location.href).href);shell.searchParams.set('back',back.href);shell.searchParams.set('view','mobile');shell.searchParams.set('smoke','1');shell.searchParams.set('v',RELEASE);location.href=shell.href}
+function launchProduction(g){const player=id();if(!player){pid.focus();return}const u=new URL('./index.html',location.href);u.searchParams.set('pid',player);u.searchParams.set('resume','passport');u.searchParams.set('view','mobile');u.searchParams.set('smoke','pc');u.searchParams.set('e2e','1');u.searchParams.set('focusStage',g.id);u.searchParams.set('v',RELEASE);location.href=u.href}
+document.getElementById('passport').onclick=()=>{const player=id();const u=new URL('./index.html',location.href);if(player)u.searchParams.set('pid',player);u.searchParams.set('resume','passport');if(desktopSmoke){u.searchParams.set('view','mobile');u.searchParams.set('smoke','pc')}u.searchParams.set('v',RELEASE);location.href=u.href};
+window.EW_GAME_TEST_MODE=Object.freeze({release:RELEASE,desktopSmoke,games:games.map(g=>g.id),isolatedSmokeShell:true});
 })();
 </script>
 </body>
