@@ -17,7 +17,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;col
 (async function(){
   const boot=document.getElementById('boot');
   try{
-    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260808-scv62-fixed-submit-v5',{cache:'no-store'});
+    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260808-scv62-fixed-submit-v6',{cache:'no-store'});
     if(!response.ok)throw new Error('V61_CLEAN_LOADER_FAILED_'+response.status);
     let source=await response.text();
 
@@ -35,17 +35,11 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;col
     if(!source.includes('sentence-city-bank-v2-clean.js'))throw new Error('CLEAN_BANK_SCRIPT_PATCH_FAILED');
     if(!source.includes('LexiconXSentenceBankV2'))throw new Error('CLEAN_BANK_GLOBAL_PATCH_FAILED');
 
-    /* Load V5 in the final rendered game. The id matches the outer enhancer,
-       preventing an older cached mobile-grid script from being injected later. */
     const mobileGrid='<script id="scMobileGrid" src="./sentence-city-mobile-grid-v1.js?v=20260808-sc-mobile-uniform-grid-v5-fixed-submit-lane"></'+'script>';
     source=source.replace('</head>',mobileGrid+'</head>');
 
-    /* V5.4 base has a legacy typo in finish(): it calculates firstAccuracy but
-       publishes shorthand firstTryAccuracy. Patch the generated runtime before
-       V6.1 writes it so summary/result/Firebase completion cannot throw. */
-    const runtimeWrite='document.open();\n    document.write(source);';
-    const repairedWrite="source=source.replace('firstTryAccuracy,finalMastery','firstTryAccuracy:firstAccuracy,finalMastery');\n    document.open();\n    document.write(source);";
-    if(source.includes(runtimeWrite))source=source.replace(runtimeWrite,repairedWrite);
+    /* Repair the legacy V5.4 shorthand before the nested loader writes the final game. */
+    source=source.split('firstTryAccuracy,finalMastery').join('firstTryAccuracy:firstAccuracy,finalMastery');
 
     document.open();
     document.write(source);
