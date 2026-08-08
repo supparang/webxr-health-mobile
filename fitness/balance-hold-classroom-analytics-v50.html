@@ -11,12 +11,12 @@
 <iframe id="proxy" title="เกม Balance Hold" allow="camera;microphone;fullscreen;autoplay"></iframe>
 <script>
 (()=>{'use strict';
-const RELEASE='20260808-BALANCE-ANALYTICS-V50-6-BOSS-UI-V57';
+const RELEASE='20260808-BALANCE-ANALYTICS-V50-7-SMOKE-RETURN';
 const q=new URLSearchParams(location.search);
 const proxy=document.getElementById('proxy');
 const target=new URL('./balance-hold-classroom-analytics-v49.html',location.href);
 q.forEach((value,key)=>target.searchParams.set(key,value));
-target.searchParams.set('finishGate','v56-strict-six');target.searchParams.set('balanceDetection','v54-balanced');target.searchParams.set('bossUi','v57');target.searchParams.set('_',Date.now());proxy.src=target.href;
+target.searchParams.set('finishGate','v56-strict-six');target.searchParams.set('balanceDetection','v54-balanced');target.searchParams.set('bossUi','v57');target.searchParams.set('smokeReturn','v58');target.searchParams.set('_',Date.now());proxy.src=target.href;
 
 let injectTimer=0,completionForwarded=false;
 function deepestGameWindow(){try{const proxyWindow=proxy.contentWindow;const gameFrame=proxyWindow?.document?.getElementById('game');return gameFrame?.contentWindow||null}catch(_){return null}}
@@ -34,7 +34,7 @@ function injectScript(gameWindow,selector,src,datasetKey){
  if(!gameWindow?.document)return false;
  if(gameWindow.document.querySelector(selector))return true;
  const script=gameWindow.document.createElement('script');script.src=new URL(src,gameWindow.location.href).href;script.async=false;script.dataset[datasetKey]='1';
- script.onload=()=>console.info('[Balance V50.6] injected',src);script.onerror=()=>console.error('[Balance V50.6] injection failed',src);
+ script.onload=()=>console.info('[Balance V50.7] injected',src);script.onerror=()=>console.error('[Balance V50.7] injection failed',src);
  (gameWindow.document.head||gameWindow.document.documentElement).appendChild(script);return false;
 }
 function injectResponsive(gameWindow){
@@ -47,12 +47,13 @@ function injectResponsive(gameWindow){
 function injectRuntimePatches(){
  const gameWindow=deepestGameWindow();if(!gameWindow||!gameWindow.document||!gameWindow.BH?.state||typeof gameWindow.BH?.evaluatePose!=='function')return false;
  const responsiveReady=injectResponsive(gameWindow);
- const balancedReady=!!gameWindow.HH_BALANCE_DETECTION_V54||injectScript(gameWindow,'script[data-bh-balanced-v54]','./bh-classroom-balanced-detection-v54.js?v=20260808-balance-v57','bhBalancedV54');
- const strictReady=!!gameWindow.BH_SUMMARY_STRICT_V56||injectScript(gameWindow,'script[data-bh-summary-v56]','./bh-classroom-summary-passport-v56.js?v=20260808-v57','bhSummaryV56');
- const uiReady=!!gameWindow.BH_MOBILE_BOSS_UI_V57||injectScript(gameWindow,'script[data-bh-boss-ui-v57]','./bh-classroom-mobile-boss-ui-v57.js?v=20260808-v57','bhBossUiV57');
- const finishReady=!!gameWindow.BH_FINAL_POSE_DIRECT_FINISH||injectScript(gameWindow,'script[data-bh-finish-v50]','./bh-final-pose-finish-v50.js?v=20260808-v57','bhFinishV50');
- const returnReady=!!gameWindow.__BH_FIREBASE_PASSPORT_RETURN_RESCUE_V54__||injectScript(gameWindow,'script[data-bh-return-v54]','./bh-firebase-passport-return-rescue-v54.js?v=20260808-v57','bhReturnV54');
- return responsiveReady&&balancedReady&&strictReady&&uiReady&&finishReady&&returnReady;
+ const balancedReady=!!gameWindow.HH_BALANCE_DETECTION_V54||injectScript(gameWindow,'script[data-bh-balanced-v54]','./bh-classroom-balanced-detection-v54.js?v=20260808-balance-v58','bhBalancedV54');
+ const strictReady=!!gameWindow.BH_SUMMARY_STRICT_V56||injectScript(gameWindow,'script[data-bh-summary-v56]','./bh-classroom-summary-passport-v56.js?v=20260808-v58','bhSummaryV56');
+ const uiReady=!!gameWindow.BH_MOBILE_BOSS_UI_V57||injectScript(gameWindow,'script[data-bh-boss-ui-v57]','./bh-classroom-mobile-boss-ui-v57.js?v=20260808-v58','bhBossUiV57');
+ const smokeReady=!!gameWindow.__BH_SMOKE_RETURN_ROUTER_V58__||injectScript(gameWindow,'script[data-bh-smoke-return-v58]','./bh-smoke-return-router-v58.js?v=20260808-v58','bhSmokeReturnV58');
+ const finishReady=!!gameWindow.BH_FINAL_POSE_DIRECT_FINISH||injectScript(gameWindow,'script[data-bh-finish-v50]','./bh-final-pose-finish-v50.js?v=20260808-v58','bhFinishV50');
+ const returnReady=!!gameWindow.__BH_FIREBASE_PASSPORT_RETURN_RESCUE_V54__||injectScript(gameWindow,'script[data-bh-return-v54]','./bh-firebase-passport-return-rescue-v54.js?v=20260808-v58','bhReturnV54');
+ return responsiveReady&&balancedReady&&strictReady&&uiReady&&smokeReady&&finishReady&&returnReady;
 }
 proxy.addEventListener('load',()=>{clearInterval(injectTimer);completionForwarded=false;let attempts=0;injectTimer=setInterval(()=>{attempts++;if(injectRuntimePatches()||attempts>240)clearInterval(injectTimer)},100)});
 addEventListener('message',event=>{
@@ -61,15 +62,15 @@ addEventListener('message',event=>{
  if(message.type==='HEROHEALTH_GAME_STARTED'){try{parent.postMessage(message,location.origin)}catch(_){}return}
  if(message.type==='HEROHEALTH_GAME_COMPLETE'&&message.payload&&!completionForwarded){
   const evidence=strictCompletionEvidence();
-  if(!evidence.valid){console.warn('[Balance V50.6] blocked premature completion message',evidence,message.payload);return}
+  if(!evidence.valid){console.warn('[Balance V50.7] blocked premature completion message',evidence,message.payload);return}
   completionForwarded=true;clearInterval(injectTimer);
-  const payload={...message.payload,completed:true,procedureCompleted:true,progressionEligible:true,strictCompletionGate:'six-pose-v56',strictCompletionEvidence:evidence,bossUiVersion:'v57'};
+  const payload={...message.payload,completed:true,procedureCompleted:true,progressionEligible:true,strictCompletionGate:'six-pose-v56',strictCompletionEvidence:evidence,bossUiVersion:'v57',smokeReturnVersion:'v58'};
   try{parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin)}catch(_){}
  }
 });
 addEventListener('pagehide',()=>clearInterval(injectTimer),{once:true});
-window.HH_BALANCE_ANALYTICS_V50={release:RELEASE,balancedDetection:'v54',strictCompletion:'six-pose-v56',bossUi:'v57',injectRuntimePatches,deepestGameWindow,strictCompletionEvidence};
-console.info('[Balance Hold] Analytics V50.6 boss-ui wrapper ready',RELEASE);
+window.HH_BALANCE_ANALYTICS_V50={release:RELEASE,balancedDetection:'v54',strictCompletion:'six-pose-v56',bossUi:'v57',smokeReturn:'v58',injectRuntimePatches,deepestGameWindow,strictCompletionEvidence};
+console.info('[Balance Hold] Analytics V50.7 smoke-return wrapper ready',RELEASE);
 })();
 </script>
 </body>
