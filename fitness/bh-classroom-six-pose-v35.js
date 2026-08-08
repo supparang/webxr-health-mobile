@@ -4,8 +4,7 @@
 const BH=window.BH;
 if(!BH||!BH.state||!BH.el||!BH.CONFIG)return;
 
-const RELEASE='20260731-BALANCE-CLASSROOM-BALANCED-BANK-V47';
-const STORAGE_KEY='bh_classroom_sequence_last_v47';
+const RELEASE='20260808-BALANCE-CLASSROOM-PROGRESSIVE-ROTATION-V55';
 const s=BH.state;
 const e=BH.el;
 const q=new URLSearchParams(location.search);
@@ -13,42 +12,48 @@ const classroom=q.get('classroom')==='1'||q.get('mode')==='classroom'||q.get('so
 if(!classroom)return;
 
 /*
- * Classroom policy
- * - Six poses per round only, to fit a 10-minute station and reduce mobile load.
- * - Uses only pose evaluators already validated in production.
- * - Twelve balanced sequence forms provide variety without changing task difficulty.
- * - Every round contains: center, left, right, tree-left, tree-right and boss.
+ * HeroHealth Grade 5 classroom policy
+ * - No student-facing Easy / Normal / Hard selection.
+ * - Every student performs the SAME six-pose set.
+ * - Pose 1 is a fixed warm-up and Pose 6 is a fixed boss.
+ * - The four middle poses use deterministic balanced rotation from studentId only.
+ * - The same student receives the same order on every replay.
+ * - Difficulty progresses by pose position (hold / pose / safe thresholds), not by a level setting.
  */
 const POSE_LABELS={
-  center:'sky_shield',
+  center:'sky_shield_warmup',
   left:'star_reach_left',
   right:'star_reach_right',
   treeLeft:'tree_balance_left_safe',
   treeRight:'tree_balance_right_safe',
-  boss:'crystal_guardian'
+  boss:'crystal_guardian_boss'
 };
 
-const BANK=[
-  {id:'C47-A01',steps:['center','left','right','treeLeft','treeRight','boss']},
-  {id:'C47-A02',steps:['center','right','left','treeRight','treeLeft','boss']},
-  {id:'C47-A03',steps:['center','left','treeLeft','right','treeRight','boss']},
-  {id:'C47-A04',steps:['center','right','treeRight','left','treeLeft','boss']},
-  {id:'C47-B01',steps:['center','treeLeft','left','treeRight','right','boss']},
-  {id:'C47-B02',steps:['center','treeRight','right','treeLeft','left','boss']},
-  {id:'C47-B03',steps:['center','left','treeRight','right','treeLeft','boss']},
-  {id:'C47-B04',steps:['center','right','treeLeft','left','treeRight','boss']},
-  {id:'C47-C01',steps:['center','treeLeft','right','left','treeRight','boss']},
-  {id:'C47-C02',steps:['center','treeRight','left','right','treeLeft','boss']},
-  {id:'C47-C03',steps:['center','treeLeft','treeRight','left','right','boss']},
-  {id:'C47-C04',steps:['center','treeRight','treeLeft','right','left','boss']}
+const MIDDLE=['left','right','treeLeft','treeRight'];
+const ROTATIONS=[
+  ['left','right','treeLeft','treeRight'],
+  ['right','left','treeRight','treeLeft'],
+  ['left','treeLeft','right','treeRight'],
+  ['right','treeRight','left','treeLeft'],
+  ['treeLeft','left','treeRight','right'],
+  ['treeRight','right','treeLeft','left'],
+  ['left','treeRight','right','treeLeft'],
+  ['right','treeLeft','left','treeRight'],
+  ['treeLeft','right','left','treeRight'],
+  ['treeRight','left','right','treeLeft'],
+  ['treeLeft','treeRight','left','right'],
+  ['treeRight','treeLeft','right','left']
+].map((steps,index)=>({id:`P55-R${String(index+1).padStart(2,'0')}`,steps}));
+
+const PROGRESSION=[
+  {stage:'warmup',hold:1600,pose:60,safe:46,gate:220,label:'Warm-up'},
+  {stage:'middle-1',hold:1800,pose:62,safe:48,gate:230,label:'Challenge 1'},
+  {stage:'middle-2',hold:1900,pose:64,safe:49,gate:240,label:'Challenge 2'},
+  {stage:'middle-3',hold:2050,pose:65,safe:50,gate:250,label:'Challenge 3'},
+  {stage:'middle-4',hold:2200,pose:66,safe:51,gate:260,label:'Challenge 4'},
+  {stage:'boss',hold:2600,pose:68,safe:52,gate:280,label:'Boss'}
 ];
 
-function getLastId(){
-  try{return String(sessionStorage.getItem(STORAGE_KEY)||'')}catch(_){return ''}
-}
-function saveLastId(id){
-  try{sessionStorage.setItem(STORAGE_KEY,id)}catch(_){}
-}
 function stableHash(text){
   let h=2166136261;
   for(let i=0;i<text.length;i++){
@@ -57,43 +62,87 @@ function stableHash(text){
   }
   return h>>>0;
 }
-function identitySeed(){
-  const params=new URLSearchParams(location.search);
-  return [
-    params.get('studentId')||params.get('sid')||params.get('pid')||'',
-    params.get('group')||params.get('section')||'',
-    s.roundId||'',
-    Date.now().toString().slice(0,-4)
-  ].join('|');
+function studentIdentity(){
+  const id=String(
+    q.get('studentId')||q.get('sid')||q.get('pid')||
+    s.ctx?.studentId||s.ctx?.playerId||''
+  ).trim();
+  return id||'anonymous-classroom';
 }
-function chooseSequence(){
-  const previous=getLastId();
-  const available=BANK.filter(item=>item.id!==previous);
-  const pool=available.length?available:BANK;
-  const index=stableHash(identitySeed())%pool.length;
-  const selected=pool[index]||pool[0]||BANK[0];
-  saveLastId(selected.id);
+function chooseRotation(){
+  const identity=studentIdentity();
+  const selected=ROTATIONS[stableHash(identity)%ROTATIONS.length]||ROTATIONS[0];
+  const steps=['center',...selected.steps,'boss'];
   s.sequencePatternId=selected.id;
-  s.sequencePatternLevel='easy';
-  s.sequenceProfile='balanced-six-from-validated-pose-set';
+  s.sequenceProfile='fixed-warmup-balanced-middle-fixed-boss';
   s.sequenceBankVersion=RELEASE;
-  return selected.steps.slice();
+  s.sequenceStudentKeyHash=stableHash(identity).toString(16);
+  s.sequenceDeterministic=true;
+  return steps;
+}
+function currentProfile(){
+  const index=Math.max(0,Math.min(PROGRESSION.length-1,Number(s.index)||0));
+  return PROGRESSION[index];
+}
+
+// Classroom has one progression only. Keep the legacy select as an internal compatibility field.
+if(e.difficulty){
+  e.difficulty.value='easy';
+  e.difficulty.disabled=true;
+  e.difficulty.setAttribute('aria-hidden','true');
+  e.difficulty.dataset.classroomPolicy='single-progressive-profile';
 }
 
 Object.defineProperty(BH.CONFIG.easy,'sequence',{
   configurable:true,
   enumerable:true,
-  get(){return chooseSequence()}
+  get(){return chooseRotation()}
+});
+for(const [property,key] of [['hold','hold'],['poseThreshold','pose'],['safeThreshold','safe'],['gateMs','gate']]){
+  Object.defineProperty(BH.CONFIG.easy,property,{
+    configurable:true,
+    enumerable:true,
+    get(){return currentProfile()[key]}
+  });
+}
+Object.assign(BH.CONFIG.easy,{
+  confidence:.46,
+  graceMs:700,
+  lostDebounceMs:950,
+  assistAfterMs:7000,
+  maxAssist:2
 });
 
-Object.assign(BH.CONFIG.easy,{
-  hold:1150,
-  gateMs:200,
-  graceMs:1100,
-  lostDebounceMs:1350,
-  assistAfterMs:4000,
-  maxAssist:3
-});
+// Make boss direction deterministic as well so replay evidence is reproducible.
+function deterministicBossKey(){
+  return stableHash(studentIdentity()+'|boss')%2===0?'left':'right';
+}
+if(typeof BH.resetRoundState==='function'){
+  const baseResetRoundState=BH.resetRoundState;
+  BH.resetRoundState=()=>{
+    const result=baseResetRoundState();
+    s.bossKey=deterministicBossKey();
+    return result;
+  };
+}
+if(typeof BH.completePose==='function'){
+  const baseCompletePose=BH.completePose;
+  BH.completePose=(ev,required)=>{
+    const result=baseCompletePose(ev,required);
+    if(s.currentKey==='boss')s.bossKey=deterministicBossKey();
+    return result;
+  };
+}
+
+const baseSetPoseUI=typeof BH.setPoseUI==='function'?BH.setPoseUI:null;
+if(baseSetPoseUI){
+  BH.setPoseUI=()=>{
+    const result=baseSetPoseUI();
+    const p=currentProfile();
+    if(e.coachSub)e.coachSub.textContent=`${p.label} • ค้าง ${Math.round(p.hold/100)/10} วินาที • ท่า ${Math.min((Number(s.index)||0)+1,6)}/6`;
+    return result;
+  };
+}
 
 const baseCalc=typeof BH.calcSummary==='function'?BH.calcSummary:null;
 if(baseCalc){
@@ -102,31 +151,43 @@ if(baseCalc){
     const order=Array.isArray(s.sequence)?s.sequence.slice():[];
     summary.classroomSequenceVersion=RELEASE;
     summary.classroomSequenceId=s.sequencePatternId||'';
-    summary.classroomSequenceBankSize=BANK.length;
+    summary.classroomSequenceBankSize=ROTATIONS.length;
     summary.classroomPoseCount=6;
     summary.classroomPoseOrder=order;
     summary.classroomPoseLabels=order.map(key=>POSE_LABELS[key]||key);
-    summary.classroomRandomization='balanced-form-without-immediate-repeat';
-    summary.classroomPoseSet='six-validated-production-poses';
-    summary.holdProfile='easy:1150|normal:1450|hard:1750';
+    summary.classroomRandomization='deterministic-balanced-rotation-by-studentId';
+    summary.classroomReplayOrderStable=true;
+    summary.classroomStudentHash=s.sequenceStudentKeyHash||'';
+    summary.classroomPoseSet='same-six-poses-for-all-students';
+    summary.classroomProgression='fixed-warmup -> four-balanced-middle-poses -> fixed-boss';
+    summary.classroomLevelSelection=false;
+    summary.classroomDifficultyPolicy='single-progressive-profile';
+    summary.classroomProgressionProfile=PROGRESSION.map((p,index)=>({index:index+1,...p}));
+    summary.classroomBossDirection=s.bossKey||deterministicBossKey();
     return summary;
   };
 }
 
 BH.CLASSROOM_SEQUENCE={
   release:RELEASE,
-  id:'CLASSROOM-V47-BALANCED-12-FORMS',
+  id:'CLASSROOM-V55-DETERMINISTIC-PROGRESSIVE',
   count:6,
-  bankSize:BANK.length,
-  bank:BANK.map(item=>({id:item.id,steps:item.steps.slice()})),
-  fixedOrder:false,
-  balanced:true,
-  immediateRepeatBlocked:true,
-  safetyProfile:'grade5-low-lift',
+  bankSize:ROTATIONS.length,
+  bank:ROTATIONS.map(item=>({id:item.id,steps:['center',...item.steps,'boss']})),
+  fixedWarmup:'center',
+  middlePoseSet:MIDDLE.slice(),
+  fixedBoss:'boss',
+  samePoseSetForAll:true,
+  deterministicByStudentId:true,
+  replayOrderStable:true,
+  levelSelection:false,
+  progression:PROGRESSION.map((p,index)=>({index:index+1,...p})),
+  safetyProfile:'grade5-low-lift-balanced-detection',
   poseSet:Object.keys(POSE_LABELS)
 };
 
-if(e.coachSub)e.coachSub.textContent='โหมดห้องเรียน • สุ่มสมดุล 6 ท่า • Easy • Safe Mode';
-
-console.info('[BalanceHold] Balanced Classroom Sequence Bank v47 ready',BH.CLASSROOM_SEQUENCE);
+document.documentElement.dataset.bhClassroomSequence='v55-progressive';
+document.documentElement.dataset.bhLevelSelection='off';
+if(e.coachSub)e.coachSub.textContent='ภารกิจ 6 ท่า • เริ่มง่ายและท้าทายขึ้นจนถึง Boss';
+console.info('[BalanceHold] Classroom Progressive Rotation V55 ready',BH.CLASSROOM_SEQUENCE);
 })();
