@@ -1,10 +1,10 @@
 (()=>{
 'use strict';
-const VERSION='2026-08-08-LEXICON-CHAMPION-V472-MOBILE-SMOKE-RETURN';
+const VERSION='2026-08-08-LEXICON-CHAMPION-V473-IDEMPOTENT-POLISH';
 const params=new URLSearchParams(location.search);
 const PROD=params.get('from')==='passport'&&params.get('authority')==='firebase'&&params.get('qa')!=='1'&&params.get('submit')!=='0';
 const MOBILE=params.get('view')==='mobile';
-let mobileReturnTimer=0;
+let mobileReturnTimer=0,applyQueued=false;
 
 function numberFrom(id){
   const text=String(document.getElementById(id)?.textContent||'');
@@ -32,14 +32,19 @@ function applyRankPolicy(){
   if(!summary||summary.classList.contains('hidden')||!rank)return;
   const next=computeRank();
   if(rank.textContent!==next)rank.textContent=next;
-  rank.dataset.rankPolicy='mastery90-voice75-body2-noFallback-for-S';
+  const policy='mastery90-voice75-body2-noFallback-for-S';
+  if(rank.dataset.rankPolicy!==policy)rank.dataset.rankPolicy=policy;
 }
 function hideProductionMetadata(){
   if(!PROD)return;
-  document.documentElement.classList.add('lca-production');
-  document.querySelectorAll('.ew-rotation-badge,.qaOnly').forEach(el=>el.classList.add('hidden'));
+  const root=document.documentElement;
+  if(!root.classList.contains('lca-production'))root.classList.add('lca-production');
+  document.querySelectorAll('.ew-rotation-badge,.qaOnly').forEach(el=>{
+    if(!el.classList.contains('hidden'))el.classList.add('hidden');
+  });
   const subtitle=document.getElementById('subtitle');
-  if(subtitle)subtitle.textContent='GAME 5 • FINAL CHALLENGE';
+  const wanted='GAME 5 • FINAL CHALLENGE';
+  if(subtitle&&subtitle.textContent!==wanted)subtitle.textContent=wanted;
 }
 function mobilePassportUrl(){
   const p=new URLSearchParams({resume:'passport',fromGame:'final_boss',v:'20260808-mobile-smoke1'});
@@ -69,8 +74,14 @@ const style=document.createElement('style');
 style.textContent='.lca-production .ew-rotation-badge,.lca-production .qaOnly{display:none!important}';
 document.head.appendChild(style);
 function apply(){hideProductionMetadata();applyRankPolicy();installMobileReturn()}
+function scheduleApply(){
+  if(applyQueued)return;
+  applyQueued=true;
+  queueMicrotask(()=>{applyQueued=false;apply()});
+}
 apply();
-new MutationObserver(apply).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','disabled']});
-window.addEventListener('pagehide',()=>clearTimeout(mobileReturnTimer));
+const observer=new MutationObserver(scheduleApply);
+observer.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','disabled']});
+window.addEventListener('pagehide',()=>{clearTimeout(mobileReturnTimer);observer.disconnect()},{once:true});
 window.LEXICON_CHAMPION_V47_POLISH=Object.freeze({version:VERSION,production:PROD,mobileView:MOBILE,computeRank});
 })();
