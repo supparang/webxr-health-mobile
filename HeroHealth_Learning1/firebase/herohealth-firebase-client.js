@@ -11,6 +11,52 @@ const SANDBOX_STUDENT_IDS = new Set(
   Array.from({ length: 29 }, (_, i) => String(990001 + i))
 );
 
+const LOGIN_COMMIT_KEY = "HH_FIREBASE_RECENT_LOGIN_COMMIT_R74";
+const LOGIN_COMMIT_TTL_MS = 10000;
+
+function writeRecentLoginCommit(studentId) {
+  const sid = String(studentId || "").trim();
+  if (!sid) return;
+  try {
+    sessionStorage.setItem(LOGIN_COMMIT_KEY, JSON.stringify({ sid, at: Date.now() }));
+  } catch (_error) {}
+}
+
+function recoverRecentLoginCommitIntoUrl() {
+  try {
+    const raw = sessionStorage.getItem(LOGIN_COMMIT_KEY);
+    if (!raw) return;
+    const commit = JSON.parse(raw);
+    const sid = String(commit?.sid || "").trim();
+    const age = Date.now() - Number(commit?.at || 0);
+    if (!sid || age < 0 || age > LOGIN_COMMIT_TTL_MS) {
+      sessionStorage.removeItem(LOGIN_COMMIT_KEY);
+      return;
+    }
+
+    const url = new URL(location.href);
+    const currentSid = String(url.searchParams.get("studentId") || url.searchParams.get("sid") || "").trim();
+    const needsRecovery = url.searchParams.get("logout") === "1" || !currentSid;
+    if (!needsRecovery) return;
+
+    url.searchParams.delete("logout");
+    url.searchParams.delete("logoutAt");
+    url.searchParams.delete("logoutNonce");
+    url.searchParams.set("authority", "firebase");
+    url.searchParams.set("studentId", sid);
+    url.searchParams.set("sid", sid);
+    url.searchParams.set("firebaseReady", "1");
+    url.searchParams.delete("firebaseHydratedR71");
+    url.searchParams.delete("firebaseHydratedR72");
+    url.searchParams.delete("firebaseHydratedR73");
+    url.searchParams.set("loginCommitRecovery", "r74");
+    history.replaceState(null, "", url.href);
+    sessionStorage.removeItem(LOGIN_COMMIT_KEY);
+  } catch (_error) {}
+}
+
+recoverRecentLoginCommitIntoUrl();
+
 function isSandboxStudent(studentId) {
   return SANDBOX_STUDENT_IDS.has(String(studentId || "").trim());
 }
@@ -78,6 +124,7 @@ async function bindStudent(studentId) {
     boundAt: serverTimestamp(),
     build: HEROHEALTH_FIREBASE_BUILD
   }, { merge: true });
+  writeRecentLoginCommit(studentId);
   return { ok: true, user, roster, rosterPath: rosterResult.rosterPath, bindingPath: ref.path };
 }
 
