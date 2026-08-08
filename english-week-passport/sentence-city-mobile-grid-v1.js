@@ -1,55 +1,75 @@
-/* Sentence City • Mobile Four-Part Grid V1
- * Shows all sentence slots and word choices without horizontal clipping.
+/* Sentence City • Mobile Uniform Grid V2
+ * Keeps every sentence slot and every word choice the same size.
  */
 (function(){
   'use strict';
 
-  const VERSION='2026-08-06-SC-MOBILE-GRID-V1';
+  const VERSION='2026-08-08-SC-MOBILE-UNIFORM-GRID-V2';
   const style=document.createElement('style');
   style.id='scMobileGridStyle';
   style.textContent=`
 @media (max-width:720px){
-  #mission.sc-grid-2x2 .board{
-    grid-template-rows:12px minmax(82px,auto) 12px minmax(88px,auto) 44px!important;
+  #mission .board{
     gap:4px!important;
-    overflow:visible!important;
   }
-  #mission.sc-grid-2x2 .slots,
-  #mission.sc-grid-2x2 .depot{
-    display:grid!important;
-    grid-template-columns:repeat(2,minmax(0,1fr))!important;
-    grid-auto-rows:minmax(40px,auto)!important;
+  #mission .slots,
+  #mission .depot{
+    display:flex!important;
+    flex-wrap:nowrap!important;
     gap:6px!important;
     padding:0 2px!important;
-    overflow:visible!important;
-    justify-content:stretch!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    justify-content:flex-start!important;
+    scrollbar-width:none!important;
   }
-  #mission.sc-grid-2x2 .slot,
-  #mission.sc-grid-2x2 .word{
-    width:100%!important;
-    min-width:0!important;
-    max-width:none!important;
-    height:auto!important;
-    min-height:40px!important;
-    padding:6px 7px!important;
-    white-space:normal!important;
-    overflow-wrap:anywhere!important;
-    line-height:1.08!important;
-    font-size:clamp(.62rem,2.7vw,.74rem)!important;
+  #mission .slots::-webkit-scrollbar,
+  #mission .depot::-webkit-scrollbar{display:none!important}
+
+  /* Hard geometry contract: slots and draggable choices are identical. */
+  #mission .slots > *,
+  #mission .depot > *,
+  #mission .slot,
+  #mission .word,
+  #mission .depot button,
+  #mission .depot [draggable="true"]{
+    box-sizing:border-box!important;
+    flex:0 0 104px!important;
+    width:104px!important;
+    min-width:104px!important;
+    max-width:104px!important;
+    height:44px!important;
+    min-height:44px!important;
+    max-height:44px!important;
+    padding:5px 7px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    text-align:center!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    line-height:1.05!important;
+    font-size:clamp(.58rem,2.55vw,.72rem)!important;
   }
-  #mission.sc-grid-2x2 .word{min-height:44px!important}
-  #mission.sc-grid-2x2 .control{margin-top:1px!important}
+  #mission .control{margin-top:1px!important}
 }
-@media (max-width:720px) and (max-height:760px){
-  #mission.sc-grid-2x2 .board{
-    grid-template-rows:10px minmax(72px,auto) 10px minmax(76px,auto) 38px!important;
-    gap:3px!important;
-  }
-  #mission.sc-grid-2x2 .slot,
-  #mission.sc-grid-2x2 .word{
-    min-height:36px!important;
-    padding:4px 6px!important;
-    font-size:.6rem!important;
+@media (max-width:390px){
+  #mission .slots > *,
+  #mission .depot > *,
+  #mission .slot,
+  #mission .word,
+  #mission .depot button,
+  #mission .depot [draggable="true"]{
+    flex-basis:88px!important;
+    width:88px!important;
+    min-width:88px!important;
+    max-width:88px!important;
+    height:42px!important;
+    min-height:42px!important;
+    max-height:42px!important;
+    padding:4px 5px!important;
+    font-size:.58rem!important;
   }
 }
 `;
@@ -60,13 +80,9 @@
     const slots=document.getElementById('slots');
     const depot=document.getElementById('depot');
     if(!mission||!slots||!depot)return;
-
-    const slotCount=slots.children.length;
-    const wordCount=depot.children.length;
-    const needsGrid=slotCount>=4||wordCount>=4;
-    mission.classList.toggle('sc-grid-2x2',needsGrid);
-    mission.dataset.slotCount=String(slotCount);
-    mission.dataset.wordCount=String(wordCount);
+    mission.classList.add('sc-uniform-tokens');
+    mission.dataset.slotCount=String(slots.children.length);
+    mission.dataset.wordCount=String(depot.children.length);
   }
 
   const observer=new MutationObserver(applyGrid);
