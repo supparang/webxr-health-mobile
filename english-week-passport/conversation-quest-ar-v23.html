@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#241246">
-<title>Conversation Quest V2.4.4</title>
+<title>Conversation Quest V2.4.5</title>
 <link rel="stylesheet" href="./conversation-quest-ar-v242.css?v=20260806-cq-v243-final-reliability">
 <link rel="stylesheet" href="./lexicon-responsive-standard-v1.css?v=20260807-responsive-r1">
 </head>
@@ -12,13 +12,13 @@
 <div class="app">
 <header class="top">
   <button id="back" type="button" aria-label="กลับ">←</button>
-  <div class="title"><b>Conversation Quest</b><small id="versionLabel">GAME 4 • Audio Autoplay V2.4.4</small></div>
+  <div class="title"><b>Conversation Quest</b><small id="versionLabel">GAME 4 • Speaking Mastery V2.4.5</small></div>
   <button id="audio" type="button" aria-label="เปิดปิดเสียง">🔊</button>
 </header>
 <main class="screen">
 <section id="intro" class="intro">
   <div class="hero">🏫💬🎤</div>
-  <div><h1>Conversation Quest</h1><p>ทุกช่วงต้องเลือกคำตอบที่เหมาะสม<br>แล้วพูดประโยคที่เลือกจึงจะผ่าน</p><div id="missionSetIntro" class="mission-set"></div></div>
+  <div><h1>Conversation Quest</h1><p>ทุกช่วงต้องเลือกคำตอบที่เหมาะสม<br>แล้วพูดประโยคที่เลือกให้ใกล้เคียงและมีคำสำคัญจึงจะผ่าน</p><div id="missionSetIntro" class="mission-set"></div></div>
   <div class="flow"><div>① เลือก<br>คำตอบ</div><div>② ฟัง<br>ตัวอย่าง</div><div>③ พูด<br>ให้ผ่าน</div></div>
   <button id="start" type="button" class="primary">Start Speaking Mission</button>
   <button id="hubIntro" type="button" class="secondary">Back to Test Hub</button>
@@ -61,7 +61,7 @@
       <div><small>SCORE</small><b id="finalScore">0</b></div>
       <div><small>AVG. SPEECH MATCH</small><b id="speechAvg">0%</b></div>
     </div>
-    <div class="summary-note">โหมดทดสอบ • ยังไม่ส่งผลเข้า Firebase</div>
+    <div class="summary-note">โหมดทดสอบ • เกณฑ์พูดผ่าน 72% + คำสำคัญ</div>
   </div>
   <div class="summary-actions">
     <button id="replay" type="button" class="primary">Play Another Conversation</button>
@@ -72,7 +72,22 @@
 <div id="cursor" class="cursor"></div>
 </div>
 <script src="./conversation-quest-bank-v24.js?v=20260806-cq-v243-final-reliability"></script>
-<script src="./conversation-quest-ar-v243.js?v=20260806-cq-v243-final-reliability"></script>
-<script src="./conversation-quest-audio-autoplay-v1.js?v=20260808-cq-audio-autoplay-v1"></script>
+<script>
+(async()=>{
+  const response=await fetch('./conversation-quest-ar-v243.js?v=20260808-cq-speaking-v245',{cache:'no-store'});
+  if(!response.ok)throw new Error('CQ_RUNTIME_LOAD_FAILED_'+response.status);
+  let source=await response.text();
+  source=source
+    .replace("const passed=best.score>=60||best.keys.passed;","const required=best.keys.required||[],matched=best.keys.matched||[];const coverage=required.length?matched.length/required.length:1;const passed=best.score>=72&&coverage>=0.67;")
+    .replaceAll("2.4.3-final-reliability","2.4.5-speaking-mastery")
+    .replaceAll("Final Reliability V2.4.3","Speaking Mastery V2.4.5");
+  const script=document.createElement('script');
+  script.textContent=source;
+  document.body.appendChild(script);
+  const audio=document.createElement('script');
+  audio.src='./conversation-quest-audio-autoplay-v1.js?v=20260808-cq-audio-autoplay-v1';
+  document.body.appendChild(audio);
+})().catch(error=>{console.error(error);document.body.insertAdjacentHTML('beforeend','<div style="position:fixed;inset:auto 10px 10px;padding:10px;background:#5b1730;color:#fff;z-index:9999;border-radius:10px">Conversation runtime load failed</div>')});
+</script>
 </body>
 </html>
