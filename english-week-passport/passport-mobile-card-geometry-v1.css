@@ -1,0 +1,109 @@
+/* LEXICON X Challenge • Passport Mobile Card Geometry V1
+   Keeps production Passport cards readable and visually consistent on real phones.
+   UI only: no Firebase/progression/game logic. */
+
+html,body{
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+
+@media (max-width: 520px){
+  .screen{
+    width:100%;
+    padding-top:14px;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .passport-map{gap:10px;}
+
+  .stage-card{
+    grid-template-columns:52px minmax(0,1fr);
+    grid-template-rows:auto auto;
+    column-gap:11px;
+    row-gap:5px;
+    padding:12px;
+    border-radius:18px;
+    align-items:center;
+  }
+
+  .stage-icon{
+    grid-column:1;
+    grid-row:1 / span 2;
+    width:52px;
+    height:52px;
+    border-radius:16px;
+    font-size:1.65rem;
+    align-self:center;
+  }
+
+  .stage-card > div:not(.stage-icon):not(.stage-state){
+    grid-column:2;
+    grid-row:1;
+    min-width:0;
+    align-self:end;
+  }
+
+  .stage-card strong{
+    font-size:.98rem;
+    line-height:1.18;
+    overflow-wrap:normal;
+    word-break:normal;
+  }
+
+  .stage-card small{
+    margin-top:3px;
+    font-size:.78rem;
+    line-height:1.32;
+    overflow-wrap:normal;
+    word-break:normal;
+  }
+
+  .stage-state{
+    grid-column:2;
+    grid-row:2;
+    justify-self:end;
+    align-self:start;
+    min-width:0;
+    max-width:100%;
+    font-size:.74rem;
+    line-height:1.15;
+    white-space:nowrap;
+    text-align:right;
+  }
+
+  .stage-card:not(:last-child)::after{
+    left:37px;
+    height:10px;
+  }
+
+  .profile-strip{
+    grid-template-columns:46px minmax(0,1fr) auto;
+    gap:9px;
+    padding:11px;
+  }
+
+  .avatar{
+    width:46px;
+    height:46px;
+    border-radius:15px;
+    font-size:1.45rem;
+  }
+
+  .profile-strip strong{font-size:.95rem;line-height:1.18;}
+  .profile-strip small{font-size:.75rem;line-height:1.2;}
+  .score-chip{padding:7px 9px;font-size:.8rem;}
+
+  .panel{border-radius:19px;}
+}
+
+@media (max-width: 360px){
+  .stage-card{
+    grid-template-columns:46px minmax(0,1fr);
+    column-gap:9px;
+    padding:10px;
+  }
+  .stage-icon{width:46px;height:46px;font-size:1.5rem;}
+  .stage-card strong{font-size:.92rem;}
+  .stage-card small{font-size:.72rem;}
+  .stage-state{font-size:.69rem;}
+}
