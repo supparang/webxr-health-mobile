@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07121f">
+<title>LEXICON X • Mobile Smoke Test</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#07121f;font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;color:#eaf7ff}
+body{min-height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
+.toolbar{height:52px;display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,.12);background:#0b1d2f}
+.toolbar strong{font-size:.9rem}.toolbar small{font-size:.74rem;color:#9db8c9}.badge{padding:5px 9px;border-radius:999px;background:#173c55;color:#8fe7ff;font-size:.68rem;font-weight:900;letter-spacing:.04em}
+.stage{min-height:0;display:grid;place-items:center;padding:10px 14px 14px;overflow:hidden;background:radial-gradient(circle at 50% 35%,#14324a 0,#07121f 58%)}
+.device{width:min(390px,calc(100vw - 28px));height:min(844px,calc(100dvh - 76px));border:1px solid rgba(255,255,255,.18);border-radius:28px;overflow:hidden;background:#fff;box-shadow:0 22px 70px rgba(0,0,0,.5)}
+.device iframe{display:block;width:100%;height:100%;border:0;background:#f7fbff}
+@media(max-width:720px){.toolbar{display:none}.stage{padding:0;display:block}.device{width:100vw;height:100dvh;border:0;border-radius:0;box-shadow:none}.device iframe{width:100%;height:100%}}
+</style>
+</head>
+<body>
+<header class="toolbar">
+  <strong>LEXICON X • PC Smoke Test</strong>
+  <span class="badge">MOBILE 390×844</span>
+  <small>Production Passport • Firestore • Auto Return</small>
+</header>
+<main class="stage">
+  <div class="device">
+    <iframe id="passport" allow="camera; microphone; autoplay" title="LEXICON X Mobile Smoke Test"></iframe>
+  </div>
+</main>
+<script>
+(function(){
+  const out=new URLSearchParams({view:'mobile',smoke:'pc',v:'20260808-mobile-smoke2'});
+  const incoming=new URLSearchParams(location.search);
+  ['pid','resume','fromGame','receipt'].forEach(key=>{const value=incoming.get(key);if(value)out.set(key,value)});
+  document.getElementById('passport').src='./index.html?'+out.toString();
+})();
+</script>
+</body>
+</html>
