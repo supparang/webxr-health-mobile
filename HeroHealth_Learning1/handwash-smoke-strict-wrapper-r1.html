@@ -12,7 +12,7 @@
 <div id="status" class="status">Handwash Smoke • รอเริ่มรอบใหม่</div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260808-HANDWASH-SMOKE-STRICT-WRAPPER-R2-LIVE-ONLY-UI';
+const RELEASE='20260808-HANDWASH-SMOKE-STRICT-WRAPPER-R3-LIVE-ONLY-HAND-DETECT';
 const q=new URLSearchParams(location.search);
 const frame=document.getElementById('game'),status=document.getElementById('status');
 const sid=String(q.get('studentId')||q.get('sid')||q.get('pid')||'').trim();
@@ -45,11 +45,30 @@ function forward(raw){
  try{parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin)}catch(_){}
  return true;
 }
+function installHandDetectionQuality(win){
+ if(!win||win.__HH_HAND_SMOKE_QUALITY_R3__)return true;
+ const patch=()=>{
+  try{
+   const Hands=win.Hands;if(!Hands||!Hands.prototype)return false;
+   const proto=Hands.prototype;if(proto.__hhSmokeQualityR3){win.__HH_HAND_SMOKE_QUALITY_R3__=true;return true}
+   const original=proto.setOptions;if(typeof original!=='function')return false;
+   proto.setOptions=function(options){
+    return original.call(this,{...(options||{}),modelComplexity:0,maxNumHands:2,minDetectionConfidence:.42,minTrackingConfidence:.38});
+   };
+   proto.__hhSmokeQualityR3=true;win.__HH_HAND_SMOKE_QUALITY_R3__=true;
+   console.info('[Handwash Smoke R3] Hands quality patch active');
+   return true;
+  }catch(_){return false}
+ };
+ if(patch())return true;
+ let tries=0;const timer=win.setInterval(()=>{tries++;if(patch()||tries>160)win.clearInterval(timer)},50);
+ return false;
+}
 function installMobilePolish(){
  try{
   const d=frame.contentDocument;if(!d?.head)return;
-  if(d.getElementById('hh-handwash-smoke-polish-r2'))return;
-  const s=d.createElement('style');s.id='hh-handwash-smoke-polish-r2';
+  if(d.getElementById('hh-handwash-smoke-polish-r3'))return;
+  const s=d.createElement('style');s.id='hh-handwash-smoke-polish-r3';
   s.textContent=`@media(max-width:760px){
     .who-strip{overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important;justify-content:flex-start!important}
     .who-strip::-webkit-scrollbar{display:none!important}
@@ -66,11 +85,11 @@ const gameUrl=new URL('./handwash-classroom-7step.html',location.href);
 q.forEach((v,k)=>{if(!['wrappedGame','target'].includes(k))gameUrl.searchParams.set(k,v)});
 gameUrl.searchParams.set('strict7','1');gameUrl.searchParams.set('classroom','1');gameUrl.searchParams.set('studentId',sid);gameUrl.searchParams.set('pid',sid);gameUrl.searchParams.set('gameId','handwash');gameUrl.searchParams.set('zone','hygiene');gameUrl.searchParams.set('smoke','1');gameUrl.searchParams.set('gameTestMode','1');gameUrl.searchParams.set('isTestAttempt','true');gameUrl.searchParams.set('handwashSmokeWrapper',RELEASE);gameUrl.searchParams.set('_',Date.now());
 frame.src=gameUrl.href;
-frame.addEventListener('load',()=>{try{installMobilePolish();setTimeout(installMobilePolish,120);const d=frame.contentDocument;d?.addEventListener('click',e=>{if(/เริ่ม|start|เปิดกล้อง|เปิดน้ำ|faucet/i.test(String(e.target?.textContent||'')))start()},{capture:true})}catch(_){}});
+frame.addEventListener('load',()=>{try{installMobilePolish();setTimeout(installMobilePolish,120);const win=frame.contentWindow;installHandDetectionQuality(win);setTimeout(()=>installHandDetectionQuality(win),250);setTimeout(()=>installHandDetectionQuality(win),900);const d=frame.contentDocument;d?.addEventListener('click',e=>{if(/เริ่ม|start|เปิดกล้อง|เปิดน้ำ|faucet/i.test(String(e.target?.textContent||'')))start()},{capture:true})}catch(_){}});
 addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==frame.contentWindow)return;const m=event.data||{};if(m.type==='HEROHEALTH_GAME_STARTED'){start();return}if(m.type==='HEROHEALTH_GAME_COMPLETE'&&m.payload){if(!started)start();forward(m.payload);return}if(m.type==='HEROHEALTH_HANDWASH_ANALYTICS'&&m.payload)forward(m.payload)},true);
 window.addEventListener('herohealth:game-result',e=>forward(e.detail||{}),true);
-window.HH_HANDWASH_SMOKE_STRICT_WRAPPER_R2={release:RELEASE,audit,startedAt};
-console.info('[Handwash Smoke Strict Wrapper R2] live-only UI installed',{sid,startedAt});
+window.HH_HANDWASH_SMOKE_STRICT_WRAPPER_R3={release:RELEASE,audit,startedAt};
+console.info('[Handwash Smoke Strict Wrapper R3] live-only hand-detect installed',{sid,startedAt});
 })();
 </script>
 </body>
