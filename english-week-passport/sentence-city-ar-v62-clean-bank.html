@@ -17,7 +17,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;col
 (async function(){
   const boot=document.getElementById('boot');
   try{
-    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260806-scv62-clean-base',{cache:'no-store'});
+    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260808-scv62-dynamic-rows-v4',{cache:'no-store'});
     if(!response.ok)throw new Error('V61_CLEAN_LOADER_FAILED_'+response.status);
     let source=await response.text();
 
@@ -34,6 +34,12 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;col
 
     if(!source.includes('sentence-city-bank-v2-clean.js'))throw new Error('CLEAN_BANK_SCRIPT_PATCH_FAILED');
     if(!source.includes('LexiconXSentenceBankV2'))throw new Error('CLEAN_BANK_GLOBAL_PATCH_FAILED');
+
+    /* Load the current mobile layout contract inside the actual game document.
+       The id intentionally matches the outer V6.2 enhancer so it will not inject
+       an older cached copy afterwards. */
+    const mobileGrid='<script id="scMobileGrid" src="./sentence-city-mobile-grid-v1.js?v=20260808-sc-mobile-uniform-grid-v4-dynamic-rows"></'+'script>';
+    source=source.replace('</head>',mobileGrid+'</head>');
 
     document.open();
     document.write(source);
