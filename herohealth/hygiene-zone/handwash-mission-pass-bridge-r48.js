@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const RELEASE='20260804-HANDWASH-MISSION-PASS-BRIDGE-R50-FIREBASE-GATE';
+const RELEASE='20260808-HANDWASH-MISSION-PASS-BRIDGE-R51-SMOKE-LIVE-ONLY';
 const RESULT_KEY='HHA_HANDWASH_LAST_RESULT';
 const RECOVERY_PREFIX='HH_HANDWASH_R50_RECOVERED:';
 const MAX_RECOVERY_AGE_MS=30*60*1000;
@@ -9,6 +9,9 @@ const ANALYTICS_SCHEMA='HH-UNIFIED-GAME-ANALYTICS-V2';
 const yes=v=>v===true||v===1||String(v||'').toLowerCase()==='true'||String(v||'')==='1';
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
 const clean=v=>String(v==null?'':v).trim();
+const q=new URLSearchParams(location.search);
+const smokeTest=yes(q.get('smoke'))||yes(q.get('smokeTest'))||yes(q.get('gameTestMode'))||yes(q.get('isTestAttempt'))||String(q.get('mode')||'').toLowerCase()==='game-test';
+const bootAt=Date.now();
 
 function missionReady(result){
   const completed=yes(result?.procedureCompleted)||yes(result?.completed);
@@ -38,7 +41,7 @@ function bridge(input){
   input.skillAssessmentPassed=independentSkillPassed;
   input.missionPassed=missionPassed;
   input.classroomMissionPassed=missionPassed;
-  input.missionCompletionPolicy='server-validated-7-rub-5-process-wrists-analytics-r50';
+  input.missionCompletionPolicy='server-validated-7-rub-5-process-wrists-analytics-r51-smoke-live-only';
   input.missionPassBridgeRelease=RELEASE;
   if(input.research&&typeof input.research==='object'){
     input.research.independentSkillPass=independentSkillPassed?1:0;
@@ -68,17 +71,38 @@ function firebaseReceiptGateActive(){
   return /R51-FIREBASE-RECEIPT/i.test(release)||Boolean(window.HHHandwashSummaryPassportReturnR51);
 }
 
+function resultTimestampMs(result){
+  const raw=result?.finishedAt||result?.timestamp||result?.endedAt||result?.clientTs||result?.startedAt||'';
+  const ms=Date.parse(raw);
+  return Number.isFinite(ms)?ms:0;
+}
+
+function liveAttemptAllowed(result,source){
+  if(!smokeTest)return true;
+  // Smoke/Test mode must never replay a completed result from localStorage.
+  if(source!=='live-game-result')return false;
+  const ts=resultTimestampMs(result);
+  // If the live payload carries a timestamp, require it to belong to this page session.
+  if(ts&&ts<bootAt-5000)return false;
+  return true;
+}
+
 function emit(result,source){
+  if(!liveAttemptAllowed(result,source)){
+    console.info('[Handwash Mission Pass R51] blocked stale/recovery completion in smoke test',{source,smokeTest});
+    return false;
+  }
   const bridged=bridge(result);
   persist(bridged);
   if(!bridged?.missionPassed)return false;
   if(firebaseReceiptGateActive()){
-    console.info('[Handwash Mission Pass R50] persisted for Firebase receipt gate',{source,eventId:bridged.eventId||'',metricCompletenessPct:bridged.metricCompletenessPct});
+    console.info('[Handwash Mission Pass R51] persisted for Firebase receipt gate',{source,eventId:bridged.eventId||'',metricCompletenessPct:bridged.metricCompletenessPct,smokeTest});
     return true;
   }
   try{window.parent?.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:bridged},location.origin)}catch(_){}
-  console.info('[Handwash Mission Pass R50] legacy shell completion emitted',{
+  console.info('[Handwash Mission Pass R51] shell completion emitted',{
     source,
+    smokeTest,
     eventId:bridged.eventId,
     sourceEventId:bridged.sourceEventId||'',
     analyticsSchemaVersion:bridged.analyticsSchemaVersion,
@@ -96,7 +120,6 @@ function readStored(){
 }
 
 function currentStudentId(){
-  const q=new URLSearchParams(location.search);
   return clean(q.get('studentId')||q.get('sid')||q.get('pid'));
 }
 
@@ -107,6 +130,7 @@ function finishedAtMs(result){
 }
 
 function eligibleForRecovery(result){
+  if(smokeTest)return false;
   if(!missionReady(result))return false;
   const age=Date.now()-finishedAtMs(result);
   if(!Number.isFinite(age)||age<0||age>MAX_RECOVERY_AGE_MS)return false;
@@ -121,7 +145,7 @@ function eligibleForRecovery(result){
 
 function buildRecovery(stored){
   const sourceEventId=clean(stored.sourceEventId||stored.eventId||stored.attemptId);
-  const suffix='mission-r50-'+Date.now();
+  const suffix='mission-r51-'+Date.now();
   return bridge({
     ...stored,
     sourceEventId,
@@ -136,6 +160,7 @@ function buildRecovery(stored){
 }
 
 function recoverFreshCompletedAttempt(){
+  if(smokeTest)return false;
   const stored=readStored();
   if(!eligibleForRecovery(stored))return false;
   const sourceEventId=clean(stored.sourceEventId||stored.eventId||stored.attemptId);
@@ -148,17 +173,22 @@ window.addEventListener('herohealth:game-result',event=>{
   emit(event.detail||{},'live-game-result');
 },{capture:false});
 
-const capturedStored=readStored();
-setTimeout(()=>{
-  if(capturedStored&&eligibleForRecovery(capturedStored)){
-    const sourceEventId=clean(capturedStored.sourceEventId||capturedStored.eventId||capturedStored.attemptId);
-    const recovered=buildRecovery(capturedStored);
-    try{localStorage.setItem(RECOVERY_PREFIX+sourceEventId,'1')}catch(_){}
-    emit(recovered,'captured-before-shell-clear');
-  }
-},180);
+if(!smokeTest){
+  const capturedStored=readStored();
+  setTimeout(()=>{
+    if(capturedStored&&eligibleForRecovery(capturedStored)){
+      const sourceEventId=clean(capturedStored.sourceEventId||capturedStored.eventId||capturedStored.attemptId);
+      const recovered=buildRecovery(capturedStored);
+      try{localStorage.setItem(RECOVERY_PREFIX+sourceEventId,'1')}catch(_){}
+      emit(recovered,'captured-before-shell-clear');
+    }
+  },180);
+}else{
+  document.documentElement.dataset.handwashSmokeRecovery='disabled-live-attempt-only';
+  console.info('[Handwash Mission Pass R51] smoke recovery disabled; live attempt only');
+}
 
-window.HHHandwashMissionPassBridgeR50={release:RELEASE,bridge,missionReady,recoverFreshCompletedAttempt};
+window.HHHandwashMissionPassBridgeR50={release:RELEASE,bridge,missionReady,recoverFreshCompletedAttempt,smokeTest};
 document.documentElement.dataset.handwashMissionPassBridge=RELEASE;
-console.info('[Handwash Mission Pass Bridge R50] installed',RELEASE);
+console.info('[Handwash Mission Pass Bridge R51] installed',{release:RELEASE,smokeTest});
 })();
