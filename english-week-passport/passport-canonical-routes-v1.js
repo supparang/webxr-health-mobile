@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-08-CANONICAL-FIVE-GAME-ROUTES-V1.9-MOBILE-SMOKE';
+const VERSION='2026-08-08-CANONICAL-FIVE-GAME-ROUTES-V2-IDEMPOTENT';
 const ROUTES={
   word_match:{title:'LexiMatch Navigator',detail:'Game 1 • จับคู่คำศัพท์ • Swipe + Tilt • A2–B1+',icon:'🧭'},
   category_forest:{title:'Category Forest',detail:'Game 2 • ลากคำเข้าหมวด • Rescue Learning',icon:'🌲'},
@@ -11,6 +11,8 @@ const ROUTES={
 };
 let scheduled=false;
 function setText(el,text){if(el&&el.textContent!==text)el.textContent=text;}
+function setClassName(el,value){if(el&&el.className!==value)el.className=value;}
+function setData(el,key,value){if(el&&el.dataset[key]!==value)el.dataset[key]=value;}
 function readIdentity(){try{return JSON.parse(localStorage.getItem(window.EW_CONFIG?.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
 function bonusBest(identity){try{return JSON.parse(localStorage.getItem(`ew_bonus_lens_best::${identity?.playerId||''}`)||'null')}catch(_){return null}}
 function currentView(){return new URLSearchParams(location.search).get('view')==='mobile'?'mobile':''}
@@ -18,15 +20,15 @@ function carryView(query){const view=currentView();if(view)query.set('view',view
 function makeInteractive(card){
   if(!card)return;
   const unlocked=card.classList.contains('ready')||card.classList.contains('passed');
-  card.classList.toggle('clickable',unlocked);
+  if(card.classList.contains('clickable')!==unlocked)card.classList.toggle('clickable',unlocked);
   if(unlocked){
-    card.tabIndex=0;
-    card.setAttribute('role','button');
-    card.style.pointerEvents='auto';
-    card.removeAttribute('inert');
+    if(card.tabIndex!==0)card.tabIndex=0;
+    if(card.getAttribute('role')!=='button')card.setAttribute('role','button');
+    if(card.style.pointerEvents!=='auto')card.style.pointerEvents='auto';
+    if(card.hasAttribute('inert'))card.removeAttribute('inert');
   }else{
-    card.removeAttribute('tabindex');
-    card.removeAttribute('role');
+    if(card.hasAttribute('tabindex'))card.removeAttribute('tabindex');
+    if(card.hasAttribute('role'))card.removeAttribute('role');
   }
 }
 function ensureBonusCard(){
@@ -36,12 +38,14 @@ function ensureBonusCard(){
   const ready=source.classList.contains('passed');
   const identity=readIdentity();const best=bonusBest(identity);
   if(!card){card=document.createElement('article');card.dataset.stage='bonus_lens';source.insertAdjacentElement('afterend',card);}
-  card.className=`stage-card canonical-game-card bonus-lens-card ${ready?'ready clickable':'locked'}`;
-  card.dataset.canonicalRoute='1';card.dataset.canonicalDecorated=VERSION;
+  const wantedClass=`stage-card canonical-game-card bonus-lens-card ${ready?'ready clickable':'locked'}`;
+  setClassName(card,wantedClass);
+  setData(card,'canonicalRoute','1');setData(card,'canonicalDecorated',VERSION);
   makeInteractive(card);
   const status=best?.score!=null?`โบนัส ${Number(best.score)}% ✓`:ready?'พร้อมเล่นโบนัส':'ผ่าน Game 4 เพื่อเปิด';
   const bestText=best?.score!=null?` • ดีที่สุด ${Number(best.score)}%`:'';
-  card.innerHTML=`<div class="stage-icon">📷</div><div><strong>Lexicon Lens Hunt</strong><small>Bonus Mission • กล้องหลังค้นหา QR Clue • ไม่บังคับ Certificate${bestText}</small></div><div class="stage-state">${status}</div>`;
+  const wantedHTML=`<div class="stage-icon">📷</div><div><strong>Lexicon Lens Hunt</strong><small>Bonus Mission • กล้องหลังค้นหา QR Clue • ไม่บังคับ Certificate${bestText}</small></div><div class="stage-state">${status}</div>`;
+  if(card.innerHTML!==wantedHTML)card.innerHTML=wantedHTML;
   return card;
 }
 function decorateNow(){
@@ -49,9 +53,8 @@ function decorateNow(){
   Object.entries(ROUTES).forEach(([stage,route])=>{
     const card=document.querySelector(`.stage-card[data-stage="${stage}"]`);if(!card)return;
     if(stage==='bonus_lens'){makeInteractive(card);return;}
-    card.dataset.canonicalRoute='1';
-    card.dataset.canonicalDecorated=VERSION;
-    card.classList.add('canonical-game-card');
+    setData(card,'canonicalRoute','1');setData(card,'canonicalDecorated',VERSION);
+    if(!card.classList.contains('canonical-game-card'))card.classList.add('canonical-game-card');
     makeInteractive(card);
     const icon=card.querySelector('.stage-icon');setText(icon,route.icon);
     const title=card.querySelector('div:nth-child(2)>strong');setText(title,route.title);
@@ -65,14 +68,14 @@ function scheduleDecorate(){if(scheduled)return;scheduled=true;requestAnimationF
 function openStage(stage){
   const identity=readIdentity();if(!identity?.playerId)return;
   if(stage==='bonus_lens'){
-    const query=carryView(new URLSearchParams({from:'passport',authority:'firebase',pid:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',stage:'bonus_lens',v:'20260808-mobile-smoke1'}));
+    const query=carryView(new URLSearchParams({from:'passport',authority:'firebase',pid:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',stage:'bonus_lens',v:'20260808-prod-route2'}));
     location.assign('./lexicon-lens-hunt.html?'+query.toString());return;
   }
   if(stage==='final_boss'){
-    const query=carryView(new URLSearchParams({from:'passport',authority:'firebase',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run:'1',stage:'final_boss',v:'20260808-mobile-smoke1'}));
+    const query=carryView(new URLSearchParams({from:'passport',authority:'firebase',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run:'1',stage:'final_boss',v:'20260808-prod-route2'}));
     location.assign('./lexicon-champion-arena-v47.html?'+query.toString());return;
   }
-  const query=carryView(new URLSearchParams({stage,run:'1',v:'20260808-mobile-smoke1'}));
+  const query=carryView(new URLSearchParams({stage,run:'1',v:'20260808-prod-route2'}));
   location.assign('./passport-game-shell-firestore-v2.html?'+query.toString());
 }
 function intercept(event){
@@ -83,7 +86,11 @@ function intercept(event){
 }
 function keyboard(event){if(event.key!=='Enter'&&event.key!==' ')return;intercept(event)}
 document.addEventListener('click',intercept,true);document.addEventListener('keydown',keyboard,true);
-new MutationObserver(scheduleDecorate).observe(document.getElementById('screen')||document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+const screen=document.getElementById('screen')||document.body;
+new MutationObserver(mutations=>{
+  const relevant=mutations.some(m=>m.type==='childList'||(m.type==='attributes'&&m.attributeName==='class'));
+  if(relevant)scheduleDecorate();
+}).observe(screen,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
 const style=document.createElement('style');style.textContent='.stage-card.canonical-game-card.ready,.stage-card.canonical-game-card.passed{pointer-events:auto!important;cursor:pointer}.stage-card.canonical-game-card.ready{border-color:#7c75e8;background:linear-gradient(135deg,#fbfaff,#eef5ff)}.stage-card.canonical-game-card.ready .stage-icon{background:linear-gradient(135deg,#ebe7ff,#ddf6ff)}.stage-card.bonus-lens-card{border-style:dashed}.stage-card.bonus-lens-card.ready{border-color:#3bc7a7;background:linear-gradient(135deg,#f2fffb,#eef8ff)}.stage-card.bonus-lens-card .stage-icon{background:linear-gradient(135deg,#d9fff2,#e4f4ff)}';document.head.appendChild(style);
 decorateNow();
 window.EW_CANONICAL_ROUTES=Object.freeze({version:VERSION,routes:ROUTES,openStage,currentView});
