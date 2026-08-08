@@ -7,7 +7,9 @@ const app = getApps().length ? getApps()[0] : initializeApp(HEROHEALTH_FIREBASE_
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const SANDBOX_STUDENT_IDS = new Set(["990014", "990015", "990016", "990017"]);
+const SANDBOX_STUDENT_IDS = new Set(
+  Array.from({ length: 29 }, (_, i) => String(990001 + i))
+);
 
 function isSandboxStudent(studentId) {
   return SANDBOX_STUDENT_IDS.has(String(studentId || "").trim());
