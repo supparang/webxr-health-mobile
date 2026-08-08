@@ -4,8 +4,6 @@ const BH=window.BH;if(!BH||!BH.state||!BH.el||!BH.CONFIG||typeof BH.evaluatePose
 const s=BH.state,e=BH.el,C=BH.clamp;
 const RELEASE='20260808-BALANCE-HOLD-GRADE5-BALANCED-V18.1';
 
-// Grade 5 Balanced profile: keep the original classroom challenge meaningful.
-// Assist is for camera framing / missing ankles, not for auto-passing weak poses.
 Object.assign(BH.CONFIG.easy,{hold:2200,poseThreshold:66,safeThreshold:50,gateMs:320,graceMs:650,lostDebounceMs:900,assistAfterMs:6500,maxAssist:1});
 Object.assign(BH.CONFIG.normal,{hold:2800,poseThreshold:71,safeThreshold:55,gateMs:380,graceMs:600,lostDebounceMs:850,assistAfterMs:7500,maxAssist:1});
 Object.assign(BH.CONFIG.hard,{hold:3300,poseThreshold:76,safeThreshold:60,gateMs:430,graceMs:520,lostDebounceMs:800,assistAfterMs:8500,maxAssist:1});
@@ -62,13 +60,12 @@ BH.evaluatePose=(landmarks,key)=>{
   const level=e.difficulty?.value||'normal';
   const cfg=BH.CONFIG[level]||BH.CONFIG.normal;
   const advanced=['treeLeft','treeRight','airplaneLeft','airplaneRight','crystalBoss','boss'].includes(key);
-  // Only a small accessibility relaxation; assistLevel must not progressively trivialize the pose.
   const relax=level==='easy'?2:level==='normal'?1:0;
   const safeRelax=prepared.used?(level==='easy'?3:2):0;
   const effectivePose=Math.max(cfg.poseThreshold-2,(r.threshold??cfg.poseThreshold)-relax-Math.min(1,Number(s.assistLevel||0)));
   const effectiveSafe=Math.max(cfg.safeThreshold-3,(r.safeThreshold??cfg.safeThreshold)-safeRelax);
   const baseConfidence=Number(cfg.confidence||.46);
-  const confidenceFloor=Math.max(level==='easy'?.45:level==='normal'?.50:.56,baseConfidence-(prepared.used?.03:0));
+  const confidenceFloor=Math.max(level==='easy' ? .45 : level==='normal' ? .50 : .56,baseConfidence-(prepared.used?.03:0));
   const stabilityFloor=advanced?(level==='easy'?58:level==='normal'?62:66):(level==='easy'?52:level==='normal'?56:60);
   const controlFloor=advanced?(level==='easy'?50:level==='normal'?54:58):(level==='easy'?46:level==='normal'?50:54);
   const attempted=(r.pose||0)>=effectivePose;
