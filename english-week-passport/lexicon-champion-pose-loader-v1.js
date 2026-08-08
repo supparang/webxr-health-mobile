@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='20260808-LCA47-POSE-LAZY-LOADER-V2-NONBLOCKING';
+const VERSION='20260808-LCA47-POSE-LAZY-LOADER-V3-INTERACTION-ONLY';
 const SRC='https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';
 let ready=Boolean(window.Pose),loading=null;
 
@@ -10,9 +10,15 @@ function loadPose(){
   loading=new Promise((resolve,reject)=>{
     const existing=document.querySelector('script[data-lca-pose-loader]');
     if(existing){
-      const wait=()=>window.Pose?(ready=true,resolve(true)):setTimeout(wait,80);
+      let settled=false;
+      const started=Date.now();
+      const wait=()=>{
+        if(settled)return;
+        if(window.Pose){settled=true;ready=true;resolve(true);return}
+        if(Date.now()-started>12000){settled=true;reject(new Error('POSE_EXISTING_SCRIPT_TIMEOUT'));return}
+        setTimeout(wait,100);
+      };
       wait();
-      setTimeout(()=>{if(!window.Pose)reject(new Error('POSE_EXISTING_SCRIPT_TIMEOUT'))},12000);
       return;
     }
     const s=document.createElement('script');
@@ -27,20 +33,16 @@ function loadPose(){
   return loading;
 }
 
-// Warm MediaPipe only after first paint. This must NEVER intercept or block #start.
-const warm=()=>{
-  const run=()=>loadPose().catch(()=>{});
-  if('requestIdleCallback' in window)requestIdleCallback(run,{timeout:1800});
-  else setTimeout(run,650);
-};
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',warm,{once:true});else warm();
-
-// Start button is intentionally non-blocking. Core gameplay receives the user's tap immediately.
-// We only kick the loader in parallel so Body Gate has the best chance of being ready.
-document.addEventListener('pointerdown',event=>{
-  const btn=event.target?.closest?.('#start');
-  if(btn&&!window.Pose)loadPose().catch(()=>{});
-},{capture:true,passive:true});
+// IMPORTANT: do not preload MediaPipe on DOMContentLoaded/requestIdleCallback.
+// On some mobile Chrome devices compilation can monopolize the main thread after first paint,
+// making the visible Intro look frozen. Load only after an explicit player gesture.
+function gestureWarm(event){
+  const target=event.target?.closest?.('#start,#listen,#retry');
+  if(!target||window.Pose)return;
+  loadPose().catch(()=>{});
+}
+document.addEventListener('pointerdown',gestureWarm,{capture:true,passive:true});
+document.addEventListener('touchstart',gestureWarm,{capture:true,passive:true});
 
 window.LEXICON_CHAMPION_POSE_LOADER=Object.freeze({version:VERSION,load:loadPose,isReady:()=>Boolean(window.Pose)});
 })();
