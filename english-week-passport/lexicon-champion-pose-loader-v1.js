@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='20260808-LCA47-POSE-LAZY-LOADER-V3-INTERACTION-ONLY';
+const VERSION='20260808-LCA47-POSE-LAZY-LOADER-V4-AFTER-CLICK';
 const SRC='https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';
 let ready=Boolean(window.Pose),loading=null;
 
@@ -33,16 +33,21 @@ function loadPose(){
   return loading;
 }
 
-// IMPORTANT: do not preload MediaPipe on DOMContentLoaded/requestIdleCallback.
-// On some mobile Chrome devices compilation can monopolize the main thread after first paint,
-// making the visible Intro look frozen. Load only after an explicit player gesture.
-function gestureWarm(event){
-  const target=event.target?.closest?.('#start,#listen,#retry');
+// Critical mobile rule:
+// Never start MediaPipe on pointerdown/touchstart because compilation can block
+// the main thread before the browser dispatches the button's click event.
+// The button's own onclick runs at the target first; this document bubble listener
+// warms Pose only AFTER Start/Retry/Listen has already received the click.
+function afterClickWarm(event){
+  const target=event.target?.closest?.('#start,#retry');
   if(!target||window.Pose)return;
   loadPose().catch(()=>{});
 }
-document.addEventListener('pointerdown',gestureWarm,{capture:true,passive:true});
-document.addEventListener('touchstart',gestureWarm,{capture:true,passive:true});
+document.addEventListener('click',afterClickWarm,{capture:false,passive:true});
 
-window.LEXICON_CHAMPION_POSE_LOADER=Object.freeze({version:VERSION,load:loadPose,isReady:()=>Boolean(window.Pose)});
+window.LEXICON_CHAMPION_POSE_LOADER=Object.freeze({
+  version:VERSION,
+  load:loadPose,
+  isReady:()=>Boolean(window.Pose)
+});
 })();
