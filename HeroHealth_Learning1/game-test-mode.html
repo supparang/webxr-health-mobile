@@ -21,22 +21,22 @@
 </main>
 <script>
 (()=>{'use strict';
-const RELEASE='20260808-GAME-TEST-BALANCE-V60';
+const RELEASE='20260808-GAME-TEST-R61-HANDWASH-STRICT-R2-BALANCE-V70';
 const q=new URLSearchParams(location.search),desktopSmoke=!window.matchMedia?.('(pointer:coarse)')?.matches&&(window.innerWidth||1024)>=768;
 const sid=document.getElementById('sid');sid.value=q.get('studentId')||q.get('sid')||'990014';
 if(desktopSmoke){document.getElementById('modeText').textContent='PC Smoke Test • Mobile Viewport 390×780 • ไม่กระทบ Progress';document.getElementById('notice').textContent='PC SMOKE • ค่าเริ่มต้น Mobile Portrait 390×780 • สลับ Wide / Landscape / Desktop ได้ใน Game Shell • กล้อง/Hand/Body Detection ให้ยืนยันบนมือถือจริง'}
 const games=[
- {id:'handwash',zone:'hygiene',icon:'🧼',title:'Handwash AR',desc:'ล้างมือ WHO • Production Classroom Wrapper',target:'./classroom-contract-wrapper.html?wrappedGame=handwash&diff=easy&time=120&roundMode=standard&v=20260807-smoke-canonical-r3'},
+ {id:'handwash',zone:'hygiene',icon:'🧼',title:'Handwash AR',desc:'ล้างมือ WHO • Smoke Strict Completion R2',target:'./classroom-contract-wrapper.html?wrappedGame=handwash&diff=easy&time=120&roundMode=standard&v=20260808-smoke-handwash-strict-r2'},
  {id:'toothbrush',zone:'hygiene',icon:'🪥',title:'Toothbrush AR',desc:'แปรงฟันและกำจัดคราบ • Production v27',target:'./toothbrush-classroom-challenge-v27.html?v=20260730-gameplay-r7'},
  {id:'groups',zone:'nutrition',icon:'🥦',title:'Food Groups AR',desc:'จัดอาหารให้ถูก 5 หมู่ • Production Coach Wrapper',target:'./groups-mobile-coach-fix.html?source=./classroom-contract-wrapper.html%3FwrappedGame%3Dgroups%26v%3D20260725-wrapper2'},
  {id:'goodjunk',zone:'nutrition',icon:'🍎',title:'GoodJunk AR',desc:'เลือกอาหารสุขภาพ • Production Analytics Wrapper',target:'./goodjunk-classroom-analytics-v15.html?v=20260731-unified-analytics-v15'},
  {id:'jumpduck',zone:'fitness',icon:'🦆',title:'JumpDuck Dash',desc:'กระโดด ย่อตัว และเปลี่ยนเลน • Production v26',target:'../fitness/jumpduck-classroom-v26-ar.html?v=20260805-duck-polish-v75'},
- {id:'balance-hold',zone:'fitness',icon:'🧘',title:'Balance Hold AR',desc:'ฝึกการทรงตัว • Direct Smoke V60',target:'../fitness/balance-hold-classroom-analytics-v50.html?v=20260808-direct-smoke-v60'}
+ {id:'balance-hold',zone:'fitness',icon:'🧘',title:'Balance Hold AR',desc:'ฝึกการทรงตัว • Native Runtime Reset V70',target:'../fitness/balance-hold-classroom-analytics-v50.html?v=20260808-native-reset-v70'}
 ];
 const grid=document.getElementById('games');for(const g of games){const card=document.createElement('article');card.className='card';card.innerHTML=`<div class="icon">${g.icon}</div><h2>${g.title}</h2><p>${g.desc}</p><button class="play">เริ่มทดสอบเกมนี้</button>`;card.querySelector('button').onclick=()=>launch(g);grid.appendChild(card)}
 function launch(g){const id=String(sid.value||'').trim();if(!id){sid.focus();return}const shell=new URL('./game-shell-authority-r42.html',location.href);const back=new URL('./game-test-mode.html',location.href);back.searchParams.set('studentId',id);back.searchParams.set('v',RELEASE);if(desktopSmoke)back.searchParams.set('smoke','1');shell.searchParams.set('authority','firebase');shell.searchParams.set('studentId',id);shell.searchParams.set('sid',id);shell.searchParams.set('gameId',g.id);shell.searchParams.set('zone',g.zone);shell.searchParams.set('title',g.title+' • TEST');shell.searchParams.set('target',new URL(g.target,location.href).href);shell.searchParams.set('back',back.href);shell.searchParams.set('return',back.href);shell.searchParams.set('mode','game-test');shell.searchParams.set('gameTestMode','1');shell.searchParams.set('isTestAttempt','true');shell.searchParams.set('affectsProgression','false');shell.searchParams.set('testRunId',`TEST-${id}-${g.id}-${Date.now()}`);shell.searchParams.set('testRouteRelease',RELEASE);if(desktopSmoke){shell.searchParams.set('smoke','1');shell.searchParams.set('view','mobile');shell.searchParams.set('physicalDevice','desktop');shell.searchParams.set('smokeViewport','portrait')}shell.searchParams.set('_',Date.now());location.href=shell.href}
 document.getElementById('passport').onclick=()=>{const id=String(sid.value||'').trim();const u=new URL('./index.html',location.href);u.searchParams.set('authority','firebase');if(id){u.searchParams.set('studentId',id);u.searchParams.set('sid',id)}u.searchParams.set('firebaseReady','1');if(desktopSmoke){u.searchParams.set('smoke','1');u.searchParams.set('view','mobile')}u.searchParams.set('v',RELEASE);location.href=u.href};
-window.HH_GAME_TEST_MODE={release:RELEASE,canonicalProductionRoutes:true,desktopSmoke,defaultSmokeViewport:desktopSmoke?'portrait':'native'};
+window.HH_GAME_TEST_MODE={release:RELEASE,canonicalProductionRoutes:true,desktopSmoke,defaultSmokeViewport:desktopSmoke?'portrait':'native',handwashStrictGate:'r2',balanceRuntime:'v70-native-reset'};
 })();
 </script>
 </body>
