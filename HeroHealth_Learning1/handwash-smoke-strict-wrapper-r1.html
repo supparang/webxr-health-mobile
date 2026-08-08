@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#071827">
 <title>Handwash Smoke Strict Wrapper</title>
-<style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;min-height:100dvh;overflow:hidden;background:#071827}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}.status{position:fixed;z-index:30;left:50%;bottom:calc(8px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:94vw;padding:7px 11px;border-radius:999px;background:#0f172ddd;color:#fff;font:800 11px/1.25 system-ui;text-align:center;pointer-events:none}.status.ok{background:#065f46ee}.status.err{background:#991b1bee}</style>
+<style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;min-height:100dvh;overflow:hidden;background:#071827}iframe{position:fixed;inset:0;width:100%;height:100%;border:0}.status{display:none;position:fixed;z-index:30;left:50%;top:calc(8px + env(safe-area-inset-top,0px));transform:translateX(-50%);max-width:94vw;padding:7px 11px;border-radius:999px;background:#0f172ddd;color:#fff;font:800 11px/1.25 system-ui;text-align:center;pointer-events:none}.status.ok,.status.err{display:block}.status.ok{background:#065f46ee}.status.err{background:#991b1bee}</style>
 </head>
 <body>
 <iframe id="game" allow="camera;microphone;fullscreen;autoplay"></iframe>
 <div id="status" class="status">Handwash Smoke • รอเริ่มรอบใหม่</div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260808-HANDWASH-SMOKE-STRICT-WRAPPER-R1-LIVE-ONLY';
+const RELEASE='20260808-HANDWASH-SMOKE-STRICT-WRAPPER-R2-LIVE-ONLY-UI';
 const q=new URLSearchParams(location.search);
 const frame=document.getElementById('game'),status=document.getElementById('status');
 const sid=String(q.get('studentId')||q.get('sid')||q.get('pid')||'').trim();
@@ -35,25 +35,42 @@ function audit(raw){
  const currentAttempt=liveTimestamp(raw)>=startedAt-1500;
  return{valid:currentAttempt&&procedure&&rub>=7&&process>=5&&wrists&&analytics,currentAttempt,procedure,rub,process,wrists,analytics,rows:rs.length,metric:num(raw?.metricCompletenessPct)};
 }
-function start(){if(started)return;started=true;status.textContent='Handwash Smoke • กำลังเล่นรอบปัจจุบัน';try{parent.postMessage({type:'HEROHEALTH_GAME_STARTED'},location.origin)}catch(_){}}
+function start(){if(started)return;started=true;status.textContent='Handwash Smoke • กำลังเล่นรอบปัจจุบัน';status.className='status';try{parent.postMessage({type:'HEROHEALTH_GAME_STARTED'},location.origin)}catch(_){}}
 function forward(raw){
  if(sent||!raw||typeof raw!=='object')return false;
  const a=audit(raw);
- if(!a.valid){status.textContent=`กำลังเล่น • rub ${a.rub}/7 • process ${a.process}/5`;return false}
+ if(!a.valid){status.textContent=`กำลังเล่น • rub ${a.rub}/7 • process ${a.process}/5`;status.className='status';return false}
  sent=true;status.textContent='ครบภารกิจจริง • ส่งผลรอบปัจจุบัน';status.className='status ok';
  const payload={...raw,studentId:sid,participantId:sid,gameId:'handwash',zone:'hygiene',completed:true,procedureCompleted:true,missionPassed:true,progressionEligible:true,handwashSmokeStrictAudit:a,wrapperRelease:RELEASE};
  try{parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin)}catch(_){}
  return true;
 }
+function installMobilePolish(){
+ try{
+  const d=frame.contentDocument;if(!d?.head)return;
+  if(d.getElementById('hh-handwash-smoke-polish-r2'))return;
+  const s=d.createElement('style');s.id='hh-handwash-smoke-polish-r2';
+  s.textContent=`@media(max-width:760px){
+    .who-strip{overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important;justify-content:flex-start!important}
+    .who-strip::-webkit-scrollbar{display:none!important}
+    .phase-chip{flex:0 0 auto!important;min-width:72px!important}
+    .bottom{bottom:calc(6px + env(safe-area-inset-bottom,0px))!important;z-index:25!important}
+    .controls{gap:6px!important}
+    #faucetBtn,#stopBtn{min-height:52px!important;font-size:13px!important}
+    .coach{bottom:82px!important}
+  }`;
+  d.head.appendChild(s);
+ }catch(_){ }
+}
 const gameUrl=new URL('./handwash-classroom-7step.html',location.href);
 q.forEach((v,k)=>{if(!['wrappedGame','target'].includes(k))gameUrl.searchParams.set(k,v)});
 gameUrl.searchParams.set('strict7','1');gameUrl.searchParams.set('classroom','1');gameUrl.searchParams.set('studentId',sid);gameUrl.searchParams.set('pid',sid);gameUrl.searchParams.set('gameId','handwash');gameUrl.searchParams.set('zone','hygiene');gameUrl.searchParams.set('smoke','1');gameUrl.searchParams.set('gameTestMode','1');gameUrl.searchParams.set('isTestAttempt','true');gameUrl.searchParams.set('handwashSmokeWrapper',RELEASE);gameUrl.searchParams.set('_',Date.now());
 frame.src=gameUrl.href;
-frame.addEventListener('load',()=>{try{const d=frame.contentDocument;d?.addEventListener('click',e=>{if(/เริ่ม|start|เปิดกล้อง|เปิดน้ำ|faucet/i.test(String(e.target?.textContent||'')))start()},{capture:true})}catch(_){}});
+frame.addEventListener('load',()=>{try{installMobilePolish();setTimeout(installMobilePolish,120);const d=frame.contentDocument;d?.addEventListener('click',e=>{if(/เริ่ม|start|เปิดกล้อง|เปิดน้ำ|faucet/i.test(String(e.target?.textContent||'')))start()},{capture:true})}catch(_){}});
 addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==frame.contentWindow)return;const m=event.data||{};if(m.type==='HEROHEALTH_GAME_STARTED'){start();return}if(m.type==='HEROHEALTH_GAME_COMPLETE'&&m.payload){if(!started)start();forward(m.payload);return}if(m.type==='HEROHEALTH_HANDWASH_ANALYTICS'&&m.payload)forward(m.payload)},true);
 window.addEventListener('herohealth:game-result',e=>forward(e.detail||{}),true);
-window.HH_HANDWASH_SMOKE_STRICT_WRAPPER_R1={release:RELEASE,audit,startedAt};
-console.info('[Handwash Smoke Strict Wrapper R1] live-only installed',{sid,startedAt});
+window.HH_HANDWASH_SMOKE_STRICT_WRAPPER_R2={release:RELEASE,audit,startedAt};
+console.info('[Handwash Smoke Strict Wrapper R2] live-only UI installed',{sid,startedAt});
 })();
 </script>
 </body>
