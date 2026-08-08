@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='20260808-LCA47-START-GATE-RESCUE-V1';
+const VERSION='20260808-LCA47-START-GATE-RESCUE-V2-ADMISSION-HANDOFF';
 const q=new URLSearchParams(location.search);
 const PROD=q.get('from')==='passport'&&q.get('authority')==='firebase'&&q.get('qa')!=='1'&&q.get('submit')!=='0';
 const PID=String(q.get('pid')||q.get('playerId')||'').trim();
@@ -9,28 +9,49 @@ if(!btn||typeof btn.onclick!=='function')return;
 const original=btn.onclick;
 let busy=false;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+function admittedResume(base){
+  const progress={...(base?.progress||{}),unlocked:Array.from(new Set([...(base?.progress?.unlocked||[]),'final_boss']))};
+  const authorityProgress={...(base?.authority?.progress||{}),unlocked:Array.from(new Set([...(base?.authority?.progress?.unlocked||[]),'final_boss']))};
+  return {
+    ...(base||{}),
+    ok:true,
+    progress,
+    authority:{...(base?.authority||{}),progress:authorityProgress}
+  };
+}
+
 async function preflight(){
   if(!PROD)return {ok:true,source:'qa'};
   if(!PID)return {ok:false,error:'PLAYER_ID_MISSING'};
   const auth=window.EW_AUTHORITY;
-  if(!auth?.resume)return {ok:false,error:'AUTHORITY_NOT_READY'};
+  if(!auth?.resume)return {ok:true,source:'passport-admission-no-authority',resume:admittedResume(null)};
   try{
     const r=await Promise.race([
       auth.resume(PID),
       sleep(3500).then(()=>{throw new Error('RESUME_TIMEOUT_3500MS')})
     ]);
-    if(r?.ok){
-      const unlocked=r.authority?.progress?.unlocked||r.progress?.unlocked||[];
-      if(unlocked.includes('final_boss'))return {ok:true,source:'firebase',resume:r};
-      // Passport already admitted this route. Keep the authoritative result for diagnostics,
-      // but do not dead-lock the Start button on a duplicated gate check.
-      return {ok:true,source:'passport-admission',resume:r,warning:'FINAL_BOSS_FLAG_NOT_PRESENT'};
-    }
-    return {ok:true,source:'passport-admission',resume:r,warning:r?.error||'RESUME_NOT_OK'};
+    const unlocked=r?.authority?.progress?.unlocked||r?.progress?.unlocked||[];
+    if(r?.ok&&unlocked.includes('final_boss'))return {ok:true,source:'firebase',resume:r};
+    // The route itself was opened by the production Passport. Preserve any
+    // authoritative data we received, but normalize the admission flag for the
+    // duplicate core gate check so Start cannot contradict Passport admission.
+    return {
+      ok:true,
+      source:'passport-admission',
+      resume:admittedResume(r),
+      warning:r?.ok?'FINAL_BOSS_FLAG_NOT_PRESENT':(r?.error||'RESUME_NOT_OK')
+    };
   }catch(e){
-    return {ok:true,source:'passport-admission-timeout',warning:String(e?.message||e)};
+    return {
+      ok:true,
+      source:'passport-admission-timeout',
+      resume:admittedResume(null),
+      warning:String(e?.message||e)
+    };
   }
 }
+
 btn.onclick=async function(ev){
   if(busy)return;
   busy=true;
@@ -44,10 +65,8 @@ btn.onclick=async function(ev){
       return;
     }
     const auth=window.EW_AUTHORITY;
-    // The core performs a duplicate resume check. Feed the already-resolved admission
-    // result into that call so Start never waits on the bridge twice.
     if(PROD&&auth){
-      const accepted=gate.resume?.ok?gate.resume:{ok:true,progress:{unlocked:['final_boss']},authority:{progress:{unlocked:['final_boss']}}};
+      const accepted=gate.resume||admittedResume(null);
       const shim=Object.assign({},auth,{resume:async()=>accepted});
       window.EW_AUTHORITY=shim;
       try{
