@@ -1,0 +1,18 @@
+/* LEXICON Champion Arena • Intro One-Screen Responsive V1 */
+html,body{height:100%;height:100dvh;overflow:hidden}
+#intro.intro{height:100%;min-height:0;overflow:hidden!important;display:grid!important;grid-template-rows:auto auto auto auto minmax(0,1fr) auto auto;align-content:stretch!important;gap:clamp(4px,0.75dvh,7px)!important;padding:clamp(7px,1.1dvh,10px)!important}
+#intro .hero{font-size:clamp(1.55rem,5.2dvh,2.15rem)!important;line-height:1!important;margin:0!important}
+#intro h1{font-size:clamp(1.15rem,4.1dvh,1.55rem)!important;line-height:1.05!important;margin:0!important}
+#intro>p{font-size:clamp(.72rem,2.2dvh,.9rem)!important;line-height:1.15!important;margin:0!important}
+#intro .missionCard{padding:clamp(6px,1dvh,8px)!important;border-radius:12px!important;font-size:clamp(.72rem,2.1dvh,.86rem)!important;line-height:1.28!important;min-height:0!important}
+#intro .route{min-height:0!important;display:grid!important;grid-template-rows:repeat(5,minmax(0,1fr))!important;gap:clamp(3px,.55dvh,5px)!important;overflow:hidden!important}
+#intro .step{min-height:0!important;padding:clamp(4px,.65dvh,6px) 7px!important;border-radius:11px!important;grid-template-columns:30px minmax(0,1fr)!important;gap:7px!important}
+#intro .step>span{width:28px!important;height:28px!important;border-radius:8px!important;font-size:.86rem!important}
+#intro .step b{font-size:clamp(.72rem,2.2dvh,.9rem)!important;line-height:1.05!important}
+#intro .step small{font-size:clamp(.60rem,1.8dvh,.73rem)!important;line-height:1.08!important;margin-top:1px!important}
+#intro .missionSet{font-size:clamp(.61rem,1.75dvh,.72rem)!important;line-height:1.05!important;margin:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+#intro #start{min-height:44px!important;height:clamp(44px,6.5dvh,50px)!important;padding:7px 12px!important;border-radius:13px!important;font-size:clamp(.82rem,2.35dvh,.98rem)!important;margin:0!important;position:relative!important;z-index:2!important}
+#intro #qaHubIntro{min-height:42px!important;height:42px!important;padding:6px 10px!important;margin:0!important}
+#intro #qaHubIntro.hidden,#intro #qaHubIntro.qaOnly.hidden{display:none!important}
+@media(max-height:760px){#intro.intro{gap:3px!important;padding:6px!important}#intro .hero{font-size:1.45rem!important}#intro h1{font-size:1.08rem!important}#intro>p{font-size:.68rem!important}#intro .missionCard{padding:5px 6px!important;font-size:.68rem!important;line-height:1.2!important}#intro .route{gap:2px!important}#intro .step{padding:3px 6px!important;grid-template-columns:27px minmax(0,1fr)!important}#intro .step>span{width:25px!important;height:25px!important;font-size:.78rem!important}#intro .step b{font-size:.72rem!important}#intro .step small{font-size:.59rem!important}#intro #start{min-height:44px!important;height:44px!important}}
+@media(max-height:680px){#intro .hero{display:none!important}#intro>p{display:none!important}#intro.intro{grid-template-rows:auto auto minmax(0,1fr) auto auto!important}#intro h1{font-size:1rem!important}#intro .missionCard{font-size:.64rem!important}#intro .step small{display:none!important}#intro .step{grid-template-columns:25px minmax(0,1fr)!important}#intro .step b{font-size:.68rem!important}}
