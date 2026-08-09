@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
-const RELEASE='20260809-LCA47-AUDIO-AUTOPLAY-V2-GATE-NARRATION';
-let unlocked=false,lastText='',lastAt=0,retryTimer=0,lastGateKey='';
+const RELEASE='20260809-LCA47-AUDIO-AUTOPLAY-V3-ALL-GATES';
+let unlocked=false,lastText='',lastAt=0,retryTimer=0,lastScreenKey='';
 const $=id=>document.getElementById(id);
 function enabled(){return window.LEXICON_CHAMPION_V47?.state?.audio!==false}
 function prime(){
@@ -23,12 +23,10 @@ function chooseVoice(){
 function speakNow(text,key=''){
   text=String(text||'').trim();
   if(!text||!enabled()||!unlocked||!('speechSynthesis' in window))return;
-  if(key&&lastGateKey===key)return;
-  if(key)lastGateKey=key;
+  if(key&&lastScreenKey===key)return;
+  if(key)lastScreenKey=key;
   clearTimeout(retryTimer);
   try{
-    // A new gate owns the audio context. Never allow the previous Body command
-    // to continue speaking over an Understand/Build/Respond screen.
     speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(text);
     u.lang='en-US';u.rate=.84;u.pitch=1;u.volume=1;
@@ -56,34 +54,78 @@ function fallbackSpeak(text,force=false){
     }catch(_){ }
   },220);
 }
+function visibleContext(arena){
+  const nodes=[...arena.querySelectorAll('.context')].filter(el=>{
+    const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden';
+  });
+  return String(nodes.at(-1)?.textContent||'').trim();
+}
+function scheduleNarration(text,key,delay=90){
+  if(!text||lastScreenKey===key)return;
+  clearTimeout(retryTimer);
+  retryTimer=setTimeout(()=>speakNow(text,key),delay);
+}
 function scanArena(){
   const api=window.LEXICON_CHAMPION_V47;
   const st=api?.state;
   const arena=$('arena');
-  if(!arena)return;
+  if(!api||!st||!arena)return;
+  const phase=Number(st.phase||0),bossAttack=Number(st.bossAttack||0);
+  const arenaText=String(arena.textContent||'');
 
-  // Pose/Body command fallback.
+  // Gate 1 and Final Boss Command: Body command is spoken by the core after
+  // calibration/countdown. Only provide a fallback if the command stayed silent.
   const cmd=$('cmd');
   if(cmd){
-    const t=cmd.textContent?.trim();
+    const t=String(cmd.textContent||'').trim();
     if(t&&t!=='เตรียมตัว')fallbackSpeak(t);
+    return;
   }
 
-  // Gate 2 previously rendered the scenario but never narrated it, so the
-  // learner could still hear the previous Body instruction. Gate 2 now owns
-  // the audio context and reads exactly the scenario displayed on screen.
-  const arenaText=String(arena.textContent||'');
-  if(Number(st?.phase)===1 && /Gate\s*2\s*•?\s*Understand/i.test(arenaText)){
-    const context=String(api?.mission?.context||'').trim();
-    if(context){
-      const key=`gate2:${api?.SET||''}:${context}`;
-      if(lastGateKey!==key){
-        clearTimeout(retryTimer);
-        // 80 ms lets the new Gate 2 DOM settle; it is below the transition
-        // guard's watched range and therefore cannot be delayed by that guard.
-        setTimeout(()=>speakNow(context,key),80);
-      }
+  // Every non-body screen owns the audio context. When screen identity changes,
+  // stale Body/previous-gate speech must not continue over the new task.
+  if(phase===1){
+    const second=/What\s+does/i.test(arenaText);
+    const text=second?visibleContext(arena):String(api.mission?.context||'').trim();
+    const key=`gate2:${second?'meaning':'context'}:${api.SET||''}:${text}`;
+    scheduleNarration(text,key);
+    return;
+  }
+
+  if(phase===2){
+    const text=visibleContext(arena)||`Help the visitor with the ${api.mission?.place||'message'}.`;
+    const key=`gate3:build:${api.SET||''}:${text}`;
+    scheduleNarration(text,key);
+    return;
+  }
+
+  if(phase===3){
+    // Core already calls say(M.conversation). Do not duplicate it. We only make
+    // this screen own the audio key so delayed narration from Gate 2/3 is cancelled.
+    const text=String(api.mission?.conversation||visibleContext(arena)||'').trim();
+    const key=`gate4:respond:${api.SET||''}:${text}`;
+    if(lastScreenKey!==key){
+      clearTimeout(retryTimer);
+      lastScreenKey=key;
+      // Do not cancel here: the core's say(M.conversation) is fired during render.
     }
+    return;
+  }
+
+  if(phase>=4&&bossAttack===1){
+    const text=String(api.mission?.bossPrompt||visibleContext(arena)||'').trim();
+    const key=`boss:decision:${api.SET||''}:${text}`;
+    scheduleNarration(text,key);
+    return;
+  }
+
+  if(phase>=4&&bossAttack===2){
+    // Core bossVoice() already calls say(M.bossAnswer). Own the key only; do not
+    // duplicate the model sentence or interrupt SpeechRecognition preparation.
+    const text=String(api.mission?.bossAnswer||visibleContext(arena)||'').trim();
+    const key=`boss:voice:${api.SET||''}:${text}`;
+    if(lastScreenKey!==key){clearTimeout(retryTimer);lastScreenKey=key}
+    return;
   }
 }
 function watchArena(){
@@ -91,7 +133,6 @@ function watchArena(){
   new MutationObserver(scanArena).observe(root,{childList:true,subtree:true,characterData:true});
   scanArena();
 }
-// Capture user gesture before the game's async start flow.
 document.addEventListener('pointerdown',e=>{
   if(e.target?.closest?.('#start,#listen,#sample,#audio'))prime();
 },{capture:true,passive:true});
@@ -105,5 +146,5 @@ document.addEventListener('click',e=>{
 if('speechSynthesis' in window){speechSynthesis.onvoiceschanged=()=>scanArena()}
 watchArena();
 window.LEXICON_CHAMPION_AUDIO_AUTOPLAY=Object.freeze({release:RELEASE,prime,force:t=>fallbackSpeak(t,true),scan:scanArena});
-console.info('[LEXICON Champion] Audio Autoplay V2 gate narration ready');
+console.info('[LEXICON Champion] Audio Autoplay V3 all-gates narration ready');
 })();
