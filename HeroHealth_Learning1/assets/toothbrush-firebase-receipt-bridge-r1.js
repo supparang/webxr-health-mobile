@@ -1,10 +1,10 @@
-/* HeroHealth Toothbrush Firebase Receipt Bridge R1
+/* HeroHealth Toothbrush Firebase Receipt Bridge R2
  * Direct-game Firebase completion authority for Toothbrush V27.
  */
 (() => {
   'use strict';
 
-  const RELEASE = '20260804-TOOTHBRUSH-FIREBASE-RECEIPT-R1';
+  const RELEASE = '20260809-TOOTHBRUSH-FIREBASE-RECEIPT-R2-E2E29';
   const query = new URLSearchParams(location.search);
   const authority = String(query.get('authority') || '').toLowerCase();
   if (authority !== 'firebase') return;
@@ -33,7 +33,7 @@
   };
 
   const studentId = String(query.get('studentId') || query.get('sid') || query.get('pid') || '').trim();
-  const isSandbox = studentId === '990014';
+  const isSandbox = /^9900(0[1-9]|1[0-9]|2[0-9])$/.test(studentId);
   const progressCollection = isSandbox ? 'studentProgressSandbox' : 'studentProgress';
   let saving = false;
   let completed = false;
@@ -172,7 +172,7 @@
         back.textContent = 'ลองบันทึก Firebase อีกครั้ง';
         back.onclick = event => { event.preventDefault(); saveAndReturn(); };
       }
-      console.error('[Toothbrush Firebase Receipt R1]', error);
+      console.error('[Toothbrush Firebase Receipt R2]', error);
     }
   }
 
@@ -191,5 +191,5 @@
   new MutationObserver(inspect).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class','style'] });
   window.setInterval(inspect, 500);
   window.addEventListener('load', inspect, { once: true });
-  console.info('[Toothbrush Firebase Receipt R1] installed', { release: RELEASE, studentId, progressCollection });
+  console.info('[Toothbrush Firebase Receipt R2] installed', { release: RELEASE, studentId, progressCollection });
 })();
