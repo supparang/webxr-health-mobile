@@ -7,8 +7,8 @@
   const actions=document.getElementById('actions');
   function h(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}
   function readIdentity(){try{return JSON.parse(localStorage.getItem(cfg.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
-  function goPassport(){location.replace('./index.html?resume=1&from=certificate&v=20260807-journey1')}
-  function goSummary(){location.replace('./journey-summary.html?v=20260807-journey1')}
+  function goPassport(){location.replace('./index.html?resume=passport&from=certificate&v=20260809-journey-resume2')}
+  function goSummary(){location.replace('./journey-summary.html?v=20260809-journey2')}
   document.getElementById('passportBtn').addEventListener('click',goPassport);
   document.getElementById('printBtn').addEventListener('click',()=>window.print());
 
