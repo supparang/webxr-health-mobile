@@ -1,11 +1,11 @@
-/* CSAI2601 UX Quest • Three-Part Completion Tracker v1.2
- * Distinguishes attempted, passed, and Sheet-confirmed states.
- * Google Sheet remains the official source of truth.
+/* CSAI2601 UX Quest • Three-Part Completion Tracker v1.3
+ * Sheet-authoritative tracker for Mission + Studio + Weekly Reflection.
+ * Fix: status='not_submitted' must NEVER count as a Studio submission.
  */
 (() => {
   'use strict';
 
-  const VERSION = '20260722-THREE-PART-COMPLETION-V1.2';
+  const VERSION = '20260809-THREE-PART-COMPLETION-V1.3-STRICT-STATUS';
   const params = new URLSearchParams(location.search || '');
   const nodeId = String(params.get('node') || params.get('id') || '').trim().toUpperCase();
   const nodeKey = nodeId.toLowerCase();
@@ -14,12 +14,27 @@
   const clean = (v, max = 500) => String(v == null ? '' : v).trim().slice(0, max);
   const number = v => Number.isFinite(Number(v)) ? Number(v) : 0;
   const config = () => window.UXQ_CLASSROOM_CONFIG || {};
-  let server = {
-    loaded:false, mission:false, missionAttempted:false, missionStars:0,
-    missionScore:0, studio:false, reflection:false, reviewStatus:'', error:''
-  };
+  const ACCEPTED_STUDIO_STATUSES = new Set(['submitted','approved','need_revision','reviewing']);
+
+  let server = freshServer();
   let dispatchPending = false;
   let requestStarted = false;
+  let identityKey = '';
+  let timer = 0;
+
+  function freshServer() {
+    return {
+      loaded:false,
+      mission:false,
+      missionAttempted:false,
+      missionStars:0,
+      missionScore:0,
+      studio:false,
+      reflection:false,
+      reviewStatus:'',
+      error:''
+    };
+  }
 
   function profile() {
     let stored = {};
@@ -29,6 +44,21 @@
       studentName:clean(stored.studentName || params.get('studentName') || params.get('name') || '', 120),
       section:clean(stored.section || params.get('section') || config().defaultSection || '', 80)
     };
+  }
+
+  function currentIdentityKey() {
+    const p = profile();
+    return `${p.studentId}|${p.section}`;
+  }
+
+  function ensureIdentityFresh() {
+    const next = currentIdentityKey();
+    if (next !== identityKey) {
+      identityKey = next;
+      server = freshServer();
+      dispatchPending = false;
+      requestStarted = false;
+    }
   }
 
   function localMissionRecord() {
@@ -47,7 +77,6 @@
     const stars = Math.max(server.missionStars, localStars);
     const score = Math.max(server.missionScore, localScore);
     const attempted = Boolean(server.missionAttempted || localAttempted);
-    const done = Boolean(server.mission || localPassed);
 
     if (server.mission) {
       return { done:true, attempted:true, status:'ผ่านแล้ว', source:'Google Sheet ยืนยัน mission_completed', state:'done', stars, score };
@@ -57,9 +86,13 @@
     }
     if (attempted) {
       return {
-        done:false, attempted:true, status:'เล่นแล้ว • ยังไม่ผ่าน',
+        done:false,
+        attempted:true,
+        status:'เล่นแล้ว • ยังไม่ผ่าน',
         source:`มีคะแนนสะสม แต่เกณฑ์ผ่านต้องอย่างน้อย 2/3 ดาว • ดีที่สุด ${stars}/3 ดาว${score ? ` • ${score} คะแนน` : ''}`,
-        state:'retry', stars, score
+        state:'retry',
+        stars,
+        score
       };
     }
     return { done:false, attempted:false, status:'ยังไม่ได้เล่น', source:'เริ่ม Mission และทำให้ได้อย่างน้อย 2/3 ดาว', state:'missing', stars:0, score:0 };
@@ -68,21 +101,26 @@
   function formState() {
     const artifact = document.querySelector('.artifact[data-studio-practice-v1]');
     if (!artifact) return { studioReady:false, reflectionReady:false, formVisible:false };
+
     const fields = Array.from(artifact.querySelectorAll('[data-studio-key]')).filter(el => !el.hidden);
     const reflection = fields.find(el => el.dataset.studioKey === 'reflection');
     const nonReflection = fields.filter(el => el.dataset.studioKey !== 'reflection');
+    const checks = Array.from(artifact.querySelectorAll('[data-studio-check]'));
+
     const fieldOkay = el => {
       const value = String(el.value || '').trim();
       const min = Number(el.dataset.minLength || 0);
       if (el.dataset.required === '1' && !value) return false;
       if (value && min && value.length < min) return false;
       if (el.dataset.format === 'url') {
-        try { const u = new URL(value); if (!/^https?:$/.test(u.protocol)) return false; }
-        catch (_) { return false; }
+        try {
+          const u = new URL(value);
+          if (!/^https?:$/.test(u.protocol)) return false;
+        } catch (_) { return false; }
       }
       return true;
     };
-    const checks = Array.from(artifact.querySelectorAll('[data-studio-check]'));
+
     return {
       formVisible:true,
       studioReady:nonReflection.length > 0 && nonReflection.every(fieldOkay) && checks.length > 0 && checks.every(c => c.checked),
@@ -128,6 +166,7 @@
   }
 
   function mount() {
+    ensureIdentityFresh();
     installStyle();
     let box = document.getElementById('uxqThreePartCompletion');
     const anchor = findAnchor();
@@ -144,8 +183,10 @@
   }
 
   function render() {
+    ensureIdentityFresh();
     const box = document.getElementById('uxqThreePartCompletion');
     if (!box) return;
+
     const mission = missionState();
     const form = formState();
     const studioDone = Boolean(server.studio);
@@ -170,7 +211,7 @@
       ? '✅ ครบทั้ง 3 ส่วนแล้ว และ Google Sheet ยืนยันข้อมูลครบ'
       : mission.attempted && !mission.done
         ? 'คะแนนแสดงว่ามีการเล่นแล้ว แต่ยังไม่ถึงเกณฑ์ผ่าน ให้เล่นซ้ำจนได้อย่างน้อย 2/3 ดาว แล้ว Studio Practice จะเปิด'
-        : 'ต้องเห็น 3/3 จึงถือว่าส่งครบ การเปิด W ถัดไปยืนยันเฉพาะ Mission ไม่ได้ยืนยัน Studio และ Reflection';
+        : 'ต้องเห็น 3/3 จึงถือว่าส่งครบ โดย Google Sheet เป็นหลักฐานทางการของทั้ง 3 ส่วน';
 
     box.innerHTML = `
       <div class="uxq-3part__head"><div><h3>ตรวจความครบ 3 ส่วน • ${nodeId}</h3><p>Mission → Studio Practice → Weekly Reflection โดยใช้ Google Sheet เป็นหลักฐานทางการ</p></div><span class="uxq-3part__count">${completeCount}/3 ยืนยันจากระบบ</span></div>
@@ -187,22 +228,40 @@
       server.error = clean(data?.error || 'อ่าน Studio progress ไม่สำเร็จ');
       return;
     }
+
     const row = data.nodes?.[nodeKey] || data.nodes?.[nodeId] || data.items?.find?.(x => String(x.nodeId || x.missionId).toLowerCase() === nodeKey) || {};
     const missionRow = data.missions?.[nodeKey] || data.missions?.[nodeId] || {};
     const stars = Math.max(number(missionRow.bestStars), number(missionRow.stars), number(row.bestStars), number(row.missionStars));
     const score = Math.max(number(missionRow.bestScore), number(missionRow.score), number(row.bestScore), number(row.missionScore));
+    const status = clean(row.reviewStatus || row.status || '', 40).toLowerCase();
+
     server.mission = Boolean(missionRow.completed || missionRow.passed || row.missionCompleted || stars >= 2);
     server.missionAttempted = Boolean(server.mission || number(missionRow.attempts) > 0 || stars > 0 || score > 0 || missionRow.completedAt);
     server.missionStars = stars;
     server.missionScore = score;
-    server.studio = Boolean(row.submitted || row.artifactSubmitted || row.studioSubmitted || row.reviewStatus || row.status);
-    server.reflection = Boolean(row.reflectionSubmitted || row.hasReflection || clean(row.reflection || '').length > 0);
-    server.reviewStatus = clean(row.reviewStatus || row.status || '');
+
+    // STRICT FIX: 'not_submitted' is a non-empty string, but it is NOT evidence.
+    server.studio = Boolean(
+      row.submitted === true ||
+      row.artifactSubmitted === true ||
+      row.studioSubmitted === true ||
+      ACCEPTED_STUDIO_STATUSES.has(status)
+    );
+
+    server.reflection = Boolean(
+      row.reflectionSubmitted === true ||
+      row.hasReflection === true ||
+      clean(row.reflection || '', 5000).length > 0
+    );
+
+    server.reviewStatus = status;
     server.error = '';
   }
 
   function loadServerStatus(force = false) {
+    ensureIdentityFresh();
     if (requestStarted && !force) return;
+
     const p = profile();
     const endpoint = clean(config().receiverUrl || '', 800);
     if (!endpoint || !p.studentId || !p.section) {
@@ -210,25 +269,48 @@
       render();
       return;
     }
+
     requestStarted = true;
+    const requestIdentity = `${p.studentId}|${p.section}`;
     const callback = `UXQ3Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const script = document.createElement('script');
     const timer = setTimeout(() => {
-      delete window[callback]; script.remove(); requestStarted = false;
-      server.error = 'หมดเวลารอการยืนยันจาก Sheet'; render();
+      try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+      script.remove();
+      requestStarted = false;
+      if (requestIdentity !== currentIdentityKey()) return;
+      server.error = 'หมดเวลารอการยืนยันจาก Sheet';
+      render();
     }, 12000);
+
     window[callback] = data => {
-      clearTimeout(timer); delete window[callback]; script.remove(); requestStarted = false;
-      server.loaded = true; applyServerData(data); render();
+      clearTimeout(timer);
+      try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+      script.remove();
+      requestStarted = false;
+      if (requestIdentity !== currentIdentityKey()) return;
+      server.loaded = true;
+      applyServerData(data);
+      render();
     };
+
     const q = new URLSearchParams({
-      action:'uxq_student_studio_progress', studentId:p.studentId, section:p.section,
-      courseId:clean(config().courseId || 'UXQ-ACT1-2026', 120), callback
+      action:'uxq_student_studio_progress',
+      studentId:p.studentId,
+      section:p.section,
+      courseId:clean(config().courseId || 'UXQ-ACT1-2026', 120),
+      callback,
+      _:String(Date.now())
     });
     script.src = `${endpoint}${endpoint.includes('?') ? '&' : '?'}${q.toString()}`;
     script.onerror = () => {
-      clearTimeout(timer); delete window[callback]; script.remove(); requestStarted = false;
-      server.error = 'เชื่อม Receiver เพื่อตรวจสถานะไม่สำเร็จ'; render();
+      clearTimeout(timer);
+      try { delete window[callback]; } catch (_) { window[callback] = undefined; }
+      script.remove();
+      requestStarted = false;
+      if (requestIdentity !== currentIdentityKey()) return;
+      server.error = 'เชื่อม Receiver เพื่อตรวจสถานะไม่สำเร็จ';
+      render();
     };
     document.head.appendChild(script);
   }
@@ -239,20 +321,41 @@
   document.addEventListener('change', event => {
     if (event.target.closest?.('.artifact[data-studio-practice-v1]')) render();
   });
+
   window.addEventListener('uxq-progress-updated', () => { mount(); render(); });
   window.addEventListener('uxq-studio-artifact-dispatched', () => {
-    dispatchPending = true; render(); setTimeout(() => loadServerStatus(true), 2500);
+    dispatchPending = true;
+    render();
+    setTimeout(() => loadServerStatus(true), 2500);
   });
-  window.addEventListener('uxq-mission-completed', () => { mount(); render(); setTimeout(() => loadServerStatus(true), 1800); });
+  window.addEventListener('uxq-mission-completed', () => {
+    mount();
+    render();
+    setTimeout(() => loadServerStatus(true), 1800);
+  });
+  window.addEventListener('uxq-profile-updated', () => {
+    ensureIdentityFresh();
+    mount();
+    loadServerStatus(true);
+  });
 
-  let timer = 0;
   function schedule() {
     clearTimeout(timer);
-    timer = setTimeout(() => { mount(); if (!server.loaded) loadServerStatus(); }, 80);
+    timer = setTimeout(() => {
+      mount();
+      if (!server.loaded) loadServerStatus();
+    }, 80);
   }
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule, { once:true });
   else schedule();
+
   new MutationObserver(schedule).observe(document.body, { childList:true, subtree:true });
 
-  window.UXQThreePartCompletionV1 = Object.freeze({ version:VERSION, render, loadServerStatus, mount });
+  window.UXQThreePartCompletionV1 = Object.freeze({
+    version:VERSION,
+    render,
+    loadServerStatus,
+    mount
+  });
 })();
