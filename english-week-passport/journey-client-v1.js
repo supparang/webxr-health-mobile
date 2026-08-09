@@ -1,42 +1,90 @@
 (function(){
-  'use strict';
-  const VERSION='2026-08-07-JOURNEY-CLIENT-V1';
-  const cfg=window.EW_CONFIG||{};
-  const endpoint=String(cfg.firebaseJourneyUrl||'').trim();
-
-  function endpointReady(){
-    return /^https:\/\/[a-z0-9-]+-[a-z0-9-]+\.cloudfunctions\.net\/englishWeekJourney(?:\?.*)?$/i.test(endpoint);
-  }
-
-  async function request(action,payload){
-    if(!endpointReady())throw new Error('FIREBASE_JOURNEY_URL_MISSING');
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),Number(cfg.requestTimeoutMs||12000));
-    try{
-      const response=await fetch(endpoint,{
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-EW-App-Id':String(cfg.appId||'ENGLISH-WEEK-PASSPORT-2026')},
-        body:JSON.stringify({...(payload||{}),action,appId:cfg.appId||'ENGLISH-WEEK-PASSPORT-2026',sourceVersion:VERSION}),
-        signal:controller.signal,
-        cache:'no-store',
-        redirect:'follow'
-      });
-      let data=null;
-      try{data=await response.json()}catch(_){throw new Error('INVALID_JOURNEY_RESPONSE')}
-      if(!response.ok||data?.ok===false)throw new Error(data?.error||`JOURNEY_HTTP_${response.status}`);
-      if(data?.mode!=='firebase')throw new Error('FIREBASE_JOURNEY_RECEIPT_REQUIRED');
-      return data;
-    }finally{clearTimeout(timer)}
-  }
-
-  const api=Object.freeze({
-    version:VERSION,
-    endpointReady,
-    health:()=>request('health',{}),
-    status:playerId=>request('status',{playerId}),
-    submitReflection:payload=>request('submit_reflection',payload),
-    summary:playerId=>request('journey_summary',{playerId}),
-    completeSummary:playerId=>request('complete_summary',{playerId})
-  });
-  window.EW_JOURNEY=api;
+'use strict';
+const VERSION='2026-08-09-JOURNEY-CLIENT-V2-FIRESTORE-DIRECT';
+const cfg=window.EW_CONFIG||{};
+const COL={progress:'ewp_progress',summary:'ewp_game_summary',events:'ewp_events'};
+const GAME_META={
+  word_match:{title:'LexiMatch Navigator',skill:'Vocabulary matching'},
+  category_forest:{title:'Category Forest',skill:'Category & context'},
+  sentence_city:{title:'Sentence City',skill:'Sentence building'},
+  word_detective:{title:'Conversation Quest',skill:'Conversation & response'},
+  final_boss:{title:'LEXICON Champion Arena',skill:'Integrated Move • Decide • Speak'}
+};
+const nowIso=()=>new Date().toISOString();
+const uid=p=>`${p}-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
+function endpointReady(){return cfg.authorityMode==='firestore-direct'&&Boolean(window.firebase?.firestore)&&Boolean(window.EW_AUTHORITY?.resume)}
+async function ensure(playerId,nickname=''){
+  if(!endpointReady())throw new Error('FIRESTORE_DIRECT_JOURNEY_NOT_READY');
+  const r=await window.EW_AUTHORITY.resume(playerId,nickname);
+  if(!r?.ok||r.mode!=='firebase')throw new Error(r?.firebaseError||'FIRESTORE_DIRECT_RESUME_REQUIRED');
+  return r;
+}
+async function event(playerId,type,payload={}){
+  try{
+    const receiptId=uid(type);
+    await firebase.firestore().collection(COL.events).doc(receiptId).set({playerId,type,receiptId,...payload,createdAt:nowIso(),sourceVersion:VERSION});
+    return receiptId;
+  }catch(_){return uid(type)}
+}
+async function status(playerId){
+  const r=await ensure(playerId);
+  const p=r.progress||{};
+  return {ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Direct Authority',playerId,reflectionDone:Boolean(p.reflectionDone||p.finalReflection),summaryViewed:Boolean(p.summaryViewed),certificateEligible:Boolean(p.certificateEligible),version:VERSION};
+}
+async function submitReflection(payload){
+  const playerId=String(payload?.playerId||'').trim();
+  if(!playerId)throw new Error('PLAYER_ID_REQUIRED');
+  const r=await ensure(playerId);
+  if(!r.progress?.postDone)throw new Error('POST_CHALLENGE_REQUIRED');
+  const reflection={
+    confidence:Number(payload.confidence||0),
+    mostUsefulMission:String(payload.mostUsefulMission||''),
+    helpedMost:String(payload.helpedMost||''),
+    takeaway:String(payload.takeaway||'').trim(),
+    submittedAt:nowIso(),
+    sourceVersion:payload.sourceVersion||VERSION
+  };
+  if(!reflection.confidence||!reflection.mostUsefulMission||!reflection.helpedMost)throw new Error('REFLECTION_INCOMPLETE');
+  await firebase.firestore().collection(COL.progress).doc(playerId).set({playerId,reflectionDone:true,finalReflection:reflection,updatedAt:nowIso(),journeySourceVersion:VERSION},{merge:true});
+  const receiptId=await event(playerId,'final_reflection',{reflectionDone:true});
+  return {ok:true,mode:'firebase',receiptId,reflectionDone:true,sourceOfTruth:'Cloud Firestore Direct Authority',version:VERSION};
+}
+function strongest(bestScores){
+  let best=null;
+  Object.entries(bestScores||{}).forEach(([stageId,value])=>{const accuracy=Number(value||0);if(!best||accuracy>best.accuracy)best={stageId,accuracy,skill:GAME_META[stageId]?.skill||stageId}});
+  return best;
+}
+async function summary(playerId){
+  const r=await ensure(playerId);
+  const p=r.progress||{};
+  if(!(p.reflectionDone||p.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');
+  let gameSummary={};
+  try{const s=await firebase.firestore().collection(COL.summary).doc(playerId).get();if(s.exists)gameSummary=s.data()||{}}catch(_){}
+  const bestScores={...(p.bestScores||{}),...(gameSummary.bestScores||{})};
+  const games=Object.keys(GAME_META).map(stageId=>({stageId,title:GAME_META[stageId].title,skill:GAME_META[stageId].skill,bestAccuracy:Number(bestScores[stageId]||0),attempts:Number(bestScores[stageId]!=null?1:0),durationMs:0}));
+  const values=games.map(g=>g.bestAccuracy).filter(v=>v>0);
+  const averageGameAccuracy=values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length):0;
+  const preAccuracy=Number(p.preAccuracy??p.preScore??0);
+  const postAccuracy=Number(p.postAccuracy??p.postScore??0);
+  const bonusBest=gameSummary.bonusBest||null;
+  return {
+    ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Direct Authority',summaryViewed:Boolean(p.summaryViewed),
+    summary:{
+      pre:{accuracy:preAccuracy},post:{accuracy:postAccuracy},learningGain:postAccuracy-preAccuracy,
+      averageGameAccuracy,totalAttempts:games.reduce((n,g)=>n+g.attempts,0),totalDurationMs:0,
+      games,strongestSkill:strongest(bestScores),badge:p.certificate?.awardLevel||'LEXICON X Explorer',
+      reflection:p.finalReflection||{},
+      bonus:bonusBest?{played:true,score:Number(bonusBest.score||0),correctContexts:Number(bonusBest.correctContexts||0),totalScans:Number(bonusBest.totalScans||0),durationMs:Number(bonusBest.durationMs||0)}:{played:false}
+    },version:VERSION
+  };
+}
+async function completeSummary(playerId){
+  const r=await ensure(playerId);
+  if(!(r.progress?.reflectionDone||r.progress?.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');
+  await firebase.firestore().collection(COL.progress).doc(playerId).set({playerId,summaryViewed:true,summaryViewedAt:nowIso(),updatedAt:nowIso(),journeySourceVersion:VERSION},{merge:true});
+  const receiptId=await event(playerId,'journey_summary',{summaryViewed:true});
+  return {ok:true,mode:'firebase',receiptId,summaryViewed:true,sourceOfTruth:'Cloud Firestore Direct Authority',version:VERSION};
+}
+window.EW_JOURNEY=Object.freeze({version:VERSION,endpointReady,status,submitReflection,summary,completeSummary,health:async()=>({ok:endpointReady(),mode:'firebase',version:VERSION})});
+console.info('[LEXICON X] Journey Client V2 Firestore Direct ready');
 }());
