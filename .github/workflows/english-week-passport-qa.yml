@@ -11,6 +11,7 @@ on:
       - 'english-week-firebase-spark/firebase.json'
       - '.github/workflows/english-week-passport-qa.yml'
       - '.github/workflows/english-week-firebase-deploy.yml'
+      - '.github/workflows/english-week-assessment-checkpoint-deploy.yml'
   workflow_dispatch:
 
 permissions:
