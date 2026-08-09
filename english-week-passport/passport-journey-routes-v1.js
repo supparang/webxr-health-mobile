@@ -1,9 +1,9 @@
 (function(){
 'use strict';
-const VERSION='2026-08-09-PASSPORT-JOURNEY-ROUTES-V4-DIRECT7-PERMISSION-FALLBACK';
+const VERSION='2026-08-09-PASSPORT-JOURNEY-ROUTES-V5-DIRECT8-RAW-PROGRESS';
 const cfg=window.EW_CONFIG||{};
 const journey=window.EW_JOURNEY;
-const ROUTE_VERSION='20260809-journey-direct7-permission-fallback';
+const ROUTE_VERSION='20260809-journey-direct8-raw-progress';
 let identity=null;
 let journeyStatus=null;
 let statusError='';
