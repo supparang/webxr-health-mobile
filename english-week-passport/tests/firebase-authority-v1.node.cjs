@@ -15,6 +15,7 @@ const rules = fs.readFileSync(path.join(repo, 'english-week-firebase-spark', 'fi
 const teacher = fs.readFileSync(path.join(repo, 'english', 'functions', 'english-week-teacher.js'), 'utf8');
 const firebaserc = JSON.parse(fs.readFileSync(path.join(repo, 'english', '.firebaserc'), 'utf8'));
 const workflow = fs.readFileSync(path.join(repo, '.github', 'workflows', 'english-week-firebase-deploy.yml'), 'utf8');
+const checkpointWorkflow = fs.readFileSync(path.join(repo, '.github', 'workflows', 'english-week-assessment-checkpoint-deploy.yml'), 'utf8');
 
 const context = { window: {}, URLSearchParams, document: { documentElement:{}, body:null } };
 vm.runInNewContext(configSource, context);
@@ -60,5 +61,7 @@ assert.match(workflow, /--project englishweek-95869/);
 assert.match(workflow, /functions:englishWeekTeacher/);
 assert.match(workflow, /firestore:rules/);
 assert.doesNotMatch(workflow, /english-d4bfa/);
+assert.match(checkpointWorkflow, /--project englishweek-95869/);
+assert.doesNotMatch(checkpointWorkflow, /english-d4bfa/);
 
 console.log('English Week Firestore-direct production contract: PASS');
