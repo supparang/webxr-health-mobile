@@ -1,16 +1,18 @@
-name: Deploy English Week Firebase Authority
+name: Deploy English Week Firebase Production
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'english/functions/english-week-authority.js'
-      - 'english/functions/english-week-assessment-checkpoint.js'
+      - 'english/functions/english-week-teacher.js'
       - 'english/functions/main.js'
       - 'english/functions/package.json'
       - 'english/functions/package-lock.json'
       - 'english/firebase.json'
+      - 'english/.firebaserc'
+      - 'english-week-firebase-spark/firestore.rules'
+      - 'english-week-firebase-spark/firebase.json'
       - '.github/workflows/english-week-firebase-deploy.yml'
   workflow_dispatch:
 
@@ -36,10 +38,10 @@ jobs:
 
       - name: Validate Firebase service account secret
         env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ENGLISH_D4BFA }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ENGLISHWEEK_95869 }}
         run: |
           if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            echo "Missing repository secret: FIREBASE_SERVICE_ACCOUNT_ENGLISH_D4BFA"
+            echo "Missing repository secret: FIREBASE_SERVICE_ACCOUNT_ENGLISHWEEK_95869"
             exit 1
           fi
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
@@ -49,23 +51,34 @@ jobs:
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
-      - name: Validate English Week function syntax
+      - name: Validate English Week production syntax
         working-directory: english/functions
         run: |
           npm run lint
-          node --check english-week-assessment-checkpoint.js
+          node --check english-week-teacher.js
+          node --check main.js
 
       - name: Install Firebase CLI
         run: npm install --global firebase-tools
 
-      - name: Deploy authority and checkpoint functions
+      - name: Deploy Teacher Analytics Authority
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
         run: |
           firebase deploy \
             --config english/firebase.json \
-            --project english-d4bfa \
-            --only functions:englishWeekAuthority,functions:englishWeekAssessmentCheckpoint \
+            --project englishweek-95869 \
+            --only functions:englishWeekTeacher \
+            --non-interactive
+
+      - name: Deploy Firestore rules
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
+        run: |
+          firebase deploy \
+            --config english-week-firebase-spark/firebase.json \
+            --project englishweek-95869 \
+            --only firestore:rules \
             --non-interactive
 
       - name: Install Google Cloud CLI
@@ -73,24 +86,18 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Grant public invoker to English Week functions
+      - name: Grant public invoker to Teacher Authority
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
         run: |
           gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-          gcloud config set project english-d4bfa
-
-          gcloud functions add-invoker-policy-binding englishWeekAuthority \
+          gcloud config set project englishweek-95869
+          gcloud functions add-invoker-policy-binding englishWeekTeacher \
             --gen2 \
             --region=asia-southeast1 \
             --member=allUsers
 
-          gcloud functions add-invoker-policy-binding englishWeekAssessmentCheckpoint \
-            --gen2 \
-            --region=asia-southeast1 \
-            --member=allUsers
-
-      - name: Print production endpoints
+      - name: Print production endpoint
         run: |
-          echo "Authority: https://asia-southeast1-english-d4bfa.cloudfunctions.net/englishWeekAuthority"
-          echo "Checkpoint: https://asia-southeast1-english-d4bfa.cloudfunctions.net/englishWeekAssessmentCheckpoint"
+          echo "Teacher: https://asia-southeast1-englishweek-95869.cloudfunctions.net/englishWeekTeacher"
+          echo "Firestore project: englishweek-95869"
