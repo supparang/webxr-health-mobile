@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>HeroHealth Live Classroom 200 R5</title>
+<style>
+:root{font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;--b:#0f766e;--b2:#14b8a6;--ink:#17312d;--warn:#b45309;--bad:#b91c1c;--ok:#15803d}*{box-sizing:border-box}html,body{margin:0;height:100%;background:#eef9f7;color:var(--ink)}body{display:grid;grid-template-rows:auto 1fr;overflow:hidden}.control{position:relative;z-index:20;background:linear-gradient(135deg,#073f3a,#0f766e);color:#fff;padding:9px 12px;box-shadow:0 3px 14px #0002}.bar{width:min(1640px,100%);margin:auto;display:grid;grid-template-columns:minmax(230px,1fr) auto auto;gap:10px;align-items:center}.title{font-weight:1000;line-height:1.1}.title small{display:block;font-size:11px;font-weight:600;color:#cbfff7;margin-top:3px}.quick{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}.q{border:1px solid #ffffff55;background:#ffffff18;color:#fff;border-radius:999px;padding:8px 11px;font-weight:900;cursor:pointer;white-space:nowrap}.q.active,.q:hover{background:#fff;color:#0f766e}.timer{display:flex;align-items:center;gap:7px;background:#ffffff14;border:1px solid #ffffff3d;border-radius:14px;padding:6px 8px;justify-self:end}.clockWrap{min-width:90px}.clock{font:1000 23px ui-monospace,SFMono-Regular,Menlo,monospace;text-align:center}.timer.warn10{background:#92400e}.timer.warn5{background:#991b1b}.timer.done{background:#7f1d1d;animation:pulse 1s infinite}.tb{border:0;border-radius:9px;padding:7px 9px;font-weight:900;cursor:pointer;background:#fff;color:#0f766e;white-space:nowrap}.tb.stop{background:#fee2e2;color:#991b1b}.msg{font-size:10px;text-align:center;line-height:1.15}.frameWrap{min-height:0;position:relative}.frame{width:100%;height:100%;border:0;display:block;background:#fff}@keyframes pulse{50%{filter:brightness(1.35)}}
+@media(max-width:1180px){.bar{grid-template-columns:1fr auto}.title{grid-column:1/-1}.quick{justify-content:flex-start}.timer{justify-self:end}}
+@media(max-width:820px){body{grid-template-rows:auto 1fr}.control{padding:8px}.bar{grid-template-columns:1fr}.title{grid-column:auto}.quick{justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px}.timer{justify-self:stretch;justify-content:space-between}.q{padding:7px 9px;font-size:12px}.clock{font-size:20px}.tb{font-size:12px;padding:7px 8px}}
+@media(max-width:520px){.title small{display:none}.timer{display:grid;grid-template-columns:1fr repeat(3,auto);gap:5px}.clockWrap{min-width:0}.clock{font-size:19px}.msg{font-size:9px}.tb{padding:7px 7px}.control{padding:7px}.q{font-size:11px}}
+</style>
+</head>
+<body>
+<header class="control">
+  <div class="bar">
+    <div class="title">🎛️ Live Classroom 200 R5 <small>Responsive Control • Quick Filter • 60-minute Timer • R3 Firebase core preserved</small></div>
+    <div class="quick" aria-label="ตัวกรองด่วน">
+      <button class="q active" data-state="">ทั้งหมด</button>
+      <button class="q" data-state="help">⚠️ ต้องช่วย</button>
+      <button class="q" data-state="playing">🟢 กำลังเล่น</button>
+      <button class="q" data-state="waiting">⚪ รอเริ่ม</button>
+      <button class="q" data-state="complete">✅ จบแล้ว</button>
+    </div>
+    <div id="timerBox" class="timer">
+      <div class="clockWrap"><div id="clock" class="clock">60:00</div><div id="timerMsg" class="msg">ยังไม่เริ่มจับเวลา</div></div>
+      <button id="startTimer" class="tb">เริ่ม 60 นาที</button>
+      <button id="pauseTimer" class="tb">พัก</button>
+      <button id="resetTimer" class="tb stop">รีเซ็ต</button>
+    </div>
+  </div>
+</header>
+<div class="frameWrap"><iframe id="dashboard" class="frame" src="./firebase-live-classroom-200-r3.html?v=20260809-r5-responsive" title="HeroHealth Live Classroom 200 R3"></iframe></div>
+<script>
+(()=>{
+'use strict';
+const RELEASE='20260809-LIVE-CLASSROOM-200-R5-RESPONSIVE-POLISH';
+const frame=document.getElementById('dashboard');
+const qs=[...document.querySelectorAll('.q')];
+function polishInner(){
+  try{
+    const d=frame.contentDocument;if(!d)return;
+    const sel=d.getElementById('opsFilter');
+    if(sel){sel.style.display='none';sel.setAttribute('aria-hidden','true')}
+    const toolbar=sel?.closest('.toolbar');
+    if(toolbar){
+      toolbar.style.gridTemplateColumns='1fr 1fr 1.3fr auto auto';
+      toolbar.dataset.r5Polished='1';
+    }
+    const style=d.createElement('style');
+    style.id='hh-r5-inner-polish';
+    style.textContent='@media(max-width:700px){.toolbar{grid-template-columns:1fr 1fr!important}.toolbar #search{grid-column:1/-1}.toolbar #opsFilter{display:none!important}}';
+    if(!d.getElementById(style.id))d.head.appendChild(style);
+  }catch(e){console.warn('[HH R5] inner polish unavailable',e)}
+}
+function applyQuick(state){
+  qs.forEach(b=>b.classList.toggle('active',b.dataset.state===state));
+  try{
+    const d=frame.contentDocument;
+    const sel=d?.getElementById('opsFilter');
+    if(!sel)return;
+    sel.value=state;
+    sel.dispatchEvent(new Event('change',{bubbles:true}));
+  }catch(e){console.warn('[HH R5] quick filter unavailable',e)}
+}
+qs.forEach(b=>b.addEventListener('click',()=>applyQuick(b.dataset.state||'')));
+frame.addEventListener('load',()=>{setTimeout(()=>{polishInner();const active=qs.find(b=>b.classList.contains('active'));applyQuick(active?.dataset.state||'')},350)});
+
+const TOTAL=60*60;
+let remaining=TOTAL,running=false,lastTick=0,timerId=null;
+const clock=document.getElementById('clock'),box=document.getElementById('timerBox'),msg=document.getElementById('timerMsg');
+const fmt=s=>`${String(Math.floor(Math.max(0,s)/60)).padStart(2,'0')}:${String(Math.max(0,s)%60).padStart(2,'0')}`;
+function announce(){
+  box.classList.remove('warn10','warn5','done');
+  if(remaining<=0){box.classList.add('done');msg.textContent='หมดเวลา • เช็กผู้เรียนที่ยังไม่จบ';return}
+  if(remaining<=5*60){box.classList.add('warn5');msg.textContent='เหลือ ≤5 นาที • Post-test / Reflection';return}
+  if(remaining<=10*60){box.classList.add('warn10');msg.textContent='เหลือ ≤10 นาที • เร่งด่านสุดท้าย';return}
+  if(remaining<=15*60){msg.textContent='เหลือ ≤15 นาที • ตรวจ Attention';return}
+  msg.textContent=running?'กำลังจับเวลา':'พักเวลา';
+}
+function draw(){clock.textContent=fmt(remaining);announce()}
+function stopLoop(){if(timerId){clearInterval(timerId);timerId=null}}
+function start(){if(remaining<=0)remaining=TOTAL;if(running)return;running=true;lastTick=Date.now();stopLoop();timerId=setInterval(()=>{if(!running)return;const now=Date.now();const dec=Math.max(1,Math.floor((now-lastTick)/1000));remaining=Math.max(0,remaining-dec);lastTick=now;draw();if(remaining<=0){running=false;stopLoop()}},1000);draw()}
+function pause(){running=false;stopLoop();draw()}
+function reset(){running=false;stopLoop();remaining=TOTAL;draw()}
+document.getElementById('startTimer').addEventListener('click',start);
+document.getElementById('pauseTimer').addEventListener('click',pause);
+document.getElementById('resetTimer').addEventListener('click',reset);
+draw();
+console.info('[HeroHealth] Live Classroom 200 R5 ready',RELEASE);
+})();
+</script>
+</body>
+</html>
