@@ -1,38 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
-    }
-
+    function signedIn() { return request.auth != null; }
     function qaId(playerId) {
       return playerId.matches('^(QA|TEST)[-_].*') || playerId.matches('^99[0-9]{4,}$');
     }
-
     function sessionExists() {
       return signedIn()
         && exists(/databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid));
     }
-
     function sessionDoc() {
       return get(/databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid));
     }
-
     function owns(playerId) {
-      return signedIn()
-        && sessionExists()
-        && sessionDoc().data.playerId == playerId;
+      return signedIn() && sessionExists() && sessionDoc().data.playerId == playerId;
     }
-
     function ownsCheckpointId(checkpointId) {
-      return signedIn()
-        && sessionExists()
-        && (
-          checkpointId == sessionDoc().data.playerId + '__pre'
-          || checkpointId == sessionDoc().data.playerId + '__post'
-        );
+      return signedIn() && sessionExists()
+        && (checkpointId == sessionDoc().data.playerId + '__pre'
+          || checkpointId == sessionDoc().data.playerId + '__post');
     }
-
     function activeProfile(playerId) {
       return exists(/databases/$(database)/documents/ewp_profiles/$(playerId))
         && get(/databases/$(database)/documents/ewp_profiles/$(playerId)).data.active == true;
@@ -41,14 +28,12 @@ service cloud.firestore {
     match /ewp_profiles/{playerId} {
       allow get: if signedIn();
       allow list: if false;
-      allow create: if signedIn()
-        && qaId(playerId)
+      allow create: if signedIn() && qaId(playerId)
         && request.resource.data.playerId == playerId
         && request.resource.data.active == true;
       allow update: if owns(playerId)
         && request.resource.data.playerId == resource.data.playerId
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['lastSeenAt', 'updatedAt']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt', 'updatedAt']);
       allow delete: if false;
     }
 
@@ -58,72 +43,60 @@ service cloud.firestore {
         && request.auth.uid == uid
         && request.resource.data.uid == uid
         && request.resource.data.playerId is string
-        && (
-          qaId(request.resource.data.playerId)
-          || activeProfile(request.resource.data.playerId)
-        );
+        && (qaId(request.resource.data.playerId) || activeProfile(request.resource.data.playerId));
       allow delete: if signedIn() && request.auth.uid == uid;
       allow list: if false;
     }
 
     match /ewp_progress/{playerId} {
       allow get: if owns(playerId);
-      allow create: if owns(playerId)
-        && request.resource.data.playerId == playerId;
-      allow update: if owns(playerId)
-        && request.resource.data.playerId == resource.data.playerId;
+      allow create: if owns(playerId) && request.resource.data.playerId == playerId;
+      allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
       allow delete, list: if false;
     }
 
     match /ewp_assignments/{playerId} {
       allow get: if owns(playerId);
-      allow create: if owns(playerId)
-        && request.resource.data.playerId == playerId;
+      allow create: if owns(playerId) && request.resource.data.playerId == playerId;
       allow update, delete, list: if false;
     }
 
     match /ewp_assessments/{receiptId} {
-      allow create: if request.resource.data.playerId is string
-        && owns(request.resource.data.playerId);
+      allow create: if request.resource.data.playerId is string && owns(request.resource.data.playerId);
       allow get: if owns(resource.data.playerId);
-      allow list, update, delete: if false;
+      allow list: if owns(resource.data.playerId);
+      allow update, delete: if false;
     }
 
     match /ewp_game_results/{receiptId} {
-      allow create: if request.resource.data.playerId is string
-        && owns(request.resource.data.playerId);
+      allow create: if request.resource.data.playerId is string && owns(request.resource.data.playerId);
       allow get: if owns(resource.data.playerId);
-      allow list, update, delete: if false;
+      allow list: if owns(resource.data.playerId);
+      allow update, delete: if false;
     }
 
     match /ewp_game_summary/{playerId} {
       allow get: if owns(playerId);
-      allow create: if owns(playerId)
-        && request.resource.data.playerId == playerId;
-      allow update: if owns(playerId)
-        && request.resource.data.playerId == resource.data.playerId;
+      allow create: if owns(playerId) && request.resource.data.playerId == playerId;
+      allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
       allow list, delete: if false;
     }
 
     match /ewp_events/{eventId} {
-      allow create: if request.resource.data.playerId is string
-        && owns(request.resource.data.playerId);
+      allow create: if request.resource.data.playerId is string && owns(request.resource.data.playerId);
       allow get: if owns(resource.data.playerId);
-      allow list, update, delete: if false;
+      allow list: if owns(resource.data.playerId);
+      allow update, delete: if false;
     }
 
     match /ewp_certificates/{playerId} {
       allow get: if owns(playerId);
-      allow create: if owns(playerId)
-        && request.resource.data.playerId == playerId;
-      allow update: if owns(playerId)
-        && request.resource.data.playerId == resource.data.playerId;
+      allow create: if owns(playerId) && request.resource.data.playerId == playerId;
+      allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
       allow list, delete: if false;
     }
 
     match /ewp_assessment_checkpoints/{checkpointId} {
-      // GET must also work when the checkpoint does not exist yet.
-      // Authorize by the owned document id instead of resource.data.
       allow get: if ownsCheckpointId(checkpointId);
       allow create: if ownsCheckpointId(checkpointId)
         && request.resource.data.playerId == sessionDoc().data.playerId;
@@ -135,8 +108,6 @@ service cloud.firestore {
       allow list: if false;
     }
 
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    match /{document=**} { allow read, write: if false; }
   }
 }
