@@ -1,16 +1,16 @@
-/* HeroHealth Shared Firebase Game Receipt Bridge R4
+/* HeroHealth Shared Firebase Game Receipt Bridge R5
  * Passport completion authority + append-only learning analytics.
  * Stores the latest result for resume/unlock and every completed attempt for research.
  */
 (() => {
   'use strict';
 
-  const RELEASE = '20260805-FIREBASE-GAME-RECEIPT-BRIDGE-R4-LEARNING-ANALYTICS';
+  const RELEASE = '20260809-FIREBASE-GAME-RECEIPT-BRIDGE-R5-SANDBOX-ROUTING';
   const SCHEMA = 'HH-LEARNING-ANALYTICS-V1';
   const query = new URLSearchParams(location.search);
   if (String(query.get('authority') || '').toLowerCase() !== 'firebase') return;
-  if (window.__HH_FIREBASE_GAME_RECEIPT_R4__) return;
-  window.__HH_FIREBASE_GAME_RECEIPT_R4__ = true;
+  if (window.__HH_FIREBASE_GAME_RECEIPT_R5__) return;
+  window.__HH_FIREBASE_GAME_RECEIPT_R5__ = true;
 
   const FIREBASE_CONFIG = {
     apiKey: 'AIzaSyBdlWEf91s2gzUQf7H1pPB8c_hF807CpAc',
@@ -39,7 +39,8 @@
   };
 
   const studentId = String(query.get('studentId') || query.get('sid') || query.get('pid') || '').trim();
-  const collectionName = studentId === '990014' ? 'studentProgressSandbox' : 'studentProgress';
+  const isSandboxStudent = /^9900(0[1-9]|1[0-9]|2[0-9])$/.test(studentId);
+  const collectionName = isSandboxStudent ? 'studentProgressSandbox' : 'studentProgress';
   let saving = false;
   let savedEventId = '';
   let toothbrushObserved = false;
@@ -425,7 +426,7 @@
     } catch (error) {
       saving = false;
       setShellStatus(`บันทึก Firebase ไม่สำเร็จ: ${error?.message || error}`, true);
-      console.error('[Firebase Game Receipt Bridge R4]', error);
+      console.error('[Firebase Game Receipt Bridge R5]', error);
     }
   }
 
@@ -468,7 +469,7 @@
   window.setInterval(toothbrushResultFromFrame, 500);
   window.HH_firebasePersistGameResult = persist;
   window.HH_FIREBASE_ANALYTICS_SCHEMA = SCHEMA;
-  console.info('[Firebase Game Receipt Bridge R4] installed', {
-    release: RELEASE, schema: SCHEMA, studentId, collectionName, game: identifyGame()
+  console.info('[Firebase Game Receipt Bridge R5] installed', {
+    release: RELEASE, schema: SCHEMA, studentId, isSandboxStudent, collectionName, game: identifyGame()
   });
 })();
