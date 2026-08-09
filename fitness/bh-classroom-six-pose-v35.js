@@ -4,7 +4,7 @@
 const BH=window.BH;
 if(!BH||!BH.state||!BH.el||!BH.CONFIG)return;
 
-const RELEASE='20260808-BALANCE-CLASSROOM-PROGRESSIVE-ROTATION-V55';
+const RELEASE='20260809-BALANCE-CLASSROOM-PROGRESSIVE-ROTATION-V56-BOSS-FAIR';
 const s=BH.state;
 const e=BH.el;
 const q=new URLSearchParams(location.search);
@@ -43,7 +43,7 @@ const ROTATIONS=[
   ['treeRight','left','right','treeLeft'],
   ['treeLeft','treeRight','left','right'],
   ['treeRight','treeLeft','right','left']
-].map((steps,index)=>({id:`P55-R${String(index+1).padStart(2,'0')}`,steps}));
+].map((steps,index)=>({id:`P56-R${String(index+1).padStart(2,'0')}`,steps}));
 
 const PROGRESSION=[
   {stage:'warmup',hold:1600,pose:60,safe:46,gate:220,label:'Warm-up'},
@@ -51,7 +51,7 @@ const PROGRESSION=[
   {stage:'middle-2',hold:1900,pose:64,safe:49,gate:240,label:'Challenge 2'},
   {stage:'middle-3',hold:2050,pose:65,safe:50,gate:250,label:'Challenge 3'},
   {stage:'middle-4',hold:2200,pose:66,safe:51,gate:260,label:'Challenge 4'},
-  {stage:'boss',hold:2600,pose:68,safe:52,gate:280,label:'Boss'}
+  {stage:'boss',hold:2300,pose:64,safe:54,gate:260,label:'Boss'}
 ];
 
 function stableHash(text){
@@ -85,7 +85,6 @@ function currentProfile(){
   return PROGRESSION[index];
 }
 
-// Classroom has one progression only. Keep the legacy select as an internal compatibility field.
 if(e.difficulty){
   e.difficulty.value='easy';
   e.difficulty.disabled=true;
@@ -107,13 +106,12 @@ for(const [property,key] of [['hold','hold'],['poseThreshold','pose'],['safeThre
 }
 Object.assign(BH.CONFIG.easy,{
   confidence:.46,
-  graceMs:700,
-  lostDebounceMs:950,
-  assistAfterMs:7000,
+  graceMs:760,
+  lostDebounceMs:1000,
+  assistAfterMs:6500,
   maxAssist:2
 });
 
-// Make boss direction deterministic as well so replay evidence is reproducible.
 function deterministicBossKey(){
   return stableHash(studentIdentity()+'|boss')%2===0?'left':'right';
 }
@@ -170,7 +168,7 @@ if(baseCalc){
 
 BH.CLASSROOM_SEQUENCE={
   release:RELEASE,
-  id:'CLASSROOM-V55-DETERMINISTIC-PROGRESSIVE',
+  id:'CLASSROOM-V56-DETERMINISTIC-PROGRESSIVE-BOSS-FAIR',
   count:6,
   bankSize:ROTATIONS.length,
   bank:ROTATIONS.map(item=>({id:item.id,steps:['center',...item.steps,'boss']})),
@@ -186,8 +184,8 @@ BH.CLASSROOM_SEQUENCE={
   poseSet:Object.keys(POSE_LABELS)
 };
 
-document.documentElement.dataset.bhClassroomSequence='v55-progressive';
+document.documentElement.dataset.bhClassroomSequence='v56-progressive-boss-fair';
 document.documentElement.dataset.bhLevelSelection='off';
 if(e.coachSub)e.coachSub.textContent='ภารกิจ 6 ท่า • เริ่มง่ายและท้าทายขึ้นจนถึง Boss';
-console.info('[BalanceHold] Classroom Progressive Rotation V55 ready',BH.CLASSROOM_SEQUENCE);
+console.info('[BalanceHold] Classroom Progressive Rotation V56 ready',BH.CLASSROOM_SEQUENCE);
 })();
