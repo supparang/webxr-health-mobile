@@ -88,7 +88,7 @@ async function submitReflection(payload){
   const receiptId=await event(playerId,'final_reflection',{reflectionDone:true});
   return {ok:true,mode:'firebase',receiptId,reflectionDone:true,sourceOfTruth:'Cloud Firestore Direct Authority',version:VERSION};
 }
-function strongest(games){return games.reduce((best,g)=>g.bestAccuracy>(best?.accuracy||-1)?{stageId:g.stageId,accuracy:g.bestAccuracy,skill:g.skill}:best,null)}
+function strongest(games){return games.reduce((best,g)=>g.bestAccuracy>(best?.accuracy??-1)?{stageId:g.stageId,accuracy:g.bestAccuracy,skill:g.skill}:best,null)}
 async function summary(playerId){
   const r=await ensure(playerId),p=r.progress||{};
   if(!(p.reflectionDone||p.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');
