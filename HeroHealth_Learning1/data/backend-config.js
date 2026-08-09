@@ -7,7 +7,7 @@ window.HH_CONFIG.backend = {
   duplicateGuard: true,
   syncIntervalMs: 15000,
   transportPolicy: "full-payload-single-submit",
-  gameShellVersion: "20260801-GAME-SHELL-STRICT-AUTHORITY-R42.1",
+  gameShellVersion: "20260809-GAME-SHELL-R50-ANALYTICS-R5-E2E29",
   launcherVersion: "20260801-GAME-SHELL-LAUNCHER-R52-STRICT-AUTHORITY",
   receiptGuardVersion: "20260801-GAME-SHELL-AUTO-RETURN-R41.2-STRICT-AUTHORITY",
   balanceAnalyticsVersion: "20260731-BALANCE-ANALYTICS-V50-1-STABILITY",
@@ -15,9 +15,9 @@ window.HH_CONFIG.backend = {
   handwashSchemaCompatibilityVersion: "20260731-GAME-SHELL-HANDWASH-SCHEMA-V2-R49",
   toothbrushScoreVersion: "20260731-TOOTHBRUSH-NORMALIZED-SKILL-SCORE-R53",
   toothbrushFirebaseReceiptVersion: "20260809-TOOTHBRUSH-FIREBASE-RECEIPT-R2-E2E29",
-  reflectionRecoveryVersion: "20260801-REFLECTION-RECOVERY-MANAGER-R55",
+  reflectionRecoveryVersion: "20260809-REFLECTION-RECEIPT-RECOVERY-R13-E2E29",
   reflectionPendingQueueVersion: "20260801-REFLECTION-PENDING-QUEUE-R56",
-  loginRouteGuardVersion: "20260804-PROFILE-CONFIRM-ROUTE-GUARD-R53-FIREBASE-RECEIPT"
+  loginRouteGuardVersion: "20260809-PROFILE-CONFIRM-ROUTE-GUARD-R54-E2E29"
 };
 
 window.HH_CONFIG.teacherAccess = {
@@ -43,9 +43,9 @@ if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath) || /\/HeroH
 
 if (/\/HeroHealth_Learning1\/(?:index\.html)?$/i.test(hhRuntimePath)) {
   const loginGuard = document.createElement('script');
-  loginGuard.src = './assets/profile-confirm-route-guard-r42.js?v=20260804-r53-firebase-receipt-authority';
+  loginGuard.src = './assets/profile-confirm-route-guard-r42.js?v=20260809-r54-e2e29';
   loginGuard.async = false;
-  loginGuard.dataset.hhPatch = 'profile-confirm-route-guard-r53-firebase-receipt';
+  loginGuard.dataset.hhPatch = 'profile-confirm-route-guard-r54-e2e29';
   document.head.appendChild(loginGuard);
 
   if (!hhFirebaseRuntime) {
