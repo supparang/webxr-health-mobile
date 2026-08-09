@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  const VERSION='2026-08-09-JOURNEY-SUMMARY-V2-PASSPORT-RESUME';
+  const VERSION='2026-08-09-JOURNEY-SUMMARY-V3-REFLECTION-RECOVERY';
   const cfg=window.EW_CONFIG||{};
   const journey=window.EW_JOURNEY;
   const content=document.getElementById('content');
@@ -15,8 +15,9 @@
   function h(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}
   function readIdentity(){try{return JSON.parse(localStorage.getItem(cfg.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
   function show(message,type){status.textContent=message;status.className='status show '+(type||'')}
-  function goPassport(){location.replace('./index.html?resume=passport&from=journey_summary&v=20260809-journey-resume2')}
-  function goCertificate(){location.replace('./certificate-v1.html?from=journey_summary&v=20260809-journey2')}
+  function goPassport(){location.replace('./index.html?resume=passport&from=journey_summary&v=20260809-journey-direct5')}
+  function goReflection(){location.replace('./final-reflection.html?v=20260809-journey-direct5&from=summary_recovery')}
+  function goCertificate(){location.replace('./certificate-v1.html?from=journey_summary&v=20260809-journey-direct5')}
   function duration(ms){const total=Math.max(0,Math.round(Number(ms||0)/1000));const min=Math.floor(total/60);const sec=total%60;return min?`${min}m ${sec}s`:`${sec}s`}
   function signed(value){const n=Number(value||0);return `${n>0?'+':''}${n}%`}
   backBtn.addEventListener('click',goPassport);
@@ -52,7 +53,19 @@
       loaded=await journey.summary(identity.playerId);
       if(!loaded?.ok||loaded.mode!=='firebase'||!loaded.summary)throw new Error('FIREBASE_JOURNEY_SUMMARY_REQUIRED');
       render(loaded);
-    }catch(error){console.error(error);content.innerHTML=`<section class="card">โหลด Journey Summary ไม่สำเร็จ: <strong>${h(error?.message||error)}</strong></section>`;certificateBtn.textContent='กลับ Passport';certificateBtn.disabled=false;certificateBtn.onclick=goPassport}
+    }catch(error){
+      console.error(error);
+      const message=String(error?.message||error);
+      if(message.includes('FINAL_REFLECTION_REQUIRED')){
+        content.innerHTML='<section class="card"><strong>ยังไม่พบ Final Reflection ใน Firebase</strong><br>ระบบจะพากลับไปบันทึก Reflection ให้ครบก่อนดู Journey Summary</section>';
+        certificateBtn.textContent='ไป Final Reflection';
+        certificateBtn.disabled=false;
+        certificateBtn.onclick=goReflection;
+        return;
+      }
+      content.innerHTML=`<section class="card">โหลด Journey Summary ไม่สำเร็จ: <strong>${h(message)}</strong></section>`;
+      certificateBtn.textContent='กลับ Passport';certificateBtn.disabled=false;certificateBtn.onclick=goPassport;
+    }
   }
 
   certificateBtn.addEventListener('click',async()=>{
