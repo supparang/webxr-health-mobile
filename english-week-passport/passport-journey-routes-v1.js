@@ -1,9 +1,9 @@
 (function(){
 'use strict';
-const VERSION='2026-08-09-PASSPORT-JOURNEY-ROUTES-V2-DIRECT';
+const VERSION='2026-08-09-PASSPORT-JOURNEY-ROUTES-V3-DIRECT6';
 const cfg=window.EW_CONFIG||{};
 const journey=window.EW_JOURNEY;
-const ROUTE_VERSION='20260809-journey-direct5';
+const ROUTE_VERSION='20260809-journey-direct6';
 let identity=null;
 let journeyStatus=null;
 let statusError='';
