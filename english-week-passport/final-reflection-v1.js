@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  const VERSION='2026-08-07-FINAL-REFLECTION-V1';
+  const VERSION='2026-08-09-FINAL-REFLECTION-V2-PASSPORT-RESUME';
   const cfg=window.EW_CONFIG||{};
   const journey=window.EW_JOURNEY;
   const form=document.getElementById('reflectionForm');
@@ -12,7 +12,7 @@
     try{return JSON.parse(localStorage.getItem(cfg.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}
   }
   function show(message,type){status.textContent=message;status.className='status show '+(type||'')}
-  function goPassport(){location.replace('./index.html?resume=1&from=final_reflection&v=20260807-journey1')}
+  function goPassport(){location.replace('./index.html?resume=passport&from=final_reflection&v=20260809-journey-resume2')}
   backBtn.addEventListener('click',goPassport);
 
   form.addEventListener('submit',async event=>{
@@ -25,7 +25,7 @@
     const helpedMost=String(data.get('helped')||'');
     const takeaway=String(document.getElementById('takeaway').value||'').trim();
     if(!confidence||!mostUsefulMission||!helpedMost){show('กรุณาตอบข้อ 1–3 ให้ครบก่อนบันทึก','bad');return}
-    if(!journey?.endpointReady?.()){show('Firebase Journey Authority ยังไม่ได้ Deploy จึงยังบันทึก Reflection ไม่ได้','bad');return}
+    if(!journey?.endpointReady?.()){show('Firebase Journey Authority ยังไม่พร้อม จึงยังบันทึก Reflection ไม่ได้','bad');return}
     submitBtn.disabled=true;submitBtn.textContent='กำลังบันทึก Reflection…';show('กำลังส่ง Reflection และรอ Firebase Receipt…','');
     try{
       const receipt=await journey.submitReflection({
@@ -38,7 +38,7 @@
       });
       if(!receipt?.ok||receipt.mode!=='firebase'||!receipt.receiptId)throw new Error('FIREBASE_REFLECTION_RECEIPT_REQUIRED');
       show(`บันทึก Reflection สำเร็จ ✓ • ${receipt.receiptId} • กำลังกลับ Passport`,'good');
-      setTimeout(goPassport,1500);
+      setTimeout(goPassport,900);
     }catch(error){
       console.error(error);
       show('บันทึก Reflection ไม่สำเร็จ: '+String(error?.message||error),'bad');
