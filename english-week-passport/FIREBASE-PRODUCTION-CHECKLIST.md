@@ -1,87 +1,206 @@
-# English Week Passport — Firebase Production Checklist
+# LEXICON X Challenge — Firebase Production Checklist
 
-Version: `2026-08-06-FIREBASE-AUTHORITY-V1`
+Version: `2026-08-09-PRODUCTION-CANDIDATE-R5-ANALYTICS`
 
-## 1. One-time GitHub secret
+## 1. Production architecture
+
+Student authority is **Cloud Firestore Direct** on Firebase project:
+
+`englishweek-95869`
+
+Production student pages must use:
+
+- `authorityMode = firestore-direct`
+- `allowDemoWhenFirebaseUnavailable = false`
+- `allowQaDemoFallback = false`
+
+Teacher analytics uses the Gen 2 HTTPS function:
+
+`englishWeekTeacher`
+
+Endpoint:
+
+`https://asia-southeast1-englishweek-95869.cloudfunctions.net/englishWeekTeacher`
+
+## 2. One-time GitHub / Firebase secrets
 
 Create repository secret:
 
-`FIREBASE_SERVICE_ACCOUNT_ENGLISH_D4BFA`
+`FIREBASE_SERVICE_ACCOUNT_ENGLISHWEEK_95869`
 
-Value: the complete JSON service-account key for Firebase project `english-d4bfa` with permission to deploy Cloud Functions and use Firestore.
+Value: a service-account JSON key with permission to deploy Cloud Functions and Firestore rules to project `englishweek-95869`.
 
-## 2. Controlled deployment
+Create Firebase / Google Secret Manager secret in project `englishweek-95869`:
 
-Open GitHub Actions and run:
+`EW_TEACHER_KEY`
 
-`Deploy English Week Firebase Authority`
+Use a strong private Teacher Key. Do not store this key in GitHub source code.
 
-The workflow deploys only:
+## 3. Controlled deployment
 
-`englishWeekAuthority`
+Workflow:
 
-Expected endpoint:
+`Deploy English Week Firebase Production`
 
-`https://asia-southeast1-english-d4bfa.cloudfunctions.net/englishWeekAuthority`
+The workflow deploys:
 
-## 3. Health check
+1. `englishWeekTeacher`
+2. Firestore security rules from `english-week-firebase-spark/firestore.rules`
 
-Open the endpoint with `?action=health&appId=ENGLISH-WEEK-PASSPORT-2026` or load the Passport page. The Passport status banner must show:
+The workflow must target only:
 
-`เชื่อมต่อ Firebase Authority แล้ว`
+`englishweek-95869`
 
 ## 4. QA accounts
 
-For controlled testing, the authority auto-creates only IDs matching:
+Controlled QA auto-registration is limited to IDs matching:
 
 - `QA-*`
 - `TEST-*`
-- numeric IDs beginning with `99` and at least six digits, such as `990001`
+- numeric IDs beginning with `99` and at least six digits, e.g. `990001`
 
-Other IDs require an existing document in Firestore collection `ewp_profiles`.
+All real participant IDs must already exist as active documents in `ewp_profiles`.
 
-## 5. Firestore collections
+## 5. Canonical Firestore collections
 
 - `ewp_profiles`
+- `ewp_player_sessions`
 - `ewp_progress`
 - `ewp_assignments`
+- `ewp_assessments`
+- `ewp_assessment_checkpoints`
 - `ewp_game_results`
 - `ewp_game_summary`
-- `ewp_assessments`
 - `ewp_events`
 - `ewp_certificates`
 
-## 6. Final Passport E2E
+Final Reflection and Journey state are stored in `ewp_progress`:
 
-Use one QA account and complete:
+- `reflectionDone`
+- `finalReflection`
+- `summaryViewed`
+- `summaryViewedAt`
+
+Do **not** use legacy `ewp_reflections` or `ewp_journey` as production authority.
+
+## 6. Canonical student flow
+
+Run one clean QA account through the complete journey:
 
 1. Login
 2. Pre-Challenge
-3. Game 1
-4. Category Forest
-5. Confirm `บันทึก Firebase สำเร็จ`
-6. Return to Passport
-7. Confirm Sentence City unlocks
-8. Open a second device with the same player ID
-9. Confirm Category Forest remains passed and Sentence City remains unlocked
+3. Game 1 — LexiMatch Navigator
+4. Game 2 — Category Forest
+5. Game 3 — Sentence City
+6. Game 4 — Conversation Quest
+7. Optional Bonus — Lexicon Lens Hunt
+8. Game 5 — LEXICON Champion Arena
+9. Post-Challenge
+10. Final Reflection
+11. Journey Summary
+12. Certificate
+13. Return to Passport
 
-## 7. Evidence required before production lock
+Every required stage must resume correctly after logout/login and on a second device.
 
-In Firestore, verify the same player ID exists in:
+## 7. Learning Analytics validation
 
-- `ewp_profiles`
-- `ewp_assignments`
-- `ewp_progress`
-- `ewp_game_results`
-- `ewp_game_summary`
+Journey Summary must read real Firestore data rather than inferred values.
 
-The Category Forest result must include `wordSetId`, ten unique `itemOrder` values, `passportRotation`, `randomSeed`, First-Try result, Rescue evidence, and pronunciation counters.
+Verify:
 
-## 8. Production hardening
+- Pre accuracy = latest `ewp_assessments` pre record
+- Post accuracy = latest `ewp_assessments` post record
+- Learning Gain = Post − Pre
+- Game attempts = count of `ewp_game_results` by stage
+- Best accuracy = maximum attempt accuracy by stage
+- First-attempt accuracy is preserved
+- Retry count = attempts − 1
+- Total game time = sum of `durationMs`
+- Reflection comes from `ewp_progress.finalReflection`
+- Summary state comes from `ewp_progress.summaryViewed`
 
-After Firebase E2E passes:
+## 8. Teacher Console validation
 
-1. Set `allowDemoWhenFirebaseUnavailable` to `false` in `english-week-passport/config.js`.
-2. Import the official participant roster into `ewp_profiles`.
-3. Keep QA auto-registration limited to the controlled QA ID patterns.
-4. Re-run `English Week Passport QA` before the final event build.
+Open `english-week-passport/teacher-console.html` and authenticate with `EW_TEACHER_KEY`.
+
+Confirm:
+
+- Firebase live status
+- Completion Funnel
+- Pre/Post means and paired Learning Gain
+- Game 1–5 player counts
+- Best accuracy and attempts
+- Data Health issues
+- Participant search/filter
+- Participant Report
+- Reflection state
+- Journey Summary state
+- Certificate readiness
+- CSV Participants export
+- CSV Games export
+
+Teacher Analytics must read the same canonical schema as Student Firestore Direct authority.
+
+## 9. Firestore Rules validation
+
+Student queries may read only records belonging to the player ID claimed by the current anonymous-auth session.
+
+Verify that:
+
+- another player's progress cannot be read
+- another player's assessments cannot be queried
+- another player's game results cannot be queried
+- own assessment and game-result queries succeed when filtered by own `playerId`
+- collection-wide student list access remains blocked
+
+Teacher Console reads through the protected Admin SDK function, not student Firestore list permissions.
+
+## 10. Automated QA
+
+Run GitHub Actions workflow:
+
+`English Week Passport QA`
+
+The production contract must confirm:
+
+- project `englishweek-95869`
+- `firestore-direct` authority
+- no production demo fallback
+- Journey V5 real analytics
+- owned Firestore query rules
+- Teacher Authority R2 schema alignment
+- deployment workflow has no `english-d4bfa` dependency
+
+## 11. Smoke test before Production Lock
+
+Use at least 10 clean test participants.
+
+Test on:
+
+- mobile Chrome / Android
+- mobile Safari / iPhone when available
+- PC `?view=mobile` smoke mode
+
+For at least one participant, deliberately:
+
+- close and reopen after Game 2
+- login on a second device
+- retry a failed game
+- complete Final Voice
+- verify Post → Reflection → Summary → Certificate
+
+## 12. Production Lock criteria
+
+Production Lock is allowed only when all of the following are true:
+
+- GitHub QA passes
+- Firestore rules are deployed to `englishweek-95869`
+- `englishWeekTeacher` is deployed and Teacher Console authenticates
+- one full clean-account E2E passes
+- one cross-device resume passes
+- Journey Summary values match raw Firestore records
+- Teacher Console values match the same participant records
+- no required stage relies on localStorage as source of truth
+
+After these checks, tag the build as the English Week production candidate/final event build.
