@@ -9,37 +9,50 @@ import { getSecurityRules } from 'firebase-admin/security-rules';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ID = 'herohealth-learning';
 const SERVICE_ACCOUNT = path.join(HERE, 'service-account.json');
-const MARKER = 'HEROHEALTH_TEACHER_PRODUCTION_R2';
+const MARKER = 'HEROHEALTH_TEACHER_PRODUCTION_R3';
 
 function fail(message){ console.error(`\n❌ ${message}\n`); process.exit(1); }
 function timestamp(){ return new Date().toISOString().replace(/[:.]/g,'-'); }
-function findMatchingBrace(source, openIndex){
-  let depth=0,state='normal';
-  for(let i=openIndex;i<source.length;i++){
-    const ch=source[i],next=source[i+1];
-    if(state==='line'){ if(ch==='\n')state='normal'; continue; }
-    if(state==='block'){ if(ch==='*'&&next==='/'){state='normal';i++;} continue; }
-    if(state==='single'){ if(ch==='\\'){i++;continue;} if(ch==="'")state='normal'; continue; }
-    if(state==='double'){ if(ch==='\\'){i++;continue;} if(ch==='"')state='normal'; continue; }
-    if(ch==='/'&&next==='/'){state='line';i++;continue;}
-    if(ch==='/'&&next==='*'){state='block';i++;continue;}
-    if(ch==="'"){state='single';continue;}
-    if(ch==='"'){state='double';continue;}
-    if(ch==='{')depth++;
-    if(ch==='}'){depth--; if(depth===0)return i;}
-  }
-  return -1;
+
+function injectTeacherRead(source, collection){
+  const re = new RegExp(`match\\s+/${collection}/\\{[^}]+\\}\\s*\\{`);
+  const match = re.exec(source);
+  if(!match) throw new Error(`ไม่พบ match /${collection}/{...} ใน live rules — หยุดเพื่อไม่แก้โครงสร้างเดิมแบบเดา`);
+  const insertAt = match.index + match[0].length;
+  const marker = `// ${MARKER}_${collection}`;
+  if(source.includes(marker)) return source;
+  const rule = `\n      ${marker}\n      allow read: if request.auth != null && request.auth.token.heroHealthTeacher == true;`;
+  return `${source.slice(0,insertAt)}${rule}${source.slice(insertAt)}`;
 }
+
 function patch(source){
-  if(source.includes(`${MARKER}_BEGIN`)) return {content:source,changed:false};
-  const cleaned=source.replace(/\n\s*\/\/ HEROHEALTH_TEACHER_PRODUCTION_R1_BEGIN[\s\S]*?\/\/ HEROHEALTH_TEACHER_PRODUCTION_R1_END\n?/g,'\n');
-  const dbIdx=cleaned.indexOf('match /databases/');
-  if(dbIdx<0) throw new Error('ไม่พบ match /databases/{database}/documents');
-  const open=cleaned.indexOf('{',dbIdx);
-  const close=findMatchingBrace(cleaned,open);
-  if(open<0||close<0) throw new Error('หา block database ใน rules ไม่สำเร็จ');
-  const add=`\n\n    // ${MARKER}_BEGIN\n    // Teacher Console read-only access. Existing learner rules remain unchanged.\n    match /students/{studentId} {\n      allow read: if request.auth != null && request.auth.token.heroHealthTeacher == true;\n    }\n    match /studentProgress/{studentId} {\n      allow read: if request.auth != null && request.auth.token.heroHealthTeacher == true;\n    }\n    match /studentAssessments/{documentId} {\n      allow read: if request.auth != null && request.auth.token.heroHealthTeacher == true;\n    }\n    // ${MARKER}_END\n`;
-  return {content:`${cleaned.slice(0,close)}${add}${cleaned.slice(close)}`,changed:true};
+  if(source.includes(`// ${MARKER}_students`) &&
+     source.includes(`// ${MARKER}_studentProgress`) &&
+     source.includes(`// ${MARKER}_studentAssessments`)) {
+    return {content:source,changed:false};
+  }
+
+  // R3 deliberately does NOT add new match blocks and does NOT move braces.
+  // It only appends one read-only allow statement inside the three existing
+  // Production collection matches. This preserves all learner write rules verbatim.
+  let content = source;
+  content = injectTeacherRead(content,'students');
+  content = injectTeacherRead(content,'studentProgress');
+  content = injectTeacherRead(content,'studentAssessments');
+  return {content,changed:content!==source};
+}
+
+function preview(source){
+  const lines=source.split(/\r?\n/);
+  const interesting=[];
+  lines.forEach((line,i)=>{
+    if(line.includes(MARKER)){
+      const from=Math.max(0,i-2),to=Math.min(lines.length,i+4);
+      for(let n=from;n<to;n++) interesting.push(`${String(n+1).padStart(4,' ')} | ${lines[n]}`);
+      interesting.push('----');
+    }
+  });
+  return interesting.join('\n');
 }
 
 if(!fs.existsSync(SERVICE_ACCOUNT)) fail(`ไม่พบ ${SERVICE_ACCOUNT}`);
@@ -54,9 +67,12 @@ let live;
 try{live=await rules.getFirestoreRuleset();}catch(e){fail(`อ่าน live rules ไม่สำเร็จ: ${e.message}`);}
 const file=(live.source||[]).find(f=>String(f.content||'').includes('service cloud.firestore'));
 if(!file) fail('ไม่พบ Firestore source file ใน live ruleset');
-const result=patch(String(file.content||''));
+
+const liveSource=String(file.content||'');
+let result;
+try{result=patch(liveSource);}catch(e){fail(`สร้าง teacher patch ไม่สำเร็จ: ${e.message}`);}
 if(!result.changed){
-  console.log(`✅ Live rules มี ${MARKER} อยู่แล้ว`);
+  console.log(`✅ Live rules มี ${MARKER} ครบแล้ว`);
   console.log('ให้ Logout/Login Teacher Console แล้วเลือก Production → Refresh');
   process.exit(0);
 }
@@ -65,19 +81,17 @@ const work=fs.mkdtempSync(path.join(os.tmpdir(),'herohealth-teacher-rules-'));
 const rulesPath=path.join(work,'firestore.rules');
 const configPath=path.join(work,'firebase.json');
 const backupPath=path.join(work,`firestore-live-backup-${timestamp()}.rules`);
-fs.writeFileSync(backupPath,String(file.content||''),'utf8');
+fs.writeFileSync(backupPath,liveSource,'utf8');
 fs.writeFileSync(rulesPath,result.content,'utf8');
 fs.writeFileSync(configPath,JSON.stringify({firestore:{rules:'firestore.rules'}},null,2),'utf8');
 console.log(`✅ Backup: ${backupPath}`);
 console.log(`📝 Patched: ${rulesPath}`);
-console.log('🧪 Firebase CLI จะใช้บัญชี Firebase ที่ login บนเครื่องนี้ เพื่อ compile/deploy เฉพาะ firestore:rules ...');
+console.log('🔍 Preview จุดที่เพิ่ม Teacher read:');
+console.log(preview(result.content));
+console.log('🧪 Firebase CLI จะ compile ก่อน และ deploy เฉพาะ firestore:rules ...');
 
 const npx=process.platform==='win32'?'npx.cmd':'npx';
 const cliEnv={...process.env};
-// Important: do NOT force GOOGLE_APPLICATION_CREDENTIALS here.
-// Admin SDK above uses the service account only to read/backup live rules.
-// Firebase CLI should use the interactive Firebase user account, which normally has
-// Service Usage permission required by firebase-tools.
 delete cliEnv.GOOGLE_APPLICATION_CREDENTIALS;
 
 const run=spawnSync(npx,['--yes','firebase-tools@latest','deploy','--only','firestore:rules','--project',PROJECT_ID,'--config',configPath,'--non-interactive'],{
@@ -86,10 +100,11 @@ const run=spawnSync(npx,['--yes','firebase-tools@latest','deploy','--only','fire
   env:cliEnv
 });
 if(run.error) fail(`เรียก Firebase CLI ไม่สำเร็จ: ${run.error.message}`);
-if(run.status!==0) fail(`Teacher rules deploy ไม่สำเร็จ (exit ${run.status}) — live rules จะไม่ถูกเปลี่ยนถ้า compile/deploy ไม่ผ่าน`);
+if(run.status!==0) fail(`Teacher rules deploy ไม่สำเร็จ (exit ${run.status}) — live rules ไม่ถูกเปลี่ยนเพราะ compile/deploy ไม่ผ่าน`);
+
 console.log('\n✅ Teacher Console Production Rules deploy สำเร็จ');
 console.log('   students: teacher read');
 console.log('   studentProgress: teacher read');
 console.log('   studentAssessments: teacher read');
-console.log('   Existing learner rules: preserved from live rules');
+console.log('   Existing learner rules: preserved verbatim');
 console.log('\nต่อไป: Logout/Login Teacher Console → Production → Refresh');
