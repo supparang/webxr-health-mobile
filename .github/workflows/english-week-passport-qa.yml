@@ -7,7 +7,10 @@ on:
       - 'english/functions/**'
       - 'english/firebase.json'
       - 'english/.firebaserc'
+      - 'english-week-firebase-spark/firestore.rules'
+      - 'english-week-firebase-spark/firebase.json'
       - '.github/workflows/english-week-passport-qa.yml'
+      - '.github/workflows/english-week-firebase-deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -90,5 +93,5 @@ jobs:
       - name: Run assessment resume V1 contract
         run: node english-week-passport/tests/assessment-resume-v1.node.cjs
 
-      - name: Run Firebase authority integration contract
+      - name: Run Firestore-direct production contract
         run: node english-week-passport/tests/firebase-authority-v1.node.cjs
