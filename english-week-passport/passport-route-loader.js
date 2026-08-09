@@ -1,9 +1,9 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-08-PASSPORT-ROUTE-LOADER-V3-IDEMPOTENT";
+  const VERSION="2026-08-09-PASSPORT-ROUTE-LOADER-V4-CHAMPION-CACHE-BUST";
   let loaded=false;
   const routes=[
-    "./passport-canonical-routes-v1.js?v=20260808-prod-route2",
+    "./passport-canonical-routes-v1.js?v=20260809-route3-champion",
     "./journey-client-v1.js?v=20260807-journey1",
     "./passport-journey-routes-v1.js?v=20260807-journey1"
   ];
