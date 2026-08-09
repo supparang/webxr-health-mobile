@@ -1,6 +1,6 @@
 window.EW_CONFIG = Object.freeze({
   appId: "ENGLISH-WEEK-PASSPORT-2026",
-  version: "2026-08-09-PRODUCTION-CANDIDATE-R7-INNER-EXIT",
+  version: "2026-08-09-PRODUCTION-CANDIDATE-R8-PASS-60",
   authorityMode: "firestore-direct",
   firebaseProjectId: "englishweek-95869",
   firebaseRegion: "asia-southeast1",
@@ -16,6 +16,14 @@ window.EW_CONFIG = Object.freeze({
   requestTimeoutMs: 12000,
   assessmentItems: 10,
   leaderboardLimit: 10,
+  gamePassMark: 60,
+  gamePassMarks: Object.freeze({
+    word_match:60,
+    category_forest:60,
+    sentence_city:60,
+    word_detective:60,
+    final_boss:60
+  }),
   cacheKeys: Object.freeze({
     identity: "ew_passport_identity_v1",
     demoDb: "ew_passport_demo_db_v1",
@@ -79,4 +87,125 @@ window.EW_CONFIG = Object.freeze({
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
   window.EW_SHELL_EMERGENCY_EXIT=Object.freeze({version:'2026-08-09-SHELL-EXIT-R2-INNER',returnPassport});
+})();
+
+/* LEXICON X • Unified Game Pass Policy R1
+ * All five required games use one 60% mastery threshold.
+ * Pre/Post remain completion-only and are not pass/fail gates.
+ * This wrapper is installed before firestore-direct-authority-v1.js assigns
+ * window.EW_AUTHORITY, so every game that uses the shared authority receives
+ * the same production policy.
+ */
+(function(){
+  'use strict';
+  const VERSION='2026-08-09-UNIFIED-PASS-POLICY-R1-60';
+  const PASS_MARK=60;
+  const STAGES=new Set(['word_match','category_forest','sentence_city','word_detective','final_boss']);
+  let storedAuthority=window.EW_AUTHORITY||null;
+
+  const clean=v=>String(v==null?'':v).trim();
+  const nowIso=()=>new Date().toISOString();
+  const unique=a=>[...new Set((Array.isArray(a)?a:[]).map(clean).filter(Boolean))];
+  const receiptId=stage=>`game-${stage}-60-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+
+  function reconcile(raw,playerId){
+    const passed=unique(raw?.passed).filter(x=>STAGES.has(x));
+    const bestScores=raw?.bestScores&&typeof raw.bestScores==='object'?{...raw.bestScores}:{};
+    const unlocked=['pre_challenge'];
+    if(raw?.preDone)unlocked.push('word_match');
+    if(passed.includes('word_match'))unlocked.push('category_forest');
+    if(passed.includes('category_forest'))unlocked.push('sentence_city');
+    if(passed.includes('sentence_city'))unlocked.push('word_detective');
+    if(passed.includes('word_detective'))unlocked.push('final_boss');
+    if(passed.includes('final_boss'))unlocked.push('post_challenge');
+    if(raw?.postDone)unlocked.push('certificate');
+    return {
+      ...raw,
+      playerId,
+      passed,
+      bestScores,
+      unlocked,
+      currentStage:unlocked[unlocked.length-1],
+      finalDone:Boolean(raw?.finalDone||passed.includes('final_boss')),
+      totalScore:Object.values(bestScores).reduce((n,v)=>n+Number(v||0),0),
+      updatedAt:nowIso(),
+      passPolicyVersion:VERSION,
+      gamePassMark:PASS_MARK
+    };
+  }
+
+  async function ensureFirebase(){
+    if(!window.firebase?.firestore||!window.firebase?.auth)throw new Error('FIREBASE_DIRECT_NOT_READY');
+    const auth=firebase.auth();
+    if(!auth.currentUser)await auth.signInAnonymously();
+    return firebase.firestore();
+  }
+
+  function wrap(base){
+    if(!base||typeof base!=='object'||base.unifiedPassPolicyVersion===VERSION)return base;
+    const custom=async payload=>{
+      const playerId=clean(payload?.playerId),stageId=clean(payload?.stageId);
+      if(!playerId||!STAGES.has(stageId))throw new Error('INVALID_GAME_PAYLOAD');
+      const total=Math.max(0,Number(payload?.total||0)),score=Math.max(0,Number(payload?.score||0));
+      const accuracy=total>0?Math.round(score/total*100):0,passed=accuracy>=PASS_MARK,id=receiptId(stageId);
+      const db=await ensureFirebase();
+      const progressRef=db.collection('ewp_progress').doc(playerId);
+      const resultRef=db.collection('ewp_game_results').doc(id);
+      const summaryRef=db.collection('ewp_game_summary').doc(playerId);
+      let nextProgress=null;
+
+      await db.runTransaction(async tx=>{
+        const snap=await tx.get(progressRef),raw=snap.exists?{playerId,...(snap.data()||{})}:{playerId,passed:[],bestScores:{},preDone:false,postDone:false};
+        const current=reconcile(raw,playerId);
+        if(!current.unlocked.includes(stageId))throw new Error('STAGE_LOCKED');
+        const nextPassed=[...current.passed];if(passed&&!nextPassed.includes(stageId))nextPassed.push(stageId);
+        const nextBest={...current.bestScores,[stageId]:Math.max(Number(current.bestScores?.[stageId]||0),accuracy)};
+        nextProgress=reconcile({...current,passed:nextPassed,bestScores:nextBest},playerId);
+        tx.set(progressRef,nextProgress,{merge:true});
+        tx.set(resultRef,{...payload,playerId,stageId,receiptId:id,accuracy,passMark:PASS_MARK,passed,submittedAt:nowIso(),sourceVersion:VERSION,authorityMode:'firestore-direct',passPolicy:'unified-60'});
+        tx.set(summaryRef,{playerId,totalScore:nextProgress.totalScore,bestScores:nextProgress.bestScores,passed:nextProgress.passed,currentStage:nextProgress.currentStage,gamePassMark:PASS_MARK,updatedAt:nowIso(),sourceVersion:VERSION},{merge:true});
+      });
+
+      let resumed=null;
+      try{resumed=typeof base.resume==='function'?await base.resume(playerId,payload?.nickname||''):null}catch(_){}
+      return {ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Direct Authority + Unified 60% Pass Policy',receiptId:id,accuracy,passMark:PASS_MARK,passed,progress:nextProgress,authority:resumed&&resumed.ok?resumed:{ok:true,mode:'firebase',progress:nextProgress},version:VERSION};
+    };
+
+    const wrapped={...base,submitGame:custom,passMark:PASS_MARK,passMarks:Object.freeze({word_match:60,category_forest:60,sentence_city:60,word_detective:60,final_boss:60}),unifiedPassPolicyVersion:VERSION};
+    return Object.freeze(wrapped);
+  }
+
+  try{
+    Object.defineProperty(window,'EW_AUTHORITY',{
+      configurable:true,
+      enumerable:true,
+      get(){return storedAuthority;},
+      set(value){storedAuthority=wrap(value);window.dispatchEvent(new CustomEvent('ew-pass-policy-ready',{detail:{version:VERSION,passMark:PASS_MARK}}));}
+    });
+    if(storedAuthority)storedAuthority=wrap(storedAuthority);
+  }catch(_){if(window.EW_AUTHORITY)window.EW_AUTHORITY=wrap(window.EW_AUTHORITY)}
+
+  window.EW_PASS_POLICY=Object.freeze({version:VERSION,gamePassMark:PASS_MARK,prePost:'completion-only'});
+})();
+
+/* Reconcile legacy shell wording when an inner game has already submitted using
+ * the unified 60% authority but the older shell still displays its former 70%
+ * fallback label. Firestore progress remains the authority for unlock state.
+ */
+(function(){
+  'use strict';
+  if(!/passport-game-shell-firestore-v2\.html$/i.test(String(location.pathname||'')))return;
+  const stage=new URLSearchParams(location.search).get('stage')||'';
+  async function reconcileStatus(){
+    const detail=document.getElementById('statusDetail');
+    if(!detail||!/คะแนนยังไม่ถึงเกณฑ์ผ่าน/.test(detail.textContent||''))return;
+    let identity=null;try{identity=JSON.parse(localStorage.getItem(window.EW_CONFIG?.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){}
+    if(!identity?.playerId||!window.EW_AUTHORITY?.resume)return;
+    try{
+      const r=await window.EW_AUTHORITY.resume(identity.playerId,identity.nickname||identity.fullName||'');
+      if(r?.progress?.passed?.includes(stage))detail.textContent='ผ่านด่านและปลดล็อกขั้นถัดไปแล้ว • เกณฑ์ผ่าน 60%';
+    }catch(_){}
+  }
+  const install=()=>{const status=document.getElementById('status');if(!status)return;new MutationObserver(reconcileStatus).observe(status,{childList:true,subtree:true,characterData:true});};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
