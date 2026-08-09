@@ -9,7 +9,7 @@ import { getSecurityRules } from 'firebase-admin/security-rules';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ID = 'herohealth-learning';
 const SERVICE_ACCOUNT = path.join(HERE, 'service-account.json');
-const MARKER = 'HEROHEALTH_TEACHER_PRODUCTION_R1';
+const MARKER = 'HEROHEALTH_TEACHER_PRODUCTION_R2';
 
 function fail(message){ console.error(`\n❌ ${message}\n`); process.exit(1); }
 function timestamp(){ return new Date().toISOString().replace(/[:.]/g,'-'); }
@@ -32,13 +32,14 @@ function findMatchingBrace(source, openIndex){
 }
 function patch(source){
   if(source.includes(`${MARKER}_BEGIN`)) return {content:source,changed:false};
-  const dbIdx=source.indexOf('match /databases/');
+  const cleaned=source.replace(/\n\s*\/\/ HEROHEALTH_TEACHER_PRODUCTION_R1_BEGIN[\s\S]*?\/\/ HEROHEALTH_TEACHER_PRODUCTION_R1_END\n?/g,'\n');
+  const dbIdx=cleaned.indexOf('match /databases/');
   if(dbIdx<0) throw new Error('ไม่พบ match /databases/{database}/documents');
-  const open=source.indexOf('{',dbIdx);
-  const close=findMatchingBrace(source,open);
+  const open=cleaned.indexOf('{',dbIdx);
+  const close=findMatchingBrace(cleaned,open);
   if(open<0||close<0) throw new Error('หา block database ใน rules ไม่สำเร็จ');
   const add=`\n\n    // ${MARKER}_BEGIN\n    // Teacher Console read-only access. Existing learner rules remain unchanged.\n    match /students/{studentId} {\n      allow read: if request.auth != null && request.auth.token.heroHealthTeacher == true;\n    }\n    match /studentProgress/{studentId} {\n      allow read: if request.auth != null && request.auth.token.heroHealthTeacher == true;\n    }\n    match /studentAssessments/{documentId} {\n      allow read: if request.auth != null && request.auth.token.heroHealthTeacher == true;\n    }\n    // ${MARKER}_END\n`;
-  return {content:`${source.slice(0,close)}${add}${source.slice(close)}`,changed:true};
+  return {content:`${cleaned.slice(0,close)}${add}${cleaned.slice(close)}`,changed:true};
 }
 
 if(!fs.existsSync(SERVICE_ACCOUNT)) fail(`ไม่พบ ${SERVICE_ACCOUNT}`);
@@ -69,16 +70,23 @@ fs.writeFileSync(rulesPath,result.content,'utf8');
 fs.writeFileSync(configPath,JSON.stringify({firestore:{rules:'firestore.rules'}},null,2),'utf8');
 console.log(`✅ Backup: ${backupPath}`);
 console.log(`📝 Patched: ${rulesPath}`);
-console.log('🧪 Firebase CLI จะ compile ก่อน และ deploy เฉพาะ firestore:rules ...');
+console.log('🧪 Firebase CLI จะใช้บัญชี Firebase ที่ login บนเครื่องนี้ เพื่อ compile/deploy เฉพาะ firestore:rules ...');
 
 const npx=process.platform==='win32'?'npx.cmd':'npx';
+const cliEnv={...process.env};
+// Important: do NOT force GOOGLE_APPLICATION_CREDENTIALS here.
+// Admin SDK above uses the service account only to read/backup live rules.
+// Firebase CLI should use the interactive Firebase user account, which normally has
+// Service Usage permission required by firebase-tools.
+delete cliEnv.GOOGLE_APPLICATION_CREDENTIALS;
+
 const run=spawnSync(npx,['--yes','firebase-tools@latest','deploy','--only','firestore:rules','--project',PROJECT_ID,'--config',configPath,'--non-interactive'],{
   cwd:work,
   stdio:'inherit',
-  env:{...process.env,GOOGLE_APPLICATION_CREDENTIALS:SERVICE_ACCOUNT}
+  env:cliEnv
 });
 if(run.error) fail(`เรียก Firebase CLI ไม่สำเร็จ: ${run.error.message}`);
-if(run.status!==0) fail(`Teacher rules deploy ไม่สำเร็จ (exit ${run.status}) — live rules จะไม่ถูกเปลี่ยนถ้า compile ไม่ผ่าน`);
+if(run.status!==0) fail(`Teacher rules deploy ไม่สำเร็จ (exit ${run.status}) — live rules จะไม่ถูกเปลี่ยนถ้า compile/deploy ไม่ผ่าน`);
 console.log('\n✅ Teacher Console Production Rules deploy สำเร็จ');
 console.log('   students: teacher read');
 console.log('   studentProgress: teacher read');
