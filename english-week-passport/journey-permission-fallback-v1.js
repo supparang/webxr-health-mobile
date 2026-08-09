@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-09-JOURNEY-PERMISSION-FALLBACK-V2-RAW-PROGRESS';
+const VERSION='2026-08-09-JOURNEY-PERMISSION-FALLBACK-V3-ROLLUP';
 const GAME_META={
   word_match:{title:'LexiMatch Navigator',skill:'Vocabulary matching'},
   category_forest:{title:'Category Forest',skill:'Category & context'},
@@ -8,6 +8,7 @@ const GAME_META={
   word_detective:{title:'Conversation Quest',skill:'Conversation & response'},
   final_boss:{title:'LEXICON Champion Arena',skill:'Integrated Move • Decide • Speak'}
 };
+function n(v,f=0){const x=Number(v);return Number.isFinite(x)?x:f}
 function isPermissionError(error){
   const s=String(error?.code||'')+' '+String(error?.message||error||'');
   return /permission-denied|Missing or insufficient permissions/i.test(s);
@@ -36,23 +37,32 @@ async function fallbackSummary(playerId){
   }catch(_){}
   const bestScores={...(gameSummary.bestScores||{}),...(p.bestScores||{})};
   const passed=new Set(Array.isArray(p.passed)?p.passed:[]);
+  const attempts=gameSummary.attemptCounts||{};
+  const durations=gameSummary.durationMsByStage||{};
+  const firstScores=gameSummary.firstAttemptScores||{};
   const games=Object.entries(GAME_META).map(([stageId,meta])=>{
-    const bestAccuracy=Math.max(0,Number(bestScores[stageId]||0));
-    return {stageId,...meta,bestAccuracy,firstAttemptAccuracy:bestAccuracy,attempts:bestAccuracy>0?1:0,retryCount:0,durationMs:0,passed:passed.has(stageId)};
+    const bestAccuracy=Math.max(0,n(bestScores[stageId]));
+    const attemptCount=Math.max(0,n(attempts[stageId],bestAccuracy>0?1:0));
+    const firstAttemptAccuracy=Math.max(0,n(firstScores[stageId],bestAccuracy));
+    return {stageId,...meta,bestAccuracy,firstAttemptAccuracy,attempts:attemptCount,retryCount:Math.max(0,attemptCount-1),durationMs:Math.max(0,n(durations[stageId])),passed:passed.has(stageId)};
   });
   const played=games.filter(g=>g.attempts>0);
-  const averageGameAccuracy=played.length?Math.round(played.reduce((n,g)=>n+g.bestAccuracy,0)/played.length):0;
-  const preAccuracy=Number(p.preAccuracy??p.preScore??0)||0;
-  const postAccuracy=Number(p.postAccuracy??p.postScore??0)||0;
+  const averageGameAccuracy=played.length?Math.round(played.reduce((sum,g)=>sum+g.bestAccuracy,0)/played.length):0;
+  const preAccuracy=n(gameSummary.preAccuracy,p.preAccuracy??p.preScore??0);
+  const postAccuracy=n(gameSummary.postAccuracy,p.postAccuracy??p.postScore??0);
+  const totalAttempts=Math.max(n(gameSummary.totalGameAttempts),played.reduce((s,g)=>s+g.attempts,0));
+  const totalDurationMs=Math.max(n(gameSummary.totalGameDurationMs),played.reduce((s,g)=>s+g.durationMs,0));
   const bonusBest=gameSummary.bonusBest||null;
   return {
-    ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Direct Authority • Secure per-player fallback',
-    summaryViewed:Boolean(p.summaryViewed),analyticsLimited:true,analyticsNotice:'Attempt-level query is restricted by Firestore Rules; showing verified per-player best-score summary.',
+    ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Direct Authority • Secure per-player rollup',
+    summaryViewed:Boolean(p.summaryViewed),analyticsLimited:false,analyticsNotice:'Per-player analytics rollup used; no cross-player collection query required.',
     summary:{
-      pre:{accuracy:preAccuracy,receiptId:''},post:{accuracy:postAccuracy,receiptId:''},learningGain:postAccuracy-preAccuracy,
-      averageGameAccuracy,totalAttempts:played.length,totalDurationMs:0,games,strongestSkill:strongest(games),
+      pre:{accuracy:preAccuracy,receiptId:String(gameSummary.preReceiptId||'')},
+      post:{accuracy:postAccuracy,receiptId:String(gameSummary.postReceiptId||'')},
+      learningGain:postAccuracy-preAccuracy,
+      averageGameAccuracy,totalAttempts,totalDurationMs,games,strongestSkill:strongest(games),
       badge:p.certificate?.awardLevel||'LEXICON X Explorer',reflection:p.finalReflection||{},
-      bonus:bonusBest?{played:true,score:Number(bonusBest.score||0),correctContexts:Number(bonusBest.correctContexts||0),totalScans:Number(bonusBest.totalScans||0),durationMs:Number(bonusBest.durationMs||0)}:{played:false}
+      bonus:bonusBest?{played:true,score:n(bonusBest.score),correctContexts:n(bonusBest.correctContexts),totalScans:n(bonusBest.totalScans),durationMs:n(bonusBest.durationMs)}:{played:false}
     },version:VERSION
   };
 }
@@ -63,7 +73,7 @@ function install(){
   const wrapped={...base,permissionFallbackVersion:VERSION,summary:async function(playerId){
     try{return await originalSummary(playerId)}catch(error){
       if(!isPermissionError(error))throw error;
-      console.warn('[LEXICON X] Journey attempt analytics restricted; using secure fallback',error);
+      console.warn('[LEXICON X] Journey attempt analytics restricted; using secure per-player rollup',error);
       return fallbackSummary(playerId);
     }
   }};
@@ -72,6 +82,6 @@ function install(){
   return true;
 }
 if(!install()){
-  let n=0;const t=setInterval(()=>{n++;if(install()||n>120)clearInterval(t)},50);
+  let i=0;const t=setInterval(()=>{i++;if(install()||i>120)clearInterval(t)},50);
 }
 })();
