@@ -6,7 +6,12 @@ import { HEROHEALTH_FIREBASE_CONFIG, HEROHEALTH_FIREBASE_BUILD } from "./firebas
 const app = getApps().length ? getApps()[0] : initializeApp(HEROHEALTH_FIREBASE_CONFIG);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const RELEASE = "20260804-FIREBASE-ASSESSMENT-RECEIPT-R2-NESTED-ARRAY-SAFE";
+const RELEASE = "20260809-FIREBASE-ASSESSMENT-RECEIPT-R3-E2E29";
+const SANDBOX_STUDENT_IDS = new Set(Array.from({ length: 29 }, (_, i) => String(990001 + i)));
+
+function isSandboxStudent(studentId) {
+  return SANDBOX_STUDENT_IDS.has(String(studentId || "").trim());
+}
 
 async function user() {
   if (auth.currentUser) return auth.currentUser;
@@ -20,8 +25,6 @@ function sanitizeFirestore(value, insideArray = false) {
 
   if (Array.isArray(value)) {
     const items = value.map(item => sanitizeFirestore(item, true));
-    // Firestore does not allow an array directly inside another array.
-    // Wrap only nested arrays in a map so all research metadata is preserved.
     return insideArray ? { values: items } : items;
   }
 
@@ -46,8 +49,9 @@ async function saveAssessment(payload = {}) {
   const currentUser = await user();
   const receipt = token(sid, mode, attemptId);
   const assessmentType = mode === "pre" ? "pretest" : "posttest";
-  const collection = sid === "990014" ? "studentAssessmentsSandbox" : "studentAssessments";
-  const progressCollection = sid === "990014" ? "studentProgressSandbox" : "studentProgress";
+  const sandbox = isSandboxStudent(sid);
+  const collection = sandbox ? "studentAssessmentsSandbox" : "studentAssessments";
+  const progressCollection = sandbox ? "studentProgressSandbox" : "studentProgress";
   const assessmentRef = doc(db, collection, `${sid}_${attemptId}`);
   const progressRef = doc(db, progressCollection, sid);
   const safePayload = sanitizeFirestore(payload);
@@ -94,5 +98,5 @@ async function saveAssessment(payload = {}) {
   return { ok: true, receipt, assessmentPath: assessmentRef.path, progressPath: progressRef.path, assessment, progress };
 }
 
-window.HHAssessmentFirebase = Object.freeze({ release: RELEASE, saveAssessment, sanitizeFirestore });
-console.info("[HeroHealth Firebase Assessment R2] installed", RELEASE);
+window.HHAssessmentFirebase = Object.freeze({ release: RELEASE, saveAssessment, sanitizeFirestore, isSandboxStudent });
+console.info("[HeroHealth Firebase Assessment R3] installed", RELEASE);
