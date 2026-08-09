@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>HeroHealth Live Classroom 200 R4</title>
+<style>
+:root{font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;--b:#0f766e;--b2:#14b8a6;--ink:#17312d;--line:#d7e9e5;--warn:#b45309;--bad:#b91c1c;--ok:#15803d}*{box-sizing:border-box}html,body{margin:0;height:100%;background:#eef9f7;color:var(--ink)}body{display:grid;grid-template-rows:auto 1fr;overflow:hidden}.control{position:relative;z-index:20;background:linear-gradient(135deg,#073f3a,#0f766e);color:white;padding:10px 12px;box-shadow:0 3px 14px #0002}.row{width:min(1640px,100%);margin:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.title{font-weight:1000;margin-right:auto}.title small{display:block;font-size:11px;font-weight:600;color:#cbfff7}.quick{display:flex;gap:6px;flex-wrap:wrap}.q{border:1px solid #ffffff55;background:#ffffff18;color:#fff;border-radius:999px;padding:8px 11px;font-weight:900;cursor:pointer}.q.active,.q:hover{background:#fff;color:#0f766e}.timer{display:flex;align-items:center;gap:7px;background:#ffffff14;border:1px solid #ffffff3d;border-radius:14px;padding:6px 8px}.clock{font:1000 24px ui-monospace,SFMono-Regular,Menlo,monospace;min-width:78px;text-align:center}.timer.warn10{background:#92400e}.timer.warn5{background:#991b1b}.timer.done{background:#7f1d1d;animation:pulse 1s infinite}.tb{border:0;border-radius:9px;padding:7px 9px;font-weight:900;cursor:pointer;background:#fff;color:#0f766e}.tb.stop{background:#fee2e2;color:#991b1b}.msg{font-size:11px;min-width:122px}.frameWrap{min-height:0;position:relative}.frame{width:100%;height:100%;border:0;display:block;background:#fff}@keyframes pulse{50%{filter:brightness(1.35)}}@media(max-width:800px){.title{width:100%}.row{gap:6px}.clock{font-size:20px}.control{padding:8px}.q{padding:7px 9px;font-size:12px}.msg{display:none}}
+</style>
+</head>
+<body>
+<header class="control">
+  <div class="row">
+    <div class="title">🎛️ Live Classroom 200 R4 <small>Classroom Control • Quick Filter • 60-minute Timer • R3 core preserved</small></div>
+    <div class="quick" aria-label="ตัวกรองด่วน">
+      <button class="q active" data-state="">ทั้งหมด</button>
+      <button class="q" data-state="help">⚠️ ต้องช่วย</button>
+      <button class="q" data-state="playing">🟢 กำลังเล่น</button>
+      <button class="q" data-state="waiting">⚪ รอเริ่ม</button>
+      <button class="q" data-state="complete">✅ จบแล้ว</button>
+    </div>
+    <div id="timerBox" class="timer">
+      <div><div id="clock" class="clock">60:00</div><div id="timerMsg" class="msg">ยังไม่เริ่มจับเวลา</div></div>
+      <button id="startTimer" class="tb">เริ่ม 60 นาที</button>
+      <button id="pauseTimer" class="tb">พัก</button>
+      <button id="resetTimer" class="tb stop">รีเซ็ต</button>
+    </div>
+  </div>
+</header>
+<div class="frameWrap"><iframe id="dashboard" class="frame" src="./firebase-live-classroom-200-r3.html?v=20260809-r4-control" title="HeroHealth Live Classroom 200 R3"></iframe></div>
+<script>
+(()=>{
+'use strict';
+const RELEASE='20260809-LIVE-CLASSROOM-200-R4-CONTROL';
+const frame=document.getElementById('dashboard');
+const qs=[...document.querySelectorAll('.q')];
+function applyQuick(state){
+  qs.forEach(b=>b.classList.toggle('active',b.dataset.state===state));
+  try{
+    const d=frame.contentDocument;
+    const sel=d?.getElementById('opsFilter');
+    if(!sel)return;
+    sel.value=state;
+    sel.dispatchEvent(new Event('change',{bubbles:true}));
+  }catch(e){console.warn('[HH R4] quick filter unavailable',e)}
+}
+qs.forEach(b=>b.addEventListener('click',()=>applyQuick(b.dataset.state||'')));
+frame.addEventListener('load',()=>{const active=qs.find(b=>b.classList.contains('active'));setTimeout(()=>applyQuick(active?.dataset.state||''),300)});
+
+const TOTAL=60*60;
+let remaining=TOTAL,running=false,lastTick=0,timerId=null;
+const clock=document.getElementById('clock'),box=document.getElementById('timerBox'),msg=document.getElementById('timerMsg');
+const fmt=s=>`${String(Math.floor(Math.max(0,s)/60)).padStart(2,'0')}:${String(Math.max(0,s)%60).padStart(2,'0')}`;
+function announce(){
+  box.classList.remove('warn10','warn5','done');
+  if(remaining<=0){box.classList.add('done');msg.textContent='หมดเวลา • ปิดภารกิจและเช็กเด็กที่ยังไม่จบ';return}
+  if(remaining<=5*60){box.classList.add('warn5');msg.textContent='เหลือ ≤5 นาที • ให้เด็กไป Post-test/Reflection';return}
+  if(remaining<=10*60){box.classList.add('warn10');msg.textContent='เหลือ ≤10 นาที • เร่งด่านสุดท้าย';return}
+  if(remaining<=15*60){msg.textContent='เหลือ ≤15 นาที • ตรวจ Attention Needed';return}
+  msg.textContent=running?'กำลังจับเวลา 60 นาที':'พักเวลา';
+}
+function draw(){clock.textContent=fmt(remaining);announce()}
+function stopLoop(){if(timerId){clearInterval(timerId);timerId=null}}
+function start(){if(remaining<=0)remaining=TOTAL;if(running)return;running=true;lastTick=Date.now();stopLoop();timerId=setInterval(()=>{if(!running)return;const now=Date.now();const dec=Math.max(1,Math.floor((now-lastTick)/1000));if(dec<1)return;remaining=Math.max(0,remaining-dec);lastTick=now;draw();if(remaining<=0){running=false;stopLoop()}},1000);draw()}
+function pause(){running=false;stopLoop();draw()}
+function reset(){running=false;stopLoop();remaining=TOTAL;draw()}
+document.getElementById('startTimer').addEventListener('click',start);
+document.getElementById('pauseTimer').addEventListener('click',pause);
+document.getElementById('resetTimer').addEventListener('click',reset);
+draw();
+console.info('[HeroHealth] Live Classroom 200 R4 ready',RELEASE);
+})();
+</script>
+</body>
+</html>
