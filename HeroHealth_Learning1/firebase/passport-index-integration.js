@@ -1,12 +1,12 @@
-import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260805-session-r72';
+import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260809-e2e29-r74';
 
 const params = new URLSearchParams(location.search);
 const mode = String(params.get('authority') || 'firebase').toLowerCase();
 const enabled = mode === 'firebase' || mode === 'dual';
 const STATE_KEY = 'herohealth_learning_platform_rc2';
 const ACTIVE_KEY = 'herohealth_active_student_id';
-const HYDRATED_KEY = 'firebaseHydratedR73';
-const RELEASE = '20260807-FIREBASE-SESSION-R73-RECEIPT-CONSUME-UNLOCK';
+const HYDRATED_KEY = 'firebaseHydratedR74';
+const RELEASE = '20260809-FIREBASE-SESSION-R74-E2E29-CACHE-SAFE';
 const CLEAR_KEYS = [
   STATE_KEY, ACTIVE_KEY, 'HH_FIREBASE_LAST_STUDENT_ID', 'HH_FIREBASE_BOUND_STUDENT_ID',
   'HH_ACTIVE_STUDENT_ID', 'HH_CURRENT_STUDENT_ID', 'HH_PROFILE_CACHE',
@@ -80,10 +80,10 @@ function renderLogin(prefill=''){
   release();badge('Firebase • กรุณาใส่รหัสนักเรียน');
 }
 function clearContext(){for(const key of CLEAR_KEYS){try{localStorage.removeItem(key)}catch(_){}try{sessionStorage.removeItem(key)}catch(_){}}try{localStorage.setItem('HH_AUTHORITY_MODE','firebase');sessionStorage.setItem('HH_AUTHORITY_MODE','firebase')}catch(_){}}
-function cleanLogoutUrl(){const url=new URL(location.href);for(const key of ['studentId','sid','pid','firebaseUid','firebaseReady','firebaseLogin','firebaseHydrated','firebaseHydratedR71','firebaseHydratedR72',HYDRATED_KEY,'firebaseProgressApplied','firebaseAssessmentReceipt',...RECEIPT_URL_KEYS,'receiptApplied','receiptAppliedGame','receiptAppliedAt'])url.searchParams.delete(key);url.searchParams.set('authority','firebase');url.searchParams.set('logout','1');url.searchParams.set('v',RELEASE);return url}
+function cleanLogoutUrl(){const url=new URL(location.href);for(const key of ['studentId','sid','pid','firebaseUid','firebaseReady','firebaseLogin','firebaseHydrated','firebaseHydratedR71','firebaseHydratedR72','firebaseHydratedR73',HYDRATED_KEY,'firebaseProgressApplied','firebaseAssessmentReceipt',...RECEIPT_URL_KEYS,'receiptApplied','receiptAppliedGame','receiptAppliedAt'])url.searchParams.delete(key);url.searchParams.set('authority','firebase');url.searchParams.set('logout','1');url.searchParams.set('v',RELEASE);return url}
 function logout(event){event?.preventDefault?.();event?.stopPropagation?.();event?.stopImmediatePropagation?.();if(loggingOut)return false;loggingOut=true;busy=false;clearContext();const url=cleanLogoutUrl();try{history.replaceState(null,'',url.href)}catch(_){}renderLogin();loggingOut=false;return false}
 function isLogout(el){if(!el||el.nodeType!==1)return false;const text=String(el.textContent||'').replace(/\s+/g,' ').trim();const onclick=String(el.getAttribute?.('onclick')||'');return text.includes('ออกจากผู้เล่น')||onclick.includes('HH.logout')}
-function bindLogout(){const install=()=>{if(window.HH){window.HH.logout=logout;window.HH.logout.__hhFirebaseR73=true}};install();document.querySelectorAll('button,a,[role="button"],.btn').forEach(el=>{if(!isLogout(el)||el.dataset.hhLogoutR73==='1')return;el.dataset.hhLogoutR73='1';el.disabled=false;el.removeAttribute('disabled');el.removeAttribute('aria-disabled');el.style.pointerEvents='auto';el.style.touchAction='manipulation';el.onclick=logout;el.addEventListener('pointerup',logout,{capture:true,passive:false});el.addEventListener('click',logout,{capture:true,passive:false})})}
+function bindLogout(){const install=()=>{if(window.HH){window.HH.logout=logout;window.HH.logout.__hhFirebaseR74=true}};install();document.querySelectorAll('button,a,[role="button"],.btn').forEach(el=>{if(!isLogout(el)||el.dataset.hhLogoutR74==='1')return;el.dataset.hhLogoutR74='1';el.disabled=false;el.removeAttribute('disabled');el.removeAttribute('aria-disabled');el.style.pointerEvents='auto';el.style.touchAction='manipulation';el.onclick=logout;el.addEventListener('pointerup',logout,{capture:true,passive:false});el.addEventListener('click',logout,{capture:true,passive:false})})}
 function sessionMatches(sid){const state=readState();return String(state?.profile?.studentId||'')===sid&&String(state?.firebaseAuthority?.studentId||'')===sid&&state?.view==='student'}
 function storedStudentId(){const state=readState();const candidates=[localStorage.getItem(ACTIVE_KEY),state?.firebaseAuthority?.studentId,state?.profile?.studentId];return String(candidates.find(Boolean)||'').trim()}
 async function writeSession(sid){
@@ -102,30 +102,30 @@ async function hydrateReceipt(sid,returnedGame){
 }
 async function login(form,button){
   if(busy||loggingOut)return;const input=form.querySelector('[name="studentId"],input');const sid=String(input?.value||'').trim().replace(/\s+/g,'');if(!sid){input?.focus();return}busy=true;if(button){button.disabled=true;button.textContent='กำลังกู้ความคืบหน้าจาก Firebase…'}
-  try{await writeSession(sid);const url=new URL(location.href);for(const key of ['logout','logoutAt','logoutNonce','firebaseHydratedR71','firebaseHydratedR72',...RECEIPT_URL_KEYS])url.searchParams.delete(key);url.searchParams.set('authority','firebase');url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.set('firebaseReady','1');url.searchParams.set(HYDRATED_KEY,'1');url.searchParams.set('v',RELEASE);location.replace(url.href)}catch(error){console.error('[HeroHealth Firebase R73] login failed',error);markLoginRequired(true);alert(error?.message||'เข้าสู่ภารกิจไม่สำเร็จ');busy=false;if(button){button.disabled=false;button.textContent='ตรวจสอบและเข้าสู่ภารกิจ'}}
+  try{await writeSession(sid);const url=new URL(location.href);for(const key of ['logout','logoutAt','logoutNonce','firebaseHydratedR71','firebaseHydratedR72','firebaseHydratedR73',...RECEIPT_URL_KEYS])url.searchParams.delete(key);url.searchParams.set('authority','firebase');url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.set('firebaseReady','1');url.searchParams.set(HYDRATED_KEY,'1');url.searchParams.set('v',RELEASE);location.replace(url.href)}catch(error){console.error('[HeroHealth Firebase R74] login failed',error);markLoginRequired(true);alert(error?.message||'เข้าสู่ภารกิจไม่สำเร็จ');busy=false;if(button){button.disabled=false;button.textContent='ตรวจสอบและเข้าสู่ภารกิจ'}}
 }
 function bindLogin(){document.addEventListener('submit',event=>{const form=event.target;if(!(form instanceof HTMLFormElement)||!form.querySelector('[name="studentId"],input'))return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();login(form,form.querySelector('button[type="submit"],button.btn-primary'))},true)}
 async function boot(){
-  if(!enabled)return;if(window.__HH_FIREBASE_PASSPORT_BOOT_R73__)return;window.__HH_FIREBASE_PASSPORT_BOOT_R73__=true;
+  if(!enabled)return;if(window.__HH_FIREBASE_PASSPORT_BOOT_R74__)return;window.__HH_FIREBASE_PASSPORT_BOOT_R74__=true;
   window.HH_AUTHORITY_MODE=mode;window.HH_FIREBASE_MODE=true;window.HH_DISABLE_SHEET_RESUME=mode==='firebase';release();bindLogin();bindLogout();
   const observer=new MutationObserver(()=>bindLogout());observer.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});[100,300,700,1500,3000,6000].forEach(delay=>setTimeout(bindLogout,delay));
   if(params.get('logout')==='1'){renderLogin();return}
   let sid=String(params.get('studentId')||params.get('sid')||'').trim();
-  if(!sid){const stored=storedStudentId();const storedMode=String(localStorage.getItem('HH_AUTHORITY_MODE')||readState()?.firebaseAuthority?.mode||'').toLowerCase();if(stored&&['firebase','dual'].includes(storedMode)){const url=new URL(location.href);url.searchParams.set('authority','firebase');url.searchParams.set('studentId',stored);url.searchParams.set('sid',stored);url.searchParams.set('firebaseReady','1');url.searchParams.delete('firebaseHydratedR71');url.searchParams.delete('firebaseHydratedR72');url.searchParams.delete(HYDRATED_KEY);url.searchParams.set('sessionRecovery','stored-student-r73');url.searchParams.set('v',RELEASE);location.replace(url.href);return}renderLogin();return}
+  if(!sid){const stored=storedStudentId();const storedMode=String(localStorage.getItem('HH_AUTHORITY_MODE')||readState()?.firebaseAuthority?.mode||'').toLowerCase();if(stored&&['firebase','dual'].includes(storedMode)){const url=new URL(location.href);url.searchParams.set('authority','firebase');url.searchParams.set('studentId',stored);url.searchParams.set('sid',stored);url.searchParams.set('firebaseReady','1');url.searchParams.delete('firebaseHydratedR71');url.searchParams.delete('firebaseHydratedR72');url.searchParams.delete('firebaseHydratedR73');url.searchParams.delete(HYDRATED_KEY);url.searchParams.set('sessionRecovery','stored-student-r74');url.searchParams.set('v',RELEASE);location.replace(url.href);return}renderLogin();return}
   const hydrated=params.get(HYDRATED_KEY)==='1';
   const receiptReturn=params.get('firebaseReceipt')==='1';
   const returnedGame=canonicalGameId(params.get('returnedGame')||'');
-  const forceRemote=receiptReturn||params.has('authorityRefresh')||params.get('returnSessionPolicy')==='force-firebase-rehydrate-r46';
+  const forceRemote=receiptReturn||params.has('authorityRefresh')||String(params.get('returnSessionPolicy')||'').startsWith('force-firebase-rehydrate');
   if(!hydrated||!sessionMatches(sid)||forceRemote){
     try{
       badge(receiptReturn?`Firebase • ${sid} • ยืนยันผล ${returnedGame||'เกมล่าสุด'}…`:`Firebase • ${sid} • กำลังกู้ความคืบหน้า…`);
       if(receiptReturn)await hydrateReceipt(sid,returnedGame);else await writeSession(sid);
       const url=new URL(location.href);
-      url.searchParams.delete('firebaseHydratedR71');url.searchParams.delete('firebaseHydratedR72');
+      url.searchParams.delete('firebaseHydratedR71');url.searchParams.delete('firebaseHydratedR72');url.searchParams.delete('firebaseHydratedR73');
       for(const key of RECEIPT_URL_KEYS)url.searchParams.delete(key);
       if(receiptReturn){url.searchParams.set('receiptApplied','1');if(returnedGame)url.searchParams.set('receiptAppliedGame',returnedGame);url.searchParams.set('receiptAppliedAt',Date.now().toString())}
       url.searchParams.set(HYDRATED_KEY,'1');url.searchParams.set('firebaseReady','1');url.searchParams.set('v',RELEASE);location.replace(url.href);return;
-    }catch(error){console.error('[HeroHealth Firebase R73] hydrate failed',error);renderLogin(sid);badge(`Firebase • ${error?.message||'กู้ข้อมูลไม่สำเร็จ'}`);return}
+    }catch(error){console.error('[HeroHealth Firebase R74] hydrate failed',error);renderLogin(sid);badge(`Firebase • ${error?.message||'กู้ข้อมูลไม่สำเร็จ'}`);return}
   }
   markLoginRequired(false);const applied=params.get('receiptAppliedGame');badge(applied?`Firebase • ${sid} • ${applied} บันทึกแล้ว • ด่านถัดไปพร้อม`:`Firebase • ${sid} • ความคืบหน้าพร้อมใช้งาน`);bindLogout();
 }
