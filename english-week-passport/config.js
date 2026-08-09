@@ -1,6 +1,6 @@
 window.EW_CONFIG = Object.freeze({
   appId: "ENGLISH-WEEK-PASSPORT-2026",
-  version: "2026-08-09-PRODUCTION-CANDIDATE-R5-ANALYTICS",
+  version: "2026-08-09-PRODUCTION-CANDIDATE-R6-SHELL-EXIT",
   authorityMode: "firestore-direct",
   firebaseProjectId: "englishweek-95869",
   firebaseRegion: "asia-southeast1",
@@ -23,12 +23,7 @@ window.EW_CONFIG = Object.freeze({
   })
 });
 
-/* LEXICON X • Mobile Smoke-Test Contract R4
- * Desktop ?view=mobile = centered 430px mobile viewport.
- * Uses the html element as a flex centering host instead of positioning body
- * with left:50% + transform. This is substantially more stable for the
- * scrollable Passport document in Chrome.
- */
+/* LEXICON X • Mobile Smoke-Test Contract R4 */
 (function(){
   'use strict';
   const params=new URLSearchParams(location.search);
@@ -42,85 +37,15 @@ window.EW_CONFIG = Object.freeze({
   const style=document.createElement('style');
   style.id='ewMobileSmokeContractR4';
   style.textContent=`
-    html.ew-mobile-smoke-root{
-      width:100%!important;
-      min-width:100%!important;
-      min-height:100%!important;
-      background:#07121f!important;
-      overflow:hidden!important;
-      display:flex!important;
-      justify-content:center!important;
-      align-items:flex-start!important;
-    }
-    body.ew-mobile-smoke{
-      flex:0 0 430px!important;
-      width:430px!important;
-      max-width:430px!important;
-      min-width:0!important;
-      height:100dvh!important;
-      min-height:100dvh!important;
-      position:relative!important;
-      inset:auto!important;
-      left:auto!important;
-      right:auto!important;
-      top:auto!important;
-      bottom:auto!important;
-      transform:none!important;
-      margin:0!important;
-      overflow:hidden!important;
-      box-shadow:0 0 0 1px rgba(255,255,255,.08),0 18px 60px rgba(0,0,0,.28)!important;
-    }
-    body.ew-mobile-smoke .shell{
-      width:100%!important;
-      max-width:430px!important;
-      height:100dvh!important;
-      min-height:100dvh!important;
-      position:absolute!important;
-      inset:0!important;
-      margin:0!important;
-      overflow:hidden!important;
-    }
-    body.ew-mobile-smoke iframe,
-    body.ew-mobile-smoke .game-frame{
-      display:block!important;
-      width:100%!important;
-      max-width:430px!important;
-      height:100%!important;
-    }
-    html[data-lexicon-stage="passport"].ew-mobile-smoke-root{overflow:hidden!important;}
-    html[data-lexicon-stage="passport"] body.ew-mobile-smoke{
-      height:100dvh!important;
-      overflow-y:auto!important;
-      overflow-x:hidden!important;
-      -webkit-overflow-scrolling:touch!important;
-      overscroll-behavior-y:contain!important;
-      touch-action:pan-y!important;
-      scrollbar-gutter:stable!important;
-    }
-    html[data-lexicon-stage="passport"] body.ew-mobile-smoke .app-shell{
-      width:100%!important;
-      max-width:430px!important;
-      height:auto!important;
-      min-height:100dvh!important;
-      position:relative!important;
-      inset:auto!important;
-      margin:0!important;
-      overflow:visible!important;
-      touch-action:pan-y!important;
-    }
-    html[data-lexicon-stage="passport"] body.ew-mobile-smoke .screen,
-    html[data-lexicon-stage="passport"] body.ew-mobile-smoke .passport-map{
-      overflow:visible!important;
-      touch-action:pan-y!important;
-    }
-    @media(max-width:720px){
-      html.ew-mobile-smoke-root{display:block!important;background:inherit!important;overflow:hidden!important;}
-      body.ew-mobile-smoke{width:100%!important;max-width:none!important;flex:none!important;box-shadow:none!important;}
-      body.ew-mobile-smoke .app-shell,
-      body.ew-mobile-smoke .shell,
-      body.ew-mobile-smoke iframe,
-      body.ew-mobile-smoke .game-frame{max-width:none!important}
-    }
+    html.ew-mobile-smoke-root{width:100%!important;min-width:100%!important;min-height:100%!important;background:#07121f!important;overflow:hidden!important;display:flex!important;justify-content:center!important;align-items:flex-start!important}
+    body.ew-mobile-smoke{flex:0 0 430px!important;width:430px!important;max-width:430px!important;min-width:0!important;height:100dvh!important;min-height:100dvh!important;position:relative!important;inset:auto!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;margin:0!important;overflow:hidden!important;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 18px 60px rgba(0,0,0,.28)!important}
+    body.ew-mobile-smoke .shell{width:100%!important;max-width:430px!important;height:100dvh!important;min-height:100dvh!important;position:absolute!important;inset:0!important;margin:0!important;overflow:hidden!important}
+    body.ew-mobile-smoke iframe,body.ew-mobile-smoke .game-frame{display:block!important;width:100%!important;max-width:430px!important;height:100%!important}
+    html[data-lexicon-stage="passport"].ew-mobile-smoke-root{overflow:hidden!important}
+    html[data-lexicon-stage="passport"] body.ew-mobile-smoke{height:100dvh!important;overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior-y:contain!important;touch-action:pan-y!important;scrollbar-gutter:stable!important}
+    html[data-lexicon-stage="passport"] body.ew-mobile-smoke .app-shell{width:100%!important;max-width:430px!important;height:auto!important;min-height:100dvh!important;position:relative!important;inset:auto!important;margin:0!important;overflow:visible!important;touch-action:pan-y!important}
+    html[data-lexicon-stage="passport"] body.ew-mobile-smoke .screen,html[data-lexicon-stage="passport"] body.ew-mobile-smoke .passport-map{overflow:visible!important;touch-action:pan-y!important}
+    @media(max-width:720px){html.ew-mobile-smoke-root{display:block!important;background:inherit!important;overflow:hidden!important}body.ew-mobile-smoke{width:100%!important;max-width:none!important;flex:none!important;box-shadow:none!important}body.ew-mobile-smoke .app-shell,body.ew-mobile-smoke .shell,body.ew-mobile-smoke iframe,body.ew-mobile-smoke .game-frame{max-width:none!important}}
   `;
   document.head.appendChild(style);
 
@@ -148,4 +73,42 @@ window.EW_CONFIG = Object.freeze({
   }).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['src']});
 
   window.EW_MOBILE_SMOKE=Object.freeze({version:'2026-08-08-MOBILE-SMOKE-R4-CENTER',active:true,width:430,passportScroll:true,centering:'html-flex-host'});
+})();
+
+/* LEXICON X • Shell-level emergency exit R1
+ * Lives in the outer Passport Game Shell, above the iframe. This guarantees
+ * an escape route even when an inner game traps focus, tilt navigation,
+ * pointer interaction, camera interaction, or its own Back button fails.
+ */
+(function(){
+  'use strict';
+  const path=String(location.pathname||'');
+  if(!/passport-game-shell-firestore-v2\.html$/i.test(path))return;
+
+  function returnPassport(){
+    try{document.exitPointerLock?.()}catch(_){}
+    try{document.webkitExitFullscreen?.()}catch(_){}
+    try{if(document.fullscreenElement)document.exitFullscreen?.()}catch(_){}
+    const q=new URLSearchParams(location.search);
+    const out=new URLSearchParams({resume:'passport',fromGame:q.get('stage')||'game',exit:'manual',v:'20260809-shell-exit-r1'});
+    if(q.get('view')==='mobile')out.set('view','mobile');
+    location.replace('./index.html?'+out.toString());
+  }
+
+  function install(){
+    if(document.getElementById('ewShellEmergencyExit'))return;
+    const btn=document.createElement('button');
+    btn.id='ewShellEmergencyExit';
+    btn.type='button';
+    btn.setAttribute('aria-label','กลับ Passport');
+    btn.textContent='← Passport';
+    btn.style.cssText='position:fixed;z-index:2147483647;top:max(10px,env(safe-area-inset-top));left:max(10px,env(safe-area-inset-left));min-width:112px;min-height:46px;padding:0 14px;border:1px solid rgba(255,255,255,.55);border-radius:14px;background:rgba(5,18,31,.94);color:#fff;font:900 14px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.38);cursor:pointer;pointer-events:auto;touch-action:manipulation;user-select:none;-webkit-user-select:none';
+    btn.addEventListener('pointerdown',e=>{e.stopPropagation()},true);
+    btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();returnPassport()},true);
+    document.body.appendChild(btn);
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+  window.addEventListener('pageshow',install);
+  window.EW_SHELL_EMERGENCY_EXIT=Object.freeze({version:'2026-08-09-SHELL-EXIT-R1',returnPassport});
 })();
