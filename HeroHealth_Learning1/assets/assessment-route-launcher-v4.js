@@ -1,11 +1,13 @@
 (()=>{
 'use strict';
-const RELEASE='20260807-ASSESSMENT-FIREBASE-ROUTE-R12-RESPONSIVE-SMOKE';
+const RELEASE='20260809-ASSESSMENT-FIREBASE-ROUTE-R13-E2E29';
 const STATE_KEY='herohealth_learning_platform_rc2';
 const STUDY_ID='HEROHEALTH-P5-2026';
+const SANDBOX_STUDENT_IDS=new Set(Array.from({length:29},(_,i)=>String(990001+i)));
+const isSandboxStudent=sid=>SANDBOX_STUDENT_IDS.has(String(sid||'').trim());
 const SHEET_ROUTES={pretest:'./assessment/pretest.html?v=20260731-assessment-stable-v6',posttest:'./assessment/posttest.html?v=20260805-authority-gate-v4',reflection:'./assessment/reflection.html?v=20260731-reflection-r54'};
-const FIREBASE_ROUTES={pretest:'./assessment/pretest-firebase.html?v=20260804-firebase-assessment-r2',posttest:'./assessment/posttest-firebase.html?v=20260805-firebase-posttest-r3',reflection:'./assessment/reflection-firebase.html?v=20260806-firebase-reflection-r3'};
-const COMMON_ROUTES={certificate:'./assessment/certificate.html?v=20260730-active-receiver-v85'};
+const FIREBASE_ROUTES={pretest:'./assessment/pretest-firebase.html?v=20260804-firebase-assessment-r2',posttest:'./assessment/posttest-firebase.html?v=20260805-firebase-posttest-r3',reflection:'./assessment/reflection-firebase.html?v=20260809-firebase-reflection-r4-e2e29'};
+const COMMON_ROUTES={certificate:'./assessment/certificate.html?v=20260809-mission-summary-r7-e2e29'};
 if(!window.HH||typeof window.HH.openRoute!=='function')return;
 if(window.HHAssessmentRouteLauncher?.version===RELEASE)return;
 const baseOpenRoute=window.__HH_ASSESSMENT_BASE_OPEN_ROUTE__||window.HH.openRoute.bind(window.HH);
@@ -33,8 +35,9 @@ async function recoverFirebaseReflection(){
   const app=getApps().length?getApps()[0]:initializeApp(HEROHEALTH_FIREBASE_CONFIG);
   const auth=getAuth(app);if(!auth.currentUser)await signInAnonymously(auth);
   const db=getFirestore(app);
-  const assessmentCollection=sid==='990014'?'studentAssessmentsSandbox':'studentAssessments';
-  const progressCollection=sid==='990014'?'studentProgressSandbox':'studentProgress';
+  const sandbox=isSandboxStudent(sid);
+  const assessmentCollection=sandbox?'studentAssessmentsSandbox':'studentAssessments';
+  const progressCollection=sandbox?'studentProgressSandbox':'studentProgress';
   const [assessmentSnap,progressSnap]=await Promise.all([
    getDoc(doc(db,assessmentCollection,`${sid}_REFLECTION`)).catch(()=>null),
    getDoc(doc(db,progressCollection,sid)).catch(()=>null)
@@ -73,7 +76,7 @@ window.HH.openRoute=function(id){
  if(id==='posttest'){const attempt=stableAttempt('POST',sid);const preAttempt=localStorage.getItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`)||stableAttempt('PRE',sid);localStorage.setItem(`HH_ASSESSMENT_POST_ATTEMPT_${sid}`,attempt);url.searchParams.set('attemptId',attempt);url.searchParams.set('preAttemptId',preAttempt)}
  location.assign(url.href);
 };
-window.HHAssessmentRouteLauncher={version:RELEASE,studyId:STUDY_ID,sheetRoutes:SHEET_ROUTES,firebaseRoutes:FIREBASE_ROUTES,stableAttempt,recoverFirebaseReflection,smokeMode};
+window.HHAssessmentRouteLauncher={version:RELEASE,studyId:STUDY_ID,sheetRoutes:SHEET_ROUTES,firebaseRoutes:FIREBASE_ROUTES,stableAttempt,recoverFirebaseReflection,smokeMode,isSandboxStudent};
 recoverFirebaseReflection();
 console.info('[HeroHealth Assessment Route] installed',RELEASE,{smoke:smokeMode()});
 })();
