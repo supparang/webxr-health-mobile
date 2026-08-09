@@ -9,6 +9,8 @@ const repo = path.join(root, '..');
 const configSource = fs.readFileSync(path.join(root, 'config.js'), 'utf8');
 const journeySource = fs.readFileSync(path.join(root, 'journey-client-v1.js'), 'utf8');
 const directAuthority = fs.readFileSync(path.join(root, 'firestore-direct-authority-v1.js'), 'utf8');
+const gameShell = fs.readFileSync(path.join(root, 'passport-game-shell-firestore-v2.html'), 'utf8');
+const canonicalRoutes = fs.readFileSync(path.join(root, 'passport-canonical-routes-v1.js'), 'utf8');
 const rules = fs.readFileSync(path.join(repo, 'english-week-firebase-spark', 'firestore.rules'), 'utf8');
 const teacher = fs.readFileSync(path.join(repo, 'english', 'functions', 'english-week-teacher.js'), 'utf8');
 const firebaserc = JSON.parse(fs.readFileSync(path.join(repo, 'english', '.firebaserc'), 'utf8'));
@@ -28,6 +30,12 @@ assert.match(directAuthority, /'pre_challenge','word_match','category_forest','s
 assert.match(directAuthority, /'word_detective','final_boss','post_challenge','certificate'/);
 assert.match(directAuthority, /STAGE_LOCKED/);
 assert.match(directAuthority, /ewp_game_results/);
+
+assert.match(gameShell, /PASSPORT-GAME-SHELL-FIRESTORE-V3-REAL-DURATION/);
+assert.match(gameShell, /const attemptStartedAt=Date\.now\(\)/);
+assert.match(gameShell, /word_detective[\s\S]*durationMs=elapsed\(\)/);
+assert.doesNotMatch(gameShell, /word_detective[\s\S]{0,900}durationMs:0/);
+assert.match(canonicalRoutes, /route4-real-duration/);
 
 assert.match(journeySource, /JOURNEY-CLIENT-V5-REAL-ANALYTICS/);
 assert.match(journeySource, /collection\(COL\.assessments\)\.where\('playerId','==',playerId\)/);
