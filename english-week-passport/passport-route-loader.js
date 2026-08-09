@@ -1,11 +1,11 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-09-PASSPORT-ROUTE-LOADER-V10-REAL-DURATION";
+  const VERSION="2026-08-09-PASSPORT-ROUTE-LOADER-V11-JOURNEY-DIRECT7";
   let loaded=false;
   const routes=[
     "./passport-canonical-routes-v1.js?v=20260809-route4-real-duration",
-    "./journey-client-v1.js?v=20260809-journey-real-analytics1",
-    "./passport-journey-routes-v1.js?v=20260809-journey-direct6"
+    "./journey-client-v1.js?v=20260809-journey-real-analytics2",
+    "./passport-journey-routes-v1.js?v=20260809-journey-direct7-permission-fallback"
   ];
 
   function loadRoutes(){
