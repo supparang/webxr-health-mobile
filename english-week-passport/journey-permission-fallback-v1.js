@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-09-JOURNEY-PERMISSION-FALLBACK-V1';
+const VERSION='2026-08-09-JOURNEY-PERMISSION-FALLBACK-V2-RAW-PROGRESS';
 const GAME_META={
   word_match:{title:'LexiMatch Navigator',skill:'Vocabulary matching'},
   category_forest:{title:'Category Forest',skill:'Category & context'},
@@ -13,11 +13,21 @@ function isPermissionError(error){
   return /permission-denied|Missing or insufficient permissions/i.test(s);
 }
 function strongest(games){return games.reduce((best,g)=>g.bestAccuracy>(best?.accuracy??-1)?{stageId:g.stageId,accuracy:g.bestAccuracy,skill:g.skill}:best,null)}
+async function rawProgress(playerId){
+  try{
+    const snap=await firebase.firestore().collection('ewp_progress').doc(playerId).get();
+    return snap.exists?{playerId,...(snap.data()||{})}:{playerId};
+  }catch(error){
+    console.warn('[LEXICON X] raw per-player progress read failed',error);
+    return {playerId};
+  }
+}
 async function fallbackSummary(playerId){
   if(!window.EW_AUTHORITY?.resume)throw new Error('FIRESTORE_DIRECT_AUTHORITY_NOT_READY');
   const r=await window.EW_AUTHORITY.resume(playerId,'');
   if(!r?.ok)throw new Error('FIRESTORE_DIRECT_RESUME_REQUIRED');
-  const p=r.progress||{};
+  const raw=await rawProgress(playerId);
+  const p={...(r.progress||{}),...raw};
   if(!(p.reflectionDone||p.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');
   let gameSummary={};
   try{
