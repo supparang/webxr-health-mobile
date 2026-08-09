@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='2026-08-09-CHAMPION-SPEECH-TRANSITION-GUARD-V2-BOUNDED';
+const VERSION='2026-08-09-CHAMPION-SPEECH-TRANSITION-GUARD-V3-FINAL-VOICE';
 if(window.__LCA_SPEECH_TRANSITION_GUARD__?.version===VERSION)return;
 window.__LCA_SPEECH_TRANSITION_GUARD__={version:VERSION};
 
@@ -19,11 +19,15 @@ function speechBusy(){
 function isChampionRuntime(){
   return !!(window.LEXICON_CHAMPION_V47 || document.getElementById('arena'));
 }
-function mustBypassGuard(fn){
-  // Final Voice success uses setTimeout(finish,350). It must never be held
-  // behind speechSynthesis state because Chrome can leave speaking/pending
-  // true briefly (or stale) after recognition/audio cancellation.
-  return fn?.name==='finish';
+function isFinalVoiceComplete(delay){
+  const st=window.LEXICON_CHAMPION_V47?.state;
+  return Number(delay)===350 && Number(st?.bossAttack||0)>=3;
+}
+function mustBypassGuard(fn,delay){
+  // Final Voice success in the core uses setTimeout(finish,350). Do not rely
+  // only on Function.name because wrappers/minification/browser bindings can
+  // make that test unreliable. The game state is authoritative here.
+  return fn?.name==='finish' || isFinalVoiceComplete(delay);
 }
 
 window.setTimeout=function(fn,delay,...args){
@@ -31,7 +35,7 @@ window.setTimeout=function(fn,delay,...args){
   if(
     typeof fn!=='function' ||
     !isChampionRuntime() ||
-    mustBypassGuard(fn) ||
+    mustBypassGuard(fn,ms) ||
     ms<watchedDelaysMin ||
     ms>watchedDelaysMax
   ){
@@ -40,8 +44,6 @@ window.setTimeout=function(fn,delay,...args){
 
   const startedAt=Date.now();
   return nativeSetTimeout(function guardedTransition(){
-    // Preserve the intended speech-complete UX for ordinary gate transitions,
-    // but never allow a stale SpeechSynthesis state to freeze progression.
     if(speechBusy() && (Date.now()-startedAt)<maxSpeechWaitMs){
       return nativeSetTimeout(guardedTransition,pollMs);
     }
@@ -49,6 +51,6 @@ window.setTimeout=function(fn,delay,...args){
   },ms);
 };
 
-try{document.documentElement.dataset.lcaSpeechGuard='v2'}catch(_){}
-console.info('[LEXICON Champion] Speech Transition Guard V2 bounded ready');
+try{document.documentElement.dataset.lcaSpeechGuard='v3'}catch(_){}
+console.info('[LEXICON Champion] Speech Transition Guard V3 final-voice ready');
 })();
