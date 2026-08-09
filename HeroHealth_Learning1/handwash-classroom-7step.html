@@ -15,7 +15,7 @@
   <script>
   (()=>{
     'use strict';
-    const RELEASE='20260807-HANDWASH-R53-LOADER-R43-4';
+    const RELEASE='20260809-HANDWASH-R54-E2E29-DYNAMIC-RECEIPT';
     const sourceUrl=new URL('../herohealth/hygiene-zone/handwash-realistic-v3.html',location.href);
     sourceUrl.searchParams.set('bootstrap',RELEASE);
     sourceUrl.searchParams.set('_',String(Date.now()));
@@ -58,7 +58,7 @@
         document.open();document.write(html);document.close();
       })
       .catch(error=>{
-        console.error('[Handwash bootstrap R53]',error);
+        console.error('[Handwash bootstrap R54]',error);
         document.body.innerHTML='<div class="loading"><b>ยังเข้าเกมล้างมือไม่ได้</b><small>'+String(error?.message||error)+'</small><button id="retryHandwash">ลองใหม่</button></div>';
         document.getElementById('retryHandwash').onclick=()=>{const u=new URL(location.href);u.searchParams.set('retry',Date.now());location.replace(u.href)};
       });
