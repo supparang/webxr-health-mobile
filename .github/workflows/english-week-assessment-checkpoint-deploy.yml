@@ -25,10 +25,10 @@ jobs:
 
       - name: Validate Firebase service account secret
         env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ENGLISH_D4BFA }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ENGLISHWEEK_95869 }}
         run: |
           if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
-            echo "Missing repository secret: FIREBASE_SERVICE_ACCOUNT_ENGLISH_D4BFA"
+            echo "Missing repository secret: FIREBASE_SERVICE_ACCOUNT_ENGLISHWEEK_95869"
             exit 1
           fi
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
@@ -45,12 +45,12 @@ jobs:
       - name: Install Firebase CLI
         run: npm install --global firebase-tools
 
-      - name: Deploy assessment checkpoint function
+      - name: Deploy assessment checkpoint fallback
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
         run: |
           firebase deploy \
             --config english/firebase.json \
-            --project english-d4bfa \
+            --project englishweek-95869 \
             --only functions:englishWeekAssessmentCheckpoint \
             --non-interactive
