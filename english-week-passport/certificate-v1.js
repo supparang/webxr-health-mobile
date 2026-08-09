@@ -1,14 +1,13 @@
 (function(){
   'use strict';
   const cfg=window.EW_CONFIG||{};
-  const authority=window.EW_AUTHORITY;
   const journey=window.EW_JOURNEY;
   const screen=document.getElementById('screen');
   const actions=document.getElementById('actions');
   function h(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}
   function readIdentity(){try{return JSON.parse(localStorage.getItem(cfg.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
   function goPassport(){location.replace('./index.html?resume=passport&from=certificate&v=20260809-journey-resume2')}
-  function goSummary(){location.replace('./journey-summary.html?v=20260809-journey2')}
+  function goSummary(){location.replace('./journey-summary.html?v=20260809-journey-direct4')}
   document.getElementById('passportBtn').addEventListener('click',goPassport);
   document.getElementById('printBtn').addEventListener('click',()=>window.print());
 
@@ -19,6 +18,8 @@
       const j=await journey.status(identity.playerId);
       if(!j?.ok||j.mode!=='firebase')throw new Error('FIREBASE_JOURNEY_STATUS_REQUIRED');
       if(!j.summaryViewed){goSummary();return}
+      const authority=window.EW_AUTHORITY;
+      if(!authority?.resume)throw new Error('FIRESTORE_DIRECT_AUTHORITY_NOT_READY');
       const result=await authority.resume(identity.playerId,identity.nickname||identity.fullName||'');
       if(!result?.ok||result.mode!=='firebase')throw new Error(result?.firebaseError||'FIREBASE_AUTHORITY_REQUIRED');
       const p=result.profile||{};const pr=result.progress||{};const cert=pr.certificate||{};
