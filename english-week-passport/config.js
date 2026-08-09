@@ -1,12 +1,12 @@
 window.EW_CONFIG = Object.freeze({
   appId: "ENGLISH-WEEK-PASSPORT-2026",
-  version: "2026-08-08-PASSPORT-MOBILE-SMOKE-R4-CENTER",
+  version: "2026-08-09-PRODUCTION-CANDIDATE-R5-ANALYTICS",
   authorityMode: "firestore-direct",
   firebaseProjectId: "englishweek-95869",
   firebaseRegion: "asia-southeast1",
   firebaseAuthorityUrl: "",
   firebaseJourneyUrl: "",
-  firebaseTeacherUrl: "",
+  firebaseTeacherUrl: "https://asia-southeast1-englishweek-95869.cloudfunctions.net/englishWeekTeacher",
   firebaseNamespace: "englishWeekPassport/v1",
   webAppUrl: "",
   defaultGroup: "English Week",
@@ -87,11 +87,7 @@ window.EW_CONFIG = Object.freeze({
       max-width:430px!important;
       height:100%!important;
     }
-
-    /* Passport is a scrollable document inside the centered mobile frame. */
-    html[data-lexicon-stage="passport"].ew-mobile-smoke-root{
-      overflow:hidden!important;
-    }
+    html[data-lexicon-stage="passport"].ew-mobile-smoke-root{overflow:hidden!important;}
     html[data-lexicon-stage="passport"] body.ew-mobile-smoke{
       height:100dvh!important;
       overflow-y:auto!important;
@@ -117,19 +113,9 @@ window.EW_CONFIG = Object.freeze({
       overflow:visible!important;
       touch-action:pan-y!important;
     }
-
     @media(max-width:720px){
-      html.ew-mobile-smoke-root{
-        display:block!important;
-        background:inherit!important;
-        overflow:hidden!important;
-      }
-      body.ew-mobile-smoke{
-        width:100%!important;
-        max-width:none!important;
-        flex:none!important;
-        box-shadow:none!important;
-      }
+      html.ew-mobile-smoke-root{display:block!important;background:inherit!important;overflow:hidden!important;}
+      body.ew-mobile-smoke{width:100%!important;max-width:none!important;flex:none!important;box-shadow:none!important;}
       body.ew-mobile-smoke .app-shell,
       body.ew-mobile-smoke .shell,
       body.ew-mobile-smoke iframe,
