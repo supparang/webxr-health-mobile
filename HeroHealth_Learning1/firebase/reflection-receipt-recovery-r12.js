@@ -3,11 +3,13 @@ import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/1
 import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
 import { HEROHEALTH_FIREBASE_CONFIG } from './firebase-config.js';
 
-const RELEASE = '20260806-REFLECTION-RECEIPT-RECOVERY-R12';
+const RELEASE = '20260809-REFLECTION-RECEIPT-RECOVERY-R13-E2E29';
 const STATE_KEY = 'herohealth_learning_platform_rc2';
 const params = new URLSearchParams(location.search);
 const mode = String(params.get('authority') || 'firebase').toLowerCase();
 const enabled = mode === 'firebase' || mode === 'dual';
+const SANDBOX_STUDENT_IDS = new Set(Array.from({ length: 29 }, (_, i) => String(990001 + i)));
+const isSandboxStudent = sid => SANDBOX_STUDENT_IDS.has(String(sid || '').trim());
 
 function readState() {
   try { return JSON.parse(localStorage.getItem(STATE_KEY) || '{}'); }
@@ -32,7 +34,7 @@ function alreadyComplete(state) {
   return state?.completed?.reflection === true && state?.reflectionCompleted === true;
 }
 
-function applyEvidence(state, sid, evidence) {
+function applyEvidence(state, sid, evidence, collectionName) {
   const reflection = evidence?.reflection && typeof evidence.reflection === 'object'
     ? evidence.reflection
     : (state.reflection || {});
@@ -61,7 +63,7 @@ function applyEvidence(state, sid, evidence) {
         evidence?.receiptToken ||
         evidence?.reflection?.firebaseReceiptToken ||
         '',
-      evidencePath: `studentAssessmentsSandbox/${sid}_REFLECTION`,
+      evidencePath: `${collectionName}/${sid}_REFLECTION`,
       recoveredAt: new Date().toISOString(),
       release: RELEASE
     }
@@ -69,8 +71,8 @@ function applyEvidence(state, sid, evidence) {
 }
 
 async function boot() {
-  if (!enabled || window.__HH_REFLECTION_RECOVERY_R12__) return;
-  window.__HH_REFLECTION_RECOVERY_R12__ = true;
+  if (!enabled || window.__HH_REFLECTION_RECOVERY_R13__) return;
+  window.__HH_REFLECTION_RECOVERY_R13__ = true;
 
   const sid = studentId();
   if (!sid) return;
@@ -84,11 +86,11 @@ async function boot() {
     if (!auth.currentUser) await signInAnonymously(auth);
 
     const db = getFirestore(app);
-    const collectionName = sid === '990014' ? 'studentAssessmentsSandbox' : 'studentAssessments';
+    const collectionName = isSandboxStudent(sid) ? 'studentAssessmentsSandbox' : 'studentAssessments';
     const documentId = `${sid}_REFLECTION`;
     const snapshot = await getDoc(doc(db, collectionName, documentId));
     if (!snapshot.exists()) {
-      console.info('[Reflection Recovery R12] no evidence', { sid, path: `${collectionName}/${documentId}` });
+      console.info('[Reflection Recovery R13] no evidence', { sid, path: `${collectionName}/${documentId}` });
       return;
     }
 
@@ -99,25 +101,25 @@ async function boot() {
       Boolean(evidence.reflection?.firebaseReceiptToken)
     );
     if (!confirmed) {
-      console.warn('[Reflection Recovery R12] evidence incomplete', evidence);
+      console.warn('[Reflection Recovery R13] evidence incomplete', evidence);
       return;
     }
 
     const latest = readState();
-    writeState(applyEvidence(latest, sid, evidence));
+    writeState(applyEvidence(latest, sid, evidence, collectionName));
 
-    if (params.get('reflectionRecoveredR12') !== '1') {
+    if (params.get('reflectionRecoveredR13') !== '1') {
       const url = new URL(location.href);
       url.searchParams.set('authority', 'firebase');
       url.searchParams.set('studentId', sid);
       url.searchParams.set('sid', sid);
       url.searchParams.set('firebaseReady', '1');
-      url.searchParams.set('reflectionRecoveredR12', '1');
+      url.searchParams.set('reflectionRecoveredR13', '1');
       url.searchParams.set('v', RELEASE);
       location.replace(url.href);
     }
   } catch (error) {
-    console.error('[Reflection Recovery R12] failed', error);
+    console.error('[Reflection Recovery R13] failed', error);
   }
 }
 
