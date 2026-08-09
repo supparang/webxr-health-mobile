@@ -1,8 +1,9 @@
 (function(){
 'use strict';
-const VERSION='2026-08-07-PASSPORT-JOURNEY-ROUTES-V1';
+const VERSION='2026-08-09-PASSPORT-JOURNEY-ROUTES-V2-DIRECT';
 const cfg=window.EW_CONFIG||{};
 const journey=window.EW_JOURNEY;
+const ROUTE_VERSION='20260809-journey-direct5';
 let identity=null;
 let journeyStatus=null;
 let statusError='';
@@ -48,15 +49,15 @@ function decorate(){
 function scheduleDecorate(){if(decorateQueued)return;decorateQueued=true;requestAnimationFrame(decorate)}
 async function refreshStatus(){
   identity=readIdentity();if(!identity?.playerId||loading)return;
-  if(!journey?.endpointReady?.()){statusError='FIREBASE_JOURNEY_NOT_DEPLOYED';scheduleDecorate();return}
+  if(!journey?.endpointReady?.()){statusError='FIREBASE_JOURNEY_NOT_READY';scheduleDecorate();return}
   loading=true;statusError='';scheduleDecorate();
   try{const result=await journey.status(identity.playerId);if(!result?.ok||result.mode!=='firebase')throw new Error('FIREBASE_JOURNEY_STATUS_REQUIRED');journeyStatus=result}
   catch(error){console.error('Journey status error',error);statusError=String(error?.message||error)}
   finally{loading=false;scheduleDecorate()}
 }
-function goReflection(){location.assign('./final-reflection.html?v=20260807-journey1')}
-function goSummary(){location.assign('./journey-summary.html?v=20260807-journey1')}
-function goCertificate(){location.assign('./certificate-v1.html?v=20260807-journey1')}
+function goReflection(){location.assign(`./final-reflection.html?v=${ROUTE_VERSION}`)}
+function goSummary(){location.assign(`./journey-summary.html?v=${ROUTE_VERSION}`)}
+function goCertificate(){location.assign(`./certificate-v1.html?v=${ROUTE_VERSION}`)}
 function handle(event){
   const card=event.target?.closest?.('.stage-card');if(!card)return;
   const stage=card.dataset.stage;if(!['final_reflection','journey_summary','certificate'].includes(stage))return;
@@ -72,5 +73,5 @@ const observer=new MutationObserver(()=>{scheduleDecorate();if(document.querySel
 observer.observe(document.getElementById('screen')||document.body,{childList:true,subtree:true});
 scheduleDecorate();refreshStatus();
 const style=document.createElement('style');style.textContent='.stage-card.journey-stage-card.ready{border-color:#766ce0;background:linear-gradient(135deg,#fcfbff,#f0f5ff)}.stage-card.journey-stage-card.ready .stage-icon{background:linear-gradient(135deg,#eeeaff,#e3f4ff)}.stage-card[data-stage="certificate"].ready{cursor:pointer}';document.head.appendChild(style);
-window.EW_PASSPORT_JOURNEY=Object.freeze({version:VERSION,refreshStatus:()=>{journeyStatus=null;statusError="";return refreshStatus()}});
+window.EW_PASSPORT_JOURNEY=Object.freeze({version:VERSION,routeVersion:ROUTE_VERSION,refreshStatus:()=>{journeyStatus=null;statusError="";return refreshStatus()}});
 }());
