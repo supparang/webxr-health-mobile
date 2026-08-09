@@ -1,6 +1,7 @@
-/* CSAI2601 UX Quest • Node Sheet Display Final Authority v4
+/* CSAI2601 UX Quest • Node Sheet Display Final Authority v4.1
  * Google Sheet is authoritative. Keeps one clear next action and explains
  * the remaining three-part requirement without implying Reflection is done.
+ * v4.1: reconcile stale Mission labels/counts with Node Sheet Authority.
  */
 (() => {
   'use strict';
@@ -16,7 +17,7 @@
   const studioUrl = () => {
     const u = new URL(location.href);
     u.searchParams.set('phase', 'studio');
-    u.searchParams.set('v', 'node-sheet-final-v4-20260731');
+    u.searchParams.set('v', 'node-sheet-final-v4-1-20260809');
     return u.pathname + u.search + u.hash;
   };
 
@@ -61,6 +62,7 @@
   function studioConfirmed() {
     const authority = window.UXQNodeSheetAuthority || {};
     const node = authority.studio || authority.node || authority.status || {};
+    if (authority.studioSubmitted === true) return true;
     if (node.studioSubmitted === true || node.artifactSubmitted === true || node.submitted === true) return true;
     if (document.body.dataset.uxqSheetStudio === '1') return true;
     const pageText = String(ROOT.textContent || '');
@@ -70,6 +72,7 @@
   function reflectionConfirmed() {
     const authority = window.UXQNodeSheetAuthority || {};
     const node = authority.studio || authority.node || authority.status || {};
+    if (authority.reflectionSubmitted === true) return true;
     if (node.reflectionSubmitted === true || node.hasReflection === true) return true;
     if (document.body.dataset.uxqSheetReflection === '1') return true;
     return /Reflection\s*(?:ยืนยันแล้ว|✓)|3\/3\s*ยืนยันจากระบบ/i.test(String(ROOT.textContent || ''));
@@ -117,6 +120,65 @@
     });
   }
 
+  function patchThreePartTracker() {
+    const authority = window.UXQNodeSheetAuthority || {};
+    if (!authority.missionPassed) return;
+
+    const studio = studioConfirmed();
+    const reflection = reflectionConfirmed();
+    const confirmedCount = 1 + Number(studio) + Number(reflection);
+
+    /* Reconcile stale Mission text generated before Sheet authority arrived. */
+    leafText(/^ยังไม่ได้เล่น$/i, 'ผ่านแล้ว');
+    leafText(/^เล่นแล้ว\s*•\s*ยังไม่ผ่าน$/i, 'ผ่านแล้ว');
+    leafText(/เริ่ม Mission และทำให้ได้อย่างน้อย 2\/3 ดาว/i, 'Google Sheet ยืนยัน mission_completed');
+    leafText(/มีคะแนนสะสม.*เกณฑ์ผ่าน.*Studio Practice จะเปิด/i, 'Google Sheet ยืนยัน Mission ผ่านแล้ว • ทำ Studio Practice ต่อได้ทันที');
+    leafText(/ผ่านในเครื่อง\s*•\s*รอ Sheet/i, 'ผ่านแล้ว • Google Sheet ยืนยัน mission_completed');
+
+    /* Count must reflect Sheet truth, not whichever card rendered first. */
+    leafText(/^\d\/3\s*ยืนยันจากระบบ$/i, `${confirmedCount}/3 ยืนยันจากระบบ`);
+    leafText(/^ระบบยืนยันแล้ว\s*\d\/3\s*ส่วน$/i, `ระบบยืนยันแล้ว ${confirmedCount}/3 ส่วน`);
+
+    const tracker = Array.from(ROOT.querySelectorAll('section,article,div')).find(el => {
+      const value = String(el.textContent || '').replace(/\s+/g, ' ');
+      return /ตรวจความครบ 3 ส่วน/i.test(value) && /Mission\s*\/\s*Game/i.test(value);
+    });
+
+    if (tracker) {
+      const cards = tracker.querySelectorAll('.uxq-3part__item');
+      const missionCard = cards[0];
+      const studioCard = cards[1];
+      const reflectionCard = cards[2];
+
+      if (missionCard) {
+        missionCard.dataset.state = 'done';
+        const status = missionCard.querySelector('span');
+        const detail = missionCard.querySelector('small');
+        if (status) status.textContent = 'ผ่านแล้ว';
+        if (detail) detail.textContent = 'Google Sheet ยืนยัน mission_completed';
+      }
+
+      if (studio && studioCard) {
+        studioCard.dataset.state = 'done';
+        const status = studioCard.querySelector('span');
+        const detail = studioCard.querySelector('small');
+        if (status) status.textContent = 'ยืนยันแล้ว';
+        if (detail) detail.textContent = 'Google Sheet พบ Studio Artifact';
+      }
+
+      if (reflection && reflectionCard) {
+        reflectionCard.dataset.state = 'done';
+        const status = reflectionCard.querySelector('span');
+        const detail = reflectionCard.querySelector('small');
+        if (status) status.textContent = 'ยืนยันแล้ว';
+        if (detail) detail.textContent = 'Google Sheet พบ Weekly Reflection';
+      }
+
+      const count = tracker.querySelector('.uxq-3part__count');
+      if (count) count.textContent = `${confirmedCount}/3 ยืนยันจากระบบ`;
+    }
+  }
+
   function setReflectionReady() {
     if (reflectionConfirmed()) return;
 
@@ -128,6 +190,7 @@
       'Studio Practice ยืนยันแล้ว • กรุณาเขียน Weekly Reflection เพื่อให้ครบ 3/3');
     leafText(/ต้องเห็น 3\/3 จึงถือว่าส่งครบ.*$/i,
       'Mission และ Studio Practice ผ่านแล้ว • เหลือเพียง Weekly Reflection เมื่อส่งแล้ว W นี้จะครบ 3/3');
+    leafText(/ขั้นตอนถัดไป:\s*Studio Practice/i, 'ขั้นตอนถัดไป: Weekly Reflection');
     leafText(/ขั้นตอนถัดไป:\s*Weekly Reflection/i, 'ขั้นตอนถัดไป: Weekly Reflection');
 
     const tracker = Array.from(ROOT.querySelectorAll('section,article,div')).find(el => {
@@ -149,21 +212,17 @@
     if (!authority || !authority.missionPassed) return;
 
     document.body.dataset.uxqSheetMission = '1';
-    leafText(/เล่นแล้ว\s*•\s*ยังไม่ผ่าน/i, 'ผ่านแล้ว • Google Sheet ยืนยัน mission_completed');
-    leafText(/มีคะแนนสะสม.*เกณฑ์ผ่าน.*Studio Practice จะเปิด/i, 'Google Sheet ยืนยัน Mission ผ่านแล้ว • ทำ Studio Practice ต่อได้ทันที');
-    leafText(/ระบบยืนยันแล้ว\s*0\/3\s*ส่วน/i, 'ระบบยืนยันแล้ว 1/3 ส่วน');
-    leafText(/0\/3\s*ยืนยันจากระบบ/i, '1/3 ยืนยันจากระบบ');
-    leafText(/1\/3\s*ดาว\s*•\s*793\s*คะแนน/i, () => {
-      const mission = authority.mission || {};
-      return `${Number(mission.bestStars || mission.stars || 3)}/3 ดาว • ${Number(mission.bestScore || mission.score || 793)} คะแนน`;
-    });
-
     removeGeneratedLargeCTA();
     normalizeActions();
+    patchThreePartTracker();
 
     if (studioConfirmed()) {
       document.body.dataset.uxqSheetStudio = '1';
       setReflectionReady();
+    }
+
+    if (reflectionConfirmed()) {
+      document.body.dataset.uxqSheetReflection = '1';
     }
 
     const boxes = Array.from(ROOT.querySelectorAll('*')).filter(el => /1\.\s*Mission\s*\/\s*Game/i.test(el.textContent || ''));
@@ -172,7 +231,7 @@
       if (!host) return;
       host.style.borderColor = '#33d69f';
       host.querySelectorAll('*').forEach(el => {
-        if (!el.children.length && /ยังไม่ผ่าน/i.test(el.textContent || '')) el.textContent = 'ผ่านแล้ว';
+        if (!el.children.length && /(ยังไม่ผ่าน|ยังไม่ได้เล่น)/i.test(el.textContent || '')) el.textContent = 'ผ่านแล้ว';
       });
     });
   }
@@ -188,5 +247,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', queue, { once: true });
   else queue();
   new MutationObserver(queue).observe(ROOT, { childList: true, subtree: true, characterData: true });
-  [100,300,800,1600,3000].forEach(ms => setTimeout(queue, ms));
+  [100,300,800,1600,3000,5000].forEach(ms => setTimeout(queue, ms));
 })();
