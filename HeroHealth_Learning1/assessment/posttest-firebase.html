@@ -17,10 +17,10 @@
 <script src="../data/config.js?v=20260731-assessment-stable-v6"></script>
 <script src="assessment-bank-v3.js?v=20260731-assessment-stable-v6"></script>
 <script src="assessment-engine-v6.js?v=20260731-assessment-stable-v6"></script>
-<script type="module" src="../firebase/assessment-firebase-bridge.js?v=20260805-firebase-posttest-r3"></script>
+<script type="module" src="../firebase/assessment-firebase-bridge.js?v=20260809-firebase-assessment-r3-e2e29"></script>
 <script>
 (()=>{'use strict';
-const RELEASE='20260805-FIREBASE-POSTTEST-R3';
+const RELEASE='20260809-FIREBASE-POSTTEST-R4-E2E29';
 const MODE='post',KEY='herohealth_learning_platform_rc2',q=new URLSearchParams(location.search),ENGINE=window.HHAssessmentEngineV6;
 let state={};try{state=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){}
 const sid=String(q.get('studentId')||q.get('sid')||state.profile?.studentId||'').trim();
@@ -35,7 +35,6 @@ const preAttemptId=q.get('preAttemptId')||localStorage.getItem(`HH_ASSESSMENT_PR
 const $=id=>document.getElementById(id);
 if(!sid){$('who').innerHTML='<span class="error">ไม่พบรหัสนักเรียน กรุณาเปิด Post-test จาก Hero Passport</span>';return}
 if(BANK.length!==45||!ENGINE){$('who').textContent='ไม่สามารถโหลดระบบข้อสอบได้';return}
-
 const assignment=ENGINE.assignPairs(BANK,{studentId:sid,studyId});
 const built=ENGINE.buildItems(assignment.pairs,{mode:MODE,studentId:sid,studyId});
 const items=built.items;
@@ -50,7 +49,7 @@ form.onsubmit=async e=>{
  e.preventDefault();const btn=$('submitBtn');btn.disabled=true;btn.textContent='กำลังบันทึกและยืนยันกับ Firebase...';
  const submittedPerf=performance.now(),fd=new FormData(form);let score=0;
  const responses=items.map((it,i)=>{const displayIndex=Number(fd.get(`q${i}`)),selectedOriginalIndex=it.displayOptions[displayIndex]?.index??null,correct=displayIndex===it.correctDisplayIndex;if(correct)score++;return{questionId:it.id,pairId:it.pairId,domain:it.domain,indicator:it.indicator,difficulty:it.difficulty,bloom:it.bloom,selectedDisplayIndex:displayIndex,selectedOptionIndex:selectedOriginalIndex,optionOrder:it.displayOptions.map(o=>o.index),correctPosition:it.correctPosition,correct,responseTimeMs:Math.round((lastChange[i]||submittedPerf)-firstSeen[i]),answerChangeCount:changeCount[i]}});
- const payload={assessmentVersion:'6.0-firebase-r3',engineVersion:ENGINE.VERSION,bankVersion:'HSAS-P5-PARALLEL-90',studyId,studentId:sid,studentName:fullName,section,groupCode:group,attemptId,preAttemptId,mode:MODE,score,total:items.length,responses,submittedAt:new Date().toISOString(),form:formCode,selectionSeed:assignment.selectionSeed,orderSeed:built.orderSeed,questionOrder:built.questionOrder,optionOrders:built.optionOrders,correctPositionDistribution:built.correctPositionDistribution,assignmentMethod:assignment.assignmentMethod,assignmentSource:'student-deterministic-v6-firebase',assignmentFingerprint:assignment.assignmentFingerprint,blueprint:{domains:{hygiene:5,nutrition:5,fitness:5},difficulty:{easy:6,medium:6,hard:3}},bankSize:90,pairIds:assignment.pairIds,totalTimeMs:Math.round(submittedPerf-openedAt),researchMetadata:{individualAssignment:true,studentStableAssignment:true,groupExcludedFromSeed:true,parallelPairRegistry:true,parallelMatchGuaranteed:true,answerPositionBalanced:true,itemExposureBalanced:true,refreshStable:true,crossDeviceReconstruction:true,firebaseAuthority:true,nestedArrayEncoding:'nested-array-as-map-values-v1'}};
+ const payload={assessmentVersion:'6.0-firebase-r4',engineVersion:ENGINE.VERSION,bankVersion:'HSAS-P5-PARALLEL-90',studyId,studentId:sid,studentName:fullName,section,groupCode:group,attemptId,preAttemptId,mode:MODE,score,total:items.length,responses,submittedAt:new Date().toISOString(),form:formCode,selectionSeed:assignment.selectionSeed,orderSeed:built.orderSeed,questionOrder:built.questionOrder,optionOrders:built.optionOrders,correctPositionDistribution:built.correctPositionDistribution,assignmentMethod:assignment.assignmentMethod,assignmentSource:'student-deterministic-v6-firebase',assignmentFingerprint:assignment.assignmentFingerprint,blueprint:{domains:{hygiene:5,nutrition:5,fitness:5},difficulty:{easy:6,medium:6,hard:3}},bankSize:90,pairIds:assignment.pairIds,totalTimeMs:Math.round(submittedPerf-openedAt),researchMetadata:{individualAssignment:true,studentStableAssignment:true,groupExcludedFromSeed:true,parallelPairRegistry:true,parallelMatchGuaranteed:true,answerPositionBalanced:true,itemExposureBalanced:true,refreshStable:true,crossDeviceReconstruction:true,firebaseAuthority:true,nestedArrayEncoding:'nested-array-as-map-values-v1'}};
  try{localStorage.setItem(`HH_POSTTEST_LAST_${sid}`,JSON.stringify(payload));sessionStorage.setItem('HH_POSTTEST_LAST',JSON.stringify(payload))}catch(_){}
  form.classList.add('hidden');document.querySelector('.head h1').textContent='Post-test สำเร็จ';$('bar').style.width='100%';const r=$('result');r.classList.remove('hidden');r.classList.add('done');
  r.innerHTML=`<div class="done-icon">✓</div><h2>ทำ Post-test เรียบร้อยแล้ว</h2><div class="score">คะแนน ${score}/15</div><div class="sync queue">↻ กำลังบันทึกคำตอบลง Firebase</div><p class="countdown">กรุณารอ ระบบกำลังตรวจ Receipt</p>`;
@@ -63,9 +62,7 @@ form.onsubmit=async e=>{
    const u=new URL(back,location.href);u.searchParams.set('authority','firebase');u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.set('firebaseReady','1');u.searchParams.set('firebaseAssessmentReceipt','1');u.searchParams.set('authorityRefresh',String(Date.now()));u.searchParams.set('hhReturn','assessment');u.searchParams.set('task','posttest');u.searchParams.set('score',String(score));u.searchParams.set('attemptId',attemptId);u.searchParams.set('assessmentRelease',RELEASE);
    r.innerHTML=`<div class="done-icon">✓</div><h2>บันทึก Post-test สำเร็จ</h2><div class="score">คะแนน ${score}/15</div><div class="sync">✓ Firebase ยืนยัน Receipt แล้ว</div><p class="countdown">กำลังกลับ Hero Passport...</p>`;
    setTimeout(()=>location.replace(u.href),900);
- }catch(err){
-   console.error('[Firebase Post-test]',err);r.innerHTML=`<div class="done-icon">!</div><h2>ยังบันทึก Firebase ไม่สำเร็จ</h2><div class="score">คะแนน ${score}/15</div><div class="sync queue">ไม่พบ Receipt ยืนยัน</div><p class="countdown error">${String(err?.message||err)}</p><button id="retry" class="btn">ลองบันทึกอีกครั้ง</button>`;$('retry').onclick=()=>location.reload();
- }
+ }catch(err){console.error('[Firebase Post-test]',err);r.innerHTML=`<div class="done-icon">!</div><h2>ยังบันทึก Firebase ไม่สำเร็จ</h2><div class="score">คะแนน ${score}/15</div><div class="sync queue">ไม่พบ Receipt ยืนยัน</div><p class="countdown error">${String(err?.message||err)}</p><button id="retry" class="btn">ลองบันทึกอีกครั้ง</button>`;$('retry').onclick=()=>location.reload()}
  scrollTo({top:0,behavior:'smooth'});
 };
 console.info('[HeroHealth Firebase Post-test] ready',RELEASE);
