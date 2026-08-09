@@ -11,15 +11,6 @@ const q=new URLSearchParams(location.search);
 const classroom=q.get('classroom')==='1'||q.get('mode')==='classroom'||q.get('source')==='herohealth';
 if(!classroom)return;
 
-/*
- * HeroHealth Grade 5 classroom policy
- * - No student-facing Easy / Normal / Hard selection.
- * - Every student performs the SAME six-pose set.
- * - Pose 1 is a fixed warm-up and Pose 6 is a fixed boss.
- * - The four middle poses use deterministic balanced rotation from studentId only.
- * - The same student receives the same order on every replay.
- * - Difficulty progresses by pose position (hold / pose / safe thresholds), not by a level setting.
- */
 const POSE_LABELS={
   center:'sky_shield_warmup',
   left:'star_reach_left',
@@ -45,13 +36,15 @@ const ROTATIONS=[
   ['treeRight','treeLeft','right','left']
 ].map((steps,index)=>({id:`P56-R${String(index+1).padStart(2,'0')}`,steps}));
 
+// Core adds +450 ms to the boss. Keep the stored boss hold at 1850 ms so
+// the effective classroom requirement is exactly 2300 ms.
 const PROGRESSION=[
   {stage:'warmup',hold:1600,pose:60,safe:46,gate:220,label:'Warm-up'},
   {stage:'middle-1',hold:1800,pose:62,safe:48,gate:230,label:'Challenge 1'},
   {stage:'middle-2',hold:1900,pose:64,safe:49,gate:240,label:'Challenge 2'},
   {stage:'middle-3',hold:2050,pose:65,safe:50,gate:250,label:'Challenge 3'},
   {stage:'middle-4',hold:2200,pose:66,safe:51,gate:260,label:'Challenge 4'},
-  {stage:'boss',hold:2300,pose:64,safe:54,gate:260,label:'Boss'}
+  {stage:'boss',hold:1850,pose:64,safe:54,gate:260,label:'Boss',effectiveHold:2300}
 ];
 
 function stableHash(text){
@@ -137,7 +130,8 @@ if(baseSetPoseUI){
   BH.setPoseUI=()=>{
     const result=baseSetPoseUI();
     const p=currentProfile();
-    if(e.coachSub)e.coachSub.textContent=`${p.label} • ค้าง ${Math.round(p.hold/100)/10} วินาที • ท่า ${Math.min((Number(s.index)||0)+1,6)}/6`;
+    const shownHold=Number(p.effectiveHold||p.hold);
+    if(e.coachSub)e.coachSub.textContent=`${p.label} • ค้าง ${Math.round(shownHold/100)/10} วินาที • ท่า ${Math.min((Number(s.index)||0)+1,6)}/6`;
     return result;
   };
 }
@@ -162,6 +156,7 @@ if(baseCalc){
     summary.classroomDifficultyPolicy='single-progressive-profile';
     summary.classroomProgressionProfile=PROGRESSION.map((p,index)=>({index:index+1,...p}));
     summary.classroomBossDirection=s.bossKey||deterministicBossKey();
+    summary.classroomBossEffectiveHoldMs=2300;
     return summary;
   };
 }
@@ -180,6 +175,7 @@ BH.CLASSROOM_SEQUENCE={
   replayOrderStable:true,
   levelSelection:false,
   progression:PROGRESSION.map((p,index)=>({index:index+1,...p})),
+  bossEffectiveHoldMs:2300,
   safetyProfile:'grade5-low-lift-balanced-detection',
   poseSet:Object.keys(POSE_LABELS)
 };
