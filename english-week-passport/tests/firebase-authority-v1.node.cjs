@@ -5,100 +5,52 @@ const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const repo = path.join(root, '..');
+
 const configSource = fs.readFileSync(path.join(root, 'config.js'), 'utf8');
-const bridgeSource = fs.readFileSync(path.join(root, 'firebase-authority-bridge.js'), 'utf8');
-const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const categoryHtml = fs.readFileSync(path.join(root, 'category-forest-v5.html'), 'utf8');
-const categorySummary = fs.readFileSync(path.join(root, 'category-forest-v5-part4.js'), 'utf8');
-const functionSource = fs.readFileSync(path.join(repo, 'english', 'functions', 'english-week-authority.js'), 'utf8');
-const functionPackage = JSON.parse(fs.readFileSync(path.join(repo, 'english', 'functions', 'package.json'), 'utf8'));
-const firebaseConfig = JSON.parse(fs.readFileSync(path.join(repo, 'english', 'firebase.json'), 'utf8'));
+const journeySource = fs.readFileSync(path.join(root, 'journey-client-v1.js'), 'utf8');
+const directAuthority = fs.readFileSync(path.join(root, 'firestore-direct-authority-v1.js'), 'utf8');
+const rules = fs.readFileSync(path.join(repo, 'english-week-firebase-spark', 'firestore.rules'), 'utf8');
+const teacher = fs.readFileSync(path.join(repo, 'english', 'functions', 'english-week-teacher.js'), 'utf8');
+const firebaserc = JSON.parse(fs.readFileSync(path.join(repo, 'english', '.firebaserc'), 'utf8'));
+const workflow = fs.readFileSync(path.join(repo, '.github', 'workflows', 'english-week-firebase-deploy.yml'), 'utf8');
 
-const configContext = { window: {} };
-vm.runInNewContext(configSource, configContext);
-const cfg = configContext.window.EW_CONFIG;
-assert.equal(cfg.authorityMode, 'firebase-first');
-assert.equal(cfg.firebaseProjectId, 'english-d4bfa');
-assert.match(cfg.firebaseAuthorityUrl, /englishWeekAuthority$/);
+const context = { window: {}, URLSearchParams, document: { documentElement:{}, body:null } };
+vm.runInNewContext(configSource, context);
+const cfg = context.window.EW_CONFIG;
 
-function scriptOrder(html, names) {
-  const positions = names.map(name => html.indexOf(name));
-  positions.forEach((position, index) => assert.ok(position >= 0, `${names[index]} missing`));
-  for (let index = 1; index < positions.length; index += 1) {
-    assert.ok(positions[index - 1] < positions[index], `${names[index - 1]} must load before ${names[index]}`);
-  }
-}
+assert.equal(cfg.authorityMode, 'firestore-direct');
+assert.equal(cfg.firebaseProjectId, 'englishweek-95869');
+assert.equal(cfg.allowDemoWhenFirebaseUnavailable, false);
+assert.match(cfg.firebaseTeacherUrl, /englishweek-95869\.cloudfunctions\.net\/englishWeekTeacher$/);
 
-scriptOrder(indexHtml, [
-  'authority-client.js',
-  'firebase-authority-bridge.js',
-  'passport-rotation-v2.js',
-  'app-core-loader-v2.js'
-]);
-scriptOrder(categoryHtml, [
-  'authority-client.js',
-  'firebase-authority-bridge.js',
-  'passport-rotation-v2.js',
-  'category-forest-v5.js'
-]);
+assert.match(directAuthority, /const FLOW = Object\.freeze\(\[/);
+assert.match(directAuthority, /'pre_challenge','word_match','category_forest','sentence_city'/);
+assert.match(directAuthority, /'word_detective','final_boss','post_challenge','certificate'/);
+assert.match(directAuthority, /STAGE_LOCKED/);
+assert.match(directAuthority, /ewp_game_results/);
 
-assert.match(categorySummary, /response\.mode === 'firebase'/);
-assert.match(categorySummary, /บันทึกชั่วคราวบนเครื่องแล้ว/);
-assert.match(categorySummary, /Retry Firebase Save/);
-assert.match(functionSource, /validateCategoryEvidence/);
-assert.match(functionSource, /ASSIGNMENT_ROTATION_MISMATCH/);
-assert.match(functionSource, /ewp_game_results/);
-assert.match(functionSource, /englishWeekAuthority/);
-assert.equal(functionPackage.main, 'main.js');
-assert.equal(firebaseConfig.functions.source, 'functions');
+assert.match(journeySource, /JOURNEY-CLIENT-V5-REAL-ANALYTICS/);
+assert.match(journeySource, /collection\(COL\.assessments\)\.where\('playerId','==',playerId\)/);
+assert.match(journeySource, /collection\(COL\.gameResults\)\.where\('playerId','==',playerId\)/);
+assert.match(journeySource, /firstAttemptAccuracy/);
+assert.match(journeySource, /retryCount/);
+assert.match(journeySource, /totalDurationMs/);
 
-async function runBridgeContract() {
-  let fetchMode = 'firebase';
-  const events = [];
-  const legacy = {
-    endpointReady: () => false,
-    profileLookup: async playerId => ({ ok: true, profile: { playerId } }),
-    resume: async playerId => ({ ok: true, profile: { playerId }, progress: { unlocked: ['pre_challenge'] } }),
-    submitAssessment: async payload => ({ ok: true, receiptId: 'LOCAL-A', payload }),
-    submitGame: async payload => ({ ok: true, receiptId: 'LOCAL-G', passed: true, accuracy: 90, payload }),
-    leaderboard: async () => ({ ok: true, rows: [] })
-  };
-  const context = {
-    window: {
-      EW_CONFIG: cfg,
-      EW_AUTHORITY: legacy,
-      dispatchEvent: event => events.push(event)
-    },
-    CustomEvent: class CustomEvent { constructor(type, init) { this.type = type; this.detail = init?.detail; } },
-    AbortController,
-    setTimeout,
-    clearTimeout,
-    fetch: async () => {
-      if (fetchMode === 'error') throw new Error('NETWORK_DOWN');
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ ok: true, mode: 'firebase', profile: { playerId: '990001' } })
-      };
-    },
-    console
-  };
-  vm.runInNewContext(bridgeSource, context);
-  const api = context.window.EW_AUTHORITY;
-  assert.equal(api.endpointReady(), true);
-  const remote = await api.profileLookup('990001', 'QA');
-  assert.equal(remote.mode, 'firebase');
-  fetchMode = 'error';
-  const fallback = await api.submitGame({ playerId: '990001', stageId: 'category_forest' });
-  assert.equal(fallback.mode, 'demo-fallback');
-  assert.equal(fallback.receiptId, 'LOCAL-G');
-  assert.match(fallback.firebaseError, /NETWORK_DOWN/);
-  assert.ok(events.some(event => event.type === 'ew-authority-status'));
-}
+assert.match(rules, /match \/ewp_assessments\/\{receiptId\}/);
+assert.match(rules, /allow list: if owns\(resource\.data\.playerId\)/);
+assert.match(rules, /match \/ewp_game_results\/\{receiptId\}/);
 
-runBridgeContract()
-  .then(() => console.log('English Week Firebase authority contract: PASS'))
-  .catch(error => {
-    console.error(error);
-    process.exitCode = 1;
-  });
+assert.match(teacher, /TEACHER-AUTHORITY-R2-FIRESTORE-DIRECT/);
+assert.doesNotMatch(teacher, /ewp_reflections/);
+assert.doesNotMatch(teacher, /ewp_journey/);
+assert.match(teacher, /p\.finalReflection/);
+assert.match(teacher, /p\.summaryViewed/);
+assert.match(teacher, /aggregatePlayerGames/);
+
+assert.equal(firebaserc.projects.default, 'englishweek-95869');
+assert.match(workflow, /--project englishweek-95869/);
+assert.match(workflow, /functions:englishWeekTeacher/);
+assert.match(workflow, /firestore:rules/);
+assert.doesNotMatch(workflow, /english-d4bfa/);
+
+console.log('English Week Firestore-direct production contract: PASS');
