@@ -1,164 +1,234 @@
-# English Week Passport: Solo Multi-Control Adventure
+# LEXICON X Challenge — English Week Passport
 
-Mobile-first solo English vocabulary game using a HeroHealth-style Passport flow. Every player completes the journey independently on one mobile device.
+Mobile-first solo English learning journey for undergraduate A2–B1+ learners. Production authority is **Firebase Cloud Firestore** in project `englishweek-95869`.
 
-## Locked solo flow
+## Canonical production flow
 
-`Login → Pre-Challenge → Passport → Word Match Memory → Category Forest AR → Sentence City Builder → Action Detective Lab → Mixed Final Boss → Post-Challenge → Certificate`
+`Login → Pre-Challenge → Game 1 → Game 2 → Game 3 → Game 4 → [Bonus] → Game 5 → Post-Challenge → Final Reflection → Journey Summary → Certificate`
 
-Google Sheet is the production source of truth. The browser stores only the latest identity cache and a clearly labelled demo database when no Apps Script endpoint has been configured.
+Required games:
 
-## Control design
+1. **LexiMatch Navigator — ภารกิจจับคู่คำศัพท์** (`word_match`)
+2. **Category Forest** (`category_forest`)
+3. **Sentence City** (`sentence_city`)
+4. **Conversation Quest** (`word_detective`)
+5. **LEXICON Champion Arena** (`final_boss`)
 
-| Stage | Primary control | Fallback |
-|---|---|---|
-| Pre-Challenge | Touch quiz | — |
-| Word Match Village | Tap memory cards | — |
-| Category Forest | Rear-camera AR + portal tap | Non-camera scene |
-| Sentence City | Tap ordering + drag/drop | Tap ordering |
-| Action Detective Lab | Body Pose → AR Scan → Hand Tracking | Touch for every round |
-| English Champion Arena | Mixed controls | Touch-safe mixed mode |
-| Post-Challenge | Touch assessment | — |
-| Certificate | Touch / print | — |
+Optional mission:
 
-Body and hand tracking are never allowed to become progression blockers. Detection rounds must provide a visible framing guide, a short countdown, relaxed confidence thresholds, adaptive assistance, and a touch fallback using the same learning item and pass policy.
+- **Lexicon Lens Hunt** (`bonus_lens`) — rear-camera QR/context mission; does not block Post-Challenge or Certificate.
 
-## Current implementation status
+## Authority model
 
-| Stage | Mode | Status |
-|---|---|---|
-| Pre-Challenge | Touch quiz | Implemented |
-| Word Match Village | Memory Pair game | Implemented V1 |
-| Category Forest | Camera AR + non-camera fallback | Implemented V1 |
-| Sentence City | Build, order, and repair puzzle | Implemented V1 |
-| Action Detective Lab | Body + AR Scan + Hand / touch fallback | Next production stage |
-| English Champion Arena | Mixed Final Boss | Existing quiz engine; redesign queued |
-| Post-Challenge | Touch assessment | Implemented |
-| Certificate | Personal certificate | Implemented |
+Production configuration:
 
-## Stage policy
+- `authorityMode = firestore-direct`
+- Firebase project: `englishweek-95869`
+- localStorage: identity/cache/recovery only
+- no production demo fallback
+- next-stage unlock is reconstructed from Firestore progress
+- a game result must receive a Firebase write/receipt before the Passport treats it as saved
 
-| Stage | Pass policy |
+Core client authority:
+
+- `firestore-direct-authority-v1.js`
+- `passport-game-shell-firestore-v2.html`
+- `journey-client-v1.js`
+
+## Pass policy
+
+| Stage | Policy |
 |---|---:|
-| Pre-Challenge | completion only |
-| Word Match Village | 70% mastery |
-| Category Forest AR | 70% accuracy |
-| Sentence City | 70% first-try mastery |
-| Action Detective Lab | 70% combined mission mastery |
-| English Champion Arena | 65% mixed mastery |
-| Post-Challenge | completion only after Final Boss |
-| Certificate | after Post-Challenge |
+| Pre-Challenge | completion |
+| LexiMatch Navigator | 70% |
+| Category Forest | 70% |
+| Sentence City | 70% |
+| Conversation Quest | 70% |
+| LEXICON Champion Arena | 65% |
+| Post-Challenge | completion after Game 5 |
+| Final Reflection | completion after Post |
+| Journey Summary | confirmed after Reflection |
+| Certificate | Summary viewed + certificate eligible |
 
-A client result never unlocks the next stage by itself. The next stage appears only after `submit_game_result` or `submit_assessment` returns a valid authority receipt.
+## Canonical Firestore collections
 
-## Word Match Memory V1
+- `ewp_profiles`
+- `ewp_player_sessions`
+- `ewp_progress`
+- `ewp_assignments`
+- `ewp_assessments`
+- `ewp_assessment_checkpoints`
+- `ewp_game_results`
+- `ewp_game_summary`
+- `ewp_events`
+- `ewp_certificates`
 
-- Six English–Thai pairs, displayed as twelve shuffled cards.
-- Tap two cards to reveal and compare them.
-- Combo, flips, mismatches, time, and pair-level attempts are recorded.
-- Mastery uses two-mismatch bands: `10 - floor(mistakes / 2)`.
-- Six mismatches remain at the 70% boundary; eight mismatches fall below it.
-- Direct page: `/english-week-passport/word-match-memory.html`
-- Passport route: `word-match-route.js`.
+Final journey state is stored in `ewp_progress`:
 
-## Category Forest AR V1
+- `reflectionDone`
+- `finalReflection`
+- `summaryViewed`
+- `summaryViewedAt`
 
-Category Forest uses camera-overlay WebAR rather than requiring WebXR support. This gives broad compatibility while still providing an AR-style camera experience.
+Legacy `ewp_reflections` and `ewp_journey` are not production authority.
 
-- Camera permission is requested only after the player taps **Open Camera AR**.
-- The camera stream is used only as the live background and is not recorded or uploaded.
-- If camera permission is denied or unavailable, the player can use a non-camera fallback.
-- Camera and fallback modes use the same item bank, score, pass mark, Sheet submission, and unlock receipt.
-- Direct page: `/english-week-passport/category-ar.html`.
+## Learning Analytics contract
 
-## Sentence City Builder V1
+Journey Summary and Teacher Console use the same raw Firestore evidence.
 
-- Ten tasks across Fill the Gap, Word Order, and Sentence Repair.
-- Tap blocks to build the answer; drag/drop is also enabled where supported.
-- Blocks can be removed and reordered without restarting the task.
-- Players may continue correcting every sentence, but mastery credit is awarded only when the first check is correct.
-- Hint use, task attempts, first-try mastery, duration, points, and input mode are recorded.
-- Direct page: `/english-week-passport/sentence-builder.html`.
-- Passport route: `sentence-route.js`.
+### Assessments
 
-## Action Detective Lab architecture
+- latest Pre record from `ewp_assessments`
+- latest Post record from `ewp_assessments`
+- Learning Gain = Post accuracy − Pre accuracy
 
-The existing `word_detective` authority stage will contain three sequential solo rounds so existing progress rows and Sheet schemas remain compatible:
+### Game 1–5
 
-1. **Listening Action** — front camera and Pose Detection for simple English commands such as raise hands, lean, duck, and arms wide.
-2. **AR Clue Scan** — rear camera search-and-scan mission based on English clues.
-3. **Magic Hand** — hand pointer and pinch selection, with large hit targets and immediate touch fallback.
+Analytics are aggregated from `ewp_game_results`:
 
-The combined stage submits one `word_detective` receipt and records per-round `inputMode`, `fallbackUsed`, `detectionConfidence`, `retryCount`, `hintUsed`, and item-level correctness.
+- best accuracy
+- first-attempt accuracy
+- attempt count
+- retry count
+- total duration
+- pass state
 
-## Frontend files
+`passport-game-shell-firestore-v2.html` currently implements the **V3 Real Duration** contract so Conversation Quest and fallback paths do not submit `durationMs: 0` merely because a game lacks an internal timer.
 
-- `index.html` — Passport shell and game route loaders
-- `styles.css` — responsive Passport UI
-- `visibility-hotfix.css` — global hidden-state fix
-- `config.js` — endpoint and version configuration
-- `word-bank.js` — vocabulary bank and parallel assessments
-- `authority-client.js` — Apps Script transport, demo authority, and resume contract
-- `app.js` — Passport, legacy quiz fallback, certificate, and leaderboard
-- `word-match-memory.html/css/js` — Memory Pair game
-- `word-match-route.js` — Word Match Passport routing and resume
-- `category-ar.html/css/game.js` — Category Forest camera/fallback game
-- `category-ar-route.js` — Category Forest Passport routing and resume
-- `sentence-builder.html/css/js` — Sentence City puzzle game
-- `sentence-route.js` — Sentence City Passport routing and resume
+## Passport routing
 
-## Google Apps Script setup
+`passport-canonical-routes-v1.js` is the canonical Game 1–5 route layer.
 
-1. Create or select the Google Sheet for English Week.
-2. Open **Extensions → Apps Script**.
-3. Paste `apps-script/EnglishWeekReceiver.gs` into a single Apps Script file.
-4. Run `EW_setupSheets()` once and grant permissions.
-5. Add participant rows to `EW_Profiles`.
-6. Deploy as a Web App with **Execute as Me** and access set to **Anyone**.
-7. Copy the final public `/exec` URL into `config.js` as `webAppUrl`.
-8. Test resume, failed attempts, successful receipts, and cross-device restoration.
+Game 1–4 run through the Firestore Passport Game Shell. Game 5 uses its dedicated Champion Arena production path because it coordinates pose detection, speech recognition, final Firebase submission, reconciliation, and automatic Passport return.
 
-### `EW_Profiles` minimum columns
+The route loader cache is versioned to force the current production route set after fixes.
 
-| playerId | fullName | nickname | groupName | institution | active |
-|---|---|---|---|---|---|
-| EW001 | Test Student | Mint | Group A | School Name | TRUE |
+## Game 5 final-save contract
 
-Do not add `/u/0/` or `/u/1/` to the deployed URL.
+LEXICON Champion Arena must:
 
-## Sheet authority tabs
+1. finish body/decision/voice evidence;
+2. stop speech/camera runtime before the final transaction where appropriate;
+3. submit `final_boss` to Firestore;
+4. require a Firebase-confirmed pass;
+5. reconcile by `resume()` if the final network response times out;
+6. return to Passport only after confirmed completion.
 
-- `EW_Profiles`
-- `EW_Assessments`
-- `EW_Assessment_Items`
-- `EW_Game_Results`
-- `EW_Game_Summary`
-- `EW_Progress`
-- `EW_Live_Status`
-- `EW_Certificates`
-- `EW_Events`
-- `EW_Errors`
+## Final Reflection → Journey Summary → Certificate
 
-## Demo mode
+After Post-Challenge:
 
-When `webAppUrl` is blank, the frontend enters demo mode and labels it clearly. Demo mode is only for UI and flow testing. It must not be used for official event scores, certificates, or research analysis.
+1. Final Reflection writes `finalReflection` and `reflectionDone` to `ewp_progress`.
+2. Journey Summary reads real Pre/Post assessments and every game attempt.
+3. Confirming Journey Summary writes `summaryViewed` to `ewp_progress`.
+4. Certificate opens only after the summary gate and Firestore certificate eligibility are satisfied.
 
-## Acceptance checklist
+## Teacher Console R2
 
-1. Unknown production IDs are blocked.
-2. Returning players resume from Sheet authority on another device.
-3. A failed stage never unlocks the next stage.
-4. Closing before a server receipt never creates an unlock.
-5. Word Match opens the Memory game rather than the legacy MCQ engine.
-6. Category Forest cannot open before Word Match passes.
-7. Denied camera permission leads to a valid non-camera fallback.
-8. Sentence City cannot open before Category Forest passes.
-9. Sentence mastery is based on first-check correctness, not unlimited correction.
-10. Every control mode records `inputMode`.
-11. Pose and hand rounds always expose touch fallback.
-12. Camera streams stop when leaving or completing a camera stage.
-13. Final Boss is inaccessible before all four authority stages pass.
-14. Certificate is inaccessible before Post-Challenge completion.
-15. Leaderboard reads server-authorized best scores only.
-16. Mobile UI has no overlapping controls at 360–430 px widths.
-17. `qa/solo-multicontrol-contract.mjs` passes.
+Entry page:
+
+`/english-week-passport/teacher-console.html`
+
+Backend:
+
+`englishWeekTeacher`
+
+Production endpoint:
+
+`https://asia-southeast1-englishweek-95869.cloudfunctions.net/englishWeekTeacher`
+
+Teacher Console reads the same direct-Firestore schema as the student journey and provides:
+
+- Completion Funnel
+- Pre/Post means
+- paired Learning Gain
+- Game 1–5 analytics
+- attempts and duration
+- Data Health warnings
+- participant search/filter
+- Participant Report
+- Reflection/Journey/Certificate state
+- CSV participant export
+- CSV game export
+
+The function is protected by `EW_TEACHER_KEY`. The key is kept in the browser only for the current tab session and is never committed to source.
+
+## Firestore security model
+
+Student pages authenticate anonymously, then claim a permitted `playerId` in `ewp_player_sessions`.
+
+Rules allow a student to access only records whose `playerId` matches that claimed session. Own-assessment and own-game-result queries are permitted only when the query can satisfy that ownership rule. Collection-wide student reads remain blocked.
+
+Teacher-wide reads do not use student rules; they run through the protected Admin SDK Teacher function.
+
+## QA IDs
+
+Automatic QA profile creation is limited to:
+
+- `QA-*`
+- `TEST-*`
+- numeric IDs beginning with `99` and at least six digits
+
+Real participant IDs must be preloaded in `ewp_profiles` and active.
+
+## Responsive / smoke-test policy
+
+Production play is mobile-first. PC is supported for smoke testing with:
+
+`?view=mobile`
+
+This renders a centered mobile-width viewport while preserving the same game route and Firestore contracts used on mobile devices.
+
+## Automated QA
+
+GitHub Actions workflow:
+
+`English Week Passport QA`
+
+It performs syntax checks plus contracts for Passport rotation, Category Forest, Sentence City, AR hand detection, Champion Arena, assessment resume, and the Firestore-direct production architecture.
+
+The production contract specifically guards:
+
+- project `englishweek-95869`
+- `firestore-direct` mode
+- no production demo fallback
+- Journey V5 real analytics
+- Game Shell V3 real duration
+- owned Firestore analytics queries
+- Teacher Authority R2 schema
+- no LEXICON X deployment workflow pointing to `english-d4bfa`
+
+## Firebase deployment
+
+Workflow:
+
+`Deploy English Week Firebase Production`
+
+It targets `englishweek-95869` and deploys:
+
+- `englishWeekTeacher`
+- Firestore rules
+
+Required external configuration:
+
+- GitHub secret `FIREBASE_SERVICE_ACCOUNT_ENGLISHWEEK_95869`
+- Firebase Secret Manager secret `EW_TEACHER_KEY`
+
+The separate Assessment Checkpoint workflow is a **manual fallback** and is also pinned to `englishweek-95869`.
+
+## Production lock
+
+Do not label the event build final until all of these pass:
+
+1. GitHub `English Week Passport QA` passes.
+2. Firestore rules are deployed to `englishweek-95869`.
+3. `englishWeekTeacher` is deployed and Teacher Console authenticates.
+4. One clean account completes the full flow through Certificate.
+5. Cross-device resume succeeds.
+6. A failed attempt does not unlock the next stage.
+7. A retry produces the correct attempt count.
+8. Journey Summary values match raw Firestore records.
+9. Teacher Console values match the same participant records.
+10. A 10-participant smoke test succeeds on the intended mobile devices.
+
+See `FIREBASE-PRODUCTION-CHECKLIST.md` for the detailed lock checklist.
