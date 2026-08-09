@@ -1,6 +1,6 @@
 window.EW_CONFIG = Object.freeze({
   appId: "ENGLISH-WEEK-PASSPORT-2026",
-  version: "2026-08-09-PRODUCTION-CANDIDATE-R6-SHELL-EXIT",
+  version: "2026-08-09-PRODUCTION-CANDIDATE-R7-INNER-EXIT",
   authorityMode: "firestore-direct",
   firebaseProjectId: "englishweek-95869",
   firebaseRegion: "asia-southeast1",
@@ -23,22 +23,15 @@ window.EW_CONFIG = Object.freeze({
   })
 });
 
-/* LEXICON X • Mobile Smoke-Test Contract R4 */
 (function(){
   'use strict';
   const params=new URLSearchParams(location.search);
   if(params.get('view')!=='mobile')return;
-
   const root=document.documentElement;
-  root.dataset.ewView='mobile';
-  root.classList.add('ew-mobile-smoke-root');
-  if(document.body)document.body.classList.add('ew-mobile-smoke');
-
-  const style=document.createElement('style');
-  style.id='ewMobileSmokeContractR4';
-  style.textContent=`
+  root.dataset.ewView='mobile';root.classList.add('ew-mobile-smoke-root');if(document.body)document.body.classList.add('ew-mobile-smoke');
+  const style=document.createElement('style');style.id='ewMobileSmokeContractR4';style.textContent=`
     html.ew-mobile-smoke-root{width:100%!important;min-width:100%!important;min-height:100%!important;background:#07121f!important;overflow:hidden!important;display:flex!important;justify-content:center!important;align-items:flex-start!important}
-    body.ew-mobile-smoke{flex:0 0 430px!important;width:430px!important;max-width:430px!important;min-width:0!important;height:100dvh!important;min-height:100dvh!important;position:relative!important;inset:auto!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;margin:0!important;overflow:hidden!important;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 18px 60px rgba(0,0,0,.28)!important}
+    body.ew-mobile-smoke{flex:0 0 430px!important;width:430px!important;max-width:430px!important;min-width:0!important;height:100dvh!important;min-height:100dvh!important;position:relative!important;inset:auto!important;transform:none!important;margin:0!important;overflow:hidden!important;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 18px 60px rgba(0,0,0,.28)!important}
     body.ew-mobile-smoke .shell{width:100%!important;max-width:430px!important;height:100dvh!important;min-height:100dvh!important;position:absolute!important;inset:0!important;margin:0!important;overflow:hidden!important}
     body.ew-mobile-smoke iframe,body.ew-mobile-smoke .game-frame{display:block!important;width:100%!important;max-width:430px!important;height:100%!important}
     html[data-lexicon-stage="passport"].ew-mobile-smoke-root{overflow:hidden!important}
@@ -46,69 +39,44 @@ window.EW_CONFIG = Object.freeze({
     html[data-lexicon-stage="passport"] body.ew-mobile-smoke .app-shell{width:100%!important;max-width:430px!important;height:auto!important;min-height:100dvh!important;position:relative!important;inset:auto!important;margin:0!important;overflow:visible!important;touch-action:pan-y!important}
     html[data-lexicon-stage="passport"] body.ew-mobile-smoke .screen,html[data-lexicon-stage="passport"] body.ew-mobile-smoke .passport-map{overflow:visible!important;touch-action:pan-y!important}
     @media(max-width:720px){html.ew-mobile-smoke-root{display:block!important;background:inherit!important;overflow:hidden!important}body.ew-mobile-smoke{width:100%!important;max-width:none!important;flex:none!important;box-shadow:none!important}body.ew-mobile-smoke .app-shell,body.ew-mobile-smoke .shell,body.ew-mobile-smoke iframe,body.ew-mobile-smoke .game-frame{max-width:none!important}}
-  `;
-  document.head.appendChild(style);
-
-  function carryView(frame){
-    try{
-      const raw=frame.getAttribute('src');
-      if(!raw||raw==='about:blank')return;
-      const url=new URL(raw,location.href);
-      if(url.searchParams.get('view')==='mobile')return;
-      url.searchParams.set('view','mobile');
-      frame.setAttribute('src',url.href);
-    }catch(_){ }
-  }
-
-  const scan=()=>document.querySelectorAll('iframe').forEach(carryView);
-  scan();
-  new MutationObserver((records)=>{
-    records.forEach(record=>{
-      if(record.type==='attributes'&&record.target?.tagName==='IFRAME')carryView(record.target);
-      record.addedNodes?.forEach(node=>{
-        if(node?.tagName==='IFRAME')carryView(node);
-        node?.querySelectorAll?.('iframe').forEach(carryView);
-      });
-    });
-  }).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['src']});
-
+  `;document.head.appendChild(style);
+  function carryView(frame){try{const raw=frame.getAttribute('src');if(!raw||raw==='about:blank')return;const url=new URL(raw,location.href);if(url.searchParams.get('view')==='mobile')return;url.searchParams.set('view','mobile');frame.setAttribute('src',url.href)}catch(_){}}
+  const scan=()=>document.querySelectorAll('iframe').forEach(carryView);scan();
+  new MutationObserver(records=>records.forEach(record=>{if(record.type==='attributes'&&record.target?.tagName==='IFRAME')carryView(record.target);record.addedNodes?.forEach(node=>{if(node?.tagName==='IFRAME')carryView(node);node?.querySelectorAll?.('iframe').forEach(carryView)})})).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['src']});
   window.EW_MOBILE_SMOKE=Object.freeze({version:'2026-08-08-MOBILE-SMOKE-R4-CENTER',active:true,width:430,passportScroll:true,centering:'html-flex-host'});
 })();
 
-/* LEXICON X • Shell-level emergency exit R1
- * Lives in the outer Passport Game Shell, above the iframe. This guarantees
- * an escape route even when an inner game traps focus, tilt navigation,
- * pointer interaction, camera interaction, or its own Back button fails.
- */
+/* Shell + inner-frame emergency exit R2 */
 (function(){
   'use strict';
-  const path=String(location.pathname||'');
-  if(!/passport-game-shell-firestore-v2\.html$/i.test(path))return;
-
+  if(!/passport-game-shell-firestore-v2\.html$/i.test(String(location.pathname||'')))return;
   function returnPassport(){
     try{document.exitPointerLock?.()}catch(_){}
-    try{document.webkitExitFullscreen?.()}catch(_){}
     try{if(document.fullscreenElement)document.exitFullscreen?.()}catch(_){}
     const q=new URLSearchParams(location.search);
-    const out=new URLSearchParams({resume:'passport',fromGame:q.get('stage')||'game',exit:'manual',v:'20260809-shell-exit-r1'});
+    const out=new URLSearchParams({resume:'passport',fromGame:q.get('stage')||'game',exit:'manual',v:'20260809-shell-exit-r2'});
     if(q.get('view')==='mobile')out.set('view','mobile');
     location.replace('./index.html?'+out.toString());
   }
-
-  function install(){
-    if(document.getElementById('ewShellEmergencyExit'))return;
-    const btn=document.createElement('button');
-    btn.id='ewShellEmergencyExit';
-    btn.type='button';
-    btn.setAttribute('aria-label','กลับ Passport');
-    btn.textContent='← Passport';
-    btn.style.cssText='position:fixed;z-index:2147483647;top:max(10px,env(safe-area-inset-top));left:max(10px,env(safe-area-inset-left));min-width:112px;min-height:46px;padding:0 14px;border:1px solid rgba(255,255,255,.55);border-radius:14px;background:rgba(5,18,31,.94);color:#fff;font:900 14px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.38);cursor:pointer;pointer-events:auto;touch-action:manipulation;user-select:none;-webkit-user-select:none';
-    btn.addEventListener('pointerdown',e=>{e.stopPropagation()},true);
+  function makeButton(doc,id){
+    if(!doc?.body||doc.getElementById(id))return;
+    const btn=doc.createElement('button');btn.id=id;btn.type='button';btn.textContent='← Passport';btn.setAttribute('aria-label','กลับ Passport');
+    btn.style.cssText='position:fixed;z-index:2147483647;top:max(10px,env(safe-area-inset-top));left:max(10px,env(safe-area-inset-left));min-width:112px;min-height:46px;padding:0 14px;border:1px solid rgba(255,255,255,.62);border-radius:14px;background:rgba(5,18,31,.96);color:#fff;font:900 14px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.42);cursor:pointer;pointer-events:auto;touch-action:manipulation;user-select:none;-webkit-user-select:none';
+    btn.addEventListener('pointerdown',e=>e.stopPropagation(),true);
     btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();returnPassport()},true);
-    document.body.appendChild(btn);
+    doc.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();returnPassport()}},true);
+    doc.body.appendChild(btn);
   }
-
+  function wireFrame(frame){
+    const wire=()=>{try{const doc=frame.contentDocument;makeButton(doc,'ewInnerPassportExit');doc?.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();returnPassport()}},true);doc?.exitPointerLock?.()}catch(_){}};
+    frame.addEventListener('load',()=>setTimeout(wire,80));setTimeout(wire,120);
+  }
+  function install(){
+    makeButton(document,'ewShellEmergencyExit');
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();returnPassport()}},true);
+    document.querySelectorAll('iframe').forEach(wireFrame);
+    new MutationObserver(records=>records.forEach(r=>r.addedNodes?.forEach(n=>{if(n?.tagName==='IFRAME')wireFrame(n);n?.querySelectorAll?.('iframe').forEach(wireFrame)}))).observe(document.body,{childList:true,subtree:true});
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
-  window.addEventListener('pageshow',install);
-  window.EW_SHELL_EMERGENCY_EXIT=Object.freeze({version:'2026-08-09-SHELL-EXIT-R1',returnPassport});
+  window.EW_SHELL_EMERGENCY_EXIT=Object.freeze({version:'2026-08-09-SHELL-EXIT-R2-INNER',returnPassport});
 })();
