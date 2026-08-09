@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Stable Classroom Release | v20260808.57-mobile-boss-ui -->
+<!-- CANONICAL FILE: /fitness/balance-hold-ar2.html | Stable Classroom Release | v20260809.58-start-modal-center -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -29,11 +29,41 @@
   <style>
     body.bh-classroom-stable .topActions,body.bh-classroom-stable #statusPill{display:none!important}
     body.bh-classroom-stable #startOverlay .bh-hidden-config{display:none!important}
-    body.bh-classroom-stable #startOverlay .modal{width:min(92vw,430px);max-height:none;overflow:visible;text-align:center}
+    body.bh-classroom-stable #startOverlay{
+      position:fixed!important;
+      inset:0!important;
+      width:100vw!important;
+      height:100dvh!important;
+      display:grid!important;
+      place-items:center!important;
+      padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))!important;
+      margin:0!important;
+      transform:none!important;
+      z-index:90!important;
+    }
+    body.bh-classroom-stable #startOverlay.hidden{display:none!important}
+    body.bh-classroom-stable #startOverlay .modal{
+      position:relative!important;
+      left:auto!important;
+      right:auto!important;
+      top:auto!important;
+      bottom:auto!important;
+      transform:none!important;
+      margin:auto!important;
+      width:min(92vw,430px)!important;
+      max-width:430px!important;
+      max-height:calc(100dvh - 28px)!important;
+      overflow:auto!important;
+      text-align:center;
+    }
     body.bh-classroom-stable #startOverlay .modalHead{display:block}
     body.bh-classroom-stable #startOverlay .modalIcon{margin:0 auto 8px}
     body.bh-classroom-stable #startOverlay .actions{display:block}
     body.bh-classroom-stable #startBtn{width:100%;min-height:56px}
+    @media(max-width:560px){
+      body.bh-classroom-stable #startOverlay{padding:12px!important}
+      body.bh-classroom-stable #startOverlay .modal{width:min(94vw,430px)!important;max-height:calc(100dvh - 24px)!important}
+    }
   </style>
 </head>
 <body class="bh-classroom-stable">
