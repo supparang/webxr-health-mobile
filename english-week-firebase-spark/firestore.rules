@@ -1,6 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // 2026-08-09 Journey analytics redeploy marker R2.
+    // Owned list/query access below is intentionally scoped to the playerId
+    // claimed by the current anonymous-auth player session.
     function signedIn() { return request.auth != null; }
     function qaId(playerId) {
       return playerId.matches('^(QA|TEST)[-_].*') || playerId.matches('^99[0-9]{4,}$');
