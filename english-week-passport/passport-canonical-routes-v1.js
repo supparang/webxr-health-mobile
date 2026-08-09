@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-08-CANONICAL-FIVE-GAME-ROUTES-V2-IDEMPOTENT';
+const VERSION='2026-08-09-CANONICAL-FIVE-GAME-ROUTES-V3-CHAMPION-CACHE-BUST';
 const ROUTES={
   word_match:{title:'LexiMatch Navigator',detail:'Game 1 • จับคู่คำศัพท์ • Swipe + Tilt • A2–B1+',icon:'🧭'},
   category_forest:{title:'Category Forest',detail:'Game 2 • ลากคำเข้าหมวด • Rescue Learning',icon:'🌲'},
@@ -68,14 +68,14 @@ function scheduleDecorate(){if(scheduled)return;scheduled=true;requestAnimationF
 function openStage(stage){
   const identity=readIdentity();if(!identity?.playerId)return;
   if(stage==='bonus_lens'){
-    const query=carryView(new URLSearchParams({from:'passport',authority:'firebase',pid:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',stage:'bonus_lens',v:'20260808-prod-route2'}));
+    const query=carryView(new URLSearchParams({from:'passport',authority:'firebase',pid:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',stage:'bonus_lens',v:'20260809-route3'}));
     location.assign('./lexicon-lens-hunt.html?'+query.toString());return;
   }
   if(stage==='final_boss'){
-    const query=carryView(new URLSearchParams({from:'passport',authority:'firebase',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run:'1',stage:'final_boss',v:'20260808-prod-route2'}));
+    const query=carryView(new URLSearchParams({from:'passport',authority:'firebase',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run:'1',stage:'final_boss',v:'20260809-champion-clean-start2'}));
     location.assign('./lexicon-champion-arena-v47.html?'+query.toString());return;
   }
-  const query=carryView(new URLSearchParams({stage,run:'1',v:'20260808-prod-route2'}));
+  const query=carryView(new URLSearchParams({stage,run:'1',v:'20260809-route3'}));
   location.assign('./passport-game-shell-firestore-v2.html?'+query.toString());
 }
 function intercept(event){
