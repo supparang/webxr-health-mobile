@@ -1,17 +1,18 @@
 /* =========================================================
-   EAP Hero • Start / Resume Gate v178
+   EAP Hero • Start / Resume Gate v179
    PURPOSE
    - Never leave Start / Continue in an indefinite checking state.
    - Google Sheet remains the only progression authority.
    - ID-first resume is allowed: studentId + section are sufficient.
    - Gate timeout is longer than the transport timeout.
+   - IMPORTANT: never intercept the Identity/Profile modal "เรียนต่อ" button.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_START_RESUME_GATE_V178__) return;
-  window.__EAP_START_RESUME_GATE_V178__=true;
+  if(window.__EAP_START_RESUME_GATE_V179__) return;
+  window.__EAP_START_RESUME_GATE_V179__=true;
 
-  var VERSION='20260810-EAP-START-RESUME-GATE-V178-ID-FIRST';
+  var VERSION='20260810-EAP-START-RESUME-GATE-V179-LOBBY-ONLY';
   var CHECK_TIMEOUT=50000;
   var checking=false;
   var checkTimer=0;
@@ -30,11 +31,19 @@
     try{if(a&&typeof a.refresh==='function') return a.refresh();}catch(_){}
     return false;
   }
+  function isIdentityModalNode(node){
+    if(!node||!node.closest) return false;
+    return !!node.closest('#eap-profile-modal-v116,#eap-profile-modal-v115,#eap-profile-modal-v114,#eap-profile-modal-v113');
+  }
   function isStart(el){
     if(!el) return false;
     var node=el.closest?el.closest('button,a,[role="button"]'):el;
     if(!node) return false;
-    return /start\s*\/\s*continue|เริ่ม|เรียนต่อ/i.test(clean(node.textContent)) ? node : false;
+    /* The identity dialog owns its own "เรียนต่อ" flow: roster lookup -> save profile -> reload. */
+    if(isIdentityModalNode(node)) return false;
+    var label=clean(node.textContent);
+    /* Gate only the actual Lobby Start / Continue control; do not trap generic "เรียนต่อ" buttons. */
+    return /^\s*[▶▷►]?\s*start\s*\/\s*continue\s*$/i.test(label) ? node : false;
   }
   function toast(message,kind){
     var old=document.getElementById('eap-start-resume-gate-v177-toast');
