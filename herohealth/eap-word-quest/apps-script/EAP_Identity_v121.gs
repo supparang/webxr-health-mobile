@@ -1,11 +1,12 @@
 /* =========================================================
-   EAP Unified Identity Authority v122 FAST ROSTER
+   EAP Unified Identity Authority v123 FAST ROSTER
    File: EAP_Identity_v121.gs
 
    Canonical identity for EAP Hero + EAP Word Quest.
 
    PRODUCTION RULE
    - eap_word_roster is the ONLY identity authority.
+   - Use the SAME spreadsheet resolver as EAP Word Quest first.
    - No identity_map fallback.
    - No profiles fallback.
    - studentId + section are the identity key.
@@ -17,18 +18,41 @@
      does not need a breaking route change.
 ========================================================= */
 
-var EAP_IDENTITY_V121 = '20260810-EAP-IDENTITY-V122-FAST-ROSTER-ONLY';
+var EAP_IDENTITY_V121 = '20260810-EAP-IDENTITY-V123-WORD-QUEST-SPREADSHEET-AUTHORITY';
 var EAP_IDENTITY_ROSTER_SHEET_V121 = 'eap_word_roster';
-var EAP_IDENTITY_CACHE_KEY_V122 = 'EAP_IDENTITY_ROSTER_INDEX_V122';
+var EAP_IDENTITY_CACHE_KEY_V122 = 'EAP_IDENTITY_ROSTER_INDEX_V123';
 var EAP_IDENTITY_CACHE_SECONDS_V122 = 300;
 
 function eapIdentityTextV121_(value) {
   return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
 }
 
+/*
+ * IMPORTANT: Web App executions must not rely on SpreadsheetApp.getActive()
+ * when the canonical Word Quest spreadsheet id is already available.
+ * Reuse the proven Word Quest resolver first so Hero + Vocabulary always read
+ * the same physical roster spreadsheet.
+ */
 function eapIdentitySpreadsheetV121_() {
-  if (typeof ss_ === 'function') return ss_();
-  return SpreadsheetApp.getActive();
+  if (typeof eapwqaSpreadsheet_ === 'function') {
+    return eapwqaSpreadsheet_();
+  }
+
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var id = eapIdentityTextV121_(props.getProperty('EAPWQ_SPREADSHEET_ID'));
+    if (id) return SpreadsheetApp.openById(id);
+  } catch (ignore) {}
+
+  if (typeof ss_ === 'function') {
+    var viaHero = ss_();
+    if (viaHero) return viaHero;
+  }
+
+  var active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active) return active;
+
+  throw new Error('EAP roster spreadsheet is unavailable: EAPWQ_SPREADSHEET_ID is not configured');
 }
 
 function eapIdentityHeaderMapV121_(headers) {
@@ -60,20 +84,16 @@ function eapIdentityStatusActiveV122_(status) {
   return /^(active|enabled|current|true|1)$/i.test(value);
 }
 
-/* ---------------------------------------------------------
-   Build a compact roster index once, then cache it.
-   Example key: 122|681100542
---------------------------------------------------------- */
 function eapIdentityBuildRosterIndexV122_() {
   var startedAt = Date.now();
-  var sheet = eapIdentitySpreadsheetV121_().getSheetByName(
-    EAP_IDENTITY_ROSTER_SHEET_V121
-  );
+  var ss = eapIdentitySpreadsheetV121_();
+  var sheet = ss.getSheetByName(EAP_IDENTITY_ROSTER_SHEET_V121);
 
   if (!sheet || sheet.getLastRow() < 2) {
     return {
       ok: true,
       version: EAP_IDENTITY_V121,
+      spreadsheetId: ss.getId(),
       builtAt: new Date().toISOString(),
       buildMs: Date.now() - startedAt,
       count: 0,
@@ -83,30 +103,20 @@ function eapIdentityBuildRosterIndexV122_() {
 
   var lastRow = sheet.getLastRow();
   var lastColumn = Math.max(1, sheet.getLastColumn());
-  var values = sheet
-    .getRange(1, 1, lastRow, lastColumn)
-    .getDisplayValues();
-
+  var values = sheet.getRange(1, 1, lastRow, lastColumn).getDisplayValues();
   var map = eapIdentityHeaderMapV121_(values[0] || []);
   var rows = {};
 
   for (var i = 1; i < values.length; i += 1) {
     var row = values[i];
-    var studentId = eapIdentityPickV121_(row, map, [
-      'studentId', 'student_id', 'id'
-    ]);
+    var studentId = eapIdentityPickV121_(row, map, ['studentId', 'student_id', 'id']);
     if (!studentId) continue;
 
-    var section = eapIdentityPickV121_(row, map, [
-      'section', 'group', 'classGroup'
-    ]) || '122';
-
+    var section = eapIdentityPickV121_(row, map, ['section', 'group', 'classGroup']) || '122';
     var status = eapIdentityPickV121_(row, map, ['status']);
     if (!eapIdentityStatusActiveV122_(status)) continue;
 
-    var studentName = eapIdentityPickV121_(row, map, [
-      'studentName', 'student_name', 'name'
-    ]);
+    var studentName = eapIdentityPickV121_(row, map, ['studentName', 'student_name', 'name']);
     if (!studentName) continue;
 
     rows[eapIdentityKeyV122_(studentId, section)] = {
@@ -122,6 +132,7 @@ function eapIdentityBuildRosterIndexV122_() {
   return {
     ok: true,
     version: EAP_IDENTITY_V121,
+    spreadsheetId: ss.getId(),
     builtAt: new Date().toISOString(),
     buildMs: Date.now() - startedAt,
     count: Object.keys(rows).length,
@@ -159,21 +170,13 @@ function eapIdentityRosterIndexV122_(forceRefresh) {
   return index;
 }
 
-/* ---------------------------------------------------------
-   Public lookup used by SharedWebAppRouter.gs.
-   Compatibility name is intentionally retained.
---------------------------------------------------------- */
 function eapIdentityLookupV121_(params) {
   params = params || {};
   var startedAt = Date.now();
 
   var requestedId = eapIdentityTextV121_(
-    params.studentId ||
-    params.student_id ||
-    params.playerId ||
-    params.id
+    params.studentId || params.student_id || params.playerId || params.id
   );
-
   var section = eapIdentityTextV121_(params.section || '122') || '122';
   var forceRefresh = String(params.force || '').toLowerCase() === '1' ||
     String(params.force || '').toLowerCase() === 'true';
@@ -191,9 +194,7 @@ function eapIdentityLookupV121_(params) {
   }
 
   var index = eapIdentityRosterIndexV122_(forceRefresh);
-  var identity = (index.rows || {})[
-    eapIdentityKeyV122_(requestedId, section)
-  ] || null;
+  var identity = (index.rows || {})[eapIdentityKeyV122_(requestedId, section)] || null;
 
   if (!identity) {
     return {
@@ -206,6 +207,7 @@ function eapIdentityLookupV121_(params) {
       studentId: requestedId,
       section: section,
       authoritySheet: EAP_IDENTITY_ROSTER_SHEET_V121,
+      spreadsheetId: index.spreadsheetId || '',
       rosterCount: index.count || 0,
       cacheHit: index.cacheHit === true,
       checkedAt: new Date().toISOString(),
@@ -229,6 +231,7 @@ function eapIdentityLookupV121_(params) {
     email: identity.email || '',
     sourceSheet: EAP_IDENTITY_ROSTER_SHEET_V121,
     identitySource: EAP_IDENTITY_ROSTER_SHEET_V121,
+    spreadsheetId: index.spreadsheetId || '',
     sourceRow: identity.sourceRow || '',
     legacyFallback: false,
     rosterCount: index.count || 0,
@@ -238,10 +241,6 @@ function eapIdentityLookupV121_(params) {
   };
 }
 
-/* ---------------------------------------------------------
-   Optional admin helper: run manually after editing roster
-   when you want the next lookup to rebuild immediately.
---------------------------------------------------------- */
 function eapIdentityClearRosterCacheV122() {
   CacheService.getScriptCache().remove(EAP_IDENTITY_CACHE_KEY_V122);
   return {
