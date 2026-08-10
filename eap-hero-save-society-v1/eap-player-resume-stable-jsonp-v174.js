@@ -1,23 +1,24 @@
 /* =========================================================
-   EAP Hero • Official Resume Transport v176 SINGLE-FLIGHT
+   EAP Hero • Official Resume Transport v177 SINGLE-FLIGHT
    - One JSONP request at a time.
    - No automatic retry loop.
    - Authority Runtime explicitly requests refresh after submit/retry.
+   - Emits eap:resume-failed on network/timeout/server rejection.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_RESUME_TRANSPORT_V176__)return;
-  window.__EAP_RESUME_TRANSPORT_V176__=true;
+  if(window.__EAP_RESUME_TRANSPORT_V177__)return;
+  window.__EAP_RESUME_TRANSPORT_V177__=true;
 
-  var VERSION='20260802-EAP-RESUME-TRANSPORT-V176-SINGLE-FLIGHT';
+  var VERSION='20260810-EAP-RESUME-TRANSPORT-V177-SINGLE-FLIGHT-FAILURE-AWARE';
   var PROFILE_KEY='EAP_HERO_PLAYER_PROFILE_V1';
   var STATE_KEY='EAP_HERO_PROGRESS_V3';
-  var CALLBACK='__eapCloudResume_official_v176';
+  var CALLBACK='__eapCloudResume_official_v177';
   var active=null;
   var activeAt=0;
   var lastRequestAt=0;
   var lastSuccessAt=0;
-  var COOLDOWN=15000;
+  var COOLDOWN=12000;
   var TIMEOUT=20000;
 
   function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
@@ -41,6 +42,12 @@
       localStorage.setItem(STATE_KEY,JSON.stringify(s));
     }catch(_){}
   }
+  function emitFailed(code,message){
+    diagnostic(code);
+    try{
+      window.dispatchEvent(new CustomEvent('eap:resume-failed',{detail:{code:code,message:message||'เชื่อมต่อ Google Sheet ไม่สำเร็จ',transportVersion:VERSION}}));
+    }catch(_){}
+  }
   function cleanup(){
     if(!active)return;
     clearTimeout(active._timer);
@@ -50,20 +57,24 @@
 
   window[CALLBACK]=function(data){
     cleanup();
-    if(!data||data.ok!==true){diagnostic('single_flight_server_not_ok');return;}
+    if(!data||data.ok!==true){emitFailed('single_flight_server_not_ok','Google Sheet ตอบกลับแต่ยังยืนยันความคืบหน้าไม่ได้');return;}
     lastSuccessAt=Date.now();
     diagnostic('single_flight_applied');
     try{
       if(window.EAPPlayerResume&&typeof window.EAPPlayerResume.applyCloudResponse==='function'){
         window.EAPPlayerResume.applyCloudResponse(data);
       }
-    }catch(error){diagnostic('single_flight_apply_error:'+clean(error&&error.message||error));}
+    }catch(error){
+      emitFailed('single_flight_apply_error:'+clean(error&&error.message||error),'ได้รับข้อมูลแล้วแต่ยังนำความคืบหน้ามาใช้ไม่ได้');
+      return;
+    }
     try{window.dispatchEvent(new CustomEvent('eap:resume-synced',{detail:{data:data,changed:true,transportVersion:VERSION}}));}catch(_){}
   };
 
   function request(force){
     var now=Date.now(),p=profile(),ep=endpoint();
-    if(!ep||!valid(p)){diagnostic('single_flight_waiting_identity');return false;}
+    if(!ep){emitFailed('single_flight_missing_endpoint','ยังไม่พบปลายทาง Google Sheet');return false;}
+    if(!valid(p)){emitFailed('single_flight_waiting_identity','ยังยืนยันตัวตนผู้เรียนไม่ครบ');return false;}
     if(active&&now-activeAt<TIMEOUT)return true;
     if(active)cleanup();
     if(!force&&now-lastRequestAt<COOLDOWN)return false;
@@ -82,8 +93,14 @@
     script.async=true;
     script.referrerPolicy='no-referrer';
     script.src=url.toString();
-    script.onerror=function(){diagnostic('single_flight_script_error');cleanup();};
-    script._timer=setTimeout(function(){diagnostic('single_flight_timeout');cleanup();},TIMEOUT);
+    script.onerror=function(){
+      cleanup();
+      emitFailed('single_flight_script_error','เชื่อมต่อ Google Sheet ไม่สำเร็จ กรุณาลองอีกครั้ง');
+    };
+    script._timer=setTimeout(function(){
+      cleanup();
+      emitFailed('single_flight_timeout','Google Sheet ตอบกลับช้าเกินกำหนด กรุณาลองอีกครั้ง');
+    },TIMEOUT);
     active=script;activeAt=now;
     diagnostic('single_flight_started');
     document.head.appendChild(script);
@@ -94,7 +111,7 @@
     version:VERSION,
     request:request,
     callback:CALLBACK,
-    diagnostics:function(){return{active:!!active,lastRequestAt:lastRequestAt,lastSuccessAt:lastSuccessAt,cooldownMs:COOLDOWN};}
+    diagnostics:function(){return{active:!!active,lastRequestAt:lastRequestAt,lastSuccessAt:lastSuccessAt,cooldownMs:COOLDOWN,timeoutMs:TIMEOUT};}
   };
 
   function boot(){setTimeout(function(){request(false);},700);}
