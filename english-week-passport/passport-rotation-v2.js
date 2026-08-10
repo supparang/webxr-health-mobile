@@ -3,6 +3,8 @@
 
   const cfg = window.EW_CONFIG || {};
   const VERSION = "2026-08-03-PASSPORT-ROTATION-V2-INDEPENDENT";
+  const VARIANT_VERSION = "2026-08-10-PLAYER-VARIANT-V1-8WAY";
+  const VARIANT_COUNT = 8;
   const CACHE_PREFIX = "ew_passport_assignment_v2::";
   const PASSPORTS = Object.freeze(["P1", "P2", "P3", "P4"]);
   const ASSESSMENTS = Object.freeze(["R1", "R2"]);
@@ -139,6 +141,23 @@
     return mix32(hash32(`${assignment?.randomSeed || 0}|${assignment?.passportRotation || "P0"}|${clean(stageId)}|${clean(suffix)}|${VERSION}`));
   }
 
+  function variantFor(stageId, playerId) {
+    const assignment = getAssignment(playerId);
+    const stage = clean(stageId || "unknown");
+    const seed = mix32(hash32(`${assignment?.randomSeed || 0}|${assignment?.playerId || clean(playerId)}|${stage}|${VARIANT_VERSION}`));
+    const index = seed % VARIANT_COUNT;
+    return Object.freeze({
+      stageId:stage,
+      stageVariant:`V${index + 1}`,
+      variantIndex:index,
+      variantCount:VARIANT_COUNT,
+      variantSeed:seed,
+      variantSeedHex:seed.toString(16).padStart(8,"0"),
+      variantVersion:VARIANT_VERSION,
+      deterministic:true
+    });
+  }
+
   const randomFor = (stageId, suffix) => mulberry32(stageSeed(stageId, suffix));
   const order = (values, stageId, suffix) => shuffle(values, randomFor(stageId, suffix));
   const sample = (values, count, stageId, suffix) => order(values, stageId, suffix).slice(0, Math.min(Math.max(Number(count) || 0, 0), (values || []).length));
@@ -189,6 +208,7 @@
   function decoratePayload(payload, stageId) {
     const assignment = getAssignment(payload?.playerId);
     const stage = clean(stageId || payload?.stageId || payload?.assessmentType || "unknown");
+    const variant = variantFor(stage, assignment?.playerId || payload?.playerId);
     return {
       ...(payload || {}),
       passportRotation:assignment?.passportRotation || "P0",
@@ -200,7 +220,13 @@
       assignedPreForm:assignment?.preForm || "A",
       assignedPostForm:assignment?.postForm || "B",
       stageSeed:stageSeed(stage, "payload"),
-      stageAssignmentId:`${assignment?.playerId || "anonymous"}|${stage}|${assignment?.passportRotation || "P0"}|${VERSION}`
+      stageVariant:variant.stageVariant,
+      variantIndex:variant.variantIndex,
+      variantCount:variant.variantCount,
+      variantSeed:variant.variantSeed,
+      variantSeedHex:variant.variantSeedHex,
+      variantVersion:variant.variantVersion,
+      stageAssignmentId:`${assignment?.playerId || "anonymous"}|${stage}|${assignment?.passportRotation || "P0"}|${variant.stageVariant}|${VERSION}`
     };
   }
 
@@ -280,7 +306,7 @@
   style.textContent = ".ew-rotation-badge{display:inline-flex!important;width:max-content;margin-top:3px;padding:2px 7px;border-radius:999px;background:rgba(37,99,235,.10);color:#1d4ed8;font-size:.68rem!important;font-weight:900;letter-spacing:.02em}";
   document.head.appendChild(style);
 
-  window.EW_ROTATION = Object.freeze({VERSION,PASSPORTS,ASSESSMENTS,hash32,mix32,mulberry32,shuffle,getAssignment,stageSeed,randomFor,order,sample,balancedSample,withStageRandom,installStageRandom,actualForm,decoratePayload});
+  window.EW_ROTATION = Object.freeze({VERSION,VARIANT_VERSION,VARIANT_COUNT,PASSPORTS,ASSESSMENTS,hash32,mix32,mulberry32,shuffle,getAssignment,stageSeed,variantFor,randomFor,order,sample,balancedSample,withStageRandom,installStageRandom,actualForm,decoratePayload});
   wrapWordBank();
   wrapAuthority();
   new MutationObserver(badge).observe(document.documentElement,{childList:true,subtree:true});
