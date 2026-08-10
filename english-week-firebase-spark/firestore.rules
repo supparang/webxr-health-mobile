@@ -1,12 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 2026-08-09 Journey analytics redeploy marker R2.
-    // Owned list/query access below is intentionally scoped to the playerId
-    // claimed by the current anonymous-auth player session.
+    // LEXICON X • Spark-safe teacher console R3
+    // Students keep anonymous per-player ownership. Teachers authenticate with
+    // Firebase Email/Password and are authorized only by ewp_teacher_roles/{uid}.
     function signedIn() { return request.auth != null; }
     function qaId(playerId) {
       return playerId.matches('^(QA|TEST)[-_].*') || playerId.matches('^99[0-9]{4,}$');
+    }
+    function isTeacher() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid)).data.active == true
+        && get(/databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid)).data.role == 'teacher';
     }
     function sessionExists() {
       return signedIn()
@@ -28,9 +34,14 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/ewp_profiles/$(playerId)).data.active == true;
     }
 
+    match /ewp_teacher_roles/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+
     match /ewp_profiles/{playerId} {
       allow get: if signedIn();
-      allow list: if false;
+      allow list: if isTeacher();
       allow create: if signedIn() && qaId(playerId)
         && request.resource.data.playerId == playerId
         && request.resource.data.active == true;
@@ -41,66 +52,71 @@ service cloud.firestore {
     }
 
     match /ewp_player_sessions/{uid} {
-      allow get: if signedIn() && request.auth.uid == uid;
+      allow get: if (signedIn() && request.auth.uid == uid) || isTeacher();
+      allow list: if isTeacher();
       allow create, update: if signedIn()
         && request.auth.uid == uid
         && request.resource.data.uid == uid
         && request.resource.data.playerId is string
         && (qaId(request.resource.data.playerId) || activeProfile(request.resource.data.playerId));
       allow delete: if signedIn() && request.auth.uid == uid;
-      allow list: if false;
     }
 
     match /ewp_progress/{playerId} {
-      allow get: if owns(playerId);
+      allow get: if owns(playerId) || isTeacher();
+      allow list: if isTeacher();
       allow create: if owns(playerId) && request.resource.data.playerId == playerId;
       allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
-      allow delete, list: if false;
+      allow delete: if false;
     }
 
     match /ewp_assignments/{playerId} {
-      allow get: if owns(playerId);
+      allow get: if owns(playerId) || isTeacher();
+      allow list: if isTeacher();
       allow create: if owns(playerId) && request.resource.data.playerId == playerId;
-      allow update, delete, list: if false;
+      allow update, delete: if false;
     }
 
     match /ewp_assessments/{receiptId} {
       allow create: if request.resource.data.playerId is string && owns(request.resource.data.playerId);
-      allow get: if owns(resource.data.playerId);
-      allow list: if owns(resource.data.playerId);
+      allow get: if owns(resource.data.playerId) || isTeacher();
+      allow list: if isTeacher() || owns(resource.data.playerId);
       allow update, delete: if false;
     }
 
     match /ewp_game_results/{receiptId} {
       allow create: if request.resource.data.playerId is string && owns(request.resource.data.playerId);
-      allow get: if owns(resource.data.playerId);
-      allow list: if owns(resource.data.playerId);
+      allow get: if owns(resource.data.playerId) || isTeacher();
+      allow list: if isTeacher() || owns(resource.data.playerId);
       allow update, delete: if false;
     }
 
     match /ewp_game_summary/{playerId} {
-      allow get: if owns(playerId);
+      allow get: if owns(playerId) || isTeacher();
+      allow list: if isTeacher();
       allow create: if owns(playerId) && request.resource.data.playerId == playerId;
       allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
-      allow list, delete: if false;
+      allow delete: if false;
     }
 
     match /ewp_events/{eventId} {
       allow create: if request.resource.data.playerId is string && owns(request.resource.data.playerId);
-      allow get: if owns(resource.data.playerId);
-      allow list: if owns(resource.data.playerId);
+      allow get: if owns(resource.data.playerId) || isTeacher();
+      allow list: if isTeacher() || owns(resource.data.playerId);
       allow update, delete: if false;
     }
 
     match /ewp_certificates/{playerId} {
-      allow get: if owns(playerId);
+      allow get: if owns(playerId) || isTeacher();
+      allow list: if isTeacher();
       allow create: if owns(playerId) && request.resource.data.playerId == playerId;
       allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
-      allow list, delete: if false;
+      allow delete: if false;
     }
 
     match /ewp_assessment_checkpoints/{checkpointId} {
-      allow get: if ownsCheckpointId(checkpointId);
+      allow get: if ownsCheckpointId(checkpointId) || isTeacher();
+      allow list: if isTeacher();
       allow create: if ownsCheckpointId(checkpointId)
         && request.resource.data.playerId == sessionDoc().data.playerId;
       allow update: if ownsCheckpointId(checkpointId)
@@ -108,7 +124,6 @@ service cloud.firestore {
         && request.resource.data.playerId == sessionDoc().data.playerId;
       allow delete: if ownsCheckpointId(checkpointId)
         && resource.data.playerId == sessionDoc().data.playerId;
-      allow list: if false;
     }
 
     match /{document=**} { allow read, write: if false; }
