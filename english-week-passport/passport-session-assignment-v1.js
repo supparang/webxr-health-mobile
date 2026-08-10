@@ -1,9 +1,9 @@
 (function(){
 'use strict';
 
-const VERSION='2026-08-10-SESSION-ASSIGNMENT-V1-6ROUND-LOCKED';
+const VERSION='2026-08-10-ATTENDANCE-CHECKIN-V2-FIRST-ACTUAL-ROUND';
 const SESSION_IDS=Object.freeze(['D1-AM','D1-PM','D2-AM','D2-PM','D3-AM','D3-PM']);
-const STORAGE_KEY='LEXICON_X_SESSION_ASSIGNMENT_V1';
+const STORAGE_KEY='LEXICON_X_ATTENDANCE_CHECKIN_V2';
 const clean=v=>String(v==null?'':v).trim();
 const nowIso=()=>new Date().toISOString();
 
@@ -22,7 +22,7 @@ function normalizeSession(value){
 
 function sessionFromUrl(){
   const q=new URLSearchParams(location.search);
-  for(const key of ['session','sessionId','sessionCode','round','cohort']){
+  for(const key of ['session','attendanceSessionId','checkin','sessionId','sessionCode','round','cohort']){
     const value=normalizeSession(q.get(key));
     if(value) return value;
   }
@@ -33,7 +33,7 @@ function readStored(playerId){
   try{
     const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
     if(!saved || clean(saved.playerId)!==clean(playerId)) return '';
-    return normalizeSession(saved.sessionId);
+    return normalizeSession(saved.attendanceSessionId||saved.sessionId);
   }catch(_){ return ''; }
 }
 
@@ -41,7 +41,7 @@ function saveStored(playerId,sessionId){
   try{
     localStorage.setItem(STORAGE_KEY,JSON.stringify({
       playerId:clean(playerId),
-      sessionId,
+      attendanceSessionId:sessionId,
       savedAt:nowIso(),
       version:VERSION
     }));
@@ -52,35 +52,68 @@ function firebaseReady(){
   return Boolean(window.firebase && firebase.auth && firebase.firestore);
 }
 
-async function syncSession(playerId){
+async function syncAttendance(playerId){
   const id=clean(playerId);
-  if(!id || !firebaseReady()) return {ok:false,assigned:false,reason:'NOT_READY'};
+  if(!id || !firebaseReady()) return {ok:false,checkedIn:false,reason:'NOT_READY'};
   const user=firebase.auth().currentUser;
-  if(!user) return {ok:false,assigned:false,reason:'AUTH_NOT_READY'};
+  if(!user) return {ok:false,checkedIn:false,reason:'AUTH_NOT_READY'};
 
   const db=firebase.firestore();
   const sessionRef=db.collection('ewp_player_sessions').doc(user.uid);
   const sessionSnap=await sessionRef.get();
   const current=sessionSnap.exists?(sessionSnap.data()||{}):{};
-  const existing=normalizeSession(current.sessionId||current.sessionCode||current.cohortId||current.roundId||current.round);
+
+  // Existing actual attendance is authoritative after first real check-in.
+  const existing=normalizeSession(
+    current.attendanceSessionId ||
+    current.checkInSessionId ||
+    current.sessionId ||
+    current.sessionCode ||
+    current.cohortId ||
+    current.roundId ||
+    current.round
+  );
   const requested=sessionFromUrl();
   const stored=readStored(id);
 
-  // Server assignment is authoritative once present. This prevents accidental
-  // cohort switching when a learner later opens the wrong QR/session link.
+  // No pre-assignment: without an actual round QR/link the learner remains
+  // NOT_CHECKED_IN. Stored value is used only to resume an already checked-in
+  // learner on the same browser; it never assigns a fresh learner by itself.
   const chosen=existing || requested || stored;
   if(!chosen){
-    window.dispatchEvent(new CustomEvent('lexicon-session-assignment',{detail:{ok:true,assigned:false,playerId:id,sessionId:'UNASSIGNED',version:VERSION}}));
-    return {ok:true,assigned:false,playerId:id,sessionId:'UNASSIGNED',version:VERSION};
+    const detail={
+      ok:true,
+      checkedIn:false,
+      assigned:false,
+      playerId:id,
+      attendanceSessionId:'',
+      sessionId:'UNASSIGNED',
+      status:'NOT_CHECKED_IN',
+      version:VERSION
+    };
+    window.dispatchEvent(new CustomEvent('lexicon-attendance-checkin',{detail}));
+    window.dispatchEvent(new CustomEvent('lexicon-session-assignment',{detail}));
+    return detail;
   }
 
   const stamp=nowIso();
-  const firstAssignment=!existing;
-  const source=existing?'firebase-locked':requested?'entry-link':'local-resume';
+  const firstCheckIn=!existing;
+  const source=existing?'firebase-first-checkin':requested?'round-qr-link':'local-resume';
 
   await sessionRef.set({
     uid:user.uid,
     playerId:id,
+
+    // Canonical attendance fields.
+    attendanceSessionId:chosen,
+    checkInSessionId:chosen,
+    attendanceStatus:'CHECKED_IN',
+    checkedIn:true,
+    checkInSource:source,
+    attendanceUpdatedAt:stamp,
+    ...(firstCheckIn?{checkedInAt:stamp,firstCheckedInAt:stamp}:{}),
+
+    // Compatibility mirrors for current Teacher Console / analytics.
     sessionId:chosen,
     sessionCode:chosen,
     cohortId:chosen,
@@ -89,17 +122,27 @@ async function syncSession(playerId){
     sessionSource:source,
     sessionUpdatedAt:stamp,
     updatedAt:stamp,
-    ...(firstAssignment?{sessionAssignedAt:stamp}:{}),
+    ...(firstCheckIn?{sessionAssignedAt:stamp}:{}),
+
+    attendanceCheckInVersion:VERSION,
     sessionAssignmentVersion:VERSION
   },{merge:true});
 
-  // Progress is already read by Teacher Console, so mirror the immutable
-  // session assignment there. Do not create progress prematurely.
+  // Mirror attendance into progress after progress exists so the Teacher
+  // Console can group the 800-person master roster without loading sessions.
   const progressRef=db.collection('ewp_progress').doc(id);
   const progressSnap=await progressRef.get().catch(()=>null);
   if(progressSnap && progressSnap.exists){
     await progressRef.set({
       playerId:id,
+      attendanceSessionId:chosen,
+      checkInSessionId:chosen,
+      attendanceStatus:'CHECKED_IN',
+      checkedIn:true,
+      checkInSource:source,
+      attendanceUpdatedAt:stamp,
+      ...(firstCheckIn?{checkedInAt:stamp,firstCheckedInAt:stamp}:{}),
+
       sessionId:chosen,
       sessionCode:chosen,
       cohortId:chosen,
@@ -107,41 +150,73 @@ async function syncSession(playerId){
       sessionLocked:true,
       sessionSource:source,
       sessionUpdatedAt:stamp,
-      ...(firstAssignment?{sessionAssignedAt:stamp}:{}),
+      ...(firstCheckIn?{sessionAssignedAt:stamp}:{}),
+
+      attendanceCheckInVersion:VERSION,
       sessionAssignmentVersion:VERSION
     },{merge:true});
   }
 
   saveStored(id,chosen);
-  const detail={ok:true,assigned:true,playerId:id,sessionId:chosen,source,locked:true,version:VERSION};
+  const detail={
+    ok:true,
+    checkedIn:true,
+    assigned:true,
+    playerId:id,
+    attendanceSessionId:chosen,
+    sessionId:chosen,
+    status:'CHECKED_IN',
+    source,
+    firstCheckIn,
+    locked:true,
+    version:VERSION
+  };
+  window.dispatchEvent(new CustomEvent('lexicon-attendance-checkin',{detail}));
   window.dispatchEvent(new CustomEvent('lexicon-session-assignment',{detail}));
   return detail;
 }
 
 function wrapAuthority(){
   const authority=window.EW_AUTHORITY;
-  if(!authority || authority.__sessionAssignmentWrapped) return false;
+  if(!authority || authority.__attendanceCheckInWrapped) return false;
 
   const originalProfileLookup=authority.profileLookup?.bind(authority);
   const originalResume=authority.resume?.bind(authority);
   if(typeof originalProfileLookup!=='function' || typeof originalResume!=='function') return false;
 
   const wrappedProfileLookup=async function(playerId,nickname){
+    // The authority first validates the learner against the master roster.
+    // Unknown production IDs therefore cannot self-register.
     const result=await originalProfileLookup(playerId,nickname);
-    try{ await syncSession(result?.profile?.playerId||playerId); }catch(error){ console.warn('[LEXICON X] session assignment profile sync',error); }
+    try{ await syncAttendance(result?.profile?.playerId||playerId); }
+    catch(error){ console.warn('[LEXICON X] attendance check-in profile sync',error); }
     return result;
   };
 
   const wrappedResume=async function(playerId,nickname){
     const result=await originalResume(playerId,nickname);
     try{
-      const session=await syncSession(result?.profile?.playerId||playerId);
-      if(session?.assigned){
-        result.profile={...(result.profile||{}),sessionId:session.sessionId,sessionCode:session.sessionId};
-        result.progress={...(result.progress||{}),sessionId:session.sessionId,sessionCode:session.sessionId};
-        result.sessionAssignment=session;
+      const attendance=await syncAttendance(result?.profile?.playerId||playerId);
+      if(attendance?.checkedIn){
+        result.profile={
+          ...(result.profile||{}),
+          attendanceSessionId:attendance.attendanceSessionId,
+          sessionId:attendance.sessionId,
+          sessionCode:attendance.sessionId
+        };
+        result.progress={
+          ...(result.progress||{}),
+          attendanceSessionId:attendance.attendanceSessionId,
+          checkedIn:true,
+          attendanceStatus:'CHECKED_IN',
+          sessionId:attendance.sessionId,
+          sessionCode:attendance.sessionId
+        };
       }
-    }catch(error){ console.warn('[LEXICON X] session assignment resume sync',error); }
+      result.attendanceCheckIn=attendance;
+      // Compatibility alias while older Passport UI still refers to session assignment.
+      result.sessionAssignment=attendance;
+    }catch(error){ console.warn('[LEXICON X] attendance check-in resume sync',error); }
     return result;
   };
 
@@ -149,7 +224,9 @@ function wrapAuthority(){
     ...authority,
     profileLookup:wrappedProfileLookup,
     resume:wrappedResume,
+    attendanceCheckInVersion:VERSION,
     sessionAssignmentVersion:VERSION,
+    __attendanceCheckInWrapped:true,
     __sessionAssignmentWrapped:true
   });
   return true;
@@ -157,12 +234,22 @@ function wrapAuthority(){
 
 function currentEntrySession(){ return sessionFromUrl()||''; }
 
+window.EW_ATTENDANCE_CHECKIN=Object.freeze({
+  VERSION,
+  SESSION_IDS,
+  normalizeSession,
+  currentEntrySession,
+  syncAttendance
+});
+
+// Compatibility export for existing Passport code.
 window.EW_SESSION_ASSIGNMENT=Object.freeze({
   VERSION,
   SESSION_IDS,
   normalizeSession,
   currentEntrySession,
-  syncSession
+  syncSession:syncAttendance,
+  syncAttendance
 });
 
 if(!wrapAuthority()){
