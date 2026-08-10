@@ -1,18 +1,18 @@
 /* =========================================================
-   EAP Hero • Start / Resume Gate v177
+   EAP Hero • Start / Resume Gate v178
    PURPOSE
-   - Never leave Start / Continue in an indefinite "checking" state.
+   - Never leave Start / Continue in an indefinite checking state.
    - Google Sheet remains the only progression authority.
-   - Do not guess S1 when resume fails.
-   - One explicit retry path after timeout/network failure.
+   - ID-first resume is allowed: studentId + section are sufficient.
+   - Gate timeout is longer than the transport timeout.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_START_RESUME_GATE_V177__) return;
-  window.__EAP_START_RESUME_GATE_V177__=true;
+  if(window.__EAP_START_RESUME_GATE_V178__) return;
+  window.__EAP_START_RESUME_GATE_V178__=true;
 
-  var VERSION='20260810-EAP-START-RESUME-GATE-V177';
-  var CHECK_TIMEOUT=22000;
+  var VERSION='20260810-EAP-START-RESUME-GATE-V178-ID-FIRST';
+  var CHECK_TIMEOUT=50000;
   var checking=false;
   var checkTimer=0;
   var toastTimer=0;
@@ -24,10 +24,10 @@
     try{return !!(a&&typeof a.isVerified==='function'&&a.isVerified());}catch(_){return false;}
   }
   function refresh(){
-    var a=authority();
-    try{if(a&&typeof a.refresh==='function') return a.refresh();}catch(_){}
     var t=window.EAPPlayerResumeStableJSONP;
     try{if(t&&typeof t.request==='function') return t.request(true);}catch(_){}
+    var a=authority();
+    try{if(a&&typeof a.refresh==='function') return a.refresh();}catch(_){}
     return false;
   }
   function isStart(el){
@@ -51,8 +51,8 @@
   function finishCheck(ok,message){
     checking=false;
     clearTimeout(checkTimer);
-    if(ok){toast(message||'ยืนยันความคืบหน้าจาก Google Sheet แล้ว','ok');}
-    else{toast(message||'ยังเชื่อมต่อ Google Sheet ไม่สำเร็จ กรุณากด Start / Continue เพื่อลองอีกครั้ง','error');}
+    if(ok) toast(message||'ยืนยันความคืบหน้าจาก Google Sheet แล้ว','ok');
+    else toast(message||'ยังเชื่อมต่อ Google Sheet ไม่สำเร็จ กรุณากด Start / Continue เพื่อลองอีกครั้ง','error');
   }
   function beginCheck(){
     if(checking) return;
@@ -60,7 +60,10 @@
     toast('กำลังตรวจสอบความคืบหน้าจาก Google Sheet…','checking');
     var started=refresh();
     if(started===false){
-      finishCheck(false,'ยังไม่สามารถเริ่มการตรวจสอบ Google Sheet ได้ กรุณาลองอีกครั้ง');
+      var diag=window.EAPPlayerResumeStableJSONP&&window.EAPPlayerResumeStableJSONP.diagnostics;
+      var extra='';
+      try{if(typeof diag==='function'){var d=diag();if(d&&d.profile)extra=' · '+(d.profile.studentId||'?')+' / '+(d.profile.section||'?');}}catch(_){}
+      finishCheck(false,'ยังไม่สามารถเริ่มการตรวจสอบ Google Sheet ได้'+extra+' กรุณาลองอีกครั้ง');
       return;
     }
     clearTimeout(checkTimer);
