@@ -1,21 +1,25 @@
 (function(){
 'use strict';
-const VERSION='2026-08-09-ANALYTICS-ROLLUP-V1';
+const VERSION='2026-08-10-ANALYTICS-ROLLUP-V2';
 const SUMMARY='ewp_game_summary';
 
 function num(v,f=0){const n=Number(v);return Number.isFinite(n)?n:f}
 function now(){return new Date().toISOString()}
 function accuracyFromAssessment(payload){
   if(Number.isFinite(Number(payload?.accuracy))) return Math.max(0,Math.min(100,Math.round(Number(payload.accuracy))));
-  const correct=num(payload?.correct,payload?.correctCount);
-  const total=num(payload?.total,payload?.totalItems||payload?.questionCount);
-  if(total>0) return Math.max(0,Math.min(100,Math.round(correct/total*100)));
-  const score=num(payload?.score);
-  const maxScore=num(payload?.maxScore||payload?.totalScore);
-  if(maxScore>0) return Math.max(0,Math.min(100,Math.round(score/maxScore*100)));
+  const correctCandidate = payload?.correct ?? payload?.correctCount;
+  const totalCandidate = payload?.total ?? payload?.totalItems ?? payload?.questionCount;
+  const correct=num(correctCandidate,NaN);
+  const total=num(totalCandidate,NaN);
+  if(Number.isFinite(correct)&&Number.isFinite(total)&&total>0) return Math.max(0,Math.min(100,Math.round(correct/total*100)));
+  const score=num(payload?.score,NaN);
+  const maxScore=num(payload?.maxScore ?? payload?.totalScore ?? payload?.total,NaN);
+  if(Number.isFinite(score)&&Number.isFinite(maxScore)&&maxScore>0) return Math.max(0,Math.min(100,Math.round(score/maxScore*100)));
   return 0;
 }
-function gameDuration(payload){return Math.max(0,Math.round(num(payload?.durationMs)))}
+function gameDuration(payload){
+  return Math.max(0,Math.round(num(payload?.durationMs ?? payload?.elapsedMs ?? payload?.duration ?? 0)));
+}
 async function summaryRef(playerId){
   if(!window.firebase?.firestore) throw new Error('FIRESTORE_NOT_READY');
   return firebase.firestore().collection(SUMMARY).doc(String(playerId||'').trim());
@@ -27,7 +31,7 @@ async function rollupAssessment(payload,response){
   if(!playerId||!['pre','post'].includes(type))return;
   const ref=await summaryRef(playerId),db=firebase.firestore();
   const accuracy=accuracyFromAssessment(payload);
-  const durationMs=Math.max(0,Math.round(num(payload?.durationMs||payload?.elapsedMs)));
+  const durationMs=Math.max(0,Math.round(num(payload?.durationMs ?? payload?.elapsedMs ?? 0)));
   const patch={playerId,updatedAt:now(),sourceVersion:VERSION};
   patch[`${type}Accuracy`]=accuracy;
   patch[`${type}DurationMs`]=durationMs;
@@ -46,7 +50,9 @@ async function rollupGame(payload,response){
   const stageId=String(payload?.stageId||'').trim();
   if(!playerId||!stageId)return;
   const ref=await summaryRef(playerId),db=firebase.firestore();
-  const accuracy=Math.max(0,Math.min(100,Math.round(num(response?.accuracy, payload?.accuracy))));
+  const total=num(payload?.total,100);
+  const payloadAccuracy=Number.isFinite(Number(payload?.accuracy))?Number(payload.accuracy):(total>0?Math.round(num(payload?.score)/total*100):0);
+  const accuracy=Math.max(0,Math.min(100,Math.round(num(response?.accuracy,payloadAccuracy))));
   const durationMs=gameDuration(payload);
   await db.runTransaction(async tx=>{
     const snap=await tx.get(ref),data=snap.exists?(snap.data()||{}):{};
