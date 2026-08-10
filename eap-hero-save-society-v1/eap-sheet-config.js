@@ -8,64 +8,33 @@ window.EAP_SHEET_CONFIG={
 
 /* =========================================================
    Active Learner Identity Lock v1
-   - ACTIVE_PLAYER is the browser's explicit learner selection.
-   - Reconcile PROFILE + core state before any resume transport boots.
-   - Prevent stale Test User/profile cache from replacing the selected learner.
 ========================================================= */
 (function(){
   'use strict';
   var ACTIVE_KEY='EAP_HERO_ACTIVE_PLAYER_V1';
   var PROFILE_KEY='EAP_HERO_PLAYER_PROFILE_V1';
   var STATE_KEY='EAP_HERO_PROGRESS_V3';
-
-  function read(key){
-    try{return JSON.parse(localStorage.getItem(key)||'{}')||{};}catch(_){return {};}
-  }
-  function write(key,value){
-    try{localStorage.setItem(key,JSON.stringify(value||{}));return true;}catch(_){return false;}
-  }
+  function read(key){try{return JSON.parse(localStorage.getItem(key)||'{}')||{};}catch(_){return {};}}
+  function write(key,value){try{localStorage.setItem(key,JSON.stringify(value||{}));return true;}catch(_){return false;}}
   function clean(value){return String(value==null?'':value).replace(/\s+/g,' ').trim();}
-  function normalize(raw){
-    raw=raw||{};
-    return {
-      id:clean(raw.studentId||raw.id||''),
-      name:clean(raw.studentName||raw.name||''),
-      studentId:clean(raw.studentId||raw.id||''),
-      studentName:clean(raw.studentName||raw.name||''),
-      section:clean(raw.section||'122')||'122'
-    };
-  }
-  function valid(profile){
-    return !!(profile&&profile.studentId&&profile.studentName&&profile.studentId.toLowerCase()!=='guest');
-  }
-
+  function normalize(raw){raw=raw||{};return {id:clean(raw.studentId||raw.id||''),name:clean(raw.studentName||raw.name||''),studentId:clean(raw.studentId||raw.id||''),studentName:clean(raw.studentName||raw.name||''),section:clean(raw.section||'122')||'122'};}
+  function valid(profile){return !!(profile&&profile.studentId&&profile.studentName&&profile.studentId.toLowerCase()!=='guest');}
   var active=normalize(read(ACTIVE_KEY));
   if(valid(active)){
     write(PROFILE_KEY,active);
     try{sessionStorage.setItem(PROFILE_KEY,JSON.stringify(active));}catch(_){}
-
     var state=read(STATE_KEY);
     state.profile=Object.assign({},state.profile||{},active);
     state.player=Object.assign({},state.player||{},active);
     state.user=Object.assign({},state.user||{},active);
-    state.id=active.studentId;
-    state.name=active.studentName;
-    state.playerName=active.studentName;
-    state.studentId=active.studentId;
-    state.studentName=active.studentName;
-    state.section=active.section;
+    state.id=active.studentId;state.name=active.studentName;state.playerName=active.studentName;
+    state.studentId=active.studentId;state.studentName=active.studentName;state.section=active.section;
     state.__activePlayer={studentId:active.studentId,section:active.section,at:new Date().toISOString()};
-
-    /* Never reuse a server resume belonging to another learner. */
     if(state.serverResume){
       var resumeId=clean(state.serverResume.studentId||'');
       var resumeSection=clean(state.serverResume.section||active.section);
       if((resumeId&&resumeId!==active.studentId)||(resumeSection&&resumeSection!==active.section)){
-        delete state.serverResume;
-        state.cloudResumeStatus='pending';
-        delete state.currentRoute;
-        delete state.currentCloudRoute;
-        delete state.unlockedRoutes;
+        delete state.serverResume;state.cloudResumeStatus='pending';delete state.currentRoute;delete state.currentCloudRoute;delete state.unlockedRoutes;
       }
     }
     write(STATE_KEY,state);
@@ -77,18 +46,17 @@ window.EAP_SHEET_CONFIG={
 window.__EAP_PLAYER_RESUME_STABLE_JSONP_V175__=true;
 window.__EAP_JSONP_GUARD_RETIRED_V5__=true;
 
-/* Cache-safe bootstrap for the single-flight transport and Sheet authority. */
+/* Cache-safe bootstrap for mobile-safe identity + single-flight transport + authority. */
 (function(){
   'use strict';
   function load(src,key){
     if(document.querySelector('script[data-eap-bootstrap="'+key+'"]'))return;
     var script=document.createElement('script');
-    script.async=false;
-    script.src=src;
-    script.dataset.eapBootstrap=key;
+    script.async=false;script.src=src;script.dataset.eapBootstrap=key;
     document.head.appendChild(script);
   }
   function boot(){
+    load('./eap-profile-id-first-v117.js?v=20260810-identity-v122-mobile-safe-r1','identity-v122-mobile-safe-r1');
     load('./eap-player-resume-stable-jsonp-v174.js?v=20260802-resume-transport-v176-single-flight-r2','transport-v176-r2');
     load('./eap-authority-runtime-v1.js?v=20260802-single-sheet-authority-v1-r3','single-authority-v1-r3');
   }
