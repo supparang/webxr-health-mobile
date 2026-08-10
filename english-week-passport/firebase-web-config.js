@@ -8,14 +8,14 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
   measurementId: "G-3DCCL4D34V"
 });
 
-/* LEXICON X • Firebase Default-App Guard R2
+/* LEXICON X • Firebase Default-App Guard R3
  * Initialize Firebase in every fresh Game Shell document and preload the
- * per-player analytics rollup wrapper. The rollup waits for EW_AUTHORITY and
- * then records Pre/Post/game attempts and durations into ewp_game_summary.
+ * per-player analytics rollup wrapper. Rollup V2 fixes assessment score/total
+ * accuracy and aggregates nonzero game durations into ewp_game_summary.
  */
 (function(){
   'use strict';
-  const VERSION='2026-08-09-FIREBASE-DEFAULT-APP-GUARD-R2-ROLLUP';
+  const VERSION='2026-08-10-FIREBASE-DEFAULT-APP-GUARD-R3-ROLLUP2';
   try{
     if(!window.firebase?.initializeApp) return;
     const apps=Array.isArray(firebase.apps)?firebase.apps:[];
@@ -28,9 +28,9 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
     });
     if(!document.querySelector('script[data-ew-analytics-rollup]')){
       const script=document.createElement('script');
-      script.src='./analytics-rollup-v1.js?v=20260809-rollup1';
+      script.src='./analytics-rollup-v1.js?v=20260810-rollup2-assessment-duration';
       script.async=false;
-      script.dataset.ewAnalyticsRollup='1';
+      script.dataset.ewAnalyticsRollup='2';
       document.head.appendChild(script);
     }
   }catch(error){
