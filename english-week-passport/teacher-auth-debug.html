@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>LEXICON X • Teacher Auth Debug</title>
+<style>
+:root{font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;color:#153149;background:#edf4f9}*{box-sizing:border-box}body{margin:0;padding:18px}.card{width:min(720px,100%);margin:auto;background:#fff;border:1px solid #d7e3ec;border-radius:20px;padding:20px;box-shadow:0 12px 32px rgba(37,66,91,.09)}h1{margin:0 0 6px}.muted{color:#6b8294;line-height:1.5}input,button{width:100%;min-height:48px;border-radius:13px;font:inherit;margin-top:10px}input{border:1px solid #d7e3ec;padding:0 12px}button{border:0;background:#2468d8;color:#fff;font-weight:850}.out{margin-top:14px;padding:14px;border-radius:14px;background:#f7fbfe;border:1px dashed #b8cad8;white-space:pre-wrap;word-break:break-all;font:700 .82rem/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}.ok{color:#168463}.bad{color:#b84c61}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:560px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<section class="card">
+<h1>Teacher Auth Debug</h1>
+<div class="muted">ทดสอบ Firebase Authentication และการอ่าน <b>ewp_teacher_roles/{uid}</b> โดยไม่ sign out อัตโนมัติ</div>
+<input id="email" type="email" autocomplete="username" value="teacher.lexiconx@chandra.ac.th" placeholder="Teacher email">
+<input id="password" type="password" autocomplete="current-password" placeholder="Password">
+<div class="row"><button id="login">1. Sign in + Check Role</button><button id="retry" type="button">2. Retry Firestore Role</button></div>
+<div id="out" class="out">Waiting…</div>
+</section>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="./config.js?v=20260810-auth-debug1"></script>
+<script src="./firebase-web-config.js?v=20260810-auth-debug1"></script>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const lines=[];
+function reset(){lines.length=0;$('out').className='out';$('out').textContent='';}
+function add(s){lines.push(String(s));$('out').textContent=lines.join('\n');}
+function project(){try{return firebase.app().options.projectId||'unknown'}catch(_){return 'NO_DEFAULT_APP'}}
+async function checkRole(user){
+  if(!user){add('Auth user: NONE');return;}
+  add('Project: '+project());
+  add('UID: '+user.uid);
+  add('Email: '+(user.email||'(none)'));
+  add('Email verified: '+String(user.emailVerified));
+  try{
+    const token=await user.getIdTokenResult(true);
+    add('Token email: '+String(token.claims.email||'(none)'));
+    add('Token provider: '+String(token.signInProvider||token.claims.firebase?.sign_in_provider||'(none)'));
+  }catch(e){add('TOKEN ERROR: '+(e.code||'')+' '+(e.message||e));}
+  const path='ewp_teacher_roles/'+user.uid;
+  add('Role path: '+path);
+  try{
+    const snap=await firebase.firestore().collection('ewp_teacher_roles').doc(user.uid).get();
+    add('Role read: ALLOWED');
+    add('Role exists: '+String(snap.exists));
+    const d=snap.exists?(snap.data()||{}):{};
+    add('role: '+String(d.role));
+    add('active: '+String(d.active)+' (type '+typeof d.active+')');
+    add('role email: '+String(d.email));
+    if(snap.exists && d.role==='teacher' && d.active===true){$('out').className='out ok';add('RESULT: TEACHER ROLE VALID ✅');}
+    else{$('out').className='out bad';add('RESULT: ROLE DATA MISMATCH ❌');}
+  }catch(e){$('out').className='out bad';add('Role read: DENIED ❌');add('Firestore code: '+String(e.code||''));add('Firestore error: '+String(e.message||e));}
+}
+$('login').onclick=async()=>{
+  reset();
+  const email=$('email').value.trim(),password=$('password').value;
+  add('Starting sign-in…');
+  try{
+    const cred=await firebase.auth().signInWithEmailAndPassword(email,password);
+    add('Authentication: SUCCESS ✅');
+    await checkRole(cred.user);
+  }catch(e){$('out').className='out bad';add('Authentication/Check ERROR ❌');add('Code: '+String(e.code||''));add('Error: '+String(e.message||e));}
+};
+$('retry').onclick=async()=>{reset();const u=firebase.auth().currentUser;if(!u){$('out').className='out bad';add('No signed-in user. กด Sign in ก่อน');return;}add('Retrying with existing auth session…');await checkRole(u);};
+firebase.auth().onAuthStateChanged(u=>{if(u && lines.length===0){add('Existing signed-in session detected.');checkRole(u);}});
+window.EW_TEACHER_AUTH_DEBUG='2026-08-10-debug1';
+})();
+</script>
+</body>
+</html>
