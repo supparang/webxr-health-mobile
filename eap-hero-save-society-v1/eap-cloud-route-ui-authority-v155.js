@@ -1,16 +1,16 @@
 /* =========================================================
-   EAP Hero • Cloud Route UI Authority v156
-   - Google Sheet / Cloud Resume is the sole authority for official progress.
-   - Opening an older unlocked session changes only activeViewRoute.
-   - It NEVER overwrites currentCloudRoute/currentRoute.
-   - Blocks route navigation while authoritative resume is unavailable.
-   - Quarantines legacy browser-migration rows from Recent Portfolio UI.
+   EAP Hero • Cloud Route UI Authority v157
+   FIX 2026-08-10
+   - Accepts the compact verified serverResume produced by Single Sheet Authority.
+   - resumeKey is no longer required when cloudVerified/serverVerified is true.
+   - Ends perpetual "checking Google Sheet" after a valid player_resume response.
+   - Google Sheet remains the sole progression authority.
 ========================================================= */
 (function(){
   'use strict';
-  var VERSION='20260722-EAP-CLOUD-ROUTE-UI-AUTHORITY-V156';
+  var VERSION='20260810-EAP-CLOUD-ROUTE-UI-AUTHORITY-V157-COMPACT-READY';
   var KEY='EAP_HERO_PROGRESS_V3';
-  var NOTICE_ID='eap-cloud-route-notice-v156';
+  var NOTICE_ID='eap-cloud-route-notice-v157';
   var BAD_OUTPUT=/legacy evidence retained|browser-storage migration|completed legacy evidence/i;
   var timer=0;
 
@@ -25,8 +25,33 @@
   }
   function sessionNo(v){var m=norm(v).match(/^S(\d+)$/);return m?Number(m[1]):0;}
   function gateNo(v){var m=norm(v).match(/^B(\d+)$/);return m?Number(m[1]):0;}
-  function cloudReady(s){return !!(s&&s.cloudResumeStatus==='ok'&&s.serverResume&&clean(s.serverResume.resumeKey)&&norm(s.currentCloudRoute));}
-  function officialRoute(s){return norm((s||read()).currentCloudRoute||'');}
+
+  function runtimeVerified(){
+    var a=window.EAPAuthorityRuntime;
+    try{return !!(a&&typeof a.isVerified==='function'&&a.isVerified());}catch(_){return false;}
+  }
+
+  function serverResumeReady(s){
+    s=s||read();
+    var r=s.serverResume||{};
+    var route=norm(s.currentCloudRoute||s.currentRoute||r.currentCloudRoute||r.currentRoute||r.nextRoute);
+    if(!route)return false;
+    if(s.cloudResumeStatus!=='ok')return false;
+    return !!(
+      clean(r.resumeKey) ||
+      r.cloudVerified===true ||
+      r.serverVerified===true ||
+      r.compact===true ||
+      runtimeVerified()
+    );
+  }
+
+  function cloudReady(s){return serverResumeReady(s);}
+  function officialRoute(s){
+    s=s||read();
+    var r=s.serverResume||{};
+    return norm(s.currentCloudRoute||s.currentRoute||r.currentCloudRoute||r.currentRoute||r.nextRoute||'');
+  }
   function unlocked(id,s){
     s=s||read();id=norm(id);if(!id||!cloudReady(s))return false;
     var ur=s.unlockedRoutes||{},us=s.unlockedSessions||{};
@@ -48,7 +73,7 @@
   }
   function openRoute(id){
     id=norm(id);var s=read();if(!id)return false;
-    if(!cloudReady(s)){notice('กำลังตรวจสอบความคืบหน้าจาก Google Sheet · ยังไม่เปิดด่านจนกว่าจะยืนยันสำเร็จ');return false;}
+    if(!cloudReady(s)){notice('กำลังตรวจสอบความคืบหน้าจาก Google Sheet · กรุณารอให้ระบบยืนยันก่อน');return false;}
     if(!unlocked(id,s)){notice(id+' ยังไม่เปิดจาก Google Sheet · ด่านปัจจุบันคือ '+officialRoute(s));return false;}
     setViewRoute(s,id);
     var g=gateNo(id),n=sessionNo(id);
@@ -73,18 +98,14 @@
         b.style.setProperty('opacity','.42','important');b.style.setProperty('filter','grayscale(.65)','important');b.style.setProperty('cursor','not-allowed','important');
         b.title=ready?'ยังไม่เปิดจาก Google Sheet':'กำลังตรวจสอบ Google Sheet';
       }else{
-        b.style.removeProperty('opacity');b.style.removeProperty('filter');b.style.removeProperty('cursor');
-        b.title=id===current?'ด่านปัจจุบันจาก Google Sheet':'ด่านก่อนหน้าที่เปิดให้ทบทวน';
+        b.style.removeProperty('opacity');b.style.removeProperty('filter');b.style.removeProperty('cursor');b.title=id===current?'ด่านปัจจุบันจาก Google Sheet':'ด่านก่อนหน้าที่เปิดให้ทบทวน';
       }
       if(id===current){b.style.setProperty('outline','3px solid #facc15','important');b.style.setProperty('outline-offset','2px','important');}
       else{b.style.removeProperty('outline');b.style.removeProperty('outline-offset');}
     });
   }
   function hideLegacyPortfolio(){
-    document.querySelectorAll('#app table tbody tr').forEach(function(tr){
-      var t=clean(tr.textContent);
-      if(/Invalid Date/i.test(t)||BAD_OUTPUT.test(t)){tr.remove();}
-    });
+    document.querySelectorAll('#app table tbody tr').forEach(function(tr){var t=clean(tr.textContent);if(/Invalid Date/i.test(t)||BAD_OUTPUT.test(t))tr.remove();});
     document.querySelectorAll('#app [data-legacy-completion="true"],#app .legacy-completion').forEach(function(n){n.remove();});
   }
   function addStatus(s){
@@ -92,7 +113,7 @@
     var id='eap-official-route-status-v156',box=document.getElementById(id);
     if(!box){box=document.createElement('div');box.id=id;host.insertAdjacentElement('afterend',box);}
     var ready=cloudReady(s),r=officialRoute(s);
-    box.textContent=ready?('เส้นทางทางการจาก Google Sheet: '+r+' · การกดด่านเก่าเป็นเพียงการทบทวน ไม่เปลี่ยนความก้าวหน้า'):'กำลังตรวจสอบความก้าวหน้าจาก Google Sheet…';
+    box.textContent=ready?('เส้นทางทางการจาก Google Sheet: '+r+' · พร้อมเรียนต่อ'):'กำลังตรวจสอบความก้าวหน้าจาก Google Sheet…';
     box.style.cssText='margin:8px 0 14px;padding:10px 13px;border-radius:12px;background:'+(ready?'#123d2a':'#44330b')+';color:'+(ready?'#bbf7d0':'#fde68a')+';font:800 13px system-ui;border:1px solid '+(ready?'#2f855a':'#a16207');
   }
   function guard(e){
@@ -109,12 +130,16 @@
   function reconcile(){
     var s=read();
     applyButtons(s);hideLegacyPortfolio();addStatus(s);
-    window.EAPCloudRouteUIAuthority={version:VERSION,route:function(){return officialRoute(read());},open:function(){return openRoute(officialRoute(read()));},unlocked:function(id){return unlocked(id,read());},diagnostics:function(){var x=read();return{route:officialRoute(x),cloudReady:cloudReady(x),activeViewRoute:x.activeViewRoute,currentCloudRoute:x.currentCloudRoute,unlockedRoutes:x.unlockedRoutes,sessionProgress:x.sessionProgress};}};
+    if(cloudReady(s)){
+      try{document.documentElement.dataset.eapCloudResumeReady='true';}catch(_){}
+      try{window.dispatchEvent(new CustomEvent('eap:cloud-route-ready',{detail:{route:officialRoute(s),version:VERSION}}));}catch(_){}
+    }
+    window.EAPCloudRouteUIAuthority={version:VERSION,route:function(){return officialRoute(read());},open:function(){return openRoute(officialRoute(read()));},unlocked:function(id){return unlocked(id,read());},ready:function(){return cloudReady(read());},diagnostics:function(){var x=read();return{route:officialRoute(x),cloudReady:cloudReady(x),activeViewRoute:x.activeViewRoute,currentCloudRoute:x.currentCloudRoute,serverResume:x.serverResume};}};
     document.documentElement.dataset.eapCloudRouteUiAuthorityVersion=VERSION;
   }
   function schedule(){clearTimeout(timer);timer=setTimeout(reconcile,90);}
   document.addEventListener('click',guard,true);
   new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
-  ['load','storage','eap:resume-synced'].forEach(function(n){window.addEventListener(n,schedule);});
-  setTimeout(reconcile,80);setTimeout(reconcile,700);setTimeout(reconcile,1800);setInterval(reconcile,2500);
+  ['load','storage','eap:resume-synced','eap:single-authority-applied'].forEach(function(n){window.addEventListener(n,schedule);});
+  setTimeout(reconcile,80);setTimeout(reconcile,700);setTimeout(reconcile,1800);setInterval(reconcile,1800);
 })();
