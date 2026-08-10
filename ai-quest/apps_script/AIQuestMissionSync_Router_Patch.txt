@@ -1,0 +1,20 @@
+/* CSAI2102 Mission Sync Router Patch
+ * Place inside the existing central doPost(e), AFTER payload/action normalization
+ * and BEFORE AIQFLOW / Coding / legacy fallbacks.
+ */
+if (
+  String(payload.action || '').trim().toLowerCase() === 'sync_v23' &&
+  String(payload.kind || '').trim().toLowerCase() === 'attempt'
+) {
+  if (typeof AIQMISSION === 'undefined' || !AIQMISSION || typeof AIQMISSION.handle !== 'function') {
+    return AIQ_output_({
+      ok:false,
+      code:'AIQMISSION_MODULE_MISSING',
+      action:payload.action || '',
+      kind:payload.kind || '',
+      version:AIQ_ROUTER_CONFIG && AIQ_ROUTER_CONFIG.VERSION ? AIQ_ROUTER_CONFIG.VERSION : 'unknown',
+      serverTs:AIQ_now_ ? AIQ_now_() : new Date().toISOString()
+    }, payload.callback);
+  }
+  return AIQ_output_(AIQMISSION.handle(payload), payload.callback);
+}
