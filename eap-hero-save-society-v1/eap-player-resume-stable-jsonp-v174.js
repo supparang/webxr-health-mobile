@@ -1,25 +1,26 @@
 /* =========================================================
-   EAP Hero • Official Resume Transport v177 SINGLE-FLIGHT
+   EAP Hero • Official Resume Transport v178 VERIFIED-CACHE AWARE
    - One JSONP request at a time.
-   - No automatic retry loop.
-   - Authority Runtime explicitly requests refresh after submit/retry.
-   - Emits eap:resume-failed on network/timeout/server rejection.
+   - Google Sheet remains the progression authority.
+   - A previously verified Sheet state may keep the UI usable while refresh runs.
+   - Never report a false timeout when verified cloud state already exists.
+   - Emits eap:resume-failed only when no verified Sheet state is available.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_RESUME_TRANSPORT_V177__)return;
-  window.__EAP_RESUME_TRANSPORT_V177__=true;
+  if(window.__EAP_RESUME_TRANSPORT_V178__)return;
+  window.__EAP_RESUME_TRANSPORT_V178__=true;
 
-  var VERSION='20260810-EAP-RESUME-TRANSPORT-V177-SINGLE-FLIGHT-FAILURE-AWARE';
+  var VERSION='20260810-EAP-RESUME-TRANSPORT-V178-VERIFIED-CACHE-AWARE';
   var PROFILE_KEY='EAP_HERO_PLAYER_PROFILE_V1';
   var STATE_KEY='EAP_HERO_PROGRESS_V3';
-  var CALLBACK='__eapCloudResume_official_v177';
+  var CALLBACK='__eapCloudResume_official_v178';
   var active=null;
   var activeAt=0;
   var lastRequestAt=0;
   var lastSuccessAt=0;
   var COOLDOWN=12000;
-  var TIMEOUT=20000;
+  var TIMEOUT=45000;
 
   function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
   function read(k){try{return JSON.parse(localStorage.getItem(k)||'{}')||{};}catch(_){return{};}}
@@ -33,6 +34,21 @@
   }
   function endpoint(){return clean((window.EAP_SHEET_CONFIG||{}).webAppUrl);}
   function valid(p){return !!(p.studentId&&p.studentName&&p.studentId.toLowerCase()!=='guest');}
+
+  function hasVerifiedSheetState(){
+    var s=read(STATE_KEY),r=s&&s.serverResume||{};
+    var route=clean(s.currentCloudRoute||s.currentRoute||r.currentRoute||r.routeId);
+    var verified=!!(
+      s.cloudResumeStatus==='ok' ||
+      s.cloudVerified===true ||
+      s.serverVerified===true ||
+      r.cloudVerified===true ||
+      r.serverVerified===true ||
+      r.compact===true
+    );
+    return !!(verified&&route);
+  }
+
   function diagnostic(message){
     try{
       var s=read(STATE_KEY);
@@ -48,6 +64,11 @@
       window.dispatchEvent(new CustomEvent('eap:resume-failed',{detail:{code:code,message:message||'เชื่อมต่อ Google Sheet ไม่สำเร็จ',transportVersion:VERSION}}));
     }catch(_){}
   }
+  function emitSynced(detail){
+    try{
+      window.dispatchEvent(new CustomEvent('eap:resume-synced',{detail:Object.assign({transportVersion:VERSION},detail||{})}));
+    }catch(_){}
+  }
   function cleanup(){
     if(!active)return;
     clearTimeout(active._timer);
@@ -57,7 +78,15 @@
 
   window[CALLBACK]=function(data){
     cleanup();
-    if(!data||data.ok!==true){emitFailed('single_flight_server_not_ok','Google Sheet ตอบกลับแต่ยังยืนยันความคืบหน้าไม่ได้');return;}
+    if(!data||data.ok!==true){
+      if(hasVerifiedSheetState()){
+        diagnostic('server_not_ok_using_verified_sheet_state');
+        emitSynced({changed:false,cached:true,refreshFailed:true});
+        return;
+      }
+      emitFailed('single_flight_server_not_ok','Google Sheet ตอบกลับแต่ยังยืนยันความคืบหน้าไม่ได้');
+      return;
+    }
     lastSuccessAt=Date.now();
     diagnostic('single_flight_applied');
     try{
@@ -65,10 +94,15 @@
         window.EAPPlayerResume.applyCloudResponse(data);
       }
     }catch(error){
+      if(hasVerifiedSheetState()){
+        diagnostic('apply_error_using_verified_sheet_state');
+        emitSynced({changed:false,cached:true,applyError:true});
+        return;
+      }
       emitFailed('single_flight_apply_error:'+clean(error&&error.message||error),'ได้รับข้อมูลแล้วแต่ยังนำความคืบหน้ามาใช้ไม่ได้');
       return;
     }
-    try{window.dispatchEvent(new CustomEvent('eap:resume-synced',{detail:{data:data,changed:true,transportVersion:VERSION}}));}catch(_){}
+    emitSynced({data:data,changed:true,cached:false});
   };
 
   function request(force){
@@ -79,6 +113,12 @@
     if(active)cleanup();
     if(!force&&now-lastRequestAt<COOLDOWN)return false;
     lastRequestAt=now;
+
+    /* If Sheet state was already verified, release UI immediately while refreshing. */
+    if(hasVerifiedSheetState()){
+      diagnostic('verified_sheet_state_refreshing_background');
+      emitSynced({changed:false,cached:true,refreshing:true});
+    }
 
     var url=new URL(ep,location.href);
     url.searchParams.set('action','player_resume');
@@ -95,10 +135,20 @@
     script.src=url.toString();
     script.onerror=function(){
       cleanup();
+      if(hasVerifiedSheetState()){
+        diagnostic('script_error_using_verified_sheet_state');
+        emitSynced({changed:false,cached:true,refreshFailed:true});
+        return;
+      }
       emitFailed('single_flight_script_error','เชื่อมต่อ Google Sheet ไม่สำเร็จ กรุณาลองอีกครั้ง');
     };
     script._timer=setTimeout(function(){
       cleanup();
+      if(hasVerifiedSheetState()){
+        diagnostic('timeout_using_verified_sheet_state');
+        emitSynced({changed:false,cached:true,refreshTimedOut:true});
+        return;
+      }
       emitFailed('single_flight_timeout','Google Sheet ตอบกลับช้าเกินกำหนด กรุณาลองอีกครั้ง');
     },TIMEOUT);
     active=script;activeAt=now;
@@ -111,7 +161,7 @@
     version:VERSION,
     request:request,
     callback:CALLBACK,
-    diagnostics:function(){return{active:!!active,lastRequestAt:lastRequestAt,lastSuccessAt:lastSuccessAt,cooldownMs:COOLDOWN,timeoutMs:TIMEOUT};}
+    diagnostics:function(){return{active:!!active,lastRequestAt:lastRequestAt,lastSuccessAt:lastSuccessAt,cooldownMs:COOLDOWN,timeoutMs:TIMEOUT,verifiedSheetState:hasVerifiedSheetState()};}
   };
 
   function boot(){setTimeout(function(){request(false);},700);}
