@@ -44,7 +44,9 @@ jobs:
           node --check english-week-passport/journey-summary-v1.js
           node --check english-week-passport/certificate-v1.js
           node --check english-week-passport/teacher-console-v1.js
+          node --check english-week-passport/teacher-reward-manager-v1.js
           node --check english-week-passport/lexicon-lens-hunt.js
+          node --check english-week-passport/lexicon-lens-production-auto-return-v1.js
           node --check english-week-passport/lexicon-champion-arena-v47.js
           node --check english-week-passport/lexicon-champion-v47-production-polish.js
           node --check english-week-passport/lexicon-x-engine-v1.js
@@ -96,3 +98,6 @@ jobs:
 
       - name: Run Firestore-direct production contract
         run: node english-week-passport/tests/firebase-authority-v1.node.cjs
+
+      - name: Run event award authority contract
+        run: node english-week-passport/tests/event-awards-v1.node.cjs
