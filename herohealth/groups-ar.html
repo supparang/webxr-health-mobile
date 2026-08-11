@@ -279,7 +279,8 @@
       const title = (document.getElementById('sumTitle')?.textContent || '').trim();
       const score = Math.max(num(raw.score), num(document.getElementById('score')?.textContent));
       const accuracy = Math.max(num(raw.accuracy), num(document.getElementById('acc')?.textContent));
-      const passed = raw.passed === true || /^ผ่าน/.test(title);
+      const summaryCompleted = /^(ผ่าน|จบภารกิจ)/.test(title) || document.getElementById('summary')?.classList.contains('hidden') === false;
+      const passed = raw.passed === true || raw.completed === true || raw.progressionEligible === true || summaryCompleted;
       const sourceEventId = raw.eventId || raw.record_id || raw.attemptId || '';
       const eventId = `HH-classroom-groups-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       return {
@@ -294,7 +295,7 @@
         sourceEventId,
         interactionAssistProfile: raw.interactionAssistProfile || window.HH_GROUPS_INTERACTION_ASSIST || null,
         finishedAt: new Date().toISOString(),
-        source: 'groups-ar-summary-bridge-v5-static-passport-v514'
+        source: 'groups-ar-summary-bridge-v6-firebase-receipt-autoreturn'
       };
     }
 
@@ -311,7 +312,7 @@
       sent = true;
       if (window.HH_GROUPS_PASSPORT_MODE) {
         const delivery = document.getElementById('delivery');
-        if (delivery) delivery.textContent = 'ส่งผลแล้ว • กดกลับ Hero Passport ได้';
+        if (delivery) delivery.textContent = 'กำลังยืนยันผลกับ Firebase…';
       }
       if (parent !== window) parent.postMessage({ type: 'HEROHEALTH_GAME_COMPLETE', payload }, location.origin);
     }
