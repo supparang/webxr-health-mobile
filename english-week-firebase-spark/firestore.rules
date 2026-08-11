@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // LEXICON X • Spark-safe teacher console R3 + Bonus Reward Manager V1
+    // LEXICON X • Spark-safe teacher console R4 + Event Award Authority
     function signedIn() { return request.auth != null; }
     function qaId(playerId) { return playerId.matches('^(QA|TEST)[-_].*') || playerId.matches('^99[0-9]{4,}$'); }
     function isTeacher() {
@@ -72,8 +72,8 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // One immutable completion record per player/session. Teacher stamps the
-    // deterministic top-20 rank and pickup status; students may only create/read their own.
+    // One immutable Bonus completion record per player/session.
+    // Teachers may list for leaderboard/ranking and update only reward metadata.
     match /ewp_bonus_rewards/{rewardId} {
       allow get: if isTeacher() || (resource.data.playerId is string && owns(resource.data.playerId));
       allow list: if isTeacher();
