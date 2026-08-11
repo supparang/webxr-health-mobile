@@ -8,10 +8,10 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
   measurementId: "G-3DCCL4D34V"
 });
 
-/* LEXICON X • Firebase App Isolation + Event-Day Light R6.3 */
+/* LEXICON X • Firebase App Isolation + Event-Day Light R6.4 */
 (function(){
   'use strict';
-  const VERSION='2026-08-11-FIREBASE-EVENT-DAY-LIGHT-R6.3-REWARD';
+  const VERSION='2026-08-11-FIREBASE-EVENT-DAY-LIGHT-R6.4-AWARDS';
   const TEACHER_APP_NAME='LEXICON_TEACHER';
   try{
     if(!window.firebase?.initializeApp) return;
@@ -35,7 +35,7 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
       window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({version:VERSION,ready:true,isolatedTeacher:true,appName:TEACHER_APP_NAME,projectId:teacherApp.options.projectId,fieldPathReady:Boolean(FieldPathStatic?.documentId)});
       if(!document.querySelector('script[data-ew-reward-manager]')){
         const rewardScript=document.createElement('script');
-        rewardScript.src='./teacher-reward-manager-v1.js?v=20260811-first20-r2-ranked';
+        rewardScript.src='./teacher-reward-manager-v1.js?v=20260811-award-authority-v3-fast-bonus';
         rewardScript.async=false;rewardScript.dataset.ewRewardManager='1';
         document.head.appendChild(rewardScript);
       }
