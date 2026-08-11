@@ -1,11 +1,11 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-11-PASSPORT-ROUTE-LOADER-R11-FINAL-BOSS-LIGHT";
+  const VERSION="2026-08-11-PASSPORT-ROUTE-LOADER-R12-EVENT-DAY-SYNC";
   let loaded=false;
   const routes=[
     "./passport-canonical-routes-v1.js?v=20260811-final-boss-light-r1",
-    "./journey-client-v1.js?v=20260809-journey-real-analytics2",
-    "./passport-journey-routes-v1.js?v=20260809-journey-direct9-rollup"
+    "./journey-client-v1.js?v=20260811-event-day-light-v6",
+    "./passport-journey-routes-v1.js?v=20260811-event-day-sync-v7"
   ];
 
   function loadRoutes(){
