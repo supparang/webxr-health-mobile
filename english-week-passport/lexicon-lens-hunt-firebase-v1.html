@@ -1,29 +1,18 @@
 <!doctype html>
 <html lang="th">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#07121f"><title>Lexicon Lens Hunt • Firebase Event-Day Light</title><style>html,body{margin:0;width:100%;height:100%;background:#07121f;color:#eef9ff;font-family:system-ui,sans-serif}.boot{height:100dvh;display:grid;place-items:center;text-align:center;padding:24px}.boot small{display:block;margin-top:8px;color:#aac7d9}</style></head>
-<body><div id="boot" class="boot"><div><strong>กำลังเตรียม Lexicon Lens Hunt…</strong><small>Firebase Event-Day Light • First 20 Reward</small></div></div>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#07121f">
+<title>Lexicon Lens Hunt • Firebase Event-Day Light</title>
+<style>html,body{margin:0;width:100%;height:100%;background:#07121f;color:#eef9ff;font-family:system-ui,sans-serif}.boot{height:100dvh;display:grid;place-items:center;text-align:center;padding:24px}.boot small{display:block;margin-top:8px;color:#aac7d9}</style>
+</head>
+<body><div class="boot"><div><strong>กำลังเปิด Lexicon Lens Hunt…</strong><small>Firebase Direct Authority • First 20 Reward</small></div></div>
 <script>
-(async function(){
-  const boot=document.getElementById('boot');
-  try{
-    const response=await fetch('./lexicon-lens-hunt.html?v=20260811-lens-reward-r2',{cache:'no-store'});
-    if(!response.ok)throw new Error('LENS_BASE_LOAD_FAILED_'+response.status);
-    let source=await response.text();
-    const oldChain='<script src="./config.js?v=20260806-firebase1"></'+'script>\n<script src="./authority-client.js?v=20260803-1"></'+'script>\n<script src="./firebase-authority-bridge.js?v=20260806-firebase1"></'+'script>';
-    const newChain=`<script src="./config.js?v=20260811-event-day-light-r8"></`+`script>
-<script>window.EW_FIREBASE_WEB_CONFIG=Object.freeze({apiKey:"AIzaSyBjv6Aph2zxS41V7YTtSmkEAgIBBJfvleI",authDomain:"englishweek-95869.firebaseapp.com",projectId:"englishweek-95869",storageBucket:"englishweek-95869.firebasestorage.app",messagingSenderId:"110133681532",appId:"1:110133681532:web:fce7270a8838b03addd8f9",measurementId:"G-3DCCL4D34V"});window.EW_FIREBASE_CONFIG_BOOT=Object.freeze({version:"2026-08-11-LENS-REWARD-R2",projectId:"englishweek-95869",ready:true});</`+`script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></`+`script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></`+`script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></`+`script>
-<script src="./firebase-web-config.js?v=20260811-lens-reward-r2"></`+`script>
-<script src="./firestore-direct-authority-v1.js?v=20260811-lens-reward-r2"></`+`script>
-<script src="./firebase-authority-bridge.js?v=20260811-event-day-light-r12-bonus-compat"></`+`script>
-<script src="./bonus-reward-client-v1.js?v=20260811-first20-r1"></`+`script>`;
-    if(!source.includes(oldChain))throw new Error('LENS_AUTHORITY_CHAIN_PATCH_POINT_NOT_FOUND');
-    source=source.replace(oldChain,newChain)
-      .replace('./lexicon-lens-hunt.js?v=20260807-lens3','./lexicon-lens-hunt.js?v=20260811-lens-reward-r2')
-      .replace('Lexicon Lens Hunt • LEXICON X Challenge','Lexicon Lens Hunt • First 20 Reward Mission');
-    document.open();document.write(source);document.close();
-  }catch(error){console.error(error);boot.innerHTML='<div><strong>เปิด Lens Hunt ไม่สำเร็จ</strong><small>'+String(error?.message||error)+'</small><p><a style="color:#7ef0ba" href="./index.html">กลับ Passport</a></p></div>'}
+(function(){
+  const params=new URLSearchParams(location.search);
+  params.set('v','20260811-lens-direct-r3');
+  location.replace('./lexicon-lens-hunt.html?'+params.toString());
 })();
-</script></body></html>
+</script>
+</body></html>
