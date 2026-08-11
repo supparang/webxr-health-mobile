@@ -1,0 +1,24 @@
+'use strict';
+const fs=require('fs');
+const path=require('path');
+const root=path.resolve(__dirname,'..');
+const read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const journey=read('journey-client-v1.js');
+const lens=read('lexicon-lens-production-auto-return-v1.js');
+const rewards=read('teacher-reward-manager-v1.js');
+const rules=fs.readFileSync(path.resolve(root,'../english-week-firebase-spark/firestore.rules'),'utf8');
+function must(text,pattern,label){if(!pattern.test(text))throw new Error('Missing contract: '+label);}
+must(journey,/finishedAt:firebase\.firestore\.FieldValue\.serverTimestamp\(\)/,'server finish timestamp');
+must(journey,/if\(!current\.finishedAt\)/,'finish timestamp is immutable on repeat summary confirmation');
+must(journey,/summaryViewed:true/,'summary confirmation gate');
+must(journey,/CERTIFICATE_NOT_ELIGIBLE/,'certificate eligibility required before finish');
+must(lens,/ewp_bonus_rewards/,'bonus reward collection write');
+must(lens,/firstCompletedAt:firebase\.firestore\.FieldValue\.serverTimestamp\(\)/,'bonus server completion timestamp');
+must(lens,/if\(snap\.exists\)return/,'bonus first completion preserved');
+must(rewards,/Fast Finisher Leaderboard/,'Fast Finisher board');
+must(rewards,/Bonus Hunter Leaderboard/,'Bonus Hunter board');
+must(rewards,/p\.summaryViewed&&p\.certificateEligible&&p\.finishedAt&&p\.certificate\?\.certificateId/,'valid finish eligibility');
+must(rewards,/Number\(b\.bonusScore\|\|0\)-Number\(a\.bonusScore\|\|0\)/,'Bonus Hunter score-first ranking');
+must(rules,/match \/ewp_bonus_rewards\/\{rewardId\}/,'bonus reward rules');
+must(rules,/request\.resource\.data\.firstCompletedAt == request\.time/,'bonus server timestamp rule');
+console.log('LEXICON X event awards contract: PASS');
