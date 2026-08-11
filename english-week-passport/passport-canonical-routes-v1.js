@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-11-CANONICAL-FIVE-GAME-ROUTES-R10-EVENT-DAY';
+const VERSION='2026-08-11-CANONICAL-FIVE-GAME-ROUTES-R11-FINAL-BOSS-LIGHT';
 const ROUTES={
   word_match:{title:'LexiMatch Navigator',detail:'Game 1 • จับคู่คำศัพท์ • Swipe + Tilt • A2–B1+',icon:'🧭'},
   category_forest:{title:'Category Forest',detail:'Game 2 • ลากคำเข้าหมวด • Rescue Learning',icon:'🌲'},
@@ -72,8 +72,8 @@ function openStage(stage){
     location.assign('./lexicon-lens-hunt.html?'+query.toString());return;
   }
   if(stage==='final_boss'){
-    const query=carryView(new URLSearchParams({from:'passport',authority:'firebase',submit:'1',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run:'1',stage:'final_boss',v:'20260811-event-day-light-r10'}));
-    location.assign('./lexicon-champion-arena-v47.html?'+query.toString());return;
+    const query=carryView(new URLSearchParams({pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run:'1',stage:'final_boss',v:'20260811-final-boss-light-r1'}));
+    location.assign('./passport-final-boss-light-v1.html?'+query.toString());return;
   }
   const query=carryView(new URLSearchParams({stage,run:'1',v:'20260811-event-day-light-r10'}));
   location.assign('./passport-game-shell-firestore-v2.html?'+query.toString());
