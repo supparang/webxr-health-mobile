@@ -1,19 +1,22 @@
 /* =========================================================
-   EAP Hero • Start / Resume Gate v181
+   EAP Hero • Start / Resume Gate v182
    PURPOSE
    - Never leave Start / Continue in an indefinite checking state.
    - Google Sheet remains the only progression authority.
-   - A server-verified learner-scoped snapshot is sufficient to Start immediately.
+   - A learner-scoped serverResume that carries its own server/cloud verification
+     is sufficient to Start immediately.
+   - Transient cloudResumeStatus=pending must never invalidate a previously
+     verified server snapshot for the same learner.
    - Background refresh must never block an already verified route.
    - ID-first resume is allowed: studentId + section are sufficient.
    - IMPORTANT: never intercept the Identity/Profile modal "เรียนต่อ" button.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_START_RESUME_GATE_V181__) return;
-  window.__EAP_START_RESUME_GATE_V181__=true;
+  if(window.__EAP_START_RESUME_GATE_V182__) return;
+  window.__EAP_START_RESUME_GATE_V182__=true;
 
-  var VERSION='20260811-EAP-START-RESUME-GATE-V181-VERIFIED-SNAPSHOT-PASS';
+  var VERSION='20260811-EAP-START-RESUME-GATE-V182-SERVER-SNAPSHOT-TRUTH';
   var CHECK_TIMEOUT=20000;
   var STATE_KEY='EAP_HERO_PROGRESS_V3';
   var PROFILE_KEY='EAP_HERO_PLAYER_PROFILE_V1';
@@ -49,11 +52,11 @@
 
   function snapshotVerified(){
     var s=read(STATE_KEY),r=s&&s.serverResume||{},id=currentIdentity();
-    var route=clean(r.currentRoute||r.currentCloudRoute||s.currentCloudRoute||s.currentRoute).toUpperCase();
-    var resumeId=clean(r.studentId||s.studentId||s.id);
-    var resumeSection=clean(r.section||s.section||'122')||'122';
+    /* IMPORTANT: use route from serverResume only. Never accept optimistic local route. */
+    var route=clean(r.currentRoute||r.currentCloudRoute).toUpperCase();
+    var resumeId=clean(r.studentId||'');
+    var resumeSection=clean(r.section||id.section||'122')||'122';
     var verified=!!(
-      s.cloudResumeStatus==='ok' &&
       (r.cloudVerified===true||r.serverVerified===true||r.compact===true) &&
       VALID_ROUTE.test(route)
     );
@@ -88,11 +91,11 @@
     if(!node) return false;
     if(isIdentityModalNode(node)) return false;
     var label=clean(node.textContent);
-    return /^\s*[▶▷►]?\s*start\s*\/\s*continue\s*$/i.test(label) ? node : false;
+    return /^\s*[▶▷►]?\s*start\s*\/\s*continue\s*$/i.test(label)?node:false;
   }
   function toast(message,kind){
     var old=document.getElementById('eap-start-resume-gate-v177-toast');
-    if(old) old.remove();
+    if(old)old.remove();
     var el=document.createElement('div');
     el.id='eap-start-resume-gate-v177-toast';
     el.setAttribute('role','status');
@@ -105,12 +108,9 @@
   function replayPendingStart(){
     var node=pendingStart;
     pendingStart=null;
-    if(!node||!node.isConnected) return false;
+    if(!node||!node.isConnected)return false;
     allowNextStart=true;
-    setTimeout(function(){
-      try{node.click();}
-      catch(_){allowNextStart=false;}
-    },0);
+    setTimeout(function(){try{node.click();}catch(_){allowNextStart=false;}},0);
     return true;
   }
   function finishCheck(ok,message,continueStart){
@@ -118,14 +118,14 @@
     clearTimeout(checkTimer);
     if(ok){
       toast(message||'ยืนยันความคืบหน้าจาก Google Sheet แล้ว','ok');
-      if(continueStart!==false) replayPendingStart();
+      if(continueStart!==false)replayPendingStart();
     }else{
       pendingStart=null;
       toast(message||'ยังเชื่อมต่อ Google Sheet ไม่สำเร็จ กรุณากด Start / Continue เพื่อลองอีกครั้ง','error');
     }
   }
   function beginCheck(startNode){
-    if(checking) return;
+    if(checking)return;
     if(verified()){
       refreshInBackground();
       return;
@@ -140,40 +140,34 @@
     }
     clearTimeout(checkTimer);
     checkTimer=setTimeout(function(){
-      if(verified()) finishCheck(true,'ยืนยันความคืบหน้าจาก Google Sheet แล้ว',true);
+      if(verified())finishCheck(true,'ยืนยันความคืบหน้าจาก Google Sheet แล้ว',true);
       else finishCheck(false,'Google Sheet ยังไม่ตอบกลับ ระบบจะไม่เดาเส้นทางให้ กรุณากด Start / Continue เพื่อลองอีกครั้ง',false);
     },CHECK_TIMEOUT);
   }
 
   window.addEventListener('eap:single-authority-applied',function(){
-    if(checking||verified()) finishCheck(true,'ยืนยันความคืบหน้าจาก Google Sheet แล้ว',true);
+    if(checking||verified())finishCheck(true,'ยืนยันความคืบหน้าจาก Google Sheet แล้ว',true);
   });
   window.addEventListener('eap:resume-synced',function(){
-    setTimeout(function(){if(verified()&&checking) finishCheck(true,'ยืนยันความคืบหน้าจาก Google Sheet แล้ว',true);},0);
+    setTimeout(function(){if(verified()&&checking)finishCheck(true,'ยืนยันความคืบหน้าจาก Google Sheet แล้ว',true);},0);
   });
   window.addEventListener('eap:resume-failed',function(event){
     var detail=event&&event.detail||{};
-    if(checking&& !snapshotVerified()) finishCheck(false,detail.message||'เชื่อมต่อ Google Sheet ไม่สำเร็จ กรุณากด Start / Continue เพื่อลองอีกครั้ง',false);
+    if(checking&&!snapshotVerified())finishCheck(false,detail.message||'เชื่อมต่อ Google Sheet ไม่สำเร็จ กรุณากด Start / Continue เพื่อลองอีกครั้ง',false);
   });
 
   document.addEventListener('click',function(event){
     var start=isStart(event.target);
-    if(!start) return;
-
-    if(allowNextStart){
-      allowNextStart=false;
-      return;
-    }
-
-    /* PRODUCTION RULE: an already server-verified route must never be blocked by a new network request. */
+    if(!start)return;
+    if(allowNextStart){allowNextStart=false;return;}
+    /* A valid serverResume snapshot must never be blocked by transient refresh state. */
     if(verified()){
       refreshInBackground();
       return;
     }
-
     event.preventDefault();
     event.stopPropagation();
-    if(typeof event.stopImmediatePropagation==='function') event.stopImmediatePropagation();
+    if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
     beginCheck(start);
   },true);
 
