@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-11-TEACHER-REWARD-MANAGER-FIRST20-V1';
+const VERSION='2026-08-11-TEACHER-REWARD-MANAGER-FIRST20-V2-RANKED';
 const COL='ewp_bonus_rewards';
 const LIMIT=20;
 let currentSession='D1-AM';
@@ -14,25 +14,17 @@ function dateTime(v){const ms=millis(v);return ms?new Date(ms).toLocaleString('t
 function insertUi(){
   if(document.getElementById('rewardManagerCard'))return;
   const anchor=document.querySelector('.session-panel');if(!anchor)return;
-  const section=document.createElement('section');
-  section.id='rewardManagerCard';section.className='card';section.style.marginBottom='12px';
+  const section=document.createElement('section');section.id='rewardManagerCard';section.className='card';section.style.marginBottom='12px';
   section.innerHTML=`<div class="session-head"><div><strong>🎁 Bonus Reward • First 20 Finishers</strong><div class="note">Lexicon Lens Hunt • รางวัลสำหรับ 20 คนแรกของแต่ละรอบ • จัดอันดับด้วย Firebase server timestamp</div></div><button id="rewardRefreshBtn" class="btn">↻ Refresh Rewards</button></div>
   <div id="rewardKpis" class="learning" style="margin-bottom:10px"></div>
   <div class="table-wrap"><table class="table" style="min-width:820px"><thead><tr><th>Rank</th><th>ผู้เล่น</th><th>เสร็จเวลา</th><th>Bonus</th><th>Reward</th><th>รับรางวัล</th></tr></thead><tbody id="rewardBody"></tbody></table></div>
   <p class="note" id="rewardNote" style="margin:10px 0 0">ยังไม่โหลดข้อมูลรางวัล</p>`;
-  anchor.insertAdjacentElement('afterend',section);
-  document.getElementById('rewardRefreshBtn').addEventListener('click',()=>refresh(true));
+  anchor.insertAdjacentElement('afterend',section);document.getElementById('rewardRefreshBtn').addEventListener('click',()=>refresh(true));
 }
 function render(){
-  insertUi();
-  const winners=rows.slice(0,LIMIT);
-  const claimed=winners.filter(r=>r.rewardClaimed===true).length;
-  const waiting=winners.length-claimed;
+  insertUi();const winners=rows.slice(0,LIMIT),claimed=winners.filter(r=>r.rewardClaimed===true).length,waiting=winners.length-claimed;
   document.getElementById('rewardKpis').innerHTML=[
-    [`${rows.length}`,'Bonus Completed'],
-    [`${winners.length}/${LIMIT}`,'Reward Winners'],
-    [`${claimed}`,'Claimed'],
-    [`${waiting}`,'Waiting Pickup']
+    [`${rows.length}`,'Bonus Completed'],[`${winners.length}/${LIMIT}`,'Reward Winners'],[`${claimed}`,'Claimed'],[`${waiting}`,'Waiting Pickup']
   ].map(([v,l])=>`<div class="metric"><strong>${h(v)}</strong><small>${h(l)}</small></div>`).join('');
   document.getElementById('rewardBody').innerHTML=winners.length?winners.map((r,i)=>`<tr>
     <td><strong>#${i+1}</strong></td>
@@ -46,33 +38,39 @@ function render(){
   document.querySelectorAll('.reward-toggle').forEach(btn=>btn.addEventListener('click',()=>toggleClaim(btn.dataset.id,btn.dataset.claimed!=='1')));
 }
 async function loadRows(){
-  const db=firebase.firestore();
-  const snap=await db.collection(COL).where('sessionId','==',currentSession).get();
-  rows=snap.docs.map(d=>({id:d.id,...(d.data()||{})})).filter(r=>r.completed===true)
-    .sort((a,b)=>millis(a.firstCompletedAt)-millis(b.firstCompletedAt)||String(a.id).localeCompare(String(b.id)));
+  const db=firebase.firestore();const snap=await db.collection(COL).where('sessionId','==',currentSession).get();
+  rows=snap.docs.map(d=>({id:d.id,...(d.data()||{})})).filter(r=>r.completed===true).sort((a,b)=>millis(a.firstCompletedAt)-millis(b.firstCompletedAt)||String(a.id).localeCompare(String(b.id)));
+}
+async function stampRanks(){
+  if(!rows.length)return;
+  const db=firebase.firestore(),batch=db.batch();let writes=0;
+  rows.forEach((r,i)=>{
+    const eligible=i<LIMIT,rank=eligible?i+1:null;
+    if(Boolean(r.rewardEligible)!==eligible || (eligible&&Number(r.rewardRank)!==rank) || (!eligible&&r.rewardRank!=null)){
+      batch.update(db.collection(COL).doc(r.id),{
+        rewardEligible:eligible,rewardRank:rank,rankedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      });writes+=1;
+    }
+  });
+  if(writes){await batch.commit();await loadRows();}
 }
 async function refresh(force=false){
-  if(loading)return;insertUi();
-  const select=document.getElementById('sessionFilter');currentSession=clean(select?.value||currentSession)||'D1-AM';
-  loading=true;const b=document.getElementById('rewardRefreshBtn');if(b)b.disabled=true;
+  if(loading)return;insertUi();const select=document.getElementById('sessionFilter');currentSession=clean(select?.value||currentSession)||'D1-AM';loading=true;
+  const b=document.getElementById('rewardRefreshBtn');if(b)b.disabled=true;
   try{
     const user=firebase.auth().currentUser;if(!user||user.isAnonymous)throw new Error('TEACHER_SIGN_IN_REQUIRED');
-    await loadRows();render();
+    await loadRows();await stampRanks();render();
   }catch(error){console.error('[LEXICON X] Reward Manager load failed',error);const note=document.getElementById('rewardNote');if(note)note.textContent='โหลด Reward Manager ไม่สำเร็จ: '+String(error?.message||error);
   }finally{loading=false;if(b)b.disabled=false;}
 }
 async function toggleClaim(id,claimed){
-  const user=firebase.auth().currentUser;if(!user||user.isAnonymous)return;
-  const ref=firebase.firestore().collection(COL).doc(id);
+  const user=firebase.auth().currentUser;if(!user||user.isAnonymous)return;const ref=firebase.firestore().collection(COL).doc(id);
   const patch={rewardClaimed:Boolean(claimed),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
-  if(claimed){patch.rewardClaimedAt=firebase.firestore.FieldValue.serverTimestamp();patch.claimedBy=user.uid;patch.claimedByEmail=user.email||'';}
-  else{patch.rewardClaimedAt=null;patch.claimedBy='';patch.claimedByEmail='';}
+  if(claimed){patch.rewardClaimedAt=firebase.firestore.FieldValue.serverTimestamp();patch.claimedBy=user.uid;patch.claimedByEmail=user.email||'';}else{patch.rewardClaimedAt=null;patch.claimedBy='';patch.claimedByEmail='';}
   try{await ref.update(patch);await refresh(true)}catch(error){console.error(error);alert('บันทึกสถานะรับรางวัลไม่สำเร็จ: '+String(error?.message||error));}
 }
 function bind(){
-  insertUi();
-  document.getElementById('sessionFilter')?.addEventListener('change',()=>setTimeout(()=>refresh(true),50));
-  document.getElementById('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>refresh(true),150));
+  insertUi();document.getElementById('sessionFilter')?.addEventListener('change',()=>setTimeout(()=>refresh(true),50));document.getElementById('refreshBtn')?.addEventListener('click',()=>setTimeout(()=>refresh(true),150));
   firebase.auth().onAuthStateChanged(user=>{if(user&&!user.isAnonymous)setTimeout(()=>refresh(true),250);});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
