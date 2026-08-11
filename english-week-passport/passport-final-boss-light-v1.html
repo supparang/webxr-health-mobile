@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#150b31">
+<title>LEXICON X • Final Boss Event-Day Light</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#100726;font-family:Inter,"Noto Sans Thai",system-ui,sans-serif}body{position:fixed;inset:0}.shell{position:fixed;inset:0}.game{display:block;width:100%;height:100%;border:0;background:#100726}.boot{position:fixed;z-index:90;inset:0;display:grid;place-items:center;background:#100726;color:#fff;text-align:center;padding:24px}.boot.hide{display:none}.spin{width:36px;height:36px;margin:0 auto 12px;border:4px solid #463872;border-top-color:#6fe7ff;border-radius:50%;animation:s .75s linear infinite}@keyframes s{to{transform:rotate(360deg)}}.status{position:fixed;z-index:100;left:10px;right:10px;bottom:max(10px,env(safe-area-inset-bottom));display:none;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px 11px;border:1px solid #6457a8;border-radius:16px;background:rgba(22,11,53,.97);color:#fff;box-shadow:0 14px 34px rgba(0,0,0,.42)}.status.show{display:grid}.status.good{border-color:#45d8a5}.status.bad{border-color:#ff718d}.status strong{display:block;font-size:.92rem}.status small{display:block;margin-top:2px;color:#c9c2e8}.status button{min-height:44px;border:0;border-radius:13px;padding:8px 12px;font-weight:900;background:linear-gradient(135deg,#61e6ff,#74efbd);color:#10213b}.status.bad button{background:#ffd077}
+</style>
+</head>
+<body>
+<div class="shell"><iframe id="game" class="game" allow="camera; microphone; autoplay" title="LEXICON Champion Arena"></iframe></div>
+<div id="boot" class="boot"><div><div class="spin"></div><strong>กำลังเปิด LEXICON Champion Arena…</strong><div style="margin-top:6px;font-size:.85rem;color:#bdb5dd">Event-Day Light • Final Boss</div></div></div>
+<div id="status" class="status"><div><strong id="statusTitle">กำลังบันทึกผล…</strong><small id="statusDetail">กรุณาอย่าปิดหน้านี้</small></div><button id="statusAction" type="button">กลับ Passport</button></div>
+<script src="./config.js?v=20260811-event-day-light-r10"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="./firebase-web-config.js?v=20260811-event-day-light-r10"></script>
+<script src="./firestore-direct-authority-v1.js?v=20260811-event-day-light-r10"></script>
+<script src="./firebase-authority-bridge.js?v=20260811-event-day-light-r10"></script>
+<script>
+(()=>{
+'use strict';
+const VERSION='2026-08-11-FINAL-BOSS-EVENT-DAY-LIGHT-SHELL-R1';
+const q=new URLSearchParams(location.search);
+const frame=document.getElementById('game'),boot=document.getElementById('boot'),status=document.getElementById('status'),statusTitle=document.getElementById('statusTitle'),statusDetail=document.getElementById('statusDetail'),statusAction=document.getElementById('statusAction');
+let submitting=false,submitted=false,lastResult=null,receipt='',monitorTimer=0,returnTimer=0;
+function readIdentity(){try{return JSON.parse(localStorage.getItem(window.EW_CONFIG?.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
+let identity=readIdentity();
+if(!identity?.playerId&&q.get('pid')) identity={playerId:q.get('pid'),nickname:q.get('nickname')||'Player',fullName:q.get('nickname')||'Player'};
+function showStatus(title,detail,type,buttonText){status.className='status show '+(type||'');statusTitle.textContent=title;statusDetail.textContent=detail||'';statusAction.textContent=buttonText||'กลับ Passport'}
+function passportUrl(){const p=new URLSearchParams({resume:'passport',fromGame:'final_boss',v:'20260811-event-day-light-r10'});if(receipt)p.set('receipt',receipt);if(q.get('view')==='mobile')p.set('view','mobile');return './index.html?'+p.toString()}
+function goPassport(){clearInterval(monitorTimer);clearTimeout(returnTimer);location.replace(passportUrl())}
+function normalizeResult(raw){if(!raw)return null;const score=Math.max(0,Math.min(100,Math.round(Number(raw.score??raw.mastery??0))));return {playerId:identity?.playerId||raw.playerId||'',nickname:identity?.nickname||identity?.fullName||raw.nickname||'Player',stageId:'final_boss',score,total:100,durationMs:Math.max(0,Math.round(Number(raw.durationMs||0))),clientPoints:Math.max(0,Math.round(Number(raw.clientPoints||0))),answers:Array.isArray(raw.answers)?raw.answers:[{itemId:'__summary__',kind:'lexicon_champion',mastery:score,voiceScore:Number(raw.voiceScore||0),sourceVersion:VERSION}],sourceVersion:VERSION};}
+async function submit(raw){
+ if(submitted||submitting)return;const payload=normalizeResult(raw);if(!payload?.playerId)return;
+ submitting=true;lastResult=raw;showStatus('กำลังบันทึกผล Final Boss…','Event-Day Light • 1 progress write','','รอสักครู่');statusAction.disabled=true;
+ try{
+  if(!window.EW_AUTHORITY?.submitGame)throw new Error('EVENT_DAY_AUTHORITY_NOT_READY');
+  const response=await window.EW_AUTHORITY.submitGame(payload);
+  if(!response?.ok)throw new Error(response?.error||'SUBMIT_FAILED');
+  if(response.mode!=='firebase'&&response.authority?.mode!=='firebase')throw new Error('FIRESTORE_RECEIPT_REQUIRED');
+  if(!response.passed)throw new Error('FINAL_BOSS_NOT_PASSED_'+String(response.accuracy??payload.score));
+  submitted=true;receipt=response.receiptId||response.resultId||`light-final_boss-${Date.now()}`;
+  showStatus('บันทึก Cloud Firestore สำเร็จ ✓',`Final Boss ผ่านแล้ว • ${Math.round(Number(response.accuracy??payload.score))}%`,'good','กลับ Passport');
+  statusAction.disabled=false;statusAction.onclick=goPassport;returnTimer=setTimeout(goPassport,1800);
+ }catch(error){console.error('[Final Boss Light Shell]',error);showStatus('บันทึก Cloud Firestore ไม่สำเร็จ',String(error?.message||error),'bad','ลองบันทึกอีกครั้ง');statusAction.disabled=false;statusAction.onclick=()=>{submitting=false;submit(lastResult||raw)}}finally{submitting=false}
+}
+function inspect(){try{const win=frame.contentWindow;const result=win?.LEXICON_CHAMPION_SHELL_RESULT;if(result?.ready&&!submitted&&!submitting)submit(result)}catch(_){}}
+window.addEventListener('message',event=>{if(event.origin!==location.origin)return;if(event.data?.type==='LEXICON_CHAMPION_COMPLETE')submit(event.data.result)});
+function launch(){
+ if(!identity?.playerId){location.replace('./index.html?v=20260811-event-day-light-r10');return}
+ const p=new URLSearchParams({from:'passport',shell:'1',submit:'0',authority:'shell',pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run:q.get('run')||'1',stage:'final_boss',v:'20260811-final-boss-shell-r1'});if(q.get('view')==='mobile')p.set('view','mobile');
+ frame.src='./lexicon-champion-arena-v47.html?'+p.toString();frame.addEventListener('load',()=>boot.classList.add('hide'),{once:true});monitorTimer=setInterval(inspect,150);
+}
+statusAction.onclick=goPassport;launch();
+})();
+</script>
+</body>
+</html>
