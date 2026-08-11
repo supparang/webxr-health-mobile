@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-11-JOURNEY-CLIENT-EVENT-DAY-LIGHT-V7-BONUS';
+const VERSION='2026-08-11-JOURNEY-CLIENT-EVENT-DAY-LIGHT-V8-FINISH-AUTHORITY';
 const cfg=window.EW_CONFIG||{};
 const COL={progress:'ewp_progress',events:'ewp_events',assessments:'ewp_assessments',gameSummary:'ewp_game_summary'};
 const GAME_META={
@@ -29,7 +29,7 @@ async function bootstrap(){
     loadScript('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js',()=>Boolean(window.firebase?.auth)),
     loadScript('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js',()=>Boolean(window.firebase?.firestore))
   ]);
-  await loadScript('./firebase-web-config.js?v=20260811-event-day-light-r10',()=>Boolean(window.EW_FIREBASE_WEB_CONFIG?.projectId==='englishweek-95869'));
+  await loadScript('./firebase-web-config.js?v=20260811-event-day-light-r11-finish',()=>Boolean(window.EW_FIREBASE_WEB_CONFIG?.projectId==='englishweek-95869'));
   if(!window.EW_AUTHORITY?.resume)await loadScript('./firestore-direct-authority-v1.js?v=20260811-event-day-light-r10',()=>Boolean(window.EW_AUTHORITY?.resume));
   if(!window.EW_AUTHORITY?.resume)throw new Error('FIRESTORE_DIRECT_AUTHORITY_NOT_READY');
 }
@@ -78,7 +78,7 @@ async function event(playerId,type,payload={}){
 }
 async function status(playerId){
   const r=await ensure(playerId),p=r.progress||{};
-  return {ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Event-Day Light Progress',playerId,reflectionDone:Boolean(p.reflectionDone||p.finalReflection),summaryViewed:Boolean(p.summaryViewed),certificateEligible:Boolean(p.certificateEligible),version:VERSION};
+  return {ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Event-Day Light Progress',playerId,reflectionDone:Boolean(p.reflectionDone||p.finalReflection),summaryViewed:Boolean(p.summaryViewed),certificateEligible:Boolean(p.certificateEligible),finishedAt:p.finishedAt||null,finishReceiptId:String(p.finishReceiptId||''),version:VERSION};
 }
 async function submitReflection(payload){
   const playerId=String(payload?.playerId||'').trim();if(!playerId)throw new Error('PLAYER_ID_REQUIRED');
@@ -115,10 +115,23 @@ async function summary(playerId){
   },version:VERSION};
 }
 async function completeSummary(playerId){
-  const r=await ensure(playerId);if(!(r.progress?.reflectionDone||r.progress?.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');
-  await firebase.firestore().collection(COL.progress).doc(playerId).set({playerId,summaryViewed:true,summaryViewedAt:nowIso(),updatedAt:nowIso(),journeySourceVersion:VERSION},{merge:true});
-  return {ok:true,mode:'firebase',receiptId:`summary-light-${Date.now()}`,summaryViewed:true,sourceOfTruth:'Cloud Firestore Event-Day Light',version:VERSION};
+  const r=await ensure(playerId);const p=r.progress||{};
+  if(!(p.reflectionDone||p.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');
+  if(!p.postDone||!p.certificateEligible)throw new Error('CERTIFICATE_NOT_ELIGIBLE');
+  const db=firebase.firestore();const ref=db.collection(COL.progress).doc(playerId);const finishReceiptId=uid('finish');
+  await db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);if(!snap.exists)throw new Error('PROGRESS_NOT_FOUND');
+    const current=snap.data()||{};
+    if(!(current.reflectionDone||current.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');
+    if(!current.postDone||!current.certificateEligible)throw new Error('CERTIFICATE_NOT_ELIGIBLE');
+    const patch={playerId,summaryViewed:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),journeySourceVersion:VERSION};
+    if(!current.summaryViewedAt)patch.summaryViewedAt=firebase.firestore.FieldValue.serverTimestamp();
+    if(!current.finishedAt){patch.finishedAt=firebase.firestore.FieldValue.serverTimestamp();patch.finishReceiptId=finishReceiptId;patch.finishSource='journey_summary_confirmed';patch.finishVersion=VERSION;}
+    tx.set(ref,patch,{merge:true});
+  });
+  const latestProgress=await readRawProgress(playerId);
+  return {ok:true,mode:'firebase',receiptId:String(latestProgress.finishReceiptId||finishReceiptId),summaryViewed:true,finishedAt:latestProgress.finishedAt||null,sourceOfTruth:'Cloud Firestore Server Finish Authority',version:VERSION};
 }
 window.EW_JOURNEY=Object.freeze({version:VERSION,endpointReady,status,submitReflection,summary,completeSummary,health:async()=>{await readyPromise;return {ok:true,mode:'firebase',version:VERSION}}});
-console.info('[LEXICON X] Journey Client Event-Day Light V7 Bonus ready');
+console.info('[LEXICON X] Journey Client Event-Day Light V8 Finish Authority ready');
 }());
