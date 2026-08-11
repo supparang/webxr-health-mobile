@@ -1,5 +1,5 @@
 /* =========================================================
-   EAP Hero • Single Sheet Authority Runtime v1
+   EAP Hero • Single Sheet Authority Runtime v2
    ---------------------------------------------------------
    One owner for:
    - player_resume acceptance
@@ -7,22 +7,26 @@
    - lobby loading state
    - Recent Portfolio cloud records
    - refresh after submit
+   - player-scoped verified snapshot persistence
 
    Rules:
    1) Google Sheet player_resume is the only progression authority.
    2) Local evidence never advances a route.
    3) Submit modules only deliver evidence; this runtime refreshes resume.
    4) Cached data is usable only when it was server-verified for the same identity.
+   5) A verified server state must be mirrored to the learner-scoped snapshot so reload cannot downgrade progress.
 ========================================================= */
 (function () {
   'use strict';
 
-  if (window.__EAP_SINGLE_AUTHORITY_V1__) return;
-  window.__EAP_SINGLE_AUTHORITY_V1__ = true;
+  if (window.__EAP_SINGLE_AUTHORITY_V2__) return;
+  window.__EAP_SINGLE_AUTHORITY_V2__ = true;
 
-  var VERSION = '20260802-EAP-SINGLE-SHEET-AUTHORITY-V1';
+  var VERSION = '20260811-EAP-SINGLE-SHEET-AUTHORITY-V2-SNAPSHOT-SAFE';
   var STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   var PROFILE_KEY = 'EAP_HERO_PLAYER_PROFILE_V1';
+  var ACTIVE_KEY = 'EAP_HERO_ACTIVE_PLAYER_V1';
+  var SNAPSHOT_PREFIX = 'EAP_HERO_PLAYER_STATE_V1_';
   var ORDER = [
     'S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3',
     'S10','S11','S12','B4','S13','S14','S15','B5'
@@ -44,16 +48,29 @@
     return parseJSON(localStorage.getItem(STATE_KEY) || '{}', {}) || {};
   }
 
+  function snapshotKeyFromState(state) {
+    state = state || {};
+    var id = text(state.studentId || state.id || (state.profile && (state.profile.studentId || state.profile.id)));
+    var section = text(state.section || (state.profile && state.profile.section) || '122') || '122';
+    if (!id) return '';
+    return SNAPSHOT_PREFIX + encodeURIComponent(section + '__' + id);
+  }
+
   function writeState(state) {
-    try { localStorage.setItem(STATE_KEY, JSON.stringify(state || {})); } catch (_) {}
+    try {
+      localStorage.setItem(STATE_KEY, JSON.stringify(state || {}));
+      var scopedKey = snapshotKeyFromState(state);
+      if (scopedKey) localStorage.setItem(scopedKey, JSON.stringify(state || {}));
+    } catch (_) {}
   }
 
   function readProfile() {
+    var active = parseJSON(localStorage.getItem(ACTIVE_KEY) || '{}', {}) || {};
     var official = parseJSON(localStorage.getItem(PROFILE_KEY) || '{}', {}) || {};
     var state = readState();
-    var studentId = text(official.studentId || official.id || state.studentId || state.id);
-    var studentName = text(official.studentName || official.name || state.studentName || state.name || state.playerName);
-    var section = text(official.section || state.section || (window.EAP_SHEET_CONFIG || {}).section || '122') || '122';
+    var studentId = text(active.studentId || active.id || official.studentId || official.id || state.studentId || state.id);
+    var studentName = text(active.studentName || active.name || official.studentName || official.name || state.studentName || state.name || state.playerName);
+    var section = text(active.section || official.section || state.section || (window.EAP_SHEET_CONFIG || {}).section || '122') || '122';
     return { studentId: studentId, studentName: studentName, section: section };
   }
 
@@ -159,12 +176,23 @@
 
     var resume = compactResume(data);
     var state = readState();
+    var profile = readProfile();
+    state.profile = Object.assign({}, state.profile || {}, profile);
+    state.player = Object.assign({}, state.player || {}, profile);
+    state.user = Object.assign({}, state.user || {}, profile);
+    state.id = profile.studentId;
+    state.name = profile.studentName;
+    state.playerName = profile.studentName;
+    state.studentId = profile.studentId;
+    state.studentName = profile.studentName;
+    state.section = profile.section;
     state.cloudResumeStatus = 'ok';
     state.currentRoute = resume.currentRoute;
     state.currentCloudRoute = resume.currentRoute;
     state.unlockedRoutes = resume.unlockedRoutes;
     state.serverResume = resume;
     state.authorityVersion = VERSION;
+    state.__verifiedSnapshotAt = new Date().toISOString();
     writeState(state);
 
     live = {
