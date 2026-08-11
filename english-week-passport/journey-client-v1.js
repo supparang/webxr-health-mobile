@@ -1,8 +1,8 @@
 (function(){
 'use strict';
-const VERSION='2026-08-11-JOURNEY-CLIENT-EVENT-DAY-LIGHT-V6';
+const VERSION='2026-08-11-JOURNEY-CLIENT-EVENT-DAY-LIGHT-V7-BONUS';
 const cfg=window.EW_CONFIG||{};
-const COL={progress:'ewp_progress',events:'ewp_events',assessments:'ewp_assessments'};
+const COL={progress:'ewp_progress',events:'ewp_events',assessments:'ewp_assessments',gameSummary:'ewp_game_summary'};
 const GAME_META={
   word_match:{title:'LexiMatch Navigator',skill:'Vocabulary matching'},
   category_forest:{title:'Category Forest',skill:'Category & context'},
@@ -36,6 +36,7 @@ async function bootstrap(){
 const readyPromise=bootstrap().catch(error=>{console.error('[LEXICON X] Journey bootstrap failed',error);throw error});
 function endpointReady(){return cfg.authorityMode==='firestore-direct'}
 async function readRawProgress(playerId){const s=await firebase.firestore().collection(COL.progress).doc(playerId).get();return s.exists?{playerId,...(s.data()||{})}:{playerId}}
+async function readGameSummary(playerId){const s=await firebase.firestore().collection(COL.gameSummary).doc(playerId).get();return s.exists?{playerId,...(s.data()||{})}:{playerId}}
 async function ensure(playerId,nickname=''){
   await readyPromise;
   const r=await window.EW_AUTHORITY.resume(playerId,nickname);
@@ -64,6 +65,12 @@ function gamesFromProgress(p){
     source:'ewp_progress'
   }));
 }
+function bonusFromSummary(row){
+  const raw=row?.bonusBest;
+  const score=Math.max(0,Math.min(100,Math.round(Number(raw?.score||0))));
+  if(!raw||!Number.isFinite(Number(raw.score)))return {played:false,score:0,title:'Lexicon Lens Hunt',receipt:'',updatedAt:'',source:'ewp_game_summary'};
+  return {played:true,score,title:'Lexicon Lens Hunt',receipt:String(raw.receipt||''),updatedAt:String(raw.at||raw.updatedAt||row?.bonusUpdatedAt||''),source:'ewp_game_summary'};
+}
 async function event(playerId,type,payload={}){
   const receiptId=uid(type);
   await firebase.firestore().collection(COL.events).doc(receiptId).set({playerId,type,receiptId,...payload,createdAt:nowIso(),sourceVersion:VERSION});
@@ -85,21 +92,26 @@ function strongest(games){const done=games.filter(g=>g.passed||g.bestAccuracy>0)
 async function summary(playerId){
   const r=await ensure(playerId),p=r.progress||{};
   if(!(p.reflectionDone||p.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');
-  const assessments=await ownRows(COL.assessments,playerId);
+  const [assessments,gameSummary]=await Promise.all([ownRows(COL.assessments,playerId),readGameSummary(playerId)]);
   const pre=latest(assessments,'pre'),post=latest(assessments,'post');
   const games=gamesFromProgress(p);
   const played=games.filter(g=>g.passed||g.bestAccuracy>0);
   const averageGameAccuracy=played.length?Math.round(played.reduce((n,g)=>n+g.bestAccuracy,0)/played.length):0;
+  const coreScore=games.reduce((n,g)=>n+Number(g.bestAccuracy||0),0);
+  const bonus=bonusFromSummary(gameSummary);
+  const bonusScore=bonus.played?bonus.score:0;
+  const passportTotal=coreScore+bonusScore;
   const preAccuracy=accuracyOf(pre),postAccuracy=accuracyOf(post);
-  return {ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Event-Day Light Progress + Assessments',summaryViewed:Boolean(p.summaryViewed),summary:{
+  return {ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Event-Day Light Progress + Assessments + Bonus Summary',summaryViewed:Boolean(p.summaryViewed),summary:{
     pre:{accuracy:preAccuracy,receiptId:pre?.receiptId||pre?.id||''},
     post:{accuracy:postAccuracy,receiptId:post?.receiptId||post?.id||''},
     learningGain:postAccuracy-preAccuracy,
     averageGameAccuracy,
+    coreScore,bonusScore,passportTotal,
     totalAttempts:0,totalDurationMs:0,
     games,strongestSkill:strongest(games),
     badge:p.certificate?.awardLevel||'Word Master',
-    reflection:p.finalReflection||{},bonus:{played:false}
+    reflection:p.finalReflection||{},bonus
   },version:VERSION};
 }
 async function completeSummary(playerId){
@@ -108,5 +120,5 @@ async function completeSummary(playerId){
   return {ok:true,mode:'firebase',receiptId:`summary-light-${Date.now()}`,summaryViewed:true,sourceOfTruth:'Cloud Firestore Event-Day Light',version:VERSION};
 }
 window.EW_JOURNEY=Object.freeze({version:VERSION,endpointReady,status,submitReflection,summary,completeSummary,health:async()=>{await readyPromise;return {ok:true,mode:'firebase',version:VERSION}}});
-console.info('[LEXICON X] Journey Client Event-Day Light V6 ready');
+console.info('[LEXICON X] Journey Client Event-Day Light V7 Bonus ready');
 }());
