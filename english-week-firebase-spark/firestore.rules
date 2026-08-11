@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // LEXICON X • Spark-safe teacher console R3
+    // LEXICON X • Spark-safe teacher console R3 + Bonus Reward Manager V1
     // Students keep anonymous per-player ownership. Teachers authenticate with
     // Firebase Email/Password and are authorized only by ewp_teacher_roles/{uid}.
     function signedIn() { return request.auth != null; }
@@ -96,6 +96,30 @@ service cloud.firestore {
       allow list: if isTeacher();
       allow create: if owns(playerId) && request.resource.data.playerId == playerId;
       allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
+      allow delete: if false;
+    }
+
+    // Optional Lexicon Lens Hunt reward: exactly one immutable completion record
+    // per player/session. Ranking is computed by Teacher Console from server time.
+    match /ewp_bonus_rewards/{rewardId} {
+      allow get: if isTeacher() || (resource.data.playerId is string && owns(resource.data.playerId));
+      allow list: if isTeacher();
+      allow create: if request.resource.data.playerId is string
+        && owns(request.resource.data.playerId)
+        && request.resource.data.sessionId is string
+        && exists(/databases/$(database)/documents/ewp_progress/$(request.resource.data.playerId))
+        && get(/databases/$(database)/documents/ewp_progress/$(request.resource.data.playerId)).data.attendanceSessionId == request.resource.data.sessionId
+        && request.resource.data.completed == true
+        && request.resource.data.rewardClaimed == false
+        && request.resource.data.firstCompletedAt == request.time
+        && request.resource.data.createdAt == request.time;
+      allow update: if isTeacher()
+        && request.resource.data.playerId == resource.data.playerId
+        && request.resource.data.sessionId == resource.data.sessionId
+        && request.resource.data.firstCompletedAt == resource.data.firstCompletedAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'rewardClaimed','rewardClaimedAt','claimedBy','claimedByEmail','updatedAt'
+        ]);
       allow delete: if false;
     }
 
