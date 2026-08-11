@@ -1,14 +1,14 @@
 (function () {
   "use strict";
 
-  const VERSION = "2026-08-11-SPARK-EVENT-DAY-LIGHT-R10-VERIFIED-OWNERSHIP";
+  const VERSION = "2026-08-11-SPARK-EVENT-DAY-LIGHT-R11-GAME1-55";
   const CLAIM_CACHE_KEY = "ew_eventday_claimed_player_v3";
-  const PASS_MARKS = Object.freeze({word_match:70,category_forest:70,sentence_city:70,word_detective:70,final_boss:65});
+  const PASS_MARKS = Object.freeze({word_match:55,category_forest:60,sentence_city:60,word_detective:60,final_boss:60});
   const FLOW = ["pre_challenge","word_match","category_forest","sentence_city","word_detective","final_boss","post_challenge","certificate"];
 
   const direct = window.EW_AUTHORITY;
   if (!direct || !direct.directFirestoreVersion || typeof direct.resume !== "function" || typeof direct.submitGame !== "function") {
-    console.error("LEXICON X Event-Day Light R10: Direct Authority must load before bridge");
+    console.error("LEXICON X Event-Day Light R11: Direct Authority must load before bridge");
     return;
   }
 
@@ -77,7 +77,7 @@
         claimedAt:snap.exists ? (snap.data()?.claimedAt || nowIso()) : nowIso(),
         updatedAt:nowIso(),
         sourceVersion:VERSION,
-        sourceMode:"event-day-light-r10"
+        sourceMode:"event-day-light-r11-game1-55"
       },{merge:true});
     }
 
@@ -103,8 +103,6 @@
     ]);
     if(!p.exists) throw new Error("PLAYER_NOT_FOUND");
 
-    // If this is a QA id and the progress doc does not exist yet, let Direct
-    // Authority create the initial assignment/progress once. Normal returns stay read-only.
     if(!g.exists){
       const result=await call("resume",[id,nickname]);
       await verifyOwnership(id,true);
@@ -210,7 +208,7 @@
   function getRuntimeStatus(){
     let directStatus=null;
     try{directStatus=typeof direct.getRuntimeStatus==="function"?direct.getRuntimeStatus():null;}catch(_){}
-    return Object.freeze({...runtime,...(directStatus||{}),endpointReady:true,bridgeVersion:VERSION,eventDayLightMode:true});
+    return Object.freeze({...runtime,...(directStatus||{}),endpointReady:true,bridgeVersion:VERSION,eventDayLightMode:true,passMarks:PASS_MARKS});
   }
 
   const proxy=Object.freeze({
@@ -230,6 +228,8 @@
     getAssessmentCheckpoint:(...args)=>lightGetCheckpoint(...args),
     clearAssessmentCheckpoint:(...args)=>lightClearCheckpoint(...args),
     getRuntimeStatus,
+    passMark:60,
+    passMarks:PASS_MARKS,
     compatibilityBridgeVersion:VERSION,
     eventDayLightMode:true
   });
@@ -237,7 +237,7 @@
   window.EW_AUTHORITY=proxy;
   window.EW_EVENT_DAY_LIGHT_MODE=Object.freeze({
     enabled:true,version:VERSION,gameWritesPerAttempt:1,eventWritesPerEvent:0,
-    checkpointWrites:0,repeatedResumeWrites:0,ownershipVerified:true
+    checkpointWrites:0,repeatedResumeWrites:0,ownershipVerified:true,passMarks:PASS_MARKS
   });
   runtime.lastSuccessAt=nowIso();emit();
 }());
