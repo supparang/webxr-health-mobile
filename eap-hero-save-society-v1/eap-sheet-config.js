@@ -44,12 +44,13 @@ window.EAP_SHEET_CONFIG={
   }
 })();
 
-/* Retire cached legacy owners before their script tags execute. */
+/* Retire cached legacy owners BEFORE parser reaches their direct script tags. */
 window.__EAP_PLAYER_RESUME_STABLE_JSONP_V175__=true;
+window.__EAP_RESUME_TRANSPORT_V179__=true;
 window.__EAP_JSONP_GUARD_RETIRED_V5__=true;
 window.__EAP_SINGLE_AUTHORITY_V1__=true;
 
-/* Cache-safe bootstrap for mobile-safe identity + single-flight transport + snapshot-safe authority v2. */
+/* Cache-safe bootstrap: identity + authority-first transport v180 + snapshot-safe authority v2. */
 (function(){
   'use strict';
   function load(src,key){
@@ -60,8 +61,8 @@ window.__EAP_SINGLE_AUTHORITY_V1__=true;
   }
   function boot(){
     load('./eap-profile-id-first-v117.js?v=20260810-identity-v122-mobile-safe-r1','identity-v122-mobile-safe-r1');
-    load('./eap-player-resume-stable-jsonp-v174.js?v=20260802-resume-transport-v176-single-flight-r2','transport-v176-r2');
-    load('./eap-authority-runtime-v1.js?v=20260811-single-sheet-authority-v2-snapshot-safe-r1','single-authority-v2-snapshot-safe-r1');
+    load('./eap-player-resume-stable-jsonp-v174.js?v=20260811-resume-transport-v180-authority-first-r1','transport-v180-authority-first-r1');
+    load('./eap-authority-runtime-v1.js?v=20260811-single-sheet-authority-v2-snapshot-safe-r2','single-authority-v2-snapshot-safe-r2');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
   else boot();
