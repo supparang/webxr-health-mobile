@@ -1,20 +1,24 @@
 /* =========================================================
-   EAP Hero • Start / Resume Gate v180
+   EAP Hero • Start / Resume Gate v181
    PURPOSE
    - Never leave Start / Continue in an indefinite checking state.
    - Google Sheet remains the only progression authority.
+   - A server-verified learner-scoped snapshot is sufficient to Start immediately.
+   - Background refresh must never block an already verified route.
    - ID-first resume is allowed: studentId + section are sufficient.
-   - Gate timeout is longer than the transport timeout.
    - IMPORTANT: never intercept the Identity/Profile modal "เรียนต่อ" button.
-   - ONE CLICK: after Sheet verification, continue the original Start action once.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_START_RESUME_GATE_V180__) return;
-  window.__EAP_START_RESUME_GATE_V180__=true;
+  if(window.__EAP_START_RESUME_GATE_V181__) return;
+  window.__EAP_START_RESUME_GATE_V181__=true;
 
-  var VERSION='20260811-EAP-START-RESUME-GATE-V180-ONE-CLICK-CONTINUE';
-  var CHECK_TIMEOUT=50000;
+  var VERSION='20260811-EAP-START-RESUME-GATE-V181-VERIFIED-SNAPSHOT-PASS';
+  var CHECK_TIMEOUT=20000;
+  var STATE_KEY='EAP_HERO_PROGRESS_V3';
+  var PROFILE_KEY='EAP_HERO_PLAYER_PROFILE_V1';
+  var ACTIVE_KEYS=['EAP_HERO_ACTIVE_PLAYER_V1','EAP_ACTIVE_PLAYER','EAP_HERO_ACTIVE_PLAYER'];
+  var VALID_ROUTE=/^(?:S(?:1[0-5]|[1-9])|B[1-5])$/;
   var checking=false;
   var checkTimer=0;
   var toastTimer=0;
@@ -22,18 +26,58 @@
   var allowNextStart=false;
 
   function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
+  function read(k){try{return JSON.parse(localStorage.getItem(k)||'{}')||{};}catch(_){return{};}}
   function authority(){return window.EAPAuthorityRuntime||null;}
-  function verified(){
+
+  function currentIdentity(){
+    var a={};
+    for(var i=0;i<ACTIVE_KEYS.length;i++){
+      a=read(ACTIVE_KEYS[i]);
+      if(clean(a.studentId||a.id)) break;
+    }
+    var p=read(PROFILE_KEY),s=read(STATE_KEY),cfg=window.EAP_SHEET_CONFIG||{};
+    return {
+      studentId:clean(a.studentId||a.id||p.studentId||p.id||s.studentId||s.id),
+      section:clean(a.section||p.section||s.section||cfg.section||'122')||'122'
+    };
+  }
+
+  function runtimeVerified(){
     var a=authority();
     try{return !!(a&&typeof a.isVerified==='function'&&a.isVerified());}catch(_){return false;}
   }
-  function refresh(){
+
+  function snapshotVerified(){
+    var s=read(STATE_KEY),r=s&&s.serverResume||{},id=currentIdentity();
+    var route=clean(r.currentRoute||r.currentCloudRoute||s.currentCloudRoute||s.currentRoute).toUpperCase();
+    var resumeId=clean(r.studentId||s.studentId||s.id);
+    var resumeSection=clean(r.section||s.section||'122')||'122';
+    var verified=!!(
+      s.cloudResumeStatus==='ok' &&
+      (r.cloudVerified===true||r.serverVerified===true||r.compact===true) &&
+      VALID_ROUTE.test(route)
+    );
+    if(!verified||!id.studentId) return false;
+    if(resumeId&&resumeId!==id.studentId) return false;
+    if(resumeSection&&resumeSection!==id.section) return false;
+    if(r.identityKey&&clean(r.identityKey)!==id.section+'|'+id.studentId) return false;
+    return true;
+  }
+
+  function verified(){return runtimeVerified()||snapshotVerified();}
+
+  function refresh(force){
     var t=window.EAPPlayerResumeStableJSONP;
-    try{if(t&&typeof t.request==='function') return t.request(true);}catch(_){}
+    try{if(t&&typeof t.request==='function') return t.request(force===true);}catch(_){}
     var a=authority();
     try{if(a&&typeof a.refresh==='function') return a.refresh();}catch(_){}
     return false;
   }
+
+  function refreshInBackground(){
+    setTimeout(function(){try{refresh(false);}catch(_){}},250);
+  }
+
   function isIdentityModalNode(node){
     if(!node||!node.closest) return false;
     return !!node.closest('#eap-profile-modal-v116,#eap-profile-modal-v115,#eap-profile-modal-v114,#eap-profile-modal-v113');
@@ -82,15 +126,16 @@
   }
   function beginCheck(startNode){
     if(checking) return;
+    if(verified()){
+      refreshInBackground();
+      return;
+    }
     checking=true;
     pendingStart=startNode||pendingStart;
     toast('กำลังตรวจสอบความคืบหน้าจาก Google Sheet…','checking');
-    var started=refresh();
+    var started=refresh(true);
     if(started===false){
-      var diag=window.EAPPlayerResumeStableJSONP&&window.EAPPlayerResumeStableJSONP.diagnostics;
-      var extra='';
-      try{if(typeof diag==='function'){var d=diag();if(d&&d.profile)extra=' · '+(d.profile.studentId||'?')+' / '+(d.profile.section||'?');}}catch(_){}
-      finishCheck(false,'ยังไม่สามารถเริ่มการตรวจสอบ Google Sheet ได้'+extra+' กรุณาลองอีกครั้ง',false);
+      finishCheck(false,'ยังไม่สามารถเริ่มการตรวจสอบ Google Sheet ได้ กรุณาลองอีกครั้ง',false);
       return;
     }
     clearTimeout(checkTimer);
@@ -108,7 +153,7 @@
   });
   window.addEventListener('eap:resume-failed',function(event){
     var detail=event&&event.detail||{};
-    if(checking) finishCheck(false,detail.message||'เชื่อมต่อ Google Sheet ไม่สำเร็จ กรุณากด Start / Continue เพื่อลองอีกครั้ง',false);
+    if(checking&& !snapshotVerified()) finishCheck(false,detail.message||'เชื่อมต่อ Google Sheet ไม่สำเร็จ กรุณากด Start / Continue เพื่อลองอีกครั้ง',false);
   });
 
   document.addEventListener('click',function(event){
@@ -120,7 +165,11 @@
       return;
     }
 
-    if(verified()) return;
+    /* PRODUCTION RULE: an already server-verified route must never be blocked by a new network request. */
+    if(verified()){
+      refreshInBackground();
+      return;
+    }
 
     event.preventDefault();
     event.stopPropagation();
