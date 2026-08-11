@@ -1,17 +1,15 @@
 (function(){
   'use strict';
-  const VERSION='2026-08-11-CERTIFICATE-ENGLISH-V1';
+  const VERSION='2026-08-11-CERTIFICATE-ENGLISH-V2-CORE-ACHIEVEMENT';
   const cfg=window.EW_CONFIG||{};
   const journey=window.EW_JOURNEY;
   const screen=document.getElementById('screen');
   const actions=document.getElementById('actions');
   function h(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}
   function readIdentity(){try{return JSON.parse(localStorage.getItem(cfg.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
-  function goPassport(){location.replace('./index.html?resume=passport&from=certificate&v=20260811-certificate-english-v1')}
-  function goSummary(){location.replace('./journey-summary.html?v=20260811-event-day-light-v6')}
-  function formatEnglishDate(date){
-    try{return new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric'}).format(date)}catch(_){return date.toLocaleDateString('en-GB',{year:'numeric',month:'long',day:'numeric'})}
-  }
+  function goPassport(){location.replace('./index.html?resume=passport&from=certificate&v=20260811-certificate-core-v2')}
+  function goSummary(){location.replace('./journey-summary.html?v=20260811-core-achievement-v2')}
+  function formatEnglishDate(date){try{return new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric'}).format(date)}catch(_){return date.toLocaleDateString('en-GB',{year:'numeric',month:'long',day:'numeric'})}}
   document.getElementById('passportBtn').addEventListener('click',goPassport);
   document.getElementById('printBtn').addEventListener('click',()=>window.print());
 
@@ -24,17 +22,22 @@
       if(!j.summaryViewed){goSummary();return}
       const authority=window.EW_AUTHORITY;
       if(!authority?.resume)throw new Error('FIRESTORE_DIRECT_AUTHORITY_NOT_READY');
-      const result=await authority.resume(identity.playerId,identity.nickname||identity.fullName||'');
+      const [result,summaryResult]=await Promise.all([
+        authority.resume(identity.playerId,identity.nickname||identity.fullName||''),
+        journey.summary(identity.playerId)
+      ]);
       if(!result?.ok||result.mode!=='firebase')throw new Error(result?.firebaseError||'FIREBASE_AUTHORITY_REQUIRED');
-      const p=result.profile||{};const pr=result.progress||{};const cert=pr.certificate||{};
+      if(!summaryResult?.ok||!summaryResult.summary)throw new Error('FIREBASE_JOURNEY_SUMMARY_REQUIRED');
+      const p=result.profile||{};const pr=result.progress||{};const cert=pr.certificate||{};const summary=summaryResult.summary||{};
       if(!pr.certificateEligible||!cert.certificateId)throw new Error('CERTIFICATE_NOT_READY');
-      const award=cert.awardLevel||'LEXICON X Explorer';
+      const award=summary.badge||'Challenge Finisher';
+      const passportTotal=Number(summary.passportTotal||summary.coreScore||0);
       const issued=cert.issuedAt?new Date(cert.issuedAt):new Date();
       screen.className='cert';
-      screen.innerHTML=`<div class="eyebrow">CERTIFICATE OF ACHIEVEMENT</div><h1>LEXICON X Challenge</h1><p class="lead">English Week Passport</p><p class="lead">This certificate is proudly presented to</p><div class="name">${h(p.fullName||p.nickname||identity.fullName||identity.nickname)}</div><p>for successfully completing the LEXICON X English learning journey and earning the level</p><div class="award">${h(award)}</div><div class="meta"><span>Total Passport Score: <strong>${Number(pr.totalScore||0)}</strong></span><span>Date: <strong>${h(formatEnglishDate(issued))}</strong></span></div><div class="id">Certificate ID: ${h(cert.certificateId)}</div>`;
+      screen.innerHTML=`<div class="eyebrow">CERTIFICATE OF ACHIEVEMENT</div><h1>LEXICON X Challenge</h1><p class="lead">English Week Passport</p><p class="lead">This certificate is proudly presented to</p><div class="name">${h(p.fullName||p.nickname||identity.fullName||identity.nickname)}</div><p>for successfully completing the LEXICON X English learning journey and earning the level</p><div class="award">${h(award)}</div><div class="meta"><span>Total Passport Score: <strong>${passportTotal}</strong></span><span>Date: <strong>${h(formatEnglishDate(issued))}</strong></span></div><div class="id">Certificate ID: ${h(cert.certificateId)}</div>`;
       actions.hidden=false;
     }catch(error){console.error(error);screen.textContent='Unable to open Certificate: '+String(error?.message||error);actions.hidden=false}
   }
-  console.info('[LEXICON X] Certificate English V1 ready',VERSION);
+  console.info('[LEXICON X] Certificate English V2 Core Achievement ready',VERSION);
   load();
 }());
