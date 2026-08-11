@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-11-PASSPORT-CHECKIN-UI-V2-ROUND-DETECTED';
+const VERSION='2026-08-11-PASSPORT-CHECKIN-UI-V3-LOGIN-SAFE';
 const SCREEN=document.getElementById('screen');
 const IDENTITY_KEY=window.EW_CONFIG?.cacheKeys?.identity||'ew_passport_identity_v1';
 let attendance=null;
@@ -17,10 +17,14 @@ function sessionLabel(id){
 function entrySession(){
   try{return clean(window.EW_ATTENDANCE_CHECKIN?.currentEntrySession?.()||window.EW_SESSION_ASSIGNMENT?.currentEntrySession?.()||'')}catch(_){return ''}
 }
+function onLoginScreen(){return Boolean(document.getElementById('loginForm'))}
 function scheduleDecorate(){if(decorateQueued)return;decorateQueued=true;requestAnimationFrame(()=>{decorateQueued=false;decorate();});}
 function setAttendance(detail){attendance=detail||null;scheduleDecorate();}
 
 async function refreshAttendance(force=false){
+  // Never use a cached identity to claim a check-in while the login form is visible.
+  // Check-in is confirmed only after the app has authenticated/resumed the current player.
+  if(onLoginScreen())return null;
   const identity=readIdentity();
   if(!identity?.playerId||typeof window.EW_ATTENDANCE_CHECKIN?.syncAttendance!=='function')return null;
   const now=Date.now();
@@ -56,7 +60,7 @@ function makeBlocker(){
   const box=document.createElement('section');
   box.dataset.ewCheckinUi='blocker';
   box.className='ew-checkin-blocker';
-  box.innerHTML=`<div class="ew-checkin-icon">📍</div><div><strong>ยังไม่ได้ Check-in รอบกิจกรรม</strong><p>กรุณาสแกน QR Code ของรอบที่กำลังเข้าร่วม แล้วเข้าสู่ Passport ด้วยรหัสเดิม</p><small>ระบบจะไม่เดารอบให้อัตโนมัติ เพื่อให้ Fast Finisher และ Bonus Hunter แยกผลได้ถูกต้อง</small></div>`;
+  box.innerHTML=`<div class="ew-checkin-icon">📍</div><div><strong>ยังไม่ได้เลือกรอบกิจกรรม</strong><p>กรุณาสแกน QR Code ของรอบที่กำลังเข้าร่วม แล้ว Login ด้วยรหัสผู้เล่นของคุณ</p><small>ระบบจะไม่เดารอบให้อัตโนมัติ เพื่อให้ Fast Finisher และ Bonus Hunter แยกผลได้ถูกต้อง</small></div>`;
   return box;
 }
 function applyGate(checkedIn){
@@ -86,22 +90,24 @@ function insertNearHero(node){
 }
 function decorate(){
   if(!SCREEN)return;
-  const identity=readIdentity();
   const requested=entrySession();
   removeOld();
 
-  if(!identity?.playerId){
+  // Login screen is pre-authentication. Never show a green checked-in state here,
+  // even when localStorage still contains the previous player's identity.
+  if(onLoginScreen()){
+    attendance=null;
     if(requested)insertNearHero(makePendingRound(requested));
+    else insertNearHero(makeBlocker());
     return;
   }
 
+  const identity=readIdentity();
+  if(!identity?.playerId)return;
   const checkedIn=Boolean(attendance?.checkedIn&&clean(attendance?.attendanceSessionId||attendance?.sessionId));
   applyGate(checkedIn);
   if(checkedIn){insertNearHero(makeBadge(attendance));return;}
 
-  // A valid round is present in the QR/link, but Firebase check-in has not yet
-  // completed. Show a pending state instead of falsely telling the learner the
-  // QR is missing.
   if(requested){insertNearHero(makePendingRound(requested));return;}
   insertNearHero(makeBlocker());
 }
@@ -126,7 +132,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 
 const observer=new MutationObserver(()=>{
   scheduleDecorate();
-  if(readIdentity()?.playerId&&!attendance)refreshAttendance(false);
+  if(!onLoginScreen()&&readIdentity()?.playerId&&!attendance)refreshAttendance(false);
 });
 observer.observe(SCREEN||document.body,{childList:true,subtree:true});
 
