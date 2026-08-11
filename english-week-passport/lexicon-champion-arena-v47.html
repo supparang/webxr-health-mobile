@@ -23,13 +23,18 @@
     ev.stopPropagation();
     ev.stopImmediatePropagation();
     if(explicitQA){
-      location.replace('./game-test-hub.html?v=20260811-champion-back-nav1');
+      location.replace('./game-test-hub.html?v=20260811-champion-back-nav2');
       return;
     }
     const session=p.get('session')||'';
-    const qs=new URLSearchParams({fromGame:'final_boss',v:'20260811-champion-back-nav1'});
+    const qs=new URLSearchParams({resume:'passport',fromGame:'final_boss',v:'20260811-champion-back-nav2'});
     if(session)qs.set('session',session);
-    location.replace('./index.html?'+qs.toString());
+    const target='./index.html?'+qs.toString();
+    try{
+      if(p.get('shell')==='1'&&window.parent&&window.parent!==window){window.parent.location.replace(target);return;}
+    }catch(_){ }
+    location.replace(target);
   },true);
 })();
-</script></body></html>
+</script>
+<script src="./lexicon-champion-passport-back-guard-v1.js?v=20260811-back-guard1"></script></body></html>
