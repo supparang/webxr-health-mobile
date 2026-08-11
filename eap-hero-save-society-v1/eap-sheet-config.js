@@ -7,7 +7,9 @@ window.EAP_SHEET_CONFIG={
 };
 
 /* =========================================================
-   Active Learner Identity Lock v1
+   Active Learner Identity Lock v2
+   - ACTIVE_PLAYER wins over stale profile/state aliases.
+   - Never clear a same-identity verified server resume.
 ========================================================= */
 (function(){
   'use strict';
@@ -42,11 +44,12 @@ window.EAP_SHEET_CONFIG={
   }
 })();
 
-/* Retire cached legacy transports before their script tags execute. */
+/* Retire cached legacy owners before their script tags execute. */
 window.__EAP_PLAYER_RESUME_STABLE_JSONP_V175__=true;
 window.__EAP_JSONP_GUARD_RETIRED_V5__=true;
+window.__EAP_SINGLE_AUTHORITY_V1__=true;
 
-/* Cache-safe bootstrap for mobile-safe identity + single-flight transport + authority. */
+/* Cache-safe bootstrap for mobile-safe identity + single-flight transport + snapshot-safe authority v2. */
 (function(){
   'use strict';
   function load(src,key){
@@ -58,7 +61,7 @@ window.__EAP_JSONP_GUARD_RETIRED_V5__=true;
   function boot(){
     load('./eap-profile-id-first-v117.js?v=20260810-identity-v122-mobile-safe-r1','identity-v122-mobile-safe-r1');
     load('./eap-player-resume-stable-jsonp-v174.js?v=20260802-resume-transport-v176-single-flight-r2','transport-v176-r2');
-    load('./eap-authority-runtime-v1.js?v=20260802-single-sheet-authority-v1-r3','single-authority-v1-r3');
+    load('./eap-authority-runtime-v1.js?v=20260811-single-sheet-authority-v2-snapshot-safe-r1','single-authority-v2-snapshot-safe-r1');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
   else boot();
