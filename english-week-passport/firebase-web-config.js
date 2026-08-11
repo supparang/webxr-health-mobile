@@ -8,15 +8,15 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
   measurementId: "G-3DCCL4D34V"
 });
 
-/* LEXICON X • Firebase App Isolation R5.2
- * Student pages use Firebase [DEFAULT] + Anonymous Auth.
- * Teacher Console uses named app LEXICON_TEACHER + Email/Password Auth.
- * R5.2 preserves Firebase compat static namespaces (FieldPath/FieldValue/etc.)
- * with property descriptors so Safari can use FieldPath.documentId().
+/* LEXICON X • Firebase App Isolation + Event-Day Light R6
+ * Teacher Console: isolated named Firebase app.
+ * Student pages: default anonymous app + Event-Day Light authority bridge.
+ * Heavy analytics rollup is intentionally disabled on event day to protect
+ * Spark quota; progress/check-in/completion remain authoritative.
  */
 (function(){
   'use strict';
-  const VERSION='2026-08-11-FIREBASE-APP-ISOLATION-R5.2-SAFARI';
+  const VERSION='2026-08-11-FIREBASE-EVENT-DAY-LIGHT-R6';
   const TEACHER_APP_NAME='LEXICON_TEACHER';
   try{
     if(!window.firebase?.initializeApp) return;
@@ -42,7 +42,6 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
 
       const teacherAuth=originalAuth(teacherApp);
       const teacherDb=originalFirestore(teacherApp);
-
       try{
         const persistence=AuthStatic?.Persistence?.SESSION;
         if(persistence) teacherAuth.setPersistence(persistence).catch(()=>{});
@@ -60,9 +59,6 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
       if(GeoPointStatic) firestoreShim.GeoPoint=GeoPointStatic;
       if(BlobStatic) firestoreShim.Blob=BlobStatic;
 
-      // Some Safari/firebase-compat combinations expose static members through
-      // non-enumerable descriptors. Copy every descriptor before replacing the
-      // callable namespace so documentId() remains available.
       try{
         for(const key of Object.getOwnPropertyNames(authNamespace)){
           if(['length','name','prototype','arguments','caller'].includes(key)) continue;
@@ -82,54 +78,41 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
 
       firebase.auth=authShim;
       firebase.firestore=firestoreShim;
-
-      // Explicit globals provide a stable escape hatch for console code and
-      // diagnostics without relying on mutation of Firebase's compat namespace.
-      window.EW_TEACHER_FIREBASE={
-        version:VERSION,
-        appName:TEACHER_APP_NAME,
-        projectId:teacherApp.options.projectId,
-        app:teacherApp,
-        auth:teacherAuth,
-        db:teacherDb,
-        FieldPath:FieldPathStatic,
-        FieldValue:FieldValueStatic,
-        Timestamp:TimestampStatic
-      };
-      window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({
-        version:VERSION,
-        ready:true,
-        isolatedTeacher:true,
-        appName:TEACHER_APP_NAME,
-        projectId:teacherApp.options.projectId,
-        fieldPathReady:Boolean(FieldPathStatic?.documentId)
-      });
+      window.EW_TEACHER_FIREBASE={version:VERSION,appName:TEACHER_APP_NAME,projectId:teacherApp.options.projectId,app:teacherApp,auth:teacherAuth,db:teacherDb,FieldPath:FieldPathStatic,FieldValue:FieldValueStatic,Timestamp:TimestampStatic};
+      window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({version:VERSION,ready:true,isolatedTeacher:true,appName:TEACHER_APP_NAME,projectId:teacherApp.options.projectId,fieldPathReady:Boolean(FieldPathStatic?.documentId)});
       return;
     }
 
     const apps=Array.isArray(firebase.apps)?firebase.apps:[];
     const app=apps.find(a=>a.name==='[DEFAULT]') || firebase.initializeApp(window.EW_FIREBASE_WEB_CONFIG);
-    window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({
-      version:VERSION,
-      ready:true,
-      isolatedTeacher:false,
-      appName:app?.name||'[DEFAULT]',
-      projectId:app?.options?.projectId||window.EW_FIREBASE_WEB_CONFIG.projectId
-    });
+    window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({version:VERSION,ready:true,isolatedTeacher:false,appName:app?.name||'[DEFAULT]',projectId:app?.options?.projectId||window.EW_FIREBASE_WEB_CONFIG.projectId,eventDayLightMode:true});
+    window.EW_EVENT_DAY_LIGHT_MODE=Object.freeze({enabled:true,version:VERSION,heavyAnalytics:false});
 
-    if(!document.querySelector('script[data-ew-analytics-rollup]')){
-      const script=document.createElement('script');
-      script.src='./analytics-rollup-v1.js?v=20260810-rollup2-assessment-duration';
-      script.async=false;
-      script.dataset.ewAnalyticsRollup='2';
-      document.head.appendChild(script);
-    }
+    // Do NOT load analytics-rollup-v1.js in Event-Day mode.
+    // It is useful for research analytics but unnecessary for participant-count use.
+
+    // Every current game shell already loads firebase-web-config.js before the
+    // direct authority. Wait until the direct authority appears, then overlay the
+    // lightweight bridge. This avoids editing every individual game page.
+    let attempts=0;
+    const attachLightBridge=()=>{
+      attempts+=1;
+      if(window.EW_AUTHORITY?.eventDayLightMode) return;
+      if(window.EW_AUTHORITY?.directFirestoreVersion){
+        if(!document.querySelector('script[data-ew-event-day-light]')){
+          const script=document.createElement('script');
+          script.src='./firebase-authority-bridge.js?v=20260811-event-day-light-r6';
+          script.async=false;
+          script.dataset.ewEventDayLight='1';
+          document.head.appendChild(script);
+        }
+        return;
+      }
+      if(attempts<120) setTimeout(attachLightBridge,50);
+    };
+    setTimeout(attachLightBridge,0);
   }catch(error){
-    console.error('LEXICON X Firebase app isolation failed',error);
-    window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({
-      version:VERSION,
-      ready:false,
-      error:String(error?.message||error)
-    });
+    console.error('LEXICON X Firebase Event-Day setup failed',error);
+    window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({version:VERSION,ready:false,error:String(error?.message||error)});
   }
 })();
