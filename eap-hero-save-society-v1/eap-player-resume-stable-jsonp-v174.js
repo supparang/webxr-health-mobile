@@ -1,21 +1,21 @@
 /* =========================================================
-   EAP Hero • Official Resume Transport v179 ID-FIRST
+   EAP Hero • Official Resume Transport v180 AUTHORITY-FIRST
    - One JSONP request at a time.
    - Google Sheet remains the progression authority.
    - studentId + section are sufficient to request player_resume.
    - Prefer the explicitly active learner over stale profile/progress cache.
-   - A previously verified Sheet state may keep the UI usable while refresh runs.
+   - IMPORTANT: raw server resume is delivered to Single Authority BEFORE any legacy apply.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_RESUME_TRANSPORT_V179__)return;
-  window.__EAP_RESUME_TRANSPORT_V179__=true;
+  if(window.__EAP_RESUME_TRANSPORT_V180__)return;
+  window.__EAP_RESUME_TRANSPORT_V180__=true;
 
-  var VERSION='20260810-EAP-RESUME-TRANSPORT-V179-ID-FIRST-ACTIVE-PLAYER';
+  var VERSION='20260811-EAP-RESUME-TRANSPORT-V180-AUTHORITY-FIRST';
   var PROFILE_KEY='EAP_HERO_PLAYER_PROFILE_V1';
   var STATE_KEY='EAP_HERO_PROGRESS_V3';
   var ACTIVE_KEYS=['EAP_HERO_ACTIVE_PLAYER_V1','EAP_ACTIVE_PLAYER','EAP_HERO_ACTIVE_PLAYER'];
-  var CALLBACK='__eapCloudResume_official_v179';
+  var CALLBACK='__eapCloudResume_official_v180';
   var active=null;
   var activeAt=0;
   var lastRequestAt=0;
@@ -40,7 +40,6 @@
     return {studentId:studentId,studentName:studentName,section:section};
   }
   function endpoint(){return clean((window.EAP_SHEET_CONFIG||{}).webAppUrl);}
-  /* ID-first contract: name is display metadata, not a prerequisite for authority lookup. */
   function valid(p){return !!(p.studentId&&p.section&&p.studentId.toLowerCase()!=='guest');}
 
   function hasVerifiedSheetState(){
@@ -74,6 +73,19 @@
     if(active.parentNode){try{active.parentNode.removeChild(active);}catch(_){}}
     active=null;activeAt=0;
   }
+  function deliverAuthorityFirst(data){
+    var accepted=false;
+    try{
+      if(window.EAPAuthorityRuntime&&typeof window.EAPAuthorityRuntime.acceptResume==='function'){
+        accepted=window.EAPAuthorityRuntime.acceptResume(data)===true;
+      }
+    }catch(error){
+      diagnostic('authority_direct_apply_error:'+clean(error&&error.message||error));
+    }
+    /* Always emit the raw response as a second, idempotent delivery path. */
+    emitSynced({data:data,changed:true,cached:false,authorityAccepted:accepted,authorityFirst:true});
+    return accepted;
+  }
 
   window[CALLBACK]=function(data){
     cleanup();
@@ -86,22 +98,27 @@
       emitFailed('single_flight_server_not_ok','Google Sheet ตอบกลับแต่ยังยืนยันความคืบหน้าไม่ได้');
       return;
     }
+
     lastSuccessAt=Date.now();
-    diagnostic('single_flight_applied');
+    diagnostic('server_ok_authority_first');
+
+    /* CRITICAL: progression authority receives the server response first. */
+    var authorityAccepted=deliverAuthorityFirst(data);
+
+    /* Legacy apply is compatibility-only. It can no longer block authority. */
     try{
       if(window.EAPPlayerResume&&typeof window.EAPPlayerResume.applyCloudResponse==='function'){
         window.EAPPlayerResume.applyCloudResponse(data);
       }
     }catch(error){
-      if(hasVerifiedSheetState()){
-        diagnostic('apply_error_using_verified_sheet_state');
-        emitSynced({changed:false,cached:true,applyError:true});
-        return;
+      diagnostic('legacy_apply_error_ignored:'+clean(error&&error.message||error));
+      if(!authorityAccepted&&!hasVerifiedSheetState()){
+        emitFailed('legacy_apply_error_without_authority:'+clean(error&&error.message||error),'ได้รับข้อมูลจาก Google Sheet แล้ว แต่ Authority ยังไม่รับข้อมูล');
       }
-      emitFailed('single_flight_apply_error:'+clean(error&&error.message||error),'ได้รับข้อมูลแล้วแต่ยังนำความคืบหน้ามาใช้ไม่ได้');
       return;
     }
-    emitSynced({data:data,changed:true,cached:false});
+
+    diagnostic(authorityAccepted?'authority_applied_then_legacy_ok':'authority_event_sent_legacy_ok');
   };
 
   function request(force){
