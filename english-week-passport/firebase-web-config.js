@@ -8,15 +8,15 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
   measurementId: "G-3DCCL4D34V"
 });
 
-/* LEXICON X • Firebase App Isolation R5.1
+/* LEXICON X • Firebase App Isolation R5.2
  * Student pages use Firebase [DEFAULT] + Anonymous Auth.
  * Teacher Console uses named app LEXICON_TEACHER + Email/Password Auth.
- * This prevents a teacher login from replacing the student auth session when
- * teacher and student pages are open on the same supparang.github.io origin.
+ * R5.2 preserves Firebase compat static namespaces (FieldPath/FieldValue/etc.)
+ * with property descriptors so Safari can use FieldPath.documentId().
  */
 (function(){
   'use strict';
-  const VERSION='2026-08-11-FIREBASE-APP-ISOLATION-R5.1';
+  const VERSION='2026-08-11-FIREBASE-APP-ISOLATION-R5.2-SAFARI';
   const TEACHER_APP_NAME='LEXICON_TEACHER';
   try{
     if(!window.firebase?.initializeApp) return;
@@ -27,6 +27,14 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
       const firestoreNamespace=firebase.firestore;
       const originalAuth=authNamespace.bind(firebase);
       const originalFirestore=firestoreNamespace.bind(firebase);
+      const AuthStatic=authNamespace.Auth;
+      const EmailAuthProviderStatic=authNamespace.EmailAuthProvider;
+      const GoogleAuthProviderStatic=authNamespace.GoogleAuthProvider;
+      const FieldPathStatic=firestoreNamespace.FieldPath;
+      const FieldValueStatic=firestoreNamespace.FieldValue;
+      const TimestampStatic=firestoreNamespace.Timestamp;
+      const GeoPointStatic=firestoreNamespace.GeoPoint;
+      const BlobStatic=firestoreNamespace.Blob;
 
       let teacherApp=null;
       try{ teacherApp=firebase.app(TEACHER_APP_NAME); }
@@ -36,50 +44,69 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
       const teacherDb=originalFirestore(teacherApp);
 
       try{
-        const persistence=authNamespace.Auth?.Persistence?.SESSION;
+        const persistence=AuthStatic?.Persistence?.SESSION;
         if(persistence) teacherAuth.setPersistence(persistence).catch(()=>{});
       }catch(_){ }
 
-      // Existing Teacher Console code expects firebase.auth()/firestore() with no
-      // app argument. Preserve the compat namespace while routing no-argument
-      // calls to the isolated named app.
       const authShim=function(app){ return app ? originalAuth(app) : teacherAuth; };
-      for(const key of Object.keys(authNamespace)){
-        try{ authShim[key]=authNamespace[key]; }catch(_){ }
-      }
-      if(authNamespace.Auth) authShim.Auth=authNamespace.Auth;
-      if(authNamespace.EmailAuthProvider) authShim.EmailAuthProvider=authNamespace.EmailAuthProvider;
-      if(authNamespace.GoogleAuthProvider) authShim.GoogleAuthProvider=authNamespace.GoogleAuthProvider;
-      firebase.auth=authShim;
+      if(AuthStatic) authShim.Auth=AuthStatic;
+      if(EmailAuthProviderStatic) authShim.EmailAuthProvider=EmailAuthProviderStatic;
+      if(GoogleAuthProviderStatic) authShim.GoogleAuthProvider=GoogleAuthProviderStatic;
 
       const firestoreShim=function(app){ return app ? originalFirestore(app) : teacherDb; };
-      for(const key of Object.keys(firestoreNamespace)){
-        try{ firestoreShim[key]=firestoreNamespace[key]; }catch(_){ }
-      }
-      if(firestoreNamespace.FieldPath) firestoreShim.FieldPath=firestoreNamespace.FieldPath;
-      if(firestoreNamespace.FieldValue) firestoreShim.FieldValue=firestoreNamespace.FieldValue;
-      if(firestoreNamespace.Timestamp) firestoreShim.Timestamp=firestoreNamespace.Timestamp;
+      if(FieldPathStatic) firestoreShim.FieldPath=FieldPathStatic;
+      if(FieldValueStatic) firestoreShim.FieldValue=FieldValueStatic;
+      if(TimestampStatic) firestoreShim.Timestamp=TimestampStatic;
+      if(GeoPointStatic) firestoreShim.GeoPoint=GeoPointStatic;
+      if(BlobStatic) firestoreShim.Blob=BlobStatic;
+
+      // Some Safari/firebase-compat combinations expose static members through
+      // non-enumerable descriptors. Copy every descriptor before replacing the
+      // callable namespace so documentId() remains available.
+      try{
+        for(const key of Object.getOwnPropertyNames(authNamespace)){
+          if(['length','name','prototype','arguments','caller'].includes(key)) continue;
+          if(Object.prototype.hasOwnProperty.call(authShim,key)) continue;
+          const d=Object.getOwnPropertyDescriptor(authNamespace,key);
+          if(d) Object.defineProperty(authShim,key,d);
+        }
+      }catch(_){ }
+      try{
+        for(const key of Object.getOwnPropertyNames(firestoreNamespace)){
+          if(['length','name','prototype','arguments','caller'].includes(key)) continue;
+          if(Object.prototype.hasOwnProperty.call(firestoreShim,key)) continue;
+          const d=Object.getOwnPropertyDescriptor(firestoreNamespace,key);
+          if(d) Object.defineProperty(firestoreShim,key,d);
+        }
+      }catch(_){ }
+
+      firebase.auth=authShim;
       firebase.firestore=firestoreShim;
 
-      window.EW_TEACHER_FIREBASE=Object.freeze({
+      // Explicit globals provide a stable escape hatch for console code and
+      // diagnostics without relying on mutation of Firebase's compat namespace.
+      window.EW_TEACHER_FIREBASE={
         version:VERSION,
         appName:TEACHER_APP_NAME,
         projectId:teacherApp.options.projectId,
         app:teacherApp,
         auth:teacherAuth,
-        db:teacherDb
-      });
+        db:teacherDb,
+        FieldPath:FieldPathStatic,
+        FieldValue:FieldValueStatic,
+        Timestamp:TimestampStatic
+      };
       window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({
         version:VERSION,
         ready:true,
         isolatedTeacher:true,
         appName:TEACHER_APP_NAME,
-        projectId:teacherApp.options.projectId
+        projectId:teacherApp.options.projectId,
+        fieldPathReady:Boolean(FieldPathStatic?.documentId)
       });
       return;
     }
 
-    // Passport/game pages retain the default anonymous app.
     const apps=Array.isArray(firebase.apps)?firebase.apps:[];
     const app=apps.find(a=>a.name==='[DEFAULT]') || firebase.initializeApp(window.EW_FIREBASE_WEB_CONFIG);
     window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({
