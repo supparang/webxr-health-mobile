@@ -8,10 +8,10 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
   measurementId: "G-3DCCL4D34V"
 });
 
-/* LEXICON X • Firebase App Isolation + Event-Day Light R6.1 */
+/* LEXICON X • Firebase App Isolation + Event-Day Light R6.2 */
 (function(){
   'use strict';
-  const VERSION='2026-08-11-FIREBASE-EVENT-DAY-LIGHT-R6.1';
+  const VERSION='2026-08-11-FIREBASE-EVENT-DAY-LIGHT-R6.2';
   const TEACHER_APP_NAME='LEXICON_TEACHER';
   try{
     if(!window.firebase?.initializeApp) return;
@@ -33,6 +33,12 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
       firebase.auth=authShim;firebase.firestore=firestoreShim;
       window.EW_TEACHER_FIREBASE={version:VERSION,appName:TEACHER_APP_NAME,projectId:teacherApp.options.projectId,app:teacherApp,auth:teacherAuth,db:teacherDb,FieldPath:FieldPathStatic,FieldValue:FieldValueStatic,Timestamp:TimestampStatic};
       window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({version:VERSION,ready:true,isolatedTeacher:true,appName:TEACHER_APP_NAME,projectId:teacherApp.options.projectId,fieldPathReady:Boolean(FieldPathStatic?.documentId)});
+      if(!document.querySelector('script[data-ew-reward-manager]')){
+        const rewardScript=document.createElement('script');
+        rewardScript.src='./teacher-reward-manager-v1.js?v=20260811-first20-r1';
+        rewardScript.async=false;rewardScript.dataset.ewRewardManager='1';
+        document.head.appendChild(rewardScript);
+      }
       return;
     }
     const apps=Array.isArray(firebase.apps)?firebase.apps:[];
