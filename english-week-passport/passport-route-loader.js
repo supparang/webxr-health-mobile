@@ -1,10 +1,10 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-11-PASSPORT-ROUTE-LOADER-R13-LENS-FIREBASE";
+  const VERSION="2026-08-11-PASSPORT-ROUTE-LOADER-R14-FIRST20-REWARD";
   let loaded=false;
   const routes=[
-    "./passport-canonical-routes-v1.js?v=20260811-lens-firebase-r1",
-    "./journey-client-v1.js?v=20260811-event-day-light-v6",
+    "./passport-canonical-routes-v1.js?v=20260811-first20-reward-r13",
+    "./journey-client-v1.js?v=20260811-event-day-light-v7-bonus",
     "./passport-journey-routes-v1.js?v=20260811-event-day-sync-v7"
   ];
 
