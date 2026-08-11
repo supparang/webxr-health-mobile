@@ -8,21 +8,68 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
   measurementId: "G-3DCCL4D34V"
 });
 
-/* LEXICON X • Firebase Default-App Guard R4
- * Initialize Firebase in every fresh document and preload the per-player
- * analytics rollup wrapper. On Teacher Console, also capture the exact Auth UID
- * and teacher-role document values so role mismatches can be diagnosed safely.
+/* LEXICON X • Firebase App Isolation R5
+ * Student pages use the Firebase [DEFAULT] app with anonymous auth.
+ * Teacher Console uses a named app (LEXICON_TEACHER) so Email/Password
+ * authentication never replaces the student's anonymous session when both
+ * pages are open in the same browser/origin.
  */
 (function(){
   'use strict';
-  const VERSION='2026-08-10-FIREBASE-DEFAULT-APP-GUARD-R4-TEACHER-DIAGNOSTIC';
+  const VERSION='2026-08-11-FIREBASE-APP-ISOLATION-R5';
+  const TEACHER_APP_NAME='LEXICON_TEACHER';
   try{
     if(!window.firebase?.initializeApp) return;
+    const isTeacherConsole=/\/teacher-console\.html(?:$|\?)/.test(location.pathname+location.search) || /\/teacher-console\.html$/.test(location.pathname);
+
+    if(isTeacherConsole){
+      const originalAuth=firebase.auth.bind(firebase);
+      const originalFirestore=firebase.firestore.bind(firebase);
+      let teacherApp=null;
+      try{ teacherApp=firebase.app(TEACHER_APP_NAME); }
+      catch(_){ teacherApp=firebase.initializeApp(window.EW_FIREBASE_WEB_CONFIG,TEACHER_APP_NAME); }
+      const teacherAuth=originalAuth(teacherApp);
+      const teacherDb=originalFirestore(teacherApp);
+
+      // Session persistence is enough for a teacher tab and deliberately does
+      // not overwrite the student's [DEFAULT] anonymous auth record.
+      try{ teacherAuth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(()=>{}); }catch(_){ }
+
+      // Compatibility shim: existing Teacher Console code calls firebase.auth()
+      // and firebase.firestore() without an app argument. Route only those
+      // no-argument calls to the isolated teacher app.
+      firebase.auth=function(app){ return app ? originalAuth(app) : teacherAuth; };
+      Object.assign(firebase.auth, originalAuth);
+      firebase.auth.Auth=originalAuth.Auth;
+      firebase.firestore=function(app){ return app ? originalFirestore(app) : teacherDb; };
+      Object.assign(firebase.firestore, originalFirestore);
+      firebase.firestore.FieldPath=originalFirestore.FieldPath;
+
+      window.EW_TEACHER_FIREBASE=Object.freeze({
+        version:VERSION,
+        appName:TEACHER_APP_NAME,
+        projectId:teacherApp.options.projectId,
+        app:teacherApp,
+        auth:teacherAuth,
+        db:teacherDb
+      });
+      window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({
+        version:VERSION,
+        ready:true,
+        isolatedTeacher:true,
+        appName:TEACHER_APP_NAME,
+        projectId:teacherApp.options.projectId
+      });
+      return;
+    }
+
+    // Student / Passport / game pages keep the [DEFAULT] Firebase app.
     const apps=Array.isArray(firebase.apps)?firebase.apps:[];
-    const app=apps.length?firebase.app():firebase.initializeApp(window.EW_FIREBASE_WEB_CONFIG);
+    const app=apps.find(a=>a.name==='[DEFAULT]') || firebase.initializeApp(window.EW_FIREBASE_WEB_CONFIG);
     window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({
       version:VERSION,
       ready:true,
+      isolatedTeacher:false,
       appName:app?.name||'[DEFAULT]',
       projectId:app?.options?.projectId||window.EW_FIREBASE_WEB_CONFIG.projectId
     });
@@ -34,60 +81,8 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
       script.dataset.ewAnalyticsRollup='2';
       document.head.appendChild(script);
     }
-
-    const isTeacherConsole=/teacher-console\.html(?:$|\?)/.test(location.pathname+location.search) || /teacher-console\.html$/.test(location.pathname);
-    if(isTeacherConsole && window.firebase?.auth && window.firebase?.firestore){
-      const auth=firebase.auth();
-      if(!auth.__ewTeacherDiagnosticWrapped){
-        const originalSignIn=auth.signInWithEmailAndPassword.bind(auth);
-        auth.signInWithEmailAndPassword=async function(email,password){
-          const cred=await originalSignIn(email,password);
-          let roleExists=false, role=null, readError='';
-          try{
-            const snap=await firebase.firestore().collection('ewp_teacher_roles').doc(cred.user.uid).get();
-            roleExists=snap.exists;
-            role=roleExists?(snap.data()||{}):null;
-          }catch(error){
-            readError=String(error?.code||error?.message||error);
-          }
-          window.EW_TEACHER_DIAGNOSTIC={
-            version:VERSION,
-            projectId:app?.options?.projectId||'',
-            email:cred.user.email||'',
-            uid:cred.user.uid||'',
-            rolePath:`ewp_teacher_roles/${cred.user.uid||''}`,
-            roleExists,
-            role:role?.role??null,
-            active:role?.active??null,
-            roleType:role==null?null:typeof role.role,
-            activeType:role==null?null:typeof role.active,
-            readError
-          };
-          return cred;
-        };
-        auth.__ewTeacherDiagnosticWrapped=true;
-      }
-
-      const attachDiagnosticObserver=()=>{
-        const box=document.getElementById('loginError');
-        if(!box||box.__ewTeacherDiagnosticObserved)return;
-        const appendDiagnostic=()=>{
-          const d=window.EW_TEACHER_DIAGNOSTIC;
-          if(!d||!box.textContent.includes('TEACHER_ROLE_REQUIRED'))return;
-          const suffix=`\nUID: ${d.uid}\nRole path: ${d.rolePath}\nrole=${String(d.role)} (${String(d.roleType)}) • active=${String(d.active)} (${String(d.activeType)})${d.readError?`\nreadError=${d.readError}`:''}`;
-          if(!box.textContent.includes('Role path:')) box.textContent+=suffix;
-          box.style.whiteSpace='pre-wrap';
-          box.style.wordBreak='break-word';
-        };
-        const observer=new MutationObserver(()=>setTimeout(appendDiagnostic,0));
-        observer.observe(box,{childList:true,characterData:true,subtree:true});
-        box.__ewTeacherDiagnosticObserved=true;
-      };
-      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',attachDiagnosticObserver,{once:true});
-      else attachDiagnosticObserver();
-    }
   }catch(error){
-    console.error('LEXICON X Firebase default-app guard failed',error);
+    console.error('LEXICON X Firebase app isolation failed',error);
     window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({
       version:VERSION,
       ready:false,
