@@ -1,9 +1,9 @@
 (function(){
 'use strict';
-const VERSION='2026-08-09-PASSPORT-JOURNEY-ROUTES-V6-DIRECT9-ROLLUP';
+const VERSION='2026-08-11-PASSPORT-JOURNEY-ROUTES-V7-EVENT-DAY-SYNC';
 const cfg=window.EW_CONFIG||{};
 const journey=window.EW_JOURNEY;
-const ROUTE_VERSION='20260809-journey-direct9-rollup';
+const ROUTE_VERSION='20260811-event-day-sync-v7';
 let identity=null;
 let journeyStatus=null;
 let statusError='';
@@ -34,7 +34,7 @@ function ensureCards(){
   if(!summary){summary=makeJourneyCard('journey_summary','🏁','LEXICON X Journey Summary','Pre → Post • Game 1–5 • Bonus • Reflection');map.insertBefore(summary,certificate)}
   return {reflection,summary,certificate};
 }
-function postCompleted(){const post=stageCard('post_challenge');return Boolean(post&&(post.classList.contains('passed')||post.querySelector('.stage-state')?.textContent?.includes('ผ่าน')))}
+function postCompleted(){const post=stageCard('post_challenge');return Boolean(post&&(post.classList.contains('passed')||post.querySelector('.stage-state')?.textContent?.includes('ผ่าน')||post.querySelector('.stage-state')?.textContent?.includes('ครบ')))}
 function decorate(){
   decorateQueued=false;
   const cards=ensureCards();if(!cards)return;
@@ -47,10 +47,13 @@ function decorate(){
   if(journeyStatus.summaryViewed)setCardState(cards.certificate,'ready','พร้อมเปิด Certificate');else setCardState(cards.certificate,'locked','รอ Journey Summary 🔒');
 }
 function scheduleDecorate(){if(decorateQueued)return;decorateQueued=true;requestAnimationFrame(decorate)}
-async function refreshStatus(){
-  identity=readIdentity();if(!identity?.playerId||loading)return;
+async function refreshStatus(force){
+  identity=readIdentity();if(!identity?.playerId)return;
+  if(loading&&!force)return;
   if(!journey?.endpointReady?.()){statusError='FIREBASE_JOURNEY_NOT_READY';scheduleDecorate();return}
-  loading=true;statusError='';scheduleDecorate();
+  loading=true;statusError='';
+  if(force)journeyStatus=null;
+  scheduleDecorate();
   try{const result=await journey.status(identity.playerId);if(!result?.ok||result.mode!=='firebase')throw new Error('FIREBASE_JOURNEY_STATUS_REQUIRED');journeyStatus=result}
   catch(error){console.error('Journey status error',error);statusError=String(error?.message||error)}
   finally{loading=false;scheduleDecorate()}
@@ -63,15 +66,18 @@ function handle(event){
   const stage=card.dataset.stage;if(!['final_reflection','journey_summary','certificate'].includes(stage))return;
   event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
   if(!postCompleted())return;
-  if(stage==='final_reflection'){if(!journeyStatus?.reflectionDone)goReflection();else if(journeyStatus?.reflectionDone&&!journeyStatus?.summaryViewed)goSummary();else goCertificate();return}
+  if(stage==='final_reflection'){if(!journeyStatus?.reflectionDone)goReflection();else if(!journeyStatus?.summaryViewed)goSummary();else goCertificate();return}
   if(stage==='journey_summary'){if(!journeyStatus?.reflectionDone)goReflection();else goSummary();return}
   if(stage==='certificate'){if(!journeyStatus?.reflectionDone)goReflection();else if(!journeyStatus?.summaryViewed)goSummary();else goCertificate()}
 }
 document.addEventListener('click',handle,true);
 document.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' ')handle(event)},true);
-const observer=new MutationObserver(()=>{scheduleDecorate();if(document.querySelector('.passport-map')&&!journeyStatus&&!loading&&!statusError)refreshStatus()});
+const observer=new MutationObserver(()=>{scheduleDecorate();if(document.querySelector('.passport-map')&&!journeyStatus&&!loading&&!statusError)refreshStatus(false)});
 observer.observe(document.getElementById('screen')||document.body,{childList:true,subtree:true});
-scheduleDecorate();refreshStatus();
+window.addEventListener('pageshow',()=>refreshStatus(true));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshStatus(true)});
+window.addEventListener('focus',()=>refreshStatus(true));
+scheduleDecorate();refreshStatus(true);
 const style=document.createElement('style');style.textContent='.stage-card.journey-stage-card.ready{border-color:#766ce0;background:linear-gradient(135deg,#fcfbff,#f0f5ff)}.stage-card.journey-stage-card.ready .stage-icon{background:linear-gradient(135deg,#eeeaff,#e3f4ff)}.stage-card[data-stage="certificate"].ready{cursor:pointer}';document.head.appendChild(style);
-window.EW_PASSPORT_JOURNEY=Object.freeze({version:VERSION,routeVersion:ROUTE_VERSION,refreshStatus:()=>{journeyStatus=null;statusError="";return refreshStatus()}});
+window.EW_PASSPORT_JOURNEY=Object.freeze({version:VERSION,routeVersion:ROUTE_VERSION,refreshStatus:()=>refreshStatus(true)});
 }());
