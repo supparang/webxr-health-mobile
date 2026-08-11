@@ -1,15 +1,17 @@
 (()=>{
 'use strict';
-const VERSION='2026-08-09-CHAMPION-SPEECH-TRANSITION-GUARD-V3-FINAL-VOICE';
+const VERSION='2026-08-11-CHAMPION-SPEECH-TRANSITION-GUARD-V4-NPC-END';
 if(window.__LCA_SPEECH_TRANSITION_GUARD__?.version===VERSION)return;
 window.__LCA_SPEECH_TRANSITION_GUARD__={version:VERSION};
 
 const nativeSetTimeout=window.setTimeout.bind(window);
-const watchedDelaysMin=300;
-const watchedDelaysMax=760;
-const postSpeechGapMs=220;
-const pollMs=70;
-const maxSpeechWaitMs=1800;
+// Champion core advances options/gates/final-boss with short timers (about
+// 330-650 ms). Those timers must never outrun Teacher/NPC speech.
+const watchedDelaysMin=250;
+const watchedDelaysMax=900;
+const postSpeechGapMs=240;
+const pollMs=60;
+const maxSpeechWaitMs=15000;
 
 function speechBusy(){
   try{
@@ -19,23 +21,12 @@ function speechBusy(){
 function isChampionRuntime(){
   return !!(window.LEXICON_CHAMPION_V47 || document.getElementById('arena'));
 }
-function isFinalVoiceComplete(delay){
-  const st=window.LEXICON_CHAMPION_V47?.state;
-  return Number(delay)===350 && Number(st?.bossAttack||0)>=3;
-}
-function mustBypassGuard(fn,delay){
-  // Final Voice success in the core uses setTimeout(finish,350). Do not rely
-  // only on Function.name because wrappers/minification/browser bindings can
-  // make that test unreliable. The game state is authoritative here.
-  return fn?.name==='finish' || isFinalVoiceComplete(delay);
-}
 
 window.setTimeout=function(fn,delay,...args){
   const ms=Number(delay)||0;
   if(
     typeof fn!=='function' ||
     !isChampionRuntime() ||
-    mustBypassGuard(fn,ms) ||
     ms<watchedDelaysMin ||
     ms>watchedDelaysMax
   ){
@@ -44,6 +35,9 @@ window.setTimeout=function(fn,delay,...args){
 
   const startedAt=Date.now();
   return nativeSetTimeout(function guardedTransition(){
+    // Do not advance while Teacher/NPC speech is still speaking OR queued.
+    // This applies to normal Gates and Final Boss alike; V3 incorrectly
+    // bypassed the final-voice 350 ms transition.
     if(speechBusy() && (Date.now()-startedAt)<maxSpeechWaitMs){
       return nativeSetTimeout(guardedTransition,pollMs);
     }
@@ -51,6 +45,6 @@ window.setTimeout=function(fn,delay,...args){
   },ms);
 };
 
-try{document.documentElement.dataset.lcaSpeechGuard='v3'}catch(_){}
-console.info('[LEXICON Champion] Speech Transition Guard V3 final-voice ready');
+try{document.documentElement.dataset.lcaSpeechGuard='v4-npc-end'}catch(_){}
+console.info('[LEXICON Champion] Speech Transition Guard V4 NPC-end ready');
 })();
