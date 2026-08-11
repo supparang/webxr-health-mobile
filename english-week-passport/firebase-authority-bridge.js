@@ -1,15 +1,15 @@
 (function () {
   "use strict";
 
-  const VERSION = "2026-08-11-SPARK-EVENT-DAY-LIGHT-R7-DETERMINISTIC";
+  const VERSION = "2026-08-11-SPARK-EVENT-DAY-LIGHT-R9-OWNERSHIP-SELFHEAL";
   const EVENT_DAY_LIGHT = true;
-  const CLAIM_CACHE_KEY = "ew_eventday_claimed_player_v1";
+  const CLAIM_CACHE_KEY = "ew_eventday_claimed_player_v2";
+  const LEGACY_CLAIM_CACHE_KEY = "ew_eventday_claimed_player_v1";
   const PASS_MARKS = Object.freeze({word_match:70,category_forest:70,sentence_city:70,word_detective:70,final_boss:65});
   const FLOW = ["pre_challenge","word_match","category_forest","sentence_city","word_detective","final_boss","post_challenge","certificate"];
 
-  // IMPORTANT: capture the original Direct Authority exactly once.
-  // Never re-read window.EW_AUTHORITY after the proxy is installed, otherwise
-  // resume()/health()/profileLookup() can recurse back into this proxy forever.
+  // Capture Direct Authority once. Never re-read window.EW_AUTHORITY after the
+  // proxy is installed; doing so can recurse into the proxy and crash the page.
   const direct = window.EW_AUTHORITY;
   if (!direct || !direct.directFirestoreVersion || typeof direct.resume !== "function" || typeof direct.submitGame !== "function") {
     console.error("LEXICON X Event-Day Light: Direct Authority must load before bridge");
@@ -28,8 +28,27 @@
   function emit(){window.dispatchEvent(new CustomEvent("ew-authority-status",{detail:{...runtime,endpointReady:true}}));}
   function clean(v){return String(v==null?"":v).trim();}
   function nowIso(){return new Date().toISOString();}
-  function readClaim(){try{return clean(localStorage.getItem(CLAIM_CACHE_KEY));}catch(_){return "";}}
-  function writeClaim(id){try{localStorage.setItem(CLAIM_CACHE_KEY,clean(id));}catch(_){} }
+
+  function readClaim(){
+    try{
+      const raw=localStorage.getItem(CLAIM_CACHE_KEY);
+      if(raw){
+        const parsed=JSON.parse(raw);
+        return {playerId:clean(parsed?.playerId),authUid:clean(parsed?.authUid)};
+      }
+      // Old cache remembered only playerId and cannot prove current UID ownership.
+      // Return it with an empty UID so the first R9 call safely re-claims once.
+      const legacy=clean(localStorage.getItem(LEGACY_CLAIM_CACHE_KEY));
+      return {playerId:legacy,authUid:""};
+    }catch(_){return {playerId:"",authUid:""};}
+  }
+
+  function writeClaim(playerId,authUid){
+    try{
+      localStorage.setItem(CLAIM_CACHE_KEY,JSON.stringify({playerId:clean(playerId),authUid:clean(authUid),verifiedAt:nowIso()}));
+      localStorage.removeItem(LEGACY_CLAIM_CACHE_KEY);
+    }catch(_){}
+  }
 
   async function call(name,args){
     const fn=direct && direct[name];
@@ -37,20 +56,43 @@
     return fn.apply(direct,args||[]);
   }
 
+  async function currentAuthUid(){
+    const health=await call("health",[]);
+    const uid=clean(health?.authUid || direct.getRuntimeStatus?.()?.authUid);
+    if(!uid) throw new Error("FIREBASE_AUTH_UID_MISSING");
+    return uid;
+  }
+
+  async function ensureOwnership(playerId,nickname,force){
+    const id=clean(playerId);
+    if(!id) throw new Error("PLAYER_ID_REQUIRED");
+    const authUid=await currentAuthUid();
+    const claim=readClaim();
+    if(!force && claim.playerId===id && claim.authUid===authUid){
+      return {ok:true,reclaimed:false,authUid};
+    }
+
+    // Direct resume re-establishes ewp_player_sessions/{authUid} ownership. This
+    // costs writes only when first claiming, changing player, or Auth UID rotates.
+    const result=await call("resume",[id,nickname]);
+    if(!result?.ok) throw new Error(result?.error || "OWNERSHIP_RECLAIM_FAILED");
+    writeClaim(id,authUid);
+    runtime.lastSuccessAt=nowIso();emit();
+    return {ok:true,reclaimed:true,authUid,result};
+  }
+
   async function lightResume(playerId,nickname){
     const id=clean(playerId);
     if(!id) throw new Error("PLAYER_ID_REQUIRED");
 
-    // First entry on this browser/player uses the normal authority so ownership
-    // and session assignment are created correctly. Subsequent Passport returns
-    // are read-only to conserve Spark writes.
-    if(readClaim()!==id){
-      const result=await call("resume",[id,nickname]);
-      writeClaim(id);
-      runtime.lastSuccessAt=nowIso();emit();
-      return {...result,eventDayLightMode:true,lightVersion:VERSION};
+    const ownership=await ensureOwnership(id,nickname,false);
+    // When ownership had to be restored, Direct Authority already returned the
+    // complete authoritative state; reuse it and avoid duplicate Firestore reads.
+    if(ownership.reclaimed && ownership.result){
+      return {...ownership.result,eventDayLightMode:true,lightVersion:VERSION};
     }
 
+    // Normal Passport returns are read-only: no session/lastSeen writes.
     const db=firebase.firestore();
     const [p,a,g]=await Promise.all([
       db.collection("ewp_profiles").doc(id).get(),
@@ -94,16 +136,10 @@
     };
   }
 
-  async function lightSubmitGame(payload){
-    const playerId=clean(payload?.playerId),stageId=clean(payload?.stageId);
-    if(!playerId||!Object.prototype.hasOwnProperty.call(PASS_MARKS,stageId)) throw new Error("INVALID_GAME_PAYLOAD");
-    const total=Math.max(0,Number(payload?.total||0));
-    const score=Math.max(0,Number(payload?.score||0));
-    const accuracy=total>0?Math.round(score/total*100):0;
+  async function writeLightProgress(playerId,stageId,accuracy){
     const db=firebase.firestore();
     const ref=db.collection("ewp_progress").doc(playerId);
     let progress=null;
-
     await db.runTransaction(async tx=>{
       const snap=await tx.get(ref);
       if(!snap.exists) throw new Error("PROGRESS_NOT_FOUND");
@@ -113,6 +149,34 @@
       progress=nextProgress(current,stageId,accuracy);
       tx.set(ref,progress,{merge:true});
     });
+    return progress;
+  }
+
+  function isPermissionError(error){
+    const code=clean(error?.code).toLowerCase();
+    const msg=clean(error?.message).toLowerCase();
+    return code.includes("permission-denied") || msg.includes("missing or insufficient permissions") || msg.includes("permission-denied");
+  }
+
+  async function lightSubmitGame(payload){
+    const playerId=clean(payload?.playerId),stageId=clean(payload?.stageId);
+    if(!playerId||!Object.prototype.hasOwnProperty.call(PASS_MARKS,stageId)) throw new Error("INVALID_GAME_PAYLOAD");
+    const total=Math.max(0,Number(payload?.total||0));
+    const score=Math.max(0,Number(payload?.score||0));
+    const accuracy=total>0?Math.round(score/total*100):0;
+    const nickname=clean(payload?.nickname);
+
+    await ensureOwnership(playerId,nickname,false);
+    let progress=null;
+    try{
+      progress=await writeLightProgress(playerId,stageId,accuracy);
+    }catch(error){
+      // Self-heal stale/missing ownership once. We keep Rules strict; the client
+      // repairs only its own session binding, then retries the same one progress write.
+      if(!isPermissionError(error)) throw error;
+      await ensureOwnership(playerId,nickname,true);
+      progress=await writeLightProgress(playerId,stageId,accuracy);
+    }
 
     runtime.lastSuccessAt=nowIso();emit();
     return {
@@ -160,6 +224,9 @@
   });
 
   window.EW_AUTHORITY=proxy;
-  window.EW_EVENT_DAY_LIGHT_MODE=Object.freeze({enabled:true,version:VERSION,gameWritesPerAttempt:1,eventWritesPerEvent:0,checkpointWrites:0,repeatedResumeWrites:0});
+  window.EW_EVENT_DAY_LIGHT_MODE=Object.freeze({
+    enabled:true,version:VERSION,gameWritesPerAttempt:1,eventWritesPerEvent:0,
+    checkpointWrites:0,repeatedResumeWrites:0,ownershipSelfHeal:true
+  });
   runtime.lastSuccessAt=nowIso();emit();
 }());
