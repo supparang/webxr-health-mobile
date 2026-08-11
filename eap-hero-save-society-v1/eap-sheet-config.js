@@ -50,8 +50,12 @@ window.__EAP_RESUME_TRANSPORT_V179__=true;
 window.__EAP_JSONP_GUARD_RETIRED_V5__=true;
 window.__EAP_SINGLE_AUTHORITY_V1__=true;
 window.__EAP_SINGLE_AUTHORITY_V2__=true;
+window.__EAP_BOSS_COMPLETE_NO_LOOP_V163__=true;
+window.__EAP_BOSS_COMPLETION_RETRY_V164__=true;
+window.__EAP_BOSS_COMPLETION_RECOVERY_V165__=true;
+window.__EAP_BOSS_COMPLETION_DELIVERY_V166__=true;
 
-/* Cache-safe bootstrap: identity + authority-first transport + SINGLE authority v3 + boss server confirmation. */
+/* Cache-safe bootstrap: identity + transport + SINGLE authority v3 + SINGLE Boss authority v167. */
 (function(){
   'use strict';
   function load(src,key){
@@ -64,6 +68,7 @@ window.__EAP_SINGLE_AUTHORITY_V2__=true;
     load('./eap-profile-id-first-v117.js?v=20260810-identity-v122-mobile-safe-r1','identity-v122-mobile-safe-r1');
     load('./eap-player-resume-stable-jsonp-v174.js?v=20260811-resume-transport-v180-authority-first-r1','transport-v180-authority-first-r1');
     load('./eap-authority-runtime-v3.js?v=20260811-single-sheet-authority-v3-stable-r1','single-authority-v3-stable-r1');
+    load('./eap-boss-completion-authority-v167.js?v=20260811-boss-authority-v167-r1','boss-authority-v167-r1');
     load('./eap-boss-server-confirmation-guard-v1.js?v=20260811-boss-server-confirmation-v1','boss-server-confirmation-v1');
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
