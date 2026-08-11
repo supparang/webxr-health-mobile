@@ -111,7 +111,7 @@ function addAchievements(p){
 
 function saveStateText(confirmed){
  return confirmed
-  ?'✅ บันทึกผลการเล่นสำเร็จ\nกด “กลับ Passport” เพื่อดูสถานะและภารกิจถัดไป'
+  ?'✅ Firebase ยืนยันแล้ว\nกำลังกลับ Hero Passport…'
   :'✅ เล่นครบ 1 รอบแล้ว\nกำลังส่งผลกลับ Passport…';
 }
 
@@ -127,7 +127,7 @@ function updateSaveState(confirmed=false){
    if(saveConfirmed||result.classList.contains('hidden'))return;
    normalizingSync=true;
    sync.className='jd-save-state';
-   sync.textContent='✅ เล่นครบ 1 รอบแล้ว\nกด “กลับ Passport” เพื่อตรวจสถานะอย่างเป็นทางการ';
+   sync.textContent='✅ เล่นครบ 1 รอบแล้ว\nรอ Firebase ยืนยันผล…';
    normalizingSync=false;
   },2200);
  }
@@ -176,7 +176,7 @@ function decorate(){
  result.querySelector('.card')?.classList.add('jd-result-ready');
  result.querySelector('.logo')?.classList.add('jd-trophy-pop');
  const note=result.querySelector('.result-note');
- if(note)note.textContent='ผลอย่างเป็นทางการและการปลดล็อกภารกิจถัดไปยึดตาม Google Sheet';
+ if(note)note.textContent='ผลอย่างเป็นทางการและการปลดล็อกภารกิจถัดไปยึดตาม Firebase';
 }
 
 new MutationObserver(()=>requestAnimationFrame(decorate)).observe(result,{attributes:true,attributeFilter:['class']});
@@ -195,4 +195,60 @@ window.addEventListener('message',event=>{
  if(relevant&&confirmed){saveConfirmed=true;updateSaveState(true)}
 });
 if(!result.classList.contains('hidden'))decorate();
+
+/* JumpDuck Passport Return Rescue V64
+ * Runs inside the same-origin game iframe. Once the parent Game Shell visibly
+ * confirms Firebase persistence, leave the shell directly and return to the
+ * canonical HeroHealth Passport. This avoids the disabled/back-button conflict.
+ */
+let returnArmed=false,returnDone=false;
+function canonicalPassportUrl(){
+ const own=new URLSearchParams(location.search);
+ let parentQuery=null;
+ try{parentQuery=new URLSearchParams(parent.location.search)}catch(_){parentQuery=new URLSearchParams()}
+ const sid=String(parentQuery.get('studentId')||parentQuery.get('sid')||own.get('studentId')||own.get('sid')||own.get('pid')||'').trim();
+ const u=new URL('../HeroHealth_Learning1/index.html',location.href);
+ if(sid){u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid)}
+ for(const key of ['fullName','studentName','name','section','group','firebaseUid']){
+  const v=parentQuery.get(key)||own.get(key);if(v)u.searchParams.set(key,v)
+ }
+ u.searchParams.set('authority','firebase');
+ u.searchParams.set('firebaseReady','1');
+ u.searchParams.set('firebaseReceipt','1');
+ u.searchParams.set('gameCompleted','1');
+ u.searchParams.set('returnedGame','jumpduck');
+ u.searchParams.set('returnSessionPolicy','jumpduck-direct-rescue-v64');
+ u.searchParams.set('authorityRefresh',String(Date.now()));
+ return u.href;
+}
+function forcePassportReturn(){
+ if(returnDone)return;returnDone=true;
+ const syncNode=document.getElementById('syncText');
+ if(syncNode){normalizingSync=true;syncNode.className='jd-save-state';syncNode.textContent='✅ Firebase ยืนยันแล้ว\nกำลังกลับ Hero Passport…';normalizingSync=false}
+ try{
+  const target=canonicalPassportUrl();
+  console.info('[JumpDuck Return Rescue V64] returning to Passport',target);
+  window.top.location.replace(target);
+ }catch(error){
+  console.error('[JumpDuck Return Rescue V64] replace failed',error);
+  try{window.top.location.href=canonicalPassportUrl()}catch(_){}
+ }
+}
+function checkParentVerified(){
+ if(returnDone||result.classList.contains('hidden'))return;
+ let text='';
+ try{
+  const d=parent.document;
+  text=`${d.getElementById('receiptStatus')?.textContent||''} ${d.getElementById('back')?.textContent||''}`;
+ }catch(_){return}
+ if(!/Firebase\s*ยืนยันแล้ว/i.test(text))return;
+ saveConfirmed=true;updateSaveState(true);
+ if(returnArmed)return;returnArmed=true;
+ setTimeout(forcePassportReturn,700);
+}
+const returnWatch=setInterval(()=>{
+ checkParentVerified();
+ if(returnDone)clearInterval(returnWatch);
+},200);
+window.JUMPDUCK_RETURN_RESCUE_V64={release:'20260811-JUMPDUCK-RETURN-RESCUE-V64',forcePassportReturn,canonicalPassportUrl};
 })();
