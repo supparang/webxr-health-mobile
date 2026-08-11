@@ -2,32 +2,20 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // LEXICON X • Spark-safe teacher console R3 + Bonus Reward Manager V1
-    // Students keep anonymous per-player ownership. Teachers authenticate with
-    // Firebase Email/Password and are authorized only by ewp_teacher_roles/{uid}.
     function signedIn() { return request.auth != null; }
-    function qaId(playerId) {
-      return playerId.matches('^(QA|TEST)[-_].*') || playerId.matches('^99[0-9]{4,}$');
-    }
+    function qaId(playerId) { return playerId.matches('^(QA|TEST)[-_].*') || playerId.matches('^99[0-9]{4,}$'); }
     function isTeacher() {
       return signedIn()
         && exists(/databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid))
         && get(/databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid)).data.active == true
         && get(/databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid)).data.role == 'teacher';
     }
-    function sessionExists() {
-      return signedIn()
-        && exists(/databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid));
-    }
-    function sessionDoc() {
-      return get(/databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid));
-    }
-    function owns(playerId) {
-      return signedIn() && sessionExists() && sessionDoc().data.playerId == playerId;
-    }
+    function sessionExists() { return signedIn() && exists(/databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid)); }
+    function sessionDoc() { return get(/databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid)); }
+    function owns(playerId) { return signedIn() && sessionExists() && sessionDoc().data.playerId == playerId; }
     function ownsCheckpointId(checkpointId) {
       return signedIn() && sessionExists()
-        && (checkpointId == sessionDoc().data.playerId + '__pre'
-          || checkpointId == sessionDoc().data.playerId + '__post');
+        && (checkpointId == sessionDoc().data.playerId + '__pre' || checkpointId == sessionDoc().data.playerId + '__post');
     }
     function activeProfile(playerId) {
       return exists(/databases/$(database)/documents/ewp_profiles/$(playerId))
@@ -38,30 +26,19 @@ service cloud.firestore {
       allow get: if signedIn() && request.auth.uid == uid;
       allow list, create, update, delete: if false;
     }
-
     match /ewp_profiles/{playerId} {
       allow get: if signedIn();
       allow list: if isTeacher();
-      allow create: if signedIn() && qaId(playerId)
-        && request.resource.data.playerId == playerId
-        && request.resource.data.active == true;
-      allow update: if owns(playerId)
-        && request.resource.data.playerId == resource.data.playerId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt', 'updatedAt']);
+      allow create: if signedIn() && qaId(playerId) && request.resource.data.playerId == playerId && request.resource.data.active == true;
+      allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt','updatedAt']);
       allow delete: if false;
     }
-
     match /ewp_player_sessions/{uid} {
       allow get: if (signedIn() && request.auth.uid == uid) || isTeacher();
       allow list: if isTeacher();
-      allow create, update: if signedIn()
-        && request.auth.uid == uid
-        && request.resource.data.uid == uid
-        && request.resource.data.playerId is string
-        && (qaId(request.resource.data.playerId) || activeProfile(request.resource.data.playerId));
+      allow create, update: if signedIn() && request.auth.uid == uid && request.resource.data.uid == uid && request.resource.data.playerId is string && (qaId(request.resource.data.playerId) || activeProfile(request.resource.data.playerId));
       allow delete: if signedIn() && request.auth.uid == uid;
     }
-
     match /ewp_progress/{playerId} {
       allow get: if owns(playerId) || isTeacher();
       allow list: if isTeacher();
@@ -69,28 +46,24 @@ service cloud.firestore {
       allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
       allow delete: if false;
     }
-
     match /ewp_assignments/{playerId} {
       allow get: if owns(playerId) || isTeacher();
       allow list: if isTeacher();
       allow create: if owns(playerId) && request.resource.data.playerId == playerId;
       allow update, delete: if false;
     }
-
     match /ewp_assessments/{receiptId} {
       allow create: if request.resource.data.playerId is string && owns(request.resource.data.playerId);
       allow get: if owns(resource.data.playerId) || isTeacher();
       allow list: if isTeacher() || owns(resource.data.playerId);
       allow update, delete: if false;
     }
-
     match /ewp_game_results/{receiptId} {
       allow create: if request.resource.data.playerId is string && owns(request.resource.data.playerId);
       allow get: if owns(resource.data.playerId) || isTeacher();
       allow list: if isTeacher() || owns(resource.data.playerId);
       allow update, delete: if false;
     }
-
     match /ewp_game_summary/{playerId} {
       allow get: if owns(playerId) || isTeacher();
       allow list: if isTeacher();
@@ -99,8 +72,8 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Optional Lexicon Lens Hunt reward: exactly one immutable completion record
-    // per player/session. Ranking is computed by Teacher Console from server time.
+    // One immutable completion record per player/session. Teacher stamps the
+    // deterministic top-20 rank and pickup status; students may only create/read their own.
     match /ewp_bonus_rewards/{rewardId} {
       allow get: if isTeacher() || (resource.data.playerId is string && owns(resource.data.playerId));
       allow list: if isTeacher();
@@ -118,6 +91,7 @@ service cloud.firestore {
         && request.resource.data.sessionId == resource.data.sessionId
         && request.resource.data.firstCompletedAt == resource.data.firstCompletedAt
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'rewardRank','rewardEligible','rankedAt',
           'rewardClaimed','rewardClaimedAt','claimedBy','claimedByEmail','updatedAt'
         ]);
       allow delete: if false;
@@ -129,7 +103,6 @@ service cloud.firestore {
       allow list: if isTeacher() || owns(resource.data.playerId);
       allow update, delete: if false;
     }
-
     match /ewp_certificates/{playerId} {
       allow get: if owns(playerId) || isTeacher();
       allow list: if isTeacher();
@@ -137,19 +110,13 @@ service cloud.firestore {
       allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
       allow delete: if false;
     }
-
     match /ewp_assessment_checkpoints/{checkpointId} {
       allow get: if ownsCheckpointId(checkpointId) || isTeacher();
       allow list: if isTeacher();
-      allow create: if ownsCheckpointId(checkpointId)
-        && request.resource.data.playerId == sessionDoc().data.playerId;
-      allow update: if ownsCheckpointId(checkpointId)
-        && request.resource.data.playerId == resource.data.playerId
-        && request.resource.data.playerId == sessionDoc().data.playerId;
-      allow delete: if ownsCheckpointId(checkpointId)
-        && resource.data.playerId == sessionDoc().data.playerId;
+      allow create: if ownsCheckpointId(checkpointId) && request.resource.data.playerId == sessionDoc().data.playerId;
+      allow update: if ownsCheckpointId(checkpointId) && request.resource.data.playerId == resource.data.playerId && request.resource.data.playerId == sessionDoc().data.playerId;
+      allow delete: if ownsCheckpointId(checkpointId) && resource.data.playerId == sessionDoc().data.playerId;
     }
-
     match /{document=**} { allow read, write: if false; }
   }
 }
