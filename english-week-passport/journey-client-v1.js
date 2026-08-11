@@ -1,137 +1,32 @@
 (function(){
 'use strict';
-const VERSION='2026-08-11-JOURNEY-CLIENT-EVENT-DAY-LIGHT-V8-FINISH-AUTHORITY';
+const VERSION='2026-08-11-JOURNEY-CLIENT-EVENT-DAY-LIGHT-V9-CORE-ACHIEVEMENT';
 const cfg=window.EW_CONFIG||{};
 const COL={progress:'ewp_progress',events:'ewp_events',assessments:'ewp_assessments',gameSummary:'ewp_game_summary'};
-const GAME_META={
-  word_match:{title:'LexiMatch Navigator',skill:'Vocabulary matching'},
-  category_forest:{title:'Category Forest',skill:'Category & context'},
-  sentence_city:{title:'Sentence City',skill:'Sentence building'},
-  word_detective:{title:'Conversation Quest',skill:'Conversation & response'},
-  final_boss:{title:'LEXICON Champion Arena',skill:'Integrated Move • Decide • Speak'}
-};
+const GAME_META={word_match:{title:'LexiMatch Navigator',skill:'Vocabulary matching'},category_forest:{title:'Category Forest',skill:'Category & context'},sentence_city:{title:'Sentence City',skill:'Sentence building'},word_detective:{title:'Conversation Quest',skill:'Conversation & response'},final_boss:{title:'LEXICON Champion Arena',skill:'Integrated Move • Decide • Speak'}};
 const GAME_IDS=Object.keys(GAME_META);
 const nowIso=()=>new Date().toISOString();
 const uid=p=>`${p}-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-function loadScript(src,ready){
-  try{if(ready?.())return Promise.resolve()}catch(_){}
-  const key=src.split('?')[0];
-  const existing=[...document.scripts].find(s=>s.src&&s.src.includes(key));
-  if(existing)return (async()=>{for(let i=0;i<100;i++){try{if(!ready||ready())return}catch(_){}await sleep(50)}throw new Error('JOURNEY_SCRIPT_READY_TIMEOUT:'+key)})();
-  return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(new Error('JOURNEY_SCRIPT_LOAD_FAILED:'+src));document.head.appendChild(s)})
-    .then(async()=>{if(!ready)return;for(let i=0;i<100;i++){try{if(ready())return}catch(_){}await sleep(50)}throw new Error('JOURNEY_SCRIPT_READY_TIMEOUT:'+key)});
-}
-async function bootstrap(){
-  if(cfg.authorityMode!=='firestore-direct')throw new Error('FIRESTORE_DIRECT_MODE_REQUIRED');
-  await loadScript('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js',()=>Boolean(window.firebase?.initializeApp));
-  await Promise.all([
-    loadScript('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js',()=>Boolean(window.firebase?.auth)),
-    loadScript('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js',()=>Boolean(window.firebase?.firestore))
-  ]);
-  await loadScript('./firebase-web-config.js?v=20260811-event-day-light-r11-finish',()=>Boolean(window.EW_FIREBASE_WEB_CONFIG?.projectId==='englishweek-95869'));
-  if(!window.EW_AUTHORITY?.resume)await loadScript('./firestore-direct-authority-v1.js?v=20260811-event-day-light-r10',()=>Boolean(window.EW_AUTHORITY?.resume));
-  if(!window.EW_AUTHORITY?.resume)throw new Error('FIRESTORE_DIRECT_AUTHORITY_NOT_READY');
-}
+function loadScript(src,ready){try{if(ready?.())return Promise.resolve()}catch(_){}const key=src.split('?')[0];const existing=[...document.scripts].find(s=>s.src&&s.src.includes(key));if(existing)return(async()=>{for(let i=0;i<100;i++){try{if(!ready||ready())return}catch(_){}await sleep(50)}throw new Error('JOURNEY_SCRIPT_READY_TIMEOUT:'+key)})();return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(new Error('JOURNEY_SCRIPT_LOAD_FAILED:'+src));document.head.appendChild(s)}).then(async()=>{if(!ready)return;for(let i=0;i<100;i++){try{if(ready())return}catch(_){}await sleep(50)}throw new Error('JOURNEY_SCRIPT_READY_TIMEOUT:'+key)});}
+async function bootstrap(){if(cfg.authorityMode!=='firestore-direct')throw new Error('FIRESTORE_DIRECT_MODE_REQUIRED');await loadScript('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js',()=>Boolean(window.firebase?.initializeApp));await Promise.all([loadScript('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js',()=>Boolean(window.firebase?.auth)),loadScript('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js',()=>Boolean(window.firebase?.firestore))]);await loadScript('./firebase-web-config.js?v=20260811-event-day-light-r11-finish',()=>Boolean(window.EW_FIREBASE_WEB_CONFIG?.projectId==='englishweek-95869'));if(!window.EW_AUTHORITY?.resume)await loadScript('./firestore-direct-authority-v1.js?v=20260811-core-achievement-v1',()=>Boolean(window.EW_AUTHORITY?.resume));if(!window.EW_AUTHORITY?.resume)throw new Error('FIRESTORE_DIRECT_AUTHORITY_NOT_READY');}
 const readyPromise=bootstrap().catch(error=>{console.error('[LEXICON X] Journey bootstrap failed',error);throw error});
 function endpointReady(){return cfg.authorityMode==='firestore-direct'}
 async function readRawProgress(playerId){const s=await firebase.firestore().collection(COL.progress).doc(playerId).get();return s.exists?{playerId,...(s.data()||{})}:{playerId}}
 async function readGameSummary(playerId){const s=await firebase.firestore().collection(COL.gameSummary).doc(playerId).get();return s.exists?{playerId,...(s.data()||{})}:{playerId}}
-async function ensure(playerId,nickname=''){
-  await readyPromise;
-  const r=await window.EW_AUTHORITY.resume(playerId,nickname);
-  if(!r?.ok||r.mode!=='firebase')throw new Error(r?.firebaseError||'FIRESTORE_DIRECT_RESUME_REQUIRED');
-  const progress=await readRawProgress(playerId);
-  return {...r,progress:{...(r.progress||{}),...progress}};
-}
-async function ownRows(collection,playerId){
-  const snap=await firebase.firestore().collection(collection).where('playerId','==',playerId).get();
-  return snap.docs.map(d=>({id:d.id,...(d.data()||{})}));
-}
+async function ensure(playerId,nickname=''){await readyPromise;const r=await window.EW_AUTHORITY.resume(playerId,nickname);if(!r?.ok||r.mode!=='firebase')throw new Error(r?.firebaseError||'FIRESTORE_DIRECT_RESUME_REQUIRED');const progress=await readRawProgress(playerId);return {...r,progress:{...(r.progress||{}),...progress}};}
+async function ownRows(collection,playerId){const snap=await firebase.firestore().collection(collection).where('playerId','==',playerId).get();return snap.docs.map(d=>({id:d.id,...(d.data()||{})}));}
 function latest(rows,type){return rows.filter(r=>String(r.assessmentType||'').toLowerCase()===type).sort((a,b)=>String(b.submittedAt||'').localeCompare(String(a.submittedAt||'')))[0]||null}
-function accuracyOf(row){
-  if(!row)return 0;
-  if(Number.isFinite(Number(row.accuracy)))return Math.round(Number(row.accuracy));
-  const total=Number(row.total||0),score=Number(row.score||0);
-  return total>0?Math.round(score/total*100):0;
-}
-function gamesFromProgress(p){
-  const passed=new Set(Array.isArray(p?.passed)?p.passed:[]);
-  const best=p?.bestScores&&typeof p.bestScores==='object'?p.bestScores:{};
-  return GAME_IDS.map(stageId=>({
-    stageId,...GAME_META[stageId],
-    bestAccuracy:Math.max(0,Math.min(100,Math.round(Number(best[stageId]||0)))),
-    passed:passed.has(stageId),attempts:0,retryCount:0,durationMs:0,
-    source:'ewp_progress'
-  }));
-}
-function bonusFromSummary(row){
-  const raw=row?.bonusBest;
-  const score=Math.max(0,Math.min(100,Math.round(Number(raw?.score||0))));
-  if(!raw||!Number.isFinite(Number(raw.score)))return {played:false,score:0,title:'Lexicon Lens Hunt',receipt:'',updatedAt:'',source:'ewp_game_summary'};
-  return {played:true,score,title:'Lexicon Lens Hunt',receipt:String(raw.receipt||''),updatedAt:String(raw.at||raw.updatedAt||row?.bonusUpdatedAt||''),source:'ewp_game_summary'};
-}
-async function event(playerId,type,payload={}){
-  const receiptId=uid(type);
-  await firebase.firestore().collection(COL.events).doc(receiptId).set({playerId,type,receiptId,...payload,createdAt:nowIso(),sourceVersion:VERSION});
-  return receiptId;
-}
-async function status(playerId){
-  const r=await ensure(playerId),p=r.progress||{};
-  return {ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Event-Day Light Progress',playerId,reflectionDone:Boolean(p.reflectionDone||p.finalReflection),summaryViewed:Boolean(p.summaryViewed),certificateEligible:Boolean(p.certificateEligible),finishedAt:p.finishedAt||null,finishReceiptId:String(p.finishReceiptId||''),version:VERSION};
-}
-async function submitReflection(payload){
-  const playerId=String(payload?.playerId||'').trim();if(!playerId)throw new Error('PLAYER_ID_REQUIRED');
-  const r=await ensure(playerId);if(!r.progress?.postDone)throw new Error('POST_CHALLENGE_REQUIRED');
-  const reflection={confidence:Number(payload.confidence||0),mostUsefulMission:String(payload.mostUsefulMission||''),helpedMost:String(payload.helpedMost||''),takeaway:String(payload.takeaway||'').trim(),submittedAt:nowIso(),sourceVersion:payload.sourceVersion||VERSION};
-  if(!reflection.confidence||!reflection.mostUsefulMission||!reflection.helpedMost)throw new Error('REFLECTION_INCOMPLETE');
-  await firebase.firestore().collection(COL.progress).doc(playerId).set({playerId,reflectionDone:true,finalReflection:reflection,updatedAt:nowIso(),journeySourceVersion:VERSION},{merge:true});
-  return {ok:true,mode:'firebase',receiptId:`reflection-light-${Date.now()}`,reflectionDone:true,sourceOfTruth:'Cloud Firestore Event-Day Light',version:VERSION};
-}
+function accuracyOf(row){if(!row)return 0;if(Number.isFinite(Number(row.accuracy)))return Math.round(Number(row.accuracy));const total=Number(row.total||0),score=Number(row.score||0);return total>0?Math.round(score/total*100):0;}
+function gamesFromProgress(p){const passed=new Set(Array.isArray(p?.passed)?p.passed:[]);const best=p?.bestScores&&typeof p.bestScores==='object'?p.bestScores:{};return GAME_IDS.map(stageId=>({stageId,...GAME_META[stageId],bestAccuracy:Math.max(0,Math.min(100,Math.round(Number(best[stageId]||0)))),passed:passed.has(stageId),attempts:0,retryCount:0,durationMs:0,source:'ewp_progress'}));}
+function bonusFromSummary(row){const raw=row?.bonusBest;const score=Math.max(0,Math.min(100,Math.round(Number(raw?.score||0))));if(!raw||!Number.isFinite(Number(raw.score)))return {played:false,score:0,title:'Lexicon Lens Hunt',receipt:'',updatedAt:'',source:'ewp_game_summary'};return {played:true,score,title:'Lexicon Lens Hunt',receipt:String(raw.receipt||''),updatedAt:String(raw.at||raw.updatedAt||row?.bonusUpdatedAt||''),source:'ewp_game_summary'};}
+function achievementLevel(avg){const n=Number(avg||0);if(n>=90)return'English Week Champion';if(n>=80)return'Word Master';if(n>=70)return'Word Explorer';return'Challenge Finisher';}
+async function event(playerId,type,payload={}){const receiptId=uid(type);await firebase.firestore().collection(COL.events).doc(receiptId).set({playerId,type,receiptId,...payload,createdAt:nowIso(),sourceVersion:VERSION});return receiptId;}
+async function status(playerId){const r=await ensure(playerId),p=r.progress||{};return {ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Event-Day Light Progress',playerId,reflectionDone:Boolean(p.reflectionDone||p.finalReflection),summaryViewed:Boolean(p.summaryViewed),certificateEligible:Boolean(p.certificateEligible),finishedAt:p.finishedAt||null,finishReceiptId:String(p.finishReceiptId||''),version:VERSION};}
+async function submitReflection(payload){const playerId=String(payload?.playerId||'').trim();if(!playerId)throw new Error('PLAYER_ID_REQUIRED');const r=await ensure(playerId);if(!r.progress?.postDone)throw new Error('POST_CHALLENGE_REQUIRED');const reflection={confidence:Number(payload.confidence||0),mostUsefulMission:String(payload.mostUsefulMission||''),helpedMost:String(payload.helpedMost||''),takeaway:String(payload.takeaway||'').trim(),submittedAt:nowIso(),sourceVersion:payload.sourceVersion||VERSION};if(!reflection.confidence||!reflection.mostUsefulMission||!reflection.helpedMost)throw new Error('REFLECTION_INCOMPLETE');await firebase.firestore().collection(COL.progress).doc(playerId).set({playerId,reflectionDone:true,finalReflection:reflection,updatedAt:nowIso(),journeySourceVersion:VERSION},{merge:true});return {ok:true,mode:'firebase',receiptId:`reflection-light-${Date.now()}`,reflectionDone:true,sourceOfTruth:'Cloud Firestore Event-Day Light',version:VERSION};}
 function strongest(games){const done=games.filter(g=>g.passed||g.bestAccuracy>0);return done.reduce((best,g)=>g.bestAccuracy>(best?.accuracy??-1)?{stageId:g.stageId,accuracy:g.bestAccuracy,skill:g.skill}:best,null)}
-async function summary(playerId){
-  const r=await ensure(playerId),p=r.progress||{};
-  if(!(p.reflectionDone||p.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');
-  const [assessments,gameSummary]=await Promise.all([ownRows(COL.assessments,playerId),readGameSummary(playerId)]);
-  const pre=latest(assessments,'pre'),post=latest(assessments,'post');
-  const games=gamesFromProgress(p);
-  const played=games.filter(g=>g.passed||g.bestAccuracy>0);
-  const averageGameAccuracy=played.length?Math.round(played.reduce((n,g)=>n+g.bestAccuracy,0)/played.length):0;
-  const coreScore=games.reduce((n,g)=>n+Number(g.bestAccuracy||0),0);
-  const bonus=bonusFromSummary(gameSummary);
-  const bonusScore=bonus.played?bonus.score:0;
-  const passportTotal=coreScore+bonusScore;
-  const preAccuracy=accuracyOf(pre),postAccuracy=accuracyOf(post);
-  return {ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Event-Day Light Progress + Assessments + Bonus Summary',summaryViewed:Boolean(p.summaryViewed),summary:{
-    pre:{accuracy:preAccuracy,receiptId:pre?.receiptId||pre?.id||''},
-    post:{accuracy:postAccuracy,receiptId:post?.receiptId||post?.id||''},
-    learningGain:postAccuracy-preAccuracy,
-    averageGameAccuracy,
-    coreScore,bonusScore,passportTotal,
-    totalAttempts:0,totalDurationMs:0,
-    games,strongestSkill:strongest(games),
-    badge:p.certificate?.awardLevel||'Word Master',
-    reflection:p.finalReflection||{},bonus
-  },version:VERSION};
-}
-async function completeSummary(playerId){
-  const r=await ensure(playerId);const p=r.progress||{};
-  if(!(p.reflectionDone||p.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');
-  if(!p.postDone||!p.certificateEligible)throw new Error('CERTIFICATE_NOT_ELIGIBLE');
-  const db=firebase.firestore();const ref=db.collection(COL.progress).doc(playerId);const finishReceiptId=uid('finish');
-  await db.runTransaction(async tx=>{
-    const snap=await tx.get(ref);if(!snap.exists)throw new Error('PROGRESS_NOT_FOUND');
-    const current=snap.data()||{};
-    if(!(current.reflectionDone||current.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');
-    if(!current.postDone||!current.certificateEligible)throw new Error('CERTIFICATE_NOT_ELIGIBLE');
-    const patch={playerId,summaryViewed:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),journeySourceVersion:VERSION};
-    if(!current.summaryViewedAt)patch.summaryViewedAt=firebase.firestore.FieldValue.serverTimestamp();
-    if(!current.finishedAt){patch.finishedAt=firebase.firestore.FieldValue.serverTimestamp();patch.finishReceiptId=finishReceiptId;patch.finishSource='journey_summary_confirmed';patch.finishVersion=VERSION;}
-    tx.set(ref,patch,{merge:true});
-  });
-  const latestProgress=await readRawProgress(playerId);
-  return {ok:true,mode:'firebase',receiptId:String(latestProgress.finishReceiptId||finishReceiptId),summaryViewed:true,finishedAt:latestProgress.finishedAt||null,sourceOfTruth:'Cloud Firestore Server Finish Authority',version:VERSION};
-}
+async function summary(playerId){const r=await ensure(playerId),p=r.progress||{};if(!(p.reflectionDone||p.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');const [assessments,gameSummary]=await Promise.all([ownRows(COL.assessments,playerId),readGameSummary(playerId)]);const pre=latest(assessments,'pre'),post=latest(assessments,'post');const games=gamesFromProgress(p);const played=games.filter(g=>g.passed||g.bestAccuracy>0);const averageGameAccuracy=played.length?Math.round(played.reduce((n,g)=>n+g.bestAccuracy,0)/played.length):0;const coreScore=games.reduce((n,g)=>n+Number(g.bestAccuracy||0),0);const bonus=bonusFromSummary(gameSummary);const bonusScore=bonus.played?bonus.score:0;const passportTotal=coreScore+bonusScore;const preAccuracy=accuracyOf(pre),postAccuracy=accuracyOf(post);const badge=achievementLevel(averageGameAccuracy);return {ok:true,mode:'firebase',sourceOfTruth:'Cloud Firestore Event-Day Light Progress + Assessments + Bonus Summary',summaryViewed:Boolean(p.summaryViewed),summary:{pre:{accuracy:preAccuracy,receiptId:pre?.receiptId||pre?.id||''},post:{accuracy:postAccuracy,receiptId:post?.receiptId||post?.id||''},learningGain:postAccuracy-preAccuracy,averageGameAccuracy,coreScore,bonusScore,passportTotal,totalAttempts:0,totalDurationMs:0,games,strongestSkill:strongest(games),badge,achievementBasis:'core_game_1_5_average',reflection:p.finalReflection||{},bonus},version:VERSION};}
+async function completeSummary(playerId){const r=await ensure(playerId);const p=r.progress||{};if(!(p.reflectionDone||p.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');if(!p.postDone||!p.certificateEligible)throw new Error('CERTIFICATE_NOT_ELIGIBLE');const db=firebase.firestore();const ref=db.collection(COL.progress).doc(playerId);const finishReceiptId=uid('finish');await db.runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists)throw new Error('PROGRESS_NOT_FOUND');const current=snap.data()||{};if(!(current.reflectionDone||current.finalReflection))throw new Error('FINAL_REFLECTION_REQUIRED');if(!current.postDone||!current.certificateEligible)throw new Error('CERTIFICATE_NOT_ELIGIBLE');const patch={playerId,summaryViewed:true,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),journeySourceVersion:VERSION};if(!current.summaryViewedAt)patch.summaryViewedAt=firebase.firestore.FieldValue.serverTimestamp();if(!current.finishedAt){patch.finishedAt=firebase.firestore.FieldValue.serverTimestamp();patch.finishReceiptId=finishReceiptId;patch.finishSource='journey_summary_confirmed';patch.finishVersion=VERSION;}tx.set(ref,patch,{merge:true});});const latestProgress=await readRawProgress(playerId);return {ok:true,mode:'firebase',receiptId:String(latestProgress.finishReceiptId||finishReceiptId),summaryViewed:true,finishedAt:latestProgress.finishedAt||null,sourceOfTruth:'Cloud Firestore Server Finish Authority',version:VERSION};}
 window.EW_JOURNEY=Object.freeze({version:VERSION,endpointReady,status,submitReflection,summary,completeSummary,health:async()=>{await readyPromise;return {ok:true,mode:'firebase',version:VERSION}}});
-console.info('[LEXICON X] Journey Client Event-Day Light V8 Finish Authority ready');
+console.info('[LEXICON X] Journey Client V9 Core Achievement ready');
 }());
