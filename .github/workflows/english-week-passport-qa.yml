@@ -34,6 +34,8 @@ jobs:
           node --check english-week-passport/passport-rotation-v2.js
           node --check english-week-passport/firebase-authority-bridge.js
           node --check english-week-passport/firebase-authority-ui-patch.js
+          node --check english-week-passport/passport-session-assignment-v1.js
+          node --check english-week-passport/passport-checkin-ui-v1.js
           node --check english-week-passport/assessment-checkpoint-bridge-v1.js
           node --check english-week-passport/app-core-loader-v2.js
           node --check english-week-passport/passport-canonical-routes-v1.js
