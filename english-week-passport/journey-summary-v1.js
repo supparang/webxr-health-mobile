@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  const VERSION='2026-08-11-JOURNEY-SUMMARY-EVENT-DAY-LIGHT-V1';
+  const VERSION='2026-08-11-JOURNEY-SUMMARY-EVENT-DAY-LIGHT-V2-BONUS';
   const cfg=window.EW_CONFIG||{};
   const journey=window.EW_JOURNEY;
   const content=document.getElementById('content');
@@ -15,7 +15,7 @@
   function h(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}
   function readIdentity(){try{return JSON.parse(localStorage.getItem(cfg.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
   function show(message,type){status.textContent=message;status.className='status show '+(type||'')}
-  function goPassport(){location.replace('./index.html?resume=passport&from=journey_summary&v=20260811-event-day-light')}
+  function goPassport(){location.replace('./index.html?resume=passport&from=journey_summary&v=20260811-event-day-light-bonus')}
   function goReflection(){location.replace('./final-reflection.html?v=20260811-event-day-light&from=summary_recovery')}
   function goCertificate(){location.replace('./certificate-v1.html?from=journey_summary&v=20260811-event-day-light')}
   function signed(value){const n=Number(value||0);return `${n>0?'+':''}${n}%`}
@@ -26,19 +26,26 @@
     const gain=Number(s.learningGain||0);
     const games=Array.isArray(s.games)?s.games:[];
     const reflection=s.reflection||{};
+    const bonus=s.bonus||{played:false,score:0};
     const completed=games.filter(g=>g.passed||Number(g.bestAccuracy||0)>0).length;
     const gameAverage=Number(s.averageGameAccuracy||0);
+    const coreScore=Number(s.coreScore||0);
+    const bonusScore=bonus.played?Number(s.bonusScore||bonus.score||0):0;
+    const passportTotal=Number(s.passportTotal||coreScore+bonusScore);
     document.getElementById('heroTitle').textContent=`${identity.nickname||identity.fullName||'ผู้เล่น'} • ${s.badge||'LEXICON X Explorer'}`;
     content.innerHTML=`
       <section class="metrics">
         <div class="metric"><strong>${completed}/5</strong><small>Games Completed</small></div>
         <div class="metric"><strong>${gameAverage}%</strong><small>Game Average</small></div>
+        <div class="metric"><strong>${bonus.played?'+'+bonusScore:'—'}</strong><small>Bonus Points</small></div>
+        <div class="metric"><strong>${passportTotal}</strong><small>Passport Total</small></div>
         <div class="metric"><strong>${signed(gain)}</strong><small>Learning Gain</small></div>
         <div class="metric"><strong>${Number(reflection.confidence||0)}/5</strong><small>Confidence</small></div>
       </section>
       <section class="card"><h2>📈 Learning Gain • Pre → Post</h2><div class="gain"><div class="scorebox"><small>Pre-Challenge</small><strong>${Number(s.pre?.accuracy||0)}%</strong></div><div class="arrow">→</div><div class="scorebox"><small>Post-Challenge</small><strong>${Number(s.post?.accuracy||0)}%</strong></div><div class="gain-badge">${signed(gain)}</div></div></section>
       <section class="card"><h2>🎮 สถานะภารกิจ Game 1–5</h2><div class="games">${games.map(game=>{const done=game.passed||Number(game.bestAccuracy||0)>0;return `<div class="game"><div><strong>${h(game.title||missionNames[game.stageId]||game.stageId)}</strong><small>${h(game.skill||'')} • ${done?'ทำภารกิจแล้ว':'ยังไม่พบการจบภารกิจ'}</small><div class="bar"><span style="width:${Math.max(0,Math.min(100,Number(game.bestAccuracy||0)))}%"></span></div></div><div class="pct">${done?`${Number(game.bestAccuracy||0)}% ✓`:'—'}</div></div>`}).join('')}</div></section>
-      <section class="achievement"><div class="award"><small>🏅 Achievement</small><strong>${h(s.badge||'LEXICON X Explorer')}</strong><small>สรุปจากความก้าวหน้าใน Passport</small></div><div class="award"><small>📊 Event-Day Status</small><strong>${completed}/5 Games</strong><small>โหมดเบาสำหรับผู้ร่วมกิจกรรมจำนวนมาก</small></div></section>
+      <section class="card bonus-card"><h2>📷 Bonus Mission • Lexicon Lens Hunt</h2>${bonus.played?`<div class="bonus-result"><div><strong>${bonusScore}% ✓</strong><small>Bonus Score</small></div><div><strong>+${bonusScore} pts</strong><small>Added to Passport Total</small></div><div><strong>${coreScore} + ${bonusScore} = ${passportTotal}</strong><small>Core + Bonus</small></div></div><p class="bonus-note">โบนัสมีผลต่อ Passport Total แต่ไม่บังคับการรับ Certificate และไม่ถูกนำไปเฉลี่ยรวมกับ Game Average 1–5</p>`:`<p class="bonus-note">ยังไม่ได้เล่น Bonus Mission • การเล่น Bonus เป็นทางเลือกและไม่บังคับ Certificate</p>`}</section>
+      <section class="achievement"><div class="award"><small>🏅 Achievement</small><strong>${h(s.badge||'LEXICON X Explorer')}</strong><small>Achievement หลักอิง Game 1–5 เพื่อความเท่าเทียมของผู้เล่นทุกคน</small></div><div class="award"><small>📊 Event-Day Status</small><strong>${completed}/5 Games${bonus.played?' + Bonus':''}</strong><small>โหมดเบาสำหรับผู้ร่วมกิจกรรมจำนวนมาก</small></div></section>
       <section class="card"><h2>💭 Final Reflection</h2><div class="reflection"><div><span>Mission ที่มีประโยชน์ที่สุด</span><strong>${h(missionNames[reflection.mostUsefulMission]||reflection.mostUsefulMission||'—')}</strong></div><div><span>สิ่งที่ช่วยการเรียนรู้มากที่สุด</span><strong>${h(helpedNames[reflection.helpedMost]||reflection.helpedMost||'—')}</strong></div>${reflection.takeaway?`<div><span>Takeaway</span><strong>${h(reflection.takeaway)}</strong></div>`:''}</div></section>`;
     certificateBtn.disabled=false;
     certificateBtn.textContent=data.summaryViewed?'ดู Certificate':'ยืนยันสรุปเส้นทางและดู Certificate';
