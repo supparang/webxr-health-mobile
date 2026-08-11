@@ -1,14 +1,14 @@
 (function () {
   "use strict";
 
-  const VERSION = "2026-08-11-SPARK-EVENT-DAY-LIGHT-R11-GAME1-55";
+  const VERSION = "2026-08-11-SPARK-EVENT-DAY-LIGHT-R12-BONUS-COMPAT";
   const CLAIM_CACHE_KEY = "ew_eventday_claimed_player_v3";
   const PASS_MARKS = Object.freeze({word_match:55,category_forest:60,sentence_city:60,word_detective:60,final_boss:60});
   const FLOW = ["pre_challenge","word_match","category_forest","sentence_city","word_detective","final_boss","post_challenge","certificate"];
 
   const direct = window.EW_AUTHORITY;
   if (!direct || !direct.directFirestoreVersion || typeof direct.resume !== "function" || typeof direct.submitGame !== "function") {
-    console.error("LEXICON X Event-Day Light R11: Direct Authority must load before bridge");
+    console.error("LEXICON X Event-Day Light R12: Direct Authority must load before bridge");
     return;
   }
 
@@ -77,7 +77,7 @@
         claimedAt:snap.exists ? (snap.data()?.claimedAt || nowIso()) : nowIso(),
         updatedAt:nowIso(),
         sourceVersion:VERSION,
-        sourceMode:"event-day-light-r11-game1-55"
+        sourceMode:"event-day-light-r12-bonus-compat"
       },{merge:true});
     }
 
@@ -199,9 +199,9 @@
 
   async function lightSubmitEvent(payload){
     runtime.lastSuccessAt=nowIso();
-    return {ok:true,skipped:true,persisted:false,eventDayLightMode:true,receiptId:`event-skipped-${Date.now()}`,eventName:clean(payload?.eventName||payload?.type),version:VERSION};
+    return {ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Light",skipped:true,persisted:false,eventDayLightMode:true,receiptId:`event-skipped-${Date.now()}`,eventName:clean(payload?.eventName||payload?.type),version:VERSION};
   }
-  async function lightSaveCheckpoint(payload){return {ok:true,skipped:true,persisted:false,checkpoint:{...(payload||{}),eventDayLightMode:true},version:VERSION};}
+  async function lightSaveCheckpoint(payload){return {ok:true,mode:"firebase",skipped:true,persisted:false,checkpoint:{...(payload||{}),eventDayLightMode:true},version:VERSION};}
   async function lightGetCheckpoint(){return {ok:true,mode:"firebase",checkpoint:null,eventDayLightMode:true,version:VERSION};}
   async function lightClearCheckpoint(){return {ok:true,mode:"firebase",cleared:true,skipped:true,eventDayLightMode:true,version:VERSION};}
   function endpointReady(){return true;}
