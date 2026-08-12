@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  const VERSION='2026-08-12-CERTIFICATE-READONLY-AUTHORITY-V5';
+  const VERSION='2026-08-12-CERTIFICATE-READ-BUDGET-V6';
   const cfg=window.EW_CONFIG||{};
   const screen=document.getElementById('screen');
   const actions=document.getElementById('actions');
@@ -8,7 +8,16 @@
 
   function h(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}
   function readIdentity(){try{return JSON.parse(localStorage.getItem(cfg.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
-  function goPassport(){location.replace('./index.html?resume=passport&from=certificate&v=20260812-certificate-readonly-v5')}
+  function readResumeCache(playerId){
+    try{
+      const row=JSON.parse(localStorage.getItem('ew_eventday_resume_cache_v1')||'null');
+      if(!row||String(row.playerId||'').trim()!==String(playerId||'').trim())return null;
+      if(!row.profile||!row.progress)return null;
+      return row;
+    }catch(_){return null}
+  }
+  function readBonusBest(playerId){try{return JSON.parse(localStorage.getItem(`ew_bonus_lens_best::${playerId}`)||'null')}catch(_){return null}}
+  function goPassport(){location.replace('./index.html?resume=passport&from=certificate&v=20260812-certificate-read-budget-v6')}
   function formatEnglishDate(date){try{return new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric'}).format(date)}catch(_){return date.toLocaleDateString('en-GB',{year:'numeric',month:'long',day:'numeric'})}}
   function achievementLevel(avg){const n=Number(avg||0);if(n>=90)return'English Week Champion';if(n>=80)return'Word Master';if(n>=70)return'Word Explorer';return'Challenge Finisher';}
   function waitForAuth(){
@@ -51,12 +60,21 @@
       if(!window.firebase?.firestore)throw new Error('FIRESTORE_NOT_READY');
       const db=firebase.firestore();
       const playerId=identity.playerId;
-      // Existing certificate document is authoritative. This path is read-only:
-      // no resume(), no session claim, no lastSeen write, and no summaryViewed redirect.
+      // Certificate remains authoritative and is always read from Firestore.
       const certSnap=await db.collection('ewp_certificates').doc(playerId).get();
       if(!certSnap.exists)throw new Error('CERTIFICATE_NOT_READY');
       const cert=certSnap.data()||{};
       if(!cert.certificateId)throw new Error('CERTIFICATE_NOT_READY');
+
+      // Same-device Event-Day flow has already synchronized profile/progress and bonus locally.
+      // Use that cache to avoid three redundant document reads. Fall back to Firestore if absent.
+      const cached=readResumeCache(playerId);
+      if(cached?.profile&&cached?.progress){
+        const bonusBest=readBonusBest(playerId);
+        renderCertificate(identity,cached.profile,cached.progress,{bonusBest},cert);
+        return;
+      }
+
       const [profileSnap,progressSnap,gameSummarySnap]=await Promise.all([
         db.collection('ewp_profiles').doc(playerId).get(),
         db.collection('ewp_progress').doc(playerId).get(),
@@ -67,11 +85,11 @@
       const gameSummary=gameSummarySnap.exists?gameSummarySnap.data()||{}:{};
       renderCertificate(identity,profile,progress,gameSummary,cert);
     }catch(error){
-      console.error('[LEXICON X] Certificate read-only load failed',error);
+      console.error('[LEXICON X] Certificate load failed',error);
       screen.textContent='Unable to open Certificate: '+String(error?.message||error);
       actions.hidden=false;
     }
   }
-  console.info('[LEXICON X] Certificate Read-only Authority ready',VERSION);
+  console.info('[LEXICON X] Certificate Read-Budget Authority ready',VERSION);
   load();
 }());
