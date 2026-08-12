@@ -14,6 +14,56 @@ const SANDBOX_STUDENT_IDS = new Set(
 const LOGIN_COMMIT_KEY = "HH_FIREBASE_RECENT_LOGIN_COMMIT_R74";
 const LOGIN_COMMIT_TTL_MS = 10000;
 
+// Production optimization for classroom use (206 students):
+// - roster is stable during a classroom session, so cache it in sessionStorage.
+// - student binding is written once per uid/student/session instead of on every hydrate.
+// - progress is NEVER cached here: progression/receipt reads remain authoritative Firestore reads.
+const ROSTER_CACHE_KEY = "HH_FIREBASE_ROSTER_CACHE_R75";
+const ROSTER_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
+const BINDING_CACHE_KEY = "HH_FIREBASE_BINDING_CACHE_R75";
+const BINDING_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+function sessionJsonGet(key) {
+  try { return JSON.parse(sessionStorage.getItem(key) || "null"); }
+  catch (_error) { return null; }
+}
+function sessionJsonSet(key, value) {
+  try { sessionStorage.setItem(key, JSON.stringify(value)); }
+  catch (_error) {}
+}
+function rosterCacheRead(studentId) {
+  const sid = String(studentId || "").trim();
+  const cached = sessionJsonGet(ROSTER_CACHE_KEY);
+  if (!cached || String(cached.sid || "") !== sid) return null;
+  const age = Date.now() - Number(cached.at || 0);
+  if (age < 0 || age > ROSTER_CACHE_TTL_MS || !cached.result?.ok) return null;
+  return cached.result;
+}
+function rosterCacheWrite(studentId, result) {
+  if (!result?.ok) return;
+  const safeResult = {
+    ok: true,
+    roster: result.roster || {},
+    rosterPath: result.rosterPath || ""
+  };
+  sessionJsonSet(ROSTER_CACHE_KEY, { sid: String(studentId || "").trim(), at: Date.now(), result: safeResult });
+}
+function bindingCacheMatches(uid, studentId, rosterPath) {
+  const cached = sessionJsonGet(BINDING_CACHE_KEY);
+  if (!cached) return false;
+  const age = Date.now() - Number(cached.at || 0);
+  return age >= 0 && age <= BINDING_CACHE_TTL_MS &&
+    String(cached.uid || "") === String(uid || "") &&
+    String(cached.sid || "") === String(studentId || "") &&
+    String(cached.rosterPath || "") === String(rosterPath || "");
+}
+function bindingCacheWrite(uid, studentId, rosterPath, bindingPath) {
+  sessionJsonSet(BINDING_CACHE_KEY, {
+    uid: String(uid || ""), sid: String(studentId || ""),
+    rosterPath: String(rosterPath || ""), bindingPath: String(bindingPath || ""), at: Date.now()
+  });
+}
+
 function writeRecentLoginCommit(studentId) {
   const sid = String(studentId || "").trim();
   if (!sid) return;
@@ -73,10 +123,15 @@ function isPermissionError(error) {
   return code.includes("permission-denied") || message.includes("insufficient permission");
 }
 
-async function readRoster(studentId) {
+async function readRoster(studentId, options = {}) {
   const user = await ensureAnonymousUser();
   const sid = String(studentId || "").trim();
   if (!sid) return { ok: false, user, reason: "student-required" };
+
+  if (options.force !== true) {
+    const cached = rosterCacheRead(sid);
+    if (cached) return { ...cached, user, cached: true };
+  }
 
   const collectionOrder = isSandboxStudent(sid)
     ? ["studentsSandbox", "students"]
@@ -100,7 +155,9 @@ async function readRoster(studentId) {
     if (roster.active === false) {
       return { ok: false, user, reason: "student-inactive", roster, rosterPath: ref.path };
     }
-    return { ok: true, user, roster: { ...roster, studentId: sid }, rosterPath: ref.path };
+    const result = { ok: true, user, roster: { ...roster, studentId: sid }, rosterPath: ref.path, cached: false };
+    rosterCacheWrite(sid, result);
+    return result;
   }
 
   if (lastPermissionError) {
@@ -109,23 +166,38 @@ async function readRoster(studentId) {
   return { ok: false, user, reason: "student-not-found" };
 }
 
-async function bindStudent(studentId) {
-  const rosterResult = await readRoster(studentId);
+async function bindStudent(studentId, options = {}) {
+  const sid = String(studentId || "").trim();
+  const rosterResult = options.rosterResult?.ok ? options.rosterResult : await readRoster(sid);
   if (!rosterResult.ok) return rosterResult;
-  const { user, roster } = rosterResult;
+  const user = rosterResult.user || await ensureAnonymousUser();
+  const roster = rosterResult.roster || {};
   const sandbox = String(rosterResult.rosterPath || "").startsWith("studentsSandbox/");
   const bindingCollection = sandbox ? "studentBindingsSandbox" : "studentBindings";
   const ref = doc(db, bindingCollection, user.uid);
+
+  if (options.force !== true && bindingCacheMatches(user.uid, sid, rosterResult.rosterPath)) {
+    writeRecentLoginCommit(sid);
+    return {
+      ok: true, user, roster, rosterPath: rosterResult.rosterPath,
+      bindingPath: ref.path, bindingReused: true
+    };
+  }
+
   await setDoc(ref, {
     uid: user.uid,
-    studentId: String(studentId),
+    studentId: sid,
     classId: roster.classId || roster.section || "",
     rosterPath: rosterResult.rosterPath || "",
     boundAt: serverTimestamp(),
     build: HEROHEALTH_FIREBASE_BUILD
   }, { merge: true });
-  writeRecentLoginCommit(studentId);
-  return { ok: true, user, roster, rosterPath: rosterResult.rosterPath, bindingPath: ref.path };
+  bindingCacheWrite(user.uid, sid, rosterResult.rosterPath, ref.path);
+  writeRecentLoginCommit(sid);
+  return {
+    ok: true, user, roster, rosterPath: rosterResult.rosterPath,
+    bindingPath: ref.path, bindingReused: false
+  };
 }
 
 function progressCollectionFor(studentId) {
@@ -200,10 +272,12 @@ async function saveGameResult(studentId, gameId, result = {}) {
   if (!sid) throw new Error("firebase-game-result-student-required");
   if (!gid) throw new Error("firebase-game-result-game-required");
 
-  const rosterResult = await bindStudent(sid);
+  const rosterResult = await readRoster(sid);
   if (!rosterResult.ok) throw new Error(`firebase-roster-${rosterResult.reason || "failed"}`);
+  const bindingResult = await bindStudent(sid, { rosterResult });
+  if (!bindingResult.ok) throw new Error(`firebase-binding-${bindingResult.reason || "failed"}`);
 
-  const user = rosterResult.user;
+  const user = bindingResult.user;
   const token = receiptToken(sid, gid);
   const cleanResult = plainObject(result);
   const zone = String(cleanResult.zone || cleanResult.zoneId || "hygiene");
@@ -265,6 +339,7 @@ async function confirmGameResult(studentId, gameId, expectedToken = "") {
 
 export const HHFirebaseClient = Object.freeze({
   build: HEROHEALTH_FIREBASE_BUILD,
+  optimizationRelease: "20260812-R75-206-STUDENT-READ-WRITE-OPTIMIZED",
   sandboxStudentIds: Object.freeze([...SANDBOX_STUDENT_IDS]),
   isSandboxStudent,
   ensureAnonymousUser,
