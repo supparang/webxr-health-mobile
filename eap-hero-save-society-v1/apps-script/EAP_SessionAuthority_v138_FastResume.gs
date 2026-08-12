@@ -1,24 +1,23 @@
 /* =========================================================
-   EAP Session Authority v139 FAST RESUME + TEST ID COMPAT
-   VERSION: 20260812-EAP-SESSION-AUTHORITY-V139-FAST-SUMMARY-TEST-COMPAT
+   EAP Session Authority v140 FAST RESUME + TEST ID COMPAT
+   VERSION: 20260812-EAP-SESSION-AUTHORITY-V140-FAST-SUMMARY-MATCHING-SHEET
 
    PURPOSE
    - player_resume must return quickly.
-   - Read ONE canonical summary sheet only (EAP_Summary first).
+   - Prefer summary-style sheets, but choose the first sheet that actually
+     contains matching learner records (not merely the first sheet that exists).
    - Do NOT scan events/evidence sheets during normal resume.
    - Cache learner resume briefly to absorb repeated page loads.
    - Keep Google Sheet as progression authority.
-   - Preserve the current canonical QA identity 50/122 while allowing
-     historical EAP Hero rows that were stored under 6811000000.
+   - Preserve canonical QA identity 50/122 while allowing historical
+     EAP Hero rows stored under 6811000000.
 
    IMPORTANT
-   - The historical alias fallback is TEST-ONLY and applies only to
-     section 122 + requested studentId 50.
-   - Real student identities are never remapped by this file.
-   - Evidence writes remain owned by v137 / existing receiver.
+   - Historical alias fallback is TEST-ONLY for section 122 + requested ID 50.
+   - Real student identities are never remapped.
 ========================================================= */
 
-var EAP_SESSION_AUTHORITY_V138 = '20260812-EAP-SESSION-AUTHORITY-V139-FAST-SUMMARY-TEST-COMPAT';
+var EAP_SESSION_AUTHORITY_V138 = '20260812-EAP-SESSION-AUTHORITY-V140-FAST-SUMMARY-MATCHING-SHEET';
 var EAP_SESSION_V138_CACHE_SEC = 20;
 var EAP_SESSION_V138_SUMMARY_SHEETS = ['EAP_Summary','summary','EAP_Attempts'];
 var EAP_SESSION_V138_LEGACY_TEST_ALIASES = {
@@ -44,27 +43,19 @@ var EAP_SESSION_V138_REQUIRED = {
 function eapV138Text_(v) {
   return String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
 }
-
 function eapV138Bool_(v) {
   return v === true || String(v).toLowerCase() === 'true' || String(v) === '1' || String(v).toLowerCase() === 'yes';
 }
-
 function eapV138Num_(v) {
-  var n = Number(v);
-  return isFinite(n) ? n : 0;
+  var n = Number(v); return isFinite(n) ? n : 0;
 }
-
 function eapV138Route_(v) {
-  var raw = eapV138Text_(v).toUpperCase();
-  var m;
+  var raw = eapV138Text_(v).toUpperCase(), m;
   if (/^\d+$/.test(raw)) return 'S' + Number(raw);
-  m = raw.match(/^S(?:ESSION)?\s*0?(1[0-5]|[1-9])$/i);
-  if (m) return 'S' + Number(m[1]);
-  m = raw.match(/^(?:B|BOSS|GATE|BOSS\s*GATE)\s*0?([1-5])$/i);
-  if (m) return 'B' + Number(m[1]);
+  m = raw.match(/^S(?:ESSION)?\s*0?(1[0-5]|[1-9])$/i); if (m) return 'S' + Number(m[1]);
+  m = raw.match(/^(?:B|BOSS|GATE|BOSS\s*GATE)\s*0?([1-5])$/i); if (m) return 'B' + Number(m[1]);
   return raw;
 }
-
 function eapV138Skill_(v) {
   var raw = eapV138Text_(v).toLowerCase().replace(/[^a-z]/g, '');
   if (raw === 'read' || raw === 'reading') return 'Reading';
@@ -73,7 +64,6 @@ function eapV138Skill_(v) {
   if (raw === 'speak' || raw === 'speaking') return 'Speaking';
   return '';
 }
-
 function eapV138Spreadsheet_() {
   if (typeof eapSessionSpreadsheetV137_ === 'function') return eapSessionSpreadsheetV137_();
   if (typeof eapCloudResumeSpreadsheet_ === 'function') return eapCloudResumeSpreadsheet_();
@@ -83,7 +73,6 @@ function eapV138Spreadsheet_() {
   if (!id) throw new Error('EAP_SPREADSHEET_ID is not configured');
   return SpreadsheetApp.openById(id);
 }
-
 function eapV138HeaderMap_(headers) {
   var map = {};
   (headers || []).forEach(function(h, i) {
@@ -92,7 +81,6 @@ function eapV138HeaderMap_(headers) {
   });
   return map;
 }
-
 function eapV138Get_(row, map, names) {
   for (var i = 0; i < names.length; i++) {
     var key = String(names[i]).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -104,61 +92,44 @@ function eapV138Get_(row, map, names) {
   return '';
 }
 
-function eapV138SummarySheet_() {
-  var ss = eapV138Spreadsheet_();
-  for (var i = 0; i < EAP_SESSION_V138_SUMMARY_SHEETS.length; i++) {
-    var sh = ss.getSheetByName(EAP_SESSION_V138_SUMMARY_SHEETS[i]);
-    if (sh) return sh;
-  }
-  throw new Error('No canonical summary sheet found: ' + EAP_SESSION_V138_SUMMARY_SHEETS.join(', '));
-}
-
-function eapV138ReadRecords_(sourceStudentId, section, requestedStudentId) {
-  var sh = eapV138SummarySheet_();
-  var lastRow = sh.getLastRow();
-  var lastCol = sh.getLastColumn();
+function eapV140ReadRecordsFromSheet_(sh, sourceStudentId, section, requestedStudentId) {
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
   if (lastRow < 2 || lastCol < 1) return [];
-
-  sourceStudentId = eapV138Text_(sourceStudentId);
-  requestedStudentId = eapV138Text_(requestedStudentId || sourceStudentId);
-
-  /* One sheet read only. */
-  var values = sh.getRange(1, 1, lastRow, lastCol).getValues();
+  var values = sh.getRange(1,1,lastRow,lastCol).getValues();
   var headers = values.shift();
   var map = eapV138HeaderMap_(headers);
   var out = [];
 
   values.forEach(function(row) {
-    var sid = eapV138Text_(eapV138Get_(row, map, ['studentId','student_id','playerId','id']));
+    var sid = eapV138Text_(eapV138Get_(row,map,['studentId','student_id','playerId','id']));
     if (sid !== sourceStudentId) return;
-    var sec = eapV138Text_(eapV138Get_(row, map, ['section','classGroup','class','group'])) || section;
+    var sec = eapV138Text_(eapV138Get_(row,map,['section','classGroup','class','group'])) || section;
     if (sec !== section) return;
 
-    var route = eapV138Route_(eapV138Get_(row, map, ['routeId','sessionId','session','missionId','stage']));
-    var skill = eapV138Skill_(eapV138Get_(row, map, ['skill','skillName','skillKey','focusSkill']));
+    var route = eapV138Route_(eapV138Get_(row,map,['routeId','sessionId','session','missionId','stage']));
+    var skill = eapV138Skill_(eapV138Get_(row,map,['skill','skillName','skillKey','focusSkill']));
     if (EAP_SESSION_V138_ORDER.indexOf(route) < 0 || !skill) return;
 
-    var score = eapV138Num_(eapV138Get_(row, map, ['bestScore','latestScore','score','teacherScore']));
-    var passed = eapV138Bool_(eapV138Get_(row, map, ['passed','pass','mastered','verifiedPassed'])) || score >= 60;
-    var reviewStatus = eapV138Text_(eapV138Get_(row, map, ['teacherReviewStatus','reviewStatus'])).toLowerCase();
+    var score = eapV138Num_(eapV138Get_(row,map,['bestScore','latestScore','score','teacherScore']));
+    var passed = eapV138Bool_(eapV138Get_(row,map,['passed','pass','mastered','verifiedPassed'])) || score >= 60;
+    var reviewStatus = eapV138Text_(eapV138Get_(row,map,['teacherReviewStatus','reviewStatus'])).toLowerCase();
     var reviewRequired = /^B[1-5]$/.test(route) && skill === 'Speaking';
     if (reviewRequired) {
       passed = passed && !!reviewStatus &&
         !/(pending|revise|revision|rework|needs[_ -]?work|not[_ -]?reviewed)/i.test(reviewStatus) &&
         /(reviewed|approved|accepted|pass|passed|complete|completed)/i.test(reviewStatus);
     }
-
-    var updatedAt = eapV138Text_(eapV138Get_(row, map,
+    var updatedAt = eapV138Text_(eapV138Get_(row,map,
       ['teacherReviewedAt','updatedAt','latestAt','receivedAt','completedAt','clientTimestamp','occurredAt','createdAt']));
 
     out.push({
       studentId: requestedStudentId,
       sourceStudentId: sourceStudentId,
-      studentName: eapV138Text_(eapV138Get_(row, map, ['studentName','name'])),
+      studentName: eapV138Text_(eapV138Get_(row,map,['studentName','name'])),
       section: section,
       routeId: route,
       sessionId: route,
-      sessionTitle: eapV138Text_(eapV138Get_(row, map, ['routeTitle','sessionTitle','missionTitle'])),
+      sessionTitle: eapV138Text_(eapV138Get_(row,map,['routeTitle','sessionTitle','missionTitle'])),
       skill: skill,
       score: score,
       bestScore: score,
@@ -179,146 +150,107 @@ function eapV138ReadRecords_(sourceStudentId, section, requestedStudentId) {
 
   var best = {};
   out.forEach(function(r) {
-    var key = r.routeId + '|' + r.skill;
-    var cur = best[key];
+    var key = r.routeId + '|' + r.skill, cur = best[key];
     if (!cur || (r.passed && !cur.passed) ||
         (r.passed === cur.passed && r.bestScore > cur.bestScore) ||
-        (r.passed === cur.passed && r.bestScore === cur.bestScore && String(r.updatedAt) > String(cur.updatedAt))) {
-      best[key] = r;
-    }
+        (r.passed === cur.passed && r.bestScore === cur.bestScore && String(r.updatedAt) > String(cur.updatedAt))) best[key] = r;
   });
-  return Object.keys(best).map(function(k) { return best[k]; });
+  return Object.keys(best).map(function(k){ return best[k]; });
+}
+
+function eapV138ReadRecords_(sourceStudentId, section, requestedStudentId) {
+  var ss = eapV138Spreadsheet_();
+  var scanned = [];
+  for (var i=0; i<EAP_SESSION_V138_SUMMARY_SHEETS.length; i++) {
+    var name = EAP_SESSION_V138_SUMMARY_SHEETS[i];
+    var sh = ss.getSheetByName(name);
+    if (!sh) continue;
+    scanned.push(name);
+    var records = eapV140ReadRecordsFromSheet_(sh,sourceStudentId,section,requestedStudentId);
+    if (records.length) {
+      records._sourceSheet = name;
+      records._scannedSheets = scanned;
+      return records;
+    }
+  }
+  var empty = [];
+  empty._sourceSheet = '';
+  empty._scannedSheets = scanned;
+  return empty;
 }
 
 function eapV138BuildProgress_(records) {
   var byKey = {};
-  records.forEach(function(r) { byKey[r.routeId + '|' + r.skill] = r; });
-  var routeProgress = {}, passedRoutes = [], currentRoute = '', latestActivity = '';
-
-  EAP_SESSION_V138_ORDER.forEach(function(routeId) {
-    var required = (EAP_SESSION_V138_REQUIRED[routeId] || []).slice();
-    var skills = {}, passedCount = 0;
-    required.forEach(function(skill) {
-      var r = byKey[routeId + '|' + skill] || null;
-      skills[skill] = r || {routeId:routeId,sessionId:routeId,skill:skill,passed:false,score:0,teacherReviewStatus:''};
-      if (r && r.passed === true) passedCount++;
-      if (r && String(r.updatedAt || '') > latestActivity) latestActivity = r.updatedAt;
+  records.forEach(function(r){ byKey[r.routeId+'|'+r.skill]=r; });
+  var routeProgress={}, passedRoutes=[], currentRoute='', latestActivity='';
+  EAP_SESSION_V138_ORDER.forEach(function(routeId){
+    var required=(EAP_SESSION_V138_REQUIRED[routeId]||[]).slice(), skills={}, passedCount=0;
+    required.forEach(function(skill){
+      var r=byKey[routeId+'|'+skill]||null;
+      skills[skill]=r||{routeId:routeId,sessionId:routeId,skill:skill,passed:false,score:0,teacherReviewStatus:''};
+      if(r&&r.passed===true) passedCount++;
+      if(r&&String(r.updatedAt||'')>latestActivity) latestActivity=r.updatedAt;
     });
-    var complete = required.length > 0 && passedCount === required.length;
-    routeProgress[routeId] = {
-      routeId:routeId,
-      routeType:/^B/.test(routeId) ? 'boss_gate' : 'normal_session',
-      requiredSkills:required,
-      requiredSkillCount:required.length,
-      passedSkillCount:passedCount,
-      skills:skills,
-      completed:complete,
-      passed:complete
-    };
-    if (!currentRoute && complete) passedRoutes.push(routeId);
-    else if (!currentRoute) currentRoute = routeId;
+    var complete=required.length>0&&passedCount===required.length;
+    routeProgress[routeId]={routeId:routeId,routeType:/^B/.test(routeId)?'boss_gate':'normal_session',requiredSkills:required,requiredSkillCount:required.length,passedSkillCount:passedCount,skills:skills,completed:complete,passed:complete};
+    if(!currentRoute&&complete) passedRoutes.push(routeId); else if(!currentRoute) currentRoute=routeId;
   });
-
-  var courseCompleted = !currentRoute;
-  if (courseCompleted) currentRoute = 'B5';
-  var unlockedRouteList = passedRoutes.slice();
-  if (unlockedRouteList.indexOf(currentRoute) < 0) unlockedRouteList.push(currentRoute);
-  var unlockedRoutes = {}, unlockedSessions = {};
-  unlockedRouteList.forEach(function(r) {
-    unlockedRoutes[r] = true;
-    var m = r.match(/^S(\d+)$/);
-    if (m) unlockedSessions[String(Number(m[1]))] = true;
-  });
-
-  return {
-    routeProgress:routeProgress,
-    passedRoutes:passedRoutes,
-    currentRoute:currentRoute,
-    courseCompleted:courseCompleted,
-    unlockedRouteList:unlockedRouteList,
-    unlockedRoutes:unlockedRoutes,
-    unlockedSessions:unlockedSessions,
-    latestActivity:latestActivity
-  };
+  var courseCompleted=!currentRoute; if(courseCompleted) currentRoute='B5';
+  var unlockedRouteList=passedRoutes.slice(); if(unlockedRouteList.indexOf(currentRoute)<0) unlockedRouteList.push(currentRoute);
+  var unlockedRoutes={}, unlockedSessions={};
+  unlockedRouteList.forEach(function(r){ unlockedRoutes[r]=true; var m=r.match(/^S(\d+)$/); if(m) unlockedSessions[String(Number(m[1]))]=true; });
+  return {routeProgress:routeProgress,passedRoutes:passedRoutes,currentRoute:currentRoute,courseCompleted:courseCompleted,unlockedRouteList:unlockedRouteList,unlockedRoutes:unlockedRoutes,unlockedSessions:unlockedSessions,latestActivity:latestActivity};
 }
 
 function eapPlayerResumeV138_(params) {
-  params = params || {};
-  var started = Date.now();
-  var studentId = eapV138Text_(params.studentId || params.id || params.playerId);
-  var studentName = eapV138Text_(params.studentName || params.name || '');
-  var section = eapV138Text_(params.section || '122') || '122';
-  if (!studentId) return {ok:false,version:EAP_SESSION_AUTHORITY_V138,error:'missing_studentId'};
+  params=params||{};
+  var started=Date.now();
+  var studentId=eapV138Text_(params.studentId||params.id||params.playerId);
+  var studentName=eapV138Text_(params.studentName||params.name||'');
+  var section=eapV138Text_(params.section||'122')||'122';
+  if(!studentId) return {ok:false,version:EAP_SESSION_AUTHORITY_V138,error:'missing_studentId'};
 
-  var cache = CacheService.getScriptCache();
-  var cacheKey = 'EAP_V139_RESUME|' + section + '|' + studentId;
-  if (String(params.force || '') !== '1') {
-    var cached = cache.get(cacheKey);
-    if (cached) {
-      try {
-        var parsed = JSON.parse(cached);
-        parsed.cacheHit = true;
-        parsed.elapsedMs = Date.now() - started;
-        return parsed;
-      } catch (_) {}
-    }
+  var cache=CacheService.getScriptCache();
+  var cacheKey='EAP_V140_RESUME|'+section+'|'+studentId;
+  if(String(params.force||'')!=='1') {
+    var cached=cache.get(cacheKey);
+    if(cached){ try{ var parsed=JSON.parse(cached); parsed.cacheHit=true; parsed.elapsedMs=Date.now()-started; return parsed; }catch(_){} }
   }
 
-  var sourceStudentId = studentId;
-  var records = eapV138ReadRecords_(sourceStudentId, section, studentId);
-  var aliasKey = section + '|' + studentId;
-  var legacySource = EAP_SESSION_V138_LEGACY_TEST_ALIASES[aliasKey] || '';
-  var usedLegacyTestAlias = false;
+  var sourceStudentId=studentId;
+  var records=eapV138ReadRecords_(sourceStudentId,section,studentId);
+  var selectedSummarySheet=records._sourceSheet||'';
+  var scannedSummarySheets=(records._scannedSheets||[]).slice();
+  var aliasKey=section+'|'+studentId;
+  var legacySource=EAP_SESSION_V138_LEGACY_TEST_ALIASES[aliasKey]||'';
+  var usedLegacyTestAlias=false;
 
-  if (!records.length && legacySource) {
-    records = eapV138ReadRecords_(legacySource, section, studentId);
-    if (records.length) {
-      sourceStudentId = legacySource;
-      usedLegacyTestAlias = true;
-    }
+  if(!records.length&&legacySource){
+    records=eapV138ReadRecords_(legacySource,section,studentId);
+    selectedSummarySheet=records._sourceSheet||'';
+    scannedSummarySheets=scannedSummarySheets.concat((records._scannedSheets||[]).filter(function(x){return scannedSummarySheets.indexOf(x)<0;}));
+    if(records.length){ sourceStudentId=legacySource; usedLegacyTestAlias=true; }
   }
 
-  var progress = eapV138BuildProgress_(records);
-  if (!studentName && records.length) studentName = records[0].studentName || '';
-
-  var response = {
-    ok:true,
-    service:'eap-session-authority',
-    version:EAP_SESSION_AUTHORITY_V138,
-    authorityMode:'sheet-only-fast-summary',
-    progressPolicy:'normal-core-support-boss-four-skills-speaking-reviewed',
-    studentId:studentId,
-    requestedStudentId:studentId,
-    sourceStudentId:sourceStudentId,
-    usedLegacyTestAlias:usedLegacyTestAlias,
-    studentName:studentName || 'Student',
-    section:section,
-    records:records,
-    recordCount:records.length,
-    routeProgress:progress.routeProgress,
-    sessionProgress:progress.routeProgress,
-    passedRoutes:progress.passedRoutes,
-    completedRoutes:progress.passedRoutes,
-    unlockedRouteList:progress.unlockedRouteList,
-    unlockedRoutes:progress.unlockedRoutes,
-    unlockedSessions:progress.unlockedSessions,
-    currentRoute:progress.currentRoute,
-    currentCloudRoute:progress.currentRoute,
-    nextRoute:progress.currentRoute,
-    courseCompleted:progress.courseCompleted,
-    requiredSkillsByRoute:EAP_SESSION_V138_REQUIRED,
-    latestActivity:progress.latestActivity,
-    generatedAt:new Date().toISOString(),
-    cacheHit:false,
-    elapsedMs:Date.now()-started
+  var progress=eapV138BuildProgress_(records);
+  if(!studentName&&records.length) studentName=records[0].studentName||'';
+  var response={
+    ok:true,service:'eap-session-authority',version:EAP_SESSION_AUTHORITY_V138,
+    authorityMode:'sheet-only-fast-summary',progressPolicy:'normal-core-support-boss-four-skills-speaking-reviewed',
+    studentId:studentId,requestedStudentId:studentId,sourceStudentId:sourceStudentId,usedLegacyTestAlias:usedLegacyTestAlias,
+    studentName:studentName||'Student',section:section,records:records,recordCount:records.length,
+    selectedSummarySheet:selectedSummarySheet,scannedSummarySheets:scannedSummarySheets,
+    routeProgress:progress.routeProgress,sessionProgress:progress.routeProgress,passedRoutes:progress.passedRoutes,completedRoutes:progress.passedRoutes,
+    unlockedRouteList:progress.unlockedRouteList,unlockedRoutes:progress.unlockedRoutes,unlockedSessions:progress.unlockedSessions,
+    currentRoute:progress.currentRoute,currentCloudRoute:progress.currentRoute,nextRoute:progress.currentRoute,courseCompleted:progress.courseCompleted,
+    requiredSkillsByRoute:EAP_SESSION_V138_REQUIRED,latestActivity:progress.latestActivity,generatedAt:new Date().toISOString(),cacheHit:false,elapsedMs:Date.now()-started
   };
-
-  try { cache.put(cacheKey, JSON.stringify(response), EAP_SESSION_V138_CACHE_SEC); } catch (_) {}
+  try{cache.put(cacheKey,JSON.stringify(response),EAP_SESSION_V138_CACHE_SEC);}catch(_){}
   return response;
 }
 
-function EAP_testPlayerResumeV138() {
-  var result = eapPlayerResumeV138_({studentId:'50',section:'122',force:'1'});
+function EAP_testPlayerResumeV138(){
+  var result=eapPlayerResumeV138_({studentId:'50',section:'122',force:'1'});
   Logger.log(JSON.stringify(result));
   return result;
 }
