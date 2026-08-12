@@ -1,6 +1,6 @@
 /* =========================================================
-   EAP Session Authority v140 FAST RESUME + TEST ID COMPAT
-   VERSION: 20260812-EAP-SESSION-AUTHORITY-V140-FAST-SUMMARY-MATCHING-SHEET
+   EAP Session Authority v141 FAST RESUME + AUTHORITATIVE PASS
+   VERSION: 20260812-EAP-SESSION-AUTHORITY-V141-AUTHORITATIVE-PASS
 
    PURPOSE
    - player_resume must return quickly.
@@ -11,13 +11,17 @@
    - Keep Google Sheet as progression authority.
    - Preserve canonical QA identity 50/122 while allowing historical
      EAP Hero rows stored under 6811000000.
+   - Preserve an authoritative passed=TRUE record for Boss Speaking.
 
    IMPORTANT
    - Historical alias fallback is TEST-ONLY for section 122 + requested ID 50.
    - Real student identities are never remapped.
+   - For Boss Speaking, an explicit authoritative passed=TRUE is final.
+     Teacher review status is consulted only when pass must be inferred from
+     score and the authoritative passed flag is not already TRUE.
 ========================================================= */
 
-var EAP_SESSION_AUTHORITY_V138 = '20260812-EAP-SESSION-AUTHORITY-V140-FAST-SUMMARY-MATCHING-SHEET';
+var EAP_SESSION_AUTHORITY_V138 = '20260812-EAP-SESSION-AUTHORITY-V141-AUTHORITATIVE-PASS';
 var EAP_SESSION_V138_CACHE_SEC = 20;
 var EAP_SESSION_V138_SUMMARY_SHEETS = ['EAP_Summary','summary','EAP_Attempts'];
 var EAP_SESSION_V138_LEGACY_TEST_ALIASES = {
@@ -111,14 +115,25 @@ function eapV140ReadRecordsFromSheet_(sh, sourceStudentId, section, requestedStu
     if (EAP_SESSION_V138_ORDER.indexOf(route) < 0 || !skill) return;
 
     var score = eapV138Num_(eapV138Get_(row,map,['bestScore','latestScore','score','teacherScore']));
-    var passed = eapV138Bool_(eapV138Get_(row,map,['passed','pass','mastered','verifiedPassed'])) || score >= 60;
+    var authoritativePassed = eapV138Bool_(eapV138Get_(row,map,['passed','pass','mastered','verifiedPassed']));
+    var passed = authoritativePassed || score >= 60;
     var reviewStatus = eapV138Text_(eapV138Get_(row,map,['teacherReviewStatus','reviewStatus'])).toLowerCase();
     var reviewRequired = /^B[1-5]$/.test(route) && skill === 'Speaking';
-    if (reviewRequired) {
-      passed = passed && !!reviewStatus &&
+
+    /*
+     * Boss Speaking rule (v141):
+     * - Explicit authoritative passed=TRUE from the canonical Sheet is final.
+     * - Only a score-derived pass (no authoritative TRUE) is gated by review.
+     * This prevents a historical/validated TRUE row from being downgraded
+     * merely because teacherReviewStatus is blank in an older schema.
+     */
+    if (reviewRequired && !authoritativePassed) {
+      var reviewPassed = !!reviewStatus &&
         !/(pending|revise|revision|rework|needs[_ -]?work|not[_ -]?reviewed)/i.test(reviewStatus) &&
         /(reviewed|approved|accepted|pass|passed|complete|completed)/i.test(reviewStatus);
+      passed = passed && reviewPassed;
     }
+
     var updatedAt = eapV138Text_(eapV138Get_(row,map,
       ['teacherReviewedAt','updatedAt','latestAt','receivedAt','completedAt','clientTimestamp','occurredAt','createdAt']));
 
@@ -135,6 +150,7 @@ function eapV140ReadRecordsFromSheet_(sh, sourceStudentId, section, requestedStu
       bestScore: score,
       latestScore: score,
       passed: passed,
+      authoritativePassed: authoritativePassed,
       updatedAt: updatedAt,
       latestAt: updatedAt,
       restoredFromSheet: true,
@@ -152,6 +168,7 @@ function eapV140ReadRecordsFromSheet_(sh, sourceStudentId, section, requestedStu
   out.forEach(function(r) {
     var key = r.routeId + '|' + r.skill, cur = best[key];
     if (!cur || (r.passed && !cur.passed) ||
+        (r.passed === cur.passed && r.authoritativePassed && !cur.authoritativePassed) ||
         (r.passed === cur.passed && r.bestScore > cur.bestScore) ||
         (r.passed === cur.passed && r.bestScore === cur.bestScore && String(r.updatedAt) > String(cur.updatedAt))) best[key] = r;
   });
@@ -211,7 +228,7 @@ function eapPlayerResumeV138_(params) {
   if(!studentId) return {ok:false,version:EAP_SESSION_AUTHORITY_V138,error:'missing_studentId'};
 
   var cache=CacheService.getScriptCache();
-  var cacheKey='EAP_V140_RESUME|'+section+'|'+studentId;
+  var cacheKey='EAP_V141_RESUME|'+section+'|'+studentId;
   if(String(params.force||'')!=='1') {
     var cached=cache.get(cacheKey);
     if(cached){ try{ var parsed=JSON.parse(cached); parsed.cacheHit=true; parsed.elapsedMs=Date.now()-started; return parsed; }catch(_){} }
@@ -236,7 +253,7 @@ function eapPlayerResumeV138_(params) {
   if(!studentName&&records.length) studentName=records[0].studentName||'';
   var response={
     ok:true,service:'eap-session-authority',version:EAP_SESSION_AUTHORITY_V138,
-    authorityMode:'sheet-only-fast-summary',progressPolicy:'normal-core-support-boss-four-skills-speaking-reviewed',
+    authorityMode:'sheet-only-fast-summary',progressPolicy:'authoritative-passed-preserved-boss-speaking-review-when-inferred',
     studentId:studentId,requestedStudentId:studentId,sourceStudentId:sourceStudentId,usedLegacyTestAlias:usedLegacyTestAlias,
     studentName:studentName||'Student',section:section,records:records,recordCount:records.length,
     selectedSummarySheet:selectedSummarySheet,scannedSummarySheets:scannedSummarySheets,
