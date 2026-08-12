@@ -1,27 +1,34 @@
 /* =========================================================
-   EAP Session Authority v143
-   FAST RESUME + MULTI-SUMMARY UNION + CURRENT ROUTE EVENTS
-   VERSION: 20260812-EAP-SESSION-AUTHORITY-V143-MULTI-SUMMARY-UNION
+   EAP Session Authority v144
+   CANONICAL EVIDENCE UNION + TWO-SKILL SESSION PROGRESSION
+   VERSION: 20260812-EAP-SESSION-AUTHORITY-V144-CANONICAL-EVIDENCE-UNION
 
    PURPOSE
    - Google Sheet remains the sole authority.
-   - Merge records from ALL canonical summary/attempt sheets instead of
-     stopping at the first sheet that contains historical rows.
-   - Preserve the best/passed row per Route + Skill.
-   - Merge current-route event rows to close the immediate save -> resume gap.
-   - Keep Boss Speaking teacher-review policy.
-   - Align S5 progression with the student UI: Reading + Speaking.
+   - Read the same canonical evidence sources as Cloud Resume.
+   - Preserve best/passed evidence per Route + Skill.
+   - Normal S1-S15 use the agreed required-skill pairs.
+   - Boss B1-B5 require all four skills.
+   - Boss Speaking keeps teacher-review policy from Cloud Resume.
+   - S5 progression is Reading + Speaking.
+   - No doGet()/doPost() in this file.
 ========================================================= */
 
 var EAP_SESSION_AUTHORITY_V138 =
-  '20260812-EAP-SESSION-AUTHORITY-V143-MULTI-SUMMARY-UNION';
+  '20260812-EAP-SESSION-AUTHORITY-V144-CANONICAL-EVIDENCE-UNION';
 
-var EAP_SESSION_V138_CACHE_SEC = 20;
+var EAP_SESSION_V138_CACHE_SEC = 15;
 
-var EAP_SESSION_V138_SUMMARY_SHEETS = [
-  'EAP_Summary',
+var EAP_SESSION_V144_SHEETS = [
+  'eap-v132-events',
+  'attempts',
+  'evidence',
   'summary',
-  'EAP_Attempts'
+  'events',
+  'EAP_Attempts',
+  'EAP_Evidence',
+  'EAP_Summary',
+  'eap-v132-quality-audit'
 ];
 
 var EAP_SESSION_V138_LEGACY_TEST_ALIASES = {
@@ -56,143 +63,82 @@ var EAP_SESSION_V138_REQUIRED = {
   B5:['Reading','Listening','Writing','Speaking']
 };
 
-function eapV138Text_(v) {
+function eapV144Text_(v) {
   return String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
 }
 
-function eapV138Bool_(v) {
-  return v === true ||
-    String(v).toLowerCase() === 'true' ||
-    String(v) === '1' ||
-    String(v).toLowerCase() === 'yes';
-}
-
-function eapV138Num_(v) {
+function eapV144Num_(v) {
   var n = Number(v);
   return isFinite(n) ? n : 0;
 }
 
-function eapV138Route_(v) {
-  var raw = eapV138Text_(v).toUpperCase();
+function eapV144Route_(v) {
+  var raw = eapV144Text_(v).toUpperCase();
   var m;
-
   if (/^\d+$/.test(raw)) return 'S' + Number(raw);
-
   m = raw.match(/^S(?:ESSION)?\s*0?(1[0-5]|[1-9])$/i);
   if (m) return 'S' + Number(m[1]);
-
   m = raw.match(/^(?:B|BOSS|GATE|BOSS\s*GATE)\s*0?([1-5])$/i);
   if (m) return 'B' + Number(m[1]);
-
   return raw;
 }
 
-function eapV138Skill_(v) {
-  var raw = eapV138Text_(v).toLowerCase().replace(/[^a-z]/g, '');
-  if (raw === 'read' || raw === 'reading') return 'Reading';
-  if (raw === 'listen' || raw === 'listening') return 'Listening';
-  if (raw === 'write' || raw === 'writing') return 'Writing';
-  if (raw === 'speak' || raw === 'speaking') return 'Speaking';
+function eapV144Skill_(v) {
+  var raw = eapV144Text_(v).toLowerCase().replace(/[^a-z]/g, '');
+  if (raw === 'reading' || raw === 'read') return 'Reading';
+  if (raw === 'listening' || raw === 'listen') return 'Listening';
+  if (raw === 'writing' || raw === 'write') return 'Writing';
+  if (raw === 'speaking' || raw === 'speak') return 'Speaking';
   return '';
 }
 
-function eapV138Spreadsheet_() {
-  if (typeof eapSessionSpreadsheetV137_ === 'function') {
-    return eapSessionSpreadsheetV137_();
-  }
+function eapV144Spreadsheet_() {
   if (typeof eapCloudResumeSpreadsheet_ === 'function') {
     return eapCloudResumeSpreadsheet_();
+  }
+  if (typeof eapSessionSpreadsheetV137_ === 'function') {
+    return eapSessionSpreadsheetV137_();
   }
   if (typeof eapSheetV132Spreadsheet_ === 'function') {
     return eapSheetV132Spreadsheet_();
   }
-  if (typeof ss_ === 'function') {
-    return ss_();
-  }
+  if (typeof ss_ === 'function') return ss_();
 
-  var id = PropertiesService
-    .getScriptProperties()
-    .getProperty('EAP_SPREADSHEET_ID') || '';
-
-  if (!id) {
-    throw new Error('EAP_SPREADSHEET_ID is not configured');
-  }
-
+  var id = '';
+  try {
+    id = PropertiesService.getScriptProperties()
+      .getProperty('EAP_SPREADSHEET_ID') || '';
+  } catch (_) {}
+  if (!id) throw new Error('EAP_SPREADSHEET_ID is not configured');
   return SpreadsheetApp.openById(id);
 }
 
-function eapV138HeaderMap_(headers) {
-  var map = {};
-  (headers || []).forEach(function(h, i) {
-    var k = eapV138Text_(h)
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '');
-
-    if (k && map[k] == null) map[k] = i;
-  });
-  return map;
+function eapV144CloneRecord_(r, requestedStudentId, sourceStudentId) {
+  var out = {};
+  Object.keys(r || {}).forEach(function(k) { out[k] = r[k]; });
+  out.studentId = requestedStudentId;
+  out.sourceStudentId = sourceStudentId;
+  out.routeId = eapV144Route_(out.routeId || out.sessionId);
+  out.sessionId = out.routeId;
+  out.skill = eapV144Skill_(out.skill);
+  out.score = eapV144Num_(out.bestScore || out.score);
+  out.bestScore = out.score;
+  out.latestScore = out.score;
+  out.passed = out.passed === true;
+  out.restoredFromSheet = true;
+  out.cloudVerified = true;
+  out.serverVerified = true;
+  out.resumeSource = 'canonical_evidence_union';
+  return out;
 }
 
-function eapV138Get_(row, map, names) {
-  for (var i = 0; i < names.length; i++) {
-    var key = String(names[i])
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '');
-
-    if (map[key] != null) {
-      var value = row[map[key]];
-      if (value !== '' && value !== null && value !== undefined) {
-        return value;
-      }
-    }
-  }
-  return '';
-}
-
-function eapV143Json_(v) {
-  try {
-    var o = JSON.parse(String(v || '{}'));
-    return o && typeof o === 'object' ? o : {};
-  } catch (_) {
-    return {};
-  }
-}
-
-function eapV143Object_(headers, row) {
-  var o = {};
-  (headers || []).forEach(function(h, i) {
-    if (h) o[h] = row[i];
-  });
-  return o;
-}
-
-function eapV143MergeObj_(nested, direct) {
-  var o = {};
-  Object.keys(nested || {}).forEach(function(k) {
-    o[k] = nested[k];
-  });
-  Object.keys(direct || {}).forEach(function(k) {
-    var v = direct[k];
-    if (v !== '' && v !== null && v !== undefined) o[k] = v;
-  });
-  return o;
-}
-
-function eapV143Pick_(o, names) {
-  for (var i = 0; i < names.length; i++) {
-    var v = o[names[i]];
-    if (v !== '' && v !== null && v !== undefined) return v;
-  }
-  return '';
-}
-
-function eapV143Dedup_(rows) {
+function eapV144Dedup_(rows) {
   var best = {};
 
   (rows || []).forEach(function(r) {
-    var route = eapV138Route_(r.routeId || r.sessionId);
-    var skill = eapV138Skill_(r.skill);
-    if (!route || !skill) return;
+    var route = eapV144Route_(r.routeId || r.sessionId);
+    var skill = eapV144Skill_(r.skill);
+    if (EAP_SESSION_V138_ORDER.indexOf(route) < 0 || !skill) return;
 
     r.routeId = route;
     r.sessionId = route;
@@ -200,307 +146,86 @@ function eapV143Dedup_(rows) {
 
     var key = route + '|' + skill;
     var cur = best[key];
-    var score = eapV138Num_(r.bestScore || r.score);
-    var curScore = cur ? eapV138Num_(cur.bestScore || cur.score) : -1;
+    if (!cur) {
+      best[key] = r;
+      return;
+    }
 
-    if (
-      !cur ||
-      (r.passed === true && cur.passed !== true) ||
-      (r.passed === cur.passed &&
-        r.authoritativePassed === true &&
-        cur.authoritativePassed !== true) ||
-      (r.passed === cur.passed && score > curScore) ||
-      (r.passed === cur.passed &&
-        score === curScore &&
-        String(r.updatedAt || '') > String(cur.updatedAt || ''))
-    ) {
+    if (r.passed === true && cur.passed !== true) {
+      best[key] = r;
+      return;
+    }
+    if (r.passed !== true && cur.passed === true) return;
+
+    var score = eapV144Num_(r.bestScore || r.score);
+    var curScore = eapV144Num_(cur.bestScore || cur.score);
+    if (score > curScore) {
+      best[key] = r;
+      return;
+    }
+    if (score < curScore) return;
+
+    if (String(r.updatedAt || r.latestAt || '') >
+        String(cur.updatedAt || cur.latestAt || '')) {
       best[key] = r;
     }
   });
 
-  return Object.keys(best).map(function(k) {
-    return best[k];
+  return Object.keys(best).map(function(k) { return best[k]; }).sort(function(a, b) {
+    var ar = EAP_SESSION_V138_ORDER.indexOf(a.sessionId);
+    var br = EAP_SESSION_V138_ORDER.indexOf(b.sessionId);
+    if (ar !== br) return ar - br;
+    return String(a.skill).localeCompare(String(b.skill));
   });
 }
 
-function eapV143RecordFromRow_(row, map, requestedStudentId, sourceStudentId, section, sourceSheet) {
-  var sid = eapV138Text_(
-    eapV138Get_(row, map, ['studentId','student_id','playerId','id'])
-  );
-  if (sid !== sourceStudentId) return null;
-
-  var sec = eapV138Text_(
-    eapV138Get_(row, map, ['section','classGroup','class','group'])
-  ) || section;
-  if (sec !== section) return null;
-
-  var route = eapV138Route_(
-    eapV138Get_(row, map, ['routeId','sessionId','session','missionId','stage'])
-  );
-
-  var skill = eapV138Skill_(
-    eapV138Get_(row, map, ['skill','skillName','skillKey','focusSkill'])
-  );
-
-  if (EAP_SESSION_V138_ORDER.indexOf(route) < 0 || !skill) return null;
-
-  var score = eapV138Num_(
-    eapV138Get_(row, map, ['bestScore','latestScore','score','teacherScore'])
-  );
-
-  var authoritativePassed = eapV138Bool_(
-    eapV138Get_(row, map, ['passed','pass','mastered','verifiedPassed'])
-  );
-
-  var passed = authoritativePassed || score >= 60;
-
-  var reviewStatus = eapV138Text_(
-    eapV138Get_(row, map, ['teacherReviewStatus','reviewStatus'])
-  ).toLowerCase();
-
-  var reviewRequired = /^B[1-5]$/.test(route) && skill === 'Speaking';
-
-  if (reviewRequired && !authoritativePassed) {
-    var reviewPassed =
-      !!reviewStatus &&
-      !/(pending|revise|revision|rework|needs[_ -]?work|not[_ -]?reviewed)/i
-        .test(reviewStatus) &&
-      /(reviewed|approved|accepted|pass|passed|complete|completed)/i
-        .test(reviewStatus);
-
-    passed = passed && reviewPassed;
-  }
-
-  var updatedAt = eapV138Text_(
-    eapV138Get_(row, map, [
-      'teacherReviewedAt','updatedAt','latestAt','receivedAt',
-      'completedAt','clientTimestamp','occurredAt','createdAt'
-    ])
-  );
-
-  return {
-    studentId: requestedStudentId,
-    sourceStudentId: sourceStudentId,
-    studentName: eapV138Text_(
-      eapV138Get_(row, map, ['studentName','name'])
-    ),
-    section: section,
-    routeId: route,
-    sessionId: route,
-    sessionTitle: eapV138Text_(
-      eapV138Get_(row, map, ['routeTitle','sessionTitle','missionTitle'])
-    ),
-    skill: skill,
-    score: score,
-    bestScore: score,
-    latestScore: score,
-    passed: passed,
-    authoritativePassed: authoritativePassed,
-    updatedAt: updatedAt,
-    latestAt: updatedAt,
-    restoredFromSheet: true,
-    cloudVerified: true,
-    serverVerified: true,
-    resumeSource: sourceStudentId === requestedStudentId
-      ? 'multi_summary_union'
-      : 'multi_summary_union_legacy_test_alias',
-    sourceSheet: sourceSheet,
-    teacherReviewRequired: reviewRequired,
-    teacherReviewStatus: reviewStatus,
-    legacyCompletion: false
-  };
-}
-
-function eapV143ReadRecordsFromSheet_(sh, sourceStudentId, section, requestedStudentId) {
-  var lastRow = sh.getLastRow();
-  var lastCol = sh.getLastColumn();
-  if (lastRow < 2 || lastCol < 1) return [];
-
-  var values = sh.getRange(1, 1, lastRow, lastCol).getValues();
-  var headers = values.shift();
-  var map = eapV138HeaderMap_(headers);
-  var out = [];
-
-  values.forEach(function(row) {
-    var record = eapV143RecordFromRow_(
-      row,
-      map,
-      requestedStudentId,
-      sourceStudentId,
-      section,
-      sh.getName()
-    );
-    if (record) out.push(record);
-  });
-
-  return eapV143Dedup_(out);
-}
-
-/*
- * IMPORTANT v143 change:
- * Read every canonical summary/attempt source and UNION the records.
- * v142 returned immediately after the first non-empty sheet, which caused
- * newer S5 attempts in EAP_Attempts to disappear whenever EAP_Summary still
- * contained older S1-S4 rows.
- */
-function eapV138ReadRecords_(sourceStudentId, section, requestedStudentId) {
-  var ss = eapV138Spreadsheet_();
-  var scanned = [];
-  var sourcesWithRows = [];
+function eapV144ReadCanonical_(sourceStudentId, section, requestedStudentId) {
+  var ss = eapV144Spreadsheet_();
   var all = [];
+  var scanned = [];
+  var sources = [];
+  var ignored = 0;
 
-  for (var i = 0; i < EAP_SESSION_V138_SUMMARY_SHEETS.length; i++) {
-    var name = EAP_SESSION_V138_SUMMARY_SHEETS[i];
-    var sh = ss.getSheetByName(name);
-    if (!sh) continue;
+  EAP_SESSION_V144_SHEETS.forEach(function(sheetName) {
+    var sh = ss.getSheetByName(sheetName);
+    if (!sh) return;
+    scanned.push(sheetName);
 
-    scanned.push(name);
+    if (typeof eapCloudResumeRowsFromSheet_ !== 'function') {
+      throw new Error(
+        'EAP_CloudResume_v132.gs is required for canonical evidence parsing'
+      );
+    }
 
-    var rows = eapV143ReadRecordsFromSheet_(
+    var result = eapCloudResumeRowsFromSheet_(
       sh,
+      sheetName,
       sourceStudentId,
-      section,
-      requestedStudentId
-    );
+      section
+    ) || {rows:[], ignored:0};
+
+    var rows = result.rows || [];
+    ignored += Number(result.ignored || 0);
 
     if (rows.length) {
-      sourcesWithRows.push(name);
-      all = all.concat(rows);
+      sources.push(sheetName);
+      rows.forEach(function(r) {
+        all.push(eapV144CloneRecord_(r, requestedStudentId, sourceStudentId));
+      });
     }
-  }
+  });
 
-  var merged = eapV143Dedup_(all);
-  merged._sourceSheet = sourcesWithRows.join('+');
+  var merged = eapV144Dedup_(all);
   merged._scannedSheets = scanned;
-  merged._sourceSheets = sourcesWithRows;
+  merged._sourceSheets = sources;
+  merged._ignored = ignored;
   return merged;
 }
 
-function eapV143ReadCurrentRouteEvents_(studentId, section, routeId) {
-  if (!studentId || !routeId) return [];
-
-  var ss = eapV138Spreadsheet_();
-  var sh = ss.getSheetByName('events');
-  if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < 1) return [];
-
-  var lastCol = sh.getLastColumn();
-  var headers = sh.getRange(1, 1, 1, lastCol)
-    .getValues()[0]
-    .map(eapV138Text_);
-
-  var map = eapV138HeaderMap_(headers);
-  var studentCol = map['studentid'];
-  if (studentCol == null) return [];
-
-  var cells = sh
-    .getRange(2, studentCol + 1, sh.getLastRow() - 1, 1)
-    .createTextFinder(studentId)
-    .matchEntireCell(true)
-    .findAll();
-
-  var out = [];
-
-  cells.forEach(function(cell) {
-    var row = sh.getRange(cell.getRow(), 1, 1, lastCol).getValues()[0];
-    var direct = eapV143Object_(headers, row);
-    var nested = eapV143Json_(
-      direct.valueJson ||
-      direct.rawJson ||
-      direct.payloadJson ||
-      direct.evidenceJson ||
-      ''
-    );
-
-    var o = eapV143MergeObj_(nested, direct);
-
-    var sec = eapV138Text_(
-      eapV143Pick_(o, ['section','classGroup','class','group'])
-    ) || section;
-    if (sec !== section) return;
-
-    var route = eapV138Route_(
-      eapV143Pick_(o, ['routeId','sessionId','session','missionId','stage'])
-    );
-    if (route !== routeId) return;
-
-    var skill = eapV138Skill_(
-      eapV143Pick_(o, ['skill','skillName','skillKey','focusSkill'])
-    );
-    if (!skill) return;
-
-    var score = eapV138Num_(
-      eapV143Pick_(o, ['bestScore','latestScore','score','teacherScore'])
-    );
-
-    var authoritativePassed = eapV138Bool_(
-      eapV143Pick_(o, ['passed','pass','mastered','verifiedPassed'])
-    );
-
-    var passed = authoritativePassed || score >= 60;
-
-    var reviewStatus = eapV138Text_(
-      eapV143Pick_(o, ['teacherReviewStatus','reviewStatus'])
-    ).toLowerCase();
-
-    var reviewRequired = /^B[1-5]$/.test(route) && skill === 'Speaking';
-
-    if (reviewRequired && !authoritativePassed) {
-      var reviewPassed =
-        !!reviewStatus &&
-        !/(pending|revise|revision|rework|needs[_ -]?work|not[_ -]?reviewed)/i
-          .test(reviewStatus) &&
-        /(reviewed|approved|accepted|pass|passed|complete|completed)/i
-          .test(reviewStatus);
-
-      passed = passed && reviewPassed;
-    }
-
-    var updatedAt = eapV138Text_(
-      eapV143Pick_(o, [
-        'teacherReviewedAt','updatedAt','latestAt','receivedAt',
-        'completedAt','clientTimestamp','occurredAt','createdAt'
-      ])
-    ) || eapV138Text_(direct.createdAt);
-
-    out.push({
-      studentId: studentId,
-      sourceStudentId: studentId,
-      studentName: eapV138Text_(
-        eapV143Pick_(o, ['studentName','name'])
-      ),
-      section: section,
-      routeId: route,
-      sessionId: route,
-      sessionTitle: eapV138Text_(
-        eapV143Pick_(o, ['routeTitle','sessionTitle','missionTitle'])
-      ),
-      skill: skill,
-      score: score,
-      bestScore: score,
-      latestScore: score,
-      passed: passed,
-      authoritativePassed: authoritativePassed,
-      updatedAt: updatedAt,
-      latestAt: updatedAt,
-      restoredFromSheet: true,
-      cloudVerified: true,
-      serverVerified: true,
-      resumeSource: 'current_route_events',
-      sourceSheet: 'events',
-      teacherReviewRequired: reviewRequired,
-      teacherReviewStatus: reviewStatus,
-      legacyCompletion: false
-    });
-  });
-
-  return eapV143Dedup_(out);
-}
-
-function eapV138BuildProgress_(records) {
+function eapV144BuildProgress_(records) {
   var byKey = {};
-
   (records || []).forEach(function(r) {
-    byKey[r.routeId + '|' + r.skill] = r;
+    byKey[r.sessionId + '|' + r.skill] = r;
   });
 
   var routeProgress = {};
@@ -515,7 +240,6 @@ function eapV138BuildProgress_(records) {
 
     required.forEach(function(skill) {
       var r = byKey[routeId + '|' + skill] || null;
-
       skills[skill] = r || {
         routeId: routeId,
         sessionId: routeId,
@@ -524,16 +248,13 @@ function eapV138BuildProgress_(records) {
         score: 0,
         teacherReviewStatus: ''
       };
-
       if (r && r.passed === true) passedCount++;
-
       if (r && String(r.updatedAt || '') > latestActivity) {
         latestActivity = r.updatedAt;
       }
     });
 
     var complete = required.length > 0 && passedCount === required.length;
-
     routeProgress[routeId] = {
       routeId: routeId,
       routeType: /^B/.test(routeId) ? 'boss_gate' : 'normal_session',
@@ -562,10 +283,9 @@ function eapV138BuildProgress_(records) {
 
   var unlockedRoutes = {};
   var unlockedSessions = {};
-
-  unlockedRouteList.forEach(function(r) {
-    unlockedRoutes[r] = true;
-    var m = r.match(/^S(\d+)$/);
+  unlockedRouteList.forEach(function(routeId) {
+    unlockedRoutes[routeId] = true;
+    var m = routeId.match(/^S(\d+)$/);
     if (m) unlockedSessions[String(Number(m[1]))] = true;
   });
 
@@ -583,26 +303,27 @@ function eapV138BuildProgress_(records) {
 
 function eapPlayerResumeV138_(params) {
   params = params || {};
-
   var started = Date.now();
-  var studentId = eapV138Text_(
+
+  var studentId = eapV144Text_(
     params.studentId || params.id || params.playerId
   );
-  var studentName = eapV138Text_(
+  var studentName = eapV144Text_(
     params.studentName || params.name || ''
   );
-  var section = eapV138Text_(params.section || '122') || '122';
+  var section = eapV144Text_(params.section || '122') || '122';
 
   if (!studentId) {
     return {
-      ok: false,
-      version: EAP_SESSION_AUTHORITY_V138,
-      error: 'missing_studentId'
+      ok:false,
+      service:'eap-session-authority',
+      version:EAP_SESSION_AUTHORITY_V138,
+      error:'missing_studentId'
     };
   }
 
   var cache = CacheService.getScriptCache();
-  var cacheKey = 'EAP_V143_RESUME|' + section + '|' + studentId;
+  var cacheKey = 'EAP_V144_RESUME|' + section + '|' + studentId;
 
   if (String(params.force || '') !== '1') {
     var cached = cache.get(cacheKey);
@@ -617,95 +338,66 @@ function eapPlayerResumeV138_(params) {
   }
 
   var sourceStudentId = studentId;
-  var records = eapV138ReadRecords_(sourceStudentId, section, studentId);
-
-  var selectedSummarySheet = records._sourceSheet || '';
-  var scannedSummarySheets = (records._scannedSheets || []).slice();
-  var sourceSummarySheets = (records._sourceSheets || []).slice();
+  var records = eapV144ReadCanonical_(studentId, section, studentId);
+  var usedLegacyTestAlias = false;
 
   var aliasKey = section + '|' + studentId;
   var legacySource = EAP_SESSION_V138_LEGACY_TEST_ALIASES[aliasKey] || '';
-  var usedLegacyTestAlias = false;
 
   if (!records.length && legacySource) {
-    records = eapV138ReadRecords_(legacySource, section, studentId);
-    selectedSummarySheet = records._sourceSheet || '';
-    sourceSummarySheets = (records._sourceSheets || []).slice();
-
-    scannedSummarySheets = scannedSummarySheets.concat(
-      (records._scannedSheets || []).filter(function(x) {
-        return scannedSummarySheets.indexOf(x) < 0;
-      })
-    );
-
+    records = eapV144ReadCanonical_(legacySource, section, studentId);
     if (records.length) {
       sourceStudentId = legacySource;
       usedLegacyTestAlias = true;
     }
   }
 
-  var progress = eapV138BuildProgress_(records);
-  var eventRows = [];
-
-  if (progress.currentRoute && !progress.courseCompleted) {
-    eventRows = eapV143ReadCurrentRouteEvents_(
-      studentId,
-      section,
-      progress.currentRoute
-    );
-
-    if (eventRows.length) {
-      records = eapV143Dedup_(records.concat(eventRows));
-      progress = eapV138BuildProgress_(records);
-    }
-  }
+  var scannedSheets = (records._scannedSheets || []).slice();
+  var sourceSheets = (records._sourceSheets || []).slice();
+  var ignoredInvalidRows = Number(records._ignored || 0);
+  var progress = eapV144BuildProgress_(records);
 
   if (!studentName && records.length) {
     studentName = records[0].studentName || '';
   }
 
   var response = {
-    ok: true,
-    service: 'eap-session-authority',
-    version: EAP_SESSION_AUTHORITY_V138,
-    authorityMode: 'sheet-only-multi-summary-union-current-route-events',
-    progressPolicy: 'authoritative-passed-preserved-multi-summary-union',
-    studentId: studentId,
-    requestedStudentId: studentId,
-    sourceStudentId: sourceStudentId,
-    usedLegacyTestAlias: usedLegacyTestAlias,
-    studentName: studentName || 'Student',
-    section: section,
-    records: records,
-    recordCount: records.length,
-    selectedSummarySheet: selectedSummarySheet,
-    sourceSummarySheets: sourceSummarySheets,
-    scannedSummarySheets: scannedSummarySheets,
-    currentRouteEventRowsMerged: eventRows.length,
-    routeProgress: progress.routeProgress,
-    sessionProgress: progress.routeProgress,
-    passedRoutes: progress.passedRoutes,
-    completedRoutes: progress.passedRoutes,
-    unlockedRouteList: progress.unlockedRouteList,
-    unlockedRoutes: progress.unlockedRoutes,
-    unlockedSessions: progress.unlockedSessions,
-    currentRoute: progress.currentRoute,
-    currentCloudRoute: progress.currentRoute,
-    nextRoute: progress.currentRoute,
-    courseCompleted: progress.courseCompleted,
-    requiredSkillsByRoute: EAP_SESSION_V138_REQUIRED,
-    latestActivity: progress.latestActivity,
-    generatedAt: new Date().toISOString(),
-    cacheHit: false,
-    elapsedMs: Date.now() - started
+    ok:true,
+    service:'eap-session-authority',
+    version:EAP_SESSION_AUTHORITY_V138,
+    authorityMode:'sheet-only-canonical-evidence-union',
+    progressPolicy:'normal-required-pairs-boss-four-skills',
+    studentId:studentId,
+    requestedStudentId:studentId,
+    sourceStudentId:sourceStudentId,
+    usedLegacyTestAlias:usedLegacyTestAlias,
+    studentName:studentName || 'Student',
+    section:section,
+    records:records,
+    recordCount:records.length,
+    scannedSheets:scannedSheets,
+    sourceSheets:sourceSheets,
+    ignoredInvalidRows:ignoredInvalidRows,
+    routeProgress:progress.routeProgress,
+    sessionProgress:progress.routeProgress,
+    passedRoutes:progress.passedRoutes,
+    completedRoutes:progress.passedRoutes,
+    unlockedRouteList:progress.unlockedRouteList,
+    unlockedRoutes:progress.unlockedRoutes,
+    unlockedSessions:progress.unlockedSessions,
+    currentRoute:progress.currentRoute,
+    currentCloudRoute:progress.currentRoute,
+    nextRoute:progress.currentRoute,
+    courseCompleted:progress.courseCompleted,
+    requiredSkillsByRoute:EAP_SESSION_V138_REQUIRED,
+    latestActivity:progress.latestActivity,
+    generatedAt:new Date().toISOString(),
+    cacheHit:false,
+    elapsedMs:Date.now() - started
   };
 
   try {
-    cache.put(
-      cacheKey,
-      JSON.stringify(response),
-      EAP_SESSION_V138_CACHE_SEC
-    );
+    cache.put(cacheKey, JSON.stringify(response), EAP_SESSION_V138_CACHE_SEC);
   } catch (_) {}
 
   return response;
@@ -713,11 +405,10 @@ function eapPlayerResumeV138_(params) {
 
 function EAP_testPlayerResumeV138() {
   var result = eapPlayerResumeV138_({
-    studentId: '50',
-    section: '122',
-    force: '1'
+    studentId:'50',
+    section:'122',
+    force:'1'
   });
-
   Logger.log(JSON.stringify(result));
   return result;
 }
