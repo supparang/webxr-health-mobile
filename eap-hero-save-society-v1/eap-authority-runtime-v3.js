@@ -1,13 +1,15 @@
 /* =========================================================
    EAP Hero • Single Sheet Authority Runtime v3
-   VERSION: 20260811-EAP-SINGLE-SHEET-AUTHORITY-V3-STABLE
+   VERSION: 20260812-EAP-SINGLE-SHEET-AUTHORITY-V3-PROGRESS-V150-COMPAT
 
    Production rules
    1. Google Sheet player_resume is the only progression authority.
-   2. A learner-scoped server-verified snapshot survives reload.
-   3. cloudResumeStatus is informational only; it never invalidates a verified snapshot.
-   4. Never downgrade an already verified route because a background refresh is pending/fails.
-   5. One resume request at a time. No retry storm.
+   2. EAP_Progress v150 is the canonical progression source.
+   3. Accept both legacy eap-session-authority and canonical eap-progress-authority responses.
+   4. A learner-scoped server-verified snapshot survives reload.
+   5. cloudResumeStatus is informational only; it never invalidates a verified snapshot.
+   6. Never downgrade an already verified route because a background refresh is pending/fails.
+   7. One resume request at a time. No retry storm.
 ========================================================= */
 (function () {
   'use strict';
@@ -15,7 +17,7 @@
   if (window.__EAP_SINGLE_AUTHORITY_V3__) return;
   window.__EAP_SINGLE_AUTHORITY_V3__ = true;
 
-  var VERSION = '20260811-EAP-SINGLE-SHEET-AUTHORITY-V3-STABLE';
+  var VERSION = '20260812-EAP-SINGLE-SHEET-AUTHORITY-V3-PROGRESS-V150-COMPAT';
   var STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   var PROFILE_KEY = 'EAP_HERO_PLAYER_PROFILE_V1';
   var ACTIVE_KEY = 'EAP_HERO_ACTIVE_PLAYER_V1';
@@ -96,10 +98,15 @@
     };
   }
 
+  function acceptedService(data){
+    var service = text(data && data.service);
+    return !service || service === 'eap-session-authority' || service === 'eap-progress-authority';
+  }
+
   function validResume(data){
     var p = profile();
     if (!data || data.ok !== true || !p.studentId) return false;
-    if (text(data.service) && text(data.service) !== 'eap-session-authority') return false;
+    if (!acceptedService(data)) return false;
     if (text(data.studentId) && text(data.studentId) !== p.studentId) return false;
     if (text(data.section) && text(data.section) !== p.section) return false;
     return VALID_ROUTE.test(normalizeRoute(data.currentRoute || data.currentCloudRoute || data.nextRoute));
@@ -110,13 +117,16 @@
     var route = normalizeRoute(data.currentRoute || data.currentCloudRoute || data.nextRoute);
     var records = Array.isArray(data.records) ? data.records.map(compactRecord) : [];
     var unlocked = {};
-    var src = data.unlockedRoutes || data.unlockedRouteIds || {};
+    var src = data.unlockedRoutes || data.unlockedRouteIds || data.unlockedRouteList || {};
     if (Array.isArray(src)) src.forEach(function(x){ var r=normalizeRoute(x); if(r) unlocked[r]=true; });
     else if (src && typeof src === 'object') Object.keys(src).forEach(function(k){ var r=normalizeRoute(k); if(r && src[k]) unlocked[r]=true; });
     var idx = ORDER.indexOf(route);
     if (idx >= 0) for (var i=0;i<=idx;i++) unlocked[ORDER[i]] = true;
     return {
-      ok:true, service:'eap-session-authority', version:text(data.version), authorityMode:'sheet-only',
+      ok:true,
+      service:text(data.service) || 'eap-progress-authority',
+      version:text(data.version),
+      authorityMode:data.authorityMode || (text(data.service)==='eap-progress-authority' ? 'EAP_Progress-single-source-of-truth' : 'sheet-only'),
       studentId:p.studentId, studentName:text(data.studentName || p.studentName), section:p.section,
       identityKey:identityOf(p), currentRoute:route, currentCloudRoute:route,
       nextRoute:normalizeRoute(data.nextRoute || route), unlockedRoutes:unlocked,
@@ -148,7 +158,11 @@
     var d = eventOrData && eventOrData.detail ? eventOrData.detail : eventOrData;
     var data = d && d.data ? d.data : d;
     live.inFlight=false;
-    if (!validResume(data)) return false;
+    if (!validResume(data)) {
+      live.loading=false;
+      scheduleRender();
+      return false;
+    }
     var resume = compactResume(data);
     persist(resume);
     live.verified=true; live.loading=false; live.route=resume.currentRoute;
@@ -182,12 +196,12 @@
     if (!force && now-live.lastRequestAt < 5000) return false;
     var t=window.EAPPlayerResumeStableJSONP;
     if (!t || typeof t.request !== 'function') return false;
-    live.inFlight=true; live.lastRequestAt=now;
+    live.inFlight=true; live.loading=true; live.lastRequestAt=now;
     try {
       var started=t.request(force===true);
-      if (started===false) live.inFlight=false;
+      if (started===false) { live.inFlight=false; live.loading=false; }
       return started;
-    } catch(_){ live.inFlight=false; return false; }
+    } catch(_){ live.inFlight=false; live.loading=false; return false; }
   }
 
   function backgroundRefresh(){
@@ -214,10 +228,12 @@
       }
     }
     document.documentElement.dataset.eapAuthorityRuntime=VERSION;
+    document.documentElement.dataset.eapAuthorityLoading=live.loading?'1':'0';
+    document.documentElement.dataset.eapAuthorityVerified=live.verified?'1':'0';
   }
 
   window.addEventListener('eap:resume-synced', applyResume);
-  window.addEventListener('eap:resume-failed', function(){ live.inFlight=false; if(!live.verified) live.loading=false; });
+  window.addEventListener('eap:resume-failed', function(){ live.inFlight=false; live.loading=false; scheduleRender(); });
   window.addEventListener('eap:profile-changed', function(){
     live={verified:false,loading:true,route:'',records:[],identity:identityOf(),checkedAt:'',inFlight:false,lastRequestAt:0};
     if(!restore()) request(true);
