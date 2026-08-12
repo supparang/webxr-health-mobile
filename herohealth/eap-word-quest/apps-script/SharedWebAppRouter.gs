@@ -1,10 +1,11 @@
 /* =========================================================
-   Shared Web App Router v150
+   Shared Web App Router v151
    EAP Hero + EAP Word Quest + Teacher Dashboard
    Section 122
 
    PRODUCTION RESET
    - EAP_ProgressAuthority_v150.gs is the ONLY progression/resume authority.
+   - EAP_ProgressSeed_v151.gs provides a fast one-time seed for test ID 50.
    - Evidence/attempt/event sheets remain research logs only.
    - Successful evidence submissions mirror into EAP_Progress immediately.
    - Legacy v137/v145/v146 remain installed only for compatibility/reference.
@@ -21,8 +22,9 @@ function doGet(e) {
     if (action === 'router_health' || action === 'eap_router_health') {
       return eapRouterJson_({
         ok: true,
-        service: 'shared-router-v150',
+        service: 'shared-router-v151',
         progressAuthorityInstalled: typeof eapPlayerResumeV150_ === 'function' && typeof eapProgressUpsertV150_ === 'function',
+        progressSeedInstalled: typeof eapProgressSeedTest50V151_ === 'function',
         playerResumeV146Installed: typeof eapPlayerResumeV146_ === 'function',
         playerResumeV145Installed: typeof eapPlayerResumeV138_ === 'function',
         playerResumeV137Installed: typeof eapPlayerResumeV137_ === 'function',
@@ -36,6 +38,13 @@ function doGet(e) {
         throw new Error('EAP_ProgressAuthority_v150.gs is not installed');
       }
       return eapRouterJson_(eapProgressSetupV150_(), callback);
+    }
+
+    if (action === 'progress_seed_test50' || action === 'eap_progress_seed_test50') {
+      if (typeof eapProgressSeedTest50V151_ !== 'function') {
+        throw new Error('EAP_ProgressSeed_v151.gs is not installed');
+      }
+      return eapRouterJson_(eapProgressSeedTest50V151_(), callback);
     }
 
     if (action === 'progress_migrate_student' || action === 'eap_progress_migrate_student') {
@@ -68,7 +77,7 @@ function doGet(e) {
       if (typeof eapPlayerResumeV150_ !== 'function') {
         return eapRouterJson_({
           ok: false,
-          service: 'shared-router-v150',
+          service: 'shared-router-v151',
           action: action,
           error: 'EAP_ProgressAuthority_v150.gs is not installed or not deployed',
           progressAuthorityInstalled: false
@@ -137,7 +146,7 @@ function doGet(e) {
   } catch (error) {
     return eapRouterJson_({
       ok: false,
-      service: 'shared-router-v150',
+      service: 'shared-router-v151',
       action: action,
       error: String(error && error.stack ? error.stack : error)
     }, callback);
@@ -211,7 +220,7 @@ function doPost(e) {
   } catch (error) {
     return eapRouterJson_({
       ok: false,
-      service: 'shared-router-v150',
+      service: 'shared-router-v151',
       action: action,
       error: String(error && error.stack ? error.stack : error)
     });
