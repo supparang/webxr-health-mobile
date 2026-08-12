@@ -1,6 +1,6 @@
 /* =========================================================
-   EAP Session Authority v138 FAST RESUME
-   VERSION: 20260812-EAP-SESSION-AUTHORITY-V138-FAST-SUMMARY
+   EAP Session Authority v139 FAST RESUME + TEST ID COMPAT
+   VERSION: 20260812-EAP-SESSION-AUTHORITY-V139-FAST-SUMMARY-TEST-COMPAT
 
    PURPOSE
    - player_resume must return quickly.
@@ -8,15 +8,22 @@
    - Do NOT scan events/evidence sheets during normal resume.
    - Cache learner resume briefly to absorb repeated page loads.
    - Keep Google Sheet as progression authority.
+   - Preserve the current canonical QA identity 50/122 while allowing
+     historical EAP Hero rows that were stored under 6811000000.
 
-   NOTES
+   IMPORTANT
+   - The historical alias fallback is TEST-ONLY and applies only to
+     section 122 + requested studentId 50.
+   - Real student identities are never remapped by this file.
    - Evidence writes remain owned by v137 / existing receiver.
-   - Deep evidence reconciliation can be run separately; it must not block Start.
 ========================================================= */
 
-var EAP_SESSION_AUTHORITY_V138 = '20260812-EAP-SESSION-AUTHORITY-V138-FAST-SUMMARY';
+var EAP_SESSION_AUTHORITY_V138 = '20260812-EAP-SESSION-AUTHORITY-V139-FAST-SUMMARY-TEST-COMPAT';
 var EAP_SESSION_V138_CACHE_SEC = 20;
 var EAP_SESSION_V138_SUMMARY_SHEETS = ['EAP_Summary','summary','EAP_Attempts'];
+var EAP_SESSION_V138_LEGACY_TEST_ALIASES = {
+  '122|50':'6811000000'
+};
 var EAP_SESSION_V138_ORDER = [
   'S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3',
   'S10','S11','S12','B4','S13','S14','S15','B5'
@@ -106,11 +113,14 @@ function eapV138SummarySheet_() {
   throw new Error('No canonical summary sheet found: ' + EAP_SESSION_V138_SUMMARY_SHEETS.join(', '));
 }
 
-function eapV138ReadRecords_(studentId, section) {
+function eapV138ReadRecords_(sourceStudentId, section, requestedStudentId) {
   var sh = eapV138SummarySheet_();
   var lastRow = sh.getLastRow();
   var lastCol = sh.getLastColumn();
   if (lastRow < 2 || lastCol < 1) return [];
+
+  sourceStudentId = eapV138Text_(sourceStudentId);
+  requestedStudentId = eapV138Text_(requestedStudentId || sourceStudentId);
 
   /* One sheet read only. */
   var values = sh.getRange(1, 1, lastRow, lastCol).getValues();
@@ -120,7 +130,7 @@ function eapV138ReadRecords_(studentId, section) {
 
   values.forEach(function(row) {
     var sid = eapV138Text_(eapV138Get_(row, map, ['studentId','student_id','playerId','id']));
-    if (sid !== studentId) return;
+    if (sid !== sourceStudentId) return;
     var sec = eapV138Text_(eapV138Get_(row, map, ['section','classGroup','class','group'])) || section;
     if (sec !== section) return;
 
@@ -142,7 +152,8 @@ function eapV138ReadRecords_(studentId, section) {
       ['teacherReviewedAt','updatedAt','latestAt','receivedAt','completedAt','clientTimestamp','occurredAt','createdAt']));
 
     out.push({
-      studentId: studentId,
+      studentId: requestedStudentId,
+      sourceStudentId: sourceStudentId,
       studentName: eapV138Text_(eapV138Get_(row, map, ['studentName','name'])),
       section: section,
       routeId: route,
@@ -158,7 +169,7 @@ function eapV138ReadRecords_(studentId, section) {
       restoredFromSheet: true,
       cloudVerified: true,
       serverVerified: true,
-      resumeSource: 'fast_summary',
+      resumeSource: sourceStudentId === requestedStudentId ? 'fast_summary' : 'fast_summary_legacy_test_alias',
       sourceSheet: sh.getName(),
       teacherReviewRequired: reviewRequired,
       teacherReviewStatus: reviewStatus,
@@ -166,7 +177,6 @@ function eapV138ReadRecords_(studentId, section) {
     });
   });
 
-  /* Deduplicate by route+skill, prefer passed then higher score then newer row. */
   var best = {};
   out.forEach(function(r) {
     var key = r.routeId + '|' + r.skill;
@@ -241,7 +251,7 @@ function eapPlayerResumeV138_(params) {
   if (!studentId) return {ok:false,version:EAP_SESSION_AUTHORITY_V138,error:'missing_studentId'};
 
   var cache = CacheService.getScriptCache();
-  var cacheKey = 'EAP_V138_RESUME|' + section + '|' + studentId;
+  var cacheKey = 'EAP_V139_RESUME|' + section + '|' + studentId;
   if (String(params.force || '') !== '1') {
     var cached = cache.get(cacheKey);
     if (cached) {
@@ -254,7 +264,20 @@ function eapPlayerResumeV138_(params) {
     }
   }
 
-  var records = eapV138ReadRecords_(studentId, section);
+  var sourceStudentId = studentId;
+  var records = eapV138ReadRecords_(sourceStudentId, section, studentId);
+  var aliasKey = section + '|' + studentId;
+  var legacySource = EAP_SESSION_V138_LEGACY_TEST_ALIASES[aliasKey] || '';
+  var usedLegacyTestAlias = false;
+
+  if (!records.length && legacySource) {
+    records = eapV138ReadRecords_(legacySource, section, studentId);
+    if (records.length) {
+      sourceStudentId = legacySource;
+      usedLegacyTestAlias = true;
+    }
+  }
+
   var progress = eapV138BuildProgress_(records);
   if (!studentName && records.length) studentName = records[0].studentName || '';
 
@@ -265,6 +288,9 @@ function eapPlayerResumeV138_(params) {
     authorityMode:'sheet-only-fast-summary',
     progressPolicy:'normal-core-support-boss-four-skills-speaking-reviewed',
     studentId:studentId,
+    requestedStudentId:studentId,
+    sourceStudentId:sourceStudentId,
+    usedLegacyTestAlias:usedLegacyTestAlias,
     studentName:studentName || 'Student',
     section:section,
     records:records,
@@ -291,7 +317,6 @@ function eapPlayerResumeV138_(params) {
   return response;
 }
 
-/* Optional manual smoke-test from Apps Script editor. */
 function EAP_testPlayerResumeV138() {
   var result = eapPlayerResumeV138_({studentId:'50',section:'122',force:'1'});
   Logger.log(JSON.stringify(result));
