@@ -1,11 +1,11 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-11-PASSPORT-ROUTE-LOADER-R15-FINISH-AUTHORITY";
+  const VERSION="2026-08-12-PASSPORT-ROUTE-LOADER-R16-READ-BUDGET";
   let loaded=false;
   const routes=[
-    "./passport-canonical-routes-v1.js?v=20260811-first20-reward-r13",
-    "./journey-client-v1.js?v=20260811-event-day-light-v8-finish-authority",
-    "./passport-journey-routes-v1.js?v=20260811-event-day-sync-v7"
+    "./passport-canonical-routes-v1.js?v=20260812-read-budget-r14",
+    "./journey-client-v1.js?v=20260812-read-budget-v10",
+    "./passport-journey-routes-v1.js?v=20260812-read-budget-r14"
   ];
 
   function loadRoutes(){
