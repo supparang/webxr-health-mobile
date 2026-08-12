@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-12-TEACHER-AWARD-AUTHORITY-V4.2-QUALIFIED-AT';
+const VERSION='2026-08-12-TEACHER-AWARD-AUTHORITY-V4.3-SINGLE-REWARD-AUTHORITY';
 const BONUS_COL='ewp_bonus_rewards';
 const PROGRESS_COL='ewp_progress';
 const PROFILE_COL='ewp_profiles';
@@ -20,7 +20,9 @@ function dateTime(v){const ms=millis(v);return ms?new Date(ms).toLocaleString('t
 function normalizeBonusBest(v){if(!v||v.score==null)return null;const score=Number(v.score);return Number.isFinite(score)?{score,receipt:clean(v.receipt),at:v.at||v.updatedAt||null,source:clean(v.source||'game-summary')} : null;}
 function qualifiedMillis(finishAt,bonusAt){const f=millis(finishAt),b=millis(bonusAt);return f&&b?Math.max(f,b):0;}
 function qualifiedDateValue(row){const ms=Number(row?.qualifiedAtMs||0);return ms?new Date(ms):null;}
+function removeLegacyRewardPanel(){const legacy=document.getElementById('rewardPanel');if(legacy)legacy.remove();}
 function insertUi(){
+  removeLegacyRewardPanel();
   if(document.getElementById('rewardManagerCard'))return;
   const anchor=document.querySelector('.session-panel');if(!anchor)return;
   const section=document.createElement('section');section.id='rewardManagerCard';section.className='card';section.style.marginBottom='12px';
