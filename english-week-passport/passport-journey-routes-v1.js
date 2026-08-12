@@ -1,9 +1,9 @@
 (function(){
 'use strict';
-const VERSION='2026-08-11-PASSPORT-JOURNEY-ROUTES-V7-EVENT-DAY-SYNC';
+const VERSION='2026-08-12-PASSPORT-JOURNEY-ROUTES-V8-CERT-CACHE-BUST';
 const cfg=window.EW_CONFIG||{};
 const journey=window.EW_JOURNEY;
-const ROUTE_VERSION='20260811-event-day-sync-v7';
+const ROUTE_VERSION='20260812-cert-self-bootstrap-v8';
 let identity=null;
 let journeyStatus=null;
 let statusError='';
