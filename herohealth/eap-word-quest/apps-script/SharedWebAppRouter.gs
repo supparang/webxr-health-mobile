@@ -1,13 +1,13 @@
 /* =========================================================
-   Shared Web App Router v139
+   Shared Web App Router v140
    EAP Hero + EAP Word Quest + Teacher Dashboard
    Section 122
 
    IMPORTANT
    - Keep this as the ONLY file in the project containing doGet() / doPost().
    - EAP_Identity_v121.gs owns unified identity for Hero + Word Quest.
-   - EAP_SessionAuthority_v138_FastResume.gs owns FAST player_resume.
-   - EAP_SessionAuthority_v137.gs remains evidence/write compatibility.
+   - EAP_SessionAuthority_v138_FastResume.gs owns player_resume.
+   - EAP_SessionAuthority_v137.gs remains evidence/write compatibility only.
 ========================================================= */
 
 function doGet(e) {
@@ -17,6 +17,17 @@ function doGet(e) {
   const callback = String(params.callback || '');
 
   try {
+    if (action === 'router_health' || action === 'eap_router_health') {
+      return eapRouterJson_({
+        ok: true,
+        service: 'shared-router-v140',
+        playerResumeFastInstalled: typeof eapPlayerResumeV138_ === 'function',
+        playerResumeV137Installed: typeof eapPlayerResumeV137_ === 'function',
+        heroGetInstalled: typeof eapHeroDoGet_ === 'function',
+        now: new Date().toISOString()
+      }, callback);
+    }
+
     if (
       action === 'eap_identity_lookup' ||
       action === 'eap_hero_profile_lookup' ||
@@ -29,17 +40,21 @@ function doGet(e) {
     }
 
     /* ---------------------------------------------------------
-       FAST EAP Session resume.
-       v138 reads one canonical summary sheet only.
-       v137 is fallback compatibility only.
+       SINGLE AUTHORITY PLAYER RESUME
+       Never silently fall back to v137. If the fast authority is missing,
+       return an explicit diagnostic error instead of masking deployment drift.
     --------------------------------------------------------- */
-    if (action === 'player_resume') {
-      const resume = typeof eapPlayerResumeV138_ === 'function'
-        ? eapPlayerResumeV138_(params)
-        : (typeof eapPlayerResumeV137_ === 'function'
-          ? eapPlayerResumeV137_(params)
-          : eapPlayerResume_(params));
-      return eapRouterJson_(resume, callback);
+    if (action === 'player_resume' || action === 'player_resume_fast') {
+      if (typeof eapPlayerResumeV138_ !== 'function') {
+        return eapRouterJson_({
+          ok: false,
+          service: 'shared-router-v140',
+          action: action,
+          error: 'EAP_SessionAuthority_v138_FastResume.gs is not installed or not deployed',
+          playerResumeFastInstalled: false
+        }, callback);
+      }
+      return eapRouterJson_(eapPlayerResumeV138_(params), callback);
     }
 
     if (action === 'eap_teacher_dashboard') {
@@ -102,7 +117,7 @@ function doGet(e) {
   } catch (error) {
     return eapRouterJson_({
       ok: false,
-      service: 'shared-router-v139',
+      service: 'shared-router-v140',
       action: action,
       error: String(error && error.stack ? error.stack : error)
     }, callback);
@@ -151,7 +166,7 @@ function doPost(e) {
   } catch (error) {
     return eapRouterJson_({
       ok: false,
-      service: 'shared-router-v139',
+      service: 'shared-router-v140',
       action: action,
       error: String(error && error.stack ? error.stack : error)
     });
