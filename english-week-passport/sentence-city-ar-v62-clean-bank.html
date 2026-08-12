@@ -17,7 +17,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;col
 (async function(){
   const boot=document.getElementById('boot');
   try{
-    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260812-scv62-stable-r7-speech-guard-v2',{cache:'no-store'});
+    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260812-scv62-stable-r8-safe-guard-injection',{cache:'no-store'});
     if(!response.ok)throw new Error('V61_CLEAN_LOADER_FAILED_'+response.status);
     let source=await response.text();
     const replacements=[
@@ -32,7 +32,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;col
     if(!source.includes('LexiconXSentenceBankV2'))throw new Error('CLEAN_BANK_GLOBAL_PATCH_FAILED');
     const mobileGrid='<script id="scMobileGrid" src="./sentence-city-mobile-grid-v1.js?v=20260808-sc-mobile-uniform-grid-v5-fixed-submit-lane"></'+'script>';
     source=source.replace('</head>',mobileGrid+'</head>');
-    source=source.replaceAll('Sentence City AR V6.2 Clean Bank V2','Sentence City AR V6.2.13 Stable Speech Guard V2').replaceAll('Clean Bank V2 • 40 curated tasks','Clean Bank V2 • Stable Speech Guard V2 • 40 curated tasks');
+    source=source.replaceAll('Sentence City AR V6.2 Clean Bank V2','Sentence City AR V6.2.14 Safe Speech Guard Injection').replaceAll('Clean Bank V2 • 40 curated tasks','Clean Bank V2 • Safe Speech Guard • 40 curated tasks');
     document.open();document.write(source);document.close();
   }catch(error){console.error(error);boot.innerHTML='<div><strong>เปิดเกมไม่สำเร็จ</strong><small>'+String(error?.message||error)+'</small></div>'}
 })();
