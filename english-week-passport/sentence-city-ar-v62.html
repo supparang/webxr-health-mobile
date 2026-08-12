@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#070d2a">
-<title>Sentence City AR V6.2.5 Mobile Smoke + Auto Return</title>
+<title>Sentence City AR V6.2.10 NPC Speech Gate R5</title>
 <link rel="stylesheet" href="./lexicon-responsive-standard-v1.css?v=20260807-responsive-r1">
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a}
@@ -12,12 +12,12 @@ iframe{display:block;width:100%;height:100%;border:0;background:#070d2a}
 </style>
 </head>
 <body>
-<iframe id="game" allow="camera" title="Sentence City AR V6.2.5 Mobile Smoke + Auto Return"></iframe>
+<iframe id="game" allow="camera" title="Sentence City AR V6.2.10 NPC Speech Gate R5"></iframe>
 <script>
 (function(){
   const frame=document.getElementById('game');
   const params=new URLSearchParams(location.search);
-  params.set('v','20260808-scv625-mobile-smoke-auto-return');
+  params.set('v','20260812-scv6210-npc-speech-gate-r5');
   frame.src='./sentence-city-ar-v62-clean-bank.html?'+params.toString();
 
   let attempts=0;
@@ -56,7 +56,7 @@ iframe{display:block;width:100%;height:100%;border:0;background:#070d2a}
 
       installSummaryDirectPatch(doc);
     }catch(error){
-      console.error('Sentence City V6.2.5 enhancement failed',error);
+      console.error('Sentence City V6.2.10 enhancement failed',error);
       if(attempts>240)clearInterval(timer);
     }
   },180);
