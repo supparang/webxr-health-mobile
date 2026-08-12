@@ -44,13 +44,18 @@ jobs:
           node --check english-week-passport/passport-journey-routes-v1.js
           node --check english-week-passport/final-reflection-v1.js
           node --check english-week-passport/journey-summary-v1.js
+          node --check english-week-passport/journey-summary-quota-guard-v1.js
+          node --check english-week-passport/journey-quota-existing-certificate-v1.js
           node --check english-week-passport/certificate-v1.js
           node --check english-week-passport/teacher-console-v1.js
+          node --check english-week-passport/teacher-console-v4.js
           node --check english-week-passport/teacher-reward-manager-v1.js
+          node --check english-week-passport/bonus-reward-client-v1.js
           node --check english-week-passport/lexicon-lens-hunt.js
           node --check english-week-passport/lexicon-lens-production-auto-return-v1.js
           node --check english-week-passport/lexicon-champion-arena-v47.js
           node --check english-week-passport/lexicon-champion-v47-production-polish.js
+          node --check english-week-passport/lexicon-champion-passport-back-guard-v1.js
           node --check english-week-passport/lexicon-x-engine-v1.js
           node --check english-week-passport/lexicon-x-engine-v5.js
           node --check english-week-passport/lexicon-x-polish-v6.js
@@ -103,3 +108,6 @@ jobs:
 
       - name: Run event award authority contract
         run: node english-week-passport/tests/event-awards-v1.node.cjs
+
+      - name: Run production closeout contract
+        run: node english-week-passport/tests/production-closeout-v1.node.cjs
