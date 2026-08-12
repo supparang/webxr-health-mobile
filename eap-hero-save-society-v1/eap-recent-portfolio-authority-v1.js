@@ -1,6 +1,6 @@
 /* =========================================================
-   EAP Hero • Recent Portfolio Authority Renderer v3
-   VERSION: 20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V3-BOSS-INCLUSIVE
+   EAP Hero • Recent Portfolio Authority Renderer v4
+   VERSION: 20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V4-ROUTE-FIRST
 
    Rules
    1. Read only from EAPAuthorityRuntime.records().
@@ -8,14 +8,18 @@
    3. Force the student table schema to exactly 4 columns:
       Session | Skill | Score | Output.
    4. Include both normal sessions S1-S15 and boss gates B1-B5.
-   5. Render only when server-record signature or table schema changes.
+   5. Order by learning-route recency, not inconsistent row timestamps.
+      Example after S4: S4 -> B1 -> S3 -> S2 -> S1.
+   6. Within each route: Reading -> Listening -> Writing -> Speaking.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V3__) return;
-  window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V3__=true;
+  if(window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V4__) return;
+  window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V4__=true;
 
-  var VERSION='20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V3-BOSS-INCLUSIVE';
+  var VERSION='20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V4-ROUTE-FIRST';
+  var ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
+  var SKILL_ORDER={Reading:0,Listening:1,Writing:2,Speaking:3};
   var lastSignature='';
   var timer=0;
 
@@ -26,7 +30,16 @@
     m=raw.match(/^(?:B|BOSS|GATE|BOSS\s*GATE)\s*0?([1-5])$/i); if(m)return 'B'+Number(m[1]);
     return raw;
   }
+  function normalizeSkill(v){
+    var raw=text(v).toLowerCase();
+    if(raw==='reading'||raw==='read')return 'Reading';
+    if(raw==='listening'||raw==='listen')return 'Listening';
+    if(raw==='writing'||raw==='write')return 'Writing';
+    if(raw==='speaking'||raw==='speak')return 'Speaking';
+    return text(v);
+  }
   function validRoute(route){return /^S(?:1[0-5]|[1-9])$/.test(route)||/^B[1-5]$/.test(route);}
+  function routeRank(route){var i=ORDER.indexOf(route);return i<0?-1:i;}
   function scoreOf(r){
     var vals=[r&&r.bestScore,r&&r.latestScore,r&&r.score];
     for(var i=0;i<vals.length;i++){var n=Number(vals[i]);if(Number.isFinite(n))return n;}
@@ -64,20 +77,28 @@
     var best={};
     (rows||[]).forEach(function(r){
       var route=normalizeRoute(r.sessionId||r.routeId||r.session);
-      var skill=text(r.skill);
+      var skill=normalizeSkill(r.skill);
       if(!validRoute(route)||!skill||scoreOf(r)<=0)return;
       var key=route+'|'+skill.toLowerCase(),cur=best[key];
       var passed=r.passed===true||String(r.passed).toLowerCase()==='true';
       var curPassed=cur&&(cur.passed===true||String(cur.passed).toLowerCase()==='true');
       if(!cur||(passed&&!curPassed)||(passed===curPassed&&scoreOf(r)>scoreOf(cur))||
-         (passed===curPassed&&scoreOf(r)===scoreOf(cur)&&text(r.updatedAt)>text(cur.updatedAt)))best[key]=r;
+         (passed===curPassed&&scoreOf(r)===scoreOf(cur)&&text(r.updatedAt)>text(cur.updatedAt))){
+        var copy={};Object.keys(r||{}).forEach(function(k){copy[k]=r[k];});copy.skill=skill;best[key]=copy;
+      }
     });
     return Object.keys(best).map(function(k){return best[k];}).sort(function(a,b){
+      var ar=normalizeRoute(a.sessionId||a.routeId),br=normalizeRoute(b.sessionId||b.routeId);
+      var routeDiff=routeRank(br)-routeRank(ar);
+      if(routeDiff)return routeDiff;
+      var as=SKILL_ORDER[normalizeSkill(a.skill)]; if(as===undefined)as=99;
+      var bs=SKILL_ORDER[normalizeSkill(b.skill)]; if(bs===undefined)bs=99;
+      if(as!==bs)return as-bs;
       return text(b.updatedAt).localeCompare(text(a.updatedAt));
     });
   }
   function signature(rows){
-    return rows.map(function(r){return [normalizeRoute(r.sessionId||r.routeId),text(r.skill),Math.round(scoreOf(r)),r.passed===true,text(r.updatedAt)].join('|');}).join(';;');
+    return rows.map(function(r){return [normalizeRoute(r.sessionId||r.routeId),normalizeSkill(r.skill),Math.round(scoreOf(r)),r.passed===true,text(r.updatedAt)].join('|');}).join(';;');
   }
   function render(){
     timer=0;
@@ -97,7 +118,7 @@
       html=rows.map(function(r){
         var route=normalizeRoute(r.sessionId||r.routeId),score=Math.round(scoreOf(r));
         var passed=r.passed===true||String(r.passed).toLowerCase()==='true';
-        return '<tr data-eap-authority="sheet"><td><strong>'+route+'</strong></td><td>'+text(r.skill)+'</td><td><strong>'+score+'/100</strong></td><td>'+(passed?'ผ่านแล้ว · Google Sheet':'บันทึกแล้ว · Google Sheet')+'</td></tr>';
+        return '<tr data-eap-authority="sheet"><td><strong>'+route+'</strong></td><td>'+normalizeSkill(r.skill)+'</td><td><strong>'+score+'/100</strong></td><td>'+(passed?'ผ่านแล้ว · Google Sheet':'บันทึกแล้ว · Google Sheet')+'</td></tr>';
       }).join('');
     }
     if(tbody.innerHTML!==html)tbody.innerHTML=html;
