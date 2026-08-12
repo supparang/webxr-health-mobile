@@ -1,12 +1,13 @@
 /* =========================================================
-   Shared Web App Router v138
+   Shared Web App Router v139
    EAP Hero + EAP Word Quest + Teacher Dashboard
    Section 122
 
    IMPORTANT
    - Keep this as the ONLY file in the project containing doGet() / doPost().
    - EAP_Identity_v121.gs owns unified identity for Hero + Word Quest.
-   - EAP_SessionAuthority_v137.gs owns official Session progression.
+   - EAP_SessionAuthority_v138_FastResume.gs owns FAST player_resume.
+   - EAP_SessionAuthority_v137.gs remains evidence/write compatibility.
 ========================================================= */
 
 function doGet(e) {
@@ -16,10 +17,6 @@ function doGet(e) {
   const callback = String(params.callback || '');
 
   try {
-    /* ---------------------------------------------------------
-       Unified EAP identity.
-       Legacy Word profile lookup is routed through the same authority.
-    --------------------------------------------------------- */
     if (
       action === 'eap_identity_lookup' ||
       action === 'eap_hero_profile_lookup' ||
@@ -32,12 +29,16 @@ function doGet(e) {
     }
 
     /* ---------------------------------------------------------
-       EAP Session resume: Google Sheet is sole authority.
+       FAST EAP Session resume.
+       v138 reads one canonical summary sheet only.
+       v137 is fallback compatibility only.
     --------------------------------------------------------- */
     if (action === 'player_resume') {
-      const resume = typeof eapPlayerResumeV137_ === 'function'
-        ? eapPlayerResumeV137_(params)
-        : eapPlayerResume_(params);
+      const resume = typeof eapPlayerResumeV138_ === 'function'
+        ? eapPlayerResumeV138_(params)
+        : (typeof eapPlayerResumeV137_ === 'function'
+          ? eapPlayerResumeV137_(params)
+          : eapPlayerResume_(params));
       return eapRouterJson_(resume, callback);
     }
 
@@ -101,7 +102,7 @@ function doGet(e) {
   } catch (error) {
     return eapRouterJson_({
       ok: false,
-      service: 'shared-router-v138',
+      service: 'shared-router-v139',
       action: action,
       error: String(error && error.stack ? error.stack : error)
     }, callback);
@@ -150,7 +151,7 @@ function doPost(e) {
   } catch (error) {
     return eapRouterJson_({
       ok: false,
-      service: 'shared-router-v138',
+      service: 'shared-router-v139',
       action: action,
       error: String(error && error.stack ? error.stack : error)
     });
