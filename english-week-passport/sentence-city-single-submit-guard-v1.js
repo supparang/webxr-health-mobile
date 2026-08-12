@@ -1,12 +1,13 @@
-/* Sentence City • Single Submit Guard V1.4
+/* Sentence City • Single Submit Guard V1.5
  * Prevents repeated AR dwell/pinch submissions during the success delay.
  * Publishes the canonical Passport result contract so the Firestore Game Shell
  * can save once, receive a receipt, unlock the next stage, and auto-return.
+ * V1.5 also hard-gates task transitions until Teacher speech is audibly done.
  */
 (function(){
   'use strict';
 
-  const VERSION='2026-08-08-SC-SINGLE-SUBMIT-GUARD-V1-4-AUTO-FIRESTORE-RETURN';
+  const VERSION='2026-08-12-SC-SINGLE-SUBMIT-GUARD-V1-5-SPEECH-HARD-GATE';
   const sessionStartedAt=Date.now();
   let observedFeedback=null;
   let feedbackObserver=null;
@@ -16,6 +17,54 @@
   let incompleteSubmitAttempts=0;
   let lastIncompleteText='';
   let resultPublished=false;
+
+  /* Android Chrome can report speechSynthesis idle/onend before the audible
+     tail has actually finished. Track a conservative audible window and
+     delay the core 900 ms `state.index += 1; showTask()` transition. */
+  const synth=window.speechSynthesis;
+  let minAudibleUntil=0;
+  function estimateMs(utterance){
+    const text=String(utterance?.text||'');
+    const words=text.trim()?text.trim().split(/\s+/).length:0;
+    const rate=Math.max(.55,Number(utterance?.rate)||1);
+    return Math.min(18000,Math.max(1800,850+(words*440/rate)+(text.length*24/rate)));
+  }
+  function installSpeechTracker(){
+    if(!synth||synth.__sentenceCityAudibleTailV15)return;
+    const nativeSpeak=synth.speak.bind(synth);
+    synth.speak=function(utterance){
+      minAudibleUntil=Math.max(minAudibleUntil,Date.now()+estimateMs(utterance));
+      return nativeSpeak(utterance);
+    };
+    synth.__sentenceCityAudibleTailV15=true;
+  }
+  function waitTeacherDone(callback,maxWait=20000){
+    const started=Date.now();let idleSince=0;
+    const tick=()=>{
+      const now=Date.now();
+      const engineBusy=Boolean(synth&&(synth.speaking||synth.pending));
+      if(engineBusy||now<minAudibleUntil)idleSince=0;else if(!idleSince)idleSince=now;
+      if(!engineBusy&&now>=minAudibleUntil&&idleSince&&now-idleSince>=480){callback();return;}
+      if(now-started>=maxWait){callback();return;}
+      nativeSetTimeout(tick,80);
+    };
+    tick();
+  }
+  const nativeSetTimeout=window.setTimeout.bind(window);
+  function installTransitionTimerGate(){
+    if(window.__SC_TRANSITION_TIMER_GATE_V15)return;
+    window.__SC_TRANSITION_TIMER_GATE_V15=true;
+    window.setTimeout=function(callback,delay,...args){
+      const source=typeof callback==='function'?Function.prototype.toString.call(callback):'';
+      const isTaskAdvance=/state\.index\s*\+=\s*1/.test(source)&&/showTask\s*\(/.test(source);
+      if(isTaskAdvance){
+        return nativeSetTimeout(()=>waitTeacherDone(()=>callback(...args)),Math.max(0,Number(delay)||0));
+      }
+      return nativeSetTimeout(callback,delay,...args);
+    };
+  }
+  installSpeechTracker();
+  installTransitionTimerGate();
 
   function getFeedback(){return document.getElementById('feedback')}
   function getCheck(){return document.getElementById('check')}
@@ -32,10 +81,10 @@
     if(check){
       check.disabled=true;
       check.dataset.submitLocked='1';
-      check.textContent='บันทึกแล้ว • กำลังไปข้อถัดไป…';
+      check.textContent='บันทึกแล้ว • ฟัง Teacher ให้จบก่อนข้อถัดไป…';
     }
     const status=document.getElementById('status');
-    if(status)status.innerHTML='ส่งคำตอบแล้ว ✓<small>ระบบกำลังเปิดภารกิจถัดไป</small>';
+    if(status)status.innerHTML='ส่งคำตอบแล้ว ✓<small>ระบบจะเปิดภารกิจถัดไปเมื่อ Teacher พูดจบ</small>';
   }
 
   function markIncomplete(feedback,text){
@@ -141,7 +190,7 @@
 
   function directReturnToPassport(){
     const params=new URLSearchParams(location.search);
-    const q=new URLSearchParams({resume:'passport',fromGame:'sentence_city',v:'20260808-sc-auto-return1'});
+    const q=new URLSearchParams({resume:'passport',fromGame:'sentence_city',v:'20260812-sc-speech-hard-gate-v15'});
     const pid=params.get('pid')||params.get('playerId');
     if(pid)q.set('pid',pid);
     if(params.get('view')==='mobile')q.set('view','mobile');
@@ -185,6 +234,7 @@
     get incompleteSubmitAttempts(){return incompleteSubmitAttempts},
     get passportShell(){return hasPassportShell()},
     get resultPublished(){return resultPublished},
-    publishPassportResult
+    publishPassportResult,
+    waitTeacherDone
   };
 })();
