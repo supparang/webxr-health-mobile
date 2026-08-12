@@ -68,7 +68,7 @@ window.__EAP_BOSS_COMPLETION_DELIVERY_V166__=true;
     load('./eap-player-resume-stable-jsonp-v174.js?v=20260811-resume-transport-v180-authority-first-r1','transport-v180-authority-first-r1');
     load('./eap-authority-runtime-v3.js?v=20260812-single-sheet-authority-v3-restored-r2','single-authority-v3-restored-r2');
     load('./eap-authority-startup-handshake-v1.js?v=20260812-authority-startup-handshake-v1','authority-startup-handshake-v1');
-    load('./eap-recent-portfolio-authority-v1.js?v=20260812-recent-portfolio-authority-v2-4col','recent-portfolio-authority-v2-4col');
+    load('./eap-recent-portfolio-authority-v1.js?v=20260812-recent-portfolio-authority-v3-boss-inclusive','recent-portfolio-authority-v3-boss-inclusive');
     load('./eap-boss-completion-authority-v167.js?v=20260811-boss-authority-v167-r1','boss-authority-v167-r1');
     load('./eap-boss-server-confirmation-guard-v1.js?v=20260811-boss-server-confirmation-v1','boss-server-confirmation-v1');
   }
