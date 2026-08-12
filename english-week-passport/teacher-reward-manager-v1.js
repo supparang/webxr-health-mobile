@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-12-TEACHER-AWARD-AUTHORITY-V4.1-LEGACY-BONUS-RECOVERY';
+const VERSION='2026-08-12-TEACHER-AWARD-AUTHORITY-V4.2-QUALIFIED-AT';
 const BONUS_COL='ewp_bonus_rewards';
 const PROGRESS_COL='ewp_progress';
 const PROFILE_COL='ewp_profiles';
@@ -18,14 +18,16 @@ function millis(v){try{return typeof v?.toMillis==='function'?v.toMillis():new D
 function timeText(v){const ms=millis(v);return ms?new Date(ms).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—'}
 function dateTime(v){const ms=millis(v);return ms?new Date(ms).toLocaleString('th-TH'):'—'}
 function normalizeBonusBest(v){if(!v||v.score==null)return null;const score=Number(v.score);return Number.isFinite(score)?{score,receipt:clean(v.receipt),at:v.at||v.updatedAt||null,source:clean(v.source||'game-summary')} : null;}
+function qualifiedMillis(finishAt,bonusAt){const f=millis(finishAt),b=millis(bonusAt);return f&&b?Math.max(f,b):0;}
+function qualifiedDateValue(row){const ms=Number(row?.qualifiedAtMs||0);return ms?new Date(ms):null;}
 function insertUi(){
   if(document.getElementById('rewardManagerCard'))return;
   const anchor=document.querySelector('.session-panel');if(!anchor)return;
   const section=document.createElement('section');section.id='rewardManagerCard';section.className='card';section.style.marginBottom='12px';
-  section.innerHTML=`<div class="session-head"><div><strong>🎁 Event Reward • First 20 Finishers + Bonus</strong><div class="note">มีสิทธิ์เมื่อ <strong>จบ Journey สมบูรณ์</strong> และ <strong>ทำ Lexicon Lens Hunt สำเร็จ</strong> เท่านั้น • Top 20 ใช้ Journey <code>finishedAt</code> + Bonus reward timestamp จาก Firebase server • Bonus เก่าที่ไม่มี timestamp จะแสดงเพื่อ audit แต่ไม่จัดอันดับย้อนหลัง</div></div><button id="rewardRefreshBtn" class="btn">↻ Refresh Awards</button></div>
+  section.innerHTML=`<div class="session-head"><div><strong>🎁 Event Reward • First 20 to Complete Journey + Bonus</strong><div class="note">มีสิทธิ์เมื่อ <strong>จบ Journey สมบูรณ์</strong> และ <strong>ทำ Lexicon Lens Hunt สำเร็จ</strong> เท่านั้น • จัดอันดับจากเวลาที่ผู้เล่นทำครบทั้งสองเงื่อนไข (<code>qualifiedAt = max(Journey finishedAt, Bonus firstCompletedAt)</code>) จาก Firebase server • Bonus เก่าที่ไม่มี timestamp แสดงเพื่อ audit แต่ไม่จัดอันดับย้อนหลัง</div></div><button id="rewardRefreshBtn" class="btn">↻ Refresh Awards</button></div>
   <div id="awardKpis" class="learning" style="margin-bottom:10px"></div>
   <div class="grid section-grid" style="margin-top:0">
-    <div><h2 style="margin:0 0 8px">🏆 Reward Eligible • Top 20</h2><div class="table-wrap"><table class="table" style="min-width:760px"><thead><tr><th>Rank</th><th>ผู้เล่น</th><th>Journey Finish</th><th>Bonus</th><th>Reward</th></tr></thead><tbody id="eligibleBody"></tbody></table></div><p class="note" id="eligibleNote" style="margin:8px 0 0"></p></div>
+    <div><h2 style="margin:0 0 8px">🏆 Reward Eligible • Top 20</h2><div class="table-wrap"><table class="table" style="min-width:820px"><thead><tr><th>Rank</th><th>ผู้เล่น</th><th>Journey Finish</th><th>Bonus</th><th>Qualified</th><th>Reward</th></tr></thead><tbody id="eligibleBody"></tbody></table></div><p class="note" id="eligibleNote" style="margin:8px 0 0"></p></div>
     <div><h2 style="margin:0 0 8px">🔎 Finish / Bonus Audit</h2><div class="table-wrap"><table class="table" style="min-width:720px"><thead><tr><th>ผู้เล่น</th><th>Finish</th><th>Lens Hunt</th><th>Eligibility</th></tr></thead><tbody id="auditBody"></tbody></table></div><p class="note" id="auditNote" style="margin:8px 0 0"></p></div>
   </div>`;
   anchor.insertAdjacentElement('afterend',section);document.getElementById('rewardRefreshBtn').addEventListener('click',()=>refresh(true));
@@ -47,10 +49,11 @@ function render(){
     <td><strong>#${i+1}</strong>${i===0?' 🏆':''}</td>
     <td><strong>${h(r.nickname||r.playerId)}</strong><br><small>${h(r.playerId)}</small></td>
     <td><strong>${h(timeText(r.finishedAt))}</strong><br><small>${h(dateTime(r.finishedAt))}</small></td>
-    <td><strong>${Math.round(Number(r.bonusScore||0))}% ✓</strong></td>
+    <td><strong>${Math.round(Number(r.bonusScore||0))}% ✓</strong><br><small>${h(timeText(r.firstCompletedAt))}</small></td>
+    <td><strong>${h(timeText(qualifiedDateValue(r)))}</strong><br><small>${h(dateTime(qualifiedDateValue(r)))}</small></td>
     <td>${r.rewardClaimed?`<span class="good">✓ Received</span><br><small>${h(timeText(r.rewardClaimedAt))}</small><br><button class="btn reward-toggle" data-id="${h(r.rewardId)}" data-claimed="1" style="margin-top:5px">Undo</button>`:`<button class="btn primary reward-toggle" data-id="${h(r.rewardId)}" data-claimed="0">Mark Claimed</button>`}</td>
-  </tr>`).join(''):'<tr><td colspan="5" class="note">ยังไม่มีผู้เล่นที่มีหลักฐาน server-authoritative ครบทั้ง Journey Finish และ Lens Hunt สำหรับการจัดอันดับรางวัล</td></tr>';
-  document.getElementById('eligibleNote').textContent=`รอบ ${currentSession} • จบเร็วแต่ไม่ทำ Bonus = ไม่มีสิทธิ์ • Bonus legacy ที่ไม่มี firstCompletedAt แสดงใน Audit แต่ไม่ถูกนำมาจัด Top 20 ย้อนหลัง • สูงสุด ${REWARD_LIMIT} คน/รอบ`;
+  </tr>`).join(''):'<tr><td colspan="6" class="note">ยังไม่มีผู้เล่นที่มีหลักฐาน server-authoritative ครบทั้ง Journey Finish และ Lens Hunt สำหรับการจัดอันดับรางวัล</td></tr>';
+  document.getElementById('eligibleNote').textContent=`รอบ ${currentSession} • ต้องทำ Journey + Bonus ครบทั้งคู่ • จัดอันดับตามเวลาที่ครบเงื่อนไขทั้งสองจริง • Bonus legacy ที่ไม่มี firstCompletedAt ไม่ถูกนำมาจัดอันดับ • สูงสุด ${REWARD_LIMIT} คน/รอบ`;
 
   const bonusMap=new Map(bonusRows.map(r=>[clean(r.playerId),r]));
   const auditIds=new Set([...finishRows.map(r=>r.playerId),...summaryBonusMap.keys(),...bonusRows.map(r=>clean(r.playerId))]);
@@ -62,7 +65,7 @@ function render(){
     if(authBonus)bonusCell=`<span class="good">✓ ${Math.round(Number(authBonus.bonusScore||0))}% • timestamp ready</span>`;
     else if(legacy)bonusCell=`<span class="good">✓ ${Math.round(Number(legacy.score||0))}%</span><br><small>Legacy Bonus • not ranked</small>`;
     let status='<span class="note">ไม่มีสิทธิ์รางวัล</span>';
-    if(eligible)status=`<span class="good">🎁 Eligible #${winnerIndex+1}</span>`;
+    if(eligible)status=`<span class="good">🎁 Eligible #${winnerIndex+1}</span><br><small>ครบสองเงื่อนไข ${h(timeText(qualifiedDateValue(eligibleRows[winnerIndex])))}</small>`;
     else if(r.validFinish&&legacy&&!authBonus)status='<span class="warn">ทำ Bonus แล้ว • ไม่มี reward timestamp</span>';
     else if(!r.validFinish&&(authBonus||legacy))status='<span class="note">ทำ Bonus แล้ว • ยังไม่จบ Journey</span>';
     return `<tr><td><strong>${h(r.nickname||r.playerId)}</strong><br><small>${h(r.playerId)}</small></td><td>${r.validFinish?h(timeText(r.finishedAt)):'—'}</td><td>${bonusCell}</td><td>${status}</td></tr>`;
@@ -87,8 +90,9 @@ async function loadRows(){
   finishRows=rawProgress.map(p=>{const playerId=clean(p.playerId||p.id),profile=profileMap.get(playerId)||{};const validFinish=Boolean(p.summaryViewed&&p.certificateEligible&&p.finishedAt&&p.certificate?.certificateId);return {...p,playerId,nickname:clean(profile.nickname||profile.fullName||playerId),validFinish};})
     .sort((a,b)=>{if(a.validFinish!==b.validFinish)return a.validFinish?-1:1;return millis(a.finishedAt)-millis(b.finishedAt)||String(a.playerId).localeCompare(String(b.playerId));});
   const bonusMap=new Map(bonusRows.map(r=>[clean(r.playerId),r]));
-  eligibleRows=finishRows.filter(f=>f.validFinish&&bonusMap.has(f.playerId)).map(f=>{const b=bonusMap.get(f.playerId);return {...f,rewardId:b.id,bonusScore:Number(b.bonusScore||0),firstCompletedAt:b.firstCompletedAt,rewardClaimed:b.rewardClaimed===true,rewardClaimedAt:b.rewardClaimedAt,rewardRank:b.rewardRank,rewardEligible:b.rewardEligible};})
-    .sort((a,b)=>millis(a.finishedAt)-millis(b.finishedAt)||String(a.playerId).localeCompare(String(b.playerId)));
+  eligibleRows=finishRows.filter(f=>f.validFinish&&bonusMap.has(f.playerId)).map(f=>{const b=bonusMap.get(f.playerId);return {...f,rewardId:b.id,bonusScore:Number(b.bonusScore||0),firstCompletedAt:b.firstCompletedAt,qualifiedAtMs:qualifiedMillis(f.finishedAt,b.firstCompletedAt),rewardClaimed:b.rewardClaimed===true,rewardClaimedAt:b.rewardClaimedAt,rewardRank:b.rewardRank,rewardEligible:b.rewardEligible};})
+    .filter(r=>r.qualifiedAtMs>0)
+    .sort((a,b)=>a.qualifiedAtMs-b.qualifiedAtMs||String(a.playerId).localeCompare(String(b.playerId)));
 }
 async function stampRewardRanks(){
   const eligibleMap=new Map(eligibleRows.map((r,i)=>[r.playerId,{rank:i+1,eligible:i<REWARD_LIMIT}]));
@@ -114,5 +118,5 @@ async function toggleClaim(id,claimed){
 }
 function bind(){insertUi();document.getElementById('sessionFilter')?.addEventListener('change',()=>setTimeout(refresh,50));document.getElementById('refreshBtn')?.addEventListener('click',()=>setTimeout(refresh,150));firebase.auth().onAuthStateChanged(user=>{if(user&&!user.isAnonymous)setTimeout(refresh,250);});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
-window.EW_TEACHER_REWARD_MANAGER=Object.freeze({version:VERSION,refresh,rewardLimit:REWARD_LIMIT,eligibility:'journey-finished+authoritative-bonus'});
+window.EW_TEACHER_REWARD_MANAGER=Object.freeze({version:VERSION,refresh,rewardLimit:REWARD_LIMIT,eligibility:'journey-finished+authoritative-bonus',ranking:'qualifiedAt=max(finishedAt,firstCompletedAt)'});
 })();
