@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  const VERSION='2026-08-12-JOURNEY-SUMMARY-EVENT-DAY-LIGHT-V7-EXISTING-CERT-DIRECT';
+  const VERSION='2026-08-12-JOURNEY-SUMMARY-V8-CERT-CACHE-BUST';
   const cfg=window.EW_CONFIG||{};
   const journey=window.EW_JOURNEY;
   const content=document.getElementById('content');
@@ -19,7 +19,7 @@
   function show(message,type){status.textContent=message;status.className='status show '+(type||'')}
   function goPassport(){location.replace('./index.html?resume=passport&from=journey_summary&v=20260812-event-day-light')}
   function goReflection(){location.replace('./final-reflection.html?v=20260812-event-day-light&from=summary_recovery')}
-  function goCertificate(){if(navigating)return;navigating=true;location.replace('./certificate-v1.html?from=journey_summary&v=20260812-existing-cert-direct')}
+  function goCertificate(){if(navigating)return;navigating=true;location.replace('./certificate-v1.html?from=journey_summary&v=20260812-cert-self-bootstrap-v8')}
   function signed(value){const n=Number(value||0);return `${n>0?'+':''}${n}%`}
   function isQuota(error){const s=`${error?.code||''} ${error?.message||error||''}`;return /resource-exhausted|quota exceeded|FIRESTORE_QUOTA_EXCEEDED/i.test(s)}
   backBtn.addEventListener('click',goPassport);
