@@ -1,19 +1,20 @@
 /* =========================================================
-   EAP Hero • Recent Portfolio Authority Renderer v1
-   VERSION: 20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V1
+   EAP Hero • Recent Portfolio Authority Renderer v2
+   VERSION: 20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V2-4COL
 
    Rules
    1. Read only from EAPAuthorityRuntime.records().
    2. Never request the network.
-   3. Render only when the server-record signature changes.
-   4. Do not rewrite identical DOM; prevents flicker/self-trigger loops.
+   3. Force the student table schema to exactly 4 columns:
+      Session | Skill | Score | Output.
+   4. Render only when server-record signature or table schema changes.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V1__) return;
-  window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V1__=true;
+  if(window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V2__) return;
+  window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V2__=true;
 
-  var VERSION='20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V1';
+  var VERSION='20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V2-4COL';
   var lastSignature='';
   var timer=0;
 
@@ -41,13 +42,29 @@
     }
     return null;
   }
+  function ensureFourColumnHeader(table){
+    if(!table)return false;
+    var thead=table.tHead;
+    if(!thead){thead=document.createElement('thead');table.insertBefore(thead,table.firstChild);}
+    var row=thead.rows&&thead.rows[0];
+    if(!row){row=thead.insertRow(0);}
+    var wanted=['Session','Skill','Score','Output'];
+    var current=Array.prototype.slice.call(row.cells||[]).map(function(c){return text(c.textContent);});
+    var same=current.length===4&&wanted.every(function(v,i){return current[i]===v;});
+    if(!same){
+      while(row.firstChild)row.removeChild(row.firstChild);
+      wanted.forEach(function(label){var th=document.createElement('th');th.textContent=label;row.appendChild(th);});
+    }
+    table.dataset.eapPortfolioSchema='4col';
+    return !same;
+  }
   function bestRecords(rows){
     var best={};
     (rows||[]).forEach(function(r){
       var route=normalizeRoute(r.sessionId||r.routeId||r.session);
       var skill=text(r.skill);
       if(!/^S\d+$/.test(route)||!skill||scoreOf(r)<=0)return;
-      var key=route+'|'+skill,cur=best[key];
+      var key=route+'|'+skill.toLowerCase(),cur=best[key];
       var passed=r.passed===true||String(r.passed).toLowerCase()==='true';
       var curPassed=cur&&(cur.passed===true||String(cur.passed).toLowerCase()==='true');
       if(!cur||(passed&&!curPassed)||(passed===curPassed&&scoreOf(r)>scoreOf(cur))||
@@ -64,9 +81,10 @@
     timer=0;
     var table=findTable();
     if(!table)return false;
+    var schemaChanged=ensureFourColumnHeader(table);
     var rows=bestRecords(runtimeRecords()).slice(0,12);
     var sig=signature(rows);
-    if(table.dataset.eapPortfolioSignature===sig&&lastSignature===sig)return true;
+    if(!schemaChanged&&table.dataset.eapPortfolioSignature===sig&&lastSignature===sig)return true;
 
     var tbody=table.tBodies&&table.tBodies[0];
     if(!tbody){tbody=document.createElement('tbody');table.appendChild(tbody);}
@@ -99,7 +117,7 @@
       var nodes=mutations[i].addedNodes||[];
       for(var j=0;j<nodes.length;j++){
         var n=nodes[j];
-        if(n&&n.nodeType===1&&(n.matches&&n.matches('table')||n.querySelector&&n.querySelector('table'))){schedule();return;}
+        if(n&&n.nodeType===1&&((n.matches&&n.matches('table,thead,tbody,tr'))||(n.querySelector&&n.querySelector('table')))){schedule();return;}
       }
     }
   });
@@ -107,5 +125,5 @@
 
   setTimeout(schedule,250);
   setTimeout(schedule,900);
-  window.EAPRecentPortfolioAuthority={version:VERSION,render:render,diagnostics:function(){return{version:VERSION,recordCount:bestRecords(runtimeRecords()).length,tableFound:!!findTable(),lastSignature:lastSignature};}};
+  window.EAPRecentPortfolioAuthority={version:VERSION,render:render,diagnostics:function(){var t=findTable();return{version:VERSION,recordCount:bestRecords(runtimeRecords()).length,tableFound:!!t,schema:t&&t.dataset.eapPortfolioSchema,lastSignature:lastSignature};}};
 })();
