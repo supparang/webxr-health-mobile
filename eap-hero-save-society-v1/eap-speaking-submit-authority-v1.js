@@ -1,22 +1,25 @@
 /* =========================================================
-   EAP Speaking Submit Authority v2
-   VERSION: 20260812-SPEAKING-SUBMIT-AUTHORITY-V2-FORM-POST
+   EAP Speaking Submit Authority v3
+   VERSION: 20260812-SPEAKING-SUBMIT-AUTHORITY-V3-POST-ACK
 
    Normal-session Speaking S1-S15 only.
-   - Uses hidden HTML FORM POST to Apps Script instead of blind no-cors fetch.
+   - Uses hidden HTML FORM POST to Apps Script.
+   - Ignores the iframe's initial about:blank load race.
    - Waits for EAP_Progress/player_resume server confirmation before navigating.
+   - Gives Apps Script enough bounded time to finish the write.
    - Boss speaking remains untouched.
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION='20260812-SPEAKING-SUBMIT-AUTHORITY-V2-FORM-POST';
+  const VERSION='20260812-SPEAKING-SUBMIT-AUTHORITY-V3-POST-ACK';
   const ACTIVE_KEY='EAP_HERO_ACTIVE_PLAYER_V1';
   let inFlight=false;
 
   function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
   function readJson(key){try{return JSON.parse(localStorage.getItem(key)||'{}')||{};}catch(_){return {};}}
   function endpoint(){return clean(window.EAP_SHEET_CONFIG&&window.EAP_SHEET_CONFIG.webAppUrl);}
+  function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
   function identity(){
     const a=readJson(ACTIVE_KEY), p=readJson('EAP_HERO_PLAYER_PROFILE_V1'), s=readJson('EAP_HERO_PROGRESS_V3');
@@ -83,18 +86,25 @@
       document.body.appendChild(form);
 
       let done=false;
-      const cleanup=()=>{setTimeout(()=>{try{form.remove();}catch(_){} try{iframe.remove();}catch(_){}},1200);};
-      const timer=setTimeout(()=>{
-        if(done)return; done=true; cleanup(); resolve({transport:'form-post',timed:true});
-      },1800);
+      let submitted=false;
+      let loadCount=0;
+      const cleanup=()=>{setTimeout(()=>{try{form.remove();}catch(_){} try{iframe.remove();}catch(_){}},1500);};
+      const finish=(data)=>{if(done)return;done=true;clearTimeout(timer);cleanup();resolve(data);};
+      const timer=setTimeout(()=>finish({transport:'form-post',timed:true}),8000);
 
       iframe.addEventListener('load',()=>{
-        if(done)return;
-        done=true; clearTimeout(timer); cleanup(); resolve({transport:'form-post',loaded:true});
-      },{once:true});
+        loadCount++;
+        if(!submitted)return;
+        /* The first iframe load can still be about:blank. Require either a second
+           load, or a short post-submit delay, before treating transport as complete. */
+        if(loadCount>=2){finish({transport:'form-post',loaded:true,loadCount:loadCount});return;}
+        setTimeout(()=>finish({transport:'form-post',loaded:true,loadCount:loadCount,guarded:true}),1200);
+      });
 
-      try{form.submit();}
-      catch(err){clearTimeout(timer);cleanup();reject(err);}
+      try{
+        submitted=true;
+        form.submit();
+      }catch(err){clearTimeout(timer);cleanup();reject(err);}
     });
   }
 
@@ -105,7 +115,7 @@
       const cb='__eapSpeakingAck_'+Date.now()+'_'+Math.random().toString(36).slice(2);
       const script=document.createElement('script');
       let settled=false;
-      const timer=setTimeout(()=>finish(new Error('resume timeout')),7000);
+      const timer=setTimeout(()=>finish(new Error('resume timeout')),9000);
       function finish(err,data){
         if(settled)return; settled=true; clearTimeout(timer);
         try{delete window[cb];}catch(_){window[cb]=undefined;}
@@ -122,16 +132,23 @@
   function speakingPassed(resume,route){
     const rp=resume&&resume.routeProgress&&resume.routeProgress[route];
     const s=rp&&rp.skills&&rp.skills.Speaking;
-    return !!(s&&s.passed===true);
+    return !!(s&&(s.passed===true||String(s.passed).toLowerCase()==='true'||Number(s.score)>=60||Number(s.bestScore)>=60));
   }
 
   async function waitForAck(person,route){
     let last=null;
-    for(let i=0;i<10;i++){
-      try{last=await resumeJsonp(person);if(speakingPassed(last,route))return last;}catch(_){ }
-      await new Promise(r=>setTimeout(r,700+Math.min(i,4)*300));
+    const deadline=Date.now()+45000;
+    let attempt=0;
+    await sleep(1400);
+    while(Date.now()<deadline){
+      attempt++;
+      try{
+        last=await resumeJsonp(person);
+        if(speakingPassed(last,route))return last;
+      }catch(_){ }
+      await sleep(Math.min(2600,900+attempt*220));
     }
-    const err=new Error('Server has not confirmed Speaking evidence yet');
+    const err=new Error('Server has not confirmed Speaking evidence within 45 seconds');
     err.lastResume=last;
     throw err;
   }
@@ -183,9 +200,9 @@
       const back=findBackButton();
       setTimeout(()=>{if(back)back.click();else location.reload();},450);
     }catch(err){
-      console.error('[EAP Speaking Authority v2]',err);
-      setButtonState(btn,'บันทึกไม่สำเร็จ · กดส่งอีกครั้ง',false);
-      alert('Speaking ยังไม่ถูกยืนยันใน EAP_Progress กรุณากดส่งอีกครั้ง โดยไม่ต้องพูดใหม่');
+      console.error('[EAP Speaking Authority v3]',err);
+      setButtonState(btn,'บันทึกยังไม่ยืนยัน · กดตรวจอีกครั้ง',false);
+      alert('ระบบยังไม่เห็น Speaking ใน EAP_Progress ภายในเวลาที่กำหนด ไม่ต้องพูดใหม่ กรุณากดปุ่มนี้อีกครั้งเพื่อตรวจ/ส่งซ้ำ');
     }finally{
       inFlight=false;
       if(!btn.disabled&&clean(btn.textContent).indexOf('อีกครั้ง')<0)setButtonState(btn,old,false);
@@ -196,15 +213,15 @@
     const btn=ev.target&&ev.target.closest&&ev.target.closest('button,a');
     if(!btn)return;
     const label=clean(btn.innerText||btn.textContent);
-    if(!/Submit\s+Speaking\s+Evidence/i.test(label))return;
+    if(!(/Submit\s+Speaking\s+Evidence/i.test(label)||/บันทึก.*อีกครั้ง/i.test(label)||/กดตรวจอีกครั้ง/i.test(label)))return;
     const route=currentRoute();
     if(!/^S(?:1[0-5]|[1-9])$/.test(route))return;
     ev.preventDefault();ev.stopPropagation();if(typeof ev.stopImmediatePropagation==='function')ev.stopImmediatePropagation();
-    submit(btn).catch(err=>console.error('[EAP Speaking Authority v2 submit]',err));
+    submit(btn).catch(err=>console.error('[EAP Speaking Authority v3 submit]',err));
   },true);
 
   window.EAPSpeakingSubmitAuthorityV1={
     version:VERSION,submit:submit,
-    diagnostics:function(){return {version:VERSION,transport:'hidden-form-post',endpoint:endpoint(),identity:identity(),route:currentRoute(),durationSec:durationSeconds(),checklist:checkedChecklist(),inFlight:inFlight};}
+    diagnostics:function(){return {version:VERSION,transport:'hidden-form-post-guarded',endpoint:endpoint(),identity:identity(),route:currentRoute(),durationSec:durationSeconds(),checklist:checkedChecklist(),inFlight:inFlight};}
   };
 })();
