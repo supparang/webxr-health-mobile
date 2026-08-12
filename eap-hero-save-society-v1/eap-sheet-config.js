@@ -65,9 +65,9 @@ window.__EAP_BOSS_COMPLETION_DELIVERY_V166__=true;
   function boot(){
     load('./eap-profile-id-first-v117.js?v=20260810-identity-v122-mobile-safe-r1','identity-v122-mobile-safe-r1');
     load('./eap-lobby-identity-bridge-v1.js?v=20260811-lobby-identity-bridge-v1-r1','lobby-identity-bridge-v1-r1');
-    load('./eap-player-resume-stable-jsonp-v174.js?v=20260812-resume-transport-v180-v143-r1','transport-v180-v143-r1');
-    load('./eap-authority-runtime-v3.js?v=20260812-authority-v143-multi-summary-r1','authority-v143-multi-summary-r1');
-    load('./eap-authority-startup-handshake-v1.js?v=20260812-authority-v143-handshake-r1','authority-v143-handshake-r1');
+    load('./eap-player-resume-stable-jsonp-v174.js?v=20260812-resume-transport-v180-v144-r1','transport-v180-v144-r1');
+    load('./eap-authority-runtime-v3.js?v=20260812-authority-v144-canonical-union-r1','authority-v144-canonical-union-r1');
+    load('./eap-authority-startup-handshake-v1.js?v=20260812-authority-v144-handshake-r1','authority-v144-handshake-r1');
     load('./eap-recent-portfolio-authority-v1.js?v=20260812-recent-portfolio-authority-v4-route-first','recent-portfolio-authority-v4-route-first');
     load('./eap-boss-completion-authority-v167.js?v=20260811-boss-authority-v167-r1','boss-authority-v167-r1');
     load('./eap-boss-server-confirmation-guard-v1.js?v=20260811-boss-server-confirmation-v1','boss-server-confirmation-v1');
