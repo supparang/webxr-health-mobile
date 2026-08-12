@@ -44,7 +44,6 @@ window.EAP_SHEET_CONFIG={
   }
 })();
 
-/* Retire legacy owners BEFORE parser reaches their direct script tags. */
 window.__EAP_PLAYER_RESUME_STABLE_JSONP_V175__=true;
 window.__EAP_RESUME_TRANSPORT_V179__=true;
 window.__EAP_JSONP_GUARD_RETIRED_V5__=true;
@@ -55,7 +54,6 @@ window.__EAP_BOSS_COMPLETION_RETRY_V164__=true;
 window.__EAP_BOSS_COMPLETION_RECOVERY_V165__=true;
 window.__EAP_BOSS_COMPLETION_DELIVERY_V166__=true;
 
-/* Cache-safe bootstrap: stable authority v3 + bounded startup handshake + presentation-only Recent Portfolio owner. */
 (function(){
   'use strict';
   function load(src,key){
@@ -70,7 +68,7 @@ window.__EAP_BOSS_COMPLETION_DELIVERY_V166__=true;
     load('./eap-player-resume-stable-jsonp-v174.js?v=20260811-resume-transport-v180-authority-first-r1','transport-v180-authority-first-r1');
     load('./eap-authority-runtime-v3.js?v=20260812-single-sheet-authority-v3-restored-r2','single-authority-v3-restored-r2');
     load('./eap-authority-startup-handshake-v1.js?v=20260812-authority-startup-handshake-v1','authority-startup-handshake-v1');
-    load('./eap-recent-portfolio-authority-v1.js?v=20260812-recent-portfolio-authority-v1','recent-portfolio-authority-v1');
+    load('./eap-recent-portfolio-authority-v1.js?v=20260812-recent-portfolio-authority-v2-4col','recent-portfolio-authority-v2-4col');
     load('./eap-boss-completion-authority-v167.js?v=20260811-boss-authority-v167-r1','boss-authority-v167-r1');
     load('./eap-boss-server-confirmation-guard-v1.js?v=20260811-boss-server-confirmation-v1','boss-server-confirmation-v1');
   }
