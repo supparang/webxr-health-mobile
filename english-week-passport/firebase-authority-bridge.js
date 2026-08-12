@@ -1,14 +1,16 @@
 (function () {
   "use strict";
 
-  const VERSION = "2026-08-11-SPARK-EVENT-DAY-LIGHT-R12-BONUS-COMPAT";
+  const VERSION = "2026-08-12-SPARK-EVENT-DAY-LIGHT-R13-READ-BUDGET";
   const CLAIM_CACHE_KEY = "ew_eventday_claimed_player_v3";
+  const RESUME_CACHE_KEY = "ew_eventday_resume_cache_v1";
+  const RESUME_CACHE_TTL_MS = 15 * 60 * 1000;
   const PASS_MARKS = Object.freeze({word_match:55,category_forest:60,sentence_city:60,word_detective:60,final_boss:60});
   const FLOW = ["pre_challenge","word_match","category_forest","sentence_city","word_detective","final_boss","post_challenge","certificate"];
 
   const direct = window.EW_AUTHORITY;
   if (!direct || !direct.directFirestoreVersion || typeof direct.resume !== "function" || typeof direct.submitGame !== "function") {
-    console.error("LEXICON X Event-Day Light R12: Direct Authority must load before bridge");
+    console.error("LEXICON X Event-Day Light R13: Direct Authority must load before bridge");
     return;
   }
 
@@ -19,7 +21,9 @@
     projectId:direct.firebaseProjectId || "englishweek-95869",
     transport:"firebase-web-sdk-firestore-direct",
     eventDayLightMode:true,
-    ownershipVerified:false
+    ownershipVerified:false,
+    resumeCacheHits:0,
+    resumeCacheMisses:0
   };
 
   function emit(){window.dispatchEvent(new CustomEvent("ew-authority-status",{detail:{...runtime,endpointReady:true}}));}
@@ -39,6 +43,43 @@
   function writeClaim(playerId,authUid){
     try{localStorage.setItem(CLAIM_CACHE_KEY,JSON.stringify({playerId:clean(playerId),authUid:clean(authUid),verifiedAt:nowIso()}));}catch(_){}
   }
+
+  function readResumeCache(playerId,authUid){
+    try{
+      const raw=localStorage.getItem(RESUME_CACHE_KEY);
+      if(!raw)return null;
+      const value=JSON.parse(raw);
+      if(clean(value?.playerId)!==clean(playerId) || clean(value?.authUid)!==clean(authUid)) return null;
+      if(!Number.isFinite(Number(value?.cachedAt)) || Date.now()-Number(value.cachedAt)>RESUME_CACHE_TTL_MS) return null;
+      if(!value?.profile || !value?.progress) return null;
+      return value;
+    }catch(_){return null;}
+  }
+
+  function writeResumeCache(playerId,authUid,data){
+    try{
+      const value={
+        playerId:clean(playerId),authUid:clean(authUid),cachedAt:Date.now(),
+        profile:data?.profile||null,assignment:data?.assignment||null,progress:data?.progress||null
+      };
+      localStorage.setItem(RESUME_CACHE_KEY,JSON.stringify(value));
+    }catch(_){}
+  }
+
+  function patchResumeCache(playerId,patch){
+    try{
+      const claim=readClaim();
+      const cached=readResumeCache(playerId,claim.authUid);
+      if(!cached)return;
+      writeResumeCache(playerId,claim.authUid,{
+        profile:patch?.profile||cached.profile,
+        assignment:patch?.assignment||cached.assignment,
+        progress:patch?.progress||cached.progress
+      });
+    }catch(_){}
+  }
+
+  function clearResumeCache(){try{localStorage.removeItem(RESUME_CACHE_KEY);}catch(_){}}
 
   async function call(name,args){
     const fn=direct && direct[name];
@@ -63,8 +104,11 @@
     const uid=clean(user.uid);
     const claim=readClaim();
 
-    if(!force && claim.playerId===id && claim.authUid===uid && runtime.ownershipVerified){
-      return {ok:true,repaired:false,authUid:uid};
+    // Safe fast path: same browser + same anonymous Firebase UID + same claimed player.
+    // Firestore Rules remain the final authority on every write; permission failures self-repair below.
+    if(!force && claim.playerId===id && claim.authUid===uid){
+      runtime.ownershipVerified=true;
+      return {ok:true,repaired:false,authUid:uid,cached:true};
     }
 
     const sessionRef=db().collection("ewp_player_sessions").doc(uid);
@@ -77,24 +121,35 @@
         claimedAt:snap.exists ? (snap.data()?.claimedAt || nowIso()) : nowIso(),
         updatedAt:nowIso(),
         sourceVersion:VERSION,
-        sourceMode:"event-day-light-r12-bonus-compat"
+        sourceMode:"event-day-light-r13-read-budget"
       },{merge:true});
     }
 
-    const verify=await sessionRef.get();
-    if(!verify.exists || clean(verify.data()?.playerId)!==id) throw new Error("PLAYER_SESSION_OWNERSHIP_VERIFY_FAILED");
+    // No second verification read: Firestore Rules validate subsequent reads/writes.
     writeClaim(id,uid);
     runtime.ownershipVerified=true;
     runtime.lastSuccessAt=nowIso();
     emit();
-    return {ok:true,repaired:!owned,authUid:uid};
+    return {ok:true,repaired:!owned,authUid:uid,cached:false};
   }
 
   async function lightResume(playerId,nickname){
     const id=clean(playerId);
     if(!id) throw new Error("PLAYER_ID_REQUIRED");
 
-    await verifyOwnership(id,false);
+    const owner=await verifyOwnership(id,false);
+    const cached=readResumeCache(id,owner.authUid);
+    if(cached){
+      runtime.resumeCacheHits++;
+      runtime.lastSuccessAt=nowIso();emit();
+      return {
+        ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Light (cached resume)",
+        profile:cached.profile,assignment:cached.assignment,progress:cached.progress,
+        eventDayLightMode:true,resumeCached:true,version:VERSION
+      };
+    }
+
+    runtime.resumeCacheMisses++;
     const store=db();
     const [p,a,g]=await Promise.all([
       store.collection("ewp_profiles").doc(id).get(),
@@ -106,17 +161,20 @@
     if(!g.exists){
       const result=await call("resume",[id,nickname]);
       await verifyOwnership(id,true);
+      writeResumeCache(id,owner.authUid,result);
       return {...result,eventDayLightMode:true,lightVersion:VERSION};
     }
 
-    runtime.lastSuccessAt=nowIso();emit();
-    return {
+    const result={
       ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Light",
       profile:{playerId:id,...(p.data()||{})},
       assignment:a.exists?{playerId:id,...(a.data()||{})}:null,
       progress:{playerId:id,...(g.data()||{})},
       eventDayLightMode:true,version:VERSION
     };
+    writeResumeCache(id,owner.authUid,result);
+    runtime.lastSuccessAt=nowIso();emit();
+    return result;
   }
 
   function nextProgress(current,stageId,accuracy){
@@ -183,10 +241,12 @@
     }catch(error){
       if(!isPermissionError(error)) throw error;
       runtime.ownershipVerified=false;
+      clearResumeCache();
       await verifyOwnership(playerId,true);
       progress=await writeLightProgress(playerId,stageId,accuracy);
     }
 
+    patchResumeCache(playerId,{progress});
     runtime.lastSuccessAt=nowIso();runtime.lastError="";emit();
     return {
       ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Light",
@@ -195,6 +255,21 @@
       progress,authority:{ok:true,mode:"firebase",progress},
       eventDayLightMode:true,version:VERSION
     };
+  }
+
+  async function lightSubmitAssessment(payload){
+    const result=await call("submitAssessment",[payload]);
+    const playerId=clean(payload?.playerId);
+    if(playerId && result?.authority){
+      patchResumeCache(playerId,{
+        profile:result.authority.profile,
+        assignment:result.authority.assignment,
+        progress:result.authority.progress
+      });
+    }else{
+      clearResumeCache();
+    }
+    return result;
   }
 
   async function lightSubmitEvent(payload){
@@ -220,7 +295,7 @@
     health:(...args)=>call("health",args),
     profileLookup:(...args)=>call("profileLookup",args),
     resume:(...args)=>lightResume(args[0],args[1]),
-    submitAssessment:(...args)=>call("submitAssessment",args),
+    submitAssessment:(...args)=>lightSubmitAssessment(args[0]),
     submitGame:(...args)=>lightSubmitGame(args[0]),
     submitEvent:(...args)=>lightSubmitEvent(args[0]),
     leaderboard:(...args)=>call("leaderboard",args),
@@ -237,7 +312,8 @@
   window.EW_AUTHORITY=proxy;
   window.EW_EVENT_DAY_LIGHT_MODE=Object.freeze({
     enabled:true,version:VERSION,gameWritesPerAttempt:1,eventWritesPerEvent:0,
-    checkpointWrites:0,repeatedResumeWrites:0,ownershipVerified:true,passMarks:PASS_MARKS
+    checkpointWrites:0,repeatedResumeWrites:0,ownershipVerified:true,
+    cachedResumeReads:0,resumeCacheTtlMs:RESUME_CACHE_TTL_MS,passMarks:PASS_MARKS
   });
   runtime.lastSuccessAt=nowIso();emit();
 }());
