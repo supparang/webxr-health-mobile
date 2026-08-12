@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  const VERSION='2026-08-11-JOURNEY-SUMMARY-EVENT-DAY-LIGHT-V3-BONUS-MOBILE-COPY';
+  const VERSION='2026-08-12-JOURNEY-SUMMARY-EVENT-DAY-LIGHT-V7-EXISTING-CERT-DIRECT';
   const cfg=window.EW_CONFIG||{};
   const journey=window.EW_JOURNEY;
   const content=document.getElementById('content');
@@ -9,17 +9,34 @@
   const backBtn=document.getElementById('backBtn');
   let identity=null;
   let loaded=null;
+  let existingCert=null;
+  let navigating=false;
 
   const missionNames={word_match:'LexiMatch Navigator',category_forest:'Category Forest',sentence_city:'Sentence City',word_detective:'Conversation Quest',final_boss:'LEXICON Champion Arena',bonus_lens:'Lexicon Lens Hunt'};
   const helpedNames={vocabulary:'Vocabulary',context:'Context',speaking:'Speaking',movement:'Movement',strategy:'Strategy'};
   function h(value){return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')}
   function readIdentity(){try{return JSON.parse(localStorage.getItem(cfg.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}}
   function show(message,type){status.textContent=message;status.className='status show '+(type||'')}
-  function goPassport(){location.replace('./index.html?resume=passport&from=journey_summary&v=20260811-event-day-light-bonus')}
-  function goReflection(){location.replace('./final-reflection.html?v=20260811-event-day-light&from=summary_recovery')}
-  function goCertificate(){location.replace('./certificate-v1.html?from=journey_summary&v=20260811-event-day-light')}
+  function goPassport(){location.replace('./index.html?resume=passport&from=journey_summary&v=20260812-event-day-light')}
+  function goReflection(){location.replace('./final-reflection.html?v=20260812-event-day-light&from=summary_recovery')}
+  function goCertificate(){if(navigating)return;navigating=true;location.replace('./certificate-v1.html?from=journey_summary&v=20260812-existing-cert-direct')}
   function signed(value){const n=Number(value||0);return `${n>0?'+':''}${n}%`}
+  function isQuota(error){const s=`${error?.code||''} ${error?.message||error||''}`;return /resource-exhausted|quota exceeded|FIRESTORE_QUOTA_EXCEEDED/i.test(s)}
   backBtn.addEventListener('click',goPassport);
+
+  async function readExistingCertificate(playerId){
+    if(!window.firebase?.firestore||!playerId)return null;
+    try{
+      const snap=await firebase.firestore().collection('ewp_certificates').doc(playerId).get();
+      if(!snap.exists)return null;
+      const data=snap.data()||{};
+      if(!data.certificateId)return null;
+      return {id:snap.id,...data};
+    }catch(error){
+      console.warn('[LEXICON X] Journey existing certificate lookup failed',error);
+      return null;
+    }
+  }
 
   function render(data){
     const s=data.summary||{};
@@ -48,14 +65,20 @@
       <section class="achievement"><div class="award"><small>🏅 Achievement</small><strong>${h(s.badge||'LEXICON X Explorer')}</strong><small>Achievement หลักอิง Game 1–5 เพื่อความเท่าเทียมของผู้เล่นทุกคน</small></div><div class="award"><small>📊 Event-Day Status</small><strong>${completed}/5 Games${bonus.played?' + Bonus':''}</strong><small>โหมดเบาสำหรับผู้ร่วมกิจกรรมจำนวนมาก</small></div></section>
       <section class="card"><h2>💭 Final Reflection</h2><div class="reflection"><div><span>Mission ที่มีประโยชน์ที่สุด</span><strong>${h(missionNames[reflection.mostUsefulMission]||reflection.mostUsefulMission||'—')}</strong></div><div><span>สิ่งที่ช่วยการเรียนรู้มากที่สุด</span><strong>${h(helpedNames[reflection.helpedMost]||reflection.helpedMost||'—')}</strong></div>${reflection.takeaway?`<div><span>Takeaway</span><strong>${h(reflection.takeaway)}</strong></div>`:''}</div></section>`;
     certificateBtn.disabled=false;
-    certificateBtn.textContent=data.summaryViewed?'ดู Certificate':'ยืนยันสรุปเส้นทางและดู Certificate';
+    certificateBtn.textContent=(existingCert||data.summaryViewed)?'ดู Certificate':'ยืนยันสรุปเส้นทางและดู Certificate';
   }
 
   async function load(){
     identity=readIdentity();
     if(!identity?.playerId){content.innerHTML='<section class="card">ไม่พบรหัสผู้เล่น กรุณากลับ Passport แล้วเข้าสู่ระบบใหม่</section>';certificateBtn.textContent='กลับ Passport';certificateBtn.disabled=false;certificateBtn.onclick=goPassport;return}
     if(!journey?.endpointReady?.()){content.innerHTML='<section class="card">Firebase Journey Authority ยังไม่พร้อม</section>';certificateBtn.textContent='กลับ Passport';certificateBtn.disabled=false;certificateBtn.onclick=goPassport;return}
-    try{loaded=await journey.summary(identity.playerId);if(!loaded?.ok||loaded.mode!=='firebase'||!loaded.summary)throw new Error('FIREBASE_JOURNEY_SUMMARY_REQUIRED');render(loaded)}catch(error){
+    try{
+      const results=await Promise.all([journey.summary(identity.playerId),readExistingCertificate(identity.playerId)]);
+      loaded=results[0];existingCert=results[1];
+      if(!loaded?.ok||loaded.mode!=='firebase'||!loaded.summary)throw new Error('FIREBASE_JOURNEY_SUMMARY_REQUIRED');
+      render(loaded);
+      if(existingCert)show('พบ Certificate ที่ออกไว้แล้ว ✓ • เปิดดูได้โดยไม่บันทึกซ้ำ','good');
+    }catch(error){
       console.error(error);const message=String(error?.message||error);
       if(message.includes('FINAL_REFLECTION_REQUIRED')){content.innerHTML='<section class="card"><strong>ยังไม่พบ Final Reflection</strong><br>กรุณาบันทึก Reflection ให้ครบก่อนดู Journey Summary</section>';certificateBtn.textContent='ไป Final Reflection';certificateBtn.disabled=false;certificateBtn.onclick=goReflection;return}
       content.innerHTML=`<section class="card">โหลด Journey Summary ไม่สำเร็จ: <strong>${h(message)}</strong></section>`;certificateBtn.textContent='กลับ Passport';certificateBtn.disabled=false;certificateBtn.onclick=goPassport;
@@ -63,9 +86,26 @@
   }
 
   certificateBtn.addEventListener('click',async()=>{
-    if(!loaded?.summary)return;
+    if(!loaded?.summary||navigating)return;
+    if(existingCert||loaded.summaryViewed){show('กำลังเปิด Certificate…','good');goCertificate();return;}
     certificateBtn.disabled=true;certificateBtn.textContent='กำลังยืนยัน Summary…';
-    try{const receipt=await journey.completeSummary(identity.playerId);if(!receipt?.ok||receipt.mode!=='firebase')throw new Error('FIREBASE_SUMMARY_CONFIRM_REQUIRED');show('Journey Summary ยืนยันแล้ว ✓ • กำลังเปิด Certificate','good');setTimeout(goCertificate,500)}catch(error){console.error(error);show('ยืนยัน Summary ไม่สำเร็จ: '+String(error?.message||error),'bad');certificateBtn.disabled=false;certificateBtn.textContent='ลองยืนยัน Summary อีกครั้ง'}
+    try{
+      const receipt=await journey.completeSummary(identity.playerId);
+      if(!receipt?.ok||receipt.mode!=='firebase')throw new Error('FIREBASE_SUMMARY_CONFIRM_REQUIRED');
+      if(receipt.existingCertificate){existingCert={certificateId:receipt.certificateId||receipt.receiptId||''};show('พบ Certificate เดิม ✓ • กำลังเปิด','good');goCertificate();return;}
+      show('Journey Summary ยืนยันแล้ว ✓ • กำลังเปิด Certificate','good');
+      setTimeout(goCertificate,250);
+    }catch(error){
+      console.error(error);
+      if(isQuota(error)){
+        const cert=await readExistingCertificate(identity.playerId);
+        if(cert){existingCert=cert;show('Firestore quota เต็ม แต่พบ Certificate เดิม ✓ • กำลังเปิด','good');goCertificate();return;}
+        show('Firestore quota เต็มชั่วคราว • ยังไม่พบ Certificate เดิม จึงหยุดการบันทึกซ้ำ','bad');
+        certificateBtn.disabled=true;certificateBtn.textContent='รอ Firestore quota กลับมา';
+        return;
+      }
+      show('ยืนยัน Summary ไม่สำเร็จ: '+String(error?.message||error),'bad');certificateBtn.disabled=false;certificateBtn.textContent='ลองยืนยัน Summary อีกครั้ง';
+    }
   });
   load();
 }());
