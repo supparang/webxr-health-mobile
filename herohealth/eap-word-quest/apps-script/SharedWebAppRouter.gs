@@ -1,13 +1,14 @@
 /* =========================================================
-   Shared Web App Router v141
+   Shared Web App Router v150
    EAP Hero + EAP Word Quest + Teacher Dashboard
    Section 122
 
-   IMPORTANT
+   PRODUCTION RESET
+   - EAP_ProgressAuthority_v150.gs is the ONLY progression/resume authority.
+   - Evidence/attempt/event sheets remain research logs only.
+   - Successful evidence submissions mirror into EAP_Progress immediately.
+   - Legacy v137/v145/v146 remain installed only for compatibility/reference.
    - Keep this as the ONLY file in the project containing doGet() / doPost().
-   - EAP_Identity_v121.gs owns unified identity for Hero + Word Quest.
-   - EAP_SessionAuthority_v146_StagedResume.gs owns player_resume.
-   - v145/v137 remain compatibility/reference only; player_resume never silently falls back.
 ========================================================= */
 
 function doGet(e) {
@@ -20,13 +21,32 @@ function doGet(e) {
     if (action === 'router_health' || action === 'eap_router_health') {
       return eapRouterJson_({
         ok: true,
-        service: 'shared-router-v141',
+        service: 'shared-router-v150',
+        progressAuthorityInstalled: typeof eapPlayerResumeV150_ === 'function' && typeof eapProgressUpsertV150_ === 'function',
         playerResumeV146Installed: typeof eapPlayerResumeV146_ === 'function',
         playerResumeV145Installed: typeof eapPlayerResumeV138_ === 'function',
         playerResumeV137Installed: typeof eapPlayerResumeV137_ === 'function',
         heroGetInstalled: typeof eapHeroDoGet_ === 'function',
         now: new Date().toISOString()
       }, callback);
+    }
+
+    if (action === 'progress_setup' || action === 'eap_progress_setup') {
+      if (typeof eapProgressSetupV150_ !== 'function') {
+        throw new Error('EAP_ProgressAuthority_v150.gs is not installed');
+      }
+      return eapRouterJson_(eapProgressSetupV150_(), callback);
+    }
+
+    if (action === 'progress_migrate_student' || action === 'eap_progress_migrate_student') {
+      if (typeof eapProgressMigrateStudentV150_ !== 'function') {
+        throw new Error('EAP_ProgressAuthority_v150.gs is not installed');
+      }
+      return eapRouterJson_(eapProgressMigrateStudentV150_(
+        String(params.studentId || params.id || ''),
+        String(params.section || '122'),
+        String(params.sourceStudentId || params.studentId || params.id || '')
+      ), callback);
     }
 
     if (
@@ -41,20 +61,20 @@ function doGet(e) {
     }
 
     /* ---------------------------------------------------------
-       SINGLE AUTHORITY PLAYER RESUME — v146 staged reader.
-       No silent fallback: deployment drift must be visible.
+       SINGLE SOURCE PLAYER RESUME — EAP_Progress only.
+       Never reconstruct progression from event/evidence logs here.
     --------------------------------------------------------- */
-    if (action === 'player_resume' || action === 'player_resume_fast') {
-      if (typeof eapPlayerResumeV146_ !== 'function') {
+    if (action === 'player_resume' || action === 'player_resume_fast' || action === 'progress_resume') {
+      if (typeof eapPlayerResumeV150_ !== 'function') {
         return eapRouterJson_({
           ok: false,
-          service: 'shared-router-v141',
+          service: 'shared-router-v150',
           action: action,
-          error: 'EAP_SessionAuthority_v146_StagedResume.gs is not installed or not deployed',
-          playerResumeV146Installed: false
+          error: 'EAP_ProgressAuthority_v150.gs is not installed or not deployed',
+          progressAuthorityInstalled: false
         }, callback);
       }
-      return eapRouterJson_(eapPlayerResumeV146_(params), callback);
+      return eapRouterJson_(eapPlayerResumeV150_(params), callback);
     }
 
     if (action === 'eap_teacher_dashboard') {
@@ -117,7 +137,7 @@ function doGet(e) {
   } catch (error) {
     return eapRouterJson_({
       ok: false,
-      service: 'shared-router-v141',
+      service: 'shared-router-v150',
       action: action,
       error: String(error && error.stack ? error.stack : error)
     }, callback);
@@ -145,11 +165,36 @@ function doPost(e) {
       const result = typeof eapSubmitEvidenceV137_ === 'function'
         ? eapSubmitEvidenceV137_(payload)
         : submitEvidence_(payload);
+
+      if (result && result.ok && typeof eapProgressUpsertV150_ === 'function') {
+        try {
+          result.progress = eapProgressUpsertV150_(payload, result);
+        } catch (progressError) {
+          result.progress = {
+            ok: false,
+            error: String(progressError && progressError.stack ? progressError.stack : progressError)
+          };
+        }
+      }
       return eapRouterJson_(result);
     }
 
     if (action === 'submit_speaking_audio') {
-      return eapRouterJson_(submitSpeakingAudio_(payload));
+      const result = submitSpeakingAudio_(payload);
+      if (result && result.ok && typeof eapProgressUpsertV150_ === 'function') {
+        try {
+          const progressPayload = Object.assign({}, payload, {
+            skill: payload.skill || 'Speaking'
+          });
+          result.progress = eapProgressUpsertV150_(progressPayload, result);
+        } catch (progressError) {
+          result.progress = {
+            ok: false,
+            error: String(progressError && progressError.stack ? progressError.stack : progressError)
+          };
+        }
+      }
+      return eapRouterJson_(result);
     }
 
     const wordQuestActions = [
@@ -166,7 +211,7 @@ function doPost(e) {
   } catch (error) {
     return eapRouterJson_({
       ok: false,
-      service: 'shared-router-v141',
+      service: 'shared-router-v150',
       action: action,
       error: String(error && error.stack ? error.stack : error)
     });
