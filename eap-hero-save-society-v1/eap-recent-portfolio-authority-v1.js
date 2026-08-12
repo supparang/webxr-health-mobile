@@ -1,20 +1,21 @@
 /* =========================================================
-   EAP Hero • Recent Portfolio Authority Renderer v2
-   VERSION: 20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V2-4COL
+   EAP Hero • Recent Portfolio Authority Renderer v3
+   VERSION: 20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V3-BOSS-INCLUSIVE
 
    Rules
    1. Read only from EAPAuthorityRuntime.records().
    2. Never request the network.
    3. Force the student table schema to exactly 4 columns:
       Session | Skill | Score | Output.
-   4. Render only when server-record signature or table schema changes.
+   4. Include both normal sessions S1-S15 and boss gates B1-B5.
+   5. Render only when server-record signature or table schema changes.
 ========================================================= */
 (function(){
   'use strict';
-  if(window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V2__) return;
-  window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V2__=true;
+  if(window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V3__) return;
+  window.__EAP_RECENT_PORTFOLIO_AUTHORITY_V3__=true;
 
-  var VERSION='20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V2-4COL';
+  var VERSION='20260812-EAP-RECENT-PORTFOLIO-AUTHORITY-V3-BOSS-INCLUSIVE';
   var lastSignature='';
   var timer=0;
 
@@ -25,6 +26,7 @@
     m=raw.match(/^(?:B|BOSS|GATE|BOSS\s*GATE)\s*0?([1-5])$/i); if(m)return 'B'+Number(m[1]);
     return raw;
   }
+  function validRoute(route){return /^S(?:1[0-5]|[1-9])$/.test(route)||/^B[1-5]$/.test(route);}
   function scoreOf(r){
     var vals=[r&&r.bestScore,r&&r.latestScore,r&&r.score];
     for(var i=0;i<vals.length;i++){var n=Number(vals[i]);if(Number.isFinite(n))return n;}
@@ -63,7 +65,7 @@
     (rows||[]).forEach(function(r){
       var route=normalizeRoute(r.sessionId||r.routeId||r.session);
       var skill=text(r.skill);
-      if(!/^S\d+$/.test(route)||!skill||scoreOf(r)<=0)return;
+      if(!validRoute(route)||!skill||scoreOf(r)<=0)return;
       var key=route+'|'+skill.toLowerCase(),cur=best[key];
       var passed=r.passed===true||String(r.passed).toLowerCase()==='true';
       var curPassed=cur&&(cur.passed===true||String(cur.passed).toLowerCase()==='true');
@@ -82,7 +84,7 @@
     var table=findTable();
     if(!table)return false;
     var schemaChanged=ensureFourColumnHeader(table);
-    var rows=bestRecords(runtimeRecords()).slice(0,12);
+    var rows=bestRecords(runtimeRecords()).slice(0,16);
     var sig=signature(rows);
     if(!schemaChanged&&table.dataset.eapPortfolioSignature===sig&&lastSignature===sig)return true;
 
