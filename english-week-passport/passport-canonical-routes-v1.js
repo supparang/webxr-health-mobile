@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-11-CANONICAL-FIVE-GAME-ROUTES-R13-FIRST20-REWARD';
+const VERSION='2026-08-12-CANONICAL-FIVE-GAME-ROUTES-R14-READ-BUDGET';
 const ROUTES={
   word_match:{title:'LexiMatch Navigator',detail:'Game 1 • จับคู่คำศัพท์ • Swipe + Tilt • A2–B1+',icon:'🧭'},
   category_forest:{title:'Category Forest',detail:'Game 2 • ลากคำเข้าหมวด • Rescue Learning',icon:'🌲'},
@@ -47,14 +47,14 @@ function scheduleDecorate(){if(scheduled)return;scheduled=true;requestAnimationF
 function openStage(stage){
   const identity=readIdentity();if(!identity?.playerId)return;
   if(stage==='bonus_lens'){
-    const query=carryView(new URLSearchParams({from:'passport',authority:'firebase',pid:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',stage:'bonus_lens',v:'20260811-lens-reward-r2'}));
+    const query=carryView(new URLSearchParams({from:'passport',authority:'firebase',pid:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',stage:'bonus_lens',v:'20260812-read-budget-r13'}));
     location.assign('./lexicon-lens-hunt-firebase-v1.html?'+query.toString());return;
   }
   if(stage==='final_boss'){
-    const query=carryView(new URLSearchParams({pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run:'1',stage:'final_boss',v:'20260811-final-boss-light-r1'}));
+    const query=carryView(new URLSearchParams({pid:identity.playerId,playerId:identity.playerId,nickname:identity.nickname||identity.fullName||'Player',run:'1',stage:'final_boss',v:'20260812-read-budget-r13'}));
     location.assign('./passport-final-boss-light-v1.html?'+query.toString());return;
   }
-  const query=carryView(new URLSearchParams({stage,run:'1',v:'20260811-event-day-light-r10'}));location.assign('./passport-game-shell-firestore-v2.html?'+query.toString());
+  const query=carryView(new URLSearchParams({stage,run:'1',v:'20260812-read-budget-r13'}));location.assign('./passport-game-shell-firestore-v2.html?'+query.toString());
 }
 function intercept(event){const card=event.target?.closest?.('.stage-card.canonical-game-card');if(!card)return;if(!(card.classList.contains('ready')||card.classList.contains('passed')))return;const stage=card.dataset.stage;if(!ROUTES[stage])return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();openStage(stage);}
 function keyboard(event){if(event.key!=='Enter'&&event.key!==' ')return;intercept(event)}
