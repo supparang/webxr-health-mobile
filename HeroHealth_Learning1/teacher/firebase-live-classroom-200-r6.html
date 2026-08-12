@@ -31,11 +31,11 @@
     </div>
   </div>
 </header>
-<div class="frameWrap"><iframe id="dashboard" class="frame" src="./firebase-live-classroom-200-r3.html?v=20260809-r6-global-overview" title="HeroHealth Live Classroom 200 R3"></iframe></div>
+<div class="frameWrap"><iframe id="dashboard" class="frame" src="./firebase-live-classroom-200-r3.html?v=20260812-r6-cert-evidence" title="HeroHealth Live Classroom 200 R3"></iframe></div>
 <script>
 (()=>{
 'use strict';
-const RELEASE='20260809-LIVE-CLASSROOM-200-R6-GLOBAL-OVERVIEW-LIST-FILTER';
+const RELEASE='20260812-LIVE-CLASSROOM-200-R6-CERT-EVIDENCE-LAZY';
 const frame=document.getElementById('dashboard');
 const qs=[...document.querySelectorAll('.q')];
 let activeState='',observer=null,filterQueued=false;
@@ -91,6 +91,13 @@ function polishInner(){
       style.id='hh-r6-inner-polish';
       style.textContent='@media(max-width:700px){.toolbar{grid-template-columns:1fr 1fr!important}.toolbar #search{grid-column:1/-1}.toolbar #opsFilter{display:none!important}}';
       d.head.appendChild(style);
+    }
+    if(!d.getElementById('hh-r6-cert-evidence-script')){
+      const script=d.createElement('script');
+      script.id='hh-r6-cert-evidence-script';
+      script.type='module';
+      script.src='./firebase-live-classroom-certificate-evidence-r7.js?v=20260812-r7-lazy';
+      d.head.appendChild(script);
     }
     const tbody=d.getElementById('rows');
     if(observer)observer.disconnect();
