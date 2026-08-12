@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const VERSION = "2026-08-12-SPARK-EVENT-DAY-LIGHT-R13-READ-BUDGET";
+  const VERSION = "2026-08-12-SPARK-EVENT-DAY-LIGHT-R14-CACHE-SYNC";
   const CLAIM_CACHE_KEY = "ew_eventday_claimed_player_v3";
   const RESUME_CACHE_KEY = "ew_eventday_resume_cache_v1";
   const RESUME_CACHE_TTL_MS = 15 * 60 * 1000;
@@ -10,7 +10,7 @@
 
   const direct = window.EW_AUTHORITY;
   if (!direct || !direct.directFirestoreVersion || typeof direct.resume !== "function" || typeof direct.submitGame !== "function") {
-    console.error("LEXICON X Event-Day Light R13: Direct Authority must load before bridge");
+    console.error("LEXICON X Event-Day Light R14: Direct Authority must load before bridge");
     return;
   }
 
@@ -70,13 +70,17 @@
     try{
       const claim=readClaim();
       const cached=readResumeCache(playerId,claim.authUid);
-      if(!cached)return;
+      if(!cached)return false;
+      const mergedProgress=patch?.progressPatch
+        ? {...(cached.progress||{}),...patch.progressPatch}
+        : (patch?.progress||cached.progress);
       writeResumeCache(playerId,claim.authUid,{
         profile:patch?.profile||cached.profile,
         assignment:patch?.assignment||cached.assignment,
-        progress:patch?.progress||cached.progress
+        progress:mergedProgress
       });
-    }catch(_){}
+      return true;
+    }catch(_){return false;}
   }
 
   function clearResumeCache(){try{localStorage.removeItem(RESUME_CACHE_KEY);}catch(_){}}
@@ -104,8 +108,6 @@
     const uid=clean(user.uid);
     const claim=readClaim();
 
-    // Safe fast path: same browser + same anonymous Firebase UID + same claimed player.
-    // Firestore Rules remain the final authority on every write; permission failures self-repair below.
     if(!force && claim.playerId===id && claim.authUid===uid){
       runtime.ownershipVerified=true;
       return {ok:true,repaired:false,authUid:uid,cached:true};
@@ -121,11 +123,10 @@
         claimedAt:snap.exists ? (snap.data()?.claimedAt || nowIso()) : nowIso(),
         updatedAt:nowIso(),
         sourceVersion:VERSION,
-        sourceMode:"event-day-light-r13-read-budget"
+        sourceMode:"event-day-light-r14-cache-sync"
       },{merge:true});
     }
 
-    // No second verification read: Firestore Rules validate subsequent reads/writes.
     writeClaim(id,uid);
     runtime.ownershipVerified=true;
     runtime.lastSuccessAt=nowIso();
@@ -302,6 +303,8 @@
     saveAssessmentCheckpoint:(...args)=>lightSaveCheckpoint(args[0]),
     getAssessmentCheckpoint:(...args)=>lightGetCheckpoint(...args),
     clearAssessmentCheckpoint:(...args)=>lightClearCheckpoint(...args),
+    patchLocalCache:(playerId,progressPatch)=>patchResumeCache(playerId,{progressPatch}),
+    clearLocalCache:()=>clearResumeCache(),
     getRuntimeStatus,
     passMark:60,
     passMarks:PASS_MARKS,
