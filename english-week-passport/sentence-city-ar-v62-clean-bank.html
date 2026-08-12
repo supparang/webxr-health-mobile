@@ -17,7 +17,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;col
 (async function(){
   const boot=document.getElementById('boot');
   try{
-    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260812-scv62-npc-speech-gate-r6-global-fix1',{cache:'no-store'});
+    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260812-scv62-stable-r7-speech-guard-v2',{cache:'no-store'});
     if(!response.ok)throw new Error('V61_CLEAN_LOADER_FAILED_'+response.status);
     let source=await response.text();
     const replacements=[
@@ -32,86 +32,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;col
     if(!source.includes('LexiconXSentenceBankV2'))throw new Error('CLEAN_BANK_GLOBAL_PATCH_FAILED');
     const mobileGrid='<script id="scMobileGrid" src="./sentence-city-mobile-grid-v1.js?v=20260808-sc-mobile-uniform-grid-v5-fixed-submit-lane"></'+'script>';
     source=source.replace('</head>',mobileGrid+'</head>');
-
-    /* R6.1 GLOBAL SPEECH GATE
-       Inject into the generated inner game source, not the outer V6.1 loader.
-       The outer loader does not contain function current() until runtime. */
-    const speechGate=`
-let __scSpeechMinUntil=0;
-let __scAdvanceQueued=false;
-(function __scInstallSpeechTracker(){
-  try{
-    const synth=window.speechSynthesis;
-    if(!synth||synth.__sentenceCityGlobalGateR61)return;
-    const nativeSpeak=synth.speak.bind(synth);
-    synth.speak=function(utterance){
-      const text=String(utterance?.text||'').trim();
-      const words=text?text.split(/\\s+/).length:0;
-      const rate=Math.max(.55,Number(utterance?.rate)||1);
-      const estimate=Math.min(16000,Math.max(1800,850+(words*470/rate)+(text.length*25/rate)));
-      __scSpeechMinUntil=Math.max(__scSpeechMinUntil,Date.now()+estimate);
-      return nativeSpeak(utterance);
-    };
-    synth.__sentenceCityGlobalGateR61=true;
-  }catch(error){console.warn('Sentence City speech tracker unavailable',error)}
-})();
-function __scQueueAdvance(){
-  if(__scAdvanceQueued)return;
-  __scAdvanceQueued=true;
-  const started=Date.now();
-  let idleSince=0;
-  let speechSeen=false;
-  const tick=()=>{
-    const synth=window.speechSynthesis;
-    const now=Date.now();
-    const engineBusy=Boolean(S.sound&&synth&&(synth.speaking||synth.pending));
-    if(engineBusy){speechSeen=true;idleSince=0}
-    else if(now>=__scSpeechMinUntil){if(!idleSince)idleSince=now}
-    else idleSince=0;
-    const audibleDone=now>=__scSpeechMinUntil;
-    const stableIdle=idleSince&&now-idleSince>=650;
-    if(!engineBusy&&audibleDone&&stableIdle){
-      __scAdvanceQueued=false;
-      S.index++;
-      showTask();
-      return;
-    }
-    if(now-started>=20000){
-      console.warn('Sentence City speech gate safety timeout',{speechSeen,audibleDone});
-      __scAdvanceQueued=false;
-      S.index++;
-      showTask();
-      return;
-    }
-    setTimeout(tick,80);
-  };
-  setTimeout(tick,100);
-}
-`;
-
-    /* V6.1 loader owns `html`, which is the actual V5.4/V5.9 game source.
-       Insert a runtime patch immediately after html is fetched. */
-    const runtimePatch=`
-const __scApplyGlobalSpeechGateR61=(raw)=>{
-  let inner=String(raw||'');
-  if(!inner.includes('function current(){'))throw new Error('SC_INNER_SPEECH_STATE_ANCHOR_NOT_FOUND');
-  inner=inner.replace('function current(){',${JSON.stringify(speechGate)}+'\\nfunction current(){');
-  inner=inner
-    .replaceAll('S.index++;showTask()','__scQueueAdvance()')
-    .replaceAll('S.index ++;showTask()','__scQueueAdvance()')
-    .replaceAll('S.index++; showTask()','__scQueueAdvance()');
-  inner=inner.replace(
-    "setTimeout(()=>{__scQueueAdvance()},950)",
-    "showToast(S.phase==='rescue'?'ซ่อมประโยคสำเร็จ!':'สร้างอาคารสำเร็จ!');setTimeout(()=>{__scQueueAdvance()},120)"
-  );
-  return inner;
-};
-`;
-    const loaderAnchor='let html=await response.text();';
-    if(!source.includes(loaderAnchor))throw new Error('SC_V61_HTML_LOADER_ANCHOR_NOT_FOUND');
-    source=source.replace(loaderAnchor,loaderAnchor+'\n'+runtimePatch+'\nhtml=__scApplyGlobalSpeechGateR61(html);');
-
-    source=source.replaceAll('Sentence City AR V6.2 Clean Bank V2','Sentence City AR V6.2.12 Global Speech Gate R6.1').replaceAll('Clean Bank V2 • 40 curated tasks','Clean Bank V2 • Global Speech Gate R6.1 • 40 curated tasks');
+    source=source.replaceAll('Sentence City AR V6.2 Clean Bank V2','Sentence City AR V6.2.13 Stable Speech Guard V2').replaceAll('Clean Bank V2 • 40 curated tasks','Clean Bank V2 • Stable Speech Guard V2 • 40 curated tasks');
     document.open();document.write(source);document.close();
   }catch(error){console.error(error);boot.innerHTML='<div><strong>เปิดเกมไม่สำเร็จ</strong><small>'+String(error?.message||error)+'</small></div>'}
 })();
