@@ -11,7 +11,7 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
 /* LEXICON X • Firebase App Isolation + Event-Day Light R6.4 */
 (function(){
   'use strict';
-  const VERSION='2026-08-12-FIREBASE-EVENT-DAY-LIGHT-R6.5-AWARD-ELIGIBILITY';
+  const VERSION='2026-08-12-FIREBASE-EVENT-DAY-LIGHT-R6.6-LEGACY-BONUS-RECOVERY';
   const TEACHER_APP_NAME='LEXICON_TEACHER';
   try{
     if(!window.firebase?.initializeApp) return;
@@ -35,7 +35,7 @@ window.EW_FIREBASE_WEB_CONFIG = Object.freeze({
       window.EW_FIREBASE_DEFAULT_APP_GUARD=Object.freeze({version:VERSION,ready:true,isolatedTeacher:true,appName:TEACHER_APP_NAME,projectId:teacherApp.options.projectId,fieldPathReady:Boolean(FieldPathStatic?.documentId)});
       if(!document.querySelector('script[data-ew-reward-manager]')){
         const rewardScript=document.createElement('script');
-        rewardScript.src='./teacher-reward-manager-v1.js?v=20260812-finish-plus-bonus-first20-v4';
+        rewardScript.src='./teacher-reward-manager-v1.js?v=20260812-finish-plus-bonus-v41-legacy-recovery';
         rewardScript.async=false;rewardScript.dataset.ewRewardManager='1';
         document.head.appendChild(rewardScript);
       }
