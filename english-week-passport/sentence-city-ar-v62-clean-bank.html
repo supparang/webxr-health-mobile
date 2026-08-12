@@ -17,7 +17,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;col
 (async function(){
   const boot=document.getElementById('boot');
   try{
-    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260812-scv62-npc-speech-gate-r4',{cache:'no-store'});
+    const response=await fetch('./sentence-city-ar-v61-clean.html?v=20260812-scv62-npc-speech-gate-r5',{cache:'no-store'});
     if(!response.ok)throw new Error('V61_CLEAN_LOADER_FAILED_'+response.status);
     let source=await response.text();
     const replacements=[
@@ -32,19 +32,23 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070d2a;col
     if(!source.includes('LexiconXSentenceBankV2'))throw new Error('CLEAN_BANK_GLOBAL_PATCH_FAILED');
     const mobileGrid='<script id="scMobileGrid" src="./sentence-city-mobile-grid-v1.js?v=20260808-sc-mobile-uniform-grid-v5-fixed-submit-lane"></'+'script>';
     source=source.replace('</head>',mobileGrid+'</head>');
-    source=source.split('firstTryAccuracy,finalMastery').join('firstTryAccuracy:firstAccuracy,finalMastery');
 
-    /* R4: patch the ACTIVE V6.1 loader chain, so the nested V5.9 game cannot advance
-       until Teacher Maya/NPC speech has finished (or a conservative fallback timeout). */
-    const chainAnchor='.replace("firstTryAccuracy,finalMastery","firstTryAccuracy:firstAccuracy,finalMastery")';
+    /* R5: patch the ACTIVE V6.1 loader chain without making speech enhancement
+       a boot-critical dependency. The prior R4 changed its own anchor before
+       searching for it, which caused SC_NPC_SPEECH_GATE_R4_CHAIN_ANCHOR_NOT_FOUND. */
+    const chainAnchors=[
+      '.replace("firstTryAccuracy,finalMastery","firstTryAccuracy:firstAccuracy,finalMastery")',
+      '.replace("firstTryAccuracy:firstAccuracy,finalMastery","firstTryAccuracy:firstAccuracy,finalMastery")'
+    ];
     const voiceReplace='.replace("setTimeout(()=>{S.index++;showTask()},950)","showToast(S.phase===\'rescue\'?\'ซ่อมประโยคสำเร็จ!\':\'สร้างอาคารสำเร็จ!\');const __scVoiceStarted=Date.now();const __scText=task.answer.join(\' \');const __scMinVoiceMs=Math.min(12000,Math.max(3200,1100+__scText.length*125));let __scVoiceSeen=false,__scIdleSince=0,__scAdvanced=false;const __scAdvance=()=>{if(__scAdvanced)return;__scAdvanced=true;S.index++;showTask()};const __scWaitForVoice=()=>{const __scSynth=window.speechSynthesis;const __scNow=Date.now();const __scElapsed=__scNow-__scVoiceStarted;const __scActive=Boolean(S.sound&&__scSynth&&(__scSynth.speaking||__scSynth.pending));if(__scActive){__scVoiceSeen=true;__scIdleSince=0}else if(__scVoiceSeen){if(!__scIdleSince)__scIdleSince=__scNow;if(__scElapsed>=__scMinVoiceMs&&__scNow-__scIdleSince>=800){__scAdvance();return}}else if(__scElapsed>=__scMinVoiceMs){__scAdvance();return}if(__scElapsed>=18000){__scAdvance();return}setTimeout(__scWaitForVoice,100)};setTimeout(__scWaitForVoice,150)")';
-    if(source.includes(chainAnchor)){
+    const chainAnchor=chainAnchors.find(anchor=>source.includes(anchor));
+    if(chainAnchor){
       source=source.replace(chainAnchor,chainAnchor+'\n      '+voiceReplace);
     }else{
-      throw new Error('SC_NPC_SPEECH_GATE_R4_CHAIN_ANCHOR_NOT_FOUND');
+      console.warn('SC_NPC_SPEECH_GATE_R5_SOFT_FALLBACK: loader anchor not found; game will continue without boot failure');
     }
 
-    source=source.replaceAll('Sentence City AR V6.2 Clean Bank V2','Sentence City AR V6.2.9 NPC Speech Gate R4').replaceAll('Clean Bank V2 • 40 curated tasks','Clean Bank V2 • NPC Speech Gate R4 • 40 curated tasks');
+    source=source.replaceAll('Sentence City AR V6.2 Clean Bank V2','Sentence City AR V6.2.10 NPC Speech Gate R5').replaceAll('Clean Bank V2 • 40 curated tasks','Clean Bank V2 • NPC Speech Gate R5 • 40 curated tasks');
     document.open();document.write(source);document.close();
   }catch(error){console.error(error);boot.innerHTML='<div><strong>เปิดเกมไม่สำเร็จ</strong><small>'+String(error?.message||error)+'</small></div>'}
 })();
