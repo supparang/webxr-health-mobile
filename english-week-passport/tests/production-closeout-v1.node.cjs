@@ -22,8 +22,12 @@ must(config,/sentence_city:60/,'Game 3 pass mark must be 60');
 must(config,/word_detective:60/,'Game 4 pass mark must be 60');
 must(config,/final_boss:60/,'Game 5 pass mark must be 60');
 
-// Sentence City: no advance while Teacher Maya/NPC speech is active.
-must(sentence,/SC_NPC_SPEECH_GATE_R4_CHAIN_ANCHOR_NOT_FOUND/,'Sentence City R4 loader-chain patch guard');
+// Sentence City: speech enhancement must wait for Teacher Maya/NPC speech,
+// but must never make game boot depend on a fragile loader anchor.
+must(sentence,/NPC Speech Gate R5/,'Sentence City R5 speech gate version');
+must(sentence,/chainAnchors/,'Sentence City supports multiple loader anchor shapes');
+must(sentence,/SC_NPC_SPEECH_GATE_R5_SOFT_FALLBACK/,'Sentence City has non-fatal speech patch fallback');
+mustNot(sentence,/throw new Error\('SC_NPC_SPEECH_GATE_R4_CHAIN_ANCHOR_NOT_FOUND'\)/,'Sentence City must not hard-fail boot on speech anchor');
 must(sentence,/speechSynthesis/,'Sentence City observes browser speech synthesis');
 must(sentence,/__scSynth\.speaking\|\|__scSynth\.pending/,'Sentence City waits for speaking or queued audio');
 must(sentence,/__scNow-__scIdleSince>=800/,'Sentence City requires stable idle after speech');
