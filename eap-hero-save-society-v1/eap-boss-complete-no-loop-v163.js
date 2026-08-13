@@ -5,6 +5,8 @@
      finish the gate instead of starting the same run again.
    - Emits a visible "Boss Defeated!" result so the existing
      Boss Completion Sync writes the official result to Google Sheet.
+   - Persists lastBossSingleRun so Completion Authority can repair
+     an already-completed Boss after reload without replay.
    - Does not invent or locally advance official cloud progression.
 ========================================================= */
 (function () {
@@ -12,7 +14,8 @@
   if (window.__EAP_BOSS_COMPLETE_NO_LOOP_V163__) return;
   window.__EAP_BOSS_COMPLETE_NO_LOOP_V163__ = true;
 
-  var VERSION = '20260722-EAP-BOSS-COMPLETE-NO-LOOP-V163';
+  var VERSION = '20260813-EAP-BOSS-COMPLETE-NO-LOOP-V163-R2';
+  var STATE_KEY = 'EAP_HERO_PROGRESS_V3';
   var NAMES = {
     B1: 'Detail Trap Spider',
     B2: 'Copy-Paste Zombie',
@@ -41,7 +44,7 @@
     if (m) return 'B' + Number(m[1]);
 
     try {
-      var state = JSON.parse(localStorage.getItem('EAP_HERO_PROGRESS_V3') || '{}') || {};
+      var state = JSON.parse(localStorage.getItem(STATE_KEY) || '{}') || {};
       var route = text(state.currentCloudRoute || state.currentRoute || '');
       m = route.match(/^B([1-5])$/i);
       if (m) return 'B' + Number(m[1]);
@@ -53,14 +56,31 @@
     var source = bodyText();
     var hasComplete = /(?:Fallback|Standard|Single)\s+Run\s+Complete/i.test(source) ||
       /Reading\s*1.*Listening\s*1.*Writing\s*1.*Speaking\s*1/i.test(source);
-    var hasEnter = /Enter\s+Boss\s+Clash/i.test(source);
+    var hasEnter = /Enter\s+Boss\s+Clash|Finish\s+Boss\s+Gate/i.test(source);
     return hasComplete && hasEnter;
   }
 
   function isEnterBossButton(node) {
     var button = node && node.closest && node.closest('button,a,[role="button"]');
     if (!button) return null;
-    return /Enter\s+Boss\s+Clash/i.test(text(button.textContent || button.innerText || '')) ? button : null;
+    return /Enter\s+Boss\s+Clash|Finish\s+Boss\s+Gate/i.test(text(button.textContent || button.innerText || '')) ? button : null;
+  }
+
+  function persistCompletionEvidence(gate) {
+    try {
+      var state = JSON.parse(localStorage.getItem(STATE_KEY) || '{}') || {};
+      state.lastBossSingleRun = {
+        gate: gate,
+        nextRoute: NEXT[gate] || '',
+        at: new Date().toISOString(),
+        version: VERSION,
+        source: 'completed_adaptive_run'
+      };
+      localStorage.setItem(STATE_KEY, JSON.stringify(state));
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   function resultHtml(gate) {
@@ -72,26 +92,18 @@
           '<div style="font-size:72px;line-height:1">🏆</div>' +
           '<div class="badges" style="justify-content:center;margin:12px 0">' +
             '<span class="pill">' + gate + ' Boss Gate</span>' +
-            '<span class="pill">Official completion pending Sheet sync</span>' +
+            '<span class="pill">Saving to Google Sheet…</span>' +
           '</div>' +
           '<h1 style="margin:8px 0">Boss Defeated!</h1>' +
           '<h3>' + boss + '</h3>' +
-          '<p class="lead">คุณทำ Reading, Listening, Writing และ Speaking ครบแล้ว จึงไม่ต้องเริ่ม Boss รอบเดิมซ้ำ</p>' +
+          '<p class="lead">Reading, Listening, Writing และ Speaking ครบแล้ว ระบบกำลังยืนยันผลกับ Google Sheet</p>' +
           '<div class="grid four" style="margin:18px 0">' +
             '<div class="stat"><b>Reading</b><span>✓ Complete</span></div>' +
             '<div class="stat"><b>Listening</b><span>✓ Complete</span></div>' +
             '<div class="stat"><b>Writing</b><span>✓ Complete</span></div>' +
             '<div class="stat"><b>Speaking</b><span>✓ Complete</span></div>' +
           '</div>' +
-          '<div class="panel light" style="margin:16px 0">' +
-            '<b>กำลังบันทึกผล Boss Gate ลง Google Sheet</b>' +
-            '<p class="mini-note">ระบบจะตรวจ Resume จาก Sheet แล้วจึงเปิดด่านถัดไป</p>' +
-          '</div>' +
-          '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
-            '<button type="button" class="btn primary" id="eap163Map">กลับแผนที่</button>' +
-            '<button type="button" class="btn ghost" id="eap163Report">My Learning Report</button>' +
-          '</div>' +
-          (next && next !== 'Complete' ? '<p class="mini-note" style="margin-top:14px">เมื่อ Sheet ยืนยันแล้ว ด่านถัดไปคือ ' + next + '</p>' : '') +
+          (next && next !== 'Complete' ? '<p class="mini-note" style="margin-top:14px">ด่านถัดไป: ' + next + '</p>' : '') +
         '</section>' +
       '</main>';
   }
@@ -110,22 +122,12 @@
     if (sessionStorage.getItem(lockKey) === '1') return true;
     sessionStorage.setItem(lockKey, '1');
 
+    persistCompletionEvidence(gate);
+
     var root = app();
     if (!root) return false;
     root.innerHTML = resultHtml(gate);
     document.documentElement.dataset.eapBossNoLoopVersion = VERSION;
-
-    var map = document.getElementById('eap163Map');
-    if (map) map.onclick = function () {
-      sessionStorage.removeItem(lockKey);
-      if (window.EAPHero && typeof window.EAPHero.home === 'function') window.EAPHero.home();
-      else location.reload();
-    };
-
-    var report = document.getElementById('eap163Report');
-    if (report) report.onclick = function () {
-      if (window.EAPHero && typeof window.EAPHero.report === 'function') window.EAPHero.report();
-    };
 
     setTimeout(function () {
       window.dispatchEvent(new CustomEvent('eap:boss-defeated-visible', {
@@ -166,6 +168,7 @@
   window.EAPBossCompleteNoLoop = {
     version: VERSION,
     finish: finishBoss,
-    isCompletedRunScreen: isCompletedRunScreen
+    isCompletedRunScreen: isCompletedRunScreen,
+    persistCompletionEvidence: persistCompletionEvidence
   };
 })();
