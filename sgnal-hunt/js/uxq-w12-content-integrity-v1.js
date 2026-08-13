@@ -1,254 +1,158 @@
-/* CSAI2601 UX Quest • W12 Content Integrity v3
- * PDF-aligned final content owner for W12 Interaction & Component States.
+/* CSAI2601 UX Quest • W12 Content Integrity v4
+ * Canonical owner for W12 Interaction Design, Micro-interactions & Content.
  * Canonical round order:
- *   1 State visibility -> 2 Error prevention -> 3 Actionable microcopy
- *   -> 4 Confirmation feedback -> 5 Recovery.
+ *   1 Trigger/Rule -> 2 Feedback -> 3 Prevention -> 4 Microcopy -> 5 Recovery
  *
- * IMPORTANT: Original data-choice/data-reason IDs are never changed, so scoring,
- * strict gates, analytics, and Sheet/Firebase progression remain untouched.
+ * Original data-choice/data-reason IDs are never changed, so correctness,
+ * scoring, analytics, progress and Sheet/Firebase writes remain untouched.
  */
 (() => {
   'use strict';
-
   const qs = new URLSearchParams(location.search || '');
   const NODE = String(qs.get('node') || qs.get('id') || '').toUpperCase();
   if (NODE !== 'W12') return;
 
-  const $ = (s, r = document) => r.querySelector(s);
-  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const clean = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const clean = v => String(v == null ? '' : v).replace(/\s+/g,' ').trim();
 
-  const PACKS = {
-    state: {
-      prompt: 'ระหว่างระบบกำลังประมวลผล ผู้ใช้ควรเห็นสถานะใด',
-      note: 'หลัก UX: ทำสถานะของระบบให้มองเห็นได้ทันเวลา เพื่อให้ผู้ใช้รู้ว่าคำสั่งถูกยอมรับแล้วและไม่ต้องเดา',
-      choices: [
-        'แสดงสถานะกำลังดำเนินการ และปิดคำสั่งที่ทำซ้ำได้ชั่วคราว',
-        'ปล่อยปุ่มเดิมให้กดซ้ำได้จนกว่าผลลัพธ์จะปรากฏ',
-        'ซ่อนสถานะทั้งหมดเพื่อให้หน้าจอดูสะอาดที่สุด',
-        'เปลี่ยนสีปุ่มอย่างเดียวโดยไม่บอกว่าระบบกำลังทำอะไร'
+  const PACKS = Object.freeze({
+    trigger:{
+      prompt:'Trigger และ Rule ของ interaction นี้ควรกำหนดอย่างไร',
+      note:'เริ่มจากสิ่งที่ผู้ใช้ทำ (trigger) แล้วกำหนดกฎ/behavior ที่ระบบต้องตอบสนองอย่างชัดเจน',
+      choices:[
+        'ระบุ trigger จาก action ของผู้ใช้ แล้วกำหนด rule ว่าระบบจะเปลี่ยน state/ทำอะไรต่อ',
+        'เริ่มจาก animation ที่ดูน่าสนใจแล้วค่อยหาว่าจะใช้เมื่อใด',
+        'ใช้ action เดียวให้ทุกสถานการณ์แม้ผลลัพธ์ต่างกัน',
+        'ซ่อนกฎการทำงานไว้และให้ผู้ใช้เรียนรู้จากการลองผิดลองถูก'
       ],
-      reasons: [
-        'Feedback ที่มองเห็นได้ช่วยให้ผู้ใช้เข้าใจสถานะ ลดความไม่แน่ใจ และลดการกระทำซ้ำโดยไม่จำเป็น',
-        'การให้กดซ้ำเพิ่มความเสี่ยงต่อรายการซ้ำและไม่ได้ช่วยอธิบายสถานะของระบบ',
-        'การซ่อนสถานะทำให้ผู้ใช้ต้องเดาว่าระบบรับคำสั่งหรือยัง',
-        'สีอย่างเดียวอาจไม่สื่อความหมายของสถานะและไม่ครอบคลุมผู้ใช้ทุกกลุ่ม'
+      reasons:[
+        'Interaction ที่ดีเชื่อม Trigger → Rule → Result จึงคาดเดาพฤติกรรมระบบและทดสอบได้',
+        'Animation เป็นผลทางภาพ ไม่ใช่จุดตั้งต้นของ interaction logic',
+        'สถานการณ์ต่างกันอาจต้อง rule/state ต่างกันเพื่อหลีกเลี่ยงความสับสน',
+        'การให้ผู้ใช้เดากฎเพิ่ม cognitive burden และ error'
       ]
     },
-    prevention: {
-      prompt: 'วิธีใดป้องกันข้อผิดพลาดก่อนเกิดปัญหาได้ตรงที่สุด',
-      note: 'หลัก UX: ลดโอกาสทำสิ่งผิด พร้อมรักษาข้อมูลและเปิดทางให้ผู้ใช้แก้ได้เมื่อเกิดข้อผิดพลาด',
-      choices: [
-        'ปิดการส่งซ้ำระหว่างประมวลผล ตรวจข้อมูลสำคัญ และคงข้อมูลเดิมไว้หากส่งไม่สำเร็จ',
-        'ล้างข้อมูลทันทีเมื่อผู้ใช้กดส่งครั้งแรก',
-        'เปิดทุกคำสั่งไว้พร้อมกันเพื่อให้ผู้ใช้มีตัวเลือกมากที่สุด',
-        'เพิ่มคำแนะนำยาวไว้ก่อนฟอร์ม แต่ไม่ตรวจข้อมูลหรือสถานะการส่ง'
+    feedback:{
+      prompt:'Feedback แบบใดควรเกิดหลัง action นี้',
+      note:'Feedback ต้องเกิดทันเวลา มองเห็นได้ และบอกสถานะ/ผลลัพธ์ที่ผู้ใช้ใช้ตัดสินใจขั้นต่อไปได้',
+      choices:[
+        'แสดงสถานะที่ตรงกับ action เช่น กำลังดำเนินการ/สำเร็จ/ไม่สำเร็จ พร้อม next step เมื่อจำเป็น',
+        'ไม่แสดงอะไรจนกว่าระบบทำงานเสร็จทั้งหมด',
+        'เปลี่ยนสีเพียงอย่างเดียวโดยไม่บอกความหมาย',
+        'แสดง animation ยาวเพื่อยืนยันว่าระบบทันสมัย'
       ],
-      reasons: [
-        'Error prevention ที่ดีลดโอกาสผิดตั้งแต่ต้น โดยไม่ทำให้ผู้ใช้สูญเสียงานเมื่อระบบมีปัญหา',
-        'การล้างข้อมูลเพิ่มต้นทุนการกู้คืนและอาจทำให้ผู้ใช้ต้องทำงานซ้ำทั้งหมด',
-        'การเปิดคำสั่งที่ขัดกันพร้อมกันเพิ่มโอกาสผิดและเพิ่มภาระการตัดสินใจ',
-        'คำแนะนำอย่างเดียวไม่ทดแทน validation และ state ที่ป้องกันข้อผิดพลาดได้'
+      reasons:[
+        'Timely feedback ทำให้ผู้ใช้รู้ว่าระบบรับ action แล้ว ลดความไม่แน่ใจและการทำซ้ำ',
+        'การเงียบระหว่างทำงานทำให้ผู้ใช้เดาสถานะและอาจกดซ้ำ',
+        'สีอย่างเดียวอาจตีความไม่ตรงและไม่ครอบคลุม accessibility',
+        'Motion ควรมีหน้าที่สื่อ behavior ไม่ใช่เพิ่มเวลารอโดยไม่มีข้อมูล'
       ]
     },
-    microcopy: {
-      prompt: 'Microcopy ใดช่วยให้ผู้ใช้แก้ข้อผิดพลาดได้จริง',
-      note: 'ข้อความควรชัด กระชับ ระบุสิ่งที่เกิดขึ้น และเสนอการกระทำที่ผู้ใช้ทำต่อได้',
-      choices: [
-        'ไฟล์เกิน 10 MB กรุณาเลือกไฟล์ที่เล็กลงแล้วลองส่งอีกครั้ง',
-        'เกิดข้อผิดพลาด กรุณาลองใหม่ภายหลัง',
-        'ข้อมูลไม่ถูกต้อง โปรดตรวจสอบรายละเอียดทั้งหมด',
-        'ส่งไม่สำเร็จ เนื่องจากผู้ใช้ดำเนินการไม่ถูกต้อง'
+    prevention:{
+      prompt:'วิธีใดป้องกัน duplicate action หรือ error ได้ตรงที่สุด',
+      note:'ป้องกันข้อผิดพลาดก่อนเกิด โดยไม่ทำให้ผู้ใช้สูญเสียข้อมูลหรือทางไปต่อ',
+      choices:[
+        'ปิด action ที่ทำซ้ำได้ระหว่างประมวลผล ตรวจข้อมูลสำคัญ และรักษาข้อมูลเดิมหากเกิด error',
+        'ปล่อยให้กดซ้ำได้เพื่อให้ผู้ใช้มั่นใจว่าระบบรับคำสั่ง',
+        'ล้างข้อมูลทันทีเมื่อเริ่มส่งเพื่อป้องกันข้อมูลเก่า',
+        'เพิ่มคำอธิบายยาว ๆ แต่ไม่เปลี่ยน state หรือ validation'
       ],
-      reasons: [
-        'ข้อความระบุปัญหา เงื่อนไข และวิธีแก้ที่ทำได้ทันที จึงช่วย recovery ได้จริง',
-        'ข้อความกว้างไม่บอกสาเหตุหรือสิ่งที่ผู้ใช้ควรเปลี่ยน',
+      reasons:[
+        'Error prevention ลดโอกาสผิดตั้งแต่ต้นและยังรักษาความต่อเนื่องของ task',
+        'การกดซ้ำเพิ่มความเสี่ยงต่อรายการซ้ำ',
+        'การล้างข้อมูลทำให้ recovery แพงและเพิ่มงานซ้ำ',
+        'คำอธิบายอย่างเดียวไม่ทดแทน state/validation ที่ป้องกัน error'
+      ]
+    },
+    microcopy:{
+      prompt:'Microcopy ใดช่วยให้ผู้ใช้เข้าใจและแก้ปัญหาได้จริง',
+      note:'ข้อความควรกระชับ บอกสิ่งที่เกิดขึ้น และเสนอ action ที่ทำต่อได้',
+      choices:[
+        '“ไฟล์เกิน 10 MB กรุณาเลือกไฟล์ที่เล็กลงแล้วลองส่งอีกครั้ง”',
+        '“เกิดข้อผิดพลาด”',
+        '“ข้อมูลไม่ถูกต้อง โปรดตรวจสอบทุกอย่าง”',
+        '“ส่งไม่สำเร็จเพราะผู้ใช้ดำเนินการผิด”'
+      ],
+      reasons:[
+        'ข้อความระบุปัญหา เงื่อนไข และวิธีแก้ที่ผู้ใช้ลงมือทำได้ทันที',
+        'ข้อความกว้างไม่บอกสาเหตุหรือ next action',
         'การให้ตรวจทุกอย่างโยนภาระวิเคราะห์กลับไปที่ผู้ใช้',
-        'การกล่าวโทษผู้ใช้ไม่ได้ช่วยให้รู้ว่าต้องแก้อะไรหรือทำอย่างไรต่อ'
+        'การกล่าวโทษผู้ใช้ไม่ช่วย recovery'
       ]
     },
-    feedback: {
-      prompt: 'Feedback หลังทำรายการแบบใดช่วยให้ผู้ใช้รู้ผลและขั้นตอนถัดไป',
-      note: 'ผลลัพธ์ควรยืนยันสถานะ ให้หลักฐานอ้างอิงเมื่อเหมาะสม และบอก next step ที่ชัดเจน',
-      choices: [
-        'ยืนยันผลสำเร็จ แสดงข้อมูลอ้างอิงที่จำเป็น และบอกหรือให้ปุ่มไปขั้นตอนถัดไป',
-        'ปิดหน้าต่างทันทีหลังส่งโดยไม่แสดงผลลัพธ์',
-        'แสดงไอคอนถูกเพียงอย่างเดียวโดยไม่มีข้อความหรือรายละเอียด',
-        'พากลับหน้าแรกทันทีโดยไม่บอกสถานะรายการ'
+    recovery:{
+      prompt:'Recovery path ใดช่วยให้ผู้ใช้กลับไปทำ task ต่อได้',
+      note:'รักษางานที่ทำไว้ ให้แก้เฉพาะจุด และมี retry/alternative path ที่ชัดเจน',
+      choices:[
+        'คงข้อมูลเดิม ชี้จุดที่ต้องแก้ และให้ลองใหม่จากจุดนั้นโดยไม่เริ่มใหม่ทั้งหมด',
+        'ล้างข้อมูลทั้งหมดแล้วให้เริ่มใหม่',
+        'พากลับหน้าแรกโดยไม่บอกว่าเกิดอะไรขึ้น',
+        'ให้ติดต่อผู้ดูแลระบบเป็นทางเลือกเดียว'
       ],
-      reasons: [
-        'ผู้ใช้ตรวจสอบได้ว่าระบบทำอะไรสำเร็จแล้ว และตัดสินใจขั้นต่อไปได้โดยไม่ต้องเดา',
-        'การปิดหน้าต่างไม่ได้ยืนยันชัดว่ารายการสำเร็จหรือระบบหยุดทำงาน',
-        'ไอคอนอย่างเดียวอาจคลุมเครือและไม่ให้ข้อมูลเพียงพอสำหรับงานสำคัญ',
-        'การเปลี่ยนหน้าทันทีทำให้ผู้ใช้ขาดหลักฐานและความต่อเนื่องของ task'
-      ]
-    },
-    recovery: {
-      prompt: 'Recovery path ใดช่วยให้ผู้ใช้กลับไปทำงานต่อโดยเสียงานน้อยที่สุด',
-      note: 'หลัก UX: เมื่อผิดพลาด ให้ผู้ใช้แก้เฉพาะจุด ลองใหม่ หรือย้อนกลับได้ โดยรักษางานที่ทำไว้เท่าที่เป็นไปได้',
-      choices: [
-        'คงข้อมูลเดิม ชี้จุดที่ต้องแก้ และให้ลองใหม่จากจุดนั้น',
-        'ล้างแบบฟอร์มทั้งหมดแล้วให้เริ่มใหม่ตั้งแต่ต้น',
-        'พากลับหน้าแรกโดยไม่บันทึกสิ่งที่กรอกไว้',
-        'หยุด flow และให้ติดต่อผู้ดูแลระบบเป็นทางเลือกเดียว'
-      ],
-      reasons: [
-        'การรักษางานเดิมและให้แก้เฉพาะจุดลดภาระซ้ำและช่วยให้ผู้ใช้ฟื้นจาก error ได้',
-        'การเริ่มใหม่ทั้งหมดเพิ่มต้นทุนและความเสี่ยงที่ผู้ใช้จะเลิกทำ task',
-        'การพากลับหน้าแรกทำลายบริบทและข้อมูลที่ผู้ใช้สร้างไว้',
-        'การไม่มี self-recovery ทำให้ผู้ใช้พึ่งพาความช่วยเหลือแม้ในข้อผิดพลาดที่แก้เองได้'
+      reasons:[
+        'Recovery ที่ดีลดงานซ้ำ รักษาบริบท และช่วยให้ผู้ใช้กลับสู่ task ได้เร็ว',
+        'การเริ่มใหม่เพิ่ม cost และ frustration โดยไม่จำเป็น',
+        'การกลับหน้าแรกทำให้สูญเสีย context และไม่แก้ปัญหาเดิม',
+        'การพึ่งผู้ดูแลเพียงอย่างเดียวไม่ใช่ self-recovery สำหรับ error ที่แก้ได้'
       ]
     }
-  };
+  });
 
-  // Must match uxq-field-aware-questions-w8-w15-v1.js exactly.
-  const ORDER = ['state', 'prevention', 'microcopy', 'feedback', 'recovery'];
+  const ORDER = ['trigger','feedback','prevention','microcopy','recovery'];
 
-  function roundSource() {
-    return clean([
-      $('.hud .meter b')?.textContent,
-      $('.case .kicker')?.textContent,
-      $('.case h1')?.textContent,
-      $('.case > p')?.textContent
-    ].join(' ')).toLowerCase();
-  }
-
-  function roundNumber() {
+  function stageIndex() {
     const meter = clean($('.hud .meter b')?.textContent || '');
-    const direct = meter.match(/^(\d+)\s*\/\s*\d+/);
-    if (direct) return Number(direct[1] || 0);
-    const text = roundSource();
-    const m = text.match(/(?:รอบภารกิจ|progress|decision)\s*(\d+)|\b(\d+)\s*\/\s*5/);
-    return Number((m && (m[1] || m[2])) || 0);
+    const m = meter.match(/(\d+)\s*\/\s*5/);
+    return Math.max(0, Math.min(4, Number(m?.[1] || 1) - 1));
   }
-
-  function packKey() {
-    // Stage number is the canonical owner. Text matching is fallback only.
-    const n = roundNumber();
-    if (n >= 1 && n <= 5) return ORDER[n - 1];
-    const text = roundSource();
-    if (/microcopy|wording|ข้อความ/.test(text)) return 'microcopy';
-    if (/feedback|success|receipt|next step|ยืนยันผล/.test(text)) return 'feedback';
-    if (/recovery|recover|ทางกลับ|กู้คืน|ลองใหม่/.test(text)) return 'recovery';
-    if (/prevent|double submit|dead end|ป้องกัน|กดซ้ำ/.test(text)) return 'prevention';
-    return 'state';
-  }
-
-  function optionIndex(btn) {
-    return Math.max(0, Array.from(btn.closest('.options')?.children || []).indexOf(btn));
-  }
-
-  function isCorrectChoice(btn) {
-    return /^c\d*/i.test(String(btn.getAttribute('data-choice') || ''));
-  }
-
-  function wrongChoiceIndex(btn) {
-    const id = String(btn.getAttribute('data-choice') || '');
-    const m = id.match(/^d\d+-(\d+)/i);
-    return m ? Number(m[1]) % 3 : Math.max(0, optionIndex(btn) - 1) % 3;
-  }
-
-  function isCorrectReason(btn) {
+  const pack = () => PACKS[ORDER[stageIndex()]] || PACKS.trigger;
+  const isCorrectChoice = btn => /^c\d*/i.test(String(btn.getAttribute('data-choice') || ''));
+  const wrongChoiceIndex = btn => {
+    const m = String(btn.getAttribute('data-choice') || '').match(/^d\d+-(\d+)/i);
+    return m ? Number(m[1]) % 3 : 0;
+  };
+  const isCorrectReason = btn => {
     const id = String(btn.getAttribute('data-reason') || '');
     return /-0$/.test(id) || /correct/i.test(id);
-  }
-
-  function wrongReasonIndex(btn) {
-    const id = String(btn.getAttribute('data-reason') || '');
-    const m = id.match(/-(\d+)$/);
-    return m ? Math.max(0, Number(m[1]) - 1) % 3 : Math.max(0, optionIndex(btn) - 1) % 3;
-  }
-
-  function setText(btn, value) {
-    const b = $('b', btn);
-    const span = $('span', btn);
-    if (b) {
-      if (clean(b.textContent) !== value) b.textContent = value;
-    } else if (clean(btn.textContent) !== value) {
-      btn.textContent = value;
-    }
+  };
+  const wrongReasonIndex = btn => {
+    const m = String(btn.getAttribute('data-reason') || '').match(/-(\d+)$/);
+    return m ? Math.max(0, Number(m[1]) - 1) % 3 : 0;
+  };
+  function setOption(btn, value) {
+    const b = $('b',btn), span = $('span',btn);
+    if (b && clean(b.textContent) !== value) b.textContent = value;
+    else if (!b && clean(btn.textContent) !== value) btn.textContent = value;
     if (span && clean(span.textContent)) span.textContent = '';
-    btn.removeAttribute('data-choice-tag');
-    btn.removeAttribute('data-mechanic-label');
   }
-
   function applyQuestion() {
     const q = $('.question');
-    if (!q || $('.feedback', q)) return;
-    const p = PACKS[packKey()];
-    if (!p) return;
-    const prompt = $('.prompt', q);
-    const instruction = $('.instruction', q);
+    if (!q || $('.feedback',q)) return;
+    const p = pack();
+    const prompt = $('.prompt',q), instruction = $('.instruction',q);
     if (prompt && clean(prompt.textContent) !== p.prompt) prompt.textContent = p.prompt;
     if (instruction && clean(instruction.textContent) !== p.note) instruction.textContent = p.note;
-
-    $$(':scope > .options .option[data-choice]', q).slice(0, 4).forEach(btn => {
-      const value = isCorrectChoice(btn) ? p.choices[0] : p.choices[1 + wrongChoiceIndex(btn)];
-      setText(btn, value);
+    $$(':scope > .options .option[data-choice]',q).slice(0,4).forEach(btn => {
+      setOption(btn, isCorrectChoice(btn) ? p.choices[0] : p.choices[1 + wrongChoiceIndex(btn)]);
     });
   }
-
   function applyReason() {
     const box = $('.verify');
     if (!box) return;
-    const p = PACKS[packKey()];
-    if (!p) return;
-    const h = $('h3', box);
-    const intro = $('p', box);
-    const title = `ตรวจเหตุผล • ${p.prompt}`;
-    if (h && clean(h.textContent) !== title) h.textContent = title;
-    if (intro && clean(intro.textContent) !== p.note) intro.textContent = p.note;
-
-    $$('.option[data-reason]', box).slice(0, 4).forEach(btn => {
-      const value = isCorrectReason(btn) ? p.reasons[0] : p.reasons[1 + wrongReasonIndex(btn)];
-      setText(btn, value);
+    const p = pack();
+    const h = $('h3',box), intro = $('p',box);
+    if (h) h.textContent = `Reason Check • ${p.prompt}`;
+    if (intro) intro.textContent = p.note;
+    $$('.option[data-reason]',box).slice(0,4).forEach(btn => {
+      setOption(btn, isCorrectReason(btn) ? p.reasons[0] : p.reasons[1 + wrongReasonIndex(btn)]);
     });
   }
-
-  function style() {
-    if ($('#uxqW12IntegrityStyleV3')) return;
-    const s = document.createElement('style');
-    s.id = 'uxqW12IntegrityStyleV3';
-    s.textContent = `
-      .question .option[data-choice],.verify .option[data-reason]{
-        min-height:104px!important;max-height:none!important;overflow:visible!important;
-        display:flex!important;align-items:center!important;white-space:normal!important;
-      }
-      .question .option[data-choice] b,.verify .option[data-reason] b{
-        white-space:normal!important;overflow:visible!important;text-overflow:clip!important;
-        line-height:1.42!important;font-size:.96rem!important;font-weight:800!important;
-      }
-      .question .option[data-choice] span,.verify .option[data-reason] span{display:none!important}
-      .uxqFairnessBadge,.uxqChoiceStableBadge{display:none!important}
-    `;
-    document.head.appendChild(s);
-  }
-
-  function run() {
-    style();
-    applyQuestion();
-    applyReason();
-  }
-
-  let timers = [];
-  function settle() {
-    timers.forEach(clearTimeout);
-    timers = [0, 40, 120, 300, 700, 1300].map(ms => setTimeout(run, ms));
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', settle, { once:true });
-  else settle();
-
-  let observerTimer = 0;
-  new MutationObserver(() => {
-    clearTimeout(observerTimer);
-    observerTimer = setTimeout(settle, 25);
-  }).observe(document.documentElement, { childList:true, subtree:true });
-
-  window.addEventListener('click', settle, true);
-  window.CSAI2601_UXQ_W12_CONTENT_INTEGRITY_V3 = Object.freeze({
-    version:'20260813-W12-PDF-ALIGN-V3',
-    order:Object.freeze(ORDER.slice()),
-    concepts:Object.freeze(['system status visibility','error prevention','actionable microcopy','confirmation feedback','recovery'])
-  });
+  function run(){ applyQuestion(); applyReason(); }
+  let timer=0;
+  function settle(){ clearTimeout(timer); timer=setTimeout(run,20); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', settle,{once:true}); else settle();
+  new MutationObserver(settle).observe(document.documentElement,{childList:true,subtree:true});
+  document.addEventListener('click',settle,true);
+  window.CSAI2601_UXQ_W12_CANONICAL_ORDER = Object.freeze(ORDER.slice());
 })();
