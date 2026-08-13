@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'english/functions/english-week-teacher.js'
+      - 'english/functions/english-week-roster-import.js'
       - 'english/functions/main.js'
       - 'english/functions/package.json'
       - 'english/functions/package-lock.json'
@@ -56,19 +57,20 @@ jobs:
         run: |
           npm run lint
           node --check english-week-teacher.js
+          node --check english-week-roster-import.js
           node --check main.js
 
       - name: Install Firebase CLI
         run: npm install --global firebase-tools
 
-      - name: Deploy Teacher Analytics Authority
+      - name: Deploy English Week admin authorities
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
         run: |
           firebase deploy \
             --config english/firebase.json \
             --project englishweek-95869 \
-            --only functions:englishWeekTeacher \
+            --only functions:englishWeekTeacher,functions:englishWeekRosterImport \
             --non-interactive
 
       - name: Deploy Firestore rules
@@ -86,18 +88,21 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Grant public invoker to Teacher Authority
+      - name: Grant public invoker to English Week admin authorities
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
         run: |
           gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
           gcloud config set project englishweek-95869
-          gcloud functions add-invoker-policy-binding englishWeekTeacher \
-            --gen2 \
-            --region=asia-southeast1 \
-            --member=allUsers
+          for FN in englishWeekTeacher englishWeekRosterImport; do
+            gcloud functions add-invoker-policy-binding "$FN" \
+              --gen2 \
+              --region=asia-southeast1 \
+              --member=allUsers
+          done
 
-      - name: Print production endpoint
+      - name: Print production endpoints
         run: |
           echo "Teacher: https://asia-southeast1-englishweek-95869.cloudfunctions.net/englishWeekTeacher"
+          echo "Roster Import: https://asia-southeast1-englishweek-95869.cloudfunctions.net/englishWeekRosterImport"
           echo "Firestore project: englishweek-95869"
