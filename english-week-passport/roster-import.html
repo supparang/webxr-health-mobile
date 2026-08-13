@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#102a43">
+<title>LEXICON X • Roster Import</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;color:#102a43;background:#edf4f8}*{box-sizing:border-box}body{margin:0}.wrap{max-width:900px;margin:auto;padding:22px}.card{background:#fff;border:1px solid #c9dce8;border-radius:18px;padding:18px;box-shadow:0 8px 30px rgba(16,42,67,.08);margin-bottom:14px}h1{margin:0 0 4px;font-size:1.55rem}h2{margin:0 0 10px;font-size:1.05rem}.muted{color:#627d98;font-size:.9rem}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{display:grid;gap:5px;margin:10px 0}.field label{font-weight:800}.field input{width:100%;min-height:46px;border:1.5px solid #9fb3c8;border-radius:12px;padding:9px 11px;font:inherit}.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.btn{border:0;border-radius:12px;min-height:44px;padding:0 16px;font-weight:900;cursor:pointer}.primary{background:#1677c8;color:#fff}.secondary{background:#e8f1f8;color:#173b57}.danger{background:#8a2b2b;color:#fff}.btn:disabled{opacity:.45;cursor:not-allowed}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.stat{background:#f4f8fb;border:1px solid #d5e3ec;border-radius:12px;padding:10px}.stat small{display:block;color:#627d98}.stat b{font-size:1.25rem}.bar{height:10px;background:#e3edf4;border-radius:99px;overflow:hidden;margin:10px 0}.bar i{display:block;height:100%;width:0;background:#2f9e73;transition:width .2s}.log{white-space:pre-wrap;background:#102a43;color:#d9eaf5;border-radius:12px;padding:12px;min-height:120px;max-height:320px;overflow:auto;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.ok{color:#0b7a55}.warn{color:#a96800}.bad{color:#a23b3b}.preview{overflow:auto;max-height:310px;border:1px solid #d5e3ec;border-radius:12px}table{border-collapse:collapse;width:100%;font-size:.82rem}th,td{padding:7px 8px;border-bottom:1px solid #e6eef3;text-align:left;white-space:nowrap}th{position:sticky;top:0;background:#edf5fa}code{background:#eef4f7;padding:1px 5px;border-radius:6px}@media(max-width:700px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.wrap{padding:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>LEXICON X • Roster Import</h1>
+    <div class="muted">นำเข้ารายชื่อนักศึกษาเข้า <code>ewp_profiles</code> แบบปลอดภัยผ่าน Teacher Key • ข้อมูลไฟล์อยู่ในเครื่องจนกด Import</div>
+  </div>
+
+  <div class="card">
+    <h2>1) เลือกไฟล์ CSV และใส่ Teacher Key</h2>
+    <div class="grid">
+      <div class="field"><label>Roster CSV</label><input id="file" type="file" accept=".csv,text/csv"></div>
+      <div class="field"><label>Teacher Key</label><input id="key" type="password" autocomplete="off" placeholder="ใส่ EW_TEACHER_KEY"></div>
+    </div>
+    <div class="muted">คอลัมน์ที่รองรับ: <code>studentId,name,program,eventDate,cohort,round,active</code></div>
+    <div class="btns"><button id="dry" class="btn secondary" disabled>ตรวจไฟล์ (Dry Run)</button><button id="import" class="btn primary" disabled>Import เข้า Firebase</button><button id="verify" class="btn secondary">ตรวจรหัส 6911500228</button></div>
+  </div>
+
+  <div class="card">
+    <h2>2) สถานะ</h2>
+    <div class="stats">
+      <div class="stat"><small>Rows</small><b id="rows">0</b></div>
+      <div class="stat"><small>Valid</small><b id="valid">0</b></div>
+      <div class="stat"><small>Imported</small><b id="done">0</b></div>
+      <div class="stat"><small>Errors</small><b id="errors">0</b></div>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+    <div id="status" class="muted">ยังไม่ได้เลือกไฟล์</div>
+  </div>
+
+  <div class="card">
+    <h2>3) ตัวอย่างข้อมูล</h2>
+    <div class="preview"><table><thead><tr><th>studentId</th><th>name</th><th>program</th><th>eventDate</th><th>cohort</th><th>active</th></tr></thead><tbody id="preview"></tbody></table></div>
+  </div>
+
+  <div class="card">
+    <h2>Log</h2>
+    <div id="log" class="log">Ready.</div>
+  </div>
+</div>
+<script>
+(()=>{
+'use strict';
+const APP_ID='ENGLISH-WEEK-PASSPORT-2026';
+const ENDPOINT='https://asia-southeast1-englishweek-95869.cloudfunctions.net/englishWeekRosterImport';
+const BATCH=300;
+const $=id=>document.getElementById(id);
+let roster=[];let dryPassed=false;let busy=false;
+const log=(msg)=>{$('log').textContent+=`\n${new Date().toLocaleTimeString()}  ${msg}`;$('log').scrollTop=$('log').scrollHeight};
+const setStatus=(msg,cls='')=>{$('status').className='muted '+cls;$('status').textContent=msg};
+function parseCsv(text){
+  const rows=[];let row=[],field='',quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(quoted){if(ch==='"'&&text[i+1]==='"'){field+='"';i++}else if(ch==='"')quoted=false;else field+=ch;continue}
+    if(ch==='"'){quoted=true;continue}
+    if(ch===','){row.push(field);field='';continue}
+    if(ch==='\n'){row.push(field.replace(/\r$/,''));rows.push(row);row=[];field='';continue}
+    field+=ch;
+  }
+  if(field.length||row.length){row.push(field.replace(/\r$/,''));rows.push(row)}
+  return rows.filter(r=>r.some(v=>String(v||'').trim()));
+}
+function normalizeCsv(text){
+  const matrix=parseCsv(text);if(matrix.length<2)throw new Error('CSV_EMPTY');
+  const headers=matrix[0].map(h=>String(h||'').replace(/^\uFEFF/,'').trim());
+  const required=['studentId','name'];for(const h of required)if(!headers.includes(h))throw new Error('MISSING_COLUMN_'+h);
+  const idx=Object.fromEntries(headers.map((h,i)=>[h,i]));
+  return matrix.slice(1).map(r=>({
+    studentId:String(r[idx.studentId]||'').trim(),name:String(r[idx.name]||'').trim(),program:String(r[idx.program]||'').trim(),
+    eventDate:String(r[idx.eventDate]||'').trim(),cohort:String(r[idx.cohort]||'').trim(),round:String(r[idx.round]||'').trim(),
+    active:String(r[idx.active]??'true').trim().toLowerCase()!=='false'
+  })).filter(r=>r.studentId||r.name);
+}
+function render(){
+  $('rows').textContent=roster.length;$('valid').textContent=dryPassed?roster.length:0;
+  $('preview').innerHTML=roster.slice(0,20).map(r=>`<tr><td>${esc(r.studentId)}</td><td>${esc(r.name)}</td><td>${esc(r.program)}</td><td>${esc(r.eventDate)}</td><td>${esc(r.cohort)}</td><td>${r.active}</td></tr>`).join('');
+  $('dry').disabled=!roster.length||busy;$('import').disabled=!roster.length||!dryPassed||busy;
+}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+async function call(payload){
+  const key=$('key').value.trim();if(!key)throw new Error('กรุณาใส่ Teacher Key');
+  const res=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-EW-App-Id':APP_ID,'X-EW-Teacher-Key':key},body:JSON.stringify({appId:APP_ID,...payload})});
+  const data=await res.json().catch(()=>({ok:false,error:'INVALID_SERVER_RESPONSE'}));if(!res.ok||!data.ok)throw new Error(data.error||`HTTP_${res.status}`);return data;
+}
+function chunks(a,n){const out=[];for(let i=0;i<a.length;i+=n)out.push(a.slice(i,i+n));return out}
+$('file').addEventListener('change',async e=>{
+  dryPassed=false;$('done').textContent='0';$('errors').textContent='0';$('bar').style.width='0%';
+  try{const f=e.target.files?.[0];if(!f)return;roster=normalizeCsv(await f.text());setStatus(`อ่านไฟล์แล้ว ${roster.length.toLocaleString()} รายชื่อ`,'ok');log(`Loaded ${f.name}: ${roster.length} rows`)}catch(err){roster=[];setStatus('อ่านไฟล์ไม่สำเร็จ: '+err.message,'bad');log('ERROR '+err.message)}render();
+});
+$('dry').addEventListener('click',async()=>{
+  if(busy)return;busy=true;dryPassed=false;render();let valid=0,errors=0;
+  try{
+    setStatus('กำลังตรวจข้อมูลโดยยังไม่เขียน Firebase…','warn');const groups=chunks(roster,BATCH);
+    for(let i=0;i<groups.length;i++){
+      const r=await call({action:'dry_run',rows:groups[i]});valid+=r.valid;errors+=r.invalid?.length||0;log(`Dry ${i+1}/${groups.length}: valid=${r.valid}, invalid=${r.invalid?.length||0}`);
+      $('bar').style.width=`${Math.round((i+1)/groups.length*100)}%`;
+    }
+    dryPassed=errors===0&&valid===roster.length;$('valid').textContent=valid;$('errors').textContent=errors;
+    setStatus(dryPassed?`Dry Run ผ่าน ${valid.toLocaleString()} รายชื่อ — พร้อม Import`:`พบข้อมูลผิด ${errors} รายการ`,dryPassed?'ok':'bad');
+  }catch(err){setStatus('Dry Run ไม่สำเร็จ: '+err.message,'bad');log('ERROR '+err.message)}finally{busy=false;render()}
+});
+$('import').addEventListener('click',async()=>{
+  if(busy||!dryPassed)return;if(!confirm(`Import ${roster.length.toLocaleString()} รายชื่อเข้า ewp_profiles ตอนนี้?`))return;
+  busy=true;render();let imported=0,errors=0,created=0,updated=0;
+  try{
+    setStatus('กำลัง Import เข้า Firebase…','warn');const groups=chunks(roster,BATCH);
+    for(let i=0;i<groups.length;i++){
+      const r=await call({action:'import',rows:groups[i]});imported+=r.imported||0;created+=r.created||0;updated+=r.updated||0;
+      $('done').textContent=imported;$('bar').style.width=`${Math.round((i+1)/groups.length*100)}%`;
+      log(`Import ${i+1}/${groups.length}: imported=${r.imported}, created=${r.created}, updated=${r.updated}`);
+    }
+    setStatus(`Import สำเร็จ ${imported.toLocaleString()} รายชื่อ • สร้างใหม่ ${created} • อัปเดต ${updated}`,'ok');
+    log('IMPORT COMPLETE');
+  }catch(err){errors++;$('errors').textContent=errors;setStatus('Import หยุด: '+err.message,'bad');log('ERROR '+err.message)}finally{busy=false;render()}
+});
+$('verify').addEventListener('click',async()=>{
+  try{setStatus('กำลังตรวจ 6911500228…','warn');const r=await call({action:'verify',playerId:'6911500228'});if(!r.exists)throw new Error('ยังไม่พบ 6911500228 ใน ewp_profiles');setStatus(`พบแล้ว: ${r.profile.fullName||r.profile.nickname||r.playerId}`,'ok');log(`VERIFY 6911500228 => ${r.profile.fullName||''}`)}catch(err){setStatus('Verify ไม่ผ่าน: '+err.message,'bad');log('ERROR '+err.message)}
+});
+render();
+})();
+</script>
+</body>
+</html>
