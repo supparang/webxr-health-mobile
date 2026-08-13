@@ -1,37 +1,39 @@
-CSAI2102 AI QUEST — CODING ROUTER PATCH v2.1
+CSAI2102 AI QUEST — CODING ROUTER PATCH v3.2.2 AUTHORITY GATE
 
 รองรับ:
 - SUBMIT_CODING_LAB
 - GET_CODING_STATUS
+- AUDIT_CODING_STATUS
 - GET_LAB_CONFIG
 
-ให้เปิด Code.gs แล้วหา:
+เป้าหมายสำคัญ:
+- การเปิด URL ของ Coding Lab โดยตรงต้องไม่สามารถส่งผลอย่างเป็นทางการได้
+- SUBMIT_CODING_LAB ต้องผ่าน AIQFLOW Google Sheet authority ก่อน
+- ต้องมีทั้ง current session unlocked และ Graded Mission ของ session นั้นผ่านแล้ว
+- หาก AIQFLOW ใช้งานไม่ได้ ให้ fail-closed
 
-function doPost(e) {
-  try {
-    const payload = parsePayload_(e);
-    const type = payload.type || payload.eventType || payload.api || '';
-    setupSheets();
-
-เพิ่มโค้ดนี้ทันทีหลัง setupSheets();
+ให้เปิด Code.gs ตัวที่ deploy จริง แล้วหา doPost(e) / shared router หลัง parse payload และ setupSheets();
+จากนั้นใช้ block นี้สำหรับ AIQCODING:
 
     // =====================================================
-    // AI QUEST CODING LAB ROUTER — Production v2.1
+    // AI QUEST CODING LAB ROUTER — Production v3.2.2
+    // Server anti-bypass: AIQCODING_SECURE owns submission authority.
     // =====================================================
     if (
       String(payload.module || '').trim().toUpperCase() === 'AIQCODING' ||
       String(payload.action || '').trim().toUpperCase() === 'SUBMIT_CODING_LAB' ||
       String(payload.action || '').trim().toUpperCase() === 'GET_CODING_STATUS' ||
+      String(payload.action || '').trim().toUpperCase() === 'AUDIT_CODING_STATUS' ||
       String(payload.action || '').trim().toUpperCase() === 'GET_LAB_CONFIG'
     ) {
       if (
-        typeof AIQCODING === 'undefined' ||
-        typeof AIQCODING.handle !== 'function'
+        typeof AIQCODING_SECURE === 'undefined' ||
+        typeof AIQCODING_SECURE.handle !== 'function'
       ) {
         return jsonOut({
           ok: false,
-          code: 'AIQCODING_MODULE_MISSING',
-          error: 'AIQCODING_MODULE_MISSING',
+          code: 'AIQCODING_SECURE_MODULE_MISSING',
+          error: 'AIQCODING_SECURE_MODULE_MISSING',
           action: payload.action || '',
           module: payload.module || '',
           version: APP_VERSION,
@@ -39,12 +41,25 @@ function doPost(e) {
         });
       }
 
-      return jsonOut(AIQCODING.handle(payload));
+      return jsonOut(AIQCODING_SECURE.handle(payload));
     }
+
+ไฟล์ที่ต้องอยู่ใน Apps Script project เดียวกัน:
+1) AIQuestFlow_Receiver.gs
+2) AIQuestCoding_Receiver.gs
+3) AIQuestCoding_AuthorityGate_v322.gs
+4) AIQuestCoding_Config.gs (ถ้า project เดิมใช้อยู่)
+
+Authority ที่ server บังคับสำหรับ SUBMIT_CODING_LAB:
+1) student identity ต้องครบ
+2) AIQFLOW.getProgress_() ต้องตอบสำเร็จ
+3) progress[session].unlocked === true
+4) progress[session].missionPassed === true
+5) จึงค่อยส่งต่อไป AIQCODING.handle(payload) เพื่อ semantic validation + scoring + Sheet write
 
 ข้อสำคัญ:
 - ห้ามสร้าง doPost(e) ใหม่
-- ใช้ jsonOut(...) ตาม Code.gs ตัวจริง
-- ต้องมี AIQuestCoding_Config.gs และ AIQuestCoding_Receiver.gs ในโปรเจกต์เดียวกัน
-- แทนที่ AIQuestCoding_Receiver.gs ด้วย v2.1 ล่าสุด
-- หลังแก้ให้ Save และ Deploy เป็น New version
+- ใช้ jsonOut(...) และ helper ของ Code.gs ตัวจริง
+- GET_CODING_STATUS/GET_LAB_CONFIG เป็น read-only จึงผ่าน secure wrapper ไป receiver เดิมได้
+- หลังแก้ Apps Script ต้อง Save และ Deploy > New version เพื่อให้ live endpoint ใช้ gate นี้จริง
+- Test ฝั่ง Apps Script ได้ด้วย AIQCODING_TEST_AUTHORITY_GATE_(payload)
