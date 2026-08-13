@@ -1,77 +1,146 @@
 /* =========================================================
-   EAP Hero • Boss Auto Finalize v1
-   VERSION: 20260813-BOSS-AUTO-FINALIZE-V1
+   EAP Hero • Boss Auto Finalize v2
+   VERSION: 20260813-BOSS-AUTO-FINALIZE-V2
 
    PURPOSE
-   - When a Boss adaptive run visibly reaches Run Complete
-     with Reading + Listening + Writing + Speaking complete,
-     finalize the Boss immediately through the canonical
-     no-loop finisher instead of exposing the legacy
-     Enter Boss Clash -> Guardian loop.
-   - Does not invent cloud progress. The existing no-loop
-     finisher emits the normal boss-defeated event so the
-     existing completion sync remains authoritative.
+   - The adaptive Boss run itself is the Boss Gate.
+   - In the current UI, "Enter Boss Clash" is rendered only after
+     Reading + Listening + Writing + Speaking have all completed.
+   - Therefore the appearance of that CTA is the canonical visible
+     completion signal. Finalize immediately and never enter the
+     legacy Evidence Count Guardian path.
+   - Emits the same eap:boss-defeated-visible event used by the
+     existing cloud completion sync. No official progress is invented.
 ========================================================= */
 (function () {
   'use strict';
-  if (window.__EAP_BOSS_AUTO_FINALIZE_V1__) return;
-  window.__EAP_BOSS_AUTO_FINALIZE_V1__ = true;
+  if (window.__EAP_BOSS_AUTO_FINALIZE_V2__) return;
+  window.__EAP_BOSS_AUTO_FINALIZE_V2__ = true;
 
-  var VERSION = '20260813-BOSS-AUTO-FINALIZE-V1';
+  var VERSION = '20260813-BOSS-AUTO-FINALIZE-V2';
   var fired = false;
   var timer = 0;
 
-  function text(v) {
+  function clean(v) {
     return String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
   }
 
-  function bodyText() {
-    var root = document.getElementById('app') || document.body;
-    return text(root && root.innerText || '');
+  function root() {
+    return document.getElementById('app') || document.body;
   }
 
-  function completeScreen() {
-    var s = bodyText();
-    var runComplete = /(?:Fallback|Standard|Single)\s+Run\s+Complete/i.test(s);
-    var fourSkills = /Reading[\s\S]{0,120}Complete/i.test(s) &&
-      /Listening[\s\S]{0,120}Complete/i.test(s) &&
-      /Writing[\s\S]{0,120}Complete/i.test(s) &&
-      /Speaking[\s\S]{0,120}Complete/i.test(s);
-    var bossGate = /Boss Gate\s*[1-5]/i.test(s);
-    return runComplete && fourSkills && bossGate;
+  function pageText() {
+    var r = root();
+    return clean(r && r.innerText || '');
   }
 
-  function tryFinalize() {
-    clearTimeout(timer);
-    timer = setTimeout(function () {
-      if (fired || !completeScreen()) return;
-      if (!window.EAPBossCompleteNoLoop || typeof window.EAPBossCompleteNoLoop.finish !== 'function') return;
-      fired = true;
-      document.documentElement.dataset.eapBossAutoFinalizeVersion = VERSION;
+  function gateFromPage() {
+    var s = pageText();
+    var m = s.match(/Boss Gate\s*([1-5])/i);
+    if (m) return 'B' + Number(m[1]);
+    try {
+      var p = JSON.parse(localStorage.getItem('EAP_HERO_PROGRESS_V3') || '{}') || {};
+      var route = clean(p.currentCloudRoute || p.currentRoute || '');
+      m = route.match(/^B([1-5])$/i);
+      if (m) return 'B' + Number(m[1]);
+    } catch (_) {}
+    return '';
+  }
 
-      var buttons = document.querySelectorAll('button,a,[role="button"]');
-      for (var i = 0; i < buttons.length; i++) {
-        if (/Enter\s+Boss\s+Clash|Finish\s+Boss\s+Gate/i.test(text(buttons[i].textContent || ''))) {
-          buttons[i].textContent = 'Finishing Boss Gate…';
-          try { buttons[i].disabled = true; } catch (_) {}
+  function completionButton() {
+    var nodes = document.querySelectorAll('button,a,[role="button"]');
+    for (var i = 0; i < nodes.length; i++) {
+      var t = clean(nodes[i].textContent || nodes[i].innerText || '');
+      if (/^(?:Enter\s+Boss\s+Clash|Finish\s+Boss\s+Gate)$/i.test(t)) return nodes[i];
+    }
+    return null;
+  }
+
+  function fallbackFinish(gate) {
+    var r = root();
+    if (!r || !gate) return false;
+
+    var names = {
+      B1: 'Detail Trap Spider',
+      B2: 'Copy-Paste Zombie',
+      B3: 'Broken Paragraph Beast',
+      B4: 'Plagiarism Monster',
+      B5: 'Final Academic Mission'
+    };
+    var next = { B1: 'S4', B2: 'S7', B3: 'S10', B4: 'S13', B5: 'Complete' };
+
+    r.innerHTML = '' +
+      '<main class="wrap" style="max-width:1100px;margin:auto;padding:20px">' +
+        '<section class="panel" style="margin-top:18px;text-align:center;padding:28px">' +
+          '<div style="font-size:72px;line-height:1">🏆</div>' +
+          '<div class="badges" style="justify-content:center;margin:12px 0">' +
+            '<span class="pill">' + gate + ' Boss Gate</span>' +
+            '<span class="pill">Saving to Google Sheet…</span>' +
+          '</div>' +
+          '<h1 style="margin:8px 0">Boss Defeated!</h1>' +
+          '<h3>' + (names[gate] || gate) + '</h3>' +
+          '<p class="lead">Reading, Listening, Writing และ Speaking ครบแล้ว ระบบกำลังยืนยันผลกับ Google Sheet</p>' +
+          '<div class="grid four" style="margin:18px 0">' +
+            '<div class="stat"><b>Reading</b><span>✓ Complete</span></div>' +
+            '<div class="stat"><b>Listening</b><span>✓ Complete</span></div>' +
+            '<div class="stat"><b>Writing</b><span>✓ Complete</span></div>' +
+            '<div class="stat"><b>Speaking</b><span>✓ Complete</span></div>' +
+          '</div>' +
+          '<p class="mini-note">ด่านถัดไป: ' + (next[gate] || '') + '</p>' +
+        '</section>' +
+      '</main>';
+
+    setTimeout(function () {
+      window.dispatchEvent(new CustomEvent('eap:boss-defeated-visible', {
+        detail: { gate: gate, version: VERSION, source: 'visible_completed_run_cta' }
+      }));
+    }, 30);
+    return true;
+  }
+
+  function finalizeNow() {
+    if (fired) return;
+    var btn = completionButton();
+    if (!btn) return;
+    var gate = gateFromPage();
+    if (!gate) return;
+
+    fired = true;
+    document.documentElement.dataset.eapBossAutoFinalizeVersion = VERSION;
+
+    try {
+      btn.textContent = 'Finishing Boss Gate…';
+      btn.disabled = true;
+      btn.style.pointerEvents = 'none';
+    } catch (_) {}
+
+    setTimeout(function () {
+      try {
+        if (window.EAPBossCompleteNoLoop && typeof window.EAPBossCompleteNoLoop.finish === 'function') {
+          var ok = window.EAPBossCompleteNoLoop.finish();
+          if (ok) return;
         }
+        fallbackFinish(gate);
+      } catch (err) {
+        console.error('[EAP Boss Auto Finalize v2]', err);
+        fallbackFinish(gate);
       }
-
-      setTimeout(function () {
-        try {
-          window.EAPBossCompleteNoLoop.finish();
-        } catch (err) {
-          fired = false;
-          console.error('[EAP Boss Auto Finalize] finalize failed', err);
-        }
-      }, 120);
-    }, 80);
+    }, 20);
   }
 
-  new MutationObserver(function () {
-    if (!fired) tryFinalize();
-  }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(finalizeNow, 25);
+  }
 
-  window.addEventListener('load', tryFinalize);
-  tryFinalize();
+  new MutationObserver(schedule).observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+
+  window.addEventListener('load', schedule);
+  window.addEventListener('pageshow', schedule);
+  setInterval(function () { if (!fired) finalizeNow(); }, 250);
+  schedule();
 })();
