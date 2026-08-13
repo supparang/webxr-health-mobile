@@ -70,7 +70,7 @@ jobs:
           firebase deploy \
             --config english/firebase.json \
             --project englishweek-95869 \
-            --only functions:englishWeekTeacher,functions:englishWeekRosterImport \
+            --only functions:english \
             --non-interactive
 
       - name: Deploy Firestore rules
