@@ -2,7 +2,7 @@
 <html lang="th"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#071426">
 <meta http-equiv="Cache-Control" content="no-store,no-cache,must-revalidate,max-age=0"><meta http-equiv="Pragma" content="no-cache">
-<title>CSAI2102 • Coding Gate v3.2.2</title>
+<title>CSAI2102 • Coding Gate v3.2.4</title>
 <style>
 :root{--bg:#071426;--panel:#101d33;--line:#334155;--text:#e8f1ff;--muted:#a9bad3;--green:#059669;--blue:#0284c7;--amber:#b45309;--bad:#be3455}*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif}body{display:flex;flex-direction:column}.gate{max-width:760px;margin:auto;padding:18px;width:100%}.card{padding:18px;border:1px solid var(--line);border-radius:20px;background:var(--panel)}h1,p{margin-top:0}.muted{color:var(--muted);line-height:1.55}.notice{padding:13px;border:1px solid var(--line);border-radius:14px;background:#17263f;line-height:1.5}.good{border-color:#15803d;background:#052e24;color:#bbf7d0}.bad{border-color:var(--bad);background:#35101d;color:#fecdd3}.warn{border-color:#b45309;background:#33200b;color:#fde68a}.actions{display:grid;gap:10px;margin-top:14px}.btn{min-height:52px;padding:11px 14px;border:1px solid var(--line);border-radius:13px;background:#17263f;color:#fff;text-decoration:none;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer}.btn.green{background:var(--green)}.btn.blue{background:var(--blue)}.btn.amber{background:var(--amber)}iframe{border:0;width:100%;height:100%;display:none;background:var(--bg)}.floatTop{position:fixed;right:12px;bottom:12px;z-index:50;width:46px;height:46px;border:1px solid var(--line);border-radius:50%;background:#17263f;color:#fff;font-weight:900;display:none;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(0,0,0,.35)}
 </style></head><body>
@@ -10,13 +10,14 @@
 <iframe id="lab" title="CSAI2102 Coding Lab"></iframe><button id="top" class="floatTop" aria-label="กลับด้านบน">↑</button>
 <script>
 (function(){'use strict';
-const VERSION='20260813-CODING-GATE-V3.2.2-AUTHORITY';
+const VERSION='20260813-CODING-GATE-V3.2.4-OPENLAB-FIX';
 const API='https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 const ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','S11','S12','B4','S13','S14','S15','B5'];
 const q=new URLSearchParams(location.search),$=id=>document.getElementById(id);
 const session=String(q.get('session')||q.get('mission')||'S1').toUpperCase().replace(/^MISSION/,'').replace(/^M(?=\d)/,'S');
 const mission=session.toLowerCase(),sid=String(q.get('studentId')||'').trim(),name=String(q.get('studentName')||'').trim(),section=String(q.get('section')||'101').trim();
-function withIdentity(path){const u=new URL(path,location.href);u.searchParams.set('mission',mission);u.searchParams.set('session',session);u.searchParams.set('studentId',sid);u.searchParams.set('studentName',name);u.searchParams.set('section',section);u.searchParams.set('release',VERSION);u.searchParams.set('_',Date.now());return u.href}
+function identityUrl(path){const u=new URL(path,location.href);u.searchParams.set('mission',mission);u.searchParams.set('session',session);u.searchParams.set('studentId',sid);u.searchParams.set('studentName',name);u.searchParams.set('section',section);u.searchParams.set('release',VERSION);u.searchParams.set('_',Date.now());return u}
+function withIdentity(path){return identityUrl(path).href}
 const reflectionUrl=withIdentity('./reflection-gate-v1.html'),sessionUrl=withIdentity('./student-session-router-v724.html'),mapUrl=withIdentity('./course-map-all-v720.html');
 $('title').textContent=session+' • ตรวจสิทธิ์ Coding Lab';$('identity').textContent=(sid||'-')+' • '+(name||'-')+' • Section '+section;
 async function post(module,action,payload){const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),45000);try{const r=await fetch(API,{method:'POST',cache:'no-store',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify(Object.assign({module,action,studentId:sid,studentName:name,section,sessionId:session,requestId:Date.now()+'-'+Math.random()},payload||{})),signal:ctl.signal});if(!r.ok)throw Error('HTTP_'+r.status);return JSON.parse(await r.text())}finally{clearTimeout(timer)}}
@@ -25,7 +26,23 @@ function button(text,href,cls){return '<a class="btn '+(cls||'')+'" href="'+esc(
 function block(code,message){$('notice').className='notice bad';$('notice').innerHTML='<b>ไม่อนุญาตให้เข้า Coding Lab</b><br>'+esc(message)+'<br><small>'+esc(code)+' • Google Sheet authority</small>';$('actions').innerHTML=button('กลับ Session',sessionUrl,'amber')+button('กลับแผนที่',mapUrl,'blue')}
 function goReflection(){window.top.location.href=reflectionUrl}
 function wireInnerReturn(){try{const d=$('lab').contentDocument;if(!d)return;const rb=d.getElementById('returnBtn');if(rb){rb.style.display='inline-flex';rb.textContent='ไป Reflection';rb.onclick=function(ev){ev.preventDefault();ev.stopPropagation();goReflection();return false}}}catch(e){}}
-function openLab(){const u=withIdentity('./web/coding-lab-v3.html');u.searchParams.set('returnUrl',reflectionUrl);u.searchParams.set('authority','sheet-gated');$('gate').style.display='none';$('lab').style.display='block';$('lab').src=u;$('top').style.display='flex';$('top').onclick=()=>{try{$('lab').contentWindow.scrollTo({top:0,behavior:'smooth'})}catch(e){}};$('lab').addEventListener('load',()=>{try{const d=$('lab').contentDocument;if(!d)return;const style=d.createElement('style');style.textContent='.sticky{padding:6px 8px!important;justify-content:flex-end!important;background:transparent!important;border-top:0!important;pointer-events:none!important}.sticky .btn{pointer-events:auto!important}.sticky #goTop{display:none!important}.sticky #returnBtn{max-width:260px!important;min-height:46px!important;display:inline-flex!important}main{padding-bottom:80px!important}@media(max-width:720px){.sticky{display:flex!important;grid-template-columns:none!important}}';d.head.appendChild(style);wireInnerReturn();setTimeout(wireInnerReturn,250);setTimeout(wireInnerReturn,900)}catch(e){}})}
+function openLab(){
+ try{
+   const u=identityUrl('./web/coding-lab-v3.html');
+   u.searchParams.set('returnUrl',reflectionUrl);
+   u.searchParams.set('authority','sheet-gated');
+   $('gate').style.display='none';
+   $('lab').style.display='block';
+   $('lab').src=u.href;
+   $('top').style.display='flex';
+   $('top').onclick=()=>{try{$('lab').contentWindow.scrollTo({top:0,behavior:'smooth'})}catch(e){}};
+   $('lab').addEventListener('load',()=>{try{const d=$('lab').contentDocument;if(!d)return;const style=d.createElement('style');style.textContent='.sticky{padding:6px 8px!important;justify-content:flex-end!important;background:transparent!important;border-top:0!important;pointer-events:none!important}.sticky .btn{pointer-events:auto!important}.sticky #goTop{display:none!important}.sticky #returnBtn{max-width:260px!important;min-height:46px!important;display:inline-flex!important}main{padding-bottom:80px!important}@media(max-width:720px){.sticky{display:flex!important;grid-template-columns:none!important}}';d.head.appendChild(style);wireInnerReturn();setTimeout(wireInnerReturn,250);setTimeout(wireInnerReturn,900)}catch(e){}});
+ }catch(e){
+   $('gate').style.display='block';$('lab').style.display='none';$('top').style.display='none';
+   $('notice').className='notice bad';$('notice').textContent='เปิด Coding Lab ไม่สำเร็จ: '+String(e.message||e);
+   $('actions').innerHTML=button('ลองใหม่',location.href,'blue')+button('กลับ Session',sessionUrl,'amber');
+ }
+}
 async function init(){
  if(!ORDER.includes(session)){block('INVALID_SESSION','ไม่พบด่านนี้ในลำดับรายวิชา');return}
  if(!sid||!name){block('IDENTITY_MISSING','ต้องมีรหัสนักศึกษาและชื่อผู้เรียนจาก Session');return}
