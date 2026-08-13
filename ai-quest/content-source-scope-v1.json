@@ -1,0 +1,36 @@
+{
+  "version": "20260813-CSAI2102-SOURCE-SCOPE-V1",
+  "course": "CSAI2102",
+  "purpose": "Audit metadata distinguishing core PDF-supported content from applied extensions.",
+  "sessions": {
+    "S1": {"scope": "PDF_CORE", "note": "AI vs deterministic automation / rule-based AI foundations"},
+    "S2": {"scope": "PDF_CORE", "note": "Intelligent agents and PEAS"},
+    "S3": {"scope": "PDF_CORE", "note": "BFS, DFS and repeated-state checking"},
+    "B1": {"scope": "PDF_CORE_SYNTHESIS", "note": "Integration of S1-S3"},
+    "S4": {"scope": "PDF_CORE", "note": "Uniform Cost Search"},
+    "S5": {"scope": "PDF_CORE", "note": "Greedy/A*/heuristics"},
+    "S6": {"scope": "PDF_CORE", "note": "Minimax and Alpha-Beta"},
+    "B2": {"scope": "PDF_CORE_SYNTHESIS", "note": "Integration of S4-S6"},
+    "S7": {"scope": "PDF_CORE", "note": "Facts, rules and chaining"},
+    "S8": {"scope": "PDF_CORE", "note": "Bayes and Bayesian Networks"},
+    "S9": {"scope": "PDF_CORE", "note": "Expert systems and inference trace"},
+    "B3": {"scope": "PDF_CORE_SYNTHESIS", "note": "Integration of S7-S9"},
+    "S10": {"scope": "PDF_CORE_PLUS_APPLIED_WORKFLOW", "note": "Core ML workflow with modern leakage/reproducibility practice"},
+    "S11": {"scope": "PDF_CORE", "note": "Supervised learning and metrics"},
+    "S12": {"scope": "PDF_CORE", "note": "K-means, clustering and PCA"},
+    "B4": {"scope": "PDF_CORE_PLUS_APPLIED_DEPLOYMENT", "note": "Core evaluation plus deployment readiness, monitoring and rollback extension"},
+    "S13": {"scope": "PDF_CORE_PLUS_MODERN_ARCHITECTURE", "note": "Neural/deep learning core plus modern architecture overview"},
+    "S14": {"scope": "PDF_CORE", "note": "MDP, Q-learning and exploration-exploitation"},
+    "S15": {"scope": "PDF_CORE_PLUS_RAG_EXTENSION", "note": "GenAI/LLM/hallucination core; RAG/retrieval explicitly treated as applied extension"},
+    "B5": {"scope": "PDF_CORE_PLUS_APPLIED_GOVERNANCE", "note": "Responsible AI core plus operational governance, audit, incident and appeal extension"}
+  },
+  "rules": {
+    "PDF_CORE": "Directly supported by the identified course PDFs.",
+    "PDF_CORE_SYNTHESIS": "Boss integration of directly supported core concepts.",
+    "PDF_CORE_PLUS_APPLIED_WORKFLOW": "Core PDF concepts extended with current workflow practice.",
+    "PDF_CORE_PLUS_APPLIED_DEPLOYMENT": "Core ML evaluation extended to deployment operations.",
+    "PDF_CORE_PLUS_MODERN_ARCHITECTURE": "Core neural/deep learning extended with modern architecture overview.",
+    "PDF_CORE_PLUS_RAG_EXTENSION": "Core GenAI/LLM material plus RAG/retrieval extension not claimed as directly sourced from the identified PDFs.",
+    "PDF_CORE_PLUS_APPLIED_GOVERNANCE": "Core responsible AI material plus operational governance extension."
+  }
+}
