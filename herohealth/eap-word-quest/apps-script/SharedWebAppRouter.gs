@@ -1,14 +1,14 @@
 /* =========================================================
-   Shared Web App Router v152
+   Shared Web App Router v153
    EAP Hero + EAP Word Quest + Teacher Dashboard
    Section 122
 
-   PRODUCTION RESET
+   PRODUCTION HARDENING
    - EAP_ProgressAuthority_v150.gs is the ONLY progression/resume authority.
-   - EAP_ProgressSeed_v152_Bulk.gs provides a fast one-time seed for test ID 50.
-   - Evidence/attempt/event sheets remain research logs only.
-   - Successful evidence submissions mirror into EAP_Progress immediately.
-   - Legacy v137/v145/v146 remain installed only for compatibility/reference.
+   - Evidence/attempt/event sheets remain append-only research logs.
+   - ALL successful skill submissions MUST also succeed in EAP_Progress.
+   - A submission is not reported as fully successful when progression mirror fails.
+   - This contract applies globally to S1-S15 and B1-B5.
    - Keep this as the ONLY file in the project containing doGet() / doPost().
 ========================================================= */
 
@@ -22,8 +22,9 @@ function doGet(e) {
     if (action === 'router_health' || action === 'eap_router_health') {
       return eapRouterJson_({
         ok: true,
-        service: 'shared-router-v152',
+        service: 'shared-router-v153',
         progressAuthorityInstalled: typeof eapPlayerResumeV150_ === 'function' && typeof eapProgressUpsertV150_ === 'function',
+        progressMirrorRequired: true,
         progressSeedV152Installed: typeof eapProgressSeedTest50V152_ === 'function',
         progressSeedV151Installed: typeof eapProgressSeedTest50V151_ === 'function',
         playerResumeV146Installed: typeof eapPlayerResumeV146_ === 'function',
@@ -65,7 +66,7 @@ function doGet(e) {
     if (action === 'player_resume' || action === 'player_resume_fast' || action === 'progress_resume') {
       if (typeof eapPlayerResumeV150_ !== 'function') {
         return eapRouterJson_({
-          ok:false,service:'shared-router-v152',action:action,
+          ok:false,service:'shared-router-v153',action:action,
           error:'EAP_ProgressAuthority_v150.gs is not installed or not deployed',
           progressAuthorityInstalled:false
         }, callback);
@@ -91,7 +92,7 @@ function doGet(e) {
     return eapHeroDoGet_(e);
   } catch (error) {
     return eapRouterJson_({
-      ok:false,service:'shared-router-v152',action:action,
+      ok:false,service:'shared-router-v153',action:action,
       error:String(error && error.stack ? error.stack : error)
     }, callback);
   }
@@ -108,32 +109,76 @@ function doPost(e) {
 
     if (action === 'submit_evidence') {
       const result = typeof eapSubmitEvidenceV137_ === 'function' ? eapSubmitEvidenceV137_(payload) : submitEvidence_(payload);
-      if (result && result.ok && typeof eapProgressUpsertV150_ === 'function') {
-        try { result.progress = eapProgressUpsertV150_(payload, result); }
-        catch (progressError) { result.progress = {ok:false,error:String(progressError && progressError.stack ? progressError.stack : progressError)}; }
-      }
-      return eapRouterJson_(result);
+      return eapRouterJson_(eapRouterRequireProgressV153_(payload, result, 'submit_evidence'));
     }
 
     if (action === 'submit_speaking_audio') {
       const result = submitSpeakingAudio_(payload);
-      if (result && result.ok && typeof eapProgressUpsertV150_ === 'function') {
-        try {
-          const progressPayload = Object.assign({}, payload, {skill: payload.skill || 'Speaking'});
-          result.progress = eapProgressUpsertV150_(progressPayload, result);
-        } catch (progressError) {
-          result.progress = {ok:false,error:String(progressError && progressError.stack ? progressError.stack : progressError)};
-        }
-      }
-      return eapRouterJson_(result);
+      const progressPayload = Object.assign({}, payload, {skill: payload.skill || 'Speaking'});
+      return eapRouterJson_(eapRouterRequireProgressV153_(progressPayload, result, 'submit_speaking_audio'));
     }
 
     const wordQuestActions = ['eap_word_attempt','eap_word_batch','eap_word_profile'];
     if (wordQuestActions.includes(action)) return eapWordFinalDoPost_(e);
     return eapHeroDoPost_(eapRouterEventWithPayload_(e, payload));
   } catch (error) {
-    return eapRouterJson_({ok:false,service:'shared-router-v152',action:action,error:String(error && error.stack ? error.stack : error)});
+    return eapRouterJson_({ok:false,service:'shared-router-v153',action:action,error:String(error && error.stack ? error.stack : error)});
   }
+}
+
+function eapRouterRequireProgressV153_(payload, result, action) {
+  result = result && typeof result === 'object' ? result : {ok:false,error:'submission returned no result'};
+  if (!result.ok) return result;
+
+  if (typeof eapProgressUpsertV150_ !== 'function') {
+    return Object.assign({}, result, {
+      ok:false,
+      evidenceSaved:true,
+      progressConfirmed:false,
+      retryable:true,
+      action:action,
+      error:'EAP_ProgressAuthority_v150.gs is not installed or not deployed'
+    });
+  }
+
+  let progress;
+  try {
+    progress = eapProgressUpsertV150_(payload || {}, result || {});
+  } catch (progressError) {
+    return Object.assign({}, result, {
+      ok:false,
+      evidenceSaved:true,
+      progressConfirmed:false,
+      retryable:true,
+      action:action,
+      progress:{ok:false,error:String(progressError && progressError.stack ? progressError.stack : progressError)},
+      error:'Evidence saved but EAP_Progress write failed'
+    });
+  }
+
+  if (!progress || progress.ok !== true) {
+    return Object.assign({}, result, {
+      ok:false,
+      evidenceSaved:true,
+      progressConfirmed:false,
+      retryable:true,
+      action:action,
+      progress:progress || {ok:false,error:'missing_progress_result'},
+      error:'Evidence saved but EAP_Progress was not confirmed'
+    });
+  }
+
+  result.progress = progress;
+  result.progressConfirmed = true;
+  result.evidenceSaved = true;
+  result.routeId = progress.routeId || result.routeId || payload.routeId || payload.sessionId || payload.session || '';
+  result.skill = progress.skill || result.skill || payload.skill || '';
+  result.score = Math.max(Number(result.score || 0), Number(progress.score || 0));
+  result.passed = progress.passed === true || result.passed === true;
+  result.completed = progress.completed === true;
+  result.passedSkillCount = Number(progress.passedSkillCount || 0);
+  result.requiredSkillCount = Number(progress.requiredSkillCount || 0);
+  return result;
 }
 
 function eapRouterParsePost_(e) {
