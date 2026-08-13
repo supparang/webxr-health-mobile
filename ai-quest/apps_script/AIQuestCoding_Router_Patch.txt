@@ -1,4 +1,4 @@
-CSAI2102 AI QUEST — CODING ROUTER PATCH v3.2.2 AUTHORITY GATE
+CSAI2102 AI QUEST — CODING ROUTER PATCH v3.2.3 AUTHORITY GATE
 
 รองรับ:
 - SUBMIT_CODING_LAB
@@ -9,14 +9,15 @@ CSAI2102 AI QUEST — CODING ROUTER PATCH v3.2.2 AUTHORITY GATE
 เป้าหมายสำคัญ:
 - การเปิด URL ของ Coding Lab โดยตรงต้องไม่สามารถส่งผลอย่างเป็นทางการได้
 - SUBMIT_CODING_LAB ต้องผ่าน AIQFLOW Google Sheet authority ก่อน
-- ต้องมีทั้ง current session unlocked และ Graded Mission ของ session นั้นผ่านแล้ว
+- S1: ต้องผ่าน Graded Mission ของ S1
+- S2–B5: ด่านก่อนหน้าต้อง completed ครบ 3 ส่วน และ Graded Mission ของด่านปัจจุบันต้องผ่านแล้ว
 - หาก AIQFLOW ใช้งานไม่ได้ ให้ fail-closed
 
 ให้เปิด Code.gs ตัวที่ deploy จริง แล้วหา doPost(e) / shared router หลัง parse payload และ setupSheets();
 จากนั้นใช้ block นี้สำหรับ AIQCODING:
 
     // =====================================================
-    // AI QUEST CODING LAB ROUTER — Production v3.2.2
+    // AI QUEST CODING LAB ROUTER — Production v3.2.3
     // Server anti-bypass: AIQCODING_SECURE owns submission authority.
     // =====================================================
     if (
@@ -47,14 +48,14 @@ CSAI2102 AI QUEST — CODING ROUTER PATCH v3.2.2 AUTHORITY GATE
 ไฟล์ที่ต้องอยู่ใน Apps Script project เดียวกัน:
 1) AIQuestFlow_Receiver.gs
 2) AIQuestCoding_Receiver.gs
-3) AIQuestCoding_AuthorityGate_v322.gs
+3) AIQuestCoding_AuthorityGate_v322.gs  (ภายในเป็น Authority Gate v3.2.3)
 4) AIQuestCoding_Config.gs (ถ้า project เดิมใช้อยู่)
 
 Authority ที่ server บังคับสำหรับ SUBMIT_CODING_LAB:
-1) student identity ต้องครบ
-2) AIQFLOW.getProgress_() ต้องตอบสำเร็จ
-3) progress[session].unlocked === true
-4) progress[session].missionPassed === true
+1) student identity และ session ต้องถูกต้อง
+2) ใช้ AIQFLOW.getSessionStatus_() ตรวจ current session
+3) ถ้าไม่ใช่ S1 ใช้ AIQFLOW.getSessionStatus_() ตรวจ previous session และต้อง previous.completed === true
+4) current.mission.completed === true (Graded Mission เท่านั้นตาม AIQFLOW)
 5) จึงค่อยส่งต่อไป AIQCODING.handle(payload) เพื่อ semantic validation + scoring + Sheet write
 
 ข้อสำคัญ:
