@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#102a43">
-<title>LEXICON X • Roster Import</title>
+<title>LEXICON X • Spark Roster Import</title>
 <style>
 :root{font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;color:#102a43;background:#edf4f8}*{box-sizing:border-box}body{margin:0}.wrap{max-width:900px;margin:auto;padding:22px}.card{background:#fff;border:1px solid #c9dce8;border-radius:18px;padding:18px;box-shadow:0 8px 30px rgba(16,42,67,.08);margin-bottom:14px}h1{margin:0 0 4px;font-size:1.55rem}h2{margin:0 0 10px;font-size:1.05rem}.muted{color:#627d98;font-size:.9rem}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{display:grid;gap:5px;margin:10px 0}.field label{font-weight:800}.field input{width:100%;min-height:46px;border:1.5px solid #9fb3c8;border-radius:12px;padding:9px 11px;font:inherit}.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.btn{border:0;border-radius:12px;min-height:44px;padding:0 16px;font-weight:900;cursor:pointer}.primary{background:#1677c8;color:#fff}.secondary{background:#e8f1f8;color:#173b57}.danger{background:#8a2b2b;color:#fff}.btn:disabled{opacity:.45;cursor:not-allowed}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.stat{background:#f4f8fb;border:1px solid #d5e3ec;border-radius:12px;padding:10px}.stat small{display:block;color:#627d98}.stat b{font-size:1.25rem}.bar{height:10px;background:#e3edf4;border-radius:99px;overflow:hidden;margin:10px 0}.bar i{display:block;height:100%;width:0;background:#2f9e73;transition:width .2s}.log{white-space:pre-wrap;background:#102a43;color:#d9eaf5;border-radius:12px;padding:12px;min-height:120px;max-height:320px;overflow:auto;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.ok{color:#0b7a55}.warn{color:#a96800}.bad{color:#a23b3b}.preview{overflow:auto;max-height:310px;border:1px solid #d5e3ec;border-radius:12px}table{border-collapse:collapse;width:100%;font-size:.82rem}th,td{padding:7px 8px;border-bottom:1px solid #e6eef3;text-align:left;white-space:nowrap}th{position:sticky;top:0;background:#edf5fa}code{background:#eef4f7;padding:1px 5px;border-radius:6px}@media(max-width:700px){.grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.wrap{padding:12px}}
 </style>
@@ -12,22 +12,29 @@
 <body>
 <div class="wrap">
   <div class="card">
-    <h1>LEXICON X • Roster Import</h1>
-    <div class="muted">นำเข้ารายชื่อนักศึกษาเข้า <code>ewp_profiles</code> แบบปลอดภัยผ่าน Teacher Key • ข้อมูลไฟล์อยู่ในเครื่องจนกด Import</div>
+    <h1>LEXICON X • Spark-only Roster Import</h1>
+    <div class="muted">นำเข้ารายชื่อนักศึกษาเข้า <code>ewp_profiles</code> โดยตรงผ่าน Firebase Authentication + Firestore • ไม่ใช้ Cloud Functions / Blaze</div>
   </div>
 
   <div class="card">
-    <h2>1) เลือกไฟล์ CSV และใส่ Teacher Key</h2>
+    <h2>1) เข้าสู่ระบบอาจารย์</h2>
     <div class="grid">
-      <div class="field"><label>Roster CSV</label><input id="file" type="file" accept=".csv,text/csv"></div>
-      <div class="field"><label>Teacher Key</label><input id="key" type="password" autocomplete="off" placeholder="ใส่ EW_TEACHER_KEY"></div>
+      <div class="field"><label>Teacher Email</label><input id="email" type="email" autocomplete="username" value="teacher.lexiconx@chandra.ac.th"></div>
+      <div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Firebase teacher password"></div>
     </div>
-    <div class="muted">คอลัมน์ที่รองรับ: <code>studentId,name,program,eventDate,cohort,round,active</code></div>
-    <div class="btns"><button id="dry" class="btn secondary" disabled>ตรวจไฟล์ (Dry Run)</button><button id="import" class="btn primary" disabled>Import เข้า Firebase</button><button id="verify" class="btn secondary">ตรวจรหัส 6911500228</button></div>
+    <div class="btns"><button id="login" class="btn primary">เข้าสู่ระบบ</button><button id="logout" class="btn secondary" disabled>ออกจากระบบ</button></div>
+    <div id="authStatus" class="muted">ยังไม่ได้เข้าสู่ระบบ</div>
   </div>
 
   <div class="card">
-    <h2>2) สถานะ</h2>
+    <h2>2) เลือก Roster CSV</h2>
+    <div class="field"><label>Roster CSV</label><input id="file" type="file" accept=".csv,text/csv"></div>
+    <div class="muted">คอลัมน์: <code>studentId,name,program,eventDate,cohort,round,active</code> • Dry Run ไม่เขียน Firebase</div>
+    <div class="btns"><button id="dry" class="btn secondary" disabled>ตรวจไฟล์ (Dry Run)</button><button id="import" class="btn primary" disabled>Import 2,051 คน</button><button id="verify" class="btn secondary" disabled>Verify 6911500228</button></div>
+  </div>
+
+  <div class="card">
+    <h2>3) สถานะ</h2>
     <div class="stats">
       <div class="stat"><small>Rows</small><b id="rows">0</b></div>
       <div class="stat"><small>Valid</small><b id="valid">0</b></div>
@@ -35,38 +42,56 @@
       <div class="stat"><small>Errors</small><b id="errors">0</b></div>
     </div>
     <div class="bar"><i id="bar"></i></div>
-    <div id="status" class="muted">ยังไม่ได้เลือกไฟล์</div>
+    <div id="status" class="muted">พร้อม</div>
   </div>
 
-  <div class="card">
-    <h2>3) ตัวอย่างข้อมูล</h2>
-    <div class="preview"><table><thead><tr><th>studentId</th><th>name</th><th>program</th><th>eventDate</th><th>cohort</th><th>active</th></tr></thead><tbody id="preview"></tbody></table></div>
-  </div>
-
-  <div class="card">
-    <h2>Log</h2>
-    <div id="log" class="log">Ready.</div>
-  </div>
+  <div class="card"><h2>4) ตัวอย่างข้อมูล</h2><div class="preview"><table><thead><tr><th>studentId</th><th>name</th><th>program</th><th>eventDate</th><th>cohort</th><th>active</th></tr></thead><tbody id="preview"></tbody></table></div></div>
+  <div class="card"><h2>Log</h2><div id="log" class="log">Ready • Spark-only direct Firestore.</div></div>
 </div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="./firebase-web-config.js?v=20260813-spark-roster-r1"></script>
 <script>
 (()=>{
 'use strict';
-const APP_ID='ENGLISH-WEEK-PASSPORT-2026';
-const ENDPOINT='https://asia-southeast1-englishweek-95869.cloudfunctions.net/englishWeekRosterImport';
+const VERSION='2026-08-13-SPARK-ROSTER-R1';
+const PROFILE_COL='ewp_profiles';
+const TEACHER_ROLES='ewp_teacher_roles';
 const BATCH=300;
+const EXPECTED=2051;
+const VERIFY_ID='6911500228';
 const $=id=>document.getElementById(id);
-let roster=[];let dryPassed=false;let busy=false;
-const log=(msg)=>{$('log').textContent+=`\n${new Date().toLocaleTimeString()}  ${msg}`;$('log').scrollTop=$('log').scrollHeight};
+let roster=[];let dryPassed=false;let busy=false;let teacherReady=false;
+let auth=null,db=null;
+const log=msg=>{$('log').textContent+=`\n${new Date().toLocaleTimeString()}  ${msg}`;$('log').scrollTop=$('log').scrollHeight};
 const setStatus=(msg,cls='')=>{$('status').className='muted '+cls;$('status').textContent=msg};
+const setAuth=(msg,cls='')=>{$('authStatus').className='muted '+cls;$('authStatus').textContent=msg};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+function init(){
+  try{
+    if(!window.firebase?.apps?.length) firebase.initializeApp(window.EW_FIREBASE_WEB_CONFIG);
+    auth=firebase.auth();db=firebase.firestore();
+    auth.onAuthStateChanged(async user=>{
+      teacherReady=false;
+      if(!user){setAuth('ยังไม่ได้เข้าสู่ระบบ');render();return;}
+      try{
+        const role=await db.collection(TEACHER_ROLES).doc(user.uid).get();
+        const data=role.exists?role.data()||{}:{};
+        if(!role.exists||data.active!==true||data.role!=='teacher')throw new Error('บัญชีนี้ไม่มีสิทธิ์ teacher ใน ewp_teacher_roles');
+        teacherReady=true;setAuth(`Teacher ✓ ${user.email||user.uid}`,'ok');log(`Teacher authority OK: ${user.uid}`);
+      }catch(e){setAuth('Teacher authority ไม่ผ่าน: '+e.message,'bad');log('AUTH ERROR '+e.message);}
+      render();
+    });
+  }catch(e){setAuth('Firebase init ไม่สำเร็จ: '+e.message,'bad');log('INIT ERROR '+e.message);}
+}
 function parseCsv(text){
   const rows=[];let row=[],field='',quoted=false;
   for(let i=0;i<text.length;i++){
     const ch=text[i];
     if(quoted){if(ch==='"'&&text[i+1]==='"'){field+='"';i++}else if(ch==='"')quoted=false;else field+=ch;continue}
-    if(ch==='"'){quoted=true;continue}
-    if(ch===','){row.push(field);field='';continue}
-    if(ch==='\n'){row.push(field.replace(/\r$/,''));rows.push(row);row=[];field='';continue}
-    field+=ch;
+    if(ch==='"'){quoted=true;continue}if(ch===','){row.push(field);field='';continue}if(ch==='\n'){row.push(field.replace(/\r$/,''));rows.push(row);row=[];field='';continue}field+=ch;
   }
   if(field.length||row.length){row.push(field.replace(/\r$/,''));rows.push(row)}
   return rows.filter(r=>r.some(v=>String(v||'').trim()));
@@ -74,60 +99,32 @@ function parseCsv(text){
 function normalizeCsv(text){
   const matrix=parseCsv(text);if(matrix.length<2)throw new Error('CSV_EMPTY');
   const headers=matrix[0].map(h=>String(h||'').replace(/^\uFEFF/,'').trim());
-  const required=['studentId','name'];for(const h of required)if(!headers.includes(h))throw new Error('MISSING_COLUMN_'+h);
+  for(const h of ['studentId','name'])if(!headers.includes(h))throw new Error('MISSING_COLUMN_'+h);
   const idx=Object.fromEntries(headers.map((h,i)=>[h,i]));
-  return matrix.slice(1).map(r=>({
-    studentId:String(r[idx.studentId]||'').trim(),name:String(r[idx.name]||'').trim(),program:String(r[idx.program]||'').trim(),
-    eventDate:String(r[idx.eventDate]||'').trim(),cohort:String(r[idx.cohort]||'').trim(),round:String(r[idx.round]||'').trim(),
-    active:String(r[idx.active]??'true').trim().toLowerCase()!=='false'
-  })).filter(r=>r.studentId||r.name);
+  return matrix.slice(1).map(r=>({studentId:String(r[idx.studentId]||'').replace(/\s+/g,'').trim(),name:String(r[idx.name]||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim(),program:String(r[idx.program]||'').trim().toUpperCase(),eventDate:String(r[idx.eventDate]||'').trim(),cohort:String(r[idx.cohort]||'').trim(),round:String(r[idx.round]||'').trim(),active:String(r[idx.active]??'true').trim().toLowerCase()!=='false'})).filter(r=>r.studentId||r.name);
 }
-function render(){
-  $('rows').textContent=roster.length;$('valid').textContent=dryPassed?roster.length:0;
-  $('preview').innerHTML=roster.slice(0,20).map(r=>`<tr><td>${esc(r.studentId)}</td><td>${esc(r.name)}</td><td>${esc(r.program)}</td><td>${esc(r.eventDate)}</td><td>${esc(r.cohort)}</td><td>${r.active}</td></tr>`).join('');
-  $('dry').disabled=!roster.length||busy;$('import').disabled=!roster.length||!dryPassed||busy;
+function validateRows(rows){
+  const invalid=[];const seen=new Set();const duplicate=[];
+  rows.forEach((r,i)=>{if(!/^\d{8,13}$/.test(r.studentId))invalid.push({row:i+2,id:r.studentId,error:'INVALID_STUDENT_ID'});if(!r.name)invalid.push({row:i+2,id:r.studentId,error:'NAME_REQUIRED'});if(seen.has(r.studentId))duplicate.push(r.studentId);seen.add(r.studentId);});
+  return {valid:rows.length-invalid.length,invalid,duplicate};
 }
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-async function call(payload){
-  const key=$('key').value.trim();if(!key)throw new Error('กรุณาใส่ Teacher Key');
-  const res=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','X-EW-App-Id':APP_ID,'X-EW-Teacher-Key':key},body:JSON.stringify({appId:APP_ID,...payload})});
-  const data=await res.json().catch(()=>({ok:false,error:'INVALID_SERVER_RESPONSE'}));if(!res.ok||!data.ok)throw new Error(data.error||`HTTP_${res.status}`);return data;
-}
+function profile(r){return {playerId:r.studentId,fullName:r.name,nickname:r.name,groupName:r.program||'English Week',program:r.program||'',cohort:r.cohort,sourceEventDate:r.eventDate,sourceRound:r.round,active:r.active,eligible:true,institution:'Faculty of Science',profileSource:'english-week-master-roster-2569',rosterVersion:'2026-08-13-master-roster-2051',updatedAt:firebase.firestore.FieldValue.serverTimestamp(),lastRosterImportAt:firebase.firestore.FieldValue.serverTimestamp()};}
 function chunks(a,n){const out=[];for(let i=0;i<a.length;i+=n)out.push(a.slice(i,i+n));return out}
-$('file').addEventListener('change',async e=>{
-  dryPassed=false;$('done').textContent='0';$('errors').textContent='0';$('bar').style.width='0%';
-  try{const f=e.target.files?.[0];if(!f)return;roster=normalizeCsv(await f.text());setStatus(`อ่านไฟล์แล้ว ${roster.length.toLocaleString()} รายชื่อ`,'ok');log(`Loaded ${f.name}: ${roster.length} rows`)}catch(err){roster=[];setStatus('อ่านไฟล์ไม่สำเร็จ: '+err.message,'bad');log('ERROR '+err.message)}render();
-});
-$('dry').addEventListener('click',async()=>{
-  if(busy)return;busy=true;dryPassed=false;render();let valid=0,errors=0;
-  try{
-    setStatus('กำลังตรวจข้อมูลโดยยังไม่เขียน Firebase…','warn');const groups=chunks(roster,BATCH);
-    for(let i=0;i<groups.length;i++){
-      const r=await call({action:'dry_run',rows:groups[i]});valid+=r.valid;errors+=r.invalid?.length||0;log(`Dry ${i+1}/${groups.length}: valid=${r.valid}, invalid=${r.invalid?.length||0}`);
-      $('bar').style.width=`${Math.round((i+1)/groups.length*100)}%`;
-    }
-    dryPassed=errors===0&&valid===roster.length;$('valid').textContent=valid;$('errors').textContent=errors;
-    setStatus(dryPassed?`Dry Run ผ่าน ${valid.toLocaleString()} รายชื่อ — พร้อม Import`:`พบข้อมูลผิด ${errors} รายการ`,dryPassed?'ok':'bad');
-  }catch(err){setStatus('Dry Run ไม่สำเร็จ: '+err.message,'bad');log('ERROR '+err.message)}finally{busy=false;render()}
-});
-$('import').addEventListener('click',async()=>{
-  if(busy||!dryPassed)return;if(!confirm(`Import ${roster.length.toLocaleString()} รายชื่อเข้า ewp_profiles ตอนนี้?`))return;
-  busy=true;render();let imported=0,errors=0,created=0,updated=0;
-  try{
-    setStatus('กำลัง Import เข้า Firebase…','warn');const groups=chunks(roster,BATCH);
-    for(let i=0;i<groups.length;i++){
-      const r=await call({action:'import',rows:groups[i]});imported+=r.imported||0;created+=r.created||0;updated+=r.updated||0;
-      $('done').textContent=imported;$('bar').style.width=`${Math.round((i+1)/groups.length*100)}%`;
-      log(`Import ${i+1}/${groups.length}: imported=${r.imported}, created=${r.created}, updated=${r.updated}`);
-    }
-    setStatus(`Import สำเร็จ ${imported.toLocaleString()} รายชื่อ • สร้างใหม่ ${created} • อัปเดต ${updated}`,'ok');
-    log('IMPORT COMPLETE');
-  }catch(err){errors++;$('errors').textContent=errors;setStatus('Import หยุด: '+err.message,'bad');log('ERROR '+err.message)}finally{busy=false;render()}
-});
-$('verify').addEventListener('click',async()=>{
-  try{setStatus('กำลังตรวจ 6911500228…','warn');const r=await call({action:'verify',playerId:'6911500228'});if(!r.exists)throw new Error('ยังไม่พบ 6911500228 ใน ewp_profiles');setStatus(`พบแล้ว: ${r.profile.fullName||r.profile.nickname||r.playerId}`,'ok');log(`VERIFY 6911500228 => ${r.profile.fullName||''}`)}catch(err){setStatus('Verify ไม่ผ่าน: '+err.message,'bad');log('ERROR '+err.message)}
-});
-render();
+function render(){
+  $('rows').textContent=roster.length;$('preview').innerHTML=roster.slice(0,20).map(r=>`<tr><td>${esc(r.studentId)}</td><td>${esc(r.name)}</td><td>${esc(r.program)}</td><td>${esc(r.eventDate)}</td><td>${esc(r.cohort)}</td><td>${r.active}</td></tr>`).join('');
+  $('login').disabled=busy||Boolean(auth?.currentUser);$('logout').disabled=busy||!auth?.currentUser;
+  $('dry').disabled=busy||!teacherReady||!roster.length;$('import').disabled=busy||!teacherReady||!dryPassed||!roster.length;$('verify').disabled=busy||!teacherReady;
+}
+$('login').onclick=async()=>{try{busy=true;render();setAuth('กำลังเข้าสู่ระบบ…','warn');await auth.signInWithEmailAndPassword($('email').value.trim(),$('password').value);}catch(e){setAuth('Login ไม่ผ่าน: '+e.message,'bad');log('LOGIN ERROR '+e.message);}finally{busy=false;$('password').value='';render();}};
+$('logout').onclick=async()=>{await auth.signOut();teacherReady=false;render();};
+$('file').addEventListener('change',async e=>{dryPassed=false;$('valid').textContent='0';$('done').textContent='0';$('errors').textContent='0';$('bar').style.width='0%';try{const f=e.target.files?.[0];if(!f)return;roster=normalizeCsv(await f.text());setStatus(`อ่าน ${f.name} แล้ว ${roster.length.toLocaleString()} รายชื่อ`,'ok');log(`Loaded ${f.name}: ${roster.length}`);}catch(err){roster=[];setStatus('อ่านไฟล์ไม่สำเร็จ: '+err.message,'bad');log('FILE ERROR '+err.message);}render();});
+$('dry').onclick=()=>{const v=validateRows(roster);$('valid').textContent=v.valid;$('errors').textContent=v.invalid.length+v.duplicate.length;dryPassed=v.invalid.length===0&&v.duplicate.length===0&&roster.length===EXPECTED;$('bar').style.width='100%';if(roster.length!==EXPECTED)log(`WARNING expected ${EXPECTED}, got ${roster.length}`);v.invalid.slice(0,20).forEach(x=>log(`INVALID row ${x.row}: ${x.id} ${x.error}`));if(v.duplicate.length)log('DUPLICATE: '+v.duplicate.slice(0,20).join(', '));setStatus(dryPassed?`Dry Run ผ่านครบ ${EXPECTED.toLocaleString()} คน — พร้อม Import`:`Dry Run ยังไม่ผ่าน: rows=${roster.length}, invalid=${v.invalid.length}, duplicate=${v.duplicate.length}`,dryPassed?'ok':'bad');render();};
+$('import').onclick=async()=>{
+  if(!teacherReady||!dryPassed||busy)return;if(!confirm(`Import ${roster.length.toLocaleString()} รายชื่อเข้า ewp_profiles โดยตรงตอนนี้?`))return;
+  busy=true;render();let imported=0;try{setStatus('กำลัง Import แบบ Spark-only…','warn');const groups=chunks(roster,BATCH);for(let i=0;i<groups.length;i++){const batch=db.batch();groups[i].forEach(r=>batch.set(db.collection(PROFILE_COL).doc(r.studentId),profile(r),{merge:true}));await batch.commit();imported+=groups[i].length;$('done').textContent=imported;$('bar').style.width=`${Math.round((i+1)/groups.length*100)}%`;log(`Batch ${i+1}/${groups.length} committed: ${groups[i].length} • total ${imported}`);}setStatus(`Import สำเร็จ ${imported.toLocaleString()} คน ✓ กด Verify ต่อได้เลย`,'ok');log(`IMPORT COMPLETE ${imported} • ${VERSION}`);}catch(e){$('errors').textContent=String(Number($('errors').textContent||0)+1);setStatus('Import หยุด: '+e.message,'bad');log('IMPORT ERROR '+e.message);}finally{busy=false;render();}
+};
+$('verify').onclick=async()=>{if(!teacherReady)return;try{setStatus(`กำลัง Verify ${VERIFY_ID}…`,'warn');const snap=await db.collection(PROFILE_COL).doc(VERIFY_ID).get();if(!snap.exists)throw new Error(`ยังไม่พบ ${VERIFY_ID}`);const p=snap.data()||{};setStatus(`Verify ผ่าน ✓ ${VERIFY_ID} • ${p.fullName||p.nickname||'-'}`,'ok');log(`VERIFY OK ${VERIFY_ID}: ${p.fullName||''} active=${p.active}`);}catch(e){setStatus('Verify ไม่ผ่าน: '+e.message,'bad');log('VERIFY ERROR '+e.message);}};
+init();render();
 })();
 </script>
 </body>
