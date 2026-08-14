@@ -1,8 +1,11 @@
-/* CSAI2601 UX Quest • W1 Workflow Final Authority v1
+/* CSAI2601 UX Quest • W1 Workflow Final Authority v1.2
  * Removes duplicated Project/Figma fields from the Studio form, keeps the
  * Master Figma panel as the single visible project authority, aligns displayed
  * stars with the actual cached mission record, and clarifies the combined
  * Studio + Reflection submission flow.
+ *
+ * v1.2: all DOM writes are idempotent and characterData observation is removed
+ * to prevent the result-status line from continuously triggering itself.
  */
 (() => {
   'use strict';
@@ -13,6 +16,22 @@
   if (nodeId !== 'W1') return;
 
   const STYLE_ID = 'uxq-w1-workflow-final-authority-v1-style';
+
+  function setText(el, value) {
+    if (!el) return false;
+    const wanted = String(value == null ? '' : value);
+    if (el.textContent === wanted) return false;
+    el.textContent = wanted;
+    return true;
+  }
+
+  function setAttr(el, name, value) {
+    if (!el) return false;
+    const wanted = String(value == null ? '' : value);
+    if (el.getAttribute(name) === wanted) return false;
+    el.setAttribute(name, wanted);
+    return true;
+  }
 
   function installStyle() {
     if (document.getElementById(STYLE_ID)) return;
@@ -50,11 +69,11 @@
     ['projectId','figmaUrl','evidenceUrl'].forEach(key => {
       artifact.querySelectorAll(`[data-studio-key='${key}']`).forEach(field => {
         const label = field.closest('label');
-        if (label) {
+        if (label && label.dataset.uxqDuplicateProjectField !== '1') {
           label.dataset.uxqDuplicateProjectField = '1';
           label.setAttribute('aria-hidden','true');
         }
-        field.hidden = true;
+        if (!field.hidden) field.hidden = true;
       });
     });
   }
@@ -63,10 +82,10 @@
     const artifact = ROOT.querySelector('.artifact[data-studio-practice-v1]');
     if (!artifact) return;
     const button = artifact.querySelector('[data-studio-submit]');
-    if (button) button.textContent = 'ส่ง Studio Practice และ Weekly Reflection';
+    setText(button, 'ส่ง Studio Practice และ Weekly Reflection');
     const status = artifact.querySelector('[data-save-status]');
     if (status && /linked mission attempt|mission-attempt|mission-/i.test(status.textContent || '')) {
-      status.textContent = 'ส่งคำขอสำเร็จแล้ว ระบบกำลังรอ Google Sheet ยืนยัน Studio Practice และ Weekly Reflection';
+      setText(status, 'ส่งคำขอสำเร็จแล้ว ระบบกำลังรอ Google Sheet ยืนยัน Studio Practice และ Weekly Reflection');
     }
   }
 
@@ -74,18 +93,14 @@
     const stars = realStars();
     const starBox = ROOT.querySelector('.results .stars');
     if (starBox) {
-      starBox.textContent = `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}`;
-      starBox.dataset.uxqAuthoritativeStars = '1';
-      starBox.setAttribute('aria-label',`${stars} จาก 3 ดาว`);
+      setText(starBox, `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}`);
+      if (starBox.dataset.uxqAuthoritativeStars !== '1') starBox.dataset.uxqAuthoritativeStars = '1';
+      setAttr(starBox, 'aria-label', `${stars} จาก 3 ดาว`);
     }
 
-    const gridValues = ROOT.querySelectorAll('.result-grid > div');
-    gridValues.forEach(cell => {
+    ROOT.querySelectorAll('.result-grid > div').forEach(cell => {
       const label = String(cell.querySelector('span')?.textContent || '');
-      if (/Cached Best Stars/i.test(label)) {
-        const value = cell.querySelector('b');
-        if (value) value.textContent = `${stars}★`;
-      }
+      if (/Cached Best Stars/i.test(label)) setText(cell.querySelector('b'), `${stars}★`);
     });
 
     const reason = reasonPercent();
@@ -95,22 +110,22 @@
     if (!heading || !starBox) return;
 
     if (!unlockPassed) {
-      heading.textContent = 'W1 เล่น Mission แล้ว • ยังไม่ผ่านเกณฑ์ปลดล็อก';
+      setText(heading, 'W1 เล่น Mission แล้ว • ยังไม่ผ่านเกณฑ์ปลดล็อก');
       if (lead?.tagName === 'P') {
-        lead.textContent = reason == null
+        const message = reason == null
           ? `ผลทางการปัจจุบัน ${stars}/3 ดาว ต้องได้อย่างน้อย 2/3 ดาวและผ่าน Reason Check จึงจะไปต่อได้`
           : `ผลทางการปัจจุบัน ${stars}/3 ดาว • Reason Check ${reason}% ต้องได้อย่างน้อย 70% จึงจะไปต่อได้`;
+        setText(lead, message);
       }
       let note = ROOT.querySelector('.uxq-w1-gate-note');
       if (!note) {
         note = document.createElement('div');
         note.className = 'uxq-w1-gate-note';
-        starBox.insertAdjacentElement('afterend',note);
+        starBox.insertAdjacentElement('afterend', note);
       }
-      note.textContent = 'สถานะนี้หมายถึงเล่นจบแล้ว แต่ยังไม่ผ่านเกณฑ์เหตุผลและการปลดล็อก โปรดเล่น Case ใหม่และเลือกเหตุผลที่เชื่อมโยงกับหลักฐานผู้ใช้';
+      setText(note, 'สถานะนี้หมายถึงเล่นจบแล้ว แต่ยังไม่ผ่านเกณฑ์เหตุผลและการปลดล็อก โปรดเล่น Case ใหม่และเลือกเหตุผลที่เชื่อมโยงกับหลักฐานผู้ใช้');
     } else {
-      const note = ROOT.querySelector('.uxq-w1-gate-note');
-      if (note) note.remove();
+      ROOT.querySelector('.uxq-w1-gate-note')?.remove();
     }
   }
 
@@ -119,7 +134,7 @@
     if (!tracker) return;
     const foot = tracker.querySelector('.uxq-3part__foot');
     if (foot && !/3\/3/.test(tracker.textContent || '')) {
-      foot.textContent = 'ต้องให้ Google Sheet ยืนยันครบทั้ง Mission, Studio Practice และ Weekly Reflection จึงถือว่า W1 สมบูรณ์และพร้อมปลดล็อก W2';
+      setText(foot, 'ต้องให้ Google Sheet ยืนยันครบทั้ง Mission, Studio Practice และ Weekly Reflection จึงถือว่า W1 สมบูรณ์และพร้อมปลดล็อก W2');
     }
   }
 
@@ -141,11 +156,13 @@
     document.addEventListener('DOMContentLoaded', () => schedule(50), { once:true });
   } else schedule(50);
 
-  new MutationObserver(() => schedule(80)).observe(ROOT,{childList:true,subtree:true,characterData:true});
+  // Observe structural rerenders only. Text written by this authority must not
+  // schedule itself again, which was the source of the visible status shake.
+  new MutationObserver(() => schedule(80)).observe(ROOT,{childList:true,subtree:true});
   ['uxq-progress-updated','uxq-sheet-progress-restored','uxq-studio-artifact-dispatched'].forEach(name => {
     window.addEventListener(name,() => schedule(30));
   });
   [250,800,1800,3500].forEach(ms => setTimeout(apply,ms));
 
-  window.UXQW1WorkflowFinalAuthorityV1 = Object.freeze({apply,version:'20260726-W1-WORKFLOW-FINAL-V1'});
+  window.UXQW1WorkflowFinalAuthorityV1 = Object.freeze({apply,version:'20260814-W1-WORKFLOW-FINAL-V1.2-NO-SHAKE'});
 })();
