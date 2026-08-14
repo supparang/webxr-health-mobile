@@ -1,10 +1,11 @@
 (()=>{
 'use strict';
-const RELEASE='20260814-LENS-REWARD-SYNC-R5-BLIND-CREATE';
+const RELEASE='20260814-LENS-REWARD-SYNC-R6-PASS80';
+const BONUS_PASS=80;
 const q=new URLSearchParams(location.search);
 const FIREBASE_FLOW=q.get('from')==='passport'&&q.get('authority')==='firebase';
 const AUTO_RETURN=FIREBASE_FLOW&&q.get('qa')!=='1'&&q.get('smoke')!=='1';
-if(!FIREBASE_FLOW){window.LEXICON_LENS_AUTO_RETURN={release:RELEASE,enabled:false,rewardSync:false};return;}
+if(!FIREBASE_FLOW){window.LEXICON_LENS_AUTO_RETURN={release:RELEASE,enabled:false,rewardSync:false,threshold:BONUS_PASS};return;}
 let armed=false,timer=0,mirrorBusy=false,mirrorDone=false,rewardDone=false,interval=0;
 function visible(el){return !!el&&!el.classList.contains('hidden')&&getComputedStyle(el).display!=='none';}
 function findBackButton(layer){if(!layer)return null;return [...layer.querySelectorAll('button')].find(b=>/กลับ\s*Passport/i.test((b.textContent||'').trim()))||null;}
@@ -30,6 +31,8 @@ async function createOnce(ref,data){
 }
 async function registerReward(playerId,score,nickname){
   if(rewardDone)return true;
+  const rounded=Math.max(0,Math.min(100,Math.round(Number(score||0))));
+  if(!Number.isFinite(rounded)||rounded<BONUS_PASS)return false;
   if(!window.firebase?.firestore)throw new Error('FIRESTORE_NOT_READY');
   const db=firebase.firestore();
   const progressSnap=await db.collection('ewp_progress').doc(playerId).get();
@@ -41,7 +44,7 @@ async function registerReward(playerId,score,nickname){
   const ref=db.collection('ewp_bonus_rewards').doc(rewardId);
   await createOnce(ref,{
     rewardId,playerId,sessionId,nickname:String(nickname||playerId).trim(),
-    bonusScore:Math.max(0,Math.min(100,Math.round(Number(score||0)))),
+    bonusScore:rounded,bonusPassThreshold:BONUS_PASS,
     completed:true,
     firstCompletedAt:firebase.firestore.FieldValue.serverTimestamp(),
     rewardClaimed:false,
@@ -72,9 +75,9 @@ async function mirrorBest(){
       const now=new Date().toISOString();
       await ref.set({playerId,bonusBest:{score,receipt:String(best.receipt||''),at:String(best.at||now),source:'lens-reward-sync'},bonusUpdatedAt:now,updatedAt:now,sourceVersion:RELEASE},{merge:true});
     }
-    await registerReward(playerId,score,nickname);
+    rewardDone=score>=BONUS_PASS?await registerReward(playerId,score,nickname):false;
     mirrorDone=true;
-    window.dispatchEvent(new CustomEvent('ew-bonus-summary-written',{detail:{playerId,score,rewardRegistered:rewardDone,release:RELEASE}}));
+    window.dispatchEvent(new CustomEvent('ew-bonus-summary-written',{detail:{playerId,score,rewardRegistered:rewardDone,rewardEligible:score>=BONUS_PASS,threshold:BONUS_PASS,release:RELEASE}}));
     return true;
   }catch(error){console.warn('Lens bonus summary/reward mirror failed',error);return false;}
   finally{mirrorBusy=false;}
@@ -87,15 +90,16 @@ async function check(){
   if(!saved)return;
   const back=findBackButton(layer);if(!back)return;
   armed=true;
-  const status=document.createElement('div');status.id='lensAutoReturnStatus';status.style.cssText='margin-top:8px;text-align:center;font-size:.78rem;font-weight:800;color:#bfffe4';status.textContent='✓ Firebase สำเร็จ • กำลังซิงก์ Bonus + Reward…';back.insertAdjacentElement('beforebegin',status);
+  const status=document.createElement('div');status.id='lensAutoReturnStatus';status.style.cssText='margin-top:8px;text-align:center;font-size:.78rem;font-weight:800;color:#bfffe4';status.textContent='✓ Firebase สำเร็จ • กำลังตรวจสิทธิ์ Bonus ≥80%…';back.insertAdjacentElement('beforebegin',status);
   await mirrorBest();
-  status.textContent=mirrorDone&&rewardDone?'✓ ซิงก์ Bonus + Reward สำเร็จ'+(AUTO_RETURN?' • กำลังกลับ Passport…':''):'⚠ บันทึกผลแล้ว แต่ Reward ยังซิงก์ไม่สำเร็จ';
-  if(AUTO_RETURN){back.dataset.autoReturnArmed='1';timer=setTimeout(()=>{try{back.click()}catch(_){location.replace('./index.html?resume=passport&fromGame=bonus_lens&v=20260814-lens-reward-sync-r5')}},900);}
+  const identity=readIdentity();const best=await readCanonicalBest(String(identity?.playerId||''));const score=Number(best?.score);
+  status.textContent=Number.isFinite(score)&&score<BONUS_PASS?`✓ บันทึก Bonus ${Math.round(score)}% แล้ว • ต้องได้อย่างน้อย ${BONUS_PASS}% จึงมีสิทธิ์รางวัล`:mirrorDone&&rewardDone?'✓ ผ่าน Bonus ≥80% • ซิงก์ Reward สำเร็จ'+(AUTO_RETURN?' • กำลังกลับ Passport…':''):'⚠ บันทึกผลแล้ว แต่ Reward ยังซิงก์ไม่สำเร็จ';
+  if(AUTO_RETURN){back.dataset.autoReturnArmed='1';timer=setTimeout(()=>{try{back.click()}catch(_){location.replace('./index.html?resume=passport&fromGame=bonus_lens&v=20260814-lens-reward-sync-r6')}},900);}
 }
 const observer=new MutationObserver(()=>{void check();});observer.observe(document.getElementById('summaryLayer')||document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});
 interval=setInterval(()=>{void check();},500);
 addEventListener('pagehide',()=>{clearTimeout(timer);clearInterval(interval);observer.disconnect()},{once:true});
 setTimeout(()=>{void mirrorBest();},700);
 void check();
-window.LEXICON_LENS_AUTO_RETURN={release:RELEASE,enabled:true,rewardSync:true,autoReturn:AUTO_RETURN,mirrorBest,registerReward};
+window.LEXICON_LENS_AUTO_RETURN={release:RELEASE,enabled:true,rewardSync:true,autoReturn:AUTO_RETURN,threshold:BONUS_PASS,mirrorBest,registerReward};
 })();
