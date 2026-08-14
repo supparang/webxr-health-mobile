@@ -1,8 +1,10 @@
-/* CSAI2601 UX Quest • Phase 1 Canonical Content Authority v1.1
+/* CSAI2601 UX Quest • Phase 1 Canonical Content Authority v1.2
  * Ensures Mission Control, Node Player, Studio and Reflection use one curriculum source.
  * Google Sheet remains the sole authority for official progress/unlock.
- * v1.1: validate week/boss schemas separately. Boss nodes intentionally use
- * bossScenario/passCriteria instead of week-only concepts/learningOutcomes.
+ * v1.1: validate week/boss schemas separately.
+ * v1.2: do NOT freeze live canonical node objects. Downstream item-bank and
+ * field-aware enrichment scripts intentionally extend seedCases/missionRounds.
+ * The authority map itself stays frozen, but its live node values remain mutable.
  */
 (() => {
   'use strict';
@@ -62,8 +64,10 @@
     return;
   }
 
+  // Freeze only the lookup container. Keep node objects mutable because the
+  // canonical item-bank/enrichment layers loaded later extend these live nodes.
   const map = Object.freeze(nodes.reduce((acc, node) => {
-    acc[String(node.id).toUpperCase()] = Object.freeze(node);
+    acc[String(node.id).toUpperCase()] = node;
     return acc;
   }, {}));
 
@@ -71,7 +75,7 @@
     ok:true,
     phase:'Phase 1',
     version:EXPECTED_VERSION,
-    authorityVersion:'20260814-phase1-schema-v1.1',
+    authorityVersion:'20260814-phase1-schema-v1.2-live-nodes',
     nodeCount:nodes.length,
     order:Object.freeze(EXPECTED_ORDER.slice()),
     map,
