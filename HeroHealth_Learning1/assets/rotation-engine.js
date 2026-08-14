@@ -1,20 +1,20 @@
 (()=>{
 'use strict';
-const VERSION='20260814-ROTATION-RESEARCH-FLOW-R16';
+const VERSION='20260814-ROTATION-RESEARCH-FLOW-R17-THAI-LABELS';
 const ZONE_ORDER=['hygiene','nutrition','fitness'];
-const ASSESSMENT_START={id:'pretest',label:'Pre-test',type:'assessment'};
+const ASSESSMENT_START={id:'pretest',label:'แบบทดสอบก่อนเริ่มภารกิจ',type:'assessment'};
 const ASSESSMENT_END=[
- {id:'posttest',label:'Post-test',type:'assessment'},
- {id:'postExperience',label:'Post-experience',type:'assessment'},
- {id:'reflection',label:'Reflection',type:'assessment'}
+ {id:'posttest',label:'แบบทดสอบหลังจบภารกิจ',type:'assessment'},
+ {id:'postExperience',label:'แบบประเมินประสบการณ์หลังเล่น',type:'assessment'},
+ {id:'reflection',label:'สะท้อนการเรียนรู้',type:'assessment'}
 ];
-const LABELS={'hygiene:handwash':'Handwash AR','hygiene:toothbrush':'Toothbrush AR','nutrition:groups':'Groups AR','nutrition:goodjunk':'GoodJunk AR','fitness:jumpduck':'JumpDuck AR','fitness:balance-hold':'Balance Hold AR'};
+const LABELS={'hygiene:handwash':'ภารกิจล้างมือ 7 ขั้นตอน','hygiene:toothbrush':'ภารกิจแปรงฟันให้สะอาด','nutrition:groups':'ภารกิจจัดอาหารให้ครบ 5 หมู่','nutrition:goodjunk':'ภารกิจเลือกอาหารสุขภาพ','fitness:jumpduck':'ภารกิจกระโดดและหลบ','fitness:balance-hold':'ภารกิจฝึกการทรงตัว'};
 function cfg(){return window.HH_CONFIG||{}}
 function groupOf(s){return String(s?.group||s?.profile?.group||'A').trim().toUpperCase()||'A'}
 function profileIdOf(s){const C=cfg();return s?.activeMissionProfile||C.activeMissionProfile||'CLASS_60'}
 function zonesFor(s){const C=cfg(),g=groupOf(s),raw=C.rotation?.[g];const list=Array.isArray(raw)?raw.filter(z=>ZONE_ORDER.includes(z)):[];return list.length===3&&new Set(list).size===3?list:ZONE_ORDER.slice()}
 function gameIdsFor(s,zoneId){const C=cfg();return (C.missionProfiles?.[profileIdOf(s)]?.games?.[zoneId]||[]).slice()}
-function gameLabel(zoneId,gameId){const C=cfg(),g=C.zones?.find(z=>z.id===zoneId)?.games?.find(x=>x.id===gameId);return g?.thai||g?.title||LABELS[`${zoneId}:${gameId}`]||gameId}
+function gameLabel(zoneId,gameId){return LABELS[`${zoneId}:${gameId}`]||cfg().zones?.find(z=>z.id===zoneId)?.games?.find(x=>x.id===gameId)?.thai||gameId}
 function routeFor(s){const games=zonesFor(s).flatMap(zoneId=>gameIdsFor(s,zoneId).map(gameId=>({id:`${zoneId}:${gameId}`,label:gameLabel(zoneId,gameId),type:'game',zoneId,gameId})));return [ASSESSMENT_START,...games,...ASSESSMENT_END]}
 function done(s,step){return step.type==='game'?s?.gameCompleted?.[step.zoneId]?.[step.gameId]===true:s?.completed?.[step.id]===true}
 function status(s){const route=routeFor(s),completedCount=route.filter(x=>done(s,x)).length,nextStep=route.find(x=>!done(s,x));return{route,completedCount,totalSteps:route.length,progressPct:Math.round(completedCount/route.length*100),nextStep:nextStep?.id||'certificate',missionComplete:completedCount===route.length}}
