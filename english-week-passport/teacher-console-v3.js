@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 
-const VERSION='2026-08-10-TEACHER-CONSOLE-V3-SESSION-SCOPED-EFFICIENT';
+const VERSION='2026-08-14-TEACHER-CONSOLE-V3-ASSESSMENT-FALLBACK';
 const $=id=>document.getElementById(id);
 const SESSION_IDS=Object.freeze(['D1-AM','D1-PM','D2-AM','D2-PM','D3-AM','D3-PM']);
 const PAGE_SIZE=50;
@@ -64,6 +64,19 @@ function totalDuration(summary){
   if(Number.isFinite(Number(summary?.totalGameDurationMs)))return num(summary.totalGameDurationMs);
   return Object.values(summary?.durationMsByStage||{}).reduce((s,v)=>s+num(v),0);
 }
+function assessmentAccuracy(a){
+  if(!a)return null;
+  if(Number.isFinite(Number(a.accuracy)))return num(a.accuracy);
+  if(Number.isFinite(Number(a.percent)))return num(a.percent);
+  const total=num(a.total||a.totalQuestions||a.itemCount,0);
+  const score=num(a.score||a.correct||a.correctCount,0);
+  return total>0?Math.round(score/total*100):null;
+}
+function latestAssessment(records,type){
+  return records
+    .filter(a=>clean(a.assessmentType||a.type||a.phase).toLowerCase()===type)
+    .sort((a,b)=>clean(b.submittedAt||b.updatedAt||b.createdAt).localeCompare(clean(a.submittedAt||a.updatedAt||a.createdAt)))[0]||null;
+}
 
 async function verifyTeacher(user){
   if(!user)throw new Error('TEACHER_SIGN_IN_REQUIRED');
@@ -82,6 +95,12 @@ async function readByIds(collectionName,ids){
   const db=firebase.firestore();
   const fp=firebase.firestore.FieldPath.documentId();
   const snaps=await Promise.all(chunks(ids).map(part=>db.collection(collectionName).where(fp,'in',part).get()));
+  return snaps.flatMap(docs);
+}
+async function readByPlayerIds(collectionName,ids){
+  if(!ids.length)return [];
+  const db=firebase.firestore();
+  const snaps=await Promise.all(chunks(ids).map(part=>db.collection(collectionName).where('playerId','in',part).get()));
   return snaps.flatMap(docs);
 }
 
@@ -112,16 +131,27 @@ async function loadSession(sessionId){
     .get();
   const progress=docs(progressSnap);
   const ids=progress.map(p=>clean(p.playerId||p.id)).filter(Boolean);
-  const [profiles,summaries]=await Promise.all([
+  const [profiles,summaries,assessments]=await Promise.all([
     readByIds(COL.profiles,ids),
-    readByIds(COL.gameSummary,ids)
+    readByIds(COL.gameSummary,ids),
+    readByPlayerIds(COL.assessments,ids)
   ]);
   const pMap=new Map(profiles.map(x=>[clean(x.playerId||x.id),x]));
   const sMap=new Map(summaries.map(x=>[clean(x.playerId||x.id),x]));
+  const aMap=new Map();
+  for(const a of assessments){
+    const playerId=clean(a.playerId);
+    if(!playerId)continue;
+    if(!aMap.has(playerId))aMap.set(playerId,[]);
+    aMap.get(playerId).push(a);
+  }
   rows=progress.map(p=>{
     const playerId=clean(p.playerId||p.id),profile=pMap.get(playerId)||{},summary=sMap.get(playerId)||{};
-    const preAccuracy=Number.isFinite(Number(summary.preAccuracy))?num(summary.preAccuracy):null;
-    const postAccuracy=Number.isFinite(Number(summary.postAccuracy))?num(summary.postAccuracy):null;
+    const playerAssessments=aMap.get(playerId)||[];
+    const preAssessment=latestAssessment(playerAssessments,'pre');
+    const postAssessment=latestAssessment(playerAssessments,'post');
+    const preAccuracy=Number.isFinite(Number(summary.preAccuracy))?num(summary.preAccuracy):assessmentAccuracy(preAssessment);
+    const postAccuracy=Number.isFinite(Number(summary.postAccuracy))?num(summary.postAccuracy):assessmentAccuracy(postAssessment);
     const gain=preAccuracy!=null&&postAccuracy!=null?postAccuracy-preAccuracy:null;
     const bestScores=(summary.bestScores&&typeof summary.bestScores==='object')?summary.bestScores:(p.bestScores||{});
     const cert=Boolean(p.certificateEligible||p.certificate?.certificateId);
@@ -165,6 +195,8 @@ function overview(){
   });
   const issues=[];
   for(const r of rows){
+    if(r.preDone&&r.preAccuracy==null)issues.push({playerId:r.playerId,name:r.nickname,type:'PRE_SCORE_MISSING',detail:'Pre สำเร็จแล้ว แต่ยังไม่พบคะแนนจาก Assessment หรือ Summary'});
+    if(r.postDone&&r.postAccuracy==null)issues.push({playerId:r.playerId,name:r.nickname,type:'POST_SCORE_MISSING',detail:'Post สำเร็จแล้ว แต่ยังไม่พบคะแนนจาก Assessment หรือ Summary'});
     if(r.postDone&&!r.reflectionDone)issues.push({playerId:r.playerId,name:r.nickname,type:'REFLECTION_PENDING',detail:'Post สำเร็จแล้ว แต่ยังไม่มี Final Reflection'});
     if(r.reflectionDone&&!r.summaryViewed)issues.push({playerId:r.playerId,name:r.nickname,type:'SUMMARY_PENDING',detail:'Reflection สำเร็จแล้ว แต่ยังไม่ได้ยืนยัน Journey Summary'});
     if(r.summaryViewed&&!r.certificateEligible)issues.push({playerId:r.playerId,name:r.nickname,type:'CERTIFICATE_MISMATCH',detail:'Journey Summary สำเร็จ แต่ Certificate ยังไม่พร้อม'});
@@ -236,9 +268,7 @@ async function openReport(playerId){
     ]);
     const profile=profileSnap.exists?(profileSnap.data()||{}):{},progress=progressSnap.exists?(progressSnap.data()||{}):{},summary=summarySnap.exists?(summarySnap.data()||{}):{},cert=certSnap.exists?(certSnap.data()||{}):{};
     const assessments=docs(assSnap),results=docs(resultSnap),events=docs(eventSnap);
-    const latest=(type)=>assessments.filter(a=>clean(a.assessmentType).toLowerCase()===type).sort((a,b)=>clean(b.submittedAt).localeCompare(clean(a.submittedAt)))[0]||null;
-    const assessmentAccuracy=a=>a?(Number.isFinite(Number(a.accuracy))?num(a.accuracy):(num(a.total)>0?Math.round(num(a.score)/num(a.total)*100):0)):null;
-    const pre=latest('pre'),post=latest('post'),preA=Number.isFinite(Number(summary.preAccuracy))?num(summary.preAccuracy):assessmentAccuracy(pre),postA=Number.isFinite(Number(summary.postAccuracy))?num(summary.postAccuracy):assessmentAccuracy(post);
+    const pre=latestAssessment(assessments,'pre'),post=latestAssessment(assessments,'post'),preA=Number.isFinite(Number(summary.preAccuracy))?num(summary.preAccuracy):assessmentAccuracy(pre),postA=Number.isFinite(Number(summary.postAccuracy))?num(summary.postAccuracy):assessmentAccuracy(post);
     const gameBoxes=GAME_STAGES.map(g=>{const attempts=results.filter(r=>clean(r.stageId)===g.id);const scores=attempts.map(a=>Number.isFinite(Number(a.accuracy))?num(a.accuracy):(num(a.total)>0?Math.round(num(a.score)/num(a.total)*100):0));const best=scores.length?Math.max(...scores):num(progress.bestScores?.[g.id]);const dur=attempts.reduce((s,a)=>s+num(a.durationMs),0)||num(summary.durationMsByStage?.[g.id]);return `<div class="journey-box"><strong>${h(g.title)}</strong><small>Best ${pct(best)} • ${attempts.length||num(summary.attemptCounts?.[g.id])} attempts</small><small>${duration(dur)}</small></div>`}).join('');
     const reflection=progress.finalReflection||null;
     $('reportTitle').textContent=clean(profile.nickname||profile.fullName||playerId);$('reportSubtitle').textContent=`${playerId} • ${currentSession}`;
