@@ -1,11 +1,8 @@
-/* CSAI2601 UX Quest • Mechanic Mode v2.4
+/* CSAI2601 UX Quest • Mechanic Mode v2.5 NO-SHAKE
  * W7 master-reading layout for W1-W15 and B1-B4.
- * - One mission identity strip only.
- * - Stage-specific prompt derived from the current learning focus.
- * - Main choices show decision text only before answering.
- * - Deep explanation remains available in feedback / Reason Check.
- * - W1 learner-facing copy is owned exclusively by W1 Final Content Authority.
  * Presentation only: answer truth, scoring, progress, gates and Sheet sync stay unchanged.
+ * v2.5: observer ignores text/attribute mutations and schedules only when the
+ * question subtree is structurally replaced. Text writes are idempotent.
  */
 (() => {
   'use strict';
@@ -57,14 +54,10 @@
       .uxqMissionIdentity b{font-size:.96rem!important}
       .uxqMissionIdentity span{font-size:.84rem!important;line-height:1.3!important}
       .uxqMissionIdentity small{font-size:.76rem!important;margin-top:2px!important}
-      @media(max-width:900px){
-        .question .options:first-of-type{grid-template-columns:1fr!important}
-        .question .options:first-of-type .option{min-height:0!important}
-      }
+      @media(max-width:900px){.question .options:first-of-type{grid-template-columns:1fr!important}.question .options:first-of-type .option{min-height:0!important}}
     `;
     document.head.appendChild(s);
   }
-
   function current(){return mechanics[nodeId()]||mechanics.W1;}
   function focusText(){return (text($('.case .kicker'))+' '+text($('.case h1'))).toLowerCase();}
   function stagePrompt(){
@@ -93,45 +86,28 @@
     for(const [re,label] of rules){if(re.test(f))return label;}
     return current().action;
   }
-
   function removeDuplicatePanel(q){$$('.uxqMechanicPanel',q).forEach(el=>el.remove());}
   function simplifyMainChoices(q){
-    const main=$$('.options',q)[0];
-    if(!main)return;
-    $$('.option[data-choice],button.option,.option',main).forEach(btn=>{
-      $$(':scope > span,:scope > small,:scope > p',btn).forEach(el=>el.remove());
-    });
+    const main=$$('.options',q)[0]; if(!main)return;
+    $$('.option[data-choice],button.option,.option',main).forEach(btn=>{$$(':scope > span,:scope > small,:scope > p',btn).forEach(el=>el.remove());});
   }
   function markFeedbackState(q){q.classList.toggle('has-feedback',!!q.querySelector('.feedback,.verify'));}
-  function normalizeHint(){
-    const hint=$('.hint');
-    if(!hint)return;
-    const cleaned=text(hint).replace(/^(?:💡\s*)+/u,'');
-    if(hint.textContent!==cleaned)hint.textContent=cleaned;
-  }
-
+  function normalizeHint(){const hint=$('.hint');if(!hint)return;const cleaned=text(hint).replace(/^(?:💡\s*)+/u,'');if(hint.textContent!==cleaned)hint.textContent=cleaned;}
   function inject(){
-    style();
-    const q=$('.question');
-    if(!q)return;
-    removeDuplicatePanel(q);
-    simplifyMainChoices(q);
-    markFeedbackState(q);
-
-    // W1 Final Content Authority is the only owner of learner-facing W1 copy.
-    if(nodeId()==='W1'){
-      q.dataset.mechanicPresentationOnly='true';
-      return;
-    }
-
+    style(); const q=$('.question'); if(!q)return;
+    removeDuplicatePanel(q); simplifyMainChoices(q); markFeedbackState(q);
+    if(nodeId()==='W1'){q.dataset.mechanicPresentationOnly='true';return;}
     normalizeHint();
     const prompt=$(':scope > .prompt',q);
     const wanted=`${current().icon} ${stagePrompt()}`;
-    if(prompt && prompt.textContent!==wanted)prompt.textContent=wanted;
+    if(prompt && text(prompt)!==wanted) prompt.textContent=wanted;
   }
-
   let t=0;
-  function schedule(){clearTimeout(t);t=setTimeout(inject,25);}
+  function schedule(){clearTimeout(t);t=setTimeout(inject,40);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
-  new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
+  // Structural observer only. Character/text writes from this layer must never wake itself.
+  new MutationObserver(records=>{
+    const structural=records.some(r=>r.type==='childList' && (r.addedNodes.length||r.removedNodes.length));
+    if(structural) schedule();
+  }).observe(document.documentElement,{childList:true,subtree:true});
 })();
