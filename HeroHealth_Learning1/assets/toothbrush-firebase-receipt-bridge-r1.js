@@ -1,10 +1,11 @@
-/* HeroHealth Toothbrush Firebase Receipt Bridge R3
+/* HeroHealth Toothbrush Firebase Receipt Bridge R4
  * Direct-game Firebase completion authority for Toothbrush V27.
+ * R4 separates session completion/progression from skill mastery.
  */
 (() => {
   'use strict';
 
-  const RELEASE = '20260809-TOOTHBRUSH-FIREBASE-RECEIPT-R3-ACCURACY-FIX';
+  const RELEASE = '20260814-TOOTHBRUSH-FIREBASE-RECEIPT-R4-COMPLETION-VS-MASTERY';
   const query = new URLSearchParams(location.search);
   const authority = String(query.get('authority') || '').toLowerCase();
   if (authority !== 'firebase') return;
@@ -51,11 +52,17 @@
     const coverage = plaque.total > 0 ? clamp(plaque.value * 100 / plaque.total)
       : zones.total > 0 ? clamp(zones.value * 100 / zones.total) : 0;
     const score = round1(coverage * 0.40 + direction * 0.35 + tracking * 0.25);
+    const fullCoverage = zones.total > 0 && zones.value >= zones.total && plaque.total > 0 && plaque.value >= plaque.total;
+    const mastery = score >= 70 && fullCoverage && direction >= 55 && tracking >= 70;
     return {
       gameId: 'toothbrush',
       zone: 'hygiene',
-      completed: zones.total > 0 && zones.value >= zones.total && plaque.total > 0 && plaque.value >= plaque.total,
-      passed: zones.total > 0 && zones.value >= zones.total && plaque.total > 0 && plaque.value >= plaque.total,
+      completed: true,
+      progressionEligible: true,
+      passed: mastery,
+      mastery,
+      masteryCriteriaMet: mastery,
+      completionPolicy: 'session-finished-progresses; mastery-stored-separately',
       score,
       accuracy: score,
       normalizedAccuracy: score,
@@ -108,22 +115,19 @@
     url.searchParams.set('returnedGame', 'toothbrush');
     url.searchParams.set('gameCompleted', '1');
     url.searchParams.set('receiptToken', receiptToken);
+    url.searchParams.set('returnSessionPolicy', 'force-firebase-rehydrate-toothbrush-r4');
     url.searchParams.set('v', RELEASE);
     location.replace(url.href);
   }
 
   async function saveAndReturn() {
-    if (saving || completed || !studentId) return;
+    if (saving || completed || !studentId || !resultVisible()) return;
     const result = buildResult();
-    if (!result.completed) return;
     saving = true;
     const status = ensureStatus();
     const back = document.getElementById('back');
-    if (back) {
-      back.disabled = true;
-      back.textContent = 'กำลังบันทึกผลลง Firebase…';
-    }
-    if (status) status.textContent = `กำลังบันทึกคะแนน ${result.score}/100 ลง Firebase…`;
+    if (back) { back.disabled = true; back.textContent = 'กำลังบันทึกผลลง Firebase…'; }
+    if (status) status.textContent = `กำลังบันทึกผลภารกิจ • คะแนนทักษะ ${result.score}/100…`;
 
     try {
       const [{ initializeApp, getApps }, { getAuth, signInAnonymously }, { getFirestore, doc, setDoc, getDoc, serverTimestamp }] = await Promise.all([
@@ -152,46 +156,30 @@
       const verified = await getDoc(ref);
       const data = verified.data() || {};
       const saved = data.gameResults?.toothbrush || {};
-      if (!verified.exists() || saved.firebaseReceiptToken !== receiptToken || data.gameCompleted?.hygiene?.toothbrush !== true) {
-        throw new Error('Firebase receipt verification failed');
-      }
+      if (!verified.exists() || saved.firebaseReceiptToken !== receiptToken || data.gameCompleted?.hygiene?.toothbrush !== true) throw new Error('Firebase receipt verification failed');
       completed = true;
-      try {
-        localStorage.setItem('HH_TOOTHBRUSH_FIREBASE_RECEIPT', JSON.stringify({ studentId, receiptToken, result, savedAt: Date.now() }));
-      } catch (_) {}
-      if (status) status.textContent = `✓ Firebase ยืนยันแล้ว • คะแนน ${result.score}/100 • กำลังกลับ Passport`;
-      if (back) back.textContent = `✓ คะแนน ${result.score}/100 • กำลังกลับ Passport`;
-      setTimeout(() => returnToPassport(receiptToken), 900);
+      try { localStorage.setItem('HH_TOOTHBRUSH_FIREBASE_RECEIPT', JSON.stringify({ studentId, receiptToken, result, savedAt: Date.now() })); } catch (_) {}
+      if (status) status.textContent = `✓ Firebase ยืนยันว่าจบภารกิจแล้ว • คะแนนทักษะ ${result.score}/100${result.mastery?' • ผ่านเกณฑ์ทักษะ':' • เก็บไว้เพื่อดูพัฒนาการ'}`;
+      if (back) back.textContent = '✓ บันทึกแล้ว • กำลังกลับ Passport';
+      setTimeout(() => returnToPassport(receiptToken), 800);
     } catch (error) {
       saving = false;
-      if (status) {
-        status.style.background = '#fff7ed';
-        status.style.color = '#9a3412';
-        status.textContent = `ยังบันทึก Firebase ไม่สำเร็จ: ${error?.message || error}`;
-      }
-      if (back) {
-        back.disabled = false;
-        back.textContent = 'ลองบันทึก Firebase อีกครั้ง';
-        back.onclick = event => { event.preventDefault(); saveAndReturn(); };
-      }
-      console.error('[Toothbrush Firebase Receipt R3]', error);
+      if (status) { status.style.background = '#fff7ed'; status.style.color = '#9a3412'; status.textContent = `ยังบันทึก Firebase ไม่สำเร็จ: ${error?.message || error}`; }
+      if (back) { back.disabled = false; back.textContent = 'ลองบันทึก Firebase อีกครั้ง'; back.onclick = event => { event.preventDefault(); saveAndReturn(); }; }
+      console.error('[Toothbrush Firebase Receipt R4]', error);
     }
   }
 
   function inspect() {
-    if (resultVisible()) {
-      const result = buildResult();
-      const badge = document.getElementById('badge');
-      if (badge && !badge.dataset.firebaseScore) {
-        badge.dataset.firebaseScore = '1';
-        badge.textContent += ` • คะแนน ${result.score}/100`;
-      }
-      saveAndReturn();
-    }
+    if (!resultVisible()) return;
+    const result = buildResult();
+    const badge = document.getElementById('badge');
+    if (badge && !badge.dataset.firebaseScore) { badge.dataset.firebaseScore = '1'; badge.textContent += ` • คะแนน ${result.score}/100`; }
+    saveAndReturn();
   }
 
   new MutationObserver(inspect).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class','style'] });
   window.setInterval(inspect, 500);
   window.addEventListener('load', inspect, { once: true });
-  console.info('[Toothbrush Firebase Receipt R3] installed', { release: RELEASE, studentId, progressCollection });
+  console.info('[Toothbrush Firebase Receipt R4] installed', { release: RELEASE, studentId, progressCollection });
 })();
