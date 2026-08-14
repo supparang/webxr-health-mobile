@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 
-const VERSION='2026-08-10-ATTENDANCE-CHECKIN-V2-FIRST-ACTUAL-ROUND';
+const VERSION='2026-08-14-ATTENDANCE-CHECKIN-V2-PLAYER-BOUND-ROUND-LOCK';
 const SESSION_IDS=Object.freeze(['D1-AM','D1-PM','D2-AM','D2-PM','D3-AM','D3-PM']);
 const STORAGE_KEY='LEXICON_X_ATTENDANCE_CHECKIN_V2';
 const clean=v=>String(v==null?'':v).trim();
@@ -63,8 +63,13 @@ async function syncAttendance(playerId){
   const sessionSnap=await sessionRef.get();
   const current=sessionSnap.exists?(sessionSnap.data()||{}):{};
 
-  // Existing actual attendance is authoritative after first real check-in.
-  const existing=normalizeSession(
+  // A Firebase anonymous/auth UID can survive player logout/login on the same
+  // browser. Therefore an existing round is authoritative ONLY when the
+  // session document belongs to the same playerId. This prevents QA-01 D1-AM
+  // (or any previous learner) from contaminating QA-02 D1-PM on a shared device.
+  const currentPlayerId=clean(current.playerId);
+  const samePlayerSession=Boolean(currentPlayerId && currentPlayerId===id);
+  const existing=samePlayerSession?normalizeSession(
     current.attendanceSessionId ||
     current.checkInSessionId ||
     current.sessionId ||
@@ -72,13 +77,12 @@ async function syncAttendance(playerId){
     current.cohortId ||
     current.roundId ||
     current.round
-  );
+  ):'';
   const requested=sessionFromUrl();
   const stored=readStored(id);
 
   // No pre-assignment: without an actual round QR/link the learner remains
-  // NOT_CHECKED_IN. Stored value is used only to resume an already checked-in
-  // learner on the same browser; it never assigns a fresh learner by itself.
+  // NOT_CHECKED_IN. Stored value is player-bound and used only for resume.
   const chosen=existing || requested || stored;
   if(!chosen){
     const detail={
@@ -129,7 +133,7 @@ async function syncAttendance(playerId){
   },{merge:true});
 
   // Mirror attendance into progress after progress exists so the Teacher
-  // Console can group the 800-person master roster without loading sessions.
+  // Console can group the master roster without loading sessions.
   const progressRef=db.collection('ewp_progress').doc(id);
   const progressSnap=await progressRef.get().catch(()=>null);
   if(progressSnap && progressSnap.exists){
