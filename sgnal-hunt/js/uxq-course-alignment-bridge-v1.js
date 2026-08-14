@@ -1,21 +1,24 @@
-/* CSAI2601 UX Quest • Course Alignment Bridge v2
+/* CSAI2601 UX Quest • Course Alignment Bridge v2.1
  * Canonical Studio owner for W1-W15 + B1-B4.
  *
- * The bridge intentionally DOES NOT inherit task fields from older Studio packs.
- * It builds Studio evidence fields from the untouched canonical artifactChecklist
- * captured by uxq-canonical-snapshot-v1.js.
+ * The immutable snapshot is used only to BUILD canonical Studio evidence.
+ * Runtime/question enrichment must use the LIVE canonical nodes because legacy
+ * item-bank and field-aware layers extend seedCases/missionRounds in place.
  *
  * Progress, score, correctness, unlock order, identity and Sheet writes are not changed.
  */
 (() => {
   'use strict';
 
-  const VERSION = '20260813-COURSE-ALIGNMENT-BRIDGE-V2';
+  const VERSION = '20260814-COURSE-ALIGNMENT-BRIDGE-V2.1-LIVE-RUNTIME';
   const LIVE = window.CSAI2601_UXQ_CANONICAL_CONTENT_V1;
   const SNAP = window.CSAI2601_UXQ_CANONICAL_SNAPSHOT_V1;
   if (!LIVE || !Array.isArray(LIVE.nodes)) return;
 
-  const SOURCE_NODES = Array.isArray(SNAP?.nodes) ? SNAP.nodes : LIVE.nodes;
+  // Snapshot is authoritative for the Studio schema only. Never expose frozen
+  // snapshot nodes to runtime enrichers that intentionally mutate node fields.
+  const STUDIO_SOURCE_NODES = Array.isArray(SNAP?.nodes) ? SNAP.nodes : LIVE.nodes;
+  const RUNTIME_NODES = LIVE.nodes;
   const clone = value => JSON.parse(JSON.stringify(value));
   const textField = (key, label, placeholder, rows=4, minLength=35) => ({
     key, label, required:true, minLength, placeholder:placeholder || '', format:'text', rows
@@ -101,7 +104,7 @@
     };
   }
 
-  const items = SOURCE_NODES.map(node => canonicalStudioItem(clone(node)));
+  const items = STUDIO_SOURCE_NODES.map(node => canonicalStudioItem(clone(node)));
   const byId = id => items.find(item => item.id === String(id || '').trim().toUpperCase()) || null;
 
   window.CSAI2601_UXQ_STUDIO_PRACTICE_V1 = Object.freeze({
@@ -120,11 +123,15 @@
     byId
   });
 
+  // IMPORTANT: runtime node content must reference LIVE mutable nodes. The outer
+  // API can be frozen safely; its node objects must remain extensible until all
+  // item-bank/field-aware enrichment layers have finished loading.
   window.CSAI2601_UXQ_NODE_CONTENT = Object.freeze({
     version:VERSION,
-    nodes:SOURCE_NODES,
-    byId:id => SOURCE_NODES.find(node => String(node.id || '').toUpperCase() === String(id || '').toUpperCase()) || null,
-    courseAlignment:SNAP?.courseAlignment || LIVE.courseAlignment
+    nodes:RUNTIME_NODES,
+    byId:id => RUNTIME_NODES.find(node => String(node.id || '').toUpperCase() === String(id || '').toUpperCase()) || null,
+    courseAlignment:LIVE.courseAlignment,
+    source:'LIVE_CANONICAL_RUNTIME'
   });
 
   document.documentElement.dataset.uxqCourseAlignment = VERSION;
