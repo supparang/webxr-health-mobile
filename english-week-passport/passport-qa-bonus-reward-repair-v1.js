@@ -1,6 +1,7 @@
 (()=>{
 'use strict';
-const VERSION='2026-08-14-QA-BONUS-REWARD-REPAIR-V3-BLIND-CREATE';
+const VERSION='2026-08-14-QA-BONUS-REWARD-REPAIR-V4-PASS80';
+const BONUS_PASS=80;
 const clean=v=>String(v==null?'':v).trim();
 let busy=false,lastPlayer='';
 function readIdentity(){
@@ -36,14 +37,20 @@ async function repair(){
     if(!sessionId)throw new Error('QA_REWARD_SESSION_REQUIRED');
     const summarySnap=await db.collection('ewp_game_summary').doc(playerId).get();
     const best=summarySnap.exists?(summarySnap.data()||{}).bonusBest:null;
-    const score=Number(best?.score);
+    const score=Math.max(0,Math.min(100,Math.round(Number(best?.score))));
     if(!Number.isFinite(score))throw new Error('QA_REWARD_BONUS_SCORE_REQUIRED');
+    if(score<BONUS_PASS){
+      lastPlayer=playerId;
+      console.info('[LEXICON X] QA bonus below reward threshold',playerId,score,'<',BONUS_PASS);
+      return false;
+    }
     const rewardId=`${sessionId}__${playerId}`;
     const ref=db.collection('ewp_bonus_rewards').doc(rewardId);
     const result=await createOnce(ref,{
       rewardId,playerId,sessionId,
       nickname:clean(identity?.nickname||identity?.fullName||playerId),
-      bonusScore:Math.max(0,Math.min(100,Math.round(score))),
+      bonusScore:score,
+      bonusPassThreshold:BONUS_PASS,
       completed:true,
       firstCompletedAt:firebase.firestore.FieldValue.serverTimestamp(),
       rewardClaimed:false,
@@ -53,8 +60,8 @@ async function repair(){
     });
     lastPlayer=playerId;
     try{window.EW_BONUS_FIRESTORE_SYNC?.invalidate?.();await window.EW_BONUS_FIRESTORE_SYNC?.sync?.();}catch(_){}
-    window.dispatchEvent(new CustomEvent('ew-bonus-reward-registered',{detail:{playerId,sessionId,rewardId,repaired:true,created:result.created,version:VERSION}}));
-    console.info('[LEXICON X] QA bonus reward ready',rewardId,result.created?'created':'existing');
+    window.dispatchEvent(new CustomEvent('ew-bonus-reward-registered',{detail:{playerId,sessionId,rewardId,repaired:true,created:result.created,version:VERSION,threshold:BONUS_PASS}}));
+    console.info('[LEXICON X] QA bonus reward ready',rewardId,result.created?'created':'existing','pass >=80%');
     return true;
   }catch(error){console.warn('[LEXICON X] QA bonus reward repair failed',error);return false;}
   finally{busy=false;}
@@ -64,5 +71,5 @@ addEventListener('pageshow',schedule);
 addEventListener('focus',schedule);
 addEventListener('ew-authority-status',schedule);
 setTimeout(()=>{void repair();},900);
-window.EW_QA_BONUS_REWARD_REPAIR=Object.freeze({version:VERSION,repair});
+window.EW_QA_BONUS_REWARD_REPAIR=Object.freeze({version:VERSION,threshold:BONUS_PASS,repair});
 })();
