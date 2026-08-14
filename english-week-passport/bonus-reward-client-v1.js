@@ -1,7 +1,8 @@
 (function(){
 'use strict';
-const VERSION='2026-08-14-BONUS-REWARD-FIRST20-V2-BLIND-CREATE';
+const VERSION='2026-08-14-BONUS-REWARD-FIRST20-V3-PASS80';
 const COLLECTION='ewp_bonus_rewards';
+const BONUS_PASS=80;
 let installed=false;
 const clean=v=>String(v==null?'':v).trim();
 
@@ -28,9 +29,6 @@ async function createOnce(ref,data){
     await ref.set(data);
     return {created:true};
   }catch(writeError){
-    // Firestore Rules intentionally deny student UPDATEs on reward records.
-    // Therefore an idempotent replay may fail here because the immutable record already exists.
-    // Only then is GET safe: an existing document has resource.data.playerId for owns(...).
     try{
       const snap=await ref.get();
       if(snap.exists)return {created:false,row:{id:snap.id,...(snap.data()||{})}};
@@ -40,6 +38,10 @@ async function createOnce(ref,data){
 }
 async function register(payload){
   const playerId=clean(payload?.playerId);if(!playerId)throw new Error('BONUS_REWARD_PLAYER_REQUIRED');
+  const score=Math.max(0,Math.min(100,Math.round(Number(payload?.score||0))));
+  if(!Number.isFinite(score)||score<BONUS_PASS){
+    return {ok:true,created:false,eligible:false,reason:'BONUS_SCORE_BELOW_80',score,threshold:BONUS_PASS};
+  }
   const {sessionId}=await readSession(playerId);
   const db=firebase.firestore();
   const rewardId=`${sessionId}__${playerId}`;
@@ -47,7 +49,8 @@ async function register(payload){
   const body={
     rewardId,playerId,sessionId,
     nickname:clean(payload?.nickname||payload?.fullName||playerId),
-    bonusScore:Math.max(0,Math.min(100,Math.round(Number(payload?.score||0)))),
+    bonusScore:score,
+    bonusPassThreshold:BONUS_PASS,
     completed:true,
     firstCompletedAt:firebase.firestore.FieldValue.serverTimestamp(),
     rewardClaimed:false,
@@ -60,8 +63,8 @@ async function register(payload){
     const snap=await ref.get();
     row=snap.exists?{id:snap.id,...(snap.data()||{})}:null;
   }
-  window.dispatchEvent(new CustomEvent('ew-bonus-reward-registered',{detail:{created:createdResult.created,row,version:VERSION}}));
-  return {ok:true,created:createdResult.created,row,sessionId,rewardId};
+  window.dispatchEvent(new CustomEvent('ew-bonus-reward-registered',{detail:{created:createdResult.created,row,version:VERSION,threshold:BONUS_PASS}}));
+  return {ok:true,created:createdResult.created,eligible:true,row,sessionId,rewardId,threshold:BONUS_PASS};
 }
 async function install(){
   if(installed)return;await waitForAuthority();
@@ -72,7 +75,9 @@ async function install(){
     if(payload?.eventName==='lens_result_summary'&&payload?.playerId){
       try{
         const body=payload.payload||{};
-        await register({playerId:payload.playerId,nickname:body.nickname,score:body.score});
+        const reward=await register({playerId:payload.playerId,nickname:body.nickname,score:body.score});
+        result.rewardEligible=reward.eligible===true;
+        result.rewardThreshold=BONUS_PASS;
       }catch(error){
         console.error('[LEXICON X] Bonus reward registration failed',error);
         result.rewardError=String(error?.message||error);
@@ -82,8 +87,8 @@ async function install(){
   }});
   window.EW_AUTHORITY=wrapped;
   installed=true;
-  console.info('[LEXICON X] Bonus Reward First-20 V2 ready');
+  console.info('[LEXICON X] Bonus Reward First-20 V3 ready • pass >=80%');
 }
 install().catch(error=>console.error('[LEXICON X] Bonus Reward bootstrap failed',error));
-window.EW_BONUS_REWARD=Object.freeze({version:VERSION,register});
+window.EW_BONUS_REWARD=Object.freeze({version:VERSION,threshold:BONUS_PASS,register});
 })();
