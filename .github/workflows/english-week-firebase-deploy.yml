@@ -47,6 +47,19 @@ jobs:
           fi
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
 
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools
+
+      - name: Deploy Firestore rules
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
+        run: |
+          firebase deploy \
+            --config english-week-firebase-spark/firebase.json \
+            --project englishweek-95869 \
+            --only firestore:rules \
+            --non-interactive
+
       - name: Install function dependencies
         working-directory: english/functions
         run: |
@@ -60,10 +73,9 @@ jobs:
           node --check english-week-roster-import.js
           node --check main.js
 
-      - name: Install Firebase CLI
-        run: npm install --global firebase-tools
-
       - name: Deploy English Week admin authorities
+        id: deploy_functions
+        continue-on-error: true
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
         run: |
@@ -73,22 +85,14 @@ jobs:
             --only functions:english \
             --non-interactive
 
-      - name: Deploy Firestore rules
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
-        run: |
-          firebase deploy \
-            --config english-week-firebase-spark/firebase.json \
-            --project englishweek-95869 \
-            --only firestore:rules \
-            --non-interactive
-
       - name: Install Google Cloud CLI
+        if: steps.deploy_functions.outcome == 'success'
         uses: google-github-actions/setup-gcloud@v2
         with:
           version: 'latest'
 
       - name: Grant public invoker to English Week admin authorities
+        if: steps.deploy_functions.outcome == 'success'
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
         run: |
@@ -101,8 +105,11 @@ jobs:
               --member=allUsers
           done
 
-      - name: Print production endpoints
+      - name: Print production status
         run: |
-          echo "Teacher: https://asia-southeast1-englishweek-95869.cloudfunctions.net/englishWeekTeacher"
-          echo "Roster Import: https://asia-southeast1-englishweek-95869.cloudfunctions.net/englishWeekRosterImport"
-          echo "Firestore project: englishweek-95869"
+          echo "Firestore rules deployed to project: englishweek-95869"
+          if [ "${{ steps.deploy_functions.outcome }}" = "success" ]; then
+            echo "Functions deploy: success"
+          else
+            echo "Functions deploy: skipped/failed (expected on Spark plan without Blaze)"
+          fi
