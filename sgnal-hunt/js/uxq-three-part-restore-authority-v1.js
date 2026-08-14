@@ -1,12 +1,13 @@
-/* CSAI2601 UX Quest • Three-Part Restore Authority v1.1
+/* CSAI2601 UX Quest • Three-Part Restore Authority v1.2
  * Google Sheet remains the sole official authority.
+ * Mission completion is authoritative ONLY from diagnostics.canonicalPassedMissionIds.
  * Separates historical Sheet submissions from contiguous course completion.
  */
 (() => {
   'use strict';
 
   const ORDER = ['w1','w2','w3','b1','w4','w5','w6','w7','b2','w8','w9','w10','w11','b3','w12','w13','w14','b4','w15'];
-  const VERSION = '20260731-THREE-PART-RESTORE-AUTHORITY-V1.1';
+  const VERSION = '20260814-THREE-PART-RESTORE-AUTHORITY-V1.2-CANONICAL-MISSION';
   let missionSnapshot = window.UXQMissionSheetSnapshot || null;
   let running = false;
   let lastIdentityKey = '';
@@ -93,14 +94,17 @@
     throw lastError || new Error('studio_progress_failed');
   }
 
-  function missionRow(id) {
-    const missions = missionSnapshot?.missions || {};
-    return missions[id] || missions[id.toUpperCase()] || {};
+  function canonicalPassedSet() {
+    const list = missionSnapshot?.diagnostics?.canonicalPassedMissionIds;
+    return new Set(
+      Array.isArray(list)
+        ? list.map(value => String(value || '').trim().toLowerCase()).filter(id => ORDER.includes(id))
+        : []
+    );
   }
 
   function missionPassed(id) {
-    const row = missionRow(id);
-    return Boolean(row.completed || row.passed || Number(row.bestStars || row.stars || 0) >= 2);
+    return canonicalPassedSet().has(String(id || '').trim().toLowerCase());
   }
 
   function studioRow(snapshot, id) {
@@ -119,7 +123,7 @@
   function nodeHref(state) {
     const url = new URL('./csai2601-canonical-node-clean-v1.html', location.href);
     url.searchParams.set('node', state.id.toUpperCase());
-    url.searchParams.set('v', 'three-part-authority-v1-1-20260731');
+    url.searchParams.set('v', 'three-part-authority-v1-2-20260814');
     if (state.mission && !state.complete) url.searchParams.set('phase', 'studio');
     return url.pathname + url.search;
   }
@@ -159,7 +163,7 @@
         <h2>ความก้าวหน้ารายวิชา</h2>
         <p><strong>Course Complete</strong> นับเฉพาะ Node ที่ครบ Mission + Studio Practice + Weekly Reflection ต่อเนื่องตามลำดับรายวิชา</p>
         <div class="studio-summary">
-          <span>Mission ที่ Sheet ยืนยัน<b>${missionCount}/${ORDER.length}</b></span>
+          <span>Mission canonical จาก Sheet<b>${missionCount}/${ORDER.length}</b></span>
           <span>มี Studio ใน Sheet<b>${studioCount}/${ORDER.length}</b></span>
           <span>มี Reflection ใน Sheet<b>${reflectionCount}/${ORDER.length}</b></span>
           <span class="good">Course Complete ตามลำดับ<b>${contiguous}/${ORDER.length}</b></span>
@@ -175,14 +179,14 @@
       setHero('ครบทั้งหลักสูตร 19/19 Nodes', 'Mission, Studio Practice และ Weekly Reflection ครบต่อเนื่องทุก Node', 'Portfolio พร้อมตรวจ', true);
     } else {
       const next = !current.mission ? 'Mission' : !current.studio ? 'Studio Practice' : 'Weekly Reflection';
-      setHero(`${current.id.toUpperCase()} • ${next}`, `ปลดล็อกตามลำดับแล้ว ${contiguous}/19 • ข้อมูลใน Sheet: Studio ${studioCount}/19 • Reflection ${reflectionCount}/19`, `เปิด ${next}`, false);
+      setHero(`${current.id.toUpperCase()} • ${next}`, `ปลดล็อกตามลำดับแล้ว ${contiguous}/19 • Mission canonical ${missionCount}/19 • Studio ${studioCount}/19 • Reflection ${reflectionCount}/19`, `เปิด ${next}`, false);
       const link = document.getElementById('nextLink');
       if (link) link.href = nodeHref(current);
     }
 
     decorateCards(states, contiguous);
     window.UXQStudioProgress = snapshot;
-    window.UXQCombinedCourseProgress = { version: VERSION, states, missionCount, studioCount, reflectionCount, completeCount, contiguous };
+    window.UXQCombinedCourseProgress = { version: VERSION, states, missionCount, studioCount, reflectionCount, completeCount, contiguous, canonicalPassedMissionIds:Array.from(canonicalPassedSet()) };
     window.dispatchEvent(new CustomEvent('uxq-three-part-course-progress', { detail: window.UXQCombinedCourseProgress }));
   }
 
