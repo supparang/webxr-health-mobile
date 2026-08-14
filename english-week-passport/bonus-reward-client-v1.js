@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-11-BONUS-REWARD-FIRST20-V1';
+const VERSION='2026-08-14-BONUS-REWARD-FIRST20-V2-BLIND-CREATE';
 const COLLECTION='ewp_bonus_rewards';
 let installed=false;
 const clean=v=>String(v==null?'':v).trim();
@@ -23,39 +23,50 @@ async function readSession(playerId){
   if(!sessionId)throw new Error('BONUS_REWARD_SESSION_REQUIRED');
   return {sessionId,progress:p};
 }
+async function createOnce(ref,data){
+  try{
+    await ref.set(data);
+    return {created:true};
+  }catch(writeError){
+    // Firestore Rules intentionally deny student UPDATEs on reward records.
+    // Therefore an idempotent replay may fail here because the immutable record already exists.
+    // Only then is GET safe: an existing document has resource.data.playerId for owns(...).
+    try{
+      const snap=await ref.get();
+      if(snap.exists)return {created:false,row:{id:snap.id,...(snap.data()||{})}};
+    }catch(_){}
+    throw writeError;
+  }
+}
 async function register(payload){
   const playerId=clean(payload?.playerId);if(!playerId)throw new Error('BONUS_REWARD_PLAYER_REQUIRED');
   const {sessionId}=await readSession(playerId);
   const db=firebase.firestore();
   const rewardId=`${sessionId}__${playerId}`;
   const ref=db.collection(COLLECTION).doc(rewardId);
-  let created=false;
-  await db.runTransaction(async tx=>{
-    const snap=await tx.get(ref);
-    if(snap.exists)return;
-    created=true;
-    tx.set(ref,{
-      rewardId,playerId,sessionId,
-      nickname:clean(payload?.nickname||payload?.fullName||playerId),
-      bonusScore:Math.max(0,Math.min(100,Math.round(Number(payload?.score||0)))),
-      completed:true,
-      firstCompletedAt:firebase.firestore.FieldValue.serverTimestamp(),
-      rewardClaimed:false,
-      source:'lexicon_lens_hunt',sourceVersion:VERSION,
-      createdAt:firebase.firestore.FieldValue.serverTimestamp()
-    });
-  });
-  const snap=await ref.get();
-  const row=snap.exists?{id:snap.id,...(snap.data()||{})}:null;
-  window.dispatchEvent(new CustomEvent('ew-bonus-reward-registered',{detail:{created,row,version:VERSION}}));
-  return {ok:true,created,row,sessionId,rewardId};
+  const body={
+    rewardId,playerId,sessionId,
+    nickname:clean(payload?.nickname||payload?.fullName||playerId),
+    bonusScore:Math.max(0,Math.min(100,Math.round(Number(payload?.score||0)))),
+    completed:true,
+    firstCompletedAt:firebase.firestore.FieldValue.serverTimestamp(),
+    rewardClaimed:false,
+    source:'lexicon_lens_hunt',sourceVersion:VERSION,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
+  const createdResult=await createOnce(ref,body);
+  let row=createdResult.row||null;
+  if(!row){
+    const snap=await ref.get();
+    row=snap.exists?{id:snap.id,...(snap.data()||{})}:null;
+  }
+  window.dispatchEvent(new CustomEvent('ew-bonus-reward-registered',{detail:{created:createdResult.created,row,version:VERSION}}));
+  return {ok:true,created:createdResult.created,row,sessionId,rewardId};
 }
 async function install(){
   if(installed)return;await waitForAuthority();
   const authority=window.EW_AUTHORITY;
   const original=authority.submitEvent.bind(authority);
-  // EW_AUTHORITY is normally frozen by the bridge. Replace the public object with a wrapper,
-  // preserving every method while intercepting only the one Lens Hunt completion event.
   const wrapped=Object.freeze({...authority,submitEvent:async payload=>{
     const result=await original(payload);
     if(payload?.eventName==='lens_result_summary'&&payload?.playerId){
@@ -71,7 +82,7 @@ async function install(){
   }});
   window.EW_AUTHORITY=wrapped;
   installed=true;
-  console.info('[LEXICON X] Bonus Reward First-20 V1 ready');
+  console.info('[LEXICON X] Bonus Reward First-20 V2 ready');
 }
 install().catch(error=>console.error('[LEXICON X] Bonus Reward bootstrap failed',error));
 window.EW_BONUS_REWARD=Object.freeze({version:VERSION,register});
