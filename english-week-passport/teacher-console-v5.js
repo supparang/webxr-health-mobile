@@ -1,10 +1,10 @@
 (function(){
 'use strict';
-const VERSION='2026-08-12-TEACHER-CONSOLE-V5-READ-BUDGET';
+const VERSION='2026-08-14-TEACHER-CONSOLE-V5-ASSESSMENT-FALLBACK-R1';
 const $=id=>document.getElementById(id);
 const SESSION_IDS=['D1-AM','D1-PM','D2-AM','D2-PM','D3-AM','D3-PM'];
 const PAGE_SIZE=50, LIMIT=300, CHUNK=30, REFRESH_COOLDOWN_MS=30000;
-const COL={profiles:'ewp_profiles',progress:'ewp_progress',summary:'ewp_game_summary',checkpoints:'ewp_assessment_checkpoints',teacherRoles:'ewp_teacher_roles',rewards:'ewp_bonus_rewards'};
+const COL={profiles:'ewp_profiles',progress:'ewp_progress',summary:'ewp_game_summary',checkpoints:'ewp_assessment_checkpoints',assessments:'ewp_assessments',teacherRoles:'ewp_teacher_roles',rewards:'ewp_bonus_rewards'};
 const GAMES=[
  {id:'word_match',title:'LexiMatch Navigator',pass:55},
  {id:'category_forest',title:'Category Forest',pass:60},
@@ -26,9 +26,33 @@ function stageLabel(p,summaryViewed){if(!p.preDone)return'Pre-Challenge';const a
 async function verifyTeacher(user){if(!user||user.isAnonymous)throw new Error('TEACHER_SIGN_IN_REQUIRED');const snap=await firebase.firestore().collection(COL.teacherRoles).doc(user.uid).get();const r=snap.exists?snap.data():null;if(!r||r.active!==true||r.role!=='teacher')throw new Error('TEACHER_ROLE_REQUIRED');teacher=user;return r}
 async function readByIds(col,ids){if(!ids.length)return[];const db=firebase.firestore(),fp=firebase.firestore.FieldPath.documentId();const snaps=await Promise.all(chunks([...new Set(ids)]).map(part=>db.collection(col).where(fp,'in',part).get()));return snaps.flatMap(docs)}
 async function selectiveCheckpoints(progress,summaryMap){const keys=[];progress.forEach(p=>{const id=clean(p.playerId||p.id),s=summaryMap.get(id)||{};if(p.preDone&&!Number.isFinite(Number(s.preAccuracy)))keys.push(`${id}__pre`);if(p.postDone&&!Number.isFinite(Number(s.postAccuracy)))keys.push(`${id}__post`)});return readByIds(COL.checkpoints,keys)}
+async function selectiveAssessments(progress,summaryMap,checkpointMap){
+ const ids=[];
+ progress.forEach(p=>{
+  const id=clean(p.playerId||p.id),s=summaryMap.get(id)||{};
+  const preCp=checkpointMap.get(`${id}__pre`),postCp=checkpointMap.get(`${id}__post`);
+  const needPre=Boolean(p.preDone)&&!Number.isFinite(Number(s.preAccuracy))&&scoreOf(preCp)==null;
+  const needPost=Boolean(p.postDone)&&!Number.isFinite(Number(s.postAccuracy))&&scoreOf(postCp)==null;
+  if(needPre||needPost)ids.push(id);
+ });
+ const unique=[...new Set(ids)].filter(Boolean);if(!unique.length)return[];
+ const db=firebase.firestore();
+ const snaps=await Promise.all(chunks(unique).map(part=>db.collection(COL.assessments).where('playerId','in',part).get()));
+ return snaps.flatMap(docs);
+}
+function latestAssessmentMap(assessments){
+ const map=new Map();
+ assessments.forEach(a=>{
+  const id=clean(a.playerId),type=clean(a.assessmentType||a.type).toLowerCase();
+  if(!id||!['pre','post'].includes(type))return;
+  const key=`${id}__${type}`,prev=map.get(key);
+  const at=ts(a.submittedAt||a.updatedAt||a.createdAt),prevAt=prev?ts(prev.submittedAt||prev.updatedAt||prev.createdAt):-1;
+  if(!prev||at>=prevAt)map.set(key,a);
+ });
+ return map;
+}
 async function loadSession(sessionId){
  const db=firebase.firestore();
- // READ BUDGET: one session query + 1 profile/doc + 1 summary/doc + 1 reward query.
  const progressSnap=await db.collection(COL.progress).where('attendanceSessionId','==',sessionId).limit(LIMIT).get();
  const progress=docs(progressSnap),ids=progress.map(p=>clean(p.playerId||p.id)).filter(Boolean);
  const [profiles,summaries,rewards]=await Promise.all([
@@ -38,11 +62,12 @@ async function loadSession(sessionId){
  const pm=new Map(profiles.map(x=>[clean(x.playerId||x.id),x]));
  const sm=new Map(summaries.map(x=>[clean(x.playerId||x.id),x]));
  const cps=await selectiveCheckpoints(progress,sm),cm=new Map(cps.map(x=>[x.id,x]));
+ const assessments=await selectiveAssessments(progress,sm,cm),am=latestAssessmentMap(assessments);
  rows=progress.map(p=>{
    const id=clean(p.playerId||p.id),profile=pm.get(id)||{},s=sm.get(id)||{};
-   const preCp=cm.get(`${id}__pre`),postCp=cm.get(`${id}__post`);
-   const pre=Number.isFinite(Number(s.preAccuracy))?n(s.preAccuracy):scoreOf(preCp);
-   const post=Number.isFinite(Number(s.postAccuracy))?n(s.postAccuracy):scoreOf(postCp);
+   const preCp=cm.get(`${id}__pre`),postCp=cm.get(`${id}__post`),preAss=am.get(`${id}__pre`),postAss=am.get(`${id}__post`);
+   const pre=Number.isFinite(Number(s.preAccuracy))?n(s.preAccuracy):(scoreOf(preCp)!=null?scoreOf(preCp):scoreOf(preAss));
+   const post=Number.isFinite(Number(s.postAccuracy))?n(s.postAccuracy):(scoreOf(postCp)!=null?scoreOf(postCp):scoreOf(postAss));
    const cert=Boolean(p.certificateEligible||p.certificate?.certificateId);
    const summaryViewed=Boolean(p.summaryViewed||cert);
    const scores=s.bestScores&&typeof s.bestScores==='object'?s.bestScores:(p.bestScores||{});
@@ -93,5 +118,5 @@ function bind(){
  firebase.auth().onAuthStateChanged(async user=>{if(!user||user.isAnonymous){teacher=null;$('loginLayer').classList.remove('hidden');return}try{await verifyTeacher(user);$('loginLayer').classList.add('hidden');if(!rows.length)await refresh(true)}catch(e){teacher=null;$('loginLayer').classList.remove('hidden');$('loginError').textContent=clean(e.message||e)}});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
-window.EW_TEACHER_CONSOLE_V5=Object.freeze({version:VERSION,refresh,readBudget:'progress+profiles+summary+rewards; selective checkpoints',cooldownMs:REFRESH_COOLDOWN_MS});
+window.EW_TEACHER_CONSOLE_V5=Object.freeze({version:VERSION,refresh,readBudget:'progress+profiles+summary+rewards; selective checkpoints + assessment fallback',cooldownMs:REFRESH_COOLDOWN_MS});
 })();
