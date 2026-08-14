@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const VERSION='HSAS-P5-RESEARCH-ASSIGNMENT-V6-STUDENT-STABLE';
+const VERSION='HSAS-P5-VALIDATED-V7-20260814';
 const DOMAINS=['hygiene','nutrition','fitness'];
 const QUOTA={easy:2,medium:2,hard:1};
 
@@ -43,7 +43,7 @@ function orderedPool(pool,salt){
   return pool.slice().sort((a,b)=>hash(`${salt}|${a.pairId}`)-hash(`${salt}|${b.pairId}`));
 }
 function takeBalanced(pool,count,slot,seed,usedIndicators){
-  const ordered=orderedPool(pool,`pool-v6|${seed}`),n=ordered.length;
+  const ordered=orderedPool(pool,`pool-v7|${seed}`),n=ordered.length;
   if(!n)return[];
   const stride=strideFor(n,hash(`${seed}|stride`)),picked=[];
   for(let k=0;k<n*2&&picked.length<count;k++){
@@ -87,7 +87,7 @@ function assignPairs(bank,{studentId,studyId='HEROHEALTH-P5-2026'}={}){
     selectionSeed:hash(`${VERSION}|selection|${studyId}|${sid}`),
     studentSlot:studentSeed%100000,
     assignmentFingerprint:assignmentFingerprint(pairIds,{studentId:sid,studyId}),
-    assignmentMethod:'student-stable-cyclic-coprime-exposure-balanced',
+    assignmentMethod:'student-stable-cyclic-coprime-exposure-balanced-validated-v7',
     studyId
   };
 }
