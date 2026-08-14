@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const RELEASE='20260814-LENS-REWARD-SYNC-R4-QA-SELF-HEAL';
+const RELEASE='20260814-LENS-REWARD-SYNC-R5-BLIND-CREATE';
 const q=new URLSearchParams(location.search);
 const FIREBASE_FLOW=q.get('from')==='passport'&&q.get('authority')==='firebase';
 const AUTO_RETURN=FIREBASE_FLOW&&q.get('qa')!=='1'&&q.get('smoke')!=='1';
@@ -21,6 +21,13 @@ async function readCanonicalBest(playerId){
     return best?.score!=null?best:null;
   }catch(_){return null;}
 }
+async function createOnce(ref,data){
+  try{await ref.set(data);return {created:true};}
+  catch(writeError){
+    try{const snap=await ref.get();if(snap.exists)return {created:false,row:{id:snap.id,...(snap.data()||{})}};}catch(_){}
+    throw writeError;
+  }
+}
 async function registerReward(playerId,score,nickname){
   if(rewardDone)return true;
   if(!window.firebase?.firestore)throw new Error('FIRESTORE_NOT_READY');
@@ -32,18 +39,14 @@ async function registerReward(playerId,score,nickname){
   if(!sessionId)throw new Error('BONUS_REWARD_SESSION_REQUIRED');
   const rewardId=`${sessionId}__${playerId}`;
   const ref=db.collection('ewp_bonus_rewards').doc(rewardId);
-  await db.runTransaction(async tx=>{
-    const snap=await tx.get(ref);
-    if(snap.exists)return;
-    tx.set(ref,{
-      rewardId,playerId,sessionId,nickname:String(nickname||playerId).trim(),
-      bonusScore:Math.max(0,Math.min(100,Math.round(Number(score||0)))),
-      completed:true,
-      firstCompletedAt:firebase.firestore.FieldValue.serverTimestamp(),
-      rewardClaimed:false,
-      source:'lexicon_lens_hunt',sourceVersion:RELEASE,
-      createdAt:firebase.firestore.FieldValue.serverTimestamp()
-    });
+  await createOnce(ref,{
+    rewardId,playerId,sessionId,nickname:String(nickname||playerId).trim(),
+    bonusScore:Math.max(0,Math.min(100,Math.round(Number(score||0)))),
+    completed:true,
+    firstCompletedAt:firebase.firestore.FieldValue.serverTimestamp(),
+    rewardClaimed:false,
+    source:'lexicon_lens_hunt',sourceVersion:RELEASE,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
   });
   rewardDone=true;
   return true;
@@ -87,13 +90,11 @@ async function check(){
   const status=document.createElement('div');status.id='lensAutoReturnStatus';status.style.cssText='margin-top:8px;text-align:center;font-size:.78rem;font-weight:800;color:#bfffe4';status.textContent='✓ Firebase สำเร็จ • กำลังซิงก์ Bonus + Reward…';back.insertAdjacentElement('beforebegin',status);
   await mirrorBest();
   status.textContent=mirrorDone&&rewardDone?'✓ ซิงก์ Bonus + Reward สำเร็จ'+(AUTO_RETURN?' • กำลังกลับ Passport…':''):'⚠ บันทึกผลแล้ว แต่ Reward ยังซิงก์ไม่สำเร็จ';
-  if(AUTO_RETURN){back.dataset.autoReturnArmed='1';timer=setTimeout(()=>{try{back.click()}catch(_){location.replace('./index.html?resume=passport&fromGame=bonus_lens&v=20260814-lens-reward-sync-r4')}},900);}
+  if(AUTO_RETURN){back.dataset.autoReturnArmed='1';timer=setTimeout(()=>{try{back.click()}catch(_){location.replace('./index.html?resume=passport&fromGame=bonus_lens&v=20260814-lens-reward-sync-r5')}},900);}
 }
 const observer=new MutationObserver(()=>{void check();});observer.observe(document.getElementById('summaryLayer')||document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});
 interval=setInterval(()=>{void check();},500);
 addEventListener('pagehide',()=>{clearTimeout(timer);clearInterval(interval);observer.disconnect()},{once:true});
-// Self-heal: existing Bonus score in localStorage or ewp_game_summary can recreate a missing
-// ewp_bonus_rewards record without replaying Lens Hunt. Safe because registerReward is idempotent.
 setTimeout(()=>{void mirrorBest();},700);
 void check();
 window.LEXICON_LENS_AUTO_RETURN={release:RELEASE,enabled:true,rewardSync:true,autoReturn:AUTO_RETURN,mirrorBest,registerReward};
