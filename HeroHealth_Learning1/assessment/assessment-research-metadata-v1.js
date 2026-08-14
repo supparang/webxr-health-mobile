@@ -1,16 +1,10 @@
-/* HeroHealth Research Assessment Metadata v1.0
- * Adds research-facing construct/process metadata to the existing 45 parallel pairs.
- * Keeps the production 15-item 5-5-5 assessment architecture unchanged.
- * DRAFT FOR EXPERT VALIDATION / PILOT — not a final validated instrument.
+/* HeroHealth Research Assessment Metadata v2.0
+ * Research-facing metadata for the expert-validated 45 parallel-pair production bank.
+ * Production architecture remains 15 items per form: 5 Hygiene + 5 Nutrition + 5 Fitness.
+ * Expert validation status locked 2026-08-14; final psychometric refinement may follow pilot item analysis.
  */
 (()=>{
 'use strict';
-
-const DOMAIN_DEFAULTS={
-  hygiene:{construct:'health_knowledge_applied_literacy'},
-  nutrition:{construct:'health_knowledge_applied_literacy'},
-  fitness:{construct:'health_knowledge_applied_literacy'}
-};
 
 function hlProcessFromBloom(bloom){
   const b=String(bloom||'').toLowerCase();
@@ -21,28 +15,29 @@ function hlProcessFromBloom(bloom){
 }
 function constructFromBloom(bloom){
   const b=String(bloom||'').toLowerCase();
-  if(b==='remember'||b==='understand')return 'health_knowledge';
+  if(b==='remember'||b==='understand')return 'health_knowledge_understanding';
   if(b==='apply')return 'applied_health_literacy';
-  if(b==='analyze'||b==='evaluate')return 'applied_health_literacy';
-  return 'health_knowledge';
+  if(b==='analyze'||b==='evaluate')return 'health_information_appraisal';
+  return 'health_knowledge_understanding';
 }
 function enrichBank(bank){
   return (bank||[]).map(pair=>({
     ...pair,
     research:{
-      ...(DOMAIN_DEFAULTS[pair.domain]||{}),
       construct:constructFromBloom(pair.bloom),
       hlProcess:hlProcessFromBloom(pair.bloom),
       researchRole:'core_pre_post',
-      validationStatus:'draft_for_expert_review',
+      validationStatus:'expert_validated_production',
       assessmentFamily:'HSAS-P5',
-      parallelPair:true
+      instrumentVersion:'HSAS-P5-VALIDATED-V4-20260814',
+      parallelPair:true,
+      psychometricStatus:'expert_validated_pending_pilot_item_analysis'
     }
   }));
 }
 
 window.HHResearchAssessmentMetadataV1={
-  VERSION:'HH-RESEARCH-METADATA-V1-20260814',
+  VERSION:'HH-RESEARCH-METADATA-V2-VALIDATED-20260814',
   enrichBank,hlProcessFromBloom,constructFromBloom
 };
 })();
