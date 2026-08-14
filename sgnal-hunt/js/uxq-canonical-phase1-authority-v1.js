@@ -1,17 +1,21 @@
-/* CSAI2601 UX Quest • Phase 1 Canonical Content Authority
+/* CSAI2601 UX Quest • Phase 1 Canonical Content Authority v1.1
  * Ensures Mission Control, Node Player, Studio and Reflection use one curriculum source.
  * Google Sheet remains the sole authority for official progress/unlock.
+ * v1.1: validate week/boss schemas separately. Boss nodes intentionally use
+ * bossScenario/passCriteria instead of week-only concepts/learningOutcomes.
  */
 (() => {
   'use strict';
 
   const EXPECTED_VERSION = 'v20260728-course-description-100pct-alignment';
   const EXPECTED_ORDER = ['W1','W2','W3','B1','W4','W5','W6','W7','B2','W8','W9','W10','W11','B3','W12','W13','W14','B4','W15'];
-  const REQUIRED_NODE_FIELDS = [
-    'id','type','order','title','missionTitle','focus','concepts','learningOutcomes',
+  const COMMON_REQUIRED_FIELDS = [
+    'id','type','order','title','missionTitle','focus',
     'missionRounds','reasonChecks','artifact','artifactChecklist','dashboardEvidence',
     'completionRule','sourceOfTruth','aiRule'
   ];
+  const WEEK_REQUIRED_FIELDS = ['concepts','learningOutcomes'];
+  const BOSS_REQUIRED_FIELDS = ['covers','bossScenario','passCriteria'];
 
   function fail(code, detail) {
     const payload = { ok:false, code, detail:detail || '', expectedVersion:EXPECTED_VERSION, timestamp:new Date().toISOString() };
@@ -42,11 +46,14 @@
 
   const errors = [];
   nodes.forEach((node) => {
-    REQUIRED_NODE_FIELDS.forEach((field) => {
+    const type = String(node.type || '').trim().toLowerCase();
+    const required = COMMON_REQUIRED_FIELDS.concat(type === 'boss' ? BOSS_REQUIRED_FIELDS : WEEK_REQUIRED_FIELDS);
+    required.forEach((field) => {
       const value = node[field];
       const missing = value == null || value === '' || (Array.isArray(value) && value.length === 0);
       if (missing) errors.push(`${node.id}.${field}`);
     });
+    if (type !== 'week' && type !== 'boss') errors.push(`${node.id}.type`);
     if (node.sourceOfTruth !== 'Google Sheet') errors.push(`${node.id}.sourceOfTruth`);
   });
 
@@ -64,6 +71,7 @@
     ok:true,
     phase:'Phase 1',
     version:EXPECTED_VERSION,
+    authorityVersion:'20260814-phase1-schema-v1.1',
     nodeCount:nodes.length,
     order:Object.freeze(EXPECTED_ORDER.slice()),
     map,
