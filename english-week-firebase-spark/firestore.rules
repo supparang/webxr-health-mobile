@@ -1,122 +1,345 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // LEXICON X • Spark-safe teacher console R4 + Event Award Authority
-    function signedIn() { return request.auth != null; }
-    function qaId(playerId) { return playerId.matches('^(QA|TEST)[-_].*') || playerId.matches('^99[0-9]{4,}$'); }
-    function isTeacher() {
-      return signedIn()
-        && exists(/databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid))
-        && get(/databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid)).data.active == true
-        && get(/databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid)).data.role == 'teacher';
-    }
-    function sessionExists() { return signedIn() && exists(/databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid)); }
-    function sessionDoc() { return get(/databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid)); }
-    function owns(playerId) { return signedIn() && sessionExists() && sessionDoc().data.playerId == playerId; }
-    function ownsCheckpointId(checkpointId) {
-      return signedIn() && sessionExists()
-        && (checkpointId == sessionDoc().data.playerId + '__pre' || checkpointId == sessionDoc().data.playerId + '__post');
-    }
-    function activeProfile(playerId) {
-      return exists(/databases/$(database)/documents/ewp_profiles/$(playerId))
-        && get(/databases/$(database)/documents/ewp_profiles/$(playerId)).data.active == true;
+
+    // =========================================================
+    // LEXICON X • Spark-safe teacher console
+    // + Event Award Authority
+    // + Teacher Direct Roster Import
+    // + Bonus Reward threshold >= 80%
+    // =========================================================
+
+    function signedIn() {
+      return request.auth != null;
     }
 
+    function qaId(playerId) {
+      return playerId.matches('^(QA|TEST)[-_].*')
+        || playerId.matches('^99[0-9]{4,}$');
+    }
+
+    function isTeacher() {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid)
+        )
+        && get(
+          /databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid)
+        ).data.active == true
+        && get(
+          /databases/$(database)/documents/ewp_teacher_roles/$(request.auth.uid)
+        ).data.role == 'teacher';
+    }
+
+    function sessionExists() {
+      return signedIn()
+        && exists(
+          /databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid)
+        );
+    }
+
+    function sessionDoc() {
+      return get(
+        /databases/$(database)/documents/ewp_player_sessions/$(request.auth.uid)
+      );
+    }
+
+    function owns(playerId) {
+      return signedIn()
+        && sessionExists()
+        && sessionDoc().data.playerId == playerId;
+    }
+
+    function ownsCheckpointId(checkpointId) {
+      return signedIn()
+        && sessionExists()
+        && (
+          checkpointId == sessionDoc().data.playerId + '__pre'
+          ||
+          checkpointId == sessionDoc().data.playerId + '__post'
+        );
+    }
+
+    function activeProfile(playerId) {
+      return exists(
+        /databases/$(database)/documents/ewp_profiles/$(playerId)
+      )
+      && get(
+        /databases/$(database)/documents/ewp_profiles/$(playerId)
+      ).data.active == true;
+    }
+
+    // =========================================================
+    // Teacher roles
+    // =========================================================
+
     match /ewp_teacher_roles/{uid} {
-      allow get: if signedIn() && request.auth.uid == uid;
+      allow get: if signedIn()
+        && request.auth.uid == uid;
       allow list, create, update, delete: if false;
     }
+
+    // =========================================================
+    // Player profiles
+    // =========================================================
+
     match /ewp_profiles/{playerId} {
       allow get: if signedIn();
       allow list: if isTeacher();
-      allow create: if signedIn() && qaId(playerId) && request.resource.data.playerId == playerId && request.resource.data.active == true;
-      allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt','updatedAt']);
-      allow delete: if false;
-    }
-    match /ewp_player_sessions/{uid} {
-      allow get: if (signedIn() && request.auth.uid == uid) || isTeacher();
-      allow list: if isTeacher();
-      allow create, update: if signedIn() && request.auth.uid == uid && request.resource.data.uid == uid && request.resource.data.playerId is string && (qaId(request.resource.data.playerId) || activeProfile(request.resource.data.playerId));
-      allow delete: if signedIn() && request.auth.uid == uid;
-    }
-    match /ewp_progress/{playerId} {
-      allow get: if owns(playerId) || isTeacher();
-      allow list: if isTeacher();
-      allow create: if owns(playerId) && request.resource.data.playerId == playerId;
-      allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
-      allow delete: if false;
-    }
-    match /ewp_assignments/{playerId} {
-      allow get: if owns(playerId) || isTeacher();
-      allow list: if isTeacher();
-      allow create: if owns(playerId) && request.resource.data.playerId == playerId;
-      allow update, delete: if false;
-    }
-    match /ewp_assessments/{receiptId} {
-      allow create: if request.resource.data.playerId is string && owns(request.resource.data.playerId);
-      allow get: if owns(resource.data.playerId) || isTeacher();
-      allow list: if isTeacher() || owns(resource.data.playerId);
-      allow update, delete: if false;
-    }
-    match /ewp_game_results/{receiptId} {
-      allow create: if request.resource.data.playerId is string && owns(request.resource.data.playerId);
-      allow get: if owns(resource.data.playerId) || isTeacher();
-      allow list: if isTeacher() || owns(resource.data.playerId);
-      allow update, delete: if false;
-    }
-    match /ewp_game_summary/{playerId} {
-      allow get: if owns(playerId) || isTeacher();
-      allow list: if isTeacher();
-      allow create: if owns(playerId) && request.resource.data.playerId == playerId;
-      allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
+
+      allow create: if
+        (
+          signedIn()
+          && qaId(playerId)
+          && request.resource.data.playerId == playerId
+          && request.resource.data.active == true
+        )
+        ||
+        (
+          isTeacher()
+          && request.resource.data.playerId == playerId
+          && request.resource.data.fullName is string
+          && request.resource.data.active == true
+          && request.resource.data.eligible == true
+        );
+
+      allow update: if
+        (
+          owns(playerId)
+          && request.resource.data.playerId == resource.data.playerId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'lastSeenAt',
+            'updatedAt'
+          ])
+        )
+        ||
+        (
+          isTeacher()
+          && request.resource.data.playerId == resource.data.playerId
+          && request.resource.data.fullName is string
+          && request.resource.data.active == true
+          && request.resource.data.eligible == true
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'fullName',
+            'nickname',
+            'groupName',
+            'program',
+            'cohort',
+            'sourceEventDate',
+            'sourceRound',
+            'active',
+            'eligible',
+            'institution',
+            'profileSource',
+            'rosterVersion',
+            'updatedAt',
+            'lastRosterImportAt'
+          ])
+        );
+
       allow delete: if false;
     }
 
-    // One immutable Bonus completion record per player/session.
-    // Teachers may list for leaderboard/ranking and update only reward metadata.
-    match /ewp_bonus_rewards/{rewardId} {
-      allow get: if isTeacher() || (resource.data.playerId is string && owns(resource.data.playerId));
+    // =========================================================
+    // Player sessions
+    // =========================================================
+
+    match /ewp_player_sessions/{uid} {
+      allow get: if
+        (
+          signedIn()
+          && request.auth.uid == uid
+        )
+        ||
+        isTeacher();
+
       allow list: if isTeacher();
+
+      allow create, update: if
+        signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.playerId is string
+        && (
+          qaId(request.resource.data.playerId)
+          ||
+          activeProfile(request.resource.data.playerId)
+        );
+
+      allow delete: if
+        signedIn()
+        && request.auth.uid == uid;
+    }
+
+    // =========================================================
+    // Progress
+    // =========================================================
+
+    match /ewp_progress/{playerId} {
+      allow get: if owns(playerId) || isTeacher();
+      allow list: if isTeacher();
+      allow create: if owns(playerId)
+        && request.resource.data.playerId == playerId;
+      allow update: if owns(playerId)
+        && request.resource.data.playerId == resource.data.playerId;
+      allow delete: if false;
+    }
+
+    // =========================================================
+    // Assignments
+    // =========================================================
+
+    match /ewp_assignments/{playerId} {
+      allow get: if owns(playerId) || isTeacher();
+      allow list: if isTeacher();
+      allow create: if owns(playerId)
+        && request.resource.data.playerId == playerId;
+      allow update, delete: if false;
+    }
+
+    // =========================================================
+    // Assessments
+    // =========================================================
+
+    match /ewp_assessments/{receiptId} {
       allow create: if request.resource.data.playerId is string
+        && owns(request.resource.data.playerId);
+      allow get: if owns(resource.data.playerId) || isTeacher();
+      allow list: if isTeacher() || owns(resource.data.playerId);
+      allow update, delete: if false;
+    }
+
+    // =========================================================
+    // Game results
+    // =========================================================
+
+    match /ewp_game_results/{receiptId} {
+      allow create: if request.resource.data.playerId is string
+        && owns(request.resource.data.playerId);
+      allow get: if owns(resource.data.playerId) || isTeacher();
+      allow list: if isTeacher() || owns(resource.data.playerId);
+      allow update, delete: if false;
+    }
+
+    // =========================================================
+    // Game summary
+    // =========================================================
+
+    match /ewp_game_summary/{playerId} {
+      allow get: if owns(playerId) || isTeacher();
+      allow list: if isTeacher();
+      allow create: if owns(playerId)
+        && request.resource.data.playerId == playerId;
+      allow update: if owns(playerId)
+        && request.resource.data.playerId == resource.data.playerId;
+      allow delete: if false;
+    }
+
+    // =========================================================
+    // Bonus Rewards
+    // Eligible = score >=80 + journey complete in Teacher Console
+    // =========================================================
+
+    match /ewp_bonus_rewards/{rewardId} {
+      allow get: if
+        isTeacher()
+        ||
+        (
+          resource.data.playerId is string
+          && owns(resource.data.playerId)
+        );
+
+      allow list: if isTeacher();
+
+      allow create: if
+        request.resource.data.playerId is string
         && owns(request.resource.data.playerId)
         && request.resource.data.sessionId is string
-        && exists(/databases/$(database)/documents/ewp_progress/$(request.resource.data.playerId))
-        && get(/databases/$(database)/documents/ewp_progress/$(request.resource.data.playerId)).data.attendanceSessionId == request.resource.data.sessionId
+        && request.resource.data.bonusScore is number
+        && request.resource.data.bonusScore >= 80
+        && request.resource.data.bonusScore <= 100
+        && request.resource.data.bonusPassThreshold == 80
+        && exists(
+          /databases/$(database)/documents/ewp_progress/$(request.resource.data.playerId)
+        )
+        && get(
+          /databases/$(database)/documents/ewp_progress/$(request.resource.data.playerId)
+        ).data.attendanceSessionId == request.resource.data.sessionId
         && request.resource.data.completed == true
         && request.resource.data.rewardClaimed == false
         && request.resource.data.firstCompletedAt == request.time
         && request.resource.data.createdAt == request.time;
-      allow update: if isTeacher()
+
+      allow update: if
+        isTeacher()
         && request.resource.data.playerId == resource.data.playerId
         && request.resource.data.sessionId == resource.data.sessionId
         && request.resource.data.firstCompletedAt == resource.data.firstCompletedAt
+        && request.resource.data.bonusScore == resource.data.bonusScore
+        && request.resource.data.bonusPassThreshold == resource.data.bonusPassThreshold
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'rewardRank','rewardEligible','rankedAt',
-          'rewardClaimed','rewardClaimedAt','claimedBy','claimedByEmail','updatedAt'
+          'rewardRank',
+          'rewardEligible',
+          'rankedAt',
+          'rewardClaimed',
+          'rewardClaimedAt',
+          'claimedBy',
+          'claimedByEmail',
+          'updatedAt'
         ]);
+
       allow delete: if false;
     }
 
+    // =========================================================
+    // Events
+    // =========================================================
+
     match /ewp_events/{eventId} {
-      allow create: if request.resource.data.playerId is string && owns(request.resource.data.playerId);
+      allow create: if request.resource.data.playerId is string
+        && owns(request.resource.data.playerId);
       allow get: if owns(resource.data.playerId) || isTeacher();
       allow list: if isTeacher() || owns(resource.data.playerId);
       allow update, delete: if false;
     }
+
+    // =========================================================
+    // Certificates
+    // =========================================================
+
     match /ewp_certificates/{playerId} {
       allow get: if owns(playerId) || isTeacher();
       allow list: if isTeacher();
-      allow create: if owns(playerId) && request.resource.data.playerId == playerId;
-      allow update: if owns(playerId) && request.resource.data.playerId == resource.data.playerId;
+      allow create: if owns(playerId)
+        && request.resource.data.playerId == playerId;
+      allow update: if owns(playerId)
+        && request.resource.data.playerId == resource.data.playerId;
       allow delete: if false;
     }
+
+    // =========================================================
+    // Assessment checkpoints
+    // =========================================================
+
     match /ewp_assessment_checkpoints/{checkpointId} {
       allow get: if ownsCheckpointId(checkpointId) || isTeacher();
       allow list: if isTeacher();
-      allow create: if ownsCheckpointId(checkpointId) && request.resource.data.playerId == sessionDoc().data.playerId;
-      allow update: if ownsCheckpointId(checkpointId) && request.resource.data.playerId == resource.data.playerId && request.resource.data.playerId == sessionDoc().data.playerId;
-      allow delete: if ownsCheckpointId(checkpointId) && resource.data.playerId == sessionDoc().data.playerId;
+      allow create: if ownsCheckpointId(checkpointId)
+        && request.resource.data.playerId == sessionDoc().data.playerId;
+      allow update: if ownsCheckpointId(checkpointId)
+        && request.resource.data.playerId == resource.data.playerId
+        && request.resource.data.playerId == sessionDoc().data.playerId;
+      allow delete: if ownsCheckpointId(checkpointId)
+        && resource.data.playerId == sessionDoc().data.playerId;
     }
-    match /{document=**} { allow read, write: if false; }
+
+    // =========================================================
+    // Default deny
+    // =========================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
