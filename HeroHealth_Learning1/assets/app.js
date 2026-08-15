@@ -32,6 +32,7 @@
     }catch(_){return clone(defaultState);}
   }
   function persist(renderNow=true){localStorage.setItem(KEY,JSON.stringify(state));if(renderNow)render();}
+  function refreshFromStorage(){state=load();render();window.dispatchEvent(new CustomEvent('hh:passport-rerendered',{detail:{studentId:state?.profile?.studentId||'',at:Date.now()}}));return state;}
   function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
   function toast(msg){const n=document.createElement('div');n.className='toast';n.textContent=msg;document.body.appendChild(n);setTimeout(()=>n.remove(),2600);}
   function zone(id){return (C.zones||[]).find(z=>z.id===id);}
@@ -100,7 +101,8 @@
   }
   prepareRequestedStudent();
   addEventListener('message',receiveGameResult);
-  addEventListener('storage',e=>{if(e.key===BUS_KEY&&e.newValue){const x=JSON.parse(e.newValue);state.stationRound=x.stationRound;state.classRunning=x.classRunning;state.secondsLeft=x.secondsLeft;persist();}});
+  addEventListener('storage',e=>{if(e.key===BUS_KEY&&e.newValue){const x=JSON.parse(e.newValue);state.stationRound=x.stationRound;state.classRunning=x.classRunning;state.secondsLeft=x.secondsLeft;persist();}if(e.key===KEY)refreshFromStorage();});
+  addEventListener('hh:firebase-state-updated',refreshFromStorage);
 
   window.HH={
     go(v){state.view=v;persist();},
@@ -122,7 +124,8 @@
     openRoute(id){if(isLocked()){toast('ระบบยังล็อกสำหรับ QA');return;}const r=C.routes?.[id];if(!r||r.startsWith('#')){toast('ยังไม่ได้สร้างหน้า '+id);return;}location.href=r;},
     toggleClass(){state.classRunning=!state.classRunning;broadcast();persist();},
     nextRound(){state.stationRound=state.stationRound>=3?1:state.stationRound+1;state.secondsLeft=(C.stationMinutes||10)*60;broadcast();persist();},
-    resetTimer(){state.secondsLeft=(C.stationMinutes||10)*60;state.classRunning=false;broadcast();persist();}
+    resetTimer(){state.secondsLeft=(C.stationMinutes||10)*60;state.classRunning=false;broadcast();persist();},
+    refreshFromStorage
   };
   function broadcast(){localStorage.setItem(BUS_KEY,JSON.stringify({stationRound:state.stationRound,classRunning:state.classRunning,secondsLeft:state.secondsLeft,ts:Date.now()}));}
   setInterval(()=>{if(state.classRunning&&state.secondsLeft>0){state.secondsLeft--;localStorage.setItem(KEY,JSON.stringify(state));render();}},1000);
