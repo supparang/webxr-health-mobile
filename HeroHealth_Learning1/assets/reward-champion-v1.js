@@ -1,0 +1,29 @@
+(()=>{
+'use strict';
+const VERSION='20260815-REWARD-CHAMPION-R1';
+const KEY='herohealth_learning_platform_rc2';
+const R=window.HHRotation;
+if(!R)return;
+const GAME_BADGES={
+ 'nutrition:groups':{icon:'🧩',name:'นักจัดอาหาร 5 หมู่'},
+ 'nutrition:goodjunk':{icon:'🥗',name:'ฮีโร่เลือกอาหารสุขภาพ'},
+ 'hygiene:handwash':{icon:'🧼',name:'ฮีโร่มือสะอาด'},
+ 'hygiene:toothbrush':{icon:'🦷',name:'ฮีโร่ฟันแข็งแรง'},
+ 'fitness:jumpduck':{icon:'🏃',name:'ฮีโร่คล่องแคล่ว'},
+ 'fitness:balance-hold':{icon:'⚖️',name:'ฮีโร่ทรงตัว'}
+};
+const ZONE_BADGES={nutrition:{icon:'🥗',name:'ฮีโร่โภชนาการ'},hygiene:{icon:'🛡️',name:'ฮีโร่สุขอนามัย'},fitness:{icon:'🏅',name:'ฮีโร่การเคลื่อนไหว'}};
+function read(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){return{}}}
+function write(s){try{localStorage.setItem(KEY,JSON.stringify(s))}catch(_){}}
+function allGamesDone(s){return R.ZONE_ORDER.every(z=>R.gameIdsFor(s,z).every(id=>s?.gameCompleted?.[z]?.[id]===true))}
+function badgeState(s){const games=Object.entries(GAME_BADGES).map(([id,b])=>{const [z,g]=id.split(':');return{id,...b,earned:s?.gameCompleted?.[z]?.[g]===true}});const zones=Object.entries(ZONE_BADGES).map(([z,b])=>({id:z,...b,earned:R.gameIdsFor(s,z).length>0&&R.gameIdsFor(s,z).every(id=>s?.gameCompleted?.[z]?.[id]===true)}));return{games,zones,champion:allGamesDone(s)}}
+function ensureStyles(){if(document.getElementById('hh-reward-style'))return;const st=document.createElement('style');st.id='hh-reward-style';st.textContent=`
+.hh-reward-card{margin-top:18px}.hh-badge-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.hh-badge{border:1px solid #d7e8e4;border-radius:16px;padding:12px;text-align:center;background:#fff}.hh-badge.locked{opacity:.45;filter:grayscale(.65)}.hh-badge .ico{font-size:30px;display:block;margin-bottom:5px}.hh-badge b{font-size:14px}.hh-zone-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.hh-zone-pill{border-radius:999px;padding:8px 11px;background:#e7f7f4;color:#0f766e;font-weight:800}.hh-zone-pill.locked{background:#eef4f2;color:#78918b;opacity:.7}.hh-champion-overlay{position:fixed;inset:0;z-index:9999;background:rgba(8,47,43,.72);display:grid;place-items:center;padding:18px}.hh-champion{width:min(560px,100%);background:#fff;border-radius:28px;padding:26px;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.25);border:3px solid #99f6e4}.hh-champion .trophy{font-size:72px}.hh-champion h2{font-size:clamp(30px,7vw,48px);color:#0f766e;margin:8px 0}.hh-champion p{font-size:18px;line-height:1.55}.hh-champion .mini{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:14px 0}.hh-champion button{width:100%;border:0;border-radius:15px;padding:14px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;font:inherit;font-weight:900}@media(max-width:560px){.hh-badge-grid{grid-template-columns:repeat(2,1fr)}}`;
+document.head.appendChild(st)}
+function renderBadges(s){const main=document.querySelector('main.container');if(!main)return;let card=document.getElementById('hh-reward-card');if(!card){card=document.createElement('section');card.id='hh-reward-card';card.className='card hh-reward-card';const timeline=main.querySelector('.timeline');(timeline?.parentNode||main).insertBefore(card,timeline?.nextSibling||null)}const bs=badgeState(s);card.innerHTML=`<h2 style="margin-bottom:8px">🏅 เหรียญภารกิจของฉัน</h2><p class="muted">ทำภารกิจจบเพื่อสะสมเหรียญทั้ง 6 ดวง</p><div class="hh-badge-grid">${bs.games.map(b=>`<div class="hh-badge ${b.earned?'':'locked'}"><span class="ico">${b.earned?b.icon:'🔒'}</span><b>${b.name}</b></div>`).join('')}</div><div class="hh-zone-row">${bs.zones.map(b=>`<span class="hh-zone-pill ${b.earned?'':'locked'}">${b.earned?b.icon:'🔒'} ${b.name}</span>`).join('')}</div>`}
+function championSeenKey(s){return `HH_CHAMPION_SEEN_${s?.profile?.studentId||'unknown'}`}
+function showChampionIfNeeded(s){if(!allGamesDone(s)||s?.completed?.posttest===true)return;const key=championSeenKey(s);if(sessionStorage.getItem(key)==='1'||document.getElementById('hh-champion-overlay'))return;const overlay=document.createElement('div');overlay.id='hh-champion-overlay';overlay.className='hh-champion-overlay';const bs=badgeState(s);overlay.innerHTML=`<div class="hh-champion"><div class="trophy">🏆</div><div class="badge">HEROHEALTH CHAMPION</div><h2>สุดยอด! พิชิตครบทั้ง 6 ภารกิจแล้ว</h2><p>คุณเก็บเหรียญครบทั้ง 3 ด้าน<br><b>สุขอนามัย • โภชนาการ • การเคลื่อนไหว</b></p><div class="mini">${bs.games.map(b=>`<span class="hh-zone-pill">${b.icon} ${b.name}</span>`).join('')}</div><p class="muted">รางวัลนี้ได้จากการทำภารกิจครบ ไม่ได้ขึ้นกับคะแนน</p><button type="button">ไปทำแบบทดสอบหลังจบภารกิจ</button></div>`;overlay.querySelector('button').onclick=()=>{sessionStorage.setItem(key,'1');overlay.remove();window.HH?.openRoute?.('posttest')};document.body.appendChild(overlay)}
+function patch(){ensureStyles();const s=read();if(!s?.profile||s?.view!=='student')return;renderBadges(s);showChampionIfNeeded(s);if(allGamesDone(s)&&!s.rewardChampionUnlocked){s.rewardChampionUnlocked=true;s.reward={...(s.reward||{}),championUnlocked:true,version:VERSION};write(s)}}
+let queued=false;function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;patch()})}
+addEventListener('DOMContentLoaded',()=>{patch();const app=document.getElementById('app');if(app)new MutationObserver(schedule).observe(app,{childList:true,subtree:true})});addEventListener('storage',e=>{if(e.key===KEY)schedule()});setInterval(schedule,1400);window.HHRewardChampion={version:VERSION,patch,badgeState};console.info('[HeroHealth Reward Champion]',VERSION);
+})();
