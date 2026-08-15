@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const RELEASE='20260807-HH-RESPONSIVE-RUNTIME-R1.1';
+const RELEASE='20260815-HH-RESPONSIVE-RUNTIME-R1.2-RETURN-FAILSAFE';
 if(window.HHResponsiveRuntime?.release===RELEASE)return;
 const q=new URLSearchParams(location.search),root=document.documentElement;
 const coarse=window.matchMedia?.('(pointer:coarse)')?.matches===true;
@@ -13,6 +13,47 @@ const css=`:root{--hh-safe-top:env(safe-area-inset-top,0px);--hh-safe-right:env(
 if(!document.getElementById('hh-responsive-runtime-style')){const s=document.createElement('style');s.id='hh-responsive-runtime-style';s.textContent=css;(document.head||root).appendChild(s)}
 function viewport(){const vv=window.visualViewport,w=Math.max(1,Math.round(vv?.width||window.innerWidth||1)),h=Math.max(1,Math.round(vv?.height||window.innerHeight||1));root.style.setProperty('--hh-visual-w',`${w}px`);root.style.setProperty('--hh-visual-h',`${h}px`);root.dataset.hhViewport=w>h?'landscape':'portrait';root.dataset.hhDevice=desktop?'desktop':'mobile';root.dataset.hhSmoke=smoke?'1':'0'}
 function ready(){document.body?.classList.add('hh-responsive-ready');if(smoke&&desktop&&window.top===window&&q.get('smokeBadge')!=='0'&&!document.getElementById('hh-smoke-badge')){const b=document.createElement('div');b.id='hh-smoke-badge';b.className='hh-smoke-badge';b.textContent='PC SMOKE • Responsive QA';b.style.cssText='position:fixed;z-index:2147483600;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));padding:6px 9px;border-radius:999px;background:#111827dd;color:#fff;font:900 10px system-ui;pointer-events:none';document.body.appendChild(b)}}
+
+function installVerifiedReturnFailsafe(){
+  if(window.top!==window||gameTest||!/game-shell-authority-r42\.html$/i.test(String(location.pathname||'')))return;
+  if(window.__HH_R42_VERIFIED_RETURN_FAILSAFE__)return;
+  window.__HH_R42_VERIFIED_RETURN_FAILSAFE__=true;
+  let armedAt=0,navigating=false;
+  const sid=String(q.get('studentId')||q.get('sid')||q.get('pid')||'').trim();
+  const gameId=String(q.get('gameId')||'').trim().toLowerCase();
+  function canonicalReturn(){
+    const raw=q.get('return')||q.get('back')||'./index.html';
+    const u=new URL(raw,location.href);
+    if(sid){u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid)}
+    u.searchParams.set('authority','firebase');u.searchParams.set('firebaseReady','1');u.searchParams.set('firebaseReceipt','1');u.searchParams.set('gameCompleted','1');
+    if(gameId)u.searchParams.set('returnedGame',gameId);
+    u.searchParams.set('authorityRefresh',String(Date.now()));u.searchParams.set('returnSessionPolicy','force-firebase-rehydrate-r53');u.searchParams.set('shellWatchdog','r53');u.searchParams.set('appv','20260815-PASSPORT-R20-REWARD-CHAMPION');
+    return u.href;
+  }
+  function evidence(){
+    const shellText=`${document.getElementById('receiptStatus')?.textContent||''} ${document.getElementById('back')?.textContent||''}`;
+    let frameText='';
+    try{const d=document.getElementById('game')?.contentDocument;if(d)frameText=String(d.body?.innerText||'').slice(-6000)}catch(_){}
+    const text=`${shellText} ${frameText}`;
+    return /Firebase\s*ยืนยันแล้ว/i.test(text)&&(/กำลังกลับ\s*Hero\s*Passport/i.test(text)||/กลับ\s*Passport/i.test(text));
+  }
+  function tick(){
+    if(navigating)return;
+    if(!evidence()){armedAt=0;return}
+    if(!armedAt){armedAt=Date.now();console.info('[HeroHealth R42 Return Failsafe] verified receipt observed',{sid,gameId});return}
+    if(Date.now()-armedAt<1400)return;
+    navigating=true;
+    const url=canonicalReturn();
+    console.warn('[HeroHealth R42 Return Failsafe] forcing Passport return',{sid,gameId,url});
+    try{location.replace(url)}catch(_){location.href=url}
+    setTimeout(()=>{if(location.pathname.includes('game-shell-authority-r42.html'))location.href=url},1200);
+  }
+  setInterval(tick,250);
+  addEventListener('pageshow',tick);addEventListener('online',tick);
+  console.info('[HeroHealth R42 Return Failsafe] installed',RELEASE);
+}
+
 viewport();document.body?ready():addEventListener('DOMContentLoaded',ready,{once:true});let raf=0;const schedule=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(viewport)};addEventListener('resize',schedule,{passive:true});addEventListener('orientationchange',schedule,{passive:true});window.visualViewport?.addEventListener('resize',schedule,{passive:true});
-window.HHResponsiveRuntime={release:RELEASE,smoke,gameTest,desktop,refresh:viewport};
+installVerifiedReturnFailsafe();
+window.HHResponsiveRuntime={release:RELEASE,smoke,gameTest,desktop,refresh:viewport,installVerifiedReturnFailsafe};
 })();
