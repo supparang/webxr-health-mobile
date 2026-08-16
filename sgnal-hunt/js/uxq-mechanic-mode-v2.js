@@ -1,40 +1,15 @@
-/* CSAI2601 UX Quest • Mechanic Mode v2.5 NO-SHAKE
- * W7 master-reading layout for W1-W15 and B1-B4.
- * Presentation only: answer truth, scoring, progress, gates and Sheet sync stay unchanged.
- * v2.5: observer ignores text/attribute mutations and schedules only when the
- * question subtree is structurally replaced. Text writes are idempotent.
+/* CSAI2601 UX Quest • Mechanic Mode v2.6 PRESENTATION-ONLY
+ * Layout/style helper for W1-W15 and B1-B4.
+ * Canonical Content Final Authority is the sole owner of learner-facing prompt text.
+ * This layer MUST NOT rewrite prompt text or remove/rebuild choice child nodes.
+ * Answer truth, scoring, progress, gates and Sheet sync stay unchanged.
  */
 (() => {
   'use strict';
   const $=(s,r=document)=>r.querySelector(s);
-  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
-  const text=(el)=>String(el?.textContent||'').replace(/\s+/g,' ').trim();
-  const qp=()=>new URLSearchParams(location.search||'');
-  const nodeId=()=>String(qp().get('node')||qp().get('id')||'W1').toUpperCase();
-  const mechanics={
-    W1:{icon:'🔎',action:'เลือกหลักฐานที่ชี้จุดติดขัดหลัก'},
-    W2:{icon:'🧭',action:'เลือกหลักฐานผู้ใช้ที่น่าเชื่อถือ'},
-    W3:{icon:'🧠',action:'เลือกหลักจิตวิทยาและแนวแก้ที่ตรง'},
-    W4:{icon:'🕵️',action:'เลือกคำถามหรือหลักฐานที่ไม่ชี้นำ'},
-    W5:{icon:'💡',action:'เลือกขั้นที่ทำให้ Problem Definition แข็งแรง'},
-    W6:{icon:'🗺️',action:'เลือกขั้นถัดไปที่ทำให้ Flow เดินต่อ'},
-    W7:{icon:'📐',action:'เลือกการจัดลำดับที่ช่วยให้ตัดสินใจได้'},
-    W8:{icon:'🧩',action:'เลือกจุดไม่สอดคล้องที่ต้องแก้ก่อน'},
-    W9:{icon:'🧱',action:'เลือกกฎของ Pattern หรือ State ที่ตรง'},
-    W10:{icon:'📱',action:'เลือก Issue หรือ Fix ที่กระทบ Task มากที่สุด'},
-    W11:{icon:'🎨',action:'เลือก Visual Decision ที่สื่อความหมายชัด'},
-    W12:{icon:'⚡',action:'เลือก State หรือ Microcopy ที่ช่วยให้มั่นใจ'},
-    W13:{icon:'🔗',action:'เลือก Link หรือ State ที่ทำให้ทดสอบ Task ได้'},
-    W14:{icon:'🧪',action:'เลือก Finding หรือ Fix ที่ควรทำก่อน'},
-    W15:{icon:'🏁',action:'เลือก Proof ที่ทำให้ Case Study น่าเชื่อถือ'},
-    B1:{icon:'👹',action:'เลือกคำตอบที่เชื่อม UX, Evidence และ Psychology'},
-    B2:{icon:'🐉',action:'เลือก Chain จาก Evidence ถึง Wireframe ที่แน่นที่สุด'},
-    B3:{icon:'🛡️',action:'เลือก System Decision ที่ครบและใช้งานได้'},
-    B4:{icon:'🔥',action:'เลือก Validation Chain ที่พิสูจน์ผลได้'}
-  };
 
   function style(){
-    if($('#uxq-mechanic-v2-style'))return;
+    if($('#uxq-mechanic-v2-style')) return;
     const s=document.createElement('style');
     s.id='uxq-mechanic-v2-style';
     s.textContent=`
@@ -54,60 +29,40 @@
       .uxqMissionIdentity b{font-size:.96rem!important}
       .uxqMissionIdentity span{font-size:.84rem!important;line-height:1.3!important}
       .uxqMissionIdentity small{font-size:.76rem!important;margin-top:2px!important}
-      @media(max-width:900px){.question .options:first-of-type{grid-template-columns:1fr!important}.question .options:first-of-type .option{min-height:0!important}}
+      @media(max-width:900px){
+        .question .options:first-of-type{grid-template-columns:1fr!important}
+        .question .options:first-of-type .option{min-height:0!important}
+      }
     `;
     document.head.appendChild(s);
   }
-  function current(){return mechanics[nodeId()]||mechanics.W1;}
-  function focusText(){return (text($('.case .kicker'))+' '+text($('.case h1'))).toLowerCase();}
-  function stagePrompt(){
-    const f=focusText();
-    const rules=[
-      [/extract insight|insight/, 'เลือก Insight ที่อธิบายความหมายเบื้องหลังสิ่งที่สังเกตได้'],
-      [/root cause/, 'เลือก Root Cause ที่อธิบายว่าทำไมปัญหาจึงเกิด'],
-      [/problem statement|write problem/, 'เลือก Problem Statement ที่ระบุผู้ใช้ บริบท และผลกระทบชัด'],
-      [/\bhmw\b|how might we/, 'เลือก HMW ที่เปิดทางเลือกโดยไม่ซ่อน Solution ไว้แล้ว'],
-      [/concept/, 'เลือก Concept ที่ตอบ Problem และยังนำไปทดสอบได้'],
-      [/classify evidence|evidence/, 'เลือกหลักฐานผู้ใช้ที่นำไปใช้ตัดสินใจได้'],
-      [/assumption/, 'เลือก Assumption ที่ต้องตรวจสอบก่อนออกแบบ'],
-      [/diagnose|cognitive|memory|attention|mental model/, 'เลือกหลักจิตวิทยาที่อธิบายพฤติกรรมในสถานการณ์นี้'],
-      [/research question/, 'เลือก Research Question ที่ไม่ชี้นำและตอบได้จากผู้ใช้จริง'],
-      [/pain point|persona need/, 'เลือก Pain Point หรือ Need ที่มีหลักฐานรองรับ'],
-      [/sitemap|group|information architecture/, 'เลือกการจัดกลุ่มที่ตรงกับ Mental Model ของผู้ใช้'],
-      [/navigation|happy path|error path|flow/, 'เลือกขั้นถัดไปที่ทำให้ผู้ใช้เดินงานต่อได้'],
-      [/visual priority|hierarchy/, 'เลือกข้อมูลที่ควรเด่นตามเป้าหมายการตัดสินใจ'],
-      [/wireframe|layout/, 'เลือกโครงหน้าจอที่รองรับลำดับงานของผู้ใช้'],
-      [/primary cta|cta/, 'เลือก CTA ที่ตรงกับ Next Step ของผู้ใช้'],
-      [/mobile|responsive/, 'เลือกการปรับจอเล็กที่ยังรักษา Task Order'],
-      [/prototype|link/, 'เลือกการเชื่อมที่ทำให้ทดสอบ Task ได้จริง'],
-      [/severity|retest|validation|test/, 'เลือก Finding หรือ Fix ที่พิสูจน์ผลได้'],
-      [/boss|identify problem/, 'เลือกคำตอบที่เชื่อมหลายชั้นและมีหลักฐานรองรับ']
-    ];
-    for(const [re,label] of rules){if(re.test(f))return label;}
-    return current().action;
+
+  function decorate(){
+    const q=$('.question');
+    if(!q) return;
+    const hasFeedback=!!q.querySelector('.feedback,.verify');
+    q.classList.toggle('has-feedback',hasFeedback);
+    q.dataset.mechanicPresentationOnly='true';
   }
-  function removeDuplicatePanel(q){$$('.uxqMechanicPanel',q).forEach(el=>el.remove());}
-  function simplifyMainChoices(q){
-    const main=$$('.options',q)[0]; if(!main)return;
-    $$('.option[data-choice],button.option,.option',main).forEach(btn=>{$$(':scope > span,:scope > small,:scope > p',btn).forEach(el=>el.remove());});
+
+  style();
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',decorate,{once:true});
+  } else {
+    decorate();
   }
-  function markFeedbackState(q){q.classList.toggle('has-feedback',!!q.querySelector('.feedback,.verify'));}
-  function normalizeHint(){const hint=$('.hint');if(!hint)return;const cleaned=text(hint).replace(/^(?:💡\s*)+/u,'');if(hint.textContent!==cleaned)hint.textContent=cleaned;}
-  function inject(){
-    style(); const q=$('.question'); if(!q)return;
-    removeDuplicatePanel(q); simplifyMainChoices(q); markFeedbackState(q);
-    if(nodeId()==='W1'){q.dataset.mechanicPresentationOnly='true';return;}
-    normalizeHint();
-    const prompt=$(':scope > .prompt',q);
-    const wanted=`${current().icon} ${stagePrompt()}`;
-    if(prompt && text(prompt)!==wanted) prompt.textContent=wanted;
-  }
-  let t=0;
-  function schedule(){clearTimeout(t);t=setTimeout(inject,40);}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
-  // Structural observer only. Character/text writes from this layer must never wake itself.
+
+  // Observe only structural replacement so styling state follows a newly-rendered question.
+  // decorate() changes attributes only, which this observer does not watch, so no feedback loop occurs.
+  let timer=0;
   new MutationObserver(records=>{
-    const structural=records.some(r=>r.type==='childList' && (r.addedNodes.length||r.removedNodes.length));
-    if(structural) schedule();
+    if(!records.some(r=>r.type==='childList' && r.addedNodes.length)) return;
+    clearTimeout(timer);
+    timer=setTimeout(decorate,60);
   }).observe(document.documentElement,{childList:true,subtree:true});
+
+  window.UXQMechanicModeV2=Object.freeze({
+    version:'20260816-MECHANIC-V2.6-PRESENTATION-ONLY',
+    promptOwner:'uxq-canonical-content-final-authority-v3'
+  });
 })();
