@@ -1,9 +1,9 @@
 (function(){
 'use strict';
-const VERSION='2026-08-14-TEACHER-CONSOLE-V5-ASSESSMENT-FALLBACK-R1';
+const VERSION='2026-08-17-TEACHER-CONSOLE-V5-FIRST28-PASS80-R2';
 const $=id=>document.getElementById(id);
 const SESSION_IDS=['D1-AM','D1-PM','D2-AM','D2-PM','D3-AM','D3-PM'];
-const PAGE_SIZE=50, LIMIT=300, CHUNK=30, REFRESH_COOLDOWN_MS=30000;
+const PAGE_SIZE=50, LIMIT=300, CHUNK=30, REFRESH_COOLDOWN_MS=30000, REWARD_LIMIT=28, BONUS_PASS=80;
 const COL={profiles:'ewp_profiles',progress:'ewp_progress',summary:'ewp_game_summary',checkpoints:'ewp_assessment_checkpoints',assessments:'ewp_assessments',teacherRoles:'ewp_teacher_roles',rewards:'ewp_bonus_rewards'};
 const GAMES=[
  {id:'word_match',title:'LexiMatch Navigator',pass:55},
@@ -73,15 +73,15 @@ async function loadSession(sessionId){
    const scores=s.bestScores&&typeof s.bestScores==='object'?s.bestScores:(p.bestScores||{});
    return {playerId:id,nickname:clean(profile.nickname||profile.fullName||p.nickname||id),fullName:clean(profile.fullName||profile.nickname||p.nickname||id),sessionId,stage:stageLabel(p,summaryViewed),preDone:Boolean(p.preDone||pre!=null),postDone:Boolean(p.postDone||post!=null),preAccuracy:pre,postAccuracy:post,learningGain:pre!=null&&post!=null?post-pre:null,bestScores:scores,avg:gameAverage(scores),reflectionDone:Boolean(p.reflectionDone||p.finalReflection),summaryViewed,certificateEligible:cert,certificateId:clean(p.certificate?.certificateId),finishedAt:p.finishedAt};
  }).sort((a,b)=>a.fullName.localeCompare(b.fullName));
- rewardRows=rewards.filter(r=>r.completed===true);
+ rewardRows=rewards.filter(r=>r.completed===true&&n(r.bonusScore,-1)>=BONUS_PASS);
  page=1;
 }
 function authoritativeEligible(){
  const finish=new Map(rows.filter(r=>r.summaryViewed&&r.certificateEligible&&ts(r.finishedAt)>0).map(r=>[r.playerId,r]));
- return rewardRows.filter(r=>finish.has(clean(r.playerId))&&ts(r.firstCompletedAt)>0).map(r=>{
+ return rewardRows.filter(r=>finish.has(clean(r.playerId))&&ts(r.firstCompletedAt)>0&&n(r.bonusScore,-1)>=BONUS_PASS).map(r=>{
    const f=finish.get(clean(r.playerId));
    return {...r,finish:f,qualifiedAtMs:Math.max(ts(f.finishedAt),ts(r.firstCompletedAt))};
- }).sort((a,b)=>a.qualifiedAtMs-b.qualifiedAtMs||clean(a.playerId).localeCompare(clean(b.playerId))).slice(0,20);
+ }).sort((a,b)=>a.qualifiedAtMs-b.qualifiedAtMs||clean(a.playerId).localeCompare(clean(b.playerId))).slice(0,REWARD_LIMIT);
 }
 function overview(){
  const total=rows.length,pre=rows.filter(r=>r.preDone).length,post=rows.filter(r=>r.postDone).length,refl=rows.filter(r=>r.reflectionDone).length,cert=rows.filter(r=>r.certificateEligible).length;
@@ -100,7 +100,7 @@ function render(){
 function renderSessions(){$('sessionFilter').value=currentSession;$('sessionCounts').innerHTML=SESSION_IDS.map(id=>`<button class="session-chip ${id===currentSession?'active':''}" data-session="${id}"><strong>${id===currentSession?rows.length:'—'}</strong><span>${id}</span></button>`).join('');document.querySelectorAll('[data-session]').forEach(b=>b.onclick=()=>switchSession(b.dataset.session))}
 function renderRewards(){
  const winners=authoritativeEligible(),claimed=winners.filter(r=>r.rewardClaimed===true).length,bonusDone=new Set(rewardRows.map(r=>clean(r.playerId))).size;
- $('rewardPanel').innerHTML=`<div class="reward-head"><div><strong>🎁 Event Reward • First 20 Finishers + Bonus</strong><div class="note">Eligible = Journey complete + Lens Hunt complete. Rank by qualifiedAt (the later of Journey finishedAt and Bonus firstCompletedAt).</div></div><span class="status">${winners.length}/20 eligible • ${claimed} claimed • ${bonusDone} bonus timestamps</span></div><div class="reward-list">${winners.length?winners.map((r,i)=>`<div class="reward-row"><span class="reward-rank">#${i+1}</span><div><strong>${h(r.finish.nickname||r.playerId)}</strong><small>${h(r.playerId)} • Bonus ${n(r.bonusScore)}%</small></div><span class="${r.rewardClaimed?'good':'warn'}">${r.rewardClaimed?'Received ✓':'Eligible'}</span><button class="btn reward-claim" data-id="${h(r.id)}" ${r.rewardClaimed?'disabled':''}>${r.rewardClaimed?'Claimed':'Mark claimed'}</button></div>`).join(''):'<div class="note">No server-authoritative eligible player yet.</div>'}</div>`;
+ $('rewardPanel').innerHTML=`<div class="reward-head"><div><strong>🎁 Event Reward • First ${REWARD_LIMIT} Finishers + Bonus</strong><div class="note">Eligible = Journey complete + Lens Hunt ≥${BONUS_PASS}%. Rank by qualifiedAt (the later of Journey finishedAt and qualifying Bonus firstCompletedAt).</div></div><span class="status">${winners.length}/${REWARD_LIMIT} eligible • ${claimed} claimed • ${bonusDone} qualifying bonus timestamps</span></div><div class="reward-list">${winners.length?winners.map((r,i)=>`<div class="reward-row"><span class="reward-rank">#${i+1}</span><div><strong>${h(r.finish.nickname||r.playerId)}</strong><small>${h(r.playerId)} • Bonus ${n(r.bonusScore)}%</small></div><span class="${r.rewardClaimed?'good':'warn'}">${r.rewardClaimed?'Received ✓':'Eligible'}</span><button class="btn reward-claim" data-id="${h(r.id)}" ${r.rewardClaimed?'disabled':''}>${r.rewardClaimed?'Claimed':'Mark claimed'}</button></div>`).join(''):'<div class="note">No server-authoritative eligible player yet.</div>'}</div>`;
  document.querySelectorAll('.reward-claim').forEach(b=>b.onclick=()=>claimReward(b.dataset.id));
 }
 function filtered(){const q=clean($('searchInput').value).toLowerCase(),st=clean($('stageFilter').value);return rows.filter(r=>(!q||`${r.playerId} ${r.fullName}`.toLowerCase().includes(q))&&(!st||r.stage===st))}
@@ -118,5 +118,5 @@ function bind(){
  firebase.auth().onAuthStateChanged(async user=>{if(!user||user.isAnonymous){teacher=null;$('loginLayer').classList.remove('hidden');return}try{await verifyTeacher(user);$('loginLayer').classList.add('hidden');if(!rows.length)await refresh(true)}catch(e){teacher=null;$('loginLayer').classList.remove('hidden');$('loginError').textContent=clean(e.message||e)}});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
-window.EW_TEACHER_CONSOLE_V5=Object.freeze({version:VERSION,refresh,readBudget:'progress+profiles+summary+rewards; selective checkpoints + assessment fallback',cooldownMs:REFRESH_COOLDOWN_MS});
+window.EW_TEACHER_CONSOLE_V5=Object.freeze({version:VERSION,refresh,readBudget:'progress+profiles+summary+rewards; selective checkpoints + assessment fallback',cooldownMs:REFRESH_COOLDOWN_MS,rewardLimit:REWARD_LIMIT,bonusPass:BONUS_PASS});
 })();
