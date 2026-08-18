@@ -15,7 +15,9 @@
 <body><div class="center"><div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังตรวจ Firebase และลำดับภารกิจ</small></div></div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260818-GAME-SHELL-R58-HARD-AUTO-RETURN';
+const RELEASE='20260818-GAME-SHELL-R59-INSTANT-VERIFIED-HANDOFF';
+const PASSPORT_RELEASE='20260818-FIREBASE-SESSION-R78-CANONICAL-REUSE';
+const STATE_KEY='herohealth_learning_platform_rc2';
 const q=new URLSearchParams(location.search);
 const authority=String(q.get('authority')||'').toLowerCase();
 if(authority!=='firebase'){
@@ -26,10 +28,12 @@ if(ids.length!==1){document.body.innerHTML='<div class="center"><div class="load
 const sid=ids[0],targetRaw=String(q.get('target')||'').trim(),gameTestMode=q.get('gameTestMode')==='1'||String(q.get('mode')||'').toLowerCase()==='game-test';
 if(!targetRaw){document.body.innerHTML='<div class="center"><div class="loading"><b>ไม่พบเส้นทางเกม</b><small>กรุณากลับเข้า Passport แล้วเปิดภารกิจใหม่</small></div></div>';return}
 const smoke=/^(1|true|yes)$/i.test(String(q.get('smoke')||q.get('smokeTest')||''))||(!matchMedia?.('(pointer:coarse)')?.matches&&(innerWidth||1024)>=768&&q.get('gameTestMode')==='1');
+function canonicalGameKey(){const raw=String(q.get('gameId')||'').trim().toLowerCase().replace(/[_\s]+/g,'-');const aliases={'hand-wash':'handwash',brush:'toothbrush',foodgroups:'groups','food-groups':'groups','good-junk':'goodjunk','jump-duck':'jumpduck',balancehold:'balance','balance-hold':'balance'};return aliases[raw]||raw}
+function gameZone(game){const map={handwash:'hygiene',toothbrush:'hygiene',groups:'nutrition',goodjunk:'nutrition',jumpduck:'fitness',balance:'fitness'};return map[game]||String(q.get('zone')||'').trim().toLowerCase()}
 function canonicalPassport(raw){
  let u;try{u=new URL(raw||'./index.html',location.href)}catch(_){u=new URL('./index.html',location.href)}
  if(!/\/HeroHealth_Learning1\/index\.html$/i.test(u.pathname)&&!gameTestMode)u=new URL('./index.html',location.href);
- for(const k of ['logout','logoutAt','logoutNonce','authorityRefresh','returnSessionPolicy','firebaseHydratedR71','firebaseHydratedR74','firebaseHydratedR76','firebaseProgressApplied','pendingGameSync','gameSync','firebaseAssessmentReceipt'])u.searchParams.delete(k);
+ for(const k of ['logout','logoutAt','logoutNonce','authorityRefresh','returnSessionPolicy','firebaseReceipt','returnedGame','gameCompleted','receiptToken','analyticsSchema','firebaseHydratedR71','firebaseHydratedR74','firebaseHydratedR76','firebaseProgressApplied','pendingGameSync','gameSync','firebaseAssessmentReceipt'])u.searchParams.delete(k);
  u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.delete('pid');
  for(const k of ['fullName','studentName','name','section','group','firebaseUid']){const v=q.get(k);if(v)u.searchParams.set(k,v)}
  u.searchParams.set('authority','firebase');u.searchParams.set('firebaseReady','1');return u;
@@ -41,21 +45,36 @@ target.searchParams.set('studentId',sid);target.searchParams.set('sid',sid);targ
 document.body.innerHTML=`<main class="shell ${smoke?'smoke':''}"><header class="bar ${gameTestMode?'test':''}"><button id="back">← ${gameTestMode?'กลับหน้าเลือกเกม':'กลับ Passport'}</button><span class="title" id="title"></span><span class="status" id="receiptStatus">กำลังเตรียม Firebase</span></header><section class="stage"><div class="device"><iframe id="game" allow="camera; microphone; accelerometer; gyroscope; autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></div></section></main>`;
 const backBtn=document.getElementById('back'),frame=document.getElementById('game'),status=document.getElementById('receiptStatus');document.getElementById('title').textContent=(q.get('title')||'HeroHealth')+(gameTestMode?' • TEST':'');backBtn.onclick=()=>location.replace(back);
 function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(Error('load_failed_'+src));document.head.appendChild(s)})}
+function readJson(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(_){return null}}
+function writeJson(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true}catch(_){return false}}
+function verifiedReceipt(){const game=canonicalGameKey();if(!game)return null;const r=readJson(`HH_${game.toUpperCase()}_FIREBASE_RECEIPT`);if(!r||String(r.studentId||'')!==sid||!r.receiptToken||r?.result?.completed!==true)return null;const age=Date.now()-Number(r.savedAt||0);if(!Number.isFinite(age)||age<0||age>30000)return null;return{...r,game,zone:gameZone(game)}}
+function applyVerifiedHandoff(){
+ const receipt=verifiedReceipt();if(!receipt||!receipt.zone)return null;
+ const state=readJson(STATE_KEY)||{},now=new Date().toISOString(),result={...(receipt.result||{}),completed:true,passed:receipt.result?.passed!==false,progressionEligible:true,firebaseReceiptToken:receipt.receiptToken};
+ const gc={...(state.gameCompleted||{})};gc[receipt.zone]={...(gc[receipt.zone]||{}),[receipt.game]:true};
+ const results={...(state.firebaseGameResults||{}),[receipt.game]:result};
+ const scores={...(state.gameScores||{}),[receipt.game]:Number(result.score||0)};
+ const next={...state,gameCompleted:gc,firebaseGameResults:results,gameScores:scores,firebaseLastGame:{...result,gameId:receipt.game,zone:receipt.zone},firebaseAuthority:{...(state.firebaseAuthority||{}),mode:'firebase',sourceOfTruth:'Cloud Firestore',studentId:sid,hydratedAt:now,release:PASSPORT_RELEASE,hydrateMode:'verified-game-receipt-handoff-r59'}};
+ if(!next.profile||String(next.profile.studentId||'')!==sid)return null;
+ writeJson(STATE_KEY,next);try{localStorage.setItem('herohealth_active_student_id',sid)}catch(_){}
+ return receipt;
+}
 let returning=false,hardTimer=0;
-function receiptReturnUrl(reason='confirmed'){
+function instantReturnUrl(reason='confirmed'){
+ const receipt=applyVerifiedHandoff();
  const u=canonicalPassport(gameTestMode?back:'./index.html');
- u.searchParams.set('firebaseReceipt','1');u.searchParams.set('gameCompleted','1');
- const g=String(q.get('gameId')||'').trim().toLowerCase();if(g)u.searchParams.set('returnedGame',g);
- u.searchParams.set('returnReason',reason);u.searchParams.set('shellWatchdog','r58');u.searchParams.set('v',RELEASE);return u.href;
+ u.searchParams.set('verifiedHandoff','1');u.searchParams.set('handoffRelease','r59');u.searchParams.set('returnReason',reason);u.searchParams.set('shellWatchdog','r59');u.searchParams.set('v',RELEASE);
+ if(receipt){u.searchParams.set('verifiedGame',receipt.game);u.searchParams.set('verifiedAt',String(Date.now()))}
+ return u.href;
 }
 function hardReturn(reason='firebase-confirmed'){
- if(gameTestMode||returning)return;returning=true;const u=receiptReturnUrl(reason);
+ if(gameTestMode||returning)return;returning=true;const u=instantReturnUrl(reason);
  try{sessionStorage.setItem('HH_LAST_CONFIRMED_RETURN',JSON.stringify({sid,url:u,at:Date.now(),release:RELEASE}))}catch(_){}
  try{window.top.location.replace(u)}catch(_){try{window.top.location.href=u}catch(__){location.href=u}}
- clearTimeout(hardTimer);hardTimer=setTimeout(()=>{try{window.top.location.assign(u)}catch(_){location.assign(u)}},1200);
+ clearTimeout(hardTimer);hardTimer=setTimeout(()=>{try{window.top.location.assign(u)}catch(_){location.assign(u)}},800);
 }
-function arm(){if(gameTestMode||returning)return;const text=`${status?.textContent||''} ${backBtn?.textContent||''}`;if(!/Firebase\s*ยืนยันแล้ว/i.test(text))return;setTimeout(()=>hardReturn('firebase-status-confirmed'),450)}
-new MutationObserver(arm).observe(status,{childList:true,subtree:true,characterData:true});new MutationObserver(arm).observe(backBtn,{childList:true,subtree:true,characterData:true});setInterval(arm,220);
+function arm(){if(gameTestMode||returning)return;const text=`${status?.textContent||''} ${backBtn?.textContent||''}`;if(!/Firebase\s*ยืนยันแล้ว/i.test(text))return;setTimeout(()=>hardReturn('firebase-status-confirmed'),180)}
+new MutationObserver(arm).observe(status,{childList:true,subtree:true,characterData:true});new MutationObserver(arm).observe(backBtn,{childList:true,subtree:true,characterData:true});setInterval(arm,120);
 addEventListener('HH_FIREBASE_GAME_RECEIPT_CONFIRMED',()=>hardReturn('firebase-receipt-event'));
 addEventListener('message',e=>{const d=e?.data||{};const t=String(d.type||d.event||'').toUpperCase();if((t.includes('FIREBASE')||t.includes('RECEIPT'))&&(d.completed===true||d.confirmed===true||d.ok===true))hardReturn('firebase-message-confirmed')});
 (async()=>{try{
@@ -63,12 +82,12 @@ addEventListener('message',e=>{const d=e?.data||{};const t=String(d.type||d.even
  if(gameTestMode){await loadScript('./assets/firebase-game-test-analytics-r1.js?v=20260808-r2-handwash-strict');}
  else{
   await loadScript('./assets/firebase-pending-game-queue-sanitizer-r1.js?v=20260818-r1-current-game-only');
-  await loadScript('./assets/firebase-game-receipt-bridge-r1.js?v=20260818-r8-hard-return-r58');
+  await loadScript('./assets/firebase-game-receipt-bridge-r1.js?v=20260818-r8-hard-return-r59');
  }
  if(String(q.get('gameId')||'').toLowerCase().includes('goodjunk')||target.href.toLowerCase().includes('goodjunk'))await loadScript('./assets/goodjunk-firebase-completion-patch-r3.js?v=20260805-r3');
  status.textContent=gameTestMode?'พร้อมทดสอบ • Test Analytics':'พร้อมเล่น • Firebase Receipt R7 • Queue Guard R1';frame.src=target.href;
-}catch(error){console.error('[Game Shell R58]',error);status.textContent='โหลด Firebase ไม่สำเร็จ';backBtn.disabled=false;backBtn.textContent='กลับ Passport'}})();
-window.HH_GAME_SHELL_R55={release:RELEASE,authority:'firebase',firebaseExclusive:true,strictProgression:true,pendingQueueGuard:true,gameTestMode,smoke,fullHeightDevice:true,hardAutoReturn:true,hardReturn};
-console.info('[Game Shell R58] installed',{sid,gameId:q.get('gameId'),rotationOrder:q.get('rotationOrder'),target:target.href});
+}catch(error){console.error('[Game Shell R59]',error);status.textContent='โหลด Firebase ไม่สำเร็จ';backBtn.disabled=false;backBtn.textContent='กลับ Passport'}})();
+window.HH_GAME_SHELL_R55={release:RELEASE,authority:'firebase',firebaseExclusive:true,strictProgression:true,pendingQueueGuard:true,gameTestMode,smoke,fullHeightDevice:true,hardAutoReturn:true,verifiedReceiptHandoff:true,hardReturn};
+console.info('[Game Shell R59] installed',{sid,gameId:q.get('gameId'),rotationOrder:q.get('rotationOrder'),target:target.href});
 })();
 </script></body></html>
