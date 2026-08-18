@@ -1,324 +1,76 @@
 (function () {
   "use strict";
 
-  const VERSION = "2026-08-18-SPARK-ULTRALIGHT-R15";
+  const VERSION = "2026-08-18-SPARK-EXTREME-FAILSAFE-R16";
   const CLAIM_CACHE_KEY = "ew_eventday_claimed_player_v3";
   const RESUME_CACHE_KEY = "ew_eventday_resume_cache_v1";
   const RESUME_CACHE_TTL_MS = 15 * 60 * 1000;
   const PASS_MARKS = Object.freeze({word_match:55,category_forest:60,sentence_city:60,word_detective:60,final_boss:60});
   const PASS_POLICY_VERSION = "2026-08-11-PASS-POLICY-R2-G1-55-OTHERS-60";
   const FLOW = ["pre_challenge","word_match","category_forest","sentence_city","word_detective","final_boss","post_challenge","certificate"];
+  const QPREFIX="ew_durable_queue_v1::";
+  const SPREFIX="ew_durable_snapshot_v1::";
 
   const direct = window.EW_AUTHORITY;
   if (!direct || !direct.directFirestoreVersion || typeof direct.resume !== "function" || typeof direct.submitGame !== "function") {
-    console.error("LEXICON X Event-Day Light R15: Direct Authority must load before bridge");
+    console.error("LEXICON X Extreme Fail-Safe R16: Direct Authority must load before bridge");
     return;
   }
 
-  const runtime = {
-    mode:"firebase",
-    lastError:"",
-    lastSuccessAt:new Date().toISOString(),
-    projectId:direct.firebaseProjectId || "englishweek-95869",
-    transport:"firebase-web-sdk-firestore-direct",
-    eventDayLightMode:true,
-    ownershipVerified:false,
-    resumeCacheHits:0,
-    resumeCacheMisses:0
-  };
-
+  const runtime = {mode:"firebase",lastError:"",lastSuccessAt:new Date().toISOString(),projectId:direct.firebaseProjectId||"englishweek-95869",transport:"firebase-web-sdk-firestore-direct",eventDayLightMode:true,extremeFailSafe:true,ownershipVerified:false,resumeCacheHits:0,resumeCacheMisses:0,durableQueued:0};
   function emit(){window.dispatchEvent(new CustomEvent("ew-authority-status",{detail:{...runtime,endpointReady:true}}));}
   function clean(v){return String(v==null?"":v).trim();}
   function nowIso(){return new Date().toISOString();}
   function db(){return firebase.firestore();}
+  function readJson(k,fallback){try{return JSON.parse(localStorage.getItem(k)||"null")??fallback}catch(_){return fallback}}
+  function writeJson(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(_){return false}}
+  function qKey(id){return QPREFIX+clean(id)}
+  function sKey(id){return SPREFIX+clean(id)}
+  function readQueue(id){const q=readJson(qKey(id),[]);return Array.isArray(q)?q:[]}
+  function writeQueue(id,q){return writeJson(qKey(id),q.slice(-64))}
+  function saveSnapshot(id,authority){if(authority?.progress)writeJson(sKey(id),{authority,at:Date.now()})}
+  function readSnapshot(id){return readJson(sKey(id),null)?.authority||null}
+  function transient(error){const x=`${error?.code||""} ${error?.message||error||""}`.toLowerCase();return x.includes("quota")||x.includes("resource-exhausted")||x.includes("unavailable")||x.includes("network")||x.includes("deadline")||x.includes("timeout")||x.includes("failed to fetch")||x.includes("offline")}
 
-  function readClaim(){
-    try{
-      const raw=localStorage.getItem(CLAIM_CACHE_KEY);
-      if(!raw)return {playerId:"",authUid:""};
-      const parsed=JSON.parse(raw);
-      return {playerId:clean(parsed?.playerId),authUid:clean(parsed?.authUid)};
-    }catch(_){return {playerId:"",authUid:""};}
-  }
+  function readClaim(){try{const raw=localStorage.getItem(CLAIM_CACHE_KEY);if(!raw)return {playerId:"",authUid:""};const parsed=JSON.parse(raw);return {playerId:clean(parsed?.playerId),authUid:clean(parsed?.authUid)}}catch(_){return {playerId:"",authUid:""}}}
+  function writeClaim(playerId,authUid){try{localStorage.setItem(CLAIM_CACHE_KEY,JSON.stringify({playerId:clean(playerId),authUid:clean(authUid),verifiedAt:nowIso()}))}catch(_){}}
+  function readResumeCache(playerId,authUid){try{const raw=localStorage.getItem(RESUME_CACHE_KEY);if(!raw)return null;const value=JSON.parse(raw);if(clean(value?.playerId)!==clean(playerId)||clean(value?.authUid)!==clean(authUid))return null;if(!Number.isFinite(Number(value?.cachedAt))||Date.now()-Number(value.cachedAt)>RESUME_CACHE_TTL_MS)return null;if(!value?.profile||!value?.progress)return null;return value}catch(_){return null}}
+  function writeResumeCache(playerId,authUid,data){try{localStorage.setItem(RESUME_CACHE_KEY,JSON.stringify({playerId:clean(playerId),authUid:clean(authUid),cachedAt:Date.now(),profile:data?.profile||null,assignment:data?.assignment||null,progress:data?.progress||null}))}catch(_){}}
+  function patchResumeCache(playerId,patch){try{const claim=readClaim(),cached=readResumeCache(playerId,claim.authUid);if(!cached)return false;const progress=patch?.progressPatch?{...(cached.progress||{}),...patch.progressPatch}:(patch?.progress||cached.progress);writeResumeCache(playerId,claim.authUid,{profile:patch?.profile||cached.profile,assignment:patch?.assignment||cached.assignment,progress});return true}catch(_){return false}}
+  function clearResumeCache(){try{localStorage.removeItem(RESUME_CACHE_KEY)}catch(_){}}
+  async function call(name,args){const fn=direct&&direct[name];if(typeof fn!=="function")throw new Error("DIRECT_METHOD_MISSING: "+name);return fn.apply(direct,args||[])}
+  async function ensureCurrentUser(){let user=firebase.auth().currentUser;if(!user){await call("health",[]);user=firebase.auth().currentUser}if(!user?.uid)throw new Error("FIREBASE_AUTH_UID_MISSING");return user}
+  async function verifyOwnership(playerId,force){const id=clean(playerId);if(!id)throw new Error("PLAYER_ID_REQUIRED");const user=await ensureCurrentUser(),uid=clean(user.uid),claim=readClaim();if(!force&&claim.playerId===id&&claim.authUid===uid){runtime.ownershipVerified=true;return {ok:true,repaired:false,authUid:uid,cached:true}}const ref=db().collection("ewp_player_sessions").doc(uid),snap=await ref.get(),owned=snap.exists&&clean(snap.data()?.playerId)===id&&clean(snap.data()?.uid||uid)===uid;if(!owned)await ref.set({uid,playerId:id,claimedAt:snap.exists?(snap.data()?.claimedAt||nowIso()):nowIso(),updatedAt:nowIso(),sourceVersion:VERSION,sourceMode:"extreme-failsafe-r16"},{merge:true});writeClaim(id,uid);runtime.ownershipVerified=true;runtime.lastSuccessAt=nowIso();emit();return {ok:true,repaired:!owned,authUid:uid,cached:false}}
 
-  function writeClaim(playerId,authUid){
-    try{localStorage.setItem(CLAIM_CACHE_KEY,JSON.stringify({playerId:clean(playerId),authUid:clean(authUid),verifiedAt:nowIso()}));}catch(_){}
-  }
+  function defaultProgress(id){return {playerId:id,passed:[],bestScores:{},unlocked:["pre_challenge"],currentStage:"pre_challenge",preDone:false,postDone:false,finalDone:false,certificateEligible:false,totalScore:0}}
+  function reconcile(raw,id){const p={...defaultProgress(id),...(raw||{}),playerId:id},passed=[...new Set((Array.isArray(p.passed)?p.passed:[]).map(clean).filter(Boolean))],bestScores=p.bestScores&&typeof p.bestScores==="object"?{...p.bestScores}:{};const unlocked=["pre_challenge"];if(p.preDone)unlocked.push("word_match");if(passed.includes("word_match"))unlocked.push("category_forest");if(passed.includes("category_forest"))unlocked.push("sentence_city");if(passed.includes("sentence_city"))unlocked.push("word_detective");if(passed.includes("word_detective"))unlocked.push("final_boss");if(passed.includes("final_boss"))unlocked.push("post_challenge");if(p.postDone)unlocked.push("certificate");return {...p,passed,bestScores,unlocked,currentStage:unlocked[unlocked.length-1],finalDone:Boolean(p.finalDone||passed.includes("final_boss")),certificateEligible:Boolean(p.certificateEligible||p.postDone),totalScore:Object.values(bestScores).reduce((s,v)=>s+Number(v||0),0),updatedAt:nowIso()}}
+  function applyQueued(progress,item){const p=reconcile(progress,item.playerId);if(item.kind==="assessment"){if(item.payload.assessmentType==="pre")p.preDone=true;if(item.payload.assessmentType==="post"){p.postDone=true;p.certificateEligible=true}return reconcile(p,item.playerId)}if(item.kind==="game"){const stage=clean(item.payload.stageId),total=Math.max(1,Number(item.payload.total||100)),score=Math.max(0,Number(item.payload.score||0)),acc=Math.round(score/total*100);p.bestScores={...p.bestScores,[stage]:Math.max(Number(p.bestScores?.[stage]||0),acc)};if(acc>=Number(PASS_MARKS[stage]||60)&&!p.passed.includes(stage))p.passed=[...p.passed,stage];return reconcile(p,item.playerId)}return p}
+  function overlayQueue(id,authority){const q=readQueue(id);if(!q.length)return authority;let progress=reconcile(authority?.progress||defaultProgress(id),id);q.forEach(item=>progress=applyQueued(progress,item));return {...(authority||{}),ok:true,mode:"firebase",sourceOfTruth:"Firestore + durable local queue",progress,durableQueuePending:q.length,queuedPending:true}}
+  function enqueue(kind,payload,error){const id=clean(payload?.playerId);if(!id)throw error;const q=readQueue(id),receiptId=`queued-${kind}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,item={id:receiptId,kind,playerId:id,payload:{...(payload||{})},queuedAt:nowIso(),lastError:String(error?.message||error||"FIREBASE_TRANSIENT_ERROR")};q.push(item);if(!writeQueue(id,q))throw error;let authority=overlayQueue(id,readSnapshot(id)||readResumeCache(id,readClaim().authUid)||{profile:{playerId:id,nickname:clean(payload?.nickname)||"Player"},progress:defaultProgress(id),assignment:null});saveSnapshot(id,authority);runtime.durableQueued=q.length;emit();return {ok:true,mode:"firebase",sourceOfTruth:"Durable local queue pending Firestore",receiptId,queued:true,durableQueued:true,persisted:false,authority,progress:authority.progress,passed:kind==="game"?authority.progress.passed.includes(clean(payload?.stageId)):true,accuracy:kind==="game"?Number(authority.progress.bestScores?.[clean(payload?.stageId)]||0):undefined,version:VERSION}}
 
-  function readResumeCache(playerId,authUid){
-    try{
-      const raw=localStorage.getItem(RESUME_CACHE_KEY);
-      if(!raw)return null;
-      const value=JSON.parse(raw);
-      if(clean(value?.playerId)!==clean(playerId) || clean(value?.authUid)!==clean(authUid)) return null;
-      if(!Number.isFinite(Number(value?.cachedAt)) || Date.now()-Number(value.cachedAt)>RESUME_CACHE_TTL_MS) return null;
-      if(!value?.profile || !value?.progress) return null;
-      return value;
-    }catch(_){return null;}
-  }
+  async function lightResume(playerId,nickname){const id=clean(playerId);if(!id)throw new Error("PLAYER_ID_REQUIRED");try{const owner=await verifyOwnership(id,false),cached=readResumeCache(id,owner.authUid);if(cached){runtime.resumeCacheHits++;const out=overlayQueue(id,{ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day cached resume",profile:cached.profile,assignment:cached.assignment,progress:cached.progress,eventDayLightMode:true,resumeCached:true,version:VERSION});saveSnapshot(id,out);return out}runtime.resumeCacheMisses++;const store=db(),[p,a,g]=await Promise.all([store.collection("ewp_profiles").doc(id).get(),store.collection("ewp_assignments").doc(id).get(),store.collection("ewp_progress").doc(id).get()]);if(!p.exists)throw new Error("PLAYER_NOT_FOUND");if(!g.exists){const result=await call("resume",[id,nickname]);writeResumeCache(id,owner.authUid,result);saveSnapshot(id,result);return overlayQueue(id,result)}const result={ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Ultra-Light",profile:{playerId:id,...(p.data()||{})},assignment:a.exists?{playerId:id,...(a.data()||{})}:null,progress:{playerId:id,...(g.data()||{})},eventDayLightMode:true,version:VERSION};writeResumeCache(id,owner.authUid,result);saveSnapshot(id,result);return overlayQueue(id,result)}catch(error){const snap=readSnapshot(id);if(transient(error)&&snap)return overlayQueue(id,snap);throw error}}
 
-  function writeResumeCache(playerId,authUid,data){
-    try{
-      const value={
-        playerId:clean(playerId),authUid:clean(authUid),cachedAt:Date.now(),
-        profile:data?.profile||null,assignment:data?.assignment||null,progress:data?.progress||null
-      };
-      localStorage.setItem(RESUME_CACHE_KEY,JSON.stringify(value));
-    }catch(_){}
-  }
+  function nextProgress(current,stageId,accuracy){const passed=Array.isArray(current?.passed)?[...new Set(current.passed.map(clean).filter(Boolean))]:[],bestScores=current?.bestScores&&typeof current.bestScores==="object"?{...current.bestScores}:{};bestScores[stageId]=Math.max(Number(bestScores[stageId]||0),accuracy);if(accuracy>=PASS_MARKS[stageId]&&!passed.includes(stageId))passed.push(stageId);return reconcile({...current,passed,bestScores},clean(current?.playerId))}
+  async function writeLightProgress(playerId,stageId,accuracy){const ref=db().collection("ewp_progress").doc(playerId);let progress=null;await db().runTransaction(async tx=>{const snap=await tx.get(ref);if(!snap.exists)throw new Error("PROGRESS_NOT_FOUND");const current={...(snap.data()||{}),playerId},allowed=Array.isArray(current.unlocked)?current.unlocked:FLOW;if(!allowed.includes(stageId))throw new Error("STAGE_LOCKED");progress=nextProgress(current,stageId,accuracy);tx.set(ref,progress,{merge:true})});return progress}
+  function isPermissionError(error){const x=`${error?.code||""} ${error?.message||error||""}`.toLowerCase();return x.includes("permission-denied")||x.includes("missing or insufficient permissions")}
+  async function lightSubmitGame(payload){const playerId=clean(payload?.playerId),stageId=clean(payload?.stageId);if(!playerId||!Object.prototype.hasOwnProperty.call(PASS_MARKS,stageId))throw new Error("INVALID_GAME_PAYLOAD");const total=Math.max(0,Number(payload?.total||0)),score=Math.max(0,Number(payload?.score||0)),accuracy=total>0?Math.round(score/total*100):0;try{await verifyOwnership(playerId,false);let progress;try{progress=await writeLightProgress(playerId,stageId,accuracy)}catch(error){if(!isPermissionError(error))throw error;clearResumeCache();await verifyOwnership(playerId,true);progress=await writeLightProgress(playerId,stageId,accuracy)}patchResumeCache(playerId,{progress});const authority={ok:true,mode:"firebase",progress};saveSnapshot(playerId,authority);return {ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Extreme",receiptId:`light-${stageId}-${Date.now()}`,stageId,accuracy,passMark:PASS_MARKS[stageId],passed:accuracy>=PASS_MARKS[stageId],progress,authority,eventDayLightMode:true,version:VERSION}}catch(error){if(transient(error))return enqueue("game",payload,error);throw error}}
+  async function lightSubmitAssessment(payload){try{const result=await call("submitAssessment",[payload]),id=clean(payload?.playerId);if(id&&result?.authority){patchResumeCache(id,{profile:result.authority.profile,assignment:result.authority.assignment,progress:result.authority.progress});saveSnapshot(id,result.authority)}return result}catch(error){if(transient(error))return enqueue("assessment",payload,error);throw error}}
+  async function lightSubmitEvent(payload){return {ok:true,mode:"firebase",sourceOfTruth:"Event-Day Extreme local-only event",skipped:true,persisted:false,eventDayLightMode:true,receiptId:`event-local-${Date.now()}`,eventName:clean(payload?.eventName||payload?.type),version:VERSION}}
+  async function lightSaveCheckpoint(payload){return {ok:true,mode:"firebase",skipped:true,persisted:false,checkpoint:{...(payload||{}),eventDayLightMode:true},version:VERSION}}
+  async function lightGetCheckpoint(){return {ok:true,mode:"firebase",checkpoint:null,eventDayLightMode:true,version:VERSION}}
+  async function lightClearCheckpoint(){return {ok:true,mode:"firebase",cleared:true,skipped:true,eventDayLightMode:true,version:VERSION}}
 
-  function patchResumeCache(playerId,patch){
-    try{
-      const claim=readClaim();
-      const cached=readResumeCache(playerId,claim.authUid);
-      if(!cached)return false;
-      const mergedProgress=patch?.progressPatch
-        ? {...(cached.progress||{}),...patch.progressPatch}
-        : (patch?.progress||cached.progress);
-      writeResumeCache(playerId,claim.authUid,{
-        profile:patch?.profile||cached.profile,
-        assignment:patch?.assignment||cached.assignment,
-        progress:mergedProgress
-      });
-      return true;
-    }catch(_){return false;}
-  }
+  let flushing=false,lastFlush=0;
+  async function flush(playerId){const id=clean(playerId);if(!id||flushing||Date.now()-lastFlush<15000)return {ok:false,skipped:true};flushing=true;lastFlush=Date.now();let q=readQueue(id),done=0;try{while(q.length){const item=q[0];try{const r=item.kind==="assessment"?await call("submitAssessment",[item.payload]):await lightSubmitGameCloudOnly(item.payload);if(!r?.ok)throw new Error(r?.error||"QUEUE_FLUSH_FAILED");q.shift();writeQueue(id,q);done++;if(r.authority)saveSnapshot(id,r.authority)}catch(error){if(transient(error))break;item.lastError=String(error?.message||error);item.failedAt=nowIso();q[0]=item;writeQueue(id,q);break}}}finally{flushing=false;runtime.durableQueued=q.length;emit()}return {ok:true,flushed:done,pending:q.length}}
+  async function lightSubmitGameCloudOnly(payload){const playerId=clean(payload?.playerId),stageId=clean(payload?.stageId),total=Math.max(0,Number(payload?.total||0)),score=Math.max(0,Number(payload?.score||0)),accuracy=total>0?Math.round(score/total*100):0;await verifyOwnership(playerId,false);const progress=await writeLightProgress(playerId,stageId,accuracy),authority={ok:true,mode:"firebase",progress};patchResumeCache(playerId,{progress});saveSnapshot(playerId,authority);return {ok:true,mode:"firebase",receiptId:`flush-${stageId}-${Date.now()}`,passed:accuracy>=PASS_MARKS[stageId],accuracy,authority,progress}}
 
-  function clearResumeCache(){try{localStorage.removeItem(RESUME_CACHE_KEY);}catch(_){}
-
-  async function call(name,args){
-    const fn=direct && direct[name];
-    if(typeof fn!=="function") throw new Error("DIRECT_METHOD_MISSING: "+name);
-    return fn.apply(direct,args||[]);
-  }
-
-  async function ensureCurrentUser(){
-    let user=firebase.auth().currentUser;
-    if(!user){
-      await call("health",[]);
-      user=firebase.auth().currentUser;
-    }
-    if(!user?.uid) throw new Error("FIREBASE_AUTH_UID_MISSING");
-    return user;
-  }
-
-  async function verifyOwnership(playerId,force){
-    const id=clean(playerId);
-    if(!id) throw new Error("PLAYER_ID_REQUIRED");
-    const user=await ensureCurrentUser();
-    const uid=clean(user.uid);
-    const claim=readClaim();
-
-    if(!force && claim.playerId===id && claim.authUid===uid){
-      runtime.ownershipVerified=true;
-      return {ok:true,repaired:false,authUid:uid,cached:true};
-    }
-
-    const sessionRef=db().collection("ewp_player_sessions").doc(uid);
-    const snap=await sessionRef.get();
-    const owned=snap.exists && clean(snap.data()?.playerId)===id && clean(snap.data()?.uid || uid)===uid;
-    if(!owned){
-      await sessionRef.set({
-        uid,
-        playerId:id,
-        claimedAt:snap.exists ? (snap.data()?.claimedAt || nowIso()) : nowIso(),
-        updatedAt:nowIso(),
-        sourceVersion:VERSION,
-        sourceMode:"event-day-ultralight-r15"
-      },{merge:true});
-    }
-
-    writeClaim(id,uid);
-    runtime.ownershipVerified=true;
-    runtime.lastSuccessAt=nowIso();
-    emit();
-    return {ok:true,repaired:!owned,authUid:uid,cached:false};
-  }
-
-  async function lightResume(playerId,nickname){
-    const id=clean(playerId);
-    if(!id) throw new Error("PLAYER_ID_REQUIRED");
-
-    const owner=await verifyOwnership(id,false);
-    const cached=readResumeCache(id,owner.authUid);
-    if(cached){
-      runtime.resumeCacheHits++;
-      runtime.lastSuccessAt=nowIso();emit();
-      return {
-        ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Light (cached resume)",
-        profile:cached.profile,assignment:cached.assignment,progress:cached.progress,
-        eventDayLightMode:true,resumeCached:true,version:VERSION
-      };
-    }
-
-    runtime.resumeCacheMisses++;
-    const store=db();
-    const [p,a,g]=await Promise.all([
-      store.collection("ewp_profiles").doc(id).get(),
-      store.collection("ewp_assignments").doc(id).get(),
-      store.collection("ewp_progress").doc(id).get()
-    ]);
-    if(!p.exists) throw new Error("PLAYER_NOT_FOUND");
-
-    if(!g.exists){
-      const result=await call("resume",[id,nickname]);
-      await verifyOwnership(id,true);
-      writeResumeCache(id,owner.authUid,result);
-      return {...result,eventDayLightMode:true,lightVersion:VERSION};
-    }
-
-    const result={
-      ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Light",
-      profile:{playerId:id,...(p.data()||{})},
-      assignment:a.exists?{playerId:id,...(a.data()||{})}:null,
-      progress:{playerId:id,...(g.data()||{})},
-      eventDayLightMode:true,version:VERSION
-    };
-    writeResumeCache(id,owner.authUid,result);
-    runtime.lastSuccessAt=nowIso();emit();
-    return result;
-  }
-
-  function nextProgress(current,stageId,accuracy){
-    const passed=Array.isArray(current?.passed)?[...new Set(current.passed.map(clean).filter(Boolean))]:[];
-    const bestScores=current?.bestScores&&typeof current.bestScores==="object"?{...current.bestScores}:{};
-    bestScores[stageId]=Math.max(Number(bestScores[stageId]||0),accuracy);
-    if(accuracy>=PASS_MARKS[stageId]&&!passed.includes(stageId)) passed.push(stageId);
-
-    const unlocked=["pre_challenge"];
-    if(current?.preDone) unlocked.push("word_match");
-    if(passed.includes("word_match")) unlocked.push("category_forest");
-    if(passed.includes("category_forest")) unlocked.push("sentence_city");
-    if(passed.includes("sentence_city")) unlocked.push("word_detective");
-    if(passed.includes("word_detective")) unlocked.push("final_boss");
-    if(passed.includes("final_boss")) unlocked.push("post_challenge");
-    if(current?.postDone) unlocked.push("certificate");
-
-    return {
-      playerId:clean(current?.playerId),
-      passed,bestScores,unlocked,
-      currentStage:unlocked[unlocked.length-1],
-      preDone:Boolean(current?.preDone),
-      postDone:Boolean(current?.postDone),
-      finalDone:Boolean(current?.finalDone||passed.includes("final_boss")),
-      certificateEligible:Boolean(current?.certificateEligible||current?.postDone),
-      totalScore:Object.values(bestScores).reduce((s,v)=>s+Number(v||0),0),
-      updatedAt:nowIso()
-    };
-  }
-
-  async function writeLightProgress(playerId,stageId,accuracy){
-    const store=db();
-    const ref=store.collection("ewp_progress").doc(playerId);
-    let progress=null;
-    await store.runTransaction(async tx=>{
-      const snap=await tx.get(ref);
-      if(!snap.exists) throw new Error("PROGRESS_NOT_FOUND");
-      const current={...(snap.data()||{}),playerId};
-      const allowed=Array.isArray(current.unlocked)?current.unlocked:FLOW;
-      if(!allowed.includes(stageId)) throw new Error("STAGE_LOCKED");
-      progress=nextProgress(current,stageId,accuracy);
-      tx.set(ref,progress,{merge:true});
-    });
-    return progress;
-  }
-
-  function isPermissionError(error){
-    const code=clean(error?.code).toLowerCase();
-    const msg=clean(error?.message).toLowerCase();
-    return code.includes("permission-denied") || msg.includes("missing or insufficient permissions") || msg.includes("permission-denied");
-  }
-
-  async function lightSubmitGame(payload){
-    const playerId=clean(payload?.playerId),stageId=clean(payload?.stageId);
-    if(!playerId||!Object.prototype.hasOwnProperty.call(PASS_MARKS,stageId)) throw new Error("INVALID_GAME_PAYLOAD");
-    const total=Math.max(0,Number(payload?.total||0));
-    const score=Math.max(0,Number(payload?.score||0));
-    const accuracy=total>0?Math.round(score/total*100):0;
-
-    await verifyOwnership(playerId,false);
-    let progress=null;
-    try{
-      progress=await writeLightProgress(playerId,stageId,accuracy);
-    }catch(error){
-      if(!isPermissionError(error)) throw error;
-      runtime.ownershipVerified=false;
-      clearResumeCache();
-      await verifyOwnership(playerId,true);
-      progress=await writeLightProgress(playerId,stageId,accuracy);
-    }
-
-    patchResumeCache(playerId,{progress});
-    runtime.lastSuccessAt=nowIso();runtime.lastError="";emit();
-    return {
-      ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Ultra-Light",
-      receiptId:`light-${stageId}-${Date.now()}`,stageId,accuracy,
-      passMark:PASS_MARKS[stageId],passed:accuracy>=PASS_MARKS[stageId],
-      progress,authority:{ok:true,mode:"firebase",progress},
-      eventDayLightMode:true,version:VERSION
-    };
-  }
-
-  async function lightSubmitAssessment(payload){
-    const result=await call("submitAssessment",[payload]);
-    const playerId=clean(payload?.playerId);
-    if(playerId && result?.authority){
-      patchResumeCache(playerId,{
-        profile:result.authority.profile,
-        assignment:result.authority.assignment,
-        progress:result.authority.progress
-      });
-    }else{
-      clearResumeCache();
-    }
-    return result;
-  }
-
-  async function lightSubmitEvent(payload){
-    runtime.lastSuccessAt=nowIso();
-    return {ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Ultra-Light",skipped:true,persisted:false,eventDayLightMode:true,receiptId:`event-skipped-${Date.now()}`,eventName:clean(payload?.eventName||payload?.type),version:VERSION};
-  }
-  async function lightSaveCheckpoint(payload){return {ok:true,mode:"firebase",skipped:true,persisted:false,checkpoint:{...(payload||{}),eventDayLightMode:true},version:VERSION};}
-  async function lightGetCheckpoint(){return {ok:true,mode:"firebase",checkpoint:null,eventDayLightMode:true,version:VERSION};}
-  async function lightClearCheckpoint(){return {ok:true,mode:"firebase",cleared:true,skipped:true,eventDayLightMode:true,version:VERSION};}
-  function endpointReady(){return true;}
-  function getRuntimeStatus(){
-    let directStatus=null;
-    try{directStatus=typeof direct.getRuntimeStatus==="function"?direct.getRuntimeStatus():null;}catch(_){}
-    return Object.freeze({...runtime,...(directStatus||{}),endpointReady:true,bridgeVersion:VERSION,eventDayLightMode:true,passMarks:PASS_MARKS});
-  }
-
-  const proxy=Object.freeze({
-    ...direct,
-    modeName:"firestore-direct-event-day-ultralight",
-    sourceOfTruth:"Cloud Firestore Event-Day Ultra-Light",
-    firebaseProjectId:direct.firebaseProjectId||"englishweek-95869",
-    endpointReady,
-    health:(...args)=>call("health",args),
-    profileLookup:(...args)=>call("profileLookup",args),
-    resume:(...args)=>lightResume(args[0],args[1]),
-    submitAssessment:(...args)=>lightSubmitAssessment(args[0]),
-    submitGame:(...args)=>lightSubmitGame(args[0]),
-    submitEvent:(...args)=>lightSubmitEvent(args[0]),
-    leaderboard:(...args)=>call("leaderboard",args),
-    saveAssessmentCheckpoint:(...args)=>lightSaveCheckpoint(args[0]),
-    getAssessmentCheckpoint:(...args)=>lightGetCheckpoint(...args),
-    clearAssessmentCheckpoint:(...args)=>lightClearCheckpoint(...args),
-    patchLocalCache:(playerId,progressPatch)=>patchResumeCache(playerId,{progressPatch}),
-    clearLocalCache:()=>clearResumeCache(),
-    getRuntimeStatus,
-    passMark:60,
-    passMarks:PASS_MARKS,
-    passPolicyVersion:PASS_POLICY_VERSION,
-    compatibilityBridgeVersion:VERSION,
-    eventDayLightMode:true
-  });
-
+  function endpointReady(){return true}
+  function getRuntimeStatus(){return Object.freeze({...runtime,endpointReady:true,bridgeVersion:VERSION,eventDayLightMode:true,extremeFailSafe:true,passMarks:PASS_MARKS,durableQueuePending:runtime.durableQueued})}
+  const proxy=Object.freeze({...direct,modeName:"firestore-direct-event-day-extreme",sourceOfTruth:"Cloud Firestore + Durable Local Queue",firebaseProjectId:direct.firebaseProjectId||"englishweek-95869",endpointReady,health:(...args)=>call("health",args),profileLookup:(...args)=>call("profileLookup",args),resume:(...args)=>lightResume(args[0],args[1]),submitAssessment:(...args)=>lightSubmitAssessment(args[0]),submitGame:(...args)=>lightSubmitGame(args[0]),submitEvent:(...args)=>lightSubmitEvent(args[0]),leaderboard:(...args)=>call("leaderboard",args),saveAssessmentCheckpoint:(...args)=>lightSaveCheckpoint(args[0]),getAssessmentCheckpoint:(...args)=>lightGetCheckpoint(...args),clearAssessmentCheckpoint:(...args)=>lightClearCheckpoint(...args),patchLocalCache:(playerId,progressPatch)=>patchResumeCache(playerId,{progressPatch}),clearLocalCache:()=>clearResumeCache(),flushDurableQueue:flush,getRuntimeStatus,passMark:60,passMarks:PASS_MARKS,passPolicyVersion:PASS_POLICY_VERSION,compatibilityBridgeVersion:VERSION,durableQueueVersion:VERSION,eventDayLightMode:true,extremeFailSafe:true});
   window.EW_AUTHORITY=proxy;
-  window.EW_EVENT_DAY_LIGHT_MODE=Object.freeze({
-    enabled:true,version:VERSION,gameWritesPerAttempt:1,eventWritesPerEvent:0,
-    checkpointWrites:0,repeatedResumeWrites:0,ownershipVerified:true,
-    cachedResumeReads:0,resumeCacheTtlMs:RESUME_CACHE_TTL_MS,passMarks:PASS_MARKS
-  });
-  runtime.lastSuccessAt=nowIso();emit();
+  window.EW_EVENT_DAY_LIGHT_MODE=Object.freeze({enabled:true,extremeFailSafe:true,version:VERSION,gameWritesPerAttempt:1,eventWritesPerEvent:0,checkpointWrites:0,repeatedResumeWrites:0,resumeCacheTtlMs:RESUME_CACHE_TTL_MS,passMarks:PASS_MARKS});
+  window.EW_DURABLE_QUEUE=Object.freeze({version:VERSION,pending:id=>readQueue(id).length,flush});
+  function activePlayer(){try{return JSON.parse(localStorage.getItem(window.EW_CONFIG?.cacheKeys?.identity||"ew_passport_identity_v1")||"null")?.playerId||""}catch(_){return ""}}
+  window.addEventListener("online",()=>{const id=activePlayer();if(id)setTimeout(()=>flush(id),800)});window.addEventListener("focus",()=>{const id=activePlayer();if(id&&readQueue(id).length)setTimeout(()=>flush(id),1200)});setTimeout(()=>{const id=activePlayer();if(id&&readQueue(id).length)flush(id)},2500);
+  runtime.lastSuccessAt=nowIso();runtime.durableQueued=readQueue(activePlayer()).length;emit();
 }());
