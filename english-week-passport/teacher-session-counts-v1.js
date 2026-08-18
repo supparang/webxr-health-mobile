@@ -40,12 +40,17 @@ async function loadCounts(force=false){
  }catch(e){console.warn('[EW session counts]',e);applyCounts();return counts}finally{loading=false;setButtonState()}
 }
 function installObserver(){const host=$('sessionCounts');if(!host)return;new MutationObserver(()=>applyCounts()).observe(host,{childList:true,subtree:true})}
+function loadXlsxExporter(){
+ if(window.EW_TEACHER_XLSX_V2||document.querySelector('script[data-ew-xlsx-exporter]'))return;
+ const s=document.createElement('script');s.src='./teacher-xlsx-export-v2.js?v=20260818-mobile-office-r1';s.async=true;s.dataset.ewXlsxExporter='1';s.onerror=()=>console.error('[EW] XLSX exporter failed to load');document.body.appendChild(s);
+}
 function bind(){
  installObserver();
  const refresh=$('refreshBtn');if(refresh)refresh.addEventListener('click',()=>setTimeout(()=>loadCounts(true),180));
  const refreshAll=$('refreshAllCountsBtn');if(refreshAll)refreshAll.addEventListener('click',()=>loadCounts(true));
  if(window.firebase?.auth)firebase.auth().onAuthStateChanged(user=>{if(user&&!user.isAnonymous)setTimeout(()=>loadCounts(true),250)});
  setTimeout(()=>loadCounts(false),500);
+ loadXlsxExporter();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
 window.EW_TEACHER_SESSION_COUNTS_V1=Object.freeze({version:VERSION,loadCounts,get counts(){return {...counts}},cooldownMs:COOLDOWN_MS});
