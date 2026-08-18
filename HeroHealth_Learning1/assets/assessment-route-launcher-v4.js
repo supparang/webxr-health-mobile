@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
-const RELEASE='20260818-HEROHEALTH-RESEARCH-FLOW-R19-STRICT-FIREBASE';
-const APP_RELEASE='20260818-PASSPORT-R25-STRICT-RESEARCH-FLOW';
+const RELEASE='20260818-HEROHEALTH-RESEARCH-FLOW-R20-STRICT-FIREBASE';
+const APP_RELEASE='20260818-PASSPORT-R27-STRICT-FIREBASE';
 const STATE_KEY='herohealth_learning_platform_rc2';
 const STUDY_ID='HEROHEALTH-P5-2026';
 const SANDBOX_STUDENT_IDS=new Set(Array.from({length:29},(_,i)=>String(990001+i)));
@@ -11,14 +11,14 @@ const ASSESSMENT_ROUTES={
  posttest:'./assessment/posttest-firebase.html?v=20260818-posttest-r5-strict-gate',
  postexperience:'./assessment/post-experience-firebase-r5.html?v=20260818-r5-atomic-strict-gate',
  reflection:'./assessment/reflection-firebase-r7.html?v=20260818-r7-atomic-strict-gate',
- followup:'./assessment/followup-firebase.html?v=20260814-hh-fu01-r2-receipt'
+ followup:'./assessment/followup-firebase.html?v=20260818-hh-fu01-r3-atomic-strict'
 };
 const COMMON_ROUTES={certificate:'./assessment/mission-summary-firebase-r10.html?v=20260818-r10-strict-firebase'};
 if(!window.HH||typeof window.HH.openRoute!=='function')return;
 const baseOpenRoute=window.__HH_ASSESSMENT_BASE_OPEN_ROUTE__||window.HH.openRoute.bind(window.HH);window.__HH_ASSESSMENT_BASE_OPEN_ROUTE__=baseOpenRoute;
 function state(){try{return JSON.parse(localStorage.getItem(STATE_KEY)||'{}')}catch(_){return{}}}
 function hash(str){let h=2166136261>>>0;for(const ch of String(str??'')){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
-function stableAttempt(prefix,sid){return `${prefix}-${sid}-${hash(`${RELEASE}|${STUDY_ID}|${prefix}|${sid}`).toString(36).toUpperCase()}`}
+function stableAttempt(prefix,sid){return `${prefix}-${sid}-${hash(`${STUDY_ID}|${prefix}|${sid}`).toString(36).toUpperCase()}`}
 function sessionId(sid){const key=`HH_ASSESSMENT_STUDY_SESSION_${STUDY_ID}_${sid}`;let value='';try{value=localStorage.getItem(key)||''}catch(_){}if(!value){value=`HH-STUDY-${hash(`${STUDY_ID}|${sid}`).toString(36).toUpperCase()}`;try{localStorage.setItem(key,value)}catch(_){}}return value}
 function smokeMode(url=location.href){const q=new URL(url,location.href).searchParams;return /^(1|true|yes)$/i.test(String(q.get('smoke')||q.get('smokeTest')||''))}
 function firebaseReady(s){return window.__HH_FIREBASE_AUTHORITY_READY__===true&&String(s?.firebaseAuthority?.mode||'').toLowerCase()==='firebase'&&String(s?.firebaseAuthority?.sourceOfTruth||'')==='Cloud Firestore'}
