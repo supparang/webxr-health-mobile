@@ -1,0 +1,51 @@
+name: Import English Week Supplemental Roster
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'english-week-passport/data/roster-2026-08-18-845.csv'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: english-week-supplemental-roster-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate Firebase service account secret
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ENGLISHWEEK_95869 }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "Missing repository secret: FIREBASE_SERVICE_ACCOUNT_ENGLISHWEEK_95869"
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
+
+      - name: Install dependencies
+        working-directory: english/functions
+        run: npm ci
+
+      - name: Validate importer syntax
+        run: node --check english/functions/import-supplemental-roster-20260818.js
+
+      - name: Import missing profiles only
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
+        run: node english/functions/import-supplemental-roster-20260818.js
