@@ -1,21 +1,22 @@
-/* HeroHealth Firebase Authority Interaction Lock R3
+/* HeroHealth Firebase Authority Interaction Lock R4
  * Fail-closed guard against stale localStorage progression before the current
  * Passport navigation has been reconciled with Cloud Firestore.
  *
  * Policy:
- * - In Firebase/dual mode, the Passport is non-actionable until a supported
- *   R76-R78 Firestore session hydration for the current learner is fresh for
- *   this navigation, or the login screen has explicitly taken control.
+ * - Current-navigation Firestore hydration always unlocks.
+ * - A same-student canonical snapshot verified moments ago may be reused only
+ *   for the explicit hydrated handoff created by Passport itself.
+ * - Receipt returns and forced refreshes NEVER use the handoff shortcut.
  * - Conflicting/missing URL identity never bypasses the lock.
- * - A recovery action is shown after a prolonged hydrate without ever treating
- *   local state as authoritative.
  */
 (()=>{
 'use strict';
-const RELEASE='20260818-FIREBASE-AUTHORITY-INTERACTION-LOCK-R3-R78-COMPAT';
+const RELEASE='20260818-FIREBASE-AUTHORITY-INTERACTION-LOCK-R4-TRUSTED-HANDOFF';
 const KEY='herohealth_learning_platform_rc2';
 const ACTIVE_KEY='herohealth_active_student_id';
+const HYDRATED_KEY='firebaseHydratedR76';
 const SUPPORTED_SESSION_RELEASE=/^20260818-FIREBASE-SESSION-R(?:76|77|78)(?:-|$)/;
+const FRESH_HANDOFF_TTL_MS=8000;
 const startedAt=Date.now();
 const q=new URLSearchParams(location.search);
 const authority=String(q.get('authority')||'firebase').toLowerCase();
@@ -35,6 +36,14 @@ function storedIdentity(){
  return unique.length===1?unique[0]:'';
 }
 function intendedSid(){const u=urlIdentity();return u.sid||(!u.conflict?storedIdentity():'');}
+function forcedNavigation(){
+ return q.get('firebaseReceipt')==='1'
+  || q.has('authorityRefresh')
+  || String(q.get('returnSessionPolicy')||'').startsWith('force-firebase-rehydrate');
+}
+function explicitHydratedHandoff(){
+ return q.get('firebaseReady')==='1'&&q.get(HYDRATED_KEY)==='1'&&!forcedNavigation();
+}
 
 let released=false,timer=0,recoveryShown=false;
 function overlayMessage(){
@@ -77,19 +86,27 @@ function release(reason){
  window.dispatchEvent(new CustomEvent('hh:firebase-authority-ready',{detail:{studentId:intendedSid(),reason,release:RELEASE}}));
  console.info('[HeroHealth Firebase Authority Lock] released',RELEASE,{sid:intendedSid(),reason});
 }
-function currentHydrationIsFresh(){
- const sid=intendedSid();if(!sid||urlIdentity().conflict)return false;
- const s=read(),fa=s?.firebaseAuthority||{},sessionRelease=String(fa.release||'');const hydratedAt=Date.parse(String(fa.hydratedAt||''));
- return String(s?.profile?.studentId||'')===sid
+function hydrationDecision(){
+ const sid=intendedSid();if(!sid||urlIdentity().conflict)return{ok:false,reason:'identity-not-ready'};
+ const s=read(),fa=s?.firebaseAuthority||{},sessionRelease=String(fa.release||'');
+ const hydratedAt=Date.parse(String(fa.hydratedAt||''));
+ const base=String(s?.profile?.studentId||'')===sid
   &&String(fa.studentId||'')===sid
   &&String(fa.sourceOfTruth||'')==='Cloud Firestore'
   &&SUPPORTED_SESSION_RELEASE.test(sessionRelease)
-  &&Number.isFinite(hydratedAt)
-  &&hydratedAt>=startedAt;
+  &&Number.isFinite(hydratedAt);
+ if(!base)return{ok:false,reason:'canonical-state-not-ready'};
+ if(hydratedAt>=startedAt)return{ok:true,reason:'current-navigation-firestore-hydrated'};
+ const age=Date.now()-hydratedAt;
+ if(explicitHydratedHandoff()&&age>=0&&age<=FRESH_HANDOFF_TTL_MS){
+  return{ok:true,reason:'trusted-fresh-firestore-handoff'};
+ }
+ return{ok:false,reason:'hydration-too-old'};
 }
 function check(){
  if(window.__HH_FIREBASE_LOGIN_REQUIRED__===true){release('login-required');return;}
- if(currentHydrationIsFresh()){release('current-navigation-firestore-hydrated');return;}
+ const decision=hydrationDecision();
+ if(decision.ok){release(decision.reason);return;}
  ensureOverlay();
 }
 
@@ -100,5 +117,5 @@ timer=setInterval(check,100);
 window.addEventListener('storage',e=>{if(e.key===KEY||e.key===ACTIVE_KEY)check()});
 window.addEventListener('hh:firebase-state-updated',check);
 setTimeout(showRecovery,12000);
-console.info('[HeroHealth Firebase Authority Lock] installed',RELEASE,{intendedSid:intendedSid(),identity:urlIdentity(),startedAt});
+console.info('[HeroHealth Firebase Authority Lock] installed',RELEASE,{intendedSid:intendedSid(),identity:urlIdentity(),startedAt,hydratedHandoff:explicitHydratedHandoff(),forcedNavigation:forcedNavigation()});
 })();
