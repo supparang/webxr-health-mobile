@@ -1,16 +1,17 @@
 (function () {
   "use strict";
 
-  const VERSION = "2026-08-12-SPARK-EVENT-DAY-LIGHT-R14-CACHE-SYNC";
+  const VERSION = "2026-08-18-SPARK-ULTRALIGHT-R15";
   const CLAIM_CACHE_KEY = "ew_eventday_claimed_player_v3";
   const RESUME_CACHE_KEY = "ew_eventday_resume_cache_v1";
   const RESUME_CACHE_TTL_MS = 15 * 60 * 1000;
   const PASS_MARKS = Object.freeze({word_match:55,category_forest:60,sentence_city:60,word_detective:60,final_boss:60});
+  const PASS_POLICY_VERSION = "2026-08-11-PASS-POLICY-R2-G1-55-OTHERS-60";
   const FLOW = ["pre_challenge","word_match","category_forest","sentence_city","word_detective","final_boss","post_challenge","certificate"];
 
   const direct = window.EW_AUTHORITY;
   if (!direct || !direct.directFirestoreVersion || typeof direct.resume !== "function" || typeof direct.submitGame !== "function") {
-    console.error("LEXICON X Event-Day Light R14: Direct Authority must load before bridge");
+    console.error("LEXICON X Event-Day Light R15: Direct Authority must load before bridge");
     return;
   }
 
@@ -83,7 +84,7 @@
     }catch(_){return false;}
   }
 
-  function clearResumeCache(){try{localStorage.removeItem(RESUME_CACHE_KEY);}catch(_){}}
+  function clearResumeCache(){try{localStorage.removeItem(RESUME_CACHE_KEY);}catch(_){}
 
   async function call(name,args){
     const fn=direct && direct[name];
@@ -123,7 +124,7 @@
         claimedAt:snap.exists ? (snap.data()?.claimedAt || nowIso()) : nowIso(),
         updatedAt:nowIso(),
         sourceVersion:VERSION,
-        sourceMode:"event-day-light-r14-cache-sync"
+        sourceMode:"event-day-ultralight-r15"
       },{merge:true});
     }
 
@@ -250,7 +251,7 @@
     patchResumeCache(playerId,{progress});
     runtime.lastSuccessAt=nowIso();runtime.lastError="";emit();
     return {
-      ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Light",
+      ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Ultra-Light",
       receiptId:`light-${stageId}-${Date.now()}`,stageId,accuracy,
       passMark:PASS_MARKS[stageId],passed:accuracy>=PASS_MARKS[stageId],
       progress,authority:{ok:true,mode:"firebase",progress},
@@ -275,7 +276,7 @@
 
   async function lightSubmitEvent(payload){
     runtime.lastSuccessAt=nowIso();
-    return {ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Light",skipped:true,persisted:false,eventDayLightMode:true,receiptId:`event-skipped-${Date.now()}`,eventName:clean(payload?.eventName||payload?.type),version:VERSION};
+    return {ok:true,mode:"firebase",sourceOfTruth:"Cloud Firestore Event-Day Ultra-Light",skipped:true,persisted:false,eventDayLightMode:true,receiptId:`event-skipped-${Date.now()}`,eventName:clean(payload?.eventName||payload?.type),version:VERSION};
   }
   async function lightSaveCheckpoint(payload){return {ok:true,mode:"firebase",skipped:true,persisted:false,checkpoint:{...(payload||{}),eventDayLightMode:true},version:VERSION};}
   async function lightGetCheckpoint(){return {ok:true,mode:"firebase",checkpoint:null,eventDayLightMode:true,version:VERSION};}
@@ -289,8 +290,8 @@
 
   const proxy=Object.freeze({
     ...direct,
-    modeName:"firestore-direct-event-day-light",
-    sourceOfTruth:"Cloud Firestore Event-Day Light",
+    modeName:"firestore-direct-event-day-ultralight",
+    sourceOfTruth:"Cloud Firestore Event-Day Ultra-Light",
     firebaseProjectId:direct.firebaseProjectId||"englishweek-95869",
     endpointReady,
     health:(...args)=>call("health",args),
@@ -308,6 +309,7 @@
     getRuntimeStatus,
     passMark:60,
     passMarks:PASS_MARKS,
+    passPolicyVersion:PASS_POLICY_VERSION,
     compatibilityBridgeVersion:VERSION,
     eventDayLightMode:true
   });
