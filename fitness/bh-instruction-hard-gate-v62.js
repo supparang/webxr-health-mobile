@@ -1,23 +1,24 @@
 (()=>{
 'use strict';
+if(window.HH_BALANCE_INSTRUCTION_HARD_GATE_V62?.active){
+  console.info('[BalanceHold] instruction hard gate already active');
+  return;
+}
 const BH=window.BH;
 if(!BH||!BH.state||typeof BH.evaluatePose!=='function')return;
 const s=BH.state,e=BH.el||{};
-const RELEASE='20260818-BALANCE-INSTRUCTION-HARD-GATE-V62';
+const RELEASE='20260818-BALANCE-INSTRUCTION-HARD-GATE-V62-R3-SINGLE-INSTALL';
 const baseEvaluate=BH.evaluatePose;
 let lastToken='';
 let postSpeechUntil=0;
-
-function speaking(){
-  try{return !!(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending));}catch(_){return false}
-}
+function speaking(){try{return !!(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending));}catch(_){return false}}
 function token(){return `${Number(s.index)||0}|${String(s.currentKey||'')}|${String(s.bossKey||'')}`}
 function hardLocked(){
   const t=token();
-  if(t!==lastToken){lastToken=t;postSpeechUntil=performance.now()+250;}
+  if(t!==lastToken){lastToken=t;postSpeechUntil=performance.now()+250}
   const coachLocked=s.grade5InstructionLocked===true;
   const voiceBusy=speaking();
-  if(voiceBusy)postSpeechUntil=performance.now()+300;
+  if(voiceBusy)postSpeechUntil=performance.now()+320;
   return coachLocked||voiceBusy||performance.now()<postSpeechUntil;
 }
 function resetAccumulation(){
@@ -29,17 +30,17 @@ function resetAccumulation(){
   if(e.coachBadge)e.coachBadge.textContent='ฟัง';
 }
 BH.evaluatePose=(...args)=>{
-  const r=baseEvaluate(...args)||{};
   if(hardLocked()){
     resetAccumulation();
-    r.valid=false;
-    r.instructionLocked=true;
+    const r=baseEvaluate(...args)||{};
+    r.valid=false;r.instructionLocked=true;
     r.feedback='🔊 ฟังคำสั่งให้จบก่อน • จากนั้นระบบจะเริ่มตรวจท่า';
+    return r;
   }
-  return r;
+  return baseEvaluate(...args)||{};
 };
-const guard=setInterval(()=>{if(hardLocked())resetAccumulation();},80);
+const guard=setInterval(()=>{if(hardLocked())resetAccumulation()},80);
 addEventListener('pagehide',()=>clearInterval(guard),{once:true});
-window.HH_BALANCE_INSTRUCTION_HARD_GATE_V62={release:RELEASE,active:true};
+window.HH_BALANCE_INSTRUCTION_HARD_GATE_V62={release:RELEASE,active:true,singleInstall:true};
 console.info('[BalanceHold] instruction hard gate ready',window.HH_BALANCE_INSTRUCTION_HARD_GATE_V62);
 })();
