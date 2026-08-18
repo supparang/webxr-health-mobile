@@ -39,7 +39,7 @@
       measurementId: "G-3DCCL4D34V"
     });
     window.EW_FIREBASE_CONFIG_BOOT = Object.freeze({
-      version: "2026-08-18-EXTREME-FAILSAFE-R16",
+      version: "2026-08-18-EVENT-DAY-PRODUCTION-LOCK-R17",
       projectId: window.EW_FIREBASE_WEB_CONFIG.projectId,
       ready: true
     });
@@ -57,12 +57,13 @@
   <script src="./passport-student-auth-isolation-v1.js?v=20260818-student-auth-r1"></script>
   <script src="./passport-assessment-ownership-repair-v1.js?v=20260818-assessment-owner-r1"></script>
   <script src="./passport-session-assignment-v1.js?v=20260810-attendance-checkin-v2"></script>
-  <!-- Event-Day Extreme: local durable queue protects journey from quota/network failures. -->
+  <!-- Event-Day Production Lock: Extreme fail-safe + idempotency + queue integrity + local telemetry. -->
   <script src="./passport-firestore-timeout-guard-v1.js?v=20260818-submit-safe4"></script>
   <script src="./passport-rotation-v2.js?v=20260803-rotation2"></script>
   <script src="./passport-quota-ultralight-v1.js?v=20260818-ultralight-r2"></script>
   <script src="./passport-game-submit-ultralight-restore-v1.js?v=20260818-ultralight-r1"></script>
   <script src="./passport-durable-queue-v1.js?v=20260818-durable-r2"></script>
+  <script src="./event-day-final-hardening-v1.js?v=20260818-final-hardening-r1"></script>
   <script src="./passport-submit-safety-v1.js?v=20260818-quota-safe-r3"></script>
   <script src="./app-core-loader-v2.js?v=20260807-inline-config1"></script>
   <script src="./firebase-authority-ui-patch.js?v=20260818-preserve-submit-error-r1"></script>
