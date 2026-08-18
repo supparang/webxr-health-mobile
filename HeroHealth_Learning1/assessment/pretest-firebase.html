@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f766e">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>HeroHealth Firebase Pre-test</title>
 <style>
 :root{font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;color:#12302c;background:#f3fbf9}*{box-sizing:border-box}body{margin:0}.wrap{width:min(860px,100%);margin:auto;padding:18px}.head,.card{background:#fff;border:1px solid #d6e9e4;border-radius:22px;box-shadow:0 12px 30px rgba(15,118,110,.1)}.head{padding:22px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff}.head p{margin:6px 0 0;color:#d9fffa}.card{padding:18px;margin-top:14px}.q{font-size:18px;font-weight:900;margin-bottom:12px}.opts{display:grid;gap:9px}.opt{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid #cfe3df;border-radius:14px;cursor:pointer}.opt:has(input:checked){border-color:#0f766e;background:#e8f8f4}.btn{width:100%;min-height:50px;border:0;border-radius:15px;padding:14px;font:inherit;font-weight:900;background:#0f766e;color:#fff;cursor:pointer}.btn:disabled{opacity:.65}.muted{color:#5f7470}.progress{height:10px;background:#dcebe8;border-radius:99px;overflow:hidden}.progress i{display:block;height:100%;background:#14b8a6}.hidden{display:none}.done{padding:30px 24px;text-align:center}.done-icon{width:68px;height:68px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;background:#dff8ef;color:#087b62;font-size:36px;font-weight:900}.done h2{margin:0 0 8px;font-size:26px}.score{font-size:20px;font-weight:900;margin:14px 0}.sync{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border-radius:999px;background:#e8f8f4;color:#087b62;font-weight:800}.sync.queue{background:#fff5db;color:#9a6700}.countdown{font-size:14px;color:#5f7470;margin:16px 0 0}.error{color:#b91c1c;font-weight:900}@media(max-width:600px){.wrap{padding:12px}.head{padding:18px}.done{padding:26px 18px}.q{font-size:17px}.opt{min-height:48px}}
@@ -18,13 +19,14 @@
 <script src="assessment-bank-v3.js?v=20260814-hsas-p5-v5-core15-r14"></script>
 <script src="assessment-research-metadata-v1.js?v=20260814-expert-validated-v2"></script>
 <script src="assessment-engine-v6.js?v=20260814-hsas-p5-v7"></script>
-<script type="module" src="../firebase/assessment-firebase-bridge.js?v=20260818-firebase-assessment-r4-atomic-retry"></script>
+<script type="module" src="../firebase/assessment-firebase-bridge.js?v=20260818-firebase-assessment-r5-atomic-strict-gate"></script>
 <script>
 (()=>{'use strict';
-const RELEASE='20260814-HSAS-P5-PRETEST-V7-CORE15-R14';
+const RELEASE='20260818-HSAS-P5-PRETEST-V8-FIREBASE-R5';
 const MODE='pre',KEY='herohealth_learning_platform_rc2',q=new URLSearchParams(location.search),ENGINE=window.HHAssessmentEngineV6;
 let state={};try{state=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){}
-const sid=String(q.get('studentId')||q.get('sid')||state.profile?.studentId||'').trim();
+const ids=[...new Set(['studentId','sid','pid'].map(k=>String(q.get(k)||'').trim()).filter(Boolean))];
+const sid=ids.length===1?ids[0]:(!ids.length?String(state.profile?.studentId||'').trim():'');
 const fullName=q.get('fullName')||state.profile?.fullName||'';
 const section=q.get('section')||state.profile?.section||'';
 const group=q.get('group')||state.profile?.group||'';
@@ -34,7 +36,7 @@ const BANK=window.HHResearchAssessmentMetadataV1?.enrichBank(RAW_BANK)||RAW_BANK
 const studyId=q.get('studyId')||'HEROHEALTH-P5-2026';
 const attemptId=q.get('attemptId')||ENGINE?.stableAttemptId(MODE,sid,studyId)||`PRE-${sid}`;
 const $=id=>document.getElementById(id);
-if(!sid){$('who').innerHTML='<span class="error">ไม่พบรหัสนักเรียน กรุณาเปิด Pre-test จาก Hero Passport</span>';return}
+if(!sid||ids.length>1){$('who').innerHTML='<span class="error">รหัสนักเรียนไม่ถูกต้อง กรุณาเปิด Pre-test จาก Hero Passport</span>';return}
 if(BANK.length!==45||!ENGINE){$('who').textContent='ไม่สามารถโหลดระบบข้อสอบได้';return}
 const assignment=ENGINE.assignPairs(BANK,{studentId:sid,studyId});
 const built=ENGINE.buildItems(assignment.pairs,{mode:MODE,studentId:sid,studyId});
@@ -42,30 +44,30 @@ const items=built.items;
 if(items.length!==15){$('who').innerHTML='<span class="error">สร้างข้อสอบไม่ครบ 15 ข้อ กรุณากลับ Passport แล้วลองใหม่</span>';return}
 const formCode='PRE-FB-'+String(assignment.selectionSeed%200+1).padStart(3,'0');
 $('formLabel').textContent=`HSAS-P5 • ${formCode} • CORE15 5-5-5`;
-$('who').textContent=`${fullName||'รหัส '+sid} • 15 ข้อ • บันทึกและยืนยันด้วย Firebase`;
+$('who').textContent=`${fullName||'รหัส '+sid} • 15 ข้อ • Firebase Receipt Required`;
 const openedAt=performance.now(),firstSeen=items.map(()=>openedAt),lastChange=items.map(()=>0),changeCount=items.map(()=>0),form=$('form');
-form.innerHTML=items.map((it,i)=>`<section class="card"><div class="q">${i+1}. ${it.text}</div><div class="opts">${it.displayOptions.map((o,j)=>`<label class="opt"><input type="radio" name="q${i}" value="${j}" required><span>${String.fromCharCode(65+j)}. ${o.text}</span></label>`).join('')}</div></section>`).join('')+`<section class="card"><button class="btn" id="submitBtn">ส่งคำตอบ Pre-test ไป Firebase</button><p class="muted">ระบบจะกลับ Passport ต่อเมื่อ Firestore ยืนยัน receipt แล้วเท่านั้น</p></section>`;
+form.innerHTML=items.map((it,i)=>`<section class="card"><div class="q">${i+1}. ${it.text}</div><div class="opts">${it.displayOptions.map((o,j)=>`<label class="opt"><input type="radio" name="q${i}" value="${j}" required><span>${String.fromCharCode(65+j)}. ${o.text}</span></label>`).join('')}</div></section>`).join('')+`<section class="card"><button class="btn" id="submitBtn">ส่งคำตอบ Pre-test ไป Firebase</button><p class="muted">ระบบจะกลับ Passport ต่อเมื่อ Firestore ยืนยัน Receipt แล้วเท่านั้น</p></section>`;
 form.onchange=e=>{const m=String(e.target?.name||'').match(/^q(\d+)$/);if(m){const i=Number(m[1]);lastChange[i]=performance.now();changeCount[i]++}$('bar').style.width=`${form.querySelectorAll('input:checked').length/items.length*100}%`};
 form.onsubmit=async e=>{
  e.preventDefault();const btn=$('submitBtn');btn.disabled=true;btn.textContent='กำลังบันทึกและยืนยันกับ Firebase...';
  const submittedPerf=performance.now(),fd=new FormData(form);let score=0;
  const responses=items.map((it,i)=>{const displayIndex=Number(fd.get(`q${i}`)),selectedOriginalIndex=it.displayOptions[displayIndex]?.index??null,correct=displayIndex===it.correctDisplayIndex;if(correct)score++;return{questionId:it.id,pairId:it.pairId,domain:it.domain,indicator:it.indicator,difficulty:it.difficulty,bloom:it.bloom,construct:it.research?.construct||null,hlProcess:it.research?.hlProcess||null,validationStatus:it.research?.validationStatus||null,selectedDisplayIndex:displayIndex,selectedOptionIndex:selectedOriginalIndex,optionOrder:it.displayOptions.map(o=>o.index),correctPosition:it.correctPosition,correct,responseTimeMs:Math.round((lastChange[i]||submittedPerf)-firstSeen[i]),answerChangeCount:changeCount[i]}});
- const payload={assessmentVersion:'7.1-core15-production',engineVersion:ENGINE.VERSION,bankVersion:'HSAS-P5-CORE15-V5',researchMetadataVersion:window.HHResearchAssessmentMetadataV1?.VERSION||null,release:RELEASE,studyId,studentId:sid,studentName:fullName,section,groupCode:group,attemptId,preAttemptId:attemptId,mode:MODE,score,total:items.length,responses,submittedAt:new Date().toISOString(),form:formCode,selectionSeed:assignment.selectionSeed,orderSeed:built.orderSeed,questionOrder:built.questionOrder,optionOrders:built.optionOrders,correctPositionDistribution:built.correctPositionDistribution,assignmentMethod:assignment.assignmentMethod,assignmentSource:'canonical-core15-v5',assignmentFingerprint:assignment.assignmentFingerprint,blueprint:{domains:{hygiene:5,nutrition:5,fitness:5},difficulty:{easy:6,medium:6,hard:3},hlProcess:{understand:6,apply:6,appraise:3}},bankSize:90,pairIds:assignment.pairIds,totalTimeMs:Math.round(submittedPerf-openedAt),researchMetadata:{individualAssignment:true,studentStableAssignment:true,groupExcludedFromSeed:true,parallelPairRegistry:true,answerPositionBalanced:true,itemExposureBalanced:true,refreshStable:true,firebaseAuthority:true,childFacingMetadataHidden:true,expertValidatedProduction:true,pendingPilotItemAnalysis:true,nestedArrayEncoding:'nested-array-as-map-values-v1'}};
+ const payload={assessmentVersion:'8.0-core15-production',engineVersion:ENGINE.VERSION,bankVersion:'HSAS-P5-CORE15-V5',researchMetadataVersion:window.HHResearchAssessmentMetadataV1?.VERSION||null,release:RELEASE,studyId,studentId:sid,studentName:fullName,section,groupCode:group,attemptId,preAttemptId:attemptId,mode:MODE,score,total:items.length,responses,submittedAt:new Date().toISOString(),form:formCode,selectionSeed:assignment.selectionSeed,orderSeed:built.orderSeed,questionOrder:built.questionOrder,optionOrders:built.optionOrders,correctPositionDistribution:built.correctPositionDistribution,assignmentMethod:assignment.assignmentMethod,assignmentSource:'canonical-core15-v5',assignmentFingerprint:assignment.assignmentFingerprint,blueprint:{domains:{hygiene:5,nutrition:5,fitness:5},difficulty:{easy:6,medium:6,hard:3},hlProcess:{understand:6,apply:6,appraise:3}},bankSize:90,pairIds:assignment.pairIds,totalTimeMs:Math.round(submittedPerf-openedAt),researchMetadata:{individualAssignment:true,studentStableAssignment:true,groupExcludedFromSeed:true,parallelPairRegistry:true,answerPositionBalanced:true,itemExposureBalanced:true,refreshStable:true,firebaseAuthority:true,childFacingMetadataHidden:true,expertValidatedProduction:true,pendingPilotItemAnalysis:true,nestedArrayEncoding:'nested-array-as-map-values-v1',strictProgressionGate:true}};
  try{localStorage.setItem(`HH_PRETEST_LAST_${sid}`,JSON.stringify(payload));localStorage.setItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`,attemptId)}catch(_){}
  form.classList.add('hidden');document.querySelector('.head h1').textContent='Pre-test สำเร็จ';$('bar').style.width='100%';const r=$('result');r.classList.remove('hidden');r.classList.add('done');
- r.innerHTML=`<div class="done-icon">✓</div><h2>ทำ Pre-test เรียบร้อยแล้ว</h2><div class="score">คะแนน ${score}/15</div><div class="sync queue">↻ กำลังบันทึกคำตอบลง Firebase</div><p class="countdown">กรุณารอ ระบบกำลังตรวจ receipt</p>`;
+ r.innerHTML=`<div class="done-icon">✓</div><h2>ทำ Pre-test เรียบร้อยแล้ว</h2><div class="score">คะแนน ${score}/15</div><div class="sync queue">↻ กำลังบันทึกคำตอบลง Firebase</div><p class="countdown">กรุณารอ ระบบกำลังตรวจ Receipt</p>`;
  try{
    let wait=0;while(!window.HHAssessmentFirebase&&wait<50){await new Promise(x=>setTimeout(x,100));wait++}
    if(!window.HHAssessmentFirebase)throw new Error('firebase-assessment-bridge-not-ready');
    const receipt=await window.HHAssessmentFirebase.saveAssessment(payload);
    const local=JSON.parse(localStorage.getItem(KEY)||'{}');local.pretestCompleted=true;local.completed={...(local.completed||{}),pretest:true};local.assessmentScores={...(local.assessmentScores||{}),pretest:score};local.firebaseAssessment={mode:'pretest',attemptId,receipt:receipt.receipt,confirmedAt:new Date().toISOString(),release:window.HHAssessmentFirebase.release};localStorage.setItem(KEY,JSON.stringify(local));
-   const u=new URL(back,location.href);u.searchParams.set('authority','firebase');u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.set('firebaseReady','1');u.searchParams.set('firebaseAssessmentReceipt','1');u.searchParams.set('hhReturn','assessment');u.searchParams.set('task','pretest');u.searchParams.set('score',String(score));u.searchParams.set('attemptId',attemptId);u.searchParams.set('assessmentRelease',RELEASE);u.searchParams.set('authorityRefresh',String(Date.now()));
-   r.innerHTML=`<div class="done-icon">✓</div><h2>บันทึก Pre-test สำเร็จ</h2><div class="score">คะแนน ${score}/15</div><div class="sync">✓ Firebase ยืนยัน receipt แล้ว</div><p class="countdown">กำลังกลับ Hero Passport...</p>`;
+   const u=new URL(back,location.href);u.searchParams.set('authority','firebase');u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.delete('pid');u.searchParams.set('firebaseReady','1');u.searchParams.set('firebaseAssessmentReceipt','1');u.searchParams.set('hhReturn','assessment');u.searchParams.set('task','pretest');u.searchParams.set('score',String(score));u.searchParams.set('attemptId',attemptId);u.searchParams.set('assessmentRelease',RELEASE);u.searchParams.set('authorityRefresh',String(Date.now()));
+   r.innerHTML=`<div class="done-icon">✓</div><h2>บันทึก Pre-test สำเร็จ</h2><div class="score">คะแนน ${score}/15</div><div class="sync">✓ Firebase ยืนยัน Receipt แล้ว</div><p class="countdown">กำลังกลับ Hero Passport...</p>`;
    setTimeout(()=>location.replace(u.href),900);
- }catch(err){console.error('[Firebase Pre-test]',err);r.innerHTML=`<div class="done-icon">!</div><h2>ยังบันทึก Firebase ไม่สำเร็จ</h2><div class="score">คะแนน ${score}/15</div><div class="sync queue">ไม่พบ receipt ยืนยัน</div><p class="countdown error">${String(err?.message||err)}</p><button id="retry" class="btn">ลองบันทึกอีกครั้ง</button>`;$('retry').onclick=()=>location.reload()}
+ }catch(err){console.error('[Firebase Pre-test V8]',err);r.innerHTML=`<div class="done-icon">!</div><h2>ยังบันทึก Firebase ไม่สำเร็จ</h2><div class="score">คะแนน ${score}/15</div><div class="sync queue">ไม่พบ Receipt ยืนยัน</div><p class="countdown error">${String(err?.message||err)}</p><button id="retry" class="btn">ลองบันทึกอีกครั้ง</button>`;$('retry').onclick=()=>location.reload()}
  scrollTo({top:0,behavior:'smooth'});
 };
-console.info('[HeroHealth Firebase Pre-test] ready',RELEASE,ENGINE?.VERSION,window.HHResearchAssessmentMetadataV1?.VERSION);
+console.info('[HeroHealth Firebase Pre-test V8] ready',RELEASE,ENGINE?.VERSION);
 })();
 </script>
 </body>
