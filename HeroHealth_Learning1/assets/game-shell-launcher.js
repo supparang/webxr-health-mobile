@@ -2,7 +2,7 @@
 'use strict';
 const original=window.HH?.openNextGame;
 const R=window.HHRotation;
-const RELEASE='20260818-GAME-LAUNCHER-R48-STRICT-SHELL-R55';
+const RELEASE='20260818-GAME-LAUNCHER-R49-CANONICAL-READY';
 if(!window.HH||!R)return;
 
 function detectDevice(){
@@ -26,14 +26,29 @@ function analyticsTarget(gameId,configured){
  return configured;
 }
 function authorityMode(){return String(new URLSearchParams(location.search).get('authority')||'sheet').toLowerCase()}
+function firebaseReady(s){
+ const profileSid=String(s?.profile?.studentId||'').trim();
+ const authoritySid=String(s?.firebaseAuthority?.studentId||'').trim();
+ const release=String(s?.firebaseAuthority?.release||'');
+ const hydratedAt=Date.parse(String(s?.firebaseAuthority?.hydratedAt||''));
+ const session=String(document.documentElement?.dataset?.hhFirebaseSession||'');
+ return Boolean(
+  window.__HH_FIREBASE_LOGIN_REQUIRED__!==true&&
+  session==='authenticated'&&
+  profileSid&&profileSid===authoritySid&&
+  String(s?.firebaseAuthority?.mode||'').toLowerCase()==='firebase'&&
+  String(s?.firebaseAuthority?.sourceOfTruth||'')==='Cloud Firestore'&&
+  /^20260818-FIREBASE-SESSION-R78(?:-|$)/.test(release)&&
+  Number.isFinite(hydratedAt)
+ );
+}
 
 window.HH.openNextGame=function(zoneId){
  const authority=authorityMode();
- if(authority==='firebase'&&window.__HH_FIREBASE_AUTHORITY_READY__!==true){alert('กำลังตรวจความคืบหน้าจาก Firebase กรุณารอสักครู่');return}
  const C=window.HH_CONFIG||{};let s;
  try{s=JSON.parse(localStorage.getItem('herohealth_learning_platform_rc2')||'{}')}catch(_){s=null}
  if(!s?.profile)return original?original(zoneId):undefined;
- if(authority==='firebase'&&String(s?.firebaseAuthority?.sourceOfTruth||'')!=='Cloud Firestore'){alert('ยังไม่ได้ยืนยันข้อมูลจาก Firebase กรุณากลับเข้าสู่ระบบใหม่');return}
+ if(authority==='firebase'&&!firebaseReady(s)){alert('Firebase ยังยืนยันผู้เล่นไม่เสร็จ กรุณารอสักครู่แล้วกดอีกครั้ง');return}
  const expected=R.expectedGame(s);
  if(!expected){alert('เกมในภารกิจครบแล้ว');return}
  if(zoneId!==expected.zoneId){alert('ภารกิจถัดไปคือ '+expected.label);return}
@@ -58,7 +73,7 @@ window.HH.openNextGame=function(zoneId){
  [...common,['target',target.href],['title',expected.label],['return',location.href]].forEach(([k,v])=>{if(v!=='')shell.searchParams.set(k,v)});
  location.assign(shell.href);
 };
-window.HH.openNextGame.__hhBaseLauncherR48=true;window.HH.openNextGame.__hhLauncherRelease=RELEASE;
+window.HH.openNextGame.__hhBaseLauncherR49=true;window.HH.openNextGame.__hhLauncherRelease=RELEASE;
 
 function findActionButton(event){const direct=event.target?.closest?.('button');if(direct)return direct;if(typeof event.clientX!=='number'||typeof event.clientY!=='number')return null;const stack=document.elementsFromPoint(event.clientX,event.clientY)||[];return stack.map(el=>el?.closest?.('button')).find(Boolean)||null}
 function parseZone(button){const onclick=String(button?.getAttribute?.('onclick')||''),match=onclick.match(/openNextGame\(['\"]([^'\"]+)['\"]\)/);if(match)return match[1];let s;try{s=JSON.parse(localStorage.getItem('herohealth_learning_platform_rc2')||'{}')}catch(_){s={}}return R.expectedGame(s)?.zoneId||null}
@@ -66,5 +81,5 @@ function rescueAction(event){
  if(authorityMode()!=='firebase')return;const button=findActionButton(event);if(!button||button.disabled)return;const text=String(button.textContent||'').replace(/\s+/g,' ').trim(),onclick=String(button.getAttribute('onclick')||'');if(!(text.includes('เริ่มเกมถัดไป')||text.includes('เริ่มฐาน')||onclick.includes('openNextGame')))return;const zoneId=parseZone(button);if(!zoneId)return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();button.disabled=true;button.textContent='กำลังเปิดเกม…';window.HH.openNextGame(zoneId);
 }
 document.addEventListener('pointerup',rescueAction,true);document.addEventListener('click',rescueAction,true);
-console.info('[HeroHealth Firebase] strict receipt shell launcher installed',RELEASE,{smoke:smokeMode(),device:detectDevice(),view:detectView()});
+console.info('[HeroHealth Firebase] canonical readiness launcher installed',RELEASE,{smoke:smokeMode(),device:detectDevice(),view:detectView()});
 })();
