@@ -98,8 +98,9 @@ async function saveAssessment(payload = {}, options = {}) {
       assessmentType,
       completed: true,
       firebaseReceiptToken: receipt,
-      firebaseSavedByUid: existingAssessment?.firebaseSavedByUid || currentUser.uid,
-      firebaseClientSavedAt: existingAssessment?.firebaseClientSavedAt || new Date().toISOString(),
+      firebaseSavedByUid: currentUser.uid,
+      firebasePreviousWriterUid: existingAssessment?.firebaseSavedByUid || null,
+      firebaseClientSavedAt: new Date().toISOString(),
       firebaseSavedAt: serverTimestamp(),
       firebaseBuild: HEROHEALTH_FIREBASE_BUILD,
       release: RELEASE,
@@ -140,6 +141,7 @@ async function saveAssessment(payload = {}, options = {}) {
   const confirmed = Boolean(receipt) &&
     assessment?.completed === true &&
     assessment?.firebaseReceiptToken === receipt &&
+    assessment?.firebaseSavedByUid === currentUser.uid &&
     progress?.assessments?.[assessmentType]?.firebaseReceiptToken === receipt &&
     progress?.[mode === "pre" ? "pretestCompleted" : "posttestCompleted"] === true;
   if (!confirmed) throw new Error("firebase-assessment-receipt-mismatch");
