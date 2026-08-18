@@ -1,6 +1,7 @@
-import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260818-research-flow-r2-strict';
+import { HHFirebaseClient } from './herohealth-firebase-client.js?cv=20260818-r78-canonical-reuse';
 const KEY='herohealth_learning_platform_rc2';
-const RELEASE='20260818-RESEARCH-FLOW-HYDRATION-R2-STRICT';
+const RELEASE='20260818-RESEARCH-FLOW-HYDRATION-R3-CANONICAL-REUSE';
+const FRESH_TTL_MS=10000;
 const q=new URLSearchParams(location.search);
 const mode=String(q.get('authority')||'firebase').toLowerCase();
 const CORE=[
@@ -20,8 +21,24 @@ if(['firebase','dual'].includes(mode)){
  const unique=[...new Set(sidValues)];
  const localSid=()=>{const s=read();const v=[s?.profile?.studentId,s?.firebaseAuthority?.studentId].map(x=>String(x||'').trim()).filter(Boolean),u=[...new Set(v)];return u.length===1?u[0]:''};
  const sid=unique.length===1?unique[0]:(unique.length===0?localSid():'');
+ function freshCanonical(){
+  const s=read();
+  if(String(s?.profile?.studentId||'')!==sid||String(s?.firebaseAuthority?.studentId||'')!==sid)return null;
+  if(String(s?.firebaseAuthority?.sourceOfTruth||'')!=='Cloud Firestore')return null;
+  if(String(s?.firebaseResearchFlow?.sourceOfTruth||'')!=='Cloud Firestore')return null;
+  const at=Date.parse(String(s?.firebaseAuthority?.hydratedAt||''));
+  if(!Number.isFinite(at))return null;
+  const age=Date.now()-at;
+  return age>=0&&age<=FRESH_TTL_MS?s:null;
+ }
+ function announceReuse(s){
+  window.dispatchEvent(new CustomEvent('hh:firebase-state-updated',{detail:{reason:'research-flow-canonical-reuse-r3',release:RELEASE}}));
+  console.info('[HeroHealth Research Flow Hydration R3] reused Passport Firestore snapshot',{sid,ageMs:Date.now()-Date.parse(String(s?.firebaseAuthority?.hydratedAt||'')),research:s?.firebaseResearchFlow});
+ }
  async function hydrate(){
   if(!sid)return;
+  const fresh=freshCanonical();
+  if(fresh){announceReuse(fresh);return;}
   try{
    const loaded=await HHFirebaseClient.loadProgress(sid);if(!loaded?.ok)return;
    const p=loaded.exists&&loaded.progress?loaded.progress:{};
@@ -36,9 +53,9 @@ if(['firebase','dual'].includes(mode)){
    if(p.postExperience)s.postExperience={...(s.postExperience||{}),...p.postExperience};
    if(p.reflection)s.reflection={...(s.reflection||{}),...p.reflection};
    s.firebaseResearchFlow={release:RELEASE,sourceOfTruth:'Cloud Firestore',hydratedAt:new Date().toISOString(),pretest:preDone(p),sixGames:allGames(p),posttest:postDone(p),postExperience,reflection,researchImmediate};
-   write(s);window.dispatchEvent(new CustomEvent('hh:firebase-state-updated',{detail:{reason:'research-flow-hydration-r2',release:RELEASE}}));
-   console.info('[HeroHealth Research Flow Hydration R2]',{sid,...s.firebaseResearchFlow});
-  }catch(error){console.warn('[HeroHealth Research Flow Hydration R2] skipped',error)}
+   write(s);window.dispatchEvent(new CustomEvent('hh:firebase-state-updated',{detail:{reason:'research-flow-hydration-r3-fallback',release:RELEASE}}));
+   console.info('[HeroHealth Research Flow Hydration R3] fallback Firestore read',{sid,...s.firebaseResearchFlow});
+  }catch(error){console.warn('[HeroHealth Research Flow Hydration R3] skipped',error)}
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(hydrate,700),{once:true});else setTimeout(hydrate,700);
 }
