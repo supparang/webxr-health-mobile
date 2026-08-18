@@ -31,135 +31,32 @@
     </div>
   </div>
 </header>
-<div class="frameWrap"><iframe id="dashboard" class="frame" src="./firebase-live-classroom-200-r3.html?v=20260818-r6-excel-r8-force" title="HeroHealth Live Classroom 200 R3"></iframe></div>
+<div class="frameWrap"><iframe id="dashboard" class="frame" src="./firebase-live-classroom-200-r3.html?v=20260818-r6-excel-rawchunk-r2" title="HeroHealth Live Classroom 200 R3"></iframe></div>
 <script>
 (()=>{
 'use strict';
-const RELEASE='20260818-LIVE-CLASSROOM-200-R6-EXCEL-R8-FORCE';
+const RELEASE='20260818-LIVE-CLASSROOM-200-R6-EXCEL-RAWCHUNK-R2';
 const OPS_REFRESH_MS=180000;
 const frame=document.getElementById('dashboard');
 const qs=[...document.querySelectorAll('.q')];
 let activeState='',observer=null,filterQueued=false,opsRefreshTimer=null;
 const LABEL={help:'ต้องช่วย',playing:'กำลังเล่น',waiting:'รอเริ่ม',complete:'จบแล้ว'};
-function rowState(row){
-  const txt=String(row?.cells?.[0]?.textContent||'').trim();
-  if(txt.includes('ต้องช่วย'))return'help';
-  if(txt.includes('กำลังเล่น'))return'playing';
-  if(txt.includes('รอเริ่ม'))return'waiting';
-  if(txt.includes('จบแล้ว'))return'complete';
-  return'';
-}
-function applyListFilter(){
-  filterQueued=false;
-  try{
-    const d=frame.contentDocument;if(!d)return;
-    const tbody=d.getElementById('rows');if(!tbody)return;
-    const rows=[...tbody.querySelectorAll('tr')];
-    let shown=0;
-    rows.forEach(row=>{
-      const visible=!activeState||rowState(row)===activeState;
-      row.style.display=visible?'':'none';
-      if(visible)shown++;
-    });
-    const meta=d.getElementById('tableMeta');
-    if(meta){
-      const label=activeState?LABEL[activeState]:'ทั้งหมด';
-      meta.textContent=`กำลังแสดง: ${label} ${shown} / ทั้งหมด ${rows.length} คน • ภาพรวมด้านบนยังคงทั้งห้อง`;
-      meta.style.fontWeight='800';
-      meta.style.color='#0f766e';
-    }
-  }catch(e){console.warn('[HH R6] list filter unavailable',e)}
-}
+function rowState(row){const txt=String(row?.cells?.[0]?.textContent||'').trim();if(txt.includes('ต้องช่วย'))return'help';if(txt.includes('กำลังเล่น'))return'playing';if(txt.includes('รอเริ่ม'))return'waiting';if(txt.includes('จบแล้ว'))return'complete';return''}
+function applyListFilter(){filterQueued=false;try{const d=frame.contentDocument;if(!d)return;const tbody=d.getElementById('rows');if(!tbody)return;const rows=[...tbody.querySelectorAll('tr')];let shown=0;rows.forEach(row=>{const visible=!activeState||rowState(row)===activeState;row.style.display=visible?'':'none';if(visible)shown++});const meta=d.getElementById('tableMeta');if(meta){const label=activeState?LABEL[activeState]:'ทั้งหมด';meta.textContent=`กำลังแสดง: ${label} ${shown} / ทั้งหมด ${rows.length} คน • ภาพรวมด้านบนยังคงทั้งห้อง`;meta.style.fontWeight='800';meta.style.color='#0f766e'}}catch(e){console.warn('[HH R6] list filter unavailable',e)}}
 function queueFilter(){if(filterQueued)return;filterQueued=true;requestAnimationFrame(applyListFilter)}
-function applyQuick(state){
-  activeState=state||'';
-  qs.forEach(b=>b.classList.toggle('active',b.dataset.state===activeState));
-  queueFilter();
-}
-function installThrottledRefresh(d){
-  try{
-    const innerAuto=d.getElementById('auto');
-    if(innerAuto&&!innerAuto.dataset.hhR6Throttled){
-      if(String(innerAuto.textContent||'').includes('ON'))innerAuto.click();
-      innerAuto.dataset.hhR6Throttled='1';
-      innerAuto.textContent='Auto 180s: ON (R6)';
-      innerAuto.disabled=true;
-      innerAuto.title='R6 ลด Firebase reads: รีเฟรชอัตโนมัติทุก 3 นาที; กด “รีเฟรชตอนนี้” ได้ทุกเวลา';
-    }
-    if(!opsRefreshTimer){
-      opsRefreshTimer=setInterval(()=>{
-        try{
-          const rd=frame.contentDocument;
-          const refresh=rd?.getElementById('refresh');
-          if(refresh&&!refresh.disabled)refresh.click();
-        }catch(e){console.warn('[HH R6] throttled refresh unavailable',e)}
-      },OPS_REFRESH_MS);
-    }
-  }catch(e){console.warn('[HH R6] throttle install unavailable',e)}
-}
-function polishInner(){
-  try{
-    const d=frame.contentDocument;if(!d)return;
-    const sel=d.getElementById('opsFilter');
-    if(sel){
-      sel.value='';
-      sel.style.display='none';
-      sel.setAttribute('aria-hidden','true');
-    }
-    const toolbar=sel?.closest('.toolbar');
-    if(toolbar)toolbar.style.gridTemplateColumns='1fr 1fr 1.3fr auto auto auto';
-    if(!d.getElementById('hh-r6-inner-polish')){
-      const style=d.createElement('style');
-      style.id='hh-r6-inner-polish';
-      style.textContent='@media(max-width:700px){.toolbar{grid-template-columns:1fr 1fr!important}.toolbar #search{grid-column:1/-1}.toolbar #opsFilter{display:none!important}.toolbar #excelExport{grid-column:1/-1!important;background:#dcfce7!important;color:#166534!important;border:1px solid #86efac!important}}';
-      d.head.appendChild(style);
-    }
-    if(!d.getElementById('hh-r6-cert-evidence-script')){
-      const script=d.createElement('script');
-      script.id='hh-r6-cert-evidence-script';
-      script.type='module';
-      script.src='./firebase-live-classroom-certificate-evidence-r7.js?v=20260818-r7-excel-r8-force';
-      d.head.appendChild(script);
-    }
-    if(!d.getElementById('hh-r6-excel-export-script')){
-      const excelScript=d.createElement('script');
-      excelScript.id='hh-r6-excel-export-script';
-      excelScript.type='module';
-      excelScript.src='./firebase-live-classroom-excel-export-r8.js?v=20260818-live200-excel-r8-force2';
-      d.head.appendChild(excelScript);
-    }
-    installThrottledRefresh(d);
-    const tbody=d.getElementById('rows');
-    if(observer)observer.disconnect();
-    if(tbody){observer=new MutationObserver(queueFilter);observer.observe(tbody,{childList:true,subtree:true,characterData:true})}
-    queueFilter();
-  }catch(e){console.warn('[HH R6] inner polish unavailable',e)}
-}
+function applyQuick(state){activeState=state||'';qs.forEach(b=>b.classList.toggle('active',b.dataset.state===activeState));queueFilter()}
+function installThrottledRefresh(d){try{const innerAuto=d.getElementById('auto');if(innerAuto&&!innerAuto.dataset.hhR6Throttled){if(String(innerAuto.textContent||'').includes('ON'))innerAuto.click();innerAuto.dataset.hhR6Throttled='1';innerAuto.textContent='Auto 180s: ON (R6)';innerAuto.disabled=true;innerAuto.title='R6 ลด Firebase reads: รีเฟรชอัตโนมัติทุก 3 นาที; กด “รีเฟรชตอนนี้” ได้ทุกเวลา'}if(!opsRefreshTimer){opsRefreshTimer=setInterval(()=>{try{const rd=frame.contentDocument;const refresh=rd?.getElementById('refresh');if(refresh&&!refresh.disabled)refresh.click()}catch(e){console.warn('[HH R6] throttled refresh unavailable',e)}},OPS_REFRESH_MS)}}catch(e){console.warn('[HH R6] throttle install unavailable',e)}}
+function polishInner(){try{const d=frame.contentDocument;if(!d)return;const sel=d.getElementById('opsFilter');if(sel){sel.value='';sel.style.display='none';sel.setAttribute('aria-hidden','true')}const toolbar=sel?.closest('.toolbar');if(toolbar)toolbar.style.gridTemplateColumns='1fr 1fr 1.3fr auto auto auto';if(!d.getElementById('hh-r6-inner-polish')){const style=d.createElement('style');style.id='hh-r6-inner-polish';style.textContent='@media(max-width:700px){.toolbar{grid-template-columns:1fr 1fr!important}.toolbar #search{grid-column:1/-1}.toolbar #opsFilter{display:none!important}.toolbar #excelExport{grid-column:1/-1!important;background:#dcfce7!important;color:#166534!important;border:1px solid #86efac!important}}';d.head.appendChild(style)}if(!d.getElementById('hh-r6-cert-evidence-script')){const script=d.createElement('script');script.id='hh-r6-cert-evidence-script';script.type='module';script.src='./firebase-live-classroom-certificate-evidence-r7.js?v=20260818-r7-excel-rawchunk-r2';d.head.appendChild(script)}if(!d.getElementById('hh-r6-excel-export-script')){const excelScript=d.createElement('script');excelScript.id='hh-r6-excel-export-script';excelScript.type='module';excelScript.src='./firebase-live-classroom-excel-export-r8.js?v=20260818-live200-excel-rawchunk-r2';d.head.appendChild(excelScript)}installThrottledRefresh(d);const tbody=d.getElementById('rows');if(observer)observer.disconnect();if(tbody){observer=new MutationObserver(queueFilter);observer.observe(tbody,{childList:true,subtree:true,characterData:true})}queueFilter()}catch(e){console.warn('[HH R6] inner polish unavailable',e)}}
 qs.forEach(b=>b.addEventListener('click',()=>applyQuick(b.dataset.state||'')));
 frame.addEventListener('load',()=>setTimeout(polishInner,450));
-
-const TOTAL=60*60;
-let remaining=TOTAL,running=false,lastTick=0,timerId=null;
-const clock=document.getElementById('clock'),box=document.getElementById('timerBox'),msg=document.getElementById('timerMsg');
-const fmt=s=>`${String(Math.floor(Math.max(0,s)/60)).padStart(2,'0')}:${String(Math.max(0,s)%60).padStart(2,'0')}`;
-function announce(){
-  box.classList.remove('warn10','warn5','done');
-  if(remaining<=0){box.classList.add('done');msg.textContent='หมดเวลา • เช็กผู้เรียนที่ยังไม่จบ';return}
-  if(remaining<=5*60){box.classList.add('warn5');msg.textContent='เหลือ ≤5 นาที • Post-test / Reflection';return}
-  if(remaining<=10*60){box.classList.add('warn10');msg.textContent='เหลือ ≤10 นาที • เร่งด่านสุดท้าย';return}
-  if(remaining<=15*60){msg.textContent='เหลือ ≤15 นาที • ตรวจ Attention';return}
-  msg.textContent=running?'กำลังจับเวลา':'พักเวลา';
-}
+const TOTAL=60*60;let remaining=TOTAL,running=false,lastTick=0,timerId=null;const clock=document.getElementById('clock'),box=document.getElementById('timerBox'),msg=document.getElementById('timerMsg');const fmt=s=>`${String(Math.floor(Math.max(0,s)/60)).padStart(2,'0')}:${String(Math.max(0,s)%60).padStart(2,'0')}`;
+function announce(){box.classList.remove('warn10','warn5','done');if(remaining<=0){box.classList.add('done');msg.textContent='หมดเวลา • เช็กผู้เรียนที่ยังไม่จบ';return}if(remaining<=5*60){box.classList.add('warn5');msg.textContent='เหลือ ≤5 นาที • Post-test / Reflection';return}if(remaining<=10*60){box.classList.add('warn10');msg.textContent='เหลือ ≤10 นาที • เร่งด่านสุดท้าย';return}if(remaining<=15*60){msg.textContent='เหลือ ≤15 นาที • ตรวจ Attention';return}msg.textContent=running?'กำลังจับเวลา':'พักเวลา'}
 function draw(){clock.textContent=fmt(remaining);announce()}
 function stopLoop(){if(timerId){clearInterval(timerId);timerId=null}}
 function start(){if(remaining<=0)remaining=TOTAL;if(running)return;running=true;lastTick=Date.now();stopLoop();timerId=setInterval(()=>{if(!running)return;const now=Date.now();const dec=Math.max(1,Math.floor((now-lastTick)/1000));remaining=Math.max(0,remaining-dec);lastTick=now;draw();if(remaining<=0){running=false;stopLoop()}},1000);draw()}
 function pause(){running=false;stopLoop();draw()}
 function reset(){running=false;stopLoop();remaining=TOTAL;draw()}
-document.getElementById('startTimer').addEventListener('click',start);
-document.getElementById('pauseTimer').addEventListener('click',pause);
-document.getElementById('resetTimer').addEventListener('click',reset);
-draw();
-console.info('[HeroHealth] Live Classroom 200 R6 ready',RELEASE,'opsRefreshMs=',OPS_REFRESH_MS);
+document.getElementById('startTimer').addEventListener('click',start);document.getElementById('pauseTimer').addEventListener('click',pause);document.getElementById('resetTimer').addEventListener('click',reset);draw();console.info('[HeroHealth] Live Classroom 200 R6 ready',RELEASE,'opsRefreshMs=',OPS_REFRESH_MS);
 })();
 </script>
 </body>
