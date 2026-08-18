@@ -49,6 +49,8 @@ jobs:
           node --check english-week-passport/certificate-v1.js
           node --check english-week-passport/teacher-console-v1.js
           node --check english-week-passport/teacher-console-v4.js
+          node --check english-week-passport/teacher-console-v5.js
+          node --check english-week-passport/teacher-console-export-all-v1.js
           node --check english-week-passport/teacher-reward-manager-v1.js
           node --check english-week-passport/bonus-reward-client-v1.js
           node --check english-week-passport/lexicon-lens-hunt.js
