@@ -14,13 +14,16 @@ const SANDBOX_STUDENT_IDS = new Set(
 const LOGIN_COMMIT_KEY = "HH_FIREBASE_RECENT_LOGIN_COMMIT_R74";
 const LOGIN_COMMIT_TTL_MS = 10000;
 
-// Production optimization for classroom use (206 students):
+// Production optimization for classroom use:
 // - roster is stable during a classroom session, so cache it in sessionStorage.
+// - a force roster check is allowed to reuse cache ONLY for the already-active student.
+//   First login, logout/re-login, or switching studentId still performs a real Firestore read.
 // - student binding is written once per uid/student/session instead of on every hydrate.
 // - progress is NEVER cached here: progression/receipt reads remain authoritative Firestore reads.
-const ROSTER_CACHE_KEY = "HH_FIREBASE_ROSTER_CACHE_R75";
+const ACTIVE_STUDENT_KEY = "herohealth_active_student_id";
+const ROSTER_CACHE_KEY = "HH_FIREBASE_ROSTER_CACHE_R76";
 const ROSTER_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
-const BINDING_CACHE_KEY = "HH_FIREBASE_BINDING_CACHE_R75";
+const BINDING_CACHE_KEY = "HH_FIREBASE_BINDING_CACHE_R76";
 const BINDING_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 function sessionJsonGet(key) {
@@ -30,6 +33,10 @@ function sessionJsonGet(key) {
 function sessionJsonSet(key, value) {
   try { sessionStorage.setItem(key, JSON.stringify(value)); }
   catch (_error) {}
+}
+function activeStudentId() {
+  try { return String(localStorage.getItem(ACTIVE_STUDENT_KEY) || "").trim(); }
+  catch (_error) { return ""; }
 }
 function rosterCacheRead(studentId) {
   const sid = String(studentId || "").trim();
@@ -47,6 +54,12 @@ function rosterCacheWrite(studentId, result) {
     rosterPath: result.rosterPath || ""
   };
   sessionJsonSet(ROSTER_CACHE_KEY, { sid: String(studentId || "").trim(), at: Date.now(), result: safeResult });
+}
+function canReuseRosterCache(studentId, options = {}) {
+  const sid = String(studentId || "").trim();
+  if (options.hardForce === true) return false;
+  if (options.force !== true) return true;
+  return Boolean(sid && activeStudentId() === sid);
 }
 function bindingCacheMatches(uid, studentId, rosterPath) {
   const cached = sessionJsonGet(BINDING_CACHE_KEY);
@@ -128,9 +141,14 @@ async function readRoster(studentId, options = {}) {
   const sid = String(studentId || "").trim();
   if (!sid) return { ok: false, user, reason: "student-required" };
 
-  if (options.force !== true) {
+  if (canReuseRosterCache(sid, options)) {
     const cached = rosterCacheRead(sid);
-    if (cached) return { ...cached, user, cached: true };
+    if (cached) return {
+      ...cached,
+      user,
+      cached: true,
+      cacheReason: options.force === true ? "active-session-force-safe" : "session-cache"
+    };
   }
 
   const collectionOrder = isSandboxStudent(sid)
@@ -339,7 +357,7 @@ async function confirmGameResult(studentId, gameId, expectedToken = "") {
 
 export const HHFirebaseClient = Object.freeze({
   build: HEROHEALTH_FIREBASE_BUILD,
-  optimizationRelease: "20260812-R75-206-STUDENT-READ-WRITE-OPTIMIZED",
+  optimizationRelease: "20260818-R76-ACTIVE-SESSION-ROSTER-CACHE",
   sandboxStudentIds: Object.freeze([...SANDBOX_STUDENT_IDS]),
   isSandboxStudent,
   ensureAnonymousUser,
