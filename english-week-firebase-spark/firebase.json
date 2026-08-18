@@ -1,6 +1,5 @@
 {
   "firestore": {
     "rules": "firestore.rules"
-  },
-  "deploymentNote": "2026-08-18 assessment ownership rules redeploy"
+  }
 }
