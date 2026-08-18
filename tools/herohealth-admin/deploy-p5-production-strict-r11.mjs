@@ -18,9 +18,9 @@ import { getSecurityRules } from 'firebase-admin/security-rules';
  * Safety
  * - default is DRY RUN: reads live rules, backs them up, patches and compiles only
  * - publish requires explicit --publish=1
- * - the script replaces ALL exact production match blocks for studentBindings,
- *   studentProgress and studentAssessments, avoiding permissive duplicate matches
- *   whose OR semantics could otherwise bypass a stricter additive block.
+ * - replaces ALL exact production match blocks for studentBindings,
+ *   studentProgress and studentAssessments; this matters because overlapping
+ *   Firestore matches are ORed and a permissive duplicate would defeat R11.
  */
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -29,9 +29,9 @@ const DEFAULT_SA = path.join(HERE, 'service-account.json');
 const MARKER = 'HEROHEALTH_P5_PRODUCTION_STRICT_R11';
 
 function arg(name, fallback = '') {
-  const p = `--${name}=`;
-  const hit = process.argv.find(v => v.startsWith(p));
-  return hit ? hit.slice(p.length) : fallback;
+  const prefix = `--${name}=`;
+  const hit = process.argv.find(v => v.startsWith(prefix));
+  return hit ? hit.slice(prefix.length) : fallback;
 }
 function fail(message) { console.error(`\n❌ ${message}\n`); process.exit(1); }
 function stamp() { return new Date().toISOString().replace(/[:.]/g, '-'); }
@@ -68,11 +68,9 @@ function databaseBlock(source) {
 
 function removeAllExactMatchBlocks(source, signature) {
   let out = source;
-  let first = -1;
   while (true) {
     const at = out.indexOf(signature);
     if (at < 0) break;
-    if (first < 0) first = at;
     const open = out.indexOf('{', at + signature.length);
     if (open < 0) throw new Error(`match block ไม่สมบูรณ์: ${signature}`);
     const close = matchingBrace(out, open);
@@ -83,7 +81,7 @@ function removeAllExactMatchBlocks(source, signature) {
     if (out[end] === '\n') end += 1;
     out = out.slice(0, at) + out.slice(end);
   }
-  return { source: out, removedAt: first };
+  return out;
 }
 
 function strictBlock() {
@@ -104,6 +102,21 @@ function strictBlock() {
         && exists(/databases/$(database)/documents/studentBindings/$(request.auth.uid))
         && get(/databases/$(database)/documents/studentBindings/$(request.auth.uid)).data.studentId == studentId;
     }
+    function hhP5ProgressKeysR11() {
+      return [
+        'studentId',
+        'pretestCompleted','posttestCompleted','assessments','assessmentAuthorityRelease',
+        'gameCompleted','gameResults','attemptHistory','analyticsSummary','dailyAnalytics',
+        'currentZone','lastGame','lastGameScore','lastAttemptId',
+        'firebaseReceiptToken','firebaseSavedByUid','analyticsSchemaVersion','strictProgressionRelease',
+        'postExperienceCompleted','postExperience','postExperienceReceiptToken',
+        'reflectionCompleted','reflection','reflectionReceiptToken',
+        'researchImmediateCompleted','researchImmediate','researchFlowRelease','completed',
+        'certificateIssued','certificate','certificateReceiptToken',
+        'followupCompleted','followup','followupReceiptToken',
+        'updatedByUid','updatedAt','build'
+      ];
+    }
 
     match /studentBindings/{uid} {
       allow get: if request.auth != null && request.auth.uid == uid;
@@ -117,21 +130,12 @@ function strictBlock() {
     match /studentProgress/{studentId} {
       allow get: if hhP5TeacherR11() || hhP5BoundR11(studentId);
       allow list: if hhP5TeacherR11();
-      allow create, update: if hhP5BoundR11(studentId)
+      allow create: if hhP5BoundR11(studentId)
         && request.resource.data.studentId == studentId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'studentId',
-          'pretestCompleted','posttestCompleted','assessments','assessmentAuthorityRelease',
-          'gameCompleted','gameResults','attemptHistory','analyticsSummary','dailyAnalytics',
-          'currentZone','lastGame','lastGameScore','lastAttemptId',
-          'firebaseReceiptToken','firebaseSavedByUid','analyticsSchemaVersion','strictProgressionRelease',
-          'postExperienceCompleted','postExperience','postExperienceReceiptToken',
-          'reflectionCompleted','reflection','reflectionReceiptToken',
-          'researchImmediateCompleted','researchImmediate','researchFlowRelease','completed',
-          'certificateIssued','certificate','certificateReceiptToken',
-          'followupCompleted','followup','followupReceiptToken',
-          'updatedByUid','updatedAt','build'
-        ]);
+        && request.resource.data.keys().hasOnly(hhP5ProgressKeysR11());
+      allow update: if hhP5BoundR11(studentId)
+        && request.resource.data.studentId == studentId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(hhP5ProgressKeysR11());
       allow delete: if false;
     }
 
@@ -154,23 +158,18 @@ function strictBlock() {
 }
 
 function patch(source) {
-  // Remove any previous R11 block first so this script is safely repeatable even
-  // if a staged copy was manually merged before publication.
   let out = source.replace(/\n\s*\/\/ HEROHEALTH_P5_PRODUCTION_STRICT_R11_BEGIN[\s\S]*?\/\/ HEROHEALTH_P5_PRODUCTION_STRICT_R11_END\n?/g, '\n');
   for (const signature of [
     'match /studentBindings/{uid}',
     'match /studentProgress/{studentId}',
     'match /studentAssessments/{documentId}'
-  ]) {
-    out = removeAllExactMatchBlocks(out, signature).source;
-  }
+  ]) out = removeAllExactMatchBlocks(out, signature);
   const db = databaseBlock(out);
   return `${out.slice(0, db.close)}${strictBlock()}${out.slice(db.close)}`;
 }
 
 async function compile(rules, source) {
-  const file = rules.createRulesFileFromSource('firestore.rules', source);
-  return rules.createRuleset(file);
+  return rules.createRuleset(rules.createRulesFileFromSource('firestore.rules', source));
 }
 
 const saPath = path.resolve(arg('service-account', DEFAULT_SA));
@@ -222,4 +221,4 @@ console.log(`   Previous: ${live.name}`);
 console.log(`   Current:  ${candidate.name}`);
 console.log(`   Backup:   ${backup}`);
 console.log(`   Staged:   ${staged}`);
-console.log('   Policy: UID-bound progress/assessment, field allowlist, no learner delete');
+console.log('   Policy: UID-bound progress/assessment, create/update allowlists, no learner delete');
