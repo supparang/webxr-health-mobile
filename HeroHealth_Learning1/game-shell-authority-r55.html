@@ -13,7 +13,7 @@
 <body><div class="center"><div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังตรวจ Firebase และลำดับภารกิจ</small></div></div>
 <script>
 (()=>{'use strict';
-const RELEASE='20260818-GAME-SHELL-R55-STRICT-PROGRESSION-R7';
+const RELEASE='20260818-GAME-SHELL-R56-STRICT-QUEUE-PROGRESSION';
 const q=new URLSearchParams(location.search);
 const authority=String(q.get('authority')||'').toLowerCase();
 if(authority!=='firebase'){
@@ -35,17 +35,20 @@ target.searchParams.set('studentId',sid);target.searchParams.set('sid',sid);targ
 document.body.innerHTML=`<main class="shell ${smoke?'smoke':''}"><header class="bar ${gameTestMode?'test':''}"><button id="back">← ${gameTestMode?'กลับหน้าเลือกเกม':'กลับ Passport'}</button><span class="title" id="title"></span><span class="status" id="receiptStatus">กำลังเตรียม Firebase</span></header><section class="stage"><div class="device"><iframe id="game" allow="camera; microphone; accelerometer; gyroscope; autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></div></section></main>`;
 const backBtn=document.getElementById('back'),frame=document.getElementById('game'),status=document.getElementById('receiptStatus');document.getElementById('title').textContent=(q.get('title')||'HeroHealth')+(gameTestMode?' • TEST':'');backBtn.onclick=()=>location.replace(back);
 function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(Error('load_failed_'+src));document.head.appendChild(s)})}
-function fallbackUrl(){const u=new URL(gameTestMode?back:'./index.html',location.href);u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.set('authority','firebase');u.searchParams.set('firebaseReady','1');u.searchParams.set('firebaseReceipt','1');u.searchParams.set('gameCompleted','1');const g=String(q.get('gameId')||'').trim().toLowerCase();if(g)u.searchParams.set('returnedGame',g);u.searchParams.set('authorityRefresh',String(Date.now()));u.searchParams.set('returnSessionPolicy','force-firebase-rehydrate-r76-r55');u.searchParams.set('shellWatchdog','r55');u.searchParams.set('v',RELEASE);return u.href}
+function fallbackUrl(){const u=new URL(gameTestMode?back:'./index.html',location.href);u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.set('authority','firebase');u.searchParams.set('firebaseReady','1');u.searchParams.set('firebaseReceipt','1');u.searchParams.set('gameCompleted','1');const g=String(q.get('gameId')||'').trim().toLowerCase();if(g)u.searchParams.set('returnedGame',g);u.searchParams.set('authorityRefresh',String(Date.now()));u.searchParams.set('returnSessionPolicy','force-firebase-rehydrate-r76-r56');u.searchParams.set('shellWatchdog','r56');u.searchParams.set('v',RELEASE);return u.href}
 let watchdog=0;function arm(){if(gameTestMode||watchdog)return;const text=`${status?.textContent||''} ${backBtn?.textContent||''}`;if(!text.includes('Firebase ยืนยันแล้ว'))return;watchdog=setTimeout(()=>{const u=fallbackUrl();try{location.replace(u)}catch(_){location.href=u}},1500)}
 new MutationObserver(arm).observe(status,{childList:true,subtree:true,characterData:true});new MutationObserver(arm).observe(backBtn,{childList:true,subtree:true,characterData:true});setInterval(arm,300);
 (async()=>{try{
  await loadScript('./assets/hh-responsive-runtime-v1.js?v=20260815-r12-return-failsafe');
- if(gameTestMode)await loadScript('./assets/firebase-game-test-analytics-r1.js?v=20260808-r2-handwash-strict');
- else await loadScript('./assets/firebase-game-receipt-bridge-r1.js?v=20260818-r7-strict-progression');
+ if(gameTestMode){await loadScript('./assets/firebase-game-test-analytics-r1.js?v=20260808-r2-handwash-strict');}
+ else{
+  await loadScript('./assets/firebase-pending-game-queue-sanitizer-r1.js?v=20260818-r1-current-game-only');
+  await loadScript('./assets/firebase-game-receipt-bridge-r1.js?v=20260818-r7-strict-progression');
+ }
  if(String(q.get('gameId')||'').toLowerCase().includes('goodjunk')||target.href.toLowerCase().includes('goodjunk'))await loadScript('./assets/goodjunk-firebase-completion-patch-r3.js?v=20260805-r3');
- status.textContent=gameTestMode?'พร้อมทดสอบ • Test Analytics':'พร้อมเล่น • Firebase Receipt R7';frame.src=target.href;
-}catch(error){console.error('[Game Shell R55]',error);status.textContent='โหลด Firebase ไม่สำเร็จ';backBtn.disabled=false;backBtn.textContent='กลับ Passport'}})();
-window.HH_GAME_SHELL_R55={release:RELEASE,authority:'firebase',firebaseExclusive:true,strictProgression:true,gameTestMode,smoke};
-console.info('[Game Shell R55] installed',{sid,gameId:q.get('gameId'),rotationOrder:q.get('rotationOrder'),target:target.href});
+ status.textContent=gameTestMode?'พร้อมทดสอบ • Test Analytics':'พร้อมเล่น • Firebase Receipt R7 • Queue Guard R1';frame.src=target.href;
+}catch(error){console.error('[Game Shell R56]',error);status.textContent='โหลด Firebase ไม่สำเร็จ';backBtn.disabled=false;backBtn.textContent='กลับ Passport'}})();
+window.HH_GAME_SHELL_R55={release:RELEASE,authority:'firebase',firebaseExclusive:true,strictProgression:true,pendingQueueGuard:true,gameTestMode,smoke};
+console.info('[Game Shell R56] installed',{sid,gameId:q.get('gameId'),rotationOrder:q.get('rotationOrder'),target:target.href});
 })();
 </script></body></html>
