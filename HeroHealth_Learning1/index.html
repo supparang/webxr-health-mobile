@@ -9,7 +9,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>HeroHealth Learning Platform</title>
-  <link rel="stylesheet" href="./assets/app.css?v=20260818-r34-canonical-ready" />
+  <link rel="stylesheet" href="./assets/app.css?v=20260818-r35-fast-return" />
   <link rel="stylesheet" href="./assets/mobile-passport-production-v1.css?v=20260814-v18-research-flow" />
   <style>
     .badge.locked{background:#eef4f2;color:#64748b}
@@ -21,7 +21,7 @@
   <script>
     window.HH_AUTHORITY_MODE=String(new URLSearchParams(location.search).get('authority')||'firebase').toLowerCase();
     window.HH_FIREBASE_MODE=window.HH_AUTHORITY_MODE==='firebase'||window.HH_AUTHORITY_MODE==='dual';
-    window.HH_APP_RELEASE='20260818-PASSPORT-R34-CANONICAL-READY';
+    window.HH_APP_RELEASE='20260818-PASSPORT-R35-FAST-RETURN';
   </script>
 </head>
 <body>
@@ -50,11 +50,12 @@
 <script>if(!window.HH_FIREBASE_MODE){document.write('<script src="./assets/sheet-authority-hard-reset-v1.js?v=20260730-authority-assessment-v91"><\/script>');document.write('<script src="./assets/final-sheet-authority-guard-v1.js?v=20260730-final-authority-v2-pretest-unlock"><\/script>');document.write('<script src="./assets/sheet-profile-login-authority-v1.js?v=20260730-sheet-profile-login-v4-capture-jsonp-retry"><\/script>')}</script>
 <script src="./assets/mobile-passport-production-v1.js?v=20260814-v18-research-flow"></script>
 <script src="./assets/firebase-return-live-refresh-r1.js?v=20260815-r1"></script>
+<script src="./assets/firebase-fast-return-normalizer-r1.js?v=20260818-r1-progress-only"></script>
 <script type="module">
-import('./firebase/passport-index-integration.js?v=20260818-r78-no-blocking-lock').catch(error=>{
+import('./firebase/passport-index-integration.js?v=20260818-r78-fast-return-normalized').catch(error=>{
   const message=String(error?.message||error||'passport-module-import-failed');
   window.__HH_FIREBASE_PASSPORT_IMPORT_ERROR__=message;
-  console.error('[HeroHealth Passport R34] module import failed',error);
+  console.error('[HeroHealth Passport R35] module import failed',error);
   const app=document.getElementById('app');
   if(app){
     const safe=message.replace(/[<>]/g,'');
