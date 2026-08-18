@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#082f49">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>HeroHealth Classroom Game</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;min-height:100dvh;overflow:hidden;background:#03131d;color:#fff;font-family:system-ui,sans-serif}.center{width:100%;height:100%;display:grid;place-items:center}.loading{max-width:88vw;padding:22px;border-radius:22px;background:#0b2d3d;text-align:center;box-shadow:0 20px 60px #0007}.loading b{display:block;font-size:20px}.loading small{display:block;margin-top:8px;color:#b9dbe7}.shell{display:grid;grid-template-rows:auto minmax(0,1fr);width:100%;height:100dvh}.bar{display:flex;align-items:center;gap:10px;min-height:48px;padding:8px max(10px,env(safe-area-inset-right)) 8px max(10px,env(safe-area-inset-left));padding-top:max(8px,env(safe-area-inset-top));background:#0f766e;font-weight:900}.bar.test{background:#92400e}.bar button{flex:0 0 auto;border:1px solid #ffffff55;border-radius:11px;background:#ffffff18;color:#fff;padding:9px 12px;font:inherit;font-weight:900}.bar button:disabled{opacity:.68}.title{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.status{font-size:12px;text-align:right}.stage{min-width:0;min-height:0;overflow:hidden}.stage iframe{display:block;width:100%;height:100%;border:0;background:#000}.smoke .stage{display:grid;place-items:start center;padding:10px;overflow:auto;background:#020617}.smoke .device{width:390px;height:780px;max-width:none;max-height:none;border:2px solid #64748b;border-radius:24px;overflow:hidden;background:#000}.smoke .device iframe{width:100%;height:100%}@media(max-width:680px){.bar{min-height:44px;font-size:12px}.status{display:none}.smoke .stage{padding:0}.smoke .device{width:100%!important;height:100%!important;border:0;border-radius:0}}
+</style>
+</head>
+<body><div class="center"><div class="loading"><b>กำลังเตรียมภารกิจ</b><small>กำลังตรวจ Firebase และลำดับภารกิจ</small></div></div>
+<script>
+(()=>{'use strict';
+const RELEASE='20260818-GAME-SHELL-R55-STRICT-PROGRESSION-R7';
+const q=new URLSearchParams(location.search);
+const authority=String(q.get('authority')||'').toLowerCase();
+if(authority!=='firebase'){
+ const legacy=new URL('./game-shell-authority-r40.html',location.href);q.forEach((v,k)=>legacy.searchParams.set(k,v));legacy.searchParams.set('shellVersion',RELEASE);location.replace(legacy.href);return;
+}
+const ids=[...new Set(['studentId','sid','pid'].map(k=>String(q.get(k)||'').trim()).filter(Boolean))];
+if(ids.length!==1){document.body.innerHTML='<div class="center"><div class="loading"><b>รหัสนักเรียนไม่ถูกต้อง</b><small>กรุณากลับเข้า Hero Passport ใหม่</small></div></div>';return}
+const sid=ids[0],targetRaw=String(q.get('target')||'').trim(),gameTestMode=q.get('gameTestMode')==='1'||String(q.get('mode')||'').toLowerCase()==='game-test';
+if(!targetRaw){document.body.innerHTML='<div class="center"><div class="loading"><b>ไม่พบเส้นทางเกม</b><small>กรุณากลับเข้า Passport แล้วเปิดภารกิจใหม่</small></div></div>';return}
+const smoke=/^(1|true|yes)$/i.test(String(q.get('smoke')||q.get('smokeTest')||''))||(!matchMedia?.('(pointer:coarse)')?.matches&&(innerWidth||1024)>=768&&q.get('gameTestMode')==='1');
+function sanitizeReturn(raw){
+ const u=new URL(raw||'./index.html',location.href);for(const k of ['logout','logoutAt','logoutNonce','firebaseHydratedR71','firebaseHydratedR74','firebaseHydratedR76','firebaseProgressApplied','pendingGameSync','gameSync','firebaseAssessmentReceipt'])u.searchParams.delete(k);
+ u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.delete('pid');for(const k of ['fullName','studentName','name','section','group','firebaseUid']){const v=q.get(k);if(v)u.searchParams.set(k,v)}u.searchParams.set('authority','firebase');u.searchParams.set('firebaseReady','1');u.searchParams.set('authorityRefresh',String(Date.now()));u.searchParams.set('returnSessionPolicy','force-firebase-rehydrate-r76');return u.href;
+}
+const back=sanitizeReturn(q.get('return')||q.get('back')||(gameTestMode?'./game-test-mode.html':'./index.html'));
+const target=new URL(targetRaw,location.href);
+for(const k of ['authority','studentId','sid','fullName','studentName','name','section','group','firebaseUid','gameId','zone','studyId','conditionGroup','phase','difficulty','mode','gameTestMode','isTestAttempt','affectsProgression','testRunId','smoke','smokeTest','device','physicalDevice','view','mobileOnly','rotationOrder','missionProfile','singleAttempt']){const v=q.get(k);if(v)target.searchParams.set(k,v)}
+target.searchParams.set('studentId',sid);target.searchParams.set('sid',sid);target.searchParams.delete('pid');target.searchParams.set('authority','firebase');target.searchParams.set('return',back);target.searchParams.set('back',back);target.searchParams.set('firebaseShellVersion',RELEASE);target.searchParams.set('_',Date.now());
+document.body.innerHTML=`<main class="shell ${smoke?'smoke':''}"><header class="bar ${gameTestMode?'test':''}"><button id="back">← ${gameTestMode?'กลับหน้าเลือกเกม':'กลับ Passport'}</button><span class="title" id="title"></span><span class="status" id="receiptStatus">กำลังเตรียม Firebase</span></header><section class="stage"><div class="device"><iframe id="game" allow="camera; microphone; accelerometer; gyroscope; autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe></div></section></main>`;
+const backBtn=document.getElementById('back'),frame=document.getElementById('game'),status=document.getElementById('receiptStatus');document.getElementById('title').textContent=(q.get('title')||'HeroHealth')+(gameTestMode?' • TEST':'');backBtn.onclick=()=>location.replace(back);
+function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(Error('load_failed_'+src));document.head.appendChild(s)})}
+function fallbackUrl(){const u=new URL(gameTestMode?back:'./index.html',location.href);u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.set('authority','firebase');u.searchParams.set('firebaseReady','1');u.searchParams.set('firebaseReceipt','1');u.searchParams.set('gameCompleted','1');const g=String(q.get('gameId')||'').trim().toLowerCase();if(g)u.searchParams.set('returnedGame',g);u.searchParams.set('authorityRefresh',String(Date.now()));u.searchParams.set('returnSessionPolicy','force-firebase-rehydrate-r76-r55');u.searchParams.set('shellWatchdog','r55');u.searchParams.set('v',RELEASE);return u.href}
+let watchdog=0;function arm(){if(gameTestMode||watchdog)return;const text=`${status?.textContent||''} ${backBtn?.textContent||''}`;if(!text.includes('Firebase ยืนยันแล้ว'))return;watchdog=setTimeout(()=>{const u=fallbackUrl();try{location.replace(u)}catch(_){location.href=u}},1500)}
+new MutationObserver(arm).observe(status,{childList:true,subtree:true,characterData:true});new MutationObserver(arm).observe(backBtn,{childList:true,subtree:true,characterData:true});setInterval(arm,300);
+(async()=>{try{
+ await loadScript('./assets/hh-responsive-runtime-v1.js?v=20260815-r12-return-failsafe');
+ if(gameTestMode)await loadScript('./assets/firebase-game-test-analytics-r1.js?v=20260808-r2-handwash-strict');
+ else await loadScript('./assets/firebase-game-receipt-bridge-r1.js?v=20260818-r7-strict-progression');
+ if(String(q.get('gameId')||'').toLowerCase().includes('goodjunk')||target.href.toLowerCase().includes('goodjunk'))await loadScript('./assets/goodjunk-firebase-completion-patch-r3.js?v=20260805-r3');
+ status.textContent=gameTestMode?'พร้อมทดสอบ • Test Analytics':'พร้อมเล่น • Firebase Receipt R7';frame.src=target.href;
+}catch(error){console.error('[Game Shell R55]',error);status.textContent='โหลด Firebase ไม่สำเร็จ';backBtn.disabled=false;backBtn.textContent='กลับ Passport'}})();
+window.HH_GAME_SHELL_R55={release:RELEASE,authority:'firebase',firebaseExclusive:true,strictProgression:true,gameTestMode,smoke};
+console.info('[Game Shell R55] installed',{sid,gameId:q.get('gameId'),rotationOrder:q.get('rotationOrder'),target:target.href});
+})();
+</script></body></html>
