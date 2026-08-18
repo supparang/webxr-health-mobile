@@ -5,11 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getSecurityRules } from 'firebase-admin/security-rules';
 
-/**
- * HeroHealth P5 Production Rules R11
- * Strict, UID-bound learner access for research progress and assessments.
- * Default = dry-run/compile. Publish requires --publish=1.
- */
+/** HeroHealth P5 Production Rules R11 — roster-driven strict learner access. */
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ID='herohealth-learning';
 const DEFAULT_SA=path.join(HERE,'service-account.json');
@@ -26,28 +22,32 @@ function strictBlock(){return `
     function hhP5TeacherR11() {
       return request.auth != null && request.auth.token.heroHealthTeacher == true;
     }
-    function hhP5IdR11(value) {
-      return value is string
-        && value.size() == 5
-        && value[0:3] in ['H51','H52','H53','H54','H55','H56'];
+    function hhStudentIdFormatR11(value) {
+      return value is string && value.matches('^[0-9A-Za-z_-]{3,40}$');
     }
-    function hhP5HasBindingR11() {
+    function hhRosterActiveR11(studentId) {
+      return hhStudentIdFormatR11(studentId)
+        && exists(/databases/$(database)/documents/students/$(studentId))
+        && get(/databases/$(database)/documents/students/$(studentId)).data.active == true;
+    }
+    function hhHasBindingR11() {
       return request.auth != null
         && exists(/databases/$(database)/documents/studentBindings/$(request.auth.uid));
     }
-    function hhP5BoundIdR11() {
+    function hhBoundIdR11() {
       return get(/databases/$(database)/documents/studentBindings/$(request.auth.uid)).data.studentId;
     }
-    function hhP5BoundR11(studentId) {
-      return hhP5HasBindingR11()
-        && hhP5IdR11(studentId)
-        && hhP5BoundIdR11() == studentId;
+    function hhBoundR11(studentId) {
+      return hhHasBindingR11()
+        && hhBoundIdR11() == studentId
+        && hhRosterActiveR11(studentId);
     }
-    function hhP5OwnAssessmentDocR11(documentId) {
-      return hhP5HasBindingR11()
-        && documentId.matches('^' + hhP5BoundIdR11() + '_.*$');
+    function hhOwnAssessmentDocR11(documentId) {
+      return hhHasBindingR11()
+        && hhRosterActiveR11(hhBoundIdR11())
+        && documentId.matches('^' + hhBoundIdR11() + '_.*$');
     }
-    function hhP5ProgressKeysR11() {
+    function hhProgressKeysR11() {
       return [
         'studentId',
         'pretestCompleted','posttestCompleted','assessments','assessmentAuthorityRelease',
@@ -68,29 +68,27 @@ function strictBlock(){return `
       allow create, update: if request.auth != null
         && request.auth.uid == uid
         && request.resource.data.uid == request.auth.uid
-        && hhP5IdR11(request.resource.data.studentId);
+        && hhRosterActiveR11(request.resource.data.studentId);
       allow list, delete: if false;
     }
 
     match /studentProgress/{studentId} {
-      allow get: if hhP5TeacherR11() || hhP5BoundR11(studentId);
+      allow get: if hhP5TeacherR11() || hhBoundR11(studentId);
       allow list: if hhP5TeacherR11();
-      allow create: if hhP5BoundR11(studentId)
+      allow create: if hhBoundR11(studentId)
         && request.resource.data.studentId == studentId
-        && request.resource.data.keys().hasOnly(hhP5ProgressKeysR11());
-      allow update: if hhP5BoundR11(studentId)
+        && request.resource.data.keys().hasOnly(hhProgressKeysR11());
+      allow update: if hhBoundR11(studentId)
         && request.resource.data.studentId == studentId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(hhP5ProgressKeysR11());
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(hhProgressKeysR11());
       allow delete: if false;
     }
 
     match /studentAssessments/{documentId} {
-      // documentId-based ownership works for both existing and not-yet-created
-      // documents, which is required by Firestore transactions on first submit.
-      allow get: if hhP5TeacherR11() || hhP5OwnAssessmentDocR11(documentId);
+      allow get: if hhP5TeacherR11() || hhOwnAssessmentDocR11(documentId);
       allow list: if hhP5TeacherR11();
       allow create, update: if request.resource.data.studentId is string
-        && hhP5BoundR11(request.resource.data.studentId)
+        && hhBoundR11(request.resource.data.studentId)
         && documentId.matches('^' + request.resource.data.studentId + '_.*$')
         && request.resource.data.completed == true
         && request.resource.data.firebaseSavedByUid == request.auth.uid
@@ -106,4 +104,4 @@ async function compile(rules,source){return rules.createRuleset(rules.createRule
 const saPath=path.resolve(arg('service-account',DEFAULT_SA)),publish=/^(1|true|yes)$/i.test(arg('publish','0'));if(!fs.existsSync(saPath))fail(`ไม่พบ Service Account: ${saPath}`);let sa;try{sa=JSON.parse(fs.readFileSync(saPath,'utf8'))}catch(e){fail(`อ่าน Service Account ไม่สำเร็จ: ${e.message}`)}if(sa.project_id!==PROJECT_ID)fail(`Service Account ต้องเป็น project ${PROJECT_ID}`);
 const app=getApps().length?getApps()[0]:initializeApp({credential:cert(sa),projectId:PROJECT_ID}),rules=getSecurityRules(app);console.log('🔎 อ่าน live Firestore Rules...');const live=await rules.getFirestoreRuleset(),sourceFile=(live.source||[]).find(f=>String(f.content||'').includes('service cloud.firestore'));if(!sourceFile)fail('ไม่พบ Firestore rules source');const source=String(sourceFile.content||''),backup=path.join(os.tmpdir(),`herohealth-before-p5-strict-r11-${stamp()}.rules`);fs.writeFileSync(backup,source,'utf8');console.log(`✅ Backup: ${backup}`);console.log(`   Live ruleset: ${live.name}`);
 let candidateSource;try{candidateSource=patch(source)}catch(e){fail(`สร้าง R11 patch ไม่สำเร็จ: ${e.message}`)}const staged=path.join(HERE,'p5-production-strict-r11-staged.rules');fs.writeFileSync(staged,candidateSource,'utf8');console.log(`📝 Staged: ${staged}`);let candidate;try{candidate=await compile(rules,candidateSource);console.log(`✅ R11 compile ผ่าน: ${candidate.name}`)}catch(e){fail(`R11 compile ไม่ผ่าน; live rules ยังไม่เปลี่ยน: ${e?.details||e?.message||e}`)}
-if(!publish){console.log('\n🧪 DRY RUN สำเร็จ — ยังไม่ได้เปลี่ยน live rules');console.log('ตรวจ staged rules แล้วรันใหม่ด้วย --publish=1 เมื่อต้องการ release');process.exit(0)}console.log('🚀 Publish P5 Production Strict R11...');try{await rules.releaseFirestoreRuleset(candidate)}catch(e){fail(`Publish ไม่สำเร็จ; live rules เดิมยังอยู่: ${e.message}`)}console.log('\n✅ P5 Production Strict R11 published');console.log(`   Previous: ${live.name}`);console.log(`   Current:  ${candidate.name}`);console.log(`   Backup:   ${backup}`);console.log(`   Staged:   ${staged}`);console.log('   Policy: UID-bound progress/assessment, create/update allowlists, no learner delete');
+if(!publish){console.log('\n🧪 DRY RUN สำเร็จ — ยังไม่ได้เปลี่ยน live rules');console.log('ตรวจ staged rules แล้วรันใหม่ด้วย --publish=1 เมื่อต้องการ release');process.exit(0)}console.log('🚀 Publish P5 Production Strict R11...');try{await rules.releaseFirestoreRuleset(candidate)}catch(e){fail(`Publish ไม่สำเร็จ; live rules เดิมยังอยู่: ${e.message}`)}console.log('\n✅ P5 Production Strict R11 published');console.log(`   Previous: ${live.name}`);console.log(`   Current:  ${candidate.name}`);console.log(`   Backup:   ${backup}`);console.log(`   Staged:   ${staged}`);console.log('   Policy: roster-active + UID-bound progress/assessment, allowlisted mutations, no learner delete');
