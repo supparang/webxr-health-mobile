@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const VERSION='2026-08-07-PASSPORT-FIRESTORE-TIMEOUT-GUARD-V3-FAST-RESUME';
+  const VERSION='2026-08-18-PASSPORT-FIRESTORE-TIMEOUT-GUARD-V4-SUBMIT-SAFE';
   const base=window.EW_AUTHORITY;
   if(!base){
     console.warn('EW timeout guard: authority not ready');
@@ -13,6 +13,7 @@
   const fastCache={playerId:'',profile:null,at:0};
 
   function clean(value){ return String(value==null?'':value).trim(); }
+  function submitActive(){ return document.documentElement.dataset.ewSubmitActive==='1'; }
 
   function withTimeout(label,fn,ms){
     if(typeof fn!=='function') return fn;
@@ -70,7 +71,6 @@
       db.collection('ewp_progress').doc(id).get()
     ]);
 
-    // New QA/player bootstrap still goes through the canonical authority once.
     if(!assignmentSnap.exists || !progressSnap.exists){
       return guardedBaseResume(playerId,nickname);
     }
@@ -110,6 +110,7 @@
   }
 
   function recoverUi(message){
+    if(submitActive()) return;
     clearTimers();
     if(loading){
       loading.hidden=true;
@@ -132,14 +133,14 @@
   }
 
   function armWatchdog(){
-    if(!loading || loading.hidden || hardTimer) return;
+    if(!loading || loading.hidden || hardTimer || submitActive()) return;
     slowTimer=setTimeout(()=>{
-      if(!loading.hidden && loadingText){
+      if(!loading.hidden && !submitActive() && loadingText){
         loadingText.textContent='Firestore ตอบช้ากว่าปกติ • กำลังรออีกสักครู่…';
       }
     },3500);
     hardTimer=setTimeout(()=>{
-      if(!loading.hidden){
+      if(!loading.hidden && !submitActive()){
         recoverUi('Firebase ตอบช้าเกินกำหนด • กรุณากดลองอีกครั้ง');
       }else{
         clearTimers();
@@ -154,19 +155,23 @@
         loading.style.pointerEvents='none';
       }else{
         loading.style.pointerEvents='auto';
-        armWatchdog();
+        if(submitActive()) clearTimers();
+        else armWatchdog();
       }
     }).observe(loading,{attributes:true,attributeFilter:['hidden']});
   }
 
-  window.addEventListener('pageshow',()=>{
-    if(loading && !loading.hidden) armWatchdog();
+  window.addEventListener('ew-submit-state',event=>{
+    if(event?.detail?.active) clearTimers();
+    else if(loading && !loading.hidden) armWatchdog();
   });
 
-  // Absolute escape hatch: even if another script breaks the observer,
-  // no login overlay may survive longer than 10 seconds.
+  window.addEventListener('pageshow',()=>{
+    if(loading && !loading.hidden && !submitActive()) armWatchdog();
+  });
+
   setInterval(()=>{
-    if(!loading || loading.hidden) return;
+    if(!loading || loading.hidden || submitActive()) return;
     const started=Number(loading.dataset.ewShownAt||0);
     if(!started){ loading.dataset.ewShownAt=String(Date.now()); return; }
     if(Date.now()-started>10000){
@@ -178,7 +183,7 @@
   if(loading){
     new MutationObserver(()=>{
       if(loading.hidden) delete loading.dataset.ewShownAt;
-      else if(!loading.dataset.ewShownAt) loading.dataset.ewShownAt=String(Date.now());
+      else if(!loading.dataset.ewShownAt && !submitActive()) loading.dataset.ewShownAt=String(Date.now());
     }).observe(loading,{attributes:true,attributeFilter:['hidden']});
   }
 
@@ -186,6 +191,7 @@
     version:VERSION,
     timeoutMs:TIMEOUT_MS,
     fastResume:true,
+    submitSafe:true,
     recoverUi
   });
 }());
