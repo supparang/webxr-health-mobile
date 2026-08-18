@@ -1,8 +1,9 @@
+import'./firebase-live-classroom-excel-export-r8.js?v=20260818-live200-excel-r8';
 import{initializeApp,getApps}from"https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import{getFirestore,doc,getDoc}from"https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 import{HEROHEALTH_FIREBASE_CONFIG}from"../firebase/firebase-config.js";
 
-const RELEASE='20260812-LIVE-CLASSROOM-CERT-EVIDENCE-R7-LAZY';
+const RELEASE='20260818-LIVE-CLASSROOM-CERT-EVIDENCE-R7-EXCEL-R8';
 const app=getApps().length?getApps()[0]:initializeApp(HEROHEALTH_FIREBASE_CONFIG);
 const db=getFirestore(app);
 const $=id=>document.getElementById(id);
