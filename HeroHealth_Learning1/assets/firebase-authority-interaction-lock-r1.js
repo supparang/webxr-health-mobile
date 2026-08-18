@@ -1,21 +1,21 @@
-/* HeroHealth Firebase Authority Interaction Lock R2
+/* HeroHealth Firebase Authority Interaction Lock R3
  * Fail-closed guard against stale localStorage progression before the current
  * Passport navigation has been reconciled with Cloud Firestore.
  *
  * Policy:
- * - In Firebase/dual mode, the Passport is non-actionable until R76 hydration
- *   for the current learner is fresh for this navigation, or the login screen
- *   has explicitly taken control.
+ * - In Firebase/dual mode, the Passport is non-actionable until a supported
+ *   R76-R78 Firestore session hydration for the current learner is fresh for
+ *   this navigation, or the login screen has explicitly taken control.
  * - Conflicting/missing URL identity never bypasses the lock.
  * - A recovery action is shown after a prolonged hydrate without ever treating
  *   local state as authoritative.
  */
 (()=>{
 'use strict';
-const RELEASE='20260818-FIREBASE-AUTHORITY-INTERACTION-LOCK-R2-FAIL-CLOSED';
+const RELEASE='20260818-FIREBASE-AUTHORITY-INTERACTION-LOCK-R3-R78-COMPAT';
 const KEY='herohealth_learning_platform_rc2';
 const ACTIVE_KEY='herohealth_active_student_id';
-const SESSION_RELEASE_MARKER='20260818-FIREBASE-SESSION-R76';
+const SUPPORTED_SESSION_RELEASE=/^20260818-FIREBASE-SESSION-R(?:76|77|78)(?:-|$)/;
 const startedAt=Date.now();
 const q=new URLSearchParams(location.search);
 const authority=String(q.get('authority')||'firebase').toLowerCase();
@@ -79,8 +79,13 @@ function release(reason){
 }
 function currentHydrationIsFresh(){
  const sid=intendedSid();if(!sid||urlIdentity().conflict)return false;
- const s=read(),fa=s?.firebaseAuthority||{};const hydratedAt=Date.parse(String(fa.hydratedAt||''));
- return String(s?.profile?.studentId||'')===sid&&String(fa.studentId||'')===sid&&String(fa.sourceOfTruth||'')==='Cloud Firestore'&&String(fa.release||'').includes(SESSION_RELEASE_MARKER)&&Number.isFinite(hydratedAt)&&hydratedAt>=startedAt;
+ const s=read(),fa=s?.firebaseAuthority||{},sessionRelease=String(fa.release||'');const hydratedAt=Date.parse(String(fa.hydratedAt||''));
+ return String(s?.profile?.studentId||'')===sid
+  &&String(fa.studentId||'')===sid
+  &&String(fa.sourceOfTruth||'')==='Cloud Firestore'
+  &&SUPPORTED_SESSION_RELEASE.test(sessionRelease)
+  &&Number.isFinite(hydratedAt)
+  &&hydratedAt>=startedAt;
 }
 function check(){
  if(window.__HH_FIREBASE_LOGIN_REQUIRED__===true){release('login-required');return;}
