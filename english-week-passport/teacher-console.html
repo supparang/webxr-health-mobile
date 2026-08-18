@@ -8,7 +8,7 @@
 </style>
 </head><body>
 <div class="shell">
-<header class="top"><div class="brand"><div class="logo">LX</div><div><strong>LEXICON X Teacher Console</strong><small>Session-scoped • Read-Budget • 200+ players/round • V5 • XLS Export</small></div></div><div class="top-actions"><span id="apiStatus" class="status">Waiting</span><button id="refreshBtn" class="btn">↻ Refresh</button><button id="exportXlsBtn" class="btn primary" disabled>⬇ Export XLS</button><button id="lockBtn" class="btn">🔒 Sign out</button></div></header>
+<header class="top"><div class="brand"><div class="logo">LX</div><div><strong>LEXICON X Teacher Console</strong><small>Session-scoped • Read-Budget • 200+ players/round • V5 • XLS Export • All 6 Rounds</small></div></div><div class="top-actions"><span id="apiStatus" class="status">Waiting</span><button id="refreshBtn" class="btn">↻ Refresh</button><button id="exportXlsBtn" class="btn primary" disabled>⬇ Export XLS</button><button id="exportAllXlsBtn" class="btn primary">⬇ All 6 Rounds</button><button id="lockBtn" class="btn">🔒 Sign out</button></div></header>
 <section class="card session-panel"><div class="session-head"><div><strong>🗓 Live Session / Cohort</strong><div class="note">โหลดเฉพาะรอบที่เลือก • ไม่ polling ทั้งฐาน • Refresh guard 30 วินาที</div></div><select id="sessionFilter"><option>D1-AM</option><option>D1-PM</option><option>D2-AM</option><option>D2-PM</option><option>D3-AM</option><option>D3-PM</option></select></div><div id="sessionCounts" class="session-counts"></div></section>
 <section id="kpis" class="grid kpis"></section>
 <section class="grid section-grid"><div class="card"><h2>🎮 Game Analytics</h2><div id="games" class="games"></div></div><div class="card"><h2>📈 Learning Gain</h2><div id="learning" class="learning"></div></div></section>
@@ -21,4 +21,5 @@
 <script data-ew-reward-manager>/* V5 integrates reward authority; suppress legacy reward-manager injection. */</script>
 <script src="./firebase-web-config.js?v=20260812-teacher-v5-read-budget"></script>
 <script src="./teacher-console-v5.js?v=20260818-xls-export-r1"></script>
+<script src="./teacher-console-export-all-v1.js?v=20260818-all-six-rounds-r1"></script>
 </body></html>
