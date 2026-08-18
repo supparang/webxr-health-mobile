@@ -6,20 +6,26 @@ import { HEROHEALTH_FIREBASE_CONFIG, HEROHEALTH_FIREBASE_BUILD } from "./firebas
 const app = getApps().length ? getApps()[0] : initializeApp(HEROHEALTH_FIREBASE_CONFIG);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const RELEASE = "20260818-FIREBASE-ASSESSMENT-R4-ATOMIC-RETRY";
+const RELEASE = "20260818-FIREBASE-ASSESSMENT-R5-ATOMIC-STRICT-GATE";
 const PENDING_KEY = "HH_FIREBASE_PENDING_ASSESSMENTS_R76";
 const SANDBOX_STUDENT_IDS = new Set(Array.from({ length: 29 }, (_, i) => String(990001 + i)));
+const CORE_GAMES = Object.freeze([
+  ["hygiene", ["handwash", "hand-wash"]],
+  ["hygiene", ["toothbrush", "brush"]],
+  ["nutrition", ["groups", "foodgroups", "food-groups"]],
+  ["nutrition", ["goodjunk", "good-junk"]],
+  ["fitness", ["jumpduck", "jump-duck"]],
+  ["fitness", ["balance", "balancehold", "balance-hold"]]
+]);
 let draining = false;
 
 function isSandboxStudent(studentId) {
   return SANDBOX_STUDENT_IDS.has(String(studentId || "").trim());
 }
-
 async function user() {
   if (auth.currentUser) return auth.currentUser;
   return (await signInAnonymously(auth)).user;
 }
-
 function sanitizeFirestore(value, insideArray = false) {
   if (typeof value === "undefined" || typeof value === "function") return null;
   if (typeof value === "number" && !Number.isFinite(value)) return 0;
@@ -34,10 +40,22 @@ function sanitizeFirestore(value, insideArray = false) {
       .map(([key, item]) => [key, sanitizeFirestore(item, false)])
   );
 }
-
 function token(studentId, mode, attemptId) {
   const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return `${studentId}:${mode}:${attemptId}:${random}`;
+}
+function resultComplete(result) {
+  return Boolean(result && result.completed === true && result.passed !== false && result.progressionEligible !== false && result.firebaseReceiptToken);
+}
+function gameDone(progress, zone, aliases) {
+  return aliases.some(id => progress?.gameCompleted?.[zone]?.[id] === true) ||
+    aliases.some(id => resultComplete(progress?.gameResults?.[id]));
+}
+function allCoreGamesComplete(progress) {
+  return CORE_GAMES.every(([zone, aliases]) => gameDone(progress, zone, aliases));
+}
+function pretestComplete(progress) {
+  return progress?.pretestCompleted === true || progress?.assessments?.pretest?.completed === true;
 }
 
 function queueRead() {
@@ -90,9 +108,22 @@ async function saveAssessment(payload = {}, options = {}) {
     ]);
     const existingAssessment = assessmentSnap.exists() ? assessmentSnap.data() : null;
     const currentProgress = progressSnap.exists() ? progressSnap.data() : {};
-    const receipt = String(existingAssessment?.firebaseReceiptToken || "") || token(sid, mode, attemptId);
-    confirmedReceipt = receipt;
+    const existingReceipt = String(existingAssessment?.firebaseReceiptToken || "");
 
+    // Idempotent retry of the same assessment may repair the progress summary.
+    // A new assessment cannot bypass the canonical Firestore progression gate.
+    if (!existingReceipt) {
+      if (mode === "pre" && pretestComplete(currentProgress)) {
+        throw new Error("firebase-pretest-already-complete");
+      }
+      if (mode === "post") {
+        if (!pretestComplete(currentProgress)) throw new Error("firebase-posttest-pretest-required");
+        if (!allCoreGamesComplete(currentProgress)) throw new Error("firebase-posttest-six-games-required");
+      }
+    }
+
+    const receipt = existingReceipt || token(sid, mode, attemptId);
+    confirmedReceipt = receipt;
     const stored = {
       ...safePayload,
       assessmentType,
@@ -104,7 +135,13 @@ async function saveAssessment(payload = {}, options = {}) {
       firebaseSavedAt: serverTimestamp(),
       firebaseBuild: HEROHEALTH_FIREBASE_BUILD,
       release: RELEASE,
-      nestedArrayEncoding: "nested-array-as-map-values-v1"
+      nestedArrayEncoding: "nested-array-as-map-values-v1",
+      progressionGate: {
+        checked: true,
+        pretestComplete: mode === "pre" ? true : pretestComplete(currentProgress),
+        sixGamesComplete: mode === "post" ? allCoreGamesComplete(currentProgress) : false,
+        release: RELEASE
+      }
     };
     const assessmentSummary = {
       completed: true,
@@ -156,12 +193,20 @@ async function drainPending() {
     const entries = Object.values(queueRead());
     for (const payload of entries) {
       try { await saveAssessment(payload, { enqueue: false }); }
-      catch (error) { console.warn("[HeroHealth Assessment R4] pending retry remains queued", error); }
+      catch (error) { console.warn("[HeroHealth Assessment R5] pending retry remains queued", error); }
     }
   } finally { draining = false; }
 }
 
 window.addEventListener("online", drainPending);
 setTimeout(drainPending, 800);
-window.HHAssessmentFirebase = Object.freeze({ release: RELEASE, saveAssessment, drainPending, sanitizeFirestore, isSandboxStudent });
-console.info("[HeroHealth Firebase Assessment R4] installed", RELEASE);
+window.HHAssessmentFirebase = Object.freeze({
+  release: RELEASE,
+  saveAssessment,
+  drainPending,
+  sanitizeFirestore,
+  isSandboxStudent,
+  allCoreGamesComplete,
+  pretestComplete
+});
+console.info("[HeroHealth Firebase Assessment R5] installed", RELEASE);
