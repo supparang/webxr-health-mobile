@@ -6,7 +6,7 @@
 </head><body><iframe id="proxy" title="เกม Balance Hold" allow="camera;microphone;fullscreen;autoplay"></iframe>
 <script>
 (()=>{'use strict';
-const RELEASE='20260808-BALANCE-ANALYTICS-V50-19-NATIVE-RESET-V70';
+const RELEASE='20260818-BALANCE-ANALYTICS-V50-20-PROD-TERMINAL-FALLBACK';
 const q=new URLSearchParams(location.search);
 const smoke=/^(1|true|yes)$/i.test(String(q.get('smoke')||q.get('smokeTest')||''))||q.get('gameTestMode')==='1';
 const proxy=document.getElementById('proxy');
@@ -15,7 +15,10 @@ q.forEach((value,key)=>target.searchParams.set(key,value));
 target.searchParams.set('time','90');target.searchParams.set('duration','90');target.searchParams.set('timePolicy','v62');target.searchParams.set('_',Date.now());
 if(smoke){target.searchParams.set('balanceRoute','direct-smoke-v70');target.searchParams.set('finishGate','native-v70');target.searchParams.set('bossGate','v63');target.searchParams.set('warmupGate','v61');target.searchParams.set('runtimeStack','native-reset-v70');target.searchParams.set('summaryDomGuard','v65')}
 proxy.src=target.href;
-let injectTimer=0,completionForwarded=false,booting=false,booted=false;
+let injectTimer=0,terminalTimer=0,terminalSeenAt=0,completionForwarded=false,booting=false,booted=false;
+const finite=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
+const avg=(rows,key,fallback=0)=>rows.length?rows.reduce((sum,row)=>sum+finite(row?.[key]),0)/rows.length:fallback;
+const clamp=v=>Math.max(0,Math.min(100,Math.round(finite(v)*10)/10));
 function gameWindow(){try{if(smoke)return proxy.contentWindow||null;const nested=proxy.contentWindow?.document?.getElementById('game');return nested?.contentWindow||null}catch(_){return null}}
 function strictEvidence(){try{const s=gameWindow()?.BH?.state;if(!s)return{valid:false,total:0,results:0,index:0};const total=Array.isArray(s.sequence)?s.sequence.length:0,results=Array.isArray(s.results)?s.results.length:0,index=Number(s.index||0);return{valid:total===6&&results===6&&index===6,total,results,index,phase:String(s.phase||'')}}catch(_){return{valid:false,total:0,results:0,index:0}}}
 function addScript(w,src,key){return new Promise((resolve,reject)=>{if(w.document.querySelector(`script[data-${key}]`)){resolve();return}const s=w.document.createElement('script');s.src=new URL(src,w.location.href).href;s.async=false;s.dataset[key]='1';s.onload=()=>resolve();s.onerror=reject;(w.document.head||w.document.documentElement).appendChild(s)})}
@@ -34,11 +37,53 @@ async function bootSmoke(w){if(booted||booting)return;booting=true;try{
   booted=true;w.document.documentElement.dataset.bhRuntimeStack='native-reset-v70';
   console.info('[Balance V70] smoke bootstrap ready: one native completion authority');
 }catch(error){console.error('[Balance V70] smoke bootstrap failed',error)}finally{booting=false}}
-function bootProduction(){booted=true}
-proxy.addEventListener('load',()=>{clearInterval(injectTimer);completionForwarded=false;booted=false;booting=false;let tries=0;injectTimer=setInterval(()=>{tries++;const w=gameWindow();if(!w?.document||!w.BH?.state||typeof w.BH?.completePose!=='function')return;if(smoke)bootSmoke(w);else bootProduction();if(booted||tries>120)clearInterval(injectTimer)},120)});
-addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==proxy.contentWindow)return;const m=event.data||{};if(m.type==='HEROHEALTH_GAME_STARTED'){try{parent.postMessage(m,location.origin)}catch(_){}return}if(m.type==='HEROHEALTH_GAME_COMPLETE'&&m.payload&&!completionForwarded){if(smoke){const ev=strictEvidence();if(!ev.valid){console.warn('[Balance V70] blocked incomplete completion',ev);return}completionForwarded=true;clearInterval(injectTimer);try{parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:{...m.payload,strictCompletionEvidence:ev,balanceRoute:'direct-smoke-v70',runtimeStack:'native-reset-v70',nativeRuntimeResetVersion:'v70',summaryDomGuardVersion:'v65',warmupGateVersion:'v61',bossGateVersion:'v63',timePolicyVersion:'v62'}},location.origin)}catch(_){};return}completionForwarded=true;try{parent.postMessage(m,location.origin)}catch(_){}}});
-addEventListener('pagehide',()=>clearInterval(injectTimer),{once:true});
-window.HH_BALANCE_ANALYTICS_V50={release:RELEASE,smoke,directSmoke:smoke,runtimeStack:'native-reset-v70',nativeRuntimeReset:'v70',summaryDomGuard:'v65',warmupGate:'v61',bossGate:'v63-mobile-crop',timePolicy:'v62-90s-boss10s',strictCompletion:'v56'};
+function productionTerminalPayload(){
+ try{
+  const w=gameWindow(),s=w?.BH?.state;if(!s)return null;
+  const sequence=Array.isArray(s.sequence)?s.sequence:[],rows=Array.isArray(s.results)?s.results:[];
+  const total=sequence.length,index=Number(s.index||0);
+  if(total!==6||rows.length!==6||index!==6)return null;
+  if(rows.some(row=>row?.passed===false))return null;
+  const poseAccuracy=clamp(avg(rows,'poseAccuracy',finite(s.poseScore)));
+  const stabilityScore=clamp(avg(rows,'stability',finite(s.stabilityScore)));
+  const transitionScore=clamp(avg(rows,'transitionControl',finite(s.controlScore)));
+  const safeZoneScore=clamp(avg(rows,'safeZone',finite(s.safeScore)));
+  const trackingCoverage=clamp(avg(rows,'confidence',finite(s.confidence)));
+  const quality=clamp(avg(rows,'quality',(poseAccuracy+stabilityScore+transitionScore+safeZoneScore)/4));
+  const studentId=String(q.get('studentId')||q.get('sid')||'').trim();
+  return {
+   game:'balance-hold',gameId:'balance-hold',zone:'fitness',studentId,
+   completed:true,passed:true,progressionEligible:true,procedureCompleted:true,skillCriteriaMet:true,
+   completedPoses:6,totalPoses:6,poseResults:rows,
+   score:quality,assessmentScore:quality,poseAccuracy,accuracy:poseAccuracy,
+   stabilityScore,transitionScore,safeZoneScore,trackingCoverage,
+   trackingConfidence:trackingCoverage,bossPosePassed:true,
+   eventId:String(s.roundId||s.attemptId||`balance-${studentId}-${Date.now()}`),
+   finishedAt:new Date().toISOString(),inputMode:'classroom-pose',
+   completionRecoveredBy:'V50-PRODUCTION-TERMINAL-6OF6',
+   strictCompletionEvidence:{valid:true,total:6,results:6,index:6,phase:String(s.phase||'')},
+   analyticsProxyRelease:RELEASE
+  };
+ }catch(error){console.warn('[Balance V50] terminal payload failed',error);return null}
+}
+function startProductionTerminalWatch(){
+ clearInterval(terminalTimer);terminalSeenAt=0;
+ terminalTimer=setInterval(()=>{
+  if(smoke||completionForwarded)return;
+  const payload=productionTerminalPayload();
+  if(!payload){terminalSeenAt=0;return}
+  if(!terminalSeenAt){terminalSeenAt=Date.now();return}
+  if(Date.now()-terminalSeenAt<650)return;
+  completionForwarded=true;clearInterval(terminalTimer);clearInterval(injectTimer);
+  console.warn('[Balance V50] recovered terminal 6/6 completion',payload.strictCompletionEvidence);
+  try{parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload},location.origin)}catch(_){}
+ },180);
+}
+function bootProduction(){booted=true;startProductionTerminalWatch()}
+proxy.addEventListener('load',()=>{clearInterval(injectTimer);clearInterval(terminalTimer);terminalSeenAt=0;completionForwarded=false;booted=false;booting=false;let tries=0;injectTimer=setInterval(()=>{tries++;const w=gameWindow();if(!w?.document||!w.BH?.state||typeof w.BH?.completePose!=='function')return;if(smoke)bootSmoke(w);else bootProduction();if(booted||tries>120)clearInterval(injectTimer)},120)});
+addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==proxy.contentWindow)return;const m=event.data||{};if(m.type==='HEROHEALTH_GAME_STARTED'){try{parent.postMessage(m,location.origin)}catch(_){}return}if(m.type==='HEROHEALTH_GAME_COMPLETE'&&m.payload&&!completionForwarded){if(smoke){const ev=strictEvidence();if(!ev.valid){console.warn('[Balance V70] blocked incomplete completion',ev);return}completionForwarded=true;clearInterval(injectTimer);clearInterval(terminalTimer);try{parent.postMessage({type:'HEROHEALTH_GAME_COMPLETE',payload:{...m.payload,strictCompletionEvidence:ev,balanceRoute:'direct-smoke-v70',runtimeStack:'native-reset-v70',nativeRuntimeResetVersion:'v70',summaryDomGuardVersion:'v65',warmupGateVersion:'v61',bossGateVersion:'v63',timePolicyVersion:'v62'}},location.origin)}catch(_){};return}completionForwarded=true;clearInterval(terminalTimer);try{parent.postMessage(m,location.origin)}catch(_){}}});
+addEventListener('pagehide',()=>{clearInterval(injectTimer);clearInterval(terminalTimer)},{once:true});
+window.HH_BALANCE_ANALYTICS_V50={release:RELEASE,smoke,directSmoke:smoke,runtimeStack:'native-reset-v70',nativeRuntimeReset:'v70',summaryDomGuard:'v65',warmupGate:'v61',bossGate:'v63-mobile-crop',timePolicy:'v62-90s-boss10s',strictCompletion:'v56',productionTerminalFallback:true};
 console.info('[Balance Hold] Analytics wrapper ready',window.HH_BALANCE_ANALYTICS_V50);
 })();
 </script></body></html>
