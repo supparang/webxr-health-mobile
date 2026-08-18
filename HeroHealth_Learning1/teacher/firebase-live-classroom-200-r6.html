@@ -31,11 +31,11 @@
     </div>
   </div>
 </header>
-<div class="frameWrap"><iframe id="dashboard" class="frame" src="./firebase-live-classroom-200-r3.html?v=20260812-r6-throttle180-cert-evidence" title="HeroHealth Live Classroom 200 R3"></iframe></div>
+<div class="frameWrap"><iframe id="dashboard" class="frame" src="./firebase-live-classroom-200-r3.html?v=20260818-r6-excel-r8-force" title="HeroHealth Live Classroom 200 R3"></iframe></div>
 <script>
 (()=>{
 'use strict';
-const RELEASE='20260812-LIVE-CLASSROOM-200-R6-FIREBASE-THROTTLE180-CERT-EVIDENCE';
+const RELEASE='20260818-LIVE-CLASSROOM-200-R6-EXCEL-R8-FORCE';
 const OPS_REFRESH_MS=180000;
 const frame=document.getElementById('dashboard');
 const qs=[...document.querySelectorAll('.q')];
@@ -107,19 +107,26 @@ function polishInner(){
       sel.setAttribute('aria-hidden','true');
     }
     const toolbar=sel?.closest('.toolbar');
-    if(toolbar)toolbar.style.gridTemplateColumns='1fr 1fr 1.3fr auto auto';
+    if(toolbar)toolbar.style.gridTemplateColumns='1fr 1fr 1.3fr auto auto auto';
     if(!d.getElementById('hh-r6-inner-polish')){
       const style=d.createElement('style');
       style.id='hh-r6-inner-polish';
-      style.textContent='@media(max-width:700px){.toolbar{grid-template-columns:1fr 1fr!important}.toolbar #search{grid-column:1/-1}.toolbar #opsFilter{display:none!important}}';
+      style.textContent='@media(max-width:700px){.toolbar{grid-template-columns:1fr 1fr!important}.toolbar #search{grid-column:1/-1}.toolbar #opsFilter{display:none!important}.toolbar #excelExport{grid-column:1/-1!important;background:#dcfce7!important;color:#166534!important;border:1px solid #86efac!important}}';
       d.head.appendChild(style);
     }
     if(!d.getElementById('hh-r6-cert-evidence-script')){
       const script=d.createElement('script');
       script.id='hh-r6-cert-evidence-script';
       script.type='module';
-      script.src='./firebase-live-classroom-certificate-evidence-r7.js?v=20260812-r7-lazy';
+      script.src='./firebase-live-classroom-certificate-evidence-r7.js?v=20260818-r7-excel-r8-force';
       d.head.appendChild(script);
+    }
+    if(!d.getElementById('hh-r6-excel-export-script')){
+      const excelScript=d.createElement('script');
+      excelScript.id='hh-r6-excel-export-script';
+      excelScript.type='module';
+      excelScript.src='./firebase-live-classroom-excel-export-r8.js?v=20260818-live200-excel-r8-force2';
+      d.head.appendChild(excelScript);
     }
     installThrottledRefresh(d);
     const tbody=d.getElementById('rows');
