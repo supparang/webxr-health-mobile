@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const VERSION='2026-08-17-TEACHER-CONSOLE-V5-FIRST28-PASS80-R2';
+const VERSION='2026-08-18-TEACHER-CONSOLE-V5-XLS-EXPORT-R1';
 const $=id=>document.getElementById(id);
 const SESSION_IDS=['D1-AM','D1-PM','D2-AM','D2-PM','D3-AM','D3-PM'];
 const PAGE_SIZE=50, LIMIT=300, CHUNK=30, REFRESH_COOLDOWN_MS=30000, REWARD_LIMIT=28, BONUS_PASS=80;
@@ -16,6 +16,7 @@ let teacher=null,currentSession='D1-AM',rows=[],rewardRows=[],page=1,lastRefresh
 const clean=v=>String(v==null?'':v).trim();
 const n=(v,f=0)=>Number.isFinite(Number(v))?Number(v):f;
 const h=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+const xml=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&apos;');
 const ts=v=>{try{return typeof v?.toMillis==='function'?v.toMillis():(v?.seconds?Number(v.seconds)*1000:new Date(v||0).getTime()||0)}catch(_){return 0}};
 const chunks=(a,size=CHUNK)=>{const o=[];for(let i=0;i<a.length;i+=size)o.push(a.slice(i,i+size));return o};
 const docs=s=>s.docs.map(d=>({id:d.id,...(d.data()||{})}));
@@ -96,6 +97,7 @@ function render(){
  $('games').innerHTML=GAMES.map(g=>{const p=rows.filter(r=>Number.isFinite(Number(r.bestScores?.[g.id]))),avg=p.length?Math.round(p.reduce((s,r)=>s+n(r.bestScores[g.id]),0)/p.length):0,pass=p.filter(r=>n(r.bestScores[g.id])>=g.pass).length;return `<div class="game-row"><div><strong>${h(g.title)}</strong><small>${p.length} players • pass ${g.pass}%</small></div><div class="pill">${avg}%<small>Avg</small></div><div class="pill">${pass}<small>Pass</small></div></div>`}).join('');
  $('issues').innerHTML=o.issues.length?o.issues.map(x=>`<div class="issue">${h(x)}</div>`).join(''):'<div class="good">✓ No current data-health issue</div>';
  renderRewards();renderParticipants();renderSessions();
+ if($('exportXlsBtn'))$('exportXlsBtn').disabled=!rows.length;
 }
 function renderSessions(){$('sessionFilter').value=currentSession;$('sessionCounts').innerHTML=SESSION_IDS.map(id=>`<button class="session-chip ${id===currentSession?'active':''}" data-session="${id}"><strong>${id===currentSession?rows.length:'—'}</strong><span>${id}</span></button>`).join('');document.querySelectorAll('[data-session]').forEach(b=>b.onclick=()=>switchSession(b.dataset.session))}
 function renderRewards(){
@@ -105,6 +107,58 @@ function renderRewards(){
 }
 function filtered(){const q=clean($('searchInput').value).toLowerCase(),st=clean($('stageFilter').value);return rows.filter(r=>(!q||`${r.playerId} ${r.fullName}`.toLowerCase().includes(q))&&(!st||r.stage===st))}
 function renderParticipants(){const list=filtered(),pages=Math.max(1,Math.ceil(list.length/PAGE_SIZE));page=Math.min(page,pages);const start=(page-1)*PAGE_SIZE,part=list.slice(start,start+PAGE_SIZE);$('participantBody').innerHTML=part.map(r=>`<tr><td><strong>${h(r.fullName)}</strong><br><small>${h(r.playerId)}</small></td><td>${h(r.stage)}</td><td>${r.preAccuracy==null?'—':Math.round(r.preAccuracy)+'%'}</td><td>${r.postAccuracy==null?'—':Math.round(r.postAccuracy)+'%'}</td><td>${r.learningGain==null?'—':(r.learningGain>0?'+':'')+Math.round(r.learningGain)+'%'}</td><td>${r.avg}%</td><td>${r.reflectionDone?'✓':'—'}</td><td>${r.summaryViewed?'✓':'—'}</td><td>${r.certificateEligible?'✓':'—'}</td></tr>`).join('');$('pageInfo').textContent=`${list.length?start+1:0}–${Math.min(start+PAGE_SIZE,list.length)} / ${list.length}`;$('prevPageBtn').disabled=page<=1;$('nextPageBtn').disabled=page>=pages}
+function bangkokDate(v){
+ const ms=typeof v==='number'?v:ts(v);if(!ms)return'';
+ try{
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).formatToParts(new Date(ms));
+  const m=Object.fromEntries(parts.map(p=>[p.type,p.value]));return `${m.year}-${m.month}-${m.day} ${m.hour}:${m.minute}:${m.second}`;
+ }catch(_){return new Date(ms).toISOString()}
+}
+function xlsCell(value,style='Cell'){
+ if(value==null||value==='')return `<Cell ss:StyleID="${style}"><Data ss:Type="String"></Data></Cell>`;
+ if(typeof value==='number'&&Number.isFinite(value))return `<Cell ss:StyleID="${style}"><Data ss:Type="Number">${value}</Data></Cell>`;
+ return `<Cell ss:StyleID="${style}"><Data ss:Type="String">${xml(value)}</Data></Cell>`;
+}
+function xlsRow(values,style='Cell'){return `<Row>${values.map(v=>xlsCell(v,style)).join('')}</Row>`}
+function xlsSheet(name,headers,data,widths=[]){
+ const cols=headers.map((_,i)=>`<Column ss:AutoFitWidth="0" ss:Width="${Number(widths[i]||90)}"/>`).join('');
+ const body=data.map(r=>xlsRow(r)).join('');
+ return `<Worksheet ss:Name="${xml(name)}"><Table>${cols}${xlsRow(headers,'Header')}${body}</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane><ActivePane>2</ActivePane><ProtectObjects>False</ProtectObjects><ProtectScenarios>False</ProtectScenarios></WorksheetOptions></Worksheet>`;
+}
+function buildXlsWorkbook(list){
+ const o=overview(),winners=authoritativeEligible();
+ const participantHeaders=['Session','Player ID','Name','Stage','Pre %','Post %','Gain (pp)','Game 1 %','Game 2 %','Game 3 %','Game 4 %','Game 5 %','Game Avg %','Reflection','Journey Summary','Certificate','Certificate ID','Finished At (Bangkok)'];
+ const participantData=list.map(r=>[
+  r.sessionId,r.playerId,r.fullName,r.stage,
+  r.preAccuracy==null?'':Math.round(r.preAccuracy),r.postAccuracy==null?'':Math.round(r.postAccuracy),r.learningGain==null?'':Math.round(r.learningGain),
+  ...GAMES.map(g=>Number.isFinite(Number(r.bestScores?.[g.id]))?Math.round(n(r.bestScores[g.id])):''),
+  Math.round(r.avg),r.reflectionDone?'Yes':'No',r.summaryViewed?'Yes':'No',r.certificateEligible?'Yes':'No',r.certificateId,bangkokDate(r.finishedAt)
+ ]);
+ const gameOverview=GAMES.map((g,i)=>{
+  const p=rows.filter(r=>Number.isFinite(Number(r.bestScores?.[g.id]))),avg=p.length?Math.round(p.reduce((s,r)=>s+n(r.bestScores[g.id]),0)/p.length):0,pass=p.filter(r=>n(r.bestScores[g.id])>=g.pass).length;
+  return [`Game ${i+1}: ${g.title}`,`${p.length} players`,`${avg}% average`,`${pass} pass`,`Pass threshold ${g.pass}%`];
+ });
+ const overviewData=[
+  ['Exported At (Bangkok)',bangkokDate(Date.now())],['Session',currentSession],['Search Filter',clean($('searchInput').value)||'(none)'],['Stage Filter',clean($('stageFilter').value)||'(all)'],['Exported Participants',list.length],['Session Participants',o.total],['Pre Complete',o.pre],['Post Complete',o.post],['Reflections',o.refl],['Certificates',o.cert],['Paired N',o.pairedN],['Pre Mean %',o.meanPre==null?'':o.meanPre],['Post Mean %',o.meanPost==null?'':o.meanPost],['Mean Gain (pp)',o.gain==null?'':o.gain],['Data Issues',o.issues.length],['Reward Eligible',winners.length],['Reward Claimed',winners.filter(r=>r.rewardClaimed===true).length],['',''],['Game Analytics','','','',''],...gameOverview
+ ];
+ const rewardData=winners.map((r,i)=>[i+1,clean(r.playerId),r.finish?.fullName||r.finish?.nickname||clean(r.playerId),n(r.bonusScore),bangkokDate(r.qualifiedAtMs),r.rewardClaimed===true?'Claimed':'Eligible']);
+ const sheets=[
+  xlsSheet('Participants',participantHeaders,participantData,[75,95,190,110,65,65,70,70,70,70,70,70,80,80,95,85,125,145]),
+  xlsSheet('Overview',['Metric','Value','Detail 1','Detail 2','Detail 3'],overviewData,[180,110,140,110,140]),
+  xlsSheet('Rewards',['Rank','Player ID','Name','Bonus %','Qualified At (Bangkok)','Reward Status'],rewardData,[55,95,190,75,150,95])
+ ];
+ return `<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40"><DocumentProperties xmlns="urn:schemas-microsoft-com:office:office"><Author>LEXICON X Teacher Console</Author><Created>${new Date().toISOString()}</Created></DocumentProperties><Styles><Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="10"/></Style><Style ss:ID="Cell"><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D7E3EC"/></Borders></Style><Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#2468D8" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#174B9A"/></Borders></Style></Styles>${sheets.join('')}</Workbook>`;
+}
+function exportXls(){
+ try{
+  if(!teacher){status('Teacher sign-in required',true);return}
+  const list=filtered();if(!list.length){status('ไม่มีข้อมูลสำหรับ Export XLS',true);return}
+  const workbook=buildXlsWorkbook(list),blob=new Blob(['\ufeff',workbook],{type:'application/vnd.ms-excel;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  const stamp=new Date().toISOString().slice(0,10).replaceAll('-','');
+  a.href=url;a.download=`LEXICON_X_${currentSession}_${stamp}.xls`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1200);
+  status(`XLS exported • ${list.length} players • ${currentSession}`);
+ }catch(e){console.error(e);status(`XLS export failed • ${clean(e.message||e)}`,true)}
+}
 async function claimReward(id){if(!confirm('Confirm reward received?'))return;try{await firebase.firestore().collection(COL.rewards).doc(id).update({rewardClaimed:true,rewardClaimedAt:firebase.firestore.FieldValue.serverTimestamp(),claimedBy:teacher.uid,claimedByEmail:teacher.email||'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()});const r=rewardRows.find(x=>x.id===id);if(r)r.rewardClaimed=true;renderRewards();status('Reward claimed ✓')}catch(e){status(clean(e.message||e),true)}}
 async function refresh(force=false){
  if(refreshing)return;const wait=REFRESH_COOLDOWN_MS-(Date.now()-lastRefreshAt);if(!force&&lastRefreshAt&&wait>0){status(`Read budget guard • refresh again in ${Math.ceil(wait/1000)}s`);return}
@@ -114,9 +168,9 @@ async function refresh(force=false){
 async function switchSession(id){if(!SESSION_IDS.includes(id)||id===currentSession)return;currentSession=id;lastRefreshAt=0;await refresh(true)}
 async function login(){try{$('loginError').textContent='';const email=clean($('teacherEmail').value),pass=$('teacherPassword').value;const cred=await firebase.auth().signInWithEmailAndPassword(email,pass);await verifyTeacher(cred.user);$('loginLayer').classList.add('hidden');await refresh(true)}catch(e){$('loginError').textContent=clean(e.message||e)}}
 function bind(){
- $('loginBtn').onclick=login;$('lockBtn').onclick=()=>firebase.auth().signOut();$('refreshBtn').onclick=()=>refresh(false);$('sessionFilter').onchange=e=>switchSession(e.target.value);$('searchInput').oninput=()=>{page=1;renderParticipants()};$('stageFilter').onchange=()=>{page=1;renderParticipants()};$('prevPageBtn').onclick=()=>{page=Math.max(1,page-1);renderParticipants()};$('nextPageBtn').onclick=()=>{page+=1;renderParticipants()};
+ $('loginBtn').onclick=login;$('lockBtn').onclick=()=>firebase.auth().signOut();$('refreshBtn').onclick=()=>refresh(false);if($('exportXlsBtn')){$('exportXlsBtn').onclick=exportXls;$('exportXlsBtn').disabled=true}$('sessionFilter').onchange=e=>switchSession(e.target.value);$('searchInput').oninput=()=>{page=1;renderParticipants()};$('stageFilter').onchange=()=>{page=1;renderParticipants()};$('prevPageBtn').onclick=()=>{page=Math.max(1,page-1);renderParticipants()};$('nextPageBtn').onclick=()=>{page+=1;renderParticipants()};
  firebase.auth().onAuthStateChanged(async user=>{if(!user||user.isAnonymous){teacher=null;$('loginLayer').classList.remove('hidden');return}try{await verifyTeacher(user);$('loginLayer').classList.add('hidden');if(!rows.length)await refresh(true)}catch(e){teacher=null;$('loginLayer').classList.remove('hidden');$('loginError').textContent=clean(e.message||e)}});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
-window.EW_TEACHER_CONSOLE_V5=Object.freeze({version:VERSION,refresh,readBudget:'progress+profiles+summary+rewards; selective checkpoints + assessment fallback',cooldownMs:REFRESH_COOLDOWN_MS,rewardLimit:REWARD_LIMIT,bonusPass:BONUS_PASS});
+window.EW_TEACHER_CONSOLE_V5=Object.freeze({version:VERSION,refresh,exportXls,readBudget:'progress+profiles+summary+rewards; selective checkpoints + assessment fallback',cooldownMs:REFRESH_COOLDOWN_MS,rewardLimit:REWARD_LIMIT,bonusPass:BONUS_PASS});
 })();
