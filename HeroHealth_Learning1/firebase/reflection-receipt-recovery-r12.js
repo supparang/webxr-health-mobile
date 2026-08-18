@@ -1,9 +1,9 @@
-import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
-import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
-import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js';
+import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js';
+import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
 import { HEROHEALTH_FIREBASE_CONFIG } from './firebase-config.js';
 
-const RELEASE = '20260809-REFLECTION-RECEIPT-RECOVERY-R13-E2E29';
+const RELEASE = '20260818-REFLECTION-RECEIPT-RECOVERY-R14-STRICT';
 const STATE_KEY = 'herohealth_learning_platform_rc2';
 const params = new URLSearchParams(location.search);
 const mode = String(params.get('authority') || 'firebase').toLowerCase();
@@ -12,119 +12,87 @@ const SANDBOX_STUDENT_IDS = new Set(Array.from({ length: 29 }, (_, i) => String(
 const isSandboxStudent = sid => SANDBOX_STUDENT_IDS.has(String(sid || '').trim());
 
 function readState() {
-  try { return JSON.parse(localStorage.getItem(STATE_KEY) || '{}'); }
+  try { return JSON.parse(localStorage.getItem(STATE_KEY) || '{}') || {}; }
   catch (_) { return {}; }
 }
-
 function writeState(state) {
-  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
+  catch (_) {}
 }
-
-function studentId() {
+function resolveStudentId() {
+  const values = ['studentId','sid','pid']
+    .map(key => String(params.get(key) || '').trim())
+    .filter(Boolean);
+  const unique = [...new Set(values)];
+  if (unique.length > 1) return '';
+  if (unique.length === 1) return unique[0];
   const state = readState();
-  return String(
-    params.get('studentId') ||
-    params.get('sid') ||
-    state?.profile?.studentId ||
-    ''
-  ).trim();
+  const local = [state?.profile?.studentId, state?.firebaseAuthority?.studentId]
+    .map(v => String(v || '').trim()).filter(Boolean);
+  const localUnique = [...new Set(local)];
+  return localUnique.length === 1 ? localUnique[0] : '';
 }
-
-function alreadyComplete(state) {
-  return state?.completed?.reflection === true && state?.reflectionCompleted === true;
-}
-
 function applyEvidence(state, sid, evidence, collectionName) {
-  const reflection = evidence?.reflection && typeof evidence.reflection === 'object'
-    ? evidence.reflection
-    : (state.reflection || {});
-
+  const evidenceReflection = evidence?.reflection && typeof evidence.reflection === 'object'
+    ? evidence.reflection : {};
+  const receipt = String(
+    evidence?.firebaseReceiptToken || evidence?.receiptToken || evidenceReflection?.firebaseReceiptToken || ''
+  );
   return {
     ...state,
-    completed: {
-      ...(state.completed || {}),
-      reflection: true,
-      certificate: true
-    },
+    completed: { ...(state.completed || {}), reflection: true },
     reflectionCompleted: true,
-    reflection: {
-      ...reflection,
-      completed: true,
-      firebaseReceiptToken:
-        evidence?.firebaseReceiptToken ||
-        evidence?.receiptToken ||
-        reflection?.firebaseReceiptToken ||
-        ''
-    },
+    reflection: { ...(state.reflection || {}), ...evidenceReflection, completed: true, firebaseReceiptToken: receipt },
     firebaseReflection: {
-      ...(state.firebaseReflection || {}),
-      receipt:
-        evidence?.firebaseReceiptToken ||
-        evidence?.receiptToken ||
-        evidence?.reflection?.firebaseReceiptToken ||
-        '',
+      receipt,
       evidencePath: `${collectionName}/${sid}_REFLECTION`,
       recoveredAt: new Date().toISOString(),
       release: RELEASE
     }
+    // Certificate is deliberately NOT marked complete here. Certificate R8 has
+    // its own Firestore-issued receipt and strict full-flow eligibility gate.
   };
 }
 
 async function boot() {
-  if (!enabled || window.__HH_REFLECTION_RECOVERY_R13__) return;
-  window.__HH_REFLECTION_RECOVERY_R13__ = true;
-
-  const sid = studentId();
+  if (!enabled || window.__HH_REFLECTION_RECOVERY_R14__) return;
+  window.__HH_REFLECTION_RECOVERY_R14__ = true;
+  const sid = resolveStudentId();
   if (!sid) return;
-
-  const current = readState();
-  if (alreadyComplete(current)) return;
-
   try {
     const app = getApps().length ? getApps()[0] : initializeApp(HEROHEALTH_FIREBASE_CONFIG);
     const auth = getAuth(app);
     if (!auth.currentUser) await signInAnonymously(auth);
-
     const db = getFirestore(app);
     const collectionName = isSandboxStudent(sid) ? 'studentAssessmentsSandbox' : 'studentAssessments';
-    const documentId = `${sid}_REFLECTION`;
-    const snapshot = await getDoc(doc(db, collectionName, documentId));
-    if (!snapshot.exists()) {
-      console.info('[Reflection Recovery R13] no evidence', { sid, path: `${collectionName}/${documentId}` });
-      return;
-    }
-
+    const progressCollection = isSandboxStudent(sid) ? 'studentProgressSandbox' : 'studentProgress';
+    const [snapshot, progressSnap] = await Promise.all([
+      getDoc(doc(db, collectionName, `${sid}_REFLECTION`)),
+      getDoc(doc(db, progressCollection, sid))
+    ]);
+    if (!snapshot.exists() || !progressSnap.exists()) return;
     const evidence = snapshot.data() || {};
-    const confirmed = evidence.completed === true && (
-      Boolean(evidence.firebaseReceiptToken) ||
-      Boolean(evidence.receiptToken) ||
-      Boolean(evidence.reflection?.firebaseReceiptToken)
-    );
+    const progress = progressSnap.data() || {};
+    const receipt = String(evidence.firebaseReceiptToken || evidence.receiptToken || evidence.reflection?.firebaseReceiptToken || '');
+    const confirmed = evidence.completed === true && Boolean(receipt) &&
+      progress.reflectionCompleted === true &&
+      String(progress.reflectionReceiptToken || '') === receipt;
     if (!confirmed) {
-      console.warn('[Reflection Recovery R13] evidence incomplete', evidence);
+      console.warn('[Reflection Recovery R14] Firestore evidence not fully confirmed', { sid, receipt });
       return;
     }
-
     const latest = readState();
+    if (String(latest?.profile?.studentId || '') !== sid || String(latest?.firebaseAuthority?.studentId || '') !== sid) return;
     writeState(applyEvidence(latest, sid, evidence, collectionName));
-
-    if (params.get('reflectionRecoveredR13') !== '1') {
-      const url = new URL(location.href);
-      url.searchParams.set('authority', 'firebase');
-      url.searchParams.set('studentId', sid);
-      url.searchParams.set('sid', sid);
-      url.searchParams.set('firebaseReady', '1');
-      url.searchParams.set('reflectionRecoveredR13', '1');
-      url.searchParams.set('v', RELEASE);
-      location.replace(url.href);
-    }
+    window.dispatchEvent(new CustomEvent('hh:firebase-state-updated', { detail: { reason: 'reflection-recovery-r14', release: RELEASE } }));
+    console.info('[Reflection Recovery R14] verified', { sid, receipt });
   } catch (error) {
-    console.error('[Reflection Recovery R13] failed', error);
+    console.error('[Reflection Recovery R14] failed', error);
   }
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 80), { once: true });
+  document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 120), { once: true });
 } else {
-  setTimeout(boot, 80);
+  setTimeout(boot, 120);
 }
