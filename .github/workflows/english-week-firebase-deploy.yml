@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'english/functions/english-week-teacher.js'
+      - 'english/functions/english-week-session-counts.js'
       - 'english/functions/english-week-roster-import.js'
       - 'english/functions/main.js'
       - 'english/functions/package.json'
@@ -70,6 +71,7 @@ jobs:
         run: |
           npm run lint
           node --check english-week-teacher.js
+          node --check english-week-session-counts.js
           node --check english-week-roster-import.js
           node --check main.js
 
@@ -98,7 +100,7 @@ jobs:
         run: |
           gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
           gcloud config set project englishweek-95869
-          for FN in englishWeekTeacher englishWeekRosterImport; do
+          for FN in englishWeekTeacher englishWeekSessionCounts englishWeekRosterImport; do
             gcloud functions add-invoker-policy-binding "$FN" \
               --gen2 \
               --region=asia-southeast1 \
