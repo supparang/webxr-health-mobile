@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 
-const VERSION='2026-08-14-ATTENDANCE-CHECKIN-V2-PLAYER-BOUND-ROUND-LOCK';
+const VERSION='2026-08-19-ATTENDANCE-CHECKIN-V3-AUTH-READY-FAILSAFE';
 const SESSION_IDS=Object.freeze(['D1-AM','D1-PM','D2-AM','D2-PM','D3-AM','D3-PM']);
 const STORAGE_KEY='LEXICON_X_ATTENDANCE_CHECKIN_V2';
 const clean=v=>String(v==null?'':v).trim();
@@ -52,10 +52,24 @@ function firebaseReady(){
   return Boolean(window.firebase && firebase.auth && firebase.firestore);
 }
 
+async function ensureAuthReady(){
+  if(!firebaseReady()) return null;
+  let user=firebase.auth().currentUser;
+  if(user) return user;
+  try{
+    if(typeof window.EW_STUDENT_AUTH_ISOLATION?.ensure==='function'){
+      user=await window.EW_STUDENT_AUTH_ISOLATION.ensure();
+    }
+  }catch(error){
+    console.warn('[LEXICON X] attendance auth ensure failed',error);
+  }
+  return user||firebase.auth().currentUser||null;
+}
+
 async function syncAttendance(playerId){
   const id=clean(playerId);
   if(!id || !firebaseReady()) return {ok:false,checkedIn:false,reason:'NOT_READY'};
-  const user=firebase.auth().currentUser;
+  const user=await ensureAuthReady();
   if(!user) return {ok:false,checkedIn:false,reason:'AUTH_NOT_READY'};
 
   const db=firebase.firestore();
