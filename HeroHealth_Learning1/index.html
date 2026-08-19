@@ -9,7 +9,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>HeroHealth Learning Platform</title>
-  <link rel="stylesheet" href="./assets/app.css?v=20260818-r40-balance-physical-v54" />
+  <link rel="stylesheet" href="./assets/app.css?v=20260819-r41-balance-physical-v55" />
   <link rel="stylesheet" href="./assets/mobile-passport-production-v1.css?v=20260814-v18-research-flow" />
   <style>
     .badge.locked{background:#eef4f2;color:#64748b}
@@ -21,7 +21,7 @@
   <script>
     window.HH_AUTHORITY_MODE=String(new URLSearchParams(location.search).get('authority')||'firebase').toLowerCase();
     window.HH_FIREBASE_MODE=window.HH_AUTHORITY_MODE==='firebase'||window.HH_AUTHORITY_MODE==='dual';
-    window.HH_APP_RELEASE='20260818-PASSPORT-R40-BALANCE-PHYSICAL-V54';
+    window.HH_APP_RELEASE='20260819-PASSPORT-R41-BALANCE-PHYSICAL-V55-DIRECTION-LOCK';
   </script>
 </head>
 <body>
@@ -44,7 +44,7 @@
 <script src="./assets/mission-state-fix.js?v=20260814-r17-child-copy"></script>
 <script src="./assets/next-mission-research-sync-r1.js?v=20260814-next-mission-sync-r1"></script>
 <script src="./assets/reward-champion-v1.js?v=20260815-reward-champion-r1"></script>
-<script src="./assets/game-shell-launcher.js?v=20260818-r55-balance-physical-v54-progress-deadline"></script>
+<script src="./assets/game-shell-launcher.js?v=20260819-r56-balance-physical-v55-direction-lock"></script>
 <script>if(!window.HH_FIREBASE_MODE)document.write('<script src="./assets/backend-sync.js?v=20260730-authority-assessment-v89"><\/script>')</script>
 <script src="./assets/overall-summary-gate-v1.js?v=20260818-research-gate-r6-strict-firebase"></script>
 <script>if(!window.HH_FIREBASE_MODE){document.write('<script src="./assets/sheet-authority-hard-reset-v1.js?v=20260730-authority-assessment-v91"><\/script>');document.write('<script src="./assets/final-sheet-authority-guard-v1.js?v=20260730-final-authority-v2-pretest-unlock"><\/script>');document.write('<script src="./assets/sheet-profile-login-authority-v1.js?v=20260730-sheet-profile-login-v4-capture-jsonp-retry"><\/script>')}</script>
@@ -55,7 +55,7 @@
 import('./firebase/passport-index-integration.js?v=20260818-r78-fast-return-normalized').catch(error=>{
   const message=String(error?.message||error||'passport-module-import-failed');
   window.__HH_FIREBASE_PASSPORT_IMPORT_ERROR__=message;
-  console.error('[HeroHealth Passport R40] module import failed',error);
+  console.error('[HeroHealth Passport R41] module import failed',error);
   const app=document.getElementById('app');
   if(app){
     const safe=message.replace(/[<>]/g,'');
