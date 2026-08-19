@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#07121f">
 <title>LEXICON X • Game Smoke Shell</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#07121f;font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;color:#eaf7ff;overflow:hidden}.top{height:52px;display:grid;grid-template-columns:48px 1fr 48px;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.12);background:#0b1d2f}.top button{height:40px;border:1px solid #31536d;border-radius:13px;background:#102b40;color:#fff;font-size:18px;font-weight:900}.title{text-align:center;min-width:0}.title b,.title small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.title b{font-size:.95rem}.title small{font-size:.7rem;color:#9db8c9}.stage{height:calc(100dvh - 52px);display:grid;place-items:center;padding:10px;background:radial-gradient(circle at 50% 38%,#14324a 0,#07121f 62%)}.device{width:min(390px,100%);height:min(780px,100%);border:1px solid rgba(255,255,255,.18);border-radius:26px;overflow:hidden;background:#fff;box-shadow:0 22px 70px rgba(0,0,0,.5)}iframe{display:block;width:100%;height:100%;border:0;background:#07121f}.resultToast{position:fixed;z-index:20;left:50%;bottom:22px;transform:translateX(-50%) translateY(18px);opacity:0;pointer-events:none;min-width:min(440px,calc(100vw - 28px));padding:13px 18px;border:1px solid #51e5b6;border-radius:16px;background:#0b342d;color:#d9fff4;text-align:center;font-weight:900;box-shadow:0 14px 36px #0008;transition:.2s}.resultToast.show{opacity:1;transform:translateX(-50%) translateY(0)}@media(max-width:720px){.top{display:none}.stage{height:100dvh;padding:0;display:block}.device{width:100vw;height:100dvh;border:0;border-radius:0;box-shadow:none}.resultToast{bottom:max(12px,env(safe-area-inset-bottom))}}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#07121f;font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;color:#eaf7ff;overflow:hidden}.top{height:52px;display:grid;grid-template-columns:48px 1fr 48px;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.12);background:#0b1d2f}.top button{height:40px;border:1px solid #31536d;border-radius:13px;background:#102b40;color:#fff;font-size:18px;font-weight:900}.title{text-align:center;min-width:0}.title b,.title small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.title b{font-size:.95rem}.title small{font-size:.7rem;color:#9db8c9}.stage{height:calc(100dvh - 52px);display:grid;place-items:center;padding:10px;background:radial-gradient(circle at 50% 38%,#14324a 0,#07121f 62%)}.device{width:min(390px,100%);height:min(780px,100%);border:1px solid rgba(255,255,255,.18);border-radius:26px;overflow:hidden;background:#07121f;box-shadow:0 22px 70px rgba(0,0,0,.5)}iframe{display:block;width:100%;height:100%;border:0;background:#07121f}.resultToast{position:fixed;z-index:20;left:50%;bottom:22px;transform:translateX(-50%) translateY(18px);opacity:0;pointer-events:none;min-width:min(440px,calc(100vw - 28px));padding:13px 18px;border:1px solid #51e5b6;border-radius:16px;background:#0b342d;color:#d9fff4;text-align:center;font-weight:900;box-shadow:0 14px 36px #0008;transition:.2s}.resultToast.show{opacity:1;transform:translateX(-50%) translateY(0)}@media(max-width:720px){.top{display:none}.stage{height:100dvh;padding:0;display:block}.device{width:100vw;height:100dvh;border:0;border-radius:0;box-shadow:none}.resultToast{bottom:max(12px,env(safe-area-inset-bottom))}}
 </style>
 </head>
 <body>
@@ -15,7 +15,7 @@
 <div id="resultToast" class="resultToast">SMOKE PASS ✓ • กำลังกลับ Game Test Mode…</div>
 <script>
 (()=>{'use strict';
-const RELEASE='2026-08-19-ENGLISH-GAME-TEST-SHELL-R4-BONUS-DIRECT-QA';
+const RELEASE='2026-08-19-ENGLISH-GAME-TEST-SHELL-R5-BONUS-TOPLEVEL-CAMERA';
 const q=new URLSearchParams(location.search);
 const gameId=q.get('gameId')||q.get('game')||'';
 const GAMES=Object.freeze({
@@ -38,6 +38,24 @@ const backupKey='EW_SMOKE_IDENTITY_BACKUP::'+pid;
 let completed=false,monitorTimer=0,identitySeeded=false;
 document.getElementById('title').textContent=title;
 
+function smokeUrl(rawTarget){
+  const u=new URL(rawTarget,location.href);
+  u.searchParams.set('qa','1');
+  u.searchParams.set('debug','1');
+  u.searchParams.set('gameTestMode','1');
+  u.searchParams.set('isTestAttempt','true');
+  u.searchParams.set('affectsProgression','false');
+  u.searchParams.set('submit','0');
+  u.searchParams.set('from','smoke');
+  u.searchParams.set('pid',pid);
+  u.searchParams.set('playerId',pid);
+  u.searchParams.set('smoke','1');
+  u.searchParams.set('returnMode','game-test');
+  u.searchParams.set('back',new URL(backUrl,location.href).href);
+  u.searchParams.set('v','20260819-ENGLISH-SMOKE-NOLOGIN-R5');
+  u.searchParams.set('_',Date.now());
+  return u;
+}
 function seedSmokeIdentity(){
   if(identitySeeded)return;
   const backup={};
@@ -52,36 +70,26 @@ function restoreIdentity(){
   let backup=null;
   try{backup=JSON.parse(sessionStorage.getItem(backupKey)||'null')}catch(_){}
   if(backup&&typeof backup==='object'){
-    for(const key of IDENTITY_KEYS){
-      try{if(backup[key]==null)localStorage.removeItem(key);else localStorage.setItem(key,backup[key])}catch(_){}
-    }
+    for(const key of IDENTITY_KEYS){try{if(backup[key]==null)localStorage.removeItem(key);else localStorage.setItem(key,backup[key])}catch(_){}}
   }else{
-    for(const key of IDENTITY_KEYS){
-      try{const current=JSON.parse(localStorage.getItem(key)||'null');if(current?.smoke&&current?.playerId===pid)localStorage.removeItem(key)}catch(_){}
-    }
+    for(const key of IDENTITY_KEYS){try{const current=JSON.parse(localStorage.getItem(key)||'null');if(current?.smoke&&current?.playerId===pid)localStorage.removeItem(key)}catch(_){}}
   }
   try{sessionStorage.removeItem(backupKey)}catch(_){}
   identitySeeded=false;
 }
 function load(){
   completed=false;toast.classList.remove('show');
-  if(!target){frame.srcdoc='<p style="font-family:system-ui;padding:24px">Missing smoke-test game target</p>';return}
+  if(!target){frame.srcdoc='<p style="font-family:system-ui;padding:24px;color:white;background:#07121f">Missing smoke-test game target</p>';return}
+  const u=smokeUrl(target);
+  if(gameId==='bonus_lens'){
+    // Camera/QR scanning is intentionally top-level on mobile. Some Android browsers
+    // render a blank iframe after camera permission even when allow="camera" is present.
+    u.searchParams.delete('view');
+    location.replace(u.href);
+    return;
+  }
   seedSmokeIdentity();
-  const u=new URL(target,location.href);
-  u.searchParams.set('qa','1');
-  u.searchParams.set('debug','1');
-  u.searchParams.set('gameTestMode','1');
-  u.searchParams.set('isTestAttempt','true');
-  u.searchParams.set('affectsProgression','false');
-  u.searchParams.set('submit','0');
-  u.searchParams.set('from','smoke');
-  u.searchParams.set('pid',pid);
-  u.searchParams.set('playerId',pid);
   u.searchParams.set('view','mobile');
-  u.searchParams.set('smoke','1');
-  u.searchParams.set('returnMode','game-test');
-  u.searchParams.set('v','20260819-ENGLISH-SMOKE-NOLOGIN-R4');
-  u.searchParams.set('_',Date.now());
   frame.src=u.href;
   startMonitor();
 }
@@ -94,7 +102,7 @@ window.addEventListener('pagehide',restoreIdentity,{once:true});
 document.getElementById('back').onclick=goBack;
 document.getElementById('reload').onclick=load;
 load();
-window.EW_GAME_TEST_SHELL=Object.freeze({version:RELEASE,pid,target,gameId,affectsProgression:false,directNoLogin:true,autoReturnToTestMode:true});
+window.EW_GAME_TEST_SHELL=Object.freeze({version:RELEASE,pid,target,gameId,affectsProgression:false,directNoLogin:true,bonusTopLevelCamera:true,autoReturnToTestMode:true});
 })();
 </script>
 </body>
