@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 
-const VERSION='2026-08-19-ATTENDANCE-CHECKIN-V4-FIRESTORE-TIMEOUT-FAILSAFE';
+const VERSION='2026-08-19-ATTENDANCE-CHECKIN-V5-ROUND-CONTINUITY';
 const SESSION_IDS=Object.freeze(['D1-AM','D1-PM','D2-AM','D2-PM','D3-AM','D3-PM']);
 const STORAGE_KEY='LEXICON_X_ATTENDANCE_CHECKIN_V2';
 const FIRESTORE_TIMEOUT_MS=6500;
@@ -43,6 +43,7 @@ function saveStored(playerId,sessionId){
     localStorage.setItem(STORAGE_KEY,JSON.stringify({
       playerId:clean(playerId),
       attendanceSessionId:sessionId,
+      sessionId,
       savedAt:nowIso(),
       version:VERSION
     }));
@@ -109,6 +110,10 @@ async function syncAttendance(playerId){
     current=sessionSnap.exists?(sessionSnap.data()||{}):{};
   }catch(error){
     console.warn('[LEXICON X] attendance session read failed',error);
+    const stored=readStored(id);
+    if(stored){
+      return dispatch({ok:true,checkedIn:true,assigned:true,playerId:id,attendanceSessionId:stored,sessionId:stored,status:'CHECKED_IN_LOCAL_RESUME',source:'local-resume-read-fallback',locked:true,degraded:true,version:VERSION});
+    }
     return dispatch({ok:false,checkedIn:false,reason:errorReason(error),operation:'session.get',playerId:id,version:VERSION});
   }
 
@@ -119,7 +124,7 @@ async function syncAttendance(playerId){
   ):'';
   const requested=sessionFromUrl();
   const stored=readStored(id);
-  const chosen=existing || requested || stored;
+  const chosen=existing || stored || requested;
 
   if(!chosen){
     return dispatch({ok:true,checkedIn:false,assigned:false,playerId:id,attendanceSessionId:'',sessionId:'UNASSIGNED',status:'NOT_CHECKED_IN',version:VERSION});
@@ -127,7 +132,12 @@ async function syncAttendance(playerId){
 
   const stamp=nowIso();
   const firstCheckIn=!existing;
-  const source=existing?'firebase-first-checkin':requested?'round-qr-link':'local-resume';
+  const source=existing?'firebase-resume':stored?'local-resume':requested?'round-qr-link':'unknown';
+
+  if(existing){
+    saveStored(id,existing);
+    return dispatch({ok:true,checkedIn:true,assigned:true,playerId:id,attendanceSessionId:existing,sessionId:existing,status:'CHECKED_IN',source,firstCheckIn:false,locked:true,version:VERSION});
+  }
 
   try{
     await withTimeout(sessionRef.set({
@@ -139,7 +149,8 @@ async function syncAttendance(playerId){
       checkedIn:true,
       checkInSource:source,
       attendanceUpdatedAt:stamp,
-      ...(firstCheckIn?{checkedInAt:stamp,firstCheckedInAt:stamp}:{}),
+      checkedInAt:stamp,
+      firstCheckedInAt:stamp,
       sessionId:chosen,
       sessionCode:chosen,
       cohortId:chosen,
@@ -148,12 +159,15 @@ async function syncAttendance(playerId){
       sessionSource:source,
       sessionUpdatedAt:stamp,
       updatedAt:stamp,
-      ...(firstCheckIn?{sessionAssignedAt:stamp}:{}),
+      sessionAssignedAt:stamp,
       attendanceCheckInVersion:VERSION,
       sessionAssignmentVersion:VERSION
     },{merge:true}),'session.set');
   }catch(error){
     console.warn('[LEXICON X] attendance session write failed',error);
+    if(stored){
+      return dispatch({ok:true,checkedIn:true,assigned:true,playerId:id,attendanceSessionId:stored,sessionId:stored,status:'CHECKED_IN_LOCAL_RESUME',source:'local-resume-write-fallback',locked:true,degraded:true,reason:errorReason(error),version:VERSION});
+    }
     return dispatch({ok:false,checkedIn:false,reason:errorReason(error),operation:'session.set',playerId:id,attendanceSessionId:chosen,sessionId:chosen,version:VERSION});
   }
 
@@ -169,7 +183,6 @@ async function syncAttendance(playerId){
         checkedIn:true,
         checkInSource:source,
         attendanceUpdatedAt:stamp,
-        ...(firstCheckIn?{checkedInAt:stamp,firstCheckedInAt:stamp}:{}),
         sessionId:chosen,
         sessionCode:chosen,
         cohortId:chosen,
@@ -177,7 +190,6 @@ async function syncAttendance(playerId){
         sessionLocked:true,
         sessionSource:source,
         sessionUpdatedAt:stamp,
-        ...(firstCheckIn?{sessionAssignedAt:stamp}:{}),
         attendanceCheckInVersion:VERSION,
         sessionAssignmentVersion:VERSION
       },{merge:true}),'progress.set');
@@ -222,7 +234,10 @@ function wrapAuthority(){
   return true;
 }
 
-function currentEntrySession(){ return sessionFromUrl()||''; }
+function currentEntrySession(){
+  const identity=(()=>{try{return JSON.parse(localStorage.getItem(window.EW_CONFIG?.cacheKeys?.identity||'ew_passport_identity_v1')||'null')}catch(_){return null}})();
+  return sessionFromUrl() || readStored(identity?.playerId||'') || '';
+}
 window.EW_ATTENDANCE_CHECKIN=Object.freeze({VERSION,SESSION_IDS,normalizeSession,currentEntrySession,syncAttendance});
 window.EW_SESSION_ASSIGNMENT=Object.freeze({VERSION,SESSION_IDS,normalizeSession,currentEntrySession,syncSession:syncAttendance,syncAttendance});
 
