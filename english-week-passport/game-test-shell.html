@@ -15,7 +15,7 @@
 <div id="resultToast" class="resultToast">SMOKE PASS ✓ • กำลังกลับ Game Test Mode…</div>
 <script>
 (()=>{'use strict';
-const RELEASE='2026-08-19-ENGLISH-GAME-TEST-SHELL-R3-DIRECT-NO-LOGIN';
+const RELEASE='2026-08-19-ENGLISH-GAME-TEST-SHELL-R4-BONUS-DIRECT-QA';
 const q=new URLSearchParams(location.search);
 const gameId=q.get('gameId')||q.get('game')||'';
 const GAMES=Object.freeze({
@@ -24,7 +24,7 @@ const GAMES=Object.freeze({
   sentence_city:{title:'Sentence City AR',target:'./sentence-city-ar-v62.html'},
   word_detective:{title:'Conversation Quest AR',target:'./conversation-quest-ar-v23.html'},
   final_boss:{title:'LEXICON Champion Arena',target:'./passport-final-boss-light-v1.html'},
-  bonus_lens:{title:'Lexicon Lens Hunt',target:'./lexicon-lens-hunt-firebase-v1.html'}
+  bonus_lens:{title:'Lexicon Lens Hunt',target:'./lexicon-lens-hunt.html'}
 });
 const selected=GAMES[gameId]||null;
 const target=q.get('target')||(selected?.target||'');
@@ -69,6 +69,7 @@ function load(){
   seedSmokeIdentity();
   const u=new URL(target,location.href);
   u.searchParams.set('qa','1');
+  u.searchParams.set('debug','1');
   u.searchParams.set('gameTestMode','1');
   u.searchParams.set('isTestAttempt','true');
   u.searchParams.set('affectsProgression','false');
@@ -79,7 +80,7 @@ function load(){
   u.searchParams.set('view','mobile');
   u.searchParams.set('smoke','1');
   u.searchParams.set('returnMode','game-test');
-  u.searchParams.set('v','20260819-ENGLISH-SMOKE-NOLOGIN-R3');
+  u.searchParams.set('v','20260819-ENGLISH-SMOKE-NOLOGIN-R4');
   u.searchParams.set('_',Date.now());
   frame.src=u.href;
   startMonitor();
