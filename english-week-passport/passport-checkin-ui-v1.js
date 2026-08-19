@@ -1,12 +1,15 @@
 (function(){
 'use strict';
-const VERSION='2026-08-11-PASSPORT-CHECKIN-UI-V3-LOGIN-SAFE';
+const VERSION='2026-08-19-PASSPORT-CHECKIN-UI-V4-AUTH-RACE-FAILSAFE';
 const SCREEN=document.getElementById('screen');
 const IDENTITY_KEY=window.EW_CONFIG?.cacheKeys?.identity||'ew_passport_identity_v1';
 let attendance=null;
 let syncing=false;
 let lastSyncAt=0;
 let decorateQueued=false;
+let retryTimer=null;
+let retryAttempt=0;
+const MAX_RETRY_ATTEMPTS=6;
 
 const clean=v=>String(v==null?'':v).trim();
 function readIdentity(){try{return JSON.parse(localStorage.getItem(IDENTITY_KEY)||'null')}catch(_){return null}}
@@ -19,7 +22,38 @@ function entrySession(){
 }
 function onLoginScreen(){return Boolean(document.getElementById('loginForm'))}
 function scheduleDecorate(){if(decorateQueued)return;decorateQueued=true;requestAnimationFrame(()=>{decorateQueued=false;decorate();});}
-function setAttendance(detail){attendance=detail||null;scheduleDecorate();}
+function isTransient(detail){
+  const reason=clean(detail?.reason).toUpperCase();
+  return reason==='AUTH_NOT_READY'||reason==='NOT_READY'||reason==='FIREBASE_AUTH_NOT_READY';
+}
+function clearRetry(){if(retryTimer){clearTimeout(retryTimer);retryTimer=null;}}
+function scheduleRetry(){
+  if(onLoginScreen()||attendance?.checkedIn||!readIdentity()?.playerId)return;
+  if(retryTimer||retryAttempt>=MAX_RETRY_ATTEMPTS)return;
+  const delay=Math.min(1600,200*Math.pow(2,Math.min(retryAttempt,3)));
+  retryAttempt+=1;
+  retryTimer=setTimeout(()=>{
+    retryTimer=null;
+    refreshAttendance(true);
+  },delay);
+}
+function setAttendance(detail){
+  if(detail?.checkedIn){
+    attendance=detail;
+    retryAttempt=0;
+    clearRetry();
+    scheduleDecorate();
+    return;
+  }
+  if(isTransient(detail)){
+    attendance=null;
+    scheduleDecorate();
+    scheduleRetry();
+    return;
+  }
+  attendance=detail||null;
+  scheduleDecorate();
+}
 
 async function refreshAttendance(force=false){
   // Never use a cached identity to claim a check-in while the login form is visible.
@@ -28,7 +62,7 @@ async function refreshAttendance(force=false){
   const identity=readIdentity();
   if(!identity?.playerId||typeof window.EW_ATTENDANCE_CHECKIN?.syncAttendance!=='function')return null;
   const now=Date.now();
-  if(syncing||(!force&&now-lastSyncAt<1500))return attendance;
+  if(syncing||(!force&&now-lastSyncAt<1200))return attendance;
   syncing=true;lastSyncAt=now;
   try{
     const detail=await window.EW_ATTENDANCE_CHECKIN.syncAttendance(identity.playerId);
@@ -36,6 +70,7 @@ async function refreshAttendance(force=false){
     return detail;
   }catch(error){
     console.warn('[LEXICON X] Check-in UI refresh failed',error);
+    if(!attendance?.checkedIn){attendance=null;scheduleDecorate();scheduleRetry();}
     return attendance;
   }finally{syncing=false;}
 }
@@ -49,11 +84,13 @@ function makeBadge(detail){
   box.innerHTML=`<span class="ew-checkin-dot">✓</span><div><strong>Checked in: ${id}</strong><small>${sessionLabel(id)} • รอบถูกล็อกแล้ว</small></div>`;
   return box;
 }
-function makePendingRound(id){
+function makePendingRound(id,afterLogin=false){
   const box=document.createElement('section');
   box.dataset.ewCheckinUi='pending';
   box.className='ew-checkin-pending';
-  box.innerHTML=`<div class="ew-checkin-icon">🎟️</div><div><strong>พบรอบกิจกรรม: ${id}</strong><p>${sessionLabel(id)} • กรุณา Login ด้วยรหัสผู้เล่นเพื่อยืนยัน Check-in</p><small>ระบบจะบันทึกรอบนี้ลง Firebase หลังตรวจสอบรหัสสำเร็จ</small></div>`;
+  box.innerHTML=afterLogin
+    ?`<div class="ew-checkin-icon">🎟️</div><div><strong>กำลังยืนยัน Check-in: ${id}</strong><p>${sessionLabel(id)} • กำลังเชื่อมต่อ Firebase เพื่อยืนยันรอบกิจกรรม</p><small>กรุณารอสักครู่ ระบบจะลองยืนยันซ้ำอัตโนมัติ</small></div>`
+    :`<div class="ew-checkin-icon">🎟️</div><div><strong>พบรอบกิจกรรม: ${id}</strong><p>${sessionLabel(id)} • กรุณา Login ด้วยรหัสผู้เล่นเพื่อยืนยัน Check-in</p><small>ระบบจะบันทึกรอบนี้ลง Firebase หลังตรวจสอบรหัสสำเร็จ</small></div>`;
   return box;
 }
 function makeBlocker(){
@@ -97,7 +134,9 @@ function decorate(){
   // even when localStorage still contains the previous player's identity.
   if(onLoginScreen()){
     attendance=null;
-    if(requested)insertNearHero(makePendingRound(requested));
+    retryAttempt=0;
+    clearRetry();
+    if(requested)insertNearHero(makePendingRound(requested,false));
     else insertNearHero(makeBlocker());
     return;
   }
@@ -108,7 +147,7 @@ function decorate(){
   applyGate(checkedIn);
   if(checkedIn){insertNearHero(makeBadge(attendance));return;}
 
-  if(requested){insertNearHero(makePendingRound(requested));return;}
+  if(requested){insertNearHero(makePendingRound(requested,true));return;}
   insertNearHero(makeBlocker());
 }
 
@@ -117,6 +156,7 @@ function intercept(event){
   if(!target||!target.dataset.checkinBlocked)return;
   event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
   scheduleDecorate();
+  if(!attendance?.checkedIn)refreshAttendance(true);
   const notice=document.querySelector('.ew-checkin-blocker,.ew-checkin-pending');
   notice?.scrollIntoView?.({behavior:'smooth',block:'center'});
 }
@@ -126,6 +166,13 @@ document.addEventListener('pointerdown',intercept,true);
 document.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' ')intercept(event)},true);
 window.addEventListener('lexicon-attendance-checkin',event=>setAttendance(event.detail));
 window.addEventListener('lexicon-session-assignment',event=>setAttendance(event.detail));
+window.addEventListener('ew-student-auth-ready',()=>{
+  if(onLoginScreen()||!readIdentity()?.playerId)return;
+  attendance=null;
+  retryAttempt=0;
+  clearRetry();
+  refreshAttendance(true);
+});
 window.addEventListener('pageshow',()=>refreshAttendance(true));
 window.addEventListener('focus',()=>refreshAttendance(false));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshAttendance(false)});
