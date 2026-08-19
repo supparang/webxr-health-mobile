@@ -15,15 +15,85 @@
 <div id="resultToast" class="resultToast">SMOKE PASS ✓ • กำลังกลับ Game Test Mode…</div>
 <script>
 (()=>{'use strict';
-const RELEASE='2026-08-08-ENGLISH-GAME-TEST-SHELL-R2-AUTO-RETURN';
-const q=new URLSearchParams(location.search);const target=q.get('target')||'';const pid=q.get('pid')||'QA-FB-002';const title=q.get('title')||'LEXICON X • Smoke Test';const backUrl=q.get('back')||'./game-test-mode.html';const gameId=q.get('gameId')||'';document.getElementById('title').textContent=title;const frame=document.getElementById('game');const toast=document.getElementById('resultToast');let completed=false;let monitorTimer=0;
-function load(){completed=false;toast.classList.remove('show');if(!target){frame.srcdoc='<p style="font-family:system-ui;padding:24px">Missing target</p>';return}const u=new URL(target,location.href);u.searchParams.set('qa','1');u.searchParams.set('gameTestMode','1');u.searchParams.set('isTestAttempt','true');u.searchParams.set('affectsProgression','false');u.searchParams.set('pid',pid);u.searchParams.set('playerId',pid);u.searchParams.set('view','mobile');u.searchParams.set('smoke','1');u.searchParams.set('returnMode','game-test');u.searchParams.set('v','20260808-ENGLISH-GAME-TEST-R3');u.searchParams.set('_',Date.now());frame.src=u.href;startMonitor()}
-function goBack(){location.href=backUrl}
+const RELEASE='2026-08-19-ENGLISH-GAME-TEST-SHELL-R3-DIRECT-NO-LOGIN';
+const q=new URLSearchParams(location.search);
+const gameId=q.get('gameId')||q.get('game')||'';
+const GAMES=Object.freeze({
+  word_match:{title:'LexiMatch Navigator',target:'./leximatch-navigator-passport.html'},
+  category_forest:{title:'Category Forest',target:'./category-forest-v5.html'},
+  sentence_city:{title:'Sentence City AR',target:'./sentence-city-ar-v62.html'},
+  word_detective:{title:'Conversation Quest AR',target:'./conversation-quest-ar-v23.html'},
+  final_boss:{title:'LEXICON Champion Arena',target:'./passport-final-boss-light-v1.html'},
+  bonus_lens:{title:'Lexicon Lens Hunt',target:'./lexicon-lens-hunt-firebase-v1.html'}
+});
+const selected=GAMES[gameId]||null;
+const target=q.get('target')||(selected?.target||'');
+const pid=q.get('pid')||q.get('playerId')||'QA-SMOKE-001';
+const title=q.get('title')||(selected?.title?selected.title+' • SMOKE':'LEXICON X • Smoke Test');
+const backUrl=q.get('back')||'./game-test-mode.html';
+const frame=document.getElementById('game');
+const toast=document.getElementById('resultToast');
+const IDENTITY_KEYS=['ew_passport_identity_v1','ew_identity'];
+const backupKey='EW_SMOKE_IDENTITY_BACKUP::'+pid;
+let completed=false,monitorTimer=0,identitySeeded=false;
+document.getElementById('title').textContent=title;
+
+function seedSmokeIdentity(){
+  if(identitySeeded)return;
+  const backup={};
+  for(const key of IDENTITY_KEYS){try{backup[key]=localStorage.getItem(key)}catch(_){backup[key]=null}}
+  try{sessionStorage.setItem(backupKey,JSON.stringify(backup))}catch(_){}
+  const identity={playerId:pid,nickname:'Smoke QA',fullName:'Smoke QA',qa:true,smoke:true,source:'game-test-shell',updatedAt:new Date().toISOString()};
+  for(const key of IDENTITY_KEYS){try{localStorage.setItem(key,JSON.stringify(identity))}catch(_){}}
+  identitySeeded=true;
+}
+function restoreIdentity(){
+  if(!identitySeeded)return;
+  let backup=null;
+  try{backup=JSON.parse(sessionStorage.getItem(backupKey)||'null')}catch(_){}
+  if(backup&&typeof backup==='object'){
+    for(const key of IDENTITY_KEYS){
+      try{if(backup[key]==null)localStorage.removeItem(key);else localStorage.setItem(key,backup[key])}catch(_){}
+    }
+  }else{
+    for(const key of IDENTITY_KEYS){
+      try{const current=JSON.parse(localStorage.getItem(key)||'null');if(current?.smoke&&current?.playerId===pid)localStorage.removeItem(key)}catch(_){}
+    }
+  }
+  try{sessionStorage.removeItem(backupKey)}catch(_){}
+  identitySeeded=false;
+}
+function load(){
+  completed=false;toast.classList.remove('show');
+  if(!target){frame.srcdoc='<p style="font-family:system-ui;padding:24px">Missing smoke-test game target</p>';return}
+  seedSmokeIdentity();
+  const u=new URL(target,location.href);
+  u.searchParams.set('qa','1');
+  u.searchParams.set('gameTestMode','1');
+  u.searchParams.set('isTestAttempt','true');
+  u.searchParams.set('affectsProgression','false');
+  u.searchParams.set('submit','0');
+  u.searchParams.set('from','smoke');
+  u.searchParams.set('pid',pid);
+  u.searchParams.set('playerId',pid);
+  u.searchParams.set('view','mobile');
+  u.searchParams.set('smoke','1');
+  u.searchParams.set('returnMode','game-test');
+  u.searchParams.set('v','20260819-ENGLISH-SMOKE-NOLOGIN-R3');
+  u.searchParams.set('_',Date.now());
+  frame.src=u.href;
+  startMonitor();
+}
+function goBack(){restoreIdentity();location.href=backUrl}
 function finishSmoke(result){if(completed)return;completed=true;clearInterval(monitorTimer);toast.textContent='SMOKE PASS ✓ • '+(gameId||'game')+' • กำลังกลับ Game Test Mode…';toast.classList.add('show');try{sessionStorage.setItem('EW_LAST_SMOKE_RESULT',JSON.stringify({gameId,pid,result,at:new Date().toISOString()}))}catch(_){}setTimeout(goBack,1400)}
 function inspectWindow(win,depth=0){if(!win||depth>4)return null;try{const candidates=[win.SENTENCE_CITY_LAST_RESULT,win.CATEGORY_FOREST_LAST_RESULT,win.LEXIMATCH_LAST_RESULT,win.CONVERSATION_QUEST_LAST_RESULT,win.LEXICON_LENS_LAST_RESULT,win.LEXICON_CHAMPION_LAST_RESULT];for(const value of candidates){if(value&&typeof value==='object'&&(value.completed!==false))return value}for(let i=0;i<win.frames.length;i++){const found=inspectWindow(win.frames[i],depth+1);if(found)return found}}catch(_){}return null}
 function startMonitor(){clearInterval(monitorTimer);monitorTimer=setInterval(()=>{if(completed)return;const result=inspectWindow(frame.contentWindow);if(result)finishSmoke(result)},280)}
-window.addEventListener('message',(event)=>{if(event.origin!==location.origin)return;const data=event.data||{};if(data.type==='LEXICON_GAME_RESULT_READY'||data.type==='sentence-city-complete'||data.type==='LEXICON_SMOKE_COMPLETE'){finishSmoke(data.result||data.detail||data)} });
-document.getElementById('back').onclick=goBack;document.getElementById('reload').onclick=load;load();window.EW_GAME_TEST_SHELL={version:RELEASE,pid,target,gameId,affectsProgression:false,autoReturnToTestMode:true};
+window.addEventListener('message',(event)=>{if(event.origin!==location.origin)return;const data=event.data||{};if(data.type==='LEXICON_GAME_RESULT_READY'||data.type==='sentence-city-complete'||data.type==='LEXICON_SMOKE_COMPLETE'){finishSmoke(data.result||data.detail||data)}});
+window.addEventListener('pagehide',restoreIdentity,{once:true});
+document.getElementById('back').onclick=goBack;
+document.getElementById('reload').onclick=load;
+load();
+window.EW_GAME_TEST_SHELL=Object.freeze({version:RELEASE,pid,target,gameId,affectsProgression:false,directNoLogin:true,autoReturnToTestMode:true});
 })();
 </script>
 </body>
