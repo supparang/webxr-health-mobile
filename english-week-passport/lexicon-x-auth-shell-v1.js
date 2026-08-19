@@ -1,15 +1,38 @@
 (function(){
   "use strict";
-  const VERSION="2026-08-05-LEXICON-X-AUTH-SHELL-V1";
+  const VERSION="2026-08-19-LEXICON-X-AUTH-SHELL-V2-ROUND-CONTINUITY";
   const cfg=window.EW_CONFIG;
   const key=cfg?.cacheKeys?.identity||"ew_identity";
+  const ATTENDANCE_KEY='LEXICON_X_ATTENDANCE_CHECKIN_V2';
 
   function readIdentity(){
     try{return JSON.parse(localStorage.getItem(key)||"null");}
     catch(_){return null;}
   }
+  function normalizeSession(value){
+    const raw=String(value==null?'':value).trim().toUpperCase().replace(/\s+/g,'-').replace(/_/g,'-');
+    const valid=['D1-AM','D1-PM','D2-AM','D2-PM','D3-AM','D3-PM'];
+    if(valid.includes(raw)) return raw;
+    const compact=raw.replace(/-/g,'');
+    return valid.find(id=>id.replace(/-/g,'')===compact)||'';
+  }
+  function readStoredRound(playerId){
+    try{
+      const saved=JSON.parse(localStorage.getItem(ATTENDANCE_KEY)||'null');
+      if(!saved||String(saved.playerId||'').trim()!==String(playerId||'').trim()) return '';
+      return normalizeSession(saved.attendanceSessionId||saved.sessionId);
+    }catch(_){return '';}
+  }
+  function roundFromUrl(){
+    const q=new URLSearchParams(location.search);
+    for(const k of ['session','attendanceSessionId','checkin','sessionId','sessionCode','round','cohort']){
+      const value=normalizeSession(q.get(k));
+      if(value) return value;
+    }
+    return '';
+  }
   function goLogin(reason){
-    const suffix=reason?`?auth=${encodeURIComponent(reason)}&v=20260805-auth1`:`?v=20260805-auth1`;
+    const suffix=reason?`?auth=${encodeURIComponent(reason)}&v=20260819-auth2`:`?v=20260819-auth2`;
     location.replace(`./index.html${suffix}`);
   }
   const identity=readIdentity();
@@ -19,12 +42,17 @@
   }
 
   function goPassport(){
-    location.href="./index.html?resume=memory&v=20260805-auth1";
+    const round=roundFromUrl()||readStoredRound(identity.playerId);
+    const q=new URLSearchParams();
+    q.set('resume','memory');
+    if(round) q.set('session',round);
+    q.set('v','20260819-auth2');
+    location.href=`./index.html?${q.toString()}`;
   }
   function logout(){
     try{localStorage.removeItem(key);}catch(_){}
     try{sessionStorage.clear();}catch(_){}
-    location.replace("./index.html?logout=1&v=20260805-auth1");
+    location.replace("./index.html?logout=1&v=20260819-auth2");
   }
   function installStyle(){
     if(document.getElementById("lxAuthStyle"))return;
@@ -59,5 +87,5 @@
   const timer=setInterval(installUi,250);
   setTimeout(()=>clearInterval(timer),6000);
   window.addEventListener("pageshow",installUi);
-  window.EW_LEXICON_X_AUTH=Object.freeze({version:VERSION,playerId:identity.playerId,goPassport,logout});
+  window.EW_LEXICON_X_AUTH=Object.freeze({version:VERSION,playerId:identity.playerId,goPassport,logout,getRound:()=>roundFromUrl()||readStoredRound(identity.playerId)});
 }());
