@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>HeroHealth Student Entry</title>
+  <link rel="stylesheet" href="./assets/app.css?v=20260820-entry-r1" />
+  <style>
+    body{min-height:100vh}
+    .entry-shell{min-height:100vh;display:grid;grid-template-rows:auto 1fr}
+    .entry-main{display:grid;place-items:center;padding:20px}
+    .entry-wrap{width:min(980px,100%);display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+    .entry-hero{min-height:330px;display:flex;flex-direction:column;justify-content:center}
+    .entry-form{display:flex;flex-direction:column;justify-content:center}
+    .entry-form input{font-size:1.25rem;min-height:58px;letter-spacing:.08em}
+    .entry-form button{min-height:58px;font-size:1.08rem}
+    .hint{margin-top:10px;font-size:.9rem;color:#5f7470}
+    @media(max-width:760px){.entry-wrap{grid-template-columns:1fr}.entry-hero{min-height:auto}.entry-main{align-items:start;padding-top:24px}}
+  </style>
+</head>
+<body>
+<div class="entry-shell">
+  <header class="topbar"><div class="brand"><div class="logo">♥</div><div>HeroHealth Learning Platform</div></div></header>
+  <main class="entry-main">
+    <section class="entry-wrap">
+      <div class="card hero-card entry-hero">
+        <span class="badge">ภารกิจห้องเรียน 60 นาที</span>
+        <h1 style="font-size:clamp(2.4rem,6vw,4.3rem);margin:24px 0 14px;line-height:1.15">เป็นฮีโร่สุขภาพ<br>ใน 60 นาที</h1>
+        <p class="muted" style="font-size:1.12rem">กรอกรหัสแล้วระบบจึงค่อยเชื่อมต่อ Firebase</p>
+      </div>
+      <form id="entryForm" class="card entry-form">
+        <h2>ใส่รหัสเข้าเกม</h2>
+        <p class="muted">กรอกเฉพาะตัวเลข เช่น 5101</p>
+        <label class="field"><b>รหัสเข้าเกม (ตัวเลขเท่านั้น)</b><input id="code" name="code" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="6" placeholder="เช่น 5101" required /></label>
+        <button class="btn btn-primary" type="submit" style="margin-top:16px;width:100%">ตรวจสอบและเข้าสู่ภารกิจ</button>
+        <div class="hint">รหัสจริง 4 หลักจะเชื่อมกับรหัส Firebase เดิมโดยอัตโนมัติ • รหัสทดสอบ 9900xx ใช้ตัวเลขเดิม</div>
+      </form>
+    </section>
+  </main>
+</div>
+<script>
+(()=>{
+  'use strict';
+  const input=document.getElementById('code');
+  input.addEventListener('input',()=>{input.value=String(input.value||'').replace(/\D/g,'').slice(0,6)});
+  document.getElementById('entryForm').addEventListener('submit',event=>{
+    event.preventDefault();
+    const digits=String(input.value||'').replace(/\D/g,'');
+    if(!digits){input.focus();return;}
+    const sid=/^5\d{3}$/.test(digits)?`H${digits}`:digits;
+    const u=new URL('./index.html',location.href);
+    u.searchParams.set('authority','firebase');
+    u.searchParams.set('studentId',sid);
+    u.searchParams.set('sid',sid);
+    u.searchParams.set('firebaseReady','0');
+    u.searchParams.set('entry','light-r1');
+    u.searchParams.set('v','20260820-entry-r1');
+    location.assign(u.href);
+  });
+  input.focus();
+})();
+</script>
+</body>
+</html>
