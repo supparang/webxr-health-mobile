@@ -7,61 +7,57 @@
   <meta name="robots" content="noindex,nofollow" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <title>HeroHealth Student Entry</title>
-  <link rel="stylesheet" href="./assets/app.css?v=20260820-entry-r1" />
+  <link rel="stylesheet" href="./assets/app.css?v=20260820-entry-r2" />
   <style>
-    body{min-height:100vh}
-    .entry-shell{min-height:100vh;display:grid;grid-template-rows:auto 1fr}
-    .entry-main{display:grid;place-items:center;padding:20px}
-    .entry-wrap{width:min(980px,100%);display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
-    .entry-hero{min-height:330px;display:flex;flex-direction:column;justify-content:center}
-    .entry-form{display:flex;flex-direction:column;justify-content:center}
-    .entry-form input{font-size:1.25rem;min-height:58px;letter-spacing:.08em}
-    .entry-form button{min-height:58px;font-size:1.08rem}
-    .hint{margin-top:10px;font-size:.9rem;color:#5f7470}
-    @media(max-width:760px){.entry-wrap{grid-template-columns:1fr}.entry-hero{min-height:auto}.entry-main{align-items:start;padding-top:24px}}
+    body{min-height:100vh}.entry-shell{min-height:100vh;display:grid;grid-template-rows:auto 1fr}.entry-main{display:grid;place-items:center;padding:20px}.entry-wrap{width:min(980px,100%);display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.entry-hero{min-height:330px;display:flex;flex-direction:column;justify-content:center}.entry-form{display:flex;flex-direction:column;justify-content:center}.entry-form input{font-size:1.25rem;min-height:58px;letter-spacing:.08em}.entry-form button{min-height:58px;font-size:1.08rem}.hint{margin-top:10px;font-size:.9rem;color:#5f7470}.status{min-height:24px;margin-top:12px;font-weight:800}.status.err{color:#991b1b}.status.ok{color:#166534}@media(max-width:760px){.entry-wrap{grid-template-columns:1fr}.entry-hero{min-height:auto}.entry-main{align-items:start;padding-top:24px}}
   </style>
 </head>
 <body>
 <div class="entry-shell">
   <header class="topbar"><div class="brand"><div class="logo">♥</div><div>HeroHealth Learning Platform</div></div></header>
-  <main class="entry-main">
-    <section class="entry-wrap">
-      <div class="card hero-card entry-hero">
-        <span class="badge">ภารกิจห้องเรียน 60 นาที</span>
-        <h1 style="font-size:clamp(2.4rem,6vw,4.3rem);margin:24px 0 14px;line-height:1.15">เป็นฮีโร่สุขภาพ<br>ใน 60 นาที</h1>
-        <p class="muted" style="font-size:1.12rem">กรอกรหัสแล้วระบบจึงค่อยเชื่อมต่อ Firebase</p>
-      </div>
-      <form id="entryForm" class="card entry-form">
-        <h2>ใส่รหัสเข้าเกม</h2>
-        <p class="muted">กรอกเฉพาะตัวเลข เช่น 5101</p>
-        <label class="field"><b>รหัสเข้าเกม (ตัวเลขเท่านั้น)</b><input id="code" name="code" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="6" placeholder="เช่น 5101" required /></label>
-        <button class="btn btn-primary" type="submit" style="margin-top:16px;width:100%">ตรวจสอบและเข้าสู่ภารกิจ</button>
-        <div class="hint">รหัสจริง 4 หลักจะเชื่อมกับรหัส Firebase เดิมโดยอัตโนมัติ • รหัสทดสอบ 9900xx ใช้ตัวเลขเดิม</div>
-      </form>
-    </section>
-  </main>
+  <main class="entry-main"><section class="entry-wrap">
+    <div class="card hero-card entry-hero"><span class="badge">ภารกิจห้องเรียน 60 นาที</span><h1 style="font-size:clamp(2.4rem,6vw,4.3rem);margin:24px 0 14px;line-height:1.15">เป็นฮีโร่สุขภาพ<br>ใน 60 นาที</h1><p class="muted" style="font-size:1.12rem">ตรวจรหัสและโหลดความคืบหน้าจาก Firebase ก่อนเปิด Passport</p></div>
+    <form id="entryForm" class="card entry-form"><h2>ใส่รหัสเข้าเกม</h2><p class="muted">กรอกเฉพาะตัวเลข เช่น 5101</p><label class="field"><b>รหัสเข้าเกม (ตัวเลขเท่านั้น)</b><input id="code" name="code" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="6" placeholder="เช่น 5101" required /></label><button id="submitBtn" class="btn btn-primary" type="submit" style="margin-top:16px;width:100%">ตรวจสอบและเข้าสู่ภารกิจ</button><div id="status" class="status"></div><div class="hint">รหัสจริง 4 หลักเชื่อมกับรหัส Firebase เดิมอัตโนมัติ • รหัสทดสอบ 9900xx ใช้ตัวเลขเดิม</div></form>
+  </section></main>
 </div>
-<script>
-(()=>{
-  'use strict';
-  const input=document.getElementById('code');
-  input.addEventListener('input',()=>{input.value=String(input.value||'').replace(/\D/g,'').slice(0,6)});
-  document.getElementById('entryForm').addEventListener('submit',event=>{
-    event.preventDefault();
-    const digits=String(input.value||'').replace(/\D/g,'');
-    if(!digits){input.focus();return;}
-    const sid=/^5\d{3}$/.test(digits)?`H${digits}`:digits;
-    const u=new URL('./index.html',location.href);
-    u.searchParams.set('authority','firebase');
-    u.searchParams.set('studentId',sid);
-    u.searchParams.set('sid',sid);
-    u.searchParams.set('firebaseReady','0');
-    u.searchParams.set('entry','light-r1');
-    u.searchParams.set('v','20260820-entry-r1');
-    location.assign(u.href);
-  });
-  input.focus();
-})();
+<script type="module">
+import { HHFirebaseClient } from './firebase/herohealth-firebase-client.js?cv=20260820-entry-r2';
+const STATE_KEY='herohealth_learning_platform_rc2';
+const ACTIVE_KEY='herohealth_active_student_id';
+const input=document.getElementById('code'), form=document.getElementById('entryForm'), btn=document.getElementById('submitBtn'), status=document.getElementById('status');
+const ALIASES={handwash:['handwash'],toothbrush:['toothbrush','brush'],groups:['groups','foodgroups','food-groups'],goodjunk:['goodjunk','good-junk'],jumpduck:['jumpduck','jump-duck'],balance:['balance','balancehold','balance-hold']};
+const ZONE={handwash:'hygiene',toothbrush:'hygiene',groups:'nutrition',goodjunk:'nutrition',jumpduck:'fitness',balance:'fitness'};
+function timeout(p,ms,label){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error(label+' ใช้เวลานานเกินไป กรุณาลองใหม่')),ms))]);}
+function doneResult(r){return !!(r&&r.completed===true&&r.passed!==false&&r.progressionEligible!==false&&r.firebaseReceiptToken);}
+function gameDone(p,id){const z=ZONE[id],ids=ALIASES[id];return ids.some(x=>p?.gameCompleted?.[z]?.[x]===true)||p?.gameCompleted?.[z]?.[id]===true||ids.some(x=>doneResult(p?.gameResults?.[x]))||doneResult(p?.gameResults?.[id]);}
+function makeState(sid,roster,progress,user){
+  const p=progress||{}, gc={hygiene:{},nutrition:{},fitness:{}};
+  for(const id of Object.keys(ALIASES)){const z=ZONE[id],d=gameDone(p,id);gc[z][id]=d;for(const a of ALIASES[id])gc[z][a]=d;}
+  const pre=p.pretestCompleted===true&&p.assessments?.pretest?.completed===true&&!!p.assessments?.pretest?.firebaseReceiptToken;
+  const post=p.posttestCompleted===true&&p.assessments?.posttest?.completed===true&&!!p.assessments?.posttest?.firebaseReceiptToken;
+  const profile={...roster,studentId:sid,fullName:String(roster.fullName||roster.studentName||roster.name||roster.nickname||('นักเรียน '+sid)),nickname:String(roster.nickname||''),section:String(roster.section||roster.classId||'QA-P5'),group:String(roster.group||roster.rotationGroup||roster.conditionGroup||'A'),active:roster.active!==false};
+  return {profile,pendingProfile:null,view:'student',group:profile.group,completed:{pretest:pre,hygiene:gc.hygiene.handwash&&gc.hygiene.toothbrush,nutrition:gc.nutrition.groups&&gc.nutrition.goodjunk,fitness:gc.fitness.jumpduck&&gc.fitness.balance,posttest:post,postExperience:p.postExperienceCompleted===true,reflection:p.reflectionCompleted===true,researchImmediate:p.researchImmediateCompleted===true},gameCompleted:gc,pretestCompleted:pre,posttestCompleted:post,postExperienceCompleted:p.postExperienceCompleted===true,reflectionCompleted:p.reflectionCompleted===true,researchImmediateCompleted:p.researchImmediateCompleted===true,assessmentScores:{pretest:Number(p.assessments?.pretest?.score||0),posttest:Number(p.assessments?.posttest?.score||0)},gameScores:Object.fromEntries(Object.entries(p.gameResults||{}).map(([k,v])=>[k,Number(v?.score||0)])),firebaseGameResults:p.gameResults||{},firebaseAssessments:p.assessments||{},firebaseCanonicalUpdatedAt:p.updatedAt||null,postExperience:p.postExperience||{},reflection:p.reflection||{},researchImmediate:p.researchImmediate||{},firebaseAuthority:{mode:'firebase',sourceOfTruth:'Cloud Firestore',uid:user?.uid||'',studentId:sid,progressPath:'studentProgress/'+sid,progressExists:!!progress,hydratedAt:new Date().toISOString(),release:'20260820-ENTRY-R2-PREHYDRATED',hydrateMode:'entry-prehydrated'}};
+}
+input.addEventListener('input',()=>{input.value=String(input.value||'').replace(/\D/g,'').slice(0,6)});
+form.addEventListener('submit',async event=>{
+  event.preventDefault(); if(btn.disabled)return;
+  const digits=String(input.value||'').replace(/\D/g,''); if(!digits){input.focus();return;}
+  const sid=/^5\d{3}$/.test(digits)?`H${digits}`:digits;
+  btn.disabled=true; status.className='status'; status.textContent='กำลังตรวจรหัสจาก Firebase…'; btn.textContent='กำลังตรวจ Firebase…';
+  try{
+    const rosterResult=await timeout(HHFirebaseClient.readRoster(sid,{hardForce:true}),8000,'การตรวจรหัส');
+    if(!rosterResult?.ok) throw new Error(rosterResult?.reason==='student-not-found'?'ไม่พบรหัสนี้ใน Firebase':rosterResult?.reason==='student-inactive'?'รหัสนี้ถูกปิดใช้งาน':'ตรวจสอบรหัสไม่สำเร็จ');
+    status.textContent='พบข้อมูลแล้ว กำลังโหลดความคืบหน้า…';
+    const loaded=await timeout(HHFirebaseClient.loadProgress(sid),8000,'การโหลดความคืบหน้า');
+    if(!loaded?.ok) throw new Error('โหลดความคืบหน้าจาก Firebase ไม่สำเร็จ');
+    const state=makeState(sid,rosterResult.roster||{},loaded.exists?loaded.progress:null,loaded.user||rosterResult.user);
+    localStorage.setItem(STATE_KEY,JSON.stringify(state)); localStorage.setItem(ACTIVE_KEY,sid); localStorage.setItem('HH_AUTHORITY_MODE','firebase'); sessionStorage.setItem('HH_AUTHORITY_MODE','firebase');
+    status.className='status ok'; status.textContent='ยืนยันแล้ว กำลังเปิด Hero Passport…';
+    const u=new URL('./index.html',location.href);u.searchParams.set('authority','firebase');u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.set('firebaseReady','1');u.searchParams.set('firebaseHydratedR76','1');u.searchParams.set('entry','prehydrated-r2');u.searchParams.set('v','20260820-entry-r2');location.replace(u.href);
+  }catch(error){console.error('[HeroHealth Entry R2] login failed',error);status.className='status err';status.textContent=error?.message||'เข้าสู่ระบบไม่สำเร็จ';btn.disabled=false;btn.textContent='ตรวจสอบและเข้าสู่ภารกิจ';input.focus();}
+});
+input.focus();
+console.info('[HeroHealth Entry R2] prehydrated Firebase entry ready');
 </script>
 </body>
 </html>
