@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
-const RELEASE='20260818-HEROHEALTH-RESEARCH-FLOW-R21-CANONICAL-READY';
-const APP_RELEASE='20260818-PASSPORT-R34-CANONICAL-READY';
+const RELEASE='20260820-HEROHEALTH-RESEARCH-FLOW-R22-ENTRY-PREHYDRATED-READY';
+const APP_RELEASE='20260820-PASSPORT-R48-ENTRY-R3-READY';
 const STATE_KEY='herohealth_learning_platform_rc2';
 const STUDY_ID='HEROHEALTH-P5-2026';
 const SANDBOX_STUDENT_IDS=new Set(Array.from({length:29},(_,i)=>String(990001+i)));
@@ -21,19 +21,23 @@ function hash(str){let h=2166136261>>>0;for(const ch of String(str??'')){h^=ch.c
 function stableAttempt(prefix,sid){return `${prefix}-${sid}-${hash(`${STUDY_ID}|${prefix}|${sid}`).toString(36).toUpperCase()}`}
 function sessionId(sid){const key=`HH_ASSESSMENT_STUDY_SESSION_${STUDY_ID}_${sid}`;let value='';try{value=localStorage.getItem(key)||''}catch(_){}if(!value){value=`HH-STUDY-${hash(`${STUDY_ID}|${sid}`).toString(36).toUpperCase()}`;try{localStorage.setItem(key,value)}catch(_){}}return value}
 function smokeMode(url=location.href){const q=new URL(url,location.href).searchParams;return /^(1|true|yes)$/i.test(String(q.get('smoke')||q.get('smokeTest')||''))}
+function acceptedAuthorityRelease(release){
+ return /^20260818-FIREBASE-SESSION-R78(?:-|$)/.test(release)||/^20260820-ENTRY-R3-PREHYDRATED(?:-|$)/.test(release);
+}
 function firebaseReady(s){
  const profileSid=String(s?.profile?.studentId||'').trim();
  const authoritySid=String(s?.firebaseAuthority?.studentId||'').trim();
  const release=String(s?.firebaseAuthority?.release||'');
  const hydratedAt=Date.parse(String(s?.firebaseAuthority?.hydratedAt||''));
  const session=String(document.documentElement?.dataset?.hhFirebaseSession||'');
+ const sessionReady=session==='authenticated'||acceptedAuthorityRelease(release);
  return Boolean(
   window.__HH_FIREBASE_LOGIN_REQUIRED__!==true&&
-  session==='authenticated'&&
+  sessionReady&&
   profileSid&&profileSid===authoritySid&&
   String(s?.firebaseAuthority?.mode||'').toLowerCase()==='firebase'&&
   String(s?.firebaseAuthority?.sourceOfTruth||'')==='Cloud Firestore'&&
-  /^20260818-FIREBASE-SESSION-R78(?:-|$)/.test(release)&&
+  acceptedAuthorityRelease(release)&&
   Number.isFinite(hydratedAt)
  );
 }
@@ -42,7 +46,7 @@ window.HH.openRoute=function(id){
  const s=state(),profile=s.profile||{},authority=String(new URLSearchParams(location.search).get('authority')||window.HH_AUTHORITY_MODE||'firebase').toLowerCase();
  if(!profile.studentId)return baseOpenRoute(id);
  const route=COMMON_ROUTES[id]||ASSESSMENT_ROUTES[id];if(!route)return baseOpenRoute(id);
- if(authority==='firebase'&&!firebaseReady(s)){alert('Firebase ยังยืนยันผู้เล่นไม่เสร็จ กรุณารอสักครู่แล้วกดอีกครั้ง');return}
+ if(authority==='firebase'&&!firebaseReady(s)){console.warn('[HeroHealth Assessment Route] Firebase readiness blocked',{profileSid:s?.profile?.studentId,authoritySid:s?.firebaseAuthority?.studentId,release:s?.firebaseAuthority?.release,session:document.documentElement?.dataset?.hhFirebaseSession,loginRequired:window.__HH_FIREBASE_LOGIN_REQUIRED__});alert('Firebase ยังยืนยันผู้เล่นไม่เสร็จ กรุณารอสักครู่แล้วกดอีกครั้ง');return}
  const sid=String(profile.studentId).trim(),url=new URL(route,location.href),testSessionId=sessionId(sid),smoke=smokeMode();
  url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.delete('pid');url.searchParams.set('fullName',profile.fullName||'');url.searchParams.set('section',profile.section||'');url.searchParams.set('group',profile.group||s.group||'');url.searchParams.set('studyId',STUDY_ID);url.searchParams.set('testSessionId',testSessionId);url.searchParams.set('authority','firebase');if(s?.firebaseAuthority?.uid)url.searchParams.set('firebaseUid',s.firebaseAuthority.uid);if(smoke)url.searchParams.set('smoke','1');
  let returnUrl;
@@ -56,5 +60,5 @@ window.HH.openRoute=function(id){
  if(id==='posttest'){const attempt=stableAttempt('POST',sid),preAttempt=localStorage.getItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`)||stableAttempt('PRE',sid);try{localStorage.setItem(`HH_ASSESSMENT_POST_ATTEMPT_${sid}`,attempt)}catch(_){}url.searchParams.set('attemptId',attempt);url.searchParams.set('preAttemptId',preAttempt)}
  location.assign(url.href);
 };
-window.HHAssessmentRouteLauncher={version:RELEASE,appRelease:APP_RELEASE,studyId:STUDY_ID,firebaseRoutes:ASSESSMENT_ROUTES,commonRoutes:COMMON_ROUTES,stableAttempt,smokeMode,isSandboxStudent,firebaseReady};console.info('[HeroHealth Assessment Route] canonical Firebase readiness installed',RELEASE,APP_RELEASE);
+window.HHAssessmentRouteLauncher={version:RELEASE,appRelease:APP_RELEASE,studyId:STUDY_ID,firebaseRoutes:ASSESSMENT_ROUTES,commonRoutes:COMMON_ROUTES,stableAttempt,smokeMode,isSandboxStudent,firebaseReady,acceptedAuthorityRelease};console.info('[HeroHealth Assessment Route] Firebase readiness installed',RELEASE,APP_RELEASE);
 })();
