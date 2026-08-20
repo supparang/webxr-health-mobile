@@ -9,7 +9,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>HeroHealth Learning Platform</title>
-  <link rel="stylesheet" href="./assets/app.css?v=20260820-r44-numeric-login-r2" />
+  <link rel="stylesheet" href="./assets/app.css?v=20260820-r45-prelogin-guard" />
   <link rel="stylesheet" href="./assets/mobile-passport-production-v1.css?v=20260814-v18-research-flow" />
   <style>
     .badge.locked{background:#eef4f2;color:#64748b}
@@ -21,12 +21,13 @@
   <script>
     window.HH_AUTHORITY_MODE=String(new URLSearchParams(location.search).get('authority')||'firebase').toLowerCase();
     window.HH_FIREBASE_MODE=window.HH_AUTHORITY_MODE==='firebase'||window.HH_AUTHORITY_MODE==='dual';
-    window.HH_APP_RELEASE='20260820-PASSPORT-R44-NUMERIC-LOGIN-R2-GENERIC';
+    window.HH_APP_RELEASE='20260820-PASSPORT-R45-PRELOGIN-IMMEDIATE-NUMERIC';
   </script>
 </head>
 <body>
 <noscript>กรุณาเปิด JavaScript เพื่อใช้งาน HeroHealth</noscript>
 <div id="app"></div>
+<script src="./assets/prelogin-entry-guard-r1.js?v=20260820-r1"></script>
 <script src="./assets/storage-quota-guard.js?v=20260730-authority-assessment-v89"></script>
 <script src="./data/platform-config.js?v=20260730-toothbrush-production-r8"></script>
 <script src="./data/jumpduck-v52-route-patch.js?v=20260730-real-camera-calibration-v52"></script>
@@ -56,7 +57,7 @@
 import('./firebase/passport-index-integration.js?v=20260818-r78-fast-return-normalized').catch(error=>{
   const message=String(error?.message||error||'passport-module-import-failed');
   window.__HH_FIREBASE_PASSPORT_IMPORT_ERROR__=message;
-  console.error('[HeroHealth Passport R44] module import failed',error);
+  console.error('[HeroHealth Passport R45] module import failed',error);
   const app=document.getElementById('app');
   if(app){
     const safe=message.replace(/[<>]/g,'');
