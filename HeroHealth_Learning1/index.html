@@ -9,7 +9,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>HeroHealth Learning Platform</title>
-  <link rel="stylesheet" href="./assets/app.css?v=20260820-r48-no-observer" />
+  <link rel="stylesheet" href="./assets/app.css?v=20260820-r49-sandbox-ready" />
   <link rel="stylesheet" href="./assets/mobile-passport-production-v1.css?v=20260814-v18-research-flow" />
   <style>
     .badge.locked{background:#eef4f2;color:#64748b}
@@ -22,12 +22,12 @@
     const __hhEntryParams=new URLSearchParams(location.search);
     window.HH_AUTHORITY_MODE=String(__hhEntryParams.get('authority')||'firebase').toLowerCase();
     window.HH_FIREBASE_MODE=window.HH_AUTHORITY_MODE==='firebase'||window.HH_AUTHORITY_MODE==='dual';
-    window.HH_APP_RELEASE='20260820-PASSPORT-R48-NO-OBSERVER';
+    window.HH_APP_RELEASE='20260820-PASSPORT-R49-SANDBOX-READY';
     if(window.HH_FIREBASE_MODE){
       const hasIdentity=['studentId','sid','pid'].some(k=>String(__hhEntryParams.get(k)||'').trim());
       const isHandoff=__hhEntryParams.get('firebaseReceipt')==='1'||__hhEntryParams.has('returnedGame')||__hhEntryParams.has('gameCompleted')||__hhEntryParams.has('receiptToken')||__hhEntryParams.has('authorityRefresh')||__hhEntryParams.get('firebaseReady')==='1'||String(__hhEntryParams.get('returnSessionPolicy')||'').startsWith('force-firebase-rehydrate');
       if(!hasIdentity&&!isHandoff&&__hhEntryParams.get('logout')!=='1'){
-        const u=new URL(location.href);u.searchParams.set('authority','firebase');u.searchParams.set('logout','1');u.searchParams.set('v','20260820-r48');history.replaceState(null,'',u.href);
+        const u=new URL(location.href);u.searchParams.set('authority','firebase');u.searchParams.set('logout','1');u.searchParams.set('v','20260820-r49');history.replaceState(null,'',u.href);
       }
     }
   </script>
@@ -45,7 +45,7 @@
 <script src="./assets/student-only-guard.js?v=20260730-authority-assessment-v89"></script>
 <script src="./assets/assessment-return-authority-bridge-v2.js?v=20260730-assessment-return-auto-authority-v6"></script>
 <script src="./assets/app.js?v=20260815-live-firebase-refresh-r1"></script>
-<script src="./assets/assessment-route-launcher-v4.js?v=20260818-r21-canonical-ready"></script>
+<script src="./assets/assessment-route-launcher-v4.js?v=20260820-r22-entry-prehydrated-ready"></script>
 <script src="./assets/classroom60-login-simplifier.js?v=20260730-authority-assessment-v89"></script>
 <script src="./assets/return-processor.js?v=20260730-authority-assessment-v89"></script>
 <script>if(!window.HH_FIREBASE_MODE){document.write('<script src="./assets/assessment-authority-recovery.js?v=20260730-assessment-authority-watcher-v5"><\/script>');document.write('<script src="./assets/handwash-completion-recovery-r31.js?v=20260730-authority-assessment-v89"><\/script>');document.write('<script src="./assets/student-resume-v7-mobile.js?v=20260804-sheet-only-v1"><\/script>')}</script>
@@ -59,12 +59,12 @@
 <script src="./assets/mobile-passport-production-v1.js?v=20260814-v18-research-flow"></script>
 <script src="./assets/firebase-return-live-refresh-r1.js?v=20260815-r1"></script>
 <script src="./assets/firebase-fast-return-normalizer-r1.js?v=20260818-r1-progress-only"></script>
-<script src="./assets/numeric-login-code-adapter-r1.js?v=20260820-r3-no-observer"></script>
+<script src="./assets/numeric-login-code-adapter-r1.js?v=20260820-r4-sandbox-ready"></script>
 <script type="module">
 import('./firebase/passport-index-integration.js?v=20260818-r78-fast-return-normalized').catch(error=>{
   const message=String(error?.message||error||'passport-module-import-failed');
   window.__HH_FIREBASE_PASSPORT_IMPORT_ERROR__=message;
-  console.error('[HeroHealth Passport R48] module import failed',error);
+  console.error('[HeroHealth Passport R49] module import failed',error);
   const app=document.getElementById('app');
   if(app){
     const safe=message.replace(/[<>]/g,'');
