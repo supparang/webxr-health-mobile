@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>HeroHealth Firebase Recovery Audit R1</title>
+<style>
+:root{font-family:Inter,"Noto Sans Thai",system-ui,sans-serif;--b:#0f766e;--ink:#17312d;--muted:#64748b;--line:#d7e9e5;--ok:#15803d;--bad:#b91c1c;--warn:#b45309}*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#e8f8f5,#f8fbfa);color:var(--ink)}.top{background:linear-gradient(135deg,#073f3a,#0f766e);color:#fff;padding:16px}.wrap{width:min(1200px,100%);margin:auto;padding:16px}.auth,.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.auth input{padding:10px;border:1px solid #b8d8d2;border-radius:10px;min-width:220px}.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:900;cursor:pointer}.primary{background:#0f766e;color:#fff}.soft{background:#dff8f3;color:#0f766e}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 8px 24px #0f766e12}.num{font-size:38px;font-weight:1000;color:var(--b)}.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}pre{white-space:pre-wrap;overflow:auto;background:#102a26;color:#d9fff8;padding:12px;border-radius:12px;max-height:360px}.small{font-size:12px;color:var(--muted)}table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden}th,td{padding:9px;border-top:1px solid #e5efed;text-align:left;font-size:13px}th{background:#eaf7f4}.notice{padding:12px;border-radius:12px;background:#fff;border:1px solid var(--line);margin-bottom:12px}@media(max-width:800px){.grid{grid-template-columns:1fr}.auth{display:grid}.auth input,.auth .btn{width:100%}}</style>
+</head>
+<body>
+<header class="top"><div class="wrap" style="padding:0"><h1 style="margin:0;font-size:24px">🧭 HeroHealth Firebase Recovery Audit R1</h1><div style="opacity:.9;margin-top:4px">ตรวจ raw Firestore โดยตรง: roster / progress / assessments</div></div></header>
+<main class="wrap">
+<div id="notice" class="notice">ยังไม่ได้เข้าสู่ระบบครู</div>
+<div class="auth"><input id="email" type="email" placeholder="อีเมลครู"><input id="password" type="password" placeholder="รหัสผ่าน"><button id="login" class="btn primary">เข้าสู่ระบบและตรวจข้อมูล</button><button id="logout" class="btn soft">ออกจากระบบ</button></div>
+<div class="actions"><button id="audit" class="btn primary">ตรวจ Firestore ตอนนี้</button></div>
+<section class="grid">
+  <div class="card"><div class="small">students</div><div id="studentsCount" class="num">—</div><div id="studentsStatus" class="small">ยังไม่ตรวจ</div></div>
+  <div class="card"><div class="small">studentProgress</div><div id="progressCount" class="num">—</div><div id="progressStatus" class="small">ยังไม่ตรวจ</div></div>
+  <div class="card"><div class="small">studentAssessments</div><div id="assessmentCount" class="num">—</div><div id="assessmentStatus" class="small">ยังไม่ตรวจ</div></div>
+</section>
+<section class="card" style="margin-top:12px"><h3>ตัวอย่างเอกสารที่พบ</h3><table><thead><tr><th>Collection</th><th>Document ID</th><th>studentId</th><th>updatedAt / timestamp</th></tr></thead><tbody id="rows"></tbody></table></section>
+<section class="card" style="margin-top:12px"><h3>Diagnostic</h3><pre id="diag">รอการตรวจ...</pre></section>
+</main>
+<script type="module">
+import{initializeApp,getApps}from"https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import{getFirestore,collection,getDocs,query,limit}from"https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+import{HEROHEALTH_FIREBASE_CONFIG}from"../firebase/firebase-config.js";
+const app=getApps().length?getApps()[0]:initializeApp(HEROHEALTH_FIREBASE_CONFIG),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id);
+const RELEASE='20260820-FIREBASE-RECOVERY-AUDIT-R1';
+const log=[];const stamp=(...x)=>{log.push(new Date().toISOString()+' '+x.map(v=>typeof v==='string'?v:JSON.stringify(v)).join(' '));$('diag').textContent=log.join('\n')};
+function setNotice(t,type=''){$('notice').textContent=t;$('notice').className='notice '+type}
+function fmt(v){try{if(!v)return'';if(typeof v.toDate==='function')return v.toDate().toLocaleString('th-TH',{timeZone:'Asia/Bangkok'});if(v.seconds)return new Date(v.seconds*1000).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'});return String(v)}catch{return String(v||'')}}
+async function readCol(name){try{const s=await getDocs(query(collection(db,name),limit(1000)));const docs=s.docs.map(d=>({id:d.id,...d.data()}));stamp(name,'OK',docs.length);return{ok:true,docs}}catch(e){stamp(name,'ERROR',String(e?.code||''),String(e?.message||e));return{ok:false,error:e,docs:[]}}}
+async function audit(){if(!auth.currentUser){setNotice('กรุณาเข้าสู่ระบบครูก่อน','warn');return}setNotice('กำลังตรวจ Firestore...');$('rows').innerHTML='';for(const id of['studentsCount','progressCount','assessmentCount'])$(id).textContent='…';const names=[['students','studentsCount','studentsStatus'],['studentProgress','progressCount','progressStatus'],['studentAssessments','assessmentCount','assessmentStatus']];const results={};for(const [name,cid,sid] of names){const r=await readCol(name);results[name]=r;$(cid).textContent=r.ok?r.docs.length:'ERR';$(sid).textContent=r.ok?`อ่านได้ ${r.docs.length} documents`:`อ่านไม่ได้: ${r.error?.code||r.error?.message||r.error}`;$(sid).className='small '+(r.ok?'ok':'bad')}
+const rows=[];for(const [name,r] of Object.entries(results)){for(const d of r.docs.slice(0,12)){rows.push(`<tr><td>${name}</td><td>${d.id}</td><td>${d.studentId||d.sid||d.profile?.studentId||''}</td><td>${fmt(d.updatedAt||d.lastUpdatedAt||d.timestamp||d.createdAt)}</td></tr>`)}}$('rows').innerHTML=rows.join('')||'<tr><td colspan="4">ไม่พบเอกสาร หรือไม่มีสิทธิ์อ่าน</td></tr>';
+const p=results.studentProgress,a=results.studentAssessments;if(p.ok&&a.ok){if(p.docs.length===0&&a.docs.length===0)setNotice('⚠️ อ่านได้ แต่ studentProgress และ studentAssessments เป็น 0 — มีแนวโน้มว่าไม่ได้เขียนข้อมูลลง Firestore','warn');else setNotice(`✅ พบข้อมูล: progress ${p.docs.length}, assessments ${a.docs.length}`,'ok')}else setNotice('❌ Teacher Console ไม่มีสิทธิ์อ่าน progress/assessments หรือ query ล้มเหลว — ตรวจ Firestore Rules ก่อน','bad')}
+$('login').onclick=async()=>{try{setNotice('กำลังเข้าสู่ระบบครู...');await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value);setNotice('เข้าสู่ระบบแล้ว กำลังตรวจข้อมูล...','ok');await audit()}catch(e){setNotice('เข้าสู่ระบบไม่สำเร็จ: '+String(e?.message||e),'bad');stamp('LOGIN ERROR',String(e?.code||''),String(e?.message||e))}};
+$('logout').onclick=()=>signOut(auth);$('audit').onclick=audit;onAuthStateChanged(auth,u=>{if(u){setNotice('เข้าสู่ระบบครูแล้ว: '+(u.email||u.uid),'ok')}else setNotice('ยังไม่ได้เข้าสู่ระบบครู')});stamp('ready',RELEASE);
+</script>
+</body></html>
