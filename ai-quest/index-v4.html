@@ -11,10 +11,10 @@
 </style>
 </head>
 <body><main>
-<header class="top"><div class="brand">⚡ CSAI2102 · AI Quest</div><div class="version">Production Landing v4.2</div></header>
+<header class="top"><div class="brand">⚡ CSAI2102 · AI Quest</div><div class="version">Production Landing v4.3</div></header>
 <section class="hero">
 <div class="card"><span class="pill">🎓 Principles of Artificial Intelligence</span><h1>เรียนรู้ AI<br>ผ่านภารกิจจริง</h1><p class="lead">ทำ Mission เขียน Coding Lab สะท้อนการเรียนรู้ และปลดล็อก Session ถัดไปตามผลอย่างเป็นทางการจาก Google Sheet</p><div class="steps"><div class="step"><b>1</b><span>Mission — ทำความเข้าใจแนวคิดและแก้สถานการณ์</span></div><div class="step"><b>2</b><span>Coding Lab — ทดลองโค้ดและส่งหลักฐาน</span></div><div class="step"><b>3</b><span>Reflection — สรุปสิ่งที่เรียนรู้ก่อนปลดล็อก</span></div></div><p class="note">ความก้าวหน้าอย่างเป็นทางการอ่านจาก Backend เท่านั้น ข้อมูลในเครื่องใช้เพื่อช่วยกรอกแบบฟอร์มและไม่ใช้ตัดสินการปลดล็อก</p></div>
-<div class="card login"><h2>เข้าสู่ AI Quest</h2><div class="field"><label for="studentId">รหัสนักศึกษา</label><input id="studentId" autocomplete="off"></div><div class="field"><label for="studentName">ชื่อผู้เรียน</label><input id="studentName" autocomplete="name"></div><div class="field"><label for="section">Section</label><input id="section" value="101"></div><div class="actions"><button id="resumeBtn" class="btn primary">เข้าสู่ระบบ / เรียนต่อ</button></div><div id="status" class="status">กรอกรหัสนักศึกษา ชื่อ และ Section เพื่อเข้าสู่ระบบ</div><div id="resume" class="resume"><div class="resumeGrid"><div class="metric"><small>เรียนครบแล้ว</small><strong id="completedCount">0/20</strong></div><div class="metric"><small>Session ถัดไป</small><strong id="nextSession">S1</strong></div><div class="metric"><small>สถานะ</small><strong id="nextStatus">พร้อมเริ่ม</strong></div></div><button id="continueBtn" class="btn continue">เข้า Session</button></div></div>
+<div class="card login"><h2>เข้าสู่ AI Quest</h2><div class="field"><label for="studentId">รหัสนักศึกษา</label><input id="studentId" autocomplete="off"></div><div class="field"><label for="studentName">ชื่อผู้เรียน</label><input id="studentName" autocomplete="name"></div><div class="field"><label for="section">Section</label><input id="section" value="101"></div><div class="actions"><button id="resumeBtn" class="btn primary">เข้าสู่ระบบ / เรียนต่อ</button></div><div id="status" class="status">กรอกรหัสนักศึกษา ชื่อ และ Section เพื่อเข้าสู่ระบบ</div><div id="resume" class="resume"><div class="resumeGrid"><div class="metric"><small>เรียนครบแล้ว</small><strong id="completedCount">—</strong></div><div class="metric"><small>Session ถัดไป</small><strong id="nextSession">—</strong></div><div class="metric"><small>สถานะ</small><strong id="nextStatus">รอตรวจ</strong></div></div><button id="continueBtn" class="btn continue">เข้า Session</button></div></div>
 </section><div class="footer">CSAI2102 AI Quest · Section 101 · Sheet-backed progress</div>
 </main>
 <script>
@@ -24,28 +24,29 @@ const ORDER=['S1','S2','S3','B1','S4','S5','S6','B2','S7','S8','S9','B3','S10','
 const $=id=>document.getElementById(id);let target='S1';
 function profile(){return{studentId:$('studentId').value.trim(),studentName:$('studentName').value.trim(),section:$('section').value.trim()||'101'}}
 function setStatus(text,type){$('status').textContent=text;$('status').className='status'+(type?' '+type:'')}
-function saveCache(p){try{localStorage.setItem('aiq_profile_cache',JSON.stringify(p))}catch(e){}}
-function loadCache(){try{const p=JSON.parse(localStorage.getItem('aiq_profile_cache')||'null');if(p){$('studentId').value=p.studentId||'';$('studentName').value=p.studentName||'';$('section').value=p.section||'101'}}catch(e){}}
+function saveCache(p){try{localStorage.setItem('aiq_profile_cache',JSON.stringify(p));localStorage.setItem('CSAI2102_IDENTITY_V1',JSON.stringify(p));sessionStorage.setItem('CSAI2102_IDENTITY_V1',JSON.stringify(p))}catch(e){}}
+function loadCache(){try{const p=JSON.parse(localStorage.getItem('aiq_profile_cache')||localStorage.getItem('CSAI2102_IDENTITY_V1')||'null');if(p){$('studentId').value=p.studentId||'';$('studentName').value=p.studentName||'';$('section').value=p.section||'101'}}catch(e){}}
 async function post(data,timeout=20000){const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),timeout);try{const r=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data),cache:'no-store',signal:ctl.signal});const text=await r.text();let json;try{json=JSON.parse(text)}catch(e){throw Error('SERVER_RESPONSE_INVALID')}if(!json.ok)throw Error(json.code||json.message||'REQUEST_FAILED');return json}catch(e){if(e.name==='AbortError')throw Error('REQUEST_TIMEOUT');throw e}finally{clearTimeout(timer)}}
-function sessionUrl(session,p){const params=new URLSearchParams({mission:session.toLowerCase(),session,studentId:p.studentId,studentName:p.studentName,section:p.section,release:'landing-v4.2'});return './student-session-integrated-v723.html?'+params.toString()}
-function mapUrl(p){const params=new URLSearchParams({studentId:p.studentId,studentName:p.studentName,section:p.section,release:'landing-v4.2'});return './course-map-all-v720.html?'+params.toString()}
+function sessionUrl(session,p){const params=new URLSearchParams({mission:session.toLowerCase(),session,studentId:p.studentId,studentName:p.studentName,section:p.section,release:'landing-v4.3'});return './student-session-integrated-v723.html?'+params.toString()}
+function mapUrl(p){const params=new URLSearchParams({studentId:p.studentId,studentName:p.studentName,section:p.section,release:'landing-v4.3'});return './course-map-all-v720.html?'+params.toString()}
 function showResume(progress,p){let completed=0;target='S1';let found=false;ORDER.forEach(s=>{const row=progress[s.toLowerCase()]||{};if(row.completed)completed++;if(!found&&row.unlocked&&!row.completed){target=s;found=true}});if(completed===ORDER.length)target='B5';$('completedCount').textContent=completed+'/'+ORDER.length;$('nextSession').textContent=completed===ORDER.length?'COMPLETE':target;const row=progress[target.toLowerCase()]||{};$('nextStatus').textContent=completed===ORDER.length?'ครบหลักสูตร':String(row.status||'พร้อมเรียนต่อ').replaceAll('-',' ');$('resume').classList.add('show');$('continueBtn').textContent=completed===ORDER.length?'ดูแผนที่และผลการเรียน':'เรียนต่อ '+target;$('continueBtn').onclick=()=>location.href=completed===ORDER.length?mapUrl(p):sessionUrl(target,p)}
 function showNewStudent(p,reason){target='S1';$('completedCount').textContent='0/'+ORDER.length;$('nextSession').textContent='S1';$('nextStatus').textContent='พร้อมเริ่ม';$('resume').classList.add('show');$('continueBtn').textContent='เริ่มเรียน S1';$('continueBtn').onclick=()=>location.href=sessionUrl('S1',p);setStatus(reason||'ยืนยันรายชื่อสำเร็จ พร้อมเริ่มเรียน S1','ok')}
+function showProgressFallback(p){$('completedCount').textContent='ตรวจจาก Sheet';$('nextSession').textContent='อัตโนมัติ';$('nextStatus').textContent='พร้อมตรวจ';$('resume').classList.add('show');$('continueBtn').textContent='ตรวจความก้าวหน้า / เรียนต่อ';$('continueBtn').onclick=()=>location.href=mapUrl(p);setStatus('ยืนยันรายชื่อแล้ว แต่บริการสรุปความก้าวหน้าตอบช้า ระบบจะตรวจสถานะราย Session จาก Quest Map เพื่อไม่ให้ความก้าวหน้าเดิมถูกตีความเป็น 0/20','warn')}
 async function login(){const p=profile();if(!p.studentId||!p.studentName){setStatus('กรุณากรอกรหัสนักศึกษาและชื่อผู้เรียน','bad');return}$('resumeBtn').disabled=true;$('resume').classList.remove('show');setStatus('กำลังตรวจสอบรายชื่อ…');try{
-  const lookup=await post({action:'LOOKUP_PROFILE',studentId:p.studentId,section:p.section},18000);
+  const lookup=await post({module:'AIQFLOW',action:'LOOKUP_PROFILE',studentId:p.studentId,section:p.section},18000);
   if(!lookup?.found){setStatus('ไม่พบรหัสนี้ในรายชื่ออย่างเป็นทางการ กรุณาตรวจสอบรหัส/Section หรือติดต่อผู้สอน','bad');return}
   if(lookup.profile?.studentName){p.studentName=lookup.profile.studentName;$('studentName').value=p.studentName}
   saveCache(p);
   setStatus('ยืนยันรายชื่อสำเร็จ กำลังตรวจสอบความก้าวหน้า…');
   try{
-    const result=await post({action:'GET_FLOW_PROGRESS',studentId:p.studentId,section:p.section},12000);
+    const result=await post({module:'AIQFLOW',action:'GET_FLOW_PROGRESS',studentId:p.studentId,section:p.section},12000);
     if(result?.found&&result.progress&&Object.keys(result.progress).length){showResume(result.progress,p);setStatus('ยืนยันรายชื่อและโหลดความก้าวหน้าสำเร็จ','ok');return}
-    showNewStudent(p,'ยืนยันรายชื่อสำเร็จ ยังไม่พบความก้าวหน้าเดิม จึงพร้อมเริ่ม S1');
+    if(result?.found===false){showNewStudent(p,'ยืนยันรายชื่อสำเร็จ และ Backend ยืนยันว่าไม่พบความก้าวหน้าเดิม จึงพร้อมเริ่ม S1');return}
+    showProgressFallback(p);
   }catch(progressErr){
     const msg=String(progressErr?.message||progressErr);
-    if(msg==='REQUEST_TIMEOUT'||msg==='AIQ_UNKNOWN_ACTION'||msg==='AIQCODING_UNKNOWN_ACTION'){
-      showNewStudent(p,'ยืนยันรายชื่อสำเร็จ แต่บริการอ่านความก้าวหน้าตอบช้า จึงอนุญาตให้เริ่ม S1 ได้');
-      setStatus('ยืนยันรายชื่อแล้ว แต่ระบบอ่านความก้าวหน้าตอบช้า หากเคยเรียนมาแล้วให้ลอง “เข้าสู่ระบบ / เรียนต่อ” อีกครั้งภายหลัง; ผู้เรียนใหม่เริ่ม S1 ได้ทันที','warn');
+    if(msg==='REQUEST_TIMEOUT'||msg==='AIQ_UNKNOWN_ACTION'||msg==='AIQCODING_UNKNOWN_ACTION'||msg==='UNKNOWN_FLOW_ACTION'){
+      showProgressFallback(p);
       return;
     }
     throw progressErr;
