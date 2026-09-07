@@ -9,7 +9,7 @@ import { getSecurityRules } from 'firebase-admin/security-rules';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ID = 'herohealth-learning';
 const DEFAULT_SERVICE_ACCOUNT = path.join(HERE, 'service-account.json');
-const MARKER = 'HEROHEALTH_P5_P6_PRODUCTION_LEARNER_R1';
+const MARKER = 'HEROHEALTH_P5_P6_PRODUCTION_LEARNER_R2';
 
 function argValue(name) {
   const prefix = `--${name}=`;
@@ -44,12 +44,12 @@ function findMatchingBrace(source, openIndex) {
 }
 
 function productionPatch() {
-  return `\n\n    // ${MARKER}_BEGIN\n    // Production learner access for child-facing login codes 501-528 and 601-628.\n    // School student IDs are NOT stored in /students and remain private admin data.\n    function hhP5P6SignedIn() {\n      return request.auth != null;\n    }\n    function hhP5P6StudentId(studentId) {\n      return studentId.matches('^5(0[1-9]|1[0-9]|2[0-8])$')\n        || studentId.matches('^6(0[1-9]|1[0-9]|2[0-8])$');\n    }\n    function hhP5P6Teacher() {\n      return hhP5P6SignedIn() && request.auth.token.heroHealthTeacher == true;\n    }\n    function hhP5P6BoundTo(studentId) {\n      return hhP5P6SignedIn()\n        && exists(/databases/$(database)/documents/studentBindings/$(request.auth.uid))\n        && get(/databases/$(database)/documents/studentBindings/$(request.auth.uid)).data.studentId == studentId;\n    }\n\n    match /students/{studentId} {\n      // Learners can fetch only a single known login-code document; collection listing stays teacher-only.\n      allow get: if hhP5P6SignedIn() && hhP5P6StudentId(studentId);\n      allow list: if hhP5P6Teacher();\n      allow create, update, delete: if false;\n    }\n\n    match /studentBindings/{uid} {\n      allow get: if hhP5P6SignedIn() && (request.auth.uid == uid || hhP5P6Teacher());\n      allow list: if hhP5P6Teacher();\n      allow create, update: if hhP5P6SignedIn()\n        && request.auth.uid == uid\n        && request.resource.data.uid == request.auth.uid\n        && hhP5P6StudentId(request.resource.data.studentId);\n      allow delete: if false;\n    }\n\n    match /studentProgress/{studentId} {\n      allow get: if hhP5P6BoundTo(studentId) || hhP5P6Teacher();\n      allow list: if hhP5P6Teacher();\n      allow create, update: if hhP5P6BoundTo(studentId)\n        && hhP5P6StudentId(studentId)\n        && request.resource.data.studentId == studentId;\n      allow delete: if false;\n    }\n\n    match /studentAssessments/{documentId} {\n      allow get: if hhP5P6Teacher()\n        || (hhP5P6SignedIn()\n          && resource.data.studentId is string\n          && hhP5P6StudentId(resource.data.studentId)\n          && hhP5P6BoundTo(resource.data.studentId));\n      allow list: if hhP5P6Teacher();\n      allow create, update: if hhP5P6SignedIn()\n        && request.resource.data.studentId is string\n        && hhP5P6StudentId(request.resource.data.studentId)\n        && hhP5P6BoundTo(request.resource.data.studentId)\n        && request.resource.data.completed == true\n        && (request.resource.data.firebaseSavedByUid == request.auth.uid\n          || request.resource.data.createdByUid == request.auth.uid\n          || request.resource.data.uid == request.auth.uid);\n      allow delete: if false;\n    }\n\n    // Private identity map is never learner-readable. Teacher access, if needed, must be granted separately.\n    match /studentIdentityPrivate/{studentId} {\n      allow read, write: if false;\n    }\n    // ${MARKER}_END\n`;
+  return `\n\n    // ${MARKER}_BEGIN\n    // Production learner access for login codes 501-528 and 601-628.\n    // Additive only; no school student ID is exposed to learner-facing documents.\n    function hhLearnerSignedIn() {\n      return request.auth != null;\n    }\n    function hhLearnerCode(studentId) {\n      return studentId.matches('^(50[1-9]|51[0-9]|52[0-8]|60[1-9]|61[0-9]|62[0-8])$');\n    }\n    function hhTeacher() {\n      return request.auth != null && request.auth.token.heroHealthTeacher == true;\n    }\n    function hhBound(studentId) {\n      return request.auth != null\n        && exists(/databases/$(database)/documents/studentBindings/$(request.auth.uid))\n        && get(/databases/$(database)/documents/studentBindings/$(request.auth.uid)).data.studentId == studentId;\n    }\n\n    match /students/{studentId} {\n      allow get: if hhLearnerSignedIn() && hhLearnerCode(studentId);\n      allow list: if hhTeacher();\n    }\n\n    match /studentBindings/{uid} {\n      allow get: if hhLearnerSignedIn() && request.auth.uid == uid;\n      allow list: if hhTeacher();\n      allow create, update: if hhLearnerSignedIn()\n        && request.auth.uid == uid\n        && request.resource.data.uid == request.auth.uid\n        && hhLearnerCode(request.resource.data.studentId);\n    }\n\n    match /studentProgress/{studentId} {\n      allow get: if hhBound(studentId) || hhTeacher();\n      allow list: if hhTeacher();\n      allow create, update: if hhBound(studentId)\n        && hhLearnerCode(studentId)\n        && request.resource.data.studentId == studentId;\n    }\n\n    match /studentAssessments/{documentId} {\n      allow get: if hhTeacher() || hhBound(resource.data.studentId);\n      allow list: if hhTeacher();\n      allow create, update: if hhLearnerSignedIn()\n        && hhLearnerCode(request.resource.data.studentId)\n        && hhBound(request.resource.data.studentId)\n        && request.resource.data.completed == true\n        && request.resource.data.firebaseSavedByUid == request.auth.uid;\n    }\n\n    match /studentIdentityPrivate/{studentId} {\n      allow read, write: if false;\n    }\n    // ${MARKER}_END\n`;
 }
 
 function patchFirestoreSource(source) {
-  if (source.includes(`${MARKER}_BEGIN`)) return { content: source, changed: false };
   const withoutOlder = source.replace(/\n\s*\/\/ HEROHEALTH_P5_P6_PRODUCTION_LEARNER_R\d+_BEGIN[\s\S]*?\/\/ HEROHEALTH_P5_P6_PRODUCTION_LEARNER_R\d+_END\n?/g, '\n');
+  if (withoutOlder.includes(`${MARKER}_BEGIN`)) return { content: withoutOlder, changed: false };
   const databaseMatch = withoutOlder.indexOf('match /databases/');
   if (databaseMatch < 0) throw new Error('ไม่พบ match /databases/{database}/documents ใน live rules');
   const open = withoutOlder.indexOf('{', databaseMatch);
@@ -92,20 +92,20 @@ if (!patched.changed) {
 const stagedPath = path.join(os.tmpdir(), `herohealth-firestore-p5p6-${timestamp()}.rules`);
 fs.writeFileSync(stagedPath, patched.content, 'utf8');
 console.log(`📝 สร้าง patched rules: ${stagedPath}`);
-console.log('🚀 Compile + release ด้วย Firebase Admin SDK (ถ้า compile ไม่ผ่าน live rules เดิมจะไม่ถูกเปลี่ยน)...');
+console.log('🚀 Compile + release ด้วย Firebase Admin SDK...');
 try {
   await securityRules.releaseFirestoreRulesetFromSource(patched.content);
 } catch (error) {
   console.error('   code:', error?.code || '(none)');
   console.error('   message:', error?.message || String(error));
   if (error?.errorInfo) console.error('   errorInfo:', JSON.stringify(error.errorInfo, null, 2));
-  if (error?.stack) console.error(error.stack);
+  console.error(`   staged rules: ${stagedPath}`);
   fail('Deploy P5/P6 production rules ไม่สำเร็จ; live rules เดิมยังคงใช้งานอยู่');
 }
 
 console.log('\n✅ HeroHealth P5/P6 production learner rules deploy สำเร็จ');
 console.log('   Login codes: 501-528, 601-628');
-console.log('   /students: learner get-only, no collection list');
+console.log('   /students: learner get-only; collection list remains teacher-only');
 console.log('   /studentBindings: own UID only');
 console.log('   /studentProgress: bound learner only');
 console.log('   /studentAssessments: bound learner only');
