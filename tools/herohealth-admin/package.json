@@ -1,6 +1,6 @@
 {
   "name": "herohealth-admin-tools",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "private": true,
   "description": "Local Firebase Admin utilities for HeroHealth",
   "type": "module",
@@ -10,6 +10,7 @@
     "deploy-rules": "node deploy-firestore-rules.mjs",
     "deploy-teacher": "node deploy-teacher-production-rules.mjs",
     "import-p5": "node import-p5-students.mjs",
+    "import-p5p6-login": "node import-p5-p6-login-roster.mjs",
     "smoke-p5": "node import-p5-students.mjs --file=./p5-smoke-10.csv"
   },
   "dependencies": {
