@@ -6,7 +6,7 @@ import { HEROHEALTH_FIREBASE_CONFIG, HEROHEALTH_FIREBASE_BUILD } from "./firebas
 const app = getApps().length ? getApps()[0] : initializeApp(HEROHEALTH_FIREBASE_CONFIG);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const RELEASE = "20260907-FIREBASE-ASSESSMENT-R6-AUTH-BINDING-REPAIR";
+const RELEASE = "20260907-FIREBASE-ASSESSMENT-R7-PROGRESS-AUTHORITY-FALLBACK";
 const PENDING_KEY = "HH_FIREBASE_PENDING_ASSESSMENTS_R76";
 const SANDBOX_STUDENT_IDS = new Set(Array.from({ length: 29 }, (_, i) => String(990001 + i)));
 const CORE_GAMES = Object.freeze([
@@ -22,10 +22,12 @@ let draining = false;
 function isSandboxStudent(studentId) {
   return SANDBOX_STUDENT_IDS.has(String(studentId || "").trim());
 }
+function isPermissionError(error) {
+  const code = String(error?.code || "").toLowerCase();
+  const message = String(error?.message || error || "").toLowerCase();
+  return code.includes("permission-denied") || message.includes("insufficient permission") || message.includes("missing or insufficient permissions");
+}
 async function user() {
-  // Wait for Firebase Auth persistence to restore the existing anonymous UID.
-  // Calling signInAnonymously before this can create a fresh UID after page navigation,
-  // while the student binding still belongs to the previous UID -> permission-denied.
   if (typeof auth.authStateReady === "function") {
     try { await auth.authStateReady(); } catch (_error) {}
   }
@@ -63,7 +65,6 @@ function allCoreGamesComplete(progress) {
 function pretestComplete(progress) {
   return progress?.pretestCompleted === true || progress?.assessments?.pretest?.completed === true;
 }
-
 function queueRead() {
   try {
     const value = JSON.parse(localStorage.getItem(PENDING_KEY) || "{}");
@@ -106,9 +107,7 @@ async function ensureAssessmentBinding(studentId, currentUser, sandbox) {
   try {
     const bindingSnap = await getDoc(bindingRef);
     binding = bindingSnap.exists() ? bindingSnap.data() : null;
-  } catch (_error) {
-    // A missing/old binding must not stop self-repair. setDoc below remains protected by rules.
-  }
+  } catch (_error) {}
 
   if (String(binding?.studentId || "") === sid && String(binding?.uid || currentUser.uid) === currentUser.uid) {
     return { ok: true, repaired: false, bindingPath: bindingRef.path, rosterPath: rosterRef.path };
@@ -128,8 +127,90 @@ async function ensureAssessmentBinding(studentId, currentUser, sandbox) {
   if (!confirmed.exists() || String(confirmedData?.studentId || "") !== sid || String(confirmedData?.uid || "") !== currentUser.uid) {
     throw new Error("firebase-assessment-binding-confirmation-failed");
   }
-  console.info("[HeroHealth Assessment R6] learner binding repaired", { studentId: sid, uid: currentUser.uid, bindingPath: bindingRef.path });
+  console.info("[HeroHealth Assessment R7] learner binding repaired", { studentId: sid, uid: currentUser.uid, bindingPath: bindingRef.path });
   return { ok: true, repaired: true, bindingPath: bindingRef.path, rosterPath: rosterRef.path };
+}
+
+function assessmentSummary(payload, receipt, assessmentType, extra = {}) {
+  return {
+    completed: true,
+    attemptId: String(payload.attemptId || ""),
+    score: Number(payload.score || 0),
+    total: Number(payload.total || 0),
+    form: String(payload.form || ""),
+    firebaseReceiptToken: receipt,
+    confirmedAtClient: new Date().toISOString(),
+    assessmentType,
+    release: RELEASE,
+    ...extra
+  };
+}
+
+async function saveProgressAuthorityFallback(payload, currentUser, assessmentType, progressRef, safePayload, originalError) {
+  let progressSnap;
+  try {
+    progressSnap = await getDoc(progressRef);
+  } catch (error) {
+    const e = new Error(`FIREBASE_RULES_BLOCK_PROGRESS_READ:${String(error?.message || error)}`);
+    e.cause = error;
+    throw e;
+  }
+  const currentProgress = progressSnap.exists() ? progressSnap.data() : {};
+  const mode = String(payload.mode || "").toLowerCase();
+  if (mode === "post") {
+    if (!pretestComplete(currentProgress)) throw new Error("firebase-posttest-pretest-required");
+    if (!allCoreGamesComplete(currentProgress)) throw new Error("firebase-posttest-six-games-required");
+  }
+
+  const existing = currentProgress?.assessments?.[assessmentType] || {};
+  const receipt = String(existing.firebaseReceiptToken || "") || token(payload.studentId, mode, payload.attemptId);
+  const summary = assessmentSummary(payload, receipt, assessmentType, {
+    storageMode: "studentProgress-authority-fallback",
+    assessmentDocumentPending: true,
+    fallbackReason: isPermissionError(originalError) ? "studentAssessments-permission-denied" : "atomic-assessment-write-unavailable",
+    payload: safePayload
+  });
+  const patch = {
+    studentId: String(payload.studentId || ""),
+    pretestCompleted: mode === "pre" ? true : currentProgress.pretestCompleted === true,
+    posttestCompleted: mode === "post" ? true : currentProgress.posttestCompleted === true,
+    assessments: {
+      ...(currentProgress.assessments && typeof currentProgress.assessments === "object" ? currentProgress.assessments : {}),
+      [assessmentType]: summary
+    },
+    updatedByUid: currentUser.uid,
+    updatedAt: serverTimestamp(),
+    build: HEROHEALTH_FIREBASE_BUILD,
+    assessmentAuthorityRelease: RELEASE
+  };
+  try {
+    await setDoc(progressRef, patch, { merge: true });
+  } catch (error) {
+    const e = new Error(`FIREBASE_RULES_BLOCK_PROGRESS_WRITE:${String(error?.message || error)}`);
+    e.cause = error;
+    throw e;
+  }
+
+  let confirmedSnap;
+  try {
+    confirmedSnap = await getDoc(progressRef);
+  } catch (error) {
+    const e = new Error(`FIREBASE_RULES_BLOCK_PROGRESS_CONFIRM:${String(error?.message || error)}`);
+    e.cause = error;
+    throw e;
+  }
+  const progress = confirmedSnap.exists() ? confirmedSnap.data() : null;
+  const stored = progress?.assessments?.[assessmentType] || null;
+  const confirmed = Boolean(stored?.completed === true && stored?.firebaseReceiptToken === receipt && progress?.[mode === "pre" ? "pretestCompleted" : "posttestCompleted"] === true);
+  if (!confirmed) throw new Error("firebase-progress-authority-receipt-mismatch");
+  console.warn("[HeroHealth Assessment R7] progress authority fallback used", {
+    studentId: payload.studentId,
+    assessmentType,
+    progressPath: progressRef.path,
+    receipt,
+    originalError: String(originalError?.message || originalError || "")
+  });
+  return { ok: true, receipt, assessmentPath: null, progressPath: progressRef.path, assessment: stored, progress, release: RELEASE, storageMode: "studentProgress-authority-fallback" };
 }
 
 async function saveAssessment(payload = {}, options = {}) {
@@ -151,75 +232,72 @@ async function saveAssessment(payload = {}, options = {}) {
   const safePayload = sanitizeFirestore(payload);
   let confirmedReceipt = "";
 
-  await runTransaction(db, async transaction => {
-    const [assessmentSnap, progressSnap] = await Promise.all([
-      transaction.get(assessmentRef),
-      transaction.get(progressRef)
-    ]);
-    const existingAssessment = assessmentSnap.exists() ? assessmentSnap.data() : null;
-    const currentProgress = progressSnap.exists() ? progressSnap.data() : {};
-    const existingReceipt = String(existingAssessment?.firebaseReceiptToken || "");
+  try {
+    await runTransaction(db, async transaction => {
+      const [assessmentSnap, progressSnap] = await Promise.all([
+        transaction.get(assessmentRef),
+        transaction.get(progressRef)
+      ]);
+      const existingAssessment = assessmentSnap.exists() ? assessmentSnap.data() : null;
+      const currentProgress = progressSnap.exists() ? progressSnap.data() : {};
+      const existingReceipt = String(existingAssessment?.firebaseReceiptToken || "");
 
-    // Idempotent retry of the same assessment may repair the progress summary.
-    // A new assessment cannot bypass the canonical Firestore progression gate.
-    if (!existingReceipt) {
-      if (mode === "pre" && pretestComplete(currentProgress)) {
-        throw new Error("firebase-pretest-already-complete");
+      if (!existingReceipt) {
+        if (mode === "pre" && pretestComplete(currentProgress)) {
+          throw new Error("firebase-pretest-already-complete");
+        }
+        if (mode === "post") {
+          if (!pretestComplete(currentProgress)) throw new Error("firebase-posttest-pretest-required");
+          if (!allCoreGamesComplete(currentProgress)) throw new Error("firebase-posttest-six-games-required");
+        }
       }
-      if (mode === "post") {
-        if (!pretestComplete(currentProgress)) throw new Error("firebase-posttest-pretest-required");
-        if (!allCoreGamesComplete(currentProgress)) throw new Error("firebase-posttest-six-games-required");
-      }
-    }
 
-    const receipt = existingReceipt || token(sid, mode, attemptId);
-    confirmedReceipt = receipt;
-    const stored = {
-      ...safePayload,
-      assessmentType,
-      completed: true,
-      firebaseReceiptToken: receipt,
-      firebaseSavedByUid: currentUser.uid,
-      firebasePreviousWriterUid: existingAssessment?.firebaseSavedByUid || null,
-      firebaseClientSavedAt: new Date().toISOString(),
-      firebaseSavedAt: serverTimestamp(),
-      firebaseBuild: HEROHEALTH_FIREBASE_BUILD,
-      release: RELEASE,
-      nestedArrayEncoding: "nested-array-as-map-values-v1",
-      progressionGate: {
-        checked: true,
-        pretestComplete: mode === "pre" ? true : pretestComplete(currentProgress),
-        sixGamesComplete: mode === "post" ? allCoreGamesComplete(currentProgress) : false,
-        release: RELEASE
-      }
-    };
-    const assessmentSummary = {
-      completed: true,
-      attemptId,
-      score: Number(payload.score || 0),
-      total: Number(payload.total || 0),
-      form: String(payload.form || ""),
-      firebaseReceiptToken: receipt,
-      confirmedAtClient: new Date().toISOString(),
-      release: RELEASE
-    };
-    const assessments = {
-      ...(currentProgress.assessments && typeof currentProgress.assessments === "object" ? currentProgress.assessments : {}),
-      [assessmentType]: assessmentSummary
-    };
+      const receipt = existingReceipt || token(sid, mode, attemptId);
+      confirmedReceipt = receipt;
+      const stored = {
+        ...safePayload,
+        assessmentType,
+        completed: true,
+        firebaseReceiptToken: receipt,
+        firebaseSavedByUid: currentUser.uid,
+        firebasePreviousWriterUid: existingAssessment?.firebaseSavedByUid || null,
+        firebaseClientSavedAt: new Date().toISOString(),
+        firebaseSavedAt: serverTimestamp(),
+        firebaseBuild: HEROHEALTH_FIREBASE_BUILD,
+        release: RELEASE,
+        nestedArrayEncoding: "nested-array-as-map-values-v1",
+        progressionGate: {
+          checked: true,
+          pretestComplete: mode === "pre" ? true : pretestComplete(currentProgress),
+          sixGamesComplete: mode === "post" ? allCoreGamesComplete(currentProgress) : false,
+          release: RELEASE
+        }
+      };
+      const summary = assessmentSummary(payload, receipt, assessmentType, { storageMode: "atomic-assessment-document" });
+      const assessments = {
+        ...(currentProgress.assessments && typeof currentProgress.assessments === "object" ? currentProgress.assessments : {}),
+        [assessmentType]: summary
+      };
 
-    transaction.set(assessmentRef, stored, { merge: true });
-    transaction.set(progressRef, {
-      studentId: sid,
-      pretestCompleted: mode === "pre" ? true : currentProgress.pretestCompleted === true,
-      posttestCompleted: mode === "post" ? true : currentProgress.posttestCompleted === true,
-      assessments,
-      updatedByUid: currentUser.uid,
-      updatedAt: serverTimestamp(),
-      build: HEROHEALTH_FIREBASE_BUILD,
-      assessmentAuthorityRelease: RELEASE
-    }, { merge: true });
-  });
+      transaction.set(assessmentRef, stored, { merge: true });
+      transaction.set(progressRef, {
+        studentId: sid,
+        pretestCompleted: mode === "pre" ? true : currentProgress.pretestCompleted === true,
+        posttestCompleted: mode === "post" ? true : currentProgress.posttestCompleted === true,
+        assessments,
+        updatedByUid: currentUser.uid,
+        updatedAt: serverTimestamp(),
+        build: HEROHEALTH_FIREBASE_BUILD,
+        assessmentAuthorityRelease: RELEASE
+      }, { merge: true });
+    });
+  } catch (error) {
+    const recoverable = isPermissionError(error) || String(error?.message || "") === "firebase-pretest-already-complete";
+    if (!recoverable) throw error;
+    const fallback = await saveProgressAuthorityFallback(payload, currentUser, assessmentType, progressRef, safePayload, error);
+    dequeue(payload);
+    return fallback;
+  }
 
   const [assessmentSnap, progressSnap] = await Promise.all([getDoc(assessmentRef), getDoc(progressRef)]);
   const assessment = assessmentSnap.exists() ? assessmentSnap.data() : null;
@@ -233,7 +311,7 @@ async function saveAssessment(payload = {}, options = {}) {
     progress?.[mode === "pre" ? "pretestCompleted" : "posttestCompleted"] === true;
   if (!confirmed) throw new Error("firebase-assessment-receipt-mismatch");
   dequeue(payload);
-  return { ok: true, receipt, assessmentPath: assessmentRef.path, progressPath: progressRef.path, assessment, progress, release: RELEASE };
+  return { ok: true, receipt, assessmentPath: assessmentRef.path, progressPath: progressRef.path, assessment, progress, release: RELEASE, storageMode: "atomic-assessment-document" };
 }
 
 async function drainPending() {
@@ -243,7 +321,7 @@ async function drainPending() {
     const entries = Object.values(queueRead());
     for (const payload of entries) {
       try { await saveAssessment(payload, { enqueue: false }); }
-      catch (error) { console.warn("[HeroHealth Assessment R6] pending retry remains queued", error); }
+      catch (error) { console.warn("[HeroHealth Assessment R7] pending retry remains queued", error); }
     }
   } finally { draining = false; }
 }
@@ -260,4 +338,4 @@ window.HHAssessmentFirebase = Object.freeze({
   pretestComplete,
   ensureAssessmentBinding
 });
-console.info("[HeroHealth Firebase Assessment R6] installed", RELEASE);
+console.info("[HeroHealth Firebase Assessment R7] installed", RELEASE);
