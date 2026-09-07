@@ -1,12 +1,12 @@
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 import { HEROHEALTH_FIREBASE_CONFIG, HEROHEALTH_FIREBASE_BUILD } from "./firebase-config.js";
 
 const app = getApps().length ? getApps()[0] : initializeApp(HEROHEALTH_FIREBASE_CONFIG);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const RELEASE = "20260818-FIREBASE-ASSESSMENT-R5-ATOMIC-STRICT-GATE";
+const RELEASE = "20260907-FIREBASE-ASSESSMENT-R6-AUTH-BINDING-REPAIR";
 const PENDING_KEY = "HH_FIREBASE_PENDING_ASSESSMENTS_R76";
 const SANDBOX_STUDENT_IDS = new Set(Array.from({ length: 29 }, (_, i) => String(990001 + i)));
 const CORE_GAMES = Object.freeze([
@@ -23,6 +23,12 @@ function isSandboxStudent(studentId) {
   return SANDBOX_STUDENT_IDS.has(String(studentId || "").trim());
 }
 async function user() {
+  // Wait for Firebase Auth persistence to restore the existing anonymous UID.
+  // Calling signInAnonymously before this can create a fresh UID after page navigation,
+  // while the student binding still belongs to the previous UID -> permission-denied.
+  if (typeof auth.authStateReady === "function") {
+    try { await auth.authStateReady(); } catch (_error) {}
+  }
   if (auth.currentUser) return auth.currentUser;
   return (await signInAnonymously(auth)).user;
 }
@@ -84,6 +90,48 @@ function dequeue(payload) {
   queueWrite(queue);
 }
 
+async function ensureAssessmentBinding(studentId, currentUser, sandbox) {
+  const sid = String(studentId || "").trim();
+  if (!sid || !currentUser?.uid) throw new Error("firebase-assessment-binding-invalid-identity");
+  const rosterCollection = sandbox ? "studentsSandbox" : "students";
+  const bindingCollection = sandbox ? "studentBindingsSandbox" : "studentBindings";
+  const rosterRef = doc(db, rosterCollection, sid);
+  const rosterSnap = await getDoc(rosterRef);
+  if (!rosterSnap.exists()) throw new Error("firebase-assessment-roster-not-found");
+  const roster = rosterSnap.data() || {};
+  if (roster.active === false) throw new Error("firebase-assessment-student-inactive");
+
+  const bindingRef = doc(db, bindingCollection, currentUser.uid);
+  let binding = null;
+  try {
+    const bindingSnap = await getDoc(bindingRef);
+    binding = bindingSnap.exists() ? bindingSnap.data() : null;
+  } catch (_error) {
+    // A missing/old binding must not stop self-repair. setDoc below remains protected by rules.
+  }
+
+  if (String(binding?.studentId || "") === sid && String(binding?.uid || currentUser.uid) === currentUser.uid) {
+    return { ok: true, repaired: false, bindingPath: bindingRef.path, rosterPath: rosterRef.path };
+  }
+
+  await setDoc(bindingRef, {
+    uid: currentUser.uid,
+    studentId: sid,
+    classId: roster.classId || roster.section || "",
+    rosterPath: rosterRef.path,
+    boundAt: serverTimestamp(),
+    build: HEROHEALTH_FIREBASE_BUILD
+  }, { merge: true });
+
+  const confirmed = await getDoc(bindingRef);
+  const confirmedData = confirmed.exists() ? confirmed.data() : null;
+  if (!confirmed.exists() || String(confirmedData?.studentId || "") !== sid || String(confirmedData?.uid || "") !== currentUser.uid) {
+    throw new Error("firebase-assessment-binding-confirmation-failed");
+  }
+  console.info("[HeroHealth Assessment R6] learner binding repaired", { studentId: sid, uid: currentUser.uid, bindingPath: bindingRef.path });
+  return { ok: true, repaired: true, bindingPath: bindingRef.path, rosterPath: rosterRef.path };
+}
+
 async function saveAssessment(payload = {}, options = {}) {
   const sid = String(payload.studentId || "").trim();
   const mode = String(payload.mode || "").toLowerCase();
@@ -94,6 +142,8 @@ async function saveAssessment(payload = {}, options = {}) {
   const currentUser = await user();
   const assessmentType = mode === "pre" ? "pretest" : "posttest";
   const sandbox = isSandboxStudent(sid);
+  await ensureAssessmentBinding(sid, currentUser, sandbox);
+
   const collection = sandbox ? "studentAssessmentsSandbox" : "studentAssessments";
   const progressCollection = sandbox ? "studentProgressSandbox" : "studentProgress";
   const assessmentRef = doc(db, collection, `${sid}_${attemptId}`);
@@ -193,7 +243,7 @@ async function drainPending() {
     const entries = Object.values(queueRead());
     for (const payload of entries) {
       try { await saveAssessment(payload, { enqueue: false }); }
-      catch (error) { console.warn("[HeroHealth Assessment R5] pending retry remains queued", error); }
+      catch (error) { console.warn("[HeroHealth Assessment R6] pending retry remains queued", error); }
     }
   } finally { draining = false; }
 }
@@ -207,6 +257,7 @@ window.HHAssessmentFirebase = Object.freeze({
   sanitizeFirestore,
   isSandboxStudent,
   allCoreGamesComplete,
-  pretestComplete
+  pretestComplete,
+  ensureAssessmentBinding
 });
-console.info("[HeroHealth Firebase Assessment R5] installed", RELEASE);
+console.info("[HeroHealth Firebase Assessment R6] installed", RELEASE);
