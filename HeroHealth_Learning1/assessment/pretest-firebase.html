@@ -19,10 +19,10 @@
 <script src="assessment-bank-v3.js?v=20260814-hsas-p5-v5-core15-r14"></script>
 <script src="assessment-research-metadata-v1.js?v=20260814-expert-validated-v2"></script>
 <script src="assessment-engine-v6.js?v=20260814-hsas-p5-v7"></script>
-<script type="module" src="../firebase/assessment-firebase-bridge.js?v=20260818-firebase-assessment-r5-atomic-strict-gate"></script>
+<script type="module" src="../firebase/assessment-firebase-bridge.js?v=20260907-firebase-assessment-r6-auth-binding-repair"></script>
 <script>
 (()=>{'use strict';
-const RELEASE='20260818-HSAS-P5-PRETEST-V8-FIREBASE-R5';
+const RELEASE='20260907-HSAS-P5-PRETEST-V9-FIREBASE-R6';
 const MODE='pre',KEY='herohealth_learning_platform_rc2',q=new URLSearchParams(location.search),ENGINE=window.HHAssessmentEngineV6;
 let state={};try{state=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){}
 const ids=[...new Set(['studentId','sid','pid'].map(k=>String(q.get(k)||'').trim()).filter(Boolean))];
@@ -45,6 +45,17 @@ if(items.length!==15){$('who').innerHTML='<span class="error">สร้างข
 const formCode='PRE-FB-'+String(assignment.selectionSeed%200+1).padStart(3,'0');
 $('formLabel').textContent=`HSAS-P5 • ${formCode} • CORE15 5-5-5`;
 $('who').textContent=`${fullName||'รหัส '+sid} • 15 ข้อ • Firebase Receipt Required`;
+
+async function bridge(){let wait=0;while(!window.HHAssessmentFirebase&&wait<80){await new Promise(x=>setTimeout(x,100));wait++}if(!window.HHAssessmentFirebase)throw new Error('firebase-assessment-bridge-not-ready');return window.HHAssessmentFirebase}
+function buildReturnUrl(score,payload){const u=new URL(back,location.href);u.searchParams.set('authority','firebase');u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.delete('pid');u.searchParams.set('firebaseReady','1');u.searchParams.set('firebaseAssessmentReceipt','1');u.searchParams.set('hhReturn','assessment');u.searchParams.set('task','pretest');u.searchParams.set('score',String(score));u.searchParams.set('attemptId',payload.attemptId||attemptId);u.searchParams.set('assessmentRelease',RELEASE);u.searchParams.set('authorityRefresh',String(Date.now()));return u}
+function commitLocalReceipt(payload,score,receipt){let local={};try{local=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(_){}local.pretestCompleted=true;local.completed={...(local.completed||{}),pretest:true};local.assessmentScores={...(local.assessmentScores||{}),pretest:Number(score||0)};local.firebaseAssessment={mode:'pretest',attemptId:payload.attemptId||attemptId,receipt:receipt.receipt,confirmedAt:new Date().toISOString(),release:window.HHAssessmentFirebase.release};localStorage.setItem(KEY,JSON.stringify(local));localStorage.setItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`,payload.attemptId||attemptId)}
+async function saveExistingPayload(payload,r){const score=Number(payload.score||0);r.innerHTML=`<div class="done-icon">↻</div><h2>กำลังกู้ผล Pre-test เดิม</h2><div class="score">คะแนน ${score}/15</div><div class="sync queue">กำลังยืนยัน Receipt กับ Firebase</div><p class="countdown">ไม่ต้องทำข้อสอบใหม่ กรุณารอสักครู่</p>`;try{const api=await bridge();const receipt=await api.saveAssessment(payload);commitLocalReceipt(payload,score,receipt);r.innerHTML=`<div class="done-icon">✓</div><h2>บันทึก Pre-test สำเร็จ</h2><div class="score">คะแนน ${score}/15</div><div class="sync">✓ Firebase ยืนยัน Receipt แล้ว</div><p class="countdown">กำลังกลับ Hero Passport...</p>`;setTimeout(()=>location.replace(buildReturnUrl(score,payload).href),700)}catch(err){console.error('[Firebase Pre-test V9 recovery]',err);r.innerHTML=`<div class="done-icon">!</div><h2>ยังยืนยัน Firebase ไม่สำเร็จ</h2><div class="score">คะแนน ${score}/15</div><div class="sync queue">ผลเดิมยังถูกเก็บไว้ในเครื่อง</div><p class="countdown error">${String(err?.message||err)}</p><button id="retrySaved" class="btn">ลองบันทึกผลเดิมอีกครั้ง</button>`;$('retrySaved').onclick=()=>saveExistingPayload(payload,r)}}
+
+let savedPayload=null;try{savedPayload=JSON.parse(localStorage.getItem(`HH_PRETEST_LAST_${sid}`)||'null')}catch(_){}
+if(savedPayload&&String(savedPayload.studentId||'')===sid&&String(savedPayload.mode||'')==='pre'&&String(savedPayload.attemptId||'')===String(attemptId)&&Array.isArray(savedPayload.responses)&&savedPayload.responses.length===15){
+  const form=$('form'),r=$('result');form.classList.add('hidden');document.querySelector('.head h1').textContent='กำลังกู้ผล Pre-test';$('bar').style.width='100%';r.classList.remove('hidden');r.classList.add('done');saveExistingPayload(savedPayload,r);return;
+}
+
 const openedAt=performance.now(),firstSeen=items.map(()=>openedAt),lastChange=items.map(()=>0),changeCount=items.map(()=>0),form=$('form');
 form.innerHTML=items.map((it,i)=>`<section class="card"><div class="q">${i+1}. ${it.text}</div><div class="opts">${it.displayOptions.map((o,j)=>`<label class="opt"><input type="radio" name="q${i}" value="${j}" required><span>${String.fromCharCode(65+j)}. ${o.text}</span></label>`).join('')}</div></section>`).join('')+`<section class="card"><button class="btn" id="submitBtn">ส่งคำตอบ Pre-test ไป Firebase</button><p class="muted">ระบบจะกลับ Passport ต่อเมื่อ Firestore ยืนยัน Receipt แล้วเท่านั้น</p></section>`;
 form.onchange=e=>{const m=String(e.target?.name||'').match(/^q(\d+)$/);if(m){const i=Number(m[1]);lastChange[i]=performance.now();changeCount[i]++}$('bar').style.width=`${form.querySelectorAll('input:checked').length/items.length*100}%`};
@@ -55,19 +66,9 @@ form.onsubmit=async e=>{
  const payload={assessmentVersion:'8.0-core15-production',engineVersion:ENGINE.VERSION,bankVersion:'HSAS-P5-CORE15-V5',researchMetadataVersion:window.HHResearchAssessmentMetadataV1?.VERSION||null,release:RELEASE,studyId,studentId:sid,studentName:fullName,section,groupCode:group,attemptId,preAttemptId:attemptId,mode:MODE,score,total:items.length,responses,submittedAt:new Date().toISOString(),form:formCode,selectionSeed:assignment.selectionSeed,orderSeed:built.orderSeed,questionOrder:built.questionOrder,optionOrders:built.optionOrders,correctPositionDistribution:built.correctPositionDistribution,assignmentMethod:assignment.assignmentMethod,assignmentSource:'canonical-core15-v5',assignmentFingerprint:assignment.assignmentFingerprint,blueprint:{domains:{hygiene:5,nutrition:5,fitness:5},difficulty:{easy:6,medium:6,hard:3},hlProcess:{understand:6,apply:6,appraise:3}},bankSize:90,pairIds:assignment.pairIds,totalTimeMs:Math.round(submittedPerf-openedAt),researchMetadata:{individualAssignment:true,studentStableAssignment:true,groupExcludedFromSeed:true,parallelPairRegistry:true,answerPositionBalanced:true,itemExposureBalanced:true,refreshStable:true,firebaseAuthority:true,childFacingMetadataHidden:true,expertValidatedProduction:true,pendingPilotItemAnalysis:true,nestedArrayEncoding:'nested-array-as-map-values-v1',strictProgressionGate:true}};
  try{localStorage.setItem(`HH_PRETEST_LAST_${sid}`,JSON.stringify(payload));localStorage.setItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`,attemptId)}catch(_){}
  form.classList.add('hidden');document.querySelector('.head h1').textContent='Pre-test สำเร็จ';$('bar').style.width='100%';const r=$('result');r.classList.remove('hidden');r.classList.add('done');
- r.innerHTML=`<div class="done-icon">✓</div><h2>ทำ Pre-test เรียบร้อยแล้ว</h2><div class="score">คะแนน ${score}/15</div><div class="sync queue">↻ กำลังบันทึกคำตอบลง Firebase</div><p class="countdown">กรุณารอ ระบบกำลังตรวจ Receipt</p>`;
- try{
-   let wait=0;while(!window.HHAssessmentFirebase&&wait<50){await new Promise(x=>setTimeout(x,100));wait++}
-   if(!window.HHAssessmentFirebase)throw new Error('firebase-assessment-bridge-not-ready');
-   const receipt=await window.HHAssessmentFirebase.saveAssessment(payload);
-   const local=JSON.parse(localStorage.getItem(KEY)||'{}');local.pretestCompleted=true;local.completed={...(local.completed||{}),pretest:true};local.assessmentScores={...(local.assessmentScores||{}),pretest:score};local.firebaseAssessment={mode:'pretest',attemptId,receipt:receipt.receipt,confirmedAt:new Date().toISOString(),release:window.HHAssessmentFirebase.release};localStorage.setItem(KEY,JSON.stringify(local));
-   const u=new URL(back,location.href);u.searchParams.set('authority','firebase');u.searchParams.set('studentId',sid);u.searchParams.set('sid',sid);u.searchParams.delete('pid');u.searchParams.set('firebaseReady','1');u.searchParams.set('firebaseAssessmentReceipt','1');u.searchParams.set('hhReturn','assessment');u.searchParams.set('task','pretest');u.searchParams.set('score',String(score));u.searchParams.set('attemptId',attemptId);u.searchParams.set('assessmentRelease',RELEASE);u.searchParams.set('authorityRefresh',String(Date.now()));
-   r.innerHTML=`<div class="done-icon">✓</div><h2>บันทึก Pre-test สำเร็จ</h2><div class="score">คะแนน ${score}/15</div><div class="sync">✓ Firebase ยืนยัน Receipt แล้ว</div><p class="countdown">กำลังกลับ Hero Passport...</p>`;
-   setTimeout(()=>location.replace(u.href),900);
- }catch(err){console.error('[Firebase Pre-test V8]',err);r.innerHTML=`<div class="done-icon">!</div><h2>ยังบันทึก Firebase ไม่สำเร็จ</h2><div class="score">คะแนน ${score}/15</div><div class="sync queue">ไม่พบ Receipt ยืนยัน</div><p class="countdown error">${String(err?.message||err)}</p><button id="retry" class="btn">ลองบันทึกอีกครั้ง</button>`;$('retry').onclick=()=>location.reload()}
- scrollTo({top:0,behavior:'smooth'});
+ await saveExistingPayload(payload,r);scrollTo({top:0,behavior:'smooth'});
 };
-console.info('[HeroHealth Firebase Pre-test V8] ready',RELEASE,ENGINE?.VERSION);
+console.info('[HeroHealth Firebase Pre-test V9] ready',RELEASE,ENGINE?.VERSION);
 })();
 </script>
 </body>
