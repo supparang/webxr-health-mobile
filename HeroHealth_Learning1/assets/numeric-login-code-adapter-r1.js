@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const RELEASE='20260820-NUMERIC-LOGIN-CODE-R4-SANDBOX-READY';
+const RELEASE='20260907-NUMERIC-LOGIN-CODE-R5-NATIVE-VALIDATION-FIX';
 const STATE_KEY='herohealth_learning_platform_rc2';
 const SANDBOX_IDS=new Set(Array.from({length:29},(_,i)=>String(990001+i)));
 function visibleDigits(value){
@@ -19,8 +19,8 @@ function polishInput(input){
   input.pattern='[0-9]*';
   input.autocomplete='off';
   input.placeholder='เช่น 5101';
-  if(input.dataset.hhNumericLoginR4!=='1'){
-    input.dataset.hhNumericLoginR4='1';
+  if(input.dataset.hhNumericLoginR5!=='1'){
+    input.dataset.hhNumericLoginR5='1';
     input.value=visibleDigits(input.value);
     input.addEventListener('input',()=>{
       const next=visibleDigits(input.value);
@@ -72,17 +72,18 @@ document.addEventListener('pointerdown',event=>{
   if(!form)return;
   const input=form.querySelector('input[name="studentId"],input#studentId,input[data-student-id]');
   if(!input)return;
-  const lookup=firebaseLookupCode(input.value);
-  input.value=lookup;
-  input.dataset.hhLookupCode=lookup;
+  // Keep the visible value numeric until the browser finishes native constraint validation.
+  // Converting 5101 -> H5101 here makes pattern="[0-9]*" fail before the submit event fires.
+  input.dataset.hhLookupCode=firebaseLookupCode(input.value);
 },true);
 document.addEventListener('click',()=>{repairSandboxReadiness();},true);
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{scan();repairSandboxReadiness();},{once:true});
 else {scan();repairSandboxReadiness();}
 [100,350,900].forEach(ms=>setTimeout(()=>{scan();repairSandboxReadiness();},ms));
-window.HH_NUMERIC_LOGIN_CODE_R4={release:RELEASE,active:true,toLookup:firebaseLookupCode,toDisplay:visibleDigits,repairSandboxReadiness};
-window.HH_NUMERIC_LOGIN_CODE_R3=window.HH_NUMERIC_LOGIN_CODE_R4;
-window.HH_NUMERIC_LOGIN_CODE_R2=window.HH_NUMERIC_LOGIN_CODE_R4;
-window.HH_NUMERIC_LOGIN_CODE_R1=window.HH_NUMERIC_LOGIN_CODE_R4;
-console.info('[HeroHealth Login] numeric-only code adapter ready',window.HH_NUMERIC_LOGIN_CODE_R4);
+window.HH_NUMERIC_LOGIN_CODE_R5={release:RELEASE,active:true,toLookup:firebaseLookupCode,toDisplay:visibleDigits,repairSandboxReadiness};
+window.HH_NUMERIC_LOGIN_CODE_R4=window.HH_NUMERIC_LOGIN_CODE_R5;
+window.HH_NUMERIC_LOGIN_CODE_R3=window.HH_NUMERIC_LOGIN_CODE_R5;
+window.HH_NUMERIC_LOGIN_CODE_R2=window.HH_NUMERIC_LOGIN_CODE_R5;
+window.HH_NUMERIC_LOGIN_CODE_R1=window.HH_NUMERIC_LOGIN_CODE_R5;
+console.info('[HeroHealth Login] numeric-only code adapter ready',window.HH_NUMERIC_LOGIN_CODE_R5);
 })();
