@@ -1,0 +1,199 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================
+    // HeroHealth Clean Production Rules R11
+    // - Sandbox 990001-990029 retained
+    // - Legacy production H51xx-H56xx retained
+    // - New P5/P6 login codes 501-528 and 601-628 enabled
+    // - Teacher read access retained
+    // - Private identity mapping remains server/admin only
+    // =========================================================
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isTeacher() {
+      return signedIn() && request.auth.token.heroHealthTeacher == true;
+    }
+
+    function isTestStudent(studentId) {
+      return studentId.matches('^9900(0[1-9]|1[0-9]|2[0-9])$');
+    }
+
+    function isTestAssessmentDocument(documentId) {
+      return documentId.matches('^9900(0[1-9]|1[0-9]|2[0-9])_.*$');
+    }
+
+    function isLegacyProductionStudent(studentId) {
+      return studentId.size() == 5
+        && studentId[0:3] in ['H51','H52','H53','H54','H55','H56'];
+    }
+
+    function isNewP5P6Student(studentId) {
+      return studentId.matches('^(50[1-9]|51[0-9]|52[0-8]|60[1-9]|61[0-9]|62[0-8])$');
+    }
+
+    function isProductionStudent(studentId) {
+      return isLegacyProductionStudent(studentId) || isNewP5P6Student(studentId);
+    }
+
+    function assessmentWriterMatchesAuth() {
+      return signedIn()
+        && (request.resource.data.firebaseSavedByUid == request.auth.uid
+          || request.resource.data.createdByUid == request.auth.uid);
+    }
+
+    function productionBindingMatches(studentId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/studentBindings/$(request.auth.uid))
+        && get(/databases/$(database)/documents/studentBindings/$(request.auth.uid)).data.studentId == studentId;
+    }
+
+    // =========================================================
+    // Sandbox / smoke test
+    // =========================================================
+
+    match /firebaseSmokeTests/{uid} {
+      allow create, read, update, delete:
+        if signedIn() && request.auth.uid == uid;
+    }
+
+    match /passportSandbox/{uid} {
+      allow create, read, update, delete:
+        if signedIn() && request.auth.uid == uid;
+    }
+
+    match /passportCrossDeviceSandbox/{studentId} {
+      allow read: if signedIn() && isTestStudent(studentId);
+      allow create, update: if signedIn() && isTestStudent(studentId);
+      allow delete: if false;
+    }
+
+    match /studentsSandbox/{studentId} {
+      allow read: if signedIn() && isTestStudent(studentId);
+      allow write: if false;
+    }
+
+    match /studentBindingsSandbox/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update:
+        if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == request.auth.uid
+        && isTestStudent(request.resource.data.studentId);
+      allow delete: if false;
+    }
+
+    match /studentProgressSandbox/{studentId} {
+      allow read: if signedIn() && isTestStudent(studentId);
+      allow create, update:
+        if signedIn()
+        && isTestStudent(studentId)
+        && request.resource.data.studentId == studentId;
+      allow delete: if false;
+    }
+
+    match /studentAssessmentsSandbox/{documentId} {
+      allow read:
+        if signedIn() && isTestAssessmentDocument(documentId);
+      allow create, update:
+        if signedIn()
+        && isTestAssessmentDocument(documentId)
+        && isTestStudent(request.resource.data.studentId)
+        && request.resource.data.completed == true
+        && assessmentWriterMatchesAuth();
+      allow delete: if false;
+    }
+
+    // =========================================================
+    // Production roster
+    // Learner: single known document GET only
+    // Teacher: read/list
+    // Client roster writes: denied
+    // =========================================================
+
+    match /students/{studentId} {
+      allow get:
+        if signedIn() && (isProductionStudent(studentId) || isTeacher());
+      allow list: if isTeacher();
+      allow create, update, delete: if false;
+    }
+
+    // =========================================================
+    // Production anonymous UID -> learner binding
+    // =========================================================
+
+    match /studentBindings/{uid} {
+      allow get:
+        if signedIn() && (request.auth.uid == uid || isTeacher());
+      allow list: if isTeacher();
+      allow create, update:
+        if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == request.auth.uid
+        && isProductionStudent(request.resource.data.studentId);
+      allow delete: if false;
+    }
+
+    // =========================================================
+    // Production progress authority
+    // =========================================================
+
+    match /studentProgress/{studentId} {
+      allow get:
+        if isTeacher()
+        || (isProductionStudent(studentId) && productionBindingMatches(studentId));
+      allow list: if isTeacher();
+      allow create, update:
+        if isProductionStudent(studentId)
+        && productionBindingMatches(studentId)
+        && request.resource.data.studentId == studentId;
+      allow delete: if false;
+    }
+
+    // =========================================================
+    // Production assessments
+    // Assessment bridge writes {studentId, completed, firebaseSavedByUid}
+    // and uses document IDs like <studentId>_<attemptId>.
+    // =========================================================
+
+    match /studentAssessments/{documentId} {
+      allow get:
+        if isTeacher()
+        || (signedIn()
+          && resource.data.studentId != null
+          && isProductionStudent(resource.data.studentId)
+          && productionBindingMatches(resource.data.studentId));
+      allow list: if isTeacher();
+      allow create, update:
+        if signedIn()
+        && request.resource.data.studentId != null
+        && isProductionStudent(request.resource.data.studentId)
+        && productionBindingMatches(request.resource.data.studentId)
+        && request.resource.data.completed == true
+        && assessmentWriterMatchesAuth();
+      allow delete: if false;
+    }
+
+    // =========================================================
+    // Private identity map
+    // No web learner/teacher-client access. Firebase Admin SDK bypasses rules.
+    // =========================================================
+
+    match /studentIdentityPrivate/{studentId} {
+      allow read, write: if false;
+    }
+
+    // =========================================================
+    // Default deny
+    // =========================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
