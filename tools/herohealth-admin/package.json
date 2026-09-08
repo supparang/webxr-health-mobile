@@ -1,12 +1,13 @@
 {
   "name": "herohealth-admin-tools",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "private": true,
   "description": "Local Firebase Admin utilities for HeroHealth",
   "type": "module",
   "scripts": {
     "set-teacher": "node set-teacher-claim.mjs",
     "seed-sandbox-students": "node seed-sandbox-students.mjs",
+    "seed-production-qa-529": "node seed-production-qa-529.mjs",
     "deploy-rules": "node deploy-firestore-rules.mjs",
     "deploy-p5p6-rules": "node deploy-p5-p6-production-rules.mjs",
     "deploy-teacher": "node deploy-teacher-production-rules.mjs",
