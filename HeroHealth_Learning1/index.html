@@ -22,7 +22,7 @@
     const __hhEntryParams=new URLSearchParams(location.search);
     window.HH_AUTHORITY_MODE=String(__hhEntryParams.get('authority')||'firebase').toLowerCase();
     window.HH_FIREBASE_MODE=window.HH_AUTHORITY_MODE==='firebase'||window.HH_AUTHORITY_MODE==='dual';
-    window.HH_APP_RELEASE='20260908-PASSPORT-R53-BALANCE-RECEIPT-GUARD';
+    window.HH_APP_RELEASE='20260908-PASSPORT-R54-LEGACY-PROGRESS-COMPAT';
     if(window.HH_FIREBASE_MODE){
       const hardLogout=__hhEntryParams.get('logout')==='1';
       if(hardLogout){
@@ -39,13 +39,13 @@
         [...clean.searchParams.keys()].forEach(k=>clean.searchParams.delete(k));
         clean.searchParams.set('authority','firebase');
         clean.searchParams.set('logout','1');
-        clean.searchParams.set('v','20260908-r53-balance-guard');
+        clean.searchParams.set('v','20260908-r54-legacy-progress-compat');
         try{history.replaceState(null,'',clean.href)}catch(_){}
       }else{
         const hasIdentity=['studentId','sid','pid'].some(k=>String(__hhEntryParams.get(k)||'').trim());
         const isHandoff=__hhEntryParams.get('firebaseReceipt')==='1'||__hhEntryParams.has('returnedGame')||__hhEntryParams.has('gameCompleted')||__hhEntryParams.has('receiptToken')||__hhEntryParams.has('authorityRefresh')||__hhEntryParams.get('firebaseReady')==='1'||String(__hhEntryParams.get('returnSessionPolicy')||'').startsWith('force-firebase-rehydrate');
         if(!hasIdentity&&!isHandoff){
-          const u=new URL(location.href);u.searchParams.set('authority','firebase');u.searchParams.set('logout','1');u.searchParams.set('v','20260908-r53-balance-guard');history.replaceState(null,'',u.href);
+          const u=new URL(location.href);u.searchParams.set('authority','firebase');u.searchParams.set('logout','1');u.searchParams.set('v','20260908-r54-legacy-progress-compat');history.replaceState(null,'',u.href);
         }
       }
     }
@@ -81,10 +81,10 @@
 <script src="./assets/firebase-fast-return-normalizer-r1.js?v=20260818-r1-progress-only"></script>
 <script src="./assets/numeric-login-code-adapter-r1.js?v=20260907-r5-native-validation-fix"></script>
 <script type="module">
-import('./firebase/passport-index-integration.js?v=20260908-r78-qa529-strict-refresh-r53').catch(error=>{
+import('./firebase/passport-index-integration.js?v=20260908-r79-legacy-progress-compat-r54').catch(error=>{
   const message=String(error?.message||error||'passport-module-import-failed');
   window.__HH_FIREBASE_PASSPORT_IMPORT_ERROR__=message;
-  console.error('[HeroHealth Passport R53] module import failed',error);
+  console.error('[HeroHealth Passport R54] module import failed',error);
   const app=document.getElementById('app');
   if(app){
     const safe=message.replace(/[<>]/g,'');
