@@ -1,11 +1,11 @@
 (()=>{
 'use strict';
-const RELEASE='20260908-BALANCE-CLASSROOM-RUNTIME-LOADER-V68-GRADE5-FAIR';
+const RELEASE='20260908-BALANCE-CLASSROOM-RUNTIME-LOADER-V70-ROUND-PASS';
 const q=new URLSearchParams(location.search);
 const directSmoke=/^(1|true|yes)$/i.test(String(q.get('smoke')||q.get('smokeTest')||''))&&String(q.get('balanceRoute')||'').startsWith('direct-smoke');
-function load(src,id,onload){if(document.getElementById(id)){onload?.();return}const script=document.createElement('script');script.id=id;script.src=src;script.async=false;if(onload)script.onload=onload;script.onerror=()=>{console.error('[BalanceHold V68 physical] failed to load',src);onload?.()};document.head.appendChild(script)}
-if(directSmoke){document.documentElement.dataset.bhLegacyStack='skipped-direct-smoke-v68-physical';console.info('[BalanceHold] legacy runtime stack skipped for direct smoke',RELEASE);return}
-function loadFirebaseDirectReceipt(){load('./bh-firebase-direct-receipt-v66.js?v=20260908-v66','bh-firebase-direct-receipt-v66')}
+function load(src,id,onload){if(document.getElementById(id)){onload?.();return}const script=document.createElement('script');script.id=id;script.src=src;script.async=false;if(onload)script.onload=onload;script.onerror=()=>{console.error('[BalanceHold V70 physical] failed to load',src);onload?.()};document.head.appendChild(script)}
+if(directSmoke){document.documentElement.dataset.bhLegacyStack='skipped-direct-smoke-v70-physical';console.info('[BalanceHold] legacy runtime stack skipped for direct smoke',RELEASE);return}
+function loadFirebaseDirectReceipt(){load('./bh-firebase-direct-receipt-v66.js?v=20260908-v70-round-pass','bh-firebase-direct-receipt-v70')}
 function loadSixthPoseRecovery(){load('./bh-final-sixth-pose-recovery-v67.js?v=20260908-v67','bh-final-sixth-pose-recovery-v67',loadFirebaseDirectReceipt)}
 function loadCanonicalSummaryUi(){load('./bh-summary-ui-canonical-v57.js?v=20260818-v57','bh-summary-ui-canonical-v57',loadSixthPoseRecovery)}
 function loadSummaryGuard(){load('./bh-classroom-summary-passport-v56.js?v=20260818-balance-v65-physical','bh-summary-passport-v56',loadCanonicalSummaryUi)}
@@ -24,9 +24,9 @@ fairPatchTimer=setInterval(()=>{
     load('./bh-grade5-final-detection-override-v68.js?v=20260908-v68','bh-grade5-final-detection-v68');
   }else if(fairPatchTries>160){
     clearInterval(fairPatchTimer);
-    console.warn('[BalanceHold V68] Grade-5 fair coach not observed before timeout');
+    console.warn('[BalanceHold V70] Grade-5 fair coach not observed before timeout');
   }
 },50);
 addEventListener('pagehide',()=>clearInterval(fairPatchTimer),{once:true});
-console.info('[BalanceHold] Classroom V68 physical runtime loader ready',RELEASE);
+console.info('[BalanceHold] Classroom V70 round-pass runtime loader ready',RELEASE);
 })();
