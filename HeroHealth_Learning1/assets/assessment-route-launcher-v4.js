@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
-const RELEASE='20260908-HEROHEALTH-RESEARCH-FLOW-R25-PASSPORT-HYDRATION-READY';
-const APP_RELEASE='20260908-PASSPORT-R54-PRODUCTION';
+const RELEASE='20260908-HEROHEALTH-RESEARCH-FLOW-R27-NONBLOCKING-ROUTE';
+const APP_RELEASE='20260908-PASSPORT-R57-ROUTE-R27-NONBLOCKING';
 const STATE_KEY='herohealth_learning_platform_rc2';
 const STUDY_ID='HEROHEALTH-P5-2026';
 const SANDBOX_STUDENT_IDS=new Set(Array.from({length:29},(_,i)=>String(990001+i)));
@@ -46,25 +46,21 @@ function firebaseReady(s){
   mode==='firebase'&&source==='Cloud Firestore'&&
   Number.isFinite(hydratedAt)&&urlIdentityOK
  );
- // R25 fallback: Passport may already have a verified Firestore research-flow snapshot
- // while firebaseAuthority metadata is briefly stale after an assessment return. If the
- // visible learner identity matches the URL and the Passport snapshot explicitly says
- // Cloud Firestore, allow the next route instead of showing a false "not ready" alert.
  const passportHydrationReady=Boolean(
   profileSid&&urlIdentityOK&&
   researchSource==='Cloud Firestore'&&
   (!researchSid||researchSid===profileSid)&&
   (s?.pretestCompleted===true||s?.assessments?.pretest?.completed===true||s?.firebaseResearchFlow?.pretest===true)
  );
- const identityReady=canonicalAuthority||passportHydrationReady;
+ const boundLearnerReady=Boolean(profileSid&&urlIdentityOK);
+ const identityReady=canonicalAuthority||passportHydrationReady||boundLearnerReady;
  if(identityReady){
   try{
    window.__HH_FIREBASE_LOGIN_REQUIRED__=false;
    document.documentElement.dataset.hhFirebaseSession='authenticated';
-   document.documentElement.dataset.hhFirebaseAuthorityReleaseAccepted=canonicalAuthority?(acceptedAuthorityRelease(release)?'known':'canonical-fallback'):'passport-hydration-fallback';
+   document.documentElement.dataset.hhFirebaseAuthorityReleaseAccepted=canonicalAuthority?(acceptedAuthorityRelease(release)?'known':'canonical-fallback'):(passportHydrationReady?'passport-hydration-fallback':'bound-learner-nonblocking');
   }catch(_){}
-  if(passportHydrationReady&&!canonicalAuthority)console.info('[HeroHealth Assessment Route R25] accepted verified Passport Firestore hydration fallback',{profileSid,authoritySid,source,researchSource,mode,hydratedAt:s?.firebaseAuthority?.hydratedAt,session});
-  else if(!acceptedAuthorityRelease(release))console.info('[HeroHealth Assessment Route R25] accepted canonical Firebase authority with newer release tag',{profileSid,release,source,mode,hydratedAt:s?.firebaseAuthority?.hydratedAt,session});
+  if(boundLearnerReady&&!canonicalAuthority&&!passportHydrationReady)console.info('[HeroHealth Assessment Route R27] route allowed for bound learner; Firestore rules remain write authority',{profileSid,authoritySid,source,researchSource,mode,hydratedAt:s?.firebaseAuthority?.hydratedAt,session});
   return true;
  }
  return false;
@@ -74,7 +70,9 @@ window.HH.openRoute=function(id){
  const s=state(),profile=s.profile||{},authority=String(new URLSearchParams(location.search).get('authority')||window.HH_AUTHORITY_MODE||'firebase').toLowerCase();
  if(!profile.studentId)return baseOpenRoute(id);
  const route=COMMON_ROUTES[id]||ASSESSMENT_ROUTES[id];if(!route)return baseOpenRoute(id);
- if(authority==='firebase'&&!firebaseReady(s)){console.warn('[HeroHealth Assessment Route R25] Firebase readiness blocked',{profileSid:s?.profile?.studentId,authoritySid:s?.firebaseAuthority?.studentId,release:s?.firebaseAuthority?.release,source:s?.firebaseAuthority?.sourceOfTruth,researchSource:s?.firebaseResearchFlow?.sourceOfTruth,mode:s?.firebaseAuthority?.mode,hydratedAt:s?.firebaseAuthority?.hydratedAt,session:document.documentElement?.dataset?.hhFirebaseSession,loginRequired:window.__HH_FIREBASE_LOGIN_REQUIRED__,url:location.search});alert('Firebase ยังยืนยันผู้เล่นไม่เสร็จ กรุณารอสักครู่แล้วกดอีกครั้ง');return}
+ if(authority==='firebase'&&!firebaseReady(s)){
+  console.warn('[HeroHealth Assessment Route R27] readiness metadata incomplete; continuing navigation and leaving authorization to Firebase/Firestore',{profileSid:s?.profile?.studentId,authoritySid:s?.firebaseAuthority?.studentId,release:s?.firebaseAuthority?.release,source:s?.firebaseAuthority?.sourceOfTruth,researchSource:s?.firebaseResearchFlow?.sourceOfTruth,mode:s?.firebaseAuthority?.mode,hydratedAt:s?.firebaseAuthority?.hydratedAt,session:document.documentElement?.dataset?.hhFirebaseSession,loginRequired:window.__HH_FIREBASE_LOGIN_REQUIRED__,url:location.search});
+ }
  const sid=String(profile.studentId).trim(),url=new URL(route,location.href),testSessionId=sessionId(sid),smoke=smokeMode();
  url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.delete('pid');url.searchParams.set('fullName',profile.fullName||'');url.searchParams.set('section',profile.section||'');url.searchParams.set('group',profile.group||s.group||'');url.searchParams.set('studyId',STUDY_ID);url.searchParams.set('testSessionId',testSessionId);url.searchParams.set('authority','firebase');if(s?.firebaseAuthority?.uid)url.searchParams.set('firebaseUid',s.firebaseAuthority.uid);if(smoke)url.searchParams.set('smoke','1');
  let returnUrl;
@@ -88,5 +86,5 @@ window.HH.openRoute=function(id){
  if(id==='posttest'){const attempt=stableAttempt('POST',sid),preAttempt=localStorage.getItem(`HH_ASSESSMENT_PRE_ATTEMPT_${sid}`)||stableAttempt('PRE',sid);try{localStorage.setItem(`HH_ASSESSMENT_POST_ATTEMPT_${sid}`,attempt)}catch(_){}url.searchParams.set('attemptId',attempt);url.searchParams.set('preAttemptId',preAttempt)}
  location.assign(url.href);
 };
-window.HHAssessmentRouteLauncher={version:RELEASE,appRelease:APP_RELEASE,studyId:STUDY_ID,firebaseRoutes:ASSESSMENT_ROUTES,commonRoutes:COMMON_ROUTES,stableAttempt,smokeMode,isSandboxStudent,firebaseReady,acceptedAuthorityRelease};console.info('[HeroHealth Assessment Route] canonical Firebase authority readiness installed',RELEASE,APP_RELEASE);
+window.HHAssessmentRouteLauncher={version:RELEASE,appRelease:APP_RELEASE,studyId:STUDY_ID,firebaseRoutes:ASSESSMENT_ROUTES,commonRoutes:COMMON_ROUTES,stableAttempt,smokeMode,isSandboxStudent,firebaseReady,acceptedAuthorityRelease};console.info('[HeroHealth Assessment Route] nonblocking Firebase navigation installed',RELEASE,APP_RELEASE);
 })();
