@@ -4,11 +4,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // =========================================================
-    // HeroHealth Clean Production Rules R12
+    // HeroHealth Clean Production Rules R13
     // - Sandbox 990001-990029 retained
     // - Legacy production H51xx-H56xx retained
     // - Real learners: 501-528 and 601-628
-    // - Production QA learner: 529
+    // - Production QA learners: 529 and 629
     // - Teacher read access retained
     // - Private identity mapping remains server/admin only
     // =========================================================
@@ -35,7 +35,7 @@ service cloud.firestore {
     }
 
     function isNewP5P6Student(studentId) {
-      return studentId.matches('^(50[1-9]|51[0-9]|52[0-9]|60[1-9]|61[0-9]|62[0-8])$');
+      return studentId.matches('^(50[1-9]|51[0-9]|52[0-9]|60[1-9]|61[0-9]|62[0-9])$');
     }
 
     function isProductionStudent(studentId) {
