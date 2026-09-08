@@ -22,12 +22,31 @@
     const __hhEntryParams=new URLSearchParams(location.search);
     window.HH_AUTHORITY_MODE=String(__hhEntryParams.get('authority')||'firebase').toLowerCase();
     window.HH_FIREBASE_MODE=window.HH_AUTHORITY_MODE==='firebase'||window.HH_AUTHORITY_MODE==='dual';
-    window.HH_APP_RELEASE='20260908-PASSPORT-R51-QA529-STRICT-SIX';
+    window.HH_APP_RELEASE='20260908-PASSPORT-R52-HARD-LOGOUT-RESET';
     if(window.HH_FIREBASE_MODE){
-      const hasIdentity=['studentId','sid','pid'].some(k=>String(__hhEntryParams.get(k)||'').trim());
-      const isHandoff=__hhEntryParams.get('firebaseReceipt')==='1'||__hhEntryParams.has('returnedGame')||__hhEntryParams.has('gameCompleted')||__hhEntryParams.has('receiptToken')||__hhEntryParams.has('authorityRefresh')||__hhEntryParams.get('firebaseReady')==='1'||String(__hhEntryParams.get('returnSessionPolicy')||'').startsWith('force-firebase-rehydrate');
-      if(!hasIdentity&&!isHandoff&&__hhEntryParams.get('logout')!=='1'){
-        const u=new URL(location.href);u.searchParams.set('authority','firebase');u.searchParams.set('logout','1');u.searchParams.set('v','20260908-r51');history.replaceState(null,'',u.href);
+      const hardLogout=__hhEntryParams.get('logout')==='1';
+      if(hardLogout){
+        const keys=[
+          'herohealth_learning_platform_rc2','herohealth_active_student_id','HH_FIREBASE_LAST_STUDENT_ID',
+          'HH_FIREBASE_BOUND_STUDENT_ID','HH_ACTIVE_STUDENT_ID','HH_CURRENT_STUDENT_ID','HH_PROFILE_CACHE',
+          'herohealth_last_student_id','studentId','pid','HHA_HANDWASH_LAST_RESULT','HHA_TOOTHBRUSH_LAST_RESULT',
+          'toothbrush_pending_result','HHA_GROUPS_AR_LAST_RESULT','groups_ar_last_result','HHA_GOODJUNK_AR_LAST_RESULT',
+          'GOODJUNK_AR_LAST_RESULT','goodjunk_pending_result','HHA_JUMPDUCK_LAST_RESULT','HHA_BALANCE_HOLD_LAST_RESULT',
+          'HHA_TOOTHBRUSH_CLASSROOM_CHALLENGE_LAST'
+        ];
+        for(const k of keys){try{localStorage.removeItem(k)}catch(_){}try{sessionStorage.removeItem(k)}catch(_){}}
+        const clean=new URL(location.href);
+        [...clean.searchParams.keys()].forEach(k=>clean.searchParams.delete(k));
+        clean.searchParams.set('authority','firebase');
+        clean.searchParams.set('logout','1');
+        clean.searchParams.set('v','20260908-r52-hard-logout');
+        try{history.replaceState(null,'',clean.href)}catch(_){}
+      }else{
+        const hasIdentity=['studentId','sid','pid'].some(k=>String(__hhEntryParams.get(k)||'').trim());
+        const isHandoff=__hhEntryParams.get('firebaseReceipt')==='1'||__hhEntryParams.has('returnedGame')||__hhEntryParams.has('gameCompleted')||__hhEntryParams.has('receiptToken')||__hhEntryParams.has('authorityRefresh')||__hhEntryParams.get('firebaseReady')==='1'||String(__hhEntryParams.get('returnSessionPolicy')||'').startsWith('force-firebase-rehydrate');
+        if(!hasIdentity&&!isHandoff){
+          const u=new URL(location.href);u.searchParams.set('authority','firebase');u.searchParams.set('logout','1');u.searchParams.set('v','20260908-r52-hard-logout');history.replaceState(null,'',u.href);
+        }
       }
     }
   </script>
@@ -61,10 +80,10 @@
 <script src="./assets/firebase-fast-return-normalizer-r1.js?v=20260818-r1-progress-only"></script>
 <script src="./assets/numeric-login-code-adapter-r1.js?v=20260907-r5-native-validation-fix"></script>
 <script type="module">
-import('./firebase/passport-index-integration.js?v=20260908-r78-qa529-strict-refresh').catch(error=>{
+import('./firebase/passport-index-integration.js?v=20260908-r78-qa529-strict-refresh-r52').catch(error=>{
   const message=String(error?.message||error||'passport-module-import-failed');
   window.__HH_FIREBASE_PASSPORT_IMPORT_ERROR__=message;
-  console.error('[HeroHealth Passport R51] module import failed',error);
+  console.error('[HeroHealth Passport R52] module import failed',error);
   const app=document.getElementById('app');
   if(app){
     const safe=message.replace(/[<>]/g,'');
@@ -73,6 +92,6 @@ import('./firebase/passport-index-integration.js?v=20260908-r78-qa529-strict-ref
 });
 </script>
 <script type="module" src="./firebase/reflection-receipt-recovery-r12.js?v=20260818-reflection-recovery-r14-strict"></script>
-<script type="module" src="./firebase/research-flow-hydration-r1.js?v=20260908-r3-canonical-reuse-qa529"></script>
+<script type="module" src="./firebase/research-flow-hydration-r1.js?v=20260908-r3-canonical-reuse-qa529-r52"></script>
 </body>
 </html>
