@@ -10,7 +10,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ID = 'herohealth-learning';
 const DEFAULT_SERVICE_ACCOUNT = path.join(HERE, 'service-account.json');
 const CLEAN_RULES_PATH = path.join(HERE, 'firestore.production.clean-r11.rules');
-const RELEASE = 'HEROHEALTH_CLEAN_PRODUCTION_R12_QA529';
+const RELEASE = 'HEROHEALTH_CLEAN_PRODUCTION_R13_QA529_QA629';
 
 function argValue(name) {
   const prefix = `--${name}=`;
@@ -39,8 +39,9 @@ if (serviceAccountJson.project_id !== PROJECT_ID) {
 const cleanSource = fs.readFileSync(CLEAN_RULES_PATH, 'utf8');
 if (!cleanSource.includes("rules_version = '2';")) fail('Clean Rules ไม่มี rules_version = 2');
 if (!cleanSource.includes('service cloud.firestore')) fail('Clean Rules ไม่มี service cloud.firestore');
-if (!cleanSource.includes('Production QA learner: 529')) fail('Clean Rules ยังไม่มี Production QA 529');
+if (!cleanSource.includes('Production QA learners: 529 and 629')) fail('Clean Rules ยังไม่มี Production QA 529 และ 629');
 if (!cleanSource.includes("52[0-9]")) fail('Clean Rules ยังไม่อนุญาต 529');
+if (!cleanSource.includes("62[0-9]")) fail('Clean Rules ยังไม่อนุญาต 629');
 if (cleanSource.includes('schoolStudentId')) fail('Clean Rules ต้องไม่มี schoolStudentId');
 
 const app = getApps().length
@@ -58,13 +59,13 @@ const sourceFiles = Array.isArray(liveRuleset?.source) ? liveRuleset.source : []
 const firestoreFile = sourceFiles.find(file => String(file?.content || '').includes('service cloud.firestore'));
 if (!firestoreFile) fail('live ruleset ไม่มี source file ที่ประกาศ service cloud.firestore');
 const liveContent = String(firestoreFile.content || '');
-const backupPath = path.join(os.tmpdir(), `herohealth-firestore-live-before-clean-r12-qa529-${timestamp()}.rules`);
+const backupPath = path.join(os.tmpdir(), `herohealth-firestore-live-before-clean-r13-qa529-qa629-${timestamp()}.rules`);
 fs.writeFileSync(backupPath, liveContent, 'utf8');
 console.log(`✅ สำรอง live rules: ${backupPath}`);
 console.log(`   Current ruleset: ${liveRuleset.name}`);
 console.log(`📄 Clean source: ${CLEAN_RULES_PATH}`);
 console.log('   Real learners: 501-528, 601-628');
-console.log('   Production QA: 529');
+console.log('   Production QA: 529, 629');
 console.log('   Sandbox: 990001-990029');
 console.log('   Private identity: denied to web clients');
 
@@ -84,14 +85,14 @@ let confirmed;
 try { confirmed = await securityRules.getFirestoreRuleset(); }
 catch (_error) { confirmed = null; }
 
-console.log('\n✅ HeroHealth Clean Production Rules R12 deploy สำเร็จ');
+console.log('\n✅ HeroHealth Clean Production Rules R13 deploy สำเร็จ');
 console.log(`   Previous: ${liveRuleset.name}`);
 console.log(`   Current:  ${confirmed?.name || '(released; confirm name unavailable)'}`);
-console.log('   Login: 501-528, 529 QA, 601-628');
+console.log('   Login: 501-528, 529 QA, 601-628, 629 QA');
 console.log('   /students: learner GET รายคน; LIST เฉพาะ teacher');
 console.log('   /studentBindings: UID ของตนเอง');
 console.log('   /studentProgress: ต้องตรง UID binding');
 console.log('   /studentAssessments: ต้องตรง UID binding + writer UID');
 console.log('   /studentIdentityPrivate: client deny');
 console.log(`   Backup: ${backupPath}`);
-console.log('\nรอประมาณ 10-30 วินาที แล้ว Login ใหม่ด้วย 529');
+console.log('\nรอประมาณ 10-30 วินาที แล้ว Login ใหม่ด้วย 629');
