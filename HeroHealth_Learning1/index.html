@@ -22,17 +22,17 @@
     const __hhEntryParams=new URLSearchParams(location.search);
     window.HH_AUTHORITY_MODE=String(__hhEntryParams.get('authority')||'firebase').toLowerCase();
     window.HH_FIREBASE_MODE=window.HH_AUTHORITY_MODE==='firebase'||window.HH_AUTHORITY_MODE==='dual';
-    window.HH_APP_RELEASE='20260908-PASSPORT-R59-NO-LEGACY-LAUNCHER-REINJECT';
+    window.HH_APP_RELEASE='20260908-PASSPORT-R60-GAME-LAUNCHER-R58-NONBLOCKING';
     if(window.HH_FIREBASE_MODE){
       const hardLogout=__hhEntryParams.get('logout')==='1';
       if(hardLogout){
         const keys=['herohealth_learning_platform_rc2','herohealth_active_student_id','HH_FIREBASE_LAST_STUDENT_ID','HH_FIREBASE_BOUND_STUDENT_ID','HH_ACTIVE_STUDENT_ID','HH_CURRENT_STUDENT_ID','HH_PROFILE_CACHE','herohealth_last_student_id','studentId','pid','HHA_HANDWASH_LAST_RESULT','HHA_TOOTHBRUSH_LAST_RESULT','toothbrush_pending_result','HHA_GROUPS_AR_LAST_RESULT','groups_ar_last_result','HHA_GOODJUNK_AR_LAST_RESULT','GOODJUNK_AR_LAST_RESULT','goodjunk_pending_result','HHA_JUMPDUCK_LAST_RESULT','HHA_BALANCE_HOLD_LAST_RESULT','HHA_TOOTHBRUSH_CLASSROOM_CHALLENGE_LAST'];
         for(const k of keys){try{localStorage.removeItem(k)}catch(_){}try{sessionStorage.removeItem(k)}catch(_){}}
-        const clean=new URL(location.href);[...clean.searchParams.keys()].forEach(k=>clean.searchParams.delete(k));clean.searchParams.set('authority','firebase');clean.searchParams.set('logout','1');clean.searchParams.set('v','20260908-r59-no-legacy-launcher-reinject');try{history.replaceState(null,'',clean.href)}catch(_){}
+        const clean=new URL(location.href);[...clean.searchParams.keys()].forEach(k=>clean.searchParams.delete(k));clean.searchParams.set('authority','firebase');clean.searchParams.set('logout','1');clean.searchParams.set('v','20260908-r60-game-launcher-r58');try{history.replaceState(null,'',clean.href)}catch(_){}
       }else{
         const hasIdentity=['studentId','sid','pid'].some(k=>String(__hhEntryParams.get(k)||'').trim());
         const isHandoff=__hhEntryParams.get('firebaseReceipt')==='1'||__hhEntryParams.has('returnedGame')||__hhEntryParams.has('gameCompleted')||__hhEntryParams.has('receiptToken')||__hhEntryParams.has('authorityRefresh')||__hhEntryParams.get('firebaseReady')==='1'||String(__hhEntryParams.get('returnSessionPolicy')||'').startsWith('force-firebase-rehydrate');
-        if(!hasIdentity&&!isHandoff){const u=new URL(location.href);u.searchParams.set('authority','firebase');u.searchParams.set('logout','1');u.searchParams.set('v','20260908-r59-no-legacy-launcher-reinject');history.replaceState(null,'',u.href)}
+        if(!hasIdentity&&!isHandoff){const u=new URL(location.href);u.searchParams.set('authority','firebase');u.searchParams.set('logout','1');u.searchParams.set('v','20260908-r60-game-launcher-r58');history.replaceState(null,'',u.href)}
       }
     }
   </script>
@@ -58,7 +58,7 @@
 <script src="./assets/next-mission-research-sync-r1.js?v=20260814-next-mission-sync-r1"></script>
 <script src="./assets/firebase-balance-receipt-guard-r1.js?v=20260908-r1"></script>
 <script src="./assets/reward-champion-v1.js?v=20260908-r2-strict-six-games"></script>
-<script src="./assets/game-shell-launcher.js?v=20260819-r57-balance-physical-v56-speech-stop"></script>
+<script src="./assets/game-shell-launcher.js?v=20260908-r58-nonblocking-firebase-nav"></script>
 <script>if(!window.HH_FIREBASE_MODE)document.write('<script src="./assets/backend-sync.js?v=20260730-authority-assessment-v89"><\/script>')</script>
 <script src="./assets/overall-summary-gate-v1.js?v=20260818-research-gate-r6-strict-firebase"></script>
 <script>if(!window.HH_FIREBASE_MODE){document.write('<script src="./assets/sheet-authority-hard-reset-v1.js?v=20260730-authority-assessment-v91"><\/script>');document.write('<script src="./assets/final-sheet-authority-guard-v1.js?v=20260730-final-authority-v2-pretest-unlock"><\/script>');document.write('<script src="./assets/sheet-profile-login-authority-v1.js?v=20260730-sheet-profile-login-v4-capture-jsonp-retry"><\/script>')}</script>
@@ -67,7 +67,7 @@
 <script src="./assets/firebase-fast-return-normalizer-r1.js?v=20260818-r1-progress-only"></script>
 <script src="./assets/numeric-login-code-adapter-r1.js?v=20260907-r5-native-validation-fix"></script>
 <script type="module">
-import('./firebase/passport-index-integration.js?v=20260908-r79-legacy-progress-compat-r59').catch(error=>{const message=String(error?.message||error||'passport-module-import-failed');window.__HH_FIREBASE_PASSPORT_IMPORT_ERROR__=message;console.error('[HeroHealth Passport R59] module import failed',error);const app=document.getElementById('app');if(app){const safe=message.replace(/[<>]/g,'');app.innerHTML=`<main class="container"><section class="card" style="margin-top:24px"><h2>เชื่อมต่อ HeroHealth ไม่สำเร็จ</h2><p class="muted">ระบบไม่สามารถเริ่ม Firebase Passport ได้ กรุณาลองเปิดใหม่</p><p style="color:#991b1b;font-weight:800;overflow-wrap:anywhere">${safe}</p><button class="btn btn-primary" onclick="location.reload()">ลองอีกครั้ง</button></section></main>`}});
+import('./firebase/passport-index-integration.js?v=20260908-r79-legacy-progress-compat-r60').catch(error=>{const message=String(error?.message||error||'passport-module-import-failed');window.__HH_FIREBASE_PASSPORT_IMPORT_ERROR__=message;console.error('[HeroHealth Passport R60] module import failed',error);const app=document.getElementById('app');if(app){const safe=message.replace(/[<>]/g,'');app.innerHTML=`<main class="container"><section class="card" style="margin-top:24px"><h2>เชื่อมต่อ HeroHealth ไม่สำเร็จ</h2><p class="muted">ระบบไม่สามารถเริ่ม Firebase Passport ได้ กรุณาลองเปิดใหม่</p><p style="color:#991b1b;font-weight:800;overflow-wrap:anywhere">${safe}</p><button class="btn btn-primary" onclick="location.reload()">ลองอีกครั้ง</button></section></main>`}});
 </script>
 <script type="module" src="./firebase/reflection-receipt-recovery-r12.js?v=20260818-reflection-recovery-r14-strict"></script>
 <script type="module" src="./firebase/research-flow-hydration-r1.js?v=20260908-r3-canonical-reuse-qa529-r53"></script>
