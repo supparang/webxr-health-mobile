@@ -12,6 +12,7 @@
 <main class="wrap">
 <section class="card"><span class="pill">READ ONLY</span><h1>ตรวจข้อมูล HeroHealth ในโทรศัพท์เครื่องนี้</h1><p>หน้านี้อ่านเฉพาะ Local/Session Storage ของเบราว์เซอร์เครื่องนี้ ไม่เขียน Firebase และไม่ลบข้อมูล</p><p class="warn"><b>สำคัญ:</b> เปิดหน้านี้ด้วย Chrome เครื่องเดียวกับที่รหัส 528 ใช้เล่นจริง และอย่าล้างข้อมูลเว็บไซต์ก่อนตรวจ</p></section>
 <section class="card"><h2>สรุปสถานะที่พบ</h2><div id="summary" class="grid"></div></section>
+<section class="card"><h2>พบหลักฐานของรหัส 528 หรือไม่</h2><p id="hitStatus"></p><pre id="hits"></pre></section>
 <section class="card"><h2>Keys ที่เกี่ยวข้อง</h2><pre id="keys"></pre></section>
 <section class="card"><h2>herohealth_learning_platform_rc2</h2><pre id="state"></pre><button id="copyState">คัดลอกข้อมูล State</button></section>
 <section class="card"><h2>ข้อมูล Recovery ทั้งหมด</h2><pre id="all"></pre><button id="copyAll">คัดลอก Recovery Report</button></section>
@@ -20,12 +21,22 @@
 (()=>{
 'use strict';
 const STATE_KEY='herohealth_learning_platform_rc2';
+const TARGET='528';
 const pattern=/hero|health|passport|528|progress|game|assessment|reflect|hha_|firebase/i;
 const safeParse=s=>{try{return JSON.parse(s)}catch(_){return s}};
 const state=safeParse(localStorage.getItem(STATE_KEY)||'{}')||{};
 const related={localStorage:{},sessionStorage:{}};
-for(const k of Object.keys(localStorage)){if(pattern.test(k))related.localStorage[k]=safeParse(localStorage.getItem(k));}
-for(const k of Object.keys(sessionStorage)){if(pattern.test(k))related.sessionStorage[k]=safeParse(sessionStorage.getItem(k));}
+const hits=[];
+function scan(storage,label){
+ for(const k of Object.keys(storage)){
+  const raw=String(storage.getItem(k)??'');
+  if(pattern.test(k)) related[label][k]=safeParse(raw);
+  if(k.includes(TARGET)||raw.includes(TARGET)){
+   hits.push({storage:label,key:k,keyHas528:k.includes(TARGET),valueHas528:raw.includes(TARGET),preview:raw.slice(0,1200)});
+  }
+ }
+}
+scan(localStorage,'localStorage');scan(sessionStorage,'sessionStorage');
 const bool=v=>v===true?'true':v===false?'false':String(v??'—');
 const gc=state?.gameCompleted||{};
 const rows=[
@@ -41,9 +52,13 @@ const rows=[
 ];
 const summary=document.getElementById('summary');
 summary.innerHTML=rows.map(([k,v])=>`<div class="kv"><div class="k">${k}</div><div class="v">${bool(v)}</div></div>`).join('');
+const hitStatus=document.getElementById('hitStatus');
+hitStatus.className=hits.length?'ok':'bad';
+hitStatus.innerHTML=hits.length?`<b>พบ ${hits.length} จุดที่มี “528”</b> — ดูรายละเอียดด้านล่าง`:'<b>ไม่พบ “528” ในชื่อ key หรือค่าของ Local/Session Storage เครื่องนี้</b>';
+document.getElementById('hits').textContent=JSON.stringify(hits,null,2);
 document.getElementById('keys').textContent=JSON.stringify({localStorage:Object.keys(related.localStorage),sessionStorage:Object.keys(related.sessionStorage)},null,2);
 document.getElementById('state').textContent=JSON.stringify(state,null,2);
-const report={generatedAt:new Date().toISOString(),origin:location.origin,path:location.pathname,state,related};
+const report={generatedAt:new Date().toISOString(),origin:location.origin,path:location.pathname,target:TARGET,hits,state,related};
 document.getElementById('all').textContent=JSON.stringify(report,null,2);
 async function copy(text,btn){try{await navigator.clipboard.writeText(text);const old=btn.textContent;btn.textContent='คัดลอกแล้ว ✓';setTimeout(()=>btn.textContent=old,1400);}catch(_){btn.textContent='คัดลอกไม่สำเร็จ';}}
 document.getElementById('copyState').onclick=e=>copy(JSON.stringify(state,null,2),e.currentTarget);
