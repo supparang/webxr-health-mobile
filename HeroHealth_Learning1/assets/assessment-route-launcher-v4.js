@@ -1,16 +1,16 @@
 (()=>{
 'use strict';
-const RELEASE='20260908-HEROHEALTH-RESEARCH-FLOW-R24-CANONICAL-AUTHORITY-READY';
-const APP_RELEASE='20260820-PASSPORT-R49-SANDBOX-READY';
+const RELEASE='20260908-HEROHEALTH-RESEARCH-FLOW-R25-PASSPORT-HYDRATION-READY';
+const APP_RELEASE='20260908-PASSPORT-R54-PRODUCTION';
 const STATE_KEY='herohealth_learning_platform_rc2';
 const STUDY_ID='HEROHEALTH-P5-2026';
 const SANDBOX_STUDENT_IDS=new Set(Array.from({length:29},(_,i)=>String(990001+i)));
 const isSandboxStudent=sid=>SANDBOX_STUDENT_IDS.has(String(sid||'').trim());
 const ASSESSMENT_ROUTES={
- pretest:'./assessment/pretest-firebase.html?v=20260818-pretest-r5-strict-gate',
- posttest:'./assessment/posttest-firebase.html?v=20260818-posttest-r5-strict-gate',
- postexperience:'./assessment/post-experience-firebase-r5.html?v=20260818-r5-atomic-strict-gate',
- reflection:'./assessment/reflection-firebase-r7.html?v=20260818-r7-atomic-strict-gate',
+ pretest:'./assessment/pretest-firebase.html?v=20260908-research-grade',
+ posttest:'./assessment/posttest-firebase.html?v=20260908-research-grade',
+ postexperience:'./assessment/post-experience-firebase-r5.html?v=20260908-permission-fix',
+ reflection:'./assessment/reflection-firebase-r7.html?v=20260908-r8-create-first',
  followup:'./assessment/followup-firebase.html?v=20260818-hh-fu01-r3-atomic-strict'
 };
 const COMMON_ROUTES={certificate:'./assessment/mission-summary-firebase-r10.html?v=20260818-r10-strict-firebase'};
@@ -35,25 +35,36 @@ function firebaseReady(s){
  const hydratedAt=Date.parse(String(s?.firebaseAuthority?.hydratedAt||''));
  const mode=String(s?.firebaseAuthority?.mode||'').toLowerCase();
  const source=String(s?.firebaseAuthority?.sourceOfTruth||'');
+ const researchSource=String(s?.firebaseResearchFlow?.sourceOfTruth||'');
+ const researchSid=String(s?.firebaseResearchFlow?.studentId||s?.firebaseAuthority?.studentId||profileSid||'').trim();
  const session=String(document.documentElement?.dataset?.hhFirebaseSession||'');
  const q=new URLSearchParams(location.search);
  const urlIds=['studentId','sid','pid'].map(k=>String(q.get(k)||'').trim()).filter(Boolean);
  const urlIdentityOK=urlIds.length===0||urlIds.every(id=>id===profileSid);
- const identityReady=Boolean(
+ const canonicalAuthority=Boolean(
   profileSid&&profileSid===authoritySid&&
   mode==='firebase'&&source==='Cloud Firestore'&&
   Number.isFinite(hydratedAt)&&urlIdentityOK
  );
- // The Firestore identity + authority tuple is the actual proof. Release tags are
- // diagnostic metadata only; game/assessment handoffs legitimately stamp newer
- // releases and must not invalidate an already verified production learner.
+ // R25 fallback: Passport may already have a verified Firestore research-flow snapshot
+ // while firebaseAuthority metadata is briefly stale after an assessment return. If the
+ // visible learner identity matches the URL and the Passport snapshot explicitly says
+ // Cloud Firestore, allow the next route instead of showing a false "not ready" alert.
+ const passportHydrationReady=Boolean(
+  profileSid&&urlIdentityOK&&
+  researchSource==='Cloud Firestore'&&
+  (!researchSid||researchSid===profileSid)&&
+  (s?.pretestCompleted===true||s?.assessments?.pretest?.completed===true||s?.firebaseResearchFlow?.pretest===true)
+ );
+ const identityReady=canonicalAuthority||passportHydrationReady;
  if(identityReady){
   try{
    window.__HH_FIREBASE_LOGIN_REQUIRED__=false;
    document.documentElement.dataset.hhFirebaseSession='authenticated';
-   document.documentElement.dataset.hhFirebaseAuthorityReleaseAccepted=acceptedAuthorityRelease(release)?'known':'canonical-fallback';
+   document.documentElement.dataset.hhFirebaseAuthorityReleaseAccepted=canonicalAuthority?(acceptedAuthorityRelease(release)?'known':'canonical-fallback'):'passport-hydration-fallback';
   }catch(_){}
-  if(!acceptedAuthorityRelease(release))console.info('[HeroHealth Assessment Route R24] accepted canonical Firebase authority with newer release tag',{profileSid,release,source,mode,hydratedAt:s?.firebaseAuthority?.hydratedAt,session});
+  if(passportHydrationReady&&!canonicalAuthority)console.info('[HeroHealth Assessment Route R25] accepted verified Passport Firestore hydration fallback',{profileSid,authoritySid,source,researchSource,mode,hydratedAt:s?.firebaseAuthority?.hydratedAt,session});
+  else if(!acceptedAuthorityRelease(release))console.info('[HeroHealth Assessment Route R25] accepted canonical Firebase authority with newer release tag',{profileSid,release,source,mode,hydratedAt:s?.firebaseAuthority?.hydratedAt,session});
   return true;
  }
  return false;
@@ -63,7 +74,7 @@ window.HH.openRoute=function(id){
  const s=state(),profile=s.profile||{},authority=String(new URLSearchParams(location.search).get('authority')||window.HH_AUTHORITY_MODE||'firebase').toLowerCase();
  if(!profile.studentId)return baseOpenRoute(id);
  const route=COMMON_ROUTES[id]||ASSESSMENT_ROUTES[id];if(!route)return baseOpenRoute(id);
- if(authority==='firebase'&&!firebaseReady(s)){console.warn('[HeroHealth Assessment Route R24] Firebase readiness blocked',{profileSid:s?.profile?.studentId,authoritySid:s?.firebaseAuthority?.studentId,release:s?.firebaseAuthority?.release,source:s?.firebaseAuthority?.sourceOfTruth,mode:s?.firebaseAuthority?.mode,hydratedAt:s?.firebaseAuthority?.hydratedAt,session:document.documentElement?.dataset?.hhFirebaseSession,loginRequired:window.__HH_FIREBASE_LOGIN_REQUIRED__,url:location.search});alert('Firebase ยังยืนยันผู้เล่นไม่เสร็จ กรุณารอสักครู่แล้วกดอีกครั้ง');return}
+ if(authority==='firebase'&&!firebaseReady(s)){console.warn('[HeroHealth Assessment Route R25] Firebase readiness blocked',{profileSid:s?.profile?.studentId,authoritySid:s?.firebaseAuthority?.studentId,release:s?.firebaseAuthority?.release,source:s?.firebaseAuthority?.sourceOfTruth,researchSource:s?.firebaseResearchFlow?.sourceOfTruth,mode:s?.firebaseAuthority?.mode,hydratedAt:s?.firebaseAuthority?.hydratedAt,session:document.documentElement?.dataset?.hhFirebaseSession,loginRequired:window.__HH_FIREBASE_LOGIN_REQUIRED__,url:location.search});alert('Firebase ยังยืนยันผู้เล่นไม่เสร็จ กรุณารอสักครู่แล้วกดอีกครั้ง');return}
  const sid=String(profile.studentId).trim(),url=new URL(route,location.href),testSessionId=sessionId(sid),smoke=smokeMode();
  url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.delete('pid');url.searchParams.set('fullName',profile.fullName||'');url.searchParams.set('section',profile.section||'');url.searchParams.set('group',profile.group||s.group||'');url.searchParams.set('studyId',STUDY_ID);url.searchParams.set('testSessionId',testSessionId);url.searchParams.set('authority','firebase');if(s?.firebaseAuthority?.uid)url.searchParams.set('firebaseUid',s.firebaseAuthority.uid);if(smoke)url.searchParams.set('smoke','1');
  let returnUrl;
