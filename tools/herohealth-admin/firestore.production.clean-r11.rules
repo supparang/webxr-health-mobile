@@ -4,10 +4,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // =========================================================
-    // HeroHealth Clean Production Rules R11
+    // HeroHealth Clean Production Rules R12
     // - Sandbox 990001-990029 retained
     // - Legacy production H51xx-H56xx retained
-    // - New P5/P6 login codes 501-528 and 601-628 enabled
+    // - Real learners: 501-528 and 601-628
+    // - Production QA learner: 529
     // - Teacher read access retained
     // - Private identity mapping remains server/admin only
     // =========================================================
@@ -34,7 +35,7 @@ service cloud.firestore {
     }
 
     function isNewP5P6Student(studentId) {
-      return studentId.matches('^(50[1-9]|51[0-9]|52[0-8]|60[1-9]|61[0-9]|62[0-8])$');
+      return studentId.matches('^(50[1-9]|51[0-9]|52[0-9]|60[1-9]|61[0-9]|62[0-8])$');
     }
 
     function isProductionStudent(studentId) {
@@ -52,10 +53,6 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/studentBindings/$(request.auth.uid))
         && get(/databases/$(database)/documents/studentBindings/$(request.auth.uid)).data.studentId == studentId;
     }
-
-    // =========================================================
-    // Sandbox / smoke test
-    // =========================================================
 
     match /firebaseSmokeTests/{uid} {
       allow create, read, update, delete:
@@ -109,23 +106,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // =========================================================
-    // Production roster
-    // Learner: single known document GET only
-    // Teacher: read/list
-    // Client roster writes: denied
-    // =========================================================
-
     match /students/{studentId} {
       allow get:
         if signedIn() && (isProductionStudent(studentId) || isTeacher());
       allow list: if isTeacher();
       allow create, update, delete: if false;
     }
-
-    // =========================================================
-    // Production anonymous UID -> learner binding
-    // =========================================================
 
     match /studentBindings/{uid} {
       allow get:
@@ -139,10 +125,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // =========================================================
-    // Production progress authority
-    // =========================================================
-
     match /studentProgress/{studentId} {
       allow get:
         if isTeacher()
@@ -154,12 +136,6 @@ service cloud.firestore {
         && request.resource.data.studentId == studentId;
       allow delete: if false;
     }
-
-    // =========================================================
-    // Production assessments
-    // Assessment bridge writes {studentId, completed, firebaseSavedByUid}
-    // and uses document IDs like <studentId>_<attemptId>.
-    // =========================================================
 
     match /studentAssessments/{documentId} {
       allow get:
@@ -179,18 +155,9 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // =========================================================
-    // Private identity map
-    // No web learner/teacher-client access. Firebase Admin SDK bypasses rules.
-    // =========================================================
-
     match /studentIdentityPrivate/{studentId} {
       allow read, write: if false;
     }
-
-    // =========================================================
-    // Default deny
-    // =========================================================
 
     match /{document=**} {
       allow read, write: if false;
