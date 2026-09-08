@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>HeroHealth 528 Local Recovery Viewer</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;color:#17352f;background:#f4fbf9}*{box-sizing:border-box}body{margin:0}.wrap{max-width:900px;margin:auto;padding:16px}.card{background:#fff;border:1px solid #d7e8e4;border-radius:18px;padding:16px;margin:12px 0}.ok{color:#166534}.warn{color:#92400e}.bad{color:#991b1b}button{width:100%;padding:14px;border:0;border-radius:14px;background:#0f766e;color:white;font-weight:800;font-size:16px;margin-top:10px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f7faf9;border:1px solid #dfe9e6;border-radius:12px;padding:12px;font-size:12px;max-height:55vh;overflow:auto}.pill{display:inline-block;padding:5px 9px;border-radius:999px;background:#e7f7f3;font-size:12px;font-weight:800}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.kv{border:1px solid #e2ece9;border-radius:12px;padding:10px}.k{font-size:12px;color:#667b75}.v{font-weight:800;margin-top:2px}@media(max-width:620px){.grid{grid-template-columns:1fr}.wrap{padding:10px}}</style>
+</head>
+<body>
+<main class="wrap">
+<section class="card"><span class="pill">READ ONLY</span><h1>ตรวจข้อมูล HeroHealth ในโทรศัพท์เครื่องนี้</h1><p>หน้านี้อ่านเฉพาะ Local/Session Storage ของเบราว์เซอร์เครื่องนี้ ไม่เขียน Firebase และไม่ลบข้อมูล</p><p class="warn"><b>สำคัญ:</b> เปิดหน้านี้ด้วย Chrome เครื่องเดียวกับที่รหัส 528 ใช้เล่นจริง และอย่าล้างข้อมูลเว็บไซต์ก่อนตรวจ</p></section>
+<section class="card"><h2>สรุปสถานะที่พบ</h2><div id="summary" class="grid"></div></section>
+<section class="card"><h2>Keys ที่เกี่ยวข้อง</h2><pre id="keys"></pre></section>
+<section class="card"><h2>herohealth_learning_platform_rc2</h2><pre id="state"></pre><button id="copyState">คัดลอกข้อมูล State</button></section>
+<section class="card"><h2>ข้อมูล Recovery ทั้งหมด</h2><pre id="all"></pre><button id="copyAll">คัดลอก Recovery Report</button></section>
+</main>
+<script>
+(()=>{
+'use strict';
+const STATE_KEY='herohealth_learning_platform_rc2';
+const pattern=/hero|health|passport|528|progress|game|assessment|reflect|hha_|firebase/i;
+const safeParse=s=>{try{return JSON.parse(s)}catch(_){return s}};
+const state=safeParse(localStorage.getItem(STATE_KEY)||'{}')||{};
+const related={localStorage:{},sessionStorage:{}};
+for(const k of Object.keys(localStorage)){if(pattern.test(k))related.localStorage[k]=safeParse(localStorage.getItem(k));}
+for(const k of Object.keys(sessionStorage)){if(pattern.test(k))related.sessionStorage[k]=safeParse(sessionStorage.getItem(k));}
+const bool=v=>v===true?'true':v===false?'false':String(v??'—');
+const gc=state?.gameCompleted||{};
+const rows=[
+ ['profile.studentId',state?.profile?.studentId],
+ ['pretestCompleted',state?.pretestCompleted],
+ ['posttestCompleted',state?.posttestCompleted],
+ ['postExperienceCompleted',state?.postExperienceCompleted],
+ ['reflectionCompleted',state?.reflectionCompleted],
+ ['handwash',gc?.hygiene?.handwash],['toothbrush',gc?.hygiene?.toothbrush],
+ ['groups',gc?.nutrition?.groups],['goodjunk',gc?.nutrition?.goodjunk],
+ ['jumpduck',gc?.fitness?.jumpduck],['balance',gc?.fitness?.balance],
+ ['currentStep',state?.currentStep],['progressPct',state?.progressPct]
+];
+const summary=document.getElementById('summary');
+summary.innerHTML=rows.map(([k,v])=>`<div class="kv"><div class="k">${k}</div><div class="v">${bool(v)}</div></div>`).join('');
+document.getElementById('keys').textContent=JSON.stringify({localStorage:Object.keys(related.localStorage),sessionStorage:Object.keys(related.sessionStorage)},null,2);
+document.getElementById('state').textContent=JSON.stringify(state,null,2);
+const report={generatedAt:new Date().toISOString(),origin:location.origin,path:location.pathname,state,related};
+document.getElementById('all').textContent=JSON.stringify(report,null,2);
+async function copy(text,btn){try{await navigator.clipboard.writeText(text);const old=btn.textContent;btn.textContent='คัดลอกแล้ว ✓';setTimeout(()=>btn.textContent=old,1400);}catch(_){btn.textContent='คัดลอกไม่สำเร็จ';}}
+document.getElementById('copyState').onclick=e=>copy(JSON.stringify(state,null,2),e.currentTarget);
+document.getElementById('copyAll').onclick=e=>copy(JSON.stringify(report,null,2),e.currentTarget);
+})();
+</script>
+</body>
+</html>
