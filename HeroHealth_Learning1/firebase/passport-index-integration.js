@@ -6,7 +6,7 @@ const enabled = mode === 'firebase' || mode === 'dual';
 const STATE_KEY = 'herohealth_learning_platform_rc2';
 const ACTIVE_KEY = 'herohealth_active_student_id';
 const HYDRATED_KEY = 'firebaseHydratedR76';
-const RELEASE = '20260818-FIREBASE-SESSION-R78-CANONICAL-REUSE';
+const RELEASE = '20260908-FIREBASE-SESSION-R79-LEGACY-PROGRESS-COMPAT';
 const FRESH_CANONICAL_TTL_MS = 8000;
 const RECEIPT_URL_KEYS = [
   'firebaseReceipt','returnedGame','gameCompleted','receiptToken','analyticsSchema',
@@ -59,12 +59,23 @@ function remoteGameDone(remote,zone,canonical){
   const gc=remote?.gameCompleted||{},results=remote?.gameResults||{};
   return ids.some(id=>gc?.[zone]?.[id]===true)||gc?.[zone]?.[canonical]===true||ids.some(id=>remoteResultComplete(results[id]))||remoteResultComplete(results[canonical]);
 }
+function assessmentDone(remote,type,flag){
+  const summary=remote?.assessments?.[type]||{};
+  const explicit=remote?.[flag]===true;
+  const receiptComplete=summary?.completed===true&&!!summary?.firebaseReceiptToken;
+  const legacySummary=summary?.completed===true;
+  // Firestore is the source of truth. Older production records legitimately used
+  // pretestCompleted/posttestCompleted and/or assessments.<type>.completed before
+  // receipt tokens became mandatory. Preserve that historical progress while
+  // continuing to keep receipt metadata for newer records.
+  return explicit||receiptComplete||legacySummary;
+}
 function strictResearchState(remote={}){
-  const pre=remote.pretestCompleted===true&&remote.assessments?.pretest?.completed===true&&!!remote.assessments?.pretest?.firebaseReceiptToken;
-  const post=remote.posttestCompleted===true&&remote.assessments?.posttest?.completed===true&&!!remote.assessments?.posttest?.firebaseReceiptToken;
+  const pre=assessmentDone(remote,'pretest','pretestCompleted');
+  const post=assessmentDone(remote,'posttest','posttestCompleted');
   const sixGames=Object.keys(GAME_ALIASES).every(canonical=>remoteGameDone(remote,GAME_ZONES[canonical],canonical));
-  const postExperience=remote.postExperienceCompleted===true&&remote.postExperience?.completed===true&&!!remote.postExperienceReceiptToken;
-  const reflection=remote.reflectionCompleted===true&&remote.reflection?.completed===true&&!!remote.reflectionReceiptToken;
+  const postExperience=remote.postExperienceCompleted===true||(remote.postExperience?.completed===true&&!!remote.postExperienceReceiptToken);
+  const reflection=remote.reflectionCompleted===true||(remote.reflection?.completed===true&&!!remote.reflectionReceiptToken);
   const researchImmediate=remote.researchImmediateCompleted===true&&remote.researchImmediate?.completed===true&&pre&&sixGames&&post&&postExperience&&reflection;
   return {pre,post,sixGames,postExperience,reflection,researchImmediate};
 }
@@ -99,8 +110,8 @@ function canonicalRemoteState(remote={}){
     reflectionCompleted:research.reflection,
     researchImmediateCompleted:research.researchImmediate,
     assessmentScores:{
-      pretest:Number(remote.assessments?.pretest?.score||0),
-      posttest:Number(remote.assessments?.posttest?.score||0)
+      pretest:Number(remote.assessments?.pretest?.score||remote.assessmentScores?.pretest||0),
+      posttest:Number(remote.assessments?.posttest?.score||remote.assessmentScores?.posttest||0)
     },
     gameScores,
     firebaseGameResults:results,
@@ -264,21 +275,21 @@ async function login(form,button){
     await writeSession(sid);const url=new URL(location.href);
     for(const key of ['logout','logoutAt','logoutNonce','firebaseHydratedR71','firebaseHydratedR72','firebaseHydratedR73','firebaseHydratedR74',...RECEIPT_URL_KEYS])url.searchParams.delete(key);
     url.searchParams.set('authority','firebase');url.searchParams.set('studentId',sid);url.searchParams.set('sid',sid);url.searchParams.delete('pid');url.searchParams.set('firebaseReady','1');url.searchParams.set(HYDRATED_KEY,'1');url.searchParams.set('v',RELEASE);location.replace(url.href);
-  }catch(error){console.error('[HeroHealth Firebase R78] login failed',error);renderLogin(sid,error?.message||'เข้าสู่ภารกิจไม่สำเร็จ');busy=false;}
+  }catch(error){console.error('[HeroHealth Firebase R79] login failed',error);renderLogin(sid,error?.message||'เข้าสู่ภารกิจไม่สำเร็จ');busy=false;}
 }
 function bindLogin(){
   document.addEventListener('submit',event=>{const form=event.target;if(!(form instanceof HTMLFormElement)||!form.querySelector('[name="studentId"],input'))return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();login(form,form.querySelector('button[type="submit"],button.btn-primary'));},true);
 }
 async function boot(){
-  if(!enabled)return;if(window.__HH_FIREBASE_PASSPORT_BOOT_R78__)return;window.__HH_FIREBASE_PASSPORT_BOOT_R78__=true;
+  if(!enabled)return;if(window.__HH_FIREBASE_PASSPORT_BOOT_R79__)return;window.__HH_FIREBASE_PASSPORT_BOOT_R79__=true;
   window.HH_AUTHORITY_MODE=mode;window.HH_FIREBASE_MODE=true;window.HH_DISABLE_SHEET_RESUME=mode==='firebase';release();bindLogin();bindLogout();
   const observer=new MutationObserver(()=>bindLogout());observer.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});[100,300,700,1500,3000].forEach(delay=>setTimeout(bindLogout,delay));
   if(params.get('logout')==='1'){renderLogin();return;}
   let sid='';
-  try{sid=urlIdentity();}catch(error){console.error('[HeroHealth Firebase R78] identity conflict',error);clearContext();renderLogin('', 'พบรหัสผู้เรียนขัดกันในลิงก์ ระบบจึงหยุดเพื่อป้องกันการบันทึกผิดคน');return;}
+  try{sid=urlIdentity();}catch(error){console.error('[HeroHealth Firebase R79] identity conflict',error);clearContext();renderLogin('', 'พบรหัสผู้เรียนขัดกันในลิงก์ ระบบจึงหยุดเพื่อป้องกันการบันทึกผิดคน');return;}
   if(!sid){
     const stored=storedStudentId();
-    if(stored){const url=new URL(location.href);url.searchParams.set('authority','firebase');url.searchParams.set('studentId',stored);url.searchParams.set('sid',stored);url.searchParams.delete('pid');url.searchParams.set('firebaseReady','1');url.searchParams.delete(HYDRATED_KEY);url.searchParams.set('sessionRecovery','server-authority-r78');url.searchParams.set('v',RELEASE);location.replace(url.href);return;}
+    if(stored){const url=new URL(location.href);url.searchParams.set('authority','firebase');url.searchParams.set('studentId',stored);url.searchParams.set('sid',stored);url.searchParams.delete('pid');url.searchParams.set('firebaseReady','1');url.searchParams.delete(HYDRATED_KEY);url.searchParams.set('sessionRecovery','server-authority-r79');url.searchParams.set('v',RELEASE);location.replace(url.href);return;}
     renderLogin();return;
   }
   const receiptReturn=params.get('firebaseReceipt')==='1';const returnedGame=canonicalGameId(params.get('returnedGame')||'');
@@ -301,6 +312,6 @@ async function boot(){
       location.replace(url.href);return;
     }
     markLoginRequired(false);const applied=params.get('receiptAppliedGame');badge(applied?`Firebase • ${sid} • ${applied} ยืนยันแล้ว • ด่านถัดไปพร้อม`:`Firebase • ${sid} • ความคืบหน้าตรงกับ Firestore`);bindLogout();
-  }catch(error){console.error('[HeroHealth Firebase R78] hydrate failed',error);renderLogin(sid,error?.message||'กู้ข้อมูลจาก Firebase ไม่สำเร็จ');}
+  }catch(error){console.error('[HeroHealth Firebase R79] hydrate failed',error);renderLogin(sid,error?.message||'กู้ข้อมูลจาก Firebase ไม่สำเร็จ');}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
