@@ -1,13 +1,14 @@
-/* CSAI2601 UX Quest • Three-Part Restore Authority v1.3
+/* CSAI2601 UX Quest • Three-Part Restore Authority v1.4
  * Google Sheet remains the sole official authority.
  * Mission completion is authoritative ONLY from diagnostics.canonicalPassedMissionIds.
  * Prevents stale progress from a previous learner being shown while a new learner is loading.
+ * v1.4: large-Sheet tolerant Studio/Reflection JSONP (single 60s request).
  */
 (() => {
   'use strict';
 
   const ORDER = ['w1','w2','w3','b1','w4','w5','w6','w7','b2','w8','w9','w10','w11','b3','w12','w13','w14','b4','w15'];
-  const VERSION = '20260910-THREE-PART-RESTORE-AUTHORITY-V1.3-IDENTITY-SAFE';
+  const VERSION = '20260910-THREE-PART-RESTORE-AUTHORITY-V1.4-SLOW-SHEET-TOLERANT';
   let missionSnapshot = window.UXQMissionSheetSnapshot || null;
   let running = false;
   let lastIdentityKey = '';
@@ -53,28 +54,22 @@
 
   async function requestStudio(p){
     const base=receiverUrl(); if(!base) throw new Error('receiver_url_missing');
-    let lastError=null;
-    for(let attempt=1;attempt<=3;attempt+=1){
-      const url=new URL(base);
-      url.searchParams.set('action','uxq_student_studio_progress');
-      url.searchParams.set('studentId',p.studentId);
-      url.searchParams.set('section',p.section);
-      url.searchParams.set('courseId',window.UXQ_CLASSROOM_CONFIG?.courseId || 'UXQ-ACT1-2026');
-      url.searchParams.set('_',String(Date.now()));
-      const callbackName=`__uxqThreePart_${Date.now()}_${attempt}_${Math.random().toString(36).slice(2)}`;
-      url.searchParams.set('callback',callbackName);
-      try{
-        return await new Promise((resolve,reject)=>{
-          const script=document.createElement('script'); let settled=false;
-          const timer=setTimeout(()=>done(new Error('studio_progress_timeout')),18000);
-          function done(error,data){ if(settled)return; settled=true; clearTimeout(timer); try{delete window[callbackName]}catch(_){window[callbackName]=undefined} script.remove(); error?reject(error):resolve(data); }
-          window[callbackName]=data=>done(null,data);
-          script.onerror=()=>done(new Error('studio_progress_network'));
-          script.async=true; script.src=url.href; document.head.appendChild(script);
-        });
-      }catch(error){ lastError=error; if(attempt<3) await new Promise(resolve=>setTimeout(resolve,650*attempt)); }
-    }
-    throw lastError || new Error('studio_progress_failed');
+    const url=new URL(base);
+    url.searchParams.set('action','uxq_student_studio_progress');
+    url.searchParams.set('studentId',p.studentId);
+    url.searchParams.set('section',p.section);
+    url.searchParams.set('courseId',window.UXQ_CLASSROOM_CONFIG?.courseId || 'UXQ-ACT1-2026');
+    url.searchParams.set('_',String(Date.now()));
+    const callbackName=`__uxqThreePart_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    url.searchParams.set('callback',callbackName);
+    return await new Promise((resolve,reject)=>{
+      const script=document.createElement('script'); let settled=false;
+      const timer=setTimeout(()=>done(new Error('studio_progress_timeout_60s')),60000);
+      function done(error,data){ if(settled)return; settled=true; clearTimeout(timer); try{delete window[callbackName]}catch(_){window[callbackName]=undefined} script.remove(); error?reject(error):resolve(data); }
+      window[callbackName]=data=>done(null,data);
+      script.onerror=()=>done(new Error('studio_progress_network'));
+      script.async=true; script.src=url.href; document.head.appendChild(script);
+    });
   }
 
   function canonicalPassedSet(){
@@ -90,7 +85,7 @@
     return {id,mission,studio,reflection,complete:mission&&studio&&reflection};
   }
   function nodeHref(state){
-    const url=new URL('./csai2601-canonical-node-clean-v1.html',location.href); url.searchParams.set('node',state.id.toUpperCase()); url.searchParams.set('v','three-part-authority-v1-3-20260910');
+    const url=new URL('./csai2601-canonical-node-clean-v1.html',location.href); url.searchParams.set('node',state.id.toUpperCase()); url.searchParams.set('v','three-part-authority-v1-4-20260910');
     const p=profile(); if(p.studentId)url.searchParams.set('studentId',p.studentId); if(p.studentName)url.searchParams.set('studentName',p.studentName); if(p.section)url.searchParams.set('section',p.section);
     if(state.mission&&!state.complete)url.searchParams.set('phase','studio'); return url.pathname+url.search;
   }
@@ -128,7 +123,7 @@
 
   function renderError(error,p){
     const box=overview(), message=text(error?.message||error||'studio_progress_failed',300);
-    if(box){ box.dataset.identityKey=identityKey(p); box.innerHTML=`<h2>ยังตรวจ Studio/Reflection ไม่สำเร็จ</h2><p>ยังไม่แสดงความก้าวหน้าเดิม เพื่อป้องกันข้อมูลผู้เรียนคนก่อนปะปน กรุณาลองอีกครั้ง</p><button type="button" id="uxqThreePartRetry">ตรวจสถานะอีกครั้ง</button>`; box.querySelector('#uxqThreePartRetry')?.addEventListener('click',()=>boot(true)); }
+    if(box){ box.dataset.identityKey=identityKey(p); box.innerHTML=`<h2>ยังตรวจ Studio/Reflection ไม่สำเร็จ</h2><p>การอ่าน Google Sheet ใช้เวลานานหรือการเชื่อมต่อสะดุด กรุณาลองอีกครั้ง</p><button type="button" id="uxqThreePartRetry">ตรวจสถานะอีกครั้ง</button>`; box.querySelector('#uxqThreePartRetry')?.addEventListener('click',()=>boot(true)); }
     setHero('กำลังเชื่อมต่อข้อมูลการเรียน','ยังไม่สามารถยืนยัน Mission, Studio และ Reflection ของผู้เรียนปัจจุบันจาก Google Sheet','ตรวจสถานะอีกครั้ง',false);
     const link=document.getElementById('nextLink'); if(link){link.href='#';link.onclick=event=>{event.preventDefault();boot(true)}};
     console.error('[UXQ three-part restore]',message);
