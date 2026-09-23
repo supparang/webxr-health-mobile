@@ -1,0 +1,233 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  ORGANIZER
+  STAFF
+  PARTICIPANT
+}
+
+enum AttendanceStatus {
+  REGISTERED
+  CHECKED_IN
+  CHECKED_OUT
+  LATE
+  EARLY_LEAVE
+}
+
+enum EvidenceStatus {
+  COMPLETE
+  INCOMPLETE
+  CONSISTENT
+  INCONSISTENT
+  REVIEW_REQUIRED
+  VERIFIED
+  REJECTED
+}
+
+enum HumanDecision {
+  VERIFY
+  CORRECT
+  REQUEST_EVIDENCE
+  REJECT
+}
+
+enum GroundTruthTarget {
+  REVIEW_REQUIRED
+  NO_REVIEW_REQUIRED
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id                String                 @id @default(cuid())
+  employeeId        String                 @unique
+  name              String
+  email             String?                @unique
+  role              UserRole               @default(PARTICIPANT)
+  status            String                 @default("ACTIVE")
+  departmentId      String?
+  department        Department?            @relation(fields: [departmentId], references: [id])
+  organizedActivities Activity[]           @relation("ActivityOrganizer")
+  attendanceRecords AttendanceRecord[]
+  staffVerifications StaffVerification[]   @relation("StaffVerifier")
+  humanReviews      HumanReview[]           @relation("HumanReviewer")
+  groundTruthLabels GroundTruthLabel[]      @relation("GroundTruthReviewer")
+  auditLogs         AuditLog[]              @relation("AuditActor")
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+}
+
+model Activity {
+  id               String             @id @default(cuid())
+  title            String
+  category         String
+  description      String?
+  location         String
+  startAt          DateTime
+  endAt            DateTime
+  checkinOpenAt    DateTime?
+  checkinCloseAt   DateTime?
+  checkoutOpenAt   DateTime?
+  checkoutCloseAt  DateTime?
+  organizerId      String?
+  organizer        User?              @relation("ActivityOrganizer", fields: [organizerId], references: [id])
+  policy           ActivityPolicy?
+  qrTokens         QrToken[]
+  attendanceRecords AttendanceRecord[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+}
+
+model ActivityPolicy {
+  id                  String   @id @default(cuid())
+  activityId          String   @unique
+  activity            Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  qrRequired          Boolean  @default(true)
+  identityRequired    Boolean  @default(true)
+  checkinRequired     Boolean  @default(true)
+  checkoutRequired    Boolean  @default(true)
+  durationRequired    Boolean  @default(true)
+  staffRequired       Boolean  @default(true)
+  signatureRequired   Boolean  @default(false)
+  minDurationRatio    Float    @default(0.75)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model QrToken {
+  id          String   @id @default(cuid())
+  activityId  String
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  tokenHash   String   @unique
+  nonce       String
+  keyVersion  Int      @default(1)
+  issuedAt    DateTime
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([activityId, expiresAt])
+}
+
+model AttendanceRecord {
+  id                    String                @id @default(cuid())
+  activityId            String
+  activity              Activity              @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkinAt             DateTime?
+  checkoutAt            DateTime?
+  durationMinutes       Int?
+  attendancePercentage  Float?
+  attendanceStatus      AttendanceStatus      @default(REGISTERED)
+  qrValid               Boolean               @default(false)
+  identityVerified      Boolean               @default(false)
+  signatureVerified     Boolean               @default(false)
+  scanAttempts          Int                   @default(0)
+  finalEvidenceStatus   EvidenceStatus?
+  staffVerification     StaffVerification?
+  consistencyResult     ConsistencyResult?
+  humanReviews          HumanReview[]
+  groundTruthLabels     GroundTruthLabel[]
+  aiPredictions         AIPrediction[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@index([activityId, userId])
+}
+
+model StaffVerification {
+  id            String           @id @default(cuid())
+  attendanceId  String           @unique
+  attendance    AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  verifierId    String
+  verifier      User             @relation("StaffVerifier", fields: [verifierId], references: [id])
+  status        String           @default("VERIFIED_PRESENT")
+  verifiedAt    DateTime         @default(now())
+}
+
+model ConsistencyResult {
+  id                    String           @id @default(cuid())
+  attendanceId          String           @unique
+  attendance            AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  status                EvidenceStatus
+  completenessRatio     Float
+  missingCodes          Json
+  reasonCodes           Json
+  durationRatio         Float?
+  ruleVersion           String
+  evaluatedAt           DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+}
+
+model HumanReview {
+  id                    String           @id @default(cuid())
+  attendanceId          String
+  attendance            AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  reviewerId            String
+  reviewer              User             @relation("HumanReviewer", fields: [reviewerId], references: [id])
+  decision              HumanDecision
+  reason                String?
+  reviewStartedAt       DateTime?
+  reviewedAt            DateTime         @default(now())
+  reviewDurationSeconds Int?
+
+  @@index([attendanceId, reviewedAt])
+}
+
+model GroundTruthLabel {
+  id            String            @id @default(cuid())
+  attendanceId  String
+  attendance    AttendanceRecord  @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  reviewerId    String
+  reviewer      User              @relation("GroundTruthReviewer", fields: [reviewerId], references: [id])
+  target        GroundTruthTarget
+  reasonCodes   Json
+  notes         String?
+  adjudicated   Boolean           @default(false)
+  createdAt     DateTime          @default(now())
+
+  @@unique([attendanceId, reviewerId])
+}
+
+model AIPrediction {
+  id               String           @id @default(cuid())
+  attendanceId     String
+  attendance       AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  modelVersion     String
+  predictedLabel   String
+  riskProbability  Float
+  explanation      Json?
+  createdAt        DateTime         @default(now())
+
+  @@index([attendanceId, modelVersion])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actor       User?    @relation("AuditActor", fields: [actorId], references: [id])
+  action      String
+  entityType  String
+  entityId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

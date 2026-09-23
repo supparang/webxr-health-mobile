@@ -1,0 +1,23 @@
+{
+  "name": "activa-ai-prototype",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "ACTIVA-AI research prototype: policy-aware multi-source participation evidence verification",
+  "scripts": {
+    "dev": "node server/index.js",
+    "start": "node server/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.16.2"
+  }
+}
