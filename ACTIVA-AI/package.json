@@ -9,7 +9,10 @@
     "start": "node server/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "node prisma/seed.js",
+    "db:setup": "prisma generate && prisma migrate dev --name init && node prisma/seed.js",
+    "db:reset-demo": "prisma migrate reset --force"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",

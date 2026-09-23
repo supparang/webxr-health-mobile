@@ -62,3 +62,13 @@ V0.2.2:
 
 V0.3:
 - SEM module: SQ, ET, EX, PR, PU, TR, BI
+
+
+## V0.2.1 เพิ่มเติม
+- Role-based API access control สำหรับ ADMIN / ORGANIZER / STAFF / PARTICIPANT
+- รองรับ x-activa-user-id เป็น database id หรือ employeeId เช่น ADM001
+- Demo seed data
+- Docker Compose สำหรับ PostgreSQL + app
+- Dashboard summary API
+- Attendance listing API
+- แก้ catch-all route ให้เข้ากับ Express 5

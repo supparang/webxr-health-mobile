@@ -7,6 +7,7 @@ import cors from "cors";
 import { prisma } from "./db.js";
 import { createEventToken, verifyEventToken } from "./qr.js";
 import { evaluateEvidence } from "./evidence.js";
+import { attachActor, requireRoles, resolveUserRef } from "./auth.js";
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -17,7 +18,7 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
 function actorId(req) {
-  return req.header("x-activa-user-id") || null;
+  return req.activaUser?.id || null;
 }
 
 async function audit(req, action, entityType, entityId, metadata = {}) {
@@ -52,6 +53,60 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
+
+app.use("/api", attachActor);
+
+app.get("/api/users", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (_req, res) => {
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      employeeId: true,
+      name: true,
+      role: true,
+      status: true,
+      department: { select: { code: true, name: true } },
+    },
+    orderBy: { employeeId: "asc" },
+  });
+  res.json({ ok: true, users });
+});
+
+app.get("/api/dashboard/summary", async (_req, res) => {
+  const [activityCount, recordCount, verifiedCount, reviewCount, incompleteCount] = await Promise.all([
+    prisma.activity.count(),
+    prisma.attendanceRecord.count(),
+    prisma.attendanceRecord.count({ where: { finalEvidenceStatus: "VERIFIED" } }),
+    prisma.consistencyResult.count({ where: { status: "REVIEW_REQUIRED" } }),
+    prisma.consistencyResult.count({ where: { status: "INCOMPLETE" } }),
+  ]);
+
+  res.json({
+    ok: true,
+    summary: {
+      activityCount,
+      recordCount,
+      verifiedCount,
+      reviewRequiredCount: reviewCount,
+      incompleteCount,
+    },
+  });
+});
+
+app.get("/api/attendance", async (req, res) => {
+  const where = req.query.activityId ? { activityId: String(req.query.activityId) } : {};
+  const rows = await prisma.attendanceRecord.findMany({
+    where,
+    include: {
+      user: { select: { id: true, employeeId: true, name: true } },
+      activity: { select: { id: true, title: true, category: true, startAt: true, endAt: true } },
+      staffVerification: true,
+      consistencyResult: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  res.json({ ok: true, attendance: rows });
+});
+
 app.get("/api/activities", async (_req, res) => {
   const rows = await prisma.activity.findMany({
     include: { policy: true },
@@ -60,7 +115,7 @@ app.get("/api/activities", async (_req, res) => {
   res.json({ ok: true, activities: rows });
 });
 
-app.post("/api/activities", async (req, res) => {
+app.post("/api/activities", requireRoles("ADMIN", "ORGANIZER"), async (req, res) => {
   try {
     const b = req.body || {};
     if (!b.title || !b.category || !b.location || !b.startAt || !b.endAt) {
@@ -103,7 +158,7 @@ app.post("/api/activities", async (req, res) => {
   }
 });
 
-app.post("/api/activities/:activityId/qr", async (req, res) => {
+app.post("/api/activities/:activityId/qr", requireRoles("ADMIN", "ORGANIZER"), async (req, res) => {
   const activity = await prisma.activity.findUnique({ where: { id: req.params.activityId } });
   if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
 
@@ -145,8 +200,12 @@ app.post("/api/attendance/checkin", async (req, res) => {
   });
   if (!activity) return res.status(404).json({ ok: false, error: "ACTIVITY_NOT_FOUND" });
 
-  const user = await prisma.user.findUnique({ where: { id: b.userId } });
+  const user = await resolveUserRef(b.userId);
   if (!user) return res.status(404).json({ ok: false, error: "USER_NOT_FOUND" });
+
+  if (req.activaUser.role === "PARTICIPANT" && req.activaUser.id !== user.id) {
+    return res.status(403).json({ ok: false, error: "PARTICIPANT_CAN_ONLY_CHECKIN_SELF" });
+  }
 
   const existing = await prisma.attendanceRecord.findFirst({
     where: { activityId, userId: user.id, checkoutAt: null },
@@ -196,7 +255,7 @@ app.post("/api/attendance/:attendanceId/checkout", async (req, res) => {
   res.json({ ok: true, attendance: row });
 });
 
-app.post("/api/attendance/:attendanceId/staff-verify", async (req, res) => {
+app.post("/api/attendance/:attendanceId/staff-verify", requireRoles("ADMIN", "ORGANIZER", "STAFF"), async (req, res) => {
   const verifierId = actorId(req);
   if (!verifierId) return res.status(401).json({ ok: false, error: "X_ACTIVA_USER_ID_REQUIRED" });
 
@@ -261,7 +320,7 @@ app.post("/api/evidence/:attendanceId/evaluate", async (req, res) => {
   res.json({ ok: true, result: stored, note: "Rule-based result; not AI risk probability." });
 });
 
-app.post("/api/reviews/:attendanceId", async (req, res) => {
+app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (req, res) => {
   const reviewerId = actorId(req);
   if (!reviewerId) return res.status(401).json({ ok: false, error: "X_ACTIVA_USER_ID_REQUIRED" });
 
@@ -299,7 +358,7 @@ app.post("/api/reviews/:attendanceId", async (req, res) => {
   res.status(201).json({ ok: true, review, finalEvidenceStatus });
 });
 
-app.get("/api/ground-truth/queue", async (_req, res) => {
+app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
     include: {
       activity: { include: { policy: true } },
@@ -314,7 +373,7 @@ app.get("/api/ground-truth/queue", async (_req, res) => {
   res.json({ ok: true, records: rows });
 });
 
-app.post("/api/ground-truth/:attendanceId/labels", async (req, res) => {
+app.post("/api/ground-truth/:attendanceId/labels", requireRoles("ADMIN", "STAFF"), async (req, res) => {
   const reviewerId = actorId(req);
   if (!reviewerId) return res.status(401).json({ ok: false, error: "X_ACTIVA_USER_ID_REQUIRED" });
 
@@ -352,7 +411,7 @@ app.post("/api/ground-truth/:attendanceId/labels", async (req, res) => {
   res.status(201).json({ ok: true, label });
 });
 
-app.get("/api/research/export", async (_req, res) => {
+app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
     include: {
       activity: true,
@@ -406,7 +465,7 @@ const __dirname = path.dirname(__filename);
 const staticDir = path.resolve(__dirname, "..");
 app.use(express.static(staticDir));
 
-app.get("*", (_req, res) => {
+app.get("/{*splat}", (_req, res) => {
   res.sendFile(path.join(staticDir, "index.html"));
 });
 

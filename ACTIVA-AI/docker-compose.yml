@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: activa-ai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: activa_ai
+      POSTGRES_USER: activa
+      POSTGRES_PASSWORD: activa_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - activa_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U activa -d activa_ai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: activa-ai-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://activa:activa_password@postgres:5432/activa_ai?schema=public
+      QR_SIGNING_SECRET: demo-only-change-before-real-use-123456789
+      QR_TOKEN_TTL_SECONDS: "45"
+      RESEARCH_HASH_SALT: demo-research-salt-change-before-real-use
+      RULE_VERSION: ACTIVA-RULES-0.2.1
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && node prisma/seed.js && node server/index.js"
+
+volumes:
+  activa_pgdata:
