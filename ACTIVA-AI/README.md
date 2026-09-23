@@ -92,3 +92,17 @@ V0.3:
 - ตรวจว่า Ground Truth queue ไม่รั่ว AI prediction
 - ตรวจการ de-identification ของ research export
 - เพิ่ม JSON 404 สำหรับ API path ที่ไม่มีจริง
+
+
+## V0.3.0 — Ground Truth Lock + ML Baseline Research Pipeline
+- เพิ่ม GroundTruthCase สำหรับ adjudication และ lock final labels
+- Ground Truth queue ซ่อนทั้ง AI prediction และ rule consistency result เพื่อให้ reviewer ดู raw evidence
+- เพิ่ม /api/ground-truth/:id/adjudicate และ /lock
+- เพิ่ม /api/ml/readiness
+- เพิ่ม /api/ml/dataset ที่ส่งออกเฉพาะ LOCKED ground truth และลดการระบุตัวบุคคล
+- เพิ่ม Python baseline pipeline: Logistic Regression, Random Forest, Gradient Boosting
+- เลือก model family บน validation PR-AUC เท่านั้น
+- Final test set ถูกกันออกจาก model selection
+- รายงาน Precision, Recall, Specificity, F1, ROC-AUC, PR-AUC, Brier, calibration และ cluster-bootstrap 95% CI
+- เพิ่ม permutation importance สำหรับ predictive explainability
+- CI ใช้ synthetic dataset เฉพาะ software test และติดป้ายชัดว่าไม่ใช่ผลวิจัย

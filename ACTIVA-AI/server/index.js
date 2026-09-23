@@ -409,14 +409,15 @@ app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (_req, 
       user: { select: { id: true, employeeId: true, name: true } },
       activity: { include: { policy: true } },
       staffVerification: true,
-      consistencyResult: true,
       groundTruthLabels: true,
+      groundTruthCase: true,
     },
     orderBy: { createdAt: "asc" },
   });
 
-  // Intentionally does not include aiPredictions: ground-truth reviewers remain blinded to AI output.
-  res.json({ ok: true, records: rows });
+  // Intentionally excludes aiPredictions and consistencyResult:
+  // ground-truth reviewers see raw evidence, not AI/rule recommendations.
+  res.json({ ok: true, blinded: true, records: rows });
 });
 
 app.post("/api/ground-truth/:attendanceId/labels", requireRoles("ADMIN", "STAFF"), async (req, res) => {
@@ -468,6 +469,167 @@ app.get("/api/audit", requireRoles("ADMIN"), async (_req, res) => {
     take: 300,
   });
   res.json({ ok: true, logs });
+});
+
+app.post("/api/ground-truth/:attendanceId/adjudicate", requireRoles("ADMIN"), async (req, res) => {
+  const attendanceId = req.params.attendanceId;
+  const b = req.body || {};
+  const allowedTargets = ["REVIEW_REQUIRED", "NO_REVIEW_REQUIRED"];
+  if (!allowedTargets.includes(b.finalTarget)) {
+    return res.status(400).json({ ok: false, error: "INVALID_FINAL_TARGET" });
+  }
+
+  const labels = await prisma.groundTruthLabel.findMany({
+    where: { attendanceId },
+    orderBy: { createdAt: "asc" },
+  });
+  if (labels.length < 2 && b.force !== true) {
+    return res.status(409).json({
+      ok: false,
+      error: "TWO_INDEPENDENT_LABELS_REQUIRED",
+      labelCount: labels.length,
+    });
+  }
+
+  const distinctTargets = [...new Set(labels.map((x) => x.target))];
+  if (distinctTargets.length > 1 && !String(b.notes || "").trim()) {
+    return res.status(400).json({
+      ok: false,
+      error: "DISAGREEMENT_REQUIRES_ADJUDICATION_NOTES",
+    });
+  }
+
+  const reasonCodes = Array.isArray(b.reasonCodes)
+    ? [...new Set(b.reasonCodes.map(String))]
+    : [...new Set(labels.flatMap((x) => Array.isArray(x.reasonCodes) ? x.reasonCodes.map(String) : []))];
+
+  const groundTruthCase = await prisma.groundTruthCase.upsert({
+    where: { attendanceId },
+    create: {
+      attendanceId,
+      finalTarget: b.finalTarget,
+      reasonCodes,
+      status: "ADJUDICATED",
+      adjudicatorId: req.activaUser.id,
+      notes: b.notes || null,
+      adjudicatedAt: new Date(),
+    },
+    update: {
+      finalTarget: b.finalTarget,
+      reasonCodes,
+      status: "ADJUDICATED",
+      adjudicatorId: req.activaUser.id,
+      notes: b.notes || null,
+      adjudicatedAt: new Date(),
+      lockedAt: null,
+    },
+  });
+
+  await audit(req, "GROUND_TRUTH_ADJUDICATED", "AttendanceRecord", attendanceId, {
+    finalTarget: b.finalTarget,
+    labelCount: labels.length,
+    distinctTargets,
+  });
+
+  res.json({ ok: true, groundTruthCase, labelCount: labels.length, distinctTargets });
+});
+
+app.post("/api/ground-truth/:attendanceId/lock", requireRoles("ADMIN"), async (req, res) => {
+  const attendanceId = req.params.attendanceId;
+  const current = await prisma.groundTruthCase.findUnique({ where: { attendanceId } });
+  if (!current || current.status !== "ADJUDICATED" || !current.finalTarget) {
+    return res.status(409).json({ ok: false, error: "ADJUDICATION_REQUIRED_BEFORE_LOCK" });
+  }
+
+  const groundTruthCase = await prisma.groundTruthCase.update({
+    where: { attendanceId },
+    data: { status: "LOCKED", lockedAt: new Date() },
+  });
+
+  await audit(req, "GROUND_TRUTH_LOCKED", "AttendanceRecord", attendanceId, {
+    finalTarget: groundTruthCase.finalTarget,
+  });
+
+  res.json({ ok: true, groundTruthCase });
+});
+
+app.get("/api/ml/readiness", requireRoles("ADMIN"), async (_req, res) => {
+  const [labelCount, adjudicatedCount, lockedCount, reviewLocked, noReviewLocked] = await Promise.all([
+    prisma.groundTruthLabel.count(),
+    prisma.groundTruthCase.count({ where: { status: "ADJUDICATED" } }),
+    prisma.groundTruthCase.count({ where: { status: "LOCKED" } }),
+    prisma.groundTruthCase.count({ where: { status: "LOCKED", finalTarget: "REVIEW_REQUIRED" } }),
+    prisma.groundTruthCase.count({ where: { status: "LOCKED", finalTarget: "NO_REVIEW_REQUIRED" } }),
+  ]);
+
+  res.json({
+    ok: true,
+    aiEnabled: false,
+    note: "Readiness counts only; model training remains offline until locked ground truth is adequate.",
+    counts: { labelCount, adjudicatedCount, lockedCount, reviewLocked, noReviewLocked },
+  });
+});
+
+app.get("/api/ml/dataset", requireRoles("ADMIN"), async (_req, res) => {
+  const cases = await prisma.groundTruthCase.findMany({
+    where: { status: "LOCKED", finalTarget: { not: null } },
+    include: {
+      attendance: {
+        include: {
+          activity: true,
+          staffVerification: true,
+        },
+      },
+    },
+    orderBy: { lockedAt: "asc" },
+  });
+
+  const records = cases.map((c) => {
+    const r = c.attendance;
+    const a = r.activity;
+
+    const scheduledMinutes = Math.max(1, Math.round((a.endAt.getTime() - a.startAt.getTime()) / 60000));
+    const actualMinutes = r.checkinAt && r.checkoutAt
+      ? Math.max(0, Math.round((r.checkoutAt.getTime() - r.checkinAt.getTime()) / 60000))
+      : null;
+    const durationRatio = actualMinutes === null ? null : actualMinutes / scheduledMinutes;
+    const checkinOffsetMinutes = r.checkinAt
+      ? Math.round((r.checkinAt.getTime() - a.startAt.getTime()) / 60000)
+      : null;
+    const checkoutOffsetMinutes = r.checkoutAt
+      ? Math.round((r.checkoutAt.getTime() - a.endAt.getTime()) / 60000)
+      : null;
+
+    return {
+      record_id: r.id,
+      participant_hash: hashParticipant(r.userId),
+      event_id: r.activityId,
+      activity_type: a.category,
+      qr_valid: Number(r.qrValid),
+      identity_verified: Number(r.identityVerified),
+      checkin_present: Number(Boolean(r.checkinAt)),
+      checkout_present: Number(Boolean(r.checkoutAt)),
+      scheduled_duration_minutes: scheduledMinutes,
+      actual_duration_minutes: actualMinutes,
+      duration_ratio: durationRatio,
+      checkin_offset_minutes: checkinOffsetMinutes,
+      checkout_offset_minutes: checkoutOffsetMinutes,
+      staff_verified: Number(Boolean(r.staffVerification)),
+      signature_verified: Number(r.signatureVerified),
+      scan_attempts: r.scanAttempts,
+      final_target: c.finalTarget,
+      reason_codes: c.reasonCodes,
+      locked_at: c.lockedAt?.toISOString() || "",
+    };
+  });
+
+  res.json({
+    ok: true,
+    datasetStatus: "LOCKED_GROUND_TRUTH_ONLY",
+    aiPredictionsIncluded: false,
+    deidentified: true,
+    records,
+  });
 });
 
 app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {

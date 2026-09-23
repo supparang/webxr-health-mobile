@@ -95,6 +95,20 @@ jobs:
       - name: End-to-end research workflow smoke test
         run: node tests/smoke.mjs
 
+      - name: Setup Python for ML pipeline
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ML test dependencies
+        run: pip install -r ml/requirements.txt
+
+      - name: Generate synthetic CI dataset
+        run: python ml/tests/generate_synthetic_ci.py
+
+      - name: ML pipeline software smoke test
+        run: python ml/train_baselines.py --input ml/tests/synthetic_locked_dataset.json --output-dir ml/tests/out --bootstrap 30
+
       - name: Show server log on failure
         if: failure()
         run: cat /tmp/activa-ai.log || true
