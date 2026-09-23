@@ -406,6 +406,7 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
 app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
     include: {
+      user: { select: { id: true, employeeId: true, name: true } },
       activity: { include: { policy: true } },
       staffVerification: true,
       consistencyResult: true,
@@ -516,6 +517,10 @@ app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
     generatedAt: new Date().toISOString(),
     records: dataset,
   });
+});
+
+app.use("/api", (_req, res) => {
+  res.status(404).json({ ok: false, error: "API_ROUTE_NOT_FOUND" });
 });
 
 const __filename = fileURLToPath(import.meta.url);

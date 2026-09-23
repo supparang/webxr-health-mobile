@@ -83,3 +83,12 @@ V0.3:
 - Participant ถูกจำกัดให้เห็นและจัดการ attendance ของตนเอง
 - Ground Truth workspace ไม่แสดง AI prediction
 - Docker bootstrap ใช้ prisma db push สำหรับ prototype
+
+
+## V0.2.3 — Automated Research Workflow QA
+- เพิ่ม GitHub Actions CI สำหรับ ACTIVA-AI โดยเฉพาะ
+- เพิ่ม end-to-end smoke test ตั้งแต่ Dynamic QR ถึง Research Export
+- ตรวจ participant privacy filtering
+- ตรวจว่า Ground Truth queue ไม่รั่ว AI prediction
+- ตรวจการ de-identification ของ research export
+- เพิ่ม JSON 404 สำหรับ API path ที่ไม่มีจริง

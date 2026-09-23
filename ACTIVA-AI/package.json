@@ -1,6 +1,6 @@
 {
   "name": "activa-ai-prototype",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "type": "module",
   "description": "ACTIVA-AI research prototype: policy-aware multi-source participation evidence verification",
@@ -13,7 +13,8 @@
     "prisma:seed": "node prisma/seed.js",
     "db:setup": "prisma generate && prisma db push && node prisma/seed.js",
     "db:reset-demo": "prisma migrate reset --force",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "test:smoke": "node tests/smoke.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",

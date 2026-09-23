@@ -1,0 +1,100 @@
+name: ACTIVA-AI CI
+
+on:
+  push:
+    paths:
+      - "ACTIVA-AI/**"
+      - ".github/workflows/activa-ai-ci.yml"
+  pull_request:
+    paths:
+      - "ACTIVA-AI/**"
+      - ".github/workflows/activa-ai-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: activa_ai
+          POSTGRES_USER: activa
+          POSTGRES_PASSWORD: activa_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U activa -d activa_ai"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: ACTIVA-AI
+
+    env:
+      DATABASE_URL: postgresql://activa:activa_password@127.0.0.1:5432/activa_ai?schema=public
+      QR_SIGNING_SECRET: ci-secret-for-activa-ai-qr-signing-123456
+      QR_TOKEN_TTL_SECONDS: "120"
+      RESEARCH_HASH_SALT: ci-research-hash-salt-not-for-production
+      RULE_VERSION: ACTIVA-RULES-CI
+      PORT: "3000"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Create database schema
+        run: npx prisma db push
+
+      - name: Seed demo data
+        run: node prisma/seed.js
+
+      - name: JavaScript syntax checks
+        run: |
+          node --check app.js
+          node --check server/index.js
+          node --check server/auth.js
+          node --check server/db.js
+          node --check server/evidence.js
+          node --check server/qr.js
+          node --check prisma/seed.js
+          node --check tests/smoke.mjs
+
+      - name: Start ACTIVA-AI server
+        run: |
+          node server/index.js > /tmp/activa-ai.log 2>&1 &
+          echo $! > /tmp/activa-ai.pid
+
+      - name: Wait for server
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/activa-ai.log
+          exit 1
+
+      - name: End-to-end research workflow smoke test
+        run: node tests/smoke.mjs
+
+      - name: Show server log on failure
+        if: failure()
+        run: cat /tmp/activa-ai.log || true
