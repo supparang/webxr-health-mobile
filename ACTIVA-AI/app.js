@@ -83,7 +83,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
-        '<div class="version">V0.3.2 • Ground Truth + ML readiness</div>'+
+        '<div class="version">V0.3.3 • Ground Truth + ML readiness</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -137,7 +137,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.3.2</div><h1>เข้าสู่ระบบ</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.3.3</div><h1>เข้าสู่ระบบ</h1>'+
       '<p>Prototype นี้ใช้ฐานข้อมูล PostgreSQL และ API เป็นแหล่งข้อมูลหลัก</p>'+
       '<div class="demo-box"><b>บัญชีทดลองหลังรัน seed</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -696,7 +696,13 @@
         '<div class="field full"><label>หมายเหตุ</label><textarea id="mNotes" placeholder="ข้อจำกัด การใช้ข้อมูล และเงื่อนไขการประเมิน"></textarea></div>'+
       '</div>'+
       '<div class="actions"><button class="btn primary" id="mImport">Import Evaluation Result</button></div><div id="mMsg"></div></div>'+
-      '<div class="panel"><h2>โมเดลที่ลงทะเบียน</h2>'+modelTable(models)+'</div>';
+      '<div class="panel"><h2>โมเดลที่ลงทะเบียน</h2>'+modelTable(models)+'</div>'+
+      '<div class="panel"><h2>Offline Prediction Pipeline</h2>'+
+      '<div class="hint">1) Deploy โมเดลที่ผ่าน governance → 2) ดาวน์โหลด inference features → 3) รัน predict_records.py แบบ offline → 4) นำ prediction bundle กลับมา import</div>'+
+      '<div class="actions"><button class="btn secondary" id="inferDownload">ดาวน์โหลด Inference Dataset</button></div>'+
+      '<div class="field" style="margin-top:14px"><label>Prediction Bundle JSON</label><input id="predictionFile" type="file" accept=".json,application/json"></div>'+
+      '<div class="actions"><button class="btn primary" id="predictionImport">Import Prediction Bundle</button></div>'+
+      '<div id="predictionMsg"></div></div>';
 
     document.getElementById("mImport").onclick = async () => {
       const msg = document.getElementById("mMsg");
@@ -737,6 +743,48 @@
         await renderModels(v);
       } catch (e) { alert(e.message); }
     });
+
+    const inferBtn = document.getElementById("inferDownload");
+    if (inferBtn) inferBtn.onclick = async () => {
+      const msg = document.getElementById("predictionMsg");
+      try {
+        const dataset = await api("/api/ml/inference-dataset");
+        if (!dataset.deployedModel) {
+          msg.innerHTML = '<div class="alert warn">ยังไม่มีโมเดลที่ Deploy</div>';
+          return;
+        }
+        download(
+          "activa-inference-"+dataset.deployedModel.version+".json",
+          JSON.stringify(dataset,null,2),
+          "application/json"
+        );
+        msg.innerHTML = '<div class="alert ok">ดาวน์โหลด inference dataset แล้ว '+esc(dataset.records.length)+' ระเบียน</div>';
+      } catch (e) { msg.innerHTML = errorBox(e); }
+    };
+
+    const importBtn = document.getElementById("predictionImport");
+    if (importBtn) importBtn.onclick = async () => {
+      const msg = document.getElementById("predictionMsg");
+      const file = document.getElementById("predictionFile").files?.[0];
+      if (!file) {
+        msg.innerHTML = '<div class="alert warn">กรุณาเลือก Prediction Bundle JSON</div>';
+        return;
+      }
+      try {
+        const payload = JSON.parse(await file.text());
+        if (!payload.modelVersion || !Array.isArray(payload.predictions)) {
+          throw new Error("INVALID_PREDICTION_BUNDLE");
+        }
+        const result = await api("/api/predictions/import-batch", {
+          method:"POST",
+          body:JSON.stringify({
+            modelVersion:payload.modelVersion,
+            predictions:payload.predictions
+          })
+        });
+        msg.innerHTML = '<div class="alert ok">Import prediction สำเร็จ '+esc(result.importedCount)+' ระเบียน • '+esc(result.modelVersion)+'</div>';
+      } catch (e) { msg.innerHTML = errorBox(e); }
+    };
   }
 
   function modelTable(models) {

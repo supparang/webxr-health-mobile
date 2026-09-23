@@ -63,3 +63,6 @@ hr{border:0;border-top:1px solid var(--line);margin:22px 0}
 .model-governance{display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:850px){.metric-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.metric-grid{grid-template-columns:1fr}}
+
+.pipeline-steps{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pipeline-steps span{padding:8px 10px;border-radius:999px;background:#eef4ff;color:#244a9b;font-size:12px;font-weight:700}

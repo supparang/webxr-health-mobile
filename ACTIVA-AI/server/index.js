@@ -44,6 +44,45 @@ function hashParticipant(userId) {
   return crypto.createHash("sha256").update(userId + "|" + salt).digest("hex");
 }
 
+function inferenceFeatureRow(r) {
+  const a = r.activity;
+  const scheduledMinutes = Math.max(
+    1,
+    Math.round((a.endAt.getTime() - a.startAt.getTime()) / 60000)
+  );
+  const actualMinutes =
+    r.checkinAt && r.checkoutAt
+      ? Math.max(0, Math.round((r.checkoutAt.getTime() - r.checkinAt.getTime()) / 60000))
+      : null;
+  const durationRatio =
+    actualMinutes === null ? null : actualMinutes / scheduledMinutes;
+  const checkinOffsetMinutes = r.checkinAt
+    ? Math.round((r.checkinAt.getTime() - a.startAt.getTime()) / 60000)
+    : null;
+  const checkoutOffsetMinutes = r.checkoutAt
+    ? Math.round((r.checkoutAt.getTime() - a.endAt.getTime()) / 60000)
+    : null;
+
+  return {
+    record_id: r.id,
+    participant_hash: hashParticipant(r.userId),
+    event_id: r.activityId,
+    activity_type: a.category,
+    qr_valid: Number(r.qrValid),
+    identity_verified: Number(r.identityVerified),
+    checkin_present: Number(Boolean(r.checkinAt)),
+    checkout_present: Number(Boolean(r.checkoutAt)),
+    scheduled_duration_minutes: scheduledMinutes,
+    actual_duration_minutes: actualMinutes,
+    duration_ratio: durationRatio,
+    checkin_offset_minutes: checkinOffsetMinutes,
+    checkout_offset_minutes: checkoutOffsetMinutes,
+    staff_verified: Number(Boolean(r.staffVerification)),
+    signature_verified: Number(r.signatureVerified),
+    scan_attempts: r.scanAttempts,
+  };
+}
+
 app.get("/api/health", async (_req, res) => {
   try {
     await prisma.$queryRawUnsafe("SELECT 1");
@@ -652,6 +691,55 @@ app.get("/api/ml/dataset", requireRoles("ADMIN"), async (_req, res) => {
   });
 });
 
+app.get("/api/ml/inference-dataset", requireRoles("ADMIN"), async (req, res) => {
+  const deployed = await prisma.modelRun.findFirst({
+    where: { status: "DEPLOYED" },
+    orderBy: { deployedAt: "desc" },
+  });
+
+  if (!deployed) {
+    return res.json({
+      ok: true,
+      deployedModel: null,
+      deidentified: true,
+      groundTruthIncluded: false,
+      records: [],
+    });
+  }
+
+  const includeScored = String(req.query.includeScored || "false") === "true";
+  const rows = await prisma.attendanceRecord.findMany({
+    include: {
+      activity: true,
+      staffVerification: true,
+      aiPredictions: {
+        where: { modelRunId: deployed.id },
+        take: 1,
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const visible = includeScored
+    ? rows
+    : rows.filter((r) => (r.aiPredictions || []).length === 0);
+
+  res.json({
+    ok: true,
+    deployedModel: {
+      id: deployed.id,
+      version: deployed.version,
+      modelFamily: deployed.modelFamily,
+      status: deployed.status,
+    },
+    datasetStatus: "LIVE_INFERENCE_FEATURES",
+    deidentified: true,
+    groundTruthIncluded: false,
+    alreadyScoredExcluded: !includeScored,
+    records: visible.map(inferenceFeatureRow),
+  });
+});
+
 app.get("/api/models", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
   const models = await prisma.modelRun.findMany({
     orderBy: { createdAt: "desc" },
@@ -787,22 +875,32 @@ app.post("/api/predictions/import", requireRoles("ADMIN"), async (req, res) => {
     return res.status(400).json({ ok: false, error: "RISK_PROBABILITY_MUST_BE_0_TO_1" });
   }
 
-  const existing = await prisma.aIPrediction.findFirst({
-    where: { attendanceId: attendance.id, modelRunId: model.id },
-  });
+  const predictedLabel = String(
+    b.predictedLabel || (probability >= 0.5 ? "REVIEW_REQUIRED" : "NO_REVIEW_REQUIRED")
+  );
+  if (!["REVIEW_REQUIRED", "NO_REVIEW_REQUIRED"].includes(predictedLabel)) {
+    return res.status(400).json({ ok: false, error: "INVALID_PREDICTED_LABEL" });
+  }
 
   const data = {
     attendanceId: attendance.id,
     modelRunId: model.id,
     modelVersion: model.version,
-    predictedLabel: String(b.predictedLabel || (probability >= 0.5 ? "REVIEW_REQUIRED" : "NO_REVIEW_REQUIRED")),
+    predictedLabel,
     riskProbability: probability,
     explanation: b.explanation || null,
   };
 
-  const prediction = existing
-    ? await prisma.aIPrediction.update({ where: { id: existing.id }, data })
-    : await prisma.aIPrediction.create({ data });
+  const prediction = await prisma.aIPrediction.upsert({
+    where: {
+      attendanceId_modelRunId: {
+        attendanceId: attendance.id,
+        modelRunId: model.id,
+      },
+    },
+    create: data,
+    update: data,
+  });
 
   await audit(req, "AI_PREDICTION_IMPORTED", "AttendanceRecord", attendance.id, {
     modelVersion: model.version,
@@ -814,6 +912,103 @@ app.post("/api/predictions/import", requireRoles("ADMIN"), async (req, res) => {
     prediction,
     decisionSupportOnly: true,
     note: "Prediction import never changes final attendance/evidence status automatically.",
+  });
+});
+
+app.post("/api/predictions/import-batch", requireRoles("ADMIN"), async (req, res) => {
+  const b = req.body || {};
+  const predictions = Array.isArray(b.predictions) ? b.predictions : [];
+  if (!b.modelVersion || predictions.length === 0) {
+    return res.status(400).json({ ok: false, error: "MODEL_VERSION_AND_PREDICTIONS_REQUIRED" });
+  }
+  if (predictions.length > 5000) {
+    return res.status(413).json({ ok: false, error: "PREDICTION_BATCH_TOO_LARGE", max: 5000 });
+  }
+
+  const model = await prisma.modelRun.findUnique({
+    where: { version: String(b.modelVersion) },
+  });
+  if (!model) return res.status(404).json({ ok: false, error: "MODEL_NOT_FOUND" });
+  if (model.status !== "DEPLOYED") {
+    return res.status(409).json({ ok: false, error: "ONLY_DEPLOYED_MODEL_PREDICTIONS_CAN_BE_IMPORTED" });
+  }
+
+  const ids = [...new Set(predictions.map((p) => String(p.attendanceId || "")).filter(Boolean))];
+  const existingRows = await prisma.attendanceRecord.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const validIds = new Set(existingRows.map((r) => r.id));
+  const missingIds = ids.filter((id) => !validIds.has(id));
+  if (missingIds.length) {
+    return res.status(400).json({
+      ok: false,
+      error: "ATTENDANCE_IDS_NOT_FOUND",
+      missingIds,
+    });
+  }
+
+  const normalized = predictions.map((p, index) => {
+    const probability = Number(p.riskProbability);
+    if (!Number.isFinite(probability) || probability < 0 || probability > 1) {
+      throw new Error("INVALID_RISK_PROBABILITY_AT_INDEX_" + index);
+    }
+    const label = String(
+      p.predictedLabel || (probability >= 0.5 ? "REVIEW_REQUIRED" : "NO_REVIEW_REQUIRED")
+    );
+    if (!["REVIEW_REQUIRED", "NO_REVIEW_REQUIRED"].includes(label)) {
+      throw new Error("INVALID_PREDICTED_LABEL_AT_INDEX_" + index);
+    }
+    return {
+      attendanceId: String(p.attendanceId),
+      riskProbability: probability,
+      predictedLabel: label,
+      explanation: p.explanation || null,
+    };
+  });
+
+  try {
+    await prisma.$transaction(
+      normalized.map((p) =>
+        prisma.aIPrediction.upsert({
+          where: {
+            attendanceId_modelRunId: {
+              attendanceId: p.attendanceId,
+              modelRunId: model.id,
+            },
+          },
+          create: {
+            attendanceId: p.attendanceId,
+            modelRunId: model.id,
+            modelVersion: model.version,
+            predictedLabel: p.predictedLabel,
+            riskProbability: p.riskProbability,
+            explanation: p.explanation,
+          },
+          update: {
+            modelVersion: model.version,
+            predictedLabel: p.predictedLabel,
+            riskProbability: p.riskProbability,
+            explanation: p.explanation,
+          },
+        })
+      )
+    );
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: error.message });
+  }
+
+  await audit(req, "AI_PREDICTION_BATCH_IMPORTED", "ModelRun", model.id, {
+    modelVersion: model.version,
+    count: normalized.length,
+  });
+
+  res.status(201).json({
+    ok: true,
+    importedCount: normalized.length,
+    modelVersion: model.version,
+    decisionSupportOnly: true,
+    note: "Batch import never changes final attendance/evidence status automatically.",
   });
 });
 
@@ -918,5 +1113,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log("ACTIVA-AI V0.3.2 server running on http://localhost:" + port);
+  console.log("ACTIVA-AI V0.3.3 server running on http://localhost:" + port);
 });

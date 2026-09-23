@@ -192,6 +192,11 @@ const deployedModel = await req("/api/models/" + encodeURIComponent(modelImport.
 });
 assert(deployedModel.model?.status === "DEPLOYED", "model deployment gate failed in CI");
 
+const inferenceDataset = await req("/api/ml/inference-dataset", { actor: "ADM001" });
+assert(inferenceDataset.deployedModel?.version === "ACTIVA-CI-SYNTHETIC-001", "inference dataset model version mismatch");
+assert(inferenceDataset.groundTruthIncluded === false, "inference dataset must exclude ground truth");
+assert(inferenceDataset.records.some((r) => r.record_id === attendanceId), "unscored attendance missing from inference dataset");
+
 const beforePrediction = await req("/api/attendance", { actor: "ADM001" });
 const beforeStatus = beforePrediction.attendance.find((r) => r.id === attendanceId)?.finalEvidenceStatus;
 
@@ -211,11 +216,33 @@ const prediction = await req("/api/predictions/import", {
 });
 assert(prediction.decisionSupportOnly === true, "prediction must be decision support only");
 
+const batchPrediction = await req("/api/predictions/import-batch", {
+  actor: "ADM001",
+  method: "POST",
+  body: {
+    modelVersion: "ACTIVA-CI-SYNTHETIC-001",
+    predictions: [{
+      attendanceId,
+      riskProbability: 0.84,
+      predictedLabel: "REVIEW_REQUIRED",
+      explanation: {
+        method: "single_feature_reference_perturbation",
+        causal: false,
+        threshold: 0.5,
+        reasons: [
+          { feature: "duration_ratio", label: "สัดส่วนระยะเวลาเข้าร่วม", contribution: 0.30 }
+        ]
+      }
+    }]
+  },
+});
+assert(batchPrediction.importedCount === 1, "AI batch prediction import failed");
+
 const xai = await req("/api/xai/queue", { actor: "STF001" });
 const xaiRecord = xai.records.find((p) => p.attendanceId === attendanceId);
 assert(xaiRecord, "XAI queue missing imported prediction");
 assert(xaiRecord.modelVersion === "ACTIVA-CI-SYNTHETIC-001", "XAI model version mismatch");
-assert(Math.abs(xaiRecord.riskProbability - 0.83) < 1e-9, "XAI risk probability mismatch");
+assert(Math.abs(xaiRecord.riskProbability - 0.84) < 1e-9, "XAI risk probability mismatch");
 
 const afterPrediction = await req("/api/attendance", { actor: "ADM001" });
 const afterStatus = afterPrediction.attendance.find((r) => r.id === attendanceId)?.finalEvidenceStatus;
@@ -224,4 +251,4 @@ assert(beforeStatus === afterStatus, "AI prediction changed final evidence statu
 const audit = await req("/api/audit", { actor: "ADM001" });
 assert(audit.logs.length > 0, "audit trail empty");
 
-console.log("ACTIVA-AI V0.3.2 smoke test passed");
+console.log("ACTIVA-AI V0.3.3 smoke test passed");

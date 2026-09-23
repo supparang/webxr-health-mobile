@@ -129,3 +129,15 @@ V0.3:
 - เพิ่ม AI/XAI Review Workspace สำหรับ ADMIN/STAFF
 - แสดง Risk Probability, Prediction, Explanation, Model Version และ Human Decision
 - คำอธิบาย AI ถูกระบุว่าเป็น predictive explanation ไม่ใช่ causal conclusion
+
+
+## V0.3.3 — Offline-to-System Prediction Pipeline
+- Threshold ถูกเลือกและล็อกจาก validation data เท่านั้น
+- train_baselines.py สร้าง model artifact, evaluation, model manifest และ model-registry payload
+- เพิ่ม predict_records.py สำหรับสร้าง risk probability + local predictive explanation แบบ offline
+- เพิ่ม /api/ml/inference-dataset สำหรับ raw live inference features โดยไม่รวม Ground Truth
+- เพิ่ม /api/predictions/import-batch สำหรับนำ prediction bundle กลับเข้าระบบ
+- เพิ่ม unique constraint ต่อ Attendance × ModelRun เพื่อป้องกัน prediction ซ้ำ
+- เพิ่ม UI ดาวน์โหลด inference dataset และ import prediction bundle
+- AI prediction ไม่เปลี่ยน final evidence status อัตโนมัติ
+- Local explanation ใช้ single-feature reference perturbation และระบุชัดว่าไม่ใช่ causal explanation

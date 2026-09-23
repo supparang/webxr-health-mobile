@@ -42,3 +42,18 @@
 - ห้ามรายงาน synthetic CI dataset เป็นผลวิจัย
 - ห้ามเรียก rule-based score ว่า AI probability
 - ห้ามตีความ feature importance เป็น causality
+
+
+## V0.3.3 Offline Prediction
+หลังโมเดลผ่าน Evaluation → Approval → Deployment:
+1. ดาวน์โหลด GET /api/ml/inference-dataset
+2. รัน:
+   python ml/predict_records.py \
+     --input inference.json \
+     --model ml/out/activa_ai_model.joblib \
+     --manifest ml/out/model_manifest.json \
+     --output prediction_bundle.json
+3. Import prediction_bundle.json ผ่านหน้า Model Evaluation หรือ POST /api/predictions/import-batch
+
+Prediction bundle มี riskProbability, predictedLabel, threshold และ local explanation
+โดยไม่เปลี่ยนผลรับรองของบุคลากรอัตโนมัติ

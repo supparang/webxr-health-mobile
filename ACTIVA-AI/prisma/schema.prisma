@@ -272,6 +272,7 @@ model AIPrediction {
   createdAt        DateTime         @default(now())
 
   @@index([attendanceId, modelVersion])
+  @@unique([attendanceId, modelRunId])
 }
 
 model AuditLog {

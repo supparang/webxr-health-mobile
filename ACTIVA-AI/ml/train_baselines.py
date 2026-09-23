@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """ACTIVA-AI baseline ML training pipeline.
 
-Research design safeguards:
+Research safeguards:
 - Uses only LOCKED ground truth exported by /api/ml/dataset.
-- Selects model on validation data only.
-- Keeps final test split untouched until final evaluation.
-- Defaults to participant-group splitting to reduce repeated-person leakage.
-- Reports predictive association/importance, not causality.
+- Model family selection uses validation data only.
+- Threshold is selected/locked from validation data only.
+- Final test set is untouched until final evaluation.
+- Group-aware splitting reduces repeated-person leakage.
+- Synthetic data are software tests only and must never be reported as empirical results.
 """
 
 from __future__ import annotations
@@ -60,14 +61,16 @@ CATEGORICAL_FEATURES = ["activity_type"]
 FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 
 
-def load_dataset(path: Path) -> pd.DataFrame:
+def load_records(path: Path) -> pd.DataFrame:
     if path.suffix.lower() == ".json":
         payload = json.loads(path.read_text(encoding="utf-8"))
         rows = payload.get("records", payload) if isinstance(payload, dict) else payload
-        df = pd.DataFrame(rows)
-    else:
-        df = pd.read_csv(path)
+        return pd.DataFrame(rows)
+    return pd.read_csv(path)
 
+
+def load_dataset(path: Path) -> pd.DataFrame:
+    df = load_records(path)
     required = {"record_id", "participant_hash", "event_id", "final_target", *FEATURES}
     missing = sorted(required - set(df.columns))
     if missing:
@@ -77,6 +80,8 @@ def load_dataset(path: Path) -> pd.DataFrame:
     df["target"] = df["final_target"].map(TARGET_MAP).astype(int)
     if df.empty:
         raise ValueError("No locked binary ground-truth records found.")
+    if df["target"].nunique() < 2:
+        raise ValueError("Both REVIEW_REQUIRED and NO_REVIEW_REQUIRED are required.")
     return df
 
 
@@ -146,10 +151,13 @@ def candidates():
             random_state=RANDOM_STATE,
             n_jobs=-1,
         ),
-        "gradient_boosting": GradientBoostingClassifier(
-            random_state=RANDOM_STATE,
-        ),
+        "gradient_boosting": GradientBoostingClassifier(random_state=RANDOM_STATE),
     }
+
+
+def calibrated_pipeline(estimator):
+    pipe = Pipeline([("preprocess", preprocessor()), ("model", estimator)])
+    return CalibratedClassifierCV(pipe, method="sigmoid", cv=3)
 
 
 def safe_auc(metric_fn, y, p):
@@ -173,11 +181,37 @@ def metrics(y, p, threshold=0.5):
     }
 
 
-def bootstrap_ci(y, p, groups, n_boot=1000):
+def choose_threshold(y, p, strategy, fixed_threshold):
+    if strategy == "fixed":
+        if not 0 < fixed_threshold < 1:
+            raise ValueError("--fixed-threshold must be between 0 and 1.")
+        return float(fixed_threshold), {"strategy": "fixed", "validation_f1": None}
+
+    if strategy != "f1_validation":
+        raise ValueError(f"Unsupported threshold strategy: {strategy}")
+
+    grid = np.linspace(0.05, 0.95, 181)
+    scored = []
+    for t in grid:
+        score = f1_score(y, (p >= t).astype(int), zero_division=0)
+        scored.append((float(score), float(t)))
+
+    best_f1 = max(x[0] for x in scored)
+    ties = [x for x in scored if abs(x[0] - best_f1) < 1e-12]
+    _, threshold = min(ties, key=lambda x: abs(x[1] - 0.5))
+    return threshold, {
+        "strategy": "f1_validation",
+        "validation_f1": best_f1,
+        "tie_break": "closest_to_0.5",
+    }
+
+
+def bootstrap_ci(y, p, groups, threshold, n_boot=1000):
     rng = np.random.default_rng(RANDOM_STATE)
     frame = pd.DataFrame({"y": np.asarray(y), "p": np.asarray(p), "g": np.asarray(groups).astype(str)})
     unique_groups = frame["g"].unique()
-    collected = {k: [] for k in ["precision", "recall_sensitivity", "specificity", "f1", "roc_auc", "pr_auc", "brier_score"]}
+    keys = ["precision", "recall_sensitivity", "specificity", "f1", "roc_auc", "pr_auc", "brier_score"]
+    collected = {k: [] for k in keys}
 
     for _ in range(n_boot):
         sampled = rng.choice(unique_groups, size=len(unique_groups), replace=True)
@@ -189,23 +223,35 @@ def bootstrap_ci(y, p, groups, n_boot=1000):
         boot = pd.concat(parts, ignore_index=True)
         if boot["y"].nunique() < 2:
             continue
-        m = metrics(boot["y"].to_numpy(), boot["p"].to_numpy())
-        for key in collected:
+        m = metrics(boot["y"].to_numpy(), boot["p"].to_numpy(), threshold)
+        for key in keys:
             value = m[key]
             if value is not None and np.isfinite(value):
                 collected[key].append(value)
 
     out = {}
     for key, values in collected.items():
-        if values:
-            out[key] = {
+        out[key] = (
+            {
                 "low_95": float(np.percentile(values, 2.5)),
                 "high_95": float(np.percentile(values, 97.5)),
                 "bootstrap_replicates": len(values),
             }
-        else:
-            out[key] = None
+            if values
+            else None
+        )
     return out
+
+
+def reference_values(df: pd.DataFrame):
+    refs = {}
+    for feature in NUMERIC_FEATURES:
+        series = pd.to_numeric(df[feature], errors="coerce")
+        refs[feature] = None if series.dropna().empty else float(series.median())
+    for feature in CATEGORICAL_FEATURES:
+        mode = df[feature].dropna().astype(str).mode()
+        refs[feature] = None if mode.empty else str(mode.iloc[0])
+    return refs
 
 
 def main():
@@ -214,10 +260,28 @@ def main():
     parser.add_argument("--output-dir", default=Path("ml/out"), type=Path)
     parser.add_argument("--group-column", default="participant_hash")
     parser.add_argument("--bootstrap", type=int, default=1000)
+    parser.add_argument("--model-version", required=True)
+    parser.add_argument(
+        "--data-provenance",
+        choices=["EMPIRICAL_LOCKED_GROUND_TRUTH", "SYNTHETIC_CI_ONLY"],
+        required=True,
+    )
+    parser.add_argument(
+        "--threshold-strategy",
+        choices=["f1_validation", "fixed"],
+        default="f1_validation",
+    )
+    parser.add_argument("--fixed-threshold", type=float, default=0.5)
     args = parser.parse_args()
 
     df = load_dataset(args.input)
     train, val, test = group_split(df, args.group_column)
+
+    min_train_class = int(train["target"].value_counts().min())
+    if min_train_class < 3:
+        raise ValueError(
+            "Training split needs at least 3 records in each class for 3-fold calibration."
+        )
 
     X_train, y_train = train[FEATURES], train["target"].to_numpy()
     X_val, y_val = val[FEATURES], val["target"].to_numpy()
@@ -225,38 +289,54 @@ def main():
 
     validation = {}
     fitted = {}
+    val_probs = {}
     for name, estimator in candidates().items():
-        pipe = Pipeline([("preprocess", preprocessor()), ("model", estimator)])
-        pipe.fit(X_train, y_train)
-        val_prob = pipe.predict_proba(X_val)[:, 1]
-        validation[name] = metrics(y_val, val_prob)
-        fitted[name] = pipe
+        model = calibrated_pipeline(estimator)
+        model.fit(X_train, y_train)
+        val_prob = model.predict_proba(X_val)[:, 1]
+        validation[name] = metrics(y_val, val_prob, 0.5)
+        fitted[name] = model
+        val_probs[name] = val_prob
 
-    # Model selection is based on validation PR-AUC only; test data remain untouched.
     selected_name = max(
         validation,
         key=lambda n: (-1 if validation[n]["pr_auc"] is None else validation[n]["pr_auc"]),
     )
 
-    # Refit/calibrate selected family using train+validation only.
-    development = pd.concat([train, val], ignore_index=True)
-    base = Pipeline([("preprocess", preprocessor()), ("model", clone(candidates()[selected_name]))])
-    calibrated = CalibratedClassifierCV(base, method="sigmoid", cv=3)
-    calibrated.fit(development[FEATURES], development["target"].to_numpy())
+    threshold, threshold_info = choose_threshold(
+        y_val,
+        val_probs[selected_name],
+        args.threshold_strategy,
+        args.fixed_threshold,
+    )
+    validation_selected_locked = metrics(y_val, val_probs[selected_name], threshold)
 
-    test_prob = calibrated.predict_proba(X_test)[:, 1]
-    test_metrics = metrics(y_test, test_prob)
+    development = pd.concat([train, val], ignore_index=True)
+    min_dev_class = int(development["target"].value_counts().min())
+    if min_dev_class < 3:
+        raise ValueError(
+            "Development data need at least 3 records in each class for final calibration."
+        )
+
+    final_model = calibrated_pipeline(clone(candidates()[selected_name]))
+    final_model.fit(development[FEATURES], development["target"].to_numpy())
+
+    test_prob = final_model.predict_proba(X_test)[:, 1]
+    test_metrics = metrics(y_test, test_prob, threshold)
     cis = bootstrap_ci(
         y_test,
         test_prob,
         test[args.group_column].astype(str).to_numpy(),
+        threshold,
         n_boot=args.bootstrap,
     )
 
-    frac_pos, mean_pred = calibration_curve(y_test, test_prob, n_bins=5, strategy="quantile")
+    frac_pos, mean_pred = calibration_curve(
+        y_test, test_prob, n_bins=min(5, len(test)), strategy="quantile"
+    )
 
     importance = permutation_importance(
-        calibrated,
+        final_model,
         X_test,
         y_test,
         scoring="average_precision",
@@ -271,23 +351,55 @@ def main():
                 "mean_importance": float(mean),
                 "std_importance": float(std),
             }
-            for feature, mean, std in zip(FEATURES, importance.importances_mean, importance.importances_std)
+            for feature, mean, std in zip(
+                FEATURES, importance.importances_mean, importance.importances_std
+            )
         ],
         key=lambda x: x["mean_importance"],
         reverse=True,
     )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    model_path = args.output_dir / "activa_ai_baseline.joblib"
-    results_path = args.output_dir / "evaluation.json"
-    joblib.dump(calibrated, model_path)
+    model_path = args.output_dir / "activa_ai_model.joblib"
+    evaluation_path = args.output_dir / "evaluation.json"
+    manifest_path = args.output_dir / "model_manifest.json"
+    registry_path = args.output_dir / "model_registry_payload.json"
+
+    joblib.dump(final_model, model_path)
+
+    manifest = {
+        "model_version": args.model_version,
+        "model_family": selected_name,
+        "target": "REVIEW_REQUIRED",
+        "data_provenance": args.data_provenance,
+        "features": FEATURES,
+        "numeric_features": NUMERIC_FEATURES,
+        "categorical_features": CATEGORICAL_FEATURES,
+        "threshold": threshold,
+        "threshold_selection": threshold_info,
+        "calibration_method": "sigmoid_cv3",
+        "group_split_column": args.group_column,
+        "reference_values": reference_values(development),
+        "decision_support_only": True,
+        "warnings": [
+            "Threshold was locked using validation data only.",
+            "Final test data must not be used for further tuning.",
+            "Predictions support human review and never make autonomous personnel decisions.",
+        ],
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
     result = {
-        "research_status": "BASELINE_MODEL_NOT_YET_DEPLOYED",
+        "research_status": "EVALUATED_OFFLINE_NOT_YET_APPROVED_OR_DEPLOYED",
+        "model_version": args.model_version,
+        "data_provenance": args.data_provenance,
         "target": "REVIEW_REQUIRED",
         "selected_model_family": selected_name,
         "selection_metric": "validation_pr_auc",
+        "selected_metric_value": validation[selected_name]["pr_auc"],
         "group_split_column": args.group_column,
+        "threshold": threshold,
+        "threshold_selection": threshold_info,
         "counts": {
             "total": int(len(df)),
             "train": int(len(train)),
@@ -298,6 +410,7 @@ def main():
             "unique_groups_total": int(df[args.group_column].nunique()),
         },
         "validation_metrics_by_model": validation,
+        "selected_model_validation_metrics_at_locked_threshold": validation_selected_locked,
         "final_test_metrics": test_metrics,
         "final_test_cluster_bootstrap_95ci": cis,
         "calibration_curve": {
@@ -305,17 +418,50 @@ def main():
             "fraction_positive": [float(x) for x in frac_pos],
         },
         "permutation_importance": importance_rows,
-        "warnings": [
-            "Model family was selected on validation data only.",
-            "Final test metrics must not be used for further tuning.",
+        "warnings": manifest["warnings"] + [
             "Permutation importance is predictive, not causal.",
-            "Sample adequacy and the final split strategy require protocol-level justification.",
+            "Sample adequacy and final analysis plan require protocol-level justification.",
         ],
     }
-    results_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    evaluation_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    registry_payload = {
+        "version": args.model_version,
+        "modelFamily": selected_name,
+        "dataProvenance": args.data_provenance,
+        "selectedMetric": "validation_pr_auc",
+        "selectedMetricValue": validation[selected_name]["pr_auc"],
+        "validationMetrics": {
+            "all_models": validation,
+            "selected_model_locked_threshold": validation_selected_locked,
+            "threshold_selection": threshold_info,
+        },
+        "testMetrics": test_metrics,
+        "calibration": {
+            "method": "sigmoid_cv3",
+            "curve": result["calibration_curve"],
+            "brier_score": test_metrics["brier_score"],
+        },
+        "explainability": {
+            "global_method": "permutation_importance",
+            "global_importance": importance_rows,
+            "causal_interpretation": False,
+        },
+        "notes": (
+            "Offline evaluation package. Approval and deployment are separate governance gates. "
+            "Final test metrics must not be used for additional tuning."
+        ),
+    }
+    registry_path.write_text(
+        json.dumps(registry_payload, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
     print(json.dumps(result, indent=2, ensure_ascii=False))
     print(f"Saved model: {model_path}")
-    print(f"Saved evaluation: {results_path}")
+    print(f"Saved manifest: {manifest_path}")
+    print(f"Saved evaluation: {evaluation_path}")
+    print(f"Saved registry payload: {registry_path}")
 
 
 if __name__ == "__main__":

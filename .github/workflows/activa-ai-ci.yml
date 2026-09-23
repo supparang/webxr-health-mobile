@@ -108,7 +108,24 @@ jobs:
         run: python ml/tests/generate_synthetic_ci.py
 
       - name: ML pipeline software smoke test
-        run: python ml/train_baselines.py --input ml/tests/synthetic_locked_dataset.json --output-dir ml/tests/out --bootstrap 30
+        run: >-
+          python ml/train_baselines.py
+          --input ml/tests/synthetic_locked_dataset.json
+          --output-dir ml/tests/out
+          --bootstrap 30
+          --model-version ACTIVA-CI-PY-001
+          --data-provenance SYNTHETIC_CI_ONLY
+
+      - name: Offline prediction bundle smoke test
+        run: >-
+          python ml/predict_records.py
+          --input ml/tests/synthetic_locked_dataset.json
+          --model ml/tests/out/activa_ai_model.joblib
+          --manifest ml/tests/out/model_manifest.json
+          --output ml/tests/out/prediction_bundle.json
+
+      - name: Validate prediction bundle
+        run: python ml/tests/check_prediction_bundle.py
 
       - name: Show server log on failure
         if: failure()
