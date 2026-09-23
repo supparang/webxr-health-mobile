@@ -117,3 +117,15 @@ V0.3:
 - เพิ่ม AI Readiness Dashboard
 - เพิ่มการดาวน์โหลด locked/de-identified ML dataset
 - Smoke test ครอบคลุม independent-label isolation, adjudication, lock, readiness และ ML export
+
+
+## V0.3.2 — Model Evaluation Registry + AI/XAI Review
+- แก้ CI bug ใน Ground Truth queue (req scope)
+- เพิ่ม ModelRun registry และสถานะ CANDIDATE/EVALUATED/APPROVED/DEPLOYED/RETIRED
+- แยก Evaluation → Approval → Deployment เป็น governance gates
+- Synthetic model deploy ถูกปฏิเสธตามค่าเริ่มต้น; อนุญาตเฉพาะ ephemeral CI เมื่อ ALLOW_SYNTHETIC_CI=true
+- เพิ่ม Prediction Import เฉพาะ DEPLOYED model
+- Prediction ไม่เปลี่ยน final evidence status อัตโนมัติ
+- เพิ่ม AI/XAI Review Workspace สำหรับ ADMIN/STAFF
+- แสดง Risk Probability, Prediction, Explanation, Model Version และ Human Decision
+- คำอธิบาย AI ถูกระบุว่าเป็น predictive explanation ไม่ใช่ causal conclusion

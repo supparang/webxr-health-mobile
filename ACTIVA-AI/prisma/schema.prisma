@@ -50,6 +50,14 @@ enum GroundTruthCaseStatus {
   LOCKED
 }
 
+enum ModelRunStatus {
+  CANDIDATE
+  EVALUATED
+  APPROVED
+  DEPLOYED
+  RETIRED
+}
+
 model Department {
   id        String   @id @default(cuid())
   name      String
@@ -229,10 +237,34 @@ model GroundTruthCase {
   updatedAt      DateTime              @updatedAt
 }
 
+model ModelRun {
+  id                 String         @id @default(cuid())
+  version            String         @unique
+  modelFamily        String
+  status             ModelRunStatus @default(CANDIDATE)
+  dataProvenance     String
+  selectedMetric     String?
+  selectedMetricValue Float?
+  validationMetrics  Json
+  testMetrics        Json?
+  calibration        Json?
+  explainability     Json?
+  notes              String?
+  approvedBy         String?
+  approvedAt         DateTime?
+  deployedBy         String?
+  deployedAt         DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  predictions        AIPrediction[]
+}
+
 model AIPrediction {
   id               String           @id @default(cuid())
   attendanceId     String
   attendance       AttendanceRecord @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  modelRunId       String?
+  modelRun         ModelRun?        @relation(fields: [modelRunId], references: [id], onDelete: SetNull)
   modelVersion     String
   predictedLabel   String
   riskProbability  Float

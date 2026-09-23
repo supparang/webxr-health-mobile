@@ -403,7 +403,7 @@ app.post("/api/reviews/:attendanceId", requireRoles("ADMIN", "STAFF"), async (re
   res.status(201).json({ ok: true, review, finalEvidenceStatus });
 });
 
-app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
+app.get("/api/ground-truth/queue", requireRoles("ADMIN", "STAFF"), async (req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
     include: {
       user: { select: { id: true, employeeId: true, name: true } },
@@ -652,6 +652,204 @@ app.get("/api/ml/dataset", requireRoles("ADMIN"), async (_req, res) => {
   });
 });
 
+app.get("/api/models", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
+  const models = await prisma.modelRun.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+  res.json({ ok: true, models });
+});
+
+app.post("/api/models/import-evaluation", requireRoles("ADMIN"), async (req, res) => {
+  const b = req.body || {};
+  if (!b.version || !b.modelFamily || !b.dataProvenance || !b.validationMetrics) {
+    return res.status(400).json({ ok: false, error: "MISSING_MODEL_EVALUATION_FIELDS" });
+  }
+
+  const status = b.testMetrics ? "EVALUATED" : "CANDIDATE";
+  const model = await prisma.modelRun.upsert({
+    where: { version: String(b.version) },
+    create: {
+      version: String(b.version),
+      modelFamily: String(b.modelFamily),
+      status,
+      dataProvenance: String(b.dataProvenance),
+      selectedMetric: b.selectedMetric ? String(b.selectedMetric) : null,
+      selectedMetricValue: Number.isFinite(Number(b.selectedMetricValue)) ? Number(b.selectedMetricValue) : null,
+      validationMetrics: b.validationMetrics,
+      testMetrics: b.testMetrics || null,
+      calibration: b.calibration || null,
+      explainability: b.explainability || null,
+      notes: b.notes || null,
+    },
+    update: {
+      modelFamily: String(b.modelFamily),
+      status,
+      dataProvenance: String(b.dataProvenance),
+      selectedMetric: b.selectedMetric ? String(b.selectedMetric) : null,
+      selectedMetricValue: Number.isFinite(Number(b.selectedMetricValue)) ? Number(b.selectedMetricValue) : null,
+      validationMetrics: b.validationMetrics,
+      testMetrics: b.testMetrics || null,
+      calibration: b.calibration || null,
+      explainability: b.explainability || null,
+      notes: b.notes || null,
+    },
+  });
+
+  await audit(req, "MODEL_EVALUATION_IMPORTED", "ModelRun", model.id, {
+    version: model.version,
+    status: model.status,
+    dataProvenance: model.dataProvenance,
+  });
+
+  res.status(201).json({
+    ok: true,
+    model,
+    note: "Importing evaluation does not approve or deploy a model.",
+  });
+});
+
+app.post("/api/models/:modelId/approve", requireRoles("ADMIN"), async (req, res) => {
+  const model = await prisma.modelRun.findUnique({ where: { id: req.params.modelId } });
+  if (!model) return res.status(404).json({ ok: false, error: "MODEL_NOT_FOUND" });
+  if (model.status !== "EVALUATED" || !model.testMetrics) {
+    return res.status(409).json({ ok: false, error: "MODEL_MUST_BE_EVALUATED_BEFORE_APPROVAL" });
+  }
+
+  const approved = await prisma.modelRun.update({
+    where: { id: model.id },
+    data: {
+      status: "APPROVED",
+      approvedBy: req.activaUser.id,
+      approvedAt: new Date(),
+    },
+  });
+
+  await audit(req, "MODEL_APPROVED", "ModelRun", model.id, { version: model.version });
+  res.json({
+    ok: true,
+    model: approved,
+    note: "Approval is a governance gate; it does not deploy the model.",
+  });
+});
+
+app.post("/api/models/:modelId/deploy", requireRoles("ADMIN"), async (req, res) => {
+  const model = await prisma.modelRun.findUnique({ where: { id: req.params.modelId } });
+  if (!model) return res.status(404).json({ ok: false, error: "MODEL_NOT_FOUND" });
+  if (model.status !== "APPROVED") {
+    return res.status(409).json({ ok: false, error: "MODEL_MUST_BE_APPROVED_BEFORE_DEPLOYMENT" });
+  }
+
+  const synthetic = model.dataProvenance === "SYNTHETIC_CI_ONLY";
+  if (synthetic && process.env.ALLOW_SYNTHETIC_CI !== "true") {
+    return res.status(409).json({ ok: false, error: "SYNTHETIC_MODEL_CANNOT_BE_DEPLOYED" });
+  }
+
+  const deployed = await prisma.$transaction(async (tx) => {
+    await tx.modelRun.updateMany({
+      where: { status: "DEPLOYED", id: { not: model.id } },
+      data: { status: "RETIRED" },
+    });
+    return tx.modelRun.update({
+      where: { id: model.id },
+      data: {
+        status: "DEPLOYED",
+        deployedBy: req.activaUser.id,
+        deployedAt: new Date(),
+      },
+    });
+  });
+
+  await audit(req, "MODEL_DEPLOYED", "ModelRun", model.id, {
+    version: model.version,
+    dataProvenance: model.dataProvenance,
+  });
+
+  res.json({
+    ok: true,
+    model: deployed,
+    note: "Deployment enables decision-support predictions; human review remains final.",
+  });
+});
+
+app.post("/api/predictions/import", requireRoles("ADMIN"), async (req, res) => {
+  const b = req.body || {};
+  const model = await prisma.modelRun.findUnique({ where: { version: String(b.modelVersion || "") } });
+  if (!model) return res.status(404).json({ ok: false, error: "MODEL_NOT_FOUND" });
+  if (model.status !== "DEPLOYED") {
+    return res.status(409).json({ ok: false, error: "ONLY_DEPLOYED_MODEL_PREDICTIONS_CAN_BE_IMPORTED" });
+  }
+
+  const attendance = await prisma.attendanceRecord.findUnique({ where: { id: String(b.attendanceId || "") } });
+  if (!attendance) return res.status(404).json({ ok: false, error: "ATTENDANCE_NOT_FOUND" });
+
+  const probability = Number(b.riskProbability);
+  if (!Number.isFinite(probability) || probability < 0 || probability > 1) {
+    return res.status(400).json({ ok: false, error: "RISK_PROBABILITY_MUST_BE_0_TO_1" });
+  }
+
+  const existing = await prisma.aIPrediction.findFirst({
+    where: { attendanceId: attendance.id, modelRunId: model.id },
+  });
+
+  const data = {
+    attendanceId: attendance.id,
+    modelRunId: model.id,
+    modelVersion: model.version,
+    predictedLabel: String(b.predictedLabel || (probability >= 0.5 ? "REVIEW_REQUIRED" : "NO_REVIEW_REQUIRED")),
+    riskProbability: probability,
+    explanation: b.explanation || null,
+  };
+
+  const prediction = existing
+    ? await prisma.aIPrediction.update({ where: { id: existing.id }, data })
+    : await prisma.aIPrediction.create({ data });
+
+  await audit(req, "AI_PREDICTION_IMPORTED", "AttendanceRecord", attendance.id, {
+    modelVersion: model.version,
+    riskProbability: probability,
+  });
+
+  res.status(201).json({
+    ok: true,
+    prediction,
+    decisionSupportOnly: true,
+    note: "Prediction import never changes final attendance/evidence status automatically.",
+  });
+});
+
+app.get("/api/xai/queue", requireRoles("ADMIN", "STAFF"), async (_req, res) => {
+  const deployed = await prisma.modelRun.findFirst({
+    where: { status: "DEPLOYED" },
+    orderBy: { deployedAt: "desc" },
+  });
+  if (!deployed) {
+    return res.json({ ok: true, deployedModel: null, records: [], decisionSupportOnly: true });
+  }
+
+  const predictions = await prisma.aIPrediction.findMany({
+    where: { modelRunId: deployed.id },
+    include: {
+      attendance: {
+        include: {
+          user: { select: { id: true, employeeId: true, name: true } },
+          activity: true,
+          staffVerification: true,
+          consistencyResult: true,
+          humanReviews: { orderBy: { reviewedAt: "desc" }, take: 1 },
+        },
+      },
+    },
+    orderBy: { riskProbability: "desc" },
+  });
+
+  res.json({
+    ok: true,
+    deployedModel: deployed,
+    decisionSupportOnly: true,
+    records: predictions,
+  });
+});
+
 app.get("/api/research/export", requireRoles("ADMIN"), async (_req, res) => {
   const rows = await prisma.attendanceRecord.findMany({
     include: {
@@ -720,5 +918,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log("ACTIVA-AI V0.3.1 server running on http://localhost:" + port);
+  console.log("ACTIVA-AI V0.3.2 server running on http://localhost:" + port);
 });

@@ -59,6 +59,8 @@
       review:"Human Review",
       groundtruth:"Ground Truth",
       readiness:"AI Readiness",
+      models:"Model Evaluation",
+      xai:"AI/XAI Review",
       audit:"Audit Trail",
       research:"Research Export"
     })[activeView] || "ACTIVA-AI";
@@ -67,8 +69,8 @@
   function navItems() {
     const out = [["dashboard","ภาพรวม"],["attendance","เข้า–ออก"],["evidence","หลักฐาน"]];
     if (can("ADMIN","ORGANIZER")) out.splice(1, 0, ["activities","กิจกรรม"], ["qr","Dynamic QR"]);
-    if (can("ADMIN","STAFF")) out.push(["review","ตรวจสอบ"],["groundtruth","Ground Truth"]);
-    if (can("ADMIN")) out.push(["readiness","AI Readiness"],["audit","Audit Trail"],["research","ข้อมูลวิจัย"]);
+    if (can("ADMIN","STAFF")) out.push(["review","ตรวจสอบ"],["groundtruth","Ground Truth"],["xai","AI/XAI Review"]);
+    if (can("ADMIN")) out.push(["readiness","AI Readiness"],["models","Model Evaluation"],["audit","Audit Trail"],["research","ข้อมูลวิจัย"]);
     return out;
   }
 
@@ -81,7 +83,7 @@
       '<aside class="sidebar">'+
         '<div class="brand">ACTIVA-AI<small>Trusted Participation Verification</small></div>'+
         '<div class="nav">'+nav+'<button id="logout">ออกจากระบบ</button></div>'+
-        '<div class="version">V0.3.1 • Ground Truth + ML readiness</div>'+
+        '<div class="version">V0.3.2 • Ground Truth + ML readiness</div>'+
       '</aside>'+
       '<main class="main">'+
         '<div class="topbar"><div><div class="kicker">ACTIVA-AI • RESEARCH PROTOTYPE</div><h1>'+viewTitle()+'</h1></div>'+
@@ -123,6 +125,8 @@
       else if (activeView === "review") await renderReview(v);
       else if (activeView === "groundtruth") await renderGroundTruth(v);
       else if (activeView === "readiness") await renderReadiness(v);
+      else if (activeView === "models") await renderModels(v);
+      else if (activeView === "xai") await renderXai(v);
       else if (activeView === "audit") await renderAudit(v);
       else if (activeView === "research") await renderResearch(v);
     } catch (error) {
@@ -133,7 +137,7 @@
   function renderLogin() {
     app().innerHTML =
       '<div class="login-wrap"><div class="login-card">'+
-      '<div class="kicker">ACTIVA-AI V0.3.1</div><h1>เข้าสู่ระบบ</h1>'+
+      '<div class="kicker">ACTIVA-AI V0.3.2</div><h1>เข้าสู่ระบบ</h1>'+
       '<p>Prototype นี้ใช้ฐานข้อมูล PostgreSQL และ API เป็นแหล่งข้อมูลหลัก</p>'+
       '<div class="demo-box"><b>บัญชีทดลองหลังรัน seed</b><br>ADM001 = ผู้ดูแลระบบ<br>ORG001 = ผู้จัดกิจกรรม<br>STF001 = เจ้าหน้าที่ตรวจสอบ<br>P001 = ผู้เข้าร่วม</div>'+
       '<div class="field"><label>รหัสบุคลากร</label><input id="loginId" value="ADM001"></div>'+
@@ -671,6 +675,133 @@
 
   function gate(number, label, passed) {
     return '<div class="gate '+(passed?'pass':'pending')+'"><span>'+esc(number)+'</span><div><b>'+esc(label)+'</b><small>'+(passed?'ผ่านขั้นนี้แล้ว':'ยังไม่ผ่าน/ยังไม่ประเมิน')+'</small></div></div>';
+  }
+
+  async function renderModels(v) {
+    if (!can("ADMIN")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const data = await api("/api/models");
+    const models = data.models || [];
+
+    v.innerHTML =
+      '<div class="panel"><h2>Model Evaluation Registry</h2>'+
+      '<div class="hint"><b>Governance gate:</b> Evaluation → Approval → Deployment แยกจากกันชัดเจน การ import ผลประเมินไม่ทำให้โมเดลใช้งานอัตโนมัติ</div>'+
+      '<div class="form-grid">'+
+        field("Model Version","mVersion","เช่น ACTIVA-LR-2026-01")+
+        field("Model Family","mFamily","logistic_regression")+
+        '<div class="field"><label>Data Provenance</label><select id="mProv"><option value="EMPIRICAL_LOCKED_GROUND_TRUTH">EMPIRICAL_LOCKED_GROUND_TRUTH</option><option value="SYNTHETIC_CI_ONLY">SYNTHETIC_CI_ONLY</option></select></div>'+
+        field("Selected Metric","mMetric","validation_pr_auc")+
+        field("Selected Metric Value","mMetricValue","0.0000","number")+
+        '<div class="field full"><label>Evaluation JSON</label><textarea id="mEval" style="min-height:220px" placeholder=\'{"validation_metrics_by_model":{},"final_test_metrics":{},"calibration_curve":{},"permutation_importance":[]}\'></textarea></div>'+
+        '<div class="field full"><label>หมายเหตุ</label><textarea id="mNotes" placeholder="ข้อจำกัด การใช้ข้อมูล และเงื่อนไขการประเมิน"></textarea></div>'+
+      '</div>'+
+      '<div class="actions"><button class="btn primary" id="mImport">Import Evaluation Result</button></div><div id="mMsg"></div></div>'+
+      '<div class="panel"><h2>โมเดลที่ลงทะเบียน</h2>'+modelTable(models)+'</div>';
+
+    document.getElementById("mImport").onclick = async () => {
+      const msg = document.getElementById("mMsg");
+      try {
+        const parsed = JSON.parse(document.getElementById("mEval").value || "{}");
+        const finalTest = parsed.final_test_metrics || parsed.testMetrics || null;
+        const validation = parsed.validation_metrics_by_model || parsed.validationMetrics || parsed;
+        const result = await api("/api/models/import-evaluation", {
+          method:"POST",
+          body:JSON.stringify({
+            version:document.getElementById("mVersion").value.trim(),
+            modelFamily:document.getElementById("mFamily").value.trim(),
+            dataProvenance:document.getElementById("mProv").value,
+            selectedMetric:document.getElementById("mMetric").value.trim(),
+            selectedMetricValue:Number(document.getElementById("mMetricValue").value || 0),
+            validationMetrics:validation,
+            testMetrics:finalTest,
+            calibration:parsed.calibration_curve || parsed.calibration || null,
+            explainability:parsed.permutation_importance || parsed.explainability || null,
+            notes:document.getElementById("mNotes").value.trim()
+          })
+        });
+        msg.innerHTML = '<div class="alert ok">Import '+esc(result.model.version)+' แล้ว สถานะ '+esc(result.model.status)+'</div>';
+        setTimeout(()=>renderModels(v),350);
+      } catch (e) { msg.innerHTML = errorBox(e); }
+    };
+
+    document.querySelectorAll(".approveModel").forEach(btn => btn.onclick = async () => {
+      try {
+        await api("/api/models/"+encodeURIComponent(btn.dataset.id)+"/approve",{method:"POST"});
+        await renderModels(v);
+      } catch (e) { alert(e.message); }
+    });
+    document.querySelectorAll(".deployModel").forEach(btn => btn.onclick = async () => {
+      if (!confirm("ยืนยัน Deploy โมเดลนี้เป็น decision-support model? Human reviewer ยังเป็นผู้ตัดสินสุดท้าย")) return;
+      try {
+        await api("/api/models/"+encodeURIComponent(btn.dataset.id)+"/deploy",{method:"POST"});
+        await renderModels(v);
+      } catch (e) { alert(e.message); }
+    });
+  }
+
+  function modelTable(models) {
+    if (!models.length) return '<div class="empty">ยังไม่มีผลประเมินโมเดลที่ลงทะเบียน</div>';
+    return '<div class="table-wrap"><table><thead><tr><th>Version</th><th>Family</th><th>Provenance</th><th>Status</th><th>Metric</th><th>Test Metrics</th><th>Governance</th></tr></thead><tbody>'+
+      models.map(m => {
+        const tm = m.testMetrics || {};
+        const metricText = [m.selectedMetric, m.selectedMetricValue].filter(x=>x!==null&&x!=="").join(": ");
+        const tests = ["precision","recall_sensitivity","specificity","f1","roc_auc","pr_auc","brier_score"]
+          .filter(k => tm[k] !== undefined && tm[k] !== null)
+          .map(k => k+"="+Number(tm[k]).toFixed(3)).join(" • ");
+        const actions = m.status==="EVALUATED"
+          ? '<button class="btn mini ok approveModel" data-id="'+m.id+'">Approve</button>'
+          : m.status==="APPROVED"
+            ? '<button class="btn mini primary deployModel" data-id="'+m.id+'">Deploy</button>'
+            : '—';
+        return '<tr><td><b>'+esc(m.version)+'</b></td><td>'+esc(m.modelFamily)+'</td><td>'+esc(m.dataProvenance)+'</td><td>'+statusBadge(m.status)+'</td><td>'+esc(metricText||"—")+'</td><td>'+esc(tests||"—")+'</td><td>'+actions+'</td></tr>';
+      }).join("")+'</tbody></table></div>';
+  }
+
+  async function renderXai(v) {
+    if (!can("ADMIN","STAFF")) throw new Error("FORBIDDEN");
+    showLoading(v);
+    const data = await api("/api/xai/queue");
+    const records = data.records || [];
+    const model = data.deployedModel;
+
+    if (!model) {
+      v.innerHTML = '<div class="panel"><h2>AI/XAI Review</h2><div class="hint">ยังไม่มีโมเดลที่ผ่าน Approval และ Deployment ดังนั้นระบบจะไม่แสดง Risk Probability</div></div>';
+      return;
+    }
+
+    v.innerHTML =
+      '<div class="panel"><h2>AI/XAI Review Workspace</h2>'+
+      '<div class="hint"><b>Decision support only:</b> AI จัดลำดับความเสี่ยงและแสดงเหตุผลเพื่อช่วยตรวจสอบเท่านั้น ไม่เปลี่ยนสถานะบุคลากรโดยอัตโนมัติ</div>'+
+      '<p><b>Deployed Model:</b> '+esc(model.version)+' • '+esc(model.modelFamily)+' • '+statusBadge(model.status)+'</p>'+
+      '<div class="table-wrap"><table><thead><tr><th>ผู้เข้าร่วม</th><th>กิจกรรม</th><th>Risk</th><th>Prediction</th><th>คำอธิบาย</th><th>Human Decision</th></tr></thead><tbody>'+
+      records.map(p => {
+        const r = p.attendance || {};
+        const explanation = formatExplanation(p.explanation);
+        const decision = r.humanReviews?.[0]?.decision || "ยังไม่ตัดสิน";
+        return '<tr><td>'+esc((r.user?.employeeId||"")+" • "+(r.user?.name||""))+'</td>'+
+          '<td>'+esc(r.activity?.title||r.activityId||"")+'</td>'+
+          '<td><b>'+Math.round(Number(p.riskProbability)*100)+'%</b></td>'+
+          '<td>'+statusBadge(p.predictedLabel)+'</td>'+
+          '<td>'+explanation+'</td>'+
+          '<td>'+esc(decision)+'</td></tr>';
+      }).join("")+'</tbody></table></div>'+
+      '<p class="muted">คำอธิบายเป็น predictive explanation ของโมเดล ไม่ใช่ข้อสรุปเชิงสาเหตุ และไม่ใช่ข้อกล่าวหาเกี่ยวกับบุคคล</p></div>';
+  }
+
+  function formatExplanation(explanation) {
+    if (!explanation) return "—";
+    if (Array.isArray(explanation)) {
+      return explanation.slice(0,5).map(x => {
+        if (typeof x === "string") return '<div>• '+esc(x)+'</div>';
+        const feature = x.label || x.feature || "feature";
+        const contribution = x.contribution === undefined ? "" : " ("+Number(x.contribution).toFixed(3)+")";
+        return '<div>• '+esc(feature+contribution)+'</div>';
+      }).join("");
+    }
+    if (Array.isArray(explanation.reasons)) {
+      return explanation.reasons.slice(0,5).map(x => '<div>• '+esc(typeof x==="string"?x:(x.label||x.feature||JSON.stringify(x)))+'</div>').join("");
+    }
+    return '<code>'+esc(JSON.stringify(explanation))+'</code>';
   }
 
   async function renderAudit(v) {

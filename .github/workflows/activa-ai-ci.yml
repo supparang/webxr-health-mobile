@@ -39,6 +39,7 @@ jobs:
       QR_TOKEN_TTL_SECONDS: "120"
       RESEARCH_HASH_SALT: ci-research-hash-salt-not-for-production
       RULE_VERSION: ACTIVA-RULES-CI
+      ALLOW_SYNTHETIC_CI: "true"
       PORT: "3000"
 
     steps:

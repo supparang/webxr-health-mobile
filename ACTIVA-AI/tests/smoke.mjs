@@ -154,7 +154,74 @@ const exported = research.records.find((r) => r.record_id === attendanceId);
 assert(exported, "research export missing test record");
 assert(exported.participant_hash && exported.participant_hash !== "P001", "research de-identification failed");
 
+const modelImport = await req("/api/models/import-evaluation", {
+  actor: "ADM001",
+  method: "POST",
+  body: {
+    version: "ACTIVA-CI-SYNTHETIC-001",
+    modelFamily: "logistic_regression",
+    dataProvenance: "SYNTHETIC_CI_ONLY",
+    selectedMetric: "validation_pr_auc",
+    selectedMetricValue: 0.81,
+    validationMetrics: { pr_auc: 0.81 },
+    testMetrics: {
+      precision: 0.80,
+      recall_sensitivity: 0.78,
+      specificity: 0.82,
+      f1: 0.79,
+      roc_auc: 0.84,
+      pr_auc: 0.80,
+      brier_score: 0.16
+    },
+    calibration: { method: "sigmoid", ci_only: true },
+    explainability: [{ feature: "duration_ratio", mean_importance: 0.2 }],
+    notes: "Synthetic CI model; software test only"
+  },
+});
+assert(modelImport.model?.status === "EVALUATED", "model evaluation import failed");
+
+const approvedModel = await req("/api/models/" + encodeURIComponent(modelImport.model.id) + "/approve", {
+  actor: "ADM001",
+  method: "POST",
+});
+assert(approvedModel.model?.status === "APPROVED", "model approval failed");
+
+const deployedModel = await req("/api/models/" + encodeURIComponent(modelImport.model.id) + "/deploy", {
+  actor: "ADM001",
+  method: "POST",
+});
+assert(deployedModel.model?.status === "DEPLOYED", "model deployment gate failed in CI");
+
+const beforePrediction = await req("/api/attendance", { actor: "ADM001" });
+const beforeStatus = beforePrediction.attendance.find((r) => r.id === attendanceId)?.finalEvidenceStatus;
+
+const prediction = await req("/api/predictions/import", {
+  actor: "ADM001",
+  method: "POST",
+  body: {
+    attendanceId,
+    modelVersion: "ACTIVA-CI-SYNTHETIC-001",
+    riskProbability: 0.83,
+    predictedLabel: "REVIEW_REQUIRED",
+    explanation: [
+      { feature: "duration_ratio", label: "ระยะเวลาเข้าร่วมต่ำ", contribution: 0.31 },
+      { feature: "staff_verified", label: "หลักฐานจากเจ้าหน้าที่", contribution: -0.08 }
+    ]
+  },
+});
+assert(prediction.decisionSupportOnly === true, "prediction must be decision support only");
+
+const xai = await req("/api/xai/queue", { actor: "STF001" });
+const xaiRecord = xai.records.find((p) => p.attendanceId === attendanceId);
+assert(xaiRecord, "XAI queue missing imported prediction");
+assert(xaiRecord.modelVersion === "ACTIVA-CI-SYNTHETIC-001", "XAI model version mismatch");
+assert(Math.abs(xaiRecord.riskProbability - 0.83) < 1e-9, "XAI risk probability mismatch");
+
+const afterPrediction = await req("/api/attendance", { actor: "ADM001" });
+const afterStatus = afterPrediction.attendance.find((r) => r.id === attendanceId)?.finalEvidenceStatus;
+assert(beforeStatus === afterStatus, "AI prediction changed final evidence status automatically");
+
 const audit = await req("/api/audit", { actor: "ADM001" });
 assert(audit.logs.length > 0, "audit trail empty");
 
-console.log("ACTIVA-AI V0.3.1 smoke test passed");
+console.log("ACTIVA-AI V0.3.2 smoke test passed");
